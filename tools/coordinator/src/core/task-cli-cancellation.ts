@@ -1,9 +1,9 @@
 import { types as utilTypes } from "node:util";
 
-const INTRINSIC_PROMISE_THEN = Promise.prototype.then;
-const TASK_CLI_SIGNALS = ["SIGINT", "SIGTERM"] as const;
+const intrinsicPromiseThen = Promise.prototype.then;
+const taskCliSignals = ["SIGINT", "SIGTERM"] as const;
 
-type TaskCliSignal = (typeof TASK_CLI_SIGNALS)[number];
+type TaskCliSignal = (typeof taskCliSignals)[number];
 type TaskCliSignalListener = () => void;
 export type TaskCliCancellationFailureReason =
   | "task_cli_cancellation_signal_binding_failed"
@@ -40,7 +40,7 @@ export function createTaskCliCancellationLatch(
     }
     observerCount += 1;
     try {
-      void INTRINSIC_PROMISE_THEN.call(
+      void intrinsicPromiseThen.call(
         cancellationPromise,
         () => undefined,
         () => undefined,
@@ -49,7 +49,7 @@ export function createTaskCliCancellationLatch(
       cancellationPromise = Promise.reject(
         new Error("task_cli_cancellation_observer_failed"),
       );
-      void INTRINSIC_PROMISE_THEN.call(
+      void intrinsicPromiseThen.call(
         cancellationPromise,
         () => undefined,
         () => undefined,
@@ -71,11 +71,11 @@ function bindTaskCliCancellationSignalsToPort(
   const cancellation = createTaskCliCancellationLatch(requestCancellation);
   const cancel = () => void cancellation.request();
   const registered = new Set<TaskCliSignal>();
-  let releaseAttempted = false;
+  let isReleaseAttempted = false;
 
   const removeRegisteredListeners = () => {
     const failures: TaskCliSignal[] = [];
-    for (const signal of TASK_CLI_SIGNALS) {
+    for (const signal of taskCliSignals) {
       if (!registered.has(signal)) continue;
       try {
         port.removeListener(signal, cancel);
@@ -92,7 +92,7 @@ function bindTaskCliCancellationSignalsToPort(
   };
 
   try {
-    for (const signal of TASK_CLI_SIGNALS) {
+    for (const signal of taskCliSignals) {
       port.on(signal, cancel);
       registered.add(signal);
     }
@@ -105,7 +105,7 @@ function bindTaskCliCancellationSignalsToPort(
       listener: cancel,
       rollback,
       unbind: () => {
-        if (releaseAttempted)
+        if (isReleaseAttempted)
           return Object.freeze({
             status:
               registered.size === 0
@@ -113,7 +113,7 @@ function bindTaskCliCancellationSignalsToPort(
                 : ("failed" as const),
             failedSignals: Object.freeze([...registered]),
           });
-        releaseAttempted = true;
+        isReleaseAttempted = true;
         return removeRegisteredListeners();
       },
     });
@@ -128,13 +128,13 @@ function bindTaskCliCancellationSignalsToPort(
       failedSignals: Object.freeze([] as TaskCliSignal[]),
     }),
     unbind: () => {
-      if (releaseAttempted)
+      if (isReleaseAttempted)
         return Object.freeze({
           status:
             registered.size === 0 ? ("released" as const) : ("failed" as const),
           failedSignals: Object.freeze([...registered]),
         });
-      releaseAttempted = true;
+      isReleaseAttempted = true;
       return removeRegisteredListeners();
     },
   });

@@ -536,11 +536,11 @@ function start(
         return true;
       },
     );
-    const productionProcessContract =
+    const isProductionProcessContract =
       state.dependencies.startProcess ===
       startRuntimeOwnedDockerProcessController;
     const process = (
-      productionProcessContract
+      isProductionProcessContract
         ? projectRuntimeOwnedDockerProcessStartForCoordinator(
             rawProcess,
             recoveryHandoffId,
@@ -567,7 +567,7 @@ function start(
       const directRecoveryId = publicVerifiedDockerRecoveryId(
         process.recoveryId,
       );
-      const directRecoveryIdMalformed =
+      const isDirectRecoveryIdMalformed =
         process.recoveryId != null && directRecoveryId === null;
       const startRecoveryIds = Object.freeze(
         [directRecoveryId, recoveryHandoffId].filter(
@@ -578,7 +578,7 @@ function start(
         process.manualRecoveryRequired === true ||
         process.cleanupConfirmed !== true ||
         startRecoveryIds.length > 0 ||
-        directRecoveryIdMalformed;
+        isDirectRecoveryIdMalformed;
       if (recoveryHandoffCapability)
         void state.dependencies.abandonDockerRecovery(
           recoveryHandoffCapability,
@@ -610,7 +610,7 @@ function start(
     const completion = process.completion
       .then((rawResult) => {
         const result = (
-          productionProcessContract
+          isProductionProcessContract
             ? projectRuntimeOwnedDockerProcessCompletionForCoordinator(
                 rawResult,
                 recoveryHandoffId,
@@ -632,7 +632,7 @@ function start(
         const completionRecoveryId = publicVerifiedDockerRecoveryId(
           result.recoveryId,
         );
-        const completionRecoveryIdMalformed =
+        const isCompletionRecoveryIdMalformed =
           result.recoveryId != null && completionRecoveryId === null;
         const reportedDockerRecoveryIds = Object.freeze([
           ...new Set(
@@ -645,7 +645,7 @@ function start(
           result.cleanupConfirmed !== true ||
           result.manualRecoveryRequired === true ||
           result.recoveryId != null ||
-          completionRecoveryIdMalformed
+          isCompletionRecoveryIdMalformed
         ) {
           if (recoveryHandoffCapability)
             void state.dependencies.abandonDockerRecovery(

@@ -559,17 +559,21 @@ test("Windows対話Console lockは独立Processをrelease完了まで存続さ�
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
-  const stdout: Buffer[] = [];
-  const stderr: Buffer[] = [];
-  child.stdout.on("data", (chunk: Buffer) => stdout.push(Buffer.from(chunk)));
-  child.stderr.on("data", (chunk: Buffer) => stderr.push(Buffer.from(chunk)));
+  const stdoutItems: Buffer[] = [];
+  const stderrItems: Buffer[] = [];
+  child.stdout.on("data", (chunk: Buffer) =>
+    stdoutItems.push(Buffer.from(chunk)),
+  );
+  child.stderr.on("data", (chunk: Buffer) =>
+    stderrItems.push(Buffer.from(chunk)),
+  );
   const [code, signal] = (await once(child, "exit")) as [
     number | null,
     NodeJS.Signals | null,
   ];
   assert.equal(signal, null);
-  assert.equal(code, 0, Buffer.concat(stderr).toString("utf8"));
-  assert.equal(Buffer.concat(stdout).toString("utf8"), "LOCK_RELEASED\n");
+  assert.equal(code, 0, Buffer.concat(stderrItems).toString("utf8"));
+  assert.equal(Buffer.concat(stdoutItems).toString("utf8"), "LOCK_RELEASED\n");
 });
 
 test("対話Console専用lockは終了確認済み非取得とcleanup不明を分離する", async () => {

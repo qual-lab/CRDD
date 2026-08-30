@@ -210,3 +210,13 @@ Repository自己適用で生成物が通常差分へ混入し得ることも確�
 Runtime sourceまたは配布Identityへ影響しない変更では正式署名をやり直さず、全変更収束後にCHG-000015の最終固定版へ正式署名4経路E2E、失敗・取消・Recoveryおよび完成監査を一度実行する。Runtimeへ影響する変更を後から行った場合は、その最終Identityを固定して同じ完了条件を再計算する。
 
 本順序変更は、工程強化の規範採用、CHG-000015の完成、Stable化、main統合、タグ、公開またはReleaseを意味しない。最終判断と監査集合は維持する。
+
+## 16. Coordinator RuntimeとCRDDの有用性評価
+
+2026-08-30、Qual-Labの人間の決定権限者は、Coordinator RuntimeのDogfoodingを安全な複数Provider連携の成立確認だけで完了させず、品質を維持または向上しながら、人間のAttention、採用可能な結果までの時間、単一Providerへの集中および不要なAI間反復を減らせるか実測する方針を採用した。これは新しい変更意図またはRoadmap項目ではなく、§7.3で採用済みの実行観測を価値判断へ接続する具体化である。
+
+CRDD全体に適用できる境界は[`進捗と運用上の有用性評価の分離`](../../15_Progress.md#operational-utility-boundary)へ、Coordinator Dogfoodingの評価軸、Operation Profile、三条件比較、Task難易度、集約条件および将来MCP比較は[`CRDD標準自身の課題探索・要求形成`](../../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-evaluation)へ反映した。
+
+Dogfoodingでは、Task開始から採用可能な結果までの経過時間、人間の実作業時間、AI処理量、Review／Remediation／Retry／Recovery、Provider別利用、後工程Findingおよび一定期間の処理量を別々に観測する。利用枠分散やAgent起動数だけを成功とせず、品質を効率指標で相殺しない。未観測値を0へ補正せず、十分なOperationが集まる前に改善率または総合点を捏造しない。
+
+現時点では固定Telemetry Schema、追加Credential、Provider規約外の利用量取得、全Taskの三重実行または常時記録を追加しない。既存Runtime出力とDogfooding記録から最小Profileを作り、取得不能項目と比較限界を明示する。具体的な計測実装がRuntime source、情報分類、外部送信、保持、費用またはProvider契約へ影響する場合は、CHG-000015および責務を持つ正本へ戻して別途確認する。

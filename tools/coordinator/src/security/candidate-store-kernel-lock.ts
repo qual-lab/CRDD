@@ -414,9 +414,9 @@ async function terminateSupervisor(child: SupervisorChild, timeoutMs: number) {
     releaseSupervisorHandles(child);
     return false;
   }
-  const exited = await exit;
+  const hasExited = await exit;
   releaseSupervisorHandles(child);
-  return exited;
+  return hasExited;
 }
 
 function unresolvedSupervisorLock(child: SupervisorChild) {
@@ -519,7 +519,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
   let finalizer: Promise<
     Exclude<HostOperationSupervisorCleanup, "released">
   > | null = null;
-  let expectedClosure = false;
+  let isClosureExpected = false;
   let resolveLoss!: (
     outcome: Exclude<HostOperationSupervisorCleanup, "released">,
   ) => void;
@@ -529,14 +529,14 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
     },
   );
   let resolveFailureDetected!: () => void;
-  let failureWasDetected = false;
+  let wasFailureDetected = false;
   const failureListeners = new Set<() => void>();
   const failureDetected = new Promise<void>((resolve) => {
     resolveFailureDetected = resolve;
   });
   const detectFailure = () => {
-    if (failureWasDetected) return;
-    failureWasDetected = true;
+    if (wasFailureDetected) return;
+    wasFailureDetected = true;
     for (const listener of failureListeners) {
       try {
         listener();
@@ -554,7 +554,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
       return Promise.resolve("cleanup_confirmed_failure" as const);
     if (finalizer) return finalizer;
     detectFailure();
-    expectedClosure = true;
+    isClosureExpected = true;
     state = "closing";
     finalizer = (async () => {
       const terminated = await terminateSupervisor(
@@ -572,7 +572,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
     return finalizer;
   };
   const unexpectedLoss = () => {
-    if (!expectedClosure && terminal === null) {
+    if (!isClosureExpected && terminal === null) {
       detectFailure();
       void finalizeFailure();
     }
@@ -583,20 +583,20 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
   child.on("disconnect", unexpectedLoss);
   child.on("message", unexpectedMessage);
   const assertLive = () => {
-    const live =
+    const isLive =
       terminal === null &&
       finalizer === null &&
       (state === "acquired" || state === "ready") &&
       child.exitCode === null &&
       child.signalCode === null &&
       child.connected;
-    if (!live) unexpectedLoss();
-    return live;
+    if (!isLive) unexpectedLoss();
+    return isLive;
   };
   const lock: HostOperationLockSupervisor = Object.freeze({
     assertLive,
     onFailureDetected: (listener) => {
-      if (failureWasDetected) {
+      if (wasFailureDetected) {
         listener();
         return () => undefined;
       }
@@ -633,7 +633,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
       if (state === "closed") return "cleanup_confirmed_failure" as const;
       if (state === "closing") return finalizeFailure();
       child.removeListener("message", unexpectedMessage);
-      expectedClosure = true;
+      isClosureExpected = true;
       state = "closing";
       const releaseReady = waitForSupervisorStatus(
         child,

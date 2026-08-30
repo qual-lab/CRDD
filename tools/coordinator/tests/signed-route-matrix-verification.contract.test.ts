@@ -124,23 +124,28 @@ function safelyRetryable(
 }
 
 test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完了する", async () => {
-  const seen: string[] = [];
+  const seenItems: string[] = [];
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
     _root,
     _dependencies,
     route,
   ) => {
     assert.ok(route);
-    seen.push(route);
+    seenItems.push(route);
     return completed(
       route,
-      seen.length === 1
+      seenItems.length === 1
         ? "interactive_initial_consent"
         : "reused_initial_consent",
     );
   }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "completed");
-  assert.deepEqual(seen, ["forward", "reverse", "same-codex", "same-claude"]);
+  assert.deepEqual(seenItems, [
+    "forward",
+    "reverse",
+    "same-codex",
+    "same-claude",
+  ]);
   assert.equal(result.completedRouteCount, 4);
   assert.equal(result.failedRouteProfile, null);
   assert.equal(result.validationFailure, null);
@@ -149,14 +154,14 @@ test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完�
 });
 
 test("最初の未完了経路で停止し既知cleanup状態を失わない", async () => {
-  const seen: string[] = [];
+  const seenItems: string[] = [];
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
     _root,
     _dependencies,
     route,
   ) => {
     assert.ok(route);
-    seen.push(route);
+    seenItems.push(route);
     return route === "reverse"
       ? Object.freeze({
           status: "blocked" as const,
@@ -180,7 +185,7 @@ test("最初の未完了経路で停止し既知cleanup状態を失わない", a
       : completed(route, "interactive_initial_consent");
   }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
-  assert.deepEqual(seen, ["forward", "reverse"]);
+  assert.deepEqual(seenItems, ["forward", "reverse"]);
   assert.equal(result.completedRouteCount, 1);
   assert.equal(result.manualRecoveryRequired, true);
 });
@@ -251,7 +256,7 @@ test("保存済み同意は初回からreuseし残りもreuseで閉じる", asyn
 });
 
 test("exact破棄と残存0を確認した閉集合理由だけ同じ経路を最大3回まで再試行する", async () => {
-  const seen: string[] = [];
+  const seenItems: string[] = [];
   let forwardAttempts = 0;
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
     _root,
@@ -259,7 +264,7 @@ test("exact破棄と残存0を確認した閉集合理由だけ同じ経路を�
     route,
   ) => {
     assert.ok(route);
-    seen.push(route);
+    seenItems.push(route);
     if (route === "forward") {
       forwardAttempts += 1;
       if (forwardAttempts === 1)
@@ -271,7 +276,7 @@ test("exact破棄と残存0を確認した閉集合理由だけ同じ経路を�
     return completed(route, "reused_initial_consent");
   }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "completed");
-  assert.deepEqual(seen, [
+  assert.deepEqual(seenItems, [
     "forward",
     "forward",
     "reverse",
@@ -481,12 +486,12 @@ test("route安全観測不明でも有効Recovery IDをnested／top-levelへ保�
   const nested = (result.results as Array<Record<string, unknown>>)[0];
   assert.equal(observed.attempts, 1);
   assert.equal(result.validationFailure, "runner_exception");
-  const expected = [
+  const expectedItems = [
     `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`,
     `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`,
   ];
-  assert.deepEqual(nested?.hostRecoveryIds, expected);
-  assert.deepEqual(result.hostRecoveryIds, expected);
+  assert.deepEqual(nested?.hostRecoveryIds, expectedItems);
+  assert.deepEqual(result.hostRecoveryIds, expectedItems);
   assert.equal(result.hostRecoveryId, null);
   assert.equal(result.recoveryIdentityAmbiguous, true);
   assert.equal(result.processRestartRequired, true);

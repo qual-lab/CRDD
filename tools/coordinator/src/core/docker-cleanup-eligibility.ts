@@ -40,14 +40,14 @@ function exactDenseStringArray(value: unknown) {
   const ownKeys = Reflect.ownKeys(value);
   const expectedKeys = new Set<PropertyKey>([
     "length",
-    ...Array.from({ length: value.length }, (_, index) => String(index)),
+    ...Array.from({ length: value.length }, (_value, index) => String(index)),
   ]);
   if (
     ownKeys.length !== expectedKeys.size ||
     ownKeys.some((key) => !expectedKeys.has(key))
   )
     return null;
-  const result: string[] = [];
+  const resultItems: string[] = [];
   for (let index = 0; index < value.length; index += 1) {
     if (!Object.hasOwn(value, index)) return null;
     const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
@@ -57,10 +57,10 @@ function exactDenseStringArray(value: unknown) {
       !recoveryId(descriptor.value)
     )
       return null;
-    result.push(descriptor.value);
+    resultItems.push(descriptor.value);
   }
-  if (new Set(result).size !== result.length) return null;
-  return Object.freeze(result);
+  if (new Set(resultItems).size !== resultItems.length) return null;
+  return Object.freeze(resultItems);
 }
 
 function exactPlainRecord(
@@ -115,22 +115,22 @@ function exactPlainRecordArray(
   const keys = Reflect.ownKeys(value);
   const expectedKeys = new Set<PropertyKey>([
     "length",
-    ...Array.from({ length: value.length }, (_, index) => String(index)),
+    ...Array.from({ length: value.length }, (_value, index) => String(index)),
   ]);
   if (
     keys.length !== expectedKeys.size ||
     keys.some((key) => !expectedKeys.has(key))
   )
     return null;
-  const snapshot: Readonly<Record<string, unknown>>[] = [];
+  const snapshotItems: Readonly<Record<string, unknown>>[] = [];
   for (let index = 0; index < value.length; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
     if (!descriptor || !("value" in descriptor)) return null;
     const record = exactPlainRecord(descriptor.value, expectedRecordKeys);
     if (!record) return null;
-    snapshot.push(record);
+    snapshotItems.push(record);
   }
-  return Object.freeze(snapshot);
+  return Object.freeze(snapshotItems);
 }
 
 function snapshotInput(value: unknown) {
@@ -165,12 +165,12 @@ function canonicalRawIds(raw: RawDockerRecoveryProjection) {
         ? raw.singular
         : undefined;
   if (singular === undefined) return null;
-  const plural = exactDenseStringArray(raw.plural);
-  if (!plural) return null;
-  if (plural.length === 0 && singular !== null) return null;
-  if (plural.length === 1 && singular !== plural[0]) return null;
-  if (plural.length > 1 && singular !== null) return null;
-  return Object.freeze(plural);
+  const pluralItems = exactDenseStringArray(raw.plural);
+  if (!pluralItems) return null;
+  if (pluralItems.length === 0 && singular !== null) return null;
+  if (pluralItems.length === 1 && singular !== pluralItems[0]) return null;
+  if (pluralItems.length > 1 && singular !== null) return null;
+  return Object.freeze(pluralItems);
 }
 
 function evaluate(inputValue: unknown) {
@@ -178,12 +178,12 @@ function evaluate(inputValue: unknown) {
   if (!input) return Object.freeze({ eligible: false, reason: "raw_invalid" });
   const rawIds = canonicalRawIds(input.raw as RawDockerRecoveryProjection);
   if (!rawIds) return Object.freeze({ eligible: false, reason: "raw_invalid" });
-  const pending = input.handoffs.filter(
+  const pendingItems = input.handoffs.filter(
     (handoff) => handoff.state !== "finalized",
   );
   const pendingIds = new Set<string>();
   const pendingCapabilities = new Set<object>();
-  for (const handoff of pending) {
+  for (const handoff of pendingItems) {
     if (
       handoff.state !== "finalizable" ||
       !recoveryId(handoff.recoveryId) ||
@@ -193,19 +193,19 @@ function evaluate(inputValue: unknown) {
       pendingCapabilities.has(handoff.capability)
     )
       return Object.freeze({ eligible: false, reason: "handoff_invalid" });
-    const exact = input.finalizations.filter(
+    const exactItems = input.finalizations.filter(
       (candidate) =>
         candidate.recoveryId === handoff.recoveryId &&
         candidate.capability === handoff.capability,
     );
-    const conflicting = input.finalizations.some(
+    const isConflicting = input.finalizations.some(
       (candidate) =>
         (candidate.recoveryId === handoff.recoveryId ||
           candidate.capability === handoff.capability) &&
         (candidate.recoveryId !== handoff.recoveryId ||
           candidate.capability !== handoff.capability),
     );
-    if (exact.length !== 1 || conflicting)
+    if (exactItems.length !== 1 || isConflicting)
       return Object.freeze({
         eligible: false,
         reason: "finalization_mismatch",
@@ -214,7 +214,7 @@ function evaluate(inputValue: unknown) {
     pendingCapabilities.add(handoff.capability);
   }
   if (
-    input.finalizations.length !== pending.length ||
+    input.finalizations.length !== pendingItems.length ||
     rawIds.length !== pendingIds.size ||
     rawIds.some((id) => !pendingIds.has(id))
   )

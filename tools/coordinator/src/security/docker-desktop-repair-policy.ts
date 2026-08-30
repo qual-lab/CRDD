@@ -8,7 +8,7 @@ export const WINDOWS_DOCKER_DESKTOP_REPAIR_POLICY_RELATIVE_PATH =
 const POLICY_MAGIC = "CRDD_WINDOWS_DOCKER_DESKTOP_REPAIR_POLICY_V1";
 const DOCKER_DESKTOP_VERSION = "4.41.2";
 const DOCKER_ENGINE_VERSION = "28.1.1";
-const POLICY_FILE = fileURLToPath(
+const policyFile = fileURLToPath(
   new URL(
     "../../policies/windows-docker-desktop-4.41.2.policy",
     import.meta.url,
@@ -44,16 +44,16 @@ export type DockerDesktopRepairPolicy = Readonly<{
 function stablePolicyBytes() {
   let handle: number | null = null;
   try {
-    const before = fs.lstatSync(POLICY_FILE, { bigint: true });
+    const before = fs.lstatSync(policyFile, { bigint: true });
     if (
       !before.isFile() ||
       before.isSymbolicLink() ||
       before.size < 1n ||
       before.size > 16_384n ||
-      fs.realpathSync.native(POLICY_FILE) !== POLICY_FILE
+      fs.realpathSync.native(policyFile) !== policyFile
     )
       return null;
-    handle = fs.openSync(POLICY_FILE, "r");
+    handle = fs.openSync(policyFile, "r");
     const opened = fs.fstatSync(handle, { bigint: true });
     if (
       opened.dev !== before.dev ||
@@ -66,7 +66,7 @@ function stablePolicyBytes() {
     if (fs.readSync(handle, bytes, 0, bytes.length, 0) !== bytes.length)
       return null;
     const after = fs.fstatSync(handle, { bigint: true });
-    const pathAfter = fs.lstatSync(POLICY_FILE, { bigint: true });
+    const pathAfter = fs.lstatSync(policyFile, { bigint: true });
     if (
       after.dev !== opened.dev ||
       after.ino !== opened.ino ||
@@ -76,7 +76,7 @@ function stablePolicyBytes() {
       pathAfter.ino !== opened.ino ||
       pathAfter.birthtimeNs !== opened.birthtimeNs ||
       pathAfter.size !== opened.size ||
-      fs.realpathSync.native(POLICY_FILE) !== POLICY_FILE
+      fs.realpathSync.native(policyFile) !== policyFile
     )
       return null;
     return bytes;

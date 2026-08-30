@@ -702,7 +702,7 @@ function exactHostRecoveryTokenFromMarker(
   target: string,
   expectedRootName: string,
   nonce: string,
-  allowed: readonly Readonly<{
+  allowedItems: readonly Readonly<{
     identity: FilesystemIdentity;
     serialized: string;
   }>[],
@@ -712,7 +712,7 @@ function exactHostRecoveryTokenFromMarker(
     const firstIdentity = readFileIdentity(target);
     const firstSerialized = fs.readFileSync(target, "utf8");
     if (
-      !allowed.some(
+      !allowedItems.some(
         (candidate) =>
           sameFilesystemIdentity(firstIdentity, candidate.identity) &&
           firstSerialized === candidate.serialized,
@@ -829,14 +829,14 @@ function ensureHostRecoveryDirectory(
       new Error("host_recovery_directory_observation_unknown"),
       { cleanupConfirmed: false, hostRecoveryId: null },
     );
-  let creationAttempted = false;
-  let created = false;
+  let isCreationAttempted = false;
+  let isCreated = false;
   let identity: FilesystemIdentity | null = null;
   try {
     if (before === "confirmed_absent") {
-      creationAttempted = true;
+      isCreationAttempted = true;
       fs.mkdirSync(directory, { mode: 0o700 });
-      created = true;
+      isCreated = true;
     }
     const real = fs.realpathSync(directory);
     const metadata = fs.lstatSync(real);
@@ -851,8 +851,8 @@ function ensureHostRecoveryDirectory(
     }
     return { directory: real, identity };
   } catch (error) {
-    let cleanupConfirmed = !creationAttempted;
-    if (created && identity) {
+    let cleanupConfirmed = !isCreationAttempted;
+    if (isCreated && identity) {
       try {
         if (
           !sameFilesystemIdentity(
@@ -1017,7 +1017,7 @@ function writeHostRecoveryRecord(
   let temporaryHandle: number | null = null;
   let temporaryIdentity: FilesystemIdentity | null = null;
   let temporaryCreated = false;
-  let renamed = false;
+  let wasRenamed = false;
   try {
     temporaryHandle = fs.openSync(temporary, "wx", 0o600);
     temporaryCreated = true;
@@ -1027,7 +1027,7 @@ function writeHostRecoveryRecord(
     fs.closeSync(temporaryHandle);
     temporaryHandle = null;
     fs.renameSync(temporary, target);
-    renamed = true;
+    wasRenamed = true;
     if (
       !temporaryIdentity ||
       !sameFilesystemIdentity(readFileIdentity(target), temporaryIdentity)
@@ -1047,7 +1047,7 @@ function writeHostRecoveryRecord(
         handleSettled = false;
       }
     }
-    const cleanupTarget = renamed ? target : temporary;
+    const cleanupTarget = wasRenamed ? target : temporary;
     if (temporaryIdentity && handleSettled) {
       try {
         const observation = observeFilesystemEntry(cleanupTarget);

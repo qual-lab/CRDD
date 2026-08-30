@@ -110,20 +110,23 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function hasExactKeys(value: JsonRecord, expected: readonly string[]): boolean {
-  const actual = Object.keys(value).sort();
-  const wanted = [...expected].sort();
+function hasExactKeys(
+  value: JsonRecord,
+  expectedItems: readonly string[],
+): boolean {
+  const actualItems = Object.keys(value).sort();
+  const wantedItems = [...expectedItems].sort();
   return (
-    actual.length === wanted.length &&
-    actual.every((key, index) => key === wanted[index])
+    actualItems.length === wantedItems.length &&
+    actualItems.every((key, index) => key === wantedItems[index])
   );
 }
 
 function isExactRecord(
   value: unknown,
-  expected: readonly string[],
+  expectedItems: readonly string[],
 ): value is JsonRecord {
-  return isRecord(value) && hasExactKeys(value, expected);
+  return isRecord(value) && hasExactKeys(value, expectedItems);
 }
 
 function nonEmptyText(value: unknown): value is string {
@@ -373,17 +376,17 @@ export function inspectCoordinatorRuntimeTraceability(
       usedInvariants.add(invariant);
     }
     if (transition.risk === "high") {
-      const required = checkReferences(
+      const requiredItems = checkReferences(
         transition.requiredVerificationKinds,
         new Set(VERIFICATION_KINDS),
         `${transitionId}:requiredVerificationKinds`,
         issues,
       );
-      if (required.length === 0)
+      if (requiredItems.length === 0)
         issues.push(`${transitionId}:verification_requirement_empty`);
       requiredKindsByTransition.set(
         transitionId,
-        new Set(required as VerificationKind[]),
+        new Set(requiredItems as VerificationKind[]),
       );
     }
   }

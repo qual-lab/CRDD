@@ -36,7 +36,7 @@ const MODEL_SELECTION = Object.freeze({
     "[委譲経路選定] front=codex executor=codex\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
   delegationDepth: 1,
 });
-const TASK_MODEL_SELECTION = Object.freeze({
+const taskModelSelection = Object.freeze({
   ...MODEL_SELECTION,
   profileId: "PROFILE-100003",
   model: "gpt-5.5",
@@ -46,9 +46,9 @@ function createFixture(
   overrides: Partial<
     Parameters<typeof createIsolatedCodexDockerRuntimeAdapterCandidate>[0]
   > = {},
-  taskMode = false,
+  isTaskMode = false,
 ) {
-  const profileId = taskMode ? "PROFILE-100003" : "PROFILE-100001";
+  const profileId = isTaskMode ? "PROFILE-100003" : "PROFILE-100001";
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
   const mountAuthorizationCapability = Object.freeze({});
@@ -116,7 +116,7 @@ function createFixture(
     consumeModelSelection: (selection: unknown, management: unknown) => {
       assert.equal(selection, selectionUseCapability);
       assert.equal(management, managementCapability);
-      return taskMode ? TASK_MODEL_SELECTION : MODEL_SELECTION;
+      return isTaskMode ? taskModelSelection : MODEL_SELECTION;
     },
     consumeTaskPacket: () =>
       Object.freeze({

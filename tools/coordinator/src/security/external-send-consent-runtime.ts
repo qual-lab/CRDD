@@ -38,7 +38,7 @@ type VerifiedRoot = NonNullable<
 >;
 type Lock = Readonly<{ release: () => boolean }>;
 type ConsentDependencies = Readonly<{
-  observeRoot: (initializeIfMissing: boolean) => VerifiedRoot | null;
+  observeRoot: (shouldInitializeIfMissing: boolean) => VerifiedRoot | null;
   acquireLock: (bindingHash: string) => Lock | null;
   now: () => number;
   nonce: () => string;
@@ -59,9 +59,9 @@ export function compileExternalSendConsentBoundaryHash(
     : null;
 }
 
-function productionObserveRoot(initializeIfMissing: boolean) {
+function productionObserveRoot(shouldInitializeIfMissing: boolean) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
-    initializeIfMissing,
+    shouldInitializeIfMissing,
     new Date().toISOString(),
   );
   const root = consumeRuntimeOwnedRuntimeStateRootCapability(
@@ -241,13 +241,13 @@ function withConsentLock<T>(
   const lock = dependencies.acquireLock(root.stableLogicalHomeBindingHash);
   if (!lock) return null;
   let result: T | null = null;
-  let failed = false;
+  let hasFailed = false;
   try {
     const rebound = dependencies.observeRoot(false);
-    if (!rebound || !sameRoot(root, rebound)) failed = true;
+    if (!rebound || !sameRoot(root, rebound)) hasFailed = true;
     else result = operation();
   } catch {
-    failed = true;
+    hasFailed = true;
   }
   let released = false;
   try {
@@ -255,7 +255,7 @@ function withConsentLock<T>(
   } catch {
     released = false;
   }
-  return failed || !released ? null : result;
+  return hasFailed || !released ? null : result;
 }
 
 function createRuntime(dependencies: ConsentDependencies) {

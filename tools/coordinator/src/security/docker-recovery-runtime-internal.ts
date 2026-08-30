@@ -2705,20 +2705,20 @@ export function recoverUnknownDockerCreateOutcomeWithRunner(
   const nameFilter =
     kind === "container" ? `name=^/${expectedName}$` : `name=^${expectedName}$`;
   const labelFilter = `label=${ownershipLabel}`;
-  const byName = ids(list(nameFilter));
-  const byOwnership = ids(list(nameFilter, labelFilter));
-  if (!byName || !byOwnership) return null;
-  if (byName.length === 0 && byOwnership.length === 0) return null;
+  const byNameItems = ids(list(nameFilter));
+  const byOwnershipItems = ids(list(nameFilter, labelFilter));
+  if (!byNameItems || !byOwnershipItems) return null;
+  if (byNameItems.length === 0 && byOwnershipItems.length === 0) return null;
   if (
-    byName.length !== 1 ||
-    byOwnership.length !== 1 ||
-    byName[0] !== byOwnership[0]
+    byNameItems.length !== 1 ||
+    byOwnershipItems.length !== 1 ||
+    byNameItems[0] !== byOwnershipItems[0]
   )
     return null;
   return recoverExactDockerResourceWithRunner(
     runDocker,
     kind,
-    byName[0] as string,
+    byNameItems[0] as string,
     expectedName,
     ownershipLabel,
     expectedImage,
@@ -2732,7 +2732,7 @@ export function recoverUnknownDockerCreateOutcomeWithRunner(
       removeAfterVerification: false,
     }),
   )
-    ? (byName[0] as string)
+    ? (byNameItems[0] as string)
     : null;
 }
 
@@ -3398,7 +3398,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     const hostMarkerPresent = recoveryPathPresent(hostPaths.marker);
     if (hostRootPresent !== hostMarkerPresent)
       throw new Error("docker_task_recovery_host_cleanup_unconfirmed");
-    const hostStateAlreadyClean = !hostRootPresent && !hostMarkerPresent;
+    const isHostStateAlreadyClean = !hostRootPresent && !hostMarkerPresent;
     const managementDirectoryName = managementDirectoryNameFromBase(base);
     const initialHostRecoveryId = String(base.initialHostRecoveryId ?? "");
     const initialHostIdentity = parseHostRecoveryToken(initialHostRecoveryId);
@@ -3712,7 +3712,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       "host-begin-intent.json",
     );
     const hostBeginIntentPresent = recoveryPathPresent(hostBeginIntentPath);
-    if (!hostBeginIntentPresent && hostStateAlreadyClean)
+    if (!hostBeginIntentPresent && isHostStateAlreadyClean)
       throw new Error("docker_task_recovery_evidence_missing");
     if (!hostBeginIntentPresent)
       writeDurableJson(
@@ -3747,7 +3747,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         string,
         string
       >;
-    } else if (hostStateAlreadyClean) {
+    } else if (isHostStateAlreadyClean) {
       if (hasSubmission)
         throw new Error("docker_task_recovery_host_begin_mismatch");
       hostSubmissionStarted = false;
@@ -3788,7 +3788,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       throw new Error("docker_task_recovery_host_begin_mismatch");
     const submissionHostToken = hostReceipt.observed ?? "";
     parseHostRecoveryToken(submissionHostToken);
-    const host = hostStateAlreadyClean
+    const host = isHostStateAlreadyClean
       ? null
       : loadHostRecoveryRecordByToken(submissionHostToken);
     const managementName = host
@@ -3839,7 +3839,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       if (
         canonical(observedIntent) !==
           canonical(expectedHostPrecleanupFinalizationIntent) ||
-        !hostStateAlreadyClean ||
+        !isHostStateAlreadyClean ||
         hasSubmission
       )
         throw new Error("docker_task_recovery_host_precleanup_intent_mismatch");
@@ -3855,7 +3855,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       expectedPointer,
     );
     if (
-      hostStateAlreadyClean &&
+      isHostStateAlreadyClean &&
       activePointerClosure.pointerState !== "committed" &&
       !(
         hostPrecleanupFinalizationIntentPresent &&
@@ -3887,7 +3887,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       );
     }
     if (
-      hostStateAlreadyClean &&
+      isHostStateAlreadyClean &&
       !hasSubmission &&
       !hostPrecleanupFinalizationIntentPresent
     ) {
@@ -3942,7 +3942,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         if (!removeCommittedDockerRecoveryJson(hostActiveBindingPath))
           throw new Error("docker_task_recovery_active_run_mismatch");
       releasePointer();
-      if (hostStateAlreadyClean) {
+      if (isHostStateAlreadyClean) {
         writeDurableJson(operationDirectory, "docker-absence-crash.json", {
           schema: "crdd-coordinator-docker-absence/v1",
           recoveryId: parsed.token,
@@ -4182,7 +4182,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         evidence: "crash_recovery_exact_id_and_configuration",
       });
     }
-    if (hostStateAlreadyClean) {
+    if (isHostStateAlreadyClean) {
       const finalClosure = verifyActiveBindingAndPointerClosure(
         hostActiveBindingPath,
         pointerPath,

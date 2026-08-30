@@ -111,45 +111,47 @@ export function salvageSignedRunnerRecoveryPair(
       throw new Error("recovery_record_invalid");
     const singular = ownDataValue(value, pair.singularField);
     const pluralObserved = ownDataValue(value, pair.pluralField);
-    let ambiguous =
+    let isAmbiguous =
       singular.status !== "exact" || pluralObserved.status !== "exact";
     const ids: string[] = [];
     if (singular.status === "exact") {
       if (isCanonicalSignedRunnerRecoveryId(singular.value, pair.kind))
         ids.push(singular.value);
-      else if (singular.value !== null) ambiguous = true;
+      else if (singular.value !== null) isAmbiguous = true;
     }
     if (pluralObserved.status === "exact") {
       const plural = snapshotPlainArray<unknown>(
         pluralObserved.value,
         MAXIMUM_RECOVERY_IDS,
       );
-      if (plural.status !== "ok") ambiguous = true;
+      if (plural.status !== "ok") isAmbiguous = true;
       else {
         for (const item of plural.value) {
           if (isCanonicalSignedRunnerRecoveryId(item, pair.kind))
             ids.push(item);
-          else ambiguous = true;
+          else isAmbiguous = true;
         }
         if (new Set(plural.value).size !== plural.value.length)
-          ambiguous = true;
+          isAmbiguous = true;
       }
     }
-    const unique = [...new Set(ids)];
-    if (unique.length > MAXIMUM_RECOVERY_IDS) ambiguous = true;
-    const bounded = Object.freeze(unique.slice(0, MAXIMUM_RECOVERY_IDS));
+    const uniqueItems = [...new Set(ids)];
+    if (uniqueItems.length > MAXIMUM_RECOVERY_IDS) isAmbiguous = true;
+    const boundedItems = Object.freeze(
+      uniqueItems.slice(0, MAXIMUM_RECOVERY_IDS),
+    );
     if (
       singular.status === "exact" &&
       pluralObserved.status === "exact" &&
-      ((bounded.length === 0 && singular.value !== null) ||
-        (bounded.length === 1 && singular.value !== bounded[0]) ||
-        (bounded.length > 1 && singular.value !== null))
+      ((boundedItems.length === 0 && singular.value !== null) ||
+        (boundedItems.length === 1 && singular.value !== boundedItems[0]) ||
+        (boundedItems.length > 1 && singular.value !== null))
     )
-      ambiguous = true;
+      isAmbiguous = true;
     return Object.freeze({
-      singular: bounded.length === 1 ? (bounded[0] ?? null) : null,
-      plural: bounded,
-      ambiguous,
+      singular: boundedItems.length === 1 ? (boundedItems[0] ?? null) : null,
+      plural: boundedItems,
+      ambiguous: isAmbiguous,
     });
   } catch {
     return Object.freeze({

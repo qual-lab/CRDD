@@ -41,15 +41,15 @@ type TraceSnapshot = Readonly<{
   resources: Readonly<Record<string, string>>;
 }>;
 
-const ADMISSION_RECOVERY_ONE = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
-const ADMISSION_RECOVERY_TWO = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+const admissionRecoveryOne = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+const admissionRecoveryTwo = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
 
 function fixtureDockerRecoveryId(label: string) {
   const digest = createHash("sha256").update(label).digest("hex");
   return `docker-task.${digest}.${"1".repeat(64)}.${"2".repeat(64)}`;
 }
 
-const TRANSITION_BY_EDGE = new Map<string, string>([
+const transitionByEdge = new Map<string, string>([
   [
     "STATE-ADMISSION>STATE-OPERATION-ACQUIRING",
     "TRANS-ADMISSION-TO-OPERATION-ACQUIRING",
@@ -99,7 +99,7 @@ const TRANSITION_BY_EDGE = new Map<string, string>([
   ["STATE-HOST-CLEAN>STATE-RESULT-PUBLISHED", "TRANS-HOST-CLEAN-TO-RESULT"],
 ]);
 
-const EDGE_BY_LIFECYCLE_CASE = new Map<string, string>([
+const edgeByLifecycleCase = new Map<string, string>([
   [
     "CASE-NORMAL-ADMISSION-TO-OPERATION",
     "STATE-ADMISSION>STATE-OPERATION-ACQUIRING",
@@ -170,7 +170,7 @@ const EDGE_BY_LIFECYCLE_CASE = new Map<string, string>([
   ],
 ]);
 
-const RESOURCES_BY_TRANSITION = new Map<string, readonly string[]>([
+const resourcesByTransition = new Map<string, readonly string[]>([
   ["TRANS-ADMISSION-TO-OPERATION-ACQUIRING", ["RES-TASK-CONTROL"]],
   ["TRANS-OPERATION-ACQUIRING-TO-READY", ["RES-HOST-GENERATION"]],
   [
@@ -237,7 +237,7 @@ const TERMINAL_RESOURCES = Object.freeze([
   "RES-TASK-CONTROL",
 ]);
 
-const TASK_TRACE_ASSERTIONS: Readonly<
+const taskTraceAssertions: Readonly<
   Record<string, typeof assertRuntimeTraceCase>
 > = Object.freeze({
   "CASE-NORMAL-ADMISSION-TO-OPERATION": assertRuntimeTraceCase,
@@ -310,12 +310,12 @@ const TASK_TRACE_ASSERTIONS: Readonly<
   "CASE-RECOVERY-HOST-CLEAN": assertRuntimeTraceCase,
   "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED": assertRuntimeTraceCase,
 });
-const EXECUTED_TASK_TRACE_CASES = new Set<string>();
+const executedTaskTraceCases = new Set<string>();
 
 function assertExactTaskTraceExecutionCoverage(executed: ReadonlySet<string>) {
   assertRuntimeTraceExecutionCoverage(
     "tools/coordinator/tests/coordinator-task-runtime.contract.test.ts",
-    Object.keys(TASK_TRACE_ASSERTIONS),
+    Object.keys(taskTraceAssertions),
     executed,
   );
 }
@@ -401,10 +401,10 @@ async function assertTerminalRuntimeTraceCase(
       "RES-TASK-CONTROL": "absent",
     },
   };
-  const assertion = TASK_TRACE_ASSERTIONS[caseId];
+  const assertion = taskTraceAssertions[caseId];
   assert.ok(assertion, `unregistered trace assertion: ${caseId}`);
   assertion(caseId, observed);
-  EXECUTED_TASK_TRACE_CASES.add(caseId);
+  executedTaskTraceCases.add(caseId);
 }
 
 async function assertLifecycleRuntimeTraceCases(
@@ -417,7 +417,7 @@ async function assertLifecycleRuntimeTraceCases(
     reason: "coordinator_task_control_invalid",
   });
   for (const caseId of caseIds) {
-    const edge = EDGE_BY_LIFECYCLE_CASE.get(caseId);
+    const edge = edgeByLifecycleCase.get(caseId);
     assert.ok(edge, `unregistered lifecycle case: ${caseId}`);
     const fromIndex = harness.lifecycleSnapshots.findIndex(
       (snapshot, index) =>
@@ -429,7 +429,7 @@ async function assertLifecycleRuntimeTraceCases(
       (typeof harness.lifecycleSnapshots)[number]
     >;
     const to = harness.lifecycleSnapshots[fromIndex + 1] as typeof from;
-    const transitionId = TRANSITION_BY_EDGE.get(`${from.state}>${to.state}`);
+    const transitionId = transitionByEdge.get(`${from.state}>${to.state}`);
     assert.ok(transitionId, `unknown observed lifecycle edge: ${caseId}`);
     const expectedStatus =
       to.state === "STATE-OPERATION-ACQUIRING" ||
@@ -440,7 +440,7 @@ async function assertLifecycleRuntimeTraceCases(
         : to.state === "STATE-CANDIDATE-STAGED"
           ? "staged"
           : "completed";
-    const assertion = TASK_TRACE_ASSERTIONS[caseId];
+    const assertion = taskTraceAssertions[caseId];
     assert.ok(assertion, `unregistered trace assertion: ${caseId}`);
     assertion(caseId, {
       id: caseId,
@@ -457,14 +457,14 @@ async function assertLifecycleRuntimeTraceCases(
       resourcePostconditions: {
         ...selectResourcePostconditions(
           to,
-          RESOURCES_BY_TRANSITION.get(transitionId) ?? [],
+          resourcesByTransition.get(transitionId) ?? [],
         ),
         ...(to.state === "STATE-RESULT-PUBLISHED"
           ? { "RES-TASK-CONTROL": "absent" }
           : {}),
       },
     });
-    EXECUTED_TASK_TRACE_CASES.add(caseId);
+    executedTaskTraceCases.add(caseId);
   }
 }
 
@@ -639,52 +639,52 @@ function fixture(
   const processCounts = new Map<"executor" | "reviewer", number>();
   const processStartCounts = new Map<"executor" | "reviewer", number>();
   const currentResourceSnapshot = (state: string) => {
-    const recoveryTerminal =
+    const isRecoveryTerminal =
       state === "STATE-RECOVERY-REQUIRED" ||
       state === "STATE-OPERATOR-TRANSFER-REQUIRED";
-    const outstandingProvider =
+    const isOutstandingProvider =
       processStartCount > providerCleanupConfirmedCount;
-    const outstandingDockerRecovery =
-      outstandingProvider ||
+    const isOutstandingDockerRecovery =
+      isOutstandingProvider ||
       (options.hostCleanupWal === true &&
         dockerFinalizeCount < processStartCount);
-    const operationAcquired = operationCreateCount > 0;
+    const isOperationAcquired = operationCreateCount > 0;
     const hostPresent = operationCreateCount > hostCleanupConfirmedCount;
-    const workspaceAcquired = workspaceMaterializeCount > 0;
+    const isWorkspaceAcquired = workspaceMaterializeCount > 0;
     const workspacePresent =
-      workspaceAcquired && hostCleanupConfirmedCount === 0;
+      isWorkspaceAcquired && hostCleanupConfirmedCount === 0;
     return Object.freeze({
       "RES-HOST-GENERATION": hostPresent
-        ? recoveryTerminal
+        ? isRecoveryTerminal
           ? "preserved"
           : "present"
         : "absent",
       "RES-INTERACTIVE-CONSOLE": consoleResourceState,
-      "RES-LOGICAL-HOME-LOCK": outstandingProvider ? "preserved" : "absent",
-      "RES-RUNTIME-STATE-LOCK": outstandingProvider ? "preserved" : "absent",
-      "RES-MOUNT-GRANT": outstandingProvider ? "preserved" : "absent",
-      "RES-DOCKER-OWNED": outstandingDockerRecovery
+      "RES-LOGICAL-HOME-LOCK": isOutstandingProvider ? "preserved" : "absent",
+      "RES-RUNTIME-STATE-LOCK": isOutstandingProvider ? "preserved" : "absent",
+      "RES-MOUNT-GRANT": isOutstandingProvider ? "preserved" : "absent",
+      "RES-DOCKER-OWNED": isOutstandingDockerRecovery
         ? "preserved"
         : processStartCount === 0
           ? options.admissionRecovery
             ? "preserved"
-            : recoveryTerminal
+            : isRecoveryTerminal
               ? "unacquired"
               : "absent"
           : "absent",
       "RES-OPERATION-WORKSPACE": workspacePresent
-        ? recoveryTerminal
+        ? isRecoveryTerminal
           ? "preserved"
           : "present"
-        : workspaceAcquired || operationAcquired
+        : isWorkspaceAcquired || isOperationAcquired
           ? "absent"
-          : recoveryTerminal
+          : isRecoveryTerminal
             ? "unacquired"
             : "absent",
       "RES-CANDIDATE-ENTRY":
-        recoveryTerminal && candidateEntryState === "present"
+        isRecoveryTerminal && candidateEntryState === "present"
           ? "preserved"
-          : candidateEntryState === "unacquired" && !recoveryTerminal
+          : candidateEntryState === "unacquired" && !isRecoveryTerminal
             ? "absent"
             : candidateEntryState,
       "RES-TASK-CONTROL": "present",
@@ -725,7 +725,7 @@ function fixture(
         });
       const ids = options.admissionRecoveryIds
         ? [...options.admissionRecoveryIds]
-        : [ADMISSION_RECOVERY_ONE];
+        : [admissionRecoveryOne];
       const reason =
         options.admissionRecoveryReason ??
         (ids.length === 1
@@ -1094,14 +1094,14 @@ function fixture(
       const cleanupFails =
         options.processCleanupFailureRole === role &&
         (options.processCleanupFailureOccurrence ?? 1) === processCount;
-      const cleanFailure =
+      const isCleanFailure =
         options.processCleanFailureRole === role &&
         (options.processCleanFailureOccurrence ?? 1) === processCount;
       const completedResultFields: Record<string, unknown> = {
-        status: cleanupFails || cleanFailure ? "blocked" : "completed",
+        status: cleanupFails || isCleanFailure ? "blocked" : "completed",
         reason: cleanupFails
           ? "fixture_cleanup_failed"
-          : cleanFailure
+          : isCleanFailure
             ? "fixture_provider_failed"
             : "completed",
         cleanupConfirmed: !cleanupFails,
@@ -1167,15 +1167,15 @@ function fixture(
         return new Promise<never>(() => undefined);
       if (options.cancellationReceiptInvalid)
         return Object.freeze({ status: "requested" });
-      const processTerminationObserved =
+      const isProcessTerminationObserved =
         options.cancellationTerminationObserved !== false;
       return Object.freeze({
         status: "requested",
-        reason: processTerminationObserved
+        reason: isProcessTerminationObserved
           ? "provider_cancellation_requested"
           : "provider_cancellation_grace_exceeded",
         cancellationRequested: true,
-        processTerminationObserved,
+        processTerminationObserved: isProcessTerminationObserved,
       });
     },
     captureCandidate: () => {
@@ -1907,7 +1907,7 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
       ],
     },
   ];
-  for (const { harness, expected } of cases) {
+  for (const { harness, expected: expectedItems } of cases) {
     const result = await harness.runtime.start(
       request(),
       "C:\\repository",
@@ -1915,7 +1915,7 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
     ).completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.manualRecoveryRequired, true);
-    assert.deepEqual(result.dockerRecoveryIds, expected);
+    assert.deepEqual(result.dockerRecoveryIds, expectedItems);
     assert.equal(harness.dockerIntentCount(), 0);
     assert.equal(harness.dockerReceiptCount(), 0);
     assert.equal(harness.dockerFinalizeCount(), 0);
@@ -3340,7 +3340,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     ).completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.manualRecoveryRequired, true);
-    assert.equal(result.dockerRecoveryId, ADMISSION_RECOVERY_ONE);
+    assert.equal(result.dockerRecoveryId, admissionRecoveryOne);
     assert.equal(harness.operationCreateCount(), 0);
     assert.equal(harness.processStartCount(), 0);
     assert.equal(harness.lifecycleStates.at(-2), "STATE-ADMISSION");
@@ -3379,7 +3379,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   await t.test(
     "production複数Recovery在庫を全ID保持してEffect 0へ閉じる",
     async () => {
-      const ids = [ADMISSION_RECOVERY_ONE, ADMISSION_RECOVERY_TWO];
+      const ids = [admissionRecoveryOne, admissionRecoveryTwo];
       const harness = fixture({
         admissionRecovery: true,
         admissionRecoveryIds: ids,
@@ -3444,8 +3444,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
           manualRecoveryRequired: true,
           dockerRecoveryId: null,
           dockerRecoveryIds: Object.freeze([
-            ADMISSION_RECOVERY_ONE,
-            ADMISSION_RECOVERY_ONE,
+            admissionRecoveryOne,
+            admissionRecoveryOne,
           ]),
           activeStableLogicalHomeBindingHashes: Object.freeze([]),
         }),
@@ -3928,13 +3928,13 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
             ? "STATE-OPERATOR-TRANSFER-REQUIRED"
             : "STATE-RECOVERY-REQUIRED",
       );
-      const cleanupUnknown = new Set([
+      const isCleanupUnknown = new Set([
         "CASE-RECOVERY-TASK-AUTHORIZED",
         "CASE-RECOVERY-CANDIDATE-CAPTURED",
         "CASE-RECOVERY-REMEDIATION-CANDIDATE-CAPTURED",
         "CASE-RECOVERY-CANDIDATE-STAGED",
       ]).has(scenario.id);
-      assert.equal(harness.cleanupCount(), cleanupUnknown ? 0 : 1);
+      assert.equal(harness.cleanupCount(), isCleanupUnknown ? 0 : 1);
       if (scenario.terminal === "clean") {
         assert.equal(result.cleanupConfirmed, true);
         assert.equal(result.manualRecoveryRequired, false);
@@ -4159,7 +4159,7 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
     assert.ok(source && terminal);
     assert.equal(source.state, "STATE-CANDIDATE-STAGED");
     assert.equal(terminal.state, "STATE-RECOVERY-REQUIRED");
-    TASK_TRACE_ASSERTIONS["CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED"]?.(
+    taskTraceAssertions["CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED"]?.(
       "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
       {
         id: "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
@@ -4180,7 +4180,7 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
         ]),
       },
     );
-    EXECUTED_TASK_TRACE_CASES.add("CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED");
+    executedTaskTraceCases.add("CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED");
   } finally {
     fs.rmSync(activeBinding, { force: true });
     cleanupOwnedOperationDirectories(owned);
@@ -4188,7 +4188,7 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
 });
 
 test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影する", async () => {
-  for (const [internalReason, publicReason, preservesId] of [
+  for (const [internalReason, publicReason, doesPreserveId] of [
     [
       "docker_task_recovery_inventory_available",
       "docker_process_controller_recovery_conflict",
@@ -4229,7 +4229,7 @@ test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投�
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(
       result.dockerRecoveryId,
-      preservesId ? ADMISSION_RECOVERY_ONE : null,
+      doesPreserveId ? admissionRecoveryOne : null,
     );
     assert.equal(harness.operationCreateCount(), 0);
     assert.equal(harness.processStartCount(), 0);
@@ -4255,8 +4255,8 @@ test("ConsoleまたはControl資源cellの一件差をCanonical Trace不一致�
 });
 
 test("Canonical Task Trace全caseはregistry存在だけでなく実scenarioから実行される", () => {
-  assertExactTaskTraceExecutionCoverage(EXECUTED_TASK_TRACE_CASES);
-  const missing = new Set(EXECUTED_TASK_TRACE_CASES);
+  assertExactTaskTraceExecutionCoverage(executedTaskTraceCases);
+  const missing = new Set(executedTaskTraceCases);
   missing.delete("CASE-NORMAL-OPERATION-ACQUIRING-TO-READY");
   assert.throws(
     () => assertExactTaskTraceExecutionCoverage(missing),
@@ -4265,10 +4265,10 @@ test("Canonical Task Trace全caseはregistry存在だけでなく実scenarioか�
   assert.throws(() =>
     assertRuntimeTraceExecutionCoverage(
       "tools/coordinator/tests/coordinator-task-runtime.contract.test.ts",
-      Object.keys(TASK_TRACE_ASSERTIONS).filter(
+      Object.keys(taskTraceAssertions).filter(
         (id) => id !== "CASE-NORMAL-OPERATION-ACQUIRING-TO-READY",
       ),
-      EXECUTED_TASK_TRACE_CASES,
+      executedTaskTraceCases,
     ),
   );
 });

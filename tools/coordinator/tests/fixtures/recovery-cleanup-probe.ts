@@ -201,7 +201,7 @@ const [mode, rootPath, encodedRoot] = process.argv.slice(2);
 if (!mode || !rootPath) throw new Error("recovery_cleanup_probe_args_invalid");
 if (mode === "receipt-failure-setup") {
   const setup = await setupRecovery(rootPath);
-  let handedOff = false;
+  let wasHandedOff = false;
   try {
     assert.equal(
       typeof prepareRuntimeOwnedDockerHostCleanup(setup.recoveryCapability),
@@ -213,16 +213,16 @@ if (mode === "receipt-failure-setup") {
       "utf8",
     );
     assert.equal(fs.writeSync(1, handoff), handoff.byteLength);
-    handedOff = true;
+    wasHandedOff = true;
   } finally {
-    if (!handedOff) await recoverFailedHandoff(setup);
+    if (!wasHandedOff) await recoverFailedHandoff(setup);
   }
 } else if (
   mode === "active-deleted-pointer-setup" ||
   mode === "active-deleted-pointer-handoff-failure"
 ) {
   const setup = await setupBegunRecovery(rootPath);
-  let handedOff = false;
+  let wasHandedOff = false;
   try {
     const activePath = fs
       .readdirSync(setup.owned.root, { withFileTypes: true })
@@ -245,9 +245,9 @@ if (mode === "receipt-failure-setup") {
       "utf8",
     );
     assert.equal(fs.writeSync(1, handoff), handoff.byteLength);
-    handedOff = true;
+    wasHandedOff = true;
   } finally {
-    if (!handedOff) await recoverFailedHandoff(setup);
+    if (!wasHandedOff) await recoverFailedHandoff(setup);
   }
 } else if (mode === "fresh-recovery") {
   if (!encodedRoot) throw new Error("recovery_cleanup_probe_root_missing");

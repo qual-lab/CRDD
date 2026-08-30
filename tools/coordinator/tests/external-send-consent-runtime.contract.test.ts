@@ -95,7 +95,7 @@ function isolated() {
     path.join(os.tmpdir(), "crdd-external-send-consent-"),
   );
   let now = 1_000_000;
-  let releaseWorks = true;
+  let isReleaseWorks = true;
   let lockAvailable = true;
   let rootAvailable = true;
   let nonce = 0;
@@ -110,7 +110,7 @@ function isolated() {
   const runtime = createIsolatedExternalSendConsentRuntimeCandidate({
     observeRoot: () => (rootAvailable ? currentRoot : null),
     acquireLock: () =>
-      lockAvailable ? Object.freeze({ release: () => releaseWorks }) : null,
+      lockAvailable ? Object.freeze({ release: () => isReleaseWorks }) : null,
     now: () => now,
     nonce: () => (++nonce).toString(16).padStart(16, "0"),
   } as unknown as Parameters<
@@ -145,7 +145,7 @@ function isolated() {
       lockAvailable = false;
     },
     failRelease: () => {
-      releaseWorks = false;
+      isReleaseWorks = false;
     },
   });
 }

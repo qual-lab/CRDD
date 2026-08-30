@@ -830,13 +830,13 @@ function writeAtomicFile(
     throw new Error("docker_recovery_record_already_exists");
   fs.renameSync(temporary, target);
   const finalRecord = readStableFile(target);
-  const sameRenamedFileObject =
+  const isSameRenamedFileObject =
     finalRecord.identity.dev === temporaryRecord.identity.dev &&
     finalRecord.identity.ino === temporaryRecord.identity.ino &&
     (process.platform === "win32" ||
       finalRecord.identity.birthtimeNs ===
         temporaryRecord.identity.birthtimeNs);
-  if (finalRecord.serialized !== serialized || !sameRenamedFileObject)
+  if (finalRecord.serialized !== serialized || !isSameRenamedFileObject)
     throw new Error("docker_recovery_record_changed");
   return finalRecord;
 }

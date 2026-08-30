@@ -430,7 +430,7 @@ export function projectDockerProcessControllerCompletionResult(
   const networksAbsent = ownDataValue(record, "networksAbsent");
   const mountLeaseReleased = ownDataValue(record, "mountLeaseReleased");
   const recoveryCompleted = ownDataValue(record, "recoveryCompleted");
-  const cleanupFromResources =
+  const isCleanupFromResources =
     processTreeTerminated === true &&
     containersAbsent === true &&
     networksAbsent === true &&
@@ -469,7 +469,7 @@ export function projectDockerProcessControllerCompletionResult(
     typeof networksAbsent !== "boolean" ||
     typeof mountLeaseReleased !== "boolean" ||
     typeof recoveryCompleted !== "boolean" ||
-    cleanupConfirmed !== cleanupFromResources ||
+    cleanupConfirmed !== isCleanupFromResources ||
     !Number.isSafeInteger(resultBytes) ||
     (resultBytes as number) < 0 ||
     (resultSha256 !== null &&

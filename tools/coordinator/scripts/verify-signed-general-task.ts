@@ -43,7 +43,7 @@ const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 const PRODUCTION_CANCEL_ACK_TIMEOUT_MS = 10_000;
 const PRODUCTION_CANCEL_COMPLETION_TIMEOUT_MS = 240_000;
 const PRODUCTION_ORPHANED_START_OBSERVATION_TIMEOUT_MS = 240_000;
-const INTRINSIC_PROMISE_THEN = Promise.prototype.then;
+const intrinsicPromiseThen = Promise.prototype.then;
 const CANCELLATION_RECEIPT_KEYS = Object.freeze([
   "status",
   "reason",
@@ -304,7 +304,7 @@ function snapshotStartedTask(value: unknown) {
   let controlCapability: object | null = null;
   let completionObservation: ReturnType<typeof observeNativeCompletion> | null =
     null;
-  let completionObserverUnknown = false;
+  let isCompletionObserverUnknown = false;
   try {
     if (
       !value ||
@@ -315,14 +315,14 @@ function snapshotStartedTask(value: unknown) {
       return Object.freeze({
         controlCapability,
         completionObservation,
-        completionObserverUnknown,
+        completionObserverUnknown: isCompletionObserverUnknown,
       });
     const prototype = Object.getPrototypeOf(value);
     if (prototype !== Object.prototype && prototype !== null)
       return Object.freeze({
         controlCapability,
         completionObservation,
-        completionObserverUnknown,
+        completionObserverUnknown: isCompletionObserverUnknown,
       });
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const control = descriptors.controlCapability;
@@ -357,22 +357,22 @@ function snapshotStartedTask(value: unknown) {
           observedCompletion.value as Promise<RuntimeRecord>,
         );
       } catch {
-        completionObserverUnknown = true;
+        isCompletionObserverUnknown = true;
       }
     }
   } catch {
     // Partially observed control remains available only for bounded cancel.
-    completionObserverUnknown = true;
+    isCompletionObserverUnknown = true;
   }
   return Object.freeze({
     controlCapability,
     completionObservation,
-    completionObserverUnknown,
+    completionObserverUnknown: isCompletionObserverUnknown,
   });
 }
 
 function observeNativeCompletion(completion: Promise<RuntimeRecord>) {
-  return INTRINSIC_PROMISE_THEN.call(
+  return intrinsicPromiseThen.call(
     completion,
     (value) => Object.freeze({ status: "fulfilled" as const, value }),
     () => Object.freeze({ status: "rejected" as const, value: null }),
@@ -430,7 +430,7 @@ function boundedRecoveryIds(
   pluralField?: string,
 ) {
   const ids: string[] = [];
-  let ambiguous = false;
+  let isAmbiguous = false;
   for (const result of results) {
     if (!result) continue;
     const hasSingular = Object.getOwnPropertyDescriptor(result, singularField);
@@ -445,7 +445,7 @@ function boundedRecoveryIds(
         kind,
       });
       ids.push(...recovered.plural);
-      if (recovered.ambiguous) ambiguous = true;
+      if (recovered.ambiguous) isAmbiguous = true;
     } else {
       const recovered = salvageSignedRunnerNullableRecovery(
         result,
@@ -453,14 +453,14 @@ function boundedRecoveryIds(
         kind,
       );
       if (recovered.id) ids.push(recovered.id);
-      if (recovered.ambiguous) ambiguous = true;
+      if (recovered.ambiguous) isAmbiguous = true;
     }
   }
-  const unique = [...new Set(ids)];
-  if (unique.length > 128) ambiguous = true;
+  const uniqueItems = [...new Set(ids)];
+  if (uniqueItems.length > 128) isAmbiguous = true;
   return Object.freeze({
-    ids: Object.freeze(unique.slice(0, 128)),
-    ambiguous,
+    ids: Object.freeze(uniqueItems.slice(0, 128)),
+    ambiguous: isAmbiguous,
   });
 }
 
@@ -656,13 +656,13 @@ function postStartUnknownBlocked(
   reason: string,
   taskResult: RuntimeRecord | null,
   discarded: RuntimeRecord | null,
-  candidateDiscarded: boolean,
+  isCandidateDiscarded: boolean,
 ) {
   ensureRuntimeProcessPoisoned();
   const projected = blocked(
     reason,
     taskResult,
-    Object.freeze({ candidateDiscarded }),
+    Object.freeze({ candidateDiscarded: isCandidateDiscarded }),
     Object.freeze([discarded]),
   );
   return Object.freeze({
@@ -1010,13 +1010,13 @@ export async function runSignedGeneralTaskVerification(
   const started = snapshotStartedTask(rawStarted);
   const controlCapability = started.controlCapability;
   const completionObservation = started.completionObservation;
-  const completionObserverUnknown = started.completionObserverUnknown;
+  const isCompletionObserverUnknown = started.completionObserverUnknown;
   const timing = settlementTiming(dependencies);
-  let cancelAttempted = false;
+  let isCancelAttempted = false;
   let cancelCompletion: Promise<unknown> | null = null;
   const requestCancellation = () => {
-    if (cancelAttempted) return cancelCompletion;
-    cancelAttempted = true;
+    if (isCancelAttempted) return cancelCompletion;
+    isCancelAttempted = true;
     if (!controlCapability) return null;
     try {
       cancelCompletion = Promise.resolve(
@@ -1033,22 +1033,22 @@ export async function runSignedGeneralTaskVerification(
   let cancellationBinding: CancellationBinding | null = null;
   let taskResult: RuntimeRecord | null = null;
   let discarded: RuntimeRecord | null = null;
-  let candidateDiscarded = false;
+  let isCandidateDiscarded = false;
   let cancellationRequested = false;
-  let postStartUnknown = false;
+  let isPostStartUnknown = false;
   let postStartUnknownReason =
     "signed_general_task_post_start_observation_unknown";
   let knownOutcome: SignedGeneralTaskVerificationResult | null = null;
   let cancellationReceipt: Readonly<{
     processTerminationObserved: boolean;
   }> | null = null;
-  const SIGNAL_CANCELLATION = Symbol("signedGeneralTaskSignalCancellation");
+  const signalCancellation = Symbol("signedGeneralTaskSignalCancellation");
   try {
     if (!controlCapability || !completionObservation) {
-      postStartUnknown = true;
+      isPostStartUnknown = true;
       postStartUnknownReason = !controlCapability
         ? "signed_general_task_started_task_observation_unknown"
-        : completionObserverUnknown
+        : isCompletionObserverUnknown
           ? "signed_general_task_completion_observer_unknown"
           : "signed_general_task_started_task_completion_unknown";
       if (controlCapability) requestCancellation();
@@ -1068,7 +1068,7 @@ export async function runSignedGeneralTaskVerification(
       if (first.kind === "cancellation") {
         cancellationRequested = true;
         requestCancellation();
-        throw SIGNAL_CANCELLATION;
+        throw signalCancellation;
       }
       if (first.outcome.status !== "fulfilled") {
         postStartUnknownReason = "signed_general_task_completion_rejected";
@@ -1116,7 +1116,7 @@ export async function runSignedGeneralTaskVerification(
         } catch {
           discarded = null;
         }
-        candidateDiscarded = discarded?.status === "discarded";
+        isCandidateDiscarded = discarded?.status === "discarded";
         if (discarded?.status !== "discarded") {
           knownOutcome = blocked(
             "signed_general_task_candidate_discard_failed",
@@ -1154,7 +1154,7 @@ export async function runSignedGeneralTaskVerification(
                 "signed_general_task_result_contract_mismatch",
               )
             : "signed_general_task_result_contract_mismatch";
-        knownOutcome = candidateDiscarded
+        knownOutcome = isCandidateDiscarded
           ? blockedAfterExactCandidateDiscard(
               mismatchReason,
               taskResult,
@@ -1236,8 +1236,8 @@ export async function runSignedGeneralTaskVerification(
       }
     }
   } catch (error) {
-    if (error !== SIGNAL_CANCELLATION) {
-      postStartUnknown = true;
+    if (error !== signalCancellation) {
+      isPostStartUnknown = true;
       requestCancellation();
     }
   } finally {
@@ -1245,20 +1245,20 @@ export async function runSignedGeneralTaskVerification(
       try {
         cancellationBinding.unbind();
       } catch {
-        postStartUnknown = true;
+        isPostStartUnknown = true;
         postStartUnknownReason =
           "signed_general_task_cancellation_unbind_unknown";
       }
       try {
         cancellationRequested = cancellationBinding.requested();
       } catch {
-        postStartUnknown = true;
+        isPostStartUnknown = true;
         postStartUnknownReason =
           "signed_general_task_cancellation_observation_unknown";
       }
     }
     if (cancellationRequested) requestCancellation();
-    if (postStartUnknown) requestCancellation();
+    if (isPostStartUnknown) requestCancellation();
     if (cancelCompletion) {
       const cancelSettlement = await boundedSettlement(
         cancelCompletion,
@@ -1269,14 +1269,14 @@ export async function runSignedGeneralTaskVerification(
           ? exactCancellationReceipt(cancelSettlement.value)
           : null;
       if (!cancellationReceipt) {
-        postStartUnknown = true;
+        isPostStartUnknown = true;
         postStartUnknownReason =
           "signed_general_task_cancellation_completion_unknown";
       }
     }
     if (
       completionObservation &&
-      (postStartUnknown || cancellationRequested) &&
+      (isPostStartUnknown || cancellationRequested) &&
       taskResult === null
     ) {
       const completionSettlement = await boundedSettlement(
@@ -1291,18 +1291,18 @@ export async function runSignedGeneralTaskVerification(
       )
         taskResult = plainRecord(completionSettlement.value.value);
       else {
-        postStartUnknown = true;
+        isPostStartUnknown = true;
         postStartUnknownReason =
           "signed_general_task_completion_settlement_unknown";
       }
     }
-    if (taskResult && (postStartUnknown || cancellationRequested)) {
+    if (taskResult && (isPostStartUnknown || cancellationRequested)) {
       const safety = evaluateSignedRunnerSafetyObservation(
         taskResult,
         TASK_SAFETY_SCHEMA,
       );
       if (safety.status !== "exact") {
-        postStartUnknown = true;
+        isPostStartUnknown = true;
         postStartUnknownReason =
           "signed_general_task_safety_observation_unknown";
       } else if (
@@ -1315,42 +1315,42 @@ export async function runSignedGeneralTaskVerification(
         cancellationReceipt?.processTerminationObserved === false &&
         taskResult.cleanupConfirmed !== true
       ) {
-        postStartUnknown = true;
+        isPostStartUnknown = true;
         postStartUnknownReason =
           "signed_general_task_cancellation_cleanup_unknown";
       }
     }
-    if ((postStartUnknown || cancellationRequested) && taskResult) {
+    if ((isPostStartUnknown || cancellationRequested) && taskResult) {
       const candidateId = taskResult.candidateId;
-      if (typeof candidateId === "string" && !candidateDiscarded) {
+      if (typeof candidateId === "string" && !isCandidateDiscarded) {
         try {
           discarded = plainRecord(dependencies.discardCandidate(candidateId));
-          candidateDiscarded = discarded?.status === "discarded";
+          isCandidateDiscarded = discarded?.status === "discarded";
         } catch {
           discarded = null;
         }
       }
     }
   }
-  if (postStartUnknown)
+  if (isPostStartUnknown)
     return postStartUnknownBlocked(
       postStartUnknownReason,
       taskResult,
       discarded,
-      candidateDiscarded,
+      isCandidateDiscarded,
     );
   if (cancellationRequested)
     return blocked(
       "signed_general_task_cancelled",
       taskResult,
-      Object.freeze({ candidateDiscarded }),
+      Object.freeze({ candidateDiscarded: isCandidateDiscarded }),
       Object.freeze([discarded]),
     );
   if (isRuntimeProcessPoisoned())
     return blocked(
       "signed_general_task_process_restart_required",
       taskResult,
-      Object.freeze({ candidateDiscarded }),
+      Object.freeze({ candidateDiscarded: isCandidateDiscarded }),
       Object.freeze([discarded]),
     );
   if (!knownOutcome)
@@ -1358,7 +1358,7 @@ export async function runSignedGeneralTaskVerification(
       "signed_general_task_final_outcome_unknown",
       taskResult,
       discarded,
-      candidateDiscarded,
+      isCandidateDiscarded,
     );
   return knownOutcome;
 }

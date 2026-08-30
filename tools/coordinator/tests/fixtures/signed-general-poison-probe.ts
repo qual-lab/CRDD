@@ -7,9 +7,9 @@ import { startRuntimeOwnedCoordinatorTask } from "../../src/security/coordinator
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/security/platform-provisioner-package-filesystem.ts";
 
 const scenario = process.argv[2] ?? "completed_true";
-const targetPath = "tools/coordinator/runtime/general-task-verification.txt";
-const baseContent = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
-const expectedContent = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
+const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
+const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
+const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
 const baseCommit = "a".repeat(40);
 const baseTree = "b".repeat(40);
@@ -31,7 +31,7 @@ const patchHash = createHash("sha256")
   .update("\0")
   .update(allowedPathsHash)
   .update("\0")
-  .update(targetPath)
+  .update(TARGET_PATH)
   .digest("hex");
 
 const release = Object.freeze({
@@ -67,9 +67,9 @@ const result: Record<string, unknown> = {
     patchHash,
     contentManifestHash,
     allowedPathsHash,
-    changedPaths: Object.freeze([targetPath]),
+    changedPaths: Object.freeze([TARGET_PATH]),
   }),
-  executorResult: Object.freeze({ changedPaths: Object.freeze([targetPath]) }),
+  executorResult: Object.freeze({ changedPaths: Object.freeze([TARGET_PATH]) }),
   reviewerResult: Object.freeze({ decision: "approved", findingCount: 0 }),
   canonicalRepositoryChanged: false,
   rawOutputReported: false,
@@ -116,7 +116,7 @@ if (scenario === "signal_cleanup_unknown_cancel_unobserved") {
   result.hostRecoveryId = hostRecoveryA;
 }
 
-const bytes = Buffer.from(expectedContent, "utf8");
+const bytes = Buffer.from(EXPECTED_CONTENT, "utf8");
 const candidate = Object.freeze({
   status: "exported",
   candidateId,
@@ -128,10 +128,10 @@ const candidate = Object.freeze({
     patchHash,
     contentManifestHash,
     allowedPathsHash,
-    changedPaths: Object.freeze([targetPath]),
+    changedPaths: Object.freeze([TARGET_PATH]),
     entries: Object.freeze([
       Object.freeze({
-        relativePath: targetPath,
+        relativePath: TARGET_PATH,
         operation: "upsert",
         byteLength: bytes.byteLength,
         sha256: createHash("sha256").update(bytes).digest("hex"),
@@ -203,12 +203,12 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       });
     }
     if (scenario === "completion_subclass_hostile_species") {
-      let hostile = false;
+      let isHostile = false;
       let rejectSubclass: (reason: Error) => void = () => undefined;
       class HostileSpeciesPromise<T> extends Promise<T> {
         static override get [Symbol.species]() {
           hostilePromiseAccesses += 1;
-          if (hostile) throw new Error("fixed_hostile_species");
+          if (isHostile) throw new Error("fixed_hostile_species");
           return Promise;
         }
 
@@ -227,7 +227,7 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
         configurable: true,
         get: () => {
           hostilePromiseAccesses += 1;
-          if (hostile) throw new Error("fixed_hostile_constructor");
+          if (isHostile) throw new Error("fixed_hostile_constructor");
           return HostileSpeciesPromise;
         },
       });
@@ -237,7 +237,7 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
         () => undefined,
       );
       hostilePromiseAccesses = 0;
-      hostile = true;
+      isHostile = true;
       rejectSubclass(new Error("fixed_hostile_subclass_rejection"));
       return Object.freeze({
         controlCapability: started.controlCapability,
@@ -306,7 +306,7 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
           candidateStoreRecoveryId: null,
         })
       : Object.freeze({ status: "discarded" }),
-  readBaseContent: () => Buffer.from(baseContent, "utf8"),
+  readBaseContent: () => Buffer.from(BASE_CONTENT, "utf8"),
   now: () => "2026-08-27T00:00:00.000Z",
   runtimeVersion: () => "24.19.0",
   bindCancellation: () => {

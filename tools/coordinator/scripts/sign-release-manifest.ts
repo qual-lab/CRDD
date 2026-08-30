@@ -218,7 +218,7 @@ function assertReleaseManifestStaticOptions(options: ManifestPreflightOptions) {
 
 function prepareReleaseManifestCandidate(
   options: ManifestPreflightOptions,
-  verifyDistributionIdentity: boolean,
+  isVerifyDistributionIdentity: boolean,
 ) {
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   assertReleaseManifestStaticOptions(options);
@@ -254,7 +254,7 @@ function prepareReleaseManifestCandidate(
   if (compiled.status !== "candidate") {
     throw new Error("release_manifest_payload_invalid");
   }
-  if (verifyDistributionIdentity) {
+  if (isVerifyDistributionIdentity) {
     const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
       distributionRoot,
       options.crddTree,

@@ -95,7 +95,9 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 
 過去の固定版`5185946ae8193d7bc305be3152558abd45fde020`および`1ce8cedde4865aeb389047c2d2471b922928092e`に対するPassは当時版の履歴であり、本統合改訂版の現在判定へ流用しない。
 
-2026-08-30の再確認では、Repository-local `.crdd`を廃止Path走査から除外し、版固定`.policy`とPlain text成果物の命名規則を正本化した。また、実行時にspawnされる`host-operation-lock-supervisor.ts`をproduction TypeScript projectの所有集合へ追加し、現行所有件数をproduction 142、test 145、TypeScript unique 299、Rust 9へ再固定した。この結果、Checker契約試験は古い件数assertionの先まで進み、現行source／testに243件の命名違反が残ることを検出した。広域抑制、allowlistまたは件数だけの調整は行わない。対象symbolを契約値・外部fieldと分離し、利用側と試験を保った変更単位で是正してから本CHGの全試験を再実行する。
+2026-08-30の再確認では、Repository-local `.crdd`を廃止Path走査から除外し、版固定`.policy`とPlain text成果物の命名規則を正本化した。また、実行時にspawnされる`host-operation-lock-supervisor.ts`をproduction TypeScript projectの所有集合へ追加し、現行所有件数をproduction 142、test 145、TypeScript unique 299、Rust 9へ再固定した。この結果、Checker契約試験は古い件数assertionの先まで進み、現行source／testの命名違反243件を検出した。
+
+広域抑制、allowlistまたは件数だけの調整は行わず、43ファイルのCRDD所有local symbolを型付き宣言単位で是正した。公開Schema／Result keyは変更せず、shorthand propertyは`effectStateUnknown: isEffectStateUnknown`等の明示形へ分離した。命名契約試験7 / 7、Checker全契約試験173 / 173、Coordinator Trace／型／Lint／Format、Coordinator全試験1,211 / 1,211、Repository全体Checker（356 Markdown、2,169 links、674 anchors、Error 0、Warning 0）を確認した。これは実装と機械確認の完了であり、最新固定改訂版の独立レビューおよび§6.8の監査集合が完了するまで本CHGを最終Passへ昇格しない。
 
 ## 7. 影響と対象外
 

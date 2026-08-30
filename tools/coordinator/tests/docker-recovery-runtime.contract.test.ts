@@ -100,10 +100,10 @@ test.after(() => {
   assert.equal(currentIdentity.isDirectory(), true);
   assert.equal(currentIdentity.isSymbolicLink(), false);
   assert.equal(path.dirname(isolatedTemporaryRoot), inheritedTemporaryRoot);
-  const remaining = fs.readdirSync(isolatedTemporaryRoot, {
+  const remainingItems = fs.readdirSync(isolatedTemporaryRoot, {
     withFileTypes: true,
   });
-  for (const entry of remaining) {
+  for (const entry of remainingItems) {
     assert.equal(entry.name, "crdd-coordinator-recovery-v1");
     assert.equal(entry.isDirectory(), true);
     assert.equal(entry.isSymbolicLink(), false);
@@ -118,14 +118,14 @@ test.after(() => {
   assertPathConfirmedAbsent(isolatedTemporaryRoot);
 });
 
-const RECOVERY_TRACE_ASSERTIONS: Readonly<
+const recoveryTraceAssertions: Readonly<
   Record<string, typeof assertRuntimeTraceCase>
 > = Object.freeze({
   "CASE-PARTIAL-PAIR-TO-RECOVERY": assertRuntimeTraceCase,
   "CASE-RECOVERY-TO-RECOVERED": assertRuntimeTraceCase,
   "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED": assertRuntimeTraceCase,
 });
-const EXECUTED_RECOVERY_TRACE_CASES = new Set<string>();
+const executedRecoveryTraceCases = new Set<string>();
 
 const FIRST_RECOVERY =
   "host.crdd-coordinator-doctor-abcdef.00000000-0000-0000-0000-000000000001.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -666,14 +666,14 @@ test("outer rollbackは現在のinitial markerを再検証できないとcached 
       rmSync: typeof fs.rmSync;
       lstatSync: typeof fs.lstatSync;
     };
-    let rootCreationRejected = false;
+    let isRootCreationRejected = false;
     let markerFaultIssued = false;
     try {
       mutableFs.mkdirSync = ((target: fs.PathLike, options?: unknown) => {
         if (
           path.basename(String(target)).startsWith("crdd-coordinator-doctor-")
         ) {
-          rootCreationRejected = true;
+          isRootCreationRejected = true;
           throw new Error("fixture_root_creation_rejected");
         }
         return originalMkdirSync(target, options as never);
@@ -681,7 +681,7 @@ test("outer rollbackは現在のinitial markerを再検証できないとcached 
       mutableFs.rmSync = ((target: fs.PathLike, options?: unknown) => {
         if (
           fault === "delete_then_throw" &&
-          rootCreationRejected &&
+          isRootCreationRejected &&
           /host-[a-f0-9]{64}\.json$/u.test(String(target))
         ) {
           originalRmSync(target, options as never);
@@ -692,7 +692,7 @@ test("outer rollbackは現在のinitial markerを再検証できないとcached 
       }) as typeof fs.rmSync;
       mutableFs.lstatSync = ((target: fs.PathLike, options?: unknown) => {
         if (
-          rootCreationRejected &&
+          isRootCreationRejected &&
           /host-[a-f0-9]{64}\.json$/u.test(String(target))
         ) {
           if (fault === "marker_observation_unknown") {
@@ -3323,7 +3323,7 @@ test("production共有回復engineはHost expected世代のprocess killを残存
         ? 1
         : 0;
     const recoveryTraceAssertion =
-      RECOVERY_TRACE_ASSERTIONS["CASE-RECOVERY-TO-RECOVERED"];
+      recoveryTraceAssertions["CASE-RECOVERY-TO-RECOVERED"];
     assert.ok(recoveryTraceAssertion);
     recoveryTraceAssertion("CASE-RECOVERY-TO-RECOVERED", {
       id: "CASE-RECOVERY-TO-RECOVERED",
@@ -3343,7 +3343,7 @@ test("production共有回復engineはHost expected世代のprocess killを残存
         "RES-OPERATION-WORKSPACE": "absent",
       },
     });
-    EXECUTED_RECOVERY_TRACE_CASES.add("CASE-RECOVERY-TO-RECOVERED");
+    executedRecoveryTraceCases.add("CASE-RECOVERY-TO-RECOVERED");
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3450,7 +3450,7 @@ test("Host begin前のactive binding content-only crashを旧Host先行削除後
     assert.deepEqual(fs.readdirSync(fixture.root), []);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
-    RECOVERY_TRACE_ASSERTIONS["CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED"]?.(
+    recoveryTraceAssertions["CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED"]?.(
       "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED",
       {
         id: "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED",
@@ -3467,9 +3467,7 @@ test("Host begin前のactive binding content-only crashを旧Host先行削除後
         },
       },
     );
-    EXECUTED_RECOVERY_TRACE_CASES.add(
-      "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED",
-    );
+    executedRecoveryTraceCases.add("CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED");
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3794,7 +3792,7 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
         ? 0
         : 1;
     const partialTraceAssertion =
-      RECOVERY_TRACE_ASSERTIONS["CASE-PARTIAL-PAIR-TO-RECOVERY"];
+      recoveryTraceAssertions["CASE-PARTIAL-PAIR-TO-RECOVERY"];
     assert.ok(partialTraceAssertion);
     partialTraceAssertion("CASE-PARTIAL-PAIR-TO-RECOVERY", {
       id: "CASE-PARTIAL-PAIR-TO-RECOVERY",
@@ -3813,7 +3811,7 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
         "RES-OPERATION-WORKSPACE": "preserved",
       },
     });
-    EXECUTED_RECOVERY_TRACE_CASES.add("CASE-PARTIAL-PAIR-TO-RECOVERY");
+    executedRecoveryTraceCases.add("CASE-PARTIAL-PAIR-TO-RECOVERY");
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3880,7 +3878,7 @@ test("Host begin済みの不正pointer不存在は失敗呼出しからprecleanu
   const root = verifiedRoot(fixture.root);
   breakProductionRecoveryPointer(fixture, "missing");
   simulateLegacyHostPrecleanupForDocker(fixture);
-  const before = fs
+  const beforeItems = fs
     .readdirSync(fixture.root, { recursive: true })
     .map(String)
     .sort();
@@ -3893,13 +3891,13 @@ test("Host begin済みの不正pointer不存在は失敗呼出しからprecleanu
       );
       assert.equal(result.status, "blocked");
       assert.equal(result.recoveryId, fixture.recoveryId);
-      const after = fs
+      const afterItems = fs
         .readdirSync(fixture.root, { recursive: true })
         .map(String)
         .sort();
-      assert.deepEqual(after, before);
+      assert.deepEqual(afterItems, beforeItems);
       assert.equal(
-        after.some((entry) =>
+        afterItems.some((entry) =>
           entry.endsWith("host-precleanup-finalization-intent.json"),
         ),
         false,
@@ -3994,19 +3992,19 @@ test("active binding削除後の観測不能は不存在にせずRecovery Eviden
   assert.ok(activePath);
   const originalRm = fs.rmSync;
   const originalLstat = fs.lstatSync;
-  let activeDeleted = false;
+  let isActiveDeleted = false;
   try {
     fs.rmSync = ((target: fs.PathLike, options?: fs.RmOptions) => {
       const result = originalRm(target, options);
       if (path.resolve(String(target)) === path.resolve(activePath))
-        activeDeleted = true;
+        isActiveDeleted = true;
       return result;
     }) as typeof fs.rmSync;
     Object.defineProperty(fs, "lstatSync", {
       configurable: true,
       value: ((target: fs.PathLike, options?: unknown) => {
         if (
-          activeDeleted &&
+          isActiveDeleted &&
           path.resolve(String(target)) === path.resolve(activePath)
         ) {
           const error = new Error("injected observation failure") as Error & {
@@ -4048,19 +4046,19 @@ test("pointer削除後の観測不能も不存在にせずRecovery Evidenceを�
   const { pointerPath } = productionRecoveryBindingPaths(fixture);
   const originalRm = fs.rmSync;
   const originalLstat = fs.lstatSync;
-  let pointerDeleted = false;
+  let isPointerDeleted = false;
   try {
     fs.rmSync = ((target: fs.PathLike, options?: fs.RmOptions) => {
       const result = originalRm(target, options);
       if (path.resolve(String(target)) === path.resolve(pointerPath))
-        pointerDeleted = true;
+        isPointerDeleted = true;
       return result;
     }) as typeof fs.rmSync;
     Object.defineProperty(fs, "lstatSync", {
       configurable: true,
       value: ((target: fs.PathLike, options?: unknown) => {
         if (
-          pointerDeleted &&
+          isPointerDeleted &&
           path.resolve(String(target)) === path.resolve(pointerPath)
         ) {
           const error = new Error("injected observation failure") as Error & {
@@ -4099,19 +4097,19 @@ test("Host Root削除後の観測不能もRecovery完了へ縮退しない", () 
   const root = verifiedRoot(fixture.root);
   const originalRm = fs.rmSync;
   const originalLstat = fs.lstatSync;
-  let hostRootDeleted = false;
+  let isHostRootDeleted = false;
   try {
     fs.rmSync = ((target: fs.PathLike, options?: fs.RmOptions) => {
       const result = originalRm(target, options);
       if (path.resolve(String(target)) === path.resolve(fixture.hostRoot))
-        hostRootDeleted = true;
+        isHostRootDeleted = true;
       return result;
     }) as typeof fs.rmSync;
     Object.defineProperty(fs, "lstatSync", {
       configurable: true,
       value: ((target: fs.PathLike, options?: unknown) => {
         if (
-          hostRootDeleted &&
+          isHostRootDeleted &&
           path.resolve(String(target)) === path.resolve(fixture.hostRoot)
         ) {
           const error = new Error("injected observation failure") as Error & {
@@ -4371,15 +4369,15 @@ test("Canonical Recovery Trace全caseは正本・registry・実行集合が一�
     "tools/coordinator/tests/docker-recovery-runtime.contract.test.ts";
   assertRuntimeTraceExecutionCoverage(
     testPath,
-    Object.keys(RECOVERY_TRACE_ASSERTIONS),
-    EXECUTED_RECOVERY_TRACE_CASES,
+    Object.keys(recoveryTraceAssertions),
+    executedRecoveryTraceCases,
   );
-  const missing = new Set(EXECUTED_RECOVERY_TRACE_CASES);
+  const missing = new Set(executedRecoveryTraceCases);
   missing.delete("CASE-RECOVERY-TO-RECOVERED");
   assert.throws(() =>
     assertRuntimeTraceExecutionCoverage(
       testPath,
-      Object.keys(RECOVERY_TRACE_ASSERTIONS),
+      Object.keys(recoveryTraceAssertions),
       missing,
     ),
   );
@@ -4795,8 +4793,8 @@ test("production共有回復engineはnative観測中にHost世代とRuntimeState
     "base.json",
   ).value as Record<string, unknown>;
   const hostNonce = parseHostRecoveryToken(base.initialHostRecoveryId).nonce;
-  let hostGenerationWasReleasedForObservation = false;
-  let runtimeStateGenerationWasReleasedForObservation = false;
+  let isHostGenerationWasReleasedForObservation = false;
+  let isRuntimeStateGenerationWasReleasedForObservation = false;
   try {
     const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       fixture.recoveryId,
@@ -4806,12 +4804,12 @@ test("production共有回復engineはnative観測中にHost世代とRuntimeState
           fixture.hostRoot,
           hostNonce,
         );
-        hostGenerationWasReleasedForObservation = Boolean(hostGeneration);
+        isHostGenerationWasReleasedForObservation = Boolean(hostGeneration);
         const runtimeStateGeneration =
           acquireRuntimeOwnedDockerRuntimeStateKernelLock(
             root.stableLogicalHomeBindingHash,
           );
-        runtimeStateGenerationWasReleasedForObservation = Boolean(
+        isRuntimeStateGenerationWasReleasedForObservation = Boolean(
           runtimeStateGeneration,
         );
         assert.equal(runtimeStateGeneration?.release(), true);
@@ -4824,8 +4822,8 @@ test("production共有回復engineはnative観測中にHost世代とRuntimeState
     );
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, "docker_task_runtime_state_binding_changed");
-    assert.equal(hostGenerationWasReleasedForObservation, true);
-    assert.equal(runtimeStateGenerationWasReleasedForObservation, true);
+    assert.equal(isHostGenerationWasReleasedForObservation, true);
+    assert.equal(isRuntimeStateGenerationWasReleasedForObservation, true);
   } finally {
     fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
     fs.rmSync(fixture.hostMarker, { force: true });
@@ -4845,8 +4843,8 @@ test("production共有回復engineはDocker照会中もHost世代とRuntimeState
     "base.json",
   ).value as Record<string, unknown>;
   const hostNonce = parseHostRecoveryToken(base.initialHostRecoveryId).nonce;
-  let dockerRunnerObservedReleasedHostGeneration = false;
-  let dockerRunnerObservedReleasedRuntimeStateGeneration = false;
+  let isDockerRunnerObservedReleasedHostGeneration = false;
+  let isDockerRunnerObservedReleasedRuntimeStateGeneration = false;
   let lockObservationCompleted = false;
   try {
     const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
@@ -4860,12 +4858,13 @@ test("production共有回復engineはDocker照会中もHost世代とRuntimeState
               fixture.hostRoot,
               hostNonce,
             );
-          dockerRunnerObservedReleasedHostGeneration = Boolean(hostGeneration);
+          isDockerRunnerObservedReleasedHostGeneration =
+            Boolean(hostGeneration);
           const runtimeStateGeneration =
             acquireRuntimeOwnedDockerRuntimeStateKernelLock(
               root.stableLogicalHomeBindingHash,
             );
-          dockerRunnerObservedReleasedRuntimeStateGeneration = Boolean(
+          isDockerRunnerObservedReleasedRuntimeStateGeneration = Boolean(
             runtimeStateGeneration,
           );
           assert.equal(runtimeStateGeneration?.release(), true);
@@ -4880,8 +4879,8 @@ test("production共有回復engineはDocker照会中もHost世代とRuntimeState
     );
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, "docker_task_recovery_create_outcome_unknown");
-    assert.equal(dockerRunnerObservedReleasedHostGeneration, true);
-    assert.equal(dockerRunnerObservedReleasedRuntimeStateGeneration, true);
+    assert.equal(isDockerRunnerObservedReleasedHostGeneration, true);
+    assert.equal(isDockerRunnerObservedReleasedRuntimeStateGeneration, true);
   } finally {
     fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
     fs.rmSync(fixture.hostMarker, { force: true });
@@ -4934,7 +4933,7 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
   const operation = verifyOwnedOperationManagementCapability(management);
   const plan = productionPlan(operation.operationId, "e".repeat(64));
   const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
-  let runtimeStateLockWasReleasedForObservation = false;
+  let isRuntimeStateLockWasReleasedForObservation = false;
   try {
     assert.deepEqual(
       beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
@@ -4947,7 +4946,8 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
             acquireRuntimeOwnedDockerRuntimeStateKernelLock(
               root.stableLogicalHomeBindingHash,
             );
-          runtimeStateLockWasReleasedForObservation = Boolean(observationLock);
+          isRuntimeStateLockWasReleasedForObservation =
+            Boolean(observationLock);
           assert.equal(observationLock?.release(), true);
           return changedRoot;
         },
@@ -4959,7 +4959,7 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
         reason: "docker_recovery_initialization_failed_closed",
       },
     );
-    assert.equal(runtimeStateLockWasReleasedForObservation, true);
+    assert.equal(isRuntimeStateLockWasReleasedForObservation, true);
     assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
     assert.equal(
       loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,

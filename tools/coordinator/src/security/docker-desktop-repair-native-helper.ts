@@ -12,7 +12,7 @@ import {
 } from "./platform-access-release.ts";
 
 const RESPONSE_BYTES = 41;
-const RESPONSE_MAGIC = Buffer.from("CRDDDR04", "ascii");
+const responseMagic = Buffer.from("CRDDDR04", "ascii");
 const COMMAND_TIMEOUT_MS = 60_000;
 const START_TIMEOUT_MS = 30_000;
 const RELEASE_TIMEOUT_MS = 5_000;
@@ -83,7 +83,7 @@ function sameArtifact(left: unknown, right: unknown) {
 function validatedStatus(frame: Buffer, expectedPolicyHash: string) {
   if (
     frame.length !== RESPONSE_BYTES ||
-    !frame.subarray(0, 8).equals(RESPONSE_MAGIC) ||
+    !frame.subarray(0, 8).equals(responseMagic) ||
     frame.subarray(9).toString("hex") !== expectedPolicyHash
   )
     return null;
@@ -106,14 +106,14 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     resolve: (frame: Buffer | null) => void;
     timer: NodeJS.Timeout;
   }> | null = null;
-  let failed = false;
+  let hasFailed = false;
   let released = false;
-  let releaseInProgress = false;
+  let isReleaseInProgress = false;
   let releaseFrameCompleted = false;
   let releaseLifecycle: Promise<DockerDesktopRepairHelperReleaseOutcome> | null =
     null;
-  let childExitObserved = child.exitCode !== null;
-  let childCloseObserved = false;
+  let isChildExitObserved = child.exitCode !== null;
+  let isChildCloseObserved = false;
   let failureCleanup: Promise<boolean> | null = null;
   let resolveFailure!: () => void;
   const failureDetected = new Promise<void>((resolve) => {
@@ -121,15 +121,15 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
   });
   const failureListeners = new Set<() => void>();
   child.once("close", () => {
-    childCloseObserved = true;
+    isChildCloseObserved = true;
   });
   const waitForExitAndStdioSettlement = (timeoutMs: number) =>
     new Promise<boolean>((resolve) => {
       const deadline = Date.now() + timeoutMs;
       const inspect = () => {
         const settled =
-          childExitObserved &&
-          childCloseObserved &&
+          isChildExitObserved &&
+          isChildCloseObserved &&
           (child.stdout.readableEnded || child.stdout.destroyed) &&
           (child.stderr.readableEnded || child.stderr.destroyed) &&
           (child.stdin.writableEnded || child.stdin.destroyed);
@@ -160,11 +160,11 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
   const boundedWrite = (value: "Q") =>
     new Promise<boolean>((resolve) => {
       let settled = false;
-      const finish = (result: boolean) => {
+      const finish = (didSucceed: boolean) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve(result);
+        resolve(didSucceed);
       };
       const timer = setTimeout(() => finish(false), RELEASE_TIMEOUT_MS);
       try {
@@ -179,12 +179,12 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
   const endStdinBounded = () =>
     new Promise<boolean>((resolve) => {
       let settled = false;
-      const finish = (result: boolean) => {
+      const finish = (didSucceed: boolean) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
         child.stdin.removeListener("error", onError);
-        resolve(result);
+        resolve(didSucceed);
       };
       const onError = () => finish(false);
       const timer = setTimeout(() => finish(false), RELEASE_TIMEOUT_MS);
@@ -203,8 +203,8 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
       protocol,
     });
   const fail = () => {
-    if (failed) return;
-    failed = true;
+    if (hasFailed) return;
+    hasFailed = true;
     if (pending) {
       clearTimeout(pending.timer);
       pending.resolve(null);
@@ -234,7 +234,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     } else frames.push(frame);
   };
   child.stdout.on("data", (chunk: Buffer) => {
-    if (failed || !Buffer.isBuffer(chunk)) return fail();
+    if (hasFailed || !Buffer.isBuffer(chunk)) return fail();
     buffer = Buffer.concat([buffer, chunk]);
     if (buffer.length > RESPONSE_BYTES * 2) return fail();
     while (buffer.length >= RESPONSE_BYTES) {
@@ -252,13 +252,13 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
   child.stderr.on("error", fail);
   child.once("error", fail);
   child.once("exit", () => {
-    childExitObserved = true;
-    if (!released && !releaseInProgress) fail();
+    isChildExitObserved = true;
+    if (!released && !isReleaseInProgress) fail();
   });
 
   const receive = (timeoutMs: number) => {
     if (frames.length > 0) return Promise.resolve(frames.shift() ?? null);
-    if (failed || pending) return Promise.resolve(null);
+    if (hasFailed || pending) return Promise.resolve(null);
     return new Promise<Buffer | null>((resolve) => {
       const timer = setTimeout(() => {
         if (!pending) return;
@@ -270,7 +270,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     });
   };
   const command = async (value: "I" | "K" | "L" | "V") => {
-    if (failed || released || !child.stdin.writable) return null;
+    if (hasFailed || released || !child.stdin.writable) return null;
     const response = receive(COMMAND_TIMEOUT_MS);
     const written = new Promise<boolean>((resolve) => {
       try {
@@ -283,11 +283,11 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     });
     const writeCompleted = await new Promise<boolean>((resolve) => {
       let settled = false;
-      const finish = (value: boolean) => {
+      const finish = (didSucceed: boolean) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve(value);
+        resolve(didSucceed);
       };
       const timer = setTimeout(() => finish(false), COMMAND_TIMEOUT_MS);
       void written.then(finish);
@@ -302,13 +302,13 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
   };
   const session: DockerDesktopRepairNativeHelperSession = Object.freeze({
     assertLive: () =>
-      !failed &&
+      !hasFailed &&
       !released &&
       child.exitCode === null &&
       child.signalCode === null &&
       child.stdin.writable,
     onFailureDetected: (listener) => {
-      if (failed) {
+      if (hasFailed) {
         listener();
         return () => undefined;
       }
@@ -342,7 +342,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     abort: async () => {
       if (releaseLifecycle) return releaseLifecycle;
       releaseLifecycle = (async () => {
-        releaseInProgress = true;
+        isReleaseInProgress = true;
         released = true;
         if (pending) {
           clearTimeout(pending.timer);
@@ -350,8 +350,9 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
           pending = null;
         }
         frames.length = 0;
-        const protocol = failed ? "failed" : "not_applicable";
-        if (!failed && !(await endStdinBounded())) void beginFailureCleanup();
+        const protocol = hasFailed ? "failed" : "not_applicable";
+        if (!hasFailed && !(await endStdinBounded()))
+          void beginFailureCleanup();
         return joinFailedCleanup(protocol);
       })();
       return releaseLifecycle;
@@ -359,9 +360,14 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     release: async () => {
       if (releaseLifecycle) return releaseLifecycle;
       releaseLifecycle = (async () => {
-        if (failed || released || releaseInProgress || !child.stdin.writable)
+        if (
+          hasFailed ||
+          released ||
+          isReleaseInProgress ||
+          !child.stdin.writable
+        )
           return joinFailedCleanup("failed");
-        releaseInProgress = true;
+        isReleaseInProgress = true;
         const response = receive(RELEASE_TIMEOUT_MS);
         if (!(await boundedWrite("Q"))) {
           fail();
@@ -380,7 +386,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
           : await beginFailureCleanup();
         const protocolCompleted =
           releaseFrameCompleted &&
-          !failed &&
+          !hasFailed &&
           settled &&
           child.exitCode === 0 &&
           child.signalCode === null &&
@@ -407,7 +413,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
       return frame ? validatedStatus(frame, expectedPolicyHash) : null;
     },
     waitForUnavailableExit: async () => {
-      if (!failed) fail();
+      if (!hasFailed) fail();
       const settled = await beginFailureCleanup();
       return settled && child.exitCode === 2;
     },

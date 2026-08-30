@@ -52,7 +52,7 @@ const RUNTIME_STATE_SEGMENTS = Object.freeze([
   "CRDD",
   "RuntimeState",
 ]);
-const KNOWN_SOCKET_ERROR_CODES = Object.freeze(
+const knownSocketErrorCodes = Object.freeze(
   new Set(["EACCES", "EBUSY", "EPERM"]),
 );
 const ENGINE_WAIT_ATTEMPTS = 60;
@@ -242,11 +242,11 @@ function markUnknown(ledger: MutableLedger) {
 }
 
 function mergeIssued(
-  current: boolean | null,
-  observed: boolean | null,
+  isCurrent: boolean | null,
+  isObserved: boolean | null,
 ): boolean | null {
-  if (current === true || observed === true) return true;
-  if (current === null || observed === null) return null;
+  if (isCurrent === true || isObserved === true) return true;
+  if (isCurrent === null || isObserved === null) return null;
   return false;
 }
 
@@ -256,8 +256,8 @@ function refreshEffectAggregate(
 ) {
   const entries =
     kind === "process" ? ledger.processEffects : ledger.filesystemEffects;
-  const issued = entries.reduce<boolean | null>(
-    (current, entry) => mergeIssued(current, entry.issued),
+  const isIssued = entries.reduce<boolean | null>(
+    (isCurrent, entry) => mergeIssued(isCurrent, entry.issued),
     false,
   );
   const confirmation: DockerDesktopRepairEffectConfirmation =
@@ -270,10 +270,10 @@ function refreshEffectAggregate(
         ? "unknown"
         : "confirmed";
   if (kind === "process") {
-    ledger.processEffectIssued = issued;
+    ledger.processEffectIssued = isIssued;
     ledger.processEffectConfirmation = confirmation;
   } else {
-    ledger.filesystemEffectIssued = issued;
+    ledger.filesystemEffectIssued = isIssued;
     ledger.filesystemEffectConfirmation = confirmation;
   }
 }
@@ -362,9 +362,9 @@ function report(
   ledger: MutableLedger,
   operation: DockerDesktopRepairOperation | null,
   nativeHelperCleanupConfirmed: boolean | null = true,
-  newRepairPermitted = false,
+  isNewRepairPermitted = false,
 ): DockerDesktopRuntimeRepairReport {
-  const effectStateUnknown =
+  const isEffectStateUnknown =
     ledger.processEffectIssued === null ||
     ledger.processEffectConfirmation === "unknown" ||
     ledger.filesystemEffectIssued === null ||
@@ -372,12 +372,12 @@ function report(
     ledger.staleState === "unknown" ||
     ledger.hostSafety === "unknown" ||
     nativeHelperCleanupConfirmed === null;
-  const hostMutationPossible =
+  const isHostMutationPossible =
     ledger.processEffectIssued !== false ||
     ledger.filesystemEffectIssued !== false;
   const manualRecoveryRequired =
     ledger.hostSafety !== "safe" ||
-    (hostMutationPossible && status === "blocked") ||
+    (isHostMutationPossible && status === "blocked") ||
     nativeHelperCleanupConfirmed === false;
   const operatorActionRequired =
     manualRecoveryRequired ||
@@ -402,9 +402,9 @@ function report(
     evidenceState: ledger.evidenceState,
     disposition: ledger.disposition,
     nativeHelperCleanupConfirmed,
-    effectStateUnknown,
+    effectStateUnknown: isEffectStateUnknown,
     operatorActionRequired,
-    newRepairPermitted,
+    newRepairPermitted: isNewRepairPermitted,
     deletionPerformed: false,
     pathReported: false,
     credentialReported: false,
@@ -638,7 +638,7 @@ function observeKnownSocketFailure(boundary: PreparedBoundary) {
       error && typeof error === "object" && "code" in error
         ? String(error.code)
         : "";
-    return KNOWN_SOCKET_ERROR_CODES.has(code)
+    return knownSocketErrorCodes.has(code)
       ? identityAt(boundary.runDirectory)
       : null;
   }
@@ -841,13 +841,13 @@ function inventoryState(
 ) {
   const inventory = dependencies.inventory(boundary);
   if (inventory.status !== "verified") return null;
-  const unfinished = inventory.operations.filter(
+  const unfinishedItems = inventory.operations.filter(
     (operation) =>
       operation.stage !== "closed_retained" &&
       operation.stage !== "closed_no_stale_known_effect_retained" &&
       operation.stage !== "closed_historical_effect_unknown_retained",
   );
-  if (unfinished.length > 1) return null;
+  if (unfinishedItems.length > 1) return null;
   for (const operation of inventory.operations) {
     if (
       operation.stage === "closed_retained" ||
@@ -872,7 +872,7 @@ function inventoryState(
     )
       return null;
   }
-  return Object.freeze({ inventory, unfinished: unfinished[0] ?? null });
+  return Object.freeze({ inventory, unfinished: unfinishedItems[0] ?? null });
 }
 
 function registerProcessCancellation(listener: () => void) {
@@ -888,14 +888,14 @@ function attachCancellation(
   session: DockerDesktopRepairNativeHelperSession,
   registerCancellation = registerProcessCancellation,
 ) {
-  let cancelled = false;
+  let wasCancelled = false;
   let helperFailed = false;
   let resolveStop!: () => void;
   const stopDetected = new Promise<void>((resolve) => {
     resolveStop = resolve;
   });
   const cancel = () => {
-    cancelled = true;
+    wasCancelled = true;
     resolveStop();
   };
   const helperFailure = () => {
@@ -905,8 +905,8 @@ function attachCancellation(
   const removeFailure = session.onFailureDetected(helperFailure);
   const removeCancellation = registerCancellation(cancel);
   return Object.freeze({
-    shouldStop: () => cancelled || helperFailed || !session.assertLive(),
-    effectAllowed: () => !cancelled && !helperFailed && session.assertLive(),
+    shouldStop: () => wasCancelled || helperFailed || !session.assertLive(),
+    effectAllowed: () => !wasCancelled && !helperFailed && session.assertLive(),
     helperAvailable: () => !helperFailed && session.assertLive(),
     stopDetected,
     dispose: () => {
@@ -925,22 +925,22 @@ type EffectBoundaryVerification =
 
 function effectBoundaryFailureReason(
   state: Exclude<EffectBoundaryVerification, "verified">,
-  afterIntent = false,
+  isAfterIntent = false,
 ) {
   if (state === "cancelled")
-    return afterIntent
+    return isAfterIntent
       ? "docker_desktop_repair_cancelled_after_intent"
       : "docker_desktop_repair_cancelled";
   if (state === "helper_lost")
     return "docker_desktop_repair_native_helper_lost";
   if (state === "artifact_unknown")
     return "docker_desktop_repair_helper_artifact_unknown";
-  return afterIntent
+  return isAfterIntent
     ? "docker_desktop_repair_authority_changed_after_intent"
     : "docker_desktop_repair_authority_changed";
 }
 
-function persistFailureReason(status: string, afterIntent = false) {
+function persistFailureReason(status: string, isAfterIntent = false) {
   if (status === "capacity_unavailable")
     return "docker_desktop_repair_record_capacity_unavailable";
   if (status === "durability_unknown")
@@ -953,7 +953,7 @@ function persistFailureReason(status: string, afterIntent = false) {
   )
     return effectBoundaryFailureReason(
       status as Exclude<EffectBoundaryVerification, "verified">,
-      afterIntent,
+      isAfterIntent,
     );
   if (status === "boundary_unavailable")
     return "docker_desktop_repair_boundary_unavailable";
@@ -1118,7 +1118,7 @@ async function observeFreshRuntimeState(
   if (!current || !samePreparedAuthority(boundary, current))
     return unavailable("authority_changed");
   const engine = dependencies.observeEngine(boundary);
-  const run = observePathUsing(dependencies, boundary.runDirectory);
+  const repairRun = observePathUsing(dependencies, boundary.runDirectory);
   const stale = observePathUsing(dependencies, operation.staleDirectory);
   if (!cancellation.effectAllowed())
     return unavailable(
@@ -1128,7 +1128,7 @@ async function observeFreshRuntimeState(
     boundaryState: "verified" as const,
     processes: processes ?? "unknown",
     engine,
-    run,
+    run: repairRun,
     stale,
   });
 }
@@ -1450,7 +1450,7 @@ async function observeHostEffectPrecondition(
       liveRunIdentity: null,
     });
   const engine = dependencies.observeEngine(boundary);
-  const run = observePathUsing(dependencies, boundary.runDirectory);
+  const repairRun = observePathUsing(dependencies, boundary.runDirectory);
   const stale = observePathUsing(dependencies, operation.staleDirectory);
   if (!cancellation.effectAllowed())
     return Object.freeze({
@@ -1461,21 +1461,21 @@ async function observeHostEffectPrecondition(
     if (
       engine === "ready" &&
       processes === "verified" &&
-      run.state === "present" &&
-      run.identity !== null &&
-      !sameIdentity(run.identity, operation.runIdentity) &&
+      repairRun.state === "present" &&
+      repairRun.identity !== null &&
+      !sameIdentity(repairRun.identity, operation.runIdentity) &&
       stale.state === "present" &&
       stale.identity !== null &&
       sameIdentity(stale.identity, operation.runIdentity)
     )
       return Object.freeze({
         state: "recovered" as const,
-        liveRunIdentity: run.identity,
+        liveRunIdentity: repairRun.identity,
       });
     if (
       engine === "known_unavailable" &&
       processes === "absent" &&
-      run.state === "confirmed_absent" &&
+      repairRun.state === "confirmed_absent" &&
       stale.state === "present" &&
       stale.identity !== null &&
       sameIdentity(stale.identity, operation.runIdentity)
@@ -1489,23 +1489,23 @@ async function observeHostEffectPrecondition(
   if (
     engine === "ready" &&
     processes === "verified" &&
-    run.state === "present" &&
-    run.identity !== null &&
-    sameIdentity(run.identity, operation.runIdentity) &&
+    repairRun.state === "present" &&
+    repairRun.identity !== null &&
+    sameIdentity(repairRun.identity, operation.runIdentity) &&
     stale.state === "confirmed_absent"
   )
     return Object.freeze({
       state: "recovered" as const,
-      liveRunIdentity: run.identity,
+      liveRunIdentity: repairRun.identity,
     });
-  const exactUnavailableRun =
+  const isExactUnavailableRun =
     engine === "known_unavailable" &&
-    run.state === "present" &&
-    run.identity !== null &&
-    sameIdentity(run.identity, operation.runIdentity) &&
+    repairRun.state === "present" &&
+    repairRun.identity !== null &&
+    sameIdentity(repairRun.identity, operation.runIdentity) &&
     stale.state === "confirmed_absent";
   if (
-    exactUnavailableRun &&
+    isExactUnavailableRun &&
     ((action === "official_shutdown" &&
       (processes === "verified" || processes === "absent")) ||
       (action === "native_termination" && processes === "verified") ||
@@ -1514,7 +1514,7 @@ async function observeHostEffectPrecondition(
     return Object.freeze({ state: "proceed" as const, liveRunIdentity: null });
   if (
     action === "native_termination" &&
-    exactUnavailableRun &&
+    isExactUnavailableRun &&
     processes === "absent"
   )
     return Object.freeze({
@@ -1524,7 +1524,7 @@ async function observeHostEffectPrecondition(
   if (
     action === "runtime_directory_rename" &&
     operation.stage === "processes_stopped" &&
-    exactUnavailableRun &&
+    isExactUnavailableRun &&
     processes === "absent"
   )
     return Object.freeze({ state: "proceed" as const, liveRunIdentity: null });
@@ -1554,15 +1554,15 @@ async function settleUnissuedIntentAfterFreshObservation(
     ledger,
   );
   if (!settled || observation.state !== "recovered") return settled;
-  const renamed = operation.stage === "renamed";
+  const wasRenamed = operation.stage === "renamed";
   if (!observation.liveRunIdentity)
     throw new DockerDesktopRepairPersistenceError(
       "docker_desktop_repair_current_state_changed_before_record",
     );
-  const expectedRunIdentity = renamed
+  const expectedRunIdentity = wasRenamed
     ? observation.liveRunIdentity
     : operation.runIdentity;
-  const expectedStaleIdentity = renamed ? operation.runIdentity : null;
+  const expectedStaleIdentity = wasRenamed ? operation.runIdentity : null;
   const fresh = await observeFreshRuntimeState(
     dependencies,
     boundary,
@@ -1584,8 +1584,8 @@ async function settleUnissuedIntentAfterFreshObservation(
   ledger.hostSafety = "safe";
   ledger.evidenceState = "preserved";
   ledger.liveRunIdentity = fresh.run.identity;
-  ledger.staleState = renamed ? "retained" : "absent";
-  ledger.disposition = renamed
+  ledger.staleState = wasRenamed ? "retained" : "absent";
+  ledger.disposition = wasRenamed
     ? "pending_human_decision"
     : "known_effect_recovery_pending_human_decision";
   return persistAfterLiveBoundary(
@@ -1594,7 +1594,7 @@ async function settleUnissuedIntentAfterFreshObservation(
     session,
     cancellation,
     settled,
-    renamed
+    wasRenamed
       ? "recovered_pending_disposition"
       : "no_stale_known_effect_recovery_pending",
     ledger,
@@ -1617,7 +1617,7 @@ async function executeRepair(
   );
   let status: DockerDesktopRuntimeRepairReport["status"] = "blocked";
   let reason = "docker_desktop_repair_failed_closed";
-  let durableEffectBoundaryEntered = operation !== null;
+  let isDurableEffectBoundaryEntered = operation !== null;
   try {
     if (cancellation.shouldStop()) {
       markUnknown(ledger);
@@ -1665,7 +1665,7 @@ async function executeRepair(
         runIdentity,
         snapshotLedger(ledger),
       );
-      durableEffectBoundaryEntered = true;
+      isDurableEffectBoundaryEntered = true;
       const shutdownBoundary = await verifyEffectBoundaryState(
         dependencies,
         boundary,
@@ -1774,11 +1774,11 @@ async function executeRepair(
       operation.stage === "no_stale_known_effect_recovery_pending" ||
       operation.stage === "no_stale_historical_effect_unknown_pending"
     ) {
-      const historicalNoStale =
+      const isHistoricalNoStale =
         operation.stage === "no_stale_historical_effect_unknown_pending";
-      const knownNoStale =
+      const isKnownNoStale =
         operation.stage === "no_stale_known_effect_recovery_pending";
-      const noStale = historicalNoStale || knownNoStale;
+      const isNoStale = isHistoricalNoStale || isKnownNoStale;
       const fresh = await observeFreshRuntimeState(
         dependencies,
         boundary,
@@ -1790,20 +1790,20 @@ async function executeRepair(
       const processes = fresh.processes;
       const runObservation = fresh.run;
       const staleObservation = fresh.stale;
-      const run = runObservation.identity;
+      const repairRun = runObservation.identity;
       const stale = staleObservation.identity;
       if (
         engine !== "ready" ||
         processes !== "verified" ||
         runObservation.state !== "present" ||
-        !run ||
+        !repairRun ||
         !sameIdentity(
-          run,
-          noStale
+          repairRun,
+          isNoStale
             ? operation.runIdentity
             : (ledger.liveRunIdentity ?? operation.runIdentity),
         ) ||
-        (noStale
+        (isNoStale
           ? staleObservation.state !== "confirmed_absent"
           : staleObservation.state !== "present" ||
             !stale ||
@@ -1815,10 +1815,10 @@ async function executeRepair(
         return { status, reason, ledger, operation };
       }
       ledger.engineReady = true;
-      ledger.staleState = noStale ? "absent" : "retained";
-      ledger.disposition = historicalNoStale
+      ledger.staleState = isNoStale ? "absent" : "retained";
+      ledger.disposition = isHistoricalNoStale
         ? "historical_effect_unknown_pending_human_decision"
-        : knownNoStale
+        : isKnownNoStale
           ? "known_effect_recovery_pending_human_decision"
           : "pending_human_decision";
       status = "recovered_pending_close";
@@ -1832,8 +1832,8 @@ async function executeRepair(
           entry.action,
         ),
       );
-      const knownProcessEffect = hostProcessEffects.length > 0;
-      const unknownProcessHistory = ledger.processEffects.some(
+      const isKnownProcessEffect = hostProcessEffects.length > 0;
+      const isUnknownProcessHistory = ledger.processEffects.some(
         (entry) =>
           [
             "historical_process_reconciliation",
@@ -1862,35 +1862,35 @@ async function executeRepair(
       const currentEngine = fresh.engine;
       const runObservation = fresh.run;
       const staleObservation = fresh.stale;
-      const run = runObservation.identity;
+      const repairRun = runObservation.identity;
       const stale = staleObservation.identity;
       const currentProcesses = fresh.processes;
       if (
         currentEngine === "ready" &&
         currentProcesses === "verified" &&
-        run &&
-        sameIdentity(run, operation.runIdentity) &&
+        repairRun &&
+        sameIdentity(repairRun, operation.runIdentity) &&
         staleObservation.state === "confirmed_absent"
       ) {
-        let observationChanged = false;
+        let isObservationChanged = false;
         if (
-          !knownProcessEffect &&
-          !unknownProcessHistory &&
+          !isKnownProcessEffect &&
+          !isUnknownProcessHistory &&
           !historicalObservationRecorded
         ) {
           mergeProcessEffect(ledger, "historical_process_reconciliation", {
             issued: null,
             confirmation: "unknown",
           });
-          observationChanged = true;
+          isObservationChanged = true;
         } else if (!historicalObservationRecorded && !desktopRecoveryRecorded) {
           mergeProcessEffect(ledger, "observed_desktop_recovery", {
             issued: false,
             confirmation: "not_issued",
           });
-          observationChanged = true;
+          isObservationChanged = true;
         }
-        if (observationChanged) {
+        if (isObservationChanged) {
           const observationOperation = operation;
           const observed = await persistAfterLiveBoundary(
             dependencies,
@@ -1919,7 +1919,7 @@ async function executeRepair(
         ledger.staleState = "absent";
         ledger.liveRunIdentity = operation.runIdentity;
         ledger.disposition =
-          knownProcessEffect && !unknownProcessHistory
+          isKnownProcessEffect && !isUnknownProcessHistory
             ? "known_effect_recovery_pending_human_decision"
             : "historical_effect_unknown_pending_human_decision";
         const pendingOperation = operation;
@@ -1929,7 +1929,7 @@ async function executeRepair(
           session,
           cancellation,
           operation,
-          knownProcessEffect && !unknownProcessHistory
+          isKnownProcessEffect && !isUnknownProcessHistory
             ? "no_stale_known_effect_recovery_pending"
             : "no_stale_historical_effect_unknown_pending",
           ledger,
@@ -1943,7 +1943,7 @@ async function executeRepair(
         operation = closed;
         status = "recovered_pending_close";
         reason =
-          knownProcessEffect && !unknownProcessHistory
+          isKnownProcessEffect && !isUnknownProcessHistory
             ? "docker_desktop_repair_no_stale_known_effect_recovery_pending_close"
             : "docker_desktop_repair_no_stale_historical_effect_unknown_pending_close";
         return { status, reason, ledger, operation };
@@ -1955,7 +1955,7 @@ async function executeRepair(
         stale &&
         sameIdentity(stale, operation.runIdentity)
       ) {
-        if (!knownProcessEffect && !unknownProcessHistory) {
+        if (!isKnownProcessEffect && !isUnknownProcessHistory) {
           mergeProcessEffect(ledger, "historical_process_reconciliation", {
             issued: null,
             confirmation: "unknown",
@@ -2001,8 +2001,8 @@ async function executeRepair(
       } else if (
         currentEngine !== "known_unavailable" ||
         (currentProcesses !== "absent" && currentProcesses !== "verified") ||
-        !run ||
-        !sameIdentity(run, operation.runIdentity) ||
+        !repairRun ||
+        !sameIdentity(repairRun, operation.runIdentity) ||
         staleObservation.state !== "confirmed_absent"
       ) {
         markUnknown(ledger);
@@ -2949,7 +2949,7 @@ async function executeRepair(
         session,
         cancellation,
       );
-      const alreadyRecovered =
+      const isAlreadyRecovered =
         engine === "ready" &&
         liveRunObservation.state === "present" &&
         liveRun !== null &&
@@ -2969,7 +2969,7 @@ async function executeRepair(
         return { status, reason, ledger, operation };
       }
       if (
-        !alreadyRecovered &&
+        !isAlreadyRecovered &&
         !settledLaunch &&
         (engine !== "known_unavailable" ||
           liveRunObservation.state !== "confirmed_absent" ||
@@ -2980,12 +2980,12 @@ async function executeRepair(
         reason = "docker_desktop_renamed_resume_state_unknown";
         return { status, reason, ledger, operation };
       }
-      if (cancellation.shouldStop() && !alreadyRecovered && !settledLaunch) {
+      if (cancellation.shouldStop() && !isAlreadyRecovered && !settledLaunch) {
         markUnknown(ledger);
         reason = "docker_desktop_repair_cancelled";
         return { status, reason, ledger, operation };
       }
-      if (!alreadyRecovered && !settledLaunch) {
+      if (!isAlreadyRecovered && !settledLaunch) {
         const launchBoundary = await verifyEffectBoundaryState(
           dependencies,
           boundary,
@@ -3128,7 +3128,7 @@ async function executeRepair(
           cancellation.shouldStop,
           cancellation.stopDetected,
         );
-      } else if (!alreadyRecovered && settledLaunch) {
+      } else if (!isAlreadyRecovered && settledLaunch) {
         engine = await dependencies.awaitEngine(
           boundary,
           cancellation.shouldStop,
@@ -3185,7 +3185,7 @@ async function executeRepair(
         reason = "docker_desktop_recovered_run_identity_unknown";
         return { status, reason, ledger, operation };
       }
-      if (alreadyRecovered && !settledLaunch) {
+      if (isAlreadyRecovered && !settledLaunch) {
         mergeProcessEffect(ledger, "observed_desktop_recovery", {
           issued: false,
           confirmation: "not_issued",
@@ -3219,7 +3219,7 @@ async function executeRepair(
     return { status, reason, ledger, operation };
   } catch (error) {
     markUnknown(ledger);
-    if (durableEffectBoundaryEntered) markUnknown(ledger);
+    if (isDurableEffectBoundaryEntered) markUnknown(ledger);
     reason =
       error instanceof DockerDesktopRepairPersistenceError
         ? error.repairReason
@@ -3250,15 +3250,15 @@ export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
         null,
       );
     }
-    const helper = await dependencies.acquireHelper(boundary);
-    if (helper.status !== "acquired" || !helper.session) {
-      helperCleanupConfirmed = helper.status !== "cleanup_unknown";
-      if (helper.status === "cleanup_unknown") markUnknown(ledger);
+    const repairHelper = await dependencies.acquireHelper(boundary);
+    if (repairHelper.status !== "acquired" || !repairHelper.session) {
+      helperCleanupConfirmed = repairHelper.status !== "cleanup_unknown";
+      if (repairHelper.status === "cleanup_unknown") markUnknown(ledger);
       return report(
         status,
-        helper.status === "unavailable"
+        repairHelper.status === "unavailable"
           ? "docker_desktop_repair_lock_unavailable"
-          : helper.status === "protocol_failed"
+          : repairHelper.status === "protocol_failed"
             ? "docker_desktop_repair_helper_protocol_failed"
             : "docker_desktop_repair_lock_cleanup_unknown",
         ledger,
@@ -3266,7 +3266,7 @@ export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
         helperCleanupConfirmed,
       );
     }
-    session = helper.session;
+    session = repairHelper.session;
     const inventory = inventoryState(dependencies, boundary);
     if (!inventory) {
       markUnknown(ledger);
@@ -3331,7 +3331,7 @@ export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
     status = "blocked";
     reason = "docker_desktop_repair_terminal_boundary_changed";
   }
-  const terminal = (
+  const isTerminal = (
     [
       "closed_retained",
       "closed_no_stale_known_effect_retained",
@@ -3344,7 +3344,7 @@ export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
     ledger,
     operation,
     helperCleanupConfirmed,
-    terminal && helperCleanupConfirmed === true,
+    isTerminal && helperCleanupConfirmed === true,
   );
 }
 
@@ -3371,15 +3371,15 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
         null,
       );
     }
-    const helper = await dependencies.acquireHelper(boundary);
-    if (helper.status !== "acquired" || !helper.session) {
-      helperCleanupConfirmed = helper.status !== "cleanup_unknown";
-      if (helper.status === "cleanup_unknown") markUnknown(ledger);
+    const repairHelper = await dependencies.acquireHelper(boundary);
+    if (repairHelper.status !== "acquired" || !repairHelper.session) {
+      helperCleanupConfirmed = repairHelper.status !== "cleanup_unknown";
+      if (repairHelper.status === "cleanup_unknown") markUnknown(ledger);
       return report(
         status,
-        helper.status === "unavailable"
+        repairHelper.status === "unavailable"
           ? "docker_desktop_repair_lock_unavailable"
-          : helper.status === "protocol_failed"
+          : repairHelper.status === "protocol_failed"
             ? "docker_desktop_repair_helper_protocol_failed"
             : "docker_desktop_repair_lock_cleanup_unknown",
         ledger,
@@ -3387,7 +3387,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
         helperCleanupConfirmed,
       );
     }
-    const activeSession = helper.session;
+    const activeSession = repairHelper.session;
     session = activeSession;
     cancellation = attachCancellation(
       activeSession,
@@ -3424,25 +3424,25 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
       const processes = fresh.processes;
       const runObservation = fresh.run;
       const staleObservation = fresh.stale;
-      const run = runObservation.identity;
+      const repairRun = runObservation.identity;
       const stale = staleObservation.identity;
-      const historicalNoStale =
+      const isHistoricalNoStale =
         operation.stage === "closed_historical_effect_unknown_retained";
-      const knownNoStale =
+      const isKnownNoStale =
         operation.stage === "closed_no_stale_known_effect_retained";
-      const noStale = historicalNoStale || knownNoStale;
+      const isNoStale = isHistoricalNoStale || isKnownNoStale;
       if (
         engine !== "ready" ||
         processes !== "verified" ||
         runObservation.state !== "present" ||
-        !run ||
+        !repairRun ||
         !sameIdentity(
-          run,
-          noStale
+          repairRun,
+          isNoStale
             ? operation.runIdentity
             : (ledger.liveRunIdentity ?? operation.runIdentity),
         ) ||
-        (noStale
+        (isNoStale
           ? staleObservation.state !== "confirmed_absent"
           : staleObservation.state !== "present" ||
             !stale ||
@@ -3452,7 +3452,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
         markUnknown(ledger);
         reason = "docker_desktop_repair_terminal_current_state_unconfirmed";
       } else {
-        status = historicalNoStale
+        status = isHistoricalNoStale
           ? "closed_historical_effect_unknown_retained"
           : "closed_retained";
         reason = "docker_desktop_repair_evidence_retention_already_closed";
@@ -3466,11 +3466,11 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
       reason = "docker_desktop_repair_close_state_invalid";
     } else {
       restoreLedger(ledger, operation);
-      const historicalNoStale =
+      const isHistoricalNoStale =
         operation.stage === "no_stale_historical_effect_unknown_pending";
-      const knownNoStale =
+      const isKnownNoStale =
         operation.stage === "no_stale_known_effect_recovery_pending";
-      const noStale = historicalNoStale || knownNoStale;
+      const isNoStale = isHistoricalNoStale || isKnownNoStale;
       const fresh = await observeFreshRuntimeState(
         dependencies,
         boundary,
@@ -3483,9 +3483,9 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
       const engine = fresh.engine;
       const processes = fresh.processes;
       const runObservation = fresh.run;
-      const run = runObservation.identity;
+      const repairRun = runObservation.identity;
       if (
-        (noStale
+        (isNoStale
           ? staleObservation.state !== "confirmed_absent"
           : staleObservation.state !== "present" ||
             !stale ||
@@ -3494,10 +3494,10 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
         processes !== "verified" ||
         fresh.boundaryState !== "verified" ||
         runObservation.state !== "present" ||
-        !run ||
+        !repairRun ||
         !sameIdentity(
-          run,
-          noStale
+          repairRun,
+          isNoStale
             ? operation.runIdentity
             : (ledger.liveRunIdentity ?? operation.runIdentity),
         )
@@ -3507,12 +3507,12 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
         reason = "docker_desktop_repair_close_precondition_unconfirmed";
       } else {
         ledger.engineReady = true;
-        ledger.staleState = noStale ? "absent" : "retained";
+        ledger.staleState = isNoStale ? "absent" : "retained";
         ledger.hostSafety = "safe";
         ledger.evidenceState = "preserved";
-        ledger.disposition = historicalNoStale
+        ledger.disposition = isHistoricalNoStale
           ? "historical_effect_unknown_retained_by_human_decision"
-          : knownNoStale
+          : isKnownNoStale
             ? "known_effect_recovery_retained_by_human_decision"
             : "retained_by_human_decision";
         if (!hasDockerDesktopRepairRecordCapacity(operation, 1)) {
@@ -3525,26 +3525,26 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
             session,
             cancellation,
             operation,
-            historicalNoStale
+            isHistoricalNoStale
               ? "closed_historical_effect_unknown_retained"
-              : knownNoStale
+              : isKnownNoStale
                 ? "closed_no_stale_known_effect_retained"
                 : "closed_retained",
             ledger,
             (state) =>
               freshReadyStateMatches(
                 state,
-                noStale
+                isNoStale
                   ? closeOperation.runIdentity
                   : (ledger.liveRunIdentity ?? closeOperation.runIdentity),
-                noStale ? null : closeOperation.runIdentity,
+                isNoStale ? null : closeOperation.runIdentity,
               ),
           );
           if (!closed) {
             reason = "docker_desktop_repair_record_update_failed";
           } else {
             operation = closed;
-            status = historicalNoStale
+            status = isHistoricalNoStale
               ? "closed_historical_effect_unknown_retained"
               : "closed_retained";
             reason = "docker_desktop_repair_evidence_retention_closed";
@@ -3603,7 +3603,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
     status = "blocked";
     reason = "docker_desktop_repair_terminal_boundary_changed";
   }
-  const terminal = (
+  const isTerminal = (
     [
       "closed_retained",
       "closed_no_stale_known_effect_retained",
@@ -3616,7 +3616,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
     ledger,
     operation,
     helperCleanupConfirmed,
-    terminal && helperCleanupConfirmed === true,
+    isTerminal && helperCleanupConfirmed === true,
   );
 }
 

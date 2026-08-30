@@ -318,7 +318,7 @@ async function verifyCleanupUnknownThenRecover() {
   });
 }
 
-async function runInternalResidueChild(waitForTermination: boolean) {
+async function runInternalResidueChild(shouldWaitForTermination: boolean) {
   const prerequisite = verifySignedPackagePrerequisite();
   if (prerequisite.status !== "verified") {
     process.stdout.write(
@@ -342,7 +342,7 @@ async function runInternalResidueChild(waitForTermination: boolean) {
     process.exitCode = 2;
     return;
   }
-  if (waitForTermination) {
+  if (shouldWaitForTermination) {
     setInterval(() => undefined, 1_000);
     await new Promise<never>(() => undefined);
   }

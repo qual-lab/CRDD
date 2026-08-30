@@ -259,15 +259,15 @@ function createProductionOperationRoot(
 export function createIsolatedCoordinatorTaskOperationCreationCandidate(
   createOperation: () => Operation,
 ) {
-  let poisoned = false;
+  let isPoisoned = false;
   return Object.freeze({
     productionAuthority: false as const,
     create: () =>
       createProductionOperationRoot(createOperation, () => {
-        poisoned = true;
+        isPoisoned = true;
       }),
     classify: productionOperationFailure,
-    isProcessPoisoned: () => poisoned,
+    isProcessPoisoned: () => isPoisoned,
   });
 }
 type RuntimeDependencies = Readonly<{
@@ -867,7 +867,7 @@ function selectionRequest(
   role: "executor" | "independent_reviewer",
   subjectProvider: Provider | null,
   requestedProvider: Provider | null,
-  requiresIndependentProvider: boolean,
+  isRequiresIndependentProvider: boolean,
 ) {
   const isIndependentReview = role === "independent_reviewer";
   return Object.freeze({
@@ -879,7 +879,7 @@ function selectionRequest(
     requestedExecutorProvider: requestedProvider ?? "auto",
     subjectProvider,
     requiresIndependentProvider:
-      isIndependentReview && requiresIndependentProvider,
+      isIndependentReview && isRequiresIndependentProvider,
     role,
     workClass: isIndependentReview ? "bounded_verification" : request.workClass,
     planState: isIndependentReview ? "complete" : request.planState,
@@ -1126,11 +1126,11 @@ async function executeStage(
         return true;
       },
     );
-    const productionProcessContract =
+    const isProductionProcessContract =
       state.dependencies.startProcess ===
       startRuntimeOwnedDockerProcessController;
     const process = (
-      productionProcessContract
+      isProductionProcessContract
         ? projectRuntimeOwnedDockerProcessStartForTask(
             rawProcess,
             control.dockerHandoffs.at(-1)?.recoveryId ?? null,
@@ -1181,7 +1181,7 @@ async function executeStage(
       );
     }
     const rawResult = await completion;
-    const result = productionProcessContract
+    const result = isProductionProcessContract
       ? projectRuntimeOwnedDockerProcessCompletionForTask(
           rawResult,
           startedDockerRecoveryId,
@@ -1897,7 +1897,7 @@ async function runCoordinatorTask(
   const plural = pluralDescriptor
     ? snapshotPlainArray<unknown>(pluralDescriptor.value, 128)
     : null;
-  const projectionInvalid =
+  const isProjectionInvalid =
     !singularDescriptor ||
     !("value" in singularDescriptor) ||
     (singularDescriptor.value !== null &&
@@ -1925,7 +1925,7 @@ async function runCoordinatorTask(
   const ids = Object.freeze([
     ...new Set([...observedIds, ...controlDockerRecoveryIds(control)]),
   ]);
-  const publicResult = projectionInvalid
+  const publicResult = isProjectionInvalid
     ? blocked(
         "coordinator_task_docker_recovery_projection_invalid",
         true,
@@ -1945,7 +1945,7 @@ async function runCoordinatorTask(
     [INTERNAL_TASK_OUTCOME]: true as const,
     publicResult,
     dockerCleanupEligible:
-      dockerCleanupEligible === true && projectionInvalid === false,
+      dockerCleanupEligible === true && isProjectionInvalid === false,
   });
 }
 
@@ -2244,7 +2244,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
             }
           }
           try {
-            let hostProtocolFailure =
+            let isHostProtocolFailure =
               control.hostGenerationLossOutcome === "cleanup_confirmed_failure";
             control.retainOperationRoot ||=
               control.hostGenerationLossOutcome === "cleanup_unknown" ||
@@ -2287,7 +2287,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   "coordinator_task_operation_cleanup_outcome_invalid",
                 );
               if (cleanup === "protocol_failure_cleanup_confirmed")
-                hostProtocolFailure = true;
+                isHostProtocolFailure = true;
               control.hostCleanupCompleted = true;
               control.hostRecoveryId = null;
               control.ownedOperation = null;
@@ -2319,7 +2319,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
               );
             }
             if (lateHostLoss === "cleanup_confirmed_failure")
-              hostProtocolFailure = true;
+              isHostProtocolFailure = true;
             for (const finalization of state.dependencies
               .recordDockerHostCleanupReceipt && !control.retainOperationRoot
               ? control.dockerFinalizations
@@ -2413,15 +2413,15 @@ function createRuntime(dependencies: RuntimeDependencies) {
               );
             }
             if (postDockerHostLoss === "cleanup_confirmed_failure")
-              hostProtocolFailure = true;
-            if (hostProtocolFailure) {
+              isHostProtocolFailure = true;
+            if (isHostProtocolFailure) {
               const candidateRecoveryId = stringValue(
                 result.candidateRecoveryId,
               );
               const discarded = candidateRecoveryId
                 ? state.dependencies.discardCandidate(candidateRecoveryId)
                 : null;
-              const candidateStillRequiresRecovery = Boolean(
+              const isCandidateStillRequiresRecovery = Boolean(
                 candidateRecoveryId && discarded?.status !== "discarded",
               );
               const dockerRecoveryIds = controlDockerRecoveryIds(control);
@@ -2435,7 +2435,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
               const manualRecoveryRequired = Boolean(
                 hostRecoveryId ||
                   dockerRecoveryIds.length > 0 ||
-                  candidateStillRequiresRecovery ||
+                  isCandidateStillRequiresRecovery ||
                   candidateStoreRecoveryId,
               );
               return blocked(
@@ -2443,7 +2443,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 manualRecoveryRequired,
                 hostRecoveryId,
                 dockerRecoveryIds.length === 1 ? dockerRecoveryIds[0] : null,
-                candidateStillRequiresRecovery ? candidateRecoveryId : null,
+                isCandidateStillRequiresRecovery ? candidateRecoveryId : null,
                 !manualRecoveryRequired,
                 candidateStoreRecoveryId,
                 dockerRecoveryIds,

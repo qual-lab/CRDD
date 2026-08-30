@@ -209,7 +209,7 @@ function sanitizedRouteRecovery(
   result: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
   const projection: Record<string, unknown> = Object.create(null);
-  let ambiguous = false;
+  let isAmbiguous = false;
   for (const pair of RECOVERY_PAIRS) {
     const recovered = salvageSignedRunnerRecoveryPair(result, {
       singularField: pair.singular,
@@ -218,15 +218,15 @@ function sanitizedRouteRecovery(
     });
     projection[pair.singular] = recovered.singular;
     projection[pair.plural] = recovered.plural;
-    if (recovered.ambiguous) ambiguous = true;
+    if (recovered.ambiguous) isAmbiguous = true;
   }
   return Object.freeze({
     ...projection,
-    recoveryIdentityAmbiguous: ambiguous,
+    recoveryIdentityAmbiguous: isAmbiguous,
   });
 }
 
-function emptyRouteRecovery(ambiguous = false) {
+function emptyRouteRecovery(isAmbiguous = false) {
   return Object.freeze({
     hostRecoveryId: null,
     hostRecoveryIds: Object.freeze([]),
@@ -236,7 +236,7 @@ function emptyRouteRecovery(ambiguous = false) {
     candidateRecoveryIds: Object.freeze([]),
     candidateStoreRecoveryId: null,
     candidateStoreRecoveryIds: Object.freeze([]),
-    recoveryIdentityAmbiguous: ambiguous,
+    recoveryIdentityAmbiguous: isAmbiguous,
   });
 }
 
@@ -267,7 +267,7 @@ function aggregateRouteRecovery(
   results: readonly Readonly<Record<string, unknown>>[],
 ) {
   const aggregate: Record<string, unknown> = Object.create(null);
-  let ambiguous = results.some(
+  let isAmbiguous = results.some(
     (result) => result.recoveryIdentityAmbiguous === true,
   );
   for (const pair of RECOVERY_PAIRS) {
@@ -276,17 +276,17 @@ function aggregateRouteRecovery(
       const recovery = sanitizedRouteRecovery(result);
       const values = recovery[pair.plural];
       if (Array.isArray(values)) ids.push(...(values as readonly string[]));
-      if (recovery.recoveryIdentityAmbiguous === true) ambiguous = true;
+      if (recovery.recoveryIdentityAmbiguous === true) isAmbiguous = true;
     }
-    const allUnique = [...new Set(ids)];
-    if (allUnique.length > 128) ambiguous = true;
-    const unique = Object.freeze(allUnique.slice(0, 128));
-    aggregate[pair.singular] = unique.length === 1 ? unique[0] : null;
-    aggregate[pair.plural] = unique;
+    const allUniqueItems = [...new Set(ids)];
+    if (allUniqueItems.length > 128) isAmbiguous = true;
+    const uniqueItems = Object.freeze(allUniqueItems.slice(0, 128));
+    aggregate[pair.singular] = uniqueItems.length === 1 ? uniqueItems[0] : null;
+    aggregate[pair.plural] = uniqueItems;
   }
   return Object.freeze({
     ...aggregate,
-    recoveryIdentityAmbiguous: ambiguous,
+    recoveryIdentityAmbiguous: isAmbiguous,
   });
 }
 
@@ -396,7 +396,7 @@ function isSafeRetryableRouteResult(result: Readonly<Record<string, unknown>>) {
 
 export async function runSignedRouteMatrixVerification(
   repositoryRoot: string,
-  run: typeof runSignedGeneralTaskVerification = runSignedGeneralTaskVerification,
+  routeRun: typeof runSignedGeneralTaskVerification = runSignedGeneralTaskVerification,
 ) {
   if (isRuntimeProcessPoisoned()) return processRestartRequiredResult();
   const results: Array<Readonly<Record<string, unknown>>> = [];
@@ -417,7 +417,7 @@ export async function runSignedRouteMatrixVerification(
     for (let attempt = 1; attempt <= MAX_SAFE_ROUTE_ATTEMPTS; attempt += 1) {
       let routeSnapshot: Readonly<Record<string, unknown>> | null = null;
       try {
-        const outcome = await run(repositoryRoot, undefined, route);
+        const outcome = await routeRun(repositoryRoot, undefined, route);
         const result = snapshotRouteRecord(outcome);
         if (!result) throw new Error("route_result_snapshot_unknown");
         routeSnapshot = result;
@@ -445,12 +445,12 @@ export async function runSignedRouteMatrixVerification(
           index === 0 && attempt === 1 && initialConsentAuthorizationMode
             ? initialConsentAuthorizationMode
             : "reused_initial_consent";
-        const exact = isExactSignedRouteResult(
+        const isExact = isExactSignedRouteResult(
           route,
           result,
           expectedAuthorizationMode,
         );
-        if (!exact) {
+        if (!isExact) {
           if (
             attempt < MAX_SAFE_ROUTE_ATTEMPTS &&
             isSafeRetryableRouteResult(result)
@@ -481,16 +481,16 @@ export async function runSignedRouteMatrixVerification(
       }
     }
   }
-  const completed = verifiedRouteCount === ROUTES.length;
-  const effectStateUnknown = results.some(
+  const isCompleted = verifiedRouteCount === ROUTES.length;
+  const isEffectStateUnknown = results.some(
     (result) => result.effectStateUnknown === true,
   );
   const recovery = aggregateRouteRecovery(results);
   return Object.freeze({
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
-    status: completed ? ("completed" as const) : ("blocked" as const),
-    reason: completed
+    status: isCompleted ? ("completed" as const) : ("blocked" as const),
+    reason: isCompleted
       ? "signed_route_matrix_completed"
       : "signed_route_matrix_incomplete",
     requestedRoutes: ROUTES,
@@ -505,20 +505,20 @@ export async function runSignedRouteMatrixVerification(
       results.length > 0 &&
       results.every((result) => result.cleanupConfirmed === true),
     manualRecoveryRequired:
-      effectStateUnknown ||
+      isEffectStateUnknown ||
       results.some((result) => result.manualRecoveryRequired !== false),
     processRestartRequired: isRuntimeProcessPoisoned(),
-    effectStateUnknown,
-    canonicalRepositoryChanged: effectStateUnknown
+    effectStateUnknown: isEffectStateUnknown,
+    canonicalRepositoryChanged: isEffectStateUnknown
       ? null
       : results.some((result) => result.canonicalRepositoryChanged !== false),
-    rawProviderOutputReported: effectStateUnknown
+    rawProviderOutputReported: isEffectStateUnknown
       ? null
       : results.some((result) => result.rawProviderOutputReported !== false),
-    hostPathReported: effectStateUnknown
+    hostPathReported: isEffectStateUnknown
       ? null
       : results.some((result) => result.hostPathReported !== false),
-    credentialReported: effectStateUnknown
+    credentialReported: isEffectStateUnknown
       ? null
       : results.some((result) => result.credentialReported !== false),
     ...recovery,
@@ -563,7 +563,7 @@ export function describeSignedRouteMatrixVerificationContract() {
 export function createSignedRouteMatrixCliFailureResult(
   validationFailure: "arguments_invalid" | "runner_exception",
 ) {
-  const effectStateUnknown = validationFailure === "runner_exception";
+  const isEffectStateUnknown = validationFailure === "runner_exception";
   return Object.freeze({
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
@@ -579,15 +579,15 @@ export function createSignedRouteMatrixCliFailureResult(
     failedRouteProfile: null,
     validationFailure,
     results: Object.freeze([]),
-    cleanupConfirmed: !effectStateUnknown,
-    manualRecoveryRequired: effectStateUnknown,
+    cleanupConfirmed: !isEffectStateUnknown,
+    manualRecoveryRequired: isEffectStateUnknown,
     processRestartRequired: isRuntimeProcessPoisoned(),
-    effectStateUnknown,
-    canonicalRepositoryChanged: effectStateUnknown ? null : false,
-    rawProviderOutputReported: effectStateUnknown ? null : false,
-    hostPathReported: effectStateUnknown ? null : false,
-    credentialReported: effectStateUnknown ? null : false,
-    ...emptyRouteRecovery(effectStateUnknown),
+    effectStateUnknown: isEffectStateUnknown,
+    canonicalRepositoryChanged: isEffectStateUnknown ? null : false,
+    rawProviderOutputReported: isEffectStateUnknown ? null : false,
+    hostPathReported: isEffectStateUnknown ? null : false,
+    credentialReported: isEffectStateUnknown ? null : false,
+    ...emptyRouteRecovery(isEffectStateUnknown),
   });
 }
 

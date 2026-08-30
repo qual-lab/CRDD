@@ -28,7 +28,7 @@ export function renderDockerRecoveryDoctorReport(
   if (shouldOutputJson) {
     const isRepairReport =
       reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair";
-    const repairSucceeded =
+    const isRepairSucceeded =
       isRepairReport &&
       ["closed_retained", "closed_historical_effect_unknown_retained"].includes(
         reportValue.status,
@@ -38,7 +38,7 @@ export function renderDockerRecoveryDoctorReport(
     return Object.freeze({
       stdout: `${JSON.stringify(report, null, 2)}\n`,
       exitCode: (isRepairReport
-        ? repairSucceeded
+        ? isRepairSucceeded
           ? [reportValue.status]
           : []
         : ["ready", "recovered"]

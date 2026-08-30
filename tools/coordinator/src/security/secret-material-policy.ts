@@ -74,20 +74,20 @@ function assignmentKey(
   return segments.at(-1) ?? "";
 }
 
-function sourceIndirection(value: string, sourceFileContext: boolean) {
+function sourceIndirection(value: string, isSourceFileContext: boolean) {
   const expression = value.replace(/!+(?=(?:\?\.|\.|\[))/gu, "");
   const withoutTerminalAssertion = expression.endsWith("!")
     ? expression.slice(0, -1)
     : null;
   return (
     expression.startsWith("${") ||
-    (sourceFileContext
+    (isSourceFileContext
       ? STANDARD_IDENTIFIER_PATTERN.test(expression)
       : SOURCE_IDENTIFIER_PATTERN.test(expression)) ||
     MEMBER_EXPRESSION_PATTERN.test(expression) ||
     CALL_EXPRESSION_PATTERN.test(expression) ||
     (withoutTerminalAssertion !== null &&
-      ((sourceFileContext &&
+      ((isSourceFileContext &&
         STANDARD_IDENTIFIER_PATTERN.test(withoutTerminalAssertion)) ||
         MEMBER_EXPRESSION_PATTERN.test(withoutTerminalAssertion) ||
         CALL_EXPRESSION_PATTERN.test(withoutTerminalAssertion)))
@@ -115,7 +115,7 @@ function isPathOrNestedSuffix(normalized: string, suffix: string) {
 function isJavaScriptCodePosition(text: string, targetIndex: number) {
   let state: "code" | "single" | "double" | "template" | "line" | "block" =
     "code";
-  let escaped = false;
+  let isEscaped = false;
   for (let index = 0; index < targetIndex; index += 1) {
     const current = text[index] ?? "";
     const next = text[index + 1] ?? "";
@@ -131,8 +131,8 @@ function isJavaScriptCodePosition(text: string, targetIndex: number) {
       continue;
     }
     if (state !== "code") {
-      if (escaped) escaped = false;
-      else if (current === "\\") escaped = true;
+      if (isEscaped) isEscaped = false;
+      else if (current === "\\") isEscaped = true;
       else if (
         (state === "single" && current === "'") ||
         (state === "double" && current === '"') ||
@@ -163,7 +163,7 @@ function javascriptNonCodeFragments(text: string) {
   let state: "code" | "single" | "double" | "template" | "line" | "block" =
     "code";
   let start = -1;
-  let escaped = false;
+  let isEscaped = false;
   for (let index = 0; index < text.length; index += 1) {
     const current = text[index] ?? "";
     const next = text[index + 1] ?? "";
@@ -205,10 +205,10 @@ function javascriptNonCodeFragments(text: string) {
       }
       continue;
     }
-    if (escaped) {
-      escaped = false;
+    if (isEscaped) {
+      isEscaped = false;
     } else if (current === "\\") {
-      escaped = true;
+      isEscaped = true;
     } else if (
       (state === "single" && current === "'") ||
       (state === "double" && current === '"') ||
@@ -230,8 +230,8 @@ function javascriptNonCodeFragments(text: string) {
 
 function literalSecretValue(
   value: string,
-  quoted: boolean,
-  sourceFileContext: boolean,
+  isQuoted: boolean,
+  isSourceFileContext: boolean,
 ) {
   const normalized = value.trim();
   if (
@@ -241,8 +241,8 @@ function literalSecretValue(
   ) {
     return false;
   }
-  if (quoted) return true;
-  if (sourceIndirection(normalized, sourceFileContext)) return false;
+  if (isQuoted) return true;
+  if (sourceIndirection(normalized, isSourceFileContext)) return false;
   return (
     normalized.length >= 20 ||
     /[0-9_-]/u.test(normalized) ||
@@ -252,12 +252,12 @@ function literalSecretValue(
 
 function containsRecognizedSecretTextInContext(
   value: string | Uint8Array,
-  javascriptSourceContext: boolean,
+  isJavascriptSourceContext: boolean,
 ) {
   const text = textFrom(value);
   if (FIXED_FORMAT_SECRET_PATTERN.test(text)) return true;
   if (
-    javascriptSourceContext &&
+    isJavascriptSourceContext &&
     javascriptNonCodeFragments(text).some((fragment) =>
       containsRecognizedSecretTextInContext(fragment, false),
     )
@@ -266,7 +266,7 @@ function containsRecognizedSecretTextInContext(
   }
   for (const match of text.matchAll(EMBEDDED_NAMED_SECRET_PATTERN)) {
     if (
-      javascriptSourceContext &&
+      isJavascriptSourceContext &&
       !isJavaScriptCodePosition(text, match.index ?? 0)
     ) {
       continue;
@@ -293,13 +293,13 @@ function containsRecognizedSecretTextInContext(
     const leadingBoundary = match[0][0] ?? "";
     const keyPosition =
       (match.index ?? 0) + (leadingBoundary.length > 0 ? 1 : 0);
-    const sourceExpressionContext =
-      javascriptSourceContext && isJavaScriptCodePosition(text, keyPosition);
+    const isSourceExpressionContext =
+      isJavascriptSourceContext && isJavaScriptCodePosition(text, keyPosition);
     if (
       literalSecretValue(
         assignedValue,
         doubleQuoted !== undefined || singleQuoted !== undefined,
-        sourceExpressionContext,
+        isSourceExpressionContext,
       )
     ) {
       return true;

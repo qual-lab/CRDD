@@ -67,12 +67,15 @@ test("Docker cleanup eligibilityは0/1/N exact finalizable集合だけを受理�
 
 test("raw recovery projectionの不正shapeは認証済みhandoffがあっても拒否する", () => {
   const state = candidate(["r1"]);
-  const sparse = new Array(1);
-  const withExtra = ["r1"];
-  Object.defineProperty(withExtra, "extra", { value: "r2", enumerable: true });
-  const withOutOfRangeNumericKey = new Proxy([], {
+  const sparseItems = new Array(1);
+  const withExtraItems = ["r1"];
+  Object.defineProperty(withExtraItems, "extra", {
+    value: "r2",
+    enumerable: true,
+  });
+  const withOutOfRangeNumericKeyItems = new Proxy([], {
     ownKeys: () => ["length", "2"],
-    getOwnPropertyDescriptor: (target, key) =>
+    getOwnPropertyDescriptor: (targetItems, key) =>
       key === "2"
         ? {
             configurable: true,
@@ -80,11 +83,11 @@ test("raw recovery projectionの不正shapeは認証済みhandoffがあっても
             writable: true,
             value: "r1",
           }
-        : Reflect.getOwnPropertyDescriptor(target, key),
+        : Reflect.getOwnPropertyDescriptor(targetItems, key),
   });
-  const nonPlain = ["r1"];
-  Object.setPrototypeOf(nonPlain, Object.create(Array.prototype));
-  const invalid = [
+  const nonPlainItems = ["r1"];
+  Object.setPrototypeOf(nonPlainItems, Object.create(Array.prototype));
+  const invalidItems = [
     {
       singularPresent: true,
       singular: undefined,
@@ -125,25 +128,25 @@ test("raw recovery projectionの不正shapeは認証済みhandoffがあっても
       singularPresent: true,
       singular: "r1",
       pluralPresent: true,
-      plural: sparse,
+      plural: sparseItems,
     },
     {
       singularPresent: true,
       singular: "r1",
       pluralPresent: true,
-      plural: withExtra,
+      plural: withExtraItems,
     },
     {
       singularPresent: true,
       singular: null,
       pluralPresent: true,
-      plural: withOutOfRangeNumericKey,
+      plural: withOutOfRangeNumericKeyItems,
     },
     {
       singularPresent: true,
       singular: "r1",
       pluralPresent: true,
-      plural: nonPlain,
+      plural: nonPlainItems,
     },
     {
       singularPresent: true,
@@ -165,7 +168,7 @@ test("raw recovery projectionの不正shapeは認証済みhandoffがあっても
       plural: ["r1", "r2"],
     },
   ];
-  for (const projection of invalid)
+  for (const projection of invalidItems)
     assert.equal(
       evaluateManagedDockerCleanupEligibility({
         raw: projection,

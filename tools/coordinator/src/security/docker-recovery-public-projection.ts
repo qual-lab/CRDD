@@ -7,7 +7,7 @@ import {
   parseDockerTaskRecoveryId,
 } from "./docker-recovery-identity.ts";
 
-const RECOVERY_OBSERVATION_KEYS = new Set([
+const recoveryObservationKeys = new Set([
   "status",
   "reason",
   "manualRecoveryRequired",
@@ -16,7 +16,7 @@ const RECOVERY_OBSERVATION_KEYS = new Set([
   "activeStableLogicalHomeBindingHashes",
 ] as const);
 
-const RECOVERY_START_REASON_CLASS = new Map<string, string>([
+const recoveryStartReasonClass = new Map<string, string>([
   [
     "docker_task_multiple_recovery_inventory_available",
     "docker_process_controller_recovery_conflict",
@@ -98,7 +98,7 @@ const BLOCKED_REASONS_WITH_INVENTORY = new Set([
 
 export function publicDockerRecoveryStartReason(reason: unknown) {
   if (typeof reason === "string") {
-    const classified = RECOVERY_START_REASON_CLASS.get(reason);
+    const classified = recoveryStartReasonClass.get(reason);
     if (classified) return classified;
   }
   return "docker_process_controller_recovery_unavailable";
@@ -111,7 +111,7 @@ export function publicVerifiedDockerRecoveryId(value: unknown) {
 export function projectDockerRecoveryAdmission(rawObservation: unknown) {
   const observation = snapshotPlainRecord(
     rawObservation,
-    RECOVERY_OBSERVATION_KEYS,
+    recoveryObservationKeys,
   );
   if (!observation)
     return Object.freeze({
@@ -143,26 +143,26 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
     hashes.status === "ok" && hashes.value.every(isSha256Hex)
       ? (hashes.value as readonly string[])
       : null;
-  const idsUnique = ids !== null && new Set(ids).size === ids.length;
-  const hashesUnique =
+  const isIdsUnique = ids !== null && new Set(ids).size === ids.length;
+  const isHashesUnique =
     hashValues !== null && new Set(hashValues).size === hashValues.length;
   const stableHashes = new Set(
     parsedIds.flatMap((value) =>
       value ? [value.stableLogicalHomeBindingHash] : [],
     ),
   );
-  const shapeValid =
+  const isShapeValid =
     ids !== null &&
     hashValues !== null &&
-    idsUnique &&
-    hashesUnique &&
+    isIdsUnique &&
+    isHashesUnique &&
     hashValues.every((value) => stableHashes.has(value)) &&
     (observation.status === "completed" || observation.status === "blocked") &&
     typeof observation.reason === "string" &&
     typeof observation.manualRecoveryRequired === "boolean" &&
     singleId !== undefined &&
     (ids.length === 1 ? singleId === ids[0] : singleId === null);
-  if (!shapeValid)
+  if (!isShapeValid)
     return Object.freeze({
       status: "blocked" as const,
       reason: publicDockerRecoveryStartReason(null),
@@ -170,14 +170,14 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
       dockerRecoveryId: null,
       dockerRecoveryIds: Object.freeze([] as string[]),
     });
-  const clean =
+  const isClean =
     observation.status === "completed" &&
     observation.reason === "docker_task_runtime_state_clean" &&
     observation.manualRecoveryRequired === false &&
     singleId === null &&
     ids.length === 0 &&
     hashValues.length === 0;
-  if (clean)
+  if (isClean)
     return Object.freeze({
       status: "completed" as const,
       reason: "docker_task_runtime_state_clean",
@@ -189,19 +189,19 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
     ids.length === 1
       ? "docker_task_recovery_inventory_available"
       : "docker_task_multiple_recovery_inventory_available";
-  const blockedShape =
+  const isBlockedShape =
     observation.status === "blocked" &&
     observation.manualRecoveryRequired === true &&
-    RECOVERY_START_REASON_CLASS.has(observation.reason) &&
+    recoveryStartReasonClass.has(observation.reason) &&
     (ids.length === 0
       ? !INVENTORY_REASONS.has(observation.reason)
       : BLOCKED_REASONS_WITH_INVENTORY.has(observation.reason));
-  const inventoryShape =
+  const isInventoryShape =
     observation.status === "completed" &&
     observation.manualRecoveryRequired === true &&
     ids.length > 0 &&
     observation.reason === inventoryReason;
-  if (!blockedShape && !inventoryShape)
+  if (!isBlockedShape && !isInventoryShape)
     return Object.freeze({
       status: "blocked" as const,
       reason: publicDockerRecoveryStartReason(null),

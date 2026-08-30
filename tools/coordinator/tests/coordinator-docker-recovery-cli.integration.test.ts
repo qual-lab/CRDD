@@ -178,10 +178,10 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     credentialReported: false,
     providerEffectIssued: false,
   });
-  for (const json of [true, false]) {
+  for (const isJson of [true, false]) {
     const repair = await dispatchDockerDesktopRepairDoctorCommand(
       {
-        json,
+        json: isJson,
         repairDockerDesktopRuntime: true,
         closeDockerDesktopRepairId: null,
       },
@@ -197,7 +197,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     assert.equal(repair?.exitCode, 2);
     const close = await dispatchDockerDesktopRepairDoctorCommand(
       {
-        json,
+        json: isJson,
         repairDockerDesktopRuntime: false,
         closeDockerDesktopRepairId: repairId,
       },
@@ -207,7 +207,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     assert.doesNotMatch(close?.stdout ?? "", /C:\\/u);
     const failed = await dispatchDockerDesktopRepairDoctorCommand(
       {
-        json,
+        json: isJson,
         repairDockerDesktopRuntime: true,
         closeDockerDesktopRepairId: null,
       },
@@ -222,7 +222,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     assert.doesNotMatch(failed?.stdout ?? "", /secret|token|C:\\/u);
     const closeFailed = await dispatchDockerDesktopRepairDoctorCommand(
       {
-        json,
+        json: isJson,
         repairDockerDesktopRuntime: false,
         closeDockerDesktopRepairId: repairId,
       },
@@ -235,7 +235,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     );
     assert.equal(closeFailed?.exitCode, 2);
     assert.doesNotMatch(closeFailed?.stdout ?? "", /secret|token|C:\\/u);
-    if (json) {
+    if (isJson) {
       const fallback = JSON.parse(failed?.stdout ?? "{}") as Record<
         string,
         unknown

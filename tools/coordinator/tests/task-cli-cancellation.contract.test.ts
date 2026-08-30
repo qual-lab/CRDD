@@ -477,14 +477,15 @@ function inspectTaskCliCancellationWiring(
     checker.getResolvedSymbol(unbindReceiver)?.id !== bindingSymbol?.id
   )
     failures.push("unbind_receiver_binding_mismatch");
-  const containingFinally = tryStatements.filter(
+  const containingFinallyItems = tryStatements.filter(
     (statement) =>
       statement.finallyBlock &&
       unbindCall &&
       unbindCall.pos >= statement.finallyBlock.pos &&
       unbindCall.end <= statement.finallyBlock.end,
   );
-  if (containingFinally.length !== 1) failures.push("unbind_not_in_finally");
+  if (containingFinallyItems.length !== 1)
+    failures.push("unbind_not_in_finally");
 
   const directSignalCalls = calls.filter(
     (call) =>
@@ -550,7 +551,7 @@ function inspectTaskCliCancellationWiring(
     bindingStatementIndex < 0 ||
     !followingStatement ||
     !isTryStatement(followingStatement) ||
-    followingStatement.finallyBlock !== containingFinally[0]?.finallyBlock
+    followingStatement.finallyBlock !== containingFinallyItems[0]?.finallyBlock
   )
     failures.push("helper_not_immediately_guarded_by_finally");
   return Object.freeze(failures);

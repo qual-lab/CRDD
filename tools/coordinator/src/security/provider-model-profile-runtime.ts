@@ -34,24 +34,24 @@ function resolveProfile(
 ) {
   const isUpperModelTier = modelTier === "upper_allowed";
   if (provider === "codex" && family === "sol") {
-    const isolatedTaskRole =
+    const isIsolatedTaskRole =
       role === "executor" || role === "independent_reviewer";
     return Object.freeze({
       provider,
-      profileId: isolatedTaskRole
+      profileId: isIsolatedTaskRole
         ? isUpperModelTier
           ? "PROFILE-100004"
           : "PROFILE-100003"
         : isUpperModelTier
           ? "PROFILE-100002"
           : "PROFILE-100001",
-      exactModelId: isolatedTaskRole ? "gpt-5.5" : "gpt-5.6-sol",
+      exactModelId: isIsolatedTaskRole ? "gpt-5.5" : "gpt-5.6-sol",
       family,
       selectionRole: role,
       modelTier,
       speedMode: "normal" as const,
       billingMode: "subscription_oauth" as const,
-      compatibilityReason: isolatedTaskRole
+      compatibilityReason: isIsolatedTaskRole
         ? ("gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime" as const)
         : null,
     });

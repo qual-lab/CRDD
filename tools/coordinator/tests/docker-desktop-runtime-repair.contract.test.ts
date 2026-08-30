@@ -22,7 +22,7 @@ import {
   persistDockerDesktopRepairStage,
 } from "../src/security/docker-desktop-repair-record-store.ts";
 
-const runIdentity = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
+const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
 const policy = Object.freeze({
   policySha256: "5".repeat(64),
   dockerDesktopVersion: "4.41.2",
@@ -95,21 +95,21 @@ function session(
 function fixture(overrides: Partial<RepairDependencies> = {}) {
   const calls: string[] = [];
   let operation: DockerDesktopRepairOperation | null = null;
-  let renamed = false;
-  let restarted = false;
+  let wasRenamed = false;
+  let wasRestarted = false;
   let terminated = false;
   let engineObservations = 0;
-  const helper = Object.freeze({
+  const repairHelper = Object.freeze({
     ...session(),
     inspectProcesses: async () =>
-      restarted || !terminated ? ("verified" as const) : ("absent" as const),
+      wasRestarted || !terminated ? ("verified" as const) : ("absent" as const),
     terminateProcesses: async () => {
       terminated = true;
       return "terminated" as const;
     },
     launchDesktop: async () => {
       calls.push("start");
-      restarted = true;
+      wasRestarted = true;
       return "started" as const;
     },
   });
@@ -120,7 +120,10 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
     },
     acquireHelper: async () => {
       calls.push("helper");
-      return Object.freeze({ status: "acquired" as const, session: helper });
+      return Object.freeze({
+        status: "acquired" as const,
+        session: repairHelper,
+      });
     },
     inventory: () =>
       Object.freeze({
@@ -130,11 +133,11 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
     observeEngine: () => {
       engineObservations += 1;
       calls.push(`engine:${engineObservations}`);
-      return restarted ? "ready" : "known_unavailable";
+      return wasRestarted ? "ready" : "known_unavailable";
     },
     observeKnownSocketFailure: () => {
       calls.push("socket");
-      return runIdentity;
+      return RUN_IDENTITY;
     },
     persistStage: (_boundary, current, stage, ledger) => {
       calls.push(`persist:${stage}`);
@@ -163,7 +166,7 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
     },
     renameRunDirectory: () => {
       calls.push("rename");
-      renamed = true;
+      wasRenamed = true;
       return Object.freeze({
         issued: true,
         confirmation: "confirmed" as const,
@@ -176,9 +179,9 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
     },
     identityAt: (target) => {
       if (target === boundary.runDirectory)
-        return renamed && !restarted ? null : runIdentity;
+        return wasRenamed && !wasRestarted ? null : RUN_IDENTITY;
       if (target.includes("run.crdd-stale-"))
-        return renamed ? runIdentity : null;
+        return wasRenamed ? RUN_IDENTITY : null;
       return null;
     },
     observePath: (target) => {
@@ -192,15 +195,18 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
             });
       }
       if (target === boundary.runDirectory)
-        return renamed && !restarted
+        return wasRenamed && !wasRestarted
           ? Object.freeze({
               state: "confirmed_absent" as const,
               identity: null,
             })
-          : Object.freeze({ state: "present" as const, identity: runIdentity });
+          : Object.freeze({
+              state: "present" as const,
+              identity: RUN_IDENTITY,
+            });
       if (target.includes("run.crdd-stale-"))
-        return renamed
-          ? Object.freeze({ state: "present" as const, identity: runIdentity })
+        return wasRenamed
+          ? Object.freeze({ state: "present" as const, identity: RUN_IDENTITY })
           : Object.freeze({
               state: "confirmed_absent" as const,
               identity: null,
@@ -214,21 +220,22 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
     dependencies,
     setOperation: (value: DockerDesktopRepairOperation) => {
       operation = value;
-      renamed = [
+      wasRenamed = [
         "renamed",
         "recovered_pending_disposition",
         "closed_retained",
       ].includes(value.stage);
-      restarted = ["recovered_pending_disposition", "closed_retained"].includes(
-        value.stage,
-      );
+      wasRestarted = [
+        "recovered_pending_disposition",
+        "closed_retained",
+      ].includes(value.stage);
       if (
         value.stage === "no_stale_known_effect_recovery_pending" ||
         value.stage === "closed_no_stale_known_effect_retained" ||
         value.stage === "no_stale_historical_effect_unknown_pending" ||
         value.stage === "closed_historical_effect_unknown_retained"
       )
-        restarted = true;
+        wasRestarted = true;
     },
   });
 }
@@ -306,7 +313,7 @@ function persistActualProcessEffect(
       ? Object.freeze({ ...entry, phase: "settled" as const, ...observed })
       : entry,
   );
-  const issued = processEffects.some((entry) => entry.issued === true)
+  const isIssued = processEffects.some((entry) => entry.issued === true)
     ? true
     : processEffects.some((entry) => entry.issued === null)
       ? null
@@ -315,7 +322,7 @@ function persistActualProcessEffect(
     (entry) => entry.confirmation === "unknown",
   )
     ? "unknown"
-    : issued
+    : isIssued
       ? "confirmed"
       : "not_issued";
   const settled = persistActualRepairRecord(
@@ -325,7 +332,7 @@ function persistActualProcessEffect(
     Object.freeze({
       ...intent.ledger,
       processEffects: Object.freeze(processEffects),
-      processEffectIssued: issued,
+      processEffectIssued: isIssued,
       processEffectConfirmation: confirmation,
     }),
   );
@@ -374,7 +381,7 @@ function operationFixture(
     operationDirectory: `C:\\runtime-state\\docker-desktop-repair-${id}`,
     staleName: `run.crdd-stale-${id}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${id}`,
-    runIdentity,
+    runIdentity: RUN_IDENTITY,
     stage,
     sequence: 1,
     previousRecordSha256: "f".repeat(64),
@@ -526,7 +533,7 @@ test("自然回復settlement後のEngine再停止をpendingへ永続化しない
 
 test("最終artifact await中のEngine回復はfresh行列で公式shutdown Effect 0にする", async () => {
   let verifyCalls = 0;
-  let engineReady = false;
+  let isEngineReady = false;
   let shutdownCalls = 0;
   const state = fixture({
     acquireHelper: async () => ({
@@ -535,12 +542,12 @@ test("最終artifact await中のEngine回復はfresh行列で公式shutdown Effe
         ...session({ processes: "verified" }),
         verifyArtifacts: async () => {
           verifyCalls += 1;
-          if (verifyCalls === 5) engineReady = true;
+          if (verifyCalls === 5) isEngineReady = true;
           return "verified" as const;
         },
       }),
     }),
-    observeEngine: () => (engineReady ? "ready" : "known_unavailable"),
+    observeEngine: () => (isEngineReady ? "ready" : "known_unavailable"),
     officialShutdown: () => {
       shutdownCalls += 1;
       return Object.freeze({
@@ -657,7 +664,7 @@ test("64 retained operationでは新規operation directory／recordを作らな�
   const retained = operationFixture("closed_retained", {
     engineReady: true,
     disposition: "retained_by_human_decision",
-    liveRunIdentity: runIdentity,
+    liveRunIdentity: RUN_IDENTITY,
   });
   let persisted = 0;
   const state = fixture({
@@ -672,8 +679,8 @@ test("64 retained operationでは新規operation directory／recordを作らな�
     },
     observePath: (target) =>
       target.includes("run.crdd-stale-")
-        ? Object.freeze({ state: "present" as const, identity: runIdentity })
-        : Object.freeze({ state: "present" as const, identity: runIdentity }),
+        ? Object.freeze({ state: "present" as const, identity: RUN_IDENTITY })
+        : Object.freeze({ state: "present" as const, identity: RUN_IDENTITY }),
   });
   const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
     state.dependencies,
@@ -863,7 +870,7 @@ test("K/Nとrun path unknownは後続WSL／launcher Effectを発行しない", a
   const unknownPath = fixture({
     observePath: (target) =>
       target.includes("run.crdd-stale-")
-        ? Object.freeze({ state: "present" as const, identity: runIdentity })
+        ? Object.freeze({ state: "present" as const, identity: RUN_IDENTITY })
         : Object.freeze({ state: "unknown" as const, identity: null }),
   });
   unknownPath.setOperation(renamedOperation);
@@ -892,17 +899,17 @@ test("helper解放不明は回復後も成功へ昇格しない", async () => {
 
 test("repairはhelper解放後のpackage世代変更をpending成功へ投影しない", async () => {
   let released = false;
-  let launched = false;
+  let wasLaunched = false;
   let terminated = false;
-  let renamed = false;
+  let wasRenamed = false;
   const changedBoundary = Object.freeze({
     ...boundary,
     packageContentRootSha256: "b".repeat(64),
   });
-  const helper = Object.freeze({
+  const repairHelper = Object.freeze({
     ...session(),
     inspectProcesses: async () =>
-      launched || !terminated ? ("verified" as const) : ("absent" as const),
+      wasLaunched || !terminated ? ("verified" as const) : ("absent" as const),
     terminateProcesses: async () => {
       terminated = true;
       return "terminated" as const;
@@ -915,20 +922,20 @@ test("repairはhelper解放後のpackage世代変更をpending成功へ投影し
       });
     },
     launchDesktop: async () => {
-      launched = true;
+      wasLaunched = true;
       return "started" as const;
     },
   });
   const state = fixture({
     prepareBoundary: () => (released ? changedBoundary : boundary),
     observeEngine: () =>
-      launched ? ("ready" as const) : ("known_unavailable" as const),
+      wasLaunched ? ("ready" as const) : ("known_unavailable" as const),
     acquireHelper: async () => ({
       status: "acquired" as const,
-      session: helper,
+      session: repairHelper,
     }),
     renameRunDirectory: () => {
-      renamed = true;
+      wasRenamed = true;
       return Object.freeze({
         issued: true,
         confirmation: "confirmed" as const,
@@ -937,15 +944,18 @@ test("repairはhelper解放後のpackage世代変更をpending成功へ投影し
     },
     observePath: (target) => {
       if (target === boundary.runDirectory)
-        return renamed && !launched
+        return wasRenamed && !wasLaunched
           ? Object.freeze({
               state: "confirmed_absent" as const,
               identity: null,
             })
-          : Object.freeze({ state: "present" as const, identity: runIdentity });
+          : Object.freeze({
+              state: "present" as const,
+              identity: RUN_IDENTITY,
+            });
       if (target.includes("run.crdd-stale-"))
-        return renamed
-          ? Object.freeze({ state: "present" as const, identity: runIdentity })
+        return wasRenamed
+          ? Object.freeze({ state: "present" as const, identity: RUN_IDENTITY })
           : Object.freeze({
               state: "confirmed_absent" as const,
               identity: null,
@@ -965,23 +975,23 @@ test("repairはhelper解放後のpackage世代変更をpending成功へ投影し
 
 test("helper解放後のboundary例外は取得済みrepair Evidenceを保持して正規化する", async () => {
   let released = false;
-  let helperLaunched = false;
-  let helperRenamed = false;
+  let isHelperLaunched = false;
+  let isHelperRenamed = false;
   const state = fixture({
     prepareBoundary: () => {
       if (released) throw new Error("C:\\secret\\boundary");
       return boundary;
     },
     observeEngine: () =>
-      helperLaunched ? ("ready" as const) : ("known_unavailable" as const),
+      isHelperLaunched ? ("ready" as const) : ("known_unavailable" as const),
     acquireHelper: async () => ({
       status: "acquired" as const,
       session: Object.freeze({
         ...session({ processes: "absent", terminate: "absent" }),
         inspectProcesses: async () =>
-          helperLaunched ? ("verified" as const) : ("absent" as const),
+          isHelperLaunched ? ("verified" as const) : ("absent" as const),
         launchDesktop: async () => {
-          helperLaunched = true;
+          isHelperLaunched = true;
           return "started" as const;
         },
         release: async () => {
@@ -994,7 +1004,7 @@ test("helper解放後のboundary例外は取得済みrepair Evidenceを保持し
       }),
     }),
     renameRunDirectory: () => {
-      helperRenamed = true;
+      isHelperRenamed = true;
       return Object.freeze({
         issued: true,
         confirmation: "confirmed" as const,
@@ -1003,22 +1013,22 @@ test("helper解放後のboundary例外は取得済みrepair Evidenceを保持し
     },
     observePath: (target) =>
       target === boundary.runDirectory
-        ? helperLaunched
-          ? Object.freeze({ state: "present" as const, identity: runIdentity })
-          : helperRenamed
+        ? isHelperLaunched
+          ? Object.freeze({ state: "present" as const, identity: RUN_IDENTITY })
+          : isHelperRenamed
             ? Object.freeze({
                 state: "confirmed_absent" as const,
                 identity: null,
               })
             : Object.freeze({
                 state: "present" as const,
-                identity: runIdentity,
+                identity: RUN_IDENTITY,
               })
         : target.includes("run.crdd-stale-")
-          ? helperRenamed
+          ? isHelperRenamed
             ? Object.freeze({
                 state: "present" as const,
-                identity: runIdentity,
+                identity: RUN_IDENTITY,
               })
             : Object.freeze({
                 state: "confirmed_absent" as const,
@@ -1068,7 +1078,7 @@ test("prepared再開は過去Process EffectをEffect 0へ誤投影しない", as
     operationDirectory: "C:\\runtime-state\\docker-desktop-repair-a",
     staleName: `run.crdd-stale-${"a".repeat(32)}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${"a".repeat(32)}`,
-    runIdentity,
+    runIdentity: RUN_IDENTITY,
     stage: "prepared",
     sequence: 0,
     previousRecordSha256: "9".repeat(64),
@@ -1233,7 +1243,7 @@ test("renamed再開でEngineが既に回復済みならlauncherを二重起動�
     operationDirectory: "C:\\runtime-state\\docker-desktop-repair-b",
     staleName: `run.crdd-stale-${"b".repeat(32)}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${"b".repeat(32)}`,
-    runIdentity,
+    runIdentity: RUN_IDENTITY,
     stage: "renamed",
     sequence: 2,
     previousRecordSha256: "8".repeat(64),
@@ -1245,7 +1255,7 @@ test("renamed再開でEngineが既に回復済みならlauncherを二重起動�
       target === boundary.runDirectory
         ? recoveredRunIdentity
         : target.includes("run.crdd-stale-")
-          ? runIdentity
+          ? RUN_IDENTITY
           : null,
   });
   state.setOperation(operation);
@@ -1301,7 +1311,7 @@ test("processes_stopped再開は既知issuedを保持してno-stale pendingへ�
     operationDirectory: "C:\\runtime-state\\docker-desktop-repair-d",
     staleName: `run.crdd-stale-${"d".repeat(32)}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${"d".repeat(32)}`,
-    runIdentity,
+    runIdentity: RUN_IDENTITY,
     stage: "processes_stopped",
     sequence: 1,
     previousRecordSha256: "6".repeat(64),
@@ -1343,7 +1353,7 @@ test("processes_stopped再開はProcess不明または置換runをpendingへ昇�
     operationDirectory: "C:\\runtime-state\\docker-desktop-repair-1",
     staleName: `run.crdd-stale-${"1".repeat(32)}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${"1".repeat(32)}`,
-    runIdentity,
+    runIdentity: RUN_IDENTITY,
     stage: "processes_stopped",
     sequence: 1,
     previousRecordSha256: "6".repeat(64),
@@ -1416,7 +1426,7 @@ test("rename Effect後settlement前の再開はexact staleをadoptし再rename�
     operationDirectory: "C:\\runtime-state\\docker-desktop-repair-2",
     staleName: `run.crdd-stale-${"2".repeat(32)}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${"2".repeat(32)}`,
-    runIdentity,
+    runIdentity: RUN_IDENTITY,
     stage: "processes_stopped",
     sequence: 3,
     previousRecordSha256: "7".repeat(64),
@@ -1429,7 +1439,7 @@ test("rename Effect後settlement前の再開はexact staleをadoptし再rename�
       session: session({ processes: "absent" }),
     }),
     identityAt: (target) =>
-      target.includes("run.crdd-stale-") ? runIdentity : null,
+      target.includes("run.crdd-stale-") ? RUN_IDENTITY : null,
   });
   state.setOperation(operation);
   const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
@@ -1466,7 +1476,7 @@ test("rename adoptionのfresh snapshot変化をsettlement stageへ永続化し�
     identityAt: (target) => {
       if (!target.includes("run.crdd-stale-")) return null;
       staleObservations += 1;
-      return staleObservations === 1 ? runIdentity : null;
+      return staleObservations === 1 ? RUN_IDENTITY : null;
     },
   });
   state.setOperation(operation);
@@ -1565,7 +1575,7 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
   const addProcessEffect = (
     current: DockerDesktopRepairOperation,
     action: "official_shutdown" | "native_termination" | "wsl_termination",
-    issued = true,
+    isIssued = true,
   ) => {
     const intentEntries = Object.freeze([
       ...current.ledger.processEffects,
@@ -1594,8 +1604,8 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
           ? Object.freeze({
               ...entry,
               phase: "settled" as const,
-              issued,
-              confirmation: issued
+              issued: isIssued,
+              confirmation: isIssued
                 ? ("confirmed" as const)
                 : ("not_issued" as const),
             })
@@ -1721,9 +1731,9 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
         runDirectory,
         socketPath: path.join(runDirectory, "dockerInference"),
       });
-      let engineReady = false;
+      let isEngineReady = false;
       let processes: "verified" | "absent" = "verified";
-      let injected = false;
+      let wasInjected = false;
       const unexpectedPersistFailures: string[] = [];
       const calls = new Map<string, number>();
       const count = (name: string) =>
@@ -1746,12 +1756,12 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
             (entry) => entry.action === action,
           );
           if (
-            !injected &&
+            !wasInjected &&
             crashPhase === "host_before_settlement" &&
             next?.phase === "settled" &&
             previous?.phase === "intent_recorded"
           ) {
-            injected = true;
+            wasInjected = true;
             return null;
           }
           const persisted = persistDockerDesktopRepairStage(
@@ -1773,19 +1783,19 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
                 : null;
           if (
             persisted &&
-            !injected &&
+            !wasInjected &&
             crashPhase !== "host_before_settlement" &&
             next?.phase === targetPhase &&
             previous?.phase !== targetPhase
           ) {
-            injected = true;
+            wasInjected = true;
             if (crashPhase === "durable_intent_crash")
               throw new Error("synthetic process loss after durable intent");
             return null;
           }
           return persisted;
         },
-        observeEngine: () => (engineReady ? "ready" : "known_unavailable"),
+        observeEngine: () => (isEngineReady ? "ready" : "known_unavailable"),
         observeKnownSocketFailure: () => initialIdentity,
         identityAt,
         observePath: (target) => {
@@ -1811,7 +1821,7 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
               count("desktop_launch");
               fs.mkdirSync(runDirectory);
               processes = "verified";
-              engineReady = true;
+              isEngineReady = true;
               return "started" as const;
             },
           }),
@@ -1839,11 +1849,12 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
             staleState: "retained" as const,
           });
         },
-        awaitEngine: async () => (engineReady ? "ready" : "known_unavailable"),
+        awaitEngine: async () =>
+          isEngineReady ? "ready" : "known_unavailable",
       };
       const first =
         await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
-      assert.equal(injected, true, `${action}/${crashPhase}`);
+      assert.equal(wasInjected, true, `${action}/${crashPhase}`);
       const second =
         await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
       const inventory = inventoryDockerDesktopRepairOperations(actualBoundary);
@@ -2037,8 +2048,8 @@ test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ�
     runDirectory,
     socketPath: path.join(runDirectory, "dockerInference"),
   });
-  let engineReady = false;
-  let launched = false;
+  let isEngineReady = false;
+  let wasLaunched = false;
   let nativeCalls = 0;
   let wslCalls = 0;
   const dependencies: RepairDependencies = {
@@ -2046,7 +2057,7 @@ test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ�
     prepareBoundary: () => actualBoundary,
     inventory: inventoryDockerDesktopRepairOperations,
     persistStage: persistDockerDesktopRepairStage,
-    observeEngine: () => (engineReady ? "ready" : "known_unavailable"),
+    observeEngine: () => (isEngineReady ? "ready" : "known_unavailable"),
     observeKnownSocketFailure: () => initialIdentity,
     identityAt,
     observePath: (target) => {
@@ -2063,15 +2074,15 @@ test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ�
       session: Object.freeze({
         ...session({ processes: "absent" }),
         inspectProcesses: async () =>
-          launched ? ("verified" as const) : ("absent" as const),
+          wasLaunched ? ("verified" as const) : ("absent" as const),
         terminateProcesses: async () => {
           nativeCalls += 1;
           return "absent" as const;
         },
         launchDesktop: async () => {
           fs.mkdirSync(runDirectory);
-          launched = true;
-          engineReady = true;
+          wasLaunched = true;
+          isEngineReady = true;
           return "started" as const;
         },
       }),
@@ -2093,7 +2104,7 @@ test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ�
         staleState: "retained" as const,
       });
     },
-    awaitEngine: async () => (engineReady ? "ready" : "known_unavailable"),
+    awaitEngine: async () => (isEngineReady ? "ready" : "known_unavailable"),
   };
   const result =
     await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
@@ -2249,7 +2260,7 @@ test("過去Effect不明かつstaleなしは専用close後も履歴不明を保�
     hostSafety: "safe",
     evidenceState: "preserved",
     disposition: "historical_effect_unknown_pending_human_decision",
-    liveRunIdentity: runIdentity,
+    liveRunIdentity: RUN_IDENTITY,
   });
   const operation: DockerDesktopRepairOperation = Object.freeze({
     operationId: "c".repeat(32),
@@ -2257,7 +2268,7 @@ test("過去Effect不明かつstaleなしは専用close後も履歴不明を保�
     operationDirectory: "C:\\runtime-state\\docker-desktop-repair-c",
     staleName: `run.crdd-stale-${"c".repeat(32)}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${"c".repeat(32)}`,
-    runIdentity,
+    runIdentity: RUN_IDENTITY,
     stage: "no_stale_historical_effect_unknown_pending",
     sequence: 1,
     previousRecordSha256: "7".repeat(64),
@@ -2358,18 +2369,18 @@ test("helper喪失をawait中に検出した後はprocess terminationへ進ま�
 });
 
 test("cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0へ閉じる", async () => {
-  let live = true;
+  let isLive = true;
   let hostEffectIssued = false;
   const state = fixture({
     prepareBoundary: () => {
-      if (hostEffectIssued) live = false;
+      if (hostEffectIssued) isLive = false;
       return boundary;
     },
     acquireHelper: async () => ({
       status: "acquired" as const,
       session: Object.freeze({
         ...session(),
-        assertLive: () => live,
+        assertLive: () => isLive,
       }),
     }),
     officialShutdown: () => {
@@ -2395,13 +2406,13 @@ test("cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0�
 });
 
 test("package tupleがawait中に変化した場合は直後Effectを発行しない", async () => {
-  let packageChanged = false;
+  let isPackageChanged = false;
   let verificationCalls = 0;
   const changingSession = Object.freeze({
     ...session(),
     verifyArtifacts: async () => {
       verificationCalls += 1;
-      if (verificationCalls >= 3) packageChanged = true;
+      if (verificationCalls >= 3) isPackageChanged = true;
       return "verified" as const;
     },
   });
@@ -2410,7 +2421,7 @@ test("package tupleがawait中に変化した場合は直後Effectを発行し�
     crddManifestHash: "a".repeat(64),
   });
   const state = fixture({
-    prepareBoundary: () => (packageChanged ? changedBoundary : boundary),
+    prepareBoundary: () => (isPackageChanged ? changedBoundary : boundary),
     acquireHelper: async () =>
       Object.freeze({ status: "acquired" as const, session: changingSession }),
   });
@@ -2491,7 +2502,7 @@ test("terminal再表示はstale exact identityと解放後package世代を再確
     hostSafety: "safe",
     evidenceState: "preserved",
     disposition: "retained_by_human_decision",
-    liveRunIdentity: runIdentity,
+    liveRunIdentity: RUN_IDENTITY,
   });
   const operation: DockerDesktopRepairOperation = Object.freeze({
     operationId: "e".repeat(32),
@@ -2499,7 +2510,7 @@ test("terminal再表示はstale exact identityと解放後package世代を再確
     operationDirectory: "C:\\runtime-state\\docker-desktop-repair-e",
     staleName: `run.crdd-stale-${"e".repeat(32)}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${"e".repeat(32)}`,
-    runIdentity,
+    runIdentity: RUN_IDENTITY,
     stage: "closed_retained",
     sequence: 4,
     previousRecordSha256: "5".repeat(64),
@@ -2508,7 +2519,7 @@ test("terminal再表示はstale exact identityと解放後package世代を再確
   const replacement = Object.freeze({ dev: "9", ino: "9", birthtimeNs: "9" });
   const replaced = fixture({
     identityAt: (target) =>
-      target.includes("run.crdd-stale-") ? replacement : runIdentity,
+      target.includes("run.crdd-stale-") ? replacement : RUN_IDENTITY,
   });
   replaced.setOperation(operation);
   const replacedResult = await closeWindowsDockerDesktopRepairUsingDependencies(
@@ -2519,7 +2530,7 @@ test("terminal再表示はstale exact identityと解放後package世代を再確
 
   const replacedLiveRun = fixture({
     identityAt: (target) =>
-      target.includes("run.crdd-stale-") ? runIdentity : replacement,
+      target.includes("run.crdd-stale-") ? RUN_IDENTITY : replacement,
   });
   replacedLiveRun.setOperation(operation);
   const replacedLiveRunResult =

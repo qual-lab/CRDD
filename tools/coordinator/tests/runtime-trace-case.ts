@@ -54,16 +54,20 @@ export function getRuntimeTraceCaseIdsForTestPath(testPath: string) {
 
 export function assertRuntimeTraceExecutionCoverage(
   testPath: string,
-  registered: readonly string[],
+  registeredItems: readonly string[],
   executed: ReadonlySet<string>,
 ) {
-  const canonical = getRuntimeTraceCaseIdsForTestPath(testPath);
+  const canonicalItems = getRuntimeTraceCaseIdsForTestPath(testPath);
   assert.deepEqual(
-    [...registered].sort(),
-    canonical,
+    [...registeredItems].sort(),
+    canonicalItems,
     "trace registry mismatch",
   );
-  assert.deepEqual([...executed].sort(), canonical, "trace execution mismatch");
+  assert.deepEqual(
+    [...executed].sort(),
+    canonicalItems,
+    "trace execution mismatch",
+  );
 }
 
 export function assertRuntimeTraceCase(

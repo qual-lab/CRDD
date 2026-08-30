@@ -10,7 +10,7 @@ const hostA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789a
 const hostB = `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`;
 const dockerA = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 
-const schema = Object.freeze({
+const SCHEMA = Object.freeze({
   booleanFields: Object.freeze([
     "cleanupConfirmed",
     "manualRecoveryRequired",
@@ -48,7 +48,7 @@ function exact(overrides: Readonly<Record<string, unknown>> = {}) {
 }
 
 test("安全観測はexact booleanとRecovery集合だけを確定する", () => {
-  const none = evaluateSignedRunnerSafetyObservation(exact(), schema);
+  const none = evaluateSignedRunnerSafetyObservation(exact(), SCHEMA);
   assert.equal(none.status, "exact");
   assert.deepEqual(none.recoveryIds, []);
 
@@ -61,14 +61,14 @@ test("安全観測はexact booleanとRecovery集合だけを確定する", () =>
       dockerRecoveryId: dockerA,
       dockerRecoveryIds: Object.freeze([dockerA]),
     }),
-    schema,
+    SCHEMA,
   );
   assert.equal(recovery.status, "exact");
   assert.deepEqual(recovery.recoveryIds, [hostA, hostB, dockerA]);
 });
 
 test("booleanの欠落・null・文字列は安全状態不明に閉じる", () => {
-  for (const field of schema.booleanFields) {
+  for (const field of SCHEMA.booleanFields) {
     const missing = { ...exact() } as Record<string, unknown>;
     delete missing[field];
     for (const candidate of [
@@ -77,7 +77,7 @@ test("booleanの欠落・null・文字列は安全状態不明に閉じる", () 
       { ...exact(), [field]: "false" },
     ]) {
       assert.equal(
-        evaluateSignedRunnerSafetyObservation(candidate, schema).status,
+        evaluateSignedRunnerSafetyObservation(candidate, SCHEMA).status,
         "unknown",
         field,
       );
@@ -93,38 +93,44 @@ test("cleanup・manual recovery・effect unknownの相関矛盾を拒否する",
     exact({ effectStateUnknown: true, manualRecoveryRequired: true }),
   ]) {
     assert.equal(
-      evaluateSignedRunnerSafetyObservation(candidate, schema).status,
+      evaluateSignedRunnerSafetyObservation(candidate, SCHEMA).status,
       "unknown",
     );
   }
 
   const childPoison = evaluateSignedRunnerSafetyObservation(
     exact({ processRestartRequired: true }),
-    schema,
+    SCHEMA,
   );
   assert.equal(childPoison.status, "exact");
   assert.equal(childPoison.booleans?.processRestartRequired, true);
 });
 
 test("Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否する", () => {
-  const sparse = Array<string>(1);
-  const accessor: string[] = [];
-  Object.defineProperty(accessor, "0", {
+  const sparseItems = Array<string>(1);
+  const accessorItems: string[] = [];
+  Object.defineProperty(accessorItems, "0", {
     enumerable: true,
     configurable: true,
     get: () => dockerA,
   });
-  accessor.length = 1;
-  const proxy = new Proxy([dockerA], {});
-  for (const value of [sparse, accessor, proxy, [dockerA, dockerA], [1]]) {
+  accessorItems.length = 1;
+  const proxyItems = new Proxy([dockerA], {});
+  for (const valueItems of [
+    sparseItems,
+    accessorItems,
+    proxyItems,
+    [dockerA, dockerA],
+    [1],
+  ]) {
     assert.equal(
       evaluateSignedRunnerSafetyObservation(
         exact({
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
-          dockerRecoveryIds: value,
+          dockerRecoveryIds: valueItems,
         }),
-        schema,
+        SCHEMA,
       ).status,
       "unknown",
     );
@@ -154,7 +160,7 @@ test("Recovery pairは0件・1件・N件のcanonical関係だけを受理する"
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
         }),
-        schema,
+        SCHEMA,
       ).status,
       "unknown",
     );
@@ -173,7 +179,7 @@ test("Recordのgetter・Proxy・独自prototypeを観測済みにしない", () 
     Object.assign(Object.create({ inherited: true }), exact()),
   ]) {
     assert.equal(
-      evaluateSignedRunnerSafetyObservation(candidate, schema).status,
+      evaluateSignedRunnerSafetyObservation(candidate, SCHEMA).status,
       "unknown",
     );
   }

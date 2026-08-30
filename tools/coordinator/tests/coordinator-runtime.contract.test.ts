@@ -8,7 +8,7 @@ import {
 } from "../src/security/coordinator-runtime.ts";
 import { createIsolatedOwnedOperationDirectoryCreationFailureCandidate } from "../src/security/execution-environment.ts";
 
-const DOCKER_RECOVERY_ID = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+const dockerRecoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
 
 function request(overrides: Record<string, unknown> = {}) {
   return {
@@ -182,7 +182,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
       assert.equal(management, managementCapability);
       const recoveryCapability = Object.freeze({});
       assert.equal(
-        registerRecoveryHandoff(recoveryCapability, DOCKER_RECOVERY_ID),
+        registerRecoveryHandoff(recoveryCapability, dockerRecoveryId),
         true,
       );
       calls.push("start_process");
@@ -363,7 +363,7 @@ test("Front ClaudeからCodex Executorも同じCoordinator仲介で起動する"
     ) => {
       const recoveryCapability = Object.freeze({});
       assert.equal(
-        registerRecoveryHandoff(recoveryCapability, DOCKER_RECOVERY_ID),
+        registerRecoveryHandoff(recoveryCapability, dockerRecoveryId),
         true,
       );
       return Object.freeze({
@@ -555,7 +555,7 @@ test("Process Controller起動失敗がexact Docker Recoveryを返したらHost 
         reason: "start_failed_after_durable_handoff",
         cleanupConfirmed: true,
         manualRecoveryRequired: true,
-        recoveryId: DOCKER_RECOVERY_ID,
+        recoveryId: dockerRecoveryId,
         controlCapability: null,
         completion: null,
       }),
@@ -569,8 +569,8 @@ test("Process Controller起動失敗がexact Docker Recoveryを返したらHost 
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.operation");
-  assert.equal(result.dockerRecoveryId, DOCKER_RECOVERY_ID);
-  assert.deepEqual(result.dockerRecoveryIds, [DOCKER_RECOVERY_ID]);
+  assert.equal(result.dockerRecoveryId, dockerRecoveryId);
+  assert.deepEqual(result.dockerRecoveryIds, [dockerRecoveryId]);
   assert.equal(h.getCleanupCount(), 0);
 });
 
@@ -613,7 +613,7 @@ test("Process completionがmanual Recoveryを返したらcleanup trueでもexact
       ) => boolean,
     ) => {
       assert.equal(
-        registerRecoveryHandoff(recoveryCapability, DOCKER_RECOVERY_ID),
+        registerRecoveryHandoff(recoveryCapability, dockerRecoveryId),
         true,
       );
       return Object.freeze({
@@ -643,8 +643,8 @@ test("Process completionがmanual Recoveryを返したらcleanup trueでもexact
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.operation");
-  assert.equal(result.dockerRecoveryId, DOCKER_RECOVERY_ID);
-  assert.deepEqual(result.dockerRecoveryIds, [DOCKER_RECOVERY_ID]);
+  assert.equal(result.dockerRecoveryId, dockerRecoveryId);
+  assert.deepEqual(result.dockerRecoveryIds, [dockerRecoveryId]);
   assert.equal(h.getCleanupCount(), 0);
 });
 
@@ -666,8 +666,8 @@ test("Host cleanup失敗はHostとDockerのexact Recoveryを保持する", async
     "coordinator_runtime_operation_cleanup_unconfirmed",
   );
   assert.equal(result.hostRecoveryId, "host.fixture.operation");
-  assert.equal(result.dockerRecoveryId, DOCKER_RECOVERY_ID);
-  assert.deepEqual(result.dockerRecoveryIds, [DOCKER_RECOVERY_ID]);
+  assert.equal(result.dockerRecoveryId, dockerRecoveryId);
+  assert.deepEqual(result.dockerRecoveryIds, [dockerRecoveryId]);
 });
 
 test("Host cleanup後のDocker finalize失敗はDocker Recoveryだけを保持する", async () => {
@@ -684,8 +684,8 @@ test("Host cleanup後のDocker finalize失敗はDocker Recoveryだけを保持�
   assert.equal(result.reason, "coordinator_runtime_recovery_finalize_failed");
   assert.equal(result.operationRootRemoved, true);
   assert.equal(result.hostRecoveryId, null);
-  assert.equal(result.dockerRecoveryId, DOCKER_RECOVERY_ID);
-  assert.deepEqual(result.dockerRecoveryIds, [DOCKER_RECOVERY_ID]);
+  assert.equal(result.dockerRecoveryId, dockerRecoveryId);
+  assert.deepEqual(result.dockerRecoveryIds, [dockerRecoveryId]);
   assert.equal(h.getCleanupCount(), 1);
 });
 

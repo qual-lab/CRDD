@@ -594,13 +594,13 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
   const status = "Logged in using ChatGPT";
   const warning =
     "WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)";
-  const accepted = [
+  const acceptedItems = [
     { stdout: `${status}\n`, stderr: "" },
     { stdout: "", stderr: `${status}\r\n` },
     { stdout: `${status}\n`, stderr: `${warning}\n` },
     { stdout: "", stderr: `${warning}\r\n${status}\r\n` },
   ];
-  for (const auth of accepted) {
+  for (const auth of acceptedItems) {
     let providerStarted = false;
     const fixture = createFixture(
       {

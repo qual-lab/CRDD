@@ -17,8 +17,8 @@ let state: "starting" | "acquired" | "ready" | "closing" | "release_pending" =
 let closeStarted = false;
 let closeExitCode = 0;
 let shouldReportRelease = false;
-let finishScheduled = false;
-let disconnectCommitted = false;
+let isFinishScheduled = false;
+let isDisconnectCommitted = false;
 
 function send(
   status: "acquired" | "ready" | "release-ready" | "released" | "unavailable",
@@ -35,17 +35,17 @@ function send(
 function disconnectAndExit(exitCode: number) {
   process.exitCode = exitCode;
   if (process.connected) {
-    disconnectCommitted = true;
+    isDisconnectCommitted = true;
     process.disconnect();
   }
 }
 
 function scheduleFinalExit() {
-  if (finishScheduled) return;
-  finishScheduled = true;
+  if (isFinishScheduled) return;
+  isFinishScheduled = true;
   setImmediate(() => {
     setImmediate(() => {
-      finishScheduled = false;
+      isFinishScheduled = false;
       if (closeExitCode === 0 && shouldReportRelease && state === "closing") {
         if (!send("released")) {
           closeExitCode = 70;
@@ -57,13 +57,13 @@ function scheduleFinalExit() {
   });
 }
 
-function closeAndExit(reportRelease: boolean, exitCode: number) {
+function closeAndExit(isReportRelease: boolean, exitCode: number) {
   if (exitCode !== 0) {
     closeExitCode = exitCode;
     shouldReportRelease = false;
   } else if (!closeStarted) {
     closeExitCode = 0;
-    shouldReportRelease = reportRelease;
+    shouldReportRelease = isReportRelease;
   }
   if (closeStarted) {
     if (state === "release_pending" && closeExitCode !== 0)
@@ -116,7 +116,7 @@ process.on("message", (message: unknown) => {
   closeAndExit(false, 65);
 });
 process.once("disconnect", () => {
-  if (!disconnectCommitted) closeAndExit(false, 66);
+  if (!isDisconnectCommitted) closeAndExit(false, 66);
 });
 server.once("error", () => {
   send("unavailable");

@@ -231,7 +231,10 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
     {
       status: "completed",
       summary: "ok",
-      changedPaths: Array.from({ length: 1_001 }, (_, index) => `${index}.txt`),
+      changedPaths: Array.from(
+        { length: 1_001 },
+        (_value, index) => `${index}.txt`,
+      ),
       verification: [],
     },
     {
