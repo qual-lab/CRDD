@@ -4,9 +4,9 @@
     "includes": [
       "tools/**/*.{ts,mjs,cjs}",
       "template/tools/**/*.{ts,mjs,cjs}",
-      "!!**/.crdd/e2e-results",
-      "!!**/.crdd/e2e-distributions",
-      "!!**/.crdd/e2e-worktrees"
+      "!!.crdd",
+      "!!tools/**/.crdd",
+      "!!template/tools/**/.crdd"
     ]
   },
   "formatter": {

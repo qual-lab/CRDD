@@ -88,6 +88,46 @@ test("両private packageのLintはWarningを検査失敗にする", () => {
   }
 });
 
+test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査する", () => {
+  const root = fixture();
+  write(
+    path.join(root, "biome.json"),
+    fs.readFileSync(path.join(repositoryRoot, "biome.json"), "utf8"),
+  );
+  const sourcePaths = ["tools/example.ts", "template/tools/example.ts"];
+  for (const relativePath of sourcePaths) {
+    write(path.join(root, relativePath), "export const VALUE = 1;\n");
+  }
+  for (const relativePath of [
+    ".crdd/release-staging/old",
+    ".crdd/dogfooding/temporary",
+    "tools/coordinator/.crdd/legacy",
+  ]) {
+    write(
+      path.join(root, relativePath, "biome.json"),
+      JSON.stringify({ root: true }),
+    );
+    write(path.join(root, relativePath, "broken.ts"), "invalid {{{");
+  }
+  const biome = path.join(checkerRoot, "node_modules/@biomejs/biome/bin/biome");
+  const inspectLint = () =>
+    spawnSync(process.execPath, [biome, "lint", ".", "--error-on-warnings"], {
+      cwd: root,
+      shell: false,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+  const clean = inspectLint();
+  assert.equal(clean.status, 0, clean.stderr);
+  for (const relativePath of sourcePaths) {
+    write(path.join(root, relativePath), "debugger;\n");
+    const rejected = inspectLint();
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /noDebugger/);
+    write(path.join(root, relativePath), "export const VALUE = 1;\n");
+  }
+});
+
 test("Rust platform accessの開発入口は固定Cargo commandだけを使う", () => {
   const coordinatorRoot = path.join(repositoryRoot, "tools", "coordinator");
   const packageJson: unknown = JSON.parse(
@@ -346,6 +386,10 @@ function parseCheckerReport(source: string): CheckerReport {
 }
 
 const fixtures: string[] = [];
+// Repository-local TEMP must not turn a deliberately non-Git fixture into
+// a subdirectory of the maintenance repository. Fixture-owned .git remains valid.
+const previousGitCeiling = process.env.GIT_CEILING_DIRECTORIES;
+process.env.GIT_CEILING_DIRECTORIES = path.resolve(os.tmpdir());
 const requiredFolders = [
   "00_CRDD",
   "01_Discovery",
@@ -370,6 +414,11 @@ function fixture() {
 after(() => {
   for (const root of fixtures) {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+  if (previousGitCeiling === undefined) {
+    delete process.env.GIT_CEILING_DIRECTORIES;
+  } else {
+    process.env.GIT_CEILING_DIRECTORIES = previousGitCeiling;
   }
 });
 

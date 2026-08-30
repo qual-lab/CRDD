@@ -127,6 +127,13 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 
 関連3試験ファイル19件、試験型検査、変更3ファイルのLint／formatを確認した。既存の全試験をRepository-localな一時保存条件で再実行し、結果をCHG-000055へ接続する。今回の対象は4件の前提是正であり、全packageの通常試験入口が保存場所を自動強制することまでは保証しない。最終の独立監査・Release判断は未完了のまま維持する。
 
+2026-08-31、実務残件の全機械確認で、同じ一時保存方針に対する二つの伝播漏れを追加是正した。新しいChange Intentではなく、本CHGの検査入口と試験前提の是正として扱う。
+
+- Biomeの生成物除外が三つのE2E Directoryだけに限定され、`.crdd/release-staging`等に残る配布物の入れ子設定を読み込んで停止した。Repository-local `.crdd`全体とTool配下の旧生成領域を探索対象外にし、`tools`／`template/tools`の所有Sourceは検査対象に維持した。実際のBiomeを起動する回帰試験で、入れ子設定・不正な生成Sourceを無視しつつ、両所有Sourceの`debugger`をそれぞれ拒否することを確認する。除外前の失敗と除外後の成功を確認済みである。
+- Checker試験の一時DirectoryからGitが親のCRDDを発見し、「非Git対象」の41件が期待と異なった。製品の探索や判定は変更せず、試験Processだけで`GIT_CEILING_DIRECTORIES`を一時Rootへ固定し、終了時に元の環境値を復元する。fixture自身に作るGit Repositoryは引き続き検査できる。代表3件と上記回帰試験は合格した。
+
+通常利用者の設定、公開Checkerの結果契約、Provider Authority、署名境界は変更しない。全Checker試験、所有Sourceの型・Lint・Format、全体Checkerを再確認し、結果を[実務残件の記録](CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#22-実務残件の横断確認と最終試験への接続)へ接続する。機械確認を最終独立監査の代用にはしない。
+
 本変更は未リリースである。最新固定改訂版の全確認がPassした後、v0.18.0のRelease統合へ引き渡す。統合前に旧`CHG-000016`／`000018`のEvidence導線、採用側Path移行、no-shim、Node minimumおよびRollbackを再確認する。
 
 現在、この統合方針について追加の人間判断は必要ない。

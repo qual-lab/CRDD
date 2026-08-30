@@ -299,3 +299,46 @@ Coordinator全試験は今回は失敗4件を残した。試験の`TEMP`／`TMP`
 比較はその後CHG-000015の固定開発版で実行済みとなったが、全体的な性能改善・有用性は未確定である。[最新実測](Evidence/CHG-000015_Development_Provider_Comparison_799e368.json)では両経路のレビュー承認・回収が成立した一方、所要時間は前回より増えた。レビュー1回・追加是正0回を「レビューなし」、Reviewer承認を人間受入、局所成功を全体品質へ読み替えない。次版候補は`Held / Unscheduled`、版番号・収載・具体設計は未決とし、現行v0.18の必須残件を延期しない。現在の安全判断に影響する新根拠は現行是正へ戻す。
 
 これは既存の長期改善意図への根拠・候補追加であり、新しい規範、実装許可、移行、Release判断ではない。親がDiscovery／Roadmap／CHGの責務と既存の有用性評価へ着手前照合した。記録・参照の全体Checkerを実施し、意味と範囲の独立Document／Gap確認は既定の最終一括監査へ接続する。
+
+## 22. 実務残件の横断確認と最終試験への接続
+
+2026-08-31、人間が実務残件、必要是正、最終試験の一括実行を承認した。基準はCommit `f8e024f1b0245456c3f5665374cbde86bcc29ea6`、Tree `fc6321251df1b4920870af1c0c36d86c1d609f15`。変更分類は既存意図の実務検証と案内明確化であり、新規規範、決定権限、将来機能、Releaseの採用ではない。親の照合と二つの読み取り専用確認で工程受渡し・読者経路・設計実装試験の計画を確認した。正式監査ではなく、完成後の一括監査は維持する。
+
+### 工程受渡しの現在状態
+
+[既存UX成果](Evidence/CHG-000055_Consent_UX_Application_746c5d2.md)を実入力として、IA／UIの表示案へ保持条件を渡す1 Taskを準備した。対象は同成果、`23_IA.md`、`25_UI.md`と一つの生成候補だけ。初回判断、範囲内再利用、情報不足、範囲拡大、リスク受容、独立保留の6場面を、表示、継続／停止、反証ケースへ結ぶ。公式Subscription、既存署名Runtime `a619545`、最大4 CLI呼出し、Task再試行なし、正規export／discardという範囲である。
+
+外側の実行環境が今回の具体的Payloadと送信先への承認を確認できず、起動前に拒否した。Runtime／Providerは起動せず、送信・クレジット消費は0。今回の承認履歴を否定する判断ではなく、実行環境との境界照合が成立しなかった事実である。別入口や権限設定で迂回していない。親が書いた机上評価をRuntimeの成果受渡し実績へ代用せず、本項は未完了とする。再開担当は親Coordinator、条件は3入力と生成候補のOpenAI／Anthropic送信に対する実行環境の許可。承認後も現在Revisionで要求を再固定し、古い比較sessionの許可枠は再利用しない。
+
+### 設計・実装・試験の照合
+
+Traceの9資源・20状態・21遷移・10不変条件、および10検証bindingの70caseを対象に、設計文書と試験sourceへの参照存在を全数照合した。欠落0。ただし7bindingは契約投影、3bindingは実Filesystem／Processであり、全70caseのassertion意味網羅、現在OS／Docker／Providerの実状態をこの照合で証明しない。
+
+重点確認では、native観測の新規検証と私有結合、同意表示の正常・不明・失敗・取消、Provider終了からHost回収・receipt・finalize・公開までの順序をproduction symbolと対応試験へ照合した。具体的欠陥は見つからず、状態・資源・Frameworkを追加する是正は行わない。CLI signalはTask Trace外の別契約であり、その解除までTask fixtureから推定しない。詳細な実装正本は[Runtime Architecture](../../tools/coordinator/architecture/README.md)を維持する。
+
+### 読者経路の棚卸し
+
+| 読者 | 確認した入口と到達先 | 処置・限界 |
+|---|---|---|
+| CRDD標準の採用者 | root READMEの「できることと開始場所」→工程正本・クイックスタート | 既存案内を維持。Runtime必須化なし |
+| Runtime利用者 | Runtime README→現在Capability・コマンド・Repository設定・回復境界 | 入口へ目的別リンクと発行担当者／一般利用者の区別を追加。内部候補の通読を開始条件にしない |
+| Runtime開発者 | Runtime README→Architecture／脅威モデル／開発者確認 | 既存詳細を削除・再定義せず参照 |
+| 現在の変更を知る読者 | 変更台帳→7 Canonical CHGとそれぞれの現状・Release処置 | 履歴台帳を現在状態の第二正本にしない。個々の本文全体の理解度は未測定 |
+| 過去判断を復元する読者 | 旧ID台帳→固定Commit原文・不変Evidence | 固定履歴を改稿しない。機械確認の15件の履歴同一性を再確認し、人間の理解時間とは分ける |
+
+CLIテキスト案ではGraphic制作・実画面の視覚品質は今回非該当。初見理解時間、人間の実作業秒数、誤認減少率は未測定であり、非該当や0へ補正しない。読み取り案内の追加だけで文書全体の可読性改善完了とはしない。残る実務受渡し、最終固定E2Eおよび独立監査は同じCHGへ保持する。
+
+### 機械確認と検出した是正
+
+一時成果物はRepository-local `.crdd/dogfooding`へ限定した。生成物のBiome探索除外と非Git fixtureの探索境界に不整合を検出し、[CHG-000017](CHG-000017_Tools_Coding_Standards.md#8-release処置)で是正した。製品の公開判定とRuntime実行Sourceは変更していない。
+
+| 確認 | 結果と適用範囲 |
+|---|---|
+| Runtime全試験 | 1,395 / 1,395、失敗・取消・skip 0。基準`f8e024f`の実装を検査、123,384.5894 ms |
+| 開発E2E | 8試験ファイル、233 / 233、失敗・取消・skip 0、31,123.2221 ms。Provider Adapter、Task、一般Task・4経路・Recovery Runnerの契約試験であり、実Provider／正式署名の再実測ではない |
+| Checker全試験 | 是正後に正規test runnerで174 / 174、失敗・取消・skip 0、222,950.4798 ms。初回の41件失敗を隠さず、試験前提の是正後に全件再実行 |
+| 型検査 | Coordinator production／tests、Checkerの3 projectで合格 |
+| Lint／Format | 正規Biome Lint 311ファイル、Format 310ファイルで合格。所有Sourceの検査を維持 |
+| 設計対応Checker | 9資源・20状態・21遷移・10不変条件・10検証bindingを受理 |
+
+Runtime全試験logのSHA-256は`87a567176253943ae834cdd91dccb6ddb334f1303ef039a52bc860daa1bea6a0`、開発E2E logは`f69850dbf714c8c75b646499b051233bc8576294a85450b87208e4aded711730`。logは`.crdd`の一時記録であり、恒久的なEvidence参照とはしない。試験結果の範囲・件数・実行入口を本項に保持し、再実行できるSourceへ接続する。Repository全体Checkerは365 Markdown、2,258 links、705 anchors、固定履歴15件でError 0／Warning 0、差分検査も合格した。実務受渡しは外部実行許可待ち、最終固定版の正式署名4経路／Recovery E2Eと一括監査は未完了である。

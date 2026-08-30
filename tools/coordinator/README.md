@@ -2,6 +2,20 @@
 
 Status: Implementation Candidate
 
+## 目的別の読み方
+
+最初から内部設計を通読する必要はない。次の入口から、必要な範囲だけ確認する。
+
+| 読者の目的 | 最初に読む場所 |
+|---|---|
+| CRDD標準を使いたい | [標準の利用案内](../../README.md#できることと開始場所)。Runtimeの導入は必須ではない |
+| Runtimeで何ができるか知りたい | [現在できること](#現在できること)。実測済みの固定版と、未完了の最終確認を区別する |
+| Runtimeを実行したい | [利用できるコマンド](#現在利用できるコマンド)と[Repository単位の設定](#導入時のrepository単位)。公式Release鍵は一般利用者には不要 |
+| 停止理由や復旧条件を確認したい | [Provider Home／Docker Task回復境界](#現行のprovider-homedocker-task回復境界)。不明な残存を無視して再実行しない |
+| 実装・試験を変更したい | [実行設計](architecture/README.md)、[脅威モデル](threat-model.md)、[開発者確認](#開発者確認) |
+
+署名鍵生成・manifest生成は配布の発行担当者向けであり、一般利用者の初回設定手順ではない。以下の内部候補や履歴の存在を、利用可能な機能やRelease済みの保証へ読み替えない。
+
 ## 文書責務
 
 本READMEは、Coordinator Runtime 1.0の現在の実装、強制境界、構築、実行、回復および試験を説明する。エージェント組織（Agent Organization）の目的、役割、専門性、委譲、独立レビュー、費用、決定権限または人間との境界は[`04_Agent_Organization.md`の規範候補§1～§11](../../04_Agent_Organization.md)を参照し、プロバイダー非依存の経路制御案は同書の[非規範実行Architecture Candidate §12](../../04_Agent_Organization.md#12-execution-architecture)を参照する。本READMEはどちらの意味正本でもなく、§12または現在実装の存在から準拠要件を追加しない。
