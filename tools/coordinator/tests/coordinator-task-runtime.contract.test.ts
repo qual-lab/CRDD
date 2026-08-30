@@ -508,6 +508,9 @@ function fixture(
     remediationPacketSecretBlocked?: boolean;
     workspaceSecretBlocked?: boolean;
     externalSendDenied?: boolean;
+    externalSendAuthorizationMode?: unknown;
+    externalSendNoticeOutcome?: "failed" | "throw";
+    externalSendNoticeObserver?: () => void;
     externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
     pauseOperationCreation?: boolean;
@@ -600,6 +603,7 @@ function fixture(
   const selectionRequests: Array<Record<string, unknown>> = [];
   const slateRequests: Array<Record<string, unknown>> = [];
   const selectionNotices: Array<Record<string, unknown>> = [];
+  const externalSendNotices: Array<Record<string, unknown>> = [];
   const authorizedProviderSets: Array<readonly ("codex" | "claude")[]> = [];
   const events: string[] = [];
   const lifecycleStates: string[] = [];
@@ -890,6 +894,15 @@ function fixture(
       events.push(`notice:${String(notice.taskRole)}`);
       return true;
     },
+    reportExternalSendNotice: (notice: Record<string, unknown>) => {
+      assert.equal(workspaceMaterializeCount, 0);
+      assert.equal(processStartCount, 0);
+      externalSendNotices.push(notice);
+      options.externalSendNoticeObserver?.();
+      if (options.externalSendNoticeOutcome === "throw")
+        throw new Error("notice");
+      return options.externalSendNoticeOutcome !== "failed";
+    },
     preflightSlate: (
       _management: object,
       selection: Record<string, unknown>,
@@ -1012,7 +1025,12 @@ function fixture(
           : Object.freeze({
               status: "issued",
               capability: externalSendGrantCapability,
-              authorizationMode: "reused_initial_consent",
+              authorizationMode: Object.hasOwn(
+                options,
+                "externalSendAuthorizationMode",
+              )
+                ? options.externalSendAuthorizationMode
+                : "reused_initial_consent",
             });
       return options.pauseExternalAuthorization
         ? new Promise<typeof authorization>((resolve) => {
@@ -1332,6 +1350,7 @@ function fixture(
     slateRequests,
     selectionRequests,
     selectionNotices,
+    externalSendNotices,
     selectionRevokeCount: () => selectionRevokeCount,
     providerHomeObservationCount: () => providerHomeObservationCount,
     mountGrantIssueCount: () => mountGrantIssueCount,
@@ -1642,6 +1661,93 @@ test("lifecycle observer例外はRuntime状態・Authority・Effect・結果を�
   assert.deepEqual(throwingResult, baselineResult);
   assert.deepEqual(throwing.effectCounts(), baseline.effectCounts());
   assert.deepEqual(throwing.lifecycleStates, baseline.lifecycleStates);
+});
+
+test("初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続する", async () => {
+  for (const mode of [
+    "interactive_initial_consent",
+    "reused_initial_consent",
+  ]) {
+    const harness = fixture({ externalSendAuthorizationMode: mode });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "completed");
+    assert.equal(result.externalSendAuthorizationMode, mode);
+    assert.equal(harness.externalAuthorizationCount(), 1);
+    assert.equal(harness.externalSendNotices.length, 1);
+    assert.deepEqual(harness.externalSendNotices[0], {
+      event: "coordinator_external_send_authorized",
+      authorizationMode: mode,
+      providers: ["claude", "codex"],
+      message:
+        mode === "reused_initial_consent"
+          ? "既存の送信許可の範囲内で続行します。追加の承認入力は不要です。"
+          : "今回確認した送信許可の範囲内で続行します。",
+    });
+    assert.equal(harness.processStartCount(), 2);
+  }
+});
+
+test("不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止する", async () => {
+  for (const options of [
+    ...[undefined, null, "", "unknown", true].map((mode) => ({
+      externalSendAuthorizationMode: mode,
+    })),
+    { externalSendNoticeOutcome: "failed" as const },
+    { externalSendNoticeOutcome: "throw" as const },
+    { externalSendDenied: true },
+  ]) {
+    const harness = fixture(options);
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "externalSendDenied" in options
+        ? "coordinator_task_external_send_not_authorized"
+        : "externalSendNoticeOutcome" in options
+          ? "coordinator_task_external_send_notice_unavailable"
+          : "coordinator_task_external_send_authorization_mode_invalid",
+    );
+    assert.equal(result.externalSendAuthorizationMode, undefined);
+    assert.equal(
+      harness.externalSendNotices.length,
+      "externalSendNoticeOutcome" in options ? 1 : 0,
+    );
+    assert.equal(harness.workspaceMaterializeCount(), 0);
+    assert.equal(harness.processStartCount(), 0);
+    assert.equal(harness.mountGrantIssueCount(), 0);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+  }
+});
+
+test("許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まない", async () => {
+  const harness = fixture({
+    externalSendNoticeObserver: () => {
+      harness.observeLastControlInvalid();
+    },
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_cancelled_during_external_send_authorization",
+  );
+  assert.equal(harness.externalSendNotices.length, 1);
+  assert.equal(harness.workspaceMaterializeCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(result.cleanupConfirmed, true);
 });
 
 test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続する", async () => {

@@ -36,6 +36,8 @@ Executorは通常`auto`で選定する。人間または上位Coordinatorが公�
 
 Provider同士を直接spawnさせない。Provider出力、Runtime内部Path、Credentialおよび未検証Candidateを結果へ直接公開しない。Canonical Repositoryへのcommit、push、merge、tag、Releaseまたは公開Effectを許可しない。
 
+一般Taskの外部送信許可が成立したら、Workspace作成とProvider起動の前に、初回確認か既存許可の再利用かを標準エラーへ一回だけ表示する。表示は質問ではなく、同じ許可を再確認しない。固定文、許可対象として選定したProvider、検証した許可方式だけを出し、Task本文、読取り文書、Path、Credentialまたは許可Capabilityは出さない。許可方式の欠落・未知値を再利用へ補正せず停止する。表示関数が失敗を返す／例外となる場合、または表示中に取消された場合も後続Workspace・Provider Effectを発生させず、既存Operation cleanupへ戻す。標準エラーへの書込み受理は人間が画面を見た証明ではなく、この表示自体も送信Authorityや実送信完了の証明ではない。`coordinator-task-runtime.contract.test.ts`で初回・再利用の結果伝播、不明値、許可拒否、表示失敗・例外、取消と後続Effect 0を検証する。許可範囲の照合と初回対話は既存の`external-send-grant-runtime`が所有し、表示層では変更しない。
+
 Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終復旧は別の公開Lifecycleである。`activate`、`disable`および`provision`の未実装Effect前停止を一般Taskの成立経路へ混入させない。
 
 ### 2.1 Filesystem保存境界

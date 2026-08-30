@@ -337,6 +337,7 @@ type RuntimeDependencies = Readonly<{
   prepareCandidateStore: () => RuntimeRecord;
   prepareDockerRecoveryState: () => unknown;
   reportSelectionNotice: (notice: RuntimeRecord) => boolean;
+  reportExternalSendNotice: (notice: RuntimeRecord) => boolean;
   issueTaskPacket: (
     managementCapability: object,
     repositoryBindingCapability: object,
@@ -1556,13 +1557,44 @@ async function runCoordinatorTaskCore(
         externalSendGrant?.manualRecoveryRequired === true;
       return blocked(reason, manualRecoveryRequired, null);
     }
+    const externalSendAuthorizationMode = externalSendGrant.authorizationMode;
+    if (
+      externalSendAuthorizationMode !== "interactive_initial_consent" &&
+      externalSendAuthorizationMode !== "reused_initial_consent"
+    ) {
+      return blocked(
+        "coordinator_task_external_send_authorization_mode_invalid",
+      );
+    }
+    const externalSendNotice = Object.freeze({
+      event: "coordinator_external_send_authorized",
+      authorizationMode: externalSendAuthorizationMode,
+      providers: slateProviders,
+      message:
+        externalSendAuthorizationMode === "reused_initial_consent"
+          ? "既存の送信許可の範囲内で続行します。追加の承認入力は不要です。"
+          : "今回確認した送信許可の範囲内で続行します。",
+    });
+    let isNoticeReported = false;
+    try {
+      isNoticeReported =
+        state.dependencies.reportExternalSendNotice(externalSendNotice) ===
+        true;
+    } catch {
+      isNoticeReported = false;
+    }
+    if (!isNoticeReported) {
+      return blocked("coordinator_task_external_send_notice_unavailable");
+    }
+    if (control.cancellationRequested) {
+      return blocked(
+        "coordinator_task_cancelled_during_external_send_authorization",
+      );
+    }
     const candidateNotIssued = (result: RuntimeRecord) =>
       Object.freeze({
         ...result,
-        externalSendAuthorizationMode:
-          externalSendGrant.authorizationMode === "interactive_initial_consent"
-            ? ("interactive_initial_consent" as const)
-            : ("reused_initial_consent" as const),
+        externalSendAuthorizationMode,
         candidateDisposition: "not_issued" as const,
       });
     const workspace = state.dependencies.materializeWorkspace(
@@ -1753,10 +1785,7 @@ async function runCoordinatorTaskCore(
     ) {
       return Object.freeze({
         ...blocked("coordinator_task_independent_review_not_approved"),
-        externalSendAuthorizationMode:
-          externalSendGrant.authorizationMode === "interactive_initial_consent"
-            ? "interactive_initial_consent"
-            : "reused_initial_consent",
+        externalSendAuthorizationMode,
         candidateDisposition: "not_issued" as const,
       });
     }
@@ -1799,10 +1828,7 @@ async function runCoordinatorTaskCore(
       executorProvider: executor.provider,
       reviewerProvider: reviewer.provider,
       reviewerIndependence,
-      externalSendAuthorizationMode:
-        externalSendGrant.authorizationMode === "interactive_initial_consent"
-          ? "interactive_initial_consent"
-          : "reused_initial_consent",
+      externalSendAuthorizationMode,
       executorSelectionNotice: finalExecutor.selectionNotice,
       reviewerSelectionNotice: reviewer.selectionNotice,
       remediationPerformed,
@@ -2065,6 +2091,16 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
     try {
       process.stderr.write(
         `[Coordinator selection] ${JSON.stringify(notice)}\n`,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  reportExternalSendNotice: (notice) => {
+    try {
+      process.stderr.write(
+        `[Coordinator authorization] ${JSON.stringify(notice)}\n`,
       );
       return true;
     } catch {
