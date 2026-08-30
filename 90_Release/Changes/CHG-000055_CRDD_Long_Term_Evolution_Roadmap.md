@@ -341,4 +341,21 @@ CLIテキスト案ではGraphic制作・実画面の視覚品質は今回非該�
 | Lint／Format | 正規Biome Lint 311ファイル、Format 310ファイルで合格。所有Sourceの検査を維持 |
 | 設計対応Checker | 9資源・20状態・21遷移・10不変条件・10検証bindingを受理 |
 
-Runtime全試験logのSHA-256は`87a567176253943ae834cdd91dccb6ddb334f1303ef039a52bc860daa1bea6a0`、開発E2E logは`f69850dbf714c8c75b646499b051233bc8576294a85450b87208e4aded711730`。logは`.crdd`の一時記録であり、恒久的なEvidence参照とはしない。試験結果の範囲・件数・実行入口を本項に保持し、再実行できるSourceへ接続する。Repository全体Checkerは365 Markdown、2,258 links、705 anchors、固定履歴15件でError 0／Warning 0、差分検査も合格した。実務受渡しは外部実行許可待ち、最終固定版の正式署名4経路／Recovery E2Eと一括監査は未完了である。
+Runtime全試験logのSHA-256は`87a567176253943ae834cdd91dccb6ddb334f1303ef039a52bc860daa1bea6a0`、開発E2E logは`f69850dbf714c8c75b646499b051233bc8576294a85450b87208e4aded711730`。logは`.crdd`の一時記録であり、恒久的なEvidence参照とはしない。試験結果の範囲・件数・実行入口を本項に保持し、再実行できるSourceへ接続する。Repository全体Checkerは365 Markdown、2,258 links、705 anchors、固定履歴15件でError 0／Warning 0、差分検査も合格した。この確認時点では実務受渡しは外部実行許可待ちだった。以下に再開後の結果を示す。最終固定版の正式署名4経路／Recovery E2Eと一括監査は未完了である。
+
+### 承認後の実務受渡し結果
+
+同日、人間が3文書と生成候補のOpenAI／Anthropic送信、既存Subscription限定・最大4 CLI・Task再試行なしを明示承認した。対象をCommit `b516f36e32bead1ef56755a2c1ceb016a78f028e`、Tree `740da799539a54955c0faac86443207e06aff6b7`へ再固定し、実行前後のHEAD／Tree一致とclean状態を確認した。前記3入力の内容は前回準備から変更していない。外側の実行環境の許可を得て既存署名配布物`a619545ff7f30f3ec65efa134994abc0f825421a`の通常Task入口を実行し、許可・署名検証は迂回していない。
+
+| 観測 | 結果 |
+|---|---|
+| 実行区間 | UTC `2026-08-30T18:01:12.112Z`～`2026-08-30T18:04:45.505Z`、Task開始から完了結果まで213,402.2899 ms。後続export／discardと人間受入時間は含まない |
+| 実行者／独立確認者 | Codex `gpt-5.5`・推論中／Claude `opus`・推論中、通常速度。固定Linux環境のcode-mode非対応を理由とする既存の5.5選定であり、新たなモデル変更ではない |
+| 呼出しとレビュー | 実行1・独立レビュー1、指摘0、是正0、Task再試行0。`coordinator_task_candidate_approved`、Exit 0 |
+| 同意と人間負荷 | Runtimeは`reused_initial_consent`、起動後の手入力0。起動前に親が追加承認を1回求めた負荷は残る。Human Active Timeは未測定であり0ではない |
+| 出力 | [IA／UIへの受渡し候補](Evidence/CHG-000055_Handoff_Application_b516f36.md)、35行、4,641 bytes、SHA-256 `9bc56ff50884d7a129a59b97d53965c399752828940784941cef3c90d29f959f` |
+| 回収 | `cleanupConfirmed=true`、`manualRecoveryRequired=false`、`processRestartRequired=false`。正規exportのbaseCommit／Path／byte数／Hashを照合後、正規discardが`discarded`。Runtimeによるcanonical Repository変更なし |
+
+要求JSONのSHA-256は`e15a1e0a2b68453307fcd2da5c361b81c2451bb51c957fb330a969cdbc1ffd9d`。入力Hashは`23_IA.md`が`3db1f05280d461249fbc99b42fff69e923f6a34cb5a02a5fb4b9ecbee981549d`、`25_UI.md`が`5979f206968e8814804b791de9d16cacac362bc2f7bd94f497eb71e142a2f333`、上流UX成果が`4143cf1f1437b578952550e665ecb02ec49c2f8dba816160c2baf3df6de360e6`。実行は固定配布物の`tools/coordinator/bin/coordinator.ts task --request-stdin --json`と同入口の`candidate export`／`candidate discard`をNode 24.19.0、Windowsから行った。Task結果Hashは`66e5421fd70acc4402fc92b1ffab10ef12ecda827e9d3cbe7635f6b1989b6c63`。要求・結果・選定・計時・export・discardはRepository-local `.crdd/dogfooding/handoff-b516f36.*`の一時記録に保持し、恒久的な参照にはしない。出力本文は親が編集せず同じbyte列でEvidenceへ保存した。
+
+本件で成立したのは、既存UX成果を実入力にした下流のテキスト表示案生成と独立レビュー、回収の1例である。出力中の「Runtime実測」は下流で行う検証案であり、6場面の実操作を今回すべて実測した意味ではない。「独立保留」の行に含まれるGraphicは本件非該当、理解時間は未測定、その他の未確認条件とは別に扱う。親の照合はこの限界を維持し、独立レビュー承認を人間受入、正式規範採用、全体品質または有用性改善へ読み替えない。最終一括監査へは出力本文とこの解釈境界を共に渡す。
