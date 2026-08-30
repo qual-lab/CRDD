@@ -24,7 +24,7 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 最新の固定候補`a619545`では、[署名済み4経路と復旧E2E](Evidence/CHG-000015_Signed_E2E_a619545.md)が4/4、7/7で完了した。4経路の再試行・是正は0、既存同意再利用、候補完全一致・破棄、cleanup確認済み、未解決Recovery 0および正本Repository変更なしを確認した。Frontは指定Profileであり実アプリのIdentity認証ではない。以下の過去実測履歴と区別し、実務自己適用の有用性評価、最新固定版の独立監査およびRelease判断は未完了として保持する。
 
-その後の固定開発版`c95eb91`では、[既存Subscriptionによる2Task比較](#development-comparison-c95eb91)が両方完了した。Codex実装→Claudeレビュー、Claude実装→Codexレビューを各一回実行し、指摘・是正・Task再試行0、呼出し計4回、今回の候補破棄とcleanup成立を確認した。Release鍵の入力・再署名は不要だった。これは開発版の限定実測であり、上記の署名済み4経路検証とは別の根拠である。所要時間の内訳、有用性評価および最新実装の完成監査は引き続き未完了である。
+その後の固定開発版`c95eb91`では、[既存Subscriptionによる2Task比較](#development-comparison-c95eb91)が両方完了した。計測を追加した`848877c`でも[時間内訳の実測と改善要否の分析](#development-comparison-848877c)を完了し、各経路約6分、指摘・是正・Task再試行0、呼出し計4回、今回の候補破棄とcleanup成立を確認した。Release鍵の入力・再署名は不要だった。これらは開発版の限定実測であり、上記の署名済み4経路検証とは別の根拠である。実体照合の反復を改善候補としたが、削減実装、有用性全体の評価および最新実装の完成監査は未完了である。
 
 2026-08-26時点で、署名済みCRDD Release Identity、Local PersonalのT1–T2境界、外部送信の対話承認、Claude Code Executor、Codex Independent Reviewer、Candidate検証・破棄およびHost／Docker cleanupを通る固定1経路を実測した。対象Commit `af76f555896d991edb88a6bc2f52b9865c6e9ac5`の正式Runnerは`RUNNER_EXIT=0`を返し、正規Repository、Candidate Store、Runtime State、Docker資源およびRunner Processの残存0を独立照合した。
 
@@ -550,3 +550,59 @@ Checker自身の全試験も173件合格、失敗・取消・skip 0となった�
 受動計測module単体のNode組込みcoverageはline 98.79%、branch 96.15%、function 90.00%だった。既定目標100%に対し、実書込み例外のcatchと親process内で未到達の既定時計経路等が残る。表示失敗注入および実子ProcessのUTF-8表示を代替確認として保持するが、実出力先の閉鎖・滞留は未検証であり、100%や全OS条件の成立を主張しない。担当はRuntime保守、再確認契機は次の対話出力境界の検証。未達の最終評価は完成監査へ引き継ぐ。
 
 次の実務実測では段階別の時間とIdentity再検査時間を取得し、以前の7分半を後付けで分解しない。今回の実装だけで高速化済み、有用性評価完了または実Provider検証済みとは扱わない。正式な独立レビュー・監査は既定の実務収束後に行う。追加のProvider利用や新しい実測許可の自動発行は行っていない。
+
+<a id="development-comparison-848877c"></a>
+
+### 時間内訳の実測と改善要否の分析（2026-08-31）
+
+**結論：計測追加後も2件は完了し、実体照合の反復は性能改善の優先候補となった。ただし照合省略やcache導入を採用したわけではない。** 今回の範囲は既存結果の記録と読取り専用の原因・改善候補分析であり、Runtime実装、権限、期限、上限、署名条件を変更しない。記録と算術はセルフチェックと全体Checkerで確認し、正式な独立レビュー・監査は既定の実務収束後へ接続する。新たな機能・準拠規則・Release判断を行わないため、それらの監査を今回別立てでは起動しない。
+
+| 観測項目 | Codex実装→Claudeレビュー | Claude実装→Codexレビュー |
+|---|---|---|
+| 前回／今回のTask経過時間 | 448.841秒／372.703秒 | 451.244秒／364.665秒 |
+| 観測された短縮（因果的効果ではない） | 76.138秒（17.0%） | 86.580秒（19.2%） |
+| 実装段階（準備・回収を含む） | 142.926秒 | 141.099秒 |
+| レビュー段階（準備・回収を含む） | 137.439秒 | 131.011秒 |
+| その他のTask内区間合計 | 92.337秒 | 92.555秒 |
+| 結果・品質の観測範囲 | 完了、Reviewer承認・指摘0、是正0 | 完了、Reviewer承認・指摘0、是正0 |
+| 候補・復旧 | 候補破棄、cleanup確認済み、手動復旧不要 | 候補破棄、cleanup確認済み、手動復旧不要 |
+
+Task合計は737.368秒（約12分17秒）。セッションの実体照合は343回、累計525.375秒、平均1.532秒／回だった。これは各Task区間に内包される処理を含み、初期確認前・Task間・最終inspectも含む別の測定窓である。Task時間へ加算せず、正確なTask別占有率、削減可能時間またはAI推論時間へ換算しない。Task側の`executionTiming.identityObservation`の0は別の計測器でIdentity観測を担当していないためであり、検査0回の意味ではない。セッション値は`invocationAccounting.identityObservation`を使用する。
+
+2件の指示・読取り投影・変更投影は前回Evidenceの`tasks`と完全一致した。実効モデルは前回同様GPT-5.5 low→Opus medium、Opus low→GPT-5.5 medium、通常速度。各ProviderのCLIは実装・レビュー各一回、計4回、Task再試行なし。API key／従量APIへのfallback・追加購入・Release秘密鍵入力はなし。両版各経路一回であり、今回の変更は観測機能だけなので、17～19%を変更の改善効果と主張しない。Provider応答の変動、OS負荷、Filesystem cache等を統制しておらず、前回の段階別時間もない。Direct実行との比較、人間実作業時間、実turn／token／quota量、後工程品質は未測定である。
+
+#### 根拠と再現境界
+
+- 対象Commit `848877c2ff818a99d1c455bfee751fd8c5135902`、Tree `be218084257cee19793de11289eab68b5f8df598`、Object Format `sha1`。準備前、実行後および今回編集前にworktree cleanを観測した。Runtimeは実行中の同一性を自身で再照合した。これはGit外のOS／Provider状態を固定したという主張ではない。
+- 開発package SHA-256 `97c721145175a7696bd44c94333b55750bbd42bd46097e436322c79e71de0f95`。別Rootのnative配布は前回と同じ署名済み`a619545`、manifest SHA-256 `23f917aa8b586b432e3d30051db803f0f80222f3f50c4af3de48e25bc7a884fe`。Windows、Node.js 24.19.0、固定配布内`tools/coordinator/scripts/measure-development-providers.ts`を検証済みNode絶対Pathから起動した。
+- 配布作成は`git -c core.autocrlf=false archive --format=tar --output=<Repository-local archive> 848877c2ff818a99d1c455bfee751fd8c5135902`とし、Repository直下`.crdd/e2e-distributions`の専用Rootへ展開した。最初のarchiveでは改行変換により757ファイルがBlobと不一致となり、Provider開始前に拒否された。Git設定全体は変更せず、archive commandだけで変換を止めて再観測を通した。これはRuntime検査の緩和ではなく配布生成条件の是正である。
+- 最初の確認待ちはtimeout、`providerEffectIssued: false`で終了。次の開始試行は同じ版・2Taskを再観測し、最大1時間の新しい開始期限を設定した。失効済みCapabilityの再利用、実Task再試行または許可上限の補充はしていない。貼付Consoleには確認コード一致の表示があり、人間は「さっき入れたコードかもしれない」と説明した。入力主体・時刻の独立証明はなく、保存結果から推定しない。追加送信の初期同意は両Taskとも再利用された。
+- 保存結果の時刻は2026-08-31 01:17:32 JST、Consoleの`MEASUREMENT_EXIT=0`、保存JSONの`status=completed`。正確なTask別開始・終了時刻は未記録。今回の候補は破棄済みのため本文の再レビューはできない。
+- [入力・完全な公開結果・比較計算・制限](Evidence/CHG-000015_Development_Provider_Comparison_848877c.json)のSHA-256は`0d7f630f30a90889cb475f8060b3e463a296c625c6cf133ad84a9372d1e9fde2`。原結果SHA-256は`65733445da8ab4e6dd9e8162f4b5f66af48908e586ff643b8834033f87191e73`、入力SHA-256は`b4d5e6e114462e8f1da3d61c3f98ec101711fdbac34e9dd598dd30296760e153`。原結果・入力はignored `.crdd/dogfooding`に保持し、Provider生出力・CredentialはEvidenceへ含めない。過去Evidenceは変更しない。
+
+#### 実体照合の発生箇所と改善判断
+
+`development-measurement-session.ts`の`observeProduction`は、Repositoryの前後観測、開発配布の照合、別Rootの署名済みnative配布の照合を一組にする。計測の直接入口は初回request、`observe(session)`、cleanup専用の`borrowNativeObservation`の3箇所。次の利用側が同じ全体観測へ到達する。343回の内訳を識別するタグは今回取得していないため、利用側ごとの件数・削減量を捏造しない。
+
+| 発生する境界・利用側 | 確認できた構造 | 改善判断と保持条件 |
+|---|---|---|
+| 開始確認前後、Task列挙・予約・Operation結合 | `request`、`tasks`、`reserveTask`、`bindOperation`が全体観測を行う | 人間待機・非同期待機の前後を一回にまとめない。Taskの同一性と新規実行権限を保持する |
+| 新規処理・Authority・同意・候補保存・Docker Recovery | `checkNewWork`から全体観測。`local-personal-authority-runtime.ts`、`external-send-consent-runtime.ts`、`candidate-bundle-store.ts`、`docker-recovery-runtime-internal.ts`へ接続 | 状態確認とFilesystem全走査の責務が密結合している。同じ検証済み操作内で証拠を共有できるか検討するが、取消・期限・権限・対象の最新性の確認は毎回保持する |
+| Provider Home／Runtime State／Candidate Storeのnative観測 | 二つのWindows Adapterは、context借用時の全体観測に続きnative配布を自ら再照合し、子Process後にもcontextを再観測する | **第一候補：同じ観測操作内の重複native配布検証の責務を一つの所有者へ集約する設計**。子Process前後のartifact一致、Root保護、nonce、応答、終了確認は残す。現時点で削除可能と確定した検査はない |
+| Docker command予約・起動直前 | `beginInvocation`の予約、通常commandの制約、`start_provider_attached`のconsumeで全体観測 | Effect境界なので一律削減しない。待機後の差替え、取消、期限、単回消費を拒否することが必須 |
+| cleanup専用context | 失効後も新規初期化不可の読取り専用観測を行う | 新規実行用のcache・期限判定へ統合しない。cleanupの所有・対象同一性・回収不明を維持する |
+| 各一組の内部走査 | 開発packageは前後2回と全体Tree、nativeはpackage検証前後・全体Tree・artifact結合を確認 | 第二候補：同じ安定したbyte観測からpackage／Tree等の複数digestを導出する。前後検査を消す変更とは分け、内容変更・追加削除・置換検出を保持する |
+| 最終診断`inspect` | session取消後でも最後に全体観測を一回実行する | 診断snapshotと最新性検査の責務分離候補。ただし削減効果は小さく、全体525秒の説明にはならない |
+
+上記native Adapter自身の追加照合はsession計測343回の外側にも存在する。343回を全Runtimeの照合総回数とは扱わない。単一native観測では、session経由の前後2組に加えAdapter内のnative検証があることはコードから確認できるが、全実測への寄与は未分解である。
+
+TTL／Task全期間のキャッシュ、変更時刻だけの判定、署名・Hash・Effect直前確認の省略は推奨しない。同じ同期処理であることだけでは、別ProcessによるFilesystem変更を排除できないため、同一操作内共有も自動的に安全とはしない。採用前には検証済み対象・保有handle・有効範囲・一回消費・失効・再観測条件を設計し、偽造した観測結果を受理しないことを確認する。今回の結論は「重複検証の集約を優先して設計する価値がある」であり、「343回を一定数へ削減してよい」ではない。
+
+| 後続対応 | 担当・契機 | 完了条件・保留影響 |
+|---|---|---|
+| 重複native検証の所有者集約の設計 | Runtime保守。次の性能改善着手前 | 全利用側と正常・拒否・待機中の差替え・取消・期限・cleanupを照合。古い観測・別Root・別Operation・二重使用を拒否する自動試験を先に定め、独立確認後に採用判断。保留中は現在の安全判定を維持するが時間負担は残る |
+| 計測表示の誤読防止 | Runtime保守。次の計測契約更新時 | Task側Identityの0を未計測と区別し、必要なら呼出し元の閉集合別に観測。既存値を書換えて今回実測の内訳を後付けしない |
+| 準備・入力案内のUX | 親Coordinator／Runtime保守。次の実測入口準備時 | archiveの改行条件を固定し、完了結果確認前に再入力を案内しない。入力timeoutは実Provider失敗・課金消費と区別する |
+| 有用性全体の評価 | 親Coordinator。実務自己適用の継続時 | [有用性評価](../../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-evaluation)に沿って人間負荷・採用可能な成果・品質・利用分散を評価。今回の記録だけで全体完了にしない |
+
+今回の記録・分析に追加の人間判断は必要ない。Runtimeの削減実装、再実測、追加Provider送信、Docker修復、署名またはReleaseは行っていない。
