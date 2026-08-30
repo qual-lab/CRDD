@@ -1,4 +1,8 @@
 import { types as utilTypes } from "node:util";
+import {
+  createDevelopmentExecutionTiming,
+  writeDevelopmentMeasurementProgress,
+} from "../core/development-execution-timing.ts";
 import { evaluateManagedDockerCleanupEligibility } from "../core/docker-cleanup-eligibility.ts";
 import {
   isRuntimeProcessEffectBlocked,
@@ -441,7 +445,7 @@ function advanceLifecycleState(
   try {
     state.dependencies.observeLifecycleState?.(next);
   } catch {
-    // Test-only observation must not gain control over Runtime state or Effect.
+    // Passive observation must not gain control over Runtime state or Effect.
   }
 }
 
@@ -2145,7 +2149,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
       try {
         state.dependencies.observeLifecycleState?.("STATE-ADMISSION");
       } catch {
-        // Test-only observation must not gain control over Runtime admission.
+        // Passive observation must not gain control over Runtime admission.
       }
       state.controls.set(controlCapability, control);
       const completion: Promise<TaskCompletionRecord> = runCoordinatorTask(
@@ -2681,6 +2685,10 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
   repositoryRoot: unknown,
   sessionCapability: object,
 ) {
+  const timing = createDevelopmentExecutionTiming(
+    undefined,
+    writeDevelopmentMeasurementProgress,
+  );
   const boundary = reserveRuntimeOwnedDevelopmentMeasurementTask(
     sessionCapability,
     rawRequest,
@@ -2700,6 +2708,7 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
   }
   const runtime = createRuntime({
     ...productionDependencies,
+    observeLifecycleState: timing.observeLifecycleState,
     beginInvocation: boundary.beginInvocation,
     inspectRepository: guard(productionDependencies.inspectRepository),
     createOperation: guard(productionDependencies.createOperation),
@@ -2774,6 +2783,7 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
         taskResult.cleanupConfirmed === true &&
         (!taskResult.candidateId || candidateDiscard?.status === "discarded");
       boundary.finish(cleanupConfirmed ? "finished" : "cleanup_unknown");
+      timing.finish();
       return Object.freeze({
         status:
           taskResult.status === "completed" && cleanupConfirmed
@@ -2786,6 +2796,7 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
         cleanupConfirmed,
         manualRecoveryRequired:
           taskResult.manualRecoveryRequired || !cleanupConfirmed,
+        executionTiming: timing.snapshot(),
       });
     })
     .catch((error: unknown) => {
@@ -2793,10 +2804,16 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
       throw error;
     })
     .finally(() => {
+      timing.finish();
       clearTimeout(timer);
       boundary.signal.removeEventListener("abort", requestCancellation);
     });
-  return Object.freeze({ ...started, completion, cancel });
+  return Object.freeze({
+    ...started,
+    completion,
+    cancel,
+    readExecutionTiming: timing.snapshot,
+  });
 }
 
 export function createIsolatedCoordinatorTaskRuntimeCandidate(

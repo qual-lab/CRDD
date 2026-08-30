@@ -47,6 +47,7 @@ async function executeMeasurement(
   let processRestartRequired = false;
   let manualRecoveryRequired = false;
   let failureReason: string | null = null;
+  let incompleteTaskTiming: unknown = null;
   try {
     const tasks = dependencies.tasks(capability);
     if (tasks?.length !== 2) throw new Error("measurement_tasks_unavailable");
@@ -57,7 +58,13 @@ async function executeMeasurement(
       }
       const startedAt = dependencies.now();
       const started = dependencies.start(task, repositoryRoot, capability);
-      const result = await started.completion;
+      let result: Awaited<typeof started.completion>;
+      try {
+        result = await started.completion;
+      } finally {
+        // Pure snapshot: does not repeat identity checks or acquire authority.
+        incompleteTaskTiming = started.readExecutionTiming();
+      }
       results.push(
         Object.freeze({
           executorProvider: task.requestedExecutorProvider,
@@ -65,6 +72,7 @@ async function executeMeasurement(
           result,
         }),
       );
+      incompleteTaskTiming = null;
       if (result.status === "completed") completedCount += 1;
       cleanupConfirmed = result.cleanupConfirmed === true;
       processRestartRequired =
@@ -91,7 +99,7 @@ async function executeMeasurement(
   }
   return Object.freeze({
     contract: "crdd-coordinator/development-provider-measurement",
-    contractRevision: 1,
+    contractRevision: 2,
     status: completedCount === 2 && cleanupConfirmed ? "completed" : "blocked",
     reason:
       failureReason ??
@@ -102,6 +110,7 @@ async function executeMeasurement(
     releaseAuthorityConferred: false,
     completedCount,
     results: Object.freeze(results),
+    incompleteTaskTiming,
     invocationAccounting: dependencies.inspect(capability),
     cleanupConfirmed,
     manualRecoveryRequired: manualRecoveryRequired || !cleanupConfirmed,

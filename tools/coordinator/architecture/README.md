@@ -89,6 +89,14 @@ Task受付からの接続は次の所有関係を維持する。
 
 別process Recoveryはsession再発行ではない。既存のexact Recovery ID、保護済みRoot、明示Recovery契約から再観測する。耐久形式を変更していないことだけで旧配布との互換性を推定せず、実測で使用する配布との書込み・読取り・復旧を別processで確認する。native保護観測や実Docker操作を試験用観測に置き換えた互換性試験は、その境界まで実測済みとは扱わない。
 
+限定実測の時間は[受動計測](../src/core/development-execution-timing.ts)で取得する。Taskの既存状態遷移を観測し、状態ごとの非重複区間、最初の状態通知までの時間、今回候補の破棄を含む終了までの時間を返す。実装／レビュー区間は起動準備、Provider処理およびその回収を含み、モデル推論時間ではない。正常・是正・停止の既存状態を使用し、計測のためのRuntime状態、timer、listener、再試行または権限を追加しない。通常署名Taskの公開Schemaや標準エラー表示は変更せず、開発Taskの外側の結果にだけ`executionTiming`を付ける。Task完了Promiseが例外となった場合、比較入口revision 2はpure snapshotを`incompleteTaskTiming`に残し、元の停止・回収不明分類を維持する。Task予約自体の例外では取得対象がなく`null`となる。
+
+Identity observerは初回許可前、session再検査、失効後cleanupの直接観測を同じ同期ラッパで数え、失敗も含めて累積時間を記録する。既存の最終`inspect`による再観測も含める。session全体の`identityObservation`には人間確認前の検査とTask間の検査も含まれるため、Task区間と同じ時間範囲ではない。Task区間に内包される検査時間もあるので、両者を合算して総時間としない。診断取得用の`readExecutionTiming`は観測・I/O・Authorityのないsnapshotに限定する。
+
+計測時計は`performance.now()`を用い、Authority用時計の呼出し回数・時点を変えない。時計例外、非有限値、逆行または通知上限では計測不完全を明示し、不明時間を0へ補正しない。元observerの値・例外・呼出し順、失効判定、cleanupおよびTask結果は維持する。状態通知は既知の閉集合に限定し、重複を除いて最大32区間を保持する。終了後の通知は無視し、snapshotは変更不能な値として返す。
+
+進行表示は開発入口が所有する固定日本語文だけを標準エラーへ出す。最大32回・1回256 bytes以下、同期書込みの例外または不足byteでは以後の表示を停止し`progressOutputConfirmed: false`を返す。これは書込み結果であり、人間が見た証明ではない。任意のcaller callback、Task本文、Path、Capability、CredentialまたはProvider自由文は渡さない。同期出力先が遅い場合の待ち時間は実時間へ影響し得るため、計測の有無で実時間・期限超過率が必ず同一とは主張しない。計測結果・表示成功を実行許可、cleanup成立、品質または人間受入の根拠にしない。[計測契約試験](../tests/development-execution-timing.contract.test.ts)、既存Task試験、session試験、比較入口試験を接続してこの境界を確認する。
+
 ### 2.1 Filesystem保存境界
 
 Coordinatorは、論理的なRepository Bindingと物理的な書込みRootを分離する。現在のリポジトリを対象にしたOperationでは、明示的な別Authorityがない限り、Repository外へstaging、worktree、archive、log、probeまたは試験一時物を作らない。読み取れるPath、同じ親Directory、同じLocal Userまたはcaller supplied absolute Pathは書込みAuthorityにならない。

@@ -55,13 +55,18 @@ function fixture(outcomes: readonly string[]) {
       starts.push(String(task.requestedExecutorProvider));
       if (outcome === "throw") throw new Error("private details");
       return {
-        completion: Promise.resolve({
-          status: outcome === "success" ? "completed" : "blocked",
-          cleanupConfirmed: outcome !== "cleanup_unknown",
-          manualRecoveryRequired:
-            outcome === "cleanup_unknown" || outcome === "manual_recovery",
-          taskResult: { processRestartRequired: outcome === "restart" },
-        }),
+        readExecutionTiming: () => ({ finished: true }),
+        completion:
+          outcome === "reject"
+            ? Promise.reject(new Error("private details"))
+            : Promise.resolve({
+                status: outcome === "success" ? "completed" : "blocked",
+                cleanupConfirmed: outcome !== "cleanup_unknown",
+                manualRecoveryRequired:
+                  outcome === "cleanup_unknown" ||
+                  outcome === "manual_recovery",
+                taskResult: { processRestartRequired: outcome === "restart" },
+              }),
       };
     },
   };
@@ -82,6 +87,7 @@ test("比較は固定2Taskを一回ずつ実行し終了時にsessionを失効�
     new AbortController().signal,
   );
   assert.equal(result.status, "completed");
+  assert.equal(Reflect.get(result, "contractRevision"), 2);
   assert.deepEqual(value.starts, ["codex", "claude"]);
   assert.equal(value.cancellationCount(), 1);
 });
@@ -103,6 +109,7 @@ for (const failure of [
   "manual_recovery",
   "restart",
   "throw",
+  "reject",
 ] as const) {
   test(`${failure}なら次Taskを開始せず終了する`, async () => {
     const value = fixture([failure, "success"]);
@@ -117,6 +124,10 @@ for (const failure of [
     assert.equal(JSON.stringify(result).includes("private details"), false);
     if (failure === "manual_recovery")
       assert.equal(Reflect.get(result, "manualRecoveryRequired"), true);
+    if (failure === "reject")
+      assert.deepEqual(Reflect.get(result, "incompleteTaskTiming"), {
+        finished: true,
+      });
   });
 }
 

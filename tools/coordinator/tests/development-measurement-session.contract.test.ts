@@ -67,6 +67,7 @@ function harness() {
     identity: "2".repeat(64),
     isBlocked: false,
     confirmationCount: 0,
+    observationCount: 0,
     notice: "",
     confirmationStatus: "confirmed" as
       | "confirmed"
@@ -83,6 +84,7 @@ function harness() {
   const repositories = new WeakMap<object, object>();
   const runtime = createIsolatedDevelopmentMeasurementSessionCandidate({
     observe: () => {
+      state.observationCount += 1;
       if (state.observationThrows)
         throw new Error("private observation details");
       return {
@@ -209,6 +211,9 @@ test("一回の確認から2Task・最大8呼出しへ結合し、試験tokenは
   }
   assert.equal(state.confirmationCount, 1);
   assert.equal(runtime.inspect(admitted.capability)?.invocationCount, 8);
+  const measured = runtime.inspect(admitted.capability);
+  assert.equal(measured?.identityObservation.callCount, state.observationCount);
+  assert.equal(measured?.identityObservation.measurementComplete, true);
   assert.equal(
     (await runtime.request(configuration(), new AbortController().signal))
       .status,
@@ -387,7 +392,7 @@ test("共通console lifecycleで開発版承認の目的を表示し外部送信
 
 for (const stop of ["expiry", "cancel"] as const) {
   test(`${stop}後は新規native初期化を拒否し所有cleanupの読取り観測だけを残す`, async () => {
-    const { runtime, clock, createOperation } = harness();
+    const { runtime, clock, state, createOperation } = harness();
     const abort = new AbortController();
     const admitted = await runtime.request(configuration(), abort.signal);
     assertPresent(admitted.capability);
@@ -414,6 +419,10 @@ for (const stop of ["expiry", "cancel"] as const) {
     );
     assertPresent(
       runtime.borrowNativeObservation(context.cleanupContext, false),
+    );
+    assert.equal(
+      runtime.inspect(admitted.capability)?.identityObservation.callCount,
+      state.observationCount,
     );
     assert.equal(runtime.borrowNativeObservation({}, false), null);
     assert.equal(runtime.settleTask(taskCapability, "finished"), true);

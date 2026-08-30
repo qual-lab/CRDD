@@ -3,6 +3,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
+import { createDevelopmentExecutionTiming } from "../core/development-execution-timing.ts";
 
 import { isRuntimeProcessEffectBlocked } from "../core/runtime-process-safety-state.ts";
 import { snapshotCoordinatorTaskRequest } from "./coordinator-task-request.ts";
@@ -87,6 +88,7 @@ type Dependencies = Readonly<{
   borrowRepository: typeof borrowRuntimeOwnedRepositorySource;
 }>;
 type Session = {
+  timing: ReturnType<typeof createDevelopmentExecutionTiming>;
   configuration: Configuration;
   identity: Identity;
   bindingSha256: string;
@@ -278,7 +280,9 @@ function createSessionRuntime(dependencies: Dependencies) {
         dependencies.isEffectBlocked()
       )
         session.constraints.cancel();
-      const identity = dependencies.observe(session.configuration);
+      const identity = session.timing.measureIdentity(() =>
+        dependencies.observe(session.configuration),
+      );
       const bindingSha256 =
         identity && digest(identity) === digest(session.identity)
           ? session.bindingSha256
@@ -331,7 +335,10 @@ function createSessionRuntime(dependencies: Dependencies) {
           configuration.expiresAtMs - wallTimeMs > MAX_DURATION_MS
         )
           return blocked("development_measurement_configuration_invalid");
-        const identity = dependencies.observe(configuration);
+        const timing = createDevelopmentExecutionTiming();
+        const identity = timing.measureIdentity(() =>
+          dependencies.observe(configuration),
+        );
         if (!identity)
           return blocked("development_measurement_identity_not_verified");
         const bindingSha256 = digest([
@@ -356,6 +363,7 @@ function createSessionRuntime(dependencies: Dependencies) {
         if (!constraints)
           return blocked("development_measurement_configuration_invalid");
         const session: Session = {
+          timing,
           configuration,
           identity,
           bindingSha256,
@@ -533,8 +541,11 @@ function createSessionRuntime(dependencies: Dependencies) {
         if (
           cleanup &&
           (dependencies.isEffectBlocked() ||
-            digest(dependencies.observe(binding.session.configuration)) !==
-              digest(binding.session.identity))
+            digest(
+              binding.session.timing.measureIdentity(() =>
+                dependencies.observe(binding.session.configuration),
+              ),
+            ) !== digest(binding.session.identity))
         )
           return null;
         return Object.freeze({
@@ -620,7 +631,10 @@ function createSessionRuntime(dependencies: Dependencies) {
       const session = sessions.get(capability);
       if (!session) return null;
       observe(session);
-      return session.constraints.inspect();
+      return Object.freeze({
+        ...session.constraints.inspect(),
+        identityObservation: session.timing.snapshot().identityObservation,
+      });
     },
     tasks(capability: object) {
       const session = sessions.get(capability);

@@ -6,6 +6,7 @@ import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
+import { createDevelopmentExecutionTiming } from "../src/core/development-execution-timing.ts";
 import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../src/core/runtime-process-safety-state.ts";
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
@@ -565,6 +566,7 @@ function fixture(
     admissionRecoveryMissing?: boolean;
     admissionRecoveryThrows?: boolean;
     lifecycleObserverThrows?: boolean;
+    timingObserver?: (state: string) => void;
     terminalObserver?: (state: string) => void;
     inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
     createOperationOverride?: () => Readonly<{
@@ -706,6 +708,7 @@ function fixture(
   const dependencies = {
     beginInvocation: options.beginInvocation,
     observeLifecycleState: (state: string) => {
+      options.timingObserver?.(state);
       lifecycleStates.push(state);
       lifecycleSnapshots.push({
         state,
@@ -1773,6 +1776,69 @@ test("lifecycle observer例外はRuntime状態・Authority・Effect・結果を�
   assert.deepEqual(throwing.effectCounts(), baseline.effectCounts());
   assert.deepEqual(throwing.lifecycleStates, baseline.lifecycleStates);
 });
+
+for (const scenario of [
+  "normal",
+  "remediation",
+  "clean_failure",
+  "cleanup_unknown",
+  "cancel",
+] as const) {
+  test(`受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じ`, async () => {
+    const options: Parameters<typeof fixture>[0] =
+      scenario === "remediation"
+        ? {
+            reviewerDecision: "changes_requested",
+            finalReviewerDecision: "approved",
+          }
+        : scenario === "clean_failure"
+          ? { processCleanFailureRole: "executor" }
+          : scenario === "cleanup_unknown"
+            ? { cleanupThrows: true }
+            : scenario === "cancel"
+              ? { pauseExternalAuthorization: true }
+              : {};
+    const baseline = fixture(options);
+    const timing = createDevelopmentExecutionTiming(
+      () => {
+        throw new Error("private clock");
+      },
+      () => {
+        throw new Error("private sink");
+      },
+    );
+    const measured = fixture({
+      ...options,
+      timingObserver: timing.observeLifecycleState,
+    });
+    const results = [];
+    for (const harness of [baseline, measured]) {
+      const started = harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+      );
+      if (scenario === "cancel") {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        const cancellation = harness.runtime.cancel(started.controlCapability);
+        harness.releaseExternalAuthorization();
+        await cancellation;
+      }
+      results.push(await started.completion);
+    }
+    timing.finish();
+    assert.deepEqual(results[1], results[0]);
+    assert.deepEqual(measured.effectCounts(), baseline.effectCounts());
+    assert.deepEqual(measured.lifecycleStates, baseline.lifecycleStates);
+    assert.equal(Object.hasOwn(results[1] ?? {}, "executionTiming"), false);
+    assert.equal(timing.snapshot().measurementComplete, false);
+    assert.equal(timing.snapshot().progressOutputConfirmed, false);
+    assert.deepEqual(
+      timing.snapshot().intervals.map((row) => row.state),
+      measured.lifecycleStates,
+    );
+  });
+}
 
 test("初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続する", async () => {
   for (const mode of [

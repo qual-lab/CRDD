@@ -532,3 +532,21 @@ Checker自身の全試験も173件合格、失敗・取消・skip 0となった�
 | 実務自己適用・有用性評価 | 親Coordinator。上記の計測不足を処置した後 | 既存の[有用性評価](../../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-evaluation)へ結果を接続し、採用可能な成果、人間負荷、不要な往復、Provider利用集中を評価する。今回の2Task成功だけで全件完了にしない |
 
 新しいCHG、追加の実Provider再試行、Release鍵入力、Docker修復または無関係な候補清掃は行っていない。正式な独立レビュー・監査は既定どおり実務収束後の最新固定版へまとめる。今回の記録更新自体に追加の人間判断は必要ない。
+
+### 比較の時間内訳と進行表示（2026-08-31）
+
+基準`716dc90`から、上記比較で判定できなかった時間内訳を取得する実装を同じCHGで追加した。分類は既存の限定実測に対する観測機能の追加であり、通常署名Task、権限、上限、同意、隔離または復旧の意味変更ではない。着手前の読み取り専用確認で、Authority時計と計測時計の分離、初回・反復・cleanupのobserver母集団、区間時間と内包する照合時間の二重計上防止、表示失敗の隔離を計画へ反映した。
+
+既存Task状態の通知を受動計測へ接続し、最初の通知までの予約処理、各状態の滞在時間、Runtime結果後の今回候補の破棄までを観測する。開発Taskの外側へ`executionTiming`、比較入口revision 2へ例外時の`incompleteTaskTiming`を追加した。通常署名Taskの結果Schemaは維持する。Taskを開始できず計測対象がない場合や不正時計では、不明を0として埋めない。sessionの全Identity検査を同期ラッパで数え、最終inspectの検査を含む回数・累積時間を返す。実体照合のcache化、省略、並替えは行っていない。
+
+進行表示は開発入口内部の固定日本語文だけを最大32回、各256 bytes以下で出す。新しいtimer、listener、任意caller callbackまたは資源台帳は設けない。書込み失敗・不足byteでは追加表示を止め、診断上の表示不成立を残す。同期stderrが遅い場合の実時間への影響は残り、時間や表示から実行権限・cleanup成立を推定しない。
+
+計測単体、既存sessionの初回・反復・cleanup観測計数、比較入口の途中例外、Taskの正常・是正・業務失敗・取消・cleanup不明を検証対象にした。時計例外・NaN・逆行と表示例外・不足書込みを注入しても、元observerの戻り値・例外およびTask結果・Effect回数が変わらないことを照合する。実子Processでは固定表示のUTF-8 byteを確認する。Windowsで`closeSync(2)`を呼ぶだけでは期待した書込み失敗を再現できなかったため、それを閉鎖stderr検証済みとは扱わない。表示失敗の決定論的注入と実UTF-8表示は別の確認であり、実出力先の閉鎖・滞留試験は未検証として保持する。
+
+最初の全試験は親がRepository Rootから実行したため、package Directoryを前提とする既存CLI／fixture試験がPath不成立となった。製品回帰や合格へ読み替えず、正しい`tools/coordinator`から全体を再実行する。中間の関連174件は合格済み。型検査2系統、変更sourceのBiome、命名契約7件および既存設計対応検査も合格した。
+
+正しいpackage Directoryからの最終全試験は1,311件合格、失敗・取消・skip 0、127,914.8669 msだった。実行はNode.js 24.19.0、`node --test --test-reporter=spec --test-reporter-destination=../../.crdd/dogfooding/development-timing-full-tests.log tests/*.test.ts`、試験一時RootはRepository直下の`.crdd/dogfooding`。完全ログのSHA-256は`f0b56deaa8fac9f6f829987aef547f329204bb89064367e0729754aa17d842f2`。全体Checkerは365文書・2,232リンク・689アンカー、Error 0／Warning 0だった。先行する並行実行では変更していない履歴の同一性照合が失敗したが、同じ差分の単独再実行では15件すべて照合できた。原因は未特定であり、親Coordinatorは再発時にGit観測失敗と内容不一致を区別する診断をChecker保守で検討する。過去Evidenceの書換えや照合省略では対処しない。
+
+受動計測module単体のNode組込みcoverageはline 98.79%、branch 96.15%、function 90.00%だった。既定目標100%に対し、実書込み例外のcatchと親process内で未到達の既定時計経路等が残る。表示失敗注入および実子ProcessのUTF-8表示を代替確認として保持するが、実出力先の閉鎖・滞留は未検証であり、100%や全OS条件の成立を主張しない。担当はRuntime保守、再確認契機は次の対話出力境界の検証。未達の最終評価は完成監査へ引き継ぐ。
+
+次の実務実測では段階別の時間とIdentity再検査時間を取得し、以前の7分半を後付けで分解しない。今回の実装だけで高速化済み、有用性評価完了または実Provider検証済みとは扱わない。正式な独立レビュー・監査は既定の実務収束後に行う。追加のProvider利用や新しい実測許可の自動発行は行っていない。
