@@ -254,7 +254,11 @@ function selectExecutorProvider(
     return candidates.includes(requestedProvider)
       ? Object.freeze({
           provider: requestedProvider,
-          reason: "user_executor_constraint_satisfied",
+          reason:
+            preferredReason ===
+            "independent_execution_context_same_provider_required"
+              ? preferredReason
+              : "user_executor_constraint_satisfied",
         })
       : null;
   }

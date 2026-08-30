@@ -324,6 +324,14 @@ test("独立Reviewerはsubject Providerと独立性要求を必須にする", ()
   assert.equal(sameProviderContext.status, "candidate");
   assert.equal(sameProviderContext.executorProvider, "claude");
   assert.equal(
+    sameProviderContext.selectionReasonCodes[0],
+    "independent_execution_context_same_provider_required",
+  );
+  assert.doesNotMatch(
+    sameProviderContext.selectionNotice ?? "",
+    /user_executor_constraint_satisfied/,
+  );
+  assert.equal(
     sameProviderContext.selectionReasonCodes.includes(
       "independent_execution_context_required",
     ),

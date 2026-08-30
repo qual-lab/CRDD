@@ -939,7 +939,7 @@ async function executeStage(
   role: TaskRole,
   taskAttempt: 0 | 1,
   subjectProvider: Provider | null,
-  requestedProvider: Provider | null,
+  expectedProvider: Provider,
   remediationCapability: object | null,
   control: ControlRecord,
 ) {
@@ -953,8 +953,14 @@ async function executeStage(
       operation.operationId,
       role === "executor" ? "executor" : "independent_reviewer",
       subjectProvider,
-      requestedProvider,
-      role === "reviewer" ? requestedProvider !== subjectProvider : false,
+      role === "executor" &&
+        (request.requestedExecutorProvider === "codex" ||
+          request.requestedExecutorProvider === "claude")
+        ? request.requestedExecutorProvider
+        : role === "reviewer" && expectedProvider === subjectProvider
+          ? expectedProvider
+          : null,
+      role === "reviewer" ? expectedProvider !== subjectProvider : false,
     ),
   );
   const provider =
@@ -998,6 +1004,10 @@ async function executeStage(
     }
   };
   try {
+    if (provider !== expectedProvider) {
+      revokeUnconsumed();
+      return blocked("coordinator_task_selection_slate_mismatch");
+    }
     if (
       !state.dependencies.reportSelectionNotice(
         Object.freeze({

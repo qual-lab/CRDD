@@ -32,6 +32,8 @@ Human
 
 Executorは通常`auto`で選定する。人間または上位Coordinatorが公開Task要求の`requestedExecutorProvider`を明示した場合は、同じExecution SlateとSelection Gateがその制約を検証し、不成立時に暗黙fallbackしない。正式検証用Runnerも別の選定経路を持たず、この公開境界を使用する。
 
+事前選定で得たProviderを人間の指定へ変換しない。実行段階の選定にも元の`auto`／明示制約を渡し、選定理由の由来を保持する。選定結果は事前に許可対象としたProviderと照合し、不一致なら未消費のSelectionを失効させ、当該段階のHome観測・Mount Grant・Provider起動前に停止する。実装、独立レビュー、一回是正、その再レビューへ同じ照合を適用する。同一Providerによる独立レビューは、事前選定が許可した別実行Contextの明示制約を保持し、人間によるExecutor指定とは区別して説明する。正常な自動／明示選定と各段階の不一致停止は`coordinator-task-runtime.contract.test.ts`、同一Providerの理由と独立性条件は`delegation-route-selection.contract.test.ts`へ接続する。
+
 Provider同士を直接spawnさせない。Provider出力、Runtime内部Path、Credentialおよび未検証Candidateを結果へ直接公開しない。Canonical Repositoryへのcommit、push、merge、tag、Releaseまたは公開Effectを許可しない。
 
 Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終復旧は別の公開Lifecycleである。`activate`、`disable`および`provision`の未実装Effect前停止を一般Taskの成立経路へ混入させない。
