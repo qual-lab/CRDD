@@ -48,6 +48,8 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 正式署名Route Matrixの親Process終了で、Docker create送信後・ID受領前の耐久Recovery IDが一件残る実状態を得た。初回是正候補のDocker Recovery Runtime contract revision 15はexact nameと同じname＋ownership labelの空照会を未作成Evidenceとして自動収束したが、独立Architecture／Security、Test／UXおよびDocument／Gap監査は、親消失後もDocker CLIまたはdaemon requestが遅延完了し得るため、空snapshotはsettlement barrierにならないと判定した。revision 16は空観測を`manualRecoveryRequired`へ戻したが、発見したowned IDを耐久化する前の削除と、Recovery ID形式からのEvidence保持推定が残った。revision 17では、receipt欠落＋空照会ではOperation領域、active pointer、Provider Home lease、Recovery IDおよびEvidenceを保持して停止する。同じ単一owned IDが観測できた場合は全構成を削除前に照合し、ID、purpose、Recovery IDおよび取得経路をreconciled receiptへ耐久確定してから既存ID指定Recoveryへ移る。Evidence状態はfresh inventoryに基づく`preserved`、`not_preserved`、`unknown`へ分離し、`not_preserved`では再利用可能なIDがないこととRuntime operatorへの移送を案内する。proxyはcreate直後のinternal-onlyとreceipt後のinternal＋egressだけを許容する。自動収束用Brokerまたはdaemon-side fenceはRuntime 1.0へ追加せず、現在のThreat Boundaryを拡張しない。修正後の全機械確認、正式署名Recovery／Route Matrixおよび独立再監査が終わるまで完成扱いにしない。
 
+実務自己適用の初回は、[README是正と有用性観測](Evidence/CHG-000015_Readme_Dogfooding_00db0fc.md)として実行した。初回は作業回数上限で停止したが、編集箇所・確認手順を具体化した2回目は同じモデル・推論・上限で独立レビューまで完了し、候補を追加編集なしで反映・破棄した。計画具体性、操作量と推論の分離、安全な実行統計、親の再承認負荷および現在状態の重複表示を改善候補として同記録へ残す。限定した文書Task1件の結果であり、Runtime全体の有用性評価や最終監査を完了扱いにしない。
+
 ### 1.1 経路別の現在状態
 
 | Front | Executor | 独立Reviewer | 現在状態 | 根拠／残件 |
