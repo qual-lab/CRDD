@@ -13,10 +13,7 @@ import {
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
   verifyPlatformAccessArtifactSigningObservation,
 } from "./platform-access-release.ts";
-import {
-  inspectVerifiedNativeDistributionCandidate,
-  verifyBundledCoordinatorPackageFromFixedManifestCandidate,
-} from "./platform-provisioner-package-filesystem.ts";
+import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
 import {
   createCandidateStoreObservationRequest,
   createRuntimeStateObservationRequest,
@@ -150,11 +147,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
   const distributionRoot =
     development?.distributionRoot ?? bundledDistributionRoot;
   const packageVerification = development
-    ? inspectVerifiedNativeDistributionCandidate({
-        distributionRoot,
-        expectedRelease: development.expectedRelease,
-        evaluationTime: new Date().toISOString(),
-      })
+    ? development.verification
     : verifyBundledCoordinatorPackageFromFixedManifestCandidate({
         evaluationTime,
       });

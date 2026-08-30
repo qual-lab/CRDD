@@ -77,6 +77,13 @@ type Identity = Readonly<{
   nativeIdentitySha256: string;
   repositoryIdentitySha256: string;
 }>;
+type NativeVerification = Extract<
+  ReturnType<typeof inspectVerifiedNativeDistributionCandidate>,
+  { status: "candidate" }
+>;
+// Only the production observer can bind its fresh native result to an identity.
+// No session-wide cache, caller claim, or isolated test identity is accepted.
+const nativeVerifications = new WeakMap<Identity, NativeVerification>();
 type Dependencies = Readonly<{
   observe: (configuration: Configuration) => Identity | null;
   confirm: typeof confirmRuntimeOwnedDevelopmentMeasurementUsingConsole;
@@ -240,7 +247,7 @@ function observeProduction(configuration: Configuration): Identity | null {
     configuration.repositoryRoot,
   );
   if (JSON.stringify(repository) !== JSON.stringify(reobserved)) return null;
-  return Object.freeze({
+  const identity: Identity = Object.freeze({
     sourceIdentitySha256: source.sourceIdentitySha256,
     nativeIdentitySha256: native.nativeIdentitySha256,
     repositoryIdentitySha256: digest([
@@ -249,6 +256,8 @@ function observeProduction(configuration: Configuration): Identity | null {
       repository,
     ]),
   });
+  nativeVerifications.set(identity, native);
+  return identity;
 }
 
 function blocked(reason: string) {
@@ -292,7 +301,11 @@ function createSessionRuntime(dependencies: Dependencies) {
         wallTimeMs: dependencies.wallNow(),
         monotonicTimeMs: dependencies.monotonicNow(),
       };
-      return { observation, result: session.constraints.check(observation) };
+      return {
+        identity,
+        observation,
+        result: session.constraints.check(observation),
+      };
     } catch {
       session.constraints.cancel();
       return null;
@@ -534,21 +547,25 @@ function createSessionRuntime(dependencies: Dependencies) {
       if (!binding || binding.settled || (cleanup && shouldInitializeIfMissing))
         return null;
       try {
-        if (task && observe(binding.session)?.result.status !== "recorded")
-          return null;
+        let identity: Identity | null = null;
+        if (task) {
+          const observed = observe(binding.session);
+          if (observed?.result.status !== "recorded") return null;
+          identity = observed.identity;
+        }
         // A cleanup context permits only a read-only native observation. Its
         // owning resource lifecycle still authorizes every exact mutation.
-        if (
-          cleanup &&
-          (dependencies.isEffectBlocked() ||
-            digest(
-              binding.session.timing.measureIdentity(() =>
-                dependencies.observe(binding.session.configuration),
-              ),
-            ) !== digest(binding.session.identity))
-        )
-          return null;
+        if (cleanup) {
+          if (dependencies.isEffectBlocked()) return null;
+          identity = binding.session.timing.measureIdentity(() =>
+            dependencies.observe(binding.session.configuration),
+          );
+          if (digest(identity) !== digest(binding.session.identity))
+            return null;
+        }
+        if (!identity) return null;
         return Object.freeze({
+          identity,
           distributionRoot:
             binding.session.configuration.nativeDistributionRoot,
           expectedRelease: binding.session.configuration.expectedNativeRelease,
@@ -689,10 +706,20 @@ export function borrowRuntimeOwnedDevelopmentNativeObservation(
   context: object,
   shouldInitializeIfMissing: boolean,
 ) {
-  return productionRuntime.borrowNativeObservation(
+  const observation = productionRuntime.borrowNativeObservation(
     context,
     shouldInitializeIfMissing,
   );
+  const verification =
+    observation && nativeVerifications.get(observation.identity);
+  if (!observation || !verification) return null;
+  // Consumed synchronously by the native adapter. The post-process borrow is
+  // a separate fresh observation; this object is never used as its substitute.
+  return Object.freeze({
+    distributionRoot: observation.distributionRoot,
+    expectedRelease: observation.expectedRelease,
+    verification,
+  });
 }
 
 export function inspectRuntimeOwnedDevelopmentOperationContext(

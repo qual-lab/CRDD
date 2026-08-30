@@ -85,6 +85,12 @@ Task受付からの接続は次の所有関係を維持する。
 | Candidate Store | 作成時点に同じOperationへIDを登録し、保存・公開前に許可を再確認 | 無関係な期限切れ候補のGCをしない。今回の候補だけ破棄する |
 | cleanupのnative観測 | 既存所有者へ私有の読取り専用contextを渡す | 期限切れ・取消後も実体が一致すれば観測可能。ただしRoot初期化、差替え、process不明は拒否 |
 
+native配布の検証はsessionの本番observerが所有する。各借用で新しく得た検証結果を、その回のIdentity objectへ私有のWeakMapで結合し、Provider Home／Candidate Store／Runtime StateのWindows Adapterへ同期的に渡す。Adapterは直後の同じ配布全体の検証を重ねず、この結果を使う。Identityの3つのHashと許可範囲digestは変更しない。Callerが渡したHash、別のIdentity object、試験用factoryの結果、以前の成功結果で置き換えない。検証結果が結合されていなければ停止し、通常署名経路へfallbackしない。
+
+この共有はsession全体のcacheではない。Adapterは結果を保存・非同期転送せず、子Process直前と直後のartifact照合、署名観測、nonce・応答・終了確認、および終了後の新しいsession観測を残す。次の借用は毎回配布とRepositoryを再観測する。通常署名CLIは従来の配布検証を使用する。共有によって並行したHost改変の完全検出を主張せず、既存の前後観測とT1～T2の保証範囲を維持する。
+
+[本番sessionとAdapterの結合試験](../tests/development-native-observation.integration.test.ts)は、Codex／Claude Home、Store／Stateの読取り・初期化という6利用形態で、正常時に全体native検証が3回から前後2回になること、各借用が別の新しい結果を使うこと、前後の差替え・観測失敗・不正context・環境不成立で権限を返さないことを確認する。取消・期限切れ後は新規処理を拒否し、所有cleanupの読取りだけを維持する。OS観測とProcessは試験内の代替であり、実native・Providerの成立は別の実測で確認する。
+
 比較入口は[`measure-development-providers.ts`](../scripts/measure-development-providers.ts)である。固定開発配布内のこの入口を検証済みNodeの絶対Pathから起動し、作業Directoryは対象Repositoryとする。入力は検証したRepository Root直下の`.crdd/dogfooding/development-measurement-request.json`、結果は同Directoryの実行固有JSONに置く。公開設定だけを入力に使い、Credentialや承認boolを格納しない。実行中は2Taskを直列に一回ずつ処理し、同じTaskの自動再試行、process再開、上限補充、Docker Desktop修復は行わない。回収不明またはprocess再起動要求では次Taskを開始せず、sessionを失効する。経過時間はRuntime結果までであり、人間の受入時間や品質の総合点とは扱わない。[比較入口の契約試験](../tests/development-provider-measurement.contract.test.ts)はこの順序と停止を検査する。
 
 別process Recoveryはsession再発行ではない。既存のexact Recovery ID、保護済みRoot、明示Recovery契約から再観測する。耐久形式を変更していないことだけで旧配布との互換性を推定せず、実測で使用する配布との書込み・読取り・復旧を別processで確認する。native保護観測や実Docker操作を試験用観測に置き換えた互換性試験は、その境界まで実測済みとは扱わない。
