@@ -46,7 +46,11 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 
 更新実装の実Provider比較は、通常の署名不要な開発E2Eとも、正式署名配布物の検証とも区別する。人間が固定開発版を実行元として明示承認した場合だけ、既存Subscriptionによる限定実測へ接続する設計とする。正式署名済みという結果へ読み替えず、通常CLIの署名要件、秘密保護、外部送信、隔離、取消および復旧は維持する。
 
-現在は、[実測範囲・回数の制約](../src/security/development-measurement-constraints.ts)と[契約試験](../tests/development-measurement-constraints.contract.test.ts)を実装した段階である。実Provider入口、実行元の検証、既存Authorityおよびcleanupへの接続は未完了であり、このmoduleだけでは実行できない。`productionAuthorityConferred: false`を返し、入力された承認・Identity・時計の真偽を検証したとは主張しない。
+現在は、[実測範囲・回数の制約](../src/security/development-measurement-constraints.ts)と、[開発ソース・別配布nativeの実体観測](../src/security/platform-provisioner-package-filesystem.ts)を実装した段階である。[制約の契約試験](../tests/development-measurement-constraints.contract.test.ts)と[Filesystemの契約試験](../tests/platform-provisioner-package-filesystem.contract.test.ts)を分け、後者では実DirectoryとGit算出Treeを使う。実Provider入口、人間承認、既存Authorityおよびcleanupへの接続は未完了であり、これらのmoduleだけでは実行できない。制約は`productionAuthorityConferred: false`を返し、入力された承認・Identity・時計の真偽を検証したとは主張しない。
+
+開発ソースの観測は、正規化した実Directory、配布Tree、package内容Hash、およびCLI・Console reader・二つのLock子Processのentrypointを照合する。古いmanifestやnative実行物の混入、Git管理Directory、リンク、entrypoint欠落、不正入力は拒否する。同じ内容を別Directoryへ差し替えた場合も、Path、volume、file identity、作成時点を含む`sourceIdentitySha256`が変わる。これは観測時点の内容とDirectory実体の識別であり、人間承認、CommitとTreeの対応、以後の不変性または実行許可を証明しない。
+
+再利用するnative配布は開発ソースとは別Rootに保ち、固定Release鍵によるmanifest検証、期待したRelease Identity、配布Tree、WorkerとSupervisorの全artifact field、およびSupervisorが保持するWorker Hashの結合を検査する。`nativeIdentitySha256`に配布Rootの実体を含め、検証完了時に再照合する。結果の`nativeReleaseSignatureVerified: true`はこのnative配布だけを対象とし、開発ソースへRelease Trustを付与しない。観測はnative／Provider起動を行わない。後続Runtimeは実行直前の現在時刻と再観測を所有し、Callerの時刻や過去の観測結果をAuthorityへ読み替えない。
 
 限定実測の所有者は、承認したRepository、固定Commit／Tree・package Hash、検証済みnative配布のIdentity、Taskの読取り・変更投影と経路、期限を正規化して一つの`bindingSha256`へ結合する。各`scopeSha256`はTaskと経路を含む完全な実測範囲のdigestとする。この正規化と実体再観測は後続のRuntime接続側の責務であり、Caller／Providerの自己申告Hashでは代替しない。純粋制約が扱うのは一致と計数だけである。
 

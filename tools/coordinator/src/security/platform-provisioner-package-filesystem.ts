@@ -7,7 +7,15 @@ import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
 } from "../core/runtime-process-safety-state.ts";
+import {
+  beginNativeProvisionSupervisorArtifactSigningObservation,
+  verifyNativeProvisionSupervisorArtifactSigningObservation,
+} from "./native-provision-supervisor-release.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import {
+  beginPlatformAccessArtifactSigningObservation,
+  verifyPlatformAccessArtifactSigningObservation,
+} from "./platform-access-release.ts";
 import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 import { getPlatformProvisionerPolicyIdentity } from "./platform-provisioner-policy-identity.ts";
 import { inspectPlatformProvisionerReleaseIdentityCandidate } from "./platform-provisioner-release-identity.ts";
@@ -48,6 +56,17 @@ const EXPECTED_RELEASE_KEYS = new Set([
   "crddCommit",
   "crddTree",
   "packageContentRootSha256",
+]);
+const DEVELOPMENT_SOURCE_KEYS = new Set([
+  "distributionRoot",
+  "expectedCrddTree",
+  "expectedPackageContentRootSha256",
+]);
+const DEVELOPMENT_ENTRYPOINTS = Object.freeze([
+  "bin/coordinator.ts",
+  "src/core/interactive-console-reader.ts",
+  "src/security/candidate-store-lock-worker.ts",
+  "src/security/host-operation-lock-supervisor.ts",
 ]);
 const VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS = 5_000;
 type VerifiedPackageIdentity = Readonly<{
@@ -550,6 +569,96 @@ export function inspectBundledCoordinatorPackageFilesystemCandidate() {
   }
 }
 
+/** Read-only identity evidence; caller-supplied expectations are not authority. */
+export function inspectFixedDevelopmentCoordinatorPackageCandidate(
+  rawInput: unknown,
+) {
+  try {
+    const input = snapshotPlainRecord(rawInput, DEVELOPMENT_SOURCE_KEYS);
+    if (
+      !input ||
+      typeof input.distributionRoot !== "string" ||
+      !path.isAbsolute(input.distributionRoot) ||
+      path.normalize(input.distributionRoot) !== input.distributionRoot ||
+      typeof input.expectedCrddTree !== "string" ||
+      !isCanonicalCrddGitObjectId(input.expectedCrddTree) ||
+      typeof input.expectedPackageContentRootSha256 !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(input.expectedPackageContentRootSha256)
+    )
+      return blocked("development_package_input_invalid");
+
+    const root = directoryIdentity(input.distributionRoot);
+    const packageRoot = path.join(root.realPath, "tools", "coordinator");
+    const observed = observePackage(packageRoot);
+    const distribution = inspectPlatformProvisionerReleaseIdentityCandidate(
+      root.realPath,
+      input.expectedCrddTree,
+    );
+    if (
+      distribution.status !== "candidate" ||
+      observed.contentRoot.packageContentRootSha256 !==
+        input.expectedPackageContentRootSha256
+    )
+      return blocked("development_package_identity_mismatch");
+    // Development source borrows native artifacts from a separately verified
+    // release. Never silently exclude a copied manifest or binary from its tree.
+    if (
+      distribution.postCheckoutManifestExcludedFromGitTree ||
+      distribution.postCheckoutPlatformAccessExecutableExcludedFromGitTree ||
+      distribution.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree
+    )
+      return blocked("development_package_release_artifact_present");
+
+    const entrypoints = DEVELOPMENT_ENTRYPOINTS.map((entrypoint) =>
+      observed.observation.files.find((file) => file.path === entrypoint),
+    );
+    if (entrypoints.some((entrypoint) => !entrypoint))
+      return blocked("development_package_entrypoint_missing");
+    const reobserved = observePackage(packageRoot);
+    if (
+      reobserved.contentRoot.packageContentRootSha256 !==
+      observed.contentRoot.packageContentRootSha256
+    )
+      return blocked("development_package_changed_during_observation");
+    verifyDirectory(root);
+    const sourceIdentitySha256 = createHash("sha256")
+      .update(
+        JSON.stringify([
+          "crdd-development-source-identity/v1",
+          root.realPath,
+          root.identity.dev.toString(),
+          root.identity.ino.toString(),
+          root.identity.birthtimeNs.toString(),
+          distribution.crddTree,
+          observed.contentRoot.packageContentRootSha256,
+        ]),
+        "utf8",
+      )
+      .digest("hex");
+    return Object.freeze({
+      ...publicObservation(observed, false),
+      reason: "fixed_development_package_observed_authorization_required",
+      executionSourceKind: "fixed_development_candidate" as const,
+      crddTree: distribution.crddTree,
+      sourceIdentitySha256,
+      entrypoints: Object.freeze(
+        entrypoints.map((entrypoint) => {
+          if (!entrypoint)
+            throw new Error("development_package_entrypoint_missing");
+          return Object.freeze({
+            relativePath: entrypoint.path,
+            sha256: entrypoint.sha256,
+          });
+        }),
+      ),
+      releaseIdentityRuntimeOwned: false,
+      pathReported: false,
+    });
+  } catch {
+    return blocked("development_package_observation_failed");
+  }
+}
+
 export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, VERIFY_KEYS);
@@ -852,6 +961,125 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
     return blocked(
       "platform_provisioner_installed_package_verification_failed",
     );
+  }
+}
+
+function sameNativeArtifact(
+  expected: unknown,
+  observed: unknown,
+  revisionKey: "protocolRevision" | "entrypointContractRevision",
+) {
+  const keys = new Set([
+    "relativePath",
+    "target",
+    "rustToolchain",
+    "byteLength",
+    "sha256",
+    revisionKey,
+  ]);
+  const expectedRecord = snapshotPlainRecord(expected, keys);
+  const observedRecord = snapshotPlainRecord(observed, keys);
+  return Boolean(
+    expectedRecord &&
+      observedRecord &&
+      [...keys].every((key) => expectedRecord[key] === observedRecord[key]),
+  );
+}
+
+/** Verifies a separate signed native distribution without executing it. */
+export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
+  try {
+    const input = snapshotPlainRecord(rawInput, VERIFY_INSTALLED_KEYS);
+    const expected =
+      input &&
+      snapshotPlainRecord(input.expectedRelease, EXPECTED_RELEASE_KEYS);
+    if (
+      !input ||
+      !expected ||
+      typeof input.distributionRoot !== "string" ||
+      !path.isAbsolute(input.distributionRoot) ||
+      path.normalize(input.distributionRoot) !== input.distributionRoot
+    )
+      return blocked("native_distribution_input_invalid");
+    const root = directoryIdentity(input.distributionRoot);
+    const request = { ...input, expectedRelease: expected };
+    const release = verifyInstalledCoordinatorPackageCandidate(request);
+    if (release.status !== "candidate")
+      return blocked("native_distribution_release_not_verified");
+    const distribution = inspectPlatformProvisionerReleaseIdentityCandidate(
+      root.realPath,
+      release.crddTree,
+    );
+    if (
+      distribution.status !== "candidate" ||
+      !distribution.postCheckoutManifestExcludedFromGitTree ||
+      !distribution.postCheckoutPlatformAccessExecutableExcludedFromGitTree ||
+      !distribution.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree
+    )
+      return blocked("native_distribution_tree_not_verified");
+    const worker = beginPlatformAccessArtifactSigningObservation(root.realPath);
+    const supervisor = beginNativeProvisionSupervisorArtifactSigningObservation(
+      root.realPath,
+    );
+    if (
+      !worker ||
+      !supervisor ||
+      !sameNativeArtifact(
+        release.platformAccessArtifact,
+        worker.artifact,
+        "protocolRevision",
+      ) ||
+      !sameNativeArtifact(
+        release.nativeProvisionSupervisorArtifact,
+        supervisor.artifact,
+        "entrypointContractRevision",
+      ) ||
+      supervisor.workerBindingSha256 !== worker.artifact.sha256 ||
+      !verifyPlatformAccessArtifactSigningObservation(worker.token) ||
+      !verifyNativeProvisionSupervisorArtifactSigningObservation(
+        supervisor.token,
+      )
+    )
+      return blocked("native_distribution_artifact_not_verified");
+    const reverified = verifyInstalledCoordinatorPackageCandidate(request);
+    if (reverified.status !== "candidate")
+      return blocked("native_distribution_changed_during_observation");
+    verifyDirectory(root);
+    const nativeIdentitySha256 = createHash("sha256")
+      .update(
+        JSON.stringify([
+          "crdd-native-distribution-identity/v1",
+          root.realPath,
+          root.identity.dev.toString(),
+          root.identity.ino.toString(),
+          root.identity.birthtimeNs.toString(),
+          release.manifestHash,
+          release.crddTree,
+          worker.artifact.sha256,
+          supervisor.artifact.sha256,
+        ]),
+        "utf8",
+      )
+      .digest("hex");
+    return Object.freeze({
+      status: "candidate" as const,
+      reason:
+        "signed_native_distribution_observed_execution_authorization_required",
+      nativeIdentitySha256,
+      manifestHash: release.manifestHash,
+      crddTree: release.crddTree,
+      nativeReleaseSignatureVerified: true,
+      platformAccessArtifact: worker.artifact,
+      nativeProvisionSupervisorArtifact: supervisor.artifact,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      filesystemEffectIssued: false,
+      networkEffectIssued: false,
+      processEffectIssued: false,
+      pathReported: false,
+    });
+  } catch {
+    return blocked("native_distribution_observation_failed");
   }
 }
 

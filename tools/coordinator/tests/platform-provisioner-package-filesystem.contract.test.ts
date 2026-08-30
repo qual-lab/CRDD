@@ -1,17 +1,20 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
-
+import test, { after } from "node:test";
+import { createDevelopmentMeasurementConstraints } from "../src/security/development-measurement-constraints.ts";
 import {
-  describePlatformProvisionerPackageFilesystemContract,
-  inspectBundledCoordinatorPackageFilesystemCandidate,
-  inspectPlatformProvisionerPackageFilesystemCandidate,
-  issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   consumeRuntimeOwnedVerifiedCoordinatorPackageCapability,
   createIsolatedVerifiedPackageCapabilityStateCandidate,
+  describePlatformProvisionerPackageFilesystemContract,
+  inspectBundledCoordinatorPackageFilesystemCandidate,
+  inspectFixedDevelopmentCoordinatorPackageCandidate,
+  inspectPlatformProvisionerPackageFilesystemCandidate,
+  inspectVerifiedNativeDistributionCandidate,
+  issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   verifyBundledCoordinatorPackageCandidate,
 } from "../src/security/platform-provisioner-package-filesystem.ts";
 import {
@@ -21,6 +24,371 @@ import {
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "./test-support.ts";
+
+const developmentFixtureRoots = new Set<string>();
+
+function removeDevelopmentFixture(root: string) {
+  assert.equal(path.dirname(root), path.resolve(os.tmpdir()));
+  assert.equal(fs.realpathSync.native(root), root);
+  fs.rmSync(root, { recursive: true, force: true });
+  developmentFixtureRoots.delete(root);
+}
+
+after(() => {
+  for (const root of developmentFixtureRoots) removeDevelopmentFixture(root);
+});
+
+function developmentFixture(omittedEntrypoint: string | null = null) {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-development-package-"),
+  );
+  developmentFixtureRoots.add(root);
+  const distributionRoot = path.join(root, "distribution");
+  const packageRoot = path.join(distributionRoot, "tools", "coordinator");
+  const entrypoints = [
+    "bin/coordinator.ts",
+    "src/core/interactive-console-reader.ts",
+    "src/security/candidate-store-lock-worker.ts",
+    "src/security/host-operation-lock-supervisor.ts",
+  ];
+  fs.mkdirSync(packageRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(packageRoot, "package.json"),
+    JSON.stringify({
+      name: "@qual-lab/crdd-coordinator",
+      version: "0.0.0-development",
+      private: true,
+      type: "module",
+      exports: { "./cli": "./bin/coordinator.ts" },
+      scripts: {},
+      engines: {},
+      devDependencies: {},
+    }),
+  );
+  for (const entrypoint of entrypoints) {
+    if (entrypoint === omittedEntrypoint) continue;
+    const target = path.join(packageRoot, entrypoint);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, "export const fixture = true;\n");
+  }
+  fs.writeFileSync(
+    path.join(distributionRoot, "README.md"),
+    "# Fixed fixture\n",
+  );
+  const oracleRoot = path.join(root, "oracle");
+  fs.cpSync(distributionRoot, oracleRoot, { recursive: true });
+  function git(...args: string[]) {
+    const result = spawnSync("git", ["-C", oracleRoot, ...args], {
+      encoding: "utf8",
+      shell: false,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  }
+  git("init", "--quiet");
+  git("-c", "core.autocrlf=false", "add", "--force", "--", ".");
+  const expectedCrddTree = git("write-tree");
+  const observed =
+    inspectPlatformProvisionerPackageFilesystemCandidate(packageRoot);
+  assert.equal(observed.status, "candidate");
+  return {
+    root,
+    distributionRoot,
+    packageRoot,
+    input: {
+      distributionRoot,
+      expectedCrddTree,
+      expectedPackageContentRootSha256: observed.packageContentRootSha256,
+    },
+    cleanup() {
+      removeDevelopmentFixture(root);
+    },
+  };
+}
+
+test("開発版はGit算出Treeとpackageを実体照合し、署名・実行Authorityを発行しない", () => {
+  const fixture = developmentFixture();
+  try {
+    const result = inspectFixedDevelopmentCoordinatorPackageCandidate(
+      fixture.input,
+    );
+    assert.equal(result.status, "candidate");
+    assert.equal(result.crddTree, fixture.input.expectedCrddTree);
+    assert.equal(result.executionSourceKind, "fixed_development_candidate");
+    assert.equal(result.entrypoints.length, 4);
+    assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
+    assert.equal(result.releaseIdentityRuntimeOwned, false);
+    assert.equal(result.crddDistributionConfirmed, false);
+    assert.equal(result.runtimeCapabilityIssued, false);
+    assert.equal(result.runtimeAuthorityConferred, false);
+    assert.equal(result.filesystemEffectIssued, false);
+    assert.equal(result.networkEffectIssued, false);
+    assert.equal(JSON.stringify(result).includes(fixture.root), false);
+    const repeated = inspectFixedDevelopmentCoordinatorPackageCandidate(
+      fixture.input,
+    );
+    assert.equal(repeated.status, "candidate");
+    assert.equal(repeated.sourceIdentitySha256, result.sourceIdentitySha256);
+    const previousRoot = path.join(fixture.root, "previous");
+    fs.renameSync(fixture.distributionRoot, previousRoot);
+    fs.cpSync(previousRoot, fixture.distributionRoot, { recursive: true });
+    const replaced = inspectFixedDevelopmentCoordinatorPackageCandidate(
+      fixture.input,
+    );
+    assert.equal(replaced.status, "candidate");
+    assert.notEqual(replaced.sourceIdentitySha256, result.sourceIdentitySha256);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("Tree一致だけで起動entrypointの不足を受理しない", () => {
+  const fixture = developmentFixture("src/core/interactive-console-reader.ts");
+  try {
+    const result = inspectFixedDevelopmentCoordinatorPackageCandidate(
+      fixture.input,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "development_package_entrypoint_missing");
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+for (const target of [
+  "package",
+  "outside_package",
+  "expected_tree",
+  "expected_package",
+] as const) {
+  test(`開発版の${target}差替えを拒否する`, () => {
+    const fixture = developmentFixture();
+    try {
+      const input = { ...fixture.input };
+      if (target === "package")
+        fs.appendFileSync(
+          path.join(fixture.packageRoot, "bin", "coordinator.ts"),
+          "// changed\n",
+        );
+      if (target === "outside_package")
+        fs.appendFileSync(
+          path.join(fixture.distributionRoot, "README.md"),
+          "changed\n",
+        );
+      if (target === "expected_tree") input.expectedCrddTree = "d".repeat(40);
+      if (target === "expected_package")
+        input.expectedPackageContentRootSha256 = "d".repeat(64);
+      const result = inspectFixedDevelopmentCoordinatorPackageCandidate(input);
+      assert.equal(result.status, "blocked");
+      assert.equal(result.reason, "development_package_identity_mismatch");
+      assert.equal(result.runtimeAuthorityConferred, false);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+}
+
+for (const relativePath of [
+  "90_Release/coordinator-package-manifest.json",
+  "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+  "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+]) {
+  test(`開発版へ混入した${relativePath}を署名済みと扱わない`, () => {
+    const fixture = developmentFixture();
+    try {
+      const target = path.join(fixture.distributionRoot, relativePath);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, "not a trusted artifact");
+      const result = inspectFixedDevelopmentCoordinatorPackageCandidate(
+        fixture.input,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(
+        result.reason,
+        "development_package_release_artifact_present",
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+}
+
+test("開発版のRoot alias、Git混入、入力getterと追加keyを拒否する", () => {
+  const fixture = developmentFixture();
+  try {
+    let getterCalls = 0;
+    const accessor = Object.defineProperty(
+      { ...fixture.input },
+      "expectedCrddTree",
+      {
+        get() {
+          getterCalls += 1;
+          return fixture.input.expectedCrddTree;
+        },
+      },
+    );
+    for (const input of [
+      accessor,
+      { ...fixture.input, extra: true },
+      { ...fixture.input, distributionRoot: "relative" },
+    ]) {
+      assert.equal(
+        inspectFixedDevelopmentCoordinatorPackageCandidate(input).status,
+        "blocked",
+      );
+    }
+    assert.equal(getterCalls, 0);
+    const alias = path.join(fixture.root, "alias");
+    fs.symlinkSync(
+      fixture.distributionRoot,
+      alias,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(
+      inspectFixedDevelopmentCoordinatorPackageCandidate({
+        ...fixture.input,
+        distributionRoot: alias,
+      }).status,
+      "blocked",
+    );
+    fs.mkdirSync(path.join(fixture.distributionRoot, ".git"));
+    assert.equal(
+      inspectFixedDevelopmentCoordinatorPackageCandidate(fixture.input).status,
+      "blocked",
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("実体観測と開始枠を結合し、準備待機後のRoot差替えで消費を拒否する", async () => {
+  const fixture = developmentFixture();
+  try {
+    const initial = inspectFixedDevelopmentCoordinatorPackageCandidate(
+      fixture.input,
+    );
+    assert.equal(initial.status, "candidate");
+    // Identity component only: this test does not supply human approval or
+    // exercise the not-yet-connected production execution boundary.
+    const observe = () => {
+      const current = inspectFixedDevelopmentCoordinatorPackageCandidate(
+        fixture.input,
+      );
+      return current.status === "candidate"
+        ? {
+            bindingSha256: current.sourceIdentitySha256,
+            wallTimeMs: 100,
+            monotonicTimeMs: 100,
+          }
+        : null;
+    };
+    const scopeSha256 = "1".repeat(64);
+    const constraints = createDevelopmentMeasurementConstraints(
+      {
+        bindingSha256: initial.sourceIdentitySha256,
+        expiresAtMs: 1_100,
+        tasks: [
+          { scopeSha256, executor: "codex", reviewer: "claude" },
+          {
+            scopeSha256: "2".repeat(64),
+            executor: "claude",
+            reviewer: "codex",
+          },
+        ],
+      },
+      observe(),
+    );
+    assert.ok(constraints);
+    const task = constraints.reserveTask(scopeSha256, observe());
+    assert.equal(task.status, "recorded");
+    const invocation = constraints.reserveInvocation(
+      task.value,
+      "codex",
+      "executor",
+      observe(),
+    );
+    assert.equal(invocation.status, "recorded");
+    await Promise.resolve().then(() => {
+      const previousRoot = path.join(fixture.root, "previous");
+      fs.renameSync(fixture.distributionRoot, previousRoot);
+      fs.cpSync(previousRoot, fixture.distributionRoot, { recursive: true });
+    });
+    const result = constraints.consumeInvocation(
+      invocation.value,
+      task.value,
+      "codex",
+      "executor",
+      observe(),
+    );
+    assert.deepEqual(result, {
+      status: "blocked",
+      reason: "identity_mismatch",
+    });
+    assert.equal(
+      constraints.settleInvocation(invocation.value).status,
+      "recorded",
+    );
+    assert.equal(
+      constraints.settleTask(task.value, "finished").status,
+      "recorded",
+    );
+    assert.equal(constraints.inspect().productionAuthorityConferred, false);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("署名済みnative観測は開発版Rootや自己申告の署名状態を拒否する", () => {
+  const fixture = developmentFixture();
+  try {
+    const request = {
+      distributionRoot: fixture.distributionRoot,
+      evaluationTime: "2026-08-30T00:00:00.000Z",
+      expectedRelease: {
+        manifestHash: "1".repeat(64),
+        releaseSequence: 1,
+        crddVersion: "v0.18.0",
+        crddCommit: "2".repeat(40),
+        crddTree: fixture.input.expectedCrddTree,
+        packageContentRootSha256:
+          fixture.input.expectedPackageContentRootSha256,
+      },
+    };
+    assert.equal(
+      inspectVerifiedNativeDistributionCandidate(request).status,
+      "blocked",
+    );
+    assert.equal(
+      inspectVerifiedNativeDistributionCandidate({
+        ...request,
+        nativeReleaseSignatureVerified: true,
+      }).status,
+      "blocked",
+    );
+    let getterCalls = 0;
+    const invalid = Object.defineProperty({ ...request }, "expectedRelease", {
+      get() {
+        getterCalls += 1;
+        return request.expectedRelease;
+      },
+    });
+    assert.equal(
+      inspectVerifiedNativeDistributionCandidate(invalid).status,
+      "blocked",
+    );
+    assert.equal(getterCalls, 0);
+    assert.equal(
+      inspectVerifiedNativeDistributionCandidate(null).status,
+      "blocked",
+    );
+    assert.equal(
+      inspectFixedDevelopmentCoordinatorPackageCandidate(fixture.input).status,
+      "candidate",
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
 
 test("Task package capabilityは偽造・不正入力・再利用を受理しない", () => {
   const issued = issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
