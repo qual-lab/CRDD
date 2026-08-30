@@ -506,6 +506,7 @@ function fixture(
     candidateStoreUnavailable?: boolean;
     candidateSecretAtCapture?: 1 | 2;
     remediationPacketSecretBlocked?: boolean;
+    prepareWorkloadSplit?: boolean;
     workspaceSecretBlocked?: boolean;
     externalSendDenied?: boolean;
     externalSendAuthorizationMode?: unknown;
@@ -1084,6 +1085,11 @@ function fixture(
       assert.ok(assignment);
       const role = assignment.role;
       assert.equal(provider, assignment.provider);
+      if (options.prepareWorkloadSplit)
+        return Object.freeze({
+          status: "blocked",
+          reason: "claude_task_workload_split_required",
+        });
       const preparedCapability = Object.freeze({});
       preparedRoles.set(preparedCapability, role);
       return Object.freeze({
@@ -1408,6 +1414,20 @@ function fixture(
     },
   };
 }
+
+test("作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しない", async () => {
+  const harness = fixture({ prepareWorkloadSplit: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_workload_split_required");
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.cleanupCount(), 1);
+  assert.equal(result.cleanupConfirmed, true);
+});
 
 function sha256Repository(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-sha256-task-"));

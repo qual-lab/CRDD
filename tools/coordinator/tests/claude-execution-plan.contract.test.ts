@@ -410,12 +410,24 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     mode: "isolated_task",
     taskRole: "executor",
     effort: "low",
+    taskWorkload: {
+      readPathCount: 1,
+      allowedPathCount: 1,
+      acceptanceCriterionCount: 1,
+      remediationFindingCount: 0,
+    },
   });
   const reviewer = planClaudeIsolatedTask({
     provider: "claude",
     mode: "isolated_task",
     taskRole: "reviewer",
     effort: "high",
+    taskWorkload: {
+      readPathCount: 1,
+      allowedPathCount: 1,
+      acceptanceCriterionCount: 1,
+      remediationFindingCount: 0,
+    },
   });
   assert.equal(executor.status, "candidate");
   assert.equal(executor.activationBlockers.length, 0);
@@ -431,7 +443,7 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
   assert.equal(executor.maximumTurns, 8);
   assert.equal(
     executor.maximumTurnsBasis,
-    "bounded_executor_read_edit_verify_headroom",
+    "validated_task_scope_counts_not_file_count_or_completion_prediction",
   );
   assert.equal(executor.maximumBudgetUsd, null);
   assert.equal(
@@ -449,10 +461,10 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     "claude_json_envelope_result_validated_by_crdd",
   );
   assert.equal(reviewer.argv.includes("--json-schema"), false);
-  assert.equal(reviewer.maximumTurns, 8);
+  assert.equal(reviewer.maximumTurns, 5);
   assert.equal(
     reviewer.maximumTurnsBasis,
-    "bounded_read_only_reviewer_analysis",
+    "validated_task_scope_counts_not_file_count_or_completion_prediction",
   );
   assert.equal(reviewer.maximumBudgetUsd, null);
   assert.equal(

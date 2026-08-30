@@ -1210,6 +1210,12 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
     {
       operationMode: "isolated_task",
       taskRole: "reviewer",
+      taskWorkload: {
+        readPathCount: 1,
+        allowedPathCount: 1,
+        acceptanceCriterionCount: 1,
+        remediationFindingCount: 0,
+      },
       taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskPacketHash: "c".repeat(64),
       providerInput: "Review the exact local candidate.",

@@ -4,6 +4,7 @@ import { performance } from "node:perf_hooks";
 import {
   planClaudeIsolatedTask,
   planClaudeReadOnlyProbe,
+  planClaudeTaskTurnBudget,
 } from "./claude-execution-plan.ts";
 import { consumeRuntimeOwnedDelegationSelectionGrant } from "./delegation-selection-grant-runtime.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
@@ -25,7 +26,7 @@ import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-ru
 
 export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/claude-docker-runtime-adapter";
-export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 5;
+export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 6;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -84,6 +85,7 @@ type PreparedPlan = Readonly<{
   selectionNotice: string;
   operationMode: "boolean_probe" | "isolated_task";
   taskRole: "executor" | "reviewer" | null;
+  taskWorkload: unknown;
   taskPacketRef: string | null;
   taskPacketHash: string | null;
   providerInput: string | null;
@@ -96,6 +98,7 @@ type ConsumedTaskPacket = Readonly<{
   operationId: string;
   taskPacketRef: string;
   taskRole: "executor" | "reviewer";
+  taskWorkload: unknown;
   taskPacketHash: string;
   prompt: string;
   promptTransport: "provider_stdin_only";
@@ -309,6 +312,7 @@ function buildPlan(
         mode: "isolated_task",
         taskRole: taskPacket.taskRole,
         effort: consumedModelSelection.effort,
+        taskWorkload: taskPacket.taskWorkload,
       })
     : planClaudeReadOnlyProbe({
         provider: "claude",
@@ -546,6 +550,7 @@ function buildPlan(
     selectionNotice: consumedModelSelection.selectionNotice,
     operationMode: taskPacket ? "isolated_task" : "boolean_probe",
     taskRole: taskPacket?.taskRole ?? null,
+    taskWorkload: "taskWorkload" in claude ? claude.taskWorkload : null,
     taskPacketRef: taskPacket?.taskPacketRef ?? null,
     taskPacketHash: taskPacket?.taskPacketHash ?? null,
     providerInput: taskPacket?.prompt ?? null,
@@ -620,6 +625,16 @@ function prepare(
     if (taskPacketUseCapability !== null && !taskPacket) {
       state.completeMount(activeMountCapability, managementCapability);
       return createBlockedResult("claude_docker_runtime_task_packet_invalid");
+    }
+    if (taskPacket) {
+      const turnBudget = planClaudeTaskTurnBudget(
+        taskPacket.taskRole,
+        taskPacket.taskWorkload,
+      );
+      if (turnBudget.status !== "candidate") {
+        state.completeMount(activeMountCapability, managementCapability);
+        return createBlockedResult(turnBudget.reason);
+      }
     }
     const providerHomeSourcePath = state.borrowMountSource(
       activeMountCapability,
@@ -696,6 +711,7 @@ function prepare(
       selectionRecordId: plan.selectionRecordId,
       selectedModel: plan.selectedModel,
       selectedEffort: plan.selectedEffort,
+      taskWorkload: plan.taskWorkload,
       selectedModelTier: plan.selectedModelTier,
       selectionNotice: plan.selectionNotice,
       providerHomeMountLeaseActive: true,

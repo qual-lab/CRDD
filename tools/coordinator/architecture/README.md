@@ -192,7 +192,15 @@ Provider Processが正常終了しても構造化Resultが契約へ適合しな�
 
 ## 9. 正常・準正常・異常
 
-Claude一般Taskのturn上限は実行計画が所有する役割・推論別定義を単一正本とし、起動引数、説明契約および結果Envelope検証で共有する。Executorはlow／medium／highで8／12／16、Reviewerは4／6／8である。結果受理は選定済みの役割・推論の上限へ照合し、全役割共通の上限やProvider自己申告から拡張しない。各組合せについて実計画のargvと、境界内・境界上・超過・不正turn数の受理／拒否を同じ試験で確認する。これは上限の引上げではなく、既存実行計画と結果検証の整合である。
+<a id="task-turn-budget"></a>
+
+Claude一般Taskのturn上限は推論強度から独立させる。Task Packetを一度だけ消費したRuntimeが、検証済み配列から読取りPath数R、許可Path数W、受入条件数A、是正指摘数Fを導出する。実行計画の`planClaudeTaskTurnBudget`を単一実装とし、見積りを`2 + R + k*W + ceil(A/4) + ceil(F/4)`とする。kはExecutorで2、Reviewerで1。見積りが16を超えた場合は切り詰めず分割要求とし、成立範囲ではExecutorの最低枠8、Reviewerの最低枠4との大きい方を上限にする。RとWは1〜64、Aは1〜16、Fは0〜64の整数だけを受理する。欠落、余剰field、不正値、getterまたはProxyを旧固定値へ補正しない。
+
+これらは宣言した範囲数に基づく有限の見積りであり、Directory配下の実ファイル数、byte数、実際のtool call数または完了予測ではない。係数の有用性は実務の完了時間・上限停止・利用量から再評価する。高推論化、無制限再試行または許可範囲拡大の理由にしない。
+
+同じ作業量を起動argvの再構成と結果Envelopeの検証へ渡し、選定した上限を超えるProvider報告を拒否する。Docker実行計画のIdentityへ作業量も結合し、同じ上限になる別の作業量への差替えも拒否する。分割要求はProvider Authority発行・子Process起動前に停止し、既に有効化したMount leaseは返却して既存cleanupへ接続する。全Filesystem Effectが0とは主張しない。公開Taskは`coordinator_task_workload_split_required`を返し、一般的な起動失敗へ潰さない。
+
+Packet由来の件数は`provider-task-packet-runtime.contract.test.ts`、実argvとMount回収・Authority非発行は`claude-docker-runtime-adapter.contract.test.ts`、差替え拒否は`docker-effect-runtime.contract.test.ts`、推論強度別の同一上限・境界超過は`provider-task-structured-result.contract.test.ts`、公開停止理由と再試行なしは`coordinator-task-runtime.contract.test.ts`で確認する。Boolean Probe、Codex、timeout、権限、外部送信およびcleanup契約は変更しない。
 
 | 区分 | 代表条件 | 期待結果 |
 |---|---|---|

@@ -3,15 +3,64 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 14;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 15;
 
-export const CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT = Object.freeze({
-  executor: Object.freeze({ low: 8, medium: 12, high: 16 }),
-  reviewer: Object.freeze({ low: 4, medium: 6, high: 8 }),
-});
+export const CLAUDE_TASK_MAXIMUM_TURNS = 16;
+const TASK_WORKLOAD_KEYS = new Set([
+  "readPathCount",
+  "allowedPathCount",
+  "acceptanceCriterionCount",
+  "remediationFindingCount",
+]);
+
+export function planClaudeTaskTurnBudget(
+  taskRole: unknown,
+  taskWorkload: unknown,
+) {
+  const workload = snapshotPlainRecord(taskWorkload, TASK_WORKLOAD_KEYS);
+  if (!workload || (taskRole !== "executor" && taskRole !== "reviewer"))
+    return blocked("claude_task_workload_invalid");
+  for (const [key, minimum, maximum] of [
+    ["readPathCount", 1, 64],
+    ["allowedPathCount", 1, 64],
+    ["acceptanceCriterionCount", 1, 16],
+    ["remediationFindingCount", 0, 64],
+  ] as const) {
+    const value = workload[key];
+    if (
+      typeof value !== "number" ||
+      !Number.isInteger(value) ||
+      value < minimum ||
+      value > maximum
+    )
+      return blocked("claude_task_workload_invalid");
+  }
+  const estimatedTurns =
+    2 +
+    (workload.readPathCount as number) +
+    (taskRole === "executor" ? 2 : 1) * (workload.allowedPathCount as number) +
+    Math.ceil((workload.acceptanceCriterionCount as number) / 4) +
+    Math.ceil((workload.remediationFindingCount as number) / 4);
+  if (estimatedTurns > CLAUDE_TASK_MAXIMUM_TURNS)
+    return blocked("claude_task_workload_split_required");
+  return Object.freeze({
+    status: "candidate" as const,
+    maximumTurns: Math.max(taskRole === "executor" ? 8 : 4, estimatedTurns),
+    hardMaximumTurns: CLAUDE_TASK_MAXIMUM_TURNS,
+    basis:
+      "validated_task_scope_counts_not_file_count_or_completion_prediction" as const,
+    taskWorkload: Object.freeze(workload),
+  });
+}
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
-const TASK_PLAN_KEYS = new Set(["provider", "mode", "taskRole", "effort"]);
+const TASK_PLAN_KEYS = new Set([
+  "provider",
+  "mode",
+  "taskRole",
+  "effort",
+  "taskWorkload",
+]);
 const billingPolicy = describeProviderBillingPolicyContract();
 const FIXED_PROMPT =
   "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
@@ -462,8 +511,9 @@ export function planClaudeIsolatedTask(candidate: unknown) {
   }
   const taskRole = value.taskRole;
   const effort = value.effort;
-  const maximumTurns =
-    CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT[taskRole][effort];
+  const turnBudget = planClaudeTaskTurnBudget(taskRole, value.taskWorkload);
+  if (turnBudget.status !== "candidate") return turnBudget;
+  const maximumTurns = turnBudget.maximumTurns;
   const tools =
     taskRole === "executor" ? "Read,Glob,Grep,Edit,Write" : "Read,Glob,Grep";
   return Object.freeze({
@@ -530,10 +580,8 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     subagentAllowed: false,
     providerHomeBuiltInToolAccessAllowed: false,
     maximumTurns,
-    maximumTurnsBasis:
-      taskRole === "executor"
-        ? "bounded_executor_read_edit_verify_headroom"
-        : "bounded_read_only_reviewer_analysis",
+    maximumTurnsBasis: turnBudget.basis,
+    taskWorkload: turnBudget.taskWorkload,
     maximumBudgetUsd: null,
     apiEquivalentUsdBudgetDisposition:
       "not_applied_to_subscription_only_execution",
@@ -672,7 +720,8 @@ export function describeClaudeExecutionPlanContract() {
       mcpAllowed: false,
       taskPromptTransport: "stdin_only",
       promptInArgvAllowed: false,
-      maximumTurnsByRoleAndEffort: CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT,
+      maximumTurns: CLAUDE_TASK_MAXIMUM_TURNS,
+      maximumTurnsBasis: "validated_task_scope_counts_independent_of_effort",
       maximumBudgetUsdByEffort: null,
       apiEquivalentUsdBudgetDisposition:
         "not_applied_to_subscription_only_execution",

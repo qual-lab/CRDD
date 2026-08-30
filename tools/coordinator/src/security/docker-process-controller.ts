@@ -117,6 +117,7 @@ type PreparedPlan = Readonly<{
   selectedModelTier: string;
   operationMode: "boolean_probe" | "isolated_task";
   taskRole: "executor" | "reviewer" | null;
+  taskWorkload?: unknown;
   taskPacketRef: string | null;
   taskPacketHash: string | null;
   providerInput: string | null;
@@ -998,6 +999,7 @@ async function executePlan(
                 plan.taskRole,
                 plan.selectedEffort,
                 execution.stdout,
+                plan.taskWorkload,
               )
             : plan.provider === "codex"
               ? normalizeCodexStructuredResult(execution.stdout)

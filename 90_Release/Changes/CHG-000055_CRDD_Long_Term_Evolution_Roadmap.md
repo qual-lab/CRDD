@@ -277,3 +277,11 @@ Coordinator全試験は今回は失敗4件を残した。試験の`TEMP`／`TMP`
 同日の後続是正で、この4件を[CHG-000017](CHG-000017_Tools_Coding_Standards.md#8-release処置)へ接続した。製品の鍵Path・Git境界判定には変更を入れず、実Repository内の隔離配布環境とvolume rootの読み取り観測へ試験を分離した。同じ`TEMP`／`TMP`限定条件でCoordinator全1,218件が合格し、失敗・取消・skipは0件、実行時間は110.674秒だった。最終の変更3ファイルも関連19件・型検査・Lint／formatで確認した。§21の4件の試験前提不一致は解消とし、実務全件、実Provider E2E、独立監査またはReleaseの完了とは区別する。
 
 通常のpackage試験入口でも一時保存Rootを自動強制できるかは別の未確認範囲として残す。担当は親Coordinator、次の再評価契機は試験入口の運用固定時とし、未確認の間はRepository-localな`TEMP`／`TMP`を指定して実行する。公式秘密鍵、親Directoryまたは兄弟Repositoryへ試験用ファイルを置く回避は行わない。
+
+### 実務再開前のClaude作業量上限の是正
+
+2026-08-30、ユーザー判断により実務の継続前に[CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md#15-release処置)でRuntimeを改善した。対象はClaude Reviewerのturn上限であり、Windows Job Objectではない。推論強度から独立した有限の作業量見積りを、Task Packet、実行計画、固定Docker argv、結果検証へ接続した。読取り6範囲・変更1範囲・受入条件4件・是正指摘0件のReviewerは、推論強度にかかわらず最大10 turnsとなる。見積りが16を超える場合は分割要求として停止し、無制限実行や自動高推論化で回避しない。
+
+実Providerを使わない契約・結合試験では、件数導出、是正指摘の反映、実argv、上限ちょうど／超過、無効入力、同じ上限になる作業量の差替え拒否、Mount返却、Authority非発行、公開停止理由および再試行なしを確認する。実務の成功率向上は未実測であり、旧署名Runtimeでの成功を更新Sourceの証明へ流用しない。親Coordinatorが次の更新Runtimeによる実務で、上限停止、受理可能な結果までの時間、利用量を比較する。見積り係数の評価と実行前表示の改善余地も同じ再評価へ含め、改善効果が出るまで無条件に完了としない。
+
+変更後のCoordinator全試験は1,223件合格、失敗・取消・skipは0件、109.626秒だった。試験一時領域はRepository-local `.crdd/dogfooding`へ限定した。両型検査、変更14個のTypeScriptファイルのLint／format、設計対応検査も合格した。全Repository Checkerは365文書・2,218リンク・685アンカー、Error 0／Warning 0を確認した。これらは開発時の決定論的な確認結果であり、最終固定署名E2E、実務の上限停止解消または独立監査Passではない。公式鍵入力、署名配布物の更新および実Provider送信は行っていない。

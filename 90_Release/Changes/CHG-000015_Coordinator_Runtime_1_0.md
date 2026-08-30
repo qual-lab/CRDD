@@ -428,4 +428,8 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 関連するTask／送信許可の契約試験146件、両型検査、変更sourceのLint／format、設計対応検査を確認した。後続の全体試験とChecker結果はCHG-000055へ接続する。これらは開発試験であり、人間が表示を読んだ証明、実利用時の負荷削減、更新Sourceの正式署名E2Eまたは独立監査Passではない。担当は親Coordinatorとし、残る実務収束後に更新版の表示・初回／再利用経路を最終固定E2Eと一括監査へ含める。今回、公式鍵入力と再署名は行わない。
 
+2026-08-30、実務Reviewerのturn上限停止を受け、基準Commit `57ccb71`から推論強度と作業量を分離した。Windows Job Objectの上限変更ではない。検証済みTask Packetを消費したRuntimeが読取り・変更範囲、受入条件、是正指摘の件数を導出し、[実行Architectureの有限見積り](../../tools/coordinator/architecture/README.md#task-turn-budget)に従ってClaudeの実行上限を決める。最大16を超える見積りは分割要求として停止する。Provider Authority発行・起動は行わず、有効化済みMountは既存cleanupへ返す。推論を上げることで作業枠を増やす旧結合は廃止し、結果検証とDocker argv再構成も同じ作業量へ接続した。同じ上限になる作業量の差替えも実行計画Identityで拒否する。
+
+この見積りはDirectory内の実ファイル数や完了予測ではない。既存のSubscription限定、権限、外部送信、timeout、cleanup、CodexおよびBoolean Probeの契約は維持する。実務の上限停止が解消したという主張は、更新版を用いた後続実測まで保留する。親Coordinatorが実務収束時に係数、上限停止率、完成時間、利用量を再評価し、最終固定E2Eと独立監査へ接続する。今回の開発反復では公式鍵、再署名または実Provider送信を行わない。検証結果はCHG-000055の後続記録へ接続する。
+
 全残件と最新固定改訂版の監査を閉じた後、人間の決定権限者がv0.18.0への統合、Issue処置およびReleaseを判断する。現在、このCHG統合方針について追加の人間判断は必要ない。

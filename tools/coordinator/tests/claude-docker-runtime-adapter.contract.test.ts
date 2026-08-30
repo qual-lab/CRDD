@@ -116,6 +116,12 @@ function createFixture(
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole: "reviewer" as const,
+        taskWorkload: {
+          readPathCount: 1,
+          allowedPathCount: 1,
+          acceptanceCriterionCount: 1,
+          remediationFindingCount: 0,
+        },
         taskPacketHash: "b".repeat(64),
         prompt: "Review the exact local candidate.",
         promptTransport: "provider_stdin_only" as const,
@@ -321,6 +327,12 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-FFEEDDCCBBAA99887766554433221100",
         taskRole: "executor" as const,
+        taskWorkload: {
+          readPathCount: 1,
+          allowedPathCount: 1,
+          acceptanceCriterionCount: 1,
+          remediationFindingCount: 0,
+        },
         taskPacketHash: "c".repeat(64),
         prompt: "Create the exact bounded candidate change.",
         promptTransport: "provider_stdin_only" as const,
@@ -365,6 +377,79 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
   assert.ok(workspaceMount);
   assert.equal(workspaceMount.includes("readonly"), false);
   assert.equal(provider.argv.includes(plan.providerInput), false);
+});
+
+test("検証済み作業量を固定argvへ接続し、過大・不明ならAuthority発行前にleaseを返す", () => {
+  for (const readPathCount of [6, 12, 13, 0]) {
+    let authorityIssued = 0;
+    const taskWorkload = {
+      readPathCount,
+      allowedPathCount: 1,
+      acceptanceCriterionCount: 4,
+      remediationFindingCount: 0,
+    };
+    const fixture = createFixture({
+      consumeTaskPacket: () => ({
+        operationId: "OP-123456",
+        taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+        taskRole: "reviewer",
+        taskWorkload,
+        taskPacketHash: "b".repeat(64),
+        prompt: "Review the exact local candidate.",
+        promptTransport: "provider_stdin_only",
+      }),
+      ...(readPathCount === 0 || readPathCount === 13
+        ? {
+            issueProviderAuthority: () => {
+              authorityIssued++;
+              throw new Error("unexpected_authority");
+            },
+          }
+        : {}),
+    });
+    const prepared = fixture.adapter.prepareTask(
+      fixture.managementCapability,
+      fixture.mountCapability,
+      fixture.mountAuthorizationCapability,
+      fixture.selectionUseCapability,
+      Object.freeze({}),
+    );
+    if (readPathCount === 0 || readPathCount === 13) {
+      assert.equal(prepared.status, "blocked");
+      assert.equal(
+        prepared.reason,
+        readPathCount === 13
+          ? "claude_task_workload_split_required"
+          : "claude_task_workload_invalid",
+      );
+      assert.equal(authorityIssued, 0);
+      assert.equal(fixture.getCompletionCount(), 1);
+      assert.equal(prepared.providerRequestIssued, false);
+    } else {
+      assert.equal(prepared.status, "prepared");
+      const plan = fixture.adapter.consumeForProcessController(
+        prepared.preparedCapability,
+        fixture.managementCapability,
+      );
+      assert.ok(plan);
+      assert.deepEqual(
+        { ...(plan.taskWorkload as Record<string, unknown>) },
+        taskWorkload,
+      );
+      const argv = plan.commands.find(
+        (command) => command.purpose === "create_provider",
+      )?.argv;
+      assert.ok(argv);
+      assert.equal(
+        argv[argv.indexOf("--max-turns") + 1],
+        String(readPathCount + 4),
+      );
+      fixture.adapter.cancel(
+        prepared.preparedCapability,
+        fixture.managementCapability,
+      );
+    }
+  }
 });
 
 test("期限切れprepared planはProvider EffectなしでMount leaseを回収する", () => {
@@ -600,7 +685,7 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
 
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeClaudeDockerRuntimeAdapterContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.equal(
     contract.providerHomeCrossProcessLease,
     "docker_global_provider_home_identity_container_name_fail_closed",

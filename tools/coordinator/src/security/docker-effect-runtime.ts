@@ -65,6 +65,7 @@ type PreparedPlan = Readonly<{
   selectedModelTier: string;
   operationMode: "boolean_probe" | "isolated_task";
   taskRole: "executor" | "reviewer" | null;
+  taskWorkload?: unknown;
   taskPacketRef: string | null;
   taskPacketHash: string | null;
   providerInput: string | null;
@@ -354,6 +355,7 @@ function expectedCommands(
             mode: "isolated_task",
             taskRole: plan.taskRole,
             effort: plan.selectedEffort,
+            taskWorkload: plan.taskWorkload,
           })
         : planClaudeReadOnlyProbe({
             provider: "claude",
@@ -626,6 +628,7 @@ function planIdentity(plan: PreparedPlan) {
         operationMode: plan.operationMode,
         taskRole: plan.taskRole,
         taskPacketHash: plan.taskPacketHash,
+        taskWorkload: plan.taskWorkload,
         ownershipLabel: plan.ownershipLabel,
         commands: plan.commands,
       }),

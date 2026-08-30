@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { planClaudeIsolatedTask } from "../src/security/claude-execution-plan.ts";
+import {
+  planClaudeIsolatedTask,
+  planClaudeTaskTurnBudget,
+} from "../src/security/claude-execution-plan.ts";
 import {
   describeProviderTaskStructuredResultContract,
   normalizeProviderTaskStructuredResult,
@@ -13,6 +16,28 @@ const EXECUTOR = JSON.stringify({
   changedPaths: ["fixture.txt"],
   verification: ["Reviewed the resulting file."],
 });
+const TASK_WORKLOAD = Object.freeze({
+  readPathCount: 1,
+  allowedPathCount: 1,
+  acceptanceCriterionCount: 1,
+  remediationFindingCount: 0,
+});
+
+function normalizeFixtureTaskResult(
+  provider: unknown,
+  role: unknown,
+  effort: unknown,
+  raw: unknown,
+  workload: unknown = TASK_WORKLOAD,
+) {
+  return normalizeProviderTaskStructuredResult(
+    provider,
+    role,
+    effort,
+    raw,
+    workload,
+  );
+}
 const REVIEWER = JSON.stringify({
   decision: "changes_requested",
   summary: "One issue remains.",
@@ -52,7 +77,7 @@ function claudeReviewer(result: unknown, overrides = {}) {
 }
 
 test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => {
-  const codex = normalizeProviderTaskStructuredResult(
+  const codex = normalizeFixtureTaskResult(
     "codex",
     "executor",
     "low",
@@ -64,7 +89,7 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
     changedPaths: ["fixture.txt"],
     verificationCount: 1,
   });
-  const claudeResult = normalizeProviderTaskStructuredResult(
+  const claudeResult = normalizeFixtureTaskResult(
     "claude",
     "reviewer",
     "medium",
@@ -136,8 +161,8 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
         },
       ],
     },
-  ]) {
-    const result = normalizeProviderTaskStructuredResult(
+  ] as const) {
+    const result = normalizeFixtureTaskResult(
       "codex",
       "reviewer",
       "medium",
@@ -152,7 +177,7 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
 });
 
 test("Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類する", () => {
-  const invalidDocument = normalizeProviderTaskStructuredResult(
+  const invalidDocument = normalizeFixtureTaskResult(
     "claude",
     "reviewer",
     "medium",
@@ -168,7 +193,7 @@ test("Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類する",
       "provider_structured_output_retry_exhausted",
     ],
   ] as const) {
-    const result = normalizeProviderTaskStructuredResult(
+    const result = normalizeFixtureTaskResult(
       "claude",
       "reviewer",
       "medium",
@@ -202,7 +227,7 @@ test("Provider Result拒否はrawを出さず固定理由で意味分類する",
     ],
   ] as const;
   for (const [raw, expectedReason] of cases) {
-    const result = normalizeProviderTaskStructuredResult(
+    const result = normalizeFixtureTaskResult(
       "codex",
       "reviewer",
       "medium",
@@ -246,7 +271,7 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
     },
   ];
   for (const value of executorCases) {
-    const result = normalizeProviderTaskStructuredResult(
+    const result = normalizeFixtureTaskResult(
       "codex",
       "executor",
       "low",
@@ -267,7 +292,7 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
       message: "x",
     })),
   };
-  const result = normalizeProviderTaskStructuredResult(
+  const result = normalizeFixtureTaskResult(
     "codex",
     "reviewer",
     "medium",
@@ -277,10 +302,10 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
   assert.equal(result.reason, "provider_task_reviewer_shape_invalid");
 });
 
-test("Claudeの実行計画・argv・結果受理は役割と推論別の同じturn境界に従う", () => {
+test("Claudeの実行計画・argv・結果受理は推論から独立した同じ作業量上限に従う", () => {
   const expectedLimits = {
-    executor: { low: 8, medium: 12, high: 16 },
-    reviewer: { low: 4, medium: 6, high: 8 },
+    executor: { low: 8, medium: 8, high: 8 },
+    reviewer: { low: 5, medium: 5, high: 5 },
   };
   for (const taskRole of ["executor", "reviewer"] as const) {
     for (const effort of ["low", "medium", "high"] as const) {
@@ -289,6 +314,7 @@ test("Claudeの実行計画・argv・結果受理は役割と推論別の同じt
         mode: "isolated_task",
         taskRole,
         effort,
+        taskWorkload: TASK_WORKLOAD,
       });
       assert.equal(plan.status, "candidate");
       if (plan.status !== "candidate") throw new Error("plan_not_candidate");
@@ -303,7 +329,7 @@ test("Claudeの実行計画・argv・結果受理は役割と推論別の同じt
           taskRole === "executor"
             ? claude(JSON.parse(EXECUTOR), { num_turns: turns })
             : claudeReviewer(JSON.parse(REVIEWER), { num_turns: turns });
-        const result = normalizeProviderTaskStructuredResult(
+        const result = normalizeFixtureTaskResult(
           "claude",
           taskRole,
           effort,
@@ -321,9 +347,119 @@ test("Claudeの実行計画・argv・結果受理は役割と推論別の同じt
   }
 });
 
+test("作業量の有限見積りは全推論で一致し、選定上限を超える結果を拒否する", () => {
+  for (const [
+    readPathCount,
+    allowedPathCount,
+    acceptanceCriterionCount,
+    remediationFindingCount,
+    expected,
+  ] of [
+    [6, 1, 4, 0, 10],
+    [12, 1, 4, 0, 16],
+    [6, 1, 5, 0, 11],
+    [6, 1, 4, 5, 12],
+  ] as const) {
+    const workload = {
+      readPathCount,
+      allowedPathCount,
+      acceptanceCriterionCount,
+      remediationFindingCount,
+    };
+    for (const effort of ["low", "medium", "high"]) {
+      const plan = planClaudeIsolatedTask({
+        provider: "claude",
+        mode: "isolated_task",
+        taskRole: "reviewer",
+        effort,
+        taskWorkload: workload,
+      });
+      assert.equal(plan.status, "candidate");
+      if (plan.status !== "candidate") throw new Error("plan_invalid");
+      assert.equal(plan.maximumTurns, expected);
+      assert.equal(
+        plan.argv[plan.argv.indexOf("--max-turns") + 1],
+        String(expected),
+      );
+      for (const turns of [expected, expected + 1]) {
+        assert.equal(
+          normalizeFixtureTaskResult(
+            "claude",
+            "reviewer",
+            effort,
+            claudeReviewer(JSON.parse(REVIEWER), { num_turns: turns }),
+            workload,
+          ).status,
+          turns === expected ? "confirmed" : "blocked",
+        );
+      }
+    }
+  }
+});
+
+test("不明または予算超過の作業量を旧固定値へfallbackしない", () => {
+  for (const workload of [
+    undefined,
+    null,
+    {},
+    { ...TASK_WORKLOAD, extra: 1 },
+    ...[-1, 0, 1.5, NaN, Infinity, 65].map((readPathCount) => ({
+      ...TASK_WORKLOAD,
+      readPathCount,
+    })),
+    { ...TASK_WORKLOAD, acceptanceCriterionCount: 17 },
+    { ...TASK_WORKLOAD, remediationFindingCount: -1 },
+    { ...TASK_WORKLOAD, readPathCount: 13 },
+  ]) {
+    assert.equal(
+      planClaudeTaskTurnBudget("reviewer", workload).status,
+      "blocked",
+    );
+    assert.equal(
+      normalizeProviderTaskStructuredResult(
+        "claude",
+        "reviewer",
+        "medium",
+        claudeReviewer(JSON.parse(REVIEWER)),
+        workload,
+      ).status,
+      "blocked",
+    );
+  }
+  let trapCount = 0;
+  for (const workload of [
+    new Proxy(TASK_WORKLOAD, {
+      ownKeys() {
+        trapCount++;
+        return [];
+      },
+    }),
+    {
+      ...TASK_WORKLOAD,
+      get readPathCount() {
+        trapCount++;
+        return 1;
+      },
+    },
+  ]) {
+    assert.equal(
+      planClaudeTaskTurnBudget("reviewer", workload).status,
+      "blocked",
+    );
+  }
+  assert.equal(trapCount, 0);
+  const split = planClaudeTaskTurnBudget("reviewer", {
+    ...TASK_WORKLOAD,
+    readPathCount: 13,
+  });
+  assert.equal(split.status, "blocked");
+  if (split.status === "blocked")
+    assert.equal(split.reason, "claude_task_workload_split_required");
+});
+
 test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否する", () => {
   assert.equal(
-    normalizeProviderTaskStructuredResult(
+    normalizeFixtureTaskResult(
       "claude",
       "executor",
       "high",
@@ -333,7 +469,7 @@ test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大�
   );
   for (const totalCostUsd of [-0.01, Number.POSITIVE_INFINITY, Number.NaN]) {
     assert.equal(
-      normalizeProviderTaskStructuredResult(
+      normalizeFixtureTaskResult(
         "claude",
         "executor",
         "high",
@@ -343,7 +479,7 @@ test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大�
     );
   }
   assert.equal(
-    normalizeProviderTaskStructuredResult(
+    normalizeFixtureTaskResult(
       "codex",
       "executor",
       "low",
@@ -352,28 +488,20 @@ test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大�
     "blocked",
   );
   assert.equal(
-    normalizeProviderTaskStructuredResult(
-      "codex",
-      "executor",
-      "low",
-      `${EXECUTOR}\n{}`,
-    ).status,
+    normalizeFixtureTaskResult("codex", "executor", "low", `${EXECUTOR}\n{}`)
+      .status,
     "blocked",
   );
   assert.equal(
-    normalizeProviderTaskStructuredResult(
-      "codex",
-      "executor",
-      "low",
-      "x".repeat(65_537),
-    ).status,
+    normalizeFixtureTaskResult("codex", "executor", "low", "x".repeat(65_537))
+      .status,
     "blocked",
   );
 });
 
 test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負なら受理する", () => {
   assert.equal(
-    normalizeProviderTaskStructuredResult(
+    normalizeFixtureTaskResult(
       "claude",
       "executor",
       "low",
@@ -382,7 +510,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
     "confirmed",
   );
   assert.equal(
-    normalizeProviderTaskStructuredResult(
+    normalizeFixtureTaskResult(
       "claude",
       "executor",
       "medium",
@@ -394,14 +522,14 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 11);
+  assert.equal(contract.contractRevision, 12);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 16);
-  assert.deepEqual(contract.claudeMaximumTurnsByRoleAndEffort, {
-    executor: { low: 8, medium: 12, high: 16 },
-    reviewer: { low: 4, medium: 6, high: 8 },
-  });
+  assert.equal(
+    contract.claudeMaximumTurnsBasis,
+    "same_validated_task_scope_counts_as_execution_plan",
+  );
   assert.equal(contract.claudeMaximumApiEquivalentCostUsdByEffort, null);
   assert.equal(
     contract.claudeApiEquivalentCostDisposition,

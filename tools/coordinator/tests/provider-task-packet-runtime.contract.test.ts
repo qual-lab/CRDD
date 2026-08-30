@@ -96,6 +96,12 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
       current.managementCapability,
     );
     assert.equal(consumed?.taskRole, "executor");
+    assert.deepEqual(consumed?.taskWorkload, {
+      readPathCount: 3,
+      allowedPathCount: 2,
+      acceptanceCriterionCount: 2,
+      remediationFindingCount: 0,
+    });
     assert.equal(consumed?.promptTransport, "provider_stdin_only");
     assert.match(consumed?.prompt ?? "", /Allowed paths:/u);
     assert.match(consumed?.prompt ?? "", /Readable paths:/u);
@@ -347,6 +353,12 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
       issued?.useCapability,
       current.managementCapability,
     );
+    assert.deepEqual(consumed?.taskWorkload, {
+      readPathCount: 3,
+      allowedPathCount: 2,
+      acceptanceCriterionCount: 2,
+      remediationFindingCount: 1,
+    });
     assert.match(consumed?.prompt ?? "", /untrusted defect claim/u);
     assert.match(consumed?.prompt ?? "", /fixture\.txt/u);
     assert.match(
@@ -549,7 +561,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 13);
+  assert.equal(contract.contractRevision, 14);
   assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
   assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);

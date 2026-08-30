@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 13;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 14;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -394,6 +394,12 @@ function consume(
     state.useRecords.delete(record.useCapability);
     return Object.freeze({
       ...record.packet,
+      taskWorkload: Object.freeze({
+        readPathCount: record.packet.readPaths.length,
+        allowedPathCount: record.packet.allowedPaths.length,
+        acceptanceCriterionCount: record.packet.acceptanceCriteria.length,
+        remediationFindingCount: record.packet.remediationFindings.length,
+      }),
       prompt: promptFor(record.packet),
       promptTransport: "provider_stdin_only" as const,
       rawPromptReported: false,

@@ -87,6 +87,12 @@ function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole: taskRole ?? "executor",
+        taskWorkload: {
+          readPathCount: 1,
+          allowedPathCount: 1,
+          acceptanceCriterionCount: 1,
+          remediationFindingCount: 0,
+        },
         taskPacketHash: "d".repeat(64),
         prompt: "Execute the exact isolated task.",
         promptTransport: "provider_stdin_only" as const,
@@ -383,6 +389,57 @@ test("Task本文はprovider startのstdinだけへ渡しDocker argvへ含めな�
   assert.equal(invocation.stdin, "Execute the exact isolated task.");
   assert.equal(invocation.argv.includes(invocation.stdin ?? ""), false);
   assert.equal(invocation.argv.includes("--interactive"), true);
+});
+
+test("Taskの上限改変と同じ上限になる作業量の差替えを拒否する", async () => {
+  const fixture = createEffectFixture({ taskRole: "executor" });
+  const first = fixture.plan.commands[0];
+  assert.ok(first);
+  const handle = fixture.runtime.startCommand(
+    first,
+    fixture.plan,
+    fixture.managementCapability,
+  );
+  await handle.wait(10_000);
+  const before = fixture.invocations.length;
+  const changed = {
+    ...fixture.plan,
+    taskWorkload: {
+      readPathCount: 2,
+      allowedPathCount: 1,
+      acceptanceCriterionCount: 1,
+      remediationFindingCount: 0,
+    },
+  };
+  assert.throws(
+    () =>
+      fixture.runtime.startCommand(
+        first,
+        changed,
+        fixture.managementCapability,
+      ),
+    /docker_effect_plan_replaced/u,
+  );
+  const commands = fixture.plan.commands.map((command) =>
+    command.purpose !== "create_provider"
+      ? command
+      : {
+          ...command,
+          argv: command.argv.map((value, index, argv) =>
+            argv[index - 1] === "--max-turns" ? "16" : value,
+          ),
+        },
+  );
+  assert.throws(
+    () =>
+      fixture.runtime.startCommand(
+        first,
+        { ...fixture.plan, commands },
+        fixture.managementCapability,
+      ),
+    /plan_invalid/u,
+  );
+  assert.equal(fixture.invocations.length, before);
 });
 
 test("cleanupは全handle終了と所有resource不存在後だけconfigを除去する", async () => {

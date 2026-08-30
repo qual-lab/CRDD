@@ -1112,7 +1112,11 @@ async function executeStage(
     taskControl = null;
     const preparedCapability = objectCapability(prepared.preparedCapability);
     if (prepared.status !== "prepared" || !preparedCapability) {
-      return blocked("coordinator_task_provider_prepare_failed");
+      return blocked(
+        prepared.reason === "claude_task_workload_split_required"
+          ? "coordinator_task_workload_split_required"
+          : "coordinator_task_provider_prepare_failed",
+      );
     }
     const rawProcess = state.dependencies.startProcess(
       preparedCapability,
