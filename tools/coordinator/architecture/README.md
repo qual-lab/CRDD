@@ -40,6 +40,30 @@ Provider同士を直接spawnさせない。Provider出力、Runtime内部Path、
 
 Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終復旧は別の公開Lifecycleである。`activate`、`disable`および`provision`の未実装Effect前停止を一般Taskの成立経路へ混入させない。
 
+<a id="development-provider-measurement"></a>
+
+### 開発版による限定実測
+
+更新実装の実Provider比較は、通常の署名不要な開発E2Eとも、正式署名配布物の検証とも区別する。人間が固定開発版を実行元として明示承認した場合だけ、既存Subscriptionによる限定実測へ接続する設計とする。正式署名済みという結果へ読み替えず、通常CLIの署名要件、秘密保護、外部送信、隔離、取消および復旧は維持する。
+
+現在は、[実測範囲・回数の制約](../src/security/development-measurement-constraints.ts)と[契約試験](../tests/development-measurement-constraints.contract.test.ts)を実装した段階である。実Provider入口、実行元の検証、既存Authorityおよびcleanupへの接続は未完了であり、このmoduleだけでは実行できない。`productionAuthorityConferred: false`を返し、入力された承認・Identity・時計の真偽を検証したとは主張しない。
+
+限定実測の所有者は、承認したRepository、固定Commit／Tree・package Hash、検証済みnative配布のIdentity、Taskの読取り・変更投影と経路、期限を正規化して一つの`bindingSha256`へ結合する。各`scopeSha256`はTaskと経路を含む完全な実測範囲のdigestとする。この正規化と実体再観測は後続のRuntime接続側の責務であり、Caller／Providerの自己申告Hashでは代替しない。純粋制約が扱うのは一致と計数だけである。
+
+| 制約段階 | 保持する条件 | 検証する失敗例 |
+|---|---|---|
+| 初期化 | 相互に逆のProvider経路2Task、異なる範囲digest、有効期間は最大1時間 | 不正shape、追加key、Task重複、同一Provider、期限超過を拒否 |
+| Task予約 | 許可された各Taskを一回だけ、同時に一件 | 許可外、再実行、並行Taskを拒否 |
+| 呼出し予約 | Taskごと最大4、全体最大8。準備失敗でも枠を戻さない | 並行呼出し、枠超過、Task／役割／Provider不一致を拒否 |
+| 起動直前の消費 | 同じ呼出しtokenを一回だけ消費し、期限・取消・Identityを再照合 | 準備待機中の失効、token複製、再利用、時計巻戻りを拒否 |
+| 終了記録 | 既発行tokenの終了だけを記録。失効後も記録できる | 二重終了を拒否。cleanup不明後に新しいTaskを始めない |
+
+8回はProvider CLIの呼出し数であり、CLI内部のモデルturnやAPI request数ではない。Executor、Reviewer、是正、再レビューの順序は既存Task Runtimeが所有し、この制約moduleで再実装しない。外部時計からの期限と単調時計による経過時間のどちらかが上限に達したら失効し、元の観測値へ戻しても再有効化しない。tokenはprocess内の参照Identityだけで扱い、永続化・再開・自動枠補充を行わない。
+
+終了記録は資源回収の実行許可または成功証明ではない。Runtime接続では、期限切れ・取消後も既存のexact資源を回収できる経路を保持し、新しいRoot初期化、Mount、Authority、Provider開始またはCandidate公開とは分ける。実装・nativeのIdentity不一致では改変後の実行を正当化せず、既存EvidenceとRecovery IDを保持して移送する。既存Candidate全体の起動時GC、Docker Desktop修復、別processによる実測再開はこの比較許可に含めない。
+
+接続完了前に、Task受付、Local Authority、Home／Runtime State／Candidate Store観測、Docker準備と`start_provider_attached`直前、Candidate公開、終了後観測まで同じ限定対象が伝播することを結合試験で確認する。旧native sourceとの差分がないことだけで、実binaryのIdentity、別Root利用、耐久記録の復旧互換性を確認済みとしない。
+
 ### 2.1 Filesystem保存境界
 
 Coordinatorは、論理的なRepository Bindingと物理的な書込みRootを分離する。現在のリポジトリを対象にしたOperationでは、明示的な別Authorityがない限り、Repository外へstaging、worktree、archive、log、probeまたは試験一時物を作らない。読み取れるPath、同じ親Directory、同じLocal Userまたはcaller supplied absolute Pathは書込みAuthorityにならない。

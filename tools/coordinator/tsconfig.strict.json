@@ -48,6 +48,7 @@
     "src/security/authority-trust-loader.ts",
     "src/security/claude-execution-plan.ts",
     "src/security/coordinator-runtime.ts",
+    "src/security/development-measurement-constraints.ts",
     "src/security/docker-isolation.ts",
     "src/security/enrollment-certificate-renewal.ts",
     "src/security/egress-proxy-policy.ts",

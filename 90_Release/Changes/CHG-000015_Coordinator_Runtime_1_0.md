@@ -438,7 +438,7 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 署名依存はTaskのCapability消費だけでなく、Local Personal Authority、Provider Home観測、Candidate／Runtime State観測、Docker Desktop修復へ存在する。試験用`createIsolated*`へ実Adapterを注入する、固定鍵を試験鍵へ置換する、旧manifestと更新Sourceを混在させる、または一律にRelease確認済みを返す方法は採用しない。旧署名Runtimeが更新Sourceを読取り投影として扱うことと、更新実装自体の実測を区別する。
 
-設計候補は、通常の開発E2Eと正式署名入口を変更せず、固定開発候補に対する用途限定の実測許可を追加することとする。次は未採用の設計条件であり、実行許可ではない。
+設計候補は、通常の開発E2Eと正式署名入口を変更せず、固定開発候補に対する用途限定の実測許可を追加することとした。次は人間へ提示した設計条件であり、提示時点では実行許可ではなかった。後続の承認と実装状態は以下に分けて記録する。
 
 - 人間が選んだRepository、固定Commit／Tree・成果物Hash、比較Task、読取り・変更範囲、Provider、期限および全呼出し上限に許可を結合する。対象変更・期限・上限・取消・cleanup不明では停止し、再許可を自動生成しない。
 - 開発候補への許可を正式Release Trustと別の型・結果として扱う。通常CLIへの自動fallback、環境変数の署名スキップ、永続的な開発Trust登録または秘密鍵保存を追加しない。
@@ -446,6 +446,16 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 - native成果物を再署名なしで再利用できるかを先に確認する。`a619545`から`3430145`までのRust source、native成果物観測、Provider Home／Candidate Store adapterにGit差分はなかったが、これは実binaryの同一性・互換性または別Root結合を保証しない。再利用時にも既存署名とexact artifactを検証する。
 - 通常署名の拒否が維持されること、開発許可の偽造・改変・期限切れ・上限超過・再利用の拒否、是正と再レビューを含む呼出し計数、全段階の取消・cleanup・Recoveryを実Providerなしで先に確認する。実測結果には開発候補であることを表示し、正式Releaseの根拠へ流用しない。
 
-現在必要な人間判断は、公式署名を根拠とする通常利用とは別に、人間が明示選択した固定開発候補を限定実測の実行元として信頼する契約を追加してよいか、の一点である。Subscriptionの少数回利用承認を再要求するものではない。未リリースSourceの不具合と、発行元の正式署名ではなく人間の候補選択を信頼根拠とするリスクが加わる。担当は親Coordinator。判断までは実装のGate変更と実測を保留し、承認後に正本、全利用側、検証を同じCHGで設計・是正する。保留の場合は旧署名版の実務または更新Sourceの決定論的試験だけを継続できるが、今回の更新Runtimeの実Provider比較は未実測のまま残る。
+2026-08-30、人間の決定権限者は、未リリースSourceの不具合と正式発行元署名ではなく固定候補選択を信頼するリスクの説明を受け、この限定実測契約の追加を承認した。Subscriptionの少数回利用を再承認するものではなく、通常利用の署名要件を解除する承認でもない。担当は親Coordinator。承認した範囲内で、正本、全利用側、検証を同じCHGで実装する。
 
-全残件と最新固定改訂版の監査を閉じた後、人間の決定権限者がv0.18.0への統合、Issue処置およびReleaseを判断する。CHG統合方針について追加の人間判断はないが、上記の限定実測の信頼境界は判断待ちである。
+基準`30442cc`から、[限定実測のArchitecture](../../tools/coordinator/architecture/README.md#development-provider-measurement)とI/Oなしの制約を追加した。相互の2Taskを各一回、Taskごと4／総8 CLI呼出し、最大1時間、予約と起動直前消費の分離、不可逆な取消・失効、枠非返却を扱う。Taskの実行順序や資源台帳は複製しない。終了記録は既存処理の帳尻を記録するだけで、cleanupの実行許可・成功証明ではない。入力したIdentityや時計の真偽は接続側が確認する責務として残し、制約moduleは実行Authorityを発行しない。
+
+残件は、固定候補と人間承認の実体検証、検証済みnative配布への明示結合、全利用側への伝播、起動直前と結果公開時の再検証、既存資源のcleanup／Recoveryとの結合である。全利用側が接続されるまでは実Provider比較を実行しない。通常署名入口、Docker修復、Release鍵、永続同意およびProvider起動処理は今回変更していない。最終固定版のArchitecture／Security、Test／UX、Document／Gap／Impact確認は接続後のE2Eと実務収束後に行い、制約単体の合格を完成監査へ代替しない。
+
+同日の読み取り確認で、既存署名配布`a619545`の固定manifest・配布Tree検証と、現在Sourceからのinstalled package検証はいずれも`candidate`となった。現在のnative成果物observerでPlatform Access実binaryの全artifact fieldを署名manifestへ照合し、保持した観測の再確認も成立した。これは観測時点の一致であり、後続起動時のfresh確認、別Rootからの実行および耐久Recovery互換性を証明しない。Provider／native起動、鍵入力、署名または外部送信は行っていない。
+
+制約の契約試験14件とCoordinator全試験1,237件が合格し、失敗・取消・skipは0だった。型検査、変更sourceのLint／format、命名検査7件、既存の設計対応検査も合格した。全Repository Checkerは365文書・2,222リンク・687アンカーでError 0／Warning 0を確認した。新しい制約はまだ公開Taskへ未接続であり、既存機械可読Task Traceの21遷移の成立根拠を増やしたとは扱わない。
+
+Checker自身の全試験も173件合格、失敗・取消・skip 0となった。試験一時物はRepository-local `.crdd/dogfooding`へ限定した。初回は親RepositoryのGit ignoreが未初期化fixtureへ伝播し、coverage表の読取り件数が0となる失敗を再現したため、再実行では`TEMP`／`TMP`に加え`GIT_CEILING_DIRECTORIES`も同じ試験Rootへ限定した。これによりGitがfixture外の親Repositoryへ探索せず、独立したfixtureという本来の試験条件を保つ。製品Checkerの探索規則や期待値を緩める修正はしていない。
+
+全残件と最新固定改訂版の監査を閉じた後、人間の決定権限者がv0.18.0への統合、Issue処置およびReleaseを判断する。現在の限定実測契約の実装について追加の人間判断は必要ない。実装完了、実測完了、最終統合またはRelease済みとは扱わない。
