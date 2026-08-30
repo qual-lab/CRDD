@@ -8,6 +8,7 @@ import {
   inspectRuntimeOwnedWindowsCandidateStore,
 } from "./candidate-store-windows-adapter.ts";
 import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
+import { inspectRuntimeOwnedDevelopmentOperationContext } from "./development-measurement-session.ts";
 import { containsRecognizedSecretMaterial } from "./secret-material-policy.ts";
 
 export const CANDIDATE_BUNDLE_STORE_CONTRACT =
@@ -69,6 +70,11 @@ type CandidateStoreFaultOperation =
 
 type CandidateStoreRuntime = Readonly<{
   securityBoundary: "production" | "testing";
+  shouldCollectExpiredEntries: boolean;
+  developmentContext?: object;
+  shouldInitializeRoot?: boolean;
+  assertNewWork?: () => void;
+  recordOwnedCandidate?: (candidateRecoveryId: string) => void;
   temporaryDirectory: () => string;
   nowMs: () => number;
   randomBytes: (size: number) => Buffer;
@@ -77,6 +83,7 @@ type CandidateStoreRuntime = Readonly<{
 
 type CandidateStoreTestingOptions = Readonly<{
   temporaryDirectory: string;
+  shouldCollectExpiredEntries?: boolean;
   nowMs?: () => number;
   randomBytes?: (size: number) => Buffer;
   injectFault?: (operation: CandidateStoreFaultOperation) => void;
@@ -84,6 +91,7 @@ type CandidateStoreTestingOptions = Readonly<{
 
 const productionRuntime: CandidateStoreRuntime = Object.freeze({
   securityBoundary: "production",
+  shouldCollectExpiredEntries: true,
   temporaryDirectory: () => "",
   nowMs: Date.now,
   randomBytes,
@@ -117,8 +125,9 @@ function errorCode(error: unknown) {
 function storeDirectory(runtime: CandidateStoreRuntime) {
   if (runtime.securityBoundary === "production") {
     const observation = inspectRuntimeOwnedWindowsCandidateStore(
-      true,
+      runtime.shouldInitializeRoot !== false,
       new Date().toISOString(),
+      runtime.developmentContext,
     );
     const root = consumeRuntimeOwnedCandidateStoreRootCapability(
       observation.rootCapability,
@@ -178,6 +187,7 @@ function verifyProductionStoreDirectory(
   const observation = inspectRuntimeOwnedWindowsCandidateStore(
     false,
     new Date().toISOString(),
+    runtime.developmentContext,
   );
   const root = consumeRuntimeOwnedCandidateStoreRootCapability(
     observation.rootCapability,
@@ -884,7 +894,8 @@ function storeInventoryAndGc(
         candidateStoreRecoveryId(entry.name, entry.identity),
       );
     }
-    if (stored.expiresAtMs > nowMs) continue;
+    if (stored.expiresAtMs > nowMs || !runtime.shouldCollectExpiredEntries)
+      continue;
     const storageId = /-([0-9a-f]{64})\.(?:json|tmp)$/u.exec(entry.name)?.[1];
     const ownedRecoveryId =
       storageId && hash ? recoveryId(storageId, hash) : null;
@@ -1044,8 +1055,10 @@ function persistRuntimeOwnedCandidateBundleWithRuntime(
       let ownedEntityCreated = false;
       try {
         runtime.injectFault("before_pending_open");
+        runtime.assertNewWork?.();
         handle = fs.openSync(targets.pending, "wx", 0o600);
         ownedEntityCreated = true;
+        runtime.recordOwnedCandidate?.(ownedRecoveryId);
         pendingIdentity = stableFileIdentity(
           fs.fstatSync(handle, { bigint: true }),
         );
@@ -1252,6 +1265,7 @@ function publishRuntimeOwnedCandidateBundleWithRuntime(
         }
         const targets = physicalTargets(store, location.storageId);
         if (current.kind === "staged") {
+          runtime.assertNewWork?.();
           fs.renameSync(current.target, targets.published);
           runtime.injectFault("after_publish_rename");
           readStableCandidate(
@@ -1486,36 +1500,112 @@ function runCandidateStoreGcWithRuntime(runtime: CandidateStoreRuntime) {
   }
 }
 
+const developmentCandidates = new WeakMap<object, Set<string>>();
+
+function runtimeForOperation(
+  managementCapability: unknown,
+  purpose: "persist" | "read" | "publish" | "discard",
+  candidateId?: unknown,
+): CandidateStoreRuntime | null {
+  const development =
+    inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
+  if (!development) return productionRuntime;
+  if (!managementCapability || typeof managementCapability !== "object")
+    return null;
+  let candidateIds = developmentCandidates.get(managementCapability);
+  if (purpose === "persist") {
+    if (!development.checkNewWork()) return null;
+    if (!candidateIds) {
+      candidateIds = new Set<string>();
+      developmentCandidates.set(managementCapability, candidateIds);
+    }
+  } else {
+    const location = candidateLocation(candidateId);
+    if (
+      !location ||
+      !candidateIds?.has(recoveryId(location.storageId, location.expectedHash))
+    )
+      return null;
+  }
+  const ownedIds = candidateIds;
+  const context =
+    purpose === "discard"
+      ? development.cleanupContext
+      : development.newWorkContext;
+  if (!context || !ownedIds) return null;
+  return Object.freeze({
+    ...productionRuntime,
+    shouldCollectExpiredEntries: false,
+    shouldInitializeRoot: purpose === "persist",
+    developmentContext: context,
+    assertNewWork: () => {
+      if (!development.checkNewWork())
+        throw new CandidateStoreFailure(
+          "candidate_store_development_permission_expired",
+        );
+    },
+    recordOwnedCandidate: (id: string) => {
+      ownedIds.add(id);
+    },
+  });
+}
+
 export function persistRuntimeOwnedCandidateBundle(
   rawBundle: unknown,
   rawPolicy: unknown,
+  managementCapability?: unknown,
 ) {
+  const runtime = runtimeForOperation(managementCapability, "persist");
+  if (!runtime) return null;
   return persistRuntimeOwnedCandidateBundleWithRuntime(
-    productionRuntime,
+    runtime,
     rawBundle,
     rawPolicy,
   );
 }
 
-export function readRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
-  return readRuntimeOwnedCandidateBundleWithRuntime(
-    productionRuntime,
+export function readRuntimeOwnedCandidateBundle(
+  rawCandidateId: unknown,
+  managementCapability?: unknown,
+) {
+  const runtime = runtimeForOperation(
+    managementCapability,
+    "read",
     rawCandidateId,
   );
+  if (!runtime) return null;
+  return readRuntimeOwnedCandidateBundleWithRuntime(runtime, rawCandidateId);
 }
 
-export function publishRuntimeOwnedCandidateBundle(rawRecoveryId: unknown) {
-  return publishRuntimeOwnedCandidateBundleWithRuntime(
-    productionRuntime,
+export function publishRuntimeOwnedCandidateBundle(
+  rawRecoveryId: unknown,
+  managementCapability?: unknown,
+) {
+  const runtime = runtimeForOperation(
+    managementCapability,
+    "publish",
     rawRecoveryId,
   );
+  if (!runtime) return null;
+  return publishRuntimeOwnedCandidateBundleWithRuntime(runtime, rawRecoveryId);
 }
 
-export function discardRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
-  return discardRuntimeOwnedCandidateBundleWithRuntime(
-    productionRuntime,
+export function discardRuntimeOwnedCandidateBundle(
+  rawCandidateId: unknown,
+  managementCapability?: unknown,
+) {
+  const runtime = runtimeForOperation(
+    managementCapability,
+    "discard",
     rawCandidateId,
   );
+  if (!runtime)
+    return blockedResult(
+      "candidate_store_development_target_not_authorized",
+      null,
+      false,
+    );
+  return discardRuntimeOwnedCandidateBundleWithRuntime(runtime, rawCandidateId);
 }
 
 export function recoverRuntimeOwnedCandidateStore(rawRecoveryId: unknown) {
@@ -1527,6 +1617,36 @@ export function recoverRuntimeOwnedCandidateStore(rawRecoveryId: unknown) {
 
 export function runRuntimeOwnedCandidateStoreStartupGc() {
   return runCandidateStoreGcWithRuntime(productionRuntime);
+}
+
+/** Read-only inventory, apart from acquiring the existing store lock/root. */
+export function inspectRuntimeOwnedDevelopmentCandidateStore(
+  developmentContext: object,
+) {
+  const runtime = Object.freeze({
+    ...productionRuntime,
+    developmentContext,
+    shouldCollectExpiredEntries: false,
+  });
+  try {
+    const locked = withStoreLock(runtime, (store, nowMs) =>
+      storeInventoryAndGc(runtime, store, nowMs),
+    );
+    return locked.status === "completed"
+      ? Object.freeze({
+          status: "completed" as const,
+          reason: "candidate_store_inventory_confirmed",
+          deletedEntries: 0,
+        })
+      : blockedResult(
+          locked.reason,
+          locked.recoveryId,
+          locked.manualRecoveryRequired,
+          locked.storeRecoveryId,
+        );
+  } catch {
+    return blockedResult("candidate_store_inventory_unavailable", null, true);
+  }
 }
 
 export function createCandidateBundleStoreTestingAdapter(
@@ -1541,6 +1661,7 @@ export function createCandidateBundleStoreTestingAdapter(
   }
   const runtime = Object.freeze({
     securityBoundary: "testing" as const,
+    shouldCollectExpiredEntries: options.shouldCollectExpiredEntries !== false,
     temporaryDirectory: () => options.temporaryDirectory,
     nowMs: options.nowMs ?? Date.now,
     randomBytes: options.randomBytes ?? randomBytes,

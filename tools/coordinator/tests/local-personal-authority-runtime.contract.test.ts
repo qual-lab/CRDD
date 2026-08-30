@@ -17,6 +17,41 @@ function confirmedRelease() {
   });
 }
 
+test("開発版の許可は同じAuthority生成器へ接続し期限切れ時はcacheを再利用しない", () => {
+  let isAuthorized = true;
+  let releaseChecks = 0;
+  const management = Object.freeze({});
+  const binding = {
+    operationId: "OP-123456",
+    provider: "claude",
+    profileId: "PROFILE-200001",
+  };
+  const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
+    wallNow: () => Date.now(),
+    verifyRelease: () => {
+      releaseChecks += 1;
+      return { status: "blocked" };
+    },
+    verifyDevelopment: (candidate, capability) =>
+      capability === management && candidate.operationId === binding.operationId
+        ? isAuthorized
+          ? "authorized"
+          : "blocked"
+        : "not_development",
+  });
+  assert.equal(runtime.load(binding, {}), null);
+  const source = runtime.load(binding, management);
+  assert.ok(source);
+  assert.equal(
+    (source.profile as Record<string, unknown>).authMethod,
+    "subscription_oauth",
+  );
+  assert.equal(runtime.load(binding, management), source);
+  isAuthorized = false;
+  assert.equal(runtime.load(binding, management), null);
+  assert.equal(releaseChecks, 1);
+});
+
 test("署名Release確認済みLocal Personal AuthorityをOperationへ固定する", () => {
   let now = Date.now();
   let releaseChecks = 0;

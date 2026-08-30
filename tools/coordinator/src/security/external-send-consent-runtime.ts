@@ -7,21 +7,22 @@ import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
   inspectRuntimeOwnedWindowsRuntimeState,
 } from "./candidate-store-windows-adapter.ts";
+import { inspectRuntimeOwnedDevelopmentOperationContext } from "./development-measurement-session.ts";
 import {
   dockerRecoveryCommitName,
   readCommittedDockerRecoveryJson,
   removeCommittedDockerRecoveryJson,
   writeCommittedDockerRecoveryJson,
 } from "./docker-recovery-journal.ts";
-import type { ExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
-  externalSendConsentActiveRecordName,
   EXTERNAL_SEND_CONSENT_LIFETIME_MS,
   EXTERNAL_SEND_CONSENT_SCHEMA,
   EXTERNAL_SEND_RUNTIME_SEMANTICS_ID,
+  externalSendConsentActiveRecordName,
   isExternalSendConsentRecordShape,
   parseExternalSendConsentActiveEntryName,
 } from "./external-send-consent-record.ts";
+import type { ExternalSendPolicy } from "./external-send-policy-runtime.ts";
 
 export const EXTERNAL_SEND_CONSENT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-consent-runtime";
@@ -59,10 +60,14 @@ export function compileExternalSendConsentBoundaryHash(
     : null;
 }
 
-function productionObserveRoot(shouldInitializeIfMissing: boolean) {
+function productionObserveRoot(
+  shouldInitializeIfMissing: boolean,
+  developmentContext?: unknown,
+) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
     shouldInitializeIfMissing,
     new Date().toISOString(),
+    developmentContext,
   );
   const root = consumeRuntimeOwnedRuntimeStateRootCapability(
     observation.rootCapability,
@@ -422,8 +427,33 @@ function createRuntime(dependencies: ConsentDependencies) {
 
 const productionRuntime = createRuntime(productionDependencies);
 
-export const resolveRuntimeOwnedExternalSendConsent = productionRuntime.resolve;
-export const persistRuntimeOwnedExternalSendConsent = productionRuntime.persist;
+function runtimeForOperation(managementCapability: unknown) {
+  const development =
+    inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
+  if (!development) return productionRuntime;
+  return createRuntime({
+    ...productionDependencies,
+    observeRoot: (shouldInitializeIfMissing) =>
+      development.checkNewWork()
+        ? productionObserveRoot(
+            shouldInitializeIfMissing,
+            development.newWorkContext,
+          )
+        : null,
+  });
+}
+export function resolveRuntimeOwnedExternalSendConsent(
+  policy: ExternalSendPolicy,
+  managementCapability?: unknown,
+) {
+  return runtimeForOperation(managementCapability).resolve(policy);
+}
+export function persistRuntimeOwnedExternalSendConsent(
+  policy: ExternalSendPolicy,
+  managementCapability?: unknown,
+) {
+  return runtimeForOperation(managementCapability).persist(policy);
+}
 export const revokeRuntimeOwnedExternalSendConsent = productionRuntime.revoke;
 
 export function createIsolatedExternalSendConsentRuntimeCandidate(

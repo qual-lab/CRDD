@@ -2,11 +2,11 @@ import { createHash, randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
 import {
-  readInteractiveConsoleLineOutcome,
   type InteractiveConsoleReadOutcome,
+  type InteractiveConsoleTextWriteOutcome,
+  readInteractiveConsoleLineOutcome,
   withInteractiveConsoleAsyncOutcome,
   writeInteractiveConsoleTextOutcome,
-  type InteractiveConsoleTextWriteOutcome,
 } from "../core/interactive-console.ts";
 import {
   isRuntimeProcessEffectBlocked,
@@ -263,13 +263,16 @@ export async function confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
   handles: Readonly<{ input: number; output: number }>,
   cancellationSignal: AbortSignal,
   adapter: ConsoleConfirmationOutcomeAdapter,
+  purpose: "external_send" | "development_measurement" = "external_send",
 ): Promise<ConsoleConfirmationOutcome> {
+  if (purpose !== "external_send" && purpose !== "development_measurement")
+    return Object.freeze({ status: "unavailable" });
   if (!isCancellationSignal(cancellationSignal) || cancellationSignal.aborted)
     return Object.freeze({ status: "cancelled" });
   const promptWrite = textWriteOutcome(
     await adapter.writeText(
       handles.output,
-      `${notice}\n外部送信を承認する場合は ${challenge} を入力してください: `,
+      `${notice}\n${purpose === "development_measurement" ? "この固定開発版による限定実測" : "外部送信"}を承認する場合は ${challenge} を入力してください: `,
     ),
   );
   if (promptWrite.status === "cleanup_unknown")
@@ -308,10 +311,11 @@ export async function confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
   return Object.freeze({ status });
 }
 
-export async function confirmRuntimeOwnedExternalSendUsingConsole(
+async function confirmRuntimeOwnedOperationUsingConsole(
   notice: string,
   challenge: string,
   cancellationSignal: AbortSignal,
+  purpose: "external_send" | "development_measurement",
 ) {
   if (isRuntimeProcessEffectBlocked())
     return Object.freeze({ status: "cleanup_unknown" as const });
@@ -346,6 +350,7 @@ export async function confirmRuntimeOwnedExternalSendUsingConsole(
           writeText: writeInteractiveConsoleTextOutcome,
           readLine: readInteractiveConsoleLineOutcome,
         }),
+        purpose,
       ),
     );
     outcome =
@@ -375,6 +380,32 @@ export async function confirmRuntimeOwnedExternalSendUsingConsole(
     return Object.freeze({ status: "cleanup_unknown" as const });
   }
   return outcome;
+}
+
+export function confirmRuntimeOwnedExternalSendUsingConsole(
+  notice: string,
+  challenge: string,
+  cancellationSignal: AbortSignal,
+) {
+  return confirmRuntimeOwnedOperationUsingConsole(
+    notice,
+    challenge,
+    cancellationSignal,
+    "external_send",
+  );
+}
+
+export function confirmRuntimeOwnedDevelopmentMeasurementUsingConsole(
+  notice: string,
+  challenge: string,
+  cancellationSignal: AbortSignal,
+) {
+  return confirmRuntimeOwnedOperationUsingConsole(
+    notice,
+    challenge,
+    cancellationSignal,
+    "development_measurement",
+  );
 }
 
 function createState(dependencies: RuntimeDependencies): RuntimeState {
@@ -458,7 +489,10 @@ async function requestGrant(
       providers.includes(destination.provider),
     );
     if (authorizedDestinations.length !== providers.length) return null;
-    const reusableConsent = state.dependencies.resolveConsent?.(policy);
+    const reusableConsent = state.dependencies.resolveConsent?.(
+      policy,
+      managementCapability,
+    );
     if (reusableConsent?.status === "recovery_required") {
       return Object.freeze({
         status: "blocked" as const,
@@ -539,7 +573,10 @@ async function requestGrant(
         });
       }
       if (state.dependencies.persistConsent) {
-        const persisted = state.dependencies.persistConsent(policy);
+        const persisted = state.dependencies.persistConsent(
+          policy,
+          managementCapability,
+        );
         if (persisted.status !== "confirmed") {
           return Object.freeze({
             status: "blocked" as const,

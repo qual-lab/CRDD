@@ -694,6 +694,7 @@ export function persistRuntimeOwnedCandidateRevision(
         entries: Object.freeze(entries),
       }),
       persistencePolicy,
+      managementCapability,
     );
     if (!persisted) return null;
     if (persisted.status !== "staged") return persisted;

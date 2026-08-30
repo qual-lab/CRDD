@@ -12,6 +12,17 @@ const artifact = Object.freeze({
 });
 let spawnCalls = 0;
 
+await mock.module(
+  new URL(
+    "../../src/security/development-measurement-session.ts",
+    import.meta.url,
+  ).href,
+  {
+    namedExports: {
+      borrowRuntimeOwnedDevelopmentNativeObservation: () => null,
+    },
+  },
+);
 await mock.module("node:child_process", {
   namedExports: {
     spawnSync: () => {
@@ -37,6 +48,7 @@ await mock.module(
   ).href,
   {
     namedExports: {
+      inspectVerifiedNativeDistributionCandidate: () => ({ status: "blocked" }),
       verifyBundledCoordinatorPackageFromFixedManifestCandidate: () => ({
         status: "candidate",
         runtimeOwnedReleaseTrustConfirmed: true,

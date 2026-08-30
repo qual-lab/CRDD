@@ -232,6 +232,25 @@ export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
   }
 }
 
+/** Read-only identity and HEAD/tree observation for bounded admission. */
+export function inspectRepositoryIdentityCandidate(repositoryRoot: unknown) {
+  try {
+    if (typeof repositoryRoot !== "string") return null;
+    const before = observe(repositoryRoot);
+    const revision = inspectRepositoryRevisionCandidate(repositoryRoot);
+    const after = observe(repositoryRoot);
+    if (
+      !revision ||
+      revision.commit !== before.revision ||
+      JSON.stringify(before) !== JSON.stringify(after)
+    )
+      return null;
+    return Object.freeze({ ...before, ...revision });
+  } catch {
+    return null;
+  }
+}
+
 export function bindRuntimeOwnedRepositoryOperation(
   managementCapability: unknown,
   repositoryRoot: unknown,

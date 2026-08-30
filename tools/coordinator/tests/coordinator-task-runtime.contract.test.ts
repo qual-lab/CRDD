@@ -6,17 +6,15 @@ import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
-
+import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../src/core/runtime-process-safety-state.ts";
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
-  createIsolatedCoordinatorTaskRuntimeCandidate,
   createIsolatedCoordinatorTaskOperationCreationCandidate,
+  createIsolatedCoordinatorTaskRuntimeCandidate,
   describeCoordinatorTaskRuntimeContract,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
-import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../src/core/runtime-process-safety-state.ts";
 import { selectDelegationRouteCandidate } from "../src/security/delegation-route-selection.ts";
-import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -27,9 +25,10 @@ import {
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
 } from "../src/security/execution-environment.ts";
+import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
-  assertRuntimeTraceExecutionCoverage,
   assertRuntimeTraceCase,
+  assertRuntimeTraceExecutionCoverage,
   getRuntimeTraceCase,
   type RuntimeTraceCase,
 } from "./runtime-trace-case.ts";
@@ -491,6 +490,9 @@ function request(overrides: Record<string, unknown> = {}) {
 
 function fixture(
   options: {
+    beginInvocation?: Parameters<
+      typeof createIsolatedCoordinatorTaskRuntimeCandidate
+    >[0]["beginInvocation"];
     reviewerDecision?: "approved" | "changes_requested";
     finalReviewerDecision?: "approved" | "changes_requested";
     executorChangedPaths?: readonly string[];
@@ -702,6 +704,7 @@ function fixture(
     });
   };
   const dependencies = {
+    beginInvocation: options.beginInvocation,
     observeLifecycleState: (state: string) => {
       lifecycleStates.push(state);
       lifecycleSnapshots.push({
@@ -1105,7 +1108,17 @@ function fixture(
         capability: unknown,
         recoveryId: unknown,
       ) => boolean,
+      commandRestriction?: unknown,
     ) => {
+      if (commandRestriction !== undefined) {
+        assert.equal(typeof commandRestriction, "function");
+        assert.equal(
+          (commandRestriction as (purpose: string) => boolean)(
+            "start_provider_attached",
+          ),
+          true,
+        );
+      }
       processStartCount += 1;
       const role = preparedRoles.get(preparedCapability);
       assert.ok(role);
@@ -1414,6 +1427,84 @@ function fixture(
     },
   };
 }
+
+test("開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続する", async () => {
+  const reservations: string[] = [];
+  let consumptionCount = 0;
+  let settlementCount = 0;
+  const harness = fixture({
+    reviewerDecision: "changes_requested",
+    finalReviewerDecision: "approved",
+    beginInvocation: (provider, role) => {
+      reservations.push(`${provider}:${role}`);
+      return Object.freeze({
+        commandRestriction: (purpose: string) => {
+          assert.equal(purpose, "start_provider_attached");
+          consumptionCount += 1;
+          return true;
+        },
+        settle: () => {
+          settlementCount += 1;
+        },
+      });
+    },
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "completed");
+  assert.deepEqual(reservations, [
+    "claude:executor",
+    "codex:reviewer",
+    "claude:executor",
+    "codex:reviewer",
+  ]);
+  assert.equal(consumptionCount, 4);
+  assert.equal(settlementCount, 4);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
+test("呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収する", async () => {
+  const harness = fixture({ beginInvocation: () => null });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(
+    result.reason,
+    "coordinator_task_development_invocation_not_authorized",
+  );
+  assert.equal(harness.providerHomeObservationCount(), 0);
+  assert.equal(harness.mountGrantIssueCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.cleanupCount(), 1);
+  assert.equal(result.cleanupConfirmed, true);
+});
+
+test("呼出し予約後の準備失敗でも終了記録を一回だけ残す", async () => {
+  let settlementCount = 0;
+  const harness = fixture({
+    prepareWorkloadSplit: true,
+    beginInvocation: () => ({
+      commandRestriction: () => true,
+      settle: () => {
+        settlementCount += 1;
+      },
+    }),
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(settlementCount, 1);
+  assert.equal(result.cleanupConfirmed, true);
+});
 
 test("作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しない", async () => {
   const harness = fixture({ prepareWorkloadSplit: true });

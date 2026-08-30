@@ -163,6 +163,10 @@ export function createDevelopmentMeasurementConstraints(
 
   return Object.freeze({
     productionAuthorityConferred: false as const,
+    check(observation: unknown) {
+      const refusal = checkObservation(observation);
+      return refusal ? refuse(refusal) : record(null);
+    },
     reserveTask(scopeSha256: string, observation: unknown) {
       const refusal = checkObservation(observation);
       if (refusal) return refuse(refusal);

@@ -46,13 +46,13 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 
 更新実装の実Provider比較は、通常の署名不要な開発E2Eとも、正式署名配布物の検証とも区別する。人間が固定開発版を実行元として明示承認した場合だけ、既存Subscriptionによる限定実測へ接続する設計とする。正式署名済みという結果へ読み替えず、通常CLIの署名要件、秘密保護、外部送信、隔離、取消および復旧は維持する。
 
-現在は、[実測範囲・回数の制約](../src/security/development-measurement-constraints.ts)と、[開発ソース・別配布nativeの実体観測](../src/security/platform-provisioner-package-filesystem.ts)を実装した段階である。[制約の契約試験](../tests/development-measurement-constraints.contract.test.ts)と[Filesystemの契約試験](../tests/platform-provisioner-package-filesystem.contract.test.ts)を分け、後者では実DirectoryとGit算出Treeを使う。実Provider入口、人間承認、既存Authorityおよびcleanupへの接続は未完了であり、これらのmoduleだけでは実行できない。制約は`productionAuthorityConferred: false`を返し、入力された承認・Identity・時計の真偽を検証したとは主張しない。
+実測範囲・回数の純粋制約とFilesystem観測を、[開発実測session](../src/security/development-measurement-session.ts)から既存Task Runtimeへ明示接続する。sessionは実体観測、人間の一回の実行開始確認、現在時刻と単調時計、実Operation／Repository Bindingを所有し、偽造不能なprocess内参照を発行する。純粋制約の`productionAuthorityConferred: false`や試験用factoryの結果を、そのまま実行許可へ昇格しない。[制約の契約試験](../tests/development-measurement-constraints.contract.test.ts)、[Filesystemの契約試験](../tests/platform-provisioner-package-filesystem.contract.test.ts)、[sessionの契約試験](../tests/development-measurement-session.contract.test.ts)を分け、実Directory／Git Treeの照合と試験用の承認・時計・Operation観測を混同しない。実Provider比較の完了は別の実測結果を必要とする。
 
 開発ソースの観測は、正規化した実Directory、配布Tree、package内容Hash、およびCLI・Console reader・二つのLock子Processのentrypointを照合する。古いmanifestやnative実行物の混入、Git管理Directory、リンク、entrypoint欠落、不正入力は拒否する。同じ内容を別Directoryへ差し替えた場合も、Path、volume、file identity、作成時点を含む`sourceIdentitySha256`が変わる。これは観測時点の内容とDirectory実体の識別であり、人間承認、CommitとTreeの対応、以後の不変性または実行許可を証明しない。
 
 再利用するnative配布は開発ソースとは別Rootに保ち、固定Release鍵によるmanifest検証、期待したRelease Identity、配布Tree、WorkerとSupervisorの全artifact field、およびSupervisorが保持するWorker Hashの結合を検査する。`nativeIdentitySha256`に配布Rootの実体を含め、検証完了時に再照合する。結果の`nativeReleaseSignatureVerified: true`はこのnative配布だけを対象とし、開発ソースへRelease Trustを付与しない。観測はnative／Provider起動を行わない。後続Runtimeは実行直前の現在時刻と再観測を所有し、Callerの時刻や過去の観測結果をAuthorityへ読み替えない。
 
-限定実測の所有者は、承認したRepository、固定Commit／Tree・package Hash、検証済みnative配布のIdentity、Taskの読取り・変更投影と経路、期限を正規化して一つの`bindingSha256`へ結合する。各`scopeSha256`はTaskと経路を含む完全な実測範囲のdigestとする。この正規化と実体再観測は後続のRuntime接続側の責務であり、Caller／Providerの自己申告Hashでは代替しない。純粋制約が扱うのは一致と計数だけである。
+限定実測sessionは、承認したRepository、固定Commit／Tree・package Hash、検証済みnative配布のIdentity、Taskの読取り・変更投影と経路、期限を正規化して一つの`bindingSha256`へ結合する。各`scopeSha256`はTaskと経路を含む完全な実測範囲のdigestとする。共有Task parserで確認前にsnapshotし、待機中の入力変更を許可範囲へ取り込まない。確認前後と新規Effect前に実体と期限を再観測し、Caller／Providerの自己申告Hashでは代替しない。純粋制約が扱うのは一致と計数だけである。
 
 | 制約段階 | 保持する条件 | 検証する失敗例 |
 |---|---|---|
@@ -72,7 +72,22 @@ Docker実行部には、通常の署名・Provider Authorityとは別に、呼�
 
 制約拒否は`docker_process_controller_execution_restricted`として既存の回収経路へ戻す。Provider開始前の拒否を`providerRequestStarted: true`と報告しない。制約をcleanup、取消、終了確認へ再適用せず、既存資源の不存在、Mount完了、Recovery完了を確認し、不明ならRecovery IDを保持する。command制約より前に行うOperation、Mount、Authority、Recovery準備の許可は各所有者が引き続き確認するため、この制約だけで限定実測の全Effectを制御できたとは扱わない。
 
-[Docker Controller契約試験](../tests/docker-process-controller.contract.test.ts)は、全9commandでの拒否、既存Authority不成立、準備待機中の期限切れ・取消・Identity変更、Provider開始時だけの単回消費、制約内取消、回収不明と既存利用側への結果伝播を確認する。実commandの起動と資源観測は試験用実装であり、実Docker／Providerや真正な開発sessionの成立証明ではない。Task受付からの予約、人間承認、native観測束およびCandidate公開への接続は引き続き未完了である。
+[Docker Controller契約試験](../tests/docker-process-controller.contract.test.ts)は、全9commandでの拒否、既存Authority不成立、準備待機中の期限切れ・取消・Identity変更、Provider開始時だけの単回消費、制約内取消、回収不明と既存利用側への結果伝播を確認する。実commandの起動と資源観測は試験用実装であり、実Docker／Providerや真正な開発sessionの成立証明ではない。
+
+Task受付からの接続は次の所有関係を維持する。
+
+| 接続先 | 開発許可の確認 | 失効・終了後の扱い |
+|---|---|---|
+| Task／Provider Authority | genuine OperationとRepository／Revisionへ結合し、既存Authority生成・消費時にも再確認 | cacheが残っていても新規発行・消費を拒否 |
+| Home／Runtime State／Candidate Storeのnative観測 | 明示したsession contextと、別Rootの署名済みnativeだけを使用 | 不正contextを通常署名経路へfallbackしない |
+| 外部送信同意 | 既存同意の読取り・保存に同じOperationの観測contextを渡す | 開発版の実行許可とProvider送信許可を混ぜない |
+| Docker／Workspace | 既存の状態機械・資源所有者を使い、準備と各起動の前に制約確認 | 既存の取消・cleanupへ合流し、新しい資源台帳を作らない |
+| Candidate Store | 作成時点に同じOperationへIDを登録し、保存・公開前に許可を再確認 | 無関係な期限切れ候補のGCをしない。今回の候補だけ破棄する |
+| cleanupのnative観測 | 既存所有者へ私有の読取り専用contextを渡す | 期限切れ・取消後も実体が一致すれば観測可能。ただしRoot初期化、差替え、process不明は拒否 |
+
+比較入口は[`measure-development-providers.ts`](../scripts/measure-development-providers.ts)である。固定開発配布内のこの入口を検証済みNodeの絶対Pathから起動し、作業Directoryは対象Repositoryとする。入力は検証したRepository Root直下の`.crdd/dogfooding/development-measurement-request.json`、結果は同Directoryの実行固有JSONに置く。公開設定だけを入力に使い、Credentialや承認boolを格納しない。実行中は2Taskを直列に一回ずつ処理し、同じTaskの自動再試行、process再開、上限補充、Docker Desktop修復は行わない。回収不明またはprocess再起動要求では次Taskを開始せず、sessionを失効する。経過時間はRuntime結果までであり、人間の受入時間や品質の総合点とは扱わない。[比較入口の契約試験](../tests/development-provider-measurement.contract.test.ts)はこの順序と停止を検査する。
+
+別process Recoveryはsession再発行ではない。既存のexact Recovery ID、保護済みRoot、明示Recovery契約から再観測する。耐久形式を変更していないことだけで旧配布との互換性を推定せず、実測で使用する配布との書込み・読取り・復旧を別processで確認する。native保護観測や実Docker操作を試験用観測に置き換えた互換性試験は、その境界まで実測済みとは扱わない。
 
 ### 2.1 Filesystem保存境界
 

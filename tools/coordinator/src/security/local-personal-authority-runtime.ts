@@ -10,6 +10,8 @@ import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   decodeCanonicalAuthorityTrustPolicyBytes,
 } from "./authority-trust-loader.ts";
+import { inspectRuntimeOwnedDevelopmentOperationContext } from "./development-measurement-session.ts";
+import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
@@ -72,6 +74,10 @@ type SourceRecord = Readonly<{
 type RuntimeDependencies = Readonly<{
   wallNow: () => number;
   verifyRelease: (evaluationTime: string) => unknown;
+  verifyDevelopment?: (
+    binding: Binding,
+    managementCapability: unknown,
+  ) => "not_development" | "authorized" | "blocked";
 }>;
 
 function canonicalJson(value: unknown): string {
@@ -198,12 +204,19 @@ function createSource(binding: Binding, now: number): Source | null {
 function createRuntime(dependencies: RuntimeDependencies) {
   const sources = new Map<string, SourceRecord>();
   return Object.freeze({
-    load(binding: Binding) {
+    load(binding: Binding, managementCapability?: unknown) {
       try {
         const now = dependencies.wallNow();
         if (!Number.isFinite(now) || now < 0) return null;
         const evaluationTime = new Date(now).toISOString();
-        if (!releaseConfirmed(dependencies.verifyRelease(evaluationTime)))
+        const development =
+          dependencies.verifyDevelopment?.(binding, managementCapability) ??
+          "not_development";
+        if (
+          development === "blocked" ||
+          (development === "not_development" &&
+            !releaseConfirmed(dependencies.verifyRelease(evaluationTime)))
+        )
           return null;
         const key = `${binding.operationId}\0${binding.provider}\0${binding.profileId}`;
         const current = sources.get(key);
@@ -225,6 +238,16 @@ function createRuntime(dependencies: RuntimeDependencies) {
 const productionRuntime = createRuntime(
   Object.freeze({
     wallNow: Date.now,
+    verifyDevelopment: (binding, managementCapability) => {
+      const context =
+        inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
+      if (!context) return "not_development";
+      return context.checkNewWork() &&
+        verifyOwnedOperationManagementCapability(managementCapability)
+          .operationId === binding.operationId
+        ? "authorized"
+        : "blocked";
+    },
     verifyRelease: (evaluationTime) =>
       verifyBundledCoordinatorPackageFromFixedManifestCandidate({
         evaluationTime,
@@ -232,8 +255,11 @@ const productionRuntime = createRuntime(
   }),
 );
 
-export function loadRuntimeOwnedLocalPersonalAuthority(binding: Binding) {
-  return productionRuntime.load(binding);
+export function loadRuntimeOwnedLocalPersonalAuthority(
+  binding: Binding,
+  managementCapability?: unknown,
+) {
+  return productionRuntime.load(binding, managementCapability);
 }
 
 export function createIsolatedLocalPersonalAuthorityRuntimeCandidate(

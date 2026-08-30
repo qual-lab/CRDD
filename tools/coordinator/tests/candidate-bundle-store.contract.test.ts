@@ -68,9 +68,10 @@ function fixture() {
   );
   let clock = Date.now();
   const faults = new Set<string>();
-  const createAdapter = () =>
+  const createAdapter = (shouldCollectExpiredEntries = true) =>
     createCandidateBundleStoreTestingAdapter({
       temporaryDirectory,
+      shouldCollectExpiredEntries,
       nowMs: () => clock,
       injectFault: (operation) => {
         if (faults.has(operation)) throw new Error(operation);
@@ -101,6 +102,47 @@ function requireRecoveryId(value: unknown) {
   );
   return candidateRecoveryId as string;
 }
+
+test("限定inventoryは起動・保存・公開・読取りで既存の期限切れ候補を削除しない", () => {
+  const value = fixture();
+  try {
+    const first = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
+    const firstId = requireRecoveryId(first);
+    const published = value.adapter.publish(firstId);
+    assert.equal(published?.status, "published");
+    const store = value.adapter.testingStoreDirectory();
+    const beforeEntries = fs.readdirSync(store);
+    assert.equal(beforeEntries.length, 1);
+    const original = beforeEntries[0];
+    assert.ok(original);
+    const originalBytes = fs.readFileSync(path.join(store, original));
+    value.advance(3_600_001);
+    const limited = value.createAdapter(false);
+    assert.equal(limited.startupGc().status, "completed");
+    assert.deepEqual(fs.readdirSync(store), beforeEntries);
+    const second = limited.persist(
+      bundle(Buffer.from("second\n")),
+      PERSISTENCE_POLICY,
+    );
+    const secondId = requireRecoveryId(second);
+    const secondPublished = limited.publish(secondId);
+    assert.equal(secondPublished?.status, "published");
+    if (!secondPublished || !("candidateId" in secondPublished))
+      throw new Error("published candidate required");
+    assert.ok(limited.read(secondPublished.candidateId));
+    assert.deepEqual(
+      fs.readFileSync(path.join(store, original)),
+      originalBytes,
+    );
+    assert.equal(limited.discard(secondId).status, "discarded");
+    assert.deepEqual(fs.readdirSync(store), beforeEntries);
+    // A later explicitly selected ordinary GC still owns expiry deletion.
+    assert.equal(value.adapter.startupGc().status, "completed");
+    assert.deepEqual(fs.readdirSync(store), []);
+  } finally {
+    value.cleanup();
+  }
+});
 
 function requireStoreRecoveryId(value: unknown) {
   assert.ok(value && typeof value === "object");

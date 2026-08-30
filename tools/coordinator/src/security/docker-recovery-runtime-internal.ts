@@ -11,6 +11,7 @@ import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
   inspectRuntimeOwnedWindowsRuntimeState,
 } from "./candidate-store-windows-adapter.ts";
+import { inspectRuntimeOwnedDevelopmentOperationContext } from "./development-measurement-session.ts";
 import { validateDockerHostTransitionLineage } from "./docker-host-transition-state.ts";
 import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 import {
@@ -32,7 +33,6 @@ import {
 import { createDockerRecoveryRuntimeStateLockController } from "./docker-recovery-lock-controller.ts";
 import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine.ts";
 import { isExactDockerRuntimeStateMutationBoundary } from "./docker-runtime-state-binding.ts";
-import { parseExternalSendConsentActiveEntryName } from "./external-send-consent-record.ts";
 import {
   acquireHostOperationRecoveryGenerationByIdentity,
   beginOwnedDockerSubmissionRecovery,
@@ -45,6 +45,7 @@ import {
   releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
+import { parseExternalSendConsentActiveEntryName } from "./external-send-consent-record.ts";
 import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
@@ -764,10 +765,14 @@ function beginProductionRecovery(
   plan: ProductionPlan,
   managementCapability: unknown,
 ) {
+  const development =
+    inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
+  if (development && !development.checkNewWork()) return null;
   const providerHomeObservation =
     inspectRuntimeOwnedWindowsProviderHomeCandidate(
       plan.provider,
       new Date().toISOString(),
+      development?.newWorkContext,
     );
   const providerHome = consumeRuntimeOwnedProviderHomeObservationCapability(
     providerHomeObservation.observationCapability,
@@ -777,11 +782,24 @@ function beginProductionRecovery(
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
     true,
     new Date().toISOString(),
+    development?.newWorkContext,
   );
   const root = consumeRuntimeOwnedRuntimeStateRootCapability(
     observation.rootCapability,
   );
   if (observation.status !== "candidate" || !root) return null;
+  if (development) {
+    if (!development.checkNewWork()) return null;
+    return beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
+      plan,
+      managementCapability,
+      providerHome,
+      root,
+      null,
+      null,
+      () => observeRuntimeStateRootFromWindows(development.cleanupContext),
+    );
+  }
   return beginRuntimeOwnedDockerRecoveryFromVerifiedCandidates(
     plan,
     managementCapability,
@@ -851,10 +869,11 @@ function withDurableRuntimeStateLock<T>(
   return operationResult as T;
 }
 
-function observeRuntimeStateRootFromWindows() {
+function observeRuntimeStateRootFromWindows(developmentContext?: unknown) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
     false,
     new Date().toISOString(),
+    developmentContext,
   );
   const current = consumeRuntimeOwnedRuntimeStateRootCapability(
     observation.rootCapability,
@@ -5182,11 +5201,14 @@ export function inspectDockerRecoveryRootSnapshotWithLock(
   }
 }
 
-export function inspectRuntimeOwnedDockerTaskRecoveryState() {
+export function inspectRuntimeOwnedDockerTaskRecoveryState(
+  developmentContext?: unknown,
+) {
   try {
     const observation = inspectRuntimeOwnedWindowsRuntimeState(
       true,
       new Date().toISOString(),
+      developmentContext,
     );
     const root = consumeRuntimeOwnedRuntimeStateRootCapability(
       observation.rootCapability,

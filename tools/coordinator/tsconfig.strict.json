@@ -18,6 +18,9 @@
     "skipLibCheck": true
   },
   "files": [
+    "scripts/measure-development-providers.ts",
+    "src/security/coordinator-task-request.ts",
+    "src/security/development-measurement-session.ts",
     "bin/coordinator.ts",
     "scripts/generate-release-key.ts",
     "scripts/check-dynamic-fake-provider-coverage.ts",

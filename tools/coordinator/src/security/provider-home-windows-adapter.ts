@@ -2,7 +2,12 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-
+import {
+  createWindowsNativeHelperEnvironment,
+  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
+} from "../core/windows-child-environment.ts";
+import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
+import { borrowRuntimeOwnedDevelopmentNativeObservation } from "./development-measurement-session.ts";
 import {
   beginPlatformAccessArtifactSigningObservation,
   observePlatformAccessReleaseArtifactCandidate,
@@ -10,17 +15,15 @@ import {
   verifyPlatformAccessArtifactSigningObservation,
 } from "./platform-access-release.ts";
 import {
+  inspectVerifiedNativeDistributionCandidate,
+  verifyBundledCoordinatorPackageFromFixedManifestCandidate,
+} from "./platform-provisioner-package-filesystem.ts";
+import {
   createProviderHomeObservationRequest,
   evaluateProviderHomeObservationResponseCandidate,
   PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
   type ProviderHomeObservationProvider,
 } from "./provider-home-observation.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
-import {
-  createWindowsNativeHelperEnvironment,
-  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-} from "../core/windows-child-environment.ts";
-import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
 
 export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT =
   "crdd-coordinator/provider-home-windows-adapter";
@@ -149,6 +152,7 @@ function sameArtifact(left: unknown, right: unknown): boolean {
 export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   provider: unknown,
   evaluationTime: unknown,
+  developmentContext?: unknown,
 ) {
   if (process.platform !== "win32") {
     return blocked("provider_home_windows_adapter_platform_unsupported");
@@ -162,24 +166,42 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   if (!request) {
     return blocked("provider_home_windows_adapter_provider_invalid");
   }
-  const packageVerification =
-    verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-      evaluationTime,
-    });
+  const development =
+    developmentContext === undefined
+      ? null
+      : borrowRuntimeOwnedDevelopmentNativeObservation(
+          developmentContext as object,
+          false,
+        );
+  if (developmentContext !== undefined && !development)
+    return blocked("provider_home_windows_adapter_development_context_invalid");
+  const distributionRoot =
+    development?.distributionRoot ?? bundledDistributionRoot;
+  const packageVerification = development
+    ? inspectVerifiedNativeDistributionCandidate({
+        distributionRoot,
+        expectedRelease: development.expectedRelease,
+        evaluationTime: new Date().toISOString(),
+      })
+    : verifyBundledCoordinatorPackageFromFixedManifestCandidate({
+        evaluationTime,
+      });
   if (
     packageVerification.status !== "candidate" ||
-    packageVerification.runtimeOwnedReleaseTrustConfirmed !== true ||
-    packageVerification.releaseIdentityRuntimeOwned !== true ||
-    packageVerification.crddDistributionConfirmed !== true
+    (!development &&
+      (!("runtimeOwnedReleaseTrustConfirmed" in packageVerification) ||
+        packageVerification.runtimeOwnedReleaseTrustConfirmed !== true ||
+        !("releaseIdentityRuntimeOwned" in packageVerification) ||
+        packageVerification.releaseIdentityRuntimeOwned !== true ||
+        !("crddDistributionConfirmed" in packageVerification) ||
+        packageVerification.crddDistributionConfirmed !== true))
   ) {
     return blocked("provider_home_windows_adapter_release_not_verified");
   }
-  const artifactBefore = observePlatformAccessReleaseArtifactCandidate(
-    bundledDistributionRoot,
-  );
-  const signingObservation = beginPlatformAccessArtifactSigningObservation(
-    bundledDistributionRoot,
-  );
+  const artifactBefore =
+    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
+  const signingObservation =
+    beginPlatformAccessArtifactSigningObservation(distributionRoot);
   if (
     artifactBefore.status !== "candidate" ||
     !signingObservation ||
@@ -195,7 +217,13 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   const environment = createWindowsNativeHelperEnvironment();
   if (!environment)
     return blocked("provider_home_windows_adapter_environment_unavailable");
-  const execution = spawnSync(executablePath, [], {
+  const selectedExecutable = development
+    ? path.join(
+        distributionRoot,
+        ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
+      )
+    : executablePath;
+  const execution = spawnSync(selectedExecutable, [], {
     input: request.request,
     encoding: "buffer",
     env: environment,
@@ -229,12 +257,16 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
       true,
     );
   }
-  const artifactAfter = observePlatformAccessReleaseArtifactCandidate(
-    bundledDistributionRoot,
-  );
+  const artifactAfter =
+    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
   if (
     artifactAfter.status !== "candidate" ||
-    !sameArtifact(artifactBefore.artifact, artifactAfter.artifact)
+    !sameArtifact(artifactBefore.artifact, artifactAfter.artifact) ||
+    (developmentContext !== undefined &&
+      !borrowRuntimeOwnedDevelopmentNativeObservation(
+        developmentContext as object,
+        false,
+      ))
   ) {
     return blocked(
       "provider_home_windows_adapter_artifact_changed",
@@ -282,7 +314,11 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
     ...observation,
     reason: "runtime_owned_windows_provider_home_observed_candidate",
     provider: request.provider as ProviderHomeObservationProvider,
-    releaseIdentityVerified: true,
+    releaseIdentityVerified: development === null,
+    nativeReleaseIdentityVerified: true,
+    executionSourceKind: development
+      ? "fixed_development_candidate"
+      : "signed_release",
     artifactVerifiedBeforeAndAfter: true,
     helperSpawnAttempts: 1,
     helperSpawned: true,

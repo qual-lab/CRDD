@@ -1,8 +1,22 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
+import {
+  createWindowsNativeHelperEnvironment,
+  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
+} from "../core/windows-child-environment.ts";
 import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
+import { borrowRuntimeOwnedDevelopmentNativeObservation } from "./development-measurement-session.ts";
+import {
+  beginPlatformAccessArtifactSigningObservation,
+  observePlatformAccessReleaseArtifactCandidate,
+  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+  verifyPlatformAccessArtifactSigningObservation,
+} from "./platform-access-release.ts";
+import {
+  inspectVerifiedNativeDistributionCandidate,
+  verifyBundledCoordinatorPackageFromFixedManifestCandidate,
+} from "./platform-provisioner-package-filesystem.ts";
 import {
   createCandidateStoreObservationRequest,
   createRuntimeStateObservationRequest,
@@ -10,17 +24,6 @@ import {
   evaluateRuntimeStateObservationResponseCandidate,
   PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
 } from "./provider-home-observation.ts";
-import {
-  beginPlatformAccessArtifactSigningObservation,
-  observePlatformAccessReleaseArtifactCandidate,
-  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-  verifyPlatformAccessArtifactSigningObservation,
-} from "./platform-access-release.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
-import {
-  createWindowsNativeHelperEnvironment,
-  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-} from "../core/windows-child-environment.ts";
 
 const HELPER_TIMEOUT_MS = 5_000;
 const bundledDistributionRoot = fileURLToPath(
@@ -122,6 +125,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
   kind: "candidate_store" | "runtime_state",
   initializeIfMissing: unknown,
   evaluationTime: unknown,
+  developmentContext?: unknown,
 ) {
   if (process.platform !== "win32")
     return blocked("candidate_store_windows_adapter_platform_unsupported");
@@ -132,24 +136,44 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
       : createRuntimeStateObservationRequest(rootPath, initializeIfMissing);
   if (!rootPath || !request)
     return blocked("candidate_store_windows_adapter_root_invalid");
-  const packageVerification =
-    verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-      evaluationTime,
-    });
+  const development =
+    developmentContext === undefined
+      ? null
+      : borrowRuntimeOwnedDevelopmentNativeObservation(
+          developmentContext as object,
+          initializeIfMissing === true,
+        );
+  if (developmentContext !== undefined && !development)
+    return blocked(
+      "candidate_store_windows_adapter_development_context_invalid",
+    );
+  const distributionRoot =
+    development?.distributionRoot ?? bundledDistributionRoot;
+  const packageVerification = development
+    ? inspectVerifiedNativeDistributionCandidate({
+        distributionRoot,
+        expectedRelease: development.expectedRelease,
+        evaluationTime: new Date().toISOString(),
+      })
+    : verifyBundledCoordinatorPackageFromFixedManifestCandidate({
+        evaluationTime,
+      });
   if (
     packageVerification.status !== "candidate" ||
-    packageVerification.runtimeOwnedReleaseTrustConfirmed !== true ||
-    packageVerification.releaseIdentityRuntimeOwned !== true ||
-    packageVerification.crddDistributionConfirmed !== true
+    (!development &&
+      (!("runtimeOwnedReleaseTrustConfirmed" in packageVerification) ||
+        packageVerification.runtimeOwnedReleaseTrustConfirmed !== true ||
+        !("releaseIdentityRuntimeOwned" in packageVerification) ||
+        packageVerification.releaseIdentityRuntimeOwned !== true ||
+        !("crddDistributionConfirmed" in packageVerification) ||
+        packageVerification.crddDistributionConfirmed !== true))
   ) {
     return blocked("candidate_store_windows_adapter_release_not_verified");
   }
-  const artifactBefore = observePlatformAccessReleaseArtifactCandidate(
-    bundledDistributionRoot,
-  );
-  const signingObservation = beginPlatformAccessArtifactSigningObservation(
-    bundledDistributionRoot,
-  );
+  const artifactBefore =
+    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
+  const signingObservation =
+    beginPlatformAccessArtifactSigningObservation(distributionRoot);
   if (
     artifactBefore.status !== "candidate" ||
     !signingObservation ||
@@ -164,7 +188,13 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
   const environment = createWindowsNativeHelperEnvironment();
   if (!environment)
     return blocked("candidate_store_windows_adapter_environment_unavailable");
-  const execution = spawnSync(executablePath, [], {
+  const selectedExecutable = development
+    ? path.join(
+        distributionRoot,
+        ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
+      )
+    : executablePath;
+  const execution = spawnSync(selectedExecutable, [], {
     input: request.request,
     encoding: "buffer",
     env: environment,
@@ -201,12 +231,16 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
         filesystemEffectIssued: initializeIfMissing === true,
       }),
     );
-  const artifactAfter = observePlatformAccessReleaseArtifactCandidate(
-    bundledDistributionRoot,
-  );
+  const artifactAfter =
+    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
   if (
     artifactAfter.status !== "candidate" ||
-    !sameArtifact(artifactBefore.artifact, artifactAfter.artifact)
+    !sameArtifact(artifactBefore.artifact, artifactAfter.artifact) ||
+    (developmentContext !== undefined &&
+      !borrowRuntimeOwnedDevelopmentNativeObservation(
+        developmentContext as object,
+        initializeIfMissing === true,
+      ))
   ) {
     return blocked(
       "candidate_store_windows_adapter_artifact_changed",
@@ -260,7 +294,11 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     ...observation,
     reason: "runtime_owned_windows_candidate_store_observed",
     rootCapability,
-    releaseIdentityVerified: true,
+    releaseIdentityVerified: development === null,
+    nativeReleaseIdentityVerified: true,
+    executionSourceKind: development
+      ? "fixed_development_candidate"
+      : "signed_release",
     artifactVerifiedBeforeAndAfter: true,
     helperSpawnAttempts: 1,
     helperExitConfirmed: true,
@@ -273,22 +311,26 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
 export function inspectRuntimeOwnedWindowsCandidateStore(
   initializeIfMissing: unknown,
   evaluationTime: unknown,
+  developmentContext?: unknown,
 ) {
   return inspectRuntimeOwnedWindowsProtectedRoot(
     "candidate_store",
     initializeIfMissing,
     evaluationTime,
+    developmentContext,
   );
 }
 
 export function inspectRuntimeOwnedWindowsRuntimeState(
   initializeIfMissing: unknown,
   evaluationTime: unknown,
+  developmentContext?: unknown,
 ) {
   return inspectRuntimeOwnedWindowsProtectedRoot(
     "runtime_state",
     initializeIfMissing,
     evaluationTime,
+    developmentContext,
   );
 }
 

@@ -3,8 +3,8 @@ import { performance } from "node:perf_hooks";
 
 import { reverifyAuthorityBeforeProviderLaunch } from "./authority-prelaunch-verifier.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
-import { inspectRuntimeOwnedActiveProviderHomeMount } from "./provider-home-mount-grant-runtime.ts";
 import { loadRuntimeOwnedLocalPersonalAuthority } from "./local-personal-authority-runtime.ts";
+import { inspectRuntimeOwnedActiveProviderHomeMount } from "./provider-home-mount-grant-runtime.ts";
 
 export const PROVIDER_AUTHORITY_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-authority-runtime";
@@ -79,6 +79,7 @@ type RuntimeState = Readonly<{
       provider: string;
       profileId: string;
     }>,
+    managementCapability?: unknown,
   ) => ActivatedAuthoritySource | null;
   reverify: typeof reverifyAuthorityBeforeProviderLaunch;
   wallNow: () => number;
@@ -211,13 +212,17 @@ function reverifyCurrentAuthority(
   state: RuntimeState,
   operation: OperationBinding,
   mount: ActiveMount,
+  managementCapability: unknown,
 ) {
   if (!isMountValid(mount, operation)) return null;
-  const source = state.loadActivatedAuthority({
-    operationId: operation.operationId,
-    provider: mount.provider as string,
-    profileId: mount.profileId as string,
-  });
+  const source = state.loadActivatedAuthority(
+    {
+      operationId: operation.operationId,
+      provider: mount.provider as string,
+      profileId: mount.profileId as string,
+    },
+    managementCapability,
+  );
   if (!source || !SCOPE_ID.test(source.scopeId)) return null;
   const result = state.reverify(source.profile, source.bundle, {
     provider: mount.provider,
@@ -295,7 +300,12 @@ function issueAuthority(
     activeMountCapability,
     managementCapability,
   );
-  const verification = reverifyCurrentAuthority(state, operation, mount);
+  const verification = reverifyCurrentAuthority(
+    state,
+    operation,
+    mount,
+    managementCapability,
+  );
   const issuedWallClockMs = state.wallNow();
   const issuedMonotonicMs = state.monotonicNow();
   const identifierBytes = state.randomBytes(AUTHORITY_RECORD_ID_BYTES);
@@ -384,7 +394,12 @@ function consumeAuthority(
     activeMountCapability,
     managementCapability,
   );
-  const verification = reverifyCurrentAuthority(state, operation, mount);
+  const verification = reverifyCurrentAuthority(
+    state,
+    operation,
+    mount,
+    managementCapability,
+  );
   removeRecord(state, record);
   if (
     !verification ||
