@@ -402,6 +402,8 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 公開Executor制約を接続した固定署名版`402454f`では、forwardが同一Release Identity、既存同意再利用、exact Candidate、独立Codex Reviewer、Candidate破棄、cleanup確認済み、Recovery 0およびCanonical Repository Effect 0で完了した。reverseはCodex Executor完了後のClaude Reviewerで二回とも`provider_task_result_envelope_invalid`へ安全停止し、Candidate未発行、cleanup確認済み、Recovery 0およびCanonical Effect 0を維持した。Claude Codeの現行`--json-schema`には、複合object内の配列を別stringへ誤配置してStructured Output再試行を枯渇させる既知のProvider不具合があり、今回の`findings`配列を持つReviewer Schemaと症状が一致した。turn上限追加、自由文fallbackまたはSchema緩和は行わない。Claude ReviewerだけはProvider内蔵Schema再試行をTrust境界から外し、通常JSON Envelopeの`result`にある単一JSON documentを、Codexと同じCRDD所有Reviewer Validatorへ渡す。Code fence、自由文、複数document、重複key、上限超過、型差、decision／finding矛盾は補正せずFail Closedとし、既知のturn上限とStructured Output再試行枯渇を正常終了コードでも固定理由へ分離する。Claude Executor、Codex両Role、Finding閉集合、Remediation Authority、情報非公開、cleanupおよびRecovery契約は変更しない。正式署名を反復デバッグに使わず、契約試験、結合試験、署名不要4経路E2Eおよびドッグフーディングを先に完了し、最終固定候補で一度だけ正式署名E2Eを再実測する。
 
+最終候補`8f2a4b7`の署名前検査では、Repository-local `.crdd`へRelease stagingを集約する現行保守規則に対し、署名実装だけが旧Repository外Rootを必須として停止する伝播漏れを検出した。外部Rootへ戻す回避は行わず、署名Rootを`<repository>/.crdd/release-staging/<candidate-id>`の単一Directoryへ限定する。Repository直下、`.crdd`直下、別用途領域、入れ子Path、別Repository、Repository外Root、linkおよびGit metadataを持つRootは、passphrase入力と秘密鍵読取りより前に拒否する。実装、契約試験、READMEおよびRepository境界を同じ変更へ接続した。是正後はCoordinator全試験1,212件、署名契約試験13件、開発E2E 218件、Checker契約試験173件、Coordinator静的確認および全Repository Checkerをすべて合格させ、更新固定候補の新しいstaging Rootから正式署名を一度だけ行う。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。

@@ -34,8 +34,14 @@ import {
 } from "./release-staging-manifest.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
+const releaseStagingRoot = path.join(
+  repositoryRoot,
+  ".crdd",
+  "release-staging",
+);
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
 const MAXIMUM_PASSPHRASE_BYTES = 1_024;
+const RELEASE_CANDIDATE_DIRECTORY = /^[a-z0-9][a-z0-9-]{0,127}$/u;
 
 type ManifestOptions = Readonly<{
   distributionRoot: string;
@@ -125,24 +131,41 @@ function stableExternalFile(target: string, maximumBytes: number) {
   }
 }
 
-function externalDistributionRoot(target: string) {
+function repositoryLocalDistributionRoot(target: string) {
   if (!path.isAbsolute(target) || target.includes("\0")) {
     throw new Error("release_manifest_distribution_root_invalid");
   }
-  const resolved = path.resolve(target);
-  const metadata = fs.lstatSync(resolved);
-  const real = fs.realpathSync.native(resolved);
-  const realRepositoryRoot = fs.realpathSync.native(repositoryRoot);
-  if (
-    !metadata.isDirectory() ||
-    metadata.isSymbolicLink() ||
-    real !== resolved ||
-    isContainedBy(realRepositoryRoot, resolved) ||
-    isContainedBy(resolved, realRepositoryRoot)
-  ) {
+  try {
+    const resolved = path.resolve(target);
+    const metadata = fs.lstatSync(resolved);
+    const real = fs.realpathSync.native(resolved);
+    const realRepositoryRoot = fs.realpathSync.native(repositoryRoot);
+    const localRoot = path.join(repositoryRoot, ".crdd");
+    const localRootMetadata = fs.lstatSync(localRoot);
+    const stagingRootMetadata = fs.lstatSync(releaseStagingRoot);
+    const realLocalRoot = fs.realpathSync.native(localRoot);
+    const realStagingRoot = fs.realpathSync.native(releaseStagingRoot);
+    const relativeCandidate = path.relative(realStagingRoot, real);
+    if (
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      real !== resolved ||
+      !localRootMetadata.isDirectory() ||
+      localRootMetadata.isSymbolicLink() ||
+      realLocalRoot !== path.join(realRepositoryRoot, ".crdd") ||
+      !stagingRootMetadata.isDirectory() ||
+      stagingRootMetadata.isSymbolicLink() ||
+      realStagingRoot !== path.join(realLocalRoot, "release-staging") ||
+      path.dirname(relativeCandidate) !== "." ||
+      !RELEASE_CANDIDATE_DIRECTORY.test(relativeCandidate) ||
+      fs.existsSync(path.join(real, ".git"))
+    ) {
+      throw new Error("release_manifest_distribution_root_invalid");
+    }
+    return resolved;
+  } catch {
     throw new Error("release_manifest_distribution_root_invalid");
   }
-  return resolved;
 }
 
 function signingPassphrase(rawPassphrase: unknown) {
@@ -222,7 +245,9 @@ function prepareReleaseManifestCandidate(
 ) {
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   assertReleaseManifestStaticOptions(options);
-  const distributionRoot = externalDistributionRoot(options.distributionRoot);
+  const distributionRoot = repositoryLocalDistributionRoot(
+    options.distributionRoot,
+  );
   const packageRoot = path.join(distributionRoot, "tools", "coordinator");
   const packageObservation =
     inspectPlatformProvisionerPackageFilesystemCandidate(packageRoot);

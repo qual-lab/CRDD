@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { generateKeyPairSync, sign } from "node:crypto";
+import { generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -19,6 +19,22 @@ import { createNativeBootstrapPeFixture } from "./native-bootstrap-pe-fixture.ts
 
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
+const repositoryRoot = path.resolve(coordinatorRoot, "../..");
+const releaseStagingRoot = path.join(
+  repositoryRoot,
+  ".crdd",
+  "release-staging",
+);
+
+function uniqueReleaseCandidate(prefix: string) {
+  fs.mkdirSync(releaseStagingRoot, { recursive: true });
+  const value = path.join(
+    releaseStagingRoot,
+    `${prefix}-${randomBytes(8).toString("hex")}`,
+  );
+  fs.mkdirSync(value);
+  return value;
+}
 
 test("production署名sourceはTrust差替え、検証skipまたはtest hookを持たない", () => {
   const forbiddenNames = [
@@ -264,6 +280,52 @@ test("Release stagingの非秘密検査はpassphrase入力より前に完了す�
   assert.equal(cli.status, 1);
   assert.equal(cli.stdout, "");
   assert.equal(cli.stderr, "release_manifest_distribution_root_invalid\n");
+});
+
+test("Release署名RootはRepository-localの単一candidate directoryだけを受理する", () => {
+  const candidate = uniqueReleaseCandidate("contract-root");
+  const outside = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-signing-root-outside-"),
+  );
+  const arbitraryLocal = path.join(
+    repositoryRoot,
+    ".crdd",
+    "e2e-distributions",
+    "contract-root",
+  );
+  const nested = path.join(candidate, "nested");
+  try {
+    fs.mkdirSync(arbitraryLocal, { recursive: true });
+    fs.mkdirSync(nested, { recursive: true });
+    for (const distributionRoot of [
+      outside,
+      repositoryRoot,
+      path.join(repositoryRoot, ".crdd"),
+      releaseStagingRoot,
+      arbitraryLocal,
+      nested,
+    ]) {
+      assert.throws(
+        () =>
+          signReleaseManifest({
+            distributionRoot,
+            privateKeyPath: path.resolve("fixture-private-key-not-read"),
+            passphrase: "fixture-passphrase-not-read",
+            crddVersion: "v0.18.0",
+            releaseSequence: 1,
+            crddCommit: "a".repeat(40),
+            crddTree: "b".repeat(40),
+            issuedAt: "2026-08-26T02:39:49.000Z",
+            expiresAt: "2026-08-27T02:39:49.000Z",
+          }),
+        /release_manifest_distribution_root_invalid/u,
+      );
+    }
+  } finally {
+    fs.rmSync(candidate, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+    fs.rmSync(arbitraryLocal, { recursive: true, force: true });
+  }
 });
 
 function ephemeralEnvelopeBytes() {
@@ -597,7 +659,7 @@ test("偽造tokenと既存manifestをRelease staging成功へ流用しない", (
 
 test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない", () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-manifest-sign-"));
-  const distributionRoot = path.join(parent, "distribution");
+  const distributionRoot = uniqueReleaseCandidate("test-sign");
   const keyDirectory = path.join(parent, "key");
   try {
     fs.mkdirSync(
@@ -690,6 +752,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       false,
     );
   } finally {
+    fs.rmSync(distributionRoot, { recursive: true, force: true });
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
