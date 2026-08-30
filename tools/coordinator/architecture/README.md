@@ -204,7 +204,7 @@ Claude一般Taskのturn上限は実行計画が所有する役割・推論別定
 
 遷移の`resourcesAcquired`／`resourcesReleased`／`resourcesTransferred`は、その遷移が所有状態を変更する資源を示す。検証caseの`resourcePostconditions`は呼出し終了後の閉包を確認するため、当該遷移で変化せず不在のままだった資源も含められる。Checkerは全資源ID、観測bindingおよび少なくとも一つのcaseでの実使用を照合するが、終了後不在の観測を「その遷移が解放した」という虚偽のdeltaへ変換しない。
 
-Effect観測数はOperation全体の累積値ではなく、各遷移の開始snapshotから終了snapshotまでの差分（transition delta）である。Task Runtimeは内部状態を単調に進め、Task controlを失効した後に`STATE-RESULT-PUBLISHED`、`STATE-BLOCKED-CLEAN`、`STATE-PROCESS-RESTART-REQUIRED`、`STATE-RECOVERY-REQUIRED`または`STATE-OPERATOR-TRANSFER-REQUIRED`を観測へ渡す。試験専用observerはAuthorityや制御を持たず、例外を投げてもRuntime状態、Effectまたは結果を変えない。検証はcase ID文字列の存在ではなく、Canonical caseの全fieldと実観測objectの完全一致を要求する。Recovery Matrixのように固定workerの契約投影だけを検査する入口を、実Filesystem／Process観測へ昇格させない。
+Effect観測数はOperation全体の累積値ではなく、各遷移の開始snapshotから終了snapshotまでの差分（transition delta）である。Task Runtimeは内部状態を単調に進め、Task controlを失効した後に`STATE-RESULT-PUBLISHED`、`STATE-BLOCKED-CLEAN`、`STATE-PROCESS-RESTART-REQUIRED`、`STATE-RECOVERY-REQUIRED`または`STATE-OPERATOR-TRANSFER-REQUIRED`を観測へ渡す。試験専用observerはAuthorityや制御を持たず、例外を投げてもRuntime状態、Effectまたは結果を変えない。検証はcase ID文字列の存在ではなく、Canonical caseの全fieldと実観測objectの完全一致を要求する。契約投影だけを検査する試験を、実Filesystem／Process観測へ昇格させない。例えば`tests/signed-recovery-matrix-verification.contract.test.ts`の説明契約・引数拒否の確認と、`scripts/verify-signed-recovery-matrix.ts`の署名済み実行入口を区別する。後者の`verifyParentLossThenRecover`は実子Processの終了とfresh recoveryを確認するが、対象は固定検証Workerであり、実Providerの親Process喪失へ保証を拡張しない。試験名や固定Workerの使用だけで観測範囲を決めず、対象の改訂版、実行入口、観測対象と結果に結合して判定する。
 
 ## 10. 遷移一覧
 
