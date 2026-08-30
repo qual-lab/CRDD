@@ -2,7 +2,7 @@
 
 Status: Non-normative Open Work Registry
 Owner: Qual-Lab
-Last Updated: 2026-08-30
+Last Updated: 2026-08-31
 Related:
 - [CRDD標準自身の課題探索・要求形成](../01_Discovery/01_CRDD_Product_Discovery.md)
 - [05_Autonomous_Operation.md](../05_Autonomous_Operation.md)
@@ -30,6 +30,8 @@ Related:
 | 自律Operationの参照実証 | Exploring | Unscheduled | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界)、[将来互換性](../05_Autonomous_Operation.md#6-将来互換性の確認候補) | 週次プロダクトレビュー、Communication結果レビュー、Roadmap再評価、Repository Eventのうち判断を変え得る最小の実証を選ぶ。Runtime完成または明示的な人間判断を再評価契機とし、起動数ではなく判断価値、安全性、誤起動、収束、根拠および人間負荷で評価する |
 | Issue #30の責務別再評価と終了判断 | Exploring | Unscheduled | [CHG-000013](../90_Release/Changes/CHG-000013_Communication_Market_and_Adoption_Exploration.md)、[Issue #30](https://github.com/qual-lab/CRDD/issues/30) | Communication／Discovery変更の内容収束後または判断を変え得る実運用根拠の発生時に、詳細論点を責務別に分類する。対応済みまたは不要なら理由を残してIssueを閉じ、採用する論点だけを独立した変更意図へ接続する |
 | v0.18.0 Candidateの未終了CHG確認、最終固定、CHANGELOG、統合およびRelease判断 | —（非適用） | Planned | [19_Maintenance.md](../19_Maintenance.md)、[現行v0.18収載境界](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#9-追加されたv0180収載境界)、[収載判断と実行順序](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#9-v0180-candidateへの収載判断による再開)、[過去の移管スナップショット](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#51-未終了変更トレースの移管スナップショット) | Runtime実証、§7.3.1～§7.3.3の工程接続強化、根拠駆動リファクタリングおよび文書意味構造改善、ならびに全未終了CHGを完成固定・監査する。Runtimeへ影響した場合は、改善後の最終Runtime IdentityでCHG-000015の完成条件、正式署名4経路E2E、失敗・取消・Recoveryおよび完成監査を再固定する。非影響の場合は依存閉包と理由付き非該当を記録する。いずれかを収載範囲から外す場合は人間の明示判断を記録し、その後にCHANGELOG、移行内容およびRelease Readinessを更新して人間の統合・Release判断へ渡す |
+
+既存のRuntime完成固定・根拠駆動リファクタリング項目から、[次版へ引き継ぐ有用性・照合費用の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)も追跡する。候補は`Held / Unscheduled`、版番号・収載は未決。親Coordinatorが現行Runtimeの完成固定と実務自己適用の収束後に再評価へ戻し、人間の決定権限者が採否を決める。現行v0.18の必須条件・不具合是正を次版へ移すものではなく、現在の安全判断を変える根拠が出た場合は先に現行是正へ戻す。
 
 ## 2. 境界
 

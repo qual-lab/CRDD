@@ -1,0 +1,450 @@
+{
+  "contract": "crdd-coordinator/development-provider-comparison-evidence",
+  "contractRevision": 1,
+  "measuredDate": "2026-08-31",
+  "repository": "qual-lab/CRDD",
+  "objectFormat": "sha1",
+  "sourceCommit": "799e36809668eb733b3a6763acf1dbfbbd6fb248",
+  "sourceTree": "72496b82379856096ad546e61e22b9ff2481dfc0",
+  "sourcePackageContentRootSha256": "e1909f08e7256c3e01467d0eabb85320e1c1308f0514abcd24621f455b5d2330",
+  "nativeRelease": {
+    "manifestHash": "23f917aa8b586b432e3d30051db803f0f80222f3f50c4af3de48e25bc7a884fe",
+    "releaseSequence": 2026083005,
+    "crddVersion": "v0.18.0",
+    "crddCommit": "a619545ff7f30f3ec65efa134994abc0f825421a",
+    "crddTree": "d8355a489af6362b43b4d0052669dd785e613ece",
+    "packageContentRootSha256": "90378e84679d51236d64239e1017782de2b5b033d3ed9fdb96fee2561eadf022"
+  },
+  "nodeVersion": "24.19.0",
+  "runtimeEntry": "tools/coordinator/scripts/measure-development-providers.ts",
+  "inputSha256": "b7dac94da97a8d5b693a0fab0e239f3c85dd981249c2d427e7ff31450b2bc213",
+  "originalResultSha256": "25eeb7b9d9960eb1f43559459b73ee4ac18ccd5bcd740cc4355ccd094ce9928f",
+  "originalResultFile": ".crdd/dogfooding/development-measurement-result-1788109911915-34204.json",
+  "tasks": [
+    {
+      "frontProvider": "claude",
+      "requestedExecutorProvider": "codex",
+      "objective": "比較用の隔離候補で tools/coordinator/runtime/general-task-verification.txt の内容を置き換える。tools/coding-standards.md の 3.1 に基づき、保存先の規則を日本語の短い箇条書き3項目で要約する。見出しや前置きは付けない。他のファイルは変更しない。",
+      "acceptanceCriteria": [
+        "変更ファイルは tools/coordinator/runtime/general-task-verification.txt だけである。",
+        "UTF-8の日本語の箇条書きが3項目あり、Repository Root直下の.crdd、Git管理からの既定除外、別Rootへの書込みには事前許可が必要という3点を過不足なく表す。",
+        "保存境界の規則を変更・緩和せず、不要な新しい用語や見出しを追加しない。"
+      ],
+      "allowedPaths": [
+        "tools/coordinator/runtime/general-task-verification.txt"
+      ],
+      "readPaths": [
+        "tools/coding-standards.md",
+        "tools/coordinator/runtime/general-task-verification.txt"
+      ],
+      "workClass": "bounded_implementation",
+      "planState": "complete",
+      "risk": "low",
+      "difficulty": "low",
+      "decisionImpact": "limited",
+      "isLocalCandidateOnly": true,
+      "hasUnresolvedDirection": false,
+      "requiresCrossContextAlignment": false
+    },
+    {
+      "frontProvider": "codex",
+      "requestedExecutorProvider": "claude",
+      "objective": "比較用の隔離候補で tools/coordinator/runtime/general-task-verification.txt の内容を置き換える。tools/coding-standards.md の 3.1 に基づき、保存先の規則を日本語の短い箇条書き3項目で要約する。見出しや前置きは付けない。他のファイルは変更しない。",
+      "acceptanceCriteria": [
+        "変更ファイルは tools/coordinator/runtime/general-task-verification.txt だけである。",
+        "UTF-8の日本語の箇条書きが3項目あり、Repository Root直下の.crdd、Git管理からの既定除外、別Rootへの書込みには事前許可が必要という3点を過不足なく表す。",
+        "保存境界の規則を変更・緩和せず、不要な新しい用語や見出しを追加しない。"
+      ],
+      "allowedPaths": [
+        "tools/coordinator/runtime/general-task-verification.txt"
+      ],
+      "readPaths": [
+        "tools/coding-standards.md",
+        "tools/coordinator/runtime/general-task-verification.txt"
+      ],
+      "workClass": "bounded_implementation",
+      "planState": "complete",
+      "risk": "low",
+      "difficulty": "low",
+      "decisionImpact": "limited",
+      "isLocalCandidateOnly": true,
+      "hasUnresolvedDirection": false,
+      "requiresCrossContextAlignment": false
+    }
+  ],
+  "result": {
+    "contract": "crdd-coordinator/development-provider-measurement",
+    "contractRevision": 2,
+    "status": "completed",
+    "reason": "measurement_completed",
+    "executionSourceKind": "fixed_development_candidate",
+    "releaseAuthorityConferred": false,
+    "completedCount": 2,
+    "results": [
+      {
+        "executorProvider": "codex",
+        "elapsedMs": 507066.6331,
+        "result": {
+          "status": "completed",
+          "executionSourceKind": "fixed_development_candidate",
+          "releaseAuthorityConferred": false,
+          "taskResult": {
+            "status": "completed",
+            "reason": "coordinator_task_candidate_approved",
+            "cleanupConfirmed": true,
+            "manualRecoveryRequired": false,
+            "hostRecoveryId": null,
+            "dockerRecoveryId": null,
+            "dockerRecoveryIds": [],
+            "executorProvider": "codex",
+            "reviewerProvider": "claude",
+            "reviewerIndependence": "provider_independent",
+            "externalSendAuthorizationMode": "reused_initial_consent",
+            "executorSelectionNotice": "[委譲経路選定] front=claude executor=codex route=front_claude__executor_codex\n経路選定理由=user_executor_constraint_satisfied,cross_provider_route_selected,work_class_bounded_implementation\n[委譲選定] provider=codex role=executor family=sol effort=low speed=normal\n選定理由=complete_bounded_local_plan\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=gpt-5.5\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
+            "reviewerSelectionNotice": "[委譲経路選定] front=claude executor=claude route=front_claude__executor_claude\n経路選定理由=independent_provider_required,independent_provider_required,work_class_bounded_verification\n[委譲選定] provider=claude role=independent_reviewer family=opus effort=medium speed=normal\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=opus\n互換性選定理由=none",
+            "remediationPerformed": false,
+            "candidateRevision": {
+              "baseCommit": "799e36809668eb733b3a6763acf1dbfbbd6fb248",
+              "baseTree": "72496b82379856096ad546e61e22b9ff2481dfc0",
+              "patchHash": "e1621f1533354a6d7e7d035d306d2c835a49f733d7b0561e895c83083437586c",
+              "contentManifestHash": "19ffec2af752f6554193e732b6abb3cd0ff1c671a9019ef20a3f50c1f16b228d",
+              "allowedPathsHash": "c8ea18a86833d21f0e75fcc9f01cba9180f3d4c24bd23836a65080ef7be355cd",
+              "changedPaths": [
+                "tools/coordinator/runtime/general-task-verification.txt"
+              ]
+            },
+            "candidateId": "candidate.b6c21fb0d1c4310303247f5059b2a65e41fc7965a24dd8fa94cd995668130f0e.a7e8571fd3902fbfd4bc0fbc965e0a849d5cd60eeac318b11ed8bc1938cbbb9f",
+            "candidateRecoveryId": null,
+            "candidateStoreRecoveryId": null,
+            "executorResult": {
+              "status": "completed",
+              "changedPaths": [
+                "tools/coordinator/runtime/general-task-verification.txt"
+              ],
+              "verificationCount": 2
+            },
+            "reviewerResult": {
+              "decision": "approved",
+              "findingCount": 0
+            },
+            "canonicalRepositoryChanged": false,
+            "rawOutputReported": false,
+            "hostPathReported": false,
+            "untrustedProviderTextReported": false,
+            "credentialAbsenceVerified": false,
+            "expiresAtMs": 1788195750929,
+            "processRestartRequired": false
+          },
+          "candidateDiscard": {
+            "status": "discarded"
+          },
+          "cleanupConfirmed": true,
+          "manualRecoveryRequired": false,
+          "executionTiming": {
+            "measurementComplete": true,
+            "progressOutputConfirmed": true,
+            "finished": true,
+            "totalElapsedMs": 507066.18100000004,
+            "initialUnattributedMs": 1913.5451999999987,
+            "intervals": [
+              {
+                "state": "STATE-ADMISSION",
+                "elapsedMs": 11859.800700000002
+              },
+              {
+                "state": "STATE-OPERATION-ACQUIRING",
+                "elapsedMs": 3258.683499999999
+              },
+              {
+                "state": "STATE-OPERATION-READY",
+                "elapsedMs": 38417.1535
+              },
+              {
+                "state": "STATE-TASK-AUTHORIZED",
+                "elapsedMs": 187817.4029
+              },
+              {
+                "state": "STATE-EXECUTOR-CLEAN",
+                "elapsedMs": 2517.041100000002
+              },
+              {
+                "state": "STATE-CANDIDATE-CAPTURED",
+                "elapsedMs": 186527.0264
+              },
+              {
+                "state": "STATE-REVIEWER-CLEAN",
+                "elapsedMs": 17097.424100000004
+              },
+              {
+                "state": "STATE-CANDIDATE-STAGED",
+                "elapsedMs": 10552.634299999976
+              },
+              {
+                "state": "STATE-HOST-CLEAN",
+                "elapsedMs": 37221.25770000002
+              },
+              {
+                "state": "STATE-RESULT-PUBLISHED",
+                "elapsedMs": 9884.211600000039
+              }
+            ],
+            "identityObservation": {
+              "callCount": 0,
+              "elapsedMs": 0,
+              "measurementComplete": true
+            }
+          }
+        }
+      },
+      {
+        "executorProvider": "claude",
+        "elapsedMs": 488577.5819,
+        "result": {
+          "status": "completed",
+          "executionSourceKind": "fixed_development_candidate",
+          "releaseAuthorityConferred": false,
+          "taskResult": {
+            "status": "completed",
+            "reason": "coordinator_task_candidate_approved",
+            "cleanupConfirmed": true,
+            "manualRecoveryRequired": false,
+            "hostRecoveryId": null,
+            "dockerRecoveryId": null,
+            "dockerRecoveryIds": [],
+            "executorProvider": "claude",
+            "reviewerProvider": "codex",
+            "reviewerIndependence": "provider_independent",
+            "externalSendAuthorizationMode": "reused_initial_consent",
+            "executorSelectionNotice": "[委譲経路選定] front=codex executor=claude route=front_codex__executor_claude\n経路選定理由=user_executor_constraint_satisfied,cross_provider_route_selected,work_class_bounded_implementation\n[委譲選定] provider=claude role=executor family=opus effort=low speed=normal\n選定理由=complete_bounded_local_plan\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=opus\n互換性選定理由=none",
+            "reviewerSelectionNotice": "[委譲経路選定] front=codex executor=codex route=front_codex__executor_codex\n経路選定理由=independent_provider_required,independent_provider_required,work_class_bounded_verification\n[委譲選定] provider=codex role=independent_reviewer family=sol effort=medium speed=normal\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=gpt-5.5\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
+            "remediationPerformed": false,
+            "candidateRevision": {
+              "baseCommit": "799e36809668eb733b3a6763acf1dbfbbd6fb248",
+              "baseTree": "72496b82379856096ad546e61e22b9ff2481dfc0",
+              "patchHash": "088918889726c39169766db2edd7d0b8c1f5567eafeb932b7470e9e833aea9b5",
+              "contentManifestHash": "b069c1167f8feb6912dc54e229fb75e06c58df4cf0b5de14e934f220be08ae06",
+              "allowedPathsHash": "c8ea18a86833d21f0e75fcc9f01cba9180f3d4c24bd23836a65080ef7be355cd",
+              "changedPaths": [
+                "tools/coordinator/runtime/general-task-verification.txt"
+              ]
+            },
+            "candidateId": "candidate.04a36e106f3d0ecdb2e9cb08565834757fa7b767f5cbb341555d69217029f587.7904f86392e2793a2e5c26c1db9e1ad689371186ddf02f0b5e7166757c7d9e59",
+            "candidateRecoveryId": null,
+            "candidateStoreRecoveryId": null,
+            "executorResult": {
+              "status": "completed",
+              "changedPaths": [
+                "tools/coordinator/runtime/general-task-verification.txt"
+              ],
+              "verificationCount": 3
+            },
+            "reviewerResult": {
+              "decision": "approved",
+              "findingCount": 0
+            },
+            "canonicalRepositoryChanged": false,
+            "rawOutputReported": false,
+            "hostPathReported": false,
+            "untrustedProviderTextReported": false,
+            "credentialAbsenceVerified": false,
+            "expiresAtMs": 1788196239846,
+            "processRestartRequired": false
+          },
+          "candidateDiscard": {
+            "status": "discarded"
+          },
+          "cleanupConfirmed": true,
+          "manualRecoveryRequired": false,
+          "executionTiming": {
+            "measurementComplete": true,
+            "progressOutputConfirmed": true,
+            "finished": true,
+            "totalElapsedMs": 488577.06799999997,
+            "initialUnattributedMs": 2473.8842000000295,
+            "intervals": [
+              {
+                "state": "STATE-ADMISSION",
+                "elapsedMs": 9932.725099999981
+              },
+              {
+                "state": "STATE-OPERATION-ACQUIRING",
+                "elapsedMs": 2776.6968000000343
+              },
+              {
+                "state": "STATE-OPERATION-READY",
+                "elapsedMs": 38261.610400000005
+              },
+              {
+                "state": "STATE-TASK-AUTHORIZED",
+                "elapsedMs": 179041.62060000002
+              },
+              {
+                "state": "STATE-EXECUTOR-CLEAN",
+                "elapsedMs": 2468.6133999999147
+              },
+              {
+                "state": "STATE-CANDIDATE-CAPTURED",
+                "elapsedMs": 178180.02890000003
+              },
+              {
+                "state": "STATE-REVIEWER-CLEAN",
+                "elapsedMs": 18227.012699999963
+              },
+              {
+                "state": "STATE-CANDIDATE-STAGED",
+                "elapsedMs": 11828.500899999985
+              },
+              {
+                "state": "STATE-HOST-CLEAN",
+                "elapsedMs": 34998.46250000002
+              },
+              {
+                "state": "STATE-RESULT-PUBLISHED",
+                "elapsedMs": 10387.912499999977
+              }
+            ],
+            "identityObservation": {
+              "callCount": 0,
+              "elapsedMs": 0,
+              "measurementComplete": true
+            }
+          }
+        }
+      }
+    ],
+    "incompleteTaskTiming": null,
+    "invocationAccounting": {
+      "productionAuthorityConferred": false,
+      "invocationCount": 4,
+      "reservedTaskCount": 2,
+      "settledTaskCount": 2,
+      "stopReason": "cancelled",
+      "identityObservation": {
+        "callCount": 343,
+        "elapsedMs": 847635.2855999998,
+        "measurementComplete": true
+      }
+    },
+    "cleanupConfirmed": true,
+    "manualRecoveryRequired": false,
+    "processRestartRequired": false,
+    "taskRetryAllowed": false,
+    "apiKeyFallbackAllowed": false,
+    "paidApiFallbackAllowed": false,
+    "timeToHumanAcceptedResultMeasured": false
+  },
+  "comparison": {
+    "baselineEvidence": "CHG-000015_Development_Provider_Comparison_848877c.json",
+    "taskInputsIdentical": true,
+    "sampleCountPerRoutePerVersion": 1,
+    "routes": [
+      {
+        "executorProvider": "codex",
+        "baselineElapsedMs": 372703.3476,
+        "currentElapsedMs": 507066.6331,
+        "observedReductionMs": -134363.2855,
+        "observedReductionPercent": -36.051000444515466,
+        "implementationIncludingPreparationAndCleanupMs": 187817.4029,
+        "reviewIncludingPreparationAndCleanupMs": 186527.0264,
+        "otherTaskIntervalsMs": 132721.75170000005,
+        "findingCount": 0,
+        "remediationPerformed": false,
+        "executionSelectionNoticesIdentical": true
+      },
+      {
+        "executorProvider": "claude",
+        "baselineElapsedMs": 364664.9371999999,
+        "currentElapsedMs": 488577.5819,
+        "observedReductionMs": -123912.64470000006,
+        "observedReductionPercent": -33.97986262442346,
+        "implementationIncludingPreparationAndCleanupMs": 179041.62060000002,
+        "reviewIncludingPreparationAndCleanupMs": 178180.02890000003,
+        "otherTaskIntervalsMs": 131355.4184999999,
+        "findingCount": 0,
+        "remediationPerformed": false,
+        "executionSelectionNoticesIdentical": true
+      }
+    ],
+    "baselineIdentityObservation": {
+      "callCount": 343,
+      "elapsedMs": 525374.6758000001,
+      "measurementComplete": true
+    },
+    "identityMeanElapsedMs": 2471.2398997084542,
+    "adapterNativeVerificationCallsPerSuccessfulObservation": {
+      "before": 3,
+      "after": 2,
+      "basis": "production_session_adapter_integration_test"
+    }
+  },
+  "limitations": [
+    "各経路・各版1回。実装変更の因果的な高速化、Providerの優劣、統計的改善率は証明しない。",
+    "状態区間はProvider起動準備・回収・検証を含む。モデル推論時間・AI処理時間ではない。",
+    "セッションIdentity計測は初期確認前・Task間・最終inspectを含み、Task時間と同一窓ではない。合算、正確なTask別比率、削減可能時間へ換算しない。",
+    "Task内identityObservationの0はその計測器がIdentityを所有しないため。実体照合0回ではない。正本となる実測値はinvocationAccounting.identityObservation。",
+    "343回の呼出し元別・段階別回数は取得していない。Adapter自身の追加native検証はこの343回に含まれず、全Runtimeの検証総回数ではない。",
+    "候補は破棄済み。Reviewer承認・指摘0は記録できるが、候補本文の再レビュー、人間受入、未知Secret不存在、後工程品質は証明しない。",
+    "人間の実作業時間、token、モデルturn、利用枠消費量、Direct実行比較は未測定。",
+    "今回削減したAdapter内の重複native検証はセッションの観測回数計測の外側。343回が減ることを今回変更の合格条件としない。",
+    "入力完了は人間の申告と実測完了から確認。人間の操作時間は計測していない。",
+    "本番sessionとAdapterの結合試験による3回から2回への削減確認と、実Provider経過時間の差を分ける。OS負荷・Filesystem cache・Provider応答の変動は統制していない。"
+  ],
+  "readonlyComponentComparison": {
+    "kind": "readonly_component_comparison",
+    "providerInvoked": false,
+    "sourceVerifierBytesIdentical": true,
+    "moduleHashes": {
+      "previous": "1ca4c2a923e591a9ad2541a39b89894dd429775ed1c3e5a3218e1012d9006d74",
+      "current": "1ca4c2a923e591a9ad2541a39b89894dd429775ed1c3e5a3218e1012d9006d74"
+    },
+    "observations": [
+      {
+        "round": 1,
+        "label": "previous",
+        "sourceMs": 1344.1260000000002,
+        "nativeMs": 1037.1582999999998,
+        "totalMs": 2381.2843000000003
+      },
+      {
+        "round": 1,
+        "label": "current",
+        "sourceMs": 1163.7244,
+        "nativeMs": 1274.0614999999998,
+        "totalMs": 2437.7859
+      },
+      {
+        "round": 2,
+        "label": "current",
+        "sourceMs": 1193.5981999999995,
+        "nativeMs": 1327.5992000000006,
+        "totalMs": 2521.1974
+      },
+      {
+        "round": 2,
+        "label": "previous",
+        "sourceMs": 1285.4696000000013,
+        "nativeMs": 853.8252000000011,
+        "totalMs": 2139.2948000000024
+      },
+      {
+        "round": 3,
+        "label": "previous",
+        "sourceMs": 1066.0541000000012,
+        "nativeMs": 993.9372000000003,
+        "totalMs": 2059.9913000000015
+      },
+      {
+        "round": 3,
+        "label": "current",
+        "sourceMs": 1008.4894999999997,
+        "nativeMs": 999.9550999999992,
+        "totalMs": 2008.444599999999
+      }
+    ],
+    "limitations": [
+      "各版3回の交互観測。実Taskでも同じ時間になる保証ではない。",
+      "Repository前後観測・Authority・Adapter・Provider・cleanupを含まない。",
+      "OS負荷・Filesystem cache・実行順の影響を完全には統制していない。"
+    ]
+  }
+}
