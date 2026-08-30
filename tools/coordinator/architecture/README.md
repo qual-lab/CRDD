@@ -68,6 +68,12 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 
 接続完了前に、Task受付、Local Authority、Home／Runtime State／Candidate Store観測、Docker準備と`start_provider_attached`直前、Candidate公開、終了後観測まで同じ限定対象が伝播することを結合試験で確認する。旧native sourceとの差分がないことだけで、実binaryのIdentity、別Root利用、耐久記録の復旧互換性を確認済みとしない。
 
+Docker実行部には、通常の署名・Provider Authorityとは別に、呼出し単位の追加制約を明示的に渡せる。これは起動を拒否する機能だけであり、`true`でも既存の認証・権限・Revision確認を代替しない。通常呼出しの未指定時は既存動作を維持する。制約へ渡すのは検証済み計画の固定command種別だけとし、Path、Prompt、Credential、planまたはCapabilityを渡さない。各commandは直前の待機と必要な耐久submission記録を終えてから制約を同期評価し、厳密なBoolean `true`の場合だけ開始する。例外、非Boolean、Promise、非同期関数またはProxyは拒否し、例外本文は結果へ出さない。制約の評価中に取消が発生した場合も新しいcommandを開始しない。
+
+制約拒否は`docker_process_controller_execution_restricted`として既存の回収経路へ戻す。Provider開始前の拒否を`providerRequestStarted: true`と報告しない。制約をcleanup、取消、終了確認へ再適用せず、既存資源の不存在、Mount完了、Recovery完了を確認し、不明ならRecovery IDを保持する。command制約より前に行うOperation、Mount、Authority、Recovery準備の許可は各所有者が引き続き確認するため、この制約だけで限定実測の全Effectを制御できたとは扱わない。
+
+[Docker Controller契約試験](../tests/docker-process-controller.contract.test.ts)は、全9commandでの拒否、既存Authority不成立、準備待機中の期限切れ・取消・Identity変更、Provider開始時だけの単回消費、制約内取消、回収不明と既存利用側への結果伝播を確認する。実commandの起動と資源観測は試験用実装であり、実Docker／Providerや真正な開発sessionの成立証明ではない。Task受付からの予約、人間承認、native観測束およびCandidate公開への接続は引き続き未完了である。
+
 ### 2.1 Filesystem保存境界
 
 Coordinatorは、論理的なRepository Bindingと物理的な書込みRootを分離する。現在のリポジトリを対象にしたOperationでは、明示的な別Authorityがない限り、Repository外へstaging、worktree、archive、log、probeまたは試験一時物を作らない。読み取れるPath、同じ親Directory、同じLocal Userまたはcaller supplied absolute Pathは書込みAuthorityにならない。

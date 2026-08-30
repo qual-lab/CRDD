@@ -1,14 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import {
-  cancelRuntimeOwnedDockerProcessController,
-  createIsolatedDockerProcessControllerCandidate,
-  describeDockerProcessControllerContract,
-  projectDockerProcessControllerCompletionResult,
-  projectDockerProcessControllerStartResult,
-  startRuntimeOwnedDockerProcessController,
-} from "../src/security/docker-process-controller.ts";
 import {
   projectRuntimeOwnedDockerProcessCompletionForCoordinator,
   projectRuntimeOwnedDockerProcessStartForCoordinator,
@@ -17,6 +8,15 @@ import {
   projectRuntimeOwnedDockerProcessCompletionForTask,
   projectRuntimeOwnedDockerProcessStartForTask,
 } from "../src/security/coordinator-task-runtime.ts";
+import { createDevelopmentMeasurementConstraints } from "../src/security/development-measurement-constraints.ts";
+import {
+  cancelRuntimeOwnedDockerProcessController,
+  createIsolatedDockerProcessControllerCandidate,
+  describeDockerProcessControllerContract,
+  projectDockerProcessControllerCompletionResult,
+  projectDockerProcessControllerStartResult,
+  startRuntimeOwnedDockerProcessController,
+} from "../src/security/docker-process-controller.ts";
 
 function createPlan(
   activeMountCapability: object,
@@ -480,6 +480,305 @@ function createFixture(
     getRecoveryEvents: () => [...recoveryEvents],
   };
 }
+
+test("追加制約のtrueは既存Authorityを代替せず、不正Capabilityを起動しない", () => {
+  let restrictionCalls = 0;
+  let recoveryCalls = 0;
+  const restriction = () => {
+    restrictionCalls += 1;
+    return true;
+  };
+  const fixture = createFixture({
+    consumeProviderAuthority: () => null,
+    beginRecovery: () => {
+      recoveryCalls += 1;
+      return null;
+    },
+  });
+  const result = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+    () => true,
+    restriction,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "docker_process_controller_authority_invalid");
+  assert.equal(restrictionCalls, 0);
+  assert.equal(recoveryCalls, 0);
+  assert.equal(fixture.getCommandCount(), 0);
+  assert.equal(
+    startRuntimeOwnedDockerProcessController({}, {}, () => true, restriction)
+      .status,
+    "blocked",
+  );
+});
+
+for (const deniedPurpose of createPlan({}, {}).commands.map(
+  (command) => command.purpose,
+)) {
+  test(`追加制約は${deniedPurpose}直前で停止し、既存cleanupへ戻す`, async () => {
+    const fixture = createFixture();
+    const observedPurposes: string[] = [];
+    const started = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+      () => true,
+      (purpose: string) => {
+        observedPurposes.push(purpose);
+        return purpose !== deniedPurpose;
+      },
+    );
+    assert.equal(started.status, "started");
+    const result = await started.completion;
+    assert.ok(result);
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "docker_process_controller_execution_restricted",
+    );
+    assert.equal(result.providerRequestStarted, false);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(result.normalizedResult, null);
+    assert.equal(observedPurposes.at(-1), deniedPurpose);
+    assert.equal(fixture.getCommandCount(), observedPurposes.length - 1);
+    assert.equal(fixture.getCleanupCount(), 1);
+    assert.equal(fixture.getMountCompletionCount(), 1);
+    assert.equal(fixture.getRecoveryCompletionCount(), 1);
+    for (const projectCompletion of [
+      projectDockerProcessControllerCompletionResult,
+      projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+      projectRuntimeOwnedDockerProcessCompletionForTask,
+    ])
+      assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
+  });
+}
+
+test("追加制約は例外・非Boolean・非同期・Proxyを拒否し、例外内容を出さない", async () => {
+  let proxyCalls = 0;
+  let asyncCalls = 0;
+  const secretMarker = "private-restriction-diagnostic";
+  for (const restriction of [
+    null,
+    true,
+    () => undefined,
+    () => 1,
+    () => ({
+      // biome-ignore lint/suspicious/noThenProperty: deliberately hostile thenable verifies synchronous refusal without then invocation.
+      then: () => {
+        throw new Error(secretMarker);
+      },
+    }),
+    () => {
+      throw new Error(secretMarker);
+    },
+    () => Promise.resolve(true),
+    () => Promise.reject(new Error(secretMarker)),
+    async () => {
+      asyncCalls += 1;
+      throw new Error(secretMarker);
+    },
+    new Proxy(() => true, {
+      apply: () => {
+        proxyCalls += 1;
+        return true;
+      },
+    }),
+  ]) {
+    const fixture = createFixture();
+    const started = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+      () => true,
+      restriction,
+    );
+    assert.equal(started.status, "started");
+    const result = await started.completion;
+    assert.ok(result);
+    assert.equal(
+      result.reason,
+      "docker_process_controller_execution_restricted",
+    );
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.providerRequestStarted, false);
+    assert.equal(fixture.getCommandCount(), 0);
+    assert.equal(fixture.getCleanupCount(), 1);
+    assert.equal(JSON.stringify(result).includes(secretMarker), false);
+  }
+  assert.equal(proxyCalls, 0);
+  assert.equal(asyncCalls, 0);
+});
+
+for (const stop of [
+  "none",
+  "expired",
+  "cancelled",
+  "identity_mismatch",
+] as const) {
+  test(`実測制約をControllerへ接続し、準備待機後の${stop}を起動直前に照合する`, async () => {
+    let wallTimeMs = 100;
+    let bindingSha256 = "1".repeat(64);
+    const observe = () => ({
+      bindingSha256,
+      wallTimeMs,
+      monotonicTimeMs: wallTimeMs,
+    });
+    const scopeSha256 = "2".repeat(64);
+    const constraints = createDevelopmentMeasurementConstraints(
+      {
+        bindingSha256,
+        expiresAtMs: 1_100,
+        tasks: [
+          { scopeSha256, executor: "claude", reviewer: "codex" },
+          {
+            scopeSha256: "3".repeat(64),
+            executor: "codex",
+            reviewer: "claude",
+          },
+        ],
+      },
+      observe(),
+    );
+    assert.ok(constraints);
+    const task = constraints.reserveTask(scopeSha256, observe());
+    assert.equal(task.status, "recorded");
+    const invocation = constraints.reserveInvocation(
+      task.value,
+      "claude",
+      "executor",
+      observe(),
+    );
+    assert.equal(invocation.status, "recorded");
+    let markReady: () => void = () => {};
+    const ready = new Promise<void>((resolve) => {
+      markReady = resolve;
+    });
+    let releaseGate: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+    let providerStarts = 0;
+    let consumeCalls = 0;
+    const fixture = createFixture({
+      startCommand: (command: { purpose: string }) => {
+        if (command.purpose === "start_provider_attached") providerStarts += 1;
+        return {
+          wait: async () => {
+            if (command.purpose === "start_proxy") {
+              markReady();
+              await gate;
+            }
+            return {
+              status: 0,
+              signal: null,
+              stdout:
+                command.purpose === "start_provider_attached"
+                  ? createProviderOutput()
+                  : command.purpose === "start_subscription_auth_probe_attached"
+                    ? createSubscriptionAuthOutput()
+                    : "",
+              stderr: "",
+              outputExceeded: false,
+            };
+          },
+          terminateAndWait: async () => true,
+        };
+      },
+    });
+    const started = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+      () => true,
+      (purpose: string) => {
+        if (purpose !== "start_provider_attached") return true;
+        consumeCalls += 1;
+        return (
+          constraints.consumeInvocation(
+            invocation.value,
+            task.value,
+            "claude",
+            "executor",
+            observe(),
+          ).status === "recorded"
+        );
+      },
+    );
+    assert.equal(started.status, "started");
+    await ready;
+    if (stop === "expired") wallTimeMs = 1_100;
+    if (stop === "cancelled") constraints.cancel();
+    if (stop === "identity_mismatch") bindingSha256 = "4".repeat(64);
+    releaseGate();
+    const result = await started.completion;
+    assert.ok(result);
+    assert.equal(result.status, stop === "none" ? "completed" : "blocked");
+    assert.equal(providerStarts, stop === "none" ? 1 : 0);
+    assert.equal(consumeCalls, 1);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(fixture.getCleanupCount(), 1);
+    assert.equal(constraints.inspect().invocationCount, 1);
+    assert.equal(
+      constraints.settleInvocation(invocation.value).status,
+      "recorded",
+    );
+    assert.equal(
+      constraints.settleTask(task.value, "finished").status,
+      "recorded",
+    );
+    assert.equal(constraints.inspect().productionAuthorityConferred, false);
+  });
+}
+
+test("制約内から取消が発生しても新しいcommandを起動しない", async () => {
+  const fixture = createFixture();
+  let cancellation: Promise<unknown> | null = null;
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+    () => true,
+    (purpose: string) => {
+      if (purpose === "start_provider_attached")
+        cancellation = fixture.controller.cancel(
+          started.controlCapability,
+          fixture.managementCapability,
+        );
+      return true;
+    },
+  );
+  assert.equal(started.status, "started");
+  const result = await started.completion;
+  await cancellation;
+  assert.ok(result);
+  assert.equal(result.status, "cancelled");
+  assert.equal(result.providerRequestStarted, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(fixture.getCommandCount(), 8);
+});
+
+test("追加制約の拒否後もcleanup不明はRecovery必要として保持する", async () => {
+  const fixture = createFixture({
+    cleanupOwnedResources: async () => ({
+      confirmed: false,
+      processTreeTerminated: false,
+      containersAbsent: false,
+      networksAbsent: false,
+    }),
+  });
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+    () => true,
+    () => false,
+  );
+  assert.equal(started.status, "started");
+  const result = await started.completion;
+  assert.ok(result);
+  assert.equal(result.reason, "docker_process_controller_cleanup_unconfirmed");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.recoveryId, started.recoveryId);
+  assert.equal(fixture.getRecoveryCompletionCount(), 0);
+});
 
 test("固定command planを完了後に全resource不存在とlease解放へ閉じる", async () => {
   const fixture = createFixture();
@@ -1595,7 +1894,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 22);
+  assert.equal(contract.contractRevision, 23);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);

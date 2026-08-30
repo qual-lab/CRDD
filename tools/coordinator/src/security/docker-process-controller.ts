@@ -2,11 +2,21 @@ import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
 
 import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "./claude-docker-runtime-adapter.ts";
-import { normalizeClaudeStructuredResult } from "./claude-structured-result.ts";
+import {
+  normalizeClaudeStructuredResult,
+  parseUnambiguousJsonDocument,
+} from "./claude-structured-result.ts";
 import { consumeRuntimeOwnedCodexDockerPlanForProcessController } from "./codex-docker-runtime-adapter.ts";
 import { normalizeCodexStructuredResult } from "./codex-structured-result.ts";
-import { normalizeProviderTaskStructuredResult } from "./provider-task-structured-result.ts";
-import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
+import {
+  cleanupRuntimeOwnedDockerResources,
+  startRuntimeOwnedDockerCommand,
+} from "./docker-effect-runtime.ts";
+import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
+import {
+  publicDockerRecoveryStartReason,
+  publicVerifiedDockerRecoveryId,
+} from "./docker-recovery-public-projection.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
@@ -17,22 +27,14 @@ import {
   recordRuntimeOwnedNormalMountCompletion,
   verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./docker-recovery-runtime.ts";
-import {
-  cleanupRuntimeOwnedDockerResources,
-  startRuntimeOwnedDockerCommand,
-} from "./docker-effect-runtime.ts";
 import { consumeRuntimeOwnedProviderAuthority } from "./provider-authority-runtime.ts";
 import { completeRuntimeOwnedProviderHomeMount } from "./provider-home-mount-grant-runtime.ts";
+import { normalizeProviderTaskStructuredResult } from "./provider-task-structured-result.ts";
 import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
-import {
-  publicDockerRecoveryStartReason,
-  publicVerifiedDockerRecoveryId,
-} from "./docker-recovery-public-projection.ts";
-import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 22;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 23;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -74,6 +76,7 @@ const BLOCKED_COMPLETION_REASONS = new Set([
   "docker_setup_command_failed",
   "docker_resource_submission_record_unavailable",
   "docker_resource_receipt_unavailable",
+  "docker_process_controller_execution_restricted",
   "provider_subscription_auth_not_confirmed",
   "provider_result_invalid",
   "provider_task_result_input_invalid",
@@ -219,6 +222,7 @@ type RuntimeDependencies = Readonly<{
 
 type ExecutionRecord = {
   managementCapability: object;
+  commandRestriction: unknown;
   cancellationRequested: boolean;
   activeHandle: CommandHandle | null;
   completion: Promise<ExecutionResult> | null;
@@ -896,6 +900,34 @@ function classifyProviderNonzeroExit(
   return "provider_process_exit_nonzero";
 }
 
+// This is an additional veto, never an authority source. Do not pass plans,
+// credentials or capabilities to it, or use it on the existing cleanup path.
+function commandRestrictionAllows(restriction: unknown, purpose: string) {
+  if (restriction === undefined) return true;
+  if (
+    typeof restriction !== "function" ||
+    utilTypes.isProxy(restriction) ||
+    utilTypes.isAsyncFunction(restriction)
+  )
+    return false;
+  try {
+    const result: unknown = restriction(purpose);
+    if (utilTypes.isPromise(result)) {
+      // A mistakenly returned native Promise cannot authorize a synchronous
+      // launch. Observe rejection without awaiting or invoking a custom then.
+      void Promise.prototype.then.call(
+        result,
+        () => {},
+        () => {},
+      );
+      return false;
+    }
+    return result === true;
+  } catch {
+    return false;
+  }
+}
+
 async function executePlan(
   state: RuntimeState,
   record: ExecutionRecord,
@@ -919,7 +951,6 @@ async function executePlan(
         break;
       }
       const isProvider = command.purpose === "start_provider_attached";
-      if (isProvider) providerRequestStarted = true;
       if (
         CREATE_PURPOSES.has(command.purpose) &&
         state.dependencies.markResourceSubmission &&
@@ -932,6 +963,21 @@ async function executePlan(
         reason = "docker_resource_submission_record_unavailable";
         break;
       }
+      if (
+        !commandRestrictionAllows(record.commandRestriction, command.purpose)
+      ) {
+        requestedStatus = "blocked";
+        reason = "docker_process_controller_execution_restricted";
+        break;
+      }
+      // A synchronous restriction can also cause the owner to request cancel.
+      // Neither that re-entrancy nor a preceding await may open a new command.
+      if (record.cancellationRequested) {
+        requestedStatus = "cancelled";
+        reason = "provider_operation_cancelled";
+        break;
+      }
+      if (isProvider) providerRequestStarted = true;
       const handle = state.dependencies.startCommand(
         command,
         plan,
@@ -1138,6 +1184,7 @@ function start(
   preparedCapability: unknown,
   managementCapability: unknown,
   registerRecoveryHandoff: unknown,
+  commandRestriction: unknown,
 ) {
   if (
     !state.dependencies.effectExecutorAvailable ||
@@ -1268,6 +1315,7 @@ function start(
   const controlCapability = Object.freeze({});
   const record: ExecutionRecord = {
     managementCapability,
+    commandRestriction,
     cancellationRequested: false,
     activeHandle: null,
     completion: null,
@@ -1360,6 +1408,7 @@ export function startRuntimeOwnedDockerProcessController(
   preparedCapability: unknown,
   managementCapability: unknown,
   registerRecoveryHandoff?: unknown,
+  commandRestriction?: unknown,
 ) {
   try {
     return start(
@@ -1367,6 +1416,7 @@ export function startRuntimeOwnedDockerProcessController(
       preparedCapability,
       managementCapability,
       registerRecoveryHandoff,
+      commandRestriction,
     );
   } catch {
     return createBlockedStart("docker_process_controller_start_failed_closed");
@@ -1401,6 +1451,7 @@ export function createIsolatedDockerProcessControllerCandidate(
       preparedCapability: unknown,
       managementCapability: unknown,
       registerRecoveryHandoff: unknown = () => true,
+      commandRestriction?: unknown,
     ) => {
       try {
         return start(
@@ -1408,6 +1459,7 @@ export function createIsolatedDockerProcessControllerCandidate(
           preparedCapability,
           managementCapability,
           registerRecoveryHandoff,
+          commandRestriction,
         );
       } catch {
         return createBlockedStart(
@@ -1435,6 +1487,8 @@ export function describeDockerProcessControllerContract() {
       "durable_submission_before_each_create_and_exact_id_receipt_after_success",
     providerAuthority:
       "opaque_single_use_reverified_and_consumed_before_recovery_or_docker_effect",
+    additionalCommandRestriction:
+      "optional_synchronous_exact_true_veto_before_each_command_never_authority_or_cleanup_gate",
     subscriptionAuthentication:
       "network_none_read_only_provider_home_probe_with_exact_provider_stdout_stderr_shape_required_before_provider_request",
     subscriptionOffering:
