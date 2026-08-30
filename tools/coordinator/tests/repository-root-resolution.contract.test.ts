@@ -37,9 +37,15 @@ test("repository root resolution does not walk past an invalid nested Git bounda
   );
 });
 
-test("repository root resolution fails closed when no Git boundary exists", (t) => {
-  const target = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-root-absent-"));
-  t.after(() => fs.rmSync(target, { recursive: true, force: true }));
+test("repository root resolution fails closed when no Git boundary exists", () => {
+  // A temporary directory inside this checkout inherits its Git boundary.
+  // Inspect the volume root without creating files outside the repository.
+  const target = path.parse(fs.realpathSync.native(repositoryRoot)).root;
+  assert.equal(
+    fs.existsSync(path.join(target, ".git")),
+    false,
+    "This integration case requires a volume root without a Git boundary",
+  );
   assert.throws(
     () => resolveVerifiedRepositoryRootFromWorkingDirectory(target),
     /verified_repository_root_required/u,

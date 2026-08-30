@@ -5,8 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 
-import { generateReleaseKeyPair } from "../scripts/generate-release-key.ts";
 import {
   beginReleaseStagingManifestSession,
   describeReleaseStagingManifestContract,
@@ -657,11 +657,47 @@ test("偽造tokenと既存manifestをRelease staging成功へ流用しない", (
   }
 });
 
-test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない", () => {
+test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない", async () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-manifest-sign-"));
-  const distributionRoot = uniqueReleaseCandidate("test-sign");
+  const sourceRoot = path.join(parent, "source");
+  const distributionRoot = path.join(
+    sourceRoot,
+    ".crdd",
+    "release-staging",
+    "test-sign",
+  );
   const keyDirectory = path.join(parent, "key");
   try {
+    // Preserve the production source-relative key exclusion boundary. Both the
+    // isolated tool distribution and its external test key stay in the fixture.
+    for (const directory of ["scripts", "src", "runtime"]) {
+      fs.cpSync(
+        path.join(coordinatorRoot, directory),
+        path.join(sourceRoot, "tools", "coordinator", directory),
+        {
+          recursive: true,
+          filter: (source) => {
+            assert.equal(fs.lstatSync(source).isSymbolicLink(), false);
+            return true;
+          },
+        },
+      );
+    }
+    const signerPath = path.join(
+      sourceRoot,
+      "tools",
+      "coordinator",
+      "scripts",
+      "sign-release-manifest.ts",
+    );
+    assert.deepEqual(
+      fs.readFileSync(signerPath),
+      fs.readFileSync(
+        path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+      ),
+    );
+    const implementation: typeof import("../scripts/sign-release-manifest.ts") =
+      await import(pathToFileURL(signerPath).href);
     fs.mkdirSync(
       path.join(
         distributionRoot,
@@ -722,10 +758,21 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       path.join(distributionRoot, "tools", "coordinator", "src", "fixture.ts"),
       "export const FIXTURE = true;\n",
     );
-    generateReleaseKeyPair(keyDirectory, TEST_PASSPHRASE);
+    const { privateKey } = generateKeyPairSync("ed25519");
+    fs.mkdirSync(keyDirectory);
+    fs.writeFileSync(
+      path.join(keyDirectory, "crdd-release-v1-private.pem"),
+      privateKey.export({
+        type: "pkcs8",
+        format: "pem",
+        cipher: "aes-256-cbc",
+        passphrase: TEST_PASSPHRASE,
+      }),
+      { flag: "wx" },
+    );
     assert.throws(
       () =>
-        signReleaseManifest({
+        implementation.signReleaseManifest({
           distributionRoot,
           privateKeyPath: path.join(
             keyDirectory,
@@ -752,7 +799,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       false,
     );
   } finally {
-    fs.rmSync(distributionRoot, { recursive: true, force: true });
     fs.rmSync(parent, { recursive: true, force: true });
+    assert.equal(fs.existsSync(parent), false);
   }
 });

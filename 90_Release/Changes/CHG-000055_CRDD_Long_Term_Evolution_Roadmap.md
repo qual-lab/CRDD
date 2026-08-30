@@ -273,3 +273,7 @@ Discovery正本に残った完成前着手禁止とCHG一律新規発行の記�
 変更後のTask／送信許可契約146件と署名不要の開発E2E 223件は合格した。両型検査、変更2sourceのLint／format、設計対応検査も合格した。全体Checkerは365文書・2,213リンク・680アンカー、Error 0／Warning 0で、過去参照15件のIdentityも検証できた。これらを最終独立監査の代替にしない。
 
 Coordinator全試験は今回は失敗4件を残した。試験の`TEMP`／`TMP`をRepository-local `.crdd/dogfooding`へ限定したところ、`generate-release-key.contract.test.ts`の2件と`sign-release-manifest.contract.test.ts`の1件はRepository外出力という前提に一致せず、`repository-root-resolution.contract.test.ts`の1件はGit境界が存在しないという前提に一致しなかった。対象の試験と鍵生成・Root解決実装は今回変更していない。未知の場所への書込み、鍵生成の保護条件緩和、試験のskipで合格にしない。親Coordinatorが次の試験基盤是正として、実Repository内に閉じる試験とRepository外／Git境界不存在を本当に必要とする試験を分け、後者の隔離方法・書込み許可・cleanupを固定して再実行する。再検証まで全体合格は未達とする。
+
+同日の後続是正で、この4件を[CHG-000017](CHG-000017_Tools_Coding_Standards.md#8-release処置)へ接続した。製品の鍵Path・Git境界判定には変更を入れず、実Repository内の隔離配布環境とvolume rootの読み取り観測へ試験を分離した。同じ`TEMP`／`TMP`限定条件でCoordinator全1,218件が合格し、失敗・取消・skipは0件、実行時間は110.674秒だった。最終の変更3ファイルも関連19件・型検査・Lint／formatで確認した。§21の4件の試験前提不一致は解消とし、実務全件、実Provider E2E、独立監査またはReleaseの完了とは区別する。
+
+通常のpackage試験入口でも一時保存Rootを自動強制できるかは別の未確認範囲として残す。担当は親Coordinator、次の再評価契機は試験入口の運用固定時とし、未確認の間はRepository-localな`TEMP`／`TMP`を指定して実行する。公式秘密鍵、親Directoryまたは兄弟Repositoryへ試験用ファイルを置く回避は行わない。
