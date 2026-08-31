@@ -278,11 +278,34 @@ pub(crate) fn local_app_data_path() -> Option<PathBuf> {
         data3: 0x4fcf,
         data4: [0x9d, 0x55, 0x7b, 0x8e, 0x7f, 0x15, 0x70, 0x91],
     };
-    let folder_id = FOLDER_ID_LOCAL_APP_DATA;
+    known_folder_path(&FOLDER_ID_LOCAL_APP_DATA)
+}
+
+pub(crate) fn user_profile_path() -> Option<PathBuf> {
+    const FOLDER_ID_PROFILE: GUID = GUID {
+        data1: 0x5e6c858f,
+        data2: 0x0e22,
+        data3: 0x4760,
+        data4: [0x9a, 0xfe, 0xea, 0x33, 0x17, 0xb6, 0x71, 0x73],
+    };
+    known_folder_path(&FOLDER_ID_PROFILE)
+}
+
+pub(crate) fn roaming_app_data_path() -> Option<PathBuf> {
+    const FOLDER_ID_ROAMING_APP_DATA: GUID = GUID {
+        data1: 0x3eb685db,
+        data2: 0x65f9,
+        data3: 0x4cf6,
+        data4: [0xa0, 0x3a, 0xe3, 0xef, 0x65, 0x72, 0x9f, 0x3d],
+    };
+    known_folder_path(&FOLDER_ID_ROAMING_APP_DATA)
+}
+
+fn known_folder_path(folder_id: &GUID) -> Option<PathBuf> {
     let mut raw_path = null_mut();
     // SAFETY: raw_path is writable. On success, Shell allocates a NUL-terminated UTF-16 path
     // that remains owned until CoTaskMemFree below.
-    if unsafe { SHGetKnownFolderPath(&raw const folder_id, 0, null_mut(), &mut raw_path) } != 0
+    if unsafe { SHGetKnownFolderPath(folder_id, 0, null_mut(), &mut raw_path) } != 0
         || raw_path.is_null()
     {
         return None;

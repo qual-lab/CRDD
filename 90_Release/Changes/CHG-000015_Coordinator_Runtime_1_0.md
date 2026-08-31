@@ -42,6 +42,12 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 今回の学びは、上位状態を直接返す試験だけでは実producerの搬送形状を見落とすこと。新しい規則を増やさず、既存の実producer出力とproduction consumerの照合規則を、この復旧observerにも適用した。読み取り観測の成功を修復成功や新しいHost操作許可として扱わない。
 
+固定版`9037dd1`の実復旧では、停止判定を通過し、公式shutdown、WSL停止、`run`退避まで確認したが、起動段階で配布Identity不一致となり停止した。launch intentは未確定、手動回復必要、退避物と記録は保持中である。同時刻に配布Root内へ`.docker`が生成され、sourceでは空Homeと作業Directory継承を確認した。生成元Processの直接観測はなく、直接原因の確定や回復成功は主張しない。
+
+同じ変更内の是正として、[Docker専用起動環境](../../tools/coordinator/architecture/README.md#22-docker-desktop最終復旧時の起動環境)をOS由来のProfile、App Dataおよび明示cwdへ固定した。実子Processによる環境搬送・cwd・終了、非適合cwdの非発行、生成後Identity不明の保持を追加検証する。既存記録は旧署名版へ完全結合され、起動履歴不明かつ退避物ありの終了経路も不足している。担当責任者はQual-Lab、再評価契機はこの復旧IDを新版で処置する前とし、既存ID・旧署名由来・hash chainを保持する限定移行の設計を必要な残件として追跡する。記録の削除、署名検査の緩和、不明な起動の再発行は採用しない。実Docker復旧と最新正式E2Eは引き続き停止中である。
+
+この起動環境是正の開発確認では、Rust通常試験、試験専用子による環境とcwdの実観測、Clippy（全target／feature、警告拒否）、Formatter、Docker復旧関連3試験ファイル、型検査、Lint、Runtime Traceを通過した。通常ユーザーでも実子試験を通過し、Docker本体、Registry、退避物、復旧記録への作用は発行していない。Registry一時変更の明示試験は実行せず、子専用試験は親試験から明示起動した。全体Checkerはerror 0／warning 0。独立完成監査および実Docker回復を代替しない。
+
 ### 1.1 経路別の現在状態
 
 | 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`89545e3` | 根拠／残件 |

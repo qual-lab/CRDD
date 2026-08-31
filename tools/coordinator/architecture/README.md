@@ -123,6 +123,16 @@ Repository-localのcanonical namespaceは`<verified-repository-root>/.crdd/`と�
 
 将来のMCP／Linux常設／複数Repository構成でも、MCP Serverが任意Pathを直接選ばない。Repository Routerが事前登録された論理Repository IdentityをProject RuntimeへBindingし、OS管理Runtime Rootの`Project Binding × Operation ID`名前空間へ写像する。同じOrganization Runtime上の別Projectは、保存Root、Authority、Provider Home lease、Recoveryおよびcleanupを共有しない。機構はRuntime 1.0の完成条件へ追加せず、Dogfoodingで境界の安定性が確認された後の根拠駆動リファクタリングとして扱う。
 
+### 2.2 Docker Desktop最終復旧時の起動環境
+
+Docker Desktopの最終復旧は、通常のProvider起動とは別の、人間が明示したホスト操作である。native launcherは同じユーザーのOS Known FolderからProfile、Roaming App Data、Local App Dataを取得し、通常Directoryと正規化後の同一Pathを確認する。Profileを`HOME`、`USERPROFILE`および明示的な作業Directoryへ、Profile配下の`.docker`を`DOCKER_CONFIG`へ設定する。`APPDATA`、`LOCALAPPDATA`と既存の一時Directoryも明示し、親のHome、作業Directory、PATH、proxy、Credential helper、Node injection設定を継承しない。
+
+これはDocker Desktop自身が通常のユーザー設定を利用するための起動環境であり、CRDDがその設定本文やCredentialを読む許可ではない。CRDD配布RootをDockerの作業領域へ使わず、生成物を署名検証の除外対象へ追加しない。Directory取得・検証またはProcess生成に失敗した場合、親Directoryへのfallbackを行わない。生成後のIdentity確認不明は、非発行とは別に保持する。
+
+検証は環境blockの構造だけで閉じない。同じ`CreateProcessW`経路で試験専用子Processを生成し、親が渡した環境と実子の受信環境を値非公開のHashで照合し、Homeと作業Directoryの一致、非適合作業Directoryでの非発行、生成後Identity不明の保持、子の終了とhandle回収を確認する。試験専用子の成功はDocker本体の起動・回復・正式署名E2Eの成功ではない。
+
+中断記録の現在の制約として、修復記録は作成時の署名版へ結合され、新版へ自動移行できない。`renamed`でlaunch intentだけが残る場合も自動再発行できない。旧版の由来と現在の操作許可を混同せず、既存ID、履歴および退避物を保持して人間へ戻す。新版から旧記録を処置する移行契約は未実装であり、終了済み旧記録も含めた照合を必要とする。
+
 ## 3. 主実行シーケンス
 
 | 段階 | 状態ID | 主な処置 | 次へ進む条件 |

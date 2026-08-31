@@ -556,10 +556,17 @@ fn append_environment_entry(environment: &mut Vec<u16>, name: &str, value: &OsSt
     Some(())
 }
 
-fn launcher_environment() -> Option<Vec<u16>> {
+struct LauncherContext {
+    environment: Vec<u16>,
+    current_directory: PathBuf,
+}
+
+fn launcher_context() -> Option<LauncherContext> {
     let local_app_data = crate::windows::local_app_data_path()?;
+    let profile = crate::windows::user_profile_path()?;
+    let roaming_app_data = crate::windows::roaming_app_data_path()?;
     let temporary = local_app_data.join("Temp");
-    for target in [&local_app_data, &temporary] {
+    for target in [&profile, &roaming_app_data, &local_app_data, &temporary] {
         let metadata = std::fs::symlink_metadata(target).ok()?;
         let canonical = std::fs::canonicalize(target).ok()?;
         let canonical_text = canonical.to_string_lossy();
@@ -584,14 +591,12 @@ fn launcher_environment() -> Option<Vec<u16>> {
     let windows_directory = OsString::from_wide(&windows);
     let neutral = [
         "ALL_PROXY",
-        "APPDATA",
         "COMSPEC",
         "GIT_ASKPASS",
         "GIT_CONFIG_GLOBAL",
         "GIT_CONFIG_SYSTEM",
         "GIT_SSH",
         "GIT_SSH_COMMAND",
-        "HOME",
         "HOMEDRIVE",
         "HOMEPATH",
         "HTTP_PROXY",
@@ -608,13 +613,19 @@ fn launcher_environment() -> Option<Vec<u16>> {
         "SYSTEMDRIVE",
         "USERDOMAIN",
         "USERNAME",
-        "USERPROFILE",
     ];
     let mut entries: Vec<(String, OsString)> = neutral
         .into_iter()
         .map(|name| (name.to_owned(), OsString::new()))
         .collect();
     entries.extend([
+        ("APPDATA".to_owned(), roaming_app_data.into_os_string()),
+        ("HOME".to_owned(), profile.clone().into_os_string()),
+        ("USERPROFILE".to_owned(), profile.clone().into_os_string()),
+        (
+            "DOCKER_CONFIG".to_owned(),
+            profile.join(".docker").into_os_string(),
+        ),
         ("LOCALAPPDATA".to_owned(), local_app_data.into_os_string()),
         ("SystemRoot".to_owned(), windows_directory.clone()),
         ("TEMP".to_owned(), temporary.clone().into_os_string()),
@@ -627,19 +638,28 @@ fn launcher_environment() -> Option<Vec<u16>> {
         append_environment_entry(&mut environment, &name, &value)?;
     }
     environment.push(0);
-    (environment.len() <= 32_767).then_some(environment)
+    (environment.len() <= 32_767).then_some(LauncherContext {
+        environment,
+        current_directory: profile,
+    })
 }
 
 fn create_exact_process(
     executable: &std::path::Path,
     arguments: &OsStr,
     minimum_creation_time: u64,
-    environment: &mut [u16],
-) -> u8 {
+    context: &mut LauncherContext,
+) -> (u8, Option<OwnedHandle>) {
     let mut application: Vec<u16> = executable.as_os_str().encode_wide().collect();
     application.push(0);
     let mut command: Vec<u16> = arguments.encode_wide().collect();
     command.push(0);
+    let mut current_directory: Vec<u16> = context
+        .current_directory
+        .as_os_str()
+        .encode_wide()
+        .collect();
+    current_directory.push(0);
     let startup = STARTUPINFOW {
         cb: u32::try_from(size_of::<STARTUPINFOW>()).unwrap_or(0),
         ..unsafe { std::mem::zeroed() }
@@ -654,14 +674,14 @@ fn create_exact_process(
             null(),
             0,
             CREATE_UNICODE_ENVIRONMENT,
-            environment.as_mut_ptr().cast(),
-            null(),
+            context.environment.as_mut_ptr().cast(),
+            current_directory.as_ptr(),
             &startup,
             &mut process,
         )
     } == 0
     {
-        return b'N';
+        return (b'N', None);
     }
     let thread = OwnedHandle(process.hThread);
     let process_handle = OwnedHandle(process.hProcess);
@@ -677,11 +697,11 @@ fn create_exact_process(
         .unwrap_or(false);
     drop(thread);
     if path_matches && creation_valid {
-        b'S'
+        (b'S', Some(process_handle))
     } else {
         // CreateProcessW already issued the Process Effect. A later identity
         // observation failure must not erase that fact.
-        b'P'
+        (b'P', Some(process_handle))
     }
 }
 
@@ -693,7 +713,7 @@ fn launch_desktop(artifacts: &mut [LockedArtifact]) -> u8 {
         return b'N';
     };
     let quoted = format!("\"{}\" --minimized", launcher.policy.path.display());
-    let mut environment = match launcher_environment() {
+    let mut context = match launcher_context() {
         Some(value) => value,
         None => return b'N',
     };
@@ -701,8 +721,9 @@ fn launch_desktop(artifacts: &mut [LockedArtifact]) -> u8 {
         &launcher.policy.path,
         OsStr::new(&quoted),
         filetime_value(launcher.information.ftLastWriteTime),
-        &mut environment,
+        &mut context,
     )
+    .0
 }
 
 fn write_response(writer: &mut impl Write, status: u8, policy_hash: &[u8; 32]) -> bool {
@@ -795,7 +816,8 @@ mod tests {
 
     #[test]
     fn launcher_environment_is_known_folder_derived_and_proxy_neutral() {
-        let environment = launcher_environment().unwrap();
+        let context = launcher_context().unwrap();
+        let environment = context.environment;
         assert_eq!(environment.last(), Some(&0));
         let text = String::from_utf16_lossy(&environment);
         assert!(text.contains("LOCALAPPDATA="));
@@ -807,16 +829,134 @@ mod tests {
         assert!(text.contains("HTTPS_PROXY=\0"));
         assert!(text.contains("PATH=\0"));
         assert!(text.ends_with("\0\0"));
+        let profile = crate::windows::user_profile_path().unwrap();
+        assert_eq!(context.current_directory, profile);
+        for name in ["HOME", "USERPROFILE"] {
+            assert!(text.contains(&format!("{name}={}\0", profile.display())));
+        }
+        assert!(text.contains(&format!(
+            "DOCKER_CONFIG={}\0",
+            profile.join(".docker").display()
+        )));
+        assert!(text.contains(&format!(
+            "APPDATA={}\0",
+            crate::windows::roaming_app_data_path().unwrap().display()
+        )));
+        let names: Vec<_> = text
+            .split('\0')
+            .filter(|entry| !entry.is_empty())
+            .map(|entry| entry.split_once('=').unwrap().0.to_ascii_lowercase())
+            .collect();
+        assert!(names.windows(2).all(|pair| pair[0] < pair[1]));
+    }
+
+    fn wait_for_test_child(process: OwnedHandle) {
+        // SAFETY: the handle is exclusively owned and refers to the exact test child.
+        let wait = unsafe { WaitForSingleObject(process.0, PROCESS_WAIT_MS) };
+        if wait != WAIT_OBJECT_0 {
+            // SAFETY: only the test child created above is terminated on timeout, never Docker.
+            unsafe {
+                TerminateProcess(process.0, 99);
+                WaitForSingleObject(process.0, PROCESS_WAIT_MS);
+            }
+        }
+        assert_eq!(wait, WAIT_OBJECT_0);
+        let mut exit_code = STILL_ACTIVE as u32;
+        // SAFETY: the process handle is live and exit_code is writable.
+        assert_ne!(unsafe { GetExitCodeProcess(process.0, &mut exit_code) }, 0);
+        assert_eq!(exit_code, 0);
     }
 
     #[test]
     fn exact_launcher_primitive_observes_the_created_child_handle() {
         let executable = std::env::current_exe().unwrap();
         let arguments = OsString::from(format!("\"{}\" --list", executable.display()));
-        let mut environment = launcher_environment().unwrap();
-        assert_eq!(
-            create_exact_process(&executable, &arguments, 0, &mut environment),
-            b'S'
+        let mut context = launcher_context().unwrap();
+        for (minimum_creation_time, expected) in [(0, b'S'), (u64::MAX, b'P')] {
+            let (status, process) =
+                create_exact_process(&executable, &arguments, minimum_creation_time, &mut context);
+            assert_eq!(status, expected);
+            wait_for_test_child(process.unwrap());
+        }
+    }
+
+    #[test]
+    fn launcher_context_is_observed_inside_real_child() {
+        let executable = std::env::current_exe().unwrap();
+        let arguments = OsString::from(format!(
+            "\"{}\" --exact docker_repair::tests::launcher_child_context_probe --ignored",
+            executable.display()
+        ));
+        let mut context = launcher_context().unwrap();
+        let text = String::from_utf16(&context.environment).unwrap();
+        let mut entries: std::collections::BTreeMap<_, _> = text
+            .split('\0')
+            .filter(|entry| !entry.is_empty())
+            .map(|entry| {
+                let (name, value) = entry.split_once('=').unwrap();
+                (name.to_ascii_lowercase(), OsString::from(value))
+            })
+            .collect();
+        let expected_hash = environment_hash(&entries);
+        entries.insert(
+            "crdd_test_launch_env_sha256".to_owned(),
+            expected_hash.into(),
         );
+        context.environment.clear();
+        for (name, value) in entries {
+            append_environment_entry(&mut context.environment, &name, &value).unwrap();
+        }
+        context.environment.push(0);
+        let (status, process) = create_exact_process(&executable, &arguments, 0, &mut context);
+        assert_eq!(status, b'S');
+        wait_for_test_child(process.unwrap());
+    }
+
+    #[test]
+    #[ignore = "invoked only by the real-child context test"]
+    fn launcher_child_context_probe() {
+        let actual: std::collections::BTreeMap<_, _> = std::env::vars_os()
+            .map(|(name, value)| (name.to_string_lossy().to_ascii_lowercase(), value))
+            .filter(|(name, _)| name != "crdd_test_launch_env_sha256")
+            .collect();
+        // Do not print environment values even on mismatch.
+        assert!(
+            environment_hash(&actual) == std::env::var("CRDD_TEST_LAUNCH_ENV_SHA256").unwrap(),
+            "child environment differs from the explicit profile"
+        );
+        assert!(
+            std::fs::canonicalize(std::env::current_dir().unwrap()).unwrap()
+                == std::fs::canonicalize(actual.get("home").unwrap()).unwrap()
+        );
+        assert!(actual.get("home") == actual.get("userprofile"));
+    }
+
+    fn environment_hash(entries: &std::collections::BTreeMap<String, OsString>) -> String {
+        let mut wide = Vec::new();
+        for (name, value) in entries {
+            append_environment_entry(&mut wide, name, value).unwrap();
+        }
+        let bytes: Vec<u8> = wide.into_iter().flat_map(u16::to_le_bytes).collect();
+        sha256_bytes(&bytes)
+            .unwrap()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
+    }
+
+    #[test]
+    fn launcher_invalid_directory_does_not_fall_back_to_parent_directory() {
+        let executable = std::env::current_exe().unwrap();
+        let arguments = OsString::from(format!("\"{}\" --list", executable.display()));
+        let mut context = launcher_context().unwrap();
+        context.current_directory = executable; // A file cannot be a working directory.
+        let (status, process) = create_exact_process(
+            &std::env::current_exe().unwrap(),
+            &arguments,
+            0,
+            &mut context,
+        );
+        assert_eq!(status, b'N');
+        assert!(process.is_none());
     }
 }
