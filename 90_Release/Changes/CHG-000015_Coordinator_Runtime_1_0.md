@@ -22,9 +22,9 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 本変更の利用者価値は、Front Agentから直接Providerを相互spawnさせず、Coordinatorを唯一の仲介者としてCodexとClaude Codeへ実行・独立レビューを委譲し、検証済みのローカルCandidateを人間へ返せる`Coordinator Runtime 1.0`を一体として成立させることである。
 
-**Runtime全体は未完了である。** 最新の署名固定版`89545e3`は、復旧試験7/7と順方向1経路が完了したが、逆方向でProviderの結果形式を受理できず停止した。同一Providerの2経路は今回未実行である。cleanup確認済み、手動回復不要、正本Repository変更なしで終了した。[最新の実測結果と限界](Evidence/CHG-000015_Signed_E2E_89545e3.md)を現在の根拠とする。
+**最新の署名固定版`0c3e6d2`は4経路4/4・復旧7/7を完了した。Runtime全体の完成監査・Release判断は未完了である。** Docker停止から復旧し、再試行・是正0、既存同意再利用、全候補完全一致・破棄、cleanup確認済み、手動回復不要、正本Repository変更なしを確認した。[最新の実測結果と限界](Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)を現在の根拠とする。以前の`89545e3`で逆方向が停止した[結果](Evidence/CHG-000015_Signed_E2E_89545e3.md)は過去経緯として保持する。
 
-停止理由の内訳を生出力なしで識別できるよう、結果形式、turn数、費用メタデータ、Reviewer本文の搬送不適合を固定理由へ分離した。受理条件や上限を緩和する修正ではなく、今回の根本原因が解消したという証明でもない。以下の開発版実測と、残る正式検証・最終一括監査を区別する。
+停止理由の内訳を生出力なしで識別できるよう、結果形式、turn数、費用メタデータ、Reviewer本文の搬送不適合を固定理由へ分離した。受理条件や上限を緩和する修正ではない。以下の段階的な実測経緯と、上記の最新正式検証、残る最終一括監査を区別する。
 
 固定開発版`56af5a1`による[逆方向・順方向の追加実測](Evidence/CHG-000015_Development_Routes_56af5a1.md)では、順方向の一般Taskが完了し、逆方向はClaudeレビュー段階で上限関連の理由により停止した。実測後の設計照合で、Reviewerへ数値検証を重複要求する固定Taskの指示を既存の責務分離へ戻し、CLIの上限停止／成功結果の回数不整合を区別した。上限、モデル、権限、Runnerのbyte完全一致条件は変更していない。
 
@@ -52,7 +52,7 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 継続承認後、OS由来`ProgramData`を含む環境で公式Docker Desktopを別操作として起動し、Engineの回復を確認した。署名版`b468ddc`の観測・終了入口で同じ復旧IDを`historical_closed_retained`、exit 0、helper cleanup確認済み、新規修復許可へ到達させた。元11記録・退避物・不明な旧起動履歴を保持し、別の終了receiptだけを追加した。署名版`b468ddc`／対象Repository`2051e3c`のRecovery E2Eは7項目を通過した。ただし4経路E2EはProvider実行前に`docker_process_controller_recovery_unavailable`で停止し、下位原因は`docker_task_runtime_state_unknown_entry`だった。
 
-原因は共有RuntimeStateへ追加したDesktop修復Directoryを、Docker Task inventoryへ反映していなかったことである。同じCHGで名前の判定を修復Storeから共有し、正規名・通常Directory・non-link・実体Path一致の領域だけを別担当として識別するよう是正した。記録の削除や未知項目の一般許容は行わない。Task残件の検出を維持し、Desktop修復の中身・履歴・終了は担当の専用入口が引き続き所有する。実Storeによる記録作成とTask inventoryの共存、原記録不変、既存Task残件の検出、未知名・ファイル置換・junction拒否を結合試験へ接続した。未完了は修正を含む固定版の4経路E2Eと独立完成監査であり、既存署名版の結果を新しい実装の正式成功へ流用しない。担当責任者はQual-Labとする。
+原因は共有RuntimeStateへ追加したDesktop修復Directoryを、Docker Task inventoryへ反映していなかったことである。同じCHGで名前の判定を修復Storeから共有し、正規名・通常Directory・non-link・実体Path一致の領域だけを別担当として識別するよう是正した。記録の削除や未知項目の一般許容は行わない。Task残件の検出を維持し、Desktop修復の中身・履歴・終了は担当の専用入口が引き続き所有する。実Storeによる記録作成とTask inventoryの共存、原記録不変、既存Task残件の検出、未知名・ファイル置換・junction拒否を結合試験へ接続した。その後、修正を含む固定版`0c3e6d2`で4経路と復旧E2Eを完了した。独立完成監査は別途必要であり、既存署名版の結果を新しい実装の正式成功へ流用していない。担当責任者はQual-Labとする。
 
 この引継ぎ実装の開発確認は、`tools/coordinator`を作業DirectoryとしてNode.js 24.19.0で`tests/platform-provisioner-trust-core.contract.test.ts`、`tests/docker-desktop-repair-record-store.contract.test.ts`、`tests/docker-desktop-runtime-repair.contract.test.ts`、`tests/coordinator-docker-recovery-cli.integration.test.ts`、`tests/cli-options.contract.test.ts`を実行し、116試験すべて合格した。試験一時物はRepository-local `.crdd`内へ限定した。`npm run check`の型・Lint・整形・Runtime Traceも通過した。実署名試験は試験中生成した鍵だけを用い、Release秘密鍵、Provider、実Docker修復は使用していない。独立確認は着手前の読み取り設計照合までであり、完成監査はE2E後に行う。
 
@@ -62,18 +62,18 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ### 1.1 経路別の現在状態
 
-| 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`89545e3` | 根拠／残件 |
+| 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`0c3e6d2` | 根拠／残件 |
 |---|---|---|---|---|
 | Codex | Claude Code | Codex | 完了 | 候補完全一致・破棄、cleanup確認済み |
-| Codex | Codex | Claude Code | 未実行 | 逆方向の停止により未到達。旧版の成功と区別する |
-| Claude Code | Codex | Claude Code | 停止 | `provider_task_result_envelope_invalid`。拒否された具体的な項目は未特定 |
-| Claude Code | Claude Code | Codex | 未実行 | 逆方向の停止により未到達。旧版の成功と区別する |
+| Codex | Codex | Claude Code | 完了 | 候補完全一致・破棄、cleanup確認済み |
+| Claude Code | Codex | Claude Code | 完了 | 候補完全一致・破棄、cleanup確認済み |
+| Claude Code | Claude Code | Codex | 完了 | 候補完全一致・破棄、cleanup確認済み |
 
 cross-providerを既定とし、同一ProviderまたはFront-onlyは、移譲不要、Provider固有の適性、反対Providerの利用不能または独立レビュー要件から説明できる場合だけ選ぶ。実装の存在、CLIの利用可能性または一経路の成功を、別経路の成立へ一般化しない。
 
 ### 1.2 Releaseまでの主要残件
 
-1. 最新実装の4経路E2Eを収束させ、復旧E2Eと合わせて固定根拠を残す。実務自己適用の完成速度、人間負荷、不要Loop、Provider分散および品質の評価と区別する。
+1. 完了した`0c3e6d2`の4経路・復旧E2Eを完成監査の入力にする。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務自己適用の完成速度、人間負荷、不要Loop、Provider分散および品質の評価と区別する。
 2. 公開Task入口の実OS／Filesystem／Process結合Harness、旧facade整理および安全な公開reason分類を、Reference Architectureの未解決項目として閉じる。
 3. 最新改訂版でArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを完了する。
 4. 実測Evidence、README、Roadmap、CHANGELOG、IssueおよびRelease範囲を現在状態へ同期し、人間の統合・Release判断へ渡す。
