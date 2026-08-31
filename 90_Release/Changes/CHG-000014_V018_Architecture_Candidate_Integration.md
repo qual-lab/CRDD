@@ -1,16 +1,18 @@
 # 変更トレース: v0.18.0候補の統合とArchitecture Candidate再基準化
 
 変更ID: `CHG-000014`
-状態: `Ready for Verification`
+状態: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
 担当責任者: Qual-Lab
-最終更新日: 2026-08-28
+最終更新日: 2026-09-01
 対象系列: v0.18.x
 対象バージョン: v0.18.0 Candidate
-変更分類: `breaking`（統合差分としての候補、最終確認前）
+変更分類: `breaking`（候補内容の採用判断で確定）
 リリースレベル: `MINOR`（候補、最終確認前）
-`migration_required`: `true`（規範変更候補。Architecture Candidateの同居だけからは発火しない）
+`migration_required`: `true`（移行方針採用済み。Architecture Candidateの同居だけからは発火しない）
 
 正本規則: [変更](../../12_Change.md)
+
+現在の判断は[候補内容・移行方針の採用](#candidate-adoption-20260901)を参照する。以下の旧固定候補・監査・判断待ちの記述は当時の経緯である。
 
 ## 1. 人間による判断と目的
 
@@ -279,3 +281,29 @@ v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。�
 単体試験失敗の範囲内是正や子からの既承認範囲の質問は継続対象とし、調査だけの依頼、候補のロードマップ掲載、未知の許可、工程移行の判断、別課金経路、上限超過、取消は継続許可へ変換しない。必要な監査と完成条件は保持する。確認は文書・参照整合と代表例の独立確認へ接続し、機械的な文言一致だけで実際の自走性を証明したとは扱わない。実務で不要な再確認と必要な停止の両方を観測し、既存の有用性評価へ接続する。
 
 上記5文書の差分を独立した確認者が代表例と既存権限契約へ照合し、限定レビューは指摘0件でPassとした。全体Checkerも383文書・2,628リンクでエラー0・警告0。実エージェントの遵守率、人間負荷の改善、Runtime全体の完成監査やRelease可否へ、この判定を拡張しない。
+
+<a id="candidate-adoption-20260901"></a>
+
+## 11. 候補内容・移行方針の採用とPRへの引渡し
+
+2026-09-01、Qual-Labの人間の決定権限者は、Commit `28763e08f4f14ccef52b67cff5e26fc7232d713b`、Tree `a5533b4054ffa63fd1bbcb3889bafc02ced8a7a0`を対象に、v0.18.0候補の内容と移行方針の採用、完了ロードマップ整理、PR作成への続行を承認した。判断要求では既存利用者に該当箇所の移行が必要なこと、main統合・タグ・公開を行わないことを明示した。承認は本節の記録同期、コミット・push、main向けPR作成までである。Stable化、main統合、タグ作成、公開、各採用先の基準版有効化は含まない。
+
+| 採用した変更意図 | 分類・移行 | 完成根拠 |
+|---|---|---|
+| [CHG-000012](CHG-000012_Current_Decision_Set.md)：現在の判断集合 | normative・必要 | 現在の判断要求、利用側・ひな型・監査への伝播 |
+| [CHG-000013](CHG-000013_Communication_Market_and_Adoption_Exploration.md)：市場・採用探索 | breaking・必要 | 発火条件、探索の責務、人間対象調査と説得の境界 |
+| 本CHG：候補の統合と承認済み目標への継続 | 統合差分はbreaking・必要 | 7意図の収載、候補と有効基準の分離、継続と権限の境界 |
+| [CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md)：Runtime 1.0 | normative・必要 | 4経路、復旧7シナリオ、実Task取消、実装・安全性の完成確認 |
+| [CHG-000017](CHG-000017_Tools_Coding_Standards.md)：内部ツール規約・配置 | breaking・必要 | 命名、3部品の工程別配置、UX／UI／SPEC、対象端末の追加確認 |
+| [CHG-000054](CHG-000054_Agent_Organization_Document_Architecture.md)：エージェント組織 | normative・必要 | 概念・実装の責務分離、準拠基準と利用側の確認 |
+| [CHG-000055](CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md)：工程・文書の自己適用改善 | normative・必要 | 工程接続、検証・収束、根拠駆動リファクタリング、本文可読性と限定実務評価 |
+
+各根拠は[3系統の完成評価](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)と[端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)へ接続する。現行対象の必須実装・検証事項は完了し、候補内容を採用した。工程移行はこの内容採用に含めて扱うが、未測定の総合的な性能優位、全環境、読み上げ、将来能力を採用・実証済みにしない。
+
+移行は[CHANGELOG](../../CHANGELOG.md#changelog-v0180-en)の英日注記を採用する。適用対象の既存資産を棚卸しし、移行・置換・据置・対象外を決め、独立確認と人間による有効化まで旧基準を維持する。Runtimeの一律導入、対象外の空文書作成、完了済み履歴の一括書換えは要求しない。今回の方針採用は、各採用先の移行完了や準拠表明ではない。
+
+ロードマップでは、Runtime完成、利用者入口、上流・工程接続、根拠駆動リファクタリング、内部ツール命名、人間可読性の完了6項目とツール配置の完了案内を除去する。理由と根拠は上記CHGと品質記録に残す。長期方向の再評価、未採用研究、自律Operation、有用性の次版候補、Issue #30は継続して追跡する。Issue #30は詳細候補の採否・理由付き終了が未成立であり、今回の採用で閉じない。
+
+リリース処置は「内容採用済み・PR準備、未統合・未リリース」。7CHGの`Ready for Release Handoff`はリリース準備状態の全条件を満たしたことや公開許可ではない。PRの差分確認後、別途main統合と、統合後Identityに対するリリース判断へ進む。公開済みv0.17.0、Candidate表示、過去タグ・履歴は保持する。
+
+承認反映の限定確認は、基準Commit `28763e08f4f14ccef52b67cff5e26fc7232d713b`上の15文書差分を固定してWegenerが実施し、Pass・追加指摘0だった。対象は7CHG、Discovery、UI、SPEC、Quality Center、完成評価、配置検証の現在案内、RoadmapおよびCHANGELOGであり、承認忠実性、現在と履歴、移行と公開判断の分離、完了除去と未完追跡、英日同義性を確認した。共通Checkerは2026-08-31T18:07:44.260Zに389文書・2,740リンク・933アンカー・固定履歴参照24件を確認し、エラー0・警告0だった。本段落はその結果のメタデータ追記であり、実装の再実測、確認範囲または操作許可の追加ではない。

@@ -1,9 +1,9 @@
 # 変更トレース: エージェント組織の文書アーキテクチャ
 
 変更ID: `CHG-000054`
-- 状態: `Reopened`
+- 状態: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
 - 決定権限者: Qual-Lab
-- 最終更新日: 2026-08-29
+- 最終更新日: 2026-09-01
 - 対象version: v0.18.0 Candidate
 - 変更分類: `normative`
 - 移行要否: `migration_required: true`
@@ -13,6 +13,8 @@
 - 統合台帳: [未リリース変更トレース統合台帳](README.md)
 
 ## 1. 結論
+
+[完成評価](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)後、[人間が内容と移行方針を採用](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)した。現在はPRへの引渡し段階で、main統合・リリースは未承認。以下の経緯にある判断・検証待ちは当時の履歴として保持する。
 
 CRDDの中心概念であるエージェント組織（Agent Organization）を、特定Providerや`tools/coordinator`の実装から分離し、ルートの基礎正本へ集約した。READMEの「AIの開発チーム」「AIに専門性と実行を、人間にアイデア・判断・責任を」というVisionは、この概念の利用者向け入口であり独立したRelease価値ではないため、旧`CHG-000045`を本変更へ統合した。
 

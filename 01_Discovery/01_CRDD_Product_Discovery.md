@@ -8,14 +8,16 @@
 
 | 対象 | 状態・変更記録 |
 |---|---|
-| §1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善 | v0.18.0 Candidateの`Adopted / In Progress`（CHG-000055） |
-| §7.3.2の根拠駆動Runtimeリファクタリング | `Adopted / In Progress`（[CHG-000055の実施結果](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#24-実務結果の照合と最終固定への引渡し)と[現在の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)） |
+| §1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善 | v0.18.0候補内容を採用済み・実装検証完了、未リリース（CHG-000055） |
+| §7.3.2の根拠駆動Runtimeリファクタリング | 採用した現行対象は実装検証完了、未リリース（[CHG-000055の実施結果](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#24-実務結果の照合と最終固定への引渡し)と[現在の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)）。総合的な性能優位は未実証 |
 | §7.9の責務分離原則 | `Adopted / Planned` |
 | §7.1の上位方向 | `Adopted / Unscheduled` |
-| §7.2のCoordinator Runtime 1.0 | `In Progress`（CHG-000015） |
+| §7.2のCoordinator Runtime 1.0 | 候補内容採用・実装検証完了、未リリース（CHG-000015） |
 | 第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補、§7.9の将来能力地平 | `Held / Unscheduled` |
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本、影響および既存の未リリース変更意図を再確認し、同じ意図は既存CHGへ接続する。独立した変更意図が必要な場合だけ、[変更規則](../12_Change.md)に従って新しい`CHG-*`を発行する。
+
+2026-09-01の[候補内容・移行方針の採用](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)により、上記の現行対象はPRへの引渡し段階となった。将来候補の採用、Stable化、main統合、公開は含まない。
 
 §7.3.2の作業意図の採用と、同節の[次版検討候補](#runtime-utility-next-version-candidates)の状態は分ける。後者の具体策・収載先は`Held / Unscheduled`であり、候補の記録を採用判断としない。
 
@@ -317,7 +319,7 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 - Source Commit、配布版、成果物ハッシュ、試験対象、Evidenceを一方向に追跡し、`tools`を手修正可能な第二ソースにしない。生成物の差分確認や再現検査は必要性に応じて具体化する。
 - 移行対象にはimport・CLI・CI・Checker・署名manifestの配布Root／相対Path・テンプレート・リンク／アンカーを含む。新配置からの実行と配布物の検証を行い、過去の固定Evidenceは書き換えない。
 
-2026-08-31、人間からの一括実施依頼と、案内だけを`tools`へ残さず作業手順へ分離する説明後の続行指示を受け、下記の工程別配置への移行を開始した。実行順は[ロードマップ](../99_Roadmap/01_Product_Roadmap.md#tool-development-layout-follow-up)、移行処置と検証は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)で追跡する。新配置の試験・参照確認・独立レビューが終わるまでは移行完了としない。配布テンプレートの公開配置、署名済み旧配布物、過去の固定Evidenceは変更しない。
+2026-08-31、人間からの一括実施依頼と、案内だけを`tools`へ残さず作業手順へ分離する説明後の続行指示を受け、下記の工程別配置への移行を開始した。その後の試験・参照確認・独立レビューと内容採用を完了し、[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)へ移行処置と検証を集約した。完了した実行順の案内はロードマップから除去した。配布テンプレートの公開配置、署名済み旧配布物、過去の固定Evidenceは変更していない。
 
 採用した責務分離と移行先は次のとおり。作業の続行を統合・Releaseの確定と扱わず、新配置からの実行と旧版との境界を検証する。
 
@@ -468,12 +470,12 @@ Self-hosted LLMもProvider Adapter候補へ接続できるかを評価する。F
 
 PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠から再評価する順序である。Versionは[`19_Maintenance.md`](../19_Maintenance.md#51-release-version-and-revision)が所有する公開差分、互換性および基準版の識別である。一つのPhaseが複数Versionにまたがることも、一つのVersionが個別に採用された複数Phaseの要素を含むこともある。Phase番号からVersionを、Version表示から収載、期限、互換性、Candidate状態またはReleaseを推定しない。
 
-次の表は既存§7.2～§7.8を、人間が理解しやすい能力到達点へ投影した対応表である。`CRDD v0.18.0 Candidate`は、現在統合・固定中の差分と、収載を決定したが未着手または未完了の改善を分けて示す。収載済みでも、実装完了、規範採用、Stable化またはReleaseを意味しない。v0.19.0以降は将来の能力地平（Capability Horizon）であってRelease targetの予約ではなく、実現時の根拠と採用済み差分に応じて別のVersionへ再割当できる。
+次の表は既存§7.2～§7.8を、人間が理解しやすい能力到達点へ投影した対応表である。`CRDD v0.18.0 Candidate`は、候補内容の採用・実装検証を終えた現行対象と、未完了の統合・リリースを区別する。個別の完成根拠はCHGと品質記録を用い、収載だけから完了を推定しない。v0.19.0以降は将来の能力地平（Capability Horizon）であってRelease targetの予約ではなく、実現時の根拠と採用済み差分に応じて別のVersionへ再割当できる。
 
 | 表示 | 能力像 | 判断／対応状態 | 再評価契機 | この表示が意味しないこと |
 |---|---|---|---|---|
-| CRDD v0.18.0 Candidate — 現Candidate差分 | 現在のCandidate差分として統合・固定確認中のCRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 項目別。RuntimeとRelease準備は`In Progress` | CHG-000015の完成固定、未終了CHGおよびRelease Readinessの確認 | 完了、Stable化またはRelease |
-| CRDD v0.18.0 Candidate — 収載決定済み未完了改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性を、固定Runtimeの自己適用から成熟させる | 工程接続・判断再開・文書入口・根拠駆動Runtimeリファクタリングは`Adopted / In Progress`（[CHG-000055の現在評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)） | 変更単位の実装・検証を完了し、全変更収束後の最終固定版へ正式署名E2Eと一括監査を実施 | 実装完了、規範採用、Stable化、Releaseまたはv0.19.0以降の研究候補の収載 |
+| CRDD v0.18.0 Candidate — 現Candidate差分 | CRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 内容採用・実装検証完了、PRへの引渡し段階 | CHG-000014の採用記録と、今後の統合・Release Readinessの確認 | Stable化、main統合またはRelease |
+| CRDD v0.18.0 Candidate — 自己適用で完了した改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性 | 採用した対象の実装検証・内容採用は完了（[CHG-000055](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md)） | 根拠を保持し、統合・リリースへ引き渡す | 総合的な性能優位、Stable化、Releaseまたはv0.19.0以降の研究候補の収載 |
 | CRDD v0.19.0（将来能力像） | MCP等の協働接続面、Repository Binding／Router、Runtime境界およびCRDDの機械利用性をエコシステム自己適用（Ecosystem Dogfooding）し、v1能力到達性を評価する | `Held / Unscheduled` | v0.18.0の結果と、第2段階で得た最初の自己適用Evidenceを人間が再評価 | v0.19.0への収載予約、Release Candidate、専用PM Systemまたは実装許可 |
 | CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループを、人間とAIの組織（Human × AI Organization）で成立させる | `Held / Unscheduled` | 協働接続面とエコシステム自己適用から、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |
 | CRDD v1.x（将来能力像） | 単一Projectの運営モデル（Operating Model）を保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |

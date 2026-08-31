@@ -114,4 +114,4 @@ Process再起動の必要性: あり
 | 支援技術・環境 | PowerShell 5.1に加えWindows Terminal 1.24.11911.0でも4入力シナリオ、日本語・長いIDの折返し・拡大表示を限定確認 | 上記追加確認で初期幅120列を観測。変更後の列数・拡大率は未取得。読み上げと全環境の対応は未評価であり、対象変更時にQual-LabのRuntime保守が再評価 |
 | 詳細設計の読み解き | SPEC・実行設計・脅威モデルの責務分離と再構成、設計文書の改名、設計・実装・試験の横断整合を完成評価で確認 | [完成評価](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)と[CHGの処置](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)で追跡。全読者の理解度を実測したとはしない |
 
-UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。工程全体はQual-Labの内容採用・工程移行判断待ちである。表示の「読めた」という人間の観測を、内容採用、全アクセシビリティ対応、統合またはリリースの承認へ読み替えない。
+UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが[候補内容・移行方針を採用](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)し、PRへの引渡しを承認した。表示の「読めた」という観測と、その後の採用判断を区別する。全アクセシビリティ対応、Stable化、main統合またはリリースは承認・実証済みとしない。

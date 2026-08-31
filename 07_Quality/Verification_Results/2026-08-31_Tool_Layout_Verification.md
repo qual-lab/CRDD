@@ -170,4 +170,4 @@ native・表示・Checker本文の限定再確認は完了し、指摘は解消�
 
 一方、配置移行後の正式配布・実Provider E2E、Runtime全体の完成監査、実Provider取消・是正の未証明範囲は未完了。UX／IA／UIのTool工程全体整備も本移管だけで完了とはしない。確認者が今回評価していない範囲へPassを拡張しない。
 
-担当はQual-Labと親Coordinator。配置・工程整備は[CHG-000017](../../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)、Runtime完成は[CHG-000015](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)、後続順序は[Roadmap](../../99_Roadmap/01_Product_Roadmap.md#tool-development-layout-follow-up)で追跡する。リリース判断は未実施である。
+担当はQual-Labと親Coordinator。配置・工程整備は[CHG-000017](../../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)、Runtime完成は[CHG-000015](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)で追跡する。2026-09-01に工程整備・完成監査と候補内容の採用を終えたため、完了したロードマップ項目への案内を[現在の採用・引渡し記録](../../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)へ切り替えた。本書の過去の測定結果は変更しない。main統合・リリース判断は未実施である。

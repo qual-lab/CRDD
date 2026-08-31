@@ -1,16 +1,18 @@
 # 変更トレース: 現在の判断集合と判断支援の圧縮
 
 変更ID: `CHG-000012`
-状態: `Ready for Verification`
+状態: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
 担当責任者: Qual-Lab
-最終更新日: 2026-08-11
+最終更新日: 2026-09-01
 対象系列: v0.18.x
 対象バージョン: v0.18.0 Candidate
-変更分類: `normative`（候補）
+変更分類: `normative`（内容採用済み）
 リリースレベル: `MINOR`（候補）
-`migration_required`: `true`（候補）
+`migration_required`: `true`（方針採用済み）
 
 正本規則: [変更](../../12_Change.md)
+
+現在の採用・移行方針とPRまでの許可は[共通の人間判断](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)を参照する。以下の判断待ち・検証待ちは当時の履歴として保持し、現在の未処置はmain統合とリリースである。
 
 ## 1. 契機と問題
 

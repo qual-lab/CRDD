@@ -1,7 +1,7 @@
 # 変更トレース: v0.18内部ツール近代化と命名Baseline
 
 変更ID: `CHG-000017`
-- 状態: `Reopened`
+- 状態: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-16
 - 最終更新日: 2026-09-01
@@ -20,7 +20,7 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 
 現在、内部ScriptのTypeScript移行、Node.js 24系でのnative実行、Biome Warning 0 Gate、nested testを含む決定論的列挙および旧Checker Pathを残さない移行候補は成立している。2026-08-30の所有集合再固定で検出した命名違反243件も是正し、[検証義務と機械確認結果](#6-現在の検証義務)へ記録した。後続の試験一時領域と生成物探索の是正は[Release処置](#8-release処置)で追跡する。
 
-残件は、最新固定改訂版での全検証義務の照合、独立レビューと必要監査、および移行・Release引渡し判断である。実装と機械確認の完了を最終Passとせず、本CHGは`Reopened`を維持する。過去固定版のPassは現在判定へ流用しない。
+[完成評価・端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)で全検証義務の照合と必要な独立確認を終え、[人間が内容・移行方針を採用](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)した。内部ツールの配置・命名・利用者設計の現行対象は完了し、PRまで続行する。残るmain統合・Release判断と、各採用先の移行完了は別である。以下の旧固定版・再開・判断待ちは当時の履歴として保持する。
 
 ## 2. 採用したBaseline
 
@@ -177,7 +177,7 @@ Coordinatorは、移行経緯を本節へ、開発確認の順序を既存Workfl
 
 ### 現在の未完了事項
 
-新配置の機械検証と開発E2Eは実行した範囲で合格した。配置移行差分の独立レビューは実装側Pass、文書側の軽微3件も是正後の限定再レビューで解消確認済み・追加指摘0となった。[対象・結果・除外・是正履歴](../../07_Quality/Verification_Results/2026-08-31_Tool_Layout_Verification.md)を参照する。過去の固定Evidence5文書にある旧Pathへの9リンクは、人間が承認した限定的な歴史参照として、原文、旧Git内容および現在の後継を区別して検証した。未知のリンクエラーは抑制しない。最新正式署名E2Eは[48515ebの4経路・復旧・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)を実測した。コード・試験の限定再確認に続き、結果記録と現在案内の限定確認も完了した。Runtime全体・工程整備の最終監査とRelease判断は別に残る。UX／IA／UIを含むTool工程全体の整備は、本配置移行の完了から推定せず、[後続作業](../../99_Roadmap/01_Product_Roadmap.md#tool-development-layout-follow-up)で追跡する。
+新配置の機械検証と開発E2Eは実行した範囲で合格した。配置移行差分の独立レビューは実装側Pass、文書側の軽微3件も是正後の限定再レビューで解消確認済み・追加指摘0となった。[対象・結果・除外・是正履歴](../../07_Quality/Verification_Results/2026-08-31_Tool_Layout_Verification.md)を参照する。過去の固定Evidence5文書にある旧Pathへの9リンクは、人間が承認した限定的な歴史参照として、原文、旧Git内容および現在の後継を区別して検証した。未知のリンクエラーは抑制しない。最新正式署名E2Eは[48515ebの4経路・復旧・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)を実測した。コード・試験の限定再確認に続き、結果記録と現在案内の限定確認も完了した。その後、UX／IA／UIを含む工程整備と全体の完成監査を完了し、[候補内容・移行方針の採用記録](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)へ接続した。完了したロードマップ項目は整理済みであり、main統合・Release判断は別に残る。
 
 再起動後の着手前照合で、公開済みCHG6文書にある別の13リンクは、公開当時の参照ではなく、後の移行で追加した「現在の移設先」案内だと確認した。`v0.17.0`と基準HEADの差分により由来を確認し、固定Evidenceの例外対象には含めない。対象はCHG-000001／000002／000004／000005／000007／000010。人間の明示承認を受け、この13案内の表示Pathとリンク先だけを`40_Develop/checker/`へ更新した。既存の当時の判断・検証記録は変更せず、歴史参照の検証は9リンクに限定する。
 

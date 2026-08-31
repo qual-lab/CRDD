@@ -404,7 +404,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 - 現在の機械固定では、4経路Runnerが要求入口Profile、実Executor／Reviewer、独立性、初回経路では有効な既存同意の再利用または新規同意、後続3経路では同意の完全一致再利用、Candidate破棄、全Recovery ID空、秘密・Host Path・生Provider出力の非報告およびcanonical Repository無変更を完全一致で検査する。
 - 入口Providerの実Process IdentityはRunner単独ではattestせず、要求Profileと実Executor／ReviewerのEvidenceを区別する。
 - 固定版`48515eb`の4経路4/4、Recovery Matrix 7/7、実Task取消後の通常回収は[署名済みE2E結果](../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)で確認した。実装・試験の限定再確認と、この版の結果記録の限定確認を完了した。旧`45ea2ac`の通常CLIによる実務1件は版の違いを保持する。実務有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)へ集約済みだが、比較優位は未実証である。
-- Runtime全体の最新固定版の監査指摘の是正・再確認、統合およびReleaseは未完了であり、[品質の現在状態](../07_Quality/01_Quality_Center.md)で追跡する。
+- Runtime全体の監査指摘の是正・再確認と端末追加確認を完了し、人間が候補内容と移行方針を採用した。main統合およびReleaseは未完了であり、[品質の現在状態](../07_Quality/01_Quality_Center.md)で追跡する。
 
 - 4経路実測より前の経緯として、production回復／CLI matrixの実装と旧固定版の独立確認を終え、正式署名一般Task Runnerの対話搬送、実行Identity、Release grammar、複合Recoveryおよび取消境界の機械確認と独立再レビュー／再監査を経て、固定1 Pathの`Codex Front → Claude Code Executor → Codex Independent Reviewer`成功経路を完走した。
 - 当時の他経路未確認という状態は、後続の固定版`0c3e6d2`の4経路実測より前の履歴である。

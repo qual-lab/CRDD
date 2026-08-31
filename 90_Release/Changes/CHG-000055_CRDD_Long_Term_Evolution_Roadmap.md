@@ -1,20 +1,20 @@
 # 変更トレース: CRDD長期発展方針
 
 変更ID: `CHG-000055`
-- 状態: `Reopened`
+- 状態: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25（初回）／2026-08-28（§6～§7追加、§9収載判断）／2026-08-29（Runtime終盤E2E学習、文書UXおよびHuman Decision Journey改善母集団の具体化）
 - 対象: CRDD標準自身の長期方向と能力到達点、専門性と共有境界、Discovery／Roadmap／変更トレースの責務、およびv0.18.0 Candidateへ収載した工程接続・検証／収束・根拠駆動リファクタリング・文書可読性の強化と実務有用性評価
 - 対象リリース: `v0.18.0 Candidate`
-- 変更分類: `normative`候補（現在の差分集合に対する保守的評価案。最終採用は人間の判断）
-- `migration_required`: `true`（上記候補分類に基づく移行影響評価。全利用側への一律変更ではない）
+- 変更分類: `normative`（2026-09-01に現在の差分集合の内容を人間が採用）
+- `migration_required`: `true`（方針採用済み。全利用側への一律変更ではない）
 - リリースレベル: `MINOR`候補。v0.18.0 Candidate全体の最終分類、統合またはリリースを決定しない
 
 正本規則: [文書化](../../03_Documentation.md#33-discovery-and-roadmap)、[課題探索・要求形成](../../21_Discovery.md#62-registry-scope-and-registration)、[変更](../../12_Change.md)
 
-現在の読み始め: [実務評価と最終確認への引渡し](#26-実務評価と最終確認への引渡し)を参照する。[本文の可読性再是正](#25-人間可読性の本文再是正)までの各節は採用・実装・自己適用の経緯であり、当時の停止や確認を現在の完了判定へ流用しない。Runtimeの最新実測と残件は[CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)が所有する。
+現在の読み始め: [実務評価](#26-実務評価と最終確認への引渡し)、[完成評価・追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)、[人間による候補内容・移行方針の採用](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)を参照する。v0.18へ採用済みの工程・文書改善は完了し、PRへの引渡し段階である。総合的な有用性の優位は未実証、将来能力は研究候補のまま。以下の各節は当時の経緯であり、最終採用前・停止・確認待ちを現在の判定へ流用しない。Runtimeの実測と残件は[CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)が所有する。
 
-2026-08-31、Tool開発構成を標準工程フォルダへ整理する後続意図を、既存の根拠駆動リファクタリングへ追加した。[構成・配布・利用者観点の比較候補](../../01_Discovery/01_CRDD_Product_Discovery.md#tool-development-layout-candidate)はDiscovery、対応順序は[Roadmap](../../99_Roadmap/01_Product_Roadmap.md#tool-development-layout-follow-up)が所有する。この追加を記録した時点では、ファイル移動、具体的なGit／配布方式の採用、新しいRelease収載は行っていない。その後の工程別配置移行と現在の検証状態は[CHG-000017](CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)を参照する。
+2026-08-31、Tool開発構成を標準工程フォルダへ整理する後続意図を、既存の根拠駆動リファクタリングへ追加した。[構成・配布・利用者観点の比較候補](../../01_Discovery/01_CRDD_Product_Discovery.md#tool-development-layout-candidate)はDiscoveryが所有する。この追加を記録した時点では移動・配布方式の採用は行っていなかったが、その後の工程別配置移行と検証を完了したため、対応順序の完了案内はRoadmapから除去した。経緯と現在の処置は[CHG-000017](CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)へ集約する。
 
 ## 1. 人間の判断と目的
 

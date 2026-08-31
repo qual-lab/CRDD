@@ -1,14 +1,16 @@
 # 変更トレース（Change Trace）: Communicationの市場・採用探索
 
 変更ID: `CHG-000013`
-状態（Status）: `Ready for Verification`
+状態（Status）: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
 担当責任者: Qual-Lab
-最終更新日: 2026-08-11
+最終更新日: 2026-09-01
 対象系列: v0.18.x
 対象リリース: v0.18.0 Candidate
-変更分類: breaking（候補）
-移行要否: true（候補）
+変更分類: breaking（内容採用済み）
+移行要否: true（方針採用済み）
 正本規則: [12_Change.md](../../12_Change.md)
+
+現在の採用・移行方針とPRまでの許可は[共通の人間判断](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)を参照する。以下の検証・判断の経緯は履歴として保持する。Issue #30の詳細候補は採用対象へ追加せず、未完了追跡を維持する。
 
 再採番来歴: source branch `codex/feature/v1-communication-market-discovery`のCommit `04350294ff4031af09893edf21c136cbadbb01be`では、未統合候補として`CHG-000012_Communication_Market_and_Adoption_Exploration.md`を使用していた。同じ基準Commitから分岐したCurrent Decision Set候補が`CHG-000012`を使用していたため、人間の決定権限者は統合時の有効IDをCurrent Decision Set=`CHG-000012`、Communication=`CHG-000013`と決定した。旧候補Commitと旧ファイル名は来歴参照であり、現在有効なCommunication変更IDまたは別名として使用しない。
 
