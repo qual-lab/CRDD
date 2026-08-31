@@ -17,11 +17,11 @@ Related:
 
 ## 1. 現在の未完了作業
 
-Runtime完成固定と内部Tool是正の現在の作業は、[固定147fb29の完成評価](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)を参照する。正式実測と3系統の完成評価は終了し、追加の実装必須事項は検出なし。現在はWindows Terminalの追加確認または人間による対象限定判断（WT-SCOPE-01）と、7意図の採用・分類・移行・統合判断が残る。以下の最終監査へ接続する項目はこの評価を共通の根拠とし、判定待ちを監査未実施と混同しない。担当責任者Qual-Labが必要な判断後に完了部分だけを除去する。リリースは未判定である。
+Runtime完成固定と内部Tool是正の現在の作業は、[完成評価と端末追加確認](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)を参照する。正式実測と3系統の完成評価は終了し、残ったWT-SCOPE-01も解消した。現在の対象に対する実装・検証の必須残件は検出されておらず、7意図の採用・分類・移行・統合判断が残る。以下の最終監査へ接続する項目はこの評価を共通の根拠とし、判定待ちを監査未実施と混同しない。担当責任者Qual-Labが必要な判断後に完了部分だけを除去する。リリースは未判定である。
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| Coordinator Runtime 1.0の完成固定 | —（非適用） | In Progress | [CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)、[有用性評価](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-evaluation) | [完成評価](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)で残ったWT-SCOPE-01を処置し、対象固定版の採用・PR／統合判断へ渡す。新しい実装・再署名・Provider再実行は現在の追加必須事項ではない。有用性の未測定・未実証範囲は情報源を参照する |
+| Coordinator Runtime 1.0の完成固定 | —（非適用） | In Progress | [CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)、[有用性評価](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-evaluation) | [完成評価・追加確認](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)を対象固定版の採用・PR／統合判断へ渡す。新しい実装・再署名・Provider再実行は現在の追加必須事項ではない。有用性の未測定・未実証範囲は情報源を参照する |
 | v0.18とCoordinator Runtimeの利用者向け入口整理 | Adopted | In Progress | [公開入口](../README.md)、[Runtimeの振る舞い仕様](../05_SPEC/01_Behavior_Specification.md)、[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md) | SPEC・Quality Centerへ同期した最新署名実測と、参照で追従するREADMEの限定確認は完了。全体完成評価で現在案内を確定した後に本項を除く |
 | 上流工程エージェント、課題探索対話ループおよび工程接続の強化 | Adopted | In Progress | [上流工程強化](../01_Discovery/01_CRDD_Product_Discovery.md)、[工程接続と意味網羅検証](../01_Discovery/01_CRDD_Product_Discovery.md#731-工程接続と意味網羅検証の強化候補)、[判断支援契約](../11_Skill.md#53-decision-support-contract)、[CHG-000055](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md) | 自己適用で得た是正、利用側への伝播、未確認範囲を全体Checker・対象試験とともにv0.18最終固定版の一括監査へ渡し、残る指摘を処置する |
 | Coordinator Reference Runtimeの根拠駆動リファクタリング | Adopted | In Progress | [リファクタリング候補](../01_Discovery/01_CRDD_Product_Discovery.md#732-coordinator-reference-runtimeの根拠駆動リファクタリング候補)、[CHG-000055](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md) | v0.18.0 Candidate対象の実装と実測限界（CHG-000055 §24・§26）を、最新固定候補のE2Eと一括監査で確認する。性能優位は未実証であり、具体的な将来機構と利用先は研究候補（Held）のままとする |
