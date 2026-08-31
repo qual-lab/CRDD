@@ -1,12 +1,12 @@
 # 変更トレース: v0.18内部ツール近代化と命名Baseline
 
 変更ID: `CHG-000017`
-- 状態: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
+- 状態: `Reopened`（PR #32統合後のChecker是正・独立確認完了、追加差分は統合前・未公開）
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-16
 - 最終更新日: 2026-09-01
 - 対象: CRDD公式Repositoryの`40_Develop/**`（旧`tools/**`）、配布用`template/tools/**`、工程別の設計・品質文書配置と対応する規則・ひな型・利用側
-- 対象version: v0.18.0 Candidate
+- 対象version: v0.18.0
 - 変更分類: `breaking`
 - 移行要否: `migration_required: true`
 - 関連正本: [`19_Maintenance.md#33-internal-typescript-runtime`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`19_Maintenance.md#34-essential-correction-and-compatibility-boundary`](../../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)、[内部ツール・コーディング規約](../../06_Architecture/99_Coding_Standards.md)
@@ -20,7 +20,19 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 
 現在、内部ScriptのTypeScript移行、Node.js 24系でのnative実行、Biome Warning 0 Gate、nested testを含む決定論的列挙および旧Checker Pathを残さない移行候補は成立している。2026-08-30の所有集合再固定で検出した命名違反243件も是正し、[検証義務と機械確認結果](#6-現在の検証義務)へ記録した。後続の試験一時領域と生成物探索の是正は[Release処置](#8-release処置)で追跡する。
 
-[完成評価・端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)で全検証義務の照合と必要な独立確認を終え、[人間が内容・移行方針を採用](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)した。内部ツールの配置・命名・利用者設計の現行対象は完了し、PRまで続行する。残るmain統合・Release判断と、各採用先の移行完了は別である。以下の旧固定版・再開・判断待ちは当時の履歴として保持する。
+[完成評価・端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)で全検証義務の照合と必要な独立確認を終え、[人間が内容・移行方針を採用](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)した。内部ツールの配置・命名・利用者設計の対象はPR #32へ統合した。以下の旧固定版・再開・判断待ちは当時の履歴として保持する。
+
+### 公開準備で検出したChecker誤判定の是正（2026-09-01）
+
+Stable表示への移行後、Checkerが03_Documentation本文のコード例にあるReleased Baselineを実ヘッダーへ混入した。また、現在の英日CHANGELOGに実在する「Not required for adopting projects」「採用プロジェクトでは不要」「切戻し／復旧」「既知の限界」を固定表示語の検出が認識しなかった。内容の欠落ではなく、検査対象領域と表示語の対応不足であり、本CHGを再開して是正する。
+
+冒頭の実ヘッダーだけからVersion・Status・Released Baselineを一組として取得し、本文やコード例から欠落値を補完しない。移行注記では確認した同義の表示語を認識するが、任意の自由文を意味推論して合格にしない。真の項目欠落、別リリース、引用やコード例だけの項目、Stable実ヘッダーに残るBaselineは引き続き拒否する。
+
+同じ表示解析の水平確認で、READMEの旧Status表示では太字終端を版番号へ混入し、現在のVersion表示は照合対象から漏れることも確認した。公式README冒頭の既知の両形式を照合し、版だけの表示と説明付き表示を受理する一方、実際の版不一致は拒否する。本文・コード例だけの表示や採用先プロジェクト独自のREADMEを公式版の根拠にしない。
+
+配布正本と既存契約試験を同時に更新し、全体確認・独立確認を終えるまで解消済みとしない。規範上の移行義務、機械キー、過去の根拠は変更しない。
+
+独立確認では、移行ラベルがあっても説明が空の項目を受理する不足を検出した。既知の全旧新ラベルについて説明の非空白確認と正負の回帰試験を追加し、内容の意味・十分性の推論へは拡張しない。[公開準備の検証記録](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#release-preparation-verification)で初回判定、是正、再確認を分けて追跡する。
 
 ## 2. 採用したBaseline
 

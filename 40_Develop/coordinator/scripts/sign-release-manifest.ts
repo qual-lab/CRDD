@@ -52,7 +52,7 @@ type ManifestOptions = Readonly<{
   crddCommit: string;
   crddTree: string;
   issuedAt: string;
-  expiresAt: string;
+  expiresAt: string | null;
 }>;
 
 type ManifestPreflightOptions = Omit<ManifestOptions, "passphrase">;
@@ -230,11 +230,15 @@ function assertReleaseManifestStaticOptions(options: ManifestPreflightOptions) {
   }
   if (
     !isCanonicalCrddUtcTimestamp(options.issuedAt) ||
-    !isCanonicalCrddUtcTimestamp(options.expiresAt)
+    (options.expiresAt !== null &&
+      !isCanonicalCrddUtcTimestamp(options.expiresAt))
   ) {
     throw new Error("release_manifest_time_invalid");
   }
-  if (Date.parse(options.expiresAt) <= Date.parse(options.issuedAt)) {
+  if (
+    options.expiresAt !== null &&
+    Date.parse(options.expiresAt) <= Date.parse(options.issuedAt)
+  ) {
     throw new Error("release_manifest_validity_window_invalid");
   }
 }
@@ -429,18 +433,29 @@ function parseArguments(args: readonly string[]) {
     "--issued-at",
     "--expires-at",
   ] as const;
-  if (args.length !== names.length * 2) {
-    throw new Error("release_manifest_arguments_invalid");
-  }
   const values = new Map<string, string>();
-  for (let index = 0; index < args.length; index += 2) {
+  let hasNoExpiry = false;
+  for (let index = 0; index < args.length; ) {
     const name = args[index];
+    if (name === "--no-expiry") {
+      if (hasNoExpiry) throw new Error("release_manifest_arguments_invalid");
+      hasNoExpiry = true;
+      index += 1;
+      continue;
+    }
     const value = args[index + 1];
     if (!name || !value || !names.includes(name as (typeof names)[number])) {
       throw new Error("release_manifest_arguments_invalid");
     }
     if (values.has(name)) throw new Error("release_manifest_arguments_invalid");
     values.set(name, value);
+    index += 2;
+  }
+  if (
+    hasNoExpiry === values.has("--expires-at") ||
+    values.size !== names.length - (hasNoExpiry ? 1 : 0)
+  ) {
+    throw new Error("release_manifest_arguments_invalid");
   }
   const read = (name: (typeof names)[number]) => {
     const value = values.get(name);
@@ -461,7 +476,7 @@ function parseArguments(args: readonly string[]) {
     crddCommit: read("--crdd-commit"),
     crddTree: read("--crdd-tree"),
     issuedAt: read("--issued-at"),
-    expiresAt: read("--expires-at"),
+    expiresAt: hasNoExpiry ? null : read("--expires-at"),
   });
 }
 

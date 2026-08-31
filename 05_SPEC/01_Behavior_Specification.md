@@ -8,11 +8,17 @@ Last Updated: 2026-08-31
 
 本書はCRDD参照Runtimeの入力、利用条件、結果、停止・回復、および現在の実装範囲を所有する。上位の[エージェント組織](../04_Agent_Organization.md)や人間の決定権限を再定義しない。実行手順は[作業手順](../19_Workflows/01_Coordinator_Runtime.md)、成立方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証の現在状態は[品質確認](../07_Quality/01_Quality_Center.md)へ分離する。
 
-既存の実装候補を責務別に移管した仕様であり、新しい能力の採用ではない。Local Personal一般Taskと、未接続のHardened／Provisioning候補を区別する。後者の`blocked`や未実装を前者へ一般化せず、部分実装を完成保証にもしない。現在の網羅状態は本書の各制限と[変更トレース](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)で追跡し、移管後の固定版は独立確認前である。
+既存実装を責務別に整理した仕様である。Local Personal一般Taskと、未接続のHardened／Provisioning候補を区別する。後者の`blocked`や未実装を前者へ一般化せず、部分実装を完成保証にもしない。移管対象の独立確認と内容採用は完了した。現在は正式配布物の期限なし契約を追加確認中であり、網羅状態は本書の各制限と[変更トレース](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)で追跡する。
 
-利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。これらは既存実装からの再構成候補であり、上流工程の採用・移行を遡及して承認したものではない。
+利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
 
 ## 現在できること
+
+### 正式配布物の有効期間
+
+公開版は、署名manifestのrevision 3に`expiresAt: null`を明示することで、有効期限だけを理由とする起動停止を行わない。期限付きのrevision 2／3は従来どおり期限到達時に拒否し、両版とも発行前は使えない。署名・配布Identity・実行権限を省略する設定ではなく、旧配布物の署名改変や期限の無断延長は拒否する。初期同意、操作の許可、候補、準備記録の期限は別契約のまま維持する。期限なしは永久サポートや将来の互換性保証ではない。
+
+以下の既存実装範囲と、新しい期限なし契約の検証状態は[品質状態](../07_Quality/01_Quality_Center.md)で分ける。
 
 Coordinatorは依頼を安全な候補成果物へつなぐ実行ツール、[Checker](#checker-contract)は文書を変更せず整合を検査する独立ツール、[platform-access](#platform-access-contract)はCoordinatorから利用するWindows内部部品である。以下のRuntime利用条件を、Checker単独実行の条件へ適用しない。
 

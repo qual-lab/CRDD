@@ -1,6 +1,6 @@
 # CRDD内部ツールの操作・表示
 
-状態: 既存実装から再構成した設計候補・工程移行未承認
+状態: 内容採用・PR #32でmain統合済み・公開準備中
 担当責任者: Qual-Lab
 最終更新日: 2026-08-31
 工程規則: [UI](../25_UI.md)、[UIと仕様の対応レビュー](../24_UI_Behavior_Specification.md)
@@ -114,4 +114,4 @@ Process再起動の必要性: あり
 | 支援技術・環境 | PowerShell 5.1に加えWindows Terminal 1.24.11911.0でも4入力シナリオ、日本語・長いIDの折返し・拡大表示を限定確認 | 上記追加確認で初期幅120列を観測。変更後の列数・拡大率は未取得。読み上げと全環境の対応は未評価であり、対象変更時にQual-LabのRuntime保守が再評価 |
 | 詳細設計の読み解き | SPEC・実行設計・脅威モデルの責務分離と再構成、設計文書の改名、設計・実装・試験の横断整合を完成評価で確認 | [完成評価](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)と[CHGの処置](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)で追跡。全読者の理解度を実測したとはしない |
 
-UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが[候補内容・移行方針を採用](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)し、PRへの引渡しを承認した。表示の「読めた」という観測と、その後の採用判断を区別する。全アクセシビリティ対応、Stable化、main統合またはリリースは承認・実証済みとしない。
+UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが候補内容・移行方針を採用し、PR #32でmainへ統合した。[公開準備と最終確認](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)は別に追跡する。表示の「読めた」という観測と、その後の採用判断を区別し、全アクセシビリティ対応やRelease完了を実証済みとしない。

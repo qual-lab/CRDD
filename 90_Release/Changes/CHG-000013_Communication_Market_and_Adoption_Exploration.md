@@ -1,11 +1,11 @@
 # 変更トレース（Change Trace）: Communicationの市場・採用探索
 
 変更ID: `CHG-000013`
-状態（Status）: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
+状態（Status）: `Integrated — Pending Release`（PR #32でmain統合済み・公開準備中）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 対象系列: v0.18.x
-対象リリース: v0.18.0 Candidate
+対象リリース: v0.18.0
 変更分類: breaking（内容採用済み）
 移行要否: true（方針採用済み）
 正本規則: [12_Change.md](../../12_Change.md)

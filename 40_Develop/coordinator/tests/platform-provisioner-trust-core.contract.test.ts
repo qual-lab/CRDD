@@ -9,15 +9,18 @@ import test from "node:test";
 
 import {
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-  PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+  LEGACY_PLATFORM_PROVISIONER_MANIFEST_DOMAIN as PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+  PLATFORM_PROVISIONER_MANIFEST_DOMAIN as CURRENT_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   calculatePlatformProvisionerPackageContentRootCandidate,
+  compilePlatformProvisionerManifestPayloadCandidate,
   describePlatformProvisionerTrustCoreContract,
   verifyPlatformProvisionerManifestCandidate,
   verifyHistoricalPlatformProvisionerManifestCandidate,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate, assertPresent } from "./test-support.ts";
+import { loadPlatformProvisionerManifestEnvelopeForVerification } from "../src/security/platform-provisioner-manifest-loader.ts";
 import {
   createDockerDesktopRepairOperation,
   persistDockerDesktopRepairStage,
@@ -28,6 +31,222 @@ import {
 const HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN =
   "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V1\0";
 const fixturePrivateKeys = new WeakMap<object, KeyObject>();
+
+test("共有manifestベクトルは旧期限付き・新期限付き・期限なしと署名改変を区別する", () => {
+  const lines = fs
+    .readFileSync(
+      new URL(
+        "./fixtures/release-manifest-validity-vectors.txt",
+        import.meta.url,
+      ),
+      "utf8",
+    )
+    .trim()
+    .split(/\r?\n/u);
+  assert.equal(lines.length, 3);
+  const signer = generateKeyPairSync("ed25519");
+  const spki = signer.publicKey.export({ format: "der", type: "spki" });
+  const observedPackageContent = {
+    packageName: "@qual-lab/crdd-coordinator",
+    packageVersion: "0.0.0-development",
+    files: [{ path: "package.json", byteLength: 1, sha256: "1".repeat(64) }],
+  };
+  for (const line of lines) {
+    const payload: Record<string, unknown> = JSON.parse(line);
+    const revision = payload.contractRevision;
+    const domain =
+      revision === 2
+        ? PLATFORM_PROVISIONER_MANIFEST_DOMAIN
+        : CURRENT_MANIFEST_DOMAIN;
+    const compiled = compilePlatformProvisionerManifestPayloadCandidate({
+      manifestPayload: payload,
+    });
+    assert.equal(compiled.status, "candidate");
+    if (compiled.status !== "candidate") assert.fail("shared payload rejected");
+    assert.deepEqual(compiled.message, frame(payload, domain));
+    const signatures = [
+      {
+        keyId: createHash("sha256").update(spki).digest("hex"),
+        algorithm: "Ed25519",
+        signature: sign(null, compiled.message, signer.privateKey).toString(
+          "base64url",
+        ),
+      },
+    ];
+    const envelope = {
+      contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
+      contractRevision: revision,
+      payload,
+      signatures,
+    };
+    const input = {
+      manifestEnvelope: envelope,
+      releaseSignerSpkiDer: spki,
+      observedPackageContent,
+      evaluationTime: "2026-08-15T00:00:00.000Z",
+    };
+    assert.equal(
+      verifyPlatformProvisionerManifestCandidate(input).status,
+      "candidate",
+    );
+    const root = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-validity-loader-"),
+    );
+    try {
+      fs.mkdirSync(path.join(root, "90_Release"));
+      const target = path.join(
+        root,
+        "90_Release",
+        "coordinator-package-manifest.json",
+      );
+      const canonical = canonicalizeProvisioningJsonValueCandidate(envelope);
+      assertCanonicalCandidate(canonical);
+      fs.writeFileSync(target, canonical.canonicalBytes, { flag: "wx" });
+      const loaded =
+        loadPlatformProvisionerManifestEnvelopeForVerification(root);
+      assert.equal(
+        verifyPlatformProvisionerManifestCandidate({
+          ...input,
+          manifestEnvelope: loaded.envelope,
+        }).status,
+        "candidate",
+      );
+      const changed = canonicalizeProvisioningJsonValueCandidate({
+        ...envelope,
+        payload: { ...payload, expiresAt: "2028-08-15T00:00:00.000Z" },
+      });
+      assertCanonicalCandidate(changed);
+      fs.writeFileSync(target, changed.canonicalBytes);
+      const rejected = verifyPlatformProvisionerManifestCandidate({
+        ...input,
+        manifestEnvelope:
+          loadPlatformProvisionerManifestEnvelopeForVerification(root).envelope,
+      });
+      assert.equal(rejected.status, "blocked");
+      assert.equal(rejected.runtimeAuthorityConferred, false);
+      assert.equal(rejected.runtimeCapabilityIssued, false);
+    } finally {
+      assert.equal(path.dirname(root), path.resolve(os.tmpdir()));
+      assert.equal(fs.realpathSync.native(root), root);
+      assert.equal(fs.lstatSync(root).isSymbolicLink(), false);
+      fs.rmSync(root, { recursive: true, force: true });
+      assert.equal(fs.existsSync(root), false);
+    }
+    for (const evaluationTime of [
+      "2027-08-15T00:00:00.000Z",
+      "2099-01-01T00:00:00.000Z",
+    ]) {
+      assert.equal(
+        verifyPlatformProvisionerManifestCandidate({ ...input, evaluationTime })
+          .status,
+        payload.expiresAt === null ? "candidate" : "blocked",
+      );
+    }
+    assert.equal(
+      verifyPlatformProvisionerManifestCandidate({
+        ...input,
+        evaluationTime: "2026-08-14T23:59:59.999Z",
+      }).status,
+      "blocked",
+    );
+    assert.equal(
+      verifyPlatformProvisionerManifestCandidate({
+        ...input,
+        evaluationTime: "2027-08-14T23:59:59.999Z",
+      }).status,
+      "candidate",
+    );
+    const historical = verifyHistoricalPlatformProvisionerManifestCandidate(
+      envelope,
+      spki,
+    );
+    assert.ok(historical);
+    assert.equal(historical.runtimeAuthorityConferred, false);
+    assert.equal(historical.runtimeCapabilityIssued, false);
+    const changedPayload = {
+      ...payload,
+      expiresAt: payload.expiresAt === null ? "2028-01-01T00:00:00.000Z" : null,
+    };
+    const changed = verifyPlatformProvisionerManifestCandidate({
+      ...input,
+      manifestEnvelope: { ...envelope, payload: changedPayload },
+    });
+    assert.equal(changed.status, "blocked");
+    assert.equal(changed.runtimeAuthorityConferred, false);
+    assert.equal(changed.runtimeCapabilityIssued, false);
+    assert.equal(
+      verifyHistoricalPlatformProvisionerManifestCandidate(
+        { ...envelope, payload: changedPayload },
+        spki,
+      ),
+      null,
+    );
+    const wrongDomain =
+      domain === CURRENT_MANIFEST_DOMAIN
+        ? PLATFORM_PROVISIONER_MANIFEST_DOMAIN
+        : CURRENT_MANIFEST_DOMAIN;
+    assert.equal(
+      verifyPlatformProvisionerManifestCandidate({
+        ...input,
+        manifestEnvelope: {
+          ...envelope,
+          signatures: [
+            {
+              ...signatures[0],
+              signature: sign(
+                null,
+                frame(payload, wrongDomain),
+                signer.privateKey,
+              ).toString("base64url"),
+            },
+          ],
+        },
+      }).status,
+      "blocked",
+    );
+    assert.equal(
+      verifyPlatformProvisionerManifestCandidate({
+        ...input,
+        manifestEnvelope: {
+          ...envelope,
+          contractRevision: revision === 2 ? 3 : 2,
+        },
+      }).status,
+      "blocked",
+    );
+    for (const expiresAt of [
+      undefined,
+      "null",
+      "",
+      false,
+      0,
+      "2026-08-15T00:00:00.000Z",
+    ]) {
+      assert.equal(
+        compilePlatformProvisionerManifestPayloadCandidate({
+          manifestPayload: { ...payload, expiresAt },
+        }).status,
+        "blocked",
+      );
+    }
+    const missingExpiry = { ...payload };
+    delete missingExpiry.expiresAt;
+    assert.equal(
+      compilePlatformProvisionerManifestPayloadCandidate({
+        manifestPayload: missingExpiry,
+      }).status,
+      "blocked",
+    );
+    for (const contractRevision of [1, 4, "3"]) {
+      assert.equal(
+        compilePlatformProvisionerManifestPayloadCandidate({
+          manifestPayload: { ...payload, contractRevision },
+        }).status,
+        "blocked",
+      );
+    }
+  }
+});
 
 function frame(
   payload: Record<string, unknown>,

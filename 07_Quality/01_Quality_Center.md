@@ -1,14 +1,14 @@
 # CRDD内部ツールの品質の現在状態
 
-状態: 完成評価・候補内容採用済み・PRへの引渡し・未統合／未リリース
+状態: 内容採用・PR #32でmain統合済み・公開準備中
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 
 ## 結論
 
-2026-09-01、Qual-Labが[検証済み候補の内容と移行方針](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)を採用し、完了項目整理とPR作成を承認した。以下の実装・検証結果は有効な範囲を維持する。Stable化、main統合、タグ・公開、各採用先の移行完了・有効化は今回の承認に含まない。
+2026-09-01、Qual-Labが検証済み候補の内容と移行方針を採用し、その後PR #32のmain統合、タグ・公開と正式Runtime配布物の添付を承認した。[統合Identityと公開準備計画](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)を現在の判断記録とする。以下の実測は記録された版に限る。公開準備版の新しい署名と最終確認は未実施であり、採用先の移行完了・有効化も意味しない。
 
-最新の署名固定版`48515eb`で4経路4/4、固定Workerの復旧7シナリオ、実TaskのSIGINT取消と通常回収を確認した。[対象・時刻・再識別方法・限界](Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)に記録した。固定版`147fb29`の[3系統の完成評価](Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)後に残ったWindows Terminalも、4入力シナリオと人間の表示観測を[追加確認](Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)し、独立確認で解消した。現在の対象に対する実装・検証の必須残件は検出されていない。7変更意図の内容・分類・移行方針は上記の人間判断で採用済み。現在はPRへの引渡し段階であり、main統合とリリースは未判断である。
+署名固定版`48515eb`で4経路4/4、固定Workerの復旧7シナリオ、実TaskのSIGINT取消と通常回収を確認した。[対象・時刻・再識別方法・限界](Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)に記録した。固定版`147fb29`の[3系統の完成評価](Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)後に残ったWindows Terminalも、4入力シナリオと人間の表示観測を[追加確認](Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)し、独立確認で解消した。7変更意図の内容・分類・移行方針は採用済みで、PR #32へ統合した。公開準備中に人間が追加指定した期限なしの署名契約は、別の新しい実装・検証差分として確認する。旧版の完成結果をこの未確認差分へ流用しない。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
@@ -23,7 +23,8 @@
 | UX・IA・UIと仕様の接続 | 専門確認、PowerShellとWindows Terminalの限定操作・表示確認、候補内容採用を完了 | [UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)を完成評価で照合。WT-SCOPE-01は追加確認で解消。読み上げと全環境への一般化は未評価のまま保持する |
 | 共通起動入口と限定結果保存 | 実装済み、契約・結合試験での確認対象 | 毎回の起動方法を組み立てず同じ配布物の共通入口から起動し、検証画面を閉じた後は保存された開始・結果・完了記録の一致を確認する。[実行手順](../19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)と[検証設計](03_Verification_Design.md#tool-user-experience-verification)を参照。passphrase・確認コード・Provider生出力は保存せず、開始記録だけが残る範囲は結果未確認のまま扱う。この確認だけで正式署名E2E成功や電源断耐性を主張しない |
 | 移行後の正式署名・実Provider E2E | 固定版48515ebで4経路4/4・復旧7シナリオ・実Task取消完了 | [新しい結果](Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)。4経路は再試行・是正往復なし。取消は子CLIのexit 2と測定の`verified`を分離し、通常回収・候補未発行・対象資源不存在を確認。全Provider・全取消時点の保証ではない |
-| 統合・リリース | PR作成まで承認済み。main統合・公開は未判断 | 内容採用と移行方針をPRへ引き渡す。別途統合判断、統合後Identityの必要確認、最終リリース判断を行う |
+| 公開準備の追加差分 | 開発確認と独立確認を完了。文書・Checkerの2指摘も独立再確認で解消、正式配布検証は未完了 | [新しい開発結果と独立確認](Verification_Results/2026-09-01_Coordinator_Completion_Review.md#release-preparation-verification)。Coordinator 1,588/1,588、開発E2E286/286、Checker全所有267/267、Native35成功・2 ignored。初回の制限付き実行失敗と再実行条件を分離。[期限契約](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)と[Checker是正](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#公開準備で検出したchecker誤判定の是正2026-09-01)を同じ未公開CHGで追跡する |
+| 統合・リリース | PR #32統合済み。正式配布物を含む公開準備中 | 追加差分の開発E2E・独立確認を準備ブランチで完了し、最終統合Identityと新しい配布物の署名・検証を固定して公開判断へ進む |
 
 旧署名版45ea2acの[是正1往復](../90_Release/Changes/Evidence/CHG-000015_Remediation_45ea2ac.md)と実務1件は、その版の結果として保持し4f10201で再実行したとは扱わない。旧版の実取消失敗と正規Recovery、4f10201でsignalが遅れて通常完了した先行試行、対象Claudeコンテナ1個の`running`観測後に取消と通常回収が成立した試行を分離する。Provider内部の準備完了・処理開始は別途観測していない。今回の公開結果にない`effectStateUnknown`を`false`へ補完せず、対象資源の不存在観測と未出力値を区別する。
 

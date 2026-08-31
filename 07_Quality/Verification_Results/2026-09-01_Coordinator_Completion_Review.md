@@ -1,14 +1,14 @@
 # Coordinator完成確認と未到達分岐の評価
 
-状態: 3系統の完成評価・端末追加確認と内容採用済み。未統合・未リリース
+状態: 既存候補は採用・PR #32統合済み。公開準備の追加差分を検証中・未リリース
 担当責任者: Qual-Lab
 確認日: 2026-09-01
 
 ## 結論
 
-検証完了後の2026-09-01、人間が[候補内容と移行方針を採用しPR作成を承認](../../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)した。以下の各確認時点での判断待ちは履歴として保持し、現在の採用判断は同記録を用いる。main統合、Stable化、タグ・公開は未承認である。
+検証完了後の2026-09-01、人間が[候補内容と移行方針を採用](../../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)し、その後PR #32の統合とタグ・公開を承認した。[公開準備計画](../../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)に従い、現在は期限なし配布契約とCheckerの追加差分を準備ブランチで確認している。以下の旧固定版の完成評価を追加差分へ流用せず、各確認時点での判断待ちも履歴として保持する。
 
-固定版`147fb29`の[完成評価](#completion-assessment-147fb29)を3系統で完了した。追加の実装必須事項は検出されず、アーキテクチャ／安全性と文書／不足影響／準拠はPass。試験／利用体験に残ったWindows Terminalの未確認も[追加確認](#windows-terminal-verification)で解消した。現在の対象に対する実装・検証の必須残件は検出されていない。これは人間による内容採用、工程移行、統合またはリリースの判断を代替しない。以下の初回監査と是正履歴はそのまま保持する。
+固定版`147fb29`の[完成評価](#completion-assessment-147fb29)を3系統で完了した。その版では追加の実装必須事項は検出されず、アーキテクチャ／安全性と文書／不足影響／準拠はPass。試験／利用体験に残ったWindows Terminalの未確認も[追加確認](#windows-terminal-verification)で解消した。これは公開準備の追加差分の完成や最終リリース判断を代替しない。以下の初回監査と是正履歴はそのまま保持する。
 
 固定版`98ccc9dfad3528e566c5ee7b4ff522026484e66b`を、アーキテクチャ／安全性、試験／利用体験、文書／不足影響／準拠の3系統で独立確認した。5件を是正対象へ統合し、各確認者と修正方針を照合した。コードの変更、試験追加、案内更新を実施したことだけでは、指摘解消や全体完成としない。
 
@@ -379,3 +379,67 @@ Transcriptには文字の重複、行の折返し、表示例の未収録があ�
 Darwinが実ログのHash、実行環境、4結果、使用する入出力関数、実装差分と人間の回答を独立確認し、追加確認を限定Passとした。これによりWT-SCOPE-01を解消と判定する。追加実装、再署名、再実測は不要。読み上げ、全環境・全取消時点、総合的な有用性の未実証は既存の限界として維持する。残るのは7変更意図の内容採用・分類・移行、工程移行・統合、最終リリースの人間判断であり、確認結果から自動承認しない。
 
 本記録、UI、Quality Center、ロードマップの4文書の同期差分もDarwinが限定再確認し、Pass・追加指摘0。共通Checkerは2026-08-31T17:58:51.040Z、389文書・2,741リンク・930アンカー・固定履歴24、エラー0・警告0、exit 0だった。旧条件付き評価の保持、追加確認による解消、人間の判断待ち、観測の限界が一致することを確認した。Runtimeコード、署名済み配布物、過去の実行記録は変更していない。
+
+<a id="release-preparation-verification"></a>
+
+## 公開準備の追加差分の検証
+
+基準Commitは`6a4f09d7623f49118650cbae79d6bd1c41f37a16`、Treeは`850527920cbb29704f4b189544963f68dff885e3`。準備ブランチで、期限なしmanifest revision 3、期限付きrevision 2の読取り互換、公開案内、およびCheckerの表示解析を確認する。対象の検証義務は[検証設計](../03_Verification_Design.md)を参照する。以下は開発確認であり、公式鍵、実Providerまたは実Docker操作は使用していない。
+
+### Runtimeの開発確認
+
+Windows上のNode.js `24.19.0`を絶対Pathで起動した。基準版に対する`40_Develop/coordinator`と`40_Develop/platform-access/src/bin/coordinator.rs`のGit binary diffのSHA-256は`1233bc4c96e7e09a41d96aed99a7306fc21a62ff9718cabc453846f02788c06d`。新規の共有入力`tests/fixtures/release-manifest-validity-vectors.txt`は別途SHA-256 `98fcfb319002f248c5772f27310f50dc3442efddaacd5c3926f21e690f7ee35e`で同定する。後続の文書記録変更をRuntime実行版の変更へ読み替えない。
+
+| 確認 | 結果・範囲 |
+|---|---|
+| Coordinator全試験 | 1,588/1,588、失敗・取消・skip 0、109,925.9063ms、exit 0 |
+| 開発E2E | 既存12試験ファイルの286/286、失敗・取消・skip 0、exit 0。全試験と重なる件数を加算して独立な網羅数にしない |
+| 期限契約の重点確認 | TS関連9ファイル111/111。rev2期限付き、rev3期限付き／期限なし、時刻境界、型不正、revision不一致、CLI排他指定、秘密入力前停止を確認 |
+| TS・Rustの共有入力 | TS 13/13、Rust manifest 2/2。共有する3入力で受理意味を照合 |
+| Native全試験 | fresh targetで35成功・2 ignored、失敗0。Registry Effect試験は未実施。親から起動するprobeは単独実行対象としてはignoredで、親試験内での実行は成功 |
+| 静的確認 | Coordinator production／testの型検査、Biome lint・format、Rust rustfmt・Clippyは成功 |
+| 設計対応検査 | `accepted`。資源9、状態20、遷移21、不変条件10、検証対応10。件数だけを動的観測の代用にしない |
+
+### 初回失敗と再確認の区別
+
+最初の制限付き実行では、Coordinator全試験は1,581/1,588、開発E2Eは284/286だった。失敗は実Node子Processの終了観測に集中し、`provider_cancellation_grace_exceeded`または終了未観測を返した。同じソースを通常のWindows権限で実行すると、関連結合17試験、上記全1,588試験および開発E2E286試験が成功した。試験の判定、待機上限、Runtimeコードはこの再実行のために変更していない。
+
+実行環境の制約が主要な原因候補だが、初回のOS側拒否理由そのものは取得しておらず、特定APIのアクセス拒否と断定しない。初回と再実行では複数の試験集合が一部並行したため、負荷を完全に固定した比較でもない。初回失敗を削除せず、制限付き環境でも成功したとは主張しない。
+
+以下の生ログはRepository-local `.crdd/test-tmp/`に保持する。Git管理対象ではなく、恒久記録は本節の対象・条件・結果・限界である。
+
+| ログ名 | SHA-256 |
+|---|---|
+| `release-preparation-coordinator-2026-08-31T18-30-58-029Z.log`（初回） | `877379853fdc4f4efc6730c8882b357d69046ba001ec9db9820a689c67315ca3` |
+| `release-preparation-development-2026-08-31T18-31-12-336Z.log`（初回） | `4aece41822b76d2734f0d994c191d35c1ada86f67c92f2539d9f1d0ed21a7fc3` |
+| `release-preparation-coordinator-2026-08-31T18-34-05-147Z.log`（再実行） | `f62cf3478a993161e896317369f4206a58a271c181397d2c2e4f63e2f831cb75` |
+| `release-preparation-development-2026-08-31T18-33-45-188Z.log`（再実行） | `b9dbabe5895d54f7c4f0d8c72c9e31161f2865cf07babe913492dd68e66d33db` |
+
+### Checkerの追加確認
+
+実ヘッダー、README冒頭の版表示、移行注記の表示語を対象とする31回帰例を追加した。Checker契約ファイルは232/232、197,005.6147ms、命名・試験発見の全7件は7/7、37,520.1317msで、どちらも失敗・取消・skip 0、exit 0。2試験ファイルを別々に実行し、現在の全所有試験239件を確認した。型検査・Biome lint・formatも成功した。
+
+配布正本`template/tools/crdd-check.ts`のSHA-256は`cf39857e0f5b0a52e6bb3cf3c79965cc0fa0883de0d63fe379327805adf88492`、契約試験`40_Develop/checker/crdd-check.contract.test.ts`は`b4332bbe82ae701873ebb3707510eab033a76699e962a9dd3282043eb6a2860c`。生TAP `.crdd/test-tmp/checker-header-migration-final.tap`は`cfe79eefde6483a3b4526d721296613d99d4ac8e68e0c00b5f5b71bce2b01526`。規範上の移行義務、過去CHANGELOG、履歴Evidenceを変更せず、現在の正しい表示を検査できることと、真の不一致・不足を拒否することを分けて確認した。
+
+### 追加差分の独立確認と是正
+
+基準版に対する全追跡差分のGit binary diff SHA-256 `b476ca4155880c6510028a6e7b32d3ec45fd403274d5e1b27c9e7b631725d5d9`と、上記の新規共有入力を固定して3系統へ渡した。親が実行した共通Checkerは2026-08-31T18:40:03.607Z、389文書・2,754リンク・946アンカー・履歴24件・版付き正本28件、エラー0・警告0、exit 0。Git管理外は未確認範囲であり、各確認者は同じ全体検査を重複実行していない。
+
+Russellは自身が実装していないRuntimeの期限契約を、生成・現在検証・履歴検証・Native・利用側・他の期限との分離まで照合し、限定Pass・指摘0とした。Darwinは自身が実装していないCheckerを確認したが、Wegenerの文書／不足影響／準拠確認で以下2件が検出された。全結果取得後、Darwinは説明なし項目の見逃しを認め、当初の無条件Passを当該項目未解消へ訂正した。
+
+| 指摘 | 原因・是正方針 | 保持条件 |
+|---|---|---|
+| DGI-REL-01 | CHANGELOGの恒久見出しに「準備中・予定日」が残る。英日を公開前後で成立する差分説明と公式Release参照へ変更する | 公開・最終署名済みと先取りせず、旧版の実測・移行・過去CHANGELOGは変更しない |
+| DGI-REL-02 | 移行ラベルの存在だけを確認し、説明が空でも受理する。旧新ラベルの一致後に非空白の説明があることを確認し、各ラベルの空・空白・内容ありを回帰試験にする | 説明の十分性を機械推論せず、表示語の閉集合、機械キー、移行義務を維持する |
+
+3者が統合是正方針の整合を確認してから変更を開始した。Runtimeの契約・実装は変更せず、当該限定Passを維持する。英日CHANGELOGの公開条件を時点非依存へ修正し、過去v0.17.0以下の英日本文不変を照合した。
+
+Checkerは旧新・英日・7分類ごとに28試験を追加し、それぞれ空／空白／内容ありの3入力、計84検証を行った。最終契約ファイルは260/260、213,100.8043ms、命名・試験発見は7/7、42,136.8427msで、現在の全所有267件が成功した。失敗・取消・skip 0、exit 0、型・lint・formatも成功。これは前節の239件後に行った新しい確認であり、両者を加算しない。
+
+是正後のChecker本体SHA-256は`cbce71becbd2b717b7bb9133815805e82402ff07b4329ee48ac516a81e0a7508`、契約試験は`f38281782be3756ed8f38a74a074861ce15c84ccabe927a500c68cba36921bba`、生TAP `.crdd/test-tmp/checker-migration-explanation-final.tap`は`8663243444f11a1103cb4e2801dc79064b52a794786d21229ea88288dd44da45`。
+
+是正後の全追跡差分SHA-256 `b3b3652956117af6aa4e1e8123ff854ba9e4bfa12c34e71066b07ae43e8f64f3`と同じ共有入力を固定して限定再確認した。共通Checkerは2026-08-31T18:48:50.001Z、389文書・2,755リンク・947アンカー・履歴24件・版付き正本28件、エラー0・警告0、exit 0。DarwinがE2を、WegenerがE1／E2と結果の記録を再確認し、双方Pass・追加指摘0だった。これにより2指摘を解消と判定する。本段落と現在案内の同期は結果メタデータの追記であり、確認済み実装や試験条件を変更しない。
+
+### 残る確認
+
+最終統合版の正式署名、4経路・復旧・公開Task入口および配布ZIPの確認は、本節の開発試験・独立確認とは別に完了を判定する。担当責任者はQual-Lab、追跡先は[公開準備計画](../../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)。これらが未完了の間は追加差分をRelease可能としない。

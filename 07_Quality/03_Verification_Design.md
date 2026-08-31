@@ -1,10 +1,25 @@
 # CRDD内部ツールの検証設計
 
-状態: 移行中の候補
+状態: 配置移行の検証完了・期限なし配布契約の追加検証中
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 
 ## 対象と判定
+
+### 署名配布物の期限契約
+
+TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Gateを一つの確認範囲とする。署名鍵は試験用を使い、開発検証に公式鍵やProvider送信を要求しない。
+
+| 判定対象 | 正常・準正常・異常の確認 | 保持する終了条件 |
+|---|---|---|
+| revision 2期限付き | 期限内、開始前、期限ちょうど、期限後、null拒否 | 旧V2署名byteと意味を維持 |
+| revision 3 | nullで発行後の複数日時、開始前拒否、UTC期限付きの境界 | nullの場合だけ時間上限を除く |
+| Schemaと署名 | 欠落・undefined・空文字・文字列null・不正日時・未知revision・envelope/payload不一致、期限改変、V2/V3混同 | 改変でAuthorityを発行しない |
+| 署名CLIと事前検査 | --no-expiry、--expires-at、両方・未指定・重複・不正指定 | 不正指定で秘密入力・署名・配置を発火しない |
+| TypeScript／Rust接続 | 同じ署名payloadの正常・異常ベクトルを両検証器へ渡す | canonical byte、domain、成果物結合を一致させる |
+| 既存の期限所有者 | Grant、同意、候補、準備記録の期限・取消の既存試験 | 期限なしmanifestから別の権限を延長しない |
+
+新しいNativeを含む正式配布の最終固定では、署名manifestと配布Tree・2成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。梱包後に別の新規領域へ展開して署名とIdentityを再確認する。旧48515ebの実測、物理Ctrl+C、端末表示と実務評価は対象版を維持し、変更の影響を照合せず新規版の成功へ読み替えない。
 
 対象は[仕様](../05_SPEC/01_Behavior_Specification.md)と[設計](../06_Architecture/01_Architecture.md)が所有する現行内部ツールである。今回の配置変更は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)、Runtimeの完成条件は[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)で追跡する。以下は検証義務の複製ではなく、その確認方法の対応表である。
 

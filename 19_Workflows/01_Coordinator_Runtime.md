@@ -139,6 +139,8 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 ここで`<absolute-staging-root>`は、上記Repository-local staging Rootのexact candidateでなければならない。
 
+上の例は期間限定の検証配布である。期限なしの正式配布では`--expires-at <canonical-utc>`を`--no-expiry`へ置き換える。どちらか一方だけが必須であり、未指定・両方指定・重複・不正日時は秘密入力前に停止する。新規署名はmanifest／envelope revision 3を使用し、期限なしは署名payload内の`expiresAt: null`に結合する。旧revision 2の期限を編集して延長しない。一般利用者は署名済み配布物を検証するだけで、公式鍵やpassphraseを入力しない。配布物の期限なし指定を、同意・Grant・準備記録の無期限化と混同しない。
+
 配布Identityと成果物の結合条件は[署名と内部成果物の設計](../06_Architecture/coordinator/01_Architecture.md#release-artifact-binding)に従う。手順から固定Path・検査・停止条件を変更しない。
 
 

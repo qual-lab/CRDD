@@ -1,11 +1,11 @@
 # 変更トレース: 現在の判断集合と判断支援の圧縮
 
 変更ID: `CHG-000012`
-状態: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
+状態: `Integrated — Pending Release`（PR #32でmain統合済み・公開準備中）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 対象系列: v0.18.x
-対象バージョン: v0.18.0 Candidate
+対象バージョン: v0.18.0
 変更分類: `normative`（内容採用済み）
 リリースレベル: `MINOR`（候補）
 `migration_required`: `true`（方針採用済み）

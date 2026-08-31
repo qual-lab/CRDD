@@ -1,10 +1,10 @@
 # 変更トレース: エージェント組織の文書アーキテクチャ
 
 変更ID: `CHG-000054`
-- 状態: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
+- 状態: `Integrated — Pending Release`（PR #32でmain統合済み・公開準備中）
 - 決定権限者: Qual-Lab
 - 最終更新日: 2026-09-01
-- 対象version: v0.18.0 Candidate
+- 対象version: v0.18.0
 - 変更分類: `normative`
 - 移行要否: `migration_required: true`
 - 概念正本: [`04_Agent_Organization.md`](../../04_Agent_Organization.md)

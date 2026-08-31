@@ -13,7 +13,10 @@ import {
   placeReleaseStagingManifestCandidate,
   ReleaseStagingManifestError,
 } from "../scripts/release-staging-manifest.ts";
-import { signReleaseManifest } from "../scripts/sign-release-manifest.ts";
+import {
+  signReleaseManifest,
+  preflightReleaseManifest,
+} from "../scripts/sign-release-manifest.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { createNativeBootstrapPeFixture } from "./native-bootstrap-pe-fixture.ts";
 
@@ -25,6 +28,88 @@ const releaseStagingRoot = path.join(
   ".crdd",
   "release-staging",
 );
+
+test("期限なしは明示指定だけを受け、CLIの排他違反とundefinedを秘密入力前に拒否する", () => {
+  const options = {
+    distributionRoot: repositoryRoot,
+    privateKeyPath: path.join(
+      repositoryRoot,
+      ".crdd",
+      "test-key-never-read.pem",
+    ),
+    passphrase: "test-only-never-read",
+    crddVersion: "v0.18.0",
+    releaseSequence: 1,
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
+    issuedAt: "2026-09-01T00:00:00.000Z",
+    expiresAt: null,
+  };
+  for (const operation of [signReleaseManifest, preflightReleaseManifest]) {
+    assert.throws(
+      () => Reflect.apply(operation, undefined, [options]),
+      /release_manifest_distribution_root_invalid/u,
+    );
+    assert.throws(
+      () =>
+        Reflect.apply(operation, undefined, [
+          { ...options, expiresAt: undefined },
+        ]),
+      /release_manifest_time_invalid/u,
+    );
+    const missing = { ...options };
+    Reflect.deleteProperty(missing, "expiresAt");
+    assert.throws(
+      () => Reflect.apply(operation, undefined, [missing]),
+      /release_manifest_time_invalid/u,
+    );
+  }
+  const args = [
+    path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+    "--distribution-root",
+    options.distributionRoot,
+    "--private-key",
+    options.privateKeyPath,
+    "--crdd-version",
+    options.crddVersion,
+    "--release-sequence",
+    "1",
+    "--crdd-commit",
+    options.crddCommit,
+    "--crdd-tree",
+    options.crddTree,
+    "--issued-at",
+    options.issuedAt,
+  ];
+  for (const [expiryArguments, reason] of [
+    [["--no-expiry"], "release_manifest_distribution_root_invalid"],
+    [
+      ["--expires-at", "2027-09-01T00:00:00.000Z"],
+      "release_manifest_distribution_root_invalid",
+    ],
+    [[], "release_manifest_arguments_invalid"],
+    [["--no-expiry", "--no-expiry"], "release_manifest_arguments_invalid"],
+    [
+      ["--no-expiry", "--expires-at", "2027-09-01T00:00:00.000Z"],
+      "release_manifest_arguments_invalid",
+    ],
+    [["--expires-at", "null"], "release_manifest_time_invalid"],
+    [["--no-expiry", "true"], "release_manifest_arguments_invalid"],
+  ] as const) {
+    const result = spawnSync(process.execPath, [...args, ...expiryArguments], {
+      encoding: "utf8",
+      input: "test-only-not-a-release-secret\n",
+      shell: false,
+      windowsHide: true,
+      timeout: 5_000,
+    });
+    assert.equal(result.status, 1);
+    assert.equal(result.error, undefined);
+    assert.equal(result.stdout, "");
+    assert.equal(result.stderr, `${reason}\n`);
+  }
+  assert.equal(fs.existsSync(options.privateKeyPath), false);
+});
 
 function uniqueReleaseCandidate(prefix: string) {
   fs.mkdirSync(releaseStagingRoot, { recursive: true });

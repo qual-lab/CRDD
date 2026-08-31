@@ -19,6 +19,8 @@ Status: Implementation Candidate
 
 ## 1. 保護対象
 
+正式配布manifestの期限なし指定は、[署名されたrevision 3のnull期限](01_Architecture.md#1321-配布manifestの期限付き期限なし)だけで表す。期限だけをnullへ改変する攻撃、旧署名の別revision流用、キー欠落・文字列null・発行前の利用を拒否する。期限なしでも、改変された配布物、未許可操作、期限切れのGrant／同意／準備記録は使用できない。配布物の経年だけで起動を止めない代わりに、既知脆弱性への更新・利用停止の判断は必要であり、オンライン失効や永久サポートを保証しない。
+
 - 対象Repositoryと元worktreeの内容、Git metadataおよびIdentity
 - Operation Packet、Authority Grant、Candidate RevisionおよびReview対象
 - Immutable Event Log、Projection、Leaseおよび完了判定
