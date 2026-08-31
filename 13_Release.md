@@ -2,10 +2,11 @@
 
 # CRDDリリース（Release）
 
-Version: v0.17.0
-Status: Stable
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-10
+Last Updated: 2026-08-11
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -155,7 +156,7 @@ CHANGELOGまたは同等のリリース情報が確認されている
 
 リリース単位で進捗を集約する場合は[進捗管理](15_Progress.md#7-aggregation)に従う。進捗指標を、本節のリリース準備状態の確認またはリリース判断の判定根拠にしない。集約の有無を問わない。
 
-リリース後は実際のバージョン、時刻、対象環境、結果をリリース記録と該当CHGへ反映する。失敗、ロールバック、回帰は根拠を残し、必要に応じて新しいCHG、再開、課題探索・要求形成、ロードマップへ戻す。
+リリース後は実際のバージョン、時刻、対象環境、結果をリリース記録と該当CHGへ反映する。公開後に判明した失敗、ロールバックまたは回帰は根拠を残し、元CHGを再開せず参照付きの新しいCHG、課題探索・要求形成またはロードマップへ戻す。リリース確定前の同じ変更意図だけは[変更](12_Change.md#5-状態と改訂版)に従って元CHGを`Reopened`にできる。
 
 ---
 

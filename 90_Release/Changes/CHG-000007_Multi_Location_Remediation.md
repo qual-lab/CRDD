@@ -129,7 +129,7 @@
 - `51_Document_Audit.md`と`53_Gap_Impact_Audit.md`へ、各監査が水平探索した候補と是正対象一覧の対応確認を追加した
 - `52_Conformance_Audit.md`の`AD-21`へ、複数箇所の対象列挙と処置結果の照合を追加した
 - `16_Quality_Assurance.md`へ、固定本文と固定後の根拠・現在状態の所有境界、新しい根拠の最小識別情報を追加した
-- `template/tools/crdd_check.mjs`へ任意の是正表に対する軽量確認を追加し、`tools/crdd_check.test.mjs`で正常、早期解消、阻害情報不足を回帰確認した
+- 当時の`template/tools/crdd_check.ts`へ任意の是正表に対する軽量確認を追加し、当時の`tools/crdd_check.test.ts`で正常、早期解消、阻害情報不足を回帰確認した。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)、現在の試験移設先は[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)
 - Root／Templateの`AGENTS.md`、概要、README、CHANGELOGへ同じ責務境界を反映した
 
 ## 検証結果

@@ -1,0 +1,42 @@
+{
+  "schema": "crdd-coordinator/external-send-policy/v2",
+  "enabled": false,
+  "policyId": "replace-with-project-policy-id",
+  "informationClassification": "confidential",
+  "decisionAuthority": "authenticated_local_user",
+  "candidatePersistenceAllowed": false,
+  "candidateRetentionHours": 1,
+  "candidatePhysicalDeletion": "next_safe_runtime_entry_after_expiry_or_explicit_discard",
+  "destinations": [
+    {
+      "provider": "codex",
+      "accountTenantBoundary": "selected_user_dedicated_provider_home_session",
+      "subscriptionOffering": "chatgpt_subscription_oauth",
+      "purposeOperations": [
+        "task_execution",
+        "independent_review",
+        "bounded_remediation"
+      ],
+      "retentionDeletion": "provider_terms_and_settings_apply_runtime_not_verified",
+      "secondaryUseTraining": "provider_terms_and_settings_apply_runtime_not_verified",
+      "onwardTransferSubprocessing": "provider_terms_and_settings_apply_runtime_not_verified",
+      "termsPolicyIdentity": "openai-consumer-terms-current-at-interactive-confirmation",
+      "boundaryResolution": "interactive_local_user_confirmation_required"
+    },
+    {
+      "provider": "claude",
+      "accountTenantBoundary": "selected_user_dedicated_provider_home_session",
+      "subscriptionOffering": "claude_max",
+      "purposeOperations": [
+        "task_execution",
+        "independent_review",
+        "bounded_remediation"
+      ],
+      "retentionDeletion": "provider_terms_and_settings_apply_runtime_not_verified",
+      "secondaryUseTraining": "provider_terms_and_settings_apply_runtime_not_verified",
+      "onwardTransferSubprocessing": "provider_terms_and_settings_apply_runtime_not_verified",
+      "termsPolicyIdentity": "anthropic-consumer-terms-current-at-interactive-confirmation",
+      "boundaryResolution": "interactive_local_user_confirmation_required"
+    }
+  ]
+}

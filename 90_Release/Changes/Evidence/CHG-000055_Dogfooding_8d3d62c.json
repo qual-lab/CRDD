@@ -1,0 +1,250 @@
+{
+  "repositoryCommit": "8d3d62cae091bec394fda3ebc46e940053539c07",
+  "runtimeCommit": "a619545ff7f30f3ec65efa134994abc0f825421a",
+  "releaseSequence": 2026083005,
+  "runs": [
+    {
+      "task": "upstream",
+      "request": {
+        "frontProvider": "codex",
+        "requestedExecutorProvider": "auto",
+        "workClass": "bounded_verification",
+        "planState": "complete",
+        "risk": "low",
+        "difficulty": "medium",
+        "decisionImpact": "limited",
+        "isLocalCandidateOnly": true,
+        "hasUnresolvedDirection": false,
+        "requiresCrossContextAlignment": false,
+        "objective": "既存の実務自己適用記録を事例に、課題探索・UX・IA・UI/Graphic・人間判断の既存規則を実際に適用した日本語の短い検証成果物を作る。新しい規則・機能を作らない。Readは必要節に限定する。21の3.3-3.6、22の3.2-3.4、23の3.3、25の専門探索と視覚方針の節、11の5.3をGrepで特定し必要範囲だけ読む。全文読込を繰り返さない。",
+        "acceptanceCriteria": [
+          "成果物は90_Release/Changes/Evidence/CHG-000055_Dogfooding_upstream_8d3d62c.mdだけ。既存正本を編集せず、120行以内の日本語で結論、事例適用、指摘候補、未検証範囲、次の処置を記録する。",
+          "実測された利用者の再承認負荷とTask停止だけを事実とし、Why・Problem・Desired Outcome・AI仮説・確認不足・反証・次の問いを区別する。人間の新しい回答や採用を捏造しない。",
+          "同じ事例をUXの体験代替、IAの情報責務、UIの状態/操作、Graphicの視覚方針へTraceする。画像や実画面を作っていないなら視覚品質は未検証と明記し、無理な画像制作や一般化をしない。",
+          "判断不要、既存承認再利用、情報不足、範囲拡大、リスク受容、保留の6ケースを、入力・期待処置・規則上の根拠・実測か机上適用か・未検証点の表で評価する。",
+          "不足候補がある場合は規則不足か実行不足かを分離し、原因候補、正しい状態、修正箇所と具体案、保持条件、確認方法、確信度を記す。根拠が足りない候補を確定不具合にしない。",
+          "Task出力の自己申告と実測Evidenceを分ける。独立レビューを経てもCRDD全体監査のPassや新規範採用を主張しない。"
+        ],
+        "allowedPaths": [
+          "90_Release/Changes/Evidence/CHG-000055_Dogfooding_upstream_8d3d62c.md"
+        ],
+        "readPaths": [
+          "21_Discovery.md",
+          "22_UX.md",
+          "23_IA.md",
+          "25_UI.md",
+          "11_Skill.md",
+          "90_Release/Changes/Evidence/CHG-000015_Readme_Dogfooding_00db0fc.md"
+        ]
+      },
+      "result": {
+        "command": "task",
+        "status": "blocked",
+        "reason": "provider_turn_limit_exceeded",
+        "cleanupConfirmed": true,
+        "manualRecoveryRequired": false,
+        "hostRecoveryId": null,
+        "dockerRecoveryId": null,
+        "dockerRecoveryIds": [],
+        "candidateRecoveryId": null,
+        "candidateStoreRecoveryId": null,
+        "executorProvider": null,
+        "reviewerProvider": null,
+        "executorSelectionNotice": null,
+        "reviewerSelectionNotice": null,
+        "candidateRevision": null,
+        "candidateId": null,
+        "executorResult": null,
+        "reviewerResult": null,
+        "canonicalRepositoryChanged": false,
+        "rawOutputReported": false,
+        "hostPathReported": false,
+        "untrustedProviderTextReported": false,
+        "credentialAbsenceVerified": false,
+        "externalSendAuthorizationMode": "reused_initial_consent",
+        "candidateDisposition": "not_issued",
+        "processRestartRequired": false
+      },
+      "timing": {
+        "task": "upstream",
+        "startedAt": "2026-08-30T02:34:51.786Z",
+        "endedAt": "2026-08-30T02:38:55.102Z",
+        "elapsedMs": 243328,
+        "exitCode": 2,
+        "signal": null,
+        "launchError": null,
+        "inputError": null,
+        "requestHash": "696d90b6d2d7f4b479143c91516a0facefc9e8e3927dd9170caf8cb49023d603"
+      },
+      "selectionLog": "[Coordinator selection] {\"event\":\"coordinator_selection_before_provider_effect\",\"taskRole\":\"executor\",\"provider\":\"codex\",\"model\":\"gpt-5.5\",\"effort\":\"medium\",\"speedMode\":\"normal\",\"selectionReason\":\"[委譲経路選定] front=codex executor=codex route=front_codex__executor_codex\\n経路選定理由=user_executor_constraint_satisfied,same_provider_user_constraint,work_class_bounded_verification\\n[委譲選定] provider=codex role=executor family=sol effort=medium speed=normal\\n選定理由=bounded_work_requires_limited_reasoning\\n高コスト選択=no\\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\\n実効モデル=gpt-5.5\\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime\",\"inputBasis\":\"caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight\",\"callerDeclaredAttributes\":[\"workClass\",\"planState\",\"risk\",\"difficulty\",\"decisionImpact\"],\"highCostSelectionAllowed\":false}\n[Coordinator selection] {\"event\":\"coordinator_selection_before_provider_effect\",\"taskRole\":\"reviewer\",\"provider\":\"claude\",\"model\":\"opus\",\"effort\":\"medium\",\"speedMode\":\"normal\",\"selectionReason\":\"[委譲経路選定] front=codex executor=claude route=front_codex__executor_claude\\n経路選定理由=user_executor_constraint_satisfied,independent_provider_required,work_class_bounded_verification\\n[委譲選定] provider=claude role=independent_reviewer family=opus effort=medium speed=normal\\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\\n高コスト選択=no\\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\\n実効モデル=opus\\n互換性選定理由=none\",\"inputBasis\":\"caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight\",\"callerDeclaredAttributes\":[\"workClass\",\"planState\",\"risk\",\"difficulty\",\"decisionImpact\"],\"highCostSelectionAllowed\":false}\n",
+      "sourceHashes": {
+        "request": "696d90b6d2d7f4b479143c91516a0facefc9e8e3927dd9170caf8cb49023d603",
+        "result": "09c2c451fe983dfe9187b196eb401bc692f42ad2cffb9bf9c2d6df38940c3b1d",
+        "timing": "28229b63e64ca9cb8db718c56e60064d40735a81e0d50535fd017c2878254f45",
+        "selection": "782d73313faf10585fb82df2270f234a4e23907869e7b64e718f68311d35166e"
+      }
+    },
+    {
+      "task": "engineering",
+      "request": {
+        "frontProvider": "codex",
+        "requestedExecutorProvider": "auto",
+        "workClass": "bounded_verification",
+        "planState": "complete",
+        "risk": "low",
+        "difficulty": "medium",
+        "decisionImpact": "limited",
+        "isLocalCandidateOnly": true,
+        "hasUnresolvedDirection": false,
+        "requiresCrossContextAlignment": false,
+        "objective": "既存の2種類の実測Evidenceを、振る舞い仕様・Architecture・Verificationの既存規則へ適用した日本語の限定検証成果物を作る。26の工程実行契約、27の2.4、29の2.3、Runtime Architectureの主シーケンスと結果公開/Recovery節だけを必要範囲で読む。実装を読んだ/試験したと偽らず、Evidenceで実測された範囲と設計要求を照合する。",
+        "acceptanceCriteria": [
+          "成果物は90_Release/Changes/Evidence/CHG-000055_Dogfooding_engineering_8d3d62c.mdだけ。既存正本を編集せず、120行以内の日本語で結論、事例適用、指摘候補、未検証範囲、次の処置を記録する。",
+          "正常完了、回収済み上限停止、cleanup不明、親Process喪失、候補反映/破棄、同意再利用の6ケースについて、設計状態・資源/Authority・producer/consumer・検証根拠・終了後条件・未接続を表にする。",
+          "実Provider正常経路と固定Worker異常経路を区別する。absent/null/unknownを推測変換しない。未知状態を0へ補正しない。",
+          "設計・コード・テストの対応がこの読取り範囲で確定できない項目は未確認とし、確認すべき実装symbol/テストの探索方針を示す。ファイル存在や件数だけで網羅Passにしない。",
+          "今回の学びからRuntimeの責務分離/リファクタリングが必要かを、既存境界・具体的重複の根拠・代替・変更リスクで評価する。MCP/Linux/新しい汎用台帳の実装を提案の既定にしない。",
+          "Task出力の自己申告と実測Evidenceを分ける。独立レビューを経てもCRDD全体監査のPassや新規範採用を主張しない。"
+        ],
+        "allowedPaths": [
+          "90_Release/Changes/Evidence/CHG-000055_Dogfooding_engineering_8d3d62c.md"
+        ],
+        "readPaths": [
+          "26_Behavior_Specification.md",
+          "27_Architecture.md",
+          "29_Verification.md",
+          "tools/coordinator/architecture/README.md",
+          "90_Release/Changes/Evidence/CHG-000015_Signed_E2E_a619545.md",
+          "90_Release/Changes/Evidence/CHG-000015_Readme_Dogfooding_00db0fc.md"
+        ]
+      },
+      "result": {
+        "command": "task",
+        "status": "blocked",
+        "reason": "provider_task_result_envelope_invalid",
+        "cleanupConfirmed": true,
+        "manualRecoveryRequired": false,
+        "hostRecoveryId": null,
+        "dockerRecoveryId": null,
+        "dockerRecoveryIds": [],
+        "candidateRecoveryId": null,
+        "candidateStoreRecoveryId": null,
+        "executorProvider": null,
+        "reviewerProvider": null,
+        "executorSelectionNotice": null,
+        "reviewerSelectionNotice": null,
+        "candidateRevision": null,
+        "candidateId": null,
+        "executorResult": null,
+        "reviewerResult": null,
+        "canonicalRepositoryChanged": false,
+        "rawOutputReported": false,
+        "hostPathReported": false,
+        "untrustedProviderTextReported": false,
+        "credentialAbsenceVerified": false,
+        "externalSendAuthorizationMode": "reused_initial_consent",
+        "candidateDisposition": "not_issued",
+        "processRestartRequired": false
+      },
+      "timing": {
+        "task": "engineering",
+        "startedAt": "2026-08-30T02:38:55.218Z",
+        "endedAt": "2026-08-30T02:42:56.299Z",
+        "elapsedMs": 241093,
+        "exitCode": 2,
+        "signal": null,
+        "launchError": null,
+        "inputError": null,
+        "requestHash": "b989ec63fa8b55a97c9c99f431295848f34f2deb70aa320e8379fb64692fdb81"
+      },
+      "selectionLog": "[Coordinator selection] {\"event\":\"coordinator_selection_before_provider_effect\",\"taskRole\":\"executor\",\"provider\":\"codex\",\"model\":\"gpt-5.5\",\"effort\":\"medium\",\"speedMode\":\"normal\",\"selectionReason\":\"[委譲経路選定] front=codex executor=codex route=front_codex__executor_codex\\n経路選定理由=user_executor_constraint_satisfied,same_provider_user_constraint,work_class_bounded_verification\\n[委譲選定] provider=codex role=executor family=sol effort=medium speed=normal\\n選定理由=bounded_work_requires_limited_reasoning\\n高コスト選択=no\\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\\n実効モデル=gpt-5.5\\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime\",\"inputBasis\":\"caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight\",\"callerDeclaredAttributes\":[\"workClass\",\"planState\",\"risk\",\"difficulty\",\"decisionImpact\"],\"highCostSelectionAllowed\":false}\n[Coordinator selection] {\"event\":\"coordinator_selection_before_provider_effect\",\"taskRole\":\"reviewer\",\"provider\":\"claude\",\"model\":\"opus\",\"effort\":\"medium\",\"speedMode\":\"normal\",\"selectionReason\":\"[委譲経路選定] front=codex executor=claude route=front_codex__executor_claude\\n経路選定理由=user_executor_constraint_satisfied,independent_provider_required,work_class_bounded_verification\\n[委譲選定] provider=claude role=independent_reviewer family=opus effort=medium speed=normal\\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\\n高コスト選択=no\\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\\n実効モデル=opus\\n互換性選定理由=none\",\"inputBasis\":\"caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight\",\"callerDeclaredAttributes\":[\"workClass\",\"planState\",\"risk\",\"difficulty\",\"decisionImpact\"],\"highCostSelectionAllowed\":false}\n",
+      "sourceHashes": {
+        "request": "b989ec63fa8b55a97c9c99f431295848f34f2deb70aa320e8379fb64692fdb81",
+        "result": "5309bbaa77e959d6c482c452e234b9db62c4a4901f38268ca720191a71f027d7",
+        "timing": "dcc79615fd787cd25a9937d58caccfbdf7b19ad81096a9ea9f0cf9caef2c02a4",
+        "selection": "782d73313faf10585fb82df2270f234a4e23907869e7b64e718f68311d35166e"
+      }
+    },
+    {
+      "task": "readability",
+      "request": {
+        "frontProvider": "codex",
+        "requestedExecutorProvider": "auto",
+        "workClass": "bounded_verification",
+        "planState": "complete",
+        "risk": "low",
+        "difficulty": "medium",
+        "decisionImpact": "limited",
+        "isLocalCandidateOnly": true,
+        "hasUnresolvedDirection": false,
+        "requiresCrossContextAlignment": false,
+        "objective": "採用者向け入口、Runtime利用者向け入口、開発詳細、現在CHG、旧CHGの復元経路を、既存Documentationの可読性規則に照合した限定検証成果物を作る。03の4.8.1、root README冒頭、Runtime README冒頭、CHG000015の1章、CHG000055の15-16章、変更台帳の読者向け入口だけを読む。大きな文書の全文読込を繰り返さない。",
+        "acceptanceCriteria": [
+          "成果物は90_Release/Changes/Evidence/CHG-000055_Dogfooding_readability_8d3d62c.mdだけ。既存正本を編集せず、120行以内の日本語で結論、事例適用、指摘候補、未検証範囲、次の処置を記録する。",
+          "各読者が現在できること/未完了/次の行動/根拠へ到達する経路を示し、リンク・責務・現在と履歴の混同を検査する。",
+          "過去CHGも対象に含め、台帳から廃止IDを復元する読者の経路を1件具体化する。ただし未投影の履歴本文を読んだとは主張しない。旧IDや固定Evidenceを書き換えない。",
+          "見つかった不足は対象箇所と現在の表現を特定し、最小修正案・意味保持条件・検証方法を示す。文字数の削減や表の数だけで品質向上を判定しない。",
+          "人間の初見理解度や現在地把握時間は実測していないと明記し、AIの机上確認と区別する。新しい文書/用語/承認工程を安易に増やさない。",
+          "Task出力の自己申告と実測Evidenceを分ける。独立レビューを経てもCRDD全体監査のPassや新規範採用を主張しない。"
+        ],
+        "allowedPaths": [
+          "90_Release/Changes/Evidence/CHG-000055_Dogfooding_readability_8d3d62c.md"
+        ],
+        "readPaths": [
+          "03_Documentation.md",
+          "90_Release/Changes/README.md",
+          "90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md",
+          "90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md",
+          "README.md",
+          "tools/coordinator/README.md"
+        ]
+      },
+      "result": {
+        "command": "task",
+        "status": "blocked",
+        "reason": "provider_turn_limit_exceeded",
+        "cleanupConfirmed": true,
+        "manualRecoveryRequired": false,
+        "hostRecoveryId": null,
+        "dockerRecoveryId": null,
+        "dockerRecoveryIds": [],
+        "candidateRecoveryId": null,
+        "candidateStoreRecoveryId": null,
+        "executorProvider": null,
+        "reviewerProvider": null,
+        "executorSelectionNotice": null,
+        "reviewerSelectionNotice": null,
+        "candidateRevision": null,
+        "candidateId": null,
+        "executorResult": null,
+        "reviewerResult": null,
+        "canonicalRepositoryChanged": false,
+        "rawOutputReported": false,
+        "hostPathReported": false,
+        "untrustedProviderTextReported": false,
+        "credentialAbsenceVerified": false,
+        "externalSendAuthorizationMode": "reused_initial_consent",
+        "candidateDisposition": "not_issued",
+        "processRestartRequired": false
+      },
+      "timing": {
+        "task": "readability",
+        "startedAt": "2026-08-30T02:42:56.432Z",
+        "endedAt": "2026-08-30T02:46:04.912Z",
+        "elapsedMs": 188489,
+        "exitCode": 2,
+        "signal": null,
+        "launchError": null,
+        "inputError": null,
+        "requestHash": "c0e90767d975564b74568b0b765e88ded14ea8c63a921399dcb6d8b0e52cc92c"
+      },
+      "selectionLog": "[Coordinator selection] {\"event\":\"coordinator_selection_before_provider_effect\",\"taskRole\":\"executor\",\"provider\":\"codex\",\"model\":\"gpt-5.5\",\"effort\":\"medium\",\"speedMode\":\"normal\",\"selectionReason\":\"[委譲経路選定] front=codex executor=codex route=front_codex__executor_codex\\n経路選定理由=user_executor_constraint_satisfied,same_provider_user_constraint,work_class_bounded_verification\\n[委譲選定] provider=codex role=executor family=sol effort=medium speed=normal\\n選定理由=bounded_work_requires_limited_reasoning\\n高コスト選択=no\\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\\n実効モデル=gpt-5.5\\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime\",\"inputBasis\":\"caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight\",\"callerDeclaredAttributes\":[\"workClass\",\"planState\",\"risk\",\"difficulty\",\"decisionImpact\"],\"highCostSelectionAllowed\":false}\n[Coordinator selection] {\"event\":\"coordinator_selection_before_provider_effect\",\"taskRole\":\"reviewer\",\"provider\":\"claude\",\"model\":\"opus\",\"effort\":\"medium\",\"speedMode\":\"normal\",\"selectionReason\":\"[委譲経路選定] front=codex executor=claude route=front_codex__executor_claude\\n経路選定理由=user_executor_constraint_satisfied,independent_provider_required,work_class_bounded_verification\\n[委譲選定] provider=claude role=independent_reviewer family=opus effort=medium speed=normal\\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\\n高コスト選択=no\\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\\n実効モデル=opus\\n互換性選定理由=none\",\"inputBasis\":\"caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight\",\"callerDeclaredAttributes\":[\"workClass\",\"planState\",\"risk\",\"difficulty\",\"decisionImpact\"],\"highCostSelectionAllowed\":false}\n",
+      "sourceHashes": {
+        "request": "c0e90767d975564b74568b0b765e88ded14ea8c63a921399dcb6d8b0e52cc92c",
+        "result": "09c2c451fe983dfe9187b196eb401bc692f42ad2cffb9bf9c2d6df38940c3b1d",
+        "timing": "60c8bce6de1b85967dac3869266bd13df3f493f1aa25856df4fcdc06e86b382b",
+        "selection": "782d73313faf10585fb82df2270f234a4e23907869e7b64e718f68311d35166e"
+      }
+    }
+  ]
+}

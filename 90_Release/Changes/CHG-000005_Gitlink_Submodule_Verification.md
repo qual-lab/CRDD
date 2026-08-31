@@ -27,9 +27,9 @@ CRDDをサブモジュールとして採用するプロジェクトから、正�
 
 直接変更する成果物:
 
-- [`template/tools/crdd_check.mjs`](../../template/tools/crdd_check.mjs)
-- [`tools/crdd_check.test.mjs`](../../tools/crdd_check.test.mjs)
-- [`tools/crdd_check_fault_injector.cjs`](../../tools/crdd_check_fault_injector.cjs)
+- 当時の`template/tools/crdd_check.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)
+- 当時の`tools/crdd_check.test.ts`。現在の移設先は[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)
+- 当時の`tools/crdd_check_fault_injector.ts`。現在の移設先は[`40_Develop/checker/fault-injector.ts`](../../40_Develop/checker/fault-injector.ts)
 - [`README.md`](../../README.md)
 - [`CHANGELOG.md`](../../CHANGELOG.md)
 - 公開版を示す24正本文書のVersion／Last Updatedヘッダー
@@ -111,9 +111,9 @@ head_matches_gitlink
 
 ## 実装の参照
 
-- 判定実装: [`template/tools/crdd_check.mjs`](../../template/tools/crdd_check.mjs)
-- 回帰試験: [`tools/crdd_check.test.mjs`](../../tools/crdd_check.test.mjs)
-- 異常注入: [`tools/crdd_check_fault_injector.cjs`](../../tools/crdd_check_fault_injector.cjs)
+- 判定実装（当時）: `template/tools/crdd_check.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)
+- 回帰試験（当時）: `tools/crdd_check.test.ts`。現在の移設先は[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)
+- 異常注入（当時）: `tools/crdd_check_fault_injector.ts`。現在の移設先は[`40_Develop/checker/fault-injector.ts`](../../40_Develop/checker/fault-injector.ts)
 
 ## 検証
 

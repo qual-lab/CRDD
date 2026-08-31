@@ -1,0 +1,302 @@
+{
+  "contract": "crdd-coordinator/development-provider-comparison-evidence",
+  "contractRevision": 1,
+  "measuredDate": "2026-08-31",
+  "repository": "qual-lab/CRDD",
+  "objectFormat": "sha1",
+  "sourceCommit": "c95eb912f09c374cd1d5af21a334eb691bdccd2a",
+  "sourceTree": "10786bf7e3ac1b0f02b2d57a012c5f33bc889bd8",
+  "sourcePackageContentRootSha256": "8d4d928ece8b21484e5d9508d28b5f860847366c2452c20856b7c67d2e574f6e",
+  "nativeRelease": {
+    "manifestHash": "23f917aa8b586b432e3d30051db803f0f80222f3f50c4af3de48e25bc7a884fe",
+    "releaseSequence": 2026083005,
+    "crddVersion": "v0.18.0",
+    "crddCommit": "a619545ff7f30f3ec65efa134994abc0f825421a",
+    "crddTree": "d8355a489af6362b43b4d0052669dd785e613ece",
+    "packageContentRootSha256": "90378e84679d51236d64239e1017782de2b5b033d3ed9fdb96fee2561eadf022"
+  },
+  "nodeVersion": "24.19.0",
+  "runtimeEntry": "tools/coordinator/scripts/measure-development-providers.ts",
+  "inputSha256": "eb63de860718a3d8beb3d0c566e8ae98642b2002ee7956608710dfaef5dd44a0",
+  "originalResultSha256": "edacef2d9d32c5638ff331bcb7cdb0301d99608cabe7f9d3bc4e8cc1d6a41ae5",
+  "originalResultFile": ".crdd/dogfooding/development-measurement-result-1788103909338-54360.json",
+  "tasks": [
+    {
+      "frontProvider": "claude",
+      "requestedExecutorProvider": "codex",
+      "objective": "比較用の隔離候補で tools/coordinator/runtime/general-task-verification.txt の内容を置き換える。tools/coding-standards.md の 3.1 に基づき、保存先の規則を日本語の短い箇条書き3項目で要約する。見出しや前置きは付けない。他のファイルは変更しない。",
+      "acceptanceCriteria": [
+        "変更ファイルは tools/coordinator/runtime/general-task-verification.txt だけである。",
+        "UTF-8の日本語の箇条書きが3項目あり、Repository Root直下の.crdd、Git管理からの既定除外、別Rootへの書込みには事前許可が必要という3点を過不足なく表す。",
+        "保存境界の規則を変更・緩和せず、不要な新しい用語や見出しを追加しない。"
+      ],
+      "allowedPaths": [
+        "tools/coordinator/runtime/general-task-verification.txt"
+      ],
+      "readPaths": [
+        "tools/coding-standards.md",
+        "tools/coordinator/runtime/general-task-verification.txt"
+      ],
+      "workClass": "bounded_implementation",
+      "planState": "complete",
+      "risk": "low",
+      "difficulty": "low",
+      "decisionImpact": "limited",
+      "isLocalCandidateOnly": true,
+      "hasUnresolvedDirection": false,
+      "requiresCrossContextAlignment": false
+    },
+    {
+      "frontProvider": "codex",
+      "requestedExecutorProvider": "claude",
+      "objective": "比較用の隔離候補で tools/coordinator/runtime/general-task-verification.txt の内容を置き換える。tools/coding-standards.md の 3.1 に基づき、保存先の規則を日本語の短い箇条書き3項目で要約する。見出しや前置きは付けない。他のファイルは変更しない。",
+      "acceptanceCriteria": [
+        "変更ファイルは tools/coordinator/runtime/general-task-verification.txt だけである。",
+        "UTF-8の日本語の箇条書きが3項目あり、Repository Root直下の.crdd、Git管理からの既定除外、別Rootへの書込みには事前許可が必要という3点を過不足なく表す。",
+        "保存境界の規則を変更・緩和せず、不要な新しい用語や見出しを追加しない。"
+      ],
+      "allowedPaths": [
+        "tools/coordinator/runtime/general-task-verification.txt"
+      ],
+      "readPaths": [
+        "tools/coding-standards.md",
+        "tools/coordinator/runtime/general-task-verification.txt"
+      ],
+      "workClass": "bounded_implementation",
+      "planState": "complete",
+      "risk": "low",
+      "difficulty": "low",
+      "decisionImpact": "limited",
+      "isLocalCandidateOnly": true,
+      "hasUnresolvedDirection": false,
+      "requiresCrossContextAlignment": false
+    }
+  ],
+  "result": {
+    "contract": "crdd-coordinator/development-provider-measurement",
+    "contractRevision": 1,
+    "status": "completed",
+    "reason": "measurement_completed",
+    "executionSourceKind": "fixed_development_candidate",
+    "releaseAuthorityConferred": false,
+    "completedCount": 2,
+    "results": [
+      {
+        "executorProvider": "codex",
+        "elapsedMs": 448841.0592,
+        "result": {
+          "status": "completed",
+          "executionSourceKind": "fixed_development_candidate",
+          "releaseAuthorityConferred": false,
+          "taskResult": {
+            "status": "completed",
+            "reason": "coordinator_task_candidate_approved",
+            "cleanupConfirmed": true,
+            "manualRecoveryRequired": false,
+            "hostRecoveryId": null,
+            "dockerRecoveryId": null,
+            "dockerRecoveryIds": [],
+            "executorProvider": "codex",
+            "reviewerProvider": "claude",
+            "reviewerIndependence": "provider_independent",
+            "externalSendAuthorizationMode": "reused_initial_consent",
+            "executorSelectionNotice": "[委譲経路選定] front=claude executor=codex route=front_claude__executor_codex\n経路選定理由=user_executor_constraint_satisfied,cross_provider_route_selected,work_class_bounded_implementation\n[委譲選定] provider=codex role=executor family=sol effort=low speed=normal\n選定理由=complete_bounded_local_plan\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=gpt-5.5\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
+            "reviewerSelectionNotice": "[委譲経路選定] front=claude executor=claude route=front_claude__executor_claude\n経路選定理由=independent_provider_required,independent_provider_required,work_class_bounded_verification\n[委譲選定] provider=claude role=independent_reviewer family=opus effort=medium speed=normal\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=opus\n互換性選定理由=none",
+            "remediationPerformed": false,
+            "candidateRevision": {
+              "baseCommit": "c95eb912f09c374cd1d5af21a334eb691bdccd2a",
+              "baseTree": "10786bf7e3ac1b0f02b2d57a012c5f33bc889bd8",
+              "patchHash": "ea8b7d75d0967db0bc2b420be9a1b682a404643043dd0370608747e59f3c1476",
+              "contentManifestHash": "a426e3d6b65e1738e36e7165ecb17060c460548b93f39644356b81898094a656",
+              "allowedPathsHash": "c8ea18a86833d21f0e75fcc9f01cba9180f3d4c24bd23836a65080ef7be355cd",
+              "changedPaths": [
+                "tools/coordinator/runtime/general-task-verification.txt"
+              ]
+            },
+            "candidateId": "candidate.65d8f0cf8dd7da70d193af9cba390f8dfb7fd935f94b4b314a147ec7346f381d.9ef21886b9bb8d0cdfae6601d903998a311fed5d65ceb7f61cab06c6d3411788",
+            "candidateRecoveryId": null,
+            "candidateStoreRecoveryId": null,
+            "executorResult": {
+              "status": "completed",
+              "changedPaths": [
+                "tools/coordinator/runtime/general-task-verification.txt"
+              ],
+              "verificationCount": 1
+            },
+            "reviewerResult": {
+              "decision": "approved",
+              "findingCount": 0
+            },
+            "canonicalRepositoryChanged": false,
+            "rawOutputReported": false,
+            "hostPathReported": false,
+            "untrustedProviderTextReported": false,
+            "credentialAbsenceVerified": false,
+            "expiresAtMs": 1788189793760,
+            "processRestartRequired": false
+          },
+          "candidateDiscard": {
+            "status": "discarded"
+          },
+          "cleanupConfirmed": true,
+          "manualRecoveryRequired": false
+        }
+      },
+      {
+        "executorProvider": "claude",
+        "elapsedMs": 451244.4714,
+        "result": {
+          "status": "completed",
+          "executionSourceKind": "fixed_development_candidate",
+          "releaseAuthorityConferred": false,
+          "taskResult": {
+            "status": "completed",
+            "reason": "coordinator_task_candidate_approved",
+            "cleanupConfirmed": true,
+            "manualRecoveryRequired": false,
+            "hostRecoveryId": null,
+            "dockerRecoveryId": null,
+            "dockerRecoveryIds": [],
+            "executorProvider": "claude",
+            "reviewerProvider": "codex",
+            "reviewerIndependence": "provider_independent",
+            "externalSendAuthorizationMode": "reused_initial_consent",
+            "executorSelectionNotice": "[委譲経路選定] front=codex executor=claude route=front_codex__executor_claude\n経路選定理由=user_executor_constraint_satisfied,cross_provider_route_selected,work_class_bounded_implementation\n[委譲選定] provider=claude role=executor family=opus effort=low speed=normal\n選定理由=complete_bounded_local_plan\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=opus\n互換性選定理由=none",
+            "reviewerSelectionNotice": "[委譲経路選定] front=codex executor=codex route=front_codex__executor_codex\n経路選定理由=independent_provider_required,independent_provider_required,work_class_bounded_verification\n[委譲選定] provider=codex role=independent_reviewer family=sol effort=medium speed=normal\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=gpt-5.5\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
+            "remediationPerformed": false,
+            "candidateRevision": {
+              "baseCommit": "c95eb912f09c374cd1d5af21a334eb691bdccd2a",
+              "baseTree": "10786bf7e3ac1b0f02b2d57a012c5f33bc889bd8",
+              "patchHash": "3afddb7702a4f3574d61036b15f838d3c79e3d0b2f1f9083208dee48a20d6f0e",
+              "contentManifestHash": "83f585d5f9c49a85c6b91870a0ba9d6aa9c56c364fe2f1d304de7101007d3f6f",
+              "allowedPathsHash": "c8ea18a86833d21f0e75fcc9f01cba9180f3d4c24bd23836a65080ef7be355cd",
+              "changedPaths": [
+                "tools/coordinator/runtime/general-task-verification.txt"
+              ]
+            },
+            "candidateId": "candidate.5d4da018725afa422b887dddd981231d82e14cb91761bdbdac12dc595b8b940d.2c76935344afc427668e35a53396fe7866db3cb0039c273133fbb2a8b7e47624",
+            "candidateRecoveryId": null,
+            "candidateStoreRecoveryId": null,
+            "executorResult": {
+              "status": "completed",
+              "changedPaths": [
+                "tools/coordinator/runtime/general-task-verification.txt"
+              ],
+              "verificationCount": 2
+            },
+            "reviewerResult": {
+              "decision": "approved",
+              "findingCount": 0
+            },
+            "canonicalRepositoryChanged": false,
+            "rawOutputReported": false,
+            "hostPathReported": false,
+            "untrustedProviderTextReported": false,
+            "credentialAbsenceVerified": false,
+            "expiresAtMs": 1788190242171,
+            "processRestartRequired": false
+          },
+          "candidateDiscard": {
+            "status": "discarded"
+          },
+          "cleanupConfirmed": true,
+          "manualRecoveryRequired": false
+        }
+      }
+    ],
+    "invocationAccounting": {
+      "productionAuthorityConferred": false,
+      "invocationCount": 4,
+      "reservedTaskCount": 2,
+      "settledTaskCount": 2,
+      "stopReason": "cancelled"
+    },
+    "cleanupConfirmed": true,
+    "manualRecoveryRequired": false,
+    "processRestartRequired": false,
+    "taskRetryAllowed": false,
+    "apiKeyFallbackAllowed": false,
+    "paidApiFallbackAllowed": false,
+    "timeToHumanAcceptedResultMeasured": false
+  },
+  "followupObserverMeasurement": {
+    "originalSha256": "e420c88a49336a2c320e73ced6b389e0ddccadd38e26fd179764d77076701848",
+    "result": {
+      "measuredAt": "2026-08-30T15:35:47.711Z",
+      "sourceCommit": "c95eb912f09c374cd1d5af21a334eb691bdccd2a",
+      "nodeVersion": "v24.19.0",
+      "providerInvoked": false,
+      "nativeProcessInvoked": false,
+      "rows": [
+        {
+          "sample": 1,
+          "observer": "repository",
+          "elapsedMs": 25.622,
+          "accepted": true
+        },
+        {
+          "sample": 1,
+          "observer": "development_distribution",
+          "elapsedMs": 338.1034,
+          "accepted": true
+        },
+        {
+          "sample": 1,
+          "observer": "native_distribution",
+          "elapsedMs": 780.1841,
+          "accepted": true
+        },
+        {
+          "sample": 2,
+          "observer": "repository",
+          "elapsedMs": 17.527199999999993,
+          "accepted": true
+        },
+        {
+          "sample": 2,
+          "observer": "development_distribution",
+          "elapsedMs": 299.95360000000005,
+          "accepted": true
+        },
+        {
+          "sample": 2,
+          "observer": "native_distribution",
+          "elapsedMs": 739.1913999999999,
+          "accepted": true
+        },
+        {
+          "sample": 3,
+          "observer": "repository",
+          "elapsedMs": 15.105000000000018,
+          "accepted": true
+        },
+        {
+          "sample": 3,
+          "observer": "development_distribution",
+          "elapsedMs": 298.1513,
+          "accepted": true
+        },
+        {
+          "sample": 3,
+          "observer": "native_distribution",
+          "elapsedMs": 993.5299,
+          "accepted": true
+        }
+      ]
+    },
+    "reproductionScriptSha256": "c9064091f2d05c9cfce9ed03d9c418362a6fa71e4c931de7b3ebe9ee87b7f0b8",
+    "reproductionScript": "import fs from 'node:fs';\nimport path from 'node:path';\nimport { pathToFileURL } from 'node:url';\nimport { performance } from 'node:perf_hooks';\nconst root = 'C:\\\\project\\\\CRDD';\nconst config = JSON.parse(fs.readFileSync(path.join(root, '.crdd/dogfooding/development-measurement-request.json'), 'utf8'));\nconst distribution = path.join(root, '.crdd/e2e-distributions', `development-${config.expectedCommit}`);\nconst packageModule = await import(pathToFileURL(path.join(distribution, 'tools/coordinator/src/security/platform-provisioner-package-filesystem.ts')).href);\nconst repositoryModule = await import(pathToFileURL(path.join(distribution, 'tools/coordinator/src/security/repository-operation-runtime.ts')).href);\nconst rows = [];\nfor (let sample = 1; sample <= 3; sample++) {\n  for (const [observer, run] of [\n    ['repository', () => repositoryModule.inspectRepositoryIdentityCandidate(root)],\n    ['development_distribution', () => packageModule.inspectFixedDevelopmentCoordinatorPackageCandidate({ distributionRoot: distribution, expectedCrddTree: config.expectedTree, expectedPackageContentRootSha256: config.expectedPackageContentRootSha256 })],\n    ['native_distribution', () => packageModule.inspectVerifiedNativeDistributionCandidate({ distributionRoot: config.nativeDistributionRoot, expectedRelease: config.expectedNativeRelease, evaluationTime: new Date().toISOString() })],\n  ]) {\n    const start = performance.now();\n    const result = run();\n    const row = { sample, observer, elapsedMs: performance.now() - start, accepted: observer === 'repository' ? result?.commit === config.expectedCommit && result?.tree === config.expectedTree : result?.status === 'candidate' };\n    rows.push(row);\n    process.stdout.write(`${JSON.stringify(row)}\\n`);\n  }\n}\nfs.writeFileSync(path.join(root, '.crdd/dogfooding/development-observer-profile-c95eb91.json'), JSON.stringify({ measuredAt: new Date().toISOString(), sourceCommit: config.expectedCommit, nodeVersion: process.version, providerInvoked: false, nativeProcessInvoked: false, rows }, null, 2) + '\\n', { flag: 'wx' });\n",
+    "limitations": [
+      "本番比較後の別測定。元実行の段階別時間や呼出し回数ではない。",
+      "読取り検査だけで、Provider、native子Process、Dockerの実行時間は測定していない。"
+    ]
+  },
+  "limitations": [
+    "各経路1Taskだけで、速度差や一般的な品質差を判定しない。",
+    "Codex実効モデルはGPT-5.5。Solの性能比較ではない。",
+    "経過時間はRuntime結果と候補破棄までで、人間受入時間ではない。",
+    "Provider別turn・token・quota消費量と段階別時間は未測定。",
+    "生Provider出力および秘密値は保存しない。候補本文は承認済み範囲の検証後に破棄し、この記録から独立再レビューはできない。",
+    "Runtime内の独立Reviewerの承認は今回のTaskだけを対象とし、Runtime実装の完成監査を代替しない。"
+  ]
+}

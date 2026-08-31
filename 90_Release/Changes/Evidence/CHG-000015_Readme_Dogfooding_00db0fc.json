@@ -1,0 +1,206 @@
+{
+  "repository": "qual-lab/CRDD",
+  "gitObjectFormat": "sha1",
+  "repositoryCommit": "00db0fce1d58f83e407c27f70e2ae4aa2a15ca67",
+  "repositoryTree": "93c333e5d2597eb19dfd77a7fa390430aab13717",
+  "runtimeCommit": "a619545ff7f30f3ec65efa134994abc0f825421a",
+  "runtimeReleaseSequence": 2026083005,
+  "runs": [
+    {
+      "request": {
+        "sha256": "b23458bd7afd3cc5c9af4bb7aa3ced9c342f3d07228f8a03e0a4a9965ced408c",
+        "value": {
+          "frontProvider": "codex",
+          "requestedExecutorProvider": "auto",
+          "objective": "Runtime READMEの現在状態に残る古い説明を、提示された署名済みE2E結果に整合させる。新しい機能や規範を追加せず、日本語で必要最小限の文書修正を行う。",
+          "acceptanceCriteria": [
+            "tools/coordinator/README.mdだけを変更する。ソースコード、過去Evidence、CHG、外部設定は変更しない。",
+            "README冒頭の最新状態と、後段に残る現在状態の説明を照合する。a619545では指定4経路4/4と固定Worker復旧7/7が完了した事実を反映し、逆方向等が一律未完了であるという現在状態の記述を訂正する。",
+            "過去の個別実測やComponent固有の未実装・未評価を、その時点と範囲を保って残す。4経路の合格を実FrontアプリIdentity認証、実Provider取消、任意Task、全障害組合せ、是正経路の実測またはRuntime全体完成へ一般化しない。",
+            "最新実測の数値や詳細を各段落へ複製せず、既存のCHGおよび署名済みE2E結果へのリンクを用いて現在状態を一意に参照できるようにする。",
+            "実務有用性評価、最新固定版の一括独立監査、統合・Release判断は未完了のまま明示する。署名、Authority、隔離、認証、費用、API fallback、cleanupの契約は変更しない。",
+            "既存の見出し、アンカー、コマンド、機械値を維持する。新しい専門用語を作らず、文書全体の再整形をしない。"
+          ],
+          "allowedPaths": [
+            "tools/coordinator/README.md"
+          ],
+          "readPaths": [
+            "tools/coordinator/README.md",
+            "90_Release/Changes/Evidence/CHG-000015_Signed_E2E_a619545.md"
+          ],
+          "workClass": "bounded_implementation",
+          "planState": "complete",
+          "risk": "low",
+          "difficulty": "low",
+          "decisionImpact": "limited",
+          "isLocalCandidateOnly": true,
+          "hasUnresolvedDirection": false,
+          "requiresCrossContextAlignment": false
+        }
+      },
+      "result": {
+        "sha256": "09c2c451fe983dfe9187b196eb401bc692f42ad2cffb9bf9c2d6df38940c3b1d",
+        "value": {
+          "command": "task",
+          "status": "blocked",
+          "reason": "provider_turn_limit_exceeded",
+          "cleanupConfirmed": true,
+          "manualRecoveryRequired": false,
+          "hostRecoveryId": null,
+          "dockerRecoveryId": null,
+          "dockerRecoveryIds": [],
+          "candidateRecoveryId": null,
+          "candidateStoreRecoveryId": null,
+          "executorProvider": null,
+          "reviewerProvider": null,
+          "executorSelectionNotice": null,
+          "reviewerSelectionNotice": null,
+          "candidateRevision": null,
+          "candidateId": null,
+          "executorResult": null,
+          "reviewerResult": null,
+          "canonicalRepositoryChanged": false,
+          "rawOutputReported": false,
+          "hostPathReported": false,
+          "untrustedProviderTextReported": false,
+          "credentialAbsenceVerified": false,
+          "externalSendAuthorizationMode": "reused_initial_consent",
+          "candidateDisposition": "not_issued",
+          "processRestartRequired": false
+        }
+      },
+      "timing": {
+        "sha256": "b7fd647496762b19da17bf00943ef618ebcd8abd5f6cd2feed026a2757f18ddb",
+        "value": {
+          "startedAt": "2026-08-30T01:48:43.372Z",
+          "endedAt": "2026-08-30T01:49:54.799Z",
+          "elapsedMs": 71428,
+          "exitCode": 2,
+          "signal": null,
+          "launchError": null,
+          "inputError": null,
+          "requestHash": "b23458bd7afd3cc5c9af4bb7aa3ced9c342f3d07228f8a03e0a4a9965ced408c",
+          "repositoryCommit": "00db0fce1d58f83e407c27f70e2ae4aa2a15ca67"
+        }
+      },
+      "selection": {
+        "sha256": "3eed5d7ca2e500a862c337cf02e52f7ed5372951ba6e7ade2e1f19400f3e6936",
+        "value": "[Coordinator selection] {\"event\":\"coordinator_selection_before_provider_effect\",\"taskRole\":\"executor\",\"provider\":\"claude\",\"model\":\"opus\",\"effort\":\"low\",\"speedMode\":\"normal\",\"selectionReason\":\"[委譲経路選定] front=codex executor=claude route=front_codex__executor_claude\\n経路選定理由=user_executor_constraint_satisfied,cross_provider_route_selected,work_class_bounded_implementation\\n[委譲選定] provider=claude role=executor family=opus effort=low speed=normal\\n選定理由=complete_bounded_local_plan\\n高コスト選択=no\\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\\n実効モデル=opus\\n互換性選定理由=none\",\"inputBasis\":\"caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight\",\"callerDeclaredAttributes\":[\"workClass\",\"planState\",\"risk\",\"difficulty\",\"decisionImpact\"],\"highCostSelectionAllowed\":false}\n"
+      }
+    },
+    {
+      "request": {
+        "sha256": "a628a667ea629939f7c37a84bba49a56661fbbf7b0ae2f54599788b85ff5b4ac",
+        "value": {
+          "frontProvider": "codex",
+          "requestedExecutorProvider": "auto",
+          "objective": "Runtime READMEの古い現在状態を同期する限定編集。探索済みの修正箇所はREADMEの77行末、79行、359行末の3か所だけ。全体を読み直さずReadのoffset/limitで対象行と25行の最新案内を確認し、短いE2E結果文書を読む。3か所を局所Editし、結果を確認して完了する。修正箇所以外の探索・再整形は不要。",
+          "acceptanceCriteria": [
+            "変更対象はtools/coordinator/README.mdの3か所だけ。既存見出し、アンカー、コマンド、機械値、セキュリティ契約、他ファイルは変更しない。",
+            "77行の固定1 Path実測は過去の確認として残す。末尾の逆方向／他経路と失敗Recoveryを一律未完了にする現在状態を、最新の署名済みE2E結果への参照に置き換える。実Provider取消・是正経路の未証明は残す。",
+            "79行の末尾で4経路とRecovery Matrixの正式署名実測を未完了としている説明を訂正する。前半の契約説明は維持する。Runtime全体の最新固定版監査・統合・Releaseは未完了のまま残す。",
+            "359行末の署名配布物は順方向の成功だけを実測済みという説明を、最新の署名済みE2E結果への参照へ置き換える。Topologyや隔離の説明は変更しない。",
+            "最新根拠は90_Release/Changes/Evidence/CHG-000015_Signed_E2E_a619545.md。4指定経路と固定Worker復旧の成功を、実Frontアプリ認証、実Provider取消、是正経路、任意Task、全障害組合せやRuntime全体の完成へ一般化しない。",
+            "日本語で簡潔に記述し、数値・詳細を重複コピーせず既存の最新実測リンクへ接続する。実務有用性評価と最終監査・Release判断の未完了状態を維持する。"
+          ],
+          "allowedPaths": [
+            "tools/coordinator/README.md"
+          ],
+          "readPaths": [
+            "tools/coordinator/README.md",
+            "90_Release/Changes/Evidence/CHG-000015_Signed_E2E_a619545.md"
+          ],
+          "workClass": "bounded_implementation",
+          "planState": "complete",
+          "risk": "low",
+          "difficulty": "low",
+          "decisionImpact": "limited",
+          "isLocalCandidateOnly": true,
+          "hasUnresolvedDirection": false,
+          "requiresCrossContextAlignment": false
+        }
+      },
+      "result": {
+        "sha256": "f1c13aa3178ff21440624daee1adcfc7ad65a494081b2fca252da9652243907e",
+        "value": {
+          "command": "task",
+          "status": "completed",
+          "reason": "coordinator_task_candidate_approved",
+          "cleanupConfirmed": true,
+          "manualRecoveryRequired": false,
+          "hostRecoveryId": null,
+          "dockerRecoveryId": null,
+          "dockerRecoveryIds": [],
+          "executorProvider": "claude",
+          "reviewerProvider": "codex",
+          "reviewerIndependence": "provider_independent",
+          "externalSendAuthorizationMode": "reused_initial_consent",
+          "executorSelectionNotice": "[委譲経路選定] front=codex executor=claude route=front_codex__executor_claude\n経路選定理由=user_executor_constraint_satisfied,cross_provider_route_selected,work_class_bounded_implementation\n[委譲選定] provider=claude role=executor family=opus effort=low speed=normal\n選定理由=complete_bounded_local_plan\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=opus\n互換性選定理由=none",
+          "reviewerSelectionNotice": "[委譲経路選定] front=codex executor=codex route=front_codex__executor_codex\n経路選定理由=user_executor_constraint_satisfied,independent_provider_required,work_class_bounded_verification\n[委譲選定] provider=codex role=independent_reviewer family=sol effort=medium speed=normal\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=gpt-5.5\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
+          "remediationPerformed": false,
+          "candidateRevision": {
+            "baseCommit": "00db0fce1d58f83e407c27f70e2ae4aa2a15ca67",
+            "baseTree": "93c333e5d2597eb19dfd77a7fa390430aab13717",
+            "patchHash": "7cec7361c592ec46b09cb19419c68e6141f5f08295371313795780d549241d09",
+            "contentManifestHash": "84363576dba225efe2a1111a3dab50e0bf26a67730f1939b270a994e3a24fecb",
+            "allowedPathsHash": "79815390ee01af95d06bf4ef8cd2f772d367bc24aee691a19de23fdc382405b6",
+            "changedPaths": [
+              "tools/coordinator/README.md"
+            ]
+          },
+          "candidateId": "candidate.d4df790f212abc362a9608a5e959ef2a07eb457e4b6c1aba98bf6441bbb00229.74509b9fac24219b5a2adc01ea232b2586ba3cc7e1ef057e25f887f1ce81ef0a",
+          "candidateRecoveryId": null,
+          "candidateStoreRecoveryId": null,
+          "executorResult": {
+            "status": "completed",
+            "changedPaths": [
+              "tools/coordinator/README.md"
+            ],
+            "verificationCount": 3
+          },
+          "reviewerResult": {
+            "decision": "approved",
+            "findingCount": 0
+          },
+          "canonicalRepositoryChanged": false,
+          "rawOutputReported": false,
+          "hostPathReported": false,
+          "untrustedProviderTextReported": false,
+          "credentialAbsenceVerified": false,
+          "expiresAtMs": 1788142677438,
+          "processRestartRequired": false
+        }
+      },
+      "timing": {
+        "sha256": "3daeaac03d965208ecb08a2b75d1bfeae9eae16e8cab53ebac38d4a2bd6273f3",
+        "value": {
+          "startedAt": "2026-08-30T02:16:08.617Z",
+          "endedAt": "2026-08-30T02:18:06.558Z",
+          "elapsedMs": 117944,
+          "exitCode": 0,
+          "signal": null,
+          "launchError": null,
+          "inputError": null,
+          "requestHash": "a628a667ea629939f7c37a84bba49a56661fbbf7b0ae2f54599788b85ff5b4ac",
+          "repositoryCommit": "00db0fce1d58f83e407c27f70e2ae4aa2a15ca67"
+        }
+      },
+      "selection": {
+        "sha256": "2b686bfac3092209baaf36890452a68f733d2271fa8fa18d6f5d6e6abebe92a4",
+        "value": "[Coordinator selection] {\"event\":\"coordinator_selection_before_provider_effect\",\"taskRole\":\"executor\",\"provider\":\"claude\",\"model\":\"opus\",\"effort\":\"low\",\"speedMode\":\"normal\",\"selectionReason\":\"[委譲経路選定] front=codex executor=claude route=front_codex__executor_claude\\n経路選定理由=user_executor_constraint_satisfied,cross_provider_route_selected,work_class_bounded_implementation\\n[委譲選定] provider=claude role=executor family=opus effort=low speed=normal\\n選定理由=complete_bounded_local_plan\\n高コスト選択=no\\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\\n実効モデル=opus\\n互換性選定理由=none\",\"inputBasis\":\"caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight\",\"callerDeclaredAttributes\":[\"workClass\",\"planState\",\"risk\",\"difficulty\",\"decisionImpact\"],\"highCostSelectionAllowed\":false}\n[Coordinator selection] {\"event\":\"coordinator_selection_before_provider_effect\",\"taskRole\":\"reviewer\",\"provider\":\"codex\",\"model\":\"gpt-5.5\",\"effort\":\"medium\",\"speedMode\":\"normal\",\"selectionReason\":\"[委譲経路選定] front=codex executor=codex route=front_codex__executor_codex\\n経路選定理由=user_executor_constraint_satisfied,independent_provider_required,work_class_bounded_verification\\n[委譲選定] provider=codex role=independent_reviewer family=sol effort=medium speed=normal\\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\\n高コスト選択=no\\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\\n実効モデル=gpt-5.5\\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime\",\"inputBasis\":\"caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight\",\"callerDeclaredAttributes\":[\"workClass\",\"planState\",\"risk\",\"difficulty\",\"decisionImpact\"],\"highCostSelectionAllowed\":false}\n"
+      }
+    }
+  ],
+  "discard": {
+    "sha256": "4cc6e75609b527395e11902ff81a1f6ee12f543c07b15a05712591065a00cd7e",
+    "value": {
+      "command": "candidate discard",
+      "status": "discarded",
+      "candidateContentUntrusted": false,
+      "credentialAbsenceVerified": false
+    }
+  },
+  "appliedCandidateSha256": "b37c7b9573d6ea47b38531f2ea939c800014ea7511058bed7476c1d8d3033cd1",
+  "appliedCandidateBytes": 166319,
+  "exactCandidateBytesApplied": true
+}

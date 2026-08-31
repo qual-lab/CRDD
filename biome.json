@@ -1,0 +1,48 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.6/schema.json",
+  "files": {
+    "includes": [
+      "40_Develop/**/*.{ts,mjs,cjs}",
+      "template/tools/**/*.{ts,mjs,cjs}",
+      "!!.crdd",
+      "!!40_Develop/**/.crdd",
+      "!!template/tools/**/.crdd"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "includes": ["40_Develop/**/*.ts", "template/tools/**/*.ts"],
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "noPrecisionLoss": "off"
+      },
+      "style": {
+        "useFilenamingConvention": {
+          "level": "error",
+          "options": {
+            "filenameCases": ["kebab-case"],
+            "requireAscii": true,
+            "strictCase": true
+          }
+        }
+      },
+      "suspicious": {
+        "noControlCharactersInRegex": "off"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  }
+}

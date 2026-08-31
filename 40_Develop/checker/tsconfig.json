@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "NodeNext",
+    "moduleDetection": "force",
+    "noEmit": true,
+    "noImplicitAny": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ESNext",
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["node"]
+  },
+  "include": [
+    "./crdd-check.ts",
+    "./crdd-check.contract.test.ts",
+    "./tools-naming.contract.test.ts",
+    "./test-discovery.ts",
+    "./test-runner.ts",
+    "./fault-injector.ts",
+    "../../template/tools/crdd-check.ts"
+  ]
+}

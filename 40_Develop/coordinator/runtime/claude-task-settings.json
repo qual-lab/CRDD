@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(//provider-home/**)",
+      "Edit(//provider-home/**)",
+      "Write(//provider-home/**)",
+      "Glob(//provider-home/**)",
+      "Grep(//provider-home/**)",
+      "Bash",
+      "WebFetch",
+      "WebSearch",
+      "Task",
+      "NotebookEdit",
+      "mcp__*"
+    ]
+  }
+}

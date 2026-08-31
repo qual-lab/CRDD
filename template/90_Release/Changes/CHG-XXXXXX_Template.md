@@ -45,12 +45,16 @@ Changes、Evidence、CHG-*という英語識別子は本文言語を指定しな
 
 - 変更する契約母集団:
 - 既知の利用側母集団と対象別の予定処置:
+- 安全上重要な層間搬送のproducer／transport／consumer／公開projection（該当する場合）:
+- 別の呼出し／processで保護対象EffectまたはRecoveryの十分な根拠／不可欠なAuthority predicateになる耐久状態、発行条件成立前の非発行、exact発行後の同一intent保持、retry時の別・拡大Authority非生成（該当する場合。fresh Authorityへ再結合する通常のqueue／progress／checkpoint／Evidenceは非該当）:
+- 残存資源またはRecovery／Authority義務を残し得る取得transactionの取得Effect、到達可能なthrow境界、排他的settlement、cleanup不明時の公開投影、または理由付き非該当（該当する場合）:
 - 発火する代表例と期待結果:
 - 発火しない代表例と期待結果:
 - 境界となる例と期待結果:
 - 判定情報が不足する例と処置:
 - 定義、発火条件、判定不能時の扱い、発火後の処置または正式結果の区別:
 - 固定前の実差分照合結果（変更／既存参照で追従／理由付き非該当／確認待ち）:
+- 根拠の主張軸（入口形態／観測基盤／成果物Identity／lifecycle。該当する軸だけ）:
 - 未解消の不一致と処置（0件の場合も結果として記録）:
 
 この節は新しい承認または監査ではない。適用条件、例外、非該当、停止または正式結果を変えない軽微な変更では、理由を示して簡潔化または省略できる。固定の表、専用IDまたは別成果物を追加しない。

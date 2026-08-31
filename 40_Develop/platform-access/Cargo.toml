@@ -1,0 +1,43 @@
+[package]
+name = "crdd-platform-access"
+version = "0.0.0"
+edition = "2024"
+publish = false
+rust-version = "1.94.1"
+
+[features]
+native-bootstrap-release = []
+
+[[bin]]
+name = "crdd-platform-access"
+path = "src/main.rs"
+
+[[bin]]
+name = "coordinator"
+path = "src/bin/coordinator.rs"
+test = true
+required-features = ["native-bootstrap-release"]
+
+[dependencies]
+ed25519-dalek = { version = "=2.2.0", default-features = false }
+windows-sys = { version = "=0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Security_Cryptography",
+  "Win32_Security_Isolation",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_JobObjects",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = "symbols"
+
+[profile.dev]
+panic = "abort"

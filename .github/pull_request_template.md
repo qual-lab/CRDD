@@ -45,7 +45,7 @@ Migration / compatibility notes:
 
 ## Validation and audit
 
-- [ ] Local Markdown links, anchors, versions, and known placement rules were checked (`node tools/crdd_check.mjs` or equivalent)
+- [ ] Local Markdown links, anchors, versions, and known placement rules were checked (`node 40_Develop/checker/crdd-check.ts --json --summary` or equivalent)
 - [ ] Related references, README, Overview, and templates were updated where applicable
 - [ ] The Triggered Propagation Check was completed when applicable, or a not-applicable rationale is provided
 - [ ] Document Audit was performed or explicitly marked not applicable

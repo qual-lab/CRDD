@@ -1,0 +1,71 @@
+{
+  "contract": "crdd-coordinator/signed-recovery-matrix-verification",
+  "contractRevision": 1,
+  "status": "completed",
+  "reason": "signed_recovery_matrix_verified",
+  "minimumNodeVersion": "24.12.0",
+  "packageVerification": "signed_release_and_exact_distribution",
+  "scenarios": [
+    {
+      "scenario": "timeout",
+      "status": "blocked",
+      "reason": "docker_isolation_probe_timeout",
+      "cleanup": "confirmed",
+      "residualOperationDirectory": false
+    },
+    {
+      "scenario": "output_limit",
+      "status": "blocked",
+      "reason": "docker_isolation_probe_output_too_large",
+      "cleanup": "confirmed",
+      "residualOperationDirectory": false
+    },
+    {
+      "scenario": "invalid_output",
+      "status": "blocked",
+      "reason": "docker_isolation_probe_invalid_output",
+      "cleanup": "confirmed",
+      "residualOperationDirectory": false
+    },
+    {
+      "scenario": "nonzero_exit",
+      "status": "blocked",
+      "reason": "docker_isolation_probe_failed",
+      "cleanup": "confirmed",
+      "residualOperationDirectory": false
+    },
+    {
+      "scenario": "cancel",
+      "status": "verified",
+      "reason": "dynamic_fake_provider_cancellation_verified",
+      "cleanup": "confirmed",
+      "residualOperationDirectory": false
+    },
+    {
+      "scenario": "cleanup_observation_unknown_then_recover",
+      "initialStatus": "blocked",
+      "initialReason": "cleanup_observation_intentionally_withheld",
+      "initialManualRecoveryRequired": true,
+      "exactRecoveryIdReturned": true,
+      "freshRecoveryCompleted": true,
+      "residualOperationDirectory": false
+    },
+    {
+      "scenario": "parent_process_loss_then_fresh_recovery",
+      "childProcessTerminationObserved": true,
+      "exactRecoveryIdReturned": true,
+      "freshRecoveryCompleted": true,
+      "manualRecoveryRequiredAfterRecovery": false
+    }
+  ],
+  "fixedVerificationWorkerOnly": true,
+  "providerCredentialUsed": false,
+  "providerNetworkEffectIssued": false,
+  "apiKeyFallbackAllowed": false,
+  "paidApiFallbackAllowed": false,
+  "cleanupConfirmed": true,
+  "manualRecoveryRequired": false,
+  "rawProviderOutputReported": false,
+  "hostPathReported": false,
+  "credentialReported": false
+}

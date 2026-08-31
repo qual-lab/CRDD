@@ -1,0 +1,437 @@
+# Coordinator Runtimeの脅威モデル
+
+Status: Implementation Candidate
+
+本書は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)の実装固有脅威モデルである。CRDDのHuman Authority、External Information Boundary、Independent Reviewまたは準拠条件を再定義しない。
+
+## 読む順序と制御の所有
+
+保護対象、信頼境界、主要脅威を先に確認し、該当する制御と残存リスクへ進む。実装アルゴリズムの正本は[実行アーキテクチャ](01_Architecture.md)、公開結果は[仕様](../../05_SPEC/01_Behavior_Specification.md)、現在の検証結果は[品質状態](../../07_Quality/01_Quality_Center.md)である。以下の詳細は制御が何を防ぎ、何を保証しないかを照合するために保持する。固定版の実測は最後の履歴節へ分離する。
+
+| 脅威・誤用 | 主に照合する制御 | 保持する限界 |
+|---|---|---|
+| 未許可の送信・古い同意の再利用 | 初期外部送信同意、現行Taskの指摘搬送 | Provider内の保持・二次利用をRuntimeは保証しない |
+| 別Task・別ユーザーの資源を回収 | Home／Docker回復、ID・所有者・耐久記録の照合 | 不明状態を不存在へ変えない |
+| 内部入力・Helperから権限を拡張 | 公開入口、Capability、固定Artifact | Schema一致だけではAuthorityにならない |
+| 親環境の偽装・必要なOS文脈の欠落 | [Docker専用起動環境](01_Architecture.md#22-docker-desktop最終復旧時の起動環境)のOS由来SYSTEMDRIVEと既知フォルダー検証 | 中間helperと最終子の双方で確認。環境取得はDirectory変更許可ではない |
+| 起動・取消・回収の途中停止 | 診断・回復制御と実行アーキテクチャの状態／資源表 | 過去の成功やPromise完了から残存0を推定しない |
+| 未接続の準備方式を現在の保証と誤認 | Hardened／Managed候補の分離 | T1〜T2の現行経路にT3／T4を追加要求しない |
+
+## 1. 保護対象
+
+- 対象Repositoryと元worktreeの内容、Git metadataおよびIdentity
+- Operation Packet、Authority Grant、Candidate RevisionおよびReview対象
+- Immutable Event Log、Projection、Leaseおよび完了判定
+- Credential、Internal／Restricted情報およびProvider送信範囲
+- 他Operation、他Repository、通常User Homeおよび外部接続先
+
+## 2. 信頼境界
+
+| 境界 | 信頼するもの | 信頼しないもの |
+|---|---|---|
+| Coordinator Runtime 1.0の信頼計算基盤（Trusted Computing Base、TCB） | 正常に動作するOSの認証・Filesystem・process・AppContainer・署名検証機能、OSが認証した選択ローカル対話ユーザー、人間が真正性を確認して明示起動する公式署名済みCRDD Release、公式Provider配布物、Windows最終復旧で人間が確認した公式Docker配布物と正常なupdater | 悪意ある別ユーザー、Repository／Provider／Network入力、未検証artifact・Authority・Revision・caller supplied Path |
+| Runtime Core | 検証済みSchema、Profile、Policy、Event追記処理 | Agentの自己申告、Providerの`Pass`、自然言語だけのAuthority |
+| Repository Adapter | 固定したGit入力とRuntimeからの許可 | dirty変更の暗黙取込み、ProviderによるGit metadata操作 |
+| Provider Adapter | 正規化処理と明示Capability | 生出力、Provider固有Session、利用可能というだけのAuthority |
+| Provider子プロセス | 確定Packet内の限定処理 | Filesystem、Network、Credential、外部Repositoryへの一般アクセス |
+| Reviewer | 固定対象と基準からの独立再構成 | Executorの要約、旧Candidate RevisionのReview |
+
+悪意ある同一ローカルユーザー、machine Administrator／SYSTEM、kernel、OSまたはVerifier侵害による起動前置換、検査回避、debugger／injection等への完全なtamper resistanceはv1の保証対象外である。この境界は攻撃検出の成功を主張するものではない。対象内で観測可能な署名、manifest、artifact／Provider／Repository／Revision Identity、Authority、Provider Home、Egress、隔離または終了状態の差と、判定情報不足は引き続きfail closedとする。
+
+現在および将来の既定Trust Profileは、RuntimeによるAuthority／Context／Egress制御を行うT1相当と、署名済みRelease／Artifact／Provider Identityを確認するT2相当までとする。T3相当のOS保護済みbootstrap／managed install rootと、T4相当のTPM／hardware-backed Identityは成熟度の必須段階または既定Roadmapにしない。同一ユーザー、管理者またはOS侵害への具体的な耐性、ComplianceまたはManaged fleet要件が発生し、保証対象、導入・更新・失効・端末交換・障害回復の責任および費用を人間が別変更として承認した場合だけHardened／Managed Profileとして再評価する。既存のkeystore／TPM pure候補はAuthority、Capability、EffectまたはRuntime完成blockerへ昇格させず、必要性が成立するまで追加実装しない。
+
+## 3. Operation専用領域
+
+```text
+runtime-state/
+└─ operations/
+   └─ OP-000001/
+      ├─ provider-home/
+      ├─ workspace/
+      ├─ tmp/
+      ├─ events/
+      ├─ projection/
+      └─ management/
+```
+
+主体別の許可は次のとおりである。
+
+- Runtime Coreだけが`events/`、`projection/`および`management/`を書き込む。
+- Repository Adapterだけが隔離workspaceの作成・破棄に必要なGit metadataを操作する。
+- Provider子プロセスは`workspace/`、`provider-home/`、`tmp/`だけを書き込める。
+- Credential Broker／AdapterだけがCredential Storeを必要最小限で読み取る。
+- Provider子プロセスへCredential StoreのPath、通常User Home、他Operationまたは元RepositoryのGit metadataを見せない。
+- 診断用領域はRuntimeが当該runで`mkdtemp`した一意なchildだけを所有する。所有Capabilityと作成時の`dev`／`ino`／`birthtimeNs`はmodule-privateに保持し、終了時に同じobject、実体Identity、親境界、実Path、prefix、directory種別および非linkをすべて確認してchildだけを一回削除する。Pathまたはprefixだけを所有根拠にせず、既存parent、sibling、呼出側指定Path、symlinkまたはjunctionを再帰削除しない。
+
+subscription OAuth sessionはAPI keyやgeneric Credential Storeとは別のcredential-bearing stateである。CodexとClaude CodeはローカルOS user＋Provider単位の別々の永続専用Homeだけを明示loginとrefreshに使用し、Host既定Home、他Provider Home、Operation一時`provider-home/`またはCredential環境からcopy／importしない。Runtime所有observerはrequestへPath、SID、ACL、Profile IDまたはOperation IDを含めず、Windows Known Folderから固定Homeを独立導出する。local interactive primary token、handle由来local fixed volume、全固定segmentのnon-reparse、stable Identity、selected user ownerおよびselected user＋SYSTEMだけのprotected Full Control DACLを読み取り専用で確認する。結果はProvider Home Identity、保護、SID＋login session bindingおよびsession非依存のstable logical Home bindingという四つのdomain-separated Hashへ限定し、Path、SID、login LUID、ACLまたはCredential内容を返さない。正式Runtimeでは固定署名manifestとartifactの起動前後一致、上限付きprocess終了およびopaqueな10秒・一回限りの観測Capabilityを同じinvocationへ結合し、判定不能、Home不存在またはDACL差を自動修復しない。subscription OAuthではtokenをcopy／injectせず、Provider・Profile・Operation・四Hashに結合した一回限りの専用Provider Homeマウント許可（Provider Home Mount Grant）だけを発行する。古いGrantは後続Grantのactive leaseをcomplete／revokeできない。process-local aliasはrestartで失われるが、実mount中のactive lease、kernel lock、active pointerおよび耐久回復記録はDocker recovery contractへ引き継いでfail closedにする。Operation終了時に取消すのは許可、handleおよびmountであり、永続Homeとsessionのlogout／revoke／削除は別の明示bootstrap lifecycleである。GrantまたはMount Authorizationだけをmount済み、認証済み、Filesystem Effect、一般Runtime AuthorityまたはOperation Capabilityへ昇格しない。
+
+Runtime 1.0のExecution Environment backendはWindows上のDocker Desktop／Linux containerだけとする。Provider子プロセスをHost、Git Bash、通常WSLディストリビューションまたは別Container Runtimeへfallbackさせない。Docker CLIはRuntime側の信頼対象Adapterとして引数配列で起動し、HostのDocker Context／Credentialを読ませず、ローカルDocker Desktop Linux Engineのnamed pipeへ固定する。ProviderへDocker socketまたはDocker CLIを渡さない。
+
+## 4. 主要脅威と制御
+
+| 脅威 | 主制御 | 補助制御 | 失敗時 |
+|---|---|---|---|
+| AgentがAuthorityを自己拡張 | Runtimeが実効Packetを確定 | Schema、Event | Operation拒否 |
+| Providerが監査履歴を改変 | `events/`／`projection/`／`management/`をProvider書込み範囲外にする | Hash、事後検査 | Operation失敗 |
+| 未承認push／外部Repository更新 | Credential／SSH Agent／Provider連携を渡さず、許可外Egressを拒否 | Process command拒否、refs事後照合 | Operation拒否 |
+| Password、Private Key、Session Token、API Keyその他のシークレット値のPrompt、読取投影、Candidateまたは永続化への混入 | 高確度なSecret形式と秘密用Pathを各Provider境界前に拒否し、Credential環境・Store・Helperを渡さない | 安全な固定reason、保存・表示量0、Project側のSecret非格納 | Provider EffectまたはResultを拒否 |
+| 許可された内部情報の過剰な送信・永続化 | 情報分類と外部情報境界に従い、必要最小量へ正規化して許可されたContextだけを投影・永続化 | 保存量上限、Retention、Provider Terms／Settings境界の表示 | 境界不明なら送信・Resultを拒否 |
+| dirty変更の暗黙混入 | 書込みOperationはHEADから隔離 | source dirty記録 | 依存時はBlocker |
+| 古いReviewの流用 | Candidate Revision Identity一致を要求 | Stale Event | 再Verification／Review |
+| Provider完了後のRuntime crash | Lease、Idempotency Key、Result Fingerprint、workspace照合 | Provider resume Capability | 自動再実行せず復旧 |
+| Path case衝突 | 元Pathとcase sensitivityを保持し衝突検査 | Manifest照合 | Snapshot拒否 |
+| Provider限定Egressを強制不能 | Capability Gate | read-only縮退は情報境界成立時だけ | Operation拒否 |
+
+## 5. 成立性Gate
+
+### 現行Local Personalの認証境界
+
+Local PersonalのSubscription OfferingはCodexの`chatgpt_subscription_oauth`とClaudeの`claude_max`へ閉じる。公式CLIの読取り専用preflight結果がこのOfferingと一致しない場合はProvider request前に停止する。exact Account／Tenant identityおよびProvider Terms本文はRuntimeの検証範囲外であり、対話確認で非検証境界として表示する。
+
+### 初期外部送信同意
+
+Local Personalでは、Repositoryの外部送信Policyに含まれる全Provider境界、Subscription Offering、目的、情報分類、Terms IdentityおよびCandidate保存条件を初回に表示し、選択ローカルユーザーと保護Runtime Stateへ結合した単一Active同意として保持する。現在Task、Repository Revision、要求Providerおよび投影Scopeは同じ画面でOperation Previewとして区別して表示するが、永続同意へ含めない。Operationごとの短命Grantはこれらを毎回再結合する。
+
+Active同意は180日で失効し、明示取消、Policy byte変更、別Provider／Account境界、別選択ユーザー、Runtime State Identity／Protection変更、欠落または破損で再承認へ戻る。新境界を保存する前に旧境界を失効し、有効な境界は常に一つだけとするため、A→B→Aで過去Aの同意を復活させない。固定名規則と件数上限に合うrecord／commitだけをRuntimeState inventoryへ含め、部分pairまたは破損pairはAuthorityを減らす固定対象の削除だけを試みる。対象Identity、file type、lockまたは復元を確認できなければProvider、Workspace、NetworkおよびGrant Effect前に`manualRecoveryRequired`で停止する。
+
+この同意は公式CLIへ許可範囲の情報を送るAuthorityであり、Provider内部の保持、二次利用、再委託、exact Account／TenantまたはTerms本文をRuntimeが検証したという主張ではない。API key、従量API、追加購入、有料fallbackまたは公開Authorityも含まない。
+
+同意Schemaを理解しない旧候補へ戻す場合、現在候補のRuntime所有取消を先に完了し、Active同意pair残存0を確認してから切り替える。旧候補へ同意を移行、読み替えまたはfallbackせず、未知entryを削除して進めない。取消または残存0を確認できなければRollbackを停止する。
+
+### Home／Docker回復に対する誤処置の防止
+
+### 現行revisionのProvider Home／Docker Task回復補正
+
+Task AdmissionとDocker Process Controllerは同じexact公開理由Projectorを使う。内部Path、caller由来文字列、例外本文または部分一致結果を公開しない。公開分類は競合、到達可能partial、identity不一致、観測不能、一般利用不能のallowlistだけである。`active_or_unknown`、lock解放未確認、audit／Filesystem観測不能は観測不能へ写像し、未登録または構造不正な理由は一般利用不能へ閉じる。production inventoryは`status=completed`、`manualRecoveryRequired=false`、単一IDが`null`、ID配列が空の場合だけcleanとし、単一・複数在庫、blocked、unknown、accessor、Proxyまたはmalformed inputではProvider、Workspace、Store、ConsoleおよびOperation Effect前に停止して、検証できた全Recovery IDを保持する。
+
+Host active bindingを削除する全経路は、削除前にactive bindingとcommitted active pointerを同じ期待Recovery ID、base、operation nonceおよびstable logical Homeへ直接相互結合する。active bindingが存在するのにpointerが欠落、片側だけ、置換、不一致または観測不能ならactive bindingもpointerも削除せず、Provider Effectを追加せずにEvidenceを保持して停止する。active bindingが既に不存在でexact committed pointerだけが残る場合は、同じidentityとEffect非発行をfresh Processで再確認できるときだけ回復を継続する。存在観測は`ENOENT`だけを不存在とし、権限拒否、共有競合、I/O失敗、非file、linkまたは削除後観測不能を競合や不存在へ縮退させない。通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryをこの単一閉包契約の利用側とし、後段のHost成功やDocker不存在から閉包成立を推定しない。
+
+現行Provider Home観測はIdentity、保護、SID＋login session binding、およびsession非依存のSID＋Provider＋固定logical Home namespace bindingの四Hashを分離する。Effect開始前に選択ユーザーの固定RuntimeState Root、logical Home単位とHost Operation単位のkernel lock、active run binding、active pointerおよびTask別回復記録を確定するため、Authorityのsession bindingを弱めずに別login sessionとの同時mountと旧Taskによる後続Task状態の回復を防ぐ。Host状態を扱う回復は`Host Operation → logical Home → RuntimeState`、Host Effectが既に不存在でcleanupだけが残る段階は`logical Home → RuntimeState`の順とし、全RuntimeState mutation前および長時間Effect後のglobal lock再取得時に、Root Identity、保護、selected-user binding、token、base、journalおよび全inventoryを読み直す。production inventoryはRuntime所有Known FolderからだけRootを取得し、caller supplied Pathを受理しない。RuntimeState、logical HomeまたはHost generation lockの解放を確認できなければ、Effectが収束していても成功を返さずfail closedにする。fresh inventoryで対象記録を確認できた場合だけ`preserved`として同じRecovery IDを返し、確認済み不存在なら`not_preserved`としてIDを発行せず、inventory不能なら`unknown`として保持を推定しない。
+
+#### IDと耐久記録の完全性
+
+- 一般TaskのDocker回復IDは`docker-task.<logical-home-hash>.<operation-nonce>.<base-hash>`であり、Fake Probeの`docker.*`およびHostの`host.*`と別Schema／CLI分岐を持つ。
+- 各記録はfile `fsync`、再読取り、atomic renameおよび内容Hash／Filesystem Identityへ結合したcommit sidecarを必須とし、targetだけが確定した状態、orphan temporary、unknown entry、上限超過またはSchema／Hash／Identity差を成功へ流用しない。
+- commit pairの削除／移動は親Directory Identity、logical key、元serialized content、Hash、Identityおよびbyte数を単一atomic intentへ結合し、production共用の純粋状態機械が許す到達可能状態だけを再開する。
+- intentのbasename digest、pair内容およびcommit semanticも相互照合し、root上のbase moveまたはactive pointer deleteはcommit済み内容からexact Recovery IDを読み取り専用で再発見する。
+- cleanupは元entry全件のtype／Hash／Identityと空config Directory Identityをcommit済みmanifestへ固定し、rename後のpayload削除前にRuntimeState Root側へ単一cleanup anchorを確定する。
+- 成功時だけDirectory／anchor残存0とし、第三状態、replacement、unknown entryまたは判定不能ではEvidenceを保持してfail closedにする。
+- WindowsではNode.jsのdirectory `fsync`を保証せず、process crash回復をv1の保証範囲としてRuntimeState全体のkernel lockとexact inventoryで補う。
+
+#### 排他・別Task保護・未知状態
+
+- 別logical Homeの完全な記録は並行利用を妨げず、同じHomeのactive記録だけを拒否する。
+- RuntimeStateのinventory／mutationは短いglobal lock区間へ閉じ、Docker／Hostの長時間Effect中はHost／Home排他を保持したままglobal lockを解放して再取得する。
+- Root lockは全Taskのinventoryを直列化するだけで、別TaskへのEffect Authorityにはしない。
+- Root journalの再開は対象Recovery IDと作成時RuntimeState bindingが一致するanchorだけへ限定し、validな別Task anchorはbyteとFilesystem Identityを再確認して保持する。
+- ID再構成不能、対象binding不一致、競合または開始時Evidence 0件では「不存在」と「完了済み」を推測せず停止する。
+
+#### Docker照会・回収・所有終了
+
+- 回復はID、name、label、image、mount、hardeningおよびNetwork属性が全一致する資源だけを削除し、IDとexact nameの不存在を確認する。
+- 送信済みでreceiptがなく両探索が空の場合は作成結果不明として停止する。
+- 両探索が同じ単一IDを返す場合だけ、そのIDの完全構成を確認し、取得経路付きreconciled receiptを耐久確定してからID指定回復へ移る。
+- submission／receiptはcommit sidecarを必須とし、filenameのpurposeとrecordのpurposeを完全一致させる。
+- crash回復はlogical HomeとHost Operationのkernel owner世代不在、selected-user RuntimeState binding、active binding一致、exact Docker不存在、Host recovery lineageおよび全RuntimeState inventoryを順に確認する。
+- Host intentはcurrent record snapshotのcanonical Hash、実state、および指定next stateだけを適用した決定論的successor Hashへ結合し、同nonceの別stateまたは第三状態を上書きしない。
+- Operation recordはHost cleanup intent、Host領域不存在、cleanup receiptおよび同じHostを参照する全runの終端確認まで残す。
+- Provider process開始前にTaskへopaqueな回復handoffを登録し、`active`、`finalizable`、`finalized`、`abandoned`を区別する。
+- `finalized`だけを未解決集合から除き、cleanup不明時は現在も処置可能な全Recovery IDを失わずleaseを放棄する。
+- RuntimeState、logical HomeまたはHost generationの解放を確認できない場合は暫定成功を破棄して停止する。
+- fresh inventoryで耐久markerまたは対象記録を確認できた場合だけ`preserved`として同じRecovery IDを返し、確認済み不存在なら`not_preserved`としてIDを発行せず、inventory不能なら`unknown`として保持を推定しない。
+
+#### 公開境界と検証の接続
+
+- production facadeはnative observationを内部選択し、caller Root／observer／runner付きcontract engineを公開しない。
+- package `exports` allowlistは明示CLI以外のdeep subpath importを拒否し、試験engineは正式Facadeの利用側にならない。
+- production共有engineは別processのHost Effect直前終了をprevious、receipt後終了をexpectedとして残存0へ回復し、third stateとselected-user再結合不一致ではEvidenceを保持して停止する。
+- cleanup途中終了、独立2 processのsame Home exact-one／別Home非競合、Task A回復時のTask B不変、receiptからexact Docker削除・Host回復・残存0、replacement非削除、release false／throw、通常完了とHost cleanup receipt後のfinalizeも同じ閉じた実装境界で確認する。
+- 複数IDの全件投影はTask Runtimeと安全な人間向けreportで、実CLIと共通projectorのJSON／人間表示は単一／複数inventory、third stateおよび成功を確認する。
+
+`base.json`／`base-commit.json`のbootstrapは、pending base-only、両pair pending、空Operation Directory、各pairの`move_content`／`move_commit`／`complete`およびbase完了後・base-commit開始前を明示状態として分類する。pending base-onlyはexact Schema、nonce、logical Home、base Hash、commit sidecarおよびFilesystem IdentityからRecovery IDを再構成し、明示RecoveryがProvider／Docker Effectを開始せず欠落commitを決定論的に補ってcleanupへ閉じる。split pairはexact Recovery ID、logical key、固定target content／commit名および単一validated move intentが一致する場合だけ読み取り専用inventoryへ投影し、source／target Directory Identityと全componentを現在Filesystemへ再結合する。各pairはtarget状態に加えてRoot pending sourceの必須・不存在・journal所有を照合するため、move intentなしのsource／target重複を第三状態として拒否する。active pointerは両pairの完全確定、Root sourceとmove intentの不存在、通常Operation inventory、exact `host-begin-intent`およびbase initial Host lineage一致が成立し、かつ`lease-release-receipt.json`、`normal-run-complete.json`、`host-cleanup-intent.json`、`host-cleanup-receipt.json`およびcleanup manifest／tombstone状態が存在しないexact active windowのrecordだけへ結合する。`host-complete` receipt前後とcrash-absence処置中はpointer削除前の正当な状態として除外しない。committed pointerとpointer journalのいずれもpartial、pre-host-intent、move anchor残存またはpointer解放後recordへAuthorityを与えない。full stateだけが通常Operation inventoryへ遷移し、partial stateは到達可能状態ごとのexact filename／type／serialized byte／Hash／Filesystem Identity allowlistで全entryを検査する。unknown、orphan temporary、余分sidecar、non-regular、replacement、複数intent、Recovery ID差、target名差または第三状態はRecovery ID空のblockedとなる。Task admissionは新規記録前、明示Recoveryはtarget-scoped journal resume、欠落commit再構成またはpending pair移動前にこのRoot inventoryを完了し、inventory自体はFilesystem mutationを起こさない。
+
+Host先行回収後の`host-precleanup-finalization-intent.json`は、後続Recoveryを再開できる耐久Authorityとして扱う。新規intentはHost Root／marker、submission、active bindingが全て不存在で、exact committed pointerとRecovery ID、operation nonce、base／stable Home hash、initial Host Recovery IDが一致した場合だけ発行する。既存intentは全field一致時だけ再開Authorityとなる。発行前拒否、partial、mismatch、unknownまたはHost／submissionの再出現では新規intentを残さないため、失敗した呼出しを繰り返してもAuthorityが増えない。intent発行後もexact state以外を推測上書きせず、Evidenceを保持してFail Closedにする。
+
+作成時RuntimeStateのIdentity Hash、Protection Hash、selected-user bindingおよびRuntimeState binding Hashは、baseからcleanup manifestとRoot cleanup anchorまで同じRecovery IDへ耐久結合する。beginの最初の記録、journal resume、cleanup renameおよびpayload削除は、lock取得後のfreshなRuntime-owned observationと作成時Evidenceを再照合した後だけ行う。cleanup-only状態でEvidenceが欠落または現在ユーザーと不一致なら、Host Effectが既に不存在でも残骸を削除しない。同期資源は一つの解放失敗後も残りを全試行し、どれかを確認できなければ`blocked`とする。fresh inventoryで対象記録を確認できた場合だけ`preserved`として同じRecovery IDを返し、確認済み不存在なら`not_preserved`としてIDを発行せず、inventory不能なら`unknown`として保持を推定しない。contract-test用のcaller Root／observer seamをproduction wrapperやCLIの入力へ追加せず、正式実行AuthorityはKnown Folder由来Capabilityを消費するproduction wrapperだけが持つ。この境界は悪意ある同一ローカルOSユーザーを防ぐものではなく、v1のMinimum Trust Boundaryを拡張しない。
+
+### 診断とDesktop修復の制御
+
+引数なしの`doctor`と明示的な診断optionは受動事前診断であり、Providerプロセス、認証、NetworkまたはRepository変更を実行しない。`where`／`which`等の外部locatorも起動せず、Runtime自身がPATHとPATHEXTをFilesystem APIで確認する。絶対Path、locatorの生出力またはProvider Versionは診断結果へ保持しない。Operation専用領域の生成からCapability初期化までの内包failure集合は共有classifierからDoctor公開投影まで保持し、cleanup不明は取得済みのexact Host Recovery IDまたはIDなしoperator transferだけをJSON／人間表示へ返す。cleanup確認済みfailureをmanual Recoveryへ昇格せず、未検証Path、秘密またはCauseを公開しない。明示`doctor --recover-isolation`とWindows専用`doctor --repair-docker-desktop-runtime`はこの受動診断に含めず、それぞれの限定Recovery契約に従う。
+
+`doctor --repair-docker-desktop-runtime`は、Docker Engineの既知停止を二度観測し、固定`dockerInference` socketの既知アクセス不能を確認したWindows Hostだけで人間が明示実行する最終復旧処置である。通常Task、起動時diagnostic、Provider失敗、timeoutまたは別Runtimeから自動fallbackしない。署名済みCRDD配布物、native selected-user／Known Folder照合済みLocal App Data、保護Runtime State、単一の署名対象Policyに固定したDocker Desktop 4.41.2由来の直接Effect用成果物／Engine 28.1.1、および選択User単位のWindows global mutexを要求する。保証対象はCRDDが直接起動・停止・観測する固定executable集合のexact Path／size／SHA-256／handle IdentityとEngine応答版に限定する。未列挙DLL、resource、loader依存、installation全体のmixed-version、updaterまたは供給経路をAttestationせず、人間が確認した公式Docker配布物と正常なupdaterをT1–T2のTCBに含める。native helperは固定成果物をread-onlyかつwrite／delete非共有handleで保持し、公式shutdown後に残るProcessは同じkernel process handleで実行Path、作成時刻および生存を照合したうえで、そのhandleだけを停止・待機・解放する。PIDやProcess名を停止Authorityにしない。WSL処置は`docker-desktop` distributionのterminateだけとし、`wsl --shutdown`、通常distributionまたは任意VMを対象にしない。
+
+Filesystem Effectは、保護Runtime State内のrev4追記型段階記録、旧版記録の明示引継ぎ・終了に用いる固定名の`historical-adoption.json`／`historical-closure.json`の排他的追加、および`Docker\run`を同じ親Directoryの一意な`run.crdd-stale-*`へrenameする処置に限定する。履歴receiptの境界は[専用Architecture](01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。socket、旧Directory、段階記録、CRDD RuntimeStateの他内容、Provider Home、container、imageまたはvolumeを削除しない。記録は境界Identity、Policy Hash、Directory Identity、単調なEffect ledgerおよび前Record Hashを固定し、未完了、欠落、改ざん、余剰entryまたは上限超過では新しい処置を開始しない。rename前後に同じDirectory Identityと対象不存在を再確認し、Docker Desktopを固定成果物から再起動してEngine 28.1.1の応答、固定成果物およびProcess集合を再確認する。
+
+記録rev4はshutdown、条件付きnative termination、WSL termination、renameおよびlauncherという通常最大5種のHost Effectを扱う。全経路で5種を実行する契約ではなく、自然回復時は残るHost Effectを発行しない。Host関数を呼び得るEffectは耐久intentと同じentryのsettlementに分離し、非同期artifact確認後にProcess、package／Policy、Engine、`run`、staleおよび取消をfresh再確認してから、awaitなしでHost関数へ接続する。公式shutdownの非発行または確認不明では後続Effectを止める。確認済みshutdown後にProcess不存在を確認した`K/A`だけはnative関数を呼ばず、限定direct `false/not_issued`観測Recordを保存する。`K/N`はnative terminationの非発行settlementとProcess状態不明reconciliationを同一Recordの唯一の複合意味deltaとして原子的に保存し、以後のHost Effectを禁止する。未settled intentを再発行しない。
+
+reader、writerおよびRuntime再開は、前後のstage／ledger／意味deltaを検証する同じexact状態機械に従う。通常Recordはrecord-write bookkeepingと意味delta最大1件だけを持ち、shutdown→optional native termination→WSL、settled process prefix後のHost rename、renamed所有のlaunch、未settled intentの末尾性、unknown reconciliation後のHost Effect禁止、二つのrename系列の排他、およびpending／terminalの安全集約を要求する。一件でも`unknown`のHost Effectまたはreconciliationを含む履歴を既知pending／closedへ昇格させず、専用のhistorical pending／terminalへ保持する。現在のEngine回復を過去のlauncher発行証明へ流用せず、`observed_desktop_recovery`を非発行観測として保存する。既知Effect後のstaleなし回復、過去Effect自体が不明なstaleなし回復、およびrename後のstale保持回復を別の状態へ投影する。observed renameはDirectory Identityに基づく物理rename観測で、自然回復観測とは別である。再開、pending、明示closeおよびterminal再表示も、非同期artifact／Process観測後にpackage／Policy、Engine、`run`、staleおよび取消を同期再観測する共通fresh snapshotへ結合する。record writeは自己参照を避ける専用Filesystem Evidence Effectとして、hash chainのfresh再読込後だけconfirmedへ精緻化する。意味的に到達可能な通常最大系列は15 Recordである。上限24件は通常系列へ9段階を追加したという主張ではなく、将来のbounded recoveryを通常系列へ混入させず停止する防御的hard capであり、23／24の純粋容量試験を有効な意味chainの証明に使わない。残容量はStore所有の状態機械から導出する。64 retained Operationまたは容量不足ではEffectと新規Directoryを発行せず、削除、compactionまたは自動反復を行わずRuntime operatorへ移送する。旧rev2／rev3および強化validator不適合のdraft rev4は暗黙移行しない。
+
+Docker Desktop再起動はNodeの非同期spawnではなく、native helperが[専用起動環境](01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従い、OS Known Folder由来のProfile、Roaming App Data、Local App Data、ProgramData、検証済みTempおよびOS由来Windows Directoryから最小Unicode環境を構成する。Profileを`HOME`、`USERPROFILE`と作業Directoryに、Profile配下の`.docker`を`DOCKER_CONFIG`に設定し、親環境を継承しない。これはDocker Desktop自身による通常設定の利用であり、CRDDによる設定本文・Credentialの読取り許可ではない。固定launcherを`CreateProcessW`した同じprocess handleでimage／作成Identityを確認する。生成前非発行、生成後確認済み、生成後確認不明を別statusで保持する。launcher handleは確認後に閉じ、Engine、固定Docker Process集合および新しいlive run Identityを別途再観測する。helper protocol成否とchild／handle／全stdioのbounded cleanup確認を分離し、exact `C`一件、exit 0、signalなし、余剰frame／partial byteなしおよび全stream settlementを満たす場合だけprotocol完了とする。`C`後もstdout／stderr errorはprotocol Evidence不明として失敗させ、stdin終了側だけをcleanup専用に扱う。cleanup確認済みのprotocol失敗をrepair成功または新規repair許可へ昇格しない。正常`Q`応答後のstdin終了失敗も同じmemoized bounded cleanupへjoinし、protocol完了とcleanup確認を直交して返す。境界不一致、helper喪失、artifact不明、取消、容量不足および耐久化応答不明の理由を相互に変換しない。
+
+回復直後は`recovered_pending_close`であり、成功終端ではない。退避Directoryと段階記録を保持し、人間が表示されたopaque IDで`doctor --close-docker-desktop-runtime-repair <repair-id>`を明示実行した場合だけ、同じmutexを再取得してEngine、固定成果物、Process、元Directory、退避Identityおよび記録chainを再確認し、削除せず終端を追記する。取消またはhelper喪失後は、取消前に耐久化済みの同一intentを最大一回settleするcleanup-only例外を除き、新しいHost Effect、intent、stage、reconciliationまたはcloseを発行せず、現在状態の観測とbounded解放だけを続ける。親Process消失ではhelperのstdin EOFがmutex、成果物handleおよびProcess handleを解放し、次回の明示doctorが記録から再開する。helper解放は`Q`応答、exit 0、child `close`、stdin／stdout／stderr settlementをboundedにjoinし、公開成功後にcleanupを残さない。Process、Path、Identity、mutex、WSL停止、記録更新、rename、再起動、Engine応答またはhelper解放を確認できなければ成功へ昇格せず、Effect後は`manualRecoveryRequired`、Effect状態自体が不明なら`effectStateUnknown`で停止する。この処置は別のNode native crash、Docker Task Recovery、Provider EffectまたはRuntime完成を解決した根拠にならない。
+
+durable terminalはrepair／Evidenceに対する人間のDispositionだけを表し、helper cleanupを永続事実として保存しない。現在runはterminal追記後もhelperの`Q`応答、exit 0、stdin／stdout／stderrおよびprocess handle回収を確認できなければ`blocked`かつ`newRepairPermitted=false`とする。親がterminal追記後に消失した場合は成功を返さず、EOF／RAII解放へ委ねる。次回は同じselected-user repair-domain mutex、全固定成果物のwrite／delete非共有handle、CRDD package tupleおよびPolicyを一体で再取得できた場合だけ前helperが現在のAuthorityを保持していないと扱い、別未完了操作があれば古いterminalのcloseで迂回しない。
+
+rev4の再開判断はstageだけでなくsettled Effect prefixを入力とする共通状態機械へ固定し、初出settled、複数delta、不可能なstage系列、二つのrename系列またはrecord-write相関不一致をreader／writer双方で拒否する。意味的に到達可能な通常系列15 Record、防御的hard cap 24 Recordおよび上限64 retained Operationとし、各Host Effect前に次の安全なdurable stageまでの最悪必要件数を確認する。追加9件は到達可能な再開系列の主張ではない。容量またはinventoryが不足・不明ならHost／Record Effectや65件目Directoryを発行せず人間へ移送し、自動削除やcompactionを行わない。旧rev2／rev3だけでなく強化validatorに適合しないdraft rev4も再解釈・再発行しない。
+
+取消後は新しいHost Effect、intent、stage、reconciliationまたはcloseを発行しない。ただし取消前に耐久化済みの同一intent settlementだけは、helperおよびpackage／Policyのcleanup-only境界を再確認できる場合に最大一回追記できる。protocol結果とcleanup結果を直交して保持し、正常な取消cleanupをprotocol失敗へ変換せず、cleanup確認済みの真のprotocol失敗を成功へ昇格しない。
+
+初回Gateは次を個別に返す。
+
+- NodeとローカルGitの利用可否
+- Codex／Claude Codeコマンドの検出と専用Homeでの起動可否
+- Provider子プロセスへ渡すCredential関連環境名の除去
+- Operation専用Home、workspace、tmp、events、projection、managementの作成可否
+- 主体別Filesystem強制機構の有無
+- 許可Provider endpointだけに限定するEgress強制機構の有無
+- Providerの自動更新、Telemetry、Session再開、timeout／cancelの確認状態
+
+各必須項目は`confirmed`、`blocked`、`not_implemented`または`unknown`で保持する。自動更新、Telemetry、Session再開、timeout、cancelおよびprocess tree終了は個別に評価し、Providerごとの認証・発見状態と混ぜない。Operation領域の作成成功と主体別Filesystem強制、Credential環境名の除去とCredential Store／Helperを含む隔離強制も別の項目とする。全必須項目が観測により`confirmed`となるまで全体は`blocked`である。
+
+CLI未導入、認証未確認、Filesystem境界未強制、Credential隔離未強制またはEgress未強制を、利用可能または安全と推定しない。Gateは不足を人間判断へ誤変換せず、阻害理由と必要な後続処置を返す。
+
+### Provider隔離・Probe・Operation資源の制御
+
+Codex Provider containerは外側のDocker境界に加えて、公式Codex command sandboxを維持する。Codex executableと同じ公式Releaseの署名検証済みbundled `bwrap`を固定imageへ隣接配置し、Runtime時取得、PATH上の任意binaryまたはsandbox bypassへ縮退しない。Provider Homeが認証のためread-write mountであってもcommandの読取りAuthorityへ昇格させず、内側permissionはroot deny、minimal read、Role別workspace access、command network denyへ固定する。内側command wrapperに必要な固定Codex executableのexact Pathだけをreadへ追加し、Provider HomeやRoot全体を許可しない。固定Releaseで`code_mode_only`となるSol系と公式Linux code-mode hostの`SIGTRAP`を確認した場合、同一Operation中に試行fallbackせず、事前に固定・実測したCompatibility Profileだけを理由付きで選ぶ。新しいReleaseで同じ隔離条件の実Taskを通すまでSol系へ戻さない。bundled `bwrap`のIdentity、配置、実行可否またはSandbox初期化を判定できない場合はProvider Effectを成功へ昇格しない。
+
+固定版Codex CLIが公開する`features.respect_system_proxy=true`をexact argvへ固定し、`HTTPS_PROXY`、`HTTP_PROXY`および`ALL_PROXY`を同じOperation専用Proxy URLへ、`NO_PROXY`を空へ固定する。親環境またはcaller由来のProxy設定は拒否し、Claude経路へCodex固有設定を伝播しない。送信先やNetwork Authorityを拡張せず、内部Networkからの直接DNS／直接接続を許可先限定Proxyへ強制する。
+
+将来のActive Probe Adapterは、Filesystem、Credential、EgressおよびProcess境界を先に強制し、同じ隔離環境内でだけProviderを起動する。Windowsでは発見した`.exe`、`.cmd`または`.bat`の種別、複数候補、空白を含むPathおよび引数境界を決定論的に扱い、shell injectionを許さない。生stdout／stderrは正規化前に永続化しない。現在の受動診断結果をActive Probe、認証または利用可能性の根拠へ流用しない。
+
+Fake Provider隔離Probeは固定Digest image、read-only root filesystem、全Linux Capability削除、`no-new-privileges`、PID上限、非root UIDおよび`--network=none`を使用する。mount対象は`workspace/`、`provider-home/`、`tmp/`だけであり、`events/`、`projection/`、`management/`、通常User Home、Credential StoreおよびDocker socketを渡さない。mount元はfactory発行objectからmodule-privateなCapabilityとして作成し、各childの実Path、親、名前、`dev`、`ino`および`birthtimeNs`をcreate直前、start直前およびProbe終了後に照合する。公開Path、同形object、link／junctionまたは同名replacementを所有根拠にしない。
+
+Docker CLIのTrust Anchorは、固定install root、`docker.exe`、Docker Incの有効なAuthenticode署名を確認した実体、および承認済みSHA-256の組合せである。Runtime PolicyはQual-Labが所有し、Docker Desktop更新でHashまたは実体Identityが変わった場合は自動採用せず、再評価まで`docker_cli_untrusted`として停止する。PATH、通常環境変数、Docker ContextまたはProvider出力から上書きできない。Docker子プロセスにはPATH、通常Home、Credential／Context／TLS関連環境を渡さず、固定named pipeと空の専用Docker設定だけを使う。Nodeの検査からspawnまでを敵対的なHost管理者から完全防御するものではなく、Host／Docker Desktop管理者はTrust Boundaryに含む。
+
+Probe containerは`docker create`が返した64桁container IDを一次Identityとし、名前とownership labelは補助情報に限定する。起動前に同じIDの名前、label、image、entrypoint／command、3 mount、Network、read-only root、Capability、security option、PID上限、user、privileged／device非追加をinspectし、一件でも不一致ならstartしない。cleanupも同じIDだけを対象にする。削除後は完全なID、完全な名前および完全なownership labelを3つの独立した成功応答から照会し、各応答を64桁ID集合として正規化して、すべて空の場合だけ不存在を確定する。非0終了、不正・重複・過大出力または一件でも残留があれば`blocked`とする。この独立性は同一Docker daemon内の検索軸を分ける意味であり、daemon自体から独立した証明ではない。Docker daemonへ同権限を持つHost主体はTrust Boundaryに含み、名前またはlabelだけを敵対的daemon利用者への所有証明としない。
+
+container不存在を確認できるまでHost側Operation領域を削除しない。Host回収記録は再帰削除対象rootの外側にある固定一時親直下の専用・non-link領域へ原子的に保存する。Docker `create`要求の送信前に状態を`docker_submission_started`へ遷移し、この状態以降は3軸不存在が確定するまでHost-only回収を拒否する。cleanup不確定時は推測困難なrecovery token、root／child実体Identity、container ID、engine、imageおよび所有情報を保持し、Credential、生出力または一般Host Pathを含めない。
+
+明示recoveryは固定一時親、外部Host marker、non-link、実体Identity、tokenおよび同一containerの全inspect条件を再確認する。処置順はDocker cleanup、ID／名前／labelの3軸不存在確認、Docker記録の状態確定、Host root cleanup、root不存在確認、外部Host marker消費とする。Host childが既に不存在なら部分回収済みとして扱えるが、存在するchildのlink化またはIdentity不一致では削除しない。Docker IDを取得できなかった場合は遅延createを否定できないため、exact nameと同じname＋ownership labelの連続した空照会からもHost削除へ進まず`blocked`を維持する。両照会が同じ単一IDを返した場合は、名前やlabelを所有証明へ昇格せず、そのIDのimage、mount、hardeningおよびcrash位置に応じたNetwork閉集合を完全照合してからだけ削除できる。例外または部分失敗では外部記録を保持し、caller指定ID／Pathや未知containerを削除しない。現在UserとDocker daemonへ同権限を持つHost主体をこの回復記録のTrust Boundaryに含む。
+
+回復段階の実行用tokenを混同しない。`docker_submission_started`から3軸不存在を確認するまではDocker tokenだけを返し、one-shot CapabilityによるHost marker更新後は更新後Hashを持つHost tokenだけを返す。Host cleanupの失敗、未知entryまたは既知child置換でも古いDocker tokenへ戻らない。受動診断はfactoryがprivateに固定した現行Hashを照合し、現在markerを読み直して新しい正当tokenを生成しない。Host recoveryの共通moduleはtoken、Schema、Hash、読取り検証およびactive世代の送信開始／送信前取消を所有する。この2遷移はmount Capability、安定nonce、直前Hashおよび次Hashをmarker書換え前に照合し、marker置換と世代内Hash更新を一つのRuntime所有処置として行う。`docker_absent_confirmed`への遷移は3軸Oracleが生成した一回限りのCapabilityをDocker隔離moduleの非公開経路で必須とし、公開token、mount Capabilityおよび状態文字列だけでは実行できない。active世代では非公開経路が書き換えたrecordだけを狭いadopt境界が直前Hashと同一owner mountへ再結合し、adopt失敗時はmarkerとprocess-local stateの片側だけを現行として信頼せずblockedとする。別nonce、古いHashまたはCapability不成立ではroot、aliasおよびactive世代を変更しない。Docker送信準備記録と送信前取消がともに失敗した場合は、実行不能tokenを回復IDとして案内せず、Operation領域を保持した`manualRecoveryRequired`として停止する。
+
+3軸不存在Oracleの成功は、同一実行内のProbe ID、64桁container ID、Operation root、Docker CLI Capabilityおよび`docker_submission_started`のHost記録Hashへ結び付いたmodule-privateな一回限りのCapabilityにする。Capabilityを公開結果へ含めず、token、owned object、状態名、同形objectまたは別Probeの結果から復元しない。Host記録の原子的更新に成功した後だけ消費し、更新失敗時は送信開始状態と回復情報を保持する。非export化は誤用防止であり、同じHost権限でソースを変更できる主体への完全なSecurity境界とはしない。
+
+Operation rootのcleanup所有母集団は、factoryが作成する`workspace/`、`provider-home/`、`tmp/`、`events/`、`projection/`および`management/`の6 childである。Docker mount対象は前3件だけであり、管理領域を昇格させない。通常cleanupとHost recoveryはroot直下を列挙し、現在entryが既知6件の部分集合で、存在する各childが保存Identity、directory種別、non-link、親および実Pathへ一致する場合だけ再帰削除する。既知childの不存在は部分回収として許容するが、未知file／directory／link、dangling linkまたは置換childは拒否する。
+
+Runtime所有Operation context Capabilityは、Runtime生成Operation IDと生成時刻を、factory所有object、root／parent／prefix、rootと既知6 childのstable Filesystem Identity、Host recovery nonceおよび現行record Hashで区別したprocess-local世代へ結合する。contextとmountが同じprivate owner世代に属する場合だけ、後続store向けのopaqueなmanagement binding Capabilityを発行し、Path、Filesystem Identityまたはplain bindingを外へ返さない。plain copy、偽造、別Operation／別世代の組合せは拒否する。rootまたはchildの確認済み置換では世代を`retired`へ不可逆に固定し、同一世代のcontext／mount／management aliasを即時に失効する。Filesystemを元へ戻してもCapabilityを再発行せず、安全なcleanup／recoveryのためだけに所有Identityと失効記録を保持する。正常cleanupまたは検証済みHost recoveryが同一世代のroot消滅とmarker除去を確定した場合だけ世代記録を終了する。Identityが正常なままのaccess error、未知entry、marker不成立、別nonceまたは古いHashによる非置換型の処置停止はcurrent callをblockedとするが、Operation終了やactive世代の失効を先取りしない。このCapabilityはOperation bindingだけを表し、Provider Home保護、Mount Grant発行、実mount、Provider process、Network、OAuth、課金またはGateを成立させない。
+
+明示Docker recoveryは`management/`と回復記録を先に再識別し、root直下の既知部分集合と存在childのIdentityを確認してから3軸不存在を照会する。container不存在時は既知childの部分欠落をHost recoveryへ引き継ぐ。container残存時だけmount 3件と`management/`を必須化し、同じcontainerのinspectとcleanupへ進む。非mount childの欠落だけでcontainer cleanupを妨げず、存在childの置換、未知entryまたは管理領域の欠落では推測回復しない。
+
+このFake ProbeはProvider endpoint限定Egressを証明しない。`--network=none`は外部送信を遮断するが公式Providerを利用不能にする。実ProviderではCodex／Claude別の固定hostname集合、public address検証、認証付きCONNECT Proxy、Operation internal Networkと専用Egress Networkおよび認証preflightを含む固定9 commandをRuntime Adapterへ接続したが、Fake Probeの合格をその根拠へ流用しない。Fake Probeの合格は同じrunの動的Fake観測の限定来歴にだけ使用でき、Provider認証、active probe、実Provider lifecycleまたは実Operationの許可へ流用しない。
+
+ProviderライフサイクルCore候補は、callerが構成できる合成claimと、Repository所有Docker Adapterが発行する動的Fake観測を分離する。合成claimは固定Provider／mode、上限付き入出力とdeadline、cancel、終了状態、process tree／container不存在claim、quota状態および結果exact 1件を純粋に判定するだけで、正常形も非Authorityの`candidate`に限る。動的Fake Providerライフサイクル観測（Dynamic Fake Provider Lifecycle Observation）は、固定Probeの実行、exact結果正規化、所有container回収後のID／name／label三軸不存在およびHost cleanupを同じrunから投影し、plain objectやProvider自己申告から再構成しない。Fake限定の観測来歴であり、Runtime Authority、Operation Capability、実Provider readiness、OAuth、quotaまたはEgressを成立させない。
+
+Claude実行計画候補（Claude Execution Plan Candidate）は、公式release manifestのLinux x64 binaryについてexact version、upstream commit、SHA-256、byte長および固定絶対pathを同じartifact Identityへ結合する。2026-08-24にAnthropic release signing key fingerprint、detached manifest署名、binary byte長／SHA-256、固定Provider image digestおよびexact argv互換性を検証した。`--bare`はOAuth／Keychainを使わないため除外し、固定requestを`--safe-mode`、空settings sources、空MCP、tool 0、boolean Structured Output、最大2 turns、API相当budget `$0.10`、session非永続およびplan permissionへ限定した。専用Provider Home、親環境を継承しない最小環境、internal Provider networkと限定Proxy、Claude Max Subscription OAuthおよびnormalized `{status:true}`の実requestはtransient vertical sliceで成立し、container／network残存0を確認した。Runtime-owned selected-user observer、Mount Grant、環境置換、Egress／Docker Adapter、短命Authority、Repository／Revision binding、Process Controllerおよびdurable Recoveryは固定boolean経路へ接続済みである。npm package、PATH上のHost CLI、native installerの自動更新または`latest` channelへfallbackしない。Provider request用子processは親環境を継承せず、Runtime所有の`HOME`、`TMPDIR`、`HTTPS_PROXY`と固定更新停止変数だけで環境を完全置換し、標準Subscription ProfileではAPI key、base URL、Provider／model／fallback selector、Host proxyおよびCredential／settings pathを渡してはならない。binary配布物の条件と認証済みservice／アカウントの適用条件は別々に解決し、提供形態名から適用条件や自動subscription利用許可を推定しない。source checkoutでは署名Releaseと有効化済みAuthorityがないため、production request spawn前に停止する。
+
+一般TaskのExecutorは、read-writeの隔離Workspaceと編集用built-in toolへ対応する`acceptEdits`だけを使用する。Independent Reviewerはread-only mountと読取り用built-in toolに対応する`dontAsk`を使用する。両RoleでBash、Web、MCP、Subagent、Provider Home built-in tool accessおよび親環境継承を禁止する。ExecutorのPermission ModeはCanonical Repository、許可Path外、Provider Homeまたは外部EffectへのAuthorityではない。Runtimeは固定Revisionから作成したCandidateのinventoryと内容を別に検証し、空差分、範囲外変更、不一致または観測不能をCanonical Effectへ昇格しない。
+
+動的Fakeの失敗検証はRepository所有の固定scenarioだけを許し、caller supplied command、image、source、argvまたは期待reasonを受理しない。timeout、出力上限超過、不正結果およびnonzero exitは同じ固定image、`--network=none`、mount Identity、3軸不存在およびHost cleanup経路で`blocked`へ閉じる。失敗後にcleanupが成功しても観測を成功へ再昇格せず、既に発火した診断Docker／Filesystem Effectは保持する。固定Fake専用の取消検証はRepository所有の非同期attachから`SIGTERM`だけを発行し、Fakeの固定受領出力、status 42、5秒以内の終了、ホスト側Docker CLI attachプロセス（Host Docker CLI Attach Process）のclose、同一mount Identity、3軸不存在およびHost cleanupの全条件を同じrunで要求する。async attachはmodule-private controllerが所有し、ready／completion timeout、出力超過または例外では終了要求をexact 1回に制限してcloseを待ち、その後にcontainer／Host cleanupを行う。close不明時はcleanup成功でも`blocked`を維持する。plain fixtureは`candidate`に留め、通常診断、任意signal、実Provider取消、cleanup失敗または残存containerを確認済みとみなさず、実Provider、認証、Egress、課金またはOperationへ流用しない。
+
+現在の通常診断の同期Docker経路はtimeoutと出力上限を取消から分離して固定reasonへ閉じ、実行中に到着する取消を受理しない。専用検証で成立した固定Fakeの`SIGTERM`取消を、通常診断、実ProviderまたはOperationの取消実装済み状態へ昇格しない。Docker container、回復recordおよびOperation一時Directoryの診断処置は実Effectとして記録し、Provider Network Effect、課金Effectまたは実Operation Effectと分ける。実Providerは固定Digest image、exact CLI version、自動更新停止、専用Home保護、認証probe、Egress ProxyおよびDocker lifecycle結合がそろうまでspawn前に停止する。標準ProfileはSubscription専用であり、quota／credit不足または判定不能時は追加購入、API key、従量API、Host CLI、Shell、PATHまたは別Runtimeへfallbackしない。有料APIは将来もSubscriptionの代替分岐として暗黙選択せず、ユーザーが明示設定する別Profileと、Provider／Account、Credential source、予算およびOperation Authorityの独立結合がある場合だけ別Capabilityとして評価する。設定だけではrequest、購入またはAuthorityを発行しない。
+
+### 現行Taskの送信・指摘搬送・候補保護
+
+Provider隔離ProfileはAuthority候補と強制結果を分離する。Profile revision 3が表すのは、Provider、Operation、subscription OAuth、Authority RegistryのGrant参照候補、Runtime-owned active Provider Home Mount Grantの要求および要求Origin集合であり、人間承認、Credential値、動的Mount Grant参照、発行済み許可または実行可能Capabilityではない。旧revision 1のgeneric Credential Grantと`credential_broker`、および動的参照を静的成果物へ保持したrevision 2はsubscription OAuth v1でalias受理しない。専用Homeマウント許可はProfile自身、Agent出力、環境変数またはProviderの自己申告だけから発行しない。Runtimeが所有するAuthority Grant Verifier、active mount inspection、Enforcer／Adapterの観測結果が、同じ固定Profile Hash、Provider、Profile、OperationおよびScopeへ結び付いた場合だけ各Gateを評価する。
+
+送信先はOrigin完全一致とし、wildcard、平文HTTP、userinfo、query、fragment、任意Path、IP literalおよびlocalhostを拒否する。これは承認入力の正規化境界であり、DNS解決、TLS終端または実通信の強制を証明しない。実書込みOperationではProvider containerを外部Networkへ直接接続せず、Operation専用の内部Networkから専用Egress Proxyだけへ接続する。Proxyの許可先、DNS、TLS接続先および迂回不能性を実測できなければ`read_only`へ縮退せずOperationを拒否する。
+
+subscription OAuthのProfile revision 3はAuthority Registry entryを選ぶ`authority.grantRef`と、専用Homeに対する`runtime_owned`／`active`／`runtime_capability_required`の静的要求を保持する。ランダムな実Mount Grant参照は署名済みProfile／Registryへ入れず、active mount inspectionと起動直前Authority再検証から5秒・一回限りのRuntime Provider Authorityへ結合する。Profile自身はtoken、Path、session内容または発行済み状態を含めない。永続専用HomeのsessionをOperationごとにcopy／inject／破棄せず、短命な許可、handleおよびmountだけを終了時に失効させる。Secret、Token、API Key、Credential Store Path、Provider Home PathまたはCredential値をProfile、Prompt、通常Event、ProjectionまたはEvidenceへ保存しない。selected-user binder、保護観測、Mount GrantのRuntime所有issuer／atomic store／dual clock／consume／revoke、短命Provider Authority、実mount／unmount、Docker Effectおよびdurable Recoveryは、固定boolean経路と一般Task経路へ実装した。一般TaskはRuntimeが開始Commitから作る隔離workspaceだけを書込み対象とし、Task Packetをstdinだけで渡し、Executorの自己申告Pathを実Candidate差分へ照合する。独立Reviewerは対象Providerを除外し、同じCandidateを読取り専用で確認する。Reviewer後のCandidate再照合と全cleanupが成立するまで統合Resultを公開せず、canonical Repositoryへcommit、mergeまたはcopyしない。
+
+Local Personal一般Taskの外部送信Authorityは、callerの「安全」申告、Repository Policyの自己申告または一回の空疎な確認では成立しない。Runtimeは開始Commitの固定`.crdd/external-send-policy.json` revision 2を提案として読み、閉集合の情報分類、選択Local User専用Provider Home Session、Subscription OAuth family、目的、Candidate保存およびProvider Terms／SettingsをRuntimeが検証しない範囲をcanonical Policy Hashへ結合する。承認画面はObjective、Acceptance Criteria、書込み／読取り範囲、Provider候補、Revision、PolicyとScope Hash、Candidate保存、派生Review転送field、exact Account／Tenant identity非検証およびProvider Terms本文非検証を端末安全なcanonical JSONで全表示する。Local Userがその表示へ対話確認した場合だけRepository提案を今回のAuthorityへ結合する。Read Projectionの最小化は送信可能性の判定を代替しない。Policy欠落、disabled、閉集合外値、分類不能、表示不能、Provider Session／Subscription family差またはScope差はProvider Effect前に停止する。
+
+Reviewerの生Result、summaryおよび自由文は最終公開Resultへ出さない。一回限りのopaque remediation Capabilityは`path`、閉集合の`severity`と`category`、現在Taskの受入条件を指す`criterionNumber`、上限付き`message`およびdomain-separated `messageSha256`へ縮約する。`path`と`message`を認識済みSecret検査し、通過した本文だけを信頼しない欠陥主張として、同じ情報分類、最大64件、同一Executor、最大1回の派生外部送信Scopeへ結合する。本文は命令、Authorityまたは許可Path拡張にならず、ExecutorはRead Projection、受入条件、WorkspaceおよびTestと独立照合する。不正Schema、範囲外受入条件、秘密用Path、認識済みSecret本文またはCapability再利用は次のProvider Effect前に停止する。認識済みSecret拒否は未知のSecret不存在証明ではない。再Reviewは最初と同じ独立Providerへ固定し、二回目も承認しなければCandidateを公開しない。派生転送の意味Identityは保存済み初期同意境界へ結合し、意味変更時は旧同意を自動拡張せず再確認する。Candidate本文はPolicyが保存を許可する分類だけを、1〜168時間のexport可能期限、128件／256 MiB上限、既知Secret pattern拒否および内容Hash付きstaged Storeへ置く。Store Rootは選択ローカルユーザーのWindows Known Folderから固定導出し、fixed volume、non-reparse chain、安定Identity、選択ユーザーowner、および選択ユーザー／SYSTEMだけのprotected DACLをnative helperが処置前後に確認する。既存の不正保護状態を自動修復せず停止する。process間排他は選択ユーザーbindingから導出したWindows kernel objectを使い、owner process終了時のOS解放を利用する。時刻だけでstale lock fileを推測削除しない。期限後はexportせず、明示discardまたは次回の安全なRuntime／Candidate入口で物理削除する。常駐serviceを持たないため時刻到達と同時の物理削除は主張しない。Operation cleanup成功後だけpublishし、staged状態のexportを拒否する。cleanup、rename後再確認、discardまたはpublishが不明な場合はHost、Docker、Candidate、Candidate StoreのRecovery IDを混同せず、exact 1実体を指すRecovery IDを失うよりfail closedを優先する。個別Candidate discardを無関係な全体GC失敗へ依存させない。unknown／damaged regular fileは安定Identityへ結合したCandidate Store Recovery IDと明示確認だけでexact 1実体を削除し、Path、名前またはageから推測削除しない。既知pattern検査をCredential不存在の証明にしない。
+
+Provider経路選定のEffect前Eventは実適格性の証明ではない。caller申告の作業特性と、Runtime所有Profile／実装Capabilityから作る事前候補を分け、Provider Home、配布物、Policy、Subscription OAuth preflightおよびrequest内quotaがdeferredであることを表示する。後続preflight不成立は送信または結果公開へ進めず、Provider request開始後のquota／失敗は重複Effectを避けるため同一Operationで別Providerへ自動再送しない。cleanup後の新OperationでCoordinatorが再評価する。unknownをsame-provider fallbackへ使わず、有料APIへ切り替えない。
+
+Candidate Store排他objectの安定IdentityにはSessionごとのAuthentication IDを使わず、選択ユーザーSID、Store実体およびexact保護状態へ結合したProtection Hashを使う。同じユーザーの別ログインSessionも同じlockを共有する。
+
+### Provider Egressの制御と残存リスク
+
+Egress Policy候補は生Profileを内部Validatorへ通し、内部で生成した正規ProfileとHashからだけ完全一致hostnameを導出する。呼出側の検証済みという自己申告、HashまたはProfile objectを信頼せず、Authorityまたは通信許可を自己成立させない。Proxyは`CONNECT`と文字列として厳密なport `443`だけを受け、正規化済みASCII hostnameを許可候補集合へ完全一致させる。IP literal、userinfo、末尾dot、leading zero／符号／空白／制御文字を含むport、別method／port／hostnameを拒否する。
+
+DNS address分類は[IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml)および[IANA IPv6 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml)の2025-10-09更新版、[IANA IPv6 Global Unicast Address Space](https://www.iana.org/assignments/ipv6-unicast-address-assignments/ipv6-unicast-address-assignments.xhtml)の2025-10-10更新版、ならびに[IANA IPv6 Address Space](https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml)の2025-10-23更新版を2026-08-11に確認して固定する。Special-purposeの採用列は`Globally Reachable`、Global Unicastの採用列は`Status=ALLOCATED`である。
+
+判定順はbinary parse、IPv4-mapped／compatible／NAT64識別、Special-purpose最長prefix一致、IPv6 Global Unicast割当一致、既定拒否とする。mappedと`64:ff9b::/96`は下位32 bitをIPv4規則へ還元し、compatibleは拒否する。Special-purpose一致が`false`、空欄または`N/A`ならAllocation一致で再許可しない。IPv4はSpecial-purpose非一致だけを通常候補、IPv6はSpecial-purposeで明示許可された範囲または`ALLOCATED` prefixだけを候補とし、未掲載、`RESERVED`、未分類、parse不整合を拒否する。
+
+固定snapshotのSHA-256は、正本から選択・正規化して埋め込んだmetadataと全prefix entryを対象とし、IANA raw file自体のHashではない。entry件数も取得可能にし、Runtime contract revision変更、各IANA registry更新またはendpoint E2E不一致を再確認契機とする。表を自動更新して信頼境界を変更しない。
+
+DNS解決結果はすべてのaddressを検査し、空、不正または非global addressが一件でもあれば接続しない。Policy fixtureの合格をDNS rebinding対策または実通信許可と扱わず、後続Proxyは検査済みbinary addressへ直接接続してhostnameを再解決しないことを受入条件とする。
+
+Provider containerはOperation専用internal Networkだけへ接続し、Proxyだけを到達可能にする。Proxyはinternal Networkと専用Egress Networkへ接続するが、Docker socket、Host Network、他Operation Networkまたは一般Host serviceへ到達させない。Provider環境のProxy変数設定だけを遮断根拠にせず、Docker Network上で直接外部経路が存在しないことを検証する。Codex／Claude別の固定hostname、public address検証、Proxy認証、tunnel byte／idle上限、Network lifecycle、短命Authority、固定Docker EffectおよびcleanupをRuntime Adapterへ接続した。判定不能、許可外hostname、認証差、resource残存またはcleanup不成立ではResultを公開せず、`execution.egress`を成功へ上げない。
+
+### 未接続のHardened／Managed準備候補
+
+この節は通常のLocal Personal一般Taskの実行前提ではない。採用意図、pure Coreの実装、外部サービス接続、現物検証を区別し、候補だけから実行許可を発行しない。
+
+次段落以降のAuthority Registry／Trust Policy未実装表示はHardened／Managed候補に適用する。Local Personal一般Taskは正常OS、認証済みLocal User、公式署名Releaseおよび公式Provider配布をTCBとし、別の対話的External Send Grantと署名Release結合Local Personal Authorityを使用する。Hardened候補が未完成であることをLocal Personal一般Taskの未実装表示へ流用しない。
+
+OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM、macOS Secure Enclave、Linux TPM 2.0の優先Backend、または明示承認されたsoftware fallbackという選択だけを検査する。Backend名、公開SPKIおよびfallback承認はcaller suppliedのpolicy入力であり、hardware-backed、非exportable、鍵handle所有、Platform Provisioner署名または実OS保護の根拠ではない。秘密鍵を入力・出力せず、silent downgradeを拒否し、実native Adapterと保護確認がない限りGateを開かない。
+
+準備認証局（Provisioning CA）のpure Core候補は、offline rootとonline／offline issuing keyのroleを分離し、root署名済みissuing certificateとroot署名済み失効一覧の暗号的一致を検査する。issuing keyは最大365日、失効一覧は半開区間で最大24時間だけ候補化し、未知root、epoch差、期限外、署名不一致および列挙済みroot／issuing keyをfail closedで拒否する。caller supplied root集合、失効一覧および評価時刻はRuntime所有Trust、rollback-resistant floorまたは時計Authorityではなく、実配布と永続化なしにGateを開かない。
+
+準備記録と登録証明書のpure結合候補は、Recordの全署名鍵を現在の登録証明書、Platform scope、Provisioner Identity、公開SPKIおよびCA seriesへ1対1で結ぶ。未結合署名、重複証明書または余分なbindingはfail closedで拒否し、この一致だけからRuntime所有Trust、時計、Filesystem、activationまたはAuthorityを成立させない。
+
+登録証明書更新のpure遷移候補は、同じenrollment、Platform scope、Provisioner Identityおよび端末導入鍵を維持し、旧証明書の残り30日以内かつ失効前に新証明書を発行し、重複期間を最大30日に限定する。caller supplied時刻やissuer鍵からRuntime所有時計、CA Trust、rollback防止、保存または自動更新Effectを成立させない。
+
+Authority Grant VerifierはRuntimeまたは人間が事前に許可したRegistryだけを信頼し、Profile内の`registryId`を新しい信頼元の定義として扱わない。Grantの存在、決定権限者、UTCへ正規化した有効期間、取消・置換状態、Provider、Profile、要求Origin集合、専用Homeマウント許可参照、対象Operation／Scopeおよび候補Identityを正本から確認する。Provider起動直前にも期限・取消・置換を再確認し、古い確認結果を別Operationまたは失効後へ流用しない。Authority Grant参照、専用Homeマウント許可参照とHashの循環を避ける承認手順はVerifier実装時にAuthority正本として決定し、候補Hashの自己一致だけで承認を成立させない。Verifierが未実装の現在は`authority_grant_verification`を満たさず、Gateを開かない。
+
+現在のVerifier Core候補はRegistry revision 3の契約、内容版revision、UTC観測時刻、Grant状態と有効期間、Provider、Profile、Origin、Runtime-owned active Mount要件、Operation、ScopeおよびProfile Hashを決定論的に照合する。ただし、入力Registryの構造妥当性とHash一致は、そのRegistryを信頼するAuthorityや専用Homeマウント許可を作らない。Runtime所有Trust Policyの導入・有効化、信頼設定の所有権・改訂・取消境界、activated Authority source loaderおよびProvider起動直前の再照合が成立するまでproduction結果は`candidate`であり、Provider Effectを許可しない。未来の観測時刻、未発効・失効・取消・置換Grant、重複したAuthority Grant参照または結合差をfail closedにする。
+
+Trust Anchor Loader Core候補はRegistry byte列をTypedArrayの内部slotで131072 byte以下と確認し、Runtime所有Bufferへ一度コピーしてから、strict UTF-8、BOMなし、canonical JSONの完全一致、Registry契約および正規化後Hashを確認する。呼出側Bufferの上書き可能な`length`、`byteLength`または比較methodを判断へ使用しない。末尾改行、空白、重複key等によりParse結果とcanonical byte列が一致しない入力を拒否する。Trust Policy候補も独立した4096 byte上限、strict UTF-8、BOMなしおよびcanonical JSON完全一致を要求する。Policyは固定契約、Policy ID／revision／状態、Registry ID／revision／Hashだけを持ち、plain-data snapshot後にRegistry候補と完全照合する。caller supplied Policy、Agent出力または同じHashの自己申告をRuntime所有Policyとみなさず、Policy候補のHashもAuthorityの証明にしない。
+
+Runtime 1.0で正式に扱うAuthority取得方式はRuntime管理領域内の固定ローカルFile Bundleだけとし、IPC／Network Transportを正式Backendまたはfallbackにしない。Bundleは固定名の`bundle.json`、`trust-policy.json`、`authority-registry.json`から成り、Manifestは契約revision、Bundle ID／revision／状態、前版Bundle Hash、Trust Policy HashおよびRegistry Hashをcanonical byteへ固定する。初版だけ前版Hashを`null`とし、後続版は64桁Hashを要求する。Core候補は3ファイルのbyte上限、canonical形式、状態および相互Hashを確認するが、Bundle revisionの存在だけで単調な更新・取消・有効化を成立させない。
+
+Authority Bundleの物理RootはRepository単位のRuntime Rootから分離し、複数Repositoryで共有可能な明示絶対Pathだけを受理する。OS固有の暗黙Rootは設けず、CLI、環境の順で選ぶ。Repository内Runtime RootまたはProvider mountへAuthority Bundleを含めず、Path／owner／ACL、non-link、安定Identity、provisioner／admin主体だけが書込み可能、Runtime主体は読取り専用、非承認主体は書込み不可という共通保護結果をPlatform Adapterが確認できなければfail closedにする。Windows DACL、POSIX owner／modeおよびserver volume policyは実装差だが、OS名だけで成立を推定しない。現在のAuthority Root選択Core候補はPathを出力せず、実Path AdapterまたはCapabilityを発行しない。
+
+共通Root保護方針Core候補は、`runtime`／`authority`のRoot role、`windows`／`posix`のPlatform family、`local`／`persistent_volume`のFilesystem classおよび主体別access観測をexact plain-dataとして受ける。Runtime RootにはRuntime read/write、排他的な`runtime_principal_only` writerおよび非承認主体write禁止、Authority Rootには排他的な`provisioner_principal_only` writer、Runtime read-onlyおよび非承認主体write禁止を要求する。Runtime principalは選択された利用者またはサービス実行主体、provisioner principalは承認されたadmin／installerのProvisioning Authority集合を意味し、単一人物を意味しない。既存Root、安定Identity、link／reparse非該当も共通条件とする。network、removable、special、unknown、観測欠落または不正shapeはfail closedにする。読取り制限は今回の人間決定に含まれないため、Runtime以外のread禁止を新しい共通条件にしない。RuntimeがRoot作成やchmod／ACL変更を実行しないことと、OS上その権限変更能力を完全に除去できることも区別する。
+
+writer限定は通常のDACL／ACL／mode上の許可を対象とする。Windowsの`SYSTEM`／machine AdministratorsおよびPOSIXの`root`はOS自体を支配できる信頼するプラットフォーム管理者境界（Trusted Platform Administrator Boundary）であり、暗号的に排除できる第三者writerとは扱わない。Runtime所有経路がIdentity、保護metadata、署名、Trustまたはactivationの観測可能な変化を検出した場合は`blocked`として再検証し、信頼基盤（trust base）が健全と確認できた場合だけ再Provisionへ進める。健全性を確認できない場合、分類不能な場合、または管理者侵害が疑われる／確定した場合は、同じTrust基盤上の再Provisionへ直接進まず、プラットフォーム復旧（Platform recovery）でTrust基盤を再確立した後だけ再Provisionへ進める。再検証、復旧またはTrust再確立が不能なら`blocked`を維持して人間の決定権限者へ移送し、自動修復やfallbackを行わない。プラットフォーム復旧は将来の人間／Platform運用処置の目標で、現RuntimeのEffect、Capabilityまたは成功状態ではない。いずれの経路でもCapabilityを発行せずProvider／Operationを開始しない。これは侵入防止ではなく、観測可能な変更に対する検出と安全停止の契約である。攻撃者がOS、kernelまたはVerifier自体を完全に支配し、観測結果または実行コードを偽装する場合の検出と防御は保証しない。
+
+このCoreはPolicy要求と観測claimを照合するpureな候補であり、caller suppliedのIdentity、DACL構造またはaccess可否をAuthorityへ昇格させない。同梱package向けのDACL構造claim evaluatorもpure候補に限る。Rust CoreはWindows実効アクセス確認（effective access verification）の部品として、同一handleのRoot Identityを固定し、現在process tokenのgroup、deny-only group、restricted token、ACE順序およびgeneric mappingをOSに評価させる読み取り専用観測候補を実装する。TypeScript側は固定成果物のHash、target、protocol revision、toolchainおよびbyte長を署名manifestへ結合する読み取り専用観測候補を実装し、明示Release署名commandだけがmanifestをstaging Rootへ排他配置する。後者はリリースステージングのファイルシステム処置（Release Staging Filesystem Effect）であり、Runtime／Platform Provisioning Effect、AuthorityまたはCapabilityを成立させない。保護済み有効世代と検証済み実行イメージ（Verified Image）の実行時結合、およびプロセス起動は未実装であり、Path入力やプロセス起動より前に`blocked`となる。Root観測成果物への写像、DACL適用、Platform Provisioner EffectおよびRuntime readerは未実装である。PowerShell ACE集計、caller SIDまたはhandle open失敗から成立を推定せず、Path、SID、ACEまたはraw errorを公開しない。
+
+POSIX Runtime Root precheck入口候補は、明示opt-in時に評価するが、信頼できるFilesystem classifierが未実装の間はPOSIXでもraw入力、Path選択、Path Identity session、`lstat`／`realpath`／`open`／`fstat`、process identityおよびmode観測へ進まず、固定理由で`blocked`へ閉じる。Windowsはplatform未対応として同じくPath観測前に閉じ、非opt-inは入口を発火しない。現段階では`local`と`persistent_volume`を実体から分類できず、POSIX owner／mode観測、ACL／xattr、将来service principal、Authority Rootのprovisioner集合およびFilesystem class確認は未実装である。Path／UID／GID／mode／descriptorを公開せず、任意callback、raw観測から成功を作るhelperまたは再利用tokenを追加しない。将来mode観測を導入する場合は、信頼できるlocal Filesystem分類と同じPath Identity sessionへ先に結合し、caller supplied classだけで有効化しない。
+
+Runtime Rootの既定候補はRepository直下の`.crdd-runtime`、明示overrideの指定契約と優先順はCLI、環境、Repository既定とする。選択は絶対Pathの構文候補だけを扱い、絶対Path自体をdoctor／Evidenceへ出力しない。OS別の暗黙rootを設けず、serverでは同じ契約へ永続Volumeの絶対Pathを指定できる。CLI引数は未知、重複、値欠落、余剰tokenおよびrecoveryとの混在をRoot／Git metadata処置前に拒否する。`--runtime-root`は`--enable-runtime`なしで受理しない。環境overrideは非opt-in時にRuntime Root検査へ渡さず、opt-in時だけCLIより低い優先度で一度固定する。CLIからの呼出しだけでなく`doctor`の直接入力も処置前にexact plain-data snapshotへ固定し、ネストしたRoot要求のaccessor、Proxy、symbol、独自prototype、欠落／余分fieldまたは不正値を固定理由で拒否する。`--enable-runtime`は有効化要求の診断候補であり、Directoryの存在、override、ignored状態またはRepository内ファイルをactivationの根拠にしない。Runtime所有activation記録の原子的永続化と再検証が成立するまでCapabilityを発行しない。
+
+activationは診断要求とrun-scoped Capabilityから分離したRepository単位の永続状態とする。専用`activate`／`disable`のCLI grammar候補はcommandごとのoptionを処置前に一度だけ解析し、CLI誤用、環境／選択契約不成立、および妥当な要求だがEffect未実装という3結果を区別する。Runtime RootはCLI、環境、Repository既定、Authority RootはCLI、環境の順で選び、Authority RootにOS暗黙既定を設けない。各Root軸でCLI指定がある場合は同じ軸の低優先な環境値を選択／検証せず`null`として後続selectorへ渡し、CLI指定がない場合だけ環境値を検証する。一方のRoot軸のCLI指定で他方の不正環境値を隠さない。`disable`はAuthority Rootを読まず、doctor／recovery用optionも両commandへ混入させない。安全な引数snapshotを取得できた場合は個別token検査より先に`--json`要求を確定し、不正tokenでも構造化usage errorを返す。snapshot自体が成立しない場合はraw入力からJSON要求を推定しない。結果はcommand種別と固定reasonだけを返し、Path、環境値、cwd、Identityまたはraw tokenを保持しない。固定`activation.json`候補はRepository／Runtime Root Identity Hash、Bundle／Policy／RegistryのID、revisionおよびHash、activation revision／前版Hash、状態と4桁年・24文字のcanonical UTC時刻を結合する。時刻は文字列型と長さをDate解析、canonical化およびHash計算より前に確認する。cross-record Core候補は外側入力をexact plain-data snapshotし、前版canonical byteを既存decoderで再検証してHashを再計算する。前版のない初版`active`と、revisionを正確に1増やし、前版Hash、activation／Repository／Root Identity、Bundle／Policy／Registryの全参照および`activatedAt`を維持して`disabledAt`だけを加える`active`から`disabled`への遷移だけを候補化する。caller supplied Hashを信頼せず、disableとAuthority差替えを混在させない。`active`から`active`への再activationと`disabled`起点の遷移は未実装である。Bundle Identity変更時に古いrecordを自動追随させず、現版では再activationを完了できないため`blocked`にする。`disable`は永続状態として新規Operationを止め、進行中Operationは既存の安全なcancel／recovery契約へ渡し、保存データを削除しない。deleteは別の明示的かつ不可逆な操作として今回実装しない。command grammar候補、recordのcanonical Core候補およびcross-record Core候補はFilesystem処置、Authority、原子的永続化、Path／ACL、起動直前再確認またはCapabilityを成立させない。
+
+ローカル導入の目標contractは、無効なRepositoryではRuntime固有Effectを発火せず、初回Platform setupをTrust検証済みCRDD配布物内の明示Provisioner経路へ限定することである。現段階は署名／manifest／package／state、Rust Coreの読み取り専用Windows access観測、署名manifestへ結合する読み取り専用成果物観測、および明示Release署名commandのmanifest配置処置までである。保護済み有効世代、検証済み実行イメージ、プロセス起動、Root観測成果物への写像、DACL適用、導入EffectおよびRuntime有効世代readerは未実装である。`provision`は最初のRuntime／Platform Provisioning Filesystem Effect前、readerはProgramData探索前に`blocked`となる。component候補やcaller claimをProvisioning成立、Runtime AuthorityまたはRuntime Capabilityへ流用しない。
+
+明示`coordinator provision`のcommand grammarは実装済み候補だが、現ローカル／開発buildでは常にEffect前に`blocked`となる。結果の`dryRunOnly`、CRDD配布Revision／package Filesystem未確認またはEffect 0という表示は検証tokenではなく、別入口へ持ち回ってTrustを成立させられない。CRDD配布物と内包packageの全Trust条件が同一制御経路へ結合されるまでRoot作成、鍵生成、ACL変更または保存を行わない。
+
+承認済みのProvisioning方針は、CRDD配布物のprivate TypeScript sourceを固定Release Trustで検証し、OS固有観測をprivate Rust componentへ限定する目標contractである。manifest、署名、content root、固定公開鍵、Policy Identity、canonical loader、Git Tree照合、現在process主体分類および安定同一file読取りはcomponent候補である。固定commit `afb6b70`の正式署名runでは、Supervisorのlocal interactive primary TokenUser Hash／AuthenticationId／主体分類を起動前後で再観測し、停止中子processのprimary、`TokenIsAppContainer=1`、同じAuthenticationIdおよび導出済み固定AppContainer SIDを直接確認した。AppContainer内Worker TokenUserの選択user同値は要求しない。protected activeおよび通常Runtime再確認へ未接続なのでRuntime主体はまだ成立しない。有効化前準備一回実行は通常Runtime Adapterと分離し、caller入力、Nodeの検証後Path起動、source checkout、通常run、PATH、Cargo、Shell、installer、自動retryまたはfallbackを初期Trustへ昇格しない。[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)へ統合したAppContainer source候補は、manifest全fieldと現在時刻、両artifactのlocked handle byte、volume rootからleafまでのnon-reparse handle、local fixed volume、worker向けJob／loaded image／PA03／PR03を同じrunへ結ぶ。現在map済みのsupervisor imageと後からopenした署名済み成果物の同一file objectは原子的に自己結合しておらず、未成立riskとして保持する。人間が採用した最小信頼境界ではこの自己結合をv1必須条件としないため、専用blockerはproduction sourceから除去した。同じ正式署名AppContainer runでSystem32限定module集合、対象Network event 0、loopback陽性対照28 eventおよびtrace loss 0も確認したが、観測対象RootはOS所有read-only probeであり、Repository Mount Grant、Authority、Capability、Gate、Releaseまたは実Provider requestは成立しない。capability 0の固定AppContainer profileはQual-Lab所有の既存前提で、Coordinatorは作成・変更・削除・fallbackを行わない。署名manifest、自己Hashまたはstatic PEだけを人間による初期Trustへ昇格せず、結果からAuthority、Capability、EffectまたはGateを成立させない。
+
+Rust Coreが返す`deleteOnRootObject`はRoot自身のsecurity descriptor上の`DELETE`観測だけである。Windowsでは親Directoryの`FILE_DELETE_CHILD`でもRootを削除できるため、この親経路を観測しないcomponent結果からRoot削除不能、writer排他またはProtection成立を主張しない。親Directoryの固定Identityと実効access観測はRelease-bound Adapter、全tree確認およびProtection Hashとともに未実装である。
+
+署名payloadは単調増加する`releaseSequence`もRelease Identityへ結合する。端末stateは`staging` exact 1件と`active-pointer.json` exact 1件だけを所有し、旧floor／active／transaction Schema、自動rollbackまたはDirectory fallbackを持たない。Runtime readerはnative durable pointer、保護Rootおよび検証済み実行イメージの結合が未実装のため、pointer、署名済みactiveまたはDACLを読まずに`blocked`となる。Rust Core単体やcaller supplied stateをAuthorityへ昇格しない。
+
+package Trust Gateのpure集約はmanifest、CRDD Revision、package content root、file Identity安定性およびpermission policy一致を同時に要求する。固定Root Filesystem Adapterは内容とIdentityをRuntime側で観測するが、release signer／manifest／期待Revisionはまだ未信頼入力で、owner／permissionも検証しない。したがってcaller supplied観測値または`verified_crdd_bundle`値と同様にAuthorityへ昇格せず、同一権限code、配布物自体または実行前の内容を信頼する根拠にはならない。release Trust、permission検証およびEffect controllerの同一制御経路が必要である。
+
+現在のexact schemaはCRDD Revisionを単独fieldとして扱わず、`crddVersion`、`crddCommit`、`crddTree`および`packageContentRootSha256`の4値をmanifest署名とGate照合へ結ぶ。旧`crddRevision`は受理せず、4値の欠落、不一致または置換をEffect前に拒否する。
+
+Windows v1で許可するRuntime principal種別は、明示provisionで選択したローカル対話ユーザー1名だけとする。Supervisorの`TokenUser` Identity Hashとtoken／group／session分類を使い、local interactive primary nonzero-sessionだけを許可する。Supervisorを起動前後で再観測し、停止中子processの同じAuthenticationId、primary、`TokenIsAppContainer=1`および導出済み固定AppContainer SIDを直接確認するbinder source候補を実装した。service／batch／network／restricted／AppContainer親、別logon session、別AppContainerまたは判定不能を拒否する。正式署名runでbinderは成立したが、protected active、Repository Mount Grantおよび通常Runtime再確認へ未接続なのでRuntime主体はまだ成立しない。server専用サービスアカウント（service account）は将来候補に限り、v1では未実装かつ`blocked`である。自己申告principal、Platform Provisionerの存在または署名らしい値をAuthorityへ昇格しない。共有Authority Rootの通常run再利用は、将来の署名・Trust検証済みProvisioning Recordへ結合された明示Pathに限る。準備記録（Provisioning Record）のrevision 1 payload、署名包絡（signature Envelope）、信頼起点鍵集合（Trust Anchor Set）および失効一覧（Revocation Manifest）のexact pure codecと集約署名検証（aggregate signature verification）候補を実装した。Provisioning Receiptを別のRuntime Authority成果物として要求しない。Platform Provisioner package manifestは配布packageと保護policyの結合検証専用であり、Provisioning RecordまたはAuthority File Bundle Manifestを代替しない。
+
+pure Core候補は署名領域分離（domain separation）を固定ASCII prefix `CRDD\0PROVISIONING-RECORD\0V1\0`、payload JCS byte長の符号なし64-bit big-endian値、payload JCS bytesの順で構成する。鍵識別子（key ID）はexact RFC 5480 P-256 SPKI DERのSHA-256 lowercase hexadecimal 64文字、署名はECDSA P-256 with SHA-256の固定64-byte IEEE P1363形式をpaddingなしcanonical base64urlで表す。準備記録はcanonical UTCの`issuedAt`より`expiresAt`が後で、その差が最大180日以内の場合だけ候補化する。集約評価では評価時刻が`issuedAt`以上かつ`expiresAt`未満であることを要求し、期限外または180日超過をfail closedで拒否する。この180日は準備記録の有効期間上限で、鍵の有効期間、鍵切替期間または失効一覧の保持期間ではない。raw decoderはBufferだけをowned copyし、strict UTF-8、BOMなし、exact Schema、JCS再符号化完全一致、件数・深さ・node・byte上限を要求する。集約候補は全署名entryが既知、非失効、期間内かつ暗号学的に正常な場合だけ成立し、無効entryを無視しない。署名鍵が失効一覧へ列挙されていれば`revokedAt`が評価時刻より過去、同時または未来のいずれでも拒否し、`revokedAt`を予約失効の発効時刻として扱わない。caller suppliedの入力鍵集合、失効一覧および評価時刻は暗号条件を再現する候補であり、それ自体はQual-Lab同梱Trust、現在版、rollback防止またはRuntime時計Authorityではない。永続floorへ結合したTrust成果物、current RecordおよびRuntime取得時刻を使う集約検証候補は実装した。集約Verifier単体はRoot実体を観測せず、検索票resolverのnon-link Identity、Repositoryとの相互非包含、永続Trustおよびcurrent Record結合とは責務を分ける。Rust Coreと署名manifestへ結合する成果物観測は読み取り専用component候補であり、明示Release署名commandだけがmanifestをstaging Rootへ配置する。保護済み有効世代、検証済み実行イメージ、プロセス起動、Root観測成果物への写像、初期Trustの承認済み導入元、POSIX観測、実端末登録Effect、完全Lifecycleおよびactivation確認は未実装であるため、候補一致もRuntime Authority、Runtime CapabilityまたはGateを開かない。raw payload、canonical byte、Path、SPKI、signatureまたはkey IDをdoctor、log、Evidence、ProviderまたはOperationへ出さない。
+
+端末導入鍵（installation key）の初回オンライン登録pure Core候補は、30分のオンライン登録チャレンジ（online enrollment challenge）、チャレンジのdomain-framed payload Hashを含む登録要求（enrollment request）、端末導入鍵による所有証明、およびPlatform scope・Provisioner Identity・公開鍵を結ぶ登録証明書（enrollment certificate）を検査する。端末導入鍵と準備記録はECDSA P-256 with SHA-256、準備認証局（Provisioning CA）はEd25519という異なる鍵roleとalgorithmに固定し、RSA、別曲線またはalgorithm fallbackをrevision 1へ持ち込まない。チャレンジ／登録要求／登録証明書のexact object Schema、成果物別domain、JCS署名messageおよび数学的署名一致は実装済み候補である。署名前payloadのcanonical raw byte decoderに加え、登録要求のECDSA P-256署名exact 1件と登録証明書のEd25519署名exact 1件をpayloadから分離するobject Envelope、およびEnvelope全体を上限131072 byteのcanonical JCS UTF-8として受理するraw byte decoderも実装済み候補である。独自header／length prefixを受理せず、入力bytesと再生成canonical bytesの完全一致を要求する。登録要求は署名key IDとpayloadの端末導入鍵ID、登録証明書は署名key IDとcaller supplied issuer SPKIの再計算Hashを一致させる。オフライン束はexact object Envelope、online／offline issuing 2役、要求・証明書・失効snapshotのbindingおよびoffline issuing key署名をpureに検査する候補まで実装した。transport、Runtime所有時計、永続一回消費台帳、Runtime所有CA Trust／失効、Network、Filesystem import、keystore、Record結合および証明書更新は未実装である。caller supplied issuerをTrustへ昇格せず、decoder候補や数学的一致もAuthority、Capability、EffectまたはGateを開かない。
+
+初回オンライン登録のpure Core候補は、30分のチャレンジをJCS化し、登録要求がそのdomain-framed payload HashとPlatform scope・Provisioner Identity・端末導入鍵を結び、要求全体へのECDSA P-256 with SHA-256所有証明を検査する。登録証明書は同じIdentity群と公開鍵を結び、別domainのEd25519準備認証局署名を検査する。正常結果は暗号条件の`candidate`だけであり、Runtime所有時計、一回消費台帳、CA Trust／失効、Network、Filesystem、Record結合およびAuthorityを成立させない。証明書更新、実CA Trust／rotation、実keystoreおよび保存Lifecycleは対象外である。オフライン束のobject／署名／binding候補は別pure Coreで扱う。
+
+<a id="provisioning-signature-external-standards"></a>
+
+対象Windows環境のAppContainer起動条件は、WorkerのConsole subsystemまたは`CREATE_NEW_CONSOLE`ではなく、OS Known Folder由来`LOCALAPPDATA`とCurrentUserの`LowBoxConsoleEnabled=1`であることを実測した。Supervisorは親環境を継承せず、前者だけの最小Unicode環境blockを渡す。後者は通常Operationへ持ち込まず、明示`provision`内の一時Registry Effectとして固定mutex、effect前にflushするdurable recovery record、現在値とkey last-writeの所有確認、exact pre-state restore、read-backおよび記録削除を要求する。既存record、型差、外部変更または復元不能では自動上書きせず、`native_provision_registry_recovery_unconfirmed`と手動回復要求でfail closedにする。正常候補はRegistry復元確認後にだけcallerへ公開する。この境界は同一ユーザーによる意図的なRegistry改変への耐性を主張せず、Minimum Trust BoundaryのTCB外攻撃を新たに保証しない。
+
+Repository外Runtime Rootの関係分類は利用許可を意味しない。外部Rootを許可するRuntime-owned Human Authorization Capabilityが未実装のため、Path IdentityおよびGit local excludeの実入口は相互非包含を確認した後も`runtime_root_external_write_authorization_required`でEffect前停止する。
+
+### 署名基礎Coreの外部規格入力
+
+固定`state/active-pointer.json`のcodecと安定同一file読取りはcomponent候補である。native durable atomic replace、DACL適用、保護Rootと検証済み実行イメージの結合およびEffect controllerが未実装のため、stateを作成・更新する実EffectとRuntime readerは未実装である。旧state名やDirectory探索へfallbackせず、component結果をRuntime AuthorityまたはCapabilityへ昇格しない。
+
+確認日（reviewedAt）は`2026-08-15`である。Runtimeは規格本文をネットワーク取得または自動更新せず、下表で採用した内部contractを拘束点とする。RFC errata、Node.js cryptoの挙動、または採用範囲が変わる場合は人間の判断と再監査を行う。
+
+| 正本・発行時点・文書区分 | 今回適用する節 | 採用範囲 | 非採用・未実装範囲 |
+|---|---|---|---|
+| [RFC 8785: JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785.html)（2020-06、Informational） | §3.1–§3.2.4、§5、Appendix B | plain I-JSON値のJCS canonicalizationと公式number vector | raw JSON duplicate-key decoder、Record Schema、既存canonical成果物の移行 |
+| [RFC 5480: Elliptic Curve Cryptography Subject Public Key Information](https://www.rfc-editor.org/rfc/rfc5480.html)（2009-03、Standards Track） | §2.1.1、§2.1.1.1、§2.2 | P-256（secp256r1／prime256v1）のexact SPKI DER構文とcanonical再符号化候補 | 別曲線、ECDH、CA Trust採用、鍵保管Backend |
+| [FIPS 186-5: Digital Signature Standard](https://csrc.nist.gov/pubs/fips/186-5/final)（2023-02、Standard） | §6、§6.4 | ECDSA P-256 with SHA-256の数学的一致候補。署名表現のlow-S一意化は内部contractで追加する | FIPS準拠表明、鍵生成・保管認証、別曲線、Runtime Authority |
+| [RFC 8410: Algorithm Identifiers for Ed25519, Ed448, X25519, and X448 for Use in the Internet X.509 Public Key Infrastructure](https://www.rfc-editor.org/rfc/rfc8410.html)（2018-08、Standards Track） | §3–§4、Appendix A | Ed25519 SPKI DERの構文・canonical再符号化候補 | Trust Anchor採用、key ID表示、keyset／失効判断 |
+| [RFC 8032: Edwards-Curve Digital Signature Algorithm (EdDSA)](https://www.rfc-editor.org/rfc/rfc8032.html)（2017-01、Informational） | §5.1.7、§7.1 | Ed25519個別署名の暗号学的一致と空message試験vector | CRDD domain、Envelope、鍵／失効／aggregate Authority判定 |
+| [RFC 4648: The Base16, Base32, and Base64 Data Encodings](https://www.rfc-editor.org/rfc/rfc4648.html)（2006-10、Standards Track） | §3.2–§3.5、§5 | exact 64-byte Ed25519署名および固定64-byte P-256 IEEE P1363署名のpaddingなしcanonical base64url、非alphabet／非canonical表現の拒否 | key ID encoding、Envelope wire Schema、他のbase encoding |
+
+Provisioning Record正本は共有Authority Rootと同じPlatform scopeで管理者／provisionerだけが書込み、Runtimeは読取り専用とする目標であり、Repositoryへ複製しない。RepositoryのAuthority Root LocatorはRecord Hashだけを持つ信用前hintで、Recordや署名を代用しない。初回setup／再設定は明示CLI、通常runは検証済みRecord＋Locator、環境変数は互換／自動化向けの明示overrideという役割に分けるが、現行CLI→環境の実選択を未実装resolverで置換しない。不一致、欠落、失効または再識別不能では低優先sourceへsilent fallbackせず`blocked`とし、自動修復せず再Provisionへ戻す。実行するProvisioner実体の署名・Trust確認と、生成済みProvisioning Recordの署名検証は別責務である。オンボーディング準備状態は、12件の実装依存が将来承認される十分条件を満たすことと、対象runでProvisioning Record／Provisioner Trust、Authority／Runtime Root Identityと保護、principal binding、Repositoryに結合したactive activationおよびPlatform Provisioner署名／Trust／保護metadataの6根拠をRuntime所有経路が再確認することのANDとする。どちらかが欠落、不明または不一致なら`blocked`であり、契約表示だけでFilesystem Effect、Authority、CapabilityまたはOperationを発行しない。
+
+準備記録Store候補は固定`.crdd-provisioning/records/<recordHash>.json`のimmutable envelopeとcanonical `current.json` pointerへ分離する。安定した同一handleからRecordとpointerを再読取りし、Hash、canonical byteおよび系列のrevision／previous Hash／Record ID／Platform scope／Provisioner Identity／登録IDを照合する。通常経路はpendingを自動処理せず、明示復旧だけが欠落currentへの適用、同一currentのpending除去、または正しい次revisionへの遷移を行う。改変、系列差替えまたは分類不能では推測rollbackや旧pointer fallbackをせず`blocked`へ閉じる。Storeの成功はFilesystem候補に限り、Runtime所有Trust、失効、trust floor、Authority Root保護、resolver、AuthorityまたはCapabilityを成立させない。
+
+Authority Root結合候補は、選択済み絶対Path、Filesystem Identity Hashおよび保護policy Hashを準備記録の署名対象値と比較し、1値でも異なれば別候補へfallbackせず拒否する。公開結果へ絶対Pathを出さず、結合一致からRoot探索、保護成立またはAuthorityを推定しない。
+
+準備Trust floorのpure Core候補はTrust Anchor Set Hashと信頼epoch、失効一覧Hashと失効revisionをcanonical Hashへ結ぶ。同一epochのAnchor差替え、epoch rollback、失効revision rollbackおよび同一失効revisionのManifest差替えを拒否し、新epochだけが新しいAnchorと失効系列を開始できる。専用Storeは固定`.crdd-provisioning/trust-floor.json`以外を扱わず、pendingがあれば通常処理を停止して明示復旧だけを許す。永続floorからcontent-addressed Trust成果物を再取得してcurrent RecordをRuntime取得時刻で検証するが、初期Trustの承認済み導入元が未接続である間はRuntime所有Authorityを成立させない。
+
+Trust成果物Store候補は、信頼起点鍵集合と失効一覧を成果物別のcontent Hash名で固定`.crdd-provisioning`配下へ保存し、同一Hashの別byte、改変、link、Root差替え、epoch不一致またはtrust floorとのHash／revision不一致を拒否する。途中で片方だけが作成されても未参照のimmutable成果物として保持し、floorへ結合された2成果物が揃うまで成功したTrust状態とみなさない。floorへ結合済みの2成果物とcurrent Recordを安定読取りし、Runtime取得時刻で全署名、鍵の有効期間および失効状態を集約検証する。RepositoryはSchema、固定相対レイアウト、実装および試験だけを所有し、実鍵集合、失効状態、端末固有Rootまたは秘密鍵を保存しない。Windowsでは検索票が指すRoot実体のresolver、安定Identity、Repositoryとの相互非包含およびRecord Hash結合までを候補接続する。DACL構造claimとRust Coreの現在process token観測は別責務であり、ACE集計だけから実効権限を主張しない。初期Trustの承認済み導入元、Release Identityへ結合したWindows Adapter、POSIX観測、Authority発行およびactivationが未接続なので、Store候補の一致だけからRuntime所有Trust、Authority、CapabilityまたはGateを成立させない。
+
+オンボーディング準備状態は既存contractの実装状態を一回固定し、同じsnapshotから公開fieldと阻害一覧を生成する派生表示に限る。共有Authority RootのPlatform scopeとRuntime RootのRepository scope／activation前提を同時・同一Effectとして平坦化しない。Platform Provisioner検証／Effect、Provisioning Record contract／Lifecycleおよび署名／鍵／失効／読取り検証、Authority Root resolution、Root Protection Platform Adapter、Runtime／Authority Root Provisioning Effect、activation Effect、Path Identity結合、原子的永続化またはrun-scoped Capabilityが未実装である間は常に`blocked`である。候補値、未知値またはRoot Protectionの一部実装だけで阻害項目を除去せず、阻害一覧が空でも別途承認されたready遷移なしに`ready`へ昇格しない。投影は外部入力、Provisioning Record Schema／署名Envelope、独立Receipt／helper Manifest Authority Schema、Path、Filesystem／署名API、Effect、AuthorityまたはCapabilityを受理／生成せず、caller claimで状態を変更できない。
+
+Authority Root検索票（Authority Root Locator）は、Repository直下の固定`.crdd-runtime/authority-root-locator.json`に置く信用前検索ヒントであり、外部Runtime Root overrideへ追随しない。初回検索票の専用Store候補はcanonical byte、pending `fsync`、原子的配置、安定再読取りおよび明示復旧を要求し、pending残存時の通常読取りと既存検索票から別内容への推測遷移を拒否する。内部resolver候補は記録Pathのnon-link Directory実体を観測し、RepositoryとAuthority Rootがlexical／realpathの双方で相互非包含であることを要求し、両RootのIdentityを同じRoot内の永続floor／Trust成果物とRuntime時計によるcurrent Record再検証の前後で固定する。同一、Repository内、Repositoryを包含、関係差、欠落、改変、期限外またはlinkは別候補へfallbackせず拒否する。Root Identity／Protection成果物のpure contract、Rust Coreの同一handle・現在process token観測、および署名manifestへ結合する成果物観測・署名処理はcomponent候補だが、保護済み有効世代、検証済み実行イメージ、プロセス起動、Root観測成果物への写像、全tree／writer排他確認および実測Protection Hash結合は未実装であり、観測済みRecord結合入口は常に`blocked`とする。観測Coreは実Runtime principalとして動く現在process tokenだけを使い、elevated provisioner／admin tokenやcaller指定SIDで代用せず、group／restricted SIDを含む実効accessをOSに判定させる。handleのopen／close以外の書込み、削除またはACL変更を発火せず、Path、SID、raw ACLまたはcanonical byteを公開しない。Repository、Runtime Root、Authority RootおよびProvisioning RecordのIdentity Hashに加え、activation ID、revisionおよびcanonical record Hashを結合し、同じIDの別revisionを古い検索票から再信頼しない。検索票はProvisioning Recordとは別成果物でRecord Hashだけを参照する。Provisioning Receiptまたは独立helper Manifestを必須Authority成果物として要求せず、補助資料が存在してもRecordを代替しない。既存Authority File Bundle Manifestは別成果物であり、相互にAuthorityを代用しない。
+
+検索票Core候補はcallerが明示的に呼んだ場合だけexact shape、byte上限、current platformで対応する保守的なcanonical lexical subset、canonical JSONおよび内容Hashを検査する。Windowsは大文字drive letterのdrive-absolute形式に限定し、UNC／device namespace、ADS、禁止文字、segment末尾dot／space、予約device basenameとその拡張子付き別名を拒否する。pure lexical判定だけではPathの存在、case／Unicode alias、link／reparse、Filesystem class、Identity、ownerまたはACLを確認しない。resolver候補はRepositoryとの相互非包含、non-link Directory Identity、永続Trustおよびcurrent Record結合までを行う。Rust Coreと署名manifestへ結合する成果物観測・署名処理はcomponent候補だが、保護済み有効世代、検証済み実行イメージ、プロセス起動、Root観測成果物への写像と実測Protection Hash結合は未実装である。Windows serverのUNC／network Pathを対応済みとせず、POSIX側の既存canonical absolute lexical Path契約も変更しない。有効activation–検索票結合候補（Active Activation–Locator Binding Candidate）は、既存Coreで検査した初版`active` recordと検索票のRepository／Runtime Root Identity Hash、activation ID／revisionおよび再計算record Hashだけを比較する。`active`は入力状態値に限り、実runの有効性を示さない。このpure比較はProvisioning Record Hash、Authority Root Identityまたは保護を検証せず、Path、raw record、canonical byteまたはIdentity値を公開しない。Filesystem書込み、原子的activation永続化、crash recovery、POSIX Root観測または実active activation bindingは行わない。将来はactivationと検索票を同じ原子的更新で成立させるが、現版は一部更新、Hash／Identity不一致または判定不能をfail closedにし、自動修復、暗黙rollbackまたは旧記録へのfallbackを行わず再Provisionへ戻す目標契約だけを所有する。これらの未実装軸は同じcontract snapshotから既存のAuthority Root resolutionおよびactivation atomic persistence阻害依存へ結合し、`observedProvisioningRecordBinding`を既存12阻害依存のAuthority Root resolution sourceへ含める。第13 blockerを作らず、構文とHashが正しくても`untrusted_discovery_hint`の候補に限る。実行時は検証済みProvisioning Record、Provisioner Trust、Repository／両Root Identity、active activation、principalおよびRoot保護をRuntime所有経路で再確認する。欠落、不一致、改変、移動または別PCではfail closedで再Provision／再activationへ戻し、自動修復またはPath変換を行わない。検索票Coreまたはpure比較だけでGate、Authority、CapabilityまたはOperationを開かない。質的規則としてprivate-owned transaction、期待previous／next Hash、曖昧時の成果物保持＋`blocked`、inactive locator保持および新activation IDを承認済みとする。未決・未実装なのはexact transaction／journal Schema、ID形式、配置、具体的回復手順およびactivation Adapter／Effectである。
+
+`.crdd-runtime`はCandidate Revision、Repository Snapshot、Operation入力、Provider mountおよびProvider可視Pathの母集団から常に除外する。`.gitignore`または`.git/info/exclude`は誤commit防止の補助であり、強制境界にしない。既存のtracked entry、symlink／junction、Provider mountとの包含関係、Repository Identity差または別Runtimeによる同時所有はfail closedにしなければならない。Root選択CoreはFilesystemへ触れない。別のPath Identity Core候補は、既に存在するRepository、選択Rootおよび直近parentを事前・realpath解決後・事後・最終返却前に照合し、non-link directory、`dev`／`ino`／`birthtimeNs`の安定性、Rootとparentの直接関係、およびlexical／realpathの包含方向一致だけを確認する。関係を同一、Repository内、Repositoryを内包、相互非包含の4状態へ分け、外部overrideはlexical／realpathの双方で相互非包含の場合だけ許可する。Repository自身またはRepositoryを内包する祖先Rootは指定元にかかわらず`blocked`にする。欠落、置換、link／junction、分類差または安定Identityを取得できないFilesystemも`blocked`にする。Root作成／削除、exclude更新、Path／Operation統合による除外強制、全parent chain、case／Unicode alias、owner／DACL／mode、network／removable Filesystem、activation記録またはCapabilityは成立させない。
+
+Qual-Labは、明示enable時に選択RootがRepository内ならRepository Adapterがroot相対の完全一致entryを`.git/info/exclude`へ冪等に追加し、tracked `.gitignore`を自動変更しない方式を承認した。Repository外overrideにはGit excludeを追加しない。構文候補生成はRepository内外の判定とGit pattern用のescapeだけを行い、Git metadataを書き込まない。Repository内への適用時は、後段で説明する限定parserとlocal exclude書込みAdapter候補が配置graph／configを再検証し、書込みと事後確認を行う。制御文字を含むPath、Repository root自体またはRepository直下の`.git`配下をRuntime Root候補にせず、絶対Pathを結果へ保持しない。完全なRepository Identity、activation結合およびCapabilityは未実装である。ignore状態だけをCandidate Revision／Operation／Provider除外の根拠にしない。
+
+Runtime 1.0のRepository形態候補は通常worktree、linked worktreeおよび`.git` fileを使うが`core.worktree`を持たない限定worktreeとし、bare Repositoryと標準submodule自身を拒否する。Filesystem解決Core候補は`.git` directory／fileと`commondir`を上限付きで読み、non-linkなGit directoryおよびcommon Git directoryを解決し、既存`info/exclude`境界のlinkを拒否する。common configはformat version 0と明示的な`core.bare=false`を一つずつ要求する。限定parserは外部Git CLIの最終照合やfallbackを要求せずmetadata配置graph／config候補を確認するが、完全なRepository Identity、親chain、case／Unicode aliasまたはCapabilityを成立させない。
+
+control fileはPathを上限確認後に再度無制限読取りせず、同一file handleから最大値+1 byteまで読む。Path側とhandle側、読取り前後の種別、`dev`、`ino`、`birthtimeNs`、size、`mtimeNs`および`ctimeNs`が一致し、上限内でEOFまで取得できたbyteだけを解釈する。Repository root、Git directoryおよびcommon Git directoryも子entry確認の前後と最終候補返却前に実体Identityを再照合する。この安定読取りとmetadata書込みCore候補は実装済みだが、同権限Hostによる全parent chainの敵対的TOCTOUを完全防御するものではない。親chain、case／Unicode alias、完全なRepository Identity、owner／ACL、crash durability、activation結合およびCapabilityは未実装境界に残す。
+
+`info/exclude`は`$GIT_COMMON_DIR`に属するため、linked worktreeでは同じcommon Git directoryを使う他worktreeにもpatternが適用される。Qual-Labは、この共有影響を既定`/.crdd-runtime/`だけに限定し、linked worktreeのRepository内custom Rootを拒否する方針を承認した。custom配置が必要な場合はRepository外overrideを使用し、Git excludeを追加しない。local exclude CoreはRepository内RootについてFilesystem解決Coreのlayout候補を再検証し、linked worktreeと判定したcustom Rootを`blocked`へ閉じる。この候補判定からactivationまたはCapabilityを推定しない。
+
+Qual-Labは、Runtime 1.0のGit metadata配置Authorityを外部Git CLIへ依存させず、内蔵の限定Filesystem parserで成立させる方針を承認した。parserは通常worktree、linked worktreeおよび`.git` fileを使うが`core.worktree`を持たない限定worktreeに対象を絞り、common Git directoryの`config`を上限付き安定読取りする。Repository format version 0と明示的な`core.bare=false`を一つずつ要求し、`extensions`／`include`／`includeIf`／`core.worktree`、未知構文、重複したAuthority関連key、未対応formatまたはextensionを自動fallbackせず`blocked`にする。標準submodule自身はこの限定範囲に含めない。これによりGit実行ファイルのPath／Hash／更新承認をOS別に持たない一方、Gitとして有効な特殊構成を保守的に拒否する。このparserはGit全仕様、完全なRepository Identity、case／Unicode alias、parent chain、owner／ACLまたは同一権限Host主体への完全防御を主張しない。
+
+local exclude書込みAdapter候補は、解決済みcommon Git directoryの既存`info` directoryだけを対象とし、caller指定のGit metadata Pathを受理しない。専用統合処置は、内部／外部Rootの双方でRepository、選択Root、直近parent、lexical／realpath包含分類および選択元を最初のPath Identity snapshotへ固定する。内部RootはGit layout確認後、metadata書込み直前、さらに処置後の各時点をその初回snapshotへ照合し、外部overrideもexclude不要候補の返却直前まで同じ初回Identityを要求する。途中で別の正常directoryへ同名置換されても、新しい実体を再基準化しない。既存`exclude`は131072 byteを上限として同一handleから所有copyへ読み、non-link、実体Identity、size、modeおよび更新時刻の前後一致を要求する。完全一致entryがなければ、同一`info` directory内の固定lock名を排他的に取得し、既存内容を保持した一時fileを同期してから置換し、再読取りbyte一致とexact entryを確認する。既存lockは別主体または中断処理の可能性があるため推測削除せず`blocked`とする。処理中に作成したlockだけは実体Identityが同じ場合に限り失敗時に除去する。置換後またはRoot事後再検証の失敗は書込み済み事実を隠さず`blocked`へ閉じ、暗黙rollbackしない。専用統合処置はIdentity descriptor、汎用callback、tokenまたはCapabilityを公開しない。同一権限Host主体による各Filesystem呼出し間の最終race、parent chain、owner／ACL、crash durabilityまたはactivationへの強い時間的結合は保証しない。Candidate／Operation／Provider除外の実強制、activationおよびCapabilityが未実装の間、Gateは`blocked`を維持する。
+
+有効化と処置は対象Repositoryだけへ限定する。親RepositoryがCRDD submoduleを参照するだけの場合、submodule側を変更しない。CRDD-Communication等の別Repositoryを読取り依存にする場合も変更しない。別Repositoryを変更対象にする場合はRoot、activation、exclude、Candidate RevisionおよびOperationを分離し、Runtime Rootを共有しない。複数Repositoryへの同時書込みOperationは未対応であり、依存参照から暗黙に対象を拡張しない。
+
+無効化は新規Operationの開始を止める意味とし、保存済みRuntimeデータを削除しない。データ削除は別の明示操作である。無効化処理とデータ削除処理はいずれも現在未実装であり、Root選択Coreの契約値を実行可能な操作または削除Authorityとして扱わない。
+
+実Path Adapterは、選択済みRootと3ファイル名、root／親／各fileのrealpath containment、non-link／non-reparse、所有主体と権限、作成時・読取り時の実体Identity、取得量、同一Bundle snapshot、原子的置換および旧版からの単調なrevision／Hash chainをProvider起動直前に確認しなければならない。Windows DACL、POSIX owner／modeまたはserver volume policyはPlatform Adapterの実装差であり、Protocolは同じ保護結果を要求する。現在はこのPath／権限／activation境界が未実装であり、File Bundle Core候補、caller supplied Pathまたは一致HashだけではAuthority Capabilityを発行しない。
+
+起動直前Authority再確認Core候補は、呼出側Contextから時刻を受理せず、module初期化時に固定したRuntimeプロセスの`Date.now`とISO変換関数を一回だけ使用する。同じ呼出しでcanonical Registry byte、Trust Policy候補、Profile、Grant、Operation、Scope、有効期間および全Identityを再検証し、Trust Policy ID／revision／Hashと確認時刻を結果へ結合する。呼出側が時刻を追加したContext、accessor、Identity差、失効・未発効・取消・置換をfail closedにする。この結果は候補であり、後からProvider起動へ流用できるCapabilityではない。実Provider起動直前の同一制御経路への結合、Runtime所有Trust Policyの有効化、OS時計の完全性および同一権限コードによるintrinsic置換防止は未実装またはRuntime／Host Trust Boundaryであり、Core候補だけでGateを開かない。
+
+未信頼入力の処理量は、Profile契約が一意に所有する識別子長、Origin件数、各Origin長と、Registry契約が所有するGrant件数、Parse前raw byteおよび正規化後canonical UTF-8 byte数で制限する。raw byte、件数および文字列長をJSON Parse、URL解析、`map`、`sort`およびcanonical化より前に検査し、上限済み母集団だけをcanonical化してHash直前にbyte数を検査する。未知shapeや循環参照を再帰探索せずfail closedにする。実ファイルまたはTransportからbyte列を取得する前段Adapterは取得量とPath／Channel Authorityを別途強制する。候補Coreの評価時刻は有効な`Date`またはcanonical UTC文字列だけを受理するが、起動直前VerifierはRuntime所有の信頼できる時計を使用し、Profile、Registry、Providerまたは呼出側の自己申告時刻からAuthorityを成立させない。
+
+未信頼JavaScript入力は共通plain-data snapshot境界を通す。Proxyを反射処理前に拒否し、plain recordは通常またはnull prototype、期待する列挙可能own data propertyだけを一度descriptor mapへ固定する。配列は全descriptor取得前にown length data descriptorと上限を確認し、`Array.prototype`、連続した`0..length-1`の列挙可能own data propertyだけをsnapshotする。accessor、symbol、独自prototype、hole、非canonical index、余分propertyまたはdescriptor不整合を拒否する。nested record／arrayもdescriptor valueから段階的にsnapshotし、以後raw入力を再読しない。Proxy trapに対する一般JavaScript上の完全防御は主張せず、検出または反射例外を`blocked`へ閉じ、将来LoaderのParse前byte上限とJSON相当plain-data decodeを信頼入口条件とする。
+
+前段の「成果物観測・署名処理」は責務を分離して読む。Rust Coreと成果物観測は読み取り専用component候補であり、明示Release署名commandだけがステージングmanifestを排他作成・書込み・`fsync`するリリースステージングのファイルシステム処置を持つ。この処置はRuntime／Platform Provisioning Filesystem Effect、Runtime Authority、Runtime Capability、Release採用またはProtectionを成立させない。
+
+本文で「検証済み実行イメージ」または「プロセス起動は未実装」と記す箇所は通常Runtime／Adapter側を指す。Canonical `CHG-000015`へ統合したpre-active native source候補は別の限定入口であり、Minimum Trust Boundary採用後のsourceからmapped supervisor image専用blockerを除去した。固定commit `afb6b70`の正式署名runではselected-user binder、PA03／PR03、Job／tree終了、System32限定module集合、対象Network event 0、loopback陽性対照、trace loss 0およびRegistry／Trust Store復元を同時確認した。OS所有read-only probeでのcomponent成立であり、通常Runtime、Repository Mount Grant、Authority、Capability、Gateまたは実Providerを有効化しない。
+
+### 承認済みProvisioning実装パッケージの脅威境界
+
+Windows v1で許可するRuntime主体は、明示provisionで選択したローカル対話ユーザー1名だけである。Supervisorのlocal interactive primary tokenを起動前後で再観測し、停止中子processの同じAuthenticationIdと固定AppContainer SIDを直接確認するbinder source候補を実装する。別資格情報、別logon session、別AppContainer、service／batch／network／restricted／AppContainer親または判定不能では処置完了前に`blocked`とする。elevated group、admin group、観測したtoken／group／session分類またはcaller指定SIDを選択userの代用にはしない。正式署名runでbinderは成立したが、protected active、Repository Mount Grantおよび通常Runtime再確認へ未接続なのでRuntime主体はまだ成立しない。サービスアカウントは将来候補に限り、v1では未実装かつ`blocked`である。
+
+後続の人間判断により、一回限りのオンライン登録チャレンジ（online enrollment challenge）は発行時から30分有効とする。nonce、installation public key、Platform scopeおよび登録要求へ結合し、最初の検証試行が成功でも失敗でも消費して再利用しない。期限切れは`blocked`とし、新しいchallengeを要求するが、offline方式へ自動fallbackしない。この期限は登録通信だけに適用し、通常runでは発火しない。登録要求／登録証明書のobject Envelope、署名exact 1件のpure検証、および両Envelopeのcanonical JCS UTF-8 raw byte decoderは実装済み候補である。Runtime所有のwall clockとmonotonic clockの後退検出、および最初の検証試行をprocess内で一回消費するControllerも候補実装した。process再起動をまたぐ永続台帳、transportおよびEffectは未実装であり、process内結果だけからreplay防止、TrustまたはAuthorityを成立させない。署名済みoffline bundleは7日有効・一回消費とし、exact object Envelopeと暗号・binding検査は実装済み候補、raw decoder・永続台帳・import Effectは未実装とする。準備認証局はoffline rootとonline／offline issuing keyを分離し、issuing keyは最大365日、切替overlapは30日、失効情報freshnessは24時間とする。Trust epoch／revisionの低下または同revision別Hashはrollbackとして拒否するが、単調floorの永続化は未実装である。
+
+Authority RecordとRepository generationはimmutable成果物とatomic pointerへ分離し、cross-volume atomicityを主張しない。順序はimmutable file fsync、generation directory fsync、pointer temporary file fsync、pointer atomic replace、pointer parent directory fsync、再読取Identity確認とする。各fsync、atomic replace、再読取またはIdentity確認のfailure／unknown／mismatch、および結果分類不能では、今回作成済みの成果物と検証済みの既存journalだけを回復用に保持して`blocked`とし、明示的回復を要求する。journal不存在または保持確認不能も`blocked`のままとし、推測rollback、自動retry、旧pointerへのfallbackまたは成功扱いを行わない。明示的回復の具体手順とEffectは未実装である。権限Effect ownerは全package Trust条件を満たした明示Platform Provisioner経路だけで、通常Runtimeによるpermission mutationを禁止する。Windowsの継承／広範write ACE、POSIXの未承認group／other write、およびlocal相当の安定Identity・durability・ACLを証明できないnetwork／removable／special／unknown volumeは拒否する。
+
+これらは質的な安全契約である。初回オンライン登録3成果物のexact object Schema／domain／JCS署名messageとpure数学的一致は実装済み候補である。署名前payloadのcanonical raw byte decoder、登録要求／登録証明書のexact object Envelope、および両Envelope全体のcanonical JCS UTF-8 raw byte decoderも実装済み候補である。オフライン束のexact object／online・offline issuing 2役chain／署名・binding検査も実装済み候補である。transport、永続replay台帳、Runtime所有CA Trust／rollback floor、CA実配布Lifecycle、証明書更新、オフライン束raw decoder／import Effectおよび実OS／Filesystem Adapterは未実装である。caller claim、Pathやcertificateの存在またはcandidate contractだけからTrust、Authority、Capabilityまたはreadyを成立させない。
+
+### Native direct provision入口の差分
+
+統合前`CHG-000034`のspawnless方式と`CHG-000035`の固定blocked bootstrapは各固定改訂版の履歴である。Canonical `CHG-000015`は、後続AppContainer実装でnative result contract revision 2、有効化前準備一回実行revision 5、Platform Provisioner Effect revision 5、Platform Access Adapter revision 3、Runtime Activation revision 4およびprivate doctor reportVersion 11へ移行した。PA03／PR03、entrypoint revision 2、native resultのfield集合は維持し、Registry復元不能、selected-user利用不能、selected-user再観測および子principal結合の専用reasonを追加する。旧revisionへのalias／fallbackはない。locked release PEはx64／CUI、ASLR／NX、現成果物が実際に持つexact import集合、delay import／TLS／bound import／CLR 0およびworker Hash結合を検査する。Release stagingは同一fdの両artifact byte、PE判定、Hashおよび内部worker結合の不一致をmanifest配置前に拒否する。実行時source候補はEd25519 manifestと別のAuthenticode publisher Identity、cache-only revocation、volume rootからleafまでのnon-reparse handle、local fixed volume、Known Folder由来`LOCALAPPDATA`だけの環境、回復可能なCurrentUser Registry Effect、Supervisor前後TokenUser／AuthenticationId再観測、停止中子processのAuthenticationId／AppContainer SID結合、worker loaded image、create-time Jobおよびexact pipe framingを要求する。2026-08-23の人間判断により、正常OS、OS認証済みローカル対話ユーザーおよび人間が確認した公式署名Releaseをv1のTCBへ含め、mapped supervisor imageと後からopenしたartifactの原子的自己結合はMinimum Trust Boundaryの必須条件から外した。[統合前CHG-000036](../../90_Release/Changes/README.md#consolidated-chg-000036)が追跡する原子的自己結合方式の未成立は残存riskとして保持し、方式が成立した、Verified Imageを実装した、または同一ユーザー／OS侵害を防御できるとは主張しない。App Control for Business／AppLocker、out-of-process launcherまたはhardware-backed trustは将来のHardened／Managed候補でありv1 blockerではない。固定commit `afb6b70`の正式署名AppContainer runでbinder、PA03／PR03、Job／tree終了、System32限定module集合、対象Network event 0、loopback陽性対照28 event、trace loss 0およびHost復元を同時確認した。ただしOS所有read-only probeを使ったcomponent検証であり、Repository Mount Grant、Authority、GateまたはReleaseへ進める根拠にはしない。
+
+Worker交換の失敗結果は、接続、request書込み、完了待機、response／終了状態を区別する固定reasonに限定する。これは診断のために秘密、Path、raw OS errorまたはWorker出力を公開するものではなく、不明な失敗を成功へ昇格しない。
+
+AppContainer WorkerはLow integrityであり、MICはDACLより先に評価される。非パッケージWin32 Supervisor所有Pipeは、パッケージ名前空間用の`LOCAL\`修飾を使わないローカル名のfirst instanceとし、`PIPE_REJECT_REMOTE_CLIENTS`、限定DACLおよび接続元PID結合を維持したまま、そのPipe objectだけへLow integrity mandatory labelを設定する。これをOS全体、Registry、Filesystem、別IPC objectまたは任意AppContainerへの書込み許可へ流用しない。
+
+### 固定版の確認履歴と未証明範囲
+
+次は当時の版で確認した内容と限界を保持する履歴であり、現行Runtimeの合否へ流用しない。新配置・今回の文書再構成の確認結果は[品質状態](../../07_Quality/01_Quality_Center.md)から取得する。
+
+固定Commit `d4cbdff079e5e2270b71263d6edbfe32e5332dd1`／Tree `d9cdf6265ab09cdac6dacde0bded41b6bd107a81`の第十八次Agent／Architecture／Security再レビュー、Document Audit、Gap／Impact AuditおよびConformance Auditは、Critical／Major／Minor 0件で全て`Pass`し、`AG-DRR-016-01`を`Resolved`とした。Docker Recovery Runtime contract revision 14はactive pointerを両bootstrap pair完了、Root source／move intent不存在、通常Operation inventory、exact `host-begin-intent`およびbase initial Host lineage一致へ結合したうえで、lease解放receipt、通常完了およびHost cleanup開始・完了Evidenceの不存在も要求する。partial、pre-host-intent、move anchor残存またはpointer解放後状態のpointerはRecovery ID空で停止し、pointer journalもAuthority Evidenceへ採用しない。このPassは同固定版の履歴であり、後続の正式署名一般Task Runner是正へ自動伝播しない。
+
+4経路実測より前の経緯として、Runner是正後の機械確認と独立再レビュー／再監査を経て、署名済み`Codex Front → Claude Code Executor → Codex Independent Reviewer`の固定1 Path成功経路、exact Candidate破棄、cleanupおよびHost残存0まで確認した。その後の固定版`0c3e6d2`の4経路4/4・復旧7/7は[署名済みE2E結果](../../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)を参照する。これらは新配置の実測ではない。現在の未完了は[品質の現在状態](../../07_Quality/01_Quality_Center.md)で追跡し、新配置の正式E2E、実Provider取消・是正の未証明範囲、Runtime全体完成監査、統合およびReleaseを別に確認する。
+
+追加のrevision 18正式Recovery試行は、Docker Engine回復後もWindows fast-fail `0xC0000409`で終了し、reconciled receiptを作成しなかった。認証Probeと耐久Recovery Evidenceは保持され、Provider requestは未開始である。同じlock集合、Docker inspectおよびexact `Networks.none`再照合だけのread-only Probeは成功したため、未解決範囲はその後のRuntimeState再検証からreceipt耐久化へ進むproduction境界にあるが、native failure主体は未特定である。この失敗をcleanup、残存0、Recovery成功、Runtime完成またはRelease根拠へ流用しない。
+
+4経路実測より前には、署名配布物の固定1 Pathの`Codex Front → Claude Code Executor → Codex Independent Reviewer`成功経路で、Subscription-only External Send、Candidate検証・破棄、cleanupおよび残存0を確認した。後続の4経路と復旧7種の固定版実測は前述の`0c3e6d2`の結果に限定される。新配置の正式E2E、実Provider取消・是正の未証明範囲とRuntime全体完成は[品質の現在状態](../../07_Quality/01_Quality_Center.md)で追跡する。exact Account／Tenant、Provider Terms、保持・二次利用・再移送、T3–T4およびReleaseを確認済みへ昇格しない。要求、構造候補、Runtime発行、consumption、Mount Authorization、Provider AuthorityおよびEffectを別状態に保ち、いずれかを確認できなければGateを開かない。
+
+現在のIdentity照合はFake ProviderとHost一時領域に対する境界であり、Path検査から削除までの敵対的な同時置換を完全に防ぐ証明ではない。実Provider Active Probeを実装する場合は、Provider process treeの終了確認後にcleanupし、Providerからtemporary parentへ到達できないOS Sandbox／ACLまたは同等境界を先に成立させて、cleanup競合を再評価する。
+
+- production回復／CLI matrixの旧固定版確認は完了している。
+- 既存の正式署名成功runではRecovery IDが発生せずcleanupと残存0を確認したが、Recovery処置自体を発火・実測した根拠ではない。
+- その後の正式署名失敗runは、Provider request前の認証Probe作成後にProcessが終了し、耐久Recovery IDから認証ProbeのRecovery観測へ到達した。
+- このrunではDockerの`--network=none`がinspect上の`NetworkSettings.Networks.none`として現れる一方、当時のconsumerが空集合を期待していた不一致を検出してFail Closedに停止した。
+- Docker Recovery Runtime contract revision 18はこの表現をexact `none`へ整合したが、同revisionの正式署名Recovery成功、残存0および失敗・取消を含む全Recovery matrixは未取得である。
+- 是正・取消・Provider失敗・Host故障Recovery、Runtime完成、Releaseまたは残存risk受容は別のGateである。
+
+## 6. 非対象
+
+- 悪意ある同一ローカルOSユーザー、Administrator／SYSTEM、kernel、OS／Verifier侵害への完全なtamper resistance
+- Firmware／TPM／Vendor署名基盤またはSupply Chain全体への完全なattestation
+- OS保護済みbootstrap、managed installer、vendor-integrated launcherおよびhardware-backed trustのv1必須化
+- 外部Effectの実行または回復
+- Remote Repository操作
+- Provider同士の直接spawn、Coordinatorを迂回するRole交換または循環委譲。Front Agentだけで十分な場合は子Agentを起動せず、移譲が必要な場合だけCoordinator Gateを経由してCodex／Claude Code Executorを選ぶ4経路のbrokered routingをRuntime 1.0対象に含む。既定はFrontと反対のProviderでSubscription枠を分散するが、説明可能なProvider固有の作業特性、明示制約または独立性がある場合だけ同一Providerも候補化する。現行の事前選定は反対ProviderのProvider Home、Subscription認証、公式配布物またはPolicyを実測済みと主張せず、後続preflight不成立時はProvider request前に停止する。request開始後の失敗はcleanup後の新Operationへ戻し、適格性不明やquota不足から有料APIへfallbackしない
+- Git以外のRepository Backend
+- Raw Provider Logの保管
+- 汎用Migrationまたは複数Protocol Reader

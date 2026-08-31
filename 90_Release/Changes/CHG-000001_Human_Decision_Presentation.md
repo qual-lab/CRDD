@@ -45,7 +45,7 @@
 - 上流 / 同層の正本更新: `10_Agent.md`、`11_Skill.md`
 - 準拠への伝播: `52_Conformance_Audit.md`のAD-17／AD-20
 - 利用側への伝播: 公式・配布AI入口とREADME
-- 機械確認への伝播: `template/tools/crdd_check.mjs`と`tools/crdd_check.test.mjs`
+- 機械確認への伝播（当時）: `template/tools/crdd_check.ts`と`tools/crdd_check.test.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)、現在の試験移設先は[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)
 - 初回監査結果:
   - 文書監査: README日英で「業務／business」が脱落しているMinor 1件
   - 準拠監査: Pass
@@ -71,7 +71,7 @@
 
 ## 検証
 
-- 全体機械確認: `node tools/crdd_check.mjs --json --summary`、エラー0件、警告0件
+- 全体機械確認: `node tools/crdd_check.ts --json --summary`、エラー0件、警告0件
 - チェッカー回帰試験: 69件合格
 - チェッカー網羅率: 行1,277 / 1,277（100%）、分岐201 / 201（100%）、5回連続で同じ結果、除外なし
 - 代表的な単独レビュー／CHG／統合監査起点の人間判断提示: 次のケースを独立レビューで確認した
@@ -102,7 +102,7 @@
 - 準拠評価: `52_Conformance_Audit.md`のAD-17／AD-20
 - 利用側接続: 公式・配布AI入口
 - 公開・移行案内: `README.md`、`CHANGELOG.md`
-- 機械確認: `template/tools/crdd_check.mjs`、`tools/crdd_check.test.mjs`
+- 機械確認（当時）: `template/tools/crdd_check.ts`、`tools/crdd_check.test.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)、現在の試験移設先は[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)
 
 ## リリース
 

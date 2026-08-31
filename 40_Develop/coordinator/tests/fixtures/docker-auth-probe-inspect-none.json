@@ -1,0 +1,50 @@
+{
+  "source": "sanitized_real_docker_inspect_subset",
+  "engineVersion": "28.1.1",
+  "createArgv": [
+    "create",
+    "--pull=never",
+    "--network=none",
+    "--read-only",
+    "--cap-drop=ALL",
+    "--security-opt=no-new-privileges",
+    "--pids-limit=32",
+    "--user=65534:65534"
+  ],
+  "inspect": {
+    "Id": "SANITIZED_AT_TEST_TIME",
+    "Name": "/SANITIZED_AT_TEST_TIME",
+    "Config": {
+      "User": "65534:65534",
+      "Image": "SANITIZED_AT_TEST_TIME",
+      "Labels": {
+        "crdd.coordinator.runtime": "SANITIZED_AT_TEST_TIME"
+      }
+    },
+    "HostConfig": {
+      "ReadonlyRootfs": true,
+      "Privileged": false,
+      "CapDrop": [
+        "ALL"
+      ],
+      "CapAdd": null,
+      "SecurityOpt": [
+        "no-new-privileges"
+      ],
+      "PidsLimit": 32
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Destination": "/provider-home",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ],
+    "NetworkSettings": {
+      "Networks": {
+        "none": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "schema": "crdd-coordinator/remediation-verification-record/v1",
+  "runtimeCommit": "45ea2acd5cac21ce0b5cb3256f2cb0656ec8b37a",
+  "runtimeTree": "082d8b2499477cc5f711b2a8508f48ab31d0fe0e",
+  "start": {
+    "startedAt": "2026-08-31T13:42:10.930Z",
+    "expectedRepositoryCommit": "3495bcd1b0455ab8eccaf55dcb7436d65d620e46",
+    "expectedRepositoryTree": "a6a0d364e82f2fb0030ccbd6b4de6695742f4988",
+    "requestSha256": "09745a38ed01f26335160a2f9e6f7e64552bd4068f10ec28067e09f97e3caeb5",
+    "maximumRemediationRounds": 1,
+    "maximumProviderInvocations": 4,
+    "authorization": "explicit_user_approval_in_current_thread",
+    "releaseKeyUsed": false
+  },
+  "request": {
+    "frontProvider": "codex",
+    "requestedExecutorProvider": "claude",
+    "workClass": "bounded_implementation",
+    "planState": "complete",
+    "risk": "low",
+    "difficulty": "low",
+    "decisionImpact": "limited",
+    "isLocalCandidateOnly": true,
+    "hasUnresolvedDirection": false,
+    "requiresCrossContextAlignment": false,
+    "objective": "Test one bounded correction loop using a deliberately incomplete initial candidate, not a real product change. The final accepted artifact must meet the same acceptance criteria on both reviews. For the executor only: on the first execution, when no Bounded remediation projection section is present, write exactly INITIAL followed by one LF into 40_Develop/coordinator/runtime/remediation-verification.txt; this is an intentionally deficient test fixture and is not expected to pass review. If the runtime provides a Bounded remediation projection, independently verify its defect against the acceptance criteria and correct the file to exactly FINAL followed by one LF. Reviewer: inspect the actual file against the final acceptance criteria, report the initial content mismatch honestly as a typed finding, and approve only once the final criteria hold. Do not fabricate findings or approve INITIAL. Do not access any other file or external service.",
+    "acceptanceCriteria": [
+      "The only changed path is 40_Develop/coordinator/runtime/remediation-verification.txt.",
+      "The final accepted file consists of the UTF-8 bytes 46 49 4e 41 4c 0a (FINAL followed by exactly one LF), with no BOM or other content. INITIAL is an intentionally incomplete fixture and must not be approved."
+    ],
+    "allowedPaths": [
+      "40_Develop/coordinator/runtime/remediation-verification.txt"
+    ],
+    "readPaths": [
+      "40_Develop/coordinator/runtime/remediation-verification.txt"
+    ]
+  },
+  "execution": {
+    "startedAt": "2026-08-31T13:42:10.930Z",
+    "endedAt": "2026-08-31T13:45:30.749Z",
+    "exitCode": 0,
+    "signal": null,
+    "launchError": null,
+    "result": {
+      "command": "task",
+      "status": "completed",
+      "reason": "coordinator_task_candidate_approved",
+      "cleanupConfirmed": true,
+      "manualRecoveryRequired": false,
+      "hostRecoveryId": null,
+      "dockerRecoveryId": null,
+      "dockerRecoveryIds": [],
+      "executorProvider": "claude",
+      "reviewerProvider": "codex",
+      "reviewerIndependence": "provider_independent",
+      "externalSendAuthorizationMode": "reused_initial_consent",
+      "executorSelectionNotice": "[委譲経路選定] front=codex executor=claude route=front_codex__executor_claude\n経路選定理由=user_executor_constraint_satisfied,cross_provider_route_selected,work_class_bounded_implementation\n[委譲選定] provider=claude role=executor family=opus effort=low speed=normal\n選定理由=complete_bounded_local_plan\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=opus\n互換性選定理由=none",
+      "reviewerSelectionNotice": "[委譲経路選定] front=codex executor=codex route=front_codex__executor_codex\n経路選定理由=independent_provider_required,independent_provider_required,work_class_bounded_verification\n[委譲選定] provider=codex role=independent_reviewer family=sol effort=medium speed=normal\n選定理由=independent_review_requires_critique,bounded_work_requires_limited_reasoning\n高コスト選択=no\n再選定条件=scope_change,policy_conflict,material_risk,plan_insufficient\n再選定条件=availability_change,scope_change,authority_change,policy_conflict\n実効モデル=gpt-5.5\n互換性選定理由=gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
+      "remediationPerformed": true,
+      "candidateRevision": {
+        "baseCommit": "3495bcd1b0455ab8eccaf55dcb7436d65d620e46",
+        "baseTree": "a6a0d364e82f2fb0030ccbd6b4de6695742f4988",
+        "patchHash": "00edc852442be88e84d59c6fd61ab4e4c2fcda0032307c1248f99fde29230133",
+        "contentManifestHash": "928e057313129a09f006d67a9f20db702ef7d00ac32a209b6fb4b5a47c6ede21",
+        "allowedPathsHash": "873f173dbf2befb86a286a4174d3889293bda5942647292e0af5174380ed13c6",
+        "changedPaths": [
+          "40_Develop/coordinator/runtime/remediation-verification.txt"
+        ]
+      },
+      "candidateId": "candidate.0cca9697105d514c34833ee77d4d1a33891b67e8efb9f4d94f875a0385dcae63.75a70c852b66f96577813d3eafa7621b3fd80dbc1ef3138003c541e7ced5785c",
+      "candidateRecoveryId": null,
+      "candidateStoreRecoveryId": null,
+      "executorResult": {
+        "status": "completed",
+        "changedPaths": [
+          "40_Develop/coordinator/runtime/remediation-verification.txt"
+        ],
+        "verificationCount": 3
+      },
+      "reviewerResult": {
+        "decision": "approved",
+        "findingCount": 0
+      },
+      "canonicalRepositoryChanged": false,
+      "rawOutputReported": false,
+      "hostPathReported": false,
+      "untrustedProviderTextReported": false,
+      "credentialAbsenceVerified": false,
+      "expiresAtMs": 1788270307296,
+      "processRestartRequired": false
+    },
+    "repositoryCommitAfter": "3495bcd1b0455ab8eccaf55dcb7436d65d620e46",
+    "repositoryStatusAfter": ""
+  },
+  "final": {
+    "recordedAt": "2026-08-31T13:45:52.715Z",
+    "candidateId": "candidate.0cca9697105d514c34833ee77d4d1a33891b67e8efb9f4d94f875a0385dcae63.75a70c852b66f96577813d3eafa7621b3fd80dbc1ef3138003c541e7ced5785c",
+    "remediationPerformed": true,
+    "exportStatus": "exported",
+    "contentVerified": true,
+    "contentSha256": "612a6a1e05c9c0e04ddf584447a8cd7a22b206195b8cf82fbe23f339e23ef024",
+    "discardStatus": "discarded",
+    "canonicalStatus": "",
+    "failure": null
+  },
+  "limitations": {
+    "seededDefect": true,
+    "remediationSuccessRateNotEstimated": true,
+    "reverseProviderDirectionNotMeasured": true,
+    "operatingSystemCancellationNotMeasured": true,
+    "humanAcceptanceConferred": false
+  }
+}

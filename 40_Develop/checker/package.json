@@ -1,0 +1,23 @@
+{
+  "name": "@qual-lab/crdd-checker",
+  "version": "0.0.0-development",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "format": "biome format --write ../..",
+    "format:check": "biome format ../..",
+    "lint": "biome lint ../.. --error-on-warnings",
+    "test": "node ./test-runner.ts",
+    "typecheck": "tsc -p ./tsconfig.json",
+    "verify:repository": "node ./crdd-check.ts --root ../.. --json --summary"
+  },
+  "engines": {
+    "node": ">=24.12"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.6",
+    "@types/node": "22.18.0",
+    "typescript": "7.0.2"
+  }
+}

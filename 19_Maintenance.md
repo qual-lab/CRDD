@@ -2,10 +2,11 @@
 
 # CRDD標準の保守（Maintenance）
 
-Version: v0.17.0
-Status: Stable
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-10
+Last Updated: 2026-08-31
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -251,6 +252,7 @@ Issue、作業、変更トレース等から変更を実行する前に、次を
 受付 / タスク参照
 変更分類または未確定であること
 変更可能な範囲 / 対象外
+現在のリポジトリ以外に許可する書込みRoot / 許可しない場合はCurrent Repository only
 基準改訂版 / 基準版
 人間による判断済みの範囲と未決事項
 保持する意図 / 目指さないこと
@@ -264,6 +266,10 @@ Issue、作業、変更トレース等から変更を実行する前に、次を
 
 実行主体は[エージェント](10_Agent.md)と[スキル](11_Skill.md)の決定権限、停止、独立レビューに従う。Issueや作業が実行可能状態を示していても、それだけで自動実行、対象範囲外変更、保護対象変更承認、最終統合、リリースを許可しない。
 
+保守作業の既定のFilesystem Effect範囲は現在のリポジトリだけとする。現在のリポジトリはタスク対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定し、Current Working DirectoryやTool／package Directoryを代用しない。Repository-local `.crdd`、試験一時物および生成物はこのRootを基準に配置し、subdirectoryから実行しても別のProject-local Rootを生成しない。Release staging、Git worktree、archive、log、試験一時物またはRuntime診断物であっても、親Directory、兄弟Repository、別RepositoryまたはOS一時Directoryへ暗黙に作成しない。リポジトリ外Rootが必要な場合は、[変更の安全性](01_Principles.md#56-change-safety)に従い、事前許可済みの用途限定Rootまたは人間が今回承認したexact Rootへ限定し、Operation所有、保持、cleanup、Recoveryおよび残存確認を同じ実行契約へ含める。
+
+編集計画と変更トレースは、工程、ファイル、コミット、確認者または個別指摘ごとに分解せず、[変更](12_Change.md)が定める変更意図を一次のまとまりとする。同じ未リリース意図に属する不足、回帰または利用側漏れは、原因契約を所有するCHGを再開して同じ検証・移行・切戻し・リリース境界で是正する。公開済み変更の訂正、または独立して採否、移行、切戻しもしくはリリースできる別意図だけを別CHGへ分ける。
+
 非自明／軽微の操作条件、着手前整合確認の開始条件、専門観点の委譲、簡潔運用、結果の統合、および完成後確認との境界は[エージェント](10_Agent.md#pre-execution-alignment-check)を正本とする。CRDD標準の変更では、所有する正本文書、直接参照、ひな型、AI入口、公開案内、準拠基準、移行への影響候補を必要な範囲で確認する。別の計画書、承認段階またはすべての監査の事前実行を追加しない。
 
 適用条件、例外、非該当、停止または正式結果を変える場合、概念の定義と完全な規則の発火を同一視しない。発火例だけでなく非発火例、境界例、判定情報不足例を使い、通常対象への過剰適用、情報不足の無言の非該当化、別の状態軸の結果語の流用を初回固定前に確認する。対象ごとの例は、変更トレース、計画、受入条件または既存の検証設計から取得できればよく、専用成果物や固定スキーマを作らない。
@@ -272,9 +278,29 @@ Issue、作業、変更トレース等から変更を実行する前に、次を
 
 複数の指摘または合意事項を一括して適用する場合は、編集計画の一次キーを編集の識別子とする。検索文字列の一意性検証を計画の組織原理にしない。挿入、置換、削除、移動を編集の種別として区別し、挿入型の編集にも挿入位置を一意に特定する目印を与えて、置換型と同じ検証にかける。指摘の識別子と編集の識別子の全数対応を、適用開始前に突き合わせる。指摘に対応する編集がない場合と、編集に対応する指摘がない場合の双方を検出する。ある編集が削除または変更する文字列を別の編集が目印に使う場合は、依存関係から適用順を定め、再測定の結果だけで順序を決めない。
 
-一つの指摘、根本原因または合意事項が複数箇所へ及ぶ場合、指摘と編集の対応だけで計画を閉じない。[エージェントの複数箇所へ及ぶ是正対象の列挙と照合](10_Agent.md#multi-location-remediation)に従い、元の指摘事項の意味を保持し、契約母集団と利用側母集団を分けて具体的な影響箇所を列挙する。各箇所を修正、変更不要、対象外、判断待ち、適用不能または確認不能のいずれかへ理由と確認方法付きで処置する。処置進捗、阻害状態、解消判定を分け、`Applied`または`Self-checked`を`Resolved`と扱わない。個別の編集の検証が成立すること、または指摘事項と編集識別子の件数が一致することは、編集の集合が合意内容を網羅していることを意味しない。修正後は、契約母集団と利用側母集団、受入条件、合否判定方法、新しい根拠、同一固定改訂版の独立再レビュー、現在状態への伝播を含む解消条件を照合してから、更新改訂版を再レビューへ渡す。同じ根本原因が再発し、局所修正では収束しない場合は、個別編集を継ぎ足さず、契約の決定権限、共通生成器、判定方法および利用側接続を対象とする構造是正へ戻す。
+一つの指摘、根本原因または合意事項が複数箇所へ及ぶ場合、指摘と編集の対応だけで計画を閉じない。[エージェントの複数箇所へ及ぶ是正対象の列挙と照合](10_Agent.md#multi-location-remediation)に従い、元の指摘事項の意味を保持し、契約母集団と利用側母集団を分けて具体的な影響箇所を列挙する。
+
+各箇所を修正、変更不要、対象外、判断待ち、適用不能または確認不能のいずれかへ理由と確認方法付きで処置する。
+
+処置進捗、阻害状態、解消判定を分け、`Applied`または`Self-checked`を`Resolved`と扱わない。個別の編集の検証が成立すること、または指摘事項と編集識別子の件数が一致することは、編集の集合が合意内容を網羅していることを意味しない。
+
+修正後は、契約母集団と利用側母集団、受入条件、合否判定方法、新しい根拠、同一固定改訂版の独立再レビュー、現在状態への伝播を含む解消条件を照合してから、更新改訂版を再レビューへ渡す。
+
+同じ根本原因が再発し、局所修正では収束しない場合は、個別編集を継ぎ足さず、契約の決定権限、共通生成器、判定方法および利用側接続を対象とする構造是正へ戻す。
 
 是正以外の非自明な変更でも、初回固定前に、予定した正本、契約母集団、利用側母集団、代表例、変更禁止範囲と実際の差分を全数照合する。利用側ごとに、変更した、既存参照で追従するため変更不要、理由付き非該当、判断または確認待ちのいずれかを取得可能にする。ファイル数、変更行数、機械確認の合格、肯定例だけの成立から、意味、利用側または分岐の網羅を推定しない。目的は監査を省略することではなく、既知の不整合を最初の固定候補へ持ち込まず、必要な独立レビューと監査を一巡で完了できる可能性を上げることである。
+
+再レビューで、初回固定前から存在した既知母集団内の見落とし、または同じ根本原因による新規候補を検出した場合、その一箇所だけを直して直ちに次の固定候補へしない。同じ確認軸の未走査組合せ、並行するobserver／Gate、利用側およびEffect発生点を修正担当側で一括再照合し、局所修正で閉じるか共通primitive、生成器または判定方法の構造是正へ戻るかを決めてから、次の一つの固定候補へまとめる。監査指摘を統合済みでも、是正の具体化で新しい状態、資源、非同期境界、外部実行基盤または利用側を導入する場合は、合意済み方針の機械的適用とみなさず、変更後の解決経路で着手前整合確認と固定候補前の再照合をやり直す。未知の反例を検出する独立監査は維持し、既知母集団または是正で新設した母集団の小出し修正を監査回数で補わない。
+
+独立レビューまたは監査との往復を検出した場合は、当該変更だけの手戻りとして閉じる前に、再発し得る一般原因かを確認する。新しい指摘候補ごとに、要求または正本が不足していた、着手前整合で既知母集団を列挙しなかった、監査条件を具体設計へ取り込まなかった、実装が合意方針から逸脱した、試験が公開経路・失敗順序・cleanup後条件を再現しなかった、監査へ渡した範囲または根拠が不足した、初回監査が見落とした、のうち該当する発生点を区別する。複数に該当する場合は最初に防げた位置と後段で検出できた位置を分け、最後に発見した監査だけを原因にしない。
+
+同じ根本原因、既知母集団の見落とし、外部実行基盤の複合順序、資源の役割競合、公開入口と単体試験の実行形態差、モデル・エージェント・セッション差で再発し得る省略、または複数の採用先へ及ぶ契約不足である場合は、責務を持つ既存正本、ひな型、共通Checker、生成器または契約試験へ一般化できるかを是正計画へ含める。高性能なモデルまたは同じ長期セッションなら補完できることを、一般化不要の理由にしない。異なる実行者が同じ入力から必要な確認母集団、公開経路、反証条件および未確認範囲を再構成できない場合は、個人またはモデルの注意力ではなく契約、案内、機械確認または試験接続の不足候補として扱う。
+
+一般化する場合は利用側、変更禁止範囲、移行および既存規則との重複を照合し、一過性の事例、特定実装の識別子または単一監査の表現を恒久規則へ増殖させない。既存条項の確認軸、入口、完了条件または検証接続を強めれば足りる場合は、新しい工程、成果物、状態、役割または監査を追加しない。一般化しない場合も、今回固有と判断した理由を取得可能にする。
+
+この一般化は、CRDD標準自身の保守、またはCRDD標準への変更提案を明示的な対象範囲とする作業で行う。採用プロジェクトの通常作業では、考慮不足、局所原因、利用側で必要な是正および再発防止をプロジェクトの言葉で説明できるが、ユーザーへCRDD正本、ひな型、Checkerまたは契約試験への還元判断を求めず、通常の進行報告へCRDD改版提案を混在させない。採用プロジェクトで一般化可能な学びを得ても、CRDD標準の保守が別途承認または開始されるまでは、プロジェクトの責務を持つ記録または明示された外部フィードバック候補として境界を保つ。
+
+保守の終盤でも、[残る不確実性に応じた検証の選択](16_Quality_Assurance.md#uncertainty-driven-verification)と[完成条件を維持した収束判断](10_Agent.md#convergence-and-verification-selection)を用いる。現在の是正、影響不明、将来候補を区別し、採用済み作業を無断で次版へ移さない。確認方法の変更を、必須監査や完了条件の免除としない。
 
 <a id="32-integration-and-release-disposition"></a>
 
@@ -293,6 +319,52 @@ Issueまたは作業の進行状態をリリース待ちのために増やし続
 Issueまたは作業は、統合結果と`Integrated — Pending Release`を返した時点で終了してよい。個別Issueをリリースまで未完了に保つこと、リリース後に再未完了すること、各Issueへリリース完了コメントを追加することを要求しない。リリース対象範囲は、マイルストーン、リリースIssue、CHANGELOG下書き、リリース記録等の集約表示から追跡する。
 
 CRDD公式GitHubリポジトリでは対象リリースごとのマイルストーンを軽量な接続部として使用できる。マイルストーンは本節の意味を実装する一例であり、採用リポジトリまたは他のIssue管理システムへ同じ機能を要求しない。
+
+<a id="33-internal-typescript-runtime"></a>
+
+## 3.3. CRDD内部実装のTypeScript／Rust境界
+
+CRDD公式リポジトリが所有する内部Scriptは、既存の責務別フォルダ配置を維持したまま`.ts`を標準とする。実行にはNode.js 24.12 LTS以上のネイティブTypeScript型除去を使用し、Runtime依存として`tsx`、`ts-node`、Babel、Bundlerまたは専用の変換packageを要求しない。実行コードはESM、Node.js組込み機能および`import type`を基本とする。
+
+Coordinator Runtime 1.0の最小信頼境界（Minimum Trust Boundary）では、正常に動作するOSの認証、Filesystem、process、AppContainerおよび署名検証機能と、OSが認証した選択ローカル対話ユーザーを信頼計算基盤（Trusted Computing Base、TCB）として扱う。人間は真正性を確認した公式署名済みCRDD Releaseの固定native入口を明示的に開始しなければならない（MUST）。同一ローカルユーザー、machine Administrator／SYSTEM、kernel、OSまたはVerifierが悪意を持ち、起動前置換、検査回避、debugger、injection等によってこの前提自体を破る攻撃への完全なtamper resistanceはCoordinator Runtime 1.0の保証対象外とする。ただし、別ローカルユーザー、Repository内容、Provider／workerとその出力、Network入力、未検証artifact、未検証Authority／Revisionおよびcaller supplied Pathは信頼対象へ昇格せず、観測可能なIdentity差または判定情報不足では処置前にfail closedとしなければならない（MUST）。この対象外境界を、署名manifest、artifact／Provider／Repository／Revision Identity、Authority、Provider Home、Egress、隔離、Process Effectまたは終了確認の省略根拠にしてはならない（MUST NOT）。悪意ある同一ユーザー、Administrator、kernelまたはOS侵害への耐性が必要になった場合は、OS保護済みbootstrap、managed install root、実行制御またはhardware-backed trustを別のHardened／Managed変更として再評価する。
+
+OS APIへ安全に接続するためTypeScriptだけでは閉じない最小のプラットフォームアクセス部は、CRDD本体、一般CLI、Policyおよび契約をTypeScriptに保持したまま、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。例外として、有効化前準備一回実行のnative top-level supervisorと、そのsupervisorが起動する固定AppContainer workerだけは、通常Runtime、installer、PATHまたは公開CLIから発火しないprivate入口として、exact `provision` argv、固定request／response framingおよび観測前のfail-closed結果をRust成果物に保持してよい（MAY）。この例外は一般CLI、Policy、Authority、Capabilityまたは通常RuntimeのEffectをRustへ移す根拠にしてはならない（MUST NOT）。この限定は内部Script一般をRustへ移す根拠、採用RepositoryへRustを要求する規則、独立製品または公開CLIの新設にはしない。BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やbuild orchestrationとして新設せず、Cargo commandを責務別の開発入口から直接実行する。
+
+Rust製プラットフォームアクセス部（Rust platform-access crate）は、`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定し、`rustfmt --check`、ClippyのWarning拒否、`cargo test`、locked release buildおよび固定`llvm-tools-preview`によるcoverageを別々の確認軸にする。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測とセキュリティ判断上の検証義務（Security Decision Obligation）、未到達経路、残存risk、Ownerおよび再確認契機を分けて記録する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Release成果物は固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を署名済みmanifestへ含める。上限付きプロセス（Bounded Process）は、固定argv、環境、入出力、時間および成果物Identityを制限した内部process境界を指す。ただし署名manifestの成果物観測だけでは、前項で対象外としたTCB侵害に対する実行イメージの継続的同一性を保証しない。通常RuntimeのProcess Adapterは、最小信頼境界内で固定Release Trust、artifact／Provider Identity、Authority、Repository／Revision、Provider Home、Egress、隔離および終了確認を実装・検証するまではprocessを起動せず、入力Pathまたはhelper processより前に`blocked`へ閉じる。将来上限付きプロセスを導入しても、Root保護、Authority、CapabilityまたはEffectの成立へ流用しない。
+
+通常Runtime Adapterの前項の禁止を維持したまま、選択ローカル対話ユーザーとのbinderに必要な読み取り専用観測に限り、有効化前準備一回実行（Pre-active Provisioning One-shot）を別の入口として設けてよい（MAY）。この入口は、人間が真正性を確認した未改変の公式署名済みリリース内のnative top-level `coordinator provision`だけとし、署名manifestへ別Identityとして結合した固定AppContainer workerをexact 1回だけ起動して、現在process tokenと固定Rootを1回だけ観測しなければならない（MUST）。supervisorはworkerへhandleを継承せず、固定ローカル名前付きパイプのfirst instanceを所有し、接続元process IDが自ら生成したworkerと一致した場合だけ、上限付きexact 1 requestを渡し固定長responseを受理しなければならない（MUST）。worker spawn attempt上限は1、hard timeout後はworkerを終了し、未知接続、余分byte、旧protocol、固定Release配置差、AppContainer profile不成立またはresponse差を成功へ流用してはならない（MUST NOT）。人間が開始済みのtop-level process自体はCoordinatorが発行したProcess Effectではないが、worker生成試行はProcess Effectとして区別する。通常run、`doctor`、`activate`、`disable`、source checkout、開発build、NodeによるPath起動、PATH、Cargo、Shell、installer、別binary、自動retryまたはfallbackから発火してはならない（MUST NOT）。人間による初期Trustを自己Hashまたは自己署名検証から生成せず、固定Release Trust、両native artifact Identity、non-link／non-reparse handle、同一handleのbyte長／Hash、固定publisherのAuthenticode、固定入力、AppContainer、Network非発火、workerの子孫process不存在および観測結果の全条件を実装が同じrunで確認できない場合は観測前に`blocked`へ閉じなければならない（MUST）。現在map済みのsupervisor imageと後からopenしたmanifest artifactを公開Win32だけで原子的に自己結合することは、最小信頼境界の必須条件にしない。これは同一ユーザーまたはOS侵害への耐性、検証済み実行イメージ（Verified Image）または方式の技術的成立を主張するものではなく、人間が確認した公式Releaseと正常OS／認証済みユーザーをTCBとするv1対象外境界に限る。正常結果も同じinvocation内の主体およびRoot accessの観測候補に限り、外部callerが保存または再投入してselected-user binder、保護済みactive、Root Protection、Authority、Capability、Filesystem／Network Effect、GateまたはReleaseを成立させてはならない（MUST NOT）。実装候補を先に固定し、決定権限者が承認した検証用またはRelease候補の署名成果物に対して、worker成果物の継続Identity、子孫process禁止またはJob等の同等境界、process tree終了および回復を同じrunで検証しなければならない（MUST）。検証署名、証明書の信頼ストア登録、正式Release署名またはRelease採用を、実装完了や自動試験から推定してはならない（MUST NOT）。
+
+Provider processのライフサイクルはTypeScriptが所有し、固定Digest image、exact Provider CLI versionおよび自動更新停止を管理対象依存として扱う。shell、PATH、Host既定Home、Host CLIまたはAPI keyへfallbackせず、更新時はimage／CLI Identity、利用側、検証および復旧を再評価して人間が有効化する。caller suppliedの合成Fake観測候補による状態遷移、timeout、cancel、出力上限またはprocess tree不存在claimの評価を、Fake process実行、実Provider認証、Egress、subscription条件、Operation Authority、CapabilityまたはRelease成立へ流用しない。
+
+動的Fake Providerライフサイクル観測（Dynamic Fake Provider Lifecycle Observation）は、Repository所有の固定Docker Adapterが同じrunで観測した固定image、結果正規化、container／process tree不存在およびcleanupに限定する。plain object、Provider出力または合成claimから観測来歴を再構成せず、診断用Docker／一時Filesystem Effectと実Provider／Network／Operation Effectを分離する。Fake限定観測を実Provider readiness、OAuth、quota、Authority、Capability、GateまたはRelease成立へ流用しない。通常診断の同期process境界は実行中cancelを処理できず、timeoutをcancelと読み替えない。固定Fake専用の非同期取消検証を追加する場合も、固定signalの受領、Fake container内process終了、ホスト側Docker CLI attachプロセス（Host Docker CLI Attach Process）のclose、container不存在およびHost cleanupを同じrunで確認する。異常経路のHost側processは一つの所有境界で終了要求をexact 1回に制限し、close不明をcontainer cleanupで代用しない。通常診断、任意signal、実ProviderまたはOperationの取消Capabilityへ流用しない。
+
+専用Provider Home保護基盤（Dedicated Provider Home Protection Foundation）は、Windowsのlocal user＋Provider単位の永続Home方針、固定配置候補および読み取り専用のRuntime所有観測契約をTypeScriptに保持し、OS観測だけをprivate Rust platform-accessへ限定する。caller supplied Windows絶対Pathは非Authorityな字句候補に限り、Runtime observerのrequestへPath、SID、ACL、Profile IDまたはOperation IDを含めてはならない（MUST NOT）。observerはWindows既知フォルダーのローカルアプリデータ（Windows Known Folder local app data）からRootを独立取得し、固定`Qual-Lab/CRDD/ProviderHomes/{codex|claude}`を現在processのlocal interactive primary token、同じlogin session、Root handle／Identity、local fixed volume、全固定segmentのnon-link／non-reparse、selected user ownerおよびprotected DACLへ結合しなければならない（MUST）。Provider Homeのwrite-capable ACEはselected userとSYSTEMの継承付きFull Controlだけに限定し、別writer、未保護DACL、identity差または情報不足では修復せずfail closedとする。結果はProvider、nonce、既知flagおよびProvider Home Identity／保護／local user bindingのdomain-separated Hashだけへ限定し、Path、SID、login LUID、ACLまたはCredential内容を返してはならない（MUST NOT）。固定署名manifest、release artifactの起動前後一致および上限付きprocess終了を同じRuntime invocationで確認できない場合は観測Capabilityを発行しない。観測Capabilityはprocess-local、opaque、短命かつ一回限りとし、単独でAuthority、Operation Capability、Mount Grant、mount、loginまたはProvider spawnを成立させてはならない（MUST NOT）。observerはHome作成またはDACL修復を行わず、明示bootstrap Effect、回復、logout／revoke／削除は別Lifecycleとして再評価する。
+
+Runtime所有Provider Homeマウント許可（Runtime-owned Provider Home Mount Grant）は、同じOperation世代のopaque management Capabilityと、一回限りのRuntime所有Provider Home観測Capabilityからだけ発行しなければならない（MUST）。caller supplied Operation ID、観測Hash、時刻、Path、SID、ACLまたはCredential値を発行Authorityとして受理してはならない（MUST NOT）。Grantはprocess-local atomic store、Runtime所有の壁時計と単調時計、暗号学的乱数参照、最長5分および使用上限1回へ固定し、Provider、Profile、Operation、Provider Home Identity／保護状態およびselected local user bindingを結合する。発行control、使用useおよび消費後mount authorizationのaliasは分離し、use時にfreshなRuntime所有観測を再結合し、Operation終了時またはmount完了後の取消では全aliasとrecordを失効しなければならない（MUST）。process restartではGrantを永続復元せず全て失ってfail closedとし、active mount／container／Operation Filesystemの回復は別のDocker／Host Recovery契約が所有する。Mount AuthorizationはProvider Home Path、token、session、Credential、一般Runtime AuthorityまたはOperation Capabilityを含まず、実mount／unmount、Filesystem Effect、Provider spawnおよびcleanup確認が未成立なら実行可能へ昇格してはならない（MUST NOT）。
+
+ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path alias、またはcompiler変換を前提とする構文を内部Scriptへ導入しない。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
+
+開発時の静的LintとFormatterには、Repository rootの`biome.json`でversionと規則を固定したBiomeを使用する。Biomeは開発依存に限定し、Runtime成果物または実行時依存へ含めない。Lint、Formatter確認、TypeScript型検査およびRuntime testは別の確認軸として実行し、一つの成功を他の成功へ流用しない。既存Scriptへ一括自動修正を適用せず、TypeScriptへ移す単位ごとに整形と意味回帰を確認する。
+
+`.mjs`、`.cjs`または`.js`を残す場合は、bootstrapまたは外部互換等の明示理由と適用範囲を変更トレースへ記録する。移行途中であること自体は恒久例外の理由にしない。拡張子の変更によってfolder、決定権限、公開範囲、package境界または単独配布の可否を変更しない。
+
+Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ同義に固定する。特定のversion managerは要求しない。利用者または採用側へ見える拡張子、実行command、参照Pathを変更する場合は、変更トレースで利用側、移行、停止および復旧を示し、基準版の採用やリリースを別判断として扱う。
+
+CRDD公式Repositoryの`40_Develop/**`と配布用実装の具体的な命名、試験名および曖昧名の禁止は[内部ツール・コーディング規約](06_Architecture/99_Coding_Standards.md)を単一正本とする。
+
+対象Windows環境でAppContainer workerの起動に必要なOS文脈は、親process環境の継承ではなく、Windows Known Folderから取得して固定volumeかつnon-reparse path chainを確認した`LOCALAPPDATA`だけのUnicode環境blockとして渡さなければならない（MUST）。`LowBoxConsoleEnabled`が独立した起動前提になる場合は、通常Operationで変更してはならず（MUST NOT）、明示`provision`の同一invocation内だけで、CurrentUser固定mutex、exact pre-state、durable recovery recordのeffect前flush、必要時だけの一時設定、worker tree終了、現在値とkey last-writeの所有確認、exact restore、read-backおよびrecovery record削除を順に確認しなければならない（MUST）。既存recovery record、型差、外部変更または復元所有権を判定できない場合は値を上書きせず、手動回復が必要な状態としてfail closedにしなければならない（MUST）。復元と記録削除を確認する前に観測候補をcallerへ公開してはならない（MUST NOT）。
+
+<a id="34-essential-correction-and-compatibility-boundary"></a>
+
+## 3.4. 本質的修正と互換層の境界
+
+CRDDの保守では、現行正本と既知の全利用側を本質的に正しい状態へ移行し、最終状態へ旧名または廃止済み入口を維持する互換alias、shim、wrapperまたは重複実装を残さないことを既定の処置とする。単一正本への委譲、package entryまたは責務分離のためのadapterは互換層ではない。互換層の追加によって正本の誤り、責務の混在または廃止済み入口を温存せず、影響は変更分類と移行注記で明示的に扱う。Candidateまたは`v0.x`であることだけを、破壊的表示、移行、検証または復旧の省略理由にしない。
+
+この処置は、置換する正本、利用側母集団、移行完了条件、停止条件および復旧先を確認できる場合に発火する。単なる内部renameで外部利用側が存在しない場合は、互換層の検討自体を追加しない。過去のCHG、Evidence、CHANGELOG、tag、Releaseおよび判断理由に含まれる旧literalは固定履歴であり、互換残骸として削除または書換えない。
+
+公開済みStable契約、法務または安全上の義務、不可逆なデータ、段階移行中の可用性その他の具体的根拠により互換層が必要な場合だけ、人間の決定権限者が例外を判断できる。例外には、対象、理由、Owner、期限、監視、残存リスク、撤去または再評価条件および失敗時の復旧を記録する。無期限、対象不明または「念のため」だけの互換層は禁止する。
+
+既知の利用側、移行完了、復旧可能性または旧入口の利用状況が不明な場合は、削除と互換層追加のどちらも推定せず、情報を取得して人間の決定権限へ戻す。
 
 ---
 
@@ -347,7 +419,43 @@ AIは差分作成や検証を行えても、保護対象変更、リスク受容
 
 ## 5.1. リリースバージョンと改訂版
 
-CRDDはリポジトリ単位のリリースバージョンを持ち、Gitタグまたは同等の不変なリリース識別子で基準版を固定する。CRDD正本文書は、配布される基準版のリリースバージョンをヘッダーへ表示する。Gitコミット等の内容識別は改訂版であり、バージョンの代用ではない。
+CRDDはリポジトリ単位のリリースバージョンを持ち、Gitタグまたは同等の不変なリリース識別子で基準版を固定する。CRDD正本文書は、配布される基準版のリリースバージョンをヘッダーへ表示する。対象リリース候補を人間の決定権限者が選択し、固定して検証する期間は、`Version`に対象候補版、`Status: Candidate`、`Released Baseline`に直近の公開済み版を併記できる。この候補表示は、公開、採用、準拠、main統合、タグ作成またはリリース判断を代替しない。Gitコミット等の内容識別は改訂版であり、バージョンの代用ではない。
+
+Candidate固定版の検証後、まず`Status: Candidate`と`Released Baseline`を維持したまま、CHANGELOG、移行注記その他のリリース準備を候補として反映した新しい改訂版を固定し、必要な機械確認、独立レビューおよび監査を行う。
+
+次に、人間が対象Candidate固定版と、26正本文書の`Status: Stable`化、`Released Baseline`削除、READMEの候補表示、CHANGELOG、移行注記、公開日その他のリリースメタデータとして許可する機械的遷移をリリース計画で事前に特定していることを確認する。
+
+一般的な計画、Checker合格または監査合格だけからAIがStableへ昇格させてはならない。
+
+承認済みリリース計画と宣言済み遷移の範囲だけで、新しい最終Release候補改訂版を作成し固定する。
+
+この最終候補の`Status: Stable`は内容とリリースメタデータが確認可能な状態まで安定したことを示すが、`Released`、公開、準拠、main統合またはタグ作成を意味しない。
+
+README等の公開時にも残る文書は、公式タグまたは不変なRelease識別子で参照された場合だけ公開済み基準となり、branch、Commitまたは`Status: Stable`だけではReleaseを意味しないという時間に依存しない表示へ揃える。
+
+リリース計画、Repository設定、保護規則または人間判断から、設定されたリリース対象branchと統合決定権限を取得し、対象branchへの統合を最終Release判断より前に行う。`main`は既定の例であり、対象branchを推定してはならない。対象branch、統合権限またはアクセスを確認できない場合は暗黙のfallbackを行わず停止する。
+
+統合は対象branchの保護規則、必須CIおよび統合決定権限または事前承認済み計画に従い、Release判断を統合許可の代用にしない。
+
+統合前のsource Commit／Tree、対象branchのHEAD、統合後Commit／Tree、公開基準からの全Release差分、対象CHG、宣言済み機械的遷移および宣言外差分を取得する。
+
+Fast-forward等でCommitとTreeの双方が不変の場合だけ既存の最終候補Identityを維持できるが、この場合もbranch protection、必須CIおよび統合状態を確認する。
+
+merge commit、squash、rebase、競合解消、生成物更新、対象branch側の先行変更その他によりCommitまたはTreeのいずれかが変わる場合は、統合後Identityを新しい最終Release候補として固定する。
+
+統合後の最終Release候補改訂版へCheckerと、少なくとも26文書のヘッダー、README、CHANGELOG、移行注記、公開情報、Candidate準備版からの宣言済み差分、対象branch側の先行変更を含む公開基準からの全Release差分、対象CHG、予定タグ対象およびIdentityを対象とする文書監査と不足／影響・準拠影響確認を行う。
+
+Commitだけが変わりTreeが不変ならIdentity、対象branch、予定タグ、履歴およびbranch固有条件を軽量確認する。
+
+Treeが変わっても宣言済み機械的遷移だけならChecker、文書監査および影響に応じた不足／影響・準拠影響確認を行う。
+
+競合解消、内容差、意味不明、Authority、移行または利用側の変化があればAgent／専門観点を含む必要な監査へ戻す。
+
+既存の必須監査集合を統合だけを理由に縮小せず、新Identityへの各結果の適用可否を明示する。
+
+宣言外差分、意味差、対象Identityの不一致または確認失敗があればRelease判断へ進まず対象範囲を再固定し、必要な人間判断、レビューおよび監査へ戻す。
+
+すべて成立した後、人間の決定権限者は統合後に確認済みの最終Commit／Treeを一意に対象としてReleaseを一度だけ判断する。確認後から判断またはタグ付与までに対象branchのHEADまたは最終Identityが変わった場合は同一とみなさず、再固定と必要な確認へ戻す。現在のbranch tipと異なるCommitへタグを付ける場合も、その差と意図がリリース計画に明示されていなければ停止する。承認後は内容を変更せず、同じIdentityへタグまたは同等の不変なRelease識別子を付与する。付与後は、その識別子が承認済みIdentityを指すことを軽量に記録確認し、ずれがあればRelease結果を成立扱いにせず停止する。この結果確認を新たな全面意味監査の再帰にしない。Candidate固定版または準備版の確認結果を、内容Identityが異なる最終版へ流用してはならない。候補を延期または不採用としても、直近の公開済み基準、公開タグまたは過去CHANGELOGを書き換えない。
 
 リリースバージョンは`MAJOR.MINOR.PATCH`形式を使用する。
 
@@ -395,6 +503,7 @@ v0.xのMINORに破壊的変更を含める場合も、破壊的表示と移行�
 ```text
 リリース対象範囲とバージョンが人間の決定権限者により確定している
 CRDD正本文書のヘッダーバージョンがリリース基準版と一致している
+候補時の`Status: Candidate`と`Released Baseline`が処置され、リリース基準版では`Status: Stable`になっている
 CHANGELOGが直前リリースからの純粋差分になっている
 破壊的変更と移行必要性が明示されている
 移行が必要なリリースでは、6.3の移行注記が`migration_required`と`change_classification`を含んでいる
@@ -402,11 +511,20 @@ README、概要、ひな型、入口ファイル、関連リンクが追従し�
 CONTRIBUTING、Issueフォーム、プルリクエストひな型等の影響を受ける受付接続部が追従している
 必要な監査と妥当性確認が完了している
 指摘事項修正後の改訂版が再レビューされている
-リリースタグが対象改訂版を一意に固定する
+設定されたリリース対象branchと統合決定権限を確認し、最終Release判断より前に対象branchへ統合した後のCommit／Treeを最終Release候補として固定し、Identity変化と全Release差分に応じた必要確認が完了している。確認後からRelease判断またはタグ付与までに対象branchのHEAD／最終Identityが変化した場合は、再固定と必要な確認へ戻る
+予定タグ対象が統合後の確認済み最終改訂版と一致し、人間のRelease承認後に同じIdentityへタグを付与することが計画されている。タグの実在とIdentity一致はRelease後に軽量記録確認する
 対象リリースの`Integrated — Pending Release`をリリース対象範囲、CHANGELOG、除外理由のいずれかへ照合している
 ```
 
 公開済みタグを別改訂版へ付け替えない。リリース後の誤りは6.4の修正として扱う。
+
+<a id="release-signing-verification-boundary"></a>
+
+公式Release秘密鍵による署名または同等の発行Authorityを必要とする場合、通常の実装・是正・ドッグフーディングでは実署名を反復検証入口にしてはならない（MUST NOT）。対象Toolは、公式鍵、passphrase、正式manifestまたはRelease Authorityなしでproductionの意味契約を反復確認できる開発入口を所有し、候補の内容変更中はその入口へ戻らなければならない（MUST）。決定論的な開発確認の成功を、正式署名済み配布物、実Provider実測、Release承認または公開へ昇格しない。
+
+正式署名検証は、対象範囲、Commit／Tree、配布内容、必要な機械確認および実行予定が固定され、以後の内容修正を予定しないRelease Candidateに対してだけ実施する（MUST）。署名前に判定できるRoot、Identity、package、artifact、Runtime、引数、既存Effectおよび配置条件を秘密入力前に全て確認し、不一致ではpassphraseを要求せず停止する。署名後に実測で欠陥を検出した場合、その署名候補をReleaseへ流用せず、修正、開発入口での再収束および新しい候補固定へ戻る。各修正の直後に実署名を挟まず、新しい正式署名は再固定した候補に対する次の一回として扱う。
+
+公式Release担当者の署名と、採用Repositoryまたは一般利用者による署名検証を分ける。採用Repositoryまたは一般利用者へ公式Release秘密鍵またはpassphraseの保有・入力を要求してはならない（MUST NOT）。公式passphraseを反復作業のため`.env`、Repository、環境変数、argv、一時fileまたはlogへ保存しない。秘密値を公開しないOS保護鍵Handle等を将来採用する場合は、利便性だけから暗黙に有効化せず、鍵用途、利用主体、候補Identity、回数、取消および監査を別の保護対象変更として判断する。
 
 ---
 

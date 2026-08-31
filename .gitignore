@@ -1,0 +1,5 @@
+# Repository-local CRDD runtime state is untracked by default.
+/.crdd/*
+
+# This policy is repository configuration bound to the reviewed Git revision.
+!/.crdd/external-send-policy.json
