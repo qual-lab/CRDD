@@ -4,7 +4,16 @@
 維持責任者: Qual-Lab
 項目の決定権限: Qual-Lab
 対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用し同日v0.18.0 Candidateへ収載した第2段階の改善意図、2026-08-29にRuntime終盤E2Eの学びから具体化したSystem Journey Closure、将来Runtime Architecture候補、能力到達点の投影および根拠駆動の責務分離原則、2026-08-31の有用性実測に基づく次版検討候補
-現在状態: 項目別。§1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善はv0.18.0 Candidateの`Adopted / In Progress`（CHG-000055）、§7.3.2の根拠駆動Runtimeリファクタリングは`Adopted / Planned`、§7.9の責務分離原則は`Adopted / Planned`、§7.1の上位方向は`Adopted / Unscheduled`、§7.2のCoordinator Runtime 1.0は`In Progress`（CHG-000015）、第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補および§7.9の将来能力地平は`Held / Unscheduled`
+現在状態: 項目別。採用済みの作業意図と未採用の能力候補を分ける。
+
+| 対象 | 状態・変更記録 |
+|---|---|
+| §1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善 | v0.18.0 Candidateの`Adopted / In Progress`（CHG-000055） |
+| §7.3.2の根拠駆動Runtimeリファクタリング | `Adopted / Planned` |
+| §7.9の責務分離原則 | `Adopted / Planned` |
+| §7.1の上位方向 | `Adopted / Unscheduled` |
+| §7.2のCoordinator Runtime 1.0 | `In Progress`（CHG-000015） |
+| 第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補、§7.9の将来能力地平 | `Held / Unscheduled` |
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本、影響および既存の未リリース変更意図を再確認し、同じ意図は既存CHGへ接続する。独立した変更意図が必要な場合だけ、[変更規則](../12_Change.md)に従って新しい`CHG-*`を発行する。
 
@@ -221,7 +230,9 @@ Coordinator Runtime 1.0の実装と監査では、実装後にFailure、Recovery
 
 候補には、Runtimeの特性に応じた機能、状態、失敗、回復、資源、冪等性、観測および終端の振る舞い契約、重要利用経路（Critical Journey）単位のシステム結合試験（System Integration Test）、ならびにEffect前後、耐久Write前後、Lock解放前後、cleanup途中および結果公開前後の失敗注入点（Failure Injection Point）を含む。正常、準正常、異常および回復の意味母集団を、試験件数やcoverage率ではなく設計上の状態・遷移・資源・観測へ接続する。
 
-Runtime終盤の正式署名E2Eでは、UT、IT、Traceabilityおよび独立監査を通過したComponentをproduction相当の順序で接続した後に、同一Truthの重複所有、機械検証と独立Reviewerの責務重複、正常Resultの`absent / null / unknown`差、RuntimeとRunnerの成功母集団差、Remediation Handoffの情報不足、Subscription利用量metadataとFinancial Authorityの混同、および永続State producer変更に対するproduction consumer追従漏れが顕在化した。この学びから、高複雑度・高信頼対象ではComponent単体の成立と利用者価値の成立を分け、次の閉包を自己適用候補へ含める。
+Runtime終盤の正式署名E2Eでは、UT、IT、Traceabilityおよび独立監査を通過したComponentをproduction相当の順序で接続した後に、同一Truthの重複所有、機械検証と独立Reviewerの責務重複、正常Resultの`absent / null / unknown`差、RuntimeとRunnerの成功母集団差、Remediation Handoffの情報不足、Subscription利用量metadataとFinancial Authorityの混同、および永続State producer変更に対するproduction consumer追従漏れが顕在化した。
+
+この学びから、高複雑度・高信頼対象ではComponent単体の成立と利用者価値の成立を分け、次の閉包を自己適用候補へ含める。
 
 - システムJourney閉包（System Journey Closure）: Human／TriggerからAuthority、Execution、Review、Remediation、Verification、cleanupおよびResult Publicationまでを一つのJourneyとして、開始・終了条件、Owner、Authority、資源、Result shape、正常・準正常・異常、cleanup後条件および最終成功判定へ接続する。
 - 単一正本・単一所有者（Single Truth／Single Owner）: 重要なState／ArtifactごとにCanonical Owner、Producer、Consumer、Consumerが検証する境界および再所有してはならない契約を識別する。共有Schema化を目的化せず、Consumerが同じCanonical Truthを独自のexact key集合や意味規則として複製しない。

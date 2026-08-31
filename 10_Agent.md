@@ -187,11 +187,31 @@ Trust、Security、Privacy、Authority、Filesystem／Network／Process Effect�
 
 同じSecurity対象をpreflight、Authority Gate、Effect直前確認、結果公開前確認等の複数段階で再観測する場合、各observer、parser、reader、normalizerおよび利用側を列挙する。共通のbounded primitiveを利用するか、段階ごとに異なるfresh観測が必要なら、受理・拒否する入力、Path alias、Identity差、判定不能およびEffect前停止の同等性と意図した差を検証できる計画にする。後段が安全に拒否することだけを、前段のEffect 0または情報境界成立の根拠にしない。
 
-Trust、Authority、Recoveryまたは安全上重要な結果を、API、IPC、callback、event、return値、fileまたは永続記録で層間搬送する場合は、抽象的な意味一致だけで閉じない。実際に到達し得るproducer variant、field／byte形状、搬送順序、変換、対象範囲で把握できるproduction consumerおよび外部公開契約を列挙し、各consumerが実producer出力を受理・拒否・保持する条件を対応付ける。耐久状態は、別の呼出しまたはprocessで、保護対象Effect／Recoveryを許可する十分な根拠または不可欠なAuthority predicateとして受理される場合だけ、名称にかかわらずAuthorityを担う契約次元として扱う。現行Authorityへのfreshな再結合なしには使えない通常のqueue、progress、checkpointまたはEvidenceは、それだけではAuthorityではない。分類不能ならEffect 0で停止する。発行条件成立前の拒否・失敗は新しいAuthorityを残してはならない。exact intent発行後のEffectまたはsettlement失敗では同じintentをRecovery Authorityとして保持できるが、retryで別または広いAuthorityを生成せず、partial／mismatch／unknownでは上書きせずEvidenceを保持して停止する。単純な同一process内の局所関数で、永続状態、外部Effect、Authorityまたは安全上重要な結果を運ばない場合は、通常の型・単体試験で足り、この全列挙を要求しない。
+Trust、Authority、Recoveryまたは安全上重要な結果を、API、IPC、callback、event、return値、fileまたは永続記録で層間搬送する場合は、抽象的な意味一致だけで閉じない。
+
+実際に到達し得るproducer variant、field／byte形状、搬送順序、変換、対象範囲で把握できるproduction consumerおよび外部公開契約を列挙し、各consumerが実producer出力を受理・拒否・保持する条件を対応付ける。
+
+耐久状態は、別の呼出しまたはprocessで、保護対象Effect／Recoveryを許可する十分な根拠または不可欠なAuthority predicateとして受理される場合だけ、名称にかかわらずAuthorityを担う契約次元として扱う。現行Authorityへのfreshな再結合なしには使えない通常のqueue、progress、checkpointまたはEvidenceは、それだけではAuthorityではない。分類不能ならEffect 0で停止する。
+
+発行条件成立前の拒否・失敗は新しいAuthorityを残してはならない。
+
+exact intent発行後のEffectまたはsettlement失敗では同じintentをRecovery Authorityとして保持できるが、retryで別または広いAuthorityを生成せず、partial／mismatch／unknownでは上書きせずEvidenceを保持して停止する。
+
+単純な同一process内の局所関数で、永続状態、外部Effect、Authorityまたは安全上重要な結果を運ばない場合は、通常の型・単体試験で足り、この全列挙を要求しない。
 
 外部イベント、非同期I/O、子Process、外部実行基盤（External Runtime）または取消可能な処理を新設・変更する場合は、正常完了だけでなく、処理開始前、保留中、完了通知、失敗通知、取消、タイムアウト、遅延・重複通知、資源回収および結果公開までの状態遷移と資源所有を先に照合する。各状態で保留要求、イベント監視、ハンドル、ロック、Capability、AuthorityおよびEffectの有無を説明できるようにし、Promiseまたはコールバックが返ったことだけを取消・回収・処置件数0の根拠にしない。取消完了は、対象処理への取消伝播、保留処理の終了または安全な完了待ち、イベント監視と資源の回収、取消後のAuthority／Effect 0、および判定不能時の停止までを含む。
 
-前項の深さは、非同期という実装形式だけで一律に決めず、境界、資源、Authority、Effectおよび失敗時の影響に比例させる。AI入口、外部Runtime、子Process、外部送信、Authority／Capability発行、永続または共有Effect、取消後も残存し得る資源、結果公開とcleanupの成否が分離する処理では、前項の完全な状態遷移、所有、取消、回収および判定不能時の停止を適用する。通常のプロダクト非同期処理では、実際に存在する状態、資源、競合、失敗および利用側だけを対象とし、存在しないAuthority、Effect、回復状態または外部基盤の契約を作らない。単純なローカル非同期処理で、処理が同一process内に閉じ、外部送信、子Process、Authority発行、共有・永続Effect、明示取消、cleanup後まで残る資源または安全上重要な結果公開を伴わない場合は、通常の実装、エラー処理およびリスクに応じた試験で足り、完全なRuntime lifecycle契約を要求しない。境界条件を判定できない場合は、何が不明かと確認先を示し、影響が判明するまで該当し得る上位の契約で扱う。この比例適用を、実在する取消、資源回収、競合、外部Effectまたは安全上重要な失敗経路を省略する理由にしてはならない。
+前項の深さは、非同期という実装形式だけで一律に決めず、境界、資源、Authority、Effectおよび失敗時の影響に比例させる。
+
+AI入口、外部Runtime、子Process、外部送信、Authority／Capability発行、永続または共有Effect、取消後も残存し得る資源、結果公開とcleanupの成否が分離する処理では、前項の完全な状態遷移、所有、取消、回収および判定不能時の停止を適用する。
+
+通常のプロダクト非同期処理では、実際に存在する状態、資源、競合、失敗および利用側だけを対象とし、存在しないAuthority、Effect、回復状態または外部基盤の契約を作らない。
+
+単純なローカル非同期処理で、処理が同一process内に閉じ、外部送信、子Process、Authority発行、共有・永続Effect、明示取消、cleanup後まで残る資源または安全上重要な結果公開を伴わない場合は、通常の実装、エラー処理およびリスクに応じた試験で足り、完全なRuntime lifecycle契約を要求しない。
+
+境界条件を判定できない場合は、何が不明かと確認先を示し、影響が判明するまで該当し得る上位の契約で扱う。
+
+この比例適用を、実在する取消、資源回収、競合、外部Effectまたは安全上重要な失敗経路を省略する理由にしてはならない。
 
 一つのProcess、channel、stream、descriptor、handle、Directory、credential storeまたは一時領域を複数の役割で使用する場合は、物理資源の同一性と論理役割の違いを隠さない。少なくとも、構造化入力、対話入力、秘密入力、結果出力、診断、制御、取消および回復のうち該当する役割について、所有者、読取／書込主体、lifecycle、上限、終了条件、競合時の処置を列挙する。役割の兼用が、一方のEOF、redirect、close、buffering、取消または失敗によって他方を不能、誤読、漏えいまたは未回収にしないことを確認できない場合は、同じ資源へ結合せず境界を分離する。役割が異なることだけを理由に常に別資源を要求せず、干渉しないことを契約と実行形態から示せる場合は共有できる。
 
@@ -313,7 +333,15 @@ Trust、Authority、Recoveryまたは安全上重要な結果を、API、IPC、c
 
 高リスクまたは外部副作用を持つ操作は、対象環境、認証情報、ロールバック、検証、人間の許可を確認する。承認は類似操作へ自動拡張しない。
 
-現在のリポジトリ外へFilesystem Effectを発生させる前に、正規化・実体確認したexact Root、目的、作成・変更・移動・削除する対象、所有主体、保持期間、cleanup／Recoveryおよび残存時の影響を一体で確認する。現在のリポジトリはProcessのCurrent Working Directoryではなく、対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定する。Repository-local `.crdd`はそのRootの直下だけに置き、Tool／package等のsubdirectoryを暗黙のRootにして同名Directoryを増殖させない。Rootを一意に検証できない、または途中に不正・曖昧なRepository境界がある場合はFilesystem Effect 0で停止する。採用プロジェクトまたはRuntime契約が用途を限定して事前許可したRepository-local `.crdd` RootもしくはOS管理のRuntime Rootで、実行時にIdentityと範囲を強制できる場合を除き、人間の決定権限者による当該Operationの明示承認がなければ実行しない。親Directory、兄弟Repository、別Repository、OS一時Directory、任意の絶対Path、Git worktree、staging、archive、logおよび試験一時物も同じ規則に従う。
+現在のリポジトリ外へFilesystem Effectを発生させる前に、正規化・実体確認したexact Root、目的、作成・変更・移動・削除する対象、所有主体、保持期間、cleanup／Recoveryおよび残存時の影響を一体で確認する。
+
+現在のリポジトリはProcessのCurrent Working Directoryではなく、対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定する。Repository-local `.crdd`はそのRootの直下だけに置き、Tool／package等のsubdirectoryを暗黙のRootにして同名Directoryを増殖させない。
+
+Rootを一意に検証できない、または途中に不正・曖昧なRepository境界がある場合はFilesystem Effect 0で停止する。
+
+採用プロジェクトまたはRuntime契約が用途を限定して事前許可したRepository-local `.crdd` RootもしくはOS管理のRuntime Rootで、実行時にIdentityと範囲を強制できる場合を除き、人間の決定権限者による当該Operationの明示承認がなければ実行しない。
+
+親Directory、兄弟Repository、別Repository、OS一時Directory、任意の絶対Path、Git worktree、staging、archive、logおよび試験一時物も同じ規則に従う。
 
 外部Rootを許可した場合も、各Operationの資源は一つのRuntime-owned Operation Rootへ集約し、通常完了、失敗、取消およびProcess喪失の全経路で回収またはexact Recoveryへ結合する。Root Identity、所有権またはcleanupを確認できない場合は推測で作成・上書き・移動・削除せず、Effect 0または`manualRecoveryRequired`へ閉じる。
 

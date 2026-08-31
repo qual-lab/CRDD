@@ -205,6 +205,42 @@ test("Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類する",
   }
 });
 
+test("Claude Envelope拒否を値の非公開と受理条件を維持して分類する", () => {
+  const cases = [
+    [
+      { type: "untrusted-value" },
+      "provider_task_result_envelope_status_invalid",
+    ],
+    [{ subtype: "unknown" }, "provider_task_result_envelope_status_invalid"],
+    [{ is_error: true }, "provider_task_result_envelope_status_invalid"],
+    ...[undefined, null, "3", 0, -1, 1.5].map((num_turns) => [
+      { num_turns },
+      "provider_task_result_turn_count_invalid",
+    ]),
+    [{ num_turns: 17 }, "provider_turn_limit_exceeded"],
+    ...[undefined, null, "0", -1].map((total_cost_usd) => [
+      { total_cost_usd },
+      "provider_task_result_cost_metadata_invalid",
+    ]),
+    [{ result: undefined }, "provider_task_reviewer_result_transport_invalid"],
+    [{ result: {} }, "provider_task_reviewer_result_transport_invalid"],
+  ] as const;
+  for (const [overrides, reason] of cases) {
+    const result = normalizeFixtureTaskResult(
+      "claude",
+      "reviewer",
+      "medium",
+      claudeReviewer(JSON.parse(REVIEWER), overrides),
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, reason);
+    assert.equal(result.normalizedResult, null);
+    assert.ok("rawOutputReported" in result);
+    assert.equal(result.rawOutputReported, false);
+    assert.equal(JSON.stringify(result).includes("untrusted-value"), false);
+  }
+});
+
 test("Provider Result拒否はrawを出さず固定理由で意味分類する", () => {
   const cases = [
     ["not-json", "provider_task_result_json_invalid"],
@@ -522,7 +558,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 12);
+  assert.equal(contract.contractRevision, 13);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 16);

@@ -6,7 +6,7 @@ Version: v0.18.0
 Status: Candidate
 Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-11
+Last Updated: 2026-08-31
 Related:
 - [00_Overview.md](00_Overview.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -495,7 +495,15 @@ AIが「対応済み」と判定し、担当者の「未対応」という報告
 
 決定権限または対象改訂版が不明、承認済みコンテキストが競合、対象範囲外または不可逆な変更が必要、セキュリティ / プライバシー / 互換性 / データの意味へ影響する場合、AIは推測で進めず停止または限定し、必要な人間の決定権限へ戻す。
 
-作業対象のコンテキストリポジトリを現在のリポジトリ（Current Repository）として識別できる場合、別の書込みRootが明示的に許可されていない限り、Filesystem上の作成、変更、移動および削除は現在のリポジトリ内だけを既定のEffect範囲とする。現在のリポジトリは、タスクが対象とするProjectと、正規化・実体確認した最寄りのVersion Control worktree Rootを結合して識別する。ProcessのCurrent Working Directory、Tool／package Directoryまたはcaller supplied PathをそのままProject Rootへ昇格しない。Repository-local `.crdd`は検証済みRootの直下だけをcanonical locationとし、subdirectoryから起動した場合もその場に別の`.crdd`を作らない。親Directory、兄弟Repository、別Repository、OS一時Directoryまたは任意の絶対Pathを、同じローカル環境に存在することだけで書込み可能範囲へ含めない。現在のリポジトリ外を読み取れることは、そこへ書き込むAuthorityを意味しない。
+作業対象のコンテキストリポジトリを現在のリポジトリ（Current Repository）として識別できる場合、別の書込みRootが明示的に許可されていない限り、Filesystem上の作成、変更、移動および削除は現在のリポジトリ内だけを既定のEffect範囲とする。
+
+現在のリポジトリは、タスクが対象とするProjectと、正規化・実体確認した最寄りのVersion Control worktree Rootを結合して識別する。
+
+ProcessのCurrent Working Directory、Tool／package Directoryまたはcaller supplied PathをそのままProject Rootへ昇格しない。
+
+Repository-local `.crdd`は検証済みRootの直下だけをcanonical locationとし、subdirectoryから起動した場合もその場に別の`.crdd`を作らない。
+
+親Directory、兄弟Repository、別Repository、OS一時Directoryまたは任意の絶対Pathを、同じローカル環境に存在することだけで書込み可能範囲へ含めない。現在のリポジトリ外を読み取れることは、そこへ書き込むAuthorityを意味しない。
 
 現在のリポジトリ外への書込みが必要な場合は、実行前に正規化・実体確認したexact Root、目的、作成物、所有主体、保持期間、cleanup／Recovery、残存時の影響を示し、次のいずれかを満たす必要がある。
 

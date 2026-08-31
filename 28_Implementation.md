@@ -5,7 +5,7 @@ Status: Candidate
 Released Baseline: v0.17.0
 Owner: Qual-Lab
 Skill ID: `skill.implementation.realize`
-Last Updated: 2026-08-28
+Last Updated: 2026-08-31
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -252,13 +252,27 @@ AIまたは実装担当は実装案、規則案、テスト、逸脱、影響を
 
 冪等性、トランザクション、ロック、キュー、タイムアウト、再試行間隔、整理、安全な停止、部分失敗、背圧制御は、SPECとアーキテクチャが定める振る舞い / 回復契約に従う。実装しやすさを理由に原子性や回復の意味を変更しない。
 
-アーキテクチャが重要とした状態、遷移、資源、ロック、AuthorityおよびEffectは、実装上の所有者、状態変更またはEffect発生点、失敗時の閉じ方、cleanup／Recovery、および終了後観測を担うsymbolまたは構成へ全数対応づける。対応先のない設計要素、設計上の根拠がない実装上の状態・資源・Effect、または実装されたが検証接続のない要素を、命名の類似、コメント、状態名、試験件数またはcoverage率から接続済みと推定しない。実装中に新しい状態、資源、ロック、通知順、Authority、Effectまたは利用側が必要になった場合は、局所実装へ閉じずアーキテクチャと検証設計へ戻して対応を更新する。小規模で単純な対象では既存のコード参照と試験名から対応を取得できればよく、専用台帳を一律に作らない。
+アーキテクチャが重要とした状態、遷移、資源、ロック、AuthorityおよびEffectは、実装上の所有者、状態変更またはEffect発生点、失敗時の閉じ方、cleanup／Recovery、および終了後観測を担うsymbolまたは構成へ全数対応づける。
+
+対応先のない設計要素、設計上の根拠がない実装上の状態・資源・Effect、または実装されたが検証接続のない要素を、命名の類似、コメント、状態名、試験件数またはcoverage率から接続済みと推定しない。
+
+実装中に新しい状態、資源、ロック、通知順、Authority、Effectまたは利用側が必要になった場合は、局所実装へ閉じずアーキテクチャと検証設計へ戻して対応を更新する。
+
+小規模で単純な対象では既存のコード参照と試験名から対応を取得できればよく、専用台帳を一律に作らない。
 
 一つの処理が主資源に付随してtemporary、marker、lock、listener、child processまたはRecovery記録を生成し得る場合、それらを同じ資源閉包として実装・cleanup・終了後観測へ伝播する。主資源だけを削除できたことから`cleanupConfirmed`へ昇格せず、不存在を成功条件に使う場合は、権限拒否、共有競合またはI/O失敗を不存在へ二値化しない。
 
 複数層をまたぐ変更では、DB、API、イベント / IPC、UI、外部提供側の実際のデータフローを開発者テストで確認する。特定層の単体テストだけで全体成立を推測しない。
 
-Trust、Authority、Recoveryまたは安全上重要な結果を層間で搬送する実装では、production wiringから実producer、対象範囲で把握できるproduction consumerおよび外部公開契約を列挙し、producerが実際に返すvariant／field／byte列と順序をconsumerの受理・拒否・公開projectionへ対応付ける。肯定試験は実producer出力、またはproductionと共有するCanonical validator／generatorから作る。consumerだけへ手書きした到達不能fixtureはconsumer局所の挙動確認には使えるが、producerとの結合成立根拠にしない。別の呼出しまたはprocessで保護対象Effect／Recoveryの十分な根拠または不可欠なAuthority predicateになる耐久状態を追加した場合だけ、Authorityの発行・再開・失効をArchitectureと検証設計へ戻す。発行条件成立前の失敗は非発行、exact発行後の失敗は同一Recovery intentの保持を許し、retryで別・拡大Authorityを生成しない。通常のqueue、progress、checkpointまたはEvidenceを、それだけでAuthorityへ昇格しない。
+Trust、Authority、Recoveryまたは安全上重要な結果を層間で搬送する実装では、production wiringから実producer、対象範囲で把握できるproduction consumerおよび外部公開契約を列挙し、producerが実際に返すvariant／field／byte列と順序をconsumerの受理・拒否・公開projectionへ対応付ける。
+
+肯定試験は実producer出力、またはproductionと共有するCanonical validator／generatorから作る。consumerだけへ手書きした到達不能fixtureはconsumer局所の挙動確認には使えるが、producerとの結合成立根拠にしない。
+
+別の呼出しまたはprocessで保護対象Effect／Recoveryの十分な根拠または不可欠なAuthority predicateになる耐久状態を追加した場合だけ、Authorityの発行・再開・失効をArchitectureと検証設計へ戻す。
+
+発行条件成立前の失敗は非発行、exact発行後の失敗は同一Recovery intentの保持を許し、retryで別・拡大Authorityを生成しない。
+
+通常のqueue、progress、checkpointまたはEvidenceを、それだけでAuthorityへ昇格しない。
 
 ## 2.5. 移行・互換性・ロールバック
 

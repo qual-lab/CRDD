@@ -8,7 +8,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 12;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 13;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -79,7 +79,10 @@ function validPath(value: unknown) {
 type ResultMismatchReason =
   | "provider_task_result_input_invalid"
   | "provider_task_result_json_invalid"
-  | "provider_task_result_envelope_invalid"
+  | "provider_task_result_envelope_status_invalid"
+  | "provider_task_result_turn_count_invalid"
+  | "provider_task_result_cost_metadata_invalid"
+  | "provider_task_reviewer_result_transport_invalid"
   | "provider_turn_limit_exceeded"
   | "provider_structured_output_retry_exhausted"
   | "provider_task_executor_shape_invalid"
@@ -243,18 +246,33 @@ function structuredValue(
   if (
     parsed.type !== "result" ||
     parsed.subtype !== "success" ||
-    parsed.is_error !== false ||
-    typeof numberOfTurns !== "number" ||
-    !Number.isInteger(numberOfTurns) ||
-    numberOfTurns < 1 ||
-    numberOfTurns > maximumTurns ||
-    typeof cost !== "number" ||
-    !Number.isFinite(cost) ||
-    cost < 0
+    parsed.is_error !== false
   ) {
     return Object.freeze({
       value: null,
-      reason: "provider_task_result_envelope_invalid" as const,
+      reason: "provider_task_result_envelope_status_invalid" as const,
+    });
+  }
+  if (
+    typeof numberOfTurns !== "number" ||
+    !Number.isInteger(numberOfTurns) ||
+    numberOfTurns < 1
+  ) {
+    return Object.freeze({
+      value: null,
+      reason: "provider_task_result_turn_count_invalid" as const,
+    });
+  }
+  if (numberOfTurns > maximumTurns) {
+    return Object.freeze({
+      value: null,
+      reason: "provider_turn_limit_exceeded" as const,
+    });
+  }
+  if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0) {
+    return Object.freeze({
+      value: null,
+      reason: "provider_task_result_cost_metadata_invalid" as const,
     });
   }
   if (taskRole === "executor")
@@ -265,7 +283,7 @@ function structuredValue(
   )
     return Object.freeze({
       value: null,
-      reason: "provider_task_result_envelope_invalid" as const,
+      reason: "provider_task_reviewer_result_transport_invalid" as const,
     });
   const reviewerValue = parseUnambiguousJsonDocument(parsed.result);
   return Object.freeze({

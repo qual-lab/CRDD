@@ -5,7 +5,7 @@ Status: Candidate
 Released Baseline: v0.17.0
 Owner: Qual-Lab
 Skill ID: `skill.architecture.integrate`
-Last Updated: 2026-08-28
+Last Updated: 2026-08-31
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -128,7 +128,15 @@ UI                     = 利用者がどう認識・操作・回復できるか
 
 すべてを全対象範囲へ機械的に記載する必要はない。適用しない責務は`Not Applicable`として理由と人間確認を残す。単一図、主要正常パス、技術選定、プロトタイプの完成だけでアーキテクチャ完了としない。
 
-Trust、Authority、Recoveryまたは安全上重要な結果を層間で運ぶAPI、IPC、callback、event、return値、fileまたは永続記録では、producer、搬送、consumerを抽象名だけで示さない。実際のproducer variantとexact shape、順序、変換、対象範囲で把握できるproduction consumer、外部公開契約、拒否・判定不能時の処置を設計境界として識別可能にする。耐久intent、receipt、pointer、recordは、別の呼出しまたはprocessで保護対象Effect／Recoveryを許可する十分な根拠または不可欠なAuthority predicateとして受理される場合だけAuthorityを担う。freshな現行Authorityへ再結合しなければ使えない通常のqueue、progress、checkpointまたはEvidenceは非該当とし、分類不能ならEffect 0で停止する。発行条件成立前の失敗では非発行、exact intent発行後の失敗では同じintentのRecovery保持、retryでは別・拡大Authorityの非生成、置換・partial・unknownでは上書きしない停止を設計する。単純な局所関数等、これらの境界が存在しない対象へ架空のproducer／Authority契約を作らない。
+Trust、Authority、Recoveryまたは安全上重要な結果を層間で運ぶAPI、IPC、callback、event、return値、fileまたは永続記録では、producer、搬送、consumerを抽象名だけで示さない。
+
+実際のproducer variantとexact shape、順序、変換、対象範囲で把握できるproduction consumer、外部公開契約、拒否・判定不能時の処置を設計境界として識別可能にする。
+
+耐久intent、receipt、pointer、recordは、別の呼出しまたはprocessで保護対象Effect／Recoveryを許可する十分な根拠または不可欠なAuthority predicateとして受理される場合だけAuthorityを担う。freshな現行Authorityへ再結合しなければ使えない通常のqueue、progress、checkpointまたはEvidenceは非該当とし、分類不能ならEffect 0で停止する。
+
+発行条件成立前の失敗では非発行、exact intent発行後の失敗では同じintentのRecovery保持、retryでは別・拡大Authorityの非生成、置換・partial・unknownでは上書きしない停止を設計する。
+
+単純な局所関数等、これらの境界が存在しない対象へ架空のproducer／Authority契約を作らない。
 
 <a id="scope-and-coverage-state"></a>
 

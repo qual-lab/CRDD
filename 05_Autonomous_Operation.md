@@ -6,7 +6,7 @@ Version: v0.18.0
 Status: Candidate
 Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-25
+Last Updated: 2026-08-31
 Related:
 - [01_Principles.md](01_Principles.md)
 - [04_Agent_Organization.md](04_Agent_Organization.md)
@@ -119,7 +119,15 @@ Context Access、Effect Boundary、Candidate／Canonical分離、Prepare／Verif
 
 ### 3.4. BackgroundとHuman Decisionの分離
 
-Runtimeが解決できる影響なし、重複、Policy内処理、拒否を人間へ逐次通知しない。複数のExecutor、Reviewer、ProviderまたはRunの結果はそのまま質問へ変換せず、Coordinatorが現在の対象改訂版、Evidence、Verification、Authorityおよび解消状態を照合する。そこで再構成した現在の判断集合だけをDecision Queueへ渡し、Direction、Canonical Change、新しい処理境界・Authority変更・残存リスク受容を必要とするExternal Send、Publication、Production、Financial／Legal Effect、Policy Ambiguity等を人間へ接続する。許可した処理境界内のExternal Sendを、外部送信であることだけから毎回の人間判断へ送らない。詳細は[責務境界](05_Autonomous_Operation.md#44-coordinatorによる結果統合)に置く。
+Runtimeが解決できる影響なし、重複、Policy内処理、拒否を人間へ逐次通知しない。複数のExecutor、Reviewer、ProviderまたはRunの結果を、そのまま質問へ変換することも避ける。
+
+Coordinatorは、次の順で人間への判断要求を整理する。
+
+1. 現在の対象改訂版、根拠、検証、Authorityおよび解消状態を照合する。
+2. 現在の判断集合を再構成し、その集合だけを判断待ち一覧（Decision Queue）へ渡す。
+3. 方針、正本変更、新しい処理境界・Authority変更・残存リスク受容を必要とする外部送信、公開、本番操作、財務／法的な副作用、方針の曖昧さ等を人間へ接続する。
+
+許可した処理境界内の外部送信は、外部送信であることだけから毎回の人間判断へ送らない。詳細は[責務境界](05_Autonomous_Operation.md#44-coordinatorによる結果統合)に置く。
 
 ### 3.5. Operation Healthと適応
 
@@ -1139,7 +1147,13 @@ Run終了の意味は[Policy-contained Completion](05_Autonomous_Operation.md#45
 
 人間にはActivity全体ではなく、今回決めること、推奨、根拠、主な選択肢、影響、Risk、保留時の状態を示す。
 
-許可した処理境界内で、対象OperationのAuthority、目的、送信先、情報分類、最小化、Verification Requirement等をPolicyが確認できるExternal Sendは、外部送信であることだけを理由に毎回Human Decision Laneへ送らず、既存Policy内の実行として処理できる。Runを終了するときは、必要なResultとVerificationが成立したことを確認し、[Policy-contained Completion](05_Autonomous_Operation.md#45-policy-contained-completion)に従う。許可を別目的、別送信先、別Provider、別tenantまたは別Operationへ流用せず、境界条件の変更または判定情報不足はHuman Decisionへ戻す。Publicationその他の既存Human Gateは維持する。
+| 場面 | 処置 |
+|---|---|
+| 許可した処理境界内で、対象OperationのAuthority、目的、送信先、情報分類、最小化、Verification Requirement等をPolicyが確認できる外部送信 | 外部送信であることだけを理由に毎回Human Decision Laneへ送らず、既存Policy内の実行として処理できる |
+| Runを終了するとき | 必要なResultとVerificationの成立を確認し、[Policy-contained Completion](05_Autonomous_Operation.md#45-policy-contained-completion)に従う |
+| 境界条件の変更、または判定情報不足 | Human Decisionへ戻す |
+
+許可を別目的、別送信先、別Provider、別tenantまたは別Operationへ流用しない。Publicationその他の既存Human Gateは維持する。
 
 ---
 

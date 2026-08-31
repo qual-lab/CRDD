@@ -12,6 +12,8 @@ Status: Implementation Candidate
 
 ## 2. 公開実行境界
 
+Claudeの結果を拒否する場合は、終了状態、turn数の形式、選定上限の超過、利用量メタデータ、Reviewer本文の搬送形式を固定理由で区別する。値やProvider本文は公開しない。分類は受理条件を緩めず、上限超過という観測もProvider側の上限制御が成立した証明にはしない。Docker Controllerから通常Taskと旧Coordinatorの両結果投影へ理由を保持する。資源回収が不明なら回収不明の理由と既存Recovery IDを優先し、結果不適合を理由に成功へ補正しない。
+
 現在の実行可能な中心経路は、正式署名配布物から開始するLocal Personal一般Taskである。
 
 開発反復とRelease Trustは別の検証境界とする。Source変更ごとの通常確認は、固定Fake、実Filesystem／子Processを含む契約・結合試験、および公開Runner契約を同じProcess構成で検査する`development-e2e:verify`へ閉じ、Release鍵、passphrase、実Provider送信または正式Release Authorityを使用しない。正式署名4経路E2Eは、機械確認が通った候補Revisionを凍結してから一度だけ実施するRelease Candidate Gateであり、失敗するたびSource修正と再署名を交互に行う開発loopではない。契約試験の成功を署名配布物、実Provider、実OS対話境界またはRelease成立へ昇格させない。

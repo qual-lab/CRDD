@@ -22,15 +22,34 @@
 - 不変・非active歴史参照固定集合: 15 pair、15 source、4 target
 - 統合前の未リリースCHG: `CHG-000012`～`CHG-000055`の44件
 - 統合後: Canonical CHG 7件、統合済み旧ID 37件
+
 | Canonical CHG | 題名 |
 | --- | --- |
-| [CHG-000012](CHG-000012_Current_Decision_Set.md) | Current Decision Set |
-| [CHG-000013](CHG-000013_Communication_Market_and_Adoption_Exploration.md) | Communication, Market and Adoption Exploration |
-| [CHG-000014](CHG-000014_V018_Architecture_Candidate_Integration.md) | v0.18 Architecture Candidate Integration |
+| [CHG-000012](CHG-000012_Current_Decision_Set.md) | 現在の判断集合と判断支援 |
+| [CHG-000013](CHG-000013_Communication_Market_and_Adoption_Exploration.md) | 外部コミュニケーションの市場・採用探索 |
+| [CHG-000014](CHG-000014_V018_Architecture_Candidate_Integration.md) | v0.18候補の統合とアーキテクチャ再基準化 |
 | [CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md) | Coordinator Runtime 1.0 |
-| [CHG-000017](CHG-000017_Tools_Coding_Standards.md) | Tools Coding Standards |
-| [CHG-000054](CHG-000054_Agent_Organization_Document_Architecture.md) | Agent Organization Document Architecture |
-| [CHG-000055](CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md) | CRDD Long Term Evolution Roadmap |
+| [CHG-000017](CHG-000017_Tools_Coding_Standards.md) | 内部ツールの開発規約と命名 |
+| [CHG-000054](CHG-000054_Agent_Organization_Document_Architecture.md) | エージェント組織の文書構成 |
+| [CHG-000055](CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md) | 長期発展方針と工程・文書の自己適用改善 |
+
+### 公開済みの変更を調べる
+
+以下は過去の判断を読むための案内であり、現在状態の一覧ではない。公開済み本文の内容・状態は変更しない。
+
+- [人間判断提示・監査指摘統合](CHG-000001_Human_Decision_Presentation.md)
+- [GitHubアンカーチェッカー互換性修正](CHG-000002_GitHub_Anchor_Checker_Correction.md)
+- [初回レビュー・監査の網羅性](CHG-000003_First_Pass_Review_Audit_Completeness.md)
+- [Checkerの階層構造互換性](CHG-000004_Checker_Hierarchical_Compatibility.md)
+- [gitlinkサブモジュール検証](CHG-000005_Gitlink_Submodule_Verification.md)
+- [着手前整合確認](CHG-000006_Pre_Execution_Alignment_Check.md)
+- [複数箇所の是正適用](CHG-000007_Multi_Location_Remediation.md)
+- [収束する是正と根拠同一性](CHG-000008_Convergent_Remediation_and_Evidence_Identity.md)
+- [外部コミュニケーションとコンテキスト依存](CHG-000009_Communication_and_Context_Dependency.md)
+- [初回固定候補の収束性](CHG-000010_First_Pass_Convergence.md)
+- [専門探索・収束と外部情報境界](CHG-000011_Expert_Exploration_and_Convergence.md)
+
+### 統合情報の読み方
 
 - Canonical CHG: `CHG-000012`、`CHG-000013`、`CHG-000014`、`CHG-000015`、`CHG-000017`、`CHG-000054`、`CHG-000055`
 - 旧ID: 永久欠番。再利用、別意味への割当または存在しなかったものとしての扱いを禁止
