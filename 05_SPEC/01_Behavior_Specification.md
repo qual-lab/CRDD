@@ -16,7 +16,7 @@ Last Updated: 2026-08-31
 
 Coordinatorは依頼を安全な候補成果物へつなぐ実行ツール、[Checker](#checker-contract)は文書を変更せず整合を検査する独立ツール、[platform-access](#platform-access-contract)はCoordinatorから利用するWindows内部部品である。以下のRuntime利用条件を、Checker単独実行の条件へ適用しない。
 
-現在の実装候補は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。4経路の選定・Authority・Candidate・cleanup契約と、失敗／timeout／cancel／親Process消失／cleanup不明のRecovery Matrixは機械試験済みである。[新配置の固定署名版45ea2acの実測](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_45ea2ac.md)では、実Providerの4経路と固定Workerによる復旧7シナリオが完了した。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。実務自己適用の有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。最新固定版の監査指摘の是正・再確認およびRelease判断はまだ完了していない。
+現在の実装候補は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。4経路の選定・Authority・Candidate・cleanup契約と、失敗／timeout／cancel／親Process消失／cleanup不明のRecovery Matrixは機械試験済みである。[固定署名版4f10201の実測](../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)では、実Providerの4経路、固定Workerによる復旧7シナリオ、実Task取消後の通常回収が完了した。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。旧版での実務自己適用の有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。新しい結果の独立確認、全体完成評価およびRelease判断はまだ完了していない。
 
 | 層 | 現在の状態 |
 |---|---|
@@ -403,7 +403,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 - 現在の機械固定では、4経路Runnerが要求入口Profile、実Executor／Reviewer、独立性、初回経路では有効な既存同意の再利用または新規同意、後続3経路では同意の完全一致再利用、Candidate破棄、全Recovery ID空、秘密・Host Path・生Provider出力の非報告およびcanonical Repository無変更を完全一致で検査する。
 - 入口Providerの実Process IdentityはRunner単独ではattestせず、要求Profileと実Executor／ReviewerのEvidenceを区別する。
-- 新配置の固定版`45ea2ac`の4経路4/4とRecovery Matrix 7/7の正式署名実測は[署名済みE2E結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_45ea2ac.md)で完了しており、同版の通常CLIによる実務1件も確認した。実務有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)へ集約済みだが、比較優位は未実証である。
+- 固定版`4f10201`の4経路4/4、Recovery Matrix 7/7、実Task取消後の通常回収は[署名済みE2E結果](../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)で確認し、限定独立確認済みである。旧`45ea2ac`の通常CLIによる実務1件は版の違いを保持する。実務有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)へ集約済みだが、比較優位は未実証である。
 - Runtime全体の最新固定版の監査指摘の是正・再確認、統合およびReleaseは未完了であり、[品質の現在状態](../07_Quality/01_Quality_Center.md)で追跡する。
 
 - 4経路実測より前の経緯として、production回復／CLI matrixの実装と旧固定版の独立確認を終え、正式署名一般Task Runnerの対話搬送、実行Identity、Release grammar、複合Recoveryおよび取消境界の機械確認と独立再レビュー／再監査を経て、固定1 Pathの`Codex Front → Claude Code Executor → Codex Independent Reviewer`成功経路を完走した。

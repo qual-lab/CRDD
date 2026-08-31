@@ -3,7 +3,7 @@
 変更ID: `CHG-000015`
 状態: `Reopened`
 担当責任者: Qual-Lab
-最終更新日: 2026-08-31
+最終更新日: 2026-09-01
 対象系列: Coordinator Runtime 1.x
 対象バージョン: v0.18.0 Candidate / Coordinator Runtime 1.0 Candidate
 変更分類: `normative`
@@ -20,7 +20,7 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ## 1. 結論と現在状態
 
-現在の署名固定版は`45ea2ac`。新配置の共通入口で[4経路4/4・復旧7/7](Evidence/CHG-000015_Signed_E2E_45ea2ac.md)が完了し、通常CLIの構造化入力を通す[実務1件](Evidence/CHG-000055_Utility_45ea2ac.md)も親の反映・検証・候補破棄まで完了した。復旧試験の初回は親の起動用PowerShellに残った環境設定の影響で停止し、exact IDの回収と環境是正後に同じ配布物で再実行した。新しい署名やProvider再試行で解決したものではない。以下の段階別経緯と、現在も未完了のRuntime全体・工程強化の完成監査を区別する。
+現在の署名固定版は`4f10201`。[4経路4/4・復旧7/7・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)を同じ署名配布物で確認し、取消時の通常回収・候補未発行・対象資源不存在まで観測した。旧45ea2acの実務1件・是正1往復・取消失敗と正規Recoveryは各固定結果に保持し、新版での再実行と混同しない。今回の修正と実測記録の限定独立確認は完了した。Runtime全体・工程強化・v0.18の完成評価、統合・Release判断は未完了である。以下の段階別経緯と現在状態を区別する。
 
 ### 起動方法の固定による再発防止
 
@@ -90,6 +90,8 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ### 完成監査後の限定是正
 
+現在は[署名版4f10201の再実測](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)で4経路・復旧・実Task取消後の通常回収を確認し、今回差分の限定独立確認済みである。以下はその前に行った是正と確認の経緯であり、旧版の失敗を後続成功へ書き換えない。Runtime全体の完成、統合、Releaseは別に残る。
+
 固定Tree `687699edb71143621e0090f15d7d9c70488b71ca`についてArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを一括確認した。新しい権限拡大や秘密漏洩の具体的欠陥は検出されなかったが、取消の本番共有処理への結合不足、実Provider是正の残余不確実性、現在の分岐網羅率記録、および現在状態の伝播漏れを残した。全結果を統合し、3担当へ是正方針を再提示して整合した。監査を終えたことだけでRuntimeを完成にしていない。
 
 - 現在状態の文書5件は`3495bcd1`で同期し、Document／Gap担当の限定再確認で解消・追加指摘0。その後の水平照合でArchitecture冒頭にも同種の現在表示を検出し、同じ是正へ含めた。初回列挙漏れを別意図のCHGへ分けない。
@@ -103,7 +105,7 @@ Process所有処理の抽出後は、新しい開発版として検証・再確�
 
 ### 1.1 経路別の現在状態
 
-| 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`45ea2ac` | 根拠／残件 |
+| 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`4f10201` | 根拠／残件 |
 |---|---|---|---|---|
 | Codex | Claude Code | Codex | 完了 | 候補完全一致・破棄、cleanup確認済み |
 | Codex | Codex | Claude Code | 完了 | 候補完全一致・破棄、cleanup確認済み |
@@ -114,8 +116,8 @@ cross-providerを既定とし、同一ProviderまたはFront-onlyは、移譲不
 
 ### 1.2 Releaseまでの主要残件
 
-1. 完了した新配置の[署名版45ea2acの4経路・復旧E2E](Evidence/CHG-000015_Signed_E2E_45ea2ac.md)と[同版の通常CLIによる実務1件](Evidence/CHG-000055_Utility_45ea2ac.md)を完成監査の入力にする。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務自己適用の完成速度、人間負荷、不要Loop、Provider分散および品質の評価と区別する。
-2. 公開Task入口の実OS／Filesystem／Process結合の未確認範囲を閉じる。旧boolean probe専用facadeは通常実行から参照されていないため、source・専用試験・coverage入口を削除し、現行TaskとDocker producer／consumer試験は保持した。安全な公開reason分類は実装済みで、再実装せず最新固定版の確認対象にする。試験専用Taskへ実子Processと実Host領域を接続した追加試験を、署名付き公開CLI・実Provider全体の証明へ読み替えない。
+1. [署名版4f10201の4経路・復旧・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)を限定独立確認の結果とともに完成評価へ渡す。[旧45ea2acの実務1件](Evidence/CHG-000055_Utility_45ea2ac.md)は版と適用限界を分けて完成監査へ接続する。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務の完成速度、人間負荷、Provider分散および総合有用性とは区別する。
+2. 公開Task入口の実OS／Filesystem／Process結合について、今回観測した取消・通常回収と、未確認のタイミング／環境を照合する。旧boolean probe専用facadeの除去や安全な公開reason分類は実施済みで、再実装しない。固定Fixture、実子Process、今回の署名付き公開Taskの証明範囲を分離し、実Provider全体の保証へ読み替えない。
 3. 最新改訂版でArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを完了する。
 4. 実測Evidence、README、Roadmap、CHANGELOG、IssueおよびRelease範囲を現在状態へ同期し、人間の統合・Release判断へ渡す。
 
