@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -8,6 +9,7 @@ import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-co
 import {
   closeWindowsDockerDesktopRepairUsingDependencies,
   describeDockerDesktopRuntimeRepairContract,
+  observeDockerDesktopEngineResult,
   repairWindowsDockerDesktopRuntimeUsingDependencies,
   type PreparedBoundary,
   type RepairDependencies,
@@ -23,6 +25,98 @@ import {
 } from "../src/security/docker-desktop-repair-record-store.ts";
 
 const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
+
+test("Docker停止時の空行はCLI失敗とpipe不存在の両方がある場合だけ受理する", () => {
+  const base = {
+    pid: 123,
+    status: 1,
+    signal: null,
+    stdout: "\n",
+    stderr: "engine unavailable",
+  } as const;
+  for (const stdout of ["", "\n", "\r\n"]) {
+    for (const pipe of ["ENOENT", "EACCES", "EPERM", "EIO", "present"]) {
+      let probes = 0;
+      const result = observeDockerDesktopEngineResult(
+        { ...base, stdout },
+        "28.1.1",
+        () => {
+          probes += 1;
+          if (pipe !== "present")
+            throw Object.assign(new Error(), { code: pipe });
+        },
+      );
+      assert.equal(result, pipe === "ENOENT" ? "known_unavailable" : "unknown");
+      assert.equal(probes, 1);
+    }
+  }
+  for (const overrides of [
+    { stdout: " " },
+    { stdout: "\t" },
+    { stdout: "\r" },
+    { stdout: "\n\n" },
+    { stdout: "\r\n\r\n" },
+    { stdout: "null\n" },
+    { stdout: "28.1.1\n" },
+    { stdout: Buffer.from("\n") },
+    { pid: undefined },
+    { status: null },
+    { status: 0 },
+    { error: Object.assign(new Error(), { code: "ETIMEDOUT" }) },
+    { error: Object.assign(new Error(), { code: "EACCES" }) },
+    { signal: "SIGTERM" as const },
+  ]) {
+    const result = observeDockerDesktopEngineResult(
+      { ...base, ...overrides },
+      "28.1.1",
+      () => assert.fail("判定不能なCLI応答からpipe確認へ進まない"),
+    );
+    assert.equal(result, "unknown");
+  }
+  assert.equal(
+    observeDockerDesktopEngineResult(
+      { ...base, status: 0, stdout: "28.1.1\n", stderr: "" },
+      "28.1.1",
+      () => assert.fail("応答済みEngineへ停止確認を行わない"),
+    ),
+    "ready",
+  );
+  for (const override of [
+    { stdout: "28.1.2\n", stderr: "" },
+    { stdout: "28.1.1\n", stderr: "warning" },
+  ]) {
+    assert.equal(
+      observeDockerDesktopEngineResult(
+        { ...base, status: 0, ...override },
+        "28.1.1",
+        () => assert.fail("版不一致や警告を停止済みへ変換しない"),
+      ),
+      "unknown",
+    );
+  }
+});
+
+test("実子Processの空行・非zero終了を停止判定へ搬送する", () => {
+  for (const stdout of ["\n", "\r\n", "unexpected\n"]) {
+    const result = spawnSync(
+      process.execPath,
+      [
+        "-e",
+        `process.stdout.write(${JSON.stringify(stdout)});process.exitCode=1;`,
+      ],
+      { shell: false, windowsHide: true, encoding: "utf8", timeout: 5_000 },
+    );
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, stdout);
+    assert.equal(
+      observeDockerDesktopEngineResult(result, "28.1.1", () => {
+        throw Object.assign(new Error(), { code: "ENOENT" });
+      }),
+      stdout === "unexpected\n" ? "unknown" : "known_unavailable",
+    );
+  }
+});
 const policy = Object.freeze({
   policySha256: "5".repeat(64),
   dockerDesktopVersion: "4.41.2",
@@ -133,7 +227,21 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
     observeEngine: () => {
       engineObservations += 1;
       calls.push(`engine:${engineObservations}`);
-      return wasRestarted ? "ready" : "known_unavailable";
+      return wasRestarted
+        ? "ready"
+        : observeDockerDesktopEngineResult(
+            {
+              pid: 123,
+              status: 1,
+              signal: null,
+              stdout: "\n",
+              stderr: "unavailable",
+            },
+            policy.engineVersion,
+            () => {
+              throw Object.assign(new Error(), { code: "ENOENT" });
+            },
+          );
     },
     observeKnownSocketFailure: () => {
       calls.push("socket");
@@ -452,6 +560,24 @@ test("既知障害だけを順序付きで処置し明示closeを要求する", 
 
 test("Engine ready・unknown・socket根拠なしではDocker Host Effectを発行しない", async () => {
   for (const scenario of [
+    ...["EACCES", "present"].map((pipe) => ({
+      observeEngine: () =>
+        observeDockerDesktopEngineResult(
+          {
+            pid: 123,
+            status: 1,
+            signal: null,
+            stdout: "\n",
+            stderr: "unavailable",
+          },
+          policy.engineVersion,
+          () => {
+            if (pipe !== "present")
+              throw Object.assign(new Error(), { code: pipe });
+          },
+        ),
+      reason: "docker_desktop_engine_state_unknown",
+    })),
     {
       observeEngine: () => "ready" as const,
       reason: "docker_desktop_engine_already_available",

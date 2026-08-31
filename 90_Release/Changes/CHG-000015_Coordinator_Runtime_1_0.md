@@ -36,6 +36,12 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 過去の実測・監査・是正の経緯は[過去経緯](#過去経緯現在状態とは区別する)へ分離した。そこにある当時の未完了・成功の記述を、以下の現在状態へ読み替えない。
 
+追加固定版`a97e38a`の署名検証は通過したが、復旧試験の開始時にDocker Engineが停止しており、4経路試験には未到達。通常起動も既知の`dockerInference`アクセス不能で失敗した。人間が承認した最終復旧コマンドは`docker_desktop_engine_state_unknown`で停止し、Process／Filesystem Effect非発行、native helper cleanup確認済みで終了した。
+
+2026-08-31の読み取り実測で、固定Docker CLIは終了コード1、stdoutはLF一つ（hex `0a`）、固定Engine pipeは`ENOENT`だった。既存判定が空文字だけを認めていたため、停止状態を確定できなかった。同じ未リリース変更内で、空文字／LF一つ／CRLF一つを空の版応答として扱い、CLI異常終了かつ別途pipe不存在を確認した場合だけ`known_unavailable`とする。タイムアウト、起動失敗、signal、想定外の本文・空白、pipeアクセス拒否や存在は引き続き`unknown`。実子Process出力、判定、復旧処理の接続、Effect非発行を回帰試験へ接続した。実DockerをRuntime同等の最小環境・引数で再観測し、新判定の`known_unavailable`を確認したが、修正後の実復旧・正式E2E・独立監査は未完了。署名済み配布物は変更していない。
+
+今回の学びは、上位状態を直接返す試験だけでは実producerの搬送形状を見落とすこと。新しい規則を増やさず、既存の実producer出力とproduction consumerの照合規則を、この復旧observerにも適用した。読み取り観測の成功を修復成功や新しいHost操作許可として扱わない。
+
 ### 1.1 経路別の現在状態
 
 | 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`89545e3` | 根拠／残件 |

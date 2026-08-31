@@ -593,6 +593,28 @@ function observeEngine(boundary: PreparedBoundary): EngineObservation {
       maxBuffer: 4_096,
     },
   );
+  return observeDockerDesktopEngineResult(
+    result,
+    boundary.policy.engineVersion,
+    () => {
+      const handle = fs.openSync(DOCKER_ENGINE_PIPE, "r+");
+      fs.closeSync(handle);
+    },
+  );
+}
+
+export function observeDockerDesktopEngineResult(
+  result: Readonly<{
+    pid: number | undefined;
+    error?: Error | undefined;
+    signal: NodeJS.Signals | null;
+    status: number | null;
+    stdout: unknown;
+    stderr: unknown;
+  }>,
+  expectedEngineVersion: string,
+  probeEnginePipe: () => void,
+): EngineObservation {
   if (
     !result.error &&
     result.signal === null &&
@@ -600,7 +622,7 @@ function observeEngine(boundary: PreparedBoundary): EngineObservation {
     typeof result.stdout === "string" &&
     typeof result.stderr === "string" &&
     result.stderr.length === 0 &&
-    result.stdout.trim() === boundary.policy.engineVersion
+    result.stdout.trim() === expectedEngineVersion
   )
     return "ready";
   if (
@@ -610,12 +632,11 @@ function observeEngine(boundary: PreparedBoundary): EngineObservation {
     result.status === null ||
     result.status === 0 ||
     typeof result.stdout !== "string" ||
-    result.stdout.length !== 0
+    (result.stdout !== "" && result.stdout !== "\n" && result.stdout !== "\r\n")
   )
     return "unknown";
   try {
-    const handle = fs.openSync(DOCKER_ENGINE_PIPE, "r+");
-    fs.closeSync(handle);
+    probeEnginePipe();
     return "unknown";
   } catch (error) {
     const code =
