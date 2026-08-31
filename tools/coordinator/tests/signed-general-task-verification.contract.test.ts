@@ -349,7 +349,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     acceptanceCriteria: [
       `The visible candidate marker is located at ${TARGET_PATH}; the runtime and signed runner separately verify that no other path changed.`,
       `The base revision contains exactly ${JSON.stringify(BASE_CONTENT.trimEnd())}; replace only its final BASE token with OK instead of recreating or reformatting the file.`,
-      `The visible file content is exactly ${JSON.stringify(EXPECTED_CONTENT.trimEnd())} followed by one LF: 33 UTF-8 bytes with SHA-256 2384acfa06b66525efb51973114853dbce87836d60c9f97bd2439d6e0854ce77.`,
+      `The visible file content is exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional text. Review this visible content and the bounded replacement; exact UTF-8 bytes, trailing LF, byte length and SHA-256 are separate checks owned by the route verification runner, not proof requested from the reviewer. Do not claim those separate checks have run.`,
     ],
     allowedPaths: [TARGET_PATH],
     readPaths: ["tools/coordinator/README.md", TARGET_PATH],
@@ -364,7 +364,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 18);
+  assert.equal(contract.contractRevision, 19);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -749,6 +749,8 @@ test("公開fixtureの改行・終端・未置換差はbyteを出さず固定分
     ["CRDD_COORDINATOR_GENERAL_TASK_OK\r\n", "candidate_content_crlf"],
     ["CRDD_COORDINATOR_GENERAL_TASK_OK", "candidate_content_missing_lf"],
     [BASE_CONTENT, "candidate_content_base_unchanged"],
+    [`${EXPECTED_CONTENT}\n`, "candidate_content_bytes"],
+    [`\ufeff${EXPECTED_CONTENT}`, "candidate_content_bytes"],
   ] as const) {
     const fixture = dependencies({ candidate: candidate(content) });
     const result = await runSignedGeneralTaskVerification(
@@ -763,6 +765,36 @@ test("公開fixtureの改行・終端・未置換差はbyteを出さず固定分
     assert.equal(result.candidateContractMismatch, expectedMismatch);
     assert.equal(result.candidateDiscarded, true);
     assert.equal(result.rawProviderOutputReported, false);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+  }
+});
+
+test("Reviewer承認済みでもRunnerがbyte長・digestの不一致を独立拒否する", async () => {
+  for (const [field, value, expectedMismatch] of [
+    ["byteLength", 32, "candidate_byte_length"],
+    ["sha256", "0".repeat(64), "candidate_sha256"],
+  ] as const) {
+    const valid = candidate();
+    const fixture = dependencies({
+      candidate: {
+        ...valid,
+        bundle: {
+          ...valid.bundle,
+          entries: [{ ...valid.bundle.entries[0], [field]: value }],
+        },
+      },
+    });
+    const result = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      fixture.value,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.candidateContractMismatch, expectedMismatch);
+    assert.equal(result.candidateDiscarded, true);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(fixture.calls.discards, 1);
   }
 });
 
@@ -1072,7 +1104,10 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
       process.execPath,
       [
         "--unhandled-rejections=strict",
-        path.resolve("tests/fixtures/signed-general-poison-probe.ts"),
+        path.resolve(
+          coordinatorRoot,
+          "tests/fixtures/signed-general-poison-probe.ts",
+        ),
         scenario,
       ],
       { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
@@ -1209,7 +1244,10 @@ test("終了未観測receiptはexact cleanupだけで既知取消へ収束する
   const unknownProbe = spawnSync(
     process.execPath,
     [
-      path.resolve("tests/fixtures/signed-general-poison-probe.ts"),
+      path.resolve(
+        coordinatorRoot,
+        "tests/fixtures/signed-general-poison-probe.ts",
+      ),
       "signal_cleanup_unknown_cancel_unobserved",
     ],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
@@ -1344,7 +1382,10 @@ test("completion確定とunbindの間のsignal latchを成功へ取り逃がさ�
   const probe = spawnSync(
     process.execPath,
     [
-      path.resolve("tests/fixtures/signed-general-poison-probe.ts"),
+      path.resolve(
+        coordinatorRoot,
+        "tests/fixtures/signed-general-poison-probe.ts",
+      ),
       "unbind_requests",
     ],
     {

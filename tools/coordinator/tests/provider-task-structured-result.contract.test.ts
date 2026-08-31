@@ -217,7 +217,7 @@ test("Claude Envelope拒否を値の非公開と受理条件を維持して分�
       { num_turns },
       "provider_task_result_turn_count_invalid",
     ]),
-    [{ num_turns: 17 }, "provider_turn_limit_exceeded"],
+    [{ num_turns: 17 }, "provider_task_result_turn_limit_mismatch"],
     ...[undefined, null, "0", -1].map((total_cost_usd) => [
       { total_cost_usd },
       "provider_task_result_cost_metadata_invalid",
@@ -558,7 +558,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 13);
+  assert.equal(contract.contractRevision, 14);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 16);

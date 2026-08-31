@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
+import {
+  SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
+  SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
+} from "../scripts/verify-signed-general-task.ts";
 
 import {
   createSignedRouteMatrixCliFailureResult,
@@ -9,6 +13,12 @@ import {
   isExactSignedRouteResult,
   runSignedRouteMatrixVerification,
 } from "../scripts/verify-signed-route-matrix.ts";
+
+const coordinatorRoot = path.resolve(import.meta.dirname, "..");
+const routePoisonProbePath = path.join(
+  coordinatorRoot,
+  "tests/fixtures/signed-route-poison-probe.ts",
+);
 
 const expectations = {
   forward: [
@@ -44,8 +54,8 @@ function completed(
 ) {
   const [route, front, executor, reviewer] = expectations[profile];
   return Object.freeze({
-    contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 18,
+    contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
+    contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),
@@ -374,10 +384,7 @@ test("4経路は同一Release Identityへ固定し別Releaseを集約しない",
 test("route runner例外は実Processをpoisonし全guarded入口をEffect前に閉じる", () => {
   const probe = spawnSync(
     process.execPath,
-    [
-      path.resolve("tests/fixtures/signed-route-poison-probe.ts"),
-      "runner_exception",
-    ],
+    [routePoisonProbePath, "runner_exception"],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );
   assert.equal(probe.status, 0, probe.stderr);
@@ -425,10 +432,7 @@ test("非適合routeの観測field欠落またはnullは独立Processでpoison�
     for (const mode of ["missing", "null", "string"] as const) {
       const probe = spawnSync(
         process.execPath,
-        [
-          path.resolve("tests/fixtures/signed-route-poison-probe.ts"),
-          `${mode}:${field}`,
-        ],
+        [routePoisonProbePath, `${mode}:${field}`],
         { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
       );
       assert.equal(probe.status, 0, probe.stderr);
@@ -456,7 +460,7 @@ test("route結果のgetter／Proxy観測不能は実Process poisonへ閉じる",
   for (const scenario of ["result_getter", "result_proxy"]) {
     const probe = spawnSync(
       process.execPath,
-      [path.resolve("tests/fixtures/signed-route-poison-probe.ts"), scenario],
+      [routePoisonProbePath, scenario],
       { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
     );
     assert.equal(probe.status, 0, probe.stderr);
@@ -474,10 +478,7 @@ test("route結果のgetter／Proxy観測不能は実Process poisonへ閉じる",
 test("route安全観測不明でも有効Recovery IDをnested／top-levelへ保持する", () => {
   const probe = spawnSync(
     process.execPath,
-    [
-      path.resolve("tests/fixtures/signed-route-poison-probe.ts"),
-      "recovery_pair_mismatch",
-    ],
+    [routePoisonProbePath, "recovery_pair_mismatch"],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );
   assert.equal(probe.status, 0, probe.stderr);
@@ -501,10 +502,7 @@ test("route安全観測不明でも有効Recovery IDをnested／top-levelへ保�
 test("route salvageは過長IDを公開せず同じfieldのvalid IDだけを保持する", () => {
   const probe = spawnSync(
     process.execPath,
-    [
-      path.resolve("tests/fixtures/signed-route-poison-probe.ts"),
-      "recovery_overlong_mixed",
-    ],
+    [routePoisonProbePath, "recovery_overlong_mixed"],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );
   assert.equal(probe.status, 0, probe.stderr);
@@ -539,7 +537,10 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
 
   const cli = spawnSync(
     process.execPath,
-    [path.resolve("scripts/verify-signed-route-matrix.ts"), "unexpected"],
+    [
+      path.join(coordinatorRoot, "scripts/verify-signed-route-matrix.ts"),
+      "unexpected",
+    ],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );
   assert.equal(cli.status, 64);

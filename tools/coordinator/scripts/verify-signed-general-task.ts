@@ -35,7 +35,7 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/securi
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 18;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 19;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
@@ -720,7 +720,7 @@ export function createSignedGeneralTaskVerificationRequest(
     acceptanceCriteria: Object.freeze([
       `The visible candidate marker is located at ${TARGET_PATH}; the runtime and signed runner separately verify that no other path changed.`,
       `The base revision contains exactly ${JSON.stringify(BASE_CONTENT.trimEnd())}; replace only its final BASE token with OK instead of recreating or reformatting the file.`,
-      `The visible file content is exactly ${JSON.stringify(EXPECTED_CONTENT.trimEnd())} followed by one LF: 33 UTF-8 bytes with SHA-256 2384acfa06b66525efb51973114853dbce87836d60c9f97bd2439d6e0854ce77.`,
+      `The visible file content is exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional text. Review this visible content and the bounded replacement; exact UTF-8 bytes, trailing LF, byte length and SHA-256 are separate checks owned by the route verification runner, not proof requested from the reviewer. Do not claim those separate checks have run.`,
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
     readPaths: Object.freeze(["tools/coordinator/README.md", TARGET_PATH]),

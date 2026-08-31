@@ -1543,7 +1543,8 @@ test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収�
   const cases = [
     [{ subtype: "unknown" }, "provider_task_result_envelope_status_invalid"],
     [{ num_turns: 0 }, "provider_task_result_turn_count_invalid"],
-    [{ num_turns: 17 }, "provider_turn_limit_exceeded"],
+    [{ subtype: "error_max_turns" }, "provider_turn_limit_exceeded"],
+    [{ num_turns: 17 }, "provider_task_result_turn_limit_mismatch"],
     [{ total_cost_usd: -1 }, "provider_task_result_cost_metadata_invalid"],
     [{ result: undefined }, "provider_task_reviewer_result_transport_invalid"],
   ] as const;
@@ -1977,7 +1978,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 24);
+  assert.equal(contract.contractRevision, 25);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);

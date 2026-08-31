@@ -3,7 +3,11 @@ import { startRuntimeOwnedCoordinatorTask } from "../../src/security/coordinator
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/security/platform-provisioner-package-filesystem.ts";
 import { isRuntimeProcessPoisoned } from "../../src/core/runtime-process-safety-state.ts";
 import { runSignedRouteMatrixVerification } from "../../scripts/verify-signed-route-matrix.ts";
-import type { SignedGeneralTaskRouteProfile } from "../../scripts/verify-signed-general-task.ts";
+import {
+  SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
+  SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
+  type SignedGeneralTaskRouteProfile,
+} from "../../scripts/verify-signed-general-task.ts";
 
 const scenario = process.argv[2] ?? "runner_exception";
 const routes = {
@@ -39,8 +43,8 @@ function completed(
 ) {
   const expected = routes[route];
   return Object.freeze({
-    contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 18,
+    contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
+    contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed",
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),

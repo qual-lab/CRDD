@@ -8,7 +8,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 13;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 14;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -84,6 +84,7 @@ type ResultMismatchReason =
   | "provider_task_result_cost_metadata_invalid"
   | "provider_task_reviewer_result_transport_invalid"
   | "provider_turn_limit_exceeded"
+  | "provider_task_result_turn_limit_mismatch"
   | "provider_structured_output_retry_exhausted"
   | "provider_task_executor_shape_invalid"
   | "provider_task_reviewer_shape_invalid"
@@ -266,7 +267,7 @@ function structuredValue(
   if (numberOfTurns > maximumTurns) {
     return Object.freeze({
       value: null,
-      reason: "provider_turn_limit_exceeded" as const,
+      reason: "provider_task_result_turn_limit_mismatch" as const,
     });
   }
   if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0) {

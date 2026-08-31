@@ -34,7 +34,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 24;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 25;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -83,6 +83,7 @@ const BLOCKED_COMPLETION_REASONS = new Set([
   "provider_task_result_json_invalid",
   "provider_task_result_envelope_status_invalid",
   "provider_task_result_turn_count_invalid",
+  "provider_task_result_turn_limit_mismatch",
   "provider_task_result_cost_metadata_invalid",
   "provider_task_reviewer_result_transport_invalid",
   "provider_task_executor_shape_invalid",

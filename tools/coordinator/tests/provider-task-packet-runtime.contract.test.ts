@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createSignedGeneralTaskVerificationRequest } from "../scripts/verify-signed-general-task.ts";
+import { planClaudeIsolatedTask } from "../src/security/claude-execution-plan.ts";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -186,6 +188,81 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
   } finally {
     cleanupOwnedOperationDirectories(current.owned);
+  }
+});
+
+test("固定4経路の実TaskからReviewer指示と未変更の上限・読取能力を導く", () => {
+  for (const route of [
+    "forward",
+    "reverse",
+    "same-codex",
+    "same-claude",
+  ] as const) {
+    const request = createSignedGeneralTaskVerificationRequest(route);
+    const current = operation();
+    const isolated = packetRuntime();
+    try {
+      const issued = isolated.runtime.issue(
+        current.managementCapability,
+        isolated.repositoryBindingCapability,
+        "claude",
+        "reviewer",
+        0,
+        isolated.externalSendGrantCapability,
+        null,
+        {
+          objective: request.objective,
+          acceptanceCriteria: request.acceptanceCriteria,
+          allowedPaths: request.allowedPaths,
+          readPaths: request.readPaths,
+        },
+      );
+      if (issued?.status !== "issued") assert.fail("packet must be issued");
+      const consumed = isolated.runtime.consume(
+        issued.useCapability,
+        current.managementCapability,
+      );
+      assert.ok(consumed);
+      assert.match(
+        consumed.prompt,
+        /Review this visible content and the bounded replacement/u,
+      );
+      assert.match(
+        consumed.prompt,
+        /separate checks owned by the route verification runner, not proof requested from the reviewer/u,
+      );
+      assert.match(
+        consumed.prompt,
+        /Do not claim those separate checks have run/u,
+      );
+      assert.deepEqual(consumed.taskWorkload, {
+        readPathCount: 2,
+        allowedPathCount: 1,
+        acceptanceCriterionCount: 3,
+        remediationFindingCount: 0,
+      });
+      const plan = planClaudeIsolatedTask({
+        provider: "claude",
+        mode: "isolated_task",
+        taskRole: "reviewer",
+        effort: "medium",
+        taskWorkload: consumed.taskWorkload,
+      });
+      if (plan.status !== "candidate") assert.fail(plan.reason);
+      assert.equal(plan.maximumTurns, 6);
+      assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "6");
+      assert.equal(
+        plan.argv[plan.argv.indexOf("--tools") + 1],
+        "Read,Glob,Grep",
+      );
+      assert.match(
+        plan.argv[plan.argv.indexOf("--disallowedTools") + 1] ?? "",
+        /^Bash,/u,
+      );
+      assert.equal(plan.workspaceMountMode, "read_only");
+    } finally {
+      cleanupOwnedOperationDirectories(current.owned);
+    }
   }
 });
 
