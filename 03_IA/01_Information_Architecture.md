@@ -60,4 +60,4 @@
 - 「認証済み／許可済み」「生成済み／確認済み／採用済み」「失敗／回収不明／再起動必要」を区別できること。
 - Checkerの限定結果や過去Evidenceを全体・現版の合格へ読み替えないこと。
 
-確認方法は[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)へ接続する。対象全体を覆う設計候補を整理したが、導線の実利用確認と[UI既知差](../04_UI/01_User_Interface.md#open-issues)が残るため工程網羅状態は`Blocked`。この候補をUI・SPECの照合に使うことを、通常工程移行の承認としない。内容と工程移行の決定権限者はQual-Lab。新しい安定ID、権限、設定継承または業務オブジェクトは採用していない。
+確認方法は[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)へ接続する。対象全体を覆う設計候補を整理し、未取得値・意味説明・候補操作の限定再確認と、今回のPowerShellでの入力・表示確認を終えた。初見利用者の導線理解、別環境、支援技術などの[UI未評価範囲](../04_UI/01_User_Interface.md#open-issues)と専門確認が残るため、工程網羅状態は`Blocked`を維持する。この候補をUI・SPECの照合に使うことを、通常工程移行の承認としない。内容と工程移行の決定権限者はQual-Lab。新しい安定ID、権限、設定継承または業務オブジェクトは採用していない。

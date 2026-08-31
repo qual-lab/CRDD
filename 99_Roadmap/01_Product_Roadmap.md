@@ -37,7 +37,7 @@ Related:
 
 ### Tool開発構成の標準化を検討する順番
 
-担当責任者はQual-Lab。[工程別配置](../01_Discovery/01_CRDD_Product_Discovery.md#tool-development-layout-candidate)は`Adopted / In Progress`。新配置の機械検証・開発E2Eの合格と配置差分の独立レビューPassは[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)へ移管した。[UX／IA／UI・仕様対応と詳細文書の再構成](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)、表示是正、今回PowerShellでの限定的な入力・表示確認まで実施済み。次は未評価範囲と現在の検証義務を照合し、固定候補の正式署名E2EとRuntime全体完成監査へ進む。旧署名Evidenceを新配置の合格へ流用せず、配布テンプレート、生成物の非追跡、過去固定Evidenceを維持する。新しい配布・自動取得方式は追加しない。
+担当責任者はQual-Lab。[工程別配置](../01_Discovery/01_CRDD_Product_Discovery.md#tool-development-layout-candidate)は`Adopted / In Progress`。新配置の機械検証・開発E2Eの合格と配置差分の独立レビューPassは[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)へ移管した。[UX／IA／UI・仕様対応と詳細文書の再構成](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)、表示是正、今回PowerShellでの限定的な入力・表示確認を実施し、新配置の[署名固定版45ea2acの4経路・復旧E2E](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_45ea2ac.md)も完了した。次は未評価範囲と現在の検証義務を照合し、Runtime全体完成監査の指摘を是正・再確認する。旧署名Evidenceを新配置の合格へ流用せず、配布テンプレート、生成物の非追跡、過去固定Evidenceを維持する。新しい配布・自動取得方式は追加しない。
 
 Issue #30は2026-08-31に本文・コメント・状態を再確認した。`open`、コメント0件であり、詳細なセグメント比較、調査倫理、ダークパターン、商業性、調査手法、採用後価値モデルの候補を保持している。各候補の採用CHGまたは人間による理由付き終了への接続は未成立なので、対応済みとして閉じない。担当・再評価契機は上表を維持する。Issue本文の旧CHG-000012は、現在のCHG-000013への再採番前の参照であり、候補内容の完了根拠ではない。
 

@@ -90,7 +90,7 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ### 1.1 経路別の現在状態
 
-| 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`0c3e6d2` | 根拠／残件 |
+| 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`45ea2ac` | 根拠／残件 |
 |---|---|---|---|---|
 | Codex | Claude Code | Codex | 完了 | 候補完全一致・破棄、cleanup確認済み |
 | Codex | Codex | Claude Code | 完了 | 候補完全一致・破棄、cleanup確認済み |
@@ -101,7 +101,7 @@ cross-providerを既定とし、同一ProviderまたはFront-onlyは、移譲不
 
 ### 1.2 Releaseまでの主要残件
 
-1. 完了した`0c3e6d2`の4経路・復旧E2Eを完成監査の入力にする。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務自己適用の完成速度、人間負荷、不要Loop、Provider分散および品質の評価と区別する。
+1. 完了した新配置の[署名版45ea2acの4経路・復旧E2E](Evidence/CHG-000015_Signed_E2E_45ea2ac.md)と[同版の通常CLIによる実務1件](Evidence/CHG-000055_Utility_45ea2ac.md)を完成監査の入力にする。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務自己適用の完成速度、人間負荷、不要Loop、Provider分散および品質の評価と区別する。
 2. 公開Task入口の実OS／Filesystem／Process結合の未確認範囲を閉じる。旧boolean probe専用facadeは通常実行から参照されていないため、source・専用試験・coverage入口を削除し、現行TaskとDocker producer／consumer試験は保持した。安全な公開reason分類は実装済みで、再実装せず最新固定版の確認対象にする。試験専用Taskへ実子Processと実Host領域を接続した追加試験を、署名付き公開CLI・実Provider全体の証明へ読み替えない。
 3. 最新改訂版でArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを完了する。
 4. 実測Evidence、README、Roadmap、CHANGELOG、IssueおよびRelease範囲を現在状態へ同期し、人間の統合・Release判断へ渡す。
