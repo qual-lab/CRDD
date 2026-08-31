@@ -14,6 +14,8 @@
 
 現在の読み始め: [本文の可読性再是正](#25-人間可読性の本文再是正)を参照する。§1以降は採用・実装・自己適用の経緯であり、過去の確認を現在の完了判定へ流用しない。Runtimeの最新実測と残件は[CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)が所有する。
 
+2026-08-31、Tool開発構成を標準工程フォルダへ整理する後続意図を、既存の根拠駆動リファクタリングへ追加した。[構成・配布・利用者観点の比較候補](../../01_Discovery/01_CRDD_Product_Discovery.md#tool-development-layout-candidate)はDiscovery、現行修正・試験・E2E後に戻る順序は[Roadmap](../../99_Roadmap/01_Product_Roadmap.md#tool-development-layout-follow-up)が所有する。現在のファイル移動、具体的なGit／配布方式の採用、新しいRelease収載は行っていない。
+
 ## 1. 人間の判断と目的
 
 Qual-Labの人間の決定権限者は、CRDDの長期発展を「AI作業者 → AI開発チーム → AIネイティブ・プロジェクト → AIネイティブ組織」と捉える上位方向を採用した。第1段階はCoordinator Runtime 1.0、第2段階は実行観測と専門工程の自己適用である。Issue #30の整理、自律オペレーション実証およびv0.18.0最終化は、長期段階の能力定義へ混ぜず、独立した保守／リリース作業として扱う。

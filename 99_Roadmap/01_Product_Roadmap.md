@@ -33,6 +33,12 @@ Related:
 
 既存のRuntime完成固定・根拠駆動リファクタリング項目から、[次版へ引き継ぐ有用性・照合費用の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)も追跡する。候補は`Held / Unscheduled`、版番号・収載は未決。親Coordinatorが現行Runtimeの完成固定と実務自己適用の収束後に再評価へ戻し、人間の決定権限者が採否を決める。現行v0.18の必須条件・不具合是正を次版へ移すものではなく、現在の安全判断を変える根拠が出た場合は先に現行是正へ戻す。
 
+<a id="tool-development-layout-follow-up"></a>
+
+### Tool開発構成の標準化を検討する順番
+
+担当責任者はQual-Lab。現在のRuntime修正・機械試験・E2Eを一通り通した後、既存の根拠駆動リファクタリング項目から[Tool開発構成の標準化候補](../01_Discovery/01_CRDD_Product_Discovery.md#tool-development-layout-candidate)の移行設計へ戻る。現行の検証途中では移動しない。作業意図は`Adopted / Planned`、具体的な配置・Git管理・配布方式は未決であり、移行完了やRelease収載を意味しない。
+
 ## 2. 境界
 
 次版候補の既存追跡には、[限定分散と統合結果の評価](../01_Discovery/01_CRDD_Product_Discovery.md#bounded-distributed-execution-candidate)も含む。v0.19の能力像に向けた`Held / Unscheduled`の研究候補であり、採用済みv0.18作業の延期ではない。現在の検証選択・収束規則の補強は[CHG-000055](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#23-検証選択と完成への収束方針の還元)で実施し、最終一括監査へ接続する。
