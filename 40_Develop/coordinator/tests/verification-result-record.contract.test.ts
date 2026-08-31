@@ -60,7 +60,7 @@ function resultPath(root: string, id: string | null) {
   assert.ok(id);
   return path.join(store(root), id, "result.json");
 }
-const success = Object.freeze({
+const SUCCESS = Object.freeze({
   status: "completed",
   reason: "signed_route_matrix_completed",
   cleanupConfirmed: true,
@@ -70,7 +70,7 @@ const failure = () =>
   createSignedRouteMatrixCliFailureResult("runner_exception");
 
 test("既知値だけ保存し、自由文・秘密風文字列・getter・proxyを実行しない", () => {
-  let getterCalled = false;
+  let wasGetterCalled = false;
   const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   const projected = projectVerificationResult({
     status: "completed",
@@ -79,7 +79,7 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
     dockerRecoveryId: id,
     dockerRecoveryIds: [id, "PRIVATE_TOKEN"],
     get cleanupConfirmed() {
-      getterCalled = true;
+      wasGetterCalled = true;
       return true;
     },
     attemptedRouteCount: Infinity,
@@ -96,7 +96,7 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
   assert.equal(projected.attemptedRouteCount, null);
   assert.equal(projected.recoveryFieldsComplete, false);
   assert.deepEqual(projected.dockerRecoveryIds, [id]);
-  assert.equal(getterCalled, false);
+  assert.equal(wasGetterCalled, false);
   assert.doesNotMatch(JSON.stringify(projected), /PRIVATE|secret_password/u);
   assert.equal(
     projectVerificationResult(
@@ -112,7 +112,7 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
     "unknown",
   );
   assert.equal(
-    projectVerificationResult({ results: Array(13).fill(success) })
+    projectVerificationResult({ results: Array(13).fill(SUCCESS) })
       .resultsComplete,
     false,
   );
@@ -125,11 +125,11 @@ test("subdirectoryからも最寄りRepositoryへ開始・終了を別記録し�
   const outcome = await runRecordedVerification(
     "routes",
     cwd,
-    async () => success,
+    async () => SUCCESS,
     failure,
   );
   assert.equal(outcome.exitCode, 0);
-  assert.equal(outcome.result, success);
+  assert.equal(outcome.result, SUCCESS);
   assert.equal(outcome.recordingOutcome, "saved");
   assert.equal(fs.existsSync(path.join(cwd, ".crdd")), false);
   const target = resultPath(root, outcome.recordId);
@@ -196,7 +196,7 @@ test("実行が停止・例外でも記録し、保存成功を実行成功へ�
   );
   assert.equal(returned.exitCode, 2);
   assert.equal(returned.recordingOutcome, "saved");
-  let handled = false;
+  let wasFailureHandled = false;
   const thrown = await runRecordedVerification(
     "routes",
     root,
@@ -204,11 +204,11 @@ test("実行が停止・例外でも記録し、保存成功を実行成功へ�
       throw new Error("PRIVATE_EXCEPTION");
     },
     () => {
-      handled = true;
+      wasFailureHandled = true;
       return failure();
     },
   );
-  assert.equal(handled, true);
+  assert.equal(wasFailureHandled, true);
   assert.equal(thrown.executionOutcome, "threw");
   const text = fs.readFileSync(resultPath(root, thrown.recordId), "utf8");
   assert.doesNotMatch(text, /PRIVATE_EXCEPTION/u);
@@ -220,22 +220,34 @@ test("不正Git境界・保存先link・開始書込み失敗なら検証callbac
   const foreign = path.join(root, "foreign");
   fs.mkdirSync(foreign);
   fs.symlinkSync(foreign, path.join(root, ".crdd"), "junction");
-  let called = false;
-  const run = async () => {
-    called = true;
-    return success;
+  let wasVerificationCalled = false;
+  const executeVerification = async () => {
+    wasVerificationCalled = true;
+    return SUCCESS;
   };
   assert.equal(
-    (await runRecordedVerification("routes", root, run, failure))
-      .recordingOutcome,
+    (
+      await runRecordedVerification(
+        "routes",
+        root,
+        executeVerification,
+        failure,
+      )
+    ).recordingOutcome,
     "start_failed",
   );
   assert.deepEqual(fs.readdirSync(foreign), []);
   fs.unlinkSync(path.join(root, ".crdd"));
   fs.writeFileSync(path.join(foreign, ".git"), "invalid");
   assert.equal(
-    (await runRecordedVerification("routes", foreign, run, failure))
-      .recordingOutcome,
+    (
+      await runRecordedVerification(
+        "routes",
+        foreign,
+        executeVerification,
+        failure,
+      )
+    ).recordingOutcome,
     "start_failed",
   );
   const original = fs.writeFileSync;
@@ -248,12 +260,18 @@ test("不正Git境界・保存先link・開始書込み失敗なら検証callbac
     },
   );
   assert.equal(
-    (await runRecordedVerification("routes", root, run, failure))
-      .recordingOutcome,
+    (
+      await runRecordedVerification(
+        "routes",
+        root,
+        executeVerification,
+        failure,
+      )
+    ).recordingOutcome,
     "start_failed",
   );
   mock.mock.restore();
-  assert.equal(called, false);
+  assert.equal(wasVerificationCalled, false);
 });
 
 test("実行成功後の保存衝突・directory置換は上書きせず、実行結果と区別する", async (t) => {
@@ -265,7 +283,7 @@ test("実行成功後の保存衝突・directory置換は上書きせず、実�
       const id = fs.readdirSync(store(root))[0];
       assert.ok(id);
       fs.writeFileSync(path.join(store(root), id, "result.json"), "existing");
-      return success;
+      return SUCCESS;
     },
     failure,
   );
@@ -286,7 +304,7 @@ test("実行成功後の保存衝突・directory置換は上書きせず、実�
       const target = path.join(store(other), id);
       fs.renameSync(target, `${target}-retained`);
       fs.mkdirSync(target);
-      return success;
+      return SUCCESS;
     },
     failure,
   );
@@ -298,7 +316,7 @@ test("同時runは別UUIDへ保存し、容量に異物・未完了記録も数�
   const root = fixture(t);
   const outcomes = await Promise.all(
     Array.from({ length: 4 }, () =>
-      runRecordedVerification("routes", root, async () => success, failure),
+      runRecordedVerification("routes", root, async () => SUCCESS, failure),
     ),
   );
   assert.equal(new Set(outcomes.map((value) => value.recordId)).size, 4);
@@ -306,18 +324,18 @@ test("同時runは別UUIDへ保存し、容量に異物・未完了記録も数�
     assert.equal(outcome.recordingOutcome, "saved");
   for (let i = 4; i < 256; i++)
     fs.writeFileSync(path.join(store(root), `partial-${i}`), "partial");
-  let called = false;
+  let wasVerificationCalled = false;
   const full = await runRecordedVerification(
     "routes",
     root,
     async () => {
-      called = true;
-      return success;
+      wasVerificationCalled = true;
+      return SUCCESS;
     },
     failure,
   );
   assert.equal(full.recordingOutcome, "start_failed");
-  assert.equal(called, false);
+  assert.equal(wasVerificationCalled, false);
   assert.equal(fs.readdirSync(store(root)).length, 256);
 });
 
@@ -357,7 +375,7 @@ test("終了記録のflush失敗は保存成功にせず、byte上限も緩和�
         throw new Error("injected_flush_failure");
       });
       restore = () => mocked.mock.restore();
-      return success;
+      return SUCCESS;
     },
     failure,
   );
@@ -375,16 +393,16 @@ test("終了記録のflush失敗は保存成功にせず、byte上限も緩和�
   );
   const ids = Array.from(
     { length: 16 },
-    (_, i) =>
+    (_value, i) =>
       `docker-task.${i.toString(16).padStart(64, "0")}.${"b".repeat(64)}.${"c".repeat(64)}`,
   );
   const large = await runRecordedVerification(
     "routes",
     root,
     async () => ({
-      ...success,
+      ...SUCCESS,
       results: Array.from({ length: 12 }, () => ({
-        ...success,
+        ...SUCCESS,
         dockerRecoveryIds: ids,
       })),
     }),

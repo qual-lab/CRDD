@@ -256,6 +256,8 @@ Tree `687699ed`の一括完成監査で、UIとCHGの実測済み事項がUX／I
 
 [Runtime側の是正](CHG-000015_Coordinator_Runtime_1_0.md#完成監査後の限定是正)は、実Providerの是正1往復と、実Process終了処理の共有・取消試験を所有する。本CHGは工程別文書と品質記録への伝播を所有し、新しいCHGや規範を作らない。工程Pass、全体完成、統合・Releaseは自動昇格せず、[品質の現在状態](../../07_Quality/01_Quality_Center.md)から未確認部分と担当・再確認条件を辿れるようにする。
 
+後続の実Task取消は、OS通知到達・通常回収失敗・正規Recovery成功を観測した。詳細を[追加検証結果](../../07_Quality/Verification_Results/2026-08-31_Coordinator_Closure_Verification.md#public-task-cancellation-observation)へ集約し、Quality Center、Architecture、UX／UI、検証設計の現在案内を同期する。以前の「OS未確認」を過去runでは保持し、現在は是正後再実測待ちと区別する。固定Evidenceや過去の限定Passは書き換えない。
+
 [追加検証の記録](../../07_Quality/Verification_Results/2026-08-31_Coordinator_Closure_Verification.md)では、分岐網羅率の対象155ファイル、重複計測7ファイル、未ロード4ファイルとNative未測定を分離した。全体試験の失敗と限定試験の成功も併記し、先行する全試験合格を現在状態へ流用しない。Process所有部品の移設で検査対象一覧の更新漏れも検出したため、既存の水平伝播確認の対象に、実行主体を列挙する契約試験を含めて是正する。
 
 ### 利用者確認の収束と端末参照媒体

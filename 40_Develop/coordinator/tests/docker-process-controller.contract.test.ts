@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { bindTaskCliCancellationSignals } from "../src/core/task-cli-cancellation.ts";
-import type { OwnedCommandHandle } from "../src/security/docker-owned-process.ts";
-import { createOwnedProcessTreeFixture } from "./fixtures/docker-owned-process-test-support.ts";
 import {
   projectRuntimeOwnedDockerProcessCompletionForTask,
   projectRuntimeOwnedDockerProcessStartForTask,
 } from "../src/security/coordinator-task-runtime.ts";
 import { createDevelopmentMeasurementConstraints } from "../src/security/development-measurement-constraints.ts";
+import type { OwnedCommandHandle } from "../src/security/docker-owned-process.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
   createIsolatedDockerProcessControllerCandidate,
@@ -16,6 +15,7 @@ import {
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
 } from "../src/security/docker-process-controller.ts";
+import { createOwnedProcessTreeFixture } from "./fixtures/docker-owned-process-test-support.ts";
 
 function createPlan(
   activeMountCapability: object,
@@ -478,6 +478,214 @@ function createFixture(
     getRecoveryCompletionCount: () => recoveryCompletionCount,
     getRecoveryEvents: () => [...recoveryEvents],
   };
+}
+
+const cancellationCreatePurposes = [
+  "create_subscription_auth_probe",
+  "create_internal_network",
+  "create_egress_network",
+  "create_proxy",
+  "create_provider",
+] as const;
+
+type CreateCancellationOutcome =
+  | "valid"
+  | "invalid_id"
+  | "receipt_false"
+  | "receipt_throw"
+  | "null"
+  | "nonzero"
+  | "signal"
+  | "output_limit";
+
+async function runCreateCancellationRace(
+  purpose: (typeof cancellationCreatePurposes)[number],
+  outcome: CreateCancellationOutcome,
+  cleanupConfirmed: boolean,
+  shouldCancelDuringReceipt = false,
+) {
+  let markReady!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    markReady = resolve;
+  });
+  let releaseWait!: () => void;
+  const waitGate = new Promise<void>((resolve) => {
+    releaseWait = resolve;
+  });
+  const dockerId = "1".repeat(64);
+  const commands: string[] = [];
+  const receipts: Array<{ purpose: string; id: string }> = [];
+  const events: string[] = [];
+  let terminationCount = 0;
+  let cancellation: Promise<unknown> | null = null;
+  const fixture = createFixture({
+    startCommand: (command: { purpose: string }) => {
+      commands.push(command.purpose);
+      return {
+        wait: async () => {
+          if (command.purpose === purpose) {
+            markReady();
+            await waitGate;
+            if (outcome === "null") return null;
+          }
+          const isTarget = command.purpose === purpose;
+          return {
+            status: isTarget && outcome === "nonzero" ? 1 : 0,
+            signal: isTarget && outcome === "signal" ? "SIGTERM" : null,
+            stdout:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput()
+                : isTarget && outcome === "invalid_id"
+                  ? "invalid"
+                  : `${dockerId}\n`,
+            stderr: "",
+            outputExceeded: isTarget && outcome === "output_limit",
+          };
+        },
+        terminateAndWait: async () => {
+          terminationCount += 1;
+          return true;
+        },
+      };
+    },
+    recordResourceReceipt: (
+      _capability: object,
+      currentPurpose: string,
+      id: string,
+    ) => {
+      receipts.push({ purpose: currentPurpose, id });
+      events.push(`receipt:${currentPurpose}`);
+      if (currentPurpose !== purpose) return true;
+      if (shouldCancelDuringReceipt)
+        cancellation = fixture.controller.cancel(
+          started.controlCapability,
+          fixture.managementCapability,
+        );
+      if (outcome === "receipt_throw") throw new Error("fixed-receipt-failure");
+      // Explicit fixture response, not a replacement for the durable store validator.
+      return outcome !== "receipt_false" && id === `${dockerId}\n`;
+    },
+    cleanupOwnedResources: async () => {
+      events.push("cleanup");
+      if (outcome === "valid") {
+        assert.deepEqual(
+          receipts.filter((entry) => entry.purpose === purpose),
+          [{ purpose, id: `${dockerId}\n` }],
+        );
+      }
+      return {
+        confirmed: cleanupConfirmed,
+        processTreeTerminated: true,
+        containersAbsent: cleanupConfirmed,
+        networksAbsent: cleanupConfirmed,
+      };
+    },
+  });
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(started.status, "started");
+  await ready;
+  if (!shouldCancelDuringReceipt)
+    cancellation = fixture.controller.cancel(
+      started.controlCapability,
+      fixture.managementCapability,
+    );
+  releaseWait();
+  const result = await started.completion;
+  await cancellation;
+  assert.ok(result);
+  assert.equal(result.cancellationRequested, true);
+  assert.deepEqual(
+    commands,
+    createPlan({}, {})
+      .commands.map((entry) => entry.purpose)
+      .slice(0, commands.indexOf(purpose) + 1),
+  );
+  assert.equal(commands.at(-1), purpose);
+  const targetReceipts = receipts.filter((entry) => entry.purpose === purpose);
+  assert.equal(
+    targetReceipts.length,
+    ["null", "nonzero", "signal", "output_limit"].includes(outcome) ? 0 : 1,
+  );
+  assert.equal(events.at(-1), "cleanup");
+  assert.equal(result.cleanupConfirmed, cleanupConfirmed);
+  assert.equal(result.manualRecoveryRequired, !cleanupConfirmed);
+  assert.equal(fixture.getMountCompletionCount(), cleanupConfirmed ? 1 : 0);
+  assert.equal(fixture.getRecoveryCompletionCount(), cleanupConfirmed ? 1 : 0);
+  assert.equal(result.recoveryId, cleanupConfirmed ? null : started.recoveryId);
+  if (outcome === "null") assert.ok(terminationCount >= 1);
+  return result;
+}
+
+for (const purpose of cancellationCreatePurposes) {
+  test(`CREATE取消競合は${purpose}の正常IDをcleanup前に保存する`, async () => {
+    const result = await runCreateCancellationRace(purpose, "valid", true);
+    assert.equal(result.status, "cancelled");
+    assert.equal(result.reason, "provider_operation_cancelled");
+  });
+  test(`CREATE取消競合は${purpose}のreceipt中取消でも次を発行しない`, async () => {
+    const result = await runCreateCancellationRace(
+      purpose,
+      "valid",
+      true,
+      true,
+    );
+    assert.equal(result.status, "cancelled");
+    assert.equal(result.reason, "provider_operation_cancelled");
+  });
+  for (const outcome of ["invalid_id", "receipt_false"] as const) {
+    test(`CREATE取消競合は${purpose}の${outcome}を回収成功にしない`, async () => {
+      const result = await runCreateCancellationRace(purpose, outcome, false);
+      assert.equal(result.status, "blocked");
+      assert.equal(
+        result.reason,
+        "docker_process_controller_cleanup_unconfirmed",
+      );
+    });
+  }
+}
+
+for (const outcome of [
+  "invalid_id",
+  "receipt_false",
+  "receipt_throw",
+  "null",
+  "nonzero",
+  "signal",
+  "output_limit",
+] as const) {
+  test(`CREATE取消競合は確認済みcleanupでも${outcome}の失敗理由を保持する`, async () => {
+    const result = await runCreateCancellationRace(
+      "create_provider",
+      outcome,
+      true,
+    );
+    const expectedReasons = {
+      invalid_id: "docker_resource_receipt_unavailable",
+      receipt_false: "docker_resource_receipt_unavailable",
+      receipt_throw: "docker_process_controller_execution_failed_closed",
+      null: "docker_setup_deadline_exceeded",
+      nonzero: "docker_setup_command_failed",
+      signal: "provider_process_signalled",
+      output_limit: "provider_output_limit_exceeded",
+    };
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, expectedReasons[outcome]);
+  });
+  test(`CREATE取消競合は${outcome}でcleanup不明なら同じ回復義務を保持する`, async () => {
+    const result = await runCreateCancellationRace(
+      "create_provider",
+      outcome,
+      false,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "docker_process_controller_cleanup_unconfirmed",
+    );
+  });
 }
 
 test("追加制約のtrueは既存Authorityを代替せず、不正Capabilityを起動しない", () => {

@@ -238,15 +238,15 @@ function createProcessHarness(
       };
     },
     startProcess: (
-      _prepared,
-      _management,
+      prepared,
+      management,
       registerRecoveryHandoff,
       restriction,
     ) => {
       if (controllerFixture)
         return controllerFixture.startProcess(
-          _prepared,
-          _management,
+          prepared,
+          management,
           registerRecoveryHandoff,
           restriction,
         );
@@ -420,7 +420,7 @@ for (const cleanupConfirmed of [true, false]) {
     const controller = harness.controllerFixture;
     assert.ok(controller);
     assert.equal(controller.productionAuthority, false);
-    const before = [
+    const initialListenerCounts = [
       process.listenerCount("SIGINT"),
       process.listenerCount("SIGTERM"),
     ];
@@ -512,7 +512,7 @@ for (const cleanupConfirmed of [true, false]) {
     assert.equal(binding.unbind().status, "released");
     assert.deepEqual(
       [process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")],
-      before,
+      initialListenerCounts,
     );
   });
 }

@@ -52,7 +52,7 @@ const SCENARIOS = new Set([
   "cleanup_observation_unknown_then_recover",
   "parent_process_loss_then_fresh_recovery",
 ]);
-const BOOLEANS = [
+const booleanFields = [
   "cleanupConfirmed",
   "manualRecoveryRequired",
   "processRestartRequired",
@@ -66,7 +66,7 @@ const BOOLEANS = [
   "childProcessTerminationObserved",
   "residualOperationDirectory",
 ] as const;
-const RECOVERY_PAIRS = [
+const recoveryPairs = [
   ["hostRecoveryId", "hostRecoveryIds", "host"],
   ["dockerRecoveryId", "dockerRecoveryIds", "docker"],
   ["candidateRecoveryId", "candidateRecoveryIds", "candidate"],
@@ -98,13 +98,13 @@ function known(value: unknown, allowed: ReadonlySet<string>) {
 /** Non-authoritative observation only. Never serialize the original object. */
 export function projectVerificationResult(
   value: unknown,
-  includeChildren = true,
+  shouldIncludeChildren = true,
 ) {
   const summary: Record<string, unknown> = {
     status: known(ownValue(value, "status"), STATUSES),
     reason: known(ownValue(value, "reason"), REASONS),
   };
-  for (const field of BOOLEANS) {
+  for (const field of booleanFields) {
     const observed = ownValue(value, field);
     summary[field] = typeof observed === "boolean" ? observed : null;
   }
@@ -140,7 +140,7 @@ export function projectVerificationResult(
       typeof observed === "string" && pattern.test(observed) ? observed : null;
   }
   let recoveryFieldsComplete = true;
-  for (const [single, plural, kind] of RECOVERY_PAIRS) {
+  for (const [single, plural, kind] of recoveryPairs) {
     const id = ownValue(value, single);
     const ids = snapshotPlainArray<unknown>(ownValue(value, plural), 16);
     const collected = new Set<string>();
@@ -169,7 +169,7 @@ export function projectVerificationResult(
   )
     recoveryFieldsComplete = false;
   summary.recoveryFieldsComplete = recoveryFieldsComplete;
-  if (includeChildren) {
+  if (shouldIncludeChildren) {
     for (const field of ["results", "scenarios"]) {
       const raw = ownValue(value, field);
       const items = snapshotPlainArray<unknown>(raw, 12);
@@ -220,9 +220,9 @@ function lastDirectory(directories: readonly DirectoryIdentity[]) {
   if (!directory) throw new Error("verification_record_directory_missing");
   return directory.target;
 }
-function appendDirectory(parent: readonly DirectoryIdentity[], name: string) {
-  recheck(parent);
-  const target = path.join(lastDirectory(parent), name);
+function appendDirectory(parents: readonly DirectoryIdentity[], name: string) {
+  recheck(parents);
+  const target = path.join(lastDirectory(parents), name);
   try {
     fs.mkdirSync(target);
   } catch (error) {
@@ -234,8 +234,8 @@ function appendDirectory(parent: readonly DirectoryIdentity[], name: string) {
     )
       throw error;
   }
-  recheck(parent);
-  return [...parent, observeDirectory(target)];
+  recheck(parents);
+  return [...parents, observeDirectory(target)];
 }
 function writeNewRecord(
   directories: readonly DirectoryIdentity[],
@@ -289,7 +289,7 @@ function writeNewRecord(
 export async function runRecordedVerification<T, E>(
   kind: "routes" | "recovery",
   workingDirectory: string,
-  run: () => Promise<T>,
+  executeVerification: () => Promise<T>,
   onException: () => E,
 ) {
   let recordId: string | null = null;
@@ -340,7 +340,7 @@ export async function runRecordedVerification<T, E>(
   let executionOutcome: "returned" | "threw" = "returned";
   let result: T | E;
   try {
-    result = await run();
+    result = await executeVerification();
   } catch {
     executionOutcome = "threw";
     result = onException(); // The owning runner retains poison/recovery handling.

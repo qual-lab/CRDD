@@ -992,7 +992,13 @@ async function executePlan(
         isProvider ? PROVIDER_TIMEOUT_MS : SETUP_TIMEOUT_MS,
       );
       record.activeHandle = null;
-      if (record.cancellationRequested) {
+      // A submitted CREATE can have completed while cancellation was requested.
+      // Preserve its validated receipt before stopping; otherwise cleanup loses
+      // the exact resource ID. Non-CREATE cancellation keeps its prior ordering.
+      if (
+        record.cancellationRequested &&
+        !CREATE_PURPOSES.has(command.purpose)
+      ) {
         requestedStatus = "cancelled";
         reason = "provider_operation_cancelled";
         break;
@@ -1021,6 +1027,11 @@ async function executePlan(
       ) {
         requestedStatus = "blocked";
         reason = "docker_resource_receipt_unavailable";
+        break;
+      }
+      if (record.cancellationRequested) {
+        requestedStatus = "cancelled";
+        reason = "provider_operation_cancelled";
         break;
       }
       if (
