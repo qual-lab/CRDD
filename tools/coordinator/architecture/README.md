@@ -131,7 +131,20 @@ Docker Desktopの最終復旧は、通常のProvider起動とは別の、人間�
 
 検証は環境blockの構造だけで閉じない。同じ`CreateProcessW`経路で試験専用子Processを生成し、親が渡した環境と実子の受信環境を値非公開のHashで照合し、Homeと作業Directoryの一致、非適合作業Directoryでの非発行、生成後Identity不明の保持、子の終了とhandle回収を確認する。試験専用子の成功はDocker本体の起動・回復・正式署名E2Eの成功ではない。
 
-中断記録の現在の制約として、修復記録は作成時の署名版へ結合され、新版へ自動移行できない。`renamed`でlaunch intentだけが残る場合も自動再発行できない。旧版の由来と現在の操作許可を混同せず、既存ID、履歴および退避物を保持して人間へ戻す。新版から旧記録を処置する移行契約は未実装であり、終了済み旧記録も含めた照合を必要とする。
+修復記録は作成時の署名版へ結合し、自動移行しない。旧版記録を新版で扱う場合は、`doctor --adopt-docker-desktop-repair <repair-id> --from-release <absolute-root>`で対象IDと元の配布Rootを明示する。元配布から読むのは固定位置の署名manifestだけであり、旧版の実行物は起動しない。過去の署名は由来の証明として検証し、有効期限を現在の実行許可へ読み替えない。実行中の新版は通常どおり署名・配布実体・期限・Policy・選択ユーザー・保護Rootを検証する。
+
+記録v4の全連鎖、元の署名tuple、現在と同じユーザー／Root Identity／保護／Policyを照合した後、同じ操作Directoryへ`historical-adoption.json`を排他的に追加する。元のrecord数、末尾hash、元版と引継ぎ版の署名manifestを固定し、元recordのbyte、stage、ledger、IDを変更しない。同じ内容の再開だけを許し、部分書込み、内容差、旧recordへの追記、版の逆行、同じsequenceで異なるtupleは停止する。旧v2／v3記録や署名鍵の移行は扱わない。
+
+引継ぎ済み記録は元stageにかかわらず観測専用とし、旧shutdown、native termination、WSL停止、rename、launchを再発行しない。現在のEngine、Process、run、退避物、helperおよび新版の操作境界が成立すれば`historical_recovered_pending_close`とする。不明だった過去Effectを確認済みへ上書きしない。明示closeは同じ観測を再確認し、`historical-closure.json`へ引継ぎhash、現在run Identity、退避物の保持／不存在、終了処置版の署名を追加する。退避物がある場合も元の実体を保持し、削除しない。
+
+| 境界 | 実装上の所有者 | 確認と終了条件 |
+|---|---|---|
+| 旧版の由来と記録連鎖 | Trust Core、repair record store | 実Ed25519署名、全record、同一ユーザー／Root／Policy、末尾hash。旧配布の実行許可は発行しない |
+| 引継ぎ保存と再開 | repair record store | 固定名・排他作成・flush・read-back。部分記録は保持して停止し、上書きで修復しない |
+| 状態確認と明示終了 | Docker repair runtime | 全旧stageでHost再実行0。正常応答、Process集合、run／stale実体、取消、helper喪失、解放後の新版境界を確認 |
+| 公開結果 | doctor parser／dispatcher／renderer | 不明履歴を保持。`historical_closed_retained`でもhelper cleanupと新規修復許可が揃う場合だけexit 0 |
+
+終了済み旧記録も同じ由来照合を行う。引継ぎreceiptの終了は旧stageと別の軸であり、別の未完了操作、記録不整合、状態不明またはhelper cleanup不明があれば新規修復を許可しない。実機の中断記録への適用と正式E2Eは、開発試験の合格とは分けて確認する。
 
 ## 3. 主実行シーケンス
 

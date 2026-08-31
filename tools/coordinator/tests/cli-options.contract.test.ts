@@ -37,6 +37,46 @@ function makeRepositoryRoot(target: string) {
   );
 }
 
+test("旧版復旧記録の引継ぎはexact IDと元配布Rootの明示ペアだけを受理する", () => {
+  const id = `docker-desktop-repair.${"a".repeat(32)}`;
+  const args = [
+    "--adopt-docker-desktop-repair",
+    id,
+    "--from-release",
+    "C:\\old-release",
+    "--json",
+  ];
+  const parsed = parseDoctorArguments(args, undefined);
+  assert.equal(parsed.status, "ok");
+  assert.deepEqual(parsed.value, {
+    json: true,
+    activeIsolation: false,
+    recoveryId: null,
+    repairDockerDesktopRuntime: false,
+    closeDockerDesktopRepairId: null,
+    adoptDockerDesktopRepairId: id,
+    historicalReleaseRoot: "C:\\old-release",
+    runtimeRootRequest: null,
+  });
+  for (const invalid of [
+    ["--adopt-docker-desktop-repair", id],
+    ["--from-release", "C:\\old-release"],
+    [
+      "--adopt-docker-desktop-repair",
+      "bad",
+      "--from-release",
+      "C:\\old-release",
+    ],
+    [...args, "--repair-docker-desktop-runtime"],
+    [...args, "--isolation"],
+    [...args, "--close-docker-desktop-runtime-repair", id],
+    [...args, "--recover-isolation", "host.example"],
+    [...args, "--enable-runtime"],
+    [...args, "--from-release", "C:\\other"],
+  ])
+    assert.equal(parseDoctorArguments(invalid, undefined).status, "blocked");
+});
+
 test("doctor CLIはruntime enable要求とCLI優先を一度だけ正規化する", () => {
   const cliRoot = path.resolve("cli-root");
   const environmentRoot = path.resolve("environment-root");
@@ -198,7 +238,7 @@ test("実CLIはDocker Desktop repair closeを専用reporterへ一意にdispatch�
     report.contract,
     "crdd-coordinator/docker-desktop-runtime-repair",
   );
-  assert.equal(report.contractRevision, 4);
+  assert.equal(report.contractRevision, 5);
   assert.equal(report.status, "blocked");
   assert.equal(report.deletionPerformed, false);
   assert.equal(report.pathReported, false);
@@ -221,7 +261,7 @@ test("実CLIはDocker Desktop repairを自動fallbackなしの専用reporterへd
     report.contract,
     "crdd-coordinator/docker-desktop-runtime-repair",
   );
-  assert.equal(report.contractRevision, 4);
+  assert.equal(report.contractRevision, 5);
   assert.equal(report.status, "blocked");
   assert.equal(report.deletionPerformed, false);
   assert.equal(report.providerEffectIssued, false);

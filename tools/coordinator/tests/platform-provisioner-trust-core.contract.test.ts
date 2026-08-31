@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
 import type { KeyObject } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -11,9 +14,16 @@ import {
   calculatePlatformProvisionerPackageContentRootCandidate,
   describePlatformProvisionerTrustCoreContract,
   verifyPlatformProvisionerManifestCandidate,
+  verifyHistoricalPlatformProvisionerManifestCandidate,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate, assertPresent } from "./test-support.ts";
+import {
+  createDockerDesktopRepairOperation,
+  persistDockerDesktopRepairStage,
+  persistDockerDesktopRepairHistoricalAdoption,
+  inventoryDockerDesktopRepairOperations,
+} from "../src/security/docker-desktop-repair-record-store.ts";
 
 const HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN =
   "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V1\0";
@@ -122,6 +132,177 @@ function resign(
     privateKey,
   ).toString("base64url");
 }
+
+test("historical signature verification preserves provenance without granting current execution authority", () => {
+  const value = fixture();
+  value.evaluationTime = "2028-08-15T12:00:00.000Z";
+  assert.equal(
+    verifyPlatformProvisionerManifestCandidate(value).status,
+    "blocked",
+  );
+  const historical = verifyHistoricalPlatformProvisionerManifestCandidate(
+    value.manifestEnvelope,
+    value.releaseSignerSpkiDer,
+  );
+  assert.ok(historical);
+  assert.equal(historical.runtimeAuthorityConferred, false);
+  assert.equal(historical.runtimeCapabilityIssued, false);
+  assert.equal(historical.crddDistributionConfirmed, false);
+  assert.equal(historical.payload.releaseSequence, 18);
+  // Altering the old distribution cannot be blessed by a provenance-only result.
+  const firstFile = value.observedPackageContent.files[0];
+  assertPresent(firstFile);
+  firstFile.sha256 = "f".repeat(64);
+  value.evaluationTime = "2026-08-15T12:00:00.000Z";
+  assert.equal(
+    verifyPlatformProvisionerManifestCandidate(value).status,
+    "blocked",
+  );
+});
+
+test("実署名の旧版・新版と実記録Storeを接続して旧byteを変更せず引き継ぐ", (t) => {
+  const value = fixture();
+  const originEnvelope = structuredClone(value.manifestEnvelope);
+  const origin = verifyHistoricalPlatformProvisionerManifestCandidate(
+    originEnvelope,
+    value.releaseSignerSpkiDer,
+  );
+  assert.ok(origin);
+  value.manifestEnvelope.payload.releaseSequence = 19;
+  value.manifestEnvelope.payload.crddTree = "c".repeat(40);
+  resign(value);
+  const current = verifyHistoricalPlatformProvisionerManifestCandidate(
+    value.manifestEnvelope,
+    value.releaseSignerSpkiDer,
+  );
+  assert.ok(current);
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-history-signature-"),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const boundary = {
+    runtimeStateRoot: root,
+    localAppData: root,
+    runtimeStateIdentityHash: "1".repeat(64),
+    runtimeStateProtectionHash: "2".repeat(64),
+    localUserBindingHash: "3".repeat(64),
+    runtimeStateBindingHash: "4".repeat(64),
+    dockerPolicySha256: "5".repeat(64),
+    crddManifestHash: origin.manifestHash,
+    crddReleaseSequence: origin.payload.releaseSequence,
+    crddTree: origin.payload.crddTree,
+    packageContentRootSha256: origin.payload.packageContentRootSha256,
+  };
+  const ledger = {
+    processEffects: [],
+    processEffectIssued: false,
+    processEffectConfirmation: "not_issued" as const,
+    filesystemEffects: [],
+    filesystemEffectIssued: false,
+    filesystemEffectConfirmation: "not_issued" as const,
+    engineReady: false,
+    staleState: "absent" as const,
+    hostSafety: "safe" as const,
+    evidenceState: "not_preserved" as const,
+    disposition: "not_applicable" as const,
+    liveRunIdentity: null,
+  };
+  const created = createDockerDesktopRepairOperation(
+    boundary,
+    { dev: "1", ino: "2", birthtimeNs: "3" },
+    ledger,
+  );
+  const original = persistDockerDesktopRepairStage(
+    boundary,
+    created,
+    "prepared",
+    {
+      ...ledger,
+      filesystemEffectIssued: true,
+      filesystemEffectConfirmation: "unknown",
+      filesystemEffects: [
+        {
+          sequence: 0,
+          action: "record_write",
+          phase: "settled",
+          issued: true,
+          confirmation: "unknown",
+        },
+      ],
+    },
+  );
+  assert.ok(original);
+  const currentBoundary = {
+    ...boundary,
+    crddManifestHash: current.manifestHash,
+    crddReleaseSequence: current.payload.releaseSequence,
+    crddTree: current.payload.crddTree,
+  };
+  const verifyHistory = (envelope: unknown) => {
+    const verified = verifyHistoricalPlatformProvisionerManifestCandidate(
+      envelope,
+      value.releaseSignerSpkiDer,
+    );
+    return (
+      verified && {
+        manifestHash: verified.manifestHash,
+        releaseSequence: verified.payload.releaseSequence,
+        crddTree: verified.payload.crddTree,
+        packageContentRootSha256: verified.payload.packageContentRootSha256,
+      }
+    );
+  };
+  const adopted = persistDockerDesktopRepairHistoricalAdoption(
+    currentBoundary,
+    original,
+    originEnvelope,
+    value.manifestEnvelope,
+    verifyHistory,
+  );
+  assert.ok(adopted?.history);
+  assert.equal(adopted.previousRecordSha256, original.previousRecordSha256);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(currentBoundary, verifyHistory)
+      .status,
+    "verified",
+  );
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(currentBoundary).status,
+    "unknown",
+  );
+});
+
+test("historical provenance refuses wrong keys, tampered payloads and unsupported manifests", () => {
+  const value = fixture();
+  const other = fixture();
+  assert.equal(
+    verifyHistoricalPlatformProvisionerManifestCandidate(
+      value.manifestEnvelope,
+      other.releaseSignerSpkiDer,
+    ),
+    null,
+  );
+  value.manifestEnvelope.payload.crddTree = "c".repeat(40);
+  assert.equal(
+    verifyHistoricalPlatformProvisionerManifestCandidate(
+      value.manifestEnvelope,
+      value.releaseSignerSpkiDer,
+    ),
+    null,
+  );
+  const unsupported = fixture(2);
+  assert.equal(
+    verifyHistoricalPlatformProvisionerManifestCandidate(
+      unsupported.manifestEnvelope,
+      unsupported.releaseSignerSpkiDer,
+    ),
+    null,
+  );
+  assert.equal(
+    verifyHistoricalPlatformProvisionerManifestCandidate(null, null),
+    null,
+  );
+});
 
 function assertSignatureValid(
   value: ReturnType<typeof fixture>,

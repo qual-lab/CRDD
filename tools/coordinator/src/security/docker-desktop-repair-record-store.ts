@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "./platform-provisioner-release-trust.ts";
+import { verifyHistoricalPlatformProvisionerManifestCandidate } from "./platform-provisioner-trust-core.ts";
 
 export const DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA =
   "crdd-coordinator/docker-desktop-repair-record/v4";
@@ -11,6 +13,13 @@ const MAXIMUM_OPERATIONS = 64;
 // safety margin; compaction and deletion are intentionally not recovery tools.
 const MAXIMUM_RECORDS = 24;
 const MAXIMUM_RECORD_BYTES = 65_536;
+const HISTORY_ADOPTION_FILE = "historical-adoption.json";
+const HISTORY_CLOSURE_FILE = "historical-closure.json";
+const HISTORY_FILES: readonly string[] = Object.freeze([
+  HISTORY_ADOPTION_FILE,
+  HISTORY_CLOSURE_FILE,
+]);
+const HISTORY_SCHEMA = "crdd-coordinator/docker-desktop-repair-history/v1";
 
 export const DOCKER_DESKTOP_REPAIR_STAGES = Object.freeze([
   "prepared",
@@ -102,6 +111,12 @@ export type DockerDesktopRepairOperation = Readonly<{
   sequence: number;
   previousRecordSha256: string;
   ledger: DockerDesktopRepairLedgerSnapshot;
+  history?: Readonly<{
+    adoptionSha256: string;
+    closed: boolean;
+    liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null;
+    staleState: DockerDesktopRepairStaleState;
+  }>;
 }>;
 
 export type DockerDesktopRepairRecordBoundary = Readonly<{
@@ -117,6 +132,34 @@ export type DockerDesktopRepairRecordBoundary = Readonly<{
   packageContentRootSha256: string;
   localAppData: string;
 }>;
+
+type HistoricalReleaseIdentity = Readonly<{
+  manifestHash: string;
+  releaseSequence: number;
+  crddTree: string;
+  packageContentRootSha256: string;
+}>;
+
+export type DockerDesktopRepairHistoryVerifier = (
+  envelope: unknown,
+) => HistoricalReleaseIdentity | null;
+
+function verifyPinnedHistory(
+  envelope: unknown,
+): HistoricalReleaseIdentity | null {
+  const verified = verifyHistoricalPlatformProvisionerManifestCandidate(
+    envelope,
+    getPinnedPlatformProvisionerReleaseSignerSpkiDer(),
+  );
+  return verified
+    ? Object.freeze({
+        manifestHash: verified.manifestHash,
+        releaseSequence: verified.payload.releaseSequence,
+        crddTree: verified.payload.crddTree,
+        packageContentRootSha256: verified.payload.packageContentRootSha256,
+      })
+    : null;
+}
 
 type StoredRecord = Readonly<{
   schema: typeof DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA;
@@ -1185,9 +1228,10 @@ function toOperation(
   });
 }
 
-function readOperation(
+function readOriginalOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   directoryName: string,
+  historyAllowed = false,
 ) {
   const matched = /^docker-desktop-repair-([a-f0-9]{32})$/u.exec(directoryName);
   if (!matched?.[1]) return null;
@@ -1196,9 +1240,17 @@ function readOperation(
     const metadata = fs.lstatSync(directory);
     if (!metadata.isDirectory() || metadata.isSymbolicLink()) return null;
     const entries = fs.readdirSync(directory, { withFileTypes: true });
-    if (entries.length < 1 || entries.length > MAXIMUM_RECORDS + 1) return null;
+    if (
+      entries.length < 1 ||
+      entries.length > MAXIMUM_RECORDS + (historyAllowed ? 3 : 1)
+    )
+      return null;
     const records = entries
-      .filter((entry) => entry.isFile())
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          !(historyAllowed && HISTORY_FILES.includes(entry.name)),
+      )
       .map((entry) => entry.name)
       .sort();
     const nonRecords = entries.filter(
@@ -1253,8 +1305,357 @@ function readOperation(
   }
 }
 
+function releaseMatchesBoundary(
+  release: HistoricalReleaseIdentity,
+  boundary: DockerDesktopRepairRecordBoundary,
+) {
+  return (
+    release.manifestHash === boundary.crddManifestHash &&
+    release.releaseSequence === boundary.crddReleaseSequence &&
+    release.crddTree === boundary.crddTree &&
+    release.packageContentRootSha256 === boundary.packageContentRootSha256
+  );
+}
+
+function releaseNotAfterBoundary(
+  release: HistoricalReleaseIdentity,
+  boundary: DockerDesktopRepairRecordBoundary,
+) {
+  return (
+    release.releaseSequence < boundary.crddReleaseSequence ||
+    releaseMatchesBoundary(release, boundary)
+  );
+}
+
+function historicalBoundary(
+  boundary: DockerDesktopRepairRecordBoundary,
+  release: HistoricalReleaseIdentity,
+): DockerDesktopRepairRecordBoundary {
+  // Only the signed release tuple changes. Host, selected user, root protection
+  // and policy MUST still match the current verified boundary in every record.
+  return Object.freeze({
+    ...boundary,
+    crddManifestHash: release.manifestHash,
+    crddReleaseSequence: release.releaseSequence,
+    crddTree: release.crddTree,
+    packageContentRootSha256: release.packageContentRootSha256,
+  });
+}
+
+function parseHistoryBytes(
+  bytes: Buffer | null,
+): Record<string, unknown> | null {
+  if (!bytes?.toString("utf8").endsWith("\n")) return null;
+  try {
+    const parsed: unknown = JSON.parse(bytes.toString("utf8"));
+    return parsed &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed) &&
+      Object.getPrototypeOf(parsed) === Object.prototype
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function historyFilePresent(directory: string, name: string): boolean | null {
+  try {
+    fs.lstatSync(path.win32.join(directory, name));
+    return true;
+  } catch (error) {
+    return error &&
+      typeof error === "object" &&
+      Reflect.get(error, "code") === "ENOENT"
+      ? false
+      : null;
+  }
+}
+
+function readOperation(
+  boundary: DockerDesktopRepairRecordBoundary,
+  directoryName: string,
+  verifyHistory: DockerDesktopRepairHistoryVerifier,
+): DockerDesktopRepairOperation | null {
+  if (!/^docker-desktop-repair-[a-f0-9]{32}$/u.test(directoryName)) return null;
+  const directory = path.win32.join(boundary.runtimeStateRoot, directoryName);
+  const adoptionPresent = historyFilePresent(directory, HISTORY_ADOPTION_FILE);
+  const closurePresent = historyFilePresent(directory, HISTORY_CLOSURE_FILE);
+  if (adoptionPresent === null || closurePresent === null) return null;
+  if (!adoptionPresent)
+    return closurePresent
+      ? null
+      : readOriginalOperation(boundary, directoryName);
+  const adoptionBytes = stableBytes(
+    path.win32.join(directory, HISTORY_ADOPTION_FILE),
+  );
+  const adoption = parseHistoryBytes(adoptionBytes);
+  if (
+    !adoptionBytes ||
+    !adoption ||
+    !exactKeys(adoption, [
+      "schema",
+      "kind",
+      "repairId",
+      "originalRecordCount",
+      "originalTipSha256",
+      "originManifest",
+      "adoptingManifest",
+    ]) ||
+    adoption.schema !== HISTORY_SCHEMA ||
+    adoption.kind !== "adoption" ||
+    !hash64(adoption.originalTipSha256)
+  )
+    return null;
+  const origin = verifyHistory(adoption.originManifest);
+  const adopting = verifyHistory(adoption.adoptingManifest);
+  if (
+    !origin ||
+    !adopting ||
+    !releaseNotAfterBoundary(adopting, boundary) ||
+    !releaseNotAfterBoundary(origin, historicalBoundary(boundary, adopting))
+  )
+    return null;
+  const operation = readOriginalOperation(
+    historicalBoundary(boundary, origin),
+    directoryName,
+    true,
+  );
+  if (
+    !operation ||
+    operation.repairId !== adoption.repairId ||
+    operation.sequence + 1 !== adoption.originalRecordCount ||
+    operation.previousRecordSha256 !== adoption.originalTipSha256
+  )
+    return null;
+  const adoptionSha256 = createHash("sha256")
+    .update(adoptionBytes)
+    .digest("hex");
+  let liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null = null;
+  let staleState: DockerDesktopRepairStaleState = "unknown";
+  if (closurePresent) {
+    const closure = parseHistoryBytes(
+      stableBytes(path.win32.join(directory, HISTORY_CLOSURE_FILE)),
+    );
+    if (
+      !closure ||
+      !exactKeys(closure, [
+        "schema",
+        "kind",
+        "repairId",
+        "adoptionSha256",
+        "liveRunIdentity",
+        "staleState",
+        "closingManifest",
+      ]) ||
+      closure.schema !== HISTORY_SCHEMA ||
+      closure.kind !== "closure" ||
+      closure.repairId !== operation.repairId ||
+      closure.adoptionSha256 !== adoptionSha256 ||
+      !validIdentity(closure.liveRunIdentity) ||
+      (closure.staleState !== "absent" && closure.staleState !== "retained")
+    )
+      return null;
+    const closing = verifyHistory(closure.closingManifest);
+    if (
+      !closing ||
+      !releaseNotAfterBoundary(closing, boundary) ||
+      !releaseNotAfterBoundary(adopting, historicalBoundary(boundary, closing))
+    )
+      return null;
+    liveRunIdentity = closure.liveRunIdentity;
+    staleState = closure.staleState;
+  }
+  // Original stage and ledger are never rewritten or upgraded to confirmed.
+  return Object.freeze({
+    ...operation,
+    history: Object.freeze({
+      adoptionSha256,
+      closed: closurePresent,
+      liveRunIdentity,
+      staleState,
+    }),
+  });
+}
+
+export function inspectDockerDesktopRepairHistoricalOperation(
+  boundary: DockerDesktopRepairRecordBoundary,
+  repairId: string,
+  originManifest: unknown,
+  verifyHistory: DockerDesktopRepairHistoryVerifier = verifyPinnedHistory,
+): DockerDesktopRepairOperation | null {
+  const parsedId = /^docker-desktop-repair\.([a-f0-9]{32})$/u.exec(
+    repairId,
+  )?.[1];
+  if (!parsedId) return null;
+  try {
+    const names = fs
+      .readdirSync(boundary.runtimeStateRoot, { withFileTypes: true })
+      .filter((entry) => entry.name.startsWith(OPERATION_PREFIX));
+    if (
+      names.length > MAXIMUM_OPERATIONS ||
+      names.some(
+        (entry) =>
+          !entry.isDirectory() ||
+          !/^docker-desktop-repair-[a-f0-9]{32}$/u.test(entry.name),
+      )
+    )
+      return null;
+    const directoryName = `${OPERATION_PREFIX}${parsedId}`;
+    const directory = path.win32.join(boundary.runtimeStateRoot, directoryName);
+    if (
+      historyFilePresent(directory, HISTORY_ADOPTION_FILE) !== false ||
+      historyFilePresent(directory, HISTORY_CLOSURE_FILE) !== false
+    )
+      return readOperation(boundary, directoryName, verifyHistory);
+    const origin = verifyHistory(originManifest);
+    return origin && releaseNotAfterBoundary(origin, boundary)
+      ? readOriginalOperation(
+          historicalBoundary(boundary, origin),
+          directoryName,
+        )
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
+  if (bytes.length > MAXIMUM_RECORD_BYTES) return false;
+  const target = path.win32.join(directory, name);
+  try {
+    const existing = historyFilePresent(directory, name);
+    if (existing !== false)
+      return existing === true && stableBytes(target)?.equals(bytes) === true;
+    // No replacement, rollback, or deletion after an uncertain write. A partial
+    // file stays visible and makes subsequent inventory fail closed.
+    const descriptor = fs.openSync(target, "wx", 0o600);
+    try {
+      fs.writeFileSync(descriptor, bytes);
+      fs.fsyncSync(descriptor);
+    } finally {
+      fs.closeSync(descriptor);
+    }
+    return stableBytes(target)?.equals(bytes) === true;
+  } catch {
+    return false;
+  }
+}
+
+export function persistDockerDesktopRepairHistoricalAdoption(
+  boundary: DockerDesktopRepairRecordBoundary,
+  operation: DockerDesktopRepairOperation,
+  originManifest: unknown,
+  adoptingManifest: unknown,
+  verifyHistory: DockerDesktopRepairHistoryVerifier = verifyPinnedHistory,
+): DockerDesktopRepairOperation | null {
+  try {
+    // Snapshot caller data before verification; getters or later mutation never
+    // get a second opportunity to alter the bytes being written.
+    const bytes = Buffer.from(
+      `${JSON.stringify({
+        schema: HISTORY_SCHEMA,
+        kind: "adoption",
+        repairId: operation.repairId,
+        originalRecordCount: operation.sequence + 1,
+        originalTipSha256: operation.previousRecordSha256,
+        originManifest,
+        adoptingManifest,
+      })}\n`,
+      "utf8",
+    );
+    const value = parseHistoryBytes(bytes);
+    const adopting = value && verifyHistory(value.adoptingManifest);
+    if (!value || !adopting || !releaseMatchesBoundary(adopting, boundary))
+      return null;
+    const current = inspectDockerDesktopRepairHistoricalOperation(
+      boundary,
+      operation.repairId,
+      value.originManifest,
+      verifyHistory,
+    );
+    if (
+      !current ||
+      current.previousRecordSha256 !== operation.previousRecordSha256 ||
+      current.sequence !== operation.sequence
+    )
+      return null;
+    if (
+      !writeHistoryFile(
+        current.operationDirectory,
+        HISTORY_ADOPTION_FILE,
+        bytes,
+      )
+    )
+      return null;
+    return readOperation(
+      boundary,
+      `${OPERATION_PREFIX}${current.operationId}`,
+      verifyHistory,
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function persistDockerDesktopRepairHistoricalClosure(
+  boundary: DockerDesktopRepairRecordBoundary,
+  operation: DockerDesktopRepairOperation,
+  observation: Readonly<{
+    liveRunIdentity: DockerDesktopRepairDirectoryIdentity;
+    staleState: "absent" | "retained";
+  }>,
+  closingManifest: unknown,
+  verifyHistory: DockerDesktopRepairHistoryVerifier = verifyPinnedHistory,
+): DockerDesktopRepairOperation | null {
+  try {
+    const current = readOperation(
+      boundary,
+      `${OPERATION_PREFIX}${operation.operationId}`,
+      verifyHistory,
+    );
+    if (
+      !current?.history ||
+      current.history.adoptionSha256 !== operation.history?.adoptionSha256 ||
+      current.previousRecordSha256 !== operation.previousRecordSha256 ||
+      !validIdentity(observation.liveRunIdentity) ||
+      (observation.staleState !== "absent" &&
+        observation.staleState !== "retained")
+    )
+      return null;
+    const bytes = Buffer.from(
+      `${JSON.stringify({
+        schema: HISTORY_SCHEMA,
+        kind: "closure",
+        repairId: current.repairId,
+        adoptionSha256: current.history.adoptionSha256,
+        liveRunIdentity: observation.liveRunIdentity,
+        staleState: observation.staleState,
+        closingManifest,
+      })}\n`,
+      "utf8",
+    );
+    const value = parseHistoryBytes(bytes);
+    const closing = value && verifyHistory(value.closingManifest);
+    if (
+      !closing ||
+      !releaseMatchesBoundary(closing, boundary) ||
+      !writeHistoryFile(current.operationDirectory, HISTORY_CLOSURE_FILE, bytes)
+    )
+      return null;
+    return readOperation(
+      boundary,
+      `${OPERATION_PREFIX}${current.operationId}`,
+      verifyHistory,
+    );
+  } catch {
+    return null;
+  }
+}
+
 export function inventoryDockerDesktopRepairOperations(
   boundary: DockerDesktopRepairRecordBoundary,
+  verifyHistory: DockerDesktopRepairHistoryVerifier = verifyPinnedHistory,
 ) {
   try {
     const names = fs
@@ -1266,7 +1667,7 @@ export function inventoryDockerDesktopRepairOperations(
     for (const entry of names) {
       if (!entry.isDirectory())
         return Object.freeze({ status: "unknown" as const, operations: [] });
-      const operation = readOperation(boundary, entry.name);
+      const operation = readOperation(boundary, entry.name, verifyHistory);
       if (!operation)
         return Object.freeze({ status: "unknown" as const, operations: [] });
       operations.push(operation);
@@ -1327,6 +1728,8 @@ export function classifyDockerDesktopRepairResume(
     action: DockerDesktopRepairResumeClassification["action"] = null,
     nextStage: DockerDesktopRepairStage | null = null,
   ) => Object.freeze({ state, action, nextStage });
+  if (operation.history)
+    return result(operation.history.closed ? "terminal" : "observe_current");
   if (
     (operation.stage === "no_stale_known_effect_recovery_pending" ||
       operation.stage === "closed_no_stale_known_effect_retained") &&
@@ -1457,6 +1860,7 @@ export function persistDockerDesktopRepairStage(
   stage: DockerDesktopRepairStage,
   ledger: DockerDesktopRepairLedgerSnapshot,
 ) {
+  if (operation.history) return null;
   try {
     const sequence = operation.sequence + 1;
     const isLedgerValid = validLedger(ledger);

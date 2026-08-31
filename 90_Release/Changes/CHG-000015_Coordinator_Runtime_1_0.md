@@ -44,7 +44,11 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 固定版`9037dd1`の実復旧では、停止判定を通過し、公式shutdown、WSL停止、`run`退避まで確認したが、起動段階で配布Identity不一致となり停止した。launch intentは未確定、手動回復必要、退避物と記録は保持中である。同時刻に配布Root内へ`.docker`が生成され、sourceでは空Homeと作業Directory継承を確認した。生成元Processの直接観測はなく、直接原因の確定や回復成功は主張しない。
 
-同じ変更内の是正として、[Docker専用起動環境](../../tools/coordinator/architecture/README.md#22-docker-desktop最終復旧時の起動環境)をOS由来のProfile、App Dataおよび明示cwdへ固定した。実子Processによる環境搬送・cwd・終了、非適合cwdの非発行、生成後Identity不明の保持を追加検証する。既存記録は旧署名版へ完全結合され、起動履歴不明かつ退避物ありの終了経路も不足している。担当責任者はQual-Lab、再評価契機はこの復旧IDを新版で処置する前とし、既存ID・旧署名由来・hash chainを保持する限定移行の設計を必要な残件として追跡する。記録の削除、署名検査の緩和、不明な起動の再発行は採用しない。実Docker復旧と最新正式E2Eは引き続き停止中である。
+同じ変更内の是正として、[Docker専用起動環境](../../tools/coordinator/architecture/README.md#22-docker-desktop最終復旧時の起動環境)をOS由来のProfile、App Dataおよび明示cwdへ固定した。実子Processによる環境搬送・cwd・終了、非適合cwdの非発行、生成後Identity不明の保持を追加検証した。さらに旧署名版へ結合された記録について、既存ID・署名由来・hash chainを保持する限定的な引継ぎを実装した。元のv4記録は変更せず、引継ぎと明示終了の固定名receiptを同じ保護Directoryへ追加する。過去の署名は由来だけを証明し、現在の実行版の署名・配布・期限・選択ユーザー・Policy検証は緩和しない。引継ぎ済み記録の全stageは観測専用とし、過去のHost操作を再発行しない。
+
+開発試験では、実Ed25519署名と実記録Storeの接続、原記録の不変、ID維持、同じreceiptの再開、署名・tuple・Root・Policy・末尾hashの不一致、部分記録、全9stageからのHost再実行0、退避物保持／不存在、明示close、取消・状態不明・保存不明・helper cleanup不明・解放後の版差、CLI入力とJSON／人間表示／exitを確認する。実機の旧記録は変更していない。担当責任者はQual-Lab、次の確認は固定した新版による実機記録の引継ぎと現在状態の観測である。観測不能な起動履歴を理由に同じ操作を再実行せず、現在Dockerが停止していれば、その起動を別の明示操作として判断する。実Docker復旧、最新正式E2E、独立完成監査は引き続き未完了である。
+
+この引継ぎ実装の開発確認は、`tools/coordinator`を作業DirectoryとしてNode.js 24.19.0で`tests/platform-provisioner-trust-core.contract.test.ts`、`tests/docker-desktop-repair-record-store.contract.test.ts`、`tests/docker-desktop-runtime-repair.contract.test.ts`、`tests/coordinator-docker-recovery-cli.integration.test.ts`、`tests/cli-options.contract.test.ts`を実行し、116試験すべて合格した。試験一時物はRepository-local `.crdd`内へ限定した。`npm run check`の型・Lint・整形・Runtime Traceも通過した。実署名試験は試験中生成した鍵だけを用い、Release秘密鍵、Provider、実Docker修復は使用していない。独立確認は着手前の読み取り設計照合までであり、完成監査はE2E後に行う。
 
 この起動環境是正の開発確認では、Rust通常試験、試験専用子による環境とcwdの実観測、Clippy（全target／feature、警告拒否）、Formatter、Docker復旧関連3試験ファイル、型検査、Lint、Runtime Traceを通過した。通常ユーザーでも実子試験を通過し、Docker本体、Registry、退避物、復旧記録への作用は発行していない。Registry一時変更の明示試験は実行せず、子専用試験は親試験から明示起動した。全体Checkerはerror 0／warning 0。独立完成監査および実Docker回復を代替しない。
 

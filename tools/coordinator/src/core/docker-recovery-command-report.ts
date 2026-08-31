@@ -30,9 +30,11 @@ export function renderDockerRecoveryDoctorReport(
       reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair";
     const isRepairSucceeded =
       isRepairReport &&
-      ["closed_retained", "closed_historical_effect_unknown_retained"].includes(
-        reportValue.status,
-      ) &&
+      [
+        "closed_retained",
+        "closed_historical_effect_unknown_retained",
+        "historical_closed_retained",
+      ].includes(reportValue.status) &&
       reportValue.nativeHelperCleanupConfirmed === true &&
       reportValue.newRepairPermitted === true;
     return Object.freeze({
@@ -116,7 +118,10 @@ export function renderDockerRecoveryDoctorReport(
       `- new repair permitted: ${tri(reportValue.newRepairPermitted)}`,
     );
     if (
-      reportValue.status === "recovered_pending_close" &&
+      [
+        "recovered_pending_close",
+        "historical_recovered_pending_close",
+      ].includes(reportValue.status) &&
       typeof reportValue.repairId === "string" &&
       /^docker-desktop-repair\.[a-f0-9]{32}$/u.test(reportValue.repairId)
     ) {
@@ -145,6 +150,18 @@ export function renderDockerRecoveryDoctorReport(
         lines.push(
           "- capacity: do not retry, delete, or compact repair records",
         );
+    } else if (reportValue.status === "historical_closed_retained") {
+      lines.push(
+        "- 結果: 現在のDocker正常状態を確認し、旧版の復旧記録を保持したまま終了しました。",
+      );
+      lines.push(
+        "- 過去の不明な操作は再実行せず、不明だった事実も変更していません。",
+      );
+      lines.push(
+        reportValue.staleRuntimeDirectory === "retained"
+          ? "- 退避フォルダ: 元の実体を保持しています。"
+          : "- 退避フォルダ: 不存在を確認しました。旧記録は保持しています。",
+      );
     } else if (reportValue.status === "closed_retained") {
       lines.push(
         reportValue.staleRuntimeDirectory === "absent"
@@ -164,6 +181,7 @@ export function renderDockerRecoveryDoctorReport(
         [
           "closed_retained",
           "closed_historical_effect_unknown_retained",
+          "historical_closed_retained",
         ].includes(reportValue.status) &&
         reportValue.nativeHelperCleanupConfirmed === true &&
         reportValue.newRepairPermitted === true

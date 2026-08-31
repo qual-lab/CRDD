@@ -9,11 +9,17 @@ export type DockerDesktopRepairDoctorCommand = Readonly<{
   json: boolean;
   repairDockerDesktopRuntime: boolean;
   closeDockerDesktopRepairId: string | null;
+  adoptDockerDesktopRepairId?: string;
+  historicalReleaseRoot?: string;
 }>;
 
 type DockerDesktopRepairDoctorHandlers = Readonly<{
   repair: () => Promise<DockerDesktopRuntimeRepairReport>;
   close: (repairId: string) => Promise<DockerDesktopRuntimeRepairReport>;
+  adopt?: (
+    repairId: string,
+    originRoot: string,
+  ) => Promise<DockerDesktopRuntimeRepairReport>;
 }>;
 
 function failedClosedReport(): DockerDesktopRuntimeRepairReport {
@@ -50,11 +56,22 @@ export async function dispatchDockerDesktopRepairDoctorCommand(
 ) {
   let report: DockerDesktopRuntimeRepairReport | null;
   try {
-    report = command.repairDockerDesktopRuntime
-      ? await handlers.repair()
-      : command.closeDockerDesktopRepairId !== null
-        ? await handlers.close(command.closeDockerDesktopRepairId)
-        : null;
+    report =
+      command.adoptDockerDesktopRepairId !== undefined
+        ? handlers.adopt &&
+          command.historicalReleaseRoot !== undefined &&
+          !command.repairDockerDesktopRuntime &&
+          command.closeDockerDesktopRepairId === null
+          ? await handlers.adopt(
+              command.adoptDockerDesktopRepairId,
+              command.historicalReleaseRoot,
+            )
+          : failedClosedReport()
+        : command.repairDockerDesktopRuntime
+          ? await handlers.repair()
+          : command.closeDockerDesktopRepairId !== null
+            ? await handlers.close(command.closeDockerDesktopRepairId)
+            : null;
   } catch {
     report = failedClosedReport();
   }

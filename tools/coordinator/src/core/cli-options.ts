@@ -397,6 +397,8 @@ export function parseDoctorArguments(
   let recoveryId: string | null = null;
   let shouldRepairDockerDesktopRuntime = false;
   let closeDockerDesktopRepairId: string | null = null;
+  let adoptDockerDesktopRepairId: string | null = null;
+  let historicalReleaseRoot: string | null = null;
   let shouldEnableRuntime = false;
   let cliOverride: string | null = null;
 
@@ -410,6 +412,8 @@ export function parseDoctorArguments(
         "--recover-isolation",
         "--repair-docker-desktop-runtime",
         "--close-docker-desktop-runtime-repair",
+        "--adopt-docker-desktop-repair",
+        "--from-release",
         "--enable-runtime",
         "--runtime-root",
       ].includes(token) ||
@@ -450,10 +454,37 @@ export function parseDoctorArguments(
           );
         }
         closeDockerDesktopRepairId = value;
-      } else cliOverride = value;
+      } else if (token === "--adopt-docker-desktop-repair") {
+        if (!/^docker-desktop-repair\.[a-f0-9]{32}$/u.test(value))
+          return response(
+            "blocked",
+            "doctor_arguments_invalid",
+            null,
+            isJsonRequested,
+          );
+        adoptDockerDesktopRepairId = value;
+      } else if (token === "--from-release") historicalReleaseRoot = value;
+      else cliOverride = value;
     }
   }
 
+  if (
+    (adoptDockerDesktopRepairId === null) !==
+      (historicalReleaseRoot === null) ||
+    (adoptDockerDesktopRepairId !== null &&
+      (isActiveIsolation ||
+        recoveryId !== null ||
+        shouldRepairDockerDesktopRuntime ||
+        closeDockerDesktopRepairId !== null ||
+        shouldEnableRuntime ||
+        cliOverride !== null))
+  )
+    return response(
+      "blocked",
+      "doctor_arguments_incompatible",
+      null,
+      isJsonRequested,
+    );
   if (cliOverride !== null && !shouldEnableRuntime) {
     return response(
       "blocked",
@@ -519,6 +550,9 @@ export function parseDoctorArguments(
       recoveryId,
       repairDockerDesktopRuntime: shouldRepairDockerDesktopRuntime,
       closeDockerDesktopRepairId,
+      ...(adoptDockerDesktopRepairId !== null
+        ? { adoptDockerDesktopRepairId, historicalReleaseRoot }
+        : {}),
       runtimeRootRequest,
     }),
     isJsonRequested,

@@ -155,7 +155,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
   const repairId = `docker-desktop-repair.${"b".repeat(32)}`;
   const terminal = Object.freeze({
     contract: "crdd-coordinator/docker-desktop-runtime-repair",
-    contractRevision: 4,
+    contractRevision: 5,
     status: "closed_retained",
     reason: "docker_desktop_repair_evidence_retention_closed",
     repairId,
@@ -179,6 +179,31 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     providerEffectIssued: false,
   });
   for (const isJson of [true, false]) {
+    const adoption = await dispatchDockerDesktopRepairDoctorCommand(
+      {
+        json: isJson,
+        repairDockerDesktopRuntime: false,
+        closeDockerDesktopRepairId: null,
+        adoptDockerDesktopRepairId: repairId,
+        historicalReleaseRoot: "C:\\old-release",
+      },
+      {
+        repair: async () => assert.fail("adoption must not repair"),
+        close: async () => assert.fail("adoption must not close"),
+        adopt: async (id, root) => {
+          assert.equal(id, repairId);
+          assert.equal(root, "C:\\old-release");
+          return {
+            ...terminal,
+            status: "historical_recovered_pending_close",
+            newRepairPermitted: false,
+            effectStateUnknown: true,
+          };
+        },
+      },
+    );
+    assert.equal(adoption?.exitCode, 2);
+    assert.doesNotMatch(adoption?.stdout ?? "", /C:\\/u);
     const repair = await dispatchDockerDesktopRepairDoctorCommand(
       {
         json: isJson,

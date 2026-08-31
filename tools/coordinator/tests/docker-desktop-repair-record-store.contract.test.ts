@@ -13,6 +13,11 @@ import {
   persistDockerDesktopRepairStage,
   type DockerDesktopRepairLedgerSnapshot,
   type DockerDesktopRepairOperation,
+  type DockerDesktopRepairHistoryVerifier,
+  inspectDockerDesktopRepairHistoricalOperation,
+  persistDockerDesktopRepairHistoricalAdoption,
+  persistDockerDesktopRepairHistoricalClosure,
+  classifyDockerDesktopRepairResume,
 } from "../src/security/docker-desktop-repair-record-store.ts";
 
 function fixture(t: TestContext) {
@@ -97,6 +102,309 @@ function persistRecord(
     ledgerForRecord(ledger),
   );
 }
+
+function historyFixture(t: TestContext) {
+  const base = fixture(t);
+  const created = createDockerDesktopRepairOperation(
+    base.boundary,
+    { dev: "1", ino: "2", birthtimeNs: "3" },
+    base.ledger,
+  );
+  const original = persistRecord(
+    base.boundary,
+    created,
+    "prepared",
+    base.ledger,
+  );
+  assert.ok(original);
+  const currentBoundary = {
+    ...base.boundary,
+    crddReleaseSequence: 2,
+    crddManifestHash: "a".repeat(64),
+    crddTree: "b".repeat(40),
+    packageContentRootSha256: "c".repeat(64),
+  };
+  const originManifest = { fixture: "origin" };
+  const adoptingManifest = { fixture: "adopting" };
+  // Crypto is tested with real Ed25519 envelopes in trust-core tests. This
+  // verifier seam limits the store tests to already-verified release tuples.
+  const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
+    const target =
+      JSON.stringify(value) === JSON.stringify(originManifest)
+        ? base.boundary
+        : JSON.stringify(value) === JSON.stringify(adoptingManifest)
+          ? currentBoundary
+          : null;
+    return (
+      target && {
+        manifestHash: target.crddManifestHash,
+        releaseSequence: target.crddReleaseSequence,
+        crddTree: target.crddTree,
+        packageContentRootSha256: target.packageContentRootSha256,
+      }
+    );
+  };
+  return {
+    ...base,
+    original,
+    currentBoundary,
+    originManifest,
+    adoptingManifest,
+    verifyHistory,
+  };
+}
+
+test("historical adoption keeps original bytes, ID and stage; ordinary current-version inventory stays strict", (t) => {
+  const value = historyFixture(t);
+  const originalPath = path.join(
+    value.original.operationDirectory,
+    "repair-00-prepared.json",
+  );
+  const before = fs.readFileSync(originalPath);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(value.currentBoundary).status,
+    "unknown",
+  );
+  const inspected = inspectDockerDesktopRepairHistoricalOperation(
+    value.currentBoundary,
+    value.original.repairId,
+    value.originManifest,
+    value.verifyHistory,
+  );
+  assert.deepEqual(inspected, value.original);
+  const adopted = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(adopted?.history);
+  assert.equal(adopted.repairId, value.original.repairId);
+  assert.equal(adopted.stage, "prepared");
+  assert.deepEqual(adopted.ledger, value.original.ledger);
+  assert.equal(adopted.history.closed, false);
+  assert.equal(
+    classifyDockerDesktopRepairResume(adopted).state,
+    "observe_current",
+  );
+  assert.equal(
+    persistRecord(value.currentBoundary, adopted, "prepared", adopted.ledger),
+    null,
+  );
+  assert.equal(fs.readFileSync(originalPath).equals(before), true);
+  assert.deepEqual(
+    persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      value.original,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    ),
+    adopted,
+  );
+  const inventory = inventoryDockerDesktopRepairOperations(
+    value.currentBoundary,
+    value.verifyHistory,
+  );
+  assert.equal(inventory.status, "verified");
+  assert.deepEqual(inventory.operations, [adopted]);
+  // A production caller cannot select the fixture's signer via the receipt.
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(value.currentBoundary).status,
+    "unknown",
+  );
+});
+
+test("historical inspection refuses every changed host/user/protection/policy binding and future releases", (t) => {
+  const value = historyFixture(t);
+  for (const field of [
+    "runtimeStateIdentityHash",
+    "runtimeStateProtectionHash",
+    "localUserBindingHash",
+    "runtimeStateBindingHash",
+    "dockerPolicySha256",
+  ] as const) {
+    assert.equal(
+      inspectDockerDesktopRepairHistoricalOperation(
+        { ...value.currentBoundary, [field]: "f".repeat(64) },
+        value.original.repairId,
+        value.originManifest,
+        value.verifyHistory,
+      ),
+      null,
+      field,
+    );
+  }
+  assert.equal(
+    inspectDockerDesktopRepairHistoricalOperation(
+      { ...value.currentBoundary, crddReleaseSequence: 0 },
+      value.original.repairId,
+      value.originManifest,
+      value.verifyHistory,
+    ),
+    null,
+  );
+  assert.equal(
+    inspectDockerDesktopRepairHistoricalOperation(
+      { ...value.currentBoundary, crddReleaseSequence: 1 },
+      value.original.repairId,
+      value.originManifest,
+      value.verifyHistory,
+    ),
+    null,
+  );
+  assert.equal(
+    inspectDockerDesktopRepairHistoricalOperation(
+      value.currentBoundary,
+      "docker-desktop-repair.../other",
+      value.originManifest,
+      value.verifyHistory,
+    ),
+    null,
+  );
+  assert.equal(
+    persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      value.original,
+      value.originManifest,
+      value.originManifest,
+      value.verifyHistory,
+    ),
+    null,
+  );
+  assert.deepEqual(fs.readdirSync(value.original.operationDirectory).sort(), [
+    "docker-config",
+    "repair-00-prepared.json",
+  ]);
+});
+
+for (const mutation of [
+  "tip",
+  "count",
+  "origin",
+  "adopting",
+  "extra",
+  "partial",
+  "original-bytes",
+  "extra-record",
+] as const) {
+  test(`historical receipt or chain mutation fails closed: ${mutation}`, (t) => {
+    const value = historyFixture(t);
+    const adopted = persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      value.original,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(adopted);
+    const target = path.join(
+      adopted.operationDirectory,
+      "historical-adoption.json",
+    );
+    const receipt = JSON.parse(fs.readFileSync(target, "utf8"));
+    if (mutation === "tip") receipt.originalTipSha256 = "0".repeat(64);
+    if (mutation === "count") receipt.originalRecordCount += 1;
+    if (mutation === "origin") receipt.originManifest = { fixture: "adopting" };
+    if (mutation === "adopting")
+      receipt.adoptingManifest = { fixture: "unknown" };
+    if (mutation === "extra") receipt.extra = true;
+    fs.writeFileSync(
+      target,
+      mutation === "partial" ? "{" : `${JSON.stringify(receipt)}\n`,
+    );
+    if (mutation === "original-bytes")
+      fs.appendFileSync(
+        path.join(adopted.operationDirectory, "repair-00-prepared.json"),
+        "\n",
+      );
+    if (mutation === "extra-record")
+      fs.writeFileSync(
+        path.join(adopted.operationDirectory, "repair-01-prepared.json"),
+        "{}\n",
+      );
+    assert.equal(
+      inventoryDockerDesktopRepairOperations(
+        value.currentBoundary,
+        value.verifyHistory,
+      ).status,
+      "unknown",
+    );
+    assert.equal(
+      persistDockerDesktopRepairHistoricalAdoption(
+        value.currentBoundary,
+        value.original,
+        value.originManifest,
+        value.adoptingManifest,
+        value.verifyHistory,
+      ),
+      null,
+    );
+    assert.equal(fs.existsSync(target), true);
+  });
+}
+
+test("historical closure is a separate exact receipt and never changes the original ledger", (t) => {
+  const value = historyFixture(t);
+  const adopted = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(adopted);
+  const observation = {
+    liveRunIdentity: { dev: "9", ino: "8", birthtimeNs: "7" },
+    staleState: "retained" as const,
+  };
+  const closed = persistDockerDesktopRepairHistoricalClosure(
+    value.currentBoundary,
+    adopted,
+    observation,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(closed?.history?.closed);
+  assert.equal(closed.stage, value.original.stage);
+  assert.deepEqual(closed.ledger, value.original.ledger);
+  assert.equal(classifyDockerDesktopRepairResume(closed).state, "terminal");
+  assert.deepEqual(
+    persistDockerDesktopRepairHistoricalClosure(
+      value.currentBoundary,
+      adopted,
+      observation,
+      value.adoptingManifest,
+      value.verifyHistory,
+    ),
+    closed,
+  );
+  assert.equal(
+    persistDockerDesktopRepairHistoricalClosure(
+      value.currentBoundary,
+      adopted,
+      { ...observation, staleState: "absent" },
+      value.adoptingManifest,
+      value.verifyHistory,
+    ),
+    null,
+  );
+  const closurePath = path.join(
+    adopted.operationDirectory,
+    "historical-closure.json",
+  );
+  const receipt = JSON.parse(fs.readFileSync(closurePath, "utf8"));
+  receipt.adoptionSha256 = "0".repeat(64);
+  fs.writeFileSync(closurePath, `${JSON.stringify(receipt)}\n`);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(
+      value.currentBoundary,
+      value.verifyHistory,
+    ).status,
+    "unknown",
+  );
+});
 
 function persistHostEffect(
   boundary: Parameters<typeof persistDockerDesktopRepairStage>[0],

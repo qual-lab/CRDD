@@ -8,6 +8,7 @@ import test from "node:test";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import {
   closeWindowsDockerDesktopRepairUsingDependencies,
+  adoptWindowsDockerDesktopRepairUsingDependencies,
   describeDockerDesktopRuntimeRepairContract,
   observeDockerDesktopEngineResult,
   repairWindowsDockerDesktopRuntimeUsingDependencies,
@@ -22,6 +23,7 @@ import {
   createDockerDesktopRepairOperation,
   inventoryDockerDesktopRepairOperations,
   persistDockerDesktopRepairStage,
+  DOCKER_DESKTOP_REPAIR_STAGES,
 } from "../src/security/docker-desktop-repair-record-store.ts";
 
 const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
@@ -496,6 +498,246 @@ function operationFixture(
     ledger,
   });
 }
+
+test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続する", async () => {
+  for (const stage of DOCKER_DESKTOP_REPAIR_STAGES) {
+    const isNoStale =
+      stage.includes("no_stale") ||
+      stage === "closed_historical_effect_unknown_retained";
+    const original = operationFixture(stage, {
+      staleState: isNoStale ? "absent" : "retained",
+      processEffectIssued: null,
+      processEffectConfirmation: "unknown",
+    });
+    let operation: DockerDesktopRepairOperation = {
+      ...original,
+      history: {
+        adoptionSha256: "a".repeat(64),
+        closed: false,
+        liveRunIdentity: null,
+        staleState: "unknown",
+      },
+    };
+    let hostCalls = 0;
+    let closureWrites = 0;
+    const rejectHost = () => {
+      hostCalls += 1;
+      throw new Error("unexpected Host action");
+    };
+    const currentRun = isNoStale
+      ? RUN_IDENTITY
+      : { dev: "4", ino: "5", birthtimeNs: "6" };
+    const state = fixture({
+      inventory: () => ({ status: "verified", operations: [operation] }),
+      observeEngine: () => "ready",
+      observePath: (target) =>
+        target === boundary.runDirectory
+          ? { state: "present", identity: currentRun }
+          : isNoStale
+            ? { state: "confirmed_absent", identity: null }
+            : { state: "present", identity: RUN_IDENTITY },
+      acquireHelper: async () => ({
+        status: "acquired",
+        session: {
+          ...session(),
+          terminateProcesses: async () => rejectHost(),
+          launchDesktop: async () => rejectHost(),
+        },
+      }),
+      officialShutdown: rejectHost,
+      terminateDockerWsl: rejectHost,
+      renameRunDirectory: rejectHost,
+      persistStage: () =>
+        assert.fail("historical records cannot append ordinary stages"),
+      history: {
+        inspect: () => operation,
+        loadOriginManifest: () => ({}),
+        loadCurrentManifest: () => ({}),
+        persistAdoption: () => assert.fail("already adopted"),
+        persistClosure: (_boundary, current, observation) => {
+          closureWrites += 1;
+          assert.ok(current.history);
+          operation = {
+            ...current,
+            history: { ...current.history, ...observation, closed: true },
+          };
+          return operation;
+        },
+      },
+    });
+    const observed = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+      state.dependencies,
+    );
+    assert.equal(observed.status, "historical_recovered_pending_close", stage);
+    assert.equal(observed.effectStateUnknown, true);
+    assert.equal(observed.newRepairPermitted, false);
+    const closed = await closeWindowsDockerDesktopRepairUsingDependencies(
+      operation.repairId,
+      state.dependencies,
+    );
+    assert.equal(closed.status, "historical_closed_retained", stage);
+    assert.equal(closed.effectStateUnknown, true);
+    assert.equal(closed.newRepairPermitted, true);
+    assert.equal(hostCalls, 0);
+    assert.equal(closureWrites, 1);
+    assert.deepEqual(operation.ledger, original.ledger);
+    assert.equal(operation.stage, original.stage);
+    for (const shouldOutputJson of [false, true])
+      assert.equal(
+        renderDockerRecoveryDoctorReport(closed, shouldOutputJson).exitCode,
+        0,
+      );
+    const repeated = await closeWindowsDockerDesktopRepairUsingDependencies(
+      operation.repairId,
+      state.dependencies,
+    );
+    assert.equal(repeated.status, "historical_closed_retained");
+    assert.equal(closureWrites, 1);
+  }
+});
+
+test("履歴終了の異常境界は新規修復許可を出さず、既存Host操作を発行しない", async () => {
+  for (const failure of [
+    "engine",
+    "process",
+    "run",
+    "stale",
+    "cancel",
+    "write",
+    "cleanup",
+    "authority",
+  ] as const) {
+    const original = operationFixture("renamed", {
+      processEffectIssued: null,
+      processEffectConfirmation: "unknown",
+    });
+    let operation: DockerDesktopRepairOperation = {
+      ...original,
+      history: {
+        adoptionSha256: "a".repeat(64),
+        closed: false,
+        liveRunIdentity: null,
+        staleState: "unknown",
+      },
+    };
+    let closureWrites = 0;
+    let wasReleased = false;
+    const state = fixture({
+      inventory: () => ({ status: "verified", operations: [operation] }),
+      prepareBoundary: () =>
+        failure === "authority" && wasReleased ? null : boundary,
+      observeEngine: () =>
+        failure === "engine" ? "known_unavailable" : "ready",
+      observePath: (target) =>
+        target === boundary.runDirectory
+          ? failure === "run"
+            ? { state: "unknown", identity: null }
+            : {
+                state: "present",
+                identity: { dev: "9", ino: "8", birthtimeNs: "7" },
+              }
+          : {
+              state: "present",
+              identity:
+                failure === "stale"
+                  ? { ...RUN_IDENTITY, ino: "99" }
+                  : RUN_IDENTITY,
+            },
+      registerCancellation: (listener) => {
+        if (failure === "cancel") listener();
+        return () => undefined;
+      },
+      acquireHelper: async () => ({
+        status: "acquired",
+        session: {
+          ...session({
+            processes: failure === "process" ? "unknown" : "verified",
+          }),
+          release: async () => {
+            wasReleased = true;
+            return failure === "cleanup"
+              ? { cleanup: "unknown", protocol: "failed" }
+              : { cleanup: "confirmed", protocol: "completed" };
+          },
+        },
+      }),
+      history: {
+        inspect: () => operation,
+        loadOriginManifest: () => ({}),
+        loadCurrentManifest: () => ({}),
+        persistAdoption: () => assert.fail("not adoption"),
+        persistClosure: (_boundary, current, observation) => {
+          closureWrites += 1;
+          if (failure === "write") return null;
+          assert.ok(current.history);
+          operation = {
+            ...current,
+            history: { ...current.history, ...observation, closed: true },
+          };
+          return operation;
+        },
+      },
+    });
+    const result = await closeWindowsDockerDesktopRepairUsingDependencies(
+      operation.repairId,
+      state.dependencies,
+    );
+    assert.equal(result.status, "blocked", failure);
+    assert.equal(result.newRepairPermitted, false, failure);
+    assert.equal(
+      closureWrites,
+      ["write", "cleanup", "authority"].includes(failure) ? 1 : 0,
+      failure,
+    );
+    assert.equal(
+      state.calls.some((call) =>
+        ["start", "shutdown", "wsl", "rename"].includes(call),
+      ),
+      false,
+    );
+    for (const shouldOutputJson of [true, false])
+      assert.equal(
+        renderDockerRecoveryDoctorReport(result, shouldOutputJson).exitCode,
+        2,
+      );
+  }
+});
+
+test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しない", async () => {
+  const operation = operationFixture("renamed", {
+    processEffectIssued: null,
+    processEffectConfirmation: "unknown",
+  });
+  let writes = 0;
+  const state = fixture({
+    history: {
+      inspect: () => operation,
+      loadOriginManifest: () => ({}),
+      loadCurrentManifest: () => ({}),
+      persistAdoption: () => {
+        writes += 1;
+        return null;
+      },
+      persistClosure: () => assert.fail("not closing"),
+    },
+  });
+  const result = await adoptWindowsDockerDesktopRepairUsingDependencies(
+    operation.repairId,
+    "C:\\old-release",
+    state.dependencies,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.repairId, operation.repairId);
+  assert.equal(result.newRepairPermitted, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(writes, 1);
+  assert.equal(
+    state.calls.some((call) =>
+      ["start", "shutdown", "wsl", "rename"].includes(call),
+    ),
+    false,
+  );
+});
 
 test("既知障害だけを順序付きで処置し明示closeを要求する", async () => {
   const state = fixture();

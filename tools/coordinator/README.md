@@ -288,7 +288,7 @@ Worker交換のFail Closed結果は、接続、request書込み、完了待機�
 
 名前付きPipeは、非パッケージWin32 supervisorが作成する非修飾ローカル名のfirst instance、`PIPE_REJECT_REMOTE_CLIENTS`、owner／SYSTEM／All Application Packagesの限定DACL、Pipe objectだけのLow integrity mandatory labelおよび接続元PID一致を組み合わせる。パッケージ名前空間用の`LOCAL\`修飾は使用しない。Low integrity labelはAppContainer WorkerがMICで拒否されずPipeへ接続するためのobject局所条件であり、OS、Registry、Filesystemまたは他objectのintegrityを変更しない。
 
-Docker Desktop最終復旧の起動環境は、[専用のHome・作業Directoryと検証境界](architecture/README.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。中断記録を新版へ自動移行する機能は未実装のため、旧版へ結合された記録が残る場合は、新版で再実行せず既存IDと退避物を保持して処置を判断する。
+Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](architecture/README.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと元配布を明示する`doctor --adopt-docker-desktop-repair <repair-id> --from-release <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これは過去の停止・起動・移動を再実行するコマンドではない。現在の正常状態を確認後、既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。
 
 ## Runtime 1.0の実行基盤
 

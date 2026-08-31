@@ -38,6 +38,7 @@ import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/se
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import {
   closeRuntimeOwnedWindowsDockerDesktopRepair,
+  adoptRuntimeOwnedWindowsDockerDesktopRepair,
   repairRuntimeOwnedWindowsDockerDesktopRuntime,
 } from "../src/security/docker-desktop-runtime-repair.ts";
 import {
@@ -99,6 +100,9 @@ function printHelp() {
   );
   process.stdout.write(
     `  coordinator doctor --close-docker-desktop-runtime-repair <repair-id> [--json]\n`,
+  );
+  process.stdout.write(
+    `  coordinator doctor --adopt-docker-desktop-repair <repair-id> --from-release <absolute-root> [--json]\n`,
   );
   process.stdout.write(
     `    Windows only; explicit last-resort repair for the fixed known Docker Desktop failure. Never an automatic fallback and never deletes the retained run directory.\n`,
@@ -546,10 +550,18 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
         json: options.json,
         repairDockerDesktopRuntime: options.repairDockerDesktopRuntime,
         closeDockerDesktopRepairId: options.closeDockerDesktopRepairId,
+        ...(typeof options.adoptDockerDesktopRepairId === "string" &&
+        typeof options.historicalReleaseRoot === "string"
+          ? {
+              adoptDockerDesktopRepairId: options.adoptDockerDesktopRepairId,
+              historicalReleaseRoot: options.historicalReleaseRoot,
+            }
+          : {}),
       },
       {
         repair: repairRuntimeOwnedWindowsDockerDesktopRuntime,
         close: closeRuntimeOwnedWindowsDockerDesktopRepair,
+        adopt: adoptRuntimeOwnedWindowsDockerDesktopRepair,
       },
     );
     if (dockerRepair) {

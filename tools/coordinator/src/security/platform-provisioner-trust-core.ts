@@ -528,6 +528,46 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
   }
 }
 
+// Historical provenance only: neither an installed distribution observation nor
+// current execution authority. Expiry is intentionally not evaluated here.
+export function verifyHistoricalPlatformProvisionerManifestCandidate(
+  manifestEnvelope: unknown,
+  releaseSignerSpkiDer: unknown,
+) {
+  try {
+    const envelope = normalizeEnvelope(manifestEnvelope);
+    const signerBytes = snapshotSignerSpki(releaseSignerSpkiDer);
+    const signer =
+      signerBytes && inspectProvisioningEd25519SpkiCandidate(signerBytes);
+    const framed =
+      envelope && frame(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, envelope.payload);
+    if (
+      !envelope ||
+      !signerBytes ||
+      !signer ||
+      signer.status !== "candidate" ||
+      !framed ||
+      envelope.signature.keyId !== signer.spkiSha256Digest.toString("hex") ||
+      verifyProvisioningEd25519Base64urlCandidate({
+        spkiDer: signerBytes,
+        message: framed.message,
+        signatureBase64url: envelope.signature.signature,
+      }).status !== "candidate"
+    )
+      return null;
+    return Object.freeze({
+      manifestHash: framed.hash,
+      payload: envelope.payload,
+      historicalSignatureVerified: true,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      crddDistributionConfirmed: false,
+    });
+  } catch {
+    return null;
+  }
+}
+
 export function describePlatformProvisionerTrustCoreContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-trust-core",
