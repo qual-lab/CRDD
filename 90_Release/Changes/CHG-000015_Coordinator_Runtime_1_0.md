@@ -60,6 +60,10 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 共有RuntimeStateの所有範囲是正では、修復Storeの27試験、Docker Recovery Runtimeの91試験、修復Runtime・公開投影・外部送信同意との結合・公開Recovery CLIの関連試験を通過した。鍵不要の開発E2E（Provider実行計画・Adapter・Task Runtime・署名検証runnerの8試験ファイル）も通過した。型・Lint・整形・Runtime Traceは合格。これらは実Providerを起動せず、修正後の正式署名E2Eや独立完成監査の代替ではない。
 
+2026-08-31、Docker起動環境・旧記録引継ぎ・共有RuntimeStateの所有範囲と、その実測根拠を対象に独立確認を行った。Architecture／SecurityとTest／UX・Document／Gap／Impactの二系統は、脅威モデルの旧環境説明（SEC-1）、履歴receiptの作用範囲説明（DOC-01）、現在実測と同意再利用説明（DOC-02）の伝播不足を検出した。全結果と修正方針を統合し、README・脅威モデル・本CHGへ是正した。再確認対象はCommit `9e452f1612dfa5bb588cb7df6d0ce0bbf65b6f09`、Tree `77cd1e719fe9d7a9416f4a6bea8f82ea98c6b20e`。両系統は3件を解消済み、新規指摘なし、限定範囲Passとした。共通Checkerは370文書・2,360リンク・778アンカー、error／warning 0。文書のみの是正で実装・試験・旧Evidence・署名配布は変更せず、再署名・Provider再実行は不要と両系統で確認した。
+
+今回のDocker起動障害と、それに続く通常Taskの停止は解消した。終了後の署名版による観測でもTask Recoveryは`docker_task_runtime_state_clean`、IDとactive bindingは空であった。一般doctor全体のexit 2を全項目合格へ読み替えない。旧記録と退避物は保持し、過去の不明な起動成否を既知へ書き換えない。この限定確認は全Runtimeの完成監査、任意Task・全障害の実証、統合またはRelease判断ではない。残る全体作業は下記主要残件とRoadmapへ継続し、担当責任者はQual-Labとする。
+
 ### 1.1 経路別の現在状態
 
 | 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`0c3e6d2` | 根拠／残件 |
