@@ -148,6 +148,8 @@ Docker Desktopの設定読込みが必要とする`ProgramData`も、OSの`FOLDE
 
 終了済み旧記録も同じ由来照合を行う。引継ぎreceiptの終了は旧stageと別の軸であり、別の未完了操作、記録不整合、状態不明またはhelper cleanup不明があれば新規修復を許可しない。実機の中断記録への適用と正式E2Eは、開発試験の合格とは分けて確認する。
 
+同じRuntimeState直下の`docker-desktop-repair-<32桁小文字hex>` DirectoryはDesktop修復が所有し、Docker Taskの復旧inventoryは内容の検証・終了・削除を引き受けない。名前の判定は修復Storeと共有し、通常Directory、non-link、正規化後のPath一致を確認して別担当の領域として扱う。未知名、ファイルへの置換、symbolic link／junctionは停止する。`docker_task_runtime_state_clean`はTaskの回収対象がないという意味に限り、Desktop修復の完了やHost全体の安全性を証明しない。Desktop修復の履歴・終了判断は前記の専用入口で別に検証する。実Storeが生成した記録との共存、Task残件の検出維持、未知名・型置換・リンク拒否を結合試験へ接続する。
+
 ## 3. 主実行シーケンス
 
 | 段階 | 状態ID | 主な処置 | 次へ進む条件 |

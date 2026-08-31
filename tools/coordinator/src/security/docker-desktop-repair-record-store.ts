@@ -7,6 +7,11 @@ import { verifyHistoricalPlatformProvisionerManifestCandidate } from "./platform
 export const DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA =
   "crdd-coordinator/docker-desktop-repair-record/v4";
 const OPERATION_PREFIX = "docker-desktop-repair-";
+export function parseDockerDesktopRepairDirectoryName(value: unknown) {
+  return typeof value === "string"
+    ? (/^docker-desktop-repair-([a-f0-9]{32})$/u.exec(value)?.[1] ?? null)
+    : null;
+}
 const MAXIMUM_OPERATIONS = 64;
 // 1 initial record + two records for each of the five Host Effects + stage
 // transitions, recovery refinement and explicit close. Four records remain as
@@ -1233,8 +1238,8 @@ function readOriginalOperation(
   directoryName: string,
   historyAllowed = false,
 ) {
-  const matched = /^docker-desktop-repair-([a-f0-9]{32})$/u.exec(directoryName);
-  if (!matched?.[1]) return null;
+  const operationId = parseDockerDesktopRepairDirectoryName(directoryName);
+  if (!operationId) return null;
   const directory = path.win32.join(boundary.runtimeStateRoot, directoryName);
   try {
     const metadata = fs.lstatSync(directory);
@@ -1282,7 +1287,7 @@ function readOriginalOperation(
       }
       if (
         !validStoredRecord(value, boundary) ||
-        value.operationId !== matched[1] ||
+        value.operationId !== operationId ||
         value.sequence !== index ||
         value.stage !== match[2] ||
         value.previousRecordSha256 !== previousHash ||
@@ -1377,7 +1382,7 @@ function readOperation(
   directoryName: string,
   verifyHistory: DockerDesktopRepairHistoryVerifier,
 ): DockerDesktopRepairOperation | null {
-  if (!/^docker-desktop-repair-[a-f0-9]{32}$/u.test(directoryName)) return null;
+  if (!parseDockerDesktopRepairDirectoryName(directoryName)) return null;
   const directory = path.win32.join(boundary.runtimeStateRoot, directoryName);
   const adoptionPresent = historyFilePresent(directory, HISTORY_ADOPTION_FILE);
   const closurePresent = historyFilePresent(directory, HISTORY_CLOSURE_FILE);
@@ -1497,7 +1502,7 @@ export function inspectDockerDesktopRepairHistoricalOperation(
       names.some(
         (entry) =>
           !entry.isDirectory() ||
-          !/^docker-desktop-repair-[a-f0-9]{32}$/u.test(entry.name),
+          !parseDockerDesktopRepairDirectoryName(entry.name),
       )
     )
       return null;

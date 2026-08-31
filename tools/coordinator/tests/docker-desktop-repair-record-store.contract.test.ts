@@ -18,7 +18,9 @@ import {
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
   classifyDockerDesktopRepairResume,
+  parseDockerDesktopRepairDirectoryName,
 } from "../src/security/docker-desktop-repair-record-store.ts";
+import { inspectDockerRecoveryRootSnapshotWithLock } from "../src/security/docker-recovery-runtime-internal.ts";
 
 function fixture(t: TestContext) {
   const root = fs.mkdtempSync(
@@ -58,6 +60,70 @@ function fixture(t: TestContext) {
   });
   return Object.freeze({ boundary, ledger, runtimeStateRoot });
 }
+
+test("Desktop修復の実Store記録はDocker Task inventoryと共存し原記録を保持する", (t) => {
+  const base = fixture(t);
+  const operation = createDockerDesktopRepairOperation(
+    base.boundary,
+    { dev: "1", ino: "2", birthtimeNs: "3" },
+    base.ledger,
+  );
+  const saved = persistRecord(
+    base.boundary,
+    operation,
+    "prepared",
+    base.ledger,
+  );
+  assert.ok(saved);
+  const snapshot = () =>
+    fs.readdirSync(saved.operationDirectory).map((name) => {
+      const target = path.join(saved.operationDirectory, name);
+      return [
+        name,
+        fs.lstatSync(target).isDirectory()
+          ? fs.readdirSync(target)
+          : fs.readFileSync(target).toString("hex"),
+      ];
+    });
+  const before = snapshot();
+  const result = inspectDockerRecoveryRootSnapshotWithLock(
+    {
+      rootPath: base.runtimeStateRoot,
+      runtimeStateIdentityHash: base.boundary.runtimeStateIdentityHash,
+      runtimeStateProtectionHash: base.boundary.runtimeStateProtectionHash,
+      localUserBindingHash: base.boundary.localUserBindingHash,
+      stableLogicalHomeBindingHash: "a".repeat(64),
+    },
+    () => Object.freeze({ release: () => true }),
+  );
+  assert.equal(result.status, "completed", JSON.stringify(result));
+  assert.equal(result.reason, "docker_task_runtime_state_clean");
+  assert.deepEqual(result.dockerRecoveryIds, []);
+  assert.deepEqual(snapshot(), before);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(base.boundary).operations[0]?.stage,
+    "prepared",
+  );
+});
+
+test("Desktop修復Directory名は正規の閉集合だけを認識する", () => {
+  assert.equal(
+    parseDockerDesktopRepairDirectoryName(
+      `docker-desktop-repair-${"a".repeat(32)}`,
+    ),
+    "a".repeat(32),
+  );
+  for (const name of [
+    null,
+    "docker-desktop-repair-",
+    `docker-desktop-repair-${"A".repeat(32)}`,
+    `docker-desktop-repair-${"a".repeat(31)}`,
+    `docker-desktop-repair-${"a".repeat(32)}.json`,
+    `docker-desktop-repair-${"a".repeat(32)}/child`,
+  ]) {
+    assert.equal(parseDockerDesktopRepairDirectoryName(name), null);
+  }
+});
 
 function ledgerForRecord(ledger: DockerDesktopRepairOperation["ledger"]) {
   const lastRecordWriteIndex = ledger.filesystemEffects.findLastIndex(

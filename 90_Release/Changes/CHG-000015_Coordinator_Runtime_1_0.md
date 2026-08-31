@@ -46,13 +46,19 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 同じ変更内の是正として、[Docker専用起動環境](../../tools/coordinator/architecture/README.md#22-docker-desktop最終復旧時の起動環境)をOS由来のProfile、App Dataおよび明示cwdへ固定した。実子Processによる環境搬送・cwd・終了、非適合cwdの非発行、生成後Identity不明の保持を追加検証した。さらに旧署名版へ結合された記録について、既存ID・署名由来・hash chainを保持する限定的な引継ぎを実装した。元のv4記録は変更せず、引継ぎと明示終了の固定名receiptを同じ保護Directoryへ追加する。過去の署名は由来だけを証明し、現在の実行版の署名・配布・期限・選択ユーザー・Policy検証は緩和しない。引継ぎ済み記録の全stageは観測専用とし、過去のHost操作を再発行しない。
 
-開発試験では、実Ed25519署名と実記録Storeの接続、原記録の不変、ID維持、同じreceiptの再開、署名・tuple・Root・Policy・末尾hashの不一致、部分記録、全9stageからのHost再実行0、退避物保持／不存在、明示close、取消・状態不明・保存不明・helper cleanup不明・解放後の版差、CLI入力とJSON／人間表示／exitを確認する。実機では署名固定版`b468ddc`で旧11記録を保持した引継ぎreceiptの追加まで確認した。元記録は変更せず、Docker停止により現在状態の確認は`docker_desktop_repair_historical_current_state_unconfirmed`で停止した。担当責任者はQual-Lab、次の確認は現在Dockerの回復と同じIDでの明示終了である。観測不能な起動履歴を理由に同じ操作を再実行せず、現在Dockerが停止していれば、その起動を別の明示操作として判断する。実Docker復旧、最新正式E2E、独立完成監査は引き続き未完了である。
+開発試験では、実Ed25519署名と実記録Storeの接続、原記録の不変、ID維持、同じreceiptの再開、署名・tuple・Root・Policy・末尾hashの不一致、部分記録、全9stageからのHost再実行0、退避物保持／不存在、明示close、取消・状態不明・保存不明・helper cleanup不明・解放後の版差、CLI入力とJSON／人間表示／exitを確認する。実機では署名固定版`b468ddc`で旧11記録を保持した引継ぎreceiptの追加まで確認した。元記録は変更せず、Docker停止により現在状態の確認は`docker_desktop_repair_historical_current_state_unconfirmed`で停止した。この時点では、Qual-Labが担当する現在Dockerの回復と同じIDでの明示終了、最新正式E2E、独立完成監査が未完了だった。観測不能な起動履歴を理由に同じ操作を再実行せず、現在Dockerが停止していれば、その起動を別の明示操作として判断する。後続の回復結果を以下に記録する。
 
-その後、人間が別操作として一回の公式Docker Desktop起動を承認した。起動処理はprocessを生成したが、Dockerの設定読込みは`ProgramData`未設定で失敗した。これは旧socket破損の再発確認ではなく、CRDDが定めた最小環境の必須入力不足である。Runtime側と作業用起動手順の双方に同じ欠落があった。OSの`FOLDERID_ProgramData`から取得・検証して渡す是正と、実子Processによる必須値の存在・非空・絶対Path・OS配置一致の確認を追加した。値の搬送一致と利用側の必須入力充足を別々に確認する。後者の不足が今回の原因であり、環境全継承で回避しない。署名固定版は改変せず、この是正は開発試験へ戻し、Docker再起動や再署名を自動反復していない。是正後の実Docker起動は未確認である。
+その後、人間が別操作として一回の公式Docker Desktop起動を承認した。起動処理はprocessを生成したが、Dockerの設定読込みは`ProgramData`未設定で失敗した。これは旧socket破損の再発確認ではなく、CRDDが定めた最小環境の必須入力不足である。Runtime側と作業用起動手順の双方に同じ欠落があった。OSの`FOLDERID_ProgramData`から取得・検証して渡す是正と、実子Processによる必須値の存在・非空・絶対Path・OS配置一致の確認を追加した。値の搬送一致と利用側の必須入力充足を別々に確認する。後者の不足が今回の原因であり、環境全継承で回避しない。署名固定版は改変せず、是正は開発試験へ戻した。
+
+継続承認後、OS由来`ProgramData`を含む環境で公式Docker Desktopを別操作として起動し、Engineの回復を確認した。署名版`b468ddc`の観測・終了入口で同じ復旧IDを`historical_closed_retained`、exit 0、helper cleanup確認済み、新規修復許可へ到達させた。元11記録・退避物・不明な旧起動履歴を保持し、別の終了receiptだけを追加した。署名版`b468ddc`／対象Repository`2051e3c`のRecovery E2Eは7項目を通過した。ただし4経路E2EはProvider実行前に`docker_process_controller_recovery_unavailable`で停止し、下位原因は`docker_task_runtime_state_unknown_entry`だった。
+
+原因は共有RuntimeStateへ追加したDesktop修復Directoryを、Docker Task inventoryへ反映していなかったことである。同じCHGで名前の判定を修復Storeから共有し、正規名・通常Directory・non-link・実体Path一致の領域だけを別担当として識別するよう是正した。記録の削除や未知項目の一般許容は行わない。Task残件の検出を維持し、Desktop修復の中身・履歴・終了は担当の専用入口が引き続き所有する。実Storeによる記録作成とTask inventoryの共存、原記録不変、既存Task残件の検出、未知名・ファイル置換・junction拒否を結合試験へ接続した。未完了は修正を含む固定版の4経路E2Eと独立完成監査であり、既存署名版の結果を新しい実装の正式成功へ流用しない。担当責任者はQual-Labとする。
 
 この引継ぎ実装の開発確認は、`tools/coordinator`を作業DirectoryとしてNode.js 24.19.0で`tests/platform-provisioner-trust-core.contract.test.ts`、`tests/docker-desktop-repair-record-store.contract.test.ts`、`tests/docker-desktop-runtime-repair.contract.test.ts`、`tests/coordinator-docker-recovery-cli.integration.test.ts`、`tests/cli-options.contract.test.ts`を実行し、116試験すべて合格した。試験一時物はRepository-local `.crdd`内へ限定した。`npm run check`の型・Lint・整形・Runtime Traceも通過した。実署名試験は試験中生成した鍵だけを用い、Release秘密鍵、Provider、実Docker修復は使用していない。独立確認は着手前の読み取り設計照合までであり、完成監査はE2E後に行う。
 
 この起動環境是正の開発確認では、Rust通常試験、試験専用子による環境とcwdの実観測、Clippy（全target／feature、警告拒否）、Formatter、Docker復旧関連3試験ファイル、型検査、Lint、Runtime Traceを通過した。通常ユーザーでも実子試験を通過し、Docker本体、Registry、退避物、復旧記録への作用は発行していない。Registry一時変更の明示試験は実行せず、子専用試験は親試験から明示起動した。全体Checkerはerror 0／warning 0。独立完成監査および実Docker回復を代替しない。
+
+共有RuntimeStateの所有範囲是正では、修復Storeの27試験、Docker Recovery Runtimeの91試験、修復Runtime・公開投影・外部送信同意との結合・公開Recovery CLIの関連試験を通過した。鍵不要の開発E2E（Provider実行計画・Adapter・Task Runtime・署名検証runnerの8試験ファイル）も通過した。型・Lint・整形・Runtime Traceは合格。これらは実Providerを起動せず、修正後の正式署名E2Eや独立完成監査の代替ではない。
 
 ### 1.1 経路別の現在状態
 

@@ -46,6 +46,7 @@ import {
   verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
 import { parseExternalSendConsentActiveEntryName } from "./external-send-consent-record.ts";
+import { parseDockerDesktopRepairDirectoryName } from "./docker-desktop-repair-record-store.ts";
 import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
@@ -4845,6 +4846,21 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       );
     };
     for (const entry of sortedEntries) {
+      if (parseDockerDesktopRepairDirectoryName(entry.name)) {
+        // Desktop repair owns this subtree. Recognizing its namespace does not
+        // validate its records or authorize repair, close, or deletion here.
+        const directory = path.join(rootPath, entry.name);
+        const metadata = fs.lstatSync(directory);
+        if (
+          !entry.isDirectory() ||
+          entry.isSymbolicLink() ||
+          !metadata.isDirectory() ||
+          metadata.isSymbolicLink() ||
+          fs.realpathSync(directory) !== directory
+        )
+          throw new Error("docker_task_runtime_state_entry_replaced");
+        continue;
+      }
       const externalSendConsentEntry = parseExternalSendConsentActiveEntryName(
         entry.name,
       );

@@ -861,6 +861,39 @@ function verifiedRoot(rootPath: string) {
   });
 }
 
+test("Desktop修復namespaceはTask残件を隠さず未知名と型置換を拒否する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const name = `docker-desktop-repair-${"a".repeat(32)}`;
+  const directory = path.join(fixture.root, name);
+  const inspect = () =>
+    inspectDockerRecoveryRootSnapshotWithLock(verifiedRoot(fixture.root), () =>
+      Object.freeze({ release: () => true }),
+    );
+  try {
+    fs.mkdirSync(directory);
+    assert.deepEqual(inspect().dockerRecoveryIds, [fixture.recoveryId]);
+    fs.rmdirSync(directory);
+    fs.writeFileSync(directory, "not a directory");
+    assert.equal(inspect().reason, "docker_task_runtime_state_entry_replaced");
+    fs.unlinkSync(directory);
+    const malformed = path.join(fixture.root, `${name}-unknown`);
+    fs.mkdirSync(malformed);
+    assert.equal(inspect().reason, "docker_task_runtime_state_unknown_entry");
+    fs.rmdirSync(malformed);
+    fs.symlinkSync(
+      fixture.hostRoot,
+      directory,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(inspect().reason, "docker_task_runtime_state_entry_replaced");
+    fs.unlinkSync(directory);
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
 function productionPlan(operationId: string, stableHome: string) {
   return Object.freeze({
     provider: "claude" as const,
