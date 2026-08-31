@@ -99,6 +99,8 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 Process所有処理の抽出後は、新しい開発版として検証・再確認する。45ea2acの正式署名実測を変更後の正式配布成功へ流用せず、各編集で再署名もしない。担当責任者はQual-Lab。取消の未確認範囲、是正後の独立再確認、統合・Release判断は継続対象とする。
 
+全体試験でGitローカル除外設定の間欠失敗を検出し、同じRuntime変更内で書込みの境界を再照合した。Windowsの自己書込み時刻確定とclose前後の完全比較が衝突する経路、最初のmodeからの変更を取り逃す経路を決定論的試験で確認して是正した。自己生成lockの初期実体・権限・Path、期待sizeと内容を保持し、close後だけ時刻snapshotを確定する。一般のIdentity検証、Root・既存excludeの初期snapshot、rename直前の厳密確認は維持する。[追加検証](../../07_Quality/Verification_Results/2026-08-31_Coordinator_Closure_Verification.md)に初回失敗、反証試験、取消の追加結合、網羅率と未確認範囲を残す。元の間欠失敗がすべて同原因だったとは断定しない。
+
 ### 1.1 経路別の現在状態
 
 | 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`45ea2ac` | 根拠／残件 |

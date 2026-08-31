@@ -12,6 +12,59 @@ import {
 } from "../src/security/git-local-exclude.ts";
 import { assertPresent, errorCode } from "./test-support.ts";
 
+// Test-only failure observations. No host path, contents or relaxed checks.
+function observeExcludeOperation<T>(operation: () => T) {
+  const events: unknown[] = [];
+  const names = [
+    "lstatSync",
+    "fstatSync",
+    "openSync",
+    "writeSync",
+    "fsyncSync",
+    "closeSync",
+    "renameSync",
+  ] as const;
+  const originals = names.map((name) => [name, fs[name]] as const);
+  for (const [name, original] of originals) {
+    Reflect.set(fs, name, (...args: unknown[]) => {
+      const target =
+        typeof args[0] === "string" ? path.basename(args[0]) : args[0];
+      const event: Record<string, unknown> = { operation: name, target };
+      try {
+        const result: unknown = Reflect.apply(original, fs, args);
+        if (
+          (name === "lstatSync" || name === "fstatSync") &&
+          result &&
+          typeof result === "object"
+        ) {
+          for (const field of [
+            "ino",
+            "size",
+            "birthtimeNs",
+            "mtimeNs",
+            "ctimeNs",
+          ]) {
+            const value: unknown = Reflect.get(result, field);
+            event[field] = typeof value === "bigint" ? String(value) : value;
+          }
+        }
+        return result;
+      } catch (error) {
+        event.errorCode = errorCode(error);
+        throw error;
+      } finally {
+        events.push(event);
+        if (events.length > 100) events.shift();
+      }
+    });
+  }
+  try {
+    return { result: operation(), diagnostics: events };
+  } finally {
+    for (const [name, original] of originals) Reflect.set(fs, name, original);
+  }
+}
+
 function temporaryRoot(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-local-exclude-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -282,8 +335,11 @@ test("Adapter候補は既存内容を保ち完全一致entryを冪等更新す�
   const repositoryRoot = normalRepository(t);
   const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
   fs.writeFileSync(exclude, "# local rules\n/build/\n", "utf8");
-  const first = applyGitLocalExcludeCandidate(existingInput(repositoryRoot));
-  assert.equal(first.status, "candidate");
+  const observed = observeExcludeOperation(() =>
+    applyGitLocalExcludeCandidate(existingInput(repositoryRoot)),
+  );
+  const first = observed.result;
+  assert.equal(first.status, "candidate", JSON.stringify(observed));
   assert.equal(first.gitMetadataWriteIssued, true);
   assert.equal(first.gitMetadataWriteVerified, true);
   assert.equal(
@@ -296,6 +352,230 @@ test("Adapter候補は既存内容を保ち完全一致entryを冪等更新す�
   assert.equal(second.gitMetadataWriteVerified, true);
   assert.equal(JSON.stringify(first).includes(repositoryRoot), false);
 });
+
+for (const alteration of ["timestamp", "mode"] as const) {
+  test(`自己write後close前の${alteration}を初期identityと権限へ照合する`, (t) => {
+    const repositoryRoot = normalRepository(t);
+    const lock = path.join(
+      repositoryRoot,
+      ".git",
+      "info",
+      ".crdd-runtime-exclude.lock",
+    );
+    const originalOpen = fs.openSync;
+    const originalFsync = fs.fsyncSync;
+    const originalLstat = fs.lstatSync;
+    let ownedDescriptor: number | null = null;
+    let isArmed = false;
+    let hasAltered = false;
+    Reflect.set(fs, "openSync", (target: unknown, ...args: unknown[]) => {
+      const descriptor: number = Reflect.apply(originalOpen, fs, [
+        target,
+        ...args,
+      ]);
+      if (
+        target === lock &&
+        typeof args[0] === "number" &&
+        (args[0] & fs.constants.O_WRONLY) !== 0
+      )
+        ownedDescriptor = descriptor;
+      return descriptor;
+    });
+    fs.fsyncSync = (descriptor) => {
+      originalFsync.call(fs, descriptor);
+      if (descriptor !== ownedDescriptor) return;
+      isArmed = true;
+      if (alteration === "mode") {
+        const before = originalLstat.call(fs, lock, { bigint: true });
+        fs.chmodSync(lock, 0o444);
+        assert.notEqual(
+          originalLstat.call(fs, lock, { bigint: true }).mode,
+          before.mode,
+        );
+        hasAltered = true;
+      }
+    };
+    Reflect.set(fs, "lstatSync", (target: unknown, ...args: unknown[]) => {
+      if (
+        target === lock &&
+        isArmed &&
+        !hasAltered &&
+        alteration === "timestamp"
+      ) {
+        hasAltered = true;
+        const before = originalLstat.call(fs, lock, { bigint: true });
+        fs.utimesSync(
+          lock,
+          new Date(1_700_000_000_000),
+          new Date(1_700_000_000_000),
+        );
+        const after = originalLstat.call(fs, lock, { bigint: true });
+        assert.equal(after.ino, before.ino);
+        assert.notEqual(after.mtimeNs, before.mtimeNs);
+      }
+      return Reflect.apply(originalLstat, fs, [target, ...args]);
+    });
+    let result: ReturnType<typeof applyGitLocalExcludeCandidate>;
+    try {
+      result = applyGitLocalExcludeCandidate(existingInput(repositoryRoot));
+    } finally {
+      fs.openSync = originalOpen;
+      fs.fsyncSync = originalFsync;
+      Reflect.set(fs, "lstatSync", originalLstat);
+      if (alteration === "mode" && fs.existsSync(lock))
+        fs.chmodSync(lock, 0o600);
+    }
+    assert.equal(hasAltered, true);
+    assert.equal(
+      result.status,
+      alteration === "timestamp" ? "candidate" : "blocked",
+      JSON.stringify(result),
+    );
+    assert.equal(result.gitMetadataWriteVerified, alteration === "timestamp");
+    if (alteration === "mode")
+      assert.equal(result.gitMetadataWriteIssued, false);
+  });
+}
+
+test("自己書込みlockのclose時刻更新はidentityと内容を維持して確定する", (t) => {
+  const repositoryRoot = normalRepository(t);
+  const lock = path.join(
+    repositoryRoot,
+    ".git",
+    "info",
+    ".crdd-runtime-exclude.lock",
+  );
+  const originalOpen = fs.openSync;
+  const originalClose = fs.closeSync;
+  let ownedDescriptor: number | null = null;
+  let hasUpdated = false;
+  Reflect.set(fs, "openSync", (target: unknown, ...args: unknown[]) => {
+    const descriptor: number = Reflect.apply(originalOpen, fs, [
+      target,
+      ...args,
+    ]);
+    if (
+      target === lock &&
+      typeof args[0] === "number" &&
+      (args[0] & fs.constants.O_WRONLY) !== 0
+    )
+      ownedDescriptor = descriptor;
+    return descriptor;
+  });
+  fs.closeSync = (descriptor) => {
+    originalClose.call(fs, descriptor);
+    if (descriptor === ownedDescriptor && !hasUpdated) {
+      hasUpdated = true;
+      ownedDescriptor = null;
+      const before = fs.lstatSync(lock, { bigint: true });
+      fs.utimesSync(
+        lock,
+        new Date(1_700_000_000_000),
+        new Date(1_700_000_000_000),
+      );
+      const after = fs.lstatSync(lock, { bigint: true });
+      assert.equal(after.ino, before.ino);
+      assert.equal(after.birthtimeNs, before.birthtimeNs);
+      assert.notEqual(after.mtimeNs, before.mtimeNs);
+    }
+  };
+  let result: ReturnType<typeof applyGitLocalExcludeCandidate>;
+  try {
+    result = applyGitLocalExcludeCandidate(existingInput(repositoryRoot));
+  } finally {
+    fs.openSync = originalOpen;
+    fs.closeSync = originalClose;
+  }
+  assert.equal(hasUpdated, true);
+  assert.equal(result.status, "candidate", JSON.stringify(result));
+  assert.equal(result.gitMetadataWriteVerified, true);
+  assert.equal(
+    fs.readFileSync(
+      path.join(repositoryRoot, ".git", "info", "exclude"),
+      "utf8",
+    ),
+    "/.crdd-runtime/\n",
+  );
+  assert.equal(fs.existsSync(lock), false);
+});
+
+for (const alteration of [
+  "same-content-replacement",
+  "same-size-content",
+  "mode",
+  "close-failure",
+] as const) {
+  test(`close境界の${alteration}を自己書込みの正常確定へ取り込まない`, (t) => {
+    const repositoryRoot = normalRepository(t);
+    const lock = path.join(
+      repositoryRoot,
+      ".git",
+      "info",
+      ".crdd-runtime-exclude.lock",
+    );
+    const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
+    const initial = "# retained\n";
+    fs.writeFileSync(exclude, initial, "utf8");
+    const originalOpen = fs.openSync;
+    const originalClose = fs.closeSync;
+    let ownedDescriptor: number | null = null;
+    let hasAltered = false;
+    Reflect.set(fs, "openSync", (target: unknown, ...args: unknown[]) => {
+      const descriptor: number = Reflect.apply(originalOpen, fs, [
+        target,
+        ...args,
+      ]);
+      if (
+        target === lock &&
+        typeof args[0] === "number" &&
+        (args[0] & fs.constants.O_WRONLY) !== 0
+      )
+        ownedDescriptor = descriptor;
+      return descriptor;
+    });
+    fs.closeSync = (descriptor) => {
+      originalClose.call(fs, descriptor);
+      if (descriptor !== ownedDescriptor || hasAltered) return;
+      hasAltered = true;
+      ownedDescriptor = null;
+      if (alteration === "close-failure")
+        throw new Error("fixed-close-failure");
+      const before = fs.lstatSync(lock, { bigint: true });
+      const bytes = fs.readFileSync(lock);
+      if (alteration === "same-content-replacement") {
+        fs.renameSync(lock, `${lock}.original`);
+        fs.writeFileSync(lock, bytes, { flag: "wx" });
+        assert.notEqual(fs.lstatSync(lock, { bigint: true }).ino, before.ino);
+      } else if (alteration === "same-size-content") {
+        bytes[0] = (bytes[0] ?? 0) ^ 1;
+        fs.writeFileSync(lock, bytes);
+        assert.equal(fs.lstatSync(lock, { bigint: true }).size, before.size);
+      } else {
+        fs.chmodSync(lock, 0o444);
+        assert.notEqual(fs.lstatSync(lock, { bigint: true }).mode, before.mode);
+      }
+    };
+    let result: ReturnType<typeof applyGitLocalExcludeCandidate>;
+    try {
+      result = applyGitLocalExcludeCandidate(existingInput(repositoryRoot));
+    } finally {
+      fs.openSync = originalOpen;
+      fs.closeSync = originalClose;
+      if (alteration === "mode" && fs.existsSync(lock))
+        fs.chmodSync(lock, 0o600);
+    }
+    assert.equal(hasAltered, true);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.gitMetadataWriteIssued, false);
+    assert.equal(result.gitMetadataWriteVerified, false);
+    assert.equal(fs.readFileSync(exclude, "utf8"), initial);
+    if (alteration === "same-content-replacement") {
+      // Foreign replacement must not be removed as the owned lock.
+      assert.equal(fs.existsSync(lock), true);
+      assert.equal(fs.existsSync(`${lock}.original`), true);
+    }
+  });
+}
 
 test("空または未作成excludeを作成し外部overrideはmetadata処置前に拒否する", (t) => {
   const repositoryRoot = normalRepository(t);
@@ -713,12 +993,17 @@ test("post-write Repository replacement preserves the issued-write fact", (t) =>
     }
   };
   let result: ReturnType<typeof applyGitLocalExcludeCandidate>;
+  let diagnostics: unknown;
   try {
-    result = applyGitLocalExcludeCandidate(input(repositoryRoot));
+    const observed = observeExcludeOperation(() =>
+      applyGitLocalExcludeCandidate(input(repositoryRoot)),
+    );
+    result = observed.result;
+    diagnostics = observed;
   } finally {
     fs.renameSync = originalRename;
   }
-  assert.equal(hasReplaced, true);
+  assert.equal(hasReplaced, true, JSON.stringify(diagnostics));
   assert.equal(result.status, "blocked");
   assert.equal(result.gitMetadataWriteIssued, true);
   assert.equal(result.gitMetadataWriteVerified, false);

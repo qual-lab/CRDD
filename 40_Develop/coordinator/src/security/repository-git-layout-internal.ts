@@ -743,17 +743,27 @@ export function writeRepositoryLocalExclude(
       fs.lstatSync(lockPath, { bigint: true }),
       "file",
     );
-    if (
-      after.size !== BigInt(desired.bytes.length) ||
-      !sameIdentity(after, pathAfter) ||
-      after.dev !== opened.dev ||
-      after.ino !== opened.ino ||
-      after.birthtimeNs !== opened.birthtimeNs
-    ) {
+    // This handle has written the file, so timestamps are not final yet.
+    // Both observations must still describe the original object/permissions
+    // and exact size; content and final timestamps are checked after close.
+    for (const observed of [after, pathAfter]) {
+      if (
+        observed.type !== opened.type ||
+        observed.dev !== opened.dev ||
+        observed.ino !== opened.ino ||
+        observed.birthtimeNs !== opened.birthtimeNs ||
+        observed.mode !== opened.mode ||
+        observed.size !== BigInt(desired.bytes.length)
+      ) {
+        throw new Error("repository_git_exclude_write_changed");
+      }
+    }
+    const writtenPath = fs.realpathSync.native(lockPath);
+    if (writtenPath !== lockSnapshot.realPath) {
       throw new Error("repository_git_exclude_write_changed");
     }
     lockSnapshot = Object.freeze({
-      realPath: fs.realpathSync.native(lockPath),
+      realPath: writtenPath,
       identity: after,
     });
   } catch (error) {
@@ -770,6 +780,31 @@ export function writeRepositoryLocalExclude(
   if (!failure && lockSnapshot) {
     try {
       verifyLayoutForWrite(layout);
+      // A write handle's final timestamps may become visible only at close.
+      // Bind the closed snapshot to this exact owned file and exact bytes;
+      // never refresh Repository or original-exclude identities here.
+      verifyEntitySnapshot(lockSnapshot);
+      const closed = readStableFileBytes(
+        lockPath,
+        MAX_EXCLUDE_FILE_BYTES,
+        [layout.commonDirectory],
+        true,
+      );
+      if (
+        closed.snapshot.identity.type !== lockSnapshot.identity.type ||
+        closed.snapshot.identity.dev !== lockSnapshot.identity.dev ||
+        closed.snapshot.identity.ino !== lockSnapshot.identity.ino ||
+        closed.snapshot.identity.birthtimeNs !==
+          lockSnapshot.identity.birthtimeNs ||
+        closed.snapshot.identity.mode !== lockSnapshot.identity.mode ||
+        closed.snapshot.identity.size !== lockSnapshot.identity.size ||
+        closed.snapshot.realPath !== lockSnapshot.realPath ||
+        !closed.value.equals(desired.bytes)
+      ) {
+        throw new Error("repository_git_exclude_write_changed");
+      }
+      verifyEntitySnapshot(lockSnapshot);
+      lockSnapshot = closed.snapshot;
       if (originalSnapshot) verifySnapshot(originalSnapshot);
       else {
         try {

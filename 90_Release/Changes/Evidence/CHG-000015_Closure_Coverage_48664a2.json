@@ -1,0 +1,864 @@
+{
+  "contract": "crdd-coordinator/coverage-observation",
+  "contractRevision": 1,
+  "sourceCommit": "48664a2c5a7c9c98a48b800b54d61fb27b1f6395",
+  "sourceTree": "e80b0cb0ea170ef8ff8c9ff3ee56aeb70041d0c6",
+  "nodeVersion": "24.19.0",
+  "platform": "win32",
+  "testResult": {
+    "tests": 1460,
+    "passed": 1458,
+    "failed": 2,
+    "skipped": 0,
+    "cancelled": 0,
+    "exitCode": 1
+  },
+  "scope": [
+    "src/**/*.ts",
+    "bin/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "eligibleTrackedFileCount": 155,
+  "loadedUniqueFileCount": 151,
+  "unloadedFiles": [
+    "scripts/check-native-runtime-trace.ts",
+    "scripts/check-platform-access-coverage.ts",
+    "scripts/check-runtime-traceability.ts",
+    "src/security/candidate-store-lock-worker.ts"
+  ],
+  "duplicateRecordPaths": [
+    "src/core/windows-child-environment.ts",
+    "src/security/development-measurement-session.ts",
+    "src/security/execution-environment.ts",
+    "src/security/external-send-grant-runtime.ts",
+    "src/security/platform-access-release.ts",
+    "src/security/platform-provisioner-package-filesystem.ts",
+    "src/security/repository-operation-runtime.ts"
+  ],
+  "unambiguousLoadedFiles": {
+    "count": 144,
+    "coveredBranches": 11271,
+    "branches": 13640,
+    "uncoveredBranches": 2369
+  },
+  "wholeProductionBranchCoverage": null,
+  "nativeBranchCoverage": null,
+  "rawLcovSha256": "3b7bcfbc1c6736f311e2d82506298fa22eede22825da888c53d64f7888d74dc9",
+  "records": [
+    {
+      "path": "bin/coordinator.ts",
+      "branches": 41,
+      "covered": 12
+    },
+    {
+      "path": "bin/launch.ts",
+      "branches": 3,
+      "covered": 1
+    },
+    {
+      "path": "scripts/build-native-bootstrap.ts",
+      "branches": 29,
+      "covered": 21
+    },
+    {
+      "path": "scripts/check-dynamic-fake-provider-coverage.ts",
+      "branches": 4,
+      "covered": 3
+    },
+    {
+      "path": "scripts/check-native-bootstrap-pe.ts",
+      "branches": 3,
+      "covered": 2
+    },
+    {
+      "path": "scripts/check-platform-access-ts-coverage.ts",
+      "branches": 131,
+      "covered": 105
+    },
+    {
+      "path": "scripts/check-provider-authority-coverage.ts",
+      "branches": 3,
+      "covered": 2
+    },
+    {
+      "path": "scripts/check-provider-home-coverage.ts",
+      "branches": 16,
+      "covered": 13
+    },
+    {
+      "path": "scripts/generate-release-key.ts",
+      "branches": 14,
+      "covered": 9
+    },
+    {
+      "path": "scripts/measure-development-providers.ts",
+      "branches": 28,
+      "covered": 24
+    },
+    {
+      "path": "scripts/platform-access-coverage-path.ts",
+      "branches": 26,
+      "covered": 20
+    },
+    {
+      "path": "scripts/release-staging-manifest.ts",
+      "branches": 55,
+      "covered": 45
+    },
+    {
+      "path": "scripts/revoke-external-send-consent.ts",
+      "branches": 11,
+      "covered": 6
+    },
+    {
+      "path": "scripts/sign-release-manifest.ts",
+      "branches": 47,
+      "covered": 29
+    },
+    {
+      "path": "scripts/verify-dynamic-fake-provider-cancellation.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "scripts/verify-dynamic-fake-provider-failures.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "scripts/verify-signed-general-task.ts",
+      "branches": 341,
+      "covered": 259
+    },
+    {
+      "path": "scripts/verify-signed-recovery-matrix.ts",
+      "branches": 22,
+      "covered": 6
+    },
+    {
+      "path": "scripts/verify-signed-route-matrix.ts",
+      "branches": 161,
+      "covered": 149
+    },
+    {
+      "path": "src/core/cli-options.ts",
+      "branches": 159,
+      "covered": 154
+    },
+    {
+      "path": "src/core/command-report.ts",
+      "branches": 58,
+      "covered": 58
+    },
+    {
+      "path": "src/core/coordinator-launch.ts",
+      "branches": 34,
+      "covered": 29
+    },
+    {
+      "path": "src/core/development-execution-timing.ts",
+      "branches": 53,
+      "covered": 51
+    },
+    {
+      "path": "src/core/docker-cleanup-eligibility.ts",
+      "branches": 111,
+      "covered": 103
+    },
+    {
+      "path": "src/core/docker-desktop-repair-doctor-dispatch.ts",
+      "branches": 10,
+      "covered": 10
+    },
+    {
+      "path": "src/core/docker-recovery-command-report.ts",
+      "branches": 107,
+      "covered": 90
+    },
+    {
+      "path": "src/core/doctor.ts",
+      "branches": 183,
+      "covered": 126
+    },
+    {
+      "path": "src/core/host-generation-loss-transition.ts",
+      "branches": 2,
+      "covered": 2
+    },
+    {
+      "path": "src/core/interactive-console-reader.ts",
+      "branches": 79,
+      "covered": 59
+    },
+    {
+      "path": "src/core/interactive-console.ts",
+      "branches": 158,
+      "covered": 129
+    },
+    {
+      "path": "src/core/node-runtime-version.ts",
+      "branches": 20,
+      "covered": 15
+    },
+    {
+      "path": "src/core/runtime-process-safety-state.ts",
+      "branches": 18,
+      "covered": 18
+    },
+    {
+      "path": "src/core/runtime-traceability.ts",
+      "branches": 144,
+      "covered": 100
+    },
+    {
+      "path": "src/core/task-cli-cancellation.ts",
+      "branches": 45,
+      "covered": 43
+    },
+    {
+      "path": "src/core/verification-result-record.ts",
+      "branches": 105,
+      "covered": 92
+    },
+    {
+      "path": "src/core/windows-child-environment.ts",
+      "branches": 40,
+      "covered": 26
+    },
+    {
+      "path": "src/core/windows-child-environment.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/core/windows-child-environment.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/security/authority-file-bundle.ts",
+      "branches": 57,
+      "covered": 52
+    },
+    {
+      "path": "src/security/authority-grant-verifier.ts",
+      "branches": 183,
+      "covered": 164
+    },
+    {
+      "path": "src/security/authority-prelaunch-verifier.ts",
+      "branches": 32,
+      "covered": 28
+    },
+    {
+      "path": "src/security/authority-root-locator.ts",
+      "branches": 179,
+      "covered": 127
+    },
+    {
+      "path": "src/security/authority-root-path-lexical.ts",
+      "branches": 36,
+      "covered": 34
+    },
+    {
+      "path": "src/security/authority-root-profile.ts",
+      "branches": 20,
+      "covered": 19
+    },
+    {
+      "path": "src/security/authority-trust-loader.ts",
+      "branches": 55,
+      "covered": 47
+    },
+    {
+      "path": "src/security/bounded-file-snapshot.ts",
+      "branches": 30,
+      "covered": 25
+    },
+    {
+      "path": "src/security/candidate-bundle-store.ts",
+      "branches": 308,
+      "covered": 226
+    },
+    {
+      "path": "src/security/candidate-store-kernel-lock.ts",
+      "branches": 160,
+      "covered": 128
+    },
+    {
+      "path": "src/security/candidate-store-windows-adapter.ts",
+      "branches": 39,
+      "covered": 23
+    },
+    {
+      "path": "src/security/claude-docker-runtime-adapter.ts",
+      "branches": 160,
+      "covered": 141
+    },
+    {
+      "path": "src/security/claude-execution-plan.ts",
+      "branches": 45,
+      "covered": 39
+    },
+    {
+      "path": "src/security/claude-structured-result.ts",
+      "branches": 113,
+      "covered": 108
+    },
+    {
+      "path": "src/security/codex-docker-runtime-adapter.ts",
+      "branches": 154,
+      "covered": 132
+    },
+    {
+      "path": "src/security/codex-execution-plan.ts",
+      "branches": 24,
+      "covered": 19
+    },
+    {
+      "path": "src/security/codex-structured-result.ts",
+      "branches": 12,
+      "covered": 11
+    },
+    {
+      "path": "src/security/coordinator-operation-creation-internal.ts",
+      "branches": 13,
+      "covered": 11
+    },
+    {
+      "path": "src/security/coordinator-task-request.ts",
+      "branches": 31,
+      "covered": 27
+    },
+    {
+      "path": "src/security/coordinator-task-runtime.ts",
+      "branches": 561,
+      "covered": 484
+    },
+    {
+      "path": "src/security/delegation-route-selection.ts",
+      "branches": 146,
+      "covered": 134
+    },
+    {
+      "path": "src/security/delegation-selection-grant-runtime.ts",
+      "branches": 82,
+      "covered": 69
+    },
+    {
+      "path": "src/security/development-measurement-constraints.ts",
+      "branches": 99,
+      "covered": 98
+    },
+    {
+      "path": "src/security/development-measurement-session.ts",
+      "branches": 197,
+      "covered": 178
+    },
+    {
+      "path": "src/security/development-measurement-session.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/security/development-measurement-session.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/security/docker-desktop-repair-native-helper.ts",
+      "branches": 135,
+      "covered": 103
+    },
+    {
+      "path": "src/security/docker-desktop-repair-policy.ts",
+      "branches": 20,
+      "covered": 6
+    },
+    {
+      "path": "src/security/docker-desktop-repair-record-store.ts",
+      "branches": 572,
+      "covered": 496
+    },
+    {
+      "path": "src/security/docker-desktop-runtime-repair.ts",
+      "branches": 876,
+      "covered": 654
+    },
+    {
+      "path": "src/security/docker-effect-runtime.ts",
+      "branches": 221,
+      "covered": 166
+    },
+    {
+      "path": "src/security/docker-host-transition-state.ts",
+      "branches": 17,
+      "covered": 14
+    },
+    {
+      "path": "src/security/docker-isolation.ts",
+      "branches": 290,
+      "covered": 236
+    },
+    {
+      "path": "src/security/docker-owned-process.ts",
+      "branches": 41,
+      "covered": 37
+    },
+    {
+      "path": "src/security/docker-process-controller.ts",
+      "branches": 372,
+      "covered": 344
+    },
+    {
+      "path": "src/security/docker-recovery-identity.ts",
+      "branches": 11,
+      "covered": 11
+    },
+    {
+      "path": "src/security/docker-recovery-journal.ts",
+      "branches": 397,
+      "covered": 328
+    },
+    {
+      "path": "src/security/docker-recovery-lock-controller.ts",
+      "branches": 15,
+      "covered": 6
+    },
+    {
+      "path": "src/security/docker-recovery-public-projection.ts",
+      "branches": 69,
+      "covered": 67
+    },
+    {
+      "path": "src/security/docker-recovery-runtime-internal.ts",
+      "branches": 985,
+      "covered": 739
+    },
+    {
+      "path": "src/security/docker-recovery-runtime.ts",
+      "branches": 1,
+      "covered": 1
+    },
+    {
+      "path": "src/security/docker-recovery-state-machine.ts",
+      "branches": 46,
+      "covered": 46
+    },
+    {
+      "path": "src/security/docker-runtime-state-binding.ts",
+      "branches": 8,
+      "covered": 8
+    },
+    {
+      "path": "src/security/egress-proxy-policy.ts",
+      "branches": 115,
+      "covered": 94
+    },
+    {
+      "path": "src/security/enrollment-certificate-renewal.ts",
+      "branches": 33,
+      "covered": 24
+    },
+    {
+      "path": "src/security/execution-environment.ts",
+      "branches": 550,
+      "covered": 430
+    },
+    {
+      "path": "src/security/execution-environment.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/security/external-send-consent-record.ts",
+      "branches": 14,
+      "covered": 11
+    },
+    {
+      "path": "src/security/external-send-consent-runtime.ts",
+      "branches": 95,
+      "covered": 71
+    },
+    {
+      "path": "src/security/external-send-grant-runtime.ts",
+      "branches": 131,
+      "covered": 99
+    },
+    {
+      "path": "src/security/external-send-grant-runtime.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/security/external-send-policy-runtime.ts",
+      "branches": 57,
+      "covered": 51
+    },
+    {
+      "path": "src/security/git-local-exclude.ts",
+      "branches": 41,
+      "covered": 38
+    },
+    {
+      "path": "src/security/git-object-reader.ts",
+      "branches": 173,
+      "covered": 118
+    },
+    {
+      "path": "src/security/host-operation-lock-supervisor.ts",
+      "branches": 40,
+      "covered": 25
+    },
+    {
+      "path": "src/security/host-recovery-record.ts",
+      "branches": 23,
+      "covered": 17
+    },
+    {
+      "path": "src/security/initial-enrollment-pure-core.ts",
+      "branches": 221,
+      "covered": 205
+    },
+    {
+      "path": "src/security/initial-enrollment-runtime-state.ts",
+      "branches": 31,
+      "covered": 21
+    },
+    {
+      "path": "src/security/local-personal-authority-runtime.ts",
+      "branches": 53,
+      "covered": 44
+    },
+    {
+      "path": "src/security/native-bootstrap-pe-inspector.ts",
+      "branches": 131,
+      "covered": 116
+    },
+    {
+      "path": "src/security/native-provision-supervisor-release.ts",
+      "branches": 29,
+      "covered": 26
+    },
+    {
+      "path": "src/security/native-runtime-trace.ts",
+      "branches": 80,
+      "covered": 76
+    },
+    {
+      "path": "src/security/offline-enrollment-bundle-pure-core.ts",
+      "branches": 87,
+      "covered": 72
+    },
+    {
+      "path": "src/security/plain-data-snapshot.ts",
+      "branches": 53,
+      "covered": 53
+    },
+    {
+      "path": "src/security/platform-access-adapter.ts",
+      "branches": 42,
+      "covered": 38
+    },
+    {
+      "path": "src/security/platform-access-release.ts",
+      "branches": 41,
+      "covered": 32
+    },
+    {
+      "path": "src/security/platform-access-release.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/security/platform-access-release.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/security/platform-key-storage-policy.ts",
+      "branches": 26,
+      "covered": 24
+    },
+    {
+      "path": "src/security/platform-provisioner-active-pointer-store.ts",
+      "branches": 32,
+      "covered": 24
+    },
+    {
+      "path": "src/security/platform-provisioner-active-pointer.ts",
+      "branches": 73,
+      "covered": 61
+    },
+    {
+      "path": "src/security/platform-provisioner-effect.ts",
+      "branches": 4,
+      "covered": 4
+    },
+    {
+      "path": "src/security/platform-provisioner-install-layout.ts",
+      "branches": 15,
+      "covered": 15
+    },
+    {
+      "path": "src/security/platform-provisioner-manifest-loader.ts",
+      "branches": 47,
+      "covered": 39
+    },
+    {
+      "path": "src/security/platform-provisioner-package-filesystem.ts",
+      "branches": 208,
+      "covered": 140
+    },
+    {
+      "path": "src/security/platform-provisioner-package-filesystem.ts",
+      "branches": 4,
+      "covered": 2
+    },
+    {
+      "path": "src/security/platform-provisioner-package-filesystem.ts",
+      "branches": 4,
+      "covered": 2
+    },
+    {
+      "path": "src/security/platform-provisioner-package-filesystem.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/security/platform-provisioner-package-gate.ts",
+      "branches": 24,
+      "covered": 21
+    },
+    {
+      "path": "src/security/platform-provisioner-policy-identity.ts",
+      "branches": 5,
+      "covered": 4
+    },
+    {
+      "path": "src/security/platform-provisioner-pre-active-one-shot.ts",
+      "branches": 4,
+      "covered": 4
+    },
+    {
+      "path": "src/security/platform-provisioner-release-identity.ts",
+      "branches": 69,
+      "covered": 48
+    },
+    {
+      "path": "src/security/platform-provisioner-release-trust.ts",
+      "branches": 5,
+      "covered": 4
+    },
+    {
+      "path": "src/security/platform-provisioner-trust-core.ts",
+      "branches": 153,
+      "covered": 143
+    },
+    {
+      "path": "src/security/platform-provisioner-windows-dacl.ts",
+      "branches": 49,
+      "covered": 48
+    },
+    {
+      "path": "src/security/provider-authority-runtime.ts",
+      "branches": 83,
+      "covered": 74
+    },
+    {
+      "path": "src/security/provider-billing-policy.ts",
+      "branches": 2,
+      "covered": 2
+    },
+    {
+      "path": "src/security/provider-eligibility-runtime.ts",
+      "branches": 44,
+      "covered": 44
+    },
+    {
+      "path": "src/security/provider-home-mount-grant-runtime.ts",
+      "branches": 142,
+      "covered": 129
+    },
+    {
+      "path": "src/security/provider-home-mount-grant.ts",
+      "branches": 137,
+      "covered": 137
+    },
+    {
+      "path": "src/security/provider-home-observation.ts",
+      "branches": 106,
+      "covered": 87
+    },
+    {
+      "path": "src/security/provider-home-windows-adapter.ts",
+      "branches": 23,
+      "covered": 7
+    },
+    {
+      "path": "src/security/provider-home.ts",
+      "branches": 17,
+      "covered": 17
+    },
+    {
+      "path": "src/security/provider-isolation-profile.ts",
+      "branches": 82,
+      "covered": 74
+    },
+    {
+      "path": "src/security/provider-lifecycle.ts",
+      "branches": 78,
+      "covered": 78
+    },
+    {
+      "path": "src/security/provider-model-profile-runtime.ts",
+      "branches": 29,
+      "covered": 25
+    },
+    {
+      "path": "src/security/provider-model-selection-runtime.ts",
+      "branches": 69,
+      "covered": 58
+    },
+    {
+      "path": "src/security/provider-task-packet-runtime.ts",
+      "branches": 111,
+      "covered": 100
+    },
+    {
+      "path": "src/security/provider-task-structured-result.ts",
+      "branches": 113,
+      "covered": 110
+    },
+    {
+      "path": "src/security/provisioning-ca-pure-core.ts",
+      "branches": 70,
+      "covered": 53
+    },
+    {
+      "path": "src/security/provisioning-record-enrollment-binding.ts",
+      "branches": 79,
+      "covered": 52
+    },
+    {
+      "path": "src/security/provisioning-record-pure-core.ts",
+      "branches": 212,
+      "covered": 172
+    },
+    {
+      "path": "src/security/provisioning-record-store.ts",
+      "branches": 125,
+      "covered": 81
+    },
+    {
+      "path": "src/security/provisioning-signature-primitives.ts",
+      "branches": 199,
+      "covered": 177
+    },
+    {
+      "path": "src/security/provisioning-trust-artifact-store.ts",
+      "branches": 66,
+      "covered": 49
+    },
+    {
+      "path": "src/security/provisioning-trust-floor-store.ts",
+      "branches": 40,
+      "covered": 21
+    },
+    {
+      "path": "src/security/provisioning-trust-floor.ts",
+      "branches": 66,
+      "covered": 49
+    },
+    {
+      "path": "src/security/release-identity-grammar.ts",
+      "branches": 9,
+      "covered": 9
+    },
+    {
+      "path": "src/security/repository-git-layout-internal.ts",
+      "branches": 250,
+      "covered": 214
+    },
+    {
+      "path": "src/security/repository-git-layout.ts",
+      "branches": 16,
+      "covered": 15
+    },
+    {
+      "path": "src/security/repository-operation-runtime.ts",
+      "branches": 87,
+      "covered": 65
+    },
+    {
+      "path": "src/security/repository-operation-runtime.ts",
+      "branches": 2,
+      "covered": 1
+    },
+    {
+      "path": "src/security/repository-root-resolution.ts",
+      "branches": 15,
+      "covered": 12
+    },
+    {
+      "path": "src/security/repository-workspace-runtime.ts",
+      "branches": 105,
+      "covered": 68
+    },
+    {
+      "path": "src/security/root-observation.ts",
+      "branches": 45,
+      "covered": 44
+    },
+    {
+      "path": "src/security/root-protection-policy.ts",
+      "branches": 56,
+      "covered": 54
+    },
+    {
+      "path": "src/security/runtime-activation-identity.ts",
+      "branches": 2,
+      "covered": 2
+    },
+    {
+      "path": "src/security/runtime-activation-locator-binding-contract.ts",
+      "branches": 2,
+      "covered": 2
+    },
+    {
+      "path": "src/security/runtime-activation-locator-binding.ts",
+      "branches": 15,
+      "covered": 14
+    },
+    {
+      "path": "src/security/runtime-activation-record.ts",
+      "branches": 93,
+      "covered": 84
+    },
+    {
+      "path": "src/security/runtime-activation-transition.ts",
+      "branches": 75,
+      "covered": 72
+    },
+    {
+      "path": "src/security/runtime-root-path-identity.ts",
+      "branches": 111,
+      "covered": 93
+    },
+    {
+      "path": "src/security/runtime-root-profile.ts",
+      "branches": 29,
+      "covered": 28
+    },
+    {
+      "path": "src/security/secret-material-policy.ts",
+      "branches": 170,
+      "covered": 153
+    },
+    {
+      "path": "src/security/signed-runner-safety-observation.ts",
+      "branches": 90,
+      "covered": 77
+    }
+  ]
+}

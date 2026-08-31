@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -16,6 +16,7 @@ import {
   verifyOwnedOperationCleanupOutcome,
   verifyOwnedOperationManagementCapability,
 } from "../src/security/execution-environment.ts";
+import { createTaskControllerCancellationFixture } from "./fixtures/task-controller-cancellation-fixture.ts";
 
 // This is an isolated Task orchestration test, not a signed CLI, Docker,
 // Provider, credential, consent or production Authority test. The real child
@@ -56,7 +57,10 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
-function createProcessHarness(scenario: Scenario) {
+function createProcessHarness(
+  scenario: Scenario,
+  controllerCleanupConfirmed?: boolean,
+) {
   const owned = createOwnedOperationDirectories();
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
@@ -87,6 +91,16 @@ function createProcessHarness(scenario: Scenario) {
   let cleanupCount = 0;
   let isPoisoned = false;
   const capability = () => Object.freeze({});
+  const controllerFixture =
+    controllerCleanupConfirmed === undefined
+      ? null
+      : createTaskControllerCancellationFixture(
+          operationId,
+          managementCapability,
+          hostRecoveryId,
+          controllerCleanupConfirmed,
+        );
+  let candidateEffectCount = 0;
   const issue = () => {
     const controlCapability = capability();
     controls.add(controlCapability);
@@ -121,6 +135,10 @@ function createProcessHarness(scenario: Scenario) {
     classifyOperationCreationFailure: () => null,
     cleanupOperation: async (target) => {
       assert.equal(target, owned);
+      if (controllerFixture?.processStarted()) {
+        controllerFixture.processes.assertAbsent();
+        controllerFixture.events.push("host-cleanup");
+      }
       assert.equal(
         childProcesses.length,
         closedPids.size,
@@ -214,11 +232,24 @@ function createProcessHarness(scenario: Scenario) {
       activeRole = role;
       return {
         status: "prepared",
-        preparedCapability: capability(),
+        preparedCapability:
+          controllerFixture?.preparedCapability ?? capability(),
         selectionNotice: "isolated-process-test",
       };
     },
-    startProcess: (_prepared, _management, registerRecoveryHandoff) => {
+    startProcess: (
+      _prepared,
+      _management,
+      registerRecoveryHandoff,
+      restriction,
+    ) => {
+      if (controllerFixture)
+        return controllerFixture.startProcess(
+          _prepared,
+          _management,
+          registerRecoveryHandoff,
+          restriction,
+        );
       const role = activeRole;
       const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${(role === "executor" ? "c" : "d").repeat(64)}`;
       assert.equal(registerRecoveryHandoff(capability(), recoveryId), true);
@@ -283,7 +314,9 @@ function createProcessHarness(scenario: Scenario) {
         completion: completion.promise,
       };
     },
-    cancelProcess: async (control) => {
+    cancelProcess: async (control, management) => {
+      if (controllerFixture)
+        return controllerFixture.cancelProcess(control, management);
       const processControl = processControls.get(control);
       assert.ok(processControl);
       processControl.child.kill();
@@ -299,6 +332,7 @@ function createProcessHarness(scenario: Scenario) {
       };
     },
     captureCandidate: () => {
+      candidateEffectCount += 1;
       assert.equal(fs.readFileSync(file, "utf8"), "TASK_PROCESS_OK\n");
       return {
         status: "candidate",
@@ -318,16 +352,30 @@ function createProcessHarness(scenario: Scenario) {
         changedPaths: ["fixture.txt"],
       };
     },
-    persistCandidate: () => ({
-      status: "staged",
-      candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
-    }),
+    persistCandidate: () => {
+      candidateEffectCount += 1;
+      return {
+        status: "staged",
+        candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
+      };
+    },
     discardCandidate: () => ({ status: "discarded" }),
-    publishCandidate: () => ({
-      status: "published",
-      candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
-      expiresAtMs: 1_800_000_000_000,
-    }),
+    publishCandidate: () => {
+      candidateEffectCount += 1;
+      return {
+        status: "published",
+        candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
+        expiresAtMs: 1_800_000_000_000,
+      };
+    },
+    ...(controllerFixture
+      ? {
+          prepareDockerHostCleanup: controllerFixture.prepareDockerHostCleanup,
+          recordDockerHostCleanupReceipt:
+            controllerFixture.recordDockerHostCleanupReceipt,
+          finalizeDockerRecovery: controllerFixture.finalizeDockerRecovery,
+        }
+      : {}),
   };
   return {
     runtime: createIsolatedCoordinatorTaskRuntimeCandidate(dependencies),
@@ -338,9 +386,12 @@ function createProcessHarness(scenario: Scenario) {
     childProcesses,
     closedPids,
     controls,
+    controllerFixture,
+    candidateEffectCount: () => candidateEffectCount,
     firstReady: firstReady.promise,
     cleanupCount: () => cleanupCount,
     async dispose() {
+      if (controllerFixture) await controllerFixture.processes.dispose();
       for (const child of childProcesses)
         if (child.exitCode === null && child.signalCode === null) {
           const closed = new Promise<void>((resolve) =>
@@ -355,6 +406,115 @@ function createProcessHarness(scenario: Scenario) {
       assert.equal(fs.existsSync(owned.root), false);
     },
   };
+}
+
+// No OS Ctrl+C delivery or real Docker resource claims: the registered CLI
+// callback traverses Task + Controller + the production-owned Node process tree.
+for (const cleanupConfirmed of [true, false]) {
+  test(`Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}`, {
+    skip: process.platform !== "win32",
+    timeout: 20_000,
+  }, async (t) => {
+    const harness = createProcessHarness("cancel", cleanupConfirmed);
+    t.after(() => harness.dispose());
+    const controller = harness.controllerFixture;
+    assert.ok(controller);
+    assert.equal(controller.productionAuthority, false);
+    const before = [
+      process.listenerCount("SIGINT"),
+      process.listenerCount("SIGTERM"),
+    ];
+    const started = harness.runtime.start(
+      {
+        frontProvider: "codex",
+        requestedExecutorProvider: "auto",
+        objective: "Update the bounded fixture.",
+        acceptanceCriteria: ["The fixture contains the expected value."],
+        allowedPaths: ["fixture.txt"],
+        readPaths: ["fixture.txt"],
+        workClass: "bounded_implementation",
+        planState: "complete",
+        risk: "low",
+        difficulty: "low",
+        decisionImpact: "limited",
+        isLocalCandidateOnly: true,
+        hasUnresolvedDirection: false,
+        requiresCrossContextAlignment: false,
+      },
+      harness.owned.directories.workspace,
+      new Date().toISOString(),
+    );
+    const binding = bindTaskCliCancellationSignals(() =>
+      harness.runtime.cancel(started.controlCapability),
+    );
+    t.after(() => binding.unbind());
+    assert.equal(binding.status, "bound");
+    await Promise.race([
+      controller.processes.ready(),
+      started.completion.then((result) => {
+        throw new Error(
+          `Task completed before cancellation: ${JSON.stringify(result)}`,
+        );
+      }),
+    ]);
+    binding.listener();
+    binding.listener();
+    const receipt = await binding.cancellation.observedPromise();
+    assert.deepEqual(receipt, {
+      status: "requested",
+      reason: "provider_cancellation_requested",
+      cancellationRequested: true,
+      processTerminationObserved: true,
+    });
+    const result = await started.completion;
+    controller.processes.assertAbsent();
+    assert.equal(binding.cancellation.observerCount(), 1);
+    assert.equal(controller.terminationCount(), 1);
+    assert.deepEqual(controller.projectionCounts(), [1, 1]);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, cleanupConfirmed);
+    assert.equal(result.manualRecoveryRequired, !cleanupConfirmed);
+    assert.equal(harness.candidateEffectCount(), 0);
+    assert.equal(harness.controls.size, 0);
+    assert.equal(harness.cleanupCount(), cleanupConfirmed ? 1 : 0);
+    assert.equal(fs.existsSync(harness.owned.root), !cleanupConfirmed);
+    assert.equal(result.candidateId ?? null, null);
+    if (cleanupConfirmed) {
+      assert.deepEqual(controller.events, [
+        "process-start",
+        "process-absence-observed",
+        "docker-cleanup",
+        "docker-absence",
+        "mount-complete",
+        "mount-receipt",
+        "recovery-finalizable",
+        "host-intent",
+        "host-cleanup",
+        "host-receipt",
+        "docker-finalize",
+      ]);
+      assert.equal(result.hostRecoveryId, null);
+      assert.deepEqual(result.dockerRecoveryIds, []);
+    } else {
+      assert.deepEqual(controller.events, [
+        "process-start",
+        "process-absence-observed",
+        "docker-cleanup",
+      ]);
+      assert.equal(result.hostRecoveryId, harness.hostRecoveryId);
+      assert.deepEqual(result.dockerRecoveryIds, [controller.recoveryId]);
+    }
+    await controller.assertControllerExpired();
+    assert.deepEqual(await harness.runtime.cancel(started.controlCapability), {
+      status: "blocked",
+      reason: "coordinator_task_control_invalid",
+    });
+    assert.equal(binding.unbind().status, "released");
+    assert.deepEqual(
+      [process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")],
+      before,
+    );
+  });
 }
 
 for (const scenario of [

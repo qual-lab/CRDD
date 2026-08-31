@@ -2036,8 +2036,8 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     "src/security/candidate-store-windows-adapter.ts",
     "src/security/docker-desktop-repair-native-helper.ts",
     "src/security/docker-desktop-runtime-repair.ts",
-    "src/security/docker-effect-runtime.ts",
     "src/security/docker-isolation.ts",
+    "src/security/docker-owned-process.ts",
     "src/security/docker-recovery-runtime-internal.ts",
     "src/security/provider-home-windows-adapter.ts",
   ]);

@@ -13,7 +13,7 @@
 | 移行前の正式署名E2E | 固定版に限り完了 | [0c3e6d2の結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)。4経路4/4、復旧7/7、cleanup確認済み |
 | 実務自己適用の評価 | 限定利用成立、総合的な優位は未確定 | [最新の実務1件](../90_Release/Changes/Evidence/CHG-000055_Utility_45ea2ac.md)はRuntime約111秒、親の反映・検証まで約206秒。[集約評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で人間の実作業時間、最終受入、利用量の未測定を区別する |
 | 新配置の開発E2E | 対象239件合格 | [対象・条件・限界](Verification_Results/2026-08-31_Tool_Layout_Development_E2E.md)。正式配布や実Providerの証明とは区別する |
-| 新配置の機械検証 | 最新のTypeScript全試験合格、完成確認は未完了 | Coordinator 1,425/1,425、Checker 208/208、開発E2E 239/239、型・Lint・Format成功。[最新の対象と限界](Verification_Results/2026-08-31_Tool_Layout_Verification.md#端末参照媒体と全体試験の再確認)を参照。Rust上位33成功・2 ignoredは先行する移設後の結果であり、今回の新しい実行ではない |
+| 新配置の機械検証 | 追加変更後の全体試験で失敗あり、是正中 | Coordinator 1,460件中、初回2失敗、一覧是正後1失敗。Gitローカル除外設定の間欠失敗を調査中。[現在の結果と網羅率の測定範囲](Verification_Results/2026-08-31_Coordinator_Closure_Verification.md)を参照。先行するChecker 208/208、開発E2E 239/239、Rust上位33成功・2 ignoredは今回の新しい実行ではない |
 | 配置移行差分の独立レビュー | Pass | 実装・安全性・試験は指摘0。文書・影響・準拠は初回Conditionalの3件を是正し、限定再レビューで解消・追加指摘0。Runtime全体の完成監査とは区別する |
 | 品質3文書の番号付き命名 | 限定確認Pass | 規則・公式・ひな型・参照・移行説明を同期。関連4/4試験と文書・試験の独立確認は指摘0。[対象と結果](Verification_Results/2026-08-31_Tool_Layout_Verification.md#品質文書の固定命名の是正)。移行全体の完了とは区別する |
 | 3部品の設計補完と結果表示 | 関連開発E2E 289/289、Checker 207/207成功、限定再確認完了 | [追加確認](Verification_Results/2026-08-31_Tool_Layout_Verification.md#3部品の設計補完結果表示の追加確認)。native・表示・Checker本文の限定再確認で指摘解消。旧配置移行のPassを今回差分へ自動流用していない |
@@ -23,7 +23,7 @@
 | 移行後の正式署名・実Provider E2E | 固定版45ea2acで4経路4/4・復旧7/7完了 | [対象・初回停止・是正・限界](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_45ea2ac.md)。復旧の初回環境不一致とその回収を保持し、再実行の成功と区別する。実Provider取消・是正の再実証ではない |
 | 統合・リリース | 未判断 | 必須未完了事項と残存リスクを解消または人間判断へ戻す |
 
-署名版45ea2acでは、[Claude実行／Codex確認の是正1往復](../90_Release/Changes/Evidence/CHG-000015_Remediation_45ea2ac.md)も完了した。欠陥を仕込んだ1件であり、通常実務の成功率、逆方向の実是正、実Provider取消の証明ではない。取消の結合試験に必要なProcess所有部品の内部抽出は開発中であり、変更後の実装を署名版45ea2acと同一とは扱わない。
+署名版45ea2acでは、[Claude実行／Codex確認の是正1往復](../90_Release/Changes/Evidence/CHG-000015_Remediation_45ea2ac.md)も完了し、独立再確認を通過した。欠陥を仕込んだ1件であり、通常実務の成功率、逆方向の実是正、実Provider取消の証明ではない。取消の結合試験に必要なProcess所有部品の内部抽出は関連64試験と限定独立再確認を通過したが、Task全体との接続は追加確認中。変更後の実装を署名版45ea2acと同一とは扱わない。
 
 ## 保持するリスクと追跡
 
