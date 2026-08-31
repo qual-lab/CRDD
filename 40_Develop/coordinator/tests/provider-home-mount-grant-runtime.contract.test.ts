@@ -35,6 +35,7 @@ function harness() {
   const otherManagementCapability = Object.freeze({});
   const observations = new WeakMap<object, Observation>();
   const mountSources = new WeakMap<object, string>();
+  let latestMountSourceCapability: object | null = null;
   let wallClockMs = Date.parse("2026-08-24T00:00:00.000Z");
   let monotonicMs = 10_000;
   let randomValue = 0n;
@@ -43,6 +44,7 @@ function harness() {
   function observe(overrides: Partial<Observation> = {}) {
     const capability = Object.freeze({});
     const providerHomeMountSourceCapability = Object.freeze({});
+    latestMountSourceCapability = providerHomeMountSourceCapability;
     mountSources.set(
       providerHomeMountSourceCapability,
       "C:\\Users\\selected\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\claude",
@@ -126,6 +128,10 @@ function harness() {
     },
     fail(dependency: typeof failingDependency) {
       failingDependency = dependency;
+    },
+    removeLatestMountSource() {
+      assert.ok(latestMountSourceCapability);
+      assert.equal(mountSources.delete(latestMountSourceCapability), true);
     },
   };
 }
@@ -290,6 +296,74 @@ test("issuedのままでもcontrol aliasから全aliasを失効できる", () =>
     "blocked",
   );
 });
+
+for (const failure of ["expired", "source_removed"] as const) {
+  test(`consume後activate前の${failure}はactive Mountを発行せず次のGrantを妨げない`, () => {
+    const h = harness();
+    const issued = issue(h);
+    h.advance(1);
+    const consumed = h.runtime.consume(
+      issued.useCapability,
+      h.managementCapability,
+      h.observe(),
+    );
+    assert.equal(consumed.status, "consumed");
+    assert.ok(consumed.mountAuthorizationCapability);
+    if (failure === "expired") {
+      h.advance(PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS - 1);
+    } else {
+      h.removeLatestMountSource();
+    }
+    const activated = h.runtime.activateMount(
+      consumed.mountAuthorizationCapability,
+      h.managementCapability,
+    );
+    assert.equal(activated.status, "blocked");
+    assert.equal(
+      activated.reason,
+      failure === "expired"
+        ? "provider_home_mount_activation_invalid"
+        : "provider_home_mount_source_binding_invalid",
+    );
+    assert.equal(activated.activeMountCapability, null);
+    assert.equal(activated.providerHomeMounted, false);
+    assert.equal(activated.runtimeAuthorityIssued, false);
+    assert.equal(
+      h.runtime.borrowActiveMountSource(
+        consumed.mountAuthorizationCapability,
+        h.managementCapability,
+      ),
+      null,
+    );
+    const next = issue(h);
+    h.advance(1);
+    const nextConsumed = h.runtime.consume(
+      next.useCapability,
+      h.managementCapability,
+      h.observe(),
+    );
+    assert.equal(nextConsumed.status, "consumed");
+    const nextActivated = h.runtime.activateMount(
+      nextConsumed.mountAuthorizationCapability,
+      h.managementCapability,
+    );
+    assert.equal(nextActivated.status, "activated");
+    assert.equal(
+      h.runtime.inspectActiveMount(
+        nextActivated.activeMountCapability,
+        h.managementCapability,
+      ).status,
+      "active",
+    );
+    assert.equal(
+      h.runtime.completeMount(
+        nextActivated.activeMountCapability,
+        h.managementCapability,
+      ).status,
+      "completed",
+    );
+  });
+}
 
 test("古いGrantのrevokeは同じlogical Homeの現active ownerを解除しない", () => {
   const h = harness();

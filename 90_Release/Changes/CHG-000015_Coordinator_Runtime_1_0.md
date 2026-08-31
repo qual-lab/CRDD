@@ -90,7 +90,9 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ### 完成監査後の限定是正
 
-現在は[署名版4f10201の再実測](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)で4経路・復旧・実Task取消後の通常回収を確認し、今回差分の限定独立確認済みである。以下はその前に行った是正と確認の経緯であり、旧版の失敗を後続成功へ書き換えない。Runtime全体の完成、統合、Releaseは別に残る。
+[署名版4f10201の再実測](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)では4経路・復旧・実Task取消後の通常回収を確認し、同版までの差分の限定独立確認を完了した。その後のProcess所有・終了観測の変更は開発試験と限定確認を進めており、変更後の正式署名実測は未実施である。以下の経緯では、旧版の失敗を後続成功へ書き換えない。Runtime全体の完成、統合、Releaseは別に残る。
+
+後続の未到達評価では、既存124ファイルを検証義務と根拠へ対応させ、Lock取得timeout、安定読取り、権限再確認、候補上限、検証結果の読戻し等を追加確認した。trace CLIの入力失敗時は未処理例外を固定理由・終了コードへ収束させ、機密Pathを出力しない。同じ未リリース変更で扱い、[完成確認記録](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md)へ故障仮説、試験結果、観測限界、独立確認と正式実測の残件を集約する。
 
 固定Tree `687699edb71143621e0090f15d7d9c70488b71ca`についてArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを一括確認した。新しい権限拡大や秘密漏洩の具体的欠陥は検出されなかったが、取消の本番共有処理への結合不足、実Provider是正の残余不確実性、現在の分岐網羅率記録、および現在状態の伝播漏れを残した。全結果を統合し、3担当へ是正方針を再提示して整合した。監査を終えたことだけでRuntimeを完成にしていない。
 

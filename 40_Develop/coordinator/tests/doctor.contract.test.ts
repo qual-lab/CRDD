@@ -2759,10 +2759,51 @@ test("container inspectはIdentityと全Security属性の一致を要求する",
         value.Id = "b".repeat(64);
       },
       (value) => {
+        value.Name = "/another-probe";
+      },
+      (value) => {
+        value.Config.Labels["crdd.coordinator.probe"] = "another-probe";
+      },
+      (value) => {
+        value.Config.Image = "python:latest";
+      },
+      (value) => {
+        value.Config.User = "0:0";
+      },
+      (value) => {
+        value.Config.Entrypoint = ["sh"];
+      },
+      (value) => {
+        value.Config.Cmd[0] = "-m";
+      },
+      (value) => {
+        value.Config.Cmd[1] = "print('not the fixed probe')";
+      },
+      (value) => {
         value.HostConfig.NetworkMode = "host";
       },
       (value) => {
+        value.HostConfig.ReadonlyRootfs = false;
+      },
+      (value) => {
         value.HostConfig.Privileged = true;
+      },
+      (value) => {
+        value.HostConfig.PidsLimit = 65;
+      },
+      (value) => {
+        value.HostConfig.CapDrop = [];
+      },
+      (value) => {
+        Reflect.set(value.HostConfig, "CapAdd", ["SYS_ADMIN"]);
+      },
+      (value) => {
+        Reflect.set(value.HostConfig, "Devices", [
+          { PathOnHost: "/dev/host-device" },
+        ]);
+      },
+      (value) => {
+        value.HostConfig.SecurityOpt = [];
       },
       (value) => {
         value.Mounts.push({
@@ -2771,6 +2812,23 @@ test("container inspectはIdentityと全Security属性の一致を要求する",
           Destination: "/extra",
           RW: true,
         });
+      },
+      (value) => {
+        assert.ok(value.Mounts[0]);
+        value.Mounts[0].Type = "volume";
+      },
+      (value) => {
+        assert.ok(value.Mounts[0]);
+        value.Mounts[0].Source = directories.providerHome;
+      },
+      (value) => {
+        assert.ok(value.Mounts[0]);
+        value.Mounts[0].RW = false;
+      },
+      (value) => {
+        assert.ok(value.Mounts[0]);
+        assert.ok(value.Mounts[1]);
+        value.Mounts[0].Destination = value.Mounts[1].Destination;
       },
     ];
     for (const mutate of mutations) {

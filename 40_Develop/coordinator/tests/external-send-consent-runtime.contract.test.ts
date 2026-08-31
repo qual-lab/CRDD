@@ -99,6 +99,16 @@ function isolated() {
   let lockAvailable = true;
   let rootAvailable = true;
   let nonce = 0;
+  let isLockHeld = false;
+  let releaseCount = 0;
+  let shouldThrowOnRelease = false;
+  let reobservationFault:
+    | "identity"
+    | "protection"
+    | "user"
+    | "unavailable"
+    | "throw"
+    | null = null;
   const initialRoot = Object.freeze({
     rootPath,
     runtimeStateIdentityHash: "1".repeat(64),
@@ -108,9 +118,33 @@ function isolated() {
   });
   let currentRoot = initialRoot;
   const runtime = createIsolatedExternalSendConsentRuntimeCandidate({
-    observeRoot: () => (rootAvailable ? currentRoot : null),
-    acquireLock: () =>
-      lockAvailable ? Object.freeze({ release: () => isReleaseWorks }) : null,
+    observeRoot: () => {
+      if (!rootAvailable) return null;
+      if (!isLockHeld || reobservationFault === null) return currentRoot;
+      if (reobservationFault === "throw")
+        throw new Error("fixture_observation");
+      if (reobservationFault === "unavailable") return null;
+      return Object.freeze({
+        ...currentRoot,
+        ...(reobservationFault === "identity"
+          ? { runtimeStateIdentityHash: "5".repeat(64) }
+          : reobservationFault === "protection"
+            ? { runtimeStateProtectionHash: "6".repeat(64) }
+            : { localUserBindingHash: "7".repeat(64) }),
+      });
+    },
+    acquireLock: () => {
+      if (!lockAvailable) return null;
+      isLockHeld = true;
+      return Object.freeze({
+        release: () => {
+          releaseCount += 1;
+          isLockHeld = false;
+          if (shouldThrowOnRelease) throw new Error("fixture_release");
+          return isReleaseWorks;
+        },
+      });
+    },
     now: () => now,
     nonce: () => (++nonce).toString(16).padStart(16, "0"),
   } as unknown as Parameters<
@@ -147,6 +181,13 @@ function isolated() {
     failRelease: () => {
       isReleaseWorks = false;
     },
+    failReobservation: (fault: NonNullable<typeof reobservationFault>) => {
+      reobservationFault = fault;
+    },
+    throwOnRelease: () => {
+      shouldThrowOnRelease = true;
+    },
+    readReleaseCount: () => releaseCount,
   });
 }
 
@@ -299,3 +340,64 @@ test("lock競合とrelease失敗はAuthorityを発行せずrecovery requiredに�
     fs.rmSync(release.rootPath, { recursive: true, force: true });
   }
 });
+
+for (const operation of ["resolve", "persist", "revoke"] as const) {
+  for (const fault of [
+    "identity",
+    "protection",
+    "user",
+    "unavailable",
+    "throw",
+  ] as const) {
+    test(`${operation}: lock取得後のRoot再観測${fault}は既存同意を変更せず回復要求へ閉じる`, () => {
+      const fixture = isolated();
+      try {
+        assert.equal(fixture.runtime.persist(policy()).status, "confirmed");
+        const entries = fs.readdirSync(fixture.rootPath).sort();
+        const contents = entries.map((entry) =>
+          fs.readFileSync(path.join(fixture.rootPath, entry)),
+        );
+        const releasesBefore = fixture.readReleaseCount();
+        fixture.failReobservation(fault);
+        const result =
+          operation === "revoke"
+            ? fixture.runtime.revoke()
+            : fixture.runtime[operation](policy());
+        assert.equal(result.status, "recovery_required");
+        assert.equal(fixture.readReleaseCount(), releasesBefore + 1);
+        assert.deepEqual(fs.readdirSync(fixture.rootPath).sort(), entries);
+        assert.deepEqual(
+          entries.map((entry) =>
+            fs.readFileSync(path.join(fixture.rootPath, entry)),
+          ),
+          contents,
+        );
+      } finally {
+        fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+      }
+    });
+  }
+
+  test(`${operation}: release例外を同意確認または取消完了へ昇格しない`, () => {
+    const fixture = isolated();
+    try {
+      assert.equal(fixture.runtime.persist(policy()).status, "confirmed");
+      const releasesBefore = fixture.readReleaseCount();
+      fixture.throwOnRelease();
+      const result =
+        operation === "revoke"
+          ? fixture.runtime.revoke()
+          : fixture.runtime[operation](policy());
+      assert.equal(result.status, "recovery_required");
+      assert.equal(fixture.readReleaseCount(), releasesBefore + 1);
+      // The operation may already have changed the pair; release failure is
+      // not evidence that it never executed or that cleanup was confirmed.
+      assert.equal(
+        fs.readdirSync(fixture.rootPath).length,
+        operation === "revoke" ? 0 : 2,
+      );
+    } finally {
+      fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+    }
+  });
+}

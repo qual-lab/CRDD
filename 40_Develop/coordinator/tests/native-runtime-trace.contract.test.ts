@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
+import { createWindowsHostOperationSupervisorEnvironment } from "../src/core/windows-child-environment.ts";
 import { inspectNativeRuntimeTrace } from "../src/security/native-runtime-trace.ts";
 
 const OPTIONS = Object.freeze({
@@ -189,4 +193,112 @@ test("重複Image Loadを同一Pathへ畳み、大小文字差を同じSystem32�
   );
   assert.equal(result.status, "accepted");
   if (result.status === "accepted") assert.equal(result.target.moduleCount, 2);
+});
+
+test("trace確認CLIは実ファイル搬送・引数・読取り拒否を終了コードへ接続する", {
+  skip: process.platform !== "win32",
+}, () => {
+  const environment = createWindowsHostOperationSupervisorEnvironment();
+  assert.ok(environment);
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const parent = path.join(repositoryRoot, ".crdd", "test-tmp");
+  fs.mkdirSync(parent, { recursive: true });
+  assert.equal(fs.realpathSync.native(parent), parent);
+  assert.equal(fs.lstatSync(parent).isSymbolicLink(), false);
+  const root = fs.mkdtempSync(path.join(parent, "native-trace-cli-"));
+  const identity = fs.lstatSync(root, { bigint: true });
+  const events = path.join(root, "events.txt");
+  const statistics = path.join(root, "statistics.txt");
+  const script = path.join(
+    repositoryRoot,
+    "40_Develop/coordinator/scripts/check-native-runtime-trace.ts",
+  );
+  const argumentsValues = [
+    "--events",
+    events,
+    "--trace-stats",
+    statistics,
+    "--target-process",
+    OPTIONS.targetProcessName,
+    "--control-process",
+    OPTIONS.networkControlProcessName,
+    "--expected-image",
+    OPTIONS.expectedTargetImage,
+    "--system32",
+    OPTIONS.windowsSystem32Directory,
+  ];
+  const invokeCli = (args: string[]) => {
+    const result = spawnSync(process.execPath, [script, ...args], {
+      cwd: root,
+      env: { ...environment, TEMP: root, TMP: root },
+      shell: false,
+      windowsHide: true,
+      encoding: "utf8",
+      timeout: 10_000,
+      maxBuffer: 1024 * 1024,
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.signal, null);
+    return result;
+  };
+  try {
+    fs.writeFileSync(events, trace([]));
+    fs.writeFileSync(statistics, traceStatistics());
+    const accepted = invokeCli(argumentsValues);
+    assert.equal(accepted.status, 0, accepted.stderr);
+    assert.deepEqual(
+      JSON.parse(accepted.stdout),
+      inspectNativeRuntimeTrace(trace([]), traceStatistics(), OPTIONS),
+    );
+    fs.writeFileSync(statistics, traceStatistics(1));
+    const blocked = invokeCli(argumentsValues);
+    assert.equal(blocked.status, 2);
+    assert.deepEqual(JSON.parse(blocked.stdout), {
+      status: "blocked",
+      reason: "trace_events_lost",
+    });
+    fs.writeFileSync(statistics, traceStatistics());
+    for (const args of [
+      [],
+      [...argumentsValues.slice(0, -2), "--events", events],
+      ["--unknown", events, ...argumentsValues.slice(2)],
+      ["--events", "events.txt", ...argumentsValues.slice(2)],
+      ["--events", "", ...argumentsValues.slice(2)],
+    ]) {
+      const result = invokeCli(args);
+      assert.equal(result.status, 1, result.stderr);
+      assert.equal(result.stdout, "");
+      assert.equal(result.stderr, "native_runtime_trace_arguments_invalid\n");
+    }
+    for (const eventPath of [path.join(root, "missing.txt"), root]) {
+      const result = invokeCli([
+        "--events",
+        eventPath,
+        ...argumentsValues.slice(2),
+      ]);
+      assert.equal(result.status, 1);
+      assert.equal(result.stdout, "");
+      assert.match(
+        result.stderr,
+        /^(?:native_runtime_trace_file_unavailable|native_runtime_trace_events_not_regular_file)\n$/u,
+      );
+    }
+    for (const content of ["", "x".repeat(1024 * 1024 + 1)]) {
+      fs.writeFileSync(statistics, content);
+      const result = invokeCli(argumentsValues);
+      assert.equal(result.status, 1);
+      assert.equal(result.stdout, "");
+      assert.equal(result.stderr, "native_runtime_trace_events_size_invalid\n");
+    }
+  } finally {
+    assert.equal(path.dirname(root), parent);
+    assert.equal(fs.realpathSync.native(root), root);
+    const current = fs.lstatSync(root, { bigint: true });
+    assert.equal(current.isSymbolicLink(), false);
+    assert.equal(current.dev, identity.dev);
+    assert.equal(current.ino, identity.ino);
+    assert.equal(current.birthtimeNs, identity.birthtimeNs);
+    fs.rmSync(root, { recursive: true });
+    assert.equal(fs.existsSync(root), false);
+  }
 });

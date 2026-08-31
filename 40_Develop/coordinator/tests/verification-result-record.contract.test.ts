@@ -312,6 +312,113 @@ test("実行成功後の保存衝突・directory置換は上書きせず、実�
   assert.equal(fs.existsSync(resultPath(other, replaced.recordId)), false);
 });
 
+test("終了記録の短読・読戻し差・file同定差は実行結果を保持して保存失敗にする", async (t) => {
+  for (const mutation of ["short_read", "readback_bytes", "file_identity"]) {
+    const root = fixture(t);
+    const openSync = fs.openSync;
+    const readSync = fs.readSync;
+    const lstatSync = fs.lstatSync;
+    const closeSync = fs.closeSync;
+    let resultDescriptor: number | null = null;
+    let injectionCalls = 0;
+    let closeCalls = 0;
+    let startedBytes: Buffer | null = null;
+    let restoreMocks = () => {};
+    let outcome: Awaited<ReturnType<typeof runRecordedVerification>>;
+    try {
+      outcome = await runRecordedVerification(
+        "routes",
+        root,
+        async () => {
+          const id = fs.readdirSync(store(root))[0];
+          assert.ok(id);
+          startedBytes = fs.readFileSync(
+            path.join(store(root), id, "started.json"),
+          );
+          const openMock = t.mock.method(
+            fs,
+            "openSync",
+            (...args: Parameters<typeof fs.openSync>) => {
+              const descriptor = openSync(...args);
+              if (args[0] === path.join(store(root), id, "result.json"))
+                resultDescriptor = descriptor;
+              return descriptor;
+            },
+          );
+          const readMock = t.mock.method(
+            fs,
+            "readSync",
+            (...readArguments: unknown[]) => {
+              if (
+                readArguments[0] !== resultDescriptor ||
+                mutation === "file_identity"
+              )
+                return Reflect.apply(readSync, fs, readArguments) as number;
+              injectionCalls += 1;
+              if (mutation === "short_read") return 0;
+              const count = Reflect.apply(
+                readSync,
+                fs,
+                readArguments,
+              ) as number;
+              const buffer = readArguments[1];
+              assert.ok(Buffer.isBuffer(buffer));
+              assert.ok(count > 0);
+              buffer[0] = (buffer[0] ?? 0) ^ 1;
+              return count;
+            },
+          );
+          const statMock = t.mock.method(
+            fs,
+            "lstatSync",
+            (...statArguments: unknown[]) => {
+              const stats = Reflect.apply(lstatSync, fs, statArguments);
+              if (
+                mutation === "file_identity" &&
+                statArguments[0] === path.join(store(root), id, "result.json")
+              ) {
+                injectionCalls += 1;
+                Object.defineProperty(stats, "ino", { value: stats.ino + 1n });
+              }
+              return stats;
+            },
+          );
+          const closeMock = t.mock.method(
+            fs,
+            "closeSync",
+            (descriptor: number) => {
+              if (descriptor === resultDescriptor) closeCalls += 1;
+              return closeSync(descriptor);
+            },
+          );
+          restoreMocks = () => {
+            openMock.mock.restore();
+            readMock.mock.restore();
+            statMock.mock.restore();
+            closeMock.mock.restore();
+          };
+          return SUCCESS;
+        },
+        failure,
+      );
+    } finally {
+      restoreMocks();
+    }
+    assert.equal(injectionCalls, 1, mutation);
+    assert.equal(closeCalls, 1, mutation);
+    assert.equal(outcome.recordingOutcome, "finish_failed");
+    assert.equal(outcome.executionOutcome, "returned");
+    assert.equal(outcome.result, SUCCESS);
+    assert.equal(outcome.exitCode, 2);
+    const directory = path.dirname(resultPath(root, outcome.recordId));
+    assert.equal(fs.existsSync(path.join(directory, "complete.json")), false);
+    assert.deepEqual(
+      fs.readFileSync(path.join(directory, "started.json")),
+      startedBytes,
+    );
+  }
+});
+
 test("同時runは別UUIDへ保存し、容量に異物・未完了記録も数える", async (t) => {
   const root = fixture(t);
   const outcomes = await Promise.all(

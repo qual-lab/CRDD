@@ -74,6 +74,20 @@ Git CLIは開発試験の生成・検査に限って使用し、本番readerの�
 
 [Lock契約試験](../40_Develop/coordinator/tests/candidate-store-kernel-lock.contract.test.ts)では、公開入力の拒否をfactory非呼出しまで確認し、Supervisorの各段階の送信例外と失敗通知listenerの例外を、既存の非同期喪失・回収確認／不明とは別条件として照合する。内部例外を捕捉したことだけでなく、権限非発行、単一finalizer、後続observerへの通知および公開結果を確認する。Windows測定で未到達の非Windows分岐、到達不能候補、未確認の競合は別評価とし、試験追加だけで全分岐を評価済みにしない。
 
+### 読取りと権限再確認の境界
+
+入力時の拒否と、取得・利用の間に前提が変わった場合を分ける。以下の故障注入は対象Pathまたは取得済みdescriptorに限定し、注入が実際に届いたこと、後始末、および正常な対照を確認する。OS上で自然発生した競合の実測や未知Secretの不存在証明には読み替えない。
+
+| 境界 | 確認方法と終了後条件 |
+|---|---|
+| 署名情報・配布物の安定読取り | manifest-loaderとrelease-identityの契約試験で、短読取り、open後の実体差、読取り後の変更、Path側の実体差を別々に注入。候補hash／権限の非発行、対象descriptorのclose、元byte保持、注入解除後の正常読取りを確認 |
+| 初回同意の取得・保存・取消 | consent-runtimeの契約試験でLock後の主体・保護・実体の再観測失敗と解放例外を各操作へ接続。再観測失敗前の記録不変と、変更済みだが解放不明な場合を区別 |
+| Provider権限の発行・消費とMount有効化 | provider-authority-runtimeの契約試験で再検証拒否と5種類のbinding差を発行前／消費前に注入。権限非発行・消費拒否・元Capability再利用不可を確認。provider-home-mount-grant-runtimeではconsume後の期限到達／Source失効を有効化前に作り、active権限非発行と次Grantの正常利用を確認 |
+| 結果記録のread-back | verification-result-recordの契約試験で短読取り・内容差・Path実体差を注入。対象close、開始記録の保持、完了記録の非発行、保存失敗の公開結果を確認 |
+| 実行後の候補Filesystem | workspaceの公開captureで階層・単一file容量・junctionの拒否を確認。元Repositoryのbyteとworkspace Identityを保持。他の総量上限・全OSの競合は別評価 |
+| 隔離設定 | doctorの契約試験で実行Image、User、起動内容、権限、Mount等の成立軸を独立に崩し拒否を確認。危険なDocker設定を実環境へ適用する試験とは分離 |
+| trace検査CLI | native-runtime-traceの契約試験で実子Processへ合成traceを渡し、受理0・検査不成立2・引数／読取り拒否1を確認。後者はstdoutを空にし、stderrは固定理由だけでPath・stackを出さない。合成入力の試験をETW収集や通信非発火の実測へ拡張しない |
+
 ### Docker CLIの結果と終了観測
 
 [設計上の所有契約](../06_Architecture/coordinator/01_Architecture.md#docker-cliの結果と子プロセスの所有)を、[子プロセス結合試験](../40_Develop/coordinator/tests/docker-owned-process.integration.test.ts)と[Docker操作の契約試験](../40_Develop/coordinator/tests/docker-effect-runtime.contract.test.ts)へ接続する。

@@ -18,6 +18,14 @@ function createFixture() {
   let bundleRevision = 1;
   let mountIsActive = true;
   let sourceIsAvailable = true;
+  let reverifyFault:
+    | "blocked"
+    | "provider"
+    | "profileId"
+    | "operationId"
+    | "scopeId"
+    | "providerHomeMountGrantRef"
+    | null = null;
   const runtime = createIsolatedProviderAuthorityRuntimeCandidate({
     verifyOperation: (capability: unknown) => {
       assert.equal(capability, managementCapability);
@@ -54,6 +62,14 @@ function createFixture() {
         : null;
     },
     reverify: (_profile: unknown, bundle: unknown, context: unknown) => {
+      if (reverifyFault === "blocked") {
+        return Object.freeze({
+          status: "blocked",
+          reason: "fixture_reverification_rejected",
+          verification: null,
+          runtimeCapabilityIssued: false,
+        });
+      }
       const bundleRecord = bundle as { bundleRevision: number };
       const contextRecord = context as Record<string, string>;
       return Object.freeze({
@@ -83,6 +99,20 @@ function createFixture() {
           evaluatedAt: "2026-08-24T00:00:00.000Z",
           validUntil: "2026-08-25T00:00:00.000Z",
           prelaunchCheckedAt: "2026-08-24T00:00:00.000Z",
+          ...(reverifyFault === null
+            ? {}
+            : {
+                [reverifyFault]:
+                  reverifyFault === "provider"
+                    ? "codex"
+                    : reverifyFault === "profileId"
+                      ? "PROFILE-654321"
+                      : reverifyFault === "operationId"
+                        ? "OP-654321"
+                        : reverifyFault === "scopeId"
+                          ? "SCOPE-654321"
+                          : "PHMGRANT-654321",
+              }),
         }),
         runtimeCapabilityIssued: false,
       });
@@ -113,6 +143,9 @@ function createFixture() {
     },
     removeSource: () => {
       sourceIsAvailable = false;
+    },
+    setReverifyFault: (fault: typeof reverifyFault) => {
+      reverifyFault = fault;
     },
   });
 }
@@ -151,6 +184,68 @@ test("active MountとAuthority identityを5秒一回限りCapabilityへ結合す
     null,
   );
 });
+
+for (const fault of [
+  "blocked",
+  "provider",
+  "profileId",
+  "operationId",
+  "scopeId",
+  "providerHomeMountGrantRef",
+] as const) {
+  test(`発行時のreverify ${fault}をAuthority Capabilityへ昇格しない`, () => {
+    const fixture = createFixture();
+    fixture.setReverifyFault(fault);
+    const result = fixture.runtime.issue(
+      fixture.managementCapability,
+      fixture.activeMountCapability,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "provider_authority_prelaunch_verification_invalid",
+    );
+    assert.equal(result.controlCapability, null);
+    assert.equal(result.useCapability, null);
+    assert.equal(result.authorityRecordId, null);
+    assert.equal(result.runtimeAuthorityIssued, false);
+    assert.equal(result.providerEffectAllowed, false);
+  });
+
+  test(`消費時のreverify ${fault}は元Capabilityを失効して再利用させない`, () => {
+    const fixture = createFixture();
+    const issued = fixture.runtime.issue(
+      fixture.managementCapability,
+      fixture.activeMountCapability,
+    );
+    assert.equal(issued.status, "issued");
+    fixture.setReverifyFault(fault);
+    assert.equal(
+      fixture.runtime.consume(
+        issued.useCapability,
+        fixture.activeMountCapability,
+        fixture.managementCapability,
+      ),
+      null,
+    );
+    fixture.setReverifyFault(null);
+    assert.equal(
+      fixture.runtime.consume(
+        issued.useCapability,
+        fixture.activeMountCapability,
+        fixture.managementCapability,
+      ),
+      null,
+    );
+    assert.equal(
+      fixture.runtime.revoke(
+        issued.controlCapability,
+        fixture.managementCapability,
+      ).reason,
+      "provider_authority_control_invalid",
+    );
+  });
+}
 
 test("consume直前のBundle差とMount失効をAuthorityへ流用しない", () => {
   const changed = createFixture();

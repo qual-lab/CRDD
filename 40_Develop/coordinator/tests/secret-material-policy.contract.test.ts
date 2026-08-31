@@ -177,6 +177,39 @@ test("固定形式Secretと名前付き実値を検出し明示placeholderを誤
   );
 });
 
+test("引用符とescapeを跨いでも既知SecretとSource参照を分離する", () => {
+  const prefixes = [
+    "const note = 'ordinary';\n",
+    `${String.raw`const note = 'it\'s ordinary';`}\n`,
+    `${String.raw`const note = "an escaped \" quote";`}\n`,
+    `${String.raw`const note = '\\';`}\n`,
+  ];
+  for (const prefix of prefixes) {
+    assert.equal(
+      containsRecognizedSecretMaterial(
+        "src/auth.ts",
+        `${prefix}password=resolvedPassword2;`,
+      ),
+      false,
+    );
+    assert.equal(
+      containsRecognizedSecretMaterial(
+        "src/auth.ts",
+        `${prefix}password='Password123!';`,
+      ),
+      true,
+    );
+  }
+  for (const source of [
+    "const note = 'password=Password123!';",
+    String.raw`const note = 'it\'s password=Password123!';`,
+    String.raw`const note = "escaped \" password=Password123!";`,
+    "const note = 'password=Password123!",
+  ]) {
+    assert.equal(containsRecognizedSecretMaterial("src/auth.ts", source), true);
+  }
+});
+
 test("秘密用Pathを拒否し公開用env例と通常Sourceを許可する", () => {
   assert.equal(isRecognizedSecretBearingPath(".env"), true);
   assert.equal(isRecognizedSecretBearingPath("config/.env.production"), true);

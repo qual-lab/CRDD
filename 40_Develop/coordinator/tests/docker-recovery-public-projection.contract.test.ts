@@ -177,3 +177,41 @@ test("malformed、accessor、Proxyは値を読まずRecovery requiredへ閉じ�
     });
   }
 });
+
+test("RecoveryのHome hash配列不正はID配列が正しくても拒否しgetterを呼ばない", () => {
+  let getterCalls = 0;
+  const accessorHashes = ["1".repeat(64)];
+  Object.defineProperty(accessorHashes, "0", {
+    get: () => {
+      getterCalls += 1;
+      return "1".repeat(64);
+    },
+  });
+  for (const hashes of [
+    null,
+    {},
+    "1".repeat(64),
+    ["not-hex"],
+    accessorHashes,
+  ]) {
+    assert.deepEqual(
+      projectDockerRecoveryAdmission(
+        observation({
+          reason: "docker_task_recovery_inventory_available",
+          manualRecoveryRequired: true,
+          dockerRecoveryId: one,
+          dockerRecoveryIds: [one],
+          activeStableLogicalHomeBindingHashes: hashes,
+        }),
+      ),
+      {
+        status: "blocked",
+        reason: "docker_process_controller_recovery_unavailable",
+        manualRecoveryRequired: true,
+        dockerRecoveryId: null,
+        dockerRecoveryIds: [],
+      },
+    );
+  }
+  assert.equal(getterCalls, 0);
+});

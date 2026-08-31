@@ -40,36 +40,54 @@ function readRegularTraceFile(tracePath: string, maximumBytes: number): string {
   return fs.readFileSync(resolvedPath, "utf8");
 }
 
-const values = parseCliArguments(process.argv.slice(2));
-if (!values) throw new Error("native_runtime_trace_arguments_invalid");
-const eventsPath = values.get("--events");
-const traceStatisticsPath = values.get("--trace-stats");
-const targetProcessName = values.get("--target-process");
-const networkControlProcessName = values.get("--control-process");
-const expectedTargetImage = values.get("--expected-image");
-const windowsSystem32Directory = values.get("--system32");
-if (
-  !eventsPath ||
-  !traceStatisticsPath ||
-  !targetProcessName ||
-  !networkControlProcessName ||
-  !expectedTargetImage ||
-  !windowsSystem32Directory ||
-  !path.isAbsolute(eventsPath) ||
-  !path.isAbsolute(traceStatisticsPath)
-) {
-  throw new Error("native_runtime_trace_arguments_invalid");
+function verifyNativeTraceFromArguments() {
+  const values = parseCliArguments(process.argv.slice(2));
+  if (!values) throw new Error("native_runtime_trace_arguments_invalid");
+  const eventsPath = values.get("--events");
+  const traceStatisticsPath = values.get("--trace-stats");
+  const targetProcessName = values.get("--target-process");
+  const networkControlProcessName = values.get("--control-process");
+  const expectedTargetImage = values.get("--expected-image");
+  const windowsSystem32Directory = values.get("--system32");
+  if (
+    !eventsPath ||
+    !traceStatisticsPath ||
+    !targetProcessName ||
+    !networkControlProcessName ||
+    !expectedTargetImage ||
+    !windowsSystem32Directory ||
+    !path.isAbsolute(eventsPath) ||
+    !path.isAbsolute(traceStatisticsPath)
+  ) {
+    throw new Error("native_runtime_trace_arguments_invalid");
+  }
+
+  const result = inspectNativeRuntimeTrace(
+    readRegularTraceFile(eventsPath, MAXIMUM_EVENT_BYTES),
+    readRegularTraceFile(traceStatisticsPath, MAXIMUM_STATISTICS_BYTES),
+    {
+      targetProcessName,
+      networkControlProcessName,
+      expectedTargetImage,
+      windowsSystem32Directory,
+    },
+  );
+  process.stdout.write(`${JSON.stringify(result)}\n`);
+  if (result.status !== "accepted") process.exitCode = 2;
 }
 
-const result = inspectNativeRuntimeTrace(
-  readRegularTraceFile(eventsPath, MAXIMUM_EVENT_BYTES),
-  readRegularTraceFile(traceStatisticsPath, MAXIMUM_STATISTICS_BYTES),
-  {
-    targetProcessName,
-    networkControlProcessName,
-    expectedTargetImage,
-    windowsSystem32Directory,
-  },
-);
-process.stdout.write(`${JSON.stringify(result)}\n`);
-if (result.status !== "accepted") process.exitCode = 2;
+try {
+  verifyNativeTraceFromArguments();
+} catch (error) {
+  const knownReasons = [
+    "native_runtime_trace_arguments_invalid",
+    "native_runtime_trace_events_not_regular_file",
+    "native_runtime_trace_events_size_invalid",
+  ];
+  const reason =
+    error instanceof Error && knownReasons.includes(error.message)
+      ? error.message
+      : "native_runtime_trace_file_unavailable";
+  process.stderr.write(`${reason}\n`);
+  process.exitCode = 1;
+}

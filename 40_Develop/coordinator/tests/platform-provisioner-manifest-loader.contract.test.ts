@@ -98,3 +98,127 @@ test("非canonical JSON、BOM、相対Rootおよび欠落manifestを拒否する
     fs.rmSync(emptyRoot, { recursive: true, force: true });
   }
 });
+test("manifestの読込競合はHashと権限を発行せず対象descriptorを閉じる", (t) => {
+  for (const failure of [
+    "short-read",
+    "opened-identity",
+    "after-mtime",
+    "path-identity",
+  ] as const) {
+    const canonical = canonicalizeProvisioningJsonValueCandidate(
+      fixtureEnvelope(),
+    );
+    assert.equal(canonical.status, "candidate");
+    if (canonical.status !== "candidate") return;
+    withDistribution(canonical.canonicalBytes, (root) => {
+      const target = path.join(
+        root,
+        "90_Release",
+        "coordinator-package-manifest.json",
+      );
+      const bytes = fs.readFileSync(target);
+      const inspect = () =>
+        inspectPlatformProvisionerManifestFileCandidate(root);
+      assert.equal(inspect().status, "candidate");
+      const originalOpen = fs.openSync;
+      const originalRead = fs.readSync;
+      const originalStat = fs.fstatSync;
+      const originalLstat = fs.lstatSync;
+      const originalClose = fs.closeSync;
+      let targetDescriptor: number | null = null;
+      let openCount = 0;
+      let closeCount = 0;
+      let statCount = 0;
+      let readCount = 0;
+      let mutationCount = 0;
+      try {
+        t.mock.method(fs, "openSync", ((
+          ...args: Parameters<typeof fs.openSync>
+        ) => {
+          const descriptor = Reflect.apply(originalOpen, fs, args);
+          if (args[0] === target) {
+            targetDescriptor = descriptor;
+            openCount += 1;
+          }
+          return descriptor;
+        }) as typeof fs.openSync);
+        t.mock.method(fs, "readSync", ((
+          ...args: Parameters<typeof fs.readSync>
+        ) => {
+          if (args[0] === targetDescriptor) {
+            readCount += 1;
+            if (failure === "short-read") {
+              mutationCount += 1;
+              return 0;
+            }
+          }
+          return Reflect.apply(originalRead, fs, args);
+        }) as typeof fs.readSync);
+        t.mock.method(fs, "fstatSync", ((
+          ...args: Parameters<typeof fs.fstatSync>
+        ) => {
+          const metadata = Reflect.apply(
+            originalStat,
+            fs,
+            args,
+          ) as fs.BigIntStats;
+          if (args[0] === targetDescriptor) {
+            statCount += 1;
+            if (failure === "opened-identity" && statCount === 1) {
+              mutationCount += 1;
+              return { ...metadata, ino: metadata.ino + 1n };
+            }
+            if (failure === "after-mtime" && statCount === 2) {
+              mutationCount += 1;
+              return { ...metadata, mtimeNs: metadata.mtimeNs + 1n };
+            }
+          }
+          return metadata;
+        }) as typeof fs.fstatSync);
+        t.mock.method(fs, "lstatSync", ((
+          ...args: Parameters<typeof fs.lstatSync>
+        ) => {
+          const metadata = Reflect.apply(
+            originalLstat,
+            fs,
+            args,
+          ) as fs.BigIntStats;
+          if (
+            args[0] === target &&
+            targetDescriptor !== null &&
+            statCount === 2 &&
+            failure === "path-identity"
+          ) {
+            mutationCount += 1;
+            return { ...metadata, ino: metadata.ino + 1n };
+          }
+          return metadata;
+        }) as typeof fs.lstatSync);
+        t.mock.method(fs, "closeSync", ((descriptor: number) => {
+          if (descriptor === targetDescriptor) closeCount += 1;
+          originalClose(descriptor);
+        }) as typeof fs.closeSync);
+        const result = inspect();
+        assert.equal(result.status, "blocked", failure);
+        assert.equal(
+          result.reason,
+          "platform_provisioner_manifest_file_invalid",
+        );
+        assert.equal(result.manifestFileSha256, null);
+        assert.equal(result.runtimeAuthorityConferred, false);
+        assert.equal(result.runtimeCapabilityIssued, false);
+        assert.equal(result.filesystemEffectIssued, false);
+        assert.equal(result.networkEffectIssued, false);
+        assert.equal(openCount, 1);
+        assert.equal(closeCount, 1);
+        assert.equal(mutationCount, 1);
+        assert.equal(statCount, failure === "opened-identity" ? 1 : 2);
+        assert.equal(readCount, failure === "opened-identity" ? 0 : 1);
+      } finally {
+        t.mock.restoreAll();
+      }
+      assert.deepEqual(fs.readFileSync(target), bytes);
+      assert.equal(inspect().status, "candidate");
+    });
+  }
+});

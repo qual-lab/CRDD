@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { createHash, randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import { EventEmitter, once } from "node:events";
 import { createServer } from "node:net";
 import path from "node:path";
@@ -8,12 +8,14 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  acquireInteractiveConsoleKernelLockOutcomeUsingFactory,
   acquireHostOperationSupervisorLockUsingFactory,
+  acquireInteractiveConsoleKernelLockOutcomeUsingFactory,
   acquireRuntimeOwnedCandidateStoreKernelLock,
+  acquireRuntimeOwnedDockerRuntimeStateKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedHostOperationSupervisorLock,
   acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome,
+  acquireRuntimeOwnedLogicalProviderHomeKernelLock,
   describeCandidateStoreKernelLockContract,
 } from "../src/security/candidate-store-kernel-lock.ts";
 
@@ -357,6 +359,444 @@ test("固定Supervisor: 失敗listenerの例外は他の通知・終了・失効
   assert.deepEqual(child.eventNames(), []);
   child.emit("message", { status: "ready" });
   assert.deepEqual(notifications, ["throwing", "following"]);
+});
+
+test("追加境界: 公開lock入口は不正bindingを非取得にする", () => {
+  for (const invalid of [null, 42, "", "a".repeat(63), "A".repeat(64)]) {
+    assert.equal(
+      acquireRuntimeOwnedLogicalProviderHomeKernelLock(invalid),
+      null,
+    );
+    assert.equal(
+      acquireRuntimeOwnedDockerRuntimeStateKernelLock(invalid),
+      null,
+    );
+    assert.equal(
+      acquireRuntimeOwnedHostOperationKernelLock(invalid, "a".repeat(32)),
+      null,
+    );
+  }
+});
+
+test("追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換しない", {
+  skip: process.platform !== "win32",
+}, async (t) => {
+  const keepAlive = setInterval(() => undefined, 5_000);
+  t.after(() => clearInterval(keepAlive));
+  assert.deepEqual(
+    await acquireInteractiveConsoleKernelLockOutcomeUsingFactory(() => {
+      throw new Error("fixture_factory_failed");
+    }),
+    { status: "cleanup_unknown", lock: null },
+  );
+  for (const scenario of [
+    "post-throw",
+    "wrong-state",
+    "error-exit",
+    "termination-reject",
+    "late-termination",
+    "normal",
+  ] as const) {
+    const worker = new EventEmitter();
+    let terminationCount = 0;
+    let postCount = 0;
+    let resolveLate!: () => void;
+    const lateCompleted = new Promise<void>((resolve) => {
+      resolveLate = resolve;
+    });
+    const outcome =
+      await acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
+        (_pipeName, sharedState) => {
+          const state = new Int32Array(sharedState);
+          Atomics.store(
+            state,
+            0,
+            scenario === "termination-reject" || scenario === "late-termination"
+              ? -1
+              : 1,
+          );
+          return {
+            unref: () => undefined,
+            once: (event, listener) => worker.once(event, listener),
+            postMessage: () => {
+              postCount += 1;
+              if (scenario === "post-throw")
+                throw new Error("fixture_post_failed");
+              Atomics.store(state, 0, scenario === "wrong-state" ? 3 : 2);
+              queueMicrotask(() => {
+                if (scenario === "error-exit")
+                  worker.emit("error", new Error("fixture_worker_error"));
+                worker.emit("exit", 0);
+              });
+            },
+            terminate: () => {
+              terminationCount += 1;
+              if (scenario === "late-termination")
+                return new Promise<number>((resolve) =>
+                  setTimeout(() => {
+                    resolve(0);
+                    worker.emit("exit", 0);
+                    resolveLate();
+                  }, 1_100),
+                );
+              queueMicrotask(() => worker.emit("exit", 0));
+              return scenario === "termination-reject"
+                ? Promise.reject(new Error("fixture_termination_rejected"))
+                : Promise.resolve(0);
+            },
+          };
+        },
+      );
+    if (scenario === "termination-reject" || scenario === "late-termination") {
+      assert.deepEqual(outcome, { status: "cleanup_unknown", lock: null });
+      assert.equal(terminationCount, 1);
+      assert.equal(postCount, 0);
+      if (scenario === "late-termination") await lateCompleted;
+    } else {
+      assert.equal(outcome.status, "acquired");
+      assert.ok(outcome.lock);
+      assert.equal(
+        await outcome.lock.release(),
+        scenario === "normal" ? "released" : "cleanup_unknown",
+      );
+      assert.equal(await outcome.lock.release(), "cleanup_unknown");
+      assert.equal(postCount, 1);
+      assert.equal(
+        terminationCount,
+        scenario === "post-throw" || scenario === "wrong-state" ? 1 : 0,
+      );
+    }
+  }
+});
+
+test("追加境界: Supervisorのspawnと終了要求失敗を資源取得前後で分ける", {
+  skip: process.platform !== "win32",
+}, async (t) => {
+  const keepAlive = setInterval(() => undefined, 5_000);
+  t.after(() => clearInterval(keepAlive));
+  const rootName = "crdd-coordinator-doctor-SPAWNFAIL";
+  const nonce = "b".repeat(32);
+  assert.deepEqual(
+    await acquireHostOperationSupervisorLockUsingFactory(
+      rootName,
+      nonce,
+      () => {
+        throw new Error("fixture_spawn_failed");
+      },
+      FAST_SUPERVISOR_TIMING,
+    ),
+    { status: "cleanup_confirmed_failure", lock: null },
+  );
+  const scenario = supervisorChildScenario("normal");
+  let supervisorChild: ReturnType<typeof spawn> | null = null;
+  let killCount = 0;
+  const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+    rootName,
+    nonce,
+    (executable, args, options) => {
+      supervisorChild = scenario.factory(executable, args, options);
+      supervisorChild.kill = () => {
+        killCount += 1;
+        throw new Error("fixture_kill_failed");
+      };
+      return supervisorChild;
+    },
+    FAST_SUPERVISOR_TIMING,
+  );
+  assert.ok(outcome.lock);
+  const child = supervisorChild as ReturnType<typeof spawn> | null;
+  assert.ok(child);
+  child.emit("error", new Error("fixture_supervisor_error"));
+  assert.equal(await outcome.lock.loss, "cleanup_unknown");
+  assert.equal(await outcome.lock.confirmReady(), "cleanup_unknown");
+  assert.equal(await outcome.lock.release(), "cleanup_unknown");
+  assert.equal(outcome.lock.assertLive(), false);
+  let notificationCount = 0;
+  const unsubscribe = outcome.lock.onFailureDetected(() => {
+    notificationCount += 1;
+  });
+  assert.equal(notificationCount, 1);
+  unsubscribe();
+  assert.equal(killCount, 1);
+  assert.deepEqual(child.eventNames(), []);
+  // 模擬子の終了は未確認のまま。監視解除後の終了通知で成功へ変えない。
+  child.emit("exit", 1, null);
+  assert.equal(await outcome.lock.release(), "cleanup_unknown");
+});
+
+test("追加境界: SupervisorはIPC形状違反と終了中競合を単一の失敗へ収束する", {
+  skip: process.platform !== "win32",
+}, async (t) => {
+  const keepAlive = setInterval(() => undefined, 5_000);
+  t.after(() => clearInterval(keepAlive));
+  for (const failure of [
+    "null",
+    "array",
+    "extra",
+    "release-exit",
+    "release-timeout",
+    "release-concurrent",
+    "ready-disconnect",
+    "release-ready-exit",
+  ] as const) {
+    const scenario = supervisorChildScenario("normal");
+    let supervisorChild: ReturnType<typeof spawn> | null = null;
+    const messages: unknown[] = [];
+    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+      "crdd-coordinator-doctor-BOUNDARY",
+      "c".repeat(32),
+      (executable, args, options) => {
+        const child = scenario.factory(executable, args, options);
+        supervisorChild = child;
+        const send = child.send.bind(child);
+        child.send = ((message: unknown) => {
+          messages.push(message);
+          if (message === "confirm-ready" && failure === "ready-disconnect") {
+            queueMicrotask(() => {
+              child.emit("message", { status: "ready" });
+              Reflect.set(child, "connected", false);
+              child.emit("disconnect");
+            });
+          } else if (message === "release") {
+            if (
+              failure === "release-timeout" ||
+              failure === "release-concurrent"
+            )
+              return true;
+            queueMicrotask(() => {
+              if (
+                failure === "release-exit" ||
+                failure === "release-ready-exit"
+              ) {
+                if (failure === "release-ready-exit")
+                  child.emit("message", { status: "release-ready" });
+                Reflect.set(child, "exitCode", 1);
+                Reflect.set(child, "connected", false);
+                child.emit("exit", 1, null);
+              } else
+                child.emit(
+                  "message",
+                  failure === "null"
+                    ? null
+                    : failure === "array"
+                      ? []
+                      : { status: "release-ready", extra: true },
+                );
+            });
+          } else return send(message as string);
+          return true;
+        }) as typeof child.send;
+        return child;
+      },
+      FAST_SUPERVISOR_TIMING,
+    );
+    assert.ok(outcome.lock);
+    const ready = await outcome.lock.confirmReady();
+    if (failure === "ready-disconnect")
+      assert.equal(ready, "cleanup_confirmed_failure");
+    else {
+      assert.equal(ready, "ready");
+      const first = outcome.lock.release();
+      if (failure === "release-concurrent") {
+        const second = outcome.lock.release();
+        const third = outcome.lock.release();
+        assert.deepEqual(await Promise.all([first, second, third]), [
+          "cleanup_confirmed_failure",
+          "cleanup_confirmed_failure",
+          "cleanup_confirmed_failure",
+        ]);
+      } else assert.equal(await first, "cleanup_confirmed_failure");
+    }
+    assert.equal(await outcome.lock.loss, "cleanup_confirmed_failure");
+    assert.equal(outcome.lock.assertLive(), false);
+    assert.equal(await outcome.lock.release(), "cleanup_confirmed_failure");
+    assert.equal(
+      scenario.killCount(),
+      failure === "release-exit" || failure === "release-ready-exit" ? 0 : 1,
+    );
+    const child = supervisorChild as ReturnType<typeof spawn> | null;
+    assert.ok(child);
+    assert.deepEqual(child.eventNames(), []);
+    if (failure !== "release-ready-exit")
+      assert.equal(messages.includes("confirm-release"), false);
+  }
+});
+
+async function verifyDelayedLockWorkerInChild(
+  moduleUrl: string,
+  workerUrl: string,
+  protectionHash: string,
+) {
+  const assert: typeof import("node:assert/strict") = (
+    await import("node:assert/strict")
+  ).default;
+  const { default: workerThreads } = await import("node:worker_threads");
+  const { syncBuiltinESMExports } = await import("node:module");
+  const nativeWorker = workerThreads.Worker;
+  const startupGate = new SharedArrayBuffer(8);
+  const gate = new Int32Array(startupGate);
+  const events: string[] = [];
+  let ownedWorker: InstanceType<typeof nativeWorker> | null = null;
+  let lockState: Int32Array | null = null;
+  let constructionCount = 0;
+  let terminationCount = 0;
+  let hasExited = false;
+  let hasTerminationCompleted = false;
+  let terminationCompletion: Promise<number> | null = null;
+  let resolveExit!: (code: number) => void;
+  const exit = new Promise<number>((resolve) => {
+    resolveExit = resolve;
+  });
+  const preload = `import { workerData } from "node:worker_threads";
+    const gate = new Int32Array(workerData.startupGate);
+    Atomics.store(gate, 0, 1);
+    Atomics.wait(gate, 1, 0, 15000);
+    Atomics.store(gate, 0, 2);`;
+  class DelayedLockWorker extends nativeWorker {
+    constructor(
+      filename: string | URL,
+      options: import("node:worker_threads").WorkerOptions,
+    ) {
+      assert.ok(filename instanceof URL);
+      assert.equal(filename.href, workerUrl);
+      assert.deepEqual(options.env, {});
+      assert.equal(options.execArgv, undefined);
+      const workerPayload = options.workerData as Readonly<{
+        pipeName: string;
+        state: SharedArrayBuffer;
+      }>;
+      assert.ok(workerPayload.state instanceof SharedArrayBuffer);
+      assert.equal(typeof workerPayload.pipeName, "string");
+      super(filename, {
+        ...options,
+        workerData: { ...workerPayload, startupGate },
+        execArgv: [
+          "--import",
+          `data:text/javascript,${encodeURIComponent(preload)}`,
+        ],
+      });
+      constructionCount += 1;
+      assert.ok(this.threadId > 0);
+      ownedWorker = this;
+      lockState = new Int32Array(workerPayload.state);
+      this.once("exit", (code) => {
+        hasExited = true;
+        events.push("worker-exit");
+        resolveExit(code);
+      });
+    }
+    override terminate() {
+      terminationCount += 1;
+      events.push("termination-request");
+      terminationCompletion = super.terminate().then((code) => {
+        hasTerminationCompleted = true;
+        events.push("termination-completed");
+        return code;
+      });
+      return terminationCompletion;
+    }
+  }
+  try {
+    Reflect.set(workerThreads, "Worker", DelayedLockWorker);
+    syncBuiltinESMExports();
+    const runtime = await import(moduleUrl);
+    const startedAt = Date.now();
+    const lock =
+      runtime.acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
+    events.push("acquire-returned");
+    assert.equal(lock, null);
+    assert.equal(constructionCount, 1);
+    assert.equal(terminationCount, 1);
+    assert.ok(Date.now() - startedAt >= 5000);
+    assert.equal(Atomics.load(gate, 0), 1);
+    const observedState = lockState as Int32Array | null;
+    assert.ok(observedState);
+    assert.equal(Atomics.load(observedState, 0), 0);
+    assert.equal(hasExited, false);
+    assert.equal(hasTerminationCompleted, false);
+    Reflect.set(workerThreads, "Worker", nativeWorker);
+    syncBuiltinESMExports();
+    const exitCode = await exit;
+    assert.equal(await terminationCompletion, exitCode);
+    assert.equal(hasExited, true);
+    assert.equal(hasTerminationCompleted, true);
+    const terminatedWorker = ownedWorker as InstanceType<
+      typeof nativeWorker
+    > | null;
+    assert.ok(terminatedWorker);
+    assert.equal(terminatedWorker.threadId, -1);
+    assert.equal(Atomics.load(gate, 0), 1);
+    assert.equal(Atomics.load(observedState, 0), 0);
+    const reacquired =
+      runtime.acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
+    assert.ok(reacquired);
+    assert.equal(reacquired.release(), true);
+    assert.equal(constructionCount, 1);
+    events.push("reacquired-and-released");
+    process.stdout.write(
+      `${JSON.stringify({ events, terminationCount, delayedAcquisitionObserved: false })}\n`,
+    );
+  } finally {
+    Reflect.set(workerThreads, "Worker", nativeWorker);
+    syncBuiltinESMExports();
+    const worker = ownedWorker as InstanceType<typeof nativeWorker> | null;
+    if (worker && !hasExited)
+      await nativeWorker.prototype.terminate.call(worker);
+  }
+}
+
+test("同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず再取得できる", {
+  skip: process.platform !== "win32",
+  timeout: 30_000,
+}, async (t) => {
+  const moduleUrl = new URL(
+    "../src/security/candidate-store-kernel-lock.ts",
+    import.meta.url,
+  ).href;
+  const workerUrl = new URL(
+    "../src/security/candidate-store-lock-worker.ts",
+    import.meta.url,
+  ).href;
+  const protectionHash = createHash("sha256")
+    .update(randomBytes(32))
+    .digest("hex");
+  const invocation = `(${verifyDelayedLockWorkerInChild.toString()})(${JSON.stringify(moduleUrl)}, ${JSON.stringify(workerUrl)}, ${JSON.stringify(protectionHash)}).catch(error => { console.error(error); process.exitCode = 1; });`;
+  const scratchRoot = fileURLToPath(
+    new URL("../../../.crdd/test-tmp/", import.meta.url),
+  );
+  const child = spawn(process.execPath, ["--eval", invocation], {
+    env: { TEMP: scratchRoot, TMP: scratchRoot },
+    cwd: fileURLToPath(new URL("../../../", import.meta.url)),
+    stdio: ["ignore", "pipe", "pipe"],
+    shell: false,
+    windowsHide: true,
+    timeout: 25_000,
+  });
+  t.after(() => {
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+  });
+  const stdoutItems: Buffer[] = [];
+  const stderrItems: Buffer[] = [];
+  child.stdout.on("data", (chunk: Buffer) =>
+    stdoutItems.push(Buffer.from(chunk)),
+  );
+  child.stderr.on("data", (chunk: Buffer) =>
+    stderrItems.push(Buffer.from(chunk)),
+  );
+  const [code, signal] = await once(child, "close");
+  assert.equal(signal, null);
+  assert.equal(code, 0, Buffer.concat(stderrItems).toString("utf8"));
+  assert.deepEqual(JSON.parse(Buffer.concat(stdoutItems).toString("utf8")), {
+    events: [
+      "termination-request",
+      "acquire-returned",
+      "worker-exit",
+      "termination-completed",
+      "reacquired-and-released",
+    ],
+    terminationCount: 1,
+    delayedAcquisitionObserved: false,
+  });
 });
 
 test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒否する", () => {

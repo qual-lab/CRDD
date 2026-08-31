@@ -8,7 +8,7 @@
 
 固定版`98ccc9dfad3528e566c5ee7b4ff522026484e66b`を、アーキテクチャ／安全性、試験／利用体験、文書／不足影響／準拠の3系統で独立確認した。5件を是正対象へ統合し、各確認者と修正方針を照合した。コードの変更、試験追加、案内更新を実施したことだけでは、指摘解消や全体完成としない。
 
-同版のCoordinator試験は1,503件すべて合格した。一方、分岐網羅率の判定可能な部分集合には2,353の未到達分岐がある。既存試験による検証義務の充足、追加試験が必要な範囲、本番契約上到達しない防御分岐を分けて評価している。全未到達分岐の評価は未完了であり、合格件数や約82.76%という部分的な値から完成を推定しない。
+同版のCoordinator試験は1,503件すべて合格した。一方、分岐網羅率の判定可能な部分集合には2,353の未到達分岐があった。後続で対象124ファイルを検証義務・既存根拠・追加試験・別の観測層に分類し、追加境界を含む1,585試験が成功した。今回の評価と追加試験を独立確認し、追加の本番欠陥や試験必須条件は検出されなかった。記録2点の是正と確認結果は末尾に分離する。変更後の正式実測と完成判断は残っており、合格件数や部分的な網羅率から完成を推定しない。
 
 ## 対象と独立確認
 
@@ -27,7 +27,7 @@ SEC-02は是正によって生まれた別問題ではなく、初回の起動�
 
 | 指摘 | 不足と対応 | 現在の解消判定 |
 |---|---|---|
-| TEST-01 | 現行分岐の再測定と、未到達部分から検証義務・既存根拠・追加試験への対応を行う。資源回収、耐久記録、成功公開への影響を優先する | 4試験と子プロセスの所有・終了観測是正を追加し、全体1,520/1,520成功・当該是正の限定独立確認完了。未到達全体を除外または受容していない |
+| TEST-01 | 現行分岐の再測定と、未到達部分から検証義務・既存根拠・追加試験への対応を行う。資源回収、耐久記録、成功公開への影響を優先する | 未到達124ファイルの意味評価、追加境界、全体1,585/1,585成功を限定独立確認。記録2点は末尾の是正・再確認へ接続。未到達全体の除外・受容ではなく、変更後の正式実測と完成判断は別の残件 |
 | UX-01 | 公開診断・Docker復旧の固定案内を日本語へ統一する。機械向けJSON、状態値、ID、終了コード、三値、停止・禁止条件を保持する | 関連試験とRussell／Wegenerの限定独立確認で解消。読み上げの評価や全体完成は含まない |
 | DGI-03 | CHANGELOGの英日要約を未リリース7意図へ同期し、工程強化と条件付き移行を示す。CHG-000055の現在差分を規範候補として評価し、初回の追加分類を履歴に保持する | Darwinの限定独立確認で記述不足の解消を確認。分類・移行の最終採用は人間の判断 |
 | DGI-04 | 実施中の配置整理を予定のまま示すDiscoveryの2箇所を同期する。CHG-000055の「移動なし」を当時の記述に限定する | Darwinの限定独立確認で解消 |
@@ -207,6 +207,117 @@ Wegenerは読み取り専用で、Checker／Coordinator／platform-access／配�
 
 ## 後続処置と既存根拠の扱い
 
-担当責任者はQual-Lab。今回差分の限定独立確認は完了し、残るTEST-01の未到達評価、追加試験とその独立確認を、[Runtime完成](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)と[Tool・品質記録の是正](../../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)の同じ未リリース変更で続行する。現在の完成判断に影響するため、次版へ保留しない。分類・移行の最終採用と統合・リリースは人間の判断へ残す。
+### 読取り・再検証・終了境界の追加確認
+
+基準版`5f988ef52017af4b677f8a6641dacb11aebf785d`を変更する前に、同じ包含条件で全試験を再測定した。1,535/1,535成功、失敗・取消・skip 0、102,791.5153ms。単一レコード144ファイルでは11,468／13,800分岐に到達した。7ファイルの重複レコードと4ファイルの親LCOV未ロードは前回と同様に分離し、Runtime全体の率へ合算しない。
+
+- 生TAP: `.crdd/test-tmp/closure-coverage-5f988ef.tap`、SHA-256 `a65c63988d7f351bdb1a08c58af7b9a2c5757a763acf65a97f64482dc7fc0336`
+- 生LCOV: `.crdd/test-tmp/closure-coverage-5f988ef.lcov`、SHA-256 `0f59e89618f333fcea21568dea9b200650e86a4c015785b2ebaf94c0c3932a08`
+
+旧124ファイルのうち、GitとLock以外の優先13ファイルをRussell、残る109ファイルをWegenerが既存試験・利用側と照合した。109ファイルの分類は、重点6、既存優先対象への隣接3、CLI等18、表示・入力・取消9、OS・資源17、Provider・Task20、Trust・Root36である。これは旧1,232未到達分岐をすべて個別実証した意味ではない。候補専用のTrust-floor／StoredLocatorと、通常のLocal Personal権限経路、未実装blocked固定のActive-pointer入口を分けた。Native helperは別名の`docker-desktop-repair-policy.contract.test.ts`に実子・終了・protocol異常試験があり、source名だけによる試験不存在の推定を訂正した。
+
+具体的に不足していた条件は、[検証設計](../03_Verification_Design.md#読取りと権限再確認の境界)へ接続して既存試験に追加した。
+
+| 境界 | 追加根拠と限界 |
+|---|---|
+| Lockの生成失敗・IPC・解放中競合 | Worker／Supervisorの生成例外、解放重複、送信・終了要求の例外、形状違反、遅延終了、失敗後通知を補完。非取得と回収不明を分離。初段では同期取得timeout後の実終了は未確認だったが、後段の実子試験で終了完了・同identity再取得まで追加確認した。null返却時点の終了済みを意味しない |
+| 初回同意 | resolve／persist／revoke各々のLock後再観測5形と解放例外、計18件追加。元記録不変と操作済みだが解放不明な結果を区別 |
+| Provider権限・Mount | 発行前／消費前の再検証拒否と5種類のbinding差12件、consume後・有効化前の期限到達／Source失効2件。権限非発行、元Capability再利用不可、次Grantへの非残存を確認 |
+| 署名情報の読取り | manifest-loader／release-identity各4故障。短読取り、open後・読取り後・Path側の実体差を取得FD限定で注入。close1回、hash／権限非発行、元byte保持、復元後正常を確認。自然発生したOS競合の実測ではない |
+| 結果保存・回復投影 | read-backの短読取り・内容差・Path実体差と、不正なHome hash配列を追加。完了記録非発行、開始記録保持、getter非実行を確認 |
+| 候補Filesystem・隔離設定 | 階層65、単一file 64MiB超、junctionを公開captureへ接続。隔離の反証を4形から21形へ補完。総量・file数・変更数・候補保存内容の各上限は別確認 |
+| 認識済みSecret | 引用符・escape後のSource参照と既知literal、文字列内と未閉鎖文字列を区別。検出規則は変更せず、未知Secretや全JavaScript解析の保証は追加しない |
+
+trace検査CLIへ合成入力を実子Processで渡したところ、不正引数の未捕捉例外後にWindowsのnative assertionが発生し、期待exit 1ではなく`0xC0000409`となる試行を2回観測した。内部破損の原因まで特定したとはしない。CLIの同期境界で失敗を捕捉し、固定理由だけをstderrへ返して`exitCode=1`で終了するよう是正した。正常JSON・exit 0と検査不成立JSON・exit 2は維持した。Pathやstackを表示せず、直接`process.exit()`で終了させない。
+
+是正後のCLIを含む7試験は5反復で成功した。その後、stderrが固定理由と改行だけであることを厳密比較し、7/7成功、1,151.3286msを確認した。ETWの収集、通信の非発火、署名済みWorkerの起動をこの合成入力試験で測定したとは扱わない。
+
+追加途中の全体試験は制限環境で1,580件中1,573成功・7失敗、取消・skip 0、117,786.3247msだった。生記録は`.crdd/test-tmp/closure-boundaries-final.tap`と同名LCOV。この実行は不合格として保持する。失敗した既存の実子終了3試験ファイルを、同じsourceの通常Windows権限で再実行すると101/101成功、2,036.1216msだった（`.crdd/test-tmp/closure-process-normal-permission.tap`）。実行制限による差を分離する根拠であり、全体再試験の成功や残る境界の完了には読み替えない。
+
+追加途中のChecker契約は208/208成功、217,625.7141ms。型検査2構成・package定義のLint／整形・Runtime対応検査も成功した。Lintで出た文字列連結の情報提示3件は同じ意味のtemplate式へ是正した。開発E2Eは通常Windows権限で286/286成功、23,190.2565ms、失敗・取消・skip 0。12試験ファイルをpackageの`development-e2e:verify`から実行し、検証済みNodeが子にも選ばれるPATHを確認した。実Provider・署名・Docker修復の成功ではない。
+
+全体試験の失敗時に残った試験専用フォルダ5個は、`ready.json`だけが含まれること、そこに記録された10個の子PIDがすべて存在しないこと、exact Pathと非再解析点であることを確認して削除した。ほかのRunの資源やRuntimeの回復記録は削除していない。
+
+Lock同期取得の5秒timeoutは、独立Node子内の本番Workerに対しmodule評価前だけを遅延させて実測した。本番URL、空env、pipeName、共有state、timeout条件を維持し、終了要求→取得null（終了未観測）→実Worker exit→terminate完了→同identity再取得・解放→子close／exit 0を確認した。null返却時点でWorkerが終了済みとは主張しない。初回は試験子の`--input-type=module`が復元後Workerへ継承される起動ミスで失敗したため、その不要flagを除去した。本番の待機条件は緩和していない。
+
+kernel全25/25成功、11,952.0948ms、失敗・取消・skip 0。生TAPは`.crdd/test-tmp/kernel-real-timeout-5f988ef-01.tap`、SHA-256 `2f5e31cfc337620cb47117a63d0bd27dd0115816d5d54c3dee59f8702920ff38`。試験file SHA-256は`6533eb8846b02ca6972b08df54b48b2493f507fe0d6148377440d7e7380bde56`。非Windows枝は現在のWindows対象外、完了済みtimer／重複settle／terminal設定後のclosed guardは実producerの解除・支配条件で評価し、削除済みcallbackの人為的再呼出しや全分岐到達のための本番hookは追加しない。
+
+先行失敗と切り分け記録のSHA-256は、全体TAPが`64feab1d71df4b246bc1f0e404b7f1e9b281b2a8e6148d84b22406c3025d7957`、同LCOVが`82f4238a171c6cc351d6fc93a96ddf012c08942b309a2f744f23a0a111f2f5fd`、通常権限101件のTAPが`23b1dd9f587f759d72936921a2453554f0723139cc7828077e4c1447210444f3`である。後続の成功でこれらの失敗記録を置き換えない。
+
+### 未到達部分を現在の検証義務へ対応させた判断
+
+workspaceの残る4上限も追加確認した。1,000変更Pathは実fileから候補を発行し、1,001は拒否した。20,000filesと合計256MiBは、対象workspaceだけの一貫したFS観測を用い、上限内では全読取りと後続sentinel到達、超過時は対象guardで停止しsentinel未到達となることを確認した。上限内でも後段の変更数／許可Path条件では拒否されるため、両側の`null`だけを判定根拠にしていない。実descriptorのcloseと読取りbyte総量、正規Repository全file hashの保持を確認した。
+
+保存内容16MiBは実fileでcaptureを成立させ、公開persistからStoreのbundle検査・認識済みSecret検査を通過してpolicyの確認へ1回到達した。16MiB＋1byteはその前に停止した。policy確認の試験用getterで意図的にthrowし、native Store観測・書込みへ進ませていない。この到達確認を、実Storeへの保存成功や正式署名E2Eとは扱わない。workspace全12/12成功、7,622.6192ms、失敗・取消・skip 0。試験SHA-256は`e29293287cdf06089f26aed4dc7977712bcc687fc6801f80129eb17ed9a2250c`。本番hook・export・特別な起動flagは追加していない。
+
+率を上げること自体を完成条件に追加せず、次の共通原因・利用側に対応させる。担当責任者はQual-Lab。いずれも永久除外や未到達枝の実行済み認定ではなく、対応する前提を変更したときに再評価する。
+
+| 対象群 | 現在の根拠・適用境界 | 再評価契機 |
+|---|---|---|
+| 純粋validationと共有decoder | 不正型、動的入力、非canonical、binding差の試験とconsumerの候補判定を照合。field別の同じ拒否先へ至る短絡枝を、独立したRuntime能力の未実装数へ数えない | 受理集合、共有decoder、成功結果を使う側の変更 |
+| Recovery engineと修復Record | 本番finallyと試験が同一の`releaseRecoverySynchronizations`を使い、解放false／throw後も全解放と第一失敗を保持する。Recordのwriter／readerも同じshape・合法遷移検証を共有し、正常chainとstage・順序・旧revisionの反証がある | helper、終了結果の上書き、Record遷移、保存形式の変更 |
+| Desktop修復 | 直前再確認・取消・helper喪失・package差・実Store intent・応答不明後停止に契約試験がある。OS shutdown／WSL／renameの全実経路は未実測で、署名復旧7/7をその証拠にしない | 修復実装・対象OS・実運用で該当する故障の発生。影響がある間は実OS確認済みと表示しない |
+| Task Runner、Doctor、Docker Effect | exact候補、byte・版・履歴差、複合Recovery、signal登録解除、必須checkのAND、子close未確認handle保持、所有外・置換拒否を具体試験へ接続。default依存と実OSの配送は別層 | 入口、producer／consumer、所有資源、取消／公開結果の変更。今回のProcess変更後は正式実測の再固定が必要 |
+| Locator、Provisioning Store／pure core | 非Authority候補の保存・pending回復、実署名・全署名検証・失効時刻・動的入力の拒否に根拠あり。通常Local PersonalのTask権限とは未接続の経路を区別 | 候補を本番権限へ接続、管理プロファイルの有効化、署名・失効条件の変更 |
+| Runtime対応検査 | source／試験・状態・資源・終了条件・未観測資源の反証を確認。型別の同じ診断表示の未到達をRuntime権限の独立義務にしない | 対応モデル、参照先、検査自体の意味の変更 |
+| Git layout | 同名置換・同サイズ改変・mode・close失敗・初期Root／親／Repository Identityの既存反証と独立確認へ接続。全syscall故障を実発生させたとはしない | 同定・読書き順・終了観測・対象Git形式の変更 |
+| 親LCOV外のWorker／CLI、非Windows、別端末、Native内部 | 既存の実子試験・限定署名実測と、現在のWindows対象外・別の観測層を分離。未ロードを自動で未試験または合格へ補完しない | 対象環境・入口・Native実装の変更、該当条件の実運用発生 |
+
+この判断は、追加で確定したLock timeoutとworkspaceの独立上限を省略する根拠にはしない。追加試験と固定差分の独立確認、変更後の正式実測有効性を合わせて、TEST-01の解消可否を判定する。
+
+### 追加境界を含む全体再試験
+
+すべてのsource・試験を固定して通常Windows権限で再実行し、Coordinatorは1,585/1,585成功、失敗・取消・skip 0、121,832.8082ms、exit 0だった。Node.js 24.19.0、包含条件とRepository-localのTEMP／TMP、TAP／LCOV同時出力は基準測定と同じである。
+
+| 観測 | 結果 |
+|---|---|
+| 単一レコード部分集合 | 144ファイル、11,633／13,920分岐到達、未到達2,287 |
+| 重複レコード | 7ファイル、対象名は基準測定と同じ。163レコード／151ファイル。合算・最大値・論理和で補正しない |
+| 親LCOV未ロード | 4ファイルを維持。今回実子から確認したtrace CLIとLock Workerも、親LCOV未ロードを実行不在と読み替えない |
+| 生TAP | `.crdd/test-tmp/closure-boundaries-confirmed.tap`、SHA-256 `97785fbcf22898dd61fddfbe33a23609ad2a191ce4fc5ba959650699c7052498` |
+| 生LCOV | `.crdd/test-tmp/closure-boundaries-confirmed.lcov`、SHA-256 `5906abdaf3f2eb61d38defd1c65dec84a68d2c708fe320864c6cbbed6f22ccf7` |
+| 変更された実行script | `scripts/check-native-runtime-trace.ts`、SHA-256 `e6390dbe14d262a811ffc2ece30b8a2a586febc41a8ee93cfec06ad6d08fa0dd` |
+
+測定対象は次節のTS識別情報とkernel試験の改名前後の区別から再識別する。故障注入を含む計測で分母自体も変わるため、以前との差をRuntime全体の品質改善率として示さない。今回の50試験追加と隔離の既存試験内17変異は、確認した意味で評価する。型検査2構成、Lint、整形、状態・資源の機械可読対応検査も成功した。これらは変更後の正式署名実測、独立確認またはリリース判断の代用ではない。
+
+### 測定対象の再識別と改名後の最終試験
+
+基準Commitは`5f988ef52017af4b677f8a6641dacb11aebf785d`。以下は最終試験対象の変更13TSの作業コピーbyteに対するSHA-256である。Pathは`40_Develop/coordinator/`からの相対。非変更TS・package等は基準版を用いる。TS限定の`git diff --no-ext-diff --binary HEAD -- <以下の13Path>`は`80d0962232617c784fac2723f0bcbdf8b18890b6cb562e93875e1af77ecdbde6`だった。後続コミットからは同じ基準版とのTS差分を照合する。文書だけの追記をTSの実行版変更とは扱わない。
+
+| 変更TS | SHA-256 |
+|---|---|
+| `scripts/check-native-runtime-trace.ts` | `e6390dbe14d262a811ffc2ece30b8a2a586febc41a8ee93cfec06ad6d08fa0dd` |
+| `tests/candidate-store-kernel-lock.contract.test.ts` | `96e85597cc415e461c68c819bd12da5d11a7f2fe27d5b7d41eaf2cb935a24525` |
+| `tests/docker-recovery-public-projection.contract.test.ts` | `d3513c57a0738818c189a8bfe8a6edb2277211269753dac9bfe38b0e1b35dc49` |
+| `tests/doctor.contract.test.ts` | `272d17c67f1ae8a79ad3255c66711da99c81c8927c609c16483bf24a65c3cb46` |
+| `tests/external-send-consent-runtime.contract.test.ts` | `ba327ab806c30a392a65ac7a2ad4658b7630f443c575f11ac1c463b885378fb4` |
+| `tests/native-runtime-trace.contract.test.ts` | `285b2a0f1087511cd81124a030c3dd530665ea4b538073149bb37795f03d9314` |
+| `tests/platform-provisioner-manifest-loader.contract.test.ts` | `c15dc106660c3704545142ad9b2940ce250878efe1b92914d4653ea59789aa6a` |
+| `tests/platform-provisioner-release-identity.contract.test.ts` | `ded8c6a93bed19aed4def3cf5f901f61fc6b716c445bad9d7b9a8e6e2efb14fd` |
+| `tests/provider-authority-runtime.contract.test.ts` | `35b59e8790be730daa6b83ed3c758baf2ba1f8de94d14498d9cc83b733edcb72` |
+| `tests/provider-home-mount-grant-runtime.contract.test.ts` | `a4733f454c665c764c385f9795634f4004ab0cbc9116fce5351e6f64180c5214` |
+| `tests/repository-workspace-runtime.contract.test.ts` | `e29293287cdf06089f26aed4dc7977712bcc687fc6801f80129eb17ed9a2250c` |
+| `tests/secret-material-policy.contract.test.ts` | `618106ef47b13f528819adbee2a3e726c7b402bc8b3219cdc2d59a05f93f22b0` |
+| `tests/verification-result-record.contract.test.ts` | `97c1d0dd35a9f5b688dae5bd808e8823ac0014c59cc31e1fddf4a3eead66ce3f` |
+
+coverage測定時との差はkernel試験の変数`NativeWorker`→`nativeWorker`、`data`→`workerPayload`だけである。最終ファイルの該当変数を逆変換したbyteのhashは、改名前に記録した`6533eb8846b02ca6972b08df54b48b2493f507fe0d6148377440d7e7380bde56`へ一致した。この照合は測定後の再識別であり、測定前に新しく観測したとは記録しない。Gitの改行変換と作業コピーbyteのhashを区別する。
+
+改名後はcoverageを付けず同じCoordinator全試験を実行し、1,585/1,585、失敗・取消・skip 0、136,512.1254ms、exit 0だった。生TAPは`.crdd/test-tmp/closure-final-naming.tap`、SHA-256 `b1328b392b25a1cfc996c7bcc83c78955147c1a2f596c1eaf2f5fcd0ce5613ef`。Checker契約は208/208、失敗・取消・skip 0、240,507.6874ms、exit 0。開発E2Eは同じ本番コードで286/286、23,190.2565ms、exit 0であり、kernelの変数改名は当該12試験ファイル集合に含まれない。実Provider・Docker修復・Release秘密鍵は使用していない。
+
+### 追加境界の独立確認と記録是正
+
+19変更ファイルを固定したGit binary diffのSHA-256は`80ca8a6f98b7952c532f3b3c9147945deb967df3baa004e3296a7ac79e734dfa`。共通Checkerは2026-08-31T17:13:53.278Z、389文書・2,734リンク・909アンカー・固定履歴24、エラー・警告0、exit 0。`.crdd`は除外範囲である。同じ結果を各確認者へ渡し、重複実行しなかった。
+
+Darwinはtrace CLIと親追加4試験、doctor／workspaceの計7ファイルを独立確認しPass・指摘0。Russellはkernel、Provisioner2、同意、Authority、Mountの計6試験を独立確認しPass・指摘0。各自が作成した試験は他方へ割り当てた。Wegenerは品質・CHG・ロードマップの6文書と根拠の接続を確認し、現在表の時点不一致と測定対象の再識別不足のMinor 2件を返した。追加の本番欠陥や試験必須条件は検出されなかった。
+
+全結果を取得して3者と記録限定の是正方針を整合した後、現在TEST-01行とLock表を同期し、上記の対象TS識別・改名前後の区別・最新結果を追記した。過去の1,520件結果、失敗、署名実測本文は変更しない。コード変更・再試験・再署名をこの記録是正の前提にせず、記録の限定再確認へ渡す。
+
+是正後の共通Checkerは2026-08-31T17:20:19.086Z、389文書・2,734リンク・909アンカー・固定履歴24、エラー・警告0、exit 0。Wegenerが2指摘の解消、全13TSのHash一致、測定時点と現在表示の区別を再確認し、限定Pass・追加指摘0を返した。これによりTEST-01の未到達評価・追加試験部分を解消と判定する。変更後の正式実測、Runtime全体完成、統合・Releaseはこの判定へ含めない。
+
+### 現在の後続処置
+
+全体再試験後のChecker契約試験では207/208成功、1件失敗だった。原因は追加したLock試験の変数名`NativeWorker`と`data`が既存命名規則に適合しないことであり、試験内で`nativeWorker`と`workerPayload`へ変更した。意味・本番コードは変更していない。是正後のLock全25件と命名7件は32/32成功、32,153.8304ms、exit 0。上記のTAP／LCOVは改名前の測定として保持する。
+
+担当責任者はQual-Lab。今回の未到達評価・追加試験と記録2点の独立再確認を完了し、変更後の正式署名実測と全体完成判断へ進む。[Runtime完成](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)と[Tool・品質記録の是正](../../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)の同じ未リリース変更で追跡し、現在の完成判断に必要な事項を次版へ保留しない。分類・移行の最終採用と統合・リリースは人間の判断へ残す。
 
 [署名版4f10201の実測](2026-09-01_Coordinator_Signed_E2E.md)と旧45ea2acの実務・是正結果は各版に限定して保持する。今回の表示・package案内・追加試験・子プロセス所有と終了観測の是正によって過去の実測版を書き換えない。変更後ソースの正式署名実測は未実施である。新しい実務能力の追加や再署名を反復デバッグの前提にせず、開発検証で是正を固定してから必要な再検証範囲を評価する。
