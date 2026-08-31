@@ -20,6 +20,8 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ## 1. 結論と現在状態
 
+現在の署名固定版は`45ea2ac`。新配置の共通入口で[4経路4/4・復旧7/7](Evidence/CHG-000015_Signed_E2E_45ea2ac.md)が完了し、通常CLIの構造化入力を通す[実務1件](Evidence/CHG-000055_Utility_45ea2ac.md)も親の反映・検証・候補破棄まで完了した。復旧試験の初回は親の起動用PowerShellに残った環境設定の影響で停止し、exact IDの回収と環境是正後に同じ配布物で再実行した。新しい署名やProvider再試行で解決したものではない。以下の段階別経緯と、現在も未完了のRuntime全体・工程強化の完成監査を区別する。
+
 ### 起動方法の固定による再発防止
 
 2026-08-31、E2E用の一時wrapperがstdoutをfileへredirectし、外部PowerShell上でも同意表示前に停止した。Runtimeは端末不成立を正しく拒否したが、実行担当者が既存の直接起動契約を崩した。終了コードの二次AssertionErrorと元の停止理由を区別する。
@@ -44,7 +46,7 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 本変更の利用者価値は、Front Agentから直接Providerを相互spawnさせず、Coordinatorを唯一の仲介者としてCodexとClaude Codeへ実行・独立レビューを委譲し、検証済みのローカルCandidateを人間へ返せる`Coordinator Runtime 1.0`を一体として成立させることである。
 
-**最新の署名固定版`0c3e6d2`は4経路4/4・復旧7/7を完了した。Runtime全体の完成監査・Release判断は未完了である。** Docker停止から復旧し、再試行・是正0、既存同意再利用、全候補完全一致・破棄、cleanup確認済み、手動回復不要、正本Repository変更なしを確認した。[最新の実測結果と限界](Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)を現在の根拠とする。以前の`89545e3`で逆方向が停止した[結果](Evidence/CHG-000015_Signed_E2E_89545e3.md)は過去経緯として保持する。
+**移行前の署名固定版`0c3e6d2`でも4経路4/4・復旧7/7を完了した。** Docker停止から復旧し、再試行・是正0、既存同意再利用、全候補完全一致・破棄、cleanup確認済み、手動回復不要、正本Repository変更なしを確認した。[当時の実測結果と限界](Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)は履歴として保持し、新配置の現在根拠は上記`45ea2ac`とする。以前の`89545e3`で逆方向が停止した[結果](Evidence/CHG-000015_Signed_E2E_89545e3.md)も過去経緯として保持する。
 
 停止理由の内訳を生出力なしで識別できるよう、結果形式、turn数、費用メタデータ、Reviewer本文の搬送不適合を固定理由へ分離した。受理条件や上限を緩和する修正ではない。以下の段階的な実測経緯と、上記の最新正式検証、残る最終一括監査を区別する。
 
