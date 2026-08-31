@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -472,6 +473,203 @@ test("historical closure is a separate exact receipt and never changes the origi
   );
 });
 
+test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も読めるが旧操作を再開しない", (t) => {
+  const value = historyFixture(t);
+  const adopted = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(adopted);
+  const nextBoundary = {
+    ...value.currentBoundary,
+    localUserBindingHash: "d".repeat(64),
+  };
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(nextBoundary, value.verifyHistory)
+      .status,
+    "unknown",
+  );
+  const closed = persistDockerDesktopRepairHistoricalClosure(
+    value.currentBoundary,
+    adopted,
+    {
+      liveRunIdentity: { dev: "9", ino: "8", birthtimeNs: "7" },
+      staleState: "retained",
+    },
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(closed);
+  const snapshot = () =>
+    fs
+      .readdirSync(closed.operationDirectory)
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => [
+        name,
+        fs
+          .readFileSync(path.join(closed.operationDirectory, name))
+          .toString("hex"),
+      ]);
+  const beforeEntries = snapshot();
+  const inventory = inventoryDockerDesktopRepairOperations(
+    nextBoundary,
+    value.verifyHistory,
+  );
+  assert.equal(inventory.status, "verified");
+  assert.deepEqual(inventory.operations, [closed]);
+  const completed = inventory.operations[0];
+  assert.ok(completed);
+  assert.deepEqual(
+    classifyDockerDesktopRepairResume(completed),
+    {
+      state: "terminal",
+      action: null,
+      nextStage: null,
+    },
+  );
+  assert.equal(
+    persistRecord(nextBoundary, closed, "prepared", closed.ledger),
+    null,
+  );
+  for (const field of [
+    "runtimeStateIdentityHash",
+    "runtimeStateProtectionHash",
+    "runtimeStateBindingHash",
+    "dockerPolicySha256",
+  ] as const) {
+    assert.equal(
+      inventoryDockerDesktopRepairOperations(
+        { ...nextBoundary, [field]: "f".repeat(64) },
+        value.verifyHistory,
+      ).status,
+      "unknown",
+      field,
+    );
+  }
+  assert.deepEqual(snapshot(), beforeEntries);
+});
+
+for (const mutation of [
+  "missing",
+  "partial",
+  "extra",
+  "repair-id",
+  "adoption-hash",
+  "signature",
+  "release-order",
+  "first-login-invalid",
+  "later-login-different",
+  "mixed-pending",
+] as const) {
+  test(`再ログオン後の終了履歴読取りは不正・未終了状態を拒否する: ${mutation}`, (t) => {
+    const value = historyFixture(t);
+    const original = persistHostEffect(
+      value.boundary,
+      value.original,
+      "process",
+      "official_shutdown",
+      { issued: true, confirmation: "confirmed" },
+    );
+    if (mutation === "mixed-pending") {
+      const pending = createDockerDesktopRepairOperation(
+        value.boundary,
+        { dev: "4", ino: "5", birthtimeNs: "6" },
+        value.ledger,
+      );
+      assert.ok(
+        persistRecord(value.boundary, pending, "prepared", value.ledger),
+      );
+    }
+    const adopted = persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      original,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(adopted);
+    const closed = persistDockerDesktopRepairHistoricalClosure(
+      value.currentBoundary,
+      adopted,
+      {
+        liveRunIdentity: { dev: "9", ino: "8", birthtimeNs: "7" },
+        staleState: "retained",
+      },
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(closed);
+    const closurePath = path.join(
+      closed.operationDirectory,
+      "historical-closure.json",
+    );
+    const receipt = JSON.parse(fs.readFileSync(closurePath, "utf8"));
+    if (mutation === "extra") receipt.extra = true;
+    if (mutation === "repair-id")
+      receipt.repairId = `docker-desktop-repair.${"f".repeat(32)}`;
+    if (mutation === "adoption-hash") receipt.adoptionSha256 = "f".repeat(64);
+    if (mutation === "signature")
+      receipt.closingManifest = { fixture: "unknown" };
+    if (mutation === "release-order")
+      receipt.closingManifest = value.originManifest;
+    fs.writeFileSync(
+      closurePath,
+      mutation === "partial" ? "{" : `${JSON.stringify(receipt)}\n`,
+    );
+    if (mutation === "missing") fs.unlinkSync(closurePath);
+    if (
+      mutation === "first-login-invalid" ||
+      mutation === "later-login-different"
+    ) {
+      const recordPath = path.join(
+        closed.operationDirectory,
+        mutation === "first-login-invalid"
+          ? "repair-00-prepared.json"
+          : "repair-02-prepared.json",
+      );
+      const record = JSON.parse(fs.readFileSync(recordPath, "utf8"));
+      record.localUserBindingHash =
+        mutation === "first-login-invalid" ? "invalid" : "d".repeat(64);
+      fs.writeFileSync(recordPath, `${JSON.stringify(record)}\n`);
+      // Keep the chain and both receipt anchors valid: only the login differs.
+      let tip = "0".repeat(64);
+      const recordNames = fs
+        .readdirSync(closed.operationDirectory)
+        .filter((name) => /^repair-\d\d-/u.test(name))
+        .sort();
+      for (const name of recordNames) {
+        const target = path.join(closed.operationDirectory, name);
+        const entry = JSON.parse(fs.readFileSync(target, "utf8"));
+        entry.previousRecordSha256 = tip;
+        const bytes = Buffer.from(`${JSON.stringify(entry)}\n`);
+        fs.writeFileSync(target, bytes);
+        tip = createHash("sha256").update(bytes).digest("hex");
+      }
+      const adoptionPath = path.join(
+        closed.operationDirectory,
+        "historical-adoption.json",
+      );
+      const adoptionReceipt = JSON.parse(fs.readFileSync(adoptionPath, "utf8"));
+      adoptionReceipt.originalTipSha256 = tip;
+      const adoptionBytes = Buffer.from(`${JSON.stringify(adoptionReceipt)}\n`);
+      fs.writeFileSync(adoptionPath, adoptionBytes);
+      receipt.adoptionSha256 = createHash("sha256")
+        .update(adoptionBytes)
+        .digest("hex");
+      fs.writeFileSync(closurePath, `${JSON.stringify(receipt)}\n`);
+    }
+    const inventory = inventoryDockerDesktopRepairOperations(
+      { ...value.currentBoundary, localUserBindingHash: "d".repeat(64) },
+      value.verifyHistory,
+    );
+    assert.equal(inventory.status, "unknown");
+    assert.deepEqual(inventory.operations, []);
+  });
+}
+
 function persistHostEffect(
   boundary: Parameters<typeof persistDockerDesktopRepairStage>[0],
   operation: DockerDesktopRepairOperation,
@@ -679,6 +877,44 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
   assert.equal(inventory.operations.length, 1);
   assert.equal(inventory.operations[0]?.stage, "closed_retained");
   assert.equal(inventory.operations[0]?.operationId, operation.operationId);
+  const nextBoundary = { ...boundary, localUserBindingHash: "d".repeat(64) };
+  const nextInventory = inventoryDockerDesktopRepairOperations(nextBoundary);
+  assert.equal(nextInventory.status, "verified");
+  assert.deepEqual(nextInventory.operations, inventory.operations);
+  assert.equal(classifyDockerDesktopRepairResume(closed).state, "terminal");
+  assert.equal(
+    persistRecord(nextBoundary, closed, "prepared", closed.ledger),
+    null,
+  );
+  const nextOperation = createDockerDesktopRepairOperation(
+    nextBoundary,
+    { dev: "4", ino: "5", birthtimeNs: "6" },
+    ledger,
+  );
+  const nextPrepared = persistRecord(
+    nextBoundary,
+    nextOperation,
+    "prepared",
+    ledger,
+  );
+  assert.ok(nextPrepared);
+  assert.equal(
+    JSON.parse(
+      fs.readFileSync(
+        path.join(nextPrepared.operationDirectory, "repair-00-prepared.json"),
+        "utf8",
+      ),
+    ).localUserBindingHash,
+    nextBoundary.localUserBindingHash,
+  );
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(boundary).status,
+    "unknown",
+  );
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(nextBoundary).status,
+    "verified",
+  );
 });
 
 test("renamed後の自然回復はlaunch発行を捏造せずactual Storeへ保存する", (t) => {
@@ -1440,14 +1676,56 @@ test("unknown Host Effectはknown recovery stageへ昇格せずhistorical stage�
         disposition:
           "historical_effect_unknown_pending_human_decision" as const,
       });
-      assert.ok(
-        persistRecord(
-          boundary,
-          observed,
-          "no_stale_historical_effect_unknown_pending",
-          historicalLedger,
-        ),
+      const pending = persistRecord(
+        boundary,
+        observed,
+        "no_stale_historical_effect_unknown_pending",
+        historicalLedger,
       );
+      assert.ok(pending);
+      const nextBoundary = {
+        ...boundary,
+        localUserBindingHash: "d".repeat(64),
+      };
+      assert.equal(
+        inventoryDockerDesktopRepairOperations(nextBoundary).status,
+        "unknown",
+      );
+      const closed = persistRecord(
+        boundary,
+        pending,
+        "closed_historical_effect_unknown_retained",
+        {
+          ...pending.ledger,
+          disposition: "historical_effect_unknown_retained_by_human_decision",
+        },
+      );
+      assert.ok(closed);
+      const recordPaths = fs
+        .readdirSync(closed.operationDirectory)
+        .filter((name) => name.endsWith(".json"));
+      const snapshot = () =>
+        recordPaths.map((name) =>
+          fs
+            .readFileSync(path.join(closed.operationDirectory, name))
+            .toString("hex"),
+        );
+      const beforeEntries = snapshot();
+      assert.deepEqual(
+        inventoryDockerDesktopRepairOperations(nextBoundary).operations,
+        [closed],
+      );
+      assert.deepEqual(classifyDockerDesktopRepairResume(closed), {
+        state: "terminal",
+        action: null,
+        nextStage: null,
+      });
+      assert.equal(closed.ledger.processEffectConfirmation, "unknown");
+      assert.equal(
+        persistRecord(nextBoundary, closed, "prepared", closed.ledger),
+        null,
+      );
+      assert.deepEqual(snapshot(), beforeEntries);
     });
   }
 });

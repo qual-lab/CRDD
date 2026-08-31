@@ -171,6 +171,8 @@ UIと振る舞い仕様は直列ではない。`24_UI_Behavior_Specification.md`
 
 ## 操作と承認の境界
 
+[承認済み目標への継続](00_CRDD/10_Agent.md#authorized-goal-continuation)に従い、確認できる許可範囲の調査・実装・検証・是正を継続する。内部作業の分割や進捗報告だけで再承認を要求せず、権限不足、範囲変更、停止・取消等の実際の停止条件と人間判断は維持する。
+
 - AIは指定された操作権限と現在の対象範囲内で、分析、下書き、編集、実装、テスト、監査を行える。
 - 別の書込みRootが明示的に許可されていない限り、現在のリポジトリだけをFilesystem上の既定の書込み範囲とする。親Directory、兄弟Repository、別Repository、OS一時Directoryまたは任意の絶対Pathを、読み取れることや同じLocal Userが所有することだけで書込み可能範囲へ含めない。
 - 現在のリポジトリはCurrent Working Directoryではなく、対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定する。Repository-local `.crdd`はそのRootの直下だけに置き、Tool／package等のsubdirectoryから起動しても同名Directoryを作らない。`.crdd`はGit管理から既定で除外し、Runtime状態、候補、log、一時成果物または生成物を追跡しない。Commit固定された内容自体がRuntimeの検証入力になる非秘密のRepository設定だけを、用途を確認した明示allowlistとして追跡できる。Rootを一意に検証できない、または途中のRepository境界が不正・曖昧な場合はEffect 0で停止する。現在のリポジトリ外へ作成、変更、移動または削除を行う場合は、事前許可された用途限定のRepository-local `.crdd` RootもしくはOS管理のRuntime Rootで実行時にIdentityと範囲を強制できる場合を除き、exact Root、目的、作成物、所有主体、保持期間、cleanup／Recoveryおよび残存時の影響を操作前に表示し、人間の明示承認を得る。確認不能ならEffect 0で停止する。

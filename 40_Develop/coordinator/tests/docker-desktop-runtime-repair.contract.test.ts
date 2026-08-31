@@ -2039,6 +2039,13 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
   assert.equal(replay.status, "recovered_pending_close");
   assert.equal(replay.filesystemEffectConfirmation, "confirmed");
   assert.equal(replay.effectStateUnknown, false);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations({
+      ...actualBoundary,
+      localUserBindingHash: "d".repeat(64),
+    }).status,
+    "unknown",
+  );
   const closed = await closeWindowsDockerDesktopRepairUsingDependencies(
     replay.repairId,
     state.dependencies,
@@ -2051,6 +2058,44 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
   assert.equal(
     closedInventory.operations[0]?.stage,
     "closed_no_stale_known_effect_retained",
+  );
+  const nextBoundary = {
+    ...actualBoundary,
+    localUserBindingHash: "d".repeat(64),
+  };
+  const nextSession = fixture({
+    prepareBoundary: () => nextBoundary,
+    inventory: inventoryDockerDesktopRepairOperations,
+    persistStage: persistDockerDesktopRepairStage,
+    observeEngine: () => "ready",
+    identityAt: actualIdentityAt,
+  });
+  const nextClose = await closeWindowsDockerDesktopRepairUsingDependencies(
+    replay.repairId,
+    nextSession.dependencies,
+  );
+  assert.equal(nextClose.status, "closed_retained", JSON.stringify(nextClose));
+  assert.equal(nextClose.newRepairPermitted, true);
+  const closedOperation = closedInventory.operations[0];
+  assert.ok(closedOperation);
+  assert.equal(
+    persistDockerDesktopRepairStage(
+      nextBoundary,
+      closedOperation,
+      "prepared",
+      closedOperation.ledger,
+    ),
+    null,
+  );
+  assert.equal(
+    nextSession.calls.some((call) =>
+      ["shutdown", "terminate", "wsl", "rename", "launch"].includes(call),
+    ),
+    false,
+  );
+  assert.deepEqual(
+    inventoryDockerDesktopRepairOperations(nextBoundary).operations,
+    closedInventory.operations,
   );
 });
 

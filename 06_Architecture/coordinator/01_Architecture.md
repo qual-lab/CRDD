@@ -139,6 +139,10 @@ Docker Desktopの設定読込みが必要とする`ProgramData`も、OSの`FOLDE
 
 終了済み旧記録も同じ由来照合を行う。引継ぎreceiptの終了は旧stageと別の軸であり、別の未完了操作、記録不整合、状態不明またはhelper cleanup不明があれば新規修復を許可しない。実機の中断記録への適用と正式E2Eは、開発試験の合格とは分けて確認する。
 
+同じユーザーと同じログオンは区別する。`localUserBindingHash`はログオン単位、`runtimeStateBindingHash`は選択ユーザーの安定した識別へ結合する。終了済み記録を読む際だけ、先頭recordの正規なログオンHashへ全連鎖を固定して検証できる。通常記録は完全な状態・台帳検証後の終了状態、引継ぎ履歴は引継ぎ・終了receipt、署名版の順序、ID、件数、末尾Hashをすべて検証したものに限定する。現在と同じユーザー、Root Identity・保護、Policyおよび必要な署名tupleの検査は残す。未終了・不正・判定不能の記録には現在ログオンとの一致を要求し、終了済み履歴との混在でも迂回しない。
+
+この読取りは旧操作の実行権限を復活させない。終了済み操作への追記・Host操作再開は拒否し、新規操作は現在の検証済み境界から発行する。退避物と現在の実体の再観測、helper終了確認は省略しない。履歴本文自体の署名を追加したという意味ではなく、保護Root、記録連鎖、署名版の由来、参照整合および実体の再観測を組み合わせる。
+
 同じRuntimeState直下の`docker-desktop-repair-<32桁小文字hex>` DirectoryはDesktop修復が所有し、Docker Taskの復旧inventoryは内容の検証・終了・削除を引き受けない。名前の判定は修復Storeと共有し、通常Directory、non-link、正規化後のPath一致を確認して別担当の領域として扱う。未知名、ファイルへの置換、symbolic link／junctionは停止する。`docker_task_runtime_state_clean`はTaskの回収対象がないという意味に限り、Desktop修復の完了やHost全体の安全性を証明しない。Desktop修復の履歴・終了判断は前記の専用入口で別に検証する。実Storeが生成した記録との共存、Task残件の検出維持、未知名・型置換・リンク拒否を結合試験へ接続する。
 
 ## 3. 主実行シーケンス

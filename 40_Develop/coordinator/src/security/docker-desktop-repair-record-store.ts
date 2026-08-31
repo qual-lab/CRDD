@@ -1237,6 +1237,7 @@ function readOriginalOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   directoryName: string,
   historyAllowed = false,
+  logonMode: "current" | "terminal" | "closed_history" = "current",
 ) {
   const operationId = parseDockerDesktopRepairDirectoryName(directoryName);
   if (!operationId) return null;
@@ -1273,6 +1274,7 @@ function readOriginalOperation(
     let previousStage: DockerDesktopRepairStage | null = null;
     let previousLedger: DockerDesktopRepairLedgerSnapshot | null = null;
     let last: StoredRecord | null = null;
+    let recordBoundary = boundary;
     for (let index = 0; index < records.length; index += 1) {
       const name = records[index];
       const match = /^repair-([0-9]{2})-([a-z_]+)\.json$/u.exec(name ?? "");
@@ -1285,8 +1287,18 @@ function readOriginalOperation(
       } catch {
         return null;
       }
+      if (index === 0 && logonMode !== "current") {
+        const first = parseHistoryBytes(bytes);
+        if (!first || !hash64(first.localUserBindingHash)) return null;
+        // Bind the entire chain to ONE historical login, not each record's claim.
+        // Stable user, protected root, policy and release checks remain current.
+        recordBoundary = {
+          ...boundary,
+          localUserBindingHash: first.localUserBindingHash,
+        };
+      }
       if (
-        !validStoredRecord(value, boundary) ||
+        !validStoredRecord(value, recordBoundary) ||
         value.operationId !== operationId ||
         value.sequence !== index ||
         value.stage !== match[2] ||
@@ -1304,7 +1316,15 @@ function readOriginalOperation(
       previousLedger = value.ledger;
       last = value;
     }
-    return last ? toOperation(boundary, last, previousHash) : null;
+    const operation = last ? toOperation(boundary, last, previousHash) : null;
+    if (
+      operation &&
+      logonMode === "terminal" &&
+      recordBoundary.localUserBindingHash !== boundary.localUserBindingHash &&
+      classifyDockerDesktopRepairResume(operation).state !== "terminal"
+    )
+      return null;
+    return operation;
   } catch {
     return null;
   }
@@ -1390,7 +1410,7 @@ function readOperation(
   if (!adoptionPresent)
     return closurePresent
       ? null
-      : readOriginalOperation(boundary, directoryName);
+      : readOriginalOperation(boundary, directoryName, false, "terminal");
   const adoptionBytes = stableBytes(
     path.win32.join(directory, HISTORY_ADOPTION_FILE),
   );
@@ -1421,18 +1441,6 @@ function readOperation(
     !releaseNotAfterBoundary(origin, historicalBoundary(boundary, adopting))
   )
     return null;
-  const operation = readOriginalOperation(
-    historicalBoundary(boundary, origin),
-    directoryName,
-    true,
-  );
-  if (
-    !operation ||
-    operation.repairId !== adoption.repairId ||
-    operation.sequence + 1 !== adoption.originalRecordCount ||
-    operation.previousRecordSha256 !== adoption.originalTipSha256
-  )
-    return null;
   const adoptionSha256 = createHash("sha256")
     .update(adoptionBytes)
     .digest("hex");
@@ -1455,7 +1463,7 @@ function readOperation(
       ]) ||
       closure.schema !== HISTORY_SCHEMA ||
       closure.kind !== "closure" ||
-      closure.repairId !== operation.repairId ||
+      closure.repairId !== adoption.repairId ||
       closure.adoptionSha256 !== adoptionSha256 ||
       !validIdentity(closure.liveRunIdentity) ||
       (closure.staleState !== "absent" && closure.staleState !== "retained")
@@ -1471,6 +1479,21 @@ function readOperation(
     liveRunIdentity = closure.liveRunIdentity;
     staleState = closure.staleState;
   }
+  // Only a fully validated closure permits reading a prior login's chain.
+  // No operation is returned until its original chain and receipt anchors match.
+  const operation = readOriginalOperation(
+    historicalBoundary(boundary, origin),
+    directoryName,
+    true,
+    closurePresent ? "closed_history" : "current",
+  );
+  if (
+    !operation ||
+    operation.repairId !== adoption.repairId ||
+    operation.sequence + 1 !== adoption.originalRecordCount ||
+    operation.previousRecordSha256 !== adoption.originalTipSha256
+  )
+    return null;
   // Original stage and ledger are never rewritten or upgraded to confirmed.
   return Object.freeze({
     ...operation,
