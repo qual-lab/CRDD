@@ -20,7 +20,7 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ## 1. 結論と現在状態
 
-現在の署名固定版は`4f10201`。[4経路4/4・復旧7/7・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)を同じ署名配布物で確認し、取消時の通常回収・候補未発行・対象資源不存在まで観測した。旧45ea2acの実務1件・是正1往復・取消失敗と正規Recoveryは各固定結果に保持し、新版での再実行と混同しない。今回の修正と実測記録の限定独立確認は完了した。Runtime全体・工程強化・v0.18の完成評価、統合・Release判断は未完了である。以下の段階別経緯と現在状態を区別する。
+現在の署名固定版は`48515eb`。[4経路4/4・復旧7シナリオ・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)を同じ署名配布物で確認し、取消時の通常回収・候補未発行・対象資源不存在まで観測した。旧4f10201と45ea2acの実測は各固定結果に保持する。追加境界試験・限定是正の独立確認を終え、結果記録の限定確認まで完了し、全体完成評価へ進む。工程強化・v0.18の完成、統合・Release判断は未完了であり、以下の段階別経緯と現在状態を区別する。
 
 ### 起動方法の固定による再発防止
 
@@ -90,7 +90,7 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ### 完成監査後の限定是正
 
-[署名版4f10201の再実測](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)では4経路・復旧・実Task取消後の通常回収を確認し、同版までの差分の限定独立確認を完了した。その後のProcess所有・終了観測の変更は開発試験と限定確認を進めており、変更後の正式署名実測は未実施である。以下の経緯では、旧版の失敗を後続成功へ書き換えない。Runtime全体の完成、統合、Releaseは別に残る。
+[署名版48515ebの再実測](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)では、追加境界試験と限定是正を固定した後の4経路・復旧・実Task取消後の通常回収を確認した。4f10201までの実測と、その後のコード・試験の限定独立確認は当時の範囲で保持する。旧版の失敗を後続成功へ書き換えず、結果記録の限定確認は完了とし、全体完成評価、統合、Releaseとは区別する。
 
 後続の未到達評価では、既存124ファイルを検証義務と根拠へ対応させ、Lock取得timeout、安定読取り、権限再確認、候補上限、検証結果の読戻し等を追加確認した。trace CLIの入力失敗時は未処理例外を固定理由・終了コードへ収束させ、機密Pathを出力しない。同じ未リリース変更で扱い、[完成確認記録](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md)へ故障仮説、試験結果、観測限界、独立確認と正式実測の残件を集約する。
 
@@ -107,7 +107,7 @@ Process所有処理の抽出後は、新しい開発版として検証・再確�
 
 ### 1.1 経路別の現在状態
 
-| 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`4f10201` | 根拠／残件 |
+| 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`48515eb` | 根拠／残件 |
 |---|---|---|---|---|
 | Codex | Claude Code | Codex | 完了 | 候補完全一致・破棄、cleanup確認済み |
 | Codex | Codex | Claude Code | 完了 | 候補完全一致・破棄、cleanup確認済み |
@@ -120,7 +120,7 @@ cross-providerを既定とし、同一ProviderまたはFront-onlyは、移譲不
 
 2026-09-01、固定版`98ccc9d`の全体独立確認3系統を終了し、[未到達分岐・公開表示・案内と移行の5件](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md)を是正・再確認中である。既存の署名実測は保持し、追加試験と未到達分岐の評価を完了条件へ接続する。試験合格数だけで本節の残件を解消しない。
 
-1. [署名版4f10201の4経路・復旧・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)を限定独立確認の結果とともに完成評価へ渡す。[旧45ea2acの実務1件](Evidence/CHG-000055_Utility_45ea2ac.md)は版と適用限界を分けて完成監査へ接続する。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務の完成速度、人間負荷、Provider分散および総合有用性とは区別する。
+1. [署名版48515ebの4経路・復旧・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)と記録の限定確認結果を、既存の是正再確認とともに完成評価へ渡す。[旧45ea2acの実務1件](Evidence/CHG-000055_Utility_45ea2ac.md)は版と適用限界を分けて完成監査へ接続する。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務の完成速度、人間負荷、Provider分散および総合有用性とは区別する。
 2. 公開Task入口の実OS／Filesystem／Process結合について、今回観測した取消・通常回収と、未確認のタイミング／環境を照合する。旧boolean probe専用facadeの除去や安全な公開reason分類は実施済みで、再実装しない。固定Fixture、実子Process、今回の署名付き公開Taskの証明範囲を分離し、実Provider全体の保証へ読み替えない。
 3. 最新改訂版でArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを完了する。
 4. 実測Evidence、README、Roadmap、CHANGELOG、IssueおよびRelease範囲を現在状態へ同期し、人間の統合・Release判断へ渡す。
