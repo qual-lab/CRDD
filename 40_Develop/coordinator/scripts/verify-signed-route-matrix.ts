@@ -1,21 +1,24 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../src/core/runtime-process-safety-state.ts";
+import {
+  displayVerificationRecording,
+  runRecordedVerification,
+} from "../src/core/verification-result-record.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
 import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 import {
   evaluateSignedRunnerSafetyObservation,
   salvageSignedRunnerRecoveryPair,
 } from "../src/security/signed-runner-safety-observation.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -600,11 +603,22 @@ async function main() {
     process.exitCode = 64;
     return;
   }
-  const result = await runSignedRouteMatrixVerification(
-    resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
+  const outcome = await runRecordedVerification(
+    "routes",
+    process.cwd(),
+    () =>
+      runSignedRouteMatrixVerification(
+        resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
+      ),
+    () => {
+      ensureRuntimeProcessPoisoned();
+      return createSignedRouteMatrixCliFailureResult("runner_exception");
+    },
   );
-  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-  process.exitCode = result.status === "completed" ? 0 : 2;
+  displayVerificationRecording(outcome);
+  if (outcome.result !== null)
+    process.stdout.write(`${JSON.stringify(outcome.result, null, 2)}\n`);
+  process.exitCode = outcome.exitCode;
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {

@@ -18,6 +18,8 @@
     "skipLibCheck": true
   },
   "files": [
+    "bin/launch.ts",
+    "src/core/verification-result-record.ts",
     "scripts/measure-development-providers.ts",
     "src/security/coordinator-task-request.ts",
     "src/security/development-measurement-session.ts",

@@ -1,5 +1,5 @@
-import { spawn, spawnSync } from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -1090,7 +1090,7 @@ function dockerEnvironment(management: string): DockerEnvironment {
   return environment;
 }
 
-function recoveryToken(
+export function formatDockerIsolationRecoveryToken(
   rootName: string,
   probeId: string,
   nonce: string,
@@ -1286,7 +1286,12 @@ function writeRecoveryRecord(
     !identityMatchesRecord(target, serializableIdentity(target, "file"), "file")
   )
     throw new Error("docker_recovery_record_failed");
-  return recoveryToken(rootName, probeId, nonce, recordHash);
+  return formatDockerIsolationRecoveryToken(
+    rootName,
+    probeId,
+    nonce,
+    recordHash,
+  );
 }
 
 function executeDocker(
@@ -2685,6 +2690,18 @@ export function expectedDynamicFakeProviderFailureReason(
   scenario: DynamicFakeProviderFailureScenario,
 ): string {
   return FAILURE_SCENARIO_SPECS[scenario].expectedReason;
+}
+
+export function isDockerIsolationRecoveryIdCandidate(
+  value: unknown,
+): value is string {
+  if (typeof value !== "string" || value.length > 1024) return false;
+  try {
+    parseRecoveryToken(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function parseRecoveryToken(token: unknown): Readonly<{

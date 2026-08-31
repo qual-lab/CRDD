@@ -28,6 +28,33 @@ Coordinatorは依頼を安全な候補成果物へつなぐ実行ツール、[Ch
 
 RuntimeはCRDDのAuthority、固定改訂版、検証、ReviewおよびCurrent Decision Setへ各役割を接続する。push、merge、Release、公開、購入または一般外部EffectはRuntime 1.0の対象外であり、Provider認証は公式CLIが既存Subscription OAuth Sessionを自身の専用Homeから利用する経路だけを標準対応とする。
 
+
+## 共通起動入口
+
+`40_Develop/coordinator/bin/launch.ts`は同じ配布物内の既存入口を選ぶ一回限りのCLIである。任意script、別Node、別配布物を選択する機能ではない。
+
+| 用途 | 接続先 | 入出力条件 |
+|---|---|---|
+| `interactive <CLI引数>` | 通常CLI | stdoutが書込み可能な端末。Taskの構造化stdinは転送可能 |
+| `automation <CLI引数と--json>` | 同じ通常CLI | stdoutは非TTY、`--json`必須。現在のWindows Runtimeで同意が不足する場合は停止し、自動承認しない |
+| `verify-routes` | 署名済み4経路検証 | stdoutが書込み可能な端末、追加引数なし |
+| `verify-recovery` | 署名済み復旧検証 | 端末不要、追加引数なし。内部子Process引数は公開しない |
+| `sign-release <署名引数>` | 既存署名入口 | stdin／stdoutとも端末。引数検査と秘密入力は既存署名入口が所有 |
+
+Node版・用途・入出力の不一致は対象入口を読み込む前に固定理由と終了コード64で拒否する。案内の`--help`は端末を要求しない。TypeScriptを解釈できない旧Nodeではこの説明自体を実行できないため、呼出し元のNode事前確認を省略しない。
+
+既存入口の署名、Repository、Authority、同意、取消、cleanup、結果と終了コードを維持する。共通入口はそれらを事前成立させるAuthorityではない。接続後の未処理例外は終了コード2と状態未確認の説明を返し、成功結果や回収確認を生成しない。既存の直接入口は内部呼出しと既存利用のため保持する。人向け手順は共通入口を優先する。
+
+### 検証結果の保存
+
+4経路・復旧検証の通常CLIは、公開引数とNode版を確認後、検証済みの対象Repository直下`.crdd/verification-results/<UUID>/`へ`started.json`を保存してから既存の検証処理を実行する。終了時は`result.json`へ最終結果の限定要約を保存し、flush・read-back成立後だけ結果hashを持つ`complete.json`を追加する。共通起動入口からも同じ処理へ接続し、内部Recovery子Processとimportによる関数利用では保存しない。
+
+保存対象は固定metadata、開始時Repository改訂版、既知の合否・停止理由・件数・回収状態・文法確認済み回復ID・検証済み結果が返した版識別子に限定する。自由文、入力、Task本文、Provider生出力、秘密値、host pathは保存しない。未知の理由は`unknown`、不正な値はnull等とし、不完全な配列／回復IDを完全な記録と表示しない。開始時HEADは実行配布版の証明ではない。
+
+開始保存に失敗したら検証処理を呼ばず、部分的な記録領域は保持する。終了保存に失敗したら元の実行結果を端末へ残して終了コード2とし、実行結果と保存成否を混同しない。完了記録の欠落、壊れたJSON、異なるID／種別／開始時刻の組合せ、結果hash不一致は結果未確認であり、成功・資源不存在・自動再試行の根拠にしない。
+
+記録は非Authorityのローカル診断情報であり、署名Evidence、Recovery台帳、実行許可を代替しない。通常Task・秘密入力・署名のログ保存へ拡張しない。
+
 ## 導入時のRepository単位
 
 Runtimeは、有効化を明示した対象Repositoryだけを一つのOperation単位として扱う。通常のRepository、linked worktree、および`.git` fileを使うが`core.worktree`を持たない限定worktreeをRuntime 1.0の対象候補とし、bare Repositoryと標準submodule自身は対象外とする。

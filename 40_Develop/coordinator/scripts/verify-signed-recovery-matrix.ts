@@ -1,14 +1,17 @@
-import { spawn, spawnSync } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/core/node-runtime-version.ts";
+import {
+  displayVerificationRecording,
+  runRecordedVerification,
+} from "../src/core/verification-result-record.ts";
 import { createInteractiveConsoleReaderEnvironment } from "../src/core/windows-child-environment.ts";
 import {
   createDynamicFakeProviderRecoverableResidue,
@@ -450,9 +453,16 @@ async function main() {
   }
   if (args.length !== 0)
     throw new Error("signed_recovery_matrix_arguments_invalid");
-  const result = await runSignedRecoveryMatrixVerification();
-  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-  process.exitCode = result.status === "completed" ? 0 : 2;
+  const outcome = await runRecordedVerification(
+    "recovery",
+    process.cwd(),
+    runSignedRecoveryMatrixVerification,
+    () => blocked("signed_recovery_matrix_failed_closed"),
+  );
+  displayVerificationRecording(outcome);
+  if (outcome.result !== null)
+    process.stdout.write(`${JSON.stringify(outcome.result, null, 2)}\n`);
+  process.exitCode = outcome.exitCode;
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {

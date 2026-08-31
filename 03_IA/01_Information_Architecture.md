@@ -26,6 +26,8 @@
 
 ## 3. 情報の順序と導線
 
+通常利用者の起動案内は[共通起動入口](../19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)の`interactive`へ統一し、自動化担当だけが`automation`を使用する。署名と正式検証は開発・配布担当の導線へ分け、起動用途の選択を追加の実行権限や上位モードと扱わない。
+
 | 場面 | 最初に必要な情報 | 詳細・根拠へ進む先 |
 |---|---|---|
 | 導入判断 | できること、準備、制限、現在の品質 | [README](../README.md)→[仕様](../05_SPEC/01_Behavior_Specification.md)・[品質状態](../07_Quality/01_Quality_Center.md) |

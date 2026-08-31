@@ -36,6 +36,10 @@
 
 ### 利用体験・操作・表示と仕様の接続
 
+[検証結果保存の契約試験](../40_Develop/coordinator/tests/verification-result-record.contract.test.ts)は、実FSと実子Processで正常保存、停止結果の保存、callback例外、開始／終了保存失敗、flush失敗、途中終了、同時run、不正Git境界、link／Directory置換、容量・配列・byte上限、秘密風の値・getter・proxy拒否を確認する。公開Recovery入口の未署名停止も保存へ接続する。これらは実Provider成功、電源断耐性、敵対的な同一ユーザーへの耐性を証明しない。
+
+共通起動入口は[起動契約試験](../40_Develop/coordinator/tests/coordinator-launch.contract.test.ts)で、対話TTY成立／redirect拒否、署名stdin非TTY拒否、自動処理の明示選択、実CLIのhelp、起動Directory差、未加工argv・stdin byte・同一PID・終了コード、対象import前拒否とimport後例外を確認する。stdout redirect時に内部の安全Gateが拒否する試験だけで、正常に起動できる品質を確認したとはしない。実端末の可視性・一回入力・終了後表示、および署名配布からの実E2Eは別に記録する。
+
 義務の所有者は[UX](../02_UX/01_User_Experience.md#4-制御信頼検証義務)、[IA](../03_IA/01_Information_Architecture.md#5-検証義務と未解決事項)、[UI](../04_UI/01_User_Interface.md#5-アクセシビリティ利用品質の義務)および[仕様](../05_SPEC/01_Behavior_Specification.md#user-interface-contract)。以下は確認方法であり、義務や合否条件を再定義しない。
 
 | 確認対象 | 正常・準正常・異常の確認方法 | 根拠と未確認範囲 |

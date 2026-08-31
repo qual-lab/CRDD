@@ -15,6 +15,33 @@ Last Updated: 2026-08-31
 5. 不明な残存、Identity差、失効または手動回復要求では通常Taskを再試行せず、仕様が示すexact IDと専用回復手順へ戻す。
 6. 実行結果はCHGまたは品質保証の記録へ返す。日々のログをこの手順へ累積しない。
 
+
+<a id="common-launch-entry"></a>
+
+## 毎回の起動方法を組み立てない
+
+通常操作は、検証済みNodeから同じ配布物の`bin/launch.ts interactive`を直接起動する。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
+
+```powershell
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" interactive doctor --json
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" verify-routes
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" verify-recovery
+```
+
+自動化担当は`automation <CLI引数と--json>`を使い、構造化stdinをバイト列のまま渡し、stdoutを機械向けに受け取る。対話同意を自動入力せず、不足時は停止結果を処置する。公式配布担当の署名は`sign-release`の後に既存の署名引数をそのまま渡す。秘密値を引数へ含めない。
+
+対話・署名・4経路検証ではstdoutをfileやpipeへ転送しない。ログ採取を優先して端末を失わせない。出力採取が必要な自動処理と人間の対話を同じ一時wrapperで兼用しない。ウィンドウが必要な場合はホスト側が可視端末を用意し、終了後も読める状態を保持する。共通入口自体は追加ウィンドウや終了待ちEnterを作らない。
+
+起動入口の端末結合だけを再確認する場合は、検証済みNodeから`40_Develop/coordinator/tests/fixtures/coordinator-launch-terminal-probe.ts`を実端末で直接実行する。実CLIのhelpと用途不一致の拒否を確認するもので、秘密入力・Provider・Docker・Repository変更は行わない。通常の契約試験と併用し、この確認だけで正式E2Eを合格にしない。
+
+### 検証画面を閉じた後の結果確認
+
+結果保存に対応した配布物の4経路／復旧検証では、対象Repositoryの`.crdd/verification-results/<UUID>/`を確認する。`started.json`、`result.json`、`complete.json`のID・種別・開始時刻が一致し、全てをJSONとして読み取れ、完了記録の`resultSha256`と結果fileのSHA-256が一致することを確認する。開始時Repository改訂版を実行配布版と取り違えず、終了記録が保持する検証結果の版情報と対象を照合する。完了記録なし、部分書込み、組合せ／hash不一致、未知値や不完全表示があれば、その範囲は未確認のまま残す。
+
+この記録には会話、確認コード、passphrase、Provider生出力は残らない。未知の停止理由は`unknown`となるため、完全な調査ログの代替ではない。自動的な再実行・回復・署名承認に使わない。不要になった記録は対象を確認した担当者が明示的に清掃するまで保持し、Runtimeは容量超過時にも古い記録を削除しない。Gitは非追跡とし、正式Evidenceへ採用する際は別途対象版と根拠を確認する。旧署名配布物にはこの保存機能を継ぎ足さない。
+
+以下の直接entrypoint一覧は既存CLIと内部処理の契約を説明するものであり、共通入口から同じ実装へ接続する。共通入口が含まれない旧署名配布物へ新ファイルを継ぎ足さず、旧版は旧手順のまま扱う。
+
 <a id="現在利用できるコマンド"></a>
 
 ## コマンドの構文と利用状態

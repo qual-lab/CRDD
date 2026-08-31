@@ -70,6 +70,22 @@ Windows固有の観測・限定操作 ← platform-access
 
 ## 2. 公開実行境界
 
+### 共通起動入口の所有境界
+
+検証結果保存は`src/core/verification-result-record.ts`が所有し、4経路／復旧の通常mainだけから、開始記録→既存検証→限定投影→終了記録のflush・read-back→結果SHA-256を含む完了記録へ接続する。runごと最大3fileとし、構文が完全な結果だけ残っても完了記録がなければ未確認とする。console／stdoutは横取りせず、既存の例外時process-poison・Recovery処置を所有runnerへ残す。保存の成否と実行の成否を分離する。
+
+最寄りの検証済みGit Rootと開始時Commit／Treeを読み取り、固定`.crdd/verification-results`とrun固有UUID Directory以外へ書かない。Directoryは各書込み前後にnon-link、realpath、dev／ino／birthtimeを照合し、fileは`wx+`、単一link、flush、同一handleからのread-back、終了時Identityを確認する。既存fileの上書きや削除はしない。これは同一ユーザーの敵対的差替えへの完全耐性や、電源断後のDirectory entry永続化を保証するものではない。
+
+各file32KiB、子結果12件、種類別回復ID配列16件に制限し、超過は保存失敗または不完全な投影として扱う。保存領域に256項目以上あれば検証開始を止める。異物・部分記録も数え、自動削除しない。この件数は開始時の受入制限であり、並行実行に対する原子的な総容量保証ではない。各runは別UUIDへ固定し、最新結果の自動選択・古い成功へのfallback・保存記録による操作再開を実装しない。
+
+`bin/launch.ts`と`src/core/coordinator-launch.ts`は用途の閉集合、Node版、必要な端末接続を検査し、`import.meta.url`を基準に同じpackage内の既存入口を選ぶ。通常CLI、署名、4経路検証、復旧検証の契約を再実装しない。
+
+選択→事前条件照合→`process.argv`を対象入口と未加工の引数へ一度設定→同じProcessでdynamic import→既存入口の終了、の順とする。新しい子Process、Shell、stdio転送、環境block、cwd変更、signal handler、入力readerを追加しない。終了と取消の所有者は既存入口のままである。対象import後の失敗にはEffectがあり得るため、事前拒否とは別に状態未確認とする。
+
+対話出力は端末に残す。結果採取のためのstdout差替え、tee、stream interceptionは共通入口へ持ち込まない。自動化は明示したJSON入口と既存の同意境界を使う。外側のShellやホストアプリによるウィンドウ閉鎖・redirectを修復する機構ではなく、不適合な接続を実処理前に検出する境界である。
+
+検証は[起動契約試験](../../40_Develop/coordinator/tests/coordinator-launch.contract.test.ts)で用途の受理／拒否、実子でのPID・引数・stdin・cwd・終了コード、実CLIへの接続を照合する。実端末の表示・入力と実Provider動作は別の検証義務として残す。試験用入口の成功を署名・Authority成立へ読み替えない。
+
 現在の実行可能な中心経路は、正式署名配布物から開始するLocal Personal一般Taskである。
 
 開発反復と正式署名版は別の検証境界とする。開発試験の成功を、署名配布物、実Provider、実OS対話境界またはReleaseの成立へ昇格させない。開発試験から候補凍結・正式署名検証へ進む順序は[開発者確認の手順](../../19_Workflows/01_Coordinator_Runtime.md#開発者確認)が所有する。
