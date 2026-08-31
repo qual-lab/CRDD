@@ -13,7 +13,11 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ### v0.18.0 Candidate — Current Decision Set, Agent Organization, Communication, and Architecture Evaluation (Unreleased)
 
+Quality document naming is also a breaking placement change: within `07_Quality/`, rename `Quality_Center.md` to `01_Quality_Center.md`, `Quality_Strategy.md` to `02_Quality_Strategy.md`, and `Verification_Design.md` to `03_Verification_Design.md`. Update active references and scripts while preserving content, anchors, project additions, and assessment meaning. Keep `Verification_Results/` and dated records unchanged. If a destination already exists or history constraints are unclear, stop rather than overwrite. Verify layout, links, templates, and applicable conformance before activating the new baseline; rollback restores placement and consumers together. See the [migration procedure](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#quality-document-naming). This does not require empty quality documents for an inapplicable scope.
+
 This unreleased candidate combines four normative difference sets and a separate non-normative architecture evaluation. The Current Decision Set contract reconstructs what humans must decide from the current revision after remediation and re-review. The Communication contract conditionally connects adoption-oriented external communication to Discovery-owned market and adoption exploration and preserves safety boundaries for human-subject research and persuasion. The Agent Organization foundation separates role, specialty, capability, authority, delegation, independent review, cost optimization, and result integration. The Coordinator maintenance difference strengthens pre-execution alignment, resource-role separation, production-topology testing, cleanup evidence, and generalized audit feedback for official and distributed AI entry points. The architecture material evaluates future execution projections but is not a normative requirement or a statement that Coordinator Runtime is available.
+
+The reference Runtime remains unreleased. A pre-migration signed candidate completed four delegation routes and seven recovery scenarios; this is not completion evidence for the new layout. Internal source, tests, and build definitions move from `tools/` to `40_Develop/`, behavior to `05_SPEC`, design to `06_Architecture`, and operating procedures to `19_Workflows`. The adopting-project checker remains at `template/tools/crdd-check.ts`; existing signed distributions and fixed historical evidence are unchanged. See the [current quality status](07_Quality/01_Quality_Center.md) and [migration trace](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行). Practical dogfooding demonstrated bounded use, not a general speed, cost, or human-attention advantage.
 
 Compared with v0.17.0:
 
@@ -24,16 +28,16 @@ Compared with v0.17.0:
 - Extends Agentic Delivery claims from AD-01–AD-21 to AD-01–AD-22 without requiring a permanent organization registry, fixed schema, multi-agent execution, or retrospective rewriting of closed work.
 - Separates the normative Agent Organization foundation in `04_Agent_Organization.md` sections 1–11 from its non-normative execution architecture candidate in section 12 and from the current Coordinator Runtime implementation.
 - Keeps the v0.18 Architecture Candidate non-normative. Its branch co-location, diagrams, runtime candidates, or future profiles do not add conformance criteria or establish implementation availability.
-- Strengthens the existing maintenance and AI-entry contracts so process, channel, asynchronous I/O, cancellation, preflight equivalence, cleanup state, and audit feedback are checked against the actual production topology; implementation-specific Node, Windows-console, environment-key, timeout, and byte-limit choices remain in `tools/coordinator/`.
+- Strengthens the existing maintenance and AI-entry contracts so process, channel, asynchronous I/O, cancellation, preflight equivalence, cleanup state, and audit feedback are checked against the actual production topology; implementation-specific Node, Windows-console, environment-key, timeout, and byte-limit choices remain in `40_Develop/coordinator/`, with their design in `06_Architecture/coordinator/`.
 - Keeps the released baseline at v0.17.0. Candidate documents, branch co-location, checker success, or runtime implementation do not establish adoption, conformance, activation, or release.
 
-Adoption impact: the combined release-candidate difference set is classified as breaking because it includes the Communication change, while the Current Decision Set, Agent Organization, and Coordinator maintenance／AI-entry changes are normative. A project adopting v0.18.0 from v0.17.0 evaluates all applicable active decision-support, Communication／Discovery, Agentic Delivery, AI-entry, review, maintenance, and routing consumers through baseline adoption and Migration Completeness. The non-normative architecture material does not itself trigger migration. Historical completed work and old conformance records remain history and are not rewritten solely to match the new presentation or AD-22.
+Adoption impact: the combined release-candidate difference set is classified as breaking because it includes the Communication and quality-document placement changes, while the Current Decision Set, Agent Organization, and Coordinator maintenance／AI-entry changes are normative. A project adopting v0.18.0 from v0.17.0 evaluates all applicable active decision-support, Communication／Discovery, Agentic Delivery, AI-entry, review, maintenance, and routing consumers through baseline adoption and Migration Completeness. The non-normative architecture material does not itself trigger migration. Historical completed work and old conformance records remain history and are not rewritten solely to match the new presentation or AD-22.
 
 Migration note (v0.17.0 → v0.18.0):
 
 - `migration_required: true`
 - `change_classification: breaking`
-- Required: perform the baseline-adoption assessment and satisfy Migration Completeness before activating v0.18.0. Inventory all applicable consumers of CHG-000012, CHG-000013, CHG-000015, and CHG-000054; record their migration, replacement, retained, or not-applicable disposition; obtain independent meaning-preservation review; and record the Human activation decision and rollback boundary.
+- Required: perform the baseline-adoption assessment and satisfy Migration Completeness before activating v0.18.0. Inventory all applicable consumers of CHG-000012, CHG-000013, CHG-000015, CHG-000017, and CHG-000054; record their migration, replacement, retained, or not-applicable disposition; obtain independent meaning-preservation review; and record the Human activation decision and rollback boundary.
 - Required for maintained AI entry points: preserve distinct resource roles, test the actual production process／channel topology, verify post-cleanup state rather than request completion, keep preflight and operation predicates equivalent, and generalize repeated review or audit findings into an existing governing contract where applicable. Projects that do not maintain or distribute such an entry point may disposition this consumer as not applicable with scope and reason.
 - Required for decision support: update active Agent, Skill, quality, audit, and AI-entry guidance where it forwards stale or already-resolved findings, creates approval requests when no current Human decision remains, hides major unresolved risk, or groups separable decisions. Derive the Current Decision Set from the current revision after remediation and re-review.
 - Required where the Communication compound trigger applies: connect adoption-oriented audience, message, channel, advertising, or market-response changes to Discovery-owned market／adoption exploration; preserve evidence type, selection and nonresponse bias, generalization limits, research consent and refusal, information minimization, autonomy, delivery readiness, stop conditions, and Human authority before external action. Communication scopes that do not meet the trigger do not create empty market-exploration artifacts.
@@ -817,7 +821,11 @@ The following describes the historical v0.1.0 files and does not describe the cu
 
 ### v0.18.0候補 — 現在の判断集合、エージェント組織、外部コミュニケーション、アーキテクチャ評価（未リリース）
 
+品質文書の命名も破壊的な配置変更として是正する。`07_Quality/`内の`Quality_Center.md`を`01_Quality_Center.md`、`Quality_Strategy.md`を`02_Quality_Strategy.md`、`Verification_Design.md`を`03_Verification_Design.md`へ改名する。内容・アンカー・利用者の追記・品質判定の意味を保持して、現行参照とスクリプトを更新する。`Verification_Results/`と日付付き記録は維持する。移行先が既に存在する、または履歴の固定条件が不明な場合は上書きせず停止する。配置・リンク・ひな型・関連準拠基準を確認してから新基準版を有効化し、切戻しでは配置と利用側を一組で戻す。詳細は[移行手順](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#quality-document-naming)を参照する。品質保証が非該当の対象へ空文書を要求する変更ではない。
+
 この未リリース候補は、四つの規範差分と、それらとは別の非規範アーキテクチャ評価を組み合わせる。現在の判断集合（Current Decision Set）の契約は、是正・再レビュー後の現在改訂版から人間が今決める事項を再構成する。外部コミュニケーション（Communication）の契約は、採用形成を目的とする外部説明を条件付きで課題探索が所有する市場・採用探索へ接続し、人間対象調査と説得の安全境界を維持する。エージェント組織（Agent Organization）の基礎正本は、役割、専門性、能力、決定権限、委譲、独立レビュー、費用最適化および結果統合を分離する。Coordinator保守差分は、公式／配布AI入口における着手前整合、資源役割の分離、本番同等構成の試験、cleanup根拠および監査フィードバックの汎化を強化する。アーキテクチャ資料は将来の実行投影を評価するが、規範要件でもCoordinator Runtimeの利用可能性の表明でもない。
+
+参照Runtimeは未リリースである。移行前の署名済み固定候補で4委譲経路と7種の復旧試験を完了したが、新配置の完成根拠には流用しない。内部のソース・テスト・ビルド定義は`tools/`から`40_Develop/`へ移し、振る舞いを`05_SPEC`、設計を`06_Architecture`、操作手順を`19_Workflows`へ分ける。採用先の配布Checkerは`template/tools/crdd-check.ts`を維持し、既存の署名配布物と固定履歴は変更しない。[品質の現在状態](07_Quality/01_Quality_Center.md)と[移行記録](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)から確認できる。実務自己適用では限定利用の成立を確認したが、完成速度、費用、人間負荷の一般的な優位は未実証である。
 
 v0.17.0からの変更:
 
@@ -828,16 +836,16 @@ v0.17.0からの変更:
 - エージェント型提供の準拠表明範囲をAD-01〜AD-21からAD-01〜AD-22へ拡張する。恒久的な組織台帳、固定スキーマ、複数エージェント実行または完了済み履歴の遡及書換えは要求しない。
 - `04_Agent_Organization.md`§1～§11のエージェント組織の基礎規範候補、§12の非規範実行Architecture候補、および現在のCoordinator Runtime実装を分離する。
 - v0.18 Architecture Candidateは非規範のまま維持する。同一branchへの同居、図、実行環境候補または将来Profileから準拠基準や実装利用可能性を成立させない。
-- 既存の保守およびAI入口契約を強化し、Process、channel、非同期I/O、取消、preflight同等性、cleanup後状態および監査フィードバックを本番同等構成で確認する。Node、Windows console、具体的環境key、timeoutおよびbyte上限は`tools/coordinator/`の実装責務へ残す。
+- 既存の保守およびAI入口契約を強化し、Process、channel、非同期I/O、取消、preflight同等性、cleanup後状態および監査フィードバックを本番同等構成で確認する。Node、Windows console、具体的環境key、timeoutおよびbyte上限は`40_Develop/coordinator/`の実装責務へ、その設計は`06_Architecture/coordinator/`へ残す。
 - 公開済み基準はv0.17.0のままとする。候補文書、branchへの同居、Checker合格またはRuntime実装から、採用、準拠、有効化またはリリースを成立させない。
 
-採用への影響: 統合したリリース候補の差分集合は、破壊的な外部コミュニケーション変更を含むため`breaking`に分類する。現在の判断集合、エージェント組織およびCoordinator保守／AI入口の変更は規範変更である。v0.17.0からv0.18.0を採用するプロジェクトは、基準版採用評価と移行完了の条件を通じて、該当する現在の判断支援、外部コミュニケーション／課題探索、エージェント型提供、AI入口、レビュー、保守および経路制御の利用側をすべて評価する。非規範アーキテクチャ資料自体は移行を発火しない。完了済みの過去作業や過去の準拠記録を、新しい表示形式やAD-22へ合わせるだけの理由で書き換えない。
+採用への影響: 統合したリリース候補の差分集合は、外部コミュニケーションと品質文書配置の破壊的変更を含むため`breaking`に分類する。現在の判断集合、エージェント組織およびCoordinator保守／AI入口の変更は規範変更である。v0.17.0からv0.18.0を採用するプロジェクトは、基準版採用評価と移行完了の条件を通じて、該当する現在の判断支援、外部コミュニケーション／課題探索、エージェント型提供、AI入口、レビュー、保守および経路制御の利用側をすべて評価する。非規範アーキテクチャ資料自体は移行を発火しない。完了済みの過去作業や過去の準拠記録を、新しい表示形式やAD-22へ合わせるだけの理由で書き換えない。
 
 移行注記（v0.17.0 → v0.18.0）:
 
 - `migration_required: true`
 - `change_classification: breaking`
-- 必須: v0.18.0を有効化する前に基準版採用評価と移行完了の条件を満たす。CHG-000012、CHG-000013、CHG-000015およびCHG-000054の該当利用側を棚卸しし、移行、置換、据え置きまたは対象外の処遇を記録し、意味保持の独立レビュー、人間による有効化判断および切戻し境界を取得する。
+- 必須: v0.18.0を有効化する前に基準版採用評価と移行完了の条件を満たす。CHG-000012、CHG-000013、CHG-000015、CHG-000017およびCHG-000054の該当利用側を棚卸しし、移行、置換、据え置きまたは対象外の処遇を記録し、意味保持の独立レビュー、人間による有効化判断および切戻し境界を取得する。
 - 保守するAI入口で必須: 資源役割を分離し、本番のProcess／channel構成を再現し、取消要求ではなくcleanup後状態を確認し、preflightと実処理の判定を同等に保ち、反復したレビュー／監査の一般化可能な原因を既存の支配契約へ還元する。その入口を保守または配布しないプロジェクトは、対象範囲と理由を示して本利用側を対象外と処遇できる。
 - 判断支援で必須: 古い指摘や解消済み事項を人間判断へ転送する、現在判断がないのに承認を作る、現在の重大リスクを隠す、または独立に採否できる判断を束ねるエージェント、スキル、品質、監査およびAI入口の案内を更新する。是正・再レビュー後の現在改訂版から現在の判断集合を導出する。
 - 外部コミュニケーションの複合発火条件が成立する場合に必須: 採用形成を目的とする受け手、訴求、媒体、広告または市場反応の変更を、課題探索が所有する市場・採用探索へ接続する。根拠の性質、選定・無反応の偏り、一般化限界、調査の同意と拒否、情報最小化、自律性、提供準備、停止条件および外部行動前の人間の決定権限を維持する。発火しない範囲へ空の市場探索成果物を追加しない。

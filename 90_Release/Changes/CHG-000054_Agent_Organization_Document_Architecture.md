@@ -9,14 +9,14 @@
 - 移行要否: `migration_required: true`
 - 概念正本: [`04_Agent_Organization.md`](../../04_Agent_Organization.md)
 - 自律Operation Architecture: [`05_Autonomous_Operation.md`](../../05_Autonomous_Operation.md)
-- 実装案内: [`tools/coordinator/README.md`](../../tools/coordinator/README.md)
+- 実装案内: [Runtimeの振る舞い仕様](../../05_SPEC/01_Behavior_Specification.md)
 - 統合台帳: [未リリース変更トレース統合台帳](README.md)
 
 ## 1. 結論
 
 CRDDの中心概念であるエージェント組織（Agent Organization）を、特定Providerや`tools/coordinator`の実装から分離し、ルートの基礎正本へ集約した。READMEの「AIの開発チーム」「AIに専門性と実行を、人間にアイデア・判断・責任を」というVisionは、この概念の利用者向け入口であり独立したRelease価値ではないため、旧`CHG-000045`を本変更へ統合した。
 
-文書責務は次へ固定する。
+次の表は概念と実装を分離した当時の結果である。Runtimeの仕様・設計・手順・コードは、その後[工程別配置への移行](CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)で分離した。現在の配置は同移行先を参照し、表の旧READMEを現行入口とみなさない。
 
 | 層 | 正本／入口 | 所有する意味 |
 |---|---|---|

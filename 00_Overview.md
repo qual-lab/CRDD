@@ -183,9 +183,9 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `CHANGELOG.md` | CRDD標準自体のバージョン間変更履歴。プロダクト固有のCHANGELOGとは別に扱う |
 | `template/` | プロジェクトへCRDDを導入するためのひな型とAI入口ファイル |
 | `template/tools/crdd-check.ts` | 採用プロジェクトへ配布する軽量チェッカーの正本。全体確認を既定とし、親AIエージェントがレビュー／監査前の共通事前確認と参照関係の把握に使用する |
-| `tools/checker/crdd-check.ts` | CRDD標準リポジトリのprivate checker packageから配布用チェッカー正本を呼び出す入口。配布正本は`template/tools/crdd-check.ts`であり、監査または準拠判定の正本ではない |
-| `tools/coding-standards.md` | CRDD公式Repositoryの内部ツールに適用するファイル、フォルダ、TypeScript／Rust識別子、試験名および機械識別子（machine identifier）の命名正本 |
-| `tools/platform-access/` | OS固有の読み取り専用アクセス観測だけを所有するprivate Rust crate。CRDD本体・CLI・Policy・契約はTypeScriptに保持し、単独配布または公開CLIにしない |
+| `40_Develop/checker/crdd-check.ts` | CRDD標準リポジトリのprivate checker packageから配布用チェッカー正本を呼び出す入口。配布正本は`template/tools/crdd-check.ts`であり、監査または準拠判定の正本ではない |
+| `06_Architecture/99_Coding_Standards.md` | CRDD公式Repositoryの内部ツールに適用するファイル、フォルダ、TypeScript／Rust識別子、試験名および機械識別子（machine identifier）の命名正本 |
+| `40_Develop/platform-access/` | OS固有の読み取り専用アクセス観測だけを所有するprivate Rust crate。CRDD本体・CLI・Policy・契約はTypeScriptに保持し、単独配布または公開CLIにしない |
 
 CRDD標準自体のバージョン、CHANGELOG、タグ、移行と、採用プロジェクトにおけるCRDD基準版の評価・有効化は[`19_Maintenance.md`](19_Maintenance.md)を正本とする。プロダクト固有リリースのCHANGELOGは[`13_Release.md`](13_Release.md)に従う。
 
@@ -359,7 +359,7 @@ CRDDのプロダクト変換、変更、ロードマップ、リリース、学�
 | 変更契機から影響・実装・検証・終了を追跡する | [変更](12_Change.md)に従い、必要な`CHG-*`を`90_Release/Changes/`へ置く |
 | リポジトリ固有の反復作業を定義する | [作業手順](14_Workflow.md)に従い、`19_Workflows`へ置く |
 | 開発方式を問わず進捗と健全性を把握する | [進捗管理](15_Progress.md)に従い、ライフサイクル単位ごとに対応状態、責務別進捗、根拠を取得可能にする |
-| 品質保証の計画、実績、現在状態を横断して把握する | [品質保証](16_Quality_Assurance.md)に従い、各工程の検証義務と検証設計を育て、`07_Quality/Quality_Center.md`から現在状態と詳細参照へ到達できるようにする。外部ツールを使っても品質保証記録はリポジトリ内で理解・再確認できるようにする。単体試験が適用される場合は分岐網羅率`100%`を既定目標とし、未達または除外の理由と残るリスクを明示する |
+| 品質保証の計画、実績、現在状態を横断して把握する | [品質保証](16_Quality_Assurance.md)に従い、各工程の検証義務と検証設計を育て、`07_Quality/01_Quality_Center.md`から現在状態と詳細参照へ到達できるようにする。外部ツールを使っても品質保証記録はリポジトリ内で理解・再確認できるようにする。単体試験が適用される場合は分岐網羅率`100%`を既定目標とし、未達または除外の理由と残るリスクを明示する |
 | 検証済み改訂版を配布・有効化する | [検証](29_Verification.md)のリリース準備状況の推奨をプロジェクト固有リリース決定権限へ渡し、必要な場合だけ[リリース](13_Release.md)に従う |
 | 未完了の作業、課題、アイデア、是正事項を横断して把握する | [課題探索・要求形成の未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)に従い、存在、現在状態、参照先を`99_Roadmap`へ置く |
 | 文書品質を監査する | [文書監査](51_Document_Audit.md) |

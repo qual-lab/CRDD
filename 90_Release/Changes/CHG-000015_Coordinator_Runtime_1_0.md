@@ -13,9 +13,9 @@
 正本規則: [変更](../../12_Change.md)
 概念正本: [エージェント組織](../../04_Agent_Organization.md)
 Architecture正本: [エージェント組織の実行アーキテクチャ](../../04_Agent_Organization.md#12-execution-architecture)
-実装案内: [Coordinator Runtime README](../../tools/coordinator/README.md)
-Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接続](../../tools/coordinator/architecture/README.md)
-脅威境界: [Threat Model](../../tools/coordinator/threat-model.md)
+実装案内: [Runtimeの振る舞い仕様](../../05_SPEC/01_Behavior_Specification.md)
+Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接続](../../06_Architecture/coordinator/01_Architecture.md)
+脅威境界: [Threat Model](../../06_Architecture/coordinator/02_Threat_Model.md)
 統合台帳: [未リリース変更トレース統合台帳](README.md)
 
 ## 1. 結論と現在状態
@@ -44,7 +44,7 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 固定版`9037dd1`の実復旧では、停止判定を通過し、公式shutdown、WSL停止、`run`退避まで確認したが、起動段階で配布Identity不一致となり停止した。launch intentは未確定、手動回復必要、退避物と記録は保持中である。同時刻に配布Root内へ`.docker`が生成され、sourceでは空Homeと作業Directory継承を確認した。生成元Processの直接観測はなく、直接原因の確定や回復成功は主張しない。
 
-同じ変更内の是正として、[Docker専用起動環境](../../tools/coordinator/architecture/README.md#22-docker-desktop最終復旧時の起動環境)をOS由来のProfile、App Dataおよび明示cwdへ固定した。実子Processによる環境搬送・cwd・終了、非適合cwdの非発行、生成後Identity不明の保持を追加検証した。さらに旧署名版へ結合された記録について、既存ID・署名由来・hash chainを保持する限定的な引継ぎを実装した。元のv4記録は変更せず、引継ぎと明示終了の固定名receiptを同じ保護Directoryへ追加する。過去の署名は由来だけを証明し、現在の実行版の署名・配布・期限・選択ユーザー・Policy検証は緩和しない。引継ぎ済み記録の全stageは観測専用とし、過去のHost操作を再発行しない。
+同じ変更内の是正として、[Docker専用起動環境](../../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)をOS由来のProfile、App Dataおよび明示cwdへ固定した。実子Processによる環境搬送・cwd・終了、非適合cwdの非発行、生成後Identity不明の保持を追加検証した。さらに旧署名版へ結合された記録について、既存ID・署名由来・hash chainを保持する限定的な引継ぎを実装した。元のv4記録は変更せず、引継ぎと明示終了の固定名receiptを同じ保護Directoryへ追加する。過去の署名は由来だけを証明し、現在の実行版の署名・配布・期限・選択ユーザー・Policy検証は緩和しない。引継ぎ済み記録の全stageは観測専用とし、過去のHost操作を再発行しない。
 
 開発試験では、実Ed25519署名と実記録Storeの接続、原記録の不変、ID維持、同じreceiptの再開、署名・tuple・Root・Policy・末尾hashの不一致、部分記録、全9stageからのHost再実行0、退避物保持／不存在、明示close、取消・状態不明・保存不明・helper cleanup不明・解放後の版差、CLI入力とJSON／人間表示／exitを確認する。実機では署名固定版`b468ddc`で旧11記録を保持した引継ぎreceiptの追加まで確認した。元記録は変更せず、Docker停止により現在状態の確認は`docker_desktop_repair_historical_current_state_unconfirmed`で停止した。この時点では、Qual-Labが担当する現在Dockerの回復と同じIDでの明示終了、最新正式E2E、独立完成監査が未完了だった。観測不能な起動履歴を理由に同じ操作を再実行せず、現在Dockerが停止していれば、その起動を別の明示操作として判断する。後続の回復結果を以下に記録する。
 
@@ -78,7 +78,7 @@ cross-providerを既定とし、同一ProviderまたはFront-onlyは、移譲不
 ### 1.2 Releaseまでの主要残件
 
 1. 完了した`0c3e6d2`の4経路・復旧E2Eを完成監査の入力にする。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務自己適用の完成速度、人間負荷、不要Loop、Provider分散および品質の評価と区別する。
-2. 公開Task入口の実OS／Filesystem／Process結合Harness、旧facade整理および安全な公開reason分類を、Reference Architectureの未解決項目として閉じる。
+2. 公開Task入口の実OS／Filesystem／Process結合の未確認範囲を閉じる。旧boolean probe専用facadeは通常実行から参照されていないため、source・専用試験・coverage入口を削除し、現行TaskとDocker producer／consumer試験は保持した。安全な公開reason分類は実装済みで、再実装せず最新固定版の確認対象にする。試験専用Taskへ実子Processと実Host領域を接続した追加試験を、署名付き公開CLI・実Provider全体の証明へ読み替えない。
 3. 最新改訂版でArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを完了する。
 4. 実測Evidence、README、Roadmap、CHANGELOG、IssueおよびRelease範囲を現在状態へ同期し、人間の統合・Release判断へ渡す。
 
@@ -224,7 +224,7 @@ Docker Desktop 4.41.2は、旧runtime socketを単体削除できずEngineを起
 
 同じHost復旧を通常Operationへ混入させず再現可能にするため、Windows専用の明示`doctor --repair-docker-desktop-runtime`候補を追加した。初回候補の独立監査は、random lock identity、Engineの二値化、PID再利用競合、package更新競合、部分Effectの誤投影、再開不能な記録および人間表示の不正確さを検出した。是正候補は、発火をEngine既知停止の二重観測と固定`dockerInference` socketの既知アクセス不能へ限定し、署名済みCRDD配布物、native selected-user／Known Folder照合済みLocal App Data、保護Runtime State、単一の署名対象Policyに固定したDocker Desktop 4.41.2／Engine 28.1.1成果物、および選択User単位のWindows global mutexを要求する。署名済みnative helperは成果物の更新排他handleを保持し、公式shutdown後に残るProcessを同じkernel process handleで照合・停止・待機する。PIDやProcess名だけをAuthorityにせず、WSLは`docker-desktop`だけをterminateする。
 
-Filesystem Effectは、保護Runtime State内のrev4追記型段階記録、旧版記録の明示引継ぎ・終了に用いる固定名の`historical-adoption.json`／`historical-closure.json`の排他的追加、および`Docker\run`を同じ親Directoryの一意な`run.crdd-stale-*`へrenameする処置に限定する。履歴receiptの境界は[専用Architecture](../../tools/coordinator/architecture/README.md#22-docker-desktop最終復旧時の起動環境)に従う。Directory、socketまたは記録を削除せず、Identityを前後照合する。Engine再応答、固定成果物、Process集合およびhelper解放まで確認できた場合は`recovered_pending_close`とし、人間がopaque IDを`doctor --close-docker-desktop-runtime-repair`へ明示した場合だけ、全境界を再確認して削除せず`closed_retained`を追記する。未完了記録は次回の明示doctorで再開し、改ざん、第三状態、Identity差またはcleanup不明では新規repairを止める。通常Taskからの自動fallback、`wsl --shutdown`、CRDD RuntimeStateの他内容、Provider Home、container、image、volumeまたは別WSL distributionの削除を許可しない。契約試験は正常・非発火・三値観測・境界・各段階失敗・helper cleanup不明・再開・明示close・記録改ざんを対象とするが、再度Hostを破損させる実測は行っていない。この候補は別の`0xC0000409`、Docker Task Recovery、残存0、DogfoodingまたはRuntime完成を成立させない。
+Filesystem Effectは、保護Runtime State内のrev4追記型段階記録、旧版記録の明示引継ぎ・終了に用いる固定名の`historical-adoption.json`／`historical-closure.json`の排他的追加、および`Docker\run`を同じ親Directoryの一意な`run.crdd-stale-*`へrenameする処置に限定する。履歴receiptの境界は[専用Architecture](../../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。Directory、socketまたは記録を削除せず、Identityを前後照合する。Engine再応答、固定成果物、Process集合およびhelper解放まで確認できた場合は`recovered_pending_close`とし、人間がopaque IDを`doctor --close-docker-desktop-runtime-repair`へ明示した場合だけ、全境界を再確認して削除せず`closed_retained`を追記する。未完了記録は次回の明示doctorで再開し、改ざん、第三状態、Identity差またはcleanup不明では新規repairを止める。通常Taskからの自動fallback、`wsl --shutdown`、CRDD RuntimeStateの他内容、Provider Home、container、image、volumeまたは別WSL distributionの削除を許可しない。契約試験は正常・非発火・三値観測・境界・各段階失敗・helper cleanup不明・再開・明示close・記録改ざんを対象とするが、再度Hostを破損させる実測は行っていない。この候補は別の`0xC0000409`、Docker Task Recovery、残存0、DogfoodingまたはRuntime完成を成立させない。
 
 後続監査是正では記録をrev4とし、shutdown、native termination、WSL termination、renameおよびlauncherを、同じactionの耐久`intent_recorded`と`settled`へ分離した。intent確定後にpackage／Policy／helper／取消境界を再確認し、未settled intentを再発行しない。現在状態を過去の発行証明へ流用せず、operation固有staleのexact Identityから帰属を証明できるrenameだけを観測済みEffectとして再開する。record writeは自己参照を避けた専用Filesystem Evidence Effectとし、fresh hash-chain読取り後だけconfirmedへ精緻化する。reader／writer共通validatorはaction閉集合、phase、順序、stage相関およびaggregateを検査し、通常15件と再開余裕9件の上限24件を固定する。既知の発行事実を後退させず、後続Effectが不明なら以前の成功で隠さず全体確認を`unknown`にする。CRDD manifest Hash／Release Sequence／Tree／package content rootへの再開結合、旧rev2／rev3の非移行停止、Engine／Process三値、run／stale四状態とexact Identityの段階行列、new live run Identity、および過去Effect不明・staleなしの専用pending／terminalを追加した。Nodeの非同期launcher起動は廃止し、native helper protocol rev4が生成前非発行、生成後確認済み、生成後確認不明を分離する。durable terminalはEvidence dispositionだけを表し、helper protocol成否とchild `close`、stdin／stdout／stderrおよびprocess handleのbounded cleanup確認を分離する。cleanup確認済みでもprotocol不成立は成功または新規repair許可へ昇格しない。契約試験は取消、helper喪失、package世代差、intent／settlement、rename後record前のat-most-once再開、Process不明／run置換、rev4 Store round-trip、旧rev拒否、reader非互換writer拒否、terminal再表示、遅延exit／stdio回収、protocol失敗cleanup、公開CLIのusage／blocked表示およびnative同一CreateProcess primitiveの実child観測を含む。実破損Hostでの復旧、`0xC0000409`、Docker Task Recovery、Dogfooding、Runtime完成およびReleaseはこの候補の成功根拠に含めない。保証対象は直接Effectに使う固定executable集合とEngine応答版であり、未列挙DLL、resource、loader依存、installation全体または供給経路のAttestationは主張せず、人間が確認した公式Docker配布物と正常なupdaterをT1–T2のTCBに含める。
 
@@ -278,7 +278,7 @@ Filesystem Effectは、保護Runtime State内のrev4追記型段階記録、旧�
 
 主な固定根拠は次のとおりである。
 
-- Runtime全体の反復レビュー、監査、Docker隔離、Recoveryおよび正式Runner: [`Evidence/CHG-000015_*`](Evidence/)
+- Runtime全体の反復レビュー、監査、Docker隔離、Recoveryおよび正式Runner: [`Evidence/CHG-000015_*`](Evidence)
 - Platform／Windows／AppContainer: 台帳の`000019`～`000036`各entryから専用Evidenceへ接続
 - Provider／OAuth: 台帳の`000037`、`000038`各entryから専用Evidenceへ接続
 - Fake Providerの成功・失敗・取消: 台帳の`000023`～`000025`各entryから専用Evidenceへ接続
@@ -442,7 +442,7 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 関連するTask／送信許可の契約試験146件、両型検査、変更sourceのLint／format、設計対応検査を確認した。後続の全体試験とChecker結果はCHG-000055へ接続する。これらは開発試験であり、人間が表示を読んだ証明、実利用時の負荷削減、更新Sourceの正式署名E2Eまたは独立監査Passではない。担当は親Coordinatorとし、残る実務収束後に更新版の表示・初回／再利用経路を最終固定E2Eと一括監査へ含める。今回、公式鍵入力と再署名は行わない。
 
-2026-08-30、実務Reviewerのturn上限停止を受け、基準Commit `57ccb71`から推論強度と作業量を分離した。Windows Job Objectの上限変更ではない。検証済みTask Packetを消費したRuntimeが読取り・変更範囲、受入条件、是正指摘の件数を導出し、[実行Architectureの有限見積り](../../tools/coordinator/architecture/README.md#task-turn-budget)に従ってClaudeの実行上限を決める。最大16を超える見積りは分割要求として停止する。Provider Authority発行・起動は行わず、有効化済みMountは既存cleanupへ返す。推論を上げることで作業枠を増やす旧結合は廃止し、結果検証とDocker argv再構成も同じ作業量へ接続した。同じ上限になる作業量の差替えも実行計画Identityで拒否する。
+2026-08-30、実務Reviewerのturn上限停止を受け、基準Commit `57ccb71`から推論強度と作業量を分離した。Windows Job Objectの上限変更ではない。検証済みTask Packetを消費したRuntimeが読取り・変更範囲、受入条件、是正指摘の件数を導出し、[実行Architectureの有限見積り](../../06_Architecture/coordinator/01_Architecture.md#task-turn-budget)に従ってClaudeの実行上限を決める。最大16を超える見積りは分割要求として停止する。Provider Authority発行・起動は行わず、有効化済みMountは既存cleanupへ返す。推論を上げることで作業枠を増やす旧結合は廃止し、結果検証とDocker argv再構成も同じ作業量へ接続した。同じ上限になる作業量の差替えも実行計画Identityで拒否する。
 
 この見積りはDirectory内の実ファイル数や完了予測ではない。既存のSubscription限定、権限、外部送信、timeout、cleanup、CodexおよびBoolean Probeの契約は維持する。実務の上限停止が解消したという主張は、更新版を用いた後続実測まで保留する。親Coordinatorが実務収束時に係数、上限停止率、完成時間、利用量を再評価し、最終固定E2Eと独立監査へ接続する。今回の開発反復では公式鍵、再署名または実Provider送信を行わない。検証結果はCHG-000055の後続記録へ接続する。
 
@@ -462,7 +462,7 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 2026-08-30、人間の決定権限者は、未リリースSourceの不具合と正式発行元署名ではなく固定候補選択を信頼するリスクの説明を受け、この限定実測契約の追加を承認した。Subscriptionの少数回利用を再承認するものではなく、通常利用の署名要件を解除する承認でもない。担当は親Coordinator。承認した範囲内で、正本、全利用側、検証を同じCHGで実装する。
 
-基準`30442cc`から、[限定実測のArchitecture](../../tools/coordinator/architecture/README.md#development-provider-measurement)とI/Oなしの制約を追加した。相互の2Taskを各一回、Taskごと4／総8 CLI呼出し、最大1時間、予約と起動直前消費の分離、不可逆な取消・失効、枠非返却を扱う。Taskの実行順序や資源台帳は複製しない。終了記録は既存処理の帳尻を記録するだけで、cleanupの実行許可・成功証明ではない。入力したIdentityや時計の真偽は接続側が確認する責務として残し、制約moduleは実行Authorityを発行しない。
+基準`30442cc`から、[限定実測のArchitecture](../../06_Architecture/coordinator/01_Architecture.md#development-provider-measurement)とI/Oなしの制約を追加した。相互の2Taskを各一回、Taskごと4／総8 CLI呼出し、最大1時間、予約と起動直前消費の分離、不可逆な取消・失効、枠非返却を扱う。Taskの実行順序や資源台帳は複製しない。終了記録は既存処理の帳尻を記録するだけで、cleanupの実行許可・成功証明ではない。入力したIdentityや時計の真偽は接続側が確認する責務として残し、制約moduleは実行Authorityを発行しない。
 
 残件は、固定候補と人間承認の実体検証、検証済みnative配布への明示結合、全利用側への伝播、起動直前と結果公開時の再検証、既存資源のcleanup／Recoveryとの結合である。全利用側が接続されるまでは実Provider比較を実行しない。通常署名入口、Docker修復、Release鍵、永続同意およびProvider起動処理は今回変更していない。最終固定版のArchitecture／Security、Test／UX、Document／Gap／Impact確認は接続後のE2Eと実務収束後に行い、制約単体の合格を完成監査へ代替しない。
 
@@ -623,7 +623,7 @@ TTL／Task全期間のキャッシュ、変更時刻だけの判定、署名・H
 
 前節の第一候補について、人間の一括実行承認を受け、既存CHG内の性能是正として実装する。対象は限定開発実測のsessionと二つのWindows Adapterだけである。通常署名CLI、native配布自体、外部送信許可、期限、呼出し上限、永続形式、Release判断は変更しない。着手前は親の全利用側照合と読み取り専用の独立確認を行い、検証削減の範囲と保持条件を確認した。これは完成後の監査ではなく、正式な独立レビュー・監査は実務収束後の一括確認へ接続する。
 
-採用した設計は[開発実測のArchitecture](../../tools/coordinator/architecture/README.md#development-provider-measurement)を正本とする。新しい本番観測の検証結果を同じIdentity objectへ私有に結合し、Adapterの即時利用へ渡す。各借用の実体・許可確認、子Process前後のartifact検査、終了後の新規再観測を保持し、Adapterだけが重ねていた全体native検証1回を除く。許可範囲digestへ検証結果を混入させない。TTL／Task全期間cache、変更時刻だけの判定、署名・Hash検査の省略は不採用とした。OSの並行改変を完全排除する新しい保証や、検証結果を後続Taskへ持ち越すCapabilityは追加しない。
+採用した設計は[開発実測のArchitecture](../../06_Architecture/coordinator/01_Architecture.md#development-provider-measurement)を正本とする。新しい本番観測の検証結果を同じIdentity objectへ私有に結合し、Adapterの即時利用へ渡す。各借用の実体・許可確認、子Process前後のartifact検査、終了後の新規再観測を保持し、Adapterだけが重ねていた全体native検証1回を除く。許可範囲digestへ検証結果を混入させない。TTL／Task全期間cache、変更時刻だけの判定、署名・Hash検査の省略は不採用とした。OSの並行改変を完全排除する新しい保証や、検証結果を後続Taskへ持ち越すCapabilityは追加しない。
 
 6利用形態×14条件の本番session→Adapter結合試験84件と、既存session契約試験19件、計103件が合格した。取消・期限切れ後の所有cleanup読取りは成立し、初期化と新規処理は拒否する。差替え・観測失敗・環境不成立・不正contextでは権限を返さず、起動後不一致は回収不明を維持する。試験はOS／Process観測を代替しているため、これだけで実測の成功・所要時間改善を主張しない。
 

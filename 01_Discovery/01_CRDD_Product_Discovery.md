@@ -299,7 +299,7 @@ Client → External Interface → Organization Runtime → Repository Router →
 
 Repositoryへ別途公開判断済みの非秘密CHG／QA Recovery Evidenceは、この保存禁止の対象外である。ただし、実行時Recovery record、Runtime Authority、CapabilityまたはRecovery入力として再利用しない。
 
-Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`tools/coordinator/architecture/`に置き、CRDD全体へ再利用できる原則だけを`04_Agent_Organization.md`その他の責務を持つルート正本へ昇格する。Reference Runtimeの増加を理由に、CRDDルートを実装Component一覧へ変えない。
+Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`06_Architecture/coordinator/`に置き、CRDD全体へ再利用できる原則だけを`04_Agent_Organization.md`その他の責務を持つルート正本へ昇格する。Reference Runtimeの増加を理由に、CRDDルートを実装Component一覧へ変えない。
 
 採用したのは、Runtime 1.0完成後に反復Finding、責務集中、変更頻度、Failure Patternおよび運用Evidenceから安定境界を抽出する作業意図である。上記の境界名、分割方式および将来利用側は候補であり、実測されていない抽象化を先に固定しない。
 
@@ -312,12 +312,27 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 - 要求・体験・設計・検証の正本は既存の標準工程フォルダ、ソースとテストコード・ビルド定義は`40_Develop/<tool>/`へ配置する案を第一候補とする。Coordinator、Checker、Generator等に同じ判断軸を適用するが、空の工程成果物やToolごとの小さなCRDD構造を作らない。
 - 利用者観点として[UX](../22_UX.md)、[IA](../23_IA.md)、[UI](../25_UI.md)および[UIとSPECの対応レビュー](../24_UI_Behavior_Specification.md)を対象範囲に応じて扱う。UXでは導入・通常利用・判断・失敗・復旧の体験と人間負荷、IAではコマンドや案内の情報構造、UIではCLIを含む入力・状態・結果・次の操作、対応レビューでは許可・実行条件・取消・失敗・再開と表示の一致を確認する。UI×SPECを第三の工程や重複正本にしない。
 - 人間が直接操作するTool、AIから使うTool、両方から使うToolを区別する。GUIがないことをUI非該当の理由にせず、存在しない画面や視覚素材は要求しない。確認画面の不表示、二重Enter、タイムアウト、誤解を招く成功表示、過剰な再承認を代表的な失敗仮説として、実際の操作経路と検証へ接続する。
-- `tools/<tool>/`は利用者向け入口として残す案を比較する。READMEは目的・利用条件・導入・主要操作・制限の案内に絞り、設計やソースを複製しない。廃止して開発フォルダを直接使う案とは、利用者に必要な知識量で比較する。
+- 利用者への案内と反復手順を分ける。目的・利用条件・主要操作への案内はルートREADME、署名・検証・復旧・配布などの反復手順は`19_Workflows`、技術的な構築・実行説明は必要に応じてコード同居READMEが所有する。案内だけのために`tools/<tool>/README.md`を追加維持することは必須にせず、重複がなくなれば公式Repositoryの`tools/`を削除する案を第一候補とする。配布テンプレートの`template/tools/`は採用先へ渡す別の責務であり、この削除へ含めない。
 - Git管理の第一候補は、ソース正本と薄い起動スクリプト・案内・版／ハッシュ固定設定を追跡し、生成配布物・キャッシュ・実行状態は通常ブランチで重複管理しない構成。署名済み配布物のリリース添付等と、Repository取得直後にビルド／ダウンロードなしで利用できる必要性を比較して決める。自動取得・自動実行の権限は追加しない。
 - Source Commit、配布版、成果物ハッシュ、試験対象、Evidenceを一方向に追跡し、`tools`を手修正可能な第二ソースにしない。生成物の差分確認や再現検査は必要性に応じて具体化する。
 - 移行対象にはimport・CLI・CI・Checker・署名manifestの配布Root／相対Path・テンプレート・リンク／アンカーを含む。新配置からの実行と配布物の検証を行い、過去の固定Evidenceは書き換えない。
 
-具体配置と配布方式は候補であり、現行`tools`配置の正本性を変更しない。再評価契機は現行E2Eの完了。実行順は[ロードマップ](../99_Roadmap/01_Product_Roadmap.md#tool-development-layout-follow-up)へ接続し、移行前に現在の正本規則、各ファイルの責務と利用側、署名／配布への影響、未決の導入UXを確認する。保留中は現在の配置を維持するため情報の分散が残るが、現在の不具合是正を延期しない。
+2026-08-31、人間からの一括実施依頼と、案内だけを`tools`へ残さず作業手順へ分離する説明後の続行指示を受け、下記の工程別配置への移行を開始した。実行順は[ロードマップ](../99_Roadmap/01_Product_Roadmap.md#tool-development-layout-follow-up)、移行処置と検証は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)で追跡する。新配置の試験・参照確認・独立レビューが終わるまでは移行完了としない。配布テンプレートの公開配置、署名済み旧配布物、過去の固定Evidenceは変更しない。
+
+採用した責務分離と移行先は次のとおり。作業の続行を統合・Releaseの確定と扱わず、新配置からの実行と旧版との境界を検証する。
+
+| 情報・実装 | 採用した配置方針 | 保持する境界 |
+|---|---|---|
+| 利用者体験、CLIの情報構造・表示、振る舞い | `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md` | 導入・通常利用・判断・失敗・復旧の実在する内容を記す。空の成果物を作らず、UIと仕様は項目の所有を分離して対応づける |
+| 状態・資源・回復・脅威モデル・実装規約 | `06_Architecture/01_Architecture.md`と必要なTool別詳細 | 旧配置の`architecture/README.md`、`threat-model.md`と`06_Architecture/99_Coding_Standards.md`の責務を移す。工程入口をリンク集だけにしない |
+| 品質戦略、検証設計、現在の品質状態、新しい結果 | `07_Quality/02_Quality_Strategy.md`、`03_Verification_Design.md`、`01_Quality_Center.md`、`Verification_Results/` | 既存の固定Evidenceは`90_Release/Changes/Evidence/`に保持し参照する。試験コードを品質記録へ移さない |
+| Coordinator、Checkerの開発package、Rust実装 | `40_Develop/coordinator/`、`40_Develop/checker/`、`40_Develop/platform-access/` | source・tests・固定runtime assets・build定義を一意に所有。Checker開発packageは配布正本への接続を維持する |
+| 反復する構築・検証・署名・復旧・移行手順 | `19_Workflows/` | 具体的な入力・実行順・停止・結果の返却先を記す。要求、設計、実行結果を複製しない |
+| 配布Checker、署名済み配布物、一時物 | `template/tools/crdd-check.ts`、Release成果物、Repository直下`.crdd/` | それぞれ既存の配布正本・署名検証・ignore-by-defaultを維持。生成物の通常Git追跡や自動取得は追加しない |
+
+代替は、現在の`tools`配下へ実装を残す案、起動接続部だけを残す案、生成配布物をGitへ格納する案である。前者は移行量が少ないが今回の工程別所有を満たさない。起動接続部は独立した実責務がある場合だけ有力であり、旧Path維持だけの互換shimは作らない。生成物のGit格納は取得直後の利便性がある一方、ソースとの二重管理を増やすため推奨しない。
+
+公式Repositoryの`tools`を廃止し、開発コマンドと新しい署名配布内のソースPathを新配置へ揃える。旧Path互換を残さないため、単なる文書移動ではなく破壊的移行として扱う。import、package、命名検査とTypeScript所有集合、Rust build、manifestのソース結合、Docker assets、traceability、AI入口、現行リンクと手順を全数確認する。native配布成果物の`90_Release`内Pathと採用先Checker配置は維持する。秘密入力なしの開発検証を先に収束させ、最終固定版だけを正式署名E2Eへ渡す。新しい自動ダウンロード、配布方式、統合およびRelease判断は今回確定しない。
 
 <a id="runtime-utility-next-version-candidates"></a>
 
@@ -334,7 +349,7 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 | 作業分解と横断品質 | 意味のある独立作業単位へ分解した場合と広いTaskで、上限停止・初回レビュー承認・親の追加修正がどう変わるか | 初回レビュー承認率は分母と難易度を示す。Reviewerを弱めたり受入条件を緩めたりしない。局所レビューとRepository横断確認を区別する |
 | 実務上の比較評価 | 直接実行、CRDD Contextのみ、Runtime追加の代表作業で、人間の実作業時間・採用可能な結果までの時間・利用分散・後工程品質を比較できるか | 固定件数や事前の改善率を合格条件にしない。失敗・停止も標本へ残し、追加Provider利用は許可範囲内だけで行う |
 
-維持責任者は親Coordinator、採否はQual-Labの人間の決定権限者とする。再評価契機は現行Runtimeの完成固定と実務自己適用の収束後、または新しい根拠が現在の完了・安全判断へ影響した時点とする。保留中は現在の検証と横断確認を維持するため処理時間と人間負荷が残り得る。安全上の問題が現在成立すると分かった場合は、将来候補のまま退避せず現行是正へ戻す。細部と再現根拠はCHG・Evidence、具体的なRuntime設計は`tools/coordinator/architecture/`が所有し、上位規則や専門機能を増殖させない。
+維持責任者は親Coordinator、採否はQual-Labの人間の決定権限者とする。再評価契機は現行Runtimeの完成固定と実務自己適用の収束後、または新しい根拠が現在の完了・安全判断へ影響した時点とする。保留中は現在の検証と横断確認を維持するため処理時間と人間負荷が残り得る。安全上の問題が現在成立すると分かった場合は、将来候補のまま退避せず現行是正へ戻す。細部と再現根拠はCHG・Evidence、具体的なRuntime設計は[実行設計](../06_Architecture/coordinator/01_Architecture.md)が所有し、上位規則や専門機能を増殖させない。
 
 <a id="bounded-distributed-execution-candidate"></a>
 

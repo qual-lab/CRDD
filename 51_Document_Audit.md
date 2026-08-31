@@ -124,8 +124,8 @@ CHANGELOGは公開リリース、利用者影響、移行、規範変更等で�
 リンク、アンカー、文書版、`Related`の並び、既知のフォルダ構造等、同じ入力から決定論的に判定できる項目は、AIによる意味評価の前に確認する。CRDD公式Repositoryではprivate checker packageの入口を使用する。
 
 ```text
-node tools/checker/crdd-check.ts
-node tools/checker/crdd-check.ts --json --summary
+node 40_Develop/checker/crdd-check.ts
+node 40_Develop/checker/crdd-check.ts --json --summary
 ```
 
 採用Repositoryへ配布するひな型は、外部パッケージを必要としない参照実装として`tools/crdd-check.ts`を含む。採用Repositoryでは次の入口を使用する。
@@ -241,7 +241,7 @@ CRDD標準文書と正本Markdown文書では、[文書ヘッダー](03_Document
 次を確認する。
 
 - 破損リンク / アンカー、関連切れ、旧ファイル名、孤立成果物
-- 不変・非active歴史参照を通常linkの解決件数へ混在させていないか、固定Evidence・統合直前link record・台帳pair・Git Identity・現在の不変性が全数一致するか、現在状態へのCanonical導線と復元方法および直接click不能の既知制約が明示されているか
+- 不変・非active歴史参照を通常linkの解決件数へ混在させていないか、固定Evidence・統合または人間が承認した配置移行の直前link record・台帳pair・Git Identity・現在の不変性が全数一致するか、現在状態へのCanonical導線と復元方法および直接click不能の既知制約が明示されているか。配置移行では旧Git実体とアンカー、内容ハッシュ、現在の通常・非linkの後継を確認し、当時の参照到達性を現在実装の実測根拠へ読み替えていないか。公開済み文書内であっても、固定された過去参照と後から追加した現在の案内を由来から区別し、文書の状態だけで現在の案内を歴史参照へ変換していないか
 - 外部情報源を実質的に使用する場合の情報源 / バージョンまたは発行日、正本 URL / DOI、関係、適用節、網羅範囲、および過大な準拠・網羅表明
 - README、概要、フォルダ索引等の探索導線
 - 文書体系またはフォルダ内の採番帯、重複番号、順序

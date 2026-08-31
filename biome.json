@@ -2,16 +2,16 @@
   "$schema": "https://biomejs.dev/schemas/2.5.6/schema.json",
   "files": {
     "includes": [
-      "tools/**/*.{ts,mjs,cjs}",
+      "40_Develop/**/*.{ts,mjs,cjs}",
       "template/tools/**/*.{ts,mjs,cjs}",
       "!!.crdd",
-      "!!tools/**/.crdd",
+      "!!40_Develop/**/.crdd",
       "!!template/tools/**/.crdd"
     ]
   },
   "formatter": {
     "enabled": true,
-    "includes": ["tools/**/*.ts", "template/tools/**/*.ts"],
+    "includes": ["40_Develop/**/*.ts", "template/tools/**/*.ts"],
     "indentStyle": "space",
     "indentWidth": 2,
     "lineEnding": "lf"

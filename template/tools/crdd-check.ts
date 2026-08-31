@@ -422,6 +422,136 @@ function historicalReferenceKey(source: string, target: string): string {
   return `${path.resolve(source)}\0${path.resolve(target)}`;
 }
 
+type ReleasedNavigationMigration = Readonly<{
+  sourceSha256: string;
+  replacements: readonly Readonly<{
+    before: string;
+    after: string;
+    count: number;
+  }>[];
+}>;
+
+function readReleasedNavigationMigrations(
+  allFiles: readonly string[],
+): Map<string, ReleasedNavigationMigration> {
+  const result = new Map<string, ReleasedNavigationMigration>();
+  const recordPath = path.join(
+    root,
+    "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
+  );
+  if (!fs.existsSync(recordPath)) return result;
+  const reject = () => {
+    add(
+      "error",
+      "invalid-released-navigation-migration",
+      relative(recordPath),
+      "Expected one bounded record of exact released-source hashes and current-navigation replacements.",
+    );
+    return new Map<string, ReleasedNavigationMigration>();
+  };
+  if (
+    !allFiles.includes(recordPath) ||
+    !lstatIfPresent(recordPath)?.isFile() ||
+    pathContainsSymbolicLink(recordPath)
+  )
+    return reject();
+  const content = read(recordPath);
+  const marker = "<!-- crdd-released-navigation-migration: 1 -->";
+  if (!content.includes(marker)) return result;
+  const blocks = [
+    ...content.matchAll(
+      /<!-- crdd-released-navigation-migration: 1 -->\s*```json\s*\n([\s\S]*?)\n```/gu,
+    ),
+  ];
+  if (
+    content.split(marker).length !== 2 ||
+    blocks.length !== 1 ||
+    blocks[0][1].length > 65_536
+  )
+    return reject();
+  const isObject = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const hasKeys = (value: Record<string, unknown>, keys: readonly string[]) =>
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key));
+  let record: unknown;
+  try {
+    record = JSON.parse(blocks[0][1]);
+  } catch {
+    return reject();
+  }
+  if (
+    !isObject(record) ||
+    !hasKeys(record, ["schemaRevision", "sources"]) ||
+    record.schemaRevision !== 1 ||
+    !Array.isArray(record.sources) ||
+    record.sources.length < 1 ||
+    record.sources.length > 32
+  )
+    return reject();
+  for (const entry of record.sources) {
+    if (
+      !isObject(entry) ||
+      !hasKeys(entry, ["sourcePath", "sourceSha256", "replacements"]) ||
+      typeof entry.sourcePath !== "string" ||
+      !/^90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md$/u.test(
+        entry.sourcePath,
+      ) ||
+      typeof entry.sourceSha256 !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(entry.sourceSha256) ||
+      !Array.isArray(entry.replacements) ||
+      entry.replacements.length < 1 ||
+      entry.replacements.length > 8 ||
+      result.has(entry.sourcePath)
+    )
+      return reject();
+    const replacements: { before: string; after: string; count: number }[] = [];
+    for (const replacement of entry.replacements) {
+      if (
+        !isObject(replacement) ||
+        !hasKeys(replacement, ["before", "after", "count"]) ||
+        typeof replacement.before !== "string" ||
+        typeof replacement.after !== "string" ||
+        !Number.isSafeInteger(replacement.count) ||
+        typeof replacement.count !== "number" ||
+        replacement.count < 1 ||
+        replacement.count > 64
+      )
+        return reject();
+      const match = replacement.before.match(
+        /^\[`tools\/checker\/([a-z0-9.-]+\.ts)`\]\(\.\.\/\.\.\/tools\/checker\/\1\)$/u,
+      );
+      if (
+        !match ||
+        replacement.after !==
+          replacement.before.replaceAll(
+            "tools/checker/",
+            "40_Develop/checker/",
+          ) ||
+        replacements.some((item) => item.before === replacement.before)
+      )
+        return reject();
+      const successor = path.join(root, "40_Develop/checker", match[1]);
+      if (
+        !allFiles.includes(successor) ||
+        !lstatIfPresent(successor)?.isFile() ||
+        pathContainsSymbolicLink(successor)
+      )
+        return reject();
+      replacements.push({
+        before: replacement.before,
+        after: replacement.after,
+        count: replacement.count,
+      });
+    }
+    result.set(entry.sourcePath, {
+      sourceSha256: entry.sourceSha256,
+      replacements,
+    });
+  }
+  return result;
+}
+
 function checkConsolidatedChangeTraceLedger(
   allFiles: readonly string[],
 ): ConsolidationLedgerCheckResult {
@@ -430,6 +560,8 @@ function checkConsolidatedChangeTraceLedger(
   const initialErrorCount = findings.filter(
     (finding) => finding.severity === "error",
   ).length;
+  const navigationMigrations = readReleasedNavigationMigrations(allFiles);
+  const appliedNavigationSources = new Set<string>();
   const ledger = path.join(root, "90_Release", "Changes", "README.md");
   const ledgerStat = lstatIfPresent(ledger);
   if (!ledgerStat && !allFiles.some((file) => samePath(file, ledger))) {
@@ -1598,14 +1730,58 @@ function checkConsolidatedChangeTraceLedger(
               maxBuffer: 1_048_576,
             },
           );
+          const migration = navigationMigrations.get(currentRelativePath);
+          let navigationMatches = false;
+          if (migration) {
+            appliedNavigationSources.add(currentRelativePath);
+            let expectedText = fixedBytes.toString("utf8");
+            let hasExactReplacements =
+              migration.sourceSha256 === fixedRow.sha256;
+            for (const replacement of migration.replacements) {
+              if (
+                expectedText.split(replacement.before).length - 1 !==
+                replacement.count
+              )
+                hasExactReplacements = false;
+              expectedText = expectedText.replaceAll(
+                replacement.before,
+                replacement.after,
+              );
+            }
+            if (
+              pathContainsSymbolicLink(currentFile) ||
+              lstatIfPresent(currentFile)?.isFile() !== true
+            ) {
+              add(
+                "error",
+                "released-change-trace-content-changed",
+                currentRelativePath,
+                "Current released source is not a regular file inside the verified boundary.",
+              );
+              continue;
+            }
+            const worktreeText = fs.readFileSync(currentFile, "utf8");
+            const normalizeLineEndings = (value: string) =>
+              value.replaceAll("\r\n", "\n");
+            navigationMatches =
+              hasExactReplacements &&
+              !pathContainsSymbolicLink(currentFile) &&
+              lstatIfPresent(currentFile)?.isFile() === true &&
+              (currentBytes.equals(fixedBytes) ||
+                currentBytes.equals(Buffer.from(expectedText, "utf8"))) &&
+              normalizeLineEndings(worktreeText) ===
+                normalizeLineEndings(expectedText);
+          }
           if (
             currentObject.error ||
             currentObject.status !== 0 ||
             currentStderr.trim() ||
-            currentBytes.length !== fixedRow.bytes ||
-            currentSha256 !== fixedRow.sha256 ||
-            worktreeDifference.error ||
-            worktreeDifference.status !== 0
+            (migration
+              ? !navigationMatches
+              : currentBytes.length !== fixedRow.bytes ||
+                currentSha256 !== fixedRow.sha256 ||
+                worktreeDifference.error ||
+                worktreeDifference.status !== 0)
           ) {
             add(
               "error",
@@ -1954,6 +2130,14 @@ function checkConsolidatedChangeTraceLedger(
     );
   }
 
+  if (appliedNavigationSources.size !== navigationMigrations.size) {
+    add(
+      "error",
+      "invalid-released-navigation-migration",
+      relative(ledger),
+      "Navigation migration source is outside verified fixed released history.",
+    );
+  }
   const finalErrorCount = findings.filter(
     (finding) => finding.severity === "error",
   ).length;
@@ -2640,7 +2824,11 @@ function githubAnchor(value: string): string {
 }
 
 function anchorsFor(file: string): Set<string> {
-  const text = withoutFencedCode(read(file));
+  return anchorsForText(read(file));
+}
+
+function anchorsForText(content: string): Set<string> {
+  const text = withoutFencedCode(content);
   const anchors = new Set<string>();
   for (const match of text.matchAll(/<a\s+id=["']([^"']+)["']\s*>\s*<\/a>/gi)) {
     anchors.add(match[1]);
@@ -2661,6 +2849,312 @@ function anchorsFor(file: string): Set<string> {
     anchors.add(anchor);
   }
   return anchors;
+}
+
+type ToolLayoutHistoricalReferences = Readonly<{
+  pairs: ReadonlySet<string>;
+  candidatePairs: ReadonlySet<string>;
+  physicalTargets: ReadonlySet<string>;
+  indexedTargets: ReadonlySet<string>;
+  sources: number;
+  targets: number;
+}>;
+
+function toolLayoutHistoricalKey(
+  source: string,
+  target: string,
+  anchor: string | null,
+): string {
+  return `${historicalReferenceKey(source, target)}\0${anchor ?? ""}`;
+}
+
+function checkToolLayoutHistoricalReferences(
+  files: readonly string[],
+): ToolLayoutHistoricalReferences {
+  const empty = {
+    pairs: new Set<string>(),
+    candidatePairs: new Set<string>(),
+    physicalTargets: new Set<string>(),
+    indexedTargets: new Set<string>(),
+    sources: 0,
+    targets: 0,
+  };
+  if (repositoryMode !== "official") return empty;
+  const ledgerPath = path.join(
+    root,
+    "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
+  );
+  if (!fs.existsSync(ledgerPath)) return empty;
+  const fileSet = new Set(files.map((file) => path.resolve(file)));
+  const isRegularFile = (file: string): boolean =>
+    fileSet.has(path.resolve(file)) &&
+    lstatIfPresent(file)?.isFile() === true &&
+    !pathContainsSymbolicLink(file);
+  const reject = (reason: string): ToolLayoutHistoricalReferences => {
+    add(
+      "error",
+      "invalid-tool-layout-historical-references",
+      relative(ledgerPath),
+      reason,
+    );
+    return empty;
+  };
+  if (!isRegularFile(ledgerPath))
+    return reject("Ledger is not a discovered regular file.");
+  const content = read(ledgerPath);
+  const marker = "<!-- crdd-tool-layout-historical-references: 1 -->";
+  if (!content.includes(marker)) return empty;
+  const blocks = [
+    ...content.matchAll(
+      /<!-- crdd-tool-layout-historical-references: 1 -->\s*```json\s*\n([\s\S]*?)\n```/gu,
+    ),
+  ];
+  if (
+    content.split(marker).length !== 2 ||
+    blocks.length !== 1 ||
+    blocks[0][1].length > 131_072
+  ) {
+    return reject("Expected one bounded historical-reference record.");
+  }
+  const isObject = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const hasKeys = (
+    value: Record<string, unknown>,
+    keys: readonly string[],
+  ): boolean =>
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key));
+  const isHash = (value: unknown): value is string =>
+    typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
+  const isOid = (value: unknown): value is string =>
+    typeof value === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(value);
+  const isRelativePath = (value: unknown): value is string =>
+    typeof value === "string" &&
+    value.length <= 512 &&
+    /^[A-Za-z0-9_./-]+$/u.test(value) &&
+    !value.startsWith("/") &&
+    value
+      .split("/")
+      .every((part) => part !== "" && part !== "." && part !== "..");
+  let record: unknown;
+  try {
+    record = JSON.parse(blocks[0][1]);
+  } catch {
+    return reject("Invalid record JSON.");
+  }
+  if (
+    !isObject(record) ||
+    !hasKeys(record, ["schemaRevision", "evidenceCommit", "references"]) ||
+    record.schemaRevision !== 1 ||
+    !isOid(record.evidenceCommit) ||
+    !Array.isArray(record.references) ||
+    record.references.length < 1 ||
+    record.references.length > 64
+  ) {
+    return reject("Invalid record shape.");
+  }
+  const git = (args: readonly string[]) =>
+    spawnSync("git", ["-C", root, ...args], {
+      windowsHide: true,
+      timeout: 10_000,
+      maxBuffer: 16 * 1_048_576,
+      env: { ...process.env, GIT_NO_REPLACE_OBJECTS: "1" },
+    });
+  const head = git(["rev-parse", "--verify", "HEAD^{commit}"]);
+  if (head.status !== 0) return reject("Repository HEAD unavailable.");
+  const headOid = head.stdout.toString("utf8").trim();
+  const initialIndex = git(["ls-files", "--stage", "-z"]);
+  if (initialIndex.status !== 0) return reject("Repository index unavailable.");
+  const indexedPaths = new Set(
+    initialIndex.stdout
+      .toString("utf8")
+      .split("\0")
+      .filter(Boolean)
+      .map((line) => path.resolve(root, line.slice(line.indexOf("\t") + 1))),
+  );
+  const verifiedCommits = new Set<string>();
+  const isHistoricalCommit = (commit: string): boolean => {
+    if (verifiedCommits.has(commit)) return true;
+    const resolved = git(["rev-parse", "--verify", `${commit}^{commit}`]);
+    if (
+      resolved.status !== 0 ||
+      resolved.stdout.toString("utf8").trim() !== commit ||
+      git(["merge-base", "--is-ancestor", commit, headOid]).status !== 0
+    )
+      return false;
+    verifiedCommits.add(commit);
+    return true;
+  };
+  if (!isHistoricalCommit(record.evidenceCommit))
+    return reject("Evidence commit is unavailable or outside HEAD history.");
+  const sha256 = (bytes: Uint8Array): string =>
+    createHash("sha256").update(bytes).digest("hex");
+  const pairs = new Set<string>();
+  const sources = new Set<string>();
+  const targets = new Set<string>();
+  const physicalTargets = new Set<string>();
+  const indexedTargets = new Set<string>();
+  const sourceSnapshots = new Map<string, string>();
+  const successorSnapshots = new Map<string, fs.Stats>();
+  for (const entry of record.references) {
+    if (
+      !isObject(entry) ||
+      !hasKeys(entry, [
+        "sourcePath",
+        "sourceSha256",
+        "targetPath",
+        "targetCommit",
+        "targetBlobOid",
+        "targetSha256",
+        "successorPath",
+        "anchor",
+      ]) ||
+      !isRelativePath(entry.sourcePath) ||
+      !entry.sourcePath.startsWith("90_Release/Changes/Evidence/") ||
+      !entry.sourcePath.endsWith(".md") ||
+      !isRelativePath(entry.targetPath) ||
+      !entry.targetPath.startsWith("tools/") ||
+      !isRelativePath(entry.successorPath) ||
+      !/^(?:40_Develop|06_Architecture)\//u.test(entry.successorPath) ||
+      !isHash(entry.sourceSha256) ||
+      !isHash(entry.targetSha256) ||
+      !isOid(entry.targetCommit) ||
+      !isOid(entry.targetBlobOid) ||
+      !(
+        entry.anchor === null ||
+        (typeof entry.anchor === "string" &&
+          entry.anchor.length > 0 &&
+          entry.anchor.length <= 256 &&
+          !/[\u0000-\u001f\u007f]/u.test(entry.anchor))
+      )
+    ) {
+      return reject("Invalid reference entry.");
+    }
+    const source = path.join(root, entry.sourcePath);
+    const target = path.join(root, entry.targetPath);
+    const successor = path.join(root, entry.successorPath);
+    const key = toolLayoutHistoricalKey(source, target, entry.anchor);
+    if (
+      pairs.has(key) ||
+      !isRegularFile(source) ||
+      !isRegularFile(successor) ||
+      !isHistoricalCommit(entry.targetCommit)
+    ) {
+      return reject(
+        "Duplicate reference, unsafe file boundary, or unavailable target commit.",
+      );
+    }
+    const sourceBytes = fs.readFileSync(source);
+    const historicalSource = git([
+      "show",
+      `${record.evidenceCommit}:${entry.sourcePath}`,
+    ]);
+    const targetObject = git([
+      "rev-parse",
+      "--verify",
+      `${entry.targetCommit}:${entry.targetPath}`,
+    ]);
+    const targetType = git(["cat-file", "-t", entry.targetBlobOid]);
+    const historicalTarget = git([
+      "show",
+      `${entry.targetCommit}:${entry.targetPath}`,
+    ]);
+    if (
+      sha256(sourceBytes) !== entry.sourceSha256 ||
+      historicalSource.status !== 0 ||
+      sha256(historicalSource.stdout) !== entry.sourceSha256 ||
+      targetObject.status !== 0 ||
+      targetObject.stdout.toString("utf8").trim() !== entry.targetBlobOid ||
+      targetType.status !== 0 ||
+      targetType.stdout.toString("utf8").trim() !== "blob" ||
+      historicalTarget.status !== 0 ||
+      sha256(historicalTarget.stdout) !== entry.targetSha256
+    ) {
+      return reject("Historical source or target identity does not match.");
+    }
+    if (
+      !linkRecords.some(
+        (link) =>
+          !link.external &&
+          samePath(link.source, source) &&
+          samePath(link.target, target) &&
+          (link.anchor || null) === entry.anchor &&
+          !link.decodeError &&
+          !link.outsideRoot,
+      ) ||
+      (entry.anchor !== null &&
+        (!entry.targetPath.endsWith(".md") ||
+          !anchorsForText(historicalTarget.stdout.toString("utf8")).has(
+            entry.anchor,
+          )))
+    ) {
+      return reject("Reference pair or historical anchor does not match.");
+    }
+    pairs.add(key);
+    sources.add(source);
+    targets.add(target);
+    if (lstatIfPresent(target) !== null || pathContainsSymbolicLink(target))
+      physicalTargets.add(path.resolve(target));
+    if (indexedPaths.has(path.resolve(target)))
+      indexedTargets.add(path.resolve(target));
+    sourceSnapshots.set(source, entry.sourceSha256);
+    successorSnapshots.set(successor, fs.lstatSync(successor));
+  }
+  for (const [source, expectedHash] of sourceSnapshots) {
+    if (
+      !isRegularFile(source) ||
+      sha256(fs.readFileSync(source)) !== expectedHash
+    )
+      return reject("Historical source changed during verification.");
+  }
+  for (const [successor, before] of successorSnapshots) {
+    const after = lstatIfPresent(successor);
+    if (
+      !isRegularFile(successor) ||
+      !after ||
+      before.dev !== after.dev ||
+      before.ino !== after.ino ||
+      before.size !== after.size ||
+      before.mtimeMs !== after.mtimeMs
+    )
+      return reject("Successor changed during verification.");
+  }
+  for (const target of targets) {
+    const isPhysicalTargetPresent =
+      lstatIfPresent(target) !== null || pathContainsSymbolicLink(target);
+    if (isPhysicalTargetPresent !== physicalTargets.has(path.resolve(target)))
+      return reject("Historical target presence changed during verification.");
+  }
+  if (
+    !isRegularFile(ledgerPath) ||
+    fs.readFileSync(ledgerPath, "utf8") !== content
+  )
+    return reject("Historical-reference record changed during verification.");
+  const finalHead = git(["rev-parse", "--verify", "HEAD^{commit}"]);
+  const finalIndex = git(["ls-files", "--stage", "-z"]);
+  if (
+    finalHead.status !== 0 ||
+    finalHead.stdout.toString("utf8").trim() !== headOid ||
+    finalIndex.status !== 0 ||
+    !finalIndex.stdout.equals(initialIndex.stdout)
+  )
+    return reject("Repository HEAD or index changed during verification.");
+  const hasCurrentTargets = physicalTargets.size > 0 || indexedTargets.size > 0;
+  if (hasCurrentTargets)
+    add(
+      "error",
+      "invalid-tool-layout-historical-references",
+      relative(ledgerPath),
+      "Historical targets remain in the worktree or Git index.",
+    );
+  return {
+    pairs: hasCurrentTargets ? new Set<string>() : pairs,
+    candidatePairs: pairs,
+    physicalTargets,
+    indexedTargets,
+    sources: sources.size,
+    targets: targets.size,
+  };
 }
 
 function withoutFencedCode(text: string): string {
@@ -2969,6 +3463,8 @@ if (requestedScopes.length === 0) {
 const markdownFiles = allMarkdownFiles.filter((file) => checkedFiles.has(file));
 const anchorCache = new Map<string, Set<string>>();
 const consolidationLedgerCheck = checkConsolidatedChangeTraceLedger(allFiles);
+const toolLayoutHistoricalReferences =
+  checkToolLayoutHistoricalReferences(allFiles);
 let checkedLocalLinks = 0;
 let checkedAnchors = 0;
 let historicalReferencesObserved = 0;
@@ -2993,22 +3489,33 @@ for (const record of linkRecords) {
     continue;
   }
   const historicalKey = historicalReferenceKey(source, target);
+  const isToolLayoutHistoricalReference =
+    toolLayoutHistoricalReferences.pairs.has(
+      toolLayoutHistoricalKey(source, target, anchor ?? null),
+    );
   const isHistoricalReferenceCandidate =
-    !anchor &&
-    consolidationLedgerCheck.historicalReferenceCandidates.has(historicalKey);
+    toolLayoutHistoricalReferences.candidatePairs.has(
+      toolLayoutHistoricalKey(source, target, anchor ?? null),
+    ) ||
+    (!anchor &&
+      consolidationLedgerCheck.historicalReferenceCandidates.has(
+        historicalKey,
+      ));
   if (isHistoricalReferenceCandidate) {
     historicalReferencesObserved += 1;
     if (
       consolidationLedgerCheck.historicalReferencePhysicalTargets.has(
         path.resolve(target),
-      )
+      ) ||
+      toolLayoutHistoricalReferences.physicalTargets.has(path.resolve(target))
     ) {
       historicalReferencesActive += 1;
     }
     if (
       consolidationLedgerCheck.historicalReferenceIndexedTargets.has(
         path.resolve(target),
-      )
+      ) ||
+      toolLayoutHistoricalReferences.indexedTargets.has(path.resolve(target))
     ) {
       historicalReferencesIndexed += 1;
     }
@@ -3049,8 +3556,9 @@ for (const record of linkRecords) {
   }
   if (!fs.existsSync(target)) {
     if (
-      !anchor &&
-      consolidationLedgerCheck.historicalReferencePairs.has(historicalKey)
+      isToolLayoutHistoricalReference ||
+      (!anchor &&
+        consolidationLedgerCheck.historicalReferencePairs.has(historicalKey))
     ) {
       historicalReferencesVerified += 1;
       continue;
@@ -4182,9 +4690,11 @@ const report = {
     historical_references_active: historicalReferencesActive,
     historical_references_indexed: historicalReferencesIndexed,
     historical_reference_sources:
-      consolidationLedgerCheck.historicalReferenceSources,
+      consolidationLedgerCheck.historicalReferenceSources +
+      toolLayoutHistoricalReferences.sources,
     historical_reference_targets:
-      consolidationLedgerCheck.historicalReferenceTargets,
+      consolidationLedgerCheck.historicalReferenceTargets +
+      toolLayoutHistoricalReferences.targets,
     anchors_checked: checkedAnchors,
     related_blocks_checked: relatedBlocks,
     versioned_documents_checked: versionedDocuments.length,

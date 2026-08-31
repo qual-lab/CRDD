@@ -47,6 +47,8 @@ Quality assurance is therefore not an activity that begins by running tests at t
 
 ### Coordinator Runtime and provider boundary
 
+For capabilities and limits, read the [behavior specification](05_SPEC/01_Behavior_Specification.md); for execution and recovery, use the [workflow](19_Workflows/01_Coordinator_Runtime.md). The [current quality status](07_Quality/01_Quality_Center.md) separates verified results from remaining work, and the [architecture](06_Architecture/01_Architecture.md) explains the implementation. This remains a candidate, not a released Runtime. Ordinary users do not need the release signing key or its passphrase.
+
 The Coordinator Runtime candidate delegates work through the official Codex and Claude Code CLIs using their own Subscription OAuth sessions. CRDD does not extract those sessions for another API, and the standard profile does not automatically fall back to API keys, metered APIs, credit purchases, or paid plan changes.
 
 Before a provider receives content, CRDD limits the provider, purpose, information classification, repository and revision, projected context, authority, network destination, and executable identity. Those controls reduce unintended disclosure, substitution, privilege expansion, and effect. They do not control or independently verify retention, secondary use, or subprocessors inside the provider; after an authorized send, the provider's terms and account settings govern that boundary.
@@ -343,7 +345,7 @@ Until migration verification passes, keep the previous pinned release recoverabl
 
 The distributed template includes `tools/crdd-check.ts`. In normal use, the parent AI agent runs it once against a fixed revision before independent review or an audit set; users do not need to run it manually.
 
-For CRDD-standard maintenance in this repository, the checker package is located at `tools/checker/`; run `node tools/checker/crdd-check.ts --json --summary`. The v0.18 Candidate renames the distributed checker from `crdd_check.ts` to `crdd-check.ts` without a compatibility shim; adopting repositories update their copied file, AI entry instructions, CI, scripts, and documentation as one migration.
+For CRDD-standard maintenance in this repository, the checker package is located at `40_Develop/checker/`; run `node 40_Develop/checker/crdd-check.ts --json --summary`. The v0.18 Candidate renames the distributed checker from `crdd_check.ts` to `crdd-check.ts` without a compatibility shim; adopting repositories update their copied file, AI entry instructions, CI, scripts, and documentation as one migration.
 
 ```text
 node tools/crdd-check.ts
@@ -454,6 +456,8 @@ Human Coding-less DevelopmentはNo-codeではない。コードはAIが生成す
 したがって品質保証は、最後にテストを実行するだけの活動ではない。各工程が自身の品質条件について検証義務と専門的な検証観点を育て、人間は受け入れ前に、現在の結論、抜け、重大な問題および残存リスクを確認する。
 
 ### Coordinator RuntimeとProvider境界
+
+できることと制限は[振る舞い仕様](05_SPEC/01_Behavior_Specification.md)、実行・復旧は[作業手順](19_Workflows/01_Coordinator_Runtime.md)から確認できる。[品質の現在状態](07_Quality/01_Quality_Center.md)では確認済みの結果と残件を分け、内部の仕組みは[アーキテクチャ](06_Architecture/01_Architecture.md)へ集約する。現在は候補版であり、Release済みRuntimeではない。通常利用者にRelease署名鍵やパスフレーズは不要である。
 
 Coordinator Runtime候補は、公式のCodex／Claude Code CLIと、それぞれ自身のSubscription OAuth Sessionを使って仕事を委譲する。CRDDがSessionを抽出して別APIへ転用することはなく、標準ProfileはAPI key、従量API、Credit購入または有料Plan変更へ自動fallbackしない。
 
@@ -749,7 +753,7 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 
 配布用ひな型には`tools/crdd-check.ts`が含まれる。通常は、独立レビューまたは監査集合の前に親AIエージェントが固定した対象改訂版へ一度実行する。利用者が手動で実行する必要はない。
 
-このRepositoryでCRDD標準を保守するときは、`tools/checker/`のチェッカーpackageを使用し、`node tools/checker/crdd-check.ts --json --summary`を実行する。v0.18 Candidateでは配布チェッカーを`crdd_check.ts`から`crdd-check.ts`へ互換shimなしで変更する。採用Repositoryは、コピー済みファイル、AI入口、CI、scriptおよび文書参照を一つの移行として更新する。
+このRepositoryでCRDD標準を保守するときは、`40_Develop/checker/`のチェッカーpackageを使用し、`node 40_Develop/checker/crdd-check.ts --json --summary`を実行する。v0.18 Candidateでは配布チェッカーを`crdd_check.ts`から`crdd-check.ts`へ互換shimなしで変更する。採用Repositoryは、コピー済みファイル、AI入口、CI、scriptおよび文書参照を一つの移行として更新する。
 
 ```text
 node tools/crdd-check.ts

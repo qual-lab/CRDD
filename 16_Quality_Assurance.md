@@ -576,20 +576,22 @@ Quality Centerでは、少なくとも次の異なる分母を混同しない。
 
 ```text
 07_Quality/
-├── Quality_Center.md
-├── Quality_Strategy.md
-├── Verification_Design.md
+├── 01_Quality_Center.md
+├── 02_Quality_Strategy.md
+├── 03_Verification_Design.md
 └── Verification_Results/
 ```
 
 | 配置 | 責務 |
 |---|---|
-| `Quality_Center.md` | 現在の品質状態、計画対実績、差異理由、割合、重大な問題、残存リスク、リリース準備状態への入口 |
-| `Quality_Strategy.md` | 品質目標、品質リスク、検証方針、環境、独立性、根拠方針、リスク受容方針 |
-| `Verification_Design.md` | 検証意図、検証項目、観測要件、検証手順、網羅規則、評価規則、必要な根拠 |
+| `01_Quality_Center.md` | 現在の品質状態、計画対実績、差異理由、割合、重大な問題、残存リスク、リリース準備状態への入口 |
+| `02_Quality_Strategy.md` | 品質目標、品質リスク、検証方針、環境、独立性、根拠方針、リスク受容方針 |
+| `03_Verification_Design.md` | 検証意図、検証項目、観測要件、検証手順、網羅規則、評価規則、必要な根拠 |
 | `Verification_Results/` | 確定した検証結果の履歴 |
 
-検証義務の正本は各工程成果物へ残し、`Verification_Design.md`から参照する。中央の検証義務登録簿を第二の正本として作らない。必要な一覧は、正本への参照と現在状態だけを持つ索引または派生表示として扱う。
+先頭番号は品質フォルダ内の探索順を示すものであり、工程の実行順や安定コンテキストIDではない。`Verification_Results/`内の記録へ、この3文書と同じ連番を機械的に付与しない。記録は対象と日付・改訂版を識別できる名称で管理する。
+
+検証義務の正本は各工程成果物へ残し、`03_Verification_Design.md`から参照する。中央の検証義務登録簿を第二の正本として作らない。必要な一覧は、正本への参照と現在状態だけを持つ索引または派生表示として扱う。
 
 根拠は、対象成果物内または最も近い親フォルダの`Evidence/`に置く。実装コード、テストコード、構成、再現手順等は、それぞれの通常配置を正本とし、検証結果とQuality Centerから参照する。根拠を`07_Quality`へ集め直さない。
 
