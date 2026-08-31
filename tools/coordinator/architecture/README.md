@@ -129,6 +129,8 @@ Docker Desktopの最終復旧は、通常のProvider起動とは別の、人間�
 
 これはDocker Desktop自身が通常のユーザー設定を利用するための起動環境であり、CRDDがその設定本文やCredentialを読む許可ではない。CRDD配布RootをDockerの作業領域へ使わず、生成物を署名検証の除外対象へ追加しない。Directory取得・検証またはProcess生成に失敗した場合、親Directoryへのfallbackを行わない。生成後のIdentity確認不明は、非発行とは別に保持する。
 
+Docker Desktopの設定読込みが必要とする`ProgramData`も、OSの`FOLDERID_ProgramData`から取得して最小環境へ含める。ユーザーのProfile／App Dataとは別のOS共通データ配置であり、通常Directoryと正規化後の同一Pathを確認する。固定の`C:\ProgramData`、親環境の同名値、任意Pathへの代替は使わず、CRDD自身にそのDirectoryの内容変更を許可する意味にはしない。環境の搬送一致だけでは必須値の欠落を検出できないため、実子Process側でもこの値の存在・非空・絶対Path・OS由来配置との一致を確認する。この試験をDocker本体の全起動前提の充足証明へ拡張しない。
+
 検証は環境blockの構造だけで閉じない。同じ`CreateProcessW`経路で試験専用子Processを生成し、親が渡した環境と実子の受信環境を値非公開のHashで照合し、Homeと作業Directoryの一致、非適合作業Directoryでの非発行、生成後Identity不明の保持、子の終了とhandle回収を確認する。試験専用子の成功はDocker本体の起動・回復・正式署名E2Eの成功ではない。
 
 修復記録は作成時の署名版へ結合し、自動移行しない。旧版記録を新版で扱う場合は、`doctor --adopt-docker-desktop-repair <repair-id> --from-release <absolute-root>`で対象IDと元の配布Rootを明示する。元配布から読むのは固定位置の署名manifestだけであり、旧版の実行物は起動しない。過去の署名は由来の証明として検証し、有効期限を現在の実行許可へ読み替えない。実行中の新版は通常どおり署名・配布実体・期限・Policy・選択ユーザー・保護Rootを検証する。

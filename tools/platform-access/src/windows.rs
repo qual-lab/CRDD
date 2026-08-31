@@ -301,6 +301,17 @@ pub(crate) fn roaming_app_data_path() -> Option<PathBuf> {
     known_folder_path(&FOLDER_ID_ROAMING_APP_DATA)
 }
 
+pub(crate) fn program_data_path() -> Option<PathBuf> {
+    // FOLDERID_ProgramData, defined by the Windows SDK KnownFolders.h.
+    const FOLDER_ID_PROGRAM_DATA: GUID = GUID {
+        data1: 0x62ab5d82,
+        data2: 0xfdc1,
+        data3: 0x4dc3,
+        data4: [0xa9, 0xdd, 0x07, 0x0d, 0x1d, 0x49, 0x5d, 0x97],
+    };
+    known_folder_path(&FOLDER_ID_PROGRAM_DATA)
+}
+
 fn known_folder_path(folder_id: &GUID) -> Option<PathBuf> {
     let mut raw_path = null_mut();
     // SAFETY: raw_path is writable. On success, Shell allocates a NUL-terminated UTF-16 path

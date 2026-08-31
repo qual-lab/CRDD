@@ -565,8 +565,15 @@ fn launcher_context() -> Option<LauncherContext> {
     let local_app_data = crate::windows::local_app_data_path()?;
     let profile = crate::windows::user_profile_path()?;
     let roaming_app_data = crate::windows::roaming_app_data_path()?;
+    let program_data = crate::windows::program_data_path()?;
     let temporary = local_app_data.join("Temp");
-    for target in [&profile, &roaming_app_data, &local_app_data, &temporary] {
+    for target in [
+        &profile,
+        &roaming_app_data,
+        &local_app_data,
+        &program_data,
+        &temporary,
+    ] {
         let metadata = std::fs::symlink_metadata(target).ok()?;
         let canonical = std::fs::canonicalize(target).ok()?;
         let canonical_text = canonical.to_string_lossy();
@@ -627,6 +634,7 @@ fn launcher_context() -> Option<LauncherContext> {
             profile.join(".docker").into_os_string(),
         ),
         ("LOCALAPPDATA".to_owned(), local_app_data.into_os_string()),
+        ("ProgramData".to_owned(), program_data.into_os_string()),
         ("SystemRoot".to_owned(), windows_directory.clone()),
         ("TEMP".to_owned(), temporary.clone().into_os_string()),
         ("TMP".to_owned(), temporary.into_os_string()),
@@ -842,6 +850,10 @@ mod tests {
             "APPDATA={}\0",
             crate::windows::roaming_app_data_path().unwrap().display()
         )));
+        assert!(text.contains(&format!(
+            "ProgramData={}\0",
+            crate::windows::program_data_path().unwrap().display()
+        )));
         let names: Vec<_> = text
             .split('\0')
             .filter(|entry| !entry.is_empty())
@@ -929,6 +941,16 @@ mod tests {
                 == std::fs::canonicalize(actual.get("home").unwrap()).unwrap()
         );
         assert!(actual.get("home") == actual.get("userprofile"));
+        // Docker Desktop's settings loader requires ProgramData, independently of
+        // the user's home. A round-trip hash alone cannot detect an omitted input.
+        let program_data = actual.get("programdata").expect("ProgramData is required");
+        assert!(!program_data.is_empty());
+        assert!(std::path::Path::new(program_data).is_absolute());
+        assert!(std::path::Path::new(program_data).is_dir());
+        assert_eq!(
+            std::fs::canonicalize(program_data).unwrap(),
+            std::fs::canonicalize(crate::windows::program_data_path().unwrap()).unwrap()
+        );
     }
 
     fn environment_hash(entries: &std::collections::BTreeMap<String, OsString>) -> String {
