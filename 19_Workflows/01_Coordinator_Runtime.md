@@ -117,6 +117,25 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 ## 開発者確認
 
+<a id="terminal-interaction-check"></a>
+
+### 端末の表示・入力を確認する
+
+[UIの確認範囲](../04_UI/01_User_Interface.md#4-現行表示の参照と表現方針)に従い、既に開いているWindows Terminal／PowerShellで、検証したリポジトリRootから次を実行する。これは秘密入力・署名・外部送信・実行許可を伴わない参照であり、製品Taskの成功を証明するものではない。
+
+```shell
+node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts match
+node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts mismatch
+node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts timeout
+node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts cancel
+```
+
+`match`では`123456`、`mismatch`では`654321`を入力し、それぞれEnterを1回だけ押す。秘密や実際の承認コードは使わない。`timeout`は5秒、`cancel`は1秒、何も入力せず結果を待つ。各結果の`scenarioMatched`と`cleanupConfirmed`がともに`true`であることを確認する。不成立時は結果を保存して原因を調べ、入力を自動補完したり成功へ読み替えたりしない。`cancel`は入力待ちへの取消要求の確認であり、Ctrl+Cのキー搬送やTask資源全体の取消完了の確認ではない。
+
+日本語、入力位置、折返し、文字拡大、結果が読める状態で端末が残ることは人間が確認する。プログラムは終了保持のための追加Enterを消費せず、ウィンドウ保持は呼出し元端末が所有する。端末の実バージョンと表示条件、確認結果、未確認範囲を検証結果へ残す。読み上げは今回未評価である。
+
+### 自動試験と開発確認
+
 以下は検証済みリポジトリRootから実行する。試験前に、実行Processの`TEMP`と`TMP`をそのRoot直下の`.crdd/test-tmp`へ設定し、通常の実Directoryであることを確認する。未設定またはRootを確認できない状態では試験を開始しない。OS全体や永続ユーザー環境の値は変更しない。
 
 ```shell

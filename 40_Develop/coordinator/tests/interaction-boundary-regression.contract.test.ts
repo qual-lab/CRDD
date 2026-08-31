@@ -881,6 +881,9 @@ test("固定Console readerは厳密な一行protocolと非TTY拒否へ閉じる"
     "123456",
   );
   for (const invalid of [
+    Buffer.alloc(0),
+    Buffer.from("\n", "utf8"),
+    Buffer.from("\r\n", "utf8"),
     Buffer.from("12345\n", "utf8"),
     Buffer.from("123456\n654321\n", "utf8"),
     Buffer.from("123456\0\n", "utf8"),
@@ -2058,10 +2061,7 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
     /"<signed-distribution-root>\\40_Develop\\coordinator\\scripts\\verify-signed-general-task\.ts"/u,
   );
   assert.match(readme, /--distribution-root "<absolute-staging-root>"/u);
-  assert.match(
-    readme,
-    /--private-key "C:\\project\\key\\CRDD\\crdd-release-v1-private\.pem"/u,
-  );
+  assert.match(readme, /--private-key "<approved-absolute-private-key-file>"/u);
   assert.equal(
     /```powershell\r?\n& <absolute-preverified-node/u.test(readme),
     false,

@@ -13,12 +13,12 @@
 | 移行前の正式署名E2E | 固定版に限り完了 | [0c3e6d2の結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)。4経路4/4、復旧7/7、cleanup確認済み |
 | 実務自己適用の評価 | 限定利用成立、総合的な優位は未確定 | [評価と限界](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)。所要時間、人間受入、利用量の未測定を0扱いしない |
 | 新配置の開発E2E | 対象239件合格 | [対象・条件・限界](Verification_Results/2026-08-31_Tool_Layout_Development_E2E.md)。正式配布や実Providerの証明とは区別する |
-| 新配置の機械検証 | 実行した範囲で合格 | Coordinator 1,410/1,410、Checker 207/207、全体Checkerエラー0・警告0。Rust上位33成功・2 ignoredの内訳と未実施範囲は[検証結果](Verification_Results/2026-08-31_Tool_Layout_Verification.md)を参照 |
+| 新配置の機械検証 | 最新のTypeScript全試験合格、完成確認は未完了 | Coordinator 1,425/1,425、Checker 208/208、開発E2E 239/239、型・Lint・Format成功。[最新の対象と限界](Verification_Results/2026-08-31_Tool_Layout_Verification.md#端末参照媒体と全体試験の再確認)を参照。Rust上位33成功・2 ignoredは先行する移設後の結果であり、今回の新しい実行ではない |
 | 配置移行差分の独立レビュー | Pass | 実装・安全性・試験は指摘0。文書・影響・準拠は初回Conditionalの3件を是正し、限定再レビューで解消・追加指摘0。Runtime全体の完成監査とは区別する |
 | 品質3文書の番号付き命名 | 限定確認Pass | 規則・公式・ひな型・参照・移行説明を同期。関連4/4試験と文書・試験の独立確認は指摘0。[対象と結果](Verification_Results/2026-08-31_Tool_Layout_Verification.md#品質文書の固定命名の是正)。移行全体の完了とは区別する |
 | 3部品の設計補完と結果表示 | 関連開発E2E 289/289、Checker 207/207成功、限定再確認完了 | [追加確認](Verification_Results/2026-08-31_Tool_Layout_Verification.md#3部品の設計補完結果表示の追加確認)。native・表示・Checker本文の限定再確認で指摘解消。旧配置移行のPassを今回差分へ自動流用していない |
 | 最新Runtime全体の独立完成監査 | 未完了 | Architecture／Security、Test／UX、Document／Gap／Impact／Conformanceを固定版へ実行する |
-| UX・IA・UIと仕様の接続 | 再構成候補を文書化・未完了 | [利用体験](../02_UX/01_User_Experience.md)から[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続。表示の意味説明、欠落値、実端末、参照媒体適用、支援技術、詳細設計の再構成は[既知差](../04_UI/01_User_Interface.md#open-issues)に残る。文書整備を工程完了にしない |
+| UX・IA・UIと仕様の接続 | 表示是正・設計再構成・PowerShellでの限定操作確認済み、工程全体は未完了 | [利用体験](../02_UX/01_User_Experience.md)から[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続。端末入力と折返し・拡大の[実結果](Verification_Results/2026-08-31_Tool_Layout_Verification.md#実端末の初回結果)を取得。Windows Terminal別環境・読み上げ・全体横断の完成確認は[未確認事項](../04_UI/01_User_Interface.md#open-issues)へ残す |
 | 移行後の正式署名・実Provider E2E | 未実施 | 開発検証収束後の固定候補へ限定して実施する |
 | 統合・リリース | 未判断 | 必須未完了事項と残存リスクを解消または人間判断へ戻す |
 

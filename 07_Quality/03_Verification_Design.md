@@ -42,14 +42,16 @@
 |---|---|---|
 | 目的から操作への導線 | 採用判断、通常依頼、Checker、復旧、開発署名を各利用者が取り違えず辿れるか確認 | 文書・専門レビューを行う。初見利用者による理解・所要時間は未測定 |
 | 初回同意と再利用 | 初回承認、既存境界再利用、変更、失効、拒否、時間切れ、読取不能を区別 | [同意契約試験](../40_Develop/coordinator/tests/external-send-consent-runtime.contract.test.ts)と公開入力経路。実端末での表示認識・一回Enterは別確認 |
-| 結果と安全状態の表示 | 実producer→公開結果→人間表示を接続し、候補あり／なし、複数ID、IDなし回収不明、再起動のみ、optional値欠落を確認 | [表示試験](../40_Develop/coordinator/tests/command-report.contract.test.ts)。欠落を否定へ変える既知差は未解消。文字列の存在検査だけでは不十分 |
+| 結果と安全状態の表示 | 実producer→公開結果→人間表示を接続し、候補あり／なし、複数ID、IDなし回収不明、再起動のみ、optional値欠落を確認 | [表示試験](../40_Develop/coordinator/tests/command-report.contract.test.ts)と[限定再確認](Verification_Results/2026-08-31_Tool_Layout_Verification.md#3部品の設計補完結果表示の追加確認)で欠落値を「未確認」とする是正を確認済み。実端末の可読性は別に残り、文字列の存在検査だけでは完了しない |
 | 取消と終了 | 正常終了、単一／重複signal、遅延完了、listener解除失敗を再現し終了後条件を観測 | [取消試験](../40_Develop/coordinator/tests/task-cli-cancellation.contract.test.ts)、[実Process結合](../40_Develop/coordinator/tests/coordinator-task-process.integration.test.ts)。実端末閉鎖や実Provider取消とは分ける |
 | 候補の処置 | 正常export／discard、期限、Revision差、重複処置、不明状態を検証 | [候補Store試験](../40_Develop/coordinator/tests/candidate-bundle-store.contract.test.ts)。候補生成を人間受入・採用の証明にしない |
 | Checker表示 | 全体／限定、指摘あり／なし、未確認、JSON配列／summary報告を照合 | [契約試験](../40_Develop/checker/crdd-check.contract.test.ts)。全体Checker実行結果と人間の理解を分ける |
-| 実端末・アクセシビリティ | 日本語、長いID、折返し、拡大、キーボード、入力期限、突然閉じる経路、支援技術を対象環境で観測 | 未実施。ソース例・静的HTML・固定Fakeでは代替しない。対象プロファイルの確定が必要 |
+| 実端末・アクセシビリティ | Windows Terminal／PowerShellの日本語、長いID、折返し、拡大、キーボード、一回Enter、拒否・時間切れ・取消・終了後表示を観測 | 人間承認済みの範囲は[UI§4](../04_UI/01_User_Interface.md#4-現行表示の参照と表現方針)。[今回のPowerShellの限定確認](Verification_Results/2026-08-31_Tool_Layout_Verification.md#端末参照媒体と全体試験の再確認)は実施済み。別のWindows Terminal環境、読み上げ、実Task取消等の未評価範囲を保持し、ソース例・静的HTML・固定Fakeで代替しない。外部規格への適合は未主張 |
 
 根拠を記録するときは対象改訂版、実際に使用した入口と環境、期待した認識・操作、実結果、資源／許可への影響を分ける。未測定時間や未確認回数を0へ補正しない。既知差の責任者・再確認契機は[UI未解決事項](../04_UI/01_User_Interface.md#open-issues)、現在品質は[Quality Center](01_Quality_Center.md)へ接続する。
 
 実行手順は[Coordinator作業手順](../19_Workflows/01_Coordinator_Runtime.md)を参照する。実行時は対象改訂版または固定差分、Node版、起動Directory、試験コマンド、結果件数、除外、ログの再識別情報を結果へ残す。現在の品質状態から履歴結果へ辿れるようにし、作業ログそのものをGitへ大量に取り込まない。
 
 公開CLI・正式署名・実Providerの結合は別の検証項目である。移行前の[署名済み4経路と復旧結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)は基準として保持するが、新配置の正式配布成立を代替しない。実Provider取消と実Provider是正経路の未証明範囲は、完成監査で要求と代替根拠を照合し、人間判断なしに完了条件から外さない。
+
+最終配布では4経路runnerに加え、公開`task --request-stdin --json`へ許可済み固定検証Taskを1件渡す。stdinのUTF-8 JSON搬送から署名package検証、Repository解決、Task実行、signal監視解除、JSONと終了コードまで通し、候補の内容確認・破棄と終了後の資源状態を照合する。4経路runnerはTask関数を直接呼ぶため、この公開入口の正常経路を代替しない。取消・是正は共有部分とProvider固有部分の境界を明示し、未観測部分を実測済みへ読み替えない。

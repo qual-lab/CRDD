@@ -54,7 +54,7 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     "03_Verification_Design.md",
   ];
   const oldNames = names.map((name) => name.slice(3));
-  const expected = [...names, "Verification_Results/"];
+  const expectedEntries = [...names, "Verification_Results/"];
   const rule = fs
     .readFileSync(path.join(repositoryRoot, "16_Quality_Assurance.md"), "utf8")
     .split('<a id="42-fixed-quality-structure"></a>')[1]
@@ -72,7 +72,7 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     entry: string,
     directories: readonly (readonly string[])[],
   ): void => {
-    const declared = Array.from(
+    const declaredEntries = Array.from(
       text.matchAll(/^[├└]── ([^\r\n]+)$/gm),
       (match) => match[1],
     );
@@ -80,8 +80,8 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
       text.matchAll(/^\| \x60([^\x60]+)\x60 \|/gm),
       (match) => match[1],
     );
-    assert.deepEqual(declared, expected);
-    assert.deepEqual(responsibilities, expected);
+    assert.deepEqual(declaredEntries, expectedEntries);
+    assert.deepEqual(responsibilities, expectedEntries);
     assert.equal(directories.length, 2);
     for (const entries of directories) {
       for (const name of names) assert.ok(entries.includes(name), name);
@@ -103,33 +103,41 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
       fs.lstatSync(path.join(root, "Verification_Results")).isDirectory(),
     );
   }
-  const complete = [...names, "Verification_Results"];
+  const completeEntries = [...names, "Verification_Results"];
   assert.throws(() =>
     check(
       rule.replace("01_Quality_Center.md", "Quality_Center.md"),
       entryRule,
-      [complete, complete],
+      [completeEntries, completeEntries],
     ),
   );
-  assert.throws(() => check(rule, entryRule, [complete, complete.slice(1)]));
   assert.throws(() =>
-    check(rule, entryRule, [complete, [...complete, "Quality_Center.md"]]),
+    check(rule, entryRule, [completeEntries, completeEntries.slice(1)]),
   );
   assert.throws(() =>
-    check(rule.replace("├── 01_", "├── 02_"), entryRule, [complete, complete]),
+    check(rule, entryRule, [
+      completeEntries,
+      [...completeEntries, "Quality_Center.md"],
+    ]),
+  );
+  assert.throws(() =>
+    check(rule.replace("├── 01_", "├── 02_"), entryRule, [
+      completeEntries,
+      completeEntries,
+    ]),
   );
   assert.throws(() =>
     check(
       rule.replace(/\| \x6001_Quality_Center.md\x60 \|/, "| wrong |"),
       entryRule,
-      [complete, complete],
+      [completeEntries, completeEntries],
     ),
   );
   assert.throws(() =>
     check(
       rule,
       entryRule.replace("01_Quality_Center.md", "Quality_Center.md"),
-      [complete, complete],
+      [completeEntries, completeEntries],
     ),
   );
 });
