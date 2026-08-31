@@ -181,10 +181,9 @@ export function createTaskControllerCancellationFixture(
     terminationCount: () => terminationCount,
     async assertControllerExpired() {
       assert.ok(controllerControl);
-      assert.equal(
-        (await controller.cancel(controllerControl, managementCapability))
-          .status,
-        "blocked",
+      assert.deepEqual(
+        await controller.cancel(controllerControl, managementCapability),
+        { status: "blocked", reason: "invalid" },
       );
     },
     startProcess: (
