@@ -4,7 +4,7 @@ import path from "node:path";
 
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 6;
+export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 7;
 export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
   "loaded_kernel32_os_observed_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
@@ -164,8 +164,27 @@ export function createWindowsNativeHelperEnvironment() {
   return fixedWindowsEnvironment(Object.freeze({ USERPROFILE: userProfile }));
 }
 
-export function createWindowsDockerDesktopRepairHelperEnvironment() {
-  return createWindowsNativeHelperEnvironment();
+export function createWindowsDockerDesktopRepairHelperEnvironment(): Readonly<
+  Record<string, string>
+> | null {
+  const environment = createWindowsNativeHelperEnvironment();
+  if (!environment) return null;
+  const systemDrive = deriveWindowsSystemDrive(environment.SystemRoot);
+  if (!systemDrive) return null;
+  return Object.freeze({ ...environment, SYSTEMDRIVE: systemDrive });
+}
+
+// Pure path validation; callers must obtain the directory from the OS observer.
+// This does not turn a caller-supplied path into an execution capability.
+export function deriveWindowsSystemDrive(windowsDirectory: unknown) {
+  if (
+    typeof windowsDirectory !== "string" ||
+    !/^[A-Za-z]:\\[^\\]/u.test(windowsDirectory) ||
+    windowsDirectory.includes("\0") ||
+    path.win32.normalize(windowsDirectory) !== windowsDirectory
+  )
+    return null;
+  return windowsDirectory.slice(0, 2);
 }
 
 export function createWindowsDockerCliEnvironment(
@@ -221,6 +240,7 @@ export function describeWindowsChildEnvironmentContract() {
       "docker_desktop_runtime_repair",
     ]),
     dockerDesktopLauncherConsumers: Object.freeze([]),
+    dockerRepairHelperSystemDrive: "loaded_kernel32_os_directory_local_drive",
     dockerDesktopLauncherEnvironment:
       "native_helper_known_folder_and_loaded_os_directory_minimal_unicode_block",
     userProfileEnvironmentAuthority: false,

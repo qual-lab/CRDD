@@ -596,6 +596,7 @@ fn launcher_context() -> Option<LauncherContext> {
     }
     windows.truncate(length);
     let windows_directory = OsString::from_wide(&windows);
+    let system_drive = system_drive_from_windows_directory(&windows_directory)?;
     let neutral = [
         "ALL_PROXY",
         "COMSPEC",
@@ -617,7 +618,6 @@ fn launcher_context() -> Option<LauncherContext> {
         "PATHEXT",
         "SSH_AGENT_PID",
         "SSH_AUTH_SOCK",
-        "SYSTEMDRIVE",
         "USERDOMAIN",
         "USERNAME",
     ];
@@ -636,6 +636,7 @@ fn launcher_context() -> Option<LauncherContext> {
         ("LOCALAPPDATA".to_owned(), local_app_data.into_os_string()),
         ("ProgramData".to_owned(), program_data.into_os_string()),
         ("SystemRoot".to_owned(), windows_directory.clone()),
+        ("SYSTEMDRIVE".to_owned(), system_drive),
         ("TEMP".to_owned(), temporary.clone().into_os_string()),
         ("TMP".to_owned(), temporary.into_os_string()),
         ("WINDIR".to_owned(), windows_directory),
@@ -650,6 +651,28 @@ fn launcher_context() -> Option<LauncherContext> {
         environment,
         current_directory: profile,
     })
+}
+
+fn system_drive_from_windows_directory(directory: &OsStr) -> Option<OsString> {
+    let units: Vec<u16> = directory.encode_wide().collect();
+    if units.len() <= 3
+        || !((u16::from(b'A')..=u16::from(b'Z')).contains(&units[0])
+            || (u16::from(b'a')..=u16::from(b'z')).contains(&units[0]))
+        || units[1] != u16::from(b':')
+        || units[2] != u16::from(b'\\')
+        || units.contains(&0)
+        || units.contains(&u16::from(b'/'))
+    {
+        return None;
+    }
+    let text = String::from_utf16(&units).ok()?;
+    if text[3..]
+        .split('\\')
+        .any(|part| part.is_empty() || part == "." || part == "..")
+    {
+        return None;
+    }
+    Some(OsString::from_wide(&units[..2]))
 }
 
 fn create_exact_process(
@@ -947,10 +970,44 @@ mod tests {
         assert!(!program_data.is_empty());
         assert!(std::path::Path::new(program_data).is_absolute());
         assert!(std::path::Path::new(program_data).is_dir());
+        let observed_program_data = crate::windows::program_data_path().unwrap();
+        assert!(observed_program_data.is_absolute());
+        let observed_canonical = std::fs::canonicalize(&observed_program_data).unwrap();
+        assert!(
+            observed_canonical
+                .to_string_lossy()
+                .strip_prefix(r"\\?\")
+                .unwrap()
+                .eq_ignore_ascii_case(&observed_program_data.to_string_lossy())
+        );
+        assert_eq!(
+            actual.get("systemdrive"),
+            system_drive_from_windows_directory(actual.get("systemroot").unwrap()).as_ref()
+        );
         assert_eq!(
             std::fs::canonicalize(program_data).unwrap(),
             std::fs::canonicalize(crate::windows::program_data_path().unwrap()).unwrap()
         );
+    }
+
+    #[test]
+    fn system_drive_requires_canonical_local_windows_directory() {
+        assert_eq!(
+            system_drive_from_windows_directory(OsStr::new(r"D:\Windows")),
+            Some(OsString::from("D:"))
+        );
+        for value in [
+            r"C:",
+            r"C:\",
+            r"C:Windows",
+            r"\Windows",
+            r"\\host\Windows",
+            r"C:\a\..\Windows",
+            "C:/Windows",
+            "C:\\Windows\0",
+        ] {
+            assert!(system_drive_from_windows_directory(OsStr::new(value)).is_none());
+        }
     }
 
     fn environment_hash(entries: &std::collections::BTreeMap<String, OsString>) -> String {

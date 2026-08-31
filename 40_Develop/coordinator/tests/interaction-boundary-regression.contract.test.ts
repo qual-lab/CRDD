@@ -35,12 +35,13 @@ import {
 } from "../src/core/node-runtime-version.ts";
 import { isRuntimeProcessPoisoned } from "../src/core/runtime-process-safety-state.ts";
 import {
-  createWindowsDockerDesktopRepairHelperEnvironment,
-  createWindowsDockerCliEnvironment,
   createInteractiveConsoleReaderEnvironment,
+  createWindowsDockerCliEnvironment,
+  createWindowsDockerDesktopRepairHelperEnvironment,
   createWindowsHostOperationSupervisorEnvironment,
   createWindowsNativeHelperEnvironment,
   createWindowsNodeConsoleReaderEnvironment,
+  deriveWindowsSystemDrive,
   describeWindowsChildEnvironmentContract,
   WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
@@ -995,7 +996,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
 
   assert.deepEqual(describeWindowsChildEnvironmentContract(), {
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-    contractRevision: 6,
+    contractRevision: 7,
     provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
@@ -1019,16 +1020,86 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
       "docker_desktop_runtime_repair",
     ],
     dockerDesktopLauncherConsumers: [],
+    dockerRepairHelperSystemDrive: "loaded_kernel32_os_directory_local_drive",
     dockerDesktopLauncherEnvironment:
       "native_helper_known_folder_and_loaded_os_directory_minimal_unicode_block",
     userProfileEnvironmentAuthority: false,
     userProfileInitializationAuthority: false,
     actualChildObservationRequired: true,
   });
-  assert.deepEqual(
-    createWindowsDockerDesktopRepairHelperEnvironment(),
-    createWindowsNativeHelperEnvironment(),
-  );
+  assert.deepEqual(createWindowsDockerDesktopRepairHelperEnvironment(), {
+    ...createWindowsNativeHelperEnvironment(),
+    SYSTEMDRIVE: deriveWindowsSystemDrive(
+      createWindowsNativeHelperEnvironment()?.SystemRoot,
+    ),
+  });
+});
+
+test("Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否する", () => {
+  assert.equal(deriveWindowsSystemDrive("D:\\Windows"), "D:");
+  assert.equal(deriveWindowsSystemDrive("c:\\Windows"), "c:");
+  for (const value of [
+    null,
+    "",
+    "C:",
+    "C:\\",
+    "C:Windows",
+    "\\Windows",
+    "\\\\host\\Windows",
+    "C:\\a\\..\\Windows",
+    "C:/Windows",
+    "C:\\Windows\0",
+  ]) {
+    assert.equal(deriveWindowsSystemDrive(value), null);
+  }
+});
+
+test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutralを維持する", (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows contract");
+    return;
+  }
+  const before = process.env.SYSTEMDRIVE;
+  try {
+    process.env.SYSTEMDRIVE = "Z:";
+    const environment = createWindowsDockerDesktopRepairHelperEnvironment();
+    assert.ok(environment);
+    assert.equal(
+      environment.SYSTEMDRIVE,
+      deriveWindowsSystemDrive(environment.SystemRoot),
+    );
+    assert.equal(createWindowsNativeHelperEnvironment()?.SYSTEMDRIVE, "");
+    assert.equal(
+      (
+        createWindowsNodeConsoleReaderEnvironment() as Readonly<
+          Record<string, string>
+        >
+      )?.SYSTEMDRIVE,
+      "",
+    );
+    const result = spawnSync(
+      process.execPath,
+      [
+        "-e",
+        "process.stdout.write(JSON.stringify({drive:process.env.SYSTEMDRIVE,neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR','USERPROFILE','SYSTEMDRIVE'].includes(k.toUpperCase())).every(([,v])=>v==='')}))",
+      ],
+      {
+        env: environment,
+        encoding: "utf8",
+        shell: false,
+        windowsHide: true,
+        timeout: 5000,
+      },
+    );
+    assert.equal(result.status, 0);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      drive: environment.SYSTEMDRIVE,
+      neutral: true,
+    });
+  } finally {
+    if (before === undefined) delete process.env.SYSTEMDRIVE;
+    else process.env.SYSTEMDRIVE = before;
+  }
 });
 
 test("Windows directoryの親環境差替えを子Environment Authorityにしない", (context) => {

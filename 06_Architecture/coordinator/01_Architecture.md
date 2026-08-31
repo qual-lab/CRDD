@@ -124,6 +124,8 @@ Docker Desktopの設定読込みが必要とする`ProgramData`も、OSの`FOLDE
 
 検証は環境blockの構造だけで閉じない。同じ`CreateProcessW`経路で試験専用子Processを生成し、親が渡した環境と実子の受信環境を値非公開のHashで照合し、Homeと作業Directoryの一致、非適合作業Directoryでの非発行、生成後Identity不明の保持、子の終了とhandle回収を確認する。試験専用子の成功はDocker本体の起動・回復・正式署名E2Eの成功ではない。
 
+既知フォルダー取得も環境展開へ依存するため、Docker修復helperへはロード済みOS moduleから検証したWindows Directoryのローカルdriveを`SYSTEMDRIVE`へ渡す。helperからDocker子へも`GetWindowsDirectoryW`由来のdriveを渡す。値は`D:`等のdrive形式とし、固定`C:`、親の同名値、UNC、相対Pathまたは解決不能な配置へ代替しない。`ProgramData`をdriveとの文字列連結で生成せず、既知フォルダー取得と元Path／実体の一致確認を維持する。generic native observer、Console、ProviderおよびWSL終了の環境は変更しない。helper自身の環境を後から書き換えない。試験では中間helperの実環境から既知フォルダー取得までと、最終子Processの環境から同じ取得までを分け、正規化によって相対Pathの誤りを隠さず、取得時点の絶対Path性も確認する。
+
 修復記録は作成時の署名版へ結合し、自動移行しない。旧版記録を新版で扱う場合は、`doctor --adopt-docker-desktop-repair <repair-id> --from-release <absolute-root>`で対象IDと元の配布Rootを明示する。元配布から読むのは固定位置の署名manifestだけであり、旧版の実行物は起動しない。過去の署名は由来の証明として検証し、有効期限を現在の実行許可へ読み替えない。実行中の新版は通常どおり署名・配布実体・期限・Policy・選択ユーザー・保護Rootを検証する。
 
 記録v4の全連鎖、元の署名tuple、現在と同じユーザー／Root Identity／保護／Policyを照合した後、同じ操作Directoryへ`historical-adoption.json`を排他的に追加する。元のrecord数、末尾hash、元版と引継ぎ版の署名manifestを固定し、元recordのbyte、stage、ledger、IDを変更しない。同じ内容の再開だけを許し、部分書込み、内容差、旧recordへの追記、版の逆行、同じsequenceで異なるtupleは停止する。旧v2／v3記録や署名鍵の移行は扱わない。

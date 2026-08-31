@@ -13,6 +13,7 @@ Status: Implementation Candidate
 | 未許可の送信・古い同意の再利用 | 初期外部送信同意、現行Taskの指摘搬送 | Provider内の保持・二次利用をRuntimeは保証しない |
 | 別Task・別ユーザーの資源を回収 | Home／Docker回復、ID・所有者・耐久記録の照合 | 不明状態を不存在へ変えない |
 | 内部入力・Helperから権限を拡張 | 公開入口、Capability、固定Artifact | Schema一致だけではAuthorityにならない |
+| 親環境の偽装・必要なOS文脈の欠落 | [Docker専用起動環境](01_Architecture.md#22-docker-desktop最終復旧時の起動環境)のOS由来SYSTEMDRIVEと既知フォルダー検証 | 中間helperと最終子の双方で確認。環境取得はDirectory変更許可ではない |
 | 起動・取消・回収の途中停止 | 診断・回復制御と実行アーキテクチャの状態／資源表 | 過去の成功やPromise完了から残存0を推定しない |
 | 未接続の準備方式を現在の保証と誤認 | Hardened／Managed候補の分離 | T1〜T2の現行経路にT3／T4を追加要求しない |
 
