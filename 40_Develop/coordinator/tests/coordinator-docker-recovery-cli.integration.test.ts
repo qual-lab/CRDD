@@ -326,7 +326,7 @@ test("CLI共通projectorはEvidenceの保持・非保持・不明を推測せず
 });
 
 test("日本語の復旧表示は三値とJSON・終了コードを保持する", () => {
-  for (const [observation, expected] of [
+  for (const [observationConfirmed, expected] of [
     [true, "はい"],
     [false, "いいえ"],
     [null, "未確認"],
@@ -337,17 +337,17 @@ test("日本語の復旧表示は三値とJSON・終了コードを保持する"
       status: "closed_retained",
       reason: "docker_desktop_repair_evidence_retention_closed",
       repairId: `docker-desktop-repair.${"a".repeat(32)}`,
-      engineReady: observation,
-      processEffectIssued: observation,
-      filesystemEffectIssued: observation,
-      nativeHelperCleanupConfirmed: observation,
-      newRepairPermitted: observation,
+      engineReady: observationConfirmed,
+      processEffectIssued: observationConfirmed,
+      filesystemEffectIssued: observationConfirmed,
+      nativeHelperCleanupConfirmed: observationConfirmed,
+      newRepairPermitted: observationConfirmed,
       staleRuntimeDirectory: "retained",
     });
     const human = renderDockerRecoveryDoctorReport(report, false);
     const json = renderDockerRecoveryDoctorReport(report, true);
     assert.equal(json.stdout, `${JSON.stringify(report, null, 2)}\n`);
-    assert.equal(human.exitCode, observation === true ? 0 : 2);
+    assert.equal(human.exitCode, observationConfirmed === true ? 0 : 2);
     assert.equal(json.exitCode, human.exitCode);
     for (const label of [
       "Docker Engineの準備完了",

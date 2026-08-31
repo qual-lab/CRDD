@@ -173,6 +173,192 @@ function interactiveLockWorkerScenario(initialState: 1 | -1) {
   });
 }
 
+test("固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒否する", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const rootName = "crdd-coordinator-doctor-VALID1";
+  const nonce = "a".repeat(32);
+  let factoryCalls = 0;
+  const factory: Parameters<
+    typeof acquireHostOperationSupervisorLockUsingFactory
+  >[2] = () => {
+    factoryCalls += 1;
+    throw new Error("invalid_input_reached_factory");
+  };
+  const invalidInputs = [
+    { rootName: null, nonce, timing: FAST_SUPERVISOR_TIMING },
+    { rootName: 1, nonce, timing: FAST_SUPERVISOR_TIMING },
+    {
+      rootName: "crdd-coordinator-doctor-12345",
+      nonce,
+      timing: FAST_SUPERVISOR_TIMING,
+    },
+    {
+      rootName: `crdd-coordinator-doctor-${"a".repeat(65)}`,
+      nonce,
+      timing: FAST_SUPERVISOR_TIMING,
+    },
+    {
+      rootName: "../crdd-coordinator-doctor-VALID1",
+      nonce,
+      timing: FAST_SUPERVISOR_TIMING,
+    },
+    { rootName, nonce: null, timing: FAST_SUPERVISOR_TIMING },
+    { rootName, nonce: "a".repeat(31), timing: FAST_SUPERVISOR_TIMING },
+    { rootName, nonce: "a".repeat(49), timing: FAST_SUPERVISOR_TIMING },
+    { rootName, nonce: "A".repeat(32), timing: FAST_SUPERVISOR_TIMING },
+    ...[0, 1001, 1.5, Number.NaN].map((acquireTimeoutMs) => ({
+      rootName,
+      nonce,
+      timing: { acquireTimeoutMs, releaseTimeoutMs: 10 },
+    })),
+    ...[0, 5001, 1.5, Number.POSITIVE_INFINITY].map((releaseTimeoutMs) => ({
+      rootName,
+      nonce,
+      timing: { acquireTimeoutMs: 10, releaseTimeoutMs },
+    })),
+  ];
+  for (const input of invalidInputs) {
+    assert.deepEqual(
+      await acquireHostOperationSupervisorLockUsingFactory(
+        input.rootName,
+        input.nonce,
+        factory,
+        input.timing,
+      ),
+      { status: "unavailable", lock: null },
+    );
+  }
+  assert.equal(factoryCalls, 0);
+  for (const [
+    suffixLength,
+    nonceLength,
+    acquireTimeoutMs,
+    releaseTimeoutMs,
+  ] of [
+    [6, 32, 1, 1],
+    [64, 48, 1000, 5000],
+  ] as const) {
+    const scenario = supervisorChildScenario("normal");
+    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+      `crdd-coordinator-doctor-${"a".repeat(suffixLength)}`,
+      "a".repeat(nonceLength),
+      scenario.factory,
+      { acquireTimeoutMs, releaseTimeoutMs },
+    );
+    assert.equal(outcome.status, "acquired");
+    assert.ok(outcome.lock);
+    assert.ok(scenario.captured());
+    assert.equal(await outcome.lock.confirmReady(), "ready");
+    assert.equal(await outcome.lock.release(), "released");
+    assert.equal(scenario.killCount(), 0);
+  }
+});
+
+test("固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ収束する", {
+  skip: process.platform !== "win32",
+}, async () => {
+  for (const failedMessage of ["confirm-ready", "release", "confirm-release"]) {
+    const scenario = supervisorChildScenario("normal");
+    const supervisorChildren: ReturnType<typeof spawn>[] = [];
+    const messages: unknown[] = [];
+    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+      "crdd-coordinator-doctor-SENDTHROW",
+      "b".repeat(32),
+      (executable, args, options) => {
+        const child = scenario.factory(executable, args, options);
+        supervisorChildren.push(child);
+        const send = child.send.bind(child);
+        child.send = ((message: unknown) => {
+          messages.push(message);
+          if (message === failedMessage) throw new Error("fixture_send_failed");
+          return send(message as string);
+        }) as typeof child.send;
+        return child;
+      },
+      FAST_SUPERVISOR_TIMING,
+    );
+    assert.equal(outcome.status, "acquired");
+    assert.ok(outcome.lock);
+    let failureNotifications = 0;
+    outcome.lock.onFailureDetected(() => {
+      failureNotifications += 1;
+    });
+    if (failedMessage === "confirm-ready") {
+      assert.equal(
+        await outcome.lock.confirmReady(),
+        "cleanup_confirmed_failure",
+      );
+    } else {
+      assert.equal(await outcome.lock.confirmReady(), "ready");
+      assert.equal(await outcome.lock.release(), "cleanup_confirmed_failure");
+    }
+    await outcome.lock.failureDetected;
+    assert.equal(await outcome.lock.loss, "cleanup_confirmed_failure");
+    assert.equal(outcome.lock.assertLive(), false);
+    assert.equal(await outcome.lock.release(), "cleanup_confirmed_failure");
+    assert.equal(failureNotifications, 1);
+    assert.equal(scenario.killCount(), 1);
+    assert.deepEqual(
+      messages,
+      ["confirm-ready", "release", "confirm-release"].slice(
+        0,
+        ["confirm-ready", "release", "confirm-release"].indexOf(failedMessage) +
+          1,
+      ),
+    );
+    assert.equal(supervisorChildren.length, 1);
+    assert.deepEqual(supervisorChildren[0]?.eventNames(), []);
+  }
+});
+
+test("固定Supervisor: 失敗listenerの例外は他の通知・終了・失効を妨げない", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const scenario = supervisorChildScenario("normal");
+  const supervisorChildren: ReturnType<typeof spawn>[] = [];
+  const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+    "crdd-coordinator-doctor-LISTENER",
+    "c".repeat(32),
+    (executable, args, options) => {
+      const child = scenario.factory(executable, args, options);
+      supervisorChildren.push(child);
+      return child;
+    },
+    FAST_SUPERVISOR_TIMING,
+  );
+  assert.equal(outcome.status, "acquired");
+  assert.ok(outcome.lock);
+  assert.equal(await outcome.lock.confirmReady(), "ready");
+  const notifications: string[] = [];
+  outcome.lock.onFailureDetected(() => {
+    notifications.push("throwing");
+    throw new Error("fixture_listener_failed");
+  });
+  outcome.lock.onFailureDetected(() => {
+    notifications.push("following");
+  });
+  const unsubscribe = outcome.lock.onFailureDetected(() => {
+    notifications.push("removed");
+  });
+  unsubscribe();
+  const child = supervisorChildren[0];
+  assert.ok(child);
+  assert.doesNotThrow(() =>
+    child.emit("error", new Error("fixture_supervisor_failed")),
+  );
+  await outcome.lock.failureDetected;
+  assert.deepEqual(notifications, ["throwing", "following"]);
+  assert.equal(await outcome.lock.loss, "cleanup_confirmed_failure");
+  assert.equal(outcome.lock.assertLive(), false);
+  assert.equal(await outcome.lock.confirmReady(), "cleanup_confirmed_failure");
+  assert.equal(await outcome.lock.release(), "cleanup_confirmed_failure");
+  assert.equal(scenario.killCount(), 1);
+  assert.deepEqual(child.eventNames(), []);
+  child.emit("message", { status: "ready" });
+  assert.deepEqual(notifications, ["throwing", "following"]);
+});
+
 test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒否する", () => {
   assert.equal(acquireRuntimeOwnedCandidateStoreKernelLock("invalid"), null);
   if (process.platform !== "win32") return;

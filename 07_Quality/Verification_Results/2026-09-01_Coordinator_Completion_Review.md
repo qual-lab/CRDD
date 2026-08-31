@@ -133,8 +133,80 @@ Task2件・Controller2件は是正後に通常権限で5反復し、20/20成功�
 
 28差分を固定し、共通Checkerを2026-08-31T16:13:01.680Zに全体実行した。389文書、2,728リンク、911アンカー、固定履歴参照24件、エラー・警告0。`.crdd`はGit除外であり、このCheckerの検査範囲に含まない。RussellはProcess／Effectと模擬回収の接続、DarwinはSEC-02の追加ガードと試験記録、Wegenerは過去・現在の時点と品質案内の同期を独立再確認し、各担当範囲をPass・追加指摘0として返した。自分で作成した差分の自己承認は割り当てず、TEST-01全体の解消やRuntime完成へ拡張していない。
 
+### Git格納形式とLock失敗通知の追加確認
+
+前節の是正をCommit `43086fd`へ記録・pushした後、productionは変更せず、同じTEST-01の不足へ試験を追加した。上記の「次は」「未実施」はそれぞれの確認時点の記述として保持し、以下を追加根拠とする。
+
+Gitの[結合試験](../../40_Develop/coordinator/tests/git-object-reader.integration.test.ts)と[生成fixture](../../40_Develop/coordinator/tests/fixtures/git-packed-object-fixture.ts)では、Windowsの固定実行ファイルにあるGit 2.54.0を用い、通常object、OFS_DELTA、REF_DELTAを生成した。対象blobの形式・参照先を検査し、packだけの領域から公開3関数でCommit／Tree、内容byte、hash、mode、指定Pathだけの復元を確認した。外側checksum2種と、内側の参照・offset・整数・base長・copy・結果長・object IDの7種を壊した拒否を合わせ、既存2件を含む14/14成功、失敗・取消・skip 0、6,094.4611msだった。Gitはfixture生成に限り、本番の外部Git非使用は変更していない。他OS、別Git版、全pack形式・全サイズの網羅は主張しない。
+
+Node.js `24.19.0`で同試験だけにcoverageを付け、`git-object-reader.ts`の到達は144／219分岐、約65.75%だった。全体試験の率との比較値ではない。先の未到達3関数へ到達し、内側の拒否も243行の実行回数2、249・289・296・443・495・128行のthrow側分岐回数2を観測した。集計LCOVであり、一つの試験へ一意に帰属する通知履歴とは扱わない。外側checksumを整合した変異と合わせて、公開関数が`null`を返したことだけに依存しない根拠とする。
+
+- 生TAP: `.crdd/test-tmp/git-delta-43086fd-02.tap`、SHA-256 `c3bf45faf546301f0fdf00eee36be9a447adae1dca73c774bcd99725c8c690c1`
+- 生LCOV: `.crdd/test-tmp/git-delta-43086fd-02.lcov`、SHA-256 `417ed1d76829a61c446f3e03e04e0bbc46631d66bb8f787e5f3b8a7d37bed8fc`
+- Git結合試験SHA-256: `4a8f5401bc2782e9df9721af42258a0a07d5c2c0a992bc034d587f37951bdf71`
+- Git生成fixture SHA-256: `b540488e2133c716abd53347b74fa61ed3af7cf3cfa6f51becae98cfaae55e0e`
+
+[Lock契約試験](../../40_Develop/coordinator/tests/candidate-store-kernel-lock.contract.test.ts)は既存Supervisor factoryを使う3件を追加し、3/3成功、失敗・取消・skip 0、571.5483msだった。不正root／nonce／timingの17ケースでfactory呼出し0、上下限の正常2ケースを確認した。3段階のsend同期例外では操作失敗を返し、通知・失効・単一終了処理による回収確認が成立した。登録済みlistenerの例外でも後続listener、failureDetected／loss、失効が成立した。解除済みlistenerと終了後の通知も確認した。実Worker／OS競合の再現とは区別する。同ファイルSHA-256は`dc4152f1b50f5c3e4c2e61caf33839cd374891bd795f55b28a5829dc80134916`。
+
+生成物はRepository直下の`.crdd/test-tmp`に限り、Git fixtureの生成途中失敗と通常終了で同じ所有Rootを回収する。追加確認後の`git-packed-*`残存なしを確認した。いずれも実Provider、署名鍵、Docker修復を使わず、型検査と整形確認も成功した。生ログは生成物としてGit管理せず、上記hashと試験sourceから再識別・再実行できるようにする。
+
+追加後のCoordinator全体試験は1,535/1,535成功、失敗・取消・skip 0、105,623.6599ms、exit 0。実行条件は前節と同じNode.js `24.19.0`・通常のWindows権限で、基準Commit `43086fde4c90ff9b8719409fba53c2fcbf540709`、Tree `cc0fd909dd10bced97d07d0329fc4dce97b09044`へ上記3試験ファイルの変更を加えた対象である。試験実行中にsource・試験は変更せず、実行後も記載したSHA-256と一致した。生TAPは`.crdd/test-tmp/closure-git-lock-43086fd-full.tap`、SHA-256 `3ffd18eeeb30311458e6e3d499ecb8a3c51946ccd1e3dbf9b69aa364396c3dae`、終了時点2026-09-01 01:23 JST。型検査2構成、Lint、整形確認も成功した。
+
+### Lockの残る分岐と後続の対応
+
+Wegenerが基準coverageにある32の未到達行を実装・既存試験へ読み合わせた。元JSONには分岐識別子がないため、行ごとの条件側を確定した一覧ではない。上の追加3試験も32分岐全体を解消した根拠にはしない。
+
+| 基準sourceの行 | 照合結果と必要な処置 |
+|---|---|
+| 222、318、450 | 非Windows専用戻り。今回のWindows測定外として区別し、全OS検証済みとはしない |
+| 305、459、463、540、618、645、668 | 今回の入力拒否・通知例外・send例外が対応する範囲。ただし463の環境構成不能は未確認であり、行全体の完了へ広げない |
+| 128、148、320 | 別の公開APIの不正hash／root・nonce入力。今回のSupervisor root／nonce試験で代用しない |
+| 79、162、183、235、258、262、269 | 同期Worker timeout、遅延error／exit、対話Workerの生成・送信例外、重複release等。既存の単発正常・timeoutとは別の順序を追加確認する |
+| 346、413、483、552、625、632、634、648、655 | malformed形状、kill／spawn同期例外、回収不明後の呼出し、await後のloss、終了中の競合、release-readyとexit監視の間等。既存の類似試験から成立を推定しない |
+| 176、633 | 到達不能候補。timer解除とterminal設定の順序から再照合し、行情報だけで除外を確定しない |
+| 367 | 通知処理の再入・listener snapshotを含む防御guardの到達性が不明。評価を残す |
+
+この表は未確認を将来へ移す承認ではない。担当責任者Qual-Lab、再確認契機は現在のTEST-01の追加検証設計・実行である。残存不確実性は主に異常通知・終了競合時の停止と回収であり、全体完成判断前に処置する。
+
+### 追加差分の独立確認と検査対象件数の同期
+
+共通Checkerを2026-08-31T16:24:56.120Zに全体実行し、389文書、2,734リンク、911アンカー、固定履歴参照24件、エラー・警告0だった。この結果を共通入力として、Russellは自分が作成していないGit試験2ファイル、Darwinは自分が作成していないLock試験追加を独立確認し、各範囲をPass・指摘0で返した。Wegenerの文書／影響確認はConditionalで、別の同期入口に属する320行を今回確認済み範囲へ含めないこと、`cleanup_confirmed_failure`を終了失敗ではなく操作失敗と回収成立に分けて説明することの2点を返した。全結果の取得後に3確認者と是正方針を整合し、該当記録を修正した。
+
+別枠のChecker契約全体は208件中207成功・1失敗、195,608.4106ms、exit 1だった。新しいGit生成fixture1件に対し、命名試験の固定対象数が159のままで実数160と一致しなかった。追加Pathが同fixture1件だけであることを確認し、`coordinatorTests`を160、重複除去後の`uniqueTotal`を322へ同期した。実Path集合とTypeScript project集合の完全一致、命名検査、既存assertionは削除していない。これはファイル追加時の利用側同期漏れであり、本番readerの欠陥やChecker規則の不備として扱わない。初回の失敗を全体Checkerの成功で上書きせず、再試験を別結果として記録する。
+
+### 命名と検査対象の水平確認
+
+件数同期後の命名試験は7件中6成功・1失敗、38,908.6475ms。同じ版のChecker全体も208件中207成功・1失敗、194,518.9425msだった。件数の不一致を通過した後、型付き識別子の検査が内部名8箇所を検出した。今回の追加試験・fixtureに7箇所、先の表示試験にBooleanの名前1箇所があった。配列名を内容の分かる複数形、未使用parameterを責務付きの名前、Booleanを状態の分かる名前へ是正した。型、三値、property key、値、実行順序、判定条件は変更していない。
+
+ユーザーの水平確認依頼を受け、変更行だけでなく`40_Develop`と`template/tools`のPath・型付きsource全体を命名試験へ通した。是正後は7/7成功、22,490.9261ms。全322 TypeScript sourceの実Pathとproject集合が一致し、命名違反0だった。RustのPath集合は既存9件を維持し、Rust識別子の新しい実測まではこの結果へ含めない。
+
+Wegenerは読み取り専用で、Checker／Coordinator／platform-access／配布Checkerのpackage、tsconfig、試験入口、固定件数と専用coverage集合を確認した。今回の追加に伴う同期は既知の2値だけだった。Coordinatorの`tests/**/*.ts`、既存結合試験からのimport、Biomeの包含条件が新fixtureを含む。Checker自身の試験集合、Rust構成、5つの用途限定coverage集合へGit fixtureを追加する必要はなく、過去Evidenceの件数は当時の値を保持する。
+
+この水平確認は任意の将来ファイルの登録漏れを否定するものではない。既存の集合一致検査を維持する。規則の不足ではなく、ファイル追加の反映先と別枠の命名検査を確認し切っていなかったことが原因であり、新しい規則やCHGを追加しない。
+
+検査中にpackageが定めるLint／整形確認とは別の`biome check .`も実行し、既存のimport整列支援から94件のエラーが出た。この別コマンドを合格とはしない。package定義の`lint`／`format:check`はいずれも成功した。importの機械的一括並替えは今回の命名・対象集合是正へ混入させない。
+
+命名是正後の変更対象は次のSHA-256で再識別する。上記の命名前の個別試験hashは当時の根拠として保持する。
+
+| 対象（Repository相対Path） | SHA-256 |
+|---|---|
+| `40_Develop/coordinator/tests/candidate-store-kernel-lock.contract.test.ts` | `4523c514d55650815ba7b6f614c93ac13baa23463192b467e7d73a9acf994aa8` |
+| `40_Develop/coordinator/tests/fixtures/git-packed-object-fixture.ts` | `d3f4b9ea1d31293de1b1ea582d761c13c355d44221a08ad400e3b5e17f49197f` |
+| `40_Develop/coordinator/tests/coordinator-docker-recovery-cli.integration.test.ts` | `dd70fb4d640697ed10894d143bf535e60db438ca590b97377adeca58ef071236` |
+| `40_Develop/checker/tools-naming.contract.test.ts` | `ef12cf82bf274b4ace6a82a09d7f3a190332ad986fd4468453c1a12e86aa4449` |
+
+命名是正後、同じ基準`43086fd`に対する現差分でCoordinator全体を再実行し、1,535/1,535成功、失敗・取消・skip 0、111,592.9973ms、exit 0だった。Node.js `24.19.0`・通常のWindows権限、Repository直下の試験領域という実行条件は前回と同じで、対象source・試験は実行中に固定した。生TAPは`.crdd/test-tmp/closure-git-lock-naming-final.tap`、SHA-256 `b8335d3fcb64d94b50fd27ab61bd033a8cd07098572eab4a1131040d1ac9d018`。この再実行にcoverageは付けておらず、命名前の個別LCOVを新しい全体測定とは扱わない。
+
+同じ命名是正後の対象でChecker契約全体も208/208成功、失敗・取消・skip 0、216,565.1387ms、exit 0だった。実行は`40_Develop/checker`で固定Nodeへ`./test-runner.ts`を渡し、実行中に対象source・試験を編集していない。完全出力は同実行のツール記録へ保持し、Repositoryには生成ログを追加しない。再実行方法と変更対象hashは上記から取得できる。
+
+### 水平是正とロードマップ整理の限定独立確認
+
+現差分を固定し、共通Checkerを2026-08-31T16:38:26.778Zに全体実行した。389文書、2,731リンク、908アンカー、固定履歴参照24件、エラー・警告0。RussellはGit fixtureの機械改名を前回hashへ復元一致する差分として確認し、DarwinはLockと表示試験の機械改名、Checkerの対象数同期、ロードマップ整理を確認した。両担当範囲はPass・指摘0だった。Wegenerは品質3文書を確認し、前回2点の解消と追加記録を確認したが、package定義と異なるBiomeコマンド表記1点を返した。全結果取得後に3者と方針を整合し、実際のscript名への1文訂正を行った。限定再確認はPass・指摘解消・追加指摘0だった。品質案内はこの結果へ同期した。
+
+ロードマップでは9箇所の重複した実績説明を既存CHG・正本・品質記録への参照と次の処置へ整理した。未完了11項目、判断状態、担当、再評価契機、v0.18の義務と将来研究候補の区別は保持した。完了していない作業を削除したり、現在の検証義務を将来へ移したりしていない。この確認は今回差分に限定し、TEST-01全体、Runtime完成、統合またはリリースの判定ではない。
+
 ## 後続処置と既存根拠の扱い
 
-担当責任者はQual-Lab。TEST-01の未到達評価、追加試験、今回差分の独立再確認を、[Runtime完成](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)と[Tool・品質記録の是正](../../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)の同じ未リリース変更で続行する。現在の完成判断に影響するため、次版へ保留しない。分類・移行の最終採用と統合・リリースは人間の判断へ残す。
+担当責任者はQual-Lab。今回差分の限定独立確認は完了し、残るTEST-01の未到達評価、追加試験とその独立確認を、[Runtime完成](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)と[Tool・品質記録の是正](../../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)の同じ未リリース変更で続行する。現在の完成判断に影響するため、次版へ保留しない。分類・移行の最終採用と統合・リリースは人間の判断へ残す。
 
 [署名版4f10201の実測](2026-09-01_Coordinator_Signed_E2E.md)と旧45ea2acの実務・是正結果は各版に限定して保持する。今回の表示・package案内・追加試験・子プロセス所有と終了観測の是正によって過去の実測版を書き換えない。変更後ソースの正式署名実測は未実施である。新しい実務能力の追加や再署名を反復デバッグの前提にせず、開発検証で是正を固定してから必要な再検証範囲を評価する。

@@ -2,7 +2,7 @@
 
 状態: 移行中の候補
 担当責任者: Qual-Lab
-最終更新日: 2026-08-31
+最終更新日: 2026-09-01
 
 ## 対象と判定
 
@@ -57,6 +57,22 @@
 実行手順は[Coordinator作業手順](../19_Workflows/01_Coordinator_Runtime.md)を参照する。実行時は対象改訂版または固定差分、Node版、起動Directory、試験コマンド、結果件数、除外、ログの再識別情報を結果へ残す。現在の品質状態から履歴結果へ辿れるようにし、作業ログそのものをGitへ大量に取り込まない。
 
 取消の結合は、登録済みlistenerからTask Runtime、Controller、本番共通の子Process終了、Host回収・receipt・finalizeまでを接続して確認する。開始・完了結果の本番projectorを試験用の簡略結果で迂回しない。実子孫の終了と模擬Docker資源の回収申告を分け、OSからのCtrl+C配送は直接listener呼出しでは証明しない。
+
+### 固定RevisionのGit object読取り
+
+Repository／Revisionと明示した読取り範囲を保持する[設計上の責務](../06_Architecture/coordinator/01_Architecture.md)を、[Git object読取りの結合試験](../40_Develop/coordinator/tests/git-object-reader.integration.test.ts)へ接続する。試験用Gitが生成したpackだけを置いた領域から公開読取り関数へ渡し、現在Repositoryの圧縮状況やloose objectへのfallbackに依存しない。
+
+| 場面 | 観測する条件 |
+|---|---|
+| 通常object、後方offset参照の差分、object ID参照の差分 | 対象blob自身の格納形式とbase参照を検査し、Commit／Tree、完全な内容・hash・mode、明示Pathだけの再構成を確認する。生成引数だけで対象形式成立としない |
+| index／packの外側checksum破損 | 正常な対照と一変数の変異を区別し、有効な読取り結果へ昇格しないことを確認する |
+| 差分本文の長さ・copy・参照・復元後object IDの不整合 | 外側checksumを整合させた変異を使い、形式検査と対象処理への到達を合わせて確認する。公開関数の`null`だけから内側の拒否箇所を推定しない |
+
+Git CLIは開発試験の生成・検査に限って使用し、本番readerの外部Git実行を追加しない。今回の生成環境はWindowsのGit 2.54.0であり、他OSでは未検証としてskipする。対象環境内で格納形式を生成できない場合は前提不成立として失敗させ、skipや別形式への暗黙置換で合格にしない。生成元・pack-only領域・workspace・Git用HOMEはRepository直下の試験領域へ限定し、生成途中の失敗を含め回収する。
+
+### Lockの未到達条件と公開結果
+
+[Lock契約試験](../40_Develop/coordinator/tests/candidate-store-kernel-lock.contract.test.ts)では、公開入力の拒否をfactory非呼出しまで確認し、Supervisorの各段階の送信例外と失敗通知listenerの例外を、既存の非同期喪失・回収確認／不明とは別条件として照合する。内部例外を捕捉したことだけでなく、権限非発行、単一finalizer、後続observerへの通知および公開結果を確認する。Windows測定で未到達の非Windows分岐、到達不能候補、未確認の競合は別評価とし、試験追加だけで全分岐を評価済みにしない。
 
 ### Docker CLIの結果と終了観測
 
