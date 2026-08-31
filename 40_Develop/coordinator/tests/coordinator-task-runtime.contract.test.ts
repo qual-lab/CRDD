@@ -526,6 +526,8 @@ function fixture(
     pauseRole?: "executor" | "reviewer";
     pauseRoleOccurrence?: number;
     hostGenerationLoss?: "cleanup_confirmed_failure" | "cleanup_unknown";
+    shouldSignalHostLossBeforeCleanupReturn?: boolean;
+    shouldAbandonOperationThrow?: boolean;
     releaseDrainThrows?: boolean;
     isProcessPoisonedThrows?: boolean;
     isProcessPoisoned?: () => boolean;
@@ -841,6 +843,13 @@ function fixture(
         await new Promise<void>((resolve) => {
           releaseOperationCleanup = resolve;
         });
+      if (options.shouldSignalHostLossBeforeCleanupReturn) {
+        assert.ok(options.hostGenerationLoss);
+        assert.ok(resolveHostGenerationFailureDetected);
+        assert.ok(resolveHostGenerationLoss);
+        resolveHostGenerationFailureDetected();
+        resolveHostGenerationLoss(options.hostGenerationLoss);
+      }
       if (options.cleanupThrows) throw new Error("cleanup_failed");
       if (options.cleanupOperationOverride)
         await options.cleanupOperationOverride(candidate);
@@ -859,6 +868,8 @@ function fixture(
             : null,
     abandonOperation: async () => {
       abandonOperationCount += 1;
+      if (options.shouldAbandonOperationThrow)
+        throw new Error("fixture_abandon_operation_failed");
       return "released" as const;
     },
     poisonProcessAfterCleanupUnknown: () => {
@@ -2663,6 +2674,85 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
   assert.equal(cleanupResult.manualRecoveryRequired, true);
   assert.equal(cleanupResult.hostRecoveryId, "host.fixture.recovery.record");
   assert.equal(cleanupFailure.discardCount(), 1);
+});
+
+test("Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しない", async () => {
+  for (const outcome of [
+    "cleanup_confirmed_failure",
+    "cleanup_unknown",
+  ] as const) {
+    const isUnknown = outcome === "cleanup_unknown";
+    const harness = fixture({
+      hostCleanupWal: true,
+      hostGenerationLoss: outcome,
+      shouldSignalHostLossBeforeCleanupReturn: true,
+      cleanupProtocolFailure: !isUnknown,
+      cleanupThrows: isUnknown,
+    });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      isUnknown
+        ? "coordinator_task_operation_cleanup_unconfirmed"
+        : "coordinator_task_host_generation_protocol_failed_cleanup_confirmed",
+    );
+    assert.equal(result.manualRecoveryRequired, isUnknown);
+    assert.equal(result.processRestartRequired, isUnknown);
+    assert.equal(result.cleanupConfirmed, !isUnknown);
+    assert.equal(
+      harness.lifecycleStates.includes("STATE-RESULT-PUBLISHED"),
+      false,
+    );
+    assert.equal(harness.discardCount(), 1);
+    if (isUnknown) {
+      assert.equal(harness.dockerFinalizeCount(), 0);
+      assert.equal(result.hostRecoveryId, "host.fixture.cleanup.intent");
+      assert.equal(result.dockerRecoveryIds?.length, 2);
+      assert.ok(harness.poisonProcessCount() > 0);
+    } else {
+      assert.equal(harness.dockerFinalizeCount(), 2);
+      assert.equal(result.hostRecoveryId, null);
+      assert.deepEqual(result.dockerRecoveryIds, []);
+      assert.equal(harness.poisonProcessCount(), 0);
+    }
+    assert.deepEqual(await harness.observeLastControlInvalid(), {
+      status: "blocked",
+      reason: "coordinator_task_control_invalid",
+    });
+  }
+});
+
+test("回復保持処理も例外になったcleanup失敗は制御を失効しprocess再利用を禁止する", async () => {
+  const harness = fixture({
+    cleanupThrows: true,
+    shouldAbandonOperationThrow: true,
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_operation_cleanup_unconfirmed");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, true);
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+  assert.ok(harness.abandonOperationCount() >= 2);
+  assert.ok(harness.poisonProcessCount() > 0);
+  assert.equal(
+    harness.lifecycleStates.includes("STATE-RESULT-PUBLISHED"),
+    false,
+  );
+  assert.deepEqual(await harness.observeLastControlInvalid(), {
+    status: "blocked",
+    reason: "coordinator_task_control_invalid",
+  });
 });
 
 test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も手動Recoveryも行わない", async () => {

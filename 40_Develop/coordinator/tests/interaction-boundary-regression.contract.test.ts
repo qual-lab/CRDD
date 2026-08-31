@@ -2072,6 +2072,56 @@ test("非同期の対話・正式Runner entrypointはtop-levelでmain完了を�
   }
 });
 
+test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", () => {
+  const protectedEntrypoints = [
+    "bin/launch.ts",
+    "bin/coordinator.ts",
+    "scripts/generate-release-key.ts",
+    "scripts/sign-release-manifest.ts",
+    "scripts/verify-signed-general-task.ts",
+    "scripts/verify-signed-route-matrix.ts",
+    "scripts/verify-signed-recovery-matrix.ts",
+    "scripts/revoke-external-send-consent.ts",
+    "scripts/measure-development-providers.ts",
+  ];
+  const packageDocument = JSON.parse(
+    fs.readFileSync(path.join(coordinatorRoot, "package.json"), "utf8"),
+  ) as { scripts: Record<string, string> };
+  const invokesProtectedEntrypoint = (command: string) => {
+    const normalizedCommand = command.replaceAll("\\", "/");
+    if (
+      !/(?:^|[\s;&|])(?:node(?:\.exe)?|npm(?:\.cmd)?|npx(?:\.cmd)?)(?=\s|$)/iu.test(
+        normalizedCommand,
+      )
+    )
+      return false;
+    return protectedEntrypoints.some((entrypoint) =>
+      normalizedCommand.split(/\s+/u).some((token) => {
+        const argument = token.replace(/^["']|["']$/gu, "");
+        return (
+          !argument.startsWith("-") &&
+          (argument === entrypoint || argument.endsWith(`/${entrypoint}`))
+        );
+      }),
+    );
+  };
+  for (const command of [
+    "node ./bin/launch.ts verify-recovery",
+    "node ./bin/launch.ts sign-release --distribution .crdd/release-staging",
+  ]) {
+    assert.equal(invokesProtectedEntrypoint(command), true, command);
+  }
+  assert.equal(
+    invokesProtectedEntrypoint(
+      "node --test --test-coverage-include=bin/coordinator.ts ./tests/example.contract.test.ts",
+    ),
+    false,
+  );
+  for (const [name, command] of Object.entries(packageDocument.scripts)) {
+    assert.equal(invokesProtectedEntrypoint(command), false, name);
+  }
+});
+
 test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   assert.deepEqual(describeCoordinatorNodeRuntimeVersionContract(), {
     contract: "crdd-coordinator/node-runtime-version",

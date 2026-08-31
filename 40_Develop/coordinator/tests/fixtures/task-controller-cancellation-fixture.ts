@@ -4,6 +4,7 @@ import {
   projectRuntimeOwnedDockerProcessStartForTask,
 } from "../../src/security/coordinator-task-runtime.ts";
 import { createIsolatedDockerProcessControllerCandidate } from "../../src/security/docker-process-controller.ts";
+import type { OwnedCommandHandle } from "../../src/security/docker-owned-process.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
 
 // Only Node descendants are real. Docker, authentication and durable recovery
@@ -73,6 +74,7 @@ export function createTaskControllerCancellationFixture(
   let completionProjections = 0;
   let terminationCount = 0;
   let processStarted = false;
+  let processHandle: OwnedCommandHandle | null = null;
   let controllerControl: object | null = null;
   const controller = createIsolatedDockerProcessControllerCandidate({
     effectExecutorAvailable: true,
@@ -105,6 +107,7 @@ export function createTaskControllerCancellationFixture(
     startCommand: (command) => {
       if (command.purpose === "start_provider_attached") {
         const owned = processes.start();
+        processHandle = owned;
         processStarted = true;
         events.push("process-start");
         return {
@@ -137,6 +140,8 @@ export function createTaskControllerCancellationFixture(
       };
     },
     cleanupOwnedResources: async () => {
+      assert.ok(processHandle);
+      assert.equal(await processHandle.terminateAndWait(5_000), true);
       processes.assertAbsent();
       events.push("process-absence-observed");
       events.push("docker-cleanup");

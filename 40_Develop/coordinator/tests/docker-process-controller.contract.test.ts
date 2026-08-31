@@ -1324,6 +1324,43 @@ test("Provider非ゼロ終了は生出力を返さず既知の運用原因だけ
   }
 });
 
+test("搬送失敗status:nullは出力上限やtimeoutでなく既存の実行失敗へ分類する", async () => {
+  for (const [failedPurpose, expectedReason] of [
+    ["create_subscription_auth_probe", "docker_setup_command_failed"],
+    ["start_provider_attached", "provider_process_exit_nonzero"],
+  ] as const) {
+    const commands: string[] = [];
+    const fixture = createFixture({
+      startCommand: (command: { purpose: string }) => {
+        commands.push(command.purpose);
+        return {
+          wait: async () => ({
+            status: command.purpose === failedPurpose ? null : 0,
+            signal: null,
+            stdout:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput()
+                : "",
+            stderr: "",
+            outputExceeded: false,
+          }),
+          terminateAndWait: async () => true,
+        };
+      },
+    });
+    const result = await fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    ).completion;
+    assert.equal(result?.status, "blocked");
+    assert.equal(result?.reason, expectedReason);
+    assert.equal(result?.cleanupConfirmed, true);
+    assert.equal(result?.rawOutputReported, false);
+    assert.equal(commands.at(-1), failedPurpose);
+    assert.equal(fixture.getCleanupCount(), 1);
+  }
+});
+
 test("Provider非ゼロ分類はTask本文に似たstdoutと過長・制御文字stderrを診断へ昇格しない", async () => {
   for (const execution of [
     { stdout: "The task says usage limit and OAuth token expired", stderr: "" },
@@ -1434,6 +1471,8 @@ for (const dockerCleanupConfirmed of [true, false]) {
       },
       cleanupOwnedResources: async () => {
         cleanupCount += 1;
+        assert.ok(handle);
+        assert.equal(await handle.terminateAndWait(5_000), true);
         processes.assertAbsent();
         return {
           confirmed: dockerCleanupConfirmed,

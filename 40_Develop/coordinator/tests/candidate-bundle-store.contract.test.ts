@@ -247,6 +247,76 @@ test("partial pendingはRecovery IDを失わず明示Discardだけが安定実�
   }
 });
 
+test("pending保存失敗後のclose報告不明は同じ候補IDと実体を保持する", (context) => {
+  const value = fixture();
+  const originalOpen = fs.openSync;
+  const originalClose = fs.closeSync;
+  let pendingHandle: number | null = null;
+  let closeFailureCount = 0;
+  try {
+    value.faults.add("before_pending_sync");
+    context.mock.method(
+      fs,
+      "openSync",
+      (...args: Parameters<typeof fs.openSync>) => {
+        const handle = originalOpen(...args);
+        if (
+          typeof args[0] === "string" &&
+          path.basename(args[0]).startsWith("pending-")
+        )
+          pendingHandle = handle;
+        return handle;
+      },
+    );
+    context.mock.method(fs, "closeSync", (handle: number) => {
+      originalClose(handle);
+      if (handle === pendingHandle) {
+        pendingHandle = null;
+        closeFailureCount += 1;
+        // 実handleは回収済みだが、呼出し側はその結果を確認できない。
+        throw new Error("fixture_pending_close_outcome_unknown");
+      }
+    });
+    const failed = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
+    context.mock.restoreAll();
+    assert.equal(closeFailureCount, 1);
+    assert.equal(failed?.status, "blocked");
+    assert.equal(failed?.reason, "candidate_store_persist_recovery_required");
+    assert.equal(failed?.manualRecoveryRequired, true);
+    const candidateRecoveryId = requireRecoveryId(failed);
+    const pendingNames = fs
+      .readdirSync(value.adapter.testingStoreDirectory())
+      .filter((name) => name.startsWith("pending-"));
+    assert.equal(pendingNames.length, 1);
+    const pendingName = pendingNames[0];
+    assert.ok(pendingName);
+    const pendingPath = path.join(
+      value.adapter.testingStoreDirectory(),
+      pendingName,
+    );
+    const pendingBytes = fs.readFileSync(pendingPath);
+    assert.ok(pendingBytes.byteLength > 0);
+    assert.equal(
+      fs
+        .readdirSync(value.adapter.testingStoreDirectory())
+        .some(
+          (name) => name.startsWith("staged-") || name.startsWith("published-"),
+        ),
+      false,
+    );
+    context.mock.restoreAll();
+    value.faults.clear();
+    assert.deepEqual(value.createAdapter().discard(candidateRecoveryId), {
+      status: "discarded",
+    });
+    assert.equal(fs.existsSync(pendingPath), false);
+  } finally {
+    context.mock.restoreAll();
+    if (pendingHandle !== null) originalClose(pendingHandle);
+    value.cleanup();
+  }
+});
+
 test("staged障害とpublish rename後障害は同じRecovery IDで再開できる", () => {
   const value = fixture();
   try {

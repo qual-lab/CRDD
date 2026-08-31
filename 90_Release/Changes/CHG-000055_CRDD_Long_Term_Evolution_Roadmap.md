@@ -4,17 +4,17 @@
 - 状態: `Reopened`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25（初回）／2026-08-28（§6～§7追加、§9収載判断）／2026-08-29（Runtime終盤E2E学習、文書UXおよびHuman Decision Journey改善母集団の具体化）
-- 対象: CRDD標準自身の課題探索・要求形成における長期方向と能力到達点、エージェント組織における専門性と共有境界の明確化、単一プロダクトRoadmapへの状態投影、課題探索・要求形成／Roadmap／変更トレースの既存責務境界、および三つの改善意図のv0.18.0 Candidate収載判断
+- 対象: CRDD標準自身の長期方向と能力到達点、専門性と共有境界、Discovery／Roadmap／変更トレースの責務、およびv0.18.0 Candidateへ収載した工程接続・検証／収束・根拠駆動リファクタリング・文書可読性の強化と実務有用性評価
 - 対象リリース: `v0.18.0 Candidate`
-- 変更分類: `additive`
-- `migration_required`: `false`
+- 変更分類: `normative`候補（現在の差分集合に対する保守的評価案。最終採用は人間の判断）
+- `migration_required`: `true`（上記候補分類に基づく移行影響評価。全利用側への一律変更ではない）
 - リリースレベル: `MINOR`候補。v0.18.0 Candidate全体の最終分類、統合またはリリースを決定しない
 
 正本規則: [文書化](../../03_Documentation.md#33-discovery-and-roadmap)、[課題探索・要求形成](../../21_Discovery.md#62-registry-scope-and-registration)、[変更](../../12_Change.md)
 
 現在の読み始め: [実務評価と最終確認への引渡し](#26-実務評価と最終確認への引渡し)を参照する。[本文の可読性再是正](#25-人間可読性の本文再是正)までの各節は採用・実装・自己適用の経緯であり、当時の停止や確認を現在の完了判定へ流用しない。Runtimeの最新実測と残件は[CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)が所有する。
 
-2026-08-31、Tool開発構成を標準工程フォルダへ整理する後続意図を、既存の根拠駆動リファクタリングへ追加した。[構成・配布・利用者観点の比較候補](../../01_Discovery/01_CRDD_Product_Discovery.md#tool-development-layout-candidate)はDiscovery、現行修正・試験・E2E後に戻る順序は[Roadmap](../../99_Roadmap/01_Product_Roadmap.md#tool-development-layout-follow-up)が所有する。現在のファイル移動、具体的なGit／配布方式の採用、新しいRelease収載は行っていない。
+2026-08-31、Tool開発構成を標準工程フォルダへ整理する後続意図を、既存の根拠駆動リファクタリングへ追加した。[構成・配布・利用者観点の比較候補](../../01_Discovery/01_CRDD_Product_Discovery.md#tool-development-layout-candidate)はDiscovery、対応順序は[Roadmap](../../99_Roadmap/01_Product_Roadmap.md#tool-development-layout-follow-up)が所有する。この追加を記録した時点では、ファイル移動、具体的なGit／配布方式の採用、新しいRelease収載は行っていない。その後の工程別配置移行と現在の検証状態は[CHG-000017](CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)を参照する。
 
 ## 1. 人間の判断と目的
 
@@ -489,6 +489,14 @@ Coordinator全機械試験も1,397件合格、失敗・取消・skip 0（125,176
 必要な最終独立監査は§24の集合を維持し、E2E収束後に実施する。今回の着手前確認を監査Passへ流用しない。現在の編集・機械確認に追加の人間判断は不要であり、完成判定、統合、Releaseの判断は別に残る。
 
 ## 26. 実務評価と最終確認への引渡し
+
+### 現在の変更分類と採用側への影響
+
+初回の長期方向・改善候補追加に対する`additive`／`migration_required:false`は、§1～§8の当時の判断として保持する。現在は、同じ未リリース意図の下で工程接続、検証の選択、完成への収束、本文の確認と利用側への伝播まで具体化した。§23の「明確化・補強」という当時の説明だけで、現在の全差分が採用側の責務や判定を変えないとは扱わない。
+
+[保守の変更分類](../../19_Maintenance.md#4-変更分類と承認)に従い、現在の差分集合は`normative`候補、`migration_required:true`として保守的に評価する。これは既存差分の分類案であり、新しい規則の追加や人間による最終採用・統合・リリースを意味しない。
+
+採用側は[移行完了の条件](../../19_Maintenance.md#621-migration-completeness)に従い、該当する工程・Skill・AI入口、設計と検証の接続、検証計画、保留判断、人間可読成果物を棚卸しする。現在の正本契約に反する利用側だけを更新し、既に満たすものは根拠付きで据え置き、非該当は理由を残す。過去の完了記録の改稿、Runtime導入、専用の移行機構、全Taskの比較実測は要求しない。具体的なTool配置移行はCHG-000017、Runtime実装はCHG-000015が所有し、英日の利用者向け要約と移行案内は[CHANGELOG](../../CHANGELOG.md#changelog-v0180-ja)へ接続する。
 
 ### 現在の結論
 

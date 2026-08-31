@@ -565,8 +565,8 @@ function createRuntime(dependencies: RuntimeDependencies) {
     );
     context.handles.add(handle);
     const result = await handle.wait(SHORT_COMMAND_TIMEOUT_MS);
-    if (result === null) await handle.terminateAndWait(5_000);
-    context.handles.delete(handle);
+    if (!handle.closed()) await handle.terminateAndWait(5_000);
+    if (handle.closed()) context.handles.delete(handle);
     return result;
   }
 
@@ -1007,6 +1007,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
       const containersAbsent = providerAbsent && authAbsent && proxyAbsent;
       const networksAbsent = internalAbsent && egressAbsent;
       let configRemoved = false;
+      processTreeTerminated =
+        processTreeTerminated &&
+        [...context.handles].every((handle) => handle.closed());
       if (
         processTreeTerminated &&
         containersAbsent &&
@@ -1103,6 +1106,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
     const containersAbsent = providerAbsent && authAbsent && proxyAbsent;
     const networksAbsent = internalAbsent && egressAbsent;
     let configRemoved = false;
+    processTreeTerminated =
+      processTreeTerminated &&
+      [...context.handles].every((handle) => handle.closed());
     if (
       processTreeTerminated &&
       containersAbsent &&

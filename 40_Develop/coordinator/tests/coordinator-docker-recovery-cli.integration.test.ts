@@ -284,20 +284,20 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
 test("実CLIの人間表示はmanual recoveryとEvidence不明を示し反復実行を誘導しない", () => {
   const result = invokeCli(false);
   assert.equal(result.status, 2, result.stderr);
-  assert.match(result.stdout, /Coordinator environment: blocked/u);
-  assert.match(result.stdout, new RegExp(`recovery ID: ${recoveryId}`, "u"));
-  assert.match(result.stdout, /automatic recovery stopped/u);
-  assert.match(result.stdout, /evidence: preservation unknown/u);
-  assert.doesNotMatch(result.stdout, /next: coordinator doctor/u);
+  assert.match(result.stdout, /Coordinator環境診断: blocked/u);
+  assert.match(result.stdout, new RegExp(`回復ID: ${recoveryId}`, "u"));
+  assert.match(result.stdout, /自動回復は停止しました/u);
+  assert.match(result.stdout, /回復根拠: 保持状況は未確認/u);
+  assert.doesNotMatch(result.stdout, /次の操作: coordinator doctor/u);
   assert.doesNotMatch(result.stdout, /C:\\/u);
   assert.equal(result.stderr, "");
 });
 
 test("CLI共通projectorはEvidenceの保持・非保持・不明を推測せず分離する", () => {
   for (const [evidenceState, expected] of [
-    ["preserved", /recovery evidence: preserved/u],
-    ["not_preserved", /recovery evidence: not preserved/u],
-    ["unknown", /recovery evidence: preservation unknown/u],
+    ["preserved", /回復根拠: 保持済み/u],
+    ["not_preserved", /回復根拠: 保持されていません/u],
+    ["unknown", /回復根拠: 保持状況は未確認/u],
   ] as const) {
     const human = renderDockerRecoveryDoctorReport(
       {
@@ -311,15 +311,137 @@ test("CLI共通projectorはEvidenceの保持・非保持・不明を推測せず
     );
     assert.match(human.stdout, expected);
     if (evidenceState === "not_preserved") {
-      assert.match(human.stdout, /no reusable recovery ID is available/u);
+      assert.match(human.stdout, /再利用できる回復IDは取得できていません/u);
       assert.match(
         human.stdout,
-        /provide the reason and recovery evidence state/u,
+        /理由と回復根拠の保持状況をRuntime運用担当者へ渡してください/u,
       );
-      assert.match(human.stdout, /must not be removed by name or label alone/u);
-      assert.doesNotMatch(human.stdout, /next: coordinator doctor/u);
+      assert.match(
+        human.stdout,
+        /名前やラベルだけを根拠に資源を削除しないでください/u,
+      );
+      assert.doesNotMatch(human.stdout, /次の操作: coordinator doctor/u);
     }
   }
+});
+
+test("日本語の復旧表示は三値とJSON・終了コードを保持する", () => {
+  for (const [observation, expected] of [
+    [true, "はい"],
+    [false, "いいえ"],
+    [null, "未確認"],
+    [undefined, "未確認"],
+  ] as const) {
+    const report = Object.freeze({
+      contract: "crdd-coordinator/docker-desktop-runtime-repair",
+      status: "closed_retained",
+      reason: "docker_desktop_repair_evidence_retention_closed",
+      repairId: `docker-desktop-repair.${"a".repeat(32)}`,
+      engineReady: observation,
+      processEffectIssued: observation,
+      filesystemEffectIssued: observation,
+      nativeHelperCleanupConfirmed: observation,
+      newRepairPermitted: observation,
+      staleRuntimeDirectory: "retained",
+    });
+    const human = renderDockerRecoveryDoctorReport(report, false);
+    const json = renderDockerRecoveryDoctorReport(report, true);
+    assert.equal(json.stdout, `${JSON.stringify(report, null, 2)}\n`);
+    assert.equal(human.exitCode, observation === true ? 0 : 2);
+    assert.equal(json.exitCode, human.exitCode);
+    for (const label of [
+      "Docker Engineの準備完了",
+      "プロセス操作の発行",
+      "ファイルシステム操作の発行",
+      "ネイティブ補助プロセスの資源回収確認",
+      "新しい復旧操作の許可",
+    ])
+      assert.ok(human.stdout.includes(`- ${label}: ${expected}\n`));
+    assert.match(human.stdout, /プロセス操作の確認状態: unknown/u);
+    assert.match(human.stdout, /ファイルシステム操作の確認状態: unknown/u);
+    assert.match(human.stdout, /復旧根拠の保持状態: unknown/u);
+    assert.match(human.stdout, /削除の実行: なし/u);
+  }
+});
+
+test("日本語の手動復旧案内は復旧記録上限時の再試行・削除・改名禁止を保持する", () => {
+  for (const reason of [
+    "docker_desktop_repair_record_capacity_unavailable",
+    "docker_desktop_repair_operation_capacity_unavailable",
+  ]) {
+    const report = Object.freeze({
+      contract: "crdd-coordinator/docker-desktop-runtime-repair",
+      status: "blocked",
+      reason,
+      repairId: `docker-desktop-repair.${"b".repeat(32)}`,
+      manualRecoveryRequired: true,
+      operatorActionRequired: true,
+      newRepairPermitted: false,
+      nativeHelperCleanupConfirmed: null,
+    });
+    const human = renderDockerRecoveryDoctorReport(report, false);
+    const json = renderDockerRecoveryDoctorReport(report, true);
+    assert.equal(json.stdout, `${JSON.stringify(report, null, 2)}\n`);
+    assert.equal(human.exitCode, 2);
+    assert.equal(json.exitCode, human.exitCode);
+    assert.ok(human.stdout.includes(`- 理由: ${reason}\n`));
+    assert.match(
+      human.stdout,
+      /新しい復旧の試行を止め、Runtime運用担当者へ連絡/u,
+    );
+    assert.match(
+      human.stdout,
+      /保持した根拠や段階記録を手動で削除・改名しない/u,
+    );
+    assert.match(
+      human.stdout,
+      /復旧記録の上限: 再試行や復旧記録の削除・圧縮をしない/u,
+    );
+    assert.doesNotMatch(human.stdout, /--close-docker-desktop-runtime-repair/u);
+  }
+});
+
+test("日本語の環境診断は未実行の確認・未有効化・認証値非記録を明示する", () => {
+  const report = Object.freeze({
+    status: "blocked",
+    providers: {
+      codex: { located: true },
+      claude: { located: false },
+    },
+    credentials: { valuesRecorded: false },
+    filesystem: { enforcement: "fixture_filesystem_enforcement" },
+    egress: { providerAllowlist: "fixture_provider_allowlist" },
+    runtimeRootEvaluation: { status: "candidate" },
+    blockers: [{ id: "fixture_check", reason: "fixture_reason" }],
+  });
+  const human = renderDockerRecoveryDoctorReport(report, false);
+  const json = renderDockerRecoveryDoctorReport(report, true);
+  assert.equal(json.stdout, `${JSON.stringify(report, null, 2)}\n`);
+  assert.equal(human.exitCode, 2);
+  assert.equal(json.exitCode, human.exitCode);
+  assert.match(
+    human.stdout,
+    /codex: 実行ファイルを検出; 実行による確認は行っていません/u,
+  );
+  assert.match(
+    human.stdout,
+    /claude: 実行ファイルが見つかりません; 実行による確認は行っていません/u,
+  );
+  assert.match(human.stdout, /認証情報の値の記録: なし/u);
+  assert.match(
+    human.stdout,
+    /ファイルシステム制約の強制状態: fixture_filesystem_enforcement/u,
+  );
+  assert.match(
+    human.stdout,
+    /Provider外部送信先の許可リスト: fixture_provider_allowlist/u,
+  );
+  assert.match(
+    human.stdout,
+    /Runtimeルートの要求: candidate; 有効化は行っていません/u,
+  );
+  assert.match(human.stdout, /実行を妨げる事項: 1/u);
+  assert.match(human.stdout, /fixture_check: fixture_reason/u);
 });
 
 test("CLI共通projectorはHost release不明時もexact IDと再実行commandを保持する", () => {
@@ -337,7 +459,7 @@ test("CLI共通projectorはHost release不明時もexact IDと再実行command�
   assert.match(
     human.stdout,
     new RegExp(
-      `next: coordinator doctor --recover-isolation ${hostRecoveryId}`,
+      `次の操作: coordinator doctor --recover-isolation ${hostRecoveryId}`,
       "u",
     ),
   );
@@ -367,7 +489,7 @@ test("CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示�
       { status: "blocked", dockerTaskRecovery: multiple, blockers: [] },
       false,
     );
-    assert.match(human.stdout, /Docker Task recoveries: 2/u);
+    assert.match(human.stdout, /Dockerタスクの回復対象数: 2/u);
     assert.match(human.stdout, new RegExp(first, "u"));
     assert.match(human.stdout, new RegExp(second, "u"));
     assert.doesNotMatch(human.stdout, /C:\\/u);

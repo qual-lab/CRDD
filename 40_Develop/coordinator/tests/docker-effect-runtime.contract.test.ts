@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import type { OwnedCommandHandle } from "../src/security/docker-owned-process.ts";
 
 import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../src/security/claude-docker-runtime-adapter.ts";
 import {
@@ -149,6 +150,9 @@ function createEffectFixture(
     }>;
     internalNetworkReceiptId?: string;
     authReceiptId?: string;
+    handleForInvocation?: (
+      invocationIndex: number,
+    ) => OwnedCommandHandle | null;
   }> = {},
 ) {
   const { plan, managementCapability } = createPlanFixture(
@@ -191,6 +195,10 @@ function createEffectFixture(
     },
     startProcess: (executable, argv, environment, stdin) => {
       invocations.push({ executable, argv, environment, stdin });
+      const injectedHandle = options.handleForInvocation?.(
+        invocations.length - 1,
+      );
+      if (injectedHandle) return injectedHandle;
       let closed = false;
       const completion = Object.freeze(
         options.outputForInvocation?.(argv, invocations.length - 1) ?? {
@@ -468,6 +476,122 @@ test("cleanupは全handle終了と所有resource不存在後だけconfigを除�
     configRemoved: 1,
   });
   assert.equal(fixture.invocations.length, 6);
+});
+
+test("実行errorの後もstartCommandの未close handleを回収まで保持する", async () => {
+  let closed = false;
+  let terminationCalls = 0;
+  const handle = Object.freeze({
+    wait: async () =>
+      Object.freeze({
+        status: null,
+        signal: null,
+        stdout: "",
+        stderr: "",
+        outputExceeded: false,
+      }),
+    terminateAndWait: async () => {
+      terminationCalls += 1;
+      return closed;
+    },
+    closed: () => closed,
+  });
+  const fixture = createEffectFixture({
+    handleForInvocation: (index) => (index === 0 ? handle : null),
+  });
+  const command = fixture.plan.commands[0];
+  assert.ok(command);
+  const owned = fixture.runtime.startCommand(
+    command,
+    fixture.plan,
+    fixture.managementCapability,
+  );
+  assert.equal((await owned.wait(10))?.status, null);
+  const first = await fixture.runtime.cleanupOwnedResources(
+    fixture.plan,
+    fixture.recoveryCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(first.confirmed, false);
+  assert.equal(first.processTreeTerminated, false);
+  assert.equal(fixture.counts().configRemoved, 0);
+  closed = true;
+  const second = await fixture.runtime.cleanupOwnedResources(
+    fixture.plan,
+    fixture.recoveryCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(second.confirmed, true);
+  assert.equal(terminationCalls, 2);
+  assert.deepEqual(fixture.counts(), { configCreated: 1, configRemoved: 1 });
+});
+
+test("candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定を保持する", async () => {
+  for (const shouldUseReceipts of [false, true]) {
+    let closed = false;
+    let terminationCalls = 0;
+    const authReceiptId = "a".repeat(64);
+    const handle = Object.freeze({
+      wait: async () =>
+        Object.freeze({
+          status: null,
+          signal: null,
+          stdout: "",
+          stderr: "",
+          outputExceeded: false,
+        }),
+      terminateAndWait: async () => {
+        terminationCalls += 1;
+        return closed;
+      },
+      closed: () => closed,
+    });
+    const fixture = createEffectFixture({
+      ...(shouldUseReceipts ? { authReceiptId } : {}),
+      handleForInvocation: (index) => (index === 0 ? handle : null),
+      outputForInvocation: (argv) =>
+        Object.freeze({
+          status: 0,
+          signal: null,
+          stdout: argv.includes("inspect")
+            ? authProbeInspectOutput(fixture, authReceiptId, { none: {} })
+            : "",
+          stderr: "",
+          outputExceeded: false,
+        }),
+    });
+    const first = await fixture.runtime.cleanupOwnedResources(
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(first.containersAbsent, false);
+    assert.equal(first.networksAbsent, true);
+    assert.equal(first.processTreeTerminated, false);
+    assert.equal(first.confirmed, false);
+    assert.equal(fixture.counts().configRemoved, 0);
+    assert.equal(terminationCalls, 1);
+    const second = await fixture.runtime.cleanupOwnedResources(
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(second.confirmed, false);
+    assert.equal(second.processTreeTerminated, false);
+    assert.equal(second.containersAbsent, true);
+    assert.equal(second.networksAbsent, true);
+    assert.equal(terminationCalls, 2);
+    assert.equal(fixture.counts().configRemoved, 0);
+    closed = true;
+    const third = await fixture.runtime.cleanupOwnedResources(
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(third.confirmed, true);
+    assert.equal(terminationCalls, 3);
+    assert.deepEqual(fixture.counts(), { configCreated: 1, configRemoved: 1 });
+  }
 });
 
 test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める", async () => {

@@ -377,6 +377,17 @@ Effect観測数はOperation全体の累積値ではなく、各遷移の開始sn
 
 同じ試験のController接続ケースでは、CLI取消handler→Task control→Docker Controller→本番共通のProcess所有処理→実子孫の終了を一つの実行へ接続する。開始・完了結果は本番のTask向けprojectorを通し、同じOperationと回復handoffからHost回収準備→実Host領域の回収→receipt→finalizeまでを照合する。回収成功と回収不明を分け、候補を公開しないこと、control失効、listener復元、試験資源の後処置を確認する。Docker資源と認証は模擬であり、OSのCtrl+C配送や署名CLI経由の取消実測を代替しない。
 
+### Docker CLIの結果と子プロセスの所有
+
+[子プロセス所有処理](../../40_Develop/coordinator/src/security/docker-owned-process.ts)では、コマンド結果の確定と子の`close`観測を分ける。早期の`error`で失敗結果を返せても、終了を確認したことにはならない。
+
+- `spawn`が子を返した直後から`error`と独立した`close`を所有する。標準入出力の欠落や入力失敗でも、生成済みの子を同期例外で置き去りにせず、回収可能な失敗handleを返す。
+- `wait`は早期失敗を返せるが、`terminateAndWait`は別の終了観測を上限付きで待つ。PIDを取得できない場合や終了要求に失敗した場合も、`close`未確認を終了済みへ変換しない。終了対象の同定条件と対象範囲は変更しない。
+- [Docker操作の実行処理](../../40_Develop/coordinator/src/security/docker-effect-runtime.ts)は、短いコマンドを実行する`runShort`も、`closed()`を確認するまで所有集合へ保持する。回収中のinspect／removeで生成した子も対象であり、回収開始時の集合だけで終了確認を済ませない。
+- 所有する子の終了と既存のDocker資源不存在・設定領域の検証が揃ってから、設定Directoryを削除し実行コンテキストを破棄する。receiptを使う経路と使わない経路でこの順序を共通にし、未確認なら既存の回収不明結果と回復経路を保持する。
+
+この契約の確認方法は[内部ツールの検証設計](../../07_Quality/03_Verification_Design.md#docker-cliの結果と終了観測)へ接続する。記述の追加だけで実装・検証を完了とせず、過去の署名版の成功も変更後の実測へ流用しない。
+
 状態、遷移、資源、Lock、Recoveryまたは結果公開条件を変更する場合、同じ変更で次を更新する。
 
 1. 本書

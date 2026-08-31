@@ -3422,12 +3422,12 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
     assert.deepEqual(JSON.parse(jsonReport.stdout), publicSuccess);
     const humanReport = renderDockerRecoveryDoctorReport(publicSuccess, false);
     assert.equal(humanReport.exitCode, 0);
-    assert.match(humanReport.stdout, /Coordinator environment: recovered/u);
+    assert.match(humanReport.stdout, /Coordinator環境診断: recovered/u);
     assert.match(humanReport.stdout, /docker_task_recovery_completed/u);
     assert.doesNotMatch(humanReport.stdout, /C:\\/u);
     assert.doesNotMatch(
       humanReport.stdout,
-      /recovery ID|next: coordinator doctor|Runtime operator|automatic recovery stopped/iu,
+      /回復ID|次の操作: coordinator doctor|Runtime運用担当者|自動回復は停止しました/u,
     );
     assert.equal(docker.removeCount(), 1);
     assert.deepEqual(fs.readdirSync(fixture.root), []);

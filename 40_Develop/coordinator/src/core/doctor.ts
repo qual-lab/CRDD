@@ -81,8 +81,8 @@ export function renderDoctorCommandFailure(error: unknown) {
         : { status: "blocked", reason },
     )}\n`,
     human: doctorCreation
-      ? `Coordinator diagnostic blocked: ${doctorCreation.reason}; manual recovery required; host recovery id: ${doctorCreation.hostRecoveryId ?? "unavailable"}\n`
-      : `Coordinator diagnostic failed: ${reason}\n`,
+      ? `Coordinator診断は停止しました: ${doctorCreation.reason}; 手動回復が必要です; ホスト回復ID: ${doctorCreation.hostRecoveryId ?? "取得できません"}\n`
+      : `Coordinator診断に失敗しました: ${reason}\n`,
   });
 }
 

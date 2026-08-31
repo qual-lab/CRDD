@@ -781,6 +781,85 @@ test("read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密�
   }
 });
 
+test("同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状態として保持する", (context) => {
+  const root = temporaryDirectory();
+  const originalRemove = fs.rmSync;
+  try {
+    const content = {
+      schema: "crdd-coordinator-task-docker-recovery/v1",
+      operationNonce: "a".repeat(64),
+      stableLogicalHomeBindingHash: "b".repeat(64),
+      runtimeStateBinding: scopedRuntimeStateBinding,
+    };
+    const records = ["first.json", "second.json"].map((name) =>
+      writeCommittedDockerRecoveryJson(root, name, "base.json", content),
+    );
+    const [first, second] = records;
+    assert.ok(first && second);
+    const recoveryId = `docker-task.${content.stableLogicalHomeBindingHash}.${content.operationNonce}.${first.hash}`;
+    assert.equal(first.hash, second.hash);
+    for (const record of records) {
+      context.mock.method(
+        fs,
+        "rmSync",
+        (...args: Parameters<typeof fs.rmSync>) => {
+          if (args[0] === record.target)
+            throw new Error("fixture_delete_after_intent_failed");
+          return originalRemove(...args);
+        },
+      );
+      assert.throws(
+        () => removeCommittedDockerRecoveryJson(record.target, "base.json"),
+        /fixture_delete_after_intent_failed/u,
+      );
+      context.mock.restoreAll();
+    }
+    assert.equal(inspectDockerRecoveryJournalDirectory(root).length, 2);
+    const names = fs.readdirSync(root).sort();
+    const snapshots = names.map((name) => ({
+      name,
+      bytes: fs.readFileSync(path.join(root, name)),
+      identity: fs.lstatSync(path.join(root, name), { bigint: true }),
+    }));
+    for (const discover of [
+      () => discoverDockerRecoveryJournalJson(root, "base.json"),
+      () =>
+        discoverDockerRecoveryJournalJsonForRecovery(
+          root,
+          "base.json",
+          recoveryId,
+        ),
+    ])
+      assert.throws(discover, /docker_recovery_intent_third_state/u);
+    assert.equal(discoverDockerRecoveryJournalJson(root, "missing.json"), null);
+    assert.equal(
+      discoverDockerRecoveryJournalJsonForRecovery(
+        root,
+        "base.json",
+        `docker-task.${"c".repeat(64)}.${"d".repeat(64)}.${"e".repeat(64)}`,
+      ),
+      null,
+    );
+    assert.deepEqual(fs.readdirSync(root).sort(), names);
+    for (const snapshot of snapshots) {
+      const target = path.join(root, snapshot.name);
+      assert.deepEqual(fs.readFileSync(target), snapshot.bytes);
+      const after = fs.lstatSync(target, { bigint: true });
+      assert.deepEqual(
+        [after.dev, after.ino, after.birthtimeNs],
+        [
+          snapshot.identity.dev,
+          snapshot.identity.ino,
+          snapshot.identity.birthtimeNs,
+        ],
+      );
+    }
+  } finally {
+    context.mock.restoreAll();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("journal contractはprocess-crash回復とpower-loss非保証を分離する", () => {
   assert.deepEqual(describeDockerRecoveryJournalContract(), {
     commitSchema: "crdd-coordinator-durable-json-commit/v1",

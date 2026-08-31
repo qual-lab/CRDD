@@ -116,6 +116,8 @@ cross-providerを既定とし、同一ProviderまたはFront-onlyは、移譲不
 
 ### 1.2 Releaseまでの主要残件
 
+2026-09-01、固定版`98ccc9d`の全体独立確認3系統を終了し、[未到達分岐・公開表示・案内と移行の5件](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md)を是正・再確認中である。既存の署名実測は保持し、追加試験と未到達分岐の評価を完了条件へ接続する。試験合格数だけで本節の残件を解消しない。
+
 1. [署名版4f10201の4経路・復旧・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)を限定独立確認の結果とともに完成評価へ渡す。[旧45ea2acの実務1件](Evidence/CHG-000055_Utility_45ea2ac.md)は版と適用限界を分けて完成監査へ接続する。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務の完成速度、人間負荷、Provider分散および総合有用性とは区別する。
 2. 公開Task入口の実OS／Filesystem／Process結合について、今回観測した取消・通常回収と、未確認のタイミング／環境を照合する。旧boolean probe専用facadeの除去や安全な公開reason分類は実施済みで、再実装しない。固定Fixture、実子Process、今回の署名付き公開Taskの証明範囲を分離し、実Provider全体の保証へ読み替えない。
 3. 最新改訂版でArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを完了する。

@@ -53,24 +53,22 @@ export function renderDockerRecoveryDoctorReport(
     reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair"
   ) {
     const tri = (value: unknown) =>
-      value === true ? "yes" : value === false ? "no" : "unknown";
-    const lines = [`Coordinator Docker Desktop repair: ${reportValue.status}`];
+      value === true ? "はい" : value === false ? "いいえ" : "未確認";
+    const lines = [`Coordinator Docker Desktop復旧: ${reportValue.status}`];
     if (
       typeof reportValue.reason === "string" &&
       /^[a-z0-9_]{1,128}$/u.test(reportValue.reason)
     )
-      lines.push(`- reason: ${reportValue.reason}`);
+      lines.push(`- 理由: ${reportValue.reason}`);
     if (
       typeof reportValue.repairId === "string" &&
       /^docker-desktop-repair\.[a-f0-9]{32}$/u.test(reportValue.repairId)
     )
-      lines.push(`- repair ID: ${reportValue.repairId}`);
-    lines.push(`- Docker Engine ready: ${tri(reportValue.engineReady)}`);
+      lines.push(`- 復旧ID: ${reportValue.repairId}`);
+    lines.push(`- Docker Engineの準備完了: ${tri(reportValue.engineReady)}`);
+    lines.push(`- プロセス操作の発行: ${tri(reportValue.processEffectIssued)}`);
     lines.push(
-      `- Process Effect issued: ${tri(reportValue.processEffectIssued)}`,
-    );
-    lines.push(
-      `- Process Effect confirmation: ${
+      `- プロセス操作の確認状態: ${
         ["not_issued", "confirmed", "unknown"].includes(
           String(reportValue.processEffectConfirmation),
         )
@@ -79,10 +77,10 @@ export function renderDockerRecoveryDoctorReport(
       }`,
     );
     lines.push(
-      `- Filesystem Effect issued: ${tri(reportValue.filesystemEffectIssued)}`,
+      `- ファイルシステム操作の発行: ${tri(reportValue.filesystemEffectIssued)}`,
     );
     lines.push(
-      `- Filesystem Effect confirmation: ${
+      `- ファイルシステム操作の確認状態: ${
         ["not_issued", "confirmed", "unknown"].includes(
           String(reportValue.filesystemEffectConfirmation),
         )
@@ -91,7 +89,7 @@ export function renderDockerRecoveryDoctorReport(
       }`,
     );
     lines.push(
-      `- stale runtime evidence: ${
+      `- 退避した実行時フォルダの状態: ${
         ["absent", "retained", "unknown"].includes(
           String(reportValue.staleRuntimeDirectory),
         )
@@ -99,9 +97,9 @@ export function renderDockerRecoveryDoctorReport(
           : "unknown"
       }`,
     );
-    lines.push(`- deletion performed: no`);
+    lines.push(`- 削除の実行: なし`);
     lines.push(
-      `- evidence state: ${
+      `- 復旧根拠の保持状態: ${
         ["preserved", "not_preserved", "unknown"].includes(
           String(reportValue.evidenceState),
         )
@@ -110,12 +108,12 @@ export function renderDockerRecoveryDoctorReport(
       }`,
     );
     lines.push(
-      `- native helper cleanup confirmed: ${tri(
+      `- ネイティブ補助プロセスの資源回収確認: ${tri(
         reportValue.nativeHelperCleanupConfirmed,
       )}`,
     );
     lines.push(
-      `- new repair permitted: ${tri(reportValue.newRepairPermitted)}`,
+      `- 新しい復旧操作の許可: ${tri(reportValue.newRepairPermitted)}`,
     );
     if (
       [
@@ -126,20 +124,20 @@ export function renderDockerRecoveryDoctorReport(
       /^docker-desktop-repair\.[a-f0-9]{32}$/u.test(reportValue.repairId)
     ) {
       lines.push(
-        "- next: no directory was deleted; explicitly accept retained evidence to close this repair record",
+        "- 次の操作: フォルダは削除していません。根拠を保持することを明示的に了承して、この復旧記録を終了してください。",
       );
       lines.push(
-        `- command: coordinator doctor --close-docker-desktop-runtime-repair ${reportValue.repairId}`,
+        `- コマンド: coordinator doctor --close-docker-desktop-runtime-repair ${reportValue.repairId}`,
       );
     } else if (
       reportValue.manualRecoveryRequired === true ||
       reportValue.operatorActionRequired === true
     ) {
       lines.push(
-        "- next: stop new repair attempts and contact the Runtime operator",
+        "- 次の操作: 新しい復旧の試行を止め、Runtime運用担当者へ連絡してください。",
       );
       lines.push(
-        "- retained evidence and stage records must not be deleted or renamed manually",
+        "- 保持した根拠や段階記録を手動で削除・改名しないでください。",
       );
       if (
         [
@@ -148,7 +146,7 @@ export function renderDockerRecoveryDoctorReport(
         ].includes(String(reportValue.reason))
       )
         lines.push(
-          "- capacity: do not retry, delete, or compact repair records",
+          "- 復旧記録の上限: 再試行や復旧記録の削除・圧縮をしないでください。",
         );
     } else if (reportValue.status === "historical_closed_retained") {
       lines.push(
@@ -165,14 +163,14 @@ export function renderDockerRecoveryDoctorReport(
     } else if (reportValue.status === "closed_retained") {
       lines.push(
         reportValue.staleRuntimeDirectory === "absent"
-          ? "- result: repair record closed; no stale runtime directory remains; repair records and known Host Effect history remain intentionally retained"
-          : "- result: repair record closed; stale runtime evidence remains intentionally retained",
+          ? "- 結果: 復旧記録を終了しました。退避した実行時フォルダは残っていません。復旧記録と確認済みのホスト操作履歴は意図的に保持しています。"
+          : "- 結果: 復旧記録を終了しました。退避した実行時フォルダの根拠は意図的に保持しています。",
       );
     } else if (
       reportValue.status === "closed_historical_effect_unknown_retained"
     ) {
       lines.push(
-        "- result: repair record closed; no stale runtime directory was observed; historical Process Effect uncertainty and repair records remain intentionally retained",
+        "- 結果: 復旧記録を終了しました。退避した実行時フォルダは観測されていません。過去のプロセス操作が不明だった事実と復旧記録は意図的に保持しています。",
       );
     }
     return Object.freeze({
@@ -189,74 +187,74 @@ export function renderDockerRecoveryDoctorReport(
           : 2,
     });
   }
-  const lines = [`Coordinator environment: ${reportValue.status}`];
+  const lines = [`Coordinator環境診断: ${reportValue.status}`];
   if (
     typeof reportValue.reason === "string" &&
     /^[a-z0-9_]{1,128}$/u.test(reportValue.reason)
   )
-    lines.push(`- reason: ${reportValue.reason}`);
+    lines.push(`- 理由: ${reportValue.reason}`);
   if (
     typeof reportValue.recoveryId === "string" &&
     /^(?:host\.[A-Za-z0-9._-]+|docker\.crdd-coordinator-doctor-[A-Za-z0-9_-]+\.[0-9a-f-]{36}\.[0-9a-f-]{36}\.[0-9a-f]{64}|docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64})$/u.test(
       reportValue.recoveryId,
     )
   ) {
-    lines.push(`- recovery ID: ${reportValue.recoveryId}`);
+    lines.push(`- 回復ID: ${reportValue.recoveryId}`);
     if (reportValue.manualRecoveryRequired === true) {
       lines.push(
-        "- next: stop new tasks and provide this recovery ID to the Runtime operator; do not remove a resource by name or label alone",
+        "- 次の操作: 新しいタスクを止め、この回復IDをRuntime運用担当者へ渡してください。名前やラベルだけを根拠に資源を削除しないでください。",
       );
     } else
       lines.push(
-        `- next: coordinator doctor --recover-isolation ${reportValue.recoveryId}`,
+        `- 次の操作: coordinator doctor --recover-isolation ${reportValue.recoveryId}`,
       );
   }
   if (reportValue.manualRecoveryRequired === true) {
-    lines.push("- recovery: automatic recovery stopped");
+    lines.push("- 回復: 自動回復は停止しました。");
     lines.push(
       reportValue.evidenceState === "preserved"
-        ? "- recovery evidence: preserved"
+        ? "- 回復根拠: 保持済み"
         : reportValue.evidenceState === "not_preserved"
-          ? "- recovery evidence: not preserved"
-          : "- recovery evidence: preservation unknown",
+          ? "- 回復根拠: 保持されていません"
+          : "- 回復根拠: 保持状況は未確認",
     );
     if (typeof reportValue.recoveryId !== "string")
       lines.push(
-        "- next: stop new tasks and provide the reason and recovery evidence state to the Runtime operator; no reusable recovery ID is available, and a resource must not be removed by name or label alone",
+        "- 次の操作: 新しいタスクを止め、理由と回復根拠の保持状況をRuntime運用担当者へ渡してください。再利用できる回復IDは取得できていません。名前やラベルだけを根拠に資源を削除しないでください。",
       );
   }
   const providers = plainRecord(reportValue.providers);
   for (const [name, providerValue] of Object.entries(providers ?? {})) {
     const provider = plainRecord(providerValue);
     lines.push(
-      `- ${name}: ${provider?.located === true ? "located" : "not found"}; active probe not executed`,
+      `- ${name}: ${provider?.located === true ? "実行ファイルを検出" : "実行ファイルが見つかりません"}; 実行による確認は行っていません。`,
     );
   }
-  if (reportValue.credentials) lines.push("- credential values recorded: no");
+  if (reportValue.credentials) lines.push("- 認証情報の値の記録: なし");
   const filesystem = plainRecord(reportValue.filesystem);
   if (typeof filesystem?.enforcement === "string")
-    lines.push(`- filesystem enforcement: ${filesystem.enforcement}`);
+    lines.push(`- ファイルシステム制約の強制状態: ${filesystem.enforcement}`);
   const egress = plainRecord(reportValue.egress);
   if (typeof egress?.providerAllowlist === "string")
-    lines.push(`- provider egress allowlist: ${egress.providerAllowlist}`);
+    lines.push(`- Provider外部送信先の許可リスト: ${egress.providerAllowlist}`);
   const runtimeRootEvaluation = plainRecord(reportValue.runtimeRootEvaluation);
   if (typeof runtimeRootEvaluation?.status === "string")
     lines.push(
-      `- runtime root request: ${runtimeRootEvaluation.status}; activation not performed`,
+      `- Runtimeルートの要求: ${runtimeRootEvaluation.status}; 有効化は行っていません。`,
     );
   const recovery = plainRecord(reportValue.recovery);
   if (recovery?.manualRecoveryRequired === true) {
     const recoveryReason =
       typeof recovery.reason === "string" ? recovery.reason : "unknown";
     lines.push(
-      `- recovery: automatic recovery ID unavailable; manual safety action required (${recoveryReason})`,
+      `- 回復: 自動回復用のIDを取得できません。手動で安全を確認する対応が必要です (${recoveryReason})。`,
     );
   } else if (
     recovery?.required === true &&
     typeof recovery.recoveryId === "string"
   )
     lines.push(
-      "- recovery: run doctor --recover-isolation with the returned recovery ID",
+      "- 回復: 返された回復IDを指定して doctor --recover-isolation を実行してください。",
     );
   const dockerTaskRecovery = plainRecord(reportValue.dockerTaskRecovery);
   const dockerRecoveryIds = plainArray(
@@ -267,16 +265,16 @@ export function renderDockerRecoveryDoctorReport(
       /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(value),
   );
   if (dockerRecoveryIds.length > 0) {
-    lines.push(`- Docker Task recoveries: ${dockerRecoveryIds.length}`);
+    lines.push(`- Dockerタスクの回復対象数: ${dockerRecoveryIds.length}`);
     for (const dockerRecoveryId of dockerRecoveryIds) {
-      lines.push(`  - recovery ID: ${dockerRecoveryId}`);
+      lines.push(`  - 回復ID: ${dockerRecoveryId}`);
       lines.push(
-        `    next: coordinator doctor --recover-isolation ${dockerRecoveryId}`,
+        `    次の操作: coordinator doctor --recover-isolation ${dockerRecoveryId}`,
       );
     }
   }
   const blockers = plainArray(reportValue.blockers);
-  lines.push(`- blockers: ${blockers.length}`);
+  lines.push(`- 実行を妨げる事項: ${blockers.length}`);
   for (const blockerValue of blockers) {
     const blocker = plainRecord(blockerValue);
     if (typeof blocker?.id === "string" && typeof blocker.reason === "string")

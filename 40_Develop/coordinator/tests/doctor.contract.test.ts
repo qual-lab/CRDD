@@ -110,9 +110,9 @@ test("Doctor公開投影は内包Directory failureをJSON・人間表示・exit�
       manualRecoveryRequired: true,
       hostRecoveryId,
     });
-    assert.equal(rendered.human.includes("manual recovery required"), true);
+    assert.equal(rendered.human.includes("手動回復が必要です"), true);
     assert.equal(
-      rendered.human.includes(hostRecoveryId ?? "unavailable"),
+      rendered.human.includes(hostRecoveryId ?? "取得できません"),
       true,
     );
     assert.equal(rendered.json.includes(process.cwd()), false);
@@ -142,7 +142,21 @@ test("Doctor公開投影はcleanup確認済みfailureを偽manualへ昇格しな
     status: "blocked",
     reason: "owned_operation_directory_creation_failed",
   });
-  assert.equal(rendered.human.includes("manual recovery required"), false);
+  assert.equal(rendered.human.includes("手動回復が必要です"), false);
+});
+
+test("Doctor診断失敗は日本語表示でも理由コードと情報最小化を保持する", () => {
+  for (const [error, reason] of [
+    [new Error("fixture_diagnostic_failed"), "fixture_diagnostic_failed"],
+    [new Error("C:\\secret\\token"), "diagnostic_failed"],
+  ] as const) {
+    const rendered = renderDoctorCommandFailure(error);
+    assert.equal(rendered.exitCode, 2);
+    assert.deepEqual(JSON.parse(rendered.json), { status: "blocked", reason });
+    assert.equal(rendered.human, `Coordinator診断に失敗しました: ${reason}\n`);
+    assert.doesNotMatch(rendered.human, /secret|token|C:\\/u);
+    assert.doesNotMatch(rendered.json, /secret|token|C:\\/u);
+  }
 });
 
 function suppressKernelLockReleaseAcknowledgement<T>(effect: () => T) {

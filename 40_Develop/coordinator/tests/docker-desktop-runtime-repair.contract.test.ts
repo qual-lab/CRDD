@@ -1062,10 +1062,10 @@ test("64 retained operationでは新規operation directory／recordを作らな�
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.operatorActionRequired, true);
   const rendered = renderDockerRecoveryDoctorReport(result, false);
-  assert.match(rendered.stdout, /do not retry, delete, or compact/u);
+  assert.match(rendered.stdout, /再試行や復旧記録の削除・圧縮をしない/u);
 });
 
-test("残容量不足では次のHost Effectを発行しない", async () => {
+test("復旧記録の残枠不足では次のHost Effectを発行しない", async () => {
   let terminationCalls = 0;
   const prepared = Object.freeze({
     ...operationFixture("prepared", {
@@ -3023,8 +3023,8 @@ test("人間表示はtri-stateと明示closeを示しPathを報告しない", ()
     false,
   );
   assert.equal(rendered.exitCode, 2);
-  assert.match(rendered.stdout, /Docker Engine ready: yes/u);
-  assert.match(rendered.stdout, /stale runtime evidence: retained/u);
+  assert.match(rendered.stdout, /Docker Engineの準備完了: はい/u);
+  assert.match(rendered.stdout, /退避した実行時フォルダの状態: retained/u);
   assert.match(
     rendered.stdout,
     new RegExp(`--close-docker-desktop-runtime-repair ${repairId}`, "u"),
@@ -3050,7 +3050,10 @@ test("人間表示はtri-stateと明示closeを示しPathを報告しない", ()
     false,
   );
   assert.equal(historical.exitCode, 0);
-  assert.match(historical.stdout, /no stale runtime directory was observed/u);
+  assert.match(
+    historical.stdout,
+    /退避した実行時フォルダは観測されていません/u,
+  );
   assert.doesNotMatch(historical.stdout, /C:\\/u);
   const knownNoStale = renderDockerRecoveryDoctorReport(
     Object.freeze({
@@ -3072,7 +3075,10 @@ test("人間表示はtri-stateと明示closeを示しPathを報告しない", ()
     false,
   );
   assert.equal(knownNoStale.exitCode, 0);
-  assert.match(knownNoStale.stdout, /no stale runtime directory remains/u);
-  assert.match(knownNoStale.stdout, /known Host Effect history/u);
-  assert.doesNotMatch(knownNoStale.stdout, /stale runtime evidence remains/u);
+  assert.match(knownNoStale.stdout, /退避した実行時フォルダは残っていません/u);
+  assert.match(knownNoStale.stdout, /確認済みのホスト操作履歴/u);
+  assert.doesNotMatch(
+    knownNoStale.stdout,
+    /退避した実行時フォルダの根拠は意図的に保持/u,
+  );
 });

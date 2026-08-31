@@ -252,7 +252,9 @@ Coordinatorは、移行経緯を本節へ、開発確認の順序を既存Workfl
 
 ### 完成監査の現在表示と検証記録の是正
 
-現在は[署名版4f10201の4経路・復旧・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)が成立し、今回差分の限定独立確認済みである。以下の失敗・是正経緯は保持し、Quality Centerと現在案内だけを新しい根拠へ同期する。固定設計や過去Evidenceを後続結果で書き換えず、全Runtime・v0.18・Releaseは未完了のままとする。
+2026-09-01、固定版`98ccc9d`への全体独立確認を3系統で実施し、[5件の指摘と処置](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md)へ統合した。本CHGでは、保護操作を裸のRuntimeで起動する古いpackage案内3件の除去と回帰試験、診断・復旧の固定日本語表示、品質記録への伝播を所有する。現行の未到達分岐評価と再確認を継続し、修正済みを指摘解消または全体完成へ昇格しない。
+
+[署名版4f10201の4経路・復旧・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md)が成立し、`4f10201`へ至る当時の修正と実測記録の限定独立確認は完了した。以下の失敗・是正経緯は保持し、Quality Centerと現在案内だけを新しい根拠へ同期する。固定設計や過去Evidenceを後続結果で書き換えず、全Runtime・v0.18・Releaseは未完了のままとする。
 
 Tree `687699ed`の一括完成監査で、UIとCHGの実測済み事項がUX／IA／SPEC／Roadmapの現在案内へ反映されていないこと、および現在の分岐網羅率の分子・分母・未計測範囲への接続不足を確認した。同じ未リリース変更内で、現在状態だけを同期し、過去の固定結果は変更しない。文書5件は`3495bcd1`で限定再確認Pass。その後に検出したArchitecture冒頭の同種箇所も水平是正へ含める。
 

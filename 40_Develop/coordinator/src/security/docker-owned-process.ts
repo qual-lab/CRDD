@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
 
 const TASKKILL_EXECUTABLE = "C:\\Windows\\System32\\taskkill.exe";
@@ -26,32 +26,6 @@ export function createDockerProcessEnvironment() {
   });
   if (!environment) throw new Error("docker_effect_environment_unavailable");
   return environment;
-}
-
-function buffersToExecution(
-  child: ChildProcess,
-  stdoutChunks: Buffer[],
-  stderrChunks: Buffer[],
-  outputExceeded: () => boolean,
-) {
-  return new Promise<CommandExecution>((resolve) => {
-    let settled = false;
-    const settle = (status: number | null, signal: string | null) => {
-      if (settled) return;
-      settled = true;
-      resolve(
-        Object.freeze({
-          status,
-          signal,
-          stdout: Buffer.concat(stdoutChunks).toString("utf8"),
-          stderr: Buffer.concat(stderrChunks).toString("utf8"),
-          outputExceeded: outputExceeded(),
-        }),
-      );
-    };
-    child.once("error", () => settle(null, null));
-    child.once("close", (status, signal) => settle(status, signal));
-  });
 }
 
 function bounded<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
@@ -83,18 +57,17 @@ export function startOwnedProcess(
   let stdoutBytes = 0;
   let stderrBytes = 0;
   let exceeded = false;
-  let transportFailed = false;
   let closed = false;
   let terminationRequested = false;
-  if (!child.stdout || !child.stderr)
-    throw new Error("docker_effect_stdio_unavailable");
-  if (stdin !== null) {
-    if (!child.stdin) throw new Error("docker_effect_stdin_unavailable");
-    child.stdin.once("error", () => {
-      transportFailed = true;
+  let isTerminationHelperClosed = true;
+  let terminationHelperCompletion: Promise<void> | null = null;
+  // A spawn error is an execution result, not proof that all stdio closed.
+  const closeCompletion = new Promise<void>((resolve) => {
+    child.once("close", () => {
+      closed = true;
+      resolve();
     });
-    child.stdin.end(stdin, "utf8");
-  }
+  });
   const append = (chunk: Buffer | string, isStdout: boolean) => {
     const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     if (isStdout) stdoutBytes += value.byteLength;
@@ -106,50 +79,87 @@ export function startOwnedProcess(
     }
     (isStdout ? stdoutChunks : stderrChunks).push(value);
   };
-  child.stdout.on("data", (chunk) => append(chunk, true));
-  child.stderr.on("data", (chunk) => append(chunk, false));
-  child.once("close", () => {
-    closed = true;
+  const completion = new Promise<CommandExecution>((resolve) => {
+    let settled = false;
+    const settle = (status: number | null, signal: string | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(
+        Object.freeze({
+          status,
+          signal,
+          stdout: Buffer.concat(stdoutChunks).toString("utf8"),
+          stderr: Buffer.concat(stderrChunks).toString("utf8"),
+          outputExceeded: exceeded,
+        }),
+      );
+    };
+    child.once("error", () => settle(null, null));
+    child.once("close", (status, signal) => settle(status, signal));
+    const failTransport = () => {
+      settle(null, null);
+    };
+    // Own error/close before touching streams: EMFILE/ENFILE may return a
+    // ChildProcess without stdio, then emit error on the next tick.
+    try {
+      child.stdout?.on("error", failTransport);
+      child.stderr?.on("error", failTransport);
+      child.stdin?.on("error", failTransport);
+      child.stdout?.on("data", (chunk) => append(chunk, true));
+      child.stderr?.on("data", (chunk) => append(chunk, false));
+      if (!child.stdout || !child.stderr || (stdin !== null && !child.stdin)) {
+        failTransport();
+      } else if (stdin !== null) {
+        child.stdin?.end(stdin, "utf8");
+      }
+    } catch {
+      failTransport();
+    }
   });
-  const completion = buffersToExecution(
-    child,
-    stdoutChunks,
-    stderrChunks,
-    () => exceeded || transportFailed,
-  );
 
   async function terminateAndWait(graceMs: number) {
     if (!closed && !terminationRequested) {
       terminationRequested = true;
       const pid = child.pid;
-      if (typeof pid !== "number" || !Number.isSafeInteger(pid) || pid <= 0)
-        return false;
-      const killer = spawn(
-        TASKKILL_EXECUTABLE,
-        ["/PID", String(pid), "/T", "/F"],
-        {
-          windowsHide: true,
-          shell: false,
-          env: createDockerProcessEnvironment(),
-          stdio: "ignore",
-        },
-      );
-      await bounded(
-        new Promise<void>((resolve) => {
-          killer.once("error", () => resolve());
-          killer.once("close", () => resolve());
-        }),
-        graceMs,
-        undefined,
-      );
+      if (typeof pid === "number" && Number.isSafeInteger(pid) && pid > 0) {
+        try {
+          const killer = spawn(
+            TASKKILL_EXECUTABLE,
+            ["/PID", String(pid), "/T", "/F"],
+            {
+              windowsHide: true,
+              shell: false,
+              env: createDockerProcessEnvironment(),
+              stdio: "ignore",
+            },
+          );
+          isTerminationHelperClosed = false;
+          terminationHelperCompletion = new Promise<void>((resolve) => {
+            killer.once("error", () => undefined);
+            killer.once("close", () => {
+              isTerminationHelperClosed = true;
+              resolve();
+            });
+          });
+        } catch {
+          // Failure to launch the killer neither proves nor disproves that
+          // the owned child closed; retain ownership and observe its close.
+        }
+      }
     }
-    await bounded(completion, graceMs, null);
-    return closed;
+    await bounded(
+      Promise.all([closeCompletion, terminationHelperCompletion]).then(
+        () => undefined,
+      ),
+      graceMs,
+      undefined,
+    );
+    return closed && isTerminationHelperClosed;
   }
 
   return Object.freeze({
     wait: (timeoutMs: number) => bounded(completion, timeoutMs, null),
     terminateAndWait,
-    closed: () => closed,
+    closed: () => closed && isTerminationHelperClosed,
   });
 }
