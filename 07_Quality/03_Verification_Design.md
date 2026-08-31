@@ -56,6 +56,6 @@
 
 実行手順は[Coordinator作業手順](../19_Workflows/01_Coordinator_Runtime.md)を参照する。実行時は対象改訂版または固定差分、Node版、起動Directory、試験コマンド、結果件数、除外、ログの再識別情報を結果へ残す。現在の品質状態から履歴結果へ辿れるようにし、作業ログそのものをGitへ大量に取り込まない。
 
-公開CLI・正式署名・実Providerの結合は別の検証項目である。移行前の[署名済み4経路と復旧結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)は履歴として保持し、新配置は[45ea2acの4経路・復旧結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_45ea2ac.md)を現在の実測根拠とする。通常CLIの入力搬送・候補反映・破棄は[同版の限定実務](../90_Release/Changes/Evidence/CHG-000055_Utility_45ea2ac.md)に接続する。実Provider取消と実Provider是正経路の未証明範囲は、完成監査で要求と代替根拠を照合し、人間判断なしに完了条件から外さない。
+公開CLI・正式署名・実Providerの結合は別の検証項目である。移行前の[署名済み4経路と復旧結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)は履歴として保持し、新配置は[45ea2acの4経路・復旧結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_45ea2ac.md)を固定版の実測根拠とする。通常CLIの入力搬送・候補反映・破棄は[同版の限定実務](../90_Release/Changes/Evidence/CHG-000055_Utility_45ea2ac.md)、Claude実行／Codex確認の是正1往復は[欠陥を仕込んだ限定実測](../90_Release/Changes/Evidence/CHG-000015_Remediation_45ea2ac.md)に接続する。実Provider取消、逆方向の実是正などの未証明範囲は、完成監査で要求と代替根拠を照合し、人間判断なしに完了条件から外さない。未実測という理由だけで一律の追加実測義務を作らず、判断を変える残余不確実性に応じて確認方法を選ぶ。
 
 最終配布では4経路runnerに加え、公開`task --request-stdin --json`へ許可済み固定検証Taskを1件渡す。stdinのUTF-8 JSON搬送から署名package検証、Repository解決、Task実行、signal監視解除、JSONと終了コードまで通し、候補の内容確認・破棄と終了後の資源状態を照合する。4経路runnerはTask関数を直接呼ぶため、この公開入口の正常経路を代替しない。取消・是正は共有部分とProvider固有部分の境界を明示し、未観測部分を実測済みへ読み替えない。

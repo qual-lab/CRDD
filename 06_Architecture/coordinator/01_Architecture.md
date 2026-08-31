@@ -48,7 +48,13 @@ Windows固有の観測・限定操作 ← platform-access
 
 主シーケンスは「何を待って次へ進むか」、資源表は「誰がいつまで保持するか」、Lockと耐久状態は「競合・中断後に何を再確認するか」、不変条件と試験接続は「何が破れると成功を拒否するか」を説明する。内部IDは機械可読Traceと同じ識別子を保ち、説明文だけ日本語で読む構成とする。
 
-**現在の限界:** 新配置の正式署名E2E、実端末での入力・表示、Runtime全体の完成監査は未完了である。詳細節にある過去の固定実測や未接続準備候補を、現行版の全体合格へ読み替えない。
+**確認範囲の読み方:** 新配置の署名版45ea2acの4経路・復旧、今回のPowerShellでの入力・表示、同署名版の是正1往復には限定実測がある。最新実装への適用可否と残る取消・端末環境・完成監査は[品質の現在状態](../../07_Quality/01_Quality_Center.md)で追跡する。詳細節の過去実測や未接続準備候補を、現行版の全体合格へ読み替えない。
+
+### Processの終了処理と試験境界
+
+Docker Controllerは取消を一度記録し、実行中handleの終了を待ってから既存の回収経路へ進む。Windowsの子Process所有処理は内部の`docker-owned-process.ts`に集約し、Docker実行部品と実子Process試験が同じ`startOwnedProcess`を使用する。固定taskkill、最小環境、stdin搬送、出力上限、期限付き待機、実`close`観測はこの部品が所有する。Provider計画・CLI真正性・Authority・Docker資源の回収は上位の既存部品が所有し、この内部部品の存在だけで実行を許可しない。
+
+試験専用Controllerを実Node Workerへ接続しても、本番の署名・認証・Docker資源を確認したことにはならない。登録済み取消handlerの直接呼出し、OSからの実通知、実子孫Processの終了、模擬Docker回収、実Docker回収を分けて記録する。公開操作から最終回収までの未接続部分を、部品別の合格で補完しない。
 
 本書は、エージェント組織（Agent Organization）を実証するCoordinator Reference Runtimeの実行Architecture正本である。Runtime固有の実行シーケンス、状態、資源所有、Lock順序、回復および結果公開条件を所有する。
 

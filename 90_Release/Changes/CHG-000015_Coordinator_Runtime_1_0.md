@@ -88,6 +88,17 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 今回のDocker起動障害と、それに続く通常Taskの停止は解消した。終了後の署名版による観測でもTask Recoveryは`docker_task_runtime_state_clean`、IDとactive bindingは空であった。一般doctor全体のexit 2を全項目合格へ読み替えない。旧記録と退避物は保持し、過去の不明な起動成否を既知へ書き換えない。この限定確認は全Runtimeの完成監査、任意Task・全障害の実証、統合またはRelease判断ではない。残る全体作業は下記主要残件とRoadmapへ継続し、担当責任者はQual-Labとする。
 
+### 完成監査後の限定是正
+
+固定Tree `687699edb71143621e0090f15d7d9c70488b71ca`についてArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを一括確認した。新しい権限拡大や秘密漏洩の具体的欠陥は検出されなかったが、取消の本番共有処理への結合不足、実Provider是正の残余不確実性、現在の分岐網羅率記録、および現在状態の伝播漏れを残した。全結果を統合し、3担当へ是正方針を再提示して整合した。監査を終えたことだけでRuntimeを完成にしていない。
+
+- 現在状態の文書5件は`3495bcd1`で同期し、Document／Gap担当の限定再確認で解消・追加指摘0。その後の水平照合でArchitecture冒頭にも同種の現在表示を検出し、同じ是正へ含めた。初回列挙漏れを別意図のCHGへ分けない。
+- 過去に実失敗した是正経路は、[署名版45ea2acの公開Taskによる1往復](Evidence/CHG-000015_Remediation_45ea2ac.md)で、Claude実行→Codex指摘→Claude是正→Codex承認、候補のbyte一致・破棄・回収確認まで成立した。欠陥を仕込んだ限定1件であり、是正成功率や逆方向の実測へ一般化しない。
+- 取消は、実Process所有処理がDocker実行部品の内部に閉じ、試験が別の終了処理を注入していた。既存の処理を内部共有部品へ抽出し、本番と実子Process試験を同じ処理へ接続する。新しいCLI、実行許可、任意Workerの本番注入口は追加しない。OS通知・実Docker・Provider固有の未観測部分を保持する。
+- 網羅率は全試験合格と別に測定し、重複計測・未ロード・native未計測を分離する。率だけで未検証義務を閉じない。結果と残件は[品質の現在状態](../../07_Quality/01_Quality_Center.md)へ接続する。
+
+Process所有処理の抽出後は、新しい開発版として検証・再確認する。45ea2acの正式署名実測を変更後の正式配布成功へ流用せず、各編集で再署名もしない。担当責任者はQual-Lab。取消の未確認範囲、是正後の独立再確認、統合・Release判断は継続対象とする。
+
 ### 1.1 経路別の現在状態
 
 | 依頼元 | 実行担当 | 独立レビュー担当 | 最新署名版`45ea2ac` | 根拠／残件 |

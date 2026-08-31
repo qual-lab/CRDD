@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { bindTaskCliCancellationSignals } from "../src/core/task-cli-cancellation.ts";
+import type { OwnedCommandHandle } from "../src/security/docker-owned-process.ts";
+import { createOwnedProcessTreeFixture } from "./fixtures/docker-owned-process-test-support.ts";
 import {
   projectRuntimeOwnedDockerProcessCompletionForTask,
   projectRuntimeOwnedDockerProcessStartForTask,
@@ -1181,6 +1184,103 @@ test("provider timeoutは終了要求後もcleanupを必須にする", async () 
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(terminationCount, 1);
 });
+
+// OSのCtrl+C配送とDocker資源は未観測。CLI listener/Controllerの共有処理から
+// 本番共通のtaskkillへ接続し、固定Node子孫のclose/不存在を実観測する。
+for (const dockerCleanupConfirmed of [true, false]) {
+  test(`取消結合: 実子孫終了後の模擬Docker cleanup=${dockerCleanupConfirmed}`, {
+    skip: process.platform !== "win32",
+    timeout: 20_000,
+  }, async (t) => {
+    const processes = createOwnedProcessTreeFixture();
+    t.after(() => processes.dispose());
+    let handle: OwnedCommandHandle | null = null;
+    let terminationCount = 0;
+    let cleanupCount = 0;
+    const fixture = createFixture({
+      startCommand: (command: { purpose: string }) => {
+        if (command.purpose === "start_provider_attached") {
+          const owned = processes.start();
+          handle = owned;
+          return {
+            wait: owned.wait,
+            terminateAndWait: async (graceMs: number) => {
+              terminationCount += 1;
+              return owned.terminateAndWait(graceMs);
+            },
+          };
+        }
+        return {
+          wait: async () => ({
+            status: 0,
+            signal: null,
+            stdout:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput()
+                : "",
+            stderr: "",
+            outputExceeded: false,
+          }),
+          terminateAndWait: async () => true,
+        };
+      },
+      cleanupOwnedResources: async () => {
+        cleanupCount += 1;
+        processes.assertAbsent();
+        return {
+          confirmed: dockerCleanupConfirmed,
+          processTreeTerminated: true,
+          containersAbsent: dockerCleanupConfirmed,
+          networksAbsent: dockerCleanupConfirmed,
+        };
+      },
+    });
+    assert.equal(fixture.controller.productionAuthority, false);
+    const started = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(started.status, "started");
+    const beforeSigint = process.listenerCount("SIGINT");
+    const beforeSigterm = process.listenerCount("SIGTERM");
+    const binding = bindTaskCliCancellationSignals(() =>
+      fixture.controller.cancel(
+        started.controlCapability,
+        fixture.managementCapability,
+      ),
+    );
+    t.after(() => binding.unbind());
+    assert.equal(binding.status, "bound");
+    await processes.ready();
+    assert.ok(handle);
+    binding.listener();
+    binding.listener();
+    const cancellation = await binding.cancellation.observedPromise();
+    assert.deepEqual(cancellation, {
+      status: "requested",
+      reason: "provider_cancellation_requested",
+      cancellationRequested: true,
+      processTerminationObserved: true,
+    });
+    const result = await started.completion;
+    assert.ok(result);
+    assert.equal(terminationCount, 1);
+    assert.equal(binding.cancellation.observerCount(), 1);
+    assert.equal(cleanupCount, 1);
+    assert.equal(
+      result.status,
+      dockerCleanupConfirmed ? "cancelled" : "blocked",
+    );
+    assert.equal(result.cleanupConfirmed, dockerCleanupConfirmed);
+    assert.equal(result.manualRecoveryRequired, !dockerCleanupConfirmed);
+    assert.equal(result.normalizedResult, null);
+    processes.assertAbsent();
+    assertCompletionAcceptedByAll(result, started.recoveryId);
+    assert.equal(binding.unbind().status, "released");
+    assert.equal(process.listenerCount("SIGINT"), beforeSigint);
+    assert.equal(process.listenerCount("SIGTERM"), beforeSigterm);
+  });
+}
 
 test("取消はactive processへ一度だけ伝えcleanup後にcancelledになる", async () => {
   let finishProvider: (() => void) | null = null;
