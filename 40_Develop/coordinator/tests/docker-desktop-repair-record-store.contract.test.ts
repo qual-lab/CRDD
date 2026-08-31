@@ -522,14 +522,11 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
   assert.deepEqual(inventory.operations, [closed]);
   const completed = inventory.operations[0];
   assert.ok(completed);
-  assert.deepEqual(
-    classifyDockerDesktopRepairResume(completed),
-    {
-      state: "terminal",
-      action: null,
-      nextStage: null,
-    },
-  );
+  assert.deepEqual(classifyDockerDesktopRepairResume(completed), {
+    state: "terminal",
+    action: null,
+    nextStage: null,
+  });
   assert.equal(
     persistRecord(nextBoundary, closed, "prepared", closed.ledger),
     null,

@@ -1,12 +1,16 @@
 # Coordinator完成監査後の追加検証
 
-状態: 是正・追加確認中。Runtime全体の合格ではない
+状態: 是正後の全体試験成功・独立再確認中。Runtime全体の合格ではない
 担当責任者: Qual-Lab
 最終更新日: 2026-08-31
 
 ## 結論
 
 署名固定版`45ea2ac`の実Provider是正1往復は、候補の内容確認・破棄まで成功し、独立再確認も通過した。開発版`48664a2`では本番と同じWindows子Process終了処理を試験へ接続した。ただし全体試験で検査対象一覧の移設漏れとGitローカル除外設定試験の間欠失敗を検出した。合格した限定試験だけで全体完了とはしない。
+
+その後の是正版`2033dfe`は1,469件すべて成功した。初回失敗と是正後の結果を以下で区別する。OSからのCtrl+C配送・実Docker取消回収と最終配布判断は未完了である。
+
+固定後の`npm run check`ではTrace・型・Lintが成功し、先行コミット由来の`docker-desktop-repair-record-store.contract.test.ts`の整形差分1件だけを検出した。整形のみを是正して再実行し、Trace（資源9・状態20・遷移21・不変条件10・検証対応10）、型2設定、Lint 323ファイル、Format 322ファイルがすべて成功した。この整形を全体試験の新たな実行とは数えない。
 
 ## 固定対象と結果
 
@@ -18,10 +22,13 @@
 | 全体試験・網羅率 | `48664a2`／Tree `e80b0cb0ea170ef8ff8c9ff3ee56aeb70041d0c6`、1,460件中1,458成功・2失敗・skip/取消0 | 移設前の`docker-effect-runtime.ts`を残した所有一覧と、`post-write Repository replacement`の置換未到達を検出 |
 | 一覧是正後の全体試験 | 同じ親版から所有一覧1件を`docker-owned-process.ts`へ修正。1,460件中1,459成功・1失敗 | 一覧試験は解消。Gitローカル除外の別ケースで失敗し、原因調査中。成功するまでの無条件retryにしない |
 | Gitローカル除外の限定確認 | 初回単体23/23、coverage付き23件×10回成功、一時フォルダ残存0 | 単体成功は全体失敗を取り消さない。書込み・close・Identity再確認の第一停止点を確認する |
+| 是正後の全体試験・網羅率 | `2033dfe4815047ce251ff7c1e2a6e8f3d2c2fb5b`／Tree `4c4f77fab6b997110da85dc20632a4d4f21d9e54`、1,469/1,469、失敗・skip・取消0、107,550.5471ms | Task／Controller追加結合とclose前後のIdentity是正を含む。以前の間欠失敗は再発しなかったが、原因の完全同定とは区別する |
 
 実行環境はWindows、Node.js `24.19.0`、作業Directoryは`40_Develop/coordinator`。`TEMP`／`TMP`はRepository Root直下の`.crdd/test-tmp`に限定した。全体試験は固定Fixtureによる検証であり、Provider通信やDocker修復を追加していない。初回の3 reporter同時使用ではNodeのテスト用streamに`MaxListenersExceededWarning`が出た。次回はTAP／LCOVの2 reporterとした。この警告を本番Runtimeの資源漏れの証拠とも、無問題の証拠とも扱わない。
 
 ## 分岐網羅率の測定範囲
+
+最新の是正版は[2033dfeの計測値](../../90_Release/Changes/Evidence/CHG-000015_Closure_Coverage_2033dfe.json)。対象155ファイル、ロード151、重複7、未ロード4は初回と同じで、重複のない144ファイルの到達分岐は11,285／13,650、未到達2,365、約82.67%だった。全体率とNativeの値は引き続き未確定。以下の表は比較のため初回48664a2の測定を保持する。
 
 [ファイル別の計測値](../../90_Release/Changes/Evidence/CHG-000015_Closure_Coverage_48664a2.json)は、全体試験が失敗した実行も含め、その実行で実際に到達した分岐を記録する。合格率とは別の観測である。
 
@@ -48,8 +55,8 @@ node --experimental-test-coverage --test-coverage-include=src/** --test-coverage
 ## 未完了の処置
 
 - 取消: Task Runtime、Controller、本番共有Process終了、外周cleanupを同じ試験で接続する。OSからのCtrl+C配送と実Docker回収はそれでも別の確認であり、直接listener呼出しで代替したとは主張しない。
-- Git除外設定: 全体実行での失敗点を特定する。期待値やIdentity検証を緩和しない。
-- 検証記録: 是正後の固定対象で全体試験と計測を更新し、必要な独立再確認を行う。
+- Git除外設定: 決定論的な時刻更新・mode変更の欠陥は是正し、2033dfeの全体試験は成功。初回の間欠失敗と完全に同原因だったとは断定せず、再発時は失敗時観測から追加調査する。
+- 検証記録: 是正後の全体試験と計測を更新済み。必要な独立再確認を完了させる。
 - 配布: `45ea2ac`の署名実測は変更前の実装に限定する。開発変更の都度再署名せず、最終候補が固まってから配布確認へ進む。
 
 担当はQual-Lab。上記は[CHG-000015](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md#完成監査後の限定是正)と[CHG-000017](../../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#完成監査の現在表示と検証記録の是正)で追跡し、統合・リリース判断は別に残す。
