@@ -144,3 +144,25 @@ v0.19は、個別Task試験の合計ではなく、Project／Milestone入力か�
 | Project State | 実状態と進捗・品質・次行動が一致 | 未観測値と保留を明示 | 推定率、古い状態、個別Task PassからMilestone完了を生成しない |
 
 MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未満の選択、Dependency待ち、競合拒否、部分再計画、人間判断、統合失敗、取消、Parent喪失およびcleanup不明を本番同等入口へ段階的に接続する。CRDD v0.19自身の自己適用では、Time to Accepted Result、Human Active Time、AI Processing Time、Queue Waiting、Integration Cost、Conflict、Retry、Remediation、Replanning、Human Escalation、Provider利用および後工程Findingを観測し、並列化の有用性を個別合格数で代替しない。
+
+設計と実装の対応確認では、少なくとも次の意味経路を固定する。
+
+| ID | 分類 | 入力・事前状態 | 期待する主な観測 |
+|---|---|---|---|
+| PR-N-01 | 正常 | MCPからTask exact 1件 | CLIと同じCore結果、Adapter固有Authority 0、cleanup確認 |
+| PR-N-02 | 正常 | 独立Task 7件、上限5 | 同時`starting/running/cleanup_pending`が5以下、枠解放後に残りを開始 |
+| PR-N-03 | 正常 | Dependency chainと独立Taskの混在 | 先行受入前に依存Taskを開始せず、安全な部分だけ並行 |
+| PR-Q-01 | 準正常 | 共有Pathまたは意味前提が競合 | 空き枠があっても競合Taskを待機し、非競合Taskだけ開始 |
+| PR-Q-02 | 準正常 | 局所失敗、Scope内で代替可能 | 旧Taskを`superseded`として保持し、後継と理由を新世代へ接続 |
+| PR-Q-03 | 準正常 | 同じMCP requestの再送 | Operation二重発行0、同じidempotency identityの現在状態を返却 |
+| PR-Q-04 | 準正常 | 一部Taskの取消 | signalだけで完了せず、終了・cleanup後に枠と競合予約を解放 |
+| PR-H-01 | 人間判断 | Scope、受入、重大Riskまたは費用上限の変更が必要 | 未許可Task開始0、判断理由・選択肢・影響・保持資源を一括表示 |
+| PR-A-01 | 異常 | cycle、欠落DependencyまたはBinding不明 | Single Task呼出し0、Provider Effect 0、構造化された停止理由 |
+| PR-A-02 | 異常 | 6件目を同時開始させる競合注入 | 6件目Effect 0、上限違反を成功へ補正しない |
+| PR-A-03 | 異常 | Task結果の世代／attempt／Operation Identity不一致 | 別Taskへの適用0、取得済みcleanup／Recovery情報を保持して停止 |
+| PR-A-04 | 異常 | Parent喪失 | 新規Task開始0、所有Task照合、再開またはRecoveryを一意に分類 |
+| PR-A-05 | 異常 | cleanupまたはLock解放観測不明 | 枠を空きと推定せず、Milestone成功0、exact Recovery情報を保持 |
+| PR-I-01 | 統合 | 全Task completedだが成果物Conflictあり | Objective／Milestoneを`accepted`にせずIntegration不成立を返却 |
+| PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | Cross-task確認後だけMilestone `accepted`、終了後所有資源0 |
+
+単体試験はGraph検証、状態遷移、世代比較、容量計算およびAuthority縮小を確認する。結合試験はProject State Store、Scheduler、Single Task Runtime、取消、RecoveryおよびIntegrationの接続を確認する。E2EはMCP／CLIの公開入口から同じ意味契約へ到達し、正常、準正常、異常の代表経路でProcess構成、入力搬送、終了後資源および人間表示まで観測する。モックのTask完了だけから実Process不存在、cleanup、Authority非発行またはEffect 0を推定しない。

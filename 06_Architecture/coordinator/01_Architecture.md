@@ -881,3 +881,91 @@ SchedulerはTask Graph上のDependencyだけでなく、許可Path、共有資�
 Project StateはRuntime所有の現在状態であり、Roadmap、CHGまたはProvider出力を状態Storeにしない。各TaskのOperation／Candidate／Recovery IdentityとProject／Milestone／Objectiveの関係を保持し、取消・回復・期限切れ後に別TaskのIdentityへ読み替えない。Project Runtimeのcleanupは、全子Taskの終了と所有資源の観測後にだけ成立する。
 
 最初のMCP縦断経路は、Objective Intakeから既存Single Task Runtimeを一回実行して結果を返す範囲に限定する。MCP固有Project Model、Repository直接操作、MCP ClientからのAuthority継承または複数Repository探索を追加しない。この薄い経路でIdentity、取消、結果投影およびcleanupを確認してからTask Graphを接続する。
+
+### 17.1 状態の責務分離
+
+Project Runtimeは、Task、Objective、Milestoneの状態を一つの`status`へ畳み込まない。Taskは実行と資源回収、Objectiveは複数Taskの意味統合、Milestoneは人間が与えた受入条件に対する全体結果を表す。
+
+| 対象 | 状態 | 意味 |
+|---|---|---|
+| Task | `planned` | Graphに存在するが実行可能性をまだ確定していない |
+| Task | `waiting_dependency` | 先行Taskまたは人間判断の結果を待つ |
+| Task | `ready` | 現在世代でDependency、Authority、競合および容量を確認済み。ただし開始直前に再確認する |
+| Task | `starting` | SchedulerがTask attemptを耐久記録し、Single Task Runtimeへ開始を委譲中 |
+| Task | `running` | Single Task RuntimeのOperationが開始済み |
+| Task | `cleanup_pending` | Provider処理は終了したが、Process、Docker、Candidateその他の資源回収が未確定 |
+| Task | `completed` | Task結果とcleanupを確認済み。Objective受入はまだ意味しない |
+| Task | `failed` | 当該attemptが失敗し、計画維持、部分再計画または人間判断の分類を待つ |
+| Task | `cancelled` | 取消と終了・cleanupを確認済み |
+| Task | `recovery_required` | 現在の呼出しは終了できるが、Task Operationは終端していない |
+| Task | `superseded` | 部分再計画により後継Taskへ置換され、新規実行対象ではない |
+| Objective | `planned`／`executing` | Task Graphを計画済み／実行中 |
+| Objective | `integration_pending` | 必要Taskは終了したが、Objectiveとしての整合確認前 |
+| Objective | `accepted` | Objective固有の受入条件と統合を確認済み |
+| Objective | `blocked`／`cancelled` | 継続条件がない、または取消済み。Milestone全体の結論とは分ける |
+| Milestone | `planned`／`executing`／`integrating` | 計画済み、実行中、または全Objectiveの統合確認中 |
+| Milestone | `human_decision_required` | 自動処置できない判断を、根拠と影響付きで人間へ返した |
+| Milestone | `recovery_required` | 所有資源またはTask Operationが未終端で、通常実行を再開できない |
+| Milestone | `accepted`／`cancelled` | 全受入成立、または取消と全資源回収を確認済み |
+
+`failed`はTask attemptの結果であり、Milestoneの最終結果ではない。`completed`はTaskの実行完了、`accepted`はObjectiveまたはMilestoneの意味上の受入である。`recovery_required`は呼出し終端になり得るがOperation終端ではない。Project Stateの世代、Task attempt IDまたは観測が不明な場合は、近い正常状態へ補正しない。
+
+### 17.2 遷移と再評価
+
+Project Runtimeは、次の処置を一つの状態更新として混ぜない。
+
+1. 入力とProject Bindingを検証し、Milestone Scope、受入条件、Authority上限および実行予算を固定する。
+2. ObjectiveとTask Graphを作り、cycle、欠落Dependency、許可Pathおよび共有前提を検証する。
+3. 短時間のProject State更新で、現在世代に対するTask attemptと`starting`を耐久化する。
+4. Project StateのLockを解放してからSingle Task Runtimeを呼び出す。
+5. Task結果を受け取った後、Task attempt ID、Project世代、Operation／Candidate／Recovery Identityを再確認して状態へ反映する。
+6. Taskの終了ごとに実行可能集合を再計算する。古い`ready`、空き枠、Provider状態または競合判定を再利用しない。
+7. 必要Taskが終了したObjectiveだけを`integration_pending`へ進め、受入条件を独立に確認する。
+8. 全Objectiveの受入後もMilestone全体のCross-task整合を確認し、その後だけ`accepted`へ進める。
+
+Task失敗は、保持した計画で続行可能、承認Scope内の部分再計画、人間判断が必要、回復が必要、のいずれかへ分類する。部分再計画は置換前Taskを`superseded`として残し、後継Taskと理由を新しい世代へ接続する。既存Task IDの意味を書き換えない。Parent喪失後は新しいTaskを開始せず、所有Taskと回復Recordを照合してから、再開、判断移送または回復へ進む。
+
+### 17.3 資源と所有者
+
+| 資源 | 所有者 | 解放・終端条件 |
+|---|---|---|
+| Project Operation lease | Parent Coordinator | Parent終了後の所有喪失を観測し、全Taskを照合して引継ぎまたは終了 |
+| Project Stateと世代 | Project Runtime State Store | Milestone終端と保持Policy成立。更新はexpected generation一致時だけ |
+| Scheduler capacity slot | Scheduler | 対応TaskのProcess不存在とcleanupを確認後。cleanup不明では空きと推定しない |
+| Task attempt binding | Parent Coordinator | exact Task／attempt／Single Task Operationの終端確認後 |
+| Task固有資源 | Single Task Runtime | v0.18のCandidate、Mount Grant、Provider Home、Docker、Process、Recovery契約に従う |
+| Conflict reservation | Scheduler | 変更Path、共有資源および意味前提への影響が解消済みと確認後 |
+| Integration workspace | Integration owner | 統合結果の採用・破棄とcleanupを確認後。正本Repositoryへの採用とは分離 |
+| Cancellation controller | Parent Coordinator | 全対象Taskへの通知後ではなく、終了とcleanup観測後 |
+| Recovery evidence | 発行したRuntime | exact Recovery Identityで完了を確認後。別Taskや別Projectへ付け替えない |
+
+同時実行数は`starting`、`running`および実行資源が残る`cleanup_pending`の合計を最大5とする。`recovery_required`はProcess不存在を確認できるまで容量を占有し、確認後もConflict reservationを回復完了まで保持できる。これにより、数値上の空き枠を理由に同じPath、Provider Homeまたは共有資源へ二重Effectを発行しない。
+
+### 17.4 Lock順序と待機禁止
+
+Project Runtimeの上位順序は、`Project Operation lease → Project State lock → 短時間の世代更新`とする。Single Task Runtime固有のHost、Runtime State、Provider Home、Candidate Storeその他のLockは、Project State lockを解放した後に既存順序で取得する。Project State lockを保持したまま、Provider、Docker、MCP response、子Process、Human DecisionまたはIntegrationの長時間処理を待たない。
+
+外部処理後の状態反映ではProject State lockを再取得し、expected generation、Task attempt ID、Parent owner generationおよび結果Identityを再検証する。不一致なら結果を別Taskへ適用せず、観測済みのSingle Task側cleanup／Recovery情報を保持してProject側を`recovery_required`または`human_decision_required`へ閉じる。Lock取得失敗、解放不明または世代不明をRetryだけで正常化しない。
+
+### 17.5 AuthorityとEffectの縮小
+
+人間が開始時に与えるMilestone Authorityは、Project Identity、Repository Revision、目的、受入条件、許可する読取り／変更範囲、Provider送信境界、費用・回数・時間、最大同時実行数、再計画上限および取消条件へ結合する。Parent Coordinatorは各Taskへこの閉集合の部分集合だけを派生できる。
+
+Task、Reviewer、MCP Client、Provider出力またはRepository内文書は、Authority拡張、Scope変更、Risk受容、追加購入、API key fallback、別Repository BindingまたはMilestone Acceptanceを生成しない。承認済みScope内でTaskを選び直すだけなら人間へ反復確認しない。Scope、受入条件、決定権限、重大Riskまたは費用上限を変える必要がある場合だけ、現在結果、選択肢、影響および推奨を一つの判断単位として返す。
+
+### 17.6 MCPの薄い縦断経路
+
+最初のMCP経路は`objective intake → Project Binding検証 → Task exact 1件の計画 → 既存Single Task Runtime → 構造化結果 → Project State`だけを通す。MCP AdapterはTransport decode、request identity、取消通知および結果encodeを所有し、Project Model、Scheduler、Repository操作またはAuthority判断を所有しない。
+
+MCP接続切断はTask取消の依頼になり得るが、終了確認ではない。切断後もParent CoordinatorがTask cleanupを完了し、結果を再取得可能なProject Stateへ保存する。request重複は同じOperationを二重発行せず、同じidempotency identityに対する現在状態を返す。入力不正、Project Binding不明またはAuthority不足ではSingle Task Runtimeを呼び出さずEffect 0で停止する。
+
+### 17.7 正常・準正常・異常の設計基準
+
+| 分類 | 代表経路 | 必要な終了観測 |
+|---|---|---|
+| 正常 | 独立Taskを1～5件実行し、Dependency順に後続を開始、Objective統合、Milestone受入 | 全Task cleanup、Conflict reservation解放、Integration成立、Project世代一致 |
+| 準正常 | 5件超の待ち行列、1～4件だけの安全な並行、局所失敗後の部分再計画、同一request再送、取消済みTaskを除いた継続 | 上限順守、置換関係、重複Effect 0、取消Task終端、未実行TaskのAuthority非発行 |
+| 人間判断 | Scope拡張、受入変更、共有判断の競合、重大Riskまたは費用上限超過 | 実行停止範囲、保持資源、選択肢と影響、再開条件を取得可能 |
+| 異常 | cycle、欠落Dependency、6件目の同時開始、古い世代、結果Identity不一致、Parent喪失、cleanup不明、Recovery失敗 | 新規Effect 0または安全な停止、exact Recovery情報保持、成功非返却、別Taskへの結果混入0 |
+
+設計上のPassはTask数や状態ラベルではなく、この表の終了観測とObjective／Milestone受入の成立で判定する。

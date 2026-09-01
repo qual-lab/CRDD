@@ -486,3 +486,13 @@ Task失敗時は、現在Planを維持できる、影響部分の再計画が必
 個別TaskのCompletedまたはReviewer PassをObjective／Milestoneの成功にしない。全Taskの結果を統合し、仕様、共有判断、共有資源、Artifact、Dependency、残存Conflictおよび受入条件を確認した後だけObjective Acceptance、さらにMilestone Acceptanceを成立させる。統合または確認が不明なら進捗と候補を保持して通常成功を返さない。
 
 Project Stateは、現在のMilestone／Objective、Task総数、Running／Ready／Waiting／Completed、Dependency、Blocker、Risk、Human Decision、Critical Path、Next Action、Integration State、Quality StateおよびCompletion Forecastを取得可能にする。未観測値を0または完了へ補正せず、Work ProgressとQualityを別に表示する。
+
+Project Runtimeへの入力は、Project Identity、Repository BindingとRevision、Milestone目的と受入条件、許可された読取り／変更範囲、Provider送信境界、費用・回数・時間上限、最大同時実行数および再計画上限を明示する。最大同時実行数は1～5の範囲に限定し、省略時の既定値は実装が固定して表示する。MCP／CLI Adapterはこの入力を追加Authorityへ変換しない。
+
+Task状態の`completed`はTask結果と資源回収の確認、Objective／Milestone状態の`accepted`は受入条件と統合の確認を意味する。`failed`、`cancelled`、`cleanup_pending`、`recovery_required`および`superseded`を`completed`へ数えない。`recovery_required`は現在の呼出しが終了してもProject Operationが終端していないため、通常の次Task開始またはMilestone成功を許可しない。
+
+SchedulerはTask開始前に、現在のProject世代、Dependency、Task Authority、変更範囲、共有資源、Conflict reservation、Provider利用条件および実行中枠を再確認する。`starting`、`running`および実行資源が残る`cleanup_pending`を最大5枠へ数え、cleanup不明のTaskを空き枠へ補正しない。開始判断を耐久化する前、または開始直前の再確認に失敗した場合はProvider Effectを発行しない。
+
+Project Runtimeは、Taskごとに一意なattempt IDとSingle Task Operation Identityを保持する。再試行、部分再計画、Parent再開またはMCP request再送で同じTask Effectを二重発行しない。古い世代、別attempt、別Projectまたは別Repository Revisionの結果を現在Taskへ適用しない。
+
+取消は取消要求、Taskへの通知、Task終了、資源回収およびProject State反映を別々に観測する。MCP切断、Parent Process喪失、Promise完了または子Processへのsignal送信だけを取消完了としない。cleanup、Lock解放またはRecoveryが不明なら、取得できたIdentityと未確認事項を保持して通常成功を返さない。
