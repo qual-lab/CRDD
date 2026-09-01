@@ -76,4 +76,4 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 これはProject Runtime全体の完成、MCPの外部公開、v0.19.0 ReleaseまたはRisk受容を意味しない。Project State Store、Project Operation lease、対話優先の耐久Operation Queue、正本採用Lease、Single Task Runtimeとの複数Task結合、部分再計画、Parent喪失、実成果物のIntegrationおよび公開入口E2Eは未接続である。
 
-次のGateは、先行するCommunication固定・別Repository Dogfooding・Communication Closureの完了後、この状態契約を機械可読な設計対応へ接続したうえで、Project State Store、耐久Operation Queue、Project Operation leaseおよび正本採用Leaseを実装し、Lockを保持せずSingle Task Runtimeを呼ぶ結合経路を固定することである。先行期間中も現在の設計・実装・試験増分は本CHGへ保持し、未完成能力をRelease済みまたは破棄済みへ変更しない。独立レビューは、この固定候補が設計、実装および試験を一続きに再構成できる段階で行う。
+次のGateは、先行するCommunication固定、Checker、独立レビュー、指摘是正および再確認の完了後、この状態契約を機械可読な設計対応へ接続したうえで、Project State Store、耐久Operation Queue、Project Operation leaseおよび正本採用Leaseを実装し、Lockを保持せずSingle Task Runtimeを呼ぶ結合経路を固定することである。先行期間中も現在の設計・実装・試験増分は本CHGへ保持し、未完成能力をRelease済みまたは破棄済みへ変更しない。独立レビューは、この固定候補が設計、実装および試験を一続きに再構成できる段階で行う。
