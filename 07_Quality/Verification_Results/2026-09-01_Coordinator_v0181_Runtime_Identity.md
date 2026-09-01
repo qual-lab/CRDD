@@ -8,7 +8,7 @@
 
 字句解析、共通Launcher結合および選択scriptの子Process／Worker target結合を含むSource Aを署名前に独立確認し、Code、Document、History／Traceabilityの3系統すべてで指摘0件のPassを得た。そのSource AからRuntime実行Identityを署名し、manifest一件だけを加えた配布Commit Bを作成した。
 
-現行Identityに対し、新規clone、親Repository内submodule、4経路および復旧7シナリオを実行し、期待する結果を得た。Providerの一過性な不正JSON出力で最初の4経路行列がreverseにて安全停止したが、cleanup確認後の同一reverse単独実行と、新しい行列全体の再実行は完了した。最終行列は4/4経路、再試行0、cleanup確認済みである。本結果は公開判断を代替しない。
+現行Identityに対し、新規clone、親Repository内submodule、4経路および復旧7シナリオを実行し、期待する結果を得た。最初の4経路行列はreverseで安全停止したが、新しい行列全体は4/4経路、再試行0、cleanup確認済みで完了した。途中で行ったreverse単独診断は追跡可能なローカル検証記録を生成しなかったため、Release成立根拠へ使用しない。4経路の成立は最終行列だけから判定する。本結果は公開判断を代替しない。
 
 ## 現行署名Identity
 
@@ -51,11 +51,24 @@ Source AからBまでの変更Pathは`template/tools/coordinator/coordinator-pac
 | 新規clone | `completed` / `coordinator_task_candidate_approved` | 確認済み | なし | 発行後に破棄 |
 | 親Repository＋submodule | `completed` / `coordinator_task_candidate_approved` | 確認済み | なし | 発行後に破棄 |
 
-新規cloneの記録IDは`20d5d4d5-0b30-445f-99a6-52c1c6580f44`、親Repository＋submoduleの記録IDは`4e1d8f5a-3608-4d16-834a-62685bd457ca`である。集約SHA-256は`941a7d36b33d18c915952bf05575e7a6bb0befdce2fba1c98cf0f4956b8c80cb`である。両方で実行前後のExecution Revision一致、Candidate base一致、exact capability、候補発行・破棄、正本不変およびcleanupを確認した。Provider生出力、Host Pathまたは秘密を本記録へ転記しない。API key、従量課金fallbackおよび追加購入は使用していない。
+各結果の再識別情報は次のとおりである。`result projection SHA-256`は、表の項目を含むRunnerのprojectionから`resultProjectionSha256`自身を除き、キー順をRunner定義順に固定したcompact JSONと末尾LFをUTF-8 byte列として算出する。
+
+| 形態 | 記録ID | 実行Commit／Tree（前＝後＝Candidate base） | Runtime配布Commit／Tree | 結果 | 処置・終了条件 | result projection SHA-256 |
+|---|---|---|---|---|---|---|
+| 新規clone | `20d5d4d5-0b30-445f-99a6-52c1c6580f44` | `2e70cfc2c4e37f465f84fb5108c58f299bad5b31`／`41a575fa6b47ca16660510dbda222c5670c5a80b` | `2e70cfc2c4e37f465f84fb5108c58f299bad5b31`／`41a575fa6b47ca16660510dbda222c5670c5a80b` | Capability contract revision 1 exact、`completed`／`coordinator_task_candidate_approved` | 候補発行後に破棄、cleanup確認、手動Recovery不要、正本不変 | `afa99099afd3b9b19a5ec230cc99bb758a2147e818f33d93309e47a8aabccdb9` |
+| 親Repository＋submodule | `4e1d8f5a-3608-4d16-834a-62685bd457ca` | `ee07599b5d354a95a612dbed1023f377b3807944`／`27627aad146c1dd30565fb971f5cba08e0b63cdd` | `2e70cfc2c4e37f465f84fb5108c58f299bad5b31`／`41a575fa6b47ca16660510dbda222c5670c5a80b` | Capability contract revision 1 exact、`completed`／`coordinator_task_candidate_approved` | 候補発行後に破棄、cleanup確認、手動Recovery不要、正本不変 | `a4ee6c377acba558c32cf19703b6a6b90bf3cdc2b9f0b4a8f7e4f436f323b9b7` |
+
+集約SHA-256 `941a7d36b33d18c915952bf05575e7a6bb0befdce2fba1c98cf0f4956b8c80cb`は、contract、revision、Source A、配布B、Runtime実行Identity、`completed`状態および上表2件のprojectionを`fresh_clone`、`parent_submodule`の順で持つ2-space整形JSONと末尾LFのUTF-8 byte列に対する値である。Provider生出力、Host Pathまたは秘密を本記録へ転記しない。API key、従量課金fallbackおよび追加購入は使用していない。
 
 ## 4経路
 
-完了記録IDは`3eaeaea5-7191-46ce-8424-dc97e99b7932`、結果SHA-256は`f2415476e4198a29d0adc5a2e7e73fd993ab445df7f4f3a2dfebaea57471a4c9`である。
+実行単位を次のように分ける。
+
+| 実行 | 記録ID | 結果SHA-256 | 結果 | cleanup／候補 |
+|---|---|---|---|---|
+| 最初の行列 | `0fb8ff65-d55f-4335-8ad2-96322ca6fa4d` | `68cdcac7c1252bec4d9708c55ccb93bbd30e793dbf601516cd0b0d3184857b30` | 2経路試行、forward 1件完了、reverseで`route_nonconforming`となり行列停止 | cleanup確認、手動Recovery不要、正本不変。forward候補破棄、reverse候補未発行 |
+| reverse単独診断 | 記録なし | 算出不能 | 端末上で完了を観測したが、永続記録なし | Release成立根拠から除外 |
+| 最終行列 | `3eaeaea5-7191-46ce-8424-dc97e99b7932` | `f2415476e4198a29d0adc5a2e7e73fd993ab445df7f4f3a2dfebaea57471a4c9` | 4/4経路完了、行列内再試行0 | 全候補破棄、cleanup確認、手動Recovery不要、正本不変 |
 
 - forward
 - reverse
@@ -85,8 +98,12 @@ Source AからBまでの変更Pathは`template/tools/coordinator/coordinator-pac
 - 署名前プレチェックはCode、Document、History／Traceabilityの3系統すべてで指摘0件のPassだった。
 - 本記録を含む最終文書候補では、Runtime実行Identityの不変確認、全体Checkerおよび独立再確認を改めて行う。
 
+## 最終Release Commit
+
+Source Aは署名対象、Bはmanifest carrierであり、公式tag対象ではない。署名後に確定した本検証結果を含む最終Release Commit Cを別に固定する。BからCに許可する変更は、Workflowで宣言したSPEC、Quality Center、本検証結果、Coordinator Workflow、CHG-000056およびRoadmapの6文書だけである。Cでmanifest byte、Package content rootおよびRuntime実行Identityが不変であること、A→Bがmanifest一件だけ、B→Cが6文書だけであることを確認する。公式tagはCへ付け、CのCommit／Treeは自己参照を避けてtagと結合した公式Release記録へ保存する。
+
 ## 限界と次のGate
 
 本検証はWindows Local Personal Profile、固定Node.js、固定Docker Desktop、選択済みのCodex／Claude Code Subscriptionおよび固定公開Taskを対象とする。全OS、全Provider、任意TaskまたはProvider内部処理を一般化しない。
 
-残るGateは、文書反映後もRuntime実行Identityが不変であることの確認、同じ固定候補に対するArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceの独立再確認、および人間による統合・Release判断である。
+残るGateは、上記Release EvidenceとA／B／C契約の限定独立再確認、最終CでのIdentity不変・許可Path確認、および人間による統合・Release判断である。

@@ -130,14 +130,15 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 この節は公式配布担当者向けである。入力は凍結したCommit／Tree、その内容から作ったstaging、既存の暗号化秘密鍵と発行情報。期待結果は同じ配布内容へ結合した署名manifestの生成であり、Release公開そのものではない。配布Root・Treeの不一致ならstagingの作成元へ戻り、復号失敗なら秘密入力だけを確認する。失敗原因を区別せず秘密鍵を作り直したり、日常開発のたびに署名したりしない。
 
-署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、次の二Commit手順で生成する。
+署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、署名Source A、manifest carrier B、最終Release Commit Cを分けて生成する。Cは署名後に確定する検証結果だけを取り込む文書Commitであり、Runtime実行集合を変更しない。
 
 1. Release候補Commit Aへ、Source、文書、試験および固定Pathの単一Native Runtime成果物`crdd-platform-access.exe`を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
 2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release-staging/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
 3. Commit A／Tree Aと`crdd-platform-access.exe`を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
 4. 生成したmanifestだけをRepositoryの同じ固定Pathへ追加してCommit Bを作る。`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
-5. 公式tagとReleaseはCommit Bへ付ける。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示す。RuntimeはCommit Bの内容からmanifestだけを除外してTree Aを再構成し、`crdd-platform-access.exe`はTree Aの一部として検証する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
-6. 一般Taskは配布A／Bとは別に、実行直前の作業対象RepositoryのExecution Commit／Treeを独立観測し、隔離Candidateのbase RevisionをそのExecution Revisionへ照合する。manifest内のAまたは配布Bを、採用RepositoryのCandidate baseとして要求しない。Task終了後に同じExecution Revisionを再観測できない、またはCommit／Treeが変わった場合は、Candidateを回収して成功扱いにしない。CRDD自身を作業対象にする場合だけExecution Revisionが配布Bと一致し得る。
+5. Bの署名済みRuntimeに対する検証後、結果と現在状態を反映するCommit Cを作る。BからCに変更できるのは、Release候補固定時に宣言した文書の閉集合だけである。v0.18.1では`05_SPEC/01_Behavior_Specification.md`、`07_Quality/01_Quality_Center.md`、`07_Quality/Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md`、`19_Workflows/01_Coordinator_Runtime.md`、`90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md`および`99_Roadmap/01_Product_Roadmap.md`を許可する。manifest、Runtime実行集合、Policy、Native成果物または他Pathが変わった場合はCとして受理せず、新しいSource Aへ戻る。
+6. Cで同梱manifestをbyte-for-byte再照合し、Package content rootとRuntime実行IdentityがBの検証時と一致することを確認する。AがBの親、BがCの祖先であり、AからBはmanifest一件だけ、BからCは上記閉集合だけであることも確認する。公式tagとReleaseはCommit Cへ付ける。CのCommit／Treeは署名対象文書へ自己参照させず、tagと結合した公式Release記録へ保存する。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示し、Bはそのmanifestを運ぶ祖先として保持する。RuntimeはCの内容からRuntime実行集合とmanifestを検証し、`crdd-platform-access.exe`を同じIdentityへ結合する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
+7. 一般Taskは配布A／B／Cとは別に、実行直前の作業対象RepositoryのExecution Commit／Treeを独立観測し、隔離Candidateのbase RevisionをそのExecution Revisionへ照合する。manifest内のA、manifest carrier Bまたは公式Release Cを、採用RepositoryのCandidate baseとして要求しない。Task終了後に同じExecution Revisionを再観測できない、またはCommit／Treeが変わった場合は、Candidateを回収して成功扱いにしない。CRDD自身を作業対象にする場合だけExecution Revisionが公式Release Cと一致し得る。
 
 これにより、公式tagへ固定したcloneまたはsubmoduleは別archiveを取得せず通常Runtimeを利用できる。GitHub Releaseへ同じ内容の独自ZIPを追加しない。GitHubが自動生成するSource archiveもRuntime配布契約または検証対象にしない。
 

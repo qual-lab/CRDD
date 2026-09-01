@@ -6,7 +6,7 @@
 
 ## 結論
 
-本書の現在候補は、v0.18.1のRuntime依存閉包を構造是正し、署名前プレチェック、署名済み配布物、採用形態E2E、4経路およびRecoveryを完了したRuntime実行Identity `e290df01…d9d41`である。文書反映後のIdentity不変確認、独立再確認および公開判断は未完了である。branch、Commitまたは本書だけでは公開済み基準にならず、公開状態と最終Identityは公式タグまたは同等の不変なRelease識別子から確認する。[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)は、単一Platform Access成果物、manifest revision 5、Release Identity／Runtime実行Identity／作業対象Execution Revisionの分離を含む採用入口の是正を追跡する。過去候補の実測を別Identityの成功へ流用しない。
+本書の現在候補は、v0.18.1のRuntime依存閉包を構造是正し、署名前プレチェック、署名済み配布物、採用形態E2E、4経路およびRecoveryを完了したRuntime実行Identity `e290df01…d9d41`である。実行単位のEvidence補完と、manifest carrier Bから最終Release Commit Cを分離する契約を限定再確認中であり、公開判断は未完了である。branch、Commitまたは本書だけでは公開済み基準にならず、公開状態と最終Identityは公式タグまたは同等の不変なRelease識別子から確認する。[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)は、単一Platform Access成果物、manifest revision 5、Release Identity／Runtime実行Identity／作業対象Execution Revisionの分離を含む採用入口の是正を追跡する。過去候補の実測を別Identityの成功へ流用しない。
 
 v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シナリオ、実TaskのSIGINT取消と通常回収を確認した。[対象・時刻・再識別方法・限界](Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)に記録した。v0.18.1の旧署名候補はSource A `a15b997924536dcd306c48a5924ba066627e3fdf`／Tree `ad058d8e768c598937e6cc3261db3cef5980f0ae`とmanifest-only B `371151e9713e4c7e556db883d13af532bc82b3a1`／Tree `076310d110e2ecdadd6484309131f27de0d6860f`である。Runtime実行Identity `f2243b46b8cdde4a09e60efb7bdd61b48f012c4eb418cbdf4222d75306af1aaa`に対する固定配布検証、4経路4/4およびRecovery Matrixは完了したが、署名・検証Runnerの依存閉包を含まないため最終Authority根拠へ流用しない。過去の公開前候補も不採用の履歴として[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md#8-現在状態と残件)に保持する。新しい固定候補の統合後確認およびRelease判断は、署名対象Treeへ自己参照させず、対象タグと結合した公式Release記録で取得可能にする。
 
@@ -14,7 +14,7 @@ v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シ�
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
-| v0.18.1 Coordinator採用入口 | 現行署名Identityの採用形態E2E、4経路4/4、Recovery 7シナリオ完了、未公開 | [現行Identityと検証結果](Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)。残る処置は文書反映後のIdentity不変確認、同一固定候補の独立再確認、人間による統合・Release判断 |
+| v0.18.1 Coordinator採用入口 | 現行署名Identityの採用形態E2E、4経路4/4、Recovery 7シナリオ完了、未公開 | [現行Identityと検証結果](Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)。残る処置は実行単位EvidenceとA／B／C契約の限定再確認、最終CでのIdentity不変・許可Path確認、人間による統合・Release判断 |
 | 移行前の正式署名E2E | 固定版に限り完了 | [0c3e6d2の結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)。4経路4/4、復旧7/7、cleanup確認済み |
 | 実務自己適用の評価 | 限定利用成立、総合的な優位は未確定 | [最新の実務1件](../90_Release/Changes/Evidence/CHG-000055_Utility_45ea2ac.md)はRuntime約111秒、親の反映・検証まで約206秒。[集約評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で人間の実作業時間、最終受入、利用量の未測定を区別する |
 | 新配置の開発E2E | 対象239件合格 | [対象・条件・限界](Verification_Results/2026-08-31_Tool_Layout_Development_E2E.md)。正式配布や実Providerの証明とは区別する |
