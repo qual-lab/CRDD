@@ -132,7 +132,7 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、次の二Commit手順で生成する。
 
-1. Release候補Commit Aへ、Source、文書、試験および固定Pathの2つのNative Runtime成果物を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
+1. Release候補Commit Aへ、Source、文書、試験および固定Pathの単一Native Runtime成果物`crdd-platform-access.exe`を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
 2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release-staging/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
 3. Commit A／Tree Aと`crdd-platform-access.exe`を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
 4. 生成したmanifestだけをRepositoryの同じ固定Pathへ追加してCommit Bを作る。`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
@@ -146,7 +146,7 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 ここで`<absolute-staging-root>`は、上記Repository-local staging Rootのexact candidateでなければならない。
 
-上の例は期間限定の検証配布である。期限なしの正式配布では`--expires-at <canonical-utc>`を`--no-expiry`へ置き換える。どちらか一方だけが必須であり、未指定・両方指定・重複・不正日時は秘密入力前に停止する。新規署名はmanifest／envelope revision 3を使用し、期限なしは署名payload内の`expiresAt: null`に結合する。旧revision 2の期限を編集して延長しない。一般利用者は署名済み配布物を検証するだけで、公式鍵やpassphraseを入力しない。配布物の期限なし指定を、同意・Grant・準備記録の無期限化と混同しない。
+上の例は期間限定の検証配布である。期限なしの正式配布では`--expires-at <canonical-utc>`を`--no-expiry`へ置き換える。どちらか一方だけが必須であり、未指定・両方指定・重複・不正日時は秘密入力前に停止する。新規署名はmanifest／envelope revision 4を使用し、期限なしは署名payload内の`expiresAt: null`に結合する。旧revision 2／3を編集、延長または現行候補へ流用しない。一般利用者は署名済み配布物を検証するだけで、公式鍵やpassphraseを入力しない。配布物の期限なし指定を、同意・Grant・準備記録の無期限化と混同しない。
 
 配布Identityと成果物の結合条件は[署名と内部成果物の設計](../06_Architecture/coordinator/01_Architecture.md#release-artifact-binding)に従う。手順から固定Path・検査・停止条件を変更しない。
 
