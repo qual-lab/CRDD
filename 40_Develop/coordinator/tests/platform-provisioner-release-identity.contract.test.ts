@@ -83,7 +83,7 @@ function fixture() {
   return { root, rootTree };
 }
 
-test("配布Root全体をGit Treeへ再計算し後置manifestとGit metadataだけを除外する", () => {
+test("配布Root全体をGit Treeへ再計算し後置manifestと管理metadataだけを除外する", () => {
   const value = fixture();
   try {
     const result = inspectPlatformProvisionerReleaseIdentityCandidate(
