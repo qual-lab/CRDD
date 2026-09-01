@@ -13,7 +13,6 @@ Related:
 - [CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)
 - [CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)
 - [CHG-000058](../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md)
-- [CHG-000059](../90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md)
 
 ---
 
@@ -21,11 +20,10 @@ Related:
 
 ## 1. 現在の未完了作業
 
-2026-09-01、v0.18.0を公開し、2026-09-02に採用入口とRuntime実行Identityを是正したv0.18.1を公開した。正式署名4経路E2E、回復経路、採用形態E2E、タグ、公開Releaseおよび不要ブランチ整理まで完了したため、v0.18の完了項目は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去した。v0.19のCommunication固定候補もChecker、独立レビュー、必要な監査、指摘是正、再確認およびIssue #30の終了を完了したため、完了根拠をCHG-000058と品質記録へ移した。Runtime実装の再開前に、Dogfoodingから得た保証コスト、変更経路および人間可読性の横断改善を固定する。
+2026-09-01、v0.18.0を公開し、2026-09-02に採用入口とRuntime実行Identityを是正したv0.18.1を公開した。正式署名4経路E2E、回復経路、採用形態E2E、タグ、公開Releaseおよび不要ブランチ整理まで完了したため、v0.18の完了項目は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去した。v0.19のCommunication固定候補とDogfooding横断改善も、Checker、独立レビュー、必要な監査、指摘是正および再確認を完了したため、完了根拠をCHG-000058、CHG-000059および品質記録へ移した。
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| v0.19 Dogfooding横断改善 | —（非適用） | In Progress | [CHG-000059](../90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md) | 既存正本、AI入口、ひな型、監査およびProject Runtime有用性評価へ伝播し、Checker・独立レビュー・必要監査を完了する。専用Profile、Routing Engine、可読性監査または文字数Gateは追加しない |
 | v0.19 Minimum AI-native Project Runtime | Adopted | In Progress | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md) | 状態・受入・Scheduler競合の設計増分は保持する。追加のRuntime実装はCommunication Closure後に再開し、Coordinator責務分離、耐久Queue／Lease、MCP薄片、Project Model、Task Graph／Scheduler、Progress、Replanning、Integration、自己適用、Utility、Closureの順で成立させる。1 Project／1 Repository／1 Parent Coordinator、人間起点、最大同時実行5を維持する |
 | CRDD長期発展の上位方向と能力地平の表示枠組み | Adopted | Unscheduled | [長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針)、[CRDD版の発展](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 採用対象は人間可読な表示枠組みと根拠駆動の責務分離ループであり、具体的な将来能力は含めない。公開済みv0.18.0の結果と、第2段階で得た自己適用の根拠を再評価契機とする。専門能力はまずContextとRole／Skillで自己適用し、共有すべき正本情報または不変条件の不足がEvidenceで成立した場合だけ責務境界を再評価する |
 | 採用済み3項目を除く第2段階の実行観測候補および第3～第6段階の個別研究候補 | Held | Unscheduled | [長期発展方針の研究候補](../01_Discovery/01_CRDD_Product_Discovery.md#78-研究候補と保持条件)、[将来能力地平](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 第1段階の完成固定版と第2段階の最初の自己適用結果を得た後、価値、成立性、費用、安全性および責務境界を人間が再評価する。将来Versionは能力地平であり、版予約、収載、期限、実装許可またはReleaseを意味しない。Linux常設、複数Repository、MCP／HTTP、Self-hosted ProviderおよびOrganization Runtimeの実装許可を本行から推定しない |
@@ -37,9 +35,8 @@ Related:
 
 v0.19は次の順序で収束させる。内部Taskの並列化は許すが、後段のGateを先行完了へ読み替えない。
 
-1. Dogfooding横断改善を既存正本へ還元し、独立確認まで完了する。
-2. Project Runtime実装を再開し、耐久Queue／LeaseからMCP、複数Task、Integrationへ接続する。
-3. 各変更の独立Release Gateを評価し、v0.19の収載内容を人間が確定する。
+1. Project Runtime実装を再開し、耐久Queue／LeaseからMCP、複数Task、Integrationへ接続する。
+2. 各変更の独立Release Gateを評価し、v0.19の収載内容を人間が確定する。
 
 ## 3. 境界
 
