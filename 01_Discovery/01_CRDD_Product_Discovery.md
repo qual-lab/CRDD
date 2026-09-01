@@ -477,7 +477,7 @@ PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠か
 |---|---|---|---|---|
 | CRDD v0.18.0 — 公開済み基準 | CRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 内容採用・main統合・公開済み | CHG-000014の公開記録とCHG-000015の完成根拠 | v0.18.1の公式Release識別子または将来候補の採用 |
 | CRDD v0.18.0 — 自己適用で完了した改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性 | 採用した対象の実装検証・内容採用は完了（[CHG-000055](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md)） | 根拠を保持し、リリースへ引き渡す | 総合的な性能優位、Releaseまたはv0.19.0以降の研究候補の収載 |
-| CRDD v0.19.0 | MCPの薄い協働接続面、単一Project／Repository、Objective Planning、Task Graph、最大5並列、Progress、ReplanningおよびIntegrationを自己適用する | `Adopted / In Progress`（[§8](#v019-minimum-project-runtime)、[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)） | 工程設計、実装、E2E、CRDD v0.19自己適用、Utility評価および独立Closure | 複数Project／Repository、常設自律Runtime、専用PM System、Organization Runtime |
+| CRDD v0.19.0 | MCPの薄い協働接続面、単一Project／Repository、Objective Planning、Task Graph、最大5並列、Progress、Replanning、Integration、および工程内ReasoningのContext化を自己適用する | `Adopted / In Progress`（[§8](#v019-minimum-project-runtime)、[§9](#v019-reasoning-context)、[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)、[CHG-000058](../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md)） | Project Runtimeの工程設計・実装・E2E・Utility評価と、認知推論／選択推論の代表経路による自己適用および独立Closure | 複数Project／Repository、常設自律Runtime、専用PM System、Organization Runtime、全工程共通の固定Reasoning Schema |
 | CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループを、人間とAIの組織（Human × AI Organization）で成立させる | `Held / Unscheduled` | 協働接続面とエコシステム自己適用から、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |
 | CRDD v1.x（将来能力像） | 単一Projectの運営モデル（Operating Model）を保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |
 | CRDD v2.x（将来能力像） | 調整と最適化の観測範囲をProjectから複数Project／Organizationへ広げ、依存、優先順位、Capacity、Riskおよび投資判断へ根拠を提供する | `Held / Unscheduled` | 単一Project境界の成熟と、Organization Scopeの価値、情報、安全およびAuthority設計 | Project Authorityの上位継承、横断Effect、予算消費、優先順位変更、Provider起動または外部送信の自動認可 |
@@ -528,3 +528,24 @@ CRDDの共有責務境界を太らせないことは、その変更の絶対禁�
 Discovery、UX、IA、UI、SPECおよびArchitectureでProject Runtime全体を先に設計し、その結果からCoordinatorの責務分離を導出する。続いてMCPの薄い縦断経路、Project階層、Task Graph／Scheduler、複数Task実行、進捗投影、再計画／判断移送、統合検証を接続する。
 
 CRDD v0.19自身を代表Milestoneとして自己適用し、採用可能な結果までの時間、人間の実作業時間、AI処理量、待機、統合費用、競合、再試行、再計画、判断移送、Provider利用および後工程品質を観測する。並列化やAgent数そのものを成功指標にしない。
+
+<a id="v019-reasoning-context"></a>
+
+## 9. v0.19 推論コンテキストと設計意図
+
+### 9.1. 採用した方向
+
+2026-09-02、人間の決定権限者は、工程成果物へ吸収されると失われる熟練者の判断根拠を、再利用・変更・検証可能な推論コンテキスト（Reasoning Context）として扱う強化をv0.19へ追加した。共通化する候補は、根拠、解釈、仮説、代替、意図、不確実性、制約、トレードオフ、判断、判断理由、観測結果および学びである。これらを固定Schemaまたは全工程必須のTemplateにはしない。
+
+### 9.2. 代表的な2つの検証経路
+
+- 認知推論（Cognitive Reasoning）: UX、IA、UIおよびCommunicationで、利用者の現在状態、障壁／不確実性、必要な認知変化、必要な根拠／情報、目標状態、判断／行動および観測結果を接続する。
+- 選択推論（Choice Reasoning）: Discovery、プロダクト方向およびCommunicationとの境界で、機会候補、判断状況、判断を変える比較観点、根拠／確信度、代替、トレードオフ、対象選択、位置づけ仮説、採用する解決方向および人間判断を接続する。
+
+認知推論をCRDD全体の唯一のReasoning Modelにしない。Architecture、Quality、Operationその他の工程固有パターンは、代表2経路の自己適用で共通要素の有用性と負荷が確認されてから、現在の責務を持つ正本で別途評価する。
+
+### 9.3. 責務境界と検証
+
+Discoveryは機会、対象選択、価値、既存代替、差別化根拠および採用する解決方向を所有する。Communicationは外部で用いる比較枠、形成したい理解、主張、メッセージ、成果物および媒体を所有する。UXは認知意図、IAは必要な根拠／情報の関係・開示・構造、UIは注意・視覚階層・操作・フィードバックへの具体化を所有する。位置づけは責務を接続する推論レンズであり、第二正本ではない。
+
+検証では、推論コンテキストがAIの変更判断と工程間伝播を改善するか、判断の逆方向追跡に実用価値があるか、記録負荷が再利用価値を上回らないかを、代表2経路で自己適用する。完全な連鎖、内部推論全文、固定点数、固定質問票、工程ごとの専用ファイルまたは新しいReasoning Databaseは目指さない。
