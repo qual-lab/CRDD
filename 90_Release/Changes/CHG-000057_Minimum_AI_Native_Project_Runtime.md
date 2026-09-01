@@ -62,7 +62,7 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 正常、準正常、異常および判定不能を、Project入力から統合受入まで一続きで確認する。少なくともMCPの薄い縦断経路、任意Task数、最大5並列、5未満の選択、Dependency待ち、共有競合拒否、局所失敗、部分再計画、人間判断、Integration不成立、取消、Parent喪失、cleanup不明およびRecoveryを含める。
 
-設計の状態・資源・Lock・Authority・Effectを実装所有者と試験へ接続し、個別試験数やcoverage率からProject lifecycleの成立を推定しない。CRDD v0.19自己適用では、Time to Accepted Result、Human Active Time、AI Processing Time、Queue Waiting、Integration Cost、Conflict、Retry、Remediation、Replanning、Human Escalation、Provider利用および後工程Findingを観測する。
+設計の状態・資源・Lock・Authority・Effectを実装所有者と試験へ接続し、個別試験数やcoverage率からProject lifecycleの成立を推定しない。CRDD v0.19自己適用では、Time to Accepted Result、Human Active Time、AI Processing Time、Queue Waiting、Integration Cost、Conflict、Retry、Remediation、Replanning、Human Escalation、Provider利用および後工程Findingを観測する。保証活動については、レビュー、独立レビュー、監査、再レビュー／再監査、検証時間、完了までの検証反復、根拠量、指摘事項および是正回数を、観測可能で判断に役立つ範囲で追加する。保証活動の削減自体を目標にせず、品質条件を維持した採用可能な結果までの総コストとして評価する。
 
 ## 7. Git／Release運用
 

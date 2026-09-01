@@ -149,7 +149,9 @@ v0.19は、個別Task試験の合計ではなく、Project／Milestone入力か�
 | Lifecycle | 完了・取消後に全子Taskと資源を回収 | 一部停止、親喪失、回復後再開 | cleanup不明、Identity競合、Recovery不成立では通常成功を返さない |
 | Project State | 実状態と進捗・品質・次行動が一致 | 未観測値と保留を明示 | 推定率、古い状態、個別Task PassからMilestone完了を生成しない |
 
-MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未満の選択、Dependency待ち、競合拒否、部分再計画、人間判断、統合失敗、取消、Parent喪失およびcleanup不明を本番同等入口へ段階的に接続する。CRDD v0.19自身の自己適用では、Time to Accepted Result、Human Active Time、AI Processing Time、Queue Waiting、Integration Cost、Conflict、Retry、Remediation、Replanning、Human Escalation、Provider利用および後工程Findingを観測し、並列化の有用性を個別合格数で代替しない。
+MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未満の選択、Dependency待ち、競合拒否、部分再計画、人間判断、統合失敗、取消、Parent喪失およびcleanup不明を本番同等入口へ段階的に接続する。CRDD v0.19自身の自己適用では、Time to Accepted Result、Human Active Time、AI Processing Time、Queue Waiting、Integration Cost、Conflict、Retry、Remediation、Replanning、Human Escalation、Provider利用および後工程Findingを観測する。さらに、レビュー、独立レビュー、監査、再レビュー／再監査、検証時間、完了までの検証反復、根拠量、指摘事項および是正回数を、取得可能で比較に有効な範囲で記録する。並列化の有用性を個別合格数で代替せず、保証活動の削減だけを成功としない。
+
+保証コストの比較では、開始・終了条件、対象改訂版、品質条件、観測できた項目および未測定項目を示す。レビュー数、監査数または根拠量が少ない方式を自動的に優れているとせず、採用可能な結果までの総時間・総処理、人間負荷、後工程指摘および残存リスクと合わせて評価する。計画した変更経路と実際の経路に差がある場合は、差の理由、追加または削除した検証および有効だった検証を、対象CHGまたは品質根拠から追跡できることも確認する。
 
 設計と実装の対応確認では、少なくとも次の意味経路を固定する。
 
