@@ -133,16 +133,14 @@ export type DockerDesktopRepairRecordBoundary = Readonly<{
   dockerPolicySha256: string;
   crddManifestHash: string;
   crddReleaseSequence: number;
-  crddTree: string;
-  packageContentRootSha256: string;
+  runtimeExecutionIdentitySha256: string;
   localAppData: string;
 }>;
 
 type HistoricalReleaseIdentity = Readonly<{
   manifestHash: string;
   releaseSequence: number;
-  crddTree: string;
-  packageContentRootSha256: string;
+  runtimeExecutionIdentitySha256: string;
 }>;
 
 export type DockerDesktopRepairHistoryVerifier = (
@@ -160,15 +158,15 @@ function verifyPinnedHistory(
     ? Object.freeze({
         manifestHash: verified.manifestHash,
         releaseSequence: verified.payload.releaseSequence,
-        crddTree: verified.payload.crddTree,
-        packageContentRootSha256: verified.payload.packageContentRootSha256,
+        runtimeExecutionIdentitySha256:
+          verified.payload.runtimeExecutionIdentitySha256,
       })
     : null;
 }
 
 type StoredRecord = Readonly<{
   schema: typeof DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA;
-  contractRevision: 4;
+  contractRevision: 5;
   operationId: string;
   sequence: number;
   stage: DockerDesktopRepairStage;
@@ -182,8 +180,7 @@ type StoredRecord = Readonly<{
   dockerPolicySha256: string;
   crddManifestHash: string;
   crddReleaseSequence: number;
-  crddTree: string;
-  packageContentRootSha256: string;
+  runtimeExecutionIdentitySha256: string;
   ledger: DockerDesktopRepairLedgerSnapshot;
 }>;
 
@@ -458,8 +455,7 @@ function validStoredRecord(
       "dockerPolicySha256",
       "crddManifestHash",
       "crddReleaseSequence",
-      "crddTree",
-      "packageContentRootSha256",
+      "runtimeExecutionIdentitySha256",
       "ledger",
     ])
   )
@@ -469,7 +465,7 @@ function validStoredRecord(
   const stage = Reflect.get(value, "stage");
   return (
     Reflect.get(value, "schema") === DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA &&
-    Reflect.get(value, "contractRevision") === 4 &&
+    Reflect.get(value, "contractRevision") === 5 &&
     operationId(id) &&
     Number.isSafeInteger(sequence) &&
     Number(sequence) >= 0 &&
@@ -490,9 +486,8 @@ function validStoredRecord(
     Reflect.get(value, "crddManifestHash") === boundary.crddManifestHash &&
     Reflect.get(value, "crddReleaseSequence") ===
       boundary.crddReleaseSequence &&
-    Reflect.get(value, "crddTree") === boundary.crddTree &&
-    Reflect.get(value, "packageContentRootSha256") ===
-      boundary.packageContentRootSha256 &&
+    Reflect.get(value, "runtimeExecutionIdentitySha256") ===
+      boundary.runtimeExecutionIdentitySha256 &&
     validLedger(Reflect.get(value, "ledger"))
   );
 }
@@ -1337,8 +1332,8 @@ function releaseMatchesBoundary(
   return (
     release.manifestHash === boundary.crddManifestHash &&
     release.releaseSequence === boundary.crddReleaseSequence &&
-    release.crddTree === boundary.crddTree &&
-    release.packageContentRootSha256 === boundary.packageContentRootSha256
+    release.runtimeExecutionIdentitySha256 ===
+      boundary.runtimeExecutionIdentitySha256
   );
 }
 
@@ -1362,8 +1357,7 @@ function historicalBoundary(
     ...boundary,
     crddManifestHash: release.manifestHash,
     crddReleaseSequence: release.releaseSequence,
-    crddTree: release.crddTree,
-    packageContentRootSha256: release.packageContentRootSha256,
+    runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
   });
 }
 
@@ -1920,7 +1914,7 @@ export function persistDockerDesktopRepairStage(
     }
     const record: StoredRecord = Object.freeze({
       schema: DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA,
-      contractRevision: 4,
+      contractRevision: 5,
       operationId: operation.operationId,
       sequence,
       stage,
@@ -1934,8 +1928,7 @@ export function persistDockerDesktopRepairStage(
       dockerPolicySha256: boundary.dockerPolicySha256,
       crddManifestHash: boundary.crddManifestHash,
       crddReleaseSequence: boundary.crddReleaseSequence,
-      crddTree: boundary.crddTree,
-      packageContentRootSha256: boundary.packageContentRootSha256,
+      runtimeExecutionIdentitySha256: boundary.runtimeExecutionIdentitySha256,
       ledger,
     });
     const serialized = Buffer.from(`${JSON.stringify(record)}\n`, "utf8");

@@ -134,8 +134,7 @@ const boundary: PreparedBoundary = Object.freeze({
   dockerPolicySha256: policy.policySha256,
   crddManifestHash: "7".repeat(64),
   crddReleaseSequence: 1,
-  crddTree: "8".repeat(40),
-  packageContentRootSha256: "9".repeat(64),
+  runtimeExecutionIdentitySha256: "9".repeat(64),
   localAppData: "C:\\local",
   runDirectory: "C:\\local\\Docker\\run",
   socketPath: "C:\\local\\Docker\\run\\dockerInference",
@@ -1272,7 +1271,7 @@ test("repairはhelper解放後のpackage世代変更をpending成功へ投影し
   let wasRenamed = false;
   const changedBoundary = Object.freeze({
     ...boundary,
-    packageContentRootSha256: "b".repeat(64),
+    runtimeExecutionIdentitySha256: "b".repeat(64),
   });
   const repairHelper = Object.freeze({
     ...session(),
@@ -2956,7 +2955,7 @@ test("terminal再表示はstale exact identityと解放後package世代を再確
   let observations = 0;
   const changedBoundary = Object.freeze({
     ...boundary,
-    packageContentRootSha256: "a".repeat(64),
+    runtimeExecutionIdentitySha256: "a".repeat(64),
   });
   const changed = fixture({
     prepareBoundary: () => {

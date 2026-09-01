@@ -2000,7 +2000,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   const developmentE2e = packageDocument.scripts?.["development-e2e:verify"];
   assert.equal(
     developmentE2e,
-    "node --test ./tests/coordinator-launch.contract.test.ts ./tests/verification-result-record.contract.test.ts ./tests/interaction-boundary-regression.contract.test.ts ./tests/claude-execution-plan.contract.test.ts ./tests/claude-docker-runtime-adapter.contract.test.ts ./tests/codex-execution-plan.contract.test.ts ./tests/codex-docker-runtime-adapter.contract.test.ts ./tests/coordinator-task-runtime.contract.test.ts ./tests/coordinator-task-process.integration.test.ts ./tests/signed-general-task-verification.contract.test.ts ./tests/signed-route-matrix-verification.contract.test.ts ./tests/signed-recovery-matrix-verification.contract.test.ts",
+    "node --test --test-concurrency=1 ./tests/coordinator-launch.contract.test.ts ./tests/verification-result-record.contract.test.ts ./tests/interaction-boundary-regression.contract.test.ts ./tests/claude-execution-plan.contract.test.ts ./tests/claude-docker-runtime-adapter.contract.test.ts ./tests/codex-execution-plan.contract.test.ts ./tests/codex-docker-runtime-adapter.contract.test.ts ./tests/coordinator-task-runtime.contract.test.ts ./tests/coordinator-task-process.integration.test.ts ./tests/signed-general-task-verification.contract.test.ts ./tests/signed-route-matrix-verification.contract.test.ts ./tests/signed-recovery-matrix-verification.contract.test.ts",
   );
   assert.equal(
     /sign-release|release-key|passphrase/u.test(developmentE2e),
@@ -2176,7 +2176,8 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
     ),
     false,
   );
-  assert.match(readme, /--runtime-root "<absolute-path>"/u);
+  assert.equal(readme.includes("--runtime-root"), false);
+  assert.match(readme, /coordinator\.ts" capabilities --json/u);
   assert.match(
     readme,
     /"<signed-distribution-root>\\40_Develop\\coordinator\\scripts\\verify-signed-general-task\.ts"/u,

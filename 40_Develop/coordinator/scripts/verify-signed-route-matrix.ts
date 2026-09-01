@@ -28,7 +28,7 @@ import {
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
-export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 11;
+export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 12;
 
 const MAX_SAFE_ROUTE_ATTEMPTS = 3;
 const SAFE_RETRYABLE_ROUTE_REASONS = new Set([
@@ -161,6 +161,8 @@ function validReleaseIdentity(result: Readonly<Record<string, unknown>>) {
     SHA256.test(result.manifestHash) &&
     typeof result.packageContentRootSha256 === "string" &&
     SHA256.test(result.packageContentRootSha256) &&
+    typeof result.runtimeExecutionIdentitySha256 === "string" &&
+    SHA256.test(result.runtimeExecutionIdentitySha256) &&
     isCanonicalCrddVersion(result.crddVersion) &&
     Number.isSafeInteger(result.releaseSequence) &&
     Number(result.releaseSequence) >= 1 &&
@@ -173,11 +175,23 @@ function releaseIdentity(result: Readonly<Record<string, unknown>>) {
   return JSON.stringify([
     result.manifestHash,
     result.packageContentRootSha256,
+    result.runtimeExecutionIdentitySha256,
     result.crddVersion,
     result.releaseSequence,
     result.crddCommit,
     result.crddTree,
   ]);
+}
+
+function validExecutionIdentity(result: Readonly<Record<string, unknown>>) {
+  return (
+    isSupportedCrddRuntimeGitObjectId(result.executionCommit) &&
+    isSupportedCrddRuntimeGitObjectId(result.executionTree)
+  );
+}
+
+function executionIdentity(result: Readonly<Record<string, unknown>>) {
+  return JSON.stringify([result.executionCommit, result.executionTree]);
 }
 
 function ensureRuntimeProcessPoisoned() {
@@ -343,6 +357,7 @@ export function isExactSignedRouteResult(
     result.reviewerIndependence === "provider_independent" &&
     result.externalSendAuthorizationMode === expectedAuthorizationMode &&
     validReleaseIdentity(result) &&
+    validExecutionIdentity(result) &&
     exactChangedPath(result.changedPaths) &&
     typeof result.remediationPerformed === "boolean" &&
     result.exactCandidateContentVerified === true &&
@@ -407,6 +422,7 @@ export async function runSignedRouteMatrixVerification(
   let verifiedRouteCount = 0;
   let retryableRouteAttemptCount = 0;
   let baselineReleaseIdentity: string | null = null;
+  let baselineExecutionIdentity: string | null = null;
   let initialConsentAuthorizationMode:
     | "interactive_initial_consent"
     | "reused_initial_consent"
@@ -415,6 +431,7 @@ export async function runSignedRouteMatrixVerification(
   let validationFailure:
     | "route_nonconforming"
     | "release_identity_mismatch"
+    | "execution_identity_mismatch"
     | "runner_exception"
     | null = null;
   routeLoop: for (const [index, route] of ROUTES.entries()) {
@@ -449,6 +466,27 @@ export async function runSignedRouteMatrixVerification(
           index === 0 && attempt === 1 && initialConsentAuthorizationMode
             ? initialConsentAuthorizationMode
             : "reused_initial_consent";
+        if (!validReleaseIdentity(result) || !validExecutionIdentity(result)) {
+          failedRouteProfile = route;
+          validationFailure = "route_nonconforming";
+          break routeLoop;
+        }
+        const currentReleaseIdentity = releaseIdentity(result);
+        if (baselineReleaseIdentity === null)
+          baselineReleaseIdentity = currentReleaseIdentity;
+        else if (currentReleaseIdentity !== baselineReleaseIdentity) {
+          failedRouteProfile = route;
+          validationFailure = "release_identity_mismatch";
+          break routeLoop;
+        }
+        const currentExecutionIdentity = executionIdentity(result);
+        if (baselineExecutionIdentity === null)
+          baselineExecutionIdentity = currentExecutionIdentity;
+        else if (currentExecutionIdentity !== baselineExecutionIdentity) {
+          failedRouteProfile = route;
+          validationFailure = "execution_identity_mismatch";
+          break routeLoop;
+        }
         const isExact = isExactSignedRouteResult(
           route,
           result,
@@ -464,14 +502,6 @@ export async function runSignedRouteMatrixVerification(
           }
           failedRouteProfile = route;
           validationFailure = "route_nonconforming";
-          break routeLoop;
-        }
-        const currentReleaseIdentity = releaseIdentity(result);
-        if (baselineReleaseIdentity === null)
-          baselineReleaseIdentity = currentReleaseIdentity;
-        else if (currentReleaseIdentity !== baselineReleaseIdentity) {
-          failedRouteProfile = route;
-          validationFailure = "release_identity_mismatch";
           break routeLoop;
         }
         verifiedRouteCount += 1;
@@ -548,11 +578,14 @@ export function describeSignedRouteMatrixVerificationContract() {
     boundedRemediation:
       "each_route_accepts_zero_or_one_runtime_owned_remediation_only_after_final_independent_approval",
     releaseIdentity:
-      "all_routes_same_manifest_package_version_sequence_commit_and_tree",
+      "all_attempts_same_manifest_package_version_sequence_commit_and_tree",
+    executionIdentity:
+      "all_attempts_same_work_repository_execution_commit_and_tree",
     failureClassification: Object.freeze([
       "arguments_invalid",
       "route_nonconforming",
       "release_identity_mismatch",
+      "execution_identity_mismatch",
       "runner_exception",
       "process_restart_required",
     ]),

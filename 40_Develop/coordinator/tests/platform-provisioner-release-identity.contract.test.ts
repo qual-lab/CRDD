@@ -29,6 +29,7 @@ function tree(entries: ReadonlyArray<readonly [string, string, Buffer]>) {
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-release-tree-"));
+  fs.mkdirSync(path.join(root, ".crdd"));
   fs.mkdirSync(path.join(root, "90_Release"));
   fs.mkdirSync(
     path.join(root, "template", "tools", "coordinator", "windows-x64"),
@@ -39,9 +40,13 @@ function fixture() {
   const beta = Buffer.from("beta\n", "utf8");
   const release = Buffer.from("release\n", "utf8");
   const platformAccess = Buffer.from("binary", "utf8");
-  const coordinator = Buffer.from("native-supervisor", "utf8");
+  const externalSendPolicy = Buffer.from('{"policy":true}\n', "utf8");
   fs.writeFileSync(path.join(root, ".git"), "gitdir: fixed-metadata\n");
   fs.writeFileSync(path.join(root, "alpha.txt"), alpha);
+  fs.writeFileSync(
+    path.join(root, ".crdd", "external-send-policy.json"),
+    externalSendPolicy,
+  );
   fs.writeFileSync(path.join(root, "nested", "beta.txt"), beta);
   fs.writeFileSync(path.join(root, "90_Release", "readme.txt"), release);
   fs.writeFileSync(
@@ -65,19 +70,7 @@ function fixture() {
     ),
     platformAccess,
   );
-  fs.writeFileSync(
-    path.join(
-      root,
-      "template",
-      "tools",
-      "coordinator",
-      "windows-x64",
-      "coordinator.exe",
-    ),
-    coordinator,
-  );
   const toolTargetTree = tree([
-    ["100644", "coordinator.exe", objectId("blob", coordinator)],
     ["100644", "crdd-platform-access.exe", objectId("blob", platformAccess)],
   ]);
   const coordinatorToolTree = tree([["40000", "windows-x64", toolTargetTree]]);
@@ -87,7 +80,15 @@ function fixture() {
     ["100644", "readme.txt", objectId("blob", release)],
   ]);
   const nestedTree = tree([["100644", "beta.txt", objectId("blob", beta)]]);
+  const crddMetadataTree = tree([
+    [
+      "100644",
+      "external-send-policy.json",
+      objectId("blob", externalSendPolicy),
+    ],
+  ]);
   const rootTree = tree([
+    ["40000", ".crdd", crddMetadataTree],
     ["40000", "90_Release", releaseTree],
     ["100644", "alpha.txt", objectId("blob", alpha)],
     ["40000", "nested", nestedTree],
@@ -96,7 +97,7 @@ function fixture() {
   return { root, rootTree };
 }
 
-test("配布Root全体をGit Treeへ再計算し後置manifestとGit metadataだけを除外する", () => {
+test("配布Root全体をGit Treeへ再計算し後置manifestと管理metadataだけを除外する", () => {
   const value = fixture();
   try {
     const result = inspectPlatformProvisionerReleaseIdentityCandidate(
@@ -108,13 +109,40 @@ test("配布Root全体をGit Treeへ再計算し後置manifestとGit metadataだ
     assert.equal(result.distributionFileCount, 5);
     assert.equal(result.manifestExcludedFromSignedGitTree, true);
     assert.equal(result.platformAccessExecutableIncludedInSignedGitTree, true);
-    assert.equal(
-      result.nativeProvisionSupervisorExecutableIncludedInSignedGitTree,
-      true,
-    );
     assert.equal(result.gitMetadataExcludedFromSignedGitTree, true);
+    assert.equal(result.trackedRuntimeSettingIncludedInSignedGitTree, true);
     assert.equal(result.releaseIdentityRuntimeOwned, false);
     assert.equal("distributionRoot" in result, false);
+  } finally {
+    fs.rmSync(value.root, { recursive: true, force: true });
+  }
+});
+
+test("Root .crddの追跡設定だけを含めRuntime状態を除外する", () => {
+  const value = fixture();
+  try {
+    fs.writeFileSync(
+      path.join(value.root, ".crdd", "runtime-state.json"),
+      "{}\n",
+    );
+    const result = inspectPlatformProvisionerReleaseIdentityCandidate(
+      value.root,
+      value.rootTree,
+    );
+    assert.equal(result.status, "candidate");
+    assert.equal(result.runtimeMetadataExcludedFromSignedGitTree, true);
+
+    fs.renameSync(
+      path.join(value.root, ".crdd"),
+      path.join(value.root, ".crdd-copy"),
+    );
+    assert.equal(
+      inspectPlatformProvisionerReleaseIdentityCandidate(
+        value.root,
+        value.rootTree,
+      ).status,
+      "blocked",
+    );
   } finally {
     fs.rmSync(value.root, { recursive: true, force: true });
   }
@@ -151,28 +179,78 @@ test("配布fileの変更、追加および不正Treeを拒否する", () => {
   );
 });
 
-test("固定Native成果物の欠落を署名対象Tree成立と誤認しない", () => {
-  for (const relativePath of [
-    "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
-    "template/tools/coordinator/windows-x64/coordinator.exe",
-  ]) {
-    const value = fixture();
-    try {
-      fs.rmSync(path.join(value.root, ...relativePath.split("/")));
-      const result = inspectPlatformProvisionerReleaseIdentityCandidate(
+test("配布TreeはRepository textのLF／CRLFを同一視しNative byte差を拒否する", () => {
+  const value = fixture();
+  try {
+    fs.writeFileSync(path.join(value.root, "alpha.txt"), "alpha\r\n");
+    assert.equal(
+      inspectPlatformProvisionerReleaseIdentityCandidate(
         value.root,
         value.rootTree,
-      );
-      assert.equal(result.status, "blocked");
-      assert.equal(
-        relativePath.includes("platform-access")
-          ? result.platformAccessExecutableIncludedInSignedGitTree
-          : result.nativeProvisionSupervisorExecutableIncludedInSignedGitTree,
-        false,
-      );
-    } finally {
-      fs.rmSync(value.root, { recursive: true, force: true });
-    }
+      ).status,
+      "candidate",
+    );
+    fs.writeFileSync(
+      path.join(
+        value.root,
+        "template",
+        "tools",
+        "coordinator",
+        "windows-x64",
+        "crdd-platform-access.exe",
+      ),
+      "binary\r\n",
+    );
+    assert.equal(
+      inspectPlatformProvisionerReleaseIdentityCandidate(
+        value.root,
+        value.rootTree,
+      ).status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(value.root, { recursive: true, force: true });
+  }
+});
+
+test("配布TreeはNULを含む非exe binaryを改行正規化しない", () => {
+  const value = fixture();
+  try {
+    const binaryPath = path.join(value.root, "binary.dat");
+    fs.writeFileSync(binaryPath, Buffer.from([0x00, 0x0d, 0x0a]));
+    assert.equal(
+      inspectPlatformProvisionerReleaseIdentityCandidate(
+        value.root,
+        value.rootTree,
+      ).status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(value.root, { recursive: true, force: true });
+  }
+});
+
+test("固定Platform Access成果物の欠落を署名対象Tree成立と誤認しない", () => {
+  const value = fixture();
+  try {
+    fs.rmSync(
+      path.join(
+        value.root,
+        "template",
+        "tools",
+        "coordinator",
+        "windows-x64",
+        "crdd-platform-access.exe",
+      ),
+    );
+    const result = inspectPlatformProvisionerReleaseIdentityCandidate(
+      value.root,
+      value.rootTree,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.platformAccessExecutableIncludedInSignedGitTree, false);
+  } finally {
+    fs.rmSync(value.root, { recursive: true, force: true });
   }
 });
 
@@ -189,12 +267,12 @@ test("Release Identity contractはTree一致をEffectおよびrollbackから分�
     "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
   );
   assert.equal(
-    contract.nativeProvisionSupervisorExecutableIncludedInSignedGitTree,
-    "template/tools/coordinator/windows-x64/coordinator.exe",
-  );
-  assert.equal(
     contract.signedCrddTreeComparison,
     "implemented_candidate_non_authoritative",
+  );
+  assert.equal(
+    contract.runtimeMetadataInDistribution,
+    "tracked_external_send_policy_included_and_other_exact_root_crdd_children_excluded",
   );
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

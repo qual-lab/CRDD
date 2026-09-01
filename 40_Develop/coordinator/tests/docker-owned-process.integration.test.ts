@@ -241,7 +241,7 @@ test(
 );
 
 test(
-  "本番共通process: 待機期限は取消ではなく、重複取消後に実子孫とcloseを確認",
+  "Windows Process Gate: 本番共通process: 待機期限は取消ではなく、重複取消後に実子孫とcloseを確認",
   windowsOnly,
   async (t) => {
     const fixture = createOwnedProcessTreeFixture();
@@ -264,7 +264,7 @@ test(
 
 for (const mode of ["stdout-limit", "stderr-limit"]) {
   test(
-    `本番共通process: ${mode}は実processを終了し出力保持を制限`,
+    `Windows Process Gate: 本番共通process: ${mode}は実processを終了し出力保持を制限`,
     windowsOnly,
     async (t) => {
       const handle = startOwnedProcess(

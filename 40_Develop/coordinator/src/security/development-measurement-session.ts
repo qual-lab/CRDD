@@ -40,6 +40,7 @@ const RELEASE_KEYS = new Set([
   "crddCommit",
   "crddTree",
   "packageContentRootSha256",
+  "runtimeExecutionIdentitySha256",
 ]);
 const SHA256 = /^[a-f0-9]{64}$/u;
 const COMMIT = /^[a-f0-9]{40}$/u;

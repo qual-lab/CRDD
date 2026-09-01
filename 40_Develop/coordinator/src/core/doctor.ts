@@ -4,7 +4,6 @@ import { types as utilTypes } from "node:util";
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.ts";
 import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.ts";
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.ts";
-import { describeAuthorityRootContract } from "../security/authority-root-profile.ts";
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.ts";
 import {
   DOCKER_ISOLATION_PROFILE,
@@ -21,26 +20,12 @@ import {
   classifyOwnedCoordinatorOperationCreationFailure,
   createRuntimeOwnedCoordinatorOperation,
 } from "../security/coordinator-operation-creation-internal.ts";
-import { describeGitLocalExcludeContract } from "../security/git-local-exclude.ts";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../security/plain-data-snapshot.ts";
+import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
 import { describeProviderIsolationContract } from "../security/provider-isolation-profile.ts";
 import { describeProviderLifecycleContract } from "../security/provider-lifecycle.ts";
 import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.ts";
 import { inspectRepositoryRevisionCandidate } from "../security/repository-operation-runtime.ts";
 import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.ts";
-import { describeRuntimeActivationContract } from "../security/runtime-activation-record.ts";
-import {
-  describeRuntimeRootPathIdentityContract,
-  inspectPosixRuntimeRootModePrecheckCandidate,
-  inspectRuntimeRootPathIdentityCandidate,
-} from "../security/runtime-root-path-identity.ts";
-import {
-  describeRuntimeRootContract,
-  selectRuntimeRootCandidate,
-} from "../security/runtime-root-profile.ts";
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
 
 export const CHECK_STATUS = Object.freeze([
@@ -124,15 +109,9 @@ type DiscoveryResult = Readonly<{
   formats: readonly string[];
   reason: string | null;
 }>;
-type RuntimeRootRequest = Readonly<{
-  cliOverride: string | null;
-  environmentOverride: string | null;
-  activationIntent: "explicit_enable_request";
-}>;
 type DoctorOptions = Readonly<{
   activeIsolation: boolean;
   cwd: string;
-  runtimeRootRequest: RuntimeRootRequest | null;
 }>;
 type DiscoveryOptions = Readonly<{
   platform?: NodeJS.Platform;
@@ -168,7 +147,6 @@ export const REQUIRED_CHECK_IDS = Object.freeze([
   "runtime.node",
   "repository.git",
   "repository.identity",
-  "runtime.root",
   "operation.directories",
   "execution.filesystem",
   "execution.credential_environment",
@@ -413,27 +391,7 @@ function reportableFilesystemPolicy(
   };
 }
 
-const DOCTOR_OPTION_KEYS = new Set([
-  "activeIsolation",
-  "cwd",
-  "runtimeRootRequest",
-]);
-const RUNTIME_ROOT_REQUEST_KEYS = new Set([
-  "cliOverride",
-  "environmentOverride",
-  "activationIntent",
-]);
-
-function validRuntimeRootOverride(value: unknown): value is string | null {
-  return (
-    value === null ||
-    (typeof value === "string" &&
-      value.length > 0 &&
-      value.length <= 4_096 &&
-      !/[\u0000-\u001f\u007f]/u.test(value) &&
-      path.isAbsolute(value))
-  );
-}
+const DOCTOR_OPTION_KEYS = new Set(["activeIsolation", "cwd"]);
 
 function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
   try {
@@ -471,7 +429,6 @@ function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
     };
     const isIsolationActive = value("activeIsolation", false);
     const cwd = value("cwd", process.cwd());
-    const rawRuntimeRootRequest = value("runtimeRootRequest", null);
     if (
       typeof isIsolationActive !== "boolean" ||
       typeof cwd !== "string" ||
@@ -480,30 +437,9 @@ function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
     ) {
       throw new Error("doctor_options_invalid");
     }
-    let runtimeRootRequest: RuntimeRootRequest | null = null;
-    if (rawRuntimeRootRequest !== null) {
-      const snapshot = snapshotPlainRecord(
-        rawRuntimeRootRequest,
-        RUNTIME_ROOT_REQUEST_KEYS,
-      );
-      if (
-        !snapshot ||
-        !validRuntimeRootOverride(snapshot.cliOverride) ||
-        !validRuntimeRootOverride(snapshot.environmentOverride) ||
-        snapshot.activationIntent !== "explicit_enable_request"
-      ) {
-        throw new Error("doctor_options_invalid");
-      }
-      runtimeRootRequest = Object.freeze({
-        cliOverride: snapshot.cliOverride,
-        environmentOverride: snapshot.environmentOverride,
-        activationIntent: snapshot.activationIntent,
-      });
-    }
     return Object.freeze({
       activeIsolation: isIsolationActive,
       cwd,
-      runtimeRootRequest,
     });
   } catch (error) {
     if (errorMessage(error) === "doctor_options_invalid") throw error;
@@ -540,28 +476,6 @@ export function runDoctor(options: unknown = {}) {
       claude: discoverCommand("claude"),
     });
 
-    const runtimeRootInput = {
-      repositoryRoot: cwd,
-      cliOverride: normalizedOptions.runtimeRootRequest?.cliOverride ?? null,
-      environmentOverride:
-        normalizedOptions.runtimeRootRequest?.environmentOverride ?? null,
-      activationIntent:
-        normalizedOptions.runtimeRootRequest?.activationIntent ?? null,
-    };
-    const runtimeRootEvaluation =
-      normalizedOptions.runtimeRootRequest === null
-        ? selectRuntimeRootCandidate(runtimeRootInput)
-        : inspectRuntimeRootPathIdentityCandidate(runtimeRootInput);
-    const runtimeRootProtectionPrecheck =
-      normalizedOptions.runtimeRootRequest === null
-        ? Object.freeze({
-            status: "not_evaluated",
-            reason: "runtime_feature_not_enabled",
-            summary: null,
-            filesystemEffectIssued: false,
-            runtimeCapabilityIssued: false,
-          })
-        : inspectPosixRuntimeRootModePrecheckCandidate(runtimeRootInput);
     const isolation = isIsolationActive
       ? runDockerIsolationProbe(owned)
       : Object.freeze({
@@ -620,13 +534,6 @@ export function runDoctor(options: unknown = {}) {
         "repository.identity",
         repository.identityAvailable ? "confirmed" : "blocked",
         repository.identityAvailable ? null : "repository_identity_unavailable",
-      ),
-      check(
-        "runtime.root",
-        "blocked",
-        runtimeRootEvaluation.status === "candidate"
-          ? "runtime_root_activation_record_not_implemented"
-          : runtimeRootEvaluation.reason,
       ),
       check(
         "operation.directories",
@@ -691,14 +598,8 @@ export function runDoctor(options: unknown = {}) {
         enforcement: isolation.status,
         profile: isIsolationActive ? DOCKER_ISOLATION_PROFILE : null,
       },
-      runtimeRoot: describeRuntimeRootContract(),
-      runtimeRootPathIdentity: describeRuntimeRootPathIdentityContract(),
-      runtimeActivation: describeRuntimeActivationContract(),
       rootProtectionPolicy: describeRootProtectionPolicyContract(),
-      runtimeRootEvaluation,
-      runtimeRootProtectionPrecheck,
       repositoryGitLayout: describeRepositoryGitLayoutContract(),
-      gitLocalExclude: describeGitLocalExcludeContract(),
       providerLifecycle: describeProviderLifecycleContract(),
       fakeProviderLifecycle: isolation.fakeProviderLifecycle,
       egress: {
@@ -711,13 +612,9 @@ export function runDoctor(options: unknown = {}) {
         authorityVerifier: describeAuthorityGrantVerifierContract(),
         authorityTrustLoader: describeAuthorityTrustLoaderContract(),
         authorityFileBundle: describeAuthorityFileBundleContract(),
-        authorityRoot: describeAuthorityRootContract(),
         authorityPrelaunchVerifier:
           describeAuthorityPrelaunchVerifierContract(),
         proxyTopology: describeEgressProxyTopology(),
-        activation: "blocked",
-        activationReason:
-          "runtime_file_bundle_path_acl_activation_provider_launch_integration_proxy_and_provider_home_mount_grant_verification_not_implemented",
       },
       recovery: shouldRetainOperationDirectories
         ? {

@@ -1,7 +1,7 @@
 # 変更トレース: 現在の判断集合と判断支援の圧縮
 
 変更ID: `CHG-000012`
-状態: `Integrated — Pending Release`（PR #32でmain統合済み・公開準備中）
+状態: `Released`（v0.18.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 対象系列: v0.18.x

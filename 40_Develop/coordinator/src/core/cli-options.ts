@@ -1,16 +1,7 @@
-import path from "node:path";
-
 import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
 
 const MAXIMUM_ARGUMENTS = 16;
 const MAXIMUM_ARGUMENT_LENGTH = 4_096;
-
-type PathCommandOptions = Readonly<{
-  command: "activate" | "disable";
-  allowAuthorityRoot: boolean;
-  runtimeEnvironmentRoot: unknown;
-  authorityEnvironmentRoot: unknown;
-}>;
 
 function response<const S extends string, T>(
   status: S,
@@ -48,209 +39,6 @@ function validToken(value: unknown): value is string {
     value.length > 0 &&
     value.length <= MAXIMUM_ARGUMENT_LENGTH &&
     !/[\u0000-\u001f\u007f]/u.test(value)
-  );
-}
-
-function validAbsolutePath(value: unknown): value is string {
-  return validToken(value) && path.isAbsolute(value);
-}
-
-function parsePathCommandArguments(
-  rawArguments: unknown,
-  options: PathCommandOptions,
-) {
-  const snapshot = snapshotPlainArray<string>(rawArguments, MAXIMUM_ARGUMENTS);
-  if (snapshot.status !== "ok") {
-    return commandResponse(
-      "blocked",
-      `${options.command}_arguments_invalid`,
-      null,
-      false,
-      true,
-    );
-  }
-  const argumentValues = snapshot.value;
-  const isJsonRequested = argumentValues.includes("--json");
-  if (argumentValues.some((value) => !validToken(value))) {
-    return commandResponse(
-      "blocked",
-      `${options.command}_arguments_invalid`,
-      null,
-      isJsonRequested,
-      true,
-    );
-  }
-  const allowed = new Set([
-    "--json",
-    "--runtime-root",
-    ...(options.allowAuthorityRoot ? ["--authority-root"] : []),
-  ]);
-  const seen = new Set();
-  let shouldOutputJson = false;
-  let runtimeCliOverride: string | null = null;
-  let authorityCliOverride: string | null = null;
-
-  for (let index = 0; index < argumentValues.length; index += 1) {
-    const token = argumentValues[index];
-    if (token === undefined || !allowed.has(token) || seen.has(token)) {
-      return commandResponse(
-        "blocked",
-        `${options.command}_arguments_invalid`,
-        null,
-        isJsonRequested,
-        true,
-      );
-    }
-    seen.add(token);
-    if (token === "--json") {
-      shouldOutputJson = true;
-      continue;
-    }
-    const value = argumentValues[index + 1];
-    if (!validAbsolutePath(value) || value.startsWith("--")) {
-      return commandResponse(
-        "blocked",
-        `${options.command}_arguments_invalid`,
-        null,
-        isJsonRequested,
-        true,
-      );
-    }
-    index += 1;
-    if (token === "--runtime-root") runtimeCliOverride = value;
-    else authorityCliOverride = value;
-  }
-
-  const runtimeEnvironmentOverride =
-    runtimeCliOverride !== null || options.runtimeEnvironmentRoot === undefined
-      ? null
-      : options.runtimeEnvironmentRoot;
-  if (
-    runtimeEnvironmentOverride !== null &&
-    !validAbsolutePath(runtimeEnvironmentOverride)
-  ) {
-    return commandResponse(
-      "blocked",
-      "runtime_root_environment_invalid",
-      null,
-      isJsonRequested,
-      false,
-    );
-  }
-  let authorityEnvironmentOverride: string | null = null;
-  if (options.allowAuthorityRoot) {
-    const authorityEnvironmentCandidate =
-      authorityCliOverride !== null ||
-      options.authorityEnvironmentRoot === undefined
-        ? null
-        : options.authorityEnvironmentRoot;
-    if (authorityEnvironmentCandidate !== null) {
-      if (!validAbsolutePath(authorityEnvironmentCandidate)) {
-        return commandResponse(
-          "blocked",
-          "authority_root_environment_invalid",
-          null,
-          isJsonRequested,
-          false,
-        );
-      }
-      authorityEnvironmentOverride = authorityEnvironmentCandidate;
-    }
-    if (
-      authorityCliOverride === null &&
-      authorityEnvironmentOverride === null
-    ) {
-      return commandResponse(
-        "blocked",
-        "authority_root_explicit_path_required",
-        null,
-        isJsonRequested,
-        false,
-      );
-    }
-  }
-
-  return commandResponse(
-    "ok",
-    null,
-    Object.freeze({
-      json: shouldOutputJson,
-      runtimeRootRequest: Object.freeze({
-        cliOverride: runtimeCliOverride,
-        environmentOverride: runtimeEnvironmentOverride,
-        activationIntent: "explicit_enable_request",
-      }),
-      authorityRootRequest: options.allowAuthorityRoot
-        ? Object.freeze({
-            cliOverride: authorityCliOverride,
-            environmentOverride: authorityEnvironmentOverride,
-            activationIntent: "explicit_activate_request",
-          })
-        : null,
-    }),
-    isJsonRequested,
-    false,
-  );
-}
-
-export function parseActivateArguments(
-  rawArguments: unknown,
-  runtimeEnvironmentRoot: unknown,
-  authorityEnvironmentRoot: unknown,
-) {
-  return parsePathCommandArguments(rawArguments, {
-    command: "activate",
-    allowAuthorityRoot: true,
-    runtimeEnvironmentRoot,
-    authorityEnvironmentRoot,
-  });
-}
-
-export function parseDisableArguments(
-  rawArguments: unknown,
-  runtimeEnvironmentRoot: unknown,
-) {
-  return parsePathCommandArguments(rawArguments, {
-    command: "disable",
-    allowAuthorityRoot: false,
-    runtimeEnvironmentRoot,
-    authorityEnvironmentRoot: undefined,
-  });
-}
-
-export function parseProvisionArguments(rawArguments: unknown) {
-  const snapshot = snapshotPlainArray<string>(rawArguments, MAXIMUM_ARGUMENTS);
-  if (
-    snapshot.status !== "ok" ||
-    snapshot.value.some((value) => !validToken(value))
-  ) {
-    return commandResponse(
-      "blocked",
-      "provision_arguments_invalid",
-      null,
-      false,
-      true,
-    );
-  }
-  const isJsonRequested = snapshot.value.includes("--json");
-  if (
-    snapshot.value.length > 1 ||
-    (snapshot.value.length === 1 && snapshot.value[0] !== "--json")
-  ) {
-    return commandResponse(
-      "blocked",
-      "provision_arguments_invalid",
-      null,
-      isJsonRequested,
-      true,
-    );
-  }
-  return commandResponse(
-    "ok",
-    null,
-    Object.freeze({ json: isJsonRequested }),
-    isJsonRequested,
-    false,
   );
 }
 
@@ -380,7 +168,7 @@ export function parseCandidateArguments(rawArguments: unknown) {
 
 export function parseDoctorArguments(
   rawArguments: unknown,
-  environmentRoot: unknown,
+  _environmentRoot: unknown,
 ) {
   const snapshot = snapshotPlainArray<string>(rawArguments, MAXIMUM_ARGUMENTS);
   if (
@@ -399,8 +187,6 @@ export function parseDoctorArguments(
   let closeDockerDesktopRepairId: string | null = null;
   let adoptDockerDesktopRepairId: string | null = null;
   let historicalReleaseRoot: string | null = null;
-  let shouldEnableRuntime = false;
-  let cliOverride: string | null = null;
 
   for (let index = 0; index < argumentValues.length; index += 1) {
     const token = argumentValues[index];
@@ -414,8 +200,6 @@ export function parseDoctorArguments(
         "--close-docker-desktop-runtime-repair",
         "--adopt-docker-desktop-repair",
         "--from-release",
-        "--enable-runtime",
-        "--runtime-root",
       ].includes(token) ||
       seen.has(token)
     ) {
@@ -431,7 +215,6 @@ export function parseDoctorArguments(
     else if (token === "--isolation") isActiveIsolation = true;
     else if (token === "--repair-docker-desktop-runtime")
       shouldRepairDockerDesktopRuntime = true;
-    else if (token === "--enable-runtime") shouldEnableRuntime = true;
     else {
       const value = argumentValues[index + 1];
       if (!validToken(value) || value.startsWith("--")) {
@@ -464,7 +247,6 @@ export function parseDoctorArguments(
           );
         adoptDockerDesktopRepairId = value;
       } else if (token === "--from-release") historicalReleaseRoot = value;
-      else cliOverride = value;
     }
   }
 
@@ -475,9 +257,7 @@ export function parseDoctorArguments(
       (isActiveIsolation ||
         recoveryId !== null ||
         shouldRepairDockerDesktopRuntime ||
-        closeDockerDesktopRepairId !== null ||
-        shouldEnableRuntime ||
-        cliOverride !== null))
+        closeDockerDesktopRepairId !== null))
   )
     return response(
       "blocked",
@@ -485,21 +265,11 @@ export function parseDoctorArguments(
       null,
       isJsonRequested,
     );
-  if (cliOverride !== null && !shouldEnableRuntime) {
-    return response(
-      "blocked",
-      "runtime_root_requires_enable_request",
-      null,
-      isJsonRequested,
-    );
-  }
   if (
     recoveryId !== null &&
     (isActiveIsolation ||
       shouldRepairDockerDesktopRuntime ||
-      closeDockerDesktopRepairId !== null ||
-      shouldEnableRuntime ||
-      cliOverride !== null)
+      closeDockerDesktopRepairId !== null)
   ) {
     return response(
       "blocked",
@@ -510,10 +280,7 @@ export function parseDoctorArguments(
   }
   if (
     shouldRepairDockerDesktopRuntime &&
-    (isActiveIsolation ||
-      closeDockerDesktopRepairId !== null ||
-      shouldEnableRuntime ||
-      cliOverride !== null)
+    (isActiveIsolation || closeDockerDesktopRepairId !== null)
   ) {
     return response(
       "blocked",
@@ -522,10 +289,7 @@ export function parseDoctorArguments(
       isJsonRequested,
     );
   }
-  if (
-    closeDockerDesktopRepairId !== null &&
-    (isActiveIsolation || shouldEnableRuntime || cliOverride !== null)
-  ) {
+  if (closeDockerDesktopRepairId !== null && isActiveIsolation) {
     return response(
       "blocked",
       "doctor_arguments_incompatible",
@@ -533,14 +297,6 @@ export function parseDoctorArguments(
       isJsonRequested,
     );
   }
-  const runtimeRootRequest = shouldEnableRuntime
-    ? Object.freeze({
-        cliOverride,
-        environmentOverride:
-          environmentRoot === undefined ? null : environmentRoot,
-        activationIntent: "explicit_enable_request",
-      })
-    : null;
   return response(
     "ok",
     null,
@@ -553,7 +309,6 @@ export function parseDoctorArguments(
       ...(adoptDockerDesktopRepairId !== null
         ? { adoptDockerDesktopRepairId, historicalReleaseRoot }
         : {}),
-      runtimeRootRequest,
     }),
     isJsonRequested,
   );

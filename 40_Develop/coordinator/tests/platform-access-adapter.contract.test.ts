@@ -249,7 +249,7 @@ test("Rust componentとproduction停止境界を同時に投影する", () => {
   );
   assert.equal(
     contract.productionInvocation,
-    "signed_appcontainer_runtime_probe_and_etw_network_nonfire_verified",
+    "signed_exact_artifact_spawn_with_minimal_environment_and_bounded_io",
   );
   assert.equal(contract.contractRevision, 3);
   assert.equal(contract.maximumWorkerSpawnAttemptsPerInvocation, 1);
@@ -265,7 +265,7 @@ test("Rust componentとproduction停止境界を同時に投影する", () => {
   );
   assert.equal(
     contract.selectedUserBinding,
-    "implemented_supervisor_reobservation_child_logon_session_and_appcontainer_sid_formal_signed_verified",
+    "implemented_native_current_process_primary_token_and_login_session_observation",
   );
   assert.equal(contract.serviceAccountMode, "not_implemented_blocked");
   assert.equal(contract.filesystemEffectIssued, false);

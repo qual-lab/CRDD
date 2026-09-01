@@ -6,10 +6,6 @@ import {
   verifyPlatformAccessArtifactSigningObservation,
 } from "../src/security/platform-access-release.ts";
 import {
-  beginNativeProvisionSupervisorArtifactSigningObservation,
-  verifyNativeProvisionSupervisorArtifactSigningObservation,
-} from "../src/security/native-provision-supervisor-release.ts";
-import {
   PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES,
   PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
 } from "../src/security/platform-provisioner-manifest-loader.ts";
@@ -41,7 +37,6 @@ type StagingSnapshot = Readonly<{
   toolDistributionDirectory: string;
   toolDistributionDirectoryIdentity: DirectoryIdentity;
   platformAccessArtifactToken: object;
-  nativeSupervisorArtifactToken: object;
 }>;
 
 const stagingSnapshots = new WeakMap<object, StagingSnapshot>();
@@ -133,9 +128,6 @@ function verifySnapshot(snapshot: StagingSnapshot): boolean {
         snapshot.toolDistributionDirectory &&
       verifyPlatformAccessArtifactSigningObservation(
         snapshot.platformAccessArtifactToken,
-      ) &&
-      verifyNativeProvisionSupervisorArtifactSigningObservation(
-        snapshot.nativeSupervisorArtifactToken,
       )
     );
   } catch {
@@ -192,15 +184,7 @@ export function beginReleaseStagingManifestSession(distributionRoot: unknown) {
     }
     const artifactObservation =
       beginPlatformAccessArtifactSigningObservation(root);
-    const nativeSupervisorObservation =
-      beginNativeProvisionSupervisorArtifactSigningObservation(root);
-    if (
-      !artifactObservation ||
-      !nativeSupervisorObservation ||
-      nativeSupervisorObservation.workerBindingSha256 !==
-        artifactObservation.artifact.sha256
-    )
-      return null;
+    if (!artifactObservation) return null;
     const token = Object.freeze({});
     stagingSnapshots.set(
       token,
@@ -210,13 +194,11 @@ export function beginReleaseStagingManifestSession(distributionRoot: unknown) {
         toolDistributionDirectory,
         toolDistributionDirectoryIdentity,
         platformAccessArtifactToken: artifactObservation.token,
-        nativeSupervisorArtifactToken: nativeSupervisorObservation.token,
       }),
     );
     return Object.freeze({
       token,
       platformAccessArtifact: artifactObservation.artifact,
-      nativeProvisionSupervisorArtifact: nativeSupervisorObservation.artifact,
     });
   } catch {
     return null;

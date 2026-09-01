@@ -41,8 +41,7 @@ function fixture(t: TestContext) {
     dockerPolicySha256: "5".repeat(64),
     crddManifestHash: "6".repeat(64),
     crddReleaseSequence: 1,
-    crddTree: "7".repeat(40),
-    packageContentRootSha256: "8".repeat(64),
+    runtimeExecutionIdentitySha256: "8".repeat(64),
     localAppData,
   });
   const ledger = Object.freeze({
@@ -188,8 +187,7 @@ function historyFixture(t: TestContext) {
     ...base.boundary,
     crddReleaseSequence: 2,
     crddManifestHash: "a".repeat(64),
-    crddTree: "b".repeat(40),
-    packageContentRootSha256: "c".repeat(64),
+    runtimeExecutionIdentitySha256: "c".repeat(64),
   };
   const originManifest = { fixture: "origin" };
   const adoptingManifest = { fixture: "adopting" };
@@ -206,8 +204,7 @@ function historyFixture(t: TestContext) {
       target && {
         manifestHash: target.crddManifestHash,
         releaseSequence: target.crddReleaseSequence,
-        crddTree: target.crddTree,
-        packageContentRootSha256: target.packageContentRootSha256,
+        runtimeExecutionIdentitySha256: target.runtimeExecutionIdentitySha256,
       }
     );
   };

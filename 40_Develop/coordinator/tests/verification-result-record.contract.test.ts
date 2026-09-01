@@ -118,6 +118,38 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
   );
 });
 
+test("配布Identityと作業対象Execution Identityと経路不一致分類を別々に保存する", () => {
+  const projected = projectVerificationResult({
+    status: "blocked",
+    reason: "signed_route_matrix_incomplete",
+    validationFailure: "execution_identity_mismatch",
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
+    executionCommit: "c".repeat(40),
+    executionTree: "d".repeat(40),
+    results: [
+      {
+        status: "blocked",
+        reason: "signed_general_task_execution_repository_changed",
+        executionCommit: "c".repeat(40),
+        executionTree: "d".repeat(40),
+      },
+    ],
+  });
+  assert.equal(projected.validationFailure, "execution_identity_mismatch");
+  assert.equal(projected.crddCommit, "a".repeat(40));
+  assert.equal(projected.crddTree, "b".repeat(40));
+  assert.equal(projected.executionCommit, "c".repeat(40));
+  assert.equal(projected.executionTree, "d".repeat(40));
+  const child = (projected.results as readonly Record<string, unknown>[])[0];
+  assert.equal(
+    child?.reason,
+    "signed_general_task_execution_repository_changed",
+  );
+  assert.equal(child?.executionCommit, "c".repeat(40));
+  assert.equal(child?.executionTree, "d".repeat(40));
+});
+
 test("subdirectoryからも最寄りRepositoryへ開始・終了を別記録し、元結果を変更しない", async (t) => {
   const root = fixture(t);
   const cwd = path.join(root, "package");

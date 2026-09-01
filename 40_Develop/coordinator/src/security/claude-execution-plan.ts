@@ -428,7 +428,7 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
 
   return Object.freeze({
     status: "candidate",
-    reason: "claude_runtime_activation_gates_required",
+    reason: "claude_task_execution_gates_required",
     activationGates: ACTIVATION_GATES,
     activationBlockers: ACTIVATION_BLOCKERS,
     spawnAllowed: false,
@@ -608,7 +608,7 @@ export function describeClaudeExecutionPlanContract() {
     contractRevision: CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
     provider: "claude",
     implementationState:
-      "local_personal_runtime_activation_gates_connected_candidate",
+      "local_personal_task_execution_gates_connected_candidate",
     distribution: Object.freeze({
       binding: distributionBinding,
       installationMethod: "official_native_binary_in_fixed_runtime_image",

@@ -90,8 +90,7 @@ export type PreparedBoundary = DockerDesktopRepairRecordBoundary &
     platformAccessArtifact: unknown;
     crddManifestHash: string;
     crddReleaseSequence: number;
-    crddTree: string;
-    packageContentRootSha256: string;
+    runtimeExecutionIdentitySha256: string;
     policy: DockerDesktopRepairPolicy;
   }>;
 
@@ -492,8 +491,7 @@ function samePreparedAuthority(
     left.dockerPolicySha256 === right.dockerPolicySha256 &&
     left.crddManifestHash === right.crddManifestHash &&
     left.crddReleaseSequence === right.crddReleaseSequence &&
-    left.crddTree === right.crddTree &&
-    left.packageContentRootSha256 === right.packageContentRootSha256
+    left.runtimeExecutionIdentitySha256 === right.runtimeExecutionIdentitySha256
   );
 }
 
@@ -516,12 +514,11 @@ function preparedBoundary(): PreparedBoundary | null {
   if (
     packageVerification.status !== "candidate" ||
     packageVerification.runtimeOwnedReleaseTrustConfirmed !== true ||
-    packageVerification.releaseIdentityRuntimeOwned !== true ||
+    packageVerification.runtimeExecutionIdentityRuntimeOwned !== true ||
     packageVerification.crddDistributionConfirmed !== true ||
     typeof packageVerification.manifestHash !== "string" ||
     !Number.isSafeInteger(packageVerification.releaseSequence) ||
-    typeof packageVerification.crddTree !== "string" ||
-    typeof packageVerification.packageContentRootSha256 !== "string" ||
+    typeof packageVerification.runtimeExecutionIdentitySha256 !== "string" ||
     !packageVerification.platformAccessArtifact
   )
     return null;
@@ -564,8 +561,8 @@ function preparedBoundary(): PreparedBoundary | null {
     dockerPolicySha256: policy.policySha256,
     crddManifestHash: packageVerification.manifestHash,
     crddReleaseSequence: packageVerification.releaseSequence as number,
-    crddTree: packageVerification.crddTree,
-    packageContentRootSha256: packageVerification.packageContentRootSha256,
+    runtimeExecutionIdentitySha256:
+      packageVerification.runtimeExecutionIdentitySha256,
     localAppData,
     runDirectory,
     socketPath: path.win32.join(runDirectory, "dockerInference"),

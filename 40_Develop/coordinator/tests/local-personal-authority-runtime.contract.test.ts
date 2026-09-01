@@ -12,7 +12,8 @@ function confirmedRelease() {
   return Object.freeze({
     status: "candidate",
     runtimeOwnedReleaseTrustConfirmed: true,
-    releaseIdentityRuntimeOwned: true,
+    releaseIdentityRuntimeOwned: false,
+    runtimeExecutionIdentityRuntimeOwned: true,
     crddDistributionConfirmed: true,
   });
 }
