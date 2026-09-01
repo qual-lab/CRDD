@@ -138,6 +138,10 @@ Runtime Authorityの責務境界をRepository全体から閉じた実行依存�
 
 固定Revision `f5b5084`の独立監査では、上記候補のRuntime実行Identityが共通Launcherから到達する署名・4経路・Recoveryの`script`実装を含まず、当該実行コードの変更後も旧署名Authorityを受理し得ることを検出した。また、現Identityに対するfresh clone／親Repository＋submoduleの公開`task`実測が未実施であること、Roadmapが完了前に本変更を除去したこと、およびv0.18.1固有の切戻し条件が不十分であることを検出した。上記Identity `f2243b46…f1aaa`、4経路およびRecovery結果は削除せず未公開候補の履歴として保持するが、最終Authority根拠へ流用しない。
 
-是正では第三のIdentityを追加せず、共通Launcherの入口表をIdentity seedとして共用し、選択された署名・4経路・Recovery `script`の静的依存を推移的に導出する。非正規specifierと未束縛の動的importを拒否し、未選択の開発補助scriptはIdentityへ入れない。新しいSource A、manifest-only B、Runtime実行Identity、fresh clone／submodule一般Task、4経路、Recoveryおよび独立再確認は未完了である。
+是正では第三のIdentityを追加せず、共通Launcherの入口表をIdentity seedとして共用し、選択された署名・4経路・Recovery `script`の静的依存を推移的に導出した。非正規specifierと未束縛の動的importを拒否し、未選択の開発補助scriptはIdentityへ入れない。
 
-本変更は、これらの固定候補確認が完了するまでRelease決定権限へ引き渡さない。現在、人間による追加判断は必要ない。
+新しいSource AはCommit `ae35bb4889e0359d08166adb574aadf483736d99`／Tree `85c75d854b4a9f04208793f8cff903dfcb0bd6d4`、manifest-only BはCommit `423cb510e995915a0ce113de3e317a6f7e491132`／Tree `33a27615bd7df06eda9237fc391d57f4f49faae4`である。Runtime実行Identityは`33cca9b840e46fe290530232dcdd09c0f99e3d63b01c59f51362112428e2473a`、manifest file SHA-256は`698e4aa1971ac0209b3d363e82f1af10f29d66d60e165ed5f66e7d9175a8e922`、Release Sequenceは`2026090106`である。AからBの変更Pathは`template/tools/coordinator/coordinator-package-manifest.json`一件だけである。
+
+同じIdentityに対する新規cloneと親Repository＋submoduleの一般Taskは双方完了し、候補を破棄した。4経路は4/4、Recovery Matrixは7シナリオが成立し、cleanup確認済み、正本変更・手動Recovery・API key／従量課金fallback・追加購入はない。実行条件、記録ID、結果Hashおよび一般化限界は[最終候補検証](../../07_Quality/Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)へ分離する。
+
+実装と実行検証は完了した。残るGateは、Runtime実行集合外の本記録更新後もIdentityが不変であることの機械確認、同じ固定候補の独立再確認、および人間による統合・Release判断である。現在、人間による追加判断は必要ない。
