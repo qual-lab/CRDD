@@ -8,6 +8,7 @@ import { isCanonicalCrddGitObjectId } from "./release-identity-grammar.ts";
 
 const MAXIMUM_DISTRIBUTION_FILES = 2_048;
 const MAXIMUM_DISTRIBUTION_BYTES = 64 * 1024 * 1024;
+const TRACKED_RUNTIME_SETTING_RELATIVE_PATH = ".crdd/external-send-policy.json";
 
 type HashAlgorithm = "sha1" | "sha256";
 
@@ -174,29 +175,6 @@ function verifyRepositoryMetadataEntry(target: string) {
   }
 }
 
-function verifyRuntimeMetadataEntry(target: string) {
-  const before = fs.lstatSync(target, { bigint: true });
-  const beforeIdentity = identity(before);
-  if (
-    !before.isDirectory() ||
-    before.isSymbolicLink() ||
-    fs.realpathSync.native(target) !== target
-  ) {
-    throw new Error(
-      "platform_provisioner_distribution_runtime_metadata_invalid",
-    );
-  }
-  const after = fs.lstatSync(target, { bigint: true });
-  if (
-    !sameIdentity(beforeIdentity, identity(after)) ||
-    fs.realpathSync.native(target) !== target
-  ) {
-    throw new Error(
-      "platform_provisioner_distribution_runtime_metadata_changed",
-    );
-  }
-}
-
 function observeDistributionTree(
   distributionRoot: string,
   expectedTree: string,
@@ -229,6 +207,7 @@ function observeDistributionTree(
   const excludedRepositoryMetadata = new Set<string>();
   const excludedRuntimeMetadata = new Set<string>();
   const includedSignedArtifacts = new Set<string>();
+  const includedTrackedRuntimeSettings = new Set<string>();
   const walk = (directory: string, relativeDirectory: string) => {
     const beforeMetadata = fs.lstatSync(directory, { bigint: true });
     const before = identity(beforeMetadata);
@@ -258,13 +237,10 @@ function observeDistributionTree(
         excludedRepositoryMetadata.add(relative);
         continue;
       }
-      if (relative === ".crdd") {
-        if (excludedRuntimeMetadata.has(relative)) {
-          throw new Error(
-            "platform_provisioner_distribution_runtime_metadata_invalid",
-          );
-        }
-        verifyRuntimeMetadataEntry(path.join(directory, name));
+      if (
+        relativeDirectory === ".crdd" &&
+        relative !== TRACKED_RUNTIME_SETTING_RELATIVE_PATH
+      ) {
         excludedRuntimeMetadata.add(relative);
         continue;
       }
@@ -308,6 +284,9 @@ function observeDistributionTree(
       }
       if (relative === PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH) {
         includedSignedArtifacts.add(relative);
+      }
+      if (relative === TRACKED_RUNTIME_SETTING_RELATIVE_PATH) {
+        includedTrackedRuntimeSettings.add(relative);
       }
       fileCount += 1;
       if (fileCount > MAXIMUM_DISTRIBUTION_FILES) {
@@ -367,7 +346,10 @@ function observeDistributionTree(
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
     ),
     gitMetadataExcludedFromTree: excludedRepositoryMetadata.has(".git"),
-    runtimeMetadataExcludedFromTree: excludedRuntimeMetadata.has(".crdd"),
+    runtimeMetadataExcludedFromTree: excludedRuntimeMetadata.size > 0,
+    trackedRuntimeSettingIncludedInTree: includedTrackedRuntimeSettings.has(
+      TRACKED_RUNTIME_SETTING_RELATIVE_PATH,
+    ),
   });
 }
 
@@ -400,6 +382,8 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
           observed.gitMetadataExcludedFromTree,
         runtimeMetadataExcludedFromSignedGitTree:
           observed.runtimeMetadataExcludedFromTree,
+        trackedRuntimeSettingIncludedInSignedGitTree:
+          observed.trackedRuntimeSettingIncludedInTree,
         releaseIdentityRuntimeOwned: false,
         runtimeAuthorityConferred: false,
         runtimeCapabilityIssued: false,
@@ -421,6 +405,8 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
         observed.gitMetadataExcludedFromTree,
       runtimeMetadataExcludedFromSignedGitTree:
         observed.runtimeMetadataExcludedFromTree,
+      trackedRuntimeSettingIncludedInSignedGitTree:
+        observed.trackedRuntimeSettingIncludedInTree,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -438,6 +424,7 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
       platformAccessExecutableIncludedInSignedGitTree: false,
       gitMetadataExcludedFromSignedGitTree: false,
       runtimeMetadataExcludedFromSignedGitTree: false,
+      trackedRuntimeSettingIncludedInSignedGitTree: false,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -464,7 +451,7 @@ export function describePlatformProvisionerReleaseIdentityContract() {
     gitMetadataInDistribution:
       "exact_root_git_entry_validated_and_excluded_from_signed_tree",
     runtimeMetadataInDistribution:
-      "exact_root_crdd_directory_validated_and_excluded_from_signed_tree",
+      "tracked_external_send_policy_included_and_other_exact_root_crdd_children_excluded",
     symbolicLinkOrReparseFallbackAllowed: false,
     stableSameHandleFileRead: "implemented_candidate",
     checkoutLineEndingIdentity:

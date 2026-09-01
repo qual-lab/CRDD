@@ -29,6 +29,7 @@ function tree(entries: ReadonlyArray<readonly [string, string, Buffer]>) {
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-release-tree-"));
+  fs.mkdirSync(path.join(root, ".crdd"));
   fs.mkdirSync(path.join(root, "90_Release"));
   fs.mkdirSync(
     path.join(root, "template", "tools", "coordinator", "windows-x64"),
@@ -39,8 +40,13 @@ function fixture() {
   const beta = Buffer.from("beta\n", "utf8");
   const release = Buffer.from("release\n", "utf8");
   const platformAccess = Buffer.from("binary", "utf8");
+  const externalSendPolicy = Buffer.from('{"policy":true}\n', "utf8");
   fs.writeFileSync(path.join(root, ".git"), "gitdir: fixed-metadata\n");
   fs.writeFileSync(path.join(root, "alpha.txt"), alpha);
+  fs.writeFileSync(
+    path.join(root, ".crdd", "external-send-policy.json"),
+    externalSendPolicy,
+  );
   fs.writeFileSync(path.join(root, "nested", "beta.txt"), beta);
   fs.writeFileSync(path.join(root, "90_Release", "readme.txt"), release);
   fs.writeFileSync(
@@ -74,7 +80,15 @@ function fixture() {
     ["100644", "readme.txt", objectId("blob", release)],
   ]);
   const nestedTree = tree([["100644", "beta.txt", objectId("blob", beta)]]);
+  const crddMetadataTree = tree([
+    [
+      "100644",
+      "external-send-policy.json",
+      objectId("blob", externalSendPolicy),
+    ],
+  ]);
   const rootTree = tree([
+    ["40000", ".crdd", crddMetadataTree],
     ["40000", "90_Release", releaseTree],
     ["100644", "alpha.txt", objectId("blob", alpha)],
     ["40000", "nested", nestedTree],
@@ -92,10 +106,11 @@ test("配布Root全体をGit Treeへ再計算し後置manifestと管理metadata�
     );
     assert.equal(result.status, "candidate");
     assert.equal(result.crddTree, value.rootTree);
-    assert.equal(result.distributionFileCount, 4);
+    assert.equal(result.distributionFileCount, 5);
     assert.equal(result.manifestExcludedFromSignedGitTree, true);
     assert.equal(result.platformAccessExecutableIncludedInSignedGitTree, true);
     assert.equal(result.gitMetadataExcludedFromSignedGitTree, true);
+    assert.equal(result.trackedRuntimeSettingIncludedInSignedGitTree, true);
     assert.equal(result.releaseIdentityRuntimeOwned, false);
     assert.equal("distributionRoot" in result, false);
   } finally {
@@ -103,10 +118,9 @@ test("配布Root全体をGit Treeへ再計算し後置manifestと管理metadata�
   }
 });
 
-test("Root直下のexact .crddだけをRuntime metadataとして除外する", () => {
+test("Root .crddの追跡設定だけを含めRuntime状態を除外する", () => {
   const value = fixture();
   try {
-    fs.mkdirSync(path.join(value.root, ".crdd"));
     fs.writeFileSync(
       path.join(value.root, ".crdd", "runtime-state.json"),
       "{}\n",
@@ -258,7 +272,7 @@ test("Release Identity contractはTree一致をEffectおよびrollbackから分�
   );
   assert.equal(
     contract.runtimeMetadataInDistribution,
-    "exact_root_crdd_directory_validated_and_excluded_from_signed_tree",
+    "tracked_external_send_policy_included_and_other_exact_root_crdd_children_excluded",
   );
   assert.equal(contract.runtimeCapabilityIssued, false);
 });
