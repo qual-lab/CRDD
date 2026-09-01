@@ -4,7 +4,7 @@ const MAXIMUM_IMPORT_DESCRIPTORS = 8;
 const MAXIMUM_IMPORT_THUNKS = 64;
 const MAXIMUM_LIBRARY_NAME_BYTES = 64;
 const MAXIMUM_SYMBOL_NAME_BYTES = 256;
-const EXPECTED_IMPORTS = Object.freeze({
+const BASE_EXPECTED_IMPORTS = Object.freeze({
   "ADVAPI32.DLL": Object.freeze([
     "CheckTokenMembership",
     "ConvertStringSecurityDescriptorToSecurityDescriptorW",
@@ -34,7 +34,6 @@ const EXPECTED_IMPORTS = Object.freeze({
     "BCryptHashData",
     "BCryptOpenAlgorithmProvider",
   ]),
-  "CRYPT32.DLL": Object.freeze(["CertGetCertificateContextProperty"]),
   "KERNEL32.DLL": Object.freeze([
     "CloseHandle",
     "ConnectNamedPipe",
@@ -77,11 +76,25 @@ const EXPECTED_IMPORTS = Object.freeze({
   "OLE32.DLL": Object.freeze(["CoTaskMemFree"]),
   "SHELL32.DLL": Object.freeze(["SHGetKnownFolderPath"]),
   "USERENV.DLL": Object.freeze(["DeriveAppContainerSidFromAppContainerName"]),
+});
+const fixedPublisherExpectedImports = Object.freeze({
+  ...BASE_EXPECTED_IMPORTS,
+  "CRYPT32.DLL": Object.freeze(["CertGetCertificateContextProperty"]),
   "WINTRUST.DLL": Object.freeze([
     "WTHelperGetProvSignerFromChain",
     "WTHelperProvDataFromStateData",
     "WinVerifyTrust",
   ]),
+});
+const IMPORT_DISPLAY_NAMES = Object.freeze({
+  "ADVAPI32.DLL": "ADVAPI32.dll",
+  "BCRYPT.DLL": "bcrypt.dll",
+  "CRYPT32.DLL": "CRYPT32.dll",
+  "KERNEL32.DLL": "KERNEL32.dll",
+  "OLE32.DLL": "ole32.dll",
+  "SHELL32.DLL": "SHELL32.dll",
+  "USERENV.DLL": "USERENV.dll",
+  "WINTRUST.DLL": "WINTRUST.dll",
 });
 
 export type NativeBootstrapPeBlockedReason =
@@ -124,16 +137,8 @@ type Inspection =
       status: "accepted";
       machine: "x86_64";
       subsystem: "windows_console";
-      imports: Readonly<{
-        "ADVAPI32.dll": readonly string[];
-        "bcrypt.dll": readonly string[];
-        "CRYPT32.dll": readonly string[];
-        "KERNEL32.dll": readonly string[];
-        "ole32.dll": readonly string[];
-        "SHELL32.dll": readonly string[];
-        "USERENV.dll": readonly string[];
-        "WINTRUST.dll": readonly string[];
-      }>;
+      authenticodePolicy: "manifest_only" | "fixed_publisher";
+      imports: Readonly<Record<string, readonly string[]>>;
       workerBindingSha256: string;
       delayImports: 0;
       tlsDirectory: 0;
@@ -435,19 +440,30 @@ function inspect(bytes: Buffer): Exclude<Inspection, { status: "blocked" }> {
     libraries.set(libraryName, lookupNames);
   }
   if (!isTerminated) blocked("import_descriptor");
-  if (libraries.size !== Object.keys(EXPECTED_IMPORTS).length)
-    blocked("import_allowlist");
-  for (const [library, expectedSymbols] of Object.entries(EXPECTED_IMPORTS)) {
-    const importedSymbols = libraries.get(library);
-    if (
-      !importedSymbols ||
-      importedSymbols.length !== expectedSymbols.length ||
-      [...importedSymbols]
-        .sort()
-        .some((value, index) => value !== expectedSymbols[index])
-    )
-      blocked("import_allowlist");
-  }
+  const profiles = Object.freeze([
+    Object.freeze({
+      policy: "manifest_only" as const,
+      imports: BASE_EXPECTED_IMPORTS,
+    }),
+    Object.freeze({
+      policy: "fixed_publisher" as const,
+      imports: fixedPublisherExpectedImports,
+    }),
+  ]);
+  const profile = profiles.find(({ imports }) => {
+    if (libraries.size !== Object.keys(imports).length) return false;
+    return Object.entries(imports).every(([library, expectedSymbols]) => {
+      const importedSymbols = libraries.get(library);
+      return Boolean(
+        importedSymbols &&
+          importedSymbols.length === expectedSymbols.length &&
+          ![...importedSymbols]
+            .sort()
+            .some((value, index) => value !== expectedSymbols[index]),
+      );
+    });
+  });
+  if (!profile) blocked("import_allowlist");
   const bindingMarker = Buffer.from("CRDD-WORKER-SHA256-V1:", "ascii");
   const bindingOffset = bytes.indexOf(bindingMarker);
   const bindingEnd = bindingOffset + bindingMarker.length + 64;
@@ -474,16 +490,15 @@ function inspect(bytes: Buffer): Exclude<Inspection, { status: "blocked" }> {
     status: "accepted",
     machine: "x86_64",
     subsystem: "windows_console",
-    imports: Object.freeze({
-      "ADVAPI32.dll": EXPECTED_IMPORTS["ADVAPI32.DLL"],
-      "bcrypt.dll": EXPECTED_IMPORTS["BCRYPT.DLL"],
-      "CRYPT32.dll": EXPECTED_IMPORTS["CRYPT32.DLL"],
-      "KERNEL32.dll": EXPECTED_IMPORTS["KERNEL32.DLL"],
-      "ole32.dll": EXPECTED_IMPORTS["OLE32.DLL"],
-      "SHELL32.dll": EXPECTED_IMPORTS["SHELL32.DLL"],
-      "USERENV.dll": EXPECTED_IMPORTS["USERENV.DLL"],
-      "WINTRUST.dll": EXPECTED_IMPORTS["WINTRUST.DLL"],
-    }),
+    authenticodePolicy: profile.policy,
+    imports: Object.freeze(
+      Object.fromEntries(
+        Object.entries(profile.imports).map(([library, symbols]) => [
+          IMPORT_DISPLAY_NAMES[library as keyof typeof IMPORT_DISPLAY_NAMES],
+          symbols,
+        ]),
+      ),
+    ),
     workerBindingSha256,
     delayImports: 0,
     tlsDirectory: 0,

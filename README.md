@@ -47,7 +47,7 @@ Quality assurance is therefore not an activity that begins by running tests at t
 
 ### Coordinator Runtime and provider boundary
 
-For capabilities and limits, read the [behavior specification](05_SPEC/01_Behavior_Specification.md); for execution and recovery, use the [workflow](19_Workflows/01_Coordinator_Runtime.md). The [current quality status](07_Quality/01_Quality_Center.md) separates verified results from remaining work, and the [architecture](06_Architecture/01_Architecture.md) explains the implementation. Use the signed Runtime distribution attached to the official Release for the selected version; a source checkout or source ZIP alone cannot start the ordinary Runtime. Verify that distribution's signature and identity; an earlier signed candidate does not certify a new release tag. Ordinary users do not need the release signing key or its passphrase.
+For capabilities and limits, read the [behavior specification](05_SPEC/01_Behavior_Specification.md); for execution and recovery, use the [workflow](19_Workflows/01_Coordinator_Runtime.md). The [current quality status](07_Quality/01_Quality_Center.md) separates verified results from remaining work, and the [architecture](06_Architecture/01_Architecture.md) explains the implementation. An official release tag contains the signed manifest and exact native Runtime artifacts in the same Git tree. A clone or submodule fixed to that tag can therefore verify and run the Runtime without downloading a separate package. The signed manifest, Git identity, and exact native artifact hashes are required; Authenticode is an optional additional publisher defense rather than a separate installation prerequisite. An unsigned development branch, a modified checkout, or an earlier signed candidate cannot establish the release identity. Ordinary users do not need the release signing key or its passphrase.
 
 The release manifest can explicitly specify no expiry, so a verified distribution need not stop merely because time has elapsed. Signature, artifact identity, issue date, authorization, and compatibility checks still apply; this is not perpetual support. Initial consent and operation-specific expiry are separate and unchanged. See the [distribution validity contract](05_SPEC/01_Behavior_Specification.md#正式配布物の有効期間).
 
@@ -459,7 +459,7 @@ Human Coding-less DevelopmentはNo-codeではない。コードはAIが生成す
 
 ### Coordinator RuntimeとProvider境界
 
-できることと制限は[振る舞い仕様](05_SPEC/01_Behavior_Specification.md)、実行・復旧は[作業手順](19_Workflows/01_Coordinator_Runtime.md)から確認できる。[品質の現在状態](07_Quality/01_Quality_Center.md)では確認済みの結果と残件を分け、内部の仕組みは[アーキテクチャ](06_Architecture/01_Architecture.md)へ集約する。選択した版の公式Releaseに添付された署名済みRuntime配布物を取得し、署名と実体の一致を検証して利用する。ソースcheckoutやソースZIPだけでは通常Runtimeを起動できない。旧署名候補は新しいリリースタグの配布保証にはならない。通常利用者にRelease署名鍵やパスフレーズは不要である。
+できることと制限は[振る舞い仕様](05_SPEC/01_Behavior_Specification.md)、実行・復旧は[作業手順](19_Workflows/01_Coordinator_Runtime.md)から確認できる。[品質の現在状態](07_Quality/01_Quality_Center.md)では確認済みの結果と残件を分け、内部の仕組みは[アーキテクチャ](06_Architecture/01_Architecture.md)へ集約する。公式Release tagのGit Treeには、署名manifestと固定Native Runtime成果物を同梱する。そのtagへ固定したcloneまたはsubmoduleは、別packageを取得せずに署名と実体の一致を検証してRuntimeを利用できる。署名manifest、Git IdentityおよびNative artifact Hashを必須とし、Authenticodeは別install前提ではなく追加のpublisher防御として扱う。未署名の開発branch、改変されたcheckoutまたは旧署名候補は、公式ReleaseのIdentityにならない。通常利用者にRelease署名鍵やパスフレーズは不要である。
 
 配布manifestには期限なしを明示でき、検証済み配布物が時間の経過だけで使えなくなることを避ける。署名、実体の一致、発行日時、権限および互換性の確認は維持し、永久サポートを意味しない。初期同意と各操作の期限は別契約のまま変えない。詳細は[正式配布物の有効期間](05_SPEC/01_Behavior_Specification.md#正式配布物の有効期間)を参照する。
 

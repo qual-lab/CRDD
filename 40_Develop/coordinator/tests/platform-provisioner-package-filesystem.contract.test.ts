@@ -189,12 +189,30 @@ for (const target of [
   });
 }
 
+test("開発版へ混入した署名manifestをReleaseへ昇格しない", () => {
+  const fixture = developmentFixture();
+  try {
+    const target = path.join(
+      fixture.distributionRoot,
+      "90_Release/coordinator-package-manifest.json",
+    );
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, "not a trusted artifact");
+    const result = inspectFixedDevelopmentCoordinatorPackageCandidate(
+      fixture.input,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "development_package_release_artifact_present");
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 for (const relativePath of [
-  "90_Release/coordinator-package-manifest.json",
   "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
   "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
 ]) {
-  test(`開発版へ混入した${relativePath}を署名済みと扱わない`, () => {
+  test(`開発版の${relativePath}も署名対象Treeの差分として扱う`, () => {
     const fixture = developmentFixture();
     try {
       const target = path.join(fixture.distributionRoot, relativePath);
@@ -204,17 +222,14 @@ for (const relativePath of [
         fixture.input,
       );
       assert.equal(result.status, "blocked");
-      assert.equal(
-        result.reason,
-        "development_package_release_artifact_present",
-      );
+      assert.equal(result.reason, "development_package_identity_mismatch");
     } finally {
       fixture.cleanup();
     }
   });
 }
 
-test("開発版のRoot alias、Git混入、入力getterと追加keyを拒否する", () => {
+test("開発版のRoot alias、入力getterと追加keyを拒否し、Git metadataだけをTreeから除外する", () => {
   const fixture = developmentFixture();
   try {
     let getterCalls = 0;
@@ -255,7 +270,7 @@ test("開発版のRoot alias、Git混入、入力getterと追加keyを拒否す�
     fs.mkdirSync(path.join(fixture.distributionRoot, ".git"));
     assert.equal(
       inspectFixedDevelopmentCoordinatorPackageCandidate(fixture.input).status,
-      "blocked",
+      "candidate",
     );
   } finally {
     fixture.cleanup();
@@ -754,7 +769,7 @@ test("不正Root、Release Identity不一致およびpackage metadataをfail clo
 
 test("package Filesystem contractは観測をTrustおよびEffectから分離する", () => {
   const contract = describePlatformProvisionerPackageFilesystemContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.equal(
     contract.runtimeOwnedPackageFilesystemRead,
     "implemented_candidate_without_permission_authority",
@@ -811,6 +826,16 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
     contract.releaseIdentityRollbackFloorTransition,
     "implemented_candidate",
   );
+  assert.equal(
+    contract.unsignedOrModifiedCheckoutCanAuthorizeProvisioningEffect,
+    false,
+  );
+  assert.equal(
+    contract.repositoryContainedOfficialReleaseCanAuthorizeProvisioningEffect,
+    true,
+  );
+  assert.equal(contract.nativeArtifactsInSignedGitTree, true);
+  assert.equal(contract.exactRootGitMetadataExcludedFromSignedGitTree, true);
   assert.equal(contract.runtimeCapabilityIssued, false);
   assert.equal(contract.filesystemEffectIssued, false);
 });

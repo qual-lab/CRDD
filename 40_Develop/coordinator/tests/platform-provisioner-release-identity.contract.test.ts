@@ -42,6 +42,9 @@ function fixture() {
   const alpha = Buffer.from("alpha\n", "utf8");
   const beta = Buffer.from("beta\n", "utf8");
   const release = Buffer.from("release\n", "utf8");
+  const platformAccess = Buffer.from("binary", "utf8");
+  const coordinator = Buffer.from("native-supervisor", "utf8");
+  fs.writeFileSync(path.join(root, ".git"), "gitdir: fixed-metadata\n");
   fs.writeFileSync(path.join(root, "alpha.txt"), alpha);
   fs.writeFileSync(path.join(root, "nested", "beta.txt"), beta);
   fs.writeFileSync(path.join(root, "90_Release", "readme.txt"), release);
@@ -57,7 +60,7 @@ function fixture() {
       "x86_64-pc-windows-msvc",
       "crdd-platform-access.exe",
     ),
-    "binary",
+    platformAccess,
   );
   fs.writeFileSync(
     path.join(
@@ -67,9 +70,23 @@ function fixture() {
       "x86_64-pc-windows-msvc",
       "coordinator.exe",
     ),
-    "native-supervisor",
+    coordinator,
   );
+  const platformAccessTargetTree = tree([
+    ["100644", "crdd-platform-access.exe", objectId("blob", platformAccess)],
+  ]);
+  const platformAccessTree = tree([
+    ["40000", "x86_64-pc-windows-msvc", platformAccessTargetTree],
+  ]);
+  const coordinatorTargetTree = tree([
+    ["100644", "coordinator.exe", objectId("blob", coordinator)],
+  ]);
+  const coordinatorTree = tree([
+    ["40000", "x86_64-pc-windows-msvc", coordinatorTargetTree],
+  ]);
   const releaseTree = tree([
+    ["40000", "coordinator", coordinatorTree],
+    ["40000", "platform-access", platformAccessTree],
     ["100644", "readme.txt", objectId("blob", release)],
   ]);
   const nestedTree = tree([["100644", "beta.txt", objectId("blob", beta)]]);
@@ -81,7 +98,7 @@ function fixture() {
   return { root, rootTree };
 }
 
-test("配布Root全体をGit Treeへ再計算し後置manifestとRust成果物を除外する", () => {
+test("配布Root全体をGit Treeへ再計算し後置manifestとGit metadataだけを除外する", () => {
   const value = fixture();
   try {
     const result = inspectPlatformProvisionerReleaseIdentityCandidate(
@@ -90,16 +107,14 @@ test("配布Root全体をGit Treeへ再計算し後置manifestとRust成果物�
     );
     assert.equal(result.status, "candidate");
     assert.equal(result.crddTree, value.rootTree);
-    assert.equal(result.distributionFileCount, 3);
-    assert.equal(result.postCheckoutManifestExcludedFromGitTree, true);
+    assert.equal(result.distributionFileCount, 5);
+    assert.equal(result.manifestExcludedFromSignedGitTree, true);
+    assert.equal(result.platformAccessExecutableIncludedInSignedGitTree, true);
     assert.equal(
-      result.postCheckoutPlatformAccessExecutableExcludedFromGitTree,
+      result.nativeProvisionSupervisorExecutableIncludedInSignedGitTree,
       true,
     );
-    assert.equal(
-      result.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree,
-      true,
-    );
+    assert.equal(result.gitMetadataExcludedFromSignedGitTree, true);
     assert.equal(result.releaseIdentityRuntimeOwned, false);
     assert.equal("distributionRoot" in result, false);
   } finally {
@@ -107,16 +122,13 @@ test("配布Root全体をGit Treeへ再計算し後置manifestとRust成果物�
   }
 });
 
-test("配布fileの変更、追加、Git metadataおよび不正Treeを拒否する", () => {
+test("配布fileの変更、追加および不正Treeを拒否する", () => {
   const mutations: Array<(root: string) => void> = [
     (root) => {
       fs.writeFileSync(path.join(root, "alpha.txt"), "changed\n");
     },
     (root) => {
       fs.writeFileSync(path.join(root, "extra.txt"), "extra\n");
-    },
-    (root) => {
-      fs.mkdirSync(path.join(root, ".git"));
     },
   ];
   for (const mutate of mutations) {
@@ -141,20 +153,45 @@ test("配布fileの変更、追加、Git metadataおよび不正Treeを拒否す
   );
 });
 
+test("固定Native成果物の欠落を署名対象Tree成立と誤認しない", () => {
+  for (const relativePath of [
+    "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+    "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+  ]) {
+    const value = fixture();
+    try {
+      fs.rmSync(path.join(value.root, ...relativePath.split("/")));
+      const result = inspectPlatformProvisionerReleaseIdentityCandidate(
+        value.root,
+        value.rootTree,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(
+        relativePath.includes("platform-access")
+          ? result.platformAccessExecutableIncludedInSignedGitTree
+          : result.nativeProvisionSupervisorExecutableIncludedInSignedGitTree,
+        false,
+      );
+    } finally {
+      fs.rmSync(value.root, { recursive: true, force: true });
+    }
+  }
+});
+
 test("Release Identity contractはTree一致をEffectおよびrollbackから分離する", () => {
   const contract = describePlatformProvisionerReleaseIdentityContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.deepEqual(contract.hashAlgorithms, ["SHA-1", "SHA-256"]);
   assert.equal(
-    contract.postCheckoutManifestExcludedFromGitTree,
+    contract.manifestExcludedFromSignedGitTree,
     "90_Release/coordinator-package-manifest.json",
   );
   assert.equal(
-    contract.postCheckoutPlatformAccessExecutableExcludedFromGitTree,
+    contract.platformAccessExecutableIncludedInSignedGitTree,
     "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
   );
   assert.equal(
-    contract.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree,
+    contract.nativeProvisionSupervisorExecutableIncludedInSignedGitTree,
     "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
   );
   assert.equal(

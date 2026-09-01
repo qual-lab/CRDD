@@ -27,6 +27,7 @@ test("固定PE fixtureはexact native bootstrap allowlistだけを受理する",
     status: "accepted",
     machine: "x86_64",
     subsystem: "windows_console",
+    authenticodePolicy: "fixed_publisher",
     imports: {
       "ADVAPI32.dll": [
         "CheckTokenMembership",
@@ -115,6 +116,25 @@ test("固定PE fixtureはexact native bootstrap allowlistだけを受理する",
     dynamicBase: true,
     nxCompat: true,
   });
+});
+
+test("manifest-only PEはAuthenticode DLLを持たない別のexact allowlistとして受理する", () => {
+  const result = inspectNativeBootstrapPe(
+    createNativeBootstrapPeFixture("2".repeat(64), false),
+  );
+  assert.equal(result.status, "accepted");
+  if (result.status !== "accepted") return;
+  assert.equal(result.authenticodePolicy, "manifest_only");
+  assert.equal("CRYPT32.dll" in result.imports, false);
+  assert.equal("WINTRUST.dll" in result.imports, false);
+  assert.deepEqual(Object.keys(result.imports).sort(), [
+    "ADVAPI32.dll",
+    "KERNEL32.dll",
+    "SHELL32.dll",
+    "USERENV.dll",
+    "bcrypt.dll",
+    "ole32.dll",
+  ]);
 });
 
 test("PE header、platform、subsystem、mitigationおよびdirectory差を拒否する", () => {

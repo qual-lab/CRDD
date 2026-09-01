@@ -171,7 +171,7 @@ export function describePlatformProvisionerManifestLoaderContract() {
     stableSameFileIdentityRead: "implemented_candidate",
     symbolicLinkOrReparseFallbackAllowed: false,
     manifestPlacement:
-      "post_checkout_distribution_artifact_outside_identified_git_tree",
+      "release_commit_adds_only_manifest_to_signed_parent_git_tree",
     manifestSignatureVerification: "owned_by_platform_provisioner_trust_core",
     releaseIdentityVerification:
       "implemented_by_fixed_distribution_git_tree_verifier_candidate",

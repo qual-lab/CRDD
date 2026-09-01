@@ -290,11 +290,12 @@ function prepareReleaseManifestCandidate(
     );
     if (
       releaseIdentity.status !== "candidate" ||
-      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== false ||
-      releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+      releaseIdentity.manifestExcludedFromSignedGitTree !== false ||
+      releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !==
         true ||
-      releaseIdentity.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree !==
-        true
+      releaseIdentity.nativeProvisionSupervisorExecutableIncludedInSignedGitTree !==
+        true ||
+      releaseIdentity.gitMetadataExcludedFromSignedGitTree !== false
     ) {
       throw new Error("release_manifest_distribution_tree_mismatch");
     }
@@ -356,11 +357,12 @@ export function signReleaseManifest(options: ManifestOptions) {
     );
     if (
       releaseIdentity.status !== "candidate" ||
-      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== false ||
-      releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+      releaseIdentity.manifestExcludedFromSignedGitTree !== false ||
+      releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !==
         true ||
-      releaseIdentity.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree !==
-        true
+      releaseIdentity.nativeProvisionSupervisorExecutableIncludedInSignedGitTree !==
+        true ||
+      releaseIdentity.gitMetadataExcludedFromSignedGitTree !== false
     ) {
       throw new Error("release_manifest_distribution_tree_mismatch");
     }
@@ -391,7 +393,7 @@ export function signReleaseManifest(options: ManifestOptions) {
     );
     return Object.freeze({
       contract: "crdd-coordinator/release-manifest-signing-result",
-      contractRevision: 2,
+      contractRevision: 3,
       status: "created" as const,
       manifestRelativePath: placement.manifestRelativePath,
       manifestHash: compiled.manifestHash,
@@ -414,7 +416,9 @@ export function signReleaseManifest(options: ManifestOptions) {
       runtimeAuthorityConferred: placement.runtimeAuthorityConferred,
       runtimeCapabilityIssued: placement.runtimeCapabilityIssued,
       privateKeyStoredOutsideRepository: true,
-      repositoryTreeContainsManifest: false,
+      signedGitTreeContainsNativeArtifacts: true,
+      repositoryReleaseCommitMustAddManifestOnly: true,
+      repositoryReleaseCommitVerifiedBySigner: false,
     });
   } finally {
     passphrase.fill(0);

@@ -1613,7 +1613,7 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
   assert.equal(
     report.runtimeActivation.platformProvisionerTrustCore
       .osNativeCodeSignatureDecision,
-    "minimum_trust_boundary_requires_fixed_publisher_authenticode",
+    "signed_release_manifest_is_required_authenticode_is_optional_fixed_publisher_defense",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageGate

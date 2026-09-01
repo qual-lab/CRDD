@@ -1,7 +1,7 @@
 # 変更トレース: Coordinator Runtime 1.0
 
 変更ID: `CHG-000015`
-状態: `Reopened`（PR #32の内容は統合済み。期限なしの正式配布契約を追加確認中）
+状態: `Reopened`（PR #33の内容は統合済み。Repository同梱の正式配布契約を追加確認中）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 対象系列: Coordinator Runtime 1.x
@@ -29,6 +29,16 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 対象はTypeScript署名Coreと現在／履歴検証、署名CLI・事前検査、Rust Supervisorの同一契約、配布物のloader／package Gate、設計・仕様・手順・検証設計と公開案内。新CLIでは`--no-expiry`と`--expires-at <UTC>`のどちらか一つだけを指定し、不明・欠落・重複・両方指定は秘密読取り前に拒否する。nullへの改変、旧署名の新revision流用、開始前、期限ちょうど、未知revision、不正SchemaをTypeScriptとRustで反証する。Grant、初期同意、候補、準備記録の期限は変更しない。
 
 期限なしは永久サポート、任意の実行権限、脆弱性不存在またはオンライン失効機構の追加ではない。既存の実行権限・取消・配布Identity検査は維持する。新しい契約は設計・実装・試験・独立確認と最終版の署名E2Eが揃うまで完了としない。旧manifestや固定Evidenceは書き換えない。
+
+### clone／submoduleだけで成立する正式配布（2026-09-01）
+
+利用者はCRDDをsubmoduleで採用する前提から、RuntimeだけをGitHub Releaseの別ZIPとして取得・版合わせする二重導線を不採用とした。CRDD Repository自体を配布媒体とし、公式Release tagへ固定した`git clone`またはsubmoduleだけで、同じ版の文書・Source・Runtimeを検証して利用できる状態を正式要件とする。GitHub ReleaseはtagとRelease Noteを公開する接続部であり、同じ内容の独自ZIPを別の管理対象として作らない。OSやGit設定によって固定JSON、Sourceまたは署名対象Treeのbyteが変わらないよう、Repositoryのtext checkoutをLFへ固定し、同梱Native成果物だけをbinaryとして扱う。
+
+自己参照を避けるため、Release候補Commit Aへ2つの固定Native Runtime成果物を含め、manifestを含めない。Commit A／Tree AをRepository-local stagingで署名し、Commit Bでは`90_Release/coordinator-package-manifest.json`だけを追加する。公式tagはCommit Bへ付け、manifestの`crddCommit`／`crddTree`はCommit A／Tree Aを保持する。実行時はmanifestだけを除外してTree Aを再構成し、Native成果物はTree Aのblobとmanifest内の個別Hashの双方へ結合する。cloneまたはsubmoduleのRoot直下にあるexact `.git` metadataはnon-linkのfile／directoryとして確認してTreeから除外するが、その他の未追跡file、別除外、欠落または改変は許可しない。
+
+Local Personal v1の必須配布Trustは、固定Ed25519 Release Trust、署名manifest、Commit／Treeおよび2つのNative artifact Hashで成立させる。Authenticodeは追加防御であり、正式成果物の必須条件にはしない。buildがall-zero以外の固定publisher digestを明示した場合だけ、そのAuthenticode署名とcache-only trustを追加条件にし、不成立時にmanifest-onlyへfallbackしない。これにより、自己署名証明書、Trust Store操作または別証明書配布をGit clone成立の前提へ追加しない。
+
+発火例は公式tagのclean clone／submodule、非発火例は未署名の開発branch、境界例はmanifestだけを追加したCommit BとRoot直下の`.git` metadata、判定情報不足例はNative成果物欠落、Tree差、link／reparseまたはmanifest不成立である。判定不能時はProvider、ProvisioningまたはRuntime Effectを発行せず停止する。一般利用者はRelease秘密鍵やpassphraseを持たず、公式Release担当者だけが最終候補を一度署名する。過去Release、旧固定Evidenceおよび公開済みtagは変更しない。この配布変更は同じ未リリースCoordinator Runtime 1.0の導入成立条件であり、新しいCHGへ分割しない。
 
 ### 起動方法の固定による再発防止
 

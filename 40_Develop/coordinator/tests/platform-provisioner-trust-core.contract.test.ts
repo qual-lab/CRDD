@@ -846,7 +846,7 @@ test("package trust contract requires CRDD-bundled use and both signed Rust exec
   assert.equal(contract.dedicatedNativeExecutableRequiredForV1, true);
   assert.equal(
     contract.osNativeCodeSignatureDecision,
-    "minimum_trust_boundary_requires_fixed_publisher_authenticode",
+    "signed_release_manifest_is_required_authenticode_is_optional_fixed_publisher_defense",
   );
   assert.equal(contract.standalonePackagePublicationAllowed, false);
   assert.equal(contract.standalonePackageInstallationAllowed, false);

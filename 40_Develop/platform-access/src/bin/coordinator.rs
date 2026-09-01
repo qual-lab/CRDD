@@ -2635,7 +2635,10 @@ unsafe fn launch_worker() -> Option<u32> {
             Ordering::Relaxed,
         );
     }
-    let authenticode_valid = if identities_valid {
+    let authenticode_required = native_bootstrap_core::authenticode_verification_required(
+        decode_expected_authenticode_signer_sha256(),
+    );
+    let authenticode_valid = if identities_valid && authenticode_required {
         FAILURE_STAGE.store(20, Ordering::Relaxed);
         unsafe {
             authenticode_trust_is_valid(
@@ -2643,6 +2646,8 @@ unsafe fn launch_worker() -> Option<u32> {
                 locked_handles[supervisor_leaf_index.unwrap_or(locked_handles.len())],
             )
         }
+    } else if identities_valid {
+        true
     } else {
         false
     };
