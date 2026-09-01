@@ -19,7 +19,14 @@ TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Ga
 | TypeScript／Rust接続 | 同じ署名payloadの正常・異常ベクトルを両検証器へ渡す | canonical byte、domain、成果物結合を一致させる |
 | 既存の期限所有者 | Grant、同意、候補、準備記録の期限・取消の既存試験 | 期限なしmanifestから別の権限を延長しない |
 
-新しいNativeを含む正式配布の最終固定では、署名manifestと配布Tree・2成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。梱包後に別の新規領域へ展開して署名とIdentityを再確認する。旧48515ebの実測、物理Ctrl+C、端末表示と実務評価は対象版を維持し、変更の影響を照合せず新規版の成功へ読み替えない。
+新しいNativeを含む正式配布の最終固定では、署名manifestとGit Tree・2成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。Commit AへSource・文書・試験・2成果物を固定し、そのTreeを署名したmanifestだけをCommit Bで追加する。公式tagのCommit Bを新しいclean cloneまたはsubmodule相当のworktreeで検証し、Commit Bの親が署名対象Commit Aであること、AからBへの差分がmanifestだけであること、Git同梱成果物のbyte・Hash・PE profileが一致することを確認する。独自ZIPを作成・展開せず、GitHubの自動Source archiveもRuntime配布契約の検証対象にしない。旧48515ebの実測、物理Ctrl+C、端末表示と実務評価は対象版を維持し、変更の影響を照合せず新規版の成功へ読み替えない。
+
+| Git同梱配布の経路 | 期待結果 | 終了後条件 |
+|---|---|---|
+| 正常 | 公式tagのclean clone／submodule、manifest-only PE、署名対象親Commitとexact Tree、2成果物Hashが一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
+| 準正常 | non-zero固定publisher digestを宣言したPEで、追加DLL集合とAuthenticodeが一致 | manifest-onlyへfallbackせず追加防御を維持 |
+| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、未知または余剰PE import、宣言済みAuthenticode不成立 | Provider／Provisioning Effect 0でfail closed |
+| 判定不能 | shallow／不完全Git履歴、RootまたはRevision不明、reparse／link、読取り不成立 | 配布Identityを推定せずEffect 0で停止 |
 
 対象は[仕様](../05_SPEC/01_Behavior_Specification.md)と[設計](../06_Architecture/01_Architecture.md)が所有する現行内部ツールである。今回の配置変更は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)、Runtimeの完成条件は[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)で追跡する。以下は検証義務の複製ではなく、その確認方法の対応表である。
 

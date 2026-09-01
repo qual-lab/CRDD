@@ -435,21 +435,25 @@ function placementFixture() {
   const distributionRoot = path.join(parent, "distribution");
   const executablePath = path.join(
     distributionRoot,
-    "90_Release",
-    "platform-access",
-    "x86_64-pc-windows-msvc",
+    "template",
+    "tools",
+    "coordinator",
+    "windows-x64",
     "crdd-platform-access.exe",
   );
   const manifestPath = path.join(
     distributionRoot,
-    "90_Release",
+    "template",
+    "tools",
+    "coordinator",
     "coordinator-package-manifest.json",
   );
   const supervisorPath = path.join(
     distributionRoot,
-    "90_Release",
+    "template",
+    "tools",
     "coordinator",
-    "x86_64-pc-windows-msvc",
+    "windows-x64",
     "coordinator.exe",
   );
   fs.mkdirSync(path.dirname(executablePath), { recursive: true });
@@ -514,16 +518,18 @@ test("両Rust成果物の各単独欠落ではRelease staging sessionを開始�
     const distributionRoot = path.join(parent, "distribution");
     const executablePath = path.join(
       distributionRoot,
-      "90_Release",
-      "platform-access",
-      "x86_64-pc-windows-msvc",
+      "template",
+      "tools",
+      "coordinator",
+      "windows-x64",
       "crdd-platform-access.exe",
     );
     const supervisorPath = path.join(
       distributionRoot,
-      "90_Release",
+      "template",
+      "tools",
       "coordinator",
-      "x86_64-pc-windows-msvc",
+      "windows-x64",
       "coordinator.exe",
     );
     try {
@@ -549,16 +555,18 @@ test("supervisor内部Worker結合と実Worker Hashの不一致ではsessionを�
   const distributionRoot = path.join(parent, "distribution");
   const executablePath = path.join(
     distributionRoot,
-    "90_Release",
-    "platform-access",
-    "x86_64-pc-windows-msvc",
+    "template",
+    "tools",
+    "coordinator",
+    "windows-x64",
     "crdd-platform-access.exe",
   );
   const supervisorPath = path.join(
     distributionRoot,
-    "90_Release",
+    "template",
+    "tools",
     "coordinator",
-    "x86_64-pc-windows-msvc",
+    "windows-x64",
     "coordinator.exe",
   );
   try {
@@ -608,7 +616,8 @@ test("署名Authorityを持たない配置helperは同一fdのcanonical byteを�
     assert.deepEqual(describeReleaseStagingManifestContract(), {
       contract: "crdd-coordinator/release-staging-manifest",
       contractRevision: 2,
-      manifestRelativePath: "90_Release/coordinator-package-manifest.json",
+      manifestRelativePath:
+        "template/tools/coordinator/coordinator-package-manifest.json",
       releaseStagingManifestWrite: "implemented_explicit_signing_effect",
       releaseStagingFilesystemEffectIssuedOnSuccess: true,
       failedAfterCreateRequiresStagingRootDiscard: true,
@@ -786,18 +795,20 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
     fs.mkdirSync(
       path.join(
         distributionRoot,
-        "90_Release",
-        "platform-access",
-        "x86_64-pc-windows-msvc",
+        "template",
+        "tools",
+        "coordinator",
+        "windows-x64",
       ),
       { recursive: true },
     );
     fs.writeFileSync(
       path.join(
         distributionRoot,
-        "90_Release",
-        "platform-access",
-        "x86_64-pc-windows-msvc",
+        "template",
+        "tools",
+        "coordinator",
+        "windows-x64",
         "crdd-platform-access.exe",
       ),
       Buffer.from("not-a-real-executable", "ascii"),
@@ -805,18 +816,20 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
     fs.mkdirSync(
       path.join(
         distributionRoot,
-        "90_Release",
+        "template",
+        "tools",
         "coordinator",
-        "x86_64-pc-windows-msvc",
+        "windows-x64",
       ),
       { recursive: true },
     );
     fs.writeFileSync(
       path.join(
         distributionRoot,
-        "90_Release",
+        "template",
+        "tools",
         "coordinator",
-        "x86_64-pc-windows-msvc",
+        "windows-x64",
         "coordinator.exe",
       ),
       createNativeBootstrapPeFixture(
@@ -886,7 +899,9 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       fs.existsSync(
         path.join(
           distributionRoot,
-          "90_Release",
+          "template",
+          "tools",
+          "coordinator",
           "coordinator-package-manifest.json",
         ),
       ),

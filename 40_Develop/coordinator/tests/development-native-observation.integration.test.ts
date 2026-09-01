@@ -38,7 +38,7 @@ async function runProbe(target: string, scenario: string) {
   );
   const artifact = Object.freeze({
     relativePath:
-      "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+      "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
     target: "x86_64-pc-windows-msvc",
     protocolRevision: 3,
     rustToolchain: "1.94.1-x86_64-pc-windows-msvc",

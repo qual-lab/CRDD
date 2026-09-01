@@ -91,6 +91,8 @@ const RECOVERY_RECORD_BYTES: usize = 64;
 static mut WORKER_PATH: [u16; MAXIMUM_CODE_UNITS] = [0; MAXIMUM_CODE_UNITS];
 static mut SUPERVISOR_PATH: [u16; MAXIMUM_CODE_UNITS] = [0; MAXIMUM_CODE_UNITS];
 static mut MANIFEST_PATH: [u16; MAXIMUM_CODE_UNITS] = [0; MAXIMUM_CODE_UNITS];
+const MANIFEST_RELATIVE_PATH: &[u8] =
+    b"\\template\\tools\\coordinator\\coordinator-package-manifest.json";
 static mut LOADED_IMAGE_PATH: [u16; MAXIMUM_CODE_UNITS] = [0; MAXIMUM_CODE_UNITS];
 static mut WORKER_COMMAND_LINE: [u16; MAXIMUM_CODE_UNITS] = [0; MAXIMUM_CODE_UNITS];
 static mut PIPE_NAME: [u16; 64] = [0; 64];
@@ -470,9 +472,9 @@ unsafe fn fixed_release_paths(
     // SAFETY: GetModuleFileNameW writes at most the supplied capacity into caller-owned storage.
     // The module handle is null for the current image and no borrowed OS pointer escapes.
     const SUPERVISOR_SUFFIX: &[u8] =
-        b"\\90_Release\\coordinator\\x86_64-pc-windows-msvc\\coordinator.exe";
+        b"\\template\\tools\\coordinator\\windows-x64\\coordinator.exe";
     const WORKER_SUFFIX: &[u8] =
-        b"\\90_Release\\platform-access\\x86_64-pc-windows-msvc\\crdd-platform-access.exe";
+        b"\\template\\tools\\coordinator\\windows-x64\\crdd-platform-access.exe";
     let supervisor_length = unsafe {
         GetModuleFileNameW(
             null_mut(),
@@ -1875,9 +1877,9 @@ fn exact_manifest_payload(
 ) -> bool {
     const PREFIX: &[u8] = b"{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest\",\"contractRevision\":";
     const NATIVE_PREFIX: &[u8] = b"\"nativeProvisionSupervisorArtifact\":{\"byteLength\":";
-    const NATIVE_MIDDLE: &[u8] = b",\"entrypointContractRevision\":2,\"relativePath\":\"90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe\",\"rustToolchain\":\"1.94.1\",\"sha256\":\"";
+    const NATIVE_MIDDLE: &[u8] = b",\"entrypointContractRevision\":2,\"relativePath\":\"template/tools/coordinator/windows-x64/coordinator.exe\",\"rustToolchain\":\"1.94.1\",\"sha256\":\"";
     const WORKER_PREFIX: &[u8] = b"\"platformAccessArtifact\":{\"byteLength\":";
-    const WORKER_MIDDLE: &[u8] = b",\"protocolRevision\":3,\"relativePath\":\"90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe\",\"rustToolchain\":\"1.94.1\",\"sha256\":\"";
+    const WORKER_MIDDLE: &[u8] = b",\"protocolRevision\":3,\"relativePath\":\"template/tools/coordinator/windows-x64/crdd-platform-access.exe\",\"rustToolchain\":\"1.94.1\",\"sha256\":\"";
     let mut cursor = 0_usize;
     if !consume_literal(payload, &mut cursor, PREFIX) {
         return false;
@@ -2396,7 +2398,7 @@ unsafe fn launch_worker() -> Option<u32> {
     if !append_ascii(
         manifest_path,
         &mut manifest_path_length,
-        b"\\90_Release\\coordinator-package-manifest.json",
+        MANIFEST_RELATIVE_PATH,
     ) {
         return None;
     }
@@ -2635,7 +2637,10 @@ unsafe fn launch_worker() -> Option<u32> {
             Ordering::Relaxed,
         );
     }
-    let authenticode_valid = if identities_valid {
+    let authenticode_required = native_bootstrap_core::authenticode_verification_required(
+        decode_expected_authenticode_signer_sha256(),
+    );
+    let authenticode_valid = if identities_valid && authenticode_required {
         FAILURE_STAGE.store(20, Ordering::Relaxed);
         unsafe {
             authenticode_trust_is_valid(
@@ -2643,6 +2648,8 @@ unsafe fn launch_worker() -> Option<u32> {
                 locked_handles[supervisor_leaf_index.unwrap_or(locked_handles.len())],
             )
         }
+    } else if identities_valid {
+        true
     } else {
         false
     };
@@ -2989,6 +2996,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bundled_manifest_path_is_owned_by_the_template_tool_distribution() {
+        assert_eq!(
+            MANIFEST_RELATIVE_PATH,
+            b"\\template\\tools\\coordinator\\coordinator-package-manifest.json"
+        );
+    }
+
+    #[test]
     fn recovery_record_and_restore_ownership_are_exact() {
         let record = recovery_record(2, true, 7, 11, 13);
         assert_eq!(&record[..8], b"CRDDLR01");
@@ -3124,7 +3139,7 @@ mod tests {
 
     fn payload(issued: &str, expires: &str) -> Vec<u8> {
         format!(
-            "{{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest\",\"contractRevision\":2,\"crddCommit\":\"{}\",\"crddTree\":\"{}\",\"crddVersion\":\"v0.18.0\",\"expiresAt\":\"{}\",\"issuedAt\":\"{}\",\"keyStoragePolicySha256\":\"{}\",\"nativeProvisionSupervisorArtifact\":{{\"byteLength\":100,\"entrypointContractRevision\":2,\"relativePath\":\"90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe\",\"rustToolchain\":\"1.94.1\",\"sha256\":\"{}\",\"target\":\"x86_64-pc-windows-msvc\"}},\"packageContentRootSha256\":\"{}\",\"packageName\":\"@qual-lab/crdd-coordinator\",\"packageVersion\":\"0.0.0-development\",\"platformAccessArtifact\":{{\"byteLength\":200,\"protocolRevision\":3,\"relativePath\":\"90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe\",\"rustToolchain\":\"1.94.1\",\"sha256\":\"{}\",\"target\":\"x86_64-pc-windows-msvc\"}},\"releaseSequence\":1,\"rootProtectionPolicySha256\":\"{}\"}}",
+            "{{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest\",\"contractRevision\":2,\"crddCommit\":\"{}\",\"crddTree\":\"{}\",\"crddVersion\":\"v0.18.0\",\"expiresAt\":\"{}\",\"issuedAt\":\"{}\",\"keyStoragePolicySha256\":\"{}\",\"nativeProvisionSupervisorArtifact\":{{\"byteLength\":100,\"entrypointContractRevision\":2,\"relativePath\":\"template/tools/coordinator/windows-x64/coordinator.exe\",\"rustToolchain\":\"1.94.1\",\"sha256\":\"{}\",\"target\":\"x86_64-pc-windows-msvc\"}},\"packageContentRootSha256\":\"{}\",\"packageName\":\"@qual-lab/crdd-coordinator\",\"packageVersion\":\"0.0.0-development\",\"platformAccessArtifact\":{{\"byteLength\":200,\"protocolRevision\":3,\"relativePath\":\"template/tools/coordinator/windows-x64/crdd-platform-access.exe\",\"rustToolchain\":\"1.94.1\",\"sha256\":\"{}\",\"target\":\"x86_64-pc-windows-msvc\"}},\"releaseSequence\":1,\"rootProtectionPolicySha256\":\"{}\"}}",
             "a".repeat(40),
             "b".repeat(64),
             expires,

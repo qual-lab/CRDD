@@ -58,10 +58,19 @@ test("exact PolicyはWindows checkoutでもLFを維持する属性へ固定す�
     new URL("../../../.gitattributes", import.meta.url),
     "utf8",
   );
+  const attributeLines = new Set(attributes.trimEnd().split("\n"));
+  assert.equal(attributeLines.has("* text=auto eol=lf"), true);
   assert.equal(
-    attributes,
-    "40_Develop/coordinator/policies/windows-docker-desktop-4.41.2.policy text eol=lf\n" +
-      "40_Develop/coordinator/runtime/general-task-verification.txt text eol=lf\n",
+    attributeLines.has(
+      "40_Develop/coordinator/policies/windows-docker-desktop-4.41.2.policy text eol=lf",
+    ),
+    true,
+  );
+  assert.equal(
+    attributeLines.has(
+      "40_Develop/coordinator/runtime/general-task-verification.txt text eol=lf",
+    ),
+    true,
   );
   const bytes = fs.readFileSync(
     new URL(

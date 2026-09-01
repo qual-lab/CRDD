@@ -149,6 +149,7 @@ function writeAscii(buffer: Buffer, offset: number, value: string) {
 
 export function createNativeBootstrapPeFixture(
   workerBindingSha256 = "2".repeat(64),
+  isAuthenticodeSigned = true,
 ) {
   if (!/^[0-9a-f]{64}$/u.test(workerBindingSha256))
     throw new Error("fixture_worker_binding_invalid");
@@ -174,7 +175,13 @@ export function createNativeBootstrapPeFixture(
   bytes.writeUInt16LE(0x160, optional + 70);
   bytes.writeUInt32LE(16, optional + 108);
   bytes.writeUInt32LE(0x2000, optional + 112 + 8);
-  bytes.writeUInt32LE(180, optional + 116 + 8);
+  const libraries = isAuthenticodeSigned
+    ? LIBRARIES
+    : LIBRARIES.filter(
+        (library) =>
+          library.name !== "WINTRUST.dll" && library.name !== "CRYPT32.dll",
+      );
+  bytes.writeUInt32LE((libraries.length + 1) * 20, optional + 116 + 8);
 
   const text = NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS.firstSection;
   bytes.write(".text", text, "latin1");
@@ -192,7 +199,7 @@ export function createNativeBootstrapPeFixture(
   bytes.writeUInt32LE(0x40000040, rdata + 36);
 
   let symbolOffset = 0xc00;
-  for (const [libraryIndex, library] of LIBRARIES.entries()) {
+  for (const [libraryIndex, library] of libraries.entries()) {
     const descriptor =
       NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS.importDirectory + libraryIndex * 20;
     bytes.writeUInt32LE(rva(library.lookupOffset), descriptor);

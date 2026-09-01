@@ -9,7 +9,7 @@ Last Updated: 2026-08-31
 この手順は、CRDD参照Runtimeを診断・実行・検証し、必要な場合に配布を発行する担当者向けである。一般利用者にRelease秘密鍵やpassphraseは不要である。機能の成立条件と未対応範囲は[振る舞い仕様](../05_SPEC/01_Behavior_Specification.md)、資源・権限・復旧方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証計画・現在品質は[品質確認](../07_Quality/01_Quality_Center.md)を正本とし、手順の実行だけで採用・Releaseを成立させない。
 
 1. 対象Repository、固定配布版、実行Node、選択ユーザー、許可された目的・送信先・情報範囲を確認する。
-2. 通常利用は真正性を確認した署名配布物を使う。ソース移設後のcheckoutを過去の署名済み配布物とみなさない。
+2. 通常利用は公式Release tagへ固定したcloneまたはsubmoduleを使い、同梱manifestとNative Runtime成果物の真正性を確認する。未署名の開発branch、改変されたcheckoutまたは過去の署名候補を公式配布物とみなさない。
 3. 診断結果を確認し、必要な準備が不成立なら止める。以下のコマンド一覧にはgrammarだけを実装した候補も含むため、利用可能性を一覧だけで判断しない。
 4. 許可範囲内のTaskを実行し、結果と回収状態を確認する。候補は検証してからexport／discardし、正本への採用は人間の決定権限に従う。
 5. 不明な残存、Identity差、失効または手動回復要求では通常Taskを再試行せず、仕様が示すexact IDと専用回復手順へ戻す。
@@ -131,7 +131,15 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 この節は公式配布担当者向けである。入力は凍結したCommit／Tree、その内容から作ったstaging、既存の暗号化秘密鍵と発行情報。期待結果は同じ配布内容へ結合した署名manifestの生成であり、Release公開そのものではない。配布Root・Treeの不一致ならstagingの作成元へ戻り、復号失敗なら秘密入力だけを確認する。失敗原因を区別せず秘密鍵を作り直したり、日常開発のたびに署名したりしない。
 
-署名済みRelease manifestは、対象Commit／Treeへ自己参照させないため、対象Git Treeを確定してRepository-localの`<repository>/.crdd/release-staging/<candidate-id>`へ展開した後に生成する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。manifest自身は対象Git Treeへ含めず、配布物内の固定Path`90_Release/coordinator-package-manifest.json`へ後置する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
+署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、次の二Commit手順で生成する。
+
+1. Release候補Commit Aへ、Source、文書、試験および固定Pathの2つのNative Runtime成果物を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
+2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release-staging/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
+3. Commit A／Tree Aと2つのNative成果物を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
+4. 生成したmanifestだけをRepositoryの同じ固定Pathへ追加してCommit Bを作る。`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
+5. 公式tagとReleaseはCommit Bへ付ける。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示す。RuntimeはCommit Bの内容からmanifestだけを除外してTree Aを再構成し、2つのNative成果物はTree Aの一部として検証する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
+
+これにより、公式tagへ固定したcloneまたはsubmoduleは別archiveを取得せず通常Runtimeを利用できる。GitHub Releaseへ同じ内容の独自ZIPを追加しない。GitHubが自動生成するSource archiveもRuntime配布契約または検証対象にしない。
 
 ```powershell
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\sign-release-manifest.ts" --distribution-root "<absolute-staging-root>" --private-key "<approved-absolute-private-key-file>" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --issued-at <canonical-utc> --expires-at <canonical-utc>

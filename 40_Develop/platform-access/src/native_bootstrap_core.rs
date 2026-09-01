@@ -172,6 +172,10 @@ pub fn supported_windows_path_bytes(path: &[u8]) -> bool {
             }))
 }
 
+pub fn authenticode_verification_required(expected_signer: Option<[u8; 32]>) -> bool {
+    expected_signer.is_some_and(|digest| digest.iter().any(|byte| *byte != 0))
+}
+
 const fn is_separator(value: u16) -> bool {
     value == 0x20 || value == 0x09
 }

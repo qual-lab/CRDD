@@ -49,6 +49,7 @@ Stable表示への移行後、Checkerが03_Documentation本文のコード例に
 | 試験発見 | package所有の`.test.ts`を再帰列挙し、型検査の所有試験集合とexact一致させ、0件を失敗する |
 | 互換 | 旧名shim、alias、重複入口を残さず、明示移行または以前の固定Releaseへ戻す |
 | Release署名 | 開発反復を公式鍵・passphrase・実署名Effectから分離し、全非秘密条件を入力前に検査した固定Release Candidateだけを一度署名する |
+| Tool配布 | Source・build・試験は`40_Develop`、採用Repositoryへ届くTool本体・固定Native成果物・配布Identityは`template/tools`、変更・Evidence・Release状態は`90_Release`へ分離する |
 | Repository-local状態 | Repository rootの`.crdd`はignore-by-defaultとし、Runtime状態、Candidate、log、一時成果物および生成物を追跡しない。内容自体が検証入力になる非秘密のCommit固定Repository設定だけを明示allowlistする |
 
 公開CheckerのCLI、JSON、Schema、reason、status、暗号domainおよび既存machine contractは、命名規則だけを理由に変更しない。単一配布正本へ委譲するpackage entry adapterは責務分離であり、旧入口互換wrapperではない。
@@ -174,14 +175,16 @@ Coordinatorは、移行経緯を本節へ、開発確認の順序を既存Workfl
 |---|---|---|
 | `tools/checker/` | `40_Develop/checker/` | 配布正本へ接続するprivate packageを一括移動 |
 | `tools/coordinator/`のコード・テスト・ビルド・固定素材 | `40_Develop/coordinator/` | packageの深さと兄弟関係を維持。署名package固定Root、Task、型・命名・coverage・traceと試験fixtureを更新 |
-| `tools/platform-access/` | `40_Develop/platform-access/` | Rust crateを一括移動。配布済みnative成果物は移動しない |
+| `tools/platform-access/` | `40_Develop/platform-access/` | Rust crateを一括移動。当時は配布済みnative成果物を移動対象外とした。後続の配布判断は下記に記録する |
 | `tools/coding-standards.md` | [実装規約](../../06_Architecture/99_Coding_Standards.md) | 設計工程へ移し、実装対象Rootを更新 |
 | Coordinator README内の振る舞い・条件・限界 | [振る舞い仕様](../../05_SPEC/01_Behavior_Specification.md) | 操作手順と実装方式から分離 |
 | Coordinatorの設計・脅威モデル | [実行設計](../../06_Architecture/coordinator/01_Architecture.md)、[脅威モデル](../../06_Architecture/coordinator/02_Threat_Model.md) | 詳細を移し、[設計入口](../../06_Architecture/01_Architecture.md)から責務と未確認範囲を示す |
 | Coordinator README内の反復手順 | [Coordinator作業手順](../../19_Workflows/01_Coordinator_Runtime.md) | 発行担当と利用者の操作、入力、停止、結果の返却先を区別 |
 | 品質方針・確認方法・現在状態 | [品質の現在状態](../../07_Quality/01_Quality_Center.md) | 標準の品質保証構成を使用。過去Evidenceを集め直さない |
 
-`template/tools`の採用先配布契約と`90_Release`内のnative成果物Pathは変更しない。旧`tools`への互換shim、起動alias、第二ソースは残さない。新しい自動ダウンロード・インストーラ・公開配布方式も追加しない。切戻す場合は個別の旧Pathを混在させず、以前の固定Repository／署名配布一式へ戻す。既存のRuntime状態や認証Homeを配置変更の理由で削除しない。
+この移行開始時点では、`template/tools`の採用先配布契約と`90_Release`内のnative成果物Pathを変更しない方針だった。後続の導入経路評価で、CRDD Repositoryをcloneまたはsubmoduleで取得した時点に、同じ基準版のRuntimeも利用可能であることを優先した。そのため、現在の配布正本は`template/tools/coordinator/`とし、`windows-x64/coordinator.exe`、`windows-x64/crdd-platform-access.exe`および配布manifestを同じ配布面へ集約する。`40_Develop`はソース・build・試験、`90_Release`はCHG・Evidence・公開状態を所有し、実行物の配布面にはしない。旧`tools`への互換shim、起動alias、第二ソース、別Download、ZIP、自動取得またはインストーラは追加しない。切戻す場合は個別の旧Pathを混在させず、以前の固定Repository／署名配布一式へ戻す。既存のRuntime状態や認証Homeを配置変更の理由で削除しない。
+
+実行物の移行対は、`90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe`から`template/tools/coordinator/windows-x64/coordinator.exe`、`90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe`から`template/tools/coordinator/windows-x64/crdd-platform-access.exe`である。[未署名Native配布物の再現確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Native_Distribution_Verification.md)はこの2組のbytesとSource入力を固定した結果であり、main統合後の最終Commit、正式署名または署名済みE2Eを代替しない。
 
 ### 移行前の確認と追加是正
 

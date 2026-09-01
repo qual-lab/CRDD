@@ -141,11 +141,18 @@ function encodeTree(entries: readonly TreeEntry[]) {
 }
 
 function isExcludedPostCheckoutArtifact(relativePath: string) {
-  return (
-    relativePath === PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH ||
-    relativePath === PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH ||
-    relativePath === NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH
-  );
+  return relativePath === PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH;
+}
+
+function verifyRepositoryMetadataEntry(target: string) {
+  const metadata = fs.lstatSync(target);
+  if (
+    metadata.isSymbolicLink() ||
+    (!metadata.isFile() && !metadata.isDirectory()) ||
+    fs.realpathSync.native(target) !== target
+  ) {
+    throw new Error("platform_provisioner_distribution_git_metadata_invalid");
+  }
 }
 
 function observeDistributionTree(
@@ -177,6 +184,8 @@ function observeDistributionTree(
   let fileCount = 0;
   let byteLength = 0;
   const excludedPostCheckoutArtifacts = new Set<string>();
+  const excludedRepositoryMetadata = new Set<string>();
+  const includedSignedArtifacts = new Set<string>();
   const walk = (directory: string, relativeDirectory: string) => {
     const beforeMetadata = fs.lstatSync(directory, { bigint: true });
     const before = identity(beforeMetadata);
@@ -190,12 +199,22 @@ function observeDistributionTree(
     const names = fs.readdirSync(directory);
     const entries: TreeEntry[] = [];
     for (const name of names) {
-      if (!validEntryName(name) || name === ".git") {
+      if (!validEntryName(name)) {
         throw new Error("platform_provisioner_distribution_entry_invalid");
       }
       const relative = relativeDirectory
         ? `${relativeDirectory}/${name}`
         : name;
+      if (relative === ".git") {
+        if (excludedRepositoryMetadata.has(relative)) {
+          throw new Error(
+            "platform_provisioner_distribution_git_metadata_invalid",
+          );
+        }
+        verifyRepositoryMetadataEntry(path.join(directory, name));
+        excludedRepositoryMetadata.add(relative);
+        continue;
+      }
       if (isExcludedPostCheckoutArtifact(relative)) {
         if (excludedPostCheckoutArtifacts.has(relative)) {
           throw new Error("platform_provisioner_distribution_manifest_invalid");
@@ -233,6 +252,12 @@ function observeDistributionTree(
       }
       if (!metadata.isFile()) {
         throw new Error("platform_provisioner_distribution_entry_invalid");
+      }
+      if (
+        relative === PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH ||
+        relative === NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH
+      ) {
+        includedSignedArtifacts.add(relative);
       }
       fileCount += 1;
       if (fileCount > MAXIMUM_DISTRIBUTION_FILES) {
@@ -284,13 +309,14 @@ function observeDistributionTree(
     manifestExcludedFromTree: excludedPostCheckoutArtifacts.has(
       PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
     ),
-    platformAccessExecutableExcludedFromTree: excludedPostCheckoutArtifacts.has(
+    platformAccessExecutableIncludedInTree: includedSignedArtifacts.has(
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
     ),
-    nativeProvisionSupervisorExecutableExcludedFromTree:
-      excludedPostCheckoutArtifacts.has(
+    nativeProvisionSupervisorExecutableIncludedInTree:
+      includedSignedArtifacts.has(
         NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH,
       ),
+    gitMetadataExcludedFromTree: excludedRepositoryMetadata.has(".git"),
   });
 }
 
@@ -316,12 +342,13 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
         crddTree: observed.tree,
         distributionFileCount: observed.fileCount,
         distributionByteLength: observed.byteLength,
-        postCheckoutManifestExcludedFromGitTree:
-          observed.manifestExcludedFromTree,
-        postCheckoutPlatformAccessExecutableExcludedFromGitTree:
-          observed.platformAccessExecutableExcludedFromTree,
-        postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree:
-          observed.nativeProvisionSupervisorExecutableExcludedFromTree,
+        manifestExcludedFromSignedGitTree: observed.manifestExcludedFromTree,
+        platformAccessExecutableIncludedInSignedGitTree:
+          observed.platformAccessExecutableIncludedInTree,
+        nativeProvisionSupervisorExecutableIncludedInSignedGitTree:
+          observed.nativeProvisionSupervisorExecutableIncludedInTree,
+        gitMetadataExcludedFromSignedGitTree:
+          observed.gitMetadataExcludedFromTree,
         releaseIdentityRuntimeOwned: false,
         runtimeAuthorityConferred: false,
         runtimeCapabilityIssued: false,
@@ -336,12 +363,13 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
       crddTree: observed.tree,
       distributionFileCount: observed.fileCount,
       distributionByteLength: observed.byteLength,
-      postCheckoutManifestExcludedFromGitTree:
-        observed.manifestExcludedFromTree,
-      postCheckoutPlatformAccessExecutableExcludedFromGitTree:
-        observed.platformAccessExecutableExcludedFromTree,
-      postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree:
-        observed.nativeProvisionSupervisorExecutableExcludedFromTree,
+      manifestExcludedFromSignedGitTree: observed.manifestExcludedFromTree,
+      platformAccessExecutableIncludedInSignedGitTree:
+        observed.platformAccessExecutableIncludedInTree,
+      nativeProvisionSupervisorExecutableIncludedInSignedGitTree:
+        observed.nativeProvisionSupervisorExecutableIncludedInTree,
+      gitMetadataExcludedFromSignedGitTree:
+        observed.gitMetadataExcludedFromTree,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -355,9 +383,10 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
       crddTree: null,
       distributionFileCount: null,
       distributionByteLength: null,
-      postCheckoutManifestExcludedFromGitTree: false,
-      postCheckoutPlatformAccessExecutableExcludedFromGitTree: false,
-      postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree: false,
+      manifestExcludedFromSignedGitTree: false,
+      platformAccessExecutableIncludedInSignedGitTree: false,
+      nativeProvisionSupervisorExecutableIncludedInSignedGitTree: false,
+      gitMetadataExcludedFromSignedGitTree: false,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -370,20 +399,21 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
 export function describePlatformProvisionerReleaseIdentityContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-release-identity",
-    contractRevision: 2,
+    contractRevision: 3,
     hashAlgorithms: Object.freeze(["SHA-1", "SHA-256"]),
     gitObjectEncoding: "blob_and_recursive_tree_object_identity",
     regularFileModes: Object.freeze(["100644", "100755"]),
     directoryMode: "40000",
     maximumDistributionFiles: MAXIMUM_DISTRIBUTION_FILES,
     maximumDistributionBytes: MAXIMUM_DISTRIBUTION_BYTES,
-    postCheckoutManifestExcludedFromGitTree:
+    manifestExcludedFromSignedGitTree:
       PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
-    postCheckoutPlatformAccessExecutableExcludedFromGitTree:
+    platformAccessExecutableIncludedInSignedGitTree:
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-    postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree:
+    nativeProvisionSupervisorExecutableIncludedInSignedGitTree:
       NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH,
-    gitMetadataAllowedInDistribution: false,
+    gitMetadataInDistribution:
+      "exact_root_git_entry_validated_and_excluded_from_signed_tree",
     symbolicLinkOrReparseFallbackAllowed: false,
     stableSameHandleFileRead: "implemented_candidate",
     stableDirectoryIdentityRevalidation: "implemented_candidate",

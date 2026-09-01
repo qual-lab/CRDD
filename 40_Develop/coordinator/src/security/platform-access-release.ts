@@ -7,7 +7,7 @@ export const PLATFORM_ACCESS_RUST_TOOLCHAIN = "1.94.1";
 export const PLATFORM_ACCESS_PROTOCOL_REVISION = 3;
 export const PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES = 16 * 1024 * 1024;
 export const PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH =
-  "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe";
+  "template/tools/coordinator/windows-x64/crdd-platform-access.exe";
 
 type FileIdentity = Readonly<{
   dev: bigint;

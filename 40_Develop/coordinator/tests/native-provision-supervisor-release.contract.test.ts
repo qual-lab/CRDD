@@ -17,9 +17,10 @@ function fixture() {
   );
   const executablePath = path.join(
     root,
-    "90_Release",
+    "template",
+    "tools",
     "coordinator",
-    "x86_64-pc-windows-msvc",
+    "windows-x64",
     "coordinator.exe",
   );
   fs.mkdirSync(path.dirname(executablePath), { recursive: true });
@@ -34,8 +35,7 @@ test("native supervisor成果物を同一file観測へ固定する", () => {
       beginNativeProvisionSupervisorArtifactSigningObservation(value.root);
     assert.ok(observation);
     assert.deepEqual(observation.artifact, {
-      relativePath:
-        "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+      relativePath: "template/tools/coordinator/windows-x64/coordinator.exe",
       target: "x86_64-pc-windows-msvc",
       entrypointContractRevision: 2,
       rustToolchain: "1.94.1",
@@ -64,7 +64,7 @@ test("native supervisor成果物を同一file観測へ固定する", () => {
 test("native supervisor Release契約は固定成果物だけを許可する", () => {
   assert.deepEqual(describeNativeProvisionSupervisorReleaseContract(), {
     artifactRelativePath:
-      "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+      "template/tools/coordinator/windows-x64/coordinator.exe",
     target: "x86_64-pc-windows-msvc",
     rustToolchain: "1.94.1",
     entrypointContractRevision: 2,

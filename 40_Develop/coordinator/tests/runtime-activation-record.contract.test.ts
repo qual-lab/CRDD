@@ -961,7 +961,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.platformProvisionerTrustCore.osNativeCodeSignatureDecision,
-    "minimum_trust_boundary_requires_fixed_publisher_authenticode",
+    "signed_release_manifest_is_required_authenticode_is_optional_fixed_publisher_defense",
   );
   assert.equal(
     contract.platformProvisionerPackageGate.observationContract,

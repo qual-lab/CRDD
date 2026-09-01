@@ -257,6 +257,8 @@ export function buildNativeBootstrap(
   if (!fs.statSync(workerExecutable).isFile())
     throw new Error("native_bootstrap_worker_artifact_missing");
   buildEnvironment.CRDD_NATIVE_WORKER_SHA256 = sha256File(workerExecutable);
+  // All-zero is the explicit Local Personal v1 manifest-only policy. A
+  // nonzero digest opts into the additional fixed-publisher Authenticode gate.
   buildEnvironment.CRDD_AUTHENTICODE_SIGNER_SHA256 = authenticodeSignerSha256;
   const commandArguments = [...NATIVE_BOOTSTRAP_BUILD_ARGUMENTS];
   const manifestIndex = commandArguments.indexOf("Cargo.toml");

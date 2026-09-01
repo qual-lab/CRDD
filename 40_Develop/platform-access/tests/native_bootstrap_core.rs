@@ -52,6 +52,19 @@ fn selects_fixed_non_authority_result_only_for_invalid_input() {
 }
 
 #[test]
+fn authenticode_is_an_explicit_optional_defense_for_manifest_bound_releases() {
+    assert!(!native_bootstrap_core::authenticode_verification_required(
+        None
+    ));
+    assert!(!native_bootstrap_core::authenticode_verification_required(
+        Some([0_u8; 32])
+    ));
+    assert!(native_bootstrap_core::authenticode_verification_required(
+        Some([1_u8; 32])
+    ));
+}
+
+#[test]
 fn fixed_failure_results_distinguish_each_fail_closed_stage() {
     for (response, reason) in [
         (

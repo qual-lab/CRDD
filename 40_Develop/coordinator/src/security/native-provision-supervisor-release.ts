@@ -17,7 +17,7 @@ export const NATIVE_PROVISION_SUPERVISOR_ENTRYPOINT_CONTRACT_REVISION = 2;
 export const NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_MAXIMUM_BYTES =
   NATIVE_BOOTSTRAP_PE_MAXIMUM_BYTES;
 export const NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH =
-  "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe";
+  "template/tools/coordinator/windows-x64/coordinator.exe";
 
 type DirectoryIdentity = Readonly<{
   dev: bigint;

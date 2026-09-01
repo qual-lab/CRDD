@@ -328,13 +328,13 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 | 利用者体験、CLIの情報構造・表示、振る舞い | `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md` | 導入・通常利用・判断・失敗・復旧の実在する内容を記す。空の成果物を作らず、UIと仕様は項目の所有を分離して対応づける |
 | 状態・資源・回復・脅威モデル・実装規約 | `06_Architecture/01_Architecture.md`と必要なTool別詳細 | 旧配置の`architecture/README.md`、`threat-model.md`と`06_Architecture/99_Coding_Standards.md`の責務を移す。工程入口をリンク集だけにしない |
 | 品質戦略、検証設計、現在の品質状態、新しい結果 | `07_Quality/02_Quality_Strategy.md`、`03_Verification_Design.md`、`01_Quality_Center.md`、`Verification_Results/` | 既存の固定Evidenceは`90_Release/Changes/Evidence/`に保持し参照する。試験コードを品質記録へ移さない |
-| Coordinator、Checkerの開発package、Rust実装 | `40_Develop/coordinator/`、`40_Develop/checker/`、`40_Develop/platform-access/` | source・tests・固定runtime assets・build定義を一意に所有。Checker開発packageは配布正本への接続を維持する |
+| Coordinator、Checkerの開発package、Rust実装 | `40_Develop/coordinator/`、`40_Develop/checker/`、`40_Develop/platform-access/` | source・tests・build定義を一意に所有。Checker開発packageは配布正本への接続を維持する |
 | 反復する構築・検証・署名・復旧・移行手順 | `19_Workflows/` | 具体的な入力・実行順・停止・結果の返却先を記す。要求、設計、実行結果を複製しない |
-| 配布Checker、署名済み配布物、一時物 | `template/tools/crdd-check.ts`、Release成果物、Repository直下`.crdd/` | それぞれ既存の配布正本・署名検証・ignore-by-defaultを維持。生成物の通常Git追跡や自動取得は追加しない |
+| 配布Checker、Coordinator Runtime、一時物 | `template/tools/crdd-check.ts`、`template/tools/coordinator/`、Repository直下`.crdd/` | CRDDをcloneまたはsubmoduleで取得した利用者が同じ基準版のToolを利用できるよう、配布物を`template/tools`へ集約する。Runtime状態と一時物はignore-by-defaultを維持し、自動取得や別配布経路は追加しない |
 
-代替は、現在の`tools`配下へ実装を残す案、起動接続部だけを残す案、生成配布物をGitへ格納する案である。前者は移行量が少ないが今回の工程別所有を満たさない。起動接続部は独立した実責務がある場合だけ有力であり、旧Path維持だけの互換shimは作らない。生成物のGit格納は取得直後の利便性がある一方、ソースとの二重管理を増やすため推奨しない。
+代替は、当時の`tools`配下へ実装を残す案、起動接続部だけを残す案、生成配布物をGitへ格納する案であった。前者は移行量が少ないが今回の工程別所有を満たさない。起動接続部は独立した実責務がある場合だけ有力であり、旧Path維持だけの互換shimは作らない。当初は生成物のGit格納を推奨しなかったが、その後、CRDD Repository自体をcloneまたはsubmoduleで取得する導入経路では基準版とRuntimeを分離しない方が導入と版整合に優れると判断した。このため、現在はMilestoneで固定した配布物だけを`template/tools/coordinator/`で追跡し、日常のbuild生成物やRuntime状態は追跡しない。
 
-公式Repositoryの`tools`を廃止し、開発コマンドと新しい署名配布内のソースPathを新配置へ揃える。旧Path互換を残さないため、単なる文書移動ではなく破壊的移行として扱う。import、package、命名検査とTypeScript所有集合、Rust build、manifestのソース結合、Docker assets、traceability、AI入口、現行リンクと手順を全数確認する。native配布成果物の`90_Release`内Pathと採用先Checker配置は維持する。秘密入力なしの開発検証を先に収束させ、最終固定版だけを正式署名E2Eへ渡す。新しい自動ダウンロード、配布方式、統合およびRelease判断は今回確定しない。
+公式Repositoryの旧`tools`を廃止し、開発コマンドと新しい署名配布内のソースPathを新配置へ揃える。旧Path互換を残さないため、単なる文書移動ではなく破壊的移行として扱う。import、package、命名検査とTypeScript所有集合、Rust build、manifestのソース結合、Docker assets、traceability、AI入口、現行リンクと手順を全数確認する。その後の配布判断により、native配布成果物は`90_Release`ではなく`template/tools/coordinator/windows-x64/`へ移し、manifestも`template/tools/coordinator/`で所有する。`40_Develop`はソース・build・試験、`90_Release`は変更・根拠・公開状態を所有する。秘密入力なしの開発検証を先に収束させ、mainへ統合後に固定した最終版だけを正式署名E2Eへ渡す。別Download、ZIPまたは自動取得の第二配布経路は追加しない。
 
 <a id="runtime-utility-next-version-candidates"></a>
 

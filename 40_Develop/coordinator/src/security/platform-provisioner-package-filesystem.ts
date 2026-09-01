@@ -600,13 +600,10 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
         input.expectedPackageContentRootSha256
     )
       return blocked("development_package_identity_mismatch");
-    // Development source borrows native artifacts from a separately verified
-    // release. Never silently exclude a copied manifest or binary from its tree.
-    if (
-      distribution.postCheckoutManifestExcludedFromGitTree ||
-      distribution.postCheckoutPlatformAccessExecutableExcludedFromGitTree ||
-      distribution.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree
-    )
+    // A signed manifest changes a repository-contained runtime from a
+    // development source into a release distribution. Native artifacts are
+    // ordinary signed-tree entries and may be present in either source kind.
+    if (distribution.manifestExcludedFromSignedGitTree)
       return blocked("development_package_release_artifact_present");
 
     const entrypoints = DEVELOPMENT_ENTRYPOINTS.map((entrypoint) =>
@@ -752,11 +749,12 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
     );
     if (
       releaseIdentity.status !== "candidate" ||
-      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== true ||
-      releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+      releaseIdentity.manifestExcludedFromSignedGitTree !== true ||
+      releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !==
         true ||
-      releaseIdentity.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree !==
-        true
+      releaseIdentity.nativeProvisionSupervisorExecutableIncludedInSignedGitTree !==
+        true ||
+      releaseIdentity.gitMetadataExcludedFromSignedGitTree !== true
     ) {
       return blocked(
         "platform_provisioner_release_identity_verification_failed",
@@ -1012,9 +1010,9 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
     );
     if (
       distribution.status !== "candidate" ||
-      !distribution.postCheckoutManifestExcludedFromGitTree ||
-      !distribution.postCheckoutPlatformAccessExecutableExcludedFromGitTree ||
-      !distribution.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree
+      !distribution.manifestExcludedFromSignedGitTree ||
+      !distribution.platformAccessExecutableIncludedInSignedGitTree ||
+      !distribution.nativeProvisionSupervisorExecutableIncludedInSignedGitTree
     )
       return blocked("native_distribution_tree_not_verified");
     const worker = beginPlatformAccessArtifactSigningObservation(root.realPath);
@@ -1086,7 +1084,7 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
 export function describePlatformProvisionerPackageFilesystemContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-filesystem",
-    contractRevision: 5,
+    contractRevision: 6,
     packageRootSelection: "implemented_fixed_module_relative_candidate",
     recursiveFileInventory: "implemented_candidate",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",
@@ -1106,7 +1104,8 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     posixRootOwnedDirectory0755AndFile0644Verification: "implemented_candidate",
     windowsSystemAndAdministratorsWriteRuntimeReadAclVerification:
       "not_implemented_effective_access_required",
-    sourceCheckoutCanAuthorizeProvisioningEffect: false,
+    unsignedOrModifiedCheckoutCanAuthorizeProvisioningEffect: false,
+    repositoryContainedOfficialReleaseCanAuthorizeProvisioningEffect: true,
     releaseTrustModel:
       "qual_lab_ed25519_single_active_key_pinned_in_verified_crdd_release",
     releaseIdentityBinding:
@@ -1118,12 +1117,15 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     processPoisonGate: "before_manifest_package_filesystem_observation",
     policyIdentityBinding:
       "owned_root_protection_and_key_storage_policy_hashes_required",
-    signedManifestPath: "90_Release/coordinator-package-manifest.json",
+    signedManifestPath:
+      "template/tools/coordinator/coordinator-package-manifest.json",
     releaseTrustAnchorConfiguration: "configured_immutable_source_literal",
     signedManifestDistribution:
       "implemented_fixed_path_canonical_file_loader_candidate",
     signedManifestPlacement:
-      "post_checkout_distribution_artifact_outside_identified_git_tree",
+      "release_commit_adds_only_manifest_to_signed_parent_git_tree",
+    nativeArtifactsInSignedGitTree: true,
+    exactRootGitMetadataExcludedFromSignedGitTree: true,
     releaseIdentityRollbackFloorPersistence: "implemented_candidate",
     releaseIdentityRollbackFloorTransition: "implemented_candidate",
     effectController: "not_implemented_effective_access_required",

@@ -216,7 +216,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 - 以下で「Authority source loader未接続」「全体Gateはblocked」と記す段落は、署名済みAuthority File Bundleとprotected activationを要求するHardened／Provisioning候補を説明する。
 - Local Personal一般Taskではselected-user binder、Mount Grant、Provider eligibility、Subscription OAuth preflight、固定Docker CLI Effect executor、exact 9 command、限定Egressおよびdurable Recoveryを接続済みであり、旧Hardened候補の未接続表示を一般Taskへ流用しない。
-- source checkoutはEffect前に停止する。
+- 未署名の開発branch、manifest欠落、改変checkoutまたは固定Native成果物欠落はEffect前に停止する。公式Release tagへ固定し、同梱manifestとNative成果物を検証できるclone／submoduleは正式配布Rootになり得る。
 
 - `doctor --enable-runtime`はRuntimeを有効化するコマンドではなく、明示的な有効化要求をRoot選択とPath Identityの診断候補へ接続する。
 - 既定では既に存在する`<repository>/.crdd-runtime/`を検査し、`--runtime-root <absolute-path>`があればその指定、なければ`CRDD_COORDINATOR_ROOT`、どちらもなければRepository既定を使う。
@@ -260,7 +260,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 - Runtime 1.0はWindows上のDocker DesktopとLinux containerだけを正式対象とする。
 - WindowsネイティブProvider実行、Git Bash直接実行、通常WSLディストリビューション、別Container RuntimeまたはDockerなしのfallbackを互換性要件にしない。
 - Provider CLIを含む固定専用image、最小環境、Provider Home Mount Grantおよび限定EgressはRuntime adapterへ接続済みであり、Host側のCodex／Claude設定またはCredentialを暗黙に再利用しない。
-- source checkoutは署名済みRelease Authorityを欠くためEffect前に停止する。
+- 未署名の開発branch、manifest欠落、改変checkoutまたは固定Native成果物欠落は署名済みRelease Authorityを欠くためEffect前に停止する。公式Release tagへ固定し、同梱manifestとNative成果物を検証できるclone／submoduleは正式配布Rootになり得る。
 
 - Subscription Offeringはfamily名だけで許可しない。
 - 現行PolicyはCodexを`chatgpt_subscription_oauth`、Claudeを`claude_max`へ固定し、公式CLIの読取り専用preflightでCodexの`Logged in using ChatGPT`またはClaudeの`subscriptionType=max`と厳密に照合する。

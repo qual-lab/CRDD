@@ -9,7 +9,7 @@ Scope: `40_Develop/**`と、CRDDが配布正本として所有し`40_Develop/**`
 
 本書は、CRDD公式Repositoryが所有する内部ツールの命名、TypeScript／Rust source、試験および機械検査に適用する単一正本である。「Qual Suite準拠」のような外部参照だけでは規則を完了させず、CRDDで適用する値を本書に固定する。
 
-実装・試験・ビルド定義は`40_Develop`、本書を含む実装設計は`06_Architecture`、反復する操作手順は`19_Workflows`が所有する。この配置を採用先の配布用`template/tools`へ機械的に適用しない。標準工程フォルダとその正本文書はCRDD文書規則で命名し、以下の実装ファイル命名を工程フォルダ名へ拡張しない。
+実装・試験・ビルド定義は`40_Develop`、本書を含む実装設計は`06_Architecture`、反復する操作手順は`19_Workflows`が所有する。採用Repositoryへ追加取得なしで届けるTool本体、固定Native成果物およびそれらの配布Identityは`template/tools`が所有する。`90_Release`は変更、EvidenceおよびRelease状態を所有し、採用側で実行するToolの配布先として使用しない。`template/tools`には本書が成果物種別ごとに明示した命名だけを適用し、`40_Develop`のSource配置規則を機械的に複製しない。標準工程フォルダとその正本文書はCRDD文書規則で命名し、以下の実装ファイル命名を工程フォルダ名へ拡張しない。
 
 本書はQual Suite Commit `d7493e25f719bef6e46b8dbba7926f9a74e1165e`、Tree `62fa90f2020803609935a10944dcffe03484af34`の`06_Architecture/qual-insight/99_Coding_Standards.md`と`90_Release/qual-insight/Changes/CHG-000004_Implementation_Naming_Convention.md`を設計入力として使用した。今後のQual Suite側の変更を自動採用せず、CRDD側の変更トレースと人間の決定権限を通じて本書を更新する。
 
@@ -50,11 +50,12 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 | 通常のJSONファイル | ASCII `kebab-case` | `provider-profile.json` |
 | Pythonファイル | ASCII `kebab-case` | `provider-egress-proxy.py` |
 | Plain text成果物 | ASCII `kebab-case` | `general-task-verification.txt` |
+| 固定Native実行物 | ASCII `kebab-case` | `coordinator.exe`, `crdd-platform-access.exe` |
 | 版固定Policy成果物 | ASCII `kebab-case`のsubject＋`-<major>.<minor>.<patch>.policy` | `windows-docker-desktop-4.41.2.policy` |
 | Dockerfile | ASCII `kebab-case`のsubject＋`.Dockerfile` | `provider-egress-proxy.Dockerfile` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |
 
-大文字小文字の混在、空白、意味を持たない連番、および表で対象別に定めた区切り形式以外を使用する命名は禁止する。TypeScript／Markdown／JSON／Python／Plain text／版固定Policy／Dockerfile subjectの通常名へ`snake_case`を、Rust moduleファイルへ`kebab-case`を適用しない。
+大文字小文字の混在、空白、意味を持たない連番、および表で対象別に定めた区切り形式以外を使用する命名は禁止する。TypeScript／Markdown／JSON／Python／Plain text／固定Native実行物／版固定Policy／Dockerfile subjectの通常名へ`snake_case`を、Rust moduleファイルへ`kebab-case`を適用しない。
 
 ### 3.2. ecosystem予約名
 

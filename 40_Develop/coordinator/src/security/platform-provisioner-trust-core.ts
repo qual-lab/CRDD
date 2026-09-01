@@ -620,7 +620,7 @@ export function describePlatformProvisionerTrustCoreContract() {
     runtimeOwnedReleaseTrustSelection: "not_implemented",
     dedicatedNativeExecutableRequiredForV1: true,
     osNativeCodeSignatureDecision:
-      "minimum_trust_boundary_requires_fixed_publisher_authenticode",
+      "signed_release_manifest_is_required_authenticode_is_optional_fixed_publisher_defense",
     packagedBuildAcceptance:
       "verified_crdd_distribution_qual_lab_manifest_and_package_filesystem_all_required_before_effect_target",
     localDevelopmentBehavior:
