@@ -156,6 +156,7 @@ v0.19は、個別Task試験の合計ではなく、Project／Milestone入力か�
 | Integration | Task結果を統合しObjective／Milestone受入を確認 | 個別PassでもIntegration Pendingを保持 | conflict、欠落Artifact、受入不成立を成功へ補正しない |
 | Lifecycle | 完了・取消後に全子Taskと資源を回収 | 一部停止、親喪失、回復後再開 | cleanup不明、Identity競合、Recovery不成立では通常成功を返さない |
 | Project State | 実状態と進捗・品質・次行動が一致 | 未観測値と保留を明示 | 推定率、古い状態、個別Task PassからMilestone完了を生成しない |
+| Platform境界 | Project Runtime CoreがPlatform Contractだけを使用し、Windows Adapterで現在保証を保持 | 未実装Platformは候補として保持するだけでRuntimeへ接続しない | Adapter不在、Platform不明、保証未成立で別PlatformへfallbackせずEffect 0 |
 
 MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未満の選択、Dependency待ち、競合拒否、部分再計画、人間判断、統合失敗、取消、Parent喪失およびcleanup不明を本番同等入口へ段階的に接続する。CRDD v0.19自身の自己適用では、Time to Accepted Result、Human Active Time、AI Processing Time、Queue Waiting、Integration Cost、Conflict、Retry、Remediation、Replanning、Human Escalation、Provider利用および後工程Findingを観測する。さらに、レビュー、独立レビュー、監査、再レビュー／再監査、検証時間、完了までの検証反復、根拠量、指摘事項および是正回数を、取得可能で比較に有効な範囲で記録する。並列化の有用性を個別合格数で代替せず、保証活動の削減だけを成功としない。
 
@@ -184,6 +185,8 @@ MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未�
 | PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | 同試験で受入条件ごとのEvidenceを要求し、ObjectiveとMilestoneを別の世代更新で受け入れる。終了後所有資源0は結合試験で追加確認する |
 
 単体試験はGraph検証、Task／Objective／Milestoneの状態分離、受入条件ごとのEvidence、世代比較、容量計算およびAuthority縮小を確認する。結合試験はProject State Store、Scheduler、Single Task Runtime、取消、RecoveryおよびIntegrationの接続を確認する。E2EはMCP／CLIの公開入口から同じ意味契約へ到達し、正常、準正常、異常の代表経路でProcess構成、入力搬送、終了後資源および人間表示まで観測する。モックのTask完了だけから実Process不存在、cleanup、Authority非発行またはEffect 0を推定しない。
+
+Coordinator責務分離では、Project Runtime CoreからWindows固有moduleへの新規直接依存がないこと、Platform Adapter requestが閉集合であること、AdapterがAuthorityを生成しないこと、未実装PlatformがWindowsへfallbackしないことを契約試験で確認する。既存Windows処理をAdapterの背後へ移す場合は、移行前後でPrincipal／Provider Home、Filesystem、Lock、Process、ContainerおよびRecoveryの同じ保証と異常経路を再確認する。LinuxのBuild、配布およびE2Eはv0.19の合格条件へ含めず、Linux対応済みとも表示しない。
 
 <a id="reasoning-context-verification"></a>
 

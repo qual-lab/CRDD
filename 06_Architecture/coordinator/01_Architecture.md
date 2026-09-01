@@ -450,6 +450,42 @@ MCP接続切断はTask取消の依頼になり得るが、終了確認ではな�
 
 設計上のPassはTask数や状態ラベルではなく、この表の終了観測とObjective／Milestone受入の成立で判定する。
 
+<a id="project-runtime-platform-boundary"></a>
+
+### 14.9 Project RuntimeのPlatform境界
+
+Project Runtime Coreは、Project／Milestone／Objective／Task、Authority縮小、Task Graph、Scheduler判断、再計画、Integrationおよび受入意味を所有し、OS固有のPath構文、User Identity、Filesystem保護、Kernel Lock、Process tree、Console、Container HostまたはRecovery mechanismを所有しない。
+
+```text
+Project Runtime Core
+  → Platform Contract
+      → Windows Adapter（v0.19の実装対象）
+      → Linux Adapter（後続判断。v0.19では未実装）
+```
+
+Platform Contractは、実在する次の保証境界から抽出する。
+
+| 境界 | Coreが要求する保証 | Windows Adapterの現在方式 | Linuxで将来検討する方式の例 |
+|---|---|---|---|
+| Principal／Provider Home | 選択ユーザー、固定Home Identity、所有・書込み主体、non-linkを検証 | Token、SID、Known Folder、DACL、reparse観測 | UID／GID、mode／ACL、canonical local filesystem、symlink拒否 |
+| Filesystem／Repository | Root、Revision、Path、Identity、原子的更新、隔離を検証 | Windows handle／file identity、固定Root、atomic replace | directory fd、inode／device、`openat2`等の境界付き解決、atomic rename |
+| Lock／Lease | OS排他、owner generation、生存観測、時刻だけでない奪取 | named pipe／Windows kernel object、Process観測 | file descriptor lock、process identity、必要に応じたservice manager連携 |
+| Process／取消 | argv、環境、Process tree、signal、終了、owner lossを観測 | Windows Process／Job／Console境界 | process group、signal、pidfd／cgroup等の観測 |
+| Container Host | 固定image、Network、mount、Process、cleanupを確認 | Docker Desktop Linux EngineとWindows Host接続 | Linux Docker Engineまたは同等の固定Container Runtime |
+| Runtime Root／Recovery | OS管理Root、権限、資源Identity、回復後不存在を確認 | Local App Data等の固定RootとWindows native観測 | XDG／system service等の明示RootとLinux native観測 |
+
+右端は設計拘束ではなく、将来の専門探索候補である。同じAPI名または実装方式を要求せず、同じ保証を要求する。Linux方式を先に固定せず、Linux Adapterを追加する変更で脅威、権限、配布、更新、cleanup、Recoveryおよび実測方法を確定する。
+
+v0.19の責務分離では次を満たす。
+
+- 新しいProject Runtime CoreはWindows固有module、`process.platform`分岐またはOS Path実値を直接参照しない。
+- 既存Single Task RuntimeのWindows固有処理は、意味変更を伴わない単位からPlatform Adapterの背後へ移し、移行前後の同じ契約試験で保証を照合する。
+- Platform AdapterはAuthorityを生成せず、Runtime Coreが与えた閉じたrequestを観測・限定操作へ変換する。
+- 未実装PlatformをWindowsへfallbackせず、Platform Identity不明、Adapter不在または保証未成立ではEffect 0で停止する。
+- Linux対応を理由にWindowsのSID／DACL、AppContainer、named pipe、Docker Desktop Recovery等の成立条件を弱めない。
+
+この境界の完成はLinux対応の完成を意味しない。Linux対応は別の成果物、Build、署名Identity、検証母集団およびRelease判断を必要とする。
+
 ## 15. 非目標
 
 - Provider同士の直接spawn
