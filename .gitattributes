@@ -2,5 +2,5 @@
 
 40_Develop/coordinator/policies/windows-docker-desktop-4.41.2.policy text eol=lf
 40_Develop/coordinator/runtime/general-task-verification.txt text eol=lf
-/90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe binary
-/90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe binary
+/template/tools/coordinator/windows-x64/coordinator.exe binary
+/template/tools/coordinator/windows-x64/crdd-platform-access.exe binary

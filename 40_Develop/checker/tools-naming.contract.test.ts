@@ -161,6 +161,7 @@ const MARKDOWN_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/u;
 const JSON_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.json$/u;
 const PYTHON_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.py$/u;
 const TEXT_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.txt$/u;
+const NATIVE_EXECUTABLE_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.exe$/u;
 const POLICY_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d+\.\d+\.\d+\.policy$/u;
 const DOCKERFILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.Dockerfile$/u;
 const RESERVED_FILE_NAMES = new Set([
@@ -421,6 +422,14 @@ function assertFileName(file: string): void {
   }
   if (name.endsWith(".txt")) {
     assert.match(name, TEXT_FILE, `text filename: ${file}`);
+    return;
+  }
+  if (name.endsWith(".exe")) {
+    assert.match(
+      name,
+      NATIVE_EXECUTABLE_FILE,
+      `native executable filename: ${file}`,
+    );
     return;
   }
   if (name.endsWith(".policy")) {
@@ -1859,6 +1868,7 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
       "provider-settings.json",
       "provider-egress-proxy.py",
       "general-task-verification.txt",
+      "crdd-platform-access.exe",
       "windows-docker-desktop-4.41.2.policy",
       "provider-egress-proxy.Dockerfile",
     ]) {
@@ -1871,6 +1881,7 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
       ["provider_settings.json", /JSON filename/u],
       ["provider_egress_proxy.py", /Python filename/u],
       ["general_task_verification.txt", /text filename/u],
+      ["crdd_platform_access.exe", /native executable filename/u],
       ["windows_docker_desktop.policy", /policy filename/u],
       ["provider_egress_proxy.Dockerfile", /Dockerfile name/u],
     ] as const) {

@@ -1117,7 +1117,8 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     processPoisonGate: "before_manifest_package_filesystem_observation",
     policyIdentityBinding:
       "owned_root_protection_and_key_storage_policy_hashes_required",
-    signedManifestPath: "90_Release/coordinator-package-manifest.json",
+    signedManifestPath:
+      "template/tools/coordinator/coordinator-package-manifest.json",
     releaseTrustAnchorConfiguration: "configured_immutable_source_literal",
     signedManifestDistribution:
       "implemented_fixed_path_canonical_file_loader_candidate",

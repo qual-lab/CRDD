@@ -31,11 +31,7 @@ function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-release-tree-"));
   fs.mkdirSync(path.join(root, "90_Release"));
   fs.mkdirSync(
-    path.join(root, "90_Release", "platform-access", "x86_64-pc-windows-msvc"),
-    { recursive: true },
-  );
-  fs.mkdirSync(
-    path.join(root, "90_Release", "coordinator", "x86_64-pc-windows-msvc"),
+    path.join(root, "template", "tools", "coordinator", "windows-x64"),
     { recursive: true },
   );
   fs.mkdirSync(path.join(root, "nested"));
@@ -49,15 +45,22 @@ function fixture() {
   fs.writeFileSync(path.join(root, "nested", "beta.txt"), beta);
   fs.writeFileSync(path.join(root, "90_Release", "readme.txt"), release);
   fs.writeFileSync(
-    path.join(root, "90_Release", "coordinator-package-manifest.json"),
+    path.join(
+      root,
+      "template",
+      "tools",
+      "coordinator",
+      "coordinator-package-manifest.json",
+    ),
     "{}",
   );
   fs.writeFileSync(
     path.join(
       root,
-      "90_Release",
-      "platform-access",
-      "x86_64-pc-windows-msvc",
+      "template",
+      "tools",
+      "coordinator",
+      "windows-x64",
       "crdd-platform-access.exe",
     ),
     platformAccess,
@@ -65,28 +68,22 @@ function fixture() {
   fs.writeFileSync(
     path.join(
       root,
-      "90_Release",
+      "template",
+      "tools",
       "coordinator",
-      "x86_64-pc-windows-msvc",
+      "windows-x64",
       "coordinator.exe",
     ),
     coordinator,
   );
-  const platformAccessTargetTree = tree([
+  const toolTargetTree = tree([
+    ["100644", "coordinator.exe", objectId("blob", coordinator)],
     ["100644", "crdd-platform-access.exe", objectId("blob", platformAccess)],
   ]);
-  const platformAccessTree = tree([
-    ["40000", "x86_64-pc-windows-msvc", platformAccessTargetTree],
-  ]);
-  const coordinatorTargetTree = tree([
-    ["100644", "coordinator.exe", objectId("blob", coordinator)],
-  ]);
-  const coordinatorTree = tree([
-    ["40000", "x86_64-pc-windows-msvc", coordinatorTargetTree],
-  ]);
+  const coordinatorToolTree = tree([["40000", "windows-x64", toolTargetTree]]);
+  const toolsTree = tree([["40000", "coordinator", coordinatorToolTree]]);
+  const templateTree = tree([["40000", "tools", toolsTree]]);
   const releaseTree = tree([
-    ["40000", "coordinator", coordinatorTree],
-    ["40000", "platform-access", platformAccessTree],
     ["100644", "readme.txt", objectId("blob", release)],
   ]);
   const nestedTree = tree([["100644", "beta.txt", objectId("blob", beta)]]);
@@ -94,6 +91,7 @@ function fixture() {
     ["40000", "90_Release", releaseTree],
     ["100644", "alpha.txt", objectId("blob", alpha)],
     ["40000", "nested", nestedTree],
+    ["40000", "template", templateTree],
   ]).toString("hex");
   return { root, rootTree };
 }
@@ -155,8 +153,8 @@ test("配布fileの変更、追加および不正Treeを拒否する", () => {
 
 test("固定Native成果物の欠落を署名対象Tree成立と誤認しない", () => {
   for (const relativePath of [
-    "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
-    "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+    "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
+    "template/tools/coordinator/windows-x64/coordinator.exe",
   ]) {
     const value = fixture();
     try {
@@ -184,15 +182,15 @@ test("Release Identity contractはTree一致をEffectおよびrollbackから分�
   assert.deepEqual(contract.hashAlgorithms, ["SHA-1", "SHA-256"]);
   assert.equal(
     contract.manifestExcludedFromSignedGitTree,
-    "90_Release/coordinator-package-manifest.json",
+    "template/tools/coordinator/coordinator-package-manifest.json",
   );
   assert.equal(
     contract.platformAccessExecutableIncludedInSignedGitTree,
-    "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+    "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
   );
   assert.equal(
     contract.nativeProvisionSupervisorExecutableIncludedInSignedGitTree,
-    "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+    "template/tools/coordinator/windows-x64/coordinator.exe",
   );
   assert.equal(
     contract.signedCrddTreeComparison,

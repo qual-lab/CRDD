@@ -68,7 +68,7 @@ function fixture() {
     keyStoragePolicySha256: "3".repeat(64),
     platformAccessArtifact: {
       relativePath:
-        "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+        "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
       target: "x86_64-pc-windows-msvc",
       protocolRevision: 3,
       rustToolchain: "1.94.1",
@@ -76,8 +76,7 @@ function fixture() {
       sha256: "4".repeat(64),
     },
     nativeProvisionSupervisorArtifact: {
-      relativePath:
-        "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+      relativePath: "template/tools/coordinator/windows-x64/coordinator.exe",
       target: "x86_64-pc-windows-msvc",
       entrypointContractRevision: 2,
       rustToolchain: "1.94.1",

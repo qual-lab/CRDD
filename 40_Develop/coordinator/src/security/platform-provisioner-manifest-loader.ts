@@ -5,7 +5,7 @@ import path from "node:path";
 import { canonicalizeProvisioningJsonValueCandidate } from "./provisioning-signature-primitives.ts";
 
 export const PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH =
-  "90_Release/coordinator-package-manifest.json";
+  "template/tools/coordinator/coordinator-package-manifest.json";
 
 export const PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES = 128 * 1024;
 

@@ -38,8 +38,8 @@ type ManifestFileIdentity = Readonly<{
 type StagingSnapshot = Readonly<{
   root: string;
   rootIdentity: DirectoryIdentity;
-  releaseDirectory: string;
-  releaseDirectoryIdentity: DirectoryIdentity;
+  toolDistributionDirectory: string;
+  toolDistributionDirectoryIdentity: DirectoryIdentity;
   platformAccessArtifactToken: object;
   nativeSupervisorArtifactToken: object;
 }>;
@@ -119,18 +119,18 @@ function verifySnapshot(snapshot: StagingSnapshot): boolean {
     const rootIdentity = directoryIdentity(
       fs.lstatSync(snapshot.root, { bigint: true }),
     );
-    const releaseDirectoryIdentity = directoryIdentity(
-      fs.lstatSync(snapshot.releaseDirectory, { bigint: true }),
+    const toolDistributionDirectoryIdentity = directoryIdentity(
+      fs.lstatSync(snapshot.toolDistributionDirectory, { bigint: true }),
     );
     return (
       sameDirectoryIdentity(snapshot.rootIdentity, rootIdentity) &&
       sameDirectoryIdentity(
-        snapshot.releaseDirectoryIdentity,
-        releaseDirectoryIdentity,
+        snapshot.toolDistributionDirectoryIdentity,
+        toolDistributionDirectoryIdentity,
       ) &&
       fs.realpathSync.native(snapshot.root) === snapshot.root &&
-      fs.realpathSync.native(snapshot.releaseDirectory) ===
-        snapshot.releaseDirectory &&
+      fs.realpathSync.native(snapshot.toolDistributionDirectory) ===
+        snapshot.toolDistributionDirectory &&
       verifyPlatformAccessArtifactSigningObservation(
         snapshot.platformAccessArtifactToken,
       ) &&
@@ -174,13 +174,19 @@ export function beginReleaseStagingManifestSession(distributionRoot: unknown) {
     const rootIdentity = directoryIdentity(
       fs.lstatSync(root, { bigint: true }),
     );
-    const releaseDirectory = path.join(root, "90_Release");
-    const releaseDirectoryIdentity = directoryIdentity(
-      fs.lstatSync(releaseDirectory, { bigint: true }),
+    const toolDistributionDirectory = path.join(
+      root,
+      "template",
+      "tools",
+      "coordinator",
+    );
+    const toolDistributionDirectoryIdentity = directoryIdentity(
+      fs.lstatSync(toolDistributionDirectory, { bigint: true }),
     );
     if (
       fs.realpathSync.native(root) !== root ||
-      fs.realpathSync.native(releaseDirectory) !== releaseDirectory
+      fs.realpathSync.native(toolDistributionDirectory) !==
+        toolDistributionDirectory
     ) {
       return null;
     }
@@ -201,8 +207,8 @@ export function beginReleaseStagingManifestSession(distributionRoot: unknown) {
       Object.freeze({
         root,
         rootIdentity,
-        releaseDirectory,
-        releaseDirectoryIdentity,
+        toolDistributionDirectory,
+        toolDistributionDirectoryIdentity,
         platformAccessArtifactToken: artifactObservation.token,
         nativeSupervisorArtifactToken: nativeSupervisorObservation.token,
       }),

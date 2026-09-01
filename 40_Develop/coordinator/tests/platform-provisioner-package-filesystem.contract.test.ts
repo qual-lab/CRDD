@@ -194,7 +194,7 @@ test("開発版へ混入した署名manifestをReleaseへ昇格しない", () =>
   try {
     const target = path.join(
       fixture.distributionRoot,
-      "90_Release/coordinator-package-manifest.json",
+      "template/tools/coordinator/coordinator-package-manifest.json",
     );
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, "not a trusted artifact");
@@ -209,8 +209,8 @@ test("開発版へ混入した署名manifestをReleaseへ昇格しない", () =>
 });
 
 for (const relativePath of [
-  "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
-  "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+  "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
+  "template/tools/coordinator/windows-x64/coordinator.exe",
 ]) {
   test(`開発版の${relativePath}も署名対象Treeの差分として扱う`, () => {
     const fixture = developmentFixture();
@@ -496,7 +496,7 @@ function signedManifest(
     keyStoragePolicySha256: "3".repeat(64),
     platformAccessArtifact: {
       relativePath:
-        "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+        "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
       target: "x86_64-pc-windows-msvc",
       protocolRevision: 3,
       rustToolchain: "1.94.1",
@@ -504,8 +504,7 @@ function signedManifest(
       sha256: "4".repeat(64),
     },
     nativeProvisionSupervisorArtifact: {
-      relativePath:
-        "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+      relativePath: "template/tools/coordinator/windows-x64/coordinator.exe",
       target: "x86_64-pc-windows-msvc",
       entrypointContractRevision: 2,
       rustToolchain: "1.94.1",
@@ -796,7 +795,7 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.signedManifestPath,
-    "90_Release/coordinator-package-manifest.json",
+    "template/tools/coordinator/coordinator-package-manifest.json",
   );
   assert.equal(
     contract.releaseTrustAnchorConfiguration,

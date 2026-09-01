@@ -133,7 +133,7 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、次の二Commit手順で生成する。
 
-1. Release候補Commit Aへ、Source、文書、試験および固定Pathの2つのNative Runtime成果物を含め、`90_Release/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
+1. Release候補Commit Aへ、Source、文書、試験および固定Pathの2つのNative Runtime成果物を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
 2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release-staging/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
 3. Commit A／Tree Aと2つのNative成果物を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
 4. 生成したmanifestだけをRepositoryの同じ固定Pathへ追加してCommit Bを作る。`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。

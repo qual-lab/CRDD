@@ -20,7 +20,9 @@ export const PLATFORM_PROVISIONER_RELEASE_PACKAGE_SEGMENTS = Object.freeze([
   "coordinator",
 ]);
 export const PLATFORM_PROVISIONER_RELEASE_MANIFEST_SEGMENTS = Object.freeze([
-  "90_Release",
+  "template",
+  "tools",
+  "coordinator",
   "coordinator-package-manifest.json",
 ]);
 

@@ -16,8 +16,8 @@ platform-accessは、TypeScript側だけでは確認できないWindowsの主体
 
 | 成果物 | 役割 | 配布先 |
 |---|---|---|
-| `crdd-platform-access.exe` | 通常の観測、限定初期化、別modeのDocker修復helper、AppContainer Worker | `90_Release/platform-access/x86_64-pc-windows-msvc/` |
-| `coordinator.exe` | `native-bootstrap-release` featureで作る準備処理用Supervisor | `90_Release/coordinator/x86_64-pc-windows-msvc/` |
+| `crdd-platform-access.exe` | 通常の観測、限定初期化、別modeのDocker修復helper、AppContainer Worker | `template/tools/coordinator/windows-x64/` |
+| `coordinator.exe` | `native-bootstrap-release` featureで作る準備処理用Supervisor | `template/tools/coordinator/windows-x64/` |
 
 後者はTypeScriptのCoordinator CLIではない。SupervisorからWorkerへ依存し、WorkerのHashを固定する。TypeScript Adapterは署名manifest、固定Path、成果物の前後同一性、最小環境、nonceと応答を確認する。Rustはその内側のOS実体を確認する。片方の確認をもう片方の代用にしない。
 

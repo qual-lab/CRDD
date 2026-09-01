@@ -33,10 +33,15 @@ function withDistribution(
     path.join(os.tmpdir(), "crdd-manifest-loader-"),
   );
   try {
-    const releaseDirectory = path.join(distributionRoot, "90_Release");
-    fs.mkdirSync(releaseDirectory);
+    const toolDistributionDirectory = path.join(
+      distributionRoot,
+      "template",
+      "tools",
+      "coordinator",
+    );
+    fs.mkdirSync(toolDistributionDirectory, { recursive: true });
     fs.writeFileSync(
-      path.join(releaseDirectory, "coordinator-package-manifest.json"),
+      path.join(toolDistributionDirectory, "coordinator-package-manifest.json"),
       bytes,
     );
     verify(distributionRoot);
@@ -113,7 +118,9 @@ test("manifestの読込競合はHashと権限を発行せず対象descriptorを�
     withDistribution(canonical.canonicalBytes, (root) => {
       const target = path.join(
         root,
-        "90_Release",
+        "template",
+        "tools",
+        "coordinator",
         "coordinator-package-manifest.json",
       );
       const bytes = fs.readFileSync(target);

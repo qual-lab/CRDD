@@ -49,6 +49,7 @@ Stable表示への移行後、Checkerが03_Documentation本文のコード例に
 | 試験発見 | package所有の`.test.ts`を再帰列挙し、型検査の所有試験集合とexact一致させ、0件を失敗する |
 | 互換 | 旧名shim、alias、重複入口を残さず、明示移行または以前の固定Releaseへ戻す |
 | Release署名 | 開発反復を公式鍵・passphrase・実署名Effectから分離し、全非秘密条件を入力前に検査した固定Release Candidateだけを一度署名する |
+| Tool配布 | Source・build・試験は`40_Develop`、採用Repositoryへ届くTool本体・固定Native成果物・配布Identityは`template/tools`、変更・Evidence・Release状態は`90_Release`へ分離する |
 | Repository-local状態 | Repository rootの`.crdd`はignore-by-defaultとし、Runtime状態、Candidate、log、一時成果物および生成物を追跡しない。内容自体が検証入力になる非秘密のCommit固定Repository設定だけを明示allowlistする |
 
 公開CheckerのCLI、JSON、Schema、reason、status、暗号domainおよび既存machine contractは、命名規則だけを理由に変更しない。単一配布正本へ委譲するpackage entry adapterは責務分離であり、旧入口互換wrapperではない。

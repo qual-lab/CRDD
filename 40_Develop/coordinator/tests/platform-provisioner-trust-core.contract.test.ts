@@ -93,12 +93,14 @@ test("共有manifestベクトルは旧期限付き・新期限付き・期限な
       path.join(os.tmpdir(), "crdd-validity-loader-"),
     );
     try {
-      fs.mkdirSync(path.join(root, "90_Release"));
       const target = path.join(
         root,
-        "90_Release",
+        "template",
+        "tools",
+        "coordinator",
         "coordinator-package-manifest.json",
       );
+      fs.mkdirSync(path.dirname(target), { recursive: true });
       const canonical = canonicalizeProvisioningJsonValueCandidate(envelope);
       assertCanonicalCandidate(canonical);
       fs.writeFileSync(target, canonical.canonicalBytes, { flag: "wx" });
@@ -294,7 +296,7 @@ function fixture(protocolRevision = 3) {
     keyStoragePolicySha256: "5".repeat(64),
     platformAccessArtifact: {
       relativePath:
-        "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+        "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
       target: "x86_64-pc-windows-msvc",
       protocolRevision,
       rustToolchain: "1.94.1",
@@ -302,8 +304,7 @@ function fixture(protocolRevision = 3) {
       sha256: "6".repeat(64),
     },
     nativeProvisionSupervisorArtifact: {
-      relativePath:
-        "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+      relativePath: "template/tools/coordinator/windows-x64/coordinator.exe",
       target: "x86_64-pc-windows-msvc",
       entrypointContractRevision: 2,
       rustToolchain: "1.94.1",
@@ -583,7 +584,7 @@ test("signed package manifest matches exact CRDD-bundled package content but rem
   assert.equal(result.keyStoragePolicySha256, "5".repeat(64));
   assert.deepEqual(result.platformAccessArtifact, {
     relativePath:
-      "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+      "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
     target: "x86_64-pc-windows-msvc",
     protocolRevision: 3,
     rustToolchain: "1.94.1",
@@ -591,8 +592,7 @@ test("signed package manifest matches exact CRDD-bundled package content but rem
     sha256: "6".repeat(64),
   });
   assert.deepEqual(result.nativeProvisionSupervisorArtifact, {
-    relativePath:
-      "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+    relativePath: "template/tools/coordinator/windows-x64/coordinator.exe",
     target: "x86_64-pc-windows-msvc",
     entrypointContractRevision: 2,
     rustToolchain: "1.94.1",
@@ -647,7 +647,7 @@ test("package name, version, file ordering, path and digest mismatches fail clos
     },
     (value) => {
       value.manifestEnvelope.payload.platformAccessArtifact.relativePath =
-        "90_Release/platform-access/wrong.exe";
+        "template/tools/coordinator/wrong.exe";
     },
     (value) => {
       value.manifestEnvelope.payload.platformAccessArtifact.target =
@@ -675,7 +675,7 @@ test("package name, version, file ordering, path and digest mismatches fail clos
     },
     (value) => {
       value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.relativePath =
-        "90_Release/coordinator/wrong.exe";
+        "template/tools/coordinator/wrong.exe";
     },
     (value) => {
       value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.target =
@@ -762,7 +762,7 @@ test("暗号学的に有効なV2 artifact欠落とnative field差をSchemaで拒
     },
     (value) => {
       value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.relativePath =
-        "90_Release/coordinator/wrong.exe";
+        "template/tools/coordinator/wrong.exe";
     },
     (value) => {
       value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.target =
