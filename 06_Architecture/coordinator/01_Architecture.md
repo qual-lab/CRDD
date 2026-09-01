@@ -957,6 +957,8 @@ Task、Reviewer、MCP Client、Provider出力またはRepository内文書は、A
 
 最初のMCP経路は`objective intake → Project Binding検証 → Task exact 1件の計画 → 既存Single Task Runtime → 構造化結果 → Project State`だけを通す。MCP AdapterはTransport decode、request identity、取消通知および結果encodeを所有し、Project Model、Scheduler、Repository操作またはAuthority判断を所有しない。
 
+初期Adapterは[Model Context Protocol 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28)のstateless per-request方式を固定し、Protocol version、client capabilitiesおよび任意のclient infoを各Requestの`_meta`で検査する。`server/discover`、`tools/list`および`tools/call`の薄い閉集合だけを公開し、旧Handshakeのsession状態をProject Stateへ持ち込まない。後方互換が必要な場合もTransport Adapterでversion negotiationを行い、Project CoreのAuthority、Identityまたは状態遷移を変えない。client infoは自己申告の互換・表示情報であり、Project Bindingや実行Authorityの根拠にしない。
+
 MCP接続切断はTask取消の依頼になり得るが、終了確認ではない。切断後もParent CoordinatorがTask cleanupを完了し、結果を再取得可能なProject Stateへ保存する。request重複は同じOperationを二重発行せず、同じidempotency identityに対する現在状態を返す。入力不正、Project Binding不明またはAuthority不足ではSingle Task Runtimeを呼び出さずEffect 0で停止する。
 
 ### 17.7 正常・準正常・異常の設計基準

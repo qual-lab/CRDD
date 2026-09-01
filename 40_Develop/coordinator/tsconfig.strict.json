@@ -23,6 +23,7 @@
     "scripts/measure-development-providers.ts",
     "src/security/coordinator-task-request.ts",
     "src/security/project-runtime-state.ts",
+    "src/security/mcp-project-runtime-adapter.ts",
     "src/security/development-measurement-session.ts",
     "bin/coordinator.ts",
     "scripts/generate-release-key.ts",
