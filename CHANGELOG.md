@@ -15,6 +15,8 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 The current candidate strengthens Communication reasoning without making one mandatory reasoning schema. It distinguishes trigger, non-trigger, and insufficient-information cases for Cognitive Intent; preserves historical hypotheses and current intent separately; limits AI projection to relevant, current, traceable context; and keeps commerciality, research safety, persuasion risk, and post-adoption value with their responsible canonical artifacts. This entry describes work in progress and does not establish publication, adoption, or conformance. The released baseline remains v0.18.1.
 
+The dogfooding-wide candidate also makes assurance cost, planned and actual change routes, route deviations, and effective verification observable through existing Change Trace and quality evidence. Assurance cost is evaluated as the total cost to an accepted result, not as a target for reducing review or audit. Human readability remains the responsibility of the existing Document Audit, which checks intuitive display names, concise explanations, terminology dependency, sentence complexity, and information structure. This change does not add fixed profiles, an automatic routing engine, a readability-only checker, or length-based gates. It remains work in progress and does not change the released v0.18.1 baseline.
+
 <a id="changelog-v0181-en"></a>
 
 ### v0.18.1 — Coordinator Adoption Interface Correction

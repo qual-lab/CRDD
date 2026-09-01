@@ -13,7 +13,7 @@ Scope: `40_Develop/**`と、CRDDが配布正本として所有し`40_Develop/**`
 
 本書はQual Suite Commit `d7493e25f719bef6e46b8dbba7926f9a74e1165e`、Tree `62fa90f2020803609935a10944dcffe03484af34`の`06_Architecture/qual-insight/99_Coding_Standards.md`と`90_Release/qual-insight/Changes/CHG-000004_Implementation_Naming_Convention.md`を設計入力として使用した。今後のQual Suite側の変更を自動採用せず、CRDD側の変更トレースと人間の決定権限を通じて本書を更新する。
 
-TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust toolchainは[CRDD標準の保守](../19_Maintenance.md#33-internal-typescript-runtime)を正本とする。旧名、互換層および移行の扱いは[本質的修正と互換層の境界](../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)を正本とする。
+TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust toolchainは本書を正本とする。旧名、互換層および移行の扱いは[本質的修正と互換層の境界](../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)を正本とする。
 
 ## 2. 適用境界
 
@@ -32,6 +32,16 @@ TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust tool
 - 過去のCHG、Evidence、CHANGELOG、tagまたはReleaseに記録された当時のPathとcommand
 
 これらを変更する場合は、命名整理ではなく各契約の破壊的変更として別に判断し、利用側と移行を追跡する。
+
+### 2.1. 実装言語と実行境界
+
+CRDD公式Repositoryが所有する内部Scriptは`.ts`を標準とし、Node.js 24.12 LTS以上のネイティブTypeScript型除去で実行する。Runtime依存として`tsx`、`ts-node`、Babel、Bundlerまたは専用の変換packageを要求しない。実行コードはESM、Node.js組込み機能および`import type`を基本とする。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
+
+ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path aliasまたはcompiler変換を前提とする構文を内部Scriptへ導入しない。
+
+TypeScriptだけでは安全に確認できないOS APIへ接続する最小部分は、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。CRDD本体、一般CLI、Policy、契約およびProcess lifecycleはTypeScriptに保持する。Rust成果物は公開CLI、独立製品、永続準備Lifecycleまたは採用RepositoryのBuild依存を所有せず、固定protocolで要求されたOS観測と限定操作だけを行う。この例外を内部Script一般のRust移行へ拡張しない。
+
+BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やBuild orchestrationとして新設しない。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Rustの固定成果物、toolchainおよび署名Identityへの結合は[Windowsネイティブ部品の設計](platform-access/01_Architecture.md)が所有し、反復するBuild・検証手順は[Coordinator RuntimeのWorkflow](../19_Workflows/01_Coordinator_Runtime.md)が所有する。
 
 ## 3. ファイルとフォルダ
 

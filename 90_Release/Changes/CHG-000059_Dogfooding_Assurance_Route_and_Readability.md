@@ -33,10 +33,10 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 
 ## 3. 変更経路の計画
 
-- 計画した主な経路: Change → Agent／Overview → Quality Assurance／Progress → Documentation／Document Audit → Conformance／Gap・Impact → 利用側ひな型・Project Runtimeの有用性評価
-- 選択理由: 変更経路はChange、保証コストはQuality Assurance、可読性はDocumentationとDocument Auditがそれぞれ正本責務を持ち、AI入口・ひな型・準拠・Project Runtime評価へ直接伝播するため。
+- 計画した主な経路: [変更トレース](../../12_Change.md) → [エージェント](../../10_Agent.md)／[概要](../../00_Overview.md) → [品質保証](../../16_Quality_Assurance.md)／[進捗管理](../../15_Progress.md) → [文書化](../../03_Documentation.md)／[文書監査](../../51_Document_Audit.md) → [準拠監査](../../52_Conformance_Audit.md)／[不足・影響監査](../../53_Gap_Impact_Audit.md) → 利用側ひな型・Project Runtimeの有用性評価
+- 選択理由: 変更経路は変更トレース、保証コストは品質保証、可読性は文書化と文書監査がそれぞれ正本責務を持ち、AI入口、ひな型、準拠およびProject Runtime評価へ直接伝播するため。
 - 予定する検証: 全体Checker、品質保証・変更工程の専門レビュー、文書監査、準拠監査、不足／影響監査。
-- 重要な非選択経路: Security ReviewおよびRuntime E2Eは、実装、Authority、Effect、Recovery、Providerまたは外部送信境界を変更しないため非選択。新しいReadability Auditは既存Document Auditと責務が重複するため非選択。
+- 重要な非選択経路: [セキュリティ原則](../../01_Principles.md)に基づくセキュリティレビューと[RuntimeのE2E検証](../../07_Quality/03_Verification_Design.md)は、実装、Authority、Effect、Recovery、Providerまたは外部送信境界を変更しないため非選択。新しい可読性専用監査は、既存の[文書監査](../../51_Document_Audit.md)と責務が重複するため非選択。
 
 ## 4. 適用境界と代表例
 

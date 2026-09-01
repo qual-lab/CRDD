@@ -259,12 +259,14 @@ The [human-readable route table](00_Overview.md#44-change-route-selection) shows
 Humans do not need to read every canonical document before starting. Read this section and the [Overview orientation](00_Overview.md#1-quick-orientation); use [Terminology](02_Terminology.md) and [Documentation](03_Documentation.md) as references when a term or recording rule is needed. AI and people designing CRDD operation should load the canonical foundation set.
 
 1. Read the [Overview orientation](00_Overview.md#1-quick-orientation) and identify the first problem or request to handle.
-2. Copy the base scaffold from [`template/`](template) into the target project, excluding the optional `template/80_Communication` capability folder. Add that folder as root `80_Communication` only when Human scope selection says external communication applies. Design Direction alone does not activate it. Copy the released CRDD standard documents for the adopted version into `00_CRDD/` and keep that version identifiable. Only when Coordinator Runtime will send tasks to an external provider, use `template/.crdd/external-send-policy.example.json` to create `.crdd/external-send-policy.json`. The example is fail-closed with `enabled: false`. The repository's Human decision authority must confirm and commit that repository's information classification, dedicated Provider Home session boundary, subscription family, the provider terms/settings boundaries that Runtime cannot verify, candidate persistence, export lifetime, and next-safe-start deletion before enabling it. Do not copy CRDD's own `public` policy into another repository.
-3. Let the AI entry point load the canonical foundation set, the shared authorities required for the work (`10`–`19`), and only the applicable phase authorities (`21`–`29`). Read the [shared UI / Behavior Specification contract](24_UI_Behavior_Specification.md) before either parallel phase.
-4. Use the project-root [`AGENTS.md`](template/AGENTS.md) or [`CLAUDE.md`](template/CLAUDE.md) as the AI entry point. Connect the active scope, target revision, canonical context, authority, applicable phase, and stop conditions instead of copying phase rules into prompts.
-5. When a decision, constraint, learning, evidence, or finding is established or changed, evaluate and, when triggered, complete the [Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure) before treating the result as complete.
-6. Before handing off phase or shared-contract scope, run the [Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop) with both contract and applicable specialist checks, remediate findings in the responsible phase or contract, and re-review the updated revision before Human approval.
-7. Before claiming CRDD conformance, evaluate the applicable Core and Profile criteria with current evidence using the [Conformance Audit](52_Conformance_Audit.md).
+2. Copy the base scaffold from [`template/`](template) into the target project, excluding the optional `template/80_Communication` capability folder. Copy the released CRDD standard documents for the adopted version into `00_CRDD/`, and keep that version identifiable.
+3. Only when Human scope selection says external communication applies, add `template/80_Communication` as the project-root `80_Communication`. Design Direction alone does not activate it.
+4. Only when Coordinator Runtime will send tasks to an external provider, use `template/.crdd/external-send-policy.example.json` to create `.crdd/external-send-policy.json`. The example is fail-closed with `enabled: false`. Before enabling it, the repository's Human decision authority must confirm and commit that repository's information classification, dedicated Provider Home session boundary, subscription family, the provider terms/settings boundaries that Runtime cannot verify, candidate persistence, export lifetime, and next-safe-start deletion. Do not copy CRDD's own `public` policy into another repository.
+5. Let the AI entry point load the canonical foundation set, the shared authorities required for the work (`10`–`19`), and only the applicable phase authorities (`21`–`29`). Read the [shared UI / Behavior Specification contract](24_UI_Behavior_Specification.md) before either parallel phase.
+6. Use the project-root [`AGENTS.md`](template/AGENTS.md) or [`CLAUDE.md`](template/CLAUDE.md) as the AI entry point. Connect the active scope, target revision, canonical context, authority, applicable phase, and stop conditions instead of copying phase rules into prompts.
+7. When a decision, constraint, learning, evidence, or finding is established or changed, evaluate and, when triggered, complete the [Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure) before treating the result as complete.
+8. Before handing off phase or shared-contract scope, run the [Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop) with both contract and applicable specialist checks, remediate findings in the responsible phase or contract, and re-review the updated revision before Human approval.
+9. Before claiming CRDD conformance, evaluate the applicable Core and Profile criteria with current evidence using the [Conformance Audit](52_Conformance_Audit.md).
 
 ### Evaluate an unadopted baseline or candidate safely
 
@@ -321,7 +323,23 @@ Before changing an adopted CRDD baseline, run the lightweight [Baseline Adoption
 
 Where a baseline update includes any difference classified normative or breaking, or any release whose CHANGELOG declares migration required, adoption is not complete until the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar is met — this applies to adopting with no action just as much as to adopting after remediation — and a `Conformant` claim cannot be recorded against that baseline before then. The bar's fifth point, an independent review, is carried out by Document Audit or Gap / Impact Audit, not by Conformance Audit.
 
-v0.18.0 contains breaking changes and requires migration; review the [v0.18.0 changelog](CHANGELOG.md#changelog-v0180-en) before activation. v0.17.0 contains breaking changes for expert exploration, convergence, and the External Information Boundary and requires migration; review the [v0.17.0 changelog](CHANGELOG.md#changelog-v0170-en) and its migration note. v0.16.0 contains a breaking change for first-pass convergence and requires migration; review the [v0.16.0 changelog](CHANGELOG.md#changelog-v0160-en) and its migration note. v0.15.0 contains a breaking, capability-scoped change for Communication and Context Dependency and also requires migration; review the [v0.15.0 changelog](CHANGELOG.md#changelog-v0150-en) and its migration note. v0.14.0 contains a breaking change for convergent remediation and evidence identity and also requires migration; review the [v0.14.0 changelog](CHANGELOG.md#changelog-v0140-en) and its migration note. v0.13.0 contains a breaking change for complete multi-location remediation and also requires migration; review the [v0.13.0 changelog](CHANGELOG.md#changelog-v0130-en) and its migration note. v0.12.0 contains a normative pre-execution alignment change and also requires migration; review the [v0.12.0 changelog](CHANGELOG.md#changelog-v0120-en) and its migration note. v0.11.0 contains a normative AI-interaction change and also requires migration; review the [v0.11.0 changelog](CHANGELOG.md#changelog-v0110-en) and its migration note. v0.10.0, v0.9.0, v0.8.0, and v0.7.0 contain breaking changes and also require migration — review the [v0.10.0 changelog](CHANGELOG.md#changelog-v0100-en), [v0.9.0 changelog](CHANGELOG.md#changelog-v090-en), [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en), and [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
+Review every intervening release between the currently adopted baseline and the candidate. The following table keeps the migration-bearing releases visible instead of compressing them into one paragraph.
+
+| Release | Migration impact | Required reference |
+|---|---|---|
+| v0.18.0 | Breaking; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v0180-en) |
+| v0.17.0 | Breaking expert-exploration, convergence, and External Information Boundary change; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v0170-en) |
+| v0.16.0 | Breaking first-pass convergence change; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v0160-en) |
+| v0.15.0 | Breaking, capability-scoped Communication and Context Dependency change; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v0150-en) |
+| v0.14.0 | Breaking convergent-remediation and evidence-identity change; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v0140-en) |
+| v0.13.0 | Breaking complete multi-location remediation change; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v0130-en) |
+| v0.12.0 | Normative pre-execution alignment change; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v0120-en) |
+| v0.11.0 | Normative AI-interaction change; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v0110-en) |
+| v0.10.0 | Breaking; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v0100-en) |
+| v0.9.0 | Breaking; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v090-en) |
+| v0.8.0 | Breaking; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v080-en) |
+| v0.7.0 | Breaking; migration required | [Changelog and migration note](CHANGELOG.md#changelog-v070-en) |
+| v0.6.0 from v0.5.1-p1 | Review and apply only changes relevant to the adopting project | [Changelog](CHANGELOG.md#changelog-v060-en) |
 
 <a id="historical-migration-v042-v05x-en"></a>
 
@@ -673,12 +691,14 @@ AIは、責務を持つ正本文書の選択、代替案の比較、承認され
 人間は、開始前にすべての正本文書を通読する必要はない。この節と[概要の「最初に把握すること」](00_Overview.md#1-quick-orientation)から始め、分からない用語は[用語集](02_Terminology.md)、配置や記録方法は[文書化](03_Documentation.md)で必要時に確認する。AIとCRDD運用を設計する担当者は、基礎正本一式を読む。
 
 1. [概要の「最初に把握すること」](00_Overview.md#1-quick-orientation)を読み、最初に扱う問題または要望を一つ決める。
-2. [`template/`](template)から任意機能の`template/80_Communication`を除く基礎ひな型を対象プロジェクトへコピーする。人間が外部コミュニケーションを適用すると判断した場合だけ、同フォルダをプロジェクト直下の`80_Communication`として追加する。デザイン方針だけの利用では追加しない。採用するリリースのCRDD標準文書を`00_CRDD/`へコピーし、採用バージョンを識別可能にする。Coordinator Runtimeから外部ProviderへTaskを送る場合だけ、`template/.crdd/external-send-policy.example.json`を参考に`.crdd/external-send-policy.json`を作成する。exampleは`enabled: false`であり、情報分類、専用Provider HomeのSession境界、利用するSubscription、Provider Terms／SettingsをRuntimeが検証できない範囲、Candidate保存可否・export可能時間と次回安全起動時削除を、そのRepositoryの人間の決定権限者が確認してCommit固定するまで有効化しない。CRDD本体の`public` Policyを他Repositoryへコピーしない。
-3. AI入口から基礎正本、作業に必要な共通正本（`10`〜`19`）、対象工程の正本（`21`〜`29`）だけを読む。UIまたは振る舞い仕様へ進む前に、両者の[共有契約](24_UI_Behavior_Specification.md)を読む。
-4. プロジェクト直下の[`AGENTS.md`](template/AGENTS.md)または[`CLAUDE.md`](template/CLAUDE.md)をAIの入口とする。工程規則を指示文へ複製せず、作業対象、対象改訂版、正本コンテキスト、決定権限、対象工程、停止条件を接続する。
-5. 判断、制約、学び、根拠、指摘事項を確定・変更したときは[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を評価し、発火した場合は通常完了とする前に正本反映と再監査まで終える。
-6. 工程または共有契約の対象範囲を引き渡す前に、契約確認と対象工程または対象共有契約の専門品質確認を含む[工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行し、責務を持つ工程または契約で指摘事項を修正して更新改訂版を再レビューした後に人間の承認へ進む。
-7. CRDD準拠を表明する前に、[準拠監査](52_Conformance_Audit.md)に従って、適用される中核／プロファイル基準を現行根拠で評価する。
+2. [`template/`](template)から、任意機能の`template/80_Communication`を除く基礎ひな型を対象プロジェクトへコピーする。採用するリリースのCRDD標準文書を`00_CRDD/`へコピーし、採用バージョンを識別可能にする。
+3. 人間が外部コミュニケーションを適用すると判断した場合だけ、`template/80_Communication`をプロジェクト直下の`80_Communication`として追加する。デザイン方針だけの利用では追加しない。
+4. Coordinator Runtimeから外部ProviderへTaskを送る場合だけ、`template/.crdd/external-send-policy.example.json`を参考に`.crdd/external-send-policy.json`を作成する。exampleは`enabled: false`である。有効化前に、そのRepositoryの人間の決定権限者が、情報分類、専用Provider HomeのSession境界、利用するSubscription、Provider Terms／SettingsをRuntimeが検証できない範囲、Candidate保存可否、export可能時間および次回安全起動時削除を確認してCommit固定する。CRDD本体の`public` Policyを他Repositoryへコピーしない。
+5. AI入口から基礎正本、作業に必要な共通正本（`10`〜`19`）、対象工程の正本（`21`〜`29`）だけを読む。UIまたは振る舞い仕様へ進む前に、両者の[共有契約](24_UI_Behavior_Specification.md)を読む。
+6. プロジェクト直下の[`AGENTS.md`](template/AGENTS.md)または[`CLAUDE.md`](template/CLAUDE.md)をAIの入口とする。工程規則を指示文へ複製せず、作業対象、対象改訂版、正本コンテキスト、決定権限、対象工程、停止条件を接続する。
+7. 判断、制約、学び、根拠、指摘事項を確定・変更したときは[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を評価し、発火した場合は通常完了とする前に正本反映と再監査まで終える。
+8. 工程または共有契約の対象範囲を引き渡す前に、契約確認と対象工程または対象共有契約の専門品質確認を含む[工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行し、責務を持つ工程または契約で指摘事項を修正して更新改訂版を再レビューした後に人間の承認へ進む。
+9. CRDD準拠を表明する前に、[準拠監査](52_Conformance_Audit.md)に従って、適用される中核／プロファイル基準を現行根拠で評価する。
 
 ### 未採用の基準版・候補を安全に評価する
 
@@ -735,7 +755,23 @@ AIは、責務を持つ正本文書の選択、代替案の比較、承認され
 
 基準版更新に含まれる差分のいずれかが規範もしくは破壊的に分類される場合、またはいずれかのリリースのCHANGELOGが移行を必要と明示する場合、[移行完了の条件](19_Maintenance.md#621-migration-completeness)を満たすまで採用は完了せず、その基準版への`Conformant`表明も記録できない。これは対応なしで採用する場合にも適用する。同条件の5点目の独立レビューは、文書監査または不足／影響監査で実施し、準拠監査では実施しない。
 
-v0.18.0は破壊的変更を含み、移行を必要とする。有効化前に[v0.18.0の変更履歴](CHANGELOG.md#changelog-v0180-ja)と移行注記を確認する。v0.17.0は専門探索・収束と外部情報境界に関する破壊的変更を含み、移行を必要とする。[v0.17.0の変更履歴](CHANGELOG.md#changelog-v0170-ja)と移行注記を確認する。v0.16.0は初回固定候補の収束性を高める破壊的変更を含み、移行を必要とする。[v0.16.0の変更履歴](CHANGELOG.md#changelog-v0160-ja)と移行注記を確認する。v0.15.0は外部コミュニケーションとコンテキスト依存に関する適用機能を限定できる破壊的変更を含み、同じく移行を必要とする。[v0.15.0の変更履歴](CHANGELOG.md#changelog-v0150-ja)と移行注記を確認する。v0.14.0は収束する是正と根拠同一性に関する破壊的変更を含み、同じく移行を必要とする。[v0.14.0の変更履歴](CHANGELOG.md#changelog-v0140-ja)と移行注記を確認する。v0.13.0は複数箇所への是正適用に関する破壊的変更を含み、同じく移行を必要とする。[v0.13.0の変更履歴](CHANGELOG.md#changelog-v0130-ja)と移行注記を確認する。v0.12.0は着手前整合確認に関する規範変更を含み、同じく移行を必要とする。[v0.12.0の変更履歴](CHANGELOG.md#changelog-v0120-ja)と移行注記を確認する。v0.11.0はAI対話に関する規範変更を含み、同じく移行を必要とする。[v0.11.0の変更履歴](CHANGELOG.md#changelog-v0110-ja)と移行注記を確認する。v0.10.0、v0.9.0、v0.8.0、v0.7.0はいずれも破壊的変更を含み、同じく移行を必要とする。[v0.10.0の変更履歴](CHANGELOG.md#changelog-v0100-ja)、[v0.9.0の変更履歴](CHANGELOG.md#changelog-v090-ja)、[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)、[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
+現在採用している基準版から候補版までの、途中の全リリースを確認する。移行を伴う版を一段落へ埋めず、次の表から個別に辿る。
+
+| リリース | 移行への影響 | 必須の参照先 |
+|---|---|---|
+| v0.18.0 | 破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v0180-ja) |
+| v0.17.0 | 専門探索・収束と外部情報境界の破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v0170-ja) |
+| v0.16.0 | 初回固定候補の収束性に関する破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v0160-ja) |
+| v0.15.0 | 外部コミュニケーションとコンテキスト依存の適用機能を限定できる破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v0150-ja) |
+| v0.14.0 | 収束する是正と根拠同一性の破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v0140-ja) |
+| v0.13.0 | 複数箇所への是正適用の破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v0130-ja) |
+| v0.12.0 | 着手前整合確認の規範変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v0120-ja) |
+| v0.11.0 | AI対話の規範変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v0110-ja) |
+| v0.10.0 | 破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v0100-ja) |
+| v0.9.0 | 破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v090-ja) |
+| v0.8.0 | 破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v080-ja) |
+| v0.7.0 | 破壊的変更。移行必須 | [変更履歴と移行注記](CHANGELOG.md#changelog-v070-ja) |
+| v0.5.1-p1からv0.6.0 | 採用プロジェクトに関係する変更だけを適用 | [変更履歴](CHANGELOG.md#changelog-v060-ja) |
 
 <a id="historical-migration-v042-v05x-ja"></a>
 
