@@ -2,7 +2,7 @@
 
 状態: Stable（v0.18.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-01
+最終更新日: 2026-09-02
 
 ## 1. 目的と境界
 
@@ -62,7 +62,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 
 ## 5. 署名済み配布物
 
-Runtimeの信頼単位は、Coordinator本体、共通Launcherから到達する署名・4経路・Recovery実行コード、Security Policyおよび`crdd-platform-access.exe`から機械的に算出するRuntime実行Identityである。CRDD Git TreeはRelease Identityと出所を示すが、文書だけの変更でRuntime Authorityを失効させない。Launcherの入口表をIdentity算出のseedとして共用し、選択されたscriptの推移的な静的依存を含める。字句解析はコメントや文字列中の見せかけを依存として扱わず、構文として認識したimportだけを閉包へ加える。実在する`node:`組込みmoduleと閉包内relative target以外のmodule、非literalの動的import、入口表とliteral importの不一致、解析不能なsourceをProvider Effect前に拒否する。選択scriptから生じるNode.js子Process／Workerも、同じsourceまたは同じ閉包へ結合されたliteral targetだけを許可する。削除済みSupervisor field、旧revision、別名Path、欠落artifactまたは互換fallbackを受理しない。
+Runtimeの信頼単位は、Coordinator本体、共通Launcherから到達する署名・4経路・Recovery実行コード、Security Policyおよび`crdd-platform-access.exe`から機械的に算出するRuntime実行Identityである。CRDD Git TreeはRelease Identityと出所を示すが、文書だけの変更でRuntime Authorityを失効させない。Launcherの入口表をIdentity算出のseedとして共用し、選択されたscriptの推移的な静的依存を含める。字句解析はコメントや文字列中の見せかけを依存として扱わず、構文として認識したimportだけを閉包へ加える。実在する`node:`組込みmoduleと閉包内relative target以外のmodule、非literalの動的import、入口表とliteral importの不一致、解析不能なsourceをProvider Effect前に拒否する。選択scriptの子Process／Worker起動APIはnamed importの閉集合と全binding利用を照合し、同じsourceまたは同じ閉包へ結合されたliteral targetと既知の固定終了経路だけを許可する。namespace／default／dynamic import、binding再代入、間接呼出し、可変argvまたは未説明の利用は依存閉包の迂回として拒否する。削除済みSupervisor field、旧revision、別名Path、欠落artifactまたは互換fallbackを受理しない。
 
 Release秘密鍵はRelease署名時だけHuman-only入力として使用し、環境、File、logまたはRuntimeへ保存しない。通常利用者と開発E2Eは秘密鍵を必要とせず、固定済みの署名配布物を検証して使う。Authenticodeは追加Defenseであり、Ed25519 Release Identityを置換しない。
 

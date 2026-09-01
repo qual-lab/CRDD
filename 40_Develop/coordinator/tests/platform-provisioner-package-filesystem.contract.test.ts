@@ -898,10 +898,19 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
 
     for (const source of [
       'import { spawn } from "node:child_process";\nspawn(process.execPath, ["./late-child.ts"]);\n',
+      'import * as childProcess from "node:child_process";\nchildProcess.spawn(process.execPath, ["./late-child.ts"]);\n',
+      'import childProcess from "node:child_process";\nchildProcess.spawn(process.execPath, ["./late-child.ts"]);\n',
+      'const childProcess = await import("node:child_process");\nchildProcess.spawn(process.execPath, ["./late-child.ts"]);\n',
       'import { fork } from "node:child_process";\nfork("./late-child.ts");\n',
       'import { Worker } from "node:worker_threads";\nnew Worker(new URL("./late-child.ts", import.meta.url));\n',
       'import { fork } from "node:child_process";\nconst target = "./late-child.ts";\nfork(target);\n',
       'import { fork as launchChild } from "node:child_process";\nconst target = "./late-child.ts";\nlaunchChild(target);\n',
+      'import { spawn } from "node:child_process";\nconst argv = [fileURLToPath(import.meta.url)];\nspawn(process.execPath, argv);\n',
+      'import { spawn } from "node:child_process";\nconst launch = spawn;\nlaunch(process.execPath, [fileURLToPath(import.meta.url)]);\n',
+      'import { spawn } from "node:child_process";\n(spawn)(process.execPath, [fileURLToPath(import.meta.url)]);\n',
+      'import { spawnSync } from "node:child_process";\nspawnSync(process.execPath, ["./late-child.ts"]);\n',
+      'import { execFile } from "node:child_process";\nexecFile(process.execPath, ["./late-child.ts"]);\n',
+      'import { execFileSync } from "node:child_process";\nexecFileSync(process.execPath, ["./late-child.ts"]);\n',
     ]) {
       fs.writeFileSync(target, source);
       const result = inspectPlatformProvisionerPackageFilesystemCandidate(root);
@@ -912,6 +921,26 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
     fs.writeFileSync(
       target,
       'import { spawn as launchSelf } from "node:child_process";\nimport { fileURLToPath } from "node:url";\nlaunchSelf(process.execPath, [fileURLToPath(import.meta.url)]);\n',
+    );
+    assert.equal(
+      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+      "candidate",
+    );
+
+    const childTarget = path.join(root, "scripts", "late-child.ts");
+    fs.writeFileSync(childTarget, "export const child = true;\n");
+    fs.writeFileSync(
+      target,
+      'import { fork as launchChild } from "node:child_process";\nlaunchChild("./late-child.ts");\n',
+    );
+    assert.equal(
+      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+      "candidate",
+    );
+
+    fs.writeFileSync(
+      target,
+      'import path from "node:path";\nimport { spawnSync } from "node:child_process";\nspawnSync(path.join(process.env.SystemRoot ?? "C:\\\\Windows", "System32", "taskkill.exe",), ["/PID", "1", "/T", "/F"]);\n',
     );
     assert.equal(
       inspectPlatformProvisionerPackageFilesystemCandidate(root).status,

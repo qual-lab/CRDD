@@ -717,28 +717,68 @@ function scriptChildTargetFromTokens(
   throw new Error("platform_provisioner_runtime_dependency_child_unbound");
 }
 
-function namedModuleBindings(
+type SelectedScriptProcessBindings = Readonly<{
+  bindings: ReadonlyMap<string, string>;
+  declarationTokenIndices: ReadonlySet<number>;
+}>;
+
+function selectedScriptProcessBindings(
   tokens: readonly SourceToken[],
-  moduleSpecifier: string,
-  importedNames: ReadonlySet<string>,
-) {
+): SelectedScriptProcessBindings {
   const bindings = new Map<string, string>();
+  const declarationTokenIndices = new Set<number>();
+  const allowedImports = new Map<string, ReadonlySet<string>>([
+    [
+      "node:child_process",
+      new Set(["spawn", "spawnSync", "execFile", "execFileSync", "fork"]),
+    ],
+    ["node:worker_threads", new Set(["Worker"])],
+  ]);
   for (let index = 0; index < tokens.length; index += 1) {
     if (tokens[index]?.value !== "import") continue;
-    const openingBrace = tokens[index + 1];
-    if (openingBrace?.value !== "{") continue;
-    const declarationBindings = new Map<string, string>();
+    const first = tokens[index + 1];
+    if (first?.value === "(") {
+      const dynamicSpecifier = tokens[index + 2];
+      if (
+        dynamicSpecifier?.kind === "string" &&
+        allowedImports.has(dynamicSpecifier.value)
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_unbound",
+        );
+      continue;
+    }
+    let fromIndex = index + 1;
+    while (
+      fromIndex < tokens.length &&
+      tokens[fromIndex]?.value !== "from" &&
+      tokens[fromIndex]?.value !== ";"
+    )
+      fromIndex += 1;
+    if (tokens[fromIndex]?.value !== "from") continue;
+    const moduleToken = tokens[fromIndex + 1];
+    if (moduleToken?.kind !== "string")
+      throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+    const allowedNames = allowedImports.get(moduleToken.value);
+    if (!allowedNames) continue;
+    if (first?.value === "type") continue;
+    if (first?.value !== "{")
+      throw new Error("platform_provisioner_runtime_dependency_child_unbound");
     let cursor = index + 2;
     while (cursor < tokens.length && tokens[cursor]?.value !== "}") {
-      if (tokens[cursor]?.value === "," || tokens[cursor]?.value === "type") {
+      if (tokens[cursor]?.value === ",") {
         cursor += 1;
         continue;
       }
+      const typeOnly = tokens[cursor]?.value === "type";
+      if (typeOnly) cursor += 1;
       const imported = tokens[cursor];
       if (imported?.kind !== "identifier")
         throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+      const importedIndex = cursor;
       cursor += 1;
       let local = imported.value;
+      let localIndex = importedIndex;
       if (tokens[cursor]?.value === "as") {
         const alias = tokens[cursor + 1];
         if (alias?.kind !== "identifier")
@@ -746,24 +786,61 @@ function namedModuleBindings(
             "platform_provisioner_runtime_dependency_parse_failed",
           );
         local = alias.value;
+        localIndex = cursor + 1;
         cursor += 2;
       }
-      if (importedNames.has(imported.value))
-        declarationBindings.set(local, imported.value);
+      if (!typeOnly) {
+        if (!allowedNames.has(imported.value))
+          throw new Error(
+            "platform_provisioner_runtime_dependency_child_unbound",
+          );
+        bindings.set(local, imported.value);
+        declarationTokenIndices.add(localIndex);
+      }
       if (tokens[cursor]?.value === ",") cursor += 1;
     }
     if (
       tokens[cursor]?.value !== "}" ||
-      tokens[cursor + 1]?.value !== "from" ||
-      tokens[cursor + 2]?.kind !== "string"
+      cursor + 1 !== fromIndex ||
+      tokens[fromIndex + 1]?.value !== moduleToken.value
     ) {
       throw new Error("platform_provisioner_runtime_dependency_parse_failed");
     }
-    if (tokens[cursor + 2]?.value === moduleSpecifier)
-      for (const [local, imported] of declarationBindings)
-        bindings.set(local, imported);
   }
-  return bindings;
+  return Object.freeze({ bindings, declarationTokenIndices });
+}
+
+function isFixedTaskkillInvocation(
+  tokens: readonly SourceToken[],
+  start: number,
+) {
+  if (
+    !(
+      tokenSequenceMatches(tokens, start, [
+        "path",
+        ".",
+        "join",
+        "(",
+        "process",
+        ".",
+        "env",
+        ".",
+        "SystemRoot",
+        "??",
+      ]) &&
+      tokens[start + 10]?.kind === "string" &&
+      tokenSequenceMatches(tokens, start + 11, [","]) &&
+      tokens[start + 12]?.kind === "string" &&
+      tokens[start + 12]?.value === "System32" &&
+      tokenSequenceMatches(tokens, start + 13, [","]) &&
+      tokens[start + 14]?.kind === "string" &&
+      tokens[start + 14]?.value === "taskkill.exe"
+    )
+  )
+    return false;
+  const closingParenthesis =
+    tokens[start + 15]?.value === "," ? start + 16 : start + 15;
+  return tokenSequenceMatches(tokens, closingParenthesis, [")", ","]);
 }
 
 function selectedScriptChildModuleTargets(
@@ -772,21 +849,19 @@ function selectedScriptChildModuleTargets(
 ) {
   if (!relativePath.startsWith("scripts/")) return Object.freeze([]);
   const targets: string[] = [];
-  const childProcessBindings = namedModuleBindings(
-    tokens,
-    "node:child_process",
-    new Set(["spawn", "fork"]),
-  );
-  const workerBindings = namedModuleBindings(
-    tokens,
-    "node:worker_threads",
-    new Set(["Worker"]),
-  );
+  const processBindings = selectedScriptProcessBindings(tokens);
+  const accountedUses = new Set<number>();
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
+    if (token?.kind !== "identifier") continue;
+    const imported = processBindings.bindings.get(token.value);
+    if (!imported || processBindings.declarationTokenIndices.has(index))
+      continue;
     if (
-      token?.kind === "identifier" &&
-      childProcessBindings.get(token.value) === "spawn" &&
+      (imported === "spawn" ||
+        imported === "spawnSync" ||
+        imported === "execFile" ||
+        imported === "execFileSync") &&
       tokenSequenceMatches(tokens, index + 1, [
         "(",
         "process",
@@ -802,9 +877,24 @@ function selectedScriptChildModuleTargets(
         index + 7,
       );
       if (target) targets.push(target);
+      accountedUses.add(index);
     } else if (
-      token?.kind === "identifier" &&
-      childProcessBindings.get(token.value) === "fork" &&
+      imported === "spawnSync" &&
+      tokens[index + 1]?.value === "(" &&
+      isFixedTaskkillInvocation(tokens, index + 2)
+    ) {
+      accountedUses.add(index);
+    } else if (imported === "fork" && tokens[index + 1]?.value === "(") {
+      const target = scriptChildTargetFromTokens(
+        relativePath,
+        tokens,
+        index + 2,
+      );
+      if (target) targets.push(target);
+      accountedUses.add(index);
+    } else if (
+      imported === "Worker" &&
+      tokens[index - 1]?.value === "new" &&
       tokens[index + 1]?.value === "("
     ) {
       const target = scriptChildTargetFromTokens(
@@ -813,20 +903,21 @@ function selectedScriptChildModuleTargets(
         index + 2,
       );
       if (target) targets.push(target);
-    } else if (
-      token?.value === "new" &&
-      tokens[index + 1]?.kind === "identifier" &&
-      workerBindings.get(tokens[index + 1]?.value ?? "") === "Worker" &&
-      tokens[index + 2]?.value === "("
-    ) {
-      const target = scriptChildTargetFromTokens(
-        relativePath,
-        tokens,
-        index + 3,
-      );
-      if (target) targets.push(target);
-    }
+      accountedUses.add(index);
+    } else
+      throw new Error("platform_provisioner_runtime_dependency_child_unbound");
   }
+  if (
+    [...processBindings.bindings.keys()].some((local) =>
+      tokens.some(
+        (token, index) =>
+          token.value === local &&
+          !processBindings.declarationTokenIndices.has(index) &&
+          !accountedUses.has(index),
+      ),
+    )
+  )
+    throw new Error("platform_provisioner_runtime_dependency_child_unbound");
   return Object.freeze(targets);
 }
 

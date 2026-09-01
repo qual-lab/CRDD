@@ -2,7 +2,7 @@
 
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-09-01
+Last Updated: 2026-09-02
 
 ## 対象と読み方
 
@@ -22,7 +22,7 @@ Last Updated: 2026-09-01
 
 Coordinatorは依頼を安全な候補成果物へつなぐ実行ツール、[Checker](#checker-contract)は文書を変更せず整合を検査する独立ツール、[platform-access](#platform-access-contract)はCoordinatorから利用するWindows内部部品である。以下のRuntime利用条件を、Checker単独実行の条件へ適用しない。
 
-現在の実装候補は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。4経路の選定・Authority・Candidate・cleanup契約と、失敗／timeout／cancel／親Process消失／cleanup不明のRecovery Matrixは機械試験済みである。[v0.18.1固定Runtime実行Identityの実測](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md#8-現在状態と残件)では、実Providerの4経路4/4、期待する異常停止、取消、cleanup不明と親Process消失からのfresh recoveryが完了した。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。旧版での実務自己適用の有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。全体完成評価およびRelease判断は別に残る。
+現在の実装候補は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。4経路の選定・Authority・Candidate・cleanup契約と、失敗／timeout／cancel／親Process消失／cleanup不明のRecovery Matrixは機械試験済みである。過去の署名候補では実Providerの4経路4/4、期待する異常停止、取消、cleanup不明と親Process消失からのfresh recoveryまで到達したが、後続の独立確認でRuntime依存閉包の不足を検出したため、現在のAuthority根拠へ流用しない。現行Source A候補は字句解析、共通Launcher結合、子Process／Worker起動APIのimportと全利用箇所の照合、および説明不能な起動形のFail Closedまで実装・ローカル契約試験済みであり、署名、fresh clone／submodule一般Task、4経路、Recoveryおよび同じ固定候補の独立再確認は未完了である。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。旧版での実務自己適用の有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。全体完成評価およびRelease判断は別に残る。
 
 過去の`f2243b46…f1aaa`および`33cca9b8…2473a`に対する実測は未公開候補の履歴である。独立確認で、前者は共通Launcherから到達する署名・4経路・Recovery Runnerの閉包不足、後者は依存抽出と選択scriptの子Process／Worker targetをFail Closedに閉じる不足を検出した。どちらもv0.18.1の最終Authority根拠へ流用しない。字句解析、literal Launcher結合および子Process target結合を含む新しいIdentityの署名・fresh clone／submodule一般Task・4経路・Recovery・独立確認が完了するまで本CapabilityはRelease未完了である。
 

@@ -1,4 +1,4 @@
-# v0.18.1 Coordinator Runtime実行Identityの最終候補検証
+# v0.18.1 Coordinator Runtime実行Identityの候補検証履歴
 
 状態: 旧固定候補の検証履歴、新しいRuntime実行Identityの固定待ち
 実行日: 2026-09-01（2026-09-02に独立確認結果を反映）

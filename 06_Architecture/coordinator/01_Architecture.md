@@ -2,7 +2,7 @@
 
 状態: Stable（v0.18.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-01
+最終更新日: 2026-09-02
 
 ## 1. 文書責務
 
@@ -136,7 +136,7 @@ CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採
 
 manifest revision 5は、Coordinatorの`bin/**`、`src/**`、`runtime/**`、`policies/**`および`package.json`に加え、共通Launcherの正本が選ぶ署名・4経路・Recovery入口と、そこから静的に到達する`script`依存だけを自動走査したcontent root、Root Protection／Key Storage Policy Hash、Platform Access成果物のPath・target・protocol・toolchain・byte長・SHA-256からRuntime実行Identityを決定論的に算出し、Ed25519署名へ結合する。共通Launcherの入口表とIdentityのseedを別々の手書き一覧にしない。未選択の開発補助scriptと試験sourceは含めず、選択入口の静的依存は推移的に含める。
 
-TypeScript依存は正規表現ではなく、コメント、文字列、template、正規表現literalおよび構文tokenを区別するFail Closedの字句解析で抽出する。許可するmodule指定は、Node.jsが実在を確認できる`node:`組込みmoduleと、閉じた実行集合内へ正規解決されるrelative pathだけである。bare package、絶対Path、`file:`／`data:` URL、escapeを含むspecifier、非literalの動的import、解析不能なsource、実行集合外へ解決される依存を拒否する。共通Launcherは入口表の各対象をliteral importとして所有し、入口表とliteral依存を双方向に照合する。選択された`script`からNode.js自身を起動する`spawn`、`fork`または`Worker`の対象は、同じsource自身か同じ閉包へ正規解決されるliteral targetだけを許可する。別名変数、任意argv、集合外targetまたは解析不能なtargetを拒否する。旧revision、削除済みfield、別Path alias、Identity不一致または欠落fallbackを受理しない。
+TypeScript依存は正規表現ではなく、コメント、文字列、template、正規表現literalおよび構文tokenを区別するFail Closedの字句解析で抽出する。許可するmodule指定は、Node.jsが実在を確認できる`node:`組込みmoduleと、閉じた実行集合内へ正規解決されるrelative pathだけである。bare package、絶対Path、`file:`／`data:` URL、escapeを含むspecifier、非literalの動的import、解析不能なsource、実行集合外へ解決される依存を拒否する。共通Launcherは入口表の各対象をliteral importとして所有し、入口表とliteral依存を双方向に照合する。選択された`script`では、`node:child_process`と`node:worker_threads`の子実行APIをnamed importの閉集合として識別し、そのbindingの全利用箇所を照合する。`spawn`／`spawnSync`／`execFile`／`execFileSync`でNode.js自身を起動する場合、`fork`または`Worker`を使う場合は、同じsource自身か同じ閉包へ正規解決されるliteral targetだけを許可する。固定`taskkill.exe`の既知終了経路以外の外部実行、namespace／default／dynamic import、bindingの再代入、任意argv、間接呼出し、集合外target、未説明の利用または解析不能なtargetを拒否する。旧revision、削除済みfield、別Path alias、Identity不一致または欠落fallbackを受理しない。
 
 content rootでは、署名対象の`.ts`、`.json`、`.policy`、`.py`、`.txt`および`.Dockerfile`をLFへ正規化する。Windows CheckoutのCRLFとLFは同じ正本内容として扱うが、行内容、終端改行、単独CRその他の差分は同一視しない。Native成果物その他の非テキストは生バイトの長さとSHA-256を完全一致させる。README、CHG、Roadmap、品質記録、試験source、build設定その他の実行集合外の変更はリリースIdentityを変えるが、Runtime実行Identityを変えない。
 

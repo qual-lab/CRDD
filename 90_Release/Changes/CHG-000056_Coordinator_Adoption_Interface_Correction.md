@@ -4,7 +4,7 @@
 - 状態: `In Progress`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-09-01
-- 最終更新日: 2026-09-01
+- 最終更新日: 2026-09-02
 - 対象: Coordinator Runtimeの新規採用入口、公開CLI、配布Identity、Platform Access、仕様・設計・試験・利用案内
 - 対象version: `v0.18.1`
 - 変更分類: `corrective breaking`（v0.18.0で公開したが実用結果へ接続しない入口を削除する）
@@ -46,7 +46,7 @@ Local Personal Profileは、永続的な`activate`／`disable`／`provision` Lif
 
 ## 4. 新しい配布・実行境界
 
-署名manifest revision 5では、Release IdentityとRuntime実行Identityを分離する。CRDD Version／tag／Commit／Tree／文書はRelease Identityを構成し、Runtime Authorityは`bin/**`、`src/**`、`runtime/**`、`policies/**`、`package.json`、共通Launcherが選ぶ署名・4経路・Recovery入口とその推移的な静的依存、Policy Hashおよび単一Native成果物`template/tools/coordinator/windows-x64/crdd-platform-access.exe`から決定論的に算出するRuntime実行Identityへ結合する。Launcherの入口表をIdentity seedとして共用し、未選択の開発補助scriptは含めない。依存はコメント、文字列および構文tokenを区別するFail Closedの字句解析で抽出し、実在する`node:`組込みmoduleと閉包内relative targetだけを許可する。bare／absolute／URL指定、非literalの動的import、入口表とliteral importの不一致、解析不能なsourceを拒否する。選択scriptが起動するNode.js子Process／Workerも、同じsourceまたは同じ閉包へ結合したliteral targetだけを許可する。旧revision、削除済みfield、別Path aliasまたは欠落fallbackを受理しない。
+署名manifest revision 5では、Release IdentityとRuntime実行Identityを分離する。CRDD Version／tag／Commit／Tree／文書はRelease Identityを構成し、Runtime Authorityは`bin/**`、`src/**`、`runtime/**`、`policies/**`、`package.json`、共通Launcherが選ぶ署名・4経路・Recovery入口とその推移的な静的依存、Policy Hashおよび単一Native成果物`template/tools/coordinator/windows-x64/crdd-platform-access.exe`から決定論的に算出するRuntime実行Identityへ結合する。Launcherの入口表をIdentity seedとして共用し、未選択の開発補助scriptは含めない。依存はコメント、文字列および構文tokenを区別するFail Closedの字句解析で抽出し、実在する`node:`組込みmoduleと閉包内relative targetだけを許可する。bare／absolute／URL指定、非literalの動的import、入口表とliteral importの不一致、解析不能なsourceを拒否する。選択scriptの子Process／Worker起動APIはnamed importと全binding利用を照合し、同じsourceまたは同じ閉包へ結合したliteral targetおよび既知の固定終了経路だけを許可する。namespace／default／dynamic import、再代入、間接呼出し、可変argvまたは未説明の利用を拒否する。旧revision、削除済みfield、別Path aliasまたは欠落fallbackを受理しない。
 
 この分離により、README、CHG、Roadmap、品質記録または試験だけの変更ではRuntime実行Identityを変えず、再署名および実Provider E2Eを要求しない。実行集合、PolicyまたはNative成果物の変更ではIdentityが変わるため再署名し、影響するE2Eを行う。Recoveryの世代照合もCRDD Treeとpackage rootの組合せからRuntime実行Identityへ移し、Operation、Resource、Provider／Home bindingおよびRecovery契約revisionと組み合わせる。これは文書変更を例外扱いする除外規則ではなく、署名Authorityを実際の実行依存へ戻す責務境界の是正である。
 
@@ -87,6 +87,7 @@ Sourceだけを利用する採用Project、Coordinatorを利用しないProject�
 |---|---|---|
 | Provider Effect前で、候補・回復義務なし | 新規Taskを停止し、v0.18.1 Runtimeを使用しない。採用Repositoryのcloneまたはsubmoduleを公式`v0.18.0` tagへ戻す。v0.18.0のRuntime入口は有用結果へ到達しないため、方法論部分だけを継続するかRuntime利用を停止する | 削除済みcommandや互換shimを復元しない。v0.18.1の外部送信Policyや同意をv0.18.0へ流用しない |
 | 候補あり、cleanup確認済み | 新規Taskを停止し、exact Candidateをdiscardしてから、cloneまたはsubmoduleを公式`v0.18.0` tagへ戻す。固定配布物全体を一単位で切り替える | 新旧Runtime fileを混在させない。候補や検証記録を履歴から削除しない |
+| Provider Effect発行後、結果確定・候補不存在または破棄済み・cleanup確認済み・Recovery IDなし・対象資源不存在 | 完了結果と資源不存在の根拠を保持して新規Taskを停止し、cloneまたはsubmoduleを公式`v0.18.0` tagへ配布物単位で戻す。既に確定したProvider処理を取消済みまたは未発行へ読み替えない | 完了済みEffectを再実行しない。候補不存在だけからcleanupを推定せず、確認済み結果と資源観測を捨てない |
 | 回復IDあり、cleanup未確認またはEffect不明 | 新規Taskを停止し、exact Recoveryを完了して資源不存在を確認するまで切替・削除・自動再試行を行わない。観測不能なら手動Recovery義務とEvidenceを保持する | Runtime更新、tag切替またはProcess再起動だけで回復済みと扱わない |
 
 文書だけの変更ではRuntime実行Identityが不変なら再署名しないが、Release Identityと文書整合の確認は維持する。
@@ -96,7 +97,7 @@ Sourceだけを利用する採用Project、Coordinatorを利用しないProject�
 - help、parser、dispatch、module、Native binaryおよび現行文書から削除Surfaceが消えている。
 - 削除commandは未知commandとしてusage errorになり、専用statusや互換結果を返さない。
 - `capabilities --json`が公開CLI閉集合と非対応境界をEffect 0で返す。
-- manifest revision 5がCoordinator本体、共通Launcherの署名・4経路・Recovery入口と推移的な静的依存、Policyおよび単一Platform Access成果物をRuntime実行Identityへexactに結合する。字句解析がコメント内の見せかけ、bare／absolute／URL module、存在しない`node:` module、非literalの動的import、入口表との不一致、集合外のNode.js子Process／Worker target、解析不能なsourceおよび旧revision／旧fieldを拒否する。
+- manifest revision 5がCoordinator本体、共通Launcherの署名・4経路・Recovery入口と推移的な静的依存、Policyおよび単一Platform Access成果物をRuntime実行Identityへexactに結合する。字句解析がコメント内の見せかけ、bare／absolute／URL module、存在しない`node:` module、非literalの動的import、入口表との不一致、子Process／Worker起動APIのnamespace／default／dynamic import、binding再代入・間接呼出し・可変argv・未説明の利用、集合外target、解析不能なsourceおよび旧revision／旧fieldを拒否する。
 - Repository textのLF／CRLF差だけを同じGit正本内容として検証し、意味差分とNative成果物のbyte差を拒否する。
 - manifestが署名する配布Source Commit A、manifestを加えた配布Commit B、作業対象RepositoryのExecution Revisionを分離し、一般TaskのCandidate Revisionを実行前後に独立観測した作業対象Revisionへ結合する。
 - TypeScript、Rust、Checker、format／lintおよび全Repository試験が固定候補で合格する。
@@ -108,9 +109,9 @@ Sourceだけを利用する採用Project、Coordinatorを利用しないProject�
 
 公開入口、旧Stateful subsystem、導入用Supervisor、AppContainer準備契約および旧manifest候補は、現行Source、CLI、配布候補、正本および試験母集団から削除した。Platform Accessの現在契約は、選択ユーザーの通常Processで固定署名成果物を最小環境かつ上限付きI/Oにより呼び出す一成果物構成である。
 
-Repository全体のTypeScript試験は現行Source候補で1356件まで拡張した。制限Process内では`taskkill.exe`を許可されないWindows Process Gate 7件を機械的な閉集合として分離し、残る1349件を`test:restricted-process`で確認する。同じ7件は通常のローカルユーザーProcessから`test:windows-process`で実行し、子孫Processの実終了を確認する。通常の`test`は1356件の完全母集団を維持し、制限Process側だけの成功を全体合格へ読み替えない。分類prefix、除外集合および専用Gate集合は契約試験で固定し、毎回同じ7件を一般失敗として反復してから口頭補正する運用を廃止した。Rustの通常試験、Clippy、Format、Native Coverage、TypeScript Coverage、Coordinator Checkおよび全体Checkerも合格した。この環境差を本番実装の成功へ補正せず、制限Process内の事実と通常Processで実終了を観測した根拠を分けて保持する。LLVM CoverageがWindows実子のBootstrap環境を変更するため、実子の完全環境一致は通常Rust試験で必須とし、Coverage実行では当該1件だけを非計測にして残るNative Sourceを全件集計する。
+Repository全体のTypeScript試験は現行Source候補で1359件まで拡張した。制限Process内では`taskkill.exe`を許可されないWindows Process Gate 7件を機械的な閉集合として分離し、残る1352件を`test:restricted-process`で確認する。同じ7件は通常のローカルユーザーProcessから`test:windows-process`で実行し、子孫Processの実終了を確認する。通常の`test`は1359件の完全母集団を維持し、制限Process側だけの成功を全体合格へ読み替えない。分類prefix、除外集合および専用Gate集合は契約試験で固定し、毎回同じ7件を一般失敗として反復してから口頭補正する運用を廃止した。Rustの通常試験、Clippy、Format、Native Coverage、TypeScript Coverage、Coordinator Checkおよび全体Checkerも合格した。この環境差を本番実装の成功へ補正せず、制限Process内の事実と通常Processで実終了を観測した根拠を分けて保持する。LLVM CoverageがWindows実子のBootstrap環境を変更するため、実子の完全環境一致は通常Rust試験で必須とし、Coverage実行では当該1件だけを非計測にして残るNative Sourceを全件集計する。
 
-Runtime実行Identity分離後の現行Sourceでは、`test:restricted-process`の1349件と、同じ閉集合の通常Windows Process Gate 7件がそれぞれ全件合格した。Identity・署名・Recovery・4経路・開発計測へ直接影響する237件も全件合格し、TypeScript型検査、Traceability、lint、formatおよびRepository全体Checkerはエラー0である。通常`test`を一つの長時間Processで実行した際にWindows Process Gate 7件だけが時間上限へ到達したため、その結果を成功へ補正せず、設計済みの分離Gateをfresh Processで再実行して実子孫終了を確認した。試験母集団の増加はIdentity契約の追加によるもので、旧候補の署名・E2E結果をrevision 5の正式配布へ流用しない。
+Runtime実行Identity分離後の現行Sourceでは、`test:restricted-process`の1352件と、同じ閉集合の通常Windows Process Gate 7件がそれぞれ全件合格した。依存閉包とLauncherを直接確認する27件も全件合格し、TypeScript型検査、Traceability、lint、formatおよびRepository全体Checkerはエラー0である。通常`test`を一つの長時間Processで実行した際にWindows Process Gate 7件だけが時間上限へ到達したため、その結果を成功へ補正せず、設計済みの分離Gateをfresh Processで再実行して実子孫終了を確認した。試験母集団の増加はIdentity契約の追加によるもので、旧候補の署名・E2E結果をrevision 5の正式配布へ流用しない。
 
 最初のmanifest候補は`git archive`上のLFと既存Windows Checkout上のCRLFを生バイト差として扱い、署名検証がProvider Effect前に停止した。原因は任意改変ではなく、Gitが許可するCheckout改行変換をPackage Hashと配布Tree再構成の両契約が表現していなかったことにある。Package content rootを宣言済みRepository textだけLF正規化するV2へ改め、配布Treeも`text=auto eol=lf`と同じbinary判定によりtextをLF正本、binaryを生バイト正本として再構成する。また、初回利用後にCRDD自身が作る`.crdd`では、Git管理する`external-send-policy.json`を署名Treeへ含めたまま、同じRoot内のRuntime状態だけを除外し、同じCloneの継続利用で自己不一致を起こさないようにした。LF／CRLF同値、内容差分拒否、binary生バイト一致、Runtime状態除外および類似名拒否を契約試験へ固定した。失敗したmanifest候補はRelease候補として使用せず、更新後のSource Commitから再署名する。
 
@@ -146,4 +147,4 @@ Runtime Authorityの責務境界をRepository全体から閉じた実行依存�
 
 この候補の独立確認では、依存抽出が正規表現に依存し、コメント、bare／absolute／URL module、存在しない`node:`指定または構文不明をFail Closedに閉じていないこと、および選択scriptのNode.js子Process／Worker targetが署名閉包と独立し得ることを検出した。そのため`33cca9b8…2473a`と上記E2Eは不採用の未公開履歴として保持し、最終Authority根拠へ流用しない。
 
-現在は、コメントと構文tokenを区別する字句解析、実在する`node:`組込みmoduleと閉包内relative targetだけを許可するmodule契約、共通Launcher入口表とliteral importの双方向照合、および選択scriptのNode.js子Process／Worker target結合を実装した。残るGateは、新しいSource Aの固定、署名、fresh clone／submodule一般Taskの実行Revisionを含む再実測、4経路、Recovery、同じ固定候補の独立再確認、および人間による統合・Release判断である。現在、人間による追加判断は必要ない。
+現在は、コメントと構文tokenを区別する字句解析、実在する`node:`組込みmoduleと閉包内relative targetだけを許可するmodule契約、共通Launcher入口表とliteral importの双方向照合、および選択scriptの子Process／Worker起動APIのimport・全binding利用・target結合を実装した。残るGateは、新しいSource Aの固定、署名、fresh clone／submodule一般Taskの実行Revisionを含む再実測、4経路、Recovery、同じ固定候補の独立再確認、および人間による統合・Release判断である。現在、人間による追加判断は必要ない。
