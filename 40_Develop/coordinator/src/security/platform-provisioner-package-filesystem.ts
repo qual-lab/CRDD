@@ -32,6 +32,10 @@ const bundledDistributionRoot = fileURLToPath(
 const MAXIMUM_FILES = 2_048;
 const MAXIMUM_PACKAGE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_PACKAGE_JSON_BYTES = 64 * 1024;
+const RUNTIME_EXECUTION_DIRECTORIES = Object.freeze(
+  new Set(["bin", "src", "runtime", "policies"]),
+);
+const RUNTIME_EXECUTION_ROOT_FILES = Object.freeze(new Set(["package.json"]));
 const VERIFY_KEYS = new Set([
   "manifestEnvelope",
   "evaluationTime",
@@ -52,6 +56,7 @@ const EXPECTED_RELEASE_KEYS = new Set([
   "crddCommit",
   "crddTree",
   "packageContentRootSha256",
+  "runtimeExecutionIdentitySha256",
 ]);
 const DEVELOPMENT_SOURCE_KEYS = new Set([
   "distributionRoot",
@@ -76,9 +81,7 @@ const VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS = 5_000;
 type VerifiedPackageIdentity = Readonly<{
   manifestHash: string;
   releaseSequence: number;
-  crddCommit: string;
-  crddTree: string;
-  packageContentRootSha256: string;
+  runtimeExecutionIdentitySha256: string;
   interactiveConsoleReaderArtifactSha256: string;
 }>;
 
@@ -89,9 +92,8 @@ function sameVerifiedPackageIdentity(
   return (
     left.manifestHash === right.manifestHash &&
     left.releaseSequence === right.releaseSequence &&
-    left.crddCommit === right.crddCommit &&
-    left.crddTree === right.crddTree &&
-    left.packageContentRootSha256 === right.packageContentRootSha256 &&
+    left.runtimeExecutionIdentitySha256 ===
+      right.runtimeExecutionIdentitySha256 &&
     left.interactiveConsoleReaderArtifactSha256 ===
       right.interactiveConsoleReaderArtifactSha256
   );
@@ -179,6 +181,7 @@ function blocked(reason: string) {
     windowsWritePolicyConfirmed: false,
     runtimeOwnedReleaseTrustConfirmed: false,
     releaseIdentityRuntimeOwned: false,
+    runtimeExecutionIdentityRuntimeOwned: false,
     crddDistributionConfirmed: false,
     effectAuthorizationIssued: false,
     runtimeAuthorityConferred: false,
@@ -374,6 +377,38 @@ function canonicalPackageFileContent(relativePath: string, bytes: Buffer) {
   return canonical;
 }
 
+function verifyStaticRuntimeModuleBoundary(
+  relativePath: string,
+  bytes: Buffer,
+) {
+  if (!relativePath.endsWith(".ts")) return;
+  const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  const patterns = [
+    /\b(?:import|export)\s+(?:[^"']*?\sfrom\s*)?["']([^"']+)["']/gu,
+    /\bimport\(\s*["']([^"']+)["']\s*\)/gu,
+  ];
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      const specifier = match[1];
+      if (!specifier?.startsWith(".")) continue;
+      const resolved = path.posix.normalize(
+        path.posix.join(path.posix.dirname(relativePath), specifier),
+      );
+      const rootSegment = resolved.split("/")[0];
+      if (
+        resolved === ".." ||
+        resolved.startsWith("../") ||
+        !rootSegment ||
+        !RUNTIME_EXECUTION_DIRECTORIES.has(rootSegment)
+      ) {
+        throw new Error(
+          "platform_provisioner_runtime_dependency_outside_execution_set",
+        );
+      }
+    }
+  }
+}
+
 function packageEntries(
   root: Readonly<{ realPath: string; identity: EntityIdentity }>,
 ) {
@@ -393,11 +428,11 @@ function packageEntries(
       Object.freeze({ directory, entries: snapshot.entries }),
     );
     for (const entry of snapshot.dirents) {
-      if (
-        relativeDirectory === "" &&
-        (entry.name === "node_modules" || entry.name === ".gitignore")
-      ) {
-        continue;
+      if (relativeDirectory === "") {
+        const included = entry.isDirectory()
+          ? RUNTIME_EXECUTION_DIRECTORIES.has(entry.name)
+          : RUNTIME_EXECUTION_ROOT_FILES.has(entry.name);
+        if (!included) continue;
       }
       const relative = relativeDirectory
         ? `${relativeDirectory}/${entry.name}`
@@ -495,6 +530,7 @@ function observePackage(packageRoot: string) {
       relative,
       observed.bytes,
     );
+    verifyStaticRuntimeModuleBoundary(relative, canonicalBytes);
     if (relative === "package.json") packageJsonBytes = canonicalBytes;
     files.push(
       Object.freeze({
@@ -766,21 +802,6 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
       loaded.envelope,
       input.evaluationTime,
     );
-    const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
-      bundledDistributionRoot,
-      verification.crddTree,
-    );
-    if (
-      releaseIdentity.status !== "candidate" ||
-      releaseIdentity.manifestExcludedFromSignedGitTree !== true ||
-      releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !==
-        true ||
-      releaseIdentity.gitMetadataExcludedFromSignedGitTree !== true
-    ) {
-      return blocked(
-        "platform_provisioner_release_identity_verification_failed",
-      );
-    }
     const reloaded = loadPlatformProvisionerManifestEnvelopeForVerification(
       bundledDistributionRoot,
     );
@@ -805,9 +826,12 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
       releaseSequence: verification.releaseSequence,
       crddCommit: verification.crddCommit,
       crddTree: verification.crddTree,
+      runtimeExecutionIdentitySha256:
+        verification.runtimeExecutionIdentitySha256,
       qualLabManifestCryptographicMatch: true,
       runtimeOwnedReleaseTrustConfirmed: true,
-      releaseIdentityRuntimeOwned: true,
+      releaseIdentityRuntimeOwned: false,
+      runtimeExecutionIdentityRuntimeOwned: true,
       crddDistributionConfirmed: true,
       interactiveConsoleReaderArtifactSha256:
         interactiveConsoleReaderArtifact.sha256,
@@ -827,11 +851,10 @@ function verifiedFixedPackageRecord(
     result.status !== "candidate" ||
     typeof result.manifestHash !== "string" ||
     !Number.isSafeInteger(result.releaseSequence) ||
-    typeof result.crddCommit !== "string" ||
-    typeof result.crddTree !== "string" ||
-    typeof result.packageContentRootSha256 !== "string" ||
+    typeof result.runtimeExecutionIdentitySha256 !== "string" ||
     typeof result.interactiveConsoleReaderArtifactSha256 !== "string" ||
     result.crddDistributionConfirmed !== true ||
+    result.runtimeExecutionIdentityRuntimeOwned !== true ||
     result.runtimeOwnedReleaseTrustConfirmed !== true
   ) {
     return null;
@@ -839,9 +862,7 @@ function verifiedFixedPackageRecord(
   return Object.freeze({
     manifestHash: result.manifestHash,
     releaseSequence: result.releaseSequence as number,
-    crddCommit: result.crddCommit,
-    crddTree: result.crddTree,
-    packageContentRootSha256: result.packageContentRootSha256,
+    runtimeExecutionIdentitySha256: result.runtimeExecutionIdentitySha256,
     interactiveConsoleReaderArtifactSha256:
       result.interactiveConsoleReaderArtifactSha256,
   });
@@ -917,7 +938,9 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
       typeof expected.crddTree !== "string" ||
       !isCanonicalCrddGitObjectId(expected.crddTree) ||
       typeof expected.packageContentRootSha256 !== "string" ||
-      !/^[0-9a-f]{64}$/u.test(expected.packageContentRootSha256)
+      !/^[0-9a-f]{64}$/u.test(expected.packageContentRootSha256) ||
+      typeof expected.runtimeExecutionIdentitySha256 !== "string" ||
+      !/^[0-9a-f]{64}$/u.test(expected.runtimeExecutionIdentitySha256)
     ) {
       return blocked("platform_provisioner_installed_package_input_invalid");
     }
@@ -951,7 +974,9 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
       verification.crddCommit !== expected.crddCommit ||
       verification.crddTree !== expected.crddTree ||
       verification.packageContentRootSha256 !==
-        expected.packageContentRootSha256
+        expected.packageContentRootSha256 ||
+      verification.runtimeExecutionIdentitySha256 !==
+        expected.runtimeExecutionIdentitySha256
     ) {
       return blocked(
         "platform_provisioner_installed_package_verification_failed",
@@ -966,9 +991,12 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
       releaseSequence: verification.releaseSequence,
       crddCommit: verification.crddCommit,
       crddTree: verification.crddTree,
+      runtimeExecutionIdentitySha256:
+        verification.runtimeExecutionIdentitySha256,
       qualLabManifestCryptographicMatch: true,
       runtimeOwnedReleaseTrustConfirmed: true,
       releaseIdentityRuntimeOwned: false,
+      runtimeExecutionIdentityRuntimeOwned: true,
       crddDistributionConfirmed: true,
       platformAccessArtifact: verification.platformAccessArtifact,
     });
@@ -1021,16 +1049,6 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
     const release = verifyInstalledCoordinatorPackageCandidate(request);
     if (release.status !== "candidate")
       return blocked("native_distribution_release_not_verified");
-    const distribution = inspectPlatformProvisionerReleaseIdentityCandidate(
-      root.realPath,
-      release.crddTree,
-    );
-    if (
-      distribution.status !== "candidate" ||
-      !distribution.manifestExcludedFromSignedGitTree ||
-      !distribution.platformAccessExecutableIncludedInSignedGitTree
-    )
-      return blocked("native_distribution_tree_not_verified");
     const worker = beginPlatformAccessArtifactSigningObservation(root.realPath);
     if (
       !worker ||
@@ -1055,7 +1073,7 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
           root.identity.ino.toString(),
           root.identity.birthtimeNs.toString(),
           release.manifestHash,
-          release.crddTree,
+          release.runtimeExecutionIdentitySha256,
           worker.artifact.sha256,
         ]),
         "utf8",
@@ -1068,6 +1086,7 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
       nativeIdentitySha256,
       manifestHash: release.manifestHash,
       crddTree: release.crddTree,
+      runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
       nativeReleaseSignatureVerified: true,
       platformAccessArtifact: worker.artifact,
       runtimeAuthorityConferred: false,
@@ -1088,6 +1107,8 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     contractRevision: 6,
     packageRootSelection: "implemented_fixed_module_relative_candidate",
     recursiveFileInventory: "implemented_candidate",
+    runtimeExecutionSet:
+      "closed_bin_src_runtime_policies_and_package_json_namespace",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",
     packageContentRootCalculation:
       "implemented_canonical_lf_for_declared_repository_text_and_raw_bytes_for_other_files",
@@ -1098,7 +1119,7 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     runtimeOwnedPackageFilesystemRead:
       "implemented_candidate_without_permission_authority",
     runtimeOwnedCrddReleaseIdentitySelection:
-      "implemented_fixed_manifest_signature_and_distribution_git_tree_candidate",
+      "implemented_fixed_manifest_signature_and_runtime_execution_identity_candidate",
     runtimeOwnedReleaseTrustSelection:
       "implemented_single_ed25519_anchor_pinned",
     ownerAndPermissionPolicyVerification:
@@ -1111,7 +1132,7 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     releaseTrustModel:
       "qual_lab_ed25519_single_active_key_pinned_in_verified_crdd_release",
     releaseIdentityBinding:
-      "crdd_version_commit_tree_and_coordinator_package_content_root",
+      "runtime_execution_dependency_set_policy_and_native_artifact",
     taskRuntimeCapability:
       "single_use_process_private_exact_release_package_and_reader_identity",
     taskGateAuthority:

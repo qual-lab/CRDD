@@ -13,15 +13,19 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ### v0.18.1 — Coordinator Adoption Interface Correction
 
-Corrects the first public Coordinator Runtime adoption path. Local Personal no longer exposes persistent `activate`, `disable`, or `provision` lifecycles: ordinary tasks verify their required conditions per operation. The unused commands, state records, provisioning stores, bootstrap supervisor, compatibility shims, and the second native artifact are removed rather than retained as always-blocked interfaces. `capabilities --json` reports the exact effect-free public capability set, and signed manifest revision 4 binds the distribution to the single Platform Access artifact. This release does not rewrite the v0.18.0 tag or its historical evidence.
+Corrects the first public Coordinator Runtime adoption path. Local Personal no longer exposes persistent `activate`, `disable`, or `provision` lifecycles: ordinary tasks verify their required conditions per operation. The unused commands, state records, provisioning stores, bootstrap supervisor, compatibility shims, and the second native artifact are removed rather than retained as always-blocked interfaces. `capabilities --json` reports the exact effect-free public capability set. Signed manifest revision 5 separates release identity from Runtime execution identity and binds execution authority to the machine-derived closed Runtime dependency set, security policies, and the single Platform Access artifact. Documentation-only changes do not require Runtime re-signing or provider E2E when that execution identity remains unchanged. This release does not rewrite the v0.18.0 tag or its historical evidence.
 
 Migration note (v0.18.0 → v0.18.1):
 
-- `migration_required: true` only for projects attempting to use Coordinator Runtime.
-- Update the CRDD submodule or clone, run `capabilities --json`, and invoke `task` directly; do not call the deleted setup commands.
-- No activation or provisioning record is migrated. If an unexpected host effect exists, stop for recovery rather than deleting it by assumption.
-- Projects that use only the CRDD methodology and do not use Coordinator Runtime require no execution migration.
-- Final publication requires the revision-4 signed manifest, fresh-adopter useful-result E2E, full tests, and independent review on the same fixed revision.
+- `migration_required: true`
+- `change_classification: breaking`
+- Required: projects using Coordinator Runtime must update the CRDD clone or submodule, run `capabilities --json`, and invoke `task` directly; the deleted setup commands are not valid v0.18.1 entry points.
+- Conditional: if an unexpected host effect or retained recovery record is observed, stop for the recorded recovery decision instead of deleting or migrating it by assumption.
+- Not required: projects using only the CRDD methodology and not Coordinator Runtime require no execution migration. Documentation-only changes with unchanged Runtime execution identity require no Runtime re-signing or provider E2E.
+- Rollback / recovery: retain v0.18.0 as the active baseline until v0.18.1 adoption is accepted. No activation or provisioning record is migrated; preserve unexpected-effect evidence and use the corresponding recovery path before retrying.
+- Known risk if deferred: adopters may continue calling permanently blocked setup commands, or may bind execution trust to an unrelated repository-tree change and repeat signing or provider tests without gaining useful evidence.
+- Verification: final publication requires the revision-5 signed manifest, fresh-adopter useful-result E2E, full tests, and independent review on the same fixed Runtime execution identity. Deterministic tests must show that documentation and tests do not change that identity while Runtime source, policy, or native-artifact changes do.
+- Known limitation: Runtime dependency closure covers the declared closed execution namespaces and rejects static relative imports that escape them; it does not claim to infer arbitrary runtime-generated paths or make a security-semantic change safe merely because the computed identity remains equal.
 
 <a id="changelog-v0180-en"></a>
 
@@ -854,15 +858,19 @@ The following describes the historical v0.1.0 files and does not describe the cu
 
 ### v0.18.1 — Coordinator採用入口の是正
 
-Coordinator Runtimeの初回公開時の採用経路を是正する。Local Personalは永続的な`activate`、`disable`または`provision` Lifecycleを公開せず、一般TaskがOperationごとに必要条件を検証する。利用結果へ接続しなかったcommand、状態Record、準備Store、bootstrap Supervisor、互換shimおよび第二のNative成果物は、常時`blocked`の入口として残さず削除する。`capabilities --json`はEffectなしの公開Capability閉集合を返し、署名manifest revision 4は単一のPlatform Access成果物を配布物へ結合する。v0.18.0 tagと過去Evidenceは書き換えない。
+Coordinator Runtimeの初回公開時の採用経路を是正する。Local Personalは永続的な`activate`、`disable`または`provision` Lifecycleを公開せず、一般TaskがOperationごとに必要条件を検証する。利用結果へ接続しなかったcommand、状態Record、準備Store、bootstrap Supervisor、互換shimおよび第二のNative成果物は、常時`blocked`の入口として残さず削除する。`capabilities --json`はEffectなしの公開Capability閉集合を返す。署名manifest revision 5はRelease IdentityとRuntime実行Identityを分離し、実行Authorityを機械導出した閉じたRuntime依存集合、Security Policyおよび単一Platform Access成果物へ結合する。Runtime実行Identityが不変な文書だけの変更では、Runtime再署名と実Provider E2Eを要求しない。v0.18.0 tagと過去Evidenceは書き換えない。
 
 移行注記（v0.18.0 → v0.18.1）:
 
-- `migration_required: true`はCoordinator Runtimeを利用しようとしたProjectだけに適用する。
-- CRDDのsubmoduleまたはcloneを更新し、`capabilities --json`を確認して`task`を直接実行する。削除した準備commandは使用しない。
-- 有効化・準備Recordは移行しない。想定外のHost Effectが存在する場合は、推測削除せず回復判断へ戻す。
-- CRDD方法論だけを利用しCoordinator Runtimeを使わないProjectに、実行移行は不要である。
-- 最終公開にはrevision 4の署名manifest、fresh adopterの有用結果E2E、全試験および同一固定版の独立確認を必要とする。
+- `migration_required: true`
+- `change_classification: breaking`
+- 必須: Coordinator Runtimeを利用するProjectはCRDDのsubmoduleまたはcloneを更新し、`capabilities --json`を確認して`task`を直接実行する。削除した準備commandをv0.18.1の入口として使用しない。
+- 条件付き: 想定外のHost Effectまたは残存Recovery Recordを観測した場合は、推測削除・推測移行せず、記録された回復判断へ戻す。
+- 不要: CRDD方法論だけを利用しCoordinator Runtimeを使わないProjectに実行移行は不要である。Runtime実行Identityが不変な文書だけの変更では、Runtime再署名と実Provider E2Eも不要である。
+- 復旧: v0.18.1の採用完了までv0.18.0を有効な基準として保持する。有効化・準備Recordは移行せず、想定外EffectのEvidenceを保持して対応する回復経路を完了してから再試行する。
+- 延期時の既知リスク: 利用者が常時停止する準備commandを呼び続ける、または実行と無関係なRepository Tree変更へTrustを結合して、情報価値のない署名・Provider試験を反復する可能性がある。
+- 検証: 最終公開にはrevision 5の署名manifest、fresh adopterの有用結果E2E、全試験および同じRuntime実行Identityの独立確認を必要とする。文書・試験ではIdentityが変わらず、Runtime Source、PolicyまたはNative成果物では変わることを決定論的試験で確認する。
+- 既知の制限: 依存閉包は宣言済みの閉じた実行名前空間を対象とし、そこから外れる静的relative importを拒否する。任意に動的生成されるPathの完全推論や、Identityが同じという理由だけでSecurity上の意味変更が安全になることは主張しない。
 
 <a id="changelog-v0180-ja"></a>
 

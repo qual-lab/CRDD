@@ -1,7 +1,7 @@
 # 変更トレース: エージェント組織の文書アーキテクチャ
 
 変更ID: `CHG-000054`
-- 状態: `Integrated — Pending Release`（PR #32でmain統合済み・公開準備中）
+- 状態: `Released`（v0.18.0）
 - 決定権限者: Qual-Lab
 - 最終更新日: 2026-09-01
 - 対象version: v0.18.0

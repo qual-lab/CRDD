@@ -1,6 +1,6 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
-状態: v0.18.1候補
+状態: Stable（v0.18.1）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 
@@ -129,13 +129,18 @@ Repository読取り、外部送信、Provider起動、候補書込み、候補ex
 
 CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採る。Release候補TreeにはSource、文書、試験および固定成果物`template/tools/coordinator/windows-x64/crdd-platform-access.exe`を含める。署名manifestは`template/tools/coordinator/coordinator-package-manifest.json`へ置く。
 
-manifest revision 4は、CRDD Version、release sequence、Commit、Tree、Coordinator package content root、Policy Hash、Platform Access成果物のPath・target・protocol・toolchain・byte長・SHA-256、発行時刻および任意の期限をEd25519署名へ結合する。旧revision、削除済みSupervisor field、別Path aliasまたは欠落fallbackを受理しない。
+配布には二つのIdentityを用いる。
 
-Coordinator package content rootは、Repositoryでテキストとして管理する`.ts`、`.json`、`.policy`、`.py`、`.txt`および`.Dockerfile`をLFへ正規化して算出する。Windowsの既存Checkoutに残るCRLFと新規CloneのLFは同じGit正本内容として扱うが、行内容、終端改行、単独CRその他の差分は同一視しない。Native成果物その他の非テキストは生バイトの長さとSHA-256を完全一致させる。これにより、Checkout時の許可された改行変換だけを吸収し、任意の内容変更を署名境界から除外しない。
+- リリースIdentity（Release Identity）は、Version、tag、Repository Commit／Tree、文書、移行およびCHANGELOGを含み、「このCRDD Releaseは何か」を示す。
+- Runtime実行Identity（Runtime Execution Identity）は、実行に影響する閉じた依存集合、Security Policyおよび固定Platform Access成果物を含み、「何の実行へAuthorityを与えるか」を示す。
 
-Runtimeはmanifestだけを除外して配布Treeを再計算し、固定成果物をTreeとmanifestの双方へ結合する。Tree再計算ではRepositoryの`* text=auto eol=lf`契約と同じく、先頭8 KiBにNULを含まないtextをLF正本として扱い、`.exe`およびbinary判定されたfileは生バイトのGit Blob Identityを用いる。Root直下のexact `.git` metadataはnon-link・安定Identityを確認してTreeから除外する。`.crdd/external-send-policy.json`はGit管理する非秘密設定として署名Treeへ含め、同じRoot `.crdd`内のRuntime状態だけを除外する。似た名前、別階層または任意のRoot追加fileは除外しない。未署名branch、manifest欠落、改変checkout、余分なfileまたは成果物差はProvider Effect前に停止する。
+manifest revision 5は、Coordinatorの`bin/**`、`src/**`、`runtime/**`、`policies/**`および`package.json`を自動走査したcontent root、Root Protection／Key Storage Policy Hash、Platform Access成果物のPath・target・protocol・toolchain・byte長・SHA-256からRuntime実行Identityを決定論的に算出し、Ed25519署名へ結合する。新しい実行fileを手書き一覧へ追加する方式は採らない。実行集合内の静的relative importが集合外へ解決される場合は依存追加漏れとして拒否する。旧revision、削除済みfield、別Path alias、Identity不一致または欠落fallbackを受理しない。
 
-配布Identityと作業候補の基準Revisionは同一ではない。manifest内のCommit A／Tree Aはmanifest自身を除いた署名Sourceを保証し、配布Commit BはAへmanifest一件だけを加える。Runtimeはこの関係をCRDD配布Rootで検証する。一方、一般Task開始前後に観測するExecution Commit／Treeは、変更候補を作る作業対象RepositoryのIdentityである。Executor候補の`baseCommit`／`baseTree`はこのExecution Revisionへ一致しなければならず、配布AまたはBへの一致を一般要件にしない。CRDD自身を作業対象にするDogfoodingではExecution Revisionが配布Bと一致し得るが、親RepositoryがCRDDをsubmoduleとして利用する場合、A／Bはsubmodule側、Execution Revisionは親側となる。これにより、署名Sourceの真正性、配布Commit、作業Checkoutの不変性、候補差分の基準を別々のAuthorityへ結合する。
+content rootでは、署名対象の`.ts`、`.json`、`.policy`、`.py`、`.txt`および`.Dockerfile`をLFへ正規化する。Windows CheckoutのCRLFとLFは同じ正本内容として扱うが、行内容、終端改行、単独CRその他の差分は同一視しない。Native成果物その他の非テキストは生バイトの長さとSHA-256を完全一致させる。README、CHG、Roadmap、品質記録、試験source、build設定その他の実行集合外の変更はリリースIdentityを変えるが、Runtime実行Identityを変えない。
+
+Runtimeは現在CheckoutのRepository Tree全体を実行Authorityとして要求しない。固定manifest、閉じた実行集合、PolicyおよびNative成果物を起動前後に照合し、Runtime実行Identityの一致からAuthority候補を得る。これにより文書だけの修正後も同じRuntime実行Identityと既存の署名・E2E根拠を再利用できる一方、実行集合、PolicyまたはNative成果物が1 byteでも変われば再署名が必要になる。RecoveryもRepository Treeではなく、Runtime実行Identity、Operation、Resource、Provider／Home bindingおよびRecovery契約revisionへ結合する。
+
+リリースIdentity、Runtime実行Identityおよび作業対象のExecution Revisionは同一ではない。一般Task開始前後に観測するExecution Commit／Treeは変更候補を作るRepositoryのIdentityであり、Executor候補の`baseCommit`／`baseTree`はこれへ一致しなければならない。CRDD自身のDogfoodingと、親RepositoryがCRDDをsubmoduleとして利用する場合を同じIdentityへ畳み込まない。
 
 作業対象Commitから外部送信Policy等の明示ファイルだけを読む場合、Git object readerは許可された読取り投影へ到達するTreeと対象fileだけを処理する。投影外の通常file、symlinkまたはgitlinkは作業対象へ含めず、親Repositoryが別位置にCRDD等のsubmoduleを持つことだけで対象fileの読取りを拒否しない。ただし、選択Path自体またはその祖先がsymlink／gitlink／未対応modeである場合と、Commit全体を隔離候補へ展開する場合は従来どおり拒否する。限定投影を、gitlink配下の横断読取りや全体展開の許可へ拡張しない。
 
@@ -174,7 +179,7 @@ Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使�
 固定候補では、単体試験だけでなく次を確認する。
 
 - 公開CLI閉集合と`capabilities --json`
-- manifest revision 4、単一Native成果物、改変・欠落・旧Schema拒否
+- manifest revision 5、閉じたRuntime実行集合、Policy、単一Native成果物、改変・欠落・旧Schema拒否
 - 正常、準正常、異常のTask／Review／Remediation
 - timeout、cancel、Provider失敗、owner loss、cleanup不明、fresh recovery
 - Codex→Claude、Claude→Codex、同一Provider例外の4経路

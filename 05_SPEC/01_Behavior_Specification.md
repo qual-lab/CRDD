@@ -1,6 +1,6 @@
 # CRDD内部ツールの振る舞い仕様
 
-Status: Implementation Candidate
+Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-01
 
@@ -8,7 +8,7 @@ Last Updated: 2026-09-01
 
 本書はCRDD参照Runtimeの入力、利用条件、結果、停止・回復、および現在の実装範囲を所有する。上位の[エージェント組織](../04_Agent_Organization.md)や人間の決定権限を再定義しない。実行手順は[作業手順](../19_Workflows/01_Coordinator_Runtime.md)、成立方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証の現在状態は[品質確認](../07_Quality/01_Quality_Center.md)へ分離する。
 
-既存実装を責務別に整理した仕様である。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。移管対象の独立確認と内容採用は完了した。現在は正式配布物の期限なし契約を追加確認中であり、網羅状態は本書の各制限と[変更トレース](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)で追跡する。
+既存実装を責務別に整理した仕様である。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。内容とReleaseメタデータはv0.18.1の最終候補としてStableであり、公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。網羅状態は本書の各制限と[変更トレース](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)で追跡する。
 
 利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
 

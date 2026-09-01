@@ -3,8 +3,7 @@
 # CRDD標準の保守（Maintenance）
 
 Version: v0.18.1
-Status: Candidate
-Released Baseline: v0.18.0
+Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-01
 Related:
@@ -523,6 +522,8 @@ CONTRIBUTING、Issueフォーム、プルリクエストひな型等の影響を
 公式Release秘密鍵による署名または同等の発行Authorityを必要とする場合、通常の実装・是正・ドッグフーディングでは実署名を反復検証入口にしてはならない（MUST NOT）。対象Toolは、公式鍵、passphrase、正式manifestまたはRelease Authorityなしでproductionの意味契約を反復確認できる開発入口を所有し、候補の内容変更中はその入口へ戻らなければならない（MUST）。決定論的な開発確認の成功を、正式署名済み配布物、実Provider実測、Release承認または公開へ昇格しない。
 
 正式署名検証は、対象範囲、Commit／Tree、配布内容、必要な機械確認および実行予定が固定され、以後の内容修正を予定しないRelease Candidateに対してだけ実施する（MUST）。署名前に判定できるRoot、Identity、package、artifact、Runtime、引数、既存Effectおよび配置条件を秘密入力前に全て確認し、不一致ではpassphraseを要求せず停止する。署名後に実測で欠陥を検出した場合、その署名候補をReleaseへ流用せず、修正、開発入口での再収束および新しい候補固定へ戻る。各修正の直後に実署名を挟まず、新しい正式署名は再固定した候補に対する次の一回として扱う。
+
+Runtimeの署名AuthorityはRepository全体ではなく、実行に影響する閉じた依存集合、Security PolicyおよびNative成果物から機械的に再導出するRuntime実行Identityへ結合しなければならない（MUST）。除外一覧で署名対象を縮めず、実行名前空間の閉じたallowlistと依存境界検査を用いる。文書、CHG、Roadmap、品質記録または試験だけの変更でRuntime実行Identityが不変なら、Release Identityと該当文書の確認を行い、Runtime再署名および実Provider E2Eを要求してはならない（MUST NOT）。Runtime実行Identityが変化した場合は再署名し、影響する契約とE2Eを再検証しなければならない（MUST）。Authority、SecurityまたはRecoveryの意味変更は、Identity一致だけで再検証不要としてはならない（MUST NOT）。
 
 公式Release担当者の署名と、採用Repositoryまたは一般利用者による署名検証を分ける。採用Repositoryまたは一般利用者へ公式Release秘密鍵またはpassphraseの保有・入力を要求してはならない（MUST NOT）。公式passphraseを反復作業のため`.env`、Repository、環境変数、argv、一時fileまたはlogへ保存しない。秘密値を公開しないOS保護鍵Handle等を将来採用する場合は、利便性だけから暗黙に有効化せず、鍵用途、利用主体、候補Identity、回数、取消および監査を別の保護対象変更として判断する。
 

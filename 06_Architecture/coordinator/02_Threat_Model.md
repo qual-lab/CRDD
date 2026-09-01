@@ -1,6 +1,6 @@
 # Coordinator Runtimeの脅威モデル
 
-状態: v0.18.1候補
+状態: Stable（v0.18.1）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 
@@ -45,7 +45,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 
 | 脅威 | 失敗影響 | 主な制御 | 終了時の確認 |
 |---|---|---|---|
-| 改変・不一致配布物の実行 | 任意コード、契約すり替え | Ed25519 manifest revision 4、Commit／Tree、package root、単一Platform Access SHA-256のexact照合 | Provider Effect前に拒否 |
+| 改変・不一致配布物の実行 | 任意コード、契約すり替え | Ed25519 manifest revision 5、閉じたRuntime依存集合、Security Policy、Runtime実行Identity、単一Platform Access SHA-256のexact照合 | Provider Effect前に拒否 |
 | SecretのPrompt・log・環境流出 | Account侵害、外部漏えい | Secret値をTask Packetへ含めない、専用Provider Home、最小環境、出力抑制 | `credentialReported=false`、既知Secret検査 |
 | Repository外Pathへの逸脱 | 別Project破壊、情報漏えい | 検証済みworktree root、相対Path閉集合、Mount Grant、reparse／Identity確認 | Canonical Repository未変更、Grant失効 |
 | RoleとAuthorityの混同 | 未承認Effect | Authorityを操作別Capabilityに分離し、一回消費・期限・対象を固定 | 未消費Capability失効 |
@@ -62,7 +62,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 
 ## 5. 署名済み配布物
 
-配布物の信頼単位は、CRDD Git Tree、Coordinator packageおよび`crdd-platform-access.exe`である。manifest revision 4はこの一つのNative成果物だけを結合する。削除済みSupervisor field、旧revision、別名Path、欠落artifactまたは互換fallbackを受理しない。
+Runtimeの信頼単位は、Coordinatorの閉じた実行依存集合、Security Policyおよび`crdd-platform-access.exe`から機械的に算出するRuntime実行Identityである。CRDD Git TreeはRelease Identityと出所を示すが、文書だけの変更でRuntime Authorityを失効させない。manifest revision 5はこの一つのNative成果物とRuntime実行Identityを結合する。削除済みSupervisor field、旧revision、別名Path、欠落artifactまたは互換fallbackを受理しない。
 
 Release秘密鍵はRelease署名時だけHuman-only入力として使用し、環境、File、logまたはRuntimeへ保存しない。通常利用者と開発E2Eは秘密鍵を必要とせず、固定済みの署名配布物を検証して使う。Authenticodeは追加Defenseであり、Ed25519 Release Identityを置換しない。
 

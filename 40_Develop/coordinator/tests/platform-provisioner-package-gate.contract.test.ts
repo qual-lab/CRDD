@@ -18,6 +18,7 @@ import {
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
   calculatePlatformProvisionerPackageContentRootCandidate,
+  calculateRuntimeExecutionIdentityCandidate,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "./test-support.ts";
@@ -55,15 +56,9 @@ function fixture() {
     assert.fail(`fixture package content was invalid: ${packageRoot.reason}`);
   }
   const packageContentRootSha256 = packageRoot.packageContentRootSha256;
-  const payload = {
-    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-    contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
+  const executionFields = {
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
-    crddVersion: "v0.18.0",
-    releaseSequence: 18,
-    crddCommit: "a".repeat(40),
-    crddTree: "b".repeat(40),
     packageContentRootSha256,
     rootProtectionPolicySha256: "2".repeat(64),
     keyStoragePolicySha256: "3".repeat(64),
@@ -76,6 +71,20 @@ function fixture() {
       byteLength: 1024,
       sha256: "4".repeat(64),
     },
+  };
+  const runtimeIdentity =
+    calculateRuntimeExecutionIdentityCandidate(executionFields);
+  assert.equal(runtimeIdentity.status, "candidate");
+  const payload = {
+    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
+    contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
+    crddVersion: "v0.18.0",
+    releaseSequence: 18,
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
+    ...executionFields,
+    runtimeExecutionIdentitySha256:
+      runtimeIdentity.runtimeExecutionIdentitySha256,
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt: "2027-08-15T00:00:00.000Z",
   };
@@ -104,6 +113,7 @@ function fixture() {
       packageName: observedPackageContent.packageName,
       packageVersion: observedPackageContent.packageVersion,
       packageContentRootSha256,
+      runtimeExecutionIdentitySha256: payload.runtimeExecutionIdentitySha256,
       crddVersion: payload.crddVersion,
       crddCommit: payload.crddCommit,
       crddTree: payload.crddTree,
@@ -183,19 +193,10 @@ test("CRDD bundle and manifest observations match but remain non-authoritative",
   }
 });
 
-test("CRDD version, Commit, Tree, content, identity and permission mismatches fail closed", () => {
+test("Runtime Execution Identity、content、配布観測とpermissionの不一致をfail closedにする", () => {
   const mutations: Array<(value: ReturnType<typeof fixture>) => void> = [
     (value) => {
       value.crddDistributionObservation.distributionVerdict = "missing";
-    },
-    (value) => {
-      value.crddDistributionObservation.crddVersion = "v0.17.0";
-    },
-    (value) => {
-      value.crddDistributionObservation.crddCommit = "c".repeat(40);
-    },
-    (value) => {
-      value.crddDistributionObservation.crddTree = "d".repeat(40);
     },
     (value) => {
       value.crddDistributionObservation.packageContentRootSha256 = "f".repeat(
@@ -203,13 +204,8 @@ test("CRDD version, Commit, Tree, content, identity and permission mismatches fa
       );
     },
     (value) => {
-      value.expectedCrddVersion = "v0.17.0";
-    },
-    (value) => {
-      value.expectedCrddCommit = "e".repeat(40);
-    },
-    (value) => {
-      value.expectedCrddTree = "f".repeat(40);
+      value.crddDistributionObservation.runtimeExecutionIdentitySha256 =
+        "e".repeat(64);
     },
     (value) => {
       value.crddDistributionObservation.bundledPackageIdentityStable = false;
@@ -240,7 +236,7 @@ test("package gate cannot treat caller CRDD observations as Effect authorization
   );
   assert.equal(contract.runtimeOwnedCrddDistributionAdapter, "not_implemented");
   assert.equal(
-    contract.crddVersionCommitAndTreeBinding,
+    contract.runtimeExecutionIdentityBinding,
     "implemented_candidate",
   );
   assert.equal(contract.callerObservationMayAuthorizeEffect, false);

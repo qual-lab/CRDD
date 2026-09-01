@@ -3,8 +3,7 @@
 # CRDD品質保証（Quality Assurance）
 
 Version: v0.18.1
-Status: Candidate
-Released Baseline: v0.18.0
+Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-01
 Related:
@@ -545,7 +544,7 @@ Quality Centerでは、少なくとも次の異なる分母を混同しない。
 再検証     = 対象に対して検証項目を再実行し、新しい検証結果を得る
 ```
 
-文書表現だけの修正では再レビューだけで終了できる場合がある。対象実装、環境、品質条件、観測条件または評価結果へ影響する変更では、再レビューだけで以前の検証結果を現在有効にしない。影響に応じて再検証し、新しい結果を生成する。
+文書表現だけの修正では再レビューだけで終了できる場合がある。署名済みRuntimeでは、Repository全体の差分ではなく、機械的に再導出したRuntime実行Identityが変化したかを再署名・Runtime E2Eの第一判定にする。Identityが不変なら文書、リンク、準拠およびRelease metadataの確認を行い、情報価値のないRuntime再署名や実Provider E2Eを反復しない。Identityが変化した場合は再署名し、影響する契約とE2Eを再検証する。Authority、SecurityまたはRecoveryの意味が変わる場合は、Identity変化の有無だけで十分とせず、該当するSecurity／Recovery検証を行う。対象実装、環境、品質条件、観測条件または評価結果へ影響する変更では、再レビューだけで以前の検証結果を現在有効にしない。
 
 ---
 

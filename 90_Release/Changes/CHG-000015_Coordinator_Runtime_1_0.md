@@ -1,7 +1,7 @@
 # 変更トレース: Coordinator Runtime 1.0
 
 変更ID: `CHG-000015`
-状態: `Reopened`（PR #33の内容は統合済み。Repository同梱の正式配布契約を追加確認中）
+状態: `Released`（v0.18.0。公開後の採用入口是正はCHG-000056で追跡）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 対象系列: Coordinator Runtime 1.x

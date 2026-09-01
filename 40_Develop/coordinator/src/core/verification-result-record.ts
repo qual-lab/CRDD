@@ -142,6 +142,7 @@ export function projectVerificationResult(
   for (const field of [
     "manifestHash",
     "packageContentRootSha256",
+    "runtimeExecutionIdentitySha256",
     "crddCommit",
     "crddTree",
     "executionCommit",

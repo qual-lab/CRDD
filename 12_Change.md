@@ -3,8 +3,7 @@
 # CRDD変更トレース（Change Trace）
 
 Version: v0.18.1
-Status: Candidate
-Released Baseline: v0.18.0
+Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-01
 Related:

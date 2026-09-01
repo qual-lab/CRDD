@@ -1,6 +1,6 @@
 # Coordinator Runtimeの利用・検証・発行手順
 
-Status: Candidate
+Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-01
 

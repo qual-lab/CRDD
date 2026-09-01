@@ -1,18 +1,18 @@
 # CRDD内部ツールの品質の現在状態
 
-状態: v0.18.1候補の検証中・直近公開版v0.18.0
+状態: Stable（v0.18.1）・公開状態は公式Release識別子で確認
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 
 ## 結論
 
-直近の公開済み基準はv0.18.0である。PR #32の統合、タグ、公開および当時の正式Runtime実測は[統合Identityと公開準備計画](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)と版固定された結果で追跡する。現在のv0.18.1候補は[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)による採用入口の是正であり、単一Platform Access成果物、manifest revision 4、配布Identityと作業対象Execution Revisionの分離を含む。以下の旧実測をv0.18.1の成功へ流用しない。
+本書の内容とReleaseメタデータはv0.18.1の最終候補としてStableである。Stable、branch、Commitまたは本書だけでは公開済み基準にならず、公開状態と最終Identityは公式タグまたは同等の不変なRelease識別子から確認する。[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)は、単一Platform Access成果物、manifest revision 5、Release Identity／Runtime実行Identity／作業対象Execution Revisionの分離を含む採用入口の是正を追跡する。過去候補の実測を別Identityの成功へ流用しない。
 
-v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シナリオ、実TaskのSIGINT取消と通常回収を確認した。[対象・時刻・再識別方法・限界](Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)に記録した。固定版`147fb29`の[3系統の完成評価](Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)後に残ったWindows Terminalも、4入力シナリオと人間の表示観測を[追加確認](Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)し、独立確認で解消した。これらはv0.18.0の履歴である。v0.18.1はまだmanifestを含まないSource候補の段階であり、revision 4 manifestだけを加えた配布Commit B、fresh cloneと親Repository＋submoduleの双方、作業対象Execution RevisionへのCandidate結合、4経路、異常／回復行列、同じ固定版の独立確認および人間のRelease判断が未完了である。
+v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シナリオ、実TaskのSIGINT取消と通常回収を確認した。[対象・時刻・再識別方法・限界](Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)に記録した。v0.18.1の公開前署名候補はSource A `893498c0d02454a13667c94377c39e60b1898142`／Tree `f43d0c39ff5da1cb45a6aa1ef0ede515177929de`とmanifest-only B `1c2fd52eac8feda4dcead3662d65856b2c49548a`／Tree `41e9a7f35b2c7ac321309da118addc5dbc13a29d`で、fresh clone、親Repository＋submodule、4経路4/4および復旧行列を完了した。しかし署名前のStable状態遷移が含まれていないことを最終独立監査で検出したため、tagまたはReleaseへ使用せず不採用とした。Runtimeが報告したmanifest identity `74ebf1b8713eb4b01856c1420f6d4df8092073daa992338e006ae14db5646b72`と、manifest file SHA-256 `3b50dd2aaa9bbb10325db4eecdf85904573b97ff93f0d0c28fcb34ecdd869c3a`を別の値として保持する。最終署名候補のIdentity、署名後E2E、統合後確認およびRelease判断は、署名対象Treeへ自己参照させず、対象タグと結合した公式Release記録で取得可能にする。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
-| v0.18.1 Coordinator採用入口 | Source候補の是正・開発検証中。正式署名と配布E2Eは未完了 | [CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)。単一`crdd-platform-access.exe`とrevision 4、配布A／Bと作業対象Execution Revisionの分離を固定し、fresh clone／submodule、4経路、Recovery、保存結果、独立確認を同じ候補で完了してからRelease判断へ進む |
+| v0.18.1 Coordinator採用入口 | 内容とReleaseメタデータはStable。公開状態と最終署名Identityは公式Release識別子で確認 | [CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)。単一`crdd-platform-access.exe`、manifest revision 5、閉じたRuntime依存集合、Release Identity／Runtime実行Identity／作業対象Execution Revisionの分離、fresh clone／submodule、4経路およびRecoveryをRelease Gateとする。正確な最終結果は対象タグの公式Release記録へ結合する |
 | 移行前の正式署名E2E | 固定版に限り完了 | [0c3e6d2の結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)。4経路4/4、復旧7/7、cleanup確認済み |
 | 実務自己適用の評価 | 限定利用成立、総合的な優位は未確定 | [最新の実務1件](../90_Release/Changes/Evidence/CHG-000055_Utility_45ea2ac.md)はRuntime約111秒、親の反映・検証まで約206秒。[集約評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で人間の実作業時間、最終受入、利用量の未測定を区別する |
 | 新配置の開発E2E | 対象239件合格 | [対象・条件・限界](Verification_Results/2026-08-31_Tool_Layout_Development_E2E.md)。正式配布や実Providerの証明とは区別する |
@@ -24,7 +24,7 @@ v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シ�
 | UX・IA・UIと仕様の接続 | 専門確認、PowerShellとWindows Terminalの限定操作・表示確認、候補内容採用を完了 | [UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)を完成評価で照合。WT-SCOPE-01は追加確認で解消。読み上げと全環境への一般化は未評価のまま保持する |
 | 共通起動入口と限定結果保存 | 実装済み、契約・結合試験での確認対象 | 毎回の起動方法を組み立てず同じ配布物の共通入口から起動し、検証画面を閉じた後は保存された開始・結果・完了記録の一致を確認する。[実行手順](../19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)と[検証設計](03_Verification_Design.md#tool-user-experience-verification)を参照。passphrase・確認コード・Provider生出力は保存せず、開始記録だけが残る範囲は結果未確認のまま扱う。この確認だけで正式署名E2E成功や電源断耐性を主張しない |
 | v0.18.0移行後の正式署名・実Provider E2E | 固定版48515ebで4経路4/4・復旧7シナリオ・実Task取消完了 | [当時版の結果](Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)。4経路は再試行・是正往復なし。取消は子CLIのexit 2と測定の`verified`を分離し、通常回収・候補未発行・対象資源不存在を確認。v0.18.1や全Provider・全取消時点の保証ではない |
-| v0.18.0公開準備時の追加差分（履歴） | 当時の開発確認と独立確認を完了。文書・Checkerの2指摘も独立再確認で解消した | [当時の開発結果と独立確認](Verification_Results/2026-09-01_Coordinator_Completion_Review.md#release-preparation-verification)。Coordinator 1,588/1,588、開発E2E286/286、Checker全所有267/267、Native35成功・2 ignored。初回の制限付き実行失敗と再実行条件を分離した。現在のv0.18.1候補は本表冒頭と[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)を参照する |
+| v0.18.0公開準備時の追加差分（履歴） | 当時の開発確認と独立確認を完了。文書・Checkerの2指摘も独立再確認で解消した | [当時の開発結果と独立確認](Verification_Results/2026-09-01_Coordinator_Completion_Review.md#release-preparation-verification)。Coordinator 1,588/1,588、開発E2E286/286、Checker全所有267/267、Native35成功・2 ignored。初回の制限付き実行失敗と再実行条件を分離した。v0.18.1は本表冒頭と[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)を参照する |
 | v0.18.0統合・リリース | PR #32統合・公開済み | 過去の公開状態として保持する。v0.18.1は別の固定候補、PR、最終main Identity、タグおよびRelease判断で追跡する |
 
 旧署名版45ea2acの[是正1往復](../90_Release/Changes/Evidence/CHG-000015_Remediation_45ea2ac.md)と実務1件は、その版の結果として保持し4f10201で再実行したとは扱わない。旧版の実取消失敗と正規Recovery、4f10201でsignalが遅れて通常完了した先行試行、対象Claudeコンテナ1個の`running`観測後に取消と通常回収が成立した試行を分離する。Provider内部の準備完了・処理開始は別途観測していない。今回の公開結果にない`effectStateUnknown`を`false`へ補完せず、対象資源の不存在観測と未出力値を区別する。

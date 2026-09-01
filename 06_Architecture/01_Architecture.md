@@ -1,6 +1,6 @@
 # CRDD参照Toolのアーキテクチャ
 
-Status: Implementation Candidate
+Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-08-31
 

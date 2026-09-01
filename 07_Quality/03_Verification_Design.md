@@ -1,6 +1,6 @@
 # CRDD内部ツールの検証設計
 
-状態: 配置移行の検証完了・期限なし配布契約の追加検証中
+状態: Stable（v0.18.1）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 
@@ -12,18 +12,18 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 
 | 判定対象 | 正常・準正常・異常の確認 | 保持する終了条件 |
 |---|---|---|
-| 現行revision 4 | `expiresAt: null`の期限なし、UTC期限付き、単一Platform Access成果物、発行後の複数日時、開始前拒否、期限ちょうどと期限後 | revision 4と現行manifest署名domainだけを受理し、nullの場合だけ時間上限を除く |
+| 現行revision 5 | `expiresAt: null`の期限なし、UTC期限付き、閉じたRuntime実行集合、Policy、単一Platform Access成果物、発行後の複数日時、開始前拒否、期限ちょうどと期限後 | revision 5と現行manifest署名domainだけを受理し、nullの場合だけ時間上限を除く |
 | 旧revision 2／3 | 旧payload、削除済みfield、旧manifest署名domain | 現行Runtimeは互換読取りやfallbackを行わず拒否する。公開済みv0.18.0成果物の履歴を無効化する意味ではない |
 | Schemaと署名 | 欠落・undefined・空文字・文字列null・不正日時・未知revision・envelope/payload不一致、期限改変、旧manifest署名domainの混入 | 改変でAuthorityを発行しない。package content rootの`CRDD\0PLATFORM-PROVISIONER-PACKAGE-CONTENT\0V2\0`は別契約として維持する |
 | 署名CLIと事前検査 | --no-expiry、--expires-at、両方・未指定・重複・不正指定 | 不正指定で秘密入力・署名・配置を発火しない |
 | TypeScript／Rust接続 | 同じ署名payloadの正常・異常ベクトルを両検証器へ渡す | canonical byte、domain、成果物結合を一致させる |
 | 既存の期限所有者 | Grant、同意、候補、準備記録の期限・取消の既存試験 | 期限なしmanifestから別の権限を延長しない |
 
-新しいNativeを含む正式配布の最終固定では、revision 4の署名manifest、Git Treeおよび単一Platform Access成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。Commit AへSource・文書・試験・`crdd-platform-access.exe`を固定し、そのTreeを署名したmanifestだけを配布Commit Bで追加する。公式tagの配布Bを新しいclean cloneまたはsubmodule相当のworktreeで検証し、Bの親が署名対象Aであること、AからBへの差分がmanifestだけであること、Git同梱成果物のbyte・Hash・PE profileが一致することを確認する。Taskでは配布A／Bと作業対象RepositoryのExecution Revisionを分け、開始前後に同じExecution Commit／Treeを観測し、Candidateの`baseCommit`／`baseTree`が作業対象Revisionへ一致することを確認する。独自ZIPを作成・展開せず、GitHubの自動Source archiveもRuntime配布契約の検証対象にしない。旧48515ebの実測、物理Ctrl+C、端末表示と実務評価は対象版を維持し、変更の影響を照合せず新規版の成功へ読み替えない。
+新しいRuntime実行Identityを含む正式配布の最終固定では、revision 5の署名manifest、閉じたRuntime実行集合、Policyおよび単一Platform Access成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。署名時のSource Commit／Treeは出所根拠として保持するが、現在CheckoutのRepository Tree全体をRuntime Authorityへ使用しない。公式tagを新しいclean cloneまたはsubmodule相当のworktreeで検証し、Runtime実行集合、Policy、Git同梱成果物のbyte・Hash・PE profileおよびmanifestのRuntime実行Identityが一致することを確認する。TaskではCRDD Release Identity、Runtime実行Identityおよび作業対象RepositoryのExecution Revisionを分け、開始前後に同じExecution Commit／Treeを観測し、Candidateの`baseCommit`／`baseTree`が作業対象Revisionへ一致することを確認する。独自ZIPを作成・展開せず、GitHubの自動Source archiveもRuntime配布契約の検証対象にしない。旧実測は対象版を維持し、Runtime実行Identityの一致を確認せず新規版の成功へ読み替えない。
 
 | Git同梱配布の経路 | 期待結果 | 終了後条件 |
 |---|---|---|
-| 正常 | 公式tagのclean clone／submodule、manifest-only配布B、署名対象親Commit Aとexact Tree、単一成果物Hashが一致。Task前後の作業対象Execution Revisionが同一で、Candidate baseもそのRevisionへ一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
+| 正常 | 公式tagのclean clone／submoduleで、manifest、閉じたRuntime実行集合、Policy、単一成果物HashとRuntime実行Identityが一致。Task前後の作業対象Execution Revisionが同一で、Candidate baseもそのRevisionへ一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
 | 準正常 | non-zero固定publisher digestを宣言したPEで、追加DLL集合とAuthenticodeが一致 | manifest-onlyへfallbackせず追加防御を維持 |
 | 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、Candidateの`baseCommit`／`baseTree`が期待する作業対象Execution Revisionと異なる（配布AまたはBの誤使用を含む）、Task中に作業対象Commit／Treeが変わる | Candidateを回収し、Provider Effectまたは成功結果を追加発行せずfail closed。Task後のRevision変化と観測不能は、開始時Identity不一致とは別の結果として保持する |
 | 判定不能 | shallow／不完全Git履歴、配布Rootまたは作業対象Root／Revision不明、reparse／link、Task後のExecution Revision読取り不成立 | 配布Identityや作業対象の不変性を推定せずEffect 0または状態不明として停止 |

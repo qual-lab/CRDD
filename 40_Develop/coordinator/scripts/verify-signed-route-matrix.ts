@@ -161,6 +161,8 @@ function validReleaseIdentity(result: Readonly<Record<string, unknown>>) {
     SHA256.test(result.manifestHash) &&
     typeof result.packageContentRootSha256 === "string" &&
     SHA256.test(result.packageContentRootSha256) &&
+    typeof result.runtimeExecutionIdentitySha256 === "string" &&
+    SHA256.test(result.runtimeExecutionIdentitySha256) &&
     isCanonicalCrddVersion(result.crddVersion) &&
     Number.isSafeInteger(result.releaseSequence) &&
     Number(result.releaseSequence) >= 1 &&
@@ -173,6 +175,7 @@ function releaseIdentity(result: Readonly<Record<string, unknown>>) {
   return JSON.stringify([
     result.manifestHash,
     result.packageContentRootSha256,
+    result.runtimeExecutionIdentitySha256,
     result.crddVersion,
     result.releaseSequence,
     result.crddCommit,

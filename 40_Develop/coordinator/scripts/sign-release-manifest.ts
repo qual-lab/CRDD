@@ -15,6 +15,7 @@ import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/secur
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/security/platform-provisioner-release-trust.ts";
 import {
   compilePlatformProvisionerManifestPayloadCandidate,
+  calculateRuntimeExecutionIdentityCandidate,
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
@@ -261,6 +262,16 @@ function prepareReleaseManifestCandidate(
     throw new Error("release_manifest_package_observation_failed");
   }
   const policyIdentity = getPlatformProvisionerPolicyIdentity();
+  const runtimeExecutionIdentity = calculateRuntimeExecutionIdentityCandidate({
+    packageName: packageObservation.packageName,
+    packageVersion: packageObservation.packageVersion,
+    packageContentRootSha256: packageObservation.packageContentRootSha256,
+    platformAccessArtifact: platformAccessObservation.platformAccessArtifact,
+    ...policyIdentity,
+  });
+  if (runtimeExecutionIdentity.status !== "candidate") {
+    throw new Error("release_manifest_runtime_execution_identity_invalid");
+  }
   const compiled = compilePlatformProvisionerManifestPayloadCandidate({
     manifestPayload: {
       contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
@@ -272,6 +283,8 @@ function prepareReleaseManifestCandidate(
       crddCommit: options.crddCommit,
       crddTree: options.crddTree,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
+      runtimeExecutionIdentitySha256:
+        runtimeExecutionIdentity.runtimeExecutionIdentitySha256,
       platformAccessArtifact: platformAccessObservation.platformAccessArtifact,
       ...policyIdentity,
       issuedAt: options.issuedAt,
@@ -392,6 +405,8 @@ export function signReleaseManifest(options: ManifestOptions) {
       manifestRelativePath: placement.manifestRelativePath,
       manifestHash: compiled.manifestHash,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
+      runtimeExecutionIdentitySha256:
+        compiled.payload.runtimeExecutionIdentitySha256,
       platformAccessExecutableSha256:
         platformAccessObservation.platformAccessArtifact.sha256,
       crddVersion: options.crddVersion,

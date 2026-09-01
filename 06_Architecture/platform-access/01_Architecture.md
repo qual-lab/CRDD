@@ -1,6 +1,6 @@
 # Windowsネイティブ部品の設計
 
-状態: v0.18.1候補
+状態: Stable（v0.18.1）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 
@@ -25,7 +25,7 @@ Coordinatorの用途別Adapter
   → 診断／Task／Recovery結果
 ```
 
-署名manifest revision 4は、この成果物の固定相対Path、target、Rust toolchain、byte長、protocol revisionおよびSHA-256をCRDDのCommit／Treeと結合する。削除済みの`coordinator.exe`、native bootstrap feature、別Supervisor artifact fieldおよび旧manifest revisionへのfallbackはない。
+署名manifest revision 5は、この成果物の固定相対Path、target、Rust toolchain、byte長、protocol revisionおよびSHA-256を、閉じたRuntime依存集合とSecurity Policyから算出するRuntime実行Identityへ結合する。CRDDのCommit／TreeはReleaseの出所を示すが、Runtime Authorityの同一性判定を兼ねない。削除済みの`coordinator.exe`、native bootstrap feature、別Supervisor artifact fieldおよび旧manifest revisionへのfallbackはない。
 
 ## 3. 操作ごとの境界
 

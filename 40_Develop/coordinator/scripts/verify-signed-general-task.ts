@@ -136,6 +136,7 @@ type ReleaseIdentity = RuntimeRecord &
   Readonly<{
     manifestHash: string;
     packageContentRootSha256: string;
+    runtimeExecutionIdentitySha256: string;
     crddVersion: string;
     releaseSequence: number;
     crddCommit: string;
@@ -766,6 +767,7 @@ function verifiedPackage(
     release.runtimeOwnedPackageRoot === true &&
     sha256(release.manifestHash) &&
     sha256(release.packageContentRootSha256) &&
+    sha256(release.runtimeExecutionIdentitySha256) &&
     isCanonicalCrddVersion(release.crddVersion) &&
     Number.isSafeInteger(release.releaseSequence) &&
     Number(release.releaseSequence) >= 1 &&
@@ -773,7 +775,7 @@ function verifiedPackage(
     isCanonicalCrddGitObjectId(release.crddTree) &&
     release.qualLabManifestCryptographicMatch === true &&
     release.runtimeOwnedReleaseTrustConfirmed === true &&
-    release.releaseIdentityRuntimeOwned === true &&
+    release.runtimeExecutionIdentityRuntimeOwned === true &&
     release.crddDistributionConfirmed === true
   );
 }
@@ -1171,6 +1173,7 @@ export async function runSignedGeneralTaskVerification(
       executionStateProjection = Object.freeze({
         manifestHash: release.manifestHash,
         packageContentRootSha256: release.packageContentRootSha256,
+        runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
         crddVersion: release.crddVersion,
         releaseSequence: release.releaseSequence,
         crddCommit: release.crddCommit,
@@ -1306,6 +1309,8 @@ export async function runSignedGeneralTaskVerification(
           reason: "signed_general_task_verification_completed",
           manifestHash: release.manifestHash,
           packageContentRootSha256: release.packageContentRootSha256,
+          runtimeExecutionIdentitySha256:
+            release.runtimeExecutionIdentitySha256,
           crddVersion: release.crddVersion,
           releaseSequence: release.releaseSequence,
           crddCommit: release.crddCommit,

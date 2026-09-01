@@ -8,6 +8,7 @@ import {
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
   calculatePlatformProvisionerPackageContentRootCandidate,
+  calculateRuntimeExecutionIdentityCandidate,
   compilePlatformProvisionerManifestPayloadCandidate,
   describePlatformProvisionerTrustCoreContract,
   verifyPlatformProvisionerManifestCandidate,
@@ -28,15 +29,9 @@ function fixture() {
     observedPackageContent,
   );
   assert.equal(content.status, "candidate");
-  const payload = {
-    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-    contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
+  const executionFields = {
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
-    crddVersion: "v0.18.1",
-    releaseSequence: 2026090102,
-    crddCommit: "a".repeat(40),
-    crddTree: "b".repeat(40),
     packageContentRootSha256: content.packageContentRootSha256,
     rootProtectionPolicySha256: "3".repeat(64),
     keyStoragePolicySha256: "4".repeat(64),
@@ -49,6 +44,20 @@ function fixture() {
       byteLength: 212_992,
       sha256: "5".repeat(64),
     },
+  };
+  const runtimeIdentity =
+    calculateRuntimeExecutionIdentityCandidate(executionFields);
+  assert.equal(runtimeIdentity.status, "candidate");
+  const payload = {
+    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
+    contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
+    crddVersion: "v0.18.1",
+    releaseSequence: 2026090102,
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
+    ...executionFields,
+    runtimeExecutionIdentitySha256:
+      runtimeIdentity.runtimeExecutionIdentitySha256,
     issuedAt: "2026-09-01T00:00:00.000Z",
     expiresAt: null,
   };
@@ -78,7 +87,7 @@ function fixture() {
   };
 }
 
-test("revision 4 manifestはPlatform Access成果物だけを署名境界へ含める", () => {
+test("revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含める", () => {
   const result = verifyPlatformProvisionerManifestCandidate(fixture());
   assert.equal(result.status, "candidate");
   assert.equal(result.crddVersion, "v0.18.1");
@@ -155,9 +164,54 @@ test("package内容Rootは順序をexactに検証する", () => {
   );
 });
 
+test("Runtime Execution IdentityはRelease provenanceから独立し、Policy・Native差を検出する", () => {
+  const value = fixture();
+  const payload = value.manifestEnvelope.payload;
+  const executionFields = {
+    packageName: payload.packageName,
+    packageVersion: payload.packageVersion,
+    packageContentRootSha256: payload.packageContentRootSha256,
+    rootProtectionPolicySha256: payload.rootProtectionPolicySha256,
+    keyStoragePolicySha256: payload.keyStoragePolicySha256,
+    platformAccessArtifact: payload.platformAccessArtifact,
+  };
+  const identity = calculateRuntimeExecutionIdentityCandidate(executionFields);
+  assert.equal(identity.status, "candidate");
+  const provenanceChanged = calculateRuntimeExecutionIdentityCandidate({
+    ...executionFields,
+  });
+  if (provenanceChanged.status !== "candidate")
+    assert.fail(provenanceChanged.reason);
+  assert.equal(
+    provenanceChanged.runtimeExecutionIdentitySha256,
+    identity.runtimeExecutionIdentitySha256,
+  );
+  const policyChanged = calculateRuntimeExecutionIdentityCandidate({
+    ...executionFields,
+    rootProtectionPolicySha256: "f".repeat(64),
+  });
+  if (policyChanged.status !== "candidate") assert.fail(policyChanged.reason);
+  assert.notEqual(
+    policyChanged.runtimeExecutionIdentitySha256,
+    identity.runtimeExecutionIdentitySha256,
+  );
+  const nativeChanged = calculateRuntimeExecutionIdentityCandidate({
+    ...executionFields,
+    platformAccessArtifact: {
+      ...executionFields.platformAccessArtifact,
+      sha256: "e".repeat(64),
+    },
+  });
+  if (nativeChanged.status !== "candidate") assert.fail(nativeChanged.reason);
+  assert.notEqual(
+    nativeChanged.runtimeExecutionIdentitySha256,
+    identity.runtimeExecutionIdentitySha256,
+  );
+});
+
 test("Trust Coreの説明は単一Native成果物と非権限性を示す", () => {
   const contract = describePlatformProvisionerTrustCoreContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(contract.manifestDomain, PLATFORM_PROVISIONER_MANIFEST_DOMAIN);
   assert.equal(contract.dedicatedPlatformAccessExecutableRequiredForV1, true);
   assert.equal("explicitProvisionCommandRequired" in contract, false);

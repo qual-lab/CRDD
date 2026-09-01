@@ -49,6 +49,7 @@ function completed(
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),
     packageContentRootSha256: "b".repeat(64),
+    runtimeExecutionIdentitySha256: "1".repeat(64),
     crddVersion: "v0.18.0",
     releaseSequence: 18,
     crddCommit: "c".repeat(40),

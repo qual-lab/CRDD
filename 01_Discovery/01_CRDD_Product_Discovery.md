@@ -8,16 +8,16 @@
 
 | 対象 | 状態・変更記録 |
 |---|---|
-| §1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善 | v0.18.0で採用・実装検証・公開済み（CHG-000055）。現在のv0.18.1候補はCHG-000056の採用入口是正 |
+| §1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善 | v0.18.0で採用・実装検証・公開済み（CHG-000055）。v0.18.1の採用入口是正はCHG-000056で追跡する |
 | §7.3.2の根拠駆動Runtimeリファクタリング | 採用したv0.18.0対象は実装検証・公開済み（[CHG-000055の実施結果](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#24-実務結果の照合と最終固定への引渡し)と[現在の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)）。総合的な性能優位は未実証 |
 | §7.9の責務分離原則 | `Adopted / Planned` |
 | §7.1の上位方向 | `Adopted / Unscheduled` |
-| §7.2のCoordinator Runtime 1.0 | v0.18.0で候補内容を採用・実装検証・公開済み（CHG-000015）。現在のv0.18.1候補はCHG-000056で配布契約と作業対象Revision結合を是正中 |
+| §7.2のCoordinator Runtime 1.0 | v0.18.0で候補内容を採用・実装検証・公開済み（CHG-000015）。v0.18.1の配布契約と作業対象Revision結合の是正はCHG-000056で追跡する |
 | 第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補、§7.9の将来能力地平 | `Held / Unscheduled` |
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本、影響および既存の未リリース変更意図を再確認し、同じ意図は既存CHGへ接続する。独立した変更意図が必要な場合だけ、[変更規則](../12_Change.md)に従って新しい`CHG-*`を発行する。
 
-2026-09-01の候補内容・移行方針の採用後、PR #32でmainへ統合し、v0.18.0を公開した。現在は[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)によるv0.18.1候補の採用入口是正を進める。将来候補や別の採用先を追加承認したものではない。
+2026-09-01の候補内容・移行方針の採用後、PR #32でmainへ統合し、v0.18.0を公開した。[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)はv0.18.1の採用入口是正を追跡する。将来候補や別の採用先を追加承認したものではない。
 
 §7.3.2の作業意図の採用と、同節の[次版検討候補](#runtime-utility-next-version-candidates)の状態は分ける。後者の具体策・収載先は`Held / Unscheduled`であり、候補の記録を採用判断としない。
 
@@ -470,11 +470,11 @@ Self-hosted LLMもProvider Adapter候補へ接続できるかを評価する。F
 
 PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠から再評価する順序である。Versionは[`19_Maintenance.md`](../19_Maintenance.md#51-release-version-and-revision)が所有する公開差分、互換性および基準版の識別である。一つのPhaseが複数Versionにまたがることも、一つのVersionが個別に採用された複数Phaseの要素を含むこともある。Phase番号からVersionを、Version表示から収載、期限、互換性、Candidate状態またはReleaseを推定しない。
 
-次の表は既存§7.2～§7.8を、人間が理解しやすい能力到達点へ投影した対応表である。CRDD v0.18.0は内容採用・main統合・公開を完了した。現在はv0.18.1候補で採用入口を是正している。個別の完成根拠はCHGと品質記録を用い、収載や統合だけからリリースを推定しない。v0.19.0以降は将来の能力地平（Capability Horizon）であってRelease targetの予約ではなく、実現時の根拠と採用済み差分に応じて別のVersionへ再割当できる。
+次の表は既存§7.2～§7.8を、人間が理解しやすい能力到達点へ投影した対応表である。CRDD v0.18.0は内容採用・main統合・公開を完了し、v0.18.1の採用入口是正はCHG-000056で追跡する。個別の完成根拠はCHGと品質記録を用い、収載や統合だけからリリースを推定しない。v0.19.0以降は将来の能力地平（Capability Horizon）であってRelease targetの予約ではなく、実現時の根拠と採用済み差分に応じて別のVersionへ再割当できる。
 
 | 表示 | 能力像 | 判断／対応状態 | 再評価契機 | この表示が意味しないこと |
 |---|---|---|---|---|
-| CRDD v0.18.0 — 公開済み基準 | CRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 内容採用・main統合・公開済み | CHG-000014の公開記録とCHG-000015の完成根拠 | v0.18.1候補の採用入口是正完了または将来候補の採用 |
+| CRDD v0.18.0 — 公開済み基準 | CRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 内容採用・main統合・公開済み | CHG-000014の公開記録とCHG-000015の完成根拠 | v0.18.1の公式Release識別子または将来候補の採用 |
 | CRDD v0.18.0 — 自己適用で完了した改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性 | 採用した対象の実装検証・内容採用は完了（[CHG-000055](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md)） | 根拠を保持し、リリースへ引き渡す | 総合的な性能優位、Releaseまたはv0.19.0以降の研究候補の収載 |
 | CRDD v0.19.0（将来能力像） | MCP等の協働接続面、Repository Binding／Router、Runtime境界およびCRDDの機械利用性をエコシステム自己適用（Ecosystem Dogfooding）し、v1能力到達性を評価する | `Held / Unscheduled` | v0.18.0の結果と、第2段階で得た最初の自己適用Evidenceを人間が再評価 | v0.19.0への収載予約、Release Candidate、専用PM Systemまたは実装許可 |
 | CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループを、人間とAIの組織（Human × AI Organization）で成立させる | `Held / Unscheduled` | 協働接続面とエコシステム自己適用から、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |

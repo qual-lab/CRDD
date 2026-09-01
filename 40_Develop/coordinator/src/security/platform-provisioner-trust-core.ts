@@ -24,15 +24,17 @@ import {
   isCanonicalCrddVersion,
 } from "./release-identity-grammar.ts";
 
-export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 4;
+export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 5;
 export const PLATFORM_PROVISIONER_MANIFEST_CONTRACT =
   "crdd-coordinator/platform-provisioner-package-manifest";
 export const PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT =
   "crdd-coordinator/platform-provisioner-package-manifest-envelope";
 export const PLATFORM_PROVISIONER_MANIFEST_DOMAIN =
-  "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V4\0";
+  "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V5\0";
 export const PLATFORM_PROVISIONER_PACKAGE_CONTENT_DOMAIN =
   "CRDD\0PLATFORM-PROVISIONER-PACKAGE-CONTENT\0V2\0";
+export const PLATFORM_PROVISIONER_RUNTIME_EXECUTION_IDENTITY_DOMAIN =
+  "CRDD\0RUNTIME-EXECUTION-IDENTITY\0V1\0";
 
 const MANIFEST_KEYS = new Set([
   "contract",
@@ -44,6 +46,7 @@ const MANIFEST_KEYS = new Set([
   "crddCommit",
   "crddTree",
   "packageContentRootSha256",
+  "runtimeExecutionIdentitySha256",
   "rootProtectionPolicySha256",
   "keyStoragePolicySha256",
   "platformAccessArtifact",
@@ -78,6 +81,14 @@ const VERIFY_KEYS = new Set([
   "evaluationTime",
 ]);
 const COMPILE_KEYS = new Set(["manifestPayload"]);
+const RUNTIME_EXECUTION_IDENTITY_KEYS = new Set([
+  "packageName",
+  "packageVersion",
+  "packageContentRootSha256",
+  "rootProtectionPolicySha256",
+  "keyStoragePolicySha256",
+  "platformAccessArtifact",
+]);
 const HEX64 = /^[0-9a-f]{64}$/u;
 const PACKAGE_NAME = /^@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/u;
 const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
@@ -211,6 +222,8 @@ function normalizeManifest(raw: unknown) {
     !isCanonicalCrddGitObjectId(value.crddTree) ||
     typeof value.packageContentRootSha256 !== "string" ||
     !HEX64.test(value.packageContentRootSha256) ||
+    typeof value.runtimeExecutionIdentitySha256 !== "string" ||
+    !HEX64.test(value.runtimeExecutionIdentitySha256) ||
     typeof value.rootProtectionPolicySha256 !== "string" ||
     !HEX64.test(value.rootProtectionPolicySha256) ||
     typeof value.keyStoragePolicySha256 !== "string" ||
@@ -237,7 +250,7 @@ function normalizeManifest(raw: unknown) {
     )
   )
     return null;
-  return Object.freeze({
+  const normalized = Object.freeze({
     ...value,
     contractRevision: value.contractRevision,
     packageName: value.packageName,
@@ -247,6 +260,7 @@ function normalizeManifest(raw: unknown) {
     crddCommit: value.crddCommit,
     crddTree: value.crddTree,
     packageContentRootSha256: value.packageContentRootSha256,
+    runtimeExecutionIdentitySha256: value.runtimeExecutionIdentitySha256,
     rootProtectionPolicySha256: value.rootProtectionPolicySha256,
     keyStoragePolicySha256: value.keyStoragePolicySha256,
     platformAccessArtifact: Object.freeze({
@@ -260,6 +274,19 @@ function normalizeManifest(raw: unknown) {
     issuedAt: value.issuedAt,
     expiresAt: value.expiresAt as string | null,
   });
+  const identity = calculateRuntimeExecutionIdentityCandidate({
+    packageName: normalized.packageName,
+    packageVersion: normalized.packageVersion,
+    packageContentRootSha256: normalized.packageContentRootSha256,
+    rootProtectionPolicySha256: normalized.rootProtectionPolicySha256,
+    keyStoragePolicySha256: normalized.keyStoragePolicySha256,
+    platformAccessArtifact: normalized.platformAccessArtifact,
+  });
+  return identity.status === "candidate" &&
+    identity.runtimeExecutionIdentitySha256 ===
+      normalized.runtimeExecutionIdentitySha256
+    ? normalized
+    : null;
 }
 
 function selectManifestDomain(_revision: number) {
@@ -368,6 +395,60 @@ function frame(domain: string, payload: unknown) {
     message,
     hash: createHash("sha256").update(message).digest("hex"),
   });
+}
+
+export function calculateRuntimeExecutionIdentityCandidate(raw: unknown) {
+  try {
+    const value = snapshotPlainRecord(raw, RUNTIME_EXECUTION_IDENTITY_KEYS);
+    const artifact =
+      value &&
+      snapshotPlainRecord(
+        value.platformAccessArtifact,
+        PLATFORM_ACCESS_ARTIFACT_KEYS,
+      );
+    if (
+      !value ||
+      typeof value.packageName !== "string" ||
+      typeof value.packageVersion !== "string" ||
+      !packageIdentity(value.packageName, value.packageVersion) ||
+      typeof value.packageContentRootSha256 !== "string" ||
+      !HEX64.test(value.packageContentRootSha256) ||
+      typeof value.rootProtectionPolicySha256 !== "string" ||
+      !HEX64.test(value.rootProtectionPolicySha256) ||
+      typeof value.keyStoragePolicySha256 !== "string" ||
+      !HEX64.test(value.keyStoragePolicySha256) ||
+      !artifact ||
+      artifact.relativePath !== PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH ||
+      artifact.target !== PLATFORM_ACCESS_TARGET ||
+      artifact.protocolRevision !== PLATFORM_ACCESS_PROTOCOL_REVISION ||
+      artifact.rustToolchain !== PLATFORM_ACCESS_RUST_TOOLCHAIN ||
+      typeof artifact.byteLength !== "number" ||
+      !Number.isSafeInteger(artifact.byteLength) ||
+      artifact.byteLength < 1 ||
+      artifact.byteLength > PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES ||
+      typeof artifact.sha256 !== "string" ||
+      !HEX64.test(artifact.sha256)
+    )
+      return response("blocked", "runtime_execution_identity_invalid", {});
+    const framed = frame(
+      PLATFORM_PROVISIONER_RUNTIME_EXECUTION_IDENTITY_DOMAIN,
+      {
+        packageName: value.packageName,
+        packageVersion: value.packageVersion,
+        packageContentRootSha256: value.packageContentRootSha256,
+        rootProtectionPolicySha256: value.rootProtectionPolicySha256,
+        keyStoragePolicySha256: value.keyStoragePolicySha256,
+        platformAccessArtifact: artifact,
+      },
+    );
+    return framed
+      ? response("candidate", "runtime_execution_identity_candidate_only", {
+          runtimeExecutionIdentitySha256: framed.hash,
+        })
+      : response("blocked", "runtime_execution_identity_invalid", {});
+  } catch {
+    return response("blocked", "runtime_execution_identity_invalid", {});
+  }
 }
 
 function snapshotSignerSpki(raw: unknown) {
@@ -481,6 +562,8 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
         crddCommit: envelope.payload.crddCommit,
         crddTree: envelope.payload.crddTree,
         packageContentRootSha256: contentFrame.hash,
+        runtimeExecutionIdentitySha256:
+          envelope.payload.runtimeExecutionIdentitySha256,
         rootProtectionPolicySha256: envelope.payload.rootProtectionPolicySha256,
         keyStoragePolicySha256: envelope.payload.keyStoragePolicySha256,
         platformAccessArtifact: envelope.payload.platformAccessArtifact,
@@ -554,7 +637,7 @@ export function describePlatformProvisionerTrustCoreContract() {
     maximumFiles: MAXIMUM_FILES,
     manifestCryptographicVerification: "implemented_candidate",
     releaseIdentityBinding:
-      "release_sequence_crdd_version_commit_tree_package_content_root_and_platform_access_artifact_implemented_candidate",
+      "runtime_execution_identity_from_closed_dependency_set_policy_and_platform_access_artifact_implemented_candidate",
     packageContentRootCalculation:
       "implemented_candidate_from_owned_snapshot_of_caller_file_metadata",
     runtimeOwnedPackageFilesystemRead: "not_implemented",

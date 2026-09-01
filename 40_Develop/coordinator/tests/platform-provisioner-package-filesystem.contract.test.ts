@@ -22,6 +22,7 @@ import {
   PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
+  calculateRuntimeExecutionIdentityCandidate,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "./test-support.ts";
@@ -427,9 +428,7 @@ test("Package Capability状態機械はfresh exact Identityを一度だけ受理
   const identity = Object.freeze({
     manifestHash: "1".repeat(64),
     releaseSequence: 19,
-    crddCommit: "2".repeat(40),
-    crddTree: "3".repeat(40),
-    packageContentRootSha256: "4".repeat(64),
+    runtimeExecutionIdentitySha256: "4".repeat(64),
     interactiveConsoleReaderArtifactSha256: "5".repeat(64),
   });
   const capability = state.issue(identity, 1_000);
@@ -476,15 +475,9 @@ function signedManifest(
 ) {
   const signer = generateKeyPairSync("ed25519");
   const spki = signer.publicKey.export({ format: "der", type: "spki" });
-  const payload = {
-    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-    contractRevision: revision,
+  const executionFields = {
     packageName: "@qual-lab/crdd-coordinator",
     packageVersion: "0.0.0-development",
-    crddVersion: "v0.18.0",
-    releaseSequence: 18,
-    crddCommit: "a".repeat(40),
-    crddTree: "b".repeat(40),
     packageContentRootSha256,
     rootProtectionPolicySha256: "2".repeat(64),
     keyStoragePolicySha256: "3".repeat(64),
@@ -497,6 +490,20 @@ function signedManifest(
       byteLength: 1024,
       sha256: "4".repeat(64),
     },
+  };
+  const runtimeIdentity =
+    calculateRuntimeExecutionIdentityCandidate(executionFields);
+  assert.equal(runtimeIdentity.status, "candidate");
+  const payload = {
+    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
+    contractRevision: revision,
+    ...executionFields,
+    crddVersion: "v0.18.0",
+    releaseSequence: 18,
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
+    runtimeExecutionIdentitySha256:
+      runtimeIdentity.runtimeExecutionIdentitySha256,
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt,
   };
@@ -593,6 +600,94 @@ test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反�
       first.packageContentRootSha256,
       second.packageContentRootSha256,
     );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは必ず入る", () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-runtime-execution-set-"),
+  );
+  try {
+    fs.mkdirSync(path.join(root, "src"));
+    fs.mkdirSync(path.join(root, "tests"));
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({
+        name: "@qual-lab/crdd-coordinator",
+        version: "0.0.0-development",
+        private: true,
+        type: "module",
+        exports: { "./cli": "./bin/coordinator.ts" },
+        scripts: {},
+        engines: {},
+        devDependencies: {},
+      }),
+    );
+    fs.writeFileSync(path.join(root, "README.md"), "first\n");
+    fs.writeFileSync(path.join(root, "tests", "fixture.ts"), "first\n");
+    fs.writeFileSync(
+      path.join(root, "src", "entry.ts"),
+      "export const value = 1;\n",
+    );
+    const first = inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(first.status, "candidate");
+    fs.writeFileSync(path.join(root, "README.md"), "second\n");
+    fs.writeFileSync(path.join(root, "tests", "fixture.ts"), "second\n");
+    const documentationOnly =
+      inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(documentationOnly.status, "candidate");
+    assert.equal(
+      documentationOnly.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+    fs.writeFileSync(
+      path.join(root, "src", "entry.ts"),
+      "export const value = 2;\n",
+    );
+    const runtimeChanged =
+      inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(runtimeChanged.status, "candidate");
+    assert.notEqual(
+      runtimeChanged.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("実行集合外への静的relative importを署名候補へ含めず拒否する", () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-runtime-dependency-boundary-"),
+  );
+  try {
+    fs.mkdirSync(path.join(root, "src"));
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({
+        name: "@qual-lab/crdd-coordinator",
+        version: "0.0.0-development",
+        private: true,
+        type: "module",
+        exports: { "./cli": "./bin/coordinator.ts" },
+        scripts: {},
+        engines: {},
+        devDependencies: {},
+      }),
+    );
+    fs.writeFileSync(
+      path.join(root, "outside.ts"),
+      "export const value = 1;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "src", "entry.ts"),
+      'export { value } from "../../outside.ts";\n',
+    );
+    const result = inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.runtimeAuthorityConferred, false);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -802,7 +897,7 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.runtimeOwnedCrddReleaseIdentitySelection,
-    "implemented_fixed_manifest_signature_and_distribution_git_tree_candidate",
+    "implemented_fixed_manifest_signature_and_runtime_execution_identity_candidate",
   );
   assert.equal(
     contract.runtimeOwnedReleaseTrustSelection,
