@@ -134,6 +134,57 @@ test("配布fileの変更、追加および不正Treeを拒否する", () => {
   );
 });
 
+test("配布TreeはRepository textのLF／CRLFを同一視しNative byte差を拒否する", () => {
+  const value = fixture();
+  try {
+    fs.writeFileSync(path.join(value.root, "alpha.txt"), "alpha\r\n");
+    assert.equal(
+      inspectPlatformProvisionerReleaseIdentityCandidate(
+        value.root,
+        value.rootTree,
+      ).status,
+      "candidate",
+    );
+    fs.writeFileSync(
+      path.join(
+        value.root,
+        "template",
+        "tools",
+        "coordinator",
+        "windows-x64",
+        "crdd-platform-access.exe",
+      ),
+      "binary\r\n",
+    );
+    assert.equal(
+      inspectPlatformProvisionerReleaseIdentityCandidate(
+        value.root,
+        value.rootTree,
+      ).status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(value.root, { recursive: true, force: true });
+  }
+});
+
+test("配布TreeはNULを含む非exe binaryを改行正規化しない", () => {
+  const value = fixture();
+  try {
+    const binaryPath = path.join(value.root, "binary.dat");
+    fs.writeFileSync(binaryPath, Buffer.from([0x00, 0x0d, 0x0a]));
+    assert.equal(
+      inspectPlatformProvisionerReleaseIdentityCandidate(
+        value.root,
+        value.rootTree,
+      ).status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(value.root, { recursive: true, force: true });
+  }
+});
+
 test("固定Platform Access成果物の欠落を署名対象Tree成立と誤認しない", () => {
   const value = fixture();
   try {

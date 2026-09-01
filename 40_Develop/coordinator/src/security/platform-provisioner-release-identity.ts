@@ -123,6 +123,26 @@ function stableFileBytes(target: string, remainingBytes: number) {
   }
 }
 
+function canonicalDistributionFileBytes(relativePath: string, bytes: Buffer) {
+  if (relativePath.endsWith(".exe")) return bytes;
+  // The repository declares `* text=auto eol=lf`. Match Git's text=auto
+  // binary heuristic: a NUL in the first 8 KiB keeps the blob byte-exact.
+  if (bytes.subarray(0, 8_000).includes(0x00)) return bytes;
+  let crlfCount = 0;
+  for (let index = 0; index + 1 < bytes.length; index += 1) {
+    if (bytes[index] === 0x0d && bytes[index + 1] === 0x0a) crlfCount += 1;
+  }
+  if (crlfCount === 0) return bytes;
+  const canonical = Buffer.allocUnsafe(bytes.length - crlfCount);
+  let output = 0;
+  for (let index = 0; index < bytes.length; index += 1) {
+    if (bytes[index] === 0x0d && bytes[index + 1] === 0x0a) continue;
+    canonical[output] = bytes[index] as number;
+    output += 1;
+  }
+  return canonical;
+}
+
 function gitSortName(entry: TreeEntry) {
   return Buffer.from(`${entry.name}${entry.isDirectory ? "/" : ""}`, "utf8");
 }
@@ -269,12 +289,16 @@ function observeDistributionTree(
       }
       const isExecutable =
         process.platform !== "win32" && (observed.mode & 0o111n) !== 0n;
+      const canonicalBytes = canonicalDistributionFileBytes(
+        relative,
+        observed.bytes,
+      );
       entries.push(
         Object.freeze({
           name,
           isDirectory: false,
           mode: isExecutable ? ("100755" as const) : ("100644" as const),
-          objectId: gitObjectId(algorithm, "blob", observed.bytes),
+          objectId: gitObjectId(algorithm, "blob", canonicalBytes),
         }),
       );
     }
@@ -401,6 +425,8 @@ export function describePlatformProvisionerReleaseIdentityContract() {
       "exact_root_git_entry_validated_and_excluded_from_signed_tree",
     symbolicLinkOrReparseFallbackAllowed: false,
     stableSameHandleFileRead: "implemented_candidate",
+    checkoutLineEndingIdentity:
+      "git_text_auto_canonical_lf_and_raw_bytes_for_binary_artifacts",
     stableDirectoryIdentityRevalidation: "implemented_candidate",
     signedCrddTreeComparison: "implemented_candidate_non_authoritative",
     signedCommitAttestationVerification:
