@@ -46,7 +46,7 @@ Local Personal Profileは、永続的な`activate`／`disable`／`provision` Lif
 
 ## 4. 新しい配布・実行境界
 
-署名manifest revision 5では、Release IdentityとRuntime実行Identityを分離する。CRDD Version／tag／Commit／Tree／文書はRelease Identityを構成し、Runtime Authorityは`bin/**`、`src/**`、`runtime/**`、`policies/**`、`package.json`、共通Launcherが選ぶ署名・4経路・Recovery入口とその推移的な静的依存、Policy Hashおよび単一Native成果物`template/tools/coordinator/windows-x64/crdd-platform-access.exe`から決定論的に算出するRuntime実行Identityへ結合する。Launcherの入口表をIdentity seedとして共用し、未選択の開発補助scriptは含めない。実行集合外へのrelative import、非正規specifier、未束縛の動的import、旧revision、削除済みfield、別Path aliasまたは欠落fallbackを受理しない。
+署名manifest revision 5では、Release IdentityとRuntime実行Identityを分離する。CRDD Version／tag／Commit／Tree／文書はRelease Identityを構成し、Runtime Authorityは`bin/**`、`src/**`、`runtime/**`、`policies/**`、`package.json`、共通Launcherが選ぶ署名・4経路・Recovery入口とその推移的な静的依存、Policy Hashおよび単一Native成果物`template/tools/coordinator/windows-x64/crdd-platform-access.exe`から決定論的に算出するRuntime実行Identityへ結合する。Launcherの入口表をIdentity seedとして共用し、未選択の開発補助scriptは含めない。依存はコメント、文字列および構文tokenを区別するFail Closedの字句解析で抽出し、実在する`node:`組込みmoduleと閉包内relative targetだけを許可する。bare／absolute／URL指定、非literalの動的import、入口表とliteral importの不一致、解析不能なsourceを拒否する。選択scriptが起動するNode.js子Process／Workerも、同じsourceまたは同じ閉包へ結合したliteral targetだけを許可する。旧revision、削除済みfield、別Path aliasまたは欠落fallbackを受理しない。
 
 この分離により、README、CHG、Roadmap、品質記録または試験だけの変更ではRuntime実行Identityを変えず、再署名および実Provider E2Eを要求しない。実行集合、PolicyまたはNative成果物の変更ではIdentityが変わるため再署名し、影響するE2Eを行う。Recoveryの世代照合もCRDD Treeとpackage rootの組合せからRuntime実行Identityへ移し、Operation、Resource、Provider／Home bindingおよびRecovery契約revisionと組み合わせる。これは文書変更を例外扱いする除外規則ではなく、署名Authorityを実際の実行依存へ戻す責務境界の是正である。
 
@@ -85,9 +85,9 @@ Sourceだけを利用する採用Project、Coordinatorを利用しないProject�
 
 | 観測状態 | 切戻し処置 | 禁止事項 |
 |---|---|---|
-| Provider Effect前で、候補・回復義務なし | v0.18.1 Runtimeを停止し、必要ならv0.18.0の方法論部分だけを継続利用する | 削除済みcommandや互換shimを復元しない |
-| 候補あり、cleanup確認済み | exact Candidateをdiscardし、固定配布物全体を一単位で切り替える | 新旧Runtime fileを混在させない |
-| 回復IDあり、cleanup未確認またはEffect不明 | exact Recoveryを完了するまで切替・削除・自動再試行を行わない | Runtime更新やProcess再起動だけで回復済みと扱わない |
+| Provider Effect前で、候補・回復義務なし | 新規Taskを停止し、v0.18.1 Runtimeを使用しない。採用Repositoryのcloneまたはsubmoduleを公式`v0.18.0` tagへ戻す。v0.18.0のRuntime入口は有用結果へ到達しないため、方法論部分だけを継続するかRuntime利用を停止する | 削除済みcommandや互換shimを復元しない。v0.18.1の外部送信Policyや同意をv0.18.0へ流用しない |
+| 候補あり、cleanup確認済み | 新規Taskを停止し、exact Candidateをdiscardしてから、cloneまたはsubmoduleを公式`v0.18.0` tagへ戻す。固定配布物全体を一単位で切り替える | 新旧Runtime fileを混在させない。候補や検証記録を履歴から削除しない |
+| 回復IDあり、cleanup未確認またはEffect不明 | 新規Taskを停止し、exact Recoveryを完了して資源不存在を確認するまで切替・削除・自動再試行を行わない。観測不能なら手動Recovery義務とEvidenceを保持する | Runtime更新、tag切替またはProcess再起動だけで回復済みと扱わない |
 
 文書だけの変更ではRuntime実行Identityが不変なら再署名しないが、Release Identityと文書整合の確認は維持する。
 
@@ -96,7 +96,7 @@ Sourceだけを利用する採用Project、Coordinatorを利用しないProject�
 - help、parser、dispatch、module、Native binaryおよび現行文書から削除Surfaceが消えている。
 - 削除commandは未知commandとしてusage errorになり、専用statusや互換結果を返さない。
 - `capabilities --json`が公開CLI閉集合と非対応境界をEffect 0で返す。
-- manifest revision 5がCoordinator本体、共通Launcherの署名・4経路・Recovery入口と推移的な静的依存、Policyおよび単一Platform Access成果物をRuntime実行Identityへexactに結合し、入口表との不一致、非正規specifier、集合外依存、未束縛の動的import、旧revision／旧fieldを拒否する。
+- manifest revision 5がCoordinator本体、共通Launcherの署名・4経路・Recovery入口と推移的な静的依存、Policyおよび単一Platform Access成果物をRuntime実行Identityへexactに結合する。字句解析がコメント内の見せかけ、bare／absolute／URL module、存在しない`node:` module、非literalの動的import、入口表との不一致、集合外のNode.js子Process／Worker target、解析不能なsourceおよび旧revision／旧fieldを拒否する。
 - Repository textのLF／CRLF差だけを同じGit正本内容として検証し、意味差分とNative成果物のbyte差を拒否する。
 - manifestが署名する配布Source Commit A、manifestを加えた配布Commit B、作業対象RepositoryのExecution Revisionを分離し、一般TaskのCandidate Revisionを実行前後に独立観測した作業対象Revisionへ結合する。
 - TypeScript、Rust、Checker、format／lintおよび全Repository試験が固定候補で合格する。
@@ -140,8 +140,10 @@ Runtime Authorityの責務境界をRepository全体から閉じた実行依存�
 
 是正では第三のIdentityを追加せず、共通Launcherの入口表をIdentity seedとして共用し、選択された署名・4経路・Recovery `script`の静的依存を推移的に導出した。非正規specifierと未束縛の動的importを拒否し、未選択の開発補助scriptはIdentityへ入れない。
 
-新しいSource AはCommit `ae35bb4889e0359d08166adb574aadf483736d99`／Tree `85c75d854b4a9f04208793f8cff903dfcb0bd6d4`、manifest-only BはCommit `423cb510e995915a0ce113de3e317a6f7e491132`／Tree `33a27615bd7df06eda9237fc391d57f4f49faae4`である。Runtime実行Identityは`33cca9b840e46fe290530232dcdd09c0f99e3d63b01c59f51362112428e2473a`、manifest file SHA-256は`698e4aa1971ac0209b3d363e82f1af10f29d66d60e165ed5f66e7d9175a8e922`、Release Sequenceは`2026090106`である。AからBの変更Pathは`template/tools/coordinator/coordinator-package-manifest.json`一件だけである。
+次のSource AはCommit `ae35bb4889e0359d08166adb574aadf483736d99`／Tree `85c75d854b4a9f04208793f8cff903dfcb0bd6d4`、manifest-only BはCommit `423cb510e995915a0ce113de3e317a6f7e491132`／Tree `33a27615bd7df06eda9237fc391d57f4f49faae4`である。Runtime実行Identityは`33cca9b840e46fe290530232dcdd09c0f99e3d63b01c59f51362112428e2473a`、manifest file SHA-256は`698e4aa1971ac0209b3d363e82f1af10f29d66d60e165ed5f66e7d9175a8e922`、Release Sequenceは`2026090106`である。AからBの変更Pathは`template/tools/coordinator/coordinator-package-manifest.json`一件だけである。
 
-同じIdentityに対する新規cloneと親Repository＋submoduleの一般Taskは双方完了し、候補を破棄した。4経路は4/4、Recovery Matrixは7シナリオが成立し、cleanup確認済み、正本変更・手動Recovery・API key／従量課金fallback・追加購入はない。実行条件、記録ID、結果Hashおよび一般化限界は[最終候補検証](../../07_Quality/Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)へ分離する。
+同じIdentityに対する新規cloneと親Repository＋submoduleの一般Taskは双方完了し、候補を破棄した。4経路は4/4、Recovery Matrixは7シナリオが成立し、cleanup確認済み、正本変更・手動Recovery・API key／従量課金fallback・追加購入はない。実行条件、記録ID、結果Hashおよび一般化限界は[候補検証](../../07_Quality/Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)へ分離する。
 
-実装と実行検証は完了した。残るGateは、Runtime実行集合外の本記録更新後もIdentityが不変であることの機械確認、同じ固定候補の独立再確認、および人間による統合・Release判断である。現在、人間による追加判断は必要ない。
+この候補の独立確認では、依存抽出が正規表現に依存し、コメント、bare／absolute／URL module、存在しない`node:`指定または構文不明をFail Closedに閉じていないこと、および選択scriptのNode.js子Process／Worker targetが署名閉包と独立し得ることを検出した。そのため`33cca9b8…2473a`と上記E2Eは不採用の未公開履歴として保持し、最終Authority根拠へ流用しない。
+
+現在は、コメントと構文tokenを区別する字句解析、実在する`node:`組込みmoduleと閉包内relative targetだけを許可するmodule契約、共通Launcher入口表とliteral importの双方向照合、および選択scriptのNode.js子Process／Worker target結合を実装した。残るGateは、新しいSource Aの固定、署名、fresh clone／submodule一般Taskの実行Revisionを含む再実測、4経路、Recovery、同じ固定候補の独立再確認、および人間による統合・Release判断である。現在、人間による追加判断は必要ない。

@@ -22,10 +22,10 @@ Migration note (v0.18.0 → v0.18.1):
 - Required: projects using Coordinator Runtime must update the CRDD clone or submodule, run `capabilities --json`, and invoke `task` directly; the deleted setup commands are not valid v0.18.1 entry points.
 - Conditional: if an unexpected host effect or retained recovery record is observed, stop for the recorded recovery decision instead of deleting or migrating it by assumption.
 - Not required: projects using only the CRDD methodology and not Coordinator Runtime require no execution migration. Documentation-only changes with unchanged Runtime execution identity require no Runtime re-signing or provider E2E.
-- Rollback / recovery: retain v0.18.0 as the active baseline until v0.18.1 adoption is accepted. No activation or provisioning record is migrated; preserve unexpected-effect evidence and use the corresponding recovery path before retrying.
+- Rollback / recovery: stop new tasks and settle or discard every exact candidate before changing the adopted revision. If cleanup is unknown or a recovery identifier exists, complete that exact recovery and confirm resource absence before switching; preserve evidence when observation remains unknown. Restore the clone or submodule to the official `v0.18.0` tag as one distribution, do not reuse v0.18.1 policy or consent, and use v0.18.0 only for its methodology or stop Runtime use because its setup entry points do not reach a useful result.
 - Known risk if deferred: adopters may continue calling permanently blocked setup commands, or may bind execution trust to an unrelated repository-tree change and repeat signing or provider tests without gaining useful evidence.
 - Verification: final publication requires the revision-5 signed manifest, fresh-adopter useful-result E2E, full tests, and independent review on the same fixed Runtime execution identity. Deterministic tests must show that documentation and tests do not change that identity while Runtime source, policy, or native-artifact changes do.
-- Known limitation: Runtime dependency closure covers the declared closed execution namespaces and rejects static relative imports that escape them; it does not claim to infer arbitrary runtime-generated paths or make a security-semantic change safe merely because the computed identity remains equal.
+- Known limitation: Runtime dependency closure uses fail-closed lexical analysis and accepts only verified `node:` built-ins or canonical relative targets in the closed execution set. Selected scripts may start Node.js children or Workers only at the same source or a literal target in that closure. Arbitrary runtime-generated paths remain unsupported, and an equal identity does not by itself make a security-semantic change safe.
 
 <a id="changelog-v0180-en"></a>
 
@@ -867,10 +867,10 @@ Coordinator Runtimeの初回公開時の採用経路を是正する。Local Pers
 - 必須: Coordinator Runtimeを利用するProjectはCRDDのsubmoduleまたはcloneを更新し、`capabilities --json`を確認して`task`を直接実行する。削除した準備commandをv0.18.1の入口として使用しない。
 - 条件付き: 想定外のHost Effectまたは残存Recovery Recordを観測した場合は、推測削除・推測移行せず、記録された回復判断へ戻す。
 - 不要: CRDD方法論だけを利用しCoordinator Runtimeを使わないProjectに実行移行は不要である。Runtime実行Identityが不変な文書だけの変更では、Runtime再署名と実Provider E2Eも不要である。
-- 復旧: v0.18.1の採用完了までv0.18.0を有効な基準として保持する。有効化・準備Recordは移行せず、想定外EffectのEvidenceを保持して対応する回復経路を完了してから再試行する。
+- 復旧: 新規Taskを止め、exact Candidateを破棄または回収してから採用版を切り替える。cleanup不明またはRecovery IDがある場合は、exact Recoveryと資源不存在の確認を完了し、観測不能ならEvidenceと手動Recovery義務を保持する。cloneまたはsubmoduleを公式`v0.18.0` tagへ配布物単位で戻し、v0.18.1の外部送信Policyや同意を流用しない。v0.18.0のRuntime入口は有用結果へ到達しないため、方法論部分だけを継続するかRuntime利用を停止する。
 - 延期時の既知リスク: 利用者が常時停止する準備commandを呼び続ける、または実行と無関係なRepository Tree変更へTrustを結合して、情報価値のない署名・Provider試験を反復する可能性がある。
 - 検証: 最終公開にはrevision 5の署名manifest、fresh adopterの有用結果E2E、全試験および同じRuntime実行Identityの独立確認を必要とする。文書・試験ではIdentityが変わらず、Runtime Source、PolicyまたはNative成果物では変わることを決定論的試験で確認する。
-- 既知の制限: 依存閉包は宣言済みの閉じた実行名前空間を対象とし、そこから外れる静的relative importを拒否する。任意に動的生成されるPathの完全推論や、Identityが同じという理由だけでSecurity上の意味変更が安全になることは主張しない。
+- 既知の制限: 依存閉包はFail Closedの字句解析を使い、実在確認済みの`node:`組込みmoduleまたは閉じた実行集合内の正規relative targetだけを許可する。選択scriptのNode.js子Process／Workerは同じsourceまたは閉包内のliteral targetだけを許可する。任意に動的生成されるPathは非対応であり、Identityが同じという理由だけでSecurity上の意味変更が安全になることは主張しない。
 
 <a id="changelog-v0180-ja"></a>
 

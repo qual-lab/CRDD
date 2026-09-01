@@ -1,16 +1,16 @@
 # v0.18.1 Coordinator Runtime実行Identityの最終候補検証
 
-状態: 固定候補の実行検証完了、独立再確認待ち  
-実行日: 2026-09-01  
+状態: 旧固定候補の検証履歴、新しいRuntime実行Identityの固定待ち
+実行日: 2026-09-01（2026-09-02に独立確認結果を反映）
 対象変更: [CHG-000056](../../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)
 
 ## 結論
 
-共通起動入口から到達する署名・4経路・Recovery実装と、その推移的な静的依存を含むRuntime実行Identityを固定した。同じIdentityに対し、新規clone、親Repository内submodule、4経路および復旧7シナリオを実行し、いずれも期待する結果を得た。
+共通起動入口から到達する署名・4経路・Recovery実装と、その推移的な静的依存を含む旧Runtime実行Identityに対し、新規clone、親Repository内submodule、4経路および復旧7シナリオを実行し、期待する結果を得た。その後の独立確認で、依存抽出が正規表現に依存し、コメント、非relative moduleおよび選択scriptの子Process／Worker targetをFail Closedに閉じていないことを検出したため、このIdentityは最終Authority根拠へ採用しない。
 
-本結果は公開判断を代替しない。Source、ManifestおよびRuntime実行Identityを再識別できるように固定し、独立再確認と人間によるRelease判断へ渡す。
+本結果は不採用候補の実行履歴であり、公開判断を代替しない。Source、ManifestおよびRuntime実行Identityを再識別できるように保持し、字句解析と子Process target結合を含む新しいIdentityの検証結果を同じ文書へ追加する。
 
-## 固定Identity
+## 不採用になった固定Identity
 
 | 対象 | 値 |
 |---|---|
@@ -24,7 +24,7 @@
 | Manifest file SHA-256 | `698e4aa1971ac0209b3d363e82f1af10f29d66d60e165ed5f66e7d9175a8e922` |
 | Release sequence | `2026090106` |
 
-Source AからBまでの変更Pathは`template/tools/coordinator/coordinator-package-manifest.json`一件だけである。以後の本記録、CHG、Roadmapおよび品質状態の更新はRuntime実行集合外であり、Runtime実行Identityが不変であることを機械確認する。
+Source AからBまでの変更Pathは`template/tools/coordinator/coordinator-package-manifest.json`一件だけである。このIdentityは依存閉包の不足により不採用であり、以後の字句解析・Launcher・子Process targetの変更はRuntime実行集合内なのでIdentityを変更する。
 
 ## 新規採用形態
 
@@ -72,4 +72,4 @@ Source AからBまでの変更Pathは`template/tools/coordinator/coordinator-pac
 
 本検証はWindows Local Personal Profile、固定Node.js、固定Docker Desktop、選択済みのCodex／Claude Code Subscriptionおよび固定公開Taskを対象とする。全OS、全Provider、任意TaskまたはProvider内部処理を一般化しない。
 
-残るGateは、同じ最終文書候補に対するArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceの独立再確認と、人間による統合・Release判断である。
+残るGateは、字句解析、literal Launcher結合および選択scriptの子Process／Worker target結合を含む新しいRuntime実行Identityの署名、新規clone／submodule一般Taskの実行Revisionを含む再実測、4経路、Recovery、同じ固定候補に対するArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceの独立再確認、および人間による統合・Release判断である。

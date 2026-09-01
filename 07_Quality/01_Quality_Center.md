@@ -6,11 +6,11 @@
 
 ## 結論
 
-本書の内容とReleaseメタデータはv0.18.1の品質Gateを満たした固定候補であり、まだ公開済みではない。branch、Commitまたは本書だけでは公開済み基準にならず、公開状態と最終Identityは公式タグまたは同等の不変なRelease識別子から確認する。[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)は、単一Platform Access成果物、manifest revision 5、Release Identity／Runtime実行Identity／作業対象Execution Revisionの分離を含む採用入口の是正を追跡する。過去候補の実測を別Identityの成功へ流用しない。
+本書の内容とReleaseメタデータはv0.18.1の実行検証Gateを満たした固定候補であり、独立再確認と公開判断は未完了である。branch、Commitまたは本書だけでは公開済み基準にならず、公開状態と最終Identityは公式タグまたは同等の不変なRelease識別子から確認する。[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)は、単一Platform Access成果物、manifest revision 5、Release Identity／Runtime実行Identity／作業対象Execution Revisionの分離を含む採用入口の是正を追跡する。過去候補の実測を別Identityの成功へ流用しない。
 
 v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シナリオ、実TaskのSIGINT取消と通常回収を確認した。[対象・時刻・再識別方法・限界](Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)に記録した。v0.18.1の旧署名候補はSource A `a15b997924536dcd306c48a5924ba066627e3fdf`／Tree `ad058d8e768c598937e6cc3261db3cef5980f0ae`とmanifest-only B `371151e9713e4c7e556db883d13af532bc82b3a1`／Tree `076310d110e2ecdadd6484309131f27de0d6860f`である。Runtime実行Identity `f2243b46b8cdde4a09e60efb7bdd61b48f012c4eb418cbdf4222d75306af1aaa`に対する固定配布検証、4経路4/4およびRecovery Matrixは完了したが、署名・検証Runnerの依存閉包を含まないため最終Authority根拠へ流用しない。過去の公開前候補も不採用の履歴として[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md#8-現在状態と残件)に保持する。新しい固定候補の統合後確認およびRelease判断は、署名対象Treeへ自己参照させず、対象タグと結合した公式Release記録で取得可能にする。
 
-最終監査が検出した依存閉包不足を是正し、共通Launcherの入口表から署名・4経路・Recovery Runnerの推移的依存を導出する新しいRuntime実行Identity `33cca9b8…2473a`を固定した。Source A `ae35bb4`、manifest-only B `423cb51`に対し、fresh clone／submodule一般Task、4経路4/4およびRecovery 7シナリオが完了した。[対象・結果・限界](Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)を参照する。`f2243b46…f1aaa`とその結果は不採用の未公開履歴として保持し、最終Authority根拠へ流用しない。
+共通Launcherの入口表から署名・4経路・Recovery Runnerの推移的依存を導出した旧固定候補は、Runtime実行Identity `33cca9b8…2473a`、Source A `ae35bb4`、manifest-only B `423cb51`である。fresh clone／submodule一般Task、4経路4/4およびRecovery 7シナリオは完了したが、独立確認で依存抽出が正規表現に依存し、コメント、bare／absolute／URL moduleおよび選択scriptの子Process targetをFail Closedに閉じていないことを検出した。この候補と`f2243b46…f1aaa`は不採用の未公開履歴として保持し、最終Authority根拠へ流用しない。字句解析、literal Launcher結合および子Process／Worker target結合を含む新しいRuntime実行Identityの署名・E2E・独立再確認を現在のGateとする。[対象・結果・限界](Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)を参照する。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|

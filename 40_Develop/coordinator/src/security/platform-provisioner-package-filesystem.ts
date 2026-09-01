@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -379,16 +380,463 @@ function canonicalPackageFileContent(relativePath: string, bytes: Buffer) {
   return canonical;
 }
 
-const STATIC_MODULE_PATTERNS = Object.freeze([
-  /\b(?:import|export)\s+(?:[^"']*?\sfrom\s*)?["']([^"']+)["']/gu,
-  /\bimport\(\s*["']([^"']+)["']\s*\)/gu,
-]);
+type SourceToken = Readonly<{
+  kind: "identifier" | "string" | "punctuation" | "number";
+  value: string;
+  escaped: boolean;
+}>;
+
+const CANONICAL_NODE_MODULE_SPECIFIERS = Object.freeze(
+  new Set(
+    builtinModules.map((name) =>
+      name.startsWith("node:") ? name : `node:${name}`,
+    ),
+  ),
+);
+
+function isIdentifierStart(character: string | undefined) {
+  return character !== undefined && /[A-Za-z_$]/u.test(character);
+}
+
+function isIdentifierPart(character: string | undefined) {
+  return character !== undefined && /[A-Za-z0-9_$]/u.test(character);
+}
+
+function canStartRegularExpression(previous: SourceToken | undefined) {
+  if (!previous) return true;
+  if (
+    previous.kind === "identifier" ||
+    previous.kind === "string" ||
+    previous.kind === "number"
+  ) {
+    return [
+      "await",
+      "case",
+      "delete",
+      "do",
+      "else",
+      "in",
+      "instanceof",
+      "new",
+      "of",
+      "return",
+      "throw",
+      "typeof",
+      "void",
+      "yield",
+    ].includes(previous.value);
+  }
+  return ![")", "]", "}", "++", "--"].includes(previous.value);
+}
+
+function tokenizeTypeScriptModuleSyntax(source: string) {
+  const tokens: SourceToken[] = [];
+  const push = (kind: SourceToken["kind"], value: string, escaped = false) =>
+    tokens.push(Object.freeze({ kind, value, escaped }));
+
+  const scan = (start: number, stopAtTemplateExpressionEnd: boolean) => {
+    let index = start;
+    let braceDepth = 0;
+    while (index < source.length) {
+      const character = source[index] as string;
+      const next = source[index + 1];
+      if (/\s/u.test(character)) {
+        index += 1;
+        continue;
+      }
+      if (index === 0 && character === "#" && next === "!") {
+        const lineEnd = source.indexOf("\n", index + 2);
+        index = lineEnd === -1 ? source.length : lineEnd + 1;
+        continue;
+      }
+      if (character === "/" && next === "/") {
+        const lineEnd = source.indexOf("\n", index + 2);
+        index = lineEnd === -1 ? source.length : lineEnd + 1;
+        continue;
+      }
+      if (character === "/" && next === "*") {
+        const commentEnd = source.indexOf("*/", index + 2);
+        if (commentEnd === -1)
+          throw new Error(
+            "platform_provisioner_runtime_dependency_parse_failed",
+          );
+        index = commentEnd + 2;
+        continue;
+      }
+      if (character === '"' || character === "'") {
+        const quote = character;
+        let escaped = false;
+        let value = "";
+        index += 1;
+        let terminated = false;
+        while (index < source.length) {
+          const current = source[index] as string;
+          if (current === "\\") {
+            escaped = true;
+            if (index + 1 >= source.length)
+              throw new Error(
+                "platform_provisioner_runtime_dependency_parse_failed",
+              );
+            value += source.slice(index, index + 2);
+            index += 2;
+            continue;
+          }
+          if (current === quote) {
+            index += 1;
+            terminated = true;
+            break;
+          }
+          if (current === "\n" || current === "\r")
+            throw new Error(
+              "platform_provisioner_runtime_dependency_parse_failed",
+            );
+          value += current;
+          index += 1;
+        }
+        if (!terminated)
+          throw new Error(
+            "platform_provisioner_runtime_dependency_parse_failed",
+          );
+        push("string", value, escaped);
+        continue;
+      }
+      if (character === "`") {
+        index += 1;
+        let terminated = false;
+        while (index < source.length) {
+          const current = source[index] as string;
+          if (current === "\\") {
+            index += 2;
+            continue;
+          }
+          if (current === "`") {
+            index += 1;
+            terminated = true;
+            break;
+          }
+          if (current === "$" && source[index + 1] === "{") {
+            index = scan(index + 2, true);
+            continue;
+          }
+          index += 1;
+        }
+        if (!terminated)
+          throw new Error(
+            "platform_provisioner_runtime_dependency_parse_failed",
+          );
+        continue;
+      }
+      if (
+        character === "/" &&
+        next !== "=" &&
+        canStartRegularExpression(tokens.at(-1))
+      ) {
+        index += 1;
+        let inCharacterClass = false;
+        let terminated = false;
+        while (index < source.length) {
+          const current = source[index] as string;
+          if (current === "\\") {
+            index += 2;
+            continue;
+          }
+          if (current === "[") inCharacterClass = true;
+          else if (current === "]") inCharacterClass = false;
+          else if (current === "/" && !inCharacterClass) {
+            index += 1;
+            while (/[A-Za-z]/u.test(source[index] ?? "")) index += 1;
+            terminated = true;
+            break;
+          } else if (current === "\n" || current === "\r") break;
+          index += 1;
+        }
+        if (!terminated)
+          throw new Error(
+            "platform_provisioner_runtime_dependency_parse_failed",
+          );
+        continue;
+      }
+      if (isIdentifierStart(character)) {
+        const identifierStart = index;
+        index += 1;
+        while (isIdentifierPart(source[index])) index += 1;
+        push("identifier", source.slice(identifierStart, index));
+        continue;
+      }
+      if (/[0-9]/u.test(character)) {
+        const numberStart = index;
+        index += 1;
+        while (/[A-Za-z0-9_.]/u.test(source[index] ?? "")) index += 1;
+        push("number", source.slice(numberStart, index));
+        continue;
+      }
+      if (character === "{" && stopAtTemplateExpressionEnd) {
+        braceDepth += 1;
+      } else if (character === "}" && stopAtTemplateExpressionEnd) {
+        if (braceDepth === 0) return index + 1;
+        braceDepth -= 1;
+      }
+      const twoCharacters = source.slice(index, index + 2);
+      if (["=>", "++", "--", "?.", "??", "&&", "||"].includes(twoCharacters)) {
+        push("punctuation", twoCharacters);
+        index += 2;
+      } else {
+        push("punctuation", character);
+        index += 1;
+      }
+    }
+    if (stopAtTemplateExpressionEnd)
+      throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+    return index;
+  };
+
+  scan(0, false);
+  return Object.freeze(tokens);
+}
+
+function moduleSpecifiersFromTokens(tokens: readonly SourceToken[]) {
+  const specifiers: SourceToken[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token?.kind !== "identifier") continue;
+    if (token.value === "import") {
+      const next = tokens[index + 1];
+      if (next?.value === ".") continue;
+      if (next?.value === "(") {
+        const specifier = tokens[index + 2];
+        if (specifier?.kind !== "string" || tokens[index + 3]?.value !== ")")
+          throw new Error(
+            "platform_provisioner_runtime_dependency_dynamic_unbound",
+          );
+        specifiers.push(specifier);
+        index += 3;
+        continue;
+      }
+      if (next?.kind === "string") {
+        specifiers.push(next);
+        index += 1;
+        continue;
+      }
+      let found: SourceToken | null = null;
+      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+        const candidate = tokens[cursor];
+        if (candidate?.value === ";") break;
+        if (candidate?.value === "=")
+          throw new Error(
+            "platform_provisioner_runtime_dependency_noncanonical",
+          );
+        if (candidate?.value === "from") {
+          const value = tokens[cursor + 1];
+          if (value?.kind !== "string")
+            throw new Error(
+              "platform_provisioner_runtime_dependency_parse_failed",
+            );
+          found = value;
+          break;
+        }
+      }
+      if (!found)
+        throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+      specifiers.push(found);
+    } else if (token.value === "export") {
+      const first = tokens[index + 1];
+      const reexportStart = first?.value === "type" ? tokens[index + 2] : first;
+      if (reexportStart?.value !== "*" && reexportStart?.value !== "{")
+        continue;
+      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+        const candidate = tokens[cursor];
+        if (candidate?.value === ";") break;
+        if (candidate?.value === "from") {
+          const value = tokens[cursor + 1];
+          if (value?.kind !== "string")
+            throw new Error(
+              "platform_provisioner_runtime_dependency_parse_failed",
+            );
+          specifiers.push(value);
+          break;
+        }
+      }
+    }
+  }
+  return Object.freeze(specifiers);
+}
+
+function tokenSequenceMatches(
+  tokens: readonly SourceToken[],
+  start: number,
+  values: readonly string[],
+) {
+  return values.every(
+    (value, offset) => tokens[start + offset]?.value === value,
+  );
+}
+
+function scriptChildTargetFromTokens(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+  start: number,
+) {
+  const token = tokens[start];
+  if (token?.kind === "string") {
+    if (token.escaped)
+      throw new Error("platform_provisioner_runtime_dependency_noncanonical");
+    return canonicalRelativeModuleTarget(relativePath, token.value);
+  }
+  if (
+    tokenSequenceMatches(tokens, start, [
+      "fileURLToPath",
+      "(",
+      "import",
+      ".",
+      "meta",
+      ".",
+      "url",
+      ")",
+    ])
+  ) {
+    return relativePath;
+  }
+  if (
+    tokenSequenceMatches(tokens, start, ["new", "URL", "("]) &&
+    tokens[start + 3]?.kind === "string" &&
+    tokenSequenceMatches(tokens, start + 4, [
+      ",",
+      "import",
+      ".",
+      "meta",
+      ".",
+      "url",
+      ")",
+    ])
+  ) {
+    const specifier = tokens[start + 3];
+    if (!specifier || specifier.escaped)
+      throw new Error("platform_provisioner_runtime_dependency_noncanonical");
+    return canonicalRelativeModuleTarget(relativePath, specifier.value);
+  }
+  throw new Error("platform_provisioner_runtime_dependency_child_unbound");
+}
+
+function namedModuleBindings(
+  tokens: readonly SourceToken[],
+  moduleSpecifier: string,
+  importedNames: ReadonlySet<string>,
+) {
+  const bindings = new Map<string, string>();
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index]?.value !== "import") continue;
+    const openingBrace = tokens[index + 1];
+    if (openingBrace?.value !== "{") continue;
+    const declarationBindings = new Map<string, string>();
+    let cursor = index + 2;
+    while (cursor < tokens.length && tokens[cursor]?.value !== "}") {
+      if (tokens[cursor]?.value === "," || tokens[cursor]?.value === "type") {
+        cursor += 1;
+        continue;
+      }
+      const imported = tokens[cursor];
+      if (imported?.kind !== "identifier")
+        throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+      cursor += 1;
+      let local = imported.value;
+      if (tokens[cursor]?.value === "as") {
+        const alias = tokens[cursor + 1];
+        if (alias?.kind !== "identifier")
+          throw new Error(
+            "platform_provisioner_runtime_dependency_parse_failed",
+          );
+        local = alias.value;
+        cursor += 2;
+      }
+      if (importedNames.has(imported.value))
+        declarationBindings.set(local, imported.value);
+      if (tokens[cursor]?.value === ",") cursor += 1;
+    }
+    if (
+      tokens[cursor]?.value !== "}" ||
+      tokens[cursor + 1]?.value !== "from" ||
+      tokens[cursor + 2]?.kind !== "string"
+    ) {
+      throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+    }
+    if (tokens[cursor + 2]?.value === moduleSpecifier)
+      for (const [local, imported] of declarationBindings)
+        bindings.set(local, imported);
+  }
+  return bindings;
+}
+
+function selectedScriptChildModuleTargets(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+) {
+  if (!relativePath.startsWith("scripts/")) return Object.freeze([]);
+  const targets: string[] = [];
+  const childProcessBindings = namedModuleBindings(
+    tokens,
+    "node:child_process",
+    new Set(["spawn", "fork"]),
+  );
+  const workerBindings = namedModuleBindings(
+    tokens,
+    "node:worker_threads",
+    new Set(["Worker"]),
+  );
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (
+      token?.kind === "identifier" &&
+      childProcessBindings.get(token.value) === "spawn" &&
+      tokenSequenceMatches(tokens, index + 1, [
+        "(",
+        "process",
+        ".",
+        "execPath",
+        ",",
+        "[",
+      ])
+    ) {
+      const target = scriptChildTargetFromTokens(
+        relativePath,
+        tokens,
+        index + 7,
+      );
+      if (target) targets.push(target);
+    } else if (
+      token?.kind === "identifier" &&
+      childProcessBindings.get(token.value) === "fork" &&
+      tokens[index + 1]?.value === "("
+    ) {
+      const target = scriptChildTargetFromTokens(
+        relativePath,
+        tokens,
+        index + 2,
+      );
+      if (target) targets.push(target);
+    } else if (
+      token?.value === "new" &&
+      tokens[index + 1]?.kind === "identifier" &&
+      workerBindings.get(tokens[index + 1]?.value ?? "") === "Worker" &&
+      tokens[index + 2]?.value === "("
+    ) {
+      const target = scriptChildTargetFromTokens(
+        relativePath,
+        tokens,
+        index + 3,
+      );
+      if (target) targets.push(target);
+    }
+  }
+  return Object.freeze(targets);
+}
 
 function canonicalRelativeModuleTarget(
   relativePath: string,
   specifier: string,
 ) {
-  if (!specifier.startsWith(".")) return null;
+  if (CANONICAL_NODE_MODULE_SPECIFIERS.has(specifier)) return null;
+  if (!specifier.startsWith("."))
+    throw new Error("platform_provisioner_runtime_dependency_noncanonical");
   if (
     specifier.includes("\\") ||
     specifier.includes("%") ||
@@ -419,38 +867,69 @@ function canonicalRelativeModuleTarget(
 function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
   if (!relativePath.endsWith(".ts")) return Object.freeze([]);
   const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  const dynamicImportCount = [...source.matchAll(/\bimport\s*\(/gu)].length;
-  const literalDynamicImportCount = [
-    ...source.matchAll(/\bimport\(\s*["'][^"']+["']\s*\)/gu),
-  ].length;
-  const launcherOwnsExactlyOneBoundDynamicImport =
-    relativePath === RUNTIME_EXECUTION_LAUNCHER_PATH &&
-    dynamicImportCount === 1 &&
-    literalDynamicImportCount === 0 &&
-    /\bimport\(\s*target\.href\s*\)/u.test(source);
-  if (
-    dynamicImportCount !== literalDynamicImportCount &&
-    !launcherOwnsExactlyOneBoundDynamicImport
-  ) {
-    throw new Error("platform_provisioner_runtime_dependency_dynamic_unbound");
-  }
   const targets: string[] = [];
-  for (const pattern of STATIC_MODULE_PATTERNS) {
-    pattern.lastIndex = 0;
-    for (const match of source.matchAll(pattern)) {
-      const specifier = match[1];
-      if (!specifier) continue;
-      const target = canonicalRelativeModuleTarget(relativePath, specifier);
+  let tokens: readonly SourceToken[];
+  try {
+    tokens = tokenizeTypeScriptModuleSyntax(source);
+  } catch (error) {
+    throw new Error(`${relativePath}:tokenize:${String(error)}`);
+  }
+  try {
+    for (const specifier of moduleSpecifiersFromTokens(tokens)) {
+      if (specifier.escaped)
+        throw new Error("platform_provisioner_runtime_dependency_noncanonical");
+      const target = canonicalRelativeModuleTarget(
+        relativePath,
+        specifier.value,
+      );
       if (target) targets.push(target);
     }
+    targets.push(...selectedScriptChildModuleTargets(relativePath, tokens));
+  } catch (error) {
+    throw new Error(`${relativePath}:modules:${String(error)}`);
   }
   return Object.freeze(targets);
+}
+
+function verifyLauncherEntryBindings(packageRoot: string) {
+  const observed = readStableFile(
+    path.join(packageRoot, ...RUNTIME_EXECUTION_LAUNCHER_PATH.split("/")),
+    MAXIMUM_PACKAGE_BYTES,
+  );
+  const actualDependencies = new Set(
+    staticRelativeModuleTargets(
+      RUNTIME_EXECUTION_LAUNCHER_PATH,
+      observed.bytes,
+    ),
+  );
+  const actualEntries = new Set(
+    [...actualDependencies].filter(
+      (target) =>
+        target.startsWith("scripts/") || target === "bin/coordinator.ts",
+    ),
+  );
+  const expected = new Set<string>();
+  for (const entry of Object.values(COORDINATOR_LAUNCH_ENTRIES)) {
+    const target = canonicalRelativeModuleTarget(
+      RUNTIME_EXECUTION_LAUNCHER_PATH,
+      entry,
+    );
+    if (!target || !actualEntries.has(target))
+      throw new Error("platform_provisioner_launch_entry_invalid");
+    expected.add(target);
+  }
+  if (
+    actualEntries.size !== expected.size ||
+    [...actualEntries].some((target) => !expected.has(target))
+  )
+    throw new Error("platform_provisioner_launch_entry_invalid");
 }
 
 function collectRuntimeExecutionScriptPaths(packageRoot: string) {
   if (!fs.existsSync(path.join(packageRoot, "bin", "launch.ts"))) {
     return Object.freeze(new Set<string>());
   }
+  verifyLauncherEntryBindings(packageRoot);
   const scriptPaths = new Set<string>();
   const pending: string[] = [];
   for (const entry of Object.values(COORDINATOR_LAUNCH_ENTRIES)) {

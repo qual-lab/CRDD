@@ -724,8 +724,10 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
       path.join(root, "bin", "launch.ts"),
       [
         'import "../src/entry.ts";',
-        "const target = new URL('./coordinator.ts', import.meta.url);",
-        "await import(target.href);",
+        'await import("./coordinator.ts");',
+        'await import("../scripts/verify-signed-route-matrix.ts");',
+        'await import("../scripts/verify-signed-recovery-matrix.ts");',
+        'await import("../scripts/sign-release-manifest.ts");',
         "",
       ].join("\n"),
     );
@@ -789,6 +791,132 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
       inspectPlatformProvisionerPackageFilesystemCandidate(root);
     assert.equal(unboundDynamic.status, "blocked");
     assert.equal(unboundDynamic.runtimeAuthorityConferred, false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("実行Identityのmodule構文を字句解析し、コメント・非relative・未束縛dynamicによる閉包回避を拒否する", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-module-lexer-"));
+  try {
+    for (const directory of ["bin", "src", "scripts"]) {
+      fs.mkdirSync(path.join(root, directory), { recursive: true });
+    }
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({
+        name: "@qual-lab/crdd-coordinator",
+        version: "0.0.0-development",
+        private: true,
+        type: "module",
+        exports: { "./cli": "./bin/coordinator.ts" },
+        scripts: {},
+        engines: {},
+        devDependencies: {},
+      }),
+    );
+    fs.writeFileSync(
+      path.join(root, "bin", "launch.ts"),
+      [
+        'await import("./coordinator.ts");',
+        'await import("../scripts/verify-signed-route-matrix.ts");',
+        'await import("../scripts/verify-signed-recovery-matrix.ts");',
+        'await import("../scripts/sign-release-manifest.ts");',
+        "",
+      ].join("\n"),
+    );
+    fs.writeFileSync(path.join(root, "bin", "coordinator.ts"), "export {};\n");
+    fs.writeFileSync(
+      path.join(root, "scripts", "verify-signed-route-matrix.ts"),
+      'import "./verify-signed-general-task.ts";\n',
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "verify-signed-general-task.ts"),
+      "export const task = true;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "verify-signed-recovery-matrix.ts"),
+      "export const recovery = true;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "sign-release-manifest.ts"),
+      "export const sign = true;\n",
+    );
+    assert.equal(
+      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+      "candidate",
+    );
+
+    const launcher = path.join(root, "bin", "launch.ts");
+    const canonicalLauncher = fs.readFileSync(launcher, "utf8");
+    fs.writeFileSync(
+      launcher,
+      `${canonicalLauncher}await import("../scripts/unlisted.ts");\n`,
+    );
+    fs.writeFileSync(path.join(root, "scripts", "unlisted.ts"), "export {};\n");
+    assert.equal(
+      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+      "blocked",
+    );
+    fs.writeFileSync(
+      launcher,
+      canonicalLauncher.replace(
+        'await import("../scripts/sign-release-manifest.ts");\n',
+        "",
+      ),
+    );
+    assert.equal(
+      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+      "blocked",
+    );
+    fs.writeFileSync(launcher, canonicalLauncher);
+
+    const target = path.join(root, "scripts", "verify-signed-general-task.ts");
+    for (const source of [
+      'import/*comment*/("../../tests/helper.ts");\n',
+      'import value from "external-package";\n',
+      'import value from "C:/outside.ts";\n',
+      'import value from "file:///outside.ts";\n',
+      'import value from "fs";\n',
+      'import value from "node:not-a-builtin";\n',
+      'const target = new URL("./late.ts", import.meta.url);\nawait import(target.href);\n',
+    ]) {
+      fs.writeFileSync(target, source);
+      const result = inspectPlatformProvisionerPackageFilesystemCandidate(root);
+      assert.equal(result.status, "blocked", source);
+      assert.equal(result.runtimeAuthorityConferred, false, source);
+    }
+
+    fs.writeFileSync(
+      target,
+      'import/*comment*/ value from/*comment*/ "node:path";\nexport { value as task };\n',
+    );
+    assert.equal(
+      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+      "candidate",
+    );
+
+    for (const source of [
+      'import { spawn } from "node:child_process";\nspawn(process.execPath, ["./late-child.ts"]);\n',
+      'import { fork } from "node:child_process";\nfork("./late-child.ts");\n',
+      'import { Worker } from "node:worker_threads";\nnew Worker(new URL("./late-child.ts", import.meta.url));\n',
+      'import { fork } from "node:child_process";\nconst target = "./late-child.ts";\nfork(target);\n',
+      'import { fork as launchChild } from "node:child_process";\nconst target = "./late-child.ts";\nlaunchChild(target);\n',
+    ]) {
+      fs.writeFileSync(target, source);
+      const result = inspectPlatformProvisionerPackageFilesystemCandidate(root);
+      assert.equal(result.status, "blocked", source);
+      assert.equal(result.runtimeAuthorityConferred, false, source);
+    }
+
+    fs.writeFileSync(
+      target,
+      'import { spawn as launchSelf } from "node:child_process";\nimport { fileURLToPath } from "node:url";\nlaunchSelf(process.execPath, [fileURLToPath(import.meta.url)]);\n',
+    );
+    assert.equal(
+      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+      "candidate",
+    );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

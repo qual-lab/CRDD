@@ -24,7 +24,7 @@ Coordinatorは依頼を安全な候補成果物へつなぐ実行ツール、[Ch
 
 現在の実装候補は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。4経路の選定・Authority・Candidate・cleanup契約と、失敗／timeout／cancel／親Process消失／cleanup不明のRecovery Matrixは機械試験済みである。[v0.18.1固定Runtime実行Identityの実測](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md#8-現在状態と残件)では、実Providerの4経路4/4、期待する異常停止、取消、cleanup不明と親Process消失からのfresh recoveryが完了した。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。旧版での実務自己適用の有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。全体完成評価およびRelease判断は別に残る。
 
-上記`f2243b46…f1aaa`の実測は未公開候補の履歴である。最終監査で共通Launcherから到達する署名・4経路・Recovery Runnerの依存閉包不足を検出したため、当該Identityをv0.18.1の最終Authority根拠へ流用しない。新しい閉包Identityの署名・fresh clone／submodule一般Task・4経路・Recovery・独立確認が完了するまで本CapabilityはRelease未完了である。
+過去の`f2243b46…f1aaa`および`33cca9b8…2473a`に対する実測は未公開候補の履歴である。独立確認で、前者は共通Launcherから到達する署名・4経路・Recovery Runnerの閉包不足、後者は依存抽出と選択scriptの子Process／Worker targetをFail Closedに閉じる不足を検出した。どちらもv0.18.1の最終Authority根拠へ流用しない。字句解析、literal Launcher結合および子Process target結合を含む新しいIdentityの署名・fresh clone／submodule一般Task・4経路・Recovery・独立確認が完了するまで本CapabilityはRelease未完了である。
 
 | 層 | 現在の状態 |
 |---|---|
@@ -386,7 +386,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 - 現在の機械固定では、4経路Runnerが要求入口Profile、実Executor／Reviewer、独立性、初回経路では有効な既存同意の再利用または新規同意、後続3経路では同意の完全一致再利用、Candidate破棄、全Recovery ID空、秘密・Host Path・生Provider出力の非報告およびcanonical Repository無変更を完全一致で検査する。
 - 入口Providerの実Process IdentityはRunner単独ではattestせず、要求Profileと実Executor／ReviewerのEvidenceを区別する。
-- v0.18.1の旧候補Runtime実行Identity `f2243b46…f1aaa`に対する4経路4/4とRecovery Matrixは[未公開候補の署名済み履歴](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md#8-現在状態と残件)として保持する。署名・検証Runnerの依存閉包を含む新Identityの結果ではないため、最終Authority根拠へ流用しない。旧`48515eb`の実Task取消と旧`45ea2ac`の通常CLIによる実務1件は版の違いを保持する。実務有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)へ集約済みだが、比較優位は未実証である。
+- v0.18.1の旧候補Runtime実行Identity `f2243b46…f1aaa`と`33cca9b8…2473a`に対する4経路4/4とRecovery Matrixは[未公開候補の署名済み履歴](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md#8-現在状態と残件)として保持する。前者はRunner依存閉包不足、後者は字句解析と子Process target結合不足があり、最終Authority根拠へ流用しない。旧`48515eb`の実Task取消と旧`45ea2ac`の通常CLIによる実務1件は版の違いを保持する。実務有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)へ集約済みだが、比較優位は未実証である。
 - Runtime全体の監査指摘の是正・再確認と端末追加確認を完了し、人間が候補内容と移行方針を採用した。main統合およびReleaseは未完了であり、[品質の現在状態](../07_Quality/01_Quality_Center.md)で追跡する。
 
 - 4経路実測より前の経緯として、production回復／CLI matrixの実装と旧固定版の独立確認を終え、正式署名一般Task Runnerの対話搬送、実行Identity、Release grammar、複合Recoveryおよび取消境界の機械確認と独立再レビュー／再監査を経て、固定1 Pathの`Codex Front → Claude Code Executor → Codex Independent Reviewer`成功経路を完走した。

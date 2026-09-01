@@ -43,7 +43,22 @@ if (args.length === 1 && args[0] === "--help") {
       ...plan.forwardedArgs,
     ];
     try {
-      await import(target.href);
+      switch (plan.mode) {
+        case "task":
+        case "interactive":
+        case "automation":
+          await import("./coordinator.ts");
+          break;
+        case "verify-routes":
+          await import("../scripts/verify-signed-route-matrix.ts");
+          break;
+        case "verify-recovery":
+          await import("../scripts/verify-signed-recovery-matrix.ts");
+          break;
+        case "sign-release":
+          await import("../scripts/sign-release-manifest.ts");
+          break;
+      }
     } catch {
       // The target may already have issued effects. Do not invent cleanup.
       process.stderr.write(
