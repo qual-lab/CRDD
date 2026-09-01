@@ -20,13 +20,11 @@ Related:
 
 ## 1. 現在の未完了作業
 
-2026-09-01、v0.18.0を公開し、2026-09-02に採用入口とRuntime実行Identityを是正したv0.18.1を公開した。正式署名4経路E2E、回復経路、採用形態E2E、タグ、公開Releaseおよび不要ブランチ整理まで完了したため、v0.18の完了項目は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去した。人間の決定権限者はv0.19でCommunicationの工程規範と推論コンテキストを先に固定し、Checker、独立レビューおよび指摘是正を完了した後、Minimum AI-native Project Runtimeを本格実装する順序を採用した。
+2026-09-01、v0.18.0を公開し、2026-09-02に採用入口とRuntime実行Identityを是正したv0.18.1を公開した。正式署名4経路E2E、回復経路、採用形態E2E、タグ、公開Releaseおよび不要ブランチ整理まで完了したため、v0.18の完了項目は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去した。v0.19のCommunication固定候補もChecker、独立レビュー、必要な監査、指摘是正および再確認を完了したため、完了根拠をCHG-000058と品質記録へ移した。現在はIssue #30の外部記録・クローズと、Minimum AI-native Project Runtimeが残る。
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| Communication規範のv0.19固定 | Adopted | In Progress | [外部コミュニケーション](../17_Communication.md)、[課題探索・要求形成](../21_Discovery.md)、[CHG-000058](../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md) | 発火境界、責務分離、認知意図、選択推論、位置づけ、外部反応からの学び、AIへ渡すContextの選択・圧縮を一つの固定候補として照合する。利用側、ひな型、QA、監査、READMEおよびAI入口への伝播を確認し、独立レビューで固定する |
-| Issue #30の責務別再評価と終了判断 | Exploring | In Progress | [CHG-000013](../90_Release/Changes/CHG-000013_Communication_Market_and_Adoption_Exploration.md)、[CHG-000058](../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md#9-communication固定候補とissue-30の責務別再評価)、[Issue #30](https://github.com/qual-lab/CRDD/issues/30) | 6候補の責務分類は完了した。固定候補の独立確認と是正後、IssueへCHG-000058、固定改訂版および終了理由を記録して閉じる。新しい論点をIssueの存在だけでv0.19へ収載しない |
-| Communication Closure | Adopted | In Progress | [CHG-000058](../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md)、[検証設計](../07_Quality/03_Verification_Design.md#reasoning-context-verification) | 全体Checkerを通過した固定候補への独立レビューとDocument／Conformance／Gap・Impact監査で得た指摘を一括是正し、再確認する。CommunicationとReasoning ContextのRelease可否をProject Runtimeと独立に判定できる状態へ閉じる |
+| Issue #30への終了記録とクローズ | Adopted | Blocked | [CHG-000058](../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md#9-communication固定候補とissue-30の責務別再評価)、[Communication Closure検証](../07_Quality/Verification_Results/2026-09-02_Communication_Closure_Verification.md)、[Issue #30](https://github.com/qual-lab/CRDD/issues/30) | 6候補の責務分類と独立確認は完了した。外部Issueへ固定改訂版と終了理由を記録して閉じる。公開状態変更の実行確認だけが残り、新しい規範・実装・検証Scopeは残っていない |
 | v0.19 Minimum AI-native Project Runtime | Adopted | In Progress | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md) | 状態・受入・Scheduler競合の設計増分は保持する。追加のRuntime実装はCommunication Closure後に再開し、Coordinator責務分離、耐久Queue／Lease、MCP薄片、Project Model、Task Graph／Scheduler、Progress、Replanning、Integration、自己適用、Utility、Closureの順で成立させる。1 Project／1 Repository／1 Parent Coordinator、人間起点、最大同時実行5を維持する |
 | CRDD長期発展の上位方向と能力地平の表示枠組み | Adopted | Unscheduled | [長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針)、[CRDD版の発展](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 採用対象は人間可読な表示枠組みと根拠駆動の責務分離ループであり、具体的な将来能力は含めない。公開済みv0.18.0の結果と、第2段階で得た自己適用の根拠を再評価契機とする。専門能力はまずContextとRole／Skillで自己適用し、共有すべき正本情報または不変条件の不足がEvidenceで成立した場合だけ責務境界を再評価する |
 | 採用済み3項目を除く第2段階の実行観測候補および第3～第6段階の個別研究候補 | Held | Unscheduled | [長期発展方針の研究候補](../01_Discovery/01_CRDD_Product_Discovery.md#78-研究候補と保持条件)、[将来能力地平](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 第1段階の完成固定版と第2段階の最初の自己適用結果を得た後、価値、成立性、費用、安全性および責務境界を人間が再評価する。将来Versionは能力地平であり、版予約、収載、期限、実装許可またはReleaseを意味しない。Linux常設、複数Repository、MCP／HTTP、Self-hosted ProviderおよびOrganization Runtimeの実装許可を本行から推定しない |
@@ -40,11 +38,9 @@ Issue #30は2026-09-02に本文・コメント・状態を再確認した。`ope
 
 v0.19は次の順序で収束させる。内部Taskの並列化は許すが、後段のGateを先行完了へ読み替えない。
 
-1. Communication規範とReasoning ContextのCommunication利用面を固定する。
-2. Checker、独立レビューおよび必要な監査の指摘是正と再確認を完了してCommunication Closureとする。
-3. Issue #30へ固定改訂版と終了理由を記録して閉じる。
-4. Project Runtime実装を再開し、耐久Queue／LeaseからMCP、複数Task、Integrationへ接続する。
-5. 両変更の独立Release Gateを評価し、v0.19の収載内容を人間が確定する。
+1. Issue #30へ固定改訂版と終了理由を記録して閉じる。
+2. Project Runtime実装を再開し、耐久Queue／LeaseからMCP、複数Task、Integrationへ接続する。
+3. 両変更の独立Release Gateを評価し、v0.19の収載内容を人間が確定する。
 
 ## 3. 境界
 
