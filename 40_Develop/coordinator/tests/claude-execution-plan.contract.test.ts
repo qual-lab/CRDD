@@ -261,7 +261,7 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
     mode: "read_only_probe",
   });
   assert.equal(plan.status, "candidate");
-  assert.equal(plan.reason, "claude_runtime_activation_gates_required");
+  assert.equal(plan.reason, "claude_task_execution_gates_required");
   assert.equal(plan.activationBlockers.length, 0);
   assert.equal(
     plan.activationGates.includes("interactive_external_send_grant"),
@@ -578,11 +578,11 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
   );
 });
 
-test("全Runtime activation gateとPlan単体のEffect非発行を説明契約へ保持する", () => {
+test("全Task実行gateとPlan単体のEffect非発行を説明契約へ保持する", () => {
   const contract = describeClaudeExecutionPlanContract();
   assert.equal(
     contract.implementationState,
-    "local_personal_runtime_activation_gates_connected_candidate",
+    "local_personal_task_execution_gates_connected_candidate",
   );
   assert.deepEqual(contract.activationBlockers, []);
   assert.equal(

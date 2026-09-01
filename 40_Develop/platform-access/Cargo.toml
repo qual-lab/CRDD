@@ -5,18 +5,9 @@ edition = "2024"
 publish = false
 rust-version = "1.94.1"
 
-[features]
-native-bootstrap-release = []
-
 [[bin]]
 name = "crdd-platform-access"
 path = "src/main.rs"
-
-[[bin]]
-name = "coordinator"
-path = "src/bin/coordinator.rs"
-test = true
-required-features = ["native-bootstrap-release"]
 
 [dependencies]
 ed25519-dalek = { version = "=2.2.0", default-features = false }

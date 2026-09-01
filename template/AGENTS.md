@@ -130,6 +130,8 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 
 Coordinator Runtimeを使う場合も、Repository内容やexample Policyだけから外部送信Authorityを推定しない。`.crdd/external-send-policy.json`は、同梱の`.crdd/external-send-policy.example.json`を参考に、人間の決定権限者がRepository固有の情報分類、Provider Session境界、Subscription、Provider Terms／SettingsをRuntimeが検証できない範囲、Candidate保存可否、export可能時間および`candidatePhysicalDeletion`が示す物理削除時点を確認してCommit固定し、`enabled: true`へした場合だけ候補になる。期限到達時はexportを拒否するが、常駐serviceを持たないため物理削除は明示discardまたは次回の安全なRuntime／Candidate入口で行い、期限瞬間の削除を保証しない。exampleはfail closedの`enabled: false`であり、CRDD本体または別RepositoryのPolicyを流用しない。各Taskの端末安全な外部送信確認は別Authorityであり、Policyの存在だけでは送信しない。
 
+Coordinator Runtimeで通常の依頼を実行するときは、公式Release tagへ固定した完全な`00_CRDD` clone／submoduleから`40_Develop/coordinator/bin/launch.ts task --request-stdin --json`を使用する。Local Personalには永続的なRuntime有効化やPlatform Provisioningの利用者操作はない。利用可能な入口を調べる場合は`40_Develop/coordinator/bin/launch.ts automation capabilities --json`を使い、存在しない準備commandを推測しない。外部送信Policy、署名、Repository、Authority、Provider、CandidateおよびRecoveryの各Gateは省略しない。
+
 外部向け成果物では、外部向け投影と公開済み記録を分け、主張を現在有効な根拠へ接続する。公開後の反応を要求またはプロダクト上の事実へ直接昇格せず、測定、観察、仮説、学び候補、人間の判断を分ける。依存関係ではコンテキスト依存と成果物依存を分け、`00_CRDD/18_Context_Dependency.md`が定める独立管理利用側間の横断調整または重大リスクにより明示管理する依存について、現在採用している版、上書き、利用側、更新影響、復旧を確認する。通常・推移依存は既存のアーキテクチャやパッケージ管理を正本にでき、外部提供元とのAPI契約、別権限、独立リリース、または利用箇所数だけで完全な依存契約を発火させない。利用可能な新しい版をAIが自動採用せず、事前承認した対象・版範囲・検証・停止・復旧条件の外側は人間判断へ戻す。
 
 部分引き渡し、未実装対象範囲、既知の制限として残る事項が後続対応を必要とする場合は、`00_CRDD/01_Principles.md`の未完了事項の後続追跡に従う。成果物、引き渡し表示、プルリクエスト、リリース記録への記載だけで完了としない。

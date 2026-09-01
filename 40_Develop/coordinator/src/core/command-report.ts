@@ -26,9 +26,6 @@ const COMMAND_LABELS: Readonly<Record<string, string>> = Object.freeze({
   "candidate export": "候補の書き出し",
   "candidate discard": "候補の破棄",
   "candidate recover-store": "候補保存領域の回復",
-  activate: "有効化",
-  disable: "無効化",
-  provision: "実行環境の準備",
 });
 const STATUS_LABELS: Readonly<Record<string, string>> = Object.freeze({
   completed: "処理完了",
@@ -43,8 +40,6 @@ const REASON_EXPLANATIONS: Readonly<Record<string, string>> = Object.freeze({
   candidate_arguments_invalid: "候補操作の引数を確認してください。",
   coordinator_task_release_verification_required:
     "検証済みの配布物が必要です。通常利用者がRelease秘密鍵を入力する必要はありません。",
-  runtime_activation_effect_not_implemented: "この有効化操作は未接続です。",
-  runtime_disable_effect_not_implemented: "この無効化操作は未接続です。",
   coordinator_task_workload_split_required:
     "依頼が一回の作業量上限を超えています。範囲を分割してください。",
   provider_turn_limit_exceeded:

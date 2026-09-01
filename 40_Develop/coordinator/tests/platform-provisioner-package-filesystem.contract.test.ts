@@ -19,9 +19,9 @@ import {
 } from "../src/security/platform-provisioner-package-filesystem.ts";
 import {
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-  LEGACY_PLATFORM_PROVISIONER_MANIFEST_DOMAIN as PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
-  PLATFORM_PROVISIONER_MANIFEST_DOMAIN as CURRENT_MANIFEST_DOMAIN,
+  PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
+  PLATFORM_PROVISIONER_MANIFEST_REVISION,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "./test-support.ts";
@@ -210,7 +210,6 @@ test("開発版へ混入した署名manifestをReleaseへ昇格しない", () =>
 
 for (const relativePath of [
   "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
-  "template/tools/coordinator/windows-x64/coordinator.exe",
 ]) {
   test(`開発版の${relativePath}も署名対象Treeの差分として扱う`, () => {
     const fixture = developmentFixture();
@@ -354,7 +353,7 @@ test("実体観測と開始枠を結合し、準備待機後のRoot差替えで�
   }
 });
 
-test("署名済みnative観測は開発版Rootや自己申告の署名状態を拒否する", () => {
+test("署名済みPlatform Access観測は開発版Rootや自己申告の署名状態を拒否する", () => {
   const fixture = developmentFixture();
   try {
     const request = {
@@ -464,12 +463,7 @@ function frame(payload: Record<string, unknown>) {
   const length = Buffer.alloc(8);
   length.writeBigUInt64BE(BigInt(canonical.canonicalBytes.length));
   return Buffer.concat([
-    Buffer.from(
-      payload.contractRevision === 3
-        ? CURRENT_MANIFEST_DOMAIN
-        : PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
-      "ascii",
-    ),
+    Buffer.from(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, "ascii"),
     length,
     canonical.canonicalBytes,
   ]);
@@ -477,7 +471,7 @@ function frame(payload: Record<string, unknown>) {
 
 function signedManifest(
   packageContentRootSha256: string,
-  revision = 2,
+  revision = PLATFORM_PROVISIONER_MANIFEST_REVISION,
   expiresAt: string | null = "2027-08-15T00:00:00.000Z",
 ) {
   const signer = generateKeyPairSync("ed25519");
@@ -502,14 +496,6 @@ function signedManifest(
       rustToolchain: "1.94.1",
       byteLength: 1024,
       sha256: "4".repeat(64),
-    },
-    nativeProvisionSupervisorArtifact: {
-      relativePath: "template/tools/coordinator/windows-x64/coordinator.exe",
-      target: "x86_64-pc-windows-msvc",
-      entrypointContractRevision: 2,
-      rustToolchain: "1.94.1",
-      byteLength: 2048,
-      sha256: "5".repeat(64),
     },
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt,
@@ -723,7 +709,11 @@ test("同梱manifestは固定Release鍵以外の署名を拒否する", () => {
 test("期限なしmanifestも固定Release鍵と配布結合を迂回できない", () => {
   const observed = inspectBundledCoordinatorPackageFilesystemCandidate();
   assert.equal(observed.status, "candidate");
-  const value = signedManifest(observed.packageContentRootSha256, 3, null);
+  const value = signedManifest(
+    observed.packageContentRootSha256,
+    PLATFORM_PROVISIONER_MANIFEST_REVISION,
+    null,
+  );
   for (const evaluationTime of [
     "2026-08-16T00:00:00.000Z",
     "2099-01-01T00:00:00.000Z",

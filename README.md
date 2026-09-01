@@ -461,6 +461,8 @@ Human Coding-less DevelopmentはNo-codeではない。コードはAIが生成す
 
 できることと制限は[振る舞い仕様](05_SPEC/01_Behavior_Specification.md)、実行・復旧は[作業手順](19_Workflows/01_Coordinator_Runtime.md)から確認できる。[品質の現在状態](07_Quality/01_Quality_Center.md)では確認済みの結果と残件を分け、内部の仕組みは[アーキテクチャ](06_Architecture/01_Architecture.md)へ集約する。公式Release tagのGit Treeには、署名manifestと固定Native Runtime成果物を`template/tools/coordinator`配下へ同梱する。ここは採用Repository向けToolの配布面であり、Source・build・試験は`40_Develop`、変更・Evidence・Release状態は`90_Release`が所有する。そのtagへ固定したcloneまたはsubmoduleは、別packageを取得せずに署名と実体の一致を検証してRuntimeを利用できる。署名manifest、Git IdentityおよびNative artifact Hashを必須とし、Authenticodeは別install前提ではなく追加のpublisher防御として扱う。未署名の開発branch、改変されたcheckoutまたは旧署名候補は、公式ReleaseのIdentityにならない。通常利用者にRelease署名鍵やパスフレーズは不要である。
 
+通常の依頼は、完全なCRDD clone／submoduleに含まれる共通起動入口の`task --request-stdin --json`から実行する。Local Personalは各操作で署名済み配布物、Repository、選択ユーザー、Provider Home、AuthorityおよびRecoveryを検証するため、永続的なRuntime有効化やPlatform Provisioningを持たない。現在利用できる入口は`capabilities --json`で機械的に確認できる。適用先AI向けのexactな選択規則と実行例は[作業手順](19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)に示す。
+
 配布manifestには期限なしを明示でき、検証済み配布物が時間の経過だけで使えなくなることを避ける。署名、実体の一致、発行日時、権限および互換性の確認は維持し、永久サポートを意味しない。初期同意と各操作の期限は別契約のまま変えない。詳細は[正式配布物の有効期間](05_SPEC/01_Behavior_Specification.md#正式配布物の有効期間)を参照する。
 
 Coordinator Runtimeは、公式のCodex／Claude Code CLIと、それぞれ自身のSubscription OAuth Sessionを使って仕事を委譲する。CRDDがSessionを抽出して別APIへ転用することはなく、標準ProfileはAPI key、従量API、Credit購入または有料Plan変更へ自動fallbackしない。

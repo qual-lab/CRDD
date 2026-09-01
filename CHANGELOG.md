@@ -9,6 +9,20 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0181-en"></a>
+
+### v0.18.1 — Coordinator Adoption Interface Correction
+
+Corrects the first public Coordinator Runtime adoption path. Local Personal no longer exposes persistent `activate`, `disable`, or `provision` lifecycles: ordinary tasks verify their required conditions per operation. The unused commands, state records, provisioning stores, bootstrap supervisor, compatibility shims, and the second native artifact are removed rather than retained as always-blocked interfaces. `capabilities --json` reports the exact effect-free public capability set, and signed manifest revision 4 binds the distribution to the single Platform Access artifact. This release does not rewrite the v0.18.0 tag or its historical evidence.
+
+Migration note (v0.18.0 → v0.18.1):
+
+- `migration_required: true` only for projects attempting to use Coordinator Runtime.
+- Update the CRDD submodule or clone, run `capabilities --json`, and invoke `task` directly; do not call the deleted setup commands.
+- No activation or provisioning record is migrated. If an unexpected host effect exists, stop for recovery rather than deleting it by assumption.
+- Projects that use only the CRDD methodology and do not use Coordinator Runtime require no execution migration.
+- Final publication requires the revision-4 signed manifest, fresh-adopter useful-result E2E, full tests, and independent review on the same fixed revision.
+
 <a id="changelog-v0180-en"></a>
 
 ### v0.18.0 — Methodology, Agent Organization, and Reference Runtime
@@ -835,6 +849,20 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0181-ja"></a>
+
+### v0.18.1 — Coordinator採用入口の是正
+
+Coordinator Runtimeの初回公開時の採用経路を是正する。Local Personalは永続的な`activate`、`disable`または`provision` Lifecycleを公開せず、一般TaskがOperationごとに必要条件を検証する。利用結果へ接続しなかったcommand、状態Record、準備Store、bootstrap Supervisor、互換shimおよび第二のNative成果物は、常時`blocked`の入口として残さず削除する。`capabilities --json`はEffectなしの公開Capability閉集合を返し、署名manifest revision 4は単一のPlatform Access成果物を配布物へ結合する。v0.18.0 tagと過去Evidenceは書き換えない。
+
+移行注記（v0.18.0 → v0.18.1）:
+
+- `migration_required: true`はCoordinator Runtimeを利用しようとしたProjectだけに適用する。
+- CRDDのsubmoduleまたはcloneを更新し、`capabilities --json`を確認して`task`を直接実行する。削除した準備commandは使用しない。
+- 有効化・準備Recordは移行しない。想定外のHost Effectが存在する場合は、推測削除せず回復判断へ戻す。
+- CRDD方法論だけを利用しCoordinator Runtimeを使わないProjectに、実行移行は不要である。
+- 最終公開にはrevision 4の署名manifest、fresh adopterの有用結果E2E、全試験および同一固定版の独立確認を必要とする。
 
 <a id="changelog-v0180-ja"></a>
 

@@ -31,6 +31,27 @@ test("用途ごとの入力と端末条件を区別し、内部Recovery引数を
     );
   }
   assert.equal(
+    resolveCoordinatorLaunch(["task", "--request-stdin", "--json"], {
+      ...terminal,
+      stdinIsTty: false,
+      stdoutIsTty: false,
+    }).status,
+    "ready",
+  );
+  assert.equal(
+    resolveCoordinatorLaunch(["task", "--request-stdin"], {
+      ...terminal,
+      stdinIsTty: false,
+      stdoutIsTty: false,
+    }).status,
+    "blocked",
+  );
+  assert.equal(
+    resolveCoordinatorLaunch(["task", "--request-stdin", "--json"], terminal)
+      .status,
+    "blocked",
+  );
+  assert.equal(
     resolveCoordinatorLaunch(["interactive", "task", "--request-stdin"], {
       ...terminal,
       stdinIsTty: false,
@@ -102,6 +123,17 @@ test("不正用途、未対応Node、NULを拒否し引数の空白・Unicodeを
   if (plan.status !== "ready") assert.fail();
   assert.deepEqual(plan.forwardedArgs, args);
   assert.ok(Object.isFrozen(plan.forwardedArgs));
+});
+
+test("推奨Task入口は一般Taskの固定引数だけを追加する", () => {
+  const plan = resolveCoordinatorLaunch(["task", "--request-stdin", "--json"], {
+    ...terminal,
+    stdinIsTty: false,
+    stdoutIsTty: false,
+  });
+  assert.equal(plan.status, "ready");
+  if (plan.status !== "ready") assert.fail();
+  assert.deepEqual(plan.forwardedArgs, ["task", "--request-stdin", "--json"]);
 });
 
 test("実CLIのhelpは起動Directoryに依存せず、自動処理から到達する", () => {

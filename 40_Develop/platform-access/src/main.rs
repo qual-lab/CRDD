@@ -1,8 +1,6 @@
 mod protocol;
 
 #[allow(dead_code)]
-mod native_bootstrap_core;
-
 #[cfg(windows)]
 mod windows;
 

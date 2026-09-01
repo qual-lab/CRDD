@@ -240,7 +240,7 @@ export function renderDockerRecoveryDoctorReport(
   const runtimeRootEvaluation = plainRecord(reportValue.runtimeRootEvaluation);
   if (typeof runtimeRootEvaluation?.status === "string")
     lines.push(
-      `- Runtimeルートの要求: ${runtimeRootEvaluation.status}; 有効化は行っていません。`,
+      `- Runtimeルートの評価: ${runtimeRootEvaluation.status}; 状態変更は行っていません。`,
     );
   const recovery = plainRecord(reportValue.recovery);
   if (recovery?.manualRecoveryRequired === true) {

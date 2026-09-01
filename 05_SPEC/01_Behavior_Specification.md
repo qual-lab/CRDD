@@ -8,7 +8,7 @@ Last Updated: 2026-08-31
 
 本書はCRDD参照Runtimeの入力、利用条件、結果、停止・回復、および現在の実装範囲を所有する。上位の[エージェント組織](../04_Agent_Organization.md)や人間の決定権限を再定義しない。実行手順は[作業手順](../19_Workflows/01_Coordinator_Runtime.md)、成立方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証の現在状態は[品質確認](../07_Quality/01_Quality_Center.md)へ分離する。
 
-既存実装を責務別に整理した仕様である。Local Personal一般Taskと、未接続のHardened／Provisioning候補を区別する。後者の`blocked`や未実装を前者へ一般化せず、部分実装を完成保証にもしない。移管対象の独立確認と内容採用は完了した。現在は正式配布物の期限なし契約を追加確認中であり、網羅状態は本書の各制限と[変更トレース](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)で追跡する。
+既存実装を責務別に整理した仕様である。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。移管対象の独立確認と内容採用は完了した。現在は正式配布物の期限なし契約を追加確認中であり、網羅状態は本書の各制限と[変更トレース](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)で追跡する。
 
 利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
 
@@ -41,6 +41,7 @@ RuntimeはCRDDのAuthority、固定改訂版、検証、ReviewおよびCurrent D
 
 | 用途 | 接続先 | 入出力条件 |
 |---|---|---|
+| `task --request-stdin --json` | 通常CLIの一般Task | 採用Repository向けの推奨入口。stdoutは非TTY。必要条件はOperationごとに検証する |
 | `interactive <CLI引数>` | 通常CLI | stdoutが書込み可能な端末。Taskの構造化stdinは転送可能 |
 | `automation <CLI引数と--json>` | 同じ通常CLI | stdoutは非TTY、`--json`必須。現在のWindows Runtimeで同意が不足する場合は停止し、自動承認しない |
 | `verify-routes` | 署名済み4経路検証 | stdoutが書込み可能な端末、追加引数なし |
@@ -50,6 +51,8 @@ RuntimeはCRDDのAuthority、固定改訂版、検証、ReviewおよびCurrent D
 Node版・用途・入出力の不一致は対象入口を読み込む前に固定理由と終了コード64で拒否する。案内の`--help`は端末を要求しない。TypeScriptを解釈できない旧Nodeではこの説明自体を実行できないため、呼出し元のNode事前確認を省略しない。
 
 既存入口の署名、Repository、Authority、同意、取消、cleanup、結果と終了コードを維持する。共通入口はそれらを事前成立させるAuthorityではない。接続後の未処理例外は終了コード2と状態未確認の説明を返し、成功結果や回収確認を生成しない。既存の直接入口は内部呼出しと既存利用のため保持する。人向け手順は共通入口を優先する。
+
+Local Personal一般Taskは永続的なManaged／Hardened Runtime状態を前提にしない。公開CLIは`task`、`doctor`、`candidate`、`capabilities`だけであり、削除済みの有効化・無効化・準備commandを互換入口、失敗専用入口または将来予約として残さない。
 
 ### 検証結果の保存
 
@@ -173,7 +176,9 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 - ExecutorはReviewer文を命令として受けず、欠陥主張、指摘Category、参照されたAcceptance Criteria、WorkspaceおよびTestを独立照合して是正する。
 - 認識済みSecretの拒否は未知のSecret不存在証明ではなく、安全に分離できない場合は是正の外部Effect前に停止する。
 
-## 診断・有効化候補・回復の公開境界
+<a id="診断回復の公開境界"></a>
+
+## 診断・回復の公開境界
 
 <a id="読取り診断と実行を伴う診断"></a>
 
@@ -188,10 +193,8 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 - `doctor --json`はprivate `reportVersion: 11`だけを生成し、version 10以前のaliasまたはfallbackを持たない。
 - Repository内にproduction decoder／consumerはなく、contract testはproducer schemaのexact assertionであってRuntime consumerではない。
-- version 11は有効化前準備一回実行revision 5とPlatform Provisioner Effect revision 5の副作用なしdescriptorをRuntime Activation revision 4へ独立投影する。
-- descriptorはinspectorまたはEffect controllerを呼ばず、readiness、blocker、Gate、Authority、CapabilityまたはEffectの入力にならない。
-- 入力CLI grammar、公開Checkerおよび採用Repositoryの公開Schemaは変更していない。
-- このprivate移行の現在正本は[`CHG-000015`](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)であり、統合前の`CHG-000021`、`CHG-000033`～`CHG-000036`は[恒久台帳](../90_Release/Changes/README.md)とGit履歴から辿れる。
+- production reportは通常Taskに不要なRuntime Root、永続有効化、共有Authority RootまたはProvisioningの状態を生成・投影しない。
+- 診断結果はreadiness、blockerおよび副作用なしの観測だけを表し、診断自体をAuthority、CapabilityまたはEffectの発行に使用しない。
 
 - `doctor --isolation`は、Runtime 1.0で唯一対応する実行基盤であるDocker DesktopのLinux container内にFake Providerを起動する。
 - Docker CLIは固定install root、Docker Incの有効なAuthenticode署名を確認して選択した固定Hashおよび実体Identityへ照合し、PATH候補やDocker Contextから差し替えない。
@@ -210,42 +213,14 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 - PIDやProcess名だけを停止Authorityにしない。
 - WSLは`docker-desktop`だけをterminateする。
 
-### 未接続の有効化・Provisioning候補
+### Local Personalの準備契約
 
-以下は現行Local Personal一般Taskの通常準備と混同しない。構文、部分実装、全体としての実行可否を別に読む。
-
-- 以下で「Authority source loader未接続」「全体Gateはblocked」と記す段落は、署名済みAuthority File Bundleとprotected activationを要求するHardened／Provisioning候補を説明する。
-- Local Personal一般Taskではselected-user binder、Mount Grant、Provider eligibility、Subscription OAuth preflight、固定Docker CLI Effect executor、exact 9 command、限定Egressおよびdurable Recoveryを接続済みであり、旧Hardened候補の未接続表示を一般Taskへ流用しない。
-- 未署名の開発branch、manifest欠落、改変checkoutまたは固定Native成果物欠落はEffect前に停止する。公式Release tagへ固定し、同梱manifestとNative成果物を検証できるclone／submoduleは正式配布Rootになり得る。
-
-- `doctor --enable-runtime`はRuntimeを有効化するコマンドではなく、明示的な有効化要求をRoot選択とPath Identityの診断候補へ接続する。
-- 既定では既に存在する`<repository>/.crdd-runtime/`を検査し、`--runtime-root <absolute-path>`があればその指定、なければ`CRDD_COORDINATOR_ROOT`、どちらもなければRepository既定を使う。
-- `--runtime-root`だけの指定、未知／重複option、値欠落、またはrecoveryとの混在は、RootやGit metadataへ触れる前に拒否する。
-- 非opt-in時は環境変数が存在してもRuntime Rootを検査しない。
-- 直接APIを含む診断入力は、ネストしたRoot要求も期待するown data propertyだけから処置前に固定し、accessor、Proxy、symbol、独自prototype、欠落または余分fieldを受理しない。
-- 成功結果も`candidate`／`enable_requested`に限り、activation記録、Capability、Provider起動またはOperationを成立させない。
-- JSON／通常表示へ絶対PathやFilesystem Identityを出さない。
-
-- 実際の有効化は、診断とは別の専用`activate`操作でRepository単位に永続化する方針である。
-- `activate`と`disable`の厳密なCLI grammarは実装済み候補であり、未知／重複option、値欠落、余剰token、相対Path、制御文字または上限超過を処置前に拒否する。
-- Runtime RootはCLI、環境、Repository既定の順、Authority RootはCLI、環境の順で選び、Authority RootにOS暗黙既定を設けない。
-- Root軸ごとにCLI指定がある場合は同じ軸の低優先な環境値を選択／検証対象にせず、CLI指定がない場合だけ環境値を検証する。
-- 選択対象となる環境値の不正、またはAuthority Root欠落はCLI構文違反と区別した`blocked`にする。
-- どちらのcommandも現在は要求候補を安全に診断するだけで常に`blocked`となり、Filesystem読取り／書込み、Root作成、Bundle読取り、record生成、状態遷移、CapabilityまたはOperationを発火しない。
-- Runtime Rootにはrevision 2の固定名`activation.json`を置く候補とし、revision 1のaliasまたはfallbackを設けず、Repository、Root、Authority Bundle、Trust PolicyおよびRegistryのIdentity／revision／Hashをcanonical recordへ結合する。
-- 発行済みrecordは0なので永続変換はない。
-- 時刻はDate解析前に24文字へ限定した4桁年のcanonical UTCだけを受理する。
-- cross-record Core候補は、前版がない初版`active`と、callerから受けた次版候補について前版canonical byteからHashを再計算して結合し、revisionを正確に1増やし、Repository／Root Identity、Authority参照およびactivation時刻を維持して`disabledAt`だけを追加する`active`から`disabled`への遷移だけを検査する。
-- `active`から`active`への再activationと`disabled`起点の遷移は未実装である。
-- Bundle、PolicyまたはRegistryのIdentityが変わった場合は古い有効化を自動流用せず、現版では再activationを完了できないため`blocked`にする。
-- 現在はrecordの構造／canonical byte Core候補、cross-record Core候補とcommand grammar候補までで、原子的書込み、Path／owner／ACL照合、run-scoped Capabilityおよび専用CLI Effectは未実装である。
-
-- ローカル導入の目標UXは、機能を使わないRepositoryへRuntime固有Effectを発生させず、最初の有効なPlatform ProvisioningだけでOS権限確認と共有Authority Rootの準備を行い、その後はRepositoryごとの`coordinator activate`一回を入口とすることである。
-- 有効で再識別可能なProvisioningとactivation、およびRoot保護Identityが維持される間は、通常実行や再起動のたびに管理者権限、Path再入力またはACL手動設定を要求しない。
-- 署名／Trust、principal、Root Identityまたは保護metadataの変化を検知した場合は必ずfail closedで再確認する。
-- 現在は署名済みPlatform Provisionerのpure検証、state component候補、Rust Coreと成果物の読み取り専用観測候補、および明示Release署名commandによるステージングmanifest配置処置までであり、保護済み有効世代、検証済み実行イメージおよびプロセス起動は未実装である。
-- Root観測への写像、DACL適用、導入Effect、Runtime有効世代reader、Provisioning記録、共有Root作成およびactivation Effectは未実装である。
-- そのため再Provision条件を実評価できず、`provision`と`activate`は引き続き`blocked`である。
+- Local Personal一般Taskでは、selected-user binder、Mount Grant、Provider eligibility、Subscription OAuth preflight、固定Docker CLI Effect executor、限定Egressおよびdurable Recoveryを各操作へ接続する。
+- 永続的なRuntime有効化、共有Authority Root、Provisioning記録またはRepository単位のActivation Recordを、利用者が事前に作成する契約は持たない。
+- 公開CLIは`task`、`doctor`、`candidate`と機械可読な`capabilities --json`に限定する。`activate`、`disable`、`provision`、`doctor --enable-runtime`および`--runtime-root`は公開構文ではない。
+- `capabilities --json`は現在対応するLocal Personal Profileだけを返し、未実装候補や将来構想を利用可能な入口として列挙しない。
+- 将来、常設Serverや複数Repository Bindingに永続状態が必要になった場合も、実在するconsumerと利用者成果から新しい責務境界を設計する。
+- 未署名の開発branch、manifest欠落、改変checkoutまたは固定Native成果物欠落はEffect前に停止する。公式Release tagへ固定し、同梱manifestと必要なNative成果物を検証できるclone／submoduleは正式配布Rootになり得る。
 
 - 現在のexact schemaでは、CRDD Revision／期待Revisionを単独fieldとして扱わない。
 - `crddVersion`、`crddCommit`、`crddTree`および`packageContentRootSha256`の4値をmanifest署名とGate照合へ結び、いずれか一つでも異なる場合は`blocked`とする。

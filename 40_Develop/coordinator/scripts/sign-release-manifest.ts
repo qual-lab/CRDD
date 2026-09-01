@@ -273,8 +273,6 @@ function prepareReleaseManifestCandidate(
       crddTree: options.crddTree,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
       platformAccessArtifact: platformAccessObservation.platformAccessArtifact,
-      nativeProvisionSupervisorArtifact:
-        platformAccessObservation.nativeProvisionSupervisorArtifact,
       ...policyIdentity,
       issuedAt: options.issuedAt,
       expiresAt: options.expiresAt,
@@ -292,8 +290,6 @@ function prepareReleaseManifestCandidate(
       releaseIdentity.status !== "candidate" ||
       releaseIdentity.manifestExcludedFromSignedGitTree !== false ||
       releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !==
-        true ||
-      releaseIdentity.nativeProvisionSupervisorExecutableIncludedInSignedGitTree !==
         true ||
       releaseIdentity.gitMetadataExcludedFromSignedGitTree !== false
     ) {
@@ -360,8 +356,6 @@ export function signReleaseManifest(options: ManifestOptions) {
       releaseIdentity.manifestExcludedFromSignedGitTree !== false ||
       releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !==
         true ||
-      releaseIdentity.nativeProvisionSupervisorExecutableIncludedInSignedGitTree !==
-        true ||
       releaseIdentity.gitMetadataExcludedFromSignedGitTree !== false
     ) {
       throw new Error("release_manifest_distribution_tree_mismatch");
@@ -400,8 +394,6 @@ export function signReleaseManifest(options: ManifestOptions) {
       packageContentRootSha256: packageObservation.packageContentRootSha256,
       platformAccessExecutableSha256:
         platformAccessObservation.platformAccessArtifact.sha256,
-      nativeProvisionSupervisorExecutableSha256:
-        platformAccessObservation.nativeProvisionSupervisorArtifact.sha256,
       crddVersion: options.crddVersion,
       releaseSequence: options.releaseSequence,
       crddCommit: options.crddCommit,

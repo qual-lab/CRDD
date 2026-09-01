@@ -25,7 +25,7 @@ TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Ga
 |---|---|---|
 | 正常 | 公式tagのclean clone／submodule、manifest-only PE、署名対象親Commitとexact Tree、2成果物Hashが一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
 | 準正常 | non-zero固定publisher digestを宣言したPEで、追加DLL集合とAuthenticodeが一致 | manifest-onlyへfallbackせず追加防御を維持 |
-| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、未知または余剰PE import、宣言済みAuthenticode不成立 | Provider／Provisioning Effect 0でfail closed |
+| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差 | Provider Effect 0でfail closed |
 | 判定不能 | shallow／不完全Git履歴、RootまたはRevision不明、reparse／link、読取り不成立 | 配布Identityを推定せずEffect 0で停止 |
 
 対象は[仕様](../05_SPEC/01_Behavior_Specification.md)と[設計](../06_Architecture/01_Architecture.md)が所有する現行内部ツールである。今回の配置変更は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)、Runtimeの完成条件は[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)で追跡する。以下は検証義務の複製ではなく、その確認方法の対応表である。
@@ -60,7 +60,7 @@ TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Ga
 
 [検証結果保存の契約試験](../40_Develop/coordinator/tests/verification-result-record.contract.test.ts)は、実FSと実子Processで正常保存、停止結果の保存、callback例外、開始／終了保存失敗、flush失敗、途中終了、同時run、不正Git境界、link／Directory置換、容量・配列・byte上限、秘密風の値・getter・proxy拒否を確認する。公開Recovery入口の未署名停止も保存へ接続する。これらは実Provider成功、電源断耐性、敵対的な同一ユーザーへの耐性を証明しない。
 
-共通起動入口は[起動契約試験](../40_Develop/coordinator/tests/coordinator-launch.contract.test.ts)で、対話TTY成立／redirect拒否、署名stdin非TTY拒否、自動処理の明示選択、実CLIのhelp、起動Directory差、未加工argv・stdin byte・同一PID・終了コード、対象import前拒否とimport後例外を確認する。stdout redirect時に内部の安全Gateが拒否する試験だけで、正常に起動できる品質を確認したとはしない。実端末の可視性・一回入力・終了後表示、および署名配布からの実E2Eは別に記録する。
+共通起動入口は[起動契約試験](../40_Develop/coordinator/tests/coordinator-launch.contract.test.ts)で、採用Repository向け一般Taskの第一級入口と固定引数、対話TTY成立／redirect拒否、署名stdin非TTY拒否、自動処理の明示選択、実CLIのhelp、起動Directory差、未加工argv・stdin byte・同一PID・終了コード、対象import前拒否とimport後例外を確認する。削除済みの永続有効化・無効化・準備commandがhelp、parserまたは実装へ再出現せず、`capabilities --json`が現行Profileを正確に返すことも確認する。stdout redirect時に内部の安全Gateが拒否する試験だけで、正常に起動できる品質を確認したとはしない。実端末の可視性・一回入力・終了後表示、および署名配布からの実E2Eは別に記録する。
 
 義務の所有者は[UX](../02_UX/01_User_Experience.md#4-制御信頼検証義務)、[IA](../03_IA/01_Information_Architecture.md#5-検証義務と未解決事項)、[UI](../04_UI/01_User_Interface.md#5-アクセシビリティ利用品質の義務)および[仕様](../05_SPEC/01_Behavior_Specification.md#user-interface-contract)。以下は確認方法であり、義務や合否条件を再定義しない。
 

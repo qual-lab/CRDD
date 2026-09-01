@@ -7,10 +7,6 @@ import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
 } from "../core/runtime-process-safety-state.ts";
-import {
-  beginNativeProvisionSupervisorArtifactSigningObservation,
-  verifyNativeProvisionSupervisorArtifactSigningObservation,
-} from "./native-provision-supervisor-release.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   beginPlatformAccessArtifactSigningObservation,
@@ -696,8 +692,6 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
       qualLabManifestCryptographicMatch: true,
       runtimeOwnedReleaseTrustConfirmed: true,
       platformAccessArtifact: verification.platformAccessArtifact,
-      nativeProvisionSupervisorArtifact:
-        verification.nativeProvisionSupervisorArtifact,
     });
   } catch {
     return blocked("platform_provisioner_bundled_package_input_invalid");
@@ -752,8 +746,6 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
       releaseIdentity.manifestExcludedFromSignedGitTree !== true ||
       releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !==
         true ||
-      releaseIdentity.nativeProvisionSupervisorExecutableIncludedInSignedGitTree !==
-        true ||
       releaseIdentity.gitMetadataExcludedFromSignedGitTree !== true
     ) {
       return blocked(
@@ -791,8 +783,6 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
       interactiveConsoleReaderArtifactSha256:
         interactiveConsoleReaderArtifact.sha256,
       platformAccessArtifact: verification.platformAccessArtifact,
-      nativeProvisionSupervisorArtifact:
-        verification.nativeProvisionSupervisorArtifact,
     });
   } catch {
     return blocked("platform_provisioner_fixed_manifest_verification_failed");
@@ -952,8 +942,6 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
       releaseIdentityRuntimeOwned: false,
       crddDistributionConfirmed: true,
       platformAccessArtifact: verification.platformAccessArtifact,
-      nativeProvisionSupervisorArtifact:
-        verification.nativeProvisionSupervisorArtifact,
     });
   } catch {
     return blocked(
@@ -1011,32 +999,18 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
     if (
       distribution.status !== "candidate" ||
       !distribution.manifestExcludedFromSignedGitTree ||
-      !distribution.platformAccessExecutableIncludedInSignedGitTree ||
-      !distribution.nativeProvisionSupervisorExecutableIncludedInSignedGitTree
+      !distribution.platformAccessExecutableIncludedInSignedGitTree
     )
       return blocked("native_distribution_tree_not_verified");
     const worker = beginPlatformAccessArtifactSigningObservation(root.realPath);
-    const supervisor = beginNativeProvisionSupervisorArtifactSigningObservation(
-      root.realPath,
-    );
     if (
       !worker ||
-      !supervisor ||
       !sameNativeArtifact(
         release.platformAccessArtifact,
         worker.artifact,
         "protocolRevision",
       ) ||
-      !sameNativeArtifact(
-        release.nativeProvisionSupervisorArtifact,
-        supervisor.artifact,
-        "entrypointContractRevision",
-      ) ||
-      supervisor.workerBindingSha256 !== worker.artifact.sha256 ||
-      !verifyPlatformAccessArtifactSigningObservation(worker.token) ||
-      !verifyNativeProvisionSupervisorArtifactSigningObservation(
-        supervisor.token,
-      )
+      !verifyPlatformAccessArtifactSigningObservation(worker.token)
     )
       return blocked("native_distribution_artifact_not_verified");
     const reverified = verifyInstalledCoordinatorPackageCandidate(request);
@@ -1054,7 +1028,6 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
           release.manifestHash,
           release.crddTree,
           worker.artifact.sha256,
-          supervisor.artifact.sha256,
         ]),
         "utf8",
       )
@@ -1068,7 +1041,6 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
       crddTree: release.crddTree,
       nativeReleaseSignatureVerified: true,
       platformAccessArtifact: worker.artifact,
-      nativeProvisionSupervisorArtifact: supervisor.artifact,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
       filesystemEffectIssued: false,

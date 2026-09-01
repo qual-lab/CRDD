@@ -10,7 +10,7 @@ Last Updated: 2026-08-31
 
 1. 対象Repository、固定配布版、実行Node、選択ユーザー、許可された目的・送信先・情報範囲を確認する。
 2. 通常利用は公式Release tagへ固定したcloneまたはsubmoduleを使い、同梱manifestとNative Runtime成果物の真正性を確認する。未署名の開発branch、改変されたcheckoutまたは過去の署名候補を公式配布物とみなさない。
-3. 診断結果を確認し、必要な準備が不成立なら止める。以下のコマンド一覧にはgrammarだけを実装した候補も含むため、利用可能性を一覧だけで判断しない。
+3. `capabilities --json`と診断結果を確認し、必要な準備が不成立なら止める。Helpに存在しないcommandを推測しない。
 4. 許可範囲内のTaskを実行し、結果と回収状態を確認する。候補は検証してからexport／discardし、正本への採用は人間の決定権限に従う。
 5. 不明な残存、Identity差、失効または手動回復要求では通常Taskを再試行せず、仕様が示すexact IDと専用回復手順へ戻す。
 6. 実行結果はCHGまたは品質保証の記録へ返す。日々のログをこの手順へ累積しない。
@@ -20,15 +20,16 @@ Last Updated: 2026-08-31
 
 ## 毎回の起動方法を組み立てない
 
-通常操作は、検証済みNodeから同じ配布物の`bin/launch.ts interactive`を直接起動する。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
+通常操作は、検証済みNodeから同じ配布物の`bin/launch.ts`を直接起動する。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般Taskは第一級の`task`入口を使う。利用可能な入口は`capabilities --json`から取得し、準備commandを推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" task --request-stdin --json
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" interactive doctor --json
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" verify-routes
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" verify-recovery
 ```
 
-自動化担当は`automation <CLI引数と--json>`を使い、構造化stdinをバイト列のまま渡し、stdoutを機械向けに受け取る。対話同意を自動入力せず、不足時は停止結果を処置する。公式配布担当の署名は`sign-release`の後に既存の署名引数をそのまま渡す。秘密値を引数へ含めない。
+一般Taskでは構造化stdinをバイト列のまま渡し、stdoutを機械向けに受け取る。その他の自動化は`automation <CLI引数と--json>`を使う。対話同意を自動入力せず、不足時は停止結果を処置する。公式配布担当の署名は`sign-release`の後に既存の署名引数をそのまま渡す。秘密値を引数へ含めない。
 
 対話・署名・4経路検証ではstdoutをfileやpipeへ転送しない。ログ採取を優先して端末を失わせない。出力採取が必要な自動処理と人間の対話を同じ一時wrapperで兼用しない。ウィンドウが必要な場合はホスト側が可視端末を用意し、終了後も読める状態を保持する。共通入口自体は追加ウィンドウや終了待ちEnterを作らない。
 
@@ -51,12 +52,14 @@ Last Updated: 2026-08-31
 | 目的・担当 | 使用する入口 | 成立条件と次の確認 |
 |---|---|---|
 | 利用者・呼出し元が準備を調べる | `doctor`／`doctor --json` | Providerを起動しない事前診断。一時領域の生成・回収を伴う。表示された候補を認証・隔離・実行許可の成立へ読み替えない |
+| 呼出し元が利用可能な入口を調べる | `capabilities --json` | Local Personalで成立する公開commandだけを機械可読に返す |
 | 許可された一般Taskを実行する | `task --request-stdin` | 署名配布、Repository・同意・Authority・Providerの各検査が必要。候補と回収結果を確認する |
 | 候補を取り出す・破棄する | `candidate export`／`candidate discard` | exact ID、期限、対象を再検証。取り出しを正本採用としない |
 | 復旧担当が残存資源を処置する | `doctor --recover-isolation`／`candidate recover-store` | exact IDと所有・状態が一致する場合だけ。通常Taskの自動再試行にしない |
 | 保守担当が隔離を検証する | `doctor --isolation` | Docker／一時Filesystemの効果を伴う固定Fake診断。実Provider利用・実Provider取消の証明ではない |
-| 有効化・準備候補を調べる | `doctor --enable-runtime`、`activate`、`disable`、`provision` | 構文と部分実装の候補。現行の接続・停止状態は[仕様](../05_SPEC/01_Behavior_Specification.md#診断有効化候補回復の公開境界)で確認し、通常利用可能としない |
 | 開発・配布担当が検証する | 下記の開発検証、正式署名Runner | 日常開発と公式署名を分ける。一般利用者にRelease鍵を要求しない |
+
+CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Directoryにして`00_CRDD\40_Develop\coordinator\bin\launch.ts task --request-stdin --json`を使用する。`40_Develop`を含まない文書だけのコピーではRuntimeは利用できないため、公式Release tagへ固定した完全なcloneまたはsubmoduleを用意する。
 
 以下の絶対Node placeholderは、version 24.12.0以上と実体を確認したNodeへ置き換える。Coordinator CLI、Release鍵生成、Release manifest署名および正式署名一般Task Runnerは、未対応Nodeを対話入力、Release検証またはEffectより前に拒否し、PATH上の別Nodeへfallbackしない。package scriptを使う検証では、親のnpmだけでなくscript内の`node`とその子Processも同じ検証済みNodeへ解決されることを確認する。親だけを絶対Pathで起動し、子がPATH上の旧Nodeへ戻る状態を検証済みと扱わない。Sourceや試験のPathは、現在DirectoryをRepository Identityとして意図的に使う公開契約を除き、module基準の絶対Pathへ固定する。
 
@@ -65,12 +68,8 @@ Last Updated: 2026-08-31
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --isolation --json
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --enable-runtime --json
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --enable-runtime --runtime-root "<absolute-path>" --json
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" capabilities --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --recover-isolation <recovery-id> --json
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" activate [--runtime-root "<absolute-path>"] [--authority-root "<absolute-path>"] [--json]
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" disable [--runtime-root "<absolute-path>"] [--json]
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" provision [--json]
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" task --request-stdin [--json]
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" candidate export --candidate-id <opaque-id> --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" candidate discard --candidate-id <opaque-id> [--json]
@@ -135,9 +134,9 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 1. Release候補Commit Aへ、Source、文書、試験および固定Pathの2つのNative Runtime成果物を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
 2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release-staging/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
-3. Commit A／Tree Aと2つのNative成果物を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
+3. Commit A／Tree Aと`crdd-platform-access.exe`を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
 4. 生成したmanifestだけをRepositoryの同じ固定Pathへ追加してCommit Bを作る。`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
-5. 公式tagとReleaseはCommit Bへ付ける。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示す。RuntimeはCommit Bの内容からmanifestだけを除外してTree Aを再構成し、2つのNative成果物はTree Aの一部として検証する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
+5. 公式tagとReleaseはCommit Bへ付ける。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示す。RuntimeはCommit Bの内容からmanifestだけを除外してTree Aを再構成し、`crdd-platform-access.exe`はTree Aの一部として検証する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
 
 これにより、公式tagへ固定したcloneまたはsubmoduleは別archiveを取得せず通常Runtimeを利用できる。GitHub Releaseへ同じ内容の独自ZIPを追加しない。GitHubが自動生成するSource archiveもRuntime配布契約または検証対象にしない。
 

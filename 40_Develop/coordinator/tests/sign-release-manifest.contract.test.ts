@@ -18,7 +18,6 @@ import {
   preflightReleaseManifest,
 } from "../scripts/sign-release-manifest.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
-import { createNativeBootstrapPeFixture } from "./native-bootstrap-pe-fixture.ts";
 
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
@@ -448,30 +447,14 @@ function placementFixture() {
     "coordinator",
     "coordinator-package-manifest.json",
   );
-  const supervisorPath = path.join(
-    distributionRoot,
-    "template",
-    "tools",
-    "coordinator",
-    "windows-x64",
-    "coordinator.exe",
-  );
   fs.mkdirSync(path.dirname(executablePath), { recursive: true });
-  fs.mkdirSync(path.dirname(supervisorPath), { recursive: true });
   fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
-  fs.writeFileSync(
-    supervisorPath,
-    createNativeBootstrapPeFixture(
-      "64b471129ecaf7520da80865cec614b8c75ea0149582ab08f577ea29c647385a",
-    ),
-  );
   const observation = beginReleaseStagingManifestSession(distributionRoot);
   assert.ok(observation);
   return {
     parent,
     distributionRoot,
     executablePath,
-    supervisorPath,
     manifestPath,
     token: observation.token,
     canonicalBytes: ephemeralEnvelopeBytes(),
@@ -509,93 +492,17 @@ function assertStagingFailure(
   }
 }
 
-test("両Rust成果物の各単独欠落ではRelease staging sessionを開始しない", () => {
-  const cases = ["platform-access", "native-supervisor"] as const;
-  for (const missing of cases) {
-    const parent = fs.mkdtempSync(
-      path.join(os.tmpdir(), "crdd-staging-missing-"),
-    );
-    const distributionRoot = path.join(parent, "distribution");
-    const executablePath = path.join(
-      distributionRoot,
-      "template",
-      "tools",
-      "coordinator",
-      "windows-x64",
-      "crdd-platform-access.exe",
-    );
-    const supervisorPath = path.join(
-      distributionRoot,
-      "template",
-      "tools",
-      "coordinator",
-      "windows-x64",
-      "coordinator.exe",
-    );
-    try {
-      fs.mkdirSync(path.dirname(executablePath), { recursive: true });
-      fs.mkdirSync(path.dirname(supervisorPath), { recursive: true });
-      if (missing !== "platform-access") {
-        fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
-      }
-      if (missing !== "native-supervisor") {
-        fs.writeFileSync(supervisorPath, createNativeBootstrapPeFixture());
-      }
-      assert.equal(beginReleaseStagingManifestSession(distributionRoot), null);
-    } finally {
-      fs.rmSync(parent, { recursive: true, force: true });
-    }
-  }
-});
-
-test("supervisor内部Worker結合と実Worker Hashの不一致ではsessionを開始しない", () => {
+test("Platform Access成果物欠落ではRelease staging sessionを開始しない", () => {
   const parent = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-binding-mismatch-"),
-  );
-  const distributionRoot = path.join(parent, "distribution");
-  const executablePath = path.join(
-    distributionRoot,
-    "template",
-    "tools",
-    "coordinator",
-    "windows-x64",
-    "crdd-platform-access.exe",
-  );
-  const supervisorPath = path.join(
-    distributionRoot,
-    "template",
-    "tools",
-    "coordinator",
-    "windows-x64",
-    "coordinator.exe",
+    path.join(os.tmpdir(), "crdd-staging-missing-"),
   );
   try {
-    fs.mkdirSync(path.dirname(executablePath), { recursive: true });
-    fs.mkdirSync(path.dirname(supervisorPath), { recursive: true });
-    fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
-    fs.writeFileSync(
-      supervisorPath,
-      createNativeBootstrapPeFixture("2".repeat(64)),
-    );
-    assert.equal(beginReleaseStagingManifestSession(distributionRoot), null);
-  } finally {
-    fs.rmSync(parent, { recursive: true, force: true });
-  }
-});
-
-test("native PE policy不一致ではstaging sessionもFilesystem Effectも開始しない", () => {
-  const value = placementFixture();
-  try {
-    const bytes = fs.readFileSync(value.supervisorPath);
-    bytes[0x800] = 0xcb;
-    fs.writeFileSync(value.supervisorPath, bytes);
     assert.equal(
-      beginReleaseStagingManifestSession(value.distributionRoot),
+      beginReleaseStagingManifestSession(path.join(parent, "distribution")),
       null,
     );
-    assert.equal(fs.existsSync(value.manifestPath), false);
   } finally {
-    fs.rmSync(value.parent, { recursive: true, force: true });
+    fs.rmSync(parent, { recursive: true, force: true });
   }
 });
 
@@ -676,7 +583,7 @@ test("manifestの同長上書き、短縮および追記をcreatedへ流用し�
   }
 });
 
-test("manifest Path、Release DirectoryまたはRust成果物群の配置後差を拒否して自動削除しない", {
+test("manifest Path、Release DirectoryまたはPlatform Access成果物の配置後差を拒否して自動削除しない", {
   concurrency: false,
 }, () => {
   const cases = [
@@ -691,9 +598,6 @@ test("manifest Path、Release DirectoryまたはRust成果物群の配置後差�
     },
     (value: ReturnType<typeof placementFixture>) => {
       fs.writeFileSync(value.executablePath, "replacement");
-    },
-    (value: ReturnType<typeof placementFixture>) => {
-      fs.writeFileSync(value.supervisorPath, "replacement");
     },
   ];
   for (const mutate of cases) {
@@ -822,19 +726,6 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
         "windows-x64",
       ),
       { recursive: true },
-    );
-    fs.writeFileSync(
-      path.join(
-        distributionRoot,
-        "template",
-        "tools",
-        "coordinator",
-        "windows-x64",
-        "coordinator.exe",
-      ),
-      createNativeBootstrapPeFixture(
-        "181974aa7e6fd7533c5976b03e88a623a0644f6073398fef0d45c28e3e52c843",
-      ),
     );
     fs.mkdirSync(
       path.join(distributionRoot, "40_Develop", "coordinator", "src"),

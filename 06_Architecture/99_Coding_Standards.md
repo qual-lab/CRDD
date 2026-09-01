@@ -50,7 +50,7 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 | 通常のJSONファイル | ASCII `kebab-case` | `provider-profile.json` |
 | Pythonファイル | ASCII `kebab-case` | `provider-egress-proxy.py` |
 | Plain text成果物 | ASCII `kebab-case` | `general-task-verification.txt` |
-| 固定Native実行物 | ASCII `kebab-case` | `coordinator.exe`, `crdd-platform-access.exe` |
+| 固定Native実行物 | ASCII `kebab-case` | `crdd-platform-access.exe` |
 | 版固定Policy成果物 | ASCII `kebab-case`のsubject＋`-<major>.<minor>.<patch>.policy` | `windows-docker-desktop-4.41.2.policy` |
 | Dockerfile | ASCII `kebab-case`のsubject＋`.Dockerfile` | `provider-egress-proxy.Dockerfile` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |
