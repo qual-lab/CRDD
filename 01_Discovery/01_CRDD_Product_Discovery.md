@@ -479,7 +479,7 @@ PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠か
 | CRDD v0.18.0 — 自己適用で完了した改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性 | 採用した対象の実装検証・内容採用は完了（[CHG-000055](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md)） | 根拠を保持し、リリースへ引き渡す | 総合的な性能優位、Releaseまたはv0.19.0以降の研究候補の収載 |
 | CRDD v0.19.0 | MCPの薄い協働接続面、単一Project／Repository、Objective Planning、Task Graph、最大5並列、Progress、Replanning、Integration、および工程内ReasoningのContext化を自己適用する | `Adopted / In Progress`（[§8](#v019-minimum-project-runtime)、[§9](#v019-reasoning-context)、[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)、[CHG-000058](../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md)） | Project Runtimeの工程設計・実装・E2E・Utility評価と、認知推論／選択推論の代表経路による自己適用および独立Closure | 複数Project／Repository、常設自律Runtime、専用PM System、Organization Runtime、全工程共通の固定Reasoning Schema |
 | CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループを、人間とAIの組織（Human × AI Organization）で成立させる | `Held / Unscheduled` | 協働接続面とエコシステム自己適用から、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |
-| CRDD v1.x（将来能力像） | 単一Projectの運営モデル（Operating Model）を保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |
+| CRDD v1.x（将来能力像） | 単一Projectの運営モデル（Operating Model）を保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、macOS、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |
 | CRDD v2.x（将来能力像） | 調整と最適化の観測範囲をProjectから複数Project／Organizationへ広げ、依存、優先順位、Capacity、Riskおよび投資判断へ根拠を提供する | `Held / Unscheduled` | 単一Project境界の成熟と、Organization Scopeの価値、情報、安全およびAuthority設計 | Project Authorityの上位継承、横断Effect、予算消費、優先順位変更、Provider起動または外部送信の自動認可 |
 | 将来（Future） | Product、Development、Operationその他のOrganization Contextを接続し、人間がCodeからFeature、Project、Portfolio、Organizationへ扱う抽象度を上げる | `Held / Unscheduled` | 前段の実測から新しい利用者価値または責務候補が生じ、人間が探索開始を判断した時点 | 一人企業OS（One-Person Company OS）の製品要件、Release計画または無制限のAI Authority |
 
@@ -521,7 +521,7 @@ CRDDの共有責務境界を太らせないことは、その変更の絶対禁�
 
 成功単位は個別Taskの合格や並列起動数ではなく、統合済みのObjectiveまたはMilestoneが受入条件を満たすこととする。常に5並列せず、Dependency、共有資源、ファイル・仕様・判断の競合、Authority、Lock、Provider利用枠および統合境界から実効並行度を決める。進捗率はMilestoneへCommitした項目の完了数だけで算出し、Quality、Blocker、Risk、Human Decision、Critical Pathおよび未確認事項を別に示す。
 
-複数Project、複数Repository、Organization Runtime、常設自律運転、Schedule／Repository Event起点の自動Objective生成、無制限Worker Pool、完全自動Quota最適化、Self-hosted Provider、Linux常設Runtimeおよび外部課題管理との本格同期は対象外である。これらをv0.19の内部Taskとして追加せず、現在の受入条件へ必要か不明な改善は不足Evidenceを確認してからCurrent Scopeまたは将来候補へ分ける。
+複数Project、複数Repository、Organization Runtime、常設自律運転、Schedule／Repository Event起点の自動Objective生成、無制限Worker Pool、完全自動Quota最適化、Self-hosted Provider、Linux／macOS Runtimeおよび外部課題管理との本格同期は対象外である。これらをv0.19の内部Taskとして追加せず、現在の受入条件へ必要か不明な改善は不足Evidenceを確認してからCurrent Scopeまたは将来候補へ分ける。
 
 ### 8.3. 実施と自己適用
 

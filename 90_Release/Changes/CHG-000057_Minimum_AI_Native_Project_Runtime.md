@@ -98,8 +98,8 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 現在のCoordinatorはSingle Task Runtimeであるため、I1からI6は一つの巨大Taskとして委譲しない。D0で固定した境界ごとに実装Taskを作り、各Taskの候補を独立確認した後、段階単位の結合結果へ統合する。ExecutorまたはReviewerのProvider選択はCoordinator Policyに従い、本計画の設計意味を特定Providerへ結合しない。
 
-## 10. Linux対応を見据えた今回の境界
+## 10. Linux／macOS対応を見据えた今回の境界
 
-Linux Runtimeの実装、配布、認証、回復および実Provider E2Eはv0.19の対象外とする。一方、I1では、Project Runtime Coreへ新しいWindows固有依存を持ち込まず、現在実在するOS依存を[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-platform-boundary)のPlatform Contractへ閉じる。
+Linux／macOS Runtimeの実装、配布、認証、回復および実Provider E2Eはv0.19の対象外とする。一方、I1では、Project Runtime Coreへ新しいWindows固有依存を持ち込まず、現在実在するOS依存を[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-platform-boundary)のPlatform Contractへ閉じる。MCPはTransport AdapterとしてPlatform Contractと直交させ、stdio／HTTP等の搬送方式や対象OSが変わってもProject Model、Authority、状態遷移および成功条件を変えない。
 
-v0.19で成立させるのは、Windows Adapterが現在の保証を保持し、将来Linux Adapterを追加してもProject Model、Authority、Task Graph、Integrationまたは受入意味を変更しない境界までである。Linux向けのUID／GID、Filesystem保護、Process group、Container、Lock、ConsoleおよびRecoveryは、実在する利用条件と同等保証の検証計画を伴う後続変更として判断する。未実装Linux Adapter、空の互換層、OS名だけの抽象化または保証を弱めたfallbackを追加しない。
+v0.19で成立させるのは、Windows Adapterが現在の保証を保持し、将来Linux／macOS Adapterを追加してもProject Model、Authority、Task Graph、Integrationまたは受入意味を変更しない境界までである。各OSのUser／Filesystem保護、Process、Container、Lock、ConsoleおよびRecoveryは、実在する利用条件と同等保証の検証計画を伴う後続変更として判断する。未実装Adapter、空の互換層、OS名だけの抽象化または保証を弱めたfallbackを追加しない。

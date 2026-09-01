@@ -49,6 +49,35 @@ Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ
 
 開発時の静的LintとFormatterは、Repository rootの`biome.json`を正本とするBiome 2.5.6へ固定する。BiomeはdevDependencyに限定し、Runtime成果物または実行時依存へ含めない。Lint、Formatter確認、TypeScript型検査およびRuntime testは別の確認軸として実行し、一つの成功を他の成功へ流用しない。既存Scriptへ一括自動修正を適用せず、移行または是正する単位ごとに整形と意味回帰を確認する。
 
+### 2.2. Platformと外部接続の境界
+
+CRDD公式Repositoryで新しいToolまたはRuntimeを設計する場合、業務・Project・Authority・状態遷移等のCore契約を、OS固有処理およびCLI／MCP／HTTP等のTransport固有処理から分離する。現在一つのOSまたはTransportだけを実装する場合も、Coreの意味へWindows Path、SID、DACL、POSIX mode、UID／GID、signal、Console、service manager、Container HostまたはTransport sessionを直接持ち込まない。
+
+```text
+External Interface Contract
+  ├ CLI Adapter
+  ├ MCP Adapter
+  └ Future Transport Adapter
+        ↓
+Tool／Runtime Core
+        ↓
+Platform Contract
+  ├ Windows Adapter
+  ├ Linux Adapter
+  └ macOS Adapter
+```
+
+これは全Platform、全Transportまたは空のAdapterを先に実装する規則ではない。現在実在するOS／Transport依存とCore責務の境界だけを抽出し、未実装対象は未対応としてFail Closedにする。Platform名の分岐、共通Interfaceまたはstubの存在だけを互換性へ読み替えない。
+
+- Platform間では同じ機構ではなく、Authority、Identity、分離、Effect制限、cleanup、RecoveryおよびEvidenceの同じ保証を要求する。
+- Transport Adapterはdecode／encode、request identity、取消通知および接続状態だけを所有し、CoreのAuthority、Project Model、状態遷移、Repository操作または成功条件を生成しない。
+- CoreからOS固有moduleまたはTransport実装を直接参照する必要が生じた場合は、Adapter境界不足としてArchitectureへ戻す。単なる文字列整形、純粋なdata変換または既存の標準library型まで無意味にAdapter化しない。
+- 対応Platform／Transportごとに、Build成果物、署名またはTrust Identity、必要環境、成立保証、未対応機能および検証済み範囲を明示する。未実装Platformを別Platformへ自動fallbackしない。
+- Windows、LinuxおよびmacOSで方式が異なる場合、最小公分母へ保証を弱めず、各Adapterで同じCore要求を満たす。満たせない保証は対応済みと表示しない。
+- 将来のToolも、最初のOS固有API、Filesystem規則、Process制御、Container接続またはTransport固有状態を追加する時点で、Coreに属する意味とAdapterが所有する方式を設計・試験へ分ける。
+
+Platform Adapterの追加は、新しいBuild、配布、Threat Model、移行、検証およびRelease判断を伴う独立した対応である。CoreがPlatform非依存であることだけから、そのPlatformで利用可能または安全と主張しない。
+
 ## 3. ファイルとフォルダ
 
 ### 3.1. 基本形式

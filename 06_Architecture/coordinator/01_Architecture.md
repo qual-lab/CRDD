@@ -439,6 +439,8 @@ Task、Reviewer、MCP Client、Provider出力またはRepository内文書は、A
 
 MCP接続切断はTask取消の依頼になり得るが、終了確認ではない。切断後もParent CoordinatorがTask cleanupを完了し、結果を再取得可能なProject Stateへ保存する。request重複は同じOperationを二重発行せず、同じidempotency identityに対する現在状態を返す。入力不正、Project Binding不明またはAuthority不足ではSingle Task Runtimeを呼び出さずEffect 0で停止する。
 
+MCP AdapterはOS固有のConsole、Path、Process起動またはFilesystem IdentityをProject Coreへ持ち込まない。stdio／HTTP等の搬送方式とWindows／Linux／macOSのProcess・Filesystem方式を直交する境界として扱い、同じMCP requestを同じProject Runtime意味へ投影する。対応Platformごとにframing、UTF-8 byte、切断、取消、重複requestおよび終了後cleanupを実入口で確認するまで、その組合せを対応済みと表示しない。
+
 ### 14.8 正常・準正常・異常の設計基準
 
 | 分類 | 代表経路 | 必要な終了観測 |
@@ -461,20 +463,21 @@ Project Runtime Core
   → Platform Contract
       → Windows Adapter（v0.19の実装対象）
       → Linux Adapter（後続判断。v0.19では未実装）
+      → macOS Adapter（後続判断。v0.19では未実装）
 ```
 
 Platform Contractは、実在する次の保証境界から抽出する。
 
-| 境界 | Coreが要求する保証 | Windows Adapterの現在方式 | Linuxで将来検討する方式の例 |
-|---|---|---|---|
-| Principal／Provider Home | 選択ユーザー、固定Home Identity、所有・書込み主体、non-linkを検証 | Token、SID、Known Folder、DACL、reparse観測 | UID／GID、mode／ACL、canonical local filesystem、symlink拒否 |
-| Filesystem／Repository | Root、Revision、Path、Identity、原子的更新、隔離を検証 | Windows handle／file identity、固定Root、atomic replace | directory fd、inode／device、`openat2`等の境界付き解決、atomic rename |
-| Lock／Lease | OS排他、owner generation、生存観測、時刻だけでない奪取 | named pipe／Windows kernel object、Process観測 | file descriptor lock、process identity、必要に応じたservice manager連携 |
-| Process／取消 | argv、環境、Process tree、signal、終了、owner lossを観測 | Windows Process／Job／Console境界 | process group、signal、pidfd／cgroup等の観測 |
-| Container Host | 固定image、Network、mount、Process、cleanupを確認 | Docker Desktop Linux EngineとWindows Host接続 | Linux Docker Engineまたは同等の固定Container Runtime |
-| Runtime Root／Recovery | OS管理Root、権限、資源Identity、回復後不存在を確認 | Local App Data等の固定RootとWindows native観測 | XDG／system service等の明示RootとLinux native観測 |
+| 境界 | Coreが要求する保証 | Windowsの現在方式 | Linuxの将来候補例 | macOSの将来候補例 |
+|---|---|---|---|---|
+| Principal／Provider Home | 選択ユーザー、固定Home Identity、所有・書込み主体、non-linkを検証 | Token、SID、Known Folder、DACL、reparse観測 | UID／GID、mode／ACL、local filesystem、symlink拒否 | UID／GID、POSIX ACL、Application Support等の明示Root、symlink拒否 |
+| Filesystem／Repository | Root、Revision、Path、Identity、原子的更新、隔離を検証 | Windows handle／file identity、固定Root、atomic replace | directory fd、inode／device、境界付きPath解決、atomic rename | directory fd、inode／device、`openat`／`fstatat`等の境界付き解決、atomic rename |
+| Lock／Lease | OS排他、owner generation、生存観測、時刻だけでない奪取 | named pipe／Windows kernel object、Process観測 | file descriptor lock、process identity、必要に応じたservice manager連携 | `flock`／`fcntl`等のKernel lock、process identity、必要に応じたlaunch service連携 |
+| Process／取消 | argv、環境、Process tree、signal、終了、owner lossを観測 | Windows Process／Job／Console境界 | process group、signal、pidfd／cgroup等の観測 | process group、signal、process／event観測 |
+| Container Host | 固定image、Network、mount、Process、cleanupを確認 | Docker Desktop Linux EngineとWindows Host接続 | Linux Docker Engineまたは同等の固定Container Runtime | 明示管理したVM／Container Runtimeと固定Host接続 |
+| Runtime Root／Recovery | OS管理Root、権限、資源Identity、回復後不存在を確認 | Local App Data等の固定RootとWindows native観測 | XDG／system service等の明示RootとLinux native観測 | Application Support／Launch service等の明示RootとmacOS native観測 |
 
-右端は設計拘束ではなく、将来の専門探索候補である。同じAPI名または実装方式を要求せず、同じ保証を要求する。Linux方式を先に固定せず、Linux Adapterを追加する変更で脅威、権限、配布、更新、cleanup、Recoveryおよび実測方法を確定する。
+Linux／macOSの列は設計拘束ではなく、将来の専門探索候補である。同じAPI名または実装方式を要求せず、同じ保証を要求する。各Adapterを追加する変更で、対象OSの脅威、権限、配布、更新、cleanup、Recoveryおよび実測方法を確定する。
 
 v0.19の責務分離では次を満たす。
 
@@ -482,9 +485,9 @@ v0.19の責務分離では次を満たす。
 - 既存Single Task RuntimeのWindows固有処理は、意味変更を伴わない単位からPlatform Adapterの背後へ移し、移行前後の同じ契約試験で保証を照合する。
 - Platform AdapterはAuthorityを生成せず、Runtime Coreが与えた閉じたrequestを観測・限定操作へ変換する。
 - 未実装PlatformをWindowsへfallbackせず、Platform Identity不明、Adapter不在または保証未成立ではEffect 0で停止する。
-- Linux対応を理由にWindowsのSID／DACL、AppContainer、named pipe、Docker Desktop Recovery等の成立条件を弱めない。
+- Linux／macOS対応を理由にWindowsのSID／DACL、AppContainer、named pipe、Docker Desktop Recovery等の成立条件を弱めない。反対にWindows方式を他OSへ名前だけ移植しない。
 
-この境界の完成はLinux対応の完成を意味しない。Linux対応は別の成果物、Build、署名Identity、検証母集団およびRelease判断を必要とする。
+この境界の完成はLinux／macOS対応の完成を意味しない。各Platform対応は別の成果物、Build、署名Identity、検証母集団およびRelease判断を必要とする。
 
 ## 15. 非目標
 
