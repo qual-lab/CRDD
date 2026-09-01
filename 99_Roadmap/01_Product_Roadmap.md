@@ -18,11 +18,11 @@ Related:
 
 ## 1. 現在の未完了作業
 
-2026-09-01、検証済み候補の内容と移行方針を人間が採用し、PR #32をmainへ統合してv0.18.0を公開した。Runtime完成、工程接続、根拠駆動リファクタリング、命名、本文可読性およびツール配置は、根拠を各CHG・品質記録へ接続して本登録簿から除去した。v0.18.1のCoordinator新規採用入口是正は、依存閉包の構造是正とローカル契約試験を完了し、署名前プレチェック中である。署名、採用形態E2E、4経路、Recovery、独立再確認およびRelease判断を残す。公開状態は公式タグまたは同等の不変なRelease識別子で確認する。
+2026-09-01、検証済み候補の内容と移行方針を人間が採用し、PR #32をmainへ統合してv0.18.0を公開した。Runtime完成、工程接続、根拠駆動リファクタリング、命名、本文可読性およびツール配置は、根拠を各CHG・品質記録へ接続して本登録簿から除去した。v0.18.1のCoordinator新規採用入口是正は、依存閉包の構造是正、署名前プレチェック、署名、採用形態E2E、4経路およびRecoveryを完了した。文書反映後のIdentity不変確認、独立再確認およびRelease判断を残す。公開状態は公式タグまたは同等の不変なRelease識別子で確認する。
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| Coordinator新規採用入口とRuntime実行Identityの是正 | —（非適用） | In Progress | [CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md) | Source Aの構造是正とローカル契約試験は完了。署名前プレチェックを収束後、署名、fresh clone／submodule一般Task、4経路、Recovery、同一固定候補の独立再確認を終えてRelease判断へ戻す |
+| Coordinator新規採用入口とRuntime実行Identityの是正 | —（非適用） | In Progress | [CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md) | 現行署名Identityでfresh clone／submodule一般Task、4経路4/4、Recovery 7シナリオ完了。Identity不変確認と同一固定候補の独立再確認後、Release判断へ戻す |
 | CRDD長期発展の上位方向と能力地平の表示枠組み | Adopted | Unscheduled | [長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針)、[CRDD版の発展](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 採用対象は人間可読な表示枠組みと根拠駆動の責務分離ループであり、具体的な将来能力は含めない。公開済みv0.18.0の結果と、第2段階で得た自己適用の根拠を再評価契機とする。専門能力はまずContextとRole／Skillで自己適用し、共有すべき正本情報または不変条件の不足がEvidenceで成立した場合だけ責務境界を再評価する |
 | 採用済み3項目を除く第2段階の実行観測候補および第3～第6段階の個別研究候補 | Held | Unscheduled | [長期発展方針の研究候補](../01_Discovery/01_CRDD_Product_Discovery.md#78-研究候補と保持条件)、[将来能力地平](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 第1段階の完成固定版と第2段階の最初の自己適用結果を得た後、価値、成立性、費用、安全性および責務境界を人間が再評価する。将来Versionは能力地平であり、版予約、収載、期限、実装許可またはReleaseを意味しない。Linux常設、複数Repository、MCP／HTTP、Self-hosted ProviderおよびOrganization Runtimeの実装許可を本行から推定しない |
 | 自律Operationの参照実証 | Exploring | Unscheduled | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界)、[将来互換性](../05_Autonomous_Operation.md#6-将来互換性の確認候補) | 週次プロダクトレビュー、Communication結果レビュー、Roadmap再評価、Repository Eventのうち判断を変え得る最小の実証を選ぶ。Runtime完成または明示的な人間判断を再評価契機とし、起動数ではなく判断価値、安全性、誤起動、収束、根拠および人間負荷で評価する |

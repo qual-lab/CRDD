@@ -1,14 +1,30 @@
-# v0.18.1 Coordinator Runtime実行Identityの候補検証履歴
+# v0.18.1 Coordinator Runtime実行Identityの検証結果
 
-状態: 旧固定候補の検証履歴、新しいRuntime実行Identityの固定待ち
+状態: 現行署名Identityの実測完了、最終独立確認待ち
 実行日: 2026-09-01（2026-09-02に独立確認結果を反映）
 対象変更: [CHG-000056](../../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)
 
 ## 結論
 
-共通起動入口から到達する署名・4経路・Recovery実装と、その推移的な静的依存を含む旧Runtime実行Identityに対し、新規clone、親Repository内submodule、4経路および復旧7シナリオを実行し、期待する結果を得た。その後の独立確認で、依存抽出が正規表現に依存し、コメント、非relative moduleおよび選択scriptの子Process／Worker targetをFail Closedに閉じていないことを検出したため、このIdentityは最終Authority根拠へ採用しない。
+字句解析、共通Launcher結合および選択scriptの子Process／Worker target結合を含むSource Aを署名前に独立確認し、Code、Document、History／Traceabilityの3系統すべてで指摘0件のPassを得た。そのSource AからRuntime実行Identityを署名し、manifest一件だけを加えた配布Commit Bを作成した。
 
-本結果は不採用候補の実行履歴であり、公開判断を代替しない。Source、ManifestおよびRuntime実行Identityを再識別できるように保持し、字句解析と子Process target結合を含む新しいIdentityの検証結果を同じ文書へ追加する。
+現行Identityに対し、新規clone、親Repository内submodule、4経路および復旧7シナリオを実行し、期待する結果を得た。Providerの一過性な不正JSON出力で最初の4経路行列がreverseにて安全停止したが、cleanup確認後の同一reverse単独実行と、新しい行列全体の再実行は完了した。最終行列は4/4経路、再試行0、cleanup確認済みである。本結果は公開判断を代替しない。
+
+## 現行署名Identity
+
+| 対象 | 値 |
+|---|---|
+| Source A Commit | `0211aaa4a61f4380104e720bb16de499972ac423` |
+| Source A Tree | `27908bc8735a8a9d9b23e769cdb0449d690a3f74` |
+| manifest-only B Commit | `2e70cfc2c4e37f465f84fb5108c58f299bad5b31` |
+| manifest-only B Tree | `41a575fa6b47ca16660510dbda222c5670c5a80b` |
+| Runtime実行Identity | `e290df01fc74ce6bc582c270058d99d9ddd156867e3397da967e868441dd9d41` |
+| Package content root | `e264c1cb39ab019ddb5c66740755825b14255481badfc7c2e6409c216d694fe7` |
+| Manifest identity | `d474b837786857fc254c812c32a7986494d4ba25f8da9ca610262f9e46a46693` |
+| Manifest file SHA-256 | `475e24422617c80c7b574a2b3b92a1d14c29946b7c50e5724be22ff44f4f7a34` |
+| Release sequence | `2026090107` |
+
+Source AからBまでの変更Pathは`template/tools/coordinator/coordinator-package-manifest.json`一件だけである。B上のPackage検証はSource A、Package root、Manifest署名およびRuntime実行Identityの一致を確認した。
 
 ## 不採用になった固定Identity
 
@@ -35,11 +51,11 @@ Source AからBまでの変更Pathは`template/tools/coordinator/coordinator-pac
 | 新規clone | `completed` / `coordinator_task_candidate_approved` | 確認済み | なし | 発行後に破棄 |
 | 親Repository＋submodule | `completed` / `coordinator_task_candidate_approved` | 確認済み | なし | 発行後に破棄 |
 
-ローカル結果SHA-256は`3e486918d1b07b120f552f0be826a4ef35eca0ba321ff0962836be0203a7d884`である。Provider生出力、Host Pathまたは秘密を本記録へ転記しない。API key、従量課金fallbackおよび追加購入は使用していない。
+新規cloneの記録IDは`20d5d4d5-0b30-445f-99a6-52c1c6580f44`、親Repository＋submoduleの記録IDは`4e1d8f5a-3608-4d16-834a-62685bd457ca`である。集約SHA-256は`941a7d36b33d18c915952bf05575e7a6bb0befdce2fba1c98cf0f4956b8c80cb`である。両方で実行前後のExecution Revision一致、Candidate base一致、exact capability、候補発行・破棄、正本不変およびcleanupを確認した。Provider生出力、Host Pathまたは秘密を本記録へ転記しない。API key、従量課金fallbackおよび追加購入は使用していない。
 
 ## 4経路
 
-記録IDは`e06c7b53-e861-46fa-92d8-851d2f03d575`、結果SHA-256は`161ca169cf2715297f13280c908a4e177d4cf2eb4b6269d43c74daf4f03e5027`である。
+完了記録IDは`3eaeaea5-7191-46ce-8424-dc97e99b7932`、結果SHA-256は`f2415476e4198a29d0adc5a2e7e73fd993ab445df7f4f3a2dfebaea57471a4c9`である。
 
 - forward
 - reverse
@@ -50,7 +66,7 @@ Source AからBまでの変更Pathは`template/tools/coordinator/coordinator-pac
 
 ## 復旧
 
-記録IDは`d65be967-8702-4d03-b5b5-1d06339c4b19`、結果SHA-256は`f06109890334864b96256e3f3bf29306ce97dbb11a00e66a8dfbc50b28dc685c`である。
+記録IDは`96e53dc3-21a1-4929-a1da-4f2a2bac631b`、結果SHA-256は`cb66d653e5b7abdd8afdd740d2387804e630f2e9aed6ec4ed4b37c3e33d691bc`である。
 
 - timeout
 - 出力量超過
@@ -64,12 +80,13 @@ Source AからBまでの変更Pathは`template/tools/coordinator/coordinator-pac
 
 ## 機械確認
 
-- Source AでCoordinator試験1351/1351、Windows Process Gate 7/7、直接影響試験、型検査、Traceability、lint、formatを確認した。
-- manifest-only Bと本記録作成前の全体Checkerは、Markdown 391件、リンク2708件、Anchor 923件を確認し、Error 0、Warning 0だった。
+- Source AでCoordinator試験1352/1352、Windows Process Gate 7/7、依存閉包・Launcherの直接影響試験27/27、型検査、Traceability、lint、formatを確認した。
+- manifest-only Bと本記録作成前の全体Checkerは、Markdown 392件、リンク2710件、Anchor 921件を確認し、Error 0、Warning 0だった。
+- 署名前プレチェックはCode、Document、History／Traceabilityの3系統すべてで指摘0件のPassだった。
 - 本記録を含む最終文書候補では、Runtime実行Identityの不変確認、全体Checkerおよび独立再確認を改めて行う。
 
 ## 限界と次のGate
 
 本検証はWindows Local Personal Profile、固定Node.js、固定Docker Desktop、選択済みのCodex／Claude Code Subscriptionおよび固定公開Taskを対象とする。全OS、全Provider、任意TaskまたはProvider内部処理を一般化しない。
 
-残るGateは、字句解析、literal Launcher結合および選択scriptの子Process／Worker target結合を含む新しいRuntime実行Identityの署名、新規clone／submodule一般Taskの実行Revisionを含む再実測、4経路、Recovery、同じ固定候補に対するArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceの独立再確認、および人間による統合・Release判断である。
+残るGateは、文書反映後もRuntime実行Identityが不変であることの確認、同じ固定候補に対するArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceの独立再確認、および人間による統合・Release判断である。
