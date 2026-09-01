@@ -31,11 +31,12 @@ import {
   salvageSignedRunnerNullableRecovery,
   salvageSignedRunnerRecoveryPair,
 } from "../src/security/signed-runner-safety-observation.ts";
+import { inspectRepositoryRevisionCandidate } from "../src/security/repository-operation-runtime.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 19;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 20;
 
 const TARGET_PATH =
   "40_Develop/coordinator/runtime/general-task-verification.txt";
@@ -108,6 +109,8 @@ export type SignedGeneralTaskVerificationResult = RuntimeRecord &
     changedPaths?: readonly string[];
     crddCommit?: string;
     crddTree?: string;
+    executionCommit?: string;
+    executionTree?: string;
     requestedRouteProfile?: SignedGeneralTaskRouteProfile;
     route?: string;
     requestedFrontProvider?: "codex" | "claude";
@@ -138,6 +141,10 @@ type ReleaseIdentity = RuntimeRecord &
     crddCommit: string;
     crddTree: string;
   }>;
+type ExecutionRevision = Readonly<{
+  commit: string;
+  tree: string;
+}>;
 type CancellationBinding = Readonly<{
   unbind: () => void;
   requested: () => boolean;
@@ -162,6 +169,7 @@ type VerificationDependencies = Readonly<{
   cancelTask: (controlCapability: object) => unknown;
   readCandidate: (candidateId: string) => RuntimeRecord | null;
   discardCandidate: (candidateId: string) => RuntimeRecord;
+  inspectRepositoryRevision: (repositoryRoot: string) => unknown;
   readBaseContent: (repositoryRoot: string) => Buffer;
   now: () => string;
   runtimeVersion: () => string;
@@ -239,6 +247,7 @@ const productionDependencies: VerificationDependencies = Object.freeze({
   cancelTask: cancelRuntimeOwnedCoordinatorTask,
   readCandidate: readRuntimeOwnedCandidateBundle,
   discardCandidate: discardRuntimeOwnedCandidateBundle,
+  inspectRepositoryRevision: inspectRepositoryRevisionCandidate,
   readBaseContent: (repositoryRoot) =>
     readFileSync(path.join(repositoryRoot, ...TARGET_PATH.split("/"))),
   now: () => new Date().toISOString(),
@@ -765,7 +774,8 @@ function verifiedPackage(
 
 function taskResultContractMismatch(
   result: RuntimeRecord | null,
-  release: ReleaseIdentity,
+  executionRevision: ExecutionRevision,
+  executionRevisionMismatch: string | null,
   route: RouteExpectation,
 ) {
   const candidateRevision = plainRecord(result?.candidateRevision);
@@ -790,10 +800,11 @@ function taskResultContractMismatch(
     return "external_send_authorization_mode";
   if (typeof result.remediationPerformed !== "boolean")
     return "remediation_performed";
+  if (executionRevisionMismatch !== null) return executionRevisionMismatch;
   if (!candidateRevision) return "candidate_revision";
-  if (candidateRevision.baseCommit !== release.crddCommit)
+  if (candidateRevision.baseCommit !== executionRevision.commit)
     return "candidate_base_commit";
-  if (candidateRevision.baseTree !== release.crddTree)
+  if (candidateRevision.baseTree !== executionRevision.tree)
     return "candidate_base_tree";
   if (!sha256(candidateRevision.patchHash)) return "candidate_patch_hash";
   if (!sha256(candidateRevision.contentManifestHash))
@@ -980,6 +991,33 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
+  let executionRevision: ExecutionRevision | null = null;
+  try {
+    const observed = plainRecord(
+      dependencies.inspectRepositoryRevision(repositoryRoot),
+    );
+    if (
+      observed?.status === "candidate" &&
+      isCanonicalCrddGitObjectId(observed.commit) &&
+      isCanonicalCrddGitObjectId(observed.tree) &&
+      isSupportedCrddRuntimeGitObjectId(observed.commit) &&
+      isSupportedCrddRuntimeGitObjectId(observed.tree)
+    ) {
+      executionRevision = Object.freeze({
+        commit: observed.commit,
+        tree: observed.tree,
+      });
+    }
+  } catch {
+    // The execution repository revision remains unconfirmed.
+  }
+  if (!executionRevision) {
+    return blocked(
+      "signed_general_task_repository_revision_observation_failed",
+      release,
+      Object.freeze({ canonicalRepositoryChanged: false }),
+    );
+  }
   let baseContentMatches = false;
   try {
     const baseContent = dependencies.readBaseContent(repositoryRoot);
@@ -1100,6 +1138,30 @@ export async function runSignedGeneralTaskVerification(
       )
         ensureRuntimeProcessPoisoned();
 
+      let executionRevisionMismatch: string | null =
+        "execution_repository_revision_observation_unknown";
+      try {
+        const observed = plainRecord(
+          dependencies.inspectRepositoryRevision(repositoryRoot),
+        );
+        if (
+          observed?.status === "candidate" &&
+          isCanonicalCrddGitObjectId(observed.commit) &&
+          isCanonicalCrddGitObjectId(observed.tree) &&
+          isSupportedCrddRuntimeGitObjectId(observed.commit) &&
+          isSupportedCrddRuntimeGitObjectId(observed.tree)
+        ) {
+          executionRevisionMismatch =
+            observed.commit !== executionRevision.commit
+              ? "execution_repository_commit_changed"
+              : observed.tree !== executionRevision.tree
+                ? "execution_repository_tree_changed"
+                : null;
+        }
+      } catch {
+        // Unknown observation fails closed after candidate cleanup.
+      }
+
       const candidateId = taskResult.candidateId;
       let candidateMismatch: string | null = "candidate_not_read";
       if (typeof candidateId === "string") {
@@ -1144,11 +1206,17 @@ export async function runSignedGeneralTaskVerification(
       if (knownOutcome) {
         // Candidate cleanup result is already the authoritative outcome.
       } else if (
-        taskResultContractMismatch(taskResult, release, route) !== null
+        taskResultContractMismatch(
+          taskResult,
+          executionRevision,
+          executionRevisionMismatch,
+          route,
+        ) !== null
       ) {
         const resultContractMismatch = taskResultContractMismatch(
           taskResult,
-          release,
+          executionRevision,
+          executionRevisionMismatch,
           route,
         );
         const mismatchReason =
@@ -1201,6 +1269,8 @@ export async function runSignedGeneralTaskVerification(
           releaseSequence: release.releaseSequence,
           crddCommit: release.crddCommit,
           crddTree: release.crddTree,
+          executionCommit: executionRevision.commit,
+          executionTree: executionRevision.tree,
           requestedRouteProfile: routeProfile,
           route: route.route,
           requestedFrontProvider: route.frontProvider,

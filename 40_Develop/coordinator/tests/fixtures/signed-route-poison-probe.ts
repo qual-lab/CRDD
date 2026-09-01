@@ -53,6 +53,8 @@ function completed(
     releaseSequence: 18,
     crddCommit: "c".repeat(40),
     crddTree: "d".repeat(40),
+    executionCommit: "e".repeat(40),
+    executionTree: "f".repeat(40),
     requestedRouteProfile: route,
     route: expected[3],
     requestedFrontProvider: expected[0],

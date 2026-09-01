@@ -64,6 +64,8 @@ function completed(
     releaseSequence: 18,
     crddCommit: "c".repeat(40),
     crddTree: "d".repeat(40),
+    executionCommit: "e".repeat(40),
+    executionTree: "f".repeat(40),
     requestedRouteProfile: profile,
     route,
     requestedFrontProvider: front,
@@ -206,6 +208,7 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
     ["contractRevision", 4],
     ["manifestHash", undefined],
     ["crddCommit", "e".repeat(64)],
+    ["executionCommit", "e".repeat(64)],
     ["changedPaths", []],
     ["changedPaths", ["other.txt"]],
     ["requestedRouteProfile", "reverse"],
@@ -378,6 +381,39 @@ test("4経路は同一Release Identityへ固定し別Releaseを集約しない",
     assert.equal(result.completedRouteCount, 1, field);
     assert.equal(result.failedRouteProfile, "reverse", field);
     assert.equal(result.validationFailure, "release_identity_mismatch", field);
+  }
+});
+
+test("4経路は同一の実行Repository Identityへ固定し別Revisionを集約しない", async () => {
+  for (const [field, value] of [
+    ["executionCommit", "1".repeat(40)],
+    ["executionTree", "2".repeat(40)],
+  ] as const) {
+    let count = 0;
+    const result = await runSignedRouteMatrixVerification(
+      process.cwd(),
+      (async (_root, _dependencies, route) => {
+        count += 1;
+        const routeResult = completed(
+          route ?? "forward",
+          count === 1
+            ? "interactive_initial_consent"
+            : "reused_initial_consent",
+        );
+        return count === 2
+          ? Object.freeze({ ...routeResult, [field]: value })
+          : routeResult;
+      }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+    );
+    assert.equal(result.status, "blocked", field);
+    assert.equal(result.attemptedRouteCount, 2, field);
+    assert.equal(result.completedRouteCount, 1, field);
+    assert.equal(result.failedRouteProfile, "reverse", field);
+    assert.equal(
+      result.validationFailure,
+      "execution_identity_mismatch",
+      field,
+    );
   }
 });
 
@@ -561,7 +597,7 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 11);
+  assert.equal(contract.contractRevision, 12);
   assert.equal(
     contract.verificationFixture,
     "same_signed_tracked_base_marker_exact_token_replacement_for_every_route",
