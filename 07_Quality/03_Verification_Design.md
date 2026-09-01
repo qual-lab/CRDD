@@ -12,9 +12,9 @@ TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Ga
 
 | 判定対象 | 正常・準正常・異常の確認 | 保持する終了条件 |
 |---|---|---|
-| revision 2期限付き | 期限内、開始前、期限ちょうど、期限後、null拒否 | 旧V2署名byteと意味を維持 |
-| revision 3／4 | revision 3のnull期限互換読取り、revision 4の単一Platform Access成果物、発行後の複数日時、開始前拒否、UTC期限付きの境界 | revision 4だけを現行発行対象とし、nullの場合だけ時間上限を除く |
-| Schemaと署名 | 欠落・undefined・空文字・文字列null・不正日時・未知revision・envelope/payload不一致、期限改変、V2/V3混同 | 改変でAuthorityを発行しない |
+| 現行revision 4 | `expiresAt: null`の期限なし、UTC期限付き、単一Platform Access成果物、発行後の複数日時、開始前拒否、期限ちょうどと期限後 | revision 4と現行manifest署名domainだけを受理し、nullの場合だけ時間上限を除く |
+| 旧revision 2／3 | 旧payload、削除済みfield、旧manifest署名domain | 現行Runtimeは互換読取りやfallbackを行わず拒否する。公開済みv0.18.0成果物の履歴を無効化する意味ではない |
+| Schemaと署名 | 欠落・undefined・空文字・文字列null・不正日時・未知revision・envelope/payload不一致、期限改変、旧manifest署名domainの混入 | 改変でAuthorityを発行しない。package content rootの`CRDD\0PLATFORM-PROVISIONER-PACKAGE-CONTENT\0V2\0`は別契約として維持する |
 | 署名CLIと事前検査 | --no-expiry、--expires-at、両方・未指定・重複・不正指定 | 不正指定で秘密入力・署名・配置を発火しない |
 | TypeScript／Rust接続 | 同じ署名payloadの正常・異常ベクトルを両検証器へ渡す | canonical byte、domain、成果物結合を一致させる |
 | 既存の期限所有者 | Grant、同意、候補、準備記録の期限・取消の既存試験 | 期限なしmanifestから別の権限を延長しない |
@@ -25,7 +25,7 @@ TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Ga
 |---|---|---|
 | 正常 | 公式tagのclean clone／submodule、manifest-only配布B、署名対象親Commit Aとexact Tree、単一成果物Hashが一致。Task前後の作業対象Execution Revisionが同一で、Candidate baseもそのRevisionへ一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
 | 準正常 | non-zero固定publisher digestを宣言したPEで、追加DLL集合とAuthenticodeが一致 | manifest-onlyへfallbackせず追加防御を維持 |
-| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、Candidateが配布Aをbaseにする、Task中に作業対象Commit／Treeが変わる | Candidateを回収し、Provider Effectまたは成功結果を追加発行せずfail closed |
+| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、Candidateの`baseCommit`／`baseTree`が期待する作業対象Execution Revisionと異なる（配布AまたはBの誤使用を含む）、Task中に作業対象Commit／Treeが変わる | Candidateを回収し、Provider Effectまたは成功結果を追加発行せずfail closed。Task後のRevision変化と観測不能は、開始時Identity不一致とは別の結果として保持する |
 | 判定不能 | shallow／不完全Git履歴、配布Rootまたは作業対象Root／Revision不明、reparse／link、Task後のExecution Revision読取り不成立 | 配布Identityや作業対象の不変性を推定せずEffect 0または状態不明として停止 |
 
 対象は[仕様](../05_SPEC/01_Behavior_Specification.md)と[設計](../06_Architecture/01_Architecture.md)が所有する現行内部ツールである。今回の配置変更は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)、Runtimeの完成条件は[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)で追跡する。以下は検証義務の複製ではなく、その確認方法の対応表である。

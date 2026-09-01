@@ -4,7 +4,8 @@
 
 ## まず読む場所
 
-- v0.18.0 Candidateで現在何が変わるかを確認する場合は、次のCanonical CHG一覧から対象を読む。
+- v0.18.0で採用された変更を確認する場合は、次のCanonical CHG一覧から対象を読む。
+- 現在のv0.18.1候補によるCoordinator採用入口の是正は、固定7件の統合台帳へ追加せず、[CHG-000056](CHG-000056_Coordinator_Adoption_Interface_Correction.md)と[品質の現在状態](../../07_Quality/01_Quality_Center.md)から確認する。
 - 統合済みの旧CHG IDがどこへ移ったかを確認する場合は、[統合済み旧ID](#統合済み旧id)を読む。旧本文そのものが必要な場合だけ、各entryの固定Commitから`git show`で復元する。
 - SHA-256、固定byte、tag、旧Path等の機械検証情報は、通常利用者向け説明ではなく履歴Trustの検証入力である。現在のCapability、AuthorityまたはRelease状態をそこから推定しない。
 

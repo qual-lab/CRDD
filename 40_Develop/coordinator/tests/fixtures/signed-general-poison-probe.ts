@@ -145,6 +145,7 @@ const candidate = Object.freeze({
 let cancelAttempts = 0;
 let lateRequested = false;
 let hostilePromiseAccesses = 0;
+let repositoryRevisionObservations = 0;
 const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
   issuePackageCapability: () =>
     Object.freeze({ verification: release, capability: Object.freeze({}) }),
@@ -307,8 +308,27 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
           candidateStoreRecoveryId: null,
         })
       : Object.freeze({ status: "discarded" }),
-  inspectRepositoryRevision: () =>
-    Object.freeze({ status: "candidate", commit: baseCommit, tree: baseTree }),
+  inspectRepositoryRevision: () => {
+    repositoryRevisionObservations += 1;
+    if (repositoryRevisionObservations === 1)
+      return Object.freeze({
+        status: "candidate",
+        commit: baseCommit,
+        tree: baseTree,
+      });
+    if (scenario === "unbind_throw_repository_changed")
+      return Object.freeze({
+        status: "candidate",
+        commit: "9".repeat(40),
+        tree: baseTree,
+      });
+    if (scenario === "unbind_throw_repository_unknown") return null;
+    return Object.freeze({
+      status: "candidate",
+      commit: baseCommit,
+      tree: baseTree,
+    });
+  },
   readBaseContent: () => Buffer.from(BASE_CONTENT, "utf8"),
   now: () => "2026-08-27T00:00:00.000Z",
   runtimeVersion: () => "24.19.0",
@@ -323,7 +343,8 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       throw new Error("fixed_bind_throw");
     return Object.freeze({
       unbind: () => {
-        if (scenario === "unbind_throw") throw new Error("fixed_unbind_throw");
+        if (scenario.startsWith("unbind_throw"))
+          throw new Error("fixed_unbind_throw");
         if (scenario === "unbind_requests") lateRequested = true;
       },
       requested: () => {

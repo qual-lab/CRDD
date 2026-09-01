@@ -6,7 +6,7 @@
 - 判断日: 2026-08-16
 - 最終更新日: 2026-09-01
 - 対象: CRDD公式Repositoryの`40_Develop/**`（旧`tools/**`）、配布用`template/tools/**`、工程別の設計・品質文書配置と対応する規則・ひな型・利用側
-- 対象version: v0.18.0
+- 対象version: v0.18.0。v0.18.1ではCHG-000056に伴う配布成果物・検査入口の是正として再開
 - 変更分類: `breaking`
 - 移行要否: `migration_required: true`
 - 関連正本: [`19_Maintenance.md#33-internal-typescript-runtime`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`19_Maintenance.md#34-essential-correction-and-compatibility-boundary`](../../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)、[内部ツール・コーディング規約](../../06_Architecture/99_Coding_Standards.md)
@@ -163,7 +163,7 @@ Coordinatorは、移行経緯を本節へ、開発確認の順序を既存Workfl
 
 通常利用者の設定、公開Checkerの結果契約、Provider Authority、署名境界は変更しない。全Checker試験、所有Sourceの型・Lint・Format、全体Checkerを再確認し、結果を[実務残件の記録](CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#22-実務残件の横断確認と最終試験への接続)へ接続する。機械確認を最終独立監査の代用にはしない。
 
-本変更は未リリースである。最新固定改訂版の全確認がPassした後、v0.18.0のRelease統合へ引き渡す。統合前に旧`CHG-000016`／`000018`のEvidence導線、採用側Path移行、no-shim、Node minimumおよびRollbackを再確認する。
+この段落を記録したv0.18.0公開前時点では本変更は未リリースであり、最新固定改訂版の全確認後にRelease統合へ引き渡す計画だった。v0.18.0はその後公開済みである。旧`CHG-000016`／`000018`のEvidence導線、採用側Path移行、no-shim、Node minimumおよびRollbackを確認した当時の記録として保持する。
 
 上記のCHG統合方針について追加の人間判断は不要である。以下の配置移行で発生した履歴参照の判断とは区別する。
 
@@ -182,9 +182,9 @@ Coordinatorは、移行経緯を本節へ、開発確認の順序を既存Workfl
 | Coordinator README内の反復手順 | [Coordinator作業手順](../../19_Workflows/01_Coordinator_Runtime.md) | 発行担当と利用者の操作、入力、停止、結果の返却先を区別 |
 | 品質方針・確認方法・現在状態 | [品質の現在状態](../../07_Quality/01_Quality_Center.md) | 標準の品質保証構成を使用。過去Evidenceを集め直さない |
 
-この移行開始時点では、`template/tools`の採用先配布契約と`90_Release`内のnative成果物Pathを変更しない方針だった。後続の導入経路評価で、CRDD Repositoryをcloneまたはsubmoduleで取得した時点に、同じ基準版のRuntimeも利用可能であることを優先した。そのため、現在の配布正本は`template/tools/coordinator/`とし、`windows-x64/coordinator.exe`、`windows-x64/crdd-platform-access.exe`および配布manifestを同じ配布面へ集約する。`40_Develop`はソース・build・試験、`90_Release`はCHG・Evidence・公開状態を所有し、実行物の配布面にはしない。旧`tools`への互換shim、起動alias、第二ソース、別Download、ZIP、自動取得またはインストーラは追加しない。切戻す場合は個別の旧Pathを混在させず、以前の固定Repository／署名配布一式へ戻す。既存のRuntime状態や認証Homeを配置変更の理由で削除しない。
+この移行開始時点では、`template/tools`の採用先配布契約と`90_Release`内のnative成果物Pathを変更しない方針だった。後続の導入経路評価で、CRDD Repositoryをcloneまたはsubmoduleで取得した時点に、同じ基準版のRuntimeも利用可能であることを優先した。v0.18.0では配布正本を`template/tools/coordinator/`とし、`windows-x64/coordinator.exe`、`windows-x64/crdd-platform-access.exe`および配布manifestを同じ配布面へ集約した。現在のv0.18.1候補はCHG-000056により、単一`windows-x64/crdd-platform-access.exe`とrevision 4 manifestだけを現行配布契約とする。`40_Develop`はソース・build・試験、`90_Release`はCHG・Evidence・公開状態を所有し、実行物の配布面にはしない。旧`tools`への互換shim、起動alias、第二ソース、別Download、ZIP、自動取得またはインストーラは追加しない。切戻す場合は個別の旧Pathを混在させず、以前の固定Repository／署名配布一式へ戻す。既存のRuntime状態や認証Homeを配置変更の理由で削除しない。
 
-実行物の移行対は、`90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe`から`template/tools/coordinator/windows-x64/coordinator.exe`、`90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe`から`template/tools/coordinator/windows-x64/crdd-platform-access.exe`である。[未署名Native配布物の再現確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Native_Distribution_Verification.md)はこの2組のbytesとSource入力を固定した結果であり、main統合後の最終Commit、正式署名または署名済みE2Eを代替しない。
+v0.18.0で実施した実行物の移行対は、`90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe`から`template/tools/coordinator/windows-x64/coordinator.exe`、`90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe`から`template/tools/coordinator/windows-x64/crdd-platform-access.exe`である。[未署名Native配布物の再現確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Native_Distribution_Verification.md)は当時の2組のbytesとSource入力を固定した履歴であり、現在のv0.18.1候補、正式署名または署名済みE2Eを代替しない。
 
 ### 移行前の確認と追加是正
 

@@ -669,12 +669,16 @@ function postStartUnknownBlocked(
   taskResult: RuntimeRecord | null,
   discarded: RuntimeRecord | null,
   isCandidateDiscarded: boolean,
+  executionStateProjection: RuntimeRecord | null = null,
 ) {
   ensureRuntimeProcessPoisoned();
   const projected = blocked(
     reason,
     taskResult,
-    Object.freeze({ candidateDiscarded: isCandidateDiscarded }),
+    Object.freeze({
+      candidateDiscarded: isCandidateDiscarded,
+      ...(executionStateProjection ?? {}),
+    }),
     Object.freeze([discarded]),
   );
   return Object.freeze({
@@ -1449,6 +1453,7 @@ export async function runSignedGeneralTaskVerification(
       taskResult,
       discarded,
       isCandidateDiscarded,
+      executionStateProjection,
     );
   if (cancellationRequested)
     return blocked(
@@ -1476,6 +1481,7 @@ export async function runSignedGeneralTaskVerification(
       taskResult,
       discarded,
       isCandidateDiscarded,
+      executionStateProjection,
     );
   return knownOutcome;
 }

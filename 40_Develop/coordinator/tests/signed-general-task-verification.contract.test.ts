@@ -1286,6 +1286,8 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     "cancel_never",
     "requested_throw",
     "unbind_throw",
+    "unbind_throw_repository_changed",
+    "unbind_throw_repository_unknown",
     "result_getter",
     "started_proxy",
     "completion_getter",
@@ -1364,6 +1366,26 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
         dockerRecoveryB,
       ]);
       assert.equal(result.recoveryIdentityAmbiguous, true, scenario);
+    }
+    if (scenario.startsWith("unbind_throw_repository_")) {
+      assert.equal(
+        result.reason,
+        "signed_general_task_cancellation_unbind_unknown",
+        scenario,
+      );
+      assert.equal(result.candidateDiscarded, true, scenario);
+      assert.equal(
+        result.canonicalRepositoryChanged,
+        scenario.endsWith("changed") ? true : null,
+        scenario,
+      );
+      assert.equal(result.cleanupConfirmed, false, scenario);
+      assert.equal(result.manualRecoveryRequired, true, scenario);
+      assert.equal(result.effectStateUnknown, true, scenario);
+      assert.deepEqual(result.hostRecoveryIds, [], scenario);
+      assert.deepEqual(result.dockerRecoveryIds, [], scenario);
+      assert.deepEqual(result.candidateRecoveryIds, [], scenario);
+      assert.deepEqual(result.candidateStoreRecoveryIds, [], scenario);
     }
     if (scenario === "control_missing_completion_recovery") {
       assert.equal(result.hostRecoveryId, hostRecoveryA, scenario);

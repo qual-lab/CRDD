@@ -5,7 +5,7 @@ Status: Candidate
 Released Baseline: v0.18.0
 Owner: Qual-Lab
 Skill ID: `skill.discovery.frame`
-Last Updated: 2026-08-31
+Last Updated: 2026-09-01
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)

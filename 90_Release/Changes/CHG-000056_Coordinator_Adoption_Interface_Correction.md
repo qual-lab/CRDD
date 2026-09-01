@@ -104,6 +104,8 @@ Repository全体のTypeScript試験は現行Source候補で1352件まで拡張�
 
 固定Revision `2738ed9`の独立確認では、この初回是正が配布Commit Bを一般の作業対象Revisionとして説明していたこと、Task後のRevision変化・観測不能を候補回収やTask失敗と独立した安全状態へ投影し切れていなかったこと、safe retryの全attemptを同じExecution Revisionへ固定していなかったこと、保存結果・検証設計・Quality Center・単一Native設定への伝播漏れを検出した。署名前に候補を破棄し、配布A／Bと作業対象Execution Revisionを別Identityへ分離した。post観測はsame／changed／unknownの三値として、Candidate処置・Recovery・cleanupとは別軸で保持する。changedは`canonicalRepositoryChanged:true`、unknownは`canonicalRepositoryChanged:null`かつ`effectStateUnknown:true`とし、いずれも安全再試行へ進めない。配布・Execution Identityと`execution_identity_mismatch`は限定された保存投影へ追加し、Provider本文、Host Pathまたは秘密を保存しない。現行検証設計はmanifest revision 4と単一`crdd-platform-access.exe`へ同期し、v0.18.0の2成果物Evidenceは当時版の履歴として変更しない。
 
+続く固定Source候補`06450aa`の独立確認では、取消bindingの解放不明または最終結果不明へ収束する経路が、既に観測したTask後のRepository変化／観測不能をTask Resultの`canonicalRepositoryChanged:false`で上書きし得ることを検出した。cleanup不明の`cleanupConfirmed:false`、`manualRecoveryRequired:true`、`processRestartRequired:true`および`effectStateUnknown:true`を最終Authorityとして維持しつつ、Repository観測の三値だけを同じblocked結果へ合成する。各ケースは独立Processで実行し、Candidate破棄済み、Recovery ID 0件およびProcess poisonを確認する。文書側では、v0.18.0当時のrevision 2／3、2成果物および公開準備状態を現行契約のように読める箇所を履歴表示へ直し、現行v0.18.1のrevision 4、単一成果物および旧manifest署名domain拒否へ接続した。package content rootのV2 domainは別契約として維持する。是正後は制限Process 1345/1345、通常Windows Process Gate 7/7、開発E2E 297/297、Coordinator静的確認および全Repository Checkerが合格した。これらを正式署名E2Eまたは独立再確認の代用にはしない。
+
 残る作業は、固定Source候補のCommit A／Tree A、manifest revision 4だけを加えたCommit B、fresh clone／submodule相当のCapabilities確認と署名済み一般Task E2E、異常／回復行列、同じCommit Bに対する独立確認および人間のRelease判断である。
 
 現在、人間による追加判断は必要ない。v0.18.1の最終Releaseは、上記検証と独立確認が完了した固定候補に対して別途判断する。
