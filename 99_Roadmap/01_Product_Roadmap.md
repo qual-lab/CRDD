@@ -32,7 +32,7 @@ Related:
 
 長期研究候補のうち、[v0.19へ採用したProject Runtime境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)は上表の実行項目へ移した。[有用性・照合費用の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)は、CHG-000057へ明示収載した観測だけをCurrent Scopeとし、残る候補は`Held / Unscheduled`を維持する。
 
-Issue #30は2026-09-02に本文・コメント・状態を再確認した。`open`、コメント0件であり、6候補はCHG-000058 §9で現在の責務と処置へ分類済みである。固定候補の独立確認と是正が終わるまでは閉じず、完了後にCHG-000058、固定改訂版および理由をIssueへ記録する。Issue本文の旧CHG-000012は、現在のCHG-000013への再採番前の参照であり、単独の完了根拠にはしない。
+Issue #30は2026-09-02に本文・コメント・状態を再確認した。`open`、コメント0件であり、6候補はCHG-000058 §9で現在の責務と処置へ分類済みである。固定候補の独立確認と是正は完了した。残る外部処置としてCHG-000058、固定改訂版および終了理由をIssueへ記録して閉じる。Issue本文の旧CHG-000012は、現在のCHG-000013への再採番前の参照であり、単独の完了根拠にはしない。
 
 ## 2. v0.19の実行順序
 
