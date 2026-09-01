@@ -64,6 +64,14 @@ const DEVELOPMENT_ENTRYPOINTS = Object.freeze([
   "src/security/candidate-store-lock-worker.ts",
   "src/security/host-operation-lock-supervisor.ts",
 ]);
+const CANONICAL_TEXT_FILE_SUFFIXES = Object.freeze([
+  ".Dockerfile",
+  ".json",
+  ".policy",
+  ".py",
+  ".ts",
+  ".txt",
+]);
 const VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS = 5_000;
 type VerifiedPackageIdentity = Readonly<{
   manifestHash: string;
@@ -308,7 +316,6 @@ function readStableFile(target: string, maximumBytes: number) {
     if (!sameIdentity(pathBefore, opened)) {
       throw new Error("platform_provisioner_package_file_changed");
     }
-    const hash = createHash("sha256");
     const chunks: Buffer[] = [];
     const buffer = Buffer.allocUnsafe(64 * 1024);
     let byteLength = 0;
@@ -320,10 +327,7 @@ function readStableFile(target: string, maximumBytes: number) {
         throw new Error("platform_provisioner_package_file_changed");
       }
       const bytes = buffer.subarray(0, count);
-      hash.update(bytes);
-      if (maximumBytes <= MAXIMUM_PACKAGE_JSON_BYTES) {
-        chunks.push(Buffer.from(bytes));
-      }
+      chunks.push(Buffer.from(bytes));
     }
     const after = identity(fs.fstatSync(descriptor, { bigint: true }), "file");
     const pathAfter = identity(fs.lstatSync(target, { bigint: true }), "file");
@@ -335,18 +339,39 @@ function readStableFile(target: string, maximumBytes: number) {
     ) {
       throw new Error("platform_provisioner_package_file_changed");
     }
+    const rawBytes = Buffer.concat(chunks);
     return Object.freeze({
       byteLength,
-      sha256: hash.digest("hex"),
+      sha256: createHash("sha256").update(rawBytes).digest("hex"),
       identity: opened,
-      bytes:
-        maximumBytes <= MAXIMUM_PACKAGE_JSON_BYTES
-          ? Buffer.concat(chunks)
-          : null,
+      bytes: rawBytes,
     });
   } finally {
     if (descriptor !== null) fs.closeSync(descriptor);
   }
+}
+
+function isCanonicalTextPackagePath(relativePath: string) {
+  return CANONICAL_TEXT_FILE_SUFFIXES.some((suffix) =>
+    relativePath.endsWith(suffix),
+  );
+}
+
+function canonicalPackageFileContent(relativePath: string, bytes: Buffer) {
+  if (!isCanonicalTextPackagePath(relativePath)) return bytes;
+  let crlfCount = 0;
+  for (let index = 0; index + 1 < bytes.length; index += 1) {
+    if (bytes[index] === 0x0d && bytes[index + 1] === 0x0a) crlfCount += 1;
+  }
+  if (crlfCount === 0) return bytes;
+  const canonical = Buffer.allocUnsafe(bytes.length - crlfCount);
+  let output = 0;
+  for (let index = 0; index < bytes.length; index += 1) {
+    if (bytes[index] === 0x0d && bytes[index + 1] === 0x0a) continue;
+    canonical[output] = bytes[index] as number;
+    output += 1;
+  }
+  return canonical;
 }
 
 function packageEntries(
@@ -466,12 +491,16 @@ function observePackage(packageRoot: string) {
     if (packageByteLength > MAXIMUM_PACKAGE_BYTES) {
       throw new Error("platform_provisioner_package_budget_exceeded");
     }
-    if (relative === "package.json") packageJsonBytes = observed.bytes;
+    const canonicalBytes = canonicalPackageFileContent(
+      relative,
+      observed.bytes,
+    );
+    if (relative === "package.json") packageJsonBytes = canonicalBytes;
     files.push(
       Object.freeze({
         path: relative,
-        byteLength: observed.byteLength,
-        sha256: observed.sha256,
+        byteLength: canonicalBytes.byteLength,
+        sha256: createHash("sha256").update(canonicalBytes).digest("hex"),
       }),
     );
   }
@@ -1060,7 +1089,8 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     packageRootSelection: "implemented_fixed_module_relative_candidate",
     recursiveFileInventory: "implemented_candidate",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",
-    packageContentRootCalculation: "implemented_candidate",
+    packageContentRootCalculation:
+      "implemented_canonical_lf_for_declared_repository_text_and_raw_bytes_for_other_files",
     nodeModulesIncluded: false,
     developmentGitIgnoreIncluded: false,
     maximumFiles: MAXIMUM_FILES,

@@ -85,6 +85,7 @@ Sourceだけを利用する採用Project、Coordinatorを利用しないProject�
 - 削除commandは未知commandとしてusage errorになり、専用statusや互換結果を返さない。
 - `capabilities --json`が公開CLI閉集合と非対応境界をEffect 0で返す。
 - manifest revision 4が単一Platform Access成果物をexactに結合し、旧revision／旧fieldを拒否する。
+- Repository textのLF／CRLF差だけを同じGit正本内容として検証し、意味差分とNative成果物のbyte差を拒否する。
 - TypeScript、Rust、Checker、format／lintおよび全Repository試験が固定候補で合格する。
 - fresh clone／submodule相当の採用環境で、Capabilities確認から一般Taskの有用結果までを再現する。
 - timeout、cancel、Provider失敗、owner loss、cleanup不明およびRecoveryの既存保証が削除後も成立する。
@@ -94,7 +95,9 @@ Sourceだけを利用する採用Project、Coordinatorを利用しないProject�
 
 公開入口、旧Stateful subsystem、導入用Supervisor、AppContainer準備契約および旧manifest候補は、現行Source、CLI、配布候補、正本および試験母集団から削除した。Platform Accessの現在契約は、選択ユーザーの通常Processで固定署名成果物を最小環境かつ上限付きI/Oにより呼び出す一成果物構成である。
 
-Repository全体のTypeScript試験は1337件中1337件、Rustの通常試験、Clippy、Format、Native Coverage、TypeScript Coverage、Coordinator Checkおよび全体Checkerは合格した。Process tree終了を扱う7件は、制限されたCodex Process内ではWindowsの`taskkill.exe`がAccess Deniedとなってfail closedし、通常のローカルユーザーProcess境界で同じ試験を再実行すると全件合格した。この差を本番実装の成功へ補正せず、試験実行境界の違いとして保持する。LLVM CoverageがWindows実子のBootstrap環境を変更するため、実子の完全環境一致は通常Rust試験で必須とし、Coverage実行では当該1件だけを非計測にして残るNative Sourceを全件集計する。
+Repository全体のTypeScript試験は1338件を実行し、制限Process内で`taskkill.exe`を許可されない既知7件を除く1331件が同一runで合格した。Process tree終了を扱う当該7件は通常のローカルユーザーProcess境界で同じ固定試験を再実行し、7件すべてが合格した。Rustの通常試験、Clippy、Format、Native Coverage、TypeScript Coverage、Coordinator Checkおよび全体Checkerも合格した。この環境差を本番実装の成功へ補正せず、制限Process内では安全側の終了未確認となる事実と、通常Processで実終了を観測した根拠を分けて保持する。LLVM CoverageがWindows実子のBootstrap環境を変更するため、実子の完全環境一致は通常Rust試験で必須とし、Coverage実行では当該1件だけを非計測にして残るNative Sourceを全件集計する。
+
+最初のmanifest候補は`git archive`上のLFと既存Windows Checkout上のCRLFを生バイト差として扱い、署名検証がProvider Effect前に停止した。原因は任意改変ではなく、Gitが許可するCheckout改行変換をPackage Hash契約が表現していなかったことにある。Package content rootを宣言済みRepository textだけLF正規化するV2へ改め、LF／CRLF同値、内容差分拒否および非テキスト生バイト一致を契約試験へ固定した。失敗したmanifest候補はRelease候補として使用せず、更新後のSource Commitから再署名する。
 
 残る作業は、固定Source候補のCommit A／Tree A、manifest revision 4だけを加えたCommit B、fresh clone／submodule相当のCapabilities確認と署名済み一般Task E2E、異常／回復行列、同じCommit Bに対する独立確認および人間のRelease判断である。
 

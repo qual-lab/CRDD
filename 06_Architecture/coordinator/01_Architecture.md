@@ -131,6 +131,8 @@ CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採
 
 manifest revision 4は、CRDD Version、release sequence、Commit、Tree、Coordinator package content root、Policy Hash、Platform Access成果物のPath・target・protocol・toolchain・byte長・SHA-256、発行時刻および任意の期限をEd25519署名へ結合する。旧revision、削除済みSupervisor field、別Path aliasまたは欠落fallbackを受理しない。
 
+Coordinator package content rootは、Repositoryでテキストとして管理する`.ts`、`.json`、`.policy`、`.py`、`.txt`および`.Dockerfile`をLFへ正規化して算出する。Windowsの既存Checkoutに残るCRLFと新規CloneのLFは同じGit正本内容として扱うが、行内容、終端改行、単独CRその他の差分は同一視しない。Native成果物その他の非テキストは生バイトの長さとSHA-256を完全一致させる。これにより、Checkout時の許可された改行変換だけを吸収し、任意の内容変更を署名境界から除外しない。
+
 Runtimeはmanifestだけを除外して配布Treeを再計算し、固定成果物をTreeとmanifestの双方へ結合する。Root直下のexact `.git` metadataだけはnon-link・安定Identityを確認してTreeから除外する。未署名branch、manifest欠落、改変checkout、余分なfileまたは成果物差はProvider Effect前に停止する。
 
 <a id="task-result-transport"></a>

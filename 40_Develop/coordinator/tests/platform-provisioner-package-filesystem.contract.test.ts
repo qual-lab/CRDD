@@ -598,6 +598,43 @@ test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反�
   }
 });
 
+test("Repository textのLFとCRLFは同じ正本内容として検証し、意味差分は拒否する", () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-package-line-ending-"),
+  );
+  try {
+    fs.mkdirSync(path.join(root, "src"));
+    const metadata = JSON.stringify({
+      name: "@qual-lab/crdd-coordinator",
+      version: "0.0.0-development",
+      private: true,
+      type: "module",
+      exports: { "./cli": "./bin/coordinator.ts" },
+      scripts: {},
+      engines: {},
+      devDependencies: {},
+    });
+    fs.writeFileSync(path.join(root, "package.json"), `${metadata}\n`);
+    const entrypoint = path.join(root, "src", "entry.ts");
+    fs.writeFileSync(entrypoint, "export const value = 1;\nexport {};\n");
+    const lf = inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(lf.status, "candidate");
+    fs.writeFileSync(entrypoint, "export const value = 1;\r\nexport {};\r\n");
+    const crlf = inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(crlf.status, "candidate");
+    assert.equal(crlf.packageContentRootSha256, lf.packageContentRootSha256);
+    fs.writeFileSync(entrypoint, "export const value = 2;\r\nexport {};\r\n");
+    const changed = inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(changed.status, "candidate");
+    assert.notEqual(
+      changed.packageContentRootSha256,
+      lf.packageContentRootSha256,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("Coordinator packageはexact CLI-only exports境界を必須にする", () => {
   for (const exportsValue of [
     undefined,
