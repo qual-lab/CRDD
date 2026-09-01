@@ -184,6 +184,8 @@ Coordinatorは、移行経緯を本節へ、開発確認の順序を既存Workfl
 
 この移行開始時点では、`template/tools`の採用先配布契約と`90_Release`内のnative成果物Pathを変更しない方針だった。後続の導入経路評価で、CRDD Repositoryをcloneまたはsubmoduleで取得した時点に、同じ基準版のRuntimeも利用可能であることを優先した。そのため、現在の配布正本は`template/tools/coordinator/`とし、`windows-x64/coordinator.exe`、`windows-x64/crdd-platform-access.exe`および配布manifestを同じ配布面へ集約する。`40_Develop`はソース・build・試験、`90_Release`はCHG・Evidence・公開状態を所有し、実行物の配布面にはしない。旧`tools`への互換shim、起動alias、第二ソース、別Download、ZIP、自動取得またはインストーラは追加しない。切戻す場合は個別の旧Pathを混在させず、以前の固定Repository／署名配布一式へ戻す。既存のRuntime状態や認証Homeを配置変更の理由で削除しない。
 
+実行物の移行対は、`90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe`から`template/tools/coordinator/windows-x64/coordinator.exe`、`90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe`から`template/tools/coordinator/windows-x64/crdd-platform-access.exe`である。[未署名Native配布物の再現確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Native_Distribution_Verification.md)はこの2組のbytesとSource入力を固定した結果であり、main統合後の最終Commit、正式署名または署名済みE2Eを代替しない。
+
 ### 移行前の確認と追加是正
 
 旧boolean probe専用facadeと専用試験を除去し、現行Taskへ実子Process・所有Filesystemを接続する5シナリオの結合試験を追加した。新試験を開発E2Eコマンドとその契約試験の双方へ接続した。既存6件と新試験2件の命名違反はlocal bindingだけを是正し、公開Schema keyと意味は維持した。移行前の正規package DirectoryでCoordinator全試験1,410/1,410、命名7/7を確認した。リポジトリ直下からpackage相対試験を誤起動した失敗は合格へ含めない。この結果は移行前の比較基準であり、新配置の検証を代替しない。

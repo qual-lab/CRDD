@@ -12,7 +12,7 @@
 
 ## 対象
 
-観測時点はCommit `c8cf2f0`。この結果記録を追加する変更では、下表のNativeソースと実行物bytesを変更しない。最終的な署名対象は、プルリクエストでmainへ統合した後に再固定する。
+最初の観測時点はCommit `c8cf2f0`。記録追加後の固定Commit `9f133d810d439c8b401bcd8d7becb91649ae5677`、Tree `3508ef77a8071d6aa9c344b1e176999406553a2a`のclean worktreeから同じ確認を再実行し、下表のNativeソースと実行物bytesが変わっていないことを確認した。最終的な署名対象は、プルリクエストでmainへ統合した後に再固定する。
 
 | 対象 | Git blob | SHA-256 | bytes |
 |---|---|---|---:|
@@ -35,6 +35,24 @@
 
 構築には既存のlocal Cargo cacheを用いた。依存ソースの供給網IdentityとMSVC linker自体のIdentityは、この確認では独立に検証していない。
 
+## 再実行可能な確認記録
+
+確認は`C:\project\CRDD\.crdd\release-audit\9f133d8`を作業Directoryとし、次のコマンドで実行した。
+
+```text
+npm.cmd --prefix 40_Develop/coordinator run platform-access:native-bootstrap-pe
+```
+
+開始は`2026-09-01T04:11:55.1361003Z`、終了は`2026-09-01T04:12:13.9114958Z`、exit codeは`0`。実行前後の`git status --porcelain=v1 --untracked-files=all`はともに0件だった。runnerは、異なる一時出力先でSupervisorとWorkerを2回ずつ構築し、bytes一致、PE、CLIの固定拒否、実行前後のstable file identity、Worker結合および署名観測用stagingとの同一Hashを同じrunで確認した。一時出力はrunnerの終了処理で削除した。
+
+Source入力集合は次のコマンドでGit treeから列挙した。これにはRust crate全体、build／PE runnerおよびrunnerが直接使う3つのsecurity moduleを含む。
+
+```text
+git ls-tree -r HEAD -- 40_Develop/platform-access 40_Develop/coordinator/scripts/build-native-bootstrap.ts 40_Develop/coordinator/scripts/check-native-bootstrap-pe.ts 40_Develop/coordinator/src/security/native-bootstrap-pe-inspector.ts 40_Develop/coordinator/src/security/native-provision-supervisor-release.ts 40_Develop/coordinator/src/security/bounded-file-snapshot.ts
+```
+
+列挙結果のSHA-256は`b68499d81b8b966930931f73eb5803a865b8ebf33e53d9be076c8cf506e42fc9`。完全出力はRepository-localの`.crdd/release-audit/logs/9f133d8-native/native-bootstrap-pe.log`へ保持し、SHA-256は`80282d7e8653ff04eacdd6af0b65cec182ed774cb8cbfc84b07890d40fdc91c0`。実行metadata、実行前後のGit状態およびSource入力一覧も同じDirectoryへ分離して保持した。この`.crdd`内記録は公開配布物ではなく、Release closureまでのlocal再識別用である。第三者は上記Commitとコマンドから同じ入力集合を再構成できる。
+
 ## 関連する機械確認
 
 | 確認 | 結果 |
@@ -43,11 +61,13 @@
 | 開発E2E | 286 / 286成功 |
 | Checker契約試験 | 267 / 267成功 |
 | Release関連の限定試験 | 66 / 66成功 |
-| Rust試験 | 全件成功 |
+| Rust試験 | `npm.cmd --prefix 40_Develop/coordinator run platform-access:test`。37成功、失敗0、ignored 2、exit 0。ignoredはCurrent User Registryを変更・復元する実試験と、実子Processからだけ呼ばれるprobe。後者を使う親試験は成功 |
 | 型・Lint・Format・Traceability | `npm run check`成功 |
 | 固定Commitの全体Checker | 文書・リンク・アンカー・固定履歴参照を確認し、エラー0、警告0 |
 
 非権限環境で先に実行したProcess試験の失敗は合格へ含めていない。該当101件を本番同等のProcess権限で再実行して101 / 101成功を確認し、その後に全1,590件を同じ境界で確認した。
+
+Rust試験は同じclean worktreeで`2026-09-01T04:12:30.4754766Z`から`2026-09-01T04:12:40.5895217Z`まで実行した。実行前後のGit状態は0件、完全出力は`.crdd/release-audit/logs/9f133d8-native/platform-access-test.log`、SHA-256は`9b15e5094720f0edb6b72646a9e5bcff99a786437f56acd3afa1640f1de5919d`である。実子Process内のprobeが出力する1件を上位test countへ重複加算せず、Cargoの各top-level resultから37成功・2 ignoredを算出した。
 
 ## 未確認範囲と後続
 
