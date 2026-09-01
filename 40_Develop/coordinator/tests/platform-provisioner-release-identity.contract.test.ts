@@ -103,6 +103,37 @@ test("配布Root全体をGit Treeへ再計算し後置manifestとGit metadataだ
   }
 });
 
+test("Root直下のexact .crddだけをRuntime metadataとして除外する", () => {
+  const value = fixture();
+  try {
+    fs.mkdirSync(path.join(value.root, ".crdd"));
+    fs.writeFileSync(
+      path.join(value.root, ".crdd", "runtime-state.json"),
+      "{}\n",
+    );
+    const result = inspectPlatformProvisionerReleaseIdentityCandidate(
+      value.root,
+      value.rootTree,
+    );
+    assert.equal(result.status, "candidate");
+    assert.equal(result.runtimeMetadataExcludedFromSignedGitTree, true);
+
+    fs.renameSync(
+      path.join(value.root, ".crdd"),
+      path.join(value.root, ".crdd-copy"),
+    );
+    assert.equal(
+      inspectPlatformProvisionerReleaseIdentityCandidate(
+        value.root,
+        value.rootTree,
+      ).status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(value.root, { recursive: true, force: true });
+  }
+});
+
 test("配布fileの変更、追加および不正Treeを拒否する", () => {
   const mutations: Array<(root: string) => void> = [
     (root) => {
@@ -224,6 +255,10 @@ test("Release Identity contractはTree一致をEffectおよびrollbackから分�
   assert.equal(
     contract.signedCrddTreeComparison,
     "implemented_candidate_non_authoritative",
+  );
+  assert.equal(
+    contract.runtimeMetadataInDistribution,
+    "exact_root_crdd_directory_validated_and_excluded_from_signed_tree",
   );
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

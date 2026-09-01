@@ -174,6 +174,29 @@ function verifyRepositoryMetadataEntry(target: string) {
   }
 }
 
+function verifyRuntimeMetadataEntry(target: string) {
+  const before = fs.lstatSync(target, { bigint: true });
+  const beforeIdentity = identity(before);
+  if (
+    !before.isDirectory() ||
+    before.isSymbolicLink() ||
+    fs.realpathSync.native(target) !== target
+  ) {
+    throw new Error(
+      "platform_provisioner_distribution_runtime_metadata_invalid",
+    );
+  }
+  const after = fs.lstatSync(target, { bigint: true });
+  if (
+    !sameIdentity(beforeIdentity, identity(after)) ||
+    fs.realpathSync.native(target) !== target
+  ) {
+    throw new Error(
+      "platform_provisioner_distribution_runtime_metadata_changed",
+    );
+  }
+}
+
 function observeDistributionTree(
   distributionRoot: string,
   expectedTree: string,
@@ -204,6 +227,7 @@ function observeDistributionTree(
   let byteLength = 0;
   const excludedPostCheckoutArtifacts = new Set<string>();
   const excludedRepositoryMetadata = new Set<string>();
+  const excludedRuntimeMetadata = new Set<string>();
   const includedSignedArtifacts = new Set<string>();
   const walk = (directory: string, relativeDirectory: string) => {
     const beforeMetadata = fs.lstatSync(directory, { bigint: true });
@@ -232,6 +256,16 @@ function observeDistributionTree(
         }
         verifyRepositoryMetadataEntry(path.join(directory, name));
         excludedRepositoryMetadata.add(relative);
+        continue;
+      }
+      if (relative === ".crdd") {
+        if (excludedRuntimeMetadata.has(relative)) {
+          throw new Error(
+            "platform_provisioner_distribution_runtime_metadata_invalid",
+          );
+        }
+        verifyRuntimeMetadataEntry(path.join(directory, name));
+        excludedRuntimeMetadata.add(relative);
         continue;
       }
       if (isExcludedPostCheckoutArtifact(relative)) {
@@ -333,6 +367,7 @@ function observeDistributionTree(
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
     ),
     gitMetadataExcludedFromTree: excludedRepositoryMetadata.has(".git"),
+    runtimeMetadataExcludedFromTree: excludedRuntimeMetadata.has(".crdd"),
   });
 }
 
@@ -363,6 +398,8 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
           observed.platformAccessExecutableIncludedInTree,
         gitMetadataExcludedFromSignedGitTree:
           observed.gitMetadataExcludedFromTree,
+        runtimeMetadataExcludedFromSignedGitTree:
+          observed.runtimeMetadataExcludedFromTree,
         releaseIdentityRuntimeOwned: false,
         runtimeAuthorityConferred: false,
         runtimeCapabilityIssued: false,
@@ -382,6 +419,8 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
         observed.platformAccessExecutableIncludedInTree,
       gitMetadataExcludedFromSignedGitTree:
         observed.gitMetadataExcludedFromTree,
+      runtimeMetadataExcludedFromSignedGitTree:
+        observed.runtimeMetadataExcludedFromTree,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -398,6 +437,7 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
       manifestExcludedFromSignedGitTree: false,
       platformAccessExecutableIncludedInSignedGitTree: false,
       gitMetadataExcludedFromSignedGitTree: false,
+      runtimeMetadataExcludedFromSignedGitTree: false,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -423,6 +463,8 @@ export function describePlatformProvisionerReleaseIdentityContract() {
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
     gitMetadataInDistribution:
       "exact_root_git_entry_validated_and_excluded_from_signed_tree",
+    runtimeMetadataInDistribution:
+      "exact_root_crdd_directory_validated_and_excluded_from_signed_tree",
     symbolicLinkOrReparseFallbackAllowed: false,
     stableSameHandleFileRead: "implemented_candidate",
     checkoutLineEndingIdentity:
