@@ -80,7 +80,7 @@ platform-accessは独立した利用者画面を持たないが、利用者へ�
 
 v0.19では、人間がTaskを一件ずつ分解・起動・監視する体験から、対象ProjectとMilestone、保持する意図、受入条件および判断権限を示し、Project Runtimeへ進行を委ねる体験へ拡張する。人間が内部Taskの切替や空いた実行枠ごとに承認を繰り返すことを正常経路にしない。
 
-この体験の認知意図（Cognitive Intent）は次である。現在状態は「内部TaskやAgent Logを追わないと、何が進み、何を判断すべきか分からない」、主な障壁は実行状態・品質・判断待ちの混在と内部情報の過多、目標状態は「Milestoneがどこまで成立し、次にRuntimeが何を行い、人間が今判断すべき事項があるかを理解できる」とする。必要な根拠／情報は、Objectiveの受入状態、Task内訳、Dependency、Critical Path、Blocker、Risk、Human Decision、Integration State、Quality StateおよびNext Actionである。意図する判断／行動は、判断不要なら作業をRuntimeへ委ね続け、必要な場合だけ提示された選択肢から判断することである。
+この体験の認知意図（Cognitive Intent）は次である。現在状態は、[v0.18の実務自己適用で観測した人間による進行追跡・反復操作](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)を根拠にした設計仮説として、「内部TaskやAgent Logを追わないと、何が進み、何を判断すべきか分からない」と置く。全利用者について実証済みの事実とはしない。主な障壁は実行状態・品質・判断待ちの混在と内部情報の過多、目標状態は「Milestoneがどこまで成立し、次にRuntimeが何を行い、人間が今判断すべき事項があるかを理解できる」とする。必要な根拠／情報は、Objectiveの受入状態、Task内訳、Dependency、Critical Path、Blocker、Risk、Human Decision、Integration State、Quality StateおよびNext Actionである。意図する判断／行動は、判断不要なら作業をRuntimeへ委ね続け、必要な場合だけ提示された選択肢から判断することである。
 
 利用者は、現在のMilestone、Objective、完了／実行中／依存待ちのTask、Critical Path、Blocker、Risk、Human Decision、Qualityおよび次の行動を、Worker Logを読まずに理解できる必要がある。推定Progressや未観測の残時間を事実として表示せず、進捗と成立品質を分ける。
 
