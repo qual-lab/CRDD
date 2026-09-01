@@ -162,16 +162,18 @@ MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未�
 | PR-Q-02 | 準正常 | 局所失敗、Scope内で代替可能 | 旧Taskを`superseded`として保持し、後継と理由を新世代へ接続 |
 | PR-Q-03 | 準正常 | 同じMCP requestの再送 | Operation二重発行0、同じidempotency identityの現在状態を返却 |
 | PR-Q-04 | 準正常 | 一部Taskの取消 | signalだけで完了せず、終了・cleanup後に枠と競合予約を解放 |
+| PR-Q-05 | 準正常 | 対話作業中にスケジュール要求が到着 | 未開始要求を耐久Queueで待機し、対話作業終了後にRevisionと競合を再確認して追加承認なしで安全に再開 |
 | PR-H-01 | 人間判断 | Scope、受入、重大Riskまたは費用上限の変更が必要 | 未許可Task開始0、判断理由・選択肢・影響・保持資源を一括表示 |
 | PR-A-01 | 異常 | cycle、欠落DependencyまたはBinding不明 | Single Task呼出し0、Provider Effect 0、構造化された停止理由 |
 | PR-A-02 | 異常 | 6件目を同時開始させる競合注入 | 6件目Effect 0、上限違反を成功へ補正しない |
 | PR-A-03 | 異常 | Task結果の世代／attempt／Operation Identity不一致 | 別Taskへの適用0、取得済みcleanup／Recovery情報を保持して停止 |
 | PR-A-04 | 異常 | Parent喪失 | 新規Task開始0、所有Task照合、再開またはRecoveryを一意に分類 |
 | PR-A-05 | 異常 | cleanupまたはLock解放観測不明 | 枠を空きと推定せず、Milestone成功0、exact Recovery情報を保持 |
-| PR-I-01 | 統合 | 全Task completedだが成果物Conflictあり | Objective／Milestoneを`accepted`にせずIntegration不成立を返却 |
-| PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | Cross-task確認後だけMilestone `accepted`、終了後所有資源0 |
+| PR-A-06 | 異常 | Queue owner喪失、stale file、Runtime外の直接編集または採用直前Revision変化 | 時刻やfile存在だけでLeaseを奪取せず、新規Effect／自動上書き0、再計画・判断・Recoveryを一意に分類 |
+| PR-I-01 | 統合 | 全Task completedだがObjective確認前または成果物Conflictあり | [Project状態契約試験](../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)でObjectiveを`integration_pending`に保ち、Milestone成功へ補正しない。実成果物Conflictは結合試験で追加確認する |
+| PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | 同試験で受入条件ごとのEvidenceを要求し、ObjectiveとMilestoneを別の世代更新で受け入れる。終了後所有資源0は結合試験で追加確認する |
 
-単体試験はGraph検証、状態遷移、世代比較、容量計算およびAuthority縮小を確認する。結合試験はProject State Store、Scheduler、Single Task Runtime、取消、RecoveryおよびIntegrationの接続を確認する。E2EはMCP／CLIの公開入口から同じ意味契約へ到達し、正常、準正常、異常の代表経路でProcess構成、入力搬送、終了後資源および人間表示まで観測する。モックのTask完了だけから実Process不存在、cleanup、Authority非発行またはEffect 0を推定しない。
+単体試験はGraph検証、Task／Objective／Milestoneの状態分離、受入条件ごとのEvidence、世代比較、容量計算およびAuthority縮小を確認する。結合試験はProject State Store、Scheduler、Single Task Runtime、取消、RecoveryおよびIntegrationの接続を確認する。E2EはMCP／CLIの公開入口から同じ意味契約へ到達し、正常、準正常、異常の代表経路でProcess構成、入力搬送、終了後資源および人間表示まで観測する。モックのTask完了だけから実Process不存在、cleanup、Authority非発行またはEffect 0を推定しない。
 
 <a id="reasoning-context-verification"></a>
 

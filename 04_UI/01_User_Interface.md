@@ -123,4 +123,6 @@ v0.19の主要表示は、内部WorkerのLogではなくMilestoneの現在状態
 
 進捗と品質は別の領域で示す。例えば`4 / 10 Objectives Completed`と`Integration Pending`を同時に表示でき、前者からRelease可能性を推定させない。Running、Ready、Waiting Dependency、Blocked、Completedを色だけで区別せず、表示名と件数を併記する。
 
+対話作業との競合でスケジュール実行を待機させた場合は、`対話作業を優先して待機中`、固定した基準Revision、再開条件およびScope変更の有無を平易に示す。内部Lock名やQueue recordだけを表示して利用者へ原因推測を求めない。安全な自動再開なら追加承認を求めず、再計画または人間判断が必要な場合だけ影響と選択肢を示す。
+
 人間判断が0件なら、その状態を短く示してRuntimeが次のObjectiveへ進める。判断が必要な場合は、何が起きたか、Planを維持できない理由、影響、選択肢、推奨および保留時の扱いを先に示し、Findingや内部識別子の羅列を主表示にしない。CLIとMCP応答は同じ意味状態を共有し、画面ごとに成功・停止の判定を変えない。

@@ -368,13 +368,21 @@ Project Runtimeの上位順序は、`Project Operation lease → Project State l
 
 外部処理後の状態反映ではProject State lockを再取得し、expected generation、Task attempt ID、Parent owner generationおよび結果Identityを再検証する。不一致なら結果を別Taskへ適用せず、観測済みのSingle Task側cleanup／Recovery情報を保持してProject側を`recovery_required`または`human_decision_required`へ閉じる。Lock取得失敗、解放不明または世代不明をRetryだけで正常化しない。
 
-### 14.5 AuthorityとEffectの縮小
+### 14.5 対話作業とスケジュール実行の競合
+
+Project Operation leaseだけでは、Runtime外で進む対話編集を完全には観測できない。そこでProject Runtimeは、Repository Bindingごとに耐久Operation Queueと正本採用Leaseを持ち、対話起点を既定の優先Lane、スケジュール起点を待機可能Laneとして扱う。Queue recordは`.crdd`配下の機械可読状態であり、MDは人間向け投影に限定する。
+
+Operation Queueは`queued → leased → running → integration_pending → completed`を正常系とし、`waiting_foreground`、`replan_required`、`human_decision_required`、`recovery_required`、`cancelled`を分ける。Queue leaseはOS排他、owner generationおよびProcess生存観測で所有者を確定し、時刻またはfile存在だけで奪取しない。対話Operationの到着は未開始のスケジュールOperationを`waiting_foreground`へ移せるが、実行中OperationのAuthority、Effect、cleanupまたはRecovery義務を消さない。
+
+各Operationは固定Revisionから隔離Workspaceを持つため、候補作成は安全な範囲で並行できる。正本採用はRepository単位の採用Leaseで直列化し、取得後に現在Revision、dirty state、変更Path、共有判断および候補の基準Revisionを再検証する。競合がなければ採用し、承認Scope内で解消可能なら再計画し、意味変更またはAuthority拡張が必要なら人間へ返す。Runtime外の直接編集を排他できるとは主張せず、開始前と採用直前の再観測で検出する。
+
+### 14.6 AuthorityとEffectの縮小
 
 人間が開始時に与えるMilestone Authorityは、Project Identity、Repository Revision、目的、受入条件、許可する読取り／変更範囲、Provider送信境界、費用・回数・時間、最大同時実行数、再計画上限および取消条件へ結合する。Parent Coordinatorは各Taskへこの閉集合の部分集合だけを派生できる。
 
 Task、Reviewer、MCP Client、Provider出力またはRepository内文書は、Authority拡張、Scope変更、Risk受容、追加購入、API key fallback、別Repository BindingまたはMilestone Acceptanceを生成しない。承認済みScope内でTaskを選び直すだけなら人間へ反復確認しない。Scope、受入条件、決定権限、重大Riskまたは費用上限を変える必要がある場合だけ、現在結果、選択肢、影響および推奨を一つの判断単位として返す。
 
-### 14.6 MCPの薄い縦断経路
+### 14.7 MCPの薄い縦断経路
 
 最初のMCP経路は`objective intake → Project Binding検証 → Task exact 1件の計画 → 既存Single Task Runtime → 構造化結果 → Project State`だけを通す。MCP AdapterはTransport decode、request identity、取消通知および結果encodeを所有し、Project Model、Scheduler、Repository操作またはAuthority判断を所有しない。
 
@@ -382,7 +390,7 @@ Task、Reviewer、MCP Client、Provider出力またはRepository内文書は、A
 
 MCP接続切断はTask取消の依頼になり得るが、終了確認ではない。切断後もParent CoordinatorがTask cleanupを完了し、結果を再取得可能なProject Stateへ保存する。request重複は同じOperationを二重発行せず、同じidempotency identityに対する現在状態を返す。入力不正、Project Binding不明またはAuthority不足ではSingle Task Runtimeを呼び出さずEffect 0で停止する。
 
-### 14.7 正常・準正常・異常の設計基準
+### 14.8 正常・準正常・異常の設計基準
 
 | 分類 | 代表経路 | 必要な終了観測 |
 |---|---|---|

@@ -38,6 +38,7 @@ MCPはProject Runtimeへの薄い外部接続面として追加し、CLIと同�
 - 子Task、Provider出力、MCP ClientまたはRepository内容からAuthority、Scope拡張、Risk受容またはMilestone Acceptanceを生成しない。
 - Roadmap、CHGまたは新しいPM DatabaseをProject Runtimeの第二正本にしない。
 - 人間が承認したMilestone Scope内の内部Task切替だけを理由に反復承認を要求しない。
+- 対話作業とスケジュール実行を同じ正本Worktreeへ同時に書き込ませず、対話起点を優先しながら未開始要求を失わない。
 - v0.19で複数Project、複数Repository、常設自律運転、Organization Runtimeまたは無制限Worker Poolへ拡張しない。
 
 ## 5. Objectiveと依存順
@@ -69,6 +70,10 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 ## 8. 現在状態と次のGate
 
-人間の採用判断、変更トレース、初期工程正本および検証義務の接続を開始した。これは設計完了、実装許可の無条件化、MCPの外部公開、v0.19.0 ReleaseまたはRisk受容を意味しない。
+工程正本を接続した後、Project Modelの最初の実装として、Task、Objective、Milestoneを別状態で保持する純粋な状態契約を追加した。Task完了後はObjectiveを`integration_pending`へ進めるだけとし、受入条件ごとのEvidenceを伴うObjective統合、全Objective受入後のMilestone統合を、それぞれ別の世代更新として固定した。Project State投影もWork Progress、Quality、Human Decision、RecoveryおよびNext Actionを分離し、Task完了や未観測値からProject成功を生成しない。
 
-次のGateは、工程正本の内容を固定し、Project Runtimeの状態、遷移、資源、Lock、Authority、Effect、正常・準正常・異常および利用者導線を独立レビューすることである。設計から必要性が導出される前にCoordinator Coreを分解しない。
+[Project状態契約試験](../../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)は、最大5件選択、Dependency、Path／Conflict、cleanup不明、Recovery、古い世代、Graph不正に加え、Task完了後の統合待ち、Objective／Milestoneの段階受入、Evidence不足、Recovery時の成功補正禁止を確認する。[MCP Adapter契約試験](../../40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts)は、薄い単一Task経路とAdapter固有Authority 0を維持する。
+
+これはProject Runtime全体の完成、MCPの外部公開、v0.19.0 ReleaseまたはRisk受容を意味しない。Project State Store、Project Operation lease、対話優先の耐久Operation Queue、正本採用Lease、Single Task Runtimeとの複数Task結合、部分再計画、Parent喪失、実成果物のIntegrationおよび公開入口E2Eは未接続である。
+
+次のGateは、この状態契約を機械可読な設計対応へ接続したうえで、Project State StoreとProject Operation leaseを実装し、Lockを保持せずSingle Task Runtimeを呼ぶ結合経路を固定することである。独立レビューは、この固定候補が設計、実装および試験を一続きに再構成できる段階で行う。

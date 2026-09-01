@@ -4,6 +4,9 @@ import {
   createProjectRuntimeState,
   describeProjectRuntimeStateContract,
   observeProjectTaskStarted,
+  projectProjectRuntimeState,
+  recordMilestoneIntegration,
+  recordObjectiveIntegration,
   reserveProjectTaskStart,
   selectSchedulableProjectTasks,
   settleProjectTask,
@@ -37,6 +40,13 @@ function stateFor(
     milestoneId: "v0.19",
     repositoryRevision: revision,
     maximumConcurrency,
+    milestoneAcceptanceCriteria: ["全Objectiveの統合結果が整合する"],
+    objectives: [
+      {
+        id: "objective-1",
+        acceptanceCriteria: ["必要Taskの結果が統合される"],
+      },
+    ],
     tasks,
     ownerGeneration: "owner-1",
   });
@@ -188,12 +198,182 @@ describe("Project Runtime state contract", () => {
         milestoneId: "v0.19",
         repositoryRevision: revision,
         maximumConcurrency: 5,
+        milestoneAcceptanceCriteria: ["全体が整合する"],
+        objectives: [
+          {
+            id: "objective-1",
+            acceptanceCriteria: ["必要Taskが統合される"],
+          },
+        ],
         tasks,
       });
       assert.equal(result.status, "blocked");
       assert.equal(result.reason, "project_runtime_task_graph_invalid");
       assert.equal(result.state, null);
     }
+  });
+
+  it("Task完了だけではObjectiveまたはMilestoneを受け入れない", () => {
+    let state = stateFor([task("task-a")]);
+    state = start(state, "task-a");
+    const settled = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      outcome: "completed",
+      cleanupConfirmed: true,
+      recoveryId: null,
+    });
+    assert.equal(settled.status, "completed");
+    assert.ok(settled.state);
+    assert.equal(settled.state.objectives[0]?.state, "integration_pending");
+    assert.equal(settled.state.milestone.state, "executing");
+    assert.deepEqual(projectProjectRuntimeState(settled.state), {
+      projectId: "crdd",
+      milestoneId: "v0.19",
+      generation: 4,
+      milestoneState: "executing",
+      objectiveCounts: {
+        planned: 0,
+        executing: 0,
+        integration_pending: 1,
+        accepted: 0,
+        blocked: 0,
+        cancelled: 0,
+      },
+      taskCounts: {
+        planned: 0,
+        waiting_dependency: 0,
+        ready: 0,
+        starting: 0,
+        running: 0,
+        cleanup_pending: 0,
+        completed: 1,
+        failed: 0,
+        cancelled: 0,
+        recovery_required: 0,
+        superseded: 0,
+      },
+      workProgress: "tasks_complete",
+      qualityState: "integration_pending",
+      humanDecisionRequired: false,
+      recoveryRequired: false,
+      nextAction: "verify_objective_integration",
+    });
+  });
+
+  it("ObjectiveとMilestoneを別々の統合Evidenceで受け入れる", () => {
+    let state = stateFor([task("task-a")]);
+    state = start(state, "task-a");
+    const settled = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      outcome: "completed",
+      cleanupConfirmed: true,
+      recoveryId: null,
+    });
+    assert.ok(settled.state);
+    const objective = recordObjectiveIntegration(
+      settled.state,
+      settled.state.generation,
+      "objective-1",
+      { accepted: true, criterionEvidenceIds: ["evidence-objective-1"] },
+    );
+    assert.equal(objective.status, "completed");
+    assert.ok(objective.state);
+    assert.equal(objective.state.objectives[0]?.state, "accepted");
+    assert.equal(objective.state.milestone.state, "integrating");
+    assert.equal(
+      projectProjectRuntimeState(objective.state).nextAction,
+      "verify_milestone_integration",
+    );
+    const milestone = recordMilestoneIntegration(
+      objective.state,
+      objective.state.generation,
+      ["evidence-milestone-1"],
+    );
+    assert.equal(milestone.status, "completed");
+    assert.ok(milestone.state);
+    assert.equal(milestone.state.milestone.state, "accepted");
+    assert.equal(
+      projectProjectRuntimeState(milestone.state).qualityState,
+      "accepted",
+    );
+  });
+
+  it("古い世代と統合待ち前の受入を拒否する", () => {
+    const state = stateFor([task("task-a")]);
+    assert.equal(
+      recordObjectiveIntegration(state, state.generation, "objective-1", {
+        accepted: true,
+        criterionEvidenceIds: ["evidence-objective-1"],
+      }).reason,
+      "project_runtime_objective_integration_mismatch",
+    );
+    assert.equal(
+      recordMilestoneIntegration(state, state.generation - 1, [
+        "evidence-milestone-1",
+      ]).reason,
+      "project_runtime_milestone_integration_mismatch",
+    );
+  });
+
+  it("受入条件ごとのEvidenceが不足する場合は受入を拒否する", () => {
+    const created = createProjectRuntimeState({
+      projectId: "crdd",
+      milestoneId: "v0.19",
+      repositoryRevision: revision,
+      maximumConcurrency: 1,
+      milestoneAcceptanceCriteria: ["条件A", "条件B"],
+      objectives: [
+        {
+          id: "objective-1",
+          acceptanceCriteria: ["条件1", "条件2"],
+        },
+      ],
+      tasks: [task("task-a")],
+      ownerGeneration: "owner-1",
+    });
+    assert.ok(created.state);
+    const state = start(created.state, "task-a");
+    const settled = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      outcome: "completed",
+      cleanupConfirmed: true,
+      recoveryId: null,
+    });
+    assert.ok(settled.state);
+    assert.equal(
+      recordObjectiveIntegration(
+        settled.state,
+        settled.state.generation,
+        "objective-1",
+        { accepted: true, criterionEvidenceIds: ["evidence-only-one"] },
+      ).reason,
+      "project_runtime_objective_integration_mismatch",
+    );
+  });
+
+  it("Recoveryを進捗や品質の成功へ補正しない", () => {
+    let state = stateFor([task("task-a")]);
+    state = start(state, "task-a");
+    const settled = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      outcome: "recovery_required",
+      cleanupConfirmed: false,
+      recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+    });
+    assert.ok(settled.state);
+    const projection = projectProjectRuntimeState(settled.state);
+    assert.equal(projection.workProgress, "in_progress");
+    assert.equal(projection.qualityState, "blocked");
+    assert.equal(projection.recoveryRequired, true);
+    assert.equal(projection.nextAction, "recover");
   });
 
   it("Lockとstale resultの保持条件を説明する", () => {
@@ -210,6 +390,8 @@ describe("Project Runtime state contract", () => {
         "project_operation_then_short_project_state_transaction_never_held_across_single_task_runtime",
       staleResult:
         "generation_attempt_and_operation_identity_mismatch_blocks_without_projection",
+      acceptanceContract:
+        "task_completion_then_objective_integration_then_milestone_integration",
     });
   });
 });

@@ -79,4 +79,6 @@ v0.19のProject Runtimeは、`Project → Milestone／Version → Objective → 
 
 Task状態は少なくともReady、Running、Waiting Dependency、Blocked、Completed、Failedを区別する。Taskの完了、Objectiveの受入、Milestoneの受入を同じ状態へ畳み込まない。進捗投影は現在状態から再構成でき、履歴、変更トレース、EvidenceまたはRoadmapを第二の実行状態Storeにしない。
 
+同じRepositoryへ複数の起動要求が到着する場合は、実行要求の耐久キュー、実行所有権、隔離Workspace、正本採用権を別の情報として保持する。人間可読なMDを排他の正本にせず、Repository-local `.crdd`の機械可読状態をRuntime所有の実行情報とし、必要な要約だけを人間表示へ投影する。対話起点とスケジュール起点を区別しつつ、優先度だけで既に発行済みのEffectやRecovery義務を奪わない。
+
 MCPとCLIは同じObjective IntakeとProject State投影へ接続する。入口から渡されたPath、Project名またはTask状態をAuthorityとして採用せず、Repository Binding、Project Identity、現在Revisionおよび許可境界をRuntimeが再確認する。
