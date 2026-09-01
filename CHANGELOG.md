@@ -9,6 +9,12 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0190-en"></a>
+
+### v0.19.0 — Candidate (Unreleased)
+
+The current candidate strengthens Communication reasoning without making one mandatory reasoning schema. It distinguishes trigger, non-trigger, and insufficient-information cases for Cognitive Intent; preserves historical hypotheses and current intent separately; limits AI projection to relevant, current, traceable context; and keeps commerciality, research safety, persuasion risk, and post-adoption value with their responsible canonical artifacts. This entry describes work in progress and does not establish publication, adoption, or conformance. The released baseline remains v0.18.1.
+
 <a id="changelog-v0181-en"></a>
 
 ### v0.18.1 — Coordinator Adoption Interface Correction
@@ -853,6 +859,12 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0190-ja"></a>
+
+### v0.19.0 — 候補（未公開）
+
+現在の候補は、一つの固定推論Schemaを必須にせず、Communicationの推論接続を強化する。認知意図の発火、非発火、判定情報不足を分け、当時の仮説と現在有効な意図を区別し、AIへは関係があり現在有効で追跡可能なContextだけを投影する。商業性、調査安全、説得リスクおよび採用後価値は、それぞれ責務を持つ正本へ維持する。本項は作業中の候補を説明するものであり、公開、採用または準拠を成立させない。公開済み基準はv0.18.1である。
 
 <a id="changelog-v0181-ja"></a>
 

@@ -7,7 +7,9 @@
 Expertise and execution to AI. Ideas, decisions, and accountability to humans. Intent to the Context Repository.
 ```
 
-Version: **v0.18.1 — Coordinator Adoption Interface Correction / Coordinator採用入口の是正**
+Version: **v0.19.0 Candidate**
+
+Released Baseline: **v0.18.1**
 
 > **Release identity / 公開基準の識別:** This content is a released baseline only when referenced by an official release tag or equivalent immutable Release identifier. A branch, Commit, or `Status: Stable` alone does not establish publication, project adoption, conformance, or Runtime execution authority. `04_Agent_Organization.md` sections 1–11 define the normative foundation; section 12 and `05_Autonomous_Operation.md` remain non-normative future design material. / この内容は、公式タグまたは同等の不変なRelease識別子で参照された場合だけ公開済み基準となる。branch、Commitまたは`Status: Stable`だけでは公開、プロジェクトでの採用、準拠またはRuntime起動権限は成立しない。`04_Agent_Organization.md`§1～§11は基礎規範を定義し、同書§12と`05_Autonomous_Operation.md`は将来の非規範設計資料として維持する。See / 参照: [Release and migration / リリースと移行](CHANGELOG.md)。
 
