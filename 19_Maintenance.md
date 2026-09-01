@@ -339,13 +339,7 @@ CRDD標準の保守は、内部Toolの変更分類、追跡、統合、移行お
 
 Tool固有の実装方式から得た一般原則は、適用範囲、非発火例および既存正本との重複を確認した場合だけCRDD共通規範へ昇格する。単一Toolの現在実装、固定Path、期間、protocol、検証commandまたは技術選定を、CRDD全体または採用Repositoryの保守要件へ一般化しない。
 
-開発時の静的LintとFormatterには、Repository rootの`biome.json`でversionと規則を固定したBiomeを使用する。Biomeは開発依存に限定し、Runtime成果物または実行時依存へ含めない。Lint、Formatter確認、TypeScript型検査およびRuntime testは別の確認軸として実行し、一つの成功を他の成功へ流用しない。既存Scriptへ一括自動修正を適用せず、TypeScriptへ移す単位ごとに整形と意味回帰を確認する。
-
-`.mjs`、`.cjs`または`.js`を残す場合は、bootstrapまたは外部互換等の明示理由と適用範囲を変更トレースへ記録する。移行途中であること自体は恒久例外の理由にしない。拡張子の変更によってfolder、決定権限、公開範囲、package境界または単独配布の可否を変更しない。
-
-Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ同義に固定する。特定のversion managerは要求しない。利用者または採用側へ見える拡張子、実行command、参照Pathを変更する場合は、変更トレースで利用側、移行、停止および復旧を示し、基準版の採用やリリースを別判断として扱う。
-
-CRDD公式Repositoryの`40_Develop/**`と配布用実装の具体的な命名、試験名および曖昧名の禁止は[内部ツール・コーディング規約](06_Architecture/99_Coding_Standards.md)を単一正本とする。
+Tool固有規則を変更して利用者または採用側へ見える拡張子、実行command、参照Pathその他の接続が変わる場合は、変更トレースで利用側、移行、停止および復旧を示す。基準版の採用とリリースは、実装規則の変更とは別の判断として扱う。
 
 <a id="34-essential-correction-and-compatibility-boundary"></a>
 

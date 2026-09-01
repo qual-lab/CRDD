@@ -17,6 +17,8 @@ The current candidate strengthens Communication reasoning without making one man
 
 The dogfooding-wide candidate also makes assurance cost, planned and actual change routes, route deviations, and effective verification observable through existing Change Trace and quality evidence. Assurance cost is evaluated as the total cost to an accepted result, not as a target for reducing review or audit. Human readability remains the responsibility of the existing Document Audit, which checks intuitive display names, concise explanations, terminology dependency, sentence complexity, and information structure. This change does not add fixed profiles, an automatic routing engine, a readability-only checker, or length-based gates. It remains work in progress and does not change the released v0.18.1 baseline.
 
+The same self-audit separates document ownership from content correctness. Tool implementation and static-analysis rules are canonical in Coding Standards; Runtime trust, resources, and execution identities remain in the responsible Architecture; repeatable commands remain in Workflow; and verification scope and results remain in Quality Assurance. Maintenance keeps change, migration, and release decisions instead of redefining those Tool contracts. This is a responsibility relocation with no change to the existing Runtime semantics, normative strength, or migration result, and it introduces no new artifact type.
+
 <a id="changelog-v0181-en"></a>
 
 ### v0.18.1 — Coordinator Adoption Interface Correction
@@ -869,6 +871,8 @@ The following describes the historical v0.1.0 files and does not describe the cu
 現在の候補は、一つの固定推論Schemaを必須にせず、Communicationの推論接続を強化する。認知意図の発火、非発火、判定情報不足を分け、当時の仮説と現在有効な意図を区別し、AIへは関係があり現在有効で追跡可能なContextだけを投影する。商業性、調査安全、説得リスクおよび採用後価値は、それぞれ責務を持つ正本へ維持する。
 
 Dogfoodingからの横断改善として、採用可能な結果までの保証コスト、計画した変更経路と実際の経路、その差と有効だった検証を既存の変更トレース・品質根拠から観測できるようにする。人間可読性は新しい監査を増やさず、既存の文書監査で表示名、一言説明、用語依存、文の複雑さおよび情報構造を確認する。固定Profile、自動経路決定機構、可読性専用Checkerおよび文字数Gateは追加しない。本項は作業中の候補を説明するものであり、公開、採用または準拠を成立させない。公開済み基準はv0.18.1である。
+
+同じ自己監査により、内容の正しさと文書の所有先を別に確認する。Toolの実装・静的検査規則は内部ツール・コーディング規約、Runtimeの信頼境界・資源・実行Identityは責務を持つアーキテクチャ、反復commandはWorkflow、検証範囲と結果は品質保証が正本となる。保守はこれらを再定義せず、変更、移行およびリリース判断を所有する。この責務再配置は既存Runtimeの意味、規範強度および移行結果を変更せず、新しい成果物種別も追加しない。
 
 <a id="changelog-v0181-ja"></a>
 

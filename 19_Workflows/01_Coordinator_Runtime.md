@@ -182,13 +182,13 @@ npm run development-e2e:verify --prefix 40_Develop/coordinator
 npm run typecheck --prefix 40_Develop/coordinator
 ```
 
-CRDD内部ScriptはTypeScriptを標準とし、Node.js 24.12以上のnative TypeScript実行を採用する。`tsx`、`ts-node`、BundlerまたはRuntime用npm packageを要求せず、TypeScript Compilerは開発時の型検査だけに使用する。Coordinator本体、CLI、Policy、契約および試験はTypeScriptに保持し、production／testを別のstrict設定で`noEmit`検査する。例外はOS APIへ型安全に接続する`40_Develop/platform-access/`のprivate Rust componentだけで、公開CLI、単独製品または採用Repositoryの依存にしない。Node native type strippingで消去できない構文、tsconfig path aliasおよびRuntime挙動を変えるCompiler変換は禁止する。攻撃的な不正shapeやNode API差替えを扱う試験fixtureも`unknown`と実行時assertionで表現し、型に合わせて負例を弱めず実行時試験を維持する。
+[内部ツール・コーディング規約](../06_Architecture/99_Coding_Standards.md#21-実装言語と実行境界)で固定したNode.js、TypeScriptおよびRustの実行境界を前提とする。上記の`typecheck`はproductionとtestの型検査を実行するが、Runtime実行や他の検査軸の合格を代替しない。
 
 日常の開発反復ではRelease manifestを作り直さない。`npm run development-e2e:verify --prefix 40_Develop/coordinator`が、4経路、一般Task、Candidate、独立Review、一回是正およびRecovery Matrixのproduction契約を固定Fake／契約・結合試験で検査する。この入口はRelease鍵、passphrase、実Provider、Provider Credential、Network EffectまたはRelease Authorityを使わない。正式署名E2Eは、全機械確認を通過して凍結したRelease Candidateに対してだけ一度実施し、失敗ごとに署名を挟むデバッグ手順にしない。一般利用者は発行済み署名配布物を検証して利用するだけであり、Release秘密鍵またはpassphraseの入力・保有を要求されない。公式Release担当者だけが新しい公式配布物を発行するときに署名する。
 
-開発時のLintとFormatterはRepository rootの`biome.json`を正本とするBiome 2.5.6へ統一する。Coordinatorは`npm run lint --prefix 40_Develop/coordinator`、`npm run format:check --prefix 40_Develop/coordinator`および`npm run check --prefix 40_Develop/coordinator`で確認し、意図的な書換え時だけ`npm run format --prefix 40_Develop/coordinator`を使う。BiomeはdevDependencyでありRuntimeへ含めない。
+LintとFormatterの版、設定および依存境界は[内部ツール・コーディング規約](../06_Architecture/99_Coding_Standards.md#21-実装言語と実行境界)に従う。Coordinatorは`npm run lint --prefix 40_Develop/coordinator`、`npm run format:check --prefix 40_Develop/coordinator`および`npm run check --prefix 40_Develop/coordinator`で確認し、意図的な書換え時だけ`npm run format --prefix 40_Develop/coordinator`を使う。
 
-内部ツールの命名とTypeScript／Rust sourceは[内部ツール・コーディング規約](../06_Architecture/99_Coding_Standards.md)に従う。Checkerは`40_Develop/checker/`のprivate packageがTypeScriptのpackage entry adapter、test、fault injectorとJSON型設定を所有する。配布正本`template/tools/crdd-check.ts`はpackage外に置き、追加installを要求しない採用側CLIの正本としてpackage entry adapterから参照する。これは旧入口を維持する互換wrapperではない。Checker packageの開発確認は次を使用する。
+Checkerの実装配置と配布境界は[内部ツール・コーディング規約](../06_Architecture/99_Coding_Standards.md)に従う。Checker packageの開発確認は次を使用する。
 
 ```shell
 npm run check --prefix 40_Develop/checker
@@ -199,5 +199,3 @@ npm run --silent verify:repository --prefix 40_Develop/checker
 `check`は型、Lint、Formatter、`test`はChecker回帰試験、`verify:repository`はpackage rootから`../..`を明示してCRDD公式Repository全体を確認するprivateな保守入口である。採用Repositoryの実行方法、外部package配布、CRDD準拠条件またはRelease手順ではない。
 
 Rust packageを移設した後は、旧配置から持ち越した`target`を検証の根拠に使わない。コンパイル時に埋め込まれた絶対Pathが残り、コードを変更していなくても試験用binaryを起動できない場合がある。検証したcrate Rootの`target`配下に新しい実行専用Directoryを選び、そのProcessの`CARGO_TARGET_DIR`へ設定して、固定toolchain・`--frozen --offline`で再ビルドと試験を行う。既存キャッシュや署名配布物の削除は必要ない。生成物はGit非追跡のまま保持し、同じPathの古い試験結果を新配置の合格へ流用しない。
-
-Runtime 1.0のその他のCLIは、成立性Gate、Protocol、状態不変条件および永続Storeが固定されるまで提供しない。

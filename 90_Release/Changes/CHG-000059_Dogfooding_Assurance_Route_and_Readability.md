@@ -21,6 +21,7 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 1. 採用可能な結果までに使った保証活動のコストを観測する。
 2. 計画した変更経路と実際の変更経路、その差と有効だった検証を観測可能にする。
 3. 人間可読性を既存の文書監査の責務として具体化する。
+4. 内容の正しさと文書の所有先を分け、共通規則、Toolの設計、反復手順、実装規約、検証および履歴が責務を越えて第二の正本になっていないか確認する。
 
 ## 2. 目指さないこと
 
@@ -57,9 +58,10 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 
 ## 6. 変更影響の伝播
 
-- 正本: `12_Change.md`、`16_Quality_Assurance.md`、`03_Documentation.md`、`51_Document_Audit.md`
+- 正本: `12_Change.md`、`16_Quality_Assurance.md`、`03_Documentation.md`、`51_Document_Audit.md`、`19_Maintenance.md`
 - 実行入口: `00_Overview.md`、`10_Agent.md`、`AGENTS.md`
 - 利用側: `template/AGENTS.md`、変更トレースひな型、`15_Progress.md`
+- Tool固有の所有先: `06_Architecture/99_Coding_Standards.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/platform-access/01_Architecture.md`、`19_Workflows/01_Coordinator_Runtime.md`
 - 監査: `52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 - 自己適用: `CHG-000057`および`07_Quality/03_Verification_Design.md`のProject Runtime有用性評価
 - 公開・計画: CHANGELOG、Product Roadmap、変更トレース案内
@@ -74,7 +76,11 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 
 ## 8. 実際の経路・影響・逸脱
 
-作業中。固定候補の検証と独立確認後に更新する。
+当初計画した正本・AI入口・ひな型・監査への伝播後、CRDD自身の文書監査を追加した。文書監査は、入口文書の条件過密、READMEの利用手順と移行案内の圧縮、英語CHANGELOGの伝播漏れに加え、`19_Maintenance.md`がTool固有の実装・Security・検証契約を所有していた責務混在を検出した。
+
+実際の経路は、文書化／文書監査から保守、内部ツール・コーディング規約、Coordinator／Windowsプラットフォームアクセスのアーキテクチャ、Workflowおよび検証設計へ拡大した。この差は新しいRuntime変更ではなく、新しい所有先確認をCRDD自身へ適用した結果である。移管では既存のBCP 14強度、TCB、Provider Home、Mount Grant、Process、Fakeと実環境、Build／Runtimeの意味を保持した。既存Runtimeの挙動、移行結果および公開済みv0.18.1履歴は変更していない。
+
+機械Checkerはリンク・アンカー・構造の成立に有効だったが、文章の過密さ、英日差分および正しい内容の誤配置は検出しなかった。文書監査は可読性と所有先の不整合、準拠／不足・影響監査は英語CHANGELOGと利用側・変更トレースへの伝播不足、専門レビューはSecurity／Runtime契約の意味保持を確認する役割として有効だった。固定候補の再監査結果と最終回数は、是正完了後の検証結果へ記録する。
 
 ## 9. 既知の制限と後続評価
 

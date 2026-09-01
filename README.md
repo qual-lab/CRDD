@@ -254,6 +254,8 @@ Human decisions still required
 
 The [human-readable route table](00_Overview.md#44-change-route-selection) shows the common combinations. It is a navigation aid; the linked canonical rules govern.
 
+CRDD also separates where information is owned. Common rules, product or tool architecture, repeatable workflows, implementation standards, verification design, results, and change history are different responsibilities. A document may summarize another responsibility only as needed for navigation and must link to its canonical owner instead of redefining it. See [Documentation](03_Documentation.md#41-成果物とコンテキスト).
+
 ### Quick Start
 
 Humans do not need to read every canonical document before starting. Read this section and the [Overview orientation](00_Overview.md#1-quick-orientation); use [Terminology](02_Terminology.md) and [Documentation](03_Documentation.md) as references when a term or recording rule is needed. AI and people designing CRDD operation should load the canonical foundation set.
@@ -685,6 +687,8 @@ AIは、責務を持つ正本文書の選択、代替案の比較、承認され
 ```
 
 よく使う組み合わせは[人間向けの変更経路判断表](00_Overview.md#44-change-route-selection)から確認できる。この表は案内であり、最終的な規則は表から接続する正本文書に従う。
+
+CRDDは情報の所有先も分ける。共通規則、製品またはToolのアーキテクチャ、反復するWorkflow、実装規約、検証設計、結果および変更履歴は別の責務である。他責務の文書では案内に必要な最小限だけを要約し、正本へリンクして再定義しない。詳細は[文書化](03_Documentation.md#41-成果物とコンテキスト)を参照する。
 
 ### クイックスタート
 
