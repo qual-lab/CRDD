@@ -2,8 +2,9 @@
 
 # CRDD準拠監査（Conformance Audit）
 
-Version: v0.18.0
-Status: Stable
+Version: v0.18.1
+Status: Candidate
+Released Baseline: v0.18.0
 Owner: Qual-Lab
 エージェントID: `agent.conformance.audit`
 Last Updated: 2026-08-31

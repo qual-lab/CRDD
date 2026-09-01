@@ -548,12 +548,14 @@ function blocked(
   ),
 ) {
   const wasCanonicalRepositoryChanged =
+    extra.canonicalRepositoryChanged === true ||
     source?.canonicalRepositoryChanged === true
       ? true
-      : source?.canonicalRepositoryChanged === false
-        ? false
-        : typeof extra.canonicalRepositoryChanged === "boolean"
-          ? extra.canonicalRepositoryChanged
+      : extra.canonicalRepositoryChanged === null
+        ? null
+        : extra.canonicalRepositoryChanged === false ||
+            source?.canonicalRepositoryChanged === false
+          ? false
           : null;
   return Object.freeze({
     contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -780,6 +782,7 @@ function taskResultContractMismatch(
 ) {
   const candidateRevision = plainRecord(result?.candidateRevision);
   const reviewerResult = plainRecord(result?.reviewerResult);
+  if (executionRevisionMismatch !== null) return executionRevisionMismatch;
   if (result?.status !== "completed") return "status";
   if (result.reason !== "coordinator_task_candidate_approved") return "reason";
   if (result.cleanupConfirmed !== true) return "cleanup_confirmed";
@@ -800,7 +803,6 @@ function taskResultContractMismatch(
     return "external_send_authorization_mode";
   if (typeof result.remediationPerformed !== "boolean")
     return "remediation_performed";
-  if (executionRevisionMismatch !== null) return executionRevisionMismatch;
   if (!candidateRevision) return "candidate_revision";
   if (candidateRevision.baseCommit !== executionRevision.commit)
     return "candidate_base_commit";
@@ -1077,6 +1079,7 @@ export async function runSignedGeneralTaskVerification(
   let discarded: RuntimeRecord | null = null;
   let isCandidateDiscarded = false;
   let cancellationRequested = false;
+  let executionStateProjection: RuntimeRecord | null = null;
   let isPostStartUnknown = false;
   let postStartUnknownReason =
     "signed_general_task_post_start_observation_unknown";
@@ -1161,6 +1164,28 @@ export async function runSignedGeneralTaskVerification(
       } catch {
         // Unknown observation fails closed after candidate cleanup.
       }
+      executionStateProjection = Object.freeze({
+        manifestHash: release.manifestHash,
+        packageContentRootSha256: release.packageContentRootSha256,
+        crddVersion: release.crddVersion,
+        releaseSequence: release.releaseSequence,
+        crddCommit: release.crddCommit,
+        crddTree: release.crddTree,
+        executionCommit: executionRevision.commit,
+        executionTree: executionRevision.tree,
+        canonicalRepositoryChanged:
+          executionRevisionMismatch === null
+            ? false
+            : executionRevisionMismatch ===
+                  "execution_repository_commit_changed" ||
+                executionRevisionMismatch ===
+                  "execution_repository_tree_changed"
+              ? true
+              : null,
+        effectStateUnknown:
+          executionRevisionMismatch ===
+          "execution_repository_revision_observation_unknown",
+      });
 
       const candidateId = taskResult.candidateId;
       let candidateMismatch: string | null = "candidate_not_read";
@@ -1190,13 +1215,10 @@ export async function runSignedGeneralTaskVerification(
             Object.freeze({
               cleanupConfirmed: false,
               manualRecoveryRequired: true,
+              candidateDiscarded: false,
+              candidateDisposition: "recovery_required",
               candidateIdForManualDiscard: candidateId,
-              canonicalRepositoryChanged:
-                taskResult.canonicalRepositoryChanged === true
-                  ? true
-                  : taskResult.canonicalRepositoryChanged === false
-                    ? false
-                    : null,
+              ...executionStateProjection,
             }),
             Object.freeze([discarded]),
           );
@@ -1219,8 +1241,12 @@ export async function runSignedGeneralTaskVerification(
           executionRevisionMismatch,
           route,
         );
-        const mismatchReason =
-          taskResult?.status === "blocked"
+        const mismatchReason = executionRevisionMismatch
+          ? executionRevisionMismatch ===
+            "execution_repository_revision_observation_unknown"
+            ? "signed_general_task_execution_repository_observation_unknown"
+            : "signed_general_task_execution_repository_changed"
+          : taskResult?.status === "blocked"
             ? safeReason(
                 taskResult.reason,
                 "signed_general_task_result_contract_mismatch",
@@ -1230,12 +1256,18 @@ export async function runSignedGeneralTaskVerification(
           ? blockedAfterExactCandidateDiscard(
               mismatchReason,
               taskResult,
-              Object.freeze({ resultContractMismatch }),
+              Object.freeze({
+                resultContractMismatch,
+                ...executionStateProjection,
+              }),
             )
           : (blockedAfterConfirmedCandidateNotIssued(
               mismatchReason,
               taskResult,
-              Object.freeze({ resultContractMismatch }),
+              Object.freeze({
+                resultContractMismatch,
+                ...executionStateProjection,
+              }),
             ) ??
             blocked(
               mismatchReason,
@@ -1244,18 +1276,23 @@ export async function runSignedGeneralTaskVerification(
                 candidateDiscarded: false,
                 candidateDisposition: "recovery_required",
                 resultContractMismatch,
+                ...executionStateProjection,
               }),
             ));
       } else if (typeof candidateId !== "string") {
         knownOutcome = blocked(
           "signed_general_task_candidate_id_missing",
           taskResult,
+          executionStateProjection,
         );
       } else if (candidateMismatch !== null) {
         knownOutcome = blockedAfterExactCandidateDiscard(
           "signed_general_task_candidate_content_mismatch",
           taskResult,
-          Object.freeze({ candidateContractMismatch: candidateMismatch }),
+          Object.freeze({
+            candidateContractMismatch: candidateMismatch,
+            ...executionStateProjection,
+          }),
         );
       } else {
         knownOutcome = Object.freeze({
@@ -1417,14 +1454,20 @@ export async function runSignedGeneralTaskVerification(
     return blocked(
       "signed_general_task_cancelled",
       taskResult,
-      Object.freeze({ candidateDiscarded: isCandidateDiscarded }),
+      Object.freeze({
+        candidateDiscarded: isCandidateDiscarded,
+        ...(executionStateProjection ?? {}),
+      }),
       Object.freeze([discarded]),
     );
   if (isRuntimeProcessPoisoned())
     return blocked(
       "signed_general_task_process_restart_required",
       taskResult,
-      Object.freeze({ candidateDiscarded: isCandidateDiscarded }),
+      Object.freeze({
+        candidateDiscarded: isCandidateDiscarded,
+        ...(executionStateProjection ?? {}),
+      }),
       Object.freeze([discarded]),
     );
   if (!knownOutcome)
@@ -1474,6 +1517,8 @@ export function describeSignedGeneralTaskVerificationContract() {
       "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
     baseContentPreflight:
       "exact_tracked_lf_bytes_verified_before_task_or_provider_effect",
+    identityBinding:
+      "signed_distribution_source_and_manifest_only_distribution_commit_are_separate_from_work_repository_execution_revision_candidate_base_uses_execution_revision_observed_before_and_after_task",
     boundedRemediation:
       "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
     resultMismatchDiagnostic:

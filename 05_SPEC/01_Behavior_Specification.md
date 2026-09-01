@@ -356,7 +356,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 - Runnerの引数と結果は要求したFront軸を示すが、caller processが実Codex／Claude Code Frontだったことを観測・証明しない。
 - Front実体を含むE2E成立は、該当する公式Frontからこの固定Runnerを起動したrun Evidenceと、Runnerが確認するProvider経路の両方で判定する。
 - 変更候補は`40_Develop/coordinator/runtime/general-task-verification.txt`のexact 1件に限定し、期待byteとの完全一致をRuntime Candidate Storeから再確認した後にdiscardする。
-- manifest内の署名Source Commit A／Tree Aと、manifest一件だけを加えた実行Repository Commit B／Tree Bを分ける。Runtimeは配布内容をAへ、Candidate Revisionを実行前に独立観測したBへ結合し、実行後もBが不変であることを再観測する。全Candidate Identity Hash、経路、独立Review、cleanup、Recovery ID不存在、canonical Repository非変更およびCandidate残存0も成立した場合だけPassを返す。
+- manifest内の署名配布Source Commit A／Tree Aと、manifest一件だけを加えた配布Commit B／Tree Bを、作業対象RepositoryのExecution Commit／Treeから分ける。Runtimeは配布内容をAとBの関係へ結合し、Candidate Revisionを実行前に独立観測した作業対象Revisionへ結合して、実行後も同じRevisionであることを再観測する。CRDD自身を作業対象にする場合だけExecution Revisionが配布Bと一致し得る。親RepositoryがCRDDをsubmoduleとして利用する場合、配布A／Bはsubmodule側、Execution RevisionとCandidate baseは親Repository側であり、両者を同一視しない。全Candidate Identity Hash、経路、独立Review、cleanup、Recovery ID不存在、canonical Repository非変更およびCandidate残存0も成立した場合だけPassを返す。
 - TaskがCandidate IDを返した後はPass可否にかかわらずRuntime Candidate Storeのdiscardを試行し、処置不明ならIDを保持して手動回復を要求する。
 - 通常の`coordinator task --request-stdin`契約は変更しない。
 

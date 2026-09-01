@@ -23,6 +23,8 @@ const REASONS = new Set([
   "signed_general_task_verification_completed",
   "signed_general_task_candidate_content_mismatch",
   "signed_general_task_result_contract_mismatch",
+  "signed_general_task_execution_repository_changed",
+  "signed_general_task_execution_repository_observation_unknown",
   "coordinator_task_independent_review_not_approved",
   "coordinator_task_remediated_candidate_invalid",
   "coordinator_task_repository_preflight_failed",
@@ -43,6 +45,14 @@ const REASONS = new Set([
 ]);
 const STATUSES = new Set(["completed", "blocked", "verified"]);
 const ROUTES = new Set(["forward", "reverse", "same-codex", "same-claude"]);
+const VALIDATION_FAILURES = new Set([
+  "arguments_invalid",
+  "route_nonconforming",
+  "release_identity_mismatch",
+  "execution_identity_mismatch",
+  "runner_exception",
+  "process_restart_required",
+]);
 const SCENARIOS = new Set([
   "timeout",
   "output_limit",
@@ -124,16 +134,25 @@ export function projectVerificationResult(
   }
   for (const field of ["failedRouteProfile", "requestedRouteProfile"])
     summary[field] = known(ownValue(value, field), ROUTES);
+  summary.validationFailure = known(
+    ownValue(value, "validationFailure"),
+    VALIDATION_FAILURES,
+  );
   summary.scenario = known(ownValue(value, "scenario"), SCENARIOS);
   for (const field of [
     "manifestHash",
     "packageContentRootSha256",
     "crddCommit",
     "crddTree",
+    "executionCommit",
+    "executionTree",
   ]) {
     const observed = ownValue(value, field);
     const pattern =
-      field === "crddCommit" || field === "crddTree"
+      field === "crddCommit" ||
+      field === "crddTree" ||
+      field === "executionCommit" ||
+      field === "executionTree"
         ? /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u
         : /^[a-f0-9]{64}$/u;
     summary[field] =

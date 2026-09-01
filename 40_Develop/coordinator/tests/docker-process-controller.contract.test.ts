@@ -1433,7 +1433,7 @@ test("provider timeoutは終了要求後もcleanupを必須にする", async () 
 // OSのCtrl+C配送とDocker資源は未観測。CLI listener/Controllerの共有処理から
 // 本番共通のtaskkillへ接続し、固定Node子孫のclose/不存在を実観測する。
 for (const dockerCleanupConfirmed of [true, false]) {
-  test(`取消結合: 実子孫終了後の模擬Docker cleanup=${dockerCleanupConfirmed}`, {
+  test(`Windows Process Gate: 取消結合: 実子孫終了後の模擬Docker cleanup=${dockerCleanupConfirmed}`, {
     skip: process.platform !== "win32",
     timeout: 20_000,
   }, async (t) => {

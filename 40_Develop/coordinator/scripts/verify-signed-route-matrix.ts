@@ -463,19 +463,7 @@ export async function runSignedRouteMatrixVerification(
           index === 0 && attempt === 1 && initialConsentAuthorizationMode
             ? initialConsentAuthorizationMode
             : "reused_initial_consent";
-        const isExact = isExactSignedRouteResult(
-          route,
-          result,
-          expectedAuthorizationMode,
-        );
-        if (!isExact) {
-          if (
-            attempt < MAX_SAFE_ROUTE_ATTEMPTS &&
-            isSafeRetryableRouteResult(result)
-          ) {
-            retryableRouteAttemptCount += 1;
-            continue;
-          }
+        if (!validReleaseIdentity(result) || !validExecutionIdentity(result)) {
           failedRouteProfile = route;
           validationFailure = "route_nonconforming";
           break routeLoop;
@@ -494,6 +482,23 @@ export async function runSignedRouteMatrixVerification(
         else if (currentExecutionIdentity !== baselineExecutionIdentity) {
           failedRouteProfile = route;
           validationFailure = "execution_identity_mismatch";
+          break routeLoop;
+        }
+        const isExact = isExactSignedRouteResult(
+          route,
+          result,
+          expectedAuthorizationMode,
+        );
+        if (!isExact) {
+          if (
+            attempt < MAX_SAFE_ROUTE_ATTEMPTS &&
+            isSafeRetryableRouteResult(result)
+          ) {
+            retryableRouteAttemptCount += 1;
+            continue;
+          }
+          failedRouteProfile = route;
+          validationFailure = "route_nonconforming";
           break routeLoop;
         }
         verifiedRouteCount += 1;
@@ -570,11 +575,14 @@ export function describeSignedRouteMatrixVerificationContract() {
     boundedRemediation:
       "each_route_accepts_zero_or_one_runtime_owned_remediation_only_after_final_independent_approval",
     releaseIdentity:
-      "all_routes_same_manifest_package_version_sequence_commit_and_tree",
+      "all_attempts_same_manifest_package_version_sequence_commit_and_tree",
+    executionIdentity:
+      "all_attempts_same_work_repository_execution_commit_and_tree",
     failureClassification: Object.freeze([
       "arguments_invalid",
       "route_nonconforming",
       "release_identity_mismatch",
+      "execution_identity_mismatch",
       "runner_exception",
       "process_restart_required",
     ]),

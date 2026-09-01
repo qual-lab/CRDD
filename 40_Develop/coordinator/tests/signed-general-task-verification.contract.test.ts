@@ -685,7 +685,7 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(fixture.calls.repositoryRevisionObservations, 2);
 });
 
-test("署名Source Aとmanifest追加後の実行Commit Bを分離し候補をBへ結合する", async () => {
+test("署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合する", async () => {
   const fixture = dependencies({
     release: release({
       crddCommit: signedSourceCommit,
@@ -705,7 +705,7 @@ test("署名Source Aとmanifest追加後の実行Commit Bを分離し候補をB�
   assert.equal(fixture.calls.discards, 1);
 });
 
-test("候補が実行Commit Bでなく署名Source Aをbaseにした場合は破棄して拒否する", async () => {
+test("候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否する", async () => {
   const fixture = dependencies({
     release: release({
       crddCommit: signedSourceCommit,
@@ -758,7 +758,109 @@ test("実行中にCanonical RepositoryのCommitが変化した場合は候補破
   );
   assert.equal(result.candidateDiscarded, true);
   assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.canonicalRepositoryChanged, true);
+  assert.equal(result.effectStateUnknown, false);
+  assert.equal(
+    result.reason,
+    "signed_general_task_execution_repository_changed",
+  );
+  assert.equal(result.executionCommit, baseCommit);
+  assert.equal(result.executionTree, baseTree);
   assert.equal(fixture.calls.repositoryRevisionObservations, 2);
+});
+
+test("Task後の作業対象Revision観測不能は候補回収後も状態不明を保持する", async () => {
+  const fixture = dependencies({
+    repositoryRevisions: Object.freeze([
+      Object.freeze({
+        status: "candidate",
+        commit: baseCommit,
+        tree: baseTree,
+      }),
+      null,
+    ]),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "signed_general_task_execution_repository_observation_unknown",
+  );
+  assert.equal(
+    result.resultContractMismatch,
+    "execution_repository_revision_observation_unknown",
+  );
+  assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.canonicalRepositoryChanged, null);
+  assert.equal(result.effectStateUnknown, true);
+});
+
+test("安全なTask拒否より作業対象Revision変化を優先して再試行可能にしない", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      status: "blocked",
+      reason: "coordinator_task_independent_review_not_approved",
+      candidateId: null,
+      candidateDisposition: "not_issued",
+    }),
+    repositoryRevisions: Object.freeze([
+      Object.freeze({
+        status: "candidate",
+        commit: baseCommit,
+        tree: baseTree,
+      }),
+      Object.freeze({
+        status: "candidate",
+        commit: "9".repeat(40),
+        tree: baseTree,
+      }),
+    ]),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(
+    result.reason,
+    "signed_general_task_execution_repository_changed",
+  );
+  assert.equal(
+    result.resultContractMismatch,
+    "execution_repository_commit_changed",
+  );
+  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(result.canonicalRepositoryChanged, true);
+  assert.equal(result.effectStateUnknown, false);
+});
+
+test("候補破棄失敗と作業対象Revision観測不能を別軸で保持する", async () => {
+  const fixture = dependencies({
+    discardThrows: true,
+    repositoryRevisions: Object.freeze([
+      Object.freeze({
+        status: "candidate",
+        commit: baseCommit,
+        tree: baseTree,
+      }),
+      null,
+    ]),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.reason, "signed_general_task_candidate_discard_failed");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.candidateDiscarded, false);
+  assert.equal(result.canonicalRepositoryChanged, null);
+  assert.equal(result.effectStateUnknown, true);
+  assert.equal(result.executionCommit, baseCommit);
+  assert.equal(result.executionTree, baseTree);
 });
 
 test("実行Repository RevisionをTask前に観測できなければProvider Effectを発行しない", async () => {

@@ -112,6 +112,14 @@ function safelyRetryable(
   return Object.freeze({
     status: "blocked" as const,
     reason,
+    manifestHash: "a".repeat(64),
+    packageContentRootSha256: "b".repeat(64),
+    crddVersion: "v0.18.0",
+    releaseSequence: 18,
+    crddCommit: "c".repeat(40),
+    crddTree: "d".repeat(40),
+    executionCommit: "e".repeat(40),
+    executionTree: "f".repeat(40),
     externalSendAuthorizationMode: authorizationMode,
     candidateDiscarded: candidateDisposition === "discarded",
     candidateDisposition,
@@ -300,6 +308,32 @@ test("exact破棄と残存0を確認した閉集合理由だけ同じ経路を�
   assert.equal(result.completedRouteCount, 4);
   assert.equal(result.retryableRouteAttemptCount, 1);
   assert.equal(result.cleanupConfirmed, true);
+});
+
+test("安全再試行の全attemptを同じ作業対象Execution Revisionへ固定する", async () => {
+  let attempts = 0;
+  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
+    _root,
+    _dependencies,
+    route,
+  ) => {
+    attempts += 1;
+    if (attempts === 1)
+      return safelyRetryable(
+        "signed_general_task_candidate_content_mismatch",
+        "interactive_initial_consent",
+      );
+    return Object.freeze({
+      ...completed(route ?? "forward", "reused_initial_consent"),
+      executionCommit: "1".repeat(40),
+    });
+  }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.attemptedRouteCount, 2);
+  assert.equal(result.completedRouteCount, 0);
+  assert.equal(result.retryableRouteAttemptCount, 1);
+  assert.equal(result.failedRouteProfile, "forward");
+  assert.equal(result.validationFailure, "execution_identity_mismatch");
 });
 
 test("安全な閉集合理由でも3回目は再試行せず全履歴を保持して停止する", async () => {

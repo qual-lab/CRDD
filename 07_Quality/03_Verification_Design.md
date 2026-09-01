@@ -13,20 +13,20 @@ TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Ga
 | 判定対象 | 正常・準正常・異常の確認 | 保持する終了条件 |
 |---|---|---|
 | revision 2期限付き | 期限内、開始前、期限ちょうど、期限後、null拒否 | 旧V2署名byteと意味を維持 |
-| revision 3 | nullで発行後の複数日時、開始前拒否、UTC期限付きの境界 | nullの場合だけ時間上限を除く |
+| revision 3／4 | revision 3のnull期限互換読取り、revision 4の単一Platform Access成果物、発行後の複数日時、開始前拒否、UTC期限付きの境界 | revision 4だけを現行発行対象とし、nullの場合だけ時間上限を除く |
 | Schemaと署名 | 欠落・undefined・空文字・文字列null・不正日時・未知revision・envelope/payload不一致、期限改変、V2/V3混同 | 改変でAuthorityを発行しない |
 | 署名CLIと事前検査 | --no-expiry、--expires-at、両方・未指定・重複・不正指定 | 不正指定で秘密入力・署名・配置を発火しない |
 | TypeScript／Rust接続 | 同じ署名payloadの正常・異常ベクトルを両検証器へ渡す | canonical byte、domain、成果物結合を一致させる |
 | 既存の期限所有者 | Grant、同意、候補、準備記録の期限・取消の既存試験 | 期限なしmanifestから別の権限を延長しない |
 
-新しいNativeを含む正式配布の最終固定では、署名manifestとGit Tree・2成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。Commit AへSource・文書・試験・2成果物を固定し、そのTreeを署名したmanifestだけをCommit Bで追加する。公式tagのCommit Bを新しいclean cloneまたはsubmodule相当のworktreeで検証し、Commit Bの親が署名対象Commit Aであること、AからBへの差分がmanifestだけであること、Git同梱成果物のbyte・Hash・PE profileが一致することを確認する。独自ZIPを作成・展開せず、GitHubの自動Source archiveもRuntime配布契約の検証対象にしない。旧48515ebの実測、物理Ctrl+C、端末表示と実務評価は対象版を維持し、変更の影響を照合せず新規版の成功へ読み替えない。
+新しいNativeを含む正式配布の最終固定では、revision 4の署名manifest、Git Treeおよび単一Platform Access成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。Commit AへSource・文書・試験・`crdd-platform-access.exe`を固定し、そのTreeを署名したmanifestだけを配布Commit Bで追加する。公式tagの配布Bを新しいclean cloneまたはsubmodule相当のworktreeで検証し、Bの親が署名対象Aであること、AからBへの差分がmanifestだけであること、Git同梱成果物のbyte・Hash・PE profileが一致することを確認する。Taskでは配布A／Bと作業対象RepositoryのExecution Revisionを分け、開始前後に同じExecution Commit／Treeを観測し、Candidateの`baseCommit`／`baseTree`が作業対象Revisionへ一致することを確認する。独自ZIPを作成・展開せず、GitHubの自動Source archiveもRuntime配布契約の検証対象にしない。旧48515ebの実測、物理Ctrl+C、端末表示と実務評価は対象版を維持し、変更の影響を照合せず新規版の成功へ読み替えない。
 
 | Git同梱配布の経路 | 期待結果 | 終了後条件 |
 |---|---|---|
-| 正常 | 公式tagのclean clone／submodule、manifest-only PE、署名対象親Commitとexact Tree、2成果物Hashが一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
+| 正常 | 公式tagのclean clone／submodule、manifest-only配布B、署名対象親Commit Aとexact Tree、単一成果物Hashが一致。Task前後の作業対象Execution Revisionが同一で、Candidate baseもそのRevisionへ一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
 | 準正常 | non-zero固定publisher digestを宣言したPEで、追加DLL集合とAuthenticodeが一致 | manifest-onlyへfallbackせず追加防御を維持 |
-| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差 | Provider Effect 0でfail closed |
-| 判定不能 | shallow／不完全Git履歴、RootまたはRevision不明、reparse／link、読取り不成立 | 配布Identityを推定せずEffect 0で停止 |
+| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、Candidateが配布Aをbaseにする、Task中に作業対象Commit／Treeが変わる | Candidateを回収し、Provider Effectまたは成功結果を追加発行せずfail closed |
+| 判定不能 | shallow／不完全Git履歴、配布Rootまたは作業対象Root／Revision不明、reparse／link、Task後のExecution Revision読取り不成立 | 配布Identityや作業対象の不変性を推定せずEffect 0または状態不明として停止 |
 
 対象は[仕様](../05_SPEC/01_Behavior_Specification.md)と[設計](../06_Architecture/01_Architecture.md)が所有する現行内部ツールである。今回の配置変更は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)、Runtimeの完成条件は[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)で追跡する。以下は検証義務の複製ではなく、その確認方法の対応表である。
 
@@ -91,6 +91,8 @@ Repository／Revisionと明示した読取り範囲を保持する[設計上の�
 | 差分本文の長さ・copy・参照・復元後object IDの不整合 | 外側checksumを整合させた変異を使い、形式検査と対象処理への到達を合わせて確認する。公開関数の`null`だけから内側の拒否箇所を推定しない |
 
 Git CLIは開発試験の生成・検査に限って使用し、本番readerの外部Git実行を追加しない。今回の生成環境はWindowsのGit 2.54.0であり、他OSでは未検証としてskipする。対象環境内で格納形式を生成できない場合は前提不成立として失敗させ、skipや別形式への暗黙置換で合格にしない。生成元・pack-only領域・workspace・Git用HOMEはRepository直下の試験領域へ限定し、生成途中の失敗を含め回収する。
+
+Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場合は、`test:restricted-process`で実Windows Process Gate以外の全母集団を確認し、`test:windows-process`を通常のローカルユーザーProcessで確認する。前者だけを全体合格とせず、後者は安定prefixと契約試験でexact 7件へ固定する。制限Processで同じ7件を一般失敗として反復した回数を品質の追加Evidenceにせず、両Gateの合計、各実行環境および終了観測を同じ固定候補へ結合する。通常の`test`は7件を含む完全母集団を維持する。
 
 ### Lockの未到達条件と公開結果
 

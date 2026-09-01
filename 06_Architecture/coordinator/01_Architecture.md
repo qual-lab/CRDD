@@ -135,7 +135,7 @@ Coordinator package content rootは、Repositoryでテキストとして管理�
 
 Runtimeはmanifestだけを除外して配布Treeを再計算し、固定成果物をTreeとmanifestの双方へ結合する。Tree再計算ではRepositoryの`* text=auto eol=lf`契約と同じく、先頭8 KiBにNULを含まないtextをLF正本として扱い、`.exe`およびbinary判定されたfileは生バイトのGit Blob Identityを用いる。Root直下のexact `.git` metadataはnon-link・安定Identityを確認してTreeから除外する。`.crdd/external-send-policy.json`はGit管理する非秘密設定として署名Treeへ含め、同じRoot `.crdd`内のRuntime状態だけを除外する。似た名前、別階層または任意のRoot追加fileは除外しない。未署名branch、manifest欠落、改変checkout、余分なfileまたは成果物差はProvider Effect前に停止する。
 
-配布Identityと作業候補の基準Revisionは同一ではない。manifest内のCommit A／Tree Aは、manifest自身を除いた署名Sourceを保証する。利用者が実行するCommit BはAへmanifest一件だけを加えた配布Commitであり、Runtimeはこの関係を配布検証で確認する。一般Task開始前には実行RepositoryのCommit B／Tree Bを独立観測し、終了後も同じIdentityであることを再観測する。Executor候補の`baseCommit`／`baseTree`はBへ一致しなければならず、Aへ一致することを要求しない。これにより、署名Sourceの真正性、実行Checkoutの不変性、候補差分の基準を別々のAuthorityへ結合する。
+配布Identityと作業候補の基準Revisionは同一ではない。manifest内のCommit A／Tree Aはmanifest自身を除いた署名Sourceを保証し、配布Commit BはAへmanifest一件だけを加える。Runtimeはこの関係をCRDD配布Rootで検証する。一方、一般Task開始前後に観測するExecution Commit／Treeは、変更候補を作る作業対象RepositoryのIdentityである。Executor候補の`baseCommit`／`baseTree`はこのExecution Revisionへ一致しなければならず、配布AまたはBへの一致を一般要件にしない。CRDD自身を作業対象にするDogfoodingではExecution Revisionが配布Bと一致し得るが、親RepositoryがCRDDをsubmoduleとして利用する場合、A／Bはsubmodule側、Execution Revisionは親側となる。これにより、署名Sourceの真正性、配布Commit、作業Checkoutの不変性、候補差分の基準を別々のAuthorityへ結合する。
 
 <a id="task-result-transport"></a>
 <a id="task-turn-budget"></a>
