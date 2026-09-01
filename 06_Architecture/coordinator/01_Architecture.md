@@ -137,6 +137,8 @@ Runtimeはmanifestだけを除外して配布Treeを再計算し、固定成果�
 
 配布Identityと作業候補の基準Revisionは同一ではない。manifest内のCommit A／Tree Aはmanifest自身を除いた署名Sourceを保証し、配布Commit BはAへmanifest一件だけを加える。Runtimeはこの関係をCRDD配布Rootで検証する。一方、一般Task開始前後に観測するExecution Commit／Treeは、変更候補を作る作業対象RepositoryのIdentityである。Executor候補の`baseCommit`／`baseTree`はこのExecution Revisionへ一致しなければならず、配布AまたはBへの一致を一般要件にしない。CRDD自身を作業対象にするDogfoodingではExecution Revisionが配布Bと一致し得るが、親RepositoryがCRDDをsubmoduleとして利用する場合、A／Bはsubmodule側、Execution Revisionは親側となる。これにより、署名Sourceの真正性、配布Commit、作業Checkoutの不変性、候補差分の基準を別々のAuthorityへ結合する。
 
+作業対象Commitから外部送信Policy等の明示ファイルだけを読む場合、Git object readerは許可された読取り投影へ到達するTreeと対象fileだけを処理する。投影外の通常file、symlinkまたはgitlinkは作業対象へ含めず、親Repositoryが別位置にCRDD等のsubmoduleを持つことだけで対象fileの読取りを拒否しない。ただし、選択Path自体またはその祖先がsymlink／gitlink／未対応modeである場合と、Commit全体を隔離候補へ展開する場合は従来どおり拒否する。限定投影を、gitlink配下の横断読取りや全体展開の許可へ拡張しない。
+
 <a id="task-result-transport"></a>
 <a id="task-turn-budget"></a>
 

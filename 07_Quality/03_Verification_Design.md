@@ -28,6 +28,8 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 | 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、Candidateの`baseCommit`／`baseTree`が期待する作業対象Execution Revisionと異なる（配布AまたはBの誤使用を含む）、Task中に作業対象Commit／Treeが変わる | Candidateを回収し、Provider Effectまたは成功結果を追加発行せずfail closed。Task後のRevision変化と観測不能は、開始時Identity不一致とは別の結果として保持する |
 | 判定不能 | shallow／不完全Git履歴、配布Rootまたは作業対象Root／Revision不明、reparse／link、Task後のExecution Revision読取り不成立 | 配布Identityや作業対象の不変性を推定せずEffect 0または状態不明として停止 |
 
+親RepositoryでCRDDをsubmoduleとして利用する経路では、作業対象Commitから`.crdd/external-send-policy.json`を読む明示投影も結合確認する。対象外のgitlinkが同じTreeに存在しても明示fileをexact bytesで読めること、gitlink自身またはその配下を選択した場合は拒否すること、読取り投影なしの全体展開はgitlinkを拒否することを同じ契約試験で確認する。限定file読取りの成功から、submodule内容またはCommit全体の展開を許可済みと推定しない。
+
 対象は[仕様](../05_SPEC/01_Behavior_Specification.md)と[設計](../06_Architecture/01_Architecture.md)が所有する現行内部ツールである。今回の配置変更は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)、Runtimeの完成条件は[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)で追跡する。以下は検証義務の複製ではなく、その確認方法の対応表である。
 
 | 確認する不確実性 | 観測・検証方法 | 合格に含めないこと |
