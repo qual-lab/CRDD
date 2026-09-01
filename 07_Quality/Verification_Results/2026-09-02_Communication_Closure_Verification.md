@@ -1,6 +1,6 @@
 # v0.19 Communication Closure検証結果
 
-状態: 固定候補の検証完了。Release判断およびIssueの外部状態変更は別途
+状態: 固定候補の検証とIssue終了を完了。Release判断は別途
 担当責任者: Qual-Lab
 最終更新日: 2026-09-02
 
@@ -45,4 +45,4 @@ Git管理外のファイルは確認対象外である。Checker合格を専門�
 
 Communicationのv0.19固定候補は、規範、利用側伝播、代表境界、検証設計および独立確認についてClosure条件を満たした。これはv0.19のRelease、実運用上の有用性、外部公開またはProject Runtimeの完成を意味しない。
 
-Issue #30は2026-09-02の再取得時点でOpen、コメント0件だった。6候補の責務分類と終了理由は[CHG-000058 §9](../../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md#9-communication固定候補とissue-30の責務別再評価)へ確定したが、Issueへのコメント投稿とクローズはこの固定改訂版では実行していない。外部状態変更後に、その結果だけを現在状態へ同期する。
+Issue #30は2026-09-02の再取得時点でOpen、コメント0件だった。6候補の責務分類と終了理由を[CHG-000058 §9](../../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md#9-communication固定候補とissue-30の責務別再評価)へ確定し、固定改訂版とClosure記録を[公開コメント](https://github.com/qual-lab/CRDD/issues/30#issuecomment-5497944493)へ記録した後、同Issueを対応完了としてクローズした。
