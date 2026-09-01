@@ -62,7 +62,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 
 ## 5. 署名済み配布物
 
-Runtimeの信頼単位は、Coordinatorの閉じた実行依存集合、Security Policyおよび`crdd-platform-access.exe`から機械的に算出するRuntime実行Identityである。CRDD Git TreeはRelease Identityと出所を示すが、文書だけの変更でRuntime Authorityを失効させない。manifest revision 5はこの一つのNative成果物とRuntime実行Identityを結合する。削除済みSupervisor field、旧revision、別名Path、欠落artifactまたは互換fallbackを受理しない。
+Runtimeの信頼単位は、Coordinator本体、共通Launcherから到達する署名・4経路・Recovery実行コード、Security Policyおよび`crdd-platform-access.exe`から機械的に算出するRuntime実行Identityである。CRDD Git TreeはRelease Identityと出所を示すが、文書だけの変更でRuntime Authorityを失効させない。Launcherの入口表をIdentity算出のseedとして共用し、選択されたscriptの推移的な静的依存を含める。非正規specifier、集合外依存、未束縛の動的import、削除済みSupervisor field、旧revision、別名Path、欠落artifactまたは互換fallbackを受理しない。
 
 Release秘密鍵はRelease署名時だけHuman-only入力として使用し、環境、File、logまたはRuntimeへ保存しない。通常利用者と開発E2Eは秘密鍵を必要とせず、固定済みの署名配布物を検証して使う。Authenticodeは追加Defenseであり、Ed25519 Release Identityを置換しない。
 

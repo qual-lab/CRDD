@@ -658,7 +658,7 @@ test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは
   }
 });
 
-test("実行集合外への静的relative importを署名候補へ含めず拒否する", () => {
+test("非正規表記または実行集合外へのrelative importを署名候補へ含めず拒否する", () => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-runtime-dependency-boundary-"),
   );
@@ -681,13 +681,114 @@ test("実行集合外への静的relative importを署名候補へ含めず拒�
       path.join(root, "outside.ts"),
       "export const value = 1;\n",
     );
+    for (const specifier of [
+      "../../outside.ts",
+      "..\\..\\outside.ts",
+      ".%2e/.%2e/outside.ts",
+      "../../outside.ts?candidate=1",
+      "../../outside.ts#candidate",
+    ]) {
+      fs.writeFileSync(
+        path.join(root, "src", "entry.ts"),
+        `export { value } from ${JSON.stringify(specifier)};\n`,
+      );
+      const result = inspectPlatformProvisionerPackageFilesystemCandidate(root);
+      assert.equal(result.status, "blocked", specifier);
+      assert.equal(result.runtimeAuthorityConferred, false, specifier);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを実行Identityへ含める", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-launch-closure-"));
+  try {
+    for (const directory of ["bin", "src", "scripts"]) {
+      fs.mkdirSync(path.join(root, directory), { recursive: true });
+    }
     fs.writeFileSync(
-      path.join(root, "src", "entry.ts"),
-      'export { value } from "../../outside.ts";\n',
+      path.join(root, "package.json"),
+      JSON.stringify({
+        name: "@qual-lab/crdd-coordinator",
+        version: "0.0.0-development",
+        private: true,
+        type: "module",
+        exports: { "./cli": "./bin/coordinator.ts" },
+        scripts: {},
+        engines: {},
+        devDependencies: {},
+      }),
     );
-    const result = inspectPlatformProvisionerPackageFilesystemCandidate(root);
-    assert.equal(result.status, "blocked");
-    assert.equal(result.runtimeAuthorityConferred, false);
+    fs.writeFileSync(
+      path.join(root, "bin", "launch.ts"),
+      [
+        'import "../src/entry.ts";',
+        "const target = new URL('./coordinator.ts', import.meta.url);",
+        "await import(target.href);",
+        "",
+      ].join("\n"),
+    );
+    fs.writeFileSync(path.join(root, "bin", "coordinator.ts"), "export {};\n");
+    fs.writeFileSync(path.join(root, "src", "entry.ts"), "export {};\n");
+    fs.writeFileSync(
+      path.join(root, "scripts", "verify-signed-route-matrix.ts"),
+      'import "./verify-signed-general-task.ts";\n',
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "verify-signed-general-task.ts"),
+      "export const route = 1;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "verify-signed-recovery-matrix.ts"),
+      'import "./recovery-helper.ts";\n',
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "recovery-helper.ts"),
+      "export const recovery = 1;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "sign-release-manifest.ts"),
+      'import "./signing-helper.ts";\n',
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "signing-helper.ts"),
+      "export const signing = 1;\n",
+    );
+    const unrelated = path.join(root, "scripts", "unrelated.ts");
+    fs.writeFileSync(unrelated, "export const unrelated = 1;\n");
+
+    const first = inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(first.status, "candidate");
+    fs.writeFileSync(unrelated, "export const unrelated = 2;\n");
+    const unrelatedChanged =
+      inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(unrelatedChanged.status, "candidate");
+    assert.equal(
+      unrelatedChanged.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+
+    fs.writeFileSync(
+      path.join(root, "scripts", "recovery-helper.ts"),
+      "export const recovery = 2;\n",
+    );
+    const dependencyChanged =
+      inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(dependencyChanged.status, "candidate");
+    assert.notEqual(
+      dependencyChanged.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+
+    fs.writeFileSync(
+      path.join(root, "scripts", "recovery-helper.ts"),
+      'const target = "./late-bound.ts";\nawait import(target);\n',
+    );
+    const unboundDynamic =
+      inspectPlatformProvisionerPackageFilesystemCandidate(root);
+    assert.equal(unboundDynamic.status, "blocked");
+    assert.equal(unboundDynamic.runtimeAuthorityConferred, false);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

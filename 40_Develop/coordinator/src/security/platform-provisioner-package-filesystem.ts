@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { COORDINATOR_LAUNCH_ENTRIES } from "../core/coordinator-launch.ts";
 import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
@@ -36,6 +37,7 @@ const RUNTIME_EXECUTION_DIRECTORIES = Object.freeze(
   new Set(["bin", "src", "runtime", "policies"]),
 );
 const RUNTIME_EXECUTION_ROOT_FILES = Object.freeze(new Set(["package.json"]));
+const RUNTIME_EXECUTION_LAUNCHER_PATH = "bin/launch.ts";
 const VERIFY_KEYS = new Set([
   "manifestEnvelope",
   "evaluationTime",
@@ -377,27 +379,116 @@ function canonicalPackageFileContent(relativePath: string, bytes: Buffer) {
   return canonical;
 }
 
-function verifyStaticRuntimeModuleBoundary(
+const STATIC_MODULE_PATTERNS = Object.freeze([
+  /\b(?:import|export)\s+(?:[^"']*?\sfrom\s*)?["']([^"']+)["']/gu,
+  /\bimport\(\s*["']([^"']+)["']\s*\)/gu,
+]);
+
+function canonicalRelativeModuleTarget(
   relativePath: string,
-  bytes: Buffer,
+  specifier: string,
 ) {
-  if (!relativePath.endsWith(".ts")) return;
+  if (!specifier.startsWith(".")) return null;
+  if (
+    specifier.includes("\\") ||
+    specifier.includes("%") ||
+    specifier.includes("?") ||
+    specifier.includes("#") ||
+    specifier.includes("//")
+  ) {
+    throw new Error("platform_provisioner_runtime_dependency_noncanonical");
+  }
+  const segments = specifier.split("/");
+  let firstTargetSegment = 0;
+  if (segments[0] === ".") firstTargetSegment = 1;
+  else while (segments[firstTargetSegment] === "..") firstTargetSegment += 1;
+  if (
+    firstTargetSegment === 0 ||
+    firstTargetSegment >= segments.length ||
+    segments
+      .slice(firstTargetSegment)
+      .some((segment) => segment === "" || segment === "." || segment === "..")
+  ) {
+    throw new Error("platform_provisioner_runtime_dependency_noncanonical");
+  }
+  return path.posix.normalize(
+    path.posix.join(path.posix.dirname(relativePath), specifier),
+  );
+}
+
+function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
+  if (!relativePath.endsWith(".ts")) return Object.freeze([]);
   const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  const patterns = [
-    /\b(?:import|export)\s+(?:[^"']*?\sfrom\s*)?["']([^"']+)["']/gu,
-    /\bimport\(\s*["']([^"']+)["']\s*\)/gu,
-  ];
-  for (const pattern of patterns) {
+  const dynamicImportCount = [...source.matchAll(/\bimport\s*\(/gu)].length;
+  const literalDynamicImportCount = [
+    ...source.matchAll(/\bimport\(\s*["'][^"']+["']\s*\)/gu),
+  ].length;
+  const launcherOwnsExactlyOneBoundDynamicImport =
+    relativePath === RUNTIME_EXECUTION_LAUNCHER_PATH &&
+    dynamicImportCount === 1 &&
+    literalDynamicImportCount === 0 &&
+    /\bimport\(\s*target\.href\s*\)/u.test(source);
+  if (
+    dynamicImportCount !== literalDynamicImportCount &&
+    !launcherOwnsExactlyOneBoundDynamicImport
+  ) {
+    throw new Error("platform_provisioner_runtime_dependency_dynamic_unbound");
+  }
+  const targets: string[] = [];
+  for (const pattern of STATIC_MODULE_PATTERNS) {
+    pattern.lastIndex = 0;
     for (const match of source.matchAll(pattern)) {
       const specifier = match[1];
-      if (!specifier?.startsWith(".")) continue;
-      const resolved = path.posix.normalize(
-        path.posix.join(path.posix.dirname(relativePath), specifier),
+      if (!specifier) continue;
+      const target = canonicalRelativeModuleTarget(relativePath, specifier);
+      if (target) targets.push(target);
+    }
+  }
+  return Object.freeze(targets);
+}
+
+function collectRuntimeExecutionScriptPaths(packageRoot: string) {
+  if (!fs.existsSync(path.join(packageRoot, "bin", "launch.ts"))) {
+    return Object.freeze(new Set<string>());
+  }
+  const scriptPaths = new Set<string>();
+  const pending: string[] = [];
+  for (const entry of Object.values(COORDINATOR_LAUNCH_ENTRIES)) {
+    const target = canonicalRelativeModuleTarget(
+      RUNTIME_EXECUTION_LAUNCHER_PATH,
+      entry,
+    );
+    if (!target) {
+      throw new Error("platform_provisioner_launch_entry_invalid");
+    }
+    const rootSegment = target.split("/")[0];
+    if (rootSegment === "scripts") pending.push(target);
+    else if (!rootSegment || !RUNTIME_EXECUTION_DIRECTORIES.has(rootSegment)) {
+      throw new Error(
+        "platform_provisioner_runtime_dependency_outside_execution_set",
       );
-      const rootSegment = resolved.split("/")[0];
-      if (
-        resolved === ".." ||
-        resolved.startsWith("../") ||
+    }
+  }
+  while (pending.length > 0) {
+    const relative = pending.shift();
+    if (!relative || scriptPaths.has(relative)) continue;
+    if (relative.split("/")[0] !== "scripts") {
+      throw new Error(
+        "platform_provisioner_runtime_dependency_outside_execution_set",
+      );
+    }
+    const observed = readStableFile(
+      path.join(packageRoot, ...relative.split("/")),
+      MAXIMUM_PACKAGE_BYTES,
+    );
+    scriptPaths.add(relative);
+    for (const target of staticRelativeModuleTargets(
+      relative,
+      observed.bytes,
+    )) {
+      const rootSegment = target.split("/")[0];
+      if (rootSegment === "scripts") pending.push(target);
+      else if (
         !rootSegment ||
         !RUNTIME_EXECUTION_DIRECTORIES.has(rootSegment)
       ) {
@@ -407,11 +498,34 @@ function verifyStaticRuntimeModuleBoundary(
       }
     }
   }
+  return Object.freeze(scriptPaths);
+}
+
+function verifyStaticRuntimeModuleBoundary(
+  relativePath: string,
+  bytes: Buffer,
+  scriptPaths: ReadonlySet<string>,
+) {
+  for (const target of staticRelativeModuleTargets(relativePath, bytes)) {
+    const rootSegment = target.split("/")[0];
+    if (
+      target === ".." ||
+      target.startsWith("../") ||
+      !rootSegment ||
+      (!RUNTIME_EXECUTION_DIRECTORIES.has(rootSegment) &&
+        !(rootSegment === "scripts" && scriptPaths.has(target)))
+    ) {
+      throw new Error(
+        "platform_provisioner_runtime_dependency_outside_execution_set",
+      );
+    }
+  }
 }
 
 function packageEntries(
   root: Readonly<{ realPath: string; identity: EntityIdentity }>,
 ) {
+  const scriptPaths = collectRuntimeExecutionScriptPaths(root.realPath);
   const files: string[] = [];
   const directoryInventories: Array<
     Readonly<{
@@ -430,13 +544,25 @@ function packageEntries(
     for (const entry of snapshot.dirents) {
       if (relativeDirectory === "") {
         const included = entry.isDirectory()
-          ? RUNTIME_EXECUTION_DIRECTORIES.has(entry.name)
+          ? RUNTIME_EXECUTION_DIRECTORIES.has(entry.name) ||
+            (entry.name === "scripts" && scriptPaths.size > 0)
           : RUNTIME_EXECUTION_ROOT_FILES.has(entry.name);
         if (!included) continue;
       }
       const relative = relativeDirectory
         ? `${relativeDirectory}/${entry.name}`
         : entry.name;
+      if (
+        (relativeDirectory === "scripts" ||
+          relativeDirectory.startsWith("scripts/")) &&
+        (entry.isDirectory()
+          ? ![...scriptPaths].some((selected) =>
+              selected.startsWith(`${relative}/`),
+            )
+          : !scriptPaths.has(relative))
+      ) {
+        continue;
+      }
       const target = path.join(directory.realPath, entry.name);
       if (entry.isDirectory()) {
         const child = directoryIdentity(target);
@@ -455,6 +581,7 @@ function packageEntries(
       directoryInventories.map((inventory) => inventory.directory),
     ),
     directoryInventories: Object.freeze(directoryInventories),
+    scriptPaths,
   });
 }
 
@@ -530,7 +657,11 @@ function observePackage(packageRoot: string) {
       relative,
       observed.bytes,
     );
-    verifyStaticRuntimeModuleBoundary(relative, canonicalBytes);
+    verifyStaticRuntimeModuleBoundary(
+      relative,
+      canonicalBytes,
+      inventory.scriptPaths,
+    );
     if (relative === "package.json") packageJsonBytes = canonicalBytes;
     files.push(
       Object.freeze({

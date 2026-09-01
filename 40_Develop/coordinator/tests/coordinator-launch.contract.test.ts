@@ -4,7 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { resolveCoordinatorLaunch } from "../src/core/coordinator-launch.ts";
+import {
+  COORDINATOR_LAUNCH_ENTRIES,
+  resolveCoordinatorLaunch,
+} from "../src/core/coordinator-launch.ts";
 
 const packageRoot = fileURLToPath(new URL("../", import.meta.url));
 const repositoryRoot = path.resolve(packageRoot, "../..");
@@ -15,6 +18,18 @@ const terminal = {
   stdoutIsTty: true,
   stdoutWritable: true,
 };
+
+test("共通Launcherの実行入口を一つの正本から解決する", () => {
+  assert.deepEqual(COORDINATOR_LAUNCH_ENTRIES, {
+    task: "./coordinator.ts",
+    interactive: "./coordinator.ts",
+    automation: "./coordinator.ts",
+    "verify-routes": "../scripts/verify-signed-route-matrix.ts",
+    "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
+    "sign-release": "../scripts/sign-release-manifest.ts",
+  });
+  assert.equal(Object.isFrozen(COORDINATOR_LAUNCH_ENTRIES), true);
+});
 
 test("用途ごとの入力と端末条件を区別し、内部Recovery引数を公開しない", () => {
   for (const mode of ["interactive", "verify-routes", "sign-release"]) {

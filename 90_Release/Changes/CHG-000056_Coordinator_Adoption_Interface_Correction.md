@@ -1,7 +1,7 @@
 # 変更トレース: Coordinator採用入口の本質是正
 
 変更ID: `CHG-000056`
-- 状態: `Ready for Release Handoff`
+- 状態: `In Progress`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-09-01
 - 最終更新日: 2026-09-01
@@ -46,7 +46,7 @@ Local Personal Profileは、永続的な`activate`／`disable`／`provision` Lif
 
 ## 4. 新しい配布・実行境界
 
-署名manifest revision 5では、Release IdentityとRuntime実行Identityを分離する。CRDD Version／tag／Commit／Tree／文書はRelease Identityを構成し、Runtime Authorityは`bin/**`、`src/**`、`runtime/**`、`policies/**`、`package.json`の閉じた実行集合、Policy Hashおよび単一Native成果物`template/tools/coordinator/windows-x64/crdd-platform-access.exe`から決定論的に算出するRuntime実行Identityへ結合する。実行集合外への静的relative import、旧revision、削除済みfield、別Path aliasまたは欠落fallbackを受理しない。
+署名manifest revision 5では、Release IdentityとRuntime実行Identityを分離する。CRDD Version／tag／Commit／Tree／文書はRelease Identityを構成し、Runtime Authorityは`bin/**`、`src/**`、`runtime/**`、`policies/**`、`package.json`、共通Launcherが選ぶ署名・4経路・Recovery入口とその推移的な静的依存、Policy Hashおよび単一Native成果物`template/tools/coordinator/windows-x64/crdd-platform-access.exe`から決定論的に算出するRuntime実行Identityへ結合する。Launcherの入口表をIdentity seedとして共用し、未選択の開発補助scriptは含めない。実行集合外へのrelative import、非正規specifier、未束縛の動的import、旧revision、削除済みfield、別Path aliasまたは欠落fallbackを受理しない。
 
 この分離により、README、CHG、Roadmap、品質記録または試験だけの変更ではRuntime実行Identityを変えず、再署名および実Provider E2Eを要求しない。実行集合、PolicyまたはNative成果物の変更ではIdentityが変わるため再署名し、影響するE2Eを行う。Recoveryの世代照合もCRDD Treeとpackage rootの組合せからRuntime実行Identityへ移し、Operation、Resource、Provider／Home bindingおよびRecovery契約revisionと組み合わせる。これは文書変更を例外扱いする除外規則ではなく、署名Authorityを実際の実行依存へ戻す責務境界の是正である。
 
@@ -81,12 +81,22 @@ v0.18.0の`activate`／`provision`を呼んで停止していた利用者は、v
 
 Sourceだけを利用する採用Project、Coordinatorを利用しないProjectおよび公開済みv0.18.0の方法論部分には実行移行は不要である。
 
+切戻しは状態別に行う。
+
+| 観測状態 | 切戻し処置 | 禁止事項 |
+|---|---|---|
+| Provider Effect前で、候補・回復義務なし | v0.18.1 Runtimeを停止し、必要ならv0.18.0の方法論部分だけを継続利用する | 削除済みcommandや互換shimを復元しない |
+| 候補あり、cleanup確認済み | exact Candidateをdiscardし、固定配布物全体を一単位で切り替える | 新旧Runtime fileを混在させない |
+| 回復IDあり、cleanup未確認またはEffect不明 | exact Recoveryを完了するまで切替・削除・自動再試行を行わない | Runtime更新やProcess再起動だけで回復済みと扱わない |
+
+文書だけの変更ではRuntime実行Identityが不変なら再署名しないが、Release Identityと文書整合の確認は維持する。
+
 ## 7. 検証義務
 
 - help、parser、dispatch、module、Native binaryおよび現行文書から削除Surfaceが消えている。
 - 削除commandは未知commandとしてusage errorになり、専用statusや互換結果を返さない。
 - `capabilities --json`が公開CLI閉集合と非対応境界をEffect 0で返す。
-- manifest revision 5が閉じたRuntime実行集合、Policyおよび単一Platform Access成果物をRuntime実行Identityへexactに結合し、旧revision／旧fieldを拒否する。
+- manifest revision 5がCoordinator本体、共通Launcherの署名・4経路・Recovery入口と推移的な静的依存、Policyおよび単一Platform Access成果物をRuntime実行Identityへexactに結合し、入口表との不一致、非正規specifier、集合外依存、未束縛の動的import、旧revision／旧fieldを拒否する。
 - Repository textのLF／CRLF差だけを同じGit正本内容として検証し、意味差分とNative成果物のbyte差を拒否する。
 - manifestが署名する配布Source Commit A、manifestを加えた配布Commit B、作業対象RepositoryのExecution Revisionを分離し、一般TaskのCandidate Revisionを実行前後に独立観測した作業対象Revisionへ結合する。
 - TypeScript、Rust、Checker、format／lintおよび全Repository試験が固定候補で合格する。
@@ -118,7 +128,7 @@ Runtime実行Identity分離後の現行Sourceでは、`test:restricted-process`�
 
 最終独立監査は、上記Bが署名前に必要な正本文書の`Status: Stable`化、候補専用`Released Baseline`削除および時間に依存しない品質状態を含んでいないことを検出した。実装・E2Eの成立を否定するFindingではないが、そのTree自身が未完成状態を主張するため、上記署名候補にtagまたはReleaseを付与せず不採用とした。正本とReleaseメタデータをStableへ遷移した新しいSource Aを固定し、正式manifestだけを加えたBへ同じRelease Gateを適用する。署名後にしか確定しないBのIdentity、E2E結果、統合後確認およびRelease判断は、署名対象Treeへ自己参照させず、対象タグに結合した公式Release記録へ保存する。
 
-Runtime Authorityの責務境界をRepository全体から閉じた実行依存集合へ移した最終Source Aは、Commit `a15b997924536dcd306c48a5924ba066627e3fdf`／Tree `ad058d8e768c598937e6cc3261db3cef5980f0ae`である。そこから生成したrevision 5 manifestのRuntime実行Identityは`f2243b46b8cdde4a09e60efb7bdd61b48f012c4eb418cbdf4222d75306af1aaa`、manifest file SHA-256は`6d5bae8ab8004498d2a7d6bc0db63a32f514eafe3e4beec493bfc48e4661163b`、Release Sequenceは`2026090105`である。manifestだけを加えたCommit Bは`371151e9713e4c7e556db883d13af532bc82b3a1`／Tree `076310d110e2ecdadd6484309131f27de0d6860f`であり、AからBの変更Pathは`template/tools/coordinator/coordinator-package-manifest.json`一件だけである。
+Runtime Authorityの責務境界をRepository全体から閉じた実行依存集合へ移した候補Source Aは、Commit `a15b997924536dcd306c48a5924ba066627e3fdf`／Tree `ad058d8e768c598937e6cc3261db3cef5980f0ae`であった。そこから生成したrevision 5 manifestのRuntime実行Identityは`f2243b46b8cdde4a09e60efb7bdd61b48f012c4eb418cbdf4222d75306af1aaa`、manifest file SHA-256は`6d5bae8ab8004498d2a7d6bc0db63a32f514eafe3e4beec493bfc48e4661163b`、Release Sequenceは`2026090105`である。manifestだけを加えたCommit Bは`371151e9713e4c7e556db883d13af532bc82b3a1`／Tree `076310d110e2ecdadd6484309131f27de0d6860f`であり、AからBの変更Pathは`template/tools/coordinator/coordinator-package-manifest.json`一件だけである。
 
 署名後には、Trust Core、閉じたPackage inventory、Package Gate、署名生成、Docker Desktop修復記録およびRuntime修復の直接影響129試験を実行し、129/129、失敗・取消・skip 0を確認した。この記録追記はRuntime実行集合、Policy、Native成果物またはmanifestを変更しないRelease文書変更であるため、Runtime実行Identityの不変を確認し、再署名および実Provider E2Eの再実行を要求しない。正式4経路E2EとRecovery Matrixは、この同一Runtime実行Identityに対する最終Release Gateとして一度実行した。
 
@@ -126,6 +136,8 @@ Runtime Authorityの責務境界をRepository全体から閉じた実行依存�
 
 同じExecution Commitに対するRecovery Matrixの記録IDは`3f9cbb74-5473-42bb-98c7-87f674017814`、結果SHA-256は`5315b87365a4d573a01ccd167803e5858a6a2e105985bcb382ab583664c8840f`である。timeout、出力量超過、不正出力および非0終了は期待する停止理由へ一致し、cancel、cleanup観測不明からのfresh recovery、親Process消失後の子Process終了とfresh recoveryが成立した。残存Operation Directoryはなく、行列全体のcleanup確認済み、手動Recovery不要で完了した。
 
-本変更の正本反映、移行、切戻し、検証義務および既知の不採用候補は取得可能であり、Release決定権限へ引き渡せる。公式Release記録は、最終Source A、manifest-only B、manifest identityとfile SHA-256、fresh clone／submodule、4経路、Recovery、独立確認、main統合後Identityおよびタグを一つの対象へ結合する。公式タグがないbranch、Commit、Stable表示または過去署名候補を公開済みと扱わない。
+固定Revision `f5b5084`の独立監査では、上記候補のRuntime実行Identityが共通Launcherから到達する署名・4経路・Recoveryの`script`実装を含まず、当該実行コードの変更後も旧署名Authorityを受理し得ることを検出した。また、現Identityに対するfresh clone／親Repository＋submoduleの公開`task`実測が未実施であること、Roadmapが完了前に本変更を除去したこと、およびv0.18.1固有の切戻し条件が不十分であることを検出した。上記Identity `f2243b46…f1aaa`、4経路およびRecovery結果は削除せず未公開候補の履歴として保持するが、最終Authority根拠へ流用しない。
 
-現在、人間による追加判断は必要ない。v0.18.1の最終Release判断は、同じ固定候補のRelease Gateとmain統合後Identity確認が完了した時点で行う。
+是正では第三のIdentityを追加せず、共通Launcherの入口表をIdentity seedとして共用し、選択された署名・4経路・Recovery `script`の静的依存を推移的に導出する。非正規specifierと未束縛の動的importを拒否し、未選択の開発補助scriptはIdentityへ入れない。新しいSource A、manifest-only B、Runtime実行Identity、fresh clone／submodule一般Task、4経路、Recoveryおよび独立再確認は未完了である。
+
+本変更は、これらの固定候補確認が完了するまでRelease決定権限へ引き渡さない。現在、人間による追加判断は必要ない。

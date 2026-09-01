@@ -12,7 +12,7 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 
 | 判定対象 | 正常・準正常・異常の確認 | 保持する終了条件 |
 |---|---|---|
-| 現行revision 5 | `expiresAt: null`の期限なし、UTC期限付き、閉じたRuntime実行集合、Policy、単一Platform Access成果物、発行後の複数日時、開始前拒否、期限ちょうどと期限後 | revision 5と現行manifest署名domainだけを受理し、nullの場合だけ時間上限を除く |
+| 現行revision 5 | `expiresAt: null`の期限なし、UTC期限付き、Coordinator本体、共通Launcherの署名・4経路・Recovery入口と推移的な静的依存、Policy、単一Platform Access成果物、発行後の複数日時、開始前拒否、期限ちょうどと期限後 | revision 5と現行manifest署名domainだけを受理し、nullの場合だけ時間上限を除く。入口表とIdentity seedの不一致、非正規specifier、集合外依存および未束縛の動的importを拒否する |
 | 旧revision 2／3 | 旧payload、削除済みfield、旧manifest署名domain | 現行Runtimeは互換読取りやfallbackを行わず拒否する。公開済みv0.18.0成果物の履歴を無効化する意味ではない |
 | Schemaと署名 | 欠落・undefined・空文字・文字列null・不正日時・未知revision・envelope/payload不一致、期限改変、旧manifest署名domainの混入 | 改変でAuthorityを発行しない。package content rootの`CRDD\0PLATFORM-PROVISIONER-PACKAGE-CONTENT\0V2\0`は別契約として維持する |
 | 署名CLIと事前検査 | --no-expiry、--expires-at、両方・未指定・重複・不正指定 | 不正指定で秘密入力・署名・配置を発火しない |
@@ -20,6 +20,8 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 | 既存の期限所有者 | Grant、同意、候補、準備記録の期限・取消の既存試験 | 期限なしmanifestから別の権限を延長しない |
 
 新しいRuntime実行Identityを含む正式配布の最終固定では、revision 5の署名manifest、閉じたRuntime実行集合、Policyおよび単一Platform Access成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。署名時のSource Commit／Treeは出所根拠として保持するが、現在CheckoutのRepository Tree全体をRuntime Authorityへ使用しない。公式tagを新しいclean cloneまたはsubmodule相当のworktreeで検証し、Runtime実行集合、Policy、Git同梱成果物のbyte・Hash・PE profileおよびmanifestのRuntime実行Identityが一致することを確認する。TaskではCRDD Release Identity、Runtime実行Identityおよび作業対象RepositoryのExecution Revisionを分け、開始前後に同じExecution Commit／Treeを観測し、Candidateの`baseCommit`／`baseTree`が作業対象Revisionへ一致することを確認する。独自ZIPを作成・展開せず、GitHubの自動Source archiveもRuntime配布契約の検証対象にしない。旧実測は対象版を維持し、Runtime実行Identityの一致を確認せず新規版の成功へ読み替えない。
+
+この閉じた実行集合には、共通Launcherの正本が選ぶ署名・4経路・Recovery入口と、そこから静的に到達する`script`依存を含める。入口表とIdentity seedは同じ正本から導出し、未選択の開発補助scriptは含めない。非正規specifier、集合外依存、未束縛の動的importまたは選択依存の欠落を負例として確認する。
 
 | Git同梱配布の経路 | 期待結果 | 終了後条件 |
 |---|---|---|
