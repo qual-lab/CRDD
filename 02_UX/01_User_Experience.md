@@ -80,6 +80,8 @@ platform-accessは独立した利用者画面を持たないが、利用者へ�
 
 v0.19では、人間がTaskを一件ずつ分解・起動・監視する体験から、対象ProjectとMilestone、保持する意図、受入条件および判断権限を示し、Project Runtimeへ進行を委ねる体験へ拡張する。人間が内部Taskの切替や空いた実行枠ごとに承認を繰り返すことを正常経路にしない。
 
+この体験の認知意図（Cognitive Intent）は次である。現在状態は「内部TaskやAgent Logを追わないと、何が進み、何を判断すべきか分からない」、主な障壁は実行状態・品質・判断待ちの混在と内部情報の過多、目標状態は「Milestoneがどこまで成立し、次にRuntimeが何を行い、人間が今判断すべき事項があるかを理解できる」とする。必要な根拠／情報は、Objectiveの受入状態、Task内訳、Dependency、Critical Path、Blocker、Risk、Human Decision、Integration State、Quality StateおよびNext Actionである。意図する判断／行動は、判断不要なら作業をRuntimeへ委ね続け、必要な場合だけ提示された選択肢から判断することである。
+
 利用者は、現在のMilestone、Objective、完了／実行中／依存待ちのTask、Critical Path、Blocker、Risk、Human Decision、Qualityおよび次の行動を、Worker Logを読まずに理解できる必要がある。推定Progressや未観測の残時間を事実として表示せず、進捗と成立品質を分ける。
 
 RuntimeはTask失敗だけで人間へ戻さず、計画維持、影響部分の再計画、人間判断が必要な変更を分ける。人間へ戻す場合は、発生事象、現在Planを維持できない理由、影響するObjective／Milestone、選択肢、推奨、保留時の扱いを一つの判断単位として示す。Scope変更、Authority不足、価値判断またはRisk受容を内部再計画へ隠さない。

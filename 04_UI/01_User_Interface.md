@@ -119,6 +119,8 @@ UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は
 
 v0.19の主要表示は、内部WorkerのLogではなくMilestoneの現在状態とする。最初にProject、Milestone、完了Objective数、Current Objective、Task内訳、Critical Path、Blocker、Risk、Human Decision、QualityおよびNext Actionを示す。機械ID、Provider出力、回復詳細は必要な場合に段階的に表示するが、重大な停止・回収不明・人間判断を詳細へ隠さない。
 
+注意の優先順位は、`現在必要な人間判断／重大な停止`、`Milestoneの受入・Quality・Integration`、`現在のObjectiveとNext Action`、`Task内訳とDependency`、`内部Operation詳細`の順を基本とする。これは固定レイアウトではなく、UXの認知意図とIAの可視性をUIへ具体化する優先関係である。数値や色だけに依存せず、状態名、影響および次にできる操作を近接して示す。
+
 進捗と品質は別の領域で示す。例えば`4 / 10 Objectives Completed`と`Integration Pending`を同時に表示でき、前者からRelease可能性を推定させない。Running、Ready、Waiting Dependency、Blocked、Completedを色だけで区別せず、表示名と件数を併記する。
 
 人間判断が0件なら、その状態を短く示してRuntimeが次のObjectiveへ進める。判断が必要な場合は、何が起きたか、Planを維持できない理由、影響、選択肢、推奨および保留時の扱いを先に示し、Findingや内部識別子の羅列を主表示にしない。CLIとMCP応答は同じ意味状態を共有し、画面ごとに成功・停止の判定を変えない。

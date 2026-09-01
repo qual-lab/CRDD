@@ -65,6 +65,10 @@
 
 v0.19のProject Runtimeは、`Project → Milestone／Version → Objective → Task`を基本階層とする。ProjectとRepositoryを同一語にせず、v0.19では一つのProjectが一つの明示Binding済みRepositoryを使用する。MCP要求、実行Operation、Provider SessionおよびCandidateはこの階層の正本ではなく、対象を参照する実行・搬送情報である。
 
+[Milestoneを委ねる利用体験](../02_UX/01_User_Experience.md#6-milestoneを委ねる利用体験)の認知意図を成立させるため、最初にMilestoneの成立状況、人間判断の有無、重大なBlocker／Risk、Quality／Integration StateおよびNext Actionを同じ判断文脈で取得可能にする。ObjectiveとTaskの詳細、Dependency、Provider、Operation、CandidateおよびRecoveryは、主表示の根拠へ追跡できる段階的な情報とする。ただし、重大な停止、回収不明、Risk受容または現在必要な人間判断を詳細へ隠さない。
+
+進捗、品質および判断待ちは別の意味である。`Objective 4 / 10`、`Integration Pending`、`Human Decision 1`を同時に表現できる構造とし、一つの割合や色へ畳み込まない。これにより、利用者が「作業量は進んでいるが、Milestoneはまだ受入可能でない」と比較・判断できる根拠を保持する。
+
 | 対象 | 主な意味 | 主な関係 |
 |---|---|---|
 | Project | 継続して達成する活動と正本Contextの境界 | 一つのRepository Bindingを持ち、複数Milestoneを順に扱う |
