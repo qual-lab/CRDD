@@ -24,7 +24,7 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ### 正式配布manifestの期限なし指定（2026-09-01）
 
-v0.18.0公開準備時点では、利用者は公開版が署名有効期限だけを理由に起動停止しないことを要求した。旧7日間は検証候補の設定であり、提案した1年間の期限は不採用となった。遠未来の日時を期限なしの代用にせず、manifestとenvelopeのrevision 3で必須キー`expiresAt: null`を期限なしとして署名する。revision 3のUTC文字列は期限付き、旧revision 2はUTC文字列の期限付きだけを保持する。新旧の署名domainを分離し、envelopeとpayloadのrevision一致、発行前拒否、署名鍵・Git Tree・当時の2つのNative成果物・sequenceの結合を維持する、と判断した。現在のv0.18.1候補は[CHG-000056](CHG-000056_Coordinator_Adoption_Interface_Correction.md)が所有するrevision 4、単一`crdd-platform-access.exe`および旧revision拒否を正本とし、本段落を現行契約として使用しない。
+v0.18.0公開準備時点では、利用者は公開版が署名有効期限だけを理由に起動停止しないことを要求した。旧7日間は検証候補の設定であり、提案した1年間の期限は不採用となった。遠未来の日時を期限なしの代用にせず、manifestとenvelopeのrevision 3で必須キー`expiresAt: null`を期限なしとして署名する。revision 3のUTC文字列は期限付き、旧revision 2はUTC文字列の期限付きだけを保持する。新旧の署名domainを分離し、envelopeとpayloadのrevision一致、発行前拒否、署名鍵・Git Tree・当時の2つのNative成果物・sequenceの結合を維持する、と判断した。現在のv0.18.1候補は[CHG-000056](CHG-000056_Coordinator_Adoption_Interface_Correction.md)が所有するrevision 5、閉じたRuntime実行集合、単一`crdd-platform-access.exe`および旧revision拒否を正本とし、本段落を現行契約として使用しない。
 
 対象はTypeScript署名Coreと現在／履歴検証、署名CLI・事前検査、Rust Supervisorの同一契約、配布物のloader／package Gate、設計・仕様・手順・検証設計と公開案内。新CLIでは`--no-expiry`と`--expires-at <UTC>`のどちらか一つだけを指定し、不明・欠落・重複・両方指定は秘密読取り前に拒否する。nullへの改変、旧署名の新revision流用、開始前、期限ちょうど、未知revision、不正SchemaをTypeScriptとRustで反証する。Grant、初期同意、候補、準備記録の期限は変更しない。
 
@@ -36,7 +36,7 @@ v0.18.0公開準備時点では、利用者は公開版が署名有効期限だ�
 
 v0.18.0公開準備時点では、自己参照を避けるためRelease候補Commit Aへ2つの固定Native Runtime成果物を含め、manifestを含めない方式を採用した。Commit A／Tree AをRepository-local stagingで署名し、Commit Bでは`template/tools/coordinator/coordinator-package-manifest.json`だけを追加する。公式tagはCommit Bへ付け、manifestの`crddCommit`／`crddTree`はCommit A／Tree Aを保持する。実行時はmanifestだけを除外してTree Aを再構成し、当時のNative成果物はTree Aのblobとmanifest内の個別Hashの双方へ結合する。cloneまたはsubmoduleのRoot直下にあるexact `.git` metadataはnon-linkのfile／directoryとして確認してTreeから除外するが、その他の未追跡file、別除外、欠落または改変は許可しない、とした。現在の配布A／Bと作業対象Execution Revisionの分離はCHG-000056を正本とする。
 
-v0.18.0公開準備時点のLocal Personal v1では、必須配布Trustを固定Ed25519 Release Trust、署名manifest、Commit／Treeおよび当時の2つのNative artifact Hashで成立させた。Authenticodeは追加防御であり、正式成果物の必須条件にはしない。buildがall-zero以外の固定publisher digestを明示した場合だけ、そのAuthenticode署名とcache-only trustを追加条件にし、不成立時にmanifest-onlyへfallbackしない。これにより、自己署名証明書、Trust Store操作または別証明書配布をGit clone成立の前提へ追加しない、とした。現在のv0.18.1候補は単一`crdd-platform-access.exe`をmanifest revision 4へ結合する。
+v0.18.0公開準備時点のLocal Personal v1では、必須配布Trustを固定Ed25519 Release Trust、署名manifest、Commit／Treeおよび当時の2つのNative artifact Hashで成立させた。Authenticodeは追加防御であり、正式成果物の必須条件にはしない。buildがall-zero以外の固定publisher digestを明示した場合だけ、そのAuthenticode署名とcache-only trustを追加条件にし、不成立時にmanifest-onlyへfallbackしない。これにより、自己署名証明書、Trust Store操作または別証明書配布をGit clone成立の前提へ追加しない、とした。現在のv0.18.1候補は閉じたRuntime実行集合と単一`crdd-platform-access.exe`をmanifest revision 5へ結合する。
 
 発火例は公式tagのclean clone／submodule、非発火例は未署名の開発branch、境界例はmanifestだけを追加したCommit BとRoot直下の`.git` metadata、判定情報不足例はNative成果物欠落、Tree差、link／reparseまたはmanifest不成立である。判定不能時はProvider、ProvisioningまたはRuntime Effectを発行せず停止する。一般利用者はRelease秘密鍵やpassphraseを持たず、公式Release担当者だけが最終候補を一度署名する。過去Release、旧固定Evidenceおよび公開済みtagは変更しない。この配布変更は同じ未リリースCoordinator Runtime 1.0の導入成立条件であり、新しいCHGへ分割しない。
 
