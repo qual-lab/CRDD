@@ -19,7 +19,8 @@ import {
 } from "../src/security/platform-provisioner-package-filesystem.ts";
 import {
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-  PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+  LEGACY_PLATFORM_PROVISIONER_MANIFEST_DOMAIN as PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+  PLATFORM_PROVISIONER_MANIFEST_DOMAIN as CURRENT_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
@@ -448,18 +449,27 @@ function frame(payload: Record<string, unknown>) {
   const length = Buffer.alloc(8);
   length.writeBigUInt64BE(BigInt(canonical.canonicalBytes.length));
   return Buffer.concat([
-    Buffer.from(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, "ascii"),
+    Buffer.from(
+      payload.contractRevision === 3
+        ? CURRENT_MANIFEST_DOMAIN
+        : PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+      "ascii",
+    ),
     length,
     canonical.canonicalBytes,
   ]);
 }
 
-function signedManifest(packageContentRootSha256: string) {
+function signedManifest(
+  packageContentRootSha256: string,
+  revision = 2,
+  expiresAt: string | null = "2027-08-15T00:00:00.000Z",
+) {
   const signer = generateKeyPairSync("ed25519");
   const spki = signer.publicKey.export({ format: "der", type: "spki" });
   const payload = {
     contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-    contractRevision: 2,
+    contractRevision: revision,
     packageName: "@qual-lab/crdd-coordinator",
     packageVersion: "0.0.0-development",
     crddVersion: "v0.18.0",
@@ -488,13 +498,13 @@ function signedManifest(packageContentRootSha256: string) {
       sha256: "5".repeat(64),
     },
     issuedAt: "2026-08-15T00:00:00.000Z",
-    expiresAt: "2027-08-15T00:00:00.000Z",
+    expiresAt,
   };
   return {
     input: {
       manifestEnvelope: {
         contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
-        contractRevision: 2,
+        contractRevision: revision,
         payload,
         signatures: [
           {
@@ -694,6 +704,25 @@ test("同梱manifestは固定Release鍵以外の署名を拒否する", () => {
   assert.equal("files" in result, false);
   assert.equal("signature" in result, false);
   assert.equal("releaseSignerSpkiDer" in result, false);
+});
+
+test("期限なしmanifestも固定Release鍵と配布結合を迂回できない", () => {
+  const observed = inspectBundledCoordinatorPackageFilesystemCandidate();
+  assert.equal(observed.status, "candidate");
+  const value = signedManifest(observed.packageContentRootSha256, 3, null);
+  for (const evaluationTime of [
+    "2026-08-16T00:00:00.000Z",
+    "2099-01-01T00:00:00.000Z",
+  ]) {
+    const result = verifyBundledCoordinatorPackageCandidate({
+      ...value.input,
+      evaluationTime,
+    });
+    assert.equal(result.status, "blocked");
+    assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
+    assert.equal(result.crddDistributionConfirmed, false);
+    assert.equal(result.effectAuthorizationIssued, false);
+  }
 });
 
 test("不正Root、Release Identity不一致およびpackage metadataをfail closedにする", () => {

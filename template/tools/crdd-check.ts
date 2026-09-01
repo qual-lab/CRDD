@@ -3606,6 +3606,24 @@ if (pathContainsSymbolicLink(requestedDocsRoot)) {
 } else {
   docsRoot = requestedDocsRoot;
 }
+function parseCanonicalDocumentHeader(content: string): string {
+  const headerLines: string[] = [];
+  let hasFields = false;
+  let hasTitle = false;
+  for (const line of content.replace(/^\uFEFF/u, "").split(/\r?\n/u)) {
+    if (line.trim() === "") continue;
+    if (!hasFields && /^<a id="[^"]+"><\/a>$/u.test(line)) continue;
+    if (!hasFields && !hasTitle && /^#\s+\S/u.test(line)) {
+      hasTitle = true;
+      continue;
+    }
+    if (!/^[A-Za-z][A-Za-z ]*:[ \t]*.*$/u.test(line)) break;
+    hasFields = true;
+    headerLines.push(line);
+  }
+  return headerLines.join("\n");
+}
+
 const versionedDocuments = [];
 const canonicalDocumentStates = [];
 if (docsRoot) {
@@ -3622,7 +3640,7 @@ if (docsRoot) {
       continue;
     }
     if (!lstatIfPresent(file)?.isFile()) continue;
-    const content = read(file);
+    const content = parseCanonicalDocumentHeader(read(file));
     const match = content.match(/^Version:\s*(v[0-9]\S*)\s*$/m);
     if (match) versionedDocuments.push([file, match[1]]);
     canonicalDocumentStates.push({
@@ -3705,6 +3723,86 @@ if (candidateDocuments.length > 0) {
     }
   }
 }
+function parseMarkdownStructure(lines: readonly string[]) {
+  const entries: MarkdownEntry[] = [];
+  const fences: MarkdownFence[] = [];
+  let activeFence: MarkdownFence | null = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (activeFence) {
+      const closing = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/u);
+      if (
+        closing &&
+        closing[1][0] === activeFence.marker &&
+        closing[1].length >= activeFence.length
+      ) {
+        entries.push({
+          index,
+          text: line,
+          outside: false,
+          fenceId: activeFence.id,
+        });
+        activeFence.end = index;
+        activeFence.closed = true;
+        activeFence = null;
+      } else {
+        const entry = {
+          index,
+          text: line,
+          outside: false,
+          fenceId: activeFence.id,
+        };
+        entries.push(entry);
+        activeFence.contents.push(entry);
+      }
+      continue;
+    }
+    const opening = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
+    const isValidOpening =
+      opening && !(opening[1][0] === "`" && opening[2].includes("`"));
+    if (!isValidOpening) {
+      entries.push({ index, text: line, outside: true, fenceId: null });
+      continue;
+    }
+    const fence: MarkdownFence = {
+      id: fences.length,
+      marker: opening[1][0],
+      length: opening[1].length,
+      language: opening[2].trim().split(/\s+/u)[0].toLowerCase(),
+      start: index,
+      end: null,
+      closed: false,
+      contents: [],
+    };
+    fences.push(fence);
+    activeFence = fence;
+    entries.push({ index, text: line, outside: false, fenceId: fence.id });
+  }
+  return { entries, fences };
+}
+
+function parseReadmeVersion(content: string): string | null {
+  const markdown = parseMarkdownStructure(
+    content.replace(/^\uFEFF/u, "").split(/\r?\n/u),
+  );
+  let hasTitle = false;
+  for (const entry of markdown.entries) {
+    if (!entry.outside) continue;
+    const line = entry.text;
+    if (line.trim() === "" || /^<a id="[^"]+"><\/a>$/u.test(line)) continue;
+    if (!hasTitle && /^#\s+\S/u.test(line)) {
+      hasTitle = true;
+      continue;
+    }
+    if (/^\*\*[^*]+\*\*[ \t]*$/u.test(line)) continue;
+    const match = line.match(
+      /^(?:Version|Status):[ \t]*(?:\*\*(v[0-9][^\s*]*)(?:[ \t]+[^*]*)?\*\*|(v[0-9][^\s*]*)(?:[ \t]+[^*]*)?)[ \t]*$/u,
+    );
+    return match?.[1] ?? match?.[2] ?? null;
+  }
+  return null;
+}
+
 const readme = path.join(root, "README.md");
 if (
   lstatIfPresent(readme)?.isFile() &&
@@ -3712,14 +3810,14 @@ if (
   versions.size === 1 &&
   repositoryMode === "official"
 ) {
-  const match = read(readme).match(/^Status:\s*\*\*(v[0-9]\S*)/m);
+  const readmeVersion = parseReadmeVersion(read(readme));
   const expectedVersion = versions.values().next().value;
-  if (match && match[1] !== expectedVersion) {
+  if (readmeVersion && readmeVersion !== expectedVersion) {
     add(
       "error",
       "readme-version-mismatch",
       "README.md",
-      `README=${match[1]}, canonical=${expectedVersion}`,
+      `README=${readmeVersion}, canonical=${expectedVersion}`,
     );
   }
 }
@@ -3736,63 +3834,7 @@ if (
   // Parse isFenced code once so headings, declarations, and migration-note
   // categories all use the same Markdown structure boundary. Only fence-free
   // lines and data inside a closed yaml/yml fence can be semantic inputs.
-  const markdown = (() => {
-    const entries: MarkdownEntry[] = [];
-    const fences: MarkdownFence[] = [];
-    let activeFence: MarkdownFence | null = null;
-    for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index];
-      if (activeFence) {
-        const closing = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/u);
-        if (
-          closing &&
-          closing[1][0] === activeFence.marker &&
-          closing[1].length >= activeFence.length
-        ) {
-          entries.push({
-            index,
-            text: line,
-            outside: false,
-            fenceId: activeFence.id,
-          });
-          activeFence.end = index;
-          activeFence.closed = true;
-          activeFence = null;
-        } else {
-          const entry = {
-            index,
-            text: line,
-            outside: false,
-            fenceId: activeFence.id,
-          };
-          entries.push(entry);
-          activeFence.contents.push(entry);
-        }
-        continue;
-      }
-      const opening = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
-      const isValidOpening =
-        opening && !(opening[1][0] === "`" && opening[2].includes("`"));
-      if (!isValidOpening) {
-        entries.push({ index, text: line, outside: true, fenceId: null });
-        continue;
-      }
-      const fence: MarkdownFence = {
-        id: fences.length,
-        marker: opening[1][0],
-        length: opening[1].length,
-        language: opening[2].trim().split(/\s+/u)[0].toLowerCase(),
-        start: index,
-        end: null,
-        closed: false,
-        contents: [],
-      };
-      fences.push(fence);
-      activeFence = fence;
-      entries.push({ index, text: line, outside: false, fenceId: fence.id });
-    }
-    return { entries, fences };
-  })();
+  const markdown = parseMarkdownStructure(lines);
   const outsideEntries = markdown.entries.filter((entry) => entry.outside);
   const releaseSections = (
     languageHeading: string,
@@ -3894,7 +3936,7 @@ if (
     English: [
       [/^\s*[-*+]\s+Required(?:\s+for\s+[^:]+)?:/u, "Required"],
       [/^\s*[-*+]\s+Conditional(?:\s+[^:]+)?:/u, "Conditional"],
-      [/^\s*[-*+]\s+Not required:/u, "Not required"],
+      [/^\s*[-*+]\s+Not required(?: for adopting projects)?:/u, "Not required"],
       [/^\s*[-*+]\s+Rollback \/ recovery:/u, "Rollback / recovery"],
       [/^\s*[-*+]\s+Known risk if deferred:/u, "Known risk if deferred"],
       [/^\s*[-*+]\s+Verification:/u, "Verification"],
@@ -3903,11 +3945,11 @@ if (
     日本語: [
       [/^\s*[-*+]\s+(?:[^:]+で)?必須:/u, "必須"],
       [/^\s*[-*+]\s+条件付き(?:[^:]*)?:/u, "条件付き"],
-      [/^\s*[-*+]\s+不要:/u, "不要"],
-      [/^\s*[-*+]\s+復旧:/u, "復旧"],
+      [/^\s*[-*+]\s+(?:不要|採用プロジェクトでは不要):/u, "不要"],
+      [/^\s*[-*+]\s+(?:復旧|切戻し／復旧):/u, "復旧"],
       [/^\s*[-*+]\s+延期時の既知リスク:/u, "延期時の既知リスク"],
       [/^\s*[-*+]\s+検証:/u, "検証"],
-      [/^\s*[-*+]\s+既知の制限:/u, "既知の制限"],
+      [/^\s*[-*+]\s+既知の(?:制限|限界):/u, "既知の制限"],
     ],
   };
   const sections: Record<string, ReleaseSection> = {};
@@ -4000,7 +4042,13 @@ if (
         .filter((entry) => entry.outside)
         .map((entry) => entry.text);
       const missingMarkers = markers
-        .filter(([pattern]) => !sectionLines.some((line) => pattern.test(line)))
+        .filter(
+          ([pattern]) =>
+            !sectionLines.some((line) => {
+              const match = line.match(pattern);
+              return Boolean(match && line.slice(match[0].length).trim());
+            }),
+        )
         .map(([, label]) => label);
       if (missingMarkers.length === 0) continue;
       add(

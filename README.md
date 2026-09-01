@@ -7,9 +7,9 @@
 Expertise and execution to AI. Ideas, decisions, and accountability to humans. Intent to the Context Repository.
 ```
 
-Status: **v0.18.0 Candidate — Current Decision Set, Communication, Agent Organization, and Architecture Evaluation / 現在の判断集合・外部コミュニケーション・エージェント組織・アーキテクチャ評価**
+Version: **v0.18.0 — Methodology, Agent Organization, and Reference Runtime / 開発手法・エージェント組織・参照Runtime**
 
-> **Branch note / ブランチ注記:** This branch is the integrated **v0.18.0 Candidate**. It contains normative change candidates for the Current Decision Set and Communication, the normative Agent Organization foundation in sections 1–11 of `04_Agent_Organization.md`, and non-normative v0.18.0 Architecture Candidate material including section 12 of that document. The released baseline remains **v0.17.0**; candidate co-location does not establish v0.18.0 conformance, adoption, authority, automatic AI loading, runtime availability, or release. / このbranchは統合**v0.18.0候補**である。現在の判断集合と外部コミュニケーションの規範変更候補、`04_Agent_Organization.md`§1～§11のエージェント組織の基礎規範候補、および同書§12を含む非規範のv0.18.0 Architecture Candidate資料を含む。公開済み基準は引き続き**v0.17.0**であり、候補が同居することからv0.18.0準拠、採用、決定権限、AIによる自動読込、Runtimeの利用可能性またはリリースは成立しない。See / 参照: [エージェント組織](04_Agent_Organization.md), [v0.18.0 Architecture Candidate](05_Autonomous_Operation.md).
+> **Release identity / 公開基準の識別:** This content is a released baseline only when referenced by an official release tag or equivalent immutable Release identifier. A branch, Commit, or `Status: Stable` alone does not establish publication, project adoption, conformance, or Runtime execution authority. `04_Agent_Organization.md` sections 1–11 define the normative foundation; section 12 and `05_Autonomous_Operation.md` remain non-normative future design material. / この内容は、公式タグまたは同等の不変なRelease識別子で参照された場合だけ公開済み基準となる。branch、Commitまたは`Status: Stable`だけでは公開、プロジェクトでの採用、準拠またはRuntime起動権限は成立しない。`04_Agent_Organization.md`§1～§11は基礎規範を定義し、同書§12と`05_Autonomous_Operation.md`は将来の非規範設計資料として維持する。See / 参照: [Release and migration / リリースと移行](CHANGELOG.md)。
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -47,15 +47,17 @@ Quality assurance is therefore not an activity that begins by running tests at t
 
 ### Coordinator Runtime and provider boundary
 
-For capabilities and limits, read the [behavior specification](05_SPEC/01_Behavior_Specification.md); for execution and recovery, use the [workflow](19_Workflows/01_Coordinator_Runtime.md). The [current quality status](07_Quality/01_Quality_Center.md) separates verified results from remaining work, and the [architecture](06_Architecture/01_Architecture.md) explains the implementation. This remains a candidate, not a released Runtime. Ordinary users do not need the release signing key or its passphrase.
+For capabilities and limits, read the [behavior specification](05_SPEC/01_Behavior_Specification.md); for execution and recovery, use the [workflow](19_Workflows/01_Coordinator_Runtime.md). The [current quality status](07_Quality/01_Quality_Center.md) separates verified results from remaining work, and the [architecture](06_Architecture/01_Architecture.md) explains the implementation. Use the signed Runtime distribution attached to the official Release for the selected version; a source checkout or source ZIP alone cannot start the ordinary Runtime. Verify that distribution's signature and identity; an earlier signed candidate does not certify a new release tag. Ordinary users do not need the release signing key or its passphrase.
 
-The Coordinator Runtime candidate delegates work through the official Codex and Claude Code CLIs using their own Subscription OAuth sessions. CRDD does not extract those sessions for another API, and the standard profile does not automatically fall back to API keys, metered APIs, credit purchases, or paid plan changes.
+The release manifest can explicitly specify no expiry, so a verified distribution need not stop merely because time has elapsed. Signature, artifact identity, issue date, authorization, and compatibility checks still apply; this is not perpetual support. Initial consent and operation-specific expiry are separate and unchanged. See the [distribution validity contract](05_SPEC/01_Behavior_Specification.md#正式配布物の有効期間).
+
+The Coordinator Runtime delegates work through the official Codex and Claude Code CLIs using their own Subscription OAuth sessions. CRDD does not extract those sessions for another API, and the standard profile does not automatically fall back to API keys, metered APIs, credit purchases, or paid plan changes.
 
 Before a provider receives content, CRDD limits the provider, purpose, information classification, repository and revision, projected context, authority, network destination, and executable identity. Those controls reduce unintended disclosure, substitution, privilege expansion, and effect. They do not control or independently verify retention, secondary use, or subprocessors inside the provider; after an authorized send, the provider's terms and account settings govern that boundary.
 
 Repository source is not copied into the task prompt. A provider reads only the authorized files projected from the verified repository and revision into its isolated workspace. Source code, including confidential source, may therefore still be sent to the authorized provider when the project's information boundary permits it. Passwords, private keys, session tokens, API keys, and other secret values are different: they must not be placed in a prompt or readable projection. The Runtime rejects recognized high-confidence secret forms and secret-bearing paths before provider execution, but does not claim complete secret discovery; projects must still keep secrets out of repositories and task text.
 
-The Local Personal candidate uses one lightweight initial approval for the complete provider-processing boundary. The Runtime keeps exactly one active consent boundary for the selected local user and protected Runtime State, expires it after 180 days, and supports explicit revocation. Normal delegation reuses it without per-task confirmation; changing the policy, provider or account boundary, information class, purpose, selected user, protected state, or expiry requires approval again. The current task, repository revision, and projected paths remain operation-scoped checks and are not silently added to the persistent consent. This lifecycle is implementation- and contract-tested in the v0.18.0 candidate, but does not make the candidate a released Runtime.
+The Local Personal profile uses one lightweight initial approval for the complete provider-processing boundary. The Runtime keeps exactly one active consent boundary for the selected local user and protected Runtime State, expires it after 180 days, and supports explicit revocation. Normal delegation reuses it without per-task confirmation; changing the policy, provider or account boundary, information class, purpose, selected user, protected state, or expiry requires approval again. The current task, repository revision, and projected paths remain operation-scoped checks and are not silently added to the persistent consent. Implementation and test results do not replace release verification or the project's authorization.
 
 ### CRDD in plain language
 
@@ -121,7 +123,7 @@ Choose the shortest route that matches the work:
 - It does not make optional Communication, dependency, visual, or specialist capabilities mandatory for repositories where they do not apply.
 - It does not replace specialist judgment with a fixed number of alternatives, interviewees, impressions, or a declaration that exploration was performed.
 
-### Integrated v0.18.0 candidate on this branch
+### Normative foundation and non-normative architecture material
 
 The non-normative v0.18.0 Architecture Candidate asks how existing CRDD context can be reevaluated proactively without turning CRDD into a fixed workflow engine or granting uncontrolled autonomy.
 
@@ -129,13 +131,13 @@ The non-normative v0.18.0 Architecture Candidate asks how existing CRDD context 
 Trigger → Think → Controlled Effect → Verify → Learn
 ```
 
-Its five candidate pillars are Re-evaluation and Trigger, Operation, Effect and Authority Safety, Background versus Human Decision separation, and Operation Health. They are future, non-normative design material—not part of v0.17.0 conformance:
+Its five candidate pillars are Re-evaluation and Trigger, Operation, Effect and Authority Safety, Background versus Human Decision separation, and Operation Health. They are future, non-normative design material—not additional conformance requirements:
 
-The integrated v0.18.0 candidate combines normative change candidates for Current Decision Set and Communication, the normative Agent Organization foundation in `04_Agent_Organization.md` sections 1–11, and non-normative architecture material including section 12. Agent Organization defines how responsibility, specialty, capability, authority, delegation, review, cost, and result integration remain distinct without requiring multiple agents. The architecture material explores how those boundaries can be projected across executions. Neither category makes a Coordinator product, agent layout, queue UI, autonomous approval, or runtime capability mandatory. Changes to the normative candidates or released baseline require a new semantic comparison; the former feature branches are provenance, not continuing synchronization sources.
+v0.18.0 combines normative contracts for Current Decision Set, Communication, and the Agent Organization foundation in `04_Agent_Organization.md` sections 1–11, with separate non-normative architecture material including section 12. Agent Organization separates responsibility, specialty, capability, authority, delegation, review, cost, and result integration without requiring multiple agents. The future architecture material explores execution projections; it does not require a Coordinator product, agent layout, queue UI, autonomous approval, or Runtime capability. Changes to an adopted baseline require a new semantic comparison. Former feature branches are provenance, not continuing synchronization sources.
 
-#### What this candidate does not provide by itself
+#### What the non-normative design material does not provide
 
-This candidate defines the rules for connecting automation safely; it is not an automation runtime. By itself, it does not provide:
+The non-normative material in `05_Autonomous_Operation.md` and `04_Agent_Organization.md` section 12 describes future execution designs, not an implementation. This limitation does not describe the separately implemented Coordinator Reference Runtime. The design material alone does not provide:
 
 - a Scheduler or Event Listener that starts Operations;
 - MCP installation, connection configuration, authentication, or credential management;
@@ -161,7 +163,7 @@ For example, a Codex scheduled task may explicitly start a read-only weekly revi
 - [Forward compatibility](05_Autonomous_Operation.md#forward-compatibility)
 - [Agent and provider orchestration](04_Agent_Organization.md#12-execution-architecture)
 
-The cross-cutting concept used by this candidate is defined separately in the [Agent Organization foundation candidate](04_Agent_Organization.md). Neither inclusion in this list nor `Candidate` status establishes adoption; adoption follows the baseline-adoption assessment, Human activation decision, and release contracts.
+The cross-cutting concept used by this candidate is defined separately in the [Agent Organization foundation](04_Agent_Organization.md). Neither inclusion in this list nor a document status establishes adoption; adoption follows the baseline-adoption assessment, Human activation decision, and release contracts.
 
 The product transformation is connected end to end, but it is not a fixed waterfall:
 
@@ -260,15 +262,15 @@ Humans do not need to read every canonical document before starting. Read this s
 6. Before handing off phase or shared-contract scope, run the [Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop) with both contract and applicable specialist checks, remediate findings in the responsible phase or contract, and re-review the updated revision before Human approval.
 7. Before claiming CRDD conformance, evaluate the applicable Core and Profile criteria with current evidence using the [Conformance Audit](52_Conformance_Audit.md).
 
-### Evaluate the v0.18.0 candidate safely
+### Evaluate an unadopted baseline or candidate safely
 
-Keep v0.17.0 as the active released baseline while evaluating this Candidate.
+Keep the project's currently adopted baseline active until migration and Human activation are complete.
 
 - Use a restorable isolated branch or test repository; do not replace the active project's `00_CRDD/`.
 - Copy or pin the canonical documents and required template content from one fixed Candidate Commit.
-- Record the Commit／Tree, evaluated capabilities, allowed operations, v0.17.0 differences, affected adapters and existing artifacts, and observed results.
+- Record the Commit／Tree, evaluated capabilities, allowed operations, differences from the adopted baseline, affected adapters and existing artifacts, and observed results.
 - Do not use Candidate content as completion, conformance, adoption, or release evidence. The non-normative Architecture Candidate remains a design simulation unless a separately authorized runtime or PoC supplies the capability.
-- If it is not adopted, remove it from the isolated evaluation path and continue from the recorded v0.17.0 baseline without rewriting completed project history.
+- If it is not adopted, remove it from the isolated evaluation path and continue from the recorded prior baseline without rewriting completed project history.
 
 ### Start one small problem
 
@@ -295,7 +297,7 @@ These non-normative examples do not replace the project AI entry point or canoni
 | Situation | Example instruction |
 |---|---|
 | Initial CRDD adoption | “Adopt CRDD for this repository. Inspect current artifacts, AI entry points, decision authorities, release workflow, quality practices, information classification, external-service boundaries, and agent/tool privileges. Recommend the applicable profile and phases, released baseline, project adapters, justified non-applicability, initial Quality Strategy, and External Information Boundary. Do not create optional capability folders unless they apply. Stop before activation for Human approval.” |
-| Baseline migration | “Assess migration from the currently adopted CRDD baseline to v0.17.0. Read every intervening release note; identify semantic, AI-behavior, conformance, phase-contract, template, workflow, information-boundary, and tool-privilege impact; and propose Migration Completeness evidence and rollback. Preserve project context and closed history. Do not activate or claim conformance before Human approval.” |
+| Baseline migration | “Assess migration from the currently adopted CRDD baseline to the selected official release (for example v0.18.0). Read every intervening release note; identify semantic, AI-behavior, conformance, phase-contract, template, workflow, information-boundary, and tool-privilege impact; and propose Migration Completeness evidence and rollback. Preserve project context and closed history. Do not activate or claim conformance before Human approval.” |
 | Discovery | “Decide whether to solve `<problem>` for `<people>`. Separate observation, interpretation, and solution ideas. Identify decision-changing evidence, credible counter-hypotheses, acquisition cost and bias, remaining uncertainty, and the revisit trigger. Recommend adopt, defer, reject, or investigate further.” |
 | UX | “Design the experience for `<user and situation>`. Reconstruct desired outcome, current journey, constraints, failure and recovery, and accessibility needs. Compare credible experience approaches, critique where they may fail, preserve adopted intent, and explain remaining uncertainty.” |
 | IA | “Model information and navigation for `<scope>`. Identify domain objects, relationships, user vocabulary, information priority, findability, current-position cues, and growth pressure. Compare credible structures and test representative find-and-navigate tasks.” |
@@ -315,7 +317,7 @@ Before changing an adopted CRDD baseline, run the lightweight [Baseline Adoption
 
 Where a baseline update includes any difference classified normative or breaking, or any release whose CHANGELOG declares migration required, adoption is not complete until the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar is met — this applies to adopting with no action just as much as to adopting after remediation — and a `Conformant` claim cannot be recorded against that baseline before then. The bar's fifth point, an independent review, is carried out by Document Audit or Gap / Impact Audit, not by Conformance Audit.
 
-v0.17.0 contains breaking changes for expert exploration, convergence, and the External Information Boundary and requires migration; review the [v0.17.0 changelog](CHANGELOG.md#changelog-v0170-en) and its migration note. v0.16.0 contains a breaking change for first-pass convergence and requires migration; review the [v0.16.0 changelog](CHANGELOG.md#changelog-v0160-en) and its migration note. v0.15.0 contains a breaking, capability-scoped change for Communication and Context Dependency and also requires migration; review the [v0.15.0 changelog](CHANGELOG.md#changelog-v0150-en) and its migration note. v0.14.0 contains a breaking change for convergent remediation and evidence identity and also requires migration; review the [v0.14.0 changelog](CHANGELOG.md#changelog-v0140-en) and its migration note. v0.13.0 contains a breaking change for complete multi-location remediation and also requires migration; review the [v0.13.0 changelog](CHANGELOG.md#changelog-v0130-en) and its migration note. v0.12.0 contains a normative pre-execution alignment change and also requires migration; review the [v0.12.0 changelog](CHANGELOG.md#changelog-v0120-en) and its migration note. v0.11.0 contains a normative AI-interaction change and also requires migration; review the [v0.11.0 changelog](CHANGELOG.md#changelog-v0110-en) and its migration note. v0.10.0, v0.9.0, v0.8.0, and v0.7.0 contain breaking changes and also require migration — review the [v0.10.0 changelog](CHANGELOG.md#changelog-v0100-en), [v0.9.0 changelog](CHANGELOG.md#changelog-v090-en), [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en), and [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
+v0.18.0 contains breaking changes and requires migration; review the [v0.18.0 changelog](CHANGELOG.md#changelog-v0180-en) before activation. v0.17.0 contains breaking changes for expert exploration, convergence, and the External Information Boundary and requires migration; review the [v0.17.0 changelog](CHANGELOG.md#changelog-v0170-en) and its migration note. v0.16.0 contains a breaking change for first-pass convergence and requires migration; review the [v0.16.0 changelog](CHANGELOG.md#changelog-v0160-en) and its migration note. v0.15.0 contains a breaking, capability-scoped change for Communication and Context Dependency and also requires migration; review the [v0.15.0 changelog](CHANGELOG.md#changelog-v0150-en) and its migration note. v0.14.0 contains a breaking change for convergent remediation and evidence identity and also requires migration; review the [v0.14.0 changelog](CHANGELOG.md#changelog-v0140-en) and its migration note. v0.13.0 contains a breaking change for complete multi-location remediation and also requires migration; review the [v0.13.0 changelog](CHANGELOG.md#changelog-v0130-en) and its migration note. v0.12.0 contains a normative pre-execution alignment change and also requires migration; review the [v0.12.0 changelog](CHANGELOG.md#changelog-v0120-en) and its migration note. v0.11.0 contains a normative AI-interaction change and also requires migration; review the [v0.11.0 changelog](CHANGELOG.md#changelog-v0110-en) and its migration note. v0.10.0, v0.9.0, v0.8.0, and v0.7.0 contain breaking changes and also require migration — review the [v0.10.0 changelog](CHANGELOG.md#changelog-v0100-en), [v0.9.0 changelog](CHANGELOG.md#changelog-v090-en), [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en), and [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
 
 <a id="historical-migration-v042-v05x-en"></a>
 
@@ -345,7 +347,7 @@ Until migration verification passes, keep the previous pinned release recoverabl
 
 The distributed template includes `tools/crdd-check.ts`. In normal use, the parent AI agent runs it once against a fixed revision before independent review or an audit set; users do not need to run it manually.
 
-For CRDD-standard maintenance in this repository, the checker package is located at `40_Develop/checker/`; run `node 40_Develop/checker/crdd-check.ts --json --summary`. The v0.18 Candidate renames the distributed checker from `crdd_check.ts` to `crdd-check.ts` without a compatibility shim; adopting repositories update their copied file, AI entry instructions, CI, scripts, and documentation as one migration.
+For CRDD-standard maintenance in this repository, the checker package is located at `40_Develop/checker/`; run `node 40_Develop/checker/crdd-check.ts --json --summary`. v0.18.0 renames the distributed checker from `crdd_check.ts` to `crdd-check.ts` without a compatibility shim; adopting repositories update their copied file, AI entry instructions, CI, scripts, and documentation as one migration.
 
 ```text
 node tools/crdd-check.ts
@@ -457,15 +459,17 @@ Human Coding-less DevelopmentはNo-codeではない。コードはAIが生成す
 
 ### Coordinator RuntimeとProvider境界
 
-できることと制限は[振る舞い仕様](05_SPEC/01_Behavior_Specification.md)、実行・復旧は[作業手順](19_Workflows/01_Coordinator_Runtime.md)から確認できる。[品質の現在状態](07_Quality/01_Quality_Center.md)では確認済みの結果と残件を分け、内部の仕組みは[アーキテクチャ](06_Architecture/01_Architecture.md)へ集約する。現在は候補版であり、Release済みRuntimeではない。通常利用者にRelease署名鍵やパスフレーズは不要である。
+できることと制限は[振る舞い仕様](05_SPEC/01_Behavior_Specification.md)、実行・復旧は[作業手順](19_Workflows/01_Coordinator_Runtime.md)から確認できる。[品質の現在状態](07_Quality/01_Quality_Center.md)では確認済みの結果と残件を分け、内部の仕組みは[アーキテクチャ](06_Architecture/01_Architecture.md)へ集約する。選択した版の公式Releaseに添付された署名済みRuntime配布物を取得し、署名と実体の一致を検証して利用する。ソースcheckoutやソースZIPだけでは通常Runtimeを起動できない。旧署名候補は新しいリリースタグの配布保証にはならない。通常利用者にRelease署名鍵やパスフレーズは不要である。
 
-Coordinator Runtime候補は、公式のCodex／Claude Code CLIと、それぞれ自身のSubscription OAuth Sessionを使って仕事を委譲する。CRDDがSessionを抽出して別APIへ転用することはなく、標準ProfileはAPI key、従量API、Credit購入または有料Plan変更へ自動fallbackしない。
+配布manifestには期限なしを明示でき、検証済み配布物が時間の経過だけで使えなくなることを避ける。署名、実体の一致、発行日時、権限および互換性の確認は維持し、永久サポートを意味しない。初期同意と各操作の期限は別契約のまま変えない。詳細は[正式配布物の有効期間](05_SPEC/01_Behavior_Specification.md#正式配布物の有効期間)を参照する。
+
+Coordinator Runtimeは、公式のCodex／Claude Code CLIと、それぞれ自身のSubscription OAuth Sessionを使って仕事を委譲する。CRDDがSessionを抽出して別APIへ転用することはなく、標準ProfileはAPI key、従量API、Credit購入または有料Plan変更へ自動fallbackしない。
 
 Providerへ内容を送る前に、CRDDはProvider、目的、情報分類、RepositoryとRevision、投影するContext、Authority、Network送信先および実行物Identityを限定する。これは意図しない漏えい、差替え、権限拡張およびEffectを抑える制御である。許可後のProvider内部における保存、二次利用または再委託をCRDDが制御・独立検証するものではなく、その境界にはProviderの利用条件とAccount設定が適用される。
 
 RepositoryのSourceをTask Promptへコピーしない。Providerは、検証済みRepositoryとRevisionから隔離Workspaceへ明示的に投影された許可Fileだけを読む。したがって機密なSource Codeも、Projectの情報境界が許可する場合は認可済みProviderへ送信され得る。一方、Password、Private Key、Session Token、API Keyその他のシークレット値は別であり、Promptや読取投影へ含めてはならない。Runtimeは認識できる高確度なSecret形式と秘密用PathをProvider実行前に拒否するが、すべてのSecretを発見できるとは主張しない。ProjectもSecretをRepositoryとTask本文へ入れない。
 
-Local Personal候補は、Provider処理境界の全体を初期設定時に一度だけ軽量に承認する。Runtimeは選択ローカルユーザーと保護済みRuntime Stateごとに有効な同意境界を常に一つだけ保持し、180日で失効させ、明示取消を可能にする。境界が変わらない通常委譲ではTaskごとの確認を求めず、Policy、Provider／Account境界、情報分類、目的、選択ユーザー、保護状態または期限が変われば再承認する。現在Task、Repository Revisionおよび投影PathはOperation単位で引き続き検査し、永続同意へ暗黙追加しない。このLifecycleはv0.18.0候補で実装・契約試験済みだが、候補をRelease済みRuntimeにはしない。
+Local Personalプロファイルは、Provider処理境界の全体を初期設定時に一度だけ軽量に承認する。Runtimeは選択ローカルユーザーと保護済みRuntime Stateごとに有効な同意境界を常に一つだけ保持し、180日で失効させ、明示取消を可能にする。境界が変わらない通常委譲ではTaskごとの確認を求めず、Policy、Provider／Account境界、情報分類、目的、選択ユーザー、保護状態または期限が変われば再承認する。現在Task、Repository Revisionおよび投影PathはOperation単位で引き続き検査し、永続同意へ暗黙追加しない。実装・試験の結果は、配布物の署名検証やプロジェクトの実行許可を代替しない。
 
 ### CRDDを簡単に言うと
 
@@ -531,7 +535,7 @@ CRDDは、AIにコードを書かせるためだけの方法ではない。な�
 - 適用しないRepositoryへ、任意のCommunication、依存、視覚制作または専門機能を要求しない。
 - 固定案数、固定面談人数、固定表示数や「探索した」という申告を専門判断の代わりにしない。
 
-### このbranchの統合v0.18.0候補
+### 基礎規範と非規範アーキテクチャ資料
 
 非規範のv0.18.0 Architecture Candidateは、CRDDを固定Workflow Engineへ変えたり無制御な自律性を与えたりせず、既存のCRDD Contextを能動的に再評価する方法を扱う。
 
@@ -539,13 +543,13 @@ CRDDは、AIにコードを書かせるためだけの方法ではない。な�
 Trigger → Think → Controlled Effect → Verify → Learn
 ```
 
-候補の5本柱は、再評価と契機、Operation、EffectとAuthorityの安全性、BackgroundとHuman Decisionの分離、Operation Healthである。これらは将来の非規範設計資料であり、v0.17.0準拠の一部ではない。
+候補の5本柱は、再評価と契機、Operation、EffectとAuthorityの安全性、BackgroundとHuman Decisionの分離、Operation Healthである。これらは将来の非規範設計資料であり、追加の準拠要件ではない。
 
-統合v0.18.0候補は、現在の判断集合と外部コミュニケーションの規範変更候補、`04_Agent_Organization.md`§1～§11のエージェント組織の基礎規範候補、および同書§12を含む非規範のアーキテクチャ資料を組み合わせる。エージェント組織は責務、専門性、能力、決定権限、委譲、レビュー、費用および結果統合を、複数エージェントを必須にせず分離する。アーキテクチャ資料は、その境界を複数実行へ投影する方法を検討する。いずれも特定の調整役製品、エージェント構成、Queue UI、自律承認またはRuntime能力を必須にしない。規範変更候補または公開基準が変わった場合は、新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
+v0.18.0は、現在の判断集合、外部コミュニケーションおよび`04_Agent_Organization.md`§1～§11のエージェント組織の基礎規範と、同書§12を含む非規範アーキテクチャ資料を分離して扱う。エージェント組織は責務、専門性、能力、決定権限、委譲、レビュー、費用および結果統合を、複数エージェントを必須にせず分離する。将来のアーキテクチャ資料は実行への投影を検討するもので、特定の調整役製品、エージェント構成、Queue UI、自律承認またはRuntime能力を必須にしない。採用基準を変更するときは新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
 
-#### この候補が単独では提供しないもの
+#### 非規範設計資料が単独では提供しないもの
 
-この候補は、自動化を安全に接続するための規則を定義するものであり、自動化Runtimeそのものではない。この候補だけでは、次を提供しない。
+`05_Autonomous_Operation.md`と`04_Agent_Organization.md`§12の非規範資料は、将来の実行設計であって実装ではない。この制限は、別途実装したCoordinator参照Runtimeの説明ではない。設計資料だけでは、次を提供しない。
 
 - Operationを起動するSchedulerまたはEvent Listener
 - MCPの導入、接続設定、認証またはCredential管理
@@ -571,7 +575,7 @@ Representable != Enabled != Accessible != Authorized != Promoted
 - [Forward Compatibility](05_Autonomous_Operation.md#forward-compatibility)
 - [Agent／Provider Orchestration](04_Agent_Organization.md#12-execution-architecture)
 
-この候補が使用する横断概念は、[エージェント組織の基礎正本候補](04_Agent_Organization.md)へ分離している。この一覧への掲載や`Candidate`状態だけでは採用を成立させず、採用は基準版採用評価、人間による有効化判断およびリリース契約に従う。
+この候補が使用する横断概念は、[エージェント組織の基礎正本](04_Agent_Organization.md)へ分離している。この一覧への掲載や文書の状態だけでは採用を成立させず、採用は基準版採用評価、人間による有効化判断およびリリース契約に従う。
 
 プロダクト変換は一気通貫で接続するが、固定的なウォーターフォールではない。
 
@@ -668,15 +672,15 @@ AIは、責務を持つ正本文書の選択、代替案の比較、承認され
 6. 工程または共有契約の対象範囲を引き渡す前に、契約確認と対象工程または対象共有契約の専門品質確認を含む[工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行し、責務を持つ工程または契約で指摘事項を修正して更新改訂版を再レビューした後に人間の承認へ進む。
 7. CRDD準拠を表明する前に、[準拠監査](52_Conformance_Audit.md)に従って、適用される中核／プロファイル基準を現行根拠で評価する。
 
-### v0.18.0候補を安全に評価する
+### 未採用の基準版・候補を安全に評価する
 
-候補評価中も、有効な公開基準版はv0.17.0のまま維持する。
+移行と人間による有効化が完了するまで、プロジェクトが現在採用している基準版を維持する。
 
 - 復旧可能な隔離ブランチまたは検証用Repositoryを使い、稼働中プロジェクトの`00_CRDD/`を置き換えない。
 - 一つの固定Candidate Commitから、正本文書と必要なひな型だけをコピーまたは固定参照する。
-- Commit／Tree、評価する機能、許可する操作、v0.17.0との差分、影響する接続部と既存成果物、観測結果を記録する。
+- Commit／Tree、評価する機能、許可する操作、採用中の基準版との差分、影響する接続部と既存成果物、観測結果を記録する。
 - Candidateの内容を完了、準拠、採用またはReleaseの根拠にしない。非規範Architecture Candidateは、別途許可されたRuntimeまたはPoCが能力を提供しない限り設計上のシミュレーションとして扱う。
-- 不採用の場合は隔離した評価経路から候補を外し、完了済みのプロジェクト履歴を書き換えず、記録したv0.17.0基準へ戻す。
+- 不採用の場合は隔離した評価経路から候補を外し、完了済みのプロジェクト履歴を書き換えず、記録した以前の基準へ戻す。
 
 ### 小さな問題を一つ始める
 
@@ -703,7 +707,7 @@ AIは、責務を持つ正本文書の選択、代替案の比較、承認され
 | 場面 | 指示例 |
 |---|---|
 | CRDDの初回導入 | 「このRepositoryへCRDDを導入して。現在の成果物、AI入口、決定権限、リリース手順、品質保証、情報分類、外部サービス境界、エージェント／ツール権限を確認し、適用するプロファイルと工程、公開基準版、プロジェクト固有接続、理由付き非該当、初期品質戦略、外部情報境界を提案して。任意機能は適用時だけ追加し、人間が有効化を承認する前で停止して。」 |
-| 基準版の移行 | 「現在採用中のCRDD基準版からv0.17.0への移行を評価して。途中の全リリース注記を読み、意味、AI挙動、準拠、工程契約、ひな型、作業手順、外部情報境界、ツール権限への影響、移行完了の根拠、復旧方法を提案して。プロジェクト所有コンテキストと完了済み履歴を保持し、人間の承認前に有効化や準拠表明をしないで。」 |
+| 基準版の移行 | 「現在採用中のCRDD基準版から選択した公式リリース（例: v0.18.0）への移行を評価して。途中の全リリース注記を読み、意味、AI挙動、準拠、工程契約、ひな型、作業手順、外部情報境界、ツール権限への影響、移行完了の根拠、復旧方法を提案して。プロジェクト所有コンテキストと完了済み履歴を保持し、人間の承認前に有効化や準拠表明をしないで。」 |
 | 課題探索・要求形成 | 「`<対象者>`の`<問題>`を解くべきか判断したい。観察、解釈、解決案を分け、判断を変え得る根拠、有力な反対仮説、取得コストと偏り、残存不確実性、再評価契機を示し、採用、延期、却下、追加調査を推奨して。」 |
 | UX | 「`<利用者と状況>`の体験を設計して。期待結果、現状の行動、制約、失敗・回復、アクセシビリティを再構成し、有力な体験案を比較・批評して、採用済み意図と残存不確実性を示して。」 |
 | IA | 「`<対象範囲>`の情報とナビゲーションを設計して。ドメイン対象、関係、利用者語彙、情報の優先度、見つけやすさ、現在位置、将来の増加を整理し、有力な構造を比較して代表的な探索・移動課題で確認して。」 |
@@ -723,7 +727,7 @@ AIは、責務を持つ正本文書の選択、代替案の比較、承認され
 
 基準版更新に含まれる差分のいずれかが規範もしくは破壊的に分類される場合、またはいずれかのリリースのCHANGELOGが移行を必要と明示する場合、[移行完了の条件](19_Maintenance.md#621-migration-completeness)を満たすまで採用は完了せず、その基準版への`Conformant`表明も記録できない。これは対応なしで採用する場合にも適用する。同条件の5点目の独立レビューは、文書監査または不足／影響監査で実施し、準拠監査では実施しない。
 
-v0.17.0は専門探索・収束と外部情報境界に関する破壊的変更を含み、移行を必要とする。[v0.17.0の変更履歴](CHANGELOG.md#changelog-v0170-ja)と移行注記を確認する。v0.16.0は初回固定候補の収束性を高める破壊的変更を含み、移行を必要とする。[v0.16.0の変更履歴](CHANGELOG.md#changelog-v0160-ja)と移行注記を確認する。v0.15.0は外部コミュニケーションとコンテキスト依存に関する適用機能を限定できる破壊的変更を含み、同じく移行を必要とする。[v0.15.0の変更履歴](CHANGELOG.md#changelog-v0150-ja)と移行注記を確認する。v0.14.0は収束する是正と根拠同一性に関する破壊的変更を含み、同じく移行を必要とする。[v0.14.0の変更履歴](CHANGELOG.md#changelog-v0140-ja)と移行注記を確認する。v0.13.0は複数箇所への是正適用に関する破壊的変更を含み、同じく移行を必要とする。[v0.13.0の変更履歴](CHANGELOG.md#changelog-v0130-ja)と移行注記を確認する。v0.12.0は着手前整合確認に関する規範変更を含み、同じく移行を必要とする。[v0.12.0の変更履歴](CHANGELOG.md#changelog-v0120-ja)と移行注記を確認する。v0.11.0はAI対話に関する規範変更を含み、同じく移行を必要とする。[v0.11.0の変更履歴](CHANGELOG.md#changelog-v0110-ja)と移行注記を確認する。v0.10.0、v0.9.0、v0.8.0、v0.7.0はいずれも破壊的変更を含み、同じく移行を必要とする。[v0.10.0の変更履歴](CHANGELOG.md#changelog-v0100-ja)、[v0.9.0の変更履歴](CHANGELOG.md#changelog-v090-ja)、[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)、[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
+v0.18.0は破壊的変更を含み、移行を必要とする。有効化前に[v0.18.0の変更履歴](CHANGELOG.md#changelog-v0180-ja)と移行注記を確認する。v0.17.0は専門探索・収束と外部情報境界に関する破壊的変更を含み、移行を必要とする。[v0.17.0の変更履歴](CHANGELOG.md#changelog-v0170-ja)と移行注記を確認する。v0.16.0は初回固定候補の収束性を高める破壊的変更を含み、移行を必要とする。[v0.16.0の変更履歴](CHANGELOG.md#changelog-v0160-ja)と移行注記を確認する。v0.15.0は外部コミュニケーションとコンテキスト依存に関する適用機能を限定できる破壊的変更を含み、同じく移行を必要とする。[v0.15.0の変更履歴](CHANGELOG.md#changelog-v0150-ja)と移行注記を確認する。v0.14.0は収束する是正と根拠同一性に関する破壊的変更を含み、同じく移行を必要とする。[v0.14.0の変更履歴](CHANGELOG.md#changelog-v0140-ja)と移行注記を確認する。v0.13.0は複数箇所への是正適用に関する破壊的変更を含み、同じく移行を必要とする。[v0.13.0の変更履歴](CHANGELOG.md#changelog-v0130-ja)と移行注記を確認する。v0.12.0は着手前整合確認に関する規範変更を含み、同じく移行を必要とする。[v0.12.0の変更履歴](CHANGELOG.md#changelog-v0120-ja)と移行注記を確認する。v0.11.0はAI対話に関する規範変更を含み、同じく移行を必要とする。[v0.11.0の変更履歴](CHANGELOG.md#changelog-v0110-ja)と移行注記を確認する。v0.10.0、v0.9.0、v0.8.0、v0.7.0はいずれも破壊的変更を含み、同じく移行を必要とする。[v0.10.0の変更履歴](CHANGELOG.md#changelog-v0100-ja)、[v0.9.0の変更履歴](CHANGELOG.md#changelog-v090-ja)、[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)、[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
 
 <a id="historical-migration-v042-v05x-ja"></a>
 
@@ -753,7 +757,7 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 
 配布用ひな型には`tools/crdd-check.ts`が含まれる。通常は、独立レビューまたは監査集合の前に親AIエージェントが固定した対象改訂版へ一度実行する。利用者が手動で実行する必要はない。
 
-このRepositoryでCRDD標準を保守するときは、`40_Develop/checker/`のチェッカーpackageを使用し、`node 40_Develop/checker/crdd-check.ts --json --summary`を実行する。v0.18 Candidateでは配布チェッカーを`crdd_check.ts`から`crdd-check.ts`へ互換shimなしで変更する。採用Repositoryは、コピー済みファイル、AI入口、CI、scriptおよび文書参照を一つの移行として更新する。
+このRepositoryでCRDD標準を保守するときは、`40_Develop/checker/`のチェッカーpackageを使用し、`node 40_Develop/checker/crdd-check.ts --json --summary`を実行する。v0.18.0では配布チェッカーを`crdd_check.ts`から`crdd-check.ts`へ互換shimなしで変更する。採用Repositoryは、コピー済みファイル、AI入口、CI、scriptおよび文書参照を一つの移行として更新する。
 
 ```text
 node tools/crdd-check.ts

@@ -3,8 +3,7 @@
 # CRDD概要（Overview）
 
 Version: v0.18.0
-Status: Candidate
-Released Baseline: v0.17.0
+Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-08-25
 Related:
@@ -120,7 +119,7 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 
 ## 3.2. 基礎原則、非規範Architecture候補と横断する決定権限
 
-`00`～`03`と`04_Agent_Organization.md`§1～§11はv0.18.0の基礎規範候補、同書§12と`05_Autonomous_Operation.md`はその境界を将来の実行形態へ投影して評価する非規範Architecture Candidateである。同書§13～§15の共有境界は、参照する規範原則または非規範Architectureの強度を継承する。ルート配置、ファイル単位の導線および文書番号は規範性を意味しない。非規範候補の存在、図、Profileまたは実証成功から、準拠要件、採用、Authority、Capability、Runtime利用可能性またはReleaseを成立させない。
+`00`～`03`と`04_Agent_Organization.md`§1～§11はv0.18.0の基礎規範、同書§12と`05_Autonomous_Operation.md`はその境界を将来の実行形態へ投影して評価する非規範Architecture Candidateである。同書§13～§15の共有境界は、参照する規範原則または非規範Architectureの強度を継承する。ルート配置、ファイル単位の導線、文書番号およびStableヘッダーは規範性を変更しない。公式タグまたは不変のRelease識別子で参照された内容だけを公開基準として扱い、branchやStable表示だけから公開・採用を推定しない。非規範候補の存在、図、Profileまたは実証成功から、準拠要件、採用、Authority、Capability、Runtime利用可能性またはReleaseを成立させない。
 
 | ファイル | 責務 |
 |---|---|

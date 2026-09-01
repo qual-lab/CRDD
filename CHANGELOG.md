@@ -11,13 +11,13 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 <a id="changelog-v0180-en"></a>
 
-### v0.18.0 Candidate — Methodology, Agent Organization, and Reference Runtime (Unreleased)
+### v0.18.0 — Methodology, Agent Organization, and Reference Runtime
 
 Clarifies the UI reference medium for terminal interfaces: line-oriented CLI and screen-based TUI use executable terminal references, while existing Web/GUI HTML requirements remain unchanged. Choosing a medium does not waive interaction, accessibility, independent review, or human decisions. Adopters classify each presentation surface, update the UI/specification mapping and known differences, and verify the actual target terminal before claiming completion. See [UI reference conditions](25_UI.md#design-system-reference) and [the existing tool-layout change](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md).
 
 Quality document naming is also a breaking placement change: within `07_Quality/`, rename `Quality_Center.md` to `01_Quality_Center.md`, `Quality_Strategy.md` to `02_Quality_Strategy.md`, and `Verification_Design.md` to `03_Verification_Design.md`. Update active references and scripts while preserving content, anchors, project additions, and assessment meaning. Keep `Verification_Results/` and dated records unchanged. If a destination already exists or history constraints are unclear, stop rather than overwrite. Verify layout, links, templates, and applicable conformance before activating the new baseline; rollback restores placement and consumers together. See the [migration procedure](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#quality-document-naming). This does not require empty quality documents for an inapplicable scope.
 
-This unreleased candidate combines the following seven canonical change traces. It covers decision support, external communication, specialized AI organization, the reference Runtime, tool maintenance and placement, and methodology improvements evaluated through dogfooding. The separate non-normative architecture material evaluates future execution projections; it does not add conformance requirements or establish implementation availability.
+The v0.18.0 difference set combines the following seven canonical change traces. It covers decision support, external communication, specialized AI organization, the reference Runtime, tool maintenance and placement, and methodology improvements evaluated through dogfooding. The separate non-normative architecture material evaluates future execution projections; it does not add conformance requirements or establish implementation availability. Verify publication and its date through the official tag or equivalent immutable Release identifier and its publication record. This entry, a branch, Commit, or Stable status alone does not establish publication.
 
 | Change trace | Meaning of the current change |
 |---|---|
@@ -29,7 +29,9 @@ This unreleased candidate combines the following seven canonical change traces. 
 | [CHG-000054](90_Release/Changes/CHG-000054_Agent_Organization_Document_Architecture.md) | Separate role, specialty, capability, authority, independence, cost, and result integration |
 | [CHG-000055](90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し) | Record long-term direction separately from current commitments; strengthen phase connections, verification, convergence, and readability; evaluate evidence-driven refactoring and practical utility |
 
-The reference Runtime remains unreleased. Signed candidate `48515eb` completed four delegation routes, seven recovery scenarios, and an actual terminal cancellation with cleanup confirmed. Earlier candidate `45ea2ac` also supported a bounded ordinary-CLI task through independent review, parent verification, and candidate disposal; that utility result is not a measurement of the later candidate. Completion assessment and the remaining terminal verification are complete; Human adoption of the candidate content and migration policy authorizes PR preparation, not merge or release. Internal source, tests, and build definitions move from `tools/` to `40_Develop/`, behavior to `05_SPEC`, design to `06_Architecture`, and operating procedures to `19_Workflows`. The adopting-project checker remains at `template/tools/crdd-check.ts`; existing signed distributions and fixed historical evidence are unchanged. See the [current quality status](07_Quality/01_Quality_Center.md) and [migration trace](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行). Practical dogfooding demonstrated bounded use, not a general speed, cost, or human-attention advantage.
+For Runtime use, obtain the distribution attached to the selected official Release and verify its signature and identity against that Release; a source checkout or source ZIP alone cannot start the ordinary Runtime. Neither this entry nor an earlier candidate signature establishes that verification. Signed candidate `48515eb` completed four delegation routes, seven recovery scenarios, and an actual terminal cancellation with cleanup confirmed. Earlier candidate `45ea2ac` also supported a bounded ordinary-CLI task through independent review, parent verification, and candidate disposal; that utility result is not a measurement of the later candidate. Those completion and terminal assessments apply to their recorded revisions, not automatically to another distribution. Human authorization is not evidence of publication or final-identity signing, and earlier candidate signatures are not transferred to a new tag. Internal source, tests, and build definitions move from `tools/` to `40_Develop/`, behavior to `05_SPEC`, design to `06_Architecture`, and operating procedures to `19_Workflows`. The adopting-project checker remains at `template/tools/crdd-check.ts`; existing signed distributions and fixed historical evidence are unchanged. See the [current quality status](07_Quality/01_Quality_Center.md) and [migration trace](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行). Practical dogfooding demonstrated bounded use, not a general speed, cost, or human-attention advantage.
+
+The new release-manifest contract explicitly supports no expiry (`revision: 3`, `expiresAt: null`) as well as time-limited manifests. Existing revision-2 signatures remain time-limited and verifiable without rewriting their bytes. No expiry does not remove issue-date, signature, artifact-identity, authorization, or compatibility checks, and does not extend consent or operation lifetimes. It is not perpetual support; verification of this addition is tracked separately from the earlier signed candidate in the quality status.
 
 Compared with v0.17.0:
 
@@ -37,13 +39,13 @@ Compared with v0.17.0:
 - Connects specifications, state/resource design, implementation, and normal, degraded, failure, and recovery verification. Selects [verification against remaining uncertainty](16_Quality_Assurance.md#uncertainty-driven-verification) without weakening completion conditions or independent review. Improves [human-readable document structure](03_Documentation.md#481-locale-first-display) while preserving conditions, authority, identifiers, and historical evidence; evaluates practical utility without inventing unmeasured improvements.
 - Adds the Current Decision Set contract so resolved, AI-remediable, report-only, and safely deferrable matters are not returned as current Human decisions, while current major risk, irreversible effect, residual-risk acceptance, or authority conflict remains visible.
 - Adds the Communication market／adoption exploration contract. Its compound trigger applies when external communication creates or changes audience, message, channel, advertising, or market-response treatment for adoption formation; it keeps Discovery authority over market and adoption hypotheses, separates observed signals from causes, checks delivery readiness before inducing external action, and preserves consent, autonomy, information minimization, selection bias, and generalization limits for human-subject work.
-- Adds `04_Agent_Organization.md` as the Candidate foundation authority for organizing specialized AI work while retaining Human Authority.
+- Adds `04_Agent_Organization.md` as the normative foundation authority for organizing specialized AI work while retaining Human Authority.
 - Adds Agentic Delivery criterion AD-22. Where work uses role assignment, delegation, execution-actor／Provider／Model selection, independent review, or Coordinator integration, it evaluates the separation of responsibility, specialty, capability, authority, verification, and integration; avoids unnecessary agents or delegation; does not infer quality, independence, or authority from a Provider or configuration name; compares cost, quota, or credit only among eligible candidates; and does not promote a result or `Pass` into Human Authority.
 - Extends Agentic Delivery claims from AD-01–AD-21 to AD-01–AD-22 without requiring a permanent organization registry, fixed schema, multi-agent execution, or retrospective rewriting of closed work.
 - Separates the normative Agent Organization foundation in `04_Agent_Organization.md` sections 1–11 from its non-normative execution architecture candidate in section 12 and from the current Coordinator Runtime implementation.
 - Keeps the v0.18 Architecture Candidate non-normative. Its branch co-location, diagrams, runtime candidates, or future profiles do not add conformance criteria or establish implementation availability.
 - Strengthens the existing maintenance and AI-entry contracts so process, channel, asynchronous I/O, cancellation, preflight equivalence, cleanup state, and audit feedback are checked against the actual production topology; implementation-specific Node, Windows-console, environment-key, timeout, and byte-limit choices remain in `40_Develop/coordinator/`, with their design in `06_Architecture/coordinator/`.
-- Keeps the released baseline at v0.17.0. Candidate documents, branch co-location, checker success, or runtime implementation do not establish adoption, conformance, activation, or release.
+- A released baseline is identified by an official tag or equivalent immutable Release identifier. Branch contents, Stable status, checker success, or Runtime implementation alone do not establish project adoption, conformance, or execution authority.
 
 Adoption impact: the combined release-candidate difference set is classified as breaking because it includes the Communication and quality-document placement changes. Current Decision Set, Agent Organization, and Coordinator maintenance／AI-entry changes are normative; the current CHG-000055 methodology difference is normative under the Human-approved candidate adoption. A project adopting v0.18.0 from v0.17.0 evaluates all applicable active decision-support, Communication／Discovery, Agentic Delivery, AI-entry, phase, design／verification, human-readable document, review, maintenance, and routing consumers through baseline adoption and Migration Completeness. The non-normative architecture material does not itself trigger migration. Historical completed work and old conformance records remain history and are not rewritten solely to match the new presentation or AD-22.
 
@@ -834,13 +836,15 @@ The following describes the historical v0.1.0 files and does not describe the cu
 
 <a id="changelog-v0180-ja"></a>
 
-### v0.18.0候補 — 開発手法、エージェント組織、参照Runtime（未リリース）
+### v0.18.0 — 開発手法、エージェント組織、参照Runtime
+
+新しい配布manifest契約は、期限付きに加えて期限なし（`revision: 3`、`expiresAt: null`）を明示的に扱う。既存revision 2の署名は書き換えず、期限付きのまま検証できる。期限なしでも発行日時、署名、実体の一致、権限、互換性の確認は維持し、同意や各操作の期限は延長しない。永久サポートを意味せず、この追加の検証状態は旧署名候補の結果と分けて品質状態から追跡する。
 
 端末UIの参照媒体を明確化した。行単位CLIと画面構成型TUIでは実行可能な端末参照を使い、Web／GUIの既存の代表HTML要件は維持する。媒体選択を操作・アクセシビリティ・独立確認・人間判断の免除にしない。採用側は表示面ごとに分類し、UIと仕様の対応・既知差を更新して、対象端末の実物確認後に完了を判定する。[UI参照条件](25_UI.md#design-system-reference)と[既存のツール配置変更](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)を参照する。
 
 品質文書の命名も破壊的な配置変更として是正する。`07_Quality/`内の`Quality_Center.md`を`01_Quality_Center.md`、`Quality_Strategy.md`を`02_Quality_Strategy.md`、`Verification_Design.md`を`03_Verification_Design.md`へ改名する。内容・アンカー・利用者の追記・品質判定の意味を保持して、現行参照とスクリプトを更新する。`Verification_Results/`と日付付き記録は維持する。移行先が既に存在する、または履歴の固定条件が不明な場合は上書きせず停止する。配置・リンク・ひな型・関連準拠基準を確認してから新基準版を有効化し、切戻しでは配置と利用側を一組で戻す。詳細は[移行手順](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#quality-document-naming)を参照する。品質保証が非該当の対象へ空文書を要求する変更ではない。
 
-この未リリース候補は、次の七つの正本変更トレースを組み合わせる。判断支援、外部コミュニケーション、専門AIの組織化、参照Runtime、Toolの保守・配置、および自己適用で評価した工程改善を含む。別枠の非規範アーキテクチャ資料は将来の実行投影を評価するもので、準拠要件や実装利用可能性を成立させない。
+v0.18.0の差分は、次の七つの正本変更トレースを組み合わせる。判断支援、外部コミュニケーション、専門AIの組織化、参照Runtime、Toolの保守・配置、および自己適用で評価した工程改善を含む。別枠の非規範アーキテクチャ資料は将来の実行投影を評価するもので、準拠要件や実装利用可能性を成立させない。公開済みかどうかと公開日は、公式タグまたは同等の不変なRelease識別子と公開記録から確認する。本記述、branch、CommitまたはStable表示だけでは公開とみなさない。
 
 | 変更トレース | 現在の変更の意味 |
 |---|---|
@@ -852,7 +856,7 @@ The following describes the historical v0.1.0 files and does not describe the cu
 | [CHG-000054](90_Release/Changes/CHG-000054_Agent_Organization_Document_Architecture.md) | 役割、専門性、能力、決定権限、独立性、費用、結果統合を分離する |
 | [CHG-000055](90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し) | 長期方向を現在の採用範囲と分けて記録し、工程接続・検証・収束・可読性を強化し、根拠駆動リファクタリングと実務有用性を評価する |
 
-参照Runtimeは未リリースである。署名固定版`48515eb`で4委譲経路、7種の復旧試験、実端末の取消と回収確認を完了した。旧固定版`45ea2ac`による限定実務も通常CLIから独立レビュー、親の確認、候補破棄まで成立したが、この有用性評価を後続版の実測とは扱わない。完成評価と残る端末確認を終え、人間が候補内容と移行方針を採用した。PR作成までの許可であり、main統合・公開は未承認である。内部のソース・テスト・ビルド定義は`tools/`から`40_Develop/`へ移し、振る舞いを`05_SPEC`、設計を`06_Architecture`、操作手順を`19_Workflows`へ分ける。採用先の配布Checkerは`template/tools/crdd-check.ts`を維持し、既存の署名配布物と固定履歴は変更しない。[品質の現在状態](07_Quality/01_Quality_Center.md)と[移行記録](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)から確認できる。実務自己適用では限定利用の成立を確認したが、完成速度、費用、人間負荷の一般的な優位は未実証である。
+Runtimeを利用する場合は、選択した公式Releaseの添付配布物を取得し、署名と実体の識別情報がそのReleaseに一致することを検証する。ソースcheckoutやソースZIPだけでは通常Runtimeを起動できず、本記述や旧候補の署名だけでも検証は成立しない。署名固定版`48515eb`で4委譲経路、7種の復旧試験、実端末の取消と回収確認を完了した。旧固定版`45ea2ac`による限定実務も通常CLIから独立レビュー、親の確認、候補破棄まで成立したが、この有用性評価を後続版の実測とは扱わない。これらの完成評価と端末確認は記録された版に限定し、別の配布物へ自動適用しない。人間の承認自体は公開や最終Identityへの署名の証拠ではなく、旧候補の署名を新しいタグへ流用しない。内部のソース・テスト・ビルド定義は`tools/`から`40_Develop/`へ移し、振る舞いを`05_SPEC`、設計を`06_Architecture`、操作手順を`19_Workflows`へ分ける。採用先の配布Checkerは`template/tools/crdd-check.ts`を維持し、既存の署名配布物と固定履歴は変更しない。[品質の現在状態](07_Quality/01_Quality_Center.md)と[移行記録](90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#9-内部ツールの工程別配置への移行)から確認できる。実務自己適用では限定利用の成立を確認したが、完成速度、費用、人間負荷の一般的な優位は未実証である。
 
 v0.17.0からの変更:
 
@@ -860,13 +864,13 @@ v0.17.0からの変更:
 - 仕様、状態・資源設計、実装、正常・準正常・異常・回復の検証を接続する。[残る不確実性に応じて検証を選び](16_Quality_Assurance.md#uncertainty-driven-verification)、完成条件や独立レビューを弱めず収束させる。[人間可読文書の本文構造](03_Documentation.md#481-locale-first-display)を改善し、条件・決定権限・識別子・過去根拠を保持する。実務有用性を評価し、未測定の改善は主張しない。
 - 是正済み、AIが一意に修正可能、報告のみ、または安全に独立保留できる事項を現在の人間判断へ戻さず、現在の重大リスク、不可逆な効果、残存リスク受容または決定権限競合を隠さない現在の判断集合契約を追加する。
 - 外部コミュニケーションの市場・採用探索契約を追加する。採用形成を目的として受け手、訴求、媒体、広告または市場反応の扱いを新設・変更する場合に複合条件で発火し、市場・採用仮説の決定権限を課題探索へ保持し、観測と原因を分け、外部行動を促す前に提供準備を確認し、人間対象作業の同意、自律性、情報最小化、選定偏りおよび一般化限界を維持する。
-- 専門化したAI作業を編成しながら人間の決定権限を維持する候補基礎正本として`04_Agent_Organization.md`を追加する。
+- 専門化したAI作業を編成しながら人間の決定権限を維持する基礎規範の正本として`04_Agent_Organization.md`を追加する。
 - エージェント型提供基準AD-22を追加する。役割分担、委譲、実行主体／プロバイダー／モデル選定、独立レビューまたは調整役による統合を行う場合に、責務、専門性、能力、決定権限、検証および統合の分離、不要なエージェント／委譲の非発火、名称から品質・独立性・決定権限を推定しないこと、適格候補間だけで費用・割当量・利用枠を比較すること、および結果や`Pass`を人間の決定権限へ昇格しないことを評価する。
 - エージェント型提供の準拠表明範囲をAD-01〜AD-21からAD-01〜AD-22へ拡張する。恒久的な組織台帳、固定スキーマ、複数エージェント実行または完了済み履歴の遡及書換えは要求しない。
-- `04_Agent_Organization.md`§1～§11のエージェント組織の基礎規範候補、§12の非規範実行Architecture候補、および現在のCoordinator Runtime実装を分離する。
+- `04_Agent_Organization.md`§1～§11のエージェント組織の基礎規範、§12の非規範実行Architecture候補、および現在のCoordinator Runtime実装を分離する。
 - v0.18 Architecture Candidateは非規範のまま維持する。同一branchへの同居、図、実行環境候補または将来Profileから準拠基準や実装利用可能性を成立させない。
 - 既存の保守およびAI入口契約を強化し、Process、channel、非同期I/O、取消、preflight同等性、cleanup後状態および監査フィードバックを本番同等構成で確認する。Node、Windows console、具体的環境key、timeoutおよびbyte上限は`40_Develop/coordinator/`の実装責務へ、その設計は`06_Architecture/coordinator/`へ残す。
-- 公開済み基準はv0.17.0のままとする。候補文書、branchへの同居、Checker合格またはRuntime実装から、採用、準拠、有効化またはリリースを成立させない。
+- 公開済み基準は公式タグまたは同等の不変なRelease識別子で特定する。branchの内容、Stable表示、Checker合格またはRuntime実装だけでは、プロジェクトでの採用、準拠または実行権限は成立しない。
 
 採用への影響: 統合したリリース候補の差分集合は、外部コミュニケーションと品質文書配置の破壊的変更を含むため`breaking`に分類する。現在の判断集合、エージェント組織およびCoordinator保守／AI入口の変更は規範変更であり、CHG-000055の現在の工程差分も、人間が採用した規範変更として扱う。v0.17.0からv0.18.0を採用するプロジェクトは、基準版採用評価と移行完了の条件を通じて、該当する現在の判断支援、外部コミュニケーション／課題探索、エージェント型提供、AI入口、工程、設計／検証、人間可読文書、レビュー、保守および経路制御の利用側をすべて評価する。非規範アーキテクチャ資料自体は移行を発火しない。完了済みの過去作業や過去の準拠記録を、新しい表示形式やAD-22へ合わせるだけの理由で書き換えない。
 

@@ -14,7 +14,7 @@ import {
 } from "../src/security/platform-provisioner-package-gate.ts";
 import {
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-  PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+  LEGACY_PLATFORM_PROVISIONER_MANIFEST_DOMAIN as PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   calculatePlatformProvisionerPackageContentRootCandidate,
 } from "../src/security/platform-provisioner-trust-core.ts";

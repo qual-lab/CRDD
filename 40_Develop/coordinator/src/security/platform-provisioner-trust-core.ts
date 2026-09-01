@@ -31,12 +31,14 @@ import {
   isCanonicalCrddVersion,
 } from "./release-identity-grammar.ts";
 
-export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 2;
+export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 3;
 export const PLATFORM_PROVISIONER_MANIFEST_CONTRACT =
   "crdd-coordinator/platform-provisioner-package-manifest";
 export const PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT =
   "crdd-coordinator/platform-provisioner-package-manifest-envelope";
 export const PLATFORM_PROVISIONER_MANIFEST_DOMAIN =
+  "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V3\0";
+export const LEGACY_PLATFORM_PROVISIONER_MANIFEST_DOMAIN =
   "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V2\0";
 export const PLATFORM_PROVISIONER_PACKAGE_CONTENT_DOMAIN =
   "CRDD\0PLATFORM-PROVISIONER-PACKAGE-CONTENT\0V1\0";
@@ -218,7 +220,8 @@ function normalizeManifest(raw: unknown) {
   if (
     !value ||
     value.contract !== PLATFORM_PROVISIONER_MANIFEST_CONTRACT ||
-    value.contractRevision !== PLATFORM_PROVISIONER_MANIFEST_REVISION ||
+    (value.contractRevision !== 2 &&
+      value.contractRevision !== PLATFORM_PROVISIONER_MANIFEST_REVISION) ||
     typeof value.packageName !== "string" ||
     typeof value.packageVersion !== "string" ||
     !packageIdentity(value.packageName, value.packageVersion) ||
@@ -268,12 +271,16 @@ function normalizeManifest(raw: unknown) {
     typeof nativeProvisionSupervisorArtifact.sha256 !== "string" ||
     !HEX64.test(nativeProvisionSupervisorArtifact.sha256) ||
     !isCanonicalCrddUtcTimestamp(value.issuedAt) ||
-    !isCanonicalCrddUtcTimestamp(value.expiresAt) ||
-    Date.parse(value.expiresAt) <= Date.parse(value.issuedAt)
+    !(
+      (value.contractRevision === 3 && value.expiresAt === null) ||
+      (isCanonicalCrddUtcTimestamp(value.expiresAt) &&
+        Date.parse(value.expiresAt) > Date.parse(value.issuedAt))
+    )
   )
     return null;
   return Object.freeze({
     ...value,
+    contractRevision: value.contractRevision,
     packageName: value.packageName,
     packageVersion: value.packageVersion,
     crddVersion: value.crddVersion,
@@ -301,8 +308,14 @@ function normalizeManifest(raw: unknown) {
       sha256: nativeProvisionSupervisorArtifact.sha256,
     }),
     issuedAt: value.issuedAt,
-    expiresAt: value.expiresAt,
+    expiresAt: value.expiresAt as string | null,
   });
+}
+
+function selectManifestDomain(revision: number) {
+  return revision === 2
+    ? LEGACY_PLATFORM_PROVISIONER_MANIFEST_DOMAIN
+    : PLATFORM_PROVISIONER_MANIFEST_DOMAIN;
 }
 
 function normalizeSignature(raw: unknown) {
@@ -328,7 +341,8 @@ function normalizeEnvelope(raw: unknown) {
   if (
     !value ||
     value.contract !== PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT ||
-    value.contractRevision !== PLATFORM_PROVISIONER_MANIFEST_REVISION ||
+    (value.contractRevision !== 2 &&
+      value.contractRevision !== PLATFORM_PROVISIONER_MANIFEST_REVISION) ||
     !Array.isArray(value.signatures) ||
     utilTypes.isProxy(value.signatures) ||
     Object.getPrototypeOf(value.signatures) !== Array.prototype
@@ -349,7 +363,11 @@ function normalizeEnvelope(raw: unknown) {
     return null;
   const payload = normalizeManifest(value.payload);
   const signature = normalizeSignature(entry.value);
-  return payload && signature ? Object.freeze({ payload, signature }) : null;
+  return payload &&
+    signature &&
+    payload.contractRevision === value.contractRevision
+    ? Object.freeze({ payload, signature })
+    : null;
 }
 
 export function compilePlatformProvisionerManifestPayloadCandidate(
@@ -359,7 +377,7 @@ export function compilePlatformProvisionerManifestPayloadCandidate(
     const input = snapshotPlainRecord(rawInput, COMPILE_KEYS);
     const payload = input && normalizeManifest(input.manifestPayload);
     const framed =
-      payload && frame(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, payload);
+      payload && frame(selectManifestDomain(payload.contractRevision), payload);
     return payload && framed
       ? Object.freeze({
           status: "candidate" as const,
@@ -456,7 +474,11 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
       ownedSigner &&
       inspectProvisioningEd25519SpkiCandidate(ownedSigner);
     const manifestFrame =
-      envelope && frame(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, envelope.payload);
+      envelope &&
+      frame(
+        selectManifestDomain(envelope.payload.contractRevision),
+        envelope.payload,
+      );
     const contentFrame =
       observed && frame(PLATFORM_PROVISIONER_PACKAGE_CONTENT_DOMAIN, observed);
     if (
@@ -479,7 +501,8 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
     }
     if (
       Date.parse(evaluationTime) < Date.parse(envelope.payload.issuedAt) ||
-      Date.parse(evaluationTime) >= Date.parse(envelope.payload.expiresAt)
+      (envelope.payload.expiresAt !== null &&
+        Date.parse(evaluationTime) >= Date.parse(envelope.payload.expiresAt))
     ) {
       return response(
         "blocked",
@@ -540,7 +563,11 @@ export function verifyHistoricalPlatformProvisionerManifestCandidate(
     const signer =
       signerBytes && inspectProvisioningEd25519SpkiCandidate(signerBytes);
     const framed =
-      envelope && frame(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, envelope.payload);
+      envelope &&
+      frame(
+        selectManifestDomain(envelope.payload.contractRevision),
+        envelope.payload,
+      );
     if (
       !envelope ||
       !signerBytes ||

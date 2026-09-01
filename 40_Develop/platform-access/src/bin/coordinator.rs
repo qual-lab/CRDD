@@ -1847,6 +1847,24 @@ fn consume_artifact(
         )
 }
 
+fn consume_manifest_revision(bytes: &[u8], cursor: &mut usize) -> Option<u8> {
+    if consume_literal(bytes, cursor, b"2,") {
+        Some(2)
+    } else if consume_literal(bytes, cursor, b"3,") {
+        Some(3)
+    } else {
+        None
+    }
+}
+
+fn manifest_signature_domain(revision: u8) -> Option<&'static [u8]> {
+    match revision {
+        2 => Some(b"CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V2\0"),
+        3 => Some(b"CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V3\0"),
+        _ => None,
+    }
+}
+
 fn exact_manifest_payload(
     payload: &[u8],
     supervisor_size: u64,
@@ -1855,7 +1873,7 @@ fn exact_manifest_payload(
     worker_hash: &[u8; 32],
     now: &[u8; 24],
 ) -> bool {
-    const PREFIX: &[u8] = b"{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest\",\"contractRevision\":2,";
+    const PREFIX: &[u8] = b"{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest\",\"contractRevision\":";
     const NATIVE_PREFIX: &[u8] = b"\"nativeProvisionSupervisorArtifact\":{\"byteLength\":";
     const NATIVE_MIDDLE: &[u8] = b",\"entrypointContractRevision\":2,\"relativePath\":\"90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe\",\"rustToolchain\":\"1.94.1\",\"sha256\":\"";
     const WORKER_PREFIX: &[u8] = b"\"platformAccessArtifact\":{\"byteLength\":";
@@ -1864,6 +1882,9 @@ fn exact_manifest_payload(
     if !consume_literal(payload, &mut cursor, PREFIX) {
         return false;
     }
+    let Some(revision) = consume_manifest_revision(payload, &mut cursor) else {
+        return false;
+    };
     let Some(commit) = consume_quoted(payload, &mut cursor, b"\"crddCommit\":\"") else {
         return false;
     };
@@ -1873,8 +1894,14 @@ fn exact_manifest_payload(
     let Some(version) = consume_quoted(payload, &mut cursor, b",\"crddVersion\":\"") else {
         return false;
     };
-    let Some(expires) = consume_quoted(payload, &mut cursor, b",\"expiresAt\":\"") else {
-        return false;
+    let expires = if revision == 3 && consume_literal(payload, &mut cursor, b",\"expiresAt\":null")
+    {
+        None
+    } else {
+        let Some(value) = consume_quoted(payload, &mut cursor, b",\"expiresAt\":\"") else {
+            return false;
+        };
+        Some(value)
     };
     let Some(issued) = consume_quoted(payload, &mut cursor, b",\"issuedAt\":\"") else {
         return false;
@@ -1886,9 +1913,8 @@ fn exact_manifest_payload(
     if !exact_lower_hex(commit, &[40, 64])
         || !exact_lower_hex(tree, &[40, 64])
         || !exact_version(version, true)
-        || !canonical_utc(expires)
         || !canonical_utc(issued)
-        || issued >= expires
+        || expires.is_some_and(|value| !canonical_utc(value) || issued >= value)
         || !exact_lower_hex(key_policy, &[64])
         || !consume_literal(payload, &mut cursor, b",")
         || !consume_artifact(
@@ -1941,7 +1967,39 @@ fn exact_manifest_payload(
         && consume_literal(payload, &mut cursor, b"}")
         && cursor == payload.len()
         && issued <= now.as_slice()
-        && now.as_slice() < expires
+        && expires.is_none_or(|value| now.as_slice() < value)
+}
+
+fn split_manifest_envelope(bytes: &[u8]) -> Option<(u8, &[u8], &[u8])> {
+    const PREFIX: &[u8] = b"{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest-envelope\",\"contractRevision\":";
+    const SIGNATURE_PREFIX: &[u8] = b",\"signatures\":[{\"algorithm\":\"Ed25519\",\"keyId\":\"6b250a21be0f8fd582907731a2cba6aae44b991cbff82234c4ee838548c5e95f\",\"signature\":\"";
+    if !bytes.starts_with(PREFIX) || !bytes.ends_with(b"\"}]}") {
+        return None;
+    }
+    let mut cursor = PREFIX.len();
+    let revision = consume_manifest_revision(bytes, &mut cursor)?;
+    if !consume_literal(bytes, &mut cursor, b"\"payload\":") {
+        return None;
+    }
+    let signature_prefix = find_once(bytes, SIGNATURE_PREFIX)?;
+    let payload = bytes.get(cursor..signature_prefix)?;
+    let payload_prefix = b"{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest\",\"contractRevision\":";
+    let mut payload_cursor = payload_prefix.len();
+    if !payload.starts_with(payload_prefix)
+        || consume_manifest_revision(payload, &mut payload_cursor) != Some(revision)
+        || !payload.ends_with(b"}")
+        || payload
+            .iter()
+            .any(|byte| matches!(*byte, b'\n' | b'\r' | b'\t'))
+    {
+        return None;
+    }
+    let signature_start = signature_prefix + SIGNATURE_PREFIX.len();
+    let signature_text = bytes.get(signature_start..signature_start + 86)?;
+    if bytes.get(signature_start + 86..) != Some(b"\"}]}".as_slice()) {
+        return None;
+    }
+    Some((revision, payload, signature_text))
 }
 
 unsafe fn signed_manifest_matches(
@@ -1952,9 +2010,6 @@ unsafe fn signed_manifest_matches(
     worker_file: Handle,
     worker_information: &BY_HANDLE_FILE_INFORMATION,
 ) -> bool {
-    const ENVELOPE_PREFIX: &[u8] = b"{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest-envelope\",\"contractRevision\":2,\"payload\":";
-    const SIGNATURE_PREFIX: &[u8] = b",\"signatures\":[{\"algorithm\":\"Ed25519\",\"keyId\":\"6b250a21be0f8fd582907731a2cba6aae44b991cbff82234c4ee838548c5e95f\",\"signature\":\"";
-    const DOMAIN: &[u8] = b"CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V2\0";
     const PUBLIC_KEY: [u8; 32] = [
         0x30, 0xc6, 0x9b, 0x37, 0x3d, 0x5e, 0x56, 0xcb, 0x0d, 0x54, 0xb6, 0x5f, 0xf6, 0x90, 0x29,
         0x60, 0x8d, 0x17, 0xc1, 0x0e, 0xe1, 0xad, 0xc1, 0x82, 0x7f, 0x1c, 0x6d, 0xec, 0x8f, 0xb9,
@@ -1981,26 +2036,12 @@ unsafe fn signed_manifest_matches(
         return false;
     }
     let bytes = &bytes[..manifest_size as usize];
-    if !bytes.starts_with(ENVELOPE_PREFIX) || !bytes.ends_with(b"\"}]}") {
-        return false;
-    }
-    let Some(signature_prefix) = find_once(bytes, SIGNATURE_PREFIX) else {
+    let Some((revision, payload, signature_text)) = split_manifest_envelope(bytes) else {
         return false;
     };
-    let payload = &bytes[ENVELOPE_PREFIX.len()..signature_prefix];
-    if !payload.starts_with(b"{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest\",\"contractRevision\":2,")
-        || !payload.ends_with(b"}")
-        || payload.iter().any(|byte| matches!(*byte, b'\n' | b'\r' | b'\t'))
-    {
-        return false;
-    }
-    let signature_start = signature_prefix + SIGNATURE_PREFIX.len();
-    let Some(signature_text) = bytes.get(signature_start..signature_start + 86) else {
+    let Some(domain) = manifest_signature_domain(revision) else {
         return false;
     };
-    if bytes.get(signature_start + 86..) != Some(b"\"}]}".as_slice()) {
-        return false;
-    }
     let Some(supervisor_hash) = (unsafe { file_sha256(supervisor_file) }) else {
         return false;
     };
@@ -2023,16 +2064,16 @@ unsafe fn signed_manifest_matches(
     ) {
         return false;
     }
-    let message_length = DOMAIN.len() + 8 + payload.len();
+    let message_length = domain.len() + 8 + payload.len();
     let message = unsafe {
         core::slice::from_raw_parts_mut(
             (&raw mut SIGNATURE_MESSAGE_BUFFER).cast::<u8>(),
             message_length,
         )
     };
-    message[..DOMAIN.len()].copy_from_slice(DOMAIN);
-    message[DOMAIN.len()..DOMAIN.len() + 8].copy_from_slice(&(payload.len() as u64).to_be_bytes());
-    message[DOMAIN.len() + 8..].copy_from_slice(payload);
+    message[..domain.len()].copy_from_slice(domain);
+    message[domain.len()..domain.len() + 8].copy_from_slice(&(payload.len() as u64).to_be_bytes());
+    message[domain.len() + 8..].copy_from_slice(payload);
     let Some(signature) =
         decode_base64url_64(signature_text).map(|bytes| Signature::from_bytes(&bytes))
     else {
@@ -3169,5 +3210,71 @@ mod tests {
             &[2_u8; 32],
             &now,
         ));
+    }
+
+    #[test]
+    fn shared_manifest_validity_vectors_preserve_legacy_and_explicit_no_expiry() {
+        use ed25519_dalek::{Signer, SigningKey};
+        let vectors = include_str!(
+            "../../../coordinator/tests/fixtures/release-manifest-validity-vectors.txt"
+        );
+        assert_eq!(vectors.lines().count(), 3);
+        let key = SigningKey::from_bytes(&[7_u8; 32]);
+        for (index, line) in vectors.lines().enumerate() {
+            let revision = if index == 0 { 2 } else { 3 };
+            let bytes = line.as_bytes();
+            for (now, expected) in [
+                (*b"2026-08-14T23:59:59.999Z", false),
+                (*b"2026-08-15T00:00:00.000Z", true),
+                (*b"2027-08-14T23:59:59.999Z", true),
+                (*b"2027-08-15T00:00:00.000Z", index == 2),
+                (*b"2099-01-01T00:00:00.000Z", index == 2),
+            ] {
+                assert_eq!(
+                    exact_manifest_payload(bytes, 100, &[1; 32], 200, &[2; 32], &now),
+                    expected
+                );
+            }
+            let domain = manifest_signature_domain(revision).unwrap();
+            let mut message = domain.to_vec();
+            message.extend_from_slice(&(bytes.len() as u64).to_be_bytes());
+            message.extend_from_slice(bytes);
+            let signature = key.sign(&message);
+            assert!(key.verifying_key().verify(&message, &signature).is_ok());
+            message[domain.len() - 2] = if revision == 2 { b'3' } else { b'2' };
+            assert!(key.verifying_key().verify(&message, &signature).is_err());
+            let wrap = |envelope_revision| {
+                format!(
+                    "{{\"contract\":\"crdd-coordinator/platform-provisioner-package-manifest-envelope\",\"contractRevision\":{envelope_revision},\"payload\":{line},\"signatures\":[{{\"algorithm\":\"Ed25519\",\"keyId\":\"6b250a21be0f8fd582907731a2cba6aae44b991cbff82234c4ee838548c5e95f\",\"signature\":\"{}\"}}]}}",
+                    "A".repeat(86)
+                )
+            };
+            assert_eq!(
+                split_manifest_envelope(wrap(revision).as_bytes()).map(|value| value.0),
+                Some(revision)
+            );
+            assert!(
+                split_manifest_envelope(wrap(if revision == 2 { 3 } else { 2 }).as_bytes())
+                    .is_none()
+            );
+            for invalid in [
+                line.replace("\"expiresAt\":null", "\"expiresAt\":\"null\""),
+                line.replace("\"expiresAt\":null", "\"expiresAt\":false"),
+                line.replace("\"expiresAt\":null,", ""),
+                line.replace("\"contractRevision\":3,", "\"contractRevision\":2,"),
+            ] {
+                if index == 2 {
+                    assert!(!exact_manifest_payload(
+                        invalid.as_bytes(),
+                        100,
+                        &[1; 32],
+                        200,
+                        &[2; 32],
+                        b"2026-08-15T00:00:00.000Z"
+                    ));
+                }
+            }
+        }
+        assert!(manifest_signature_domain(4).is_none());
     }
 }

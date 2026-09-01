@@ -17,7 +17,7 @@ Related:
 
 ## 1. 現在の未完了作業
 
-2026-09-01、[検証済み候補の内容と移行方針を人間が採用](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)した。Runtime完成、利用者入口、工程接続、根拠駆動リファクタリング、命名、本文可読性およびツール配置の完了項目は、根拠を各CHG・品質記録へ接続して本登録簿から除去した。現在はPR作成と、その後の別途の統合・リリース判断へ進む。
+2026-09-01、検証済み候補の内容と移行方針を人間が採用し、PR #32をmainへ統合した。Runtime完成、利用者入口、工程接続、根拠駆動リファクタリング、命名、本文可読性およびツール配置の完了項目は、根拠を各CHG・品質記録へ接続して本登録簿から除去した。現在は[公開準備と最終確認](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)へ進む。
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
@@ -25,7 +25,7 @@ Related:
 | 採用済み3項目を除く第2段階の実行観測候補および第3～第6段階の個別研究候補 | Held | Unscheduled | [長期発展方針の研究候補](../01_Discovery/01_CRDD_Product_Discovery.md#78-研究候補と保持条件)、[将来能力地平](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 第1段階の完成固定版と第2段階の最初の自己適用結果を得た後、価値、成立性、費用、安全性および責務境界を人間が再評価する。将来Versionは能力地平であり、版予約、収載、期限、実装許可またはReleaseを意味しない。Linux常設、複数Repository、MCP／HTTP、Self-hosted ProviderおよびOrganization Runtimeの実装許可を本行から推定しない |
 | 自律Operationの参照実証 | Exploring | Unscheduled | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界)、[将来互換性](../05_Autonomous_Operation.md#6-将来互換性の確認候補) | 週次プロダクトレビュー、Communication結果レビュー、Roadmap再評価、Repository Eventのうち判断を変え得る最小の実証を選ぶ。Runtime完成または明示的な人間判断を再評価契機とし、起動数ではなく判断価値、安全性、誤起動、収束、根拠および人間負荷で評価する |
 | Issue #30の責務別再評価と終了判断 | Exploring | Unscheduled | [CHG-000013](../90_Release/Changes/CHG-000013_Communication_Market_and_Adoption_Exploration.md)、[Issue #30](https://github.com/qual-lab/CRDD/issues/30) | Communication／Discovery変更の内容収束後または判断を変え得る実運用根拠の発生時に、詳細論点を責務別に分類する。対応済みまたは不要なら理由を残してIssueを閉じ、採用する論点だけを独立した変更意図へ接続する |
-| v0.18.0のPR、統合およびリリース判断 | —（非適用） | In Progress | [採用・移行方針と許可範囲](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)、[保守契約](../19_Maintenance.md) | 承認済み候補と移行方針をPRへ引き渡す。Stable化、main統合、タグ・公開は未承認。統合後Identityと宣言済み差分に必要な確認を行い、別途人間のリリース判断へ進む |
+| v0.18.0の公開準備・最終確認・公開後整理 | —（非適用） | In Progress | [統合結果と公開準備計画](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)、[保守契約](../19_Maintenance.md) | PR #32統合済み。期限なしの正式署名契約、公開メタデータ、署名配布物を確認して最終Identityの公開判断へ進む。公開後にタグ一致・配布物を確認し、未統合・利用中の変更を保護して不要ブランチを整理する。担当はQual-Labと親Coordinator |
 
 長期研究候補の一部として、[次版へ引き継ぐ有用性・照合費用の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)も追跡する。候補は`Held / Unscheduled`、版番号・収載は未決。親Coordinatorが現行Runtimeの完成固定と実務自己適用の収束後に再評価へ戻し、人間の決定権限者が採否を決める。現行v0.18の必須条件・不具合是正を次版へ移すものではなく、現在の安全判断を変える根拠が出た場合は先に現行是正へ戻す。
 

@@ -650,6 +650,72 @@ test("公式リポジトリではREADMEと正本文書の版を比較する", ()
   );
 });
 
+for (const label of ["Version", "Status"]) {
+  for (const suffix of ["", " — 版の説明"]) {
+    for (const version of ["v0.16.0", "v0.15.0"]) {
+      test(`README先頭の版表示を照合する: ${label}/${version}/${suffix}`, () => {
+        const root = currentChangelogFixture(
+          ["- `migration_required: false`"],
+          ["- `migration_required: false`"],
+        );
+        write(
+          path.join(root, "README.md"),
+          `# CRDD\n\n**Context Repository-Driven Development**\n\n\x60\x60\x60text\nVersion: **v9.0.0**\n\x60\x60\x60\n\n${label}: **${version}${suffix}**\n\n## 本文\nVersion: **v8.0.0**\n`,
+        );
+        const result = runChecker(root);
+        const findings = result.report.findings.filter(
+          (item) => item.code === "readme-version-mismatch",
+        );
+        assert.equal(findings.length, version === "v0.16.0" ? 0 : 1);
+        if (version !== "v0.16.0") {
+          assert.equal(
+            findings[0].message,
+            `README=${version}, canonical=v0.16.0`,
+          );
+        } else {
+          assert.equal(
+            result.status,
+            0,
+            JSON.stringify(result.report.findings),
+          );
+        }
+      });
+    }
+  }
+}
+
+for (const body of [
+  "## 本文\nVersion: **v9.0.0**",
+  "本文の例です。\nStatus: **v9.0.0**",
+  "```markdown\nVersion: **v9.0.0**\n```",
+  "~~~markdown\nStatus: **v9.0.0**\n~~~",
+  "```markdown\nVersion: **v9.0.0**",
+]) {
+  test(`README先頭にない版を本文やfenceから補完しない: ${body.split("\n")[0]}`, () => {
+    const root = currentChangelogFixture(
+      ["- `migration_required: false`"],
+      ["- `migration_required: false`"],
+    );
+    write(path.join(root, "README.md"), `# CRDD\n\n${body}\n`);
+    const result = runChecker(root);
+    assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  });
+}
+
+test("READMEの太字でないVersion表示も現行版比較へ接続する", () => {
+  const root = currentChangelogFixture(
+    ["- `migration_required: false`"],
+    ["- `migration_required: false`"],
+  );
+  write(path.join(root, "README.md"), "Version: v0.15.0\n");
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "readme-version-mismatch",
+    ),
+  );
+});
+
 function currentChangelogFixture(
   englishLines: readonly string[],
   japaneseLines: readonly string[],
@@ -761,6 +827,225 @@ test("公式CHANGELOGの完全な英日移行注記を受け入れる", () => {
     false,
   );
 });
+
+for (const body of [
+  "## 本文\n```markdown\nVersion: v9.0.0\nStatus: Candidate\nReleased Baseline: v8.0.0\n```",
+  "本文の例です。\nVersion: v9.0.0\nStatus: Candidate\nReleased Baseline: v8.0.0",
+  "## 本文\nVersion: v9.0.0\nStatus: Candidate\nReleased Baseline: v8.0.0",
+]) {
+  test(`標準ヘッダーはStableと本文例を分離する: ${body.split("\n")[0]}/${body.split("\n")[1]}`, () => {
+    const root = currentChangelogFixture(
+      ["- `migration_required: false`"],
+      ["- `migration_required: false`"],
+    );
+    write(path.join(root, "README.md"), "Status: **v0.16.0 Stable**\n");
+    write(
+      path.join(root, "01_Principles.md"),
+      `<a id="principles"></a>\n\n# 原則\n\nVersion: v0.16.0\nStatus: Stable\nOwner: Team\n\n${body}\n`,
+    );
+    const result = runChecker(root);
+    assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  });
+}
+
+for (const body of [
+  "```markdown\nReleased Baseline: v0.16.0\n```",
+  "本文の例です。\nReleased Baseline: v0.16.0",
+  "## 本文\nReleased Baseline: v0.16.0",
+]) {
+  test(`標準ヘッダーのCandidate基準版を本文から補完しない: ${body.split("\n")[0]}`, () => {
+    const root = fixture();
+    makeStructure(path.join(root, "template"));
+    write(
+      path.join(root, "01_Principles.md"),
+      `# 原則\n\nVersion: v0.17.0\nStatus: Candidate\n\n${body}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (item) => item.code === "candidate-released-baseline-mismatch",
+      ),
+    );
+  });
+}
+
+test("標準ヘッダーにないVersionとStatusを本文から補完しない", () => {
+  const root = currentChangelogFixture(
+    ["- `migration_required: false`"],
+    ["- `migration_required: false`"],
+  );
+  write(path.join(root, "README.md"), "Status: **v0.16.0 Stable**\n");
+  write(
+    path.join(root, "02_Example.md"),
+    "# 例\n\nOwner: Team\n\n本文の例です。\nVersion: v9.0.0\nStatus: Candidate\n",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+});
+
+for (const labelStyle of ["旧表現", "新表現"]) {
+  for (const placement of ["本文", "欠落", "fence", "引用", "過去版"]) {
+    test(`移行注記の閉じた同義表現: ${labelStyle}/${placement}`, () => {
+      const englishMarkers = [
+        labelStyle === "旧表現"
+          ? "- Not required: example"
+          : "- Not required for adopting projects: example",
+      ];
+      const japaneseMarkers =
+        labelStyle === "旧表現"
+          ? ["- 不要: 例", "- 復旧: 例", "- 既知の制限: 例"]
+          : [
+              "- 採用プロジェクトでは不要: 例",
+              "- 切戻し／復旧: 例",
+              "- 既知の限界: 例",
+            ];
+      const placeMarkers = (markers: readonly string[]): readonly string[] => {
+        if (placement === "本文") return markers;
+        if (placement === "fence") return ["```markdown", ...markers, "```"];
+        if (placement === "引用") return markers.map((line) => `> ${line}`);
+        return [];
+      };
+      const root = currentChangelogFixture(
+        [
+          "- `migration_required: true`",
+          "- `change_classification: breaking`",
+          "- Required: example",
+          "- Conditional: example",
+          "- Rollback / recovery: example",
+          "- Known risk if deferred: example",
+          "- Verification: example",
+          "- Known limitation: example",
+          ...placeMarkers(englishMarkers),
+        ],
+        [
+          "- `migration_required: true`",
+          "- `change_classification: breaking`",
+          "- 必須: 例",
+          "- 条件付き: 例",
+          "- 延期時の既知リスク: 例",
+          "- 検証: 例",
+          ...placeMarkers(japaneseMarkers),
+        ],
+      );
+      write(path.join(root, "README.md"), "Status: **v0.16.0 Stable**\n");
+      if (placement === "過去版") {
+        const changelogPath = path.join(root, "CHANGELOG.md");
+        write(
+          changelogPath,
+          fs
+            .readFileSync(changelogPath, "utf8")
+            .replace(
+              "### v0.15.0 — Prior",
+              `### v0.15.0 — Prior\n${englishMarkers.join("\n")}`,
+            )
+            .replace(
+              "### v0.15.0 — 過去",
+              `### v0.15.0 — 過去\n${japaneseMarkers.join("\n")}`,
+            ),
+        );
+      }
+      const result = runChecker(root);
+      const findings = result.report.findings.filter(
+        (item) => item.code === "migration-note-incomplete",
+      );
+      if (placement === "本文") {
+        assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+      } else {
+        assert.equal(
+          findings.length,
+          2,
+          JSON.stringify(result.report.findings),
+        );
+        assert.ok(findings.some((item) => /Not required/u.test(item.message)));
+        assert.ok(
+          findings.some((item) => /不要.*復旧.*既知の制限/u.test(item.message)),
+        );
+      }
+    });
+  }
+}
+
+for (const labelStyle of ["旧表現", "新表現"]) {
+  const englishLabels = [
+    "Required",
+    "Conditional",
+    labelStyle === "旧表現"
+      ? "Not required"
+      : "Not required for adopting projects",
+    "Rollback / recovery",
+    "Known risk if deferred",
+    "Verification",
+    "Known limitation",
+  ];
+  const japaneseLabels = [
+    "必須",
+    "条件付き",
+    labelStyle === "旧表現" ? "不要" : "採用プロジェクトでは不要",
+    labelStyle === "旧表現" ? "復旧" : "切戻し／復旧",
+    "延期時の既知リスク",
+    "検証",
+    labelStyle === "旧表現" ? "既知の制限" : "既知の限界",
+  ];
+  for (const [language, labels] of Object.entries({
+    English: englishLabels,
+    日本語: japaneseLabels,
+  })) {
+    for (const label of labels) {
+      test(`移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}`, () => {
+        for (const explanation of ["", " \t　 ", " 説明あり"]) {
+          const createLines = (
+            entryLanguage: string,
+            entryLabels: readonly string[],
+          ) => [
+            "- `migration_required: true`",
+            "- `change_classification: breaking`",
+            ...entryLabels.map(
+              (entryLabel) =>
+                `- ${entryLabel}:${entryLanguage === language && entryLabel === label ? explanation : " 説明あり"}`,
+            ),
+          ];
+          const root = currentChangelogFixture(
+            createLines("English", englishLabels),
+            createLines("日本語", japaneseLabels),
+          );
+          const result = runChecker(root);
+          const findings = result.report.findings.filter(
+            (item) => item.code === "migration-note-incomplete",
+          );
+          if (explanation.trim() !== "") {
+            assert.equal(
+              result.status,
+              0,
+              JSON.stringify(result.report.findings),
+            );
+          } else {
+            assert.equal(result.status, 1);
+            assert.equal(
+              findings.length,
+              1,
+              JSON.stringify(result.report.findings),
+            );
+            assert.ok(findings[0].message.startsWith(`${language}:`));
+            const canonicalLabel =
+              label === "Not required for adopting projects"
+                ? "Not required"
+                : label === "採用プロジェクトでは不要"
+                  ? "不要"
+                  : label === "切戻し／復旧"
+                    ? "復旧"
+                    : label === "既知の限界"
+                      ? "既知の制限"
+                      : label;
+            assert.equal(
+              findings[0].message,
+              `${language}: v0.16.0 migration note is missing ${canonicalLabel}.`,
+            );
+          }
+        }
+      });
+    }
+  }
+}
 
 test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => {
   const root = fixture();

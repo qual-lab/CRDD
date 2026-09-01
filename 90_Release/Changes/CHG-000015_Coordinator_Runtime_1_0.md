@@ -1,11 +1,11 @@
 # 変更トレース: Coordinator Runtime 1.0
 
 変更ID: `CHG-000015`
-状態: `Ready for Release Handoff`（候補内容採用済み・未main統合・未Released）
+状態: `Reopened`（PR #32の内容は統合済み。期限なしの正式配布契約を追加確認中）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 対象系列: Coordinator Runtime 1.x
-対象バージョン: v0.18.0 Candidate / Coordinator Runtime 1.0 Candidate
+対象バージョン: v0.18.0 / Coordinator Runtime 1.0
 変更分類: `normative`
 リリースレベル: `MINOR`候補
 `migration_required`: `true`
@@ -20,7 +20,15 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ## 1. 結論と現在状態
 
-現在の署名固定版は`48515eb`。[4経路4/4・復旧7シナリオ・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)を同じ署名配布物で確認し、取消時の通常回収・候補未発行・対象資源不存在まで観測した。[完成評価・端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)を終え、[人間が候補内容と移行方針を採用](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)した。現在の対象の実装・検証は完了し、PRまで続行する。main統合・Releaseは未承認。旧4f10201、45ea2acと以下の段階別経緯は履歴として保持し、現在の未完了状態と混同しない。
+署名固定版`48515eb`の[4経路4/4・復旧7シナリオ・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)と[完成評価・端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)を終え、内容採用後にPR #32でmainへ統合した。現在は[公開準備計画](CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)に従う。人間の追加指定「永続化」に対応する期限なしの正式配布契約を、同じ未リリース意図の最終是正として再開した。旧版の試験・署名をこの変更の成功には流用しない。
+
+### 正式配布manifestの期限なし指定（2026-09-01）
+
+利用者は、公開版が署名有効期限だけを理由に起動停止しないことを要求した。旧7日間は検証候補の設定であり、提案した1年間の期限は不採用となった。遠未来の日時を期限なしの代用にせず、manifestとenvelopeのrevision 3で必須キー`expiresAt: null`を期限なしとして署名する。revision 3のUTC文字列は期限付き、旧revision 2はUTC文字列の期限付きだけを保持する。新旧の署名domainを分離し、envelopeとpayloadのrevision一致、発行前拒否、署名鍵・Git Tree・2つのNative成果物・sequenceの結合を維持する。
+
+対象はTypeScript署名Coreと現在／履歴検証、署名CLI・事前検査、Rust Supervisorの同一契約、配布物のloader／package Gate、設計・仕様・手順・検証設計と公開案内。新CLIでは`--no-expiry`と`--expires-at <UTC>`のどちらか一つだけを指定し、不明・欠落・重複・両方指定は秘密読取り前に拒否する。nullへの改変、旧署名の新revision流用、開始前、期限ちょうど、未知revision、不正SchemaをTypeScriptとRustで反証する。Grant、初期同意、候補、準備記録の期限は変更しない。
+
+期限なしは永久サポート、任意の実行権限、脆弱性不存在またはオンライン失効機構の追加ではない。既存の実行権限・取消・配布Identity検査は維持する。新しい契約は設計・実装・試験・独立確認と最終版の署名E2Eが揃うまで完了としない。旧manifestや固定Evidenceは書き換えない。
 
 ### 起動方法の固定による再発防止
 

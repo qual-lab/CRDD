@@ -3,8 +3,7 @@
 # CRDD標準の保守（Maintenance）
 
 Version: v0.18.0
-Status: Candidate
-Released Baseline: v0.17.0
+Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-08-31
 Related:
@@ -423,7 +422,7 @@ CRDDはリポジトリ単位のリリースバージョンを持ち、Gitタグ�
 
 Candidate固定版の検証後、まず`Status: Candidate`と`Released Baseline`を維持したまま、CHANGELOG、移行注記その他のリリース準備を候補として反映した新しい改訂版を固定し、必要な機械確認、独立レビューおよび監査を行う。
 
-次に、人間が対象Candidate固定版と、26正本文書の`Status: Stable`化、`Released Baseline`削除、READMEの候補表示、CHANGELOG、移行注記、公開日その他のリリースメタデータとして許可する機械的遷移をリリース計画で事前に特定していることを確認する。
+次に、人間が対象Candidate固定版と、対象の全正本文書の`Status: Stable`化、`Released Baseline`削除、READMEの候補表示、CHANGELOG、移行注記、公開日その他のリリースメタデータとして許可する機械的遷移をリリース計画で事前に特定していることを確認する。
 
 一般的な計画、Checker合格または監査合格だけからAIがStableへ昇格させてはならない。
 
@@ -443,7 +442,7 @@ Fast-forward等でCommitとTreeの双方が不変の場合だけ既存の最終�
 
 merge commit、squash、rebase、競合解消、生成物更新、対象branch側の先行変更その他によりCommitまたはTreeのいずれかが変わる場合は、統合後Identityを新しい最終Release候補として固定する。
 
-統合後の最終Release候補改訂版へCheckerと、少なくとも26文書のヘッダー、README、CHANGELOG、移行注記、公開情報、Candidate準備版からの宣言済み差分、対象branch側の先行変更を含む公開基準からの全Release差分、対象CHG、予定タグ対象およびIdentityを対象とする文書監査と不足／影響・準拠影響確認を行う。
+統合後の最終Release候補改訂版へCheckerと、少なくとも対象の全正本文書のヘッダー、README、CHANGELOG、移行注記、公開情報、Candidate準備版からの宣言済み差分、対象branch側の先行変更を含む公開基準からの全Release差分、対象CHG、予定タグ対象およびIdentityを対象とする文書監査と不足／影響・準拠影響確認を行う。
 
 Commitだけが変わりTreeが不変ならIdentity、対象branch、予定タグ、履歴およびbranch固有条件を軽量確認する。
 
