@@ -2,7 +2,7 @@
 
 Status: Candidate
 Owner: Qual-Lab
-Last Updated: 2026-08-31
+Last Updated: 2026-09-01
 
 ## 目的・対象・実行前条件
 

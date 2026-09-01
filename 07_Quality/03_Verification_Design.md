@@ -8,7 +8,7 @@
 
 ### 署名配布物の期限契約
 
-TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Gateを一つの確認範囲とする。署名鍵は試験用を使い、開発検証に公式鍵やProvider送信を要求しない。
+TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gateを一つの確認範囲とする。署名鍵は試験用を使い、開発検証に公式鍵やProvider送信を要求しない。
 
 | 判定対象 | 正常・準正常・異常の確認 | 保持する終了条件 |
 |---|---|---|
