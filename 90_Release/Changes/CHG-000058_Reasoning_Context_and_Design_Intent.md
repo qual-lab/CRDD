@@ -70,4 +70,6 @@ Release Gateも分離する。CHG-000057が成立し本変更だけが未成立�
 
 2つの提案文書を、共通推論要素、認知推論、選択推論、責務境界、目指さないことおよび検証義務へ統合した。最初の自己適用として、Project Runtimeの「Milestoneを委ねる」UXに根拠付き設計仮説としての現在状態・障壁・目標状態・必要な根拠／情報・意図する判断を置き、IAの意味階層とUIの注意優先度まで伝播した。選択推論は、本変更をProject Runtimeの実装Stepへ吸収せず、独立採否可能なCHGとして分ける判断へ適用した。
 
-次のGateは、CRDD自身の認知推論と、CRDD-Communicationの記事企画における`Opportunity Candidates → Target Choice → Positioning → Product Bet → Requirement`の選択推論を代表2経路として比較し、Reasoning Contextが変更品質を改善する一方で、新しいTemplate負荷または第二正本を生まないことを確認することである。別Repositoryは明示許可なく変更せず、対象改訂版、確認項目、結果および未評価範囲を本変更へ接続する。その後のv0.19作業でも同じ情報を再記入させず、既存正本から必要最小限を選択・圧縮して利用できるかを継続観測する。
+次のGateは、Communication関連正本、利用側、ひな型、QA、監査、READMEおよびAI入口を一つの固定候補へ収束させ、Issue #30を責務別に再評価してから独立レビューすることである。その固定Commitを、明示許可された別Repositoryの記事企画へ先行適用し、`Opportunity Candidates → Target Choice → Positioning → Product Bet → Requirement`の選択推論と、UX→IA→UI／Communicationの認知推論を代表2経路として比較する。外部公開はDogfooding許可に含めず、対象改訂版、確認項目、結果および未評価範囲を本変更へ接続する。
+
+Dogfooding Findingは、v0.19の成立条件へ必要な是正、採用先固有、または担当・再評価契機・保留影響を持って独立保留できる候補へ分類する。必要な是正を反映した後にCommunication Closureの確認集合を実行し、その完了後にProject Runtimeの追加実装へ進む。同じ情報を再記入させず、既存正本から必要最小限を選択・圧縮して利用できるかを継続観測する。

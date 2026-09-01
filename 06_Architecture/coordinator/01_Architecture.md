@@ -372,6 +372,8 @@ Project Runtimeの上位順序は、`Project Operation lease → Project State l
 
 Project Operation leaseだけでは、Runtime外で進む対話編集を完全には観測できない。そこでProject Runtimeは、Repository Bindingごとに耐久Operation Queueと正本採用Leaseを持ち、対話起点を既定の優先Lane、スケジュール起点を待機可能Laneとして扱う。Queue recordは`.crdd`配下の機械可読状態であり、MDは人間向け投影に限定する。
 
+スケジュール起点は、別の許可済み入口が作成したObjectiveを搬送する起点分類に限る。Project Runtime自身が時刻またはRepository EventからObjective、Scope、Authorityまたは優先順位を生成する構造にはしない。
+
 Operation Queueは`queued → leased → running → integration_pending → completed`を正常系とし、`waiting_foreground`、`replan_required`、`human_decision_required`、`recovery_required`、`cancelled`を分ける。Queue leaseはOS排他、owner generationおよびProcess生存観測で所有者を確定し、時刻またはfile存在だけで奪取しない。対話Operationの到着は未開始のスケジュールOperationを`waiting_foreground`へ移せるが、実行中OperationのAuthority、Effect、cleanupまたはRecovery義務を消さない。
 
 各Operationは固定Revisionから隔離Workspaceを持つため、候補作成は安全な範囲で並行できる。正本採用はRepository単位の採用Leaseで直列化し、取得後に現在Revision、dirty state、変更Path、共有判断および候補の基準Revisionを再検証する。競合がなければ採用し、承認Scope内で解消可能なら再計画し、意味変更またはAuthority拡張が必要なら人間へ返す。Runtime外の直接編集を排他できるとは主張せず、開始前と採用直前の再観測で検出する。
