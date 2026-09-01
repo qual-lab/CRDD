@@ -1,6 +1,6 @@
 # CRDD内部ツールの検証設計
 
-状態: 配置移行の検証完了・期限なし配布契約の追加検証中
+状態: Stable（v0.18.1）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 
@@ -8,25 +8,29 @@
 
 ### 署名配布物の期限契約
 
-TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Gateを一つの確認範囲とする。署名鍵は試験用を使い、開発検証に公式鍵やProvider送信を要求しない。
+TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gateを一つの確認範囲とする。署名鍵は試験用を使い、開発検証に公式鍵やProvider送信を要求しない。
 
 | 判定対象 | 正常・準正常・異常の確認 | 保持する終了条件 |
 |---|---|---|
-| revision 2期限付き | 期限内、開始前、期限ちょうど、期限後、null拒否 | 旧V2署名byteと意味を維持 |
-| revision 3 | nullで発行後の複数日時、開始前拒否、UTC期限付きの境界 | nullの場合だけ時間上限を除く |
-| Schemaと署名 | 欠落・undefined・空文字・文字列null・不正日時・未知revision・envelope/payload不一致、期限改変、V2/V3混同 | 改変でAuthorityを発行しない |
+| 現行revision 5 | `expiresAt: null`の期限なし、UTC期限付き、Coordinator本体、共通Launcherの署名・4経路・Recovery入口と推移的な静的依存、Policy、単一Platform Access成果物、発行後の複数日時、開始前拒否、期限ちょうどと期限後 | revision 5と現行manifest署名domainだけを受理し、nullの場合だけ時間上限を除く。入口表とIdentity seedの不一致、非正規specifier、集合外依存および未束縛の動的importを拒否する |
+| 旧revision 2／3 | 旧payload、削除済みfield、旧manifest署名domain | 現行Runtimeは互換読取りやfallbackを行わず拒否する。公開済みv0.18.0成果物の履歴を無効化する意味ではない |
+| Schemaと署名 | 欠落・undefined・空文字・文字列null・不正日時・未知revision・envelope/payload不一致、期限改変、旧manifest署名domainの混入 | 改変でAuthorityを発行しない。package content rootの`CRDD\0PLATFORM-PROVISIONER-PACKAGE-CONTENT\0V2\0`は別契約として維持する |
 | 署名CLIと事前検査 | --no-expiry、--expires-at、両方・未指定・重複・不正指定 | 不正指定で秘密入力・署名・配置を発火しない |
 | TypeScript／Rust接続 | 同じ署名payloadの正常・異常ベクトルを両検証器へ渡す | canonical byte、domain、成果物結合を一致させる |
 | 既存の期限所有者 | Grant、同意、候補、準備記録の期限・取消の既存試験 | 期限なしmanifestから別の権限を延長しない |
 
-新しいNativeを含む正式配布の最終固定では、署名manifestとGit Tree・2成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。Commit AへSource・文書・試験・2成果物を固定し、そのTreeを署名したmanifestだけをCommit Bで追加する。公式tagのCommit Bを新しいclean cloneまたはsubmodule相当のworktreeで検証し、Commit Bの親が署名対象Commit Aであること、AからBへの差分がmanifestだけであること、Git同梱成果物のbyte・Hash・PE profileが一致することを確認する。独自ZIPを作成・展開せず、GitHubの自動Source archiveもRuntime配布契約の検証対象にしない。旧48515ebの実測、物理Ctrl+C、端末表示と実務評価は対象版を維持し、変更の影響を照合せず新規版の成功へ読み替えない。
+新しいRuntime実行Identityを含む正式配布の最終固定では、revision 5の署名manifest、閉じたRuntime実行集合、Policyおよび単一Platform Access成果物を照合し、4経路・復旧7シナリオ・公開task入口の正常経路を検証する。署名時のSource Commit／Treeは出所根拠として保持するが、現在CheckoutのRepository Tree全体をRuntime Authorityへ使用しない。公式tagを新しいclean cloneまたはsubmodule相当のworktreeで検証し、Runtime実行集合、Policy、Git同梱成果物のbyte・Hash・PE profileおよびmanifestのRuntime実行Identityが一致することを確認する。TaskではCRDD Release Identity、Runtime実行Identityおよび作業対象RepositoryのExecution Revisionを分け、開始前後に同じExecution Commit／Treeを観測し、Candidateの`baseCommit`／`baseTree`が作業対象Revisionへ一致することを確認する。独自ZIPを作成・展開せず、GitHubの自動Source archiveもRuntime配布契約の検証対象にしない。旧実測は対象版を維持し、Runtime実行Identityの一致を確認せず新規版の成功へ読み替えない。
+
+この閉じた実行集合には、共通Launcherの正本が選ぶ署名・4経路・Recovery入口と、そこから静的に到達する`script`依存を含める。入口表とIdentity seedは同じ正本から導出し、未選択の開発補助scriptは含めない。非正規specifier、集合外依存、未束縛の動的importまたは選択依存の欠落を負例として確認する。
 
 | Git同梱配布の経路 | 期待結果 | 終了後条件 |
 |---|---|---|
-| 正常 | 公式tagのclean clone／submodule、manifest-only PE、署名対象親Commitとexact Tree、2成果物Hashが一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
+| 正常 | 公式tagのclean clone／submoduleで、manifest、閉じたRuntime実行集合、Policy、単一成果物HashとRuntime実行Identityが一致。Task前後の作業対象Execution Revisionが同一で、Candidate baseもそのRevisionへ一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
 | 準正常 | non-zero固定publisher digestを宣言したPEで、追加DLL集合とAuthenticodeが一致 | manifest-onlyへfallbackせず追加防御を維持 |
-| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、未知または余剰PE import、宣言済みAuthenticode不成立 | Provider／Provisioning Effect 0でfail closed |
-| 判定不能 | shallow／不完全Git履歴、RootまたはRevision不明、reparse／link、読取り不成立 | 配布Identityを推定せずEffect 0で停止 |
+| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、Candidateの`baseCommit`／`baseTree`が期待する作業対象Execution Revisionと異なる（配布AまたはBの誤使用を含む）、Task中に作業対象Commit／Treeが変わる | Candidateを回収し、Provider Effectまたは成功結果を追加発行せずfail closed。Task後のRevision変化と観測不能は、開始時Identity不一致とは別の結果として保持する |
+| 判定不能 | shallow／不完全Git履歴、配布Rootまたは作業対象Root／Revision不明、reparse／link、Task後のExecution Revision読取り不成立 | 配布Identityや作業対象の不変性を推定せずEffect 0または状態不明として停止 |
+
+親RepositoryでCRDDをsubmoduleとして利用する経路では、作業対象Commitから`.crdd/external-send-policy.json`を読む明示投影も結合確認する。対象外のgitlinkが同じTreeに存在しても明示fileをexact bytesで読めること、gitlink自身またはその配下を選択した場合は拒否すること、読取り投影なしの全体展開はgitlinkを拒否することを同じ契約試験で確認する。限定file読取りの成功から、submodule内容またはCommit全体の展開を許可済みと推定しない。
 
 対象は[仕様](../05_SPEC/01_Behavior_Specification.md)と[設計](../06_Architecture/01_Architecture.md)が所有する現行内部ツールである。今回の配置変更は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)、Runtimeの完成条件は[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)で追跡する。以下は検証義務の複製ではなく、その確認方法の対応表である。
 
@@ -60,7 +64,7 @@ TypeScript署名Core・署名CLI・Native Supervisor・配布loaderとpackage Ga
 
 [検証結果保存の契約試験](../40_Develop/coordinator/tests/verification-result-record.contract.test.ts)は、実FSと実子Processで正常保存、停止結果の保存、callback例外、開始／終了保存失敗、flush失敗、途中終了、同時run、不正Git境界、link／Directory置換、容量・配列・byte上限、秘密風の値・getter・proxy拒否を確認する。公開Recovery入口の未署名停止も保存へ接続する。これらは実Provider成功、電源断耐性、敵対的な同一ユーザーへの耐性を証明しない。
 
-共通起動入口は[起動契約試験](../40_Develop/coordinator/tests/coordinator-launch.contract.test.ts)で、対話TTY成立／redirect拒否、署名stdin非TTY拒否、自動処理の明示選択、実CLIのhelp、起動Directory差、未加工argv・stdin byte・同一PID・終了コード、対象import前拒否とimport後例外を確認する。stdout redirect時に内部の安全Gateが拒否する試験だけで、正常に起動できる品質を確認したとはしない。実端末の可視性・一回入力・終了後表示、および署名配布からの実E2Eは別に記録する。
+共通起動入口は[起動契約試験](../40_Develop/coordinator/tests/coordinator-launch.contract.test.ts)で、採用Repository向け一般Taskの第一級入口と固定引数、対話TTY成立／redirect拒否、署名stdin非TTY拒否、自動処理の明示選択、実CLIのhelp、起動Directory差、未加工argv・stdin byte・同一PID・終了コード、対象import前拒否とimport後例外を確認する。削除済みの永続有効化・無効化・準備commandがhelp、parserまたは実装へ再出現せず、`capabilities --json`が現行Profileを正確に返すことも確認する。stdout redirect時に内部の安全Gateが拒否する試験だけで、正常に起動できる品質を確認したとはしない。実端末の可視性・一回入力・終了後表示、および署名配布からの実E2Eは別に記録する。
 
 義務の所有者は[UX](../02_UX/01_User_Experience.md#4-制御信頼検証義務)、[IA](../03_IA/01_Information_Architecture.md#5-検証義務と未解決事項)、[UI](../04_UI/01_User_Interface.md#5-アクセシビリティ利用品質の義務)および[仕様](../05_SPEC/01_Behavior_Specification.md#user-interface-contract)。以下は確認方法であり、義務や合否条件を再定義しない。
 
@@ -91,6 +95,8 @@ Repository／Revisionと明示した読取り範囲を保持する[設計上の�
 | 差分本文の長さ・copy・参照・復元後object IDの不整合 | 外側checksumを整合させた変異を使い、形式検査と対象処理への到達を合わせて確認する。公開関数の`null`だけから内側の拒否箇所を推定しない |
 
 Git CLIは開発試験の生成・検査に限って使用し、本番readerの外部Git実行を追加しない。今回の生成環境はWindowsのGit 2.54.0であり、他OSでは未検証としてskipする。対象環境内で格納形式を生成できない場合は前提不成立として失敗させ、skipや別形式への暗黙置換で合格にしない。生成元・pack-only領域・workspace・Git用HOMEはRepository直下の試験領域へ限定し、生成途中の失敗を含め回収する。
+
+Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場合は、`test:restricted-process`で実Windows Process Gate以外の全母集団を確認し、`test:windows-process`を通常のローカルユーザーProcessで確認する。前者だけを全体合格とせず、後者は安定prefixと契約試験でexact 7件へ固定する。制限Processで同じ7件を一般失敗として反復した回数を品質の追加Evidenceにせず、両Gateの合計、各実行環境および終了観測を同じ固定候補へ結合する。通常の`test`は7件を含む完全母集団を維持する。
 
 ### Lockの未到達条件と公開結果
 

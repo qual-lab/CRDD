@@ -22,6 +22,8 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
 const baseCommit = "a".repeat(40);
 const baseTree = "b".repeat(40);
+const signedSourceCommit = "1".repeat(40);
+const signedSourceTree = "2".repeat(40);
 const baseManifestHash = "c".repeat(64);
 const contentManifestHash = "d".repeat(64);
 const allowedPathsHash = "e".repeat(64);
@@ -130,7 +132,9 @@ function release(overrides: Record<string, unknown> = {}) {
     packageContentRootSha256: "0".repeat(64),
     qualLabManifestCryptographicMatch: true,
     runtimeOwnedReleaseTrustConfirmed: true,
-    releaseIdentityRuntimeOwned: true,
+    releaseIdentityRuntimeOwned: false,
+    runtimeExecutionIdentityRuntimeOwned: true,
+    runtimeExecutionIdentitySha256: "9".repeat(64),
     crddDistributionConfirmed: true,
     crddVersion: "v0.18.0",
     releaseSequence: 1,
@@ -211,6 +215,9 @@ function dependencies(
     result?: Readonly<Record<string, unknown>>;
     candidate?: Readonly<Record<string, unknown>> | null;
     discard?: Readonly<Record<string, unknown>>;
+    repositoryRevisions?: ReadonlyArray<Readonly<
+      Record<string, unknown>
+    > | null>;
     runtimeVersion?: string;
     completionRejects?: boolean;
     readThrows?: boolean;
@@ -233,6 +240,7 @@ function dependencies(
     starts: 0,
     reads: 0,
     discards: 0,
+    repositoryRevisionObservations: 0,
     bound: 0,
     unbound: 0,
     cancels: 0,
@@ -292,6 +300,17 @@ function dependencies(
         calls.discards += 1;
         if (options.discardThrows) throw new Error("fixture_discard_failed");
         return options.discard ?? Object.freeze({ status: "discarded" });
+      },
+      inspectRepositoryRevision: () => {
+        const observationIndex = calls.repositoryRevisionObservations;
+        calls.repositoryRevisionObservations += 1;
+        const observations = options.repositoryRevisions;
+        if (observations) return observations[observationIndex] ?? null;
+        return Object.freeze({
+          status: "candidate",
+          commit: baseCommit,
+          tree: baseTree,
+        });
       },
       readBaseContent: () => {
         if (options.readBaseThrows) throw new Error("fixture_base_read_failed");
@@ -365,7 +384,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 19);
+  assert.equal(contract.contractRevision, 20);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -657,12 +676,211 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.deepEqual(result.changedPaths, [TARGET_PATH]);
   assert.equal(result.crddCommit, baseCommit);
   assert.equal(result.crddTree, baseTree);
+  assert.equal(result.executionCommit, baseCommit);
+  assert.equal(result.executionTree, baseTree);
   assert.equal(fixture.calls.starts, 1);
   assert.equal(fixture.calls.passedCapability, fixture.calls.issuedCapability);
   assert.equal(fixture.calls.reads, 1);
   assert.equal(fixture.calls.discards, 1);
   assert.equal(fixture.calls.bound, 1);
   assert.equal(fixture.calls.unbound, 1);
+  assert.equal(fixture.calls.repositoryRevisionObservations, 2);
+});
+
+test("署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合する", async () => {
+  const fixture = dependencies({
+    release: release({
+      crddCommit: signedSourceCommit,
+      crddTree: signedSourceTree,
+    }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.crddCommit, signedSourceCommit);
+  assert.equal(result.crddTree, signedSourceTree);
+  assert.equal(result.executionCommit, baseCommit);
+  assert.equal(result.executionTree, baseTree);
+  assert.equal(fixture.calls.repositoryRevisionObservations, 2);
+  assert.equal(fixture.calls.discards, 1);
+});
+
+test("候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否する", async () => {
+  const fixture = dependencies({
+    release: release({
+      crddCommit: signedSourceCommit,
+      crddTree: signedSourceTree,
+    }),
+    result: taskResult({
+      candidateRevision: Object.freeze({
+        baseCommit: signedSourceCommit,
+        baseTree: signedSourceTree,
+        patchHash,
+        contentManifestHash,
+        allowedPathsHash,
+        changedPaths: Object.freeze([TARGET_PATH]),
+      }),
+    }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.resultContractMismatch, "candidate_base_commit");
+  assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.cleanupConfirmed, true);
+});
+
+test("実行中にCanonical RepositoryのCommitが変化した場合は候補破棄後に拒否する", async () => {
+  const fixture = dependencies({
+    repositoryRevisions: Object.freeze([
+      Object.freeze({
+        status: "candidate",
+        commit: baseCommit,
+        tree: baseTree,
+      }),
+      Object.freeze({
+        status: "candidate",
+        commit: "9".repeat(40),
+        tree: baseTree,
+      }),
+    ]),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.resultContractMismatch,
+    "execution_repository_commit_changed",
+  );
+  assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.canonicalRepositoryChanged, true);
+  assert.equal(result.effectStateUnknown, false);
+  assert.equal(
+    result.reason,
+    "signed_general_task_execution_repository_changed",
+  );
+  assert.equal(result.executionCommit, baseCommit);
+  assert.equal(result.executionTree, baseTree);
+  assert.equal(fixture.calls.repositoryRevisionObservations, 2);
+});
+
+test("Task後の作業対象Revision観測不能は候補回収後も状態不明を保持する", async () => {
+  const fixture = dependencies({
+    repositoryRevisions: Object.freeze([
+      Object.freeze({
+        status: "candidate",
+        commit: baseCommit,
+        tree: baseTree,
+      }),
+      null,
+    ]),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "signed_general_task_execution_repository_observation_unknown",
+  );
+  assert.equal(
+    result.resultContractMismatch,
+    "execution_repository_revision_observation_unknown",
+  );
+  assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.canonicalRepositoryChanged, null);
+  assert.equal(result.effectStateUnknown, true);
+});
+
+test("安全なTask拒否より作業対象Revision変化を優先して再試行可能にしない", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      status: "blocked",
+      reason: "coordinator_task_independent_review_not_approved",
+      candidateId: null,
+      candidateDisposition: "not_issued",
+    }),
+    repositoryRevisions: Object.freeze([
+      Object.freeze({
+        status: "candidate",
+        commit: baseCommit,
+        tree: baseTree,
+      }),
+      Object.freeze({
+        status: "candidate",
+        commit: "9".repeat(40),
+        tree: baseTree,
+      }),
+    ]),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(
+    result.reason,
+    "signed_general_task_execution_repository_changed",
+  );
+  assert.equal(
+    result.resultContractMismatch,
+    "execution_repository_commit_changed",
+  );
+  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(result.canonicalRepositoryChanged, true);
+  assert.equal(result.effectStateUnknown, false);
+});
+
+test("候補破棄失敗と作業対象Revision観測不能を別軸で保持する", async () => {
+  const fixture = dependencies({
+    discardThrows: true,
+    repositoryRevisions: Object.freeze([
+      Object.freeze({
+        status: "candidate",
+        commit: baseCommit,
+        tree: baseTree,
+      }),
+      null,
+    ]),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.reason, "signed_general_task_candidate_discard_failed");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.candidateDiscarded, false);
+  assert.equal(result.canonicalRepositoryChanged, null);
+  assert.equal(result.effectStateUnknown, true);
+  assert.equal(result.executionCommit, baseCommit);
+  assert.equal(result.executionTree, baseTree);
+});
+
+test("実行Repository RevisionをTask前に観測できなければProvider Effectを発行しない", async () => {
+  const fixture = dependencies({
+    repositoryRevisions: Object.freeze([null]),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "signed_general_task_repository_revision_observation_failed",
+  );
+  assert.equal(fixture.calls.starts, 0);
+  assert.equal(fixture.calls.reads, 0);
+  assert.equal(fixture.calls.discards, 0);
 });
 
 test("一回是正後の同じ独立Reviewer承認もexact Candidate成功として保持する", async () => {
@@ -1070,6 +1288,8 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     "cancel_never",
     "requested_throw",
     "unbind_throw",
+    "unbind_throw_repository_changed",
+    "unbind_throw_repository_unknown",
     "result_getter",
     "started_proxy",
     "completion_getter",
@@ -1148,6 +1368,26 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
         dockerRecoveryB,
       ]);
       assert.equal(result.recoveryIdentityAmbiguous, true, scenario);
+    }
+    if (scenario.startsWith("unbind_throw_repository_")) {
+      assert.equal(
+        result.reason,
+        "signed_general_task_cancellation_unbind_unknown",
+        scenario,
+      );
+      assert.equal(result.candidateDiscarded, true, scenario);
+      assert.equal(
+        result.canonicalRepositoryChanged,
+        scenario.endsWith("changed") ? true : null,
+        scenario,
+      );
+      assert.equal(result.cleanupConfirmed, false, scenario);
+      assert.equal(result.manualRecoveryRequired, true, scenario);
+      assert.equal(result.effectStateUnknown, true, scenario);
+      assert.deepEqual(result.hostRecoveryIds, [], scenario);
+      assert.deepEqual(result.dockerRecoveryIds, [], scenario);
+      assert.deepEqual(result.candidateRecoveryIds, [], scenario);
+      assert.deepEqual(result.candidateStoreRecoveryIds, [], scenario);
     }
     if (scenario === "control_missing_completion_recovery") {
       assert.equal(result.hostRecoveryId, hostRecoveryA, scenario);

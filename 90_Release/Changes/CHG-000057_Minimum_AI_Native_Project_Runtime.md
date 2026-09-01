@@ -1,6 +1,6 @@
 # 変更トレース: Minimum AI-native Project Runtime
 
-変更ID: `CHG-000056`
+変更ID: `CHG-000057`
 - 状態: `In Progress`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-09-01
@@ -14,13 +14,13 @@
 
 ## 1. Triggerと人間の判断
 
-v0.18.0で、公式Codex／Claude Code CLIをCoordinatorが仲介し、一つのTaskをExecutor、独立Reviewer、限定是正、候補、取消およびRecoveryまで高信頼に実行するRuntimeが成立した。一方、人間はObjective分解、Task順序、次Taskの開始、Project全体の進捗理解および統合結果の判断を引き続き担っていた。
+v0.18.0で、公式Codex／Claude Code CLIをCoordinatorが仲介し、一つのTaskをExecutor、独立Reviewer、限定是正、候補、取消およびRecoveryまで高信頼に実行するRuntimeが成立した。v0.18.1では新規採用入口とRuntime実行Identityを是正し、clone／submoduleから同じSingle Task Runtimeを利用できる基準を公開した。一方、人間はObjective分解、Task順序、次Taskの開始、Project全体の進捗理解および統合結果の判断を引き続き担っていた。
 
 人間の決定権限者は、v0.19を「一つのTaskを実行するRuntime」から「一つのMilestoneを理解し、必要なObjectiveとTaskを計画・実行・再計画・統合できるMinimum AI-native Project Runtime」へ進める変更として採用した。最大5はTask総数ではなく同時実行数の上限であり、常に5並列する目標ではない。
 
 ## 2. 確認したCurrent State
 
-- v0.18 Single Task Runtimeは正式署名4経路、失敗・取消・Recovery、隔離候補およびcleanupを持つ実行単位として再利用できる。
+- v0.18.1 Single Task Runtimeは正式署名4経路、失敗・取消・Recovery、隔離候補、cleanupおよび採用形態E2Eを持つ実行単位として再利用できる。
 - CRDDはProjectの意味、Roadmap、CHG、Progress、Decision、QualityおよびEvidenceを既存正本へ保持しており、新しいProject Management正本を作る必要はない。
 - 限定分散、MCP等の協働接続面、照合費用および統合結果の評価はDiscoveryで候補として保持されていたが、v0.19への収載・実装許可は未成立だった。
 - Coordinatorは一つのTask lifecycleを所有するが、Project／Milestone／Objective階層、Task Graph、Project State、部分再計画およびMilestone Integrationをまだ所有しない。
@@ -65,7 +65,7 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 ## 7. Git／Release運用
 
-本変更は`main`から作成した一つのfeatureブランチで、正本、実装、試験、移行、CHG、配布内容およびRelease manifestまで完成させる。Release候補のCommit Aとmanifest-only Commit Bも同じfeatureブランチ内で検証し、Commit Bを先端とする一つのプルリクエストで`main`へ統合する。`develop`またはrelease専用ブランチを追加せず、統合後の`main`へmanifest更新だけの別プルリクエストを追加しない。
+本変更は`main`から作成した一つのfeatureブランチで、正本、実装、試験、移行、CHG、配布内容および必要なRelease manifestまで完成させる。署名対象が変わる場合のSource A、manifest carrier Bおよび最終Release Commit Cは[Coordinator Runtimeの作業手順](../../19_Workflows/01_Coordinator_Runtime.md#release-manifestの生成)に従い、同じfeatureブランチ内で固定・検証して一つのプルリクエストで`main`へ統合する。`develop`またはrelease専用ブランチを追加せず、統合後の`main`へmanifest更新だけの別プルリクエストを追加しない。
 
 ## 8. 現在状態と次のGate
 

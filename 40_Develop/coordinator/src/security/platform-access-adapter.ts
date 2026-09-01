@@ -248,14 +248,14 @@ export function describePlatformAccessAdapterContract() {
     principalObservation:
       "implemented_signed_supervisor_token_classification_fail_closed_candidate",
     selectedUserBinding:
-      "implemented_supervisor_reobservation_child_logon_session_and_appcontainer_sid_formal_signed_verified",
+      "implemented_native_current_process_primary_token_and_login_session_observation",
     runtimePrincipalIdentity:
       "native_current_token_user_sid_domain_separated_sha256",
     serviceAccountMode: "not_implemented_blocked",
     windowsCurrentProcessAccessCore: "implemented_candidate_component_only",
     binaryReleaseIdentityBinding: "implemented_candidate_signed_manifest",
     productionInvocation:
-      "signed_appcontainer_runtime_probe_and_etw_network_nonfire_verified",
+      "signed_exact_artifact_spawn_with_minimal_environment_and_bounded_io",
     maximumWorkerSpawnAttemptsPerInvocation: 1,
     atomicJobAssignment: "implemented_candidate",
     exactRequestResponseBinding: "implemented_candidate",

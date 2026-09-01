@@ -2,10 +2,10 @@
 
 # エージェント組織（Agent Organization）
 
-Version: v0.18.0
+Version: v0.18.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-08-28
+Last Updated: 2026-09-01
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)

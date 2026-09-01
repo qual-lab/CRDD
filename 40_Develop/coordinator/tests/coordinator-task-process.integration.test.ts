@@ -411,7 +411,7 @@ function createProcessHarness(
 // No OS Ctrl+C delivery or real Docker resource claims: the registered CLI
 // callback traverses Task + Controller + the production-owned Node process tree.
 for (const cleanupConfirmed of [true, false]) {
-  test(`Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}`, {
+  test(`Windows Process Gate: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}`, {
     skip: process.platform !== "win32",
     timeout: 20_000,
   }, async (t) => {

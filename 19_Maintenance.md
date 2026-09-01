@@ -2,10 +2,10 @@
 
 # CRDD標準の保守（Maintenance）
 
-Version: v0.18.0
+Version: v0.18.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-08-31
+Last Updated: 2026-09-01
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -289,6 +289,10 @@ Qual-Lab / CRDD公式リポジトリの非自明な変更は、`main`から作�
 
 同じ根本原因が再発し、局所修正では収束しない場合は、個別編集を継ぎ足さず、契約の決定権限、共通生成器、判定方法および利用側接続を対象とする構造是正へ戻す。
 
+Dogfooding、移行または別経路の完成によってCurrent Stateが変わり、以前のArchitecture候補、公開入口、永続状態または準備操作と同じ利用者成果を別経路が満たすようになった場合は、旧候補の実装継続を自動的な残件にしない。現在のconsumer、代替不能性、運用費用、追加するStateful Surfaceおよび削除時に失う保証を再評価し、不要なら現行正本、公開面、実装、試験およびロードマップから除去する。将来必要になり得ることだけを現行公開面へ残す理由にせず、再評価条件を満たした時点で新しい責務境界から設計する。
+
+公開済みまたは公開候補のToolについて、必ず未成立になるcommand、Capabilityまたは準備操作を検出した場合は、少なくとも一つの現在対応Profileで成立する実consumerと完了計画へ接続するか、公開前に削除する。fail closed、Effect 0、試験数または候補実装の深さを、利用可能性や必要性の代用にしない。未完了として保持する場合は、主要な未完了作業の登録簿からOwner、利用側、完了条件および再評価契機へ到達できなければならない。
+
 是正以外の非自明な変更でも、初回固定前に、予定した正本、契約母集団、利用側母集団、代表例、変更禁止範囲と実際の差分を全数照合する。利用側ごとに、変更した、既存参照で追従するため変更不要、理由付き非該当、判断または確認待ちのいずれかを取得可能にする。ファイル数、変更行数、機械確認の合格、肯定例だけの成立から、意味、利用側または分岐の網羅を推定しない。目的は監査を省略することではなく、既知の不整合を最初の固定候補へ持ち込まず、必要な独立レビューと監査を一巡で完了できる可能性を上げることである。
 
 再レビューで、初回固定前から存在した既知母集団内の見落とし、または同じ根本原因による新規候補を検出した場合、その一箇所だけを直して直ちに次の固定候補へしない。同じ確認軸の未走査組合せ、並行するobserver／Gate、利用側およびEffect発生点を修正担当側で一括再照合し、局所修正で閉じるか共通primitive、生成器または判定方法の構造是正へ戻るかを決めてから、次の一つの固定候補へまとめる。監査指摘を統合済みでも、是正の具体化で新しい状態、資源、非同期境界、外部実行基盤または利用側を導入する場合は、合意済み方針の機械的適用とみなさず、変更後の解決経路で着手前整合確認と固定候補前の再照合をやり直す。未知の反例を検出する独立監査は維持し、既知母集団または是正で新設した母集団の小出し修正を監査回数で補わない。
@@ -327,13 +331,11 @@ CRDD公式GitHubリポジトリでは対象リリースごとのマイルスト�
 
 CRDD公式リポジトリが所有する内部Scriptは、既存の責務別フォルダ配置を維持したまま`.ts`を標準とする。実行にはNode.js 24.12 LTS以上のネイティブTypeScript型除去を使用し、Runtime依存として`tsx`、`ts-node`、Babel、Bundlerまたは専用の変換packageを要求しない。実行コードはESM、Node.js組込み機能および`import type`を基本とする。
 
-Coordinator Runtime 1.0の最小信頼境界（Minimum Trust Boundary）では、正常に動作するOSの認証、Filesystem、process、AppContainerおよび署名検証機能と、OSが認証した選択ローカル対話ユーザーを信頼計算基盤（Trusted Computing Base、TCB）として扱う。人間は真正性を確認した公式署名済みCRDD Releaseの固定native入口を明示的に開始しなければならない（MUST）。同一ローカルユーザー、machine Administrator／SYSTEM、kernel、OSまたはVerifierが悪意を持ち、起動前置換、検査回避、debugger、injection等によってこの前提自体を破る攻撃への完全なtamper resistanceはCoordinator Runtime 1.0の保証対象外とする。ただし、別ローカルユーザー、Repository内容、Provider／workerとその出力、Network入力、未検証artifact、未検証Authority／Revisionおよびcaller supplied Pathは信頼対象へ昇格せず、観測可能なIdentity差または判定情報不足では処置前にfail closedとしなければならない（MUST）。この対象外境界を、署名manifest、artifact／Provider／Repository／Revision Identity、Authority、Provider Home、Egress、隔離、Process Effectまたは終了確認の省略根拠にしてはならない（MUST NOT）。悪意ある同一ユーザー、Administrator、kernelまたはOS侵害への耐性が必要になった場合は、OS保護済みbootstrap、managed install root、実行制御またはhardware-backed trustを別のHardened／Managed変更として再評価する。
+Coordinator Runtime 1.0の最小信頼境界（Minimum Trust Boundary）では、正常に動作するOSの認証、Filesystem、process、AppContainerおよび署名検証機能と、OSが認証した選択ローカル対話ユーザーを信頼計算基盤（Trusted Computing Base、TCB）として扱う。人間は真正性を確認した公式署名済みCRDD Releaseの公開Coordinator入口からTaskを開始しなければならず（MUST）、Runtimeは外部Effect前に署名manifest、Repository Revisionおよび同梱した単一のプラットフォームアクセス成果物を検証しなければならない（MUST）。同一ローカルユーザー、machine Administrator／SYSTEM、kernel、OSまたはVerifierが悪意を持ち、起動前置換、検査回避、debugger、injection等によってこの前提自体を破る攻撃への完全なtamper resistanceはCoordinator Runtime 1.0の保証対象外とする。ただし、別ローカルユーザー、Repository内容、Provider／workerとその出力、Network入力、未検証artifact、未検証Authority／Revisionおよびcaller supplied Pathは信頼対象へ昇格せず、観測可能なIdentity差または判定情報不足では処置前にfail closedとしなければならない（MUST）。この対象外境界を、署名manifest、artifact／Provider／Repository／Revision Identity、Authority、Provider Home、Egress、隔離、Process Effectまたは終了確認の省略根拠にしてはならない（MUST NOT）。悪意ある同一ユーザー、Administrator、kernelまたはOS侵害への耐性が必要になった場合は、OS保護済みbootstrap、managed install root、実行制御またはhardware-backed trustを別のHardened／Managed変更として再評価する。
 
-OS APIへ安全に接続するためTypeScriptだけでは閉じない最小のプラットフォームアクセス部は、CRDD本体、一般CLI、Policyおよび契約をTypeScriptに保持したまま、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。例外として、有効化前準備一回実行のnative top-level supervisorと、そのsupervisorが起動する固定AppContainer workerだけは、通常Runtime、installer、PATHまたは公開CLIから発火しないprivate入口として、exact `provision` argv、固定request／response framingおよび観測前のfail-closed結果をRust成果物に保持してよい（MAY）。この例外は一般CLI、Policy、Authority、Capabilityまたは通常RuntimeのEffectをRustへ移す根拠にしてはならない（MUST NOT）。この限定は内部Script一般をRustへ移す根拠、採用RepositoryへRustを要求する規則、独立製品または公開CLIの新設にはしない。BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やbuild orchestrationとして新設せず、Cargo commandを責務別の開発入口から直接実行する。
+OS APIへ安全に接続するためTypeScriptだけでは閉じない最小のプラットフォームアクセス部は、CRDD本体、一般CLI、Policyおよび契約をTypeScriptに保持したまま、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。Rust成果物は公開CLIや永続準備Lifecycleを所有せず、現在のOperationが要求する固定protocolの読み取り専用OS観測だけを実行する。この限定は内部Script一般をRustへ移す根拠、採用RepositoryへRustを要求する規則、独立製品または公開CLIの新設にはしない。BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やbuild orchestrationとして新設せず、Cargo commandを責務別の開発入口から直接実行する。
 
 Rust製プラットフォームアクセス部（Rust platform-access crate）は、`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定し、`rustfmt --check`、ClippyのWarning拒否、`cargo test`、locked release buildおよび固定`llvm-tools-preview`によるcoverageを別々の確認軸にする。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測とセキュリティ判断上の検証義務（Security Decision Obligation）、未到達経路、残存risk、Ownerおよび再確認契機を分けて記録する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Release成果物は固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を署名済みmanifestへ含める。上限付きプロセス（Bounded Process）は、固定argv、環境、入出力、時間および成果物Identityを制限した内部process境界を指す。ただし署名manifestの成果物観測だけでは、前項で対象外としたTCB侵害に対する実行イメージの継続的同一性を保証しない。通常RuntimeのProcess Adapterは、最小信頼境界内で固定Release Trust、artifact／Provider Identity、Authority、Repository／Revision、Provider Home、Egress、隔離および終了確認を実装・検証するまではprocessを起動せず、入力Pathまたはhelper processより前に`blocked`へ閉じる。将来上限付きプロセスを導入しても、Root保護、Authority、CapabilityまたはEffectの成立へ流用しない。
-
-通常Runtime Adapterの前項の禁止を維持したまま、選択ローカル対話ユーザーとのbinderに必要な読み取り専用観測に限り、有効化前準備一回実行（Pre-active Provisioning One-shot）を別の入口として設けてよい（MAY）。この入口は、人間が真正性を確認した未改変の公式署名済みリリース内のnative top-level `coordinator provision`だけとし、署名manifestへ別Identityとして結合した固定AppContainer workerをexact 1回だけ起動して、現在process tokenと固定Rootを1回だけ観測しなければならない（MUST）。supervisorはworkerへhandleを継承せず、固定ローカル名前付きパイプのfirst instanceを所有し、接続元process IDが自ら生成したworkerと一致した場合だけ、上限付きexact 1 requestを渡し固定長responseを受理しなければならない（MUST）。worker spawn attempt上限は1、hard timeout後はworkerを終了し、未知接続、余分byte、旧protocol、固定Release配置差、AppContainer profile不成立またはresponse差を成功へ流用してはならない（MUST NOT）。人間が開始済みのtop-level process自体はCoordinatorが発行したProcess Effectではないが、worker生成試行はProcess Effectとして区別する。通常run、`doctor`、`activate`、`disable`、未署名の開発branch、manifest欠落、改変checkout、固定Native成果物欠落、NodeによるPath起動、PATH、Cargo、Shell、installer、別binary、自動retryまたはfallbackから発火してはならない（MUST NOT）。公式Release tagへ固定し、同梱manifestとNative成果物のIdentityを検証したclone／submoduleは、source checkoutであることだけを理由に拒否してはならない（MUST NOT）。人間による初期Trustを自己Hashまたは自己署名検証から生成せず、固定Release Trust、両native artifact Identity、non-link／non-reparse handle、同一handleのbyte長／Hash、固定入力、AppContainer、Network非発火、workerの子孫process不存在および観測結果の全条件を実装が同じrunで確認できない場合は観測前に`blocked`へ閉じなければならない（MUST）。Local Personal v1では署名manifestとartifact Hashを必須の配布Identityとし、Authenticodeを必須条件にしない。buildがall-zero以外の固定publisher digestを宣言した場合だけ、追加防御としてそのAuthenticode署名を必須検証し、失敗時にmanifest-onlyへfallbackしてはならない（MUST NOT）。現在map済みのsupervisor imageと後からopenしたmanifest artifactを公開Win32だけで原子的に自己結合することは、最小信頼境界の必須条件にしない。これは同一ユーザーまたはOS侵害への耐性、検証済み実行イメージ（Verified Image）または方式の技術的成立を主張するものではなく、人間が確認した公式Releaseと正常OS／認証済みユーザーをTCBとするv1対象外境界に限る。正常結果も同じinvocation内の主体およびRoot accessの観測候補に限り、外部callerが保存または再投入してselected-user binder、保護済みactive、Root Protection、Authority、Capability、Filesystem／Network Effect、GateまたはReleaseを成立させてはならない（MUST NOT）。実装候補を先に固定し、決定権限者が承認した検証用またはRelease候補の署名成果物に対して、worker成果物の継続Identity、子孫process禁止またはJob等の同等境界、process tree終了および回復を同じrunで検証しなければならない（MUST）。検証署名、証明書の信頼ストア登録、正式Release署名またはRelease採用を、実装完了や自動試験から推定してはならない（MUST NOT）。
 
 Provider processのライフサイクルはTypeScriptが所有し、固定Digest image、exact Provider CLI versionおよび自動更新停止を管理対象依存として扱う。shell、PATH、Host既定Home、Host CLIまたはAPI keyへfallbackせず、更新時はimage／CLI Identity、利用側、検証および復旧を再評価して人間が有効化する。caller suppliedの合成Fake観測候補による状態遷移、timeout、cancel、出力上限またはprocess tree不存在claimの評価を、Fake process実行、実Provider認証、Egress、subscription条件、Operation Authority、CapabilityまたはRelease成立へ流用しない。
 
@@ -352,8 +354,6 @@ Runtime所有Provider Homeマウント許可（Runtime-owned Provider Home Mount
 Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ同義に固定する。特定のversion managerは要求しない。利用者または採用側へ見える拡張子、実行command、参照Pathを変更する場合は、変更トレースで利用側、移行、停止および復旧を示し、基準版の採用やリリースを別判断として扱う。
 
 CRDD公式Repositoryの`40_Develop/**`と配布用実装の具体的な命名、試験名および曖昧名の禁止は[内部ツール・コーディング規約](06_Architecture/99_Coding_Standards.md)を単一正本とする。
-
-対象Windows環境でAppContainer workerの起動に必要なOS文脈は、親process環境の継承ではなく、Windows Known Folderから取得して固定volumeかつnon-reparse path chainを確認した`LOCALAPPDATA`だけのUnicode環境blockとして渡さなければならない（MUST）。`LowBoxConsoleEnabled`が独立した起動前提になる場合は、通常Operationで変更してはならず（MUST NOT）、明示`provision`の同一invocation内だけで、CurrentUser固定mutex、exact pre-state、durable recovery recordのeffect前flush、必要時だけの一時設定、worker tree終了、現在値とkey last-writeの所有確認、exact restore、read-backおよびrecovery record削除を順に確認しなければならない（MUST）。既存recovery record、型差、外部変更または復元所有権を判定できない場合は値を上書きせず、手動回復が必要な状態としてfail closedにしなければならない（MUST）。復元と記録削除を確認する前に観測候補をcallerへ公開してはならない（MUST NOT）。
 
 <a id="34-essential-correction-and-compatibility-boundary"></a>
 
@@ -524,6 +524,8 @@ CONTRIBUTING、Issueフォーム、プルリクエストひな型等の影響を
 公式Release秘密鍵による署名または同等の発行Authorityを必要とする場合、通常の実装・是正・ドッグフーディングでは実署名を反復検証入口にしてはならない（MUST NOT）。対象Toolは、公式鍵、passphrase、正式manifestまたはRelease Authorityなしでproductionの意味契約を反復確認できる開発入口を所有し、候補の内容変更中はその入口へ戻らなければならない（MUST）。決定論的な開発確認の成功を、正式署名済み配布物、実Provider実測、Release承認または公開へ昇格しない。
 
 正式署名検証は、対象範囲、Commit／Tree、配布内容、必要な機械確認および実行予定が固定され、以後の内容修正を予定しないRelease Candidateに対してだけ実施する（MUST）。署名前に判定できるRoot、Identity、package、artifact、Runtime、引数、既存Effectおよび配置条件を秘密入力前に全て確認し、不一致ではpassphraseを要求せず停止する。署名後に実測で欠陥を検出した場合、その署名候補をReleaseへ流用せず、修正、開発入口での再収束および新しい候補固定へ戻る。各修正の直後に実署名を挟まず、新しい正式署名は再固定した候補に対する次の一回として扱う。
+
+Runtimeの署名AuthorityはRepository全体ではなく、実行に影響する閉じた依存集合、Security PolicyおよびNative成果物から機械的に再導出するRuntime実行Identityへ結合しなければならない（MUST）。除外一覧で署名対象を縮めず、実行名前空間の閉じたallowlistと依存境界検査を用いる。文書、CHG、Roadmap、品質記録または試験だけの変更でRuntime実行Identityが不変なら、Release Identityと該当文書の確認を行い、Runtime再署名および実Provider E2Eを要求してはならない（MUST NOT）。Runtime実行Identityが変化した場合は再署名し、影響する契約とE2Eを再検証しなければならない（MUST）。Authority、SecurityまたはRecoveryの意味変更は、Identity一致だけで再検証不要としてはならない（MUST NOT）。
 
 公式Release担当者の署名と、採用Repositoryまたは一般利用者による署名検証を分ける。採用Repositoryまたは一般利用者へ公式Release秘密鍵またはpassphraseの保有・入力を要求してはならない（MUST NOT）。公式passphraseを反復作業のため`.env`、Repository、環境変数、argv、一時fileまたはlogへ保存しない。秘密値を公開しないOS保護鍵Handle等を将来採用する場合は、利便性だけから暗黙に有効化せず、鍵用途、利用主体、候補Identity、回数、取消および監査を別の保護対象変更として判断する。
 

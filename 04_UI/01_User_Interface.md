@@ -88,7 +88,7 @@ Process再起動の必要性: あり
 
 | 操作単位 | UIが所有する確認 | SPECが所有する条件・結果 | 実装・試験の接続 |
 |---|---|---|---|
-| 診断・導入判断 | 通常利用可能と構文候補を識別 | [診断・有効化候補・回復](../05_SPEC/01_Behavior_Specification.md#診断有効化候補回復の公開境界) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[診断試験](../40_Develop/coordinator/tests/doctor.contract.test.ts) |
+| 診断・導入判断 | 通常利用可能と構文候補を識別 | [診断・回復](../05_SPEC/01_Behavior_Specification.md#診断回復の公開境界) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[診断試験](../40_Develop/coordinator/tests/doctor.contract.test.ts) |
 | 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/security/external-send-consent-runtime.ts)、[同意試験](../40_Develop/coordinator/tests/external-send-consent-runtime.contract.test.ts) |
 | Task入力・選定・待機 | 不正入力と処理中を分離、担当と理由 | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[引数試験](../40_Develop/coordinator/tests/cli-options.contract.test.ts) |
 | 候補の公開・export・discard | 候補ID、期限、未採用、次操作 | [利用者接点の境界](../05_SPEC/01_Behavior_Specification.md#user-interface-contract) | [候補Store試験](../40_Develop/coordinator/tests/candidate-bundle-store.contract.test.ts)、[表示試験](../40_Develop/coordinator/tests/command-report.contract.test.ts) |

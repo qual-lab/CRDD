@@ -1,7 +1,7 @@
 # 変更トレース: CRDD長期発展方針
 
 変更ID: `CHG-000055`
-- 状態: `Integrated — Pending Release`（PR #32でmain統合済み・公開準備中）
+- 状態: `Released`（v0.18.0）
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25（初回）／2026-08-28（§6～§7追加、§9収載判断）／2026-08-29（Runtime終盤E2E学習、文書UXおよびHuman Decision Journey改善母集団の具体化）
 - 対象: CRDD標準自身の長期方向と能力到達点、専門性と共有境界、Discovery／Roadmap／変更トレースの責務、およびv0.18.0 Candidateへ収載した工程接続・検証／収束・根拠駆動リファクタリング・文書可読性の強化と実務有用性評価

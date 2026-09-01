@@ -216,6 +216,109 @@ test("明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
     fs.existsSync(path.join(fixture.workspace, "src", "hidden.ts")),
     false,
   );
+
+  const exactDirectoryWorkspace = path.join(
+    path.dirname(fixture.workspace),
+    "exact-directory",
+  );
+  fs.mkdirSync(exactDirectoryWorkspace);
+  const exactDirectory = materializeGitCommitTreeCandidate({
+    commonDirectory: fixture.commonDirectory,
+    revision: commitId,
+    workspace: exactDirectoryWorkspace,
+    readPaths: ["src"],
+  });
+  assert.equal(exactDirectory?.status, "materialized");
+  assert.equal(exactDirectory?.fileCount, 0);
+  assert.deepEqual(fs.readdirSync(exactDirectoryWorkspace), []);
+});
+
+test("未選択の未対応modeだけを除外し、exact・祖先選択と全体展開は拒否する", (t) => {
+  for (const mode of ["120000", "160000", "100664"] as const) {
+    const fixture = temporaryFixture(t);
+    const policyBytes = Buffer.from('{"policyId":"fixture"}\n');
+    const policyId = writeObject(fixture.commonDirectory, "blob", policyBytes);
+    const policyTreeId = writeObject(
+      fixture.commonDirectory,
+      "tree",
+      treeEntry("100644", "external-send-policy.json", policyId),
+    );
+    const unsupportedObjectId =
+      mode === "160000"
+        ? writeObject(
+            fixture.commonDirectory,
+            "commit",
+            Buffer.from(
+              "tree 0000000000000000000000000000000000000000\n\nsubmodule\n",
+            ),
+          )
+        : writeObject(
+            fixture.commonDirectory,
+            "blob",
+            Buffer.from("unsupported\n"),
+          );
+    const rootTreeId = writeObject(
+      fixture.commonDirectory,
+      "tree",
+      Buffer.concat([
+        treeEntry("40000", ".crdd", policyTreeId),
+        treeEntry(mode, "unsupported", unsupportedObjectId),
+      ]),
+    );
+    const commitId = writeObject(
+      fixture.commonDirectory,
+      "commit",
+      Buffer.from(`tree ${rootTreeId}\n\nfixture\n`),
+    );
+
+    const fixedFile = readGitCommitFileCandidate({
+      commonDirectory: fixture.commonDirectory,
+      revision: commitId,
+      relativePath: ".crdd/external-send-policy.json",
+    });
+    assert.equal(fixedFile?.status, "read");
+    assert.deepEqual(fixedFile?.bytes, policyBytes);
+
+    for (const relativePath of ["unsupported", "unsupported/child.txt"]) {
+      assert.equal(
+        readGitCommitFileCandidate({
+          commonDirectory: fixture.commonDirectory,
+          revision: commitId,
+          relativePath,
+        }),
+        null,
+      );
+      const selectedWorkspace = path.join(
+        path.dirname(fixture.workspace),
+        `${mode}-${relativePath.includes("/") ? "descendant" : "exact"}`,
+      );
+      fs.mkdirSync(selectedWorkspace);
+      assert.equal(
+        materializeGitCommitTreeCandidate({
+          commonDirectory: fixture.commonDirectory,
+          revision: commitId,
+          workspace: selectedWorkspace,
+          readPaths: [relativePath],
+        }),
+        null,
+      );
+      assert.deepEqual(fs.readdirSync(selectedWorkspace), []);
+    }
+
+    const fullWorkspace = path.join(
+      path.dirname(fixture.workspace),
+      `${mode}-full`,
+    );
+    fs.mkdirSync(fullWorkspace);
+    assert.equal(
+      materializeGitCommitTreeCandidate({
+        commonDirectory: fixture.commonDirectory,
+        revision: commitId,
+        workspace: fullWorkspace,
+      }),
+      null,
+    );
+  }
 });
 
 test("認識済みSecretを含むPathまたは内容はworkspaceへ書く前に拒否する", (t) => {
@@ -483,10 +586,14 @@ test("object改変、余分field、SHA-256 Repository IDと動的入力をfail c
 
 test("公開契約は限定Git object readerと非Authority境界を固定する", () => {
   const contract = describeGitObjectReaderContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(contract.objectFormat, "sha1_only");
   assert.equal(contract.externalGitCliUsed, false);
   assert.deepEqual(contract.rejectedTreeModes, ["120000", "160000", "unknown"]);
+  assert.equal(
+    contract.unsupportedModeProjection,
+    "unselected_skipped_selected_or_full_rejected",
+  );
   assert.equal(contract.windowsNameCollision, "fail_closed");
   assert.match(contract.recognizedSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);

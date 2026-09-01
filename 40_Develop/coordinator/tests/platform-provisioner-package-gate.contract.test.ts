@@ -14,9 +14,11 @@ import {
 } from "../src/security/platform-provisioner-package-gate.ts";
 import {
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-  LEGACY_PLATFORM_PROVISIONER_MANIFEST_DOMAIN as PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+  PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
+  PLATFORM_PROVISIONER_MANIFEST_REVISION,
   calculatePlatformProvisionerPackageContentRootCandidate,
+  calculateRuntimeExecutionIdentityCandidate,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "./test-support.ts";
@@ -54,15 +56,9 @@ function fixture() {
     assert.fail(`fixture package content was invalid: ${packageRoot.reason}`);
   }
   const packageContentRootSha256 = packageRoot.packageContentRootSha256;
-  const payload = {
-    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-    contractRevision: 2,
+  const executionFields = {
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
-    crddVersion: "v0.18.0",
-    releaseSequence: 18,
-    crddCommit: "a".repeat(40),
-    crddTree: "b".repeat(40),
     packageContentRootSha256,
     rootProtectionPolicySha256: "2".repeat(64),
     keyStoragePolicySha256: "3".repeat(64),
@@ -75,20 +71,26 @@ function fixture() {
       byteLength: 1024,
       sha256: "4".repeat(64),
     },
-    nativeProvisionSupervisorArtifact: {
-      relativePath: "template/tools/coordinator/windows-x64/coordinator.exe",
-      target: "x86_64-pc-windows-msvc",
-      entrypointContractRevision: 2,
-      rustToolchain: "1.94.1",
-      byteLength: 2048,
-      sha256: "5".repeat(64),
-    },
+  };
+  const runtimeIdentity =
+    calculateRuntimeExecutionIdentityCandidate(executionFields);
+  assert.equal(runtimeIdentity.status, "candidate");
+  const payload = {
+    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
+    contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
+    crddVersion: "v0.18.0",
+    releaseSequence: 18,
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
+    ...executionFields,
+    runtimeExecutionIdentitySha256:
+      runtimeIdentity.runtimeExecutionIdentitySha256,
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt: "2027-08-15T00:00:00.000Z",
   };
   const manifestEnvelope = {
     contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
-    contractRevision: 2,
+    contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
     payload,
     signatures: [
       {
@@ -111,6 +113,7 @@ function fixture() {
       packageName: observedPackageContent.packageName,
       packageVersion: observedPackageContent.packageVersion,
       packageContentRootSha256,
+      runtimeExecutionIdentitySha256: payload.runtimeExecutionIdentitySha256,
       crddVersion: payload.crddVersion,
       crddCommit: payload.crddCommit,
       crddTree: payload.crddTree,
@@ -126,10 +129,11 @@ function fixture() {
   return value;
 }
 
-test("有効署名V2の旧native entrypoint revision 1をGateへ昇格しない", () => {
+test("削除済み旧manifest revisionをGateへ昇格しない", () => {
   const value = fixture();
   const payload = value.manifestVerificationInput.manifestEnvelope.payload;
-  payload.nativeProvisionSupervisorArtifact.entrypointContractRevision = 1;
+  payload.contractRevision = 3;
+  value.manifestVerificationInput.manifestEnvelope.contractRevision = 3;
   const privateKey = fixturePrivateKeys.get(value);
   assert.ok(privateKey);
   const signature = sign(null, frame(payload), privateKey).toString(
@@ -189,19 +193,10 @@ test("CRDD bundle and manifest observations match but remain non-authoritative",
   }
 });
 
-test("CRDD version, Commit, Tree, content, identity and permission mismatches fail closed", () => {
+test("Runtime Execution Identity、content、配布観測とpermissionの不一致をfail closedにする", () => {
   const mutations: Array<(value: ReturnType<typeof fixture>) => void> = [
     (value) => {
       value.crddDistributionObservation.distributionVerdict = "missing";
-    },
-    (value) => {
-      value.crddDistributionObservation.crddVersion = "v0.17.0";
-    },
-    (value) => {
-      value.crddDistributionObservation.crddCommit = "c".repeat(40);
-    },
-    (value) => {
-      value.crddDistributionObservation.crddTree = "d".repeat(40);
     },
     (value) => {
       value.crddDistributionObservation.packageContentRootSha256 = "f".repeat(
@@ -209,13 +204,8 @@ test("CRDD version, Commit, Tree, content, identity and permission mismatches fa
       );
     },
     (value) => {
-      value.expectedCrddVersion = "v0.17.0";
-    },
-    (value) => {
-      value.expectedCrddCommit = "e".repeat(40);
-    },
-    (value) => {
-      value.expectedCrddTree = "f".repeat(40);
+      value.crddDistributionObservation.runtimeExecutionIdentitySha256 =
+        "e".repeat(64);
     },
     (value) => {
       value.crddDistributionObservation.bundledPackageIdentityStable = false;
@@ -246,7 +236,7 @@ test("package gate cannot treat caller CRDD observations as Effect authorization
   );
   assert.equal(contract.runtimeOwnedCrddDistributionAdapter, "not_implemented");
   assert.equal(
-    contract.crddVersionCommitAndTreeBinding,
+    contract.runtimeExecutionIdentityBinding,
     "implemented_candidate",
   );
   assert.equal(contract.callerObservationMayAuthorizeEffect, false);

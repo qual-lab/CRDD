@@ -227,6 +227,7 @@ async function runProbe(target: string, scenario: string) {
           crddCommit: "e".repeat(40),
           crddTree: "f".repeat(40),
           packageContentRootSha256: "1".repeat(64),
+          runtimeExecutionIdentitySha256: "5".repeat(64),
         },
         tasks,
         expiresAtMs,

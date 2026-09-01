@@ -6,7 +6,7 @@ import { inflateSync } from "node:zlib";
 import { containsRecognizedSecretMaterial } from "./secret-material-policy.ts";
 
 export const GIT_OBJECT_READER_CONTRACT = "crdd-coordinator/git-object-reader";
-export const GIT_OBJECT_READER_CONTRACT_REVISION = 3;
+export const GIT_OBJECT_READER_CONTRACT_REVISION = 4;
 
 const OBJECT_ID = /^[a-f0-9]{40}$/u;
 const PACK_INDEX_MAGIC = 0xff744f63;
@@ -614,7 +614,11 @@ function parseTree(
           bytes: Buffer.from(blob.bytes),
         }),
       );
-    } else {
+    } else if (
+      !readPaths ||
+      pathSelected(relativePath, readPaths) ||
+      treeSelected(relativePath, readPaths)
+    ) {
       throw new Error("git_tree_mode_not_supported");
     }
     nextIndex = nulIndex + 21;
@@ -864,6 +868,8 @@ export function describeGitObjectReaderContract() {
     externalGitCliUsed: false,
     supportedTreeModes: Object.freeze(["040000", "100644", "100755"]),
     rejectedTreeModes: Object.freeze(["120000", "160000", "unknown"]),
+    unsupportedModeProjection:
+      "unselected_skipped_selected_or_full_rejected" as const,
     windowsNameCollision: "fail_closed",
     maximumWorkspaceFiles: MAXIMUM_WORKSPACE_FILES,
     maximumWorkspaceBytes: MAXIMUM_WORKSPACE_BYTES,

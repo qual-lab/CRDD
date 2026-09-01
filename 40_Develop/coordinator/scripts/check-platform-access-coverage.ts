@@ -20,11 +20,10 @@ const summaryPath = path.join(coverageRoot, "coverage-summary.json");
 const expectedSources = new Set(
   [
     path.join(crateRoot, "src", "main.rs"),
-    path.join(crateRoot, "src", "native_bootstrap_core.rs"),
     path.join(crateRoot, "src", "protocol.rs"),
     path.join(crateRoot, "src", "windows.rs"),
+    path.join(crateRoot, "src", "docker_repair.rs"),
     path.join(crateRoot, "tests", "cli.rs"),
-    path.join(crateRoot, "tests", "native_bootstrap_core.rs"),
   ].map(path.normalize),
 );
 
@@ -109,13 +108,11 @@ executeCommand(llvmTool("llvm-profdata"), [
 ]);
 const dependencyRoot = path.join(buildRoot, TARGET, "debug", "deps");
 const testExecutables = collectFiles(dependencyRoot, ".exe").filter((file) =>
-  /^(?:cli|crdd_platform_access|native_bootstrap_core)-[0-9a-f]+\.exe$/u.test(
-    path.basename(file),
-  ),
+  /^(?:cli|crdd_platform_access)-[0-9a-f]+\.exe$/u.test(path.basename(file)),
 );
-if (testExecutables.length !== 3) {
+if (testExecutables.length !== 2) {
   throw new Error(
-    `expected three instrumented test executables, got ${testExecutables.length}`,
+    `expected two instrumented test executables, got ${testExecutables.length}`,
   );
 }
 const binaryExecutable = path.join(
@@ -249,21 +246,7 @@ const summary = Object.freeze({
   sourceFiles: sourceCoverageEntries.sort((left, right) =>
     left.file.localeCompare(right.file),
   ),
-  excludedSources: Object.freeze([
-    Object.freeze({
-      file: "src/bin/coordinator.rs",
-      status: "Not Instrumented",
-      reason:
-        "release-only no_std/no_main entrypoint cannot be linked into the stable test coverage profile without changing its production contract",
-      risk: "Win32 FFI output failure, partial write and panic paths are not coverage-measured",
-      alternativeVerification:
-        "feature-specific release Clippy, strict PE inspection, exact real-artifact CLI tests and source review",
-      owner: "Qual-Lab",
-      humanDecision: "not_required",
-      recheck:
-        "entrypoint, Win32 import, linker argv, output handling or stable Rust coverage capability changes",
-    }),
-  ]),
+  excludedSources: Object.freeze([]),
   totals,
   branchCoverageCapability:
     totals.branches.count === 0

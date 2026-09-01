@@ -36,10 +36,10 @@ function exactLcov() {
 }
 
 test("TypeScript coverageは固定sourceとtest母集団を所有する", () => {
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 24);
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 24);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 24);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 24);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 13);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 12);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 13);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 12);
   assert.equal(
     PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
       "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
@@ -90,9 +90,9 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
 test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", () => {
   const result = parsePlatformAccessTsCoverageLcov(exactLcov());
   assert.deepEqual(result.totals, {
-    lines: { covered: 24, total: 24 },
-    functions: { covered: 24, total: 24 },
-    branches: { covered: 23, total: 24 },
+    lines: { covered: 13, total: 13 },
+    functions: { covered: 13, total: 13 },
+    branches: { covered: 12, total: 13 },
   });
   assert.deepEqual(result.sources[0]?.uncoveredBranches, [
     { line: 1, block: 0, branch: 0, taken: null },

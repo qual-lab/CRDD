@@ -1,7 +1,7 @@
 # 変更トレース: Coordinator Runtime 1.0
 
 変更ID: `CHG-000015`
-状態: `Reopened`（PR #33の内容は統合済み。Repository同梱の正式配布契約を追加確認中）
+状態: `Released`（v0.18.0。公開後の採用入口是正はCHG-000056で追跡）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 対象系列: Coordinator Runtime 1.x
@@ -20,11 +20,11 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 ## 1. 結論と現在状態
 
-署名固定版`48515eb`の[4経路4/4・復旧7シナリオ・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)と[完成評価・端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)を終え、内容採用後にPR #32でmainへ統合した。現在は[公開準備計画](CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)に従う。人間の追加指定「永続化」に対応する期限なしの正式配布契約を、同じ未リリース意図の最終是正として再開した。旧版の試験・署名をこの変更の成功には流用しない。
+署名固定版`48515eb`の[4経路4/4・復旧7シナリオ・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)と[完成評価・端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)を終え、内容採用後にPR #32でmainへ統合し、v0.18.0を公開した。本節以下の公開準備記録は当時の判断と発展を保持する。現在のv0.18.1候補は[CHG-000056](CHG-000056_Coordinator_Adoption_Interface_Correction.md)が所有し、旧版の試験・署名をその成功には流用しない。
 
 ### 正式配布manifestの期限なし指定（2026-09-01）
 
-利用者は、公開版が署名有効期限だけを理由に起動停止しないことを要求した。旧7日間は検証候補の設定であり、提案した1年間の期限は不採用となった。遠未来の日時を期限なしの代用にせず、manifestとenvelopeのrevision 3で必須キー`expiresAt: null`を期限なしとして署名する。revision 3のUTC文字列は期限付き、旧revision 2はUTC文字列の期限付きだけを保持する。新旧の署名domainを分離し、envelopeとpayloadのrevision一致、発行前拒否、署名鍵・Git Tree・2つのNative成果物・sequenceの結合を維持する。
+v0.18.0公開準備時点では、利用者は公開版が署名有効期限だけを理由に起動停止しないことを要求した。旧7日間は検証候補の設定であり、提案した1年間の期限は不採用となった。遠未来の日時を期限なしの代用にせず、manifestとenvelopeのrevision 3で必須キー`expiresAt: null`を期限なしとして署名する。revision 3のUTC文字列は期限付き、旧revision 2はUTC文字列の期限付きだけを保持する。新旧の署名domainを分離し、envelopeとpayloadのrevision一致、発行前拒否、署名鍵・Git Tree・当時の2つのNative成果物・sequenceの結合を維持する、と判断した。現在のv0.18.1候補は[CHG-000056](CHG-000056_Coordinator_Adoption_Interface_Correction.md)が所有するrevision 5、閉じたRuntime実行集合、単一`crdd-platform-access.exe`および旧revision拒否を正本とし、本段落を現行契約として使用しない。
 
 対象はTypeScript署名Coreと現在／履歴検証、署名CLI・事前検査、Rust Supervisorの同一契約、配布物のloader／package Gate、設計・仕様・手順・検証設計と公開案内。新CLIでは`--no-expiry`と`--expires-at <UTC>`のどちらか一つだけを指定し、不明・欠落・重複・両方指定は秘密読取り前に拒否する。nullへの改変、旧署名の新revision流用、開始前、期限ちょうど、未知revision、不正SchemaをTypeScriptとRustで反証する。Grant、初期同意、候補、準備記録の期限は変更しない。
 
@@ -34,9 +34,9 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 利用者はCRDDをsubmoduleで採用する前提から、RuntimeだけをGitHub Releaseの別ZIPとして取得・版合わせする二重導線を不採用とした。CRDD Repository自体を配布媒体とし、公式Release tagへ固定した`git clone`またはsubmoduleだけで、同じ版の文書・Source・Runtimeを検証して利用できる状態を正式要件とする。GitHub ReleaseはtagとRelease Noteを公開する接続部であり、同じ内容の独自ZIPを別の管理対象として作らない。OSやGit設定によって固定JSON、Sourceまたは署名対象Treeのbyteが変わらないよう、Repositoryのtext checkoutをLFへ固定し、同梱Native成果物だけをbinaryとして扱う。
 
-自己参照を避けるため、Release候補Commit Aへ2つの固定Native Runtime成果物を含め、manifestを含めない。Commit A／Tree AをRepository-local stagingで署名し、Commit Bでは`template/tools/coordinator/coordinator-package-manifest.json`だけを追加する。公式tagはCommit Bへ付け、manifestの`crddCommit`／`crddTree`はCommit A／Tree Aを保持する。実行時はmanifestだけを除外してTree Aを再構成し、Native成果物はTree Aのblobとmanifest内の個別Hashの双方へ結合する。cloneまたはsubmoduleのRoot直下にあるexact `.git` metadataはnon-linkのfile／directoryとして確認してTreeから除外するが、その他の未追跡file、別除外、欠落または改変は許可しない。
+v0.18.0公開準備時点では、自己参照を避けるためRelease候補Commit Aへ2つの固定Native Runtime成果物を含め、manifestを含めない方式を採用した。Commit A／Tree AをRepository-local stagingで署名し、Commit Bでは`template/tools/coordinator/coordinator-package-manifest.json`だけを追加する。公式tagはCommit Bへ付け、manifestの`crddCommit`／`crddTree`はCommit A／Tree Aを保持する。実行時はmanifestだけを除外してTree Aを再構成し、当時のNative成果物はTree Aのblobとmanifest内の個別Hashの双方へ結合する。cloneまたはsubmoduleのRoot直下にあるexact `.git` metadataはnon-linkのfile／directoryとして確認してTreeから除外するが、その他の未追跡file、別除外、欠落または改変は許可しない、とした。現在の配布A／Bと作業対象Execution Revisionの分離はCHG-000056を正本とする。
 
-Local Personal v1の必須配布Trustは、固定Ed25519 Release Trust、署名manifest、Commit／Treeおよび2つのNative artifact Hashで成立させる。Authenticodeは追加防御であり、正式成果物の必須条件にはしない。buildがall-zero以外の固定publisher digestを明示した場合だけ、そのAuthenticode署名とcache-only trustを追加条件にし、不成立時にmanifest-onlyへfallbackしない。これにより、自己署名証明書、Trust Store操作または別証明書配布をGit clone成立の前提へ追加しない。
+v0.18.0公開準備時点のLocal Personal v1では、必須配布Trustを固定Ed25519 Release Trust、署名manifest、Commit／Treeおよび当時の2つのNative artifact Hashで成立させた。Authenticodeは追加防御であり、正式成果物の必須条件にはしない。buildがall-zero以外の固定publisher digestを明示した場合だけ、そのAuthenticode署名とcache-only trustを追加条件にし、不成立時にmanifest-onlyへfallbackしない。これにより、自己署名証明書、Trust Store操作または別証明書配布をGit clone成立の前提へ追加しない、とした。現在のv0.18.1候補は閉じたRuntime実行集合と単一`crdd-platform-access.exe`をmanifest revision 5へ結合する。
 
 発火例は公式tagのclean clone／submodule、非発火例は未署名の開発branch、境界例はmanifestだけを追加したCommit BとRoot直下の`.git` metadata、判定情報不足例はNative成果物欠落、Tree差、link／reparseまたはmanifest不成立である。判定不能時はProvider、ProvisioningまたはRuntime Effectを発行せず停止する。一般利用者はRelease秘密鍵やpassphraseを持たず、公式Release担当者だけが最終候補を一度署名する。過去Release、旧固定Evidenceおよび公開済みtagは変更しない。この配布変更は同じ未リリースCoordinator Runtime 1.0の導入成立条件であり、新しいCHGへ分割しない。
 
@@ -491,7 +491,7 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 続く[小さい実務単位での自己適用](Evidence/CHG-000055_Focused_Dogfooding_588f04f.md)では、評価3件と台帳の実編集1件が同じ署名済み固定Runtimeで完了した。追加承認・鍵入力なし、全候補のexport／discard完了を確認した。親の追加確認で、参照元Architectureが契約投影の試験と署名済み復旧の実行入口を曖昧に扱う一文を検出し、具体的な試験名・入口・観測対象を分けた。元候補の断定も訂正し、Runtime内の指摘0件を内容完全性へ昇格していない。今回のsource実装変更はなく、この文書是正と前回の上限是正は最終独立監査前である。
 
-本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。
+この段落を記録したv0.18.0公開前時点では本変更は未リリースであり、内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさなかった。v0.18.0はその後公開済みである。現在のv0.18.1候補はCHG-000056の採用入口是正として別に追跡する。
 
 実務自己適用で記録した選定理由の由来不整合は、基準Commit `d6a0d2c8f245b5d5838c4a00e2afba8b703b03e0`から是正した。原因は、事前に自動選定したProviderを実行段階の明示指定へ変換し、選定器が人間の制約として説明していたことだった。説明文の置換ではなく、元の`auto`／明示指定を選定器へ渡す。同時に、再評価結果が事前選定と異なる場合は未消費のSelectionを失効させ、当該StageのHome観測・Mount Grant・Provider起動より前で`coordinator_task_selection_slate_mismatch`として停止する。実装・レビュー・是正・再レビューの4段階で同じ条件を使い、送信先の暗黙切替を許可しない。同一Provider Reviewerを許す既存の明示制約は維持し、理由を別実行Contextによる独立レビューとして区別した。
 

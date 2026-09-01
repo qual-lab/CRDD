@@ -1,9 +1,5 @@
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { verifyPlatformProvisionerManifestCandidate } from "./platform-provisioner-trust-core.ts";
-import {
-  isCanonicalCrddGitObjectId,
-  isCanonicalCrddVersion,
-} from "./release-identity-grammar.ts";
 
 const INPUT_KEYS = new Set([
   "manifestVerificationInput",
@@ -16,6 +12,7 @@ const OBSERVATION_KEYS = new Set([
   "packageName",
   "packageVersion",
   "packageContentRootSha256",
+  "runtimeExecutionIdentitySha256",
   "crddVersion",
   "crddCommit",
   "crddTree",
@@ -58,12 +55,8 @@ function normalizeObservation(raw: unknown) {
     typeof value.packageVersion !== "string" ||
     typeof value.packageContentRootSha256 !== "string" ||
     !HEX64.test(value.packageContentRootSha256) ||
-    typeof value.crddVersion !== "string" ||
-    !isCanonicalCrddVersion(value.crddVersion) ||
-    typeof value.crddCommit !== "string" ||
-    !isCanonicalCrddGitObjectId(value.crddCommit) ||
-    typeof value.crddTree !== "string" ||
-    !isCanonicalCrddGitObjectId(value.crddTree) ||
+    typeof value.runtimeExecutionIdentitySha256 !== "string" ||
+    !HEX64.test(value.runtimeExecutionIdentitySha256) ||
     value.distributionVerdict !== "verified_crdd_bundle" ||
     value.bundledPackageIdentityStable !== true ||
     value.permissionPolicyMatch !== true
@@ -77,15 +70,7 @@ export function evaluatePlatformProvisionerPackageGateCandidate(
 ) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
-    if (
-      !input ||
-      typeof input.expectedCrddVersion !== "string" ||
-      !isCanonicalCrddVersion(input.expectedCrddVersion) ||
-      typeof input.expectedCrddCommit !== "string" ||
-      !isCanonicalCrddGitObjectId(input.expectedCrddCommit) ||
-      typeof input.expectedCrddTree !== "string" ||
-      !isCanonicalCrddGitObjectId(input.expectedCrddTree)
-    ) {
+    if (!input) {
       return response(
         "blocked",
         "platform_provisioner_package_gate_input_invalid",
@@ -112,12 +97,8 @@ export function evaluatePlatformProvisionerPackageGateCandidate(
       observation.packageVersion !== manifest.packageVersion ||
       observation.packageContentRootSha256 !==
         manifest.packageContentRootSha256 ||
-      observation.crddVersion !== manifest.crddVersion ||
-      observation.crddVersion !== input.expectedCrddVersion ||
-      observation.crddCommit !== manifest.crddCommit ||
-      observation.crddCommit !== input.expectedCrddCommit ||
-      observation.crddTree !== manifest.crddTree ||
-      observation.crddTree !== input.expectedCrddTree
+      observation.runtimeExecutionIdentitySha256 !==
+        manifest.runtimeExecutionIdentitySha256
     ) {
       return response(
         "blocked",
@@ -153,7 +134,7 @@ export function describePlatformProvisionerPackageGateContract() {
     manifestVerificationReuse: "implemented_candidate",
     packageIdentityBinding: "implemented_candidate",
     packageContentRootBinding: "implemented_candidate",
-    crddVersionCommitAndTreeBinding: "implemented_candidate",
+    runtimeExecutionIdentityBinding: "implemented_candidate",
     runtimeOwnedCrddDistributionAdapter: "not_implemented",
     runtimeOwnedPackageFilesystemAdapter: "not_implemented",
     runtimeOwnedReleaseIdentitySelection: "not_implemented",

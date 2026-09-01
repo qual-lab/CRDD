@@ -10,7 +10,6 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
-  "40_Develop/coordinator/scripts/build-native-bootstrap.ts",
   "40_Develop/coordinator/scripts/release-staging-manifest.ts",
   "40_Develop/coordinator/scripts/sign-release-manifest.ts",
   "40_Develop/coordinator/src/core/doctor.ts",
@@ -18,47 +17,25 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/security/bounded-file-snapshot.ts",
   "40_Develop/coordinator/src/security/platform-access-adapter.ts",
   "40_Develop/coordinator/src/security/platform-access-release.ts",
-  "40_Develop/coordinator/src/security/native-provision-supervisor-release.ts",
-  "40_Develop/coordinator/src/security/native-bootstrap-pe-inspector.ts",
   "40_Develop/coordinator/src/security/platform-provisioner-manifest-loader.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-active-pointer.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-active-pointer-store.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-effect.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-install-layout.ts",
   "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-pre-active-one-shot.ts",
   "40_Develop/coordinator/src/security/platform-provisioner-release-identity.ts",
   "40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-windows-dacl.ts",
   "40_Develop/coordinator/src/security/root-observation.ts",
-  "40_Develop/coordinator/src/security/runtime-activation-record.ts",
-  "40_Develop/coordinator/src/security/runtime-root-path-identity.ts",
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/authority-root-path-lexical.contract.test.ts",
   "40_Develop/coordinator/tests/bounded-file-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/native-bootstrap-build.contract.test.ts",
   "40_Develop/coordinator/tests/doctor.contract.test.ts",
   "40_Develop/coordinator/tests/platform-access-adapter.contract.test.ts",
   "40_Develop/coordinator/tests/platform-access-release.contract.test.ts",
-  "40_Develop/coordinator/tests/native-provision-supervisor-release.contract.test.ts",
-  "40_Develop/coordinator/tests/native-bootstrap-pe-inspector.contract.test.ts",
-  "40_Develop/coordinator/tests/native-bootstrap-pe-runner.contract.test.ts",
   "40_Develop/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
   "40_Develop/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-active-pointer.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-active-pointer-store.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-effect.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-install-layout.contract.test.ts",
   "40_Develop/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-pre-active-one-shot.contract.test.ts",
   "40_Develop/coordinator/tests/platform-provisioner-release-identity.contract.test.ts",
   "40_Develop/coordinator/tests/platform-provisioner-trust-core.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-windows-dacl.contract.test.ts",
   "40_Develop/coordinator/tests/root-observation.contract.test.ts",
-  "40_Develop/coordinator/tests/runtime-activation-record.contract.test.ts",
-  "40_Develop/coordinator/tests/runtime-root-path-identity.contract.test.ts",
   "40_Develop/coordinator/tests/sign-release-manifest.contract.test.ts",
 ]);
 
@@ -104,12 +81,6 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "exact source/test母集団、LCOV grammar負例および連続出力一致",
         "LCOV grammar、Node coverageまたは固定母集団の変更時",
       ),
-    "40_Develop/coordinator/scripts/build-native-bootstrap.ts": obligation(
-      "実Cargo失敗、全Filesystem raceおよび全禁止環境変数を同一coverage runで到達していない",
-      "外部build overrideまたは不正targetへのrelease成果物生成",
-      "固定argv exact試験、crate外target／RUSTFLAGS拒否、二clean build byte一致およびfeature付きClippy",
-      "toolchain、target、Cargo feature、link argvまたはbuild環境境界変更時",
-    ),
     "40_Develop/coordinator/scripts/release-staging-manifest.ts": obligation(
       "全descriptor failureと全置換timingを同一runで到達していない",
       "稀なFilesystem failureのEffect分類漏れ",
@@ -155,20 +126,6 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "同一handle観測、同長上書き、短縮、追記およびRoot差試験",
         "Release artifactまたはFilesystem API変更時",
       ),
-    "40_Develop/coordinator/src/security/native-provision-supervisor-release.ts":
-      obligation(
-        "成果物観測の全OS例外とIdentity failureを同一runで到達していない",
-        "native supervisor artifact差替えの検出漏れ",
-        "同一handle観測、改変、偽tokenおよびRoot差試験",
-        "native supervisor成果物またはFilesystem API変更時",
-      ),
-    "40_Develop/coordinator/src/security/native-bootstrap-pe-inspector.ts":
-      obligation(
-        "実Release正常PEと固定mutation母集団外の全破損byte組合せは未到達である",
-        "未知の複合破損PEを誤分類する残存risk",
-        "independent fixtureのheader、section、RVA、ASCII、descriptor、thunk、directory正負試験と実Release PE検査",
-        "PE policy、toolchain、link argvまたはRelease artifact変更時",
-      ),
     "40_Develop/coordinator/src/security/platform-provisioner-manifest-loader.ts":
       obligation(
         "全read failure、上限およびIdentity差を同一runで到達していない",
@@ -176,47 +133,12 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "canonical byte、上限、同一handleおよびIdentity差契約試験",
         "manifest Schemaまたはloader変更時",
       ),
-    "40_Develop/coordinator/src/security/platform-provisioner-active-pointer.ts":
-      obligation(
-        "全shape、budgetおよびtransition failureを同一runで到達していない",
-        "不正pointerまたはrollback遷移の誤受理",
-        "exact codec、初回任意正Sequence、厳密増加、previous Hashおよび同値拒否試験",
-        "pointer Schema、Hash domainまたはtransition変更時",
-      ),
-    "40_Develop/coordinator/src/security/platform-provisioner-active-pointer-store.ts":
-      obligation(
-        "全file open、read、closeおよびIdentity failureを同一runで到達していない",
-        "Path差替えまたは不完全pointerの誤受理",
-        "non-link同一file安定読取りと改変・欠落負例",
-        "native durable store実装またはFilesystem API変更時",
-      ),
-    "40_Develop/coordinator/src/security/platform-provisioner-effect.ts":
-      obligation(
-        "未到達分岐なし",
-        "現固定版では追加残存riskなし",
-        "Effect固定blocked契約試験",
-        "Provision Effect実装時",
-      ),
-    "40_Develop/coordinator/src/security/platform-provisioner-install-layout.ts":
-      obligation(
-        "未到達分岐なし",
-        "現固定版では追加残存riskなし",
-        "Windows字句subset、active選択およびorphan非選択契約試験",
-        "layoutまたはnative store変更時",
-      ),
     "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts":
       obligation(
         "全inventory、descriptorおよびFilesystem failureを同一runで到達していない",
         "package closureまたは同一handle検証の見落とし",
         "余分・欠落・改変・link・Identity差の契約試験",
         "package inventoryまたはstaging copy実装時",
-      ),
-    "40_Develop/coordinator/src/security/platform-provisioner-pre-active-one-shot.ts":
-      obligation(
-        "native entrypointは実装済みだがRelease／loaded image結合と直接観測は未実装である",
-        "caller候補またはNode Path起動を初期Trustへ誤昇格する可能性",
-        "caller入力非参照、全Effect非発行および通常Runtime非発火契約試験",
-        "native supervisorまたはprocess controller実装時",
       ),
     "40_Develop/coordinator/src/security/platform-provisioner-release-identity.ts":
       obligation(
@@ -232,33 +154,12 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "全field差、固定公開鍵、専用Rust成果物および署名domain契約試験",
         "manifest Schema、署名domainまたはTrust変更時",
       ),
-    "40_Develop/coordinator/src/security/platform-provisioner-windows-dacl.ts":
-      obligation(
-        "構造claim evaluatorの一部failure分岐を未到達とする",
-        "非Authority claimの誤分類",
-        "owner、inheritance、writer、主体bindingおよびEffect非発行契約試験",
-        "native DACL観測または適用実装時",
-      ),
     "40_Develop/coordinator/src/security/root-observation.ts": obligation(
       "Rust結果からRoot観測へのproduction写像は未実装である",
       "未確認主体またはProtection値の補完",
       "selected-user binding必須、exact inputおよび固定blocked契約試験",
       "Root観測mapping実装時",
     ),
-    "40_Develop/coordinator/src/security/runtime-activation-record.ts":
-      obligation(
-        "既存activation集約の全blocked分岐を本変更専用runで到達していない",
-        "blocker/evidence投影の回帰",
-        "12 blocker、6 evidence、Gate blockedおよびAuthority/Capability false契約試験",
-        "active readerまたはactivation dependency変更時",
-      ),
-    "40_Develop/coordinator/src/security/runtime-root-path-identity.ts":
-      obligation(
-        "全Filesystem race、close failureおよびPOSIX未実装分岐を同一runで到達していない",
-        "Root Identity差替えまたは未分類Filesystemの誤受理",
-        "Root/parent/Repository replacement、link、identity不明およびprecheck blocked試験",
-        "native protected readerまたはPOSIX classifier実装時",
-      ),
   });
 
 function obligation(

@@ -82,7 +82,7 @@ function verifySignedPackagePrerequisite() {
       release?.status !== "candidate" ||
       release.qualLabManifestCryptographicMatch !== true ||
       release.runtimeOwnedReleaseTrustConfirmed !== true ||
-      release.releaseIdentityRuntimeOwned !== true ||
+      release.runtimeExecutionIdentityRuntimeOwned !== true ||
       release.crddDistributionConfirmed !== true ||
       !issued.capability ||
       typeof issued.capability !== "object"

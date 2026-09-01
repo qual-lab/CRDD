@@ -52,7 +52,14 @@ function writeObject(commonDirectory: string, type: string, bytes: Buffer) {
   return id;
 }
 
-function repository(t: TestContext, policyText: string | null) {
+function repository(
+  t: TestContext,
+  policyText: string | null,
+  options: Readonly<{
+    includeUnrelatedGitlink?: boolean;
+    policyMode?: "100644" | "160000";
+  }> = {},
+) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-policy-repo-"));
   const git = path.join(root, ".git");
   fs.mkdirSync(path.join(git, "refs", "heads"), { recursive: true });
@@ -63,19 +70,44 @@ function repository(t: TestContext, policyText: string | null) {
   );
   const treeBytes = policyText
     ? (() => {
-        const policyBlob = writeObject(git, "blob", Buffer.from(policyText));
+        const policyObject =
+          options.policyMode === "160000"
+            ? writeObject(
+                git,
+                "commit",
+                Buffer.from(
+                  "tree 0000000000000000000000000000000000000000\n\npolicy gitlink\n",
+                ),
+              )
+            : writeObject(git, "blob", Buffer.from(policyText));
         const crddTree = writeObject(
           git,
           "tree",
           Buffer.concat([
-            Buffer.from("100644 external-send-policy.json\0"),
-            Buffer.from(policyBlob, "hex"),
+            Buffer.from(
+              `${options.policyMode ?? "100644"} external-send-policy.json\0`,
+            ),
+            Buffer.from(policyObject, "hex"),
           ]),
         );
-        return Buffer.concat([
+        const entries = [
           Buffer.from("40000 .crdd\0"),
           Buffer.from(crddTree, "hex"),
-        ]);
+        ];
+        if (options.includeUnrelatedGitlink) {
+          const submoduleCommit = writeObject(
+            git,
+            "commit",
+            Buffer.from(
+              "tree 0000000000000000000000000000000000000000\n\nsubmodule\n",
+            ),
+          );
+          entries.push(
+            Buffer.from("160000 00_CRDD\0"),
+            Buffer.from(submoduleCommit, "hex"),
+          );
+        }
+        return Buffer.concat(entries);
       })()
     : Buffer.alloc(0);
   const tree = writeObject(git, "tree", treeBytes);
@@ -176,5 +208,24 @@ test("別RepositoryのPolicy欠落・不正・disabled・承認済みを開始Co
   assert.equal(
     resolve(t, repository(t, `${JSON.stringify(policy())}\n`))?.status,
     "resolved",
+  );
+  const parentWithSubmodule = resolve(
+    t,
+    repository(t, `${JSON.stringify(policy())}\n`, {
+      includeUnrelatedGitlink: true,
+    }),
+  );
+  assert.equal(parentWithSubmodule?.status, "resolved");
+  assert.ok(parentWithSubmodule?.capability);
+  assert.match(parentWithSubmodule?.sourceRevision ?? "", /^[0-9a-f]{40}$/u);
+  assert.match(parentWithSubmodule?.policyHash ?? "", /^[0-9a-f]{64}$/u);
+  assert.equal(
+    resolve(
+      t,
+      repository(t, `${JSON.stringify(policy())}\n`, {
+        policyMode: "160000",
+      }),
+    ),
+    null,
   );
 });

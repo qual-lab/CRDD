@@ -401,7 +401,7 @@ test("日本語の手動復旧案内は復旧記録上限時の再試行・削�
   }
 });
 
-test("日本語の環境診断は未実行の確認・未有効化・認証値非記録を明示する", () => {
+test("日本語の環境診断は未実行・状態変更なし・認証値非記録を明示する", () => {
   const report = Object.freeze({
     status: "blocked",
     providers: {
@@ -438,7 +438,7 @@ test("日本語の環境診断は未実行の確認・未有効化・認証値�
   );
   assert.match(
     human.stdout,
-    /Runtimeルートの要求: candidate; 有効化は行っていません/u,
+    /Runtimeルートの評価: candidate; 状態変更は行っていません/u,
   );
   assert.match(human.stdout, /実行を妨げる事項: 1/u);
   assert.match(human.stdout, /fixture_check: fixture_reason/u);

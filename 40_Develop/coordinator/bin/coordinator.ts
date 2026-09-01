@@ -3,11 +3,8 @@
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
 import {
-  parseActivateArguments,
   parseCandidateArguments,
-  parseDisableArguments,
   parseDoctorArguments,
-  parseProvisionArguments,
   parseTaskArguments,
 } from "../src/core/cli-options.ts";
 import {
@@ -22,7 +19,6 @@ import {
   bindTaskCliCancellationSignals,
   projectTaskCliCancellationFailure,
 } from "../src/core/task-cli-cancellation.ts";
-import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
   readRuntimeOwnedCandidateBundle,
@@ -46,11 +42,8 @@ import {
   recoverRuntimeOwnedDockerTask,
 } from "../src/security/docker-recovery-runtime.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
-import { runPlatformProvisionerEffect } from "../src/security/platform-provisioner-effect.ts";
-import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
-type EffectCommand = "activate" | "disable";
 class UsageError extends Error {
   readonly usage = true;
 }
@@ -85,13 +78,13 @@ function plainRecord(raw: unknown): Readonly<Record<string, unknown>> | null {
 }
 
 function printHelp() {
-  process.stdout.write(
-    `Coordinator Runtime 1.0 (implementation candidate)\n\n`,
-  );
+  process.stdout.write(`Coordinator Runtime 1.0\n\n`);
   process.stdout.write(`Usage:\n`);
   process.stdout.write(
-    `  coordinator doctor [--json] [--isolation] [--enable-runtime [--runtime-root <absolute-path>]]\n`,
+    `  coordinator task --request-stdin [--json]  # verifies prerequisites per operation\n`,
   );
+  process.stdout.write(`  coordinator capabilities --json\n`);
+  process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
   process.stdout.write(
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
   );
@@ -108,16 +101,6 @@ function printHelp() {
     `    Windows only; explicit last-resort repair for the fixed known Docker Desktop failure. Never an automatic fallback and never deletes the retained run directory.\n`,
   );
   process.stdout.write(
-    `  coordinator activate [--runtime-root <absolute-path>] [--authority-root <absolute-path>] [--json]\n`,
-  );
-  process.stdout.write(
-    `  coordinator disable [--runtime-root <absolute-path>] [--json]\n`,
-  );
-  process.stdout.write(`  coordinator provision [--json]\n`);
-  process.stdout.write(
-    `  coordinator task --request-stdin [--json]  # repository is the current directory\n`,
-  );
-  process.stdout.write(
     `  coordinator candidate export --candidate-id <opaque-id> --json\n`,
   );
   process.stdout.write(
@@ -126,18 +109,32 @@ function printHelp() {
   process.stdout.write(
     `  coordinator candidate recover-store --recovery-id <store-recovery-id> --confirm [--json]\n`,
   );
+  process.stdout.write(`\nNormal Task use starts with task.\n`);
+}
+
+function runCapabilitiesCommand(args: readonly string[]) {
+  if (args.length !== 1 || args[0] !== "--json") {
+    process.stderr.write("Usage: coordinator capabilities --json\n");
+    process.exitCode = 64;
+    return;
+  }
   process.stdout.write(
-    `\n--enable-runtime requests a diagnostic candidate; it does not activate the Runtime.\n`,
+    `${JSON.stringify({
+      contract: "crdd-coordinator/capabilities",
+      contractRevision: 1,
+      profile: "local_personal",
+      commands: Object.freeze([
+        Object.freeze({
+          command: "task",
+          availability: "available",
+          invocation: "task --request-stdin --json",
+        }),
+        Object.freeze({ command: "doctor", availability: "available" }),
+        Object.freeze({ command: "candidate", availability: "available" }),
+      ]),
+    })}\n`,
   );
-  process.stdout.write(
-    `provision command grammar is an implementation candidate; the Provision Effect is not implemented and is blocked before distribution reads, time access, path resolution, or filesystem effects. activate and disable effects are not implemented.\n`,
-  );
-  process.stdout.write(
-    `CRDD_COORDINATOR_ROOT is used by doctor --enable-runtime, activate, and disable; --runtime-root wins.\n`,
-  );
-  process.stdout.write(
-    `CRDD_COORDINATOR_AUTHORITY_ROOT has no OS default and is used only by activate.\n`,
-  );
+  process.exitCode = 0;
 }
 
 function readBoundedTaskRequestFromStdin() {
@@ -383,82 +380,6 @@ function printCommandReport(
   }
 }
 
-function runInactiveEffectCommand(
-  command: EffectCommand,
-  args: readonly string[],
-) {
-  const parsed =
-    command === "activate"
-      ? parseActivateArguments(
-          args,
-          process.env.CRDD_COORDINATOR_ROOT,
-          process.env.CRDD_COORDINATOR_AUTHORITY_ROOT,
-        )
-      : parseDisableArguments(args, process.env.CRDD_COORDINATOR_ROOT);
-  if (parsed.status !== "ok") {
-    const reason =
-      typeof parsed.reason === "string"
-        ? parsed.reason
-        : `${command}_arguments_invalid`;
-    const report = Object.freeze({
-      status: "blocked",
-      command,
-      reason,
-      filesystemEffectIssued: false,
-      runtimeCapabilityIssued: false,
-    });
-    printCommandReport(report, parsed.jsonRequested);
-    process.exitCode = parsed.usageError ? 64 : 2;
-    return;
-  }
-  const parsedValue = plainRecord(parsed.value);
-  if (!parsedValue || typeof parsedValue.json !== "boolean") {
-    throw new Error(`${command}_arguments_invalid`);
-  }
-  let isSelectionValid = false;
-  try {
-    const runtimeRoot = selectRuntimeRootCandidate({
-      repositoryRoot: resolveVerifiedRepositoryRootFromWorkingDirectory(
-        process.cwd(),
-      ),
-      ...plainRecord(parsedValue.runtimeRootRequest),
-    });
-    const authorityRoot =
-      command === "activate"
-        ? selectAuthorityRootCandidate(parsedValue.authorityRootRequest)
-        : null;
-    isSelectionValid =
-      runtimeRoot.status === "candidate" &&
-      (authorityRoot === null || authorityRoot.status === "candidate");
-  } catch {
-    isSelectionValid = false;
-  }
-  if (!isSelectionValid) {
-    const report = Object.freeze({
-      status: "blocked",
-      command,
-      reason: `${command}_request_invalid`,
-      filesystemEffectIssued: false,
-      runtimeCapabilityIssued: false,
-    });
-    printCommandReport(report, parsedValue.json);
-    process.exitCode = 2;
-    return;
-  }
-  const report = Object.freeze({
-    status: "blocked",
-    command,
-    reason:
-      command === "activate"
-        ? "runtime_activation_effect_not_implemented"
-        : "runtime_disable_effect_not_implemented",
-    filesystemEffectIssued: false,
-    runtimeCapabilityIssued: false,
-  });
-  printCommandReport(report, parsedValue.json);
-  process.exitCode = 2;
-}
-
 const [, , command, ...args] = process.argv;
 
 if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
@@ -482,40 +403,10 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
 ) {
   printHelp();
   process.exitCode = 0;
-} else if (command === "activate" || command === "disable") {
-  runInactiveEffectCommand(command, args);
-} else if (command === "provision") {
-  const parsed = parseProvisionArguments(args);
-  const parsedValue = plainRecord(parsed.value);
-  const isParsed =
-    parsed.status === "ok" &&
-    parsedValue &&
-    typeof parsedValue.json === "boolean";
-  const effect = isParsed ? runPlatformProvisionerEffect() : null;
-  const report = Object.freeze(
-    effect
-      ? { command, ...effect }
-      : {
-          status: "blocked",
-          command,
-          reason:
-            typeof parsed.reason === "string"
-              ? parsed.reason
-              : "provision_arguments_invalid",
-          crddDistributionConfirmed: false,
-          qualLabManifestTrustConfirmed: false,
-          filesystemEffectIssued: false,
-          runtimeCapabilityIssued: false,
-        },
-  );
-  const isJsonRequested =
-    isParsed && typeof parsedValue.json === "boolean"
-      ? parsedValue.json
-      : parsed.jsonRequested;
-  printCommandReport(report, isJsonRequested);
-  process.exitCode = !isParsed ? 64 : 2;
 } else if (command === "task") {
   await runTaskCommand(args);
+} else if (command === "capabilities") {
+  runCapabilitiesCommand(args);
 } else if (command === "candidate") {
   runCandidateCommand(args);
 } else if (command === "doctor") {
@@ -583,7 +474,6 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
                 cwd: resolveVerifiedRepositoryRootFromWorkingDirectory(
                   process.cwd(),
                 ),
-                runtimeRootRequest: options.runtimeRootRequest,
               }),
               dockerTaskRecovery: inspectRuntimeOwnedDockerTaskRecoveryState(),
             });

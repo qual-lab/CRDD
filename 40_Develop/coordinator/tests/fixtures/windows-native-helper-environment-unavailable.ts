@@ -52,7 +52,8 @@ await mock.module(
       verifyBundledCoordinatorPackageFromFixedManifestCandidate: () => ({
         status: "candidate",
         runtimeOwnedReleaseTrustConfirmed: true,
-        releaseIdentityRuntimeOwned: true,
+        releaseIdentityRuntimeOwned: false,
+        runtimeExecutionIdentityRuntimeOwned: true,
         crddDistributionConfirmed: true,
         platformAccessArtifact: artifact,
       }),

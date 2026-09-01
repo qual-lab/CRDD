@@ -156,8 +156,8 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     (!development &&
       (!("runtimeOwnedReleaseTrustConfirmed" in packageVerification) ||
         packageVerification.runtimeOwnedReleaseTrustConfirmed !== true ||
-        !("releaseIdentityRuntimeOwned" in packageVerification) ||
-        packageVerification.releaseIdentityRuntimeOwned !== true ||
+        !("runtimeExecutionIdentityRuntimeOwned" in packageVerification) ||
+        packageVerification.runtimeExecutionIdentityRuntimeOwned !== true ||
         !("crddDistributionConfirmed" in packageVerification) ||
         packageVerification.crddDistributionConfirmed !== true))
   ) {

@@ -176,8 +176,103 @@ fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
     ))
 }
 
+fn limited_uppercase_units(character: char) -> &'static [char] {
+    match character {
+        'a' => &['A'],
+        'b' => &['B'],
+        'c' => &['C'],
+        'd' => &['D'],
+        'e' => &['E'],
+        'f' => &['F'],
+        'g' => &['G'],
+        'h' => &['H'],
+        'i' => &['I'],
+        'j' => &['J'],
+        'k' => &['K'],
+        'l' => &['L'],
+        'm' => &['M'],
+        'n' => &['N'],
+        'o' => &['O'],
+        'p' => &['P'],
+        'q' => &['Q'],
+        'r' => &['R'],
+        's' => &['S'],
+        't' => &['T'],
+        'u' => &['U'],
+        'v' => &['V'],
+        'w' => &['W'],
+        'x' => &['X'],
+        'y' => &['Y'],
+        'z' => &['Z'],
+        'ß' => &['S', 'S'],
+        'ı' => &['I'],
+        'ſ' => &['S'],
+        'K' => &['K'],
+        'ﬀ' => &['F', 'F'],
+        'ﬁ' => &['F', 'I'],
+        'ﬂ' => &['F', 'L'],
+        'ﬃ' => &['F', 'F', 'I'],
+        'ﬄ' => &['F', 'F', 'L'],
+        'ﬅ' | 'ﬆ' => &['S', 'T'],
+        _ => &[],
+    }
+}
+
+fn limited_uppercase_equals(value: &str, expected: &str) -> bool {
+    let mut expected = expected.chars();
+    for character in value.chars() {
+        let mapped = limited_uppercase_units(character);
+        if mapped.is_empty() {
+            if expected.next() != Some(character) {
+                return false;
+            }
+        } else {
+            for unit in mapped {
+                if expected.next() != Some(*unit) {
+                    return false;
+                }
+            }
+        }
+    }
+    expected.next().is_none()
+}
+
+fn reserved_windows_basename(segment: &str) -> bool {
+    let basename = segment
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .trim_end_matches(['.', ' ']);
+    [
+        "CON", "PRN", "AUX", "NUL", "CLOCK$", "CONIN$", "CONOUT$", "COM1", "COM2", "COM3", "COM4",
+        "COM5", "COM6", "COM7", "COM8", "COM9", "COM¹", "COM²", "COM³", "LPT1", "LPT2", "LPT3",
+        "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "LPT¹", "LPT²", "LPT³",
+    ]
+    .iter()
+    .any(|expected| limited_uppercase_equals(basename, expected))
+}
+
 fn is_supported_windows_path(path: &str) -> bool {
-    crate::native_bootstrap_core::supported_windows_path_bytes(path.as_bytes())
+    let bytes = path.as_bytes();
+    bytes.len() >= 3
+        && bytes[0].is_ascii_uppercase()
+        && bytes[1] == b':'
+        && bytes[2] == b'\\'
+        && (bytes.len() == 3 || bytes.last() != Some(&b'\\'))
+        && !bytes.contains(&0)
+        && (bytes.len() == 3
+            || path[3..].split('\\').all(|segment| {
+                !segment.is_empty()
+                    && segment != "."
+                    && segment != ".."
+                    && !segment.ends_with(['.', ' '])
+                    && !segment.chars().any(|character| {
+                        character <= '\u{001f}'
+                            || character == '\u{007f}'
+                            || matches!(character, '<' | '>' | ':' | '"' | '/' | '|' | '?' | '*')
+                    })
+                    && !reserved_windows_basename(segment)
+            }))
 }
 
 pub fn parse_request(bytes: &[u8]) -> Option<Request> {

@@ -1,7 +1,7 @@
 # 変更トレース: v0.18.0候補の統合とArchitecture Candidate再基準化
 
 変更ID: `CHG-000014`
-状態: `Integrated — Pending Release`（PR #32でmain統合済み・公開準備中）
+状態: `Released`（v0.18.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-01
 対象系列: v0.18.x

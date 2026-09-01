@@ -101,7 +101,7 @@ function releaseConfirmed(candidate: unknown) {
   return (
     value.status === "candidate" &&
     value.runtimeOwnedReleaseTrustConfirmed === true &&
-    value.releaseIdentityRuntimeOwned === true &&
+    value.runtimeExecutionIdentityRuntimeOwned === true &&
     value.crddDistributionConfirmed === true
   );
 }

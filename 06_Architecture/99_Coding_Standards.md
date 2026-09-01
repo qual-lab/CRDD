@@ -1,8 +1,8 @@
 # CRDD内部ツール・コーディング規約
 
-Status: Candidate
+Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-08-31
+Last Updated: 2026-09-01
 Scope: `40_Develop/**`と、CRDDが配布正本として所有し`40_Develop/**`から参照する`template/tools/**`の実装
 
 ## 1. 目的と正本
@@ -50,7 +50,7 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 | 通常のJSONファイル | ASCII `kebab-case` | `provider-profile.json` |
 | Pythonファイル | ASCII `kebab-case` | `provider-egress-proxy.py` |
 | Plain text成果物 | ASCII `kebab-case` | `general-task-verification.txt` |
-| 固定Native実行物 | ASCII `kebab-case` | `coordinator.exe`, `crdd-platform-access.exe` |
+| 固定Native実行物 | ASCII `kebab-case` | `crdd-platform-access.exe` |
 | 版固定Policy成果物 | ASCII `kebab-case`のsubject＋`-<major>.<minor>.<patch>.policy` | `windows-docker-desktop-4.41.2.policy` |
 | Dockerfile | ASCII `kebab-case`のsubject＋`.Dockerfile` | `provider-egress-proxy.Dockerfile` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |
@@ -141,6 +141,8 @@ Trust、Authority、Recoveryまたは安全上重要な結果をAPI、IPC、call
 Workerまたは別Threadが所有するOS lockの直後に、Console、別Workerまたは子Process等の境界へ進む場合は、取得APIのreturn、固定sleep、event-loop turn数またはJS-levelのWorker round-tripだけをnative resourceのcross-boundary readinessとみなさない。実OS resourceと後続Processを組み合わせた反復試験でnative crashが残る場合は、同一Process内の待機を継ぎ足さず、独立Supervisor Process等のresource所有境界へ分離する。その取得、readiness、releaseおよびexitを明示応答で確認し、その後にlock identity、所有generationおよび耐久Recovery recordを最初の後続Effect前に再確認する。timeout、error、exit、置換、retireまたは判定不能では後続境界を開かず、既存のcleanup／RecoveryへFail Closedで戻す。単独lock試験だけで、実Operation状態へ結合したlockとConsole／child spawnの複合順序を成立済みと推定しない。
 
 複数境界の結合不具合を人間の反復操作だけで探索しない。pureな計算、adapter状態機械、実子Process、OS resource、公開Runtime入口の順に、下位Gateを通過した場合だけ次の境界を開く再実行可能な試験へ分解する。固定公開値と試験専用実装で再現できる入力、通知順、取消またはcleanupを手動確認へ残さず、一度観測した失敗順序は原因を所有する層の回帰試験へ追加する。物理端末の表示・focus・key入力等、実OS環境でしか確認できない最終境界は限定実測として分離し、その実測を下位Gateの代替にしない。人間の承認または外部送信Authorityを試験用入力で自動成立させない。
+
+実行環境が所有するSandboxまたは権限制約により、実子孫Processの終了、OS handle、端末その他の実資源を観測できない場合、同じ試験を毎回一般失敗として流して後から口頭で補正しない。制限環境で実行できる母集団と、実OS能力を必須にする専用Gateを、共通の安定した試験名または機械可読な分類で閉集合へ分ける。通常の全体試験は専用Gateを含む完全母集団のまま維持し、制限環境用の成功だけを全体合格へ読み替えない。専用Gateは必要な実環境で別に成功させ、両方の件数、対象改訂版および実行環境を一つの検証結果へ集約する。分類名、除外集合および専用Gate集合の差は契約試験で検出し、対象追加を暗黙に未実行へしない。
 
 cleanupの試験は、例外を捕捉したことまたは終了値を返したことだけで合格にしない。各cleanup試行の成否、全試行を継続したこと、listener・handle・lock・child Process・一時Authority・回復記録の終了後状態、および不明時に通常成功を返さないことを確認する。削除対象が既に存在しない場合と、削除APIが無言で失敗した場合を同じ成功として扱わない。
 
