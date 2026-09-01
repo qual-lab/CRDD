@@ -17,7 +17,7 @@ Related:
 
 ## 1. 現在の未完了作業
 
-2026-09-01、検証済み候補の内容と移行方針を人間が採用し、PR #32をmainへ統合した。Runtime完成、利用者入口、工程接続、根拠駆動リファクタリング、命名、本文可読性およびツール配置の完了項目は、根拠を各CHG・品質記録へ接続して本登録簿から除去した。現在は[公開準備と最終確認](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)へ進む。
+2026-09-01、v0.18.0を公開し、正式署名4経路E2E、回復経路、タグ、公開Releaseおよび不要ブランチ整理を完了した。完了した公開準備は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去した。人間の決定権限者は次の到達点として[v0.19 Minimum AI-native Project Runtime](../90_Release/Changes/CHG-000056_Minimum_AI_Native_Project_Runtime.md)を採用し、工程設計から着手した。
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
@@ -25,15 +25,15 @@ Related:
 | 採用済み3項目を除く第2段階の実行観測候補および第3～第6段階の個別研究候補 | Held | Unscheduled | [長期発展方針の研究候補](../01_Discovery/01_CRDD_Product_Discovery.md#78-研究候補と保持条件)、[将来能力地平](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 第1段階の完成固定版と第2段階の最初の自己適用結果を得た後、価値、成立性、費用、安全性および責務境界を人間が再評価する。将来Versionは能力地平であり、版予約、収載、期限、実装許可またはReleaseを意味しない。Linux常設、複数Repository、MCP／HTTP、Self-hosted ProviderおよびOrganization Runtimeの実装許可を本行から推定しない |
 | 自律Operationの参照実証 | Exploring | Unscheduled | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界)、[将来互換性](../05_Autonomous_Operation.md#6-将来互換性の確認候補) | 週次プロダクトレビュー、Communication結果レビュー、Roadmap再評価、Repository Eventのうち判断を変え得る最小の実証を選ぶ。Runtime完成または明示的な人間判断を再評価契機とし、起動数ではなく判断価値、安全性、誤起動、収束、根拠および人間負荷で評価する |
 | Issue #30の責務別再評価と終了判断 | Exploring | Unscheduled | [CHG-000013](../90_Release/Changes/CHG-000013_Communication_Market_and_Adoption_Exploration.md)、[Issue #30](https://github.com/qual-lab/CRDD/issues/30) | Communication／Discovery変更の内容収束後または判断を変え得る実運用根拠の発生時に、詳細論点を責務別に分類する。対応済みまたは不要なら理由を残してIssueを閉じ、採用する論点だけを独立した変更意図へ接続する |
-| v0.18.0の公開準備・最終確認・公開後整理 | —（非適用） | In Progress | [統合結果と公開準備計画](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)、[保守契約](../19_Maintenance.md) | PR #32統合済み。期限なしの正式署名契約、公開メタデータ、署名配布物を確認して最終Identityの公開判断へ進む。公開後にタグ一致・配布物を確認し、未統合・利用中の変更を保護して不要ブランチを整理する。担当はQual-Labと親Coordinator |
+| v0.19 Minimum AI-native Project Runtime | Adopted | In Progress | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[CHG-000056](../90_Release/Changes/CHG-000056_Minimum_AI_Native_Project_Runtime.md) | Project Runtime Designを固定し、独立レビュー後にCoordinator責務分離、MCP薄片、Project Model、Task Graph／Scheduler、Progress、Replanning、Integration、自己適用、Utility、Closureの順で成立させる。1 Project／1 Repository／1 Parent Coordinator、人間起点、最大同時実行5を維持する |
 
-長期研究候補の一部として、[次版へ引き継ぐ有用性・照合費用の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)も追跡する。候補は`Held / Unscheduled`、版番号・収載は未決。親Coordinatorが現行Runtimeの完成固定と実務自己適用の収束後に再評価へ戻し、人間の決定権限者が採否を決める。現行v0.18の必須条件・不具合是正を次版へ移すものではなく、現在の安全判断を変える根拠が出た場合は先に現行是正へ戻す。
+長期研究候補のうち、[v0.19へ採用したProject Runtime境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)は上表の実行項目へ移した。[有用性・照合費用の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)は、CHG-000056へ明示収載した観測だけをCurrent Scopeとし、残る候補は`Held / Unscheduled`を維持する。
 
 Issue #30は2026-09-01に本文・コメント・状態を再確認した。`open`、コメント0件であり、詳細なセグメント比較、調査倫理、ダークパターン、商業性、調査手法、採用後価値モデルの候補を保持している。各候補の採用CHGまたは人間による理由付き終了への接続は未成立なので、対応済みとして閉じない。担当・再評価契機は上表を維持する。Issue本文の旧CHG-000012は、現在のCHG-000013への再採番前の参照であり、候補内容の完了根拠ではない。
 
 ## 2. 境界
 
-次版候補の既存追跡には、[限定分散と統合結果の評価](../01_Discovery/01_CRDD_Product_Discovery.md#bounded-distributed-execution-candidate)も含む。v0.19の能力像に向けた`Held / Unscheduled`の研究候補であり、採用済みv0.18作業の延期ではない。
+[限定分散と統合結果の評価](../01_Discovery/01_CRDD_Product_Discovery.md#bounded-distributed-execution-candidate)のうち、§8とCHG-000056へ明示した単一Project、Task Graph、最大5並列、再計画、統合検証およびUtility観測はv0.19へ採用済みである。大規模Worker Pool、完全自動最適化その他の非収載候補は`Held / Unscheduled`を維持する。
 
 - `Adopted`は作業意図の採用であり、実装完了、統合、リスク受容またはReleaseを意味しない。`Exploring`は候補の保持であり、着手、優先順位または実行許可を意味しない。CHG、保守契約または承認済み是正が実行根拠となる実行・参照項目には判断状態を適用せず、`—（非適用）`と表示して対応状態と実行根拠だけを保持する。
 - `In Progress`、`Planned`および`Unscheduled`は作業の対応状態であり、判断状態と混同しない。

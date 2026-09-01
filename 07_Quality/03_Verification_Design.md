@@ -127,3 +127,20 @@ Git CLIは開発試験の生成・検査に限って使用し、本番readerの�
 公開CLI・正式署名・実Providerの結合は別の検証項目である。移行前後の署名済み4経路・復旧、通常CLIの入力搬送・候補反映・破棄、実Providerによる是正、実Task取消は、それぞれ測定版と観測手段を特定して評価する。版ごとの結果と現在の適用可否は[品質の現在状態](01_Quality_Center.md)へ接続し、過去の失敗・事後回復と是正後の再実測を区別する。固定設計の合否条件へ後続の測定結果を書き戻さない。逆方向の実是正などの未証明範囲は、完成監査で要求と代替根拠を照合し、人間判断なしに完了条件から外さない。未実測という理由だけで一律の追加実測義務を作らず、判断を変える残余不確実性に応じて確認方法を選ぶ。
 
 最終配布では4経路runnerに加え、公開`task --request-stdin --json`へ許可済み固定検証Taskを1件渡す。stdinのUTF-8 JSON搬送から署名package検証、Repository解決、Task実行、signal監視解除、JSONと終了コードまで通し、候補の内容確認・破棄と終了後の資源状態を照合する。4経路runnerはTask関数を直接呼ぶため、この公開入口の正常経路を代替しない。取消・是正は共有部分とProvider固有部分の境界を明示し、未観測部分を実測済みへ読み替えない。
+<a id="project-runtime-verification"></a>
+
+## Project Runtimeの検証設計
+
+v0.19は、個別Task試験の合計ではなく、Project／Milestone入力から統合受入までの意味経路を検証する。設計、実装、試験の対応は、Project階層、Task状態、遷移、所有資源、Scheduler判断、再計画、判断移送および統合受入を対象にする。
+
+| 確認対象 | 正常 | 準正常・境界 | 異常・判定不能 |
+|---|---|---|---|
+| Objective Intake | 明示Project／Milestoneを既存Bindingへ接続 | CLIとMCPが同じ意味結果 | Identity・Authority・Revision不明ではTask 0件で停止 |
+| Task Graph | 独立TaskとDependency順序を守る | Task総数が5超でもRunningは最大5、枠解放で次を開始 | cycle、欠落dependency、共有競合不明では対象Taskを開始しない |
+| Scheduling | 安全に独立なTaskだけ並行実行 | 依存・資源により1～4並列を選ぶ | 6件目、同じLock／変更範囲の競合、古いReady判定を拒否 |
+| Replanning | 局所失敗を影響範囲内で再計画 | 計画維持と部分再計画を区別 | Scope・Authority・受入変更は人間判断へ移送 |
+| Integration | Task結果を統合しObjective／Milestone受入を確認 | 個別PassでもIntegration Pendingを保持 | conflict、欠落Artifact、受入不成立を成功へ補正しない |
+| Lifecycle | 完了・取消後に全子Taskと資源を回収 | 一部停止、親喪失、回復後再開 | cleanup不明、Identity競合、Recovery不成立では通常成功を返さない |
+| Project State | 実状態と進捗・品質・次行動が一致 | 未観測値と保留を明示 | 推定率、古い状態、個別Task PassからMilestone完了を生成しない |
+
+MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未満の選択、Dependency待ち、競合拒否、部分再計画、人間判断、統合失敗、取消、Parent喪失およびcleanup不明を本番同等入口へ段階的に接続する。CRDD v0.19自身の自己適用では、Time to Accepted Result、Human Active Time、AI Processing Time、Queue Waiting、Integration Cost、Conflict、Retry、Remediation、Replanning、Human Escalation、Provider利用および後工程Findingを観測し、並列化の有用性を個別合格数で代替しない。

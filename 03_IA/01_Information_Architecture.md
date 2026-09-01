@@ -61,3 +61,18 @@
 - Checkerの限定結果や過去Evidenceを全体・現版の合格へ読み替えないこと。
 
 確認方法は[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)へ接続する。対象全体を覆う設計候補を整理し、未取得値・意味説明・候補操作の限定再確認と、今回のPowerShellでの入力・表示確認を終えた。初見利用者の導線理解、別環境、支援技術などの[UI未評価範囲](../04_UI/01_User_Interface.md#open-issues)と専門確認が残るため、工程網羅状態は`Blocked`を維持する。この候補をUI・SPECの照合に使うことを、通常工程移行の承認としない。内容と工程移行の決定権限者はQual-Lab。新しい安定ID、権限、設定継承または業務オブジェクトは採用していない。
+## 6. Project Runtimeの情報階層
+
+v0.19のProject Runtimeは、`Project → Milestone／Version → Objective → Task`を基本階層とする。ProjectとRepositoryを同一語にせず、v0.19では一つのProjectが一つの明示Binding済みRepositoryを使用する。MCP要求、実行Operation、Provider SessionおよびCandidateはこの階層の正本ではなく、対象を参照する実行・搬送情報である。
+
+| 対象 | 主な意味 | 主な関係 |
+|---|---|---|
+| Project | 継続して達成する活動と正本Contextの境界 | 一つのRepository Bindingを持ち、複数Milestoneを順に扱う |
+| Milestone／Version | 人間が委ね、受入を判断する到達点 | 複数ObjectiveとMilestone Acceptanceを持つ |
+| Objective | Milestoneを成立させる目的単位 | Task GraphとObjective Acceptanceを持つ |
+| Task | Single Task Runtimeへ渡せる実行単位 | Dependency、状態、入出力、対象範囲、結果を持つ |
+| Project State | 現在の進行・品質・判断を説明する投影 | Milestone、Objective、Task、Blocker、Risk、Decision、Critical Pathを集約する |
+
+Task状態は少なくともReady、Running、Waiting Dependency、Blocked、Completed、Failedを区別する。Taskの完了、Objectiveの受入、Milestoneの受入を同じ状態へ畳み込まない。進捗投影は現在状態から再構成でき、履歴、変更トレース、EvidenceまたはRoadmapを第二の実行状態Storeにしない。
+
+MCPとCLIは同じObjective IntakeとProject State投影へ接続する。入口から渡されたPath、Project名またはTask状態をAuthorityとして採用せず、Repository Binding、Project Identity、現在Revisionおよび許可境界をRuntimeが再確認する。

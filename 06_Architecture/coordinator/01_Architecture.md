@@ -857,3 +857,27 @@ Root権限の変更主体は全package Trust条件を満たした明示Platform 
 内部実装はTypeScriptを基本とし、Windows固有の観測・限定操作は[ネイティブ部品の設計](../platform-access/01_Architecture.md)へ分離する。命名試験は3つのTypeScript projectとPath母集団の一致、およびRust sourceの独立した閉集合を固定し、新module追加時は同じ母集団を更新する。詳細は[内部ツールのコーディング規約](../99_Coding_Standards.md)を正本とする。
 
 共通の実行時assertion helperで不正入力fixtureを安全に絞り込み、外部入力は`unknown`から実行時検証で絞る。`strict`に加えて`noImplicitAny`を明示し、TypeScript版の既定展開に依存せず暗黙の`any`を拒否する。移行対象と当時の判断は[CHG-000017の実装発展](../../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#5-実装発展と統合した旧chg)へ集約する。
+<a id="project-runtime-reference-architecture"></a>
+
+## 17. Project Runtime参照アーキテクチャ
+
+v0.19は既存Task Runtimeを複数Task対応へ直接膨張させず、その上位にProject Runtimeを置く。
+
+```text
+MCP／CLI
+  → Objective Intake
+    → Project Context／Milestone
+      → Objective Planner
+        → Task Graph／Scheduler
+          → Single Task Runtime × N
+        → Integration Verification
+      → Project State／Replanning／Human Escalation
+```
+
+Parent CoordinatorはProject Context、Objective Planning、Task Graph、Scheduling、Project State、ReplanningおよびIntegrationを所有する。Single Task Runtimeは、Repository Revisionへ結合した一つのTask、Executor／Reviewer、Candidate、RecoveryおよびAccepted Resultの既存契約を保持する。子Taskは新しいTaskの作成、Authority拡張、他TaskのCandidate採用またはMilestone Acceptanceを自己決定しない。
+
+SchedulerはTask Graph上のDependencyだけでなく、許可Path、共有資源、仕様・判断前提、Lock、Provider利用枠およびIntegration Boundaryを実行可能性へ含める。最大同時実行数5は資源上限であり目標値ではない。開始、完了、失敗、取消、依存先停止またはParent喪失のたびに実行可能集合を再計算し、古いReady判定をそのまま使用しない。
+
+Project StateはRuntime所有の現在状態であり、Roadmap、CHGまたはProvider出力を状態Storeにしない。各TaskのOperation／Candidate／Recovery IdentityとProject／Milestone／Objectiveの関係を保持し、取消・回復・期限切れ後に別TaskのIdentityへ読み替えない。Project Runtimeのcleanupは、全子Taskの終了と所有資源の観測後にだけ成立する。
+
+最初のMCP縦断経路は、Objective Intakeから既存Single Task Runtimeを一回実行して結果を返す範囲に限定する。MCP固有Project Model、Repository直接操作、MCP ClientからのAuthority継承または複数Repository探索を追加しない。この薄い経路でIdentity、取消、結果投影およびcleanupを確認してからTask Graphを接続する。

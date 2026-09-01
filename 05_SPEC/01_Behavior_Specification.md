@@ -473,3 +473,16 @@ Local Personalで接続済みのHome／State観測と、未接続の保護済み
 | Checker | 配布本体を公式Repositoryの入口から呼び出す。通常`--json`は指摘配列、`--json --summary`は対象・件数・未確認を含む報告。エラーありはexit 1、エラーなしはexit 0 | 警告、未確認、限定範囲、実行不能を0件によって消さない。機械検査は意味上の準拠・専門品質を認定しない |
 
 上表は既存公開契約を利用者操作へ接続した概要であり、Runtime内部のAuthorityや成功条件を変更しない。UIと仕様の対応確認は両工程の完了を代替せず、[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)に未確認範囲を残す。
+<a id="project-runtime-contract"></a>
+
+## Project Runtime契約
+
+v0.19の公開契約は、人間または許可されたMCP／CLI入口から一つのProjectとMilestoneを受け取り、複数ObjectiveとTask Graphへ計画し、v0.18 Single Task Runtimeを実行単位として使用し、統合済み結果とProject Stateを返すことである。MCPとCLIは同じ意味契約へ到達し、Transport固有入力からAuthority、Project正本または追加のEffect権限を生成しない。
+
+Project RuntimeはTask総数を5件へ制限しないが、同時にRunningとなるTaskを最大5件に制限する。Dependency、共有資源、許可Path、仕様・判断の競合、Lock、Provider利用枠またはIntegration Boundaryが独立実行を許さない場合は5未満を選ぶ。利用可能な枠があっても実行可能性を確認できないTaskを開始しない。
+
+Task失敗時は、現在Planを維持できる、影響部分の再計画が必要、人間判断が必要、の三結果へ分類する。再計画は承認済みMilestone Scope、Authority、費用・回数上限および保持する意図の内側だけで行う。Scope拡張、価値判断、Authority不足、重大Risk受容またはMilestone Acceptanceの変更を自動再計画しない。
+
+個別TaskのCompletedまたはReviewer PassをObjective／Milestoneの成功にしない。全Taskの結果を統合し、仕様、共有判断、共有資源、Artifact、Dependency、残存Conflictおよび受入条件を確認した後だけObjective Acceptance、さらにMilestone Acceptanceを成立させる。統合または確認が不明なら進捗と候補を保持して通常成功を返さない。
+
+Project Stateは、現在のMilestone／Objective、Task総数、Running／Ready／Waiting／Completed、Dependency、Blocker、Risk、Human Decision、Critical Path、Next Action、Integration State、Quality StateおよびCompletion Forecastを取得可能にする。未観測値を0または完了へ補正せず、Work ProgressとQualityを別に表示する。

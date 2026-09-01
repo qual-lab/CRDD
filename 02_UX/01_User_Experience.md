@@ -76,3 +76,12 @@ platform-accessは独立した利用者画面を持たないが、利用者へ�
 導入、依頼、待機、結果、取消・復旧、Checker、開発・配布の責務を本文へ整理した。未取得情報の表示、意味説明、候補操作は実装と限定再確認を終え、今回のPowerShellでは入力・日本語表示・折返し・拡大を限定確認した。実Task取消は是正後の署名版4f10201で通常回収まで観測し、今回差分の限定独立確認済みである。過去の失敗・回復と再実測を区別し、説明未登録の理由、別の端末環境、支援技術は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)へ接続する。工程網羅状態は`Blocked`を維持し、文書整備の独立確認や限定実測を製品のUX全体の成立へ読み替えない。
 
 次工程の[情報構造](../03_IA/01_Information_Architecture.md)と[UI](../04_UI/01_User_Interface.md)は、この候補の照合先であって承認済み引渡しではない。既知差の所有者・再確認条件は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)、実施履歴とレビューは[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)へ集約する。Qual-Labが内容・未確認範囲と独立レビューを確認して工程移行を判断する。
+## 6. Milestoneを委ねる利用体験
+
+v0.19では、人間がTaskを一件ずつ分解・起動・監視する体験から、対象ProjectとMilestone、保持する意図、受入条件および判断権限を示し、Project Runtimeへ進行を委ねる体験へ拡張する。人間が内部Taskの切替や空いた実行枠ごとに承認を繰り返すことを正常経路にしない。
+
+利用者は、現在のMilestone、Objective、完了／実行中／依存待ちのTask、Critical Path、Blocker、Risk、Human Decision、Qualityおよび次の行動を、Worker Logを読まずに理解できる必要がある。推定Progressや未観測の残時間を事実として表示せず、進捗と成立品質を分ける。
+
+RuntimeはTask失敗だけで人間へ戻さず、計画維持、影響部分の再計画、人間判断が必要な変更を分ける。人間へ戻す場合は、発生事象、現在Planを維持できない理由、影響するObjective／Milestone、選択肢、推奨、保留時の扱いを一つの判断単位として示す。Scope変更、Authority不足、価値判断またはRisk受容を内部再計画へ隠さない。
+
+この体験の成功は、並列数ではなく、採用可能な統合結果までの時間、人間の実作業時間、不要な確認と反復、統合時の競合および品質で評価する。MCP、CLIその他の入口は同じ意味と停止条件を投影し、Transportごとに別のProject Modelを持たない。

@@ -8,18 +8,19 @@
 
 | 対象 | 状態・変更記録 |
 |---|---|
-| §1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善 | v0.18.0候補内容を採用済み・実装検証完了、未リリース（CHG-000055） |
+| §1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善 | v0.18.0で公開済み（CHG-000055） |
 | §7.3.2の根拠駆動Runtimeリファクタリング | 採用した現行対象は実装検証完了、未リリース（[CHG-000055の実施結果](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#24-実務結果の照合と最終固定への引渡し)と[現在の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)）。総合的な性能優位は未実証 |
 | §7.9の責務分離原則 | `Adopted / Planned` |
 | §7.1の上位方向 | `Adopted / Unscheduled` |
 | §7.2のCoordinator Runtime 1.0 | 候補内容採用・実装検証完了、未リリース（CHG-000015） |
-| 第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補、§7.9の将来能力地平 | `Held / Unscheduled` |
+| §8のMinimum AI-native Project Runtime | v0.19.0へ採用・設計中（CHG-000056） |
+| §8へ収載しなかった実行観測候補、§7.4～§7.8の個別研究候補、§7.9の将来能力地平 | `Held / Unscheduled` |
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本、影響および既存の未リリース変更意図を再確認し、同じ意図は既存CHGへ接続する。独立した変更意図が必要な場合だけ、[変更規則](../12_Change.md)に従って新しい`CHG-*`を発行する。
 
 2026-09-01の候補内容・移行方針の採用後、PR #32でmainへ統合した。現在は[正式配布物を含む公開準備](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)へ進み、追加指定された期限なしの署名契約はCHG-000015で確認する。将来候補や採用先の有効化を追加承認したものではない。
 
-§7.3.2の作業意図の採用と、同節の[次版検討候補](#runtime-utility-next-version-candidates)の状態は分ける。後者の具体策・収載先は`Held / Unscheduled`であり、候補の記録を採用判断としない。
+§7.3.2の作業意図の採用と、同節の[次版検討候補](#runtime-utility-next-version-candidates)の状態は分ける。候補のうち§8へ明示収載した範囲だけがv0.19の実行対象であり、残りは`Held / Unscheduled`を維持する。
 
 ## 1. 起点と人間の判断
 
@@ -357,7 +358,7 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 
 ##### 限定分散と統合結果の評価候補
 
-2026-08-31の収束方針整理から、v0.19の能力像に向けた候補として、目的の分析、作業分解、依存関係、限定並列実行、再計画、統合後の検証を接続する。状態は`Held / Unscheduled`であり、v0.19への収載・設計・実装許可ではない。v0.18には現在の不確実性に基づく検証選択と収束判断を還元し、採用済みの是正・完了条件を次版へ移さない。
+2026-08-31の収束方針整理から、v0.19の能力像に向けた候補として、目的の分析、作業分解、依存関係、限定並列実行、再計画、統合後の検証を接続した。本節は当時の`Held / Unscheduled`候補を記録する。2026-09-01に人間が採用した範囲と現在の実行境界は[§8](#v019-minimum-project-runtime)が所有し、本節の未採用表示を現在状態へ流用しない。
 
 最初の実証規模は2～4作業程度を候補とし、標準の必要件数や成功条件にはしない。分析・計画の専門性は役割・スキルへ、実行境界の強制はRuntimeへ置き、Coreへ専門機能を追加する前提にしない。次を同じ目的に対する一つの実証として評価する。
 
@@ -470,13 +471,13 @@ Self-hosted LLMもProvider Adapter候補へ接続できるかを評価する。F
 
 PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠から再評価する順序である。Versionは[`19_Maintenance.md`](../19_Maintenance.md#51-release-version-and-revision)が所有する公開差分、互換性および基準版の識別である。一つのPhaseが複数Versionにまたがることも、一つのVersionが個別に採用された複数Phaseの要素を含むこともある。Phase番号からVersionを、Version表示から収載、期限、互換性、Candidate状態またはReleaseを推定しない。
 
-次の表は既存§7.2～§7.8を、人間が理解しやすい能力到達点へ投影した対応表である。CRDD v0.18.0は内容採用・main統合を終え、正式配布物の期限契約を含む公開準備中である。個別の完成根拠はCHGと品質記録を用い、収載や統合だけからリリースを推定しない。v0.19.0以降は将来の能力地平（Capability Horizon）であってRelease targetの予約ではなく、実現時の根拠と採用済み差分に応じて別のVersionへ再割当できる。
+次の表は既存§7.2～§7.8を、人間が理解しやすい能力到達点へ投影した対応表である。CRDD v0.18.0は公開済みである。v0.19.0は2026-09-01に§8の限定範囲を採用した。v1.0.0以降は将来の能力地平（Capability Horizon）であってRelease targetの予約ではなく、実現時の根拠と採用済み差分に応じて別のVersionへ再割当できる。
 
 | 表示 | 能力像 | 判断／対応状態 | 再評価契機 | この表示が意味しないこと |
 |---|---|---|---|---|
 | CRDD v0.18.0 — 公開準備 | CRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 内容採用・main統合済み、期限なし契約の追加検証と配布準備中 | CHG-000014の公開準備記録とCHG-000015の追加確認 | 公開済み、追加契約の検証完了または採用先の有効化 |
 | CRDD v0.18.0 — 自己適用で完了した改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性 | 採用した対象の実装検証・内容採用は完了（[CHG-000055](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md)） | 根拠を保持し、リリースへ引き渡す | 総合的な性能優位、Releaseまたはv0.19.0以降の研究候補の収載 |
-| CRDD v0.19.0（将来能力像） | MCP等の協働接続面、Repository Binding／Router、Runtime境界およびCRDDの機械利用性をエコシステム自己適用（Ecosystem Dogfooding）し、v1能力到達性を評価する | `Held / Unscheduled` | v0.18.0の結果と、第2段階で得た最初の自己適用Evidenceを人間が再評価 | v0.19.0への収載予約、Release Candidate、専用PM Systemまたは実装許可 |
+| CRDD v0.19.0 | MCPの薄い協働接続面、単一Project／Repository、Objective Planning、Task Graph、最大5並列、Progress、ReplanningおよびIntegrationを自己適用する | `Adopted / In Progress`（[§8](#v019-minimum-project-runtime)、[CHG-000056](../90_Release/Changes/CHG-000056_Minimum_AI_Native_Project_Runtime.md)） | 工程設計、実装、E2E、CRDD v0.19自己適用、Utility評価および独立Closure | 複数Project／Repository、常設自律Runtime、専用PM System、Organization Runtime |
 | CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループを、人間とAIの組織（Human × AI Organization）で成立させる | `Held / Unscheduled` | 協働接続面とエコシステム自己適用から、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |
 | CRDD v1.x（将来能力像） | 単一Projectの運営モデル（Operating Model）を保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |
 | CRDD v2.x（将来能力像） | 調整と最適化の観測範囲をProjectから複数Project／Organizationへ広げ、依存、優先順位、Capacity、Riskおよび投資判断へ根拠を提供する | `Held / Unscheduled` | 単一Project境界の成熟と、Organization Scopeの価値、情報、安全およびAuthority設計 | Project Authorityの上位継承、横断Effect、予算消費、優先順位変更、Provider起動または外部送信の自動認可 |
@@ -505,3 +506,24 @@ Authority、安全、Recoveryおよび互換性を契約と試験へ接続
 CRDDの共有責務境界を太らせないことは、その変更の絶対禁止ではない。複数のRole／Skillから共有すべき正本情報、横断的不変条件、Authorityまたは整合性を一意に所有する必要があり、Role、SkillまたはAdapterでは安全に閉じないとEvidenceから確認された場合だけ、責務を持つ正本の共有責務境界変更候補へ戻す。候補化は採用、共通規則化、現Runtime変更またはRelease根拠への自動昇格ではなく、変更分類、利用側、互換性、移行、Recovery、必要な監査および人間判断を別途要求する。
 
 未解決事項は、第2段階で何を最小観測とするか、Qualシリーズの各Repositoryが同じプロジェクト正本へ接続できるか、第3段階以降の利用者価値と成立性、および各段階を独立した変更へ分ける境界である。次の再評価契機は、第1段階の完成固定版と、第2段階の最初の自己適用根拠である。
+<a id="v019-minimum-project-runtime"></a>
+
+## 8. v0.19 Minimum AI-native Project Runtime
+
+### 8.1. 採用判断と目的
+
+2026-09-01、v0.18.0の公開と正式署名4経路E2Eの成立後、人間の決定権限者は、限定分散候補と協働接続面候補を`v0.19.0`の一つの変更意図へ収載した。目的は、信頼できるSingle Task Runtimeを作り直すことではなく実行単位として再利用し、人間が個々のTaskではなく一つのMilestoneを委ねられる最小のProject Runtimeを成立させることである。
+
+### 8.2. 対象境界
+
+対象は、1 Project、1 Repository、1 Parent Coordinator、人間起点のMilestone、複数Objective、任意数のTask、最大同時実行数5とする。MCPはProject Runtimeへの薄い外部接続面であり、独自のProject正本、AuthorityまたはRepository操作主体にしない。Project Runtimeは既存CRDD正本からProject、Milestone、ObjectiveおよびTaskを理解し、Task Graph、実行可能性、進捗、部分再計画、人間への判断移送および統合後受入を管理する。
+
+成功単位は個別Taskの合格や並列起動数ではなく、統合済みのObjectiveまたはMilestoneが受入条件を満たすこととする。常に5並列せず、Dependency、共有資源、ファイル・仕様・判断の競合、Authority、Lock、Provider利用枠および統合境界から実効並行度を決める。進捗率はMilestoneへCommitした項目の完了数だけで算出し、Quality、Blocker、Risk、Human Decision、Critical Pathおよび未確認事項を別に示す。
+
+複数Project、複数Repository、Organization Runtime、常設自律運転、Schedule／Repository Event起点の自動Objective生成、無制限Worker Pool、完全自動Quota最適化、Self-hosted Provider、Linux常設Runtimeおよび外部課題管理との本格同期は対象外である。これらをv0.19の内部Taskとして追加せず、現在の受入条件へ必要か不明な改善は不足Evidenceを確認してからCurrent Scopeまたは将来候補へ分ける。
+
+### 8.3. 実施と自己適用
+
+Discovery、UX、IA、UI、SPECおよびArchitectureでProject Runtime全体を先に設計し、その結果からCoordinatorの責務分離を導出する。続いてMCPの薄い縦断経路、Project階層、Task Graph／Scheduler、複数Task実行、進捗投影、再計画／判断移送、統合検証を接続する。
+
+CRDD v0.19自身を代表Milestoneとして自己適用し、採用可能な結果までの時間、人間の実作業時間、AI処理量、待機、統合費用、競合、再試行、再計画、判断移送、Provider利用および後工程品質を観測する。並列化やAgent数そのものを成功指標にしない。

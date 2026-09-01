@@ -131,13 +131,13 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 この節は公式配布担当者向けである。入力は凍結したCommit／Tree、その内容から作ったstaging、既存の暗号化秘密鍵と発行情報。期待結果は同じ配布内容へ結合した署名manifestの生成であり、Release公開そのものではない。配布Root・Treeの不一致ならstagingの作成元へ戻り、復号失敗なら秘密入力だけを確認する。失敗原因を区別せず秘密鍵を作り直したり、日常開発のたびに署名したりしない。
 
-署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、次の二Commit手順で生成する。
+署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、次の二Commit手順で生成する。Commit AとCommit Bは、`main`から作成した同じfeatureブランチ内で作成・検証し、Commit Bを先端とする一つのプルリクエストへ含める。`main`統合後にmanifestだけを更新する別ブランチまたは別プルリクエストを通常手順にしない。
 
 1. Release候補Commit Aへ、Source、文書、試験および固定Pathの2つのNative Runtime成果物を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
 2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release-staging/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
 3. Commit A／Tree Aと2つのNative成果物を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
 4. 生成したmanifestだけをRepositoryの同じ固定Pathへ追加してCommit Bを作る。`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
-5. 公式tagとReleaseはCommit Bへ付ける。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示す。RuntimeはCommit Bの内容からmanifestだけを除外してTree Aを再構成し、2つのNative成果物はTree Aの一部として検証する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
+5. プルリクエストではCommit Bを先端として、Commit AからCommit Bまでの二Commitと全検証結果を一括確認する。統合後、公式tagとReleaseは`main`へ統合されたCommit Bへ付ける。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示す。RuntimeはCommit Bの内容からmanifestだけを除外してTree Aを再構成し、2つのNative成果物はTree Aの一部として検証する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
 
 これにより、公式tagへ固定したcloneまたはsubmoduleは別archiveを取得せず通常Runtimeを利用できる。GitHub Releaseへ同じ内容の独自ZIPを追加しない。GitHubが自動生成するSource archiveもRuntime配布契約または検証対象にしない。
 

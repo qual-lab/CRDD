@@ -115,3 +115,10 @@ Process再起動の必要性: あり
 | 詳細設計の読み解き | SPEC・実行設計・脅威モデルの責務分離と再構成、設計文書の改名、設計・実装・試験の横断整合を完成評価で確認 | [完成評価](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)と[CHGの処置](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)で追跡。全読者の理解度を実測したとはしない |
 
 UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが候補内容・移行方針を採用し、PR #32でmainへ統合した。[公開準備と最終確認](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)は別に追跡する。表示の「読めた」という観測と、その後の採用判断を区別し、全アクセシビリティ対応やRelease完了を実証済みとしない。
+## 6. Project Runtimeの状態表示
+
+v0.19の主要表示は、内部WorkerのLogではなくMilestoneの現在状態とする。最初にProject、Milestone、完了Objective数、Current Objective、Task内訳、Critical Path、Blocker、Risk、Human Decision、QualityおよびNext Actionを示す。機械ID、Provider出力、回復詳細は必要な場合に段階的に表示するが、重大な停止・回収不明・人間判断を詳細へ隠さない。
+
+進捗と品質は別の領域で示す。例えば`4 / 10 Objectives Completed`と`Integration Pending`を同時に表示でき、前者からRelease可能性を推定させない。Running、Ready、Waiting Dependency、Blocked、Completedを色だけで区別せず、表示名と件数を併記する。
+
+人間判断が0件なら、その状態を短く示してRuntimeが次のObjectiveへ進める。判断が必要な場合は、何が起きたか、Planを維持できない理由、影響、選択肢、推奨および保留時の扱いを先に示し、Findingや内部識別子の羅列を主表示にしない。CLIとMCP応答は同じ意味状態を共有し、画面ごとに成功・停止の判定を変えない。
