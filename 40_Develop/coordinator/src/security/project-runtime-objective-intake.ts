@@ -6,6 +6,7 @@ import {
   reconcileProjectRuntimeLeaseOwnerLoss,
   selectNextProjectOperation,
   settleProjectOperationQueueRecovery,
+  updateProjectOperationQueueState,
   writeProjectRuntimeState,
 } from "./project-runtime-durable-foundation.ts";
 import {
@@ -16,7 +17,8 @@ import {
 import {
   createProjectRuntimeState,
   projectProjectRuntimeState,
-  settleAndRetryProjectTaskRecovery,
+  recordProjectTaskOwnerLossRecoveries,
+  settleAndRetryProjectTaskRecoveries,
   type ProjectObjectiveDefinition,
   type ProjectTaskDefinition,
   type ProjectRuntimeState,
@@ -69,6 +71,9 @@ export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
     }>,
   ) => unknown;
   recoverTaskRecovery?: (recoveryId: string) => unknown;
+  resolveTaskRecoveryCorrelations?: (
+    correlationIds: readonly string[],
+  ) => unknown;
   execution: ProjectRuntimeExecutionDependencies;
 }>;
 
@@ -79,6 +84,32 @@ function stableId(prefix: string, ...values: readonly string[]) {
     .slice(0, 40)}`;
 }
 
+function recoveryApplicationId(
+  projectId: string,
+  queueId: string,
+  state: ProjectRuntimeState,
+) {
+  const recoveries = state.tasks
+    .filter(
+      (task) =>
+        (task.state === "recovery_required" && task.recoveryId !== null) ||
+        (task.state === "ready" && task.settledRecoveryId !== null),
+    )
+    .map(
+      (task) =>
+        `${task.definition.id}:${task.recoveryId ?? task.settledRecoveryId}`,
+    )
+    .sort();
+  return recoveries.length === 0
+    ? null
+    : stableId(
+        "project-recovery-application",
+        projectId,
+        queueId,
+        ...recoveries,
+      );
+}
+
 function exactRecoveryCompleted(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Readonly<Record<string, unknown>>;
@@ -87,6 +118,36 @@ function exactRecoveryCompleted(value: unknown) {
     record.recoveryId === null &&
     record.manualRecoveryRequired !== true
   );
+}
+
+function inspectRecoveryCorrelationBindings(
+  value: unknown,
+  correlationIds: readonly string[],
+) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Readonly<Record<string, unknown>>;
+  if (record.status !== "completed" || !Array.isArray(record.bindings))
+    return null;
+  const bindings: Array<{ operationId: string; recoveryId: string }> = [];
+  for (const item of record.bindings) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const binding = item as Readonly<Record<string, unknown>>;
+    if (
+      typeof binding.correlationId !== "string" ||
+      !correlationIds.includes(binding.correlationId) ||
+      typeof binding.recoveryId !== "string" ||
+      !validId(binding.correlationId)
+    )
+      return null;
+    bindings.push({
+      operationId: binding.correlationId,
+      recoveryId: binding.recoveryId,
+    });
+  }
+  return bindings.length === correlationIds.length &&
+    new Set(bindings.map((entry) => entry.operationId)).size === bindings.length
+    ? Object.freeze(bindings.map((entry) => Object.freeze(entry)))
+    : null;
 }
 
 function validId(value: unknown): value is string {
@@ -491,41 +552,186 @@ export async function runProjectRuntimeObjective(
     queue = reconciled.value;
   }
   if (
+    queue.state === "recovery_required" &&
+    queue.resumeCondition === "owner_loss" &&
+    state.value
+  ) {
+    const activeTasks = state.value.tasks.filter((task) =>
+      ["starting", "running"].includes(task.state),
+    );
+    const operationIds = activeTasks
+      .map((task) => task.operationId)
+      .filter((value): value is string => value !== null);
+    let applicationId = recoveryApplicationId(
+      request.projectId,
+      queueId,
+      state.value,
+    );
+    if (applicationId === null && activeTasks.length > 0) {
+      let bindings: ReturnType<typeof inspectRecoveryCorrelationBindings> =
+        Object.freeze([]);
+      if (operationIds.length > 0) {
+        let rawBindings: unknown;
+        try {
+          rawBindings =
+            dependencies.resolveTaskRecoveryCorrelations?.(operationIds) ??
+            null;
+        } catch {
+          rawBindings = null;
+        }
+        bindings = inspectRecoveryCorrelationBindings(
+          rawBindings,
+          operationIds,
+        );
+      }
+      if (!bindings)
+        return blocked(
+          request,
+          "project_runtime_owner_loss_recovery_unresolved",
+          {
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectState: "unknown",
+          },
+        );
+      const bound = recordProjectTaskOwnerLossRecoveries(
+        state.value,
+        state.value.generation,
+        bindings,
+      );
+      if (bound.status !== "completed" || !bound.state)
+        return blocked(request, bound.reason, {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+        });
+      const boundWrite = writeProjectRuntimeState(
+        workingDirectory,
+        binding.repositoryBindingId,
+        bound.state,
+        state.value.generation,
+      );
+      if (boundWrite.status !== "completed")
+        return blocked(request, boundWrite.reason, {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+        });
+      state = Object.freeze({
+        status: "completed" as const,
+        reason: boundWrite.reason,
+        value: boundWrite.value,
+      });
+      applicationId = recoveryApplicationId(
+        request.projectId,
+        queueId,
+        boundWrite.value,
+      );
+    }
+    if (!applicationId) {
+      if (activeTasks.length > 0)
+        return blocked(
+          request,
+          "project_runtime_owner_loss_recovery_unresolved",
+          {
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectState: "unknown",
+          },
+        );
+      const reopenedQueue = updateProjectOperationQueueState(
+        workingDirectory,
+        binding.repositoryBindingId,
+        queueId,
+        queue.generation,
+        {
+          state: "queued",
+          lease: null,
+          resumeCondition: null,
+          resultReference: null,
+        },
+      );
+      if (reopenedQueue.status !== "completed")
+        return blocked(request, reopenedQueue.reason, {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+        });
+      queue = reopenedQueue.value;
+    } else {
+      const reboundQueue = updateProjectOperationQueueState(
+        workingDirectory,
+        binding.repositoryBindingId,
+        queueId,
+        queue.generation,
+        {
+          state: "recovery_required",
+          lease: null,
+          resumeCondition: "exact_recovery",
+          resultReference: applicationId,
+        },
+      );
+      if (reboundQueue.status !== "completed")
+        return blocked(request, reboundQueue.reason, {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+        });
+      queue = reboundQueue.value;
+    }
+  }
+  if (
     (queue.state === "recovery_required" ||
       (queue.state === "queued" &&
         queue.resumeCondition === "exact_recovery_settled")) &&
     state.value
   ) {
-    const recoveryId = queue.resultReference;
-    const recoveryTask = state.value.tasks.find(
-      (task) =>
-        task.state === "recovery_required" && task.recoveryId === recoveryId,
+    const recoveryApplication = recoveryApplicationId(
+      request.projectId,
+      queueId,
+      state.value,
     );
-    if (!recoveryId || !recoveryTask)
+    const recoveries = state.value.tasks
+      .filter(
+        (task) =>
+          (task.state === "recovery_required" && task.recoveryId !== null) ||
+          (task.state === "ready" && task.settledRecoveryId !== null),
+      )
+      .map((task) =>
+        Object.freeze({
+          taskId: task.definition.id,
+          recoveryId: task.recoveryId ?? task.settledRecoveryId ?? "invalid",
+          requiresEffect: task.state === "recovery_required",
+        }),
+      );
+    if (!recoveryApplication || queue.resultReference !== recoveryApplication)
       return blocked(request, "project_runtime_recovery_identity_mismatch", {
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",
       });
     if (queue.state === "recovery_required") {
-      let recovery: unknown;
-      try {
-        recovery = dependencies.recoverTaskRecovery?.(recoveryId) ?? null;
-      } catch {
-        recovery = null;
+      for (const item of recoveries.filter((entry) => entry.requiresEffect)) {
+        let recovery: unknown;
+        try {
+          recovery =
+            dependencies.recoverTaskRecovery?.(item.recoveryId) ?? null;
+        } catch {
+          recovery = null;
+        }
+        if (!exactRecoveryCompleted(recovery))
+          return blocked(request, "project_runtime_task_recovery_not_settled", {
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectState: "unknown",
+          });
       }
-      if (!exactRecoveryCompleted(recovery))
-        return blocked(request, "project_runtime_task_recovery_not_settled", {
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-          effectState: "unknown",
-        });
       const queueSettlement = settleProjectOperationQueueRecovery(
         workingDirectory,
         binding.repositoryBindingId,
         queueId,
         queue.generation,
-        recoveryId,
+        recoveryApplication,
       );
       if (queueSettlement.status !== "completed")
         return blocked(request, queueSettlement.reason, {
@@ -535,36 +741,38 @@ export async function runProjectRuntimeObjective(
         });
       queue = queueSettlement.value;
     }
-    const retry = settleAndRetryProjectTaskRecovery(
-      state.value,
-      state.value.generation,
-      recoveryTask.definition.id,
-      recoveryId,
-      request.maximumReplans,
-    );
-    if (retry.status !== "completed")
-      return blocked(request, retry.reason, {
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-        effectState: "no_effect",
+    if (recoveries.some((entry) => entry.requiresEffect)) {
+      const retry = settleAndRetryProjectTaskRecoveries(
+        state.value,
+        state.value.generation,
+        recoveries.map(({ taskId, recoveryId }) =>
+          Object.freeze({ taskId, recoveryId }),
+        ),
+      );
+      if (retry.status !== "completed")
+        return blocked(request, retry.reason, {
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          effectState: "no_effect",
+        });
+      const retryWrite = writeProjectRuntimeState(
+        workingDirectory,
+        binding.repositoryBindingId,
+        retry.state,
+        state.value.generation,
+      );
+      if (retryWrite.status !== "completed")
+        return blocked(request, retryWrite.reason, {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+        });
+      state = Object.freeze({
+        status: "completed" as const,
+        reason: retryWrite.reason,
+        value: retryWrite.value,
       });
-    const retryWrite = writeProjectRuntimeState(
-      workingDirectory,
-      binding.repositoryBindingId,
-      retry.state,
-      state.value.generation,
-    );
-    if (retryWrite.status !== "completed")
-      return blocked(request, retryWrite.reason, {
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-        effectState: "unknown",
-      });
-    state = Object.freeze({
-      status: "completed" as const,
-      reason: retryWrite.reason,
-      value: retryWrite.value,
-    });
+    }
   }
   if (queue.state === "queued" || queue.state === "waiting_foreground") {
     const currentState = state.value;
@@ -614,6 +822,42 @@ export async function runProjectRuntimeObjective(
       effectState: "no_effect" as const,
     });
   }
+  if (queue.state === "completed" && state.value) {
+    const projection = projectProjectRuntimeState(state.value);
+    if (projection.milestoneState !== "accepted")
+      return blocked(request, "project_runtime_terminal_replay_mismatch", {
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown",
+      });
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
+      status: "completed" as const,
+      reason: "project_runtime_objective_already_accepted",
+      requestId: request.requestId,
+      projectId: request.projectId,
+      milestoneId: request.milestoneId,
+      queueId,
+      projection,
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  }
+  if (queue.state === "cancelled" && state.value)
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
+      status: "cancelled" as const,
+      reason: "project_runtime_objective_already_cancelled",
+      requestId: request.requestId,
+      projectId: request.projectId,
+      milestoneId: request.milestoneId,
+      queueId,
+      projection: projectProjectRuntimeState(state.value),
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
   if (queue.state !== "queued" && state.value) {
     const manualRecoveryRequired = queue.state === "recovery_required";
     return Object.freeze({

@@ -7,6 +7,7 @@ import {
   projectProjectRuntimeState,
   recordMilestoneIntegration,
   recordObjectiveIntegration,
+  recordProjectTaskOwnerLossRecoveries,
   reserveProjectTaskStart,
   selectSchedulableProjectTasks,
   settleProjectTask,
@@ -410,6 +411,42 @@ describe("Project Runtime state contract", () => {
     assert.equal(projection.qualityState, "blocked");
     assert.equal(projection.recoveryRequired, true);
     assert.equal(projection.nextAction, "recover");
+  });
+
+  it("owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻す", () => {
+    const state = stateFor([task("task-a")]);
+    const reserved = reserveProjectTaskStart(
+      state,
+      state.generation,
+      "task-a",
+      "attempt-task-a",
+      "authority-task-a",
+    );
+    assert.ok(reserved.state);
+    const recovered = recordProjectTaskOwnerLossRecoveries(
+      reserved.state,
+      reserved.state.generation,
+      [],
+    );
+    assert.equal(recovered.status, "completed");
+    assert.equal(recovered.state?.tasks[0]?.state, "ready");
+    assert.equal(recovered.state?.tasks[0]?.operationId, null);
+    assert.equal(recovered.state?.tasks[0]?.recoveryId, null);
+    assert.equal(recovered.state?.milestone.state, "executing");
+  });
+
+  it("owner lossは開始済みTaskをexact Runtime Recoveryへ結合する", () => {
+    const running = start(stateFor([task("task-a")]), "task-a");
+    const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+    const recovered = recordProjectTaskOwnerLossRecoveries(
+      running,
+      running.generation,
+      [{ operationId: "operation-task-a", recoveryId }],
+    );
+    assert.equal(recovered.status, "completed");
+    assert.equal(recovered.state?.tasks[0]?.state, "recovery_required");
+    assert.equal(recovered.state?.tasks[0]?.recoveryId, recoveryId);
+    assert.equal(recovered.state?.milestone.state, "recovery_required");
   });
 
   it("Lockとstale resultの保持条件を説明する", () => {

@@ -132,6 +132,12 @@ function createVerifiedPackageCapabilityState() {
           sameVerifiedPackageIdentity(record.identity, current),
       );
     },
+    revoke: (capability: unknown) => {
+      if (!capability || typeof capability !== "object") return false;
+      const existed = capabilities.has(capability);
+      capabilities.delete(capability);
+      return existed;
+    },
   });
 }
 
@@ -1624,6 +1630,12 @@ export function consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
     current,
     performance.now(),
   );
+}
+
+export function revokeRuntimeOwnedVerifiedCoordinatorPackageCapability(
+  capability: unknown,
+) {
+  return verifiedPackageCapabilityState.revoke(capability);
 }
 
 export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {

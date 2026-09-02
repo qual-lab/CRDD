@@ -282,6 +282,7 @@ function validProjectRuntimeState(
         "authorityBindingId",
         "cleanupConfirmed",
         "recoveryId",
+        "settledRecoveryId",
         "candidateId",
         "retryCount",
         "supersededBy",
@@ -320,6 +321,7 @@ function validProjectRuntimeState(
       !nullableId(task.authorityBindingId) ||
       typeof task.cleanupConfirmed !== "boolean" ||
       !nullableRecoveryId(task.recoveryId) ||
+      !nullableRecoveryId(task.settledRecoveryId) ||
       !nullableCandidateId(task.candidateId) ||
       !Number.isSafeInteger(task.retryCount) ||
       Number(task.retryCount) < 0 ||
@@ -1339,7 +1341,11 @@ const QUEUE_TRANSITIONS = Object.freeze({
     "recovery_required",
     "cancelled",
   ]),
-  recovery_required: Object.freeze(["cancelled"]),
+  recovery_required: Object.freeze([
+    "queued",
+    "recovery_required",
+    "cancelled",
+  ]),
   completed: Object.freeze([]),
   cancelled: Object.freeze([]),
 } satisfies Record<ProjectQueueState, readonly ProjectQueueState[]>);
@@ -1399,6 +1405,31 @@ export function updateProjectOperationQueueState(
         QUEUE_TRANSITIONS[current.state] ?? [];
       if (!allowedTransitions.includes(next.state))
         return blocked("project_runtime_queue_transition_invalid");
+      if (
+        current.state === "recovery_required" &&
+        next.state === "recovery_required" &&
+        !(
+          current.ownerGeneration === null &&
+          current.resumeCondition === "owner_loss" &&
+          next.lease === null &&
+          next.resumeCondition === "exact_recovery" &&
+          next.resultReference !== null
+        )
+      )
+        return blocked("project_runtime_queue_recovery_binding_invalid");
+      if (
+        current.state === "recovery_required" &&
+        next.state === "queued" &&
+        !(
+          current.ownerGeneration === null &&
+          current.resumeCondition === "owner_loss" &&
+          current.resultReference !== null &&
+          next.lease === null &&
+          next.resumeCondition === null &&
+          next.resultReference === null
+        )
+      )
+        return blocked("project_runtime_queue_owner_loss_reset_invalid");
       const activeLease = next.lease
         ? ACTIVE_LEASES.get(next.lease)
         : undefined;

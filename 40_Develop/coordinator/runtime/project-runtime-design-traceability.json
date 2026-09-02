@@ -19,7 +19,7 @@
     {"id":"REC-PROJECT-STATE","ownerInterfaceId":"IF-STATE-STORE","resourceId":"RES-PROJECT-STATE","durabilityRelation":"generation_state"},
     {"id":"REC-QUEUE-ENTRY","ownerInterfaceId":"IF-QUEUE","resourceId":"RES-PROJECT-QUEUE","durabilityRelation":"before_effect_intent"},
     {"id":"REC-PROJECT-LEASE","ownerInterfaceId":"IF-QUEUE","resourceId":"RES-PROJECT-OPERATION-LEASE","durabilityRelation":"before_effect_intent"},
-    {"id":"REC-TASK-ATTEMPT","ownerInterfaceId":"IF-PROJECT-CORE","resourceId":"RES-SINGLE-TASK-BINDING","durabilityRelation":"before_effect_intent"},
+    {"id":"REC-TASK-ATTEMPT","ownerInterfaceId":"IF-PROJECT-CORE","resourceId":"RES-SINGLE-TASK-BINDING","durabilityRelation":"before_effect_intent","requiredMeaning":["attempt_operation_authority_binding","exact_task_recovery_identity","non_authority_settled_recovery_identity"]},
     {"id":"REC-INTEGRATION","ownerInterfaceId":"IF-INTEGRATION","resourceId":"RES-INTEGRATION-WORKSPACE","durabilityRelation":"after_effect_result"},
     {"id":"REC-ADOPTION","ownerInterfaceId":"IF-INTEGRATION","resourceId":"RES-ADOPTION-LEASE","durabilityRelation":"after_effect_receipt"},
     {"id":"REC-HUMAN-DECISION","ownerInterfaceId":"IF-DECISION","resourceId":"RES-PENDING-DECISION","durabilityRelation":"generation_state","requiredMeaning":["decision_project_milestone_generation_revision","selected_user_principal","continuation_record_id","decision_application_generation","decision_lifecycle_state"]},
@@ -235,18 +235,18 @@
     {"id":"INV-INTEGRATE-BEFORE-ADOPTION","statement":"Objective and milestone evidence and cross-task integration precede canonical adoption"},
     {"id":"INV-UNKNOWN-PRESERVES-RECOVERY","statement":"Unknown cleanup or effect state preserves evidence and exact recovery identity"},
     {"id":"INV-NO-SUCCESS-FROM-UNKNOWN","statement":"Missing stale or conflicting evidence is not normalized to success"},
-    {"id":"INV-CANCEL-AFTER-CLEANUP","statement":"Cancellation completes only after target termination cleanup and project-state projection"},
+    {"id":"INV-CANCEL-AFTER-CLEANUP","statement":"Cancellation completes only after any freshly issued unused task authority is revoked and every started target terminates cleanup completes and project state is projected; uncertain revocation preserves recovery"},
     {"id":"INV-OLD-IDENTITY-IMMUTABLE","statement":"Superseded task identity remains immutable and links to a new successor"},
     {"id":"INV-PLATFORM-NO-FALLBACK","statement":"Unknown or unsupported platform stops without fallback or effect"},
     {"id":"INV-TRANSPORT-NO-AUTHORITY","statement":"CLI MCP and future transports do not create project authority or success"},
     {"id":"INV-CANONICAL-EFFECT-SERIALIZED","statement":"Canonical repository adoption is serialized and fresh revision checked"},
-    {"id":"INV-INTERACTIVE-PRIORITY-NO-PREEMPTION","statement":"Queue priority applies only to unowned entries; a leased or running owner prevents every second operation lease, parks later scheduled work, and never erases active obligations"}
+    {"id":"INV-INTERACTIVE-PRIORITY-NO-PREEMPTION","statement":"Queue priority applies only to unowned entries; after the repository binding lease is acquired a fresh queue selection must still match before claim; a leased or running owner prevents every second operation lease, parks later scheduled work, and never erases active obligations"}
     ,{"id":"INV-DURABLE-RECORD-CLOSED","statement":"Durable state and queue records have an exact schema filename bound generation and contiguous immutable generation history"}
     ,{"id":"INV-QUEUE-OWNER-IS-LIVE-LEASE","statement":"Queue owner generation is derived only from a runtime issued live lease bound to the exact repository binding and queue; one binding has at most one operation owner"}
     ,{"id":"INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE","statement":"Every post-acquire exit attempts physical release; lease release intent is durable before lock removal and unresolved exact evidence blocks reacquisition"}
     ,{"id":"INV-LEASE-ACQUISITION-RECOVERABLE","statement":"An atomically published acquisition marker bound to lease kind source queue owner generation process and deterministic recovery identity precedes the physical lock; a second exact marker proves lock ownership; project operation and canonical adoption pre-owner failures reach fresh complete rollback, exact common recovery with all markers and lock absent, or unchanged manual recovery obligation"}
     ,{"id":"INV-QUEUE-OWNER-CLEARED-AFTER-LEASE-SETTLEMENT","statement":"Queue owner is cleared only after fresh lock absence exact released evidence and release-marker absence"}
-    ,{"id":"INV-RECOVERY-SETTLED-BEFORE-RESUME","statement":"Recovery resumes only after exact receipt resource absence and fresh generation revision and conflict validation"},
+    ,{"id":"INV-RECOVERY-SETTLED-BEFORE-RESUME","statement":"Recovery resumes only after exact per-task recovery identity receipt resource absence and a non-authority queue application identity agree; settled recovery identity makes queue or state interruption idempotent without repeating effect; recovery is independent of replan limits and precedes fresh generation revision and conflict validation"},
     {"id":"INV-DECISION-BINDING-CURRENT","statement":"Human decision applies only to the exact current decision project milestone generation revision and allowed option"},
     {"id":"INV-MCP-NO-HUMAN-AUTHORITY","statement":"MCP metadata session provider identity and comment never create Human Authority"},
     {"id":"INV-DECISION-RECEIPT-BEFORE-RESUME","statement":"Milestone and queue resume only once from an exact accepted decision receipt and fresh project generation"},

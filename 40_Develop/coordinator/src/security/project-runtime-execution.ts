@@ -6,6 +6,7 @@ import {
   readProjectOperationQueueState,
   readProjectRuntimeState,
   settleProjectOperationQueueLeaseRelease,
+  selectNextProjectOperation,
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
 } from "./project-runtime-durable-foundation.ts";
@@ -35,6 +36,7 @@ export type ProjectRuntimeTaskExecution = Readonly<{
 
 export type ProjectRuntimeExecutionDependencies = Readonly<{
   issueTaskAuthority?: () => object | null;
+  revokeTaskAuthority?: (capability: object) => boolean;
   runSingleTaskAttempt: (
     input: ProjectRuntimeSingleTaskAttemptInput,
   ) => Promise<ProjectRuntimeSingleTaskResult>;
@@ -494,6 +496,35 @@ export async function runProjectRuntimeOperation(
     );
   };
 
+  // Selection made before the binding-wide lease is only advisory. Re-read
+  // the complete durable queue population while this process exclusively owns
+  // the Project Operation boundary, then bind exactly that selected Queue.
+  const selectedAfterLease = selectNextProjectOperation(
+    input.workingDirectory,
+    input.repositoryBindingId,
+  );
+  if (selectedAfterLease.status !== "completed")
+    return completeWithoutOwnedQueue(
+      blocked(input, selectedAfterLease.reason, {
+        state,
+        cleanupConfirmed: false,
+        manualRecoveryRequired: selectedAfterLease.manualRecoveryRequired,
+        effectState: "unknown",
+      }),
+    );
+  if (
+    !selectedAfterLease.value ||
+    selectedAfterLease.value.queueId !== input.queueId
+  )
+    return completeWithoutOwnedQueue(
+      blocked(input, "project_runtime_queue_claim_priority_changed", {
+        state,
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect",
+      }),
+    );
+
   const leaseQueue = updateProjectOperationQueueState(
     input.workingDirectory,
     input.repositoryBindingId,
@@ -651,6 +682,23 @@ export async function runProjectRuntimeOperation(
     const outcomes = await Promise.all(
       attempts.map(async (attempt) => {
         try {
+          if (input.cancellationSignal.aborted)
+            return Object.freeze({
+              contract:
+                "crdd-coordinator/project-runtime-single-task-adapter" as const,
+              attemptId: attempt.attemptId,
+              operationId: attempt.operationId,
+              authorityBindingId: attempt.execution.authorityBindingId,
+              repositoryRevision: state.repositoryRevision,
+              status: "cancelled" as const,
+              reason: "single_task_cancelled_before_authority",
+              effectState: "no_effect" as const,
+              cleanupConfirmed: true,
+              manualRecoveryRequired: false,
+              processRestartRequired: false,
+              candidateId: null,
+              recoveryIds: Object.freeze([]),
+            });
           const taskAuthorityCapability = dependencies.issueTaskAuthority
             ? dependencies.issueTaskAuthority()
             : attempt.execution.taskAuthorityCapability;
@@ -659,18 +707,39 @@ export async function runProjectRuntimeOperation(
             typeof taskAuthorityCapability !== "object"
           )
             return null;
-          return await Promise.resolve().then(() =>
-            dependencies.runSingleTaskAttempt({
-              attemptId: attempt.attemptId,
-              operationId: attempt.operationId,
-              authorityBindingId: attempt.execution.authorityBindingId,
-              repositoryRevision: state.repositoryRevision,
+          if (input.cancellationSignal.aborted) {
+            const revoked = dependencies.revokeTaskAuthority?.(
               taskAuthorityCapability,
-              taskRequest: attempt.execution.taskRequest,
-              repositoryRoot: attempt.execution.repositoryRoot,
-              cancellationSignal: input.cancellationSignal,
-            }),
-          );
+            );
+            return revoked === true
+              ? Object.freeze({
+                  contract:
+                    "crdd-coordinator/project-runtime-single-task-adapter" as const,
+                  attemptId: attempt.attemptId,
+                  operationId: attempt.operationId,
+                  authorityBindingId: attempt.execution.authorityBindingId,
+                  repositoryRevision: state.repositoryRevision,
+                  status: "cancelled" as const,
+                  reason: "single_task_cancelled_after_authority_revoked",
+                  effectState: "no_effect" as const,
+                  cleanupConfirmed: true,
+                  manualRecoveryRequired: false,
+                  processRestartRequired: false,
+                  candidateId: null,
+                  recoveryIds: Object.freeze([]),
+                })
+              : null;
+          }
+          return await dependencies.runSingleTaskAttempt({
+            attemptId: attempt.attemptId,
+            operationId: attempt.operationId,
+            authorityBindingId: attempt.execution.authorityBindingId,
+            repositoryRevision: state.repositoryRevision,
+            taskAuthorityCapability,
+            taskRequest: attempt.execution.taskRequest,
+            repositoryRoot: attempt.execution.repositoryRoot,
+            cancellationSignal: input.cancellationSignal,
+          });
         } catch {
           return null;
         }
@@ -777,6 +846,21 @@ export async function runProjectRuntimeOperation(
       }
     }
     if (terminalState) {
+      if (terminalState === "recovery_required") {
+        const exactRecoveries = state.tasks
+          .filter(
+            (task) =>
+              task.state === "recovery_required" && task.recoveryId !== null,
+          )
+          .map((task) => `${task.definition.id}:${task.recoveryId}`)
+          .sort();
+        terminalReference = stableId(
+          "project-recovery-application",
+          input.projectId,
+          input.queueId,
+          ...exactRecoveries,
+        );
+      }
       const queueTerminal = updateProjectOperationQueueState(
         input.workingDirectory,
         input.repositoryBindingId,

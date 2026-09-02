@@ -4,8 +4,14 @@ import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "./coordinator-task-runtime.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "./platform-provisioner-package-filesystem.ts";
-import { recoverRuntimeOwnedDockerTask } from "./docker-recovery-runtime.ts";
+import {
+  issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
+  revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
+} from "./platform-provisioner-package-filesystem.ts";
+import {
+  recoverRuntimeOwnedDockerTask,
+  resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
+} from "./docker-recovery-runtime.ts";
 import {
   inspectProjectRuntimeObjectiveRequest,
   runProjectRuntimeObjective,
@@ -37,6 +43,7 @@ export const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
 
 type PublicExecutionDependencies = Readonly<{
   issueTaskAuthority: () => object | null;
+  revokeTaskAuthority?: (capability: object) => boolean;
   startTask: typeof startRuntimeOwnedCoordinatorTask;
   cancelTask: typeof cancelRuntimeOwnedCoordinatorTask;
   frontProviderForTask: (
@@ -46,6 +53,7 @@ type PublicExecutionDependencies = Readonly<{
   createIntegrationAdapter: (
     repositoryRoot: string,
   ) => ProjectRuntimeIntegrationDependencies;
+  resolveTaskRecoveryCorrelations?: typeof resolveRuntimeOwnedDockerTaskRecoveryCorrelations;
 }>;
 
 export type ProjectRuntimePublicDevelopmentDependencies =
@@ -57,12 +65,15 @@ const productionExecutionDependencies: PublicExecutionDependencies =
       issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
         evaluationTime: new Date().toISOString(),
       }).capability,
+    revokeTaskAuthority: revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
     startTask: startRuntimeOwnedCoordinatorTask,
     cancelTask: cancelRuntimeOwnedCoordinatorTask,
     frontProviderForTask: () => "codex",
     openDecisionStore: openRuntimeOwnedWindowsProjectDecisionStore,
     createIntegrationAdapter:
       createRuntimeOwnedProjectCandidateIntegrationAdapter,
+    resolveTaskRecoveryCorrelations:
+      resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
   });
 
 function stable(prefix: string, ...parts: readonly string[]) {
@@ -236,8 +247,17 @@ async function executeProjectRuntimePublicObjective(
         );
       },
       recoverTaskRecovery: recoverRuntimeOwnedDockerTask,
+      ...(runtimeDependencies.resolveTaskRecoveryCorrelations
+        ? {
+            resolveTaskRecoveryCorrelations:
+              runtimeDependencies.resolveTaskRecoveryCorrelations,
+          }
+        : {}),
       execution: {
         issueTaskAuthority: runtimeDependencies.issueTaskAuthority,
+        ...(runtimeDependencies.revokeTaskAuthority
+          ? { revokeTaskAuthority: runtimeDependencies.revokeTaskAuthority }
+          : {}),
         runSingleTaskAttempt: (input) =>
           runProjectRuntimeSingleTaskAttempt(
             {

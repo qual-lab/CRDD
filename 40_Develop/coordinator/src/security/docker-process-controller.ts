@@ -100,6 +100,7 @@ type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
 type PreparedPlan = Readonly<{
   provider: "codex" | "claude";
   operationId: string;
+  recoveryCorrelationId?: string | null;
   grantRef: string;
   profileId: string;
   activeMountCapability: object;
@@ -702,6 +703,8 @@ function isPlanValid(plan: PreparedPlan) {
   return (
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
+    (plan.recoveryCorrelationId == null ||
+      /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(plan.recoveryCorrelationId)) &&
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
     /^PROFILE-[0-9]{6,}$/u.test(plan.profileId) &&
     /^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) &&
@@ -1247,7 +1250,13 @@ function start(
       completed.status === "completed",
     );
   }
-  const recovery = state.dependencies.beginRecovery(plan, managementCapability);
+  const recovery = state.dependencies.beginRecovery(
+    Object.freeze({
+      ...plan,
+      recoveryCorrelationId: plan.recoveryCorrelationId ?? null,
+    }),
+    managementCapability,
+  );
   const readyRecovery = snapshotReadyRecovery(recovery);
   if (!readyRecovery) {
     const malformedCapability = ownDataValue(recovery, "recoveryCapability");

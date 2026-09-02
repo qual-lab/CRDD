@@ -58,6 +58,7 @@ export type ProjectRuntimeSingleTaskDependencies = Readonly<{
     taskRequest: unknown,
     repositoryRoot: unknown,
     taskAuthorityCapability: object,
+    recoveryCorrelationId?: string,
   ) => unknown;
   cancelTask: (controlCapability: object) => unknown;
 }>;
@@ -346,6 +347,7 @@ export async function runProjectRuntimeSingleTaskAttempt(
       input.taskRequest,
       input.repositoryRoot,
       input.taskAuthorityCapability,
+      input.operationId,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "";

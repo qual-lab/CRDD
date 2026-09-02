@@ -40,10 +40,12 @@ test("development composition uses the explicitly supplied candidate integration
   const decisionStore =
     createProjectRuntimeWindowsDecisionStoreTestingAdapter(decisionRoot);
   let integrationAdapterCalls = 0;
+  let taskStarts = 0;
   const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
     issueTaskAuthority: () => Object.freeze({}),
-    startTask: () =>
-      Object.freeze({
+    startTask: () => {
+      taskStarts += 1;
+      return Object.freeze({
         status: "started" as const,
         reason: "coordinator_task_started" as const,
         controlCapability: Object.freeze({}),
@@ -70,7 +72,8 @@ test("development composition uses the explicitly supplied candidate integration
         hostPathReported: false as const,
         untrustedProviderTextReported: false as const,
         credentialAbsenceVerified: false as const,
-      }),
+      });
+    },
     cancelTask: () =>
       Promise.resolve(
         Object.freeze({
@@ -147,5 +150,31 @@ test("development composition uses the explicitly supplied candidate integration
   );
   assert.equal(result.status, "completed", JSON.stringify(result));
   assert.equal(result.reason, "project_runtime_milestone_accepted");
+  assert.equal(integrationAdapterCalls, 1);
+  assert.equal(taskStarts, 1);
+
+  const replay = await runtime.run(
+    {
+      requestId: "request-public-runtime",
+      projectId: "project-public-runtime",
+      milestoneId: "milestone-public-runtime",
+      repositoryRevision: revision,
+      objective: "Create the bounded result.",
+      acceptanceCriteria: ["result accepted"],
+      allowedPaths: ["result.txt"],
+      readPaths: ["result.txt"],
+      maximumConcurrency: 1,
+      maximumReplans: 0,
+      originLane: "interactive",
+      requestedExecutorProvider: "codex",
+      adoptResult: false,
+    },
+    new AbortController().signal,
+    root,
+    Object.freeze({ principalId: "local-user-test-user" }),
+  );
+  assert.equal(replay.status, "completed", JSON.stringify(replay));
+  assert.equal(replay.reason, "project_runtime_objective_already_accepted");
+  assert.equal(taskStarts, 1);
   assert.equal(integrationAdapterCalls, 1);
 });

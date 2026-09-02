@@ -90,13 +90,13 @@ queued
 
 Queue `completed`はProject Operationの終了と所有資源の解放確認を意味し、Milestone `accepted`と同義ではない。Task `completed`からObjective `integration_pending`、Objective `accepted`からMilestone `integrating`への遷移は別世代とし、同じtransactionで連鎖成功させない。遷移の全閉集合は[機械可読な設計対応](../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)を正とする。
 
-Queueの優先順位は未所有の要求間だけで評価する。`leased`または`running`のQueueが一つでも存在する間は、後着したQueueへ二つ目のOperation Leaseを発行しない。後着したスケジュール要求は`waiting_foreground`へ耐久化し、対話要求を含むその他の後着要求もEffect 0で待機する。実行中Operationの終端化、物理Leaseの解放および所有者settlementが確認された後にだけ、待機要求を現在のRevision、容量、DependencyおよびConflictへ再照合して選択する。優先順位を、実行中Operationの横取り、同一Project Stateへの二重実行、またはowner喪失の推測回復に使用しない。
+Queueの優先順位は未所有の要求間だけで評価する。`leased`または`running`のQueueが一つでも存在する間は、後着したQueueへ二つ目のOperation Leaseを発行しない。後着したスケジュール要求は`waiting_foreground`へ耐久化し、対話要求を含むその他の後着要求もEffect 0で待機する。候補を選んだ呼出し側は、Repository Binding単位のOperation Leaseを取得した後、同じ耐久Queueをfreshに再走査し、現在の最優先候補と自身のQueueが一致した場合だけQueue ownerをclaimする。選択と取得の間に対話要求が到着した場合、先行していたスケジュール呼出し側はEffect 0でLeaseを解放する。実行中Operationの終端化、物理Leaseの解放および所有者settlementが確認された後にだけ、待機要求を現在のRevision、容量、DependencyおよびConflictへ再照合して選択する。優先順位を、実行中Operationの横取り、同一Project Stateへの二重実行、またはowner喪失の推測回復に使用しない。
 
 Queueの終端状態は処理結果の耐久化を表し、Leaseの解放完了とは別に扱う。所有中のQueueを終端状態へ進めても`ownerGeneration`を直ちに消さず、同じLeaseのLock不存在、解放証跡、回復Marker不存在をfreshに確認した専用settlementだけが所有者を消す。途中でProcessが失われた場合、実行中のQueueは`recovery_required`へ進め、既に耐久化された終端状態は保持したまま資源だけをsettleする。状態名や解放APIの戻り値だけからcleanup成立を推定しない。
 
 Lease証跡はprefixや内容の一部だけで探索しない。Repository Binding、Project、Lease種別、Queue、owner generation、owner process、disposition、世代およびdisposition別のexact filenameを一体で照合する。未知・重複・別Queue・別種別・内容とfilenameの不一致があればQueue ownerを消さず、手動回復へ停止する。Lease取得後の全終了経路は共通の所有終了処理を通り、可能ならQueueへ回復意図を耐久化してから物理Leaseを解放し、freshな証跡でQueue ownerをsettleする。QueueまたはStateの更新が観測不能でも物理解放を試み、解放証跡から後続Processが一意にreconcileできる状態を残す。取得済みLeaseを呼出し不能なProcess内資源として残したまま結果を返さない。
 
-`recovery_required`から通常実行へ直接戻さない。Client入力ではなく耐久Queueが保持するexact Recovery Identityを発行Runtimeへ渡し、回復完了と対象資源不存在を確認する。専用Queue遷移で同じIdentityのsettlementを耐久化した後、同じProject State世代で旧attemptを終了しfresh retryへ置換する。中断時は耐久QueueのsettlementからState更新だけを再開し、Recovery Effectを重複発行しない。その後にowner、Repository Revision、容量、DependencyおよびConflictをfreshに再検証して、新しいLeaseを取得する。新しい`recovery_settled`状態は作らず、Queueの再開条件とexact参照でsettlementを表す。未解決、Identity不一致、上限到達または観測不能では通常実行へ進めず、人間へ移送し、Task／Provider／正本Effectを発行しない。
+`recovery_required`から通常実行へ直接戻さない。Client入力ではなくProject StateがTaskごとに保持するexact Recovery Identityを発行Runtimeへ渡し、回復完了と対象資源不存在を確認する。QueueはRecovery Authorityにならない安定した適用IDだけを保持し、Task IDとexact Recovery Identityの閉集合から同じ適用を照合する。専用Queue遷移で適用済みを耐久化した後、同じProject State世代で各旧attemptを終了し、非Authorityの`settledRecoveryId`を保持したfresh retryへ置換する。Queue更新後またはState更新後に中断しても、両者の適用IDと`settledRecoveryId`から未完了側だけを再開し、Recovery Effectを重複発行しない。Recovery settlementは再計画回数の消費と分離し、`maximumReplans`が0でも既存資源を回収して通常再入場できる。その後にowner、Repository Revision、容量、DependencyおよびConflictをfreshに再検証して、新しいLeaseを取得する。新しい`recovery_settled`状態は作らない。未解決、Identity不一致または観測不能では通常実行へ進めず、人間へ移送し、Task／Provider／正本Effectを発行しない。
 
 人間判断は`pending → accepted`を正常経路とする。入力を受け取っただけの中間状態は作らず、現在のdecision ID、Project／Milestone、世代、改訂版、許可選択肢および認証済み人間主体をすべて照合できた場合だけ一度受理する。古い・置換済み・取消済み・許可外の入力はEffect 0で拒否し、現在の`pending` Recordを変更しない。`stale`、`superseded`、`cancelled`は、Parentが現在Project世代の変化、置換判断の発行またはMilestone取消を独立に観測した場合だけRuntime-owned lifecycleとして記録する。`accepted`だけが専用遷移を介してProject Stateの再計画または再開へ接続できる。
 
@@ -139,7 +139,7 @@ Lock IDと順序は次で固定する。
 
 ## 7. AuthorityとEffect順序
 
-Milestone AuthorityはParent CoordinatorだけがTask Authorityへ縮小できる。Task AuthorityはProject、Milestone、Objective、Task、attempt、Repository Revision、読取り／変更Path、Provider境界、予算および期限へ結合する。Task Graph作成時には先行発行せず、Task開始予約を耐久化した後、各attemptの外部Effect直前にfreshな一回限りのAuthorityを発行する。待機、排他競合または開始前取消では発行しない。Queue record、Progress、Provider出力、MCP client info、Task結果または時刻はAuthorityを生成・拡張しない。
+Milestone AuthorityはParent CoordinatorだけがTask Authorityへ縮小できる。Task AuthorityはProject、Milestone、Objective、Task、attempt、Repository Revision、読取り／変更Path、Provider境界、予算および期限へ結合する。Task Graph作成時には先行発行せず、Task開始予約を耐久化した後、各attemptの外部Effect直前にfreshな一回限りのAuthorityを発行する。待機、排他競合または開始前取消では発行しない。発行とSingle Task開始の間に取消を観測した場合は、発行元が同じCapabilityを失効してから取消完了を返す。失効を確認できなければ未使用と推定せずRecoveryへ閉じる。Queue record、Progress、Provider出力、MCP client info、Task結果または時刻はAuthorityを生成・拡張しない。
 
 | Authority ID | 所有者 | 許可する範囲 | 終端条件 |
 |---|---|---|---|
@@ -194,12 +194,12 @@ Process喪失後は両Rootを照合する。保護Recordが`prepared`でProject 
 |---|---|---|---|
 | `FAIL-QUEUE-WRITE` | Queue一時file／replace／Directory観測 | Task 0、Provider Effect 0、破損を初期化しない | `PR-A-06` |
 | `FAIL-LEASE-ACQUISITION` | 取得中Markerの一時file作成／write／flush／rename／readback、Marker後の物理Lock、Lock所有Marker、取得証跡、解放MarkerまたはQueue owner結合前の失敗／Process喪失 | 全資源のfreshな不存在を確認できた同期失敗だけを巻戻し済みとする。それ以外は決定論的な回復IDを保持する。不完全Marker、所有不明Lockまたは不一致は自動変更せず手動回復へ閉じ、exactなMarker、Lock所有、証跡、解放意図およびowner不存在を照合できる場合だけ共通回復で全Marker・Lock不存在と再取得可能へ収束する | `PR-A-04`、`PR-D-A-01` |
-| `FAIL-LEASE-OWNER-LOSS` | Operation lease取得後のParent喪失、Queue／State更新または結果settlementの観測不能 | 新Task開始0。全取得後経路が物理解放を試み、exactな証跡とQueue ownerをsettleするか、後続Processが一意に回復できる義務を残す | `PR-A-04`、`PR-A-06` |
+| `FAIL-LEASE-OWNER-LOSS` | Operation lease取得後のParent喪失、Queue／State更新または結果settlementの観測不能 | 新Task開始0。Authority発行前の`starting`はEffect 0で`ready`へ戻す。開始済みTaskはProject Operation IDからRuntime所有のexact Recovery Identityへ相関し、StateとQueueのどちらか一方だけが更新済みでも後続Processが未完了側だけを再開する。欠落・重複・不一致では推測せず手動回復へ閉じる | `PR-A-04`、`PR-A-06` |
 | `FAIL-STATE-GENERATION` | 外部処理後の世代差 | 結果混入0、Evidence保持、再計画／判断／Recovery | `PR-A-03` |
 | `FAIL-DUPLICATE-REQUEST` | 同じrequest identityの再送 | Operation二重発行0、現在状態を返す | `PR-Q-03` |
 | `FAIL-CAPACITY-RACE` | 6件目を同時開始 | 6件目Task Effect 0 | `PR-A-02` |
 | `FAIL-TASK-RESULT-IDENTITY` | 別attempt／Operation／Authority／Revision、保存不能なRecovery ID、またはstatus／Effect／cleanup／手動回復／Process再起動の矛盾 | 現在Taskへ成功反映0。安全なRecovery Identityへ単調化し、Process再起動義務をProject結果へ保持 | `PR-A-03` |
-| `FAIL-CANCEL-DURING-START` | `starting`耐久化後、Effect前後の取消 | Effect前なら非発行、発行後なら終了・cleanupまで追跡 | `PR-A-04` |
+| `FAIL-CANCEL-DURING-START` | `starting`耐久化後、Task Authority発行の直前・直後またはEffect前後の取消 | 発行前なら非発行、発行直後で未使用なら同じ発行元が失効を確認し、失効不明ならEffect不明のRecoveryへ閉じる。Effect開始後は終了・cleanupまで追跡する | `PR-Q-04`、`PR-A-04` |
 | `FAIL-CLEANUP-UNKNOWN` | Task結果後の資源観測不能 | slot／Conflictを解放せず`recovery_required` | `PR-Q-02`、`PR-A-04` |
 | `FAIL-INTEGRATION-CONFLICT` | 全Task完了後の成果物／判断競合 | Objective／Milestone受入0、候補隔離 | `PR-I-01` |
 | `FAIL-ADOPTION-REVISION` | 採用Lease取得後の正本Revision差 | 正本Effect 0、再計画または人間判断 | `PR-A-06` |
@@ -318,18 +318,18 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `INV-INTEGRATE-BEFORE-ADOPTION` | 意味統合と受入確認を正本採用より先に行う |
 | `INV-UNKNOWN-PRESERVES-RECOVERY` | cleanup／Effect不明時はRecovery義務を保持する |
 | `INV-NO-SUCCESS-FROM-UNKNOWN` | 欠落・古い・競合する根拠を成功へ補正しない |
-| `INV-CANCEL-AFTER-CLEANUP` | 取消完了は終了・cleanup・状態反映後だけ成立する |
+| `INV-CANCEL-AFTER-CLEANUP` | 取消完了は、未使用の新規Task Authorityがあれば失効を確認し、開始済み対象の終了・cleanup・状態反映を確認した後だけ成立する |
 | `INV-OLD-IDENTITY-IMMUTABLE` | 置換前Taskを上書きせず後継へ接続する |
 | `INV-PLATFORM-NO-FALLBACK` | 未対応Platformで別実装へ暗黙fallbackしない |
 | `INV-TRANSPORT-NO-AUTHORITY` | TransportはProject Authorityや成功を生成しない |
 | `INV-CANONICAL-EFFECT-SERIALIZED` | 正本採用を直列化し直前Revisionを確認する |
-| `INV-INTERACTIVE-PRIORITY-NO-PREEMPTION` | 対話優先は未開始要求だけを待機させる |
+| `INV-INTERACTIVE-PRIORITY-NO-PREEMPTION` | 対話優先は未開始要求だけを待機させ、Binding単位Lease取得後のfresh選択と一致したQueueだけをclaimする |
 | `INV-DURABLE-RECORD-CLOSED` | 耐久State／Queue Recordは完全Schema、filename結合世代および連続する不変世代を持つ |
 | `INV-QUEUE-OWNER-IS-LIVE-LEASE` | Queue ownerは同じRepository／Project／QueueへRuntimeが発行した現在有効なLeaseからだけ導出する |
 | `INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE` | Lease解放意図をLock除去より先に耐久化し、解放証跡不明の間は再取得を止める |
 | `INV-LEASE-ACQUISITION-RECOVERABLE` | 物理Lockより先に取得中Markerを耐久化し、Lease返却前またはQueue owner結合前の失敗をfreshな完全巻戻し、またはexactなowner・回復IDを持つ回復義務のどちらかへ閉じる |
 | `INV-QUEUE-OWNER-CLEARED-AFTER-LEASE-SETTLEMENT` | Queueの終端結果とLease解放を二段階で耐久化し、Lock不存在、解放証跡、Marker不存在をfreshに確認した後だけownerを消す |
-| `INV-RECOVERY-SETTLED-BEFORE-RESUME` | exact回復とfresh再確認の後だけ通常実行へ戻る |
+| `INV-RECOVERY-SETTLED-BEFORE-RESUME` | Taskごとのexact Recovery Identity、Queueの非Authorityな適用ID、Stateの`settledRecoveryId`を照合し、回復完了と資源不存在を確認した後だけ通常実行へ戻す。Queue／State片側更新後の再入場ではEffectを再発行せず、再計画上限を回復義務の放棄に用いない |
 | `INV-DECISION-BINDING-CURRENT` | 人間判断を現在の対象・世代・選択肢だけへ適用する |
 | `INV-MCP-NO-HUMAN-AUTHORITY` | MCP metadataやSessionからHuman Authorityを生成しない |
 | `INV-DECISION-RECEIPT-BEFORE-RESUME` | exactな受理済み判断とfreshなProject世代の後に一度だけ再開する |

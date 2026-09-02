@@ -16,6 +16,7 @@ export {
   finalizeRuntimeOwnedDockerRecovery,
   inspectRuntimeOwnedDockerResourceReceipts,
   inspectRuntimeOwnedDockerTaskRecoveryState,
+  resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
   markRuntimeOwnedDockerResourceSubmission,
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerAbsence,

@@ -34,6 +34,7 @@ Migration note (v0.18.1 → v0.19.0 candidate):
 
 - `migration_required: true`
 - `change_classification: breaking`
+- Required for every existing-baseline update: evaluate adoption of the new baseline; inventory every active, resumed, or otherwise governed asset; decide each asset's disposition including an explicit none-applicable result; complete required treatment; and independently confirm that the migration preserves meaning before declaring the baseline update complete.
 - Required: assess active or resumed consumers of reasoning context, Communication, Change Trace, Quality Assurance, Documentation, Agent guidance, Architecture, and Document Audit. Preserve historical decisions and hypotheses; identify the current intent; do not claim overall completion when a required perspective remains unevaluated.
 - Conditional for Project Runtime adopters: verify the Repository binding and authenticated local principal, use the durable queue and exact recovery identity, and keep the v0.18.1 single-task command available until the Project Runtime release gate is satisfied. Projects that do not enable Project Runtime need no Runtime migration.
 - Not required: retrospectively rewrite completed artifacts, create dedicated reasoning files or databases, introduce a new audit type, adopt the brand icon in a UI, or change existing trademark permissions.
@@ -912,6 +913,7 @@ v0.19.0候補は、独立して追跡できる次の4変更から構成する。
 
 - `migration_required: true`
 - `change_classification: breaking`
+- 既存基準版から更新するすべての採用先で必須: 新しい基準版の採用を評価し、現在、再開対象または管理対象となる全資産を棚卸しし、該当なしを含め各資産の処遇を決定する。必要な処置を完了し、意味欠損がないことを独立確認してから基準版更新の完了を表示する。
 - 必須: 現在または再開対象の推論Context、外部コミュニケーション、変更トレース、品質保証、文書化、エージェント案内、アーキテクチャおよび文書監査の利用側を適用判定する。当時の判断・仮説を上書きせず、現在有効な意図を識別し、必須観点が未評価の結果を全体完了と表示しない。
 - Project Runtime採用時に条件付きで必須: Repository Bindingと認証済みLocal Principalを確認し、耐久Queueとexact Recovery Identityを使用する。Project RuntimeのRelease Gateが成立するまでv0.18.1のSingle Task commandを維持する。Project Runtimeを有効化しないProjectにRuntime移行は不要である。
 - 不要: 完了済み成果物の遡及改稿、専用の推論File／Database、新しい監査種別、ブランドアイコンのUI組込み、または既存商標許可の変更。

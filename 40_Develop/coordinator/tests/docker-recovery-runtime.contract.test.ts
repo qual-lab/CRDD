@@ -37,6 +37,7 @@ import {
   recordRuntimeOwnedDockerHostCleanupReceipt,
   recordRuntimeOwnedNormalMountCompletion,
   recoverExactDockerResourceWithRunner,
+  resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver,
   recoverUnknownDockerCreateOutcomeWithRunner,
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
 } from "../src/security/docker-recovery-runtime-internal.ts";
@@ -4335,6 +4336,63 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
     assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
     assert.equal(fs.existsSync(owned.root), false);
     assert.equal(fs.existsSync(initialHost.marker), false);
+  } finally {
+    if (recoveryCapability)
+      void abandonRuntimeOwnedDockerRecovery(recoveryCapability);
+    void abandonOwnedHostOperationGenerationLock(management);
+    fs.rmSync(owned.root, { recursive: true, force: true });
+    fs.rmSync(initialHost.marker, { force: true });
+    fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("Project Operation correlation resolves the exact durable Docker Recovery ID after owner loss", async () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-project-recovery-correlation-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  const root = verifiedRoot(runtimeRootPath);
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const operation = verifyOwnedOperationManagementCapability(management);
+  const correlationId = "project-operation-a";
+  const plan = Object.freeze({
+    ...productionPlan(operation.operationId, "d".repeat(64)),
+    recoveryCorrelationId: correlationId,
+  });
+  const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  let recoveryCapability: object | null = null;
+  try {
+    const begun = beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+      plan,
+      management,
+      providerHomeForPlan(plan),
+      root,
+      () => root,
+    );
+    assert.ok(begun && begun.status === "ready");
+    recoveryCapability = begun.recoveryCapability;
+    const recoveryId = begun.recoveryId;
+    assert.equal(abandonRuntimeOwnedDockerRecovery(recoveryCapability), true);
+    recoveryCapability = null;
+    assert.equal(
+      await abandonOwnedHostOperationGenerationLock(management),
+      true,
+    );
+    assert.deepEqual(
+      resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver(
+        [correlationId],
+        root,
+        () => root,
+      ),
+      {
+        status: "completed",
+        bindings: [{ correlationId, recoveryId }],
+      },
+    );
   } finally {
     if (recoveryCapability)
       void abandonRuntimeOwnedDockerRecovery(recoveryCapability);

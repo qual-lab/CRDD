@@ -8,12 +8,15 @@ import test from "node:test";
 import {
   readProjectOperationQueueState,
   readProjectRuntimeState,
+  settleProjectOperationQueueRecovery,
+  writeProjectRuntimeState,
 } from "../src/security/project-runtime-durable-foundation.ts";
 import {
   inspectProjectRuntimeObjectiveRequest,
   runProjectRuntimeObjective,
 } from "../src/security/project-runtime-objective-intake.ts";
 import type { ProjectRuntimeSingleTaskResult } from "../src/security/project-runtime-single-task-adapter.ts";
+import { settleAndRetryProjectTaskRecoveries } from "../src/security/project-runtime-state.ts";
 
 const revision = "a".repeat(40);
 function root(t: test.TestContext) {
@@ -120,7 +123,7 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     request(),
     new AbortController().signal,
   );
-  assert.equal(second.status, "completed");
+  assert.equal(second.status, "completed", JSON.stringify(second));
   assert.equal(effects, 1);
   const state = readProjectRuntimeState(
     workingDirectory,
@@ -476,7 +479,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
 
   const first = await runProjectRuntimeObjective(
     dependencies,
-    request(),
+    request({ maximumReplans: 0 }),
     new AbortController().signal,
   );
   assert.equal(first.reason, "project_runtime_task_recovery_required");
@@ -485,10 +488,10 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
 
   const resumed = await runProjectRuntimeObjective(
     dependencies,
-    request(),
+    request({ maximumReplans: 0 }),
     new AbortController().signal,
   );
-  assert.equal(resumed.status, "completed");
+  assert.equal(resumed.status, "completed", JSON.stringify(resumed));
   assert.equal(
     resumed.reason,
     "project_runtime_tasks_completed_integration_pending",
@@ -505,3 +508,124 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     1,
   );
 });
+
+for (const interruption of ["queue_only", "queue_and_state"] as const) {
+  test(`exact Recovery settlement resumes after ${interruption} durable interruption without replay`, async (t) => {
+    const workingDirectory = root(t);
+    const recoveryId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+    let attempts = 0;
+    let recoveries = 0;
+    const dependencies = {
+      authenticatedPrincipalId: "principal-a",
+      verifyProjectBinding: () => ({
+        status: "verified",
+        repositoryBindingId: "binding-a",
+        repositoryRevision: revision,
+        workingDirectory,
+        repositoryRoot: workingDirectory,
+        bindingCapability: {},
+      }),
+      planObjective: () => ({
+        milestoneAcceptanceCriteria: ["Result exists."],
+        objectives: [
+          { id: "objective-a", acceptanceCriteria: ["Result exists."] },
+        ],
+        tasks: [
+          {
+            id: "task-a",
+            objectiveId: "objective-a",
+            dependencies: [],
+            allowedPaths: ["result.txt"],
+            conflictKeys: ["result.txt"],
+          },
+        ],
+      }),
+      createTaskExecutions: () => [
+        {
+          taskId: "task-a",
+          authorityBindingId: "authority-a",
+          taskRequest: {},
+          taskAuthorityCapability: {},
+          repositoryRoot: workingDirectory,
+        },
+      ],
+      observeLeaseOwner: () => ({ status: "absent" }),
+      recoverTaskRecovery: () => {
+        recoveries += 1;
+        throw new Error("recovery_effect_must_not_replay");
+      },
+      execution: {
+        runSingleTaskAttempt: async (
+          input: Parameters<typeof completed>[0],
+        ) => {
+          attempts += 1;
+          return attempts === 1
+            ? {
+                ...completed(input),
+                status: "blocked" as const,
+                reason: "docker_cleanup_unknown",
+                effectState: "unknown" as const,
+                cleanupConfirmed: false,
+                manualRecoveryRequired: true,
+                recoveryIds: [recoveryId],
+                candidateId: null,
+              }
+            : completed(input);
+        },
+      },
+    };
+    const initial = await runProjectRuntimeObjective(
+      dependencies,
+      request({ maximumReplans: 0 }),
+      new AbortController().signal,
+    );
+    assert.equal(initial.reason, "project_runtime_task_recovery_required");
+    const queueBefore = readProjectOperationQueueState(
+      workingDirectory,
+      "binding-a",
+      initial.queueId ?? "invalid",
+    );
+    const stateBefore = readProjectRuntimeState(
+      workingDirectory,
+      "binding-a",
+      "project-a",
+    );
+    assert.equal(queueBefore.status, "completed");
+    assert.equal(stateBefore.status, "completed");
+    assert.ok(queueBefore.value?.resultReference);
+    assert.ok(stateBefore.value);
+    const durableState = stateBefore.value;
+    const queueSettled = settleProjectOperationQueueRecovery(
+      workingDirectory,
+      "binding-a",
+      initial.queueId ?? "invalid",
+      queueBefore.value?.generation ?? -1,
+      queueBefore.value?.resultReference ?? "invalid",
+    );
+    assert.equal(queueSettled.status, "completed");
+    if (interruption === "queue_and_state") {
+      const stateSettled = settleAndRetryProjectTaskRecoveries(
+        durableState,
+        durableState.generation,
+        [{ taskId: "task-a", recoveryId }],
+      );
+      assert.equal(stateSettled.status, "completed");
+      assert.ok(stateSettled.state);
+      const write = writeProjectRuntimeState(
+        workingDirectory,
+        "binding-a",
+        stateSettled.state,
+        durableState.generation,
+      );
+      assert.equal(write.status, "completed");
+    }
+    const resumed = await runProjectRuntimeObjective(
+      dependencies,
+      request({ maximumReplans: 0 }),
+      new AbortController().signal,
+    );
+    assert.equal(resumed.status, "completed");
+    assert.equal(recoveries, 0);
+    assert.equal(attempts, 2);
+  });
+}

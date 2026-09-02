@@ -175,6 +175,43 @@ test("PR-N-01 connects one durable Project task to the Single Task boundary", as
   assert.equal(effects, 1);
 });
 
+test("interactive Queue wins a fresh binding-wide selection before a scheduled caller can claim", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-scheduled",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: hash("scheduled-request"),
+      originLane: "scheduled",
+      repositoryRevision: revision,
+      scopeHash: hash("scheduled-scope"),
+    }).status,
+    "completed",
+  );
+  let effects = 0;
+  const dependencies = {
+    runSingleTaskAttempt: async (attempt: Parameters<typeof completed>[0]) => {
+      effects += 1;
+      return completed(attempt);
+    },
+  };
+  const scheduled = await runProjectRuntimeOperation(dependencies, {
+    ...input,
+    queueId: "queue-scheduled",
+  });
+  assert.equal(scheduled.status, "blocked");
+  assert.equal(
+    scheduled.reason,
+    "project_runtime_queue_claim_priority_changed",
+  );
+  assert.equal(scheduled.effectState, "no_effect");
+  assert.equal(effects, 0);
+  const interactive = await runProjectRuntimeOperation(dependencies, input);
+  assert.equal(interactive.status, "completed");
+  assert.equal(effects, 1);
+});
+
 test("PR-N-01 uses the existing Single Task adapter without widening its authority", async (t) => {
   const { input } = fixture(t, [task("task-a")], 1);
   let starts = 0;
@@ -611,7 +648,7 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
     },
     { ...input, cancellationSignal: controller.signal },
   );
-  assert.equal(outcome.status, "cancelled");
+  assert.equal(outcome.status, "cancelled", JSON.stringify(outcome));
   assert.equal(effects, 0);
   assert.equal(authoritiesIssued, 0);
   const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
@@ -621,6 +658,40 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
     queue.status === "completed" && queue.value.ownerGeneration,
     null,
   );
+});
+
+test("PR-Q-04 revokes a freshly issued unused Authority when cancellation arrives at the issue boundary", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const controller = new AbortController();
+  const authority = {};
+  let effects = 0;
+  let revocations = 0;
+  const outcome = await runProjectRuntimeOperation(
+    {
+      issueTaskAuthority: () => {
+        controller.abort();
+        return authority;
+      },
+      revokeTaskAuthority: (candidate) => {
+        assert.equal(candidate, authority);
+        revocations += 1;
+        return true;
+      },
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    { ...input, cancellationSignal: controller.signal },
+  );
+  assert.equal(outcome.status, "cancelled", JSON.stringify(outcome));
+  assert.equal(outcome.cleanupConfirmed, true);
+  assert.equal(outcome.manualRecoveryRequired, false);
+  assert.equal(effects, 0);
+  assert.equal(revocations, 1);
+  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(queue.status, "completed");
+  assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
 });
 
 test("contract remains a partial Project Runtime capability", () => {

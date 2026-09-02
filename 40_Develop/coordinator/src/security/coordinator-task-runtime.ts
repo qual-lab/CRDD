@@ -363,6 +363,7 @@ type RuntimeDependencies = Readonly<{
     mountAuthorizationCapability: object,
     selectionUseCapability: object,
     taskPacketUseCapability: object,
+    recoveryCorrelationId: string | null,
   ) => RuntimeRecord;
   startProcess: (
     preparedCapability: object,
@@ -438,6 +439,7 @@ type ControlRecord = {
     recoveryId: string;
     state: "active" | "finalizable" | "finalized" | "abandoned";
   }>;
+  recoveryCorrelationId: string | null;
 };
 type RuntimeState = Readonly<{
   dependencies: RuntimeDependencies;
@@ -1125,6 +1127,7 @@ async function executeStageBody(
       mountAuthorization,
       selection.useCapability as object,
       taskUse,
+      control.recoveryCorrelationId,
     );
     selectionControl = null;
     taskControl = null;
@@ -2160,6 +2163,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
     mountAuthorizationCapability,
     selectionUseCapability,
     taskPacketUseCapability,
+    recoveryCorrelationId,
   ) =>
     provider === "codex"
       ? prepareRuntimeOwnedCodexDockerTaskCandidate(
@@ -2168,6 +2172,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
           mountAuthorizationCapability,
           selectionUseCapability,
           taskPacketUseCapability,
+          recoveryCorrelationId,
         )
       : prepareRuntimeOwnedClaudeDockerTaskCandidate(
           managementCapability,
@@ -2175,6 +2180,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
           mountAuthorizationCapability,
           selectionUseCapability,
           taskPacketUseCapability,
+          recoveryCorrelationId,
         ),
   startProcess: startRuntimeOwnedDockerProcessController,
   cancelProcess: cancelRuntimeOwnedDockerProcessController,
@@ -2214,7 +2220,14 @@ function createRuntime(dependencies: RuntimeDependencies) {
       rawRequest: unknown,
       repositoryRoot: unknown,
       evaluationTime: unknown,
+      recoveryCorrelationId: unknown = null,
     ) => {
+      if (
+        recoveryCorrelationId !== null &&
+        (typeof recoveryCorrelationId !== "string" ||
+          !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(recoveryCorrelationId))
+      )
+        throw new Error("coordinator_task_recovery_correlation_invalid");
       const controlCapability = Object.freeze({});
       const control: ControlRecord = {
         lifecycleState: "STATE-ADMISSION",
@@ -2238,6 +2251,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         releaseHostGenerationDrain: null,
         dockerFinalizations: [],
         dockerHandoffs: [],
+        recoveryCorrelationId,
       };
       try {
         state.dependencies.observeLifecycleState?.("STATE-ADMISSION");
@@ -2746,6 +2760,7 @@ export function startRuntimeOwnedCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
   verifiedPackageCapability: unknown,
+  recoveryCorrelationId: unknown = null,
 ) {
   if (isRuntimeProcessEffectBlocked()) {
     throw new Error(
@@ -2765,6 +2780,7 @@ export function startRuntimeOwnedCoordinatorTask(
     rawRequest,
     repositoryRoot,
     new Date().toISOString(),
+    recoveryCorrelationId,
   );
 }
 
@@ -2809,6 +2825,7 @@ function startRuntimeOwnedDevelopmentTask(
   repositoryRoot: unknown,
   sessionCapability: object,
   candidateDisposition: "discard" | "project_runtime_owned",
+  recoveryCorrelationId: unknown = null,
 ) {
   const timing = createDevelopmentExecutionTiming(
     undefined,
@@ -2878,6 +2895,7 @@ function startRuntimeOwnedDevelopmentTask(
     boundary.request,
     boundary.repositoryRoot,
     new Date().toISOString(),
+    recoveryCorrelationId,
   );
   const cancel = () => runtime.cancel(started.controlCapability);
   let cancellation: Promise<unknown> | null = null;
@@ -2965,6 +2983,7 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
     repositoryRoot,
     sessionCapability,
     "discard",
+    null,
   );
 }
 
@@ -2973,12 +2992,14 @@ export function startRuntimeOwnedDevelopmentProjectRuntimeTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
   sessionCapability: object,
+  recoveryCorrelationId: unknown = null,
 ) {
   const started = startRuntimeOwnedDevelopmentTask(
     rawRequest,
     repositoryRoot,
     sessionCapability,
     "project_runtime_owned",
+    recoveryCorrelationId,
   );
   return Object.freeze({
     status: started.status,
