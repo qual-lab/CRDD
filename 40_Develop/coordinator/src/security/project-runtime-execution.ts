@@ -21,10 +21,14 @@ import {
   reserveProjectTaskStart,
   selectSchedulableProjectTasks,
   settleProjectTask,
+  settleProjectTaskBeforeEffect,
+  type ProjectTaskRecoveryKind,
   type ProjectRuntimeState,
 } from "./project-runtime-state.ts";
-import { poisonRuntimeProcessAfterCleanupUnknown } from "../core/runtime-process-safety-state.ts";
-import type { ProjectRuntimeSingleTaskRecoveryObligation } from "./project-runtime-single-task-adapter.ts";
+import {
+  getRuntimeProcessInstanceIdentity,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "../core/runtime-process-safety-state.ts";
 
 export const PROJECT_RUNTIME_EXECUTION_CONTRACT =
   "crdd-coordinator/project-runtime-execution/v1" as const;
@@ -58,7 +62,10 @@ export type ProjectRuntimeExecutionResult = Readonly<{
   manualRecoveryRequired: boolean;
   processRestartRequired: boolean;
   recoveryIds: readonly string[];
-  recoveryObligations: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
+  recoveryObligations: readonly Readonly<{
+    kind: ProjectTaskRecoveryKind;
+    recoveryId: string;
+  }>[];
   effectState: "no_effect" | "settled" | "unknown";
 }>;
 
@@ -226,9 +233,13 @@ function validSingleTaskResult(
         const kind = (entry as { kind?: unknown }).kind;
         const recoveryId = (entry as { recoveryId?: unknown }).recoveryId;
         if (
-          !["host", "docker", "candidate", "candidate_store"].includes(
-            String(kind),
-          ) ||
+          ![
+            "host",
+            "docker",
+            "candidate",
+            "candidate_store",
+            "runtime_process",
+          ].includes(String(kind)) ||
           !isProjectRuntimeRecoveryIdentity(recoveryId) ||
           identities.has(`${kind}\0${recoveryId}`)
         )
@@ -289,7 +300,10 @@ function result(
     Readonly<{
       processRestartRequired?: boolean;
       recoveryIds?: readonly string[];
-      recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
+      recoveryObligations?: readonly Readonly<{
+        kind: ProjectTaskRecoveryKind;
+        recoveryId: string;
+      }>[];
     }>,
 ): ProjectRuntimeExecutionResult {
   return Object.freeze({
@@ -315,7 +329,10 @@ function blocked(
     processRestartRequired?: boolean;
     effectState?: "no_effect" | "settled" | "unknown";
     recoveryIds?: readonly string[];
-    recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
+    recoveryObligations?: readonly Readonly<{
+      kind: ProjectTaskRecoveryKind;
+      recoveryId: string;
+    }>[];
   }> = {},
 ) {
   return result(input, {
@@ -755,6 +772,7 @@ export async function runProjectRuntimeOperation(
     // Promise.resolve().then also converts a synchronous dependency failure into
     // an observed attempt failure instead of letting it escape with a live lease.
     let startObservationChain = Promise.resolve(true);
+    const startedAttemptIds = new Set<string>();
     const observeStarted = (attempt: (typeof attempts)[number]) => {
       const observation = startObservationChain.then(() => {
         const started = observeProjectTaskStarted(
@@ -768,6 +786,7 @@ export async function runProjectRuntimeOperation(
         const written = persistedState(input, started.state, state.generation);
         if (written.status !== "completed") return false;
         state = written.value;
+        startedAttemptIds.add(attempt.attemptId);
         return true;
       });
       startObservationChain = observation.then(
@@ -862,8 +881,23 @@ export async function runProjectRuntimeOperation(
                     manualRecoveryRequired: true,
                     processRestartRequired: true,
                     candidateId: null,
-                    recoveryIds: Object.freeze([]),
-                    recoveryObligations: Object.freeze([]),
+                    recoveryIds: Object.freeze([
+                      `runtime-process.${getRuntimeProcessInstanceIdentity()}.${stableId(
+                        "revocation",
+                        attempt.attemptId,
+                        attempt.operationId,
+                      )}`,
+                    ]),
+                    recoveryObligations: Object.freeze([
+                      Object.freeze({
+                        kind: "runtime_process" as const,
+                        recoveryId: `runtime-process.${getRuntimeProcessInstanceIdentity()}.${stableId(
+                          "revocation",
+                          attempt.attemptId,
+                          attempt.operationId,
+                        )}`,
+                      }),
+                    ]),
                   });
                 })();
           }
@@ -908,20 +942,7 @@ export async function runProjectRuntimeOperation(
         validatedOutcome.authorityBindingId ===
           attempt?.execution.authorityBindingId &&
         validatedOutcome.repositoryRevision === state.repositoryRevision;
-      const currentTask = state.tasks.find(
-        (task) => task.definition.id === attempt.taskId,
-      );
-      if (
-        currentTask?.state === "starting" &&
-        currentTask.startPhase === "handoff_prepared"
-      ) {
-        const observed = await observeStarted(attempt);
-        if (!observed)
-          return finalizeOwnedFailure(
-            "project_runtime_task_start_observation_failed",
-            { state, completedTaskIds },
-          );
-      }
+      const effectStarted = startedAttemptIds.has(attempt.attemptId);
       const recoveryRequired =
         !validatedOutcome ||
         !exact ||
@@ -939,7 +960,7 @@ export async function runProjectRuntimeOperation(
         : [];
       const recoveryUnresolved =
         recoveryRequired && recoveryObligations.length === 0;
-      const settlement = settleProjectTask(state, state.generation, {
+      const settlementInput = {
         taskId: attempt?.taskId ?? "invalid",
         attemptId: attempt?.attemptId ?? "invalid",
         operationId: attempt?.operationId ?? "invalid",
@@ -955,7 +976,24 @@ export async function runProjectRuntimeOperation(
         recoveryObligations,
         recoveryUnresolved,
         candidateId: validatedOutcome?.candidateId ?? null,
-      });
+      } as const;
+      const settlement = effectStarted
+        ? settleProjectTask(state, state.generation, settlementInput)
+        : settleProjectTaskBeforeEffect(state, state.generation, {
+            ...settlementInput,
+            outcome:
+              settlementInput.outcome === "completed"
+                ? "recovery_required"
+                : settlementInput.outcome,
+            cleanupConfirmed:
+              settlementInput.outcome === "completed"
+                ? false
+                : settlementInput.cleanupConfirmed,
+            recoveryUnresolved:
+              settlementInput.outcome === "completed"
+                ? true
+                : settlementInput.recoveryUnresolved,
+          });
       if (settlement.status !== "completed" || !settlement.state)
         return finalizeOwnedFailure(settlement.reason, {
           state,

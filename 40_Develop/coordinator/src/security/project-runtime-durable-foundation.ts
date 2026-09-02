@@ -173,9 +173,13 @@ function recoveryObligations(
     if (
       !plainObject(entry) ||
       !exactKeys(entry, ["kind", "recoveryId", "phase"]) ||
-      !["host", "docker", "candidate", "candidate_store"].includes(
-        String(entry.kind),
-      ) ||
+      ![
+        "host",
+        "docker",
+        "candidate",
+        "candidate_store",
+        "runtime_process",
+      ].includes(String(entry.kind)) ||
       !nullableRecoveryId(entry.recoveryId) ||
       entry.recoveryId === null ||
       !["required", "recovering", "settled"].includes(String(entry.phase))
@@ -202,6 +206,32 @@ function validResultReference(value: unknown): value is string {
 
 function nullableResultReference(value: unknown) {
   return value === null || validResultReference(value);
+}
+
+function validTaskLifecycleTuple(task: ProjectRuntimeState["tasks"][number]) {
+  const attempt = task.attemptId !== null;
+  const operation = task.operationId !== null;
+  const authority = task.authorityBindingId !== null;
+  if (["planned", "waiting_dependency", "ready"].includes(task.state))
+    return task.startPhase === "none" && !attempt && !operation && !authority;
+  if (task.state === "starting" && task.startPhase === "reserved")
+    return attempt && !operation && authority;
+  if (task.state === "starting" && task.startPhase === "handoff_prepared")
+    return attempt && operation && authority;
+  if (task.state === "running")
+    return task.startPhase === "running" && attempt && operation && authority;
+  if (
+    [
+      "cleanup_pending",
+      "completed",
+      "failed",
+      "cancelled",
+      "recovery_required",
+      "superseded",
+    ].includes(task.state)
+  )
+    return task.startPhase === "settled" && attempt && operation && authority;
+  return false;
 }
 
 function validProjectRuntimeState(
@@ -362,11 +392,9 @@ function validProjectRuntimeState(
         task.recoveryObligations.some((entry) => entry.phase !== "settled")) ||
       (!["ready", "recovery_required"].includes(String(task.state)) &&
         task.recoveryObligations.length > 0) ||
-      (task.state === "starting" &&
-        ((task.startPhase === "reserved" && task.operationId !== null) ||
-          (task.startPhase === "handoff_prepared" &&
-            task.operationId === null))) ||
-      (task.state === "running" && task.startPhase !== "running") ||
+      !validTaskLifecycleTuple(
+        task as unknown as ProjectRuntimeState["tasks"][number],
+      ) ||
       !nullableCandidateId(task.candidateId) ||
       !Number.isSafeInteger(task.retryCount) ||
       Number(task.retryCount) < 0 ||

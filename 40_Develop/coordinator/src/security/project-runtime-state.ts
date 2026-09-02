@@ -64,7 +64,8 @@ export type ProjectTaskRecoveryKind =
   | "host"
   | "docker"
   | "candidate"
-  | "candidate_store";
+  | "candidate_store"
+  | "runtime_process";
 
 export type ProjectTaskRecoveryObligation = Readonly<{
   kind: ProjectTaskRecoveryKind;
@@ -688,9 +689,13 @@ export function settleProjectTask(
     ).size !== input.recoveryObligations.length ||
     input.recoveryObligations.some(
       (entry) =>
-        !["host", "docker", "candidate", "candidate_store"].includes(
-          entry.kind,
-        ) ||
+        ![
+          "host",
+          "docker",
+          "candidate",
+          "candidate_store",
+          "runtime_process",
+        ].includes(entry.kind) ||
         !isProjectRuntimeRecoveryIdentity(entry.recoveryId) ||
         entry.phase !== "required",
     ) ||
@@ -778,6 +783,97 @@ export function settleProjectTask(
       ...state,
       generation: state.generation + 1,
       milestone: Object.freeze({ ...state.milestone, state: milestoneState }),
+      objectives,
+      tasks,
+    }),
+    taskIds: Object.freeze([input.taskId]),
+  });
+}
+
+/** Settle a durably prepared attempt that the Single Task Runtime did not
+ * accept. This path must never invent a running/provider-effect state. */
+export function settleProjectTaskBeforeEffect(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  input: Readonly<{
+    taskId: string;
+    attemptId: string;
+    operationId: string;
+    authorityBindingId: string;
+    outcome: "failed" | "cancelled" | "recovery_required";
+    cleanupConfirmed: boolean;
+    recoveryObligations: readonly ProjectTaskRecoveryObligation[];
+    recoveryUnresolved: boolean;
+  }>,
+): StateResult {
+  const task = state.tasks.find(
+    (candidate) => candidate.definition.id === input.taskId,
+  );
+  const obligationKinds = new Set<ProjectTaskRecoveryKind>([
+    "host",
+    "docker",
+    "candidate",
+    "candidate_store",
+    "runtime_process",
+  ]);
+  if (
+    state.generation !== expectedGeneration ||
+    !task ||
+    task.state !== "starting" ||
+    task.startPhase !== "handoff_prepared" ||
+    task.attemptId !== input.attemptId ||
+    task.operationId !== input.operationId ||
+    task.authorityBindingId !== input.authorityBindingId ||
+    (!input.cleanupConfirmed && input.outcome !== "recovery_required") ||
+    input.recoveryObligations.some(
+      (entry) =>
+        !obligationKinds.has(entry.kind) ||
+        !isProjectRuntimeRecoveryIdentity(entry.recoveryId) ||
+        entry.phase !== "required",
+    ) ||
+    (input.outcome === "recovery_required" &&
+      input.recoveryObligations.length === 0 &&
+      !input.recoveryUnresolved) ||
+    (input.outcome !== "recovery_required" &&
+      (input.recoveryObligations.length > 0 || input.recoveryUnresolved))
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_pre_effect_settlement_mismatch",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  const tasks = replaceTask(state, input.taskId, (current) =>
+    Object.freeze({
+      ...current,
+      state: input.outcome,
+      startPhase: "settled" as const,
+      cleanupConfirmed: input.cleanupConfirmed,
+      recoveryObligations: Object.freeze(
+        input.recoveryObligations.map((entry) => Object.freeze({ ...entry })),
+      ),
+      recoveryUnresolved: input.recoveryUnresolved,
+      candidateId: null,
+    }),
+  );
+  const objectives = state.objectives.map((objective) =>
+    objective.definition.id === task.definition.objectiveId
+      ? Object.freeze({ ...objective, state: "blocked" as const })
+      : objective,
+  );
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_pre_effect_task_settled",
+    state: projectState({
+      ...state,
+      generation: state.generation + 1,
+      milestone: Object.freeze({
+        ...state.milestone,
+        state:
+          input.outcome === "recovery_required"
+            ? ("recovery_required" as const)
+            : state.milestone.state,
+      }),
       objectives,
       tasks,
     }),

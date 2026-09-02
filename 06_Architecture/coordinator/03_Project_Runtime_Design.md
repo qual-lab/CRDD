@@ -81,10 +81,10 @@ Task、Objective、MilestoneのCanonicalな状態と意味は[状態の責務分
 ```text
 queued
   → leased → running → integration_pending → completed
-  → waiting_foreground → leased
+  → waiting_foreground → queued → leased
   → replan_required → queued | human_decision_required
-  → human_decision_required → leased | cancelled
-  → recovery_required → leased | cancelled
+  → human_decision_required → replan_required → queued → leased
+  → recovery_required → queued → leased | cancelled
   → cancelled
 ```
 
@@ -107,6 +107,8 @@ Project Stateだけが観測不能になり、継続Capabilityの保護Rootを�
 未適用の`issued`は置換・Project lifecycleにより`invalidated`、有限期限の到来により`expired`へ進める。`prepared`はProject Stateがexpected旧世代かつapplication未適用とfreshに確認できた場合だけ`invalidated`へ進め、matching new世代なら`finalized`、Project側だけが不明なら上記の回復経路へ進める。exact Recoveryは、独立した回復意図、継続Capabilityの保護RootおよびProject Stateをfreshに結合する。matching new世代なら継続Recordを`finalized`、verified old/unappliedなら`invalidated`へ先に収束させる。初回作成の応答・readback喪失後にRecordがexactに`absent`、raw未返却、Project未適用と確認できた場合は継続遷移なしで安全に収束する。期限更新の応答・readback喪失後に`expired`かつProject未適用を確認した場合も同様に収束する。freshな`issued`はRecovery Authorityで`invalidated`、freshな`prepared`は`recovery_required`へ進めて既存のProject照合経路へ接続する。必要な継続Record更新のreadback後にだけ独立した回復意図を`settled`へ更新する。不明・競合なら観測できた継続状態を変えず回復意図を`required`に保持し、Queue、Lease、Task Effectを発行しない。無効な送信だけでは状態を変えない。
 
 任意コメントはAuthority、選択肢、Scopeまたは判断理由を補完しない非信頼注記である。省略可能、正しいUTF-8で最大1024 byte、C0制御文字とDELを含まない単一行だけを受理する。未知field、上限超過、制御文字または認識済みSecretを含む入力はEffect 0で拒否する。raw commentはProvider、Task Packet、ログ、永続Recordまたは通常結果へ転送・保存・反射しない。
+
+Runtime Process回復義務は、Authority取消結果を観測できない同一Processを再利用しないための内部義務である。そのProcessではsettleせず、別のProcess Instance Identityを持つfreshなRuntime再入場だけでsettleする。Host、CandidateおよびCandidate Storeの自動回復Handlerはv0.19の公開受付へ未接続であり、該当義務をDockerへ誤送信せず、種別とexact IDを欠落なく返して手動処置へ閉じる。
 
 ## 6. 資源、Lock、所有
 
@@ -275,8 +277,10 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `TRANS-MILESTONE-ACTIVE-HUMAN` | `BIND-MILESTONE-ACTIVE-HUMAN` | `SM-MILESTONE` | active state → human_decision_required |
 | `TRANS-MILESTONE-ACTIVE-RECOVERY` | `BIND-MILESTONE-ACTIVE-RECOVERY` | `SM-MILESTONE` | active state → recovery_required |
 | `TRANS-MILESTONE-ACTIVE-CANCEL` | `BIND-MILESTONE-ACTIVE-CANCEL` | `SM-MILESTONE` | active state → cancelled |
-| `TRANS-QUEUE-ENQUEUE-LEASE` | `BIND-QUEUE-ENQUEUE-LEASE` | `SM-QUEUE` | 判断待ち以外のeligible waiting state → leased |
-| `TRANS-QUEUE-DECISION-ACCEPTED-LEASE` | `BIND-QUEUE-DECISION-ACCEPTED-LEASE` | `SM-QUEUE` | `human_decision_required → leased` |
+| `TRANS-QUEUE-ENQUEUE-LEASE` | `BIND-QUEUE-ENQUEUE-LEASE` | `SM-QUEUE` | `queued → leased` |
+| `TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `BIND-QUEUE-DECISION-ACCEPTED-REPLAN` | `SM-QUEUE` | `human_decision_required → replan_required` |
+| `TRANS-QUEUE-REPLAN-QUEUED` | `BIND-QUEUE-REPLAN-QUEUED` | `SM-QUEUE` | `replan_required → queued` |
+| `TRANS-QUEUE-WAITING-QUEUED` | `BIND-QUEUE-WAITING-QUEUED` | `SM-QUEUE` | `waiting_foreground → queued` |
 | `TRANS-QUEUE-RECOVERY-SETTLED-QUEUED` | `BIND-QUEUE-RECOVERY-SETTLED-QUEUED` | `SM-QUEUE` | `recovery_required → queued` |
 | `TRANS-QUEUE-LEASE-RUN` | `BIND-QUEUE-LEASE-RUN` | `SM-QUEUE` | `leased → running` |
 | `TRANS-QUEUE-RUN-INTEGRATE` | `BIND-QUEUE-RUN-INTEGRATE` | `SM-QUEUE` | `running → integration_pending` |
@@ -344,14 +348,14 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | 実装接続ID | 対象 | 現在状態 |
 |---|---|---|
 | `IMPL-PROJECT-STATE-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION` | 部分接続・設計確認中 |
-| `IMPL-PUBLIC-OBJECTIVE-INTAKE-CANDIDATE` | `IF-PROJECT-CORE`、`IF-QUEUE`、`IF-TRANSPORT` | CLIから共通Objective入口へ接続。公開MCP Processと実Provider E2Eは未確認 |
+| `IMPL-PUBLIC-OBJECTIVE-INTAKE-CANDIDATE` | `IF-PROJECT-CORE`、`IF-QUEUE`、`IF-TRANSPORT` | CLIとbounded MCP stdio Processから共通Objective入口へ部分接続。署名固定版の実Provider正常2経路は確認済み。認証済み実MCP Clientと残る異常E2Eは未確認 |
 | `IMPL-MCP-ADAPTER-CANDIDATE` | `IF-TRANSPORT`、`IF-PROJECT-CORE`、`IF-DECISION` | `run_objective`と`submit_decision`を同じProject意味契約へ写し、bounded stdio Processへ部分接続 |
 | `IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE` | `IF-SINGLE-TASK`、`IF-PLATFORM` | 部分接続・実装確認中 |
 | `IMPL-DURABLE-FOUNDATION-CANDIDATE` | `IF-STATE-STORE`、`IF-QUEUE` | 部分接続・実装確認中 |
 | `IMPL-PROJECT-EXECUTION-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION`、`IF-TRANSPORT` | 単一・複数Task実行、候補IDの耐久状態への受渡しを部分接続 |
 | `IMPL-REPLANNING-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER` | 同一計画のfresh attempt、部分再計画、人間判断移送と上限を部分接続 |
 | `IMPL-HUMAN-DECISION-CANDIDATE` | `IF-DECISION` | 一回限りCapabilityのhash保持、主体・世代・改訂版結合、Windows保護Rootの不変世代列、prepare／Project readback／finalize、明示置換、Project終端を含む失効および独立Recovery Intent Storeを部分接続。実Clientと電源断を含む全Recovery settlementは未確認 |
-| `IMPL-INTEGRATION-CANDIDATE` | `IF-INTEGRATION`、`IF-PROJECT-CORE` | 実Candidate StoreのTask候補から統合候補、Conflict停止、fresh base照合、明示採用とrollback、Objective／Milestone受入を部分接続。公開Runtimeの構成点でCandidate Store境界を固定し、固定開発版では検証済み署名配布のStoreだけを注入可能にした。実Provider候補の採用は再実測中 |
+| `IMPL-INTEGRATION-CANDIDATE` | `IF-INTEGRATION`、`IF-PROJECT-CORE` | 実Candidate StoreのTask候補から統合候補、Conflict停止、fresh base照合、明示採用とrollback、Objective／Milestone受入を部分接続。公開Runtimeの構成点でCandidate Store境界を固定し、固定開発版では検証済み署名配布のStoreだけを注入可能にした。固定2経路のうち1経路と自己適用1件で正本採用まで成立。任意Task、全経路および残る異常E2Eは未確認 |
 
 [機械可読な設計対応](../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)は、Interface、Record、資源、Lock、Authority、Effect、状態機械、遷移との`BIND-*`対応、不変条件、失敗注入点、実装接続および検証接続の参照切れと孤立を検出する。設計本文または検証項目と一致しない場合は設計完了扱いしない。
 

@@ -90,7 +90,9 @@ function fixture(t: test.TestContext) {
         operationId: string;
         authorityBindingId: string;
         repositoryRevision: string;
+        observeStarted?: () => Promise<boolean>;
       }) => {
+        assert.equal(await input.observeStarted?.(), true);
         attempts += 1;
         const successful = attempts > 1;
         return {

@@ -56,21 +56,24 @@ async function prepared(t: test.TestContext) {
       ],
       observeLeaseOwner: () => ({ status: "absent" }),
       execution: {
-        runSingleTaskAttempt: async (input) => ({
-          contract: "crdd-coordinator/project-runtime-single-task-adapter",
-          attemptId: input.attemptId,
-          operationId: input.operationId,
-          authorityBindingId: input.authorityBindingId,
-          repositoryRevision: input.repositoryRevision,
-          status: "completed",
-          reason: "task_completed",
-          effectState: "settled",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-          processRestartRequired: false,
-          candidateId: "task-candidate-a",
-          recoveryIds: [],
-        }),
+        runSingleTaskAttempt: async (input) => {
+          assert.equal(await input.observeStarted?.(), true);
+          return {
+            contract: "crdd-coordinator/project-runtime-single-task-adapter",
+            attemptId: input.attemptId,
+            operationId: input.operationId,
+            authorityBindingId: input.authorityBindingId,
+            repositoryRevision: input.repositoryRevision,
+            status: "completed",
+            reason: "task_completed",
+            effectState: "settled",
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            processRestartRequired: false,
+            candidateId: "task-candidate-a",
+            recoveryIds: [],
+          };
+        },
       },
     },
     {

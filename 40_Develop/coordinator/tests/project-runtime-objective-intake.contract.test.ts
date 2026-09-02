@@ -52,12 +52,14 @@ function request(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
-function completed(input: {
+async function completed(input: {
   attemptId: string;
   operationId: string;
   authorityBindingId: string;
   repositoryRevision: string;
-}): ProjectRuntimeSingleTaskResult {
+  observeStarted?: () => Promise<boolean>;
+}): Promise<ProjectRuntimeSingleTaskResult> {
+  assert.equal(await input.observeStarted?.(), true);
   return {
     contract: "crdd-coordinator/project-runtime-single-task-adapter",
     attemptId: input.attemptId,
@@ -475,7 +477,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
         attempts += 1;
         return attempts === 1
           ? {
-              ...completed(input),
+              ...(await completed(input)),
               status: "blocked" as const,
               reason: "docker_cleanup_unknown",
               effectState: "unknown" as const,
@@ -528,9 +530,10 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   );
 });
 
-test("Docker以外のRecoveryをDocker handlerへ誤送信しない", async (t) => {
+test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", async (t) => {
   const workingDirectory = root(t);
   const hostRecoveryId = `host-task.${"a".repeat(64)}`;
+  const dockerRecoveryId = `docker-task.${"b".repeat(64)}.${"c".repeat(64)}.${"d".repeat(64)}`;
   let recoveryCalls = 0;
   let attempts = 0;
   const dependencies = {
@@ -568,26 +571,31 @@ test("Docker以外のRecoveryをDocker handlerへ誤送信しない", async (t) 
       },
     ],
     observeLeaseOwner: () => ({ status: "absent" }),
-    recoverTaskRecovery: () => {
+    recoverTaskRecovery: (recoveryId: string) => {
       recoveryCalls += 1;
-      return { status: "recovered", recoveryId: null };
+      assert.equal(recoveryId, dockerRecoveryId);
+      return {
+        status: "recovered",
+        recoveryId: null,
+        manualRecoveryRequired: false,
+      };
     },
     execution: {
       runSingleTaskAttempt: async (
         input: ProjectRuntimeSingleTaskAttemptInput,
       ) => {
         attempts += 1;
-        assert.equal(await input.observeStarted?.(), true);
         return {
-          ...completed(input),
+          ...(await completed(input)),
           status: "blocked" as const,
           reason: "host_cleanup_unknown",
           effectState: "unknown" as const,
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
-          recoveryIds: [hostRecoveryId],
+          recoveryIds: [hostRecoveryId, dockerRecoveryId],
           recoveryObligations: [
             { kind: "host" as const, recoveryId: hostRecoveryId },
+            { kind: "docker" as const, recoveryId: dockerRecoveryId },
           ],
           candidateId: null,
         };
@@ -613,7 +621,7 @@ test("Docker以外のRecoveryをDocker handlerへ誤送信しない", async (t) 
   assert.deepEqual(resumed.recoveryObligations, [
     { kind: "host", recoveryId: hostRecoveryId },
   ]);
-  assert.equal(recoveryCalls, 0);
+  assert.equal(recoveryCalls, 1);
   assert.equal(attempts, 1);
 });
 
@@ -739,7 +747,11 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
   assert.equal(resumed.manualRecoveryRequired, false);
 });
 
-for (const interruption of ["item_only", "item_and_queue"] as const) {
+for (const interruption of [
+  "recovering_only",
+  "item_only",
+  "item_and_queue",
+] as const) {
   test(`exact Recovery settlement resumes after ${interruption} durable interruption without replay`, async (t) => {
     const workingDirectory = root(t);
     const recoveryId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
@@ -782,7 +794,13 @@ for (const interruption of ["item_only", "item_and_queue"] as const) {
       observeLeaseOwner: () => ({ status: "absent" }),
       recoverTaskRecovery: () => {
         recoveries += 1;
-        throw new Error("recovery_effect_must_not_replay");
+        if (interruption !== "recovering_only")
+          throw new Error("recovery_effect_must_not_replay");
+        return {
+          status: "recovered",
+          recoveryId: null,
+          manualRecoveryRequired: false,
+        };
       },
       execution: {
         runSingleTaskAttempt: async (
@@ -791,7 +809,7 @@ for (const interruption of ["item_only", "item_and_queue"] as const) {
           attempts += 1;
           return attempts === 1
             ? {
-                ...completed(input),
+                ...(await completed(input)),
                 status: "blocked" as const,
                 reason: "docker_cleanup_unknown",
                 effectState: "unknown" as const,
@@ -842,22 +860,24 @@ for (const interruption of ["item_only", "item_and_queue"] as const) {
       durableState.generation,
     );
     assert.equal(recoveringWrite.status, "completed");
-    const itemSettled = settleProjectTaskRecoveryObligation(
-      recoveringWrite.value,
-      recoveringWrite.value.generation,
-      "task-a",
-      "docker",
-      recoveryId,
-    );
-    assert.equal(itemSettled.status, "completed");
-    assert.ok(itemSettled.state);
-    const settledWrite = writeProjectRuntimeState(
-      workingDirectory,
-      "binding-a",
-      itemSettled.state,
-      recoveringWrite.value.generation,
-    );
-    assert.equal(settledWrite.status, "completed");
+    if (interruption !== "recovering_only") {
+      const itemSettled = settleProjectTaskRecoveryObligation(
+        recoveringWrite.value,
+        recoveringWrite.value.generation,
+        "task-a",
+        "docker",
+        recoveryId,
+      );
+      assert.equal(itemSettled.status, "completed");
+      assert.ok(itemSettled.state);
+      const settledWrite = writeProjectRuntimeState(
+        workingDirectory,
+        "binding-a",
+        itemSettled.state,
+        recoveringWrite.value.generation,
+      );
+      assert.equal(settledWrite.status, "completed");
+    }
     if (interruption === "item_and_queue") {
       const queueSettled = settleProjectOperationQueueRecovery(
         workingDirectory,
@@ -874,7 +894,7 @@ for (const interruption of ["item_only", "item_and_queue"] as const) {
       new AbortController().signal,
     );
     assert.equal(resumed.status, "completed");
-    assert.equal(recoveries, 0);
+    assert.equal(recoveries, interruption === "recovering_only" ? 1 : 0);
     assert.equal(attempts, 2);
   });
 }

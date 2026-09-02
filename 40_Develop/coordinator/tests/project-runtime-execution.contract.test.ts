@@ -101,7 +101,16 @@ function fixture(
   return { root, input };
 }
 
-function completed(
+async function completed(
+  input: Parameters<
+    Parameters<typeof runProjectRuntimeOperation>[0]["runSingleTaskAttempt"]
+  >[0],
+): Promise<ProjectRuntimeSingleTaskResult> {
+  assert.equal(await input.observeStarted?.(), true);
+  return completedAfterStart(input);
+}
+
+function completedAfterStart(
   input: Parameters<
     Parameters<typeof runProjectRuntimeOperation>[0]["runSingleTaskAttempt"]
   >[0],
@@ -288,7 +297,7 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
         maximumActive = Math.max(maximumActive, active);
         await new Promise((resolve) => setTimeout(resolve, 5));
         active -= 1;
-        return completed(attempt);
+        return completedAfterStart(attempt);
       },
     },
     input,
@@ -339,7 +348,7 @@ test("PR-A-03 rejects a result from another attempt without projecting success",
   const outcome = await runProjectRuntimeOperation(
     {
       runSingleTaskAttempt: async (attempt) => ({
-        ...completed(attempt),
+        ...(await completed(attempt)),
         attemptId: "another-attempt",
       }),
     },
@@ -372,7 +381,7 @@ test("PR-A-03 rejects malformed and differently bound Single Task results", asyn
         {
           runSingleTaskAttempt: async (attempt) =>
             ({
-              ...completed(attempt),
+              ...(await completed(attempt)),
               ...override,
             }) as ProjectRuntimeSingleTaskResult,
         },
@@ -404,7 +413,7 @@ test("PR-A-03 rejects recovery identifiers that durable Project State cannot sto
       const outcome = await runProjectRuntimeOperation(
         {
           runSingleTaskAttempt: async (attempt) => ({
-            ...completed(attempt),
+            ...(await completed(attempt)),
             status: "blocked",
             reason: "external_recovery_required",
             effectState: "unknown",
@@ -464,7 +473,7 @@ test("PR-A-03 enforces result correlations and propagates process restart", asyn
       const outcome = await runProjectRuntimeOperation(
         {
           runSingleTaskAttempt: async (attempt) => ({
-            ...completed(attempt),
+            ...(await completed(attempt)),
             ...scenario.override,
           }),
         },
@@ -491,7 +500,7 @@ test("PR-A-03 stops later waves when a Task requires process restart", async (t)
       runSingleTaskAttempt: async (attempt) => {
         started.push((attempt.taskRequest as { taskId: string }).taskId);
         return {
-          ...completed(attempt),
+          ...(await completed(attempt)),
           status: "blocked",
           reason: "restart_required",
           effectState: "no_effect",
@@ -592,7 +601,7 @@ test("PR-A-05 keeps capacity and conflict reserved when cleanup is unknown", asy
       runSingleTaskAttempt: async (attempt) => {
         started.push((attempt.taskRequest as { taskId: string }).taskId);
         return {
-          ...completed(attempt),
+          ...(await completed(attempt)),
           status: "blocked",
           reason: "cleanup_unknown",
           effectState: "unknown",
@@ -746,7 +755,11 @@ test("未使用Authorityの取消結果が不明なら同一Processをpoisonし�
   assert.equal(poisoned, 1);
   assert.equal(effects, 0);
   const state = readProjectRuntimeState(root, "binding-a", "project-a");
-  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, false);
+  assert.equal(
+    state.value?.tasks[0]?.recoveryObligations[0]?.kind,
+    "runtime_process",
+  );
 });
 
 test("contract remains a partial Project Runtime capability", () => {

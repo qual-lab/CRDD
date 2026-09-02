@@ -63,6 +63,33 @@ const DECISION_KEYS = new Set([
 const DECISION_KEYS_NO_COMMENT = new Set(
   [...DECISION_KEYS].filter((key) => key !== "comment"),
 );
+const PUBLIC_RESULT_KEYS: ReadonlySet<string> = new Set([
+  "contract",
+  "status",
+  "reason",
+  "requestId",
+  "projectId",
+  "milestoneId",
+  "queueId",
+  "projection",
+  "cleanupConfirmed",
+  "manualRecoveryRequired",
+  "processRestartRequired",
+  "recoveryIds",
+  "recoveryObligations",
+  "effectState",
+  "stateGeneration",
+  "candidateId",
+  "candidateDisposition",
+  "receiptId",
+  "decision",
+  "decisionId",
+  "recordId",
+  "continuationCapability",
+  "allowedOptions",
+  "expiresAtEpochMs",
+  "applicationId",
+] as const);
 
 function plain(value: unknown): value is Record<string, unknown> {
   return Boolean(
@@ -283,11 +310,20 @@ function definitions() {
   ]);
 }
 function structured(raw: unknown) {
-  return plain(raw) &&
-    ["completed", "blocked", "cancelled"].includes(String(raw.status)) &&
-    text(raw.reason, 256)
-    ? Object.freeze({ ...raw })
-    : null;
+  if (
+    !plain(raw) ||
+    !["completed", "blocked", "cancelled"].includes(String(raw.status)) ||
+    !text(raw.reason, 256) ||
+    Object.keys(raw).some((key) => !PUBLIC_RESULT_KEYS.has(key))
+  )
+    return null;
+  return Object.freeze(
+    Object.fromEntries(
+      [...PUBLIC_RESULT_KEYS]
+        .filter((key) => Object.hasOwn(raw, key))
+        .map((key) => [key, raw[key]]),
+    ),
+  );
 }
 
 export async function handleMcpProjectRuntimeRequest(

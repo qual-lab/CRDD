@@ -223,6 +223,40 @@ test("MCP fails closed when a semantic result is malformed", async () => {
   );
 });
 
+test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
+  for (const extra of [
+    { taskId: "task-internal" },
+    { phase: "handoff_prepared" },
+  ]) {
+    const response = await handleMcpProjectRuntimeRequest(
+      request("tools/call", {
+        _meta: meta,
+        name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+        arguments: objective(),
+      }),
+      dependencies({
+        runObjective: async () => ({
+          status: "completed",
+          reason: "accepted",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          effectState: "settled",
+          ...extra,
+        }),
+      }),
+    );
+    const result = response.result as {
+      isError: boolean;
+      structuredContent: { reason: string };
+    };
+    assert.equal(result.isError, true);
+    assert.equal(
+      result.structuredContent.reason,
+      "project_runtime_adapter_result_invalid",
+    );
+  }
+});
+
 test("MCP contract reports stateless transport and the exact public tools", () => {
   assert.deepEqual(describeMcpProjectRuntimeAdapterContract(), {
     contract: "crdd-coordinator/mcp-project-runtime-adapter/v2",

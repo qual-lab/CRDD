@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { getRuntimeProcessInstanceIdentity } from "../core/runtime-process-safety-state.ts";
+
 import {
   enqueueProjectOperation,
   readProjectRuntimeState,
@@ -375,10 +377,50 @@ function inspectTaskExecutions(
   return Object.freeze(executions);
 }
 
+function projectRuntimeResult(
+  request: ProjectRuntimeObjectiveRequest,
+  options: Readonly<{
+    status: "completed" | "blocked" | "cancelled";
+    reason: string;
+    queueId?: string | null;
+    projection?: ReturnType<typeof projectProjectRuntimeState> | null;
+    cleanupConfirmed?: boolean;
+    manualRecoveryRequired?: boolean;
+    processRestartRequired?: boolean;
+    recoveryIds?: readonly string[];
+    recoveryObligations?: readonly Readonly<{
+      kind: ProjectTaskRecoveryObligation["kind"];
+      recoveryId: string;
+    }>[];
+    effectState?: "no_effect" | "settled" | "unknown";
+  }>,
+) {
+  return Object.freeze({
+    contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
+    status: options.status,
+    reason: options.reason,
+    requestId: request.requestId,
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    queueId: options.queueId ?? null,
+    projection: options.projection ?? null,
+    cleanupConfirmed: options.cleanupConfirmed ?? true,
+    manualRecoveryRequired: options.manualRecoveryRequired ?? false,
+    processRestartRequired: options.processRestartRequired ?? false,
+    recoveryIds: Object.freeze([...(options.recoveryIds ?? [])]),
+    recoveryObligations: Object.freeze([
+      ...(options.recoveryObligations ?? []),
+    ]),
+    effectState: options.effectState ?? ("no_effect" as const),
+  });
+}
+
 function blocked(
   request: ProjectRuntimeObjectiveRequest,
   reason: string,
   options: Readonly<{
+    queueId?: string | null;
+    projection?: ReturnType<typeof projectProjectRuntimeState> | null;
     cleanupConfirmed?: boolean;
     manualRecoveryRequired?: boolean;
     processRestartRequired?: boolean;
@@ -390,23 +432,10 @@ function blocked(
     effectState?: "no_effect" | "settled" | "unknown";
   }> = {},
 ) {
-  return Object.freeze({
-    contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
-    status: "blocked" as const,
+  return projectRuntimeResult(request, {
+    status: "blocked",
     reason,
-    requestId: request.requestId,
-    projectId: request.projectId,
-    milestoneId: request.milestoneId,
-    queueId: null,
-    projection: null,
-    cleanupConfirmed: options.cleanupConfirmed ?? true,
-    manualRecoveryRequired: options.manualRecoveryRequired ?? false,
-    processRestartRequired: options.processRestartRequired ?? false,
-    recoveryIds: Object.freeze([...(options.recoveryIds ?? [])]),
-    recoveryObligations: Object.freeze([
-      ...(options.recoveryObligations ?? []),
-    ]),
-    effectState: options.effectState ?? ("no_effect" as const),
+    ...options,
   });
 }
 
@@ -559,17 +588,16 @@ export async function runProjectRuntimeObjective(
       reconciled.reason === "project_runtime_lease_owner_still_active" &&
       state.value
     )
-      return Object.freeze({
-        contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
-        status: "blocked" as const,
+      return projectRuntimeResult(request, {
+        status: "blocked",
         reason: "project_runtime_objective_already_running",
-        requestId: request.requestId,
-        projectId: request.projectId,
-        milestoneId: request.milestoneId,
         queueId,
         projection: projectProjectRuntimeState(state.value),
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
+        processRestartRequired: false,
+        recoveryIds: Object.freeze([]),
+        recoveryObligations: Object.freeze([]),
         effectState: "no_effect" as const,
       });
     if (reconciled.status !== "completed")
@@ -751,22 +779,11 @@ export async function runProjectRuntimeObjective(
         recoveryIds: recoveries.map((entry) => entry.recoveryId),
         recoveryObligations: publicRecoveryObligations,
       });
-    const externallyOwned = recoveries.filter(
-      (entry) => entry.kind !== "docker" && entry.phase !== "settled",
-    );
-    if (externallyOwned.length > 0)
-      return blocked(request, "project_runtime_external_recovery_required", {
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-        effectState: "unknown",
-        recoveryIds: externallyOwned.map((entry) => entry.recoveryId),
-        recoveryObligations: externallyOwned.map(({ kind, recoveryId }) =>
-          Object.freeze({ kind, recoveryId }),
-        ),
-      });
     if (queue.state === "recovery_required") {
       for (const item of recoveries.filter(
-        (entry) => entry.kind === "docker" && entry.phase !== "settled",
+        (entry) =>
+          ["docker", "runtime_process"].includes(entry.kind) &&
+          entry.phase !== "settled",
       )) {
         if (item.phase === "required") {
           const recovering = markProjectTaskRecoveryObligationRecovering(
@@ -782,7 +799,9 @@ export async function runProjectRuntimeObjective(
               manualRecoveryRequired: true,
               effectState: "unknown",
               recoveryIds: [item.recoveryId],
-              recoveryObligations: [item],
+              recoveryObligations: [
+                Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+              ],
             });
           const recoveringWrite = writeProjectRuntimeState(
             workingDirectory,
@@ -796,7 +815,9 @@ export async function runProjectRuntimeObjective(
               manualRecoveryRequired: true,
               effectState: "unknown",
               recoveryIds: [item.recoveryId],
-              recoveryObligations: [item],
+              recoveryObligations: [
+                Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+              ],
             });
           state = Object.freeze({
             status: "completed" as const,
@@ -806,11 +827,25 @@ export async function runProjectRuntimeObjective(
           recoveryState = recoveringWrite.value;
         }
         let recovery: unknown;
-        try {
+        if (item.kind === "runtime_process") {
+          const match = /^runtime-process\.([0-9a-f-]{36})\./u.exec(
+            item.recoveryId,
+          );
           recovery =
-            dependencies.recoverTaskRecovery?.(item.recoveryId) ?? null;
-        } catch {
-          recovery = null;
+            match && match[1] !== getRuntimeProcessInstanceIdentity()
+              ? Object.freeze({
+                  status: "recovered" as const,
+                  recoveryId: null,
+                  manualRecoveryRequired: false,
+                })
+              : null;
+        } else {
+          try {
+            recovery =
+              dependencies.recoverTaskRecovery?.(item.recoveryId) ?? null;
+          } catch {
+            recovery = null;
+          }
         }
         if (!exactRecoveryCompleted(recovery))
           return blocked(request, "project_runtime_task_recovery_not_settled", {
@@ -818,7 +853,9 @@ export async function runProjectRuntimeObjective(
             manualRecoveryRequired: true,
             effectState: "unknown",
             recoveryIds: [item.recoveryId],
-            recoveryObligations: [item],
+            recoveryObligations: [
+              Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+            ],
           });
         const settledItem = settleProjectTaskRecoveryObligation(
           recoveryState,
@@ -833,7 +870,9 @@ export async function runProjectRuntimeObjective(
             manualRecoveryRequired: true,
             effectState: "unknown",
             recoveryIds: [item.recoveryId],
-            recoveryObligations: [item],
+            recoveryObligations: [
+              Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+            ],
           });
         const settledWrite = writeProjectRuntimeState(
           workingDirectory,
@@ -847,7 +886,9 @@ export async function runProjectRuntimeObjective(
             manualRecoveryRequired: true,
             effectState: "unknown",
             recoveryIds: [item.recoveryId],
-            recoveryObligations: [item],
+            recoveryObligations: [
+              Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+            ],
           });
         state = Object.freeze({
           status: "completed" as const,
@@ -856,6 +897,33 @@ export async function runProjectRuntimeObjective(
         });
         recoveryState = settledWrite.value;
       }
+      const externallyOwned = recoveryState.tasks.flatMap((task) =>
+        task.recoveryObligations
+          .filter(
+            (entry) =>
+              !["docker", "runtime_process"].includes(entry.kind) &&
+              entry.phase !== "settled",
+          )
+          .map((entry) => ({ taskId: task.definition.id, ...entry })),
+      );
+      if (externallyOwned.length > 0)
+        return blocked(request, "project_runtime_external_recovery_required", {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+          recoveryIds: recoveryState.tasks.flatMap((task) =>
+            task.recoveryObligations
+              .filter((entry) => entry.phase !== "settled")
+              .map((entry) => entry.recoveryId),
+          ),
+          recoveryObligations: recoveryState.tasks.flatMap((task) =>
+            task.recoveryObligations
+              .filter((entry) => entry.phase !== "settled")
+              .map(({ kind, recoveryId }) =>
+                Object.freeze({ kind, recoveryId }),
+              ),
+          ),
+        });
       const queueSettlement = settleProjectOperationQueueRecovery(
         workingDirectory,
         binding.repositoryBindingId,
@@ -931,32 +999,30 @@ export async function runProjectRuntimeObjective(
         effectState: "unknown",
       });
     if (!selected.value || selected.value.queueId !== queueId)
-      return Object.freeze({
-        contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
-        status: "blocked" as const,
+      return projectRuntimeResult(request, {
+        status: "blocked",
         reason: "project_runtime_objective_queued_waiting_foreground",
-        requestId: request.requestId,
-        projectId: request.projectId,
-        milestoneId: request.milestoneId,
         queueId,
         projection: projectProjectRuntimeState(currentState),
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
+        processRestartRequired: false,
+        recoveryIds: Object.freeze([]),
+        recoveryObligations: Object.freeze([]),
         effectState: "no_effect" as const,
       });
   }
   if (queue.state === "integration_pending" && state.value) {
-    return Object.freeze({
-      contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
-      status: "completed" as const,
+    return projectRuntimeResult(request, {
+      status: "completed",
       reason: "project_runtime_tasks_already_integration_pending",
-      requestId: request.requestId,
-      projectId: request.projectId,
-      milestoneId: request.milestoneId,
       queueId,
       projection: projectProjectRuntimeState(state.value),
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
+      processRestartRequired: false,
+      recoveryIds: Object.freeze([]),
+      recoveryObligations: Object.freeze([]),
       effectState: "no_effect" as const,
     });
   }
@@ -968,47 +1034,55 @@ export async function runProjectRuntimeObjective(
         manualRecoveryRequired: true,
         effectState: "unknown",
       });
-    return Object.freeze({
-      contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
-      status: "completed" as const,
+    return projectRuntimeResult(request, {
+      status: "completed",
       reason: "project_runtime_objective_already_accepted",
-      requestId: request.requestId,
-      projectId: request.projectId,
-      milestoneId: request.milestoneId,
       queueId,
       projection,
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
+      processRestartRequired: false,
+      recoveryIds: Object.freeze([]),
+      recoveryObligations: Object.freeze([]),
       effectState: "no_effect" as const,
     });
   }
   if (queue.state === "cancelled" && state.value)
-    return Object.freeze({
-      contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
-      status: "cancelled" as const,
+    return projectRuntimeResult(request, {
+      status: "cancelled",
       reason: "project_runtime_objective_already_cancelled",
-      requestId: request.requestId,
-      projectId: request.projectId,
-      milestoneId: request.milestoneId,
       queueId,
       projection: projectProjectRuntimeState(state.value),
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
+      processRestartRequired: false,
+      recoveryIds: Object.freeze([]),
+      recoveryObligations: Object.freeze([]),
       effectState: "no_effect" as const,
     });
   if (queue.state !== "queued" && state.value) {
     const manualRecoveryRequired = queue.state === "recovery_required";
-    return Object.freeze({
-      contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
-      status: "blocked" as const,
+    const outstandingRecoveries = state.value.tasks.flatMap((task) =>
+      task.recoveryObligations.filter((entry) => entry.phase !== "settled"),
+    );
+    return projectRuntimeResult(request, {
+      status: "blocked",
       reason: `project_runtime_objective_${queue.state}`,
-      requestId: request.requestId,
-      projectId: request.projectId,
-      milestoneId: request.milestoneId,
       queueId,
       projection: projectProjectRuntimeState(state.value),
       cleanupConfirmed: !manualRecoveryRequired,
       manualRecoveryRequired,
+      processRestartRequired: outstandingRecoveries.some(
+        (entry) => entry.kind === "runtime_process",
+      ),
+      recoveryIds: Object.freeze(
+        outstandingRecoveries.map((entry) => entry.recoveryId),
+      ),
+      recoveryObligations: Object.freeze(
+        outstandingRecoveries.map(({ kind, recoveryId }) =>
+          Object.freeze({ kind, recoveryId }),
+        ),
+      ),
       effectState: manualRecoveryRequired
         ? ("unknown" as const)
         : ("no_effect" as const),
@@ -1054,13 +1128,9 @@ export async function runProjectRuntimeObjective(
     latest.status === "completed" && latest.value
       ? projectProjectRuntimeState(latest.value)
       : null;
-  return Object.freeze({
-    contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
+  return projectRuntimeResult(request, {
     status: execution.status,
     reason: execution.reason,
-    requestId: request.requestId,
-    projectId: request.projectId,
-    milestoneId: request.milestoneId,
     queueId,
     projection,
     cleanupConfirmed: execution.cleanupConfirmed,

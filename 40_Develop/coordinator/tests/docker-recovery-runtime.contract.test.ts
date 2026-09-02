@@ -86,6 +86,23 @@ function assertPathConfirmedAbsent(target: string) {
   }
 }
 
+function assertOnlyCompletedRecoveryEvidence(root: string) {
+  const names = fs.readdirSync(root).sort();
+  assert.equal(names.length % 2, 0);
+  const receipts = names.filter((name) =>
+    /^completed-docker-recovery-[a-f0-9]{64}\.json$/u.test(name),
+  );
+  assert.equal(receipts.length * 2, names.length);
+  for (const receipt of receipts)
+    assert.ok(names.includes(`${receipt}.crdd-commit.json`));
+  const inventory = inspectDockerRecoveryRootSnapshotWithLock(
+    verifiedRoot(root),
+  );
+  assert.equal(inventory.status, "completed");
+  assert.equal(inventory.reason, "docker_task_runtime_state_clean");
+  assert.deepEqual(inventory.dockerRecoveryIds, []);
+}
+
 test.after(() => {
   for (const [name, value] of Object.entries(inheritedTemporaryEnvironment)) {
     if (value === undefined) delete process.env[name];
@@ -3209,7 +3226,7 @@ test("production共有回復engineはcleanup途中のprocess killから残存0�
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(root), []);
+    assertOnlyCompletedRecoveryEvidence(root);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -3343,7 +3360,7 @@ test("production共有回復engineはHost expected世代のprocess killを残存
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
     const hostEffectCount =
@@ -3352,10 +3369,7 @@ test("production共有回復engineはHost expected世代のprocess killを残存
       !fs.existsSync(fixture.hostMarker)
         ? 1
         : 0;
-    const cleanupEffectCount =
-      beforeRecoveryEntries > 0 && fs.readdirSync(fixture.root).length === 0
-        ? 1
-        : 0;
+    const cleanupEffectCount = beforeRecoveryEntries > 0 ? 1 : 0;
     const recoveryTraceAssertion =
       recoveryTraceAssertions["CASE-RECOVERY-TO-RECOVERED"];
     assert.ok(recoveryTraceAssertion);
@@ -3431,9 +3445,77 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
       /回復ID|次の操作: coordinator doctor|Runtime運用担当者|自動回復は停止しました/u,
     );
     assert.equal(docker.removeCount(), 1);
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        docker.runDockerCommand,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completion_replayed",
+        recoveryId: null,
+      },
+    );
+    assert.equal(docker.removeCount(), 1);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
+  } finally {
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
+test("完了済みDocker Recovery receiptの改変は再実行成功へ流用しない", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("receipt");
+  const root = verifiedRoot(fixture.root);
+  const docker = exactContainerRunner({
+    Name: "/crdd-claude-0123456789abcdef",
+    Config: Object.freeze({
+      User: "65534:65534",
+      Image: `sha256:${"a".repeat(64)}`,
+      Labels: Object.freeze({
+        "crdd.coordinator.runtime": "0123456789abcdef",
+      }),
+    }),
+    NetworkSettings: Object.freeze({
+      Networks: Object.freeze({
+        "crdd-internal-0123456789abcdef": Object.freeze({}),
+      }),
+    }),
+  });
+  try {
+    assert.equal(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        docker.runDockerCommand,
+      ).status,
+      "recovered",
+    );
+    const receipt = fs
+      .readdirSync(fixture.root)
+      .find((name) =>
+        /^completed-docker-recovery-[a-f0-9]{64}\.json$/u.test(name),
+      );
+    assert.equal(typeof receipt, "string");
+    fs.appendFileSync(path.join(fixture.root, receipt ?? "missing"), " ");
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        docker.runDockerCommand,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_record_noncanonical",
+        recoveryId: fixture.recoveryId,
+      },
+    );
+    assert.equal(docker.removeCount(), 1);
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3456,7 +3538,7 @@ test("Hostを先に明示回復してもEffect前Docker Recoveryはexact absence
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3481,7 +3563,7 @@ test("Host begin前のactive binding content-only crashを旧Host先行削除後
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
     recoveryTraceAssertions["CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED"]?.(
@@ -3529,7 +3611,7 @@ for (const crashPoint of [
           fs.readdirSync(fixture.root, { recursive: true }).sort(),
         ),
       );
-      assert.deepEqual(fs.readdirSync(fixture.root), []);
+      assertOnlyCompletedRecoveryEvidence(fixture.root);
       assert.equal(fs.existsSync(fixture.hostRoot), false);
       assert.equal(fs.existsSync(fixture.hostMarker), false);
     } finally {
@@ -3572,7 +3654,7 @@ test("Hostを先に明示回復してもreceipt済みDockerをexact照合・削�
       },
     );
     assert.equal(docker.removeCount(), 1);
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3636,7 +3718,7 @@ test("検証済みDocker再起動境界後はsubmission済み資源のexact不�
       reason: "docker_task_recovery_completed",
       recoveryId: null,
     });
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3703,7 +3785,7 @@ test("closed production engineは発見IDをreconciled receiptへ耐久化して
       },
     );
     assert.equal(docker.removeCount(), 1);
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
@@ -3732,7 +3814,7 @@ test("production共有回復engineはHost previous世代のprocess killをEffect
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
@@ -3758,7 +3840,7 @@ test("Host active bindingのexact content-onlyをEffect前状態として残存0
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
@@ -4260,7 +4342,7 @@ test("production共有回復engineはpending base完成直後の実process kill�
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
     assert.deepEqual(
@@ -4333,7 +4415,7 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
       status: "completed",
     });
     recoveryCapability = null;
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.equal(fs.existsSync(owned.root), false);
     assert.equal(fs.existsSync(initialHost.marker), false);
   } finally {
@@ -4483,7 +4565,7 @@ test("production正常完了後は同じHost Operation内で同一logical Home�
       });
     }
     begunCapabilities.length = 0;
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
   } finally {
     for (const capability of begunCapabilities)
       void abandonRuntimeOwnedDockerRecovery(capability);
@@ -4738,7 +4820,7 @@ test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回�
       reason: "docker_task_recovery_finalization_completed",
       recoveryId: null,
     });
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.equal(fs.existsSync(handoff.hostRoot), false);
     assert.equal(fs.existsSync(handoff.hostMarker), false);
   } finally {
@@ -4797,7 +4879,7 @@ test("active binding削除済み・pointer残存もfresh Processで残存0へ回
       reason: "docker_task_recovery_completed",
       recoveryId: null,
     });
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.equal(fs.existsSync(handoff.hostRoot), false);
     assert.equal(fs.existsSync(handoff.hostMarker), false);
   } finally {
@@ -4827,7 +4909,7 @@ test("fresh fixtureはhandoff前失敗もproduction Recoveryで残存0へ閉じ�
       { encoding: "utf8", timeout: 15_000, windowsHide: true },
     );
     assert.notEqual(setup.status, 0, `${setup.stdout}\n${setup.stderr}`);
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.deepEqual(
       fs
         .readdirSync(os.tmpdir())
@@ -5090,7 +5172,7 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
       },
     );
     assert.equal(isRuntimeStateLockWasReleasedForObservation, true);
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.equal(
       loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,
       "host_only",
@@ -5327,7 +5409,7 @@ for (const networkState of ["pre-connect", "post-connect"] as const) {
         },
       );
       assert.equal(docker.removeCount(), 1);
-      assert.deepEqual(fs.readdirSync(fixture.root), []);
+      assertOnlyCompletedRecoveryEvidence(fixture.root);
       assert.equal(fs.existsSync(fixture.hostRoot), false);
       assert.equal(fs.existsSync(fixture.hostMarker), false);
     } finally {

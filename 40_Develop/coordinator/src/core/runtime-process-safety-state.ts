@@ -1,5 +1,13 @@
+import { randomUUID } from "node:crypto";
+
 export const RUNTIME_PROCESS_SAFETY_STATE_CONTRACT =
   "crdd-coordinator/runtime-process-safety-state";
+
+const runtimeProcessInstanceIdentity = randomUUID();
+
+export function getRuntimeProcessInstanceIdentity() {
+  return runtimeProcessInstanceIdentity;
+}
 
 export function createIsolatedRuntimeProcessSafetyStateCandidate() {
   let isPoisoned = false;

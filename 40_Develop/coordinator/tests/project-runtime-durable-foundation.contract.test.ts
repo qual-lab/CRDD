@@ -173,6 +173,71 @@ test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
   );
 });
 
+test("PR-D-A-01 rejects impossible Task state and identity tuples", (t) => {
+  const cases = [
+    {
+      name: "running-without-operation",
+      mutate(task: Record<string, unknown>) {
+        task.state = "running";
+        task.startPhase = "running";
+        task.attemptId = "attempt-a";
+        task.operationId = null;
+        task.authorityBindingId = "authority-a";
+      },
+    },
+    {
+      name: "handoff-without-operation",
+      mutate(task: Record<string, unknown>) {
+        task.state = "starting";
+        task.startPhase = "handoff_prepared";
+        task.attemptId = "attempt-a";
+        task.operationId = null;
+        task.authorityBindingId = "authority-a";
+      },
+    },
+    {
+      name: "ready-with-running-phase",
+      mutate(task: Record<string, unknown>) {
+        task.state = "ready";
+        task.startPhase = "running";
+        task.attemptId = null;
+        task.operationId = null;
+        task.authorityBindingId = null;
+      },
+    },
+  ] as const;
+
+  for (const item of cases) {
+    const { root, state } = fixture(t);
+    assert.equal(
+      writeProjectRuntimeState(root, "binding-a", state, 0).status,
+      "completed",
+      item.name,
+    );
+    const location = path.join(stateDirectory(root), "generation-1.json");
+    const envelope = JSON.parse(fs.readFileSync(location, "utf8")) as {
+      content: { tasks: Record<string, unknown>[] };
+      contentHash: string;
+    };
+    const task = envelope.content.tasks[0];
+    if (!task) throw new Error("fixture_task_missing");
+    item.mutate(task);
+    envelope.contentHash = createHash("sha256")
+      .update(JSON.stringify(envelope.content), "utf8")
+      .digest("hex");
+    fs.writeFileSync(location, `${JSON.stringify(envelope)}\n`, "utf8");
+
+    const observed = readProjectRuntimeState(root, "binding-a", "project-a");
+    assert.equal(observed.status, "blocked", item.name);
+    assert.equal(
+      observed.reason,
+      "project_runtime_state_observation_unknown",
+      item.name,
+    );
+    assert.equal(observed.manualRecoveryRequired, true, item.name);
+  }
+});
+
 test("PR-D-A-01 rejects malformed envelopes, generation gaps, and residual inventory", (t) => {
   const cases: ReadonlyArray<{
     name: string;

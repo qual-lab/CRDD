@@ -86,21 +86,24 @@ function fixture(t: test.TestContext) {
 async function failTask(root: string) {
   return runProjectRuntimeOperation(
     {
-      runSingleTaskAttempt: async (input) => ({
-        contract: "crdd-coordinator/project-runtime-single-task-adapter",
-        attemptId: input.attemptId,
-        operationId: input.operationId,
-        authorityBindingId: input.authorityBindingId,
-        repositoryRevision: input.repositoryRevision,
-        status: "blocked",
-        reason: "bounded_failure",
-        effectState: "settled",
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-        processRestartRequired: false,
-        candidateId: null,
-        recoveryIds: [],
-      }),
+      runSingleTaskAttempt: async (input) => {
+        assert.equal(await input.observeStarted?.(), true);
+        return {
+          contract: "crdd-coordinator/project-runtime-single-task-adapter",
+          attemptId: input.attemptId,
+          operationId: input.operationId,
+          authorityBindingId: input.authorityBindingId,
+          repositoryRevision: input.repositoryRevision,
+          status: "blocked",
+          reason: "bounded_failure",
+          effectState: "settled",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+          candidateId: null,
+          recoveryIds: [],
+        };
+      },
     },
     {
       workingDirectory: root,

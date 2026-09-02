@@ -46,8 +46,8 @@ describe("Project Runtime design traceability", () => {
         authorities: 7,
         effects: 9,
         stateMachines: 7,
-        transitions: 52,
-        actionBindings: 52,
+        transitions: 54,
+        actionBindings: 54,
         invariants: 32,
         failureInjections: 16,
         implementationBindings: 9,
@@ -423,7 +423,7 @@ describe("Project Runtime design traceability", () => {
       (item) => item.id === "BIND-MILESTONE-DECISION-ACCEPTED-EXECUTE",
     );
     const queueLease = bindings.find(
-      (item) => item.id === "BIND-QUEUE-DECISION-ACCEPTED-LEASE",
+      (item) => item.id === "BIND-QUEUE-DECISION-ACCEPTED-REPLAN",
     );
     assert.ok(milestoneProjection);
     assert.ok(queueLease);
@@ -455,7 +455,7 @@ describe("Project Runtime design traceability", () => {
     assert.ok(queue);
     const queueTransitions = queue.transitions as Record<string, unknown>[];
     const decisionLease = queueTransitions.find(
-      (item) => item.id === "TRANS-QUEUE-DECISION-ACCEPTED-LEASE",
+      (item) => item.id === "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN",
     );
     assert.ok(decisionLease);
     decisionLease.invariantIds = ["INV-REVALIDATE-AFTER-WAIT"];
@@ -473,7 +473,7 @@ describe("Project Runtime design traceability", () => {
       );
       assert.ok(
         result.issues.includes(
-          "TRANS-QUEUE-DECISION-ACCEPTED-LEASE:decision_post_commit_lease_invalid",
+          "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN:decision_post_commit_replan_invalid",
         ),
       );
       assert.ok(
@@ -535,7 +535,7 @@ describe("Project Runtime design traceability", () => {
     assert.ok(continuation);
     const queueTransitions = queue.transitions as Record<string, unknown>[];
     const decisionLease = queueTransitions.find(
-      (item) => item.id === "TRANS-QUEUE-DECISION-ACCEPTED-LEASE",
+      (item) => item.id === "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN",
     );
     assert.ok(decisionLease);
     decisionLease.resourceIds = (decisionLease.resourceIds as string[]).filter(
@@ -589,7 +589,7 @@ describe("Project Runtime design traceability", () => {
       );
       assert.ok(
         result.issues.includes(
-          "TRANS-QUEUE-DECISION-ACCEPTED-LEASE:decision_post_commit_lease_invalid",
+          "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN:decision_post_commit_replan_invalid",
         ),
       );
     }

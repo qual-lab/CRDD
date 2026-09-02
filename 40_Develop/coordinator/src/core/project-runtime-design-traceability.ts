@@ -1079,10 +1079,10 @@ export function inspectProjectRuntimeDesignTraceability(
       );
   }
   const queueDecisionTransition = transitionModels.get(
-    "TRANS-QUEUE-DECISION-ACCEPTED-LEASE",
+    "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN",
   );
   const queueDecisionBinding = exactActionBindings.get(
-    "TRANS-QUEUE-DECISION-ACCEPTED-LEASE",
+    "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN",
   );
   const queueDecisionAuthorities =
     queueDecisionBinding !== undefined &&
@@ -1097,6 +1097,8 @@ export function inspectProjectRuntimeDesignTraceability(
   if (
     queueDecisionTransition === undefined ||
     queueDecisionBinding === undefined ||
+    !queueDecisionTransition.from.includes("human_decision_required") ||
+    queueDecisionTransition.to !== "replan_required" ||
     queueDecisionBinding.transactionId !== undefined ||
     queueDecisionAuthorities.includes("AUTH-HUMAN-DECISION") ||
     !queueDecisionAuthorities.includes("AUTH-MILESTONE") ||
@@ -1116,7 +1118,7 @@ export function inspectProjectRuntimeDesignTraceability(
     )
   )
     issues.push(
-      "TRANS-QUEUE-DECISION-ACCEPTED-LEASE:decision_post_commit_lease_invalid",
+      "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN:decision_post_commit_replan_invalid",
     );
   for (const requiredFailure of [
     "FAIL-DECISION-ATOMIC-APPLICATION",
