@@ -121,10 +121,19 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
           const cancel = () => {
             cancellationObserved = true;
             resolve({
+              contract: "crdd-coordinator/project-runtime-objective-intake/v1",
               status: "cancelled",
               reason: "project_runtime_parent_lost",
+              requestId: "request-parent-loss",
+              projectId: "project-a",
+              milestoneId: "milestone-a",
+              queueId: null,
+              projection: null,
               cleanupConfirmed: true,
               manualRecoveryRequired: false,
+              processRestartRequired: false,
+              recoveryIds: [],
+              recoveryObligations: [],
               effectState: "settled",
             });
           };
@@ -207,6 +216,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
         principalId: "principal-a",
       }),
       runObjective: async () => ({
+        contract: "crdd-coordinator/project-runtime-public-runtime/v1",
         status: "blocked",
         reason: "project_runtime_task_recovery_required",
         cleanupConfirmed: false,

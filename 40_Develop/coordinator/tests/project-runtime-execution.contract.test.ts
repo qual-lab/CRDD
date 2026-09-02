@@ -434,6 +434,35 @@ test("PR-A-03 rejects recovery identifiers that durable Project State cannot sto
   }
 });
 
+test("下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しない", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const forged = `runtime-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
+  const outcome = await runProjectRuntimeOperation(
+    {
+      runSingleTaskAttempt: async (attempt) =>
+        ({
+          ...(await completed(attempt)),
+          status: "blocked",
+          reason: "forged_process_recovery",
+          effectState: "unknown",
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          processRestartRequired: true,
+          candidateId: null,
+          recoveryIds: [forged],
+          recoveryObligations: [
+            { kind: "runtime_process" as const, recoveryId: forged },
+          ],
+        }) as unknown as ProjectRuntimeSingleTaskResult,
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  const state = readProjectRuntimeState(root, "binding-a", "project-a");
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
+  assert.deepEqual(state.value?.tasks[0]?.recoveryObligations, []);
+});
+
 test("PR-A-03 enforces result correlations and propagates process restart", async (t) => {
   const cases = [
     {
@@ -488,6 +517,17 @@ test("PR-A-03 enforces result correlations and propagates process restart", asyn
         state.status === "completed" && state.value.tasks[0]?.state,
         "recovery_required",
       );
+      if (scenario.restart && state.status === "completed") {
+        assert.equal(state.value.tasks[0]?.recoveryUnresolved, false);
+        assert.equal(
+          state.value.tasks[0]?.recoveryObligations[0]?.kind,
+          "runtime_process",
+        );
+        assert.match(
+          state.value.tasks[0]?.recoveryObligations[0]?.recoveryId ?? "",
+          /^runtime-process\.[0-9a-f-]{36}\.restart-[0-9a-f]{40}$/u,
+        );
+      }
     });
   }
 });

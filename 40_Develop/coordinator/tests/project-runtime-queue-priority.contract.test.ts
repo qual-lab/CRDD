@@ -52,6 +52,31 @@ test("interactive queue parks scheduled work without preempting an active owner"
     parked.status === "completed" && parked.value.state,
     "waiting_foreground",
   );
+  if (parked.status !== "completed") throw new Error("parked queue");
+  const forbiddenLease = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-scheduled",
+    "project-operation",
+  );
+  assert.equal(forbiddenLease.status, "completed");
+  if (forbiddenLease.status !== "completed") throw new Error("lease");
+  const directLease = updateProjectOperationQueueState(
+    root,
+    "binding-a",
+    "queue-scheduled",
+    parked.value.generation,
+    {
+      state: "leased",
+      lease: forbiddenLease.value,
+      resumeCondition: null,
+      resultReference: null,
+    },
+  );
+  assert.equal(directLease.status, "blocked");
+  assert.equal(directLease.reason, "project_runtime_queue_transition_invalid");
+  assert.equal(forbiddenLease.value.release().status, "completed");
   const interactive = readProjectOperationQueueState(
     root,
     "binding-a",

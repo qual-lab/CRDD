@@ -4907,6 +4907,88 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
   }
 }
 
+/**
+ * Acknowledge a Docker recovery completion only after the Project Runtime has
+ * durably recorded the matching obligation as settled.  The receipt is a
+ * replay fence, not a permanent history record; removing its committed pair
+ * closes that resource lifecycle and prevents the bounded Runtime root from
+ * filling with already-consumed fences.
+ */
+/** @internal Testable engine; caller must already own a verified Runtime root. */
+export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+  token: unknown,
+  root: VerifiedRuntimeStateRoot,
+) {
+  const parsed = parseDockerTaskRecoveryId(token);
+  if (!parsed)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "docker_task_recovery_id_invalid",
+    });
+  try {
+    const receipt = inspectCompletedDockerRecoveryReceipt(
+      root.rootPath,
+      parsed.token,
+    );
+    if (!receipt)
+      return Object.freeze({
+        status: "completed" as const,
+        reason: "docker_task_recovery_completion_already_acknowledged",
+      });
+    const location = path.join(root.rootPath, receipt.name);
+    if (!removeCommittedDockerRecoveryJson(location, receipt.name))
+      throw new Error("docker_task_recovery_completion_acknowledgement_failed");
+    commitDirectoryMutationBoundary(root.rootPath);
+    if (
+      recoveryPathPresent(location) ||
+      recoveryPathPresent(dockerRecoveryCommitName(location))
+    )
+      throw new Error(
+        "docker_task_recovery_completion_acknowledgement_unknown",
+      );
+    return Object.freeze({
+      status: "completed" as const,
+      reason: "docker_task_recovery_completion_acknowledged",
+    });
+  } catch (error) {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: safeRecoveryReason(
+        error,
+        "docker_task_recovery_completion_acknowledgement_failed",
+      ),
+    });
+  }
+}
+
+export function acknowledgeRuntimeOwnedDockerRecoveryCompletion(
+  token: unknown,
+) {
+  try {
+    const observation = inspectRuntimeOwnedWindowsRuntimeState(
+      false,
+      new Date().toISOString(),
+    );
+    const root = consumeRuntimeOwnedRuntimeStateRootCapability(
+      observation.rootCapability,
+    );
+    if (observation.status !== "candidate" || !root)
+      throw new Error("docker_task_runtime_state_unavailable");
+    return acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+      token,
+      root,
+    );
+  } catch (error) {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: safeRecoveryReason(
+        error,
+        "docker_task_recovery_completion_acknowledgement_failed",
+      ),
+    });
+  }
+}
+
 function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
   try {
     if (typeof rootPath !== "string" || !path.isAbsolute(rootPath))

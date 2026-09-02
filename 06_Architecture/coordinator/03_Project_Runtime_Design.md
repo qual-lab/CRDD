@@ -96,7 +96,7 @@ Queueの終端状態は処理結果の耐久化を表し、Leaseの解放完了�
 
 Lease証跡はprefixや内容の一部だけで探索しない。Repository Binding、Project、Lease種別、Queue、owner generation、owner process、disposition、世代およびdisposition別のexact filenameを一体で照合する。未知・重複・別Queue・別種別・内容とfilenameの不一致があればQueue ownerを消さず、手動回復へ停止する。Lease取得後の全終了経路は共通の所有終了処理を通り、可能ならQueueへ回復意図を耐久化してから物理Leaseを解放し、freshな証跡でQueue ownerをsettleする。QueueまたはStateの更新が観測不能でも物理解放を試み、解放証跡から後続Processが一意にreconcileできる状態を残す。取得済みLeaseを呼出し不能なProcess内資源として残したまま結果を返さない。
 
-`recovery_required`から通常実行へ直接戻さない。Client入力ではなくProject StateがTaskごとに保持する回復義務の閉集合を用いる。各義務は種別（Host、Docker、Candidate、Candidate Store）、exact Recovery Identityおよび`required → recovering → settled`の適用段階を持つ。発行Runtimeは、対応する種別の回復処理だけへexact IDを渡し、回復完了と対象資源不存在を確認してから一件ずつsettleする。未知種別、平坦なIDと型付き義務の不一致、複数候補または回復Identityを確定できない結果を、合成IDや別種別の回復処理へ補正しない。QueueはRecovery Authorityにならない安定した適用IDだけを保持し、Task ID、種別およびexact Recovery Identityの閉集合から同じ適用を照合する。全義務が`settled`になった後だけ、専用Queue遷移と同じProject State世代で旧attemptをfresh retryへ置換する。Queue更新後、個別義務の開始後またはsettlement後、State更新後に中断しても、耐久化した適用段階から未完了側だけを再開し、Recovery Effectを重複発行しない。Recovery settlementは再計画回数の消費と分離し、`maximumReplans`が0でも既存資源を回収して通常再入場できる。その後にowner、Repository Revision、容量、DependencyおよびConflictをfreshに再検証して、新しいLeaseを取得する。新しいTask状態としての`recovery_settled`は作らない。未解決、Identity不一致または観測不能では通常実行へ進めず、人間へ移送し、Task／Provider／正本Effectを発行しない。
+`recovery_required`から通常実行へ直接戻さない。Client入力ではなくProject StateがTaskごとに保持する回復義務の閉集合を用いる。各義務は種別（Host、Docker、Candidate、Candidate Store、Runtime Process）、exact Recovery Identityおよび`required → recovering → settled`の適用段階を持つ。発行Runtimeは、対応する種別の回復処理だけへexact IDを渡し、回復完了と対象資源不存在を確認してから一件ずつsettleする。Runtime ProcessのIDはParent RuntimeだけがProcess Instance、attemptおよびOperationへ結合して発行し、下位Adapterが自己申告した同種IDは採用しない。未知種別、平坦なIDと型付き義務の不一致、複数候補または回復Identityを確定できない結果を、合成IDや別種別の回復処理へ補正しない。QueueはRecovery Authorityにならない安定した適用IDだけを保持し、Task ID、種別およびexact Recovery Identityの閉集合から同じ適用を照合する。全義務が`settled`になった後だけ、専用Queue遷移と同じProject State世代で旧attemptをfresh retryへ置換する。Queue更新後、個別義務の開始後またはsettlement後、State更新後に中断しても、耐久化した適用段階から未完了側だけを再開し、Recovery Effectを重複発行しない。Docker回復完了はexact Recovery IDとRuntime bindingを耐久Receiptへ記録してから元の回復記録を除去し、Project Stateで当該義務のsettlementをreadbackした後にだけReceiptを確認済みとして除去する。Receiptの作成後または確認済み除去前に中断した場合は、次の再入場で同じIDを再照合し、Docker Effectを再発行せずsettlementまたはReceipt除去だけを再開する。Recovery settlementは再計画回数の消費と分離し、`maximumReplans`が0でも既存資源を回収して通常再入場できる。その後にowner、Repository Revision、容量、DependencyおよびConflictをfreshに再検証して、新しいLeaseを取得する。新しいTask状態としての`recovery_settled`は作らない。未解決、Identity不一致または観測不能では通常実行へ進めず、人間へ移送し、Task／Provider／正本Effectを発行しない。
 
 人間判断は`pending → accepted`を正常経路とする。入力を受け取っただけの中間状態は作らず、現在のdecision ID、Project／Milestone、世代、改訂版、許可選択肢および認証済み人間主体をすべて照合できた場合だけ一度受理する。古い・置換済み・取消済み・許可外の入力はEffect 0で拒否し、現在の`pending` Recordを変更しない。`stale`、`superseded`、`cancelled`は、Parentが現在Project世代の変化、置換判断の発行またはMilestone取消を独立に観測した場合だけRuntime-owned lifecycleとして記録する。`accepted`だけが専用遷移を介してProject Stateの再計画または再開へ接続できる。
 
@@ -108,7 +108,7 @@ Project Stateだけが観測不能になり、継続Capabilityの保護Rootを�
 
 任意コメントはAuthority、選択肢、Scopeまたは判断理由を補完しない非信頼注記である。省略可能、正しいUTF-8で最大1024 byte、C0制御文字とDELを含まない単一行だけを受理する。未知field、上限超過、制御文字または認識済みSecretを含む入力はEffect 0で拒否する。raw commentはProvider、Task Packet、ログ、永続Recordまたは通常結果へ転送・保存・反射しない。
 
-Runtime Process回復義務は、Authority取消結果を観測できない同一Processを再利用しないための内部義務である。そのProcessではsettleせず、別のProcess Instance Identityを持つfreshなRuntime再入場だけでsettleする。Host、CandidateおよびCandidate Storeの自動回復Handlerはv0.19の公開受付へ未接続であり、該当義務をDockerへ誤送信せず、種別とexact IDを欠落なく返して手動処置へ閉じる。
+Runtime Process回復義務は、Authority取消結果を観測できない同一Processを再利用しないための内部義務である。Parent Runtimeが現在のProcess Instance、Task attemptおよびOperationから一意なIDを発行し、耐久状態へ保存した同じIDだけを受理する。そのProcessではsettleせず、再入場時にIDのattempt／Operation bindingを再検証し、埋め込まれたProcess Instanceと異なるfreshなRuntime Processだけがsettleする。下位Adapterの申告、別attempt／OperationのIDまたは改変されたIDをProcess再起動の証拠へ昇格しない。Host、CandidateおよびCandidate Storeの自動回復Handlerはv0.19の公開受付へ未接続であり、該当義務をDockerへ誤送信せず、種別とexact IDを欠落なく返して手動処置へ閉じる。
 
 ## 6. 資源、Lock、所有
 
@@ -219,6 +219,8 @@ Project Runtime Coreは`IF-PLATFORM`と`IF-TRANSPORT`だけへ依存する。Win
 
 v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_decision`だけとする。前者は承認済みProject／Milestone境界内のObjectiveを開始し、同じrequest identityの再送では新規Effectを出さず最新状態を返す。後者は現在の判断要求へ認証済み人間の選択を結合する。人間主体の根拠は、`run_objective`受付時にRuntimeが観測した選択ユーザーのOS principalと既存Milestone Authorityである。判断要求の発行時にRuntimeは暗号学的に推測困難なopaqueの継続Capabilityを生成し、raw値は応答でClientへ一度だけ返す。Runtime側はraw値を保持せず、そのhashをdecision ID、Project／Milestone、世代、改訂版、選択ユーザー、発行時刻、有限の期限および消費状態へ結合し、Repository外のOS管理・Runtime保護Rootへ先に耐久化する。Platform Adapterは選択ユーザー、固定Volume、非reparse chain、Owner／Protectionおよびatomic updateを観測し、不明・不一致・改変ではEffect 0にする。Repository側はAuthorityにならないopaque Record IDだけを持つ。期限の具体値は実装契約で固定し、無期限Capabilityを許可しない。`submit_decision`はOS principal、Capability hashおよび全bindingを再確認し、Project State更新前に保護Recordへ一度だけ消費意図を`prepared`として記録する。Capabilityの消費確定はProject Stateのfresh readbackと両Root照合後の`finalized`であり、`prepared`だけを消費済みとは扱わない。Capabilityは人間が手入力する確認コードではなくClientが不透明値として保持し、Repository、Provider、Task Packet、ログまたはMCP metadataから再構成しない。accepted、stale、superseded、cancelled、Project終端または期限切れで失効する。別主体、別decision、欠落または不正入力はEffect 0で拒否するが、正規Capabilityの状態を変えず、正当主体は期限内に再試行できる。応答喪失でClientがraw値を受領できなかった場合、同じ認証主体は同じ`run_objective` request identityに明示的な置換意図と一意な置換request identityを添えて再送できる。Runtimeはraw未受領を自動推定せず、旧hashの失効を耐久化・readbackした後だけ新しいCapabilityを1件発行し、同じ置換requestの再送を冪等に扱う。旧・新を同時に有効化せず、置換できない場合はMilestoneを判断待ちのまま保持して次の処置を返す。内部Task、Scheduler、再計画、統合、Lock、Recovery操作をMCP toolとして直接公開しない。`crdd.get_project_state`はv0.20以降の保留候補であり、v0.19の完成条件や公開契約へ含めない。
 
+MCPの公開結果は、操作別のexact contractと閉じたData Transfer Object（DTO）から新しく構成する。最上位だけでなく、Projection、件数、判断、Recovery IDおよび型付き回復義務の全入れ子を、通常Object・既知field・型・上限・相関まで再帰的に検証する。未知field、accessor、Proxy、別操作のcontract／field、または`completed`とRecovery義務の併存等の矛盾を内部結果から公開面へ透過しない。公開変換に失敗した結果は成功へ縮退せず、Provider、Taskまたは正本Effectを追加せずに閉じる。
+
 対応を主張する各組合せは、入力framing、UTF-8 byte、request identity、切断、取消、Process owner喪失、Filesystem保護、Lock、cleanupおよびRecoveryを実入口で検証する。CoreがPlatform非依存であることだけをLinux／macOS対応の証拠にしない。
 
 ## 10. 実装と検証への接続
@@ -318,14 +320,14 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `INV-NO-LOCK-ACROSS-EXTERNAL-WAIT` | 外部待機中に短時間変更Lockを保持しない |
 | `INV-NARROWED-AUTHORITY` | Task AuthorityはParent Coordinatorだけが縮小生成する |
 | `INV-TASK-COMPLETE-NOT-ACCEPTED` | Task完了をObjective／Milestone受入へ読み替えない |
-| `INV-EXACT-RESULT-IDENTITY` | 世代・attempt・Operation・候補・Recovery Identityを照合する |
+| `INV-EXACT-RESULT-IDENTITY` | 世代・attempt・Operation・候補・Recovery Identityを照合する。Runtime Process回復IDはParent RuntimeだけがProcess Instance・attempt・Operationへ結合して発行する |
 | `INV-INTEGRATE-BEFORE-ADOPTION` | 意味統合と受入確認を正本採用より先に行う |
 | `INV-UNKNOWN-PRESERVES-RECOVERY` | cleanup／Effect不明時はRecovery義務を保持する |
 | `INV-NO-SUCCESS-FROM-UNKNOWN` | 欠落・古い・競合する根拠を成功へ補正しない |
 | `INV-CANCEL-AFTER-CLEANUP` | 取消完了は、未使用の新規Task Authorityがあれば失効を確認し、開始済み対象の終了・cleanup・状態反映を確認した後だけ成立する |
 | `INV-OLD-IDENTITY-IMMUTABLE` | 置換前Taskを上書きせず後継へ接続する |
 | `INV-PLATFORM-NO-FALLBACK` | 未対応Platformで別実装へ暗黙fallbackしない |
-| `INV-TRANSPORT-NO-AUTHORITY` | TransportはProject Authorityや成功を生成しない |
+| `INV-TRANSPORT-NO-AUTHORITY` | TransportはProject Authorityや成功を生成しない。MCP結果は操作別のexact contractと再帰的に閉じたdescriptor-safe DTOだけを公開する |
 | `INV-CANONICAL-EFFECT-SERIALIZED` | 正本採用を直列化し直前Revisionを確認する |
 | `INV-INTERACTIVE-PRIORITY-NO-PREEMPTION` | 対話優先は未開始要求だけを待機させ、Binding単位Lease取得後のfresh選択と一致したQueueだけをclaimする |
 | `INV-DURABLE-RECORD-CLOSED` | 耐久State／Queue Recordは完全Schema、filename結合世代および連続する不変世代を持つ |
@@ -333,7 +335,7 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE` | Lease解放意図をLock除去より先に耐久化し、解放証跡不明の間は再取得を止める |
 | `INV-LEASE-ACQUISITION-RECOVERABLE` | 物理Lockより先に取得中Markerを耐久化し、Lease返却前またはQueue owner結合前の失敗をfreshな完全巻戻し、またはexactなowner・回復IDを持つ回復義務のどちらかへ閉じる |
 | `INV-QUEUE-OWNER-CLEARED-AFTER-LEASE-SETTLEMENT` | Queueの終端結果とLease解放を二段階で耐久化し、Lock不存在、解放証跡、Marker不存在をfreshに確認した後だけownerを消す |
-| `INV-RECOVERY-SETTLED-BEFORE-RESUME` | Taskごとの種別付きexact Recovery Identity、各義務の`required / recovering / settled`、Queueの非Authorityな適用IDを照合し、全回復完了と資源不存在を確認した後だけ通常実行へ戻す。Queue／State片側更新または個別義務の途中段階からの再入場では完了済みEffectを再発行せず、再計画上限を回復義務の放棄に用いない |
+| `INV-RECOVERY-SETTLED-BEFORE-RESUME` | Taskごとの種別付きexact Recovery Identity、各義務の`required / recovering / settled`、Queueの非Authorityな適用IDを照合し、全回復完了と資源不存在を確認した後だけ通常実行へ戻す。Docker完了ReceiptはProject settlementのreadback後だけ確認済みとして除去する。Queue／State片側更新、個別義務またはReceipt確認の途中から再入場しても完了済みEffectを再発行せず、再計画上限を回復義務の放棄に用いない |
 | `INV-DECISION-BINDING-CURRENT` | 人間判断を現在の対象・世代・選択肢だけへ適用する |
 | `INV-MCP-NO-HUMAN-AUTHORITY` | MCP metadataやSessionからHuman Authorityを生成しない |
 | `INV-DECISION-RECEIPT-BEFORE-RESUME` | exactな受理済み判断とfreshなProject世代の後に一度だけ再開する |

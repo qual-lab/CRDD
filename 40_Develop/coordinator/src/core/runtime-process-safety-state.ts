@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 export const RUNTIME_PROCESS_SAFETY_STATE_CONTRACT =
   "crdd-coordinator/runtime-process-safety-state";
@@ -7,6 +7,44 @@ const runtimeProcessInstanceIdentity = randomUUID();
 
 export function getRuntimeProcessInstanceIdentity() {
   return runtimeProcessInstanceIdentity;
+}
+
+const RUNTIME_PROCESS_RECOVERY_ID =
+  /^runtime-process\.([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.restart-([0-9a-f]{40})$/u;
+
+function recoveryDigest(
+  processIdentity: string,
+  attemptId: string,
+  operationId: string,
+) {
+  return createHash("sha256")
+    .update([processIdentity, attemptId, operationId].join("\0"))
+    .digest("hex")
+    .slice(0, 40);
+}
+
+export function createRuntimeProcessRecoveryIdentity(
+  attemptId: string,
+  operationId: string,
+) {
+  return `runtime-process.${runtimeProcessInstanceIdentity}.restart-${recoveryDigest(
+    runtimeProcessInstanceIdentity,
+    attemptId,
+    operationId,
+  )}`;
+}
+
+export function inspectRuntimeProcessRecoveryIdentity(
+  value: unknown,
+  attemptId: string,
+  operationId: string,
+) {
+  if (typeof value !== "string") return null;
+  const match = RUNTIME_PROCESS_RECOVERY_ID.exec(value);
+  if (!match?.[1] || !match[2]) return null;
+  if (match[2] !== recoveryDigest(match[1], attemptId, operationId))
+    return null;
+  return Object.freeze({ processIdentity: match[1], recoveryId: value });
 }
 
 export function createIsolatedRuntimeProcessSafetyStateCandidate() {

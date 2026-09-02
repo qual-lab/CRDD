@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-import { getRuntimeProcessInstanceIdentity } from "../core/runtime-process-safety-state.ts";
+import {
+  getRuntimeProcessInstanceIdentity,
+  inspectRuntimeProcessRecoveryIdentity,
+} from "../core/runtime-process-safety-state.ts";
 
 import {
   enqueueProjectOperation,
@@ -76,6 +79,7 @@ export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
     }>,
   ) => unknown;
   recoverTaskRecovery?: (recoveryId: string) => unknown;
+  acknowledgeTaskRecovery?: (recoveryId: string) => unknown;
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
   ) => unknown;
@@ -828,11 +832,20 @@ export async function runProjectRuntimeObjective(
         }
         let recovery: unknown;
         if (item.kind === "runtime_process") {
-          const match = /^runtime-process\.([0-9a-f-]{36})\./u.exec(
-            item.recoveryId,
+          const task = recoveryState.tasks.find(
+            (entry) => entry.definition.id === item.taskId,
           );
+          const match =
+            task?.attemptId && task.operationId
+              ? inspectRuntimeProcessRecoveryIdentity(
+                  item.recoveryId,
+                  task.attemptId,
+                  task.operationId,
+                )
+              : null;
           recovery =
-            match && match[1] !== getRuntimeProcessInstanceIdentity()
+            match &&
+            match.processIdentity !== getRuntimeProcessInstanceIdentity()
               ? Object.freeze({
                   status: "recovered" as const,
                   recoveryId: null,
@@ -896,6 +909,38 @@ export async function runProjectRuntimeObjective(
           value: settledWrite.value,
         });
         recoveryState = settledWrite.value;
+      }
+      for (const item of recoveries.filter(
+        (entry) => entry.kind === "docker",
+      )) {
+        let acknowledgement: unknown;
+        try {
+          acknowledgement =
+            dependencies.acknowledgeTaskRecovery?.(item.recoveryId) ?? null;
+        } catch {
+          acknowledgement = null;
+        }
+        const acknowledged = snapshotPlainRecord(
+          acknowledgement,
+          new Set(["status", "reason"]),
+        );
+        if (
+          acknowledged?.status !== "completed" ||
+          typeof acknowledged.reason !== "string"
+        )
+          return blocked(
+            request,
+            "project_runtime_task_recovery_acknowledgement_not_settled",
+            {
+              cleanupConfirmed: false,
+              manualRecoveryRequired: true,
+              effectState: "unknown",
+              recoveryIds: [item.recoveryId],
+              recoveryObligations: [
+                Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+              ],
+            },
+          );
       }
       const externallyOwned = recoveryState.tasks.flatMap((task) =>
         task.recoveryObligations

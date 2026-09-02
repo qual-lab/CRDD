@@ -75,20 +75,31 @@ function dependencies(
 ): McpProjectRuntimeDependencies {
   return {
     runObjective: async (input) => ({
+      contract: "crdd-coordinator/project-runtime-objective-intake/v1",
       status: "completed",
       reason: "objective_complete",
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
+      processRestartRequired: false,
       effectState: "settled",
       requestId: input.requestId,
+      projectId: input.projectId,
+      milestoneId: input.milestoneId,
+      queueId: "queue-a",
+      projection: null,
+      recoveryIds: [],
+      recoveryObligations: [],
     }),
     submitDecision: async (input) => ({
+      contract: "crdd-coordinator/project-runtime-human-decision/v1",
       status: "completed",
       reason: "decision_complete",
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       effectState: "settled",
       decisionId: input.decisionId,
+      applicationId: "application-a",
+      generation: 5,
     }),
     ...overrides,
     authenticateClient:
@@ -130,11 +141,20 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
         assert.equal(signal, controller.signal);
         assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
+          contract: "crdd-coordinator/project-runtime-objective-intake/v1",
           status: "completed",
           reason: "accepted",
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
+          processRestartRequired: false,
           effectState: "settled",
+          requestId: input.requestId,
+          projectId: input.projectId,
+          milestoneId: input.milestoneId,
+          queueId: "queue-a",
+          projection: null,
+          recoveryIds: [],
+          recoveryObligations: [],
         };
       },
     }),
@@ -161,11 +181,15 @@ test("MCP Decision uses a separate entry and never forwards comment to Objective
         assert.equal(input.selectedOption, "resume");
         assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
+          contract: "crdd-coordinator/project-runtime-human-decision/v1",
           status: "completed",
           reason: "decision_applied",
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
           effectState: "settled",
+          decisionId: input.decisionId,
+          applicationId: "application-a",
+          generation: 5,
         };
       },
     }),
@@ -236,11 +260,20 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
       }),
       dependencies({
         runObjective: async () => ({
+          contract: "crdd-coordinator/project-runtime-objective-intake/v1",
           status: "completed",
           reason: "accepted",
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
+          processRestartRequired: false,
           effectState: "settled",
+          requestId: "request-a",
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          queueId: "queue-a",
+          projection: null,
+          recoveryIds: [],
+          recoveryObligations: [],
           ...extra,
         }),
       }),
@@ -255,6 +288,131 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
       "project_runtime_adapter_result_invalid",
     );
   }
+});
+
+test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再構成する", async () => {
+  const base = {
+    contract: "crdd-coordinator/project-runtime-objective-intake/v1",
+    status: "blocked",
+    reason: "recovery_required",
+    requestId: "request-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId: "queue-a",
+    projection: null,
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    processRestartRequired: false,
+    recoveryIds: ["host-task.a"],
+    recoveryObligations: [{ kind: "host", recoveryId: "host-task.a" }],
+    effectState: "unknown",
+  };
+  const getterObligation = Object.create(null) as Record<string, unknown>;
+  Object.defineProperty(getterObligation, "kind", {
+    enumerable: true,
+    get: () => "host",
+  });
+  Object.defineProperty(getterObligation, "recoveryId", {
+    enumerable: true,
+    value: "host-task.a",
+  });
+  const malformed = [
+    {
+      ...base,
+      recoveryObligations: [
+        { kind: "host", recoveryId: "host-task.a", taskId: "internal" },
+      ],
+    },
+    { ...base, recoveryObligations: [getterObligation] },
+    {
+      ...base,
+      recoveryObligations: [
+        new Proxy({ kind: "host", recoveryId: "host-task.a" }, {}),
+      ],
+    },
+    { ...base, processRestartRequired: true },
+    { ...base, decisionId: "decision-a" },
+    {
+      ...base,
+      projection: {
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        generation: 1,
+        milestoneState: "recovery_required",
+        objectiveCounts: {
+          planned: 0,
+          executing: 0,
+          integration_pending: 0,
+          accepted: 0,
+          blocked: 1,
+          cancelled: 0,
+        },
+        taskCounts: {
+          planned: 0,
+          waiting_dependency: 0,
+          ready: 0,
+          starting: 0,
+          running: 0,
+          cleanup_pending: 0,
+          completed: 0,
+          failed: 0,
+          cancelled: 0,
+          recovery_required: 1,
+          superseded: 0,
+        },
+        workProgress: "in_progress",
+        qualityState: "blocked",
+        humanDecisionRequired: false,
+        recoveryRequired: true,
+        nextAction: "recover",
+        internalTaskId: "task-a",
+      },
+    },
+  ];
+  for (const raw of malformed) {
+    const response = await handleMcpProjectRuntimeRequest(
+      request("tools/call", {
+        _meta: meta,
+        name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+        arguments: objective(),
+      }),
+      dependencies({ runObjective: async () => raw }),
+    );
+    assert.equal(
+      (response.result as { structuredContent: { reason: string } })
+        .structuredContent.reason,
+      "project_runtime_adapter_result_invalid",
+    );
+  }
+});
+
+test("MCP DecisionはObjective専用fieldを拒否する", async () => {
+  const response = await handleMcpProjectRuntimeRequest(
+    request("tools/call", {
+      _meta: meta,
+      name: MCP_PROJECT_RUNTIME_DECISION_TOOL,
+      arguments: decision(),
+    }),
+    dependencies({
+      submitDecision: async () => ({
+        contract: "crdd-coordinator/project-runtime-human-decision/v1",
+        status: "completed",
+        reason: "decision_applied",
+        decisionId: "decision-a",
+        applicationId: "application-a",
+        generation: 5,
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "settled",
+        projection: null,
+      }),
+    }),
+  );
+  assert.equal(
+    (response.result as { structuredContent: { reason: string } })
+      .structuredContent.reason,
+    "project_runtime_adapter_result_invalid",
+  );
 });
 
 test("MCP contract reports stateless transport and the exact public tools", () => {

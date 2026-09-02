@@ -432,6 +432,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   let attempts = 0;
   let recoveries = 0;
+  let acknowledgements = 0;
   const dependencies = {
     authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => ({
@@ -471,6 +472,13 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
       recoveries += 1;
       assert.equal(exact, recoveryId);
       return { status: "recovered", recoveryId: null };
+    },
+    acknowledgeTaskRecovery: (exact: string) => {
+      acknowledgements += 1;
+      assert.equal(exact, recoveryId);
+      return acknowledgements === 1
+        ? { status: "blocked", reason: "acknowledgement_interrupted" }
+        : { status: "completed", reason: "acknowledged" };
     },
     execution: {
       runSingleTaskAttempt: async (input: Parameters<typeof completed>[0]) => {
@@ -512,12 +520,26 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     request({ maximumReplans: 0 }),
     new AbortController().signal,
   );
-  assert.equal(resumed.status, "completed", JSON.stringify(resumed));
+  assert.equal(resumed.status, "blocked", JSON.stringify(resumed));
   assert.equal(
     resumed.reason,
+    "project_runtime_task_recovery_acknowledgement_not_settled",
+  );
+  assert.equal(recoveries, 1);
+  assert.equal(attempts, 1);
+
+  const acknowledged = await runProjectRuntimeObjective(
+    dependencies,
+    request({ maximumReplans: 0 }),
+    new AbortController().signal,
+  );
+  assert.equal(acknowledged.status, "completed", JSON.stringify(acknowledged));
+  assert.equal(
+    acknowledged.reason,
     "project_runtime_tasks_completed_integration_pending",
   );
   assert.equal(recoveries, 1);
+  assert.equal(acknowledgements, 2);
   assert.equal(attempts, 2);
   const latest = readProjectRuntimeState(
     workingDirectory,
@@ -580,6 +602,10 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
         manualRecoveryRequired: false,
       };
     },
+    acknowledgeTaskRecovery: () => ({
+      status: "completed",
+      reason: "acknowledged",
+    }),
     execution: {
       runSingleTaskAttempt: async (
         input: ProjectRuntimeSingleTaskAttemptInput,
@@ -802,6 +828,10 @@ for (const interruption of [
           manualRecoveryRequired: false,
         };
       },
+      acknowledgeTaskRecovery: () => ({
+        status: "completed",
+        reason: "acknowledged",
+      }),
       execution: {
         runSingleTaskAttempt: async (
           input: Parameters<typeof completed>[0],

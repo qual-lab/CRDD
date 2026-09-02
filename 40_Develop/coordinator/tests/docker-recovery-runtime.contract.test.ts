@@ -24,6 +24,7 @@ import {
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
+  acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot,
   beginRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver,
   classifyRuntimeOwnedDockerRecoveryEvidence,
@@ -3460,6 +3461,36 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
     );
     assert.equal(docker.removeCount(), 1);
     assertOnlyCompletedRecoveryEvidence(fixture.root);
+    assert.deepEqual(
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        fixture.recoveryId,
+        root,
+      ),
+      {
+        status: "completed",
+        reason: "docker_task_recovery_completion_acknowledged",
+      },
+    );
+    assert.deepEqual(
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        fixture.recoveryId,
+        root,
+      ),
+      {
+        status: "completed",
+        reason: "docker_task_recovery_completion_already_acknowledged",
+      },
+    );
+    assert.equal(
+      fs
+        .readdirSync(fixture.root)
+        .some((name) =>
+          /^completed-docker-recovery-[a-f0-9]{64}\.json(?:\.crdd-commit\.json)?$/u.test(
+            name,
+          ),
+        ),
+      false,
+    );
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {

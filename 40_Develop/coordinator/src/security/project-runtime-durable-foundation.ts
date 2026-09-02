@@ -1395,7 +1395,7 @@ const QUEUE_TRANSITIONS = Object.freeze({
     "recovery_required",
     "cancelled",
   ]),
-  waiting_foreground: Object.freeze(["queued", "leased", "cancelled"]),
+  waiting_foreground: Object.freeze(["queued", "cancelled"]),
   integration_pending: Object.freeze([
     "completed",
     "replan_required",

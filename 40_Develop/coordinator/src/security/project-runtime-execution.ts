@@ -26,7 +26,7 @@ import {
   type ProjectRuntimeState,
 } from "./project-runtime-state.ts";
 import {
-  getRuntimeProcessInstanceIdentity,
+  createRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../core/runtime-process-safety-state.ts";
 
@@ -95,6 +95,7 @@ function validIdentity(value: unknown): value is string {
 
 function validSingleTaskResult(
   value: unknown,
+  runtimeIssuedRecoveryIds: ReadonlySet<string>,
 ): value is ProjectRuntimeSingleTaskResult {
   try {
     if (
@@ -241,6 +242,8 @@ function validSingleTaskResult(
             "runtime_process",
           ].includes(String(kind)) ||
           !isProjectRuntimeRecoveryIdentity(recoveryId) ||
+          (kind === "runtime_process" &&
+            !runtimeIssuedRecoveryIds.has(String(recoveryId))) ||
           identities.has(`${kind}\0${recoveryId}`)
         )
           return false;
@@ -795,6 +798,7 @@ export async function runProjectRuntimeOperation(
       );
       return observation;
     };
+    const runtimeIssuedRecoveryIds = new Set<string>();
     const outcomes = await Promise.all(
       attempts.map(async (attempt) => {
         try {
@@ -867,6 +871,12 @@ export async function runProjectRuntimeOperation(
                     dependencies.poisonProcessAfterAuthorityRevocationUnknown ??
                     poisonRuntimeProcessAfterCleanupUnknown
                   )();
+                  const runtimeProcessRecoveryId =
+                    createRuntimeProcessRecoveryIdentity(
+                      attempt.attemptId,
+                      attempt.operationId,
+                    );
+                  runtimeIssuedRecoveryIds.add(runtimeProcessRecoveryId);
                   return Object.freeze({
                     contract:
                       "crdd-coordinator/project-runtime-single-task-adapter" as const,
@@ -881,21 +891,11 @@ export async function runProjectRuntimeOperation(
                     manualRecoveryRequired: true,
                     processRestartRequired: true,
                     candidateId: null,
-                    recoveryIds: Object.freeze([
-                      `runtime-process.${getRuntimeProcessInstanceIdentity()}.${stableId(
-                        "revocation",
-                        attempt.attemptId,
-                        attempt.operationId,
-                      )}`,
-                    ]),
+                    recoveryIds: Object.freeze([runtimeProcessRecoveryId]),
                     recoveryObligations: Object.freeze([
                       Object.freeze({
                         kind: "runtime_process" as const,
-                        recoveryId: `runtime-process.${getRuntimeProcessInstanceIdentity()}.${stableId(
-                          "revocation",
-                          attempt.attemptId,
-                          attempt.operationId,
-                        )}`,
+                        recoveryId: runtimeProcessRecoveryId,
                       }),
                     ]),
                   });
@@ -934,7 +934,12 @@ export async function runProjectRuntimeOperation(
             completedTaskIds,
           },
         );
-      const validatedOutcome = validSingleTaskResult(outcome) ? outcome : null;
+      const validatedOutcome = validSingleTaskResult(
+        outcome,
+        runtimeIssuedRecoveryIds,
+      )
+        ? outcome
+        : null;
       const exact =
         validatedOutcome !== null &&
         validatedOutcome.attemptId === attempt?.attemptId &&
@@ -943,6 +948,33 @@ export async function runProjectRuntimeOperation(
           attempt?.execution.authorityBindingId &&
         validatedOutcome.repositoryRevision === state.repositoryRevision;
       const effectStarted = startedAttemptIds.has(attempt.attemptId);
+      const normalizedRecoveryObligations: Array<
+        Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string }>
+      > = validatedOutcome
+        ? [...(validatedOutcome.recoveryObligations ?? [])]
+        : [];
+      if (
+        validatedOutcome?.processRestartRequired === true &&
+        !normalizedRecoveryObligations.some(
+          (entry) => entry.kind === "runtime_process",
+        )
+      ) {
+        const runtimeProcessRecoveryId = createRuntimeProcessRecoveryIdentity(
+          attempt.attemptId,
+          attempt.operationId,
+        );
+        (
+          dependencies.poisonProcessAfterAuthorityRevocationUnknown ??
+          poisonRuntimeProcessAfterCleanupUnknown
+        )();
+        runtimeIssuedRecoveryIds.add(runtimeProcessRecoveryId);
+        normalizedRecoveryObligations.push(
+          Object.freeze({
+            kind: "runtime_process" as const,
+            recoveryId: runtimeProcessRecoveryId,
+          }),
+        );
+      }
       const recoveryRequired =
         !validatedOutcome ||
         !exact ||
@@ -954,7 +986,7 @@ export async function runProjectRuntimeOperation(
       processRestartRequired ||=
         validatedOutcome?.processRestartRequired === true;
       const recoveryObligations = recoveryRequired
-        ? (validatedOutcome?.recoveryObligations ?? []).map((entry) =>
+        ? normalizedRecoveryObligations.map((entry) =>
             Object.freeze({ ...entry, phase: "required" as const }),
           )
         : [];

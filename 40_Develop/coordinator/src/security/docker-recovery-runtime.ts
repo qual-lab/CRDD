@@ -9,6 +9,7 @@ export {
   DOCKER_RECOVERY_RUNTIME_CONTRACT,
   DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION,
   abandonRuntimeOwnedDockerRecovery,
+  acknowledgeRuntimeOwnedDockerRecoveryCompletion,
   beginRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerRecovery,
   createIsolatedDockerRecoveryRuntimeCandidate,
