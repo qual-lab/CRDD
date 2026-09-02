@@ -14,6 +14,7 @@ import {
   readProjectRuntimeState,
   reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss,
   reconcileProjectRuntimeLeaseOwnerLoss,
+  selectNextProjectOperation,
   settleProjectOperationQueueLeaseRelease,
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
@@ -295,6 +296,39 @@ test("PR-D-A-01 rejects an unknown queue record kind on exact retry", (t) => {
   assert.equal(result.reason, "project_runtime_mutation_observation_unknown");
   assert.equal(result.manualRecoveryRequired, true);
   assert.deepEqual(fs.readdirSync(queueDirectory(root)), ["generation-1.json"]);
+});
+
+test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t) => {
+  const { root } = fixture(t);
+  const common = {
+    milestoneId: "milestone-a",
+    requestHash: "b".repeat(64),
+    originLane: "interactive" as const,
+    repositoryRevision: "a".repeat(40),
+    scopeHash: "c".repeat(64),
+  };
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      ...common,
+      queueId: "queue-a",
+      projectId: "project-a",
+    }).status,
+    "completed",
+  );
+  assert.equal(
+    enqueueProjectOperation(root, "binding-b", {
+      ...common,
+      queueId: "queue-b",
+      projectId: "project-b",
+    }).status,
+    "completed",
+  );
+  const selectedA = selectNextProjectOperation(root, "binding-a");
+  const selectedB = selectNextProjectOperation(root, "binding-b");
+  assert.equal(selectedA.status, "completed");
+  assert.equal(selectedA.value?.queueId, "queue-a");
+  assert.equal(selectedB.status, "completed");
+  assert.equal(selectedB.value?.queueId, "queue-b");
 });
 
 test("PR-D-Q-01 binds queue ownership to a live opaque lease", (t) => {
@@ -1303,6 +1337,89 @@ test("PR-A-04 clears Queue ownership only after exact lease release settlement",
   assert.equal(
     settled.status === "completed" && settled.value.state,
     "integration_pending",
+  );
+});
+
+test("PR-A-04 preserves an exact long recovery reference in Queue terminal intent", (t) => {
+  const { root } = fixture(t);
+  const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-long-recovery",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "interactive",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
+    "completed",
+  );
+  const lease = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-long-recovery",
+    "project-operation",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw new Error("lease_fixture_failed");
+  const leased = updateProjectOperationQueueState(
+    root,
+    "binding-a",
+    "queue-long-recovery",
+    1,
+    {
+      state: "leased",
+      lease: lease.value,
+      resumeCondition: null,
+      resultReference: null,
+    },
+  );
+  assert.equal(leased.status, "completed");
+  const running = updateProjectOperationQueueState(
+    root,
+    "binding-a",
+    "queue-long-recovery",
+    2,
+    {
+      state: "running",
+      lease: lease.value,
+      resumeCondition: null,
+      resultReference: null,
+    },
+  );
+  assert.equal(running.status, "completed");
+  const recoveryRequired = updateProjectOperationQueueState(
+    root,
+    "binding-a",
+    "queue-long-recovery",
+    3,
+    {
+      state: "recovery_required",
+      lease: lease.value,
+      resumeCondition: "runtime_recovery",
+      resultReference: recoveryId,
+    },
+  );
+  assert.equal(recoveryRequired.status, "completed");
+  assert.equal(
+    recoveryRequired.status === "completed" &&
+      recoveryRequired.value.resultReference,
+    recoveryId,
+  );
+  assert.equal(lease.value.release().status, "completed");
+  const settled = settleProjectOperationQueueLeaseRelease(
+    root,
+    "binding-a",
+    "queue-long-recovery",
+    4,
+    lease.value.ownerGeneration,
+  );
+  assert.equal(settled.status, "completed");
+  assert.equal(
+    settled.status === "completed" && settled.value.resultReference,
+    recoveryId,
   );
 });
 

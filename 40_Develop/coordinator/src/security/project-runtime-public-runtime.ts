@@ -13,10 +13,12 @@ import {
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "./project-runtime-candidate-integration-adapter.ts";
 import { inspectMcpProjectRuntimeDecision } from "./mcp-project-runtime-adapter.ts";
 import { integrateProjectRuntimeOperation } from "./project-runtime-integration.ts";
+import { createProjectRuntimeDecisionRecoveryStore } from "./project-runtime-decision-recovery-store.ts";
 import {
   issueProjectRuntimeHumanDecision,
   projectRuntimeDecisionRecordId,
   recoverProjectRuntimeHumanDecision,
+  replaceProjectRuntimeHumanDecision,
   submitProjectRuntimeHumanDecision,
 } from "./project-runtime-human-decision.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "./project-runtime-windows-decision-store.ts";
@@ -31,12 +33,61 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-
 export const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
   "crdd-coordinator/project-runtime-public-runtime/v1" as const;
 
+type PublicExecutionDependencies = Readonly<{
+  issueTaskAuthority: () => object | null;
+  startTask: typeof startRuntimeOwnedCoordinatorTask;
+  cancelTask: typeof cancelRuntimeOwnedCoordinatorTask;
+  frontProviderForTask: (
+    requestedExecutorProvider: "auto" | "codex" | "claude",
+  ) => "codex" | "claude";
+  openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore;
+}>;
+
+export type ProjectRuntimePublicDevelopmentDependencies =
+  PublicExecutionDependencies;
+
+const productionExecutionDependencies: PublicExecutionDependencies =
+  Object.freeze({
+    issueTaskAuthority: () =>
+      issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
+        evaluationTime: new Date().toISOString(),
+      }).capability,
+    startTask: startRuntimeOwnedCoordinatorTask,
+    cancelTask: cancelRuntimeOwnedCoordinatorTask,
+    frontProviderForTask: () => "codex",
+    openDecisionStore: openRuntimeOwnedWindowsProjectDecisionStore,
+  });
+
 function stable(prefix: string, ...parts: readonly string[]) {
   return `${prefix}-${createHash("sha256").update(parts.join("\0")).digest("hex").slice(0, 40)}`;
 }
 
+/** Canonical Single Task request used by both execution and bounded E2E admission. */
+export function buildProjectRuntimeCoordinatorTaskRequest(
+  request: ProjectRuntimeObjectiveRequest,
+  frontProvider: "codex" | "claude",
+) {
+  return Object.freeze({
+    frontProvider,
+    requestedExecutorProvider: request.requestedExecutorProvider ?? "auto",
+    objective: request.objective,
+    acceptanceCriteria: Object.freeze([...request.acceptanceCriteria]),
+    allowedPaths: Object.freeze([...request.allowedPaths]),
+    readPaths: Object.freeze([...request.readPaths]),
+    workClass: "bounded_implementation" as const,
+    planState: "complete" as const,
+    risk: "low" as const,
+    difficulty: "low" as const,
+    decisionImpact: "limited" as const,
+    isLocalCandidateOnly: true,
+    hasUnresolvedDirection: false,
+    requiresCrossContextAlignment: false,
+  });
+}
+
 /** Production composition shared by the CLI and MCP transports. */
-export async function runProjectRuntimePublicObjective(
+async function executeProjectRuntimePublicObjective(
+  runtimeDependencies: PublicExecutionDependencies,
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
   workingDirectory = process.cwd(),
@@ -131,11 +182,9 @@ export async function runProjectRuntimePublicObjective(
         return state.tasks
           .filter((task) => task.state !== "superseded")
           .map((task) => {
-            const packageResult =
-              issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
-                evaluationTime: new Date().toISOString(),
-              });
-            if (!packageResult.capability)
+            const taskAuthorityCapability =
+              runtimeDependencies.issueTaskAuthority();
+            if (!taskAuthorityCapability)
               throw new Error("project_runtime_package_not_verified");
             return Object.freeze({
               taskId: task.definition.id,
@@ -145,26 +194,14 @@ export async function runProjectRuntimePublicObjective(
                 request.repositoryRevision,
                 String(task.retryCount),
               ),
-              taskAuthorityCapability: packageResult.capability,
+              taskAuthorityCapability,
               repositoryRoot,
-              taskRequest: Object.freeze({
-                frontProvider: "codex",
-                requestedExecutorProvider: "auto",
-                objective: request.objective,
-                acceptanceCriteria: Object.freeze([
-                  ...request.acceptanceCriteria,
-                ]),
-                allowedPaths: Object.freeze([...request.allowedPaths]),
-                readPaths: Object.freeze([...request.readPaths]),
-                workClass: "bounded_implementation",
-                planState: "complete",
-                risk: "low",
-                difficulty: "low",
-                decisionImpact: "limited",
-                isLocalCandidateOnly: true,
-                hasUnresolvedDirection: false,
-                requiresCrossContextAlignment: false,
-              }),
+              taskRequest: buildProjectRuntimeCoordinatorTaskRequest(
+                request,
+                runtimeDependencies.frontProviderForTask(
+                  request.requestedExecutorProvider ?? "auto",
+                ),
+              ),
             });
           });
       },
@@ -185,8 +222,8 @@ export async function runProjectRuntimePublicObjective(
         runSingleTaskAttempt: (input) =>
           runProjectRuntimeSingleTaskAttempt(
             {
-              startTask: startRuntimeOwnedCoordinatorTask,
-              cancelTask: cancelRuntimeOwnedCoordinatorTask,
+              startTask: runtimeDependencies.startTask,
+              cancelTask: runtimeDependencies.cancelTask,
             },
             input,
           ),
@@ -221,7 +258,7 @@ export async function runProjectRuntimePublicObjective(
     typeof integration.stateGeneration !== "number"
   )
     return integration;
-  const protectedStore = openRuntimeOwnedWindowsProjectDecisionStore();
+  const protectedStore = runtimeDependencies.openDecisionStore();
   if (protectedStore.status !== "completed")
     return Object.freeze({
       ...integration,
@@ -237,29 +274,88 @@ export async function runProjectRuntimePublicObjective(
     execution.queueId,
     integration.candidateId,
   );
-  const decision = issueProjectRuntimeHumanDecision(
-    {
-      workingDirectory: repositoryRoot,
-      repositoryBindingId: stable("binding", repositoryRoot, request.projectId),
-      projectId: request.projectId,
-      milestoneId: request.milestoneId,
-      queueId: execution.queueId,
-      principalId: protectedStore.principalId,
-      store: protectedStore.store,
-    },
-    {
-      decisionId,
-      repositoryRevision: request.repositoryRevision,
-      expectedGeneration: integration.stateGeneration,
-      allowedOptions: Object.freeze(["resume", "cancel"]),
-      lifetimeMs: 24 * 60 * 60 * 1_000,
-    },
-  );
+  const decisionCommon = {
+    workingDirectory: repositoryRoot,
+    repositoryBindingId: stable("binding", repositoryRoot, request.projectId),
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    queueId: execution.queueId,
+    principalId: protectedStore.principalId,
+    store: protectedStore.store,
+    recoveryStore: createProjectRuntimeDecisionRecoveryStore(repositoryRoot),
+  } as const;
+  const decision = request.decisionCapabilityReplacement
+    ? request.decisionCapabilityReplacement.decisionId !== decisionId
+      ? Object.freeze({
+          contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+          status: "blocked" as const,
+          reason: "project_runtime_decision_replacement_binding_mismatch",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          effectState: "no_effect" as const,
+        })
+      : replaceProjectRuntimeHumanDecision(decisionCommon, {
+          recordId: projectRuntimeDecisionRecordId(
+            request.projectId,
+            request.milestoneId,
+            decisionId,
+          ),
+          replacementRequestId:
+            request.decisionCapabilityReplacement.replacementRequestId,
+          lifetimeMs: 24 * 60 * 60 * 1_000,
+        })
+    : issueProjectRuntimeHumanDecision(decisionCommon, {
+        decisionId,
+        repositoryRevision: request.repositoryRevision,
+        expectedGeneration: integration.stateGeneration,
+        allowedOptions: Object.freeze(["resume", "cancel"]),
+        lifetimeMs: 24 * 60 * 60 * 1_000,
+      });
   return Object.freeze({ ...integration, decision });
 }
 
-/** Production decision entry shared by the CLI and MCP process. */
-export function runProjectRuntimePublicDecision(
+export function runProjectRuntimePublicObjective(
+  rawRequest: unknown,
+  cancellationSignal: AbortSignal,
+  workingDirectory = process.cwd(),
+) {
+  return executeProjectRuntimePublicObjective(
+    productionExecutionDependencies,
+    rawRequest,
+    cancellationSignal,
+    workingDirectory,
+  );
+}
+
+/** Development-only composition. The supplied starter still needs its own admitted capability. */
+export function createDevelopmentProjectRuntimePublicObjectiveCandidate(
+  dependencies: ProjectRuntimePublicDevelopmentDependencies,
+) {
+  const fixed = Object.freeze({ ...dependencies });
+  return Object.freeze({
+    productionAuthority: false,
+    run: (
+      rawRequest: unknown,
+      cancellationSignal: AbortSignal,
+      workingDirectory: string,
+    ) =>
+      executeProjectRuntimePublicObjective(
+        fixed,
+        rawRequest,
+        cancellationSignal,
+        workingDirectory,
+      ),
+    runDecision: (rawRequest: unknown, workingDirectory: string) =>
+      executeProjectRuntimePublicDecision(
+        fixed.openDecisionStore,
+        rawRequest,
+        workingDirectory,
+      ),
+  });
+}
+
+function executeProjectRuntimePublicDecision(
+  openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore,
   rawRequest: unknown,
   workingDirectory = process.cwd(),
 ) {
@@ -288,7 +384,7 @@ export function runProjectRuntimePublicDecision(
       effectState: "no_effect" as const,
     });
   }
-  const protectedStore = openRuntimeOwnedWindowsProjectDecisionStore();
+  const protectedStore = openDecisionStore();
   if (protectedStore.status !== "completed")
     return Object.freeze({
       contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
@@ -329,6 +425,7 @@ export function runProjectRuntimePublicDecision(
     queueId: record.queueId,
     principalId: protectedStore.principalId,
     store: protectedStore.store,
+    recoveryStore: createProjectRuntimeDecisionRecoveryStore(repositoryRoot),
   } as const;
   if (record.disposition === "prepared")
     return recoverProjectRuntimeHumanDecision(common, { recordId });
@@ -340,4 +437,16 @@ export function runProjectRuntimePublicDecision(
     selectedOption: request.selectedOption,
     continuationCapability: request.continuationCapability,
   });
+}
+
+/** Production decision entry shared by the CLI and MCP process. */
+export function runProjectRuntimePublicDecision(
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+) {
+  return executeProjectRuntimePublicDecision(
+    openRuntimeOwnedWindowsProjectDecisionStore,
+    rawRequest,
+    workingDirectory,
+  );
 }

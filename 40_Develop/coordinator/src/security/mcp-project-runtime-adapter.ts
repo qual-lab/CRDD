@@ -1,5 +1,6 @@
 import { types as utilTypes } from "node:util";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { inspectProjectRuntimeObjectiveRequest } from "./project-runtime-objective-request.ts";
 
 export const MCP_PROJECT_RUNTIME_PROTOCOL_VERSION = "2026-07-28" as const;
 export const MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL = "crdd.run_objective" as const;
@@ -16,6 +17,7 @@ type McpResponse = Readonly<{
   error?: Readonly<{ code: number; message: string }>;
 }>;
 export type McpProjectRuntimeDependencies = Readonly<{
+  authenticateClient: () => unknown;
   runObjective: (
     request: Readonly<Record<string, unknown>>,
     signal: AbortSignal,
@@ -43,6 +45,8 @@ const OBJECTIVE_KEYS = new Set([
   "maximumReplans",
   "originLane",
   "adoptResult",
+  "decisionCapabilityReplacement",
+  "requestedExecutorProvider",
 ] as const);
 const DECISION_KEYS = new Set([
   "decisionId",
@@ -90,14 +94,6 @@ function text(value: unknown, maximum: number): value is string {
     !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
   );
 }
-function strings(value: unknown, maximumItems: number, maximumText: number) {
-  return Array.isArray(value) &&
-    value.length > 0 &&
-    value.length <= maximumItems &&
-    value.every((entry) => text(entry, maximumText))
-    ? Object.freeze([...value] as string[])
-    : null;
-}
 function envelope(value: unknown) {
   if (!plain(value)) return false;
   const allowed = new Set([
@@ -113,36 +109,7 @@ function envelope(value: unknown) {
   );
 }
 function objective(value: unknown): Readonly<Record<string, unknown>> | null {
-  const input = snapshotPlainRecord(value, OBJECTIVE_KEYS);
-  if (!input) return null;
-  const acceptanceCriteria = strings(input.acceptanceCriteria, 128, 2_048);
-  const allowedPaths = strings(input.allowedPaths, 128, 512);
-  const readPaths = strings(input.readPaths, 128, 512);
-  if (
-    !stable(input.requestId) ||
-    !stable(input.projectId) ||
-    !stable(input.milestoneId) ||
-    !revision(input.repositoryRevision) ||
-    !text(input.objective, 16_384) ||
-    !acceptanceCriteria ||
-    !allowedPaths ||
-    !readPaths ||
-    !Number.isSafeInteger(input.maximumConcurrency) ||
-    Number(input.maximumConcurrency) < 1 ||
-    Number(input.maximumConcurrency) > 5 ||
-    !Number.isSafeInteger(input.maximumReplans) ||
-    Number(input.maximumReplans) < 0 ||
-    Number(input.maximumReplans) > 32 ||
-    (input.originLane !== "interactive" && input.originLane !== "scheduled") ||
-    typeof input.adoptResult !== "boolean"
-  )
-    return null;
-  return Object.freeze({
-    ...input,
-    acceptanceCriteria,
-    allowedPaths,
-    readPaths,
-  });
+  return inspectProjectRuntimeObjectiveRequest(value);
 }
 export function inspectMcpProjectRuntimeDecision(value: unknown): Readonly<{
   decisionId: string;
@@ -273,8 +240,24 @@ function definitions() {
           enum: Object.freeze(["interactive", "scheduled"]),
         }),
         adoptResult: Object.freeze({ type: "boolean" }),
+        decisionCapabilityReplacement: Object.freeze({
+          type: "object",
+          additionalProperties: false,
+          required: Object.freeze(["decisionId", "replacementRequestId"]),
+          properties: Object.freeze({
+            decisionId: id,
+            replacementRequestId: id,
+          }),
+        }),
+        requestedExecutorProvider: Object.freeze({
+          enum: Object.freeze(["auto", "codex", "claude"]),
+        }),
       },
-      [...OBJECTIVE_KEYS],
+      [...OBJECTIVE_KEYS].filter(
+        (key) =>
+          key !== "decisionCapabilityReplacement" &&
+          key !== "requestedExecutorProvider",
+      ),
     ),
     tool(
       MCP_PROJECT_RUNTIME_DECISION_TOOL,
@@ -361,6 +344,36 @@ export async function handleMcpProjectRuntimeRequest(
       ? objective(params.arguments)
       : inspectMcpProjectRuntimeDecision(params.arguments);
   if (!args) return error(request.id, -32602, "Invalid params");
+  let authentication: unknown;
+  try {
+    authentication = dependencies.authenticateClient();
+  } catch {
+    authentication = null;
+  }
+  if (
+    !plain(authentication) ||
+    authentication.status !== "verified" ||
+    !stable(authentication.principalId) ||
+    Object.keys(authentication).some(
+      (key) => key !== "status" && key !== "principalId",
+    )
+  )
+    return complete(request.id, {
+      content: Object.freeze([
+        Object.freeze({
+          type: "text",
+          text: "利用者を確認できないため、処理を開始していません。",
+        }),
+      ]),
+      structuredContent: Object.freeze({
+        status: "blocked",
+        reason: "project_runtime_mcp_client_not_authenticated",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect",
+      }),
+      isError: true,
+    });
   let raw: unknown;
   try {
     raw =

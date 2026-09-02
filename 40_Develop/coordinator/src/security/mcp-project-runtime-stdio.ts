@@ -29,6 +29,10 @@ export async function runMcpProjectRuntimeStdio(
   output: Writable,
 ) {
   const controller = new AbortController();
+  const abortForParentLoss = () => controller.abort();
+  input.once("end", abortForParentLoss);
+  input.once("error", abortForParentLoss);
+  input.once("close", abortForParentLoss);
   let pending = "";
   let failed = false;
   try {
@@ -70,6 +74,9 @@ export async function runMcpProjectRuntimeStdio(
     failed = true;
   } finally {
     controller.abort();
+    input.removeListener("end", abortForParentLoss);
+    input.removeListener("error", abortForParentLoss);
+    input.removeListener("close", abortForParentLoss);
   }
   return Object.freeze({
     contract: MCP_PROJECT_RUNTIME_STDIO_CONTRACT,

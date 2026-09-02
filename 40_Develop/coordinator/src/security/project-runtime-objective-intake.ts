@@ -23,24 +23,18 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
+import {
+  inspectProjectRuntimeObjectiveRequest,
+  type ProjectRuntimeObjectiveRequest,
+} from "./project-runtime-objective-request.ts";
+
+export {
+  inspectProjectRuntimeObjectiveRequest,
+  type ProjectRuntimeObjectiveRequest,
+} from "./project-runtime-objective-request.ts";
 
 export const PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/project-runtime-objective-intake/v1" as const;
-
-export type ProjectRuntimeObjectiveRequest = Readonly<{
-  requestId: string;
-  projectId: string;
-  milestoneId: string;
-  repositoryRevision: string;
-  objective: string;
-  acceptanceCriteria: readonly string[];
-  allowedPaths: readonly string[];
-  readPaths: readonly string[];
-  maximumConcurrency: number;
-  maximumReplans: number;
-  originLane: "interactive" | "scheduled";
-  adoptResult: boolean;
-}>;
 
 export type ProjectRuntimeObjectivePlan = Readonly<{
   milestoneAcceptanceCriteria: readonly string[];
@@ -90,10 +84,6 @@ function validId(value: unknown): value is string {
   );
 }
 
-function validRevision(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
-}
-
 function validText(value: unknown, maximum: number): value is string {
   return (
     typeof value === "string" &&
@@ -122,69 +112,6 @@ function inspectStrings(
   )
     return null;
   return Object.freeze([...(snapshot.value as readonly string[])]);
-}
-
-const REQUEST_KEYS = new Set([
-  "requestId",
-  "projectId",
-  "milestoneId",
-  "repositoryRevision",
-  "objective",
-  "acceptanceCriteria",
-  "allowedPaths",
-  "readPaths",
-  "maximumConcurrency",
-  "maximumReplans",
-  "originLane",
-  "adoptResult",
-] as const);
-
-export function inspectProjectRuntimeObjectiveRequest(
-  value: unknown,
-): ProjectRuntimeObjectiveRequest | null {
-  const request = snapshotPlainRecord(value, REQUEST_KEYS);
-  if (!request) return null;
-  const acceptanceCriteria = inspectStrings(
-    request.acceptanceCriteria,
-    128,
-    2_048,
-  );
-  const allowedPaths = inspectStrings(request.allowedPaths, 128, 512);
-  const readPaths = inspectStrings(request.readPaths, 128, 512);
-  if (
-    !validId(request.requestId) ||
-    !validId(request.projectId) ||
-    !validId(request.milestoneId) ||
-    !validRevision(request.repositoryRevision) ||
-    !validText(request.objective, 16_384) ||
-    !acceptanceCriteria ||
-    !allowedPaths ||
-    !readPaths ||
-    !Number.isSafeInteger(request.maximumConcurrency) ||
-    (request.maximumConcurrency as number) < 1 ||
-    (request.maximumConcurrency as number) > 5 ||
-    !Number.isSafeInteger(request.maximumReplans) ||
-    (request.maximumReplans as number) < 0 ||
-    (request.maximumReplans as number) > 32 ||
-    (request.originLane !== "interactive" &&
-      request.originLane !== "scheduled") ||
-    typeof request.adoptResult !== "boolean"
-  )
-    return null;
-  return Object.freeze({
-    requestId: request.requestId,
-    projectId: request.projectId,
-    milestoneId: request.milestoneId,
-    repositoryRevision: request.repositoryRevision,
-    objective: request.objective,
-    acceptanceCriteria,
-    allowedPaths,
-    readPaths,
-    maximumConcurrency: request.maximumConcurrency as number,
-    maximumReplans: request.maximumReplans as number,
-    originLane: request.originLane,
-    adoptResult: request.adoptResult,
-  });
 }
 
 function pathWithin(candidate: string, roots: readonly string[]) {

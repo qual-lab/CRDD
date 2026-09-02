@@ -232,7 +232,6 @@ function observeProduction(configuration: Configuration): Identity | null {
     return null;
   const source = inspectFixedDevelopmentCoordinatorPackageCandidate({
     distributionRoot: sourceDistributionRoot,
-    expectedCrddTree: configuration.expectedTree,
     expectedPackageContentRootSha256:
       configuration.expectedPackageContentRootSha256,
   });
@@ -542,15 +541,26 @@ function createSessionRuntime(dependencies: Dependencies) {
       context: object,
       shouldInitializeIfMissing: boolean,
     ) {
+      const session = sessions.get(context);
       const task = taskBindings.get(context);
       const cleanup = cleanupBindings.get(context);
       const binding = task ?? cleanup;
-      if (!binding || binding.settled || (cleanup && shouldInitializeIfMissing))
+      const activeSession = session ?? binding?.session;
+      if (
+        !activeSession ||
+        binding?.settled ||
+        ((session || cleanup) && shouldInitializeIfMissing)
+      )
         return null;
       try {
         let identity: Identity | null = null;
+        if (session) {
+          const observed = observe(session);
+          if (observed?.result.status !== "recorded") return null;
+          identity = observed.identity;
+        }
         if (task) {
-          const observed = observe(binding.session);
+          const observed = observe(task.session);
           if (observed?.result.status !== "recorded") return null;
           identity = observed.identity;
         }
@@ -558,18 +568,17 @@ function createSessionRuntime(dependencies: Dependencies) {
         // owning resource lifecycle still authorizes every exact mutation.
         if (cleanup) {
           if (dependencies.isEffectBlocked()) return null;
-          identity = binding.session.timing.measureIdentity(() =>
-            dependencies.observe(binding.session.configuration),
+          identity = cleanup.session.timing.measureIdentity(() =>
+            dependencies.observe(cleanup.session.configuration),
           );
-          if (digest(identity) !== digest(binding.session.identity))
+          if (digest(identity) !== digest(cleanup.session.identity))
             return null;
         }
         if (!identity) return null;
         return Object.freeze({
           identity,
-          distributionRoot:
-            binding.session.configuration.nativeDistributionRoot,
-          expectedRelease: binding.session.configuration.expectedNativeRelease,
+          distributionRoot: activeSession.configuration.nativeDistributionRoot,
+          expectedRelease: activeSession.configuration.expectedNativeRelease,
           executionSourceKind: "fixed_development_candidate" as const,
         });
       } catch {

@@ -33,6 +33,7 @@ export type ProjectRuntimeDecisionRecord = Readonly<{
   applicationId: string | null;
   selectedOption: "resume" | "cancel" | null;
   newGeneration: number | null;
+  replacementRequestId: string | null;
 }>;
 
 export type ProjectRuntimeDecisionStore = Readonly<{
@@ -44,6 +45,29 @@ export type ProjectRuntimeDecisionStore = Readonly<{
   ) => unknown;
 }>;
 
+export type ProjectRuntimeDecisionRecoveryIntent = Readonly<{
+  recoveryId: string;
+  recordId: string;
+  projectId: string;
+  milestoneId: string;
+  queueId: string;
+  applicationId: string | null;
+  expectedGeneration: number;
+  newGeneration: number | null;
+  observedDisposition: ProjectRuntimeDecisionRecord["disposition"] | "unknown";
+  unknownBoundary: string;
+  disposition: "required" | "settled";
+}>;
+
+export type ProjectRuntimeDecisionRecoveryStore = Readonly<{
+  create: (intent: ProjectRuntimeDecisionRecoveryIntent) => unknown;
+  read: (recoveryId: string) => unknown;
+  compareAndSet: (
+    expected: ProjectRuntimeDecisionRecoveryIntent,
+    next: ProjectRuntimeDecisionRecoveryIntent,
+  ) => unknown;
+}>;
+
 type Common = Readonly<{
   workingDirectory: string;
   repositoryBindingId: string;
@@ -52,6 +76,7 @@ type Common = Readonly<{
   queueId: string;
   principalId: string;
   store: ProjectRuntimeDecisionStore;
+  recoveryStore?: ProjectRuntimeDecisionRecoveryStore;
 }>;
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
@@ -112,7 +137,9 @@ export function isProjectRuntimeDecisionRecord(
       value.selectedOption === "resume" ||
       value.selectedOption === "cancel") &&
     (value.newGeneration === null ||
-      (Number.isSafeInteger(value.newGeneration) && value.newGeneration >= 2))
+      (Number.isSafeInteger(value.newGeneration) &&
+        value.newGeneration >= 2)) &&
+    (value.replacementRequestId === null || validId(value.replacementRequestId))
   );
 }
 function stored(raw: unknown, expected?: ProjectRuntimeDecisionRecord) {
@@ -133,6 +160,107 @@ function blocked(reason: string, recovery = false) {
     manualRecoveryRequired: recovery,
     effectState: recovery ? ("unknown" as const) : ("no_effect" as const),
   });
+}
+
+function recoveryIdentity(record: ProjectRuntimeDecisionRecord) {
+  return `decision-recovery-${digest(
+    [
+      record.recordId,
+      record.applicationId ?? "none",
+      String(record.expectedGeneration),
+      String(record.newGeneration ?? "none"),
+    ].join("\0"),
+  ).slice(0, 40)}`;
+}
+
+function recoveryStored(
+  raw: unknown,
+  expected?: ProjectRuntimeDecisionRecoveryIntent,
+) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const value = (raw as Record<string, unknown>).value;
+  return (
+    (raw as Record<string, unknown>).status === "completed" &&
+    Boolean(value) &&
+    (!expected || JSON.stringify(value) === JSON.stringify(expected))
+  );
+}
+
+function persistRecoveryIntent(
+  common: Common,
+  record: ProjectRuntimeDecisionRecord,
+  unknownBoundary: string,
+) {
+  const recoveryId = recoveryIdentity(record);
+  if (!common.recoveryStore) return null;
+  const intent: ProjectRuntimeDecisionRecoveryIntent = Object.freeze({
+    recoveryId,
+    recordId: record.recordId,
+    projectId: record.projectId,
+    milestoneId: record.milestoneId,
+    queueId: record.queueId,
+    applicationId: record.applicationId,
+    expectedGeneration: record.expectedGeneration,
+    newGeneration: record.newGeneration,
+    observedDisposition: record.disposition,
+    unknownBoundary,
+    disposition: "required",
+  });
+  try {
+    const observed = common.recoveryStore.read(recoveryId) as Readonly<{
+      status: string;
+      value: ProjectRuntimeDecisionRecoveryIntent | null;
+    }> | null;
+    if (
+      observed?.status === "completed" &&
+      observed.value?.disposition === "required"
+    )
+      return observed.value;
+    return recoveryStored(common.recoveryStore.create(intent), intent)
+      ? intent
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function recoveryBlocked(
+  common: Common,
+  record: ProjectRuntimeDecisionRecord,
+  unknownBoundary: string,
+) {
+  const intent = persistRecoveryIntent(common, record, unknownBoundary);
+  return Object.freeze({
+    ...blocked("project_runtime_decision_recovery_required", true),
+    processRestartRequired: true,
+    recoveryId: intent?.recoveryId ?? null,
+  });
+}
+
+function settleRecoveryIntent(
+  common: Common,
+  record: ProjectRuntimeDecisionRecord,
+) {
+  if (!common.recoveryStore) return true;
+  const recoveryId = recoveryIdentity(record);
+  try {
+    const observed = common.recoveryStore.read(recoveryId) as Readonly<{
+      status: string;
+      value: ProjectRuntimeDecisionRecoveryIntent | null;
+    }> | null;
+    if (observed?.status !== "completed" || !observed.value) return true;
+    if (observed.value.disposition === "settled") return true;
+    const settled = Object.freeze({
+      ...observed.value,
+      disposition: "settled" as const,
+    });
+    return recoveryStored(
+      common.recoveryStore.compareAndSet(observed.value, settled),
+      settled,
+    );
+  } catch {
+    return false;
+  }
 }
 
 /** Issue a one-time continuation capability. Only its hash enters the protected store. */
@@ -192,12 +320,13 @@ export function issueProjectRuntimeHumanDecision(
     applicationId: null,
     selectedOption: null,
     newGeneration: null,
+    replacementRequestId: null,
   });
   try {
     if (!stored(common.store.create(record), record))
-      return blocked("project_runtime_decision_store_create_unknown", true);
+      return recoveryBlocked(common, record, "continuation_issue");
   } catch {
-    return blocked("project_runtime_decision_store_create_unknown", true);
+    return recoveryBlocked(common, record, "continuation_issue");
   }
   return Object.freeze({
     contract: PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
@@ -270,9 +399,9 @@ export function submitProjectRuntimeHumanDecision(
     });
     try {
       if (!stored(common.store.compareAndSet(record, expired), expired))
-        return blocked("project_runtime_decision_expiry_unknown", true);
+        return recoveryBlocked(common, record, "continuation_expiry");
     } catch {
-      return blocked("project_runtime_decision_expiry_unknown", true);
+      return recoveryBlocked(common, record, "continuation_expiry");
     }
     return blocked("project_runtime_decision_expired");
   }
@@ -326,9 +455,9 @@ export function submitProjectRuntimeHumanDecision(
   });
   try {
     if (!stored(common.store.compareAndSet(record, prepared), prepared))
-      return blocked("project_runtime_decision_prepare_unknown", true);
+      return recoveryBlocked(common, record, "continuation_prepare");
   } catch {
-    return blocked("project_runtime_decision_prepare_unknown", true);
+    return recoveryBlocked(common, record, "continuation_prepare");
   }
   const transition = applyProjectRuntimeHumanDecision(
     stateRead.value,
@@ -337,14 +466,15 @@ export function submitProjectRuntimeHumanDecision(
     applicationId,
   );
   if (transition.status !== "completed" || !transition.state)
-    return blocked("project_runtime_decision_state_transition_failed", true);
+    return recoveryBlocked(common, prepared, "project_transition");
   const written = writeProjectRuntimeState(
     common.workingDirectory,
     common.repositoryBindingId,
     transition.state,
     input.generation,
   );
-  if (written.status !== "completed") return blocked(written.reason, true);
+  if (written.status !== "completed")
+    return recoveryBlocked(common, prepared, "project_write");
   const readback = readProjectRuntimeState(
     common.workingDirectory,
     common.repositoryBindingId,
@@ -358,16 +488,16 @@ export function submitProjectRuntimeHumanDecision(
     readback.value.milestone.state !==
       (input.selectedOption === "resume" ? "executing" : "cancelled")
   )
-    return blocked("project_runtime_decision_state_readback_unknown", true);
+    return recoveryBlocked(common, prepared, "project_readback");
   const finalized = Object.freeze({
     ...prepared,
     disposition: "finalized" as const,
   });
   try {
     if (!stored(common.store.compareAndSet(prepared, finalized), finalized))
-      return blocked("project_runtime_decision_finalize_unknown", true);
+      return recoveryBlocked(common, prepared, "continuation_finalize");
   } catch {
-    return blocked("project_runtime_decision_finalize_unknown", true);
+    return recoveryBlocked(common, prepared, "continuation_finalize");
   }
   const queueUpdate = updateProjectOperationQueueState(
     common.workingDirectory,
@@ -384,7 +514,7 @@ export function submitProjectRuntimeHumanDecision(
     },
   );
   if (queueUpdate.status !== "completed")
-    return blocked("project_runtime_decision_queue_update_unknown", true);
+    return recoveryBlocked(common, finalized, "queue_update");
   return Object.freeze({
     contract: PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
     status: "completed" as const,
@@ -395,6 +525,167 @@ export function submitProjectRuntimeHumanDecision(
     decisionId: record.decisionId,
     applicationId,
     generation: input.generation + 1,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    effectState: "settled" as const,
+  });
+}
+
+/** Replace a capability only after the former hash is durably invalidated. */
+export function replaceProjectRuntimeHumanDecision(
+  common: Common,
+  input: Readonly<{
+    recordId: string;
+    replacementRequestId: string;
+    lifetimeMs: number;
+    nowEpochMs?: number;
+  }>,
+) {
+  if (
+    !validId(input.recordId) ||
+    !validId(input.replacementRequestId) ||
+    !Number.isSafeInteger(input.lifetimeMs) ||
+    input.lifetimeMs < 1_000 ||
+    input.lifetimeMs > 86_400_000
+  )
+    return blocked("project_runtime_decision_replacement_input_invalid");
+  let record: ProjectRuntimeDecisionRecord;
+  try {
+    const observed = common.store.read(input.recordId) as Readonly<{
+      status: string;
+      value: ProjectRuntimeDecisionRecord | null;
+    }> | null;
+    if (observed?.status !== "completed" || !observed.value)
+      return blocked("project_runtime_decision_not_observed");
+    record = observed.value;
+  } catch {
+    return blocked("project_runtime_decision_store_observation_unknown", true);
+  }
+  if (
+    record.projectId !== common.projectId ||
+    record.milestoneId !== common.milestoneId ||
+    record.queueId !== common.queueId ||
+    record.principalId !== common.principalId
+  )
+    return blocked("project_runtime_decision_replacement_binding_mismatch");
+  if (
+    record.disposition === "pending" &&
+    record.replacementRequestId === input.replacementRequestId
+  )
+    return blocked("project_runtime_decision_replacement_already_issued");
+  if (record.disposition !== "pending")
+    return blocked("project_runtime_decision_replacement_not_applicable");
+  const invalidated = Object.freeze({
+    ...record,
+    disposition: "invalidated" as const,
+    replacementRequestId: input.replacementRequestId,
+  });
+  try {
+    if (!stored(common.store.compareAndSet(record, invalidated), invalidated))
+      return recoveryBlocked(common, record, "replacement_invalidation");
+  } catch {
+    return recoveryBlocked(common, record, "replacement_invalidation");
+  }
+  const capability = randomBytes(32).toString("base64url");
+  const replacement: ProjectRuntimeDecisionRecord = Object.freeze({
+    ...invalidated,
+    capabilityHash: digest(capability),
+    expiresAtEpochMs: (input.nowEpochMs ?? Date.now()) + input.lifetimeMs,
+    disposition: "pending",
+    applicationId: null,
+    selectedOption: null,
+    newGeneration: null,
+  });
+  try {
+    if (
+      !stored(common.store.compareAndSet(invalidated, replacement), replacement)
+    )
+      return recoveryBlocked(common, invalidated, "replacement_issue");
+  } catch {
+    return recoveryBlocked(common, invalidated, "replacement_issue");
+  }
+  return Object.freeze({
+    contract: PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
+    status: "completed" as const,
+    reason: "project_runtime_human_decision_replaced",
+    decisionId: replacement.decisionId,
+    recordId: replacement.recordId,
+    replacementRequestId: input.replacementRequestId,
+    continuationCapability: capability,
+    allowedOptions: replacement.allowedOptions,
+    expiresAtEpochMs: replacement.expiresAtEpochMs,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    effectState: "settled" as const,
+  });
+}
+
+/** Invalidate an unused capability after a fresh parent lifecycle observation. */
+export function invalidateProjectRuntimeHumanDecision(
+  common: Common,
+  input: Readonly<{
+    recordId: string;
+    reason: "project_advanced" | "milestone_accepted" | "milestone_cancelled";
+  }>,
+) {
+  if (!validId(input.recordId))
+    return blocked("project_runtime_decision_invalidation_input_invalid");
+  let record: ProjectRuntimeDecisionRecord;
+  try {
+    const observed = common.store.read(input.recordId) as Readonly<{
+      status: string;
+      value: ProjectRuntimeDecisionRecord | null;
+    }> | null;
+    if (observed?.status !== "completed" || !observed.value)
+      return blocked("project_runtime_decision_not_observed");
+    record = observed.value;
+  } catch {
+    return blocked("project_runtime_decision_store_observation_unknown", true);
+  }
+  if (record.disposition === "prepared")
+    return recoverProjectRuntimeHumanDecision(common, {
+      recordId: input.recordId,
+    });
+  if (["invalidated", "expired", "finalized"].includes(record.disposition))
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
+      status: "completed" as const,
+      reason: "project_runtime_decision_already_settled",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "settled" as const,
+    });
+  if (record.disposition !== "pending")
+    return blocked("project_runtime_decision_invalidation_not_applicable");
+  const state = readProjectRuntimeState(
+    common.workingDirectory,
+    common.repositoryBindingId,
+    common.projectId,
+  );
+  if (state.status !== "completed" || !state.value)
+    return recoveryBlocked(common, record, "invalidation_project_observation");
+  const parentProvesInvalidation =
+    state.value.generation !== record.expectedGeneration ||
+    (input.reason === "milestone_accepted" &&
+      state.value.milestone.state === "accepted") ||
+    (input.reason === "milestone_cancelled" &&
+      state.value.milestone.state === "cancelled");
+  if (!parentProvesInvalidation)
+    return blocked("project_runtime_decision_invalidation_not_proven");
+  const invalidated = Object.freeze({
+    ...record,
+    disposition: "invalidated" as const,
+  });
+  try {
+    if (!stored(common.store.compareAndSet(record, invalidated), invalidated))
+      return recoveryBlocked(common, record, "invalidation_update");
+  } catch {
+    return recoveryBlocked(common, record, "invalidation_update");
+  }
+  return Object.freeze({
+    contract: PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
+    status: "completed" as const,
+    reason: "project_runtime_decision_invalidated",
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     effectState: "settled" as const,
@@ -451,7 +742,7 @@ export function recoverProjectRuntimeHumanDecision(
     common.projectId,
   );
   if (state.status !== "completed" || !state.value)
-    return blocked("project_runtime_decision_recovery_state_unknown", true);
+    return recoveryBlocked(common, record, "recovery_project_observation");
   let next: ProjectRuntimeDecisionRecord;
   if (
     state.value.generation === record.newGeneration &&
@@ -467,13 +758,13 @@ export function recoverProjectRuntimeHumanDecision(
   ) {
     next = Object.freeze({ ...record, disposition: "invalidated" as const });
   } else {
-    return blocked("project_runtime_decision_recovery_identity_mismatch", true);
+    return recoveryBlocked(common, record, "recovery_identity_mismatch");
   }
   try {
     if (!stored(common.store.compareAndSet(record, next), next))
-      return blocked("project_runtime_decision_recovery_store_unknown", true);
+      return recoveryBlocked(common, record, "recovery_continuation_update");
   } catch {
-    return blocked("project_runtime_decision_recovery_store_unknown", true);
+    return recoveryBlocked(common, record, "recovery_continuation_update");
   }
   if (next.disposition === "invalidated")
     return blocked("project_runtime_decision_recovery_invalidated");
@@ -483,7 +774,7 @@ export function recoverProjectRuntimeHumanDecision(
     common.queueId,
   );
   if (queueRead.status !== "completed")
-    return blocked("project_runtime_decision_recovery_queue_unknown", true);
+    return recoveryBlocked(common, next, "recovery_queue_observation");
   if (queueRead.value.state === "human_decision_required") {
     const queueUpdate = updateProjectOperationQueueState(
       common.workingDirectory,
@@ -500,8 +791,10 @@ export function recoverProjectRuntimeHumanDecision(
       },
     );
     if (queueUpdate.status !== "completed")
-      return blocked("project_runtime_decision_recovery_queue_unknown", true);
+      return recoveryBlocked(common, next, "recovery_queue_update");
   }
+  if (!settleRecoveryIntent(common, next))
+    return recoveryBlocked(common, next, "recovery_intent_settlement");
   return Object.freeze({
     contract: PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
     status: "completed" as const,

@@ -99,23 +99,22 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     packageRoot,
     input: {
       distributionRoot,
-      expectedCrddTree,
       expectedPackageContentRootSha256: observed.packageContentRootSha256,
     },
+    expectedCrddTree,
     cleanup() {
       removeDevelopmentFixture(root);
     },
   };
 }
 
-test("開発版はGit算出Treeとpackageを実体照合し、署名・実行Authorityを発行しない", () => {
+test("開発版はRuntime依存閉包を実体照合し、署名・実行Authorityを発行しない", () => {
   const fixture = developmentFixture();
   try {
     const result = inspectFixedDevelopmentCoordinatorPackageCandidate(
       fixture.input,
     );
     assert.equal(result.status, "candidate");
-    assert.equal(result.crddTree, fixture.input.expectedCrddTree);
     assert.equal(result.executionSourceKind, "fixed_development_candidate");
     assert.equal(result.entrypoints.length, 4);
     assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
@@ -157,12 +156,7 @@ test("Tree一致だけで起動entrypointの不足を受理しない", () => {
   }
 });
 
-for (const target of [
-  "package",
-  "outside_package",
-  "expected_tree",
-  "expected_package",
-] as const) {
+for (const target of ["package", "expected_package"] as const) {
   test(`開発版の${target}差替えを拒否する`, () => {
     const fixture = developmentFixture();
     try {
@@ -172,12 +166,6 @@ for (const target of [
           path.join(fixture.packageRoot, "bin", "coordinator.ts"),
           "// changed\n",
         );
-      if (target === "outside_package")
-        fs.appendFileSync(
-          path.join(fixture.distributionRoot, "README.md"),
-          "changed\n",
-        );
-      if (target === "expected_tree") input.expectedCrddTree = "d".repeat(40);
       if (target === "expected_package")
         input.expectedPackageContentRootSha256 = "d".repeat(64);
       const result = inspectFixedDevelopmentCoordinatorPackageCandidate(input);
@@ -189,6 +177,27 @@ for (const target of [
     }
   });
 }
+
+test("Runtime依存外の文書変更は開発Source Identityを失効させない", () => {
+  const fixture = developmentFixture();
+  try {
+    const initial = inspectFixedDevelopmentCoordinatorPackageCandidate(
+      fixture.input,
+    );
+    assert.equal(initial.status, "candidate");
+    fs.appendFileSync(
+      path.join(fixture.distributionRoot, "README.md"),
+      "changed\n",
+    );
+    const changed = inspectFixedDevelopmentCoordinatorPackageCandidate(
+      fixture.input,
+    );
+    assert.equal(changed.status, "candidate");
+    assert.equal(changed.sourceIdentitySha256, initial.sourceIdentitySha256);
+  } finally {
+    fixture.cleanup();
+  }
+});
 
 test("開発版へ混入した署名manifestをReleaseへ昇格しない", () => {
   const fixture = developmentFixture();
@@ -212,7 +221,7 @@ test("開発版へ混入した署名manifestをReleaseへ昇格しない", () =>
 for (const relativePath of [
   "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
 ]) {
-  test(`開発版の${relativePath}も署名対象Treeの差分として扱う`, () => {
+  test(`開発Sourceと別に検証する${relativePath}をSource Identityへ混在させない`, () => {
     const fixture = developmentFixture();
     try {
       const target = path.join(fixture.distributionRoot, relativePath);
@@ -221,8 +230,7 @@ for (const relativePath of [
       const result = inspectFixedDevelopmentCoordinatorPackageCandidate(
         fixture.input,
       );
-      assert.equal(result.status, "blocked");
-      assert.equal(result.reason, "development_package_identity_mismatch");
+      assert.equal(result.status, "candidate");
     } finally {
       fixture.cleanup();
     }
@@ -239,7 +247,7 @@ test("開発版のRoot alias、入力getterと追加keyを拒否し、Git metada
       {
         get() {
           getterCalls += 1;
-          return fixture.input.expectedCrddTree;
+          return fixture.expectedCrddTree;
         },
       },
     );
@@ -365,7 +373,7 @@ test("署名済みPlatform Access観測は開発版Rootや自己申告の署名�
         releaseSequence: 1,
         crddVersion: "v0.18.0",
         crddCommit: "2".repeat(40),
-        crddTree: fixture.input.expectedCrddTree,
+        crddTree: fixture.expectedCrddTree,
         packageContentRootSha256:
           fixture.input.expectedPackageContentRootSha256,
       },

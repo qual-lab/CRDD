@@ -35,6 +35,30 @@ function objective() {
     adoptResult: false,
   };
 }
+
+test("MCP semantic operations require a runtime-observed client principal before effects", async () => {
+  let effects = 0;
+  const result = await handleMcpProjectRuntimeRequest(
+    request("tools/call", {
+      _meta: meta,
+      name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+      arguments: objective(),
+    }),
+    dependencies({
+      authenticateClient: () => ({ status: "unknown" }),
+      runObjective: async () => {
+        effects += 1;
+        return { status: "completed" };
+      },
+    }),
+  );
+  assert.equal(effects, 0);
+  assert.equal(
+    (result.result as { structuredContent: { reason: string } })
+      .structuredContent.reason,
+    "project_runtime_mcp_client_not_authenticated",
+  );
+});
 function decision() {
   return {
     decisionId: "decision-a",
@@ -67,6 +91,9 @@ function dependencies(
       decisionId: input.decisionId,
     }),
     ...overrides,
+    authenticateClient:
+      overrides.authenticateClient ??
+      (() => ({ status: "verified", principalId: "principal-a" })),
   };
 }
 

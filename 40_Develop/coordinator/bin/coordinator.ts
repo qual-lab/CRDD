@@ -36,6 +36,7 @@ import {
   runProjectRuntimePublicDecision,
   runProjectRuntimePublicObjective,
 } from "../src/security/project-runtime-public-runtime.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../src/security/project-runtime-windows-decision-store.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import {
   closeRuntimeOwnedWindowsDockerDesktopRepair,
@@ -129,7 +130,7 @@ function runCapabilitiesCommand(args: readonly string[]) {
   process.stdout.write(
     `${JSON.stringify({
       contract: "crdd-coordinator/capabilities",
-      contractRevision: 1,
+      contractRevision: 2,
       profile: "local_personal",
       commands: Object.freeze([
         Object.freeze({
@@ -139,6 +140,20 @@ function runCapabilitiesCommand(args: readonly string[]) {
         }),
         Object.freeze({ command: "doctor", availability: "available" }),
         Object.freeze({ command: "candidate", availability: "available" }),
+        Object.freeze({
+          command: "project",
+          availability: "development_candidate",
+          invocation: "project --request-stdin --json",
+        }),
+        Object.freeze({
+          command: "mcp",
+          availability: "development_candidate",
+          invocation: "mcp --stdio",
+          operations: Object.freeze([
+            "crdd.run_objective",
+            "crdd.submit_decision",
+          ]),
+        }),
       ]),
     })}\n`,
   );
@@ -219,6 +234,15 @@ async function runMcpCommand(args: readonly string[]) {
   }
   const result = await runMcpProjectRuntimeStdio(
     {
+      authenticateClient: () => {
+        const observed = openRuntimeOwnedWindowsProjectDecisionStore();
+        return observed.status === "completed"
+          ? Object.freeze({
+              status: "verified",
+              principalId: observed.principalId,
+            })
+          : Object.freeze({ status: "unknown" });
+      },
       runObjective: (request, signal) =>
         runProjectRuntimePublicObjective(request, signal),
       submitDecision: async (request) =>

@@ -14,10 +14,13 @@ import {
 } from "../src/security/project-runtime-durable-foundation.ts";
 import { runProjectRuntimeOperation } from "../src/security/project-runtime-execution.ts";
 import {
+  invalidateProjectRuntimeHumanDecision,
   issueProjectRuntimeHumanDecision,
   recoverProjectRuntimeHumanDecision,
+  replaceProjectRuntimeHumanDecision,
   submitProjectRuntimeHumanDecision,
   type ProjectRuntimeDecisionRecord,
+  type ProjectRuntimeDecisionRecoveryIntent,
 } from "../src/security/project-runtime-human-decision.ts";
 import { resolveProjectRuntimeReplan } from "../src/security/project-runtime-replanning.ts";
 import {
@@ -358,4 +361,246 @@ test("prepared human decision is reconciled from durable Project state without r
     queue.status === "completed" && queue.value.state,
     "replan_required",
   );
+});
+
+test("explicit replacement invalidates the former capability before issuing one fresh capability", async (t) => {
+  const { root, input } = fixture(t);
+  await failTask(root);
+  resolveProjectRuntimeReplan(input, () => ({
+    disposition: "human_decision",
+    objectiveId: "objective-a",
+    reason: "scope choice required",
+  }));
+  const records = new Map<string, ProjectRuntimeDecisionRecord>();
+  const store = {
+    create(record: ProjectRuntimeDecisionRecord) {
+      if (records.has(record.recordId)) return { status: "blocked" };
+      records.set(record.recordId, record);
+      return { status: "completed", value: record };
+    },
+    read(recordId: string) {
+      return { status: "completed", value: records.get(recordId) ?? null };
+    },
+    compareAndSet(
+      expected: ProjectRuntimeDecisionRecord,
+      next: ProjectRuntimeDecisionRecord,
+    ) {
+      if (records.get(expected.recordId) !== expected)
+        return { status: "blocked" };
+      records.set(expected.recordId, next);
+      return { status: "completed", value: next };
+    },
+  };
+  const state = readProjectRuntimeState(root, "binding-a", "project-a");
+  assert.equal(state.status, "completed");
+  if (state.status !== "completed" || !state.value) throw new Error("state");
+  const common = { ...input, principalId: "principal-a", store };
+  const issued = issueProjectRuntimeHumanDecision(common, {
+    decisionId: "decision-replace",
+    repositoryRevision: revision,
+    expectedGeneration: state.value.generation,
+    allowedOptions: ["resume"],
+    lifetimeMs: 60_000,
+    nowEpochMs: 1_000,
+  });
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed") throw new Error("issue");
+  const replaced = replaceProjectRuntimeHumanDecision(common, {
+    recordId: issued.recordId,
+    replacementRequestId: "replacement-a",
+    lifetimeMs: 60_000,
+    nowEpochMs: 2_000,
+  });
+  assert.equal(replaced.status, "completed", JSON.stringify(replaced));
+  if (replaced.status !== "completed") throw new Error("replace");
+  assert.notEqual(
+    replaced.continuationCapability,
+    issued.continuationCapability,
+  );
+  const oldAttempt = submitProjectRuntimeHumanDecision(common, {
+    decisionId: "decision-replace",
+    recordId: issued.recordId,
+    repositoryRevision: revision,
+    generation: state.value.generation,
+    selectedOption: "resume",
+    continuationCapability: issued.continuationCapability,
+    nowEpochMs: 3_000,
+  });
+  assert.equal(oldAttempt.status, "blocked");
+  const currentAttempt = submitProjectRuntimeHumanDecision(common, {
+    decisionId: "decision-replace",
+    recordId: issued.recordId,
+    repositoryRevision: revision,
+    generation: state.value.generation,
+    selectedOption: "resume",
+    continuationCapability: replaced.continuationCapability,
+    nowEpochMs: 3_000,
+  });
+  assert.equal(
+    currentAttempt.status,
+    "completed",
+    JSON.stringify(currentAttempt),
+  );
+});
+
+test("parent lifecycle invalidation requires a fresh changed generation", async (t) => {
+  const { root, input } = fixture(t);
+  const records = new Map<string, ProjectRuntimeDecisionRecord>();
+  const store = {
+    create(record: ProjectRuntimeDecisionRecord) {
+      records.set(record.recordId, record);
+      return { status: "completed", value: record };
+    },
+    read(recordId: string) {
+      return { status: "completed", value: records.get(recordId) ?? null };
+    },
+    compareAndSet(
+      expected: ProjectRuntimeDecisionRecord,
+      next: ProjectRuntimeDecisionRecord,
+    ) {
+      if (records.get(expected.recordId) !== expected)
+        return { status: "blocked" };
+      records.set(expected.recordId, next);
+      return { status: "completed", value: next };
+    },
+  };
+  const before = readProjectRuntimeState(root, "binding-a", "project-a");
+  assert.equal(before.status, "completed");
+  if (before.status !== "completed" || !before.value) throw new Error("state");
+  const common = { ...input, principalId: "principal-a", store };
+  const issued = issueProjectRuntimeHumanDecision(common, {
+    decisionId: "decision-invalidate",
+    repositoryRevision: revision,
+    expectedGeneration: before.value.generation,
+    allowedOptions: ["cancel"],
+    lifetimeMs: 60_000,
+  });
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed") throw new Error("issue");
+  assert.equal(
+    invalidateProjectRuntimeHumanDecision(common, {
+      recordId: issued.recordId,
+      reason: "project_advanced",
+    }).reason,
+    "project_runtime_decision_invalidation_not_proven",
+  );
+  const advanced = Object.freeze({
+    ...before.value,
+    generation: before.value.generation + 1,
+  });
+  assert.equal(
+    writeProjectRuntimeState(
+      root,
+      "binding-a",
+      advanced,
+      before.value.generation,
+    ).status,
+    "completed",
+  );
+  const invalidated = invalidateProjectRuntimeHumanDecision(common, {
+    recordId: issued.recordId,
+    reason: "project_advanced",
+  });
+  assert.equal(invalidated.status, "completed", JSON.stringify(invalidated));
+  assert.equal(records.get(issued.recordId)?.disposition, "invalidated");
+});
+
+test("issuance and expiry uncertainty persist an exact independent recovery intent", async (t) => {
+  const { root, input } = fixture(t);
+  const recovery = new Map<string, ProjectRuntimeDecisionRecoveryIntent>();
+  const recoveryStore = {
+    create(intent: ProjectRuntimeDecisionRecoveryIntent) {
+      recovery.set(intent.recoveryId, intent);
+      return { status: "completed", value: intent };
+    },
+    read(recoveryId: string) {
+      return {
+        status: "completed",
+        value: recovery.get(recoveryId) ?? null,
+      };
+    },
+    compareAndSet() {
+      return { status: "blocked" };
+    },
+  };
+  const failedIssue = issueProjectRuntimeHumanDecision(
+    {
+      ...input,
+      principalId: "principal-a",
+      recoveryStore,
+      store: {
+        create: () => ({ status: "blocked" }),
+        read: () => ({ status: "blocked" }),
+        compareAndSet: () => ({ status: "blocked" }),
+      },
+    },
+    {
+      decisionId: "decision-issue-unknown",
+      repositoryRevision: revision,
+      expectedGeneration: 1,
+      allowedOptions: ["resume"],
+      lifetimeMs: 60_000,
+      nowEpochMs: 1_000,
+    },
+  );
+  assert.equal(
+    failedIssue.reason,
+    "project_runtime_decision_recovery_required",
+  );
+  assert.equal(
+    "recoveryId" in failedIssue && typeof failedIssue.recoveryId,
+    "string",
+  );
+  assert.equal(recovery.size, 1);
+
+  const records = new Map<string, ProjectRuntimeDecisionRecord>();
+  let failUpdate = false;
+  const store = {
+    create(record: ProjectRuntimeDecisionRecord) {
+      records.set(record.recordId, record);
+      return { status: "completed", value: record };
+    },
+    read(recordId: string) {
+      return { status: "completed", value: records.get(recordId) ?? null };
+    },
+    compareAndSet(
+      expected: ProjectRuntimeDecisionRecord,
+      next: ProjectRuntimeDecisionRecord,
+    ) {
+      if (failUpdate || records.get(expected.recordId) !== expected)
+        return { status: "blocked" };
+      records.set(expected.recordId, next);
+      return { status: "completed", value: next };
+    },
+  };
+  const common = {
+    ...input,
+    principalId: "principal-a",
+    store,
+    recoveryStore,
+  };
+  const issued = issueProjectRuntimeHumanDecision(common, {
+    decisionId: "decision-expiry-unknown",
+    repositoryRevision: revision,
+    expectedGeneration: 1,
+    allowedOptions: ["cancel"],
+    lifetimeMs: 1_000,
+    nowEpochMs: 1_000,
+  });
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed") throw new Error("issue");
+  failUpdate = true;
+  const expired = submitProjectRuntimeHumanDecision(common, {
+    decisionId: "decision-expiry-unknown",
+    recordId: issued.recordId,
+    repositoryRevision: revision,
+    generation: 1,
+    selectedOption: "cancel",
+    continuationCapability: issued.continuationCapability,
+    nowEpochMs: 3_000,
+  });
+  assert.equal(expired.reason, "project_runtime_decision_recovery_required");
+  assert.equal("recoveryId" in expired && typeof expired.recoveryId, "string");
+  assert.equal(recovery.size, 2);
+  assert.equal(fs.existsSync(path.join(root, ".crdd")), true);
 });

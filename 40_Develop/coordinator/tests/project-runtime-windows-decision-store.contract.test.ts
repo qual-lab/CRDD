@@ -24,6 +24,7 @@ function record(): ProjectRuntimeDecisionRecord {
     applicationId: null,
     selectedOption: null,
     newGeneration: null,
+    replacementRequestId: null,
   });
 }
 

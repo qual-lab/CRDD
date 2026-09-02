@@ -70,10 +70,11 @@ function entryName(recordId: string, generation: number) {
   return `project-decision-${hash(recordId).slice(0, 40)}-${String(generation).padStart(8, "0")}.json`;
 }
 
-function inspectRoot(initialize: boolean) {
+function inspectRoot(initialize: boolean, developmentContext?: object) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
     initialize,
     new Date().toISOString(),
+    developmentContext,
   );
   const root = consumeRuntimeOwnedRuntimeStateRootCapability(
     observation.rootCapability,
@@ -242,14 +243,20 @@ function createStore(
   return store;
 }
 
-export function openRuntimeOwnedWindowsProjectDecisionStore():
+export function openRuntimeOwnedWindowsProjectDecisionStore(
+  options: Readonly<{
+    developmentContext?: object;
+    initializeIfMissing?: boolean;
+  }> = Object.freeze({}),
+):
   | Readonly<{
       status: "completed";
       store: ProjectRuntimeDecisionStore;
       principalId: string;
     }>
   | Readonly<{ status: "blocked"; store: null; principalId: null }> {
-  const root = inspectRoot(true);
+  const initializeIfMissing = options.initializeIfMissing !== false;
+  const root = inspectRoot(initializeIfMissing, options.developmentContext);
   if (!root)
     return Object.freeze({ status: "blocked", store: null, principalId: null });
   return Object.freeze({
@@ -257,7 +264,7 @@ export function openRuntimeOwnedWindowsProjectDecisionStore():
     store: createStore(
       root,
       acquireRuntimeOwnedDockerRuntimeStateKernelLock,
-      () => inspectRoot(false),
+      () => inspectRoot(false, options.developmentContext),
     ),
     principalId: root.localUserBindingHash,
   });

@@ -9,7 +9,10 @@ import {
   readProjectOperationQueueState,
   readProjectRuntimeState,
 } from "../src/security/project-runtime-durable-foundation.ts";
-import { runProjectRuntimeObjective } from "../src/security/project-runtime-objective-intake.ts";
+import {
+  inspectProjectRuntimeObjectiveRequest,
+  runProjectRuntimeObjective,
+} from "../src/security/project-runtime-objective-intake.ts";
 import type { ProjectRuntimeSingleTaskResult } from "../src/security/project-runtime-single-task-adapter.ts";
 
 const revision = "a".repeat(40);
@@ -294,4 +297,30 @@ test("public Objective intake rejects unknown fields, accessors, proxies, and no
     "project-a",
   );
   assert.equal(state.status === "completed" && state.value, null);
+});
+
+test("Objective intake accepts only a closed explicit decision-capability replacement request", () => {
+  const base = request();
+  const accepted = inspectProjectRuntimeObjectiveRequest({
+    ...base,
+    decisionCapabilityReplacement: {
+      decisionId: "decision-a",
+      replacementRequestId: "replacement-a",
+    },
+  });
+  assert.equal(
+    accepted?.decisionCapabilityReplacement?.replacementRequestId,
+    "replacement-a",
+  );
+  assert.equal(
+    inspectProjectRuntimeObjectiveRequest({
+      ...base,
+      decisionCapabilityReplacement: {
+        decisionId: "decision-a",
+        replacementRequestId: "replacement-a",
+        authority: true,
+      },
+    }),
+    null,
+  );
 });

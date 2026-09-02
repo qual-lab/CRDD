@@ -2680,10 +2680,16 @@ export function cancelRuntimeOwnedCoordinatorTask(controlCapability: unknown) {
 }
 
 /** Bounded development admission is separate from the signed public Task path. */
-export function startRuntimeOwnedDevelopmentCoordinatorTask(
+const developmentProjectRuntimeCancellations = new WeakMap<
+  object,
+  () => Promise<unknown>
+>();
+
+function startRuntimeOwnedDevelopmentTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
   sessionCapability: object,
+  candidateDisposition: "discard" | "project_runtime_owned",
 ) {
   const timing = createDevelopmentExecutionTiming(
     undefined,
@@ -2773,15 +2779,18 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
       if (cancellation) await cancellation.catch(() => {});
       // Comparison candidates are never promoted; dispose only the entry which
       // the Store registered to this exact operation when it created the file.
-      const candidateDiscard = taskResult.candidateId
-        ? discardRuntimeOwnedCandidateBundle(
-            taskResult.candidateId,
-            managementCapability,
-          )
-        : null;
+      const candidateDiscard =
+        candidateDisposition === "discard" && taskResult.candidateId
+          ? discardRuntimeOwnedCandidateBundle(
+              taskResult.candidateId,
+              managementCapability,
+            )
+          : null;
       const cleanupConfirmed =
         taskResult.cleanupConfirmed === true &&
-        (!taskResult.candidateId || candidateDiscard?.status === "discarded");
+        (!taskResult.candidateId ||
+          candidateDisposition === "project_runtime_owned" ||
+          candidateDiscard?.status === "discarded");
       boundary.finish(cleanupConfirmed ? "finished" : "cleanup_unknown");
       timing.finish();
       return Object.freeze({
@@ -2807,13 +2816,59 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
       timing.finish();
       clearTimeout(timer);
       boundary.signal.removeEventListener("abort", requestCancellation);
+      developmentProjectRuntimeCancellations.delete(started.controlCapability);
     });
+  if (candidateDisposition === "project_runtime_owned")
+    developmentProjectRuntimeCancellations.set(
+      started.controlCapability,
+      cancel,
+    );
   return Object.freeze({
     ...started,
     completion,
     cancel,
     readExecutionTiming: timing.snapshot,
   });
+}
+
+/** Comparison-only development Tasks discard their candidates on completion. */
+export function startRuntimeOwnedDevelopmentCoordinatorTask(
+  rawRequest: unknown,
+  repositoryRoot: unknown,
+  sessionCapability: object,
+) {
+  return startRuntimeOwnedDevelopmentTask(
+    rawRequest,
+    repositoryRoot,
+    sessionCapability,
+    "discard",
+  );
+}
+
+/** Project Runtime owns candidate integration and cleanup after Task completion. */
+export function startRuntimeOwnedDevelopmentProjectRuntimeTask(
+  rawRequest: unknown,
+  repositoryRoot: unknown,
+  sessionCapability: object,
+) {
+  const started = startRuntimeOwnedDevelopmentTask(
+    rawRequest,
+    repositoryRoot,
+    sessionCapability,
+    "project_runtime_owned",
+  );
+  return Object.freeze({
+    status: started.status,
+    controlCapability: started.controlCapability,
+    completion: started.completion.then((outcome) => outcome.taskResult),
+  });
+}
+
+export function cancelRuntimeOwnedDevelopmentProjectRuntimeTask(
+  controlCapability: object,
+) {
+  const cancel = developmentProjectRuntimeCancellations.get(controlCapability);
+  return cancel ? cancel() : Promise.resolve(false);
 }
 
 export function createIsolatedCoordinatorTaskRuntimeCandidate(

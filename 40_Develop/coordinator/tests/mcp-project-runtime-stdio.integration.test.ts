@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { Readable, Writable } from "node:stream";
+import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -33,6 +33,10 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
   };
   const result = await runMcpProjectRuntimeStdio(
     {
+      authenticateClient: () => ({
+        status: "verified",
+        principalId: "principal-a",
+      }),
       runObjective: async () => assert.fail("objective not expected"),
       submitDecision: async () => assert.fail("decision not expected"),
     },
@@ -48,6 +52,10 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
 test("stdio process rejects trailing and oversized frames without semantic effects", async () => {
   let effects = 0;
   const dependencies = {
+    authenticateClient: () => ({
+      status: "verified",
+      principalId: "principal-a",
+    }),
     runObjective: async () => {
       effects += 1;
     },
@@ -96,4 +104,70 @@ test("coordinator binary exposes the bounded MCP stdio process", () => {
   const response = JSON.parse(result.stdout);
   assert.equal(response.id, "discover-1");
   assert.equal(response.result.resultType, "complete");
+});
+
+test("parent EOF aborts and joins an active semantic request before stdio closes", async () => {
+  const input = new PassThrough();
+  const sink = output();
+  let cancellationObserved = false;
+  const running = runMcpProjectRuntimeStdio(
+    {
+      authenticateClient: () => ({
+        status: "verified",
+        principalId: "principal-a",
+      }),
+      runObjective: async (_request, signal) =>
+        new Promise((resolve) => {
+          const cancel = () => {
+            cancellationObserved = true;
+            resolve({
+              status: "cancelled",
+              reason: "project_runtime_parent_lost",
+              cleanupConfirmed: true,
+              manualRecoveryRequired: false,
+              effectState: "settled",
+            });
+          };
+          if (signal.aborted) cancel();
+          else signal.addEventListener("abort", cancel, { once: true });
+        }),
+      submitDecision: async () => assert.fail("decision not expected"),
+    },
+    input,
+    sink.stream,
+  );
+  const objectiveRequest = {
+    jsonrpc: "2.0",
+    id: "objective-parent-loss",
+    method: "tools/call",
+    params: {
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+      name: "crdd.run_objective",
+      arguments: {
+        requestId: "request-parent-loss",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        repositoryRevision: "a".repeat(40),
+        objective: "Run until the parent disconnects.",
+        acceptanceCriteria: ["Cancellation is observed."],
+        allowedPaths: ["result.txt"],
+        readPaths: ["README.md"],
+        maximumConcurrency: 1,
+        maximumReplans: 0,
+        originLane: "interactive",
+        adoptResult: false,
+      },
+    },
+  };
+  input.end(`${JSON.stringify(objectiveRequest)}\n`);
+  const result = await running;
+  assert.equal(result.status, "completed");
+  assert.equal(cancellationObserved, true);
+  assert.equal(
+    JSON.parse(sink.read()).result.structuredContent.status,
+    "cancelled",
+  );
 });

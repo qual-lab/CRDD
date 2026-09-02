@@ -82,6 +82,33 @@ function start(
 }
 
 describe("Project Runtime state contract", () => {
+  it("受入条件の説明文をPathとして正規化しない", () => {
+    const state = createProjectRuntimeState({
+      projectId: "crdd",
+      milestoneId: "v0.19",
+      repositoryRevision: revision,
+      maximumConcurrency: 1,
+      milestoneAcceptanceCriteria: ["末尾は\\nである"],
+      objectives: [
+        { id: "objective-1", acceptanceCriteria: ["値はC:\\workである"] },
+      ],
+      tasks: [task("task-1", [], ["src\\file.ts"])],
+    });
+    assert.equal(state.status, "completed");
+    assert.equal(
+      state.state?.milestone.acceptanceCriteria[0],
+      "末尾は\\nである",
+    );
+    assert.equal(
+      state.state?.objectives[0]?.definition.acceptanceCriteria[0],
+      "値はC:\\workである",
+    );
+    assert.equal(
+      state.state?.tasks[0]?.definition.allowedPaths[0],
+      "src/file.ts",
+    );
+  });
+
   it("7件の独立Taskから最大5件だけを選ぶ", () => {
     const state = stateFor(
       Array.from({ length: 7 }, (_, index) => task(`task-${index + 1}`)),

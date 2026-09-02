@@ -150,7 +150,7 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), {
     contract: "crdd-coordinator/capabilities",
-    contractRevision: 1,
+    contractRevision: 2,
     profile: "local_personal",
     commands: [
       {
@@ -160,6 +160,17 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
       },
       { command: "doctor", availability: "available" },
       { command: "candidate", availability: "available" },
+      {
+        command: "project",
+        availability: "development_candidate",
+        invocation: "project --request-stdin --json",
+      },
+      {
+        command: "mcp",
+        availability: "development_candidate",
+        invocation: "mcp --stdio",
+        operations: ["crdd.run_objective", "crdd.submit_decision"],
+      },
     ],
   });
 });

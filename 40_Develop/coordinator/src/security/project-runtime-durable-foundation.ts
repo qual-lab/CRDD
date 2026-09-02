@@ -161,6 +161,22 @@ function nullableRecoveryId(value: unknown) {
   );
 }
 
+// Queue results may carry an exact opaque candidate or recovery reference.
+// These references use the same closed character set as stable IDs, but can
+// exceed the 128-character limit of ordinary project-local identifiers.
+function validResultReference(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 512 &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
+  );
+}
+
+function nullableResultReference(value: unknown) {
+  return value === null || validResultReference(value);
+}
+
 function validProjectRuntimeState(
   value: unknown,
 ): value is ProjectRuntimeState {
@@ -348,7 +364,7 @@ function validQueueEntry(value: unknown): value is ProjectQueueEntry {
     Number(value.generation) >= 1 &&
     nullableId(value.ownerGeneration) &&
     nullableId(value.resumeCondition) &&
-    nullableId(value.resultReference)
+    nullableResultReference(value.resultReference)
   );
 }
 
@@ -1159,7 +1175,19 @@ export function selectNextProjectOperation(
       return blocked("project_runtime_queue_inventory_invalid", true);
     const entries: ProjectQueueEntry[] = [];
     for (const name of names) {
-      assertDirectory(path.join(queueRoot, name));
+      const entryDirectory = path.join(queueRoot, name);
+      assertDirectory(entryDirectory);
+      const records = readEnvelopes(entryDirectory, "generation-");
+      const observedBinding = records[0]?.repositoryBindingId;
+      if (
+        !observedBinding ||
+        validatedQueueHistory(records, observedBinding, name) === null
+      )
+        return blocked("project_runtime_queue_record_mismatch", true);
+      // A Project binding owns only its own queue. Another valid binding is
+      // isolated rather than reinterpreted as corruption of the caller's
+      // queue population.
+      if (observedBinding !== repositoryBindingId) continue;
       const observed = readProjectOperationQueueState(
         workingDirectory,
         repositoryBindingId,
@@ -1304,7 +1332,10 @@ export function updateProjectOperationQueueState(
       return blocked("project_runtime_queue_update_invalid");
     if (next.resumeCondition !== null && !validId(next.resumeCondition))
       return blocked("project_runtime_queue_resume_condition_invalid");
-    if (next.resultReference !== null && !validId(next.resultReference))
+    if (
+      next.resultReference !== null &&
+      !validResultReference(next.resultReference)
+    )
       return blocked("project_runtime_queue_result_reference_invalid");
     const { repositoryRoot, runtime } = storageRoot(workingDirectory);
     const entryDirectory = path.join(runtime, "queue", queueId);

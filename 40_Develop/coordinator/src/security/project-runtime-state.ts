@@ -159,9 +159,10 @@ export function isProjectRuntimeRecoveryIdentity(
   );
 }
 
-function normalizedUniqueStrings(
+function uniqueStrings(
   values: readonly string[],
   maximum: number,
+  kind: "identity_or_path" | "human_text",
 ): readonly string[] | null {
   if (values.length > maximum) return null;
   const result: string[] = [];
@@ -169,8 +170,10 @@ function normalizedUniqueStrings(
   for (const value of values) {
     if (typeof value !== "string" || value.length === 0 || value.length > 512)
       return null;
-    const normalized = value.replaceAll("\\", "/");
-    const key = normalized.toUpperCase();
+    const normalized =
+      kind === "identity_or_path" ? value.replaceAll("\\", "/") : value;
+    const key =
+      kind === "identity_or_path" ? normalized.toUpperCase() : normalized;
     if (seen.has(key)) return null;
     seen.add(key);
     result.push(normalized);
@@ -183,9 +186,21 @@ function snapshotDefinition(
 ): ProjectTaskDefinition | null {
   if (!validIdentity(definition.id) || !validIdentity(definition.objectiveId))
     return null;
-  const dependencies = normalizedUniqueStrings(definition.dependencies, 128);
-  const allowedPaths = normalizedUniqueStrings(definition.allowedPaths, 128);
-  const conflictKeys = normalizedUniqueStrings(definition.conflictKeys, 128);
+  const dependencies = uniqueStrings(
+    definition.dependencies,
+    128,
+    "identity_or_path",
+  );
+  const allowedPaths = uniqueStrings(
+    definition.allowedPaths,
+    128,
+    "identity_or_path",
+  );
+  const conflictKeys = uniqueStrings(
+    definition.conflictKeys,
+    128,
+    "identity_or_path",
+  );
   if (
     !dependencies ||
     !allowedPaths ||
@@ -206,9 +221,10 @@ function snapshotObjectiveDefinition(
   definition: ProjectObjectiveDefinition,
 ): ProjectObjectiveDefinition | null {
   if (!validIdentity(definition.id)) return null;
-  const acceptanceCriteria = normalizedUniqueStrings(
+  const acceptanceCriteria = uniqueStrings(
     definition.acceptanceCriteria,
     128,
+    "human_text",
   );
   if (!acceptanceCriteria || acceptanceCriteria.length === 0) return null;
   return Object.freeze({ id: definition.id, acceptanceCriteria });
@@ -281,9 +297,10 @@ export function createProjectRuntimeState(
   const objectiveDefinitions = input.objectives.map(
     snapshotObjectiveDefinition,
   );
-  const milestoneAcceptanceCriteria = normalizedUniqueStrings(
+  const milestoneAcceptanceCriteria = uniqueStrings(
     input.milestoneAcceptanceCriteria,
     128,
+    "human_text",
   );
   if (definitions.some((definition) => !definition)) {
     return Object.freeze({

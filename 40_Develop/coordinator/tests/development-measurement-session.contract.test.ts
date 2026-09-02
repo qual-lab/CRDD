@@ -391,6 +391,25 @@ test("共通console lifecycleで開発版承認の目的を表示し外部送信
   assert.match(writes.join(""), /この固定開発版による限定実測を承認/);
 });
 
+test("開発SessionはMCP認証用のread-only native観測だけを期限内に許可する", async () => {
+  const { runtime, clock } = harness();
+  const admitted = await runtime.request(
+    configuration(),
+    new AbortController().signal,
+  );
+  assertPresent(admitted.capability);
+  assertPresent(runtime.borrowNativeObservation(admitted.capability, false));
+  assert.equal(
+    runtime.borrowNativeObservation(admitted.capability, true),
+    null,
+  );
+  clock.wall = 1_100;
+  assert.equal(
+    runtime.borrowNativeObservation(admitted.capability, false),
+    null,
+  );
+});
+
 for (const stop of ["expiry", "cancel"] as const) {
   test(`${stop}後は新規native初期化を拒否し所有cleanupの読取り観測だけを残す`, async () => {
     const { runtime, clock, state, createOperation } = harness();
