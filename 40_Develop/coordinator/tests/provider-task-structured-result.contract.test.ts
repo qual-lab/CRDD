@@ -101,6 +101,14 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
   assert.equal(normalized.decision, "changes_requested");
   assert.equal(normalized.findingCount, 1);
   assert.ok(normalized.remediationCapability);
+  assert.deepEqual(normalized.providerTurnObservation, {
+    provider: "claude",
+    taskRole: "reviewer",
+    requestedMaximumTurns: 5,
+    providerReportedTurns: 3,
+    resultAcceptanceMaximumTurns: 16,
+    requestedTurnTargetExceeded: false,
+  });
   assert.equal(claudeResult.untrustedProviderTextReported, false);
   assert.equal(claudeResult.credentialAbsenceVerified, false);
 });
@@ -338,7 +346,7 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
   assert.equal(result.reason, "provider_task_reviewer_shape_invalid");
 });
 
-test("Claudeの実行計画・argv・結果受理は推論から独立した同じ作業量上限に従う", () => {
+test("Claudeの実行目標と結果受理の絶対上限を分離する", () => {
   const expectedLimits = {
     executor: { low: 8, medium: 8, high: 8 },
     reviewer: { low: 5, medium: 5, high: 5 },
@@ -360,7 +368,22 @@ test("Claudeの実行計画・argv・結果受理は推論から独立した同�
         plan.argv[plan.argv.indexOf("--max-turns") + 1],
         String(limit),
       );
-      for (const turns of [-1, 0, 1, 1.5, limit - 1, limit, limit + 1, 17]) {
+      assert.equal(plan.hardMaximumTurns, 16);
+      assert.equal(
+        plan.hardMaximumTurnsBasis,
+        "runtime_result_acceptance_guard_independent_of_provider_requested_turn_target",
+      );
+      for (const turns of [
+        -1,
+        0,
+        1,
+        1.5,
+        limit - 1,
+        limit,
+        limit + 1,
+        16,
+        17,
+      ]) {
         const raw =
           taskRole === "executor"
             ? claude(JSON.parse(EXECUTOR), { num_turns: turns })
@@ -373,11 +396,21 @@ test("Claudeの実行計画・argv・結果受理は推論から独立した同�
         );
         assert.equal(
           result.status,
-          Number.isInteger(turns) && turns >= 1 && turns <= limit
+          Number.isInteger(turns) && turns >= 1 && turns <= 16
             ? "confirmed"
             : "blocked",
           `${taskRole}/${effort}/${turns}`,
         );
+        if (result.status === "confirmed") {
+          assert.deepEqual(result.normalizedResult?.providerTurnObservation, {
+            provider: "claude",
+            taskRole,
+            requestedMaximumTurns: limit,
+            providerReportedTurns: turns,
+            resultAcceptanceMaximumTurns: 16,
+            requestedTurnTargetExceeded: turns > limit,
+          });
+        }
       }
     }
   }
@@ -417,7 +450,7 @@ test("作業量の有限見積りは全推論で一致し、選定上限を超�
         plan.argv[plan.argv.indexOf("--max-turns") + 1],
         String(expected),
       );
-      for (const turns of [expected, expected + 1]) {
+      for (const turns of [expected, expected + 1, 16, 17]) {
         assert.equal(
           normalizeFixtureTaskResult(
             "claude",
@@ -426,7 +459,7 @@ test("作業量の有限見積りは全推論で一致し、選定上限を超�
             claudeReviewer(JSON.parse(REVIEWER), { num_turns: turns }),
             workload,
           ).status,
-          turns === expected ? "confirmed" : "blocked",
+          turns <= 16 ? "confirmed" : "blocked",
         );
       }
     }
@@ -558,13 +591,17 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 14);
+  assert.equal(contract.contractRevision, 15);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
-  assert.equal(contract.claudeMaximumTurns, 16);
+  assert.equal(contract.claudeResultAcceptanceMaximumTurns, 16);
   assert.equal(
-    contract.claudeMaximumTurnsBasis,
-    "same_validated_task_scope_counts_as_execution_plan",
+    contract.claudeResultAcceptanceMaximumTurnsBasis,
+    "runtime_guard_independent_of_provider_requested_turn_target",
+  );
+  assert.equal(
+    contract.acceptedClaudeTurnObservation,
+    "requested_target_reported_turns_absolute_acceptance_maximum_and_target_exceeded_after_validation",
   );
   assert.equal(contract.claudeMaximumApiEquivalentCostUsdByEffort, null);
   assert.equal(

@@ -446,6 +446,11 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     "validated_task_scope_counts_not_file_count_or_completion_prediction",
   );
   assert.equal(executor.maximumBudgetUsd, null);
+  assert.equal(executor.hardMaximumTurns, 16);
+  assert.equal(
+    executor.hardMaximumTurnsBasis,
+    "runtime_result_acceptance_guard_independent_of_provider_requested_turn_target",
+  );
   assert.equal(
     executor.argv[executor.argv.indexOf("--permission-mode") + 1],
     "acceptEdits",
@@ -467,6 +472,7 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     "validated_task_scope_counts_not_file_count_or_completion_prediction",
   );
   assert.equal(reviewer.maximumBudgetUsd, null);
+  assert.equal(reviewer.hardMaximumTurns, 16);
   assert.equal(
     reviewer.argv[reviewer.argv.indexOf("--permission-mode") + 1],
     "dontAsk",
@@ -598,6 +604,19 @@ test("全Task実行gateとPlan単体のEffect非発行を説明契約へ保持�
   assert.equal(contract.readOnlyProbe.resultFormat, "single_json_result");
   assert.equal(contract.readOnlyProbe.maximumTurns, 2);
   assert.equal(contract.readOnlyProbe.maximumBudgetUsd, 0.1);
+  assert.deepEqual(contract.isolatedTask.requestedMaximumTurnsRange, {
+    minimum: 4,
+    maximum: 16,
+  });
+  assert.equal(
+    contract.isolatedTask.requestedMaximumTurnsBasis,
+    "validated_task_scope_counts_with_role_specific_floor",
+  );
+  assert.equal(contract.isolatedTask.resultAcceptanceMaximumTurns, 16);
+  assert.equal(
+    contract.isolatedTask.resultAcceptanceMaximumTurnsBasis,
+    "runtime_guard_independent_of_provider_requested_turn_target",
+  );
   assert.deepEqual(contract.fixedPromptRequestAttempt, {
     executedAt: "2026-08-24",
     exactRequestCount: 1,

@@ -244,6 +244,7 @@ async function main() {
       processRestartRequired: unknown;
       candidatePresent: boolean;
       recoveryPresent: boolean;
+      providerTurnObservations: readonly unknown[];
     }>
   > = [];
   const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
@@ -278,6 +279,12 @@ async function main() {
                 typeof value.candidateStoreRecoveryId === "string" ||
                 (Array.isArray(value.dockerRecoveryIds) &&
                   value.dockerRecoveryIds.length > 0),
+              providerTurnObservations:
+                value.status === "completed" &&
+                value.cleanupConfirmed === true &&
+                Array.isArray(value.providerTurnObservations)
+                  ? Object.freeze([...value.providerTurnObservations])
+                  : Object.freeze([]),
             }),
           );
           return result;
@@ -397,7 +404,7 @@ async function main() {
   );
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 2,
+    contractRevision: 3,
     status: completed && finalBytes === FINAL ? "completed" : "blocked",
     reason:
       completed && finalBytes === FINAL

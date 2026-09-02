@@ -1882,6 +1882,14 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
   assert.deepEqual(result.normalizedResult, {
     decision: "approved",
     findingCount: 0,
+    providerTurnObservation: {
+      provider: "claude",
+      taskRole: "reviewer",
+      requestedMaximumTurns: 5,
+      providerReportedTurns: 3,
+      resultAcceptanceMaximumTurns: 16,
+      requestedTurnTargetExceeded: false,
+    },
   });
   assert.equal(result.rawOutputReported, false);
   assert.equal(result.untrustedProviderTextReported, false);

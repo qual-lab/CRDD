@@ -3,9 +3,9 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 15;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 16;
 
-export const CLAUDE_TASK_MAXIMUM_TURNS = 16;
+export const CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS = 16;
 const TASK_WORKLOAD_KEYS = new Set([
   "readPathCount",
   "allowedPathCount",
@@ -41,14 +41,16 @@ export function planClaudeTaskTurnBudget(
     (taskRole === "executor" ? 2 : 1) * (workload.allowedPathCount as number) +
     Math.ceil((workload.acceptanceCriterionCount as number) / 4) +
     Math.ceil((workload.remediationFindingCount as number) / 4);
-  if (estimatedTurns > CLAUDE_TASK_MAXIMUM_TURNS)
+  if (estimatedTurns > CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS)
     return blocked("claude_task_workload_split_required");
   return Object.freeze({
     status: "candidate" as const,
     maximumTurns: Math.max(taskRole === "executor" ? 8 : 4, estimatedTurns),
-    hardMaximumTurns: CLAUDE_TASK_MAXIMUM_TURNS,
+    hardMaximumTurns: CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
     basis:
       "validated_task_scope_counts_not_file_count_or_completion_prediction" as const,
+    hardMaximumTurnsBasis:
+      "runtime_result_acceptance_guard_independent_of_provider_requested_turn_target" as const,
     taskWorkload: Object.freeze(workload),
   });
 }
@@ -581,6 +583,8 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     providerHomeBuiltInToolAccessAllowed: false,
     maximumTurns,
     maximumTurnsBasis: turnBudget.basis,
+    hardMaximumTurns: turnBudget.hardMaximumTurns,
+    hardMaximumTurnsBasis: turnBudget.hardMaximumTurnsBasis,
     taskWorkload: turnBudget.taskWorkload,
     maximumBudgetUsd: null,
     apiEquivalentUsdBudgetDisposition:
@@ -720,8 +724,12 @@ export function describeClaudeExecutionPlanContract() {
       mcpAllowed: false,
       taskPromptTransport: "stdin_only",
       promptInArgvAllowed: false,
-      maximumTurns: CLAUDE_TASK_MAXIMUM_TURNS,
-      maximumTurnsBasis: "validated_task_scope_counts_independent_of_effort",
+      requestedMaximumTurnsRange: Object.freeze({ minimum: 4, maximum: 16 }),
+      requestedMaximumTurnsBasis:
+        "validated_task_scope_counts_with_role_specific_floor",
+      resultAcceptanceMaximumTurns: CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
+      resultAcceptanceMaximumTurnsBasis:
+        "runtime_guard_independent_of_provider_requested_turn_target",
       maximumBudgetUsdByEffort: null,
       apiEquivalentUsdBudgetDisposition:
         "not_applied_to_subscription_only_execution",

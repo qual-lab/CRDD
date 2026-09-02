@@ -16,6 +16,7 @@ import {
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "./candidate-bundle-store.ts";
 import { prepareRuntimeOwnedClaudeDockerTaskCandidate } from "./claude-docker-runtime-adapter.ts";
+import { CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS } from "./claude-execution-plan.ts";
 import { prepareRuntimeOwnedCodexDockerTaskCandidate } from "./codex-docker-runtime-adapter.ts";
 import {
   classifyOwnedCoordinatorOperationCreationFailure,
@@ -108,7 +109,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 27;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 28;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -127,6 +128,14 @@ const PROCESS_CANCELLATION_RESULT_KEYS = new Set([
   "reason",
   "cancellationRequested",
   "processTerminationObserved",
+]);
+const PROVIDER_TURN_OBSERVATION_KEYS = new Set([
+  "provider",
+  "taskRole",
+  "requestedMaximumTurns",
+  "providerReportedTurns",
+  "resultAcceptanceMaximumTurns",
+  "requestedTurnTargetExceeded",
 ]);
 const INVALID_CONTROL_CANCELLATION_RESULT = Object.freeze({
   status: "blocked" as const,
@@ -548,6 +557,69 @@ function objectCapability(value: unknown) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function ownPlainDataValue(value: unknown, key: string) {
+  try {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      utilTypes.isProxy(value)
+    )
+      return undefined;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return undefined;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor &&
+      Object.hasOwn(descriptor, "value") &&
+      descriptor.get === undefined &&
+      descriptor.set === undefined &&
+      descriptor.enumerable === true
+      ? descriptor.value
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function projectProviderTurnObservation(value: unknown) {
+  const record = snapshotPlainRecord(value, PROVIDER_TURN_OBSERVATION_KEYS);
+  if (!record) return null;
+  const provider = record.provider;
+  const taskRole = record.taskRole;
+  const requestedMaximumTurns = record.requestedMaximumTurns;
+  const providerReportedTurns = record.providerReportedTurns;
+  const resultAcceptanceMaximumTurns = record.resultAcceptanceMaximumTurns;
+  const requestedTurnTargetExceeded = record.requestedTurnTargetExceeded;
+  if (
+    provider !== "claude" ||
+    (taskRole !== "executor" && taskRole !== "reviewer") ||
+    !Number.isSafeInteger(requestedMaximumTurns) ||
+    (requestedMaximumTurns as number) < 1 ||
+    !Number.isSafeInteger(providerReportedTurns) ||
+    (providerReportedTurns as number) < 1 ||
+    !Number.isSafeInteger(resultAcceptanceMaximumTurns) ||
+    resultAcceptanceMaximumTurns !== CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS ||
+    (taskRole === "executor"
+      ? (requestedMaximumTurns as number) < 8
+      : (requestedMaximumTurns as number) < 4) ||
+    (requestedMaximumTurns as number) >
+      CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS ||
+    (providerReportedTurns as number) >
+      (resultAcceptanceMaximumTurns as number) ||
+    requestedTurnTargetExceeded !==
+      (providerReportedTurns as number) > (requestedMaximumTurns as number)
+  )
+    return null;
+  return Object.freeze({
+    provider,
+    taskRole,
+    requestedMaximumTurns: requestedMaximumTurns as number,
+    providerReportedTurns: providerReportedTurns as number,
+    resultAcceptanceMaximumTurns: resultAcceptanceMaximumTurns as number,
+    requestedTurnTargetExceeded,
+  });
 }
 
 function snapshotRuntimeRecord(value: unknown): RuntimeRecord | null {
@@ -1245,6 +1317,9 @@ async function executeStageBody(
         stringValue(prepared.selectionNotice) ??
         stringValue(selection.selectionNotice),
       normalizedResult: result.normalizedResult,
+      providerTurnObservation: projectProviderTurnObservation(
+        ownPlainDataValue(result.normalizedResult, "providerTurnObservation"),
+      ),
     });
   } catch {
     if (startedProcessControl) {
@@ -1594,6 +1669,20 @@ async function runCoordinatorTaskCore(
     }
     let finalExecutor = executor;
     let executorResult = executor.normalizedResult as RuntimeRecord;
+    const providerTurnObservations: Readonly<Record<string, unknown>>[] = [];
+    const retainTurnObservation = (
+      stage: Readonly<Record<string, unknown>>,
+      attempt: number,
+    ) => {
+      const observation = projectProviderTurnObservation(
+        stage.providerTurnObservation,
+      );
+      if (observation)
+        providerTurnObservations.push(
+          Object.freeze({ ...observation, attempt }),
+        );
+    };
+    retainTurnObservation(executor, 0);
     let candidate = state.dependencies.captureCandidate(
       workspaceCapability,
       repositoryBinding,
@@ -1642,6 +1731,7 @@ async function runCoordinatorTaskCore(
     }
     advanceLifecycleState(state, control, "STATE-REVIEWER-CLEAN");
     let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
+    retainTurnObservation(reviewer, 0);
     let remediationPerformed = false;
     if (reviewerResult?.decision === "changes_requested") {
       advanceLifecycleState(state, control, "STATE-REMEDIATION-AUTHORIZED");
@@ -1675,6 +1765,7 @@ async function runCoordinatorTaskCore(
       remediationPerformed = true;
       finalExecutor = remediation;
       executorResult = remediation.normalizedResult as RuntimeRecord;
+      retainTurnObservation(remediation, 1);
       candidate = state.dependencies.captureCandidate(
         workspaceCapability,
         repositoryBinding,
@@ -1722,6 +1813,7 @@ async function runCoordinatorTaskCore(
       }
       advanceLifecycleState(state, control, "STATE-REMEDIATION-REVIEWER-CLEAN");
       reviewerResult = reviewer.normalizedResult as RuntimeRecord;
+      retainTurnObservation(reviewer, 1);
     }
     const verified = state.dependencies.verifyCandidate(
       candidateCapability,
@@ -1783,6 +1875,7 @@ async function runCoordinatorTaskCore(
       executorSelectionNotice: finalExecutor.selectionNotice,
       reviewerSelectionNotice: reviewer.selectionNotice,
       remediationPerformed,
+      providerTurnObservations: Object.freeze([...providerTurnObservations]),
       candidateRevision: Object.freeze({
         baseCommit: verified.baseCommit,
         baseTree: verified.baseTree,
@@ -2685,6 +2778,32 @@ const developmentProjectRuntimeCancellations = new WeakMap<
   () => Promise<unknown>
 >();
 
+/** Testable projection used only after the outer development cleanup settles. */
+export function projectDevelopmentTaskResultAfterOuterCleanup(
+  taskResult: Readonly<Record<string, unknown>>,
+  cleanupConfirmed: boolean,
+) {
+  if (cleanupConfirmed) return taskResult;
+  const snapshot: Record<string, unknown> = Object.create(null);
+  const descriptors = Object.getOwnPropertyDescriptors(taskResult);
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (typeof key !== "string")
+      throw new Error("development_task_result_projection_invalid");
+    if (key === "providerTurnObservations") continue;
+    const descriptor = descriptors[key];
+    if (
+      !descriptor ||
+      !Object.hasOwn(descriptor, "value") ||
+      descriptor.get !== undefined ||
+      descriptor.set !== undefined ||
+      descriptor.enumerable !== true
+    )
+      throw new Error("development_task_result_projection_invalid");
+    snapshot[key] = descriptor.value;
+  }
+  return Object.freeze(snapshot);
+}
+
 function startRuntimeOwnedDevelopmentTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
@@ -2791,6 +2910,10 @@ function startRuntimeOwnedDevelopmentTask(
         (!taskResult.candidateId ||
           candidateDisposition === "project_runtime_owned" ||
           candidateDiscard?.status === "discarded");
+      const publishedTaskResult = projectDevelopmentTaskResultAfterOuterCleanup(
+        taskResult,
+        cleanupConfirmed,
+      );
       boundary.finish(cleanupConfirmed ? "finished" : "cleanup_unknown");
       timing.finish();
       return Object.freeze({
@@ -2800,7 +2923,7 @@ function startRuntimeOwnedDevelopmentTask(
             : "blocked",
         executionSourceKind: "fixed_development_candidate",
         releaseAuthorityConferred: false,
-        taskResult,
+        taskResult: publishedTaskResult,
         candidateDiscard,
         cleanupConfirmed,
         manualRecoveryRequired:
@@ -2952,6 +3075,8 @@ export function describeCoordinatorTaskRuntimeContract() {
     }),
     boundedRemediation:
       "maximum_one_same_executor_then_same_independent_reviewer",
+    providerTurnObservations:
+      "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",
     externalSendPolicy:
       "exact_bound_repository_commit_policy_plus_terminal_safe_full_scope_confirmation",
     recoveryIdentifiers: Object.freeze([
