@@ -5712,13 +5712,16 @@ export function resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRoo
         throw new Error("docker_task_recovery_correlation_ambiguous");
       matches.set(correlationId, recoveryId);
     }
-    if (matches.size !== correlationIds.length)
-      throw new Error("docker_task_recovery_correlation_missing");
-    const bindings = correlationIds.map((correlationId) =>
-      Object.freeze({
-        correlationId,
-        recoveryId: matches.get(correlationId) as string,
-      }),
+    const bindings = correlationIds
+      .filter((correlationId) => matches.has(correlationId))
+      .map((correlationId) =>
+        Object.freeze({
+          correlationId,
+          recoveryId: matches.get(correlationId) as string,
+        }),
+      );
+    const absentCorrelationIds = correlationIds.filter(
+      (correlationId) => !matches.has(correlationId),
     );
     if (!release())
       throw new Error("docker_task_runtime_state_lock_release_unknown");
@@ -5726,6 +5729,7 @@ export function resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRoo
     return Object.freeze({
       status: "completed" as const,
       bindings: Object.freeze(bindings),
+      absentCorrelationIds: Object.freeze(absentCorrelationIds),
     });
   } catch (error) {
     let released = true;
@@ -5743,6 +5747,7 @@ export function resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRoo
         : "docker_task_runtime_state_lock_release_unknown",
       manualRecoveryRequired: true,
       bindings: Object.freeze([]),
+      absentCorrelationIds: Object.freeze([]),
     });
   }
 }
@@ -5776,6 +5781,7 @@ export function resolveRuntimeOwnedDockerTaskRecoveryCorrelations(
       ),
       manualRecoveryRequired: true,
       bindings: Object.freeze([]),
+      absentCorrelationIds: Object.freeze([]),
     });
   }
 }

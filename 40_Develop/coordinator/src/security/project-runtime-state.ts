@@ -60,15 +60,35 @@ export type ProjectTaskDefinition = Readonly<{
   conflictKeys: readonly string[];
 }>;
 
+export type ProjectTaskRecoveryKind =
+  | "host"
+  | "docker"
+  | "candidate"
+  | "candidate_store";
+
+export type ProjectTaskRecoveryObligation = Readonly<{
+  kind: ProjectTaskRecoveryKind;
+  recoveryId: string;
+  phase: "required" | "recovering" | "settled";
+}>;
+
+export type ProjectTaskStartPhase =
+  | "none"
+  | "reserved"
+  | "handoff_prepared"
+  | "running"
+  | "settled";
+
 export type ProjectTaskRecord = Readonly<{
   definition: ProjectTaskDefinition;
   state: ProjectTaskState;
   attemptId: string | null;
   operationId: string | null;
   authorityBindingId: string | null;
+  startPhase: ProjectTaskStartPhase;
   cleanupConfirmed: boolean;
-  recoveryId: string | null;
-  settledRecoveryId: string | null;
+  recoveryObligations: readonly ProjectTaskRecoveryObligation[];
+  recoveryUnresolved: boolean;
   candidateId: string | null;
   retryCount: number;
   supersededBy: string | null;
@@ -366,9 +386,10 @@ export function createProjectRuntimeState(
       attemptId: null,
       operationId: null,
       authorityBindingId: null,
+      startPhase: "none" as const,
       cleanupConfirmed: false,
-      recoveryId: null,
-      settledRecoveryId: null,
+      recoveryObligations: Object.freeze([]),
+      recoveryUnresolved: false,
       candidateId: null,
       retryCount: 0,
       supersededBy: null,
@@ -420,7 +441,8 @@ function activeForCapacity(task: ProjectTaskRecord) {
 function reservesConflict(task: ProjectTaskRecord) {
   return (
     activeForCapacity(task) ||
-    (task.state === "recovery_required" && task.recoveryId !== null)
+    (task.state === "recovery_required" &&
+      (task.recoveryUnresolved || task.recoveryObligations.length > 0))
   );
 }
 
@@ -517,6 +539,10 @@ export function reserveProjectTaskStart(
       state: "starting" as const,
       attemptId,
       authorityBindingId,
+      operationId: null,
+      startPhase: "reserved" as const,
+      recoveryObligations: Object.freeze([]),
+      recoveryUnresolved: false,
     }),
   );
   const objectiveId = tasks.find((task) => task.definition.id === taskId)
@@ -546,6 +572,46 @@ export function reserveProjectTaskStart(
   });
 }
 
+export function prepareProjectTaskHandoff(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  taskId: string,
+  attemptId: string,
+  operationId: string,
+): StateResult {
+  const task = state.tasks.find(
+    (candidate) => candidate.definition.id === taskId,
+  );
+  if (
+    state.generation !== expectedGeneration ||
+    !task ||
+    task.state !== "starting" ||
+    task.startPhase !== "reserved" ||
+    task.attemptId !== attemptId ||
+    !validIdentity(operationId)
+  ) {
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_task_handoff_preparation_mismatch",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  }
+  const tasks = replaceTask(state, taskId, (current) =>
+    Object.freeze({
+      ...current,
+      operationId,
+      startPhase: "handoff_prepared" as const,
+    }),
+  );
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_task_handoff_prepared",
+    state: projectState({ ...state, generation: state.generation + 1, tasks }),
+    taskIds: Object.freeze([taskId]),
+  });
+}
+
 export function observeProjectTaskStarted(
   state: ProjectRuntimeState,
   expectedGeneration: number,
@@ -560,18 +626,22 @@ export function observeProjectTaskStarted(
     state.generation !== expectedGeneration ||
     !task ||
     task.state !== "starting" ||
+    task.startPhase !== "handoff_prepared" ||
     task.attemptId !== attemptId ||
-    !validIdentity(operationId)
-  ) {
+    task.operationId !== operationId
+  )
     return Object.freeze({
       status: "blocked",
       reason: "project_runtime_task_start_observation_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
-  }
   const tasks = replaceTask(state, taskId, (current) =>
-    Object.freeze({ ...current, state: "running" as const, operationId }),
+    Object.freeze({
+      ...current,
+      state: "running" as const,
+      startPhase: "running" as const,
+    }),
   );
   return Object.freeze({
     status: "completed",
@@ -591,7 +661,8 @@ export function settleProjectTask(
     authorityBindingId: string;
     outcome: "completed" | "failed" | "cancelled" | "recovery_required";
     cleanupConfirmed: boolean;
-    recoveryId: string | null;
+    recoveryObligations: readonly ProjectTaskRecoveryObligation[];
+    recoveryUnresolved: boolean;
     candidateId?: string | null;
   }>,
 ): StateResult {
@@ -602,14 +673,33 @@ export function settleProjectTask(
     state.generation !== expectedGeneration ||
     !task ||
     task.state !== "running" ||
+    task.startPhase !== "running" ||
     task.attemptId !== input.attemptId ||
     task.operationId !== input.operationId ||
     task.authorityBindingId !== input.authorityBindingId ||
     (input.outcome === "completed" && !input.cleanupConfirmed) ||
     (input.outcome === "cancelled" && !input.cleanupConfirmed) ||
+    !Array.isArray(input.recoveryObligations) ||
+    input.recoveryObligations.length > 128 ||
+    new Set(
+      input.recoveryObligations.map(
+        (entry) => `${entry.kind}\0${entry.recoveryId}`,
+      ),
+    ).size !== input.recoveryObligations.length ||
+    input.recoveryObligations.some(
+      (entry) =>
+        !["host", "docker", "candidate", "candidate_store"].includes(
+          entry.kind,
+        ) ||
+        !isProjectRuntimeRecoveryIdentity(entry.recoveryId) ||
+        entry.phase !== "required",
+    ) ||
+    typeof input.recoveryUnresolved !== "boolean" ||
     (input.outcome === "recovery_required" &&
-      !isProjectRuntimeRecoveryIdentity(input.recoveryId)) ||
-    (input.outcome !== "recovery_required" && input.recoveryId !== null) ||
+      input.recoveryObligations.length === 0 &&
+      !input.recoveryUnresolved) ||
+    (input.outcome !== "recovery_required" &&
+      (input.recoveryObligations.length !== 0 || input.recoveryUnresolved)) ||
     (input.candidateId !== undefined &&
       input.candidateId !== null &&
       !validCandidateIdentity(input.candidateId)) ||
@@ -632,9 +722,12 @@ export function settleProjectTask(
     Object.freeze({
       ...current,
       state: nextState,
+      startPhase: "settled" as const,
       cleanupConfirmed: input.cleanupConfirmed,
-      recoveryId: input.recoveryId,
-      settledRecoveryId: null,
+      recoveryObligations: Object.freeze(
+        input.recoveryObligations.map((entry) => Object.freeze({ ...entry })),
+      ),
+      recoveryUnresolved: input.recoveryUnresolved,
       candidateId:
         input.outcome === "completed" ? (input.candidateId ?? null) : null,
     }),
@@ -692,16 +785,11 @@ export function settleProjectTask(
   });
 }
 
-/**
- * Convert one exact, previously durable recovery obligation into a failed
- * Task only after the Runtime has independently confirmed that recovery and
- * resource absence. The old attempt identity remains historical; a separate
- * retry transition must create the next attempt.
- */
-export function settleProjectTaskRecovery(
+export function markProjectTaskRecoveryObligationRecovering(
   state: ProjectRuntimeState,
   expectedGeneration: number,
   taskId: string,
+  kind: ProjectTaskRecoveryKind,
   recoveryId: string,
 ): StateResult {
   const task = state.tasks.find(
@@ -711,7 +799,62 @@ export function settleProjectTaskRecovery(
     state.generation !== expectedGeneration ||
     !task ||
     task.state !== "recovery_required" ||
-    task.recoveryId !== recoveryId ||
+    task.recoveryUnresolved ||
+    !task.recoveryObligations.some(
+      (entry) =>
+        entry.kind === kind &&
+        entry.recoveryId === recoveryId &&
+        entry.phase === "required",
+    ) ||
+    !isProjectRuntimeRecoveryIdentity(recoveryId)
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_task_recovery_start_mismatch",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  const tasks = replaceTask(state, taskId, (current) =>
+    Object.freeze({
+      ...current,
+      recoveryObligations: Object.freeze(
+        current.recoveryObligations.map((entry) =>
+          entry.kind === kind && entry.recoveryId === recoveryId
+            ? Object.freeze({ ...entry, phase: "recovering" as const })
+            : entry,
+        ),
+      ),
+    }),
+  );
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_task_recovery_started",
+    state: projectState({ ...state, generation: state.generation + 1, tasks }),
+    taskIds: Object.freeze([taskId]),
+  });
+}
+
+export function settleProjectTaskRecoveryObligation(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  taskId: string,
+  kind: ProjectTaskRecoveryKind,
+  recoveryId: string,
+): StateResult {
+  const task = state.tasks.find(
+    (candidate) => candidate.definition.id === taskId,
+  );
+  if (
+    state.generation !== expectedGeneration ||
+    !task ||
+    task.state !== "recovery_required" ||
+    task.recoveryUnresolved ||
+    !task.recoveryObligations.some(
+      (entry) =>
+        entry.kind === kind &&
+        entry.recoveryId === recoveryId &&
+        entry.phase === "recovering",
+    ) ||
     !isProjectRuntimeRecoveryIdentity(recoveryId)
   )
     return Object.freeze({
@@ -723,123 +866,33 @@ export function settleProjectTaskRecovery(
   const tasks = replaceTask(state, taskId, (current) =>
     Object.freeze({
       ...current,
-      state: "failed" as const,
-      cleanupConfirmed: true,
-      recoveryId: null,
-      settledRecoveryId: recoveryId,
+      recoveryObligations: Object.freeze(
+        current.recoveryObligations.map((entry) =>
+          entry.kind === kind && entry.recoveryId === recoveryId
+            ? Object.freeze({ ...entry, phase: "settled" as const })
+            : entry,
+        ),
+      ),
     }),
-  );
-  const objectives = state.objectives.map((objective) =>
-    objective.definition.id === task.definition.objectiveId
-      ? Object.freeze({ ...objective, state: "blocked" as const })
-      : objective,
-  );
-  const recoveryRemaining = tasks.some(
-    (candidate) => candidate.state === "recovery_required",
   );
   return Object.freeze({
     status: "completed",
-    reason: "project_runtime_task_recovery_settled",
-    state: projectState({
-      ...state,
-      generation: state.generation + 1,
-      milestone: Object.freeze({
-        ...state.milestone,
-        state: recoveryRemaining
-          ? ("recovery_required" as const)
-          : ("executing" as const),
-      }),
-      objectives,
-      tasks,
-    }),
+    reason: "project_runtime_task_recovery_item_settled",
+    state: projectState({ ...state, generation: state.generation + 1, tasks }),
     taskIds: Object.freeze([taskId]),
   });
 }
 
-/**
- * Resume one Task after the Runtime has settled its exact durable recovery
- * obligation. Settlement and retry are one State generation so interruption
- * cannot leave a recovered Task detached from its Queue resume condition.
- */
-export function settleAndRetryProjectTaskRecovery(
+export function retrySettledProjectTaskRecoveries(
   state: ProjectRuntimeState,
   expectedGeneration: number,
-  taskId: string,
-  recoveryId: string,
-): StateResult {
-  const task = state.tasks.find(
-    (candidate) => candidate.definition.id === taskId,
-  );
-  if (
-    state.generation !== expectedGeneration ||
-    !task ||
-    task.state !== "recovery_required" ||
-    task.recoveryId !== recoveryId ||
-    !isProjectRuntimeRecoveryIdentity(recoveryId)
-  )
-    return Object.freeze({
-      status: "blocked",
-      reason: "project_runtime_task_recovery_retry_invalid",
-      state,
-      taskIds: Object.freeze([]),
-    });
-  const tasks = replaceTask(state, taskId, (current) =>
-    Object.freeze({
-      ...current,
-      state: "ready" as const,
-      attemptId: null,
-      operationId: null,
-      authorityBindingId: null,
-      cleanupConfirmed: true,
-      recoveryId: null,
-      settledRecoveryId: recoveryId,
-      candidateId: null,
-      retryCount: current.retryCount + 1,
-    }),
-  );
-  const objectives = state.objectives.map((objective) =>
-    objective.definition.id === task.definition.objectiveId
-      ? Object.freeze({ ...objective, state: "executing" as const })
-      : objective,
-  );
-  return Object.freeze({
-    status: "completed",
-    reason: "project_runtime_task_recovery_settled_for_retry",
-    state: projectState({
-      ...state,
-      generation: state.generation + 1,
-      milestone: Object.freeze({
-        ...state.milestone,
-        state: "executing" as const,
-      }),
-      objectives,
-      tasks,
-    }),
-    taskIds: Object.freeze([taskId]),
-  });
-}
-
-/**
- * Apply every exact recovery settlement owned by one Project Operation in one
- * Project State generation. Queue and State are separate durable stores, so
- * this transition also accepts an already-applied item carrying the same
- * non-authority settledRecoveryId. It never replays a recovery Effect.
- */
-export function settleAndRetryProjectTaskRecoveries(
-  state: ProjectRuntimeState,
-  expectedGeneration: number,
-  recoveries: readonly Readonly<{ taskId: string; recoveryId: string }>[],
+  taskIds: readonly string[],
 ): StateResult {
   if (
     state.generation !== expectedGeneration ||
-    recoveries.length === 0 ||
-    new Set(recoveries.map((entry) => entry.taskId)).size !==
-      recoveries.length ||
-    recoveries.some(
-      (entry) =>
-        !validIdentity(entry.taskId) ||
-        !isProjectRuntimeRecoveryIdentity(entry.recoveryId),
-    )
+    taskIds.length === 0 ||
+    new Set(taskIds).size !== taskIds.length ||
+    taskIds.some((taskId) => !validIdentity(taskId))
   )
     return Object.freeze({
       status: "blocked",
@@ -847,23 +900,17 @@ export function settleAndRetryProjectTaskRecoveries(
       state,
       taskIds: Object.freeze([]),
     });
-  const byTask = new Map(
-    recoveries.map((entry) => [entry.taskId, entry.recoveryId]),
-  );
   if (
-    recoveries.some((entry) => {
+    taskIds.some((taskId) => {
       const task = state.tasks.find(
-        (candidate) => candidate.definition.id === entry.taskId,
+        (candidate) => candidate.definition.id === taskId,
       );
       return (
         !task ||
-        !(
-          (task.state === "recovery_required" &&
-            task.recoveryId === entry.recoveryId) ||
-          (task.state === "ready" &&
-            task.recoveryId === null &&
-            task.settledRecoveryId === entry.recoveryId)
-        )
+        task.recoveryUnresolved ||
+        task.recoveryObligations.length === 0 ||
+        task.recoveryObligations.some((entry) => entry.phase !== "settled") ||
+        (task.state !== "recovery_required" && task.state !== "ready")
       );
     })
   )
@@ -874,24 +921,23 @@ export function settleAndRetryProjectTaskRecoveries(
       taskIds: Object.freeze([]),
     });
   const tasks = state.tasks.map((task) => {
-    const recoveryId = byTask.get(task.definition.id);
-    if (!recoveryId || task.state === "ready") return task;
+    if (!taskIds.includes(task.definition.id) || task.state === "ready")
+      return task;
     return Object.freeze({
       ...task,
       state: "ready" as const,
       attemptId: null,
       operationId: null,
       authorityBindingId: null,
+      startPhase: "none" as const,
       cleanupConfirmed: true,
-      recoveryId: null,
-      settledRecoveryId: recoveryId,
       candidateId: null,
       retryCount: task.retryCount + 1,
     });
   });
   const recoveredObjectiveIds = new Set(
     tasks
-      .filter((task) => byTask.has(task.definition.id))
+      .filter((task) => taskIds.includes(task.definition.id))
       .map((task) => task.definition.objectiveId),
   );
   const objectives = state.objectives.map((objective) =>
@@ -912,7 +958,7 @@ export function settleAndRetryProjectTaskRecoveries(
       objectives,
       tasks,
     }),
-    taskIds: Object.freeze(recoveries.map((entry) => entry.taskId)),
+    taskIds: Object.freeze([...taskIds]),
   });
 }
 
@@ -922,27 +968,29 @@ export function recordProjectTaskOwnerLossRecoveries(
   expectedGeneration: number,
   bindings: readonly Readonly<{
     operationId: string;
-    recoveryId: string;
+    status: "matched" | "verified_absent";
+    recoveryId: string | null;
   }>[],
 ): StateResult {
   const active = state.tasks.filter((task) =>
     ["starting", "running"].includes(task.state),
   );
-  const recoverable = active.filter((task) => task.operationId !== null);
-  const preAuthority = active.filter(
-    (task) => task.state === "starting" && task.operationId === null,
-  );
+  const prepared = active.filter((task) => task.operationId !== null);
+  const reserved = active.filter((task) => task.operationId === null);
   if (
     state.generation !== expectedGeneration ||
     active.length === 0 ||
-    recoverable.length + preAuthority.length !== active.length ||
-    bindings.length !== recoverable.length ||
+    prepared.length + reserved.length !== active.length ||
+    bindings.length !== prepared.length ||
     new Set(bindings.map((entry) => entry.operationId)).size !==
       bindings.length ||
     bindings.some(
       (entry) =>
         !validIdentity(entry.operationId) ||
-        !isProjectRuntimeRecoveryIdentity(entry.recoveryId),
+        !["matched", "verified_absent"].includes(entry.status) ||
+        (entry.status === "matched" &&
+          !isProjectRuntimeRecoveryIdentity(entry.recoveryId)) ||
+        (entry.status === "verified_absent" && entry.recoveryId !== null),
     )
   )
     return Object.freeze({
@@ -952,12 +1000,18 @@ export function recordProjectTaskOwnerLossRecoveries(
       taskIds: Object.freeze([]),
     });
   const byOperation = new Map(
-    bindings.map((entry) => [entry.operationId, entry.recoveryId]),
+    bindings.map((entry) => [entry.operationId, entry]),
   );
   if (
-    recoverable.some(
+    prepared.some(
       (task) => task.operationId === null || !byOperation.has(task.operationId),
-    )
+    ) ||
+    prepared.some((task) => {
+      const binding = task.operationId
+        ? byOperation.get(task.operationId)
+        : null;
+      return task.state === "running" && binding?.status !== "matched";
+    })
   )
     return Object.freeze({
       status: "blocked",
@@ -966,31 +1020,35 @@ export function recordProjectTaskOwnerLossRecoveries(
       taskIds: Object.freeze([]),
     });
   const tasks = state.tasks.map((task) => {
-    const recoveryId =
+    const binding =
       task.operationId === null ? undefined : byOperation.get(task.operationId);
-    if (
-      preAuthority.some(
-        (candidate) => candidate.definition.id === task.definition.id,
-      )
-    )
+    if (reserved.includes(task) || binding?.status === "verified_absent")
       return Object.freeze({
         ...task,
         state: "ready" as const,
         attemptId: null,
         operationId: null,
         authorityBindingId: null,
+        startPhase: "none" as const,
         cleanupConfirmed: true,
-        recoveryId: null,
-        settledRecoveryId: null,
+        recoveryObligations: Object.freeze([]),
+        recoveryUnresolved: false,
         candidateId: null,
       });
-    return recoveryId
+    return binding?.status === "matched" && binding.recoveryId
       ? Object.freeze({
           ...task,
           state: "recovery_required" as const,
+          startPhase: "settled" as const,
           cleanupConfirmed: false,
-          recoveryId,
-          settledRecoveryId: null,
+          recoveryObligations: Object.freeze([
+            Object.freeze({
+              kind: "docker" as const,
+              recoveryId: binding.recoveryId,
+              phase: "required" as const,
+            }),
+          ]),
+          recoveryUnresolved: false,
           candidateId: null,
         })
       : task;
@@ -1002,7 +1060,7 @@ export function recordProjectTaskOwnerLossRecoveries(
         task.state === "recovery_required",
     )
       ? Object.freeze({ ...objective, state: "blocked" as const })
-      : preAuthority.some(
+      : reserved.some(
             (task) => task.definition.objectiveId === objective.definition.id,
           )
         ? Object.freeze({ ...objective, state: "executing" as const })
@@ -1016,10 +1074,9 @@ export function recordProjectTaskOwnerLossRecoveries(
       generation: state.generation + 1,
       milestone: Object.freeze({
         ...state.milestone,
-        state:
-          recoverable.length > 0
-            ? ("recovery_required" as const)
-            : ("executing" as const),
+        state: bindings.some((entry) => entry.status === "matched")
+          ? ("recovery_required" as const)
+          : ("executing" as const),
       }),
       objectives,
       tasks,
@@ -1109,9 +1166,10 @@ export function applyProjectRuntimePartialReplan(
       attemptId: null,
       operationId: null,
       authorityBindingId: null,
+      startPhase: "none" as const,
       cleanupConfirmed: false,
-      recoveryId: null,
-      settledRecoveryId: null,
+      recoveryObligations: Object.freeze([]),
+      recoveryUnresolved: false,
       candidateId: null,
       retryCount: 0,
       supersededBy: null,
@@ -1190,8 +1248,10 @@ export function retryProjectRuntimeTask(
       attemptId: null,
       operationId: null,
       authorityBindingId: null,
+      startPhase: "none" as const,
       cleanupConfirmed: false,
-      recoveryId: null,
+      recoveryObligations: Object.freeze([]),
+      recoveryUnresolved: false,
       candidateId: null,
       retryCount: task.retryCount + 1,
     }),

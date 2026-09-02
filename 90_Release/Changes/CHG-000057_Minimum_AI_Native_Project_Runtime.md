@@ -71,9 +71,11 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 ## 8. 現在状態と次のGate
 
+本節の表が現在有効な状態と次のGateを示す。表より後の段落は実装・検証の発展を時系列で残す履歴であり、「この時点では」「当時」「その後」と明示した状態を現在値へ読み替えない。後続の観測や是正で過去の判断・失敗を上書きせず、現在値は表と末尾の最新履歴から再構成する。
+
 | 区分 | 現在値 |
 |---|---|
-| 成立 | 設計対応、契約・結合試験、署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk文書1件の自己適用と正本採用、認証主体の意味入口への伝播、Repository Binding単位の別Process排他、Lease取得後のfresh優先選択、Task Authorityの実行直前発行と未使用Authority失効、Task別exact Recovery相関、Queue／State片側中断からEffectを再発行しないRecovery settlement、再計画上限と独立したfresh retry、終端request再送のEffect 0投影 |
+| 成立 | 設計対応、契約・結合試験、署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk文書1件の自己適用と正本採用、認証主体の意味入口への伝播、Repository Binding単位の別Process排他、Lease取得後のfresh優先選択、Task Authorityの実行直前発行と未使用Authority失効、Task開始の`reserved / handoff_prepared / running`分離、Task別・種別別のexact Recovery相関、個別回復義務の耐久settlement、Queue／State／個別義務の途中中断から完了済みEffectを再発行しない再開、再計画上限と独立したfresh retry、終端request再送のEffect 0投影 |
 | 未成立 | 認証済み実MCP Client、実取消、親Process喪失、実Docker資源のRecovery settlement、対話／スケジュール競合を公開Process構成で結ぶProject全体の結合確認 |
 | 次Gate | 残る代表経路のE2E、未評価事項のRelease処遇、独立確認・必要監査、収載・分類・移行・残存Riskの人間判断 |
 | 根拠 | [正常縦断E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification) |
@@ -138,7 +140,7 @@ RecoveryはClient指定IDを受ける別経路を作らず、同じObjective req
 
 Task AuthorityはTask Graph作成時にまとめて発行せず、各attemptの予約を耐久化した後、外部Effect直前に一回限りのfresh Authorityとして発行する。7 Taskを2 waveで実行する試験は7個の異なるAuthorityを確認し、開始前取消は発行0を確認する。MCP AdapterはRuntimeが検証したprincipal identityをObjective／Decisionの共通意味入口まで渡し、request identityへ結合する。stdio transportは自身の終了処理が成功しても、意味結果のcleanup不明または手動回復要を成功へ畳まない。
 
-Project全体E2E前の固定候補技術確認では、選択とQueue claimの間の優先順位競合、QueueとProject Stateの別々の耐久更新中断、Parent喪失時のTaskとDocker Recoveryの相関、再計画上限0でのRecovery停止、終端request再送、およびTask Authority発行直後の取消に未閉包の境界を検出した。是正後は、Repository Binding単位Lease取得後に耐久Queueをfreshに再選択し、最優先候補と一致する呼出し側だけがclaimする。開始済みTaskはProject Operation IDを署名対象のDocker Recovery記録へ非Authority相関として保持し、後続Processがexact Recovery Identityを解決する。Project StateはTaskごとのRecovery Identityとsettlement後の`settledRecoveryId`を、Queueは同じ閉集合から作る非Authorityな適用IDを保持し、どちらか一方だけの更新後に停止しても未完了側だけを再開する。Recovery settlementは再計画回数を消費しない。Authority発行とSingle Task開始の間の取消は未使用Capabilityを同じ発行元で失効し、不明ならRecoveryへ閉じる。受入済み・取消済みrequestの再送は最新の終端投影を返し、新しいTask、Integrationまたは採用Effectを発行しない。これらは契約・Process内結合の成立であり、残る公開Process E2Eの成立へ読み替えない。
+Project全体E2E前の固定候補技術確認では、選択とQueue claimの間の優先順位競合、QueueとProject Stateの別々の耐久更新中断、Parent喪失時のTaskとDocker Recoveryの相関、再計画上限0でのRecovery停止、終端request再送、およびTask Authority発行直後の取消に未閉包の境界を検出した。最初の是正では、Repository Binding単位Lease取得後のfreshなQueue再選択、Project Operation IDによるDocker Recovery相関、単一Recovery IDのsettlement、および未使用Authority失効を接続した。その後の独立確認で、複数Recovery IDの欠落、種別を失った誤った回復処理、個別settlementの再実行、Effect開始前後を区別しない`running`表示、Authority失効不明後のProcess再利用、公開結果への回復情報伝播不足を検出した。現在の候補は、TaskごとにHost／Docker／Candidate／Candidate Storeの型付き回復義務と`required / recovering / settled`を耐久化し、全義務がsettleした後だけfresh retryへ進める。未知・不一致なIDから合成Recovery Identityを作らず、回復対象未解決・Process再利用禁止へ閉じる。Task開始は`reserved → handoff_prepared → running`をEffect境界に合わせ、Parent喪失時はreservedをEffect 0へ戻し、preparedはexact一致または明示的な不存在、runningはexact一致だけを採用する。Authority失効不明はProcessをpoisonし、Project結果へ再起動義務と全回復情報を保持する。Queue／State／個別義務の途中更新後も、耐久段階から未完了Effectだけを再開する。これらは契約・Process内結合の成立であり、残る公開Process E2Eの成立へ読み替えない。
 
 ## 9. 設計確定からリリース判断までの実行計画
 

@@ -4391,6 +4391,19 @@ test("Project Operation correlation resolves the exact durable Docker Recovery I
       {
         status: "completed",
         bindings: [{ correlationId, recoveryId }],
+        absentCorrelationIds: [],
+      },
+    );
+    assert.deepEqual(
+      resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver(
+        ["project-operation-absent"],
+        root,
+        () => root,
+      ),
+      {
+        status: "completed",
+        bindings: [],
+        absentCorrelationIds: ["project-operation-absent"],
       },
     );
   } finally {

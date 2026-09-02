@@ -257,7 +257,7 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
   const { root, input } = fixture(t, tasks, 5);
   let active = 0;
   let maximumActive = 0;
-  let runningAtFirstEffect: number | null = null;
+  let preparedAtFirstEffect: number | null = null;
   let authoritiesIssued = 0;
   const observedAuthorities = new Set<object>();
   const outcome = await runProjectRuntimeOperation(
@@ -268,7 +268,7 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
       },
       runSingleTaskAttempt: async (attempt) => {
         observedAuthorities.add(attempt.taskAuthorityCapability);
-        if (runningAtFirstEffect === null) {
+        if (preparedAtFirstEffect === null) {
           const observed = readProjectRuntimeState(
             root,
             "binding-a",
@@ -276,10 +276,14 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
           );
           assert.equal(observed.status, "completed");
           assert.ok(observed.value);
-          runningAtFirstEffect =
-            observed.value?.tasks.filter((entry) => entry.state === "running")
-              .length ?? null;
+          preparedAtFirstEffect =
+            observed.value?.tasks.filter(
+              (entry) =>
+                entry.state === "starting" &&
+                entry.startPhase === "handoff_prepared",
+            ).length ?? null;
         }
+        assert.equal(await attempt.observeStarted?.(), true);
         active += 1;
         maximumActive = Math.max(maximumActive, active);
         await new Promise((resolve) => setTimeout(resolve, 5));
@@ -290,7 +294,7 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
     input,
   );
   assert.equal(outcome.status, "completed");
-  assert.equal(runningAtFirstEffect, 5);
+  assert.equal(preparedAtFirstEffect, 5);
   assert.equal(maximumActive, 5);
   assert.equal(outcome.completedTaskIds.length, 7);
   assert.equal(authoritiesIssued, 7);
@@ -415,12 +419,8 @@ test("PR-A-03 rejects recovery identifiers that durable Project State cannot sto
       assert.equal(outcome.reason, "project_runtime_task_recovery_required");
       const state = readProjectRuntimeState(root, "binding-a", "project-a");
       assert.equal(state.status, "completed");
-      assert.match(
-        state.status === "completed" && state.value
-          ? (state.value.tasks[0]?.recoveryId ?? "")
-          : "",
-        /^project-task-recovery-[0-9a-f]{40}$/u,
-      );
+      assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
+      assert.deepEqual(state.value?.tasks[0]?.recoveryObligations, []);
     });
   }
 });
@@ -692,6 +692,61 @@ test("PR-Q-04 revokes a freshly issued unused Authority when cancellation arrive
   const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
   assert.equal(queue.status, "completed");
   assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
+});
+
+test("Authority発行失敗はEffect 0でreplanへ閉じる", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  let effects = 0;
+  const outcome = await runProjectRuntimeOperation(
+    {
+      issueTaskAuthority: () => null,
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.reason, "project_runtime_replan_required");
+  assert.equal(outcome.effectState, "settled");
+  assert.equal(outcome.processRestartRequired, false);
+  assert.equal(effects, 0);
+  const state = readProjectRuntimeState(root, "binding-a", "project-a");
+  assert.equal(state.value?.tasks[0]?.state, "failed");
+});
+
+test("未使用Authorityの取消結果が不明なら同一Processをpoisonして再起動を要求する", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const controller = new AbortController();
+  let poisoned = 0;
+  let effects = 0;
+  const outcome = await runProjectRuntimeOperation(
+    {
+      issueTaskAuthority: () => {
+        controller.abort();
+        return {};
+      },
+      revokeTaskAuthority: () => false,
+      poisonProcessAfterAuthorityRevocationUnknown: () => {
+        poisoned += 1;
+      },
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    { ...input, cancellationSignal: controller.signal },
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.reason, "project_runtime_task_recovery_required");
+  assert.equal(outcome.cleanupConfirmed, false);
+  assert.equal(outcome.effectState, "unknown");
+  assert.equal(outcome.processRestartRequired, true);
+  assert.equal(poisoned, 1);
+  assert.equal(effects, 0);
+  const state = readProjectRuntimeState(root, "binding-a", "project-a");
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
 });
 
 test("contract remains a partial Project Runtime capability", () => {

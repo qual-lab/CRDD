@@ -110,6 +110,7 @@ test("正常完了はattemptと固定Revisionへ結合した閉結果で返る",
     processRestartRequired: false,
     candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
     recoveryIds: [],
+    recoveryObligations: [],
   });
   assert.equal(startCalls.length, 1);
   const startArguments = startCalls[0];
@@ -148,6 +149,7 @@ test("入力不正はTask Effect 0の入力拒否として閉じる", async () =
       processRestartRequired: false,
       candidateId: null,
       recoveryIds: [],
+      recoveryObligations: [],
     });
   }
   assert.equal(startCalls.length, 0);
@@ -196,6 +198,7 @@ test("既知のEffect前拒否はEffect 0のblockedへ写像する", async () =>
       processRestartRequired,
       candidateId: null,
       recoveryIds: [],
+      recoveryObligations: [],
     });
   }
 });

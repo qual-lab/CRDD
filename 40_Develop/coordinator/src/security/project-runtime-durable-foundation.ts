@@ -2,7 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import type { ProjectRuntimeState } from "./project-runtime-state.ts";
+import type {
+  ProjectRuntimeState,
+  ProjectTaskRecoveryObligation,
+} from "./project-runtime-state.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 
 export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
@@ -161,6 +164,30 @@ function nullableRecoveryId(value: unknown) {
   );
 }
 
+function recoveryObligations(
+  value: unknown,
+): value is readonly ProjectTaskRecoveryObligation[] {
+  if (!Array.isArray(value) || value.length > 128) return false;
+  const identities = new Set<string>();
+  for (const entry of value) {
+    if (
+      !plainObject(entry) ||
+      !exactKeys(entry, ["kind", "recoveryId", "phase"]) ||
+      !["host", "docker", "candidate", "candidate_store"].includes(
+        String(entry.kind),
+      ) ||
+      !nullableRecoveryId(entry.recoveryId) ||
+      entry.recoveryId === null ||
+      !["required", "recovering", "settled"].includes(String(entry.phase))
+    )
+      return false;
+    const identity = `${entry.kind}\0${entry.recoveryId}`;
+    if (identities.has(identity)) return false;
+    identities.add(identity);
+  }
+  return true;
+}
+
 // Queue results may carry an exact opaque candidate or recovery reference.
 // These references use the same closed character set as stable IDs, but can
 // exceed the 128-character limit of ordinary project-local identifiers.
@@ -280,9 +307,10 @@ function validProjectRuntimeState(
         "attemptId",
         "operationId",
         "authorityBindingId",
+        "startPhase",
         "cleanupConfirmed",
-        "recoveryId",
-        "settledRecoveryId",
+        "recoveryObligations",
+        "recoveryUnresolved",
         "candidateId",
         "retryCount",
         "supersededBy",
@@ -319,9 +347,26 @@ function validProjectRuntimeState(
       !nullableId(task.attemptId) ||
       !nullableId(task.operationId) ||
       !nullableId(task.authorityBindingId) ||
+      !["none", "reserved", "handoff_prepared", "running", "settled"].includes(
+        String(task.startPhase),
+      ) ||
       typeof task.cleanupConfirmed !== "boolean" ||
-      !nullableRecoveryId(task.recoveryId) ||
-      !nullableRecoveryId(task.settledRecoveryId) ||
+      !recoveryObligations(task.recoveryObligations) ||
+      typeof task.recoveryUnresolved !== "boolean" ||
+      (task.state === "recovery_required" &&
+        task.recoveryObligations.length === 0 &&
+        task.recoveryUnresolved !== true) ||
+      (task.state !== "recovery_required" &&
+        task.recoveryUnresolved === true) ||
+      (task.state === "ready" &&
+        task.recoveryObligations.some((entry) => entry.phase !== "settled")) ||
+      (!["ready", "recovery_required"].includes(String(task.state)) &&
+        task.recoveryObligations.length > 0) ||
+      (task.state === "starting" &&
+        ((task.startPhase === "reserved" && task.operationId !== null) ||
+          (task.startPhase === "handoff_prepared" &&
+            task.operationId === null))) ||
+      (task.state === "running" && task.startPhase !== "running") ||
       !nullableCandidateId(task.candidateId) ||
       !Number.isSafeInteger(task.retryCount) ||
       Number(task.retryCount) < 0 ||

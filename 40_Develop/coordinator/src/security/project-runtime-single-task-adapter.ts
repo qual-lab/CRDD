@@ -35,6 +35,12 @@ export type ProjectRuntimeSingleTaskAttemptInput = Readonly<{
   taskRequest: unknown;
   repositoryRoot: unknown;
   cancellationSignal: AbortSignal;
+  observeStarted?: () => Promise<boolean>;
+}>;
+
+export type ProjectRuntimeSingleTaskRecoveryObligation = Readonly<{
+  kind: "host" | "docker" | "candidate" | "candidate_store";
+  recoveryId: string;
 }>;
 
 export type ProjectRuntimeSingleTaskResult = Readonly<{
@@ -51,6 +57,7 @@ export type ProjectRuntimeSingleTaskResult = Readonly<{
   processRestartRequired: boolean;
   candidateId: string | null;
   recoveryIds: readonly string[];
+  recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
 }>;
 
 export type ProjectRuntimeSingleTaskDependencies = Readonly<{
@@ -77,12 +84,14 @@ function result(
     processRestartRequired: boolean;
     candidateId: string | null;
     recoveryIds: readonly string[];
+    recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
   }>,
 ): ProjectRuntimeSingleTaskResult {
   return Object.freeze({
     contract: PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
     ...input,
     recoveryIds: Object.freeze([...input.recoveryIds]),
+    recoveryObligations: Object.freeze([...(input.recoveryObligations ?? [])]),
   });
 }
 
@@ -214,6 +223,7 @@ function inspectCompletionRecord(value: unknown): Readonly<{
   processRestartRequired: boolean;
   candidateId: string | null;
   recoveryIds: readonly string[];
+  recoveryObligations: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
 }> | null {
   try {
     if (!isPlainContainer(value)) return null;
@@ -262,15 +272,32 @@ function inspectCompletionRecord(value: unknown): Readonly<{
       if (!isProjectRuntimeRecoveryIdentity(id)) return null;
       dockerRecoveryIds.push(id);
     }
+    const recoveryObligations = [
+      ...(typeof hostRecoveryId === "string"
+        ? [{ kind: "host" as const, recoveryId: hostRecoveryId }]
+        : []),
+      ...dockerRecoveryIds.map((recoveryId) => ({
+        kind: "docker" as const,
+        recoveryId,
+      })),
+      ...(typeof candidateRecoveryId === "string"
+        ? [{ kind: "candidate" as const, recoveryId: candidateRecoveryId }]
+        : []),
+      ...(typeof candidateStoreRecoveryId === "string"
+        ? [
+            {
+              kind: "candidate_store" as const,
+              recoveryId: candidateStoreRecoveryId,
+            },
+          ]
+        : []),
+    ];
+    const identities = recoveryObligations.map(
+      (entry) => `${entry.kind}\0${entry.recoveryId}`,
+    );
+    if (new Set(identities).size !== identities.length) return null;
     const recoveryIds = [
-      ...new Set(
-        [
-          hostRecoveryId,
-          ...dockerRecoveryIds,
-          candidateRecoveryId,
-          candidateStoreRecoveryId,
-        ].filter((id): id is string => typeof id === "string"),
-      ),
+      ...new Set(recoveryObligations.map((entry) => entry.recoveryId)),
     ];
     if (recoveryIds.some((id) => !isProjectRuntimeRecoveryIdentity(id)))
       return null;
@@ -282,6 +309,9 @@ function inspectCompletionRecord(value: unknown): Readonly<{
       processRestartRequired,
       candidateId,
       recoveryIds: Object.freeze(recoveryIds),
+      recoveryObligations: Object.freeze(
+        recoveryObligations.map((entry) => Object.freeze(entry)),
+      ),
     });
   } catch {
     return null;
@@ -313,7 +343,9 @@ export async function runProjectRuntimeSingleTaskAttempt(
     typeof input.repositoryRevision !== "string" ||
     !REPOSITORY_REVISION.test(input.repositoryRevision) ||
     !isOpaqueCapability(input.taskAuthorityCapability) ||
-    !(input.cancellationSignal instanceof AbortSignal)
+    !(input.cancellationSignal instanceof AbortSignal) ||
+    (input.observeStarted !== undefined &&
+      typeof input.observeStarted !== "function")
   )
     return rejectedWithoutEffect(
       null,
@@ -377,6 +409,23 @@ export async function runProjectRuntimeSingleTaskAttempt(
       repositoryRevision,
       "single_task_start_observation_invalid",
     );
+  if (input.observeStarted) {
+    let observed = false;
+    try {
+      observed = (await input.observeStarted()) === true;
+    } catch {
+      observed = false;
+    }
+    if (!observed) {
+      try {
+        const cancellation = dependencies.cancelTask(started.controlCapability);
+        if (cancellation instanceof Promise)
+          await cancellation.catch(() => null);
+      } catch {
+        // The completion record below remains the authority for cleanup.
+      }
+    }
+  }
   let cancellationTransferred = false;
   const forwardCancellation = () => {
     if (cancellationTransferred) return;
@@ -451,6 +500,7 @@ export async function runProjectRuntimeSingleTaskAttempt(
     processRestartRequired: completion.processRestartRequired,
     candidateId: completion.candidateId,
     recoveryIds: completion.recoveryIds,
+    recoveryObligations: completion.recoveryObligations,
   });
 }
 

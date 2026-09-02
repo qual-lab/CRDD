@@ -3,14 +3,18 @@ import { describe, it } from "node:test";
 import {
   createProjectRuntimeState,
   describeProjectRuntimeStateContract,
+  markProjectTaskRecoveryObligationRecovering,
   observeProjectTaskStarted,
+  prepareProjectTaskHandoff,
   projectProjectRuntimeState,
   recordMilestoneIntegration,
   recordObjectiveIntegration,
   recordProjectTaskOwnerLossRecoveries,
+  retrySettledProjectTaskRecoveries,
   reserveProjectTaskStart,
   selectSchedulableProjectTasks,
   settleProjectTask,
+  settleProjectTaskRecoveryObligation,
   type ProjectRuntimeState,
   type ProjectTaskDefinition,
 } from "../src/security/project-runtime-state.ts";
@@ -70,9 +74,18 @@ function start(
   );
   assert.equal(reserved.status, "completed");
   assert.ok(reserved.state);
-  const observed = observeProjectTaskStarted(
+  const prepared = prepareProjectTaskHandoff(
     reserved.state,
     reserved.state.generation,
+    taskId,
+    attemptId,
+    `operation-${taskId}`,
+  );
+  assert.equal(prepared.status, "completed");
+  assert.ok(prepared.state);
+  const observed = observeProjectTaskStarted(
+    prepared.state,
+    prepared.state.generation,
     taskId,
     attemptId,
     `operation-${taskId}`,
@@ -134,7 +147,8 @@ describe("Project Runtime state contract", () => {
       authorityBindingId: "authority-task-a",
       outcome: "completed",
       cleanupConfirmed: true,
-      recoveryId: null,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
     });
     assert.equal(settled.status, "completed");
     assert.ok(settled.state);
@@ -176,7 +190,8 @@ describe("Project Runtime state contract", () => {
       authorityBindingId: "authority-task-a",
       outcome: "failed",
       cleanupConfirmed: false,
-      recoveryId: null,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
     });
     assert.equal(settled.status, "completed");
     assert.ok(settled.state);
@@ -197,7 +212,14 @@ describe("Project Runtime state contract", () => {
       authorityBindingId: "authority-task-a",
       outcome: "recovery_required",
       cleanupConfirmed: true,
-      recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+      recoveryObligations: [
+        {
+          kind: "docker",
+          recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+          phase: "required",
+        },
+      ],
+      recoveryUnresolved: false,
     });
     assert.equal(settled.status, "completed");
     assert.ok(settled.state);
@@ -215,7 +237,8 @@ describe("Project Runtime state contract", () => {
         authorityBindingId: "authority-task-a",
         outcome: "completed",
         cleanupConfirmed: true,
-        recoveryId: null,
+        recoveryObligations: [],
+        recoveryUnresolved: false,
       }).reason,
       "project_runtime_task_settlement_mismatch",
     );
@@ -256,7 +279,8 @@ describe("Project Runtime state contract", () => {
       authorityBindingId: "authority-task-a",
       outcome: "completed",
       cleanupConfirmed: true,
-      recoveryId: null,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
     });
     assert.equal(settled.status, "completed");
     assert.ok(settled.state);
@@ -265,7 +289,7 @@ describe("Project Runtime state contract", () => {
     assert.deepEqual(projectProjectRuntimeState(settled.state), {
       projectId: "crdd",
       milestoneId: "v0.19",
-      generation: 4,
+      generation: 5,
       milestoneState: "executing",
       objectiveCounts: {
         planned: 0,
@@ -306,7 +330,8 @@ describe("Project Runtime state contract", () => {
       authorityBindingId: "authority-task-a",
       outcome: "completed",
       cleanupConfirmed: true,
-      recoveryId: null,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
     });
     assert.ok(settled.state);
     const objective = recordObjectiveIntegration(
@@ -379,7 +404,8 @@ describe("Project Runtime state contract", () => {
       authorityBindingId: "authority-task-a",
       outcome: "completed",
       cleanupConfirmed: true,
-      recoveryId: null,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
     });
     assert.ok(settled.state);
     assert.equal(
@@ -403,7 +429,14 @@ describe("Project Runtime state contract", () => {
       authorityBindingId: "authority-task-a",
       outcome: "recovery_required",
       cleanupConfirmed: false,
-      recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+      recoveryObligations: [
+        {
+          kind: "docker",
+          recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+          phase: "required",
+        },
+      ],
+      recoveryUnresolved: false,
     });
     assert.ok(settled.state);
     const projection = projectProjectRuntimeState(settled.state);
@@ -431,7 +464,7 @@ describe("Project Runtime state contract", () => {
     assert.equal(recovered.status, "completed");
     assert.equal(recovered.state?.tasks[0]?.state, "ready");
     assert.equal(recovered.state?.tasks[0]?.operationId, null);
-    assert.equal(recovered.state?.tasks[0]?.recoveryId, null);
+    assert.deepEqual(recovered.state?.tasks[0]?.recoveryObligations, []);
     assert.equal(recovered.state?.milestone.state, "executing");
   });
 
@@ -441,12 +474,120 @@ describe("Project Runtime state contract", () => {
     const recovered = recordProjectTaskOwnerLossRecoveries(
       running,
       running.generation,
-      [{ operationId: "operation-task-a", recoveryId }],
+      [
+        {
+          operationId: "operation-task-a",
+          status: "matched",
+          recoveryId,
+        },
+      ],
     );
     assert.equal(recovered.status, "completed");
     assert.equal(recovered.state?.tasks[0]?.state, "recovery_required");
-    assert.equal(recovered.state?.tasks[0]?.recoveryId, recoveryId);
+    assert.deepEqual(recovered.state?.tasks[0]?.recoveryObligations, [
+      { kind: "docker", recoveryId, phase: "required" },
+    ]);
     assert.equal(recovered.state?.milestone.state, "recovery_required");
+  });
+
+  it("handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻す", () => {
+    const initial = stateFor([task("task-a")]);
+    const reserved = reserveProjectTaskStart(
+      initial,
+      initial.generation,
+      "task-a",
+      "attempt-task-a",
+      "authority-task-a",
+    );
+    assert.ok(reserved.state);
+    const prepared = prepareProjectTaskHandoff(
+      reserved.state,
+      reserved.state.generation,
+      "task-a",
+      "attempt-task-a",
+      "operation-task-a",
+    );
+    assert.ok(prepared.state);
+    const recovered = recordProjectTaskOwnerLossRecoveries(
+      prepared.state,
+      prepared.state.generation,
+      [
+        {
+          operationId: "operation-task-a",
+          status: "verified_absent",
+          recoveryId: null,
+        },
+      ],
+    );
+    assert.equal(recovered.status, "completed");
+    assert.equal(recovered.state?.tasks[0]?.state, "ready");
+    assert.deepEqual(recovered.state?.tasks[0]?.recoveryObligations, []);
+  });
+
+  it("running Taskを不存在観測だけでreadyへ戻さない", () => {
+    const running = start(stateFor([task("task-a")]), "task-a");
+    const recovered = recordProjectTaskOwnerLossRecoveries(
+      running,
+      running.generation,
+      [
+        {
+          operationId: "operation-task-a",
+          status: "verified_absent",
+          recoveryId: null,
+        },
+      ],
+    );
+    assert.equal(recovered.status, "blocked");
+    assert.equal(recovered.state?.tasks[0]?.state, "running");
+  });
+
+  it("複数種のRecoveryを項目ごとの受領状態で保持する", () => {
+    let state = start(stateFor([task("task-a")]), "task-a");
+    const dockerId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+    const hostId = `host-task.${"d".repeat(64)}`;
+    const settled = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      authorityBindingId: "authority-task-a",
+      outcome: "recovery_required",
+      cleanupConfirmed: false,
+      recoveryObligations: [
+        { kind: "docker", recoveryId: dockerId, phase: "required" },
+        { kind: "host", recoveryId: hostId, phase: "required" },
+      ],
+      recoveryUnresolved: false,
+    });
+    assert.ok(settled.state);
+    state = settled.state;
+    const recovering = markProjectTaskRecoveryObligationRecovering(
+      state,
+      state.generation,
+      "task-a",
+      "docker",
+      dockerId,
+    );
+    assert.ok(recovering.state);
+    const itemSettled = settleProjectTaskRecoveryObligation(
+      recovering.state,
+      recovering.state.generation,
+      "task-a",
+      "docker",
+      dockerId,
+    );
+    assert.ok(itemSettled.state);
+    assert.deepEqual(itemSettled.state.tasks[0]?.recoveryObligations, [
+      { kind: "docker", recoveryId: dockerId, phase: "settled" },
+      { kind: "host", recoveryId: hostId, phase: "required" },
+    ]);
+    assert.equal(
+      retrySettledProjectTaskRecoveries(
+        itemSettled.state,
+        itemSettled.state.generation,
+        ["task-a"],
+      ).status,
+      "blocked",
+    );
   });
 
   it("Lockとstale resultの保持条件を説明する", () => {
