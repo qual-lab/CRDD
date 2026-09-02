@@ -29,6 +29,13 @@ Any "Qual ..." family name, product name, sub-brand, logo, or distinctive brand 
 
 These marks are claimed and protected to the extent available under applicable law. The presence of a name in this policy is not a representation that it is registered in every jurisdiction. Additional marks may be added over time; this file is the authoritative repository list.
 
+The official CRDD brand icon supplied by Qual-Lab is stored in the following source-size variants:
+
+- [`crdd-brand-icon-512x512.jpg`](04_UI/assets/brand/crdd-brand-icon-512x512.jpg)
+- [`crdd-brand-icon-400x400.jpg`](04_UI/assets/brand/crdd-brand-icon-400x400.jpg)
+
+These files are resolution variants of the same CRDD mark, not separate marks. Their inclusion in the repository identifies the official source files and does not expand the permissions in §3 or remove the requirements in §4.
+
 ---
 
 ## 3. What You May Do Without Separate Permission
