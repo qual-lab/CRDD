@@ -1,13 +1,13 @@
 # CRDD内部ツールの操作・表示
 
-状態: 内容採用・PR #32でmain統合済み・公開準備中
+状態: v0.18.1 Stable Baseline／v0.19 Project Runtime Candidate（未実装）
 担当責任者: Qual-Lab
-最終更新日: 2026-08-31
+最終更新日: 2026-09-02
 工程規則: [UI](../25_UI.md)、[UIと仕様の対応レビュー](../24_UI_Behavior_Specification.md)
 
 ## 1. 対象と読み方
 
-[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）に必要な入力・認識・フィードバック・回復を整理する。新しいGUIやTUIを設計した文書ではない。
+[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）に必要な入力・認識・フィードバック・回復を整理する。§2～§7はv0.18.1 Stable Baseline、§8「Project Runtimeの状態表示」は未実装のv0.19 Candidateである。新しいGUIやTUIを設計した文書ではない。
 
 以下の「現行」は[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[対話入力](../40_Develop/coordinator/src/core/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
 
@@ -115,7 +115,9 @@ Process再起動の必要性: あり
 | 詳細設計の読み解き | SPEC・実行設計・脅威モデルの責務分離と再構成、設計文書の改名、設計・実装・試験の横断整合を完成評価で確認 | [完成評価](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)と[CHGの処置](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)で追跡。全読者の理解度を実測したとはしない |
 
 UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが候補内容・移行方針を採用し、PR #32でmainへ統合した。[公開準備と最終確認](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)は別に追跡する。表示の「読めた」という観測と、その後の採用判断を区別し、全アクセシビリティ対応やRelease完了を実証済みとしない。
-## 6. Project Runtimeの状態表示
+## 8. Project Runtimeの状態表示
+
+本節はv0.19 Project Runtimeの未実装Candidateであり、現行CLI／MCPで表示できる能力を示さない。
 
 v0.19の主要表示は、内部WorkerのLogではなくMilestoneの現在状態とする。最初にProject、Milestone、完了Objective数、Current Objective、Task内訳、Critical Path、Blocker、Risk、Human Decision、QualityおよびNext Actionを示す。機械ID、Provider出力、回復詳細は必要な場合に段階的に表示するが、重大な停止・回収不明・人間判断を詳細へ隠さない。
 
@@ -126,3 +128,9 @@ v0.19の主要表示は、内部WorkerのLogではなくMilestoneの現在状態
 対話作業との競合でスケジュール実行を待機させた場合は、`対話作業を優先して待機中`、固定した基準Revision、再開条件およびScope変更の有無を平易に示す。内部Lock名やQueue recordだけを表示して利用者へ原因推測を求めない。安全な自動再開なら追加承認を求めず、再計画または人間判断が必要な場合だけ影響と選択肢を示す。
 
 人間判断が0件なら、その状態を短く示してRuntimeが次のObjectiveへ進める。判断が必要な場合は、何が起きたか、Planを維持できない理由、影響、選択肢、推奨および保留時の扱いを先に示し、Findingや内部識別子の羅列を主表示にしない。CLIとMCP応答は同じ意味状態を共有し、画面ごとに成功・停止の判定を変えない。
+
+MCPの判断応答では、人間向けの選択肢と影響を先に示し、送信に必要なdecision ID、Project／Milestone、世代、改訂版を同じ判断単位に結び付ける。古い判断を送信した場合は「入力失敗」だけで終えず、現在有効な判断が変わったこと、Projectへの変更がなかったこと、次に確認する判断要求を示す。内部Task、Scheduler、Lock、Recovery操作は人間向けMCP操作として表示しない。
+
+判断送信後の主表示は、Project State適用前を「未受理」、DecisionとMilestoneの適用後かつQueue未Leaseを「判断受理済み・安全に再開待ち」、QueueのLease後を「再開権を確保」とする。実Taskが`running`へ進んだ後だけ「実行再開」と表示する。中間状態では、判断内容が失われていないこととRuntimeが安全な再照合を継続することを示し、人間へ再送や内部回復操作を求めない。Queue未LeaseまたはLeaseだけが成立した段階でRunning表示、実行中の色または完了表現を使用しない。
+
+接続後の再表示は、同じ`crdd.run_objective` request identityの再送で行う。画面は「新しく開始した」か「既存Operationへ再接続した」かを区別し、再接続では重複Taskを起動していないことと現在状態を示す。判断用のopaqueな継続CapabilityはClient内部で搬送し、人間向け画面、コピー操作、ログまたはProvider出力へ表示しない。期限切れ・消費済み・別主体では判断Effectがなかったことと次の処置を示し、別主体や誤入力だけで正規Capabilityを失効させない。Capability応答喪失ではClientが同じObjective接続内で明示置換し、旧Capabilityの失効確認後に新しい1件だけを内部受領する。判断適用後の応答喪失では新規受理ではなく既存結果を表示する。

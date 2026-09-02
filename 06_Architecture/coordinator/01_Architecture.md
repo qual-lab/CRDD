@@ -1,6 +1,6 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
-状態: Stable（v0.18.1）
+状態: Stable Baseline（v0.18.1）／Project Runtime Candidate（v0.19.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-02
 
@@ -329,7 +329,7 @@ Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使�
 
 ## 14. Project Runtime参照アーキテクチャ
 
-v0.19は既存Task Runtimeを複数Task対応へ直接膨張させず、その上位にProject Runtimeを置く。
+v0.19は既存Task Runtimeを複数Task対応へ直接膨張させず、その上位にProject Runtimeを置く。Interface、永続Record、資源・Lock、Effect順序、失敗注入点および実装・検証対応は[Project Runtime詳細設計](03_Project_Runtime_Design.md)を参照する。
 
 ```text
 MCP／CLI
@@ -348,7 +348,9 @@ SchedulerはTask Graph上のDependencyだけでなく、許可Path、共有資�
 
 Project StateはRuntime所有の現在状態であり、Roadmap、CHGまたはProvider出力を状態Storeにしない。各TaskのOperation／Candidate／Recovery IdentityとProject／Milestone／Objectiveの関係を保持し、取消・回復・期限切れ後に別TaskのIdentityへ読み替えない。Project Runtimeのcleanupは、全子Taskの終了と所有資源の観測後にだけ成立する。
 
-最初のMCP縦断経路は、Objective Intakeから既存Single Task Runtimeを一回実行して結果を返す範囲に限定する。MCP固有Project Model、Repository直接操作、MCP ClientからのAuthority継承または複数Repository探索を追加しない。この薄い経路でIdentity、取消、結果投影およびcleanupを確認してからTask Graphを接続する。
+最初のMCP縦断経路は、`crdd.run_objective`でObjective Intakeから既存Single Task Runtimeを一回実行して結果を返す範囲に限定する。同じ認証済み主体・Project／Milestone・request identityの再送はOperationを増やさず、最新Project State、現在の判断要求または終端結果を返す。人間判断は`crdd.submit_decision`だけから現在の判断要求へ接続し、decision ID、Project／Milestone、世代、改訂版、選択肢、選択ユーザーのOS principal、および判断発行時にRuntimeが作った一回限り・期限付き継続CapabilityをRuntimeが再確認する。Capabilityのraw値はClientへ一度だけ返し、RuntimeはRepository外のOS管理・Runtime保護Rootへ、対象と主体へ結合したhash、期限、消費状態だけを保存する。Platform AdapterがRoot identity、選択ユーザー、固定Volume、非reparse chain、Owner／Protectionおよびatomic updateを確認できない場合はEffect 0にする。Root間の原子性は仮定せず、保護Recordへapplication IDとexpected／new Project世代を`prepared`として耐久化し、Decision／MilestoneをProject Stateへ一括適用してreadbackした後、保護Recordを`finalized`へ進める。Project Stateだけが不明で保護Rootを更新できる場合は、別の検証済みRecovery Storeへ回復意図を先に耐久化して保護RecordをRecoveryへ進める。保護Root自体が不明なら同Rootの遷移を主張せず、別Recovery Storeだけへexactな回復意図を残す。そのStoreも不明なら手動回復・Effect不明・Process再利用禁止とする。再起動時は回復意図、保護Root、Project StateのID・世代・dispositionをfreshに結合し、継続Recordを収束させてから回復意図をsettleする。Queueは`finalized`とProject Stateの一致を確認した後に別の短時間更新で一度だけLeaseする。無効入力は正規Capabilityを失効させない。応答喪失では同じ`run_objective`へ明示的な置換意図と置換request identityを渡し、旧hash失効後だけ新しい1件を発行する。MCP固有Project Model、Repository直接操作、MCP ClientからのAuthority継承、内部Task／Scheduler／再計画／統合の直接操作または複数Repository探索を追加しない。`crdd.get_project_state`はv0.20以降の保留候補であり、v0.19の公開面に含めない。
+
+保護Root更新の応答・readback喪失は、更新種別とfreshな観測結果を組にして回復する。初回作成後のexactな`absent`＋raw未返却＋Project未適用、および期限更新後のexactな`expired`＋Project未適用は継続遷移なしで回復意図をsettleできる。freshな`issued`はRecovery Authorityで`invalidated`、freshな`prepared`は`recovery_required`へ進め、matching new／verified old-unappliedの既存照合へ接続する。必要な継続Record更新をreadbackする前に独立Recovery Intentをsettleしない。
 
 ### 14.1 状態の責務分離
 

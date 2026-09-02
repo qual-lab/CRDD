@@ -1,8 +1,8 @@
 # CRDD内部ツールの利用体験
 
-状態: 既存実装から再構成した設計候補・工程移行未承認
+状態: v0.18.1 Stable Baseline／v0.19 Project Runtime Candidate（未実装）
 担当責任者: Qual-Lab
-最終更新日: 2026-08-31
+最終更新日: 2026-09-02
 工程規則: [UX](../22_UX.md)
 
 ## 1. 目的と対象
@@ -20,7 +20,7 @@
 | 標準を保守する人・CI | Checkerの指摘と未確認範囲を読み、対象文書を直せる | 機械検査を意味監査や準拠認定とみなさない |
 | Runtimeを開発・配布する人 | 開発反復と公式署名を分けて検証できる | 一般利用者へRelease秘密鍵を要求しない。native補助は内部部品 |
 
-対象は現行のCoordinator、Checker、および内部native補助の利用者への影響である。新GUI、TUI、MCP、複数Project運営、新しい外部ツール利用、配布方式の新設は今回の設計対象に含めない。これは将来能力の不採用判断ではない。
+§2～§5は現行のCoordinator、Checker、および内部native補助の利用者への影響を扱うv0.18.1 Stable Baselineである。新GUI、TUI、複数Project運営、新しい外部ツール利用、配布方式の新設は対象に含めない。§6だけはv0.19 Project Runtimeの未実装Candidateを扱い、MCP／CLIの同一意味体験を設計する。Candidateの記述は現在利用可能な能力、公開済み契約または工程移行承認を意味しない。
 
 ## 2. 利用者体験の流れと提供責務
 
@@ -78,6 +78,8 @@ platform-accessは独立した利用者画面を持たないが、利用者へ�
 次工程の[情報構造](../03_IA/01_Information_Architecture.md)と[UI](../04_UI/01_User_Interface.md)は、この候補の照合先であって承認済み引渡しではない。既知差の所有者・再確認条件は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)、実施履歴とレビューは[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)へ集約する。Qual-Labが内容・未確認範囲と独立レビューを確認して工程移行を判断する。
 ## 6. Milestoneを委ねる利用体験
 
+本節はv0.19 Project Runtimeの未実装Candidateであり、現在のv0.18.1 Runtimeで利用できる体験ではない。
+
 v0.19では、人間がTaskを一件ずつ分解・起動・監視する体験から、対象ProjectとMilestone、保持する意図、受入条件および判断権限を示し、Project Runtimeへ進行を委ねる体験へ拡張する。人間が内部Taskの切替や空いた実行枠ごとに承認を繰り返すことを正常経路にしない。
 
 この体験の認知意図（Cognitive Intent）は次である。現在状態は、[v0.18の実務自己適用で観測した人間による進行追跡・反復操作](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)を根拠にした設計仮説として、「内部TaskやAgent Logを追わないと、何が進み、何を判断すべきか分からない」と置く。全利用者について実証済みの事実とはしない。主な障壁は実行状態・品質・判断待ちの混在と内部情報の過多、目標状態は「Milestoneがどこまで成立し、次にRuntimeが何を行い、人間が今判断すべき事項があるかを理解できる」とする。必要な根拠／情報は、Objectiveの受入状態、Task内訳、Dependency、Critical Path、Blocker、Risk、Human Decision、Integration State、Quality StateおよびNext Actionである。意図する判断／行動は、判断不要なら作業をRuntimeへ委ね続け、必要な場合だけ提示された選択肢から判断することである。
@@ -85,6 +87,12 @@ v0.19では、人間がTaskを一件ずつ分解・起動・監視する体験�
 利用者は、現在のMilestone、Objective、完了／実行中／依存待ちのTask、Critical Path、Blocker、Risk、Human Decision、Qualityおよび次の行動を、Worker Logを読まずに理解できる必要がある。推定Progressや未観測の残時間を事実として表示せず、進捗と成立品質を分ける。
 
 RuntimeはTask失敗だけで人間へ戻さず、計画維持、影響部分の再計画、人間判断が必要な変更を分ける。人間へ戻す場合は、発生事象、現在Planを維持できない理由、影響するObjective／Milestone、選択肢、推奨、保留時の扱いを一つの判断単位として示す。Scope変更、Authority不足、価値判断またはRisk受容を内部再計画へ隠さない。
+
+MCPで判断を返す場合も、人間は内部TaskやLockを操作しない。現在の判断要求に表示された選択肢を選び、必要な場合だけコメントを添える。古い画面や別Milestoneの判断を送った場合は安全に拒否され、現在有効な判断要求へ戻れる。MCP接続やProviderの存在だけで人間の判断済みとは扱わない。
+
+判断送信後の表示は、Project Stateへの適用前を「未受理」、DecisionとMilestoneがProject Stateへ適用済みでQueueがまだLeaseされていない正当な中間状態を「判断受理済み・安全に再開待ち」、QueueのLease後を「再開権を確保」と区別する。実Taskが`running`へ進んだ後だけ「実行再開」と表示する。中間状態を失敗や未受理へ戻して見せず、QueueのLease前に再開済みと表示しない。利用者へ内部の保護RecordやLock操作を要求せず、Runtimeが再照合と安全な再開を継続する。
+
+接続が切れた場合、利用者は同じObjective要求を同じrequest identityで再送できる。Runtimeは作業を重複起動せず、最新の進捗、現在の判断要求または終端結果を返す。一般Project検索はv0.19へ追加せず、別Projectや別requestの状態を推測して表示しない。判断用の継続CapabilityはClientが内部保持し、人間へ確認コードの転記を求めない。Capabilityが期限切れ・消費済み・別主体の場合は新しい判断を適用せず、現在状態と再接続に必要な処置を示す。別主体や誤入力で正当利用者のCapabilityを失効させない。Capability応答を受け取れなかった場合は、Clientが同じObjective接続内で明示的に置換を要求し、Runtimeが旧Capabilityの失効を確認してから新しい1件だけを返す。判断送信後に応答が失われても、再送によってMilestoneやTaskを二重に開始しない。
 
 対話中の作業とスケジュール実行が同じProjectへ到着した場合、利用者へ競合解消を丸投げせず、対話中の作業を優先してスケジュール作業を待機させる。安全に独立した読取りや隔離候補の作成は継続できるが、正本への採用は一つずつ行い、待機中、実行中、再計画待ちを区別して示す。待機Taskごとの再承認は要求せず、Scope変更、基準Revisionの意味変更または解決不能な競合だけを人間へ返す。
 

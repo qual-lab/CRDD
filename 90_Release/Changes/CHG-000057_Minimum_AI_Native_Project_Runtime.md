@@ -10,7 +10,7 @@
 - `migration_required`: `true`候補。v0.18 Runtime利用者の既存Task入口は保持し、新しいProject Runtime利用時だけ追加契約を適用する
 - リリースレベル: `MINOR`候補
 
-正本: [Discovery](../../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[UX](../../02_UX/01_User_Experience.md#6-milestoneを委ねる利用体験)、[IA](../../03_IA/01_Information_Architecture.md#6-project-runtimeの情報階層)、[UI](../../04_UI/01_User_Interface.md#6-project-runtimeの状態表示)、[振る舞い仕様](../../05_SPEC/01_Behavior_Specification.md#project-runtime-contract)、[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-reference-architecture)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification)
+正本: [Discovery](../../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[UX](../../02_UX/01_User_Experience.md#6-milestoneを委ねる利用体験)、[IA](../../03_IA/01_Information_Architecture.md#6-project-runtimeの情報階層)、[UI](../../04_UI/01_User_Interface.md#8-project-runtimeの状態表示)、[振る舞い仕様](../../05_SPEC/01_Behavior_Specification.md#project-runtime-contract)、[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-reference-architecture)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification)
 
 ## 1. Triggerと人間の判断
 
@@ -29,7 +29,7 @@ v0.18.0で、公式Codex／Claude Code CLIをCoordinatorが仲介し、一つの
 
 一つの明示Binding済みRepositoryを持つProjectについて、人間がMilestoneと受入条件を示した後、Parent CoordinatorがProject Contextを理解し、Objectiveと任意数のTaskへ計画し、Dependencyと競合に応じて最大5 Taskを並行実行し、進捗、再計画、人間判断および統合受入を管理できるようにする。
 
-MCPはProject Runtimeへの薄い外部接続面として追加し、CLIと同じCoordinator Coreへ接続する。MCP固有のProject Model、AuthorityまたはRepository直接操作を作らない。
+MCPはProject Runtimeへの薄い外部接続面として追加し、CLIと同じCoordinator Coreへ接続する。v0.19の公開面は`crdd.run_objective`と`crdd.submit_decision`に限定し、同じrequest identityの再送を切断後の最新状態取得へ用いる。選択ユーザーのOS principal、既存Milestone AuthorityおよびRuntime発行の一回限り・期限付き継続CapabilityをHuman Decisionへ結合する。Runtimeはraw値を保持せず、対象・主体・世代・改訂版・期限へ結合したhashと消費状態だけをRepository外のOS管理・Runtime保護Rootへ保存する。Repository外の保護RecordとRepository内Project Stateにまたがる原子性は仮定せず、decision application IDと適用前後のProject世代を保護Recordへ`prepared`として耐久化し、DecisionとMilestoneを一つのProject State世代へ適用・再読取りした後に`finalized`とする。再起動時は両側のID・世代・状態から再適用、未適用、finalizeまたはRecoveryを一意に選び、判定不能ならQueue、LeaseおよびTask Effectを発行しない。Queueは両側の一致と`finalized`を確認した後に一度だけLeaseする。無効入力は正規Capabilityを変更せず、応答喪失時の明示置換は旧hashを先に失効して新しい1件だけを発行する。MCP固有のProject Model、Authority、Repository直接操作または内部Task／Scheduler／再計画／統合の直接操作を作らない。`crdd.get_project_state`はv0.20以降の保留候補であり、本変更の完成条件へ含めない。
 
 ## 4. 保持する意図と変更禁止範囲
 
@@ -77,29 +77,31 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 これはProject Runtime全体の完成、MCPの外部公開、v0.19.0 ReleaseまたはRisk受容を意味しない。Project State Store、Project Operation lease、対話優先の耐久Operation Queue、正本採用Lease、Single Task Runtimeとの複数Task結合、部分再計画、Parent喪失、実成果物のIntegrationおよび公開入口E2Eは未接続である。
 
-次のGateは、先行するCommunication固定、Checker、独立レビュー、指摘是正および再確認の完了後、この状態契約を機械可読な設計対応へ接続したうえで、Project State Store、耐久Operation Queue、Project Operation leaseおよび正本採用Leaseを実装し、Lockを保持せずSingle Task Runtimeを呼ぶ結合経路を固定することである。先行期間中も現在の設計・実装・試験増分は本CHGへ保持し、未完成能力をRelease済みまたは破棄済みへ変更しない。独立レビューは、この固定候補が設計、実装および試験を一続きに再構成できる段階で行う。
+Project Runtimeの設計固定版では、[Project Runtime詳細設計](../../06_Architecture/coordinator/03_Project_Runtime_Design.md)に9 Interface、9永続Record、13資源、4 Lock、7 Authority、9 Effect、7状態機械、52遷移、27不変条件および15失敗注入点を固定した。[機械可読な設計対応](../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)は、各遷移をexactに一つの対応へ結び、その対応からLock・Authority・Effect・順序・検証を解決し、孤立、未知参照、未接続・重複接続、異質遷移の和集合化、Record時間関係の逆転、人間向け正本との双方向不一致および実在Pathとの差を決定論的に拒否する。人間判断では、Platform Adapter所有の保護Record `absent → issued`とreadback後のClient返却、`issued → prepared`、Decision／Milestoneの同一Project State世代への適用と再読取り、同Adapterによる`prepared → finalized`、および保護Rootのfreshな`finalized`観測後のQueue Leaseという順序を要求する。`prepared`後の失効にはProject旧世代・未適用のfresh確認を必須とする。Project側だけが不明なら別の検証済みRecovery Storeへexactな回復意図を先に残して保護RecordをRecoveryへ進め、保護Root自体が不明なら同Rootの遷移を捏造せず別Recovery Storeだけへ回復意図を残す。そこも不明なら手動回復・Effect不明・Process再利用禁止とする。Recoveryは回復意図、保護Root、Project Stateをfreshに結合し、matching newを`finalized`、verified old/unappliedを`invalidated`へ収束する。初回作成後のexactな`absent`＋raw未返却＋Project未適用、および期限更新後のexactな`expired`＋Project未適用はEffect 0で安全にsettleし、freshな`issued`はinvalidated、freshな`prepared`はrecovery_requiredから既存照合へ接続する。必要な継続Record更新のreadback後だけ回復意図をsettleし、不明・競合では回復意図をrequiredに保持する。OS管理保護Root、無効入力時の不変、応答喪失時の明示置換、二重発行、Capability lifecycle欠落も拒否する。既存のProject状態契約とMCP Adapterは`partial`、State Store、Queue、Project Adapter、Human Decision ControllerおよびPlatform Contractは`planned`として区別しており、この固定版の設計完了をProject Runtimeの実装完了または公開完了へ読み替えない。
 
-## 9. 設計固定からClosureまでの実行計画
+設計の独立Architecture／Securityレビュー、文書Scope／Gap／Impact確認および指摘是正は完了した。機械確認は52遷移／52対応、契約試験13/13、Coordinator全確認およびCRDD全体Checkerで成立し、独立再レビューは重大・中重大度の指摘0でPassした。未評価範囲は、Project State Store、Queue、Platform Adapter、Human Decision Controllerの実装、実OS保護Storeの障害注入および公開CLI／MCP E2Eである。次は既存Single Task Runtimeの意味と署名対象を保持したままProject AdapterとPlatform Contractを抽出し、Project Runtime CoreからWindows固有moduleへの新規直接依存を拒否する。その後にProject State Store、耐久Operation Queue、Project Operation leaseおよび正本採用Leaseを実装する。未完成能力をRelease済みまたは破棄済みへ変更しない。
+
+## 9. 設計確定からリリース判断までの実行計画
 
 次の段階は依存順で進める。内部Taskへ分割できるが、後段の成功を前段の完了根拠へ流用しない。各段階の実装開始前に、対象Interface、保持する意図、変更禁止範囲、正常・準正常・異常、受入条件および検証方法をTask Packetへ固定する。
 
 | 段階 | 変更内容 | 段階の完了条件 |
 |---|---|---|
-| D0 設計固定 | Project Runtime Core、Single Task Adapter、State Store、Queue／Lease、Scheduler、Integration、CLI／MCPの責務とInterfaceを確定。永続Schema、原子的更新、Lock順序、再計画、受入Evidence、脅威と失敗注入点を設計対応へ接続 | DiscoveryからVerificationまでの意味一致、機械可読な状態・資源・遷移・不変条件・検証対応、Checker、Architecture／Securityレビュー、文書／影響確認が成立 |
-| I1 Coordinator責務分離 | 既存Single Task Runtimeの契約を維持し、Project Runtimeから呼べるAdapterを抽出。Platform Contractを置き、Project Runtime CoreからWindows固有moduleへの直接依存を禁止 | 既存Single Task試験と署名対象の意味回帰0、Project Runtime CoreのPlatform非依存、Windows Adapter経由で同じ保証を再現 |
-| I2 耐久基盤 | Project State Store、Operation Queue、Project Operation Lease、正本採用Leaseを実装 | durable-before-effect、世代付き原子的更新、重複Effect 0、owner喪失・破損・観測不能のFail Closed、回収条件を契約試験で確認 |
-| I3 単一Task縦断 | CLI／MCP Objective IntakeからTask exact 1件を既存Runtimeへ渡し、Project Stateへ結果を反映 | CLIとMCPの意味一致、Adapter固有Authority 0、再送の冪等性、切断後cleanup、公開入口の正常・異常結合が成立 |
-| I4 複数Task実行 | Task Graph、Dependency、競合予約、容量最大5、枠解放後開始を接続 | 1～5並列、5超の待機、Dependency、共有競合、古いReady、cleanup不明、6件目Effect 0を結合試験で確認 |
-| I5 進捗・再計画 | Project State Projection、計画維持、部分再計画、人間判断移送を接続 | Work ProgressとQualityを分離し、`superseded`と後継、再計画上限、Scope外停止、判断表示を確認 |
-| I6 統合・採用候補 | Objective／Milestone Integration、Integration workspace、正本採用Leaseを接続 | 個別Passから成功を生成せず、受入Evidence、Cross-task conflict、Revision再確認、候補の採用・破棄・cleanupを確認 |
-| V1 Project E2E | CLI／MCP、取消、Parent喪失、Recovery、対話／スケジュール競合を本番同等入口で確認 | 検証設計のPR-N／Q／H／A／I母集団、終了後資源、入力搬送、人間表示を固定改訂版で確認 |
-| V2 自己適用・有用性 | CRDD v0.19の限定MilestoneをProject Runtimeで運営 | Accepted Resultまでの時間、人間の実作業時間、Queue、Integration、再計画、Provider分散、保証コスト、品質を未測定値と分けて記録 |
-| C1 Closure | 指摘是正、移行、配布、Release候補を固定 | 全Checker、独立レビュー、必要監査、影響を受ける署名・E2E、変更トレース、品質状態、移行および人間のRelease判断材料が揃う |
+| Project Runtime設計の確定 | Project Runtime Core、Single Task Adapter、State Store、Queue／Lease、Scheduler、Integration、CLI／MCPの責務とInterfaceを確定。永続Schema、原子的更新、Lock順序、再計画、受入Evidence、脅威と失敗注入点を設計対応へ接続 | DiscoveryからVerificationまでの意味一致、機械可読な状態・資源・遷移・不変条件・検証対応、Checker、Architecture／Securityレビュー、文書／影響確認が成立 |
+| Coordinator／Platform責務分離 | 既存Single Task Runtimeの契約を維持し、Project Runtimeから呼べるAdapterを抽出。Platform Contractを置き、Project Runtime CoreからWindows固有moduleへの直接依存を禁止 | 既存Single Task試験と署名対象の意味回帰0、Project Runtime CoreのPlatform非依存、Windows Adapter経由で同じ保証を再現 |
+| 耐久状態・Queue・Lease | Project State Store、Operation Queue、Project Operation Lease、正本採用Leaseを実装 | durable-before-effect、世代付き原子的更新、重複Effect 0、owner喪失・破損・観測不能のFail Closed、回収条件を契約試験で確認 |
+| 単一Taskの縦断接続 | CLI／MCP Objective IntakeからTask exact 1件を既存Runtimeへ渡し、Project Stateへ結果を反映 | CLIとMCPの意味一致、Adapter固有Authority 0、再送の冪等性、切断後cleanup、公開入口の正常・異常結合が成立 |
+| 複数Taskの制御 | Task Graph、Dependency、競合予約、容量最大5、枠解放後開始を接続 | 1～5並列、5超の待機、Dependency、共有競合、古いReady、cleanup不明、6件目Effect 0を結合試験で確認 |
+| 進捗・再計画・人間判断 | Project State Projection、計画維持、部分再計画、人間判断移送を接続 | Work ProgressとQualityを分離し、`superseded`と後継、再計画上限、Scope外停止、判断表示を確認 |
+| 統合・採用候補 | Objective／Milestone Integration、Integration workspace、正本採用Leaseを接続 | 個別Passから成功を生成せず、受入Evidence、Cross-task conflict、Revision再確認、候補の採用・破棄・cleanupを確認 |
+| Project全体の結合確認 | CLI／MCP、取消、Parent喪失、Recovery、対話／スケジュール競合を本番同等入口で確認 | 検証設計のPR-N／Q／H／A／I母集団、終了後資源、入力搬送、人間表示を固定改訂版で確認 |
+| 自己適用・有用性評価 | CRDD v0.19の限定MilestoneをProject Runtimeで運営 | Accepted Resultまでの時間、人間の実作業時間、Queue、Integration、再計画、Provider分散、保証コスト、品質を未測定値と分けて記録 |
+| リリース判断の準備 | 指摘是正、移行、配布、Release候補を固定 | 全Checker、独立レビュー、必要監査、影響を受ける署名・E2E、変更トレース、品質状態、移行および人間のRelease判断材料が揃う |
 
-現在のCoordinatorはSingle Task Runtimeであるため、I1からI6は一つの巨大Taskとして委譲しない。D0で固定した境界ごとに実装Taskを作り、各Taskの候補を独立確認した後、段階単位の結合結果へ統合する。ExecutorまたはReviewerのProvider選択はCoordinator Policyに従い、本計画の設計意味を特定Providerへ結合しない。
+現在のCoordinatorはSingle Task Runtimeであるため、後続実装を一つの巨大Taskとして委譲しない。確定した設計境界ごとに実装Taskを作り、各Taskの候補を独立確認した後、段階単位の結合結果へ統合する。ExecutorまたはReviewerのProvider選択はCoordinator Policyに従い、本計画の設計意味を特定Providerへ結合しない。
 
 ## 10. Linux／macOS対応を見据えた今回の境界
 
-Linux／macOS Runtimeの実装、配布、認証、回復および実Provider E2Eはv0.19の対象外とする。一方、I1では、Project Runtime Coreへ新しいWindows固有依存を持ち込まず、現在実在するOS依存を[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-platform-boundary)のPlatform Contractへ閉じる。MCPはTransport AdapterとしてPlatform Contractと直交させ、stdio／HTTP等の搬送方式や対象OSが変わってもProject Model、Authority、状態遷移および成功条件を変えない。
+Linux／macOS Runtimeの実装、配布、認証、回復および実Provider E2Eはv0.19の対象外とする。一方、Coordinator／Platform責務分離では、Project Runtime Coreへ新しいWindows固有依存を持ち込まず、現在実在するOS依存を[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-platform-boundary)のPlatform Contractへ閉じる。MCPはTransport AdapterとしてPlatform Contractと直交させ、stdio／HTTP等の搬送方式や対象OSが変わってもProject Model、Authority、状態遷移および成功条件を変えない。
 
 v0.19で成立させるのは、Windows Adapterが現在の保証を保持し、将来Linux／macOS Adapterを追加してもProject Model、Authority、Task Graph、Integrationまたは受入意味を変更しない境界までである。各OSのUser／Filesystem保護、Process、Container、Lock、ConsoleおよびRecoveryは、実在する利用条件と同等保証の検証計画を伴う後続変更として判断する。未実装Adapter、空の互換層、OS名だけの抽象化または保証を弱めたfallbackを追加しない。
