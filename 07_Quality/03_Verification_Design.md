@@ -184,7 +184,7 @@ Docker create結果不明を検証済みDesktop再起動後に収束させる経
 | PR-Q-02 | 準正常 | 局所失敗、Scope内で代替可能 | 旧Taskを`superseded`として保持し、後継と理由を新世代へ接続 |
 | PR-Q-03 | 準正常 | 同じ認証済み主体・Project／Milestone・MCP request identityの初回開始、再送、切断後再接続 | Operation二重発行0、最新Project State・pending decision・終端結果を返却。別主体、別Project／Milestone、別requestは同じOperationとして開示しない |
 | PR-Q-04 | 準正常 | 一部Taskの取消 | signalだけで完了せず、終了・cleanup後に枠と競合予約を解放 |
-| PR-Q-05 | 準正常 | 対話作業中にスケジュール要求が到着 | 未開始要求を耐久Queueで待機し、対話作業終了後にRevisionと競合を再確認して追加承認なしで安全に再開 |
+| PR-Q-05 | 準正常 | スケジュール要求と対話要求が同時に未開始、または対話Operationが`leased / running`になった後にスケジュール要求が到着 | 未開始要求間では対話要求を選びスケジュール要求を耐久Queueで待機する。実行中Ownerがある時系列では二つ目のLease・Task・Provider Effectを発行せず、後着スケジュール要求を`waiting_foreground`へ保持する。実行中Operationの終端化、Lease解放およびowner settlement後にRevision・容量・Dependency・Conflictを再確認し、同じ既存許可境界なら追加承認なしで安全に再開する |
 | PR-Q-06 | 準正常 | 古い世代、置換済み／取消済みdecision ID、許可外選択肢、未認証、別主体／別decision、期限切れ／消費済みCapability、Repository側Record改変、保護Root identity／Protection差、未知field、上限超過・制御文字・認識済みSecretを含むcommentを`crdd.submit_decision`へ送信。`prepared`前後、Project State書込み／readback、`finalized`前後、Queue更新前後、応答喪失、明示置換と再送も注入する | 無効入力では正規Capability不変で正当主体の期限内再試行が一度だけ成立。両Rootのapplication ID・expected／new世代・dispositionから再適用／未適用／finalize／Recoveryを一意に選び、不明時Queue／Lease／Task Effect 0。DecisionとMilestoneはともに旧かともに新、Queueはfinalized前Lease 0、LeaseとTask Effectは最大1回。「未受理」「判断受理済み・安全に再開待ち」「再開権を確保」を区別し、実Taskがrunningになった後だけ「実行再開」と表示する。置換は旧hash失効後に新1件だけ。raw値の保存／反射0を確認する |
 | PR-D-Q-01 | 準正常 | 同じrequestの再送、世代競合、同一Projectの別Queueからの採用、実Leaseと異なる／解放済み／偽造したowner | 同一requestだけを再利用し、Queue所有者はRuntime発行済みで現在有効な不透明Leaseから導出する。正本採用はProject単位で直列化し、拒否された遷移は新世代を作らない |
 | PR-H-01 | 人間判断 | Scope、受入、重大Riskまたは費用上限の変更が必要 | 未許可Task開始0、判断理由・選択肢・影響・保持資源を一括表示 |

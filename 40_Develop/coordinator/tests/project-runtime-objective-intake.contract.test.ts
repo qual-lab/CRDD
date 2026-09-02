@@ -141,6 +141,87 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
   );
 });
 
+test("a scheduled Objective arriving during interactive execution waits without effect", async (t) => {
+  const workingDirectory = root(t);
+  let effects = 0;
+  let releaseEffect!: () => void;
+  const effectStarted = new Promise<void>((resolveStarted) => {
+    releaseEffect = () => resolveStarted();
+  });
+  let observeEffectStart!: () => void;
+  const started = new Promise<void>((resolve) => {
+    observeEffectStart = resolve;
+  });
+  const dependencies = {
+    verifyProjectBinding: () => ({
+      status: "verified",
+      repositoryBindingId: "binding-a",
+      repositoryRevision: revision,
+      workingDirectory,
+      repositoryRoot: workingDirectory,
+      bindingCapability: {},
+    }),
+    planObjective: () => ({
+      milestoneAcceptanceCriteria: ["Result exists."],
+      objectives: [
+        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
+      ],
+      tasks: [
+        {
+          id: "task-a",
+          objectiveId: "objective-a",
+          dependencies: [],
+          allowedPaths: ["result.txt"],
+          conflictKeys: ["result.txt"],
+        },
+      ],
+    }),
+    createTaskExecutions: () => [
+      {
+        taskId: "task-a",
+        authorityBindingId: "authority-a",
+        taskRequest: {},
+        taskAuthorityCapability: {},
+        repositoryRoot: workingDirectory,
+      },
+    ],
+    observeLeaseOwner: () => ({ status: "absent" }),
+    execution: {
+      runSingleTaskAttempt: async (input: Parameters<typeof completed>[0]) => {
+        effects += 1;
+        observeEffectStart();
+        await effectStarted;
+        return completed(input);
+      },
+    },
+  };
+
+  const interactive = runProjectRuntimeObjective(
+    dependencies,
+    request({ requestId: "request-interactive" }),
+    new AbortController().signal,
+  );
+  await started;
+  const scheduled = await runProjectRuntimeObjective(
+    dependencies,
+    request({ requestId: "request-scheduled", originLane: "scheduled" }),
+    new AbortController().signal,
+  );
+  assert.equal(scheduled.status, "blocked");
+  assert.equal(
+    scheduled.reason,
+    "project_runtime_objective_queued_waiting_foreground",
+  );
+  assert.equal(scheduled.cleanupConfirmed, true);
+  assert.equal(scheduled.manualRecoveryRequired, false);
+  assert.equal(scheduled.effectState, "no_effect");
+  assert.equal(effects, 1);
+
+  releaseEffect();
+  assert.equal((await interactive).status, "completed");
+  assert.equal(effects, 1);
+});
+
 test("binding or planner scope failure creates no Project State or Task effect", async (t) => {
   const workingDirectory = root(t);
   let effects = 0;

@@ -1197,6 +1197,40 @@ export function selectNextProjectOperation(
         return blocked(observed.reason, observed.manualRecoveryRequired);
       entries.push(observed.value);
     }
+    // Queue priority applies only between operations that are not yet owned.
+    // Once any operation is leased or running, selecting a second queue would
+    // violate the Project concurrency boundary before task scheduling can
+    // reject it.  Keep later arrivals effect-free until the active owner has
+    // reached a terminal/recoverable state and released its lease.
+    const active = entries.find(
+      (entry) =>
+        (entry.state === "leased" || entry.state === "running") &&
+        entry.ownerGeneration !== null,
+    );
+    if (active) {
+      for (const scheduled of entries.filter(
+        (entry) =>
+          entry.originLane === "scheduled" &&
+          entry.state === "queued" &&
+          entry.ownerGeneration === null,
+      )) {
+        const parked = updateProjectOperationQueueState(
+          workingDirectory,
+          repositoryBindingId,
+          scheduled.queueId,
+          scheduled.generation,
+          {
+            state: "waiting_foreground",
+            lease: null,
+            resumeCondition: "active_operation_pending",
+            resultReference: null,
+          },
+        );
+        if (parked.status !== "completed")
+          return blocked(parked.reason, parked.manualRecoveryRequired);
+      }
+      return completed("project_runtime_active_operation_retained", null);
+    }
     const interactive = entries.find(
       (entry) =>
         entry.originLane === "interactive" &&
