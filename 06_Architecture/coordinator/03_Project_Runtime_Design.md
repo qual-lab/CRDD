@@ -211,19 +211,19 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 
 ## 10. 実装と検証への接続
 
-現時点で実在する実装候補は、Project状態の純粋契約とMCP単一Task Adapterだけである。それ以外は設計上のownerと実装段階を固定し、実装済みとして扱わない。
+現時点で実在する実装候補は、Project状態の純粋契約、MCP単一Task Adapter、および責務分離段階のPlatform契約・Windows Platform Adapter・Single Task Adapterである。それ以外は設計上のownerと実装段階を固定し、実装済みとして扱わない。Project Runtime CoreのPlatform非依存はCore閉集合の推移的import走査を行う契約試験で機械強制する。Platform境界は、境界ごとの操作名が一致するだけでは成立せず、本書の保証母集団をすべて満たした場合だけ解決できる。部分抽出した操作は候補として試験できるが、未実装保証を残す境界を対応済みとしてProject Effectへ渡さない。
 
 | Interface | 現在の接続 | 実装段階 | 主な検証 |
 |---|---|---|---|
 | `IF-PROJECT-CORE` | Project状態の純粋契約だけ接続済み | 耐久基盤～統合・採用 | `PR-N-02`、`PR-Q-01`～`PR-A-06`、`PR-I-01`、`PR-I-02` |
-| `IF-SINGLE-TASK` | v0.18 Single Task Runtimeは実在、Project Adapterは未抽出 | 責務分離、単一Task縦断 | 既存Single Task回帰、`PR-N-01` |
+| `IF-SINGLE-TASK` | Single Task Adapter候補を接続済み。attempt結合、取消転送、閉結果正規化を所有し、Task要求スキーマはv0.18 Runtimeが所有 | 責務分離、単一Task縦断 | 既存Single Task回帰、`PR-N-01` |
 | `IF-STATE-STORE` | 未実装 | 耐久基盤 | `PR-A-03`、`PR-A-05`、`PR-A-06` |
 | `IF-QUEUE` | 未実装 | 耐久基盤 | `PR-Q-03`、`PR-A-05`、`PR-A-06` |
 | `IF-SCHEDULER` | 純粋選択関数だけ接続済み | 複数Task実行 | `PR-N-02`、`PR-Q-01`、`PR-Q-02`、`PR-A-01`、`PR-A-02` |
 | `IF-INTEGRATION` | 純粋状態遷移だけ接続済み | 統合・採用 | `PR-I-01`、`PR-I-02`、`PR-A-06` |
 | `IF-TRANSPORT` | MCP単一Task契約候補のみ | 単一Task縦断 | `PR-N-01`、`PR-Q-03`、`PR-Q-04` |
 | `IF-DECISION` | 未実装 | 人間判断接続 | `PR-Q-06`、`PR-H-02` |
-| `IF-PLATFORM` | 既存Windows処理が分散しており未抽出 | Coordinator／Platform責務分離 | 既存Windows回帰、`PR-A-07` |
+| `IF-PLATFORM` | Platform契約とWindows Adapter候補を接続済み。Principal／Provider Homeだけが現在の全保証を満たす。Repository Root解決、子Process環境導出、Container Host回復状態観測、Runtime Root保護の観測候補は部分抽出であり、残るRevision／原子的更新／隔離、argv／Process tree／signal／終了／owner loss、固定image／Network／mount／Process、回復後不存在、およびLock／Leaseが接続されるまで各境界全体をFail Closedにする。Resolverは検証済み関数参照だけを凍結して返すが、本番Project Effect入口には未接続である | Coordinator／Platform責務分離 | 既存Windows回帰。`PR-A-07`は単体候補だけでは成立せず、本番入口接続まで`planned` |
 
 ### 10.1 状態機械と遷移ID
 
@@ -328,7 +328,7 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 |---|---|---|
 | `IMPL-PROJECT-STATE-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION` | 部分接続・設計確認中 |
 | `IMPL-MCP-ADAPTER-CANDIDATE` | `IF-TRANSPORT`、`IF-SINGLE-TASK` | 部分接続・設計確認中 |
-| `IMPL-PLANNED-RESPONSIBILITY-SEPARATION` | `IF-SINGLE-TASK`、`IF-PLATFORM` | 未実装 |
+| `IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE` | `IF-SINGLE-TASK`、`IF-PLATFORM` | 部分接続・実装確認中 |
 | `IMPL-PLANNED-DURABLE-FOUNDATION` | `IF-STATE-STORE`、`IF-QUEUE` | 未実装 |
 | `IMPL-PLANNED-PROJECT-EXECUTION` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION`、`IF-TRANSPORT` | 未実装 |
 | `IMPL-PLANNED-HUMAN-DECISION` | `IF-DECISION` | 未実装 |

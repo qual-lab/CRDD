@@ -6,14 +6,14 @@
   "verificationDocument": "07_Quality/03_Verification_Design.md",
   "interfaces": [
     {"id":"IF-PROJECT-CORE","owner":"project_runtime_core","status":"partial","implementationStage":"durable_foundation_through_integration"},
-    {"id":"IF-SINGLE-TASK","owner":"single_task_adapter","status":"planned","implementationStage":"responsibility_separation_and_single_task_flow"},
+    {"id":"IF-SINGLE-TASK","owner":"single_task_adapter","status":"partial","implementationStage":"responsibility_separation_and_single_task_flow"},
     {"id":"IF-STATE-STORE","owner":"project_state_store","status":"planned","implementationStage":"durable_foundation"},
     {"id":"IF-QUEUE","owner":"durable_operation_queue","status":"planned","implementationStage":"durable_foundation"},
     {"id":"IF-SCHEDULER","owner":"project_scheduler","status":"partial","implementationStage":"multi_task_execution"},
     {"id":"IF-INTEGRATION","owner":"integration_owner","status":"partial","implementationStage":"integration_and_adoption"},
     {"id":"IF-TRANSPORT","owner":"transport_adapter","status":"partial","implementationStage":"single_task_flow"},
     {"id":"IF-DECISION","owner":"human_decision_controller","status":"planned","implementationStage":"human_decision_flow"},
-    {"id":"IF-PLATFORM","owner":"platform_adapter","status":"planned","implementationStage":"responsibility_separation"}
+    {"id":"IF-PLATFORM","owner":"platform_adapter","status":"partial","implementationStage":"responsibility_separation"}
   ],
   "persistentRecords": [
     {"id":"REC-PROJECT-STATE","ownerInterfaceId":"IF-STATE-STORE","resourceId":"RES-PROJECT-STATE","durabilityRelation":"generation_state"},
@@ -273,7 +273,7 @@
   "implementationBindings": [
     {"id":"IMPL-PROJECT-STATE-CANDIDATE","interfaceIds":["IF-PROJECT-CORE","IF-SCHEDULER","IF-INTEGRATION"],"status":"partial","stage":"design_review","paths":["40_Develop/coordinator/src/security/project-runtime-state.ts","40_Develop/coordinator/tests/project-runtime-state.contract.test.ts"]},
     {"id":"IMPL-MCP-ADAPTER-CANDIDATE","interfaceIds":["IF-TRANSPORT","IF-SINGLE-TASK"],"status":"partial","stage":"design_review","paths":["40_Develop/coordinator/src/security/mcp-project-runtime-adapter.ts","40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts"]},
-    {"id":"IMPL-PLANNED-RESPONSIBILITY-SEPARATION","interfaceIds":["IF-SINGLE-TASK","IF-PLATFORM"],"status":"planned","stage":"responsibility_separation","paths":[]},
+    {"id":"IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE","interfaceIds":["IF-SINGLE-TASK","IF-PLATFORM"],"status":"partial","stage":"responsibility_separation","paths":["40_Develop/coordinator/src/security/project-runtime-platform-contract.ts","40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts","40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts","40_Develop/coordinator/tests/project-runtime-platform-contract.contract.test.ts","40_Develop/coordinator/tests/project-runtime-windows-platform-adapter.contract.test.ts","40_Develop/coordinator/tests/project-runtime-single-task-adapter.contract.test.ts","40_Develop/coordinator/tests/project-runtime-platform-independence.contract.test.ts"]},
     {"id":"IMPL-PLANNED-DURABLE-FOUNDATION","interfaceIds":["IF-STATE-STORE","IF-QUEUE"],"status":"planned","stage":"durable_foundation","paths":[]},
     {"id":"IMPL-PLANNED-PROJECT-EXECUTION","interfaceIds":["IF-PROJECT-CORE","IF-SCHEDULER","IF-INTEGRATION","IF-TRANSPORT"],"status":"planned","stage":"project_execution","paths":[]},
     {"id":"IMPL-PLANNED-HUMAN-DECISION","interfaceIds":["IF-DECISION"],"status":"planned","stage":"human_decision_flow","paths":[]}
