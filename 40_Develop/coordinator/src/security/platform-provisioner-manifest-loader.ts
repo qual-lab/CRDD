@@ -143,6 +143,47 @@ export function loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificati
   );
 }
 
+function manifestEntryExists(distributionRoot: string, relativePath: string) {
+  try {
+    fs.lstatSync(manifestPath(distributionRoot, relativePath));
+    return true;
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    )
+      return false;
+    throw error;
+  }
+}
+
+/**
+ * Loads exactly one signed manifest layout for historical recovery. This is
+ * not a general fallback: an ambiguous root containing both layouts is
+ * rejected before either manifest can be used.
+ */
+export function loadHistoricalReleaseManifestEnvelopeForVerification(
+  distributionRoot: string,
+) {
+  const currentExists = manifestEntryExists(
+    distributionRoot,
+    PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
+  );
+  const historicalExists = manifestEntryExists(
+    distributionRoot,
+    HISTORICAL_V2_PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
+  );
+  if (currentExists === historicalExists)
+    throw new Error("platform_provisioner_historical_manifest_ambiguous");
+  return currentExists
+    ? loadPlatformProvisionerManifestEnvelopeForVerification(distributionRoot)
+    : loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification(
+        distributionRoot,
+      );
+}
+
 export function inspectPlatformProvisionerManifestFileCandidate(
   distributionRoot: unknown,
 ) {

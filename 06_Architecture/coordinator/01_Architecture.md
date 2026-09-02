@@ -217,6 +217,8 @@ Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使�
 
 Docker create要求の耐久化後に応答を失った状態は、Engineの空一覧だけから未作成へ収束させない。ただし、同じ選択ユーザー・保護Root・Policyへ結合されたDocker Desktop最終復旧が当該要求より後にProcess世代を切り、Engine再起動・安全状態・Evidence保持を確認して終了した場合、その署名済み履歴を再起動境界として利用できる。現在のRuntime Authorityと旧復旧記録の由来確認を分離し、旧manifestは履歴検証だけに使って実行Capabilityを発行しない。対象Taskのexact名と所有labelがともに不存在であることを再観測し、その結果と復旧記録hashをTaskのOperation Directoryへ耐久化した後だけ、未知のcreate結果をEffect 0へ収束させる。順序、由来、終了状態または不存在のいずれかが不明なら回復義務を保持する。
 
+旧ReleaseのDocker Desktop修復履歴を引き継ぐ場合は、明示された旧Release Rootに新配置または旧配置の署名manifestがexactに一つだけ存在することを要求する。両配置の併存、両方の欠落、非canonical byte、署名不成立または履歴とのIdentity不一致では引継がない。旧配置を読むことは履歴検証に限定し、現在のRuntime Authority、修復AuthorityまたはProvider Effectへ流用しない。公開DoctorのHelp、引数ParserおよびDispatcherは、再起動Fence付きTask Recoveryに必要なexact Recovery ID、修復IDおよび旧Release Rootを同じ閉じた文法で到達可能にしなければならない。
+
 <a id="14-consoletask内部搬送回収の実装契約"></a>
 
 ## 12. 利用者との対話

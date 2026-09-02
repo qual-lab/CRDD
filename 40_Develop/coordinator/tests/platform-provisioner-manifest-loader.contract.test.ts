@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  loadHistoricalReleaseManifestEnvelopeForVerification,
   loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification,
   inspectPlatformProvisionerManifestFileCandidate,
   loadPlatformProvisionerManifestEnvelopeForVerification,
@@ -45,11 +46,48 @@ test("旧revision 2 manifestは旧固定Pathからだけ履歴確認用に読込
         .envelope,
       fixtureEnvelope(),
     );
+    assert.deepEqual(
+      loadHistoricalReleaseManifestEnvelopeForVerification(root).envelope,
+      fixtureEnvelope(),
+    );
     assert.throws(() =>
       loadPlatformProvisionerManifestEnvelopeForVerification(root),
     );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("履歴Recoveryは新旧manifest配置のexact一方だけを受理する", () => {
+  const canonical = canonicalizeProvisioningJsonValueCandidate(
+    fixtureEnvelope(),
+  );
+  assert.equal(canonical.status, "candidate");
+  if (canonical.status !== "candidate") return;
+  withDistribution(canonical.canonicalBytes, (root) => {
+    assert.deepEqual(
+      loadHistoricalReleaseManifestEnvelopeForVerification(root).envelope,
+      fixtureEnvelope(),
+    );
+    const historical = path.join(root, "90_Release");
+    fs.mkdirSync(historical, { recursive: true });
+    fs.writeFileSync(
+      path.join(historical, "coordinator-package-manifest.json"),
+      canonical.canonicalBytes,
+    );
+    assert.throws(() =>
+      loadHistoricalReleaseManifestEnvelopeForVerification(root),
+    );
+  });
+  const emptyRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-historical-manifest-empty-"),
+  );
+  try {
+    assert.throws(() =>
+      loadHistoricalReleaseManifestEnvelopeForVerification(emptyRoot),
+    );
+  } finally {
+    fs.rmSync(emptyRoot, { recursive: true, force: true });
   }
 });
 

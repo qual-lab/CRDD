@@ -43,7 +43,10 @@ import {
   requiredDockerDesktopRepairRecordsThroughSafeStage,
 } from "./docker-desktop-repair-record-store.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
-import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
+import {
+  loadHistoricalReleaseManifestEnvelopeForVerification,
+  loadPlatformProvisionerManifestEnvelopeForVerification,
+} from "./platform-provisioner-manifest-loader.ts";
 
 export const DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT =
   "crdd-coordinator/docker-desktop-runtime-repair";
@@ -3960,7 +3963,7 @@ const productionDependencies: RepairDependencies = Object.freeze({
     persistAdoption: persistDockerDesktopRepairHistoricalAdoption,
     persistClosure: persistDockerDesktopRepairHistoricalClosure,
     loadOriginManifest: (root: string) =>
-      loadPlatformProvisionerManifestEnvelopeForVerification(root).envelope,
+      loadHistoricalReleaseManifestEnvelopeForVerification(root).envelope,
     loadCurrentManifest: () =>
       loadPlatformProvisionerManifestEnvelopeForVerification(
         path.resolve(import.meta.dirname, "../../../.."),
