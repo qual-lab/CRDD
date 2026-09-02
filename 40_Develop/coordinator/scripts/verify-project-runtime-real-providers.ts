@@ -23,6 +23,7 @@ import {
   createDevelopmentProjectRuntimePublicObjectiveCandidate,
 } from "../src/security/project-runtime-public-runtime.ts";
 import { runMcpProjectRuntimeStdio } from "../src/security/mcp-project-runtime-stdio.ts";
+import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../src/security/project-runtime-candidate-integration-adapter.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../src/security/project-runtime-windows-decision-store.ts";
 import { recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart } from "../src/security/docker-recovery-runtime.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
@@ -80,6 +81,21 @@ async function main() {
     verifyBundledCoordinatorPackageFromFixedManifestCandidate: (input: {
       evaluationTime: string;
     }) => Readonly<Record<string, unknown>>;
+  };
+  const nativeCandidateStoreModule = (await import(
+    pathToFileURL(
+      path.join(
+        nativeDistributionRoot,
+        "40_Develop/coordinator/src/security/candidate-bundle-store.ts",
+      ),
+    ).href
+  )) as {
+    readRuntimeOwnedCandidateBundle: (candidateId: string) => unknown;
+    persistRuntimeOwnedCandidateBundle: (
+      bundle: unknown,
+      policy: unknown,
+    ) => unknown;
+    publishRuntimeOwnedCandidateBundle: (recoveryId: string) => unknown;
   };
   const native =
     nativeModule.verifyBundledCoordinatorPackageFromFixedManifestCandidate({
@@ -218,14 +234,66 @@ async function main() {
   assert.equal(decisionStore.status, "completed");
   if (decisionStore.status !== "completed")
     throw new Error("development_decision_store_not_verified");
+  const taskOutcomes: Array<
+    Readonly<{
+      requestedExecutorProvider: unknown;
+      status: unknown;
+      reason: unknown;
+      cleanupConfirmed: unknown;
+      manualRecoveryRequired: unknown;
+      processRestartRequired: unknown;
+      candidatePresent: boolean;
+      recoveryPresent: boolean;
+    }>
+  > = [];
   const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
     issueTaskAuthority: () => Object.freeze({}),
-    startTask: (request, root) =>
-      startRuntimeOwnedDevelopmentProjectRuntimeTask(request, root, capability),
+    startTask: (request, root) => {
+      const started = startRuntimeOwnedDevelopmentProjectRuntimeTask(
+        request,
+        root,
+        capability,
+      );
+      return Object.freeze({
+        ...started,
+        completion: started.completion.then((result) => {
+          const value = result as Readonly<Record<string, unknown>>;
+          taskOutcomes.push(
+            Object.freeze({
+              requestedExecutorProvider:
+                request &&
+                typeof request === "object" &&
+                "requestedExecutorProvider" in request
+                  ? request.requestedExecutorProvider
+                  : null,
+              status: value.status ?? null,
+              reason: value.reason ?? null,
+              cleanupConfirmed: value.cleanupConfirmed ?? null,
+              manualRecoveryRequired: value.manualRecoveryRequired ?? null,
+              processRestartRequired: value.processRestartRequired ?? null,
+              candidatePresent: typeof value.candidateId === "string",
+              recoveryPresent:
+                typeof value.hostRecoveryId === "string" ||
+                typeof value.candidateRecoveryId === "string" ||
+                typeof value.candidateStoreRecoveryId === "string" ||
+                (Array.isArray(value.dockerRecoveryIds) &&
+                  value.dockerRecoveryIds.length > 0),
+            }),
+          );
+          return result;
+        }),
+      });
+    },
     cancelTask: cancelRuntimeOwnedDevelopmentProjectRuntimeTask,
     frontProviderForTask: (provider) =>
       provider === "codex" ? "claude" : "codex",
     openDecisionStore: () => decisionStore,
+    createIntegrationAdapter: (root) =>
+      createRuntimeOwnedProjectCandidateIntegrationAdapter(root, {
+        read: nativeCandidateStoreModule.readRuntimeOwnedCandidateBundle,
+        persist: nativeCandidateStoreModule.persistRuntimeOwnedCandidateBundle,
+        publish: nativeCandidateStoreModule.publishRuntimeOwnedCandidateBundle,
+      }),
   });
   const input = new PassThrough();
   const output = new PassThrough();
@@ -329,7 +397,7 @@ async function main() {
   );
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 1,
+    contractRevision: 2,
     status: completed && finalBytes === FINAL ? "completed" : "blocked",
     reason:
       completed && finalBytes === FINAL
@@ -349,6 +417,7 @@ async function main() {
       parentEofJoined: true,
     }),
     releaseAuthorityConferred: false,
+    taskOutcomes: Object.freeze(taskOutcomes),
     results: Object.freeze(results),
   });
   const reportDirectory = path.join(

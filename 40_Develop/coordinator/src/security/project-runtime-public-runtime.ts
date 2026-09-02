@@ -13,6 +13,7 @@ import {
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "./project-runtime-candidate-integration-adapter.ts";
 import { inspectMcpProjectRuntimeDecision } from "./mcp-project-runtime-adapter.ts";
 import { integrateProjectRuntimeOperation } from "./project-runtime-integration.ts";
+import type { ProjectRuntimeIntegrationDependencies } from "./project-runtime-integration.ts";
 import { createProjectRuntimeDecisionRecoveryStore } from "./project-runtime-decision-recovery-store.ts";
 import {
   issueProjectRuntimeHumanDecision,
@@ -41,6 +42,9 @@ type PublicExecutionDependencies = Readonly<{
     requestedExecutorProvider: "auto" | "codex" | "claude",
   ) => "codex" | "claude";
   openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore;
+  createIntegrationAdapter: (
+    repositoryRoot: string,
+  ) => ProjectRuntimeIntegrationDependencies;
 }>;
 
 export type ProjectRuntimePublicDevelopmentDependencies =
@@ -56,6 +60,8 @@ const productionExecutionDependencies: PublicExecutionDependencies =
     cancelTask: cancelRuntimeOwnedCoordinatorTask,
     frontProviderForTask: () => "codex",
     openDecisionStore: openRuntimeOwnedWindowsProjectDecisionStore,
+    createIntegrationAdapter:
+      createRuntimeOwnedProjectCandidateIntegrationAdapter,
   });
 
 function stable(prefix: string, ...parts: readonly string[]) {
@@ -240,7 +246,7 @@ async function executeProjectRuntimePublicObjective(
   )
     return execution;
   const integration = await integrateProjectRuntimeOperation(
-    createRuntimeOwnedProjectCandidateIntegrationAdapter(repositoryRoot),
+    runtimeDependencies.createIntegrationAdapter(repositoryRoot),
     {
       workingDirectory: repositoryRoot,
       repositoryBindingId: stable("binding", repositoryRoot, request.projectId),
@@ -329,9 +335,20 @@ export function runProjectRuntimePublicObjective(
 
 /** Development-only composition. The supplied starter still needs its own admitted capability. */
 export function createDevelopmentProjectRuntimePublicObjectiveCandidate(
-  dependencies: ProjectRuntimePublicDevelopmentDependencies,
+  dependencies: Omit<
+    ProjectRuntimePublicDevelopmentDependencies,
+    "createIntegrationAdapter"
+  > &
+    Readonly<{
+      createIntegrationAdapter?: PublicExecutionDependencies["createIntegrationAdapter"];
+    }>,
 ) {
-  const fixed = Object.freeze({ ...dependencies });
+  const fixed = Object.freeze({
+    ...dependencies,
+    createIntegrationAdapter:
+      dependencies.createIntegrationAdapter ??
+      createRuntimeOwnedProjectCandidateIntegrationAdapter,
+  });
   return Object.freeze({
     productionAuthority: false,
     run: (

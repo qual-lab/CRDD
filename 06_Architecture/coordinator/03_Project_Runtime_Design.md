@@ -229,7 +229,7 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `IF-STATE-STORE` | 世代付き不変Record、exact readback、世代競合、破損時Fail Closed、Effect前のTask予約と結果反映を部分接続。保護anchorとRecovery settledは未接続 | 単一・複数Task実行～Recovery | `PR-D-N-01`、`PR-D-A-01`、`PR-A-03`、`PR-A-05` |
 | `IF-QUEUE` | enqueue、再送再利用、世代更新、短時間変更Lock、Runtime発行Leaseとのowner結合、Project Operation Lease、Project単位の正本採用Lease、解放不明Marker、対話Lane優先、Project実行の`queued → leased → running → integration_pending / recovery_required / replan_required / human_decision_required / cancelled`を部分接続。Windows owner観測を公開Objective入口へ接続したが、全Recovery再開と電源断は未接続 | 単一・複数Task実行～Recovery | `PR-D-Q-01`、`PR-D-A-01`、`PR-Q-04`、`PR-A-04`、`PR-A-05` |
 | `IF-SCHEDULER` | Project実行所有者へ最大5件、Dependency、Path／意味競合、cleanup予約、対話Lane優先、同一計画のfresh attemptおよび部分再計画を接続。Provider条件は未接続 | 複数Task実行～再計画 | `PR-N-02`、`PR-N-03`、`PR-Q-01`、`PR-A-02`、`PR-A-05` |
-| `IF-INTEGRATION` | 耐久Task候補IDから実Candidate Storeの内容を読み、同じbaseの候補を統合する。Path競合時の判断移送、明示Authority下の採用Lease、fresh Revision／Scope／base内容照合、失敗時rollback、Objective／Milestone Evidence受入を部分接続。実Provider候補の採用E2Eは未確認 | 統合・採用 | `PR-I-01`、`PR-I-02`、`PR-A-06` |
+| `IF-INTEGRATION` | 耐久Task候補IDから実Candidate Storeの内容を読み、同じbaseの候補を統合する。Path競合時の判断移送、明示Authority下の採用Lease、fresh Revision／Scope／base内容照合、失敗時rollback、Objective／Milestone Evidence受入を部分接続。公開Project Runtimeは、Task生成と統合が同じRuntime実行Identityに属するCandidate Store境界を使う。固定開発版の実測では、未署名の開発SourceへRelease Authorityを与えず、検証済み署名配布のCandidate Storeを依存注入して同じ候補を読み書きする | 統合・採用 | `PR-I-01`、`PR-I-02`、`PR-A-06` |
 | `IF-TRANSPORT` | CLIのObjective入口と、`crdd.run_objective`／`crdd.submit_decision`だけを同じ意味契約へ写すMCP Adapter、およびbounded JSON Lines／親EOF取消を持つstdio Processを部分接続。認証済みClientからの本番同等E2Eは未確認 | Objective Intake～人間判断接続 | `PR-N-01`、`PR-Q-03`、`PR-Q-04`、`PR-Q-06` |
 | `IF-DECISION` | 一回限りCapabilityのhash保持、主体・Project・Milestone・Queue・世代・改訂版・選択肢・期限の結合、Windows Runtime保護Root上の不変世代列、prepare／Project readback／finalizeおよびprepared後の再照合を部分接続。置換・Project終端を含む全失効・独立Recovery Intent Storeは未接続 | 人間判断接続 | `PR-Q-06`、`PR-H-02` |
 | `IF-PLATFORM` | Platform契約とWindows Adapter候補を接続済み。Principal／Provider HomeおよびProject Operationのowner生存・不存在観測は必要保証を満たす。Repository Root解決、子Process環境導出、Container Host回復状態観測、Runtime Root保護は部分抽出であり、各境界の残る保証が揃うまで全体をFail Closedにする。Resolverは検証済み関数参照だけを凍結する | Coordinator／Platform責務分離～公開Objective Intake | 既存Windows回帰、owner観測契約、`PR-A-07`。未実装PlatformはEffect 0 |
@@ -348,7 +348,7 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `IMPL-PROJECT-EXECUTION-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION`、`IF-TRANSPORT` | 単一・複数Task実行、候補IDの耐久状態への受渡しを部分接続 |
 | `IMPL-REPLANNING-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER` | 同一計画のfresh attempt、部分再計画、人間判断移送と上限を部分接続 |
 | `IMPL-HUMAN-DECISION-CANDIDATE` | `IF-DECISION` | 一回限りCapabilityのhash保持、主体・世代・改訂版結合、Windows保護Rootの不変世代列、prepare／Project readback／finalizeとprepared後Recoveryを部分接続。置換・全失効・独立Recovery Intent Storeは未接続 |
-| `IMPL-INTEGRATION-CANDIDATE` | `IF-INTEGRATION`、`IF-PROJECT-CORE` | 実Candidate StoreのTask候補から統合候補、Conflict停止、fresh base照合、明示採用とrollback、Objective／Milestone受入を部分接続。実Provider候補の採用E2Eは未確認 |
+| `IMPL-INTEGRATION-CANDIDATE` | `IF-INTEGRATION`、`IF-PROJECT-CORE` | 実Candidate StoreのTask候補から統合候補、Conflict停止、fresh base照合、明示採用とrollback、Objective／Milestone受入を部分接続。公開Runtimeの構成点でCandidate Store境界を固定し、固定開発版では検証済み署名配布のStoreだけを注入可能にした。実Provider候補の採用は再実測中 |
 
 [機械可読な設計対応](../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)は、Interface、Record、資源、Lock、Authority、Effect、状態機械、遷移との`BIND-*`対応、不変条件、失敗注入点、実装接続および検証接続の参照切れと孤立を検出する。設計本文または検証項目と一致しない場合は設計完了扱いしない。
 
