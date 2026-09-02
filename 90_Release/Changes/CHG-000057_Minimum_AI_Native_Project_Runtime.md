@@ -75,10 +75,10 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 | 区分 | 現在値 |
 |---|---|
-| 成立 | 設計対応、契約・結合試験、署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk文書1件の自己適用と正本採用、認証主体の意味入口への伝播、Repository Binding単位の別Process排他、Lease取得後のfresh優先選択、Task Authorityの実行直前発行と未使用Authority失効、Task開始の`reserved / handoff_prepared / running`分離、Task別・種別別のexact Recovery相関、個別回復義務の耐久settlement、Queue／State／個別義務の途中中断から完了済みEffectを再発行しない再開、再計画上限と独立したfresh retry、終端request再送のEffect 0投影 |
-| 未成立 | 認証済み実MCP Client、実取消、親Process喪失、実Docker資源のRecovery settlement、対話／スケジュール競合を公開Process構成で結ぶProject全体の結合確認 |
-| 次Gate | 残る代表経路のE2E、未評価事項のRelease処遇、独立確認・必要監査、収載・分類・移行・残存Riskの人間判断 |
-| 根拠 | [正常縦断E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification) |
+| 成立 | 設計対応、契約・結合試験、署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk文書1件の自己適用と正本採用、認証主体の意味入口への伝播、Repository Binding単位の別Process排他、Lease取得後のfresh優先選択、Task Authorityの実行直前発行と未使用Authority失効、Task開始の`reserved / handoff_prepared / running`分離、Task別・種別別のexact Recovery相関、個別回復義務の耐久settlement、Queue／State／個別義務の途中中断から完了済みEffectを再発行しない再開、再計画上限と独立したfresh retry、終端request再送のEffect 0投影、親EOF取消、対話／スケジュール競合、Docker完了receiptによる冪等再入場を含む署名前の決定論的Project全体確認 |
+| 未成立 | 認証済み公開MCP Clientからの実Provider経路、実Provider実行中の取消、および実Docker資源を用いたRecovery settlementの署名後最終E2E |
+| 次Gate | 固定候補の独立確認・必要監査、指摘是正後のRuntime実行Identity固定と最終E2E、未評価事項のRelease処遇、収載・分類・移行・残存Riskの人間判断 |
+| 根拠 | [正常縦断E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)、[署名前検証](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Pre_Sign_Verification.md)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification) |
 
 工程正本を接続した後、Project Modelの最初の実装として、Task、Objective、Milestoneを別状態で保持する純粋な状態契約を追加した。Task完了後はObjectiveを`integration_pending`へ進めるだけとし、受入条件ごとのEvidenceを伴うObjective統合、全Objective受入後のMilestone統合を、それぞれ別の世代更新として固定した。Project State投影もWork Progress、Quality、Human Decision、RecoveryおよびNext Actionを分離し、Task完了や未観測値からProject成功を生成しない。
 
