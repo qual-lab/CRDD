@@ -58,6 +58,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | owner loss／観測不能 | orphan、未知Effect | Effect前Recovery record、exact Recovery ID、新ProcessでのIdentity再結合 | read-back後だけ完了化 |
 | stale／別Operation Recoveryの誤処置 | 他Task破壊 | Repository・User・package・Operation Identityを結合し、曖昧時は上書きしない | `manualRecoveryRequired`を維持 |
 | Docker Desktop破損復旧の過剰処置 | Host状態破壊 | 通常Taskから分離、固定Process／Directory／mutex、最終手段のrenameは事前状態と回復契約を要求 | Engine再観測と残存記録確認 |
+| Docker再起動後にcreate応答喪失を未作成と誤認 | 既存資源の見逃し、二重Effect、永久停止 | Taskより後の検証済みProcess世代切替、署名済み復旧履歴、exact名・所有labelの不存在を結合して耐久化 | 空一覧だけ、任意の再起動、旧署名だけでは収束させない |
 | Console入力競合・文字化け | 誤承認、停止不能 | runtime-owned reader、入力種別の明示、一回入力、UTF-8機械結果と人間表示の分離 | reader／pipe／child終了 |
 | Cost目的の不適格model選択 | 品質低下、利用枠浪費 | 適格性を先に判定し、難易度・Risk・判断影響・Costから説明可能に選択 | Provider Effect前の選定記録 |
 

@@ -51,6 +51,56 @@ test("旧版復旧記録の引継ぎはexact IDと元配布Rootの明示ペア�
   }
 });
 
+test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・元配布Rootの組だけを受理する", () => {
+  const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  const repairId = `docker-desktop-repair.${"d".repeat(32)}`;
+  const parsed = parseDoctorArguments(
+    [
+      "--recover-isolation",
+      recoveryId,
+      "--after-docker-desktop-repair",
+      repairId,
+      "--from-release",
+      "C:\\old-release",
+      "--json",
+    ],
+    undefined,
+  );
+  assert.equal(parsed.status, "ok");
+  assert.deepEqual(parsed.value, {
+    json: true,
+    activeIsolation: false,
+    recoveryId,
+    repairDockerDesktopRuntime: false,
+    closeDockerDesktopRepairId: null,
+    afterDockerDesktopRepairId: repairId,
+    historicalReleaseRoot: "C:\\old-release",
+  });
+  for (const invalid of [
+    [
+      "--recover-isolation",
+      recoveryId,
+      "--after-docker-desktop-repair",
+      repairId,
+    ],
+    [
+      "--after-docker-desktop-repair",
+      repairId,
+      "--from-release",
+      "C:\\old-release",
+    ],
+    [
+      "--recover-isolation",
+      "host.example",
+      "--after-docker-desktop-repair",
+      repairId,
+      "--from-release",
+      "C:\\old-release",
+    ],
+  ])
+    assert.equal(parseDoctorArguments(invalid, undefined).status, "blocked");
+});
+
 test("doctorは診断と復旧に必要な引数だけを受理する", () => {
   assert.equal(parseDoctorArguments([], undefined).status, "ok");
   assert.equal(

@@ -46,6 +46,7 @@ import {
 import {
   inspectRuntimeOwnedDockerTaskRecoveryState,
   recoverRuntimeOwnedDockerTask,
+  recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart,
 } from "../src/security/docker-recovery-runtime.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
@@ -96,6 +97,9 @@ function printHelp() {
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
   process.stdout.write(
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
+  );
+  process.stdout.write(
+    `  coordinator doctor --recover-isolation <docker-task-recovery-id> --after-docker-desktop-repair <repair-id> --from-release <absolute-root> [--json]\n`,
   );
   process.stdout.write(
     `  coordinator doctor --repair-docker-desktop-runtime [--json]\n`,
@@ -587,7 +591,14 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
           ? recoveryId.startsWith("host.")
             ? recoverOwnedOperationDirectories(recoveryId)
             : recoveryId.startsWith("docker-task.")
-              ? recoverRuntimeOwnedDockerTask(recoveryId)
+              ? typeof options.afterDockerDesktopRepairId === "string" &&
+                typeof options.historicalReleaseRoot === "string"
+                ? recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
+                    recoveryId,
+                    options.afterDockerDesktopRepairId,
+                    options.historicalReleaseRoot,
+                  )
+                : recoverRuntimeOwnedDockerTask(recoveryId)
               : recoverDockerIsolationProbe(recoveryId)
           : Object.freeze({
               ...runDoctor({

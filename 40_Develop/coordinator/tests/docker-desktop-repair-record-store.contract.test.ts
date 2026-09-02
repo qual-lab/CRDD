@@ -205,6 +205,8 @@ function historyFixture(t: TestContext) {
         manifestHash: target.crddManifestHash,
         releaseSequence: target.crddReleaseSequence,
         runtimeExecutionIdentitySha256: target.runtimeExecutionIdentitySha256,
+        crddTree: "d".repeat(40),
+        packageContentRootSha256: "e".repeat(64),
       }
     );
   };
@@ -217,6 +219,66 @@ function historyFixture(t: TestContext) {
     verifyHistory,
   };
 }
+
+test("revision 4の終了前修復記録は署名済み旧releaseの履歴としてのみ再構成できる", (t) => {
+  const base = fixture(t);
+  const created = createDockerDesktopRepairOperation(
+    base.boundary,
+    { dev: "1", ino: "2", birthtimeNs: "3" },
+    base.ledger,
+  );
+  const current = persistRecord(
+    base.boundary,
+    created,
+    "prepared",
+    base.ledger,
+  );
+  assert.ok(current);
+  const recordPath = path.join(
+    current.operationDirectory,
+    "repair-00-prepared.json",
+  );
+  const parsed = JSON.parse(fs.readFileSync(recordPath, "utf8"));
+  const { runtimeExecutionIdentitySha256: _removed, ...legacy } = parsed;
+  fs.writeFileSync(
+    recordPath,
+    `${JSON.stringify({
+      ...legacy,
+      contractRevision: 4,
+      crddTree: "a".repeat(40),
+      packageContentRootSha256: "b".repeat(64),
+    })}\n`,
+  );
+  const nextBoundary = {
+    ...base.boundary,
+    crddManifestHash: "c".repeat(64),
+    crddReleaseSequence: 2,
+    runtimeExecutionIdentitySha256: "d".repeat(64),
+  };
+  const originManifest = { release: "v0.18.0" };
+  const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) =>
+    value === originManifest
+      ? {
+          manifestHash: base.boundary.crddManifestHash,
+          releaseSequence: base.boundary.crddReleaseSequence,
+          runtimeExecutionIdentitySha256: null,
+          crddTree: "a".repeat(40),
+          packageContentRootSha256: "b".repeat(64),
+        }
+      : null;
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(nextBoundary, verifyHistory).status,
+    "unknown",
+  );
+  const inspected = inspectDockerDesktopRepairHistoricalOperation(
+    nextBoundary,
+    current.repairId,
+    originManifest,
+    verifyHistory,
+  );
+  assert.equal(inspected?.repairId, current.repairId);
+  assert.equal(inspected?.stage, "prepared");
+});
 
 test("historical adoption keeps original bytes, ID and stage; ordinary current-version inventory stays strict", (t) => {
   const value = historyFixture(t);

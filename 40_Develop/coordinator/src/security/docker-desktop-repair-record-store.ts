@@ -135,12 +135,18 @@ export type DockerDesktopRepairRecordBoundary = Readonly<{
   crddReleaseSequence: number;
   runtimeExecutionIdentitySha256: string;
   localAppData: string;
+  historicalV4?: Readonly<{
+    crddTree: string;
+    packageContentRootSha256: string;
+  }>;
 }>;
 
 type HistoricalReleaseIdentity = Readonly<{
   manifestHash: string;
   releaseSequence: number;
-  runtimeExecutionIdentitySha256: string;
+  runtimeExecutionIdentitySha256: string | null;
+  crddTree: string;
+  packageContentRootSha256: string;
 }>;
 
 export type DockerDesktopRepairHistoryVerifier = (
@@ -159,7 +165,11 @@ function verifyPinnedHistory(
         manifestHash: verified.manifestHash,
         releaseSequence: verified.payload.releaseSequence,
         runtimeExecutionIdentitySha256:
-          verified.payload.runtimeExecutionIdentitySha256,
+          "runtimeExecutionIdentitySha256" in verified.payload
+            ? String(verified.payload.runtimeExecutionIdentitySha256)
+            : null,
+        crddTree: verified.payload.crddTree,
+        packageContentRootSha256: verified.payload.packageContentRootSha256,
       })
     : null;
 }
@@ -183,6 +193,29 @@ type StoredRecord = Readonly<{
   runtimeExecutionIdentitySha256: string;
   ledger: DockerDesktopRepairLedgerSnapshot;
 }>;
+
+type HistoricalV4StoredRecord = Readonly<{
+  schema: typeof DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA;
+  contractRevision: 4;
+  operationId: string;
+  sequence: number;
+  stage: DockerDesktopRepairStage;
+  previousRecordSha256: string;
+  staleName: string;
+  runIdentity: DockerDesktopRepairDirectoryIdentity;
+  runtimeStateIdentityHash: string;
+  runtimeStateProtectionHash: string;
+  localUserBindingHash: string;
+  runtimeStateBindingHash: string;
+  dockerPolicySha256: string;
+  crddManifestHash: string;
+  crddReleaseSequence: number;
+  crddTree: string;
+  packageContentRootSha256: string;
+  ledger: DockerDesktopRepairLedgerSnapshot;
+}>;
+
+type ReadableStoredRecord = StoredRecord | HistoricalV4StoredRecord;
 
 function exactKeys(value: object, expectedItems: readonly string[]) {
   const actualItems = Reflect.ownKeys(value);
@@ -433,31 +466,55 @@ function aggregateMatches(
 function validStoredRecord(
   value: unknown,
   boundary: DockerDesktopRepairRecordBoundary,
-): value is StoredRecord {
+): value is ReadableStoredRecord {
   if (
     !value ||
     typeof value !== "object" ||
     Array.isArray(value) ||
     Object.getPrototypeOf(value) !== Object.prototype ||
-    !exactKeys(value, [
-      "schema",
-      "contractRevision",
-      "operationId",
-      "sequence",
-      "stage",
-      "previousRecordSha256",
-      "staleName",
-      "runIdentity",
-      "runtimeStateIdentityHash",
-      "runtimeStateProtectionHash",
-      "localUserBindingHash",
-      "runtimeStateBindingHash",
-      "dockerPolicySha256",
-      "crddManifestHash",
-      "crddReleaseSequence",
-      "runtimeExecutionIdentitySha256",
-      "ledger",
-    ])
+    !exactKeys(
+      value,
+      Reflect.get(value, "contractRevision") === 4
+        ? [
+            "schema",
+            "contractRevision",
+            "operationId",
+            "sequence",
+            "stage",
+            "previousRecordSha256",
+            "staleName",
+            "runIdentity",
+            "runtimeStateIdentityHash",
+            "runtimeStateProtectionHash",
+            "localUserBindingHash",
+            "runtimeStateBindingHash",
+            "dockerPolicySha256",
+            "crddManifestHash",
+            "crddReleaseSequence",
+            "crddTree",
+            "packageContentRootSha256",
+            "ledger",
+          ]
+        : [
+            "schema",
+            "contractRevision",
+            "operationId",
+            "sequence",
+            "stage",
+            "previousRecordSha256",
+            "staleName",
+            "runIdentity",
+            "runtimeStateIdentityHash",
+            "runtimeStateProtectionHash",
+            "localUserBindingHash",
+            "runtimeStateBindingHash",
+            "dockerPolicySha256",
+            "crddManifestHash",
+            "crddReleaseSequence",
+            "runtimeExecutionIdentitySha256",
+            "ledger",
+          ],
+    )
   )
     return false;
   const id = Reflect.get(value, "operationId");
@@ -465,7 +522,8 @@ function validStoredRecord(
   const stage = Reflect.get(value, "stage");
   return (
     Reflect.get(value, "schema") === DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA &&
-    Reflect.get(value, "contractRevision") === 5 &&
+    (Reflect.get(value, "contractRevision") === 5 ||
+      Reflect.get(value, "contractRevision") === 4) &&
     operationId(id) &&
     Number.isSafeInteger(sequence) &&
     Number(sequence) >= 0 &&
@@ -486,8 +544,13 @@ function validStoredRecord(
     Reflect.get(value, "crddManifestHash") === boundary.crddManifestHash &&
     Reflect.get(value, "crddReleaseSequence") ===
       boundary.crddReleaseSequence &&
-    Reflect.get(value, "runtimeExecutionIdentitySha256") ===
-      boundary.runtimeExecutionIdentitySha256 &&
+    (Reflect.get(value, "contractRevision") === 5
+      ? Reflect.get(value, "runtimeExecutionIdentitySha256") ===
+        boundary.runtimeExecutionIdentitySha256
+      : boundary.historicalV4 !== undefined &&
+        Reflect.get(value, "crddTree") === boundary.historicalV4.crddTree &&
+        Reflect.get(value, "packageContentRootSha256") ===
+          boundary.historicalV4.packageContentRootSha256) &&
     validLedger(Reflect.get(value, "ledger"))
   );
 }
@@ -1203,7 +1266,7 @@ function legalRepairRecordTransition(
 
 function toOperation(
   boundary: DockerDesktopRepairRecordBoundary,
-  record: StoredRecord,
+  record: ReadableStoredRecord,
   recordSha256: string,
 ): DockerDesktopRepairOperation {
   const operationDirectory = path.win32.join(
@@ -1268,7 +1331,7 @@ function readOriginalOperation(
     let previousHash = "0".repeat(64);
     let previousStage: DockerDesktopRepairStage | null = null;
     let previousLedger: DockerDesktopRepairLedgerSnapshot | null = null;
-    let last: StoredRecord | null = null;
+    let last: ReadableStoredRecord | null = null;
     let recordBoundary = boundary;
     for (let index = 0; index < records.length; index += 1) {
       const name = records[index];
@@ -1332,8 +1395,13 @@ function releaseMatchesBoundary(
   return (
     release.manifestHash === boundary.crddManifestHash &&
     release.releaseSequence === boundary.crddReleaseSequence &&
-    release.runtimeExecutionIdentitySha256 ===
-      boundary.runtimeExecutionIdentitySha256
+    ((release.runtimeExecutionIdentitySha256 !== null &&
+      release.runtimeExecutionIdentitySha256 ===
+        boundary.runtimeExecutionIdentitySha256) ||
+      (release.runtimeExecutionIdentitySha256 === null &&
+        release.crddTree === boundary.historicalV4?.crddTree &&
+        release.packageContentRootSha256 ===
+          boundary.historicalV4?.packageContentRootSha256))
   );
 }
 
@@ -1353,12 +1421,23 @@ function historicalBoundary(
 ): DockerDesktopRepairRecordBoundary {
   // Only the signed release tuple changes. Host, selected user, root protection
   // and policy MUST still match the current verified boundary in every record.
-  return Object.freeze({
-    ...boundary,
-    crddManifestHash: release.manifestHash,
-    crddReleaseSequence: release.releaseSequence,
-    runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
-  });
+  const { historicalV4: _ignored, ...current } = boundary;
+  return release.runtimeExecutionIdentitySha256 === null
+    ? Object.freeze({
+        ...current,
+        crddManifestHash: release.manifestHash,
+        crddReleaseSequence: release.releaseSequence,
+        historicalV4: {
+          crddTree: release.crddTree,
+          packageContentRootSha256: release.packageContentRootSha256,
+        },
+      })
+    : Object.freeze({
+        ...current,
+        crddManifestHash: release.manifestHash,
+        crddReleaseSequence: release.releaseSequence,
+        runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
+      });
 }
 
 function parseHistoryBytes(

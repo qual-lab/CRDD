@@ -23,5 +23,6 @@ export {
   recordRuntimeOwnedDockerResourceReceipt,
   recordRuntimeOwnedNormalMountCompletion,
   recoverRuntimeOwnedDockerTask,
+  recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart,
   verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./docker-recovery-runtime-internal.ts";

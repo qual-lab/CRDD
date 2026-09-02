@@ -3615,6 +3615,32 @@ test("closed production engineはcreate submission後receipt前のprocess kill�
   }
 });
 
+test("検証済みDocker再起動境界後はsubmission済み資源のexact不存在を耐久化して回復する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("submission");
+  const root = verifiedRoot(fixture.root);
+  try {
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+      () => dockerResult(),
+      {
+        recoveryId: fixture.recoveryId,
+        repairId: `docker-desktop-repair.${"a".repeat(32)}`,
+        repairRecordSha256: "b".repeat(64),
+      },
+    );
+    assert.deepEqual(result, {
+      status: "recovered",
+      reason: "docker_task_recovery_completed",
+      recoveryId: null,
+    });
+    assert.deepEqual(fs.readdirSync(fixture.root), []);
+  } finally {
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
 test("closed production engineは発見IDをreconciled receiptへ耐久化してから削除する", () => {
   const fixture = createKilledFullProductionRecoveryRoot("submission");
   const root = verifiedRoot(fixture.root);

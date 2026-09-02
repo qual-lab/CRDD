@@ -24,6 +24,7 @@ import {
 } from "../src/security/project-runtime-public-runtime.ts";
 import { runMcpProjectRuntimeStdio } from "../src/security/mcp-project-runtime-stdio.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../src/security/project-runtime-windows-decision-store.ts";
+import { recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart } from "../src/security/docker-recovery-runtime.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
@@ -182,6 +183,34 @@ async function main() {
     return;
   }
   const capability = admission.capability;
+  const pendingDockerRecoveryId = process.env.CRDD_PENDING_DOCKER_RECOVERY_ID;
+  const dockerDesktopRepairId = process.env.CRDD_DOCKER_DESKTOP_REPAIR_ID;
+  const historicalRepairReleaseRoot =
+    process.env.CRDD_DOCKER_DESKTOP_REPAIR_RELEASE_ROOT;
+  if (
+    pendingDockerRecoveryId ||
+    dockerDesktopRepairId ||
+    historicalRepairReleaseRoot
+  ) {
+    assert.equal(typeof pendingDockerRecoveryId, "string");
+    assert.equal(typeof dockerDesktopRepairId, "string");
+    assert.equal(typeof historicalRepairReleaseRoot, "string");
+    const recovered =
+      recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
+        pendingDockerRecoveryId,
+        dockerDesktopRepairId,
+        historicalRepairReleaseRoot,
+        capability,
+      );
+    process.stdout.write(
+      `${JSON.stringify({ phase: "docker_recovery", ...recovered })}\n`,
+    );
+    if (recovered.status !== "recovered") {
+      cancelRuntimeOwnedDevelopmentMeasurementSession(capability);
+      process.exitCode = 2;
+      return;
+    }
+  }
   const decisionStore = openRuntimeOwnedWindowsProjectDecisionStore({
     developmentContext: capability,
     initializeIfMissing: false,
