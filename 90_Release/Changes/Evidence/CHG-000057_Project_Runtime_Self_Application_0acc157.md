@@ -38,4 +38,6 @@ CRDD v0.19の品質状態更新を、署名固定版Project Runtimeへ一つのM
 
 本結果は、既に根拠が揃った品質状態を一つの既存表へ反映する、単一Task・単一Path・低Riskの文書更新1件である。複数Task、競合、部分再計画、人間判断移送、実行中取消、異常Recovery、長期安定性、任意の実務Taskまたはv0.19 Releaseを意味しない。測定していない値を0として扱わず、比較Baselineなしに改善率を算出しない。
 
-ローカル原記録は`.crdd/dogfooding/`および`.crdd/project-runtime/`に保持し、Repository管理対象へは判断に必要な閉じた要約だけを収載した。
+ローカル原記録は`.crdd/dogfooding/`、`.crdd/project-runtime/`および署名固定版stagingに保持する。[機械可読要約](CHG-000057_Project_Runtime_Self_Application_0acc157.json)は、request、標準出力、標準エラー、計時、最終State／Queue、統合候補、採用Receiptおよび署名manifestのexact論理Path、SHA-256、byte数、世代、Queue／Candidate／Receipt ID、基準Tree、実行入口、Node／OSおよびRuntime実行Identityを記録する。Raw Provider出力、認証情報、Capabilityおよび署名鍵は含めない。
+
+`.crdd`は実行状態と生ログをGitへ配布しないため追跡対象外である。本実行の保持期間は固定していない。原記録を取得できない場合、追跡済み要約から結果の主張とHashは確認できるが、個別Recordのbyte同一性、実行時の全中間状態またはProvider内部の真正性を独立に再検証できない。この制限下で要約だけを新しい実測根拠へ再利用しない。

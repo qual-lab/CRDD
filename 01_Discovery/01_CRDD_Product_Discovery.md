@@ -549,3 +549,41 @@ CRDD v0.19自身を代表Milestoneとして自己適用し、採用可能な結�
 Discoveryは機会、対象選択、価値、既存代替、差別化根拠および採用する解決方向を所有する。Communicationは外部で用いる比較枠、形成したい理解、主張、メッセージ、成果物および媒体を所有する。UXは認知意図、IAは必要な根拠／情報の関係・開示・構造、UIは注意・視覚階層・操作・フィードバックへの具体化を所有する。位置づけは責務を接続する推論レンズであり、第二正本ではない。
 
 検証では、推論コンテキストがAIの変更判断と工程間伝播を改善するか、判断の逆方向追跡に実用価値があるか、記録負荷が再利用価値を上回らないかを、代表2経路で自己適用する。完全な連鎖、内部推論全文、固定点数、固定質問票、工程ごとの専用ファイルまたは新しいReasoning Databaseは目指さない。
+
+<a id="v020-execution-intelligence"></a>
+
+## 10. v0.20 実行知（Execution Intelligence）
+
+### 10.1. 採用した目的
+
+2026-09-03、人間の決定権限者は、CRDD RuntimeおよびCRDD採用Repositoryで明示的なWorkへ結合したAI実行を、仕事の単位で観測・評価し、次の改善候補へ還元する実行知（Execution Intelligence）をv0.20の能力として進める方向を採用した。目的はLLM呼出し監視製品の複製や豪華なDashboardではなく、AI組織がどのContextと入力戦略を使い、何を実行し、何が受け入れられ、人間・運用・事業へどの結果を生み、次に何を変えるべきかを根拠から判断できることである。
+
+観測の主IdentityはLLM requestではなく、Project、Milestone、Objective、TaskおよびAttemptとする。Provider／Model、Role、Context参照、入力戦略、時間、利用量、再試行、再計画、検証、人間介入、候補・採用および結果を必要な範囲で下位実行へ結合する。Promptだけを原因や最適化対象にせず、Runtime Rule、CRDD Context、Role／Skill、Task Packet、人間の指示、Tool Capabilityおよび会話Contextから成るAI入力構成を評価する。
+
+### 10.2. 評価階層と改善Loop
+
+評価は次の階層を混同しない。
+
+1. 実行効率: AI実行が正常・効率的だったか。
+2. 成果物品質: 成果物が要求と必須品質を満たしたか。
+3. 人間による受入: 人間がどれだけ介入せず利用できたか。
+4. 運用成果: 実際の仕事やプロダクトで望む変化が起きたか。
+5. 事業成果: 顧客、事業または組織へ価値が生じたか。
+
+すべてのTaskへ第5層を要求せず、対象Workで説明・観測可能な階層までを評価の適用範囲として明示する。欠測は`unknown`、`not_observed`、`not_applicable`等で区別し、0や失敗へ補正しない。相関を因果へ強めず、対象期間、結果Source、帰属の不確実性および外部要因を示す。事業結果や人間の好みは、安全性、Security、Complianceおよび必須品質を上書きしない。
+
+実行履歴から、Provider／Model／Role、Context選択、入力戦略、Task粒度、並行度、検証およびAgent Organizationの改善候補を生成できる。ただし観測から直接標準やRuntimeを自己変更しない。`観測 → 評価 → 分析 → 改善候補 → 人間判断 → 実験 → 評価 → 採用／不採用`を基本Loopとし、母数、Task Class、Context成熟度、比較対象、期間、品質、人間の実作業時間、費用およびRiskを確認する。Providerを単純順位づけせず、Task Type × Context Maturity × Input Strategy × Provider × Modelの条件付き仮説として扱う。
+
+### 10.3. 保存・保持・正本への昇格
+
+高頻度の実行記録はGitへ継続保存しない。Local Personal ProfileではRepository Root直下のGit管理外`.crdd/execution/`を候補とし、短期buffer、構造化履歴、既定OFF・短期保持のRaw情報、および再生成可能な一時データを責務別に分ける。通常会話を無条件収集せず、CRDD Workとして明示Bindingした実行だけを既定の観測対象とする。Runtimeを介さない手動AI Sessionも将来候補にできるが、人間がProject／Objectiveへ明示的に結合した範囲だけを扱い、通常会話の自動収集へ広げない。保持期間、件数、容量および整理方針を設定可能にし、Storage実装は将来の共有Databaseへ交換できるようEvent意味から分離する。
+
+集約と正本への昇格（Promotion）を分ける。Git管理外の実行履歴保存先（Execution Store）は何が起きたかを保持し、CRDD Repositoryは長期的に再利用するFinding、Decision、Strategy、Experiment Resultおよび変更理由だけを人間判断と変更契約を経て保持する。集約は一定期間だけに固定せず、一定件数・容量、Objective／Milestone／Experiment／Releaseの完了等、判断価値が生じる区切りを候補とする。全Prompt、全Response、個別Token／Latency、高頻度Tool logおよびIntermediate AnalysisをGitの正本にしない。秘密、個人情報、Provider保持条件および情報分類を観測前に確認し、Raw情報がなくても分析できる構造化metadataを優先する。
+
+### 10.4. v0.20の最小境界
+
+v0.20では実行知全体の完成を前提としない。最初の対象は、共通Event契約、Work Identity、Provider／Model Identity、入力戦略参照、時間・利用量、人間の実作業時間、検証・受入、Project Stateへの投影、および判断に必要な最小Viewer／分析とする。CRDD標準はEvent・Metric・評価・Evidenceの意味を所有し、各Runtime／ApplicationはTelemetry発行、Collector／Storeは履歴、Viewer／Analyzerは比較、Optimizerは改善候補を所有する。Coordinator専用契約にせず、CRDD採用Repositoryや他のRuntimeが同じ意味へ接続できる境界を設計する。
+
+運用成果（Operational Outcome）／事業成果（Business Result）は、目的との関係、結果Source、観測期間、帰属不確実性、取得費用およびPrivacy／Securityが成立する適用先から段階的に接続する。外部Sourceの事業データをCRDDへ複製せず、安定参照と必要な評価結果だけを保持する。初期自己適用では、CRDD自身のProject Runtime、Communication Repositoryおよび外部AI APIを使う採用先候補から、Eventの十分性、人間時間の測定可能性、入力戦略比較、Provider差および結果接続の実用性を検証する。
+
+未決事項は、最小Event集合、同意・情報分類、保持Policy、Human Active Timeの測定方法、外部利用量の信頼境界、評価者の自己参照、実験の十分性、Viewerの形および事業結果接続の最初の適用先である。これらはv0.20設計開始時にEvidenceと利用側から具体化し、109項目相当の構想を一括Schemaや巨大Applicationへ先行固定しない。

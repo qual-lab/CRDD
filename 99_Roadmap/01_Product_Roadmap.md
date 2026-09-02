@@ -24,7 +24,8 @@ Related:
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| v0.19 Minimum AI-native Project Runtime | Adopted | In Progress | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[CHG-000057の依存順と完了条件](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md#9-設計確定からリリース判断までの実行計画)、[Project Runtime実Provider E2E](../90_Release/Changes/Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用と限定有用性評価](../90_Release/Changes/Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md) | 設計から実Candidate Storeの統合・明示採用までを開発候補へ接続し、署名固定版で既存Docker Recoveryを収束させた。両方向の本番同等E2Eに加え、CRDD自身の低Riskな品質文書更新1件が、Claude Code Executor、Codex独立Reviewer、Milestone受入、正本採用まで126.528秒、開始後の人間入力・再試行・再計画・手動Recoveryなしで成立した。比較Baselineと人間／AI処理時間・Provider利用量は未測定で、総合的な優位は未確定である。次は固定候補の独立確認と必要監査を一括し、Release判断材料を揃える。Linux／macOSは実装せず、Project Runtime CoreとMCPのPlatform非依存を維持する |
+| v0.19 Minimum AI-native Project Runtime | Adopted | In Progress | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[CHG-000057の現在状態と次Gate](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md#8-現在状態と次のgate)、[正常縦断E2E](../90_Release/Changes/Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](../90_Release/Changes/Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md) | 署名固定版の正常縦断2経路はMilestone受入まで成立し、うち1経路で正本採用を確認した。低Risk文書1件の自己適用も正本採用まで成立した。次は認証済みMCP Client、実取消、親Process喪失、Recovery settlement、対話／スケジュール競合から残る代表経路を公開Process構成で確認する。その後に独立確認・必要監査とRelease判断材料を揃える。Linux／macOSは実装せず、Project Runtime CoreとMCPのPlatform非依存を維持する |
+| v0.20 実行知（Execution Intelligence） | Adopted | Planned | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v020-execution-intelligence) | AI WorkをProject／Milestone／Objective／Task／Attemptへ結合し、実行、成果物、人間受入、運用・事業結果を混同せず評価する。Git管理外の実行履歴、集約と正本昇格の分離、改善候補→人間判断→実験→採用のLoopをv0.20開始時に具体化する。v0.19の完成条件、実行記録の収集開始、巨大Dashboardまたは自動自己変更を意味しない。v0.20着手判断時にCurrent Stateと実行可能な差分を再確認してCHGを作成する |
 | CRDD長期発展の上位方向と能力地平の表示枠組み | Adopted | Unscheduled | [長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針)、[CRDD版の発展](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 採用対象は人間可読な表示枠組みと根拠駆動の責務分離ループであり、具体的な将来能力は含めない。公開済みv0.18.0の結果と、第2段階で得た自己適用の根拠を再評価契機とする。専門能力はまずContextとRole／Skillで自己適用し、共有すべき正本情報または不変条件の不足がEvidenceで成立した場合だけ責務境界を再評価する |
 | 採用済み3項目を除く第2段階の実行観測候補および第3～第6段階の個別研究候補 | Held | Unscheduled | [長期発展方針の研究候補](../01_Discovery/01_CRDD_Product_Discovery.md#78-研究候補と保持条件)、[将来能力地平](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 第1段階の完成固定版と第2段階の最初の自己適用結果を得た後、価値、成立性、費用、安全性および責務境界を人間が再評価する。将来Versionは能力地平であり、版予約、収載、期限、実装許可またはReleaseを意味しない。Linux常設、複数Repository、MCP／HTTP、Self-hosted ProviderおよびOrganization Runtimeの実装許可を本行から推定しない |
 | 自律Operationの参照実証 | Exploring | Unscheduled | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界)、[将来互換性](../05_Autonomous_Operation.md#6-将来互換性の確認候補) | 週次プロダクトレビュー、Communication結果レビュー、Roadmap再評価、Repository Eventのうち判断を変え得る最小の実証を選ぶ。Runtime完成または明示的な人間判断を再評価契機とし、起動数ではなく判断価値、安全性、誤起動、収束、根拠および人間負荷で評価する |
@@ -36,8 +37,9 @@ Related:
 v0.19は次の順序で収束させる。内部Taskの並列化は許すが、後段のGateを先行完了へ読み替えない。
 
 1. 完了: 到達可能な署名固定版で、既存Docker Recoveryを正式な公開入口から収束させた。
-2. 完了: 固定候補の実Provider本番同等E2E、終了後資源の確認、および低RiskなCRDD品質文書更新1件の自己適用を完了した。限定有用性評価では測定値と未測定値を分け、総合的な優位は未確定とした。
-3. 進行中: 自己適用後の固定候補へ独立確認と必要な監査を一括し、各変更のRelease Gateとv0.19の収載内容を人間が確定する。
+2. 完了: 署名固定候補の正常縦断2経路、終了後資源の確認、および低RiskなCRDD品質文書更新1件の自己適用を完了した。限定有用性評価では測定値と未測定値を分け、総合的な優位は未確定とした。
+3. 進行中: 認証済みMCP Client、実取消、親Process喪失、Recovery settlement、対話／スケジュール競合から、Project全体の結合条件に残る代表経路を公開Process構成で確認する。
+4. 未着手: Project全体の結合確認後の固定候補へ独立確認と必要な監査を一括し、各変更のRelease Gateとv0.19の収載内容を人間が確定する。
 
 ## 3. 境界
 

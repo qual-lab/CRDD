@@ -71,6 +71,13 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 ## 8. 現在状態と次のGate
 
+| 区分 | 現在値 |
+|---|---|
+| 成立 | 設計対応、契約・結合試験、署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk文書1件の自己適用と正本採用 |
+| 未成立 | 認証済みMCP Client、実取消、親Process喪失、Recovery settlement、対話／スケジュール競合を公開Process構成で結ぶProject全体の結合確認 |
+| 次Gate | 残る代表経路のE2E、未評価事項のRelease処遇、独立確認・必要監査、収載・分類・移行・残存Riskの人間判断 |
+| 根拠 | [正常縦断E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification) |
+
 工程正本を接続した後、Project Modelの最初の実装として、Task、Objective、Milestoneを別状態で保持する純粋な状態契約を追加した。Task完了後はObjectiveを`integration_pending`へ進めるだけとし、受入条件ごとのEvidenceを伴うObjective統合、全Objective受入後のMilestone統合を、それぞれ別の世代更新として固定した。Project State投影もWork Progress、Quality、Human Decision、RecoveryおよびNext Actionを分離し、Task完了や未観測値からProject成功を生成しない。
 
 [Project状態契約試験](../../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)は、最大5件選択、Dependency、Path／Conflict、cleanup不明、Recovery、古い世代、Graph不正に加え、Task完了後の統合待ち、Objective／Milestoneの段階受入、Evidence不足、Recovery時の成功補正禁止を確認する。[MCP Adapter契約試験](../../40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts)は、薄い単一Task経路とAdapter固有Authority 0を維持する。
@@ -119,9 +126,9 @@ OS管理のHuman Decision保護Store、公開MCP stdio Process、および実Can
 
 到達可能な署名固定版で既存Recoveryを正式に収束させた後の実Provider E2Eでは、Claude Executor／Codex Reviewer経路が候補保存、統合、正本採用およびMilestone受入まで成立した。一方、Codex Executor／Claude Reviewer経路は、Claude Codeが作業量から指定した`--max-turns`を超えるturn数を成功Envelopeへ報告し、結果受理時に停止した。cleanupは確認され、候補・Recovery残存はなかった。調査により、Providerへ指定する実行目標とRuntimeが結果を受理する絶対上限を同一値にしていた契約誤りを確認した。作業量由来の指定値、絶対受理上限、Runtime所有のtimeout／出力量／Process停止を分離し、指定値超過を上限遵守へ読み替えない契約へ変更した。固定fixtureで指定値以下、指定値超過かつ絶対上限以下、絶対上限超過、上限到達エラーおよび不正turn数を検証する。受理したClaude段階では、指定値、報告値、絶対上限および指定値超過の有無だけを非Authority観測としてcleanup後のTask結果と実測記録へ保持し、不正値またはcleanup未確認時は公開しない。
 
-署名固定版Source A `8cb1383`、Manifest carrier Source B `d44ae1a`による[実Provider E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)では、Codex Executor／Claude ReviewerとClaude Executor／Codex Reviewerの両経路が、MCP Objective受付、Single Task実行、独立Review、候補保存、統合、Milestone受入および明示採用まで完了した。全Taskでcleanupを確認し、手動Recovery、Process再起動義務およびRecovery残存はなかった。問題となったClaude Reviewerは指定目標6 turnに対して10 turnを報告したが、絶対受理上限16以内として成功結果を受理し、指定目標超過を非Authority観測として結果へ保持した。Claude Executorは指定目標8 turnに対して4 turnだった。これにより両Provider方向のProject Runtime縦断経路と今回のturn契約是正は実測済みとなった。ただし、2件の固定単一Path Taskであり、任意Task、全Provider組合せ、取消・Recovery全組合せ、長期安定性、有用性比較、v0.19全体完成またはReleaseを意味しない。
+署名固定版Source A `8cb1383`、Manifest carrier Source B `d44ae1a`による[実Provider E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)では、Codex Executor／Claude ReviewerとClaude Executor／Codex Reviewerの両経路が、MCP Objective受付、Single Task実行、独立Review、候補保存、統合およびMilestone受入まで完了した。明示採用を要求した後者だけで正本採用Receiptを確認した。全Taskでcleanupを確認し、手動Recovery、Process再起動義務およびRecovery残存はなかった。問題となったClaude Reviewerは指定目標6 turnに対して10 turnを報告したが、絶対受理上限16以内として成功結果を受理し、指定目標超過を非Authority観測として結果へ保持した。Claude Executorは指定目標8 turnに対して4 turnだった。これにより両Provider方向のProject Runtime正常縦断経路と今回のturn契約是正は実測済みとなった。ただし、2件の固定単一Path Taskであり、任意Task、全Provider組合せ、取消・Recovery全組合せ、長期安定性、有用性比較、v0.19全体完成またはReleaseを意味しない。
 
-[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)では、CRDD自身の品質状態更新を一つのMilestoneとしてClaude Code ExecutorとCodex独立Reviewerへ委譲し、指定した1ファイルだけの変更、Milestone受入および正本採用まで126.528秒で完了した。開始後の人間入力、再試行、再計画および手動Recoveryはなく、cleanupも確認した。これにより、低Riskの単一文書更新について、人間がAgent間のContextを運搬せずAccepted Resultへ到達する限定的な実務利用は成立した。比較Baseline、人間の実作業時間、AI処理時間およびProvider利用量は未測定であり、速度・費用・品質・Provider分散の総合的な優位は未確定とする。次のGateは、この固定候補へ独立確認と必要監査を一括し、v0.19の収載・移行・Release判断材料を確定することである。
+[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)では、CRDD自身の品質状態更新を一つのMilestoneとしてClaude Code ExecutorとCodex独立Reviewerへ委譲し、指定した1ファイルだけの変更、Milestone受入および正本採用まで126.528秒で完了した。開始後の人間入力、再試行、再計画および手動Recoveryはなく、cleanupも確認した。これにより、低Riskの単一文書更新について、人間がAgent間のContextを運搬せずAccepted Resultへ到達する限定的な実務利用は成立した。比較Baseline、人間の実作業時間、AI処理時間およびProvider利用量は未測定であり、速度・費用・品質・Provider分散の総合的な優位は未確定とする。次のGateは、Project全体の結合確認に残る代表経路を実行し、未評価事項のRelease処遇を整理した固定候補へ独立確認と必要監査を一括して、v0.19の収載・移行・Release判断材料を確定することである。
 
 ## 9. 設計確定からリリース判断までの実行計画
 
