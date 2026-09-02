@@ -54,7 +54,7 @@ import {
   inspectDockerDesktopRepairHistoricalOperation,
   parseDockerDesktopRepairDirectoryName,
 } from "./docker-desktop-repair-record-store.ts";
-import { loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
+import { loadHistoricalReleaseManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
 import {
   loadHostRecoveryRecordByToken,
@@ -4618,10 +4618,9 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       localAppData = path.win32.dirname(localAppData);
     }
     phase = "historical_manifest";
-    const originManifest =
-      loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification(
-        historicalReleaseRoot,
-      ).envelope;
+    const originManifest = loadHistoricalReleaseManifestEnvelopeForVerification(
+      historicalReleaseRoot,
+    ).envelope;
     phase = "historical_repair";
     const repair = inspectDockerDesktopRepairHistoricalOperation(
       {

@@ -91,6 +91,23 @@ test("履歴Recoveryは新旧manifest配置のexact一方だけを受理する",
   }
 });
 
+test("履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続する", () => {
+  for (const relativePath of [
+    "src/security/docker-desktop-runtime-repair.ts",
+    "src/security/docker-recovery-runtime-internal.ts",
+  ]) {
+    const source = fs.readFileSync(path.resolve(relativePath), "utf8");
+    assert.match(
+      source,
+      /loadHistoricalReleaseManifestEnvelopeForVerification/u,
+    );
+    assert.doesNotMatch(
+      source,
+      /loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification/u,
+    );
+  }
+});
+
 function withDistribution(
   bytes: Buffer,
   verify: (distributionRoot: string) => void,
