@@ -121,6 +121,8 @@ OS管理のHuman Decision保護Store、公開MCP stdio Process、および実Can
 
 署名固定版Source A `8cb1383`、Manifest carrier Source B `d44ae1a`による[実Provider E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)では、Codex Executor／Claude ReviewerとClaude Executor／Codex Reviewerの両経路が、MCP Objective受付、Single Task実行、独立Review、候補保存、統合、Milestone受入および明示採用まで完了した。全Taskでcleanupを確認し、手動Recovery、Process再起動義務およびRecovery残存はなかった。問題となったClaude Reviewerは指定目標6 turnに対して10 turnを報告したが、絶対受理上限16以内として成功結果を受理し、指定目標超過を非Authority観測として結果へ保持した。Claude Executorは指定目標8 turnに対して4 turnだった。これにより両Provider方向のProject Runtime縦断経路と今回のturn契約是正は実測済みとなった。ただし、2件の固定単一Path Taskであり、任意Task、全Provider組合せ、取消・Recovery全組合せ、長期安定性、有用性比較、v0.19全体完成またはReleaseを意味しない。
 
+[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)では、CRDD自身の品質状態更新を一つのMilestoneとしてClaude Code ExecutorとCodex独立Reviewerへ委譲し、指定した1ファイルだけの変更、Milestone受入および正本採用まで126.528秒で完了した。開始後の人間入力、再試行、再計画および手動Recoveryはなく、cleanupも確認した。これにより、低Riskの単一文書更新について、人間がAgent間のContextを運搬せずAccepted Resultへ到達する限定的な実務利用は成立した。比較Baseline、人間の実作業時間、AI処理時間およびProvider利用量は未測定であり、速度・費用・品質・Provider分散の総合的な優位は未確定とする。次のGateは、この固定候補へ独立確認と必要監査を一括し、v0.19の収載・移行・Release判断材料を確定することである。
+
 ## 9. 設計確定からリリース判断までの実行計画
 
 次の段階は依存順で進める。内部Taskへ分割できるが、後段の成功を前段の完了根拠へ流用しない。各段階の実装開始前に、対象Interface、保持する意図、変更禁止範囲、正常・準正常・異常、受入条件および検証方法をTask Packetへ固定する。

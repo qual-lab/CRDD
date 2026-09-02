@@ -1,0 +1,29 @@
+{
+  "contract": "crdd/project-runtime-self-application-summary",
+  "contractRevision": 1,
+  "status": "completed",
+  "reason": "project_runtime_milestone_accepted",
+  "repositoryRevision": "0acc157a59ba7a967d280533452be6535eb5a6e3",
+  "runtimeSourceACommit": "8cb138374d2c360f772b7ef9dbfa7d6e7797fd38",
+  "runtimeSourceBCommit": "d44ae1ae91c05eb0d75f061d3fd44aa7cac81172",
+  "projectId": "crdd-v019-self-application",
+  "milestoneId": "project-runtime-utility-evidence",
+  "taskCount": 1,
+  "changedPaths": [
+    "07_Quality/01_Quality_Center.md"
+  ],
+  "executorProvider": "claude",
+  "reviewerProvider": "codex",
+  "timeToAcceptedResultMs": 126528,
+  "additionalHumanInputAfterStart": false,
+  "retryCount": 0,
+  "replanCount": 0,
+  "cleanupConfirmed": true,
+  "manualRecoveryRequired": false,
+  "canonicalAdoptionObserved": true,
+  "humanActiveTimeMeasured": false,
+  "aiProcessingTimeMeasured": false,
+  "providerQuotaMeasured": false,
+  "comparisonBaselineAvailable": false,
+  "releaseAuthorityConferred": false
+}
