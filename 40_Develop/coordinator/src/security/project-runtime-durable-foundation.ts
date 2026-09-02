@@ -141,6 +141,16 @@ function nullableId(value: unknown) {
   return value === null || validId(value);
 }
 
+function nullableCandidateId(value: unknown) {
+  return (
+    value === null ||
+    (typeof value === "string" &&
+      value.length > 0 &&
+      value.length <= 512 &&
+      /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value))
+  );
+}
+
 function nullableRecoveryId(value: unknown) {
   return (
     value === null ||
@@ -163,6 +173,7 @@ function validProjectRuntimeState(
       "repositoryRevision",
       "generation",
       "ownerGeneration",
+      "decisionApplicationId",
       "maximumConcurrency",
       "milestone",
       "objectives",
@@ -176,6 +187,7 @@ function validProjectRuntimeState(
     !Number.isSafeInteger(value.generation) ||
     Number(value.generation) < 1 ||
     !validId(value.ownerGeneration) ||
+    !nullableId(value.decisionApplicationId) ||
     !Number.isSafeInteger(value.maximumConcurrency) ||
     Number(value.maximumConcurrency) < 1 ||
     Number(value.maximumConcurrency) > 5 ||
@@ -254,6 +266,8 @@ function validProjectRuntimeState(
         "authorityBindingId",
         "cleanupConfirmed",
         "recoveryId",
+        "candidateId",
+        "retryCount",
         "supersededBy",
       ]) ||
       !plainObject(task.definition) ||
@@ -290,6 +304,9 @@ function validProjectRuntimeState(
       !nullableId(task.authorityBindingId) ||
       typeof task.cleanupConfirmed !== "boolean" ||
       !nullableRecoveryId(task.recoveryId) ||
+      !nullableCandidateId(task.candidateId) ||
+      !Number.isSafeInteger(task.retryCount) ||
+      Number(task.retryCount) < 0 ||
       !nullableId(task.supersededBy)
     )
       return false;
@@ -1124,6 +1141,107 @@ export function readProjectOperationQueueState(
   }
 }
 
+/** Select the next unowned operation without preempting active work. */
+export function selectNextProjectOperation(
+  workingDirectory: string,
+  repositoryBindingId: string,
+): StoreResult<ProjectQueueEntry | null> {
+  try {
+    if (!validId(repositoryBindingId))
+      return blocked("project_runtime_queue_selection_invalid");
+    const { runtime } = storageRoot(workingDirectory);
+    const queueRoot = path.join(runtime, "queue");
+    if (!fs.existsSync(queueRoot))
+      return completed("project_runtime_queue_empty", null);
+    assertDirectory(queueRoot);
+    const names = fs.readdirSync(queueRoot).sort();
+    if (names.length > 4096 || names.some((name) => !validId(name)))
+      return blocked("project_runtime_queue_inventory_invalid", true);
+    const entries: ProjectQueueEntry[] = [];
+    for (const name of names) {
+      assertDirectory(path.join(queueRoot, name));
+      const observed = readProjectOperationQueueState(
+        workingDirectory,
+        repositoryBindingId,
+        name,
+      );
+      if (observed.status !== "completed")
+        return blocked(observed.reason, observed.manualRecoveryRequired);
+      entries.push(observed.value);
+    }
+    const interactive = entries.find(
+      (entry) =>
+        entry.originLane === "interactive" &&
+        entry.state === "queued" &&
+        entry.ownerGeneration === null,
+    );
+    if (interactive) {
+      for (const scheduled of entries.filter(
+        (entry) =>
+          entry.originLane === "scheduled" &&
+          entry.state === "queued" &&
+          entry.ownerGeneration === null,
+      )) {
+        const parked = updateProjectOperationQueueState(
+          workingDirectory,
+          repositoryBindingId,
+          scheduled.queueId,
+          scheduled.generation,
+          {
+            state: "waiting_foreground",
+            lease: null,
+            resumeCondition: "interactive_queue_pending",
+            resultReference: null,
+          },
+        );
+        if (parked.status !== "completed")
+          return blocked(parked.reason, parked.manualRecoveryRequired);
+      }
+      return completed(
+        "project_runtime_interactive_queue_selected",
+        interactive,
+      );
+    }
+    const waiting = entries.find(
+      (entry) =>
+        entry.originLane === "scheduled" &&
+        entry.state === "waiting_foreground" &&
+        entry.ownerGeneration === null,
+    );
+    if (waiting) {
+      const woken = updateProjectOperationQueueState(
+        workingDirectory,
+        repositoryBindingId,
+        waiting.queueId,
+        waiting.generation,
+        {
+          state: "queued",
+          lease: null,
+          resumeCondition: null,
+          resultReference: null,
+        },
+      );
+      return woken.status === "completed"
+        ? completed("project_runtime_scheduled_queue_selected", woken.value)
+        : blocked(woken.reason, woken.manualRecoveryRequired);
+    }
+    const scheduled = entries.find(
+      (entry) =>
+        entry.originLane === "scheduled" &&
+        entry.state === "queued" &&
+        entry.ownerGeneration === null,
+    );
+    return completed(
+      scheduled
+        ? "project_runtime_scheduled_queue_selected"
+        : "project_runtime_queue_empty",
+      scheduled ?? null,
+    );
+  } catch {
+    return blocked("project_runtime_queue_selection_observation_unknown", true);
+  }
+}
+
 const QUEUE_TRANSITIONS = Object.freeze({
   queued: Object.freeze(["leased", "waiting_foreground", "cancelled"]),
   leased: Object.freeze([
@@ -1140,7 +1258,7 @@ const QUEUE_TRANSITIONS = Object.freeze({
     "recovery_required",
     "cancelled",
   ]),
-  waiting_foreground: Object.freeze(["leased", "cancelled"]),
+  waiting_foreground: Object.freeze(["queued", "leased", "cancelled"]),
   integration_pending: Object.freeze([
     "completed",
     "replan_required",
@@ -1154,7 +1272,11 @@ const QUEUE_TRANSITIONS = Object.freeze({
     "recovery_required",
     "cancelled",
   ]),
-  human_decision_required: Object.freeze(["recovery_required", "cancelled"]),
+  human_decision_required: Object.freeze([
+    "replan_required",
+    "recovery_required",
+    "cancelled",
+  ]),
   recovery_required: Object.freeze(["cancelled"]),
   completed: Object.freeze([]),
   cancelled: Object.freeze([]),

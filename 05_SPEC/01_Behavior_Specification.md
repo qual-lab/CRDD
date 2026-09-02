@@ -8,7 +8,7 @@ Last Updated: 2026-09-02
 
 本書はCRDD参照Runtimeの入力、利用条件、結果、停止・回復、および現在の実装範囲を所有する。上位の[エージェント組織](../04_Agent_Organization.md)や人間の決定権限を再定義しない。実行手順は[作業手順](../19_Workflows/01_Coordinator_Runtime.md)、成立方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証の現在状態は[品質確認](../07_Quality/01_Quality_Center.md)へ分離する。
 
-Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Project Runtime節はv0.19で公開を目指す未実装の契約候補であり、現在利用可能なCapabilityではない。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認し、候補の実装状態は[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)と[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。
+Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Project Runtime節はv0.19で公開を目指す開発候補であり、現在利用可能な公開Capabilityではない。候補の部分実装を公開済みと読み替えず、現在状態は[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)と[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。
 
 利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
 
@@ -454,7 +454,7 @@ Local Personalで接続済みのHome／State観測と、未接続の保護済み
 
 ## Project Runtime契約
 
-本節はv0.19で公開を目指す未実装の契約候補であり、現在利用可能な公開契約ではない。候補は、人間または許可されたMCP／CLI入口から一つのProjectとMilestoneを受け取り、複数ObjectiveとTask Graphへ計画し、v0.18 Single Task Runtimeを実行単位として使用し、統合済み結果とProject Stateを返す。MCPとCLIは同じ意味契約へ到達し、Transport固有入力からAuthority、Project正本または追加のEffect権限を生成しない。
+本節はv0.19で公開を目指す開発候補であり、現在利用可能なRelease契約ではない。候補は、人間または許可されたMCP／CLI入口から一つのProjectとMilestoneを受け取り、複数ObjectiveとTask Graphへ計画し、v0.18 Single Task Runtimeを実行単位として使用し、統合済み結果とProject Stateを返す。MCPとCLIは同じ意味契約へ到達し、Transport固有入力からAuthority、Project正本または追加のEffect権限を生成しない。現在は共通Objective入口、対話優先Queue、同一計画の再試行・部分再計画・人間判断移送、Task候補の耐久状態への受渡し、OS管理Rootの判断記録、MCP標準入出力Process、実Candidate Storeの統合候補・明示採用・受入を開発候補として接続した。判断Capabilityの置換・全失効、独立Recovery Intent Store、切断・電源断を含む本番同等E2E、実Providerによる複数Task結果の統合・採用およびRelease判断は未成立である。
 
 Project RuntimeはTask総数を5件へ制限しないが、同時にRunningとなるTaskを最大5件に制限する。Dependency、共有資源、許可Path、仕様・判断の競合、Lock、Provider利用枠またはIntegration Boundaryが独立実行を許さない場合は5未満を選ぶ。利用可能な枠があっても実行可能性を確認できないTaskを開始しない。
 

@@ -68,6 +68,8 @@ export type ProjectTaskRecord = Readonly<{
   authorityBindingId: string | null;
   cleanupConfirmed: boolean;
   recoveryId: string | null;
+  candidateId: string | null;
+  retryCount: number;
   supersededBy: string | null;
 }>;
 
@@ -78,6 +80,7 @@ export type ProjectRuntimeState = Readonly<{
   repositoryRevision: string;
   generation: number;
   ownerGeneration: string;
+  decisionApplicationId: string | null;
   maximumConcurrency: number;
   milestone: ProjectMilestoneRecord;
   objectives: readonly ProjectObjectiveRecord[];
@@ -134,6 +137,15 @@ function validIdentity(value: unknown) {
 
 function validRevision(value: unknown) {
   return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
+}
+
+function validCandidateIdentity(value: unknown) {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 512 &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
+  );
 }
 
 export function isProjectRuntimeRecoveryIdentity(
@@ -338,6 +350,8 @@ export function createProjectRuntimeState(
       authorityBindingId: null,
       cleanupConfirmed: false,
       recoveryId: null,
+      candidateId: null,
+      retryCount: 0,
       supersededBy: null,
     }),
   );
@@ -350,6 +364,7 @@ export function createProjectRuntimeState(
       input.ownerGeneration && validIdentity(input.ownerGeneration)
         ? input.ownerGeneration
         : randomUUID(),
+    decisionApplicationId: null,
     maximumConcurrency: input.maximumConcurrency,
     milestone: Object.freeze({
       id: input.milestoneId,
@@ -558,6 +573,7 @@ export function settleProjectTask(
     outcome: "completed" | "failed" | "cancelled" | "recovery_required";
     cleanupConfirmed: boolean;
     recoveryId: string | null;
+    candidateId?: string | null;
   }>,
 ): StateResult {
   const task = state.tasks.find(
@@ -574,7 +590,13 @@ export function settleProjectTask(
     (input.outcome === "cancelled" && !input.cleanupConfirmed) ||
     (input.outcome === "recovery_required" &&
       !isProjectRuntimeRecoveryIdentity(input.recoveryId)) ||
-    (input.outcome !== "recovery_required" && input.recoveryId !== null)
+    (input.outcome !== "recovery_required" && input.recoveryId !== null) ||
+    (input.candidateId !== undefined &&
+      input.candidateId !== null &&
+      !validCandidateIdentity(input.candidateId)) ||
+    (input.outcome !== "completed" &&
+      input.candidateId !== undefined &&
+      input.candidateId !== null)
   ) {
     return Object.freeze({
       status: "blocked",
@@ -593,6 +615,8 @@ export function settleProjectTask(
       state: nextState,
       cleanupConfirmed: input.cleanupConfirmed,
       recoveryId: input.recoveryId,
+      candidateId:
+        input.outcome === "completed" ? (input.candidateId ?? null) : null,
     }),
   );
   const completed = new Set(
@@ -645,6 +669,273 @@ export function settleProjectTask(
       tasks,
     }),
     taskIds: Object.freeze([input.taskId]),
+  });
+}
+
+/**
+ * Replace only a failed task inside the already-authorized milestone scope.
+ * Replanning never mutates the failed record in place: the old task becomes
+ * superseded and every replacement receives a new stable identity.  The
+ * number of superseded records is the durable replan counter, avoiding a
+ * second mutable counter that could diverge from the actual plan history.
+ */
+export function applyProjectRuntimePartialReplan(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  input: Readonly<{
+    failedTaskId: string;
+    replacements: readonly ProjectTaskDefinition[];
+    maximumReplans: number;
+  }>,
+): StateResult {
+  const failed = state.tasks.find(
+    (task) => task.definition.id === input.failedTaskId,
+  );
+  const completedIds = new Set(
+    state.tasks
+      .filter((task) => task.state === "completed")
+      .map((task) => task.definition.id),
+  );
+  const replacementDefinitions = input.replacements.map(snapshotDefinition);
+  const existingIds = new Set(state.tasks.map((task) => task.definition.id));
+  const replacementIds = new Set(
+    replacementDefinitions
+      .filter((value): value is ProjectTaskDefinition => value !== null)
+      .map((definition) => definition.id),
+  );
+  const availableDependencies = new Set([...completedIds, ...replacementIds]);
+  if (
+    state.generation !== expectedGeneration ||
+    !failed ||
+    failed.state !== "failed" ||
+    failed.supersededBy !== null ||
+    !Number.isSafeInteger(input.maximumReplans) ||
+    input.maximumReplans < 0 ||
+    state.tasks.filter((task) => task.supersededBy !== null).length >=
+      input.maximumReplans ||
+    replacementDefinitions.length === 0 ||
+    replacementDefinitions.some((definition) => definition === null) ||
+    replacementIds.size !== replacementDefinitions.length ||
+    [...replacementIds].some((id) => existingIds.has(id)) ||
+    (replacementDefinitions as readonly ProjectTaskDefinition[]).some(
+      (definition) =>
+        definition.objectiveId !== failed.definition.objectiveId ||
+        definition.dependencies.some(
+          (dependency) => !availableDependencies.has(dependency),
+        ),
+    ) ||
+    hasCycle([
+      ...state.tasks
+        .filter(
+          (task) => task.state !== "failed" && task.state !== "superseded",
+        )
+        .map((task) => task.definition),
+      ...(replacementDefinitions as readonly ProjectTaskDefinition[]),
+    ])
+  ) {
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_replan_invalid_or_out_of_scope",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  }
+  const replacements = (
+    replacementDefinitions as readonly ProjectTaskDefinition[]
+  ).map((definition) =>
+    Object.freeze({
+      definition,
+      state: definition.dependencies.every((dependency) =>
+        completedIds.has(dependency),
+      )
+        ? ("ready" as const)
+        : ("waiting_dependency" as const),
+      attemptId: null,
+      operationId: null,
+      authorityBindingId: null,
+      cleanupConfirmed: false,
+      recoveryId: null,
+      candidateId: null,
+      retryCount: 0,
+      supersededBy: null,
+    }),
+  );
+  const replacementHead = replacements[0]?.definition.id ?? null;
+  const tasks = [
+    ...state.tasks.map((task) =>
+      task.definition.id === failed.definition.id
+        ? Object.freeze({
+            ...task,
+            state: "superseded" as const,
+            supersededBy: replacementHead,
+          })
+        : task,
+    ),
+    ...replacements,
+  ];
+  const objectives = state.objectives.map((objective) =>
+    objective.definition.id === failed.definition.objectiveId
+      ? Object.freeze({
+          ...objective,
+          state: "executing" as const,
+          criterionEvidenceIds: Object.freeze([]),
+        })
+      : objective,
+  );
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_partial_replan_applied",
+    state: projectState({
+      ...state,
+      generation: state.generation + 1,
+      milestone: Object.freeze({
+        ...state.milestone,
+        state: "executing" as const,
+      }),
+      objectives,
+      tasks,
+    }),
+    taskIds: Object.freeze(replacements.map((task) => task.definition.id)),
+  });
+}
+
+/**
+ * Retry the same bounded task definition without reusing its prior attempt or
+ * Operation identity. This is the explicit "maintain plan" transition: the
+ * plan and scope stay fixed while the failed execution identity is retired.
+ */
+export function retryProjectRuntimeTask(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  taskId: string,
+  maximumReplans: number,
+): StateResult {
+  const failed = state.tasks.find((task) => task.definition.id === taskId);
+  if (
+    state.generation !== expectedGeneration ||
+    !failed ||
+    failed.state !== "failed" ||
+    !Number.isSafeInteger(maximumReplans) ||
+    maximumReplans < 0 ||
+    failed.retryCount >= maximumReplans
+  ) {
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_retry_invalid_or_limit_exceeded",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  }
+  const tasks = replaceTask(state, taskId, (task) =>
+    Object.freeze({
+      ...task,
+      state: "ready" as const,
+      attemptId: null,
+      operationId: null,
+      authorityBindingId: null,
+      cleanupConfirmed: false,
+      recoveryId: null,
+      candidateId: null,
+      retryCount: task.retryCount + 1,
+    }),
+  );
+  const objectives = state.objectives.map((objective) =>
+    objective.definition.id === failed.definition.objectiveId
+      ? Object.freeze({ ...objective, state: "executing" as const })
+      : objective,
+  );
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_plan_maintained_for_retry",
+    state: projectState({
+      ...state,
+      generation: state.generation + 1,
+      milestone: Object.freeze({
+        ...state.milestone,
+        state: "executing" as const,
+      }),
+      objectives,
+      tasks,
+    }),
+    taskIds: Object.freeze([taskId]),
+  });
+}
+
+export function requestProjectRuntimeHumanDecision(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  objectiveId: string,
+): StateResult {
+  const objective = state.objectives.find(
+    (candidate) => candidate.definition.id === objectiveId,
+  );
+  if (
+    state.generation !== expectedGeneration ||
+    !objective ||
+    objective.state !== "blocked" ||
+    state.milestone.state === "accepted" ||
+    state.milestone.state === "cancelled"
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_human_decision_request_invalid",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_human_decision_required",
+    state: projectState({
+      ...state,
+      generation: state.generation + 1,
+      decisionApplicationId: null,
+      milestone: Object.freeze({
+        ...state.milestone,
+        state: "human_decision_required" as const,
+      }),
+    }),
+    taskIds: Object.freeze(
+      state.tasks
+        .filter((task) => task.definition.objectiveId === objectiveId)
+        .map((task) => task.definition.id),
+    ),
+  });
+}
+
+export function applyProjectRuntimeHumanDecision(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  action: "resume" | "cancel",
+  applicationId?: string,
+): StateResult {
+  if (
+    state.generation !== expectedGeneration ||
+    state.milestone.state !== "human_decision_required" ||
+    !validIdentity(applicationId)
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_human_decision_stale",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  return Object.freeze({
+    status: "completed",
+    reason:
+      action === "resume"
+        ? "project_runtime_human_decision_applied"
+        : "project_runtime_milestone_cancelled_by_human",
+    state: projectState({
+      ...state,
+      generation: state.generation + 1,
+      decisionApplicationId: applicationId as string,
+      milestone: Object.freeze({
+        ...state.milestone,
+        state:
+          action === "resume" ? ("executing" as const) : ("cancelled" as const),
+      }),
+    }),
+    taskIds: Object.freeze([]),
   });
 }
 

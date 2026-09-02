@@ -260,7 +260,8 @@ function taskExecutionMap(
 ) {
   if (
     !Array.isArray(executions) ||
-    executions.length !== state.tasks.length ||
+    executions.length !==
+      state.tasks.filter((task) => task.state !== "superseded").length ||
     new Set(executions.map((entry) => entry.taskId)).size !== executions.length
   )
     return null;
@@ -269,7 +270,10 @@ function taskExecutionMap(
     if (
       !entry ||
       typeof entry !== "object" ||
-      !state.tasks.some((task) => task.definition.id === entry.taskId) ||
+      !state.tasks.some(
+        (task) =>
+          task.definition.id === entry.taskId && task.state !== "superseded",
+      ) ||
       !validIdentity(entry.authorityBindingId) ||
       !entry.taskAuthorityCapability ||
       typeof entry.taskAuthorityCapability !== "object"
@@ -722,6 +726,7 @@ export async function runProjectRuntimeOperation(
               : "failed",
         cleanupConfirmed: validatedOutcome?.cleanupConfirmed === true,
         recoveryId,
+        candidateId: validatedOutcome?.candidateId ?? null,
       });
       if (settlement.status !== "completed" || !settlement.state)
         return finalizeOwnedFailure(settlement.reason, {

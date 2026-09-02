@@ -7,9 +7,9 @@ export const PROJECT_RUNTIME_PLATFORM_CONTRACT_REVISION = 1;
 /**
  * IF-PLATFORM boundary families fixed by the reference architecture
  * (01_Architecture.md 14.9). The lock_lease family is declared here because
- * the contract owns the closed family population, while the current Windows
- * adapter does not support it yet; resolution fails closed for unsupported
- * families instead of narrowing the population.
+ * the contract owns the closed family population. The Windows adapter now
+ * supplies owner-liveness observation; resolution still fails closed for
+ * unsupported families instead of narrowing the population.
  */
 export const PROJECT_RUNTIME_PLATFORM_BOUNDARIES = Object.freeze([
   "principal_provider_home",
@@ -26,16 +26,15 @@ export type ProjectRuntimePlatformBoundary =
 /**
  * Closed operation-name population per boundary for contract revision 1.
  * Boundary support is resolved by exact match against this population, so a
- * family whose required set is empty (lock_lease: its real extraction unit is
- * owned by the durable-foundation stage) is unresolvable by every adapter —
- * an empty set means "cannot resolve", never "trivially satisfied". Adding
- * operations to a family is a contract-revision decision of the stage that
- * implements it.
+ * family whose required set is empty is unresolvable by every adapter — an
+ * empty set means "cannot resolve", never "trivially satisfied". Adding
+ * operations to a family is a contract-revision decision of the implementing
+ * stage.
  */
 export const PROJECT_RUNTIME_PLATFORM_BOUNDARY_OPERATIONS = Object.freeze({
   principal_provider_home: Object.freeze(["observeProviderHomeCandidate"]),
   filesystem_repository: Object.freeze(["resolveRepositoryRoot"]),
-  lock_lease: Object.freeze([]),
+  lock_lease: Object.freeze(["observeLeaseOwner"]),
   process_cancellation: Object.freeze(["deriveChildEnvironment"]),
   container_host: Object.freeze(["observeContainerHostRecoveryState"]),
   runtime_root_recovery: Object.freeze(["compileRootObservationCandidate"]),

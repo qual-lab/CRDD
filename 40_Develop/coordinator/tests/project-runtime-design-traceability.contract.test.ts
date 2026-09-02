@@ -50,7 +50,7 @@ describe("Project Runtime design traceability", () => {
         actionBindings: 52,
         invariants: 32,
         failureInjections: 16,
-        implementationBindings: 6,
+        implementationBindings: 9,
         verificationBindings: 23,
       },
     );

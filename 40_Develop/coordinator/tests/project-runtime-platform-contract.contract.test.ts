@@ -82,7 +82,7 @@ test("Platform契約は境界母集団・操作名対応・非fallbackを閉集�
     boundaryOperations: {
       principal_provider_home: ["observeProviderHomeCandidate"],
       filesystem_repository: ["resolveRepositoryRoot"],
-      lock_lease: [],
+      lock_lease: ["observeLeaseOwner"],
       process_cancellation: ["deriveChildEnvironment"],
       container_host: ["observeContainerHostRecoveryState"],
       runtime_root_recovery: ["compileRootObservationCandidate"],
@@ -189,25 +189,21 @@ test("必要境界の保証未成立はEffect 0で停止し未成立境界を返
   });
 });
 
-test("操作名母集団が空のlock_leaseは宣言や操作の有無にかかわらず解決不能", () => {
+test("lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決する", () => {
   const claimingLockLease = syntheticAdapter(
     "windows",
-    [...resolvableBoundaries, "lock_lease"],
+    resolvableBoundaries,
     Object.freeze({
-      lock_lease: Object.freeze({ acquireSomething: () => null }),
+      lock_lease: Object.freeze({ observeLeaseOwner: () => null }),
     }),
   );
-  assert.deepEqual(
+  assert.equal(
     resolveProjectRuntimePlatformAdapter(
       "windows",
       [claimingLockLease],
       ["lock_lease"],
-    ),
-    {
-      status: "blocked",
-      reason: "platform_boundary_unsupported",
-      unsupportedBoundaries: ["lock_lease"],
-    },
+    ).status,
+    "resolved",
   );
 });
 
@@ -413,6 +409,7 @@ test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsna
     operations: Object.freeze({
       principal_provider_home: canonicalOperations("principal_provider_home"),
       filesystem_repository: canonicalOperations("filesystem_repository"),
+      lock_lease: canonicalOperations("lock_lease"),
       process_cancellation: canonicalOperations("process_cancellation"),
       container_host: canonicalOperations("container_host"),
       runtime_root_recovery: canonicalOperations("runtime_root_recovery"),
@@ -441,6 +438,7 @@ test("解決結果は登録済みAdapterのexact一致だけを返す", () => {
     assert.deepEqual(resolution.adapter.describe().supportedBoundaries, [
       "principal_provider_home",
       "filesystem_repository",
+      "lock_lease",
       "process_cancellation",
       "container_host",
       "runtime_root_recovery",

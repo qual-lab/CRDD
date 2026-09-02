@@ -26,11 +26,16 @@ import {
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "../src/security/candidate-bundle-store.ts";
 import { parseUnambiguousJsonDocument } from "../src/security/claude-structured-result.ts";
+import { runMcpProjectRuntimeStdio } from "../src/security/mcp-project-runtime-stdio.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
+import {
+  runProjectRuntimePublicDecision,
+  runProjectRuntimePublicObjective,
+} from "../src/security/project-runtime-public-runtime.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import {
   closeRuntimeOwnedWindowsDockerDesktopRepair,
@@ -84,6 +89,9 @@ function printHelp() {
     `  coordinator task --request-stdin [--json]  # verifies prerequisites per operation\n`,
   );
   process.stdout.write(`  coordinator capabilities --json\n`);
+  process.stdout.write(
+    `  coordinator mcp --stdio  # v0.19 development candidate\n`,
+  );
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
   process.stdout.write(
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
@@ -135,6 +143,91 @@ function runCapabilitiesCommand(args: readonly string[]) {
     })}\n`,
   );
   process.exitCode = 0;
+}
+
+async function runProjectCommand(args: readonly string[]) {
+  if (
+    args.length !== 2 ||
+    args[0] !== "--request-stdin" ||
+    args[1] !== "--json"
+  ) {
+    printCommandReport(
+      Object.freeze({
+        command: "project",
+        status: "blocked",
+        reason: "project_arguments_invalid",
+      }),
+      true,
+    );
+    process.exitCode = 64;
+    return;
+  }
+  let request: unknown;
+  try {
+    request = readBoundedTaskRequestFromStdin();
+  } catch (rawError) {
+    printCommandReport(
+      Object.freeze({
+        command: "project",
+        status: "blocked",
+        reason:
+          rawError instanceof UsageError
+            ? rawError.message
+            : "project_request_invalid",
+      }),
+      true,
+    );
+    process.exitCode = rawError instanceof UsageError ? 64 : 2;
+    return;
+  }
+  const controller = new AbortController();
+  const binding = bindTaskCliCancellationSignals(async () =>
+    controller.abort(),
+  );
+  let result: Awaited<ReturnType<typeof runProjectRuntimePublicObjective>>;
+  let released: ReturnType<typeof binding.unbind> | undefined;
+  try {
+    result = await runProjectRuntimePublicObjective(request, controller.signal);
+  } finally {
+    released = binding.unbind();
+  }
+  if (binding.status !== "bound" || released.status !== "released") {
+    printCommandReport(
+      Object.freeze({
+        command: "project",
+        status: "blocked",
+        reason: "project_cli_cancellation_binding_failed",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+      }),
+      true,
+    );
+    process.exitCode = 2;
+    return;
+  }
+  process.stdout.write(
+    `${JSON.stringify({ command: "project", ...result })}\n`,
+  );
+  process.exitCode = result.status === "completed" ? 0 : 2;
+}
+
+async function runMcpCommand(args: readonly string[]) {
+  if (args.length !== 1 || args[0] !== "--stdio") {
+    process.stderr.write("Usage: coordinator mcp --stdio\n");
+    process.exitCode = 64;
+    return;
+  }
+  const result = await runMcpProjectRuntimeStdio(
+    {
+      runObjective: (request, signal) =>
+        runProjectRuntimePublicObjective(request, signal),
+      submitDecision: async (request) =>
+        runProjectRuntimePublicDecision(request),
+    },
+    process.stdin,
+    process.stdout,
+  );
+  process.exitCode = result.status === "completed" ? 0 : 2;
 }
 
 function readBoundedTaskRequestFromStdin() {
@@ -405,6 +498,10 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
   process.exitCode = 0;
 } else if (command === "task") {
   await runTaskCommand(args);
+} else if (command === "project") {
+  await runProjectCommand(args);
+} else if (command === "mcp") {
+  await runMcpCommand(args);
 } else if (command === "capabilities") {
   runCapabilitiesCommand(args);
 } else if (command === "candidate") {

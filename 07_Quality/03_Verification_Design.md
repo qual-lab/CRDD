@@ -189,8 +189,8 @@ MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未�
 | PR-A-06 | 異常 | Queue owner喪失、stale file、Runtime外の直接編集または採用直前Revision変化 | 時刻やfile存在だけでLeaseを奪取せず、新規Effect／自動上書き0、再計画・判断・Recoveryを一意に分類 |
 | PR-A-07 | 異常 | Platform不明、Adapter不在または対象Platformの保証未成立 | 別PlatformへfallbackせずProject／Task／Provider Effect 0で停止し、未対応を成功へ補正しない |
 | PR-D-A-01 | 異常 | Recordのhash破損、hashを再計算した不完全Schema、filenameと世代の不一致・欠落・一時file残存、Lease解放記録の失敗 | 破損を初期値へ戻さず停止する。Lock解放前に回復Markerを耐久化し、解放証跡が確定しない間は同じLeaseを再取得させない。意味上有効な同一ユーザー改変をhashだけで検出できるとは主張しない |
-| PR-I-01 | 統合 | 全Task completedだがObjective確認前または成果物Conflictあり | [Project状態契約試験](../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)でObjectiveを`integration_pending`に保ち、Milestone成功へ補正しない。実成果物Conflictは結合試験で追加確認する |
-| PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | 同試験で受入条件ごとのEvidenceを要求し、ObjectiveとMilestoneを別の世代更新で受け入れる。終了後所有資源0は結合試験で追加確認する |
+| PR-I-01 | 統合 | 全Task completedだがObjective確認前または成果物Conflictあり | [Project状態契約試験](../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)と[統合契約試験](../40_Develop/coordinator/tests/project-runtime-integration.contract.test.ts)でObjectiveを`integration_pending`に保ち、Conflictを判断要求へ移してMilestone成功へ補正しない |
+| PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | [統合契約試験](../40_Develop/coordinator/tests/project-runtime-integration.contract.test.ts)でTask候補、受入条件ごとのEvidence、明示採用Authorityおよびfresh Revisionを要求し、ObjectiveとMilestoneを世代更新で受け入れる。[全体結合試験](../40_Develop/coordinator/tests/project-runtime-full-flow.integration.test.ts)で公開Objective入口からAccepted Resultまでを確認する |
 
 単体試験はGraph検証、Task／Objective／Milestoneの状態分離、受入条件ごとのEvidence、世代比較、容量計算およびAuthority縮小を確認する。結合試験はProject State Store、Scheduler、Single Task Runtime、取消、RecoveryおよびIntegrationの接続を確認する。E2EはMCP／CLIの公開入口から同じ意味契約へ到達し、正常、準正常、異常の代表経路でProcess構成、入力搬送、終了後資源および人間表示まで観測する。モックのTask完了だけから実Process不存在、cleanup、Authority非発行またはEffect 0を推定しない。
 
@@ -198,9 +198,13 @@ MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未�
 
 [Project実行契約試験](../40_Develop/coordinator/tests/project-runtime-execution.contract.test.ts)は、耐久State／Queue／Leaseから既存Single Task AdapterへTask exact 1件を渡す正常経路、同一Queue再実行のEffect 0、独立Task 7件で同時実行最大5、Dependency、親子Pathと意味競合、契約／attempt／Operation／Authority binding／Revisionが一致しない結果、余剰・欠落field、保存不能なRecovery ID、結果field間の矛盾、Process再起動義務、cleanup不明、同期throwおよび開始前取消を確認する。Queue観測をEffect後に壊す故障注入では、共通終了処理が物理Leaseを解放し、exactな解放証跡から後続reconcileがQueue ownerを消せることを確認する。耐久基盤試験は別ProcessでLease取得後に終了させ、取得済みowner evidenceとQueue ownerを照合し、別Queue／別種別／不正filenameまたは内容の証跡を拒否し、Lock回収、exactな解放またはowner喪失証跡、Marker除去の後にだけQueue ownerを消すCore、終端Queueの解放settlement再開、owner生存または観測不明時の奪取0も確認する。これにより`PR-N-01`～`PR-N-03`、`PR-Q-01`、`PR-Q-04`、`PR-A-03`～`PR-A-05`の中核契約は部分成立した。ただしMCP／CLI公開入口、実Provider、Platform Adapterによるowner process不存在観測、切断後の実cleanup、電源断、Recovery settled、Provider条件および対話Lane優先は未評価であり、該当項目全体またはProject Runtime全体の`Pass`へ読み替えない。
 
+[Project Runtimeの意味経路試験](../40_Develop/coordinator/tests/project-runtime-full-flow.integration.test.ts)は、[公開Objective入口の契約試験](../40_Develop/coordinator/tests/project-runtime-objective-intake.contract.test.ts)、[Queue優先試験](../40_Develop/coordinator/tests/project-runtime-queue-priority.contract.test.ts)、[再計画・判断契約試験](../40_Develop/coordinator/tests/project-runtime-replanning-and-decision.contract.test.ts)および[統合契約試験](../40_Develop/coordinator/tests/project-runtime-integration.contract.test.ts)と合わせ、公開Objective入口から失敗、同一計画のfresh attemptまたは部分再計画、人間判断移送、Task候補、統合候補、Conflict停止、明示採用およびMilestone受入までを確認する。公開入力、Planner結果とTask実行集合の余剰field、getter、ProxyまたはScope拡張はProject Effect前に拒否する。追加の[Windows判断Store試験](../40_Develop/coordinator/tests/project-runtime-windows-decision-store.contract.test.ts)は不変CAS世代列と改変拒否、[MCP stdio試験](../40_Develop/coordinator/tests/mcp-project-runtime-stdio.integration.test.ts)はbounded入力と親EOF、[実Candidate統合試験](../40_Develop/coordinator/tests/project-runtime-candidate-integration-adapter.integration.test.ts)はCandidate Storeからの統合・明示採用を確認する。ただし実Provider、認証済みMCP Client、切断後の実cleanup、電源断、判断Capabilityの置換・全失効・独立Recovery Intent、全Recovery settledは未評価であり、Project Runtime全体の`Pass`へ読み替えない。
+
 Coordinator責務分離では、Project Runtime CoreからWindows固有moduleへの新規直接依存がないこと、Platform Adapter requestが閉集合であること、AdapterがAuthorityを生成しないこと、未実装PlatformがWindowsへfallbackしないことを契約試験で確認する。既存Windows処理をAdapterの背後へ移す場合は、移行前後でPrincipal／Provider Home、Filesystem、Lock、Process、ContainerおよびRecoveryの同じ保証と異常経路を再確認する。MCPはTransportとPlatformの組合せごとに入力搬送、切断、取消、重複requestおよびcleanupを確認する。Linux／macOSのBuild、配布およびE2Eはv0.19の合格条件へ含めず、対応済みとも表示しない。
 
 機械可読な設計対応は、一つの状態遷移をexactに一つの`BIND-*`へ結ぶ。通常状態更新、取消、Recovery、Integrationおよび正本採用を一つのAuthority／Effect和集合へまとめた入力、取消遷移からSingle Task取消Effectが欠落した入力、通常遷移へRecovery Effectを混入した入力、Effect前IntentとEffect後Receiptの時間関係を逆転した入力を負例として拒否する。
+
+前段の試験記録は時系列で読む。Project実行契約試験単体で未評価だった公開Objective入口、owner観測、対話Lane、再計画および統合の候補経路を、後続の意味経路試験で部分接続した。意味経路試験に残した未評価範囲が現在のGateである。
 
 <a id="reasoning-context-verification"></a>
 

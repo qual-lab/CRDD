@@ -55,13 +55,19 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
     contract: "crdd-coordinator/project-runtime-platform-contract",
     contractRevision: 1,
     platformFamily: "windows",
-    supportedBoundaries: ["principal_provider_home"],
+    supportedBoundaries: ["principal_provider_home", "lock_lease"],
     satisfiedGuarantees: {
       principal_provider_home: [
         "selected_principal_identity",
         "stable_provider_home_identity",
         "owner_writer_protection",
         "non_link_chain",
+      ],
+      lock_lease: [
+        "os_exclusivity",
+        "owner_generation",
+        "owner_liveness",
+        "non_time_only_takeover",
       ],
       filesystem_repository: [
         "repository_root_identity",
@@ -81,6 +87,7 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
   assert.deepEqual(Object.keys(adapter.operations).sort(), [
     "container_host",
     "filesystem_repository",
+    "lock_lease",
     "principal_provider_home",
     "process_cancellation",
     "runtime_root_recovery",
@@ -94,12 +101,36 @@ test("現在ProcessのPlatform familyは閉じた観測として返る", () => {
   });
 });
 
+test("Lease owner観測は現在Process・不存在・不正入力を区別する", () => {
+  const observe = operations("lock_lease").observeLeaseOwner as (
+    value: unknown,
+  ) => Readonly<Record<string, unknown>>;
+  assert.deepEqual(
+    observe({ ownerProcessId: process.pid, ownerGeneration: "owner-a" }),
+    {
+      status: "alive",
+      ownerProcessId: process.pid,
+      ownerGeneration: "owner-a",
+    },
+  );
+  assert.equal(
+    observe({ ownerProcessId: 2_147_483_647, ownerGeneration: "owner-a" })
+      .status,
+    "absent",
+  );
+  assert.deepEqual(observe({ ownerProcessId: 0, ownerGeneration: "owner-a" }), {
+    status: "unknown",
+    ownerProcessId: 0,
+    ownerGeneration: "invalid",
+  });
+});
+
 test("Windows Adapterは完成保証だけを解決し、部分抽出境界を対応済みにしない", () => {
   const adapter = createProjectRuntimeWindowsPlatformAdapter();
   const supported = resolveProjectRuntimePlatformAdapter(
     "windows",
     [adapter],
-    ["principal_provider_home"],
+    ["principal_provider_home", "lock_lease"],
   );
   assert.equal(supported.status, "resolved");
   assert.deepEqual(
@@ -108,7 +139,6 @@ test("Windows Adapterは完成保証だけを解決し、部分抽出境界を�
       [adapter],
       [
         "filesystem_repository",
-        "lock_lease",
         "process_cancellation",
         "container_host",
         "runtime_root_recovery",
@@ -119,7 +149,6 @@ test("Windows Adapterは完成保証だけを解決し、部分抽出境界を�
       reason: "platform_boundary_unsupported",
       unsupportedBoundaries: [
         "filesystem_repository",
-        "lock_lease",
         "process_cancellation",
         "container_host",
         "runtime_root_recovery",

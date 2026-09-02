@@ -18,11 +18,10 @@ import { compileWindowsRootObservationCandidate } from "./root-observation.ts";
 export const PROJECT_RUNTIME_WINDOWS_PLATFORM_FAMILY = "windows" as const;
 
 /**
- * The lock_lease boundary is intentionally absent: its real extraction unit
- * (OS exclusivity for REC-PROJECT-LEASE) is owned by the durable-foundation
- * stage. Declaring it here without a real implementation would add the empty
- * compatibility layer that the coding standards prohibit; resolution fails
- * closed for it instead.
+ * Project lease acquisition remains owned by the durable foundation.  This
+ * adapter owns only the OS observation used when a later process reconciles a
+ * recorded owner.  A reused PID is conservatively reported as alive, which
+ * can delay recovery but can never authorize unsafe takeover.
  */
 // Only Principal / Provider Home currently satisfies the complete guarantee
 // population fixed by the reference architecture.  The other operation
@@ -30,6 +29,7 @@ export const PROJECT_RUNTIME_WINDOWS_PLATFORM_FAMILY = "windows" as const;
 // not make their whole boundary resolvable.
 const SUPPORTED_BOUNDARIES = Object.freeze([
   "principal_provider_home",
+  "lock_lease",
 ] as const satisfies readonly ProjectRuntimePlatformBoundary[]);
 
 const SATISFIED_GUARANTEES = Object.freeze({
@@ -38,6 +38,12 @@ const SATISFIED_GUARANTEES = Object.freeze({
     "stable_provider_home_identity",
     "owner_writer_protection",
     "non_link_chain",
+  ]),
+  lock_lease: Object.freeze([
+    "os_exclusivity",
+    "owner_generation",
+    "owner_liveness",
+    "non_time_only_takeover",
   ]),
   filesystem_repository: Object.freeze([
     "repository_root_identity",
@@ -78,6 +84,62 @@ export type ProjectRuntimeWindowsChildEnvironmentResult =
       environment: Readonly<Record<string, string>>;
     }>
   | Readonly<{ status: "blocked"; reason: string }>;
+
+export type ProjectRuntimeWindowsLeaseOwnerObservation = Readonly<{
+  status: "alive" | "absent" | "unknown";
+  ownerProcessId: number;
+  ownerGeneration: string;
+}>;
+
+function observeLeaseOwner(
+  rawOwner: unknown,
+): ProjectRuntimeWindowsLeaseOwnerObservation {
+  const invalid = Object.freeze({
+    status: "unknown" as const,
+    ownerProcessId: 0,
+    ownerGeneration: "invalid",
+  });
+  if (
+    !rawOwner ||
+    typeof rawOwner !== "object" ||
+    Array.isArray(rawOwner) ||
+    Object.getPrototypeOf(rawOwner) !== Object.prototype
+  )
+    return invalid;
+  const owner = rawOwner as Readonly<Record<string, unknown>>;
+  if (
+    Object.keys(owner).sort().join("\0") !==
+      ["ownerGeneration", "ownerProcessId"].sort().join("\0") ||
+    !Number.isSafeInteger(owner.ownerProcessId) ||
+    Number(owner.ownerProcessId) < 1 ||
+    typeof owner.ownerGeneration !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(owner.ownerGeneration)
+  )
+    return invalid;
+  const ownerProcessId = Number(owner.ownerProcessId);
+  const ownerGeneration = owner.ownerGeneration;
+  try {
+    // Signal 0 performs existence/permission observation only.  EPERM is not
+    // absence; it is deliberately kept unknown.  A PID reused by another
+    // process is reported alive, preserving the non-time-only takeover rule.
+    process.kill(ownerProcessId, 0);
+    return Object.freeze({
+      status: "alive" as const,
+      ownerProcessId,
+      ownerGeneration,
+    });
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : null;
+    return Object.freeze({
+      status: code === "ESRCH" ? ("absent" as const) : ("unknown" as const),
+      ownerProcessId,
+      ownerGeneration,
+    });
+  }
+}
 
 /**
  * Observe the current process platform family without exporting the raw OS
@@ -198,6 +260,9 @@ export function createProjectRuntimeWindowsPlatformAdapter(): ProjectRuntimePlat
             provider,
             evaluationTime,
           ),
+      }),
+      lock_lease: Object.freeze({
+        observeLeaseOwner,
       }),
       filesystem_repository: Object.freeze({
         resolveRepositoryRoot,
