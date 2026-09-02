@@ -7,8 +7,8 @@
   "interfaces": [
     {"id":"IF-PROJECT-CORE","owner":"project_runtime_core","status":"partial","implementationStage":"durable_foundation_through_integration"},
     {"id":"IF-SINGLE-TASK","owner":"single_task_adapter","status":"partial","implementationStage":"responsibility_separation_and_single_task_flow"},
-    {"id":"IF-STATE-STORE","owner":"project_state_store","status":"planned","implementationStage":"durable_foundation"},
-    {"id":"IF-QUEUE","owner":"durable_operation_queue","status":"planned","implementationStage":"durable_foundation"},
+    {"id":"IF-STATE-STORE","owner":"project_state_store","status":"partial","implementationStage":"durable_foundation"},
+    {"id":"IF-QUEUE","owner":"durable_operation_queue","status":"partial","implementationStage":"durable_foundation"},
     {"id":"IF-SCHEDULER","owner":"project_scheduler","status":"partial","implementationStage":"multi_task_execution"},
     {"id":"IF-INTEGRATION","owner":"integration_owner","status":"partial","implementationStage":"integration_and_adoption"},
     {"id":"IF-TRANSPORT","owner":"transport_adapter","status":"partial","implementationStage":"single_task_flow"},
@@ -107,7 +107,7 @@
         {"id":"TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE","from":["human_decision_required"],"to":"executing","resourceIds":["RES-PENDING-DECISION","RES-DECISION-CONTINUATION","RES-PROJECT-OPERATION-LEASE"],"invariantIds":["INV-DECISION-BINDING-CURRENT","INV-DECISION-RECEIPT-BEFORE-RESUME","INV-DECISION-ATOMIC-APPLICATION","INV-REVALIDATE-AFTER-WAIT"],"verificationIds":["PR-H-02","PR-Q-06"]},
         {"id":"TRANS-MILESTONE-RECOVERY-SETTLED-EXECUTE","from":["recovery_required"],"to":"executing","resourceIds":["RES-PROJECT-RECOVERY-EVIDENCE","RES-PROJECT-OPERATION-LEASE"],"invariantIds":["INV-RECOVERY-SETTLED-BEFORE-RESUME","INV-REVALIDATE-AFTER-WAIT"],"verificationIds":["PR-A-04","PR-A-05","PR-A-06"]},
         {"id":"TRANS-MILESTONE-EXECUTE-INTEGRATE","from":["executing"],"to":"integrating","resourceIds":["RES-INTEGRATION-WORKSPACE"],"invariantIds":["INV-TASK-COMPLETE-NOT-ACCEPTED"],"verificationIds":["PR-I-01"]},
-        {"id":"TRANS-MILESTONE-INTEGRATE-ACCEPT","from":["integrating"],"to":"accepted","resourceIds":["RES-INTEGRATION-WORKSPACE","RES-ADOPTION-LEASE"],"invariantIds":["INV-INTEGRATE-BEFORE-ADOPTION","INV-CANONICAL-EFFECT-SERIALIZED"],"verificationIds":["PR-I-02"]},
+        {"id":"TRANS-MILESTONE-INTEGRATE-ACCEPT","from":["integrating"],"to":"accepted","resourceIds":["RES-INTEGRATION-WORKSPACE","RES-ADOPTION-LEASE"],"invariantIds":["INV-INTEGRATE-BEFORE-ADOPTION","INV-CANONICAL-EFFECT-SERIALIZED","INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE"],"verificationIds":["PR-I-02","PR-D-A-01"]},
         {"id":"TRANS-MILESTONE-ACTIVE-HUMAN","from":["executing","integrating"],"to":"human_decision_required","resourceIds":[],"invariantIds":["INV-NO-SUCCESS-FROM-UNKNOWN"],"verificationIds":["PR-H-01"]},
         {"id":"TRANS-MILESTONE-ACTIVE-RECOVERY","from":["executing","integrating","human_decision_required"],"to":"recovery_required","resourceIds":["RES-PROJECT-RECOVERY-EVIDENCE"],"invariantIds":["INV-UNKNOWN-PRESERVES-RECOVERY"],"verificationIds":["PR-A-04","PR-A-05"]},
         {"id":"TRANS-MILESTONE-ACTIVE-CANCEL","from":["planned","executing","integrating","human_decision_required","recovery_required"],"to":"cancelled","resourceIds":["RES-CANCELLATION-CONTROLLER"],"invariantIds":["INV-CANCEL-AFTER-CLEANUP"],"verificationIds":["PR-Q-04"]}
@@ -118,10 +118,10 @@
       "states":["queued","leased","running","waiting_foreground","integration_pending","replan_required","human_decision_required","recovery_required","completed","cancelled"],
       "terminalStates":["completed","cancelled"],
       "transitions":[
-        {"id":"TRANS-QUEUE-ENQUEUE-LEASE","from":["queued","waiting_foreground","replan_required"],"to":"leased","resourceIds":["RES-PROJECT-QUEUE","RES-PROJECT-OPERATION-LEASE"],"invariantIds":["INV-DURABLE-BEFORE-TASK-EFFECT","INV-INTERACTIVE-PRIORITY-NO-PREEMPTION"],"verificationIds":["PR-Q-03","PR-Q-05","PR-A-06"]},
+        {"id":"TRANS-QUEUE-ENQUEUE-LEASE","from":["queued","waiting_foreground","replan_required"],"to":"leased","resourceIds":["RES-PROJECT-QUEUE","RES-PROJECT-OPERATION-LEASE"],"invariantIds":["INV-DURABLE-BEFORE-TASK-EFFECT","INV-INTERACTIVE-PRIORITY-NO-PREEMPTION","INV-DURABLE-RECORD-CLOSED","INV-QUEUE-OWNER-IS-LIVE-LEASE"],"verificationIds":["PR-D-N-01","PR-D-Q-01","PR-Q-03","PR-Q-05","PR-A-06"]},
         {"id":"TRANS-QUEUE-DECISION-ACCEPTED-LEASE","from":["human_decision_required"],"to":"leased","resourceIds":["RES-PENDING-DECISION","RES-DECISION-CONTINUATION","RES-PROJECT-QUEUE","RES-PROJECT-OPERATION-LEASE"],"invariantIds":["INV-DECISION-BINDING-CURRENT","INV-DECISION-RECEIPT-BEFORE-RESUME","INV-DECISION-APPLICATION-FINALIZED-BEFORE-QUEUE","INV-REVALIDATE-AFTER-WAIT"],"verificationIds":["PR-H-02","PR-Q-06"]},
         {"id":"TRANS-QUEUE-RECOVERY-SETTLED-LEASE","from":["recovery_required"],"to":"leased","resourceIds":["RES-PROJECT-RECOVERY-EVIDENCE","RES-PROJECT-OPERATION-LEASE"],"invariantIds":["INV-RECOVERY-SETTLED-BEFORE-RESUME","INV-REVALIDATE-AFTER-WAIT"],"verificationIds":["PR-A-04","PR-A-05","PR-A-06"]},
-        {"id":"TRANS-QUEUE-LEASE-RUN","from":["leased"],"to":"running","resourceIds":["RES-PROJECT-OPERATION-LEASE"],"invariantIds":["INV-REVALIDATE-AFTER-WAIT","INV-NO-LOCK-ACROSS-EXTERNAL-WAIT"],"verificationIds":["PR-N-01","PR-A-06"]},
+        {"id":"TRANS-QUEUE-LEASE-RUN","from":["leased"],"to":"running","resourceIds":["RES-PROJECT-OPERATION-LEASE"],"invariantIds":["INV-REVALIDATE-AFTER-WAIT","INV-NO-LOCK-ACROSS-EXTERNAL-WAIT","INV-QUEUE-OWNER-IS-LIVE-LEASE","INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE"],"verificationIds":["PR-D-Q-01","PR-D-A-01","PR-N-01","PR-A-06"]},
         {"id":"TRANS-QUEUE-RUN-INTEGRATE","from":["running"],"to":"integration_pending","resourceIds":["RES-INTEGRATION-WORKSPACE"],"invariantIds":["INV-INTEGRATE-BEFORE-ADOPTION"],"verificationIds":["PR-I-01"]},
         {"id":"TRANS-QUEUE-INTEGRATE-COMPLETE","from":["integration_pending"],"to":"completed","resourceIds":["RES-PROJECT-OPERATION-LEASE"],"invariantIds":["INV-CANONICAL-EFFECT-SERIALIZED"],"verificationIds":["PR-I-02"]},
         {"id":"TRANS-QUEUE-QUEUED-FOREGROUND","from":["queued"],"to":"waiting_foreground","resourceIds":["RES-PROJECT-QUEUE"],"invariantIds":["INV-INTERACTIVE-PRIORITY-NO-PREEMPTION"],"verificationIds":["PR-Q-05"]},
@@ -195,7 +195,7 @@
     {"id":"BIND-MILESTONE-ACTIVE-HUMAN","transitionIds":["TRANS-MILESTONE-ACTIVE-HUMAN"],"lockIds":["LOCK-PROJECT-STATE"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-PROJECT-STATE"],"ordering":"decision need and impact are durable before human transfer","verificationIds":["PR-H-01"]},
     {"id":"BIND-MILESTONE-ACTIVE-RECOVERY","transitionIds":["TRANS-MILESTONE-ACTIVE-RECOVERY"],"lockIds":["LOCK-PROJECT-STATE"],"authorityIds":["AUTH-RECOVERY"],"effectIds":["EFFECT-PROJECT-STATE"],"ordering":"unknown resource evidence is durable without normal resume","verificationIds":["PR-A-04","PR-A-05"]},
     {"id":"BIND-MILESTONE-ACTIVE-CANCEL","transitionIds":["TRANS-MILESTONE-ACTIVE-CANCEL"],"lockIds":["LOCK-PROJECT-OPERATION","LOCK-PROJECT-STATE"],"authorityIds":["AUTH-MILESTONE","AUTH-SINGLE-TASK-OPERATION"],"effectIds":["EFFECT-SINGLE-TASK","EFFECT-PROJECT-STATE"],"ordering":"all task cancellation cleanup and recovery reconciliation precede milestone cancellation","verificationIds":["PR-Q-04"]},
-    {"id":"BIND-QUEUE-ENQUEUE-LEASE","transitionIds":["TRANS-QUEUE-ENQUEUE-LEASE"],"lockIds":["LOCK-QUEUE-MUTATION","LOCK-PROJECT-OPERATION"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-QUEUE-STATE"],"ordering":"queue intent is durable before operation lease and locks are not held together","verificationIds":["PR-Q-03","PR-Q-05","PR-A-06"]},
+    {"id":"BIND-QUEUE-ENQUEUE-LEASE","transitionIds":["TRANS-QUEUE-ENQUEUE-LEASE"],"lockIds":["LOCK-QUEUE-MUTATION","LOCK-PROJECT-OPERATION"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-QUEUE-STATE"],"ordering":"queue intent is durable before operation lease and locks are not held together","verificationIds":["PR-D-N-01","PR-D-Q-01","PR-Q-03","PR-Q-05","PR-A-06"]},
     {"id":"BIND-QUEUE-DECISION-ACCEPTED-LEASE","transitionIds":["TRANS-QUEUE-DECISION-ACCEPTED-LEASE"],"lockIds":["LOCK-QUEUE-MUTATION","LOCK-PROJECT-OPERATION"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-QUEUE-STATE"],"ordering":"fresh read only protected finalized observation and matching project application generation precede queue mutation and at most one lease","verificationIds":["PR-H-02","PR-Q-06"]},
     {"id":"BIND-QUEUE-RECOVERY-SETTLED-LEASE","transitionIds":["TRANS-QUEUE-RECOVERY-SETTLED-LEASE"],"lockIds":["LOCK-QUEUE-MUTATION","LOCK-PROJECT-OPERATION"],"authorityIds":["AUTH-MILESTONE","AUTH-RECOVERY"],"effectIds":["EFFECT-RECOVERY","EFFECT-QUEUE-STATE"],"ordering":"exact recovery receipt resource absence and fresh owner generation precede new lease","verificationIds":["PR-A-04","PR-A-05","PR-A-06"]},
     {"id":"BIND-QUEUE-LEASE-RUN","transitionIds":["TRANS-QUEUE-LEASE-RUN"],"lockIds":["LOCK-QUEUE-MUTATION","LOCK-PROJECT-OPERATION"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-QUEUE-STATE"],"ordering":"lease identity is revalidated before running projection","verificationIds":["PR-N-01","PR-A-06"]},
@@ -241,6 +241,9 @@
     {"id":"INV-TRANSPORT-NO-AUTHORITY","statement":"CLI MCP and future transports do not create project authority or success"},
     {"id":"INV-CANONICAL-EFFECT-SERIALIZED","statement":"Canonical repository adoption is serialized and fresh revision checked"},
     {"id":"INV-INTERACTIVE-PRIORITY-NO-PREEMPTION","statement":"Interactive priority delays only unstarted scheduled work and never erases active obligations"}
+    ,{"id":"INV-DURABLE-RECORD-CLOSED","statement":"Durable state and queue records have an exact schema filename bound generation and contiguous immutable generation history"}
+    ,{"id":"INV-QUEUE-OWNER-IS-LIVE-LEASE","statement":"Queue owner generation is derived only from a runtime issued live lease bound to the exact repository project and queue"}
+    ,{"id":"INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE","statement":"Lease release intent is durable before lock removal and unresolved release evidence blocks reacquisition"}
     ,{"id":"INV-RECOVERY-SETTLED-BEFORE-RESUME","statement":"Recovery resumes only after exact receipt resource absence and fresh generation revision and conflict validation"},
     {"id":"INV-DECISION-BINDING-CURRENT","statement":"Human decision applies only to the exact current decision project milestone generation revision and allowed option"},
     {"id":"INV-MCP-NO-HUMAN-AUTHORITY","statement":"MCP metadata session provider identity and comment never create Human Authority"},
@@ -254,10 +257,10 @@
     {"id":"INV-DECISION-SEPARATE-RECOVERY-INTENT","statement":"Protected observation unknown never claims a protected transition and uses a separate verified recovery store; if that store is unknown manual recovery and process reuse prohibition remain"}
   ],
   "failureInjections": [
-    {"id":"FAIL-QUEUE-WRITE","transitionIds":["TRANS-QUEUE-ENQUEUE-LEASE"],"expectedOutcome":"no_task_or_provider_effect_and_no_state_reset","verificationIds":["PR-A-06"]},
+    {"id":"FAIL-QUEUE-WRITE","transitionIds":["TRANS-QUEUE-ENQUEUE-LEASE"],"expectedOutcome":"no_task_or_provider_effect_and_no_state_reset","verificationIds":["PR-D-A-01","PR-A-06"]},
     {"id":"FAIL-LEASE-OWNER-LOSS","transitionIds":["TRANS-QUEUE-LEASE-RUN","TRANS-MILESTONE-ACTIVE-RECOVERY"],"expectedOutcome":"no_new_task_and_exact_reconciliation","verificationIds":["PR-A-04","PR-A-06"]},
     {"id":"FAIL-STATE-GENERATION","transitionIds":["TRANS-TASK-ACTIVE-FAILED"],"expectedOutcome":"no_cross_task_projection","verificationIds":["PR-A-03"]},
-    {"id":"FAIL-DUPLICATE-REQUEST","transitionIds":["TRANS-QUEUE-ENQUEUE-LEASE"],"expectedOutcome":"same_request_reuses_project_operation_distinct_tasks_may_run_and_same_task_attempt_effect_is_not_reissued","verificationIds":["PR-Q-03"]},
+    {"id":"FAIL-DUPLICATE-REQUEST","transitionIds":["TRANS-QUEUE-ENQUEUE-LEASE"],"expectedOutcome":"same_request_reuses_project_operation_distinct_tasks_may_run_and_same_task_attempt_effect_is_not_reissued","verificationIds":["PR-D-Q-01","PR-Q-03"]},
     {"id":"FAIL-CAPACITY-RACE","transitionIds":["TRANS-TASK-READY-STARTING"],"expectedOutcome":"sixth_task_effect_zero","verificationIds":["PR-A-02"]},
     {"id":"FAIL-TASK-RESULT-IDENTITY","transitionIds":["TRANS-TASK-ACTIVE-FAILED"],"expectedOutcome":"result_not_projected_and_no_success","verificationIds":["PR-A-03"]},
     {"id":"FAIL-CANCEL-DURING-START","transitionIds":["TRANS-TASK-ACTIVE-CANCELLED"],"expectedOutcome":"pre_effect_zero_or_post_effect_cleanup_tracked","verificationIds":["PR-Q-04"]},
@@ -274,17 +277,20 @@
     {"id":"IMPL-PROJECT-STATE-CANDIDATE","interfaceIds":["IF-PROJECT-CORE","IF-SCHEDULER","IF-INTEGRATION"],"status":"partial","stage":"design_review","paths":["40_Develop/coordinator/src/security/project-runtime-state.ts","40_Develop/coordinator/tests/project-runtime-state.contract.test.ts"]},
     {"id":"IMPL-MCP-ADAPTER-CANDIDATE","interfaceIds":["IF-TRANSPORT","IF-SINGLE-TASK"],"status":"partial","stage":"design_review","paths":["40_Develop/coordinator/src/security/mcp-project-runtime-adapter.ts","40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts"]},
     {"id":"IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE","interfaceIds":["IF-SINGLE-TASK","IF-PLATFORM"],"status":"partial","stage":"responsibility_separation","paths":["40_Develop/coordinator/src/security/project-runtime-platform-contract.ts","40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts","40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts","40_Develop/coordinator/tests/project-runtime-platform-contract.contract.test.ts","40_Develop/coordinator/tests/project-runtime-windows-platform-adapter.contract.test.ts","40_Develop/coordinator/tests/project-runtime-single-task-adapter.contract.test.ts","40_Develop/coordinator/tests/project-runtime-platform-independence.contract.test.ts"]},
-    {"id":"IMPL-PLANNED-DURABLE-FOUNDATION","interfaceIds":["IF-STATE-STORE","IF-QUEUE"],"status":"planned","stage":"durable_foundation","paths":[]},
+    {"id":"IMPL-DURABLE-FOUNDATION-CANDIDATE","interfaceIds":["IF-STATE-STORE","IF-QUEUE"],"status":"partial","stage":"durable_foundation","paths":["40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts","40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts"]},
     {"id":"IMPL-PLANNED-PROJECT-EXECUTION","interfaceIds":["IF-PROJECT-CORE","IF-SCHEDULER","IF-INTEGRATION","IF-TRANSPORT"],"status":"planned","stage":"project_execution","paths":[]},
     {"id":"IMPL-PLANNED-HUMAN-DECISION","interfaceIds":["IF-DECISION"],"status":"planned","stage":"human_decision_flow","paths":[]}
   ],
   "verificationBindings": [
+    {"id":"PR-D-N-01","kind":"normal","status":"partial","testPaths":["40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts"]},
+    {"id":"PR-D-Q-01","kind":"quasi_normal","status":"partial","testPaths":["40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts"]},
+    {"id":"PR-D-A-01","kind":"abnormal","status":"partial","testPaths":["40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts"]},
     {"id":"PR-N-01","kind":"normal","status":"partial","testPaths":["40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts"]},
     {"id":"PR-N-02","kind":"normal","status":"partial","testPaths":["40_Develop/coordinator/tests/project-runtime-state.contract.test.ts"]},
     {"id":"PR-N-03","kind":"normal","status":"partial","testPaths":["40_Develop/coordinator/tests/project-runtime-state.contract.test.ts"]},
     {"id":"PR-Q-01","kind":"quasi_normal","status":"partial","testPaths":["40_Develop/coordinator/tests/project-runtime-state.contract.test.ts"]},
     {"id":"PR-Q-02","kind":"quasi_normal","status":"planned","testPaths":[]},
-    {"id":"PR-Q-03","kind":"quasi_normal","status":"partial","testPaths":["40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts"]},
+    {"id":"PR-Q-03","kind":"quasi_normal","status":"partial","testPaths":["40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts","40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts"]},
     {"id":"PR-Q-04","kind":"quasi_normal","status":"planned","testPaths":[]},
     {"id":"PR-Q-05","kind":"quasi_normal","status":"planned","testPaths":[]},
     {"id":"PR-Q-06","kind":"quasi_normal","status":"planned","testPaths":[]},

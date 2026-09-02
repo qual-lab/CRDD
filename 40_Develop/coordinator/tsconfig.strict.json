@@ -23,6 +23,7 @@
     "scripts/measure-development-providers.ts",
     "src/security/coordinator-task-request.ts",
     "src/security/project-runtime-state.ts",
+    "src/security/project-runtime-durable-foundation.ts",
     "src/security/project-runtime-platform-contract.ts",
     "src/security/project-runtime-single-task-adapter.ts",
     "src/security/project-runtime-windows-platform-adapter.ts",

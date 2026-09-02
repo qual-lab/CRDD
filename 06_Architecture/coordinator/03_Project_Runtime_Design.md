@@ -211,14 +211,14 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 
 ## 10. 実装と検証への接続
 
-現時点で実在する実装候補は、Project状態の純粋契約、MCP単一Task Adapter、および責務分離段階のPlatform契約・Windows Platform Adapter・Single Task Adapterである。それ以外は設計上のownerと実装段階を固定し、実装済みとして扱わない。Project Runtime CoreのPlatform非依存はCore閉集合の推移的import走査を行う契約試験で機械強制する。Platform境界は、境界ごとの操作名が一致するだけでは成立せず、本書の保証母集団をすべて満たした場合だけ解決できる。部分抽出した操作は候補として試験できるが、未実装保証を残す境界を対応済みとしてProject Effectへ渡さない。
+現時点で実在する実装候補は、Project状態の純粋契約、MCP単一Task Adapter、責務分離段階のPlatform契約・Windows Platform Adapter・Single Task Adapter、および耐久基盤のProject State Store・Operation Queue・Project Operation Lease・正本採用Leaseである。耐久基盤はRepository-local `.crdd/project-runtime/`に世代ごとの不変Recordを作成し、完全Schema、filenameと世代の一致、世代連続性、file flush、同一Filesystem上のrename、exact readback、短時間変更Lock、Runtime発行済み不透明LeaseとのQueue owner結合およびstale Lockの自動奪取禁止を実装する。正本採用LeaseはRepository BindingとProjectを共有範囲とし、別Queueからも同じProjectの採用を並行させない。Lease解放前に回復Markerを耐久化し、解放証跡とMarker除去を確認できなければ再取得を止める。hashは偶発破損の検出であり、同じユーザーが意味上有効な内容へ書き換えてhashも再計算した場合の保護anchorではない。これはSingle Task Runtime、Scheduler、owner喪失Recoveryまたは正本採用Effectへの接続を意味せず、owner喪失後の実入口Recoveryも未成立である。それ以外は設計上のownerと実装段階を固定し、実装済みとして扱わない。Project Runtime CoreのPlatform非依存はCore閉集合の推移的import走査を行う契約試験で機械強制する。Platform境界は、境界ごとの操作名が一致するだけでは成立せず、本書の保証母集団をすべて満たした場合だけ解決できる。部分抽出した操作は候補として試験できるが、未実装保証を残す境界を対応済みとしてProject Effectへ渡さない。
 
 | Interface | 現在の接続 | 実装段階 | 主な検証 |
 |---|---|---|---|
 | `IF-PROJECT-CORE` | Project状態の純粋契約だけ接続済み | 耐久基盤～統合・採用 | `PR-N-02`、`PR-Q-01`～`PR-A-06`、`PR-I-01`、`PR-I-02` |
 | `IF-SINGLE-TASK` | Single Task Adapter候補を接続済み。attempt結合、取消転送、閉結果正規化を所有し、Task要求スキーマはv0.18 Runtimeが所有 | 責務分離、単一Task縦断 | 既存Single Task回帰、`PR-N-01` |
-| `IF-STATE-STORE` | 未実装 | 耐久基盤 | `PR-A-03`、`PR-A-05`、`PR-A-06` |
-| `IF-QUEUE` | 未実装 | 耐久基盤 | `PR-Q-03`、`PR-A-05`、`PR-A-06` |
+| `IF-STATE-STORE` | 世代付き不変Recordの原子的作成、完全Schema・filename・連続世代の検証、exact readback、expected generation競合および破損時Fail Closedを部分接続。Single Task結果反映、保護anchorとRecoveryは未接続 | 耐久基盤～単一Task縦断 | `PR-D-N-01`、`PR-D-A-01`。上位の`PR-A-03`、`PR-A-05`、`PR-A-06`は未成立 |
+| `IF-QUEUE` | enqueueの耐久化、同一requestの再利用、世代付き状態更新、短時間変更Lock、Runtime発行済み不透明Leaseとのowner結合、Project Operation Lease、Project単位の正本採用Lease、解放不明Markerを部分接続。Lane選択、専用判断／Recovery再開、owner喪失RecoveryとSchedulerは未接続 | 耐久基盤～複数Task実行 | `PR-D-Q-01`、`PR-D-A-01`。上位の`PR-Q-03`、`PR-A-05`、`PR-A-06`は未成立 |
 | `IF-SCHEDULER` | 純粋選択関数だけ接続済み | 複数Task実行 | `PR-N-02`、`PR-Q-01`、`PR-Q-02`、`PR-A-01`、`PR-A-02` |
 | `IF-INTEGRATION` | 純粋状態遷移だけ接続済み | 統合・採用 | `PR-I-01`、`PR-I-02`、`PR-A-06` |
 | `IF-TRANSPORT` | MCP単一Task契約候補のみ | 単一Task縦断 | `PR-N-01`、`PR-Q-03`、`PR-Q-04` |
@@ -312,6 +312,9 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `INV-TRANSPORT-NO-AUTHORITY` | TransportはProject Authorityや成功を生成しない |
 | `INV-CANONICAL-EFFECT-SERIALIZED` | 正本採用を直列化し直前Revisionを確認する |
 | `INV-INTERACTIVE-PRIORITY-NO-PREEMPTION` | 対話優先は未開始要求だけを待機させる |
+| `INV-DURABLE-RECORD-CLOSED` | 耐久State／Queue Recordは完全Schema、filename結合世代および連続する不変世代を持つ |
+| `INV-QUEUE-OWNER-IS-LIVE-LEASE` | Queue ownerは同じRepository／Project／QueueへRuntimeが発行した現在有効なLeaseからだけ導出する |
+| `INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE` | Lease解放意図をLock除去より先に耐久化し、解放証跡不明の間は再取得を止める |
 | `INV-RECOVERY-SETTLED-BEFORE-RESUME` | exact回復とfresh再確認の後だけ通常実行へ戻る |
 | `INV-DECISION-BINDING-CURRENT` | 人間判断を現在の対象・世代・選択肢だけへ適用する |
 | `INV-MCP-NO-HUMAN-AUTHORITY` | MCP metadataやSessionからHuman Authorityを生成しない |
@@ -329,7 +332,7 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `IMPL-PROJECT-STATE-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION` | 部分接続・設計確認中 |
 | `IMPL-MCP-ADAPTER-CANDIDATE` | `IF-TRANSPORT`、`IF-SINGLE-TASK` | 部分接続・設計確認中 |
 | `IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE` | `IF-SINGLE-TASK`、`IF-PLATFORM` | 部分接続・実装確認中 |
-| `IMPL-PLANNED-DURABLE-FOUNDATION` | `IF-STATE-STORE`、`IF-QUEUE` | 未実装 |
+| `IMPL-DURABLE-FOUNDATION-CANDIDATE` | `IF-STATE-STORE`、`IF-QUEUE` | 部分接続・実装確認中 |
 | `IMPL-PLANNED-PROJECT-EXECUTION` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION`、`IF-TRANSPORT` | 未実装 |
 | `IMPL-PLANNED-HUMAN-DECISION` | `IF-DECISION` | 未実装 |
 

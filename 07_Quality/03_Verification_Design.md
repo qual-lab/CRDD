@@ -171,12 +171,14 @@ MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未�
 | PR-N-01 | 正常 | MCPからTask exact 1件 | CLIと同じCore結果、Adapter固有Authority 0、cleanup確認 |
 | PR-N-02 | 正常 | 独立Task 7件、上限5 | 同時`starting/running/cleanup_pending`が5以下、枠解放後に残りを開始 |
 | PR-N-03 | 正常 | Dependency chainと独立Taskの混在 | 先行受入前に依存Taskを開始せず、安全な部分だけ並行 |
+| PR-D-N-01 | 正常 | 検証済みRepository Bindingと完全なProject State／Queue入力 | 世代1から連続する不変Recordをflush・rename・exact readbackし、再読取り結果が入力と一致 |
 | PR-Q-01 | 準正常 | 共有Pathまたは意味前提が競合 | 空き枠があっても競合Taskを待機し、非競合Taskだけ開始 |
 | PR-Q-02 | 準正常 | 局所失敗、Scope内で代替可能 | 旧Taskを`superseded`として保持し、後継と理由を新世代へ接続 |
 | PR-Q-03 | 準正常 | 同じ認証済み主体・Project／Milestone・MCP request identityの初回開始、再送、切断後再接続 | Operation二重発行0、最新Project State・pending decision・終端結果を返却。別主体、別Project／Milestone、別requestは同じOperationとして開示しない |
 | PR-Q-04 | 準正常 | 一部Taskの取消 | signalだけで完了せず、終了・cleanup後に枠と競合予約を解放 |
 | PR-Q-05 | 準正常 | 対話作業中にスケジュール要求が到着 | 未開始要求を耐久Queueで待機し、対話作業終了後にRevisionと競合を再確認して追加承認なしで安全に再開 |
 | PR-Q-06 | 準正常 | 古い世代、置換済み／取消済みdecision ID、許可外選択肢、未認証、別主体／別decision、期限切れ／消費済みCapability、Repository側Record改変、保護Root identity／Protection差、未知field、上限超過・制御文字・認識済みSecretを含むcommentを`crdd.submit_decision`へ送信。`prepared`前後、Project State書込み／readback、`finalized`前後、Queue更新前後、応答喪失、明示置換と再送も注入する | 無効入力では正規Capability不変で正当主体の期限内再試行が一度だけ成立。両Rootのapplication ID・expected／new世代・dispositionから再適用／未適用／finalize／Recoveryを一意に選び、不明時Queue／Lease／Task Effect 0。DecisionとMilestoneはともに旧かともに新、Queueはfinalized前Lease 0、LeaseとTask Effectは最大1回。「未受理」「判断受理済み・安全に再開待ち」「再開権を確保」を区別し、実Taskがrunningになった後だけ「実行再開」と表示する。置換は旧hash失効後に新1件だけ。raw値の保存／反射0を確認する |
+| PR-D-Q-01 | 準正常 | 同じrequestの再送、世代競合、同一Projectの別Queueからの採用、実Leaseと異なる／解放済み／偽造したowner | 同一requestだけを再利用し、Queue所有者はRuntime発行済みで現在有効な不透明Leaseから導出する。正本採用はProject単位で直列化し、拒否された遷移は新世代を作らない |
 | PR-H-01 | 人間判断 | Scope、受入、重大Riskまたは費用上限の変更が必要 | 未許可Task開始0、判断理由・選択肢・影響・保持資源を一括表示 |
 | PR-H-02 | 人間判断 | 現在のdecision ID、Project／Milestone、世代、改訂版、許可選択肢、選択ユーザーのOS principalおよびRuntime発行の一回限り・期限付き継続Capabilityを送信。保護Rootへの初回作成・readback・Client返却、`prepared`、Project適用、fresh readback、`finalized`、Project側だけの観測不能、初回作成・prepare・finalize・失効・期限更新それぞれのCAS未成立／成立後応答喪失／readback不明、独立Recovery Store不明、Process喪失、Recovery settlement、応答喪失後の明示置換を注入する | Capability hashとapplication ID／expected・new世代をRepository外の検証済み保護Rootへ作成・readbackした後だけraw値をClientへ返し、同じ発行requestで二重作成しない。Decision／Milestoneを一つのProject State世代で成立させ、両Root照合・finalize後だけQueueを一度Leaseする。Project側だけが不明なら独立した回復意図を先に耐久化して保護RecordをRecoveryへ進め、保護Root自体が不明ならその遷移を主張せず別Recovery Storeだけへexactな回復意図を残す。Recovery Storeも不明なら手動回復・Effect不明・Process再利用禁止。Recoveryは回復意図・保護Root・Project Stateをfreshに結合し、matching newをfinalized、verified old/unappliedをinvalidatedへ収束する。初回作成後のexactなabsent＋raw未返却＋Project未適用、および期限更新後のexactなexpired＋Project未適用はEffect 0で安全にsettleし、freshなissuedはinvalidated、freshなpreparedはrecovery_requiredから既存照合へ接続する。必要な継続Record更新のreadback後だけ回復意図をsettleする。不明・競合では回復意図をrequiredに保持する。再起動・応答喪失・重複submitでも二重Lease／Task Effectを作らず、置換では旧tokenを先に失効して新tokenだけが一度成立。別主体拒否後も正規tokenは期限内に使用できる |
 | PR-A-01 | 異常 | cycle、欠落DependencyまたはBinding不明 | Single Task呼出し0、Provider Effect 0、構造化された停止理由 |
@@ -186,10 +188,13 @@ MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未�
 | PR-A-05 | 異常 | cleanupまたはLock解放観測不明 | 枠を空きと推定せず、Milestone成功0、exact Recovery情報を保持し、通常実行へ直接戻さない |
 | PR-A-06 | 異常 | Queue owner喪失、stale file、Runtime外の直接編集または採用直前Revision変化 | 時刻やfile存在だけでLeaseを奪取せず、新規Effect／自動上書き0、再計画・判断・Recoveryを一意に分類 |
 | PR-A-07 | 異常 | Platform不明、Adapter不在または対象Platformの保証未成立 | 別PlatformへfallbackせずProject／Task／Provider Effect 0で停止し、未対応を成功へ補正しない |
+| PR-D-A-01 | 異常 | Recordのhash破損、hashを再計算した不完全Schema、filenameと世代の不一致・欠落・一時file残存、Lease解放記録の失敗 | 破損を初期値へ戻さず停止する。Lock解放前に回復Markerを耐久化し、解放証跡が確定しない間は同じLeaseを再取得させない。意味上有効な同一ユーザー改変をhashだけで検出できるとは主張しない |
 | PR-I-01 | 統合 | 全Task completedだがObjective確認前または成果物Conflictあり | [Project状態契約試験](../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)でObjectiveを`integration_pending`に保ち、Milestone成功へ補正しない。実成果物Conflictは結合試験で追加確認する |
 | PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | 同試験で受入条件ごとのEvidenceを要求し、ObjectiveとMilestoneを別の世代更新で受け入れる。終了後所有資源0は結合試験で追加確認する |
 
 単体試験はGraph検証、Task／Objective／Milestoneの状態分離、受入条件ごとのEvidence、世代比較、容量計算およびAuthority縮小を確認する。結合試験はProject State Store、Scheduler、Single Task Runtime、取消、RecoveryおよびIntegrationの接続を確認する。E2EはMCP／CLIの公開入口から同じ意味契約へ到達し、正常、準正常、異常の代表経路でProcess構成、入力搬送、終了後資源および人間表示まで観測する。モックのTask完了だけから実Process不存在、cleanup、Authority非発行またはEffect 0を推定しない。
+
+[耐久基盤の契約試験](../40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts)は、`PR-D-N-01`、`PR-D-Q-01`、`PR-D-A-01`として、Project Stateの正常保存・再読取り・古い世代・破損または意味不正なRecord、Envelopeの余剰／欠落field・未知Record種別、filenameと世代の不一致・世代欠落・一時file／未知file残存、保存byte上限の境界、Queue全世代のProject／Queue identity結合・初回enqueue・同一request再送・identity衝突・拒否時の世代不変、実LeaseとQueue ownerの結合、所有中Queueの再計画・判断待ち・Recovery待ち・取消を含む全離脱経路、同一Project内の正本採用排他、二重取得、正常解放後の再取得、および解放証跡失敗後の回復Markerと再取得拒否を確認する。Repository-localな実Filesystemを使用するが、Process強制終了後のowner喪失、電源断、Scheduler／Single Taskとの結合、実正本採用および保護された外部anchorによる改変検出は未評価である。この部分試験を`PR-A-04`～`PR-A-06`、耐久基盤全体またはProject Runtime全体の成立へ読み替えない。
 
 Coordinator責務分離では、Project Runtime CoreからWindows固有moduleへの新規直接依存がないこと、Platform Adapter requestが閉集合であること、AdapterがAuthorityを生成しないこと、未実装PlatformがWindowsへfallbackしないことを契約試験で確認する。既存Windows処理をAdapterの背後へ移す場合は、移行前後でPrincipal／Provider Home、Filesystem、Lock、Process、ContainerおよびRecoveryの同じ保証と異常経路を再確認する。MCPはTransportとPlatformの組合せごとに入力搬送、切断、取消、重複requestおよびcleanupを確認する。Linux／macOSのBuild、配布およびE2Eはv0.19の合格条件へ含めず、対応済みとも表示しない。
 
