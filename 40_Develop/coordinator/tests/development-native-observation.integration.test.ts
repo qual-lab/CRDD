@@ -84,13 +84,6 @@ async function runProbe(target: string, scenario: string) {
       },
     },
   });
-  await mock.module(moduleUrl("external-send-grant-runtime"), {
-    namedExports: {
-      confirmRuntimeOwnedDevelopmentMeasurementUsingConsole: async () => ({
-        status: "confirmed",
-      }),
-    },
-  });
   await mock.module(moduleUrl("platform-provisioner-package-filesystem"), {
     namedExports: {
       inspectFixedDevelopmentCoordinatorPackageCandidate: () => ({

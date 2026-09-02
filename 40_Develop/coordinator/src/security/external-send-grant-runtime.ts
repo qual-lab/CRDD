@@ -263,16 +263,13 @@ export async function confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
   handles: Readonly<{ input: number; output: number }>,
   cancellationSignal: AbortSignal,
   adapter: ConsoleConfirmationOutcomeAdapter,
-  purpose: "external_send" | "development_measurement" = "external_send",
 ): Promise<ConsoleConfirmationOutcome> {
-  if (purpose !== "external_send" && purpose !== "development_measurement")
-    return Object.freeze({ status: "unavailable" });
   if (!isCancellationSignal(cancellationSignal) || cancellationSignal.aborted)
     return Object.freeze({ status: "cancelled" });
   const promptWrite = textWriteOutcome(
     await adapter.writeText(
       handles.output,
-      `${notice}\n${purpose === "development_measurement" ? "この固定開発版による限定実測" : "外部送信"}を承認する場合は ${challenge} を入力してください: `,
+      `${notice}\n外部送信を承認する場合は ${challenge} を入力してください: `,
     ),
   );
   if (promptWrite.status === "cleanup_unknown")
@@ -315,7 +312,6 @@ async function confirmRuntimeOwnedOperationUsingConsole(
   notice: string,
   challenge: string,
   cancellationSignal: AbortSignal,
-  purpose: "external_send" | "development_measurement",
 ) {
   if (isRuntimeProcessEffectBlocked())
     return Object.freeze({ status: "cleanup_unknown" as const });
@@ -350,7 +346,6 @@ async function confirmRuntimeOwnedOperationUsingConsole(
           writeText: writeInteractiveConsoleTextOutcome,
           readLine: readInteractiveConsoleLineOutcome,
         }),
-        purpose,
       ),
     );
     outcome =
@@ -391,20 +386,6 @@ export function confirmRuntimeOwnedExternalSendUsingConsole(
     notice,
     challenge,
     cancellationSignal,
-    "external_send",
-  );
-}
-
-export function confirmRuntimeOwnedDevelopmentMeasurementUsingConsole(
-  notice: string,
-  challenge: string,
-  cancellationSignal: AbortSignal,
-) {
-  return confirmRuntimeOwnedOperationUsingConsole(
-    notice,
-    challenge,
-    cancellationSignal,
-    "development_measurement",
   );
 }
 
