@@ -718,7 +718,9 @@ CRDDは確認量の最大化を品質保証とはしない。現在残る不確�
 
 ## 5.2. 検証設計
 
-[アーキテクチャ](27_Architecture.md#24-状態処理順序副作用)の資源取得transactionに該当する場合は、各取得Effect、到達可能なthrow境界、排他的settlement、および各境界でcleanup確認済み／不明となる経路を対応づける。Recovery Identity取得前の失敗ではID非捏造とoperator transferを、取得後では対象に存在する同じexact IDの保持を確認する。複合transactionでは、`内包failure種別 × 全public consumer × 公開形態`を同値分割し、projector単体やsource配線だけから利用側の失敗投影を推定しない。read-only観測、取得Effect前の拒否、残存所有なしで終了を決定論的に観測できる局所資源は理由付き非該当とし、Recovery Authorityを新設しない。
+[アーキテクチャ](27_Architecture.md#24-状態処理順序副作用)の資源取得transactionに該当する場合は、各取得Effect、到達可能なthrow境界、排他的settlement、および各境界でcleanup確認済み／不明となる経路を対応づける。Recovery Identity取得前の失敗ではID非捏造とoperator transferを、取得後では対象に存在する同じexact IDの保持を確認する。複合transactionでは、`内包failure種別 × consumerの認証・認可・可視性 × 公開形態`を同値分割し、projector単体やsource配線だけから利用側の失敗投影を推定しない。read-only観測、取得Effect前の拒否、残存所有なしで終了を決定論的に観測できる局所資源は理由付き非該当とし、Recovery Authorityを新設しない。
+
+不存在を安全条件にする検証では、明示的な不存在応答と、アクセス拒否、I/O失敗、競合、形式不正その他の観測不能を別の故障注入または同等の再実行可能な方法で確認する。Boolean戻り値、catch-allの既定値または単一の正常系mockが両者を区別できない場合、その結果を不存在の根拠にしない。Recovery Identity取得後の検証はID生成だけで閉じず、取得直後から最初の失敗結果、耐久記録、再入場およびsettlementまでの各経路で、Recovery不要へsettleした経路を除いて同じexact Recovery Identityが保持されることを確認する。公開境界では、許可された利用側が同じIdentity、または同じ内部Identityへ決定論的かつ追跡可能に結合した非Authorityの回復参照により、最初の結果から再入場まで同じ回復対象を相関できることを確認する。未認証、未認可または情報境界外の利用側が対象の存在、IdentityおよびRecovery Authorityを受け取らないことは別に確認する。次回呼出しだけがIdentityを返す状態を、初回結果の適合とみなさない。
 
 検証設計は、一つ以上の検証義務に対して、なぜ、何を、どの条件と方法で確認し、どの根拠からどう評価するかを定める。
 

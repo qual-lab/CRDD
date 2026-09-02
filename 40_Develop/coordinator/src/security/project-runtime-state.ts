@@ -65,6 +65,7 @@ export type ProjectTaskRecord = Readonly<{
   state: ProjectTaskState;
   attemptId: string | null;
   operationId: string | null;
+  authorityBindingId: string | null;
   cleanupConfirmed: boolean;
   recoveryId: string | null;
   supersededBy: string | null;
@@ -135,7 +136,9 @@ function validRevision(value: unknown) {
   return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
 }
 
-function validRecoveryIdentity(value: unknown) {
+export function isProjectRuntimeRecoveryIdentity(
+  value: unknown,
+): value is string {
   return (
     typeof value === "string" &&
     value.length > 0 &&
@@ -332,6 +335,7 @@ export function createProjectRuntimeState(
           : ("waiting_dependency" as const),
       attemptId: null,
       operationId: null,
+      authorityBindingId: null,
       cleanupConfirmed: false,
       recoveryId: null,
       supersededBy: null,
@@ -450,11 +454,13 @@ export function reserveProjectTaskStart(
   expectedGeneration: number,
   taskId: string,
   attemptId: string,
+  authorityBindingId: string,
 ): StateResult {
   if (
     state.generation !== expectedGeneration ||
     !validIdentity(taskId) ||
-    !validIdentity(attemptId)
+    !validIdentity(attemptId) ||
+    !validIdentity(authorityBindingId)
   ) {
     return Object.freeze({
       status: "blocked",
@@ -472,7 +478,12 @@ export function reserveProjectTaskStart(
     });
   }
   const tasks = replaceTask(state, taskId, (task) =>
-    Object.freeze({ ...task, state: "starting" as const, attemptId }),
+    Object.freeze({
+      ...task,
+      state: "starting" as const,
+      attemptId,
+      authorityBindingId,
+    }),
   );
   const objectiveId = tasks.find((task) => task.definition.id === taskId)
     ?.definition.objectiveId;
@@ -543,6 +554,7 @@ export function settleProjectTask(
     taskId: string;
     attemptId: string;
     operationId: string;
+    authorityBindingId: string;
     outcome: "completed" | "failed" | "cancelled" | "recovery_required";
     cleanupConfirmed: boolean;
     recoveryId: string | null;
@@ -557,10 +569,11 @@ export function settleProjectTask(
     task.state !== "running" ||
     task.attemptId !== input.attemptId ||
     task.operationId !== input.operationId ||
+    task.authorityBindingId !== input.authorityBindingId ||
     (input.outcome === "completed" && !input.cleanupConfirmed) ||
     (input.outcome === "cancelled" && !input.cleanupConfirmed) ||
     (input.outcome === "recovery_required" &&
-      !validRecoveryIdentity(input.recoveryId)) ||
+      !isProjectRuntimeRecoveryIdentity(input.recoveryId)) ||
     (input.outcome !== "recovery_required" && input.recoveryId !== null)
   ) {
     return Object.freeze({

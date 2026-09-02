@@ -42,6 +42,7 @@ type StoreResult<T> = Readonly<
       reason: string;
       value: null;
       manualRecoveryRequired: boolean;
+      recoveryId: string | null;
     }
 >;
 
@@ -61,6 +62,8 @@ type ActiveLease = Readonly<{
   ownerGeneration: string;
   lock: string;
   recoveryMarker: string;
+  acquisitionMarker: string;
+  lockOwnershipMarker: string;
   evidenceDirectory: string;
   identity: string;
 }>;
@@ -248,6 +251,7 @@ function validProjectRuntimeState(
         "state",
         "attemptId",
         "operationId",
+        "authorityBindingId",
         "cleanupConfirmed",
         "recoveryId",
         "supersededBy",
@@ -283,6 +287,7 @@ function validProjectRuntimeState(
       ]).has(String(task.state)) ||
       !nullableId(task.attemptId) ||
       !nullableId(task.operationId) ||
+      !nullableId(task.authorityBindingId) ||
       typeof task.cleanupConfirmed !== "boolean" ||
       !nullableRecoveryId(task.recoveryId) ||
       !nullableId(task.supersededBy)
@@ -346,7 +351,9 @@ function validLeaseEvidence(value: unknown) {
     validId(value.ownerGeneration) &&
     Number.isSafeInteger(value.ownerProcessId) &&
     Number(value.ownerProcessId) > 0 &&
-    (value.disposition === "acquired" || value.disposition === "released")
+    (value.disposition === "acquired" ||
+      value.disposition === "released" ||
+      value.disposition === "recovered_after_owner_loss")
   );
 }
 
@@ -357,13 +364,181 @@ function completed<T>(reason: string, value: T): StoreResult<T> {
 function blocked<T>(
   reason: string,
   manualRecoveryRequired = false,
+  recoveryId: string | null = null,
 ): StoreResult<T> {
   return Object.freeze({
     status: "blocked",
     reason,
     value: null,
     manualRecoveryRequired,
+    recoveryId,
   });
+}
+
+type LeaseAcquisitionMarker = Readonly<{
+  kind: LeaseKind;
+  queueId: string;
+  ownerGeneration: string;
+  ownerProcessId: number;
+  recoveryId: string;
+}>;
+
+function leaseAcquisitionRecoveryId(
+  repositoryBindingId: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+) {
+  const identityInput =
+    kind === "canonical-adoption"
+      ? `${repositoryBindingId}\0${projectId}\0${kind}`
+      : `${repositoryBindingId}\0${projectId}\0${queueId}\0${kind}`;
+  return `lease-acquisition-${digest(identityInput).slice(0, 40)}`;
+}
+
+function leaseIdentity(
+  repositoryBindingId: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+) {
+  return kind === "canonical-adoption"
+    ? `${kind}-${repositoryBindingId}-${projectId}`
+    : `${kind}-${projectId}-${queueId}`;
+}
+
+function leaseAcquisitionTemporaryPrefix(identity: string) {
+  return `.pending-${identity}-acquisition-`;
+}
+
+function leaseAcquisitionTemporaryFiles(directory: string, identity: string) {
+  assertDirectory(directory);
+  const prefix = leaseAcquisitionTemporaryPrefix(identity);
+  const names = fs
+    .readdirSync(directory)
+    .filter((name) => name.startsWith(prefix));
+  if (names.length > 1 || names.some((name) => !name.endsWith(".tmp")))
+    throw new Error("project_runtime_lease_acquisition_inventory_invalid");
+  return Object.freeze(names);
+}
+
+function pathConfirmedAbsent(candidate: string) {
+  try {
+    fs.lstatSync(candidate);
+    return false;
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") return true;
+    throw error;
+  }
+}
+
+function leaseAcquisitionFootprintAbsent(
+  directory: string,
+  identity: string,
+  paths: readonly string[],
+) {
+  return (
+    paths.every(pathConfirmedAbsent) &&
+    leaseAcquisitionTemporaryFiles(directory, identity).length === 0
+  );
+}
+
+function readLeaseAcquisitionMarker(marker: string): LeaseAcquisitionMarker {
+  const parsed: unknown = JSON.parse(fs.readFileSync(marker, "utf8"));
+  if (
+    !plainObject(parsed) ||
+    !exactKeys(parsed, [
+      "kind",
+      "queueId",
+      "ownerGeneration",
+      "ownerProcessId",
+      "recoveryId",
+    ]) ||
+    (parsed.kind !== "project-operation" &&
+      parsed.kind !== "canonical-adoption") ||
+    !validId(parsed.queueId) ||
+    !validId(parsed.ownerGeneration) ||
+    !Number.isSafeInteger(parsed.ownerProcessId) ||
+    Number(parsed.ownerProcessId) < 1 ||
+    !validId(parsed.recoveryId)
+  )
+    throw new Error("project_runtime_lease_acquisition_marker_invalid");
+  return Object.freeze({
+    kind: parsed.kind,
+    queueId: parsed.queueId,
+    ownerGeneration: parsed.ownerGeneration,
+    ownerProcessId: Number(parsed.ownerProcessId),
+    recoveryId: parsed.recoveryId,
+  });
+}
+
+function createLeaseAcquisitionMarker(
+  directory: string,
+  identity: string,
+  value: LeaseAcquisitionMarker,
+) {
+  const marker = path.join(directory, `${identity}.acquire-pending`);
+  const temporary = path.join(
+    directory,
+    `${leaseAcquisitionTemporaryPrefix(identity)}${randomUUID()}.tmp`,
+  );
+  const bytes = `${JSON.stringify(value)}\n`;
+  let descriptor: number | null = null;
+  try {
+    descriptor = fs.openSync(
+      temporary,
+      fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
+      0o600,
+    );
+    fs.writeFileSync(descriptor, `${JSON.stringify(value)}\n`, "utf8");
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = null;
+    fs.renameSync(temporary, marker);
+    if (fs.readFileSync(marker, "utf8") !== bytes)
+      throw new Error("project_runtime_lease_acquisition_marker_mismatch");
+  } catch (error) {
+    if (descriptor !== null) fs.closeSync(descriptor);
+    try {
+      fs.rmSync(temporary, { force: true });
+    } catch {}
+    throw error;
+  }
+  const observed = readLeaseAcquisitionMarker(marker);
+  if (
+    observed.kind !== value.kind ||
+    observed.queueId !== value.queueId ||
+    observed.ownerGeneration !== value.ownerGeneration ||
+    observed.ownerProcessId !== value.ownerProcessId ||
+    observed.recoveryId !== value.recoveryId
+  )
+    throw new Error("project_runtime_lease_acquisition_marker_mismatch");
+}
+
+function createLeaseLockOwnershipMarker(
+  marker: string,
+  value: LeaseAcquisitionMarker,
+) {
+  const descriptor = fs.openSync(
+    marker,
+    fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
+    0o600,
+  );
+  try {
+    fs.writeFileSync(descriptor, `${JSON.stringify(value)}\n`, "utf8");
+    fs.fsyncSync(descriptor);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  const observed = readLeaseAcquisitionMarker(marker);
+  if (
+    observed.kind !== value.kind ||
+    observed.queueId !== value.queueId ||
+    observed.ownerGeneration !== value.ownerGeneration ||
+    observed.ownerProcessId !== value.ownerProcessId ||
+    observed.recoveryId !== value.recoveryId
+  )
+    throw new Error("project_runtime_lease_lock_ownership_marker_mismatch");
 }
 
 function digest(value: string) {
@@ -494,6 +669,65 @@ function atomicCreateAndReadBack(
   }
 }
 
+function readEnvelopeFile(directory: string, name: string): Envelope {
+  const location = path.join(directory, name);
+  const metadata = fs.lstatSync(location);
+  if (
+    !metadata.isFile() ||
+    metadata.isSymbolicLink() ||
+    metadata.size > MAX_RECORD_BYTES
+  )
+    throw new Error("project_runtime_record_invalid");
+  const candidate: unknown = JSON.parse(fs.readFileSync(location, "utf8"));
+  if (
+    !plainObject(candidate) ||
+    !exactKeys(candidate, [
+      "schema",
+      "schemaRevision",
+      "recordKind",
+      "repositoryBindingId",
+      "projectId",
+      "createdGeneration",
+      "updatedGeneration",
+      "contentHash",
+      "content",
+    ]) ||
+    !["project-state", "queue-entry", "lease-evidence"].includes(
+      String(candidate.recordKind),
+    )
+  )
+    throw new Error("project_runtime_record_envelope_invalid");
+  const parsed = candidate as unknown as Envelope;
+  if (
+    parsed.schema !== PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT ||
+    parsed.schemaRevision !== 1 ||
+    !validId(parsed.repositoryBindingId) ||
+    !validId(parsed.projectId) ||
+    !Number.isSafeInteger(parsed.createdGeneration) ||
+    !Number.isSafeInteger(parsed.updatedGeneration) ||
+    parsed.createdGeneration < 1 ||
+    parsed.updatedGeneration < parsed.createdGeneration ||
+    parsed.contentHash !== digest(JSON.stringify(parsed.content))
+  )
+    throw new Error("project_runtime_record_invalid");
+  if (
+    (parsed.recordKind === "project-state" &&
+      !validProjectRuntimeState(parsed.content)) ||
+    (parsed.recordKind === "queue-entry" && !validQueueEntry(parsed.content)) ||
+    (parsed.recordKind === "lease-evidence" &&
+      !validLeaseEvidence(parsed.content))
+  )
+    throw new Error("project_runtime_record_content_invalid");
+  if (
+    (parsed.recordKind === "project-state" ||
+      parsed.recordKind === "queue-entry") &&
+    (parsed.content as { generation: number }).generation !==
+      parsed.updatedGeneration
+  )
+    throw new Error("project_runtime_record_generation_mismatch");
+  return parsed;
+}
+
 function readEnvelopes(directory: string, prefix: string): readonly Envelope[] {
   if (!fs.existsSync(directory)) return Object.freeze([]);
   assertDirectory(directory);
@@ -510,67 +744,12 @@ function readEnvelopes(directory: string, prefix: string): readonly Envelope[] {
   for (const name of names.filter((candidate) =>
     candidate.startsWith(prefix),
   )) {
-    const location = path.join(directory, name);
-    const metadata = fs.lstatSync(location);
-    if (
-      !metadata.isFile() ||
-      metadata.isSymbolicLink() ||
-      metadata.size > MAX_RECORD_BYTES
-    )
-      throw new Error("project_runtime_record_invalid");
-    const candidate: unknown = JSON.parse(fs.readFileSync(location, "utf8"));
-    if (
-      !plainObject(candidate) ||
-      !exactKeys(candidate, [
-        "schema",
-        "schemaRevision",
-        "recordKind",
-        "repositoryBindingId",
-        "projectId",
-        "createdGeneration",
-        "updatedGeneration",
-        "contentHash",
-        "content",
-      ]) ||
-      !["project-state", "queue-entry", "lease-evidence"].includes(
-        String(candidate.recordKind),
-      )
-    )
-      throw new Error("project_runtime_record_envelope_invalid");
-    const parsed = candidate as unknown as Envelope;
-    if (
-      parsed.schema !== PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT ||
-      parsed.schemaRevision !== 1 ||
-      !validId(parsed.repositoryBindingId) ||
-      !validId(parsed.projectId) ||
-      !Number.isSafeInteger(parsed.createdGeneration) ||
-      !Number.isSafeInteger(parsed.updatedGeneration) ||
-      parsed.createdGeneration < 1 ||
-      parsed.updatedGeneration < parsed.createdGeneration ||
-      parsed.contentHash !== digest(JSON.stringify(parsed.content))
-    )
-      throw new Error("project_runtime_record_invalid");
+    const parsed = readEnvelopeFile(directory, name);
     if (prefix === "generation-") {
       const match = generationName.exec(name);
       if (!match || Number(match[1]) !== parsed.updatedGeneration)
         throw new Error("project_runtime_record_generation_mismatch");
     }
-    if (
-      (parsed.recordKind === "project-state" &&
-        !validProjectRuntimeState(parsed.content)) ||
-      (parsed.recordKind === "queue-entry" &&
-        !validQueueEntry(parsed.content)) ||
-      (parsed.recordKind === "lease-evidence" &&
-        !validLeaseEvidence(parsed.content))
-    )
-      throw new Error("project_runtime_record_content_invalid");
-    if (
-      (parsed.recordKind === "project-state" ||
-        parsed.recordKind === "queue-entry") &&
-      (parsed.content as { generation: number }).generation !==
-        parsed.updatedGeneration
-    )
-      throw new Error("project_runtime_record_generation_mismatch");
     records.push(parsed);
   }
   if (prefix === "generation-") {
@@ -584,6 +763,99 @@ function readEnvelopes(directory: string, prefix: string): readonly Envelope[] {
       throw new Error("project_runtime_record_generation_discontinuous");
   }
   return Object.freeze(records);
+}
+
+type LeaseEvidenceContent = Readonly<{
+  kind: LeaseKind;
+  queueId: string;
+  ownerGeneration: string;
+  ownerProcessId: number;
+  disposition: "acquired" | "released" | "recovered_after_owner_loss";
+}>;
+
+type LeaseEvidenceEnvelope = Envelope &
+  Readonly<{ recordKind: "lease-evidence"; content: LeaseEvidenceContent }>;
+
+function readExactLeaseEvidence(
+  directory: string,
+  expected: Readonly<{
+    repositoryBindingId: string;
+    projectId: string;
+    queueId: string;
+    kind: LeaseKind;
+    identity: string;
+    ownerGeneration: string;
+  }>,
+): Readonly<{
+  acquired: LeaseEvidenceEnvelope;
+  released: LeaseEvidenceEnvelope | null;
+  recovered: LeaseEvidenceEnvelope | null;
+}> {
+  assertDirectory(directory);
+  const base = `${expected.identity}-${expected.ownerGeneration}`;
+  const exactNames: Readonly<
+    Record<"acquired" | "released" | "recovered", string>
+  > = Object.freeze({
+    acquired: `${base}.json`,
+    released: `${base}-released.json`,
+    recovered: `${base}-recovered.json`,
+  });
+  const allowed = new Set(Object.values(exactNames));
+  const inventory = fs.readdirSync(directory);
+  if (
+    inventory.length > 4096 ||
+    inventory.some((name) => name.startsWith(base) && !allowed.has(name))
+  )
+    throw new Error("project_runtime_lease_evidence_inventory_mismatch");
+
+  const read = (
+    name: string,
+    disposition: LeaseEvidenceContent["disposition"],
+    required: boolean,
+  ): LeaseEvidenceEnvelope | null => {
+    if (!fs.existsSync(path.join(directory, name))) {
+      if (required) throw new Error("project_runtime_lease_evidence_missing");
+      return null;
+    }
+    const record = readEnvelopeFile(directory, name);
+    if (
+      record.recordKind !== "lease-evidence" ||
+      record.repositoryBindingId !== expected.repositoryBindingId ||
+      record.projectId !== expected.projectId ||
+      record.createdGeneration !== 1 ||
+      record.updatedGeneration !== (disposition === "acquired" ? 1 : 2) ||
+      !validLeaseEvidence(record.content)
+    )
+      throw new Error("project_runtime_lease_evidence_mismatch");
+    const content = record.content as LeaseEvidenceContent;
+    if (
+      content.kind !== expected.kind ||
+      content.queueId !== expected.queueId ||
+      content.ownerGeneration !== expected.ownerGeneration ||
+      content.disposition !== disposition
+    )
+      throw new Error("project_runtime_lease_evidence_mismatch");
+    return record as LeaseEvidenceEnvelope;
+  };
+
+  const acquired = read(exactNames.acquired, "acquired", true);
+  if (!acquired) throw new Error("project_runtime_lease_evidence_missing");
+  const released = read(exactNames.released, "released", false);
+  const recovered = read(
+    exactNames.recovered,
+    "recovered_after_owner_loss",
+    false,
+  );
+  if (released && recovered)
+    throw new Error("project_runtime_lease_evidence_disposition_conflict");
+  for (const record of [released, recovered]) {
+    if (
+      record &&
+      record.content.ownerProcessId !== acquired.content.ownerProcessId
+    )
+      throw new Error("project_runtime_lease_evidence_owner_mismatch");
+  }
+  return Object.freeze({ acquired, released, recovered });
 }
 
 type QueueEnvelope = Envelope & Readonly<{ content: ProjectQueueEntry }>;
@@ -816,6 +1088,42 @@ export function enqueueProjectOperation(
   }
 }
 
+export function readProjectOperationQueueState(
+  workingDirectory: string,
+  repositoryBindingId: string,
+  queueId: string,
+): StoreResult<ProjectQueueEntry> {
+  try {
+    if (!validId(repositoryBindingId) || !validId(queueId))
+      return blocked("project_runtime_queue_input_invalid");
+    const { runtime } = storageRoot(workingDirectory);
+    const entryDirectory = path.join(runtime, "queue", queueId);
+    const existing = validatedQueueHistory(
+      readEnvelopes(entryDirectory, "generation-"),
+      repositoryBindingId,
+      queueId,
+    );
+    if (existing === null)
+      return blocked("project_runtime_queue_record_mismatch", true);
+    const currentEnvelope = existing.at(-1);
+    if (!currentEnvelope)
+      return blocked("project_runtime_queue_observation_unknown", true);
+    const current = currentEnvelope.content;
+    if (
+      currentEnvelope.recordKind !== "queue-entry" ||
+      !validQueueEntry(current) ||
+      current.generation !== currentEnvelope.updatedGeneration ||
+      current.queueId !== queueId ||
+      currentEnvelope.repositoryBindingId !== repositoryBindingId ||
+      currentEnvelope.projectId !== current.projectId
+    )
+      return blocked("project_runtime_queue_record_mismatch", true);
+    return completed("project_runtime_queue_observed", current);
+  } catch {
+    return blocked("project_runtime_queue_observation_unknown", true);
+  }
+}
+
 const QUEUE_TRANSITIONS = Object.freeze({
   queued: Object.freeze(["leased", "waiting_foreground", "cancelled"]),
   leased: Object.freeze([
@@ -907,9 +1215,11 @@ export function updateProjectOperationQueueState(
       const activeLease = next.lease
         ? ACTIVE_LEASES.get(next.lease)
         : undefined;
+      const nextLeaseRequired = ["leased", "running"].includes(next.state);
       const leaseRequired =
-        current.ownerGeneration !== null ||
-        ["leased", "running", "integration_pending"].includes(next.state);
+        current.ownerGeneration !== null || nextLeaseRequired;
+      if (!leaseRequired && next.lease !== null)
+        return blocked("project_runtime_queue_lease_invalid");
       if (leaseRequired) {
         if (
           activeLease?.kind !== "project-operation" ||
@@ -926,9 +1236,12 @@ export function updateProjectOperationQueueState(
         )
           return blocked("project_runtime_queue_owner_mismatch");
       }
+      // A terminal Queue record is first a durable terminal intent. Its owner
+      // remains attached until the physical lock and release evidence have been
+      // observed by settleProjectOperationQueueLeaseRelease().
       const ownerGeneration = leaseRequired
         ? (activeLease?.ownerGeneration ?? null)
-        : current.ownerGeneration;
+        : null;
       const value: ProjectQueueEntry = Object.freeze({
         ...current,
         state: next.state,
@@ -963,29 +1276,127 @@ export function acquireProjectRuntimeLease(
   queueId: string,
   kind: LeaseKind,
 ): StoreResult<ProjectRuntimeLease> {
+  let acquisitionMarker: string | null = null;
+  let acquisitionMarkerOwned = false;
+  let lockOwnershipMarker: string | null = null;
+  let lockOwnershipMarkerOwned = false;
+  let lock: string | null = null;
+  let lockOwned = false;
+  let acquiredEvidence: string | null = null;
+  let recoveryId: string | null = null;
   try {
     if (![repositoryBindingId, projectId, queueId].every(validId))
       return blocked("project_runtime_lease_identity_invalid");
     const { repositoryRoot, runtime } = storageRoot(workingDirectory);
     const locks = ensureDirectory(runtime, "locks");
-    const identity =
-      kind === "canonical-adoption"
-        ? `${kind}-${repositoryBindingId}-${projectId}`
-        : `${kind}-${projectId}-${queueId}`;
-    const lock = path.join(locks, `${identity}.lock`);
+    const identity = leaseIdentity(
+      repositoryBindingId,
+      projectId,
+      queueId,
+      kind,
+    );
+    lock = path.join(locks, `${identity}.lock`);
     const recoveryMarker = path.join(locks, `${identity}.release-unknown`);
+    acquisitionMarker = path.join(locks, `${identity}.acquire-pending`);
+    lockOwnershipMarker = path.join(locks, `${identity}.acquire-lock-owned`);
+    recoveryId = leaseAcquisitionRecoveryId(
+      repositoryBindingId,
+      projectId,
+      queueId,
+      kind,
+    );
     if (fs.existsSync(recoveryMarker))
-      return blocked("project_runtime_lease_recovery_required", true);
-    try {
-      fs.mkdirSync(lock, { mode: 0o700 });
-    } catch (error) {
-      return errorCode(error) === "EEXIST"
-        ? blocked("project_runtime_lease_unavailable")
-        : blocked("project_runtime_lease_observation_unknown", true);
+      return blocked(
+        "project_runtime_lease_recovery_required",
+        true,
+        recoveryId,
+      );
+    if (leaseAcquisitionTemporaryFiles(locks, identity).length > 0)
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_required",
+        true,
+        recoveryId,
+      );
+    if (fs.existsSync(acquisitionMarker)) {
+      const pending = readLeaseAcquisitionMarker(acquisitionMarker);
+      if (pending.ownerProcessId === process.pid)
+        return blocked("project_runtime_lease_unavailable");
+      if (
+        pending.kind !== kind ||
+        (kind === "project-operation" && pending.queueId !== queueId) ||
+        pending.recoveryId !== recoveryId
+      )
+        return blocked(
+          "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+          true,
+          recoveryId,
+        );
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_required",
+        true,
+        pending.recoveryId,
+      );
     }
-    assertDirectory(lock);
+    if (fs.existsSync(lockOwnershipMarker))
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_required",
+        true,
+        recoveryId,
+      );
     const ownerGeneration = randomUUID();
     const evidence = ensureDirectory(runtime, "leases");
+    try {
+      createLeaseAcquisitionMarker(
+        locks,
+        identity,
+        Object.freeze({
+          kind,
+          queueId,
+          ownerGeneration,
+          ownerProcessId: process.pid,
+          recoveryId,
+        }),
+      );
+      acquisitionMarkerOwned = true;
+      fs.mkdirSync(lock, { mode: 0o700 });
+      lockOwned = true;
+      createLeaseLockOwnershipMarker(
+        lockOwnershipMarker,
+        Object.freeze({
+          kind,
+          queueId,
+          ownerGeneration,
+          ownerProcessId: process.pid,
+          recoveryId,
+        }),
+      );
+      lockOwnershipMarkerOwned = true;
+    } catch (error) {
+      if (!acquisitionMarkerOwned) {
+        try {
+          if (
+            leaseAcquisitionFootprintAbsent(locks, identity, [
+              lock,
+              recoveryMarker,
+              acquisitionMarker,
+              lockOwnershipMarker,
+            ])
+          )
+            return blocked("project_runtime_lease_acquisition_rolled_back");
+        } catch {}
+        return blocked(
+          "project_runtime_lease_acquisition_recovery_required",
+          true,
+          recoveryId,
+        );
+      }
+      throw error;
+    }
+    assertDirectory(lock);
+    acquiredEvidence = path.join(
+      evidence,
+      `${identity}-${ownerGeneration}.json`,
+    );
     atomicCreateAndReadBack(
       evidence,
       `${identity}-${ownerGeneration}.json`,
@@ -997,6 +1408,10 @@ export function acquireProjectRuntimeLease(
         disposition: "acquired",
       }),
     );
+    const acquiredLock = lock;
+    const ownedAcquisitionMarker = acquisitionMarker;
+    const ownedLockOwnershipMarker = lockOwnershipMarker;
+    const exactRecoveryId = recoveryId;
     let released = false;
     let lease!: ProjectRuntimeLease;
     lease = Object.freeze({
@@ -1023,9 +1438,9 @@ export function acquireProjectRuntimeLease(
             fs.readFileSync(recoveryMarker, "utf8") !== `${ownerGeneration}\n`
           )
             throw new Error("project_runtime_lease_recovery_marker_mismatch");
-          assertDirectory(lock);
-          fs.rmdirSync(lock);
-          if (fs.existsSync(lock))
+          assertDirectory(acquiredLock);
+          fs.rmdirSync(acquiredLock);
+          if (fs.existsSync(acquiredLock))
             throw new Error("project_runtime_lease_lock_release_unknown");
           atomicCreateAndReadBack(
             evidence,
@@ -1042,6 +1457,44 @@ export function acquireProjectRuntimeLease(
           if (fs.existsSync(recoveryMarker))
             throw new Error(
               "project_runtime_lease_recovery_marker_release_unknown",
+            );
+          if (fs.existsSync(ownedLockOwnershipMarker)) {
+            const ownership = readLeaseAcquisitionMarker(
+              ownedLockOwnershipMarker,
+            );
+            if (
+              ownership.kind !== kind ||
+              ownership.queueId !== queueId ||
+              ownership.ownerGeneration !== ownerGeneration ||
+              ownership.ownerProcessId !== process.pid ||
+              ownership.recoveryId !== exactRecoveryId
+            )
+              throw new Error(
+                "project_runtime_lease_lock_ownership_marker_mismatch",
+              );
+            fs.rmSync(ownedLockOwnershipMarker);
+          }
+          if (fs.existsSync(ownedLockOwnershipMarker))
+            throw new Error(
+              "project_runtime_lease_lock_ownership_marker_release_unknown",
+            );
+          if (fs.existsSync(ownedAcquisitionMarker)) {
+            const pending = readLeaseAcquisitionMarker(ownedAcquisitionMarker);
+            if (
+              pending.kind !== kind ||
+              pending.queueId !== queueId ||
+              pending.ownerGeneration !== ownerGeneration ||
+              pending.ownerProcessId !== process.pid ||
+              pending.recoveryId !== exactRecoveryId
+            )
+              throw new Error(
+                "project_runtime_lease_acquisition_marker_mismatch",
+              );
+            fs.rmSync(ownedAcquisitionMarker);
+          }
+          if (fs.existsSync(ownedAcquisitionMarker))
+            throw new Error(
+              "project_runtime_lease_acquisition_marker_release_unknown",
             );
           released = true;
           ACTIVE_LEASES.delete(lease);
@@ -1067,15 +1520,834 @@ export function acquireProjectRuntimeLease(
         queueId,
         kind,
         ownerGeneration,
-        lock,
+        lock: acquiredLock,
         recoveryMarker,
+        acquisitionMarker: ownedAcquisitionMarker,
+        lockOwnershipMarker: ownedLockOwnershipMarker,
         evidenceDirectory: evidence,
         identity,
       }),
     );
     return completed("project_runtime_lease_acquired", lease);
   } catch {
-    return blocked("project_runtime_lease_observation_unknown", true);
+    let cleanupConfirmed = true;
+    try {
+      if (lockOwned && lock !== null && fs.existsSync(lock)) fs.rmdirSync(lock);
+      if (lock !== null && fs.existsSync(lock)) cleanupConfirmed = false;
+    } catch {
+      cleanupConfirmed = false;
+    }
+    try {
+      if (
+        cleanupConfirmed &&
+        acquiredEvidence !== null &&
+        fs.existsSync(acquiredEvidence)
+      )
+        fs.rmSync(acquiredEvidence);
+      if (acquiredEvidence !== null && fs.existsSync(acquiredEvidence))
+        cleanupConfirmed = false;
+    } catch {
+      cleanupConfirmed = false;
+    }
+    try {
+      if (
+        cleanupConfirmed &&
+        lockOwnershipMarkerOwned &&
+        lockOwnershipMarker !== null &&
+        fs.existsSync(lockOwnershipMarker)
+      )
+        fs.rmSync(lockOwnershipMarker);
+      if (lockOwnershipMarker !== null && fs.existsSync(lockOwnershipMarker))
+        cleanupConfirmed = false;
+    } catch {
+      cleanupConfirmed = false;
+    }
+    try {
+      if (
+        cleanupConfirmed &&
+        acquisitionMarkerOwned &&
+        acquisitionMarker !== null &&
+        fs.existsSync(acquisitionMarker)
+      )
+        fs.rmSync(acquisitionMarker);
+      if (acquisitionMarker !== null && fs.existsSync(acquisitionMarker))
+        cleanupConfirmed = false;
+    } catch {
+      cleanupConfirmed = false;
+    }
+    try {
+      if (
+        lock !== null &&
+        leaseAcquisitionTemporaryFiles(
+          path.dirname(lock),
+          path.basename(lock, ".lock"),
+        ).length > 0
+      )
+        cleanupConfirmed = false;
+    } catch {
+      cleanupConfirmed = false;
+    }
+    return cleanupConfirmed
+      ? blocked("project_runtime_lease_acquisition_rolled_back")
+      : blocked(
+          "project_runtime_lease_acquisition_recovery_required",
+          true,
+          recoveryId,
+        );
+  }
+}
+
+export function settleProjectOperationQueueLeaseRelease(
+  workingDirectory: string,
+  repositoryBindingId: string,
+  queueId: string,
+  expectedGeneration: number,
+  ownerGeneration: string,
+): StoreResult<ProjectQueueEntry> {
+  try {
+    if (
+      !validId(repositoryBindingId) ||
+      !validId(queueId) ||
+      !validId(ownerGeneration) ||
+      !Number.isSafeInteger(expectedGeneration) ||
+      expectedGeneration < 1
+    )
+      return blocked("project_runtime_queue_release_settlement_input_invalid");
+    const { runtime } = storageRoot(workingDirectory);
+    return withMutationLock(runtime, "queue-mutation", () => {
+      const entryDirectory = path.join(runtime, "queue", queueId);
+      const history = validatedQueueHistory(
+        readEnvelopes(entryDirectory, "generation-"),
+        repositoryBindingId,
+        queueId,
+      );
+      const currentEnvelope = history?.at(-1);
+      const current = currentEnvelope?.content;
+      if (
+        !currentEnvelope ||
+        !current ||
+        current.generation !== expectedGeneration ||
+        current.ownerGeneration !== ownerGeneration ||
+        current.state === "leased" ||
+        current.state === "running"
+      )
+        return blocked(
+          "project_runtime_queue_release_settlement_state_mismatch",
+          true,
+        );
+      const identity = `project-operation-${current.projectId}-${queueId}`;
+      const locks = ensureDirectory(runtime, "locks");
+      if (
+        fs.existsSync(path.join(locks, `${identity}.lock`)) ||
+        fs.existsSync(path.join(locks, `${identity}.release-unknown`)) ||
+        fs.existsSync(path.join(locks, `${identity}.acquire-pending`)) ||
+        fs.existsSync(path.join(locks, `${identity}.acquire-lock-owned`))
+      )
+        return blocked(
+          "project_runtime_queue_release_settlement_resource_present",
+          true,
+        );
+      const evidence = ensureDirectory(runtime, "leases");
+      const leaseEvidence = readExactLeaseEvidence(evidence, {
+        repositoryBindingId,
+        projectId: current.projectId,
+        queueId,
+        kind: "project-operation",
+        identity,
+        ownerGeneration,
+      });
+      if (!leaseEvidence.released || leaseEvidence.recovered)
+        return blocked("project_runtime_queue_release_evidence_mismatch", true);
+      const value: ProjectQueueEntry = Object.freeze({
+        ...current,
+        generation: current.generation + 1,
+        ownerGeneration: null,
+      });
+      atomicCreateAndReadBack(
+        entryDirectory,
+        `generation-${value.generation}.json`,
+        envelope(
+          "queue-entry",
+          repositoryBindingId,
+          current.projectId,
+          1,
+          value.generation,
+          value,
+        ),
+      );
+      return completed("project_runtime_queue_release_settled", value);
+    });
+  } catch {
+    return blocked(
+      "project_runtime_queue_release_settlement_observation_unknown",
+      true,
+    );
+  }
+}
+
+type LeaseOwnerObserver = (
+  owner: Readonly<{
+    ownerProcessId: number;
+    ownerGeneration: string;
+  }>,
+) => unknown;
+
+function reconcileUnboundLeaseAcquisition(
+  runtime: string,
+  repositoryBindingId: string,
+  projectId: string,
+  requestedQueueId: string,
+  kind: LeaseKind,
+  observeOwner: LeaseOwnerObserver,
+  retainAcquisitionMarkerForCaller = false,
+): StoreResult<Readonly<{ recoveryId: string }>> {
+  const identity = leaseIdentity(
+    repositoryBindingId,
+    projectId,
+    requestedQueueId,
+    kind,
+  );
+  const expectedRecoveryId = leaseAcquisitionRecoveryId(
+    repositoryBindingId,
+    projectId,
+    requestedQueueId,
+    kind,
+  );
+  const locks = ensureDirectory(runtime, "locks");
+  const lock = path.join(locks, `${identity}.lock`);
+  const releaseMarker = path.join(locks, `${identity}.release-unknown`);
+  const acquisitionMarker = path.join(locks, `${identity}.acquire-pending`);
+  const lockOwnershipMarker = path.join(
+    locks,
+    `${identity}.acquire-lock-owned`,
+  );
+  if (leaseAcquisitionTemporaryFiles(locks, identity).length > 0)
+    return blocked(
+      "project_runtime_lease_acquisition_recovery_cleanup_unknown",
+      true,
+      expectedRecoveryId,
+    );
+  if (!fs.existsSync(acquisitionMarker))
+    return blocked(
+      "project_runtime_lease_acquisition_recovery_state_mismatch",
+      true,
+      expectedRecoveryId,
+    );
+  let pending: LeaseAcquisitionMarker;
+  try {
+    pending = readLeaseAcquisitionMarker(acquisitionMarker);
+  } catch {
+    return blocked(
+      "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+      true,
+      expectedRecoveryId,
+    );
+  }
+  const evidenceQueueId = pending.queueId;
+  if (
+    pending.kind !== kind ||
+    (kind === "project-operation" && evidenceQueueId !== requestedQueueId) ||
+    pending.recoveryId !== expectedRecoveryId
+  )
+    return blocked(
+      "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+      true,
+      expectedRecoveryId,
+    );
+  if (fs.existsSync(lockOwnershipMarker)) {
+    let ownership: LeaseAcquisitionMarker;
+    try {
+      ownership = readLeaseAcquisitionMarker(lockOwnershipMarker);
+    } catch {
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        expectedRecoveryId,
+      );
+    }
+    if (
+      ownership.kind !== pending.kind ||
+      ownership.queueId !== pending.queueId ||
+      ownership.ownerGeneration !== pending.ownerGeneration ||
+      ownership.ownerProcessId !== pending.ownerProcessId ||
+      ownership.recoveryId !== pending.recoveryId
+    )
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        expectedRecoveryId,
+      );
+  } else if (fs.existsSync(lock)) {
+    return blocked(
+      "project_runtime_lease_acquisition_recovery_cleanup_unknown",
+      true,
+      expectedRecoveryId,
+    );
+  }
+  let rawObservation: unknown;
+  try {
+    rawObservation = observeOwner(
+      Object.freeze({
+        ownerProcessId: pending.ownerProcessId,
+        ownerGeneration: pending.ownerGeneration,
+      }),
+    );
+  } catch {
+    return blocked(
+      "project_runtime_lease_owner_observation_unknown",
+      true,
+      expectedRecoveryId,
+    );
+  }
+  if (
+    !plainObject(rawObservation) ||
+    !exactKeys(rawObservation, [
+      "status",
+      "ownerProcessId",
+      "ownerGeneration",
+    ]) ||
+    rawObservation.ownerProcessId !== pending.ownerProcessId ||
+    rawObservation.ownerGeneration !== pending.ownerGeneration
+  )
+    return blocked(
+      "project_runtime_lease_owner_observation_unknown",
+      true,
+      expectedRecoveryId,
+    );
+  if (rawObservation.status === "alive")
+    return blocked("project_runtime_lease_owner_still_active");
+  if (rawObservation.status !== "absent")
+    return blocked(
+      "project_runtime_lease_owner_observation_unknown",
+      true,
+      expectedRecoveryId,
+    );
+
+  if (fs.existsSync(releaseMarker)) {
+    if (
+      fs.readFileSync(releaseMarker, "utf8") !== `${pending.ownerGeneration}\n`
+    )
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        expectedRecoveryId,
+      );
+  } else {
+    const descriptor = fs.openSync(
+      releaseMarker,
+      fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
+      0o600,
+    );
+    try {
+      fs.writeFileSync(descriptor, `${pending.ownerGeneration}\n`, "utf8");
+      fs.fsyncSync(descriptor);
+    } finally {
+      fs.closeSync(descriptor);
+    }
+    if (
+      fs.readFileSync(releaseMarker, "utf8") !== `${pending.ownerGeneration}\n`
+    )
+      throw new Error("project_runtime_lease_recovery_marker_mismatch");
+  }
+  if (fs.existsSync(lock)) {
+    assertDirectory(lock);
+    fs.rmdirSync(lock);
+  }
+  if (fs.existsSync(lock))
+    throw new Error("project_runtime_lease_lock_release_unknown");
+
+  const evidence = ensureDirectory(runtime, "leases");
+  const base = `${identity}-${pending.ownerGeneration}`;
+  const acquiredPath = path.join(evidence, `${base}.json`);
+  const releasedPath = path.join(evidence, `${base}-released.json`);
+  const recoveredPath = path.join(evidence, `${base}-recovered.json`);
+  if (!fs.existsSync(acquiredPath)) {
+    if (fs.existsSync(releasedPath) || fs.existsSync(recoveredPath))
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        expectedRecoveryId,
+      );
+  } else {
+    let observed = readExactLeaseEvidence(evidence, {
+      repositoryBindingId,
+      projectId,
+      queueId: evidenceQueueId,
+      kind,
+      identity,
+      ownerGeneration: pending.ownerGeneration,
+    });
+    if (observed.acquired.content.ownerProcessId !== pending.ownerProcessId)
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        expectedRecoveryId,
+      );
+    if (!observed.released && !observed.recovered) {
+      atomicCreateAndReadBack(
+        evidence,
+        `${base}-recovered.json`,
+        envelope("lease-evidence", repositoryBindingId, projectId, 1, 2, {
+          kind,
+          queueId: evidenceQueueId,
+          ownerGeneration: pending.ownerGeneration,
+          ownerProcessId: pending.ownerProcessId,
+          disposition: "recovered_after_owner_loss",
+        }),
+      );
+      observed = readExactLeaseEvidence(evidence, {
+        repositoryBindingId,
+        projectId,
+        queueId: evidenceQueueId,
+        kind,
+        identity,
+        ownerGeneration: pending.ownerGeneration,
+      });
+    }
+    if (!observed.released && !observed.recovered)
+      throw new Error("project_runtime_lease_recovery_evidence_mismatch");
+  }
+  fs.rmSync(releaseMarker);
+  if (fs.existsSync(lockOwnershipMarker)) fs.rmSync(lockOwnershipMarker);
+  if (!retainAcquisitionMarkerForCaller) fs.rmSync(acquisitionMarker);
+  if (
+    fs.existsSync(lock) ||
+    fs.existsSync(releaseMarker) ||
+    fs.existsSync(lockOwnershipMarker) ||
+    (retainAcquisitionMarkerForCaller
+      ? !fs.existsSync(acquisitionMarker)
+      : fs.existsSync(acquisitionMarker)) ||
+    leaseAcquisitionTemporaryFiles(locks, identity).length > 0
+  )
+    throw new Error(
+      "project_runtime_lease_acquisition_recovery_cleanup_unknown",
+    );
+  return completed(
+    "project_runtime_lease_acquisition_resources_recovered",
+    Object.freeze({ recoveryId: expectedRecoveryId }),
+  );
+}
+
+export function reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
+  workingDirectory: string,
+  repositoryBindingId: string,
+  projectId: string,
+  observeOwner: LeaseOwnerObserver,
+): StoreResult<Readonly<{ recoveryId: string }>> {
+  const recoveryId =
+    validId(repositoryBindingId) && validId(projectId)
+      ? leaseAcquisitionRecoveryId(
+          repositoryBindingId,
+          projectId,
+          "canonical",
+          "canonical-adoption",
+        )
+      : null;
+  try {
+    if (
+      !validId(repositoryBindingId) ||
+      !validId(projectId) ||
+      typeof observeOwner !== "function"
+    )
+      return blocked("project_runtime_lease_recovery_input_invalid");
+    const { runtime } = storageRoot(workingDirectory);
+    return withMutationLock(runtime, "queue-mutation", () =>
+      reconcileUnboundLeaseAcquisition(
+        runtime,
+        repositoryBindingId,
+        projectId,
+        "canonical",
+        "canonical-adoption",
+        observeOwner,
+      ),
+    );
+  } catch {
+    return blocked(
+      "project_runtime_lease_recovery_observation_unknown",
+      true,
+      recoveryId,
+    );
+  }
+}
+
+export function reconcileProjectRuntimeLeaseOwnerLoss(
+  workingDirectory: string,
+  repositoryBindingId: string,
+  projectId: string,
+  queueId: string,
+  observeOwner: LeaseOwnerObserver,
+): StoreResult<ProjectQueueEntry> {
+  const recoveryId = [repositoryBindingId, projectId, queueId].every(validId)
+    ? leaseAcquisitionRecoveryId(
+        repositoryBindingId,
+        projectId,
+        queueId,
+        "project-operation",
+      )
+    : null;
+  try {
+    if (
+      ![repositoryBindingId, projectId, queueId].every(validId) ||
+      typeof observeOwner !== "function"
+    )
+      return blocked("project_runtime_lease_recovery_input_invalid");
+    const { runtime } = storageRoot(workingDirectory);
+    return withMutationLock(runtime, "queue-mutation", () => {
+      const entryDirectory = path.join(runtime, "queue", queueId);
+      const history = validatedQueueHistory(
+        readEnvelopes(entryDirectory, "generation-"),
+        repositoryBindingId,
+        queueId,
+        projectId,
+      );
+      const currentEnvelope = history?.at(-1);
+      const current = currentEnvelope?.content;
+      if (!currentEnvelope || !current)
+        return blocked("project_runtime_lease_recovery_state_mismatch");
+      const identity = `project-operation-${projectId}-${queueId}`;
+      const locks = ensureDirectory(runtime, "locks");
+      const lock = path.join(locks, `${identity}.lock`);
+      const recoveryMarker = path.join(locks, `${identity}.release-unknown`);
+      const acquisitionMarker = path.join(locks, `${identity}.acquire-pending`);
+      const lockOwnershipMarker = path.join(
+        locks,
+        `${identity}.acquire-lock-owned`,
+      );
+      const acquisitionMarkerPresent = fs.existsSync(acquisitionMarker);
+      if (current.ownerGeneration === null) {
+        if (current.state !== "queued" || !acquisitionMarkerPresent)
+          return blocked("project_runtime_lease_recovery_state_mismatch");
+        const recovered = reconcileUnboundLeaseAcquisition(
+          runtime,
+          repositoryBindingId,
+          projectId,
+          queueId,
+          "project-operation",
+          observeOwner,
+          true,
+        );
+        if (recovered.status !== "completed") return recovered;
+        if (current.resultReference === recovered.value.recoveryId) {
+          fs.rmSync(acquisitionMarker);
+          if (fs.existsSync(acquisitionMarker))
+            throw new Error(
+              "project_runtime_lease_acquisition_marker_release_unknown",
+            );
+          return completed(
+            "project_runtime_lease_acquisition_recovered",
+            current,
+          );
+        }
+        const value: ProjectQueueEntry = Object.freeze({
+          ...current,
+          generation: current.generation + 1,
+          resultReference: recovered.value.recoveryId,
+        });
+        atomicCreateAndReadBack(
+          entryDirectory,
+          `generation-${value.generation}.json`,
+          envelope(
+            "queue-entry",
+            repositoryBindingId,
+            projectId,
+            1,
+            value.generation,
+            value,
+          ),
+        );
+        fs.rmSync(acquisitionMarker);
+        if (fs.existsSync(acquisitionMarker))
+          throw new Error(
+            "project_runtime_lease_acquisition_marker_release_unknown",
+          );
+        return completed("project_runtime_lease_acquisition_recovered", value);
+      }
+      const lockPresent = fs.existsSync(lock);
+      if (lockPresent) assertDirectory(lock);
+      const lockOwnershipMarkerPresent = fs.existsSync(lockOwnershipMarker);
+      if (lockPresent && !lockOwnershipMarkerPresent)
+        return blocked(
+          "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+          true,
+        );
+      const markerPresent = fs.existsSync(recoveryMarker);
+      if (acquisitionMarkerPresent) {
+        const pending = readLeaseAcquisitionMarker(acquisitionMarker);
+        if (
+          pending.kind !== "project-operation" ||
+          pending.queueId !== queueId ||
+          pending.ownerGeneration !== current.ownerGeneration ||
+          pending.recoveryId !==
+            leaseAcquisitionRecoveryId(
+              repositoryBindingId,
+              projectId,
+              queueId,
+              "project-operation",
+            )
+        )
+          return blocked(
+            "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+            true,
+          );
+      }
+      if (
+        markerPresent &&
+        fs.readFileSync(recoveryMarker, "utf8") !==
+          `${current.ownerGeneration}\n`
+      )
+        return blocked(
+          "project_runtime_lease_recovery_evidence_mismatch",
+          true,
+        );
+      const evidence = ensureDirectory(runtime, "leases");
+      const leaseEvidence = readExactLeaseEvidence(evidence, {
+        repositoryBindingId,
+        projectId,
+        queueId,
+        kind: "project-operation",
+        identity,
+        ownerGeneration: current.ownerGeneration,
+      });
+      const acquiredContent = leaseEvidence.acquired.content;
+      if (lockOwnershipMarkerPresent) {
+        const ownership = readLeaseAcquisitionMarker(lockOwnershipMarker);
+        if (
+          ownership.kind !== "project-operation" ||
+          ownership.queueId !== queueId ||
+          ownership.ownerGeneration !== current.ownerGeneration ||
+          ownership.ownerProcessId !== acquiredContent.ownerProcessId ||
+          ownership.recoveryId !==
+            leaseAcquisitionRecoveryId(
+              repositoryBindingId,
+              projectId,
+              queueId,
+              "project-operation",
+            )
+        )
+          return blocked(
+            "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+            true,
+          );
+      }
+      if (acquisitionMarkerPresent) {
+        const pending = readLeaseAcquisitionMarker(acquisitionMarker);
+        if (pending.ownerProcessId !== acquiredContent.ownerProcessId)
+          return blocked(
+            "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+            true,
+          );
+      }
+      if (leaseEvidence.released) {
+        if (lockPresent)
+          return blocked(
+            "project_runtime_lease_recovery_evidence_mismatch",
+            true,
+          );
+        if (markerPresent) fs.rmSync(recoveryMarker);
+        if (lockOwnershipMarkerPresent) fs.rmSync(lockOwnershipMarker);
+        if (acquisitionMarkerPresent) fs.rmSync(acquisitionMarker);
+        if (fs.existsSync(recoveryMarker))
+          throw new Error(
+            "project_runtime_lease_recovery_marker_release_unknown",
+          );
+        if (fs.existsSync(acquisitionMarker))
+          throw new Error(
+            "project_runtime_lease_acquisition_marker_release_unknown",
+          );
+        if (fs.existsSync(lockOwnershipMarker))
+          throw new Error(
+            "project_runtime_lease_lock_ownership_marker_release_unknown",
+          );
+        const value: ProjectQueueEntry = Object.freeze({
+          ...current,
+          state:
+            current.state === "leased" || current.state === "running"
+              ? "recovery_required"
+              : current.state,
+          generation: current.generation + 1,
+          ownerGeneration: null,
+          resumeCondition:
+            current.state === "leased" || current.state === "running"
+              ? "owner_loss"
+              : current.resumeCondition,
+          resultReference:
+            current.state === "leased" || current.state === "running"
+              ? `lease-recovery-${digest(
+                  `${projectId}\0${queueId}\0${current.ownerGeneration}`,
+                ).slice(0, 40)}`
+              : current.resultReference,
+        });
+        atomicCreateAndReadBack(
+          entryDirectory,
+          `generation-${value.generation}.json`,
+          envelope(
+            "queue-entry",
+            repositoryBindingId,
+            projectId,
+            1,
+            value.generation,
+            value,
+          ),
+        );
+        return completed("project_runtime_lease_release_reconciled", value);
+      }
+      if (leaseEvidence.recovered) {
+        if (lockPresent || markerPresent)
+          return blocked(
+            "project_runtime_lease_recovery_evidence_mismatch",
+            true,
+          );
+        if (acquisitionMarkerPresent) fs.rmSync(acquisitionMarker);
+        if (lockOwnershipMarkerPresent) fs.rmSync(lockOwnershipMarker);
+        if (fs.existsSync(acquisitionMarker))
+          throw new Error(
+            "project_runtime_lease_acquisition_marker_release_unknown",
+          );
+        if (fs.existsSync(lockOwnershipMarker))
+          throw new Error(
+            "project_runtime_lease_lock_ownership_marker_release_unknown",
+          );
+        const value: ProjectQueueEntry = Object.freeze({
+          ...current,
+          state: "recovery_required",
+          generation: current.generation + 1,
+          ownerGeneration: null,
+          resumeCondition: "owner_loss",
+          resultReference: `lease-recovery-${digest(
+            `${projectId}\0${queueId}\0${current.ownerGeneration}`,
+          ).slice(0, 40)}`,
+        });
+        atomicCreateAndReadBack(
+          entryDirectory,
+          `generation-${value.generation}.json`,
+          envelope(
+            "queue-entry",
+            repositoryBindingId,
+            projectId,
+            1,
+            value.generation,
+            value,
+          ),
+        );
+        return completed("project_runtime_lease_owner_loss_reconciled", value);
+      }
+      let rawObservation: unknown;
+      try {
+        rawObservation = observeOwner(
+          Object.freeze({
+            ownerProcessId: acquiredContent.ownerProcessId,
+            ownerGeneration: current.ownerGeneration,
+          }),
+        );
+      } catch {
+        return blocked("project_runtime_lease_owner_observation_unknown", true);
+      }
+      if (
+        !plainObject(rawObservation) ||
+        !exactKeys(rawObservation, [
+          "status",
+          "ownerProcessId",
+          "ownerGeneration",
+        ]) ||
+        rawObservation.ownerProcessId !== acquiredContent.ownerProcessId ||
+        rawObservation.ownerGeneration !== current.ownerGeneration
+      )
+        return blocked("project_runtime_lease_owner_observation_unknown", true);
+      if (rawObservation.status === "alive")
+        return blocked("project_runtime_lease_owner_still_active");
+      if (rawObservation.status !== "absent")
+        return blocked("project_runtime_lease_owner_observation_unknown", true);
+
+      if (!lockPresent && !markerPresent)
+        return blocked("project_runtime_lease_owner_resource_unknown", true);
+      if (!markerPresent) {
+        const markerDescriptor = fs.openSync(
+          recoveryMarker,
+          fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
+          0o600,
+        );
+        try {
+          fs.writeFileSync(
+            markerDescriptor,
+            `${current.ownerGeneration}\n`,
+            "utf8",
+          );
+          fs.fsyncSync(markerDescriptor);
+        } finally {
+          fs.closeSync(markerDescriptor);
+        }
+      }
+      if (lockPresent) fs.rmdirSync(lock);
+      if (fs.existsSync(lock))
+        throw new Error("project_runtime_lease_lock_release_unknown");
+      const recoveredName = `${identity}-${current.ownerGeneration}-recovered.json`;
+      if (!leaseEvidence.recovered)
+        atomicCreateAndReadBack(
+          evidence,
+          recoveredName,
+          envelope("lease-evidence", repositoryBindingId, projectId, 1, 2, {
+            kind: "project-operation",
+            queueId,
+            ownerGeneration: current.ownerGeneration,
+            ownerProcessId: acquiredContent.ownerProcessId,
+            disposition: "recovered_after_owner_loss",
+          }),
+        );
+      const recoveredEvidence = readExactLeaseEvidence(evidence, {
+        repositoryBindingId,
+        projectId,
+        queueId,
+        kind: "project-operation",
+        identity,
+        ownerGeneration: current.ownerGeneration,
+      });
+      if (!recoveredEvidence.recovered || recoveredEvidence.released)
+        throw new Error("project_runtime_lease_recovery_evidence_mismatch");
+      fs.rmSync(recoveryMarker);
+      if (fs.existsSync(recoveryMarker))
+        throw new Error(
+          "project_runtime_lease_recovery_marker_release_unknown",
+        );
+      if (acquisitionMarkerPresent) fs.rmSync(acquisitionMarker);
+      if (lockOwnershipMarkerPresent) fs.rmSync(lockOwnershipMarker);
+      if (fs.existsSync(acquisitionMarker))
+        throw new Error(
+          "project_runtime_lease_acquisition_marker_release_unknown",
+        );
+      if (fs.existsSync(lockOwnershipMarker))
+        throw new Error(
+          "project_runtime_lease_lock_ownership_marker_release_unknown",
+        );
+      const value: ProjectQueueEntry = Object.freeze({
+        ...current,
+        state: "recovery_required",
+        generation: current.generation + 1,
+        ownerGeneration: null,
+        resumeCondition: "owner_loss",
+        resultReference: `lease-recovery-${digest(
+          `${projectId}\0${queueId}\0${current.ownerGeneration}`,
+        ).slice(0, 40)}`,
+      });
+      atomicCreateAndReadBack(
+        entryDirectory,
+        `generation-${value.generation}.json`,
+        envelope(
+          "queue-entry",
+          repositoryBindingId,
+          projectId,
+          1,
+          value.generation,
+          value,
+        ),
+      );
+      return completed("project_runtime_lease_owner_loss_reconciled", value);
+    });
+  } catch {
+    return blocked(
+      "project_runtime_lease_recovery_observation_unknown",
+      true,
+      recoveryId,
+    );
   }
 }
 

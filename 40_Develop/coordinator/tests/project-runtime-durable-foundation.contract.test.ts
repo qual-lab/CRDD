@@ -10,7 +10,11 @@ import {
   acquireProjectRuntimeLease,
   describeProjectRuntimeDurableFoundation,
   enqueueProjectOperation,
+  readProjectOperationQueueState,
   readProjectRuntimeState,
+  reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss,
+  reconcileProjectRuntimeLeaseOwnerLoss,
+  settleProjectOperationQueueLeaseRelease,
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
 } from "../src/security/project-runtime-durable-foundation.ts";
@@ -596,6 +600,969 @@ test("PR-D-A-01 preserves a recovery marker when lease release evidence fails", 
   assert.equal(reacquired.status, "blocked");
   assert.equal(reacquired.reason, "project_runtime_lease_recovery_required");
   assert.equal(reacquired.manualRecoveryRequired, true);
+});
+
+test("PR-A-04 reconciles an exited lease owner without starting new work", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "scheduled",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
+    "completed",
+  );
+  const moduleUrl = new URL(
+    "../src/security/project-runtime-durable-foundation.ts",
+    import.meta.url,
+  ).href;
+  execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `import { acquireProjectRuntimeLease, updateProjectOperationQueueState } from ${JSON.stringify(moduleUrl)};
+const lease = acquireProjectRuntimeLease(${JSON.stringify(root)}, "binding-a", "project-a", "queue-a", "project-operation");
+if (lease.status !== "completed") process.exit(20);
+const queued = updateProjectOperationQueueState(${JSON.stringify(root)}, "binding-a", "queue-a", 1, { state: "leased", lease: lease.value, resumeCondition: null, resultReference: null });
+if (queued.status !== "completed") process.exit(21);`,
+    ],
+    { windowsHide: true },
+  );
+  const before = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(before.status, "completed");
+  assert.equal(before.status === "completed" && before.value.state, "leased");
+  let observedOwnerProcessId = 0;
+  const recovered = reconcileProjectRuntimeLeaseOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    (owner) => {
+      observedOwnerProcessId = owner.ownerProcessId;
+      return {
+        status: "absent",
+        ownerProcessId: owner.ownerProcessId,
+        ownerGeneration: owner.ownerGeneration,
+      };
+    },
+  );
+  assert.equal(recovered.status, "completed");
+  assert.notEqual(observedOwnerProcessId, process.pid);
+  assert.equal(
+    recovered.status === "completed" && recovered.value.state,
+    "recovery_required",
+  );
+  assert.equal(
+    recovered.status === "completed" && recovered.value.ownerGeneration,
+    null,
+  );
+  assert.equal(
+    recovered.status === "completed" && recovered.value.resumeCondition,
+    "owner_loss",
+  );
+  const reacquired = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(reacquired.status, "completed");
+  if (reacquired.status === "completed")
+    assert.equal(reacquired.value.release().status, "completed");
+});
+
+test("PR-A-04 recovers a lease acquisition interrupted before Queue ownership", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "scheduled",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
+    "completed",
+  );
+  const moduleUrl = new URL(
+    "../src/security/project-runtime-durable-foundation.ts",
+    import.meta.url,
+  ).href;
+  execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `import { acquireProjectRuntimeLease } from ${JSON.stringify(moduleUrl)};
+const lease = acquireProjectRuntimeLease(${JSON.stringify(root)}, "binding-a", "project-a", "queue-a", "project-operation");
+if (lease.status !== "completed") process.exit(20);`,
+    ],
+    { windowsHide: true },
+  );
+
+  const locks = path.join(root, ".crdd", "project-runtime", "locks");
+  const marker = path.join(
+    locks,
+    "project-operation-project-a-queue-a.acquire-pending",
+  );
+  const lock = path.join(locks, "project-operation-project-a-queue-a.lock");
+  assert.equal(fs.existsSync(marker), true);
+  assert.equal(fs.existsSync(lock), true);
+  const acquisitionMarkerBytes = fs.readFileSync(marker, "utf8");
+  const blockedAcquire = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(blockedAcquire.status, "blocked");
+  assert.equal(
+    blockedAcquire.reason,
+    "project_runtime_lease_acquisition_recovery_required",
+  );
+  assert.equal(blockedAcquire.manualRecoveryRequired, true);
+  assert.match(
+    blockedAcquire.status === "blocked"
+      ? (blockedAcquire.recoveryId ?? "")
+      : "",
+    /^lease-acquisition-[0-9a-f]{40}$/u,
+  );
+
+  let observedOwnerProcessId = 0;
+  const recovered = reconcileProjectRuntimeLeaseOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    (owner) => {
+      observedOwnerProcessId = owner.ownerProcessId;
+      return { status: "absent", ...owner };
+    },
+  );
+  assert.equal(recovered.status, "completed");
+  assert.notEqual(observedOwnerProcessId, process.pid);
+  assert.equal(fs.existsSync(marker), false);
+  assert.equal(fs.existsSync(lock), false);
+  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(queue.status, "completed");
+  assert.equal(queue.status === "completed" && queue.value.state, "queued");
+  assert.equal(
+    queue.status === "completed" && queue.value.ownerGeneration,
+    null,
+  );
+  assert.match(
+    queue.status === "completed" ? (queue.value.resultReference ?? "") : "",
+    /^lease-acquisition-[0-9a-f]{40}$/u,
+  );
+  fs.writeFileSync(marker, acquisitionMarkerBytes, "utf8");
+  const resumedSettlement = reconcileProjectRuntimeLeaseOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    (owner) => ({ status: "absent", ...owner }),
+  );
+  assert.equal(resumedSettlement.status, "completed");
+  assert.equal(
+    resumedSettlement.status === "completed" &&
+      resumedSettlement.value.generation,
+    2,
+  );
+  assert.equal(fs.existsSync(marker), false);
+  const reacquired = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(reacquired.status, "completed");
+  if (reacquired.status === "completed")
+    assert.equal(reacquired.value.release().status, "completed");
+});
+
+test("PR-A-04 recovers canonical-adoption acquisition across Queue callers", (t) => {
+  const { root } = fixture(t);
+  const moduleUrl = new URL(
+    "../src/security/project-runtime-durable-foundation.ts",
+    import.meta.url,
+  ).href;
+  execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `import { acquireProjectRuntimeLease } from ${JSON.stringify(moduleUrl)};
+const lease = acquireProjectRuntimeLease(${JSON.stringify(root)}, "binding-a", "project-a", "queue-a", "canonical-adoption");
+if (lease.status !== "completed") process.exit(20);`,
+    ],
+    { windowsHide: true },
+  );
+  const blockedAcquire = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-b",
+    "canonical-adoption",
+  );
+  assert.equal(blockedAcquire.status, "blocked");
+  assert.equal(
+    blockedAcquire.reason,
+    "project_runtime_lease_acquisition_recovery_required",
+  );
+  const recoveryId =
+    blockedAcquire.status === "blocked" ? blockedAcquire.recoveryId : null;
+  assert.match(recoveryId ?? "", /^lease-acquisition-[0-9a-f]{40}$/u);
+  const recovered = reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    (owner) => ({ status: "absent", ...owner }),
+  );
+  assert.equal(recovered.status, "completed");
+  assert.equal(
+    recovered.status === "completed" && recovered.value.recoveryId,
+    recoveryId,
+  );
+  const reacquired = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-b",
+    "canonical-adoption",
+  );
+  assert.equal(reacquired.status, "completed");
+  if (reacquired.status === "completed")
+    assert.equal(reacquired.value.release().status, "completed");
+});
+
+test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fails after publication", (t) => {
+  const { root } = fixture(t);
+  const marker = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "locks",
+    "canonical-adoption-binding-a-project-a.acquire-pending",
+  );
+  const originalReadFileSync = fs.readFileSync;
+  let faultInjected = false;
+  const faultingReadFileSync = ((...args: unknown[]) => {
+    if (!faultInjected && String(args[0]) === marker) {
+      faultInjected = true;
+      throw new Error("injected_acquisition_marker_readback_failure");
+    }
+    return Reflect.apply(originalReadFileSync, fs, args);
+  }) as typeof fs.readFileSync;
+  let acquisition: ReturnType<typeof acquireProjectRuntimeLease>;
+  Object.defineProperty(fs, "readFileSync", {
+    configurable: true,
+    writable: true,
+    value: faultingReadFileSync,
+  });
+  try {
+    acquisition = acquireProjectRuntimeLease(
+      root,
+      "binding-a",
+      "project-a",
+      "queue-a",
+      "canonical-adoption",
+    );
+  } finally {
+    Object.defineProperty(fs, "readFileSync", {
+      configurable: true,
+      writable: true,
+      value: originalReadFileSync,
+    });
+  }
+  assert.equal(faultInjected, true);
+  assert.equal(acquisition.status, "blocked");
+  assert.equal(
+    acquisition.reason,
+    "project_runtime_lease_acquisition_recovery_required",
+  );
+  assert.equal(
+    acquisition.status === "blocked" && acquisition.manualRecoveryRequired,
+    true,
+  );
+  const recoveryId =
+    acquisition.status === "blocked" ? acquisition.recoveryId : null;
+  assert.match(recoveryId ?? "", /^lease-acquisition-[0-9a-f]{40}$/u);
+  assert.equal(fs.existsSync(marker), true);
+  assert.equal(
+    fs.existsSync(
+      path.join(
+        root,
+        ".crdd",
+        "project-runtime",
+        "locks",
+        "canonical-adoption-binding-a-project-a.lock",
+      ),
+    ),
+    false,
+  );
+  const recovered = reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    (owner) => ({ status: "absent", ...owner }),
+  );
+  assert.equal(recovered.status, "completed");
+  assert.equal(
+    recovered.status === "completed" && recovered.value.recoveryId,
+    recoveryId,
+  );
+  assert.equal(fs.existsSync(marker), false);
+});
+
+test("PR-A-04 does not treat an unobservable acquisition footprint as absent", (t) => {
+  const { root } = fixture(t);
+  const locks = path.join(root, ".crdd", "project-runtime", "locks");
+  const identity = "canonical-adoption-binding-a-project-a";
+  const marker = path.join(locks, `${identity}.acquire-pending`);
+  const lock = path.join(locks, `${identity}.lock`);
+  const originalReadFileSync = fs.readFileSync;
+  const originalLstatSync = fs.lstatSync;
+  let readbackFaultInjected = false;
+  let absenceFaultInjected = false;
+  const faultingReadFileSync = ((...args: unknown[]) => {
+    if (!readbackFaultInjected && String(args[0]) === marker) {
+      readbackFaultInjected = true;
+      throw new Error("injected_acquisition_marker_readback_failure");
+    }
+    return Reflect.apply(originalReadFileSync, fs, args);
+  }) as typeof fs.readFileSync;
+  const faultingLstatSync = ((...args: unknown[]) => {
+    if (!absenceFaultInjected && String(args[0]) === lock) {
+      absenceFaultInjected = true;
+      const error = new Error("injected_acquisition_footprint_unobservable");
+      Object.defineProperty(error, "code", { value: "EACCES" });
+      throw error;
+    }
+    return Reflect.apply(originalLstatSync, fs, args);
+  }) as typeof fs.lstatSync;
+  let acquisition: ReturnType<typeof acquireProjectRuntimeLease>;
+  Object.defineProperties(fs, {
+    readFileSync: {
+      configurable: true,
+      writable: true,
+      value: faultingReadFileSync,
+    },
+    lstatSync: {
+      configurable: true,
+      writable: true,
+      value: faultingLstatSync,
+    },
+  });
+  try {
+    acquisition = acquireProjectRuntimeLease(
+      root,
+      "binding-a",
+      "project-a",
+      "queue-a",
+      "canonical-adoption",
+    );
+  } finally {
+    Object.defineProperties(fs, {
+      readFileSync: {
+        configurable: true,
+        writable: true,
+        value: originalReadFileSync,
+      },
+      lstatSync: {
+        configurable: true,
+        writable: true,
+        value: originalLstatSync,
+      },
+    });
+  }
+  assert.equal(readbackFaultInjected, true);
+  assert.equal(absenceFaultInjected, true);
+  assert.equal(acquisition.status, "blocked");
+  assert.equal(
+    acquisition.reason,
+    "project_runtime_lease_acquisition_recovery_required",
+  );
+  assert.equal(
+    acquisition.status === "blocked" && acquisition.manualRecoveryRequired,
+    true,
+  );
+  const recoveryId =
+    acquisition.status === "blocked" ? acquisition.recoveryId : null;
+  assert.match(recoveryId ?? "", /^lease-acquisition-[0-9a-f]{40}$/u);
+  assert.equal(fs.existsSync(marker), true);
+  assert.equal(fs.existsSync(lock), false);
+  const recovered = reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    (owner) => ({ status: "absent", ...owner }),
+  );
+  assert.equal(recovered.status, "completed");
+  assert.equal(
+    recovered.status === "completed" && recovered.value.recoveryId,
+    recoveryId,
+  );
+  assert.equal(fs.existsSync(marker), false);
+});
+
+test("PR-A-04 reconciles release intent created before Queue ownership", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "scheduled",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
+    "completed",
+  );
+  const moduleUrl = new URL(
+    "../src/security/project-runtime-durable-foundation.ts",
+    import.meta.url,
+  ).href;
+  execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `import { acquireProjectRuntimeLease } from ${JSON.stringify(moduleUrl)};
+const lease = acquireProjectRuntimeLease(${JSON.stringify(root)}, "binding-a", "project-a", "queue-a", "project-operation");
+if (lease.status !== "completed") process.exit(20);`,
+    ],
+    { windowsHide: true },
+  );
+  const locks = path.join(root, ".crdd", "project-runtime", "locks");
+  const acquisitionMarker = path.join(
+    locks,
+    "project-operation-project-a-queue-a.acquire-pending",
+  );
+  const pending = JSON.parse(fs.readFileSync(acquisitionMarker, "utf8")) as {
+    ownerGeneration: string;
+  };
+  const releaseMarker = path.join(
+    locks,
+    "project-operation-project-a-queue-a.release-unknown",
+  );
+  fs.writeFileSync(releaseMarker, `${pending.ownerGeneration}\n`, "utf8");
+  const recovered = reconcileProjectRuntimeLeaseOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    (owner) => ({ status: "absent", ...owner }),
+  );
+  assert.equal(recovered.status, "completed");
+  assert.equal(fs.existsSync(acquisitionMarker), false);
+  assert.equal(fs.existsSync(releaseMarker), false);
+  assert.equal(
+    fs.existsSync(path.join(locks, "project-operation-project-a-queue-a.lock")),
+    false,
+  );
+  const reacquired = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(reacquired.status, "completed");
+  if (reacquired.status === "completed")
+    assert.equal(reacquired.value.release().status, "completed");
+});
+
+test("PR-A-04 leaves mismatched acquisition and release identities unchanged", (t) => {
+  const { root } = fixture(t);
+  const moduleUrl = new URL(
+    "../src/security/project-runtime-durable-foundation.ts",
+    import.meta.url,
+  ).href;
+  execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `import { acquireProjectRuntimeLease } from ${JSON.stringify(moduleUrl)};
+const lease = acquireProjectRuntimeLease(${JSON.stringify(root)}, "binding-a", "project-a", "queue-a", "canonical-adoption");
+if (lease.status !== "completed") process.exit(20);`,
+    ],
+    { windowsHide: true },
+  );
+  const locks = path.join(root, ".crdd", "project-runtime", "locks");
+  const ownershipMarker = path.join(
+    locks,
+    "canonical-adoption-binding-a-project-a.acquire-lock-owned",
+  );
+  const ownership = JSON.parse(fs.readFileSync(ownershipMarker, "utf8")) as {
+    recoveryId: string;
+  };
+  ownership.recoveryId = `lease-acquisition-${"0".repeat(40)}`;
+  fs.writeFileSync(ownershipMarker, `${JSON.stringify(ownership)}\n`, "utf8");
+  const before = new Map(
+    fs
+      .readdirSync(locks)
+      .sort()
+      .map((name) => [
+        name,
+        fs.lstatSync(path.join(locks, name)).isFile()
+          ? fs.readFileSync(path.join(locks, name), "utf8")
+          : "<directory>",
+      ]),
+  );
+  const result = reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    (owner) => ({ status: "absent", ...owner }),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+  );
+  assert.deepEqual(
+    new Map(
+      fs
+        .readdirSync(locks)
+        .sort()
+        .map((name) => [
+          name,
+          fs.lstatSync(path.join(locks, name)).isFile()
+            ? fs.readFileSync(path.join(locks, name), "utf8")
+            : "<directory>",
+        ]),
+    ),
+    before,
+  );
+});
+
+test("PR-D-A-01 preserves malformed and partial acquisition state with an exact recovery ID", (t) => {
+  for (const scenario of [
+    "malformed-marker",
+    "partial-temporary",
+    "existing-lock",
+  ] as const) {
+    const { root: scenarioRoot } = fixture(t);
+    const initialized = acquireProjectRuntimeLease(
+      scenarioRoot,
+      "binding-a",
+      "project-a",
+      "queue-a",
+      "project-operation",
+    );
+    assert.equal(initialized.status, "completed");
+    if (initialized.status !== "completed")
+      throw new Error("lease_fixture_failed");
+    assert.equal(initialized.value.release().status, "completed");
+    const locks = path.join(scenarioRoot, ".crdd", "project-runtime", "locks");
+    if (scenario === "malformed-marker")
+      fs.writeFileSync(
+        path.join(locks, "project-operation-project-a-queue-a.acquire-pending"),
+        '{"ownerGeneration":',
+        "utf8",
+      );
+    if (scenario === "partial-temporary")
+      fs.writeFileSync(
+        path.join(
+          locks,
+          ".pending-project-operation-project-a-queue-a-acquisition-partial.tmp",
+        ),
+        "partial",
+        "utf8",
+      );
+    if (scenario === "existing-lock")
+      fs.mkdirSync(
+        path.join(locks, "project-operation-project-a-queue-a.lock"),
+      );
+    const result = acquireProjectRuntimeLease(
+      scenarioRoot,
+      "binding-a",
+      "project-a",
+      "queue-a",
+      "project-operation",
+    );
+    assert.equal(result.status, "blocked", scenario);
+    assert.equal(
+      result.status === "blocked" && result.manualRecoveryRequired,
+      true,
+      scenario,
+    );
+    assert.match(
+      result.status === "blocked" ? (result.recoveryId ?? "") : "",
+      /^lease-acquisition-[0-9a-f]{40}$/u,
+      scenario,
+    );
+    assert.notEqual(
+      result.reason,
+      "project_runtime_lease_acquisition_rolled_back",
+    );
+  }
+});
+
+test("PR-A-04 clears Queue ownership only after exact lease release settlement", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "scheduled",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
+    "completed",
+  );
+  const lease = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw new Error("lease_fixture_failed");
+  const leased = updateProjectOperationQueueState(
+    root,
+    "binding-a",
+    "queue-a",
+    1,
+    {
+      state: "leased",
+      lease: lease.value,
+      resumeCondition: null,
+      resultReference: null,
+    },
+  );
+  assert.equal(leased.status, "completed");
+  const running = updateProjectOperationQueueState(
+    root,
+    "binding-a",
+    "queue-a",
+    2,
+    {
+      state: "running",
+      lease: lease.value,
+      resumeCondition: null,
+      resultReference: null,
+    },
+  );
+  assert.equal(running.status, "completed");
+  const terminalIntent = updateProjectOperationQueueState(
+    root,
+    "binding-a",
+    "queue-a",
+    3,
+    {
+      state: "integration_pending",
+      lease: lease.value,
+      resumeCondition: "objective_integration",
+      resultReference: "result-a",
+    },
+  );
+  assert.equal(terminalIntent.status, "completed");
+  assert.equal(
+    terminalIntent.status === "completed" &&
+      terminalIntent.value.ownerGeneration,
+    lease.value.ownerGeneration,
+  );
+  assert.equal(
+    settleProjectOperationQueueLeaseRelease(
+      root,
+      "binding-a",
+      "queue-a",
+      4,
+      lease.value.ownerGeneration,
+    ).status,
+    "blocked",
+  );
+  assert.equal(lease.value.release().status, "completed");
+  const settled = settleProjectOperationQueueLeaseRelease(
+    root,
+    "binding-a",
+    "queue-a",
+    4,
+    lease.value.ownerGeneration,
+  );
+  assert.equal(settled.status, "completed");
+  assert.equal(
+    settled.status === "completed" && settled.value.ownerGeneration,
+    null,
+  );
+  assert.equal(
+    settled.status === "completed" && settled.value.state,
+    "integration_pending",
+  );
+});
+
+test("PR-A-04 reconciles a released terminal intent after owner settlement was interrupted", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "scheduled",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
+    "completed",
+  );
+  const lease = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw new Error("lease_fixture_failed");
+  let generation = 1;
+  for (const state of ["leased", "running", "integration_pending"] as const) {
+    const updated = updateProjectOperationQueueState(
+      root,
+      "binding-a",
+      "queue-a",
+      generation,
+      {
+        state,
+        lease: lease.value,
+        resumeCondition:
+          state === "integration_pending" ? "objective_integration" : null,
+        resultReference: state === "integration_pending" ? "result-a" : null,
+      },
+    );
+    assert.equal(updated.status, "completed");
+    generation += 1;
+  }
+  assert.equal(lease.value.release().status, "completed");
+  let observerCalls = 0;
+  const reconciled = reconcileProjectRuntimeLeaseOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    () => {
+      observerCalls += 1;
+      return null;
+    },
+  );
+  assert.equal(reconciled.status, "completed");
+  assert.equal(observerCalls, 0);
+  assert.equal(
+    reconciled.status === "completed" && reconciled.value.state,
+    "integration_pending",
+  );
+  assert.equal(
+    reconciled.status === "completed" && reconciled.value.ownerGeneration,
+    null,
+  );
+});
+
+test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownership", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "scheduled",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
+    "completed",
+  );
+  const lease = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw new Error("lease_fixture_failed");
+  let generation = 1;
+  for (const state of ["leased", "running", "integration_pending"] as const) {
+    const updated = updateProjectOperationQueueState(
+      root,
+      "binding-a",
+      "queue-a",
+      generation,
+      {
+        state,
+        lease: lease.value,
+        resumeCondition:
+          state === "integration_pending" ? "objective_integration" : null,
+        resultReference: state === "integration_pending" ? "result-a" : null,
+      },
+    );
+    assert.equal(updated.status, "completed");
+    generation += 1;
+  }
+  assert.equal(lease.value.release().status, "completed");
+  const evidenceDirectory = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "leases",
+  );
+  const releasedName = fs
+    .readdirSync(evidenceDirectory)
+    .find((name) => name.endsWith("-released.json"));
+  assert.ok(releasedName);
+  const releasedPath = path.join(evidenceDirectory, releasedName);
+  const envelope = JSON.parse(fs.readFileSync(releasedPath, "utf8")) as {
+    content: Record<string, unknown>;
+    contentHash: string;
+  };
+  envelope.content.queueId = "queue-b";
+  envelope.contentHash = createHash("sha256")
+    .update(JSON.stringify(envelope.content), "utf8")
+    .digest("hex");
+  fs.writeFileSync(releasedPath, `${JSON.stringify(envelope)}\n`, "utf8");
+
+  const settlement = settleProjectOperationQueueLeaseRelease(
+    root,
+    "binding-a",
+    "queue-a",
+    4,
+    lease.value.ownerGeneration,
+  );
+  assert.equal(settlement.status, "blocked");
+  assert.equal(settlement.manualRecoveryRequired, true);
+  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(queue.status, "completed");
+  assert.equal(
+    queue.status === "completed" && queue.value.ownerGeneration,
+    lease.value.ownerGeneration,
+  );
+});
+
+test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "scheduled",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
+    "completed",
+  );
+  const lease = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw new Error("lease_fixture_failed");
+  assert.equal(
+    updateProjectOperationQueueState(root, "binding-a", "queue-a", 1, {
+      state: "leased",
+      lease: lease.value,
+      resumeCondition: null,
+      resultReference: null,
+    }).status,
+    "completed",
+  );
+  const evidenceDirectory = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "leases",
+  );
+  const acquiredName = fs
+    .readdirSync(evidenceDirectory)
+    .find((name) => !name.includes("released") && name.endsWith(".json"));
+  assert.ok(acquiredName);
+  const acquired = JSON.parse(
+    fs.readFileSync(path.join(evidenceDirectory, acquiredName), "utf8"),
+  ) as Record<string, unknown>;
+  const recoveredName = acquiredName.replace(/\.json$/u, "-recovered.json");
+  fs.writeFileSync(
+    path.join(evidenceDirectory, recoveredName),
+    `${JSON.stringify({ ...acquired, content: {} })}\n`,
+    "utf8",
+  );
+  const result = reconcileProjectRuntimeLeaseOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    (owner) => ({ status: "absent", ...owner }),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(lease.value.release().status, "completed");
+});
+
+test("PR-A-04 does not steal a lease from a live or unobservable owner", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "scheduled",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
+    "completed",
+  );
+  const lease = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw new Error("lease_fixture_failed");
+  assert.equal(
+    updateProjectOperationQueueState(root, "binding-a", "queue-a", 1, {
+      state: "leased",
+      lease: lease.value,
+      resumeCondition: null,
+      resultReference: null,
+    }).status,
+    "completed",
+  );
+  for (const status of ["alive", "unknown"] as const) {
+    const outcome = reconcileProjectRuntimeLeaseOwnerLoss(
+      root,
+      "binding-a",
+      "project-a",
+      "queue-a",
+      (owner) => ({ ...owner, status }),
+    );
+    assert.equal(outcome.status, "blocked");
+    assert.equal(
+      outcome.reason,
+      status === "alive"
+        ? "project_runtime_lease_owner_still_active"
+        : "project_runtime_lease_owner_observation_unknown",
+    );
+  }
+  assert.equal(lease.value.release().status, "completed");
 });
 
 test("PR-D-A-01 rejects generic recovery resume without advancing generation", (t) => {

@@ -13,6 +13,8 @@ import {
 
 const CONTRACT = "crdd-coordinator/project-runtime-single-task-adapter";
 const ATTEMPT_ID = "attempt-0001";
+const OPERATION_ID = "operation-0001";
+const AUTHORITY_BINDING_ID = "authority-0001";
 const repositoryRevisionValue = "a".repeat(40);
 
 function completionRecord(
@@ -77,6 +79,8 @@ function validInput(
 ) {
   return Object.freeze({
     attemptId: ATTEMPT_ID,
+    operationId: OPERATION_ID,
+    authorityBindingId: AUTHORITY_BINDING_ID,
     repositoryRevision: repositoryRevisionValue,
     taskAuthorityCapability: Object.freeze({}),
     taskRequest: Object.freeze({ objective: "bounded" }),
@@ -95,6 +99,8 @@ test("正常完了はattemptと固定Revisionへ結合した閉結果で返る",
   assert.deepEqual(attempt, {
     contract: CONTRACT,
     attemptId: ATTEMPT_ID,
+    operationId: OPERATION_ID,
+    authorityBindingId: AUTHORITY_BINDING_ID,
     repositoryRevision: repositoryRevisionValue,
     status: "completed",
     reason: "coordinator_task_completed",
@@ -117,6 +123,8 @@ test("入力不正はTask Effect 0の入力拒否として閉じる", async () =
   const invalidInputs = [
     validInput({ attemptId: "" }),
     validInput({ attemptId: ".leading-dot" }),
+    validInput({ operationId: ".leading-dot" }),
+    validInput({ authorityBindingId: ".leading-dot" }),
     validInput({ repositoryRevision: "not-hex" }),
     validInput({ taskAuthorityCapability: null }),
     validInput({ cancellationSignal: {} }),
@@ -129,6 +137,8 @@ test("入力不正はTask Effect 0の入力拒否として閉じる", async () =
     assert.deepEqual(attempt, {
       contract: CONTRACT,
       attemptId: null,
+      operationId: null,
+      authorityBindingId: null,
       repositoryRevision: null,
       status: "blocked",
       reason: "single_task_input_invalid",
@@ -175,6 +185,8 @@ test("既知のEffect前拒否はEffect 0のblockedへ写像する", async () =>
     assert.deepEqual(attempt, {
       contract: CONTRACT,
       attemptId: ATTEMPT_ID,
+      operationId: OPERATION_ID,
+      authorityBindingId: AUTHORITY_BINDING_ID,
       repositoryRevision: repositoryRevisionValue,
       status: "blocked",
       reason: message,
@@ -312,6 +324,30 @@ test("Recovery Identityは種類横断で重複なく保持される", async () 
     "recovery-candidate",
     "recovery-store",
   ]);
+});
+
+test("Project Stateへ保存できないRecovery Identityは閉結果へ取り込まない", async () => {
+  for (const recoveryId of ["recovery/a", "recovery id", "recovery\u0001id"]) {
+    const { dependencies } = harness({
+      completion: Promise.resolve(
+        completionRecord({
+          status: "blocked",
+          reason: "coordinator_task_cleanup_unknown",
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          hostRecoveryId: recoveryId,
+        }),
+      ),
+    });
+    const attempt = await runProjectRuntimeSingleTaskAttempt(
+      dependencies,
+      validInput(),
+    );
+    assert.equal(attempt.status, "blocked");
+    assert.equal(attempt.reason, "single_task_completion_observation_invalid");
+    assert.equal(attempt.effectState, "unknown");
+    assert.deepEqual(attempt.recoveryIds, []);
+  }
 });
 
 test("cleanup未確認またはRecovery義務をsettledへ補正しない", async () => {

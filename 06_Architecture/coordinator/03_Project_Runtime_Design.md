@@ -63,7 +63,7 @@ Repository-local `.crdd/project-runtime/`はRuntime状態の既定RootでありG
 | `REC-PROJECT-STATE` | Project State | Project／Milestone／Objective／Task、generation、Authority参照、attempt、Operation／Candidate／Recovery Identity、Integration、判断、cleanup | `generation_state` | `IF-STATE-STORE`によるexpected generation一致時だけ |
 | `REC-QUEUE-ENTRY` | Operation Queue entry | queue ID、request hash、起点Lane、基準Revision、Scope hash、状態、owner generation、再開条件、結果参照 | `before_effect_intent` | Queue短時間Lock下の世代付き更新だけ |
 | `REC-PROJECT-LEASE` | Project Operation lease evidence | Repository Binding、Project、queue ID、owner process identity、owner generation、OS排他観測 | `before_effect_intent` | OS排他の取得・解放観測と一体で更新 |
-| `REC-TASK-ATTEMPT` | Task attempt binding | Task ID、attempt ID、Project generation、Task Authority hash、Single Task Operation Identity、開始・settlement状態 | `before_effect_intent` | Provider Effect前に開始意図を耐久化し、exact結果だけでsettle |
+| `REC-TASK-ATTEMPT` | Task attempt binding | Task ID、attempt ID、Project generation、非秘密のTask Authority binding ID、Single Task Operation Identity、開始・settlement状態 | `before_effect_intent` | Provider Effect前に開始意図を耐久化し、契約、attempt、Operation、Authority binding、Revisionが一致する閉じた結果だけでsettle |
 | `REC-INTEGRATION` | Integration candidate | 基準Revision、Task candidate集合、受入Evidence、Conflict、workspace identity、採用状態 | `after_effect_result` | 全Task側cleanup後、Integration ownerだけが更新 |
 | `REC-ADOPTION` | Canonical adoption receipt | adoption ID、候補hash、基準／直前Revision、対象Path、採用Effect、終了後Revision、cleanup | `after_effect_receipt` | 正本採用Leaseと直前再検証後だけ発行 |
 | `REC-HUMAN-DECISION` | Human Decision | decision ID、Project／Milestone、発行世代・改訂版、選択肢、現在状態、選択結果、認証主体参照、非Authorityの継続Record ID、判断適用世代。raw CapabilityとCapability hash、raw commentは保持しない | `generation_state` | `IF-DECISION`が現在の判断要求とAuthorityを照合した世代付き更新、またはParentがProject lifecycleの変化を観測した更新だけ |
@@ -89,6 +89,10 @@ queued
 ```
 
 Queue `completed`はProject Operationの終了と所有資源の解放確認を意味し、Milestone `accepted`と同義ではない。Task `completed`からObjective `integration_pending`、Objective `accepted`からMilestone `integrating`への遷移は別世代とし、同じtransactionで連鎖成功させない。遷移の全閉集合は[機械可読な設計対応](../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)を正とする。
+
+Queueの終端状態は処理結果の耐久化を表し、Leaseの解放完了とは別に扱う。所有中のQueueを終端状態へ進めても`ownerGeneration`を直ちに消さず、同じLeaseのLock不存在、解放証跡、回復Marker不存在をfreshに確認した専用settlementだけが所有者を消す。途中でProcessが失われた場合、実行中のQueueは`recovery_required`へ進め、既に耐久化された終端状態は保持したまま資源だけをsettleする。状態名や解放APIの戻り値だけからcleanup成立を推定しない。
+
+Lease証跡はprefixや内容の一部だけで探索しない。Repository Binding、Project、Lease種別、Queue、owner generation、owner process、disposition、世代およびdisposition別のexact filenameを一体で照合する。未知・重複・別Queue・別種別・内容とfilenameの不一致があればQueue ownerを消さず、手動回復へ停止する。Lease取得後の全終了経路は共通の所有終了処理を通り、可能ならQueueへ回復意図を耐久化してから物理Leaseを解放し、freshな証跡でQueue ownerをsettleする。QueueまたはStateの更新が観測不能でも物理解放を試み、解放証跡から後続Processが一意にreconcileできる状態を残す。取得済みLeaseを呼出し不能なProcess内資源として残したまま結果を返さない。
 
 `recovery_required`から通常実行へ直接戻さない。発行Runtimeによるexact Recovery receipt、対象資源不存在、owner generation、Repository RevisionおよびConflictのfresh再検証をすべて確認した専用遷移だけが、新しい世代で`leased`へ進める。確認結果は遷移とRecordへ耐久化するが、新しい`recovery_settled`状態は作らない。未解決、Identity不一致または観測不能では`recovery_required`を保持するか人間へ移送し、Task／Provider／正本Effectを発行しない。
 
@@ -162,7 +166,7 @@ Effect順序は次で固定する。
 
 1. Request／Binding／Authorityを検証する。
 2. `REC-QUEUE-ENTRY`を耐久化する。
-3. Queue選択後にProject Operation leaseを取得する。
+3. Queue選択後、Lease種別、元Queue、owner generation・Process・回復IDを結んだ取得中Markerを同一Filesystemの一時file、flush、atomic rename、exact readbackで先に耐久化する。その後に物理Lockを作り、Lock作成に成功した同じownerであることを示すMarkerと取得証跡を順に耐久化する。Queue ownerへ結合する前に停止しても、Project Operationと正本採用の両Leaseを共通回復プロトコルで識別する。Project Operationでは回復結果をQueueの新世代へ書いてreadbackするまで取得中Markerを保持し、最後に除去する。正本採用の回復IDはQueueではなくRepository BindingとProjectへ結ぶ。Lock所有Markerがない既存Lock、不完全な一時file、不正MarkerまたはIdentity不一致は自動削除せず、決定論的な回復IDを伴う手動回復へ閉じる。
 4. Graph、Conflict、容量を検証し、`REC-TASK-ATTEMPT`と`starting`を同じ状態世代へ耐久化する。
 5. State Lockを解放し、開始直前にRevision、owner generation、Task Authorityと取消状態を再確認する。
 6. `IF-SINGLE-TASK`へEffectを委譲する。
@@ -170,6 +174,8 @@ Effect順序は次で固定する。
 8. 必要なIntegrationを隔離Workspaceで行う。
 9. 正本採用Authorityがある場合だけAdoption leaseを取得し、freshな正本観測後に採用する。
 10. 全資源の終端観測後にQueueとProject Operation leaseを終端する。
+
+Single Task結果はfield単位の型とIdentityだけでなく、状態、Effect、cleanup、手動回復、Process再起動およびRecovery IDの相関を検証する。`completed`は`settled`、cleanup確認済み、手動回復なし、Process再起動なし、Recovery IDなしの場合だけ成立する。Effect不明またはcleanup未確認は手動回復を伴い、永続Stateが受理できないRecovery IDは採用せずRuntime所有の安全なRecovery Identityへ単調化する。`processRestartRequired`はProject結果まで保持し、後続Taskを同じProcessで開始しない。
 
 人間判断の受理では、Repository外のCapability RecordとRepository内Project Stateの物理的な一括更新を仮定しない。Runtimeは一意なdecision application ID、expected／new Project世代および入力hashを、Platform Adapterの専用Effectで保護Rootの`issued`から`prepared`へCAS更新・readbackする。次に`TRANS-DECISION-PENDING-ACCEPTED`をrootとし、Milestoneの専用遷移を同じProject State atomic replaceの論理投影として、Decision accepted、Milestone executing、application IDおよびcontinuation Record IDを一括適用する。fresh readbackでapplication IDとnew世代を確認した後、Platform Adapterの専用Effectで保護Recordを`prepared`から`finalized`へCAS更新・readbackしてCapability消費を確定する。Milestone投影を単独発行してはならない。
 
@@ -184,11 +190,12 @@ Process喪失後は両Rootを照合する。保護Recordが`prepared`でProject 
 | ID | 注入点 | 期待結果 | 主な検証 |
 |---|---|---|---|
 | `FAIL-QUEUE-WRITE` | Queue一時file／replace／Directory観測 | Task 0、Provider Effect 0、破損を初期化しない | `PR-A-06` |
-| `FAIL-LEASE-OWNER-LOSS` | Operation lease取得後のParent喪失 | 新Task開始0、既存Task／Recovery照合、再開か移送 | `PR-A-04`、`PR-A-06` |
+| `FAIL-LEASE-ACQUISITION` | 取得中Markerの一時file作成／write／flush／rename／readback、Marker後の物理Lock、Lock所有Marker、取得証跡、解放MarkerまたはQueue owner結合前の失敗／Process喪失 | 全資源のfreshな不存在を確認できた同期失敗だけを巻戻し済みとする。それ以外は決定論的な回復IDを保持する。不完全Marker、所有不明Lockまたは不一致は自動変更せず手動回復へ閉じ、exactなMarker、Lock所有、証跡、解放意図およびowner不存在を照合できる場合だけ共通回復で全Marker・Lock不存在と再取得可能へ収束する | `PR-A-04`、`PR-D-A-01` |
+| `FAIL-LEASE-OWNER-LOSS` | Operation lease取得後のParent喪失、Queue／State更新または結果settlementの観測不能 | 新Task開始0。全取得後経路が物理解放を試み、exactな証跡とQueue ownerをsettleするか、後続Processが一意に回復できる義務を残す | `PR-A-04`、`PR-A-06` |
 | `FAIL-STATE-GENERATION` | 外部処理後の世代差 | 結果混入0、Evidence保持、再計画／判断／Recovery | `PR-A-03` |
 | `FAIL-DUPLICATE-REQUEST` | 同じrequest identityの再送 | Operation二重発行0、現在状態を返す | `PR-Q-03` |
 | `FAIL-CAPACITY-RACE` | 6件目を同時開始 | 6件目Task Effect 0 | `PR-A-02` |
-| `FAIL-TASK-RESULT-IDENTITY` | 別attempt／Operation／Revision結果 | 現在Taskへ反映0、成功非返却 | `PR-A-03` |
+| `FAIL-TASK-RESULT-IDENTITY` | 別attempt／Operation／Authority／Revision、保存不能なRecovery ID、またはstatus／Effect／cleanup／手動回復／Process再起動の矛盾 | 現在Taskへ成功反映0。安全なRecovery Identityへ単調化し、Process再起動義務をProject結果へ保持 | `PR-A-03` |
 | `FAIL-CANCEL-DURING-START` | `starting`耐久化後、Effect前後の取消 | Effect前なら非発行、発行後なら終了・cleanupまで追跡 | `PR-A-04` |
 | `FAIL-CLEANUP-UNKNOWN` | Task結果後の資源観測不能 | slot／Conflictを解放せず`recovery_required` | `PR-Q-02`、`PR-A-04` |
 | `FAIL-INTEGRATION-CONFLICT` | 全Task完了後の成果物／判断競合 | Objective／Milestone受入0、候補隔離 | `PR-I-01` |
@@ -211,15 +218,17 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 
 ## 10. 実装と検証への接続
 
-現時点で実在する実装候補は、Project状態の純粋契約、MCP単一Task Adapter、責務分離段階のPlatform契約・Windows Platform Adapter・Single Task Adapter、および耐久基盤のProject State Store・Operation Queue・Project Operation Lease・正本採用Leaseである。耐久基盤はRepository-local `.crdd/project-runtime/`に世代ごとの不変Recordを作成し、完全Schema、filenameと世代の一致、世代連続性、file flush、同一Filesystem上のrename、exact readback、短時間変更Lock、Runtime発行済み不透明LeaseとのQueue owner結合およびstale Lockの自動奪取禁止を実装する。正本採用LeaseはRepository BindingとProjectを共有範囲とし、別Queueからも同じProjectの採用を並行させない。Lease解放前に回復Markerを耐久化し、解放証跡とMarker除去を確認できなければ再取得を止める。hashは偶発破損の検出であり、同じユーザーが意味上有効な内容へ書き換えてhashも再計算した場合の保護anchorではない。これはSingle Task Runtime、Scheduler、owner喪失Recoveryまたは正本採用Effectへの接続を意味せず、owner喪失後の実入口Recoveryも未成立である。それ以外は設計上のownerと実装段階を固定し、実装済みとして扱わない。Project Runtime CoreのPlatform非依存はCore閉集合の推移的import走査を行う契約試験で機械強制する。Platform境界は、境界ごとの操作名が一致するだけでは成立せず、本書の保証母集団をすべて満たした場合だけ解決できる。部分抽出した操作は候補として試験できるが、未実装保証を残す境界を対応済みとしてProject Effectへ渡さない。
+現時点で実在する実装候補は、Project状態の純粋契約、MCP単一Task Adapter、責務分離段階のPlatform契約・Windows Platform Adapter・Single Task Adapter、耐久基盤のProject State Store・Operation Queue・Project Operation Lease・正本採用Lease、およびProject実行所有者である。Project実行所有者はQueueをLeaseしてから、Taskの`starting`／`running`をEffect前に世代付きで耐久化し、短時間変更Lockを解放した後に既存Single Task Adapterを呼ぶ。結果はattemptとRepository Revisionへ照合し、最大5件、Dependency、Path／意味競合を現在のProject Stateから再選択する。cleanup不明、結果Identity不一致または観測不能はProject StateとQueueを`recovery_required`へ進め、Taskの枠と競合予約を保持する。正常なTask完了はQueueを`integration_pending`へ進めるだけで、ObjectiveまたはMilestoneを受け入れない。
+
+耐久基盤はRepository-local `.crdd/project-runtime/`に世代ごとの不変Recordを作成し、完全Schema、filenameと世代の一致、世代連続性、file flush、同一Filesystem上のrename、exact readback、短時間変更Lock、Runtime発行済み不透明LeaseとのQueue owner結合およびstale Lockの自動奪取禁止を実装する。正本採用LeaseはRepository BindingとProjectを共有範囲とし、別Queueからも同じProjectの採用を並行させない。Lease解放前に回復Markerを耐久化し、解放証跡とMarker除去を確認できなければ再取得を止める。Project実行所有者が失われた場合は、耐久Queue、Lease evidenceおよびLockを照合し、Platformが同じowner processの不存在を確定した場合だけQueueを`recovery_required`へ進めてLockを回収する。生存、不明、Identity不一致では奪取しない。現段階ではこの回復Coreと実Process終了fixtureまでを接続し、OS固有のowner process不存在観測はPlatform Adapterに未接続である。したがって公開入口の自動Recoveryは未成立である。hashは偶発破損の検出であり、同じユーザーが意味上有効な内容へ書き換えてhashも再計算した場合の保護anchorではない。正本採用Effect、対話Lane選択、部分再計画、MCP／CLI公開入口のProject実行配線は未接続である。それ以外は設計上のownerと実装段階を固定し、実装済みとして扱わない。Project Runtime CoreのPlatform非依存はCore閉集合の推移的import走査を行う契約試験で機械強制する。Platform境界は、境界ごとの操作名が一致するだけでは成立せず、本書の保証母集団をすべて満たした場合だけ解決できる。部分抽出した操作は候補として試験できるが、未実装保証を残す境界を対応済みとしてProject Effectへ渡さない。
 
 | Interface | 現在の接続 | 実装段階 | 主な検証 |
 |---|---|---|---|
-| `IF-PROJECT-CORE` | Project状態の純粋契約だけ接続済み | 耐久基盤～統合・採用 | `PR-N-02`、`PR-Q-01`～`PR-A-06`、`PR-I-01`、`PR-I-02` |
-| `IF-SINGLE-TASK` | Single Task Adapter候補を接続済み。attempt結合、取消転送、閉結果正規化を所有し、Task要求スキーマはv0.18 Runtimeが所有 | 責務分離、単一Task縦断 | 既存Single Task回帰、`PR-N-01` |
-| `IF-STATE-STORE` | 世代付き不変Recordの原子的作成、完全Schema・filename・連続世代の検証、exact readback、expected generation競合および破損時Fail Closedを部分接続。Single Task結果反映、保護anchorとRecoveryは未接続 | 耐久基盤～単一Task縦断 | `PR-D-N-01`、`PR-D-A-01`。上位の`PR-A-03`、`PR-A-05`、`PR-A-06`は未成立 |
-| `IF-QUEUE` | enqueueの耐久化、同一requestの再利用、世代付き状態更新、短時間変更Lock、Runtime発行済み不透明Leaseとのowner結合、Project Operation Lease、Project単位の正本採用Lease、解放不明Markerを部分接続。Lane選択、専用判断／Recovery再開、owner喪失RecoveryとSchedulerは未接続 | 耐久基盤～複数Task実行 | `PR-D-Q-01`、`PR-D-A-01`。上位の`PR-Q-03`、`PR-A-05`、`PR-A-06`は未成立 |
-| `IF-SCHEDULER` | 純粋選択関数だけ接続済み | 複数Task実行 | `PR-N-02`、`PR-Q-01`、`PR-Q-02`、`PR-A-01`、`PR-A-02` |
+| `IF-PROJECT-CORE` | 純粋状態契約と耐久Project実行所有者を部分接続。Task完了後は統合待ちまで | 単一・複数Task実行～統合・採用 | `PR-N-01`～`PR-N-03`、`PR-Q-01`、`PR-Q-04`、`PR-A-03`～`PR-A-05` |
+| `IF-SINGLE-TASK` | Single Task AdapterをProject実行所有者から呼出し可能。attempt結合、取消転送、閉結果正規化を所有し、Task要求スキーマはv0.18 Runtimeが所有 | 単一・複数Task実行 | 既存Single Task回帰、`PR-N-01` |
+| `IF-STATE-STORE` | 世代付き不変Record、exact readback、世代競合、破損時Fail Closed、Effect前のTask予約と結果反映を部分接続。保護anchorとRecovery settledは未接続 | 単一・複数Task実行～Recovery | `PR-D-N-01`、`PR-D-A-01`、`PR-A-03`、`PR-A-05` |
+| `IF-QUEUE` | enqueue、再送再利用、世代更新、短時間変更Lock、Runtime発行Leaseとのowner結合、Project Operation Lease、Project単位の正本採用Lease、解放不明Marker、Project実行の`queued → leased → running → integration_pending / recovery_required / replan_required / cancelled`を部分接続。owner喪失回復Coreは実Process終了fixtureで確認したが、Platformの不存在観測、Lane選択、専用判断／Recovery再開は未接続 | 単一・複数Task実行～Recovery | `PR-D-Q-01`、`PR-D-A-01`、`PR-Q-04`、`PR-A-04`、`PR-A-05` |
+| `IF-SCHEDULER` | Project実行所有者へ最大5件、Dependency、Path／意味競合、cleanup予約を接続。Provider条件、対話Lane優先、部分再計画は未接続 | 複数Task実行～再計画 | `PR-N-02`、`PR-N-03`、`PR-Q-01`、`PR-A-02`、`PR-A-05` |
 | `IF-INTEGRATION` | 純粋状態遷移だけ接続済み | 統合・採用 | `PR-I-01`、`PR-I-02`、`PR-A-06` |
 | `IF-TRANSPORT` | MCP単一Task契約候補のみ | 単一Task縦断 | `PR-N-01`、`PR-Q-03`、`PR-Q-04` |
 | `IF-DECISION` | 未実装 | 人間判断接続 | `PR-Q-06`、`PR-H-02` |
@@ -296,7 +305,7 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 
 | 不変条件ID | 人間向けの意味 |
 |---|---|
-| `INV-DURABLE-BEFORE-TASK-EFFECT` | Task Effectより前にattempt意図とAuthorityを耐久化する |
+| `INV-DURABLE-BEFORE-TASK-EFFECT` | Task Effectより前にattempt意図、Operationおよび非秘密のAuthority bindingを耐久化する |
 | `INV-MAX-FIVE-CLEANUP-AWARE` | cleanup不明を含む占有Taskは最大5件とする |
 | `INV-REVALIDATE-AFTER-WAIT` | 待機後は世代・Identity・Authority・取消・競合を再確認する |
 | `INV-NO-LOCK-ACROSS-EXTERNAL-WAIT` | 外部待機中に短時間変更Lockを保持しない |
@@ -315,6 +324,8 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `INV-DURABLE-RECORD-CLOSED` | 耐久State／Queue Recordは完全Schema、filename結合世代および連続する不変世代を持つ |
 | `INV-QUEUE-OWNER-IS-LIVE-LEASE` | Queue ownerは同じRepository／Project／QueueへRuntimeが発行した現在有効なLeaseからだけ導出する |
 | `INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE` | Lease解放意図をLock除去より先に耐久化し、解放証跡不明の間は再取得を止める |
+| `INV-LEASE-ACQUISITION-RECOVERABLE` | 物理Lockより先に取得中Markerを耐久化し、Lease返却前またはQueue owner結合前の失敗をfreshな完全巻戻し、またはexactなowner・回復IDを持つ回復義務のどちらかへ閉じる |
+| `INV-QUEUE-OWNER-CLEARED-AFTER-LEASE-SETTLEMENT` | Queueの終端結果とLease解放を二段階で耐久化し、Lock不存在、解放証跡、Marker不存在をfreshに確認した後だけownerを消す |
 | `INV-RECOVERY-SETTLED-BEFORE-RESUME` | exact回復とfresh再確認の後だけ通常実行へ戻る |
 | `INV-DECISION-BINDING-CURRENT` | 人間判断を現在の対象・世代・選択肢だけへ適用する |
 | `INV-MCP-NO-HUMAN-AUTHORITY` | MCP metadataやSessionからHuman Authorityを生成しない |
@@ -333,7 +344,7 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `IMPL-MCP-ADAPTER-CANDIDATE` | `IF-TRANSPORT`、`IF-SINGLE-TASK` | 部分接続・設計確認中 |
 | `IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE` | `IF-SINGLE-TASK`、`IF-PLATFORM` | 部分接続・実装確認中 |
 | `IMPL-DURABLE-FOUNDATION-CANDIDATE` | `IF-STATE-STORE`、`IF-QUEUE` | 部分接続・実装確認中 |
-| `IMPL-PLANNED-PROJECT-EXECUTION` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION`、`IF-TRANSPORT` | 未実装 |
+| `IMPL-PROJECT-EXECUTION-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION`、`IF-TRANSPORT` | 単一・複数Task実行を部分接続。公開Transport、統合・採用は未接続 |
 | `IMPL-PLANNED-HUMAN-DECISION` | `IF-DECISION` | 未実装 |
 
 [機械可読な設計対応](../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)は、Interface、Record、資源、Lock、Authority、Effect、状態機械、遷移との`BIND-*`対応、不変条件、失敗注入点、実装接続および検証接続の参照切れと孤立を検出する。設計本文または検証項目と一致しない場合は設計完了扱いしない。

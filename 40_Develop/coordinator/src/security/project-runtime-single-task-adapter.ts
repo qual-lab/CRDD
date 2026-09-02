@@ -1,5 +1,7 @@
 import { types as utilTypes } from "node:util";
 
+import { isProjectRuntimeRecoveryIdentity } from "./project-runtime-state.ts";
+
 export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT =
   "crdd-coordinator/project-runtime-single-task-adapter" as const;
 export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 1;
@@ -26,6 +28,8 @@ const preEffectRejectionSet: ReadonlySet<string> = new Set(
 
 export type ProjectRuntimeSingleTaskAttemptInput = Readonly<{
   attemptId: string;
+  operationId: string;
+  authorityBindingId: string;
   repositoryRevision: string;
   taskAuthorityCapability: object;
   taskRequest: unknown;
@@ -36,6 +40,8 @@ export type ProjectRuntimeSingleTaskAttemptInput = Readonly<{
 export type ProjectRuntimeSingleTaskResult = Readonly<{
   contract: typeof PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT;
   attemptId: string | null;
+  operationId: string | null;
+  authorityBindingId: string | null;
   repositoryRevision: string | null;
   status: "completed" | "blocked" | "cancelled";
   reason: string;
@@ -59,6 +65,8 @@ export type ProjectRuntimeSingleTaskDependencies = Readonly<{
 function result(
   input: Readonly<{
     attemptId: string | null;
+    operationId: string | null;
+    authorityBindingId: string | null;
     repositoryRevision: string | null;
     status: "completed" | "blocked" | "cancelled";
     reason: string;
@@ -79,12 +87,16 @@ function result(
 
 function rejectedWithoutEffect(
   attemptId: string | null,
+  operationId: string | null,
+  authorityBindingId: string | null,
   repositoryRevision: string | null,
   reason: string,
   processRestartRequired = false,
 ): ProjectRuntimeSingleTaskResult {
   return result({
     attemptId,
+    operationId,
+    authorityBindingId,
     repositoryRevision,
     status: "blocked",
     reason,
@@ -99,11 +111,15 @@ function rejectedWithoutEffect(
 
 function failedClosedUnknown(
   attemptId: string | null,
+  operationId: string | null,
+  authorityBindingId: string | null,
   repositoryRevision: string | null,
   reason: string,
 ): ProjectRuntimeSingleTaskResult {
   return result({
     attemptId,
+    operationId,
+    authorityBindingId,
     repositoryRevision,
     status: "blocked",
     reason,
@@ -242,7 +258,7 @@ function inspectCompletionRecord(value: unknown): Readonly<{
     const dockerRecoveryIds: string[] = [];
     for (let index = 0; index < rawDockerRecoveryIds.length; index += 1) {
       const id = ownDataProperty(rawDockerRecoveryIds, String(index));
-      if (!validText(id, 512)) return null;
+      if (!isProjectRuntimeRecoveryIdentity(id)) return null;
       dockerRecoveryIds.push(id);
     }
     const recoveryIds = [
@@ -255,6 +271,8 @@ function inspectCompletionRecord(value: unknown): Readonly<{
         ].filter((id): id is string => typeof id === "string"),
       ),
     ];
+    if (recoveryIds.some((id) => !isProjectRuntimeRecoveryIdentity(id)))
+      return null;
     return Object.freeze({
       status,
       reason,
@@ -287,17 +305,31 @@ export async function runProjectRuntimeSingleTaskAttempt(
     typeof input !== "object" ||
     !validText(input.attemptId, 128) ||
     !STABLE_IDENTITY.test(input.attemptId) ||
+    !validText(input.operationId, 128) ||
+    !STABLE_IDENTITY.test(input.operationId) ||
+    !validText(input.authorityBindingId, 128) ||
+    !STABLE_IDENTITY.test(input.authorityBindingId) ||
     typeof input.repositoryRevision !== "string" ||
     !REPOSITORY_REVISION.test(input.repositoryRevision) ||
     !isOpaqueCapability(input.taskAuthorityCapability) ||
     !(input.cancellationSignal instanceof AbortSignal)
   )
-    return rejectedWithoutEffect(null, null, "single_task_input_invalid");
+    return rejectedWithoutEffect(
+      null,
+      null,
+      null,
+      null,
+      "single_task_input_invalid",
+    );
   const attemptId = input.attemptId;
+  const operationId = input.operationId;
+  const authorityBindingId = input.authorityBindingId;
   const repositoryRevision = input.repositoryRevision;
   if (input.cancellationSignal.aborted)
     return result({
       attemptId,
+      operationId,
+      authorityBindingId,
       repositoryRevision,
       status: "cancelled",
       reason: "single_task_cancelled_before_effect",
@@ -320,12 +352,16 @@ export async function runProjectRuntimeSingleTaskAttempt(
     if (preEffectRejectionSet.has(message))
       return rejectedWithoutEffect(
         attemptId,
+        operationId,
+        authorityBindingId,
         repositoryRevision,
         message,
         message === "coordinator_task_process_restart_required",
       );
     return failedClosedUnknown(
       attemptId,
+      operationId,
+      authorityBindingId,
       repositoryRevision,
       "single_task_start_observation_invalid",
     );
@@ -334,6 +370,8 @@ export async function runProjectRuntimeSingleTaskAttempt(
   if (!started)
     return failedClosedUnknown(
       attemptId,
+      operationId,
+      authorityBindingId,
       repositoryRevision,
       "single_task_start_observation_invalid",
     );
@@ -367,6 +405,8 @@ export async function runProjectRuntimeSingleTaskAttempt(
   } catch {
     return failedClosedUnknown(
       attemptId,
+      operationId,
+      authorityBindingId,
       repositoryRevision,
       "single_task_completion_observation_invalid",
     );
@@ -377,6 +417,8 @@ export async function runProjectRuntimeSingleTaskAttempt(
   if (!completion)
     return failedClosedUnknown(
       attemptId,
+      operationId,
+      authorityBindingId,
       repositoryRevision,
       "single_task_completion_observation_invalid",
     );
@@ -394,6 +436,8 @@ export async function runProjectRuntimeSingleTaskAttempt(
       : completion.reason;
   return result({
     attemptId,
+    operationId,
+    authorityBindingId,
     repositoryRevision,
     status: completionStatus,
     reason: completionReason,
