@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification,
   inspectPlatformProvisionerManifestFileCandidate,
   loadPlatformProvisionerManifestEnvelopeForVerification,
 } from "../src/security/platform-provisioner-manifest-loader.ts";
@@ -24,6 +25,33 @@ function fixtureEnvelope() {
     ],
   };
 }
+
+test("旧revision 2 manifestは旧固定Pathからだけ履歴確認用に読込する", () => {
+  const canonical = canonicalizeProvisioningJsonValueCandidate(
+    fixtureEnvelope(),
+  );
+  assert.equal(canonical.status, "candidate");
+  if (canonical.status !== "candidate") return;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-manifest-v2-"));
+  try {
+    const legacy = path.join(root, "90_Release");
+    fs.mkdirSync(legacy, { recursive: true });
+    fs.writeFileSync(
+      path.join(legacy, "coordinator-package-manifest.json"),
+      canonical.canonicalBytes,
+    );
+    assert.deepEqual(
+      loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification(root)
+        .envelope,
+      fixtureEnvelope(),
+    );
+    assert.throws(() =>
+      loadPlatformProvisionerManifestEnvelopeForVerification(root),
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 function withDistribution(
   bytes: Buffer,

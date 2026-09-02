@@ -54,7 +54,7 @@ import {
   inspectDockerDesktopRepairHistoricalOperation,
   parseDockerDesktopRepairDirectoryName,
 } from "./docker-desktop-repair-record-store.ts";
-import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
+import { loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
 import {
   loadHostRecoveryRecordByToken,
@@ -4557,6 +4557,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
   developmentContext?: unknown,
 ) {
   const parsed = parseDockerTaskRecoveryId(token);
+  let phase = "input";
   try {
     if (
       !parsed ||
@@ -4566,6 +4567,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       !path.isAbsolute(historicalReleaseRoot)
     )
       throw new Error("docker_task_recovery_restart_fence_input_invalid");
+    phase = "authority";
     const development =
       developmentContext !== undefined &&
       developmentContext !== null &&
@@ -4593,6 +4595,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       typeof verification.runtimeExecutionIdentitySha256 !== "string"
     )
       throw new Error("docker_task_recovery_restart_fence_authority_invalid");
+    phase = "runtime_state";
     const observation = inspectRuntimeOwnedWindowsRuntimeState(
       false,
       new Date().toISOString(),
@@ -4601,6 +4604,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
     const root = consumeRuntimeOwnedRuntimeStateRootCapability(
       observation.rootCapability,
     );
+    phase = "repair_policy";
     const policy = observeRuntimeOwnedDockerDesktopRepairPolicy();
     if (observation.status !== "candidate" || !root || !policy)
       throw new Error("docker_task_recovery_restart_fence_boundary_invalid");
@@ -4613,10 +4617,12 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
         throw new Error("docker_task_recovery_restart_fence_boundary_invalid");
       localAppData = path.win32.dirname(localAppData);
     }
+    phase = "historical_manifest";
     const originManifest =
-      loadPlatformProvisionerManifestEnvelopeForVerification(
+      loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification(
         historicalReleaseRoot,
       ).envelope;
+    phase = "historical_repair";
     const repair = inspectDockerDesktopRepairHistoricalOperation(
       {
         runtimeStateRoot: root.rootPath,
@@ -4658,6 +4664,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       )
     )
       throw new Error("docker_task_recovery_restart_fence_unverified");
+    phase = "pending_submission";
     const operationDirectory = path.join(
       root.rootPath,
       `docker-task-${parsed.operationNonce}`,
@@ -4678,6 +4685,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       .map((entry) => entry.name);
     if (pendingSubmissionNames.length === 0)
       throw new Error("docker_task_recovery_restart_fence_not_needed");
+    phase = "ordering";
     const firstRepairRecord = path.join(
       repair.operationDirectory,
       "repair-00-prepared.json",
@@ -4698,6 +4706,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       repairId,
       repairRecordSha256: repair.previousRecordSha256,
     });
+    phase = "task_recovery";
     const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       parsed.token,
       root,
@@ -4715,7 +4724,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       status: "blocked" as const,
       reason: safeRecoveryReason(
         error,
-        "docker_task_recovery_restart_fence_failed_closed",
+        `docker_task_recovery_restart_fence_${phase}_failed`,
       ),
       recoveryId: parsed?.token ?? null,
       manualRecoveryRequired: Boolean(parsed),
