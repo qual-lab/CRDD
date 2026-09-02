@@ -135,7 +135,7 @@ test("PR-N-01 connects one durable Project task to the Single Task boundary", as
     },
     input,
   );
-  assert.equal(outcome.status, "completed");
+  assert.equal(outcome.status, "completed", JSON.stringify(outcome));
   assert.equal(
     outcome.reason,
     "project_runtime_tasks_completed_integration_pending",
@@ -221,9 +221,16 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
   let active = 0;
   let maximumActive = 0;
   let runningAtFirstEffect: number | null = null;
+  let authoritiesIssued = 0;
+  const observedAuthorities = new Set<object>();
   const outcome = await runProjectRuntimeOperation(
     {
+      issueTaskAuthority: () => {
+        authoritiesIssued += 1;
+        return Object.freeze({ sequence: authoritiesIssued });
+      },
       runSingleTaskAttempt: async (attempt) => {
+        observedAuthorities.add(attempt.taskAuthorityCapability);
         if (runningAtFirstEffect === null) {
           const observed = readProjectRuntimeState(
             root,
@@ -249,6 +256,8 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
   assert.equal(runningAtFirstEffect, 5);
   assert.equal(maximumActive, 5);
   assert.equal(outcome.completedTaskIds.length, 7);
+  assert.equal(authoritiesIssued, 7);
+  assert.equal(observedAuthorities.size, 7);
 });
 
 test("PR-N-03 and PR-Q-01 enforce dependency and conflict reservations across waves", async (t) => {
@@ -588,8 +597,13 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
   const controller = new AbortController();
   controller.abort();
   let effects = 0;
+  let authoritiesIssued = 0;
   const outcome = await runProjectRuntimeOperation(
     {
+      issueTaskAuthority: () => {
+        authoritiesIssued += 1;
+        return {};
+      },
       runSingleTaskAttempt: async (attempt) => {
         effects += 1;
         return completed(attempt);
@@ -599,6 +613,7 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
   );
   assert.equal(outcome.status, "cancelled");
   assert.equal(effects, 0);
+  assert.equal(authoritiesIssued, 0);
   const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
   assert.equal(queue.status, "completed");
   assert.equal(queue.status === "completed" && queue.value.state, "cancelled");

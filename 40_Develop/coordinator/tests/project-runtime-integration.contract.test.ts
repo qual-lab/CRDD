@@ -21,6 +21,7 @@ async function prepared(t: test.TestContext) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const result = await runProjectRuntimeObjective(
     {
+      authenticatedPrincipalId: "principal-integration",
       verifyProjectBinding: () => ({
         status: "verified",
         repositoryBindingId: "binding-a",

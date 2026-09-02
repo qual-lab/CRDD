@@ -680,9 +680,9 @@ export function inspectProjectRuntimeDesignTraceability(
       transition.machineId === "SM-DECISION-CONTINUATION";
     if (isRecoverySettlement) {
       const expectedTarget = new Map([
-        ["SM-TASK", "failed"],
+        ["SM-TASK", "ready"],
         ["SM-MILESTONE", "executing"],
-        ["SM-QUEUE", "leased"],
+        ["SM-QUEUE", "queued"],
       ]).get(transition.machineId);
       const validContinuationTarget =
         isContinuationRecoverySettlement &&
@@ -699,9 +699,11 @@ export function inspectProjectRuntimeDesignTraceability(
       if (!validContinuationTarget && !validOrdinaryTarget)
         issues.push(`${transitionId}:recovery_resume_without_settlement`);
     }
-    const ordinaryRecoverySettlement =
-      isRecoverySettlement && !isContinuationRecoverySettlement;
-    if (effectIds.includes("EFFECT-RECOVERY") !== ordinaryRecoverySettlement)
+    const ownsOrdinaryRecoveryEffect =
+      isRecoverySettlement &&
+      !isContinuationRecoverySettlement &&
+      transition.machineId === "SM-QUEUE";
+    if (effectIds.includes("EFFECT-RECOVERY") !== ownsOrdinaryRecoveryEffect)
       issues.push(
         `${String(binding.id)}:recovery_effect_applicability_invalid`,
       );

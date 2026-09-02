@@ -171,3 +171,57 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
     "cancelled",
   );
 });
+
+test("stdio preserves semantic cleanup uncertainty after transport cleanup", async () => {
+  const sink = output();
+  const objectiveRequest = {
+    jsonrpc: "2.0",
+    id: "objective-recovery",
+    method: "tools/call",
+    params: {
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+      name: "crdd.run_objective",
+      arguments: {
+        requestId: "request-recovery",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        repositoryRevision: "a".repeat(40),
+        objective: "Observe cleanup uncertainty.",
+        acceptanceCriteria: ["Recovery remains visible."],
+        allowedPaths: ["result.txt"],
+        readPaths: ["README.md"],
+        maximumConcurrency: 1,
+        maximumReplans: 0,
+        originLane: "interactive",
+        adoptResult: false,
+      },
+    },
+  };
+  const result = await runMcpProjectRuntimeStdio(
+    {
+      authenticateClient: () => ({
+        status: "verified",
+        principalId: "principal-a",
+      }),
+      runObjective: async () => ({
+        status: "blocked",
+        reason: "project_runtime_task_recovery_required",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown",
+      }),
+      submitDecision: async () => assert.fail("decision not expected"),
+    },
+    Readable.from([`${JSON.stringify(objectiveRequest)}\n`]),
+    sink.stream,
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.transportCleanupConfirmed, true);
+  assert.equal(result.semanticResultObserved, true);
+  assert.equal(result.semanticCleanupConfirmed, false);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+});

@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { createDevelopmentProjectRuntimePublicObjectiveCandidate } from "../src/security/project-runtime-public-runtime.ts";
+import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../src/security/project-runtime-windows-decision-store.ts";
 
 test("development composition uses the explicitly supplied candidate integration boundary", async (t) => {
   const root = fs.mkdtempSync(
@@ -34,6 +35,10 @@ test("development composition uses the explicitly supplied candidate integration
     encoding: "utf8",
     windowsHide: true,
   }).trim();
+  const decisionRoot = path.join(root, ".decision-store");
+  fs.mkdirSync(decisionRoot);
+  const decisionStore =
+    createProjectRuntimeWindowsDecisionStoreTestingAdapter(decisionRoot);
   let integrationAdapterCalls = 0;
   const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
     issueTaskAuthority: () => Object.freeze({}),
@@ -74,9 +79,12 @@ test("development composition uses the explicitly supplied candidate integration
         }),
       ),
     frontProviderForTask: () => "codex",
-    openDecisionStore: () => {
-      throw new Error("decision_store_must_not_be_used");
-    },
+    openDecisionStore: () =>
+      Object.freeze({
+        status: "completed" as const,
+        principalId: "local-user-test-user",
+        store: decisionStore,
+      }),
     createIntegrationAdapter: () => {
       integrationAdapterCalls += 1;
       return Object.freeze({
@@ -135,8 +143,9 @@ test("development composition uses the explicitly supplied candidate integration
     },
     new AbortController().signal,
     root,
+    Object.freeze({ principalId: "local-user-test-user" }),
   );
-  assert.equal(result.status, "completed");
+  assert.equal(result.status, "completed", JSON.stringify(result));
   assert.equal(result.reason, "project_runtime_milestone_accepted");
   assert.equal(integrationAdapterCalls, 1);
 });

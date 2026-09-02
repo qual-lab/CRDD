@@ -247,10 +247,15 @@ async function runMcpCommand(args: readonly string[]) {
             })
           : Object.freeze({ status: "unknown" });
       },
-      runObjective: (request, signal) =>
-        runProjectRuntimePublicObjective(request, signal),
-      submitDecision: async (request) =>
-        runProjectRuntimePublicDecision(request),
+      runObjective: (request, signal, authentication) =>
+        runProjectRuntimePublicObjective(
+          request,
+          signal,
+          process.cwd(),
+          authentication,
+        ),
+      submitDecision: async (request, authentication) =>
+        runProjectRuntimePublicDecision(request, process.cwd(), authentication),
     },
     process.stdin,
     process.stdout,

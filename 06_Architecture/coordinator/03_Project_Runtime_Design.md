@@ -48,7 +48,7 @@ Milestone要求は少なくとも次へ結合する。
 
 入力不足、Binding差、Revision差、Authority不明または上限不正では、Queueへの拒否Record以外のTask／Provider／Repository Effectを発行しない。スケジュール起点は、別の許可済み入口が作った同じ要求を搬送するだけであり、目的・Scope・Authorityを作らない。
 
-`crdd.run_objective`の初回受付はrequest identityをProject Operationへ結合する。同じ認証済み主体・Project・Milestone・request identityによる再送は新しいOperationを作らず、最新Project State、現在の判断要求または終端結果を返す。これはv0.19の切断後再接続経路であり、任意Projectを検索するAPIではない。別主体、別Project／Milestone、別request identityまたは継続証拠不一致は同じOperationとして扱わない。
+`crdd.run_objective`の初回受付はrequest identityを認証済み主体とProject Operationへ結合する。同じ認証済み主体・Project・Milestone・request identityによる再送は新しいOperationを作らず、最新Project State、現在の判断要求または終端結果を返す。これはv0.19の切断後再接続経路であり、任意Projectを検索するAPIではない。別主体、別Project／Milestone、別request identityまたは継続証拠不一致は同じOperationとして扱わない。MCP Adapterは認証結果を検証後に破棄せず、この意味入口まで同じprincipal identityを渡す。
 
 ### 3.2 Project結果
 
@@ -96,7 +96,7 @@ Queueの終端状態は処理結果の耐久化を表し、Leaseの解放完了�
 
 Lease証跡はprefixや内容の一部だけで探索しない。Repository Binding、Project、Lease種別、Queue、owner generation、owner process、disposition、世代およびdisposition別のexact filenameを一体で照合する。未知・重複・別Queue・別種別・内容とfilenameの不一致があればQueue ownerを消さず、手動回復へ停止する。Lease取得後の全終了経路は共通の所有終了処理を通り、可能ならQueueへ回復意図を耐久化してから物理Leaseを解放し、freshな証跡でQueue ownerをsettleする。QueueまたはStateの更新が観測不能でも物理解放を試み、解放証跡から後続Processが一意にreconcileできる状態を残す。取得済みLeaseを呼出し不能なProcess内資源として残したまま結果を返さない。
 
-`recovery_required`から通常実行へ直接戻さない。発行Runtimeによるexact Recovery receipt、対象資源不存在、owner generation、Repository RevisionおよびConflictのfresh再検証をすべて確認した専用遷移だけが、新しい世代で`leased`へ進める。確認結果は遷移とRecordへ耐久化するが、新しい`recovery_settled`状態は作らない。未解決、Identity不一致または観測不能では`recovery_required`を保持するか人間へ移送し、Task／Provider／正本Effectを発行しない。
+`recovery_required`から通常実行へ直接戻さない。Client入力ではなく耐久Queueが保持するexact Recovery Identityを発行Runtimeへ渡し、回復完了と対象資源不存在を確認する。専用Queue遷移で同じIdentityのsettlementを耐久化した後、同じProject State世代で旧attemptを終了しfresh retryへ置換する。中断時は耐久QueueのsettlementからState更新だけを再開し、Recovery Effectを重複発行しない。その後にowner、Repository Revision、容量、DependencyおよびConflictをfreshに再検証して、新しいLeaseを取得する。新しい`recovery_settled`状態は作らず、Queueの再開条件とexact参照でsettlementを表す。未解決、Identity不一致、上限到達または観測不能では通常実行へ進めず、人間へ移送し、Task／Provider／正本Effectを発行しない。
 
 人間判断は`pending → accepted`を正常経路とする。入力を受け取っただけの中間状態は作らず、現在のdecision ID、Project／Milestone、世代、改訂版、許可選択肢および認証済み人間主体をすべて照合できた場合だけ一度受理する。古い・置換済み・取消済み・許可外の入力はEffect 0で拒否し、現在の`pending` Recordを変更しない。`stale`、`superseded`、`cancelled`は、Parentが現在Project世代の変化、置換判断の発行またはMilestone取消を独立に観測した場合だけRuntime-owned lifecycleとして記録する。`accepted`だけが専用遷移を介してProject Stateの再計画または再開へ接続できる。
 
@@ -113,7 +113,7 @@ Project Stateだけが観測不能になり、継続Capabilityの保護Rootを�
 | 資源ID | 所有者 | 取得前提 | 終了後条件 |
 |---|---|---|---|
 | `RES-PROJECT-QUEUE` | Queue Store | Bindingとrequest hash検証 | 終端Record保持または保持Policyに基づく削除を観測 |
-| `RES-PROJECT-OPERATION-LEASE` | Parent Coordinator | queue選択後、OS排他とowner generation一致 | 全子Task照合後にOS排他解放とRecord更新を観測 |
+| `RES-PROJECT-OPERATION-LEASE` | Parent Coordinator | queue選択後、Repository Binding単位のOS排他とowner generation一致 | 全子Task照合後にOS排他解放とRecord更新を観測 |
 | `RES-PROJECT-STATE` | State Store | Project Operation leaseのexact owner | expected generationによるatomic replace完了 |
 | `RES-SCHEDULER-SLOT` | Scheduler | 現在世代、Dependency、Conflict、容量を再検証 | Task Process不存在とcleanupを確認 |
 | `RES-CONFLICT-RESERVATION` | Scheduler | Task開始予約と同じ世代更新 | Effect／Candidate／Recovery影響の解消を確認 |
@@ -129,16 +129,17 @@ Project Stateだけが観測不能になり、継続Capabilityの保護Rootを�
 Lock IDと順序は次で固定する。
 
 1. `LOCK-QUEUE-MUTATION`はenqueue、Lane選択またはQueue状態更新の短時間だけ取得し、他のProject Lockと同時保持しない。
-2. `LOCK-PROJECT-OPERATION`は選択済みQueue entryに対して取得し、Parent Coordinatorの生存期間を所有する。
-3. `LOCK-PROJECT-STATE`は`LOCK-PROJECT-OPERATION`保持中の短時間transactionだけ取得する。
-4. Single Task Runtimeの内部Lockは`LOCK-PROJECT-STATE`解放後に取得する。Project側は内部Lock順序へ介入しない。
-5. `LOCK-ADOPTION`は全対象Taskのcleanup後、`LOCK-PROJECT-STATE`を保持していない状態で取得する。取得後に正本Revision、dirty state、候補基準Revision、変更Path、Conflictをfreshに再確認する。
+2. `LOCK-PROJECT-OPERATION`はRepository Binding単位で一つだけ取得できる。異なるQueueまたはProjectから同時に取得を試みても、OS排他によってexactに一つだけを所有者とし、他方はEffect 0で待機または拒否する。v0.19は同じRepository Binding内のOperationを直列化し、Project間並列は主張しない。
+3. `LOCK-PROJECT-OPERATION`は選択済みQueue entryに対して取得し、Parent Coordinatorの生存期間を所有する。
+4. `LOCK-PROJECT-STATE`は`LOCK-PROJECT-OPERATION`保持中の短時間transactionだけ取得する。
+5. Single Task Runtimeの内部Lockは`LOCK-PROJECT-STATE`解放後に取得する。Project側は内部Lock順序へ介入しない。
+6. `LOCK-ADOPTION`は全対象Taskのcleanup後、`LOCK-PROJECT-STATE`を保持していない状態で取得する。取得後に正本Revision、dirty state、候補基準Revision、変更Path、Conflictをfreshに再確認する。
 
 `LOCK-QUEUE-MUTATION`、`LOCK-PROJECT-STATE`または`LOCK-ADOPTION`を保持したまま、Provider、Docker、子Process、MCP response、Human Decisionまたは長時間Integrationを待たない。Lock解放不明、owner generation差または再取得後の世代差では新規Effectを止める。
 
 ## 7. AuthorityとEffect順序
 
-Milestone AuthorityはParent CoordinatorだけがTask Authorityへ縮小できる。Task AuthorityはProject、Milestone、Objective、Task、attempt、Repository Revision、読取り／変更Path、Provider境界、予算および期限へ結合する。Queue record、Progress、Provider出力、MCP client info、Task結果または時刻はAuthorityを生成・拡張しない。
+Milestone AuthorityはParent CoordinatorだけがTask Authorityへ縮小できる。Task AuthorityはProject、Milestone、Objective、Task、attempt、Repository Revision、読取り／変更Path、Provider境界、予算および期限へ結合する。Task Graph作成時には先行発行せず、Task開始予約を耐久化した後、各attemptの外部Effect直前にfreshな一回限りのAuthorityを発行する。待機、排他競合または開始前取消では発行しない。Queue record、Progress、Provider出力、MCP client info、Task結果または時刻はAuthorityを生成・拡張しない。
 
 | Authority ID | 所有者 | 許可する範囲 | 終端条件 |
 |---|---|---|---|
@@ -260,7 +261,7 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `TRANS-TASK-FAILED-SUPERSEDED` | `BIND-TASK-FAILED-SUPERSEDED` | `SM-TASK` | `failed → superseded` |
 | `TRANS-TASK-ACTIVE-CANCELLED` | `BIND-TASK-ACTIVE-CANCELLED` | `SM-TASK` | active state → cancelled |
 | `TRANS-TASK-ACTIVE-RECOVERY` | `BIND-TASK-ACTIVE-RECOVERY` | `SM-TASK` | active state → recovery_required |
-| `TRANS-TASK-RECOVERY-SETTLED` | `BIND-TASK-RECOVERY-SETTLED` | `SM-TASK` | `recovery_required → failed` |
+| `TRANS-TASK-RECOVERY-SETTLED` | `BIND-TASK-RECOVERY-SETTLED` | `SM-TASK` | `recovery_required → ready` |
 | `TRANS-OBJECTIVE-PLAN-EXECUTE` | `BIND-OBJECTIVE-PLAN-EXECUTE` | `SM-OBJECTIVE` | `planned / blocked → executing` |
 | `TRANS-OBJECTIVE-EXECUTE-INTEGRATE` | `BIND-OBJECTIVE-EXECUTE-INTEGRATE` | `SM-OBJECTIVE` | `executing → integration_pending` |
 | `TRANS-OBJECTIVE-INTEGRATE-ACCEPT` | `BIND-OBJECTIVE-INTEGRATE-ACCEPT` | `SM-OBJECTIVE` | `integration_pending → accepted` |
@@ -276,7 +277,7 @@ v0.19で公開するMCPの意味入口は`crdd.run_objective`と`crdd.submit_dec
 | `TRANS-MILESTONE-ACTIVE-CANCEL` | `BIND-MILESTONE-ACTIVE-CANCEL` | `SM-MILESTONE` | active state → cancelled |
 | `TRANS-QUEUE-ENQUEUE-LEASE` | `BIND-QUEUE-ENQUEUE-LEASE` | `SM-QUEUE` | 判断待ち以外のeligible waiting state → leased |
 | `TRANS-QUEUE-DECISION-ACCEPTED-LEASE` | `BIND-QUEUE-DECISION-ACCEPTED-LEASE` | `SM-QUEUE` | `human_decision_required → leased` |
-| `TRANS-QUEUE-RECOVERY-SETTLED-LEASE` | `BIND-QUEUE-RECOVERY-SETTLED-LEASE` | `SM-QUEUE` | `recovery_required → leased` |
+| `TRANS-QUEUE-RECOVERY-SETTLED-QUEUED` | `BIND-QUEUE-RECOVERY-SETTLED-QUEUED` | `SM-QUEUE` | `recovery_required → queued` |
 | `TRANS-QUEUE-LEASE-RUN` | `BIND-QUEUE-LEASE-RUN` | `SM-QUEUE` | `leased → running` |
 | `TRANS-QUEUE-RUN-INTEGRATE` | `BIND-QUEUE-RUN-INTEGRATE` | `SM-QUEUE` | `running → integration_pending` |
 | `TRANS-QUEUE-INTEGRATE-COMPLETE` | `BIND-QUEUE-INTEGRATE-COMPLETE` | `SM-QUEUE` | `integration_pending → completed` |

@@ -184,7 +184,7 @@ Docker create結果不明を検証済みDesktop再起動後に収束させる経
 | PR-Q-02 | 準正常 | 局所失敗、Scope内で代替可能 | 旧Taskを`superseded`として保持し、後継と理由を新世代へ接続 |
 | PR-Q-03 | 準正常 | 同じ認証済み主体・Project／Milestone・MCP request identityの初回開始、再送、切断後再接続 | Operation二重発行0、最新Project State・pending decision・終端結果を返却。別主体、別Project／Milestone、別requestは同じOperationとして開示しない |
 | PR-Q-04 | 準正常 | 一部Taskの取消 | signalだけで完了せず、終了・cleanup後に枠と競合予約を解放 |
-| PR-Q-05 | 準正常 | スケジュール要求と対話要求が同時に未開始、または対話Operationが`leased / running`になった後にスケジュール要求が到着 | 未開始要求間では対話要求を選びスケジュール要求を耐久Queueで待機する。実行中Ownerがある時系列では二つ目のLease・Task・Provider Effectを発行せず、後着スケジュール要求を`waiting_foreground`へ保持する。実行中Operationの終端化、Lease解放およびowner settlement後にRevision・容量・Dependency・Conflictを再確認し、同じ既存許可境界なら追加承認なしで安全に再開する |
+| PR-Q-05 | 準正常 | スケジュール要求と対話要求が同時に未開始、または対話Operationが`leased / running`になった後にスケジュール要求が到着 | 未開始要求間では対話要求を選びスケジュール要求を耐久Queueで待機する。実行中Ownerがある時系列では二つ目のLease・Task・Provider Effectを発行せず、後着スケジュール要求を`waiting_foreground`へ保持する。Repository Binding単位の別Process同時取得でも所有者はexactに一つとする。実行中Operationの終端化、Lease解放およびowner settlement後にRevision・容量・Dependency・Conflictを再確認し、同じ既存許可境界なら追加承認なしで安全に再開する。v0.19は同一Binding内を直列化し、Project間並列を合格主張に含めない |
 | PR-Q-06 | 準正常 | 古い世代、置換済み／取消済みdecision ID、許可外選択肢、未認証、別主体／別decision、期限切れ／消費済みCapability、Repository側Record改変、保護Root identity／Protection差、未知field、上限超過・制御文字・認識済みSecretを含むcommentを`crdd.submit_decision`へ送信。`prepared`前後、Project State書込み／readback、`finalized`前後、Queue更新前後、応答喪失、明示置換と再送も注入する | 無効入力では正規Capability不変で正当主体の期限内再試行が一度だけ成立。両Rootのapplication ID・expected／new世代・dispositionから再適用／未適用／finalize／Recoveryを一意に選び、不明時Queue／Lease／Task Effect 0。DecisionとMilestoneはともに旧かともに新、Queueはfinalized前Lease 0、LeaseとTask Effectは最大1回。「未受理」「判断受理済み・安全に再開待ち」「再開権を確保」を区別し、実Taskがrunningになった後だけ「実行再開」と表示する。置換は旧hash失効後に新1件だけ。raw値の保存／反射0を確認する |
 | PR-D-Q-01 | 準正常 | 同じrequestの再送、世代競合、同一Projectの別Queueからの採用、実Leaseと異なる／解放済み／偽造したowner | 同一requestだけを再利用し、Queue所有者はRuntime発行済みで現在有効な不透明Leaseから導出する。正本採用はProject単位で直列化し、拒否された遷移は新世代を作らない |
 | PR-H-01 | 人間判断 | Scope、受入、重大Riskまたは費用上限の変更が必要 | 未許可Task開始0、判断理由・選択肢・影響・保持資源を一括表示 |
@@ -192,7 +192,7 @@ Docker create結果不明を検証済みDesktop再起動後に収束させる経
 | PR-A-01 | 異常 | cycle、欠落DependencyまたはBinding不明 | Single Task呼出し0、Provider Effect 0、構造化された停止理由 |
 | PR-A-02 | 異常 | 6件目を同時開始させる競合注入 | 6件目Effect 0、上限違反を成功へ補正しない |
 | PR-A-03 | 異常 | Task結果のcontract、世代、attempt、Operation／Authority binding、Revision、必須／余剰field、結果field相関または保存不能Recovery IDが不一致 | 別Taskへの適用0。safeなRecovery ID、cleanup、EffectおよびProcess再起動義務を保持し、再起動義務がある同一Processでは後続Task Effect 0として停止 |
-| PR-A-04 | 異常 | Lease取得中Markerの作成途中、物理Lock／Lock所有Marker／証跡／解放Markerの各境界、Queue owner結合前、Parent喪失または`recovery_required`からの再開要求 | 新規Task開始0。全資源のfreshな不存在を確認できた同期失敗だけを巻戻し済みとし、それ以外は決定論的な回復IDを返す。不完全Markerと所有不明Lockは変更せず手動回復へ閉じる。Project Operation／正本採用とも、owner不存在、exactなMarker・Lock所有・証跡・解放意図、資源不存在および必要なfresh世代／Revision／Conflict確認後だけ専用settled遷移を許可 |
+| PR-A-04 | 異常 | Lease取得中Markerの作成途中、物理Lock／Lock所有Marker／証跡／解放Markerの各境界、Queue owner結合前、Parent喪失または`recovery_required`からの再開要求 | 新規Task開始0。全資源のfreshな不存在を確認できた同期失敗だけを巻戻し済みとし、それ以外は決定論的な回復IDを返す。不完全Markerと所有不明Lockは変更せず手動回復へ閉じる。再開ではClient指定値をAuthorityにせず、Queueに耐久化したexact Recovery IDだけを発行Runtimeへ渡す。回復完了、対象資源不存在、専用Queue settlement、fresh retry State、owner不存在、世代／Revision／容量／Dependency／Conflictの再確認後だけ新しいLeaseとTask Authorityを許可する。settlement後の中断ではRecovery Effectを重複発行せずState更新から再開する |
 | PR-A-05 | 異常 | cleanupまたはLock解放観測不明 | 枠を空きと推定せず、Milestone成功0、exact Recovery情報を保持し、通常実行へ直接戻さない |
 | PR-A-06 | 異常 | Queue owner喪失、stale file、Runtime外の直接編集または採用直前Revision変化 | 時刻やfile存在だけでLeaseを奪取せず、新規Effect／自動上書き0、再計画・判断・Recoveryを一意に分類 |
 | PR-A-07 | 異常 | Platform不明、Adapter不在または対象Platformの保証未成立 | 別PlatformへfallbackせずProject／Task／Provider Effect 0で停止し、未対応を成功へ補正しない |
@@ -201,6 +201,8 @@ Docker create結果不明を検証済みDesktop再起動後に収束させる経
 | PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | [統合契約試験](../40_Develop/coordinator/tests/project-runtime-integration.contract.test.ts)でTask候補、受入条件ごとのEvidence、明示採用Authorityおよびfresh Revisionを要求し、ObjectiveとMilestoneを世代更新で受け入れる。[全体結合試験](../40_Develop/coordinator/tests/project-runtime-full-flow.integration.test.ts)で公開Objective入口からAccepted Resultまでを確認する。[公開Runtime構成の結合試験](../40_Develop/coordinator/tests/project-runtime-public-runtime.integration.test.ts)で、Task実行と同じCandidate Store境界が統合へ渡り、別の未検証Storeへ暗黙に切り替わらないことを確認する |
 
 単体試験はGraph検証、Task／Objective／Milestoneの状態分離、受入条件ごとのEvidence、世代比較、容量計算およびAuthority縮小を確認する。結合試験はProject State Store、Scheduler、Single Task Runtime、取消、RecoveryおよびIntegrationの接続を確認する。E2EはMCP／CLIの公開入口から同じ意味契約へ到達し、正常、準正常、異常の代表経路でProcess構成、入力搬送、終了後資源および人間表示まで観測する。モックのTask完了だけから実Process不存在、cleanup、Authority非発行またはEffect 0を推定しない。
+
+排他の結合確認では別Processを同じBarrierから同時に起動し、異なるProject／Queueでも同一Repository BindingのProject Operation Leaseをexactに一つだけ取得できることを確認する。v0.19は同じBinding内を一つずつ処理し、Project間並列は未提供とする。Task Authorityは予約後の各attempt直前に発行されること、7 Taskの2 waveで7個のfresh Authorityとなること、および開始前取消では発行0となることを確認する。
 
 [耐久基盤の契約試験](../40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts)は、`PR-D-N-01`、`PR-D-Q-01`、`PR-D-A-01`として、Project Stateの正常保存・再読取り・古い世代・破損または意味不正なRecord、Envelopeの余剰／欠落field・未知Record種別、filenameと世代の不一致・世代欠落・一時file／未知file残存、保存byte上限の境界、Queue全世代のProject／Queue identity結合・再送・identity衝突・拒否時の世代不変、実LeaseとQueue ownerの結合、所有中Queueの全離脱経路、同一Project内の正本採用排他、二重取得、正常解放後の再取得、および解放証跡失敗後の回復Markerと再取得拒否を確認する。別ProcessをQueue owner結合前に終了させる実Filesystem fixtureでは、Project Operationと正本採用の両Leaseについて取得中Markerが新規取得を止め、exactなowner不存在、Lock所有Marker、取得／解放／owner喪失証跡を照合して全Marker・Lock不存在と別Queueからの再取得へ収束することを確認する。Project OperationではQueue回復世代のreadbackまで取得中Markerを残し、その直後に停止した同形状態を再処理して世代を重複更新せずMarkerを除去する。取得中Markerをatomic renameした直後のreadback失敗も故障注入し、初回結果から同じ決定論的な回復IDを返し、残存Markerを自動削除せず、後続回復へ接続することを確認する。同じ境界で個別Pathの観測をアクセス拒否にし、`ENOENT`以外を不存在または巻戻し済みへ縮退しないことも確認する。解放Marker作成後・Queue owner結合前の停止、不完全な一時file、不正Markerおよび既存Lockも、完全巻戻しへ誤分類せず決定論的な回復IDを返す。不正または所有不明な資源は自動削除しない。Repository-localな実Filesystemと別Process終了fixtureによりowner喪失後の回収Coreも確認するが、Platform Adapterによる実OS owner不存在観測、公開入口Recovery、電源断、実際の正本採用Effectおよび保護された外部anchorによる改変検出は未評価である。この部分試験を`PR-A-04`～`PR-A-06`全体、耐久基盤全体またはProject Runtime全体の成立へ読み替えない。
 
@@ -213,6 +215,8 @@ Coordinator責務分離では、Project Runtime CoreからWindows固有moduleへ
 機械可読な設計対応は、一つの状態遷移をexactに一つの`BIND-*`へ結ぶ。通常状態更新、取消、Recovery、Integrationおよび正本採用を一つのAuthority／Effect和集合へまとめた入力、取消遷移からSingle Task取消Effectが欠落した入力、通常遷移へRecovery Effectを混入した入力、Effect前IntentとEffect後Receiptの時間関係を逆転した入力を負例として拒否する。
 
 前段の試験記録は時系列で読む。Project実行契約試験単体で未評価だった公開Objective入口、owner観測、対話Lane、再計画および統合の候補経路を、後続の意味経路試験で部分接続した。意味経路試験に残した未評価範囲が現在のGateである。
+
+公開Objective入口のRecovery契約試験は、初回Task結果のexact Recovery IDをProject StateとQueueへ耐久化し、ClientからRecovery Authorityを受け取らず、同じ要求の再入場時だけ発行Runtimeへ回復を依頼する。回復完了後は専用Queue settlement、fresh retry State、再選択の順で進み、2回目のTask Effectと新しいattemptだけを発行する。MCP Adapter試験は認証済みprincipalを意味入口と判断入口へ同一値で渡すことを、stdio試験はTransport cleanupが成功しても意味結果のcleanup不明・手動回復要を成功へ畳まないことを確認する。これらは契約・Process内結合の成立であり、実Docker資源を伴う公開Process E2Eの代替ではない。
 
 <a id="reasoning-context-verification"></a>
 

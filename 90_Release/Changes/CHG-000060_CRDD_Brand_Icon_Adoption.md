@@ -6,9 +6,9 @@
 - 判断日: 2026-09-02
 - 対象: Qual-Labが提示したCRDDブランドアイコン2解像度の原本保存と、公式商標素材としての識別
 - 対象リリース: `v0.19.0`
-- 変更分類: `additive`候補
-- `migration_required`: `false`候補。既存利用者の文書、Runtime、UIまたは商標利用許可を変更しない
-- リリースレベル: `MINOR`候補への収載。ブランド素材だけからversionまたはReleaseを確定しない
+- 変更分類: `additive`
+- `migration_required`: `false`。既存利用者の文書、Runtime、UIまたは商標利用許可を変更しない
+- リリースレベル: `MINOR`への収載。ブランド素材だけからversionまたはReleaseを確定しない
 
 正本: [商標方針](../../TRADEMARK.md)、[UI素材](../../04_UI/assets/brand/)
 

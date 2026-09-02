@@ -35,6 +35,9 @@ export async function runMcpProjectRuntimeStdio(
   input.once("close", abortForParentLoss);
   let pending = "";
   let failed = false;
+  let semanticResultObserved = false;
+  let semanticCleanupConfirmed = true;
+  let semanticManualRecoveryRequired = false;
   try {
     input.setEncoding("utf8");
     for await (const rawChunk of input) {
@@ -62,6 +65,24 @@ export async function runMcpProjectRuntimeStdio(
               id: null,
               error: Object.freeze({ code: -32700, message: "Parse error" }),
             });
+        if ("result" in response && response.result) {
+          const result = response.result as Readonly<{
+            structuredContent?: Readonly<{
+              cleanupConfirmed?: unknown;
+              manualRecoveryRequired?: unknown;
+            }>;
+          }>;
+          const semantic = result.structuredContent;
+          if (
+            semantic &&
+            typeof semantic.cleanupConfirmed === "boolean" &&
+            typeof semantic.manualRecoveryRequired === "boolean"
+          ) {
+            semanticResultObserved = true;
+            semanticCleanupConfirmed &&= semantic.cleanupConfirmed;
+            semanticManualRecoveryRequired ||= semantic.manualRecoveryRequired;
+          }
+        }
         if (!(await write(output, response))) {
           failed = true;
           break;
@@ -84,8 +105,11 @@ export async function runMcpProjectRuntimeStdio(
     reason: failed
       ? "project_runtime_mcp_stdio_failed"
       : "project_runtime_mcp_stdio_closed",
-    cleanupConfirmed: true,
-    manualRecoveryRequired: false,
+    transportCleanupConfirmed: true,
+    semanticResultObserved,
+    semanticCleanupConfirmed,
+    cleanupConfirmed: semanticCleanupConfirmed,
+    manualRecoveryRequired: semanticManualRecoveryRequired,
   });
 }
 

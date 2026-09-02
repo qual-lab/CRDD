@@ -6,9 +6,9 @@
 - 判断日: 2026-09-02
 - 対象: 成果物へ吸収されて失われる工程内の判断根拠を、再利用・変更・検証可能なコンテキストとして保持するCRDD工程強化
 - 対象リリース: `v0.19.0`
-- 変更分類: `normative` / `additive`候補
-- `migration_required`: `false`候補。既存成果物へ一律の遡及移行や新しい専用ファイルを要求しない
-- リリースレベル: `MINOR`候補
+- 変更分類: `normative` / `breaking`
+- `migration_required`: `true`。現在または再開対象の専門判断、認知意図および外部コミュニケーションだけを適用判定し、完了済み履歴の遡及改稿や専用ファイルの新設は要求しない
+- リリースレベル: `MINOR`
 
 正本: [CRDD自身のDiscovery](../../01_Discovery/01_CRDD_Product_Discovery.md#v019-reasoning-context)、[スキル](../../11_Skill.md#23-expert-exploration-and-convergence-contract)、[課題探索・要求形成](../../21_Discovery.md#34-decision-changing-evidence)、[UX](../../22_UX.md#transformation-contract)、[IA](../../23_IA.md#transformation-contract)、[UI](../../25_UI.md#transformation-contract)、[外部コミュニケーション](../../17_Communication.md#3-外部コミュニケーションのコンテキスト)、[検証](../../29_Verification.md#27-プロダクトコンテキストと体験の検証)
 

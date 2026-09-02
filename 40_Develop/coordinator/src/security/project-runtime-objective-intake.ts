@@ -5,6 +5,7 @@ import {
   readProjectRuntimeState,
   reconcileProjectRuntimeLeaseOwnerLoss,
   selectNextProjectOperation,
+  settleProjectOperationQueueRecovery,
   writeProjectRuntimeState,
 } from "./project-runtime-durable-foundation.ts";
 import {
@@ -15,6 +16,7 @@ import {
 import {
   createProjectRuntimeState,
   projectProjectRuntimeState,
+  settleAndRetryProjectTaskRecovery,
   type ProjectObjectiveDefinition,
   type ProjectTaskDefinition,
   type ProjectRuntimeState,
@@ -43,6 +45,7 @@ export type ProjectRuntimeObjectivePlan = Readonly<{
 }>;
 
 export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
+  authenticatedPrincipalId: string;
   verifyProjectBinding: (
     input: Readonly<{
       projectId: string;
@@ -65,6 +68,7 @@ export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
       ownerGeneration: string;
     }>,
   ) => unknown;
+  recoverTaskRecovery?: (recoveryId: string) => unknown;
   execution: ProjectRuntimeExecutionDependencies;
 }>;
 
@@ -73,6 +77,16 @@ function stableId(prefix: string, ...values: readonly string[]) {
     .update(values.join("\0"))
     .digest("hex")
     .slice(0, 40)}`;
+}
+
+function exactRecoveryCompleted(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Readonly<Record<string, unknown>>;
+  return (
+    record.status === "recovered" &&
+    record.recoveryId === null &&
+    record.manualRecoveryRequired !== true
+  );
 }
 
 function validId(value: unknown): value is string {
@@ -313,7 +327,11 @@ export async function runProjectRuntimeObjective(
   cancellationSignal: AbortSignal,
 ) {
   const request = inspectProjectRuntimeObjectiveRequest(rawRequest);
-  if (!request || !(cancellationSignal instanceof AbortSignal))
+  if (
+    !request ||
+    !(cancellationSignal instanceof AbortSignal) ||
+    !validId(dependencies.authenticatedPrincipalId)
+  )
     return blocked(
       Object.freeze({
         requestId: "invalid",
@@ -349,11 +367,13 @@ export async function runProjectRuntimeObjective(
     request.projectId,
     request.milestoneId,
     request.requestId,
+    dependencies.authenticatedPrincipalId,
   );
   const requestHash = createHash("sha256")
     .update(
       JSON.stringify({
         ...request,
+        authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
         acceptanceCriteria: [...request.acceptanceCriteria],
         allowedPaths: [...request.allowedPaths],
         readPaths: [...request.readPaths],
@@ -444,6 +464,24 @@ export async function runProjectRuntimeObjective(
       queueId,
       dependencies.observeLeaseOwner,
     );
+    if (
+      reconciled.status !== "completed" &&
+      reconciled.reason === "project_runtime_lease_owner_still_active" &&
+      state.value
+    )
+      return Object.freeze({
+        contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
+        status: "blocked" as const,
+        reason: "project_runtime_objective_already_running",
+        requestId: request.requestId,
+        projectId: request.projectId,
+        milestoneId: request.milestoneId,
+        queueId,
+        projection: projectProjectRuntimeState(state.value),
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
     if (reconciled.status !== "completed")
       return blocked(request, reconciled.reason, {
         cleanupConfirmed: false,
@@ -451,6 +489,82 @@ export async function runProjectRuntimeObjective(
         effectState: "unknown",
       });
     queue = reconciled.value;
+  }
+  if (
+    (queue.state === "recovery_required" ||
+      (queue.state === "queued" &&
+        queue.resumeCondition === "exact_recovery_settled")) &&
+    state.value
+  ) {
+    const recoveryId = queue.resultReference;
+    const recoveryTask = state.value.tasks.find(
+      (task) =>
+        task.state === "recovery_required" && task.recoveryId === recoveryId,
+    );
+    if (!recoveryId || !recoveryTask)
+      return blocked(request, "project_runtime_recovery_identity_mismatch", {
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown",
+      });
+    if (queue.state === "recovery_required") {
+      let recovery: unknown;
+      try {
+        recovery = dependencies.recoverTaskRecovery?.(recoveryId) ?? null;
+      } catch {
+        recovery = null;
+      }
+      if (!exactRecoveryCompleted(recovery))
+        return blocked(request, "project_runtime_task_recovery_not_settled", {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+        });
+      const queueSettlement = settleProjectOperationQueueRecovery(
+        workingDirectory,
+        binding.repositoryBindingId,
+        queueId,
+        queue.generation,
+        recoveryId,
+      );
+      if (queueSettlement.status !== "completed")
+        return blocked(request, queueSettlement.reason, {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+        });
+      queue = queueSettlement.value;
+    }
+    const retry = settleAndRetryProjectTaskRecovery(
+      state.value,
+      state.value.generation,
+      recoveryTask.definition.id,
+      recoveryId,
+      request.maximumReplans,
+    );
+    if (retry.status !== "completed")
+      return blocked(request, retry.reason, {
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect",
+      });
+    const retryWrite = writeProjectRuntimeState(
+      workingDirectory,
+      binding.repositoryBindingId,
+      retry.state,
+      state.value.generation,
+    );
+    if (retryWrite.status !== "completed")
+      return blocked(request, retryWrite.reason, {
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown",
+      });
+    state = Object.freeze({
+      status: "completed" as const,
+      reason: retryWrite.reason,
+      value: retryWrite.value,
+    });
   }
   if (queue.state === "queued" || queue.state === "waiting_foreground") {
     const currentState = state.value;
@@ -498,6 +612,24 @@ export async function runProjectRuntimeObjective(
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
+    });
+  }
+  if (queue.state !== "queued" && state.value) {
+    const manualRecoveryRequired = queue.state === "recovery_required";
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
+      status: "blocked" as const,
+      reason: `project_runtime_objective_${queue.state}`,
+      requestId: request.requestId,
+      projectId: request.projectId,
+      milestoneId: request.milestoneId,
+      queueId,
+      projection: projectProjectRuntimeState(state.value),
+      cleanupConfirmed: !manualRecoveryRequired,
+      manualRecoveryRequired,
+      effectState: manualRecoveryRequired
+        ? ("unknown" as const)
+        : ("no_effect" as const),
     });
   }
   const executableState = state.value;

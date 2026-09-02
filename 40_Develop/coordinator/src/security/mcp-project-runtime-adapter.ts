@@ -21,9 +21,11 @@ export type McpProjectRuntimeDependencies = Readonly<{
   runObjective: (
     request: Readonly<Record<string, unknown>>,
     signal: AbortSignal,
+    authentication: Readonly<{ principalId: string }>,
   ) => Promise<unknown>;
   submitDecision: (
     request: Readonly<Record<string, unknown>>,
+    authentication: Readonly<{ principalId: string }>,
   ) => Promise<unknown>;
 }>;
 
@@ -375,11 +377,14 @@ export async function handleMcpProjectRuntimeRequest(
       isError: true,
     });
   let raw: unknown;
+  const authenticatedContext = Object.freeze({
+    principalId: String(authentication.principalId),
+  });
   try {
     raw =
       params.name === MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL
-        ? await dependencies.runObjective(args, signal)
-        : await dependencies.submitDecision(args);
+        ? await dependencies.runObjective(args, signal, authenticatedContext)
+        : await dependencies.submitDecision(args, authenticatedContext);
   } catch {
     raw = null;
   }

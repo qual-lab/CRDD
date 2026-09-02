@@ -34,6 +34,7 @@ export type ProjectRuntimeTaskExecution = Readonly<{
 }>;
 
 export type ProjectRuntimeExecutionDependencies = Readonly<{
+  issueTaskAuthority?: () => object | null;
   runSingleTaskAttempt: (
     input: ProjectRuntimeSingleTaskAttemptInput,
   ) => Promise<ProjectRuntimeSingleTaskResult>;
@@ -650,14 +651,21 @@ export async function runProjectRuntimeOperation(
     const outcomes = await Promise.all(
       attempts.map(async (attempt) => {
         try {
+          const taskAuthorityCapability = dependencies.issueTaskAuthority
+            ? dependencies.issueTaskAuthority()
+            : attempt.execution.taskAuthorityCapability;
+          if (
+            !taskAuthorityCapability ||
+            typeof taskAuthorityCapability !== "object"
+          )
+            return null;
           return await Promise.resolve().then(() =>
             dependencies.runSingleTaskAttempt({
               attemptId: attempt.attemptId,
               operationId: attempt.operationId,
               authorityBindingId: attempt.execution.authorityBindingId,
               repositoryRevision: state.repositoryRevision,
-              taskAuthorityCapability:
-                attempt.execution.taskAuthorityCapability,
+              taskAuthorityCapability,
               taskRequest: attempt.execution.taskRequest,
               repositoryRoot: attempt.execution.repositoryRoot,
               cancellationSignal: input.cancellationSignal,

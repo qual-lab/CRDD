@@ -125,9 +125,10 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
       arguments: objective(),
     }),
     dependencies({
-      runObjective: async (input, signal) => {
+      runObjective: async (input, signal, authentication) => {
         observedRequestId = input.requestId;
         assert.equal(signal, controller.signal);
+        assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
           status: "completed",
           reason: "accepted",
@@ -155,9 +156,10 @@ test("MCP Decision uses a separate entry and never forwards comment to Objective
       runObjective: async () => {
         throw new Error("not_expected");
       },
-      submitDecision: async (input) => {
+      submitDecision: async (input, authentication) => {
         calls += 1;
         assert.equal(input.selectedOption, "resume");
+        assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
           status: "completed",
           reason: "decision_applied",

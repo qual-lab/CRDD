@@ -690,6 +690,135 @@ export function settleProjectTask(
 }
 
 /**
+ * Convert one exact, previously durable recovery obligation into a failed
+ * Task only after the Runtime has independently confirmed that recovery and
+ * resource absence. The old attempt identity remains historical; a separate
+ * retry transition must create the next attempt.
+ */
+export function settleProjectTaskRecovery(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  taskId: string,
+  recoveryId: string,
+): StateResult {
+  const task = state.tasks.find(
+    (candidate) => candidate.definition.id === taskId,
+  );
+  if (
+    state.generation !== expectedGeneration ||
+    !task ||
+    task.state !== "recovery_required" ||
+    task.recoveryId !== recoveryId ||
+    !isProjectRuntimeRecoveryIdentity(recoveryId)
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_task_recovery_settlement_mismatch",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  const tasks = replaceTask(state, taskId, (current) =>
+    Object.freeze({
+      ...current,
+      state: "failed" as const,
+      cleanupConfirmed: true,
+      recoveryId: null,
+    }),
+  );
+  const objectives = state.objectives.map((objective) =>
+    objective.definition.id === task.definition.objectiveId
+      ? Object.freeze({ ...objective, state: "blocked" as const })
+      : objective,
+  );
+  const recoveryRemaining = tasks.some(
+    (candidate) => candidate.state === "recovery_required",
+  );
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_task_recovery_settled",
+    state: projectState({
+      ...state,
+      generation: state.generation + 1,
+      milestone: Object.freeze({
+        ...state.milestone,
+        state: recoveryRemaining
+          ? ("recovery_required" as const)
+          : ("executing" as const),
+      }),
+      objectives,
+      tasks,
+    }),
+    taskIds: Object.freeze([taskId]),
+  });
+}
+
+/**
+ * Resume one Task after the Runtime has settled its exact durable recovery
+ * obligation. Settlement and retry are one State generation so interruption
+ * cannot leave a recovered Task detached from its Queue resume condition.
+ */
+export function settleAndRetryProjectTaskRecovery(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  taskId: string,
+  recoveryId: string,
+  maximumRetries: number,
+): StateResult {
+  const task = state.tasks.find(
+    (candidate) => candidate.definition.id === taskId,
+  );
+  if (
+    state.generation !== expectedGeneration ||
+    !task ||
+    task.state !== "recovery_required" ||
+    task.recoveryId !== recoveryId ||
+    !isProjectRuntimeRecoveryIdentity(recoveryId) ||
+    !Number.isSafeInteger(maximumRetries) ||
+    maximumRetries < 0 ||
+    task.retryCount >= maximumRetries
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_task_recovery_retry_invalid",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  const tasks = replaceTask(state, taskId, (current) =>
+    Object.freeze({
+      ...current,
+      state: "ready" as const,
+      attemptId: null,
+      operationId: null,
+      authorityBindingId: null,
+      cleanupConfirmed: true,
+      recoveryId: null,
+      candidateId: null,
+      retryCount: current.retryCount + 1,
+    }),
+  );
+  const objectives = state.objectives.map((objective) =>
+    objective.definition.id === task.definition.objectiveId
+      ? Object.freeze({ ...objective, state: "executing" as const })
+      : objective,
+  );
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_task_recovery_settled_for_retry",
+    state: projectState({
+      ...state,
+      generation: state.generation + 1,
+      milestone: Object.freeze({
+        ...state.milestone,
+        state: "executing" as const,
+      }),
+      objectives,
+      tasks,
+    }),
+    taskIds: Object.freeze([taskId]),
+  });
+}
+
+/**
  * Replace only a failed task inside the already-authorized milestone scope.
  * Replanning never mutates the failed record in place: the old task becomes
  * superseded and every replacement receives a new stable identity.  The

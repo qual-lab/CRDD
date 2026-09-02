@@ -6,9 +6,9 @@
 - 判断日: 2026-09-02
 - 対象: v0.18～v0.18.1のDogfoodingと外部レビューから確認した、保証活動、変更経路および人間可読性の横断改善
 - 対象リリース: `v0.19.0`
-- 変更分類: `normative` / `additive`候補
-- `migration_required`: `false`候補。既存CHGの遡及更新、新しい監査、専用データベースまたは固定Profileを要求しない
-- リリースレベル: `MINOR`候補
+- 変更分類: `normative` / `breaking`
+- `migration_required`: `true`。現在または再開対象の変更、保証活動および人間可読成果物だけを適用判定し、既存CHGの遡及更新、新しい監査、専用データベースまたは固定Profileは要求しない
+- リリースレベル: `MINOR`
 
 正本: [変更トレース](../../12_Change.md)、[品質保証](../../16_Quality_Assurance.md)、[文書化](../../03_Documentation.md)、[エージェント](../../10_Agent.md)、[外部コミュニケーション](../../17_Communication.md)、[アーキテクチャ](../../27_Architecture.md)、[文書監査](../../51_Document_Audit.md)
 

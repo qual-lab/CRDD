@@ -66,6 +66,7 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
   const workingDirectory = root(t);
   let effects = 0;
   const dependencies = {
+    authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => ({
       status: "verified",
       repositoryBindingId: "binding-a",
@@ -153,6 +154,7 @@ test("a scheduled Objective arriving during interactive execution waits without 
     observeEffectStart = resolve;
   });
   const dependencies = {
+    authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => ({
       status: "verified",
       repositoryBindingId: "binding-a",
@@ -226,6 +228,7 @@ test("binding or planner scope failure creates no Project State or Task effect",
   const workingDirectory = root(t);
   let effects = 0;
   const base = {
+    authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => ({
       status: "verified",
       repositoryBindingId: "binding-a",
@@ -286,6 +289,7 @@ test("public Objective intake rejects unknown fields, accessors, proxies, and no
   let bindingCalls = 0;
   let taskEffects = 0;
   const dependencies = {
+    authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => {
       bindingCalls += 1;
       return {
@@ -403,5 +407,101 @@ test("Objective intake accepts only a closed explicit decision-capability replac
       },
     }),
     null,
+  );
+});
+
+test("exact Runtime-owned recovery settles and retries without client recovery authority", async (t) => {
+  const workingDirectory = root(t);
+  const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  let attempts = 0;
+  let recoveries = 0;
+  const dependencies = {
+    authenticatedPrincipalId: "principal-a",
+    verifyProjectBinding: () => ({
+      status: "verified",
+      repositoryBindingId: "binding-a",
+      repositoryRevision: revision,
+      workingDirectory,
+      repositoryRoot: workingDirectory,
+      bindingCapability: {},
+    }),
+    planObjective: () => ({
+      milestoneAcceptanceCriteria: ["Result exists."],
+      objectives: [
+        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
+      ],
+      tasks: [
+        {
+          id: "task-a",
+          objectiveId: "objective-a",
+          dependencies: [],
+          allowedPaths: ["result.txt"],
+          conflictKeys: ["result.txt"],
+        },
+      ],
+    }),
+    createTaskExecutions: () => [
+      {
+        taskId: "task-a",
+        authorityBindingId: "authority-a",
+        taskRequest: {},
+        taskAuthorityCapability: {},
+        repositoryRoot: workingDirectory,
+      },
+    ],
+    observeLeaseOwner: () => ({ status: "absent" }),
+    recoverTaskRecovery: (exact: string) => {
+      recoveries += 1;
+      assert.equal(exact, recoveryId);
+      return { status: "recovered", recoveryId: null };
+    },
+    execution: {
+      runSingleTaskAttempt: async (input: Parameters<typeof completed>[0]) => {
+        attempts += 1;
+        return attempts === 1
+          ? {
+              ...completed(input),
+              status: "blocked" as const,
+              reason: "docker_cleanup_unknown",
+              effectState: "unknown" as const,
+              cleanupConfirmed: false,
+              manualRecoveryRequired: true,
+              recoveryIds: [recoveryId],
+              candidateId: null,
+            }
+          : completed(input);
+      },
+    },
+  };
+
+  const first = await runProjectRuntimeObjective(
+    dependencies,
+    request(),
+    new AbortController().signal,
+  );
+  assert.equal(first.reason, "project_runtime_task_recovery_required");
+  assert.equal(first.manualRecoveryRequired, true);
+  assert.equal(recoveries, 0);
+
+  const resumed = await runProjectRuntimeObjective(
+    dependencies,
+    request(),
+    new AbortController().signal,
+  );
+  assert.equal(resumed.status, "completed");
+  assert.equal(
+    resumed.reason,
+    "project_runtime_tasks_completed_integration_pending",
+  );
+  assert.equal(recoveries, 1);
+  assert.equal(attempts, 2);
+  const latest = readProjectRuntimeState(
+    workingDirectory,
+    "binding-a",
+    "project-a",
+  );
+  assert.equal(
+    latest.status === "completed" && latest.value?.tasks[0]?.retryCount,
+    1,
   );
 });

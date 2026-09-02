@@ -435,23 +435,8 @@ test("PR-D-Q-01 binds queue ownership to a live opaque lease", (t) => {
     "queue-b",
     "project-operation",
   );
-  assert.equal(wrongQueueLease.status, "completed");
-  if (wrongQueueLease.status !== "completed")
-    throw new Error("wrong_lease_fixture_failed");
-  const wrongOwner = updateProjectOperationQueueState(
-    root,
-    "binding-a",
-    "queue-a",
-    2,
-    {
-      state: "running",
-      lease: wrongQueueLease.value,
-      resumeCondition: null,
-      resultReference: null,
-    },
-  );
-  assert.equal(wrongOwner.reason, "project_runtime_queue_lease_invalid");
-  assert.equal(wrongQueueLease.value.release().status, "completed");
+  assert.equal(wrongQueueLease.status, "blocked");
+  assert.equal(wrongQueueLease.reason, "project_runtime_lease_unavailable");
   assert.equal(acquired.value.release().status, "completed");
   const releasedLease = updateProjectOperationQueueState(
     root,
@@ -744,9 +729,9 @@ if (lease.status !== "completed") process.exit(20);`,
   const locks = path.join(root, ".crdd", "project-runtime", "locks");
   const marker = path.join(
     locks,
-    "project-operation-project-a-queue-a.acquire-pending",
+    "project-operation-binding-a.acquire-pending",
   );
-  const lock = path.join(locks, "project-operation-project-a-queue-a.lock");
+  const lock = path.join(locks, "project-operation-binding-a.lock");
   assert.equal(fs.existsSync(marker), true);
   assert.equal(fs.existsSync(lock), true);
   const acquisitionMarkerBytes = fs.readFileSync(marker, "utf8");
@@ -1080,14 +1065,14 @@ if (lease.status !== "completed") process.exit(20);`,
   const locks = path.join(root, ".crdd", "project-runtime", "locks");
   const acquisitionMarker = path.join(
     locks,
-    "project-operation-project-a-queue-a.acquire-pending",
+    "project-operation-binding-a.acquire-pending",
   );
   const pending = JSON.parse(fs.readFileSync(acquisitionMarker, "utf8")) as {
     ownerGeneration: string;
   };
   const releaseMarker = path.join(
     locks,
-    "project-operation-project-a-queue-a.release-unknown",
+    "project-operation-binding-a.release-unknown",
   );
   fs.writeFileSync(releaseMarker, `${pending.ownerGeneration}\n`, "utf8");
   const recovered = reconcileProjectRuntimeLeaseOwnerLoss(
@@ -1101,7 +1086,7 @@ if (lease.status !== "completed") process.exit(20);`,
   assert.equal(fs.existsSync(acquisitionMarker), false);
   assert.equal(fs.existsSync(releaseMarker), false);
   assert.equal(
-    fs.existsSync(path.join(locks, "project-operation-project-a-queue-a.lock")),
+    fs.existsSync(path.join(locks, "project-operation-binding-a.lock")),
     false,
   );
   const reacquired = acquireProjectRuntimeLease(
@@ -1202,7 +1187,7 @@ test("PR-D-A-01 preserves malformed and partial acquisition state with an exact 
     const locks = path.join(scenarioRoot, ".crdd", "project-runtime", "locks");
     if (scenario === "malformed-marker")
       fs.writeFileSync(
-        path.join(locks, "project-operation-project-a-queue-a.acquire-pending"),
+        path.join(locks, "project-operation-binding-a.acquire-pending"),
         '{"ownerGeneration":',
         "utf8",
       );
@@ -1210,15 +1195,13 @@ test("PR-D-A-01 preserves malformed and partial acquisition state with an exact 
       fs.writeFileSync(
         path.join(
           locks,
-          ".pending-project-operation-project-a-queue-a-acquisition-partial.tmp",
+          ".pending-project-operation-binding-a-acquisition-partial.tmp",
         ),
         "partial",
         "utf8",
       );
     if (scenario === "existing-lock")
-      fs.mkdirSync(
-        path.join(locks, "project-operation-project-a-queue-a.lock"),
-      );
+      fs.mkdirSync(path.join(locks, "project-operation-binding-a.lock"));
     const result = acquireProjectRuntimeLease(
       scenarioRoot,
       "binding-a",
@@ -1764,19 +1747,8 @@ test("PR-D-A-01 rejects generic recovery resume without advancing generation", (
     "queue-b",
     "project-operation",
   );
-  assert.equal(wrongQueueLease.status, "completed");
-  if (wrongQueueLease.status !== "completed")
-    throw new Error("wrong_queue_lease_fixture_failed");
-  assert.equal(
-    updateProjectOperationQueueState(root, "binding-a", "queue-a", 2, {
-      state: "human_decision_required",
-      lease: wrongQueueLease.value,
-      resumeCondition: "resume-a",
-      resultReference: null,
-    }).reason,
-    "project_runtime_queue_lease_invalid",
-  );
-  assert.equal(wrongQueueLease.value.release().status, "completed");
+  assert.equal(wrongQueueLease.status, "blocked");
+  assert.equal(wrongQueueLease.reason, "project_runtime_lease_unavailable");
   assert.deepEqual(fs.readdirSync(queueDirectory(root)), [
     "generation-1.json",
     "generation-2.json",

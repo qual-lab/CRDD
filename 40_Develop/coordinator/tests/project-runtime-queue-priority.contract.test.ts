@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   acquireProjectRuntimeLease,
@@ -171,4 +172,104 @@ test("scheduled work arriving after an interactive operation starts remains effe
   );
 
   assert.equal(lease.value.release().status, "completed");
+});
+
+test("one Repository Binding cannot acquire two Project Operation leases", (t) => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-project-binding-lease-"),
+  );
+  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const first = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(first.status, "completed");
+  if (first.status !== "completed") throw new Error("first lease");
+  const sameProject = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-b",
+    "project-operation",
+  );
+  const otherProject = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-b",
+    "queue-c",
+    "project-operation",
+  );
+  assert.equal(sameProject.status, "blocked");
+  assert.equal(sameProject.reason, "project_runtime_lease_unavailable");
+  assert.equal(otherProject.status, "blocked");
+  assert.equal(otherProject.reason, "project_runtime_lease_unavailable");
+  assert.equal(first.value.release().status, "completed");
+});
+
+test("separate processes cannot both own one Repository Binding operation", async (t) => {
+  const workingDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-project-priority-race-"),
+  );
+  execFileSync("git", ["init", "--quiet", workingDirectory], {
+    windowsHide: true,
+  });
+  t.after(() => fs.rmSync(workingDirectory, { recursive: true, force: true }));
+  const barrier = path.join(workingDirectory, ".crdd-race-go");
+  const probe = fileURLToPath(
+    new URL("./fixtures/project-runtime-lease-race-probe.ts", import.meta.url),
+  );
+  const run = (projectId: string, queueId: string) => {
+    const child = spawn(
+      process.execPath,
+      [probe, workingDirectory, barrier, projectId, queueId],
+      { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    return {
+      child,
+      completed: new Promise<
+        Readonly<{ code: number | null; stdout: string; stderr: string }>
+      >((resolve) => {
+        let stdout = "";
+        let stderr = "";
+        child.stdout.setEncoding("utf8").on("data", (chunk) => {
+          stdout += String(chunk);
+        });
+        child.stderr.setEncoding("utf8").on("data", (chunk) => {
+          stderr += String(chunk);
+        });
+        child.once("exit", (code) => resolve({ code, stdout, stderr }));
+      }),
+    };
+  };
+  const first = run("project-a", "queue-a");
+  const second = run("project-b", "queue-b");
+  const deadline = Date.now() + 10_000;
+  while (
+    (!fs.existsSync(`${barrier}.queue-a.ready`) ||
+      !fs.existsSync(`${barrier}.queue-b.ready`)) &&
+    Date.now() < deadline
+  )
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(fs.existsSync(`${barrier}.queue-a.ready`), true);
+  assert.equal(fs.existsSync(`${barrier}.queue-b.ready`), true);
+  fs.writeFileSync(barrier, "go\n", "utf8");
+  const results = await Promise.all([first.completed, second.completed]);
+  for (const result of results) assert.equal(result.code, 0, result.stderr);
+  const outcomes = results.map((result) => JSON.parse(result.stdout));
+  assert.equal(
+    outcomes.filter((result) => result.status === "acquired").length,
+    1,
+  );
+  assert.equal(
+    outcomes.filter((result) => result.status === "blocked").length,
+    1,
+  );
+  assert.equal(
+    outcomes.find((result) => result.status === "blocked")?.reason,
+    "project_runtime_lease_unavailable",
+  );
 });

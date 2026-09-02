@@ -6,9 +6,9 @@
 - 判断日: 2026-09-01
 - 対象: v0.18 Single Task Runtimeを実行単位として再利用する、単一Project／単一RepositoryのMilestone運営Runtime
 - 対象リリース: `v0.19.0`
-- 変更分類: `normative` / `breaking`候補
-- `migration_required`: `true`候補。v0.18 Runtime利用者の既存Task入口は保持し、新しいProject Runtime利用時だけ追加契約を適用する
-- リリースレベル: `MINOR`候補
+- 変更分類: `normative` / `breaking`
+- `migration_required`: `true`。v0.18 Runtime利用者の既存Task入口は保持し、新しいProject Runtimeを利用する場合に追加契約と移行確認を適用する
+- リリースレベル: `MINOR`
 
 正本: [Discovery](../../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[UX](../../02_UX/01_User_Experience.md#6-milestoneを委ねる利用体験)、[IA](../../03_IA/01_Information_Architecture.md#6-project-runtimeの情報階層)、[UI](../../04_UI/01_User_Interface.md#8-project-runtimeの状態表示)、[振る舞い仕様](../../05_SPEC/01_Behavior_Specification.md#project-runtime-contract)、[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-reference-architecture)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification)
 
@@ -73,8 +73,8 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 | 区分 | 現在値 |
 |---|---|
-| 成立 | 設計対応、契約・結合試験、署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk文書1件の自己適用と正本採用 |
-| 未成立 | 認証済みMCP Client、実取消、親Process喪失、Recovery settlement、対話／スケジュール競合を公開Process構成で結ぶProject全体の結合確認 |
+| 成立 | 設計対応、契約・結合試験、署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk文書1件の自己適用と正本採用、認証主体の意味入口への伝播、Repository Binding単位の別Process排他、Task Authorityの実行直前発行、Recovery settlementからfresh retryまでの通常再入場 |
+| 未成立 | 認証済み実MCP Client、実取消、親Process喪失、実Docker資源のRecovery settlement、対話／スケジュール競合を公開Process構成で結ぶProject全体の結合確認 |
 | 次Gate | 残る代表経路のE2E、未評価事項のRelease処遇、独立確認・必要監査、収載・分類・移行・残存Riskの人間判断 |
 | 根拠 | [正常縦断E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification) |
 
@@ -131,6 +131,12 @@ OS管理のHuman Decision保護Store、公開MCP stdio Process、および実Can
 [自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)では、CRDD自身の品質状態更新を一つのMilestoneとしてClaude Code ExecutorとCodex独立Reviewerへ委譲し、指定した1ファイルだけの変更、Milestone受入および正本採用まで126.528秒で完了した。開始後の人間入力、再試行、再計画および手動Recoveryはなく、cleanupも確認した。これにより、低Riskの単一文書更新について、人間がAgent間のContextを運搬せずAccepted Resultへ到達する限定的な実務利用は成立した。比較Baseline、人間の実作業時間、AI処理時間およびProvider利用量は未測定であり、速度・費用・品質・Provider分散の総合的な優位は未確定とする。次のGateは、Project全体の結合確認に残る代表経路を実行し、未評価事項のRelease処遇を整理した固定候補へ独立確認と必要監査を一括して、v0.19の収載・移行・Release判断材料を確定することである。
 
 Project全体の結合確認では、対話Operationが実Provider処理中になった後に同じProjectへスケジュール要求を到着させたところ、後着要求が二つ目のQueue ownerを取得して`running`へ進み、共有Project Stateに実行可能TaskがないことをRecoveryへ誤分類した。既存試験は対話・スケジュールの両要求を未開始状態で同時に並べる順序だけを確認しており、「先行要求が`leased / running`になった後の後着」という時間順を覆っていなかった。Queue優先順位を未所有要求間の選択だけへ限定し、実行中Ownerが存在する間は二つ目のOperation Leaseを発行せず、後着スケジュール要求を`waiting_foreground`へ耐久化するよう是正した。Queue単体と公開Objective受付の両層で、後着要求のProvider Effect 0、cleanup確認済み、手動Recovery不要、および先行Taskだけが一度実行されることを確認した。本番同等の公開Process構成による再実測は、新しい署名固定版を作る前の独立プレチェック後に行い、成立前はPR-Q-05を部分確認のまま保持する。
+
+固定候補前の独立技術確認では、後着Queueの時間順是正だけでは排他の原子性、Recoveryの通常再入場、MCP認証主体の意味入口への伝播、Task Authorityの有効期間、およびstdio終了結果のcleanup意味保持が不足していることを検出した。局所例外ではなく、Project Operation LeaseをRepository Binding単位のOS排他へ変更し、別Process同時起動でもexactに一つだけが所有する試験を追加した。v0.19は同じBinding内を直列化し、Project間並列を提供済みとしない。
+
+RecoveryはClient指定IDを受ける別経路を作らず、同じObjective requestの再入場時に耐久Queueのexact Recovery IDを発行Runtimeへ渡す。回復完了後に専用Queue settlementを先に耐久化し、同じProject State世代で旧attemptをfresh retryへ置換する。settlement直後に中断してもRecovery Effectを再発行せず、State更新から再開できる。Identity不一致、資源残存、観測不能または再試行上限到達では通常実行へ戻らない。契約試験では初回のRecovery保持、再入場、exact ID、fresh attempt、2回目のTask完了および残存Recovery 0までを確認した。実Docker資源を伴う公開Process E2Eは署名固定候補後のGateとして残す。
+
+Task AuthorityはTask Graph作成時にまとめて発行せず、各attemptの予約を耐久化した後、外部Effect直前に一回限りのfresh Authorityとして発行する。7 Taskを2 waveで実行する試験は7個の異なるAuthorityを確認し、開始前取消は発行0を確認する。MCP AdapterはRuntimeが検証したprincipal identityをObjective／Decisionの共通意味入口まで渡し、request identityへ結合する。stdio transportは自身の終了処理が成功しても、意味結果のcleanup不明または手動回復要を成功へ畳まない。
 
 ## 9. 設計確定からリリース判断までの実行計画
 

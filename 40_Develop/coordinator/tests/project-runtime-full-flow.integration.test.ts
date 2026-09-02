@@ -39,6 +39,7 @@ function fixture(t: test.TestContext) {
   });
   let attempts = 0;
   const dependencies = {
+    authenticatedPrincipalId: "principal-full",
     verifyProjectBinding: () => ({
       status: "verified",
       repositoryBindingId: "binding-full",

@@ -423,9 +423,11 @@ function leaseAcquisitionRecoveryId(
   kind: LeaseKind,
 ) {
   const identityInput =
-    kind === "canonical-adoption"
-      ? `${repositoryBindingId}\0${projectId}\0${kind}`
-      : `${repositoryBindingId}\0${projectId}\0${queueId}\0${kind}`;
+    kind === "project-operation"
+      ? `${repositoryBindingId}\0${kind}`
+      : kind === "canonical-adoption"
+        ? `${repositoryBindingId}\0${projectId}\0${kind}`
+        : `${repositoryBindingId}\0${projectId}\0${queueId}\0${kind}`;
   return `lease-acquisition-${digest(identityInput).slice(0, 40)}`;
 }
 
@@ -435,9 +437,11 @@ function leaseIdentity(
   queueId: string,
   kind: LeaseKind,
 ) {
-  return kind === "canonical-adoption"
-    ? `${kind}-${repositoryBindingId}-${projectId}`
-    : `${kind}-${projectId}-${queueId}`;
+  return kind === "project-operation"
+    ? `${kind}-${repositoryBindingId}`
+    : kind === "canonical-adoption"
+      ? `${kind}-${repositoryBindingId}-${projectId}`
+      : `${kind}-${projectId}-${queueId}`;
 }
 
 function leaseAcquisitionTemporaryPrefix(identity: string) {
@@ -1202,11 +1206,7 @@ export function selectNextProjectOperation(
     // violate the Project concurrency boundary before task scheduling can
     // reject it.  Keep later arrivals effect-free until the active owner has
     // reached a terminal/recoverable state and released its lease.
-    const active = entries.find(
-      (entry) =>
-        (entry.state === "leased" || entry.state === "running") &&
-        entry.ownerGeneration !== null,
-    );
+    const active = entries.find((entry) => entry.ownerGeneration !== null);
     if (active) {
       for (const scheduled of entries.filter(
         (entry) =>
@@ -1456,6 +1456,77 @@ export function updateProjectOperationQueueState(
   }
 }
 
+/**
+ * Resume a Queue only after its exact Runtime-owned recovery reference has
+ * been settled. The generic Queue transition API deliberately cannot perform
+ * this transition.
+ */
+export function settleProjectOperationQueueRecovery(
+  workingDirectory: string,
+  repositoryBindingId: string,
+  queueId: string,
+  expectedGeneration: number,
+  recoveryId: string,
+): StoreResult<ProjectQueueEntry> {
+  try {
+    if (
+      !validId(repositoryBindingId) ||
+      !validId(queueId) ||
+      !Number.isSafeInteger(expectedGeneration) ||
+      expectedGeneration < 1 ||
+      !validResultReference(recoveryId)
+    )
+      return blocked("project_runtime_queue_recovery_settlement_invalid");
+    const { runtime } = storageRoot(workingDirectory);
+    const entryDirectory = path.join(runtime, "queue", queueId);
+    return withMutationLock(runtime, "queue-mutation", () => {
+      const history = validatedQueueHistory(
+        readEnvelopes(entryDirectory, "generation-"),
+        repositoryBindingId,
+        queueId,
+      );
+      const currentEnvelope = history?.at(-1);
+      if (
+        !currentEnvelope ||
+        currentEnvelope.updatedGeneration !== expectedGeneration ||
+        !validQueueEntry(currentEnvelope.content)
+      )
+        return blocked("project_runtime_queue_recovery_generation_conflict");
+      const current = currentEnvelope.content;
+      if (
+        current.state !== "recovery_required" ||
+        current.ownerGeneration !== null ||
+        current.resumeCondition !== "exact_recovery" ||
+        current.resultReference !== recoveryId
+      )
+        return blocked("project_runtime_queue_recovery_identity_mismatch");
+      const value: ProjectQueueEntry = Object.freeze({
+        ...current,
+        state: "queued" as const,
+        generation: current.generation + 1,
+        ownerGeneration: null,
+        resumeCondition: "exact_recovery_settled",
+        resultReference: recoveryId,
+      });
+      atomicCreateAndReadBack(
+        entryDirectory,
+        `generation-${value.generation}.json`,
+        envelope(
+          "queue-entry",
+          repositoryBindingId,
+          current.projectId,
+          1,
+          value.generation,
+          value,
+        ),
+      );
+      return completed("project_runtime_queue_recovery_settled", value);
+    });
+  } catch {
+    return blocked("project_runtime_queue_recovery_settlement_unknown", true);
+  }
+}
+
 export function acquireProjectRuntimeLease(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -1508,16 +1579,14 @@ export function acquireProjectRuntimeLease(
       const pending = readLeaseAcquisitionMarker(acquisitionMarker);
       if (pending.ownerProcessId === process.pid)
         return blocked("project_runtime_lease_unavailable");
-      if (
-        pending.kind !== kind ||
-        (kind === "project-operation" && pending.queueId !== queueId) ||
-        pending.recoveryId !== recoveryId
-      )
+      if (pending.kind !== kind || pending.recoveryId !== recoveryId)
         return blocked(
           "project_runtime_lease_acquisition_recovery_evidence_mismatch",
           true,
           recoveryId,
         );
+      if (kind === "project-operation" && pending.queueId !== queueId)
+        return blocked("project_runtime_lease_unavailable");
       return blocked(
         "project_runtime_lease_acquisition_recovery_required",
         true,
@@ -1561,6 +1630,16 @@ export function acquireProjectRuntimeLease(
     } catch (error) {
       if (!acquisitionMarkerOwned) {
         try {
+          if (fs.existsSync(acquisitionMarker)) {
+            const competing = readLeaseAcquisitionMarker(acquisitionMarker);
+            if (
+              competing.kind === kind &&
+              competing.recoveryId === recoveryId &&
+              (competing.ownerProcessId !== process.pid ||
+                (kind === "project-operation" && competing.queueId !== queueId))
+            )
+              return blocked("project_runtime_lease_unavailable");
+          }
           if (
             leaseAcquisitionFootprintAbsent(locks, identity, [
               lock,
@@ -1822,7 +1901,12 @@ export function settleProjectOperationQueueLeaseRelease(
           "project_runtime_queue_release_settlement_state_mismatch",
           true,
         );
-      const identity = `project-operation-${current.projectId}-${queueId}`;
+      const identity = leaseIdentity(
+        repositoryBindingId,
+        current.projectId,
+        queueId,
+        "project-operation",
+      );
       const locks = ensureDirectory(runtime, "locks");
       if (
         fs.existsSync(path.join(locks, `${identity}.lock`)) ||
@@ -2191,7 +2275,12 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
       const current = currentEnvelope?.content;
       if (!currentEnvelope || !current)
         return blocked("project_runtime_lease_recovery_state_mismatch");
-      const identity = `project-operation-${projectId}-${queueId}`;
+      const identity = leaseIdentity(
+        repositoryBindingId,
+        projectId,
+        queueId,
+        "project-operation",
+      );
       const locks = ensureDirectory(runtime, "locks");
       const lock = path.join(locks, `${identity}.lock`);
       const recoveryMarker = path.join(locks, `${identity}.release-unknown`);

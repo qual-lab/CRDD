@@ -5,6 +5,7 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "./coordinator-task-runtime.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "./platform-provisioner-package-filesystem.ts";
+import { recoverRuntimeOwnedDockerTask } from "./docker-recovery-runtime.ts";
 import {
   inspectProjectRuntimeObjectiveRequest,
   runProjectRuntimeObjective,
@@ -97,6 +98,7 @@ async function executeProjectRuntimePublicObjective(
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
   workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
 ) {
   const request = inspectProjectRuntimeObjectiveRequest(rawRequest);
   if (!request)
@@ -123,6 +125,20 @@ async function executeProjectRuntimePublicObjective(
     });
   }
   const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
+  const authenticated = runtimeDependencies.openDecisionStore();
+  if (
+    authenticated.status !== "completed" ||
+    (authenticationContext !== undefined &&
+      authenticationContext.principalId !== authenticated.principalId)
+  )
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "project_runtime_authenticated_principal_not_verified",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
   const observedPlatform = observeProjectRuntimePlatformFamily();
   const platform =
     observedPlatform.status === "observed" &&
@@ -131,6 +147,7 @@ async function executeProjectRuntimePublicObjective(
       : null;
   const execution = await runProjectRuntimeObjective(
     {
+      authenticatedPrincipalId: authenticated.principalId,
       verifyProjectBinding(input) {
         if (
           identity?.status !== "candidate" ||
@@ -142,11 +159,7 @@ async function executeProjectRuntimePublicObjective(
           });
         return Object.freeze({
           status: "verified",
-          repositoryBindingId: stable(
-            "binding",
-            repositoryRoot,
-            input.projectId,
-          ),
+          repositoryBindingId: stable("binding", repositoryRoot),
           repositoryRevision: identity.commit,
           workingDirectory: repositoryRoot,
           repositoryRoot,
@@ -187,12 +200,8 @@ async function executeProjectRuntimePublicObjective(
       createTaskExecutions(request, _bindingCapability, state) {
         return state.tasks
           .filter((task) => task.state !== "superseded")
-          .map((task) => {
-            const taskAuthorityCapability =
-              runtimeDependencies.issueTaskAuthority();
-            if (!taskAuthorityCapability)
-              throw new Error("project_runtime_package_not_verified");
-            return Object.freeze({
+          .map((task) =>
+            Object.freeze({
               taskId: task.definition.id,
               authorityBindingId: stable(
                 "authority",
@@ -200,7 +209,9 @@ async function executeProjectRuntimePublicObjective(
                 request.repositoryRevision,
                 String(task.retryCount),
               ),
-              taskAuthorityCapability,
+              // This is a non-authority placeholder. The verified, single-use
+              // capability is issued just before the reserved Task attempt.
+              taskAuthorityCapability: Object.freeze({}),
               repositoryRoot,
               taskRequest: buildProjectRuntimeCoordinatorTaskRequest(
                 request,
@@ -208,8 +219,8 @@ async function executeProjectRuntimePublicObjective(
                   request.requestedExecutorProvider ?? "auto",
                 ),
               ),
-            });
-          });
+            }),
+          );
       },
       observeLeaseOwner(owner) {
         const lockLease = platform?.operations.lock_lease as
@@ -224,7 +235,9 @@ async function executeProjectRuntimePublicObjective(
           })
         );
       },
+      recoverTaskRecovery: recoverRuntimeOwnedDockerTask,
       execution: {
+        issueTaskAuthority: runtimeDependencies.issueTaskAuthority,
         runSingleTaskAttempt: (input) =>
           runProjectRuntimeSingleTaskAttempt(
             {
@@ -249,7 +262,7 @@ async function executeProjectRuntimePublicObjective(
     runtimeDependencies.createIntegrationAdapter(repositoryRoot),
     {
       workingDirectory: repositoryRoot,
-      repositoryBindingId: stable("binding", repositoryRoot, request.projectId),
+      repositoryBindingId: stable("binding", repositoryRoot),
       projectId: request.projectId,
       milestoneId: request.milestoneId,
       queueId: execution.queueId,
@@ -282,7 +295,7 @@ async function executeProjectRuntimePublicObjective(
   );
   const decisionCommon = {
     workingDirectory: repositoryRoot,
-    repositoryBindingId: stable("binding", repositoryRoot, request.projectId),
+    repositoryBindingId: stable("binding", repositoryRoot),
     projectId: request.projectId,
     milestoneId: request.milestoneId,
     queueId: execution.queueId,
@@ -324,12 +337,14 @@ export function runProjectRuntimePublicObjective(
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
   workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
 ) {
   return executeProjectRuntimePublicObjective(
     productionExecutionDependencies,
     rawRequest,
     cancellationSignal,
     workingDirectory,
+    authenticationContext,
   );
 }
 
@@ -355,18 +370,25 @@ export function createDevelopmentProjectRuntimePublicObjectiveCandidate(
       rawRequest: unknown,
       cancellationSignal: AbortSignal,
       workingDirectory: string,
+      authenticationContext?: Readonly<{ principalId: string }>,
     ) =>
       executeProjectRuntimePublicObjective(
         fixed,
         rawRequest,
         cancellationSignal,
         workingDirectory,
+        authenticationContext,
       ),
-    runDecision: (rawRequest: unknown, workingDirectory: string) =>
+    runDecision: (
+      rawRequest: unknown,
+      workingDirectory: string,
+      authenticationContext?: Readonly<{ principalId: string }>,
+    ) =>
       executeProjectRuntimePublicDecision(
         fixed.openDecisionStore,
         rawRequest,
         workingDirectory,
+        authenticationContext,
       ),
   });
 }
@@ -375,6 +397,7 @@ function executeProjectRuntimePublicDecision(
   openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore,
   rawRequest: unknown,
   workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
 ) {
   const request = inspectMcpProjectRuntimeDecision(rawRequest);
   if (!request)
@@ -402,7 +425,11 @@ function executeProjectRuntimePublicDecision(
     });
   }
   const protectedStore = openDecisionStore();
-  if (protectedStore.status !== "completed")
+  if (
+    protectedStore.status !== "completed" ||
+    (authenticationContext !== undefined &&
+      authenticationContext.principalId !== protectedStore.principalId)
+  )
     return Object.freeze({
       contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
@@ -436,7 +463,7 @@ function executeProjectRuntimePublicDecision(
     });
   const common = {
     workingDirectory: repositoryRoot,
-    repositoryBindingId: stable("binding", repositoryRoot, projectId),
+    repositoryBindingId: stable("binding", repositoryRoot),
     projectId,
     milestoneId,
     queueId: record.queueId,
@@ -460,10 +487,12 @@ function executeProjectRuntimePublicDecision(
 export function runProjectRuntimePublicDecision(
   rawRequest: unknown,
   workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
 ) {
   return executeProjectRuntimePublicDecision(
     openRuntimeOwnedWindowsProjectDecisionStore,
     rawRequest,
     workingDirectory,
+    authenticationContext,
   );
 }
