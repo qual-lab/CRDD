@@ -6,6 +6,7 @@ import {
   acquireProjectRuntimeLease,
   readProjectOperationQueueState,
   readProjectRuntimeState,
+  reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss,
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
 } from "./project-runtime-durable-foundation.ts";
@@ -53,6 +54,12 @@ export type ProjectRuntimeIntegrationDependencies = Readonly<{
     }>,
   ) => Promise<unknown>;
   observeCanonicalRepository: () => unknown;
+  observeLeaseOwner?: (
+    owner: Readonly<{
+      ownerProcessId: number;
+      ownerGeneration: string;
+    }>,
+  ) => unknown;
   adoptCandidate: (
     input: Readonly<{
       candidateId: string;
@@ -314,6 +321,7 @@ function response(
     receiptId?: string | null;
     cleanupConfirmed?: boolean;
     manualRecoveryRequired?: boolean;
+    recoveryIds?: readonly string[];
   }> = {},
 ) {
   return Object.freeze({
@@ -328,6 +336,7 @@ function response(
     receiptId: options.receiptId ?? null,
     cleanupConfirmed: options.cleanupConfirmed ?? true,
     manualRecoveryRequired: options.manualRecoveryRequired ?? false,
+    recoveryIds: Object.freeze([...(options.recoveryIds ?? [])]),
   });
 }
 
@@ -512,6 +521,33 @@ export async function integrateProjectRuntimeOperation(
 
   let receipt: AdoptionReceipt | null = null;
   if (input.adoptionAuthorized) {
+    if (typeof dependencies.observeLeaseOwner !== "function")
+      return response(
+        input,
+        "blocked",
+        "project_runtime_lease_owner_observation_unavailable",
+        state,
+        {
+          candidateId: candidate.candidateId,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+        },
+      );
+    const prepared = reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
+      input.workingDirectory,
+      input.repositoryBindingId,
+      input.projectId,
+      dependencies.observeLeaseOwner,
+    );
+    if (prepared.status !== "completed")
+      return response(input, "blocked", prepared.reason, state, {
+        candidateId: candidate.candidateId,
+        cleanupConfirmed: !prepared.manualRecoveryRequired,
+        manualRecoveryRequired: prepared.manualRecoveryRequired,
+        ...(prepared.recoveryId === null
+          ? {}
+          : { recoveryIds: Object.freeze([prepared.recoveryId]) }),
+      });
     const leaseResult = acquireProjectRuntimeLease(
       input.workingDirectory,
       input.repositoryBindingId,

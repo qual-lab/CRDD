@@ -7,6 +7,8 @@ import {
 
 import {
   enqueueProjectOperation,
+  inspectProjectRuntimeLeaseAcquisitionOwner,
+  readProjectOperationQueueState,
   readProjectRuntimeState,
   reconcileProjectRuntimeLeaseOwnerLoss,
   selectNextProjectOperation,
@@ -609,17 +611,38 @@ export async function runProjectRuntimeObjective(
       effectState: queued.manualRecoveryRequired ? "unknown" : "no_effect",
     });
   let queue = queued.value;
-  if (queue.ownerGeneration !== null) {
+  const acquisitionOwner = inspectProjectRuntimeLeaseAcquisitionOwner(
+    workingDirectory,
+    binding.repositoryBindingId,
+    request.projectId,
+  );
+  if (acquisitionOwner.status !== "completed")
+    return blocked(request, acquisitionOwner.reason, {
+      cleanupConfirmed: false,
+      manualRecoveryRequired: acquisitionOwner.manualRecoveryRequired,
+      recoveryIds:
+        acquisitionOwner.recoveryId === null
+          ? Object.freeze([])
+          : Object.freeze([acquisitionOwner.recoveryId]),
+      effectState: acquisitionOwner.manualRecoveryRequired
+        ? "unknown"
+        : "no_effect",
+    });
+  const recoveryQueueId =
+    acquisitionOwner.value.queueId ??
+    (queue.ownerGeneration === null ? null : queueId);
+  if (recoveryQueueId !== null) {
     const reconciled = reconcileProjectRuntimeLeaseOwnerLoss(
       workingDirectory,
       binding.repositoryBindingId,
       request.projectId,
-      queueId,
+      recoveryQueueId,
       dependencies.observeLeaseOwner,
     );
     if (
       reconciled.status !== "completed" &&
       reconciled.reason === "project_runtime_lease_owner_still_active" &&
+      recoveryQueueId === queueId &&
       state.value
     )
       return projectRuntimeResult(request, {
@@ -634,13 +657,33 @@ export async function runProjectRuntimeObjective(
         recoveryObligations: Object.freeze([]),
         effectState: "no_effect" as const,
       });
-    if (reconciled.status !== "completed")
+    if (
+      reconciled.status !== "completed" &&
+      reconciled.reason !== "project_runtime_lease_owner_still_active"
+    )
       return blocked(request, reconciled.reason, {
-        cleanupConfirmed: false,
+        cleanupConfirmed: !reconciled.manualRecoveryRequired,
         manualRecoveryRequired: reconciled.manualRecoveryRequired,
+        recoveryIds:
+          reconciled.recoveryId === null
+            ? Object.freeze([])
+            : Object.freeze([reconciled.recoveryId]),
+        effectState: reconciled.manualRecoveryRequired
+          ? "unknown"
+          : "no_effect",
+      });
+    const reread = readProjectOperationQueueState(
+      workingDirectory,
+      binding.repositoryBindingId,
+      queueId,
+    );
+    if (reread.status !== "completed")
+      return blocked(request, reread.reason, {
+        cleanupConfirmed: false,
+        manualRecoveryRequired: reread.manualRecoveryRequired,
         effectState: "unknown",
       });
-    queue = reconciled.value;
+    queue = reread.value;
   }
   if (
     queue.state === "recovery_required" &&

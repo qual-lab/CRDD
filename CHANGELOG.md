@@ -21,6 +21,8 @@ The official Source A-to-B release path now promotes the signed manifest as opaq
 
 The Project Runtime repository-binding lease now writes, flushes, closes, and reads back a unique preparation file before publishing the complete marker bytes through an exclusive same-filesystem hard link. A late or concurrent acquisition that observes preparation, publication, or lock-ownership state stops as unavailable without effect or manual-recovery claims. Only the dedicated fresh owner-loss reconciliation may establish owner absence and connect retained preparation, published markers, and legacy temporary files to the exact recovery obligation; acquisition never infers owner loss from another process's marker.
 
+The public Objective and canonical-adoption entries now inspect shared lease-acquisition resources before acquisition, resolve the actual source Queue from exact evidence, and invoke owner-loss reconciliation only after a fresh Platform owner observation. Live or unobservable ownership is left unchanged, while malformed or ambiguous evidence is retained and exposed through the exact non-authority recovery reference. Public re-entry Process tests verify that the recovery implementation is reachable from its real consumers rather than only through direct low-level tests.
+
 The same self-audit separates document ownership from content correctness. Tool implementation and static-analysis rules are canonical in Coding Standards; Runtime trust, resources, and execution identities remain in the responsible Architecture; repeatable commands remain in Workflow; and verification scope and results remain in Quality Assurance. Maintenance keeps change, migration, and release decisions instead of redefining those Tool contracts. This is a responsibility relocation with no change to the existing Runtime semantics, normative strength, or migration result, and it introduces no new artifact type.
 
 The v0.19.0 candidate is composed of four independently traceable changes:
@@ -904,6 +906,8 @@ Dogfoodingからの横断改善として、採用可能な結果までの保証�
 公式ReleaseのSource AからBへの経路は、署名済みstaging自身に含まれる専用Launcherへ固定し、Manifestを不透明な安定byteとして扱う。実行元の配置、署名、Source AのCommit／Tree、staging内の閉じたRuntime依存集合、Policy、Native成果物、配置先Repositoryの現在HEAD、配置状態、byte数およびSHA-256を検証する。作業Checkoutの未署名Launcherから任意のstaging Pathを選べず、Git管理外の依存物を署名済み配布Treeの検査へ混入させない。完成済みのstaging fileを同一Filesystemの排他的hard linkでatomicに公開し、最終Pathへ部分byteを見せない。staging側の名前は公開Effectで削除せず、所有Rootを確認する別の明示破棄へ委ねる。中断後はsourceのみ、同一fileの二名、明示破棄後のdestinationのみから再開し、別Identity、内容変化または観測不能を自動削除しない。手動編集、JSON再serialize、text pipelineまたは改行正規化は正式経路にしない。
 
 Project RuntimeのRepository Binding単位Leaseは、一意な準備fileをwrite、flush、close、readbackした後、同一Filesystemの排他的hard linkで完全な取得中Markerを最終Pathへ公開する。準備中、公開済みまたはLock所有中の状態へ後着した取得は、回復残存と推定せず、手動回復不要、Effect 0の取得不可へ閉じる。owner不存在の確定と準備file、公開済みMarkerまたは旧実装の一時fileからexact Recoveryへの接続は、freshな専用reconciliationだけが所有する。
+
+公開Objective入口と正本採用入口は、Lease取得前に共有取得資源を確認し、exactな証跡から実際の元Queueを解決して、freshなPlatform owner観測後だけowner喪失reconciliationへ進む。生存・観測不能の所有状態は変更せず、不正または複数の証跡は保持したままexactな非Authority回復参照を返す。公開再入場のProcess試験により、低層回復関数の直接試験だけでなく実際の利用側からの到達性を確認する。
 
 同じ自己監査により、内容の正しさと文書の所有先を別に確認する。Toolの実装・静的検査規則は内部ツール・コーディング規約、Runtimeの信頼境界・資源・実行Identityは責務を持つアーキテクチャ、反復commandはWorkflow、検証範囲と結果は品質保証が正本となる。保守はこれらを再定義せず、変更、移行およびリリース判断を所有する。この責務再配置は既存Runtimeの意味、規範強度および移行結果を変更せず、新しい成果物種別も追加しない。
 

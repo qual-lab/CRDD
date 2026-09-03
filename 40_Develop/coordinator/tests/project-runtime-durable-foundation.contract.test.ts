@@ -902,7 +902,7 @@ if (lease.status !== "completed") process.exit(20);`,
   );
   assert.equal(recovered.status, "completed");
   assert.match(
-    recovered.status === "completed" ? recovered.value.recoveryId : "",
+    recovered.status === "completed" ? (recovered.value.recoveryId ?? "") : "",
     /^lease-acquisition-[0-9a-f]{40}$/u,
   );
   const reacquired = acquireProjectRuntimeLease(
@@ -995,7 +995,7 @@ test("PR-A-04 keeps pre-publication contention effect-free and recovers only aft
   );
   assert.equal(recovered.status, "completed");
   assert.match(
-    recovered.status === "completed" ? recovered.value.recoveryId : "",
+    recovered.status === "completed" ? (recovered.value.recoveryId ?? "") : "",
     /^lease-acquisition-[0-9a-f]{40}$/u,
   );
   const reacquired = acquireProjectRuntimeLease(

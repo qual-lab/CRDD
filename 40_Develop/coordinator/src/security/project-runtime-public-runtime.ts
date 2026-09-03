@@ -158,6 +158,24 @@ async function executeProjectRuntimePublicObjective(
     observedPlatform.platformFamily === "windows"
       ? createProjectRuntimeWindowsPlatformAdapter()
       : null;
+  const observeLeaseOwner = (
+    owner: Readonly<{
+      ownerProcessId: number;
+      ownerGeneration: string;
+    }>,
+  ) => {
+    const lockLease = platform?.operations.lock_lease as
+      | Readonly<{ observeLeaseOwner: (value: typeof owner) => unknown }>
+      | undefined;
+    return (
+      lockLease?.observeLeaseOwner(owner) ??
+      Object.freeze({
+        status: "unknown",
+        ownerProcessId: owner.ownerProcessId,
+        ownerGeneration: owner.ownerGeneration,
+      })
+    );
+  };
   const execution = await runProjectRuntimeObjective(
     {
       authenticatedPrincipalId: authenticated.principalId,
@@ -235,19 +253,7 @@ async function executeProjectRuntimePublicObjective(
             }),
           );
       },
-      observeLeaseOwner(owner) {
-        const lockLease = platform?.operations.lock_lease as
-          | Readonly<{ observeLeaseOwner: (value: typeof owner) => unknown }>
-          | undefined;
-        return (
-          lockLease?.observeLeaseOwner(owner) ??
-          Object.freeze({
-            status: "unknown",
-            ownerProcessId: owner.ownerProcessId,
-            ownerGeneration: owner.ownerGeneration,
-          })
-        );
-      },
+      observeLeaseOwner,
       recoverTaskRecovery: recoverRuntimeOwnedDockerTask,
       acknowledgeTaskRecovery:
         consumeDockerRecoveryReceiptAfterProjectSettlement,
@@ -284,8 +290,10 @@ async function executeProjectRuntimePublicObjective(
     typeof execution.queueId !== "string"
   )
     return execution;
+  const integrationAdapter =
+    runtimeDependencies.createIntegrationAdapter(repositoryRoot);
   const integration = await integrateProjectRuntimeOperation(
-    runtimeDependencies.createIntegrationAdapter(repositoryRoot),
+    Object.freeze({ ...integrationAdapter, observeLeaseOwner }),
     {
       workingDirectory: repositoryRoot,
       repositoryBindingId: stable("binding", repositoryRoot),

@@ -1,10 +1,19 @@
 import fs from "node:fs";
 
-const [workingDirectory, signalPath, mode] = process.argv.slice(2);
+const [
+  workingDirectory,
+  signalPath,
+  mode,
+  requestedKind = "canonical-adoption",
+  queueId = "queue-a",
+] = process.argv.slice(2);
 if (
   !workingDirectory ||
   !signalPath ||
-  (mode !== "hold" && mode !== "pause-before-publish")
+  (mode !== "hold" && mode !== "pause-before-publish") ||
+  (requestedKind !== "canonical-adoption" &&
+    requestedKind !== "project-operation") ||
+  !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(queueId)
 )
   throw new Error("project_runtime_lease_interleaving_probe_input_invalid");
 
@@ -30,8 +39,8 @@ const result = acquireProjectRuntimeLease(
   workingDirectory,
   "binding-a",
   "project-a",
-  "queue-a",
-  "canonical-adoption",
+  queueId,
+  requestedKind,
 );
 if (result.status !== "completed") {
   process.stdout.write(`${JSON.stringify(result)}\n`);

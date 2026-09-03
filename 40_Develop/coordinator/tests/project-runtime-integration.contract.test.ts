@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   readProjectOperationQueueState,
@@ -121,6 +122,7 @@ test("Task completion is integrated into Objective and Milestone acceptance", as
         dirty: false,
         observedPaths: [],
       }),
+      observeLeaseOwner: (owner) => ({ ...owner, status: "absent" }),
       adoptCandidate: async () => {
         adoptions += 1;
         return null;
@@ -163,6 +165,26 @@ test("Task completion is integrated into Objective and Milestone acceptance", as
 
 test("explicit adoption is serialized and requires a fresh matching repository observation", async (t) => {
   const { root, queueId } = await prepared(t);
+  const signal = path.join(root, "canonical-pre-publication-ready");
+  const probe = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "fixtures",
+    "project-runtime-lease-interleaving-probe.ts",
+  );
+  const child = spawn(
+    process.execPath,
+    [probe, root, signal, "pause-before-publish"],
+    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  const deadline = Date.now() + 10_000;
+  while (!fs.existsSync(signal) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(fs.existsSync(signal), true);
+  child.kill();
+  await new Promise<void>((resolve) => child.once("exit", () => resolve()));
   let adoptions = 0;
   const result = await integrateProjectRuntimeOperation(
     {
@@ -173,6 +195,7 @@ test("explicit adoption is serialized and requires a fresh matching repository o
         dirty: false,
         observedPaths: [],
       }),
+      observeLeaseOwner: (owner) => ({ ...owner, status: "absent" }),
       adoptCandidate: async () => {
         adoptions += 1;
         return {
@@ -254,6 +277,12 @@ test("revision mismatch blocks canonical adoption and releases its lease", async
       dirty: false,
       observedPaths: [],
     }),
+    observeLeaseOwner: (
+      owner: Readonly<{
+        ownerProcessId: number;
+        ownerGeneration: string;
+      }>,
+    ) => ({ ...owner, status: "absent" }),
     adoptCandidate: async () => {
       throw new Error("not_expected");
     },
@@ -269,4 +298,51 @@ test("revision mismatch blocks canonical adoption and releases its lease", async
     "project_runtime_adoption_revision_or_scope_mismatch",
   );
   assert.equal(first.manualRecoveryRequired, false);
+});
+
+test("canonical adoption preserves malformed acquisition evidence and exposes its recovery reference", async (t) => {
+  const { root, queueId } = await prepared(t);
+  const marker = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "locks",
+    "canonical-adoption-binding-a-project-a.acquire-pending",
+  );
+  fs.writeFileSync(marker, "not-json\n", "utf8");
+  let adoptions = 0;
+  const result = await integrateProjectRuntimeOperation(
+    {
+      createCandidate: async () => candidate(),
+      observeCanonicalRepository: () => ({
+        status: "observed",
+        repositoryRevision: revision,
+        dirty: false,
+        observedPaths: [],
+      }),
+      observeLeaseOwner: (owner) => ({ ...owner, status: "unknown" }),
+      adoptCandidate: async () => {
+        adoptions += 1;
+        return null;
+      },
+    },
+    {
+      workingDirectory: root,
+      repositoryBindingId: "binding-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      queueId,
+      taskCandidateIds: ["task-candidate-a"],
+      allowedPaths: ["result.txt"],
+      adoptionAuthorized: true,
+    },
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.match(
+    result.recoveryIds[0] ?? "",
+    /^lease-acquisition-[0-9a-f]{40}$/u,
+  );
+  assert.equal(adoptions, 0);
+  assert.equal(fs.existsSync(marker), true);
 });

@@ -2042,6 +2042,91 @@ export function acquireProjectRuntimeLease(
   }
 }
 
+export function inspectProjectRuntimeLeaseAcquisitionOwner(
+  workingDirectory: string,
+  repositoryBindingId: string,
+  projectId: string,
+): StoreResult<Readonly<{ queueId: string | null }>> {
+  const recoveryId = validId(repositoryBindingId)
+    ? leaseAcquisitionRecoveryId(
+        repositoryBindingId,
+        projectId,
+        "inspection",
+        "project-operation",
+      )
+    : null;
+  try {
+    if (!validId(repositoryBindingId) || !validId(projectId))
+      return blocked("project_runtime_lease_recovery_input_invalid");
+    const { runtime } = storageRoot(workingDirectory);
+    const locks = ensureDirectory(runtime, "locks");
+    const identity = leaseIdentity(
+      repositoryBindingId,
+      projectId,
+      "inspection",
+      "project-operation",
+    );
+    const acquisitionMarker = path.join(locks, `${identity}.acquire-pending`);
+    const temporaryFiles = leaseAcquisitionTemporaryFiles(locks, identity);
+    const associatedPaths = Object.freeze([
+      path.join(locks, `${identity}.lock`),
+      path.join(locks, `${identity}.release-unknown`),
+      acquisitionMarker,
+      path.join(locks, `${identity}.acquire-lock-owned`),
+    ]);
+    if (leaseAcquisitionFootprintAbsent(locks, identity, associatedPaths))
+      return completed(
+        "project_runtime_lease_acquisition_resources_absent",
+        Object.freeze({ queueId: null }),
+      );
+    if (temporaryFiles.length > 1)
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_cleanup_unknown",
+        true,
+        recoveryId,
+      );
+    const candidates = [
+      ...(fs.existsSync(acquisitionMarker) ? [acquisitionMarker] : []),
+      ...temporaryFiles.map((name) => path.join(locks, name)),
+    ];
+    if (candidates.length === 0)
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        recoveryId,
+      );
+    const markers = candidates.map(readLeaseAcquisitionMarker);
+    const first = markers[0];
+    if (
+      first?.kind !== "project-operation" ||
+      markers.some(
+        (marker) =>
+          marker.kind !== first.kind ||
+          marker.queueId !== first.queueId ||
+          marker.ownerGeneration !== first.ownerGeneration ||
+          marker.ownerProcessId !== first.ownerProcessId ||
+          marker.recoveryId !== first.recoveryId,
+      ) ||
+      first.recoveryId !== recoveryId
+    )
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        recoveryId,
+      );
+    return completed(
+      "project_runtime_lease_acquisition_owner_observed",
+      Object.freeze({ queueId: first.queueId }),
+    );
+  } catch {
+    return blocked(
+      "project_runtime_lease_recovery_observation_unknown",
+      true,
+      recoveryId,
+    );
+  }
+}
+
 export function settleProjectOperationQueueLeaseRelease(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -2482,7 +2567,7 @@ export function reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
   repositoryBindingId: string,
   projectId: string,
   observeOwner: LeaseOwnerObserver,
-): StoreResult<Readonly<{ recoveryId: string }>> {
+): StoreResult<Readonly<{ recoveryId: string | null }>> {
   const recoveryId =
     validId(repositoryBindingId) && validId(projectId)
       ? leaseAcquisitionRecoveryId(
@@ -2500,15 +2585,42 @@ export function reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
     )
       return blocked("project_runtime_lease_recovery_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    return withMutationLock(runtime, "queue-mutation", () =>
-      reconcileUnboundLeaseAcquisition(
-        runtime,
-        repositoryBindingId,
-        projectId,
-        "canonical",
-        "canonical-adoption",
-        observeOwner,
-      ),
+    return withMutationLock<Readonly<{ recoveryId: string | null }>>(
+      runtime,
+      "queue-mutation",
+      () => {
+        const identity = leaseIdentity(
+          repositoryBindingId,
+          projectId,
+          "canonical",
+          "canonical-adoption",
+        );
+        const locks = ensureDirectory(runtime, "locks");
+        if (
+          leaseAcquisitionFootprintAbsent(
+            locks,
+            identity,
+            Object.freeze([
+              path.join(locks, `${identity}.lock`),
+              path.join(locks, `${identity}.release-unknown`),
+              path.join(locks, `${identity}.acquire-pending`),
+              path.join(locks, `${identity}.acquire-lock-owned`),
+            ]),
+          )
+        )
+          return completed(
+            "project_runtime_lease_acquisition_resources_absent",
+            Object.freeze({ recoveryId: null }),
+          );
+        return reconcileUnboundLeaseAcquisition(
+          runtime,
+          repositoryBindingId,
+          projectId,
+          "canonical",
+          "canonical-adoption",
+          observeOwner,
+        );
+      },
     );
   } catch {
     return blocked(
@@ -2569,8 +2681,30 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
       );
       const acquisitionMarkerPresent = fs.existsSync(acquisitionMarker);
       if (current.ownerGeneration === null) {
-        if (current.state !== "queued" || !acquisitionMarkerPresent)
+        if (current.state !== "queued")
           return blocked("project_runtime_lease_recovery_state_mismatch");
+        const temporaryFiles = leaseAcquisitionTemporaryFiles(locks, identity);
+        const footprintAbsent = leaseAcquisitionFootprintAbsent(
+          locks,
+          identity,
+          Object.freeze([
+            lock,
+            recoveryMarker,
+            acquisitionMarker,
+            lockOwnershipMarker,
+          ]),
+        );
+        if (footprintAbsent)
+          return completed(
+            "project_runtime_lease_acquisition_resources_absent",
+            current,
+          );
+        if (!acquisitionMarkerPresent && temporaryFiles.length === 0)
+          return blocked(
+            "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+            true,
+            recoveryId,
+          );
         const recovered = reconcileUnboundLeaseAcquisition(
           runtime,
           repositoryBindingId,

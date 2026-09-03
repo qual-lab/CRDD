@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../src/security/docker-recovery-runtime.ts";
 import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../src/security/docker-project-recovery-settlement.ts";
@@ -198,7 +199,10 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
         repositoryRoot: workingDirectory,
       },
     ],
-    observeLeaseOwner: () => ({ status: "absent" }),
+    observeLeaseOwner: (owner: {
+      ownerProcessId: number;
+      ownerGeneration: string;
+    }) => ({ ...owner, status: "absent" }),
     execution: {
       runSingleTaskAttempt: async (
         input: ProjectRuntimeSingleTaskAttemptInput,
@@ -241,6 +245,174 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     queue.status === "completed" && queue.value.state,
     "integration_pending",
   );
+});
+
+test("public Objective re-entry reconciles a pre-publication owner loss before execution", async (t) => {
+  const workingDirectory = root(t);
+  const queueId = `queue-${createHash("sha256")
+    .update(
+      [
+        "binding-a",
+        "project-a",
+        "milestone-a",
+        "request-a",
+        "principal-a",
+      ].join("\0"),
+    )
+    .digest("hex")
+    .slice(0, 40)}`;
+  const signal = path.join(workingDirectory, "pre-publication-ready");
+  const probe = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "fixtures",
+    "project-runtime-lease-interleaving-probe.ts",
+  );
+  const child = spawn(
+    process.execPath,
+    [
+      probe,
+      workingDirectory,
+      signal,
+      "pause-before-publish",
+      "project-operation",
+      queueId,
+    ],
+    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  const deadline = Date.now() + 10_000;
+  while (!fs.existsSync(signal) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(fs.existsSync(signal), true);
+  child.kill();
+  await new Promise<void>((resolve) => child.once("exit", () => resolve()));
+
+  let effects = 0;
+  const result = await runProjectRuntimeObjective(
+    {
+      authenticatedPrincipalId: "principal-a",
+      verifyProjectBinding: () => ({
+        status: "verified",
+        repositoryBindingId: "binding-a",
+        repositoryRevision: revision,
+        workingDirectory,
+        repositoryRoot: workingDirectory,
+        bindingCapability: {},
+      }),
+      planObjective: () => ({
+        milestoneAcceptanceCriteria: ["Result exists."],
+        objectives: [
+          { id: "objective-a", acceptanceCriteria: ["Result exists."] },
+        ],
+        tasks: [
+          {
+            id: "task-a",
+            objectiveId: "objective-a",
+            dependencies: [],
+            allowedPaths: ["result.txt"],
+            conflictKeys: ["result.txt"],
+          },
+        ],
+      }),
+      createTaskExecutions: () => [
+        {
+          taskId: "task-a",
+          authorityBindingId: "authority-a",
+          taskRequest: {},
+          taskAuthorityCapability: {},
+          repositoryRoot: workingDirectory,
+        },
+      ],
+      observeLeaseOwner: (owner: {
+        ownerProcessId: number;
+        ownerGeneration: string;
+      }) => ({ ...owner, status: "absent" }),
+      execution: {
+        runSingleTaskAttempt: async (input) => {
+          effects += 1;
+          return completed(input);
+        },
+      },
+    },
+    request(),
+    new AbortController().signal,
+  );
+  assert.equal(result.status, "completed", JSON.stringify(result));
+  assert.equal(effects, 1);
+  assert.equal(result.queueId, queueId);
+});
+
+test("public Objective re-entry preserves ambiguous acquisition evidence and returns its exact recovery reference", async (t) => {
+  for (const count of [1, 2]) {
+    const workingDirectory = root(t);
+    const locks = path.join(
+      workingDirectory,
+      ".crdd",
+      "project-runtime",
+      "locks",
+    );
+    fs.mkdirSync(locks, { recursive: true });
+    const created = Array.from({ length: count }, (_, index) =>
+      path.join(
+        locks,
+        `.pending-project-operation-binding-a-acquisition-malformed-${index}.tmp`,
+      ),
+    );
+    for (const target of created)
+      fs.writeFileSync(target, "not-json\n", "utf8");
+    let effects = 0;
+    const result = await runProjectRuntimeObjective(
+      {
+        authenticatedPrincipalId: "principal-a",
+        verifyProjectBinding: () => ({
+          status: "verified",
+          repositoryBindingId: "binding-a",
+          repositoryRevision: revision,
+          workingDirectory,
+          repositoryRoot: workingDirectory,
+          bindingCapability: {},
+        }),
+        planObjective: () => ({
+          milestoneAcceptanceCriteria: ["Result exists."],
+          objectives: [
+            { id: "objective-a", acceptanceCriteria: ["Result exists."] },
+          ],
+          tasks: [
+            {
+              id: "task-a",
+              objectiveId: "objective-a",
+              dependencies: [],
+              allowedPaths: ["result.txt"],
+              conflictKeys: ["result.txt"],
+            },
+          ],
+        }),
+        createTaskExecutions: () => [],
+        observeLeaseOwner: (owner) => ({ ...owner, status: "unknown" }),
+        execution: {
+          runSingleTaskAttempt: async (input) => {
+            effects += 1;
+            return completed(input);
+          },
+        },
+      },
+      request(),
+      new AbortController().signal,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.match(
+      result.recoveryIds[0] ?? "",
+      /^lease-acquisition-[0-9a-f]{40}$/u,
+    );
+    assert.equal(effects, 0);
+    assert.equal(
+      created.every((target) => fs.existsSync(target)),
+      true,
+    );
+  }
 });
 
 test("a scheduled Objective arriving during interactive execution waits without effect", async (t) => {
@@ -288,7 +460,10 @@ test("a scheduled Objective arriving during interactive execution waits without 
         repositoryRoot: workingDirectory,
       },
     ],
-    observeLeaseOwner: () => ({ status: "absent" }),
+    observeLeaseOwner: (owner: {
+      ownerProcessId: number;
+      ownerGeneration: string;
+    }) => ({ ...owner, status: "alive" }),
     execution: {
       runSingleTaskAttempt: async (input: Parameters<typeof completed>[0]) => {
         effects += 1;
