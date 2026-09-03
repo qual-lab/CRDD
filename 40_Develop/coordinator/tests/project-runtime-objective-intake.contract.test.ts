@@ -880,6 +880,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   let attempts = 0;
   let recoveries = 0;
   let acknowledgements = 0;
+  let recoveryObservationAttempts = 0;
   const dependencies = {
     authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => ({
@@ -989,6 +990,10 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
           };
     },
     finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
+    observeRecoveryTransition: async () => {
+      recoveryObservationAttempts += 1;
+      throw new Error("diagnostic_unavailable");
+    },
     execution: {
       runSingleTaskAttempt: async (input: Parameters<typeof completed>[0]) => {
         attempts += 1;
@@ -1087,6 +1092,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   assert.equal(recoveries, 1);
   assert.equal(acknowledgements, 2);
   assert.equal(attempts, 2);
+  assert.ok(recoveryObservationAttempts > 0);
   const latest = readProjectRuntimeState(
     workingDirectory,
     "binding-a",

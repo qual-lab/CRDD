@@ -174,6 +174,8 @@ Project全体E2Eへ進む直前の固定候補監査では、Docker完了Receipt
 
 この公開契約伝播の完結後は、v0.19のRelease Assurance Boundaryを、宣言済みの公開MCP、Project Runtime、Lease／Recovery、Integration、取消およびParent喪失の必須経路、Critical 0件、Major 0件へ固定する。これらを破るFindingは現在版で是正する。新しい保証範囲、将来Platform固有の追加契約または完成条件を破らない堅牢化案は、根拠、担当責任者、再評価契機および保留影響を伴う後続候補として扱い、v0.19の完成条件を拡張しない。
 
+最終監査では、署名後E2Eが通常終了と取消後のDocker状態をcleanと確認するだけで`recoverySettlementExercised`を真にでき、宣言済みのParent喪失からの実回復を実行していないことをMajorとして検出した。是正候補は、署名済み公開MCPから実Provider Process開始を観測した後にその親Process treeを停止し、freshな署名済み公開MCPへ同じObjectiveを再送する。Runtimeが耐久境界ごとに観測した`required → recovering → settled → acknowledged → verification_resources_finalized → queue_settled → retry_ready`を、同じProject／Milestone／Queue／Task／Operation／Recovery Identityへ結合し、再入場後の受入、正本不変、子Process終了および最終Docker資源不存在まで成立した場合だけ実回復完了と判定する。診断出力は非Authorityの検証投影であり、ClientへRecovery IDまたは回復権限を入力させない。現在は実装・契約試験の是正中であり、更新固定版の決定論的確認、独立再監査および署名後実測は未完了である。
+
 ## 9. 設計確定からリリース判断までの実行計画
 
 次の段階は依存順で進める。内部Taskへ分割できるが、後段の成功を前段の完了根拠へ流用しない。各段階の実装開始前に、対象Interface、保持する意図、変更禁止範囲、正常・準正常・異常、受入条件および検証方法をTask Packetへ固定する。

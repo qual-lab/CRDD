@@ -115,8 +115,42 @@ export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
   ) => unknown;
+  observeRecoveryTransition?: (
+    event: Readonly<{
+      phase:
+        | "required"
+        | "recovering"
+        | "settled"
+        | "acknowledged"
+        | "verification_resources_finalized"
+        | "queue_settled"
+        | "retry_ready";
+      projectId: string;
+      milestoneId: string;
+      queueId: string;
+      taskId: string | null;
+      operationId: string | null;
+      recoveryId: string | null;
+      stateGeneration: number;
+    }>,
+  ) => void | Promise<void>;
   execution: ProjectRuntimeExecutionDependencies;
 }>;
+
+async function observeRecoveryTransition(
+  dependencies: ProjectRuntimeObjectiveIntakeDependencies,
+  event: Parameters<
+    NonNullable<
+      ProjectRuntimeObjectiveIntakeDependencies["observeRecoveryTransition"]
+    >
+  >[0],
+) {
+  try {
+    await dependencies.observeRecoveryTransition?.(Object.freeze({ ...event }));
+  } catch {
+    // Recovery correctness never depends on a diagnostic observer.
+  }
+}
 
 function stableId(prefix: string, ...values: readonly string[]) {
   return `${prefix}-${createHash("sha256")
@@ -770,6 +804,20 @@ export async function runProjectRuntimeObjective(
         reason: boundWrite.reason,
         value: boundWrite.value,
       });
+      for (const task of boundWrite.value.tasks) {
+        for (const obligation of task.recoveryObligations) {
+          await observeRecoveryTransition(dependencies, {
+            phase: "required",
+            projectId: request.projectId,
+            milestoneId: request.milestoneId,
+            queueId,
+            taskId: task.definition.id,
+            operationId: task.operationId,
+            recoveryId: obligation.recoveryId,
+            stateGeneration: boundWrite.value.generation,
+          });
+        }
+      }
       applicationId = recoveryApplicationId(
         request.projectId,
         queueId,
@@ -917,6 +965,19 @@ export async function runProjectRuntimeObjective(
             value: recoveringWrite.value,
           });
           recoveryState = recoveringWrite.value;
+          await observeRecoveryTransition(dependencies, {
+            phase: "recovering",
+            projectId: request.projectId,
+            milestoneId: request.milestoneId,
+            queueId,
+            taskId: item.taskId,
+            operationId:
+              recoveryState.tasks.find(
+                (entry) => entry.definition.id === item.taskId,
+              )?.operationId ?? null,
+            recoveryId: item.recoveryId,
+            stateGeneration: recoveryState.generation,
+          });
         }
         let recovery: unknown;
         if (item.kind === "runtime_process") {
@@ -997,6 +1058,19 @@ export async function runProjectRuntimeObjective(
           value: settledWrite.value,
         });
         recoveryState = settledWrite.value;
+        await observeRecoveryTransition(dependencies, {
+          phase: "settled",
+          projectId: request.projectId,
+          milestoneId: request.milestoneId,
+          queueId,
+          taskId: item.taskId,
+          operationId:
+            recoveryState.tasks.find(
+              (entry) => entry.definition.id === item.taskId,
+            )?.operationId ?? null,
+          recoveryId: item.recoveryId,
+          stateGeneration: recoveryState.generation,
+        });
       }
     }
     for (const item of recoveries.filter((entry) => entry.kind === "docker")) {
@@ -1136,6 +1210,16 @@ export async function runProjectRuntimeObjective(
           reason: markedWrite.reason,
           value: markedWrite.value,
         });
+        await observeRecoveryTransition(dependencies, {
+          phase: "acknowledged",
+          projectId: request.projectId,
+          milestoneId: request.milestoneId,
+          queueId,
+          taskId: item.taskId,
+          operationId: settledTask.operationId,
+          recoveryId: item.recoveryId,
+          stateGeneration: recoveryState.generation,
+        });
         currentObligation = recoveryState.tasks
           .find((entry) => entry.definition.id === item.taskId)
           ?.recoveryObligations.find(
@@ -1198,6 +1282,16 @@ export async function runProjectRuntimeObjective(
             ],
           },
         );
+      await observeRecoveryTransition(dependencies, {
+        phase: "verification_resources_finalized",
+        projectId: request.projectId,
+        milestoneId: request.milestoneId,
+        queueId,
+        taskId: item.taskId,
+        operationId: settledTask.operationId,
+        recoveryId: item.recoveryId,
+        stateGeneration: recoveryState.generation,
+      });
     }
     const externallyOwned = recoveryState.tasks.flatMap((task) =>
       task.recoveryObligations
@@ -1247,6 +1341,16 @@ export async function runProjectRuntimeObjective(
           effectState: "unknown",
         });
       queue = queueSettlement.value;
+      await observeRecoveryTransition(dependencies, {
+        phase: "queue_settled",
+        projectId: request.projectId,
+        milestoneId: request.milestoneId,
+        queueId,
+        taskId: null,
+        operationId: null,
+        recoveryId: null,
+        stateGeneration: recoveryState.generation,
+      });
     }
     const retryTaskIds = recoveryState.tasks
       .filter(
@@ -1291,6 +1395,16 @@ export async function runProjectRuntimeObjective(
         value: retryWrite.value,
       });
       recoveryState = retryWrite.value;
+      await observeRecoveryTransition(dependencies, {
+        phase: "retry_ready",
+        projectId: request.projectId,
+        milestoneId: request.milestoneId,
+        queueId,
+        taskId: null,
+        operationId: null,
+        recoveryId: null,
+        stateGeneration: recoveryState.generation,
+      });
     }
   }
   if (queue.state === "queued" || queue.state === "waiting_foreground") {

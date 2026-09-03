@@ -70,6 +70,35 @@ process.stdin.on("data", (chunk) => {
     process.stderr.write(
       `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex", operationId: mode === "cancelled" ? "OP-300001" : "OP-100001" })}\n`,
     );
+    if (mode === "parent-loss") {
+      setInterval(() => {}, 1000);
+      return;
+    }
+    if (mode === "recovery-events") {
+      const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+      for (const [index, phase] of [
+        "required",
+        "recovering",
+        "settled",
+        "acknowledged",
+        "verification_resources_finalized",
+        "queue_settled",
+        "retry_ready",
+      ].entries())
+        process.stderr.write(
+          `[Project Runtime recovery] ${JSON.stringify({
+            event: "project_runtime_recovery_transition",
+            phase,
+            projectId: "project-a",
+            milestoneId: "milestone-a",
+            queueId: "queue-a",
+            taskId: index < 5 ? "task-a" : null,
+            operationId: index < 5 ? "OP-100001" : null,
+            recoveryId: index < 5 ? recoveryId : null,
+            stateGeneration: index + 1,
+          })}\n`,
+        );
+    }
     if (mode !== "cancelled")
       process.stderr.write(
         `[Coordinator selection] ${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "reviewer", provider: "claude" })}\n`,

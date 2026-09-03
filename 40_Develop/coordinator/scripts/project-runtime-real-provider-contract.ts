@@ -1,4 +1,5 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,6 +18,8 @@ export type PublicProcessObservation = Readonly<{
   timedOut: boolean;
   inputEofIssued: boolean;
   forcedTerminationIssued: boolean;
+  processTreeTerminationAttempted: boolean;
+  processTreeTerminationConfirmed: boolean;
   joined: boolean;
   selectionEventObserved: boolean;
   selectionEvents: readonly Readonly<{ taskRole: string; provider: string }>[];
@@ -32,6 +35,23 @@ export type PublicProcessObservation = Readonly<{
     provider: string;
     operationId: string | null;
   }>[];
+  recoveryEvents: readonly Readonly<{
+    phase:
+      | "required"
+      | "recovering"
+      | "settled"
+      | "acknowledged"
+      | "verification_resources_finalized"
+      | "queue_settled"
+      | "retry_ready";
+    projectId: string;
+    milestoneId: string;
+    queueId: string;
+    taskId: string | null;
+    operationId: string | null;
+    recoveryId: string | null;
+    stateGeneration: number;
+  }>[];
   pidIssued: boolean;
   streamFailure: boolean;
 }>;
@@ -45,6 +65,9 @@ export async function observePublicMcpProcess(
     closeInputWhen?: (
       output: Readonly<{ stdout: string; stderr: string }>,
     ) => boolean;
+    terminateProcessTreeWhen?: (
+      output: Readonly<{ stdout: string; stderr: string }>,
+    ) => boolean;
   }>,
 ): Promise<PublicProcessObservation> {
   let stdout = "";
@@ -54,7 +77,10 @@ export async function observePublicMcpProcess(
   let timedOut = false;
   let inputEofIssued = false;
   let forcedTerminationIssued = false;
+  let processTreeTerminationAttempted = false;
+  let processTreeTerminationConfirmed = false;
   let streamFailure = false;
+  let terminationJoinTimeout: ReturnType<typeof setTimeout> | null = null;
   const pidIssued = Number.isSafeInteger(child.pid) && Number(child.pid) > 0;
   const grace = options.terminationGraceMs ?? 5_000;
 
@@ -66,6 +92,41 @@ export async function observePublicMcpProcess(
     } catch {
       streamFailure = true;
     }
+  };
+  const terminateProcessTree = () => {
+    if (
+      forcedTerminationIssued ||
+      processTreeTerminationAttempted ||
+      !pidIssued
+    )
+      return;
+    processTreeTerminationAttempted = true;
+    setImmediate(() => {
+      try {
+        if (process.platform === "win32") {
+          const terminated = spawnSync(
+            `${process.env.SystemRoot ?? "C:\\Windows"}\\System32\\taskkill.exe`,
+            ["/PID", String(child.pid), "/T", "/F"],
+            { windowsHide: true, encoding: "utf8", timeout: grace },
+          );
+          forcedTerminationIssued =
+            !terminated.error && terminated.status === 0;
+          processTreeTerminationConfirmed = forcedTerminationIssued;
+          if (forcedTerminationIssued) {
+            terminationJoinTimeout = setTimeout(
+              () => settleClose?.(null),
+              grace,
+            );
+          } else {
+            forcedTerminationIssued = child.kill("SIGKILL");
+          }
+        } else {
+          forcedTerminationIssued = child.kill("SIGKILL");
+        }
+      } catch {
+        streamFailure = true;
+      }
+    });
   };
   const accept = (stream: "stdout" | "stderr", chunk: Buffer) => {
     const current = stream === "stdout" ? stdout : stderr;
@@ -81,6 +142,8 @@ export async function observePublicMcpProcess(
     else stderr += chunk.toString("utf8");
     try {
       if (options.closeInputWhen?.({ stdout, stderr })) closeInput();
+      if (options.terminateProcessTreeWhen?.({ stdout, stderr }))
+        terminateProcessTree();
     } catch {
       closeInput();
     }
@@ -89,8 +152,10 @@ export async function observePublicMcpProcess(
   child.stderr.on("data", (chunk: Buffer) => accept("stderr", chunk));
   for (const stream of [child.stdin, child.stdout, child.stderr])
     stream.on("error", () => {
-      streamFailure = true;
-      closeInput();
+      if (!processTreeTerminationAttempted) {
+        streamFailure = true;
+        closeInput();
+      }
     });
   child.once("error", (error) => {
     launchError = error instanceof Error ? error.name : "unknown";
@@ -107,6 +172,9 @@ export async function observePublicMcpProcess(
   }> | null>((resolve) => {
     settleClose = resolve;
     child.once("close", (code, signal) => resolve({ code, signal }));
+    child.once("exit", (code, signal) => {
+      if (processTreeTerminationAttempted) resolve({ code, signal });
+    });
   });
   const timeout = setTimeout(() => {
     timedOut = true;
@@ -124,6 +192,7 @@ export async function observePublicMcpProcess(
   }, options.timeoutMs);
   const exit = await closed;
   clearTimeout(timeout);
+  if (terminationJoinTimeout !== null) clearTimeout(terminationJoinTimeout);
 
   const responses: unknown[] = [];
   let parseFailure = false;
@@ -147,10 +216,14 @@ export async function observePublicMcpProcess(
     provider: string;
     operationId: string | null;
   }> = [];
+  const recoveryEvents: Array<
+    PublicProcessObservation["recoveryEvents"][number]
+  > = [];
   for (const line of stderr.split(/\r?\n/u).filter(Boolean)) {
     try {
       const selectionPrefix = "[Coordinator selection] ";
       const lifecyclePrefix = "[Coordinator lifecycle] ";
+      const recoveryPrefix = "[Project Runtime recovery] ";
       if (line.startsWith(selectionPrefix)) {
         const parsed = JSON.parse(
           line.slice(selectionPrefix.length),
@@ -204,6 +277,53 @@ export async function observePublicMcpProcess(
             operationId: parsed.operationId,
           }),
         );
+        continue;
+      }
+      if (line.startsWith(recoveryPrefix)) {
+        const parsed = JSON.parse(
+          line.slice(recoveryPrefix.length),
+        ) as JsonRecord;
+        const phases = new Set([
+          "required",
+          "recovering",
+          "settled",
+          "acknowledged",
+          "verification_resources_finalized",
+          "queue_settled",
+          "retry_ready",
+        ]);
+        if (
+          parsed.event !== "project_runtime_recovery_transition" ||
+          typeof parsed.phase !== "string" ||
+          !phases.has(parsed.phase) ||
+          typeof parsed.projectId !== "string" ||
+          typeof parsed.milestoneId !== "string" ||
+          typeof parsed.queueId !== "string" ||
+          !(parsed.taskId === null || typeof parsed.taskId === "string") ||
+          !(
+            parsed.operationId === null ||
+            typeof parsed.operationId === "string"
+          ) ||
+          !(
+            parsed.recoveryId === null || typeof parsed.recoveryId === "string"
+          ) ||
+          !Number.isSafeInteger(parsed.stateGeneration) ||
+          Number(parsed.stateGeneration) < 1
+        )
+          continue;
+        recoveryEvents.push(
+          Object.freeze({
+            phase:
+              parsed.phase as PublicProcessObservation["recoveryEvents"][number]["phase"],
+            projectId: parsed.projectId,
+            milestoneId: parsed.milestoneId,
+            queueId: parsed.queueId,
+            taskId: parsed.taskId as string | null,
+            operationId: parsed.operationId as string | null,
+            recoveryId: parsed.recoveryId as string | null,
+            stateGeneration: Number(parsed.stateGeneration),
+          }),
+        );
       }
     } catch {
       // Non-JSON diagnostic lines are not selection evidence.
@@ -218,12 +338,15 @@ export async function observePublicMcpProcess(
     timedOut,
     inputEofIssued,
     forcedTerminationIssued,
+    processTreeTerminationAttempted,
+    processTreeTerminationConfirmed,
     joined: exit !== null,
     selectionEventObserved: selectionEvents.length > 0,
     selectionEvents: Object.freeze(selectionEvents),
     processStartEventObserved: processStartEvents.length > 0,
     processStartEvents: Object.freeze(processStartEvents),
     runtimeEvents: Object.freeze(runtimeEvents),
+    recoveryEvents: Object.freeze(recoveryEvents),
     pidIssued,
     streamFailure,
   });
@@ -326,6 +449,16 @@ type NormalObjectiveRun = Readonly<{
   expectedCanonicalStateObserved: boolean;
 }>;
 
+type RecoverySettlementRun = Readonly<{
+  parentLoss: PublicProcessObservation;
+  parentTerminationRequestedAfterProcessStart: boolean;
+  reentry: PublicProcessObservation;
+  expected: ExpectedObjective;
+  snapshotBefore: RepositorySnapshot;
+  snapshotAfter: RepositorySnapshot;
+  expectedCanonicalStateObserved: boolean;
+}>;
+
 function changedSnapshotPaths(
   before: RepositorySnapshot,
   after: RepositorySnapshot,
@@ -378,6 +511,7 @@ export function buildProjectRuntimeRealProviderReport(
     cancellationExpected: ExpectedObjective;
     cancellationSnapshotBefore: RepositorySnapshot;
     cancellationSnapshotAfter: RepositorySnapshot;
+    recoverySettlement: RecoverySettlementRun;
     dockerRecovery: JsonRecord;
   }>,
 ) {
@@ -397,6 +531,7 @@ export function buildProjectRuntimeRealProviderReport(
     processProblems(`normal_${index + 1}`, run.observation);
   });
   processProblems("cancellation", input.cancellation);
+  processProblems("recovery_reentry", input.recoverySettlement.reentry);
   const normalResults = input.normalRuns.map((run, index) => {
     const { observation, expected } = run;
     if (!observation.inputEofIssued)
@@ -520,11 +655,160 @@ export function buildProjectRuntimeRealProviderReport(
   )
     problems.push("cancellation_provider_lifecycle_mismatch");
 
+  const recovery = input.recoverySettlement;
+  if (!recovery.parentLoss.pidIssued)
+    problems.push("recovery_parent_pid_not_issued");
+  if (!recovery.parentLoss.joined) problems.push("recovery_parent_not_joined");
+  if (
+    recovery.parentLoss.exit === null ||
+    (recovery.parentLoss.exit.code === 0 &&
+      recovery.parentLoss.exit.signal === null)
+  )
+    problems.push("recovery_parent_not_terminated");
+  if (
+    recovery.parentLoss.launchError !== null ||
+    recovery.parentLoss.streamFailure ||
+    !recovery.parentLoss.outputWithinLimit ||
+    recovery.parentLoss.timedOut ||
+    recovery.parentLoss.parseFailure
+  )
+    problems.push("recovery_parent_process_observation_invalid");
+  if (
+    !recovery.parentTerminationRequestedAfterProcessStart ||
+    !recovery.parentLoss.processStartEventObserved ||
+    !recovery.parentLoss.forcedTerminationIssued ||
+    recovery.parentLoss.inputEofIssued ||
+    recovery.parentLoss.responses.length !== 0
+  )
+    problems.push("recovery_parent_loss_not_exercised");
+  if (!recovery.reentry.inputEofIssued)
+    problems.push("recovery_reentry_eof_not_issued");
+  const recoveryResult = semanticResult(
+    recovery.reentry.responses[0],
+    recovery.expected.responseId,
+  );
+  if (recovery.reentry.responses.length !== 1 || recoveryResult === null)
+    problems.push("recovery_reentry_response_envelope");
+  if (
+    recoveryResult?.status !== "completed" ||
+    recoveryResult.reason !== "project_runtime_milestone_accepted" ||
+    recoveryResult.requestId !== recovery.expected.requestId ||
+    recoveryResult.projectId !== recovery.expected.projectId ||
+    recoveryResult.milestoneId !== recovery.expected.milestoneId ||
+    recoveryResult.cleanupConfirmed !== true ||
+    recoveryResult.manualRecoveryRequired !== false ||
+    recoveryResult.processRestartRequired !== false ||
+    recoveryResult.effectState !== "settled"
+  )
+    problems.push("recovery_reentry_semantic_result");
+  if (
+    !recovery.expected.reviewerProvider ||
+    !runtimeEventsExactlyMatch(recovery.reentry.runtimeEvents, [
+      {
+        event: "selection",
+        taskRole: "executor",
+        provider: recovery.expected.executorProvider,
+      },
+      {
+        event: "process_started",
+        taskRole: "executor",
+        provider: recovery.expected.executorProvider,
+      },
+      {
+        event: "selection",
+        taskRole: "reviewer",
+        provider: recovery.expected.reviewerProvider,
+      },
+      {
+        event: "process_started",
+        taskRole: "reviewer",
+        provider: recovery.expected.reviewerProvider,
+      },
+    ])
+  )
+    problems.push("recovery_reentry_provider_lifecycle_mismatch");
+  const lossOperationIds = recovery.parentLoss.processStartEvents
+    .filter((event) => event.taskRole === "executor")
+    .map((event) => event.operationId);
+  const expectedRecoveryPhases = [
+    "required",
+    "recovering",
+    "settled",
+    "acknowledged",
+    "verification_resources_finalized",
+    "queue_settled",
+    "retry_ready",
+  ] as const;
+  const recoveryIds = recovery.reentry.recoveryEvents
+    .map((event) => event.recoveryId)
+    .filter((value): value is string => value !== null);
+  const exactRecoveryId = recoveryIds[0] ?? null;
+  const recoveryEventsCorrelated =
+    lossOperationIds.length === 1 &&
+    exactRecoveryId !== null &&
+    /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+      exactRecoveryId,
+    ) &&
+    recovery.reentry.recoveryEvents.length === expectedRecoveryPhases.length &&
+    recovery.reentry.recoveryEvents.every((event, index) => {
+      const expectedPhase = expectedRecoveryPhases[index];
+      const itemPhase = index < 5;
+      return (
+        event.phase === expectedPhase &&
+        event.projectId === recovery.expected.projectId &&
+        event.milestoneId === recovery.expected.milestoneId &&
+        (itemPhase
+          ? event.taskId !== null &&
+            event.operationId === lossOperationIds[0] &&
+            event.recoveryId === exactRecoveryId
+          : event.taskId === null &&
+            event.operationId === null &&
+            event.recoveryId === null)
+      );
+    }) &&
+    new Set(recoveryIds).size === 1 &&
+    recovery.reentry.recoveryEvents.every((event, index, events) => {
+      const previous = events.at(index - 1);
+      return (
+        index === 0 ||
+        (previous !== undefined &&
+          event.stateGeneration >= previous.stateGeneration)
+      );
+    });
+  const recoverySettlementExercised =
+    recoveryEventsCorrelated &&
+    recovery.parentTerminationRequestedAfterProcessStart &&
+    recovery.parentLoss.forcedTerminationIssued &&
+    recovery.parentLoss.processTreeTerminationConfirmed &&
+    recovery.parentLoss.joined &&
+    !recovery.parentLoss.inputEofIssued &&
+    recoveryResult?.status === "completed" &&
+    recovery.reentry.joined;
+  if (!recoverySettlementExercised)
+    problems.push("recovery_settlement_lifecycle_mismatch");
+  const recoveryChangedPaths = changedSnapshotPaths(
+    recovery.snapshotBefore,
+    recovery.snapshotAfter,
+  );
+  if (
+    recovery.snapshotBefore.headCommit !== recovery.snapshotAfter.headCommit ||
+    recovery.snapshotBefore.headTree !== recovery.snapshotAfter.headTree ||
+    recoveryChangedPaths.length !== 0 ||
+    !recovery.expectedCanonicalStateObserved
+  )
+    problems.push("recovery_canonical_repository_changed");
+
   const allOperationIds = [
     ...input.normalRuns.flatMap((run) =>
       run.observation.processStartEvents.map((event) => event.operationId),
     ),
     ...input.cancellation.processStartEvents.map((event) => event.operationId),
+    ...input.recoverySettlement.parentLoss.processStartEvents.map(
+      (event) => event.operationId,
+    ),
+    ...input.recoverySettlement.reentry.processStartEvents.map(
+      (event) => event.operationId,
+    ),
   ];
   if (
     allOperationIds.some((value) => !/^OP-[0-9]{6,}$/u.test(value)) ||
@@ -552,22 +836,26 @@ export function buildProjectRuntimeRealProviderReport(
   const cleanupConfirmed =
     input.normalRuns.every((run) => run.observation.joined) &&
     input.cancellation.joined &&
+    input.recoverySettlement.parentLoss.joined &&
+    input.recoverySettlement.reentry.joined &&
     input.dockerRecovery.status === "completed" &&
     input.dockerRecovery.reason === "docker_task_runtime_state_clean" &&
     input.dockerRecovery.manualRecoveryRequired === false;
   return Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 7,
+    contractRevision: 8,
     status: completed ? "completed" : "blocked",
     reason: completed
-      ? "project_runtime_public_mcp_real_providers_and_cancellation_verified"
+      ? "project_runtime_public_mcp_real_providers_cancellation_and_recovery_verified"
       : "project_runtime_public_mcp_verification_incomplete",
     problems: Object.freeze(problems),
     cleanupConfirmed,
     manualRecoveryRequired: !cleanupConfirmed,
     processRestartRequired:
       input.normalRuns.some((run) => !run.observation.joined) ||
-      !input.cancellation.joined,
+      !input.cancellation.joined ||
+      !input.recoverySettlement.parentLoss.joined ||
+      !input.recoverySettlement.reentry.joined,
     effectState: completed ? "settled" : "unknown",
     runId: input.runId,
     sourceIdentity: input.sourceIdentity,
@@ -586,7 +874,11 @@ export function buildProjectRuntimeRealProviderReport(
           (run) => run.observation.pidIssued && run.observation.joined,
         ) &&
         input.cancellation.pidIssued &&
-        input.cancellation.joined,
+        input.cancellation.joined &&
+        input.recoverySettlement.parentLoss.pidIssued &&
+        input.recoverySettlement.parentLoss.joined &&
+        input.recoverySettlement.reentry.pidIssued &&
+        input.recoverySettlement.reentry.joined,
       transport: "stdio",
       completedObjectiveCount: normalResults.filter(
         (value) => value?.status === "completed",
@@ -632,7 +924,18 @@ export function buildProjectRuntimeRealProviderReport(
       reason: input.dockerRecovery.reason ?? null,
       manualRecoveryRequired:
         input.dockerRecovery.manualRecoveryRequired ?? null,
-      recoverySettlementExercised: false,
+      recoverySettlementExercised,
+      parentProcessTerminationObserved:
+        recovery.parentLoss.forcedTerminationIssued &&
+        recovery.parentLoss.joined,
+      exactRecoveryReferenceObserved: exactRecoveryId !== null,
+      recoveryReference: exactRecoveryId,
+      lifecyclePhases: Object.freeze(
+        recovery.reentry.recoveryEvents.map((event) => event.phase),
+      ),
+      freshPublicMcpReentryCompleted:
+        recoveryResult?.status === "completed" && recovery.reentry.joined,
+      canonicalRepositoryChanged: recoveryChangedPaths.length !== 0,
     }),
     canonicalRepositoryObservation: Object.freeze({
       normalRuns: Object.freeze(

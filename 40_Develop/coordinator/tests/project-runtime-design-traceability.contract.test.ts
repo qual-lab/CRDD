@@ -99,6 +99,25 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  it("部分実装へ接続済みのInterfaceをplanned表示へ戻せない", () => {
+    const trace = structuredClone(currentTrace());
+    const interfaces = trace.interfaces as Record<string, unknown>[];
+    const decision = interfaces.find((entry) => entry.id === "IF-DECISION");
+    assert.ok(decision);
+    decision.status = "planned";
+    const result = inspectProjectRuntimeDesignTraceability(
+      trace,
+      repositoryReader,
+    );
+    assert.equal(result.status, "blocked");
+    if (result.status === "blocked")
+      assert.ok(
+        result.issues.includes(
+          "IMPL-MCP-ADAPTER-CANDIDATE:partial_implementation_interface_still_planned:IF-DECISION",
+        ),
+      );
+  });
+
   it("人間向け正本だけにある設計・検証IDを双方向で拒否する", () => {
     const trace = currentTrace();
     const designPath = String(trace.designDocument);

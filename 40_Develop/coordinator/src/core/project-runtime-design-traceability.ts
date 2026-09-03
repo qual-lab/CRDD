@@ -1157,6 +1157,17 @@ export function inspectProjectRuntimeDesignTraceability(
     }
     if (binding.status === "partial" && binding.paths.length === 0)
       issues.push(`${String(binding.id)}:partial_paths_missing`);
+    if (binding.status === "partial") {
+      for (const interfaceId of interfaceIds) {
+        const interfaceEntry = interfaces.entries.find(
+          (entry) => entry.id === interfaceId,
+        );
+        if (interfaceEntry?.status === "planned")
+          issues.push(
+            `${String(binding.id)}:partial_implementation_interface_still_planned:${interfaceId}`,
+          );
+      }
+    }
     for (const path of binding.paths) {
       if (!safePath(path) || readRepositoryText(path) === null)
         issues.push(`${String(binding.id)}:path_unavailable:${path}`);

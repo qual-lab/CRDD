@@ -277,6 +277,70 @@ async function main() {
   const cancellationSnapshotAfter =
     captureCanonicalRepositorySnapshot(repositoryRoot);
 
+  const recoveryRequest = Object.freeze({
+    ...common,
+    requestId: `project-runtime-public-recovery-${runId}`,
+    projectId: `crdd-project-runtime-public-recovery-${runId}`,
+    milestoneId: "public-provider-parent-loss-recovery",
+    requestedExecutorProvider: "claude" as const,
+    objective: `Inspect the allowed inputs and replace ${CANCELLATION_MARKER} with its current exact content.`,
+    acceptanceCriteria: Object.freeze([
+      `The only allowed path is ${CANCELLATION_MARKER}.`,
+      `The file remains exactly ${JSON.stringify(BASE)} as UTF-8 bytes.`,
+    ]),
+    allowedPaths: Object.freeze([CANCELLATION_MARKER]),
+    readPaths: Object.freeze([
+      CANCELLATION_MARKER,
+      "06_Architecture/coordinator/03_Project_Runtime_Design.md",
+    ]),
+    adoptResult: false,
+  });
+  const recoverySnapshotBefore =
+    captureCanonicalRepositorySnapshot(repositoryRoot);
+  const parentLossChild = startPublicMcpProcess(
+    distributionRoot,
+    repositoryRoot,
+  );
+  let parentTerminationRequestedAfterProcessStart = false;
+  const parentLossObservationPromise = observePublicMcpProcess(
+    parentLossChild,
+    {
+      maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
+      timeoutMs: PROCESS_TIMEOUT_MS,
+      terminateProcessTreeWhen: ({ stderr }) => {
+        const shouldTerminate =
+          !parentTerminationRequestedAfterProcessStart &&
+          stderr.includes('"event":"coordinator_provider_process_started"');
+        if (shouldTerminate) parentTerminationRequestedAfterProcessStart = true;
+        return shouldTerminate;
+      },
+    },
+  );
+  parentLossChild.stdin.write(
+    mcpEnvelope("objective-recovery-interrupted", recoveryRequest),
+  );
+  const parentLossObservation = await parentLossObservationPromise;
+
+  const reentryChild = startPublicMcpProcess(distributionRoot, repositoryRoot);
+  let reentryInputClosed = false;
+  const reentryObservationPromise = observePublicMcpProcess(reentryChild, {
+    maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
+    timeoutMs: PROCESS_TIMEOUT_MS,
+    closeInputWhen: ({ stdout }) => {
+      const shouldClose =
+        !reentryInputClosed &&
+        stdout.split(/\r?\n/u).filter(Boolean).length >= 1;
+      if (shouldClose) reentryInputClosed = true;
+      return shouldClose;
+    },
+  });
+  reentryChild.stdin.write(
+    mcpEnvelope("objective-recovery-reentry", recoveryRequest),
+  );
+  const reentryObservation = await reentryObservationPromise;
+  const recoverySnapshotAfter =
+    captureCanonicalRepositorySnapshot(repositoryRoot);
+
   const dockerRecovery = inspectRuntimeOwnedDockerTaskRecoveryState();
   const report = buildProjectRuntimeRealProviderReport({
     runId,
@@ -297,6 +361,26 @@ async function main() {
     }),
     cancellationSnapshotBefore,
     cancellationSnapshotAfter,
+    recoverySettlement: Object.freeze({
+      parentLoss: parentLossObservation,
+      parentTerminationRequestedAfterProcessStart,
+      reentry: reentryObservation,
+      expected: Object.freeze({
+        responseId: "objective-recovery-reentry",
+        requestId: recoveryRequest.requestId,
+        projectId: recoveryRequest.projectId,
+        milestoneId: recoveryRequest.milestoneId,
+        executorProvider: "claude" as const,
+        reviewerProvider: "codex" as const,
+      }),
+      snapshotBefore: recoverySnapshotBefore,
+      snapshotAfter: recoverySnapshotAfter,
+      expectedCanonicalStateObserved:
+        fs.readFileSync(
+          path.join(repositoryRoot, ...CANCELLATION_MARKER.split("/")),
+          "utf8",
+        ) === BASE,
+    }),
     dockerRecovery,
   });
   const reportDirectory = path.join(
@@ -328,7 +412,7 @@ try {
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 7,
+    contractRevision: 8,
     status: "blocked",
     reason: "project_runtime_public_mcp_verification_incomplete",
     problems: Object.freeze(["verification_exception"]),

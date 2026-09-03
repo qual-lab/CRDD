@@ -132,12 +132,15 @@ const observation = (
     timedOut: false,
     inputEofIssued: true,
     forcedTerminationIssued: false,
+    processTreeTerminationAttempted: false,
+    processTreeTerminationConfirmed: false,
     joined: true,
     selectionEventObserved: true,
     selectionEvents,
     processStartEventObserved: true,
     processStartEvents,
     runtimeEvents,
+    recoveryEvents: [],
     pidIssued: true,
     streamFailure: false,
     ...overrides,
@@ -155,6 +158,31 @@ const changedSnapshot = {
   headTree: "b",
   fileHashes: [{ relativePath: "result.txt", sha256: "after" }],
 };
+const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+const recoveryEvents: PublicProcessObservation["recoveryEvents"] =
+  Object.freeze(
+    [
+      "required",
+      "recovering",
+      "settled",
+      "acknowledged",
+      "verification_resources_finalized",
+      "queue_settled",
+      "retry_ready",
+    ].map((phase, index) =>
+      Object.freeze({
+        phase:
+          phase as PublicProcessObservation["recoveryEvents"][number]["phase"],
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        queueId: "queue-recovery",
+        taskId: index < 5 ? "task-recovery" : null,
+        operationId: index < 5 ? "OP-400001" : null,
+        recoveryId: index < 5 ? recoveryId : null,
+        stateGeneration: 10 + index,
+      }),
+    ),
+  );
 const normalRun = (
   responseId: string,
   executorProvider: "codex" | "claude",
@@ -197,6 +225,54 @@ const normalRun = (
     expectedCanonicalStateObserved: true,
   };
 };
+const recoverySettlementFixture = () => ({
+  parentLoss: observation([], {
+    exit: { code: 1, signal: null },
+    inputEofIssued: false,
+    forcedTerminationIssued: true,
+    processTreeTerminationAttempted: true,
+    processTreeTerminationConfirmed: true,
+    selectionEvents: [{ taskRole: "executor", provider: "claude" }],
+    processStartEvents: [
+      {
+        taskRole: "executor",
+        provider: "claude",
+        operationId: "OP-400001",
+      },
+    ],
+  }),
+  parentTerminationRequestedAfterProcessStart: true,
+  reentry: observation([semantic("completed", "objective-recovery-reentry")], {
+    selectionEvents: [
+      { taskRole: "executor", provider: "claude" },
+      { taskRole: "reviewer", provider: "codex" },
+    ],
+    processStartEvents: [
+      {
+        taskRole: "executor",
+        provider: "claude",
+        operationId: "OP-500001",
+      },
+      {
+        taskRole: "reviewer",
+        provider: "codex",
+        operationId: "OP-500002",
+      },
+    ],
+    recoveryEvents,
+  }),
+  expected: {
+    responseId: "objective-recovery-reentry",
+    requestId: "request-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    executorProvider: "claude" as const,
+    reviewerProvider: "codex" as const,
+  },
+  snapshotBefore: unchangedSnapshot,
+  snapshotAfter: unchangedSnapshot,
+  expectedCanonicalStateObserved: true,
+});
 const build = (overrides: Record<string, unknown> = {}) =>
   buildProjectRuntimeRealProviderReport({
     runId: "run",
@@ -244,6 +320,7 @@ const build = (overrides: Record<string, unknown> = {}) =>
       headTree: "b",
       fileHashes: [{ relativePath: "result.txt", sha256: "after" }],
     },
+    recoverySettlement: recoverySettlementFixture(),
     dockerRecovery: {
       status: "completed",
       reason: "docker_task_runtime_state_clean",
@@ -257,11 +334,84 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
   assert.equal(result.status, "completed", JSON.stringify(result));
   assert.deepEqual(result.problems, []);
   assert.equal(result.publicMcpProcess.actualChildProcess, true);
-  assert.equal(
-    result.dockerRecoveryAfterRun.recoverySettlementExercised,
-    false,
-  );
+  assert.equal(result.dockerRecoveryAfterRun.recoverySettlementExercised, true);
   assert.notDeepEqual(result.sourceIdentity, result.distributionIdentity);
+});
+
+test("clean観測だけ、欠落・順序違反・Identity不一致を回復実行証明にしない", () => {
+  const base = recoverySettlementFixture();
+  const cases = [
+    {
+      recoverySettlement: {
+        ...base,
+        reentry: observation(
+          [semantic("completed", "objective-recovery-reentry")],
+          {
+            selectionEvents: [
+              { taskRole: "executor", provider: "claude" },
+              { taskRole: "reviewer", provider: "codex" },
+            ],
+            processStartEvents: [
+              {
+                taskRole: "executor",
+                provider: "claude",
+                operationId: "OP-500001",
+              },
+              {
+                taskRole: "reviewer",
+                provider: "codex",
+                operationId: "OP-500002",
+              },
+            ],
+            recoveryEvents: [],
+          },
+        ),
+      },
+    },
+    {
+      recoverySettlement: {
+        ...base,
+        reentry: {
+          ...base.reentry,
+          recoveryEvents: recoveryEvents.map((event, index, events) =>
+            index === 1
+              ? (events.at(2) ?? event)
+              : index === 2
+                ? (events.at(1) ?? event)
+                : event,
+          ),
+        },
+      },
+    },
+    {
+      recoverySettlement: {
+        ...base,
+        reentry: {
+          ...base.reentry,
+          recoveryEvents: recoveryEvents.map((event, index) =>
+            index === 2 ? { ...event, operationId: "OP-999999" } : event,
+          ),
+        },
+      },
+    },
+    {
+      recoverySettlement: {
+        ...base,
+        parentLoss: {
+          ...base.parentLoss,
+          forcedTerminationIssued: false,
+        },
+      },
+    },
+  ];
+  for (const item of cases) {
+    const result = build(item);
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.dockerRecoveryAfterRun.recoverySettlementExercised,
+      false,
+    );
+  }
 });
 
 test("選定と実Process開始の統合順序違反およびrun間Operation再利用を拒否する", () => {
@@ -505,6 +655,29 @@ test("固定子Processを実spawnし応答後EOFとjoinを観測する", async (
   assert.deepEqual(result.exit, { code: 0, signal: null });
 });
 
+test("実子Process treeを開始通知後に強制終了して親喪失を観測する", async () => {
+  const child = spawn(process.execPath, [fixture, "parent-loss"], {
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const resultPromise = observePublicMcpProcess(child, {
+    maximumOutputBytes: 1024,
+    timeoutMs: 2_000,
+    terminationGraceMs: 500,
+    terminateProcessTreeWhen: ({ stderr }) =>
+      stderr.includes('"event":"coordinator_provider_process_started"'),
+  });
+  child.stdin.write('{"id":"objective-parent-loss"}\n');
+  const result = await resultPromise;
+  assert.equal(result.processStartEventObserved, true);
+  assert.equal(result.forcedTerminationIssued, true);
+  assert.equal(result.processTreeTerminationAttempted, true);
+  assert.equal(result.inputEofIssued, false, JSON.stringify(result));
+  assert.equal(result.joined, true);
+  assert.notEqual(result.exit, null);
+  assert.equal(result.exit?.code === 0 && result.exit.signal === null, false);
+});
+
 test("固定prefix外の埋込みJSONをRuntime Eventへ昇格しない", async () => {
   const child = spawn(process.execPath, [fixture, "embedded-event"], {
     windowsHide: true,
@@ -526,6 +699,41 @@ test("固定prefix外の埋込みJSONをRuntime Eventへ昇格しない", async 
       (event) => event.operationId === "OP-UNTRUSTED",
     ),
     false,
+  );
+});
+
+test("公開Processから回復遷移の閉じた順序とIdentityを抽出する", async () => {
+  const child = spawn(process.execPath, [fixture, "recovery-events"], {
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const resultPromise = observePublicMcpProcess(child, {
+    maximumOutputBytes: 16 * 1024,
+    timeoutMs: 2_000,
+    terminationGraceMs: 100,
+    closeInputWhen: ({ stdout }) => stdout.includes("\n"),
+  });
+  child.stdin.write('{"id":"objective-recovery"}\n');
+  const result = await resultPromise;
+  assert.deepEqual(
+    result.recoveryEvents.map((event) => event.phase),
+    [
+      "required",
+      "recovering",
+      "settled",
+      "acknowledged",
+      "verification_resources_finalized",
+      "queue_settled",
+      "retry_ready",
+    ],
+  );
+  assert.equal(
+    new Set(
+      result.recoveryEvents
+        .map((event) => event.recoveryId)
+        .filter((value) => value !== null),
+    ).size,
+    1,
   );
 });
 

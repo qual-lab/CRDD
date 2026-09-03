@@ -42,6 +42,43 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-
 
 export const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
   "crdd-coordinator/project-runtime-public-runtime/v1" as const;
+export const PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX =
+  "[Project Runtime recovery] " as const;
+const PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS = 5_000;
+
+async function writeProjectRuntimeRecoveryDiagnostic(event: object) {
+  const stream = process.stderr;
+  if (!stream.writable || stream.destroyed) return;
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      stream.off("error", settle);
+      stream.off("close", settle);
+      resolve();
+    };
+    const timer = setTimeout(
+      settle,
+      PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS,
+    );
+    stream.once("error", settle);
+    stream.once("close", settle);
+    try {
+      stream.write(
+        `${PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX}${JSON.stringify({
+          event: "project_runtime_recovery_transition",
+          ...event,
+        })}\n`,
+        "utf8",
+        settle,
+      );
+    } catch {
+      settle();
+    }
+  });
+}
 
 type PublicExecutionDependencies = Readonly<{
   issueTaskAuthority: () => object | null;
@@ -265,6 +302,7 @@ async function executeProjectRuntimePublicObjective(
               runtimeDependencies.resolveTaskRecoveryCorrelations,
           }
         : {}),
+      observeRecoveryTransition: writeProjectRuntimeRecoveryDiagnostic,
       execution: {
         issueTaskAuthority: runtimeDependencies.issueTaskAuthority,
         ...(runtimeDependencies.revokeTaskAuthority
