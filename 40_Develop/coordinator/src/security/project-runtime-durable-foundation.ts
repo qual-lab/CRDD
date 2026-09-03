@@ -591,7 +591,7 @@ function leaseAcquisitionTemporaryFiles(directory: string, identity: string) {
   const names = fs
     .readdirSync(directory)
     .filter((name) => name.startsWith(prefix));
-  if (names.length > 1 || names.some((name) => !name.endsWith(".tmp")))
+  if (names.some((name) => !name.endsWith(".tmp")))
     throw new Error("project_runtime_lease_acquisition_inventory_invalid");
   return Object.freeze(names);
 }
@@ -652,11 +652,16 @@ function createLeaseAcquisitionMarker(
   value: LeaseAcquisitionMarker,
 ) {
   const marker = path.join(directory, `${identity}.acquire-pending`);
+  const temporary = path.join(
+    directory,
+    `${leaseAcquisitionTemporaryPrefix(identity)}${process.pid}-${value.ownerGeneration}-${randomUUID()}.tmp`,
+  );
   const bytes = `${JSON.stringify(value)}\n`;
   let descriptor: number | null = null;
+  let published = false;
   try {
     descriptor = fs.openSync(
-      marker,
+      temporary,
       fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
       0o600,
     );
@@ -664,12 +669,44 @@ function createLeaseAcquisitionMarker(
     fs.fsyncSync(descriptor);
     fs.closeSync(descriptor);
     descriptor = null;
+    if (fs.readFileSync(temporary, "utf8") !== bytes)
+      throw new Error("project_runtime_lease_acquisition_marker_mismatch");
+    const prepared = readLeaseAcquisitionMarker(temporary);
+    if (
+      prepared.kind !== value.kind ||
+      prepared.queueId !== value.queueId ||
+      prepared.ownerGeneration !== value.ownerGeneration ||
+      prepared.ownerProcessId !== value.ownerProcessId ||
+      prepared.recoveryId !== value.recoveryId
+    )
+      throw new Error("project_runtime_lease_acquisition_marker_mismatch");
+    try {
+      fs.linkSync(temporary, marker);
+    } catch (error) {
+      if (errorCode(error) === "EEXIST" || fs.existsSync(marker)) {
+        const contention = new Error("project_runtime_lease_unavailable");
+        Object.defineProperty(contention, "code", { value: "EEXIST" });
+        throw contention;
+      }
+      throw error;
+    }
+    published = true;
     if (fs.readFileSync(marker, "utf8") !== bytes)
       throw new Error("project_runtime_lease_acquisition_marker_mismatch");
   } catch (error) {
     if (descriptor !== null) fs.closeSync(descriptor);
+    if (!published) {
+      try {
+        fs.rmSync(temporary, { force: true });
+      } catch {}
+    }
     throw error;
   }
+  fs.rmSync(temporary);
+  if (fs.existsSync(temporary))
+    throw new Error(
+      "project_runtime_lease_acquisition_temporary_release_unknown",
+    );
   const observed = readLeaseAcquisitionMarker(marker);
   if (
     observed.kind !== value.kind ||
@@ -1728,35 +1765,11 @@ export function acquireProjectRuntimeLease(
         recoveryId,
       );
     if (leaseAcquisitionTemporaryFiles(locks, identity).length > 0)
-      return blocked(
-        "project_runtime_lease_acquisition_recovery_required",
-        true,
-        recoveryId,
-      );
-    if (fs.existsSync(acquisitionMarker)) {
-      const pending = readLeaseAcquisitionMarker(acquisitionMarker);
-      if (pending.ownerProcessId === process.pid)
-        return blocked("project_runtime_lease_unavailable");
-      if (pending.kind !== kind || pending.recoveryId !== recoveryId)
-        return blocked(
-          "project_runtime_lease_acquisition_recovery_evidence_mismatch",
-          true,
-          recoveryId,
-        );
-      if (kind === "project-operation" && pending.queueId !== queueId)
-        return blocked("project_runtime_lease_unavailable");
-      return blocked(
-        "project_runtime_lease_acquisition_recovery_required",
-        true,
-        pending.recoveryId,
-      );
-    }
+      return blocked("project_runtime_lease_unavailable");
+    if (fs.existsSync(acquisitionMarker))
+      return blocked("project_runtime_lease_unavailable");
     if (fs.existsSync(lockOwnershipMarker))
-      return blocked(
-        "project_runtime_lease_acquisition_recovery_required",
-        true,
-        recoveryId,
-      );
+      return blocked("project_runtime_lease_unavailable");
     const ownerGeneration = randomUUID();
     const evidence = ensureDirectory(runtime, "leases");
     try {
@@ -1799,6 +1812,12 @@ export function acquireProjectRuntimeLease(
                 (kind === "project-operation" && competing.queueId !== queueId))
             )
               return blocked("project_runtime_lease_unavailable");
+            if (competing.ownerProcessId === process.pid)
+              return blocked(
+                "project_runtime_lease_acquisition_recovery_required",
+                true,
+                recoveryId,
+              );
           }
           if (
             leaseAcquisitionFootprintAbsent(locks, identity, [
@@ -2152,12 +2171,110 @@ function reconcileUnboundLeaseAcquisition(
     locks,
     `${identity}.acquire-lock-owned`,
   );
-  if (leaseAcquisitionTemporaryFiles(locks, identity).length > 0)
+  const temporaryFiles = leaseAcquisitionTemporaryFiles(locks, identity);
+  if (temporaryFiles.length > 1)
     return blocked(
       "project_runtime_lease_acquisition_recovery_cleanup_unknown",
       true,
       expectedRecoveryId,
     );
+  const temporaryMarker =
+    temporaryFiles.length === 1
+      ? path.join(locks, temporaryFiles[0] as string)
+      : null;
+  if (temporaryMarker !== null) {
+    let prepared: LeaseAcquisitionMarker;
+    try {
+      prepared = readLeaseAcquisitionMarker(temporaryMarker);
+    } catch {
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        expectedRecoveryId,
+      );
+    }
+    if (
+      prepared.kind !== kind ||
+      (kind === "project-operation" && prepared.queueId !== requestedQueueId) ||
+      prepared.recoveryId !== expectedRecoveryId
+    )
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        expectedRecoveryId,
+      );
+    if (fs.existsSync(acquisitionMarker)) {
+      if (
+        fs.readFileSync(acquisitionMarker, "utf8") !==
+        fs.readFileSync(temporaryMarker, "utf8")
+      )
+        return blocked(
+          "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+          true,
+          expectedRecoveryId,
+        );
+    } else {
+      let rawPreparedOwnerObservation: unknown;
+      try {
+        rawPreparedOwnerObservation = observeOwner(
+          Object.freeze({
+            ownerProcessId: prepared.ownerProcessId,
+            ownerGeneration: prepared.ownerGeneration,
+          }),
+        );
+      } catch {
+        return blocked(
+          "project_runtime_lease_owner_observation_unknown",
+          true,
+          expectedRecoveryId,
+        );
+      }
+      if (
+        !plainObject(rawPreparedOwnerObservation) ||
+        !exactKeys(rawPreparedOwnerObservation, [
+          "status",
+          "ownerProcessId",
+          "ownerGeneration",
+        ]) ||
+        rawPreparedOwnerObservation.ownerProcessId !==
+          prepared.ownerProcessId ||
+        rawPreparedOwnerObservation.ownerGeneration !== prepared.ownerGeneration
+      )
+        return blocked(
+          "project_runtime_lease_owner_observation_unknown",
+          true,
+          expectedRecoveryId,
+        );
+      if (rawPreparedOwnerObservation.status === "alive")
+        return blocked("project_runtime_lease_owner_still_active");
+      if (rawPreparedOwnerObservation.status !== "absent")
+        return blocked(
+          "project_runtime_lease_owner_observation_unknown",
+          true,
+          expectedRecoveryId,
+        );
+      try {
+        fs.linkSync(temporaryMarker, acquisitionMarker);
+      } catch (error) {
+        if (errorCode(error) !== "EEXIST")
+          return blocked(
+            "project_runtime_lease_acquisition_recovery_cleanup_unknown",
+            true,
+            expectedRecoveryId,
+          );
+      }
+      if (
+        !fs.existsSync(acquisitionMarker) ||
+        fs.readFileSync(acquisitionMarker, "utf8") !==
+          fs.readFileSync(temporaryMarker, "utf8")
+      )
+        return blocked(
+          "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+          true,
+          expectedRecoveryId,
+        );
+    }
+  }
   if (!fs.existsSync(acquisitionMarker))
     return blocked(
       "project_runtime_lease_acquisition_recovery_state_mismatch",
@@ -2341,6 +2458,7 @@ function reconcileUnboundLeaseAcquisition(
   fs.rmSync(releaseMarker);
   if (fs.existsSync(lockOwnershipMarker)) fs.rmSync(lockOwnershipMarker);
   if (!retainAcquisitionMarkerForCaller) fs.rmSync(acquisitionMarker);
+  if (temporaryMarker !== null) fs.rmSync(temporaryMarker);
   if (
     fs.existsSync(lock) ||
     fs.existsSync(releaseMarker) ||

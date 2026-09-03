@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   acquireProjectRuntimeLease,
@@ -808,17 +809,9 @@ if (lease.status !== "completed") process.exit(20);`,
     "project-operation",
   );
   assert.equal(blockedAcquire.status, "blocked");
-  assert.equal(
-    blockedAcquire.reason,
-    "project_runtime_lease_acquisition_recovery_required",
-  );
-  assert.equal(blockedAcquire.manualRecoveryRequired, true);
-  assert.match(
-    blockedAcquire.status === "blocked"
-      ? (blockedAcquire.recoveryId ?? "")
-      : "",
-    /^lease-acquisition-[0-9a-f]{40}$/u,
-  );
+  assert.equal(blockedAcquire.reason, "project_runtime_lease_unavailable");
+  assert.equal(blockedAcquire.manualRecoveryRequired, false);
+  assert.equal(blockedAcquire.recoveryId, null);
 
   let observedOwnerProcessId = 0;
   const recovered = reconcileProjectRuntimeLeaseOwnerLoss(
@@ -898,13 +891,9 @@ if (lease.status !== "completed") process.exit(20);`,
     "canonical-adoption",
   );
   assert.equal(blockedAcquire.status, "blocked");
-  assert.equal(
-    blockedAcquire.reason,
-    "project_runtime_lease_acquisition_recovery_required",
-  );
-  const recoveryId =
-    blockedAcquire.status === "blocked" ? blockedAcquire.recoveryId : null;
-  assert.match(recoveryId ?? "", /^lease-acquisition-[0-9a-f]{40}$/u);
+  assert.equal(blockedAcquire.reason, "project_runtime_lease_unavailable");
+  assert.equal(blockedAcquire.manualRecoveryRequired, false);
+  assert.equal(blockedAcquire.recoveryId, null);
   const recovered = reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
     root,
     "binding-a",
@@ -912,9 +901,102 @@ if (lease.status !== "completed") process.exit(20);`,
     (owner) => ({ status: "absent", ...owner }),
   );
   assert.equal(recovered.status, "completed");
-  assert.equal(
-    recovered.status === "completed" && recovered.value.recoveryId,
-    recoveryId,
+  assert.match(
+    recovered.status === "completed" ? recovered.value.recoveryId : "",
+    /^lease-acquisition-[0-9a-f]{40}$/u,
+  );
+  const reacquired = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-b",
+    "canonical-adoption",
+  );
+  assert.equal(reacquired.status, "completed");
+  if (reacquired.status === "completed")
+    assert.equal(reacquired.value.release().status, "completed");
+});
+
+test("PR-A-04 classifies a late contender against a live owner as unavailable", async (t) => {
+  const { root } = fixture(t);
+  const signal = path.join(root, "live-owner-ready");
+  const probe = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "fixtures",
+    "project-runtime-lease-interleaving-probe.ts",
+  );
+  const child = spawn(process.execPath, [probe, root, signal, "hold"], {
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  const deadline = Date.now() + 10_000;
+  while (!fs.existsSync(signal) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(fs.existsSync(signal), true);
+  const contender = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-b",
+    "canonical-adoption",
+  );
+  assert.equal(contender.status, "blocked");
+  assert.equal(contender.reason, "project_runtime_lease_unavailable");
+  assert.equal(contender.manualRecoveryRequired, false);
+  assert.equal(contender.recoveryId, null);
+  fs.writeFileSync(`${signal}.go`, "go\n", "utf8");
+  const exitCode = await new Promise<number | null>((resolve) =>
+    child.once("exit", resolve),
+  );
+  assert.equal(exitCode, 0);
+});
+
+test("PR-A-04 keeps pre-publication contention effect-free and recovers only after owner loss", async (t) => {
+  const { root } = fixture(t);
+  const signal = path.join(root, "pre-publication-ready");
+  const probe = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "fixtures",
+    "project-runtime-lease-interleaving-probe.ts",
+  );
+  const child = spawn(
+    process.execPath,
+    [probe, root, signal, "pause-before-publish"],
+    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  const deadline = Date.now() + 10_000;
+  while (!fs.existsSync(signal) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(fs.existsSync(signal), true);
+  const contender = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-b",
+    "canonical-adoption",
+  );
+  assert.equal(contender.status, "blocked");
+  assert.equal(contender.reason, "project_runtime_lease_unavailable");
+  assert.equal(contender.manualRecoveryRequired, false);
+  assert.equal(contender.recoveryId, null);
+  child.kill();
+  await new Promise<void>((resolve) => child.once("exit", () => resolve()));
+  const recovered = reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
+    root,
+    "binding-a",
+    "project-a",
+    (owner) => ({ status: "absent", ...owner }),
+  );
+  assert.equal(recovered.status, "completed");
+  assert.match(
+    recovered.status === "completed" ? recovered.value.recoveryId : "",
+    /^lease-acquisition-[0-9a-f]{40}$/u,
   );
   const reacquired = acquireProjectRuntimeLease(
     root,
@@ -1007,44 +1089,33 @@ test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fai
   assert.equal(fs.existsSync(marker), false);
 });
 
-test("PR-A-04 does not treat an unobservable acquisition footprint as absent", (t) => {
+test("PR-A-04 preserves a published acquisition when temporary cleanup is unknown", (t) => {
   const { root } = fixture(t);
   const locks = path.join(root, ".crdd", "project-runtime", "locks");
   const identity = "canonical-adoption-binding-a-project-a";
   const marker = path.join(locks, `${identity}.acquire-pending`);
   const lock = path.join(locks, `${identity}.lock`);
-  const originalReadFileSync = fs.readFileSync;
-  const originalLstatSync = fs.lstatSync;
-  let readbackFaultInjected = false;
-  let absenceFaultInjected = false;
-  const faultingReadFileSync = ((...args: unknown[]) => {
-    if (!readbackFaultInjected && String(args[0]) === marker) {
-      readbackFaultInjected = true;
-      throw new Error("injected_acquisition_marker_readback_failure");
+  const originalRmSync = fs.rmSync;
+  let cleanupFaultInjected = false;
+  const faultingRmSync = ((...args: unknown[]) => {
+    if (
+      !cleanupFaultInjected &&
+      path
+        .basename(String(args[0]))
+        .startsWith(
+          ".pending-canonical-adoption-binding-a-project-a-acquisition-",
+        )
+    ) {
+      cleanupFaultInjected = true;
+      throw new Error("injected_acquisition_temporary_cleanup_failure");
     }
-    return Reflect.apply(originalReadFileSync, fs, args);
-  }) as typeof fs.readFileSync;
-  const faultingLstatSync = ((...args: unknown[]) => {
-    if (!absenceFaultInjected && String(args[0]) === lock) {
-      absenceFaultInjected = true;
-      const error = new Error("injected_acquisition_footprint_unobservable");
-      Object.defineProperty(error, "code", { value: "EACCES" });
-      throw error;
-    }
-    return Reflect.apply(originalLstatSync, fs, args);
-  }) as typeof fs.lstatSync;
+    return Reflect.apply(originalRmSync, fs, args);
+  }) as typeof fs.rmSync;
   let acquisition: ReturnType<typeof acquireProjectRuntimeLease>;
-  Object.defineProperties(fs, {
-    readFileSync: {
-      configurable: true,
-      writable: true,
-      value: faultingReadFileSync,
-    },
-    lstatSync: {
-      configurable: true,
-      writable: true,
-      value: faultingLstatSync,
-    },
+  Object.defineProperty(fs, "rmSync", {
+    configurable: true,
+    writable: true,
+    value: faultingRmSync,
   });
   try {
     acquisition = acquireProjectRuntimeLease(
@@ -1055,21 +1126,13 @@ test("PR-A-04 does not treat an unobservable acquisition footprint as absent", (
       "canonical-adoption",
     );
   } finally {
-    Object.defineProperties(fs, {
-      readFileSync: {
-        configurable: true,
-        writable: true,
-        value: originalReadFileSync,
-      },
-      lstatSync: {
-        configurable: true,
-        writable: true,
-        value: originalLstatSync,
-      },
+    Object.defineProperty(fs, "rmSync", {
+      configurable: true,
+      writable: true,
+      value: originalRmSync,
     });
   }
-  assert.equal(readbackFaultInjected, true);
-  assert.equal(absenceFaultInjected, true);
+  assert.equal(cleanupFaultInjected, true);
   assert.equal(acquisition.status, "blocked");
   assert.equal(
     acquisition.reason,
@@ -1275,16 +1338,26 @@ test("PR-D-A-01 preserves malformed and partial acquisition state with an exact 
       "project-operation",
     );
     assert.equal(result.status, "blocked", scenario);
+    const requiresRecovery = scenario === "existing-lock";
     assert.equal(
       result.status === "blocked" && result.manualRecoveryRequired,
-      true,
+      requiresRecovery,
       scenario,
     );
-    assert.match(
-      result.status === "blocked" ? (result.recoveryId ?? "") : "",
-      /^lease-acquisition-[0-9a-f]{40}$/u,
-      scenario,
-    );
+    if (requiresRecovery)
+      assert.match(
+        result.status === "blocked" ? (result.recoveryId ?? "") : "",
+        /^lease-acquisition-[0-9a-f]{40}$/u,
+        scenario,
+      );
+    else {
+      assert.equal(
+        result.reason,
+        "project_runtime_lease_unavailable",
+        scenario,
+      );
+      assert.equal(result.recoveryId, null, scenario);
+    }
     assert.notEqual(
       result.reason,
       "project_runtime_lease_acquisition_rolled_back",

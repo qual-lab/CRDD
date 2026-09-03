@@ -243,7 +243,21 @@ test("separate processes cannot both own one Repository Binding operation", asyn
     windowsHide: true,
   });
   t.after(() => fs.rmSync(workingDirectory, { recursive: true, force: true }));
-  const barrier = path.join(workingDirectory, ".crdd-race-go");
+  const initialized = acquireProjectRuntimeLease(
+    workingDirectory,
+    "binding-race",
+    "project-initializer",
+    "queue-initializer",
+    "project-operation",
+  );
+  assert.equal(initialized.status, "completed");
+  if (initialized.status === "completed")
+    assert.equal(initialized.value.release().status, "completed");
+  const controlDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-project-priority-race-control-"),
+  );
+  t.after(() => fs.rmSync(controlDirectory, { recursive: true, force: true }));
+  const barrier = path.join(controlDirectory, "go");
   const probe = fileURLToPath(
     new URL("./fixtures/project-runtime-lease-race-probe.ts", import.meta.url),
   );
@@ -272,17 +286,24 @@ test("separate processes cannot both own one Repository Binding operation", asyn
   };
   const first = run("project-a", "queue-a");
   const second = run("project-b", "queue-b");
+  const third = run("project-c", "queue-c");
   const deadline = Date.now() + 10_000;
   while (
     (!fs.existsSync(`${barrier}.queue-a.ready`) ||
-      !fs.existsSync(`${barrier}.queue-b.ready`)) &&
+      !fs.existsSync(`${barrier}.queue-b.ready`) ||
+      !fs.existsSync(`${barrier}.queue-c.ready`)) &&
     Date.now() < deadline
   )
     await new Promise((resolve) => setTimeout(resolve, 5));
   assert.equal(fs.existsSync(`${barrier}.queue-a.ready`), true);
   assert.equal(fs.existsSync(`${barrier}.queue-b.ready`), true);
+  assert.equal(fs.existsSync(`${barrier}.queue-c.ready`), true);
   fs.writeFileSync(barrier, "go\n", "utf8");
-  const results = await Promise.all([first.completed, second.completed]);
+  const results = await Promise.all([
+    first.completed,
+    second.completed,
+    third.completed,
+  ]);
   for (const result of results) assert.equal(result.code, 0, result.stderr);
   const outcomes = results.map((result) => JSON.parse(result.stdout));
   assert.equal(
@@ -291,13 +312,15 @@ test("separate processes cannot both own one Repository Binding operation", asyn
   );
   assert.equal(
     outcomes.filter((result) => result.status === "blocked").length,
-    1,
+    2,
   );
   assert.ok(
-    [
-      "project_runtime_lease_unavailable",
-      "project_runtime_lease_acquisition_rolled_back",
-    ].includes(outcomes.find((result) => result.status === "blocked")?.reason),
-    JSON.stringify(outcomes),
+    outcomes
+      .filter((result) => result.status === "blocked")
+      .every((result) => result.reason === "project_runtime_lease_unavailable"),
+    JSON.stringify({
+      outcomes,
+      stderr: results.map((result) => result.stderr),
+    }),
   );
 });
