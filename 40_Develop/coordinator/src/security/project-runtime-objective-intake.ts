@@ -941,169 +941,43 @@ export async function runProjectRuntimeObjective(
         });
         recoveryState = settledWrite.value;
       }
-      for (const item of recoveries.filter(
-        (entry) => entry.kind === "docker",
-      )) {
-        const settledTask = recoveryState.tasks.find(
-          (entry) => entry.definition.id === item.taskId,
-        );
-        if (
-          !settledTask?.attemptId ||
-          !settledTask.operationId ||
-          !settledTask.recoveryObligations.some(
-            (entry) =>
-              entry.kind === "docker" &&
-              entry.recoveryId === item.recoveryId &&
-              ["settled", "acknowledged"].includes(entry.phase),
-          )
-        )
-          return blocked(
-            request,
-            "project_runtime_task_recovery_acknowledgement_not_settled",
-            {
-              cleanupConfirmed: false,
-              manualRecoveryRequired: true,
-              effectState: "unknown",
-              recoveryIds: [item.recoveryId],
-              recoveryObligations: [
-                Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
-              ],
-            },
-          );
-        let currentObligation = settledTask.recoveryObligations.find(
+    }
+    for (const item of recoveries.filter((entry) => entry.kind === "docker")) {
+      const settledTask = recoveryState.tasks.find(
+        (entry) => entry.definition.id === item.taskId,
+      );
+      if (
+        !settledTask?.attemptId ||
+        !settledTask.operationId ||
+        !settledTask.recoveryObligations.some(
           (entry) =>
-            entry.kind === "docker" && entry.recoveryId === item.recoveryId,
-        );
-        if (currentObligation?.phase === "settled") {
-          let acknowledgementResult: unknown;
-          try {
-            acknowledgementResult =
-              dependencies.acknowledgeTaskRecovery?.(
-                Object.freeze({
-                  workingDirectory,
-                  repositoryBindingId: binding.repositoryBindingId,
-                  projectId: request.projectId,
-                  milestoneId: request.milestoneId,
-                  stateGeneration: recoveryState.generation,
-                  taskId: item.taskId,
-                  attemptId: settledTask.attemptId,
-                  operationId: settledTask.operationId,
-                  kind: "docker" as const,
-                  recoveryId: item.recoveryId,
-                }),
-              ) ?? null;
-          } catch {
-            acknowledgementResult = null;
-          }
-          const acknowledged = snapshotPlainRecord(
-            acknowledgementResult,
-            new Set(["status", "reason", "acknowledgement"]),
-          );
-          const evidence = snapshotPlainRecord(
-            acknowledged?.acknowledgement,
-            new Set([
-              "runtimeStateBinding",
-              "receiptContentHash",
-              "receiptContentIdentity",
-            ]),
-          );
-          const runtimeStateBinding = snapshotPlainRecord(
-            evidence?.runtimeStateBinding,
-            new Set([
-              "runtimeStateIdentityHash",
-              "runtimeStateProtectionHash",
-              "localUserBindingHash",
-              "runtimeStateBindingHash",
-            ]),
-          );
-          if (
-            acknowledged?.status !== "completed" ||
-            typeof acknowledged.reason !== "string" ||
-            !evidence ||
-            !runtimeStateBinding
-          )
-            return blocked(
-              request,
-              "project_runtime_task_recovery_acknowledgement_not_settled",
-              {
-                cleanupConfirmed: false,
-                manualRecoveryRequired: true,
-                effectState: "unknown",
-                recoveryIds: [item.recoveryId],
-                recoveryObligations: [
-                  Object.freeze({
-                    kind: item.kind,
-                    recoveryId: item.recoveryId,
-                  }),
-                ],
-              },
-            );
-          const durableAcknowledgement = Object.freeze({
-            repositoryBindingId: binding.repositoryBindingId,
-            projectId: request.projectId,
-            milestoneId: request.milestoneId,
-            taskId: item.taskId,
-            attemptId: settledTask.attemptId,
-            operationId: settledTask.operationId,
-            recoveryId: item.recoveryId,
-            settlementGeneration: recoveryState.generation,
-            runtimeStateBinding,
-            receiptContentHash: String(evidence.receiptContentHash),
-            receiptContentIdentity: String(evidence.receiptContentIdentity),
-          }) as ProjectDockerRecoveryAcknowledgement;
-          const marked = acknowledgeProjectDockerRecoveryObligation(
-            recoveryState,
-            recoveryState.generation,
-            durableAcknowledgement,
-          );
-          if (marked.status !== "completed" || !marked.state)
-            return blocked(request, marked.reason, {
-              cleanupConfirmed: false,
-              manualRecoveryRequired: true,
-              effectState: "unknown",
-            });
-          const markedWrite = writeProjectRuntimeState(
-            workingDirectory,
-            binding.repositoryBindingId,
-            marked.state,
-            recoveryState.generation,
-          );
-          if (markedWrite.status !== "completed")
-            return blocked(request, markedWrite.reason, {
-              cleanupConfirmed: false,
-              manualRecoveryRequired: true,
-              effectState: "unknown",
-            });
-          recoveryState = markedWrite.value;
-          state = Object.freeze({
-            status: "completed" as const,
-            reason: markedWrite.reason,
-            value: markedWrite.value,
-          });
-          currentObligation = recoveryState.tasks
-            .find((entry) => entry.definition.id === item.taskId)
-            ?.recoveryObligations.find(
-              (entry) =>
-                entry.kind === "docker" && entry.recoveryId === item.recoveryId,
-            );
-        }
-        if (
-          currentObligation?.phase !== "acknowledged" ||
-          !currentObligation.acknowledgement
+            entry.kind === "docker" &&
+            entry.recoveryId === item.recoveryId &&
+            ["settled", "acknowledged"].includes(entry.phase),
         )
-          return blocked(
-            request,
-            "project_runtime_task_recovery_acknowledgement_not_settled",
-            {
-              cleanupConfirmed: false,
-              manualRecoveryRequired: true,
-              effectState: "unknown",
-            },
-          );
-        let finalized: unknown;
+      )
+        return blocked(
+          request,
+          "project_runtime_task_recovery_acknowledgement_not_settled",
+          {
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectState: "unknown",
+            recoveryIds: [item.recoveryId],
+            recoveryObligations: [
+              Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+            ],
+          },
+        );
+      let currentObligation = settledTask.recoveryObligations.find(
+        (entry) =>
+          entry.kind === "docker" && entry.recoveryId === item.recoveryId,
+      );
+      if (currentObligation?.phase === "settled") {
+        let acknowledgementResult: unknown;
         try {
-          finalized =
-            dependencies.finalizeTaskRecoveryAcknowledgement?.(
+          acknowledgementResult =
+            dependencies.acknowledgeTaskRecovery?.(
               Object.freeze({
                 workingDirectory,
                 repositoryBindingId: binding.repositoryBindingId,
@@ -1115,69 +989,193 @@ export async function runProjectRuntimeObjective(
                 operationId: settledTask.operationId,
                 kind: "docker" as const,
                 recoveryId: item.recoveryId,
-                acknowledgement: currentObligation.acknowledgement,
               }),
             ) ?? null;
         } catch {
-          finalized = null;
+          acknowledgementResult = null;
         }
-        const finalResult = snapshotPlainRecord(
-          finalized,
-          new Set(["status", "reason"]),
+        const acknowledged = snapshotPlainRecord(
+          acknowledgementResult,
+          new Set(["status", "reason", "acknowledgement"]),
+        );
+        const evidence = snapshotPlainRecord(
+          acknowledged?.acknowledgement,
+          new Set([
+            "runtimeStateBinding",
+            "receiptContentHash",
+            "receiptContentIdentity",
+          ]),
+        );
+        const runtimeStateBinding = snapshotPlainRecord(
+          evidence?.runtimeStateBinding,
+          new Set([
+            "runtimeStateIdentityHash",
+            "runtimeStateProtectionHash",
+            "localUserBindingHash",
+            "runtimeStateBindingHash",
+          ]),
         );
         if (
-          finalResult?.status !== "completed" ||
-          typeof finalResult.reason !== "string"
+          acknowledged?.status !== "completed" ||
+          typeof acknowledged.reason !== "string" ||
+          !evidence ||
+          !runtimeStateBinding
         )
           return blocked(
             request,
-            "project_runtime_task_recovery_acknowledgement_gc_not_settled",
+            "project_runtime_task_recovery_acknowledgement_not_settled",
             {
               cleanupConfirmed: false,
               manualRecoveryRequired: true,
               effectState: "unknown",
               recoveryIds: [item.recoveryId],
               recoveryObligations: [
-                Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+                Object.freeze({
+                  kind: item.kind,
+                  recoveryId: item.recoveryId,
+                }),
               ],
             },
           );
-      }
-      const externallyOwned = recoveryState.tasks.flatMap((task) =>
-        task.recoveryObligations
-          .filter(
-            (entry) =>
-              !["docker", "runtime_process"].includes(entry.kind) &&
-              entry.phase !== "settled",
-          )
-          .map((entry) => ({ taskId: task.definition.id, ...entry })),
-      );
-      if (externallyOwned.length > 0)
-        return blocked(request, "project_runtime_external_recovery_required", {
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-          effectState: "unknown",
-          recoveryIds: recoveryState.tasks.flatMap((task) =>
-            task.recoveryObligations
-              .filter(
-                (entry) =>
-                  entry.phase !==
-                  (entry.kind === "docker" ? "acknowledged" : "settled"),
-              )
-              .map((entry) => entry.recoveryId),
-          ),
-          recoveryObligations: recoveryState.tasks.flatMap((task) =>
-            task.recoveryObligations
-              .filter(
-                (entry) =>
-                  entry.phase !==
-                  (entry.kind === "docker" ? "acknowledged" : "settled"),
-              )
-              .map(({ kind, recoveryId }) =>
-                Object.freeze({ kind, recoveryId }),
-              ),
-          ),
+        const durableAcknowledgement = Object.freeze({
+          repositoryBindingId: binding.repositoryBindingId,
+          projectId: request.projectId,
+          milestoneId: request.milestoneId,
+          taskId: item.taskId,
+          attemptId: settledTask.attemptId,
+          operationId: settledTask.operationId,
+          recoveryId: item.recoveryId,
+          settlementGeneration: recoveryState.generation,
+          runtimeStateBinding,
+          receiptContentHash: String(evidence.receiptContentHash),
+          receiptContentIdentity: String(evidence.receiptContentIdentity),
+        }) as ProjectDockerRecoveryAcknowledgement;
+        const marked = acknowledgeProjectDockerRecoveryObligation(
+          recoveryState,
+          recoveryState.generation,
+          durableAcknowledgement,
+        );
+        if (marked.status !== "completed" || !marked.state)
+          return blocked(request, marked.reason, {
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectState: "unknown",
+          });
+        const markedWrite = writeProjectRuntimeState(
+          workingDirectory,
+          binding.repositoryBindingId,
+          marked.state,
+          recoveryState.generation,
+        );
+        if (markedWrite.status !== "completed")
+          return blocked(request, markedWrite.reason, {
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectState: "unknown",
+          });
+        recoveryState = markedWrite.value;
+        state = Object.freeze({
+          status: "completed" as const,
+          reason: markedWrite.reason,
+          value: markedWrite.value,
         });
+        currentObligation = recoveryState.tasks
+          .find((entry) => entry.definition.id === item.taskId)
+          ?.recoveryObligations.find(
+            (entry) =>
+              entry.kind === "docker" && entry.recoveryId === item.recoveryId,
+          );
+      }
+      if (
+        currentObligation?.phase !== "acknowledged" ||
+        !currentObligation.acknowledgement
+      )
+        return blocked(
+          request,
+          "project_runtime_task_recovery_acknowledgement_not_settled",
+          {
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectState: "unknown",
+          },
+        );
+      let finalized: unknown;
+      try {
+        finalized =
+          dependencies.finalizeTaskRecoveryAcknowledgement?.(
+            Object.freeze({
+              workingDirectory,
+              repositoryBindingId: binding.repositoryBindingId,
+              projectId: request.projectId,
+              milestoneId: request.milestoneId,
+              stateGeneration: recoveryState.generation,
+              taskId: item.taskId,
+              attemptId: settledTask.attemptId,
+              operationId: settledTask.operationId,
+              kind: "docker" as const,
+              recoveryId: item.recoveryId,
+              acknowledgement: currentObligation.acknowledgement,
+            }),
+          ) ?? null;
+      } catch {
+        finalized = null;
+      }
+      const finalResult = snapshotPlainRecord(
+        finalized,
+        new Set(["status", "reason"]),
+      );
+      if (
+        finalResult?.status !== "completed" ||
+        typeof finalResult.reason !== "string"
+      )
+        return blocked(
+          request,
+          "project_runtime_task_recovery_acknowledgement_gc_not_settled",
+          {
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectState: "unknown",
+            recoveryIds: [item.recoveryId],
+            recoveryObligations: [
+              Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+            ],
+          },
+        );
+    }
+    const externallyOwned = recoveryState.tasks.flatMap((task) =>
+      task.recoveryObligations
+        .filter(
+          (entry) =>
+            !["docker", "runtime_process"].includes(entry.kind) &&
+            entry.phase !== "settled",
+        )
+        .map((entry) => ({ taskId: task.definition.id, ...entry })),
+    );
+    if (externallyOwned.length > 0)
+      return blocked(request, "project_runtime_external_recovery_required", {
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown",
+        recoveryIds: recoveryState.tasks.flatMap((task) =>
+          task.recoveryObligations
+            .filter(
+              (entry) =>
+                entry.phase !==
+                (entry.kind === "docker" ? "acknowledged" : "settled"),
+            )
+            .map((entry) => entry.recoveryId),
+        ),
+        recoveryObligations: recoveryState.tasks.flatMap((task) =>
+          task.recoveryObligations
+            .filter(
+              (entry) =>
+                entry.phase !==
+                (entry.kind === "docker" ? "acknowledged" : "settled"),
+            )
+            .map(({ kind, recoveryId }) => Object.freeze({ kind, recoveryId })),
+        ),
+      });
+    if (queue.state === "recovery_required") {
       const queueSettlement = settleProjectOperationQueueRecovery(
         workingDirectory,
         binding.repositoryBindingId,

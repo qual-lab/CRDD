@@ -126,6 +126,48 @@ test("Project記録後のDocker確認資源回収は入れ子accessorとProxyを
     },
   );
 });
+
+test("Project記録後のDocker確認資源回収はfile identityをhashと誤分類しない", () => {
+  const input = {
+    workingDirectory: process.cwd(),
+    repositoryBindingId: "missing-binding",
+    projectId: "missing-project",
+    milestoneId: "milestone",
+    stateGeneration: 1,
+    taskId: "task",
+    attemptId: "attempt",
+    operationId: "operation",
+    kind: "docker" as const,
+    recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+    acknowledgement: {
+      repositoryBindingId: "missing-binding",
+      projectId: "missing-project",
+      milestoneId: "milestone",
+      taskId: "task",
+      attemptId: "attempt",
+      operationId: "operation",
+      recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+      settlementGeneration: 1,
+      runtimeStateBinding: {
+        runtimeStateIdentityHash: "d".repeat(64),
+        runtimeStateProtectionHash: "e".repeat(64),
+        localUserBindingHash: "f".repeat(64),
+        runtimeStateBindingHash: "0".repeat(64),
+      },
+      receiptContentHash: "1".repeat(64),
+      receiptContentIdentity: "1:2:3",
+    },
+  };
+  assert.deepEqual(
+    DockerRecoveryRuntime.collectDockerRecoveryAcknowledgementAfterProjectRecord(
+      input,
+    ),
+    {
+      status: "blocked",
+      reason: "docker_task_recovery_acknowledgement_gc_not_verified",
+    },
+  );
+});
 const inheritedTemporaryRoot = fs.realpathSync(os.tmpdir());
 const isolatedTemporaryRoot = fs.mkdtempSync(
   path.join(inheritedTemporaryRoot, "crdd-coordinator-recovery-test-run-"),
@@ -3660,7 +3702,7 @@ test("完了済みDocker Recovery receiptの改変は再実行成功へ流用し
   }
 });
 
-test("Docker Recovery acknowledgementは65件超を逐次回収して旧Receiptを再受理しない", (t) => {
+test("Docker Recovery acknowledgementは上限64を1件越える65件を逐次回収する", (t) => {
   const directory = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-docker-ack-retention-"),
   );
@@ -3672,6 +3714,9 @@ test("Docker Recovery acknowledgementは65件超を逐次回収して旧Receipt�
     localUserBindingHash: root.localUserBindingHash,
     runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
   });
+  let staleReceipt:
+    | Readonly<{ name: string; logicalKey: string; value: unknown }>
+    | undefined;
   for (let index = 0; index < 65; index += 1) {
     const recoveryId = `docker-task.${root.stableLogicalHomeBindingHash}.${index
       .toString(16)
@@ -3684,6 +3729,17 @@ test("Docker Recovery acknowledgementは65件超を逐次回収して旧Receipt�
       recoveryId,
       runtimeStateBinding,
     });
+    if (index === 0) {
+      const observed = readCommittedDockerRecoveryJson(
+        path.join(directory, name),
+        name,
+      );
+      staleReceipt = Object.freeze({
+        name,
+        logicalKey: observed.logicalKey,
+        value: observed.value,
+      });
+    }
     const acknowledged =
       acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
         recoveryId,
@@ -3719,6 +3775,22 @@ test("Docker Recovery acknowledgementは65件超を逐次回収して旧Receipt�
       ),
     false,
   );
+  assert.ok(staleReceipt);
+  const replayed = writeCommittedDockerRecoveryJson(
+    directory,
+    staleReceipt.name,
+    staleReceipt.logicalKey,
+    staleReceipt.value,
+  );
+  assert.equal(
+    (replayed.value as { recoveryId?: unknown }).recoveryId,
+    (staleReceipt.value as { recoveryId?: unknown }).recoveryId,
+  );
+  assert.equal(
+    removeCommittedDockerRecoveryJson(replayed.target, replayed.logicalKey),
+    true,
+  );
+  assert.deepEqual(fs.readdirSync(directory), []);
 });
 
 for (const removeBoundary of [1, 2] as const) {

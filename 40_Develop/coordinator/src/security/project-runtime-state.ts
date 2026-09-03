@@ -204,13 +204,36 @@ export function isProjectRuntimeProjectionSemanticallyValid(
           : projection.objectiveCounts.integration_pending > 0
             ? "verify_objective_integration"
             : null;
+  const allObjectivesPlanned =
+    projection.objectiveCounts.planned === objectiveTotal;
+  const allObjectivesAccepted =
+    projection.objectiveCounts.accepted === objectiveTotal;
+  const allTasksWaitingToStart =
+    projection.taskCounts.ready + projection.taskCounts.waiting_dependency ===
+    taskTotal;
+  const allTasksTerminalForIntegration =
+    projection.taskCounts.completed + projection.taskCounts.superseded ===
+    taskTotal;
+  const aggregateReachable =
+    (!allObjectivesPlanned || projection.taskCounts.completed === 0) &&
+    (!allTasksComplete ||
+      (projection.objectiveCounts.planned === 0 &&
+        projection.objectiveCounts.executing === 0)) &&
+    (projection.objectiveCounts.integration_pending === 0 ||
+      projection.taskCounts.completed > 0);
   const milestoneReachable =
+    aggregateReachable &&
+    (projection.milestoneState !== "planned" ||
+      (allObjectivesPlanned && allTasksWaitingToStart)) &&
+    (projection.milestoneState !== "executing" ||
+      (!allObjectivesPlanned && !allObjectivesAccepted)) &&
+    (projection.milestoneState !== "integrating" ||
+      (allObjectivesAccepted && allTasksTerminalForIntegration)) &&
     (projection.milestoneState !== "accepted" ||
-      (projection.objectiveCounts.accepted === objectiveTotal &&
+      (allObjectivesAccepted &&
         projection.objectiveCounts.blocked === 0 &&
         projection.objectiveCounts.cancelled === 0 &&
-        projection.taskCounts.completed + projection.taskCounts.superseded ===
-          taskTotal &&
+        allTasksTerminalForIntegration &&
         projection.taskCounts.recovery_required === 0)) &&
     (projection.milestoneState !== "recovery_required" ||
       projection.taskCounts.recovery_required > 0) &&
@@ -251,13 +274,7 @@ export function isProjectRuntimeObjectiveProjectionCorrelationValid(
   projection: ProjectRuntimeProjection | null,
 ) {
   if (!projection) return true;
-  if (
-    outer.status === "completed" &&
-    (projection.nextAction === "recover" ||
-      projection.nextAction === "human_decision" ||
-      projection.recoveryRequired ||
-      projection.humanDecisionRequired)
-  )
+  if (outer.status === "completed" && projection.milestoneState !== "accepted")
     return false;
   if (outer.status === "cancelled" && projection.milestoneState !== "cancelled")
     return false;

@@ -666,6 +666,16 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     true,
   );
   assert.equal(recoveries, 0);
+  const staleAttemptState = readProjectRuntimeState(
+    workingDirectory,
+    "binding-a",
+    "project-a",
+  );
+  const staleTask = staleAttemptState.value?.tasks.find(
+    (entry) => entry.definition.id === "task-a",
+  );
+  assert.ok(staleTask?.attemptId);
+  assert.ok(staleTask?.operationId);
 
   const resumed = await runProjectRuntimeObjective(
     dependencies,
@@ -715,6 +725,24 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   assert.equal(
     latest.status === "completed" && latest.value?.tasks[0]?.retryCount,
     1,
+  );
+  assert.deepEqual(
+    consumeDockerRecoveryReceiptAfterProjectSettlement({
+      workingDirectory,
+      repositoryBindingId: "binding-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      stateGeneration: latest.value?.generation ?? -1,
+      taskId: "task-a",
+      attemptId: staleTask?.attemptId ?? "missing",
+      operationId: staleTask?.operationId ?? "missing",
+      kind: "docker",
+      recoveryId,
+    }),
+    {
+      status: "blocked",
+      reason: "docker_task_recovery_settlement_not_verified",
+    },
   );
 });
 
@@ -1112,13 +1140,8 @@ for (const interruption of [
       request({ maximumReplans: 0 }),
       new AbortController().signal,
     );
-    assert.equal(
-      resumed.status,
-      interruption === "item_and_queue" ? "blocked" : "completed",
-    );
-    if (interruption === "item_and_queue")
-      assert.equal(resumed.reason, "project_runtime_no_schedulable_task");
+    assert.equal(resumed.status, "completed");
     assert.equal(recoveries, interruption === "recovering_only" ? 1 : 0);
-    assert.equal(attempts, interruption === "item_and_queue" ? 1 : 2);
+    assert.equal(attempts, 2);
   });
 }

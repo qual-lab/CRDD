@@ -165,7 +165,6 @@ export function collectDockerRecoveryAcknowledgementAfterProjectRecord(
         runtimeStateBinding.localUserBindingHash,
         runtimeStateBinding.runtimeStateBindingHash,
         acknowledgement?.receiptContentHash,
-        acknowledgement?.receiptContentIdentity,
       ]
     : [];
   if (
@@ -179,7 +178,10 @@ export function collectDockerRecoveryAcknowledgementAfterProjectRecord(
     ) ||
     hashValues.some(
       (value) => typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value),
-    )
+    ) ||
+    typeof acknowledgement.receiptContentIdentity !== "string" ||
+    acknowledgement.receiptContentIdentity.length === 0 ||
+    acknowledgement.receiptContentIdentity.length > 256
   )
     return Object.freeze({
       status: "blocked" as const,
@@ -239,7 +241,11 @@ export function collectDockerRecoveryAcknowledgementAfterProjectRecord(
     });
   return finalizeRuntimeOwnedDockerRecoveryAcknowledgement(
     String(settlement.recoveryId),
-    obligation.acknowledgement,
+    Object.freeze({
+      runtimeStateBinding: safeAcknowledgement.runtimeStateBinding,
+      receiptContentHash: safeAcknowledgement.receiptContentHash,
+      receiptContentIdentity: safeAcknowledgement.receiptContentIdentity,
+    }),
   );
 }
 
