@@ -111,7 +111,7 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 
 3つの固定改訂版を3系統で確認し、2回是正した。固定改訂版`008c583`では、当時の対象についてCheckerがMarkdown 396件、local link 2,778件、anchor 949件、Error 0、Warning 0で終了し、全独立確認が`Pass`、残る指摘事項0となった。指摘、共通原因、未測定値および非該当範囲は[検証結果](../../07_Quality/Verification_Results/2026-09-02_Dogfooding_Assurance_Route_Readability_Verification.md)に記録する。この結果は、後続で追加した意味変換、状態表示、上位完成、相関不変条件および三値観測の確認結果には流用しない。
 
-その後の利用側Feedbackでは、文書の読みやすさだけでなく、情報源から成果物への意味変換と状態表示に共通原因があることを確認した。追加差分は`03_Documentation.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`51_Document_Audit.md`、公式／利用側の`AGENTS.md`およびCommunicationひな型へ反映した。`008c583`の確認結果をこの追加差分へ流用せず、現在はProject Runtimeの後続一般化とともに新しい固定改訂版でChecker、独立確認および監査を実行中である。全必須確認がPassするまで、この後続一般化を完了とは表示しない。
+その後の利用側Feedbackでは、文書の読みやすさだけでなく、情報源から成果物への意味変換と状態表示に共通原因があることを確認した。追加差分は`03_Documentation.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`51_Document_Audit.md`、公式／利用側の`AGENTS.md`およびCommunicationひな型へ反映した。`008c583`の確認結果をこの追加差分へ流用せず、Project Runtimeの後続一般化と合わせた新しい[Source A署名前監査](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Source_A_Pre_Sign_Audit.md)を実行した。初回固定改訂版で検出したRelease closure契約と公開文書への伝播のMajor 2件を是正し、`1f3f49b`の限定再確認はCritical／Major／Minor 0件でPassした。この結果は署名前の論理候補の成立であり、署名、実Provider／実Docker E2EまたはRelease完了へ読み替えない。
 
 Project Runtimeの責務分離候補に対する独立レビューでは、一部のPlatform操作と単体試験の成立を境界全体の完成へ過大表示し得ること、および個別fieldが許容値でも成功表示とcleanup／Recovery義務が矛盾し得ることを検出した。共通原因は、設計から試験への接続一般ではなく、上位Capabilityの完成に必要な保証を漏れなく列挙して判定する規則と、複数fieldの相関不変条件が明示不足だったことである。Tool固有の状態名や実装方式は共通規範へ持ち込まず、`27_Architecture.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`51_Document_Audit.md`および公式／利用側の`AGENTS.md`へ一般化した。
 
