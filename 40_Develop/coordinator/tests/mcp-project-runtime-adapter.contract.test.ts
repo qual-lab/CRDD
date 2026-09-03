@@ -399,6 +399,66 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       ...base,
       projection: { ...validProjection, workProgress: "not_started" },
     },
+    {
+      ...base,
+      status: "completed",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "settled",
+      recoveryIds: [],
+      recoveryObligations: [],
+      projection: validProjection,
+    },
+    {
+      ...base,
+      recoveryIds: [],
+      recoveryObligations: [],
+      projection: {
+        ...validProjection,
+        milestoneState: "accepted",
+        objectiveCounts: {
+          ...validProjection.objectiveCounts,
+          accepted: 1,
+          blocked: 0,
+        },
+        taskCounts: {
+          ...validProjection.taskCounts,
+          recovery_required: 1,
+        },
+        qualityState: "accepted",
+        humanDecisionRequired: false,
+        recoveryRequired: false,
+        nextAction: "complete",
+      },
+    },
+    {
+      ...base,
+      status: "cancelled",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect",
+      recoveryIds: [],
+      recoveryObligations: [],
+      projection: {
+        ...validProjection,
+        milestoneState: "planned",
+        objectiveCounts: {
+          ...validProjection.objectiveCounts,
+          planned: 1,
+          blocked: 0,
+        },
+        taskCounts: {
+          ...validProjection.taskCounts,
+          ready: 1,
+          recovery_required: 0,
+        },
+        workProgress: "not_started",
+        qualityState: "not_evaluated",
+        humanDecisionRequired: false,
+        recoveryRequired: false,
+        nextAction: "schedule_task",
+      },
+    },
   ];
   for (const [index, raw] of malformed.entries()) {
     const response = await handleMcpProjectRuntimeRequest(

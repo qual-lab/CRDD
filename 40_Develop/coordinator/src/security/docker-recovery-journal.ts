@@ -885,6 +885,51 @@ export function writeCommittedDockerRecoveryJson(
   });
 }
 
+/**
+ * Complete or reuse one exact committed pair.  This is the create-side
+ * counterpart of the delete journal: a crash after the content rename but
+ * before the commit rename can be resumed without replacing either file.
+ */
+export function writeOrResumeCommittedDockerRecoveryJson(
+  directory: string,
+  name: string,
+  logicalKey: string,
+  value: unknown,
+): CommittedJson {
+  const target = path.join(directory, name);
+  const commit = path.join(directory, dockerRecoveryCommitName(name));
+  const targetPresent = pathPresent(target);
+  const commitPresent = pathPresent(commit);
+  if (!targetPresent && !commitPresent)
+    return writeCommittedDockerRecoveryJson(directory, name, logicalKey, value);
+  if (!targetPresent)
+    throw new Error("docker_recovery_record_create_third_state");
+  const serialized = canonical(value);
+  const content = readStableFile(target);
+  if (content.serialized !== serialized)
+    throw new Error("docker_recovery_record_create_mismatch");
+  const hash = createHash("sha256").update(serialized).digest("hex");
+  if (!commitPresent) {
+    writeAtomicFile(
+      directory,
+      commit,
+      canonical(
+        Object.freeze({
+          schema: "crdd-coordinator-durable-json-commit/v1",
+          logicalKey,
+          contentHash: hash,
+          contentIdentity: identityText(content.identity),
+          contentBytes: Buffer.byteLength(serialized, "utf8"),
+        }),
+      ),
+    );
+  }
+  const observed = readCommittedDockerRecoveryJson(target, logicalKey);
+  if (observed.serialized !== serialized)
+    throw new Error("docker_recovery_record_create_mismatch");
+  return observed;
+}
+
 export function readCommittedDockerRecoveryJson(
   file: string,
   expectedLogicalKey = path.basename(file),
@@ -1229,6 +1274,22 @@ export function resumeDockerRecoveryJournalDirectoryForRecovery(
       throw new Error("docker_recovery_non_target_intent_changed");
   }
   return true;
+}
+
+export function hasDockerRecoveryJournalIntentForRecovery(
+  directory: string,
+  recoveryId: string,
+) {
+  stableDirectoryIdentity(directory);
+  return fs
+    .readdirSync(directory)
+    .filter(isDockerRecoveryJournalIntentName)
+    .some((name) => {
+      const anchor = path.join(directory, name);
+      return (
+        recoveryIdFromIntent(validateIntentSnapshot(anchor)) === recoveryId
+      );
+    });
 }
 
 export function inspectDockerRecoveryMoveJournalForRecovery(

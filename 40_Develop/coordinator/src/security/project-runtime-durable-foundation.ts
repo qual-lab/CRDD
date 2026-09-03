@@ -170,9 +170,61 @@ function recoveryObligations(
   if (!Array.isArray(value) || value.length > 128) return false;
   const identities = new Set<string>();
   for (const entry of value) {
+    const acknowledgementKeys = [
+      "repositoryBindingId",
+      "projectId",
+      "milestoneId",
+      "taskId",
+      "attemptId",
+      "operationId",
+      "recoveryId",
+      "settlementGeneration",
+      "runtimeStateBinding",
+      "receiptContentHash",
+      "receiptContentIdentity",
+    ];
+    const acknowledgement = entry?.acknowledgement;
+    const binding = plainObject(acknowledgement)
+      ? acknowledgement.runtimeStateBinding
+      : null;
+    const validAcknowledgement =
+      plainObject(acknowledgement) &&
+      exactKeys(acknowledgement, acknowledgementKeys) &&
+      [
+        acknowledgement.repositoryBindingId,
+        acknowledgement.projectId,
+        acknowledgement.milestoneId,
+        acknowledgement.taskId,
+        acknowledgement.attemptId,
+        acknowledgement.operationId,
+      ].every(validId) &&
+      nullableRecoveryId(acknowledgement.recoveryId) &&
+      acknowledgement.recoveryId !== null &&
+      Number.isSafeInteger(acknowledgement.settlementGeneration) &&
+      Number(acknowledgement.settlementGeneration) > 0 &&
+      plainObject(binding) &&
+      exactKeys(binding, [
+        "runtimeStateIdentityHash",
+        "runtimeStateProtectionHash",
+        "localUserBindingHash",
+        "runtimeStateBindingHash",
+      ]) &&
+      Object.values(binding).every(
+        (item) => typeof item === "string" && /^[a-f0-9]{64}$/u.test(item),
+      ) &&
+      typeof acknowledgement.receiptContentHash === "string" &&
+      /^[a-f0-9]{64}$/u.test(acknowledgement.receiptContentHash) &&
+      typeof acknowledgement.receiptContentIdentity === "string" &&
+      acknowledgement.receiptContentIdentity.length > 0 &&
+      acknowledgement.receiptContentIdentity.length <= 256;
     if (
       !plainObject(entry) ||
-      !exactKeys(entry, ["kind", "recoveryId", "phase"]) ||
+      !exactKeys(
+        entry,
+        entry.phase === "acknowledged"
+          ? ["kind", "recoveryId", "phase", "acknowledgement"]
+          : ["kind", "recoveryId", "phase"],
+      ) ||
       ![
         "host",
         "docker",
@@ -182,7 +234,13 @@ function recoveryObligations(
       ].includes(String(entry.kind)) ||
       !nullableRecoveryId(entry.recoveryId) ||
       entry.recoveryId === null ||
-      !["required", "recovering", "settled"].includes(String(entry.phase))
+      !["required", "recovering", "settled", "acknowledged"].includes(
+        String(entry.phase),
+      ) ||
+      (entry.phase === "acknowledged" &&
+        (entry.kind !== "docker" ||
+          !validAcknowledgement ||
+          acknowledgement.recoveryId !== entry.recoveryId))
     )
       return false;
     const identity = `${entry.kind}\0${entry.recoveryId}`;
@@ -389,7 +447,11 @@ function validProjectRuntimeState(
       (task.state !== "recovery_required" &&
         task.recoveryUnresolved === true) ||
       (task.state === "ready" &&
-        task.recoveryObligations.some((entry) => entry.phase !== "settled")) ||
+        task.recoveryObligations.some(
+          (entry) =>
+            entry.phase !==
+            (entry.kind === "docker" ? "acknowledged" : "settled"),
+        )) ||
       (!["ready", "recovery_required"].includes(String(task.state)) &&
         task.recoveryObligations.length > 0) ||
       !validTaskLifecycleTuple(

@@ -31,6 +31,20 @@ import {
 } from "../src/security/project-runtime-state.ts";
 
 const revision = "a".repeat(40);
+const dockerAcknowledgement = Object.freeze({
+  runtimeStateBinding: Object.freeze({
+    runtimeStateIdentityHash: "1".repeat(64),
+    runtimeStateProtectionHash: "2".repeat(64),
+    localUserBindingHash: "3".repeat(64),
+    runtimeStateBindingHash: "4".repeat(64),
+  }),
+  receiptContentHash: "5".repeat(64),
+  receiptContentIdentity: "1:2:3",
+});
+const finalizedAcknowledgement = () => ({
+  status: "completed" as const,
+  reason: "acknowledgement_collected",
+});
 function root(t: test.TestContext) {
   const value = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-intake-"));
   execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
@@ -598,8 +612,13 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
       );
       return acknowledgements === 1
         ? { status: "blocked", reason: "acknowledgement_interrupted" }
-        : { status: "completed", reason: "acknowledged" };
+        : {
+            status: "completed",
+            reason: "acknowledged",
+            acknowledgement: dockerAcknowledgement,
+          };
     },
+    finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
     execution: {
       runSingleTaskAttempt: async (input: Parameters<typeof completed>[0]) => {
         attempts += 1;
@@ -752,7 +771,9 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
     acknowledgeTaskRecovery: () => ({
       status: "completed",
       reason: "acknowledged",
+      acknowledgement: dockerAcknowledgement,
     }),
+    finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
     execution: {
       runSingleTaskAttempt: async (
         input: ProjectRuntimeSingleTaskAttemptInput,
@@ -992,7 +1013,9 @@ for (const interruption of [
       acknowledgeTaskRecovery: () => ({
         status: "completed",
         reason: "acknowledged",
+        acknowledgement: dockerAcknowledgement,
       }),
+      finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
       execution: {
         runSingleTaskAttempt: async (
           input: Parameters<typeof completed>[0],
@@ -1089,8 +1112,13 @@ for (const interruption of [
       request({ maximumReplans: 0 }),
       new AbortController().signal,
     );
-    assert.equal(resumed.status, "completed");
+    assert.equal(
+      resumed.status,
+      interruption === "item_and_queue" ? "blocked" : "completed",
+    );
+    if (interruption === "item_and_queue")
+      assert.equal(resumed.reason, "project_runtime_no_schedulable_task");
     assert.equal(recoveries, interruption === "recovering_only" ? 1 : 0);
-    assert.equal(attempts, 2);
+    assert.equal(attempts, interruption === "item_and_queue" ? 1 : 2);
   });
 }

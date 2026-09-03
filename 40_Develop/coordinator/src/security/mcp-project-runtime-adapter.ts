@@ -5,6 +5,7 @@ import {
 } from "./plain-data-snapshot.ts";
 import { inspectProjectRuntimeObjectiveRequest } from "./project-runtime-objective-request.ts";
 import {
+  isProjectRuntimeObjectiveProjectionCorrelationValid,
   isProjectRuntimeProjectionSemanticallyValid,
   type ProjectRuntimeProjection,
 } from "./project-runtime-state.ts";
@@ -678,6 +679,22 @@ function objectiveSnapshot(
         (entry) => entry.kind === "runtime_process",
       ),
     );
+    const correlationValid =
+      projection === null ||
+      isProjectRuntimeObjectiveProjectionCorrelationValid(
+        {
+          status: objective.status as "completed" | "blocked" | "cancelled",
+          cleanupConfirmed: Boolean(objective.cleanupConfirmed),
+          manualRecoveryRequired: Boolean(objective.manualRecoveryRequired),
+          processRestartRequired: Boolean(objective.processRestartRequired),
+          effectState: objective.effectState as
+            | "no_effect"
+            | "settled"
+            | "unknown",
+          recoveryCount: recoveries?.recoveryIds.length ?? 0,
+        },
+        projection,
+      );
     if (
       objective.contract !== PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT ||
       !["completed", "blocked", "cancelled"].includes(
@@ -696,6 +713,7 @@ function objectiveSnapshot(
       typeof objective.manualRecoveryRequired !== "boolean" ||
       typeof objective.processRestartRequired !== "boolean" ||
       !recoveries ||
+      !correlationValid ||
       !["no_effect", "settled", "unknown"].includes(
         String(objective.effectState),
       ) ||

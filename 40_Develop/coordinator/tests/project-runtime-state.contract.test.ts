@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  acknowledgeProjectDockerRecoveryObligation,
   createProjectRuntimeState,
   describeProjectRuntimeStateContract,
   markProjectTaskRecoveryObligationRecovering,
@@ -580,10 +581,42 @@ describe("Project Runtime state contract", () => {
       { kind: "docker", recoveryId: dockerId, phase: "settled" },
       { kind: "host", recoveryId: hostId, phase: "required" },
     ]);
+    const acknowledged = acknowledgeProjectDockerRecoveryObligation(
+      itemSettled.state,
+      itemSettled.state.generation,
+      {
+        repositoryBindingId: "binding-a",
+        projectId: "crdd",
+        milestoneId: "v0.19",
+        taskId: "task-a",
+        attemptId: "attempt-task-a",
+        operationId: "operation-task-a",
+        recoveryId: dockerId,
+        settlementGeneration: itemSettled.state.generation,
+        runtimeStateBinding: {
+          runtimeStateIdentityHash: "1".repeat(64),
+          runtimeStateProtectionHash: "2".repeat(64),
+          localUserBindingHash: "3".repeat(64),
+          runtimeStateBindingHash: "4".repeat(64),
+        },
+        receiptContentHash: "5".repeat(64),
+        receiptContentIdentity: "1:2:3",
+      },
+    );
+    assert.equal(acknowledged.status, "completed");
+    assert.equal(
+      acknowledged.state?.tasks[0]?.recoveryObligations[0]?.phase,
+      "acknowledged",
+    );
+    assert.equal(
+      acknowledged.state?.tasks[0]?.recoveryObligations[0]?.acknowledgement
+        ?.operationId,
+      "operation-task-a",
+    );
     assert.equal(
       retrySettledProjectTaskRecoveries(
-        itemSettled.state,
-        itemSettled.state.generation,
+        acknowledged.state ?? itemSettled.state,
+        acknowledged.state?.generation ?? itemSettled.state.generation,
         ["task-a"],
       ).status,
       "blocked",

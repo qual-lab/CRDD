@@ -41,7 +41,7 @@ describe("Project Runtime design traceability", () => {
         status: "accepted",
         interfaces: 9,
         persistentRecords: 10,
-        resources: 13,
+        resources: 14,
         locks: 4,
         authorities: 7,
         effects: 9,

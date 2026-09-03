@@ -23,6 +23,7 @@ import {
   dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,
   inspectDockerRecoveryMoveJournalForRecovery,
+  hasDockerRecoveryJournalIntentForRecovery,
   isDockerRecoveryJournalIntentName,
   isDockerRecoveryJournalTemporaryName,
   moveCommittedDockerRecoveryJson,
@@ -33,6 +34,7 @@ import {
   resumeDockerRecoveryJournalDirectory,
   resumeDockerRecoveryJournalDirectoryForRecovery,
   writeCommittedDockerRecoveryJson,
+  writeOrResumeCommittedDockerRecoveryJson,
 } from "./docker-recovery-journal.ts";
 import { createDockerRecoveryRuntimeStateLockController } from "./docker-recovery-lock-controller.ts";
 import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine.ts";
@@ -276,16 +278,29 @@ function inspectAcknowledgedDockerRecoveryReceipt(
   const record = readExactJson(location, name);
   const value = record.value as Record<string, unknown>;
   if (
-    !exactRecordKeys(value, ["schema", "recoveryId", "runtimeStateBinding"]) ||
+    !exactRecordKeys(value, [
+      "schema",
+      "recoveryId",
+      "runtimeStateBinding",
+      "receiptContentHash",
+      "receiptContentIdentity",
+    ]) ||
     value.schema !== "crdd-coordinator-docker-recovery-acknowledgement/v1" ||
     value.recoveryId !== recoveryId ||
-    !validRuntimeStateBindingEvidence(value.runtimeStateBinding)
+    !validRuntimeStateBindingEvidence(value.runtimeStateBinding) ||
+    typeof value.receiptContentHash !== "string" ||
+    !HEX64.test(value.receiptContentHash) ||
+    typeof value.receiptContentIdentity !== "string" ||
+    value.receiptContentIdentity.length < 1 ||
+    value.receiptContentIdentity.length > 256
   )
     throw new Error("docker_task_recovery_acknowledgement_tombstone_invalid");
   return Object.freeze({
     name,
     runtimeStateBinding:
       value.runtimeStateBinding as RuntimeStateBindingEvidence,
+    receiptContentHash: value.receiptContentHash as string,
+    receiptContentIdentity: value.receiptContentIdentity as string,
   });
 }
 
@@ -309,6 +324,8 @@ function inspectCompletedDockerRecoveryReceipt(
     name,
     runtimeStateBinding:
       value.runtimeStateBinding as RuntimeStateBindingEvidence,
+    receiptContentHash: record.hash,
+    receiptContentIdentity: record.identityText,
   });
 }
 
@@ -4958,6 +4975,22 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
     });
   try {
     const expectedBinding = runtimeStateBindingEvidence(root);
+    const beforeResumeReceipt = inspectCompletedDockerRecoveryReceipt(
+      root.rootPath,
+      parsed.token,
+    );
+    if (
+      beforeResumeReceipt &&
+      JSON.stringify(beforeResumeReceipt.runtimeStateBinding) !==
+        JSON.stringify(expectedBinding)
+    )
+      throw new Error("docker_task_recovery_completion_binding_mismatch");
+    if (hasDockerRecoveryJournalIntentForRecovery(root.rootPath, parsed.token))
+      resumeDockerRecoveryJournalDirectoryForRecovery(
+        root.rootPath,
+        parsed.token,
+        expectedBinding,
+      );
     const receipt = inspectCompletedDockerRecoveryReceipt(
       root.rootPath,
       parsed.token,
@@ -4976,6 +5009,11 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
       return Object.freeze({
         status: "completed" as const,
         reason: "docker_task_recovery_completion_already_acknowledged",
+        acknowledgement: Object.freeze({
+          runtimeStateBinding: acknowledged.runtimeStateBinding,
+          receiptContentHash: acknowledged.receiptContentHash,
+          receiptContentIdentity: acknowledged.receiptContentIdentity,
+        }),
       });
     }
     if (
@@ -4986,18 +5024,34 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
     const acknowledgedName = acknowledgedDockerRecoveryReceiptName(
       parsed.token,
     );
-    const acknowledgementCount = fs
-      .readdirSync(root.rootPath)
-      .filter((name) => ACKNOWLEDGED_DOCKER_RECOVERY_RECEIPT.test(name)).length;
-    if (acknowledgementCount >= MAX_COMPLETED_DOCKER_RECOVERY_RECEIPTS)
-      throw new Error(
-        "docker_task_recovery_acknowledgement_tombstone_limit_exceeded",
-      );
-    writeDurableJson(root.rootPath, acknowledgedName, {
+    const acknowledgementValue = Object.freeze({
       schema: "crdd-coordinator-docker-recovery-acknowledgement/v1",
       recoveryId: parsed.token,
       runtimeStateBinding: expectedBinding,
+      receiptContentHash: receipt.receiptContentHash,
+      receiptContentIdentity: receipt.receiptContentIdentity,
     });
+    const existingAcknowledged = recoveryPathPresent(
+      path.join(root.rootPath, acknowledgedName),
+    );
+    if (!existingAcknowledged) {
+      const acknowledgementCount = fs
+        .readdirSync(root.rootPath)
+        .filter((name) =>
+          ACKNOWLEDGED_DOCKER_RECOVERY_RECEIPT.test(name),
+        ).length;
+      if (acknowledgementCount >= MAX_COMPLETED_DOCKER_RECOVERY_RECEIPTS)
+        throw new Error(
+          "docker_task_recovery_acknowledgement_tombstone_limit_exceeded",
+        );
+    }
+    writeOrResumeCommittedDockerRecoveryJson(
+      root.rootPath,
+      acknowledgedName,
+      acknowledgedName,
+      acknowledgementValue,
+    );
+    commitDirectoryMutationBoundary(root.rootPath);
     const acknowledged = inspectAcknowledgedDockerRecoveryReceipt(
       root.rootPath,
       parsed.token,
@@ -5005,7 +5059,9 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
     if (
       !acknowledged ||
       JSON.stringify(acknowledged.runtimeStateBinding) !==
-        JSON.stringify(expectedBinding)
+        JSON.stringify(expectedBinding) ||
+      acknowledged.receiptContentHash !== receipt.receiptContentHash ||
+      acknowledged.receiptContentIdentity !== receipt.receiptContentIdentity
     )
       throw new Error("docker_task_recovery_acknowledgement_unknown");
     const location = path.join(root.rootPath, receipt.name);
@@ -5022,6 +5078,11 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
     return Object.freeze({
       status: "completed" as const,
       reason: "docker_task_recovery_completion_acknowledged",
+      acknowledgement: Object.freeze({
+        runtimeStateBinding: acknowledged.runtimeStateBinding,
+        receiptContentHash: acknowledged.receiptContentHash,
+        receiptContentIdentity: acknowledged.receiptContentIdentity,
+      }),
     });
   } catch (error) {
     return Object.freeze({
@@ -5029,6 +5090,83 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
       reason: safeRecoveryReason(
         error,
         "docker_task_recovery_completion_acknowledgement_failed",
+      ),
+    });
+  }
+}
+
+/** @internal GC engine. The public facade must first verify Project ack state. */
+export function finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+  token: unknown,
+  acknowledgement: unknown,
+  root: VerifiedRuntimeStateRoot,
+) {
+  const parsed = parseDockerTaskRecoveryId(token);
+  if (!parsed || !acknowledgement || typeof acknowledgement !== "object")
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "docker_task_recovery_acknowledgement_gc_authority_invalid",
+    });
+  try {
+    const expectedBinding = runtimeStateBindingEvidence(root);
+    const expected = acknowledgement as Readonly<Record<string, unknown>>;
+    if (
+      !exactRecordKeys(expected, [
+        "runtimeStateBinding",
+        "receiptContentHash",
+        "receiptContentIdentity",
+      ]) ||
+      !validRuntimeStateBindingEvidence(expected.runtimeStateBinding) ||
+      JSON.stringify(expected.runtimeStateBinding) !==
+        JSON.stringify(expectedBinding) ||
+      typeof expected.receiptContentHash !== "string" ||
+      !HEX64.test(expected.receiptContentHash) ||
+      typeof expected.receiptContentIdentity !== "string"
+    )
+      throw new Error(
+        "docker_task_recovery_acknowledgement_gc_authority_invalid",
+      );
+    if (hasDockerRecoveryJournalIntentForRecovery(root.rootPath, parsed.token))
+      resumeDockerRecoveryJournalDirectoryForRecovery(
+        root.rootPath,
+        parsed.token,
+        expectedBinding,
+      );
+    const tombstone = inspectAcknowledgedDockerRecoveryReceipt(
+      root.rootPath,
+      parsed.token,
+    );
+    if (!tombstone)
+      return Object.freeze({
+        status: "completed" as const,
+        reason: "docker_task_recovery_acknowledgement_already_collected",
+      });
+    if (
+      JSON.stringify(tombstone.runtimeStateBinding) !==
+        JSON.stringify(expectedBinding) ||
+      tombstone.receiptContentHash !== expected.receiptContentHash ||
+      tombstone.receiptContentIdentity !== expected.receiptContentIdentity
+    )
+      throw new Error("docker_task_recovery_acknowledgement_gc_mismatch");
+    const location = path.join(root.rootPath, tombstone.name);
+    if (!removeCommittedDockerRecoveryJson(location, tombstone.name))
+      throw new Error("docker_task_recovery_acknowledgement_gc_failed");
+    commitDirectoryMutationBoundary(root.rootPath);
+    if (
+      recoveryPathPresent(location) ||
+      recoveryPathPresent(dockerRecoveryCommitName(location))
+    )
+      throw new Error("docker_task_recovery_acknowledgement_gc_unknown");
+    return Object.freeze({
+      status: "completed" as const,
+      reason: "docker_task_recovery_acknowledgement_collected",
+    });
+  } catch (error) {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: safeRecoveryReason(
+        error,
+        "docker_task_recovery_acknowledgement_gc_failed",
       ),
     });
   }
@@ -5047,16 +5185,81 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletion(
     );
     if (observation.status !== "candidate" || !root)
       throw new Error("docker_task_runtime_state_unavailable");
-    return acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
-      token,
-      root,
+    const lock = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+      root.stableLogicalHomeBindingHash,
     );
+    if (!lock) throw new Error("docker_task_runtime_state_lock_unavailable");
+    let result: ReturnType<
+      typeof acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot
+    >;
+    try {
+      result = acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        token,
+        root,
+      );
+    } catch (error) {
+      const released = lock.release();
+      if (!released)
+        throw new Error("docker_task_runtime_state_lock_release_unconfirmed");
+      throw error;
+    }
+    if (!lock.release())
+      throw new Error("docker_task_runtime_state_lock_release_unconfirmed");
+    return result;
   } catch (error) {
     return Object.freeze({
       status: "blocked" as const,
       reason: safeRecoveryReason(
         error,
         "docker_task_recovery_completion_acknowledgement_failed",
+      ),
+    });
+  }
+}
+
+export function finalizeRuntimeOwnedDockerRecoveryAcknowledgement(
+  token: unknown,
+  acknowledgement: unknown,
+) {
+  try {
+    const observation = inspectRuntimeOwnedWindowsRuntimeState(
+      false,
+      new Date().toISOString(),
+    );
+    const root = consumeRuntimeOwnedRuntimeStateRootCapability(
+      observation.rootCapability,
+    );
+    if (observation.status !== "candidate" || !root)
+      throw new Error("docker_task_runtime_state_unavailable");
+    const lock = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+      root.stableLogicalHomeBindingHash,
+    );
+    if (!lock) throw new Error("docker_task_runtime_state_lock_unavailable");
+    let result: ReturnType<
+      typeof finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot
+    >;
+    try {
+      result =
+        finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+          token,
+          acknowledgement,
+          root,
+        );
+    } catch (error) {
+      const released = lock.release();
+      if (!released)
+        throw new Error("docker_task_runtime_state_lock_release_unconfirmed");
+      throw error;
+    }
+    if (!lock.release())
+      throw new Error("docker_task_runtime_state_lock_release_unconfirmed");
+    return result;
+  } catch (error) {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: safeRecoveryReason(
+        error,
+        "docker_task_recovery_acknowledgement_gc_failed",
       ),
     });
   }
@@ -5533,13 +5736,20 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
             "schema",
             "recoveryId",
             "runtimeStateBinding",
+            "receiptContentHash",
+            "receiptContentIdentity",
           ]) ||
           acknowledged.schema !==
             "crdd-coordinator-docker-recovery-acknowledgement/v1" ||
           typeof acknowledged.recoveryId !== "string" ||
           createHash("sha256").update(acknowledged.recoveryId).digest("hex") !==
             acknowledgedReceiptMatch[1] ||
-          !validRuntimeStateBindingEvidence(acknowledged.runtimeStateBinding)
+          !validRuntimeStateBindingEvidence(acknowledged.runtimeStateBinding) ||
+          typeof acknowledged.receiptContentHash !== "string" ||
+          !HEX64.test(acknowledged.receiptContentHash) ||
+          typeof acknowledged.receiptContentIdentity !== "string" ||
+          acknowledged.receiptContentIdentity.length < 1 ||
+          acknowledged.receiptContentIdentity.length > 256
         )
           throw new Error(
             "docker_task_recovery_acknowledgement_tombstone_invalid",

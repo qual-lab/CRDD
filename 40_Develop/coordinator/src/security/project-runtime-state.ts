@@ -70,7 +70,27 @@ export type ProjectTaskRecoveryKind =
 export type ProjectTaskRecoveryObligation = Readonly<{
   kind: ProjectTaskRecoveryKind;
   recoveryId: string;
-  phase: "required" | "recovering" | "settled";
+  phase: "required" | "recovering" | "settled" | "acknowledged";
+  acknowledgement?: ProjectDockerRecoveryAcknowledgement;
+}>;
+
+export type ProjectDockerRecoveryAcknowledgement = Readonly<{
+  repositoryBindingId: string;
+  projectId: string;
+  milestoneId: string;
+  taskId: string;
+  attemptId: string;
+  operationId: string;
+  recoveryId: string;
+  settlementGeneration: number;
+  runtimeStateBinding: Readonly<{
+    runtimeStateIdentityHash: string;
+    runtimeStateProtectionHash: string;
+    localUserBindingHash: string;
+    runtimeStateBindingHash: string;
+  }>;
+  receiptContentHash: string;
+  receiptContentIdentity: string;
 }>;
 
 export type ProjectTaskStartPhase =
@@ -184,7 +204,25 @@ export function isProjectRuntimeProjectionSemanticallyValid(
           : projection.objectiveCounts.integration_pending > 0
             ? "verify_objective_integration"
             : null;
+  const milestoneReachable =
+    (projection.milestoneState !== "accepted" ||
+      (projection.objectiveCounts.accepted === objectiveTotal &&
+        projection.objectiveCounts.blocked === 0 &&
+        projection.objectiveCounts.cancelled === 0 &&
+        projection.taskCounts.completed + projection.taskCounts.superseded ===
+          taskTotal &&
+        projection.taskCounts.recovery_required === 0)) &&
+    (projection.milestoneState !== "recovery_required" ||
+      projection.taskCounts.recovery_required > 0) &&
+    (projection.milestoneState !== "human_decision_required" ||
+      projection.objectiveCounts.blocked > 0) &&
+    (projection.milestoneState !== "cancelled" ||
+      (projection.taskCounts.starting === 0 &&
+        projection.taskCounts.running === 0 &&
+        projection.taskCounts.cleanup_pending === 0 &&
+        projection.taskCounts.recovery_required === 0));
   return (
+    milestoneReachable &&
     projection.recoveryRequired === recoveryRequired &&
     projection.humanDecisionRequired === humanDecisionRequired &&
     projection.workProgress === workProgress &&
@@ -194,6 +232,55 @@ export function isProjectRuntimeProjectionSemanticallyValid(
         projection.nextAction === "wait_for_task"
       : projection.nextAction === expectedAction)
   );
+}
+
+/**
+ * Validate the relation between the public Objective result and its already
+ * descriptor-safe Project projection.  Resolved decision/recovery history is
+ * not part of this projection, so only active actions are rejected here.
+ */
+export function isProjectRuntimeObjectiveProjectionCorrelationValid(
+  outer: Readonly<{
+    status: "completed" | "blocked" | "cancelled";
+    cleanupConfirmed: boolean;
+    manualRecoveryRequired: boolean;
+    processRestartRequired: boolean;
+    effectState: "no_effect" | "settled" | "unknown";
+    recoveryCount: number;
+  }>,
+  projection: ProjectRuntimeProjection | null,
+) {
+  if (!projection) return true;
+  if (
+    outer.status === "completed" &&
+    (projection.nextAction === "recover" ||
+      projection.nextAction === "human_decision" ||
+      projection.recoveryRequired ||
+      projection.humanDecisionRequired)
+  )
+    return false;
+  if (outer.status === "cancelled" && projection.milestoneState !== "cancelled")
+    return false;
+  if (
+    projection.nextAction === "recover" &&
+    (outer.status !== "blocked" ||
+      outer.cleanupConfirmed ||
+      !outer.manualRecoveryRequired ||
+      outer.effectState !== "unknown" ||
+      outer.recoveryCount < 1)
+  )
+    return false;
+  if (
+    projection.milestoneState === "accepted" &&
+    (outer.status !== "completed" ||
+      outer.cleanupConfirmed !== true ||
+      outer.manualRecoveryRequired ||
+      outer.processRestartRequired ||
+      outer.recoveryCount !== 0 ||
+      outer.effectState === "unknown")
+  )
+    return false;
+  return true;
 }
 
 type StateResult =
@@ -1041,6 +1128,80 @@ export function settleProjectTaskRecoveryObligation(
   });
 }
 
+export function acknowledgeProjectDockerRecoveryObligation(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  acknowledgement: ProjectDockerRecoveryAcknowledgement,
+): StateResult {
+  const task = state.tasks.find(
+    (candidate) => candidate.definition.id === acknowledgement.taskId,
+  );
+  const binding = acknowledgement.runtimeStateBinding;
+  const hex64 = (value: unknown) =>
+    typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
+  if (
+    state.generation !== expectedGeneration ||
+    acknowledgement.settlementGeneration !== expectedGeneration ||
+    acknowledgement.projectId !== state.projectId ||
+    acknowledgement.milestoneId !== state.milestoneId ||
+    !validIdentity(acknowledgement.repositoryBindingId) ||
+    !task ||
+    task.state !== "recovery_required" ||
+    task.attemptId !== acknowledgement.attemptId ||
+    task.operationId !== acknowledgement.operationId ||
+    !task.recoveryObligations.some(
+      (entry) =>
+        entry.kind === "docker" &&
+        entry.recoveryId === acknowledgement.recoveryId &&
+        entry.phase === "settled",
+    ) ||
+    !isProjectRuntimeRecoveryIdentity(acknowledgement.recoveryId) ||
+    ![
+      binding.runtimeStateIdentityHash,
+      binding.runtimeStateProtectionHash,
+      binding.localUserBindingHash,
+      binding.runtimeStateBindingHash,
+      acknowledgement.receiptContentHash,
+    ].every(hex64) ||
+    typeof acknowledgement.receiptContentIdentity !== "string" ||
+    acknowledgement.receiptContentIdentity.length < 1 ||
+    acknowledgement.receiptContentIdentity.length > 256
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_docker_recovery_acknowledgement_mismatch",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  const frozen = Object.freeze({
+    ...acknowledgement,
+    runtimeStateBinding: Object.freeze({ ...binding }),
+  });
+  const tasks = replaceTask(state, acknowledgement.taskId, (current) =>
+    Object.freeze({
+      ...current,
+      recoveryObligations: Object.freeze(
+        current.recoveryObligations.map((entry) =>
+          entry.kind === "docker" &&
+          entry.recoveryId === acknowledgement.recoveryId
+            ? Object.freeze({
+                ...entry,
+                phase: "acknowledged" as const,
+                acknowledgement: frozen,
+              })
+            : entry,
+        ),
+      ),
+    }),
+  );
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_docker_recovery_acknowledged",
+    state: projectState({ ...state, generation: state.generation + 1, tasks }),
+    taskIds: Object.freeze([acknowledgement.taskId]),
+  });
+}
+
 export function retrySettledProjectTaskRecoveries(
   state: ProjectRuntimeState,
   expectedGeneration: number,
@@ -1067,7 +1228,11 @@ export function retrySettledProjectTaskRecoveries(
         !task ||
         task.recoveryUnresolved ||
         task.recoveryObligations.length === 0 ||
-        task.recoveryObligations.some((entry) => entry.phase !== "settled") ||
+        task.recoveryObligations.some(
+          (entry) =>
+            entry.phase !==
+            (entry.kind === "docker" ? "acknowledged" : "settled"),
+        ) ||
         (task.state !== "recovery_required" && task.state !== "ready")
       );
     })
