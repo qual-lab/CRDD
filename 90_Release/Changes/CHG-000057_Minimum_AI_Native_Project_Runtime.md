@@ -182,6 +182,8 @@ Project全体E2Eへ進む直前の固定候補監査では、Docker完了Receipt
 
 `99b0b2f`の独立再監査では、端末streamの`destroyed`を`closed`相当として扱い遅延`error`の所有を終了していたこと、および通常2経路、取消、親喪失回復、回復再入場の各利用側へ未join反証を全数対応していなかったことをMajorとして検出した。個別修正を開始せず、streamのopen／destroyed-unclosed／closed、helperの開始待機／終了待機、5つの公開利用側を監査担当と具体化し、各条件を実装owner、反証試験、変更禁止範囲へ双方向に対応させた。技術候補`003b72f`は、実`close`前の3 streamへ結果非影響のerror sinkを保持し、既存listenerを変更せず複数の遅延errorを吸収する。helper永久保留、fallback kill成功およびChild `close`欠落が重なっても、共通絶対期限後に未joinを返し、遅延resolveで結果を変えない。[端末資源観測の署名前検証](../../07_Quality/Verification_Results/2026-09-04_Project_Runtime_Terminal_Observation_Closure_Pre_Sign_Verification.md)は、集中試験27件、制限Process試験1,628件、Windows実資源Gate 7件、Coordinator全確認および文書チェッカーの成功を記録する。これは更新固定版の独立再監査前にはMajor解消または署名適格を意味しない。
 
+固定改訂版`74b7650`の独立再監査はCritical／Major／Minor 0件で`Pass`し、前回Major、全合意条件、公開Process観測の全利用側、反証試験、Evidenceの双方向対応および変更禁止範囲を確認した。監査合意の具体化だけでなく、その条件集合と実装・適用先・利用側・反証・根拠を固定候補の実差分で双方向に全数照合する原則を、[エージェント](../../10_Agent.md#75-audit-aggregation-and-reconciliation)と[保守](../../19_Maintenance.md#31-tracked-change-execution-contract)へ還元した。規則の限定修正後の独立文書レビューもCritical／Major／Minor 0件で`Pass`した。これにより署名前Gateは通過し、残るGateはRuntime実行Identityの署名と署名済み実Provider／実Docker最終E2Eである。
+
 ## 9. 設計確定からリリース判断までの実行計画
 
 次の段階は依存順で進める。内部Taskへ分割できるが、後段の成功を前段の完了根拠へ流用しない。各段階の実装開始前に、対象Interface、保持する意図、変更禁止範囲、正常・準正常・異常、受入条件および検証方法をTask Packetへ固定する。

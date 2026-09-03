@@ -45,3 +45,11 @@
 ## 5. 次のGate
 
 本記録を含む固定CommitへRepository全体Checkerを再実行し、本表の合意ID、実装、反証試験、変更禁止範囲および双方向の全数対応を独立再監査する。Critical 0件かつMajor 0件を確認した後だけ、監査合意の具体化と適用網羅をCRDDの汎用規則へ還元し、Runtime実行Identityの署名と署名済み最終E2Eへ進む。新しい非文書Findingを検出した場合は局所修正せず、契約母集団と利用側母集団を再確認して修正方針を固定し直す。
+
+## 6. 独立再監査と規則への還元
+
+固定Commit `74b7650e45e0f7f4071cf6e72149e1afd70f1f19`（Tree `3f039ccf3dbe3459eb525b04128fbeb46e25a74e`）の独立再監査は、Critical 0件、Major 0件、Minor 0件で`Pass`した。前回Major 2点を解消し、A／B／Cの全合意条件、実装、全利用側、反証試験、Evidenceの双方向対応、変更禁止範囲および公開Process観測の全参照を確認した。未評価は公式鍵署名、署名済み実Provider／実Docker E2E、およびv0.19で宣言していないLinux／macOSの追加保証である。
+
+この結果から、監査との抽象的な方針合意だけでは具体適用の網羅を保証せず、期待状態、実装または適用先、反証、変更禁止範囲および根拠まで具体化した同じ条件集合と、固定候補の実差分による双方向確認が収束に有効だったと判断した。[エージェント](../../10_Agent.md#75-audit-aggregation-and-reconciliation)と[保守](../../19_Maintenance.md#31-tracked-change-execution-contract)へ、専用成果物を増やさず同じ原則を還元した。規則の独立文書レビューは初回Minor 1件を検出し、非コード是正にも適用できるよう「実装または適用先」「該当する全利用側」へ限定修正した。Commit `32d939b`の再確認はCritical 0件、Major 0件、Minor 0件で`Pass`した。
+
+署名前Gateは通過した。次のGateはRuntime実行Identityの署名と署名済み最終E2Eである。
