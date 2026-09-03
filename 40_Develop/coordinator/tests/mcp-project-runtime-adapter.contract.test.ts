@@ -316,6 +316,38 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     enumerable: true,
     value: "host-task.a",
   });
+  const validProjection = {
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    generation: 1,
+    milestoneState: "recovery_required",
+    objectiveCounts: {
+      planned: 0,
+      executing: 0,
+      integration_pending: 0,
+      accepted: 0,
+      blocked: 1,
+      cancelled: 0,
+    },
+    taskCounts: {
+      planned: 0,
+      waiting_dependency: 0,
+      ready: 0,
+      starting: 0,
+      running: 0,
+      cleanup_pending: 0,
+      completed: 0,
+      failed: 0,
+      cancelled: 0,
+      recovery_required: 1,
+      superseded: 0,
+    },
+    workProgress: "in_progress",
+    qualityState: "blocked",
+    humanDecisionRequired: false,
+    recoveryRequired: true,
+    nextAction: "recover",
+  };
   const malformed = [
     {
       ...base,
@@ -331,42 +363,25 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       ],
     },
     { ...base, processRestartRequired: true },
+    { ...base, manualRecoveryRequired: false },
+    { ...base, cleanupConfirmed: true },
+    {
+      ...base,
+      processRestartRequired: false,
+      recoveryIds: ["runtime-process.a"],
+      recoveryObligations: [
+        { kind: "runtime_process", recoveryId: "runtime-process.a" },
+      ],
+    },
+    { ...base, status: "cancelled" },
+    {
+      ...base,
+      projection: { ...validProjection, projectId: "project-b" },
+    },
     { ...base, decisionId: "decision-a" },
     {
       ...base,
-      projection: {
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        generation: 1,
-        milestoneState: "recovery_required",
-        objectiveCounts: {
-          planned: 0,
-          executing: 0,
-          integration_pending: 0,
-          accepted: 0,
-          blocked: 1,
-          cancelled: 0,
-        },
-        taskCounts: {
-          planned: 0,
-          waiting_dependency: 0,
-          ready: 0,
-          starting: 0,
-          running: 0,
-          cleanup_pending: 0,
-          completed: 0,
-          failed: 0,
-          cancelled: 0,
-          recovery_required: 1,
-          superseded: 0,
-        },
-        workProgress: "in_progress",
-        qualityState: "blocked",
-        humanDecisionRequired: false,
-        recoveryRequired: true,
-        nextAction: "recover",
-        internalTaskId: "task-a",
-      },
+      projection: { ...validProjection, internalTaskId: "task-a" },
     },
   ];
   for (const raw of malformed) {
@@ -377,6 +392,41 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         arguments: objective(),
       }),
       dependencies({ runObjective: async () => raw }),
+    );
+    assert.equal(
+      (response.result as { structuredContent: { reason: string } })
+        .structuredContent.reason,
+      "project_runtime_adapter_result_invalid",
+    );
+  }
+});
+
+test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検証する", async () => {
+  for (const [cleanupConfirmed, manualRecoveryRequired] of [
+    [true, true],
+    [false, false],
+  ] as const) {
+    const response = await handleMcpProjectRuntimeRequest(
+      request("tools/call", {
+        _meta: meta,
+        name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+        arguments: objective(),
+      }),
+      dependencies({
+        runObjective: async () => ({
+          contract: "crdd-coordinator/project-runtime-integration/v1",
+          status: "blocked",
+          reason: "integration_blocked",
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          queueId: "queue-a",
+          stateGeneration: 2,
+          candidateId: null,
+          receiptId: null,
+          cleanupConfirmed,
+          manualRecoveryRequired,
+        }),
+      }),
     );
     assert.equal(
       (response.result as { structuredContent: { reason: string } })

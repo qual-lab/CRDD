@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import * as DockerRecoveryRuntime from "../src/security/docker-recovery-runtime.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import {
   assertRuntimeTraceCase,
@@ -63,6 +64,16 @@ const inheritedTemporaryEnvironment = Object.freeze({
   TEMP: process.env.TEMP,
   TMP: process.env.TMP,
   TMPDIR: process.env.TMPDIR,
+});
+
+test("production Docker recovery facade does not expose receipt acknowledgement authority", () => {
+  assert.equal(
+    Object.hasOwn(
+      DockerRecoveryRuntime,
+      "acknowledgeRuntimeOwnedDockerRecoveryCompletion",
+    ),
+    false,
+  );
 });
 const inheritedTemporaryRoot = fs.realpathSync(os.tmpdir());
 const isolatedTemporaryRoot = fs.mkdtempSync(

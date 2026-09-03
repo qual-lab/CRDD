@@ -9,7 +9,7 @@ import {
   revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
 } from "./platform-provisioner-package-filesystem.ts";
 import {
-  acknowledgeRuntimeOwnedDockerRecoveryCompletion,
+  consumeDockerRecoveryReceiptAfterProjectSettlement,
   recoverRuntimeOwnedDockerTask,
   resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
 } from "./docker-recovery-runtime.ts";
@@ -248,7 +248,8 @@ async function executeProjectRuntimePublicObjective(
         );
       },
       recoverTaskRecovery: recoverRuntimeOwnedDockerTask,
-      acknowledgeTaskRecovery: acknowledgeRuntimeOwnedDockerRecoveryCompletion,
+      acknowledgeTaskRecovery:
+        consumeDockerRecoveryReceiptAfterProjectSettlement,
       ...(runtimeDependencies.resolveTaskRecoveryCorrelations
         ? {
             resolveTaskRecoveryCorrelations:

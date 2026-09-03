@@ -551,7 +551,10 @@ function publicBlockedSnapshot(
     !["no_effect", "settled", "unknown"].includes(String(record.effectState)) ||
     (record.effectState === "unknown" &&
       (record.cleanupConfirmed !== false ||
-        record.manualRecoveryRequired !== true))
+        record.manualRecoveryRequired !== true)) ||
+    (record.effectState !== "unknown" &&
+      (record.cleanupConfirmed !== true ||
+        record.manualRecoveryRequired !== false))
   )
     return null;
   return Object.freeze({ ...record });
@@ -662,6 +665,12 @@ function objectiveSnapshot(
       objective.projection === null
         ? null
         : projectionSnapshot(objective.projection);
+    const hasRecovery = Boolean(recoveries?.recoveryIds.length);
+    const hasRuntimeProcessRecovery = Boolean(
+      recoveries?.recoveryObligations.some(
+        (entry) => entry.kind === "runtime_process",
+      ),
+    );
     if (
       objective.contract !== PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT ||
       !["completed", "blocked", "cancelled"].includes(
@@ -673,6 +682,9 @@ function objectiveSnapshot(
       !stable(objective.milestoneId) ||
       (objective.queueId !== null && !stable(objective.queueId)) ||
       (objective.projection !== null && !projection) ||
+      (projection !== null &&
+        (projection.projectId !== objective.projectId ||
+          projection.milestoneId !== objective.milestoneId)) ||
       typeof objective.cleanupConfirmed !== "boolean" ||
       typeof objective.manualRecoveryRequired !== "boolean" ||
       typeof objective.processRestartRequired !== "boolean" ||
@@ -689,10 +701,26 @@ function objectiveSnapshot(
       (objective.effectState === "unknown" &&
         (objective.cleanupConfirmed !== false ||
           objective.manualRecoveryRequired !== true)) ||
+      (objective.effectState !== "unknown" &&
+        (objective.cleanupConfirmed !== true ||
+          objective.manualRecoveryRequired !== false)) ||
+      (hasRecovery &&
+        (objective.status !== "blocked" ||
+          objective.effectState !== "unknown" ||
+          objective.cleanupConfirmed !== false ||
+          objective.manualRecoveryRequired !== true)) ||
+      (objective.status === "cancelled" &&
+        (objective.cleanupConfirmed !== true ||
+          objective.manualRecoveryRequired !== false ||
+          objective.processRestartRequired !== false ||
+          hasRecovery ||
+          !["no_effect", "settled"].includes(String(objective.effectState)))) ||
+      objective.processRestartRequired !== hasRuntimeProcessRecovery ||
       (objective.processRestartRequired === true &&
-        !recoveries.recoveryObligations.some(
-          (entry) => entry.kind === "runtime_process",
-        ))
+        (objective.status !== "blocked" ||
+          objective.cleanupConfirmed !== false ||
+          objective.manualRecoveryRequired !== true ||
+          objective.effectState !== "unknown"))
     )
       return null;
     return Object.freeze({
@@ -725,6 +753,8 @@ function objectiveSnapshot(
     (integration.status === "completed" &&
       (integration.cleanupConfirmed !== true ||
         integration.manualRecoveryRequired !== false)) ||
+    (integration.status === "blocked" &&
+      integration.cleanupConfirmed === integration.manualRecoveryRequired) ||
     (Object.hasOwn(integration, "decision") && !decision)
   )
     return null;

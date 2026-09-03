@@ -95,7 +95,10 @@ function validIdentity(value: unknown): value is string {
 
 function validSingleTaskResult(
   value: unknown,
-  runtimeIssuedRecoveryIds: ReadonlySet<string>,
+  runtimeIssuedRecoveryIds: ReadonlyMap<
+    string,
+    Readonly<{ attemptId: string; operationId: string }>
+  >,
 ): value is ProjectRuntimeSingleTaskResult {
   try {
     if (
@@ -243,7 +246,10 @@ function validSingleTaskResult(
           ].includes(String(kind)) ||
           !isProjectRuntimeRecoveryIdentity(recoveryId) ||
           (kind === "runtime_process" &&
-            !runtimeIssuedRecoveryIds.has(String(recoveryId))) ||
+            (runtimeIssuedRecoveryIds.get(String(recoveryId))?.attemptId !==
+              record.attemptId ||
+              runtimeIssuedRecoveryIds.get(String(recoveryId))?.operationId !==
+                record.operationId)) ||
           identities.has(`${kind}\0${recoveryId}`)
         )
           return false;
@@ -798,7 +804,10 @@ export async function runProjectRuntimeOperation(
       );
       return observation;
     };
-    const runtimeIssuedRecoveryIds = new Set<string>();
+    const runtimeIssuedRecoveryIds = new Map<
+      string,
+      Readonly<{ attemptId: string; operationId: string }>
+    >();
     const outcomes = await Promise.all(
       attempts.map(async (attempt) => {
         try {
@@ -876,7 +885,13 @@ export async function runProjectRuntimeOperation(
                       attempt.attemptId,
                       attempt.operationId,
                     );
-                  runtimeIssuedRecoveryIds.add(runtimeProcessRecoveryId);
+                  runtimeIssuedRecoveryIds.set(
+                    runtimeProcessRecoveryId,
+                    Object.freeze({
+                      attemptId: attempt.attemptId,
+                      operationId: attempt.operationId,
+                    }),
+                  );
                   return Object.freeze({
                     contract:
                       "crdd-coordinator/project-runtime-single-task-adapter" as const,
@@ -948,13 +963,17 @@ export async function runProjectRuntimeOperation(
           attempt?.execution.authorityBindingId &&
         validatedOutcome.repositoryRevision === state.repositoryRevision;
       const effectStarted = startedAttemptIds.has(attempt.attemptId);
+      const unsafeResultAfterEffect =
+        effectStarted && (!validatedOutcome || !exact);
       const normalizedRecoveryObligations: Array<
         Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string }>
-      > = validatedOutcome
-        ? [...(validatedOutcome.recoveryObligations ?? [])]
-        : [];
+      > =
+        validatedOutcome && exact
+          ? [...(validatedOutcome.recoveryObligations ?? [])]
+          : [];
       if (
-        validatedOutcome?.processRestartRequired === true &&
+        (unsafeResultAfterEffect ||
+          validatedOutcome?.processRestartRequired === true) &&
         !normalizedRecoveryObligations.some(
           (entry) => entry.kind === "runtime_process",
         )
@@ -967,7 +986,13 @@ export async function runProjectRuntimeOperation(
           dependencies.poisonProcessAfterAuthorityRevocationUnknown ??
           poisonRuntimeProcessAfterCleanupUnknown
         )();
-        runtimeIssuedRecoveryIds.add(runtimeProcessRecoveryId);
+        runtimeIssuedRecoveryIds.set(
+          runtimeProcessRecoveryId,
+          Object.freeze({
+            attemptId: attempt.attemptId,
+            operationId: attempt.operationId,
+          }),
+        );
         normalizedRecoveryObligations.push(
           Object.freeze({
             kind: "runtime_process" as const,
@@ -976,14 +1001,16 @@ export async function runProjectRuntimeOperation(
         );
       }
       const recoveryRequired =
-        !validatedOutcome ||
-        !exact ||
-        validatedOutcome.effectState === "unknown" ||
-        !validatedOutcome.cleanupConfirmed ||
-        validatedOutcome.manualRecoveryRequired ||
-        validatedOutcome.processRestartRequired ||
-        validatedOutcome.recoveryIds.length > 0;
+        unsafeResultAfterEffect ||
+        (validatedOutcome !== null &&
+          exact &&
+          (validatedOutcome.effectState === "unknown" ||
+            !validatedOutcome.cleanupConfirmed ||
+            validatedOutcome.manualRecoveryRequired ||
+            validatedOutcome.processRestartRequired ||
+            validatedOutcome.recoveryIds.length > 0));
       processRestartRequired ||=
+        unsafeResultAfterEffect ||
         validatedOutcome?.processRestartRequired === true;
       const recoveryObligations = recoveryRequired
         ? normalizedRecoveryObligations.map((entry) =>
@@ -1004,7 +1031,13 @@ export async function runProjectRuntimeOperation(
             : validatedOutcome?.status === "cancelled"
               ? "cancelled"
               : "failed",
-        cleanupConfirmed: validatedOutcome?.cleanupConfirmed === true,
+        cleanupConfirmed:
+          !effectStarted && (!validatedOutcome || !exact)
+            ? true
+            : !unsafeResultAfterEffect &&
+              validatedOutcome?.processRestartRequired !== true &&
+              exact &&
+              validatedOutcome?.cleanupConfirmed === true,
         recoveryObligations,
         recoveryUnresolved,
         candidateId: validatedOutcome?.candidateId ?? null,
@@ -1048,6 +1081,13 @@ export async function runProjectRuntimeOperation(
         completedTaskIds.push(attempt?.taskId ?? "invalid");
       if (recoveryRequired) {
         terminalState = "recovery_required";
+      } else if ((!validatedOutcome || !exact) && terminalState === null) {
+        terminalState = "replan_required";
+        terminalReference = stableId(
+          "task-result-invalid",
+          attempt.taskId,
+          attempt.attemptId,
+        );
       } else if (
         validatedOutcome?.status === "cancelled" &&
         terminalState === null
@@ -1131,7 +1171,12 @@ export async function runProjectRuntimeOperation(
                 ),
               ),
               effectState:
-                terminalState === "recovery_required" ? "unknown" : "settled",
+                terminalState === "recovery_required"
+                  ? "unknown"
+                  : completedTaskIds.length === 0 &&
+                      startedAttemptIds.size === 0
+                    ? "no_effect"
+                    : "settled",
             })
           : blocked(input, queueTerminal.reason, {
               state,

@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../src/security/docker-recovery-runtime.ts";
+
 import {
   acquireProjectRuntimeLease,
   readProjectOperationQueueState,
@@ -473,9 +475,66 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
       assert.equal(exact, recoveryId);
       return { status: "recovered", recoveryId: null };
     },
-    acknowledgeTaskRecovery: (exact: string) => {
+    acknowledgeTaskRecovery: (settlement: {
+      workingDirectory: string;
+      repositoryBindingId: string;
+      recoveryId: string;
+      projectId: string;
+      milestoneId: string;
+      stateGeneration: number;
+      taskId: string;
+      attemptId: string;
+      operationId: string;
+      kind: "docker";
+    }) => {
       acknowledgements += 1;
-      assert.equal(exact, recoveryId);
+      assert.equal(settlement.workingDirectory, workingDirectory);
+      assert.equal(settlement.repositoryBindingId, "binding-a");
+      assert.equal(settlement.recoveryId, recoveryId);
+      assert.equal(settlement.projectId, "project-a");
+      assert.equal(settlement.milestoneId, "milestone-a");
+      assert.equal(settlement.taskId, "task-a");
+      assert.equal(settlement.kind, "docker");
+      assert.ok(settlement.stateGeneration > 0);
+      assert.match(settlement.attemptId, /^attempt-/u);
+      assert.match(settlement.operationId, /^operation-/u);
+      const observed = readProjectRuntimeState(
+        workingDirectory,
+        settlement.repositoryBindingId,
+        settlement.projectId,
+      );
+      const task = observed.value?.tasks.find(
+        (entry) => entry.definition.id === settlement.taskId,
+      );
+      assert.equal(observed.value?.generation, settlement.stateGeneration);
+      assert.equal(task?.attemptId, settlement.attemptId);
+      assert.equal(task?.operationId, settlement.operationId);
+      assert.ok(
+        task?.recoveryObligations.some(
+          (entry) =>
+            entry.kind === "docker" &&
+            entry.recoveryId === settlement.recoveryId &&
+            entry.phase === "settled",
+        ),
+      );
+      assert.equal(
+        consumeDockerRecoveryReceiptAfterProjectSettlement({
+          ...settlement,
+          repositoryBindingId: "binding-b",
+        }).status,
+        "blocked",
+      );
+      assert.equal(
+        consumeDockerRecoveryReceiptAfterProjectSettlement({
+          ...settlement,
+          stateGeneration: settlement.stateGeneration - 1,
+        }).status,
+        "blocked",
+      );
+      assert.notEqual(
+        consumeDockerRecoveryReceiptAfterProjectSettlement(settlement).reason,
+        "docker_task_recovery_settlement_not_verified",
+      );
       return acknowledgements === 1
         ? { status: "blocked", reason: "acknowledgement_interrupted" }
         : { status: "completed", reason: "acknowledged" };

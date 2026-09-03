@@ -79,7 +79,20 @@ export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
     }>,
   ) => unknown;
   recoverTaskRecovery?: (recoveryId: string) => unknown;
-  acknowledgeTaskRecovery?: (recoveryId: string) => unknown;
+  acknowledgeTaskRecovery?: (
+    settlement: Readonly<{
+      workingDirectory: string;
+      repositoryBindingId: string;
+      projectId: string;
+      milestoneId: string;
+      stateGeneration: number;
+      taskId: string;
+      attemptId: string;
+      operationId: string;
+      kind: "docker";
+      recoveryId: string;
+    }>,
+  ) => unknown;
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
   ) => unknown;
@@ -913,10 +926,49 @@ export async function runProjectRuntimeObjective(
       for (const item of recoveries.filter(
         (entry) => entry.kind === "docker",
       )) {
+        const settledTask = recoveryState.tasks.find(
+          (entry) => entry.definition.id === item.taskId,
+        );
+        if (
+          !settledTask?.attemptId ||
+          !settledTask.operationId ||
+          !settledTask.recoveryObligations.some(
+            (entry) =>
+              entry.kind === "docker" &&
+              entry.recoveryId === item.recoveryId &&
+              entry.phase === "settled",
+          )
+        )
+          return blocked(
+            request,
+            "project_runtime_task_recovery_acknowledgement_not_settled",
+            {
+              cleanupConfirmed: false,
+              manualRecoveryRequired: true,
+              effectState: "unknown",
+              recoveryIds: [item.recoveryId],
+              recoveryObligations: [
+                Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
+              ],
+            },
+          );
         let acknowledgement: unknown;
         try {
           acknowledgement =
-            dependencies.acknowledgeTaskRecovery?.(item.recoveryId) ?? null;
+            dependencies.acknowledgeTaskRecovery?.(
+              Object.freeze({
+                workingDirectory,
+                repositoryBindingId: binding.repositoryBindingId,
+                projectId: request.projectId,
+                milestoneId: request.milestoneId,
+                stateGeneration: recoveryState.generation,
+                taskId: item.taskId,
+                attemptId: settledTask.attemptId,
+                operationId: settledTask.operationId,
+                kind: "docker" as const,
+                recoveryId: item.recoveryId,
+              }),
+            ) ?? null;
         } catch {
           acknowledgement = null;
         }
