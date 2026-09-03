@@ -53,6 +53,91 @@ function begin(value: ReturnType<typeof fixture>) {
   );
 }
 
+type RacerHandle = Readonly<{
+  child: ChildProcess;
+  result: Promise<Record<string, unknown>>;
+  closed: Promise<void>;
+}>;
+
+function startRacer(
+  id: string,
+  value: ReturnType<typeof fixture>,
+  barrierRoot: string,
+  timeoutMilliseconds = 10_000,
+): RacerHandle {
+  const racer = path.join(
+    import.meta.dirname,
+    "fixtures",
+    "release-manifest-promotion-racer.ts",
+  );
+  const child = spawn(
+    process.execPath,
+    [
+      racer,
+      id,
+      value.sourceRoot,
+      value.destinationRoot,
+      value.sha256,
+      barrierRoot,
+    ],
+    { stdio: ["ignore", "pipe", "pipe"] },
+  );
+  const closed = new Promise<void>((resolve, reject) => {
+    child.once("close", () => resolve());
+    child.once("error", (error) => {
+      if (child.pid === undefined) resolve();
+      else reject(error);
+    });
+  });
+  const result = new Promise<Record<string, unknown>>((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    let timeoutError: Error | null = null;
+    const deadline = setTimeout(() => {
+      timeoutError = new Error(`racer_timeout:${id}`);
+      child.kill();
+    }, timeoutMilliseconds);
+    child.stdout?.setEncoding("utf8").on("data", (part) => (stdout += part));
+    child.stderr?.setEncoding("utf8").on("data", (part) => (stderr += part));
+    child.once("error", (error) => {
+      clearTimeout(deadline);
+      reject(error);
+    });
+    child.once("close", (code) => {
+      clearTimeout(deadline);
+      if (timeoutError) reject(timeoutError);
+      else if (code !== 0) reject(new Error(`racer_failed:${code}:${stderr}`));
+      else {
+        try {
+          resolve(JSON.parse(stdout) as Record<string, unknown>);
+        } catch (error) {
+          reject(new Error(`racer_output_invalid:${id}`, { cause: error }));
+        }
+      }
+    });
+  });
+  return Object.freeze({ child, result, closed });
+}
+
+async function stopAndConfirmRacers(handles: readonly RacerHandle[]) {
+  for (const handle of handles)
+    if (handle.child.exitCode === null && handle.child.signalCode === null)
+      handle.child.kill();
+  await Promise.all(
+    handles.map((handle) =>
+      Promise.race([
+        handle.closed,
+        new Promise<never>((_resolve, reject) =>
+          setTimeout(
+            () => reject(new Error("racer_cleanup_close_unconfirmed")),
+            2_000,
+          ),
+        ),
+      ]),
+    ),
+  );
+}
+
 test("署名済みManifestを途中byteを公開せずatomicに昇格する", () => {
   const value = fixture();
   try {
@@ -211,52 +296,13 @@ test("linked状態の同byte別identityと転送後の内容変更を再開し�
 
 test("二つのProcessがprecheck後に競合しても一方だけがEffectを発行する", async () => {
   const value = fixture();
-  const children: ChildProcess[] = [];
-  const pending: Promise<Record<string, unknown>>[] = [];
+  const handles: RacerHandle[] = [];
   try {
     const barrierRoot = path.join(value.parent, "barrier");
     fs.mkdirSync(barrierRoot);
-    const racer = path.join(
-      import.meta.dirname,
-      "fixtures",
-      "release-manifest-promotion-racer.ts",
-    );
-    const run = (id: string) =>
-      new Promise<Record<string, unknown>>((resolve, reject) => {
-        const child = spawn(
-          process.execPath,
-          [
-            racer,
-            id,
-            value.sourceRoot,
-            value.destinationRoot,
-            value.sha256,
-            barrierRoot,
-          ],
-          { stdio: ["ignore", "pipe", "pipe"] },
-        );
-        children.push(child);
-        let stdout = "";
-        let stderr = "";
-        const deadline = setTimeout(() => {
-          child.kill();
-          reject(new Error(`racer_timeout:${id}`));
-        }, 10_000);
-        child.stdout.setEncoding("utf8").on("data", (part) => (stdout += part));
-        child.stderr.setEncoding("utf8").on("data", (part) => (stderr += part));
-        child.once("error", (error) => {
-          clearTimeout(deadline);
-          reject(error);
-        });
-        child.once("close", (code) => {
-          clearTimeout(deadline);
-          if (code !== 0) reject(new Error(`racer_failed:${code}:${stderr}`));
-          else resolve(JSON.parse(stdout) as Record<string, unknown>);
-        });
-      });
-    const first = run("first");
-    const second = run("second");
-    pending.push(first, second);
+    const first = startRacer("first", value, barrierRoot);
+    const second = startRacer("second", value, barrierRoot);
+    handles.push(first, second);
     const readyDeadline = Date.now() + 5_000;
     for (const id of ["first", "second"]) {
       const ready = path.join(barrierRoot, `${id}.ready`);
@@ -267,7 +313,7 @@ test("二つのProcessがprecheck後に競合しても一方だけがEffectを�
       }
     }
     fs.writeFileSync(path.join(barrierRoot, "go"), "go");
-    const results = await Promise.all([first, second]);
+    const results = await Promise.all([first.result, second.result]);
     assert.equal(
       results.filter((result) => result.status === "promoted").length,
       1,
@@ -287,10 +333,34 @@ test("二つのProcessがprecheck後に競合しても一方だけがEffectを�
     assert.equal(resumed.mode, "linked_pending");
     assert.equal(promoteReleaseManifestBytes(resumed.token).status, "promoted");
   } finally {
-    for (const child of children)
-      if (child.exitCode === null && child.signalCode === null) child.kill();
-    await Promise.allSettled(pending);
+    await stopAndConfirmRacers(handles);
     fs.rmSync(value.parent, { recursive: true, force: true });
+  }
+});
+
+test("競合fixtureはready前停止、出力破損、ready後停止を有限時間で回収する", async () => {
+  for (const mode of ["hang-before-ready", "malformed", "hang-after-ready"]) {
+    const value = fixture();
+    const barrierRoot = path.join(value.parent, "barrier");
+    fs.mkdirSync(barrierRoot);
+    const handle = startRacer(mode, value, barrierRoot, 250);
+    try {
+      if (mode !== "hang-before-ready") {
+        const ready = path.join(barrierRoot, `${mode}.ready`);
+        const deadline = Date.now() + 2_000;
+        while (!fs.existsSync(ready)) {
+          if (Date.now() >= deadline)
+            throw new Error("fault_racer_ready_timeout");
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        fs.writeFileSync(path.join(barrierRoot, "go"), "go");
+      }
+      await assert.rejects(handle.result, /racer_(?:timeout|output_invalid)/u);
+      await handle.closed;
+    } finally {
+      await stopAndConfirmRacers([handle]);
+      fs.rmSync(value.parent, { recursive: true, force: true });
+    }
   }
 });
 

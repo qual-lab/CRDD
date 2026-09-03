@@ -18,12 +18,18 @@ const session = beginReleaseManifestPromotionSession(
 );
 if (!session)
   throw new Error("release_manifest_promotion_racer_precheck_failed");
+const waiter = new Int32Array(new SharedArrayBuffer(4));
+if (id === "hang-before-ready") while (true) Atomics.wait(waiter, 0, 0, 1_000);
 fs.writeFileSync(path.join(barrierRoot, `${id}.ready`), "ready", {
   flag: "wx",
 });
-const waiter = new Int32Array(new SharedArrayBuffer(4));
 while (!fs.existsSync(path.join(barrierRoot, "go")))
   Atomics.wait(waiter, 0, 0, 10);
+if (id === "malformed") {
+  process.stdout.write("{");
+  process.exit(0);
+}
+if (id === "hang-after-ready") while (true) Atomics.wait(waiter, 0, 0, 1_000);
 try {
   const result = promoteReleaseManifestBytes(session.token);
   process.stdout.write(`${JSON.stringify(result)}\n`);
