@@ -562,7 +562,6 @@ function fixture(
     slateUnavailable?: boolean;
     useRealRouteSelection?: boolean;
     selectionMismatchAt?: number;
-    providerProcessStartNoticeOutcome?: "failed";
     admissionRecovery?: boolean;
     admissionRecoveryReason?: string;
     admissionRecoveryIds?: readonly string[];
@@ -613,7 +612,6 @@ function fixture(
   const selectionRequests: Array<Record<string, unknown>> = [];
   const slateRequests: Array<Record<string, unknown>> = [];
   const selectionNotices: Array<Record<string, unknown>> = [];
-  const providerProcessStartNotices: Array<Record<string, unknown>> = [];
   const externalSendNotices: Array<Record<string, unknown>> = [];
   const authorizedProviderSets: Array<readonly ("codex" | "claude")[]> = [];
   const events: string[] = [];
@@ -915,10 +913,6 @@ function fixture(
       selectionNotices.push(notice);
       events.push(`notice:${String(notice.taskRole)}`);
       return true;
-    },
-    reportProviderProcessStarted: (notice: Record<string, unknown>) => {
-      providerProcessStartNotices.push(notice);
-      return options.providerProcessStartNoticeOutcome !== "failed";
     },
     reportExternalSendNotice: (notice: Record<string, unknown>) => {
       assert.equal(workspaceMaterializeCount, 0);
@@ -1412,7 +1406,6 @@ function fixture(
     slateRequests,
     selectionRequests,
     selectionNotices,
-    providerProcessStartNotices,
     externalSendNotices,
     selectionRevokeCount: () => selectionRevokeCount,
     providerHomeObservationCount: () => providerHomeObservationCount,
@@ -2620,44 +2613,6 @@ test("選定理由は各Provider Effectより前に安全なCoordinator eventへ
     harness.selectionNotices[0]?.inputBasis,
     "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
   );
-});
-
-test("Provider Process開始後だけRuntime所有の開始観測を公開する", async () => {
-  const harness = fixture();
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
-  assert.equal(result.status, "completed");
-  assert.deepEqual(harness.providerProcessStartNotices, [
-    {
-      event: "coordinator_provider_process_started",
-      taskRole: "executor",
-      provider: "claude",
-    },
-    {
-      event: "coordinator_provider_process_started",
-      taskRole: "reviewer",
-      provider: "codex",
-    },
-  ]);
-});
-
-test("Provider開始観測を公開できなければ開始済みProcessを取消して成功を返さない", async () => {
-  const harness = fixture({ providerProcessStartNoticeOutcome: "failed" });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_cancelled_after_provider_cleanup",
-  );
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(harness.processStartCount(), 1);
 });
 
 test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止する", async () => {

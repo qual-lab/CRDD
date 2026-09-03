@@ -60,19 +60,23 @@ process.stdin.on("data", (chunk) => {
   else {
     const request = JSON.parse(received.split(/\r?\n/u)[0]);
     const id = mode === "wrong-id" ? "wrong" : request.id;
+    if (mode === "embedded-event")
+      process.stderr.write(
+        `diagnostic ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "claude", operationId: "OP-UNTRUSTED" })}\n`,
+      );
     process.stderr.write(
-      `${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex" })}\n`,
+      `[Coordinator selection] ${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex" })}\n`,
     );
     process.stderr.write(
-      `${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex" })}\n`,
+      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex", operationId: "OP-EXECUTOR-123456" })}\n`,
     );
     if (mode !== "cancelled")
       process.stderr.write(
-        `${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "reviewer", provider: "claude" })}\n`,
+        `[Coordinator selection] ${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "reviewer", provider: "claude" })}\n`,
       );
     if (mode !== "cancelled")
       process.stderr.write(
-        `${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "reviewer", provider: "claude" })}\n`,
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "reviewer", provider: "claude", operationId: "OP-REVIEWER-123456" })}\n`,
       );
     process.stdout.write(
       `${JSON.stringify({

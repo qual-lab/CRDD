@@ -34,7 +34,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 25;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 26;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -91,6 +91,7 @@ const BLOCKED_COMPLETION_REASONS = new Set([
   "provider_task_reviewer_finding_invalid",
   "provider_task_reviewer_decision_inconsistent",
   "docker_process_controller_execution_failed_closed",
+  "docker_process_controller_provider_start_observation_failed",
   "repository_revision_changed",
 ]);
 const SAFE_IDENTIFIER =
@@ -161,6 +162,12 @@ type CleanupObservation = Readonly<{
   containersAbsent: boolean;
   networksAbsent: boolean;
 }>;
+type ProviderProcessStartedNotice = Readonly<{
+  event: "coordinator_provider_process_started";
+  taskRole: "executor" | "reviewer" | null;
+  provider: "codex" | "claude";
+  operationId: string;
+}>;
 type RuntimeDependencies = Readonly<{
   effectExecutorAvailable: boolean;
   verifyRevision: (managementCapability: unknown) => unknown;
@@ -211,6 +218,9 @@ type RuntimeDependencies = Readonly<{
   ) => boolean;
   recordDockerAbsence?: (recoveryCapability: object) => boolean;
   recordMountCompletion?: (recoveryCapability: object) => boolean;
+  reportProviderProcessStarted?: (
+    notice: ProviderProcessStartedNotice,
+  ) => boolean;
   consumeProviderAuthority: (
     useCapability: unknown,
     activeMountCapability: unknown,
@@ -984,13 +994,39 @@ async function executePlan(
         reason = "provider_operation_cancelled";
         break;
       }
-      if (isProvider) providerRequestStarted = true;
       const handle = state.dependencies.startCommand(
         command,
         plan,
         record.managementCapability,
       );
       record.activeHandle = handle;
+      if (isProvider) {
+        providerRequestStarted = true;
+        let startObserved = true;
+        try {
+          startObserved =
+            !state.dependencies.reportProviderProcessStarted ||
+            state.dependencies.reportProviderProcessStarted(
+              Object.freeze({
+                event: "coordinator_provider_process_started",
+                taskRole: plan.taskRole,
+                provider: plan.provider,
+                operationId: plan.operationId,
+              }),
+            ) === true;
+        } catch {
+          startObserved = false;
+        }
+        if (!startObserved) {
+          record.cancellationRequested = true;
+          await handle.terminateAndWait(CANCELLATION_GRACE_MS);
+          record.activeHandle = null;
+          requestedStatus = "blocked";
+          reason =
+            "docker_process_controller_provider_start_observation_failed";
+          break;
+        }
+      }
       const execution = await handle.wait(
         isProvider ? PROVIDER_TIMEOUT_MS : SETUP_TIMEOUT_MS,
       );
@@ -1423,6 +1459,16 @@ const productionState: RuntimeState = Object.freeze({
     recordResourceReceipt: recordRuntimeOwnedDockerResourceReceipt,
     recordDockerAbsence: recordRuntimeOwnedDockerAbsence,
     recordMountCompletion: recordRuntimeOwnedNormalMountCompletion,
+    reportProviderProcessStarted: (notice: ProviderProcessStartedNotice) => {
+      try {
+        process.stderr.write(
+          `[Coordinator lifecycle] ${JSON.stringify(notice)}\n`,
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    },
     consumeProviderAuthority: consumeRuntimeOwnedProviderAuthority,
   }),
   controls: new WeakMap(),

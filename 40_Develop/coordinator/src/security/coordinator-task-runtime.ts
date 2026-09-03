@@ -341,7 +341,6 @@ type RuntimeDependencies = Readonly<{
   prepareCandidateStore: () => RuntimeRecord;
   prepareDockerRecoveryState: () => unknown;
   reportSelectionNotice: (notice: RuntimeRecord) => boolean;
-  reportProviderProcessStarted?: (notice: RuntimeRecord) => boolean;
   reportExternalSendNotice: (notice: RuntimeRecord) => boolean;
   issueTaskPacket: (
     managementCapability: object,
@@ -1212,18 +1211,6 @@ async function executeStageBody(
     startedDockerRecoveryId = publicVerifiedDockerRecoveryId(
       process.recoveryId,
     );
-    if (
-      state.dependencies.reportProviderProcessStarted &&
-      !state.dependencies.reportProviderProcessStarted(
-        Object.freeze({
-          event: "coordinator_provider_process_started",
-          taskRole: role,
-          provider,
-        }),
-      )
-    ) {
-      control.cancellationRequested = true;
-    }
     if (control.cancellationRequested) {
       await state.dependencies.cancelProcess(
         processControl,
@@ -2151,16 +2138,6 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
     try {
       process.stderr.write(
         `[Coordinator selection] ${JSON.stringify(notice)}\n`,
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  },
-  reportProviderProcessStarted: (notice) => {
-    try {
-      process.stderr.write(
-        `[Coordinator lifecycle] ${JSON.stringify(notice)}\n`,
       );
       return true;
     } catch {

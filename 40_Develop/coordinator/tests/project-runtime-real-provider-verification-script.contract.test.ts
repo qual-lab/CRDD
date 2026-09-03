@@ -115,8 +115,16 @@ const observation = (
     ],
     processStartEventObserved: true,
     processStartEvents: [
-      { taskRole: "executor", provider: "codex" },
-      { taskRole: "reviewer", provider: "claude" },
+      {
+        taskRole: "executor",
+        provider: "codex",
+        operationId: "OP-EXECUTOR-123456",
+      },
+      {
+        taskRole: "reviewer",
+        provider: "claude",
+        operationId: "OP-REVIEWER-123456",
+      },
     ],
     pidIssued: true,
     streamFailure: false,
@@ -146,8 +154,16 @@ const normalRun = (
       { taskRole: "reviewer", provider: reviewerProvider },
     ],
     processStartEvents: [
-      { taskRole: "executor", provider: executorProvider },
-      { taskRole: "reviewer", provider: reviewerProvider },
+      {
+        taskRole: "executor",
+        provider: executorProvider,
+        operationId: `OP-${responseId}-EXECUTOR`,
+      },
+      {
+        taskRole: "reviewer",
+        provider: reviewerProvider,
+        operationId: `OP-${responseId}-REVIEWER`,
+      },
     ],
   }),
   expected: {
@@ -181,7 +197,13 @@ const build = (overrides: Record<string, unknown> = {}) =>
       [semantic("cancelled", "objective-cancellation")],
       {
         selectionEvents: [{ taskRole: "executor", provider: "claude" }],
-        processStartEvents: [{ taskRole: "executor", provider: "claude" }],
+        processStartEvents: [
+          {
+            taskRole: "executor",
+            provider: "claude",
+            operationId: "OP-CANCELLATION-EXECUTOR",
+          },
+        ],
       },
     ),
     cancellationRequestedAfterProcessStart: true,
@@ -233,6 +255,64 @@ test("正常・準正常・異常の不一致をblocked結果へ閉じる", () =
           observation: observation([], { parseFailure: true }),
         },
       ],
+    },
+    {
+      normalRuns: [
+        {
+          ...normalRun("objective-1", "codex", "claude", false),
+          observation: observation([semantic("completed", "objective-1")], {
+            selectionEvents: [
+              { taskRole: "executor", provider: "codex" },
+              { taskRole: "reviewer", provider: "claude" },
+              { taskRole: "executor", provider: "claude" },
+            ],
+          }),
+        },
+      ],
+    },
+    {
+      normalRuns: [
+        {
+          ...normalRun("objective-1", "codex", "claude", false),
+          observation: observation([semantic("completed", "objective-1")], {
+            processStartEvents: [
+              {
+                taskRole: "executor",
+                provider: "codex",
+                operationId: "OP-SHARED",
+              },
+              {
+                taskRole: "reviewer",
+                provider: "claude",
+                operationId: "OP-SHARED",
+              },
+            ],
+          }),
+        },
+      ],
+    },
+    {
+      cancellation: observation(
+        [semantic("cancelled", "objective-cancellation")],
+        {
+          selectionEvents: [
+            { taskRole: "executor", provider: "claude" },
+            { taskRole: "reviewer", provider: "codex" },
+          ],
+          processStartEvents: [
+            {
+              taskRole: "executor",
+              provider: "claude",
+              operationId: "OP-CANCELLATION-EXECUTOR",
+            },
+            {
+              taskRole: "reviewer",
+              provider: "codex",
+              operationId: "OP-CANCELLATION-REVIEWER",
+            },
+          ],
+        },
+      ),
     },
     { cancellationRequestedAfterProcessStart: false },
     {
@@ -332,6 +412,30 @@ test("固定子Processを実spawnし応答後EOFとjoinを観測する", async (
   assert.equal(result.selectionEventObserved, true);
   assert.equal(result.processStartEventObserved, true);
   assert.deepEqual(result.exit, { code: 0, signal: null });
+});
+
+test("固定prefix外の埋込みJSONをRuntime Eventへ昇格しない", async () => {
+  const child = spawn(process.execPath, [fixture, "embedded-event"], {
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const resultPromise = observePublicMcpProcess(child, {
+    maximumOutputBytes: 4096,
+    timeoutMs: 2_000,
+    terminationGraceMs: 100,
+    closeInputWhen: ({ stdout }) => stdout.includes("\n"),
+  });
+  child.stdin.write('{"id":"objective-1"}\n');
+  const result = await resultPromise;
+  assert.equal(result.joined, true);
+  assert.equal(result.selectionEvents.length, 2);
+  assert.equal(result.processStartEvents.length, 2);
+  assert.equal(
+    result.processStartEvents.some(
+      (event) => event.operationId === "OP-UNTRUSTED",
+    ),
+    false,
+  );
 });
 
 test("出力超過とEOF無視を成功へ変換せずchildをjoinする", async () => {

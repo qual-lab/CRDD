@@ -24,6 +24,7 @@ export type PublicProcessObservation = Readonly<{
   processStartEvents: readonly Readonly<{
     taskRole: string;
     provider: string;
+    operationId: string;
   }>[];
   pidIssued: boolean;
   streamFailure: boolean;
@@ -132,34 +133,50 @@ export async function observePublicMcpProcess(
   const processStartEvents: Readonly<{
     taskRole: string;
     provider: string;
+    operationId: string;
   }>[] = [];
   for (const line of stderr.split(/\r?\n/u).filter(Boolean)) {
     try {
-      const objectStart = line.indexOf("{");
-      if (objectStart < 0) continue;
-      const parsed = JSON.parse(line.slice(objectStart)) as JsonRecord;
-      if (
-        parsed.event === "coordinator_selection_before_provider_effect" &&
-        typeof parsed.taskRole === "string" &&
-        typeof parsed.provider === "string"
-      )
+      const selectionPrefix = "[Coordinator selection] ";
+      const lifecyclePrefix = "[Coordinator lifecycle] ";
+      if (line.startsWith(selectionPrefix)) {
+        const parsed = JSON.parse(
+          line.slice(selectionPrefix.length),
+        ) as JsonRecord;
+        if (
+          parsed.event !== "coordinator_selection_before_provider_effect" ||
+          typeof parsed.taskRole !== "string" ||
+          typeof parsed.provider !== "string"
+        )
+          continue;
         selectionEvents.push(
           Object.freeze({
             taskRole: parsed.taskRole,
             provider: parsed.provider,
           }),
         );
-      if (
-        parsed.event === "coordinator_provider_process_started" &&
-        typeof parsed.taskRole === "string" &&
-        typeof parsed.provider === "string"
-      )
+        continue;
+      }
+      if (line.startsWith(lifecyclePrefix)) {
+        const parsed = JSON.parse(
+          line.slice(lifecyclePrefix.length),
+        ) as JsonRecord;
+        if (
+          parsed.event !== "coordinator_provider_process_started" ||
+          typeof parsed.taskRole !== "string" ||
+          typeof parsed.provider !== "string" ||
+          typeof parsed.operationId !== "string" ||
+          parsed.operationId.length === 0
+        )
+          continue;
         processStartEvents.push(
           Object.freeze({
             taskRole: parsed.taskRole,
             provider: parsed.provider,
+            operationId: parsed.operationId,
           }),
         );
+      }
     } catch {
       // Non-JSON diagnostic lines are not selection evidence.
     }
@@ -174,9 +191,7 @@ export async function observePublicMcpProcess(
     inputEofIssued,
     forcedTerminationIssued,
     joined: exit !== null,
-    selectionEventObserved: stderr.includes(
-      '"event":"coordinator_selection_before_provider_effect"',
-    ),
+    selectionEventObserved: selectionEvents.length > 0,
     selectionEvents: Object.freeze(selectionEvents),
     processStartEventObserved: processStartEvents.length > 0,
     processStartEvents: Object.freeze(processStartEvents),
@@ -297,6 +312,33 @@ function changedSnapshotPaths(
     .sort();
 }
 
+function roleProviderEventsExactlyMatch(
+  events: readonly Readonly<{ taskRole: string; provider: string }>[],
+  expected: readonly Readonly<{ taskRole: string; provider: string }>[],
+) {
+  return JSON.stringify(events) === JSON.stringify(expected);
+}
+
+function processStartEventsExactlyMatch(
+  events: readonly Readonly<{
+    taskRole: string;
+    provider: string;
+    operationId: string;
+  }>[],
+  expected: readonly Readonly<{ taskRole: string; provider: string }>[],
+) {
+  return (
+    events.length === expected.length &&
+    events.every(
+      (event, index) =>
+        event.taskRole === expected[index]?.taskRole &&
+        event.provider === expected[index]?.provider &&
+        event.operationId.length > 0,
+    ) &&
+    new Set(events.map((event) => event.operationId)).size === events.length
+  );
+}
+
 export function buildProjectRuntimeRealProviderReport(
   input: Readonly<{
     runId: string;
@@ -356,26 +398,19 @@ export function buildProjectRuntimeRealProviderReport(
     problems.push("normal_semantic_result");
   for (const [index, run] of input.normalRuns.entries()) {
     const { expected, observation } = run;
+    const expectedEvents = [
+      { taskRole: "executor", provider: expected.executorProvider },
+      { taskRole: "reviewer", provider: expected.reviewerProvider ?? "" },
+    ];
     if (
-      !observation.selectionEvents.some(
-        (event) =>
-          event.taskRole === "executor" &&
-          event.provider === expected.executorProvider,
+      !expected.reviewerProvider ||
+      !roleProviderEventsExactlyMatch(
+        observation.selectionEvents,
+        expectedEvents,
       ) ||
-      !observation.selectionEvents.some(
-        (event) =>
-          event.taskRole === "reviewer" &&
-          event.provider === expected.reviewerProvider,
-      ) ||
-      !observation.processStartEvents.some(
-        (event) =>
-          event.taskRole === "executor" &&
-          event.provider === expected.executorProvider,
-      ) ||
-      !observation.processStartEvents.some(
-        (event) =>
-          event.taskRole === "reviewer" &&
-          event.provider === expected.reviewerProvider,
+      !processStartEventsExactlyMatch(
+        observation.processStartEvents,
+        expectedEvents,
       )
     )
       problems.push(`normal_${index + 1}_provider_selection_mismatch`);
@@ -426,19 +461,23 @@ export function buildProjectRuntimeRealProviderReport(
     cancellationResult.recoveryObligations.length !== 0
   )
     problems.push("cancellation_semantic_result");
+  const expectedCancellationEvents = [
+    {
+      taskRole: "executor",
+      provider: input.cancellationExpected.executorProvider,
+    },
+  ];
   if (
-    !input.cancellation.selectionEvents.some(
-      (event) =>
-        event.taskRole === "executor" &&
-        event.provider === input.cancellationExpected.executorProvider,
+    !roleProviderEventsExactlyMatch(
+      input.cancellation.selectionEvents,
+      expectedCancellationEvents,
     )
   )
     problems.push("cancellation_provider_selection_mismatch");
   if (
-    !input.cancellation.processStartEvents.some(
-      (event) =>
-        event.taskRole === "executor" &&
-        event.provider === input.cancellationExpected.executorProvider,
+    !processStartEventsExactlyMatch(
+      input.cancellation.processStartEvents,
+      expectedCancellationEvents,
     )
   )
     problems.push("cancellation_provider_process_start_mismatch");
