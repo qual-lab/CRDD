@@ -840,6 +840,11 @@ function objectiveSnapshot(
   });
 }
 
+/** Closed public result validator shared with release E2E verification. */
+export function inspectMcpProjectRuntimeObjectiveResult(raw: unknown) {
+  return objectiveSnapshot(raw);
+}
+
 export async function handleMcpProjectRuntimeRequest(
   rawRequest: unknown,
   dependencies: McpProjectRuntimeDependencies,

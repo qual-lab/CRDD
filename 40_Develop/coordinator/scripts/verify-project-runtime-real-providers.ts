@@ -189,6 +189,8 @@ async function main() {
     objective(common, runId, "claude", true),
   ]);
 
+  const normalSnapshotBefore =
+    captureCanonicalRepositorySnapshot(repositoryRoot);
   const normalChild = startPublicMcpProcess(distributionRoot, repositoryRoot);
   let normalInputClosed = false;
   const normalObservation = observePublicMcpProcess(normalChild, {
@@ -211,6 +213,8 @@ async function main() {
   const canonicalAdoptionObserved =
     fs.readFileSync(path.join(repositoryRoot, ...MARKER.split("/")), "utf8") ===
     FINAL;
+  const normalSnapshotAfter =
+    captureCanonicalRepositorySnapshot(repositoryRoot);
 
   const cancellationRequest = Object.freeze({
     ...common,
@@ -268,11 +272,37 @@ async function main() {
     normal,
     cancellation: cancelled,
     cancellationRequestedAfterSelection: cancellationRequested,
-    normalExpectedIds: Object.freeze(["objective-1", "objective-2"]),
-    cancellationExpectedId: "objective-cancellation",
+    normalExpected: Object.freeze([
+      Object.freeze({
+        responseId: "objective-1",
+        requestId: objectives[0].requestId,
+        projectId: objectives[0].projectId,
+        milestoneId: objectives[0].milestoneId,
+        executorProvider: "codex" as const,
+        reviewerProvider: "claude" as const,
+      }),
+      Object.freeze({
+        responseId: "objective-2",
+        requestId: objectives[1].requestId,
+        projectId: objectives[1].projectId,
+        milestoneId: objectives[1].milestoneId,
+        executorProvider: "claude" as const,
+        reviewerProvider: "codex" as const,
+      }),
+    ]),
+    cancellationExpected: Object.freeze({
+      responseId: "objective-cancellation",
+      requestId: cancellationRequest.requestId,
+      projectId: cancellationRequest.projectId,
+      milestoneId: cancellationRequest.milestoneId,
+      executorProvider: "claude" as const,
+    }),
     canonicalAdoptionObserved,
+    normalSnapshotBefore,
+    normalSnapshotAfter,
     cancellationSnapshotBefore,
     cancellationSnapshotAfter,
+    expectedChangedPath: MARKER,
     dockerRecovery,
   });
   const reportDirectory = path.join(
@@ -308,6 +338,13 @@ try {
     status: "blocked",
     reason: "project_runtime_public_mcp_verification_incomplete",
     problems: Object.freeze(["verification_exception"]),
+    phase: "verification_unknown",
+    childProcessStarted: null,
+    childProcessJoined: null,
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    processRestartRequired: true,
+    effectState: "unknown",
     sourceIdentity:
       repository?.status === "candidate"
         ? Object.freeze({ commit: repository.commit, tree: repository.tree })
