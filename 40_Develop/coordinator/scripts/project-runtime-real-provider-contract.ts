@@ -301,6 +301,9 @@ export async function observePublicMcpProcess(
   let terminationCompletion: Promise<boolean> | null = null;
   const pidIssued = Number.isSafeInteger(child.pid) && Number(child.pid) > 0;
   const grace = options.terminationGraceMs ?? 5_000;
+  const absoluteFinalDeadline = Date.now() + options.timeoutMs + grace * 2;
+  const remainingToFinalDeadline = () =>
+    Math.max(0, absoluteFinalDeadline - Date.now());
   const stdoutDecoder = new StringDecoder("utf8");
   const stderrDecoder = new StringDecoder("utf8");
   let stdoutBytes = 0;
@@ -343,14 +346,22 @@ export async function observePublicMcpProcess(
           startOwnedWindowsProcessTreeTermination
         )(Number(child.pid));
         if (!killer) return false;
-        forcedTerminationIssued = await killer.started(grace);
+        forcedTerminationIssued = await killer.started(
+          Math.min(grace, remainingToFinalDeadline()),
+        );
         if (!forcedTerminationIssued) {
-          await killer.terminateAndWait(grace);
+          await killer.terminateAndWait(
+            Math.min(grace, remainingToFinalDeadline()),
+          );
           return false;
         }
-        const result = await killer.wait(grace);
+        const result = await killer.wait(
+          Math.min(grace, remainingToFinalDeadline()),
+        );
         if (!result) {
-          await killer.terminateAndWait(grace);
+          await killer.terminateAndWait(
+            Math.min(grace, remainingToFinalDeadline()),
+          );
           return false;
         }
         processTreeTerminationConfirmed =
@@ -442,48 +453,113 @@ export async function observePublicMcpProcess(
       closeInput();
     }
   };
-  child.stdout.on("data", (chunk: Buffer) => accept("stdout", chunk));
-  child.stderr.on("data", (chunk: Buffer) => accept("stderr", chunk));
-  for (const stream of [child.stdin, child.stdout, child.stderr])
-    stream.on("error", () => {
-      if (!processTreeTerminationAttempted) {
-        streamFailure = true;
-        closeInput();
-      }
-    });
-  child.once("error", (error) => {
+  const onStdoutData = (chunk: Buffer) => accept("stdout", chunk);
+  const onStderrData = (chunk: Buffer) => accept("stderr", chunk);
+  const onStreamError = () => {
+    if (!processTreeTerminationAttempted) {
+      streamFailure = true;
+      closeInput();
+    }
+  };
+  const onChildError = (error: Error) => {
     launchError = error instanceof Error ? error.name : "unknown";
-  });
+  };
+  child.stdout.on("data", onStdoutData);
+  child.stderr.on("data", onStderrData);
+  for (const stream of [child.stdin, child.stdout, child.stderr])
+    stream.on("error", onStreamError);
+  child.once("error", onChildError);
 
-  let settleClose:
+  let primaryTimer: ReturnType<typeof setTimeout> | null = null;
+  let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+  let finalTimer: ReturnType<typeof setTimeout> | null = null;
+  let closeSettled = false;
+  let resolveClosed:
     | ((
         value: Readonly<{ code: number | null; signal: string | null }> | null,
       ) => void)
     | null = null;
+  const streams = [child.stdin, child.stdout, child.stderr] as const;
+  const clearOwnedTimers = () => {
+    if (primaryTimer) clearTimeout(primaryTimer);
+    if (cleanupTimer) clearTimeout(cleanupTimer);
+    if (finalTimer) clearTimeout(finalTimer);
+    primaryTimer = null;
+    cleanupTimer = null;
+    finalTimer = null;
+  };
+  const detachResultObservation = () => {
+    child.stdout.off("data", onStdoutData);
+    child.stderr.off("data", onStderrData);
+    for (const stream of streams) stream.off("error", onStreamError);
+    child.off("error", onChildError);
+    child.off("close", onChildClose);
+  };
+  const transferToTerminalErrorSinks = () => {
+    const childErrorSink = () => {};
+    child.on("error", childErrorSink);
+    child.once("close", () => child.off("error", childErrorSink));
+    for (const stream of streams) {
+      if (stream.destroyed) continue;
+      const errorSink = () => {};
+      const releaseSink = () => stream.off("error", errorSink);
+      stream.on("error", errorSink);
+      stream.once("close", releaseSink);
+      stream.destroy();
+    }
+  };
+  const settleCloseObservation = (
+    value: Readonly<{ code: number | null; signal: string | null }> | null,
+  ) => {
+    if (closeSettled) return;
+    closeSettled = true;
+    clearOwnedTimers();
+    detachResultObservation();
+    if (value === null) transferToTerminalErrorSinks();
+    resolveClosed?.(value);
+  };
+  function onChildClose(code: number | null, signal: string | null) {
+    settleCloseObservation({ code, signal });
+  }
   const closed = new Promise<Readonly<{
     code: number | null;
     signal: string | null;
   }> | null>((resolve) => {
-    settleClose = resolve;
-    child.once("close", (code, signal) => resolve({ code, signal }));
+    resolveClosed = resolve;
+    child.once("close", onChildClose);
   });
-  const timeout = setTimeout(() => {
+  primaryTimer = setTimeout(() => {
     timedOut = true;
     closeInput();
-    setTimeout(() => {
+    cleanupTimer = setTimeout(() => {
       if (child.exitCode === null && child.signalCode === null) {
         try {
           forcedTerminationIssued = child.kill();
         } catch {
           streamFailure = true;
         }
-        setTimeout(() => settleClose?.(null), grace);
       }
+      finalTimer = setTimeout(
+        () => settleCloseObservation(null),
+        remainingToFinalDeadline(),
+      );
     }, grace);
   }, options.timeoutMs);
   const exit = await closed;
-  clearTimeout(timeout);
-  if (terminationCompletion) await terminationCompletion;
+  if (terminationCompletion) {
+    const remaining = remainingToFinalDeadline();
+    if (remaining > 0) {
+      let helperDeadline: ReturnType<typeof setTimeout> | null = null;
+      await Promise.race([
+        terminationCompletion,
+        new Promise<boolean>((resolve) => {
+          helperDeadline = setTimeout(() => resolve(false), remaining);
+        }),
+      ]).finally(() => {
+        if (helperDeadline) clearTimeout(helperDeadline);
+      });
+    }
+  }
   stdout += stdoutDecoder.end();
   const stderrEnd = stderrDecoder.end();
   stderrPending += stderrEnd;

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -715,6 +717,77 @@ test("固定子Processを実spawnし応答後EOFとjoinを観測する", async (
   assert.deepEqual(result.exit, { code: 0, signal: null });
 });
 
+function createSyntheticUnclosedChild(exitObserved: boolean) {
+  let killCalls = 0;
+  const child = Object.assign(new EventEmitter(), {
+    pid: 612345,
+    stdin: new PassThrough(),
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+    exitCode: exitObserved ? 0 : null,
+    signalCode: null,
+    kill: () => {
+      killCalls += 1;
+      return true;
+    },
+  }) as unknown as ChildProcessWithoutNullStreams;
+  return { child, killCalls: () => killCalls };
+}
+
+test("exit先着でclose未到達でも有限時間で未joinを返す", async () => {
+  const fixture = createSyntheticUnclosedChild(true);
+  const startedAt = Date.now();
+  const result = await observePublicMcpProcess(fixture.child, {
+    maximumOutputBytes: 1024,
+    timeoutMs: 10,
+    terminationGraceMs: 10,
+  });
+  assert.ok(Date.now() - startedAt < 500);
+  assert.equal(result.joined, false);
+  assert.equal(result.exit, null);
+  assert.equal(result.processTreeTerminationConfirmed, false);
+  assert.equal(fixture.killCalls(), 0);
+  fixture.child.emit("error", new Error("late_child_error"));
+  fixture.child.emit("close", 0, null);
+  assert.equal(fixture.child.listenerCount("error"), 0);
+  assert.equal(result.joined, false);
+});
+
+test("timeout後のfallback killをProcess-tree終了確認へ昇格しない", async () => {
+  const fixture = createSyntheticUnclosedChild(false);
+  const result = await observePublicMcpProcess(fixture.child, {
+    maximumOutputBytes: 1024,
+    timeoutMs: 10,
+    terminationGraceMs: 10,
+  });
+  assert.equal(fixture.killCalls(), 1);
+  assert.equal(result.forcedTerminationIssued, true);
+  assert.equal(result.joined, false);
+  assert.equal(result.processTreeTerminationConfirmed, false);
+  fixture.child.emit("close", null, "SIGTERM");
+});
+
+test("close観測後は保有timerを解除し遅延killや結果変更を起こさない", async () => {
+  const fixture = createSyntheticUnclosedChild(false);
+  const initialChildErrorListeners = fixture.child.listenerCount("error");
+  const resultPromise = observePublicMcpProcess(fixture.child, {
+    maximumOutputBytes: 1024,
+    timeoutMs: 20,
+    terminationGraceMs: 20,
+  });
+  fixture.child.emit("close", 0, null);
+  const result = await resultPromise;
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert.deepEqual(result.exit, { code: 0, signal: null });
+  assert.equal(result.joined, true);
+  assert.equal(result.timedOut, false);
+  assert.equal(fixture.killCalls(), 0);
+  assert.equal(
+    fixture.child.listenerCount("error"),
+    initialChildErrorListeners,
+  );
+});
+
 test("実子Process treeを開始通知後に強制終了して親喪失を観測する", async () => {
   const child = spawn(process.execPath, [fixture, "parent-loss"], {
     windowsHide: true,
@@ -756,6 +829,82 @@ test("実子Process treeを開始通知後に強制終了して親喪失を観�
   assert.equal(result.joined, true);
   assert.notEqual(result.exit, null);
   assert.equal(result.exit?.code === 0 && result.exit.signal === null, false);
+});
+
+test("Process-tree helperの不成立形を終了確認へ昇格しない", async (t) => {
+  const cases = [
+    { name: "started_false", started: false, result: null, closed: false },
+    { name: "wait_timeout", started: true, result: null, closed: false },
+    {
+      name: "nonzero",
+      started: true,
+      result: { status: 1, signal: null, outputExceeded: false },
+      closed: true,
+    },
+    {
+      name: "signal",
+      started: true,
+      result: { status: null, signal: "SIGTERM", outputExceeded: false },
+      closed: true,
+    },
+    {
+      name: "output_limit",
+      started: true,
+      result: { status: 0, signal: null, outputExceeded: true },
+      closed: true,
+    },
+    {
+      name: "close_unobserved",
+      started: true,
+      result: { status: 0, signal: null, outputExceeded: false },
+      closed: false,
+    },
+  ] as const;
+  for (const item of cases) {
+    await t.test(item.name, async () => {
+      const child = spawn(process.execPath, [fixture, "parent-loss"], {
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      const resultPromise = observePublicMcpProcess(child, {
+        maximumOutputBytes: 4096,
+        timeoutMs: 2_000,
+        terminationGraceMs: 100,
+        onVerifiedRuntimeEvent: (event) =>
+          event.event === "process_started" &&
+          event.taskRole === "executor" &&
+          event.provider === "claude"
+            ? "terminate_process_tree"
+            : "continue",
+        startProcessTreeTermination: () =>
+          Object.freeze({
+            started: async () => {
+              if (!item.started) queueMicrotask(() => child.kill());
+              return item.started;
+            },
+            wait: async () => {
+              queueMicrotask(() => child.kill());
+              return item.result === null
+                ? null
+                : Object.freeze({
+                    ...item.result,
+                    stdout: "",
+                    stderr: "",
+                  });
+            },
+            terminateAndWait: async () => {
+              queueMicrotask(() => child.kill());
+              return true;
+            },
+            closed: () => item.closed,
+          }),
+      });
+      child.stdin.write('{"id":"objective-parent-loss"}\n');
+      const result = await resultPromise;
+      assert.equal(result.joined, true);
+      assert.equal(result.processTreeTerminationConfirmed, false);
+    });
+  }
 });
 
 test("固定prefix外の埋込みJSONをRuntime Eventへ昇格しない", async () => {
