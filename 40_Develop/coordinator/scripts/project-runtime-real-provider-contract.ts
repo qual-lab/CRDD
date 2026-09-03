@@ -500,12 +500,12 @@ export async function observePublicMcpProcess(
     child.on("error", childErrorSink);
     child.once("close", () => child.off("error", childErrorSink));
     for (const stream of streams) {
-      if (stream.destroyed) continue;
+      if (stream.closed) continue;
       const errorSink = () => {};
       const releaseSink = () => stream.off("error", errorSink);
       stream.on("error", errorSink);
       stream.once("close", releaseSink);
-      stream.destroy();
+      if (!stream.destroyed) stream.destroy();
     }
   };
   const settleCloseObservation = (

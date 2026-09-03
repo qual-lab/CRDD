@@ -293,8 +293,8 @@ const recoverySettlementFixture = () => ({
   snapshotAfter: unchangedSnapshot,
   expectedCanonicalStateObserved: true,
 });
-const build = (overrides: Record<string, unknown> = {}) =>
-  buildProjectRuntimeRealProviderReport({
+const buildInput = (overrides: Record<string, unknown> = {}) =>
+  ({
     runId: "run",
     sourceIdentity: { commit: "a", tree: "b" },
     distributionIdentity: {
@@ -353,7 +353,9 @@ const build = (overrides: Record<string, unknown> = {}) =>
       manualRecoveryRequired: false,
     },
     ...overrides,
-  } as Parameters<typeof buildProjectRuntimeRealProviderReport>[0]);
+  }) as Parameters<typeof buildProjectRuntimeRealProviderReport>[0];
+const build = (overrides: Record<string, unknown> = {}) =>
+  buildProjectRuntimeRealProviderReport(buildInput(overrides));
 
 test("全観測が相関した場合だけ公開Process E2Eをcompletedにする", () => {
   const result = build();
@@ -362,6 +364,63 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
   assert.equal(result.publicMcpProcess.actualChildProcess, true);
   assert.equal(result.dockerRecoveryAfterRun.recoverySettlementExercised, true);
   assert.notDeepEqual(result.sourceIdentity, result.distributionIdentity);
+});
+
+test("全公開経路はchild未joinを個別にblockedへ閉じる", () => {
+  const base = buildInput();
+  const unjoined = (value: PublicProcessObservation) => ({
+    ...value,
+    joined: false,
+  });
+  const cases = [
+    {
+      problem: "normal_1_child_not_joined",
+      overrides: {
+        normalRuns: base.normalRuns.map((run, index) =>
+          index === 0
+            ? { ...run, observation: unjoined(run.observation) }
+            : run,
+        ),
+      },
+    },
+    {
+      problem: "normal_2_child_not_joined",
+      overrides: {
+        normalRuns: base.normalRuns.map((run, index) =>
+          index === 1
+            ? { ...run, observation: unjoined(run.observation) }
+            : run,
+        ),
+      },
+    },
+    {
+      problem: "cancellation_child_not_joined",
+      overrides: { cancellation: unjoined(base.cancellation) },
+    },
+    {
+      problem: "recovery_parent_not_joined",
+      overrides: {
+        recoverySettlement: {
+          ...base.recoverySettlement,
+          parentLoss: unjoined(base.recoverySettlement.parentLoss),
+        },
+      },
+    },
+    {
+      problem: "recovery_reentry_child_not_joined",
+      overrides: {
+        recoverySettlement: {
+          ...base.recoverySettlement,
+          reentry: unjoined(base.recoverySettlement.reentry),
+        },
+      },
+    },
+  ];
+  for (const item of cases) {
+    const result = build(item.overrides);
+    assert.equal(result.status, "blocked", item.problem);
+    assert.ok(result.problems.includes(item.problem), item.problem);
+  }
 });
 
 test("clean観測だけ、欠落・順序違反・Identity不一致を回復実行証明にしない", () => {
@@ -717,13 +776,38 @@ test("固定子Processを実spawnし応答後EOFとjoinを観測する", async (
   assert.deepEqual(result.exit, { code: 0, signal: null });
 });
 
-function createSyntheticUnclosedChild(exitObserved: boolean) {
+function createSyntheticUnclosedChild(
+  exitObserved: boolean,
+  options: Readonly<{ emitStreamClose?: boolean }> = {},
+) {
   let killCalls = 0;
+  class ControlledUnclosedStream extends EventEmitter {
+    destroyed = false;
+    closed = false;
+
+    end() {
+      return this;
+    }
+
+    destroy() {
+      this.destroyed = true;
+      return this;
+    }
+
+    write(chunk: Buffer | string) {
+      this.emit("data", Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      return true;
+    }
+  }
+  const createStream = () =>
+    options.emitStreamClose === false
+      ? new ControlledUnclosedStream()
+      : new PassThrough();
   const child = Object.assign(new EventEmitter(), {
     pid: 612345,
-    stdin: new PassThrough(),
-    stdout: new PassThrough(),
-    stderr: new PassThrough(),
+    stdin: createStream(),
+    stdout: createStream(),
+    stderr: createStream(),
     exitCode: exitObserved ? 0 : null,
     signalCode: null,
     kill: () => {
@@ -751,6 +835,60 @@ test("exit先着でclose未到達でも有限時間で未joinを返す", async (
   fixture.child.emit("close", 0, null);
   assert.equal(fixture.child.listenerCount("error"), 0);
   assert.equal(result.joined, false);
+});
+
+test("destroy済みclose未観測streamの遅延通知を実closeまで所有する", async () => {
+  const fixture = createSyntheticUnclosedChild(true, {
+    emitStreamClose: false,
+  });
+  const streams = [
+    fixture.child.stdin,
+    fixture.child.stdout,
+    fixture.child.stderr,
+  ] as const;
+  const existingStreamListeners = streams.map(() => () => {});
+  streams.forEach((stream, index) => {
+    stream.on("error", existingStreamListeners[index] as () => void);
+  });
+  const existingChildListener = () => {};
+  fixture.child.on("error", existingChildListener);
+  const streamBaselines = streams.map((stream) =>
+    stream.listenerCount("error"),
+  );
+  const childBaseline = fixture.child.listenerCount("error");
+
+  const result = await observePublicMcpProcess(fixture.child, {
+    maximumOutputBytes: 1024,
+    timeoutMs: 10,
+    terminationGraceMs: 10,
+  });
+  const frozenResult = JSON.stringify(result);
+  for (const [index, stream] of streams.entries()) {
+    assert.equal(stream.destroyed, true);
+    assert.equal(stream.closed, false);
+    assert.equal(
+      stream.listenerCount("error"),
+      (streamBaselines[index] ?? 0) + 1,
+    );
+    stream.emit("error", new Error(`late_stream_error_${index}_1`));
+    stream.emit("error", new Error(`late_stream_error_${index}_2`));
+    stream.emit("data", Buffer.from('{"late":"ignored"}\n'));
+  }
+  assert.equal(fixture.child.listenerCount("error"), childBaseline + 1);
+  fixture.child.emit("error", new Error("late_child_error_1"));
+  fixture.child.emit("error", new Error("late_child_error_2"));
+  assert.equal(JSON.stringify(result), frozenResult);
+  assert.deepEqual(result.responses, []);
+  assert.deepEqual(result.runtimeEvents, []);
+
+  streams.forEach((stream) => {
+    stream.emit("close");
+  });
+  fixture.child.emit("close", 0, null);
+  streams.forEach((stream, index) => {
+    assert.equal(stream.listenerCount("error"), streamBaselines[index]);
+  });
+  assert.equal(fixture.child.listenerCount("error"), childBaseline);
 });
 
 test("timeout後のfallback killをProcess-tree終了確認へ昇格しない", async () => {
@@ -786,6 +924,60 @@ test("close観測後は保有timerを解除し遅延killや結果変更を起こ
     fixture.child.listenerCount("error"),
     initialChildErrorListeners,
   );
+});
+
+test("helper永続pendingとchild close欠落が同時でも共通期限で未joinを返す", async () => {
+  for (const pendingAt of ["started", "wait"] as const) {
+    let resolvePending!: (value: unknown) => void;
+    const pending = new Promise<unknown>((resolve) => {
+      resolvePending = resolve;
+    });
+    const fixture = createSyntheticUnclosedChild(false, {
+      emitStreamClose: false,
+    });
+    const startedAt = Date.now();
+    const resultPromise = observePublicMcpProcess(fixture.child, {
+      maximumOutputBytes: 4096,
+      timeoutMs: 20,
+      terminationGraceMs: 20,
+      onVerifiedRuntimeEvent: (event) =>
+        event.event === "process_started"
+          ? "terminate_process_tree"
+          : "continue",
+      startProcessTreeTermination: () =>
+        Object.freeze({
+          started: async () =>
+            pendingAt === "started" ? (pending as Promise<boolean>) : true,
+          wait: async () =>
+            pendingAt === "wait"
+              ? (pending as Promise<null>)
+              : Object.freeze({
+                  status: 0,
+                  signal: null,
+                  stdout: "",
+                  stderr: "",
+                  outputExceeded: false,
+                }),
+          terminateAndWait: async () => true,
+          closed: () => true,
+        }),
+    });
+    (fixture.child.stderr as PassThrough).write(
+      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "claude", operationId: "OP-700001" })}\n`,
+    );
+    const result = await resultPromise;
+    assert.ok(Date.now() - startedAt < 500, pendingAt);
+    assert.equal(fixture.killCalls(), 1, pendingAt);
+    assert.equal(result.joined, false, pendingAt);
+    assert.equal(result.exit, null, pendingAt);
+    assert.equal(result.processTreeTerminationConfirmed, false, pendingAt);
+    const frozenResult = JSON.stringify(result);
+    if (pendingAt === "started") resolvePending(true);
+    else resolvePending(null);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(JSON.stringify(result), frozenResult, pendingAt);
+    fixture.child.emit("close", 0, null);
+  }
 });
 
 test("実子Process treeを開始通知後に強制終了して親喪失を観測する", async () => {
