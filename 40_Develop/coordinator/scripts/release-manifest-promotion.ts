@@ -171,22 +171,6 @@ function readStableFile(snapshot: Snapshot) {
   }
 }
 
-function doesNotExist(target: string) {
-  try {
-    fs.lstatSync(target);
-    return false;
-  } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "ENOENT"
-    )
-      return true;
-    throw error;
-  }
-}
-
 function manifestPath(root: string) {
   return path.join(
     root,
@@ -278,10 +262,22 @@ function verifySession(session: Session) {
     if (
       !source ||
       !destination ||
+      !session.sourceManifest ||
+      !session.destinationManifest ||
+      !sameIdentity(source.identity, session.sourceManifest.identity) ||
+      !sameIdentity(
+        destination.identity,
+        session.destinationManifest.identity,
+      ) ||
       !sameFileObject(source.identity, destination.identity)
     )
       throw new Error("release_manifest_promotion_state_changed");
-  } else if (source || !destination) {
+  } else if (
+    source ||
+    !destination ||
+    !session.destinationManifest ||
+    !sameIdentity(destination.identity, session.destinationManifest.identity)
+  ) {
     throw new Error("release_manifest_promotion_state_changed");
   }
   if (source) verifyFile(source, session.manifestBytes, session.manifestSha256);
@@ -349,11 +345,15 @@ export function promoteReleaseManifestBytes(token: unknown) {
     if (!session) throw new ReleaseManifestPromotionError(false, true, false);
     let state = verifySession(session);
     if (session.mode === "ready") {
-      effectIssued = true;
       fs.linkSync(session.sourceManifestPath, session.destinationManifestPath);
+      effectIssued = true;
       const source = fileSnapshot(session.sourceManifestPath);
       const destination = fileSnapshot(session.destinationManifestPath);
-      if (!sameFileObject(source.identity, destination.identity))
+      if (
+        !session.sourceManifest ||
+        !sameFileObject(source.identity, session.sourceManifest.identity) ||
+        !sameFileObject(source.identity, destination.identity)
+      )
         throw new Error("release_manifest_promotion_atomic_install_failed");
       verifyFile(destination, session.manifestBytes, session.manifestSha256);
       verifyDirectory(session.sourceRoot);
@@ -365,10 +365,6 @@ export function promoteReleaseManifestBytes(token: unknown) {
     if (session.mode !== "transferred") {
       if (!state.source || !state.destination)
         throw new Error("release_manifest_promotion_link_state_invalid");
-      effectIssued = true;
-      fs.unlinkSync(session.sourceManifestPath);
-      if (!doesNotExist(session.sourceManifestPath))
-        throw new Error("release_manifest_promotion_source_unlink_failed");
     }
     const finalSession = inspectSession(
       session.sourceRoot.path,
@@ -376,7 +372,8 @@ export function promoteReleaseManifestBytes(token: unknown) {
       session.manifestSha256,
     );
     if (
-      finalSession.mode !== "transferred" ||
+      (finalSession.mode !== "linked_pending" &&
+        finalSession.mode !== "transferred") ||
       !finalSession.destinationManifest
     )
       throw new Error("release_manifest_promotion_final_state_invalid");
@@ -390,6 +387,10 @@ export function promoteReleaseManifestBytes(token: unknown) {
       byteLength: session.manifestBytes.length,
       repositoryFilesystemEffectIssued: effectIssued,
       cleanupConfirmed: true as const,
+      stagingManifestDisposition:
+        finalSession.mode === "linked_pending"
+          ? ("retained_for_explicit_staging_discard" as const)
+          : ("already_absent" as const),
       reentryRequired: false as const,
       runtimeAuthorityConferred: false as const,
       runtimeCapabilityIssued: false as const,
@@ -420,7 +421,7 @@ export function verifyPromotedReleaseManifestBytes(token: unknown) {
       session.manifestSha256,
     );
     return (
-      current.mode === "transferred" &&
+      (current.mode === "linked_pending" || current.mode === "transferred") &&
       current.destinationManifest !== null &&
       session.destinationManifest !== null &&
       sameIdentity(
@@ -452,12 +453,13 @@ export function verifyPromotedReleaseManifestBytes(token: unknown) {
 export function describeReleaseManifestPromotionContract() {
   return Object.freeze({
     contract: "crdd-coordinator/release-manifest-promotion",
-    contractRevision: 2,
+    contractRevision: 3,
     manifestRelativePath: PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
     sourceTreatment: "opaque_stable_bytes",
-    destinationPublish: "exclusive_same_volume_hard_link_then_source_unlink",
+    destinationPublish: "exclusive_same_volume_hard_link",
     partialCanonicalFilePossible: false,
-    processLossReentry: "absent_linked_or_transferred_exact_identity",
+    processLossReentry: "source_only_linked_or_destination_only_exact_identity",
+    stagingCleanup: "separate_explicit_owned_staging_discard",
     automaticRollbackAfterPublish: false,
     textParsingOrSerializationDuringPromotion: false,
     runtimeAuthorityConferred: false,

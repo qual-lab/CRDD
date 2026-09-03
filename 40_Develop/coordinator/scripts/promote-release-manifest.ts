@@ -197,22 +197,27 @@ export function executeReleaseManifestPromotionCompositionForVerification(
       throw new Error("release_manifest_promotion_postcondition_failed");
     return Object.freeze({
       contract: "crdd-coordinator/release-manifest-promotion-result",
-      contractRevision: 1,
+      contractRevision: 2,
       status: "promoted" as const,
       sourceCommit: release.expected.crddCommit,
       sourceTree: release.expected.crddTree,
       manifestRelativePath: promoted.manifestRelativePath,
       manifestFileSha256: promoted.manifestFileSha256,
       byteLength: promoted.byteLength,
-      repositoryFilesystemEffectIssued: true as const,
+      repositoryFilesystemEffectIssued:
+        promoted.repositoryFilesystemEffectIssued,
       cleanupConfirmed: true as const,
+      stagingManifestDisposition: promoted.stagingManifestDisposition,
       runtimeAuthorityConferred: false as const,
       runtimeCapabilityIssued: false as const,
     });
   } catch (error) {
-    throw new ReleaseManifestPromotionError(true, false, true, {
-      cause: error,
-    });
+    throw new ReleaseManifestPromotionError(
+      promoted.repositoryFilesystemEffectIssued,
+      false,
+      true,
+      { cause: error },
+    );
   }
 }
 

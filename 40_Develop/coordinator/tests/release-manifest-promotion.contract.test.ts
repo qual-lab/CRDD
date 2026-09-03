@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -62,18 +63,20 @@ test("署名済みManifestを途中byteを公開せずatomicに昇格する", ()
     assert.equal(result.status, "promoted");
     assert.equal(result.resumed, false);
     assert.equal(result.byteLength, value.bytes.length);
-    assert.equal(fs.existsSync(value.sourceManifest), false);
+    assert.equal(fs.existsSync(value.sourceManifest), true);
     assert.deepEqual(fs.readFileSync(value.destinationManifest), value.bytes);
     assert.equal(verifyPromotedReleaseManifestBytes(session.token), true);
     assert.deepEqual(describeReleaseManifestPromotionContract(), {
       contract: "crdd-coordinator/release-manifest-promotion",
-      contractRevision: 2,
+      contractRevision: 3,
       manifestRelativePath:
         "template/tools/coordinator/coordinator-package-manifest.json",
       sourceTreatment: "opaque_stable_bytes",
-      destinationPublish: "exclusive_same_volume_hard_link_then_source_unlink",
+      destinationPublish: "exclusive_same_volume_hard_link",
       partialCanonicalFilePossible: false,
-      processLossReentry: "absent_linked_or_transferred_exact_identity",
+      processLossReentry:
+        "source_only_linked_or_destination_only_exact_identity",
+      stagingCleanup: "separate_explicit_owned_staging_discard",
       automaticRollbackAfterPublish: false,
       textParsingOrSerializationDuringPromotion: false,
       runtimeAuthorityConferred: false,
@@ -119,7 +122,7 @@ test("既存の別file、偽token、開始後source変更をEffect前に拒否�
   }
 });
 
-test("atomic publish直後のProcess消失相当をlinked状態から再開する", {
+test("link直前に同byteの別fileへ置換されても別主体のsourceを削除しない", {
   concurrency: false,
 }, () => {
   const value = fixture();
@@ -128,8 +131,9 @@ test("atomic publish直後のProcess消失相当をlinked状態から再開す�
     const session = begin(value);
     assert.ok(session);
     fs.linkSync = ((source: fs.PathLike, destination: fs.PathLike) => {
+      fs.unlinkSync(source);
+      fs.writeFileSync(source, value.bytes);
       originalLinkSync(source, destination);
-      throw new Error("injected_process_loss_after_link");
     }) as typeof fs.linkSync;
     assert.throws(
       () => promoteReleaseManifestBytes(session.token),
@@ -139,14 +143,7 @@ test("atomic publish直後のProcess消失相当をlinked状態から再開す�
         !error.cleanupConfirmed &&
         error.reentryRequired,
     );
-    fs.linkSync = originalLinkSync;
-    const resumed = begin(value);
-    assert.ok(resumed);
-    assert.equal(resumed.mode, "linked_pending");
-    const result = promoteReleaseManifestBytes(resumed.token);
-    assert.equal(result.status, "promoted");
-    assert.equal(result.resumed, true);
-    assert.equal(fs.existsSync(value.sourceManifest), false);
+    assert.deepEqual(fs.readFileSync(value.sourceManifest), value.bytes);
     assert.deepEqual(fs.readFileSync(value.destinationManifest), value.bytes);
   } finally {
     fs.linkSync = originalLinkSync;
@@ -154,26 +151,31 @@ test("atomic publish直後のProcess消失相当をlinked状態から再開す�
   }
 });
 
-test("source unlink直後のProcess消失相当を転送済み状態から再開する", {
-  concurrency: false,
-}, () => {
+test("atomic publish後のlinked状態をfresh sessionから成功として再観測する", () => {
   const value = fixture();
-  const originalUnlinkSync = fs.unlinkSync;
+  try {
+    fs.linkSync(value.sourceManifest, value.destinationManifest);
+    const resumed = begin(value);
+    assert.ok(resumed);
+    assert.equal(resumed.mode, "linked_pending");
+    const result = promoteReleaseManifestBytes(resumed.token);
+    assert.equal(result.status, "promoted");
+    assert.equal(result.resumed, true);
+    assert.equal(fs.existsSync(value.sourceManifest), true);
+    assert.deepEqual(fs.readFileSync(value.destinationManifest), value.bytes);
+  } finally {
+    fs.rmSync(value.parent, { recursive: true, force: true });
+  }
+});
+
+test("明示的なstaging破棄後はdestination-only状態を再観測できる", () => {
+  const value = fixture();
   try {
     const session = begin(value);
     assert.ok(session);
-    fs.unlinkSync = ((target: fs.PathLike) => {
-      originalUnlinkSync(target);
-      throw new Error("injected_process_loss_after_unlink");
-    }) as typeof fs.unlinkSync;
-    assert.throws(
-      () => promoteReleaseManifestBytes(session.token),
-      (error: unknown) =>
-        error instanceof ReleaseManifestPromotionError &&
-        error.repositoryFilesystemEffectIssued &&
-        error.reentryRequired,
-    );
-    fs.unlinkSync = originalUnlinkSync;
+    promoteReleaseManifestBytes(session.token);
+    fs.rmSync(value.sourceRoot, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(value.sourceManifest), { recursive: true });
     const resumed = begin(value);
     assert.ok(resumed);
     assert.equal(resumed.mode, "transferred");
@@ -181,7 +183,6 @@ test("source unlink直後のProcess消失相当を転送済み状態から再開
     assert.equal(result.status, "promoted");
     assert.equal(result.resumed, true);
   } finally {
-    fs.unlinkSync = originalUnlinkSync;
     fs.rmSync(value.parent, { recursive: true, force: true });
   }
 });
@@ -208,25 +209,66 @@ test("linked状態の同byte別identityと転送後の内容変更を再開し�
   }
 });
 
-test("並行する二つの昇格候補は一つだけがEffectを発行し他方は再観測へ閉じる", () => {
+test("二つのProcessがprecheck後に競合しても一方だけがEffectを発行する", async () => {
   const value = fixture();
   try {
-    const first = begin(value);
-    const second = begin(value);
-    assert.ok(first);
-    assert.ok(second);
-    assert.equal(promoteReleaseManifestBytes(first.token).status, "promoted");
-    assert.throws(
-      () => promoteReleaseManifestBytes(second.token),
-      (error: unknown) =>
-        error instanceof ReleaseManifestPromotionError &&
-        !error.repositoryFilesystemEffectIssued &&
-        error.cleanupConfirmed &&
-        !error.reentryRequired,
+    const barrierRoot = path.join(value.parent, "barrier");
+    fs.mkdirSync(barrierRoot);
+    const racer = path.join(
+      import.meta.dirname,
+      "fixtures",
+      "release-manifest-promotion-racer.ts",
+    );
+    const run = (id: string) =>
+      new Promise<Record<string, unknown>>((resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          [
+            racer,
+            id,
+            value.sourceRoot,
+            value.destinationRoot,
+            value.sha256,
+            barrierRoot,
+          ],
+          { stdio: ["ignore", "pipe", "pipe"] },
+        );
+        let stdout = "";
+        let stderr = "";
+        child.stdout.setEncoding("utf8").on("data", (part) => (stdout += part));
+        child.stderr.setEncoding("utf8").on("data", (part) => (stderr += part));
+        child.once("error", reject);
+        child.once("close", (code) => {
+          if (code !== 0) reject(new Error(`racer_failed:${code}:${stderr}`));
+          else resolve(JSON.parse(stdout) as Record<string, unknown>);
+        });
+      });
+    const first = run("first");
+    const second = run("second");
+    for (const id of ["first", "second"]) {
+      const ready = path.join(barrierRoot, `${id}.ready`);
+      while (!fs.existsSync(ready))
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    fs.writeFileSync(path.join(barrierRoot, "go"), "go");
+    const results = await Promise.all([first, second]);
+    assert.equal(
+      results.filter((result) => result.status === "promoted").length,
+      1,
+    );
+    assert.equal(
+      results.filter(
+        (result) =>
+          result.status === "blocked" &&
+          result.repositoryFilesystemEffectIssued === false &&
+          result.cleanupConfirmed === true &&
+          result.reentryRequired === false,
+      ).length,
+      1,
     );
     const resumed = begin(value);
     assert.ok(resumed);
-    assert.equal(resumed.mode, "transferred");
+    assert.equal(resumed.mode, "linked_pending");
     assert.equal(promoteReleaseManifestBytes(resumed.token).status, "promoted");
   } finally {
     fs.rmSync(value.parent, { recursive: true, force: true });
@@ -299,7 +341,7 @@ test("productionと同じ合成順序で前段検証、atomic昇格、後段検�
           return phase === "before"
             ? fs.existsSync(value.sourceManifest) &&
                 !fs.existsSync(value.destinationManifest)
-            : !fs.existsSync(value.sourceManifest) &&
+            : fs.existsSync(value.sourceManifest) &&
                 fs.readFileSync(value.destinationManifest).equals(value.bytes);
         },
       },
@@ -347,7 +389,7 @@ test("合成後段の不成立は公開済みfileを推測削除せず再入場�
         !error.cleanupConfirmed &&
         error.reentryRequired,
     );
-    assert.equal(fs.existsSync(value.sourceManifest), false);
+    assert.equal(fs.existsSync(value.sourceManifest), true);
     assert.deepEqual(fs.readFileSync(value.destinationManifest), value.bytes);
   } finally {
     fs.rmSync(value.parent, { recursive: true, force: true });
