@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Writable } from "node:stream";
 import { types as utilTypes } from "node:util";
 
 import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "./claude-docker-runtime-adapter.ts";
@@ -34,7 +35,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 26;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 27;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -91,6 +92,7 @@ const BLOCKED_COMPLETION_REASONS = new Set([
   "provider_task_reviewer_finding_invalid",
   "provider_task_reviewer_decision_inconsistent",
   "docker_process_controller_execution_failed_closed",
+  "docker_process_controller_provider_start_failed",
   "docker_process_controller_provider_start_observation_failed",
   "repository_revision_changed",
 ]);
@@ -142,6 +144,7 @@ type CommandExecution = Readonly<{
   outputExceeded: boolean;
 }>;
 type CommandHandle = Readonly<{
+  started: (timeoutMs: number) => Promise<boolean>;
   wait: (timeoutMs: number) => Promise<CommandExecution | null>;
   terminateAndWait: (graceMs: number) => Promise<boolean>;
 }>;
@@ -220,7 +223,7 @@ type RuntimeDependencies = Readonly<{
   recordMountCompletion?: (recoveryCapability: object) => boolean;
   reportProviderProcessStarted?: (
     notice: ProviderProcessStartedNotice,
-  ) => boolean;
+  ) => Promise<boolean>;
   consumeProviderAuthority: (
     useCapability: unknown,
     activeMountCapability: unknown,
@@ -247,6 +250,38 @@ type RuntimeState = Readonly<{
   controls: WeakMap<object, ExecutionRecord>;
 }>;
 type ExecutionResult = ReturnType<typeof createFinalResult>;
+
+export function createRuntimeOwnedLifecycleNoticeReporter(stream: Writable) {
+  return (notice: ProviderProcessStartedNotice): Promise<boolean> => {
+    if (!stream.writable || stream.destroyed) return Promise.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const timer = setTimeout(() => settle(false), CANCELLATION_GRACE_MS);
+      const settle = (value: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        stream.off("error", onFailure);
+        stream.off("close", onFailure);
+        resolve(value);
+      };
+      const onFailure = () => settle(false);
+      stream.once("error", onFailure);
+      stream.once("close", onFailure);
+      try {
+        stream.write(
+          `[Coordinator lifecycle] ${JSON.stringify(notice)}\n`,
+          "utf8",
+          (error) => {
+            if (error === undefined || error === null) settle(true);
+          },
+        );
+      } catch {
+        settle(false);
+      }
+    });
+  };
+}
 
 const BLOCKED_START_KEYS = Object.freeze([
   "cleanupConfirmed",
@@ -1001,19 +1036,27 @@ async function executePlan(
       );
       record.activeHandle = handle;
       if (isProvider) {
+        const processStarted = await handle.started(CANCELLATION_GRACE_MS);
+        if (!processStarted) {
+          await handle.terminateAndWait(CANCELLATION_GRACE_MS);
+          record.activeHandle = null;
+          requestedStatus = "blocked";
+          reason = "docker_process_controller_provider_start_failed";
+          break;
+        }
         providerRequestStarted = true;
         let startObserved = true;
         try {
           startObserved =
             !state.dependencies.reportProviderProcessStarted ||
-            state.dependencies.reportProviderProcessStarted(
+            (await state.dependencies.reportProviderProcessStarted(
               Object.freeze({
                 event: "coordinator_provider_process_started",
                 taskRole: plan.taskRole,
                 provider: plan.provider,
                 operationId: plan.operationId,
               }),
-            ) === true;
+            )) === true;
         } catch {
           startObserved = false;
         }
@@ -1459,16 +1502,9 @@ const productionState: RuntimeState = Object.freeze({
     recordResourceReceipt: recordRuntimeOwnedDockerResourceReceipt,
     recordDockerAbsence: recordRuntimeOwnedDockerAbsence,
     recordMountCompletion: recordRuntimeOwnedNormalMountCompletion,
-    reportProviderProcessStarted: (notice: ProviderProcessStartedNotice) => {
-      try {
-        process.stderr.write(
-          `[Coordinator lifecycle] ${JSON.stringify(notice)}\n`,
-        );
-        return true;
-      } catch {
-        return false;
-      }
-    },
+    reportProviderProcessStarted: createRuntimeOwnedLifecycleNoticeReporter(
+      process.stderr,
+    ),
     consumeProviderAuthority: consumeRuntimeOwnedProviderAuthority,
   }),
   controls: new WeakMap(),

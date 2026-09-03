@@ -26,6 +26,12 @@ export type PublicProcessObservation = Readonly<{
     provider: string;
     operationId: string;
   }>[];
+  runtimeEvents: readonly Readonly<{
+    event: "selection" | "process_started";
+    taskRole: string;
+    provider: string;
+    operationId: string | null;
+  }>[];
   pidIssued: boolean;
   streamFailure: boolean;
 }>;
@@ -135,6 +141,12 @@ export async function observePublicMcpProcess(
     provider: string;
     operationId: string;
   }>[] = [];
+  const runtimeEvents: Array<{
+    event: "selection" | "process_started";
+    taskRole: string;
+    provider: string;
+    operationId: string | null;
+  }> = [];
   for (const line of stderr.split(/\r?\n/u).filter(Boolean)) {
     try {
       const selectionPrefix = "[Coordinator selection] ";
@@ -155,6 +167,14 @@ export async function observePublicMcpProcess(
             provider: parsed.provider,
           }),
         );
+        runtimeEvents.push(
+          Object.freeze({
+            event: "selection" as const,
+            taskRole: parsed.taskRole,
+            provider: parsed.provider,
+            operationId: null,
+          }),
+        );
         continue;
       }
       if (line.startsWith(lifecyclePrefix)) {
@@ -166,11 +186,19 @@ export async function observePublicMcpProcess(
           typeof parsed.taskRole !== "string" ||
           typeof parsed.provider !== "string" ||
           typeof parsed.operationId !== "string" ||
-          parsed.operationId.length === 0
+          !/^OP-[0-9]{6,}$/u.test(parsed.operationId)
         )
           continue;
         processStartEvents.push(
           Object.freeze({
+            taskRole: parsed.taskRole,
+            provider: parsed.provider,
+            operationId: parsed.operationId,
+          }),
+        );
+        runtimeEvents.push(
+          Object.freeze({
+            event: "process_started" as const,
             taskRole: parsed.taskRole,
             provider: parsed.provider,
             operationId: parsed.operationId,
@@ -195,6 +223,7 @@ export async function observePublicMcpProcess(
     selectionEvents: Object.freeze(selectionEvents),
     processStartEventObserved: processStartEvents.length > 0,
     processStartEvents: Object.freeze(processStartEvents),
+    runtimeEvents: Object.freeze(runtimeEvents),
     pidIssued,
     streamFailure,
   });
@@ -312,30 +341,29 @@ function changedSnapshotPaths(
     .sort();
 }
 
-function roleProviderEventsExactlyMatch(
-  events: readonly Readonly<{ taskRole: string; provider: string }>[],
-  expected: readonly Readonly<{ taskRole: string; provider: string }>[],
-) {
-  return JSON.stringify(events) === JSON.stringify(expected);
-}
-
-function processStartEventsExactlyMatch(
-  events: readonly Readonly<{
+function runtimeEventsExactlyMatch(
+  events: PublicProcessObservation["runtimeEvents"],
+  expected: readonly Readonly<{
+    event: "selection" | "process_started";
     taskRole: string;
     provider: string;
-    operationId: string;
   }>[],
-  expected: readonly Readonly<{ taskRole: string; provider: string }>[],
 ) {
   return (
     events.length === expected.length &&
-    events.every(
-      (event, index) =>
-        event.taskRole === expected[index]?.taskRole &&
-        event.provider === expected[index]?.provider &&
-        event.operationId.length > 0,
-    ) &&
-    new Set(events.map((event) => event.operationId)).size === events.length
+    events.every((event, index) => {
+      const expectedEvent = expected[index];
+      return (
+        expectedEvent !== undefined &&
+        event.event === expectedEvent.event &&
+        event.taskRole === expectedEvent.taskRole &&
+        event.provider === expectedEvent.provider &&
+        (event.event === "selection"
+          ? event.operationId === null
+          : typeof event.operationId === "string" &&
+            /^OP-[0-9]{6,}$/u.test(event.operationId))
+      );
+    })
   );
 }
 
@@ -399,19 +427,30 @@ export function buildProjectRuntimeRealProviderReport(
   for (const [index, run] of input.normalRuns.entries()) {
     const { expected, observation } = run;
     const expectedEvents = [
-      { taskRole: "executor", provider: expected.executorProvider },
-      { taskRole: "reviewer", provider: expected.reviewerProvider ?? "" },
+      {
+        event: "selection" as const,
+        taskRole: "executor",
+        provider: expected.executorProvider,
+      },
+      {
+        event: "process_started" as const,
+        taskRole: "executor",
+        provider: expected.executorProvider,
+      },
+      {
+        event: "selection" as const,
+        taskRole: "reviewer",
+        provider: expected.reviewerProvider ?? "",
+      },
+      {
+        event: "process_started" as const,
+        taskRole: "reviewer",
+        provider: expected.reviewerProvider ?? "",
+      },
     ];
     if (
       !expected.reviewerProvider ||
-      !roleProviderEventsExactlyMatch(
-        observation.selectionEvents,
-        expectedEvents,
-      ) ||
-      !processStartEventsExactlyMatch(
-        observation.processStartEvents,
-        expectedEvents,
-      )
+      !runtimeEventsExactlyMatch(observation.runtimeEvents, expectedEvents)
     )
       problems.push(`normal_${index + 1}_provider_selection_mismatch`);
     const changedPaths = changedSnapshotPaths(
@@ -463,24 +502,35 @@ export function buildProjectRuntimeRealProviderReport(
     problems.push("cancellation_semantic_result");
   const expectedCancellationEvents = [
     {
+      event: "selection" as const,
+      taskRole: "executor",
+      provider: input.cancellationExpected.executorProvider,
+    },
+    {
+      event: "process_started" as const,
       taskRole: "executor",
       provider: input.cancellationExpected.executorProvider,
     },
   ];
   if (
-    !roleProviderEventsExactlyMatch(
-      input.cancellation.selectionEvents,
+    !runtimeEventsExactlyMatch(
+      input.cancellation.runtimeEvents,
       expectedCancellationEvents,
     )
   )
-    problems.push("cancellation_provider_selection_mismatch");
+    problems.push("cancellation_provider_lifecycle_mismatch");
+
+  const allOperationIds = [
+    ...input.normalRuns.flatMap((run) =>
+      run.observation.processStartEvents.map((event) => event.operationId),
+    ),
+    ...input.cancellation.processStartEvents.map((event) => event.operationId),
+  ];
   if (
-    !processStartEventsExactlyMatch(
-      input.cancellation.processStartEvents,
-      expectedCancellationEvents,
-    )
+    allOperationIds.some((value) => !/^OP-[0-9]{6,}$/u.test(value)) ||
+    new Set(allOperationIds).size !== allOperationIds.length
   )
-    problems.push("cancellation_provider_process_start_mismatch");
+    problems.push("provider_operation_identity_reused");
 
   const canonicalRepositoryChanged =
     input.cancellationSnapshotBefore.sha256 !==

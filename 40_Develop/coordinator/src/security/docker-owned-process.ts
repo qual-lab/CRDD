@@ -17,7 +17,10 @@ export type CommandHandle = Readonly<{
   terminateAndWait: (graceMs: number) => Promise<boolean>;
 }>;
 export type OwnedCommandHandle = CommandHandle &
-  Readonly<{ closed: () => boolean }>;
+  Readonly<{
+    started: (timeoutMs: number) => Promise<boolean>;
+    closed: () => boolean;
+  }>;
 
 export function createDockerProcessEnvironment() {
   const environment = createWindowsDockerCliEnvironment({
@@ -61,6 +64,26 @@ export function startOwnedProcess(
   let terminationRequested = false;
   let isTerminationHelperClosed = true;
   let terminationHelperCompletion: Promise<void> | null = null;
+  const startCompletion = new Promise<boolean>((resolve) => {
+    let settled = false;
+    const settle = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    child.once("spawn", () => {
+      settle(
+        Number.isSafeInteger(child.pid) &&
+          Number(child.pid) > 0 &&
+          child.stdout !== null &&
+          child.stderr !== null &&
+          (stdin === null || child.stdin !== null),
+      );
+    });
+    child.once("error", () => settle(false));
+    if (!child.stdout || !child.stderr || (stdin !== null && !child.stdin))
+      settle(false);
+  });
   // A spawn error is an execution result, not proof that all stdio closed.
   const closeCompletion = new Promise<void>((resolve) => {
     child.once("close", () => {
@@ -158,6 +181,7 @@ export function startOwnedProcess(
   }
 
   return Object.freeze({
+    started: (timeoutMs: number) => bounded(startCompletion, timeoutMs, false),
     wait: (timeoutMs: number) => bounded(completion, timeoutMs, null),
     terminateAndWait,
     closed: () => closed && isTerminationHelperClosed,

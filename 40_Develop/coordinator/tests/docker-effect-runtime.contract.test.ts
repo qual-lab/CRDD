@@ -210,6 +210,7 @@ function createEffectFixture(
         },
       );
       return Object.freeze({
+        started: async () => true,
         wait: async () => {
           closed = true;
           return completion;
@@ -482,6 +483,7 @@ test("実行errorの後もstartCommandの未close handleを回収まで保持す
   let closed = false;
   let terminationCalls = 0;
   const handle = Object.freeze({
+    started: async () => true,
     wait: async () =>
       Object.freeze({
         status: null,
@@ -532,6 +534,7 @@ test("candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定
     let terminationCalls = 0;
     const authReceiptId = "a".repeat(64);
     const handle = Object.freeze({
+      started: async () => true,
       wait: async () =>
         Object.freeze({
           status: null,

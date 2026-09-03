@@ -52,6 +52,7 @@ test("固定子: stdio構築前のEMFILE/ENFILEは所有を保持しerror後clos
         assert.ok(child.listenerCount("error") > 0);
         assert.ok(child.listenerCount("close") > 0);
         child.emit("error", Object.assign(new Error(code), { code }));
+        assert.equal(await handle.started(20), false);
         const result = await handle.wait(20);
         assert.equal(result?.status, null);
         assert.equal(result?.outputExceeded, false);
@@ -226,6 +227,7 @@ test(
         createDockerProcessEnvironment(),
         input,
       );
+      assert.equal(await handle.started(5_000), true);
       t.after(async () => {
         assert.equal(await handle.terminateAndWait(5_000), true);
       });
@@ -297,6 +299,7 @@ test(
       createDockerProcessEnvironment(),
       null,
     );
+    assert.equal(await handle.started(5_000), false);
     t.after(async () => {
       assert.equal(await handle.terminateAndWait(5_000), true);
     });

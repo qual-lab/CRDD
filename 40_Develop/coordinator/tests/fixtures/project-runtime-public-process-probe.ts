@@ -1,5 +1,5 @@
 const mode = process.argv[2] ?? "normal";
-const projection = (cancelled) => ({
+const projection = (cancelled: boolean) => ({
   projectId: "project-a",
   milestoneId: "milestone-a",
   generation: 1,
@@ -58,7 +58,7 @@ process.stdin.on("data", (chunk) => {
   if (mode === "malformed") process.stdout.write("not-json\n");
   else if (mode === "overflow") process.stdout.write("x".repeat(4096));
   else {
-    const request = JSON.parse(received.split(/\r?\n/u)[0]);
+    const request = JSON.parse(received.split(/\r?\n/u)[0] ?? "");
     const id = mode === "wrong-id" ? "wrong" : request.id;
     if (mode === "embedded-event")
       process.stderr.write(
@@ -68,7 +68,7 @@ process.stdin.on("data", (chunk) => {
       `[Coordinator selection] ${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex" })}\n`,
     );
     process.stderr.write(
-      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex", operationId: "OP-EXECUTOR-123456" })}\n`,
+      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex", operationId: mode === "cancelled" ? "OP-300001" : "OP-100001" })}\n`,
     );
     if (mode !== "cancelled")
       process.stderr.write(
@@ -76,7 +76,7 @@ process.stdin.on("data", (chunk) => {
       );
     if (mode !== "cancelled")
       process.stderr.write(
-        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "reviewer", provider: "claude", operationId: "OP-REVIEWER-123456" })}\n`,
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "reviewer", provider: "claude", operationId: "OP-100002" })}\n`,
       );
     process.stdout.write(
       `${JSON.stringify({
@@ -110,4 +110,5 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   if (mode === "nonzero") process.exitCode = 7;
 });
-if (mode === "ignore-eof") process.stdin.on("end", () => setInterval(() => {}, 1000));
+if (mode === "ignore-eof")
+  process.stdin.on("end", () => setInterval(() => {}, 1000));

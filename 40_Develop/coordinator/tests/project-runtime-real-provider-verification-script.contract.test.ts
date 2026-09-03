@@ -11,7 +11,7 @@ import {
 } from "../scripts/project-runtime-real-provider-contract.ts";
 
 const fixture = fileURLToPath(
-  new URL("fixtures/project-runtime-public-process-probe.mjs", import.meta.url),
+  new URL("fixtures/project-runtime-public-process-probe.ts", import.meta.url),
 );
 const projection = (cancelled: boolean) => ({
   projectId: "project-a",
@@ -97,8 +97,33 @@ const semantic = (
 const observation = (
   responses: readonly unknown[],
   overrides: Partial<PublicProcessObservation> = {},
-): PublicProcessObservation =>
-  Object.freeze({
+): PublicProcessObservation => {
+  const selectionEvents = overrides.selectionEvents ?? [
+    { taskRole: "executor", provider: "codex" },
+    { taskRole: "reviewer", provider: "claude" },
+  ];
+  const processStartEvents = overrides.processStartEvents ?? [
+    {
+      taskRole: "executor",
+      provider: "codex",
+      operationId: "OP-100001",
+    },
+    {
+      taskRole: "reviewer",
+      provider: "claude",
+      operationId: "OP-100002",
+    },
+  ];
+  const runtimeEvents =
+    overrides.runtimeEvents ??
+    selectionEvents.flatMap((event, index) => {
+      const started = processStartEvents[index];
+      return [
+        { event: "selection" as const, ...event, operationId: null },
+        ...(started ? [{ event: "process_started" as const, ...started }] : []),
+      ];
+    });
+  return Object.freeze({
     exit: { code: 0, signal: null },
     launchError: null,
     responses,
@@ -109,27 +134,15 @@ const observation = (
     forcedTerminationIssued: false,
     joined: true,
     selectionEventObserved: true,
-    selectionEvents: [
-      { taskRole: "executor", provider: "codex" },
-      { taskRole: "reviewer", provider: "claude" },
-    ],
+    selectionEvents,
     processStartEventObserved: true,
-    processStartEvents: [
-      {
-        taskRole: "executor",
-        provider: "codex",
-        operationId: "OP-EXECUTOR-123456",
-      },
-      {
-        taskRole: "reviewer",
-        provider: "claude",
-        operationId: "OP-REVIEWER-123456",
-      },
-    ],
+    processStartEvents,
+    runtimeEvents,
     pidIssued: true,
     streamFailure: false,
     ...overrides,
   });
+};
 const unchangedSnapshot = {
   sha256: "same",
   headCommit: "a",
@@ -147,38 +160,43 @@ const normalRun = (
   executorProvider: "codex" | "claude",
   reviewerProvider: "codex" | "claude",
   adoptResult: boolean,
-) => ({
-  observation: observation([semantic("completed", responseId)], {
-    selectionEvents: [
-      { taskRole: "executor", provider: executorProvider },
-      { taskRole: "reviewer", provider: reviewerProvider },
-    ],
-    processStartEvents: [
-      {
-        taskRole: "executor",
-        provider: executorProvider,
-        operationId: `OP-${responseId}-EXECUTOR`,
-      },
-      {
-        taskRole: "reviewer",
-        provider: reviewerProvider,
-        operationId: `OP-${responseId}-REVIEWER`,
-      },
-    ],
-  }),
-  expected: {
-    responseId,
-    requestId: "request-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    executorProvider,
-    reviewerProvider,
-  },
-  snapshotBefore: unchangedSnapshot,
-  snapshotAfter: adoptResult ? changedSnapshot : unchangedSnapshot,
-  expectedChangedPaths: adoptResult ? ["result.txt"] : [],
-  expectedCanonicalStateObserved: true,
-});
+) => {
+  const operationPrefix = responseId === "objective-1" ? "1" : "2";
+  const selectionEvents = [
+    { taskRole: "executor", provider: executorProvider },
+    { taskRole: "reviewer", provider: reviewerProvider },
+  ];
+  const processStartEvents = [
+    {
+      taskRole: "executor",
+      provider: executorProvider,
+      operationId: `OP-${operationPrefix}00001`,
+    },
+    {
+      taskRole: "reviewer",
+      provider: reviewerProvider,
+      operationId: `OP-${operationPrefix}00002`,
+    },
+  ];
+  return {
+    observation: observation([semantic("completed", responseId)], {
+      selectionEvents,
+      processStartEvents,
+    }),
+    expected: {
+      responseId,
+      requestId: "request-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      executorProvider,
+      reviewerProvider,
+    },
+    snapshotBefore: unchangedSnapshot,
+    snapshotAfter: adoptResult ? changedSnapshot : unchangedSnapshot,
+    expectedChangedPaths: adoptResult ? ["result.txt"] : [],
+    expectedCanonicalStateObserved: true,
+  };
+};
 const build = (overrides: Record<string, unknown> = {}) =>
   buildProjectRuntimeRealProviderReport({
     runId: "run",
@@ -201,7 +219,7 @@ const build = (overrides: Record<string, unknown> = {}) =>
           {
             taskRole: "executor",
             provider: "claude",
-            operationId: "OP-CANCELLATION-EXECUTOR",
+            operationId: "OP-300001",
           },
         ],
       },
@@ -244,6 +262,79 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
     false,
   );
   assert.notDeepEqual(result.sourceIdentity, result.distributionIdentity);
+});
+
+test("選定と実Process開始の統合順序違反およびrun間Operation再利用を拒否する", () => {
+  const first = normalRun("objective-1", "codex", "claude", false);
+  const wrongOrder = build({
+    normalRuns: [
+      {
+        ...first,
+        observation: observation([semantic("completed", "objective-1")], {
+          runtimeEvents: [
+            {
+              event: "selection",
+              taskRole: "executor",
+              provider: "codex",
+              operationId: null,
+            },
+            {
+              event: "selection",
+              taskRole: "reviewer",
+              provider: "claude",
+              operationId: null,
+            },
+            {
+              event: "process_started",
+              taskRole: "executor",
+              provider: "codex",
+              operationId: "OP-100001",
+            },
+            {
+              event: "process_started",
+              taskRole: "reviewer",
+              provider: "claude",
+              operationId: "OP-100002",
+            },
+          ],
+        }),
+      },
+    ],
+  });
+  assert.equal(wrongOrder.status, "blocked");
+  assert.ok(
+    wrongOrder.problems.includes("normal_1_provider_selection_mismatch"),
+  );
+
+  const second = normalRun("objective-2", "claude", "codex", true);
+  const reused = build({
+    normalRuns: [
+      first,
+      {
+        ...second,
+        observation: observation([semantic("completed", "objective-2")], {
+          selectionEvents: [
+            { taskRole: "executor", provider: "claude" },
+            { taskRole: "reviewer", provider: "codex" },
+          ],
+          processStartEvents: [
+            {
+              taskRole: "executor",
+              provider: "claude",
+              operationId: "OP-100001",
+            },
+            {
+              taskRole: "reviewer",
+              provider: "codex",
+              operationId: "OP-200002",
+            },
+          ],
+        }),
+      },
+    ],
+  });
+  assert.equal(reused.status, "blocked");
+  assert.ok(reused.problems.includes("provider_operation_identity_reused"));
 });
 
 test("正常・準正常・異常の不一致をblocked結果へ閉じる", () => {
