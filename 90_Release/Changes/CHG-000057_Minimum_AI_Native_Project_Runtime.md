@@ -78,7 +78,7 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 | 成立 | 設計対応、契約・結合試験、署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk文書1件の自己適用と正本採用、認証主体の意味入口への伝播、Repository Binding単位の別Process排他、Lease取得後のfresh優先選択、Task Authorityの実行直前発行と未使用Authority失効、Task開始の`reserved / handoff_prepared / running`分離、Task別・種別別のexact Recovery相関、個別回復義務の耐久settlement、Queue／State／個別義務の途中中断から完了済みEffectを再発行しない再開、再計画上限と独立したfresh retry、終端request再送のEffect 0投影、親EOF取消、対話／スケジュール競合、Docker完了receiptによる冪等再入場を含む署名前の決定論的Project全体確認 |
 | 未成立 | 認証済み公開MCP Clientからの実Provider経路、実Provider実行中の取消、および実Docker資源を用いたRecovery settlementの署名後最終E2E |
 | 次Gate | 固定候補の独立確認・必要監査、指摘是正後のRuntime実行Identity固定と最終E2E、未評価事項のRelease処遇、収載・分類・移行・残存Riskの人間判断 |
-| 根拠 | [正常縦断E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)、[署名前検証](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Pre_Sign_Verification.md)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification) |
+| 根拠 | [正常縦断E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)、[初回署名前検証](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Pre_Sign_Verification.md)、[確認済み回復の収束に関する署名前検証](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Acknowledgement_Closure_Pre_Sign_Verification.md)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification) |
 
 工程正本を接続した後、Project Modelの最初の実装として、Task、Objective、Milestoneを別状態で保持する純粋な状態契約を追加した。Task完了後はObjectiveを`integration_pending`へ進めるだけとし、受入条件ごとのEvidenceを伴うObjective統合、全Objective受入後のMilestone統合を、それぞれ別の世代更新として固定した。Project State投影もWork Progress、Quality、Human Decision、RecoveryおよびNext Actionを分離し、Task完了や未観測値からProject成功を生成しない。
 
@@ -151,6 +151,8 @@ Project全体E2E前の固定候補技術確認では、選択とQueue claimの�
 Project全体E2Eへ進む直前の固定候補監査では、Docker完了ReceiptをTombstoneへ置換しただけでは、同じTombstoneの再入場、作成・除去の片側中断、有限上限の終了、およびProject側が何を確認済みとしたかを再構成できず、回復を重ねると正常な利用でも上限へ到達することを検出した。また、MCPの公開Projectionはfield間相関を確認していても、状態機械上到達不能なMilestone／件数の組合せや、外側Objective結果と内側の受入・取消・人間判断・回復状態の矛盾を拒否しきれていなかった。
 
 是正後のDocker経路は、完了Receiptと資源不存在、Project義務の`settled`、exact Tombstone作成、Receipt除去、Project義務の`acknowledged`、Tombstone除去、Queue settlement、fresh retryを別々の耐久境界として固定した。Projectの確認情報はRepository Binding、Project、Milestone、Task、attempt、Operation、settlement世代、Runtime Rootの4 hash、およびReceipt committed pairのhash／identityを持つ。Runtime State上の作成・再入場・除去・件数判定は同じkernel lockで直列化し、committed pairの作成・削除中断は同じ内容・同じ対象だけをjournalから再開する。Project側の確認済みreadback後は一時Tombstoneを必ず回収し、65件超の連続回復、旧Receipt再投入、作成中断、除去中断を契約試験で確認した。MCPはdescriptor-safeな入れ子snapshot後、到達可能なMilestone／件数と外側Objective結果の相関を検証し、成立しない組合せをProvider／Task／正本Effect 0で拒否する。これらは設計正本、機械可読な状態・資源・不変条件、および利用側試験へ伝播した。実Docker資源を伴う公開Process E2Eと認証済みMCP Clientの実測は、この技術候補を固定して独立再監査した後のGateとして残す。
+
+[確認済み回復の収束に関する署名前検証](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Acknowledgement_Closure_Pre_Sign_Verification.md)では、技術候補`3125d9d`について制限Process試験1,561件、Windows実資源Gate 7件、関連試験165件、descriptor-safe境界1件および設計追跡13件がすべて成功した。Windows実資源GateはSandboxのProcess制御制限下で成立しなかった結果も保持し、Native Process権限での7/7を実OS資源の根拠とした。過去の署名前検証は記録時点のblobへ復元し、今回の結果を別Evidenceとして追加した。この結果は決定論的な技術候補の成立であり、残る実Provider・実Docker・認証済みMCP ClientのE2Eを代替しない。
 
 ## 9. 設計確定からリリース判断までの実行計画
 
