@@ -7,6 +7,8 @@ import { inspectProjectRuntimeObjectiveRequest } from "./project-runtime-objecti
 import {
   isProjectRuntimeObjectiveProjectionCorrelationValid,
   isProjectRuntimeProjectionSemanticallyValid,
+  PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
+  PROJECT_RUNTIME_MAXIMUM_TASKS,
   type ProjectRuntimeProjection,
 } from "./project-runtime-state.ts";
 
@@ -418,7 +420,11 @@ const PROJECTION_KEYS = new Set([
   "nextAction",
 ] as const);
 
-function countSnapshot(value: unknown, keys: ReadonlySet<string>) {
+function countSnapshot(
+  value: unknown,
+  keys: ReadonlySet<string>,
+  maximumTotal: number,
+) {
   const record = snapshotPlainRecord(value, keys);
   if (
     !record ||
@@ -427,6 +433,11 @@ function countSnapshot(value: unknown, keys: ReadonlySet<string>) {
     )
   )
     return null;
+  let total = 0;
+  for (const key of keys) {
+    total += Number(record[key]);
+    if (!Number.isSafeInteger(total) || total > maximumTotal) return null;
+  }
   return Object.freeze(
     Object.fromEntries([...keys].map((key) => [key, Number(record[key])])),
   );
@@ -438,9 +449,17 @@ function projectionSnapshot(value: unknown) {
   const objectiveCounts = countSnapshot(
     record.objectiveCounts,
     OBJECTIVE_COUNTS,
+    PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
   );
-  const taskCounts = countSnapshot(record.taskCounts, TASK_COUNTS);
-  const rawSummaries = snapshotPlainArray(record.objectiveTaskSummaries, 128);
+  const taskCounts = countSnapshot(
+    record.taskCounts,
+    TASK_COUNTS,
+    PROJECT_RUNTIME_MAXIMUM_TASKS,
+  );
+  const rawSummaries = snapshotPlainArray(
+    record.objectiveTaskSummaries,
+    PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
+  );
   const objectiveTaskSummaries: Array<
     ProjectRuntimeProjection["objectiveTaskSummaries"][number]
   > = [];
@@ -450,7 +469,11 @@ function projectionSnapshot(value: unknown) {
       rawSummary,
       new Set(["objectiveId", "objectiveState", "taskCounts"]),
     );
-    const summaryTaskCounts = countSnapshot(summary?.taskCounts, TASK_COUNTS);
+    const summaryTaskCounts = countSnapshot(
+      summary?.taskCounts,
+      TASK_COUNTS,
+      PROJECT_RUNTIME_MAXIMUM_TASKS,
+    );
     if (
       !summary ||
       !stable(summary.objectiveId) ||
@@ -915,10 +938,17 @@ export async function handleMcpProjectRuntimeRequest(
   } catch {
     raw = null;
   }
+  let snapshot: ReturnType<typeof objectiveSnapshot> | null = null;
+  try {
+    snapshot =
+      params.name === MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL
+        ? objectiveSnapshot(raw)
+        : decisionSnapshot(raw);
+  } catch {
+    snapshot = null;
+  }
   const result =
-    (params.name === MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL
-      ? objectiveSnapshot(raw)
-      : decisionSnapshot(raw)) ??
+    snapshot ??
     Object.freeze({
       status: "blocked",
       reason: "project_runtime_adapter_result_invalid",

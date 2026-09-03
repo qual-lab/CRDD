@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 export const PROJECT_RUNTIME_STATE_CONTRACT =
   "crdd-coordinator/project-runtime-state/v1" as const;
 export const PROJECT_RUNTIME_MAXIMUM_CONCURRENCY = 5;
+export const PROJECT_RUNTIME_MAXIMUM_OBJECTIVES = 128;
+export const PROJECT_RUNTIME_MAXIMUM_TASKS = 1024;
 
 export type ProjectTaskState =
   | "planned"
@@ -33,6 +35,28 @@ export type ProjectMilestoneState =
   | "recovery_required"
   | "accepted"
   | "cancelled";
+
+const PROJECT_OBJECTIVE_STATES = Object.freeze([
+  "planned",
+  "executing",
+  "integration_pending",
+  "accepted",
+  "blocked",
+  "cancelled",
+] as const);
+const PROJECT_TASK_STATES = Object.freeze([
+  "planned",
+  "waiting_dependency",
+  "ready",
+  "starting",
+  "running",
+  "cleanup_pending",
+  "completed",
+  "failed",
+  "cancelled",
+  "recovery_required",
+  "superseded",
+] as const);
 
 export type ProjectObjectiveDefinition = Readonly<{
   id: string;
@@ -167,14 +191,32 @@ export type ProjectRuntimeProjection = Readonly<{
 export function isProjectRuntimeProjectionSemanticallyValid(
   projection: ProjectRuntimeProjection,
 ) {
-  const objectiveTotal = Object.values(projection.objectiveCounts).reduce(
-    (sum, value) => sum + value,
-    0,
+  const boundedTotal = <T extends string>(
+    counts: Readonly<Record<T, number>>,
+    states: readonly T[],
+    maximum: number,
+  ) => {
+    let total = 0;
+    for (const state of states) {
+      const value = counts[state];
+      if (!Number.isSafeInteger(value) || value < 0 || value > maximum)
+        return null;
+      total += value;
+      if (!Number.isSafeInteger(total) || total > maximum) return null;
+    }
+    return total;
+  };
+  const objectiveTotal = boundedTotal(
+    projection.objectiveCounts,
+    PROJECT_OBJECTIVE_STATES,
+    PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
   );
-  const taskTotal = Object.values(projection.taskCounts).reduce(
-    (sum, value) => sum + value,
-    0,
+  const taskTotal = boundedTotal(
+    projection.taskCounts,
+    PROJECT_TASK_STATES,
+    PROJECT_RUNTIME_MAXIMUM_TASKS,
   );
+  if (objectiveTotal === null || taskTotal === null) return false;
   if (objectiveTotal < 1 || taskTotal < 1) return false;
   if (
     projection.objectiveTaskSummaries.length !== objectiveTotal ||
@@ -184,35 +226,27 @@ export function isProjectRuntimeProjectionSemanticallyValid(
     return false;
   const summarizedObjectiveCounts = countStates(
     projection.objectiveTaskSummaries.map((entry) => entry.objectiveState),
-    [
-      "planned",
-      "executing",
-      "integration_pending",
-      "accepted",
-      "blocked",
-      "cancelled",
-    ],
+    PROJECT_OBJECTIVE_STATES,
   );
-  const summarizedTaskCounts = countStates(
-    projection.objectiveTaskSummaries.flatMap((entry) =>
-      Object.entries(entry.taskCounts).flatMap(([state, count]) =>
-        Array.from({ length: count }, () => state as ProjectTaskState),
-      ),
-    ),
-    [
-      "planned",
-      "waiting_dependency",
-      "ready",
-      "starting",
-      "running",
-      "cleanup_pending",
-      "completed",
-      "failed",
-      "cancelled",
-      "recovery_required",
-      "superseded",
-    ],
-  );
+  const mutableSummarizedTaskCounts = Object.fromEntries(
+    PROJECT_TASK_STATES.map((state) => [state, 0]),
+  ) as Record<ProjectTaskState, number>;
+  for (const summary of projection.objectiveTaskSummaries) {
+    const summaryTotal = boundedTotal(
+      summary.taskCounts,
+      PROJECT_TASK_STATES,
+      PROJECT_RUNTIME_MAXIMUM_TASKS,
+    );
+    if (summaryTotal === null || summaryTotal < 1) return false;
+    for (const state of PROJECT_TASK_STATES) {
+      const next =
+        mutableSummarizedTaskCounts[state] + summary.taskCounts[state];
+      if (!Number.isSafeInteger(next) || next > PROJECT_RUNTIME_MAXIMUM_TASKS)
+        return false;
+      mutableSummarizedTaskCounts[state] = next;
+    }
+  }
+  const summarizedTaskCounts = Object.freeze(mutableSummarizedTaskCounts);
   if (
     JSON.stringify(summarizedObjectiveCounts) !==
       JSON.stringify(projection.objectiveCounts) ||
@@ -223,19 +257,7 @@ export function isProjectRuntimeProjectionSemanticallyValid(
   for (const summary of projection.objectiveTaskSummaries) {
     const count = (states: readonly ProjectTaskState[]) =>
       states.reduce((sum, state) => sum + summary.taskCounts[state], 0);
-    const summaryTotal = count([
-      "planned",
-      "waiting_dependency",
-      "ready",
-      "starting",
-      "running",
-      "cleanup_pending",
-      "completed",
-      "failed",
-      "cancelled",
-      "recovery_required",
-      "superseded",
-    ]);
+    const summaryTotal = count(PROJECT_TASK_STATES);
     if (summaryTotal < 1) return false;
     const notStarted = count(["planned", "waiting_dependency", "ready"]);
     const blocked = count(["failed", "cancelled", "recovery_required"]);
@@ -563,9 +585,9 @@ export function createProjectRuntimeState(
     input.maximumConcurrency < 1 ||
     input.maximumConcurrency > PROJECT_RUNTIME_MAXIMUM_CONCURRENCY ||
     input.tasks.length === 0 ||
-    input.tasks.length > 1024 ||
+    input.tasks.length > PROJECT_RUNTIME_MAXIMUM_TASKS ||
     input.objectives.length === 0 ||
-    input.objectives.length > 128
+    input.objectives.length > PROJECT_RUNTIME_MAXIMUM_OBJECTIVES
   ) {
     return Object.freeze({
       status: "blocked",
@@ -1915,30 +1937,11 @@ export function projectProjectRuntimeState(
 ): ProjectRuntimeProjection {
   const objectiveCounts = countStates(
     state.objectives.map((objective) => objective.state),
-    [
-      "planned",
-      "executing",
-      "integration_pending",
-      "accepted",
-      "blocked",
-      "cancelled",
-    ],
+    PROJECT_OBJECTIVE_STATES,
   );
   const taskCounts = countStates(
     state.tasks.map((task) => task.state),
-    [
-      "planned",
-      "waiting_dependency",
-      "ready",
-      "starting",
-      "running",
-      "cleanup_pending",
-      "completed",
-      "failed",
-      "cancelled",
-      "recovery_required",
-      "superseded",
-    ],
+    PROJECT_TASK_STATES,
   );
   const objectiveTaskSummaries = Object.freeze(
     state.objectives.map((objective) =>
@@ -1951,19 +1954,7 @@ export function projectProjectRuntimeState(
               (task) => task.definition.objectiveId === objective.definition.id,
             )
             .map((task) => task.state),
-          [
-            "planned",
-            "waiting_dependency",
-            "ready",
-            "starting",
-            "running",
-            "cleanup_pending",
-            "completed",
-            "failed",
-            "cancelled",
-            "recovery_required",
-            "superseded",
-          ],
+          PROJECT_TASK_STATES,
         ),
       }),
     ),

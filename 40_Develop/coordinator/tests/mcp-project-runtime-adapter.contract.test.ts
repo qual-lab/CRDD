@@ -420,6 +420,76 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     },
     {
       ...base,
+      projection: {
+        ...validProjection,
+        taskCounts: {
+          ...validProjection.taskCounts,
+          recovery_required: 1025,
+        },
+        objectiveTaskSummaries: [
+          {
+            ...validProjection.objectiveTaskSummaries[0],
+            taskCounts: {
+              ...validProjection.taskCounts,
+              recovery_required: 1025,
+            },
+          },
+        ],
+      },
+    },
+    {
+      ...base,
+      projection: {
+        ...validProjection,
+        taskCounts: {
+          ...validProjection.taskCounts,
+          recovery_required: Number.MAX_SAFE_INTEGER,
+        },
+        objectiveTaskSummaries: [
+          {
+            ...validProjection.objectiveTaskSummaries[0],
+            taskCounts: {
+              ...validProjection.taskCounts,
+              recovery_required: Number.MAX_SAFE_INTEGER,
+            },
+          },
+        ],
+      },
+    },
+    {
+      ...base,
+      projection: {
+        ...validProjection,
+        objectiveCounts: {
+          ...validProjection.objectiveCounts,
+          blocked: 2,
+        },
+        taskCounts: {
+          ...validProjection.taskCounts,
+          recovery_required: 1025,
+        },
+        objectiveTaskSummaries: [
+          {
+            ...validProjection.objectiveTaskSummaries[0],
+            objectiveId: "objective-a",
+            taskCounts: {
+              ...validProjection.taskCounts,
+              recovery_required: 512,
+            },
+          },
+          {
+            ...validProjection.objectiveTaskSummaries[0],
+            objectiveId: "objective-b",
+            taskCounts: {
+              ...validProjection.taskCounts,
+              recovery_required: 513,
+            },
+          },
+        ],
+      },
+    },
+    {
+      ...base,
       recoveryIds: [],
       recoveryObligations: [],
       manualRecoveryRequired: false,
