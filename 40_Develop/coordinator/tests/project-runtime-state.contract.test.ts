@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   acknowledgeProjectDockerRecoveryObligation,
+  applyProjectRuntimePartialReplan,
   createProjectRuntimeState,
   describeProjectRuntimeStateContract,
   markProjectTaskRecoveryObligationRecovering,
@@ -313,6 +314,25 @@ describe("Project Runtime state contract", () => {
         recovery_required: 0,
         superseded: 0,
       },
+      objectiveTaskSummaries: [
+        {
+          objectiveId: "objective-1",
+          objectiveState: "integration_pending",
+          taskCounts: {
+            planned: 0,
+            waiting_dependency: 0,
+            ready: 0,
+            starting: 0,
+            running: 0,
+            cleanup_pending: 0,
+            completed: 1,
+            failed: 0,
+            cancelled: 0,
+            recovery_required: 0,
+            superseded: 0,
+          },
+        },
+      ],
       workProgress: "tasks_complete",
       qualityState: "integration_pending",
       humanDecisionRequired: false,
@@ -361,6 +381,107 @@ describe("Project Runtime state contract", () => {
       projectProjectRuntimeState(milestone.state).qualityState,
       "accepted",
     );
+  });
+
+  it("依存されない失敗Taskの部分再計画は旧履歴を保持したまま最終受入へ到達する", () => {
+    let state = stateFor([task("task-a")]);
+    state = start(state, "task-a");
+    const failed = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      authorityBindingId: "authority-task-a",
+      outcome: "failed",
+      cleanupConfirmed: true,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
+    });
+    assert.ok(failed.state);
+    const replanned = applyProjectRuntimePartialReplan(
+      failed.state,
+      failed.state.generation,
+      {
+        failedTaskId: "task-a",
+        replacements: [task("task-b")],
+        maximumReplans: 1,
+      },
+    );
+    assert.equal(replanned.status, "completed");
+    assert.ok(replanned.state);
+    state = start(replanned.state, "task-b");
+    const completed = settleProjectTask(state, state.generation, {
+      taskId: "task-b",
+      attemptId: "attempt-task-b",
+      operationId: "operation-task-b",
+      authorityBindingId: "authority-task-b",
+      outcome: "completed",
+      cleanupConfirmed: true,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
+    });
+    assert.ok(completed.state);
+    assert.deepEqual(
+      completed.state.tasks.map((entry) => [entry.definition.id, entry.state]),
+      [
+        ["task-a", "superseded"],
+        ["task-b", "completed"],
+      ],
+    );
+    assert.equal(completed.state.objectives[0]?.state, "integration_pending");
+    assert.equal(
+      projectProjectRuntimeState(completed.state).workProgress,
+      "tasks_complete",
+    );
+    const objective = recordObjectiveIntegration(
+      completed.state,
+      completed.state.generation,
+      "objective-1",
+      { accepted: true, criterionEvidenceIds: ["evidence-objective-replan"] },
+    );
+    assert.ok(objective.state);
+    const milestone = recordMilestoneIntegration(
+      objective.state,
+      objective.state.generation,
+      ["evidence-milestone-replan"],
+    );
+    assert.ok(milestone.state);
+    const projection = projectProjectRuntimeState(milestone.state);
+    assert.equal(projection.milestoneState, "accepted");
+    assert.equal(projection.workProgress, "tasks_complete");
+    assert.equal(projection.qualityState, "accepted");
+  });
+
+  it("生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えない", () => {
+    let state = stateFor([task("task-a"), task("task-b", ["task-a"])]);
+    state = start(state, "task-a");
+    const failed = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      authorityBindingId: "authority-task-a",
+      outcome: "failed",
+      cleanupConfirmed: true,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
+    });
+    assert.ok(failed.state);
+    const before = JSON.stringify(failed.state);
+    const rejected = applyProjectRuntimePartialReplan(
+      failed.state,
+      failed.state.generation,
+      {
+        failedTaskId: "task-a",
+        replacements: [task("task-c")],
+        maximumReplans: 1,
+      },
+    );
+    assert.equal(rejected.status, "blocked");
+    assert.equal(
+      rejected.reason,
+      "project_runtime_replan_invalid_or_out_of_scope",
+    );
+    assert.equal(JSON.stringify(rejected.state), before);
+    assert.deepEqual(rejected.taskIds, []);
   });
 
   it("古い世代と統合待ち前の受入を拒否する", () => {

@@ -5136,11 +5136,18 @@ export function finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoo
       root.rootPath,
       parsed.token,
     );
-    if (!tombstone)
+    if (!tombstone) {
+      const staleReceipt = inspectCompletedDockerRecoveryReceipt(
+        root.rootPath,
+        parsed.token,
+      );
+      if (staleReceipt)
+        throw new Error("docker_task_recovery_acknowledgement_gc_mismatch");
       return Object.freeze({
         status: "completed" as const,
         reason: "docker_task_recovery_acknowledgement_already_collected",
       });
+    }
     if (
       JSON.stringify(tombstone.runtimeStateBinding) !==
         JSON.stringify(expectedBinding) ||

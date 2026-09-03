@@ -342,6 +342,25 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       recovery_required: 1,
       superseded: 0,
     },
+    objectiveTaskSummaries: [
+      {
+        objectiveId: "objective-a",
+        objectiveState: "blocked",
+        taskCounts: {
+          planned: 0,
+          waiting_dependency: 0,
+          ready: 0,
+          starting: 0,
+          running: 0,
+          cleanup_pending: 0,
+          completed: 0,
+          failed: 0,
+          cancelled: 0,
+          recovery_required: 1,
+          superseded: 0,
+        },
+      },
+    ],
     workProgress: "in_progress",
     qualityState: "blocked",
     humanDecisionRequired: true,
@@ -398,6 +417,57 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     {
       ...base,
       projection: { ...validProjection, workProgress: "not_started" },
+    },
+    {
+      ...base,
+      recoveryIds: [],
+      recoveryObligations: [],
+      manualRecoveryRequired: false,
+      cleanupConfirmed: true,
+      effectState: "settled",
+      projection: {
+        ...validProjection,
+        milestoneState: "executing",
+        objectiveCounts: {
+          planned: 0,
+          executing: 1,
+          integration_pending: 1,
+          accepted: 0,
+          blocked: 0,
+          cancelled: 0,
+        },
+        taskCounts: {
+          ...validProjection.taskCounts,
+          ready: 1,
+          completed: 1,
+          recovery_required: 0,
+        },
+        objectiveTaskSummaries: [
+          {
+            objectiveId: "objective-integrating",
+            objectiveState: "integration_pending",
+            taskCounts: {
+              ...validProjection.taskCounts,
+              ready: 1,
+              recovery_required: 0,
+            },
+          },
+          {
+            objectiveId: "objective-executing",
+            objectiveState: "executing",
+            taskCounts: {
+              ...validProjection.taskCounts,
+              completed: 1,
+              recovery_required: 0,
+            },
+          },
+        ],
+        workProgress: "in_progress",
+        qualityState: "integration_pending",
+        humanDecisionRequired: false,
+        recoveryRequired: false,
+        nextAction: "verify_objective_integration",
+      },
     },
     {
       ...base,

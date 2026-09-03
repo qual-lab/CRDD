@@ -3793,6 +3793,167 @@ test("Docker Recovery acknowledgementは上限64を1件越える65件を逐次�
   assert.deepEqual(fs.readdirSync(directory), []);
 });
 
+test("Docker Recovery acknowledgementは64件のTombstone上限で65件目を保持し、1件回収後に再開する", (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-docker-ack-limit-"),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const root = verifiedRoot(directory);
+  const runtimeStateBinding = Object.freeze({
+    runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+    runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+    localUserBindingHash: root.localUserBindingHash,
+    runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
+  });
+  const acknowledgements: Array<
+    Readonly<{
+      recoveryId: string;
+      acknowledgement: unknown;
+    }>
+  > = [];
+  const writeReceipt = (index: number) => {
+    const recoveryId = `docker-task.${root.stableLogicalHomeBindingHash}.${index
+      .toString(16)
+      .padStart(64, "0")}.${"b".repeat(64)}`;
+    const name = `completed-docker-recovery-${createHash("sha256")
+      .update(recoveryId)
+      .digest("hex")}.json`;
+    writeCommittedDockerRecoveryJson(directory, name, name, {
+      schema: "crdd-coordinator-docker-recovery-completion/v1",
+      recoveryId,
+      runtimeStateBinding,
+    });
+    return { recoveryId, name };
+  };
+  for (let index = 0; index < 64; index += 1) {
+    const { recoveryId } = writeReceipt(index);
+    const acknowledged =
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        recoveryId,
+        root,
+      );
+    assert.equal(acknowledged.status, "completed");
+    assert.ok("acknowledgement" in acknowledged);
+    acknowledgements.push({
+      recoveryId,
+      acknowledgement:
+        "acknowledgement" in acknowledged ? acknowledged.acknowledgement : null,
+    });
+  }
+  const sixtyFifth = writeReceipt(64);
+  assert.deepEqual(
+    acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+      sixtyFifth.recoveryId,
+      root,
+    ),
+    {
+      status: "blocked",
+      reason: "docker_task_recovery_acknowledgement_tombstone_limit_exceeded",
+    },
+  );
+  assert.equal(fs.existsSync(path.join(directory, sixtyFifth.name)), true);
+  assert.equal(
+    fs.existsSync(
+      path.join(directory, dockerRecoveryCommitName(sixtyFifth.name)),
+    ),
+    true,
+  );
+  const first = acknowledgements.shift();
+  assert.ok(first);
+  assert.equal(
+    finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+      first?.recoveryId,
+      first?.acknowledgement,
+      root,
+    ).status,
+    "completed",
+  );
+  const resumed =
+    acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+      sixtyFifth.recoveryId,
+      root,
+    );
+  assert.equal(resumed.status, "completed");
+  assert.ok("acknowledgement" in resumed);
+  acknowledgements.push({
+    recoveryId: sixtyFifth.recoveryId,
+    acknowledgement:
+      "acknowledgement" in resumed ? resumed.acknowledgement : null,
+  });
+  for (const entry of acknowledgements) {
+    assert.equal(
+      finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+        entry.recoveryId,
+        entry.acknowledgement,
+        root,
+      ).status,
+      "completed",
+    );
+  }
+  assert.deepEqual(fs.readdirSync(directory), []);
+});
+
+test("回収済みTombstoneに古い完了Receiptを再投入しても回収済み成功へ畳まない", (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-docker-ack-stale-replay-"),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const root = verifiedRoot(directory);
+  const recoveryId = `docker-task.${root.stableLogicalHomeBindingHash}.${"c".repeat(64)}.${"d".repeat(64)}`;
+  const name = `completed-docker-recovery-${createHash("sha256")
+    .update(recoveryId)
+    .digest("hex")}.json`;
+  const receiptValue = Object.freeze({
+    schema: "crdd-coordinator-docker-recovery-completion/v1",
+    recoveryId,
+    runtimeStateBinding: Object.freeze({
+      runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+      runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+      localUserBindingHash: root.localUserBindingHash,
+      runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
+    }),
+  });
+  writeCommittedDockerRecoveryJson(directory, name, name, receiptValue);
+  const acknowledged =
+    acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+      recoveryId,
+      root,
+    );
+  assert.equal(acknowledged.status, "completed");
+  assert.ok("acknowledgement" in acknowledged);
+  const authority =
+    "acknowledgement" in acknowledged ? acknowledged.acknowledgement : null;
+  assert.equal(
+    finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+      recoveryId,
+      authority,
+      root,
+    ).status,
+    "completed",
+  );
+  writeCommittedDockerRecoveryJson(directory, name, name, receiptValue);
+  const before = fs.readFileSync(path.join(directory, name));
+  const beforeCommit = fs.readFileSync(
+    path.join(directory, dockerRecoveryCommitName(name)),
+  );
+  assert.deepEqual(
+    finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+      recoveryId,
+      authority,
+      root,
+    ),
+    {
+      status: "blocked",
+      reason: "docker_task_recovery_acknowledgement_gc_mismatch",
+    },
+  );
+  assert.deepEqual(fs.readFileSync(path.join(directory, name)), before);
+  assert.deepEqual(
+    fs.readFileSync(path.join(directory, dockerRecoveryCommitName(name))),
+    beforeCommit,
+  );
+});
+
 for (const removeBoundary of [1, 2] as const) {
   test(`Docker acknowledgement GCはpair削除境界${removeBoundary}の中断から再開する`, (t) => {
     const directory = fs.mkdtempSync(

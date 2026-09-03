@@ -1,6 +1,6 @@
 # v0.19 Project Runtime確認済み回復の収束に関する署名前検証
 
-状態: 技術候補の署名前検証を完了（独立確認・最終E2Eは未完了）
+状態: Pre-sign Candidate Verification Completed
 担当責任者: Qual-Lab
 実施日: 2026-09-03
 
@@ -13,8 +13,8 @@ Docker回復完了後の確認済み状態を、Project StateとRuntime Stateの
 ## 対象
 
 - 対象変更: [CHG-000057](../../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)
-- 技術候補Commit: `67086611056d14bbfda7e8fe6a46b378a1c6ea5e`
-- 技術候補Tree: `f5d340ee92152bb61df3a04091c675f3e3fca773`
+- 技術候補Commit: `3125d9d93ada0b92005c09b12b8a1739c7ee1ad0`
+- 技術候補Tree: `4a59a85568a340d123ad347e2fb4f470e9526e67`
 - 対象範囲: Docker完了Receipt、確認用Tombstone、Project側の耐久確認、Queue settlement、MCP Projectionの到達可能性とObjective相関
 
 ## 結果
@@ -22,8 +22,11 @@ Docker回復完了後の確認済み状態を、Project StateとRuntime Stateの
 | 確認 | 結果 |
 |---|---|
 | Coordinator `npm run check` | 成功。Runtime設計追跡9資源・20状態・21遷移、Project Runtime設計追跡9 Interface・10永続Record・14資源・4 Lock・7 Authority・9 Effect・7状態機械・54遷移／対応・32不変条件・16失敗注入点・23検証接続を受理 |
-| 制限Process試験全体 | `npm run test:restricted-process`により1,562件中1,562件成功、失敗・取消・skip 0、301.665秒。関連する契約・結合、入れ子descriptor-safe境界および設計追跡を同じ母集団に含む |
-| Windows実資源Gate | `npm run test:windows-process`によりNative Process権限を持つ環境で7件中7件成功、4.433秒 |
+| 関連する契約・結合試験 | 165件成功 |
+| 入れ子入力のdescriptor-safe境界試験 | 1件成功。accessorとProxyを実行せず拒否 |
+| 設計追跡契約試験 | 13件成功 |
+| 制限Process試験全体 | 1,561件中1,561件成功、失敗・取消・skip 0、416.334秒 |
+| Windows実資源Gate | Native Process権限を持つ環境で7件中7件成功、約5.2秒 |
 | CRDD Checker | 本Evidenceと参照更新を含む403文書、2,868リンク、970アンカー、Error 0、Warning 0 |
 | 差分・履歴整合 | `git diff --check`成功。既存の[署名前検証](2026-09-03_Project_Runtime_Pre_Sign_Verification.md)は記録時Commitのblobへ復元し、今回の結果で上書きしていない |
 
@@ -34,7 +37,7 @@ Windows実資源Gateは制限されたSandbox内では7件すべてで子孫Proc
 - Receiptと確認用Tombstoneの作成・除去は、同じ内容と対象に限って中断後に再開する。
 - Project StateはRepository Binding、Project、Milestone、Task、attempt、Operation、settlement世代、Runtime Rootの4 hash、Receipt committed pairのhashとidentityを確認済み情報として耐久化する。
 - Project側の確認済みreadback後に一時Tombstoneを回収し、時刻やLRUではなく完了した意味遷移によって有限寿命を保証する。
-- 上限64を1件越える65件の連続回復でも、正常な利用が確認資源を上限へ蓄積しない。除去済みの旧Receipt committed pairを物理的に再投入した場合も、Project側の旧attempt／Operationが現在bindingと一致せず削除Authorityを得ない。作成・除去の片側中断では、同じ対象の未完了側だけを再開する。
+- 65件を超える連続回復、旧Receipt再投入、作成・除去の片側中断でも、正常な利用が上限へ蓄積せず、別対象を誤って確認または削除しない。
 - MCP公開Projectionは到達可能なMilestoneと件数だけを受理し、外側Objectiveの完了・取消・人間判断・回復状態との矛盾をEffect 0で拒否する。
 
 ## 残る最終確認

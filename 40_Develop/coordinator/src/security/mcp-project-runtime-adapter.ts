@@ -410,6 +410,7 @@ const PROJECTION_KEYS = new Set([
   "milestoneState",
   "objectiveCounts",
   "taskCounts",
+  "objectiveTaskSummaries",
   "workProgress",
   "qualityState",
   "humanDecisionRequired",
@@ -439,6 +440,32 @@ function projectionSnapshot(value: unknown) {
     OBJECTIVE_COUNTS,
   );
   const taskCounts = countSnapshot(record.taskCounts, TASK_COUNTS);
+  const rawSummaries = snapshotPlainArray(record.objectiveTaskSummaries, 128);
+  const objectiveTaskSummaries: Array<
+    ProjectRuntimeProjection["objectiveTaskSummaries"][number]
+  > = [];
+  if (rawSummaries.status !== "ok") return null;
+  for (const rawSummary of rawSummaries.value) {
+    const summary = snapshotPlainRecord(
+      rawSummary,
+      new Set(["objectiveId", "objectiveState", "taskCounts"]),
+    );
+    const summaryTaskCounts = countSnapshot(summary?.taskCounts, TASK_COUNTS);
+    if (
+      !summary ||
+      !stable(summary.objectiveId) ||
+      !OBJECTIVE_COUNTS.has(summary.objectiveState as never) ||
+      !summaryTaskCounts
+    )
+      return null;
+    objectiveTaskSummaries.push(
+      Object.freeze({
+        objectiveId: String(summary.objectiveId),
+        objectiveState: summary.objectiveState as never,
+        taskCounts: summaryTaskCounts as never,
+      }),
+    );
+  }
   if (
     !stable(record.projectId) ||
     !stable(record.milestoneId) ||
@@ -481,6 +508,7 @@ function projectionSnapshot(value: unknown) {
     milestoneState: record.milestoneState,
     objectiveCounts,
     taskCounts,
+    objectiveTaskSummaries: Object.freeze(objectiveTaskSummaries),
     workProgress: record.workProgress,
     qualityState: record.qualityState,
     humanDecisionRequired: record.humanDecisionRequired,

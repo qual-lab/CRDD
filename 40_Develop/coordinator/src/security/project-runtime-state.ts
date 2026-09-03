@@ -136,6 +136,11 @@ export type ProjectRuntimeProjection = Readonly<{
   milestoneState: ProjectMilestoneState;
   objectiveCounts: Readonly<Record<ProjectObjectiveState, number>>;
   taskCounts: Readonly<Record<ProjectTaskState, number>>;
+  objectiveTaskSummaries: readonly Readonly<{
+    objectiveId: string;
+    objectiveState: ProjectObjectiveState;
+    taskCounts: Readonly<Record<ProjectTaskState, number>>;
+  }>[];
   workProgress: "not_started" | "in_progress" | "tasks_complete";
   qualityState:
     | "not_evaluated"
@@ -171,11 +176,99 @@ export function isProjectRuntimeProjectionSemanticallyValid(
     0,
   );
   if (objectiveTotal < 1 || taskTotal < 1) return false;
+  if (
+    projection.objectiveTaskSummaries.length !== objectiveTotal ||
+    new Set(projection.objectiveTaskSummaries.map((entry) => entry.objectiveId))
+      .size !== objectiveTotal
+  )
+    return false;
+  const summarizedObjectiveCounts = countStates(
+    projection.objectiveTaskSummaries.map((entry) => entry.objectiveState),
+    [
+      "planned",
+      "executing",
+      "integration_pending",
+      "accepted",
+      "blocked",
+      "cancelled",
+    ],
+  );
+  const summarizedTaskCounts = countStates(
+    projection.objectiveTaskSummaries.flatMap((entry) =>
+      Object.entries(entry.taskCounts).flatMap(([state, count]) =>
+        Array.from({ length: count }, () => state as ProjectTaskState),
+      ),
+    ),
+    [
+      "planned",
+      "waiting_dependency",
+      "ready",
+      "starting",
+      "running",
+      "cleanup_pending",
+      "completed",
+      "failed",
+      "cancelled",
+      "recovery_required",
+      "superseded",
+    ],
+  );
+  if (
+    JSON.stringify(summarizedObjectiveCounts) !==
+      JSON.stringify(projection.objectiveCounts) ||
+    JSON.stringify(summarizedTaskCounts) !==
+      JSON.stringify(projection.taskCounts)
+  )
+    return false;
+  for (const summary of projection.objectiveTaskSummaries) {
+    const count = (states: readonly ProjectTaskState[]) =>
+      states.reduce((sum, state) => sum + summary.taskCounts[state], 0);
+    const summaryTotal = count([
+      "planned",
+      "waiting_dependency",
+      "ready",
+      "starting",
+      "running",
+      "cleanup_pending",
+      "completed",
+      "failed",
+      "cancelled",
+      "recovery_required",
+      "superseded",
+    ]);
+    if (summaryTotal < 1) return false;
+    const notStarted = count(["planned", "waiting_dependency", "ready"]);
+    const blocked = count(["failed", "cancelled", "recovery_required"]);
+    if (summary.objectiveState === "planned" && notStarted !== summaryTotal)
+      return false;
+    if (
+      summary.objectiveState === "executing" &&
+      (notStarted === summaryTotal ||
+        summary.taskCounts.completed + summary.taskCounts.superseded ===
+          summaryTotal ||
+        blocked > 0)
+    )
+      return false;
+    if (
+      ["integration_pending", "accepted"].includes(summary.objectiveState) &&
+      summary.taskCounts.completed + summary.taskCounts.superseded !==
+        summaryTotal
+    )
+      return false;
+    if (summary.objectiveState === "blocked" && blocked === 0) return false;
+    if (
+      summary.objectiveState === "cancelled" &&
+      summary.taskCounts.cancelled === 0
+    )
+      return false;
+  }
   const recoveryRequired = projection.milestoneState === "recovery_required";
   const humanDecisionRequired =
     projection.milestoneState === "human_decision_required" ||
     projection.objectiveCounts.blocked > 0;
-  const allTasksComplete = projection.taskCounts.completed === taskTotal;
+  const allTasksComplete =
+    projection.taskCounts.completed + projection.taskCounts.superseded ===
+    taskTotal;
   const anyTaskStarted =
     projection.taskCounts.ready + projection.taskCounts.waiting_dependency <
     taskTotal;
@@ -920,7 +1013,9 @@ export function settleProjectTask(
     if (objective.state === "accepted" || objective.state === "cancelled")
       return objective;
     const objectiveTasks = tasks.filter(
-      (task) => task.definition.objectiveId === objective.definition.id,
+      (task) =>
+        task.definition.objectiveId === objective.definition.id &&
+        task.state !== "superseded",
     );
     if (objectiveTasks.every((task) => task.state === "completed")) {
       return Object.freeze({
@@ -1457,6 +1552,14 @@ export function applyProjectRuntimePartialReplan(
       .map((definition) => definition.id),
   );
   const availableDependencies = new Set([...completedIds, ...replacementIds]);
+  const hasLiveDependent = state.tasks.some(
+    (task) =>
+      task.definition.id !== input.failedTaskId &&
+      !["completed", "cancelled", "failed", "superseded"].includes(
+        task.state,
+      ) &&
+      task.definition.dependencies.includes(input.failedTaskId),
+  );
   if (
     state.generation !== expectedGeneration ||
     !failed ||
@@ -1466,6 +1569,7 @@ export function applyProjectRuntimePartialReplan(
     input.maximumReplans < 0 ||
     state.tasks.filter((task) => task.supersededBy !== null).length >=
       input.maximumReplans ||
+    hasLiveDependent ||
     replacementDefinitions.length === 0 ||
     replacementDefinitions.some((definition) => definition === null) ||
     replacementIds.size !== replacementDefinitions.length ||
@@ -1836,11 +1940,40 @@ export function projectProjectRuntimeState(
       "superseded",
     ],
   );
+  const objectiveTaskSummaries = Object.freeze(
+    state.objectives.map((objective) =>
+      Object.freeze({
+        objectiveId: objective.definition.id,
+        objectiveState: objective.state,
+        taskCounts: countStates(
+          state.tasks
+            .filter(
+              (task) => task.definition.objectiveId === objective.definition.id,
+            )
+            .map((task) => task.state),
+          [
+            "planned",
+            "waiting_dependency",
+            "ready",
+            "starting",
+            "running",
+            "cleanup_pending",
+            "completed",
+            "failed",
+            "cancelled",
+            "recovery_required",
+            "superseded",
+          ],
+        ),
+      }),
+    ),
+  );
   const recoveryRequired = state.milestone.state === "recovery_required";
   const humanDecisionRequired =
     state.milestone.state === "human_decision_required" ||
     objectiveCounts.blocked > 0;
-  const allTasksComplete = taskCounts.completed === state.tasks.length;
+  const allTasksComplete =
+    taskCounts.completed + taskCounts.superseded === state.tasks.length;
   const anyTaskStarted =
     taskCounts.ready + taskCounts.waiting_dependency < state.tasks.length;
   const qualityState =
@@ -1872,6 +2005,7 @@ export function projectProjectRuntimeState(
     milestoneState: state.milestone.state,
     objectiveCounts,
     taskCounts,
+    objectiveTaskSummaries,
     workProgress: allTasksComplete
       ? "tasks_complete"
       : anyTaskStarted

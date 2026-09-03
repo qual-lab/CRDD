@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../src/security/docker-recovery-runtime.ts";
+import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../src/security/docker-project-recovery-settlement.ts";
+import { acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot } from "../src/security/docker-recovery-runtime-internal.ts";
+import {
+  dockerRecoveryCommitName,
+  writeCommittedDockerRecoveryJson,
+} from "../src/security/docker-recovery-journal.ts";
 
 import {
   acquireProjectRuntimeLease,
@@ -726,23 +733,92 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     latest.status === "completed" && latest.value?.tasks[0]?.retryCount,
     1,
   );
+  const runtimeDirectory = path.join(workingDirectory, "runtime-state");
+  fs.mkdirSync(runtimeDirectory);
+  const verifiedRoot = Object.freeze({
+    rootPath: runtimeDirectory,
+    runtimeStateIdentityHash: "1".repeat(64),
+    runtimeStateProtectionHash: "2".repeat(64),
+    localUserBindingHash: "3".repeat(64),
+    stableLogicalHomeBindingHash: "4".repeat(64),
+  });
+  const receiptName = `completed-docker-recovery-${createHash("sha256")
+    .update(recoveryId)
+    .digest("hex")}.json`;
+  writeCommittedDockerRecoveryJson(runtimeDirectory, receiptName, receiptName, {
+    schema: "crdd-coordinator-docker-recovery-completion/v1",
+    recoveryId,
+    runtimeStateBinding: {
+      runtimeStateIdentityHash: verifiedRoot.runtimeStateIdentityHash,
+      runtimeStateProtectionHash: verifiedRoot.runtimeStateProtectionHash,
+      localUserBindingHash: verifiedRoot.localUserBindingHash,
+      runtimeStateBindingHash: verifiedRoot.stableLogicalHomeBindingHash,
+    },
+  });
+  const projectBefore = JSON.stringify(latest.value);
+  const queueId = acknowledged.queueId ?? "missing";
+  const queueBefore = JSON.stringify(
+    readProjectOperationQueueState(workingDirectory, "binding-a", queueId)
+      .value,
+  );
+  const receiptBefore = fs.readFileSync(
+    path.join(runtimeDirectory, receiptName),
+  );
+  const receiptCommitBefore = fs.readFileSync(
+    path.join(runtimeDirectory, dockerRecoveryCommitName(receiptName)),
+  );
+  let runtimeAcknowledgementEffects = 0;
+  const staleSettlement = {
+    workingDirectory,
+    repositoryBindingId: "binding-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    stateGeneration: latest.value?.generation ?? -1,
+    taskId: "task-a",
+    attemptId: staleTask?.attemptId ?? "missing",
+    operationId: staleTask?.operationId ?? "missing",
+    kind: "docker" as const,
+    recoveryId,
+  };
   assert.deepEqual(
-    consumeDockerRecoveryReceiptAfterProjectSettlement({
-      workingDirectory,
-      repositoryBindingId: "binding-a",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      stateGeneration: latest.value?.generation ?? -1,
-      taskId: "task-a",
-      attemptId: staleTask?.attemptId ?? "missing",
-      operationId: staleTask?.operationId ?? "missing",
-      kind: "docker",
-      recoveryId,
-    }),
+    consumeProjectSettledDockerRecoveryWithRuntimeBoundary(
+      staleSettlement,
+      (exactRecoveryId) => {
+        runtimeAcknowledgementEffects += 1;
+        return acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+          exactRecoveryId,
+          verifiedRoot,
+        );
+      },
+    ),
     {
       status: "blocked",
       reason: "docker_task_recovery_settlement_not_verified",
     },
+  );
+  assert.equal(runtimeAcknowledgementEffects, 0);
+  assert.equal(
+    JSON.stringify(
+      readProjectRuntimeState(workingDirectory, "binding-a", "project-a").value,
+    ),
+    projectBefore,
+  );
+  assert.equal(
+    JSON.stringify(
+      readProjectOperationQueueState(workingDirectory, "binding-a", queueId)
+        .value,
+    ),
+    queueBefore,
+  );
+  assert.deepEqual(
+    fs.readFileSync(path.join(runtimeDirectory, receiptName)),
+    receiptBefore,
+  );
+  assert.deepEqual(
+    fs.readFileSync(
+      path.join(runtimeDirectory, dockerRecoveryCommitName(receiptName)),
+    ),
+    receiptCommitBefore,
   );
 });
 
