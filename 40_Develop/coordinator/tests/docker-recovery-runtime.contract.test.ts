@@ -3472,6 +3472,20 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
     );
     assert.equal(docker.removeCount(), 1);
     assertOnlyCompletedRecoveryEvidence(fixture.root);
+    const wrongRoot = Object.freeze({
+      ...root,
+      runtimeStateProtectionHash: "a".repeat(64),
+    });
+    assert.deepEqual(
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        fixture.recoveryId,
+        wrongRoot,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_completion_binding_mismatch",
+      },
+    );
     assert.deepEqual(
       acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
         fixture.recoveryId,
@@ -3490,6 +3504,16 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
       {
         status: "completed",
         reason: "docker_task_recovery_completion_already_acknowledged",
+      },
+    );
+    assert.deepEqual(
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        `docker-task.${"c".repeat(64)}.${"d".repeat(64)}.${"e".repeat(64)}`,
+        root,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_completion_receipt_missing",
       },
     );
     assert.equal(

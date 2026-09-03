@@ -134,6 +134,68 @@ export type ProjectRuntimeProjection = Readonly<{
     | "complete";
 }>;
 
+/**
+ * Validate only semantic relations carried by the public projection itself.
+ * Scheduling versus waiting still depends on the Task graph and therefore is
+ * intentionally left as the one permitted pair when no stronger action wins.
+ */
+export function isProjectRuntimeProjectionSemanticallyValid(
+  projection: ProjectRuntimeProjection,
+) {
+  const objectiveTotal = Object.values(projection.objectiveCounts).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  const taskTotal = Object.values(projection.taskCounts).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  if (objectiveTotal < 1 || taskTotal < 1) return false;
+  const recoveryRequired = projection.milestoneState === "recovery_required";
+  const humanDecisionRequired =
+    projection.milestoneState === "human_decision_required" ||
+    projection.objectiveCounts.blocked > 0;
+  const allTasksComplete = projection.taskCounts.completed === taskTotal;
+  const anyTaskStarted =
+    projection.taskCounts.ready + projection.taskCounts.waiting_dependency <
+    taskTotal;
+  const workProgress = allTasksComplete
+    ? "tasks_complete"
+    : anyTaskStarted
+      ? "in_progress"
+      : "not_started";
+  const qualityState =
+    projection.milestoneState === "accepted"
+      ? "accepted"
+      : humanDecisionRequired || recoveryRequired
+        ? "blocked"
+        : projection.objectiveCounts.integration_pending > 0 ||
+            projection.milestoneState === "integrating"
+          ? "integration_pending"
+          : "not_evaluated";
+  const expectedAction = recoveryRequired
+    ? "recover"
+    : humanDecisionRequired
+      ? "human_decision"
+      : projection.milestoneState === "accepted"
+        ? "complete"
+        : projection.milestoneState === "integrating"
+          ? "verify_milestone_integration"
+          : projection.objectiveCounts.integration_pending > 0
+            ? "verify_objective_integration"
+            : null;
+  return (
+    projection.recoveryRequired === recoveryRequired &&
+    projection.humanDecisionRequired === humanDecisionRequired &&
+    projection.workProgress === workProgress &&
+    projection.qualityState === qualityState &&
+    (expectedAction === null
+      ? projection.nextAction === "schedule_task" ||
+        projection.nextAction === "wait_for_task"
+      : projection.nextAction === expectedAction)
+  );
+}
+
 type StateResult =
   | Readonly<{
       status: "completed";
@@ -1621,7 +1683,7 @@ export function projectProjectRuntimeState(
             : selectSchedulableProjectTasks(state).length > 0
               ? ("schedule_task" as const)
               : ("wait_for_task" as const);
-  return Object.freeze({
+  const projection = Object.freeze({
     projectId: state.projectId,
     milestoneId: state.milestoneId,
     generation: state.generation,
@@ -1638,6 +1700,9 @@ export function projectProjectRuntimeState(
     recoveryRequired,
     nextAction,
   });
+  if (!isProjectRuntimeProjectionSemanticallyValid(projection))
+    throw new Error("project_runtime_projection_semantics_invalid");
+  return projection;
 }
 
 export function describeProjectRuntimeStateContract() {

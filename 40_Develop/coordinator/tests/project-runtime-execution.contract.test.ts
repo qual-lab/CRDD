@@ -430,7 +430,7 @@ test("PR-A-03 rejects recovery identifiers that durable Project State cannot sto
       assert.equal(outcome.reason, "project_runtime_task_recovery_required");
       const state = readProjectRuntimeState(root, "binding-a", "project-a");
       assert.equal(state.status, "completed");
-      assert.equal(state.value?.tasks[0]?.recoveryUnresolved, false);
+      assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
       assert.equal(
         state.value?.tasks[0]?.recoveryObligations[0]?.kind,
         "runtime_process",
@@ -465,10 +465,41 @@ test("下位Adapterがruntime_process義務を自己発行しても通常再入�
   assert.equal(outcome.status, "blocked");
   const state = readProjectRuntimeState(root, "binding-a", "project-a");
   assert.equal(outcome.processRestartRequired, true);
-  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, false);
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
   assert.equal(
     state.value?.tasks[0]?.recoveryObligations[0]?.kind,
     "runtime_process",
+  );
+});
+
+test("開始後の候補回収IDだけでは外部Effectの不明状態を解消しない", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const candidateRecoveryId = "candidate.recovery-a";
+  const outcome = await runProjectRuntimeOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => ({
+        ...(await completed(attempt)),
+        status: "blocked",
+        reason: "candidate_cleanup_unknown",
+        effectState: "unknown",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        candidateId: null,
+        recoveryIds: [candidateRecoveryId],
+        recoveryObligations: [
+          { kind: "candidate" as const, recoveryId: candidateRecoveryId },
+        ],
+      }),
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.processRestartRequired, true);
+  const state = readProjectRuntimeState(root, "binding-a", "project-a");
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
+  assert.deepEqual(
+    state.value?.tasks[0]?.recoveryObligations.map((entry) => entry.kind),
+    ["candidate", "runtime_process"],
   );
 });
 
@@ -504,6 +535,15 @@ test("PR-A-03 enforces result correlations and propagates process restart", asyn
       },
       restart: true,
     },
+    {
+      name: "cancelled-no-effect-after-start",
+      override: {
+        status: "cancelled" as const,
+        reason: "cancelled_after_effect_start",
+        effectState: "no_effect" as const,
+      },
+      restart: true,
+    },
   ];
   for (const scenario of cases) {
     await t.test(scenario.name, async (subtest) => {
@@ -527,7 +567,7 @@ test("PR-A-03 enforces result correlations and propagates process restart", asyn
         "recovery_required",
       );
       if (scenario.restart && state.status === "completed") {
-        assert.equal(state.value.tasks[0]?.recoveryUnresolved, false);
+        assert.equal(state.value.tasks[0]?.recoveryUnresolved, true);
         assert.equal(
           state.value.tasks[0]?.recoveryObligations[0]?.kind,
           "runtime_process",
@@ -619,7 +659,7 @@ test("runtime_process義務は同じTask attemptとoperationにだけ結合す�
   assert.equal(second?.recoveryObligations[0]?.kind, "runtime_process");
 });
 
-test("Effect開始後のthrowはProcessを再利用禁止にし、開始前throwはEffect 0に留める", async (t) => {
+test("下位実行へ委譲後のthrowは開始観測の有無にかかわらずProcessを再利用しない", async (t) => {
   await t.test("after-start", async (subtest) => {
     const { root, input } = fixture(subtest, [task("task-a")], 1);
     let poisoned = 0;
@@ -643,8 +683,8 @@ test("Effect開始後のthrowはProcessを再利用禁止にし、開始前throw
       "runtime_process",
     );
   });
-  await t.test("before-start", async (subtest) => {
-    const { input } = fixture(subtest, [task("task-a")], 1);
+  await t.test("before-start-observation", async (subtest) => {
+    const { root, input } = fixture(subtest, [task("task-a")], 1);
     let poisoned = 0;
     const outcome = await runProjectRuntimeOperation(
       {
@@ -657,9 +697,11 @@ test("Effect開始後のthrowはProcessを再利用禁止にし、開始前throw
       },
       input,
     );
-    assert.equal(outcome.processRestartRequired, false);
-    assert.equal(poisoned, 0);
-    assert.equal(outcome.effectState, "no_effect");
+    assert.equal(outcome.processRestartRequired, true);
+    assert.equal(poisoned, 1);
+    assert.equal(outcome.effectState, "unknown");
+    const state = readProjectRuntimeState(root, "binding-a", "project-a");
+    assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
   });
 });
 
@@ -714,7 +756,7 @@ test("PR-A-04 releases the physical lease when a post-acquire Queue write become
   );
 });
 
-test("PR-A-03 keeps a pre-effect synchronous runner failure in the replan path", async (t) => {
+test("PR-A-03 treats a synchronous failure after delegation as an unknown handoff", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
   const outcome = await runProjectRuntimeOperation(
     {
@@ -725,17 +767,19 @@ test("PR-A-03 keeps a pre-effect synchronous runner failure in the replan path",
     input,
   );
   assert.equal(outcome.status, "blocked");
-  assert.equal(outcome.reason, "project_runtime_replan_required");
-  assert.equal(outcome.cleanupConfirmed, true);
-  assert.equal(outcome.manualRecoveryRequired, false);
-  assert.equal(outcome.effectState, "no_effect");
+  assert.equal(outcome.reason, "project_runtime_task_recovery_required");
+  assert.equal(outcome.cleanupConfirmed, false);
+  assert.equal(outcome.manualRecoveryRequired, true);
+  assert.equal(outcome.effectState, "unknown");
+  assert.equal(outcome.processRestartRequired, true);
   const state = readProjectRuntimeState(root, "binding-a", "project-a");
   assert.equal(state.status, "completed");
   assert.ok(state.value);
   assert.equal(
     state.status === "completed" && state.value?.tasks[0]?.state,
-    "failed",
+    "recovery_required",
   );
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
 });
 
 test("PR-A-05 keeps capacity and conflict reserved when cleanup is unknown", async (t) => {

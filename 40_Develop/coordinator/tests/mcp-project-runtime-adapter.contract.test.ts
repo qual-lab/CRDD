@@ -344,7 +344,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     },
     workProgress: "in_progress",
     qualityState: "blocked",
-    humanDecisionRequired: false,
+    humanDecisionRequired: true,
     recoveryRequired: true,
     nextAction: "recover",
   };
@@ -383,8 +383,24 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       ...base,
       projection: { ...validProjection, internalTaskId: "task-a" },
     },
+    {
+      ...base,
+      projection: { ...validProjection, recoveryRequired: false },
+    },
+    {
+      ...base,
+      projection: { ...validProjection, qualityState: "accepted" },
+    },
+    {
+      ...base,
+      projection: { ...validProjection, nextAction: "schedule_task" },
+    },
+    {
+      ...base,
+      projection: { ...validProjection, workProgress: "not_started" },
+    },
   ];
-  for (const raw of malformed) {
+  for (const [index, raw] of malformed.entries()) {
     const response = await handleMcpProjectRuntimeRequest(
       request("tools/call", {
         _meta: meta,
@@ -397,6 +413,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       (response.result as { structuredContent: { reason: string } })
         .structuredContent.reason,
       "project_runtime_adapter_result_invalid",
+      `malformed projection case ${index}`,
     );
   }
 });

@@ -69,6 +69,7 @@ Repository-local `.crdd/project-runtime/`はRuntime状態の既定RootでありG
 | `REC-HUMAN-DECISION` | Human Decision | decision ID、Project／Milestone、発行世代・改訂版、選択肢、現在状態、選択結果、認証主体参照、非Authorityの継続Record ID、判断適用世代。raw CapabilityとCapability hash、raw commentは保持しない | `generation_state` | `IF-DECISION`が現在の判断要求とAuthorityを照合した世代付き更新、またはParentがProject lifecycleの変化を観測した更新だけ |
 | `REC-DECISION-CONTINUATION` | Human Decision | Capability hash、選択ユーザー、decision／Project／Milestone／世代／改訂版、期限、消費・失効状態、置換request identity、decision application ID、expected／new Project世代、`issued / prepared / finalized / recovery_required / invalidated / expired` disposition。Repository内には置かない。Project State適用済みは保護Recordの独立状態にせず、Project Stateのapplication IDと世代のreadbackとして観測する | `before_effect_intent` | Platform Adapterが検証したOS管理・Runtime保護Rootでのみ原子的に更新 |
 | `REC-DECISION-RECOVERY-INTENT` | Platform Adapter | exactな継続Record identity、最後に確認できたdisposition、application ID、expected／new Project世代、観測不能になった境界、Recovery identity、required／settled状態。継続Capability Recordとは別の検証済みRuntime所有Recovery Storeに置く | `before_effect_intent` | 保護Rootの観測またはCAS readbackが不明なとき、通常結果を返す前に原子的に作成・readbackする。Recovery Storeも不明なら状態を捏造せず手動回復・Effect不明・Process再利用禁止とする |
+| `REC-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | Platform Adapter | exact Docker Recovery ID、現在のRuntime State Rootを表すidentity・protection・local user・bindingの4 hash、確認済み状態。Projectの判断履歴ではなく重複消費を防ぐ有限のTombstone | `after_effect_receipt` | freshなProject Stateが同じTask／attempt／Operation／世代のsettled義務を保持し、完了Receiptの4 hashが現在Rootと一致するときだけ作成・readbackする。Receipt除去後の再入場は同じTombstoneが一致する場合だけ成功とし、不存在だけから成功を推定しない |
 
 Effect前に必要なIntentと、Effect後にのみ成立するResult／Receiptを同じBooleanへ正規化しない。`REC-TASK-ATTEMPT`をEffect後Receiptとして扱うこと、および`REC-ADOPTION`をEffect前Intentとして扱うことはCheckerで拒否する。
 
@@ -108,7 +109,9 @@ Project Stateだけが観測不能になり、継続Capabilityの保護Rootを�
 
 任意コメントはAuthority、選択肢、Scopeまたは判断理由を補完しない非信頼注記である。省略可能、正しいUTF-8で最大1024 byte、C0制御文字とDELを含まない単一行だけを受理する。未知field、上限超過、制御文字または認識済みSecretを含む入力はEffect 0で拒否する。raw commentはProvider、Task Packet、ログ、永続Recordまたは通常結果へ転送・保存・反射しない。
 
-Runtime Process回復義務は、Authority取消結果を観測できない、またはEffect開始後の結果を検証できない同一Processを再利用しないための内部義務である。Parent Runtimeが現在のProcess Instance、Task、Task attemptおよびOperationから一意なIDを発行し、当該Taskへ発行した同じIDだけを耐久状態へ受理する。そのProcessではsettleせず、再入場時にIDのattempt／Operation bindingを再検証し、埋め込まれたProcess Instanceと異なるfreshなRuntime Processだけがsettleする。下位Adapterの申告、別Task・別attempt／OperationのIDまたは改変されたIDをProcess再起動の証拠へ昇格しない。Effect開始前にRunnerが失敗した場合はEffect 0の再計画へ閉じ、存在しないProcess回復義務を作らない。Host、CandidateおよびCandidate Storeの自動回復Handlerはv0.19の公開受付へ未接続であり、該当義務をDockerへ誤送信せず、種別とexact IDを欠落なく返して手動処置へ閉じる。
+Runtime Process回復義務は、Authority取消結果を観測できない、下位実行へ委譲した後のhandoff結果を観測できない、またはEffect開始後の結果が`settled`と検証できない同一Processを再利用しないための内部義務である。Parent Runtimeが現在のProcess Instance、Task、Task attemptおよびOperationから一意なIDを発行し、当該Taskへ発行した同じIDだけを耐久状態へ受理する。そのProcessではsettleせず、再入場時にIDのattempt／Operation bindingを再検証し、埋め込まれたProcess Instanceと異なるfreshなRuntime Processだけがsettleする。下位Adapterの申告、別Task・別attempt／OperationのIDまたは改変されたIDをProcess再起動の証拠へ昇格しない。下位実行へ委譲する前にAuthority発行失敗や取消として確定した拒否はEffect 0の再計画へ閉じ、存在しないProcess回復義務を作らない。委譲後に開始観測または結果が失われた場合、Runtime Process義務だけでは外部Effectの不存在や回復を証明しないため、外部Recoveryのexactな閉包がない限り`recoveryUnresolved`を保持し、fresh Processへ変わったことだけで通常再入場しない。Host、CandidateおよびCandidate Storeの自動回復Handlerはv0.19の公開受付へ未接続であり、該当義務をDockerへ誤送信せず、種別とexact IDを欠落なく返して手動処置へ閉じる。
+
+Docker完了Receiptの「確認済み除去」は、Receiptの不存在を成功とみなすことではない。freshな現在Runtime Rootのidentity・protection・local user・bindingの4 hashおよびexact Recovery IDへ結合した確認済みTombstoneを先に作成・readbackし、その後に完了Receiptを除去する。再入場は同じTombstoneが一致する場合だけ既処理と判定する。TombstoneはProject判断履歴ではなく、件数上限を持つ再生防止資源である。
 
 ## 6. 資源、Lock、所有
 
@@ -320,14 +323,14 @@ MCPの公開結果は、操作別のexact contractと閉じたData Transfer Obje
 | `INV-NO-LOCK-ACROSS-EXTERNAL-WAIT` | 外部待機中に短時間変更Lockを保持しない |
 | `INV-NARROWED-AUTHORITY` | Task AuthorityはParent Coordinatorだけが縮小生成する |
 | `INV-TASK-COMPLETE-NOT-ACCEPTED` | Task完了をObjective／Milestone受入へ読み替えない |
-| `INV-EXACT-RESULT-IDENTITY` | 世代・Task・attempt・Operation・候補・Recovery Identityを照合する。Runtime Process回復IDはParent RuntimeだけがProcess Instance・Task・attempt・Operationへ結合して発行し、Effect開始後の不正結果では同じProcessを再利用しない |
+| `INV-EXACT-RESULT-IDENTITY` | 世代・Task・attempt・Operation・候補・Recovery Identityを照合する。Runtime Process回復IDはParent RuntimeだけがProcess Instance・Task・attempt・Operationへ結合して発行する。下位実行への委譲後にhandoff結果が不明、またはEffect開始後の結果が`settled`でない場合は同じProcessを再利用せず、Runtime Process義務だけから外部Effect解決を推定しない |
 | `INV-INTEGRATE-BEFORE-ADOPTION` | 意味統合と受入確認を正本採用より先に行う |
 | `INV-UNKNOWN-PRESERVES-RECOVERY` | cleanup／Effect不明時はRecovery義務を保持する |
 | `INV-NO-SUCCESS-FROM-UNKNOWN` | 欠落・古い・競合する根拠を成功へ補正しない |
 | `INV-CANCEL-AFTER-CLEANUP` | 取消完了は、未使用の新規Task Authorityがあれば失効を確認し、開始済み対象の終了・cleanup・状態反映を確認した後だけ成立する |
 | `INV-OLD-IDENTITY-IMMUTABLE` | 置換前Taskを上書きせず後継へ接続する |
 | `INV-PLATFORM-NO-FALLBACK` | 未対応Platformで別実装へ暗黙fallbackしない |
-| `INV-TRANSPORT-NO-AUTHORITY` | TransportはProject Authorityや成功を生成しない。MCP結果は操作別のexact contract、外側と入れ子の対象Identity、および結果field間の双方向相関を満たす再帰的に閉じたdescriptor-safe DTOだけを公開する |
+| `INV-TRANSPORT-NO-AUTHORITY` | TransportはProject Authorityや成功を生成しない。MCP結果は操作別のexact contract、外側と入れ子の対象Identity、およびMilestone・件数・進捗・品質・人間判断・回復・次操作の意味相関を同じCore投影規則で満たす再帰的に閉じたdescriptor-safe DTOだけを公開する。Dependency Graphなしに`schedule_task`と`wait_for_task`の一方を推測しない |
 | `INV-CANONICAL-EFFECT-SERIALIZED` | 正本採用を直列化し直前Revisionを確認する |
 | `INV-INTERACTIVE-PRIORITY-NO-PREEMPTION` | 対話優先は未開始要求だけを待機させ、Binding単位Lease取得後のfresh選択と一致したQueueだけをclaimする |
 | `INV-DURABLE-RECORD-CLOSED` | 耐久State／Queue Recordは完全Schema、filename結合世代および連続する不変世代を持つ |

@@ -4,6 +4,10 @@ import {
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
 import { inspectProjectRuntimeObjectiveRequest } from "./project-runtime-objective-request.ts";
+import {
+  isProjectRuntimeProjectionSemanticallyValid,
+  type ProjectRuntimeProjection,
+} from "./project-runtime-state.ts";
 
 export const MCP_PROJECT_RUNTIME_PROTOCOL_VERSION = "2026-07-28" as const;
 export const MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL = "crdd.run_objective" as const;
@@ -469,7 +473,7 @@ function projectionSnapshot(value: unknown) {
     ].includes(String(record.nextAction))
   )
     return null;
-  return Object.freeze({
+  const projection = Object.freeze({
     projectId: record.projectId,
     milestoneId: record.milestoneId,
     generation: record.generation,
@@ -481,7 +485,10 @@ function projectionSnapshot(value: unknown) {
     humanDecisionRequired: record.humanDecisionRequired,
     recoveryRequired: record.recoveryRequired,
     nextAction: record.nextAction,
-  });
+  }) as ProjectRuntimeProjection;
+  return isProjectRuntimeProjectionSemanticallyValid(projection)
+    ? projection
+    : null;
 }
 
 function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {

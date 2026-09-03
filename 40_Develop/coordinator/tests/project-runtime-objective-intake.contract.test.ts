@@ -79,6 +79,67 @@ async function completed(input: {
   };
 }
 
+function settleRuntimeProcessAsFreshProcess(
+  workingDirectory: string,
+  repositoryBindingId: string,
+  projectId: string,
+) {
+  const observed = readProjectRuntimeState(
+    workingDirectory,
+    repositoryBindingId,
+    projectId,
+  );
+  assert.equal(observed.status, "completed");
+  assert.ok(observed.value);
+  let state = observed.value;
+  const task = state.tasks.find((entry) =>
+    entry.recoveryObligations.some(
+      (obligation) =>
+        obligation.kind === "runtime_process" && obligation.phase !== "settled",
+    ),
+  );
+  const obligation = task?.recoveryObligations.find(
+    (entry) => entry.kind === "runtime_process" && entry.phase !== "settled",
+  );
+  assert.ok(task);
+  assert.ok(obligation);
+  if (obligation.phase === "required") {
+    const recovering = markProjectTaskRecoveryObligationRecovering(
+      state,
+      state.generation,
+      task.definition.id,
+      obligation.kind,
+      obligation.recoveryId,
+    );
+    assert.equal(recovering.status, "completed");
+    assert.ok(recovering.state);
+    const write = writeProjectRuntimeState(
+      workingDirectory,
+      repositoryBindingId,
+      recovering.state,
+      state.generation,
+    );
+    assert.equal(write.status, "completed");
+    state = write.value;
+  }
+  const settled = settleProjectTaskRecoveryObligation(
+    state,
+    state.generation,
+    task.definition.id,
+    obligation.kind,
+    obligation.recoveryId,
+  );
+  assert.equal(settled.status, "completed");
+  assert.ok(settled.state);
+  const write = writeProjectRuntimeState(
+    workingDirectory,
+    repositoryBindingId,
+    settled.state,
+    state.generation,
+  );
+  assert.equal(write.status, "completed");
+}
+
 test("public Objective intake binds, plans, executes and deduplicates the same request", async (t) => {
   const workingDirectory = root(t);
   let effects = 0;
@@ -570,8 +631,21 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     JSON.stringify(first),
   );
   assert.equal(first.manualRecoveryRequired, true);
-  assert.deepEqual(first.recoveryIds, [recoveryId]);
-  assert.deepEqual(first.recoveryObligations, [{ kind: "docker", recoveryId }]);
+  assert.equal(first.recoveryIds.includes(recoveryId), true);
+  assert.equal(
+    first.recoveryObligations.some(
+      (entry) => entry.kind === "docker" && entry.recoveryId === recoveryId,
+    ),
+    true,
+  );
+  assert.equal(
+    first.recoveryObligations.some(
+      (entry) =>
+        entry.kind === "runtime_process" &&
+        entry.recoveryId.startsWith("runtime-process."),
+    ),
+    true,
+  );
   assert.equal(recoveries, 0);
 
   const resumed = await runProjectRuntimeObjective(
@@ -580,12 +654,26 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     new AbortController().signal,
   );
   assert.equal(resumed.status, "blocked", JSON.stringify(resumed));
-  assert.equal(
-    resumed.reason,
-    "project_runtime_task_recovery_acknowledgement_not_settled",
-  );
+  assert.equal(resumed.reason, "project_runtime_task_recovery_not_settled");
   assert.equal(recoveries, 1);
   assert.equal(attempts, 1);
+
+  settleRuntimeProcessAsFreshProcess(
+    workingDirectory,
+    "binding-a",
+    "project-a",
+  );
+
+  const acknowledgementInterrupted = await runProjectRuntimeObjective(
+    dependencies,
+    request({ maximumReplans: 0 }),
+    new AbortController().signal,
+  );
+  assert.equal(acknowledgementInterrupted.status, "blocked");
+  assert.equal(
+    acknowledgementInterrupted.reason,
+    "project_runtime_task_recovery_acknowledgement_not_settled",
+  );
 
   const acknowledged = await runProjectRuntimeObjective(
     dependencies,
@@ -702,8 +790,22 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
     request({ maximumReplans: 0 }),
     new AbortController().signal,
   );
-  assert.equal(resumed.reason, "project_runtime_external_recovery_required");
-  assert.deepEqual(resumed.recoveryObligations, [
+  assert.equal(resumed.reason, "project_runtime_task_recovery_not_settled");
+  settleRuntimeProcessAsFreshProcess(
+    workingDirectory,
+    "binding-a",
+    "project-a",
+  );
+  const externalRecovery = await runProjectRuntimeObjective(
+    dependencies,
+    request({ maximumReplans: 0 }),
+    new AbortController().signal,
+  );
+  assert.equal(
+    externalRecovery.reason,
+    "project_runtime_external_recovery_required",
+  );
+  assert.deepEqual(externalRecovery.recoveryObligations, [
     { kind: "host", recoveryId: hostRecoveryId },
   ]);
   assert.equal(recoveryCalls, 1);
@@ -977,6 +1079,11 @@ for (const interruption of [
       );
       assert.equal(queueSettled.status, "completed");
     }
+    settleRuntimeProcessAsFreshProcess(
+      workingDirectory,
+      "binding-a",
+      "project-a",
+    );
     const resumed = await runProjectRuntimeObjective(
       dependencies,
       request({ maximumReplans: 0 }),

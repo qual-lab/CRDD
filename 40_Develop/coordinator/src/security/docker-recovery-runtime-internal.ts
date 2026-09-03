@@ -72,6 +72,8 @@ export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 25;
 const HEX64 = /^[a-f0-9]{64}$/u;
 const COMPLETED_DOCKER_RECOVERY_RECEIPT =
   /^completed-docker-recovery-([a-f0-9]{64})\.json$/u;
+const ACKNOWLEDGED_DOCKER_RECOVERY_RECEIPT =
+  /^acknowledged-docker-recovery-([a-f0-9]{64})\.json$/u;
 const MAX_COMPLETED_DOCKER_RECOVERY_RECEIPTS = 64;
 const SAFE_RESOURCE =
   /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
@@ -256,6 +258,35 @@ function completedDockerRecoveryReceiptName(recoveryId: string) {
   return `completed-docker-recovery-${createHash("sha256")
     .update(recoveryId)
     .digest("hex")}.json`;
+}
+
+function acknowledgedDockerRecoveryReceiptName(recoveryId: string) {
+  return `acknowledged-docker-recovery-${createHash("sha256")
+    .update(recoveryId)
+    .digest("hex")}.json`;
+}
+
+function inspectAcknowledgedDockerRecoveryReceipt(
+  rootPath: string,
+  recoveryId: string,
+) {
+  const name = acknowledgedDockerRecoveryReceiptName(recoveryId);
+  const location = path.join(rootPath, name);
+  if (!recoveryPathPresent(location)) return null;
+  const record = readExactJson(location, name);
+  const value = record.value as Record<string, unknown>;
+  if (
+    !exactRecordKeys(value, ["schema", "recoveryId", "runtimeStateBinding"]) ||
+    value.schema !== "crdd-coordinator-docker-recovery-acknowledgement/v1" ||
+    value.recoveryId !== recoveryId ||
+    !validRuntimeStateBindingEvidence(value.runtimeStateBinding)
+  )
+    throw new Error("docker_task_recovery_acknowledgement_tombstone_invalid");
+  return Object.freeze({
+    name,
+    runtimeStateBinding:
+      value.runtimeStateBinding as RuntimeStateBindingEvidence,
+  });
 }
 
 function inspectCompletedDockerRecoveryReceipt(
@@ -4926,15 +4957,57 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
       reason: "docker_task_recovery_id_invalid",
     });
   try {
+    const expectedBinding = runtimeStateBindingEvidence(root);
     const receipt = inspectCompletedDockerRecoveryReceipt(
       root.rootPath,
       parsed.token,
     );
-    if (!receipt)
+    if (!receipt) {
+      const acknowledged = inspectAcknowledgedDockerRecoveryReceipt(
+        root.rootPath,
+        parsed.token,
+      );
+      if (
+        !acknowledged ||
+        JSON.stringify(acknowledged.runtimeStateBinding) !==
+          JSON.stringify(expectedBinding)
+      )
+        throw new Error("docker_task_recovery_completion_receipt_missing");
       return Object.freeze({
         status: "completed" as const,
         reason: "docker_task_recovery_completion_already_acknowledged",
       });
+    }
+    if (
+      JSON.stringify(receipt.runtimeStateBinding) !==
+      JSON.stringify(expectedBinding)
+    )
+      throw new Error("docker_task_recovery_completion_binding_mismatch");
+    const acknowledgedName = acknowledgedDockerRecoveryReceiptName(
+      parsed.token,
+    );
+    const acknowledgementCount = fs
+      .readdirSync(root.rootPath)
+      .filter((name) => ACKNOWLEDGED_DOCKER_RECOVERY_RECEIPT.test(name)).length;
+    if (acknowledgementCount >= MAX_COMPLETED_DOCKER_RECOVERY_RECEIPTS)
+      throw new Error(
+        "docker_task_recovery_acknowledgement_tombstone_limit_exceeded",
+      );
+    writeDurableJson(root.rootPath, acknowledgedName, {
+      schema: "crdd-coordinator-docker-recovery-acknowledgement/v1",
+      recoveryId: parsed.token,
+      runtimeStateBinding: expectedBinding,
+    });
+    const acknowledged = inspectAcknowledgedDockerRecoveryReceipt(
+      root.rootPath,
+      parsed.token,
+    );
+    if (
+      !acknowledged ||
+      JSON.stringify(acknowledged.runtimeStateBinding) !==
+        JSON.stringify(expectedBinding)
+    )
+      throw new Error("docker_task_recovery_acknowledgement_unknown");
     const location = path.join(root.rootPath, receipt.name);
     if (!removeCommittedDockerRecoveryJson(location, receipt.name))
       throw new Error("docker_task_recovery_completion_acknowledgement_failed");
@@ -5042,6 +5115,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
     > = [];
     const externalSendConsentRecordNames = new Set<string>();
     const completedDockerRecoveryReceiptNames = new Set<string>();
+    const acknowledgedDockerRecoveryReceiptNames = new Set<string>();
     const journalIntents = inspectDockerRecoveryJournalDirectory(rootPath);
     const journalIntentRecoveryIds = new Set(
       journalIntents
@@ -5436,6 +5510,47 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         )
           throw new Error(
             "docker_task_recovery_completion_receipt_limit_exceeded",
+          );
+        continue;
+      }
+      const acknowledgedReceiptMatch =
+        ACKNOWLEDGED_DOCKER_RECOVERY_RECEIPT.exec(entry.name);
+      if (acknowledgedReceiptMatch?.[1]) {
+        if (
+          !entry.isFile() ||
+          entry.isSymbolicLink() ||
+          !entryNames.has(dockerRecoveryCommitName(entry.name))
+        )
+          throw new Error(
+            "docker_task_recovery_acknowledgement_tombstone_invalid",
+          );
+        const acknowledged = readExactJson(
+          path.join(rootPath, entry.name),
+          entry.name,
+        ).value as Record<string, unknown>;
+        if (
+          !exactRecordKeys(acknowledged, [
+            "schema",
+            "recoveryId",
+            "runtimeStateBinding",
+          ]) ||
+          acknowledged.schema !==
+            "crdd-coordinator-docker-recovery-acknowledgement/v1" ||
+          typeof acknowledged.recoveryId !== "string" ||
+          createHash("sha256").update(acknowledged.recoveryId).digest("hex") !==
+            acknowledgedReceiptMatch[1] ||
+          !validRuntimeStateBindingEvidence(acknowledged.runtimeStateBinding)
+        )
+          throw new Error(
+            "docker_task_recovery_acknowledgement_tombstone_invalid",
+          );
+        acknowledgedDockerRecoveryReceiptNames.add(entry.name);
+        if (
+          acknowledgedDockerRecoveryReceiptNames.size >
+          MAX_COMPLETED_DOCKER_RECOVERY_RECEIPTS
+        )
+          throw new Error(
+            "docker_task_recovery_acknowledgement_tombstone_limit_exceeded",
           );
         continue;
       }

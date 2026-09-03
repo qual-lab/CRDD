@@ -782,6 +782,7 @@ export async function runProjectRuntimeOperation(
     // an observed attempt failure instead of letting it escape with a live lease.
     let startObservationChain = Promise.resolve(true);
     const startedAttemptIds = new Set<string>();
+    const delegatedAttemptIds = new Set<string>();
     const observeStarted = (attempt: (typeof attempts)[number]) => {
       const observation = startObservationChain.then(() => {
         const started = observeProjectTaskStarted(
@@ -916,6 +917,7 @@ export async function runProjectRuntimeOperation(
                   });
                 })();
           }
+          delegatedAttemptIds.add(attempt.attemptId);
           return await dependencies.runSingleTaskAttempt({
             attemptId: attempt.attemptId,
             operationId: attempt.operationId,
@@ -963,17 +965,38 @@ export async function runProjectRuntimeOperation(
           attempt?.execution.authorityBindingId &&
         validatedOutcome.repositoryRevision === state.repositoryRevision;
       const effectStarted = startedAttemptIds.has(attempt.attemptId);
-      const unsafeResultAfterEffect =
-        effectStarted && (!validatedOutcome || !exact);
       const normalizedRecoveryObligations: Array<
         Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string }>
       > =
         validatedOutcome && exact
           ? [...(validatedOutcome.recoveryObligations ?? [])]
           : [];
+      const exactExternalRecoveryClosure =
+        validatedOutcome !== null &&
+        exact &&
+        normalizedRecoveryObligations.some(
+          (entry) => entry.kind === "host" || entry.kind === "docker",
+        );
+      const resultContradictsStartedEffect =
+        effectStarted &&
+        (!validatedOutcome ||
+          !exact ||
+          validatedOutcome.effectState !== "settled");
+      const delegatedResultIsUnknown =
+        delegatedAttemptIds.has(attempt.attemptId) &&
+        !effectStarted &&
+        (!validatedOutcome ||
+          !exact ||
+          validatedOutcome.effectState === "unknown");
+      const externalEffectUnresolved =
+        (resultContradictsStartedEffect || delegatedResultIsUnknown) &&
+        !exactExternalRecoveryClosure;
+      const processMustBeDiscarded =
+        resultContradictsStartedEffect ||
+        delegatedResultIsUnknown ||
+        validatedOutcome?.processRestartRequired === true;
       if (
-        (unsafeResultAfterEffect ||
-          validatedOutcome?.processRestartRequired === true) &&
+        processMustBeDiscarded &&
         !normalizedRecoveryObligations.some(
           (entry) => entry.kind === "runtime_process",
         )
@@ -1001,7 +1024,8 @@ export async function runProjectRuntimeOperation(
         );
       }
       const recoveryRequired =
-        unsafeResultAfterEffect ||
+        resultContradictsStartedEffect ||
+        delegatedResultIsUnknown ||
         (validatedOutcome !== null &&
           exact &&
           (validatedOutcome.effectState === "unknown" ||
@@ -1009,16 +1033,15 @@ export async function runProjectRuntimeOperation(
             validatedOutcome.manualRecoveryRequired ||
             validatedOutcome.processRestartRequired ||
             validatedOutcome.recoveryIds.length > 0));
-      processRestartRequired ||=
-        unsafeResultAfterEffect ||
-        validatedOutcome?.processRestartRequired === true;
+      processRestartRequired ||= processMustBeDiscarded;
       const recoveryObligations = recoveryRequired
         ? normalizedRecoveryObligations.map((entry) =>
             Object.freeze({ ...entry, phase: "required" as const }),
           )
         : [];
       const recoveryUnresolved =
-        recoveryRequired && recoveryObligations.length === 0;
+        recoveryRequired &&
+        (externalEffectUnresolved || recoveryObligations.length === 0);
       const settlementInput = {
         taskId: attempt?.taskId ?? "invalid",
         attemptId: attempt?.attemptId ?? "invalid",
@@ -1033,8 +1056,9 @@ export async function runProjectRuntimeOperation(
               : "failed",
         cleanupConfirmed:
           !effectStarted && (!validatedOutcome || !exact)
-            ? true
-            : !unsafeResultAfterEffect &&
+            ? !delegatedAttemptIds.has(attempt.attemptId)
+            : !resultContradictsStartedEffect &&
+              !delegatedResultIsUnknown &&
               validatedOutcome?.processRestartRequired !== true &&
               exact &&
               validatedOutcome?.cleanupConfirmed === true,

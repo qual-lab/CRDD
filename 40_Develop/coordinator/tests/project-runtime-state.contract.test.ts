@@ -590,6 +590,35 @@ describe("Project Runtime state contract", () => {
     );
   });
 
+  it("Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さない", () => {
+    let state = start(stateFor([task("task-a")]), "task-a");
+    const runtimeProcessId = `runtime-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
+    const settled = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      authorityBindingId: "authority-task-a",
+      outcome: "recovery_required",
+      cleanupConfirmed: false,
+      recoveryObligations: [
+        {
+          kind: "runtime_process",
+          recoveryId: runtimeProcessId,
+          phase: "required",
+        },
+      ],
+      recoveryUnresolved: true,
+    });
+    assert.equal(settled.status, "completed");
+    assert.ok(settled.state);
+    state = settled.state;
+    const retry = retrySettledProjectTaskRecoveries(state, state.generation, [
+      "task-a",
+    ]);
+    assert.equal(retry.status, "blocked");
+    assert.equal(retry.state?.tasks[0]?.state, "recovery_required");
+  });
+
   it("Lockとstale resultの保持条件を説明する", () => {
     assert.deepEqual(describeProjectRuntimeStateContract(), {
       contract: "crdd-coordinator/project-runtime-state/v1",
