@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -211,6 +211,8 @@ test("linked状態の同byte別identityと転送後の内容変更を再開し�
 
 test("二つのProcessがprecheck後に競合しても一方だけがEffectを発行する", async () => {
   const value = fixture();
+  const children: ChildProcess[] = [];
+  const pending: Promise<Record<string, unknown>>[] = [];
   try {
     const barrierRoot = path.join(value.parent, "barrier");
     fs.mkdirSync(barrierRoot);
@@ -233,22 +235,36 @@ test("二つのProcessがprecheck後に競合しても一方だけがEffectを�
           ],
           { stdio: ["ignore", "pipe", "pipe"] },
         );
+        children.push(child);
         let stdout = "";
         let stderr = "";
+        const deadline = setTimeout(() => {
+          child.kill();
+          reject(new Error(`racer_timeout:${id}`));
+        }, 10_000);
         child.stdout.setEncoding("utf8").on("data", (part) => (stdout += part));
         child.stderr.setEncoding("utf8").on("data", (part) => (stderr += part));
-        child.once("error", reject);
+        child.once("error", (error) => {
+          clearTimeout(deadline);
+          reject(error);
+        });
         child.once("close", (code) => {
+          clearTimeout(deadline);
           if (code !== 0) reject(new Error(`racer_failed:${code}:${stderr}`));
           else resolve(JSON.parse(stdout) as Record<string, unknown>);
         });
       });
     const first = run("first");
     const second = run("second");
+    pending.push(first, second);
+    const readyDeadline = Date.now() + 5_000;
     for (const id of ["first", "second"]) {
       const ready = path.join(barrierRoot, `${id}.ready`);
-      while (!fs.existsSync(ready))
+      while (!fs.existsSync(ready)) {
+        if (Date.now() >= readyDeadline)
+          throw new Error(`racer_ready_timeout:${id}`);
         await new Promise((resolve) => setTimeout(resolve, 10));
+      }
     }
     fs.writeFileSync(path.join(barrierRoot, "go"), "go");
     const results = await Promise.all([first, second]);
@@ -271,6 +287,9 @@ test("二つのProcessがprecheck後に競合しても一方だけがEffectを�
     assert.equal(resumed.mode, "linked_pending");
     assert.equal(promoteReleaseManifestBytes(resumed.token).status, "promoted");
   } finally {
+    for (const child of children)
+      if (child.exitCode === null && child.signalCode === null) child.kill();
+    await Promise.allSettled(pending);
     fs.rmSync(value.parent, { recursive: true, force: true });
   }
 });
