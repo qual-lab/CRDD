@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,6 +12,12 @@ import {
 import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../src/security/docker-recovery-runtime.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
+import {
+  buildProjectRuntimeRealProviderReport,
+  captureCanonicalRepositorySnapshot,
+  observePublicMcpProcess,
+  type JsonRecord,
+} from "./project-runtime-real-provider-contract.ts";
 
 const MARKER =
   "40_Develop/coordinator/tests/fixtures/project-runtime-real-provider-verification.txt";
@@ -21,18 +27,11 @@ const BASE = "CRDD_PROJECT_RUNTIME_BASE\n";
 const FINAL = "CRDD_PROJECT_RUNTIME_REAL_PROVIDER_OK\n";
 const MAXIMUM_OUTPUT_BYTES = 4 * 1024 * 1024;
 const PROCESS_TIMEOUT_MS = 45 * 60_000;
-type JsonRecord = Readonly<Record<string, unknown>>;
 
 function stableDirectory(value: string) {
   const metadata = fs.lstatSync(value);
   assert.equal(metadata.isDirectory() && !metadata.isSymbolicLink(), true);
   assert.equal(fs.realpathSync.native(value), value);
-}
-
-function appendBounded(current: string, chunk: Buffer) {
-  if (Buffer.byteLength(current) + chunk.byteLength > MAXIMUM_OUTPUT_BYTES)
-    throw new Error("project_runtime_public_e2e_output_too_large");
-  return current + chunk.toString("utf8");
 }
 
 function mcpEnvelope(id: string, request: unknown) {
@@ -49,18 +48,6 @@ function mcpEnvelope(id: string, request: unknown) {
       arguments: request,
     },
   })}\n`;
-}
-
-function publicResult(response: unknown): JsonRecord | null {
-  if (!response || typeof response !== "object" || !("result" in response))
-    return null;
-  const result = (response as { result?: unknown }).result;
-  if (!result || typeof result !== "object" || !("structuredContent" in result))
-    return null;
-  const content = (result as { structuredContent?: unknown }).structuredContent;
-  return content && typeof content === "object" && !Array.isArray(content)
-    ? (content as JsonRecord)
-    : null;
 }
 
 function startPublicMcpProcess(
@@ -86,52 +73,6 @@ function startPublicMcpProcess(
       stdio: ["pipe", "pipe", "pipe"],
     },
   );
-}
-
-async function observePublicMcpProcess(
-  child: ChildProcessWithoutNullStreams,
-  onStdout?: (content: string) => void,
-  onStderr?: (content: string) => void,
-) {
-  let stdout = "";
-  let stderr = "";
-  let launchError: string | null = null;
-  child.stdout.on("data", (chunk: Buffer) => {
-    stdout = appendBounded(stdout, chunk);
-    onStdout?.(stdout);
-  });
-  child.stderr.on("data", (chunk: Buffer) => {
-    stderr = appendBounded(stderr, chunk);
-    onStderr?.(stderr);
-  });
-  child.once("error", (error) => {
-    launchError = error instanceof Error ? error.name : "unknown";
-  });
-  let timeout: NodeJS.Timeout | null = null;
-  const exit = await new Promise<
-    Readonly<{ code: number | null; signal: string | null }>
-  >((resolve, reject) => {
-    timeout = setTimeout(() => {
-      child.kill();
-      reject(new Error("project_runtime_public_e2e_process_timeout"));
-    }, PROCESS_TIMEOUT_MS);
-    child.once("close", (code, signal) => resolve({ code, signal }));
-  }).finally(() => {
-    if (timeout) clearTimeout(timeout);
-  });
-  return Object.freeze({
-    exit,
-    launchError,
-    responses: Object.freeze(
-      stdout
-        .split(/\r?\n/u)
-        .filter(Boolean)
-        .map((line) => JSON.parse(line) as unknown),
-    ),
-    selectionEventObserved: stderr.includes(
-      '"event":"coordinator_selection_before_provider_effect"',
-    ),
-  });
 }
 
 function objective(
@@ -195,7 +136,7 @@ async function main() {
       evaluationTime: new Date().toISOString(),
     });
   assert.equal(native.status, "candidate", String(native.reason));
-  const expectedRelease = Object.freeze(
+  const signedReleaseIdentity = Object.freeze(
     Object.fromEntries(
       [
         "manifestHash",
@@ -214,10 +155,17 @@ async function main() {
     inspectVerifiedNativeDistributionCandidate({
       distributionRoot,
       evaluationTime: new Date().toISOString(),
-      expectedRelease,
+      expectedRelease: signedReleaseIdentity,
     }).status,
     "candidate",
   );
+  const distributionIdentity = Object.freeze({
+    ...signedReleaseIdentity,
+    sourcePackageStatus: sourcePackage.status,
+    sourcePackageReason: sourcePackage.reason,
+    verifiedDistributionStatus: "candidate",
+    distributionRootReported: false,
+  });
 
   const runId = randomUUID().replaceAll("-", "").slice(0, 16);
   const common = Object.freeze({
@@ -243,14 +191,16 @@ async function main() {
 
   const normalChild = startPublicMcpProcess(distributionRoot, repositoryRoot);
   let normalInputClosed = false;
-  const normalObservation = observePublicMcpProcess(normalChild, (stdout) => {
-    if (
-      !normalInputClosed &&
-      stdout.split(/\r?\n/u).filter(Boolean).length >= objectives.length
-    ) {
-      normalInputClosed = true;
-      normalChild.stdin.end();
-    }
+  const normalObservation = observePublicMcpProcess(normalChild, {
+    maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
+    timeoutMs: PROCESS_TIMEOUT_MS,
+    closeInputWhen: ({ stdout }) => {
+      const shouldClose =
+        !normalInputClosed &&
+        stdout.split(/\r?\n/u).filter(Boolean).length >= objectives.length;
+      if (shouldClose) normalInputClosed = true;
+      return shouldClose;
+    },
   });
   normalChild.stdin.write(
     objectives
@@ -258,24 +208,9 @@ async function main() {
       .join(""),
   );
   const normal = await normalObservation;
-  assert.deepEqual(normal.exit, { code: 0, signal: null });
-  assert.equal(normal.launchError, null);
-  assert.equal(normal.responses.length, 2);
-  const normalResults = normal.responses.map(publicResult);
-  assert.equal(
-    normalResults.every(
-      (result) =>
-        result?.status === "completed" &&
-        result.reason === "project_runtime_milestone_accepted" &&
-        result.cleanupConfirmed === true &&
-        result.manualRecoveryRequired === false,
-    ),
-    true,
-  );
-  assert.equal(
-    fs.readFileSync(path.join(repositoryRoot, ...MARKER.split("/")), "utf8"),
-    FINAL,
-  );
+  const canonicalAdoptionObserved =
+    fs.readFileSync(path.join(repositoryRoot, ...MARKER.split("/")), "utf8") ===
+    FINAL;
 
   const cancellationRequest = Object.freeze({
     ...common,
@@ -300,79 +235,45 @@ async function main() {
     repositoryRoot,
   );
   let cancellationRequested = false;
-  const cancellationObservation = observePublicMcpProcess(
-    cancellationChild,
-    undefined,
-    (stderr) => {
-      if (
+  const cancellationSnapshotBefore =
+    captureCanonicalRepositorySnapshot(repositoryRoot);
+  const cancellationObservation = observePublicMcpProcess(cancellationChild, {
+    maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
+    timeoutMs: PROCESS_TIMEOUT_MS,
+    closeInputWhen: ({ stderr }) => {
+      const shouldClose =
         !cancellationRequested &&
         stderr.includes(
           '"event":"coordinator_selection_before_provider_effect"',
-        )
-      ) {
-        cancellationRequested = true;
-        cancellationChild.stdin.end();
-      }
+        );
+      if (shouldClose) cancellationRequested = true;
+      return shouldClose;
     },
-  );
+  });
   cancellationChild.stdin.write(
     mcpEnvelope("objective-cancellation", cancellationRequest),
   );
   const cancelled = await cancellationObservation;
-  assert.equal(cancellationRequested, true);
-  assert.deepEqual(cancelled.exit, { code: 0, signal: null });
-  assert.equal(cancelled.launchError, null);
-  assert.equal(cancelled.responses.length, 1);
-  const cancellationResult = publicResult(cancelled.responses[0]);
-  assert.equal(cancellationResult?.status, "cancelled");
-  assert.equal(cancellationResult.cleanupConfirmed, true);
-  assert.equal(cancellationResult.manualRecoveryRequired, false);
-  assert.equal(
-    fs.readFileSync(
-      path.join(repositoryRoot, ...CANCELLATION_MARKER.split("/")),
-      "utf8",
-    ),
-    BASE,
-  );
+  const cancellationSnapshotAfter =
+    captureCanonicalRepositorySnapshot(repositoryRoot);
 
   const dockerRecovery = inspectRuntimeOwnedDockerTaskRecoveryState();
-  const report = Object.freeze({
-    contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 4,
-    status: dockerRecovery.status === "completed" ? "completed" : "blocked",
-    reason:
-      dockerRecovery.status === "completed"
-        ? "project_runtime_public_mcp_real_providers_and_cancellation_verified"
-        : "project_runtime_public_mcp_post_run_recovery_state_not_clean",
-    sourceCommit: repository.commit,
-    sourceTree: repository.tree,
+  const report = buildProjectRuntimeRealProviderReport({
     runId,
-    providers: Object.freeze(["codex", "claude"]),
-    publicMcpProcess: Object.freeze({
-      actualChildProcess: true,
-      transport: "stdio",
-      authenticatedSemanticResults: true,
-      completedObjectiveCount: normalResults.length,
-      parentEofJoined: true,
+    sourceIdentity: Object.freeze({
+      commit: repository.commit,
+      tree: repository.tree,
     }),
-    cancellation: Object.freeze({
-      providerSelectionObservedBeforeCancellation: true,
-      parentEofIssued: true,
-      semanticStatus: cancellationResult.status,
-      cleanupConfirmed: cancellationResult.cleanupConfirmed,
-      manualRecoveryRequired: cancellationResult.manualRecoveryRequired,
-      canonicalRepositoryChanged: false,
-    }),
-    dockerRecoveryAfterRun: Object.freeze({
-      status: dockerRecovery.status,
-      reason: dockerRecovery.reason,
-      manualRecoveryRequired: dockerRecovery.manualRecoveryRequired,
-      recoverySettlementExercised: false,
-    }),
-    canonicalAdoptionObserved: true,
-    releaseAuthorityConferred: false,
-    rawProviderOutputReported: false,
-    results: Object.freeze(normalResults),
+    distributionIdentity,
+    normal,
+    cancellation: cancelled,
+    cancellationRequestedAfterSelection: cancellationRequested,
+    normalExpectedIds: Object.freeze(["objective-1", "objective-2"]),
+    cancellationExpectedId: "objective-cancellation",
+    canonicalAdoptionObserved,
+    cancellationSnapshotBefore,
+    cancellationSnapshotAfter,
+    dockerRecovery,
   });
   const reportDirectory = path.join(
     verificationRoot,
@@ -388,4 +289,43 @@ async function main() {
   process.exitCode = report.status === "completed" ? 0 : 2;
 }
 
-await main();
+try {
+  await main();
+} catch {
+  const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    process.cwd(),
+  );
+  const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
+  const verificationRoot = path.join(
+    repositoryRoot,
+    ".crdd",
+    "verification-results",
+  );
+  fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
+  const report = Object.freeze({
+    contract: "crdd-coordinator/project-runtime-real-provider-verification",
+    contractRevision: 5,
+    status: "blocked",
+    reason: "project_runtime_public_mcp_verification_incomplete",
+    problems: Object.freeze(["verification_exception"]),
+    sourceIdentity:
+      repository?.status === "candidate"
+        ? Object.freeze({ commit: repository.commit, tree: repository.tree })
+        : null,
+    distributionIdentity: null,
+    releaseAuthorityConferred: false,
+    rawProviderOutputReported: false,
+  });
+  const reportDirectory = path.join(
+    verificationRoot,
+    `project-runtime-public-real-providers-${Date.now()}`,
+  );
+  fs.mkdirSync(reportDirectory, { mode: 0o700 });
+  fs.writeFileSync(
+    path.join(reportDirectory, "result.json"),
+    `${JSON.stringify(report, null, 2)}\n`,
+    { flag: "wx", encoding: "utf8", mode: 0o600 },
+  );
+  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  process.exitCode = 2;
+}
