@@ -64,13 +64,20 @@ const projection = (cancelled: boolean) => ({
   recoveryRequired: false,
   nextAction: cancelled ? "wait_for_task" : "complete",
 });
-const semantic = (status: "completed" | "cancelled", id: string) => ({
+const semantic = (
+  status: "completed" | "cancelled",
+  id: string,
+  overrides: Record<string, unknown> = {},
+) => ({
   jsonrpc: "2.0",
   id,
   result: {
     structuredContent: {
       status,
-      reason: "project_runtime_milestone_accepted",
+      reason:
+        status === "cancelled"
+          ? "project_runtime_operation_cancelled"
+          : "project_runtime_milestone_accepted",
       contract: "crdd-coordinator/project-runtime-objective-intake/v1",
       requestId: "request-a",
       projectId: "project-a",
@@ -83,6 +90,7 @@ const semantic = (status: "completed" | "cancelled", id: string) => ({
       recoveryIds: [],
       recoveryObligations: [],
       effectState: "settled",
+      ...overrides,
     },
   },
 });
@@ -103,14 +111,58 @@ const observation = (
     selectionEventObserved: true,
     selectionEvents: [
       { taskRole: "executor", provider: "codex" },
-      { taskRole: "executor", provider: "claude" },
       { taskRole: "reviewer", provider: "claude" },
-      { taskRole: "reviewer", provider: "codex" },
+    ],
+    processStartEventObserved: true,
+    processStartEvents: [
+      { taskRole: "executor", provider: "codex" },
+      { taskRole: "reviewer", provider: "claude" },
     ],
     pidIssued: true,
     streamFailure: false,
     ...overrides,
   });
+const unchangedSnapshot = {
+  sha256: "same",
+  headCommit: "a",
+  headTree: "b",
+  fileHashes: [{ relativePath: "result.txt", sha256: "before" }],
+};
+const changedSnapshot = {
+  sha256: "after",
+  headCommit: "a",
+  headTree: "b",
+  fileHashes: [{ relativePath: "result.txt", sha256: "after" }],
+};
+const normalRun = (
+  responseId: string,
+  executorProvider: "codex" | "claude",
+  reviewerProvider: "codex" | "claude",
+  adoptResult: boolean,
+) => ({
+  observation: observation([semantic("completed", responseId)], {
+    selectionEvents: [
+      { taskRole: "executor", provider: executorProvider },
+      { taskRole: "reviewer", provider: reviewerProvider },
+    ],
+    processStartEvents: [
+      { taskRole: "executor", provider: executorProvider },
+      { taskRole: "reviewer", provider: reviewerProvider },
+    ],
+  }),
+  expected: {
+    responseId,
+    requestId: "request-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    executorProvider,
+    reviewerProvider,
+  },
+  snapshotBefore: unchangedSnapshot,
+  snapshotAfter: adoptResult ? changedSnapshot : unchangedSnapshot,
+  expectedChangedPaths: adoptResult ? ["result.txt"] : [],
+  expectedCanonicalStateObserved: true,
+});
 const build = (overrides: Record<string, unknown> = {}) =>
   buildProjectRuntimeRealProviderReport({
     runId: "run",
@@ -121,51 +173,24 @@ const build = (overrides: Record<string, unknown> = {}) =>
       packageContentRootSha256: "e",
       runtimeExecutionIdentitySha256: "f",
     },
-    normal: observation([
-      semantic("completed", "objective-1"),
-      semantic("completed", "objective-2"),
-    ]),
-    cancellation: observation([
-      semantic("cancelled", "objective-cancellation"),
-    ]),
-    cancellationRequestedAfterSelection: true,
-    normalExpected: [
-      {
-        responseId: "objective-1",
-        requestId: "request-a",
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        executorProvider: "codex",
-        reviewerProvider: "claude",
-      },
-      {
-        responseId: "objective-2",
-        requestId: "request-a",
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        executorProvider: "claude",
-        reviewerProvider: "codex",
-      },
+    normalRuns: [
+      normalRun("objective-1", "codex", "claude", false),
+      normalRun("objective-2", "claude", "codex", true),
     ],
+    cancellation: observation(
+      [semantic("cancelled", "objective-cancellation")],
+      {
+        selectionEvents: [{ taskRole: "executor", provider: "claude" }],
+        processStartEvents: [{ taskRole: "executor", provider: "claude" }],
+      },
+    ),
+    cancellationRequestedAfterProcessStart: true,
     cancellationExpected: {
       responseId: "objective-cancellation",
       requestId: "request-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
       executorProvider: "claude",
-    },
-    canonicalAdoptionObserved: true,
-    normalSnapshotBefore: {
-      sha256: "before",
-      headCommit: "a",
-      headTree: "b",
-      fileHashes: [{ relativePath: "result.txt", sha256: "before" }],
-    },
-    normalSnapshotAfter: {
-      sha256: "after",
-      headCommit: "a",
-      headTree: "b",
-      fileHashes: [{ relativePath: "result.txt", sha256: "after" }],
     },
     cancellationSnapshotBefore: {
       sha256: "same",
@@ -179,7 +204,6 @@ const build = (overrides: Record<string, unknown> = {}) =>
       headTree: "b",
       fileHashes: [{ relativePath: "result.txt", sha256: "after" }],
     },
-    expectedChangedPath: "result.txt",
     dockerRecovery: {
       status: "completed",
       reason: "docker_task_runtime_state_clean",
@@ -190,7 +214,7 @@ const build = (overrides: Record<string, unknown> = {}) =>
 
 test("全観測が相関した場合だけ公開Process E2Eをcompletedにする", () => {
   const result = build();
-  assert.equal(result.status, "completed");
+  assert.equal(result.status, "completed", JSON.stringify(result));
   assert.deepEqual(result.problems, []);
   assert.equal(result.publicMcpProcess.actualChildProcess, true);
   assert.equal(
@@ -203,25 +227,69 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
 test("正常・準正常・異常の不一致をblocked結果へ閉じる", () => {
   const cases = [
     {
-      normal: observation([
-        semantic("completed", "wrong"),
-        semantic("completed", "objective-2"),
-      ]),
+      normalRuns: [
+        {
+          ...normalRun("objective-1", "codex", "claude", false),
+          observation: observation([], { parseFailure: true }),
+        },
+      ],
     },
-    { normal: observation([], { parseFailure: true }) },
-    { normal: observation([], { outputWithinLimit: false }) },
-    { normal: observation([], { timedOut: true }) },
-    { normal: observation([], { joined: false, exit: null }) },
-    { normal: observation([], { exit: { code: 7, signal: null } }) },
-    { normal: observation([], { inputEofIssued: false }) },
-    { normal: observation([], { streamFailure: true }) },
-    { normal: observation([], { pidIssued: false }) },
-    { cancellationRequestedAfterSelection: false },
+    { cancellationRequestedAfterProcessStart: false },
+    {
+      cancellation: observation(
+        [semantic("cancelled", "objective-cancellation")],
+        { processStartEventObserved: false, processStartEvents: [] },
+      ),
+    },
     {
       cancellation: observation(
         [semantic("cancelled", "objective-cancellation")],
         { inputEofIssued: false },
       ),
+    },
+    {
+      cancellation: observation([
+        semantic("cancelled", "objective-cancellation", {
+          effectState: "no_effect",
+        }),
+      ]),
+    },
+    {
+      cancellation: observation([
+        semantic("cancelled", "objective-cancellation", {
+          reason: "project_runtime_milestone_accepted",
+        }),
+      ]),
+    },
+    {
+      normalRuns: [
+        {
+          ...normalRun("objective-1", "codex", "claude", false),
+          observation: observation([semantic("completed", "objective-1")], {
+            selectionEvents: [
+              { taskRole: "executor", provider: "codex" },
+              { taskRole: "reviewer", provider: "codex" },
+            ],
+          }),
+        },
+        {
+          ...normalRun("objective-2", "claude", "codex", true),
+          observation: observation([semantic("completed", "objective-2")], {
+            selectionEvents: [
+              { taskRole: "executor", provider: "claude" },
+              { taskRole: "reviewer", provider: "claude" },
+            ],
+          }),
+        },
+      ],
+    },
+    {
+      normalRuns: [
+        {
+          ...normalRun("objective-1", "codex", "claude", false),
+          snapshotAfter: changedSnapshot,
+        },
+      ],
     },
     {
       cancellationSnapshotAfter: {
@@ -231,7 +299,6 @@ test("正常・準正常・異常の不一致をblocked結果へ閉じる", () =
         fileHashes: [{ relativePath: "result.txt", sha256: "changed" }],
       },
     },
-    { canonicalAdoptionObserved: false },
     {
       dockerRecovery: {
         status: "blocked",
@@ -263,6 +330,7 @@ test("固定子Processを実spawnし応答後EOFとjoinを観測する", async (
   assert.equal(result.joined, true);
   assert.equal(result.inputEofIssued, true);
   assert.equal(result.selectionEventObserved, true);
+  assert.equal(result.processStartEventObserved, true);
   assert.deepEqual(result.exit, { code: 0, signal: null });
 });
 
@@ -306,18 +374,13 @@ test("固定子Processの実観測を結果契約へ一続きで結合する", a
   const cancellation = await runProbe("cancelled", "objective-cancellation");
   const normal = await runProbe("normal", "objective-1");
   const completed = build({
-    normal,
-    cancellation,
-    normalExpected: [
+    normalRuns: [
       {
-        responseId: "objective-1",
-        requestId: "request-a",
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        executorProvider: "codex",
-        reviewerProvider: "claude",
+        ...normalRun("objective-1", "codex", "claude", true),
+        observation: normal,
       },
     ],
+    cancellation,
   });
   assert.equal(completed.status, "completed", JSON.stringify(completed));
 
@@ -330,18 +393,13 @@ test("固定子Processの実観測を結果契約へ一続きで結合する", a
   ]) {
     const observed = await runProbe(mode, "objective-1");
     const blocked = build({
-      normal: observed,
-      cancellation,
-      normalExpected: [
+      normalRuns: [
         {
-          responseId: "objective-1",
-          requestId: "request-a",
-          projectId: "project-a",
-          milestoneId: "milestone-a",
-          executorProvider: "codex",
-          reviewerProvider: "claude",
+          ...normalRun("objective-1", "codex", "claude", true),
+          observation: observed,
         },
       ],
+      cancellation,
     });
     assert.equal(blocked.status, "blocked", mode);
   }

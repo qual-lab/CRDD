@@ -20,6 +20,11 @@ export type PublicProcessObservation = Readonly<{
   joined: boolean;
   selectionEventObserved: boolean;
   selectionEvents: readonly Readonly<{ taskRole: string; provider: string }>[];
+  processStartEventObserved: boolean;
+  processStartEvents: readonly Readonly<{
+    taskRole: string;
+    provider: string;
+  }>[];
   pidIssued: boolean;
   streamFailure: boolean;
 }>;
@@ -124,6 +129,10 @@ export async function observePublicMcpProcess(
   }
   const selectionEvents: Readonly<{ taskRole: string; provider: string }>[] =
     [];
+  const processStartEvents: Readonly<{
+    taskRole: string;
+    provider: string;
+  }>[] = [];
   for (const line of stderr.split(/\r?\n/u).filter(Boolean)) {
     try {
       const objectStart = line.indexOf("{");
@@ -135,6 +144,17 @@ export async function observePublicMcpProcess(
         typeof parsed.provider === "string"
       )
         selectionEvents.push(
+          Object.freeze({
+            taskRole: parsed.taskRole,
+            provider: parsed.provider,
+          }),
+        );
+      if (
+        parsed.event === "coordinator_provider_process_started" &&
+        typeof parsed.taskRole === "string" &&
+        typeof parsed.provider === "string"
+      )
+        processStartEvents.push(
           Object.freeze({
             taskRole: parsed.taskRole,
             provider: parsed.provider,
@@ -158,6 +178,8 @@ export async function observePublicMcpProcess(
       '"event":"coordinator_selection_before_provider_effect"',
     ),
     selectionEvents: Object.freeze(selectionEvents),
+    processStartEventObserved: processStartEvents.length > 0,
+    processStartEvents: Object.freeze(processStartEvents),
     pidIssued,
     streamFailure,
   });
@@ -251,6 +273,15 @@ type RepositorySnapshot = Readonly<{
   excludedDirectoryNames?: readonly string[];
 }>;
 
+type NormalObjectiveRun = Readonly<{
+  observation: PublicProcessObservation;
+  expected: ExpectedObjective;
+  snapshotBefore: RepositorySnapshot;
+  snapshotAfter: RepositorySnapshot;
+  expectedChangedPaths: readonly string[];
+  expectedCanonicalStateObserved: boolean;
+}>;
+
 function changedSnapshotPaths(
   before: RepositorySnapshot,
   after: RepositorySnapshot,
@@ -271,17 +302,12 @@ export function buildProjectRuntimeRealProviderReport(
     runId: string;
     sourceIdentity: JsonRecord;
     distributionIdentity: JsonRecord;
-    normal: PublicProcessObservation;
+    normalRuns: readonly NormalObjectiveRun[];
     cancellation: PublicProcessObservation;
-    cancellationRequestedAfterSelection: boolean;
-    normalExpected: readonly ExpectedObjective[];
+    cancellationRequestedAfterProcessStart: boolean;
     cancellationExpected: ExpectedObjective;
-    canonicalAdoptionObserved: boolean;
-    normalSnapshotBefore: RepositorySnapshot;
-    normalSnapshotAfter: RepositorySnapshot;
     cancellationSnapshotBefore: RepositorySnapshot;
     cancellationSnapshotAfter: RepositorySnapshot;
-    expectedChangedPath: string;
     dockerRecovery: JsonRecord;
   }>,
 ) {
@@ -297,20 +323,23 @@ export function buildProjectRuntimeRealProviderReport(
     if (value.timedOut) problems.push(`${prefix}_timeout`);
     if (value.parseFailure) problems.push(`${prefix}_response_parse`);
   };
-  processProblems("normal", input.normal);
+  input.normalRuns.forEach((run, index) => {
+    processProblems(`normal_${index + 1}`, run.observation);
+  });
   processProblems("cancellation", input.cancellation);
-  if (!input.normal.inputEofIssued) problems.push("normal_eof_not_issued");
-
-  const normalResults = input.normalExpected.map((expected, index) =>
-    semanticResult(input.normal.responses[index], expected.responseId),
-  );
-  if (input.normal.responses.length !== input.normalExpected.length)
-    problems.push("normal_response_count");
+  const normalResults = input.normalRuns.map((run, index) => {
+    const { observation, expected } = run;
+    if (!observation.inputEofIssued)
+      problems.push(`normal_${index + 1}_eof_not_issued`);
+    if (observation.responses.length !== 1)
+      problems.push(`normal_${index + 1}_response_count`);
+    return semanticResult(observation.responses[0], expected.responseId);
+  });
   if (normalResults.some((value) => value === null))
     problems.push("normal_response_envelope");
   if (
     normalResults.some((value, index) => {
-      const expected = input.normalExpected[index];
+      const expected = input.normalRuns[index]?.expected;
       return (
         !expected ||
         value?.status !== "completed" ||
@@ -325,20 +354,43 @@ export function buildProjectRuntimeRealProviderReport(
     })
   )
     problems.push("normal_semantic_result");
-  for (const expected of input.normalExpected) {
+  for (const [index, run] of input.normalRuns.entries()) {
+    const { expected, observation } = run;
     if (
-      !input.normal.selectionEvents.some(
+      !observation.selectionEvents.some(
         (event) =>
           event.taskRole === "executor" &&
           event.provider === expected.executorProvider,
       ) ||
-      !input.normal.selectionEvents.some(
+      !observation.selectionEvents.some(
+        (event) =>
+          event.taskRole === "reviewer" &&
+          event.provider === expected.reviewerProvider,
+      ) ||
+      !observation.processStartEvents.some(
+        (event) =>
+          event.taskRole === "executor" &&
+          event.provider === expected.executorProvider,
+      ) ||
+      !observation.processStartEvents.some(
         (event) =>
           event.taskRole === "reviewer" &&
           event.provider === expected.reviewerProvider,
       )
     )
-      problems.push("normal_provider_selection_mismatch");
+      problems.push(`normal_${index + 1}_provider_selection_mismatch`);
+    const changedPaths = changedSnapshotPaths(
+      run.snapshotBefore,
+      run.snapshotAfter,
+    );
+    if (
+      run.snapshotBefore.headCommit !== run.snapshotAfter.headCommit ||
+      run.snapshotBefore.headTree !== run.snapshotAfter.headTree ||
+      JSON.stringify(changedPaths) !== JSON.stringify(run.expectedChangedPaths)
+    )
+      problems.push(`normal_${index + 1}_canonical_repository_change_mismatch`);
+    if (!run.expectedCanonicalStateObserved)
+      problems.push(`normal_${index + 1}_canonical_state_mismatch`);
   }
 
   const cancellationResult = semanticResult(
@@ -348,20 +400,30 @@ export function buildProjectRuntimeRealProviderReport(
   if (input.cancellation.responses.length !== 1 || cancellationResult === null)
     problems.push("cancellation_response_envelope");
   if (
-    !input.cancellationRequestedAfterSelection ||
-    !input.cancellation.selectionEventObserved
+    !input.cancellationRequestedAfterProcessStart ||
+    !input.cancellation.processStartEventObserved
   )
-    problems.push("cancellation_before_provider_selection");
+    problems.push("cancellation_before_provider_process_start");
   if (!input.cancellation.inputEofIssued)
     problems.push("cancellation_eof_not_issued");
   if (
     cancellationResult?.status !== "cancelled" ||
+    cancellationResult.reason !== "project_runtime_operation_cancelled" ||
     cancellationResult.requestId !== input.cancellationExpected.requestId ||
     cancellationResult.projectId !== input.cancellationExpected.projectId ||
     cancellationResult.milestoneId !== input.cancellationExpected.milestoneId ||
     !cancellationResult.projection ||
     typeof cancellationResult.projection !== "object" ||
-    (cancellationResult.projection as JsonRecord).milestoneState !== "cancelled"
+    (cancellationResult.projection as JsonRecord).milestoneState !==
+      "cancelled" ||
+    cancellationResult.cleanupConfirmed !== true ||
+    cancellationResult.manualRecoveryRequired !== false ||
+    cancellationResult.processRestartRequired !== false ||
+    cancellationResult.effectState !== "settled" ||
+    !Array.isArray(cancellationResult.recoveryIds) ||
+    cancellationResult.recoveryIds.length !== 0 ||
+    !Array.isArray(cancellationResult.recoveryObligations) ||
+    cancellationResult.recoveryObligations.length !== 0
   )
     problems.push("cancellation_semantic_result");
   if (
@@ -372,20 +434,15 @@ export function buildProjectRuntimeRealProviderReport(
     )
   )
     problems.push("cancellation_provider_selection_mismatch");
-
-  const normalChangedPaths = changedSnapshotPaths(
-    input.normalSnapshotBefore,
-    input.normalSnapshotAfter,
-  );
   if (
-    input.normalSnapshotBefore.headCommit !==
-      input.normalSnapshotAfter.headCommit ||
-    input.normalSnapshotBefore.headTree !==
-      input.normalSnapshotAfter.headTree ||
-    normalChangedPaths.length !== 1 ||
-    normalChangedPaths[0] !== input.expectedChangedPath
+    !input.cancellation.processStartEvents.some(
+      (event) =>
+        event.taskRole === "executor" &&
+        event.provider === input.cancellationExpected.executorProvider,
+    )
   )
-    problems.push("normal_canonical_repository_change_mismatch");
+    problems.push("cancellation_provider_process_start_mismatch");
+
   const canonicalRepositoryChanged =
     input.cancellationSnapshotBefore.sha256 !==
       input.cancellationSnapshotAfter.sha256 ||
@@ -395,8 +452,6 @@ export function buildProjectRuntimeRealProviderReport(
       input.cancellationSnapshotAfter.headTree;
   if (canonicalRepositoryChanged)
     problems.push("cancellation_canonical_repository_changed");
-  if (!input.canonicalAdoptionObserved)
-    problems.push("canonical_adoption_not_observed");
   if (
     input.dockerRecovery.status !== "completed" ||
     input.dockerRecovery.reason !== "docker_task_runtime_state_clean" ||
@@ -406,14 +461,14 @@ export function buildProjectRuntimeRealProviderReport(
 
   const completed = problems.length === 0;
   const cleanupConfirmed =
-    input.normal.joined &&
+    input.normalRuns.every((run) => run.observation.joined) &&
     input.cancellation.joined &&
     input.dockerRecovery.status === "completed" &&
     input.dockerRecovery.reason === "docker_task_runtime_state_clean" &&
     input.dockerRecovery.manualRecoveryRequired === false;
   return Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 6,
+    contractRevision: 7,
     status: completed ? "completed" : "blocked",
     reason: completed
       ? "project_runtime_public_mcp_real_providers_and_cancellation_verified"
@@ -421,32 +476,53 @@ export function buildProjectRuntimeRealProviderReport(
     problems: Object.freeze(problems),
     cleanupConfirmed,
     manualRecoveryRequired: !cleanupConfirmed,
-    processRestartRequired: !input.normal.joined || !input.cancellation.joined,
+    processRestartRequired:
+      input.normalRuns.some((run) => !run.observation.joined) ||
+      !input.cancellation.joined,
     effectState: completed ? "settled" : "unknown",
     runId: input.runId,
     sourceIdentity: input.sourceIdentity,
     distributionIdentity: input.distributionIdentity,
     providers: Object.freeze(
-      input.normalExpected.map((value) => value.executorProvider),
+      input.normalRuns.map((run) => {
+        const event = run.observation.processStartEvents.find(
+          (candidate) => candidate.taskRole === "executor",
+        );
+        return event?.provider ?? null;
+      }),
     ),
     publicMcpProcess: Object.freeze({
       actualChildProcess:
-        input.normal.pidIssued &&
-        input.normal.joined &&
+        input.normalRuns.every(
+          (run) => run.observation.pidIssued && run.observation.joined,
+        ) &&
         input.cancellation.pidIssued &&
         input.cancellation.joined,
       transport: "stdio",
       completedObjectiveCount: normalResults.filter(
         (value) => value?.status === "completed",
       ).length,
-      childJoined: input.normal.joined,
-      inputEofIssued: input.normal.inputEofIssued,
-      selectionEvents: input.normal.selectionEvents,
+      runs: Object.freeze(
+        input.normalRuns.map((run, index) =>
+          Object.freeze({
+            responseId: run.expected.responseId,
+            childJoined: run.observation.joined,
+            inputEofIssued: run.observation.inputEofIssued,
+            selectionEvents: run.observation.selectionEvents,
+            processStartEvents: run.observation.processStartEvents,
+            changedPaths: Object.freeze(
+              changedSnapshotPaths(run.snapshotBefore, run.snapshotAfter),
+            ),
+            expectedCanonicalStateObserved: run.expectedCanonicalStateObserved,
+            semanticStatus: normalResults[index]?.status ?? null,
+          }),
+        ),
+      ),
     }),
     cancellation: Object.freeze({
-      providerSelectionObservedBeforeCancellation:
-        input.cancellationRequestedAfterSelection &&
-        input.cancellation.selectionEventObserved,
+      providerProcessStartObservedBeforeCancellation:
+        input.cancellationRequestedAfterProcessStart &&
+        input.cancellation.processStartEventObserved,
       parentEofIssued: input.cancellation.inputEofIssued,
       semanticStatus: cancellationResult?.status ?? null,
       cleanupConfirmed: cancellationResult?.cleanupConfirmed ?? null,
@@ -469,11 +545,19 @@ export function buildProjectRuntimeRealProviderReport(
         input.dockerRecovery.manualRecoveryRequired ?? null,
       recoverySettlementExercised: false,
     }),
-    canonicalAdoptionObserved: input.canonicalAdoptionObserved,
     canonicalRepositoryObservation: Object.freeze({
-      normalChangedPaths: Object.freeze(normalChangedPaths),
+      normalRuns: Object.freeze(
+        input.normalRuns.map((run) =>
+          Object.freeze({
+            changedPaths: Object.freeze(
+              changedSnapshotPaths(run.snapshotBefore, run.snapshotAfter),
+            ),
+            expectedChangedPaths: run.expectedChangedPaths,
+          }),
+        ),
+      ),
       excludedDirectoryNames:
-        input.normalSnapshotBefore.excludedDirectoryNames ?? null,
+        input.normalRuns[0]?.snapshotBefore.excludedDirectoryNames ?? null,
     }),
     releaseAuthorityConferred: false,
     rawProviderOutputReported: false,

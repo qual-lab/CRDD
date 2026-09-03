@@ -189,32 +189,50 @@ async function main() {
     objective(common, runId, "claude", true),
   ]);
 
-  const normalSnapshotBefore =
-    captureCanonicalRepositorySnapshot(repositoryRoot);
-  const normalChild = startPublicMcpProcess(distributionRoot, repositoryRoot);
-  let normalInputClosed = false;
-  const normalObservation = observePublicMcpProcess(normalChild, {
-    maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
-    timeoutMs: PROCESS_TIMEOUT_MS,
-    closeInputWhen: ({ stdout }) => {
-      const shouldClose =
-        !normalInputClosed &&
-        stdout.split(/\r?\n/u).filter(Boolean).length >= objectives.length;
-      if (shouldClose) normalInputClosed = true;
-      return shouldClose;
-    },
-  });
-  normalChild.stdin.write(
-    objectives
-      .map((request, index) => mcpEnvelope(`objective-${index + 1}`, request))
-      .join(""),
-  );
-  const normal = await normalObservation;
-  const canonicalAdoptionObserved =
-    fs.readFileSync(path.join(repositoryRoot, ...MARKER.split("/")), "utf8") ===
-    FINAL;
-  const normalSnapshotAfter =
-    captureCanonicalRepositorySnapshot(repositoryRoot);
+  const normalRuns = [];
+  for (const [index, request] of objectives.entries()) {
+    const snapshotBefore = captureCanonicalRepositorySnapshot(repositoryRoot);
+    const child = startPublicMcpProcess(distributionRoot, repositoryRoot);
+    let inputClosed = false;
+    const observationPromise = observePublicMcpProcess(child, {
+      maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
+      timeoutMs: PROCESS_TIMEOUT_MS,
+      closeInputWhen: ({ stdout }) => {
+        const shouldClose =
+          !inputClosed && stdout.split(/\r?\n/u).filter(Boolean).length >= 1;
+        if (shouldClose) inputClosed = true;
+        return shouldClose;
+      },
+    });
+    child.stdin.write(mcpEnvelope(`objective-${index + 1}`, request));
+    const observation = await observationPromise;
+    const snapshotAfter = captureCanonicalRepositorySnapshot(repositoryRoot);
+    const expectedContent = request.adoptResult ? FINAL : BASE;
+    normalRuns.push(
+      Object.freeze({
+        observation,
+        expected: Object.freeze({
+          responseId: `objective-${index + 1}`,
+          requestId: request.requestId,
+          projectId: request.projectId,
+          milestoneId: request.milestoneId,
+          executorProvider: request.requestedExecutorProvider,
+          reviewerProvider:
+            request.requestedExecutorProvider === "codex" ? "claude" : "codex",
+        }),
+        snapshotBefore,
+        snapshotAfter,
+        expectedChangedPaths: Object.freeze(
+          request.adoptResult ? [MARKER] : [],
+        ),
+        expectedCanonicalStateObserved:
+          fs.readFileSync(
+            path.join(repositoryRoot, ...MARKER.split("/")),
+            "utf8",
+          ) === expectedContent,
+      }),
+    );
+  }
 
   const cancellationRequest = Object.freeze({
     ...common,
@@ -238,7 +256,7 @@ async function main() {
     distributionRoot,
     repositoryRoot,
   );
-  let cancellationRequested = false;
+  let cancellationRequestedAfterProcessStart = false;
   const cancellationSnapshotBefore =
     captureCanonicalRepositorySnapshot(repositoryRoot);
   const cancellationObservation = observePublicMcpProcess(cancellationChild, {
@@ -246,11 +264,9 @@ async function main() {
     timeoutMs: PROCESS_TIMEOUT_MS,
     closeInputWhen: ({ stderr }) => {
       const shouldClose =
-        !cancellationRequested &&
-        stderr.includes(
-          '"event":"coordinator_selection_before_provider_effect"',
-        );
-      if (shouldClose) cancellationRequested = true;
+        !cancellationRequestedAfterProcessStart &&
+        stderr.includes('"event":"coordinator_provider_process_started"');
+      if (shouldClose) cancellationRequestedAfterProcessStart = true;
       return shouldClose;
     },
   });
@@ -269,27 +285,9 @@ async function main() {
       tree: repository.tree,
     }),
     distributionIdentity,
-    normal,
+    normalRuns: Object.freeze(normalRuns),
     cancellation: cancelled,
-    cancellationRequestedAfterSelection: cancellationRequested,
-    normalExpected: Object.freeze([
-      Object.freeze({
-        responseId: "objective-1",
-        requestId: objectives[0].requestId,
-        projectId: objectives[0].projectId,
-        milestoneId: objectives[0].milestoneId,
-        executorProvider: "codex" as const,
-        reviewerProvider: "claude" as const,
-      }),
-      Object.freeze({
-        responseId: "objective-2",
-        requestId: objectives[1].requestId,
-        projectId: objectives[1].projectId,
-        milestoneId: objectives[1].milestoneId,
-        executorProvider: "claude" as const,
-        reviewerProvider: "codex" as const,
-      }),
-    ]),
+    cancellationRequestedAfterProcessStart,
     cancellationExpected: Object.freeze({
       responseId: "objective-cancellation",
       requestId: cancellationRequest.requestId,
@@ -297,12 +295,8 @@ async function main() {
       milestoneId: cancellationRequest.milestoneId,
       executorProvider: "claude" as const,
     }),
-    canonicalAdoptionObserved,
-    normalSnapshotBefore,
-    normalSnapshotAfter,
     cancellationSnapshotBefore,
     cancellationSnapshotAfter,
-    expectedChangedPath: MARKER,
     dockerRecovery,
   });
   const reportDirectory = path.join(
@@ -334,7 +328,7 @@ try {
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 5,
+    contractRevision: 7,
     status: "blocked",
     reason: "project_runtime_public_mcp_verification_incomplete",
     problems: Object.freeze(["verification_exception"]),

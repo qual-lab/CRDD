@@ -63,9 +63,16 @@ process.stdin.on("data", (chunk) => {
     process.stderr.write(
       `${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex" })}\n`,
     );
+    process.stderr.write(
+      `${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex" })}\n`,
+    );
     if (mode !== "cancelled")
       process.stderr.write(
         `${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "reviewer", provider: "claude" })}\n`,
+      );
+    if (mode !== "cancelled")
+      process.stderr.write(
+        `${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "reviewer", provider: "claude" })}\n`,
       );
     process.stdout.write(
       `${JSON.stringify({
@@ -74,7 +81,10 @@ process.stdin.on("data", (chunk) => {
         result: {
           structuredContent: {
             status: mode === "cancelled" ? "cancelled" : "completed",
-            reason: "project_runtime_milestone_accepted",
+            reason:
+              mode === "cancelled"
+                ? "project_runtime_operation_cancelled"
+                : "project_runtime_milestone_accepted",
             contract: "crdd-coordinator/project-runtime-objective-intake/v1",
             requestId: "request-a",
             projectId: "project-a",
