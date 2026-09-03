@@ -40,6 +40,8 @@
 
 [E2E観測契約の署名前検証](2026-09-04_Project_Runtime_E2E_Observation_Closure_Pre_Sign_Verification.md)は、記録時点の固定改訂版と、そこで成立していたRuntime Event、回復Identity相関および診断streamの検証結果として保持する。ただし、同記録のProcess終了観測が独立再監査へ渡せる候補として成立したという現在状態は、その後のMajorによって否定された。本記録がProcess終了観測の現在Evidenceを置き換え、旧記録を当該Majorの解消根拠へ流用しない。
 
+その後の独立再監査は、端末streamの`destroyed`と`closed`の状態母集団、および公開結果を構成する全利用側への適用漏れをMajorとして検出した。このため、本記録も当時の固定改訂版に対する履歴として保持し、現在のProcess・端末資源観測の根拠は[端末資源観測の署名前検証](2026-09-04_Project_Runtime_Terminal_Observation_Closure_Pre_Sign_Verification.md)が置き換える。
+
 ## 5. 次のGate
 
 本記録を含む新しい固定CommitへRepository全体Checkerを一度再実行し、再合意した状態機械、絶対期限、error sink、helper不成立形、変更禁止範囲および全数対応を独立再監査する。Critical 0件かつMajor 0件を確認した後だけ、Runtime実行Identityの署名と署名済み最終E2Eへ進む。新しい非文書Findingを検出した場合は局所修正せず、契約母集団と利用側母集団を再確認して修正方針を固定し直す。
