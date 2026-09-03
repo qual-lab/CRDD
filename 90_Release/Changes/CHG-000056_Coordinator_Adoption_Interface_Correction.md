@@ -1,10 +1,10 @@
 # 変更トレース: Coordinator採用入口の本質是正
 
 変更ID: `CHG-000056`
-- 状態: `In Progress`
+- 状態: `Released (v0.18.1)`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-09-01
-- 最終更新日: 2026-09-02
+- 最終更新日: 2026-09-03
 - 対象: Coordinator Runtimeの新規採用入口、公開CLI、配布Identity、Platform Access、仕様・設計・試験・利用案内
 - 対象version: `v0.18.1`
 - 変更分類: `corrective breaking`（v0.18.0で公開したが実用結果へ接続しない入口を削除する）
