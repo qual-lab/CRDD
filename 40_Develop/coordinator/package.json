@@ -40,7 +40,7 @@
     "project-runtime-design-traceability:check": "node ./scripts/check-project-runtime-design-traceability.ts",
     "repository-operation-runtime:coverage": "node --experimental-test-coverage --test ./tests/repository-operation-runtime.contract.test.ts ./tests/docker-process-controller.contract.test.ts",
     "runtime-traceability:check": "node ./scripts/check-runtime-traceability.ts",
-    "test": "node --test --test-concurrency=1 ./tests/*.test.ts",
+    "test": "npm run test:windows-process && npm run test:restricted-process",
     "test:restricted-process": "node --test --test-concurrency=1 \"--test-skip-pattern=^Windows Process Gate:\" ./tests/*.test.ts",
     "test:windows-process": "node --test --test-concurrency=1 \"--test-name-pattern=^Windows Process Gate:\" ./tests/coordinator-task-process.integration.test.ts ./tests/docker-owned-process.integration.test.ts ./tests/docker-process-controller.contract.test.ts",
     "typecheck": "tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"
