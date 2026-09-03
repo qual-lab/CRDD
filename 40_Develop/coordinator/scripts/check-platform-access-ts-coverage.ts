@@ -95,15 +95,15 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "実Release stagingまたはFilesystem API変更時",
     ),
     "40_Develop/coordinator/scripts/release-manifest-promotion.ts": obligation(
-      "全descriptor failureと同一ユーザーによる全置換timingを同一runで到達していない",
-      "署名済みManifestのbyte変化、部分file残存または別file誤削除",
-      "末尾改行なしのbyte一致、既存先・偽造token・source差替え拒否、書込み中改変とexact所有file回収試験",
+      "全Filesystem API failureと同一ユーザーによる全置換timingを同一runで到達していない",
+      "署名済みManifestのbyte変化、部分file公開または別file誤採用",
+      "末尾改行なしのbyte一致、既存先・偽造token・source差替え拒否、atomic link／source unlink後の再入場および別Identity拒否試験",
       "Manifest昇格、Filesystem APIまたはcleanup契約変更時",
     ),
     "40_Develop/coordinator/scripts/promote-release-manifest.ts": obligation(
       "本番固定鍵で署名した実stagingの成功入口を試験用Trustへ開放していない",
       "署名・Tree・Native・HEADの結合漏れまたは昇格後検証の見落とし",
-      "production sourceの固定検証呼出し、昇格Core契約試験およびRelease Candidateでの実昇格",
+      "production固定検証、同じ合成順序を実行する開発契約試験、昇格Coreの中断再入場試験およびRelease Candidateでの実昇格",
       "Release handoff、Manifest SchemaまたはSource A/B契約変更時",
     ),
     "40_Develop/coordinator/scripts/sign-release-manifest.ts": obligation(
