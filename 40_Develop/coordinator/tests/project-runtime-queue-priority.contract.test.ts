@@ -298,5 +298,6 @@ test("separate processes cannot both own one Repository Binding operation", asyn
       "project_runtime_lease_unavailable",
       "project_runtime_lease_acquisition_rolled_back",
     ].includes(outcomes.find((result) => result.status === "blocked")?.reason),
+    JSON.stringify(outcomes),
   );
 });

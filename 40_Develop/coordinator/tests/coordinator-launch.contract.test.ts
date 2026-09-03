@@ -82,14 +82,18 @@ test("用途ごとの入力と端末条件を区別し、内部Recovery引数を
     "blocked",
   );
   assert.equal(
-    resolveCoordinatorLaunch(
-      ["promote-release", "--distribution-root", "C:\\fixed-staging"],
-      { ...terminal, stdinIsTty: false, stdoutIsTty: false },
-    ).status,
+    resolveCoordinatorLaunch(["promote-release"], {
+      ...terminal,
+      stdinIsTty: false,
+      stdoutIsTty: false,
+    }).status,
     "ready",
   );
   assert.equal(
-    resolveCoordinatorLaunch(["promote-release"], terminal).status,
+    resolveCoordinatorLaunch(
+      ["promote-release", "--distribution-root", "C:\\fixed-staging"],
+      terminal,
+    ).status,
     "blocked",
   );
   for (const mode of ["verify-routes", "verify-recovery"]) {

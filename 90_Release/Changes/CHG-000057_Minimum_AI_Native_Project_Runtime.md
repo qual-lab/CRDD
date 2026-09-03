@@ -166,6 +166,8 @@ Project全体E2Eへ進む直前の固定候補監査では、Docker完了Receipt
 
 [Source A署名前監査](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Source_A_Pre_Sign_Audit.md)では、初回固定改訂版でRelease closure契約の不一致と、実行環境の意味・是正影響の公開伝播不足をMajor 2件として検出した。Source A、Manifest-only B、許可済み文書だけのFinal Candidate C、PR、main、tagを一つの閉じた経路へ統一し、B→Cを事前宣言したexact Pathへ限定した。英日CHANGELOGとRoadmapにも一般化した意味を伝播した。是正後固定改訂版`1f3f49b`の限定再確認はCritical／Major／Minor 0件でPassした。これはSource Aの署名適格性であり、署名後最終E2Eは未完了である。
 
+後続の全体試験では、Repository Binding単位Leaseの別Process競合が、正常な同時取得中に見える一時fileを回復残存と誤認し、不要な手動回復を要求する非決定的失敗を検出した。単独成功を根拠に除外せず反復再現し、取得中Markerを一時fileとrenameで公開する方式から、最終Pathへの排他的作成、write、flush、close、exact readbackへ変更した。同じPathを先に作成した競合は取得不可としてEffect 0で停止し、Process消失後に残る不完全Markerは次のfresh取得が回復義務として識別する。既存の旧一時file回復契約は維持する。別Process競合の反復試験20回と関連する耐久状態・Queue試験31件で、同時所有0、不要な手動回復0および既存回復境界を確認した。これは署名前の追加候補であり、固定改訂版の独立確認前に解消済みへ昇格しない。
+
 ## 9. 設計確定からリリース判断までの実行計画
 
 次の段階は依存順で進める。内部Taskへ分割できるが、後段の成功を前段の完了根拠へ流用しない。各段階の実装開始前に、対象Interface、保持する意図、変更禁止範囲、正常・準正常・異常、受入条件および検証方法をTask Packetへ固定する。

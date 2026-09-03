@@ -39,10 +39,7 @@ export function resolveCoordinatorLaunch(
     forwardedArgs.some((arg) => arg.includes("\0")) ||
     ((mode === "verify-routes" || mode === "verify-recovery") &&
       forwardedArgs.length !== 0) ||
-    (mode === "promote-release" &&
-      (forwardedArgs.length !== 2 ||
-        forwardedArgs[0] !== "--distribution-root" ||
-        forwardedArgs[1]?.length === 0)) ||
+    (mode === "promote-release" && forwardedArgs.length !== 0) ||
     (mode === "automation" && !forwardedArgs.includes("--json")) ||
     (mode === "task" &&
       (!suppliedArgs.includes("--request-stdin") ||

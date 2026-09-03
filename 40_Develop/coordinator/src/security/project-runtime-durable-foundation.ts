@@ -652,30 +652,22 @@ function createLeaseAcquisitionMarker(
   value: LeaseAcquisitionMarker,
 ) {
   const marker = path.join(directory, `${identity}.acquire-pending`);
-  const temporary = path.join(
-    directory,
-    `${leaseAcquisitionTemporaryPrefix(identity)}${randomUUID()}.tmp`,
-  );
   const bytes = `${JSON.stringify(value)}\n`;
   let descriptor: number | null = null;
   try {
     descriptor = fs.openSync(
-      temporary,
+      marker,
       fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
       0o600,
     );
-    fs.writeFileSync(descriptor, `${JSON.stringify(value)}\n`, "utf8");
+    fs.writeFileSync(descriptor, bytes, "utf8");
     fs.fsyncSync(descriptor);
     fs.closeSync(descriptor);
     descriptor = null;
-    fs.renameSync(temporary, marker);
     if (fs.readFileSync(marker, "utf8") !== bytes)
       throw new Error("project_runtime_lease_acquisition_marker_mismatch");
   } catch (error) {
     if (descriptor !== null) fs.closeSync(descriptor);
-    try {
-      fs.rmSync(temporary, { force: true });
-    } catch {}
     throw error;
   }
   const observed = readLeaseAcquisitionMarker(marker);
@@ -1795,6 +1787,8 @@ export function acquireProjectRuntimeLease(
       lockOwnershipMarkerOwned = true;
     } catch (error) {
       if (!acquisitionMarkerOwned) {
+        if (errorCode(error) === "EEXIST")
+          return blocked("project_runtime_lease_unavailable");
         try {
           if (fs.existsSync(acquisitionMarker)) {
             const competing = readLeaseAcquisitionMarker(acquisitionMarker);

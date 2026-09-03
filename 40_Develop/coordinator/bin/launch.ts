@@ -15,7 +15,7 @@ if (args.length === 1 && args[0] === "--help") {
       "verify-routes : 署名済み4経路E2E。出力は端末へ直接表示",
       "verify-recovery : 署名済み復旧E2E。端末不要",
       "sign-release <署名引数> : 配布担当用。端末で秘密入力",
-      "promote-release --distribution-root <署名済みstaging> : 署名Manifestをbyte-for-byteでSource Aへ昇格",
+      "promote-release : この署名済みstaging自身のManifestをbyte-for-byteで作業Repositoryへ昇格",
       "同じ配布物の既存入口へ接続します。起動用途の選択は実行許可や署名検証を代替しません。",
       "通常Taskは必要な実行条件をOperationごとに検証します。",
       "入出力・環境・作業Directoryは変更しません。秘密入力の記録や自動入力は行いません。",

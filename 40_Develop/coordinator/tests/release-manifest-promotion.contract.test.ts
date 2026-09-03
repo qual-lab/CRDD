@@ -16,6 +16,7 @@ import {
 import {
   executeReleaseManifestPromotionCompositionForVerification,
   promoteVerifiedReleaseManifest,
+  resolveReleaseManifestPromotionTopologyForVerification,
 } from "../scripts/promote-release-manifest.ts";
 
 const manifestRelativePath = path.join(
@@ -502,6 +503,66 @@ test("production昇格入口はGit CLIやtext再serializeを使わず固定検�
     "promoteReleaseManifestBytes",
     "verifyPromotedReleaseManifestBytes",
     "executeReleaseManifestPromotionCompositionForVerification",
+    "executionDistributionRoot",
+    "process.cwd()",
   ])
     assert.equal(source.includes(required), true, required);
+  assert.doesNotMatch(source, /--distribution-root/u);
+});
+
+test("昇格入口は配置先Repository直下の署名候補自身だけを実行元にする", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-topology-"));
+  const destinationRoot = path.join(parent, "repository");
+  const stagingRoot = path.join(destinationRoot, ".crdd", "release-staging");
+  const candidateRoot = path.join(stagingRoot, "candidate-01");
+  const siblingRoot = path.join(parent, "candidate-01");
+  try {
+    fs.mkdirSync(candidateRoot, { recursive: true });
+    fs.mkdirSync(siblingRoot);
+    fs.mkdirSync(
+      path.join(destinationRoot, "node_modules", "ignored-package"),
+      {
+        recursive: true,
+      },
+    );
+    fs.writeFileSync(
+      path.join(destinationRoot, "node_modules", "ignored-package", "index.js"),
+      "ignored",
+    );
+    assert.deepEqual(
+      resolveReleaseManifestPromotionTopologyForVerification(
+        candidateRoot,
+        destinationRoot,
+      ),
+      {
+        distributionRoot: candidateRoot,
+        destinationRepositoryRoot: destinationRoot,
+      },
+    );
+    assert.throws(
+      () =>
+        resolveReleaseManifestPromotionTopologyForVerification(
+          siblingRoot,
+          destinationRoot,
+        ),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+    assert.throws(
+      () =>
+        resolveReleaseManifestPromotionTopologyForVerification(
+          candidateRoot,
+          path.join(destinationRoot, "node_modules"),
+        ),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("作業Checkout内の未署名Launcherからは昇格を開始しない", () => {
+  assert.throws(
+    () => promoteVerifiedReleaseManifest(),
+    /release_manifest_promotion_execution_source_invalid/u,
+  );
 });

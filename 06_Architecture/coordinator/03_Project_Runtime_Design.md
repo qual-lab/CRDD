@@ -179,7 +179,7 @@ Effect順序は次で固定する。
 
 1. Request／Binding／Authorityを検証する。
 2. `REC-QUEUE-ENTRY`を耐久化する。
-3. Queue選択後、Lease種別、元Queue、owner generation・Process・回復IDを結んだ取得中Markerを同一Filesystemの一時file、flush、atomic rename、exact readbackで先に耐久化する。その後に物理Lockを作り、Lock作成に成功した同じownerであることを示すMarkerと取得証跡を順に耐久化する。Queue ownerへ結合する前に停止しても、Project Operationと正本採用の両Leaseを共通回復プロトコルで識別する。Project Operationでは回復結果をQueueの新世代へ書いてreadbackするまで取得中Markerを保持し、最後に除去する。正本採用の回復IDはQueueではなくRepository BindingとProjectへ結ぶ。Lock所有Markerがない既存Lock、不完全な一時file、不正MarkerまたはIdentity不一致は自動削除せず、決定論的な回復IDを伴う手動回復へ閉じる。
+3. Queue選択後、Lease種別、元Queue、owner generation・Process・回復IDを結んだ取得中Markerを最終Pathへ排他的に作成し、write、flush、close、exact readbackで先に耐久化する。別Processが同じ最終Pathを先に作成した競合は、相手の書込み途中を破損や手動回復と推定せず、取得不可として停止する。Process消失で残った不完全Markerは次のfreshな取得時に通常競合と区別し、回復義務を保持する。その後に物理Lockを作り、Lock作成に成功した同じownerであることを示すMarkerと取得証跡を順に耐久化する。Queue ownerへ結合する前に停止しても、Project Operationと正本採用の両Leaseを共通回復プロトコルで識別する。Project Operationでは回復結果をQueueの新世代へ書いてreadbackするまで取得中Markerを保持し、最後に除去する。正本採用の回復IDはQueueではなくRepository BindingとProjectへ結ぶ。Lock所有Markerがない既存Lock、旧実装が残した不完全な一時file、不正MarkerまたはIdentity不一致は自動削除せず、決定論的な回復IDを伴う手動回復へ閉じる。
 4. Graph、Conflict、容量を検証し、`REC-TASK-ATTEMPT`と`starting / reserved`を同じ状態世代へ耐久化する。この時点ではOperation IDを持たず、外部Effectは0である。
 5. State Lockを解放し、開始直前にRevision、owner generation、Task Authorityと取消状態を再確認する。委譲対象のOperation IDを得たら、外部Effect前に`starting / handoff_prepared`として耐久化する。
 6. `IF-SINGLE-TASK`へEffectを委譲し、実際の開始通知を受けた場合だけ`running`へ進める。
@@ -203,7 +203,7 @@ Process喪失後は両Rootを照合する。保護Recordが`prepared`でProject 
 | ID | 注入点 | 期待結果 | 主な検証 |
 |---|---|---|---|
 | `FAIL-QUEUE-WRITE` | Queue一時file／replace／Directory観測 | Task 0、Provider Effect 0、破損を初期化しない | `PR-A-06` |
-| `FAIL-LEASE-ACQUISITION` | 取得中Markerの一時file作成／write／flush／rename／readback、Marker後の物理Lock、Lock所有Marker、取得証跡、解放MarkerまたはQueue owner結合前の失敗／Process喪失 | 全資源のfreshな不存在を確認できた同期失敗だけを巻戻し済みとする。それ以外は決定論的な回復IDを保持する。不完全Marker、所有不明Lockまたは不一致は自動変更せず手動回復へ閉じ、exactなMarker、Lock所有、証跡、解放意図およびowner不存在を照合できる場合だけ共通回復で全Marker・Lock不存在と再取得可能へ収束する | `PR-A-04`、`PR-D-A-01` |
+| `FAIL-LEASE-ACQUISITION` | 取得中Markerの排他的作成／write／flush／close／readback、Marker後の物理Lock、Lock所有Marker、取得証跡、解放MarkerまたはQueue owner結合前の失敗／Process喪失 | 同時取得による最終Pathの排他競合は取得不可として停止する。全資源のfreshな不存在を確認できた同期失敗だけを巻戻し済みとする。それ以外は決定論的な回復IDを保持する。不完全Marker、旧一時file、所有不明Lockまたは不一致は自動変更せず手動回復へ閉じ、exactなMarker、Lock所有、証跡、解放意図およびowner不存在を照合できる場合だけ共通回復で全Marker・Lock不存在と再取得可能へ収束する | `PR-A-04`、`PR-D-A-01` |
 | `FAIL-LEASE-OWNER-LOSS` | Operation lease取得後のParent喪失、Queue／State更新または結果settlementの観測不能 | 新Task開始0。`starting / reserved`はEffect 0で`ready`へ戻す。`starting / handoff_prepared`はOperation相関を完全走査し、exact一致または明示的な不存在を確認できた場合だけRecoveryまたは`ready`へ進める。`running`はexact Recovery Identityとの一致がある場合だけRecoveryへ進め、不存在をEffect 0へ読み替えない。StateとQueueのどちらか一方だけが更新済みでも、後続Processは耐久化された個別義務の段階から未完了側だけを再開する。欠落・重複・不一致では推測せず手動回復へ閉じる | `PR-A-04`、`PR-A-06` |
 | `FAIL-STATE-GENERATION` | 外部処理後の世代差 | 結果混入0、Evidence保持、再計画／判断／Recovery | `PR-A-03` |
 | `FAIL-DUPLICATE-REQUEST` | 同じrequest identityの再送 | Operation二重発行0、現在状態を返す | `PR-Q-03` |

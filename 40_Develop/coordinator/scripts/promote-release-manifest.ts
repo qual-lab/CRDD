@@ -21,29 +21,54 @@ import {
   verifyPromotedReleaseManifestBytes,
 } from "./release-manifest-promotion.ts";
 
-const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
-const releaseStagingRoot = path.join(
-  repositoryRoot,
-  ".crdd",
-  "release-staging",
+const executionDistributionRoot = fileURLToPath(
+  new URL("../../../", import.meta.url),
 );
 const candidateName = /^[a-z0-9][a-z0-9-]{0,127}$/u;
 
-function stableStagingRoot(value: unknown) {
-  if (typeof value !== "string" || !path.isAbsolute(value))
-    throw new Error("release_manifest_promotion_staging_root_invalid");
-  const resolved = path.resolve(value);
-  const parent = fs.realpathSync.native(path.dirname(resolved));
-  const metadata = fs.lstatSync(resolved);
+export function resolveReleaseManifestPromotionTopologyForVerification(
+  distributionRootInput: unknown,
+  destinationRepositoryRootInput: unknown,
+) {
   if (
-    parent !== fs.realpathSync.native(releaseStagingRoot) ||
-    !candidateName.test(path.basename(resolved)) ||
-    !metadata.isDirectory() ||
-    metadata.isSymbolicLink() ||
-    fs.realpathSync.native(resolved) !== resolved
+    typeof distributionRootInput !== "string" ||
+    !path.isAbsolute(distributionRootInput) ||
+    typeof destinationRepositoryRootInput !== "string" ||
+    !path.isAbsolute(destinationRepositoryRootInput)
   )
-    throw new Error("release_manifest_promotion_staging_root_invalid");
-  return resolved;
+    throw new Error("release_manifest_promotion_topology_invalid");
+  const distributionRoot = path.resolve(distributionRootInput);
+  const destinationRepositoryRoot = path.resolve(
+    destinationRepositoryRootInput,
+  );
+  const destinationMetadata = fs.lstatSync(destinationRepositoryRoot);
+  if (
+    !destinationMetadata.isDirectory() ||
+    destinationMetadata.isSymbolicLink() ||
+    fs.realpathSync.native(destinationRepositoryRoot) !==
+      destinationRepositoryRoot
+  )
+    throw new Error("release_manifest_promotion_destination_root_invalid");
+  const releaseStagingRoot = path.join(
+    destinationRepositoryRoot,
+    ".crdd",
+    "release-staging",
+  );
+  try {
+    const parent = fs.realpathSync.native(path.dirname(distributionRoot));
+    const metadata = fs.lstatSync(distributionRoot);
+    if (
+      parent !== fs.realpathSync.native(releaseStagingRoot) ||
+      !candidateName.test(path.basename(distributionRoot)) ||
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      fs.realpathSync.native(distributionRoot) !== distributionRoot
+    )
+      throw new Error("release_manifest_promotion_execution_source_invalid");
+  } catch {
+    throw new Error("release_manifest_promotion_execution_source_invalid");
+  }
+  return Object.freeze({ distributionRoot, destinationRepositoryRoot });
 }
 
 function pathDoesNotExist(target: string) {
@@ -67,11 +92,10 @@ function expectedRelease(distributionRoot: string, evaluationTime: string) {
     distributionRoot,
     ...PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH.split("/"),
   );
-  const manifestRoot = pathDoesNotExist(stagingManifest)
-    ? repositoryRoot
-    : distributionRoot;
+  if (pathDoesNotExist(stagingManifest))
+    throw new Error("release_manifest_promotion_manifest_absent");
   const loaded =
-    loadPlatformProvisionerManifestEnvelopeForVerification(manifestRoot);
+    loadPlatformProvisionerManifestEnvelopeForVerification(distributionRoot);
   const historical = verifyHistoricalPlatformProvisionerManifestCandidate(
     loaded.envelope,
     getPinnedPlatformProvisionerReleaseSignerSpkiDer(),
@@ -93,15 +117,13 @@ function expectedRelease(distributionRoot: string, evaluationTime: string) {
     packageContentRootSha256: payload.packageContentRootSha256,
     runtimeExecutionIdentitySha256: payload.runtimeExecutionIdentitySha256,
   });
-  const nativeRoot =
-    manifestRoot === repositoryRoot ? repositoryRoot : distributionRoot;
   const native = inspectVerifiedNativeDistributionCandidate({
-    distributionRoot: nativeRoot,
+    distributionRoot,
     evaluationTime,
     expectedRelease: expected,
   });
   const tree = inspectPlatformProvisionerReleaseIdentityCandidate(
-    manifestRoot,
+    distributionRoot,
     payload.crddTree,
   );
   if (
@@ -120,14 +142,18 @@ function expectedRelease(distributionRoot: string, evaluationTime: string) {
 function verifySourceA(
   expected: ReturnType<typeof expectedRelease>["expected"],
   expectedManifestFileSha256: string,
+  distributionRoot: string,
+  destinationRepositoryRoot: string,
 ) {
-  const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
+  const repository = inspectRepositoryIdentityCandidate(
+    destinationRepositoryRoot,
+  );
   const tree = inspectPlatformProvisionerReleaseIdentityCandidate(
-    repositoryRoot,
+    distributionRoot,
     expected.crddTree,
   );
   const destination = path.join(
-    repositoryRoot,
+    destinationRepositoryRoot,
     ...PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH.split("/"),
   );
   const destinationAbsent = pathDoesNotExist(destination);
@@ -136,11 +162,12 @@ function verifySourceA(
     repository.commit !== expected.crddCommit ||
     repository.tree !== expected.crddTree ||
     tree.status !== "candidate" ||
-    tree.manifestExcludedFromSignedGitTree !== !destinationAbsent ||
+    tree.manifestExcludedFromSignedGitTree !== true ||
     tree.platformAccessExecutableIncludedInSignedGitTree !== true ||
     (!destinationAbsent &&
-      loadPlatformProvisionerManifestEnvelopeForVerification(repositoryRoot)
-        .manifestFileSha256 !== expectedManifestFileSha256)
+      loadPlatformProvisionerManifestEnvelopeForVerification(
+        destinationRepositoryRoot,
+      ).manifestFileSha256 !== expectedManifestFileSha256)
   )
     throw new Error("release_manifest_promotion_source_a_invalid");
 }
@@ -221,57 +248,71 @@ export function executeReleaseManifestPromotionCompositionForVerification(
   }
 }
 
-const productionComposition: PromotionComposition = Object.freeze({
-  inspectRelease: expectedRelease,
-  verifyRepository(phase, release, _distributionRoot, evaluationTime) {
-    if (phase === "before") {
-      verifySourceA(release.expected, release.manifestFileSha256);
-      return true;
-    }
-    const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
-    const installed = inspectVerifiedNativeDistributionCandidate({
-      distributionRoot: repositoryRoot,
-      evaluationTime,
-      expectedRelease: release.expected,
-    });
-    const tree = inspectPlatformProvisionerReleaseIdentityCandidate(
-      repositoryRoot,
-      release.expected.crddTree,
-    );
-    const loaded =
-      loadPlatformProvisionerManifestEnvelopeForVerification(repositoryRoot);
-    return (
-      repository?.commit === release.expected.crddCommit &&
-      repository.tree === release.expected.crddTree &&
-      installed.status === "candidate" &&
-      tree.status === "candidate" &&
-      tree.manifestExcludedFromSignedGitTree === true &&
-      loaded.manifestFileSha256 === release.manifestFileSha256
-    );
-  },
-});
+function productionComposition(
+  destinationRepositoryRoot: string,
+): PromotionComposition {
+  return Object.freeze({
+    inspectRelease: expectedRelease,
+    verifyRepository(phase, release, distributionRoot, evaluationTime) {
+      if (phase === "before") {
+        verifySourceA(
+          release.expected,
+          release.manifestFileSha256,
+          distributionRoot,
+          destinationRepositoryRoot,
+        );
+        return true;
+      }
+      const repository = inspectRepositoryIdentityCandidate(
+        destinationRepositoryRoot,
+      );
+      const installed = inspectVerifiedNativeDistributionCandidate({
+        distributionRoot,
+        evaluationTime,
+        expectedRelease: release.expected,
+      });
+      const tree = inspectPlatformProvisionerReleaseIdentityCandidate(
+        distributionRoot,
+        release.expected.crddTree,
+      );
+      const loaded = loadPlatformProvisionerManifestEnvelopeForVerification(
+        destinationRepositoryRoot,
+      );
+      return (
+        repository?.commit === release.expected.crddCommit &&
+        repository.tree === release.expected.crddTree &&
+        installed.status === "candidate" &&
+        tree.status === "candidate" &&
+        tree.manifestExcludedFromSignedGitTree === true &&
+        loaded.manifestFileSha256 === release.manifestFileSha256
+      );
+    },
+  });
+}
 
-export function promoteVerifiedReleaseManifest(distributionRootInput: unknown) {
+export function promoteVerifiedReleaseManifest() {
   const evaluationTime = new Date().toISOString();
-  const distributionRoot = stableStagingRoot(distributionRootInput);
+  const { distributionRoot, destinationRepositoryRoot } =
+    resolveReleaseManifestPromotionTopologyForVerification(
+      executionDistributionRoot,
+      process.cwd(),
+    );
   return executeReleaseManifestPromotionCompositionForVerification(
     distributionRoot,
-    repositoryRoot,
+    destinationRepositoryRoot,
     evaluationTime,
-    productionComposition,
+    productionComposition(destinationRepositoryRoot),
   );
 }
 
 function parseArguments(args: readonly string[]) {
-  if (args.length !== 2 || args[0] !== "--distribution-root" || !args[1])
+  if (args.length !== 0)
     throw new Error("release_manifest_promotion_arguments_invalid");
-  return args[1];
 }
 
 async function main() {
-  const result = promoteVerifiedReleaseManifest(
-    parseArguments(process.argv.slice(2)),
-  );
+  parseArguments(process.argv.slice(2));
+  const result = promoteVerifiedReleaseManifest();
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
