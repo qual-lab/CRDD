@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { Writable } from "node:stream";
 import test from "node:test";
 
 import {
@@ -10,7 +11,10 @@ import {
   MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
 } from "../src/security/mcp-project-runtime-adapter.ts";
-import { createDevelopmentProjectRuntimePublicObjectiveCandidate } from "../src/security/project-runtime-public-runtime.ts";
+import {
+  createDevelopmentProjectRuntimePublicObjectiveCandidate,
+  createProjectRuntimeRecoveryDiagnosticReporter,
+} from "../src/security/project-runtime-public-runtime.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../src/security/project-runtime-windows-decision-store.ts";
 
 test("development composition uses the explicitly supplied candidate integration boundary", async (t) => {
@@ -237,4 +241,112 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(replay.reason, "project_runtime_objective_already_accepted");
   assert.equal(taskStarts, 1);
   assert.equal(integrationAdapterCalls, 1);
+});
+
+class ControlledDiagnosticStream extends Writable {
+  readonly writes: string[] = [];
+  readonly callbacks: ((error?: Error | null) => void)[] = [];
+  entries = 0;
+
+  override _write(
+    chunk: Buffer,
+    _encoding: BufferEncoding,
+    callback: (error?: Error | null) => void,
+  ) {
+    this.entries += 1;
+    this.writes.push(chunk.toString("utf8"));
+    this.callbacks.push(callback);
+  }
+}
+
+test("回復診断を直列化しcallback成功だけを成功として扱う", async () => {
+  const stream = new ControlledDiagnosticStream({ highWaterMark: 1 });
+  const reporter = createProjectRuntimeRecoveryDiagnosticReporter(stream, 200);
+  const first = reporter.report({ phase: "required" });
+  const second = reporter.report({ phase: "recovering" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(stream.entries, 1);
+  assert.match(stream.writes[0] ?? "", /"phase":"required"/u);
+  stream.callbacks[0]?.(null);
+  assert.equal(await first, "success");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(stream.entries, 2);
+  stream.callbacks[1]?.(null);
+  assert.equal(await second, "success");
+  reporter.dispose();
+});
+
+test("回復診断の各終端を区別し失敗後の書込みを停止する", async (t) => {
+  const cases = [
+    {
+      expected: "callback_error",
+      settle: (stream: ControlledDiagnosticStream) =>
+        stream.callbacks[0]?.(new Error("callback_failure")),
+    },
+    {
+      expected: "stream_error",
+      settle: (stream: ControlledDiagnosticStream) =>
+        stream.emit("error", new Error("stream_failure")),
+    },
+    {
+      expected: "stream_close",
+      settle: (stream: ControlledDiagnosticStream) => stream.emit("close"),
+    },
+  ] as const;
+  for (const item of cases) {
+    await t.test(item.expected, async () => {
+      const stream = new ControlledDiagnosticStream();
+      const baselineErrorListeners = stream.listenerCount("error");
+      const baselineCloseListeners = stream.listenerCount("close");
+      const reporter = createProjectRuntimeRecoveryDiagnosticReporter(
+        stream,
+        200,
+      );
+      const result = reporter.report({ phase: "required" });
+      await new Promise((resolve) => setImmediate(resolve));
+      item.settle(stream);
+      assert.equal(await result, item.expected);
+      assert.equal(
+        await reporter.report({ phase: "recovering" }),
+        "unavailable",
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+      reporter.dispose();
+      assert.equal(stream.listenerCount("error"), baselineErrorListeners);
+      assert.equal(stream.listenerCount("close"), baselineCloseListeners);
+    });
+  }
+});
+
+test("回復診断timeout後の遅延callbackとerrorを二重完了にしない", async () => {
+  const stream = new ControlledDiagnosticStream();
+  const reporter = createProjectRuntimeRecoveryDiagnosticReporter(stream, 10);
+  const result = reporter.report({ phase: "required" });
+  assert.equal(await result, "timeout");
+  stream.callbacks[0]?.(null);
+  stream.emit("error", new Error("late_stream_failure"));
+  assert.equal(await reporter.report({ phase: "recovering" }), "unavailable");
+  reporter.dispose();
+});
+
+test("回復診断の同期throwと明示disposeを閉じた結果へ変換する", async () => {
+  class ThrowingDiagnosticStream extends Writable {
+    override write(): boolean {
+      throw new Error("write_failure");
+    }
+  }
+  const throwing = new ThrowingDiagnosticStream();
+  const throwingReporter = createProjectRuntimeRecoveryDiagnosticReporter(
+    throwing,
+    200,
+  );
+  assert.equal(await throwingReporter.report({ phase: "required" }), "throw");
+  throwingReporter.dispose();
+
+  const pending = new ControlledDiagnosticStream();
+  const reporter = createProjectRuntimeRecoveryDiagnosticReporter(pending, 200);
+  const result = reporter.report({ phase: "required" });
+  await new Promise((resolve) => setImmediate(resolve));
+  reporter.dispose();
+  assert.equal(await result, "unavailable");
 });

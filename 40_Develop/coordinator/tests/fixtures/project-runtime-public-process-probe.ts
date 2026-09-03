@@ -1,4 +1,26 @@
 const mode = process.argv[2] ?? "normal";
+const selectionNotice = (
+  taskRole: "executor" | "reviewer",
+  provider: "codex" | "claude",
+) => ({
+  event: "coordinator_selection_before_provider_effect",
+  taskRole,
+  provider,
+  model: provider === "codex" ? "gpt-5.5" : "opus",
+  effort: taskRole === "executor" ? "low" : "medium",
+  speedMode: "normal",
+  selectionReason: "fixed_test_selection",
+  inputBasis:
+    "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
+  callerDeclaredAttributes: [
+    "workClass",
+    "planState",
+    "risk",
+    "difficulty",
+    "decisionImpact",
+  ],
+  highCostSelectionAllowed: false,
+});
 const projection = (cancelled: boolean) => ({
   projectId: "project-a",
   milestoneId: "milestone-a",
@@ -60,15 +82,59 @@ process.stdin.on("data", (chunk) => {
   else {
     const request = JSON.parse(received.split(/\r?\n/u)[0] ?? "");
     const id = mode === "wrong-id" ? "wrong" : request.id;
+    const cancelled = mode === "cancelled";
+    const responseLine = `${JSON.stringify({
+      jsonrpc: "2.0",
+      id,
+      result: {
+        structuredContent: {
+          status: cancelled ? "cancelled" : "completed",
+          reason: cancelled
+            ? "project_runtime_operation_cancelled"
+            : "project_runtime_milestone_accepted",
+          contract: "crdd-coordinator/project-runtime-objective-intake/v1",
+          requestId: "request-a",
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          queueId: "queue-a",
+          projection: projection(cancelled),
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+          recoveryIds: [],
+          recoveryObligations: [],
+          effectState: "settled",
+        },
+      },
+    })}\n`;
+    if (mode === "incomplete-known-prefix") {
+      process.stderr.write('[Coordinator lifecycle] {"event":');
+      process.stdout.write(responseLine);
+      return;
+    }
+    if (mode === "chunked-crlf") {
+      const diagnostic = Buffer.from(
+        `[Coordinator selection] ${JSON.stringify(selectionNotice("executor", "codex"))}\r\n[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "codex", operationId: "OP-600001" })}\r\n`,
+        "utf8",
+      );
+      process.stderr.write(diagnostic.subarray(0, 17));
+      setTimeout(() => {
+        process.stderr.write(diagnostic.subarray(17));
+        process.stdout.write(responseLine);
+      }, 5);
+      return;
+    }
     if (mode === "embedded-event")
       process.stderr.write(
         `diagnostic ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "claude", operationId: "OP-UNTRUSTED" })}\n`,
       );
+    if (mode === "malformed-known-prefix")
+      process.stderr.write("[Coordinator lifecycle] {not-json}\n");
     process.stderr.write(
-      `[Coordinator selection] ${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex" })}\n`,
+      `[Coordinator selection] ${JSON.stringify(selectionNotice("executor", mode === "cancelled" || mode === "parent-loss" ? "claude" : "codex"))}\n`,
     );
     process.stderr.write(
-      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: mode === "cancelled" ? "claude" : "codex", operationId: mode === "cancelled" ? "OP-300001" : "OP-100001" })}\n`,
+      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: mode === "cancelled" || mode === "parent-loss" ? "claude" : "codex", operationId: mode === "cancelled" ? "OP-300001" : mode === "parent-loss" ? "OP-400001" : "OP-100001" })}\n`,
     );
     if (mode === "parent-loss") {
       setInterval(() => {}, 1000);
@@ -101,39 +167,13 @@ process.stdin.on("data", (chunk) => {
     }
     if (mode !== "cancelled")
       process.stderr.write(
-        `[Coordinator selection] ${JSON.stringify({ event: "coordinator_selection_before_provider_effect", taskRole: "reviewer", provider: "claude" })}\n`,
+        `[Coordinator selection] ${JSON.stringify(selectionNotice("reviewer", "claude"))}\n`,
       );
     if (mode !== "cancelled")
       process.stderr.write(
         `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "reviewer", provider: "claude", operationId: "OP-100002" })}\n`,
       );
-    process.stdout.write(
-      `${JSON.stringify({
-        jsonrpc: "2.0",
-        id,
-        result: {
-          structuredContent: {
-            status: mode === "cancelled" ? "cancelled" : "completed",
-            reason:
-              mode === "cancelled"
-                ? "project_runtime_operation_cancelled"
-                : "project_runtime_milestone_accepted",
-            contract: "crdd-coordinator/project-runtime-objective-intake/v1",
-            requestId: "request-a",
-            projectId: "project-a",
-            milestoneId: "milestone-a",
-            queueId: "queue-a",
-            projection: projection(mode === "cancelled"),
-            cleanupConfirmed: true,
-            manualRecoveryRequired: false,
-            processRestartRequired: false,
-            recoveryIds: [],
-            recoveryObligations: [],
-            effectState: "settled",
-          },
-        },
-      })}\n`,
-    );
+    process.stdout.write(responseLine);
   }
 });
 process.stdin.on("end", () => {

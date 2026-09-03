@@ -1,13 +1,47 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { StringDecoder } from "node:string_decoder";
 
+import { startOwnedWindowsProcessTreeTermination } from "../src/security/docker-owned-process.ts";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../src/security/mcp-project-runtime-adapter.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
 
 export type JsonRecord = Readonly<Record<string, unknown>>;
+
+type SelectionRuntimeEvent = Readonly<{
+  event: "selection";
+  taskRole: "executor" | "reviewer";
+  provider: "codex" | "claude";
+  operationId: null;
+}>;
+type ProcessStartedRuntimeEvent = Readonly<{
+  event: "process_started";
+  taskRole: "executor" | "reviewer";
+  provider: "codex" | "claude";
+  operationId: string;
+}>;
+export type VerifiedRuntimeEvent =
+  | SelectionRuntimeEvent
+  | ProcessStartedRuntimeEvent;
+type RecoveryEvent = Readonly<{
+  phase:
+    | "required"
+    | "recovering"
+    | "settled"
+    | "acknowledged"
+    | "verification_resources_finalized"
+    | "queue_settled"
+    | "retry_ready";
+  projectId: string;
+  milestoneId: string;
+  queueId: string;
+  taskId: string | null;
+  operationId: string | null;
+  recoveryId: string | null;
+  stateGeneration: number;
+}>;
 
 export type PublicProcessObservation = Readonly<{
   exit: Readonly<{ code: number | null; signal: string | null }> | null;
@@ -20,41 +54,223 @@ export type PublicProcessObservation = Readonly<{
   forcedTerminationIssued: boolean;
   processTreeTerminationAttempted: boolean;
   processTreeTerminationConfirmed: boolean;
+  processTreeTerminationTriggerEvent: ProcessStartedRuntimeEvent | null;
+  inputCloseTriggerEvent: VerifiedRuntimeEvent | null;
   joined: boolean;
+  runtimeEventProtocolViolation: boolean;
   selectionEventObserved: boolean;
-  selectionEvents: readonly Readonly<{ taskRole: string; provider: string }>[];
+  selectionEvents: readonly Readonly<{
+    taskRole: "executor" | "reviewer";
+    provider: "codex" | "claude";
+  }>[];
   processStartEventObserved: boolean;
   processStartEvents: readonly Readonly<{
-    taskRole: string;
-    provider: string;
+    taskRole: "executor" | "reviewer";
+    provider: "codex" | "claude";
     operationId: string;
   }>[];
-  runtimeEvents: readonly Readonly<{
-    event: "selection" | "process_started";
-    taskRole: string;
-    provider: string;
-    operationId: string | null;
-  }>[];
-  recoveryEvents: readonly Readonly<{
-    phase:
-      | "required"
-      | "recovering"
-      | "settled"
-      | "acknowledged"
-      | "verification_resources_finalized"
-      | "queue_settled"
-      | "retry_ready";
-    projectId: string;
-    milestoneId: string;
-    queueId: string;
-    taskId: string | null;
-    operationId: string | null;
-    recoveryId: string | null;
-    stateGeneration: number;
-  }>[];
+  runtimeEvents: readonly VerifiedRuntimeEvent[];
+  recoveryEvents: readonly RecoveryEvent[];
   pidIssued: boolean;
   streamFailure: boolean;
 }>;
+
+const SELECTION_PREFIX = "[Coordinator selection] ";
+const LIFECYCLE_PREFIX = "[Coordinator lifecycle] ";
+const RECOVERY_PREFIX = "[Project Runtime recovery] ";
+const KNOWN_PREFIXES = Object.freeze([
+  SELECTION_PREFIX,
+  LIFECYCLE_PREFIX,
+  RECOVERY_PREFIX,
+]);
+const SELECTION_KEYS = Object.freeze([
+  "callerDeclaredAttributes",
+  "effort",
+  "event",
+  "highCostSelectionAllowed",
+  "inputBasis",
+  "model",
+  "provider",
+  "selectionReason",
+  "speedMode",
+  "taskRole",
+]);
+const LIFECYCLE_KEYS = Object.freeze([
+  "event",
+  "operationId",
+  "provider",
+  "taskRole",
+]);
+const RECOVERY_KEYS = Object.freeze([
+  "event",
+  "milestoneId",
+  "operationId",
+  "phase",
+  "projectId",
+  "queueId",
+  "recoveryId",
+  "stateGeneration",
+  "taskId",
+]);
+const CALLER_DECLARED_ATTRIBUTES = Object.freeze([
+  "workClass",
+  "planState",
+  "risk",
+  "difficulty",
+  "decisionImpact",
+]);
+const RECOVERY_PHASES = new Set<RecoveryEvent["phase"]>([
+  "required",
+  "recovering",
+  "settled",
+  "acknowledged",
+  "verification_resources_finalized",
+  "queue_settled",
+  "retry_ready",
+]);
+
+function exactKeys(record: JsonRecord, keys: readonly string[]) {
+  return (
+    Object.keys(record).length === keys.length &&
+    Object.keys(record)
+      .sort()
+      .every((key, index) => key === keys[index])
+  );
+}
+function closedId(value: unknown, maximum = 512): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maximum &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
+  );
+}
+function role(value: unknown): value is "executor" | "reviewer" {
+  return value === "executor" || value === "reviewer";
+}
+function provider(value: unknown): value is "codex" | "claude" {
+  return value === "codex" || value === "claude";
+}
+function parseJsonRecord(value: string): JsonRecord | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as JsonRecord)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseKnownDiagnosticLine(
+  line: string,
+):
+  | Readonly<{ kind: "ignored" }>
+  | Readonly<{ kind: "violation" }>
+  | Readonly<{ kind: "runtime"; event: VerifiedRuntimeEvent }>
+  | Readonly<{ kind: "recovery"; event: RecoveryEvent }> {
+  const prefix = KNOWN_PREFIXES.find((candidate) => line.startsWith(candidate));
+  if (!prefix) return Object.freeze({ kind: "ignored" as const });
+  const parsed = parseJsonRecord(line.slice(prefix.length));
+  if (!parsed) return Object.freeze({ kind: "violation" as const });
+  if (prefix === SELECTION_PREFIX) {
+    const attributes = parsed.callerDeclaredAttributes;
+    if (
+      !exactKeys(parsed, SELECTION_KEYS) ||
+      parsed.event !== "coordinator_selection_before_provider_effect" ||
+      !role(parsed.taskRole) ||
+      !provider(parsed.provider) ||
+      typeof parsed.model !== "string" ||
+      parsed.model.length < 1 ||
+      parsed.model.length > 128 ||
+      typeof parsed.effort !== "string" ||
+      parsed.effort.length < 1 ||
+      parsed.effort.length > 32 ||
+      typeof parsed.speedMode !== "string" ||
+      parsed.speedMode.length < 1 ||
+      parsed.speedMode.length > 32 ||
+      typeof parsed.selectionReason !== "string" ||
+      parsed.selectionReason.length < 1 ||
+      parsed.selectionReason.length > 16_384 ||
+      parsed.inputBasis !==
+        "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight" ||
+      !Array.isArray(attributes) ||
+      attributes.length !== CALLER_DECLARED_ATTRIBUTES.length ||
+      !attributes.every(
+        (value, index) => value === CALLER_DECLARED_ATTRIBUTES[index],
+      ) ||
+      parsed.highCostSelectionAllowed !== false
+    )
+      return Object.freeze({ kind: "violation" as const });
+    return Object.freeze({
+      kind: "runtime" as const,
+      event: Object.freeze({
+        event: "selection" as const,
+        taskRole: parsed.taskRole,
+        provider: parsed.provider,
+        operationId: null,
+      }),
+    });
+  }
+  if (prefix === LIFECYCLE_PREFIX) {
+    if (
+      !exactKeys(parsed, LIFECYCLE_KEYS) ||
+      parsed.event !== "coordinator_provider_process_started" ||
+      !role(parsed.taskRole) ||
+      !provider(parsed.provider) ||
+      typeof parsed.operationId !== "string" ||
+      !/^OP-[0-9]{6,}$/u.test(parsed.operationId)
+    )
+      return Object.freeze({ kind: "violation" as const });
+    return Object.freeze({
+      kind: "runtime" as const,
+      event: Object.freeze({
+        event: "process_started" as const,
+        taskRole: parsed.taskRole,
+        provider: parsed.provider,
+        operationId: parsed.operationId,
+      }),
+    });
+  }
+  if (
+    !exactKeys(parsed, RECOVERY_KEYS) ||
+    parsed.event !== "project_runtime_recovery_transition" ||
+    typeof parsed.phase !== "string" ||
+    !RECOVERY_PHASES.has(parsed.phase as RecoveryEvent["phase"]) ||
+    !closedId(parsed.projectId, 128) ||
+    !closedId(parsed.milestoneId, 128) ||
+    !closedId(parsed.queueId, 128) ||
+    !(parsed.taskId === null || closedId(parsed.taskId, 128)) ||
+    !(
+      parsed.operationId === null ||
+      (typeof parsed.operationId === "string" &&
+        /^OP-[0-9]{6,}$/u.test(parsed.operationId))
+    ) ||
+    !(
+      parsed.recoveryId === null ||
+      (typeof parsed.recoveryId === "string" &&
+        /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+          parsed.recoveryId,
+        ))
+    ) ||
+    !Number.isSafeInteger(parsed.stateGeneration) ||
+    Number(parsed.stateGeneration) < 1
+  )
+    return Object.freeze({ kind: "violation" as const });
+  return Object.freeze({
+    kind: "recovery" as const,
+    event: Object.freeze({
+      phase: parsed.phase as RecoveryEvent["phase"],
+      projectId: parsed.projectId,
+      milestoneId: parsed.milestoneId,
+      queueId: parsed.queueId,
+      taskId: parsed.taskId as string | null,
+      operationId: parsed.operationId as string | null,
+      recoveryId: parsed.recoveryId as string | null,
+      stateGeneration: Number(parsed.stateGeneration),
+    }),
+  });
+}
 
 export async function observePublicMcpProcess(
   child: ChildProcessWithoutNullStreams,
@@ -62,16 +278,14 @@ export async function observePublicMcpProcess(
     maximumOutputBytes: number;
     timeoutMs: number;
     terminationGraceMs?: number;
-    closeInputWhen?: (
-      output: Readonly<{ stdout: string; stderr: string }>,
-    ) => boolean;
-    terminateProcessTreeWhen?: (
-      output: Readonly<{ stdout: string; stderr: string }>,
-    ) => boolean;
+    closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean;
+    onVerifiedRuntimeEvent?: (
+      event: VerifiedRuntimeEvent,
+    ) => "continue" | "close_input" | "terminate_process_tree";
+    startProcessTreeTermination?: typeof startOwnedWindowsProcessTreeTermination;
   }>,
 ): Promise<PublicProcessObservation> {
   let stdout = "";
-  let stderr = "";
   let launchError: string | null = null;
   let outputWithinLimit = true;
   let timedOut = false;
@@ -79,10 +293,30 @@ export async function observePublicMcpProcess(
   let forcedTerminationIssued = false;
   let processTreeTerminationAttempted = false;
   let processTreeTerminationConfirmed = false;
+  let processTreeTerminationTriggerEvent: ProcessStartedRuntimeEvent | null =
+    null;
+  let inputCloseTriggerEvent: VerifiedRuntimeEvent | null = null;
+  let runtimeEventProtocolViolation = false;
   let streamFailure = false;
-  let terminationJoinTimeout: ReturnType<typeof setTimeout> | null = null;
+  let terminationCompletion: Promise<boolean> | null = null;
   const pidIssued = Number.isSafeInteger(child.pid) && Number(child.pid) > 0;
   const grace = options.terminationGraceMs ?? 5_000;
+  const stdoutDecoder = new StringDecoder("utf8");
+  const stderrDecoder = new StringDecoder("utf8");
+  let stdoutBytes = 0;
+  let stderrBytes = 0;
+  let stderrPending = "";
+  const selectionEvents: Readonly<{
+    taskRole: "executor" | "reviewer";
+    provider: "codex" | "claude";
+  }>[] = [];
+  const processStartEvents: Readonly<{
+    taskRole: "executor" | "reviewer";
+    provider: "codex" | "claude";
+    operationId: string;
+  }>[] = [];
+  const runtimeEvents: VerifiedRuntimeEvent[] = [];
+  const recoveryEvents: RecoveryEvent[] = [];
 
   const closeInput = () => {
     if (inputEofIssued) return;
@@ -93,7 +327,7 @@ export async function observePublicMcpProcess(
       streamFailure = true;
     }
   };
-  const terminateProcessTree = () => {
+  const terminateProcessTree = (event: ProcessStartedRuntimeEvent) => {
     if (
       forcedTerminationIssued ||
       processTreeTerminationAttempted ||
@@ -101,49 +335,109 @@ export async function observePublicMcpProcess(
     )
       return;
     processTreeTerminationAttempted = true;
-    setImmediate(() => {
+    processTreeTerminationTriggerEvent = event;
+    terminationCompletion = (async () => {
       try {
-        if (process.platform === "win32") {
-          const terminated = spawnSync(
-            `${process.env.SystemRoot ?? "C:\\Windows"}\\System32\\taskkill.exe`,
-            ["/PID", String(child.pid), "/T", "/F"],
-            { windowsHide: true, encoding: "utf8", timeout: grace },
-          );
-          forcedTerminationIssued =
-            !terminated.error && terminated.status === 0;
-          processTreeTerminationConfirmed = forcedTerminationIssued;
-          if (forcedTerminationIssued) {
-            terminationJoinTimeout = setTimeout(
-              () => settleClose?.(null),
-              grace,
-            );
-          } else {
-            forcedTerminationIssued = child.kill("SIGKILL");
-          }
-        } else {
-          forcedTerminationIssued = child.kill("SIGKILL");
+        const killer = (
+          options.startProcessTreeTermination ??
+          startOwnedWindowsProcessTreeTermination
+        )(Number(child.pid));
+        if (!killer) return false;
+        forcedTerminationIssued = await killer.started(grace);
+        if (!forcedTerminationIssued) {
+          await killer.terminateAndWait(grace);
+          return false;
         }
+        const result = await killer.wait(grace);
+        if (!result) {
+          await killer.terminateAndWait(grace);
+          return false;
+        }
+        processTreeTerminationConfirmed =
+          result.status === 0 &&
+          result.signal === null &&
+          !result.outputExceeded &&
+          killer.closed();
+        return processTreeTerminationConfirmed;
       } catch {
         streamFailure = true;
+        return false;
       }
-    });
+    })();
+  };
+  const acceptDiagnosticLine = (line: string) => {
+    const parsed = parseKnownDiagnosticLine(
+      line.endsWith("\r") ? line.slice(0, -1) : line,
+    );
+    if (parsed.kind === "violation") {
+      runtimeEventProtocolViolation = true;
+      return;
+    }
+    if (parsed.kind === "ignored") return;
+    if (parsed.kind === "recovery") {
+      recoveryEvents.push(parsed.event);
+      return;
+    }
+    const event = parsed.event;
+    runtimeEvents.push(event);
+    if (event.event === "selection")
+      selectionEvents.push(
+        Object.freeze({ taskRole: event.taskRole, provider: event.provider }),
+      );
+    else
+      processStartEvents.push(
+        Object.freeze({
+          taskRole: event.taskRole,
+          provider: event.provider,
+          operationId: event.operationId,
+        }),
+      );
+    if (
+      runtimeEventProtocolViolation ||
+      inputCloseTriggerEvent ||
+      processTreeTerminationTriggerEvent
+    )
+      return;
+    try {
+      const action = options.onVerifiedRuntimeEvent?.(event) ?? "continue";
+      if (action === "close_input") {
+        inputCloseTriggerEvent = event;
+        closeInput();
+      } else if (action === "terminate_process_tree") {
+        if (event.event !== "process_started") {
+          runtimeEventProtocolViolation = true;
+          return;
+        }
+        terminateProcessTree(event);
+      }
+    } catch {
+      streamFailure = true;
+      closeInput();
+    }
   };
   const accept = (stream: "stdout" | "stderr", chunk: Buffer) => {
-    const current = stream === "stdout" ? stdout : stderr;
-    if (
-      Buffer.byteLength(current) + chunk.byteLength >
-      options.maximumOutputBytes
-    ) {
+    const currentBytes = stream === "stdout" ? stdoutBytes : stderrBytes;
+    if (currentBytes + chunk.byteLength > options.maximumOutputBytes) {
       outputWithinLimit = false;
       closeInput();
       return;
     }
-    if (stream === "stdout") stdout += chunk.toString("utf8");
-    else stderr += chunk.toString("utf8");
+    if (stream === "stdout") {
+      stdoutBytes += chunk.byteLength;
+      stdout += stdoutDecoder.write(chunk);
+    } else {
+      stderrBytes += chunk.byteLength;
+      const decoded = stderrDecoder.write(chunk);
+      stderrPending += decoded;
+      let newline = stderrPending.indexOf("\n");
+      while (newline >= 0) {
+        acceptDiagnosticLine(stderrPending.slice(0, newline));
+        stderrPending = stderrPending.slice(newline + 1);
+        newline = stderrPending.indexOf("\n");
+      }
+    }
     try {
-      if (options.closeInputWhen?.({ stdout, stderr })) closeInput();
-      if (options.terminateProcessTreeWhen?.({ stdout, stderr }))
-        terminateProcessTree();
+      if (options.closeInputWhen?.({ stdout })) closeInput();
     } catch {
       closeInput();
     }
@@ -172,9 +466,6 @@ export async function observePublicMcpProcess(
   }> | null>((resolve) => {
     settleClose = resolve;
     child.once("close", (code, signal) => resolve({ code, signal }));
-    child.once("exit", (code, signal) => {
-      if (processTreeTerminationAttempted) resolve({ code, signal });
-    });
   });
   const timeout = setTimeout(() => {
     timedOut = true;
@@ -192,7 +483,15 @@ export async function observePublicMcpProcess(
   }, options.timeoutMs);
   const exit = await closed;
   clearTimeout(timeout);
-  if (terminationJoinTimeout !== null) clearTimeout(terminationJoinTimeout);
+  if (terminationCompletion) await terminationCompletion;
+  stdout += stdoutDecoder.end();
+  const stderrEnd = stderrDecoder.end();
+  stderrPending += stderrEnd;
+  if (stderrPending.length > 0) {
+    if (KNOWN_PREFIXES.some((prefix) => stderrPending.startsWith(prefix)))
+      runtimeEventProtocolViolation = true;
+    stderrPending = "";
+  }
 
   const responses: unknown[] = [];
   let parseFailure = false;
@@ -201,132 +500,6 @@ export async function observePublicMcpProcess(
       responses.push(JSON.parse(line) as unknown);
     } catch {
       parseFailure = true;
-    }
-  }
-  const selectionEvents: Readonly<{ taskRole: string; provider: string }>[] =
-    [];
-  const processStartEvents: Readonly<{
-    taskRole: string;
-    provider: string;
-    operationId: string;
-  }>[] = [];
-  const runtimeEvents: Array<{
-    event: "selection" | "process_started";
-    taskRole: string;
-    provider: string;
-    operationId: string | null;
-  }> = [];
-  const recoveryEvents: Array<
-    PublicProcessObservation["recoveryEvents"][number]
-  > = [];
-  for (const line of stderr.split(/\r?\n/u).filter(Boolean)) {
-    try {
-      const selectionPrefix = "[Coordinator selection] ";
-      const lifecyclePrefix = "[Coordinator lifecycle] ";
-      const recoveryPrefix = "[Project Runtime recovery] ";
-      if (line.startsWith(selectionPrefix)) {
-        const parsed = JSON.parse(
-          line.slice(selectionPrefix.length),
-        ) as JsonRecord;
-        if (
-          parsed.event !== "coordinator_selection_before_provider_effect" ||
-          typeof parsed.taskRole !== "string" ||
-          typeof parsed.provider !== "string"
-        )
-          continue;
-        selectionEvents.push(
-          Object.freeze({
-            taskRole: parsed.taskRole,
-            provider: parsed.provider,
-          }),
-        );
-        runtimeEvents.push(
-          Object.freeze({
-            event: "selection" as const,
-            taskRole: parsed.taskRole,
-            provider: parsed.provider,
-            operationId: null,
-          }),
-        );
-        continue;
-      }
-      if (line.startsWith(lifecyclePrefix)) {
-        const parsed = JSON.parse(
-          line.slice(lifecyclePrefix.length),
-        ) as JsonRecord;
-        if (
-          parsed.event !== "coordinator_provider_process_started" ||
-          typeof parsed.taskRole !== "string" ||
-          typeof parsed.provider !== "string" ||
-          typeof parsed.operationId !== "string" ||
-          !/^OP-[0-9]{6,}$/u.test(parsed.operationId)
-        )
-          continue;
-        processStartEvents.push(
-          Object.freeze({
-            taskRole: parsed.taskRole,
-            provider: parsed.provider,
-            operationId: parsed.operationId,
-          }),
-        );
-        runtimeEvents.push(
-          Object.freeze({
-            event: "process_started" as const,
-            taskRole: parsed.taskRole,
-            provider: parsed.provider,
-            operationId: parsed.operationId,
-          }),
-        );
-        continue;
-      }
-      if (line.startsWith(recoveryPrefix)) {
-        const parsed = JSON.parse(
-          line.slice(recoveryPrefix.length),
-        ) as JsonRecord;
-        const phases = new Set([
-          "required",
-          "recovering",
-          "settled",
-          "acknowledged",
-          "verification_resources_finalized",
-          "queue_settled",
-          "retry_ready",
-        ]);
-        if (
-          parsed.event !== "project_runtime_recovery_transition" ||
-          typeof parsed.phase !== "string" ||
-          !phases.has(parsed.phase) ||
-          typeof parsed.projectId !== "string" ||
-          typeof parsed.milestoneId !== "string" ||
-          typeof parsed.queueId !== "string" ||
-          !(parsed.taskId === null || typeof parsed.taskId === "string") ||
-          !(
-            parsed.operationId === null ||
-            typeof parsed.operationId === "string"
-          ) ||
-          !(
-            parsed.recoveryId === null || typeof parsed.recoveryId === "string"
-          ) ||
-          !Number.isSafeInteger(parsed.stateGeneration) ||
-          Number(parsed.stateGeneration) < 1
-        )
-          continue;
-        recoveryEvents.push(
-          Object.freeze({
-            phase:
-              parsed.phase as PublicProcessObservation["recoveryEvents"][number]["phase"],
-            projectId: parsed.projectId,
-            milestoneId: parsed.milestoneId,
-            queueId: parsed.queueId,
-            taskId: parsed.taskId as string | null,
-            operationId: parsed.operationId as string | null,
-            recoveryId: parsed.recoveryId as string | null,
-            stateGeneration: Number(parsed.stateGeneration),
-          }),
-        );
-      }
-    } catch {
-      // Non-JSON diagnostic lines are not selection evidence.
     }
   }
   return Object.freeze({
@@ -340,7 +513,10 @@ export async function observePublicMcpProcess(
     forcedTerminationIssued,
     processTreeTerminationAttempted,
     processTreeTerminationConfirmed,
+    processTreeTerminationTriggerEvent,
+    inputCloseTriggerEvent,
     joined: exit !== null,
+    runtimeEventProtocolViolation,
     selectionEventObserved: selectionEvents.length > 0,
     selectionEvents: Object.freeze(selectionEvents),
     processStartEventObserved: processStartEvents.length > 0,
@@ -523,6 +699,8 @@ export function buildProjectRuntimeRealProviderReport(
       problems.push(`${prefix}_child_exit`);
     if (value.launchError !== null) problems.push(`${prefix}_launch_error`);
     if (value.streamFailure) problems.push(`${prefix}_stream_failure`);
+    if (value.runtimeEventProtocolViolation)
+      problems.push(`${prefix}_runtime_event_protocol_violation`);
     if (!value.outputWithinLimit) problems.push(`${prefix}_output_limit`);
     if (value.timedOut) problems.push(`${prefix}_timeout`);
     if (value.parseFailure) problems.push(`${prefix}_response_parse`);
@@ -610,7 +788,11 @@ export function buildProjectRuntimeRealProviderReport(
     problems.push("cancellation_response_envelope");
   if (
     !input.cancellationRequestedAfterProcessStart ||
-    !input.cancellation.processStartEventObserved
+    !input.cancellation.processStartEventObserved ||
+    input.cancellation.inputCloseTriggerEvent?.event !== "process_started" ||
+    input.cancellation.inputCloseTriggerEvent.taskRole !== "executor" ||
+    input.cancellation.inputCloseTriggerEvent.provider !==
+      input.cancellationExpected.executorProvider
   )
     problems.push("cancellation_before_provider_process_start");
   if (!input.cancellation.inputEofIssued)
@@ -668,11 +850,31 @@ export function buildProjectRuntimeRealProviderReport(
   if (
     recovery.parentLoss.launchError !== null ||
     recovery.parentLoss.streamFailure ||
+    recovery.parentLoss.runtimeEventProtocolViolation ||
     !recovery.parentLoss.outputWithinLimit ||
     recovery.parentLoss.timedOut ||
     recovery.parentLoss.parseFailure
   )
     problems.push("recovery_parent_process_observation_invalid");
+  const expectedParentLossEvents = [
+    {
+      event: "selection" as const,
+      taskRole: "executor",
+      provider: recovery.expected.executorProvider,
+    },
+    {
+      event: "process_started" as const,
+      taskRole: "executor",
+      provider: recovery.expected.executorProvider,
+    },
+  ];
+  if (
+    !runtimeEventsExactlyMatch(
+      recovery.parentLoss.runtimeEvents,
+      expectedParentLossEvents,
+    )
+  )
+    problems.push("recovery_parent_provider_lifecycle_mismatch");
   if (
     !recovery.parentTerminationRequestedAfterProcessStart ||
     !recovery.parentLoss.processStartEventObserved ||
@@ -743,9 +945,21 @@ export function buildProjectRuntimeRealProviderReport(
     .map((event) => event.recoveryId)
     .filter((value): value is string => value !== null);
   const exactRecoveryId = recoveryIds[0] ?? null;
+  const exactRecoveryTaskId =
+    recovery.reentry.recoveryEvents[0]?.taskId ?? null;
+  const exactRecoveryQueueId =
+    typeof recoveryResult?.queueId === "string" ? recoveryResult.queueId : null;
+  const terminationTrigger =
+    recovery.parentLoss.processTreeTerminationTriggerEvent;
   const recoveryEventsCorrelated =
     lossOperationIds.length === 1 &&
+    terminationTrigger?.event === "process_started" &&
+    terminationTrigger.taskRole === "executor" &&
+    terminationTrigger.provider === recovery.expected.executorProvider &&
+    terminationTrigger.operationId === lossOperationIds[0] &&
     exactRecoveryId !== null &&
+    exactRecoveryQueueId !== null &&
+    exactRecoveryTaskId !== null &&
     /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
       exactRecoveryId,
     ) &&
@@ -757,8 +971,9 @@ export function buildProjectRuntimeRealProviderReport(
         event.phase === expectedPhase &&
         event.projectId === recovery.expected.projectId &&
         event.milestoneId === recovery.expected.milestoneId &&
+        event.queueId === exactRecoveryQueueId &&
         (itemPhase
-          ? event.taskId !== null &&
+          ? event.taskId === exactRecoveryTaskId &&
             event.operationId === lossOperationIds[0] &&
             event.recoveryId === exactRecoveryId
           : event.taskId === null &&

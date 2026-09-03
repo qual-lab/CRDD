@@ -96,6 +96,8 @@ async function main() {
     throw new Error(
       "usage: verify-project-runtime-real-providers <signed-distribution-root>",
     );
+  if (process.platform !== "win32")
+    throw new Error("project_runtime_real_recovery_e2e_windows_only");
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
   );
@@ -262,12 +264,14 @@ async function main() {
   const cancellationObservation = observePublicMcpProcess(cancellationChild, {
     maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
     timeoutMs: PROCESS_TIMEOUT_MS,
-    closeInputWhen: ({ stderr }) => {
+    onVerifiedRuntimeEvent: (event) => {
       const shouldClose =
         !cancellationRequestedAfterProcessStart &&
-        stderr.includes('"event":"coordinator_provider_process_started"');
+        event.event === "process_started" &&
+        event.taskRole === "executor" &&
+        event.provider === "claude";
       if (shouldClose) cancellationRequestedAfterProcessStart = true;
-      return shouldClose;
+      return shouldClose ? "close_input" : "continue";
     },
   });
   cancellationChild.stdin.write(
@@ -307,12 +311,14 @@ async function main() {
     {
       maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
       timeoutMs: PROCESS_TIMEOUT_MS,
-      terminateProcessTreeWhen: ({ stderr }) => {
+      onVerifiedRuntimeEvent: (event) => {
         const shouldTerminate =
           !parentTerminationRequestedAfterProcessStart &&
-          stderr.includes('"event":"coordinator_provider_process_started"');
+          event.event === "process_started" &&
+          event.taskRole === "executor" &&
+          event.provider === "claude";
         if (shouldTerminate) parentTerminationRequestedAfterProcessStart = true;
-        return shouldTerminate;
+        return shouldTerminate ? "terminate_process_tree" : "continue";
       },
     },
   );

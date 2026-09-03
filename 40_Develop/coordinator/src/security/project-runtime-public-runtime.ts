@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Writable } from "node:stream";
 
 import {
   cancelRuntimeOwnedCoordinatorTask,
@@ -46,38 +47,98 @@ export const PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX =
   "[Project Runtime recovery] " as const;
 const PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS = 5_000;
 
+export type ProjectRuntimeRecoveryDiagnosticOutcome =
+  | "success"
+  | "callback_error"
+  | "stream_error"
+  | "stream_close"
+  | "timeout"
+  | "unavailable"
+  | "throw";
+
+export function createProjectRuntimeRecoveryDiagnosticReporter(
+  stream: Writable,
+  timeoutMs = PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS,
+) {
+  let unavailable = !stream.writable || stream.destroyed;
+  let disposed = false;
+  let pending:
+    | ((outcome: ProjectRuntimeRecoveryDiagnosticOutcome) => void)
+    | null = null;
+  let tail = Promise.resolve();
+  const onError = () => {
+    unavailable = true;
+    pending?.("stream_error");
+  };
+  const onClose = () => {
+    unavailable = true;
+    pending?.("stream_close");
+    stream.off("error", onError);
+    stream.off("close", onClose);
+  };
+  stream.on("error", onError);
+  stream.on("close", onClose);
+
+  const writeOne = (event: object) =>
+    new Promise<ProjectRuntimeRecoveryDiagnosticOutcome>((resolve) => {
+      if (disposed || unavailable || !stream.writable || stream.destroyed) {
+        resolve("unavailable");
+        return;
+      }
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const settle = (
+        outcome: ProjectRuntimeRecoveryDiagnosticOutcome,
+        disable = false,
+      ) => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        timer = null;
+        pending = null;
+        if (disable) unavailable = true;
+        resolve(outcome);
+      };
+      pending = (outcome) => settle(outcome, true);
+      timer = setTimeout(() => settle("timeout", true), timeoutMs);
+      try {
+        stream.write(
+          `${PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX}${JSON.stringify({
+            event: "project_runtime_recovery_transition",
+            ...event,
+          })}\n`,
+          "utf8",
+          (error) => {
+            if (error === undefined || error === null) settle("success");
+            else settle("callback_error", true);
+          },
+        );
+      } catch {
+        settle("throw", true);
+      }
+    });
+
+  const report = (event: object) => {
+    const result = tail.then(() => writeOne(event));
+    tail = result.then(() => undefined);
+    return result;
+  };
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    unavailable = true;
+    pending?.("unavailable");
+    stream.off("error", onError);
+    stream.off("close", onClose);
+  };
+  return Object.freeze({ report, dispose });
+}
+
+const productionRecoveryDiagnosticReporter =
+  createProjectRuntimeRecoveryDiagnosticReporter(process.stderr);
+
 async function writeProjectRuntimeRecoveryDiagnostic(event: object) {
-  const stream = process.stderr;
-  if (!stream.writable || stream.destroyed) return;
-  await new Promise<void>((resolve) => {
-    let settled = false;
-    const settle = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      stream.off("error", settle);
-      stream.off("close", settle);
-      resolve();
-    };
-    const timer = setTimeout(
-      settle,
-      PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS,
-    );
-    stream.once("error", settle);
-    stream.once("close", settle);
-    try {
-      stream.write(
-        `${PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX}${JSON.stringify({
-          event: "project_runtime_recovery_transition",
-          ...event,
-        })}\n`,
-        "utf8",
-        settle,
-      );
-    } catch {
-      settle();
-    }
-  });
+  await productionRecoveryDiagnosticReporter.report(event);
 }
 
 type PublicExecutionDependencies = Readonly<{

@@ -31,6 +31,22 @@ export function createDockerProcessEnvironment() {
   return environment;
 }
 
+/**
+ * Starts the fixed Windows process-tree termination helper under the same
+ * restricted child environment used by other Runtime-owned Docker processes.
+ * The caller still owns observation of the target child's `close` event.
+ */
+export function startOwnedWindowsProcessTreeTermination(pid: number) {
+  if (process.platform !== "win32" || !Number.isSafeInteger(pid) || pid <= 0)
+    return null;
+  return startOwnedProcess(
+    TASKKILL_EXECUTABLE,
+    ["/PID", String(pid), "/T", "/F"],
+    createDockerProcessEnvironment(),
+    null,
+  );
+}
+
 function bounded<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
   let timer: ReturnType<typeof setTimeout> | null = null;
   return Promise.race([

@@ -98,22 +98,24 @@ const observation = (
   responses: readonly unknown[],
   overrides: Partial<PublicProcessObservation> = {},
 ): PublicProcessObservation => {
-  const selectionEvents = overrides.selectionEvents ?? [
-    { taskRole: "executor", provider: "codex" },
-    { taskRole: "reviewer", provider: "claude" },
-  ];
-  const processStartEvents = overrides.processStartEvents ?? [
-    {
-      taskRole: "executor",
-      provider: "codex",
-      operationId: "OP-100001",
-    },
-    {
-      taskRole: "reviewer",
-      provider: "claude",
-      operationId: "OP-100002",
-    },
-  ];
+  const selectionEvents: PublicProcessObservation["selectionEvents"] =
+    overrides.selectionEvents ?? [
+      { taskRole: "executor", provider: "codex" },
+      { taskRole: "reviewer", provider: "claude" },
+    ];
+  const processStartEvents: PublicProcessObservation["processStartEvents"] =
+    overrides.processStartEvents ?? [
+      {
+        taskRole: "executor",
+        provider: "codex",
+        operationId: "OP-100001",
+      },
+      {
+        taskRole: "reviewer",
+        provider: "claude",
+        operationId: "OP-100002",
+      },
+    ];
   const runtimeEvents =
     overrides.runtimeEvents ??
     selectionEvents.flatMap((event, index) => {
@@ -134,7 +136,10 @@ const observation = (
     forcedTerminationIssued: false,
     processTreeTerminationAttempted: false,
     processTreeTerminationConfirmed: false,
+    processTreeTerminationTriggerEvent: null,
+    inputCloseTriggerEvent: null,
     joined: true,
+    runtimeEventProtocolViolation: false,
     selectionEventObserved: true,
     selectionEvents,
     processStartEventObserved: true,
@@ -190,11 +195,11 @@ const normalRun = (
   adoptResult: boolean,
 ) => {
   const operationPrefix = responseId === "objective-1" ? "1" : "2";
-  const selectionEvents = [
+  const selectionEvents: PublicProcessObservation["selectionEvents"] = [
     { taskRole: "executor", provider: executorProvider },
     { taskRole: "reviewer", provider: reviewerProvider },
   ];
-  const processStartEvents = [
+  const processStartEvents: PublicProcessObservation["processStartEvents"] = [
     {
       taskRole: "executor",
       provider: executorProvider,
@@ -232,6 +237,12 @@ const recoverySettlementFixture = () => ({
     forcedTerminationIssued: true,
     processTreeTerminationAttempted: true,
     processTreeTerminationConfirmed: true,
+    processTreeTerminationTriggerEvent: {
+      event: "process_started",
+      taskRole: "executor",
+      provider: "claude",
+      operationId: "OP-400001",
+    },
     selectionEvents: [{ taskRole: "executor", provider: "claude" }],
     processStartEvents: [
       {
@@ -242,25 +253,32 @@ const recoverySettlementFixture = () => ({
     ],
   }),
   parentTerminationRequestedAfterProcessStart: true,
-  reentry: observation([semantic("completed", "objective-recovery-reentry")], {
-    selectionEvents: [
-      { taskRole: "executor", provider: "claude" },
-      { taskRole: "reviewer", provider: "codex" },
+  reentry: observation(
+    [
+      semantic("completed", "objective-recovery-reentry", {
+        queueId: "queue-recovery",
+      }),
     ],
-    processStartEvents: [
-      {
-        taskRole: "executor",
-        provider: "claude",
-        operationId: "OP-500001",
-      },
-      {
-        taskRole: "reviewer",
-        provider: "codex",
-        operationId: "OP-500002",
-      },
-    ],
-    recoveryEvents,
-  }),
+    {
+      selectionEvents: [
+        { taskRole: "executor", provider: "claude" },
+        { taskRole: "reviewer", provider: "codex" },
+      ],
+      processStartEvents: [
+        {
+          taskRole: "executor",
+          provider: "claude",
+          operationId: "OP-500001",
+        },
+        {
+          taskRole: "reviewer",
+          provider: "codex",
+          operationId: "OP-500002",
+        },
+      ],
+      recoveryEvents,
+    },
+  ),
   expected: {
     responseId: "objective-recovery-reentry",
     requestId: "request-a",
@@ -298,6 +316,12 @@ const build = (overrides: Record<string, unknown> = {}) =>
             operationId: "OP-300001",
           },
         ],
+        inputCloseTriggerEvent: {
+          event: "process_started",
+          taskRole: "executor",
+          provider: "claude",
+          operationId: "OP-300001",
+        },
       },
     ),
     cancellationRequestedAfterProcessStart: true,
@@ -391,6 +415,42 @@ test("clean観測だけ、欠落・順序違反・Identity不一致を回復実�
           recoveryEvents: recoveryEvents.map((event, index) =>
             index === 2 ? { ...event, operationId: "OP-999999" } : event,
           ),
+        },
+      },
+    },
+    {
+      recoverySettlement: {
+        ...base,
+        reentry: {
+          ...base.reentry,
+          recoveryEvents: recoveryEvents.map((event, index) =>
+            index === 0 ? { ...event, queueId: "queue-other" } : event,
+          ),
+        },
+      },
+    },
+    {
+      recoverySettlement: {
+        ...base,
+        reentry: {
+          ...base.reentry,
+          recoveryEvents: recoveryEvents.map((event, index) =>
+            index === 3 ? { ...event, taskId: "task-other" } : event,
+          ),
+        },
+      },
+    },
+    {
+      recoverySettlement: {
+        ...base,
+        parentLoss: {
+          ...base.parentLoss,
+          processTreeTerminationTriggerEvent: {
+            event: "process_started",
+            taskRole: "executor",
+            provider: "claude",
+            operationId: "OP-499999",
+          },
         },
       },
     },
@@ -641,7 +701,7 @@ test("固定子Processを実spawnし応答後EOFとjoinを観測する", async (
     stdio: ["pipe", "pipe", "pipe"],
   });
   const resultPromise = observePublicMcpProcess(child, {
-    maximumOutputBytes: 1024,
+    maximumOutputBytes: 8192,
     timeoutMs: 2_000,
     terminationGraceMs: 100,
     closeInputWhen: ({ stdout }) => stdout.includes("\n"),
@@ -664,8 +724,28 @@ test("実子Process treeを開始通知後に強制終了して親喪失を観�
     maximumOutputBytes: 1024,
     timeoutMs: 2_000,
     terminationGraceMs: 500,
-    terminateProcessTreeWhen: ({ stderr }) =>
-      stderr.includes('"event":"coordinator_provider_process_started"'),
+    onVerifiedRuntimeEvent: (event) =>
+      event.event === "process_started" &&
+      event.taskRole === "executor" &&
+      event.provider === "claude"
+        ? "terminate_process_tree"
+        : "continue",
+    startProcessTreeTermination: () => {
+      queueMicrotask(() => child.kill());
+      return Object.freeze({
+        started: async () => true,
+        wait: async () =>
+          Object.freeze({
+            status: 0,
+            signal: null,
+            stdout: "",
+            stderr: "",
+            outputExceeded: false,
+          }),
+        terminateAndWait: async () => true,
+        closed: () => true,
+      });
+    },
   });
   child.stdin.write('{"id":"objective-parent-loss"}\n');
   const result = await resultPromise;
@@ -700,6 +780,78 @@ test("固定prefix外の埋込みJSONをRuntime Eventへ昇格しない", async 
     ),
     false,
   );
+});
+
+test("既知prefixの不正・未完了eventをProtocol違反にして操作を発行しない", async () => {
+  for (const mode of [
+    "malformed-known-prefix",
+    "incomplete-known-prefix",
+  ] as const) {
+    const child = spawn(process.execPath, [fixture, mode], {
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let actionCalls = 0;
+    const resultPromise = observePublicMcpProcess(child, {
+      maximumOutputBytes: 8192,
+      timeoutMs: 2_000,
+      terminationGraceMs: 100,
+      closeInputWhen: ({ stdout }) => stdout.includes("\n"),
+      onVerifiedRuntimeEvent: () => {
+        actionCalls += 1;
+        return "close_input";
+      },
+    });
+    child.stdin.write('{"id":"objective-1"}\n');
+    const result = await resultPromise;
+    assert.equal(result.runtimeEventProtocolViolation, true, mode);
+    assert.equal(actionCalls, 0);
+  }
+});
+
+test("分割chunkとCRLFから完全なeventだけを一度抽出する", async () => {
+  const child = spawn(process.execPath, [fixture, "chunked-crlf"], {
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const observed: string[] = [];
+  const resultPromise = observePublicMcpProcess(child, {
+    maximumOutputBytes: 8192,
+    timeoutMs: 2_000,
+    terminationGraceMs: 100,
+    closeInputWhen: ({ stdout }) => stdout.includes("\n"),
+    onVerifiedRuntimeEvent: (event) => {
+      observed.push(event.event);
+      return "continue";
+    },
+  });
+  child.stdin.write('{"id":"objective-1"}\n');
+  const result = await resultPromise;
+  assert.equal(result.runtimeEventProtocolViolation, false);
+  assert.deepEqual(observed, ["selection", "process_started"]);
+  assert.equal(result.processStartEvents[0]?.operationId, "OP-600001");
+});
+
+test("役割またはProviderが違う開始通知では取消操作を発火しない", async () => {
+  const child = spawn(process.execPath, [fixture, "normal"], {
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const resultPromise = observePublicMcpProcess(child, {
+    maximumOutputBytes: 8192,
+    timeoutMs: 2_000,
+    terminationGraceMs: 100,
+    closeInputWhen: ({ stdout }) => stdout.includes("\n"),
+    onVerifiedRuntimeEvent: (event) =>
+      event.event === "process_started" &&
+      event.taskRole === "reviewer" &&
+      event.provider === "codex"
+        ? "close_input"
+        : "continue",
+  });
+  child.stdin.write('{"id":"objective-1"}\n');
+  const result = await resultPromise;
+  assert.equal(result.inputCloseTriggerEvent, null);
 });
 
 test("公開Processから回復遷移の閉じた順序とIdentityを抽出する", async () => {
@@ -768,6 +920,16 @@ async function runProbe(mode: string, id: string) {
     timeoutMs: mode === "ignore-eof" ? 100 : 2_000,
     terminationGraceMs: 100,
     closeInputWhen: ({ stdout }) => stdout.includes("\n"),
+    ...(mode === "cancelled"
+      ? {
+          onVerifiedRuntimeEvent: (event) =>
+            event.event === "process_started" &&
+            event.taskRole === "executor" &&
+            event.provider === "claude"
+              ? ("close_input" as const)
+              : ("continue" as const),
+        }
+      : {}),
   });
   child.stdin.write(`${JSON.stringify({ id })}\n`);
   return resultPromise;
