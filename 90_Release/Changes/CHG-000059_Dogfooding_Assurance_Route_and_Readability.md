@@ -33,7 +33,7 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 - 人間可読性専用の監査、Checkerまたは文字数による合否判定を作らない。
 - 監査数、根拠量または保証活動の削減自体を成功指標にしない。
 - 既存CHGを機械的に遡及更新しない。
-- Project Runtimeの実装またはRuntime Security／Authority／Effect境界を変更しない。
+- Provider Task、Project Runtimeの利用機能または既存のRuntime Authorityを拡張しない。Release manifestのA→B昇格は、署名済みbyteを壊さず運ぶための限定Filesystem Effectとして実装・検証する。
 
 ## 3. 変更経路の計画
 
@@ -116,6 +116,8 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 Project Runtimeの責務分離候補に対する独立レビューでは、一部のPlatform操作と単体試験の成立を境界全体の完成へ過大表示し得ること、および個別fieldが許容値でも成功表示とcleanup／Recovery義務が矛盾し得ることを検出した。共通原因は、設計から試験への接続一般ではなく、上位Capabilityの完成に必要な保証を漏れなく列挙して判定する規則と、複数fieldの相関不変条件が明示不足だったことである。Tool固有の状態名や実装方式は共通規範へ持ち込まず、`27_Architecture.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`51_Document_Audit.md`および公式／利用側の`AGENTS.md`へ一般化した。
 
 後続の公開Process E2E検証器の独立確認では、Process handle取得をOS起動成功、標準エラーへの`write()`呼出しを観測成立として扱った不足と、選定・開始を別々に検査して全体順序および実行横断のIdentity一意性を失った不足を検出した。同じFindingは、結合設計と実行環境の意味の双方を根本原因に持ち、是正後の影響展開不足でもあったため、排他的な原因分類へ丸めない。根本原因、事前予測可能性、検出工程および是正増幅を別軸で扱う。Architectureには、実行資源の必要保証から対象環境の実際の意味、失敗・観測不能、契約および反証へ接続する規則と、要求発行、handle取得、受理、Effect成立、完了通知、観測および耐久的確定の分離を追加した。Quality Assuranceには各段階の検証接続、Maintenanceには変更した意味から回帰面を導出する是正前確認を追加した。新しい工程、Platform知識集、固定Schemaまたは全変更へのSpikeは追加しない。
+
+Source A署名後のManifest取込みでは、stagingからRepositoryへ人手で内容を転記した結果、編集処理が末尾LFを1 byte追加し、署名済みfileのSHA-256と不一致になった。同じ種類の問題は過去にもEvidence保存時の末尾LF追加として観測され、今回も手動copyを正規経路に残したことでRelease境界へ再発した。個別にLFを削る処置ではなく、A→Bを専用の昇格Effectへ変更した。昇格入口は署名、Source A Commit／Tree、Runtime実行集合、Policy、Native成果物、現在HEAD、配置先不存在をEffect前に結合し、Manifestをparse／serializeせず不透明な安定byteとして排他的に配置する。flushとhandle close後にbyte数・SHA-256・署名済み配布条件を再確認し、失敗時は同一Identity・Hashを保つ自身の作成fileだけを回収する。これにより、編集器、Shell encoding、末尾改行および手作業の取り違えを正式経路から除く。
 
 ## 9. 既知の制限と後続評価
 

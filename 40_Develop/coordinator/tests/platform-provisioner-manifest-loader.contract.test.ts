@@ -96,7 +96,10 @@ test("履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続す
     "src/security/docker-desktop-runtime-repair.ts",
     "src/security/docker-recovery-runtime-internal.ts",
   ]) {
-    const source = fs.readFileSync(path.resolve(relativePath), "utf8");
+    const source = fs.readFileSync(
+      path.resolve(import.meta.dirname, "..", relativePath),
+      "utf8",
+    );
     assert.match(
       source,
       /loadHistoricalReleaseManifestEnvelopeForVerification/u,

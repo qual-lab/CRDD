@@ -16,6 +16,7 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 | 旧revision 2／3 | 旧payload、削除済みfield、旧manifest署名domain | 現行Runtimeは互換読取りやfallbackを行わず拒否する。公開済みv0.18.0成果物の履歴を無効化する意味ではない |
 | Schemaと署名 | 欠落・undefined・空文字・文字列null・不正日時・未知revision・envelope/payload不一致、期限改変、旧manifest署名domainの混入 | 改変でAuthorityを発行しない。package content rootの`CRDD\0PLATFORM-PROVISIONER-PACKAGE-CONTENT\0V2\0`は別契約として維持する |
 | 署名CLIと事前検査 | --no-expiry、--expires-at、両方・未指定・重複・不正指定 | 不正指定で秘密入力・署名・配置を発火しない |
+| ManifestのA→B昇格 | stagingの署名済みbyte、Source AのCommit／Tree、Runtime実行集合、Policy、Native成果物、現在HEAD、固定配置先 | 不透明なbyte列の排他的昇格だけを許可し、署名からCommit Bまでの手動text変換を経路から除く |
 | TypeScript／Rust接続 | 同じ署名payloadの正常・異常ベクトルを両検証器へ渡す | canonical byte、domain、成果物結合を一致させる |
 | 既存の期限所有者 | Grant、同意、候補、準備記録の期限・取消の既存試験 | 期限なしmanifestから別の権限を延長しない |
 
@@ -26,8 +27,8 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 | Git同梱配布の経路 | 期待結果 | 終了後条件 |
 |---|---|---|
 | 正常 | 公式tagのclean clone／submoduleで、manifest、閉じたRuntime実行集合、Policy、単一成果物HashとRuntime実行Identityが一致。Task前後の作業対象Execution Revisionが同一で、Candidate baseもそのRevisionへ一致 | 別取得なしでRuntime入口へ到達でき、Authorityは後続Gateまで未発行 |
-| 準正常 | non-zero固定publisher digestを宣言したPEで、追加DLL集合とAuthenticodeが一致 | manifest-onlyへfallbackせず追加防御を維持 |
-| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、Candidateの`baseCommit`／`baseTree`が期待する作業対象Execution Revisionと異なる（配布AまたはBの誤使用を含む）、Task中に作業対象Commit／Treeが変わる | Candidateを回収し、Provider Effectまたは成功結果を追加発行せずfail closed。Task後のRevision変化と観測不能は、開始時Identity不一致とは別の結果として保持する |
+| 準正常 | non-zero固定publisher digestを宣言したPEで、追加DLL集合とAuthenticodeが一致。Manifest昇格では既存配置先、開始後のsource変化、別候補のstaging、またはSource AでないHEADをEffect前に拒否する | manifest-onlyへfallbackせず追加防御を維持。安全な拒否を昇格成功へ数えない |
+| 異常 | manifest欠落・改変、親Commit差、manifest以外のB差分、成果物欠落・Hash差、昇格中の短いwrite・source／Directory置換・byte変化・昇格後検査失敗、Candidateの`baseCommit`／`baseTree`が期待する作業対象Execution Revisionと異なる（配布AまたはBの誤使用を含む）、Task中に作業対象Commit／Treeが変わる | 自身が排他的に作成し同一Identity・Hashを保つManifestだけを回収する。回収または不存在を観測できなければcleanup未確認としてCommitせず停止する。Candidateを回収し、Provider Effectまたは成功結果を追加発行せずfail closed。Task後のRevision変化と観測不能は、開始時Identity不一致とは別の結果として保持する |
 | 判定不能 | shallow／不完全Git履歴、配布Rootまたは作業対象Root／Revision不明、reparse／link、Task後のExecution Revision読取り不成立 | 配布Identityや作業対象の不変性を推定せずEffect 0または状態不明として停止 |
 
 親RepositoryでCRDDをsubmoduleとして利用する経路では、作業対象Commitから`.crdd/external-send-policy.json`を読む明示投影も結合確認する。対象外のgitlinkが同じTreeに存在しても明示fileをexact bytesで読めること、gitlink自身またはその配下を選択した場合は拒否すること、読取り投影なしの全体展開はgitlinkを拒否することを同じ契約試験で確認する。限定file読取りの成功から、submodule内容またはCommit全体の展開を許可済みと推定しない。

@@ -4,13 +4,19 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
-const MAXIMUM_COVERAGE_COUNT = 1_000_000;
+// Node's V8 coverage counter is an execution count, not a bounded test-case
+// count. Filesystem and parser loops can legitimately exceed one million while
+// the LCOV payload remains bounded separately. Preserve the exact integer and
+// reject only values JavaScript cannot represent without loss.
+const MAXIMUM_COVERAGE_COUNT = Number.MAX_SAFE_INTEGER;
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
   "40_Develop/coordinator/scripts/release-staging-manifest.ts",
+  "40_Develop/coordinator/scripts/release-manifest-promotion.ts",
+  "40_Develop/coordinator/scripts/promote-release-manifest.ts",
   "40_Develop/coordinator/scripts/sign-release-manifest.ts",
   "40_Develop/coordinator/src/core/doctor.ts",
   "40_Develop/coordinator/src/security/authority-root-path-lexical.ts",
@@ -36,6 +42,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/platform-provisioner-release-identity.contract.test.ts",
   "40_Develop/coordinator/tests/platform-provisioner-trust-core.contract.test.ts",
   "40_Develop/coordinator/tests/root-observation.contract.test.ts",
+  "40_Develop/coordinator/tests/release-manifest-promotion.contract.test.ts",
   "40_Develop/coordinator/tests/sign-release-manifest.contract.test.ts",
 ]);
 
@@ -86,6 +93,18 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "稀なFilesystem failureのEffect分類漏れ",
       "opaque session、同一fd byte/EOF、置換拒否および失敗Root非削除試験",
       "実Release stagingまたはFilesystem API変更時",
+    ),
+    "40_Develop/coordinator/scripts/release-manifest-promotion.ts": obligation(
+      "全descriptor failureと同一ユーザーによる全置換timingを同一runで到達していない",
+      "署名済みManifestのbyte変化、部分file残存または別file誤削除",
+      "末尾改行なしのbyte一致、既存先・偽造token・source差替え拒否、書込み中改変とexact所有file回収試験",
+      "Manifest昇格、Filesystem APIまたはcleanup契約変更時",
+    ),
+    "40_Develop/coordinator/scripts/promote-release-manifest.ts": obligation(
+      "本番固定鍵で署名した実stagingの成功入口を試験用Trustへ開放していない",
+      "署名・Tree・Native・HEADの結合漏れまたは昇格後検証の見落とし",
+      "production sourceの固定検証呼出し、昇格Core契約試験およびRelease Candidateでの実昇格",
+      "Release handoff、Manifest SchemaまたはSource A/B契約変更時",
     ),
     "40_Develop/coordinator/scripts/sign-release-manifest.ts": obligation(
       "本番固定鍵と実Release stagingの正常入口を試験用Trustへ開放していない",

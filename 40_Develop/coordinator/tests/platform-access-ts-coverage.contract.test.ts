@@ -36,10 +36,10 @@ function exactLcov() {
 }
 
 test("TypeScript coverageは固定sourceとtest母集団を所有する", () => {
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 13);
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 12);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 13);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 12);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 15);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 13);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 15);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 13);
   assert.equal(
     PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
       "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
@@ -49,6 +49,18 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
   assert.equal(
     PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
       "40_Develop/coordinator/scripts/release-staging-manifest.ts",
+    ),
+    true,
+  );
+  assert.equal(
+    PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
+      "40_Develop/coordinator/scripts/promote-release-manifest.ts",
+    ),
+    true,
+  );
+  assert.equal(
+    PLATFORM_ACCESS_TS_COVERAGE_TESTS.includes(
+      "40_Develop/coordinator/tests/release-manifest-promotion.contract.test.ts",
     ),
     true,
   );
@@ -90,9 +102,9 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
 test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", () => {
   const result = parsePlatformAccessTsCoverageLcov(exactLcov());
   assert.deepEqual(result.totals, {
-    lines: { covered: 13, total: 13 },
-    functions: { covered: 13, total: 13 },
-    branches: { covered: 12, total: 13 },
+    lines: { covered: 15, total: 15 },
+    functions: { covered: 15, total: 15 },
+    branches: { covered: 14, total: 15 },
   });
   assert.deepEqual(result.sources[0]?.uncoveredBranches, [
     { line: 1, block: 0, branch: 0, taken: null },
@@ -179,6 +191,13 @@ test("LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒�
   assert.throws(
     () => parsePlatformAccessTsCoverageLcov(exact.replace("LF:1", "LF:-1")),
     /invalid LF:/u,
+  );
+  assert.throws(
+    () =>
+      parsePlatformAccessTsCoverageLcov(
+        exact.replace("DA:1,1", "DA:1,9007199254740992"),
+      ),
+    /invalid DA executions/u,
   );
   assert.throws(
     () => parsePlatformAccessTsCoverageLcov(exact.replace("FNF:1\n", "")),

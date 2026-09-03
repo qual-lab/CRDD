@@ -736,6 +736,7 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
         'await import("../scripts/verify-signed-route-matrix.ts");',
         'await import("../scripts/verify-signed-recovery-matrix.ts");',
         'await import("../scripts/sign-release-manifest.ts");',
+        'await import("../scripts/promote-release-manifest.ts");',
         "",
       ].join("\n"),
     );
@@ -764,6 +765,14 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
     fs.writeFileSync(
       path.join(root, "scripts", "signing-helper.ts"),
       "export const signing = 1;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "promote-release-manifest.ts"),
+      'import "./release-manifest-promotion.ts";\n',
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "release-manifest-promotion.ts"),
+      "export const promotion = 1;\n",
     );
     const unrelated = path.join(root, "scripts", "unrelated.ts");
     fs.writeFileSync(unrelated, "export const unrelated = 1;\n");
@@ -830,6 +839,7 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
         'await import("../scripts/verify-signed-route-matrix.ts");',
         'await import("../scripts/verify-signed-recovery-matrix.ts");',
         'await import("../scripts/sign-release-manifest.ts");',
+        'await import("../scripts/promote-release-manifest.ts");',
         "",
       ].join("\n"),
     );
@@ -849,6 +859,10 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
     fs.writeFileSync(
       path.join(root, "scripts", "sign-release-manifest.ts"),
       "export const sign = true;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "promote-release-manifest.ts"),
+      "export const promote = true;\n",
     );
     assert.equal(
       inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
