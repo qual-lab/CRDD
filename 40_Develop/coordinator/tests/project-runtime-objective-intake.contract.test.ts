@@ -17,6 +17,7 @@ import {
 
 import {
   acquireProjectRuntimeLease,
+  enqueueProjectOperation,
   readProjectOperationQueueState,
   readProjectRuntimeState,
   selectNextProjectOperation,
@@ -58,6 +59,66 @@ function root(t: test.TestContext) {
   execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
   t.after(() => fs.rmSync(value, { recursive: true, force: true }));
   return value;
+}
+function runtimeSnapshot(workingDirectory: string) {
+  const runtime = path.join(workingDirectory, ".crdd");
+  const entries = new Map<string, string>();
+  const visit = (directory: string) => {
+    if (!fs.existsSync(directory)) return;
+    for (const name of fs.readdirSync(directory).sort()) {
+      const target = path.join(directory, name);
+      const relative = path.relative(runtime, target).replaceAll("\\", "/");
+      const stat = fs.lstatSync(target);
+      if (stat.isDirectory()) {
+        entries.set(`${relative}/`, "directory");
+        visit(target);
+      } else {
+        entries.set(relative, fs.readFileSync(target, "utf8"));
+      }
+    }
+  };
+  visit(runtime);
+  return entries;
+}
+
+async function abandonProjectOperationAcquisition(
+  t: test.TestContext,
+  workingDirectory: string,
+  queueId: string,
+  projectId: string,
+) {
+  const signal = path.join(
+    workingDirectory,
+    `pre-publication-${queueId}-ready`,
+  );
+  const probe = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "fixtures",
+    "project-runtime-lease-interleaving-probe.ts",
+  );
+  const child = spawn(
+    process.execPath,
+    [
+      probe,
+      workingDirectory,
+      signal,
+      "pause-before-publish",
+      "project-operation",
+      queueId,
+      projectId,
+    ],
+    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  const deadline = Date.now() + 10_000;
+  while (!fs.existsSync(signal) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(fs.existsSync(signal), true);
+  child.kill();
+  await new Promise<void>((resolve) => child.once("exit", () => resolve()));
+  fs.rmSync(signal);
 }
 function request(overrides: Record<string, unknown> = {}) {
   return {
@@ -261,6 +322,34 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
     )
     .digest("hex")
     .slice(0, 40)}`;
+  const exactRequest = request();
+  const queued = enqueueProjectOperation(workingDirectory, "binding-a", {
+    queueId,
+    projectId: exactRequest.projectId,
+    milestoneId: exactRequest.milestoneId,
+    requestHash: createHash("sha256")
+      .update(
+        JSON.stringify({
+          ...exactRequest,
+          authenticatedPrincipalId: "principal-a",
+          acceptanceCriteria: [...exactRequest.acceptanceCriteria],
+          allowedPaths: [...exactRequest.allowedPaths],
+          readPaths: [...exactRequest.readPaths],
+        }),
+      )
+      .digest("hex"),
+    originLane: "interactive",
+    repositoryRevision: exactRequest.repositoryRevision,
+    scopeHash: createHash("sha256")
+      .update(
+        JSON.stringify({
+          allowedPaths: exactRequest.allowedPaths,
+          readPaths: exactRequest.readPaths,
+        }),
+      )
+      .digest("hex"),
+  });
+  assert.equal(queued.status, "completed");
   const signal = path.join(workingDirectory, "pre-publication-ready");
   const probe = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -336,7 +425,7 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
         },
       },
     },
-    request(),
+    exactRequest,
     new AbortController().signal,
   );
   assert.equal(result.status, "completed", JSON.stringify(result));
@@ -412,6 +501,105 @@ test("public Objective re-entry preserves ambiguous acquisition evidence and ret
       created.every((target) => fs.existsSync(target)),
       true,
     );
+  }
+});
+
+test("public Objective classifies foreign, missing, and mismatched acquisition queues before durable mutation", async (t) => {
+  for (const scenario of [
+    "foreign-project",
+    "missing-queue",
+    "queue-mismatch",
+  ] as const) {
+    const workingDirectory = root(t);
+    const residualQueueId = `queue-residual-${scenario}`;
+    const residualProjectId =
+      scenario === "foreign-project" ? "project-b" : "project-a";
+    if (scenario !== "missing-queue") {
+      const queued = enqueueProjectOperation(workingDirectory, "binding-a", {
+        queueId: residualQueueId,
+        projectId: residualProjectId,
+        milestoneId: "milestone-residual",
+        requestHash: "1".repeat(64),
+        originLane: "scheduled",
+        repositoryRevision: revision,
+        scopeHash: "2".repeat(64),
+      });
+      assert.equal(queued.status, "completed");
+    }
+    await abandonProjectOperationAcquisition(
+      t,
+      workingDirectory,
+      residualQueueId,
+      residualProjectId,
+    );
+    if (scenario === "queue-mismatch") {
+      const record = path.join(
+        workingDirectory,
+        ".crdd",
+        "project-runtime",
+        "queue",
+        residualQueueId,
+        "generation-1.json",
+      );
+      fs.writeFileSync(record, "not-json\n", "utf8");
+    }
+    const before = runtimeSnapshot(workingDirectory);
+    let effects = 0;
+    const result = await runProjectRuntimeObjective(
+      {
+        authenticatedPrincipalId: "principal-a",
+        verifyProjectBinding: () => ({
+          status: "verified",
+          repositoryBindingId: "binding-a",
+          repositoryRevision: revision,
+          workingDirectory,
+          repositoryRoot: workingDirectory,
+          bindingCapability: {},
+        }),
+        planObjective: () => ({
+          milestoneAcceptanceCriteria: ["Result exists."],
+          objectives: [
+            { id: "objective-a", acceptanceCriteria: ["Result exists."] },
+          ],
+          tasks: [
+            {
+              id: "task-a",
+              objectiveId: "objective-a",
+              dependencies: [],
+              allowedPaths: ["result.txt"],
+              conflictKeys: ["result.txt"],
+            },
+          ],
+        }),
+        createTaskExecutions: () => [],
+        observeLeaseOwner: (owner) => ({ ...owner, status: "absent" }),
+        execution: {
+          runSingleTaskAttempt: async (input) => {
+            effects += 1;
+            return completed(input);
+          },
+        },
+      },
+      request(),
+      new AbortController().signal,
+    );
+    assert.equal(result.status, "blocked", scenario);
+    assert.equal(result.manualRecoveryRequired, true, scenario);
+    assert.equal(result.cleanupConfirmed, false, scenario);
+    assert.match(
+      result.recoveryIds[0] ?? "",
+      /^lease-acquisition-[0-9a-f]{40}$/u,
+      scenario,
+    );
+    assert.equal(
+      result.reason,
+      scenario === "foreign-project"
+        ? "project_runtime_lease_acquisition_project_identity_mismatch"
+        : "project_runtime_lease_acquisition_queue_identity_mismatch",
+      scenario,
+    );
+    assert.equal(effects, 0, scenario);
+    assert.deepEqual(runtimeSnapshot(workingDirectory), before, scenario);
   }
 });
 

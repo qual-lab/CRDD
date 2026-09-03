@@ -5,6 +5,10 @@ import {
 } from "./plain-data-snapshot.ts";
 import { inspectProjectRuntimeObjectiveRequest } from "./project-runtime-objective-request.ts";
 import {
+  inspectProjectRuntimeIntegrationResult,
+  PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS,
+} from "./project-runtime-integration-result.ts";
+import {
   isProjectRuntimeObjectiveProjectionCorrelationValid,
   isProjectRuntimeProjectionSemanticallyValid,
   PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
@@ -20,8 +24,6 @@ export const MCP_PROJECT_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/mcp-project-runtime-adapter/v2" as const;
 const PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/project-runtime-objective-intake/v1" as const;
-const PROJECT_RUNTIME_INTEGRATION_CONTRACT =
-  "crdd-coordinator/project-runtime-integration/v1" as const;
 const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
   "crdd-coordinator/project-runtime-public-runtime/v1" as const;
 const PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT =
@@ -97,21 +99,8 @@ const OBJECTIVE_RESULT_KEYS = new Set([
   "recoveryObligations",
   "effectState",
 ]);
-const INTEGRATION_RESULT_KEYS = new Set([
-  "contract",
-  "status",
-  "reason",
-  "projectId",
-  "milestoneId",
-  "queueId",
-  "stateGeneration",
-  "candidateId",
-  "receiptId",
-  "cleanupConfirmed",
-  "manualRecoveryRequired",
-]);
 const INTEGRATION_RESULT_WITH_DECISION_KEYS = new Set([
-  ...INTEGRATION_RESULT_KEYS,
+  ...PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS,
   "decision",
 ]);
 const PUBLIC_BLOCKED_RESULT_KEYS = new Set([
@@ -805,38 +794,26 @@ function objectiveSnapshot(
       ...recoveries,
     });
   }
-  const integration =
-    snapshotPlainRecord(raw, INTEGRATION_RESULT_KEYS) ??
-    snapshotPlainRecord(raw, INTEGRATION_RESULT_WITH_DECISION_KEYS);
+  const directIntegration = inspectProjectRuntimeIntegrationResult(raw);
+  if (directIntegration) return directIntegration;
+  const integratedWithDecision = snapshotPlainRecord(
+    raw,
+    INTEGRATION_RESULT_WITH_DECISION_KEYS,
+  );
+  if (!integratedWithDecision) return null;
+  const decision = decisionSnapshot(integratedWithDecision.decision);
+  if (!decision) return null;
+  const integrationInput = Object.fromEntries(
+    PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS.map((field) => [
+      field,
+      integratedWithDecision[field],
+    ]),
+  );
+  const integration = inspectProjectRuntimeIntegrationResult(integrationInput);
   if (!integration) return null;
-  const decision = Object.hasOwn(integration, "decision")
-    ? decisionSnapshot(integration.decision)
-    : undefined;
-  if (
-    integration.contract !== PROJECT_RUNTIME_INTEGRATION_CONTRACT ||
-    !["completed", "blocked"].includes(String(integration.status)) ||
-    !text(integration.reason, 256) ||
-    !stable(integration.projectId) ||
-    !stable(integration.milestoneId) ||
-    !stable(integration.queueId) ||
-    (integration.stateGeneration !== null &&
-      (!Number.isSafeInteger(integration.stateGeneration) ||
-        Number(integration.stateGeneration) < 1)) ||
-    (integration.candidateId !== null && !text(integration.candidateId, 512)) ||
-    (integration.receiptId !== null && !stable(integration.receiptId)) ||
-    typeof integration.cleanupConfirmed !== "boolean" ||
-    typeof integration.manualRecoveryRequired !== "boolean" ||
-    (integration.status === "completed" &&
-      (integration.cleanupConfirmed !== true ||
-        integration.manualRecoveryRequired !== false)) ||
-    (integration.status === "blocked" &&
-      integration.cleanupConfirmed === integration.manualRecoveryRequired) ||
-    (Object.hasOwn(integration, "decision") && !decision)
-  )
-    return null;
   return Object.freeze({
     ...integration,
-    ...(decision ? { decision } : {}),
+    decision,
   });
 }
 

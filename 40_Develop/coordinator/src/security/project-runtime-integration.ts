@@ -16,14 +16,12 @@ import {
   requestProjectRuntimeHumanDecision,
   type ProjectRuntimeState,
 } from "./project-runtime-state.ts";
+import { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "./project-runtime-integration-result.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
-
-export const PROJECT_RUNTIME_INTEGRATION_CONTRACT =
-  "crdd-coordinator/project-runtime-integration/v1" as const;
 
 type Candidate = Readonly<{
   status: "candidate";

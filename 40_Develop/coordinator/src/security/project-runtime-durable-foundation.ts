@@ -2042,27 +2042,37 @@ export function acquireProjectRuntimeLease(
   }
 }
 
+export type ProjectRuntimeLeaseAcquisitionResolution = Readonly<{
+  repositoryBindingId: string;
+  projectId: string;
+  queueId: string;
+  ownerGeneration: string;
+  ownerProcessId: number;
+  recoveryId: string;
+}>;
+
 export function inspectProjectRuntimeLeaseAcquisitionOwner(
   workingDirectory: string,
   repositoryBindingId: string,
-  projectId: string,
-): StoreResult<Readonly<{ queueId: string | null }>> {
+): StoreResult<
+  Readonly<{ acquisition: ProjectRuntimeLeaseAcquisitionResolution | null }>
+> {
   const recoveryId = validId(repositoryBindingId)
     ? leaseAcquisitionRecoveryId(
         repositoryBindingId,
-        projectId,
+        "inspection",
         "inspection",
         "project-operation",
       )
     : null;
   try {
-    if (!validId(repositoryBindingId) || !validId(projectId))
+    if (!validId(repositoryBindingId))
       return blocked("project_runtime_lease_recovery_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
     const locks = ensureDirectory(runtime, "locks");
     const identity = leaseIdentity(
       repositoryBindingId,
-      projectId,
+      "inspection",
       "inspection",
       "project-operation",
     );
@@ -2077,7 +2087,7 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
     if (leaseAcquisitionFootprintAbsent(locks, identity, associatedPaths))
       return completed(
         "project_runtime_lease_acquisition_resources_absent",
-        Object.freeze({ queueId: null }),
+        Object.freeze({ acquisition: null }),
       );
     if (temporaryFiles.length > 1)
       return blocked(
@@ -2095,7 +2105,16 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
         true,
         recoveryId,
       );
-    const markers = candidates.map(readLeaseAcquisitionMarker);
+    let markers: readonly LeaseAcquisitionMarker[];
+    try {
+      markers = Object.freeze(candidates.map(readLeaseAcquisitionMarker));
+    } catch {
+      return blocked(
+        "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        true,
+        recoveryId,
+      );
+    }
     const first = markers[0];
     if (
       first?.kind !== "project-operation" ||
@@ -2114,9 +2133,41 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
         true,
         recoveryId,
       );
+    const queueDirectory = path.join(runtime, "queue", first.queueId);
+    let history: readonly QueueEnvelope[] | null;
+    try {
+      history = validatedQueueHistory(
+        readEnvelopes(queueDirectory, "generation-"),
+        repositoryBindingId,
+        first.queueId,
+      );
+    } catch {
+      history = null;
+    }
+    const queue = history?.at(-1)?.content;
+    if (
+      !queue ||
+      (queue.ownerGeneration === null && queue.state !== "queued") ||
+      (queue.ownerGeneration !== null &&
+        queue.ownerGeneration !== first.ownerGeneration)
+    )
+      return blocked(
+        "project_runtime_lease_acquisition_queue_identity_mismatch",
+        true,
+        recoveryId,
+      );
     return completed(
       "project_runtime_lease_acquisition_owner_observed",
-      Object.freeze({ queueId: first.queueId }),
+      Object.freeze({
+        acquisition: Object.freeze({
+          repositoryBindingId,
+          projectId: queue.projectId,
+          queueId: queue.queueId,
+          ownerGeneration: first.ownerGeneration,
+          ownerProcessId: first.ownerProcessId,
+          recoveryId: first.recoveryId,
+        }),
+      }),
     );
   } catch {
     return blocked(

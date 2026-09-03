@@ -23,6 +23,8 @@ The Project Runtime repository-binding lease now writes, flushes, closes, and re
 
 The public Objective and canonical-adoption entries now inspect shared lease-acquisition resources before acquisition, resolve the actual source Queue from exact evidence, and invoke owner-loss reconciliation only after a fresh Platform owner observation. Live or unobservable ownership is left unchanged, while malformed or ambiguous evidence is retained and exposed through the exact non-authority recovery reference. Public re-entry Process tests verify that the recovery implementation is reachable from its real consumers rather than only through direct low-level tests.
 
+The Integration result field set and recovery-reference correlations now use one Core-owned canonical validator instead of a duplicated MCP schema. Shared lease residue is resolved through the Queue source of truth to the actual Project, Queue, owner, and recovery identity. Only an exact Queue in the same Project is eligible for automatic recovery; a foreign Project, missing Queue, or invalid Queue history leaves existing resources and new Project state unchanged and returns the exact binding-scoped non-authority recovery reference. Vertical checks cover actual producer results through the public Runtime and MCP, plus effect-free foreign, missing, and invalid Queue classifications.
+
 The same self-audit separates document ownership from content correctness. Tool implementation and static-analysis rules are canonical in Coding Standards; Runtime trust, resources, and execution identities remain in the responsible Architecture; repeatable commands remain in Workflow; and verification scope and results remain in Quality Assurance. Maintenance keeps change, migration, and release decisions instead of redefining those Tool contracts. This is a responsibility relocation with no change to the existing Runtime semantics, normative strength, or migration result, and it introduces no new artifact type.
 
 The v0.19.0 candidate is composed of four independently traceable changes:
@@ -908,6 +910,8 @@ Dogfoodingからの横断改善として、採用可能な結果までの保証�
 Project RuntimeのRepository Binding単位Leaseは、一意な準備fileをwrite、flush、close、readbackした後、同一Filesystemの排他的hard linkで完全な取得中Markerを最終Pathへ公開する。準備中、公開済みまたはLock所有中の状態へ後着した取得は、回復残存と推定せず、手動回復不要、Effect 0の取得不可へ閉じる。owner不存在の確定と準備file、公開済みMarkerまたは旧実装の一時fileからexact Recoveryへの接続は、freshな専用reconciliationだけが所有する。
 
 公開Objective入口と正本採用入口は、Lease取得前に共有取得資源を確認し、exactな証跡から実際の元Queueを解決して、freshなPlatform owner観測後だけowner喪失reconciliationへ進む。生存・観測不能の所有状態は変更せず、不正または複数の証跡は保持したままexactな非Authority回復参照を返す。公開再入場のProcess試験により、低層回復関数の直接試験だけでなく実際の利用側からの到達性を確認する。
+
+Integration結果のfield集合と回復参照の相関をCore所有のCanonical検証契約へ統合し、MCP Adapterの重複Schemaを除く。共有Lease残存状態はMarkerからQueueだけを読むのではなく、Queue正本から実Project、Queue、ownerおよび回復IDまで解決する。同一Projectのexact Queueだけを自動回復し、別Project、Queue欠落またはQueue履歴不正では新しい永続状態も既存資源も変更せず、Binding単位のexactな非Authority回復参照を返す。実Producerから公開RuntimeとMCPまでの正常・回復結果、および別Project・欠落・不正QueueのEffect 0を確認する。
 
 同じ自己監査により、内容の正しさと文書の所有先を別に確認する。Toolの実装・静的検査規則は内部ツール・コーディング規約、Runtimeの信頼境界・資源・実行Identityは責務を持つアーキテクチャ、反復commandはWorkflow、検証範囲と結果は品質保証が正本となる。保守はこれらを再定義せず、変更、移行およびリリース判断を所有する。この責務再配置は既存Runtimeの意味、規範強度および移行結果を変更せず、新しい成果物種別も追加しない。
 

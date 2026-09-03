@@ -5,6 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import {
+  handleMcpProjectRuntimeRequest,
+  MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+} from "../src/security/mcp-project-runtime-adapter.ts";
 import { createDevelopmentProjectRuntimePublicObjectiveCandidate } from "../src/security/project-runtime-public-runtime.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../src/security/project-runtime-windows-decision-store.ts";
 
@@ -152,6 +157,61 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(result.reason, "project_runtime_milestone_accepted");
   assert.equal(integrationAdapterCalls, 1);
   assert.equal(taskStarts, 1);
+  const mcp = await handleMcpProjectRuntimeRequest(
+    {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion":
+            MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
+        name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+        arguments: {
+          requestId: "request-public-runtime",
+          projectId: "project-public-runtime",
+          milestoneId: "milestone-public-runtime",
+          repositoryRevision: revision,
+          objective: "Create the bounded result.",
+          acceptanceCriteria: ["result accepted"],
+          allowedPaths: ["result.txt"],
+          readPaths: ["result.txt"],
+          maximumConcurrency: 1,
+          maximumReplans: 0,
+          originLane: "interactive",
+          requestedExecutorProvider: "codex",
+          adoptResult: false,
+        },
+      },
+    },
+    {
+      authenticateClient: () => ({
+        status: "verified",
+        principalId: "local-user-test-user",
+      }),
+      runObjective: async () => result,
+      submitDecision: async () => {
+        throw new Error("decision_not_expected");
+      },
+    },
+  );
+  const mcpResult = mcp.result as {
+    structuredContent: {
+      status: string;
+      reason: string;
+      recoveryIds: string[];
+    };
+    isError: boolean;
+  };
+  assert.equal(mcpResult.isError, false);
+  assert.equal(mcpResult.structuredContent.status, "completed");
+  assert.equal(
+    mcpResult.structuredContent.reason,
+    "project_runtime_milestone_accepted",
+  );
+  assert.deepEqual(mcpResult.structuredContent.recoveryIds, []);
 
   const replay = await runtime.run(
     {

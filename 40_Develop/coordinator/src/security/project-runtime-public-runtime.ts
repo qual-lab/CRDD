@@ -318,7 +318,6 @@ async function executeProjectRuntimePublicObjective(
       reason: "project_runtime_decision_store_unavailable",
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
-      effectState: "unknown" as const,
     });
   const decisionId = stable(
     "decision",

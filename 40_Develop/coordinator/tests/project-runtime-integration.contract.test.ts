@@ -11,6 +11,7 @@ import {
   readProjectRuntimeState,
 } from "../src/security/project-runtime-durable-foundation.ts";
 import { integrateProjectRuntimeOperation } from "../src/security/project-runtime-integration.ts";
+import { inspectMcpProjectRuntimeObjectiveResult } from "../src/security/mcp-project-runtime-adapter.ts";
 import { runProjectRuntimeObjective } from "../src/security/project-runtime-objective-intake.ts";
 
 const revision = "a".repeat(40);
@@ -345,4 +346,7 @@ test("canonical adoption preserves malformed acquisition evidence and exposes it
   );
   assert.equal(adoptions, 0);
   assert.equal(fs.existsSync(marker), true);
+  const publicProjection = inspectMcpProjectRuntimeObjectiveResult(result);
+  assert.ok(publicProjection);
+  assert.deepEqual(publicProjection.recoveryIds, result.recoveryIds);
 });

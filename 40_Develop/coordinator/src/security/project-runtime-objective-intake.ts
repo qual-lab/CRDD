@@ -545,6 +545,37 @@ export async function runProjectRuntimeObjective(
     .digest("hex");
 
   const workingDirectory = binding.workingDirectory;
+  const acquisitionOwner = inspectProjectRuntimeLeaseAcquisitionOwner(
+    workingDirectory,
+    binding.repositoryBindingId,
+  );
+  if (acquisitionOwner.status !== "completed")
+    return blocked(request, acquisitionOwner.reason, {
+      cleanupConfirmed: false,
+      manualRecoveryRequired: acquisitionOwner.manualRecoveryRequired,
+      recoveryIds:
+        acquisitionOwner.recoveryId === null
+          ? Object.freeze([])
+          : Object.freeze([acquisitionOwner.recoveryId]),
+      effectState: acquisitionOwner.manualRecoveryRequired
+        ? "unknown"
+        : "no_effect",
+    });
+  const resolvedAcquisition = acquisitionOwner.value.acquisition;
+  if (
+    resolvedAcquisition !== null &&
+    resolvedAcquisition.projectId !== request.projectId
+  )
+    return blocked(
+      request,
+      "project_runtime_lease_acquisition_project_identity_mismatch",
+      {
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        recoveryIds: Object.freeze([resolvedAcquisition.recoveryId]),
+        effectState: "unknown",
+      },
+    );
   const observedState = readProjectRuntimeState(
     workingDirectory,
     binding.repositoryBindingId,
@@ -611,25 +642,8 @@ export async function runProjectRuntimeObjective(
       effectState: queued.manualRecoveryRequired ? "unknown" : "no_effect",
     });
   let queue = queued.value;
-  const acquisitionOwner = inspectProjectRuntimeLeaseAcquisitionOwner(
-    workingDirectory,
-    binding.repositoryBindingId,
-    request.projectId,
-  );
-  if (acquisitionOwner.status !== "completed")
-    return blocked(request, acquisitionOwner.reason, {
-      cleanupConfirmed: false,
-      manualRecoveryRequired: acquisitionOwner.manualRecoveryRequired,
-      recoveryIds:
-        acquisitionOwner.recoveryId === null
-          ? Object.freeze([])
-          : Object.freeze([acquisitionOwner.recoveryId]),
-      effectState: acquisitionOwner.manualRecoveryRequired
-        ? "unknown"
-        : "no_effect",
-    });
   const recoveryQueueId =
-    acquisitionOwner.value.queueId ??
+    resolvedAcquisition?.queueId ??
     (queue.ownerGeneration === null ? null : queueId);
   if (recoveryQueueId !== null) {
     const reconciled = reconcileProjectRuntimeLeaseOwnerLoss(

@@ -742,6 +742,7 @@ test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検
           receiptId: null,
           cleanupConfirmed,
           manualRecoveryRequired,
+          recoveryIds: [],
         }),
       }),
     );
@@ -750,6 +751,100 @@ test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検
         .structuredContent.reason,
       "project_runtime_adapter_result_invalid",
     );
+  }
+});
+
+test("MCP Integration結果はCanonical recoveryIdsを保持し不正な集合を拒否する", async () => {
+  const recoveryId = `lease-acquisition-${"1".repeat(40)}`;
+  const base = {
+    contract: "crdd-coordinator/project-runtime-integration/v1",
+    reason: "project_runtime_milestone_accepted",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId: "queue-a",
+    stateGeneration: 2,
+    candidateId: "candidate-a",
+    receiptId: null,
+  };
+  for (const [raw, expectedError, expectedAdapterInvalid] of [
+    [
+      {
+        ...base,
+        status: "completed",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        recoveryIds: [],
+      },
+      false,
+      false,
+    ],
+    [
+      {
+        ...base,
+        status: "blocked",
+        reason: "project_runtime_lease_acquisition_recovery_evidence_mismatch",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        recoveryIds: [recoveryId],
+      },
+      true,
+      false,
+    ],
+    [
+      {
+        ...base,
+        status: "blocked",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        recoveryIds: [recoveryId, recoveryId],
+      },
+      true,
+      true,
+    ],
+    [
+      {
+        ...base,
+        status: "completed",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        recoveryIds: [recoveryId],
+      },
+      true,
+      true,
+    ],
+    [
+      {
+        ...base,
+        status: "blocked",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        recoveryIds: ["not valid"],
+      },
+      true,
+      true,
+    ],
+  ] as const) {
+    const response = await handleMcpProjectRuntimeRequest(
+      request("tools/call", {
+        _meta: meta,
+        name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+        arguments: objective(),
+      }),
+      dependencies({ runObjective: async () => raw }),
+    );
+    const result = response.result as {
+      structuredContent: { reason: string; recoveryIds?: readonly string[] };
+      isError: boolean;
+    };
+    if (expectedAdapterInvalid)
+      assert.equal(
+        result.structuredContent.reason,
+        "project_runtime_adapter_result_invalid",
+      );
+    else {
+      assert.deepEqual(result.structuredContent.recoveryIds, raw.recoveryIds);
+      assert.equal(result.isError, expectedError);
+    }
   }
 });
 

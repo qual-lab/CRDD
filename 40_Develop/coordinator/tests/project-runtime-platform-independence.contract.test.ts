@@ -20,6 +20,7 @@ const CORE_MODULES = Object.freeze([
 
 const ALLOWED_SHARED_MODULES = Object.freeze([
   "src/security/plain-data-snapshot.ts",
+  "src/security/project-runtime-integration-result.ts",
   "src/security/project-runtime-objective-request.ts",
 ]);
 

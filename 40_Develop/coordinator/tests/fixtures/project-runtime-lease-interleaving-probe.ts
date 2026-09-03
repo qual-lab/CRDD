@@ -6,6 +6,7 @@ const [
   mode,
   requestedKind = "canonical-adoption",
   queueId = "queue-a",
+  projectId = "project-a",
 ] = process.argv.slice(2);
 if (
   !workingDirectory ||
@@ -13,7 +14,8 @@ if (
   (mode !== "hold" && mode !== "pause-before-publish") ||
   (requestedKind !== "canonical-adoption" &&
     requestedKind !== "project-operation") ||
-  !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(queueId)
+  !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(queueId) ||
+  !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(projectId)
 )
   throw new Error("project_runtime_lease_interleaving_probe_input_invalid");
 
@@ -38,7 +40,7 @@ const { acquireProjectRuntimeLease } = await import(
 const result = acquireProjectRuntimeLease(
   workingDirectory,
   "binding-a",
-  "project-a",
+  projectId,
   queueId,
   requestedKind,
 );
