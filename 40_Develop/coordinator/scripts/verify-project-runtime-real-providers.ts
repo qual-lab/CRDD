@@ -1,41 +1,27 @@
 import assert from "node:assert/strict";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { PassThrough } from "node:stream";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 
 import {
-  cancelRuntimeOwnedDevelopmentProjectRuntimeTask,
-  startRuntimeOwnedDevelopmentProjectRuntimeTask,
-} from "../src/security/coordinator-task-runtime.ts";
-import {
-  cancelRuntimeOwnedDevelopmentMeasurementSession,
-  requestRuntimeOwnedDevelopmentMeasurementSession,
-} from "../src/security/development-measurement-session.ts";
-import {
   inspectBundledCoordinatorPackageFilesystemCandidate,
-  inspectFixedDevelopmentCoordinatorPackageCandidate,
   inspectVerifiedNativeDistributionCandidate,
 } from "../src/security/platform-provisioner-package-filesystem.ts";
-import {
-  buildProjectRuntimeCoordinatorTaskRequest,
-  createDevelopmentProjectRuntimePublicObjectiveCandidate,
-} from "../src/security/project-runtime-public-runtime.ts";
-import { runMcpProjectRuntimeStdio } from "../src/security/mcp-project-runtime-stdio.ts";
-import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../src/security/project-runtime-candidate-integration-adapter.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../src/security/project-runtime-windows-decision-store.ts";
-import { recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart } from "../src/security/docker-recovery-runtime.ts";
+import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../src/security/docker-recovery-runtime.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
 const MARKER =
   "40_Develop/coordinator/tests/fixtures/project-runtime-real-provider-verification.txt";
+const CANCELLATION_MARKER =
+  "40_Develop/coordinator/tests/fixtures/project-runtime-real-provider-cancellation.txt";
 const BASE = "CRDD_PROJECT_RUNTIME_BASE\n";
 const FINAL = "CRDD_PROJECT_RUNTIME_REAL_PROVIDER_OK\n";
-const sourceDistributionRoot = path.resolve(
-  fileURLToPath(new URL("../../..", import.meta.url)),
-);
+const MAXIMUM_OUTPUT_BYTES = 4 * 1024 * 1024;
+const PROCESS_TIMEOUT_MS = 45 * 60_000;
+type JsonRecord = Readonly<Record<string, unknown>>;
 
 function stableDirectory(value: string) {
   const metadata = fs.lstatSync(value);
@@ -43,66 +29,173 @@ function stableDirectory(value: string) {
   assert.equal(fs.realpathSync.native(value), value);
 }
 
+function appendBounded(current: string, chunk: Buffer) {
+  if (Buffer.byteLength(current) + chunk.byteLength > MAXIMUM_OUTPUT_BYTES)
+    throw new Error("project_runtime_public_e2e_output_too_large");
+  return current + chunk.toString("utf8");
+}
+
+function mcpEnvelope(id: string, request: unknown) {
+  return `${JSON.stringify({
+    jsonrpc: "2.0",
+    id,
+    method: "tools/call",
+    params: {
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+      name: "crdd.run_objective",
+      arguments: request,
+    },
+  })}\n`;
+}
+
+function publicResult(response: unknown): JsonRecord | null {
+  if (!response || typeof response !== "object" || !("result" in response))
+    return null;
+  const result = (response as { result?: unknown }).result;
+  if (!result || typeof result !== "object" || !("structuredContent" in result))
+    return null;
+  const content = (result as { structuredContent?: unknown }).structuredContent;
+  return content && typeof content === "object" && !Array.isArray(content)
+    ? (content as JsonRecord)
+    : null;
+}
+
+function startPublicMcpProcess(
+  distributionRoot: string,
+  repositoryRoot: string,
+) {
+  return spawn(
+    process.execPath,
+    [
+      path.join(
+        distributionRoot,
+        "40_Develop",
+        "coordinator",
+        "bin",
+        "coordinator.ts",
+      ),
+      "mcp",
+      "--stdio",
+    ],
+    {
+      cwd: repositoryRoot,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
+}
+
+async function observePublicMcpProcess(
+  child: ChildProcessWithoutNullStreams,
+  onStdout?: (content: string) => void,
+  onStderr?: (content: string) => void,
+) {
+  let stdout = "";
+  let stderr = "";
+  let launchError: string | null = null;
+  child.stdout.on("data", (chunk: Buffer) => {
+    stdout = appendBounded(stdout, chunk);
+    onStdout?.(stdout);
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr = appendBounded(stderr, chunk);
+    onStderr?.(stderr);
+  });
+  child.once("error", (error) => {
+    launchError = error instanceof Error ? error.name : "unknown";
+  });
+  let timeout: NodeJS.Timeout | null = null;
+  const exit = await new Promise<
+    Readonly<{ code: number | null; signal: string | null }>
+  >((resolve, reject) => {
+    timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error("project_runtime_public_e2e_process_timeout"));
+    }, PROCESS_TIMEOUT_MS);
+    child.once("close", (code, signal) => resolve({ code, signal }));
+  }).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
+  return Object.freeze({
+    exit,
+    launchError,
+    responses: Object.freeze(
+      stdout
+        .split(/\r?\n/u)
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as unknown),
+    ),
+    selectionEventObserved: stderr.includes(
+      '"event":"coordinator_selection_before_provider_effect"',
+    ),
+  });
+}
+
+function objective(
+  common: JsonRecord,
+  runId: string,
+  provider: "codex" | "claude",
+  adoptResult: boolean,
+) {
+  return Object.freeze({
+    ...common,
+    requestId: `project-runtime-public-${provider}-${runId}`,
+    projectId: `crdd-project-runtime-public-${provider}-${runId}`,
+    milestoneId: `public-provider-${provider}`,
+    requestedExecutorProvider: provider,
+    adoptResult,
+  });
+}
+
 async function main() {
   if (process.argv.length !== 3)
     throw new Error(
-      "usage: verify-project-runtime-real-providers <v0.18.1-native-distribution-root>",
+      "usage: verify-project-runtime-real-providers <signed-distribution-root>",
     );
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
   );
-  const nativeDistributionRoot = path.resolve(process.argv[2] ?? "");
-  stableDirectory(nativeDistributionRoot);
+  const distributionRoot = path.resolve(process.argv[2] ?? "");
+  stableDirectory(distributionRoot);
   const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
   assert.equal(repository?.status, "candidate");
   if (repository?.status !== "candidate")
     throw new Error("repository_identity_not_verified");
-  const commit = repository.commit;
-  const tree = repository.tree;
-  assert.equal(
-    fs.readFileSync(path.join(repositoryRoot, ...MARKER.split("/")), "utf8"),
-    BASE,
+  for (const marker of [MARKER, CANCELLATION_MARKER])
+    assert.equal(
+      fs.readFileSync(path.join(repositoryRoot, ...marker.split("/")), "utf8"),
+      BASE,
+    );
+
+  const verificationRoot = path.join(
+    repositoryRoot,
+    ".crdd",
+    "verification-results",
   );
-  const runtimeRoot = path.join(repositoryRoot, ".crdd");
-  const verificationRoot = path.join(runtimeRoot, "verification-results");
-  for (const directory of [runtimeRoot, verificationRoot]) {
-    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-    stableDirectory(directory);
-  }
+  fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
+  stableDirectory(verificationRoot);
 
   const nativeModule = (await import(
     pathToFileURL(
       path.join(
-        nativeDistributionRoot,
+        distributionRoot,
         "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
       ),
     ).href
   )) as {
     verifyBundledCoordinatorPackageFromFixedManifestCandidate: (input: {
       evaluationTime: string;
-    }) => Readonly<Record<string, unknown>>;
-  };
-  const nativeCandidateStoreModule = (await import(
-    pathToFileURL(
-      path.join(
-        nativeDistributionRoot,
-        "40_Develop/coordinator/src/security/candidate-bundle-store.ts",
-      ),
-    ).href
-  )) as {
-    readRuntimeOwnedCandidateBundle: (candidateId: string) => unknown;
-    persistRuntimeOwnedCandidateBundle: (
-      bundle: unknown,
-      policy: unknown,
-    ) => unknown;
-    publishRuntimeOwnedCandidateBundle: (recoveryId: string) => unknown;
+    }) => JsonRecord;
   };
   const native =
     nativeModule.verifyBundledCoordinatorPackageFromFixedManifestCandidate({
       evaluationTime: new Date().toISOString(),
     });
   assert.equal(native.status, "candidate", String(native.reason));
-  const expectedNativeRelease = Object.freeze(
+  const expectedRelease = Object.freeze(
     Object.fromEntries(
       [
         "manifestHash",
@@ -115,30 +208,20 @@ async function main() {
       ].map((key) => [key, native[key]]),
     ),
   );
-  const packageObservation =
-    inspectBundledCoordinatorPackageFilesystemCandidate();
-  assert.equal(packageObservation.status, "candidate");
-  if (packageObservation.status !== "candidate")
-    throw new Error(packageObservation.reason);
-  assert.equal(
-    inspectFixedDevelopmentCoordinatorPackageCandidate({
-      distributionRoot: sourceDistributionRoot,
-      expectedPackageContentRootSha256:
-        packageObservation.packageContentRootSha256,
-    }).status,
-    "candidate",
-  );
+  const sourcePackage = inspectBundledCoordinatorPackageFilesystemCandidate();
+  assert.equal(sourcePackage.status, "candidate");
   assert.equal(
     inspectVerifiedNativeDistributionCandidate({
-      distributionRoot: nativeDistributionRoot,
+      distributionRoot,
       evaluationTime: new Date().toISOString(),
-      expectedRelease: expectedNativeRelease,
+      expectedRelease,
     }).status,
     "candidate",
   );
 
+  const runId = randomUUID().replaceAll("-", "").slice(0, 16);
   const common = Object.freeze({
-    repositoryRevision: commit,
+    repositoryRevision: repository.commit,
     objective: `Replace ${MARKER} with the exact required single-line content.`,
     acceptanceCriteria: Object.freeze([
       `The only changed path is ${MARKER}.`,
@@ -151,285 +234,149 @@ async function main() {
     ]),
     maximumConcurrency: 1,
     maximumReplans: 0,
-    originLane: "interactive" as const,
+    originLane: "interactive",
   });
-  const runId = randomUUID().replaceAll("-", "").slice(0, 16);
   const objectives = Object.freeze([
-    Object.freeze({
-      ...common,
-      requestId: `project-runtime-real-codex-${runId}`,
-      projectId: `crdd-project-runtime-real-codex-${runId}`,
-      milestoneId: "real-provider-codex",
-      requestedExecutorProvider: "codex" as const,
-      adoptResult: false,
-    }),
-    Object.freeze({
-      ...common,
-      requestId: `project-runtime-real-claude-${runId}`,
-      projectId: `crdd-project-runtime-real-claude-${runId}`,
-      milestoneId: "real-provider-claude",
-      requestedExecutorProvider: "claude" as const,
-      adoptResult: true,
-    }),
+    objective(common, runId, "codex", false),
+    objective(common, runId, "claude", true),
   ]);
-  const tasks = objectives.map((objective) =>
-    buildProjectRuntimeCoordinatorTaskRequest(
-      objective,
-      objective.requestedExecutorProvider === "codex" ? "claude" : "codex",
-    ),
-  );
-  const controller = new AbortController();
-  const admission = await requestRuntimeOwnedDevelopmentMeasurementSession(
-    {
-      repositoryRoot,
-      expectedCommit: commit,
-      expectedTree: tree,
-      expectedPackageContentRootSha256:
-        packageObservation.packageContentRootSha256,
-      nativeDistributionRoot,
-      expectedNativeRelease,
-      tasks,
-      expiresAtMs: Date.now() + 3_600_000,
-    },
-    controller.signal,
-  );
-  if (admission.status !== "authorized" || !admission.capability) {
-    process.stdout.write(`${JSON.stringify(admission, null, 2)}\n`);
-    process.exitCode = 2;
-    return;
-  }
-  const capability = admission.capability;
-  const pendingDockerRecoveryId = process.env.CRDD_PENDING_DOCKER_RECOVERY_ID;
-  const dockerDesktopRepairId = process.env.CRDD_DOCKER_DESKTOP_REPAIR_ID;
-  const historicalRepairReleaseRoot =
-    process.env.CRDD_DOCKER_DESKTOP_REPAIR_RELEASE_ROOT;
-  if (
-    pendingDockerRecoveryId ||
-    dockerDesktopRepairId ||
-    historicalRepairReleaseRoot
-  ) {
-    assert.equal(typeof pendingDockerRecoveryId, "string");
-    assert.equal(typeof dockerDesktopRepairId, "string");
-    assert.equal(typeof historicalRepairReleaseRoot, "string");
-    const recovered =
-      recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
-        pendingDockerRecoveryId,
-        dockerDesktopRepairId,
-        historicalRepairReleaseRoot,
-        capability,
-      );
-    process.stdout.write(
-      `${JSON.stringify({ phase: "docker_recovery", ...recovered })}\n`,
-    );
-    if (recovered.status !== "recovered") {
-      cancelRuntimeOwnedDevelopmentMeasurementSession(capability);
-      process.exitCode = 2;
-      return;
-    }
-  }
-  const decisionStore = openRuntimeOwnedWindowsProjectDecisionStore({
-    developmentContext: capability,
-    initializeIfMissing: false,
-  });
-  assert.equal(decisionStore.status, "completed");
-  if (decisionStore.status !== "completed")
-    throw new Error("development_decision_store_not_verified");
-  const taskOutcomes: Array<
-    Readonly<{
-      requestedExecutorProvider: unknown;
-      status: unknown;
-      reason: unknown;
-      cleanupConfirmed: unknown;
-      manualRecoveryRequired: unknown;
-      processRestartRequired: unknown;
-      candidatePresent: boolean;
-      recoveryPresent: boolean;
-      providerTurnObservations: readonly unknown[];
-    }>
-  > = [];
-  const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
-    issueTaskAuthority: () => Object.freeze({}),
-    startTask: (request, root) => {
-      const started = startRuntimeOwnedDevelopmentProjectRuntimeTask(
-        request,
-        root,
-        capability,
-      );
-      return Object.freeze({
-        ...started,
-        completion: started.completion.then((result) => {
-          const value = result as Readonly<Record<string, unknown>>;
-          taskOutcomes.push(
-            Object.freeze({
-              requestedExecutorProvider:
-                request &&
-                typeof request === "object" &&
-                "requestedExecutorProvider" in request
-                  ? request.requestedExecutorProvider
-                  : null,
-              status: value.status ?? null,
-              reason: value.reason ?? null,
-              cleanupConfirmed: value.cleanupConfirmed ?? null,
-              manualRecoveryRequired: value.manualRecoveryRequired ?? null,
-              processRestartRequired: value.processRestartRequired ?? null,
-              candidatePresent: typeof value.candidateId === "string",
-              recoveryPresent:
-                typeof value.hostRecoveryId === "string" ||
-                typeof value.candidateRecoveryId === "string" ||
-                typeof value.candidateStoreRecoveryId === "string" ||
-                (Array.isArray(value.dockerRecoveryIds) &&
-                  value.dockerRecoveryIds.length > 0),
-              providerTurnObservations:
-                value.status === "completed" &&
-                value.cleanupConfirmed === true &&
-                Array.isArray(value.providerTurnObservations)
-                  ? Object.freeze([...value.providerTurnObservations])
-                  : Object.freeze([]),
-            }),
-          );
-          return result;
-        }),
-      });
-    },
-    cancelTask: cancelRuntimeOwnedDevelopmentProjectRuntimeTask,
-    frontProviderForTask: (provider) =>
-      provider === "codex" ? "claude" : "codex",
-    openDecisionStore: () => decisionStore,
-    createIntegrationAdapter: (root) =>
-      createRuntimeOwnedProjectCandidateIntegrationAdapter(root, {
-        read: nativeCandidateStoreModule.readRuntimeOwnedCandidateBundle,
-        persist: nativeCandidateStoreModule.persistRuntimeOwnedCandidateBundle,
-        publish: nativeCandidateStoreModule.publishRuntimeOwnedCandidateBundle,
-      }),
-  });
-  const input = new PassThrough();
-  const output = new PassThrough();
-  output.setEncoding("utf8");
-  let pending = "";
-  const responses: unknown[] = [];
-  output.on("data", (chunk) => {
-    pending += String(chunk);
-    for (;;) {
-      const newline = pending.indexOf("\n");
-      if (newline < 0) break;
-      const line = pending.slice(0, newline).replace(/\r$/u, "");
-      pending = pending.slice(newline + 1);
-      if (line) responses.push(JSON.parse(line));
+
+  const normalChild = startPublicMcpProcess(distributionRoot, repositoryRoot);
+  let normalInputClosed = false;
+  const normalObservation = observePublicMcpProcess(normalChild, (stdout) => {
+    if (
+      !normalInputClosed &&
+      stdout.split(/\r?\n/u).filter(Boolean).length >= objectives.length
+    ) {
+      normalInputClosed = true;
+      normalChild.stdin.end();
     }
   });
-  const mcp = runMcpProjectRuntimeStdio(
-    {
-      authenticateClient: () =>
-        Object.freeze({
-          status: "verified",
-          principalId: decisionStore.principalId,
-        }),
-      runObjective: (request, signal) =>
-        runtime.run(request, signal, repositoryRoot),
-      submitDecision: (request) =>
-        Promise.resolve(runtime.runDecision(request, repositoryRoot)),
-    },
-    input,
-    output,
+  normalChild.stdin.write(
+    objectives
+      .map((request, index) => mcpEnvelope(`objective-${index + 1}`, request))
+      .join(""),
   );
-  const envelope = Object.freeze({
-    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-    "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
-  });
-  const waitForResponse = async (count: number) => {
-    const deadline = Date.now() + 30 * 60_000;
-    while (responses.length < count && Date.now() < deadline)
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    assert.equal(responses.length >= count, true);
-  };
-  const send = (id: string, name: string, request: unknown) =>
-    input.write(
-      `${JSON.stringify({
-        jsonrpc: "2.0",
-        id,
-        method: "tools/call",
-        params: { _meta: envelope, name, arguments: request },
-      })}\n`,
-      "utf8",
-    );
-  try {
-    for (let index = 0; index < objectives.length; index += 1) {
-      send(`objective-${index + 1}`, "crdd.run_objective", objectives[index]);
-      await waitForResponse(index + 1);
-    }
-    send("decision", "crdd.submit_decision", {
-      decisionId: "nonexistent-decision",
-      projectId: "nonexistent-project",
-      milestoneId: "nonexistent-milestone",
-      generation: 1,
-      repositoryRevision: commit,
-      selectedOption: "cancel",
-      continuationCapability: "non-authority-probe",
-    });
-    await waitForResponse(3);
-    input.end();
-    const transportResult = await mcp;
-    assert.equal(transportResult.status, "completed");
-  } finally {
-    if (!input.destroyed) input.destroy();
-    cancelRuntimeOwnedDevelopmentMeasurementSession(capability);
-  }
-  const results = responses
-    .slice(0, 2)
-    .map((response) =>
-      response && typeof response === "object" && "result" in response
-        ? (response as { result?: { structuredContent?: unknown } }).result
-            ?.structuredContent
-        : null,
-    );
-  const decision = responses[2] as
-    | { result?: { structuredContent?: { reason?: unknown } } }
-    | undefined;
+  const normal = await normalObservation;
+  assert.deepEqual(normal.exit, { code: 0, signal: null });
+  assert.equal(normal.launchError, null);
+  assert.equal(normal.responses.length, 2);
+  const normalResults = normal.responses.map(publicResult);
   assert.equal(
-    decision?.result?.structuredContent?.reason,
-    "project_runtime_decision_not_observed",
+    normalResults.every(
+      (result) =>
+        result?.status === "completed" &&
+        result.reason === "project_runtime_milestone_accepted" &&
+        result.cleanupConfirmed === true &&
+        result.manualRecoveryRequired === false,
+    ),
+    true,
   );
-  const completed = results.every(
-    (entry) =>
-      entry &&
-      typeof entry === "object" &&
-      "status" in entry &&
-      entry.status === "completed" &&
-      "reason" in entry &&
-      entry.reason === "project_runtime_milestone_accepted",
+  assert.equal(
+    fs.readFileSync(path.join(repositoryRoot, ...MARKER.split("/")), "utf8"),
+    FINAL,
   );
-  const finalBytes = fs.readFileSync(
-    path.join(repositoryRoot, ...MARKER.split("/")),
-    "utf8",
+
+  const cancellationRequest = Object.freeze({
+    ...common,
+    requestId: `project-runtime-public-cancel-${runId}`,
+    projectId: `crdd-project-runtime-public-cancel-${runId}`,
+    milestoneId: "public-provider-cancellation",
+    requestedExecutorProvider: "claude",
+    objective: `Replace ${CANCELLATION_MARKER} after carefully inspecting all allowed inputs.`,
+    acceptanceCriteria: Object.freeze([
+      `The only changed path is ${CANCELLATION_MARKER}.`,
+      "The task remains active long enough for the MCP parent to cancel it.",
+    ]),
+    allowedPaths: Object.freeze([CANCELLATION_MARKER]),
+    readPaths: Object.freeze([
+      CANCELLATION_MARKER,
+      "06_Architecture/coordinator/03_Project_Runtime_Design.md",
+    ]),
+    adoptResult: false,
+  });
+  const cancellationChild = startPublicMcpProcess(
+    distributionRoot,
+    repositoryRoot,
   );
+  let cancellationRequested = false;
+  const cancellationObservation = observePublicMcpProcess(
+    cancellationChild,
+    undefined,
+    (stderr) => {
+      if (
+        !cancellationRequested &&
+        stderr.includes(
+          '"event":"coordinator_selection_before_provider_effect"',
+        )
+      ) {
+        cancellationRequested = true;
+        cancellationChild.stdin.end();
+      }
+    },
+  );
+  cancellationChild.stdin.write(
+    mcpEnvelope("objective-cancellation", cancellationRequest),
+  );
+  const cancelled = await cancellationObservation;
+  assert.equal(cancellationRequested, true);
+  assert.deepEqual(cancelled.exit, { code: 0, signal: null });
+  assert.equal(cancelled.launchError, null);
+  assert.equal(cancelled.responses.length, 1);
+  const cancellationResult = publicResult(cancelled.responses[0]);
+  assert.equal(cancellationResult?.status, "cancelled");
+  assert.equal(cancellationResult.cleanupConfirmed, true);
+  assert.equal(cancellationResult.manualRecoveryRequired, false);
+  assert.equal(
+    fs.readFileSync(
+      path.join(repositoryRoot, ...CANCELLATION_MARKER.split("/")),
+      "utf8",
+    ),
+    BASE,
+  );
+
+  const dockerRecovery = inspectRuntimeOwnedDockerTaskRecoveryState();
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 3,
-    status: completed && finalBytes === FINAL ? "completed" : "blocked",
+    contractRevision: 4,
+    status: dockerRecovery.status === "completed" ? "completed" : "blocked",
     reason:
-      completed && finalBytes === FINAL
-        ? "project_runtime_real_providers_verified"
-        : "project_runtime_real_provider_verification_incomplete",
-    sourceCommit: commit,
-    sourceTree: tree,
+      dockerRecovery.status === "completed"
+        ? "project_runtime_public_mcp_real_providers_and_cancellation_verified"
+        : "project_runtime_public_mcp_post_run_recovery_state_not_clean",
+    sourceCommit: repository.commit,
+    sourceTree: repository.tree,
     runId,
     providers: Object.freeze(["codex", "claude"]),
-    projectRuntimeOwnedIntegration: true,
-    canonicalAdoptionObserved: finalBytes === FINAL,
-    mcpProcess: Object.freeze({
-      transport: "bounded_stdio_process_contract",
-      authenticatedPrincipalObserved: true,
-      semanticObjectiveCount: 2,
-      invalidDecisionEffect: "no_effect",
+    publicMcpProcess: Object.freeze({
+      actualChildProcess: true,
+      transport: "stdio",
+      authenticatedSemanticResults: true,
+      completedObjectiveCount: normalResults.length,
       parentEofJoined: true,
     }),
+    cancellation: Object.freeze({
+      providerSelectionObservedBeforeCancellation: true,
+      parentEofIssued: true,
+      semanticStatus: cancellationResult.status,
+      cleanupConfirmed: cancellationResult.cleanupConfirmed,
+      manualRecoveryRequired: cancellationResult.manualRecoveryRequired,
+      canonicalRepositoryChanged: false,
+    }),
+    dockerRecoveryAfterRun: Object.freeze({
+      status: dockerRecovery.status,
+      reason: dockerRecovery.reason,
+      manualRecoveryRequired: dockerRecovery.manualRecoveryRequired,
+      recoverySettlementExercised: false,
+    }),
+    canonicalAdoptionObserved: true,
     releaseAuthorityConferred: false,
-    taskOutcomes: Object.freeze(taskOutcomes),
-    results: Object.freeze(results),
+    rawProviderOutputReported: false,
+    results: Object.freeze(normalResults),
   });
   const reportDirectory = path.join(
     verificationRoot,
-    `project-runtime-real-providers-${Date.now()}`,
+    `project-runtime-public-real-providers-${Date.now()}`,
   );
   fs.mkdirSync(reportDirectory, { mode: 0o700 });
   fs.writeFileSync(
