@@ -159,7 +159,7 @@ process.stdin.on("data", (chunk) => {
             milestoneId: "milestone-a",
             queueId: "queue-a",
             taskId: index < 5 ? "task-a" : null,
-            operationId: index < 5 ? "OP-100001" : null,
+            operationId: index < 5 ? `operation-${"d".repeat(40)}` : null,
             recoveryId: index < 5 ? recoveryId : null,
             stateGeneration: index + 1,
           })}\n`,

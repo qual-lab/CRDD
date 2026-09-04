@@ -16,6 +16,7 @@ const ATTEMPT_ID = "attempt-0001";
 const OPERATION_ID = "operation-0001";
 const AUTHORITY_BINDING_ID = "authority-0001";
 const repositoryRevisionValue = "a".repeat(40);
+const DOCKER_RECOVERY_ID = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 
 function completionRecord(
   overrides: Readonly<Record<string, unknown>> = Object.freeze({}),
@@ -442,8 +443,8 @@ test("実行中の取消はexactなcontrolへ一度だけ転送し完了観測�
     }),
   );
   const attempt = await pendingAttempt;
-  assert.equal(attempt.status, "blocked");
-  assert.equal(attempt.reason, "coordinator_task_cancelled_before_stage_start");
+  assert.equal(attempt.status, "cancelled");
+  assert.equal(attempt.reason, "single_task_cancelled_after_effect_cleanup");
   assert.equal(attempt.effectState, "settled");
   assert.deepEqual(cancelCalls, [controlCapability]);
 });
@@ -473,7 +474,8 @@ test("取消入口の例外は完了観測を切り離さない", async () => {
     }),
   );
   const attempt = await pendingAttempt;
-  assert.equal(attempt.status, "blocked");
+  assert.equal(attempt.status, "cancelled");
+  assert.equal(attempt.reason, "single_task_cancelled_after_effect_cleanup");
   assert.equal(attempt.effectState, "settled");
 });
 
@@ -507,7 +509,8 @@ test("取消入口の非同期失敗は未処理rejectionにせず完了観測�
       }),
     );
     const attempt = await pendingAttempt;
-    assert.equal(attempt.status, "blocked");
+    assert.equal(attempt.status, "cancelled");
+    assert.equal(attempt.reason, "single_task_cancelled_after_effect_cleanup");
     assert.equal(attempt.effectState, "settled");
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(unhandledRejections, []);
@@ -544,9 +547,62 @@ test("startTask実行中の同期abortも一度だけ転送される", async () 
     dependencies,
     validInput({ cancellationSignal: controller.signal }),
   );
-  assert.equal(attempt.status, "blocked");
+  assert.equal(attempt.status, "cancelled");
+  assert.equal(attempt.reason, "single_task_cancelled_after_effect_cleanup");
   assert.equal(attempt.effectState, "settled");
   assert.deepEqual(cancelCalls, [controlCapability]);
+});
+
+test("取消と同時に観測した通常失敗はcancelledへ丸めない", async () => {
+  const controller = new AbortController();
+  let settleCompletion: ((value: unknown) => void) | null = null;
+  const completion = new Promise((resolve) => {
+    settleCompletion = resolve;
+  });
+  const { dependencies } = harness({ completion });
+  const pendingAttempt = runProjectRuntimeSingleTaskAttempt(
+    dependencies,
+    validInput({ cancellationSignal: controller.signal }),
+  );
+  controller.abort();
+  assert.ok(settleCompletion);
+  (settleCompletion as (value: unknown) => void)(
+    completionRecord({
+      status: "blocked",
+      reason: "provider_process_exit_nonzero",
+    }),
+  );
+  const attempt = await pendingAttempt;
+  assert.equal(attempt.status, "blocked");
+  assert.equal(attempt.reason, "provider_process_exit_nonzero");
+});
+
+test("回復義務を伴う取消結果はcancelledへ丸めない", async () => {
+  const controller = new AbortController();
+  let settleCompletion: ((value: unknown) => void) | null = null;
+  const completion = new Promise((resolve) => {
+    settleCompletion = resolve;
+  });
+  const { dependencies } = harness({ completion });
+  const pendingAttempt = runProjectRuntimeSingleTaskAttempt(
+    dependencies,
+    validInput({ cancellationSignal: controller.signal }),
+  );
+  controller.abort();
+  assert.ok(settleCompletion);
+  (settleCompletion as (value: unknown) => void)(
+    completionRecord({
+      status: "blocked",
+      reason: "coordinator_task_cancelled_after_provider_cleanup",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      dockerRecoveryIds: [DOCKER_RECOVERY_ID],
+    }),
+  );
+  const attempt = await pendingAttempt;
+  assert.equal(attempt.status, "blocked");
+  assert.equal(attempt.manualRecoveryRequired, true);
+  assert.deepEqual(attempt.recoveryIds, [DOCKER_RECOVERY_ID]);
 });
 
 test("開始観測はaccessorやProxyの開始Recordをfail closedで拒否する", async () => {
@@ -588,7 +644,7 @@ test("契約表示はProject状態・後続Task・受入の非所有を宣言す
     acceptanceOwnership: "none",
     unknownSettlement: "fail_closed_manual_recovery",
     effectCancellationRepresentation:
-      "pre_effect_adapter_owned_cancelled_and_effect_era_runtime_owned_blocked_reason",
+      "pre_effect_and_confirmed_post_effect_cleanup_normalized_to_project_cancelled_other_effect_era_results_preserved",
   });
 });
 

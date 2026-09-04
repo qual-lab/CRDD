@@ -318,6 +318,15 @@ function inspectCompletionRecord(value: unknown): Readonly<{
   }
 }
 
+const SETTLED_RUNTIME_CANCELLATION_REASONS = new Set([
+  "coordinator_task_cancelled_before_stage_start",
+  "coordinator_task_cancelled_after_provider_cleanup",
+  "coordinator_task_cancelled_during_operation_creation",
+  "coordinator_task_cancelled_during_external_send_authorization",
+  "coordinator_task_cancelled_before_candidate_capture",
+  "coordinator_task_cancelled_before_independent_review",
+]);
+
 /**
  * IF-SINGLE-TASK adapter: run exactly one task attempt on the existing v0.18
  * Single Task Runtime and return a closed structured result bound to the
@@ -477,12 +486,23 @@ export async function runProjectRuntimeSingleTaskAttempt(
     completion.cleanupConfirmed !== true ||
     completion.manualRecoveryRequired === true ||
     completion.recoveryIds.length > 0;
-  const completionStatus =
-    recoveryOrCleanupUnknown && completion.status === "completed"
+  const settledRuntimeCancellation =
+    cancellationTransferred &&
+    input.cancellationSignal.aborted &&
+    completion.status === "blocked" &&
+    completion.cleanupConfirmed === true &&
+    completion.manualRecoveryRequired === false &&
+    completion.processRestartRequired === false &&
+    completion.recoveryIds.length === 0 &&
+    SETTLED_RUNTIME_CANCELLATION_REASONS.has(completion.reason);
+  const completionStatus = settledRuntimeCancellation
+    ? "cancelled"
+    : recoveryOrCleanupUnknown && completion.status === "completed"
       ? "blocked"
       : completion.status;
-  const completionReason =
-    recoveryOrCleanupUnknown && completion.status === "completed"
+  const completionReason = settledRuntimeCancellation
+    ? "single_task_cancelled_after_effect_cleanup"
+    : recoveryOrCleanupUnknown && completion.status === "completed"
       ? "single_task_completion_cleanup_unknown"
       : completion.reason;
   return result({
@@ -514,6 +534,6 @@ export function describeProjectRuntimeSingleTaskAdapterContract() {
     acceptanceOwnership: "none",
     unknownSettlement: "fail_closed_manual_recovery",
     effectCancellationRepresentation:
-      "pre_effect_adapter_owned_cancelled_and_effect_era_runtime_owned_blocked_reason",
+      "pre_effect_and_confirmed_post_effect_cleanup_normalized_to_project_cancelled_other_effect_era_results_preserved",
   });
 }

@@ -43,6 +43,8 @@ type RecoveryEvent = Readonly<{
   stateGeneration: number;
 }>;
 
+const PROJECT_OPERATION_ID = /^operation-[a-f0-9]{40}$/u;
+
 export type PublicProcessObservation = Readonly<{
   exit: Readonly<{ code: number | null; signal: string | null }> | null;
   launchError: string | null;
@@ -244,7 +246,7 @@ function parseKnownDiagnosticLine(
     !(
       parsed.operationId === null ||
       (typeof parsed.operationId === "string" &&
-        /^OP-[0-9]{6,}$/u.test(parsed.operationId))
+        PROJECT_OPERATION_ID.test(parsed.operationId))
     ) ||
     !(
       parsed.recoveryId === null ||
@@ -1005,7 +1007,7 @@ export function buildProjectRuntimeRealProviderReport(
     ])
   )
     problems.push("recovery_reentry_provider_lifecycle_mismatch");
-  const lossOperationIds = recovery.parentLoss.processStartEvents
+  const lossProviderOperationIds = recovery.parentLoss.processStartEvents
     .filter((event) => event.taskRole === "executor")
     .map((event) => event.operationId);
   const expectedRecoveryPhases = [
@@ -1023,19 +1025,23 @@ export function buildProjectRuntimeRealProviderReport(
   const exactRecoveryId = recoveryIds[0] ?? null;
   const exactRecoveryTaskId =
     recovery.reentry.recoveryEvents[0]?.taskId ?? null;
+  const exactProjectOperationId =
+    recovery.reentry.recoveryEvents[0]?.operationId ?? null;
   const exactRecoveryQueueId =
     typeof recoveryResult?.queueId === "string" ? recoveryResult.queueId : null;
   const terminationTrigger =
     recovery.parentLoss.processTreeTerminationTriggerEvent;
   const recoveryEventsCorrelated =
-    lossOperationIds.length === 1 &&
+    lossProviderOperationIds.length === 1 &&
     terminationTrigger?.event === "process_started" &&
     terminationTrigger.taskRole === "executor" &&
     terminationTrigger.provider === recovery.expected.executorProvider &&
-    terminationTrigger.operationId === lossOperationIds[0] &&
+    terminationTrigger.operationId === lossProviderOperationIds[0] &&
     exactRecoveryId !== null &&
     exactRecoveryQueueId !== null &&
     exactRecoveryTaskId !== null &&
+    exactProjectOperationId !== null &&
+    PROJECT_OPERATION_ID.test(exactProjectOperationId) &&
     /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
       exactRecoveryId,
     ) &&
@@ -1050,7 +1056,7 @@ export function buildProjectRuntimeRealProviderReport(
         event.queueId === exactRecoveryQueueId &&
         (itemPhase
           ? event.taskId === exactRecoveryTaskId &&
-            event.operationId === lossOperationIds[0] &&
+            event.operationId === exactProjectOperationId &&
             event.recoveryId === exactRecoveryId
           : event.taskId === null &&
             event.operationId === null &&

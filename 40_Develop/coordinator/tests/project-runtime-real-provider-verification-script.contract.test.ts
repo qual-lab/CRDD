@@ -184,7 +184,7 @@ const recoveryEvents: PublicProcessObservation["recoveryEvents"] =
         milestoneId: "milestone-a",
         queueId: "queue-recovery",
         taskId: index < 5 ? "task-recovery" : null,
-        operationId: index < 5 ? "OP-400001" : null,
+        operationId: index < 5 ? `operation-${"d".repeat(40)}` : null,
         recoveryId: index < 5 ? recoveryId : null,
         stateGeneration: 10 + index,
       }),
