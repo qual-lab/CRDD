@@ -7,19 +7,19 @@ import test, { type TestContext } from "node:test";
 
 import {
   canCreateDockerDesktopRepairOperation,
+  classifyDockerDesktopRepairResume,
   createDockerDesktopRepairOperation,
-  describeDockerDesktopRepairRecordStoreContract,
-  hasDockerDesktopRepairRecordCapacity,
-  inventoryDockerDesktopRepairOperations,
-  persistDockerDesktopRepairStage,
+  type DockerDesktopRepairHistoryVerifier,
   type DockerDesktopRepairLedgerSnapshot,
   type DockerDesktopRepairOperation,
-  type DockerDesktopRepairHistoryVerifier,
+  describeDockerDesktopRepairRecordStoreContract,
+  hasDockerDesktopRepairRecordCapacity,
   inspectDockerDesktopRepairHistoricalOperation,
+  inventoryDockerDesktopRepairOperations,
+  parseDockerDesktopRepairDirectoryName,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
-  classifyDockerDesktopRepairResume,
-  parseDockerDesktopRepairDirectoryName,
+  persistDockerDesktopRepairStage,
 } from "../src/security/docker-desktop-repair-record-store.ts";
 import { inspectDockerRecoveryRootSnapshotWithLock } from "../src/security/docker-recovery-runtime-internal.ts";
 
@@ -578,7 +578,9 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
     value.verifyHistory,
   );
   assert.equal(inventory.status, "verified");
-  assert.deepEqual(inventory.operations, [closed]);
+  assert.equal(inventory.operations[0]?.repairId, closed.repairId);
+  assert.equal(inventory.operations[0]?.history?.closed, true);
+  assert.equal(inventory.operations[0]?.history?.currentSessionBound, false);
   const completed = inventory.operations[0];
   assert.ok(completed);
   assert.deepEqual(classifyDockerDesktopRepairResume(completed), {
@@ -606,6 +608,54 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
     );
   }
   assert.deepEqual(snapshot(), beforeEntries);
+});
+
+test("修復履歴のsession handoffは8件で閉じ、9件目を記録せず拒否する", (t) => {
+  const value = historyFixture(t);
+  let operation = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(operation);
+  const boundaries = Array.from({ length: 9 }, (_, index) => ({
+    ...value.currentBoundary,
+    localUserBindingHash: createHash("sha256")
+      .update(`desktop-session-${index}`)
+      .digest("hex"),
+  }));
+  for (const boundary of boundaries.slice(0, 8)) {
+    operation = persistDockerDesktopRepairHistoricalAdoption(
+      boundary,
+      operation as DockerDesktopRepairOperation,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(operation);
+  }
+  const before = fs.readdirSync(value.original.operationDirectory).sort();
+  assert.equal(
+    persistDockerDesktopRepairHistoricalAdoption(
+      boundaries[8] ?? value.currentBoundary,
+      operation as DockerDesktopRepairOperation,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    ),
+    null,
+  );
+  assert.deepEqual(
+    fs.readdirSync(value.original.operationDirectory).sort(),
+    before,
+  );
+  assert.equal(
+    before.filter((name) => /^historical-handoff-[0-9]{2}\.json$/u.test(name))
+      .length,
+    8,
+  );
 });
 
 for (const mutation of [
@@ -942,26 +992,81 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
     persistRecord(nextBoundary, closed, "prepared", closed.ledger),
     null,
   );
-  const nextOperation = createDockerDesktopRepairOperation(
-    nextBoundary,
-    { dev: "4", ino: "5", birthtimeNs: "6" },
-    ledger,
+  const laterReleaseBoundary = {
+    ...nextBoundary,
+    crddManifestHash: "e".repeat(64),
+    crddReleaseSequence: 2,
+    runtimeExecutionIdentitySha256: "f".repeat(64),
+  };
+  const originManifest = { release: "origin" };
+  const adoptingManifest = { release: "current" };
+  const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
+    const selected =
+      JSON.stringify(value) === JSON.stringify(originManifest)
+        ? boundary
+        : JSON.stringify(value) === JSON.stringify(adoptingManifest)
+          ? laterReleaseBoundary
+          : null;
+    return selected
+      ? {
+          manifestHash: selected.crddManifestHash,
+          releaseSequence: selected.crddReleaseSequence,
+          runtimeExecutionIdentitySha256:
+            selected.runtimeExecutionIdentitySha256,
+          crddTree: "a".repeat(40),
+          packageContentRootSha256: "b".repeat(64),
+        }
+      : null;
+  };
+  const historical = inspectDockerDesktopRepairHistoricalOperation(
+    laterReleaseBoundary,
+    closed.repairId,
+    originManifest,
+    verifyHistory,
   );
-  const nextPrepared = persistRecord(
-    nextBoundary,
-    nextOperation,
-    "prepared",
-    ledger,
+  assert.equal(historical?.stage, "closed_retained");
+  const adoptedAfterRelogin = persistDockerDesktopRepairHistoricalAdoption(
+    laterReleaseBoundary,
+    historical as DockerDesktopRepairOperation,
+    originManifest,
+    adoptingManifest,
+    verifyHistory,
   );
-  assert.ok(nextPrepared);
   assert.equal(
-    JSON.parse(
-      fs.readFileSync(
-        path.join(nextPrepared.operationDirectory, "repair-00-prepared.json"),
-        "utf8",
-      ),
-    ).localUserBindingHash,
-    nextBoundary.localUserBindingHash,
+    adoptedAfterRelogin?.history?.currentSessionBound,
+    true,
+    JSON.stringify(
+      fs
+        .readdirSync(closed.operationDirectory)
+        .map((name) => [
+          name,
+          fs.statSync(path.join(closed.operationDirectory, name)).isFile()
+            ? fs.readFileSync(
+                path.join(closed.operationDirectory, name),
+                "utf8",
+              )
+            : "directory",
+        ]),
+    ),
+  );
+  assert.equal(adoptedAfterRelogin?.history?.closed, false);
+  const historicallyClosed = persistDockerDesktopRepairHistoricalClosure(
+    laterReleaseBoundary,
+    adoptedAfterRelogin as DockerDesktopRepairOperation,
+    {
+      liveRunIdentity: closed.ledger.liveRunIdentity as NonNullable<
+        DockerDesktopRepairLedgerSnapshot["liveRunIdentity"]
+      >,
+      staleState: "retained",
+    },
+    adoptingManifest,
+    verifyHistory,
+  );
+  assert.equal(historicallyClosed?.history?.closed, true);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(laterReleaseBoundary, verifyHistory)
+      .status,
+    "verified",
   );
   assert.equal(
     inventoryDockerDesktopRepairOperations(boundary).status,
@@ -969,6 +1074,11 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
   );
   assert.equal(
     inventoryDockerDesktopRepairOperations(nextBoundary).status,
+    "unknown",
+  );
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(laterReleaseBoundary, verifyHistory)
+      .status,
     "verified",
   );
 });

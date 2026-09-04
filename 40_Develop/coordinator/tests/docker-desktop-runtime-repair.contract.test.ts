@@ -6,25 +6,25 @@ import path from "node:path";
 import test from "node:test";
 
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
-import {
-  closeWindowsDockerDesktopRepairUsingDependencies,
-  adoptWindowsDockerDesktopRepairUsingDependencies,
-  describeDockerDesktopRuntimeRepairContract,
-  observeDockerDesktopEngineResult,
-  repairWindowsDockerDesktopRuntimeUsingDependencies,
-  type PreparedBoundary,
-  type RepairDependencies,
-} from "../src/security/docker-desktop-runtime-repair.ts";
 import type {
   DockerDesktopRepairLedgerSnapshot,
   DockerDesktopRepairOperation,
 } from "../src/security/docker-desktop-repair-record-store.ts";
 import {
   createDockerDesktopRepairOperation,
+  DOCKER_DESKTOP_REPAIR_STAGES,
   inventoryDockerDesktopRepairOperations,
   persistDockerDesktopRepairStage,
-  DOCKER_DESKTOP_REPAIR_STAGES,
 } from "../src/security/docker-desktop-repair-record-store.ts";
+import {
+  adoptWindowsDockerDesktopRepairUsingDependencies,
+  closeWindowsDockerDesktopRepairUsingDependencies,
+  describeDockerDesktopRuntimeRepairContract,
+  observeDockerDesktopEngineResult,
+  type PreparedBoundary,
+  type RepairDependencies,
+  repairWindowsDockerDesktopRuntimeUsingDependencies,
+} from "../src/security/docker-desktop-runtime-repair.ts";
 
 const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
 
@@ -730,6 +730,83 @@ test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実
   assert.equal(result.newRepairPermitted, false);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(writes, 1);
+  assert.equal(
+    state.calls.some((call) =>
+      ["start", "shutdown", "wsl", "rename"].includes(call),
+    ),
+    false,
+  );
+});
+
+test("旧Sessionで終了済みの修復は現在Dockerを観測せずEffect 0で引継ぎと終了を完了する", async () => {
+  const original = operationFixture("closed_retained", {
+    engineReady: true,
+    staleState: "retained",
+    hostSafety: "safe",
+    evidenceState: "preserved",
+    disposition: "retained_by_human_decision",
+    liveRunIdentity: { dev: "9", ino: "8", birthtimeNs: "7" },
+  });
+  let operation: DockerDesktopRepairOperation = original;
+  let dockerObservationCount = 0;
+  let closureWrites = 0;
+  const state = fixture({
+    observeEngine: () => {
+      dockerObservationCount += 1;
+      return "known_unavailable";
+    },
+    observePath: () => {
+      dockerObservationCount += 1;
+      return { state: "unknown", identity: null };
+    },
+    inventory: () => ({ status: "verified", operations: [operation] }),
+    history: {
+      inspect: () => operation,
+      loadOriginManifest: () => ({}),
+      loadCurrentManifest: () => ({}),
+      persistAdoption: (_boundary, current) => {
+        operation = {
+          ...current,
+          history: {
+            adoptionSha256: "a".repeat(64),
+            handoffTipSha256: "a".repeat(64),
+            handoffCount: 0,
+            originLocalUserBindingHash: "b".repeat(64),
+            currentLocalUserBindingHash: boundary.localUserBindingHash,
+            currentSessionBound: true,
+            closed: false,
+            liveRunIdentity: null,
+            staleState: "unknown",
+          },
+        };
+        return operation;
+      },
+      persistClosure: (_boundary, current, observation) => {
+        closureWrites += 1;
+        assert.ok(current.history);
+        operation = {
+          ...current,
+          history: { ...current.history, ...observation, closed: true },
+        };
+        return operation;
+      },
+    },
+  });
+  const result = await adoptWindowsDockerDesktopRepairUsingDependencies(
+    original.repairId,
+    "C:\\old-release",
+    state.dependencies,
+  );
+  assert.equal(
+    result.status,
+    "historical_closed_retained",
+    JSON.stringify(result),
+  );
+  assert.equal(result.newRepairPermitted, true);
+  assert.equal(result.processEffectIssued, false);
+  assert.equal(result.filesystemEffectIssued, true);
+  assert.equal(dockerObservationCount, 0);
+  assert.equal(closureWrites, 1);
   assert.equal(
     state.calls.some((call) =>
       ["start", "shutdown", "wsl", "rename"].includes(call),

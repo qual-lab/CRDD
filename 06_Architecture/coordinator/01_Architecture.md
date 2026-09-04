@@ -225,6 +225,14 @@ Docker create要求の耐久化後に応答を失った状態は、Engineの空�
 
 旧ReleaseのDocker Desktop修復履歴を引き継ぐ場合は、明示された旧Release Rootに新配置または旧配置の署名manifestがexactに一つだけ存在することを要求する。両配置の併存、両方の欠落、非canonical byte、署名不成立または履歴とのIdentity不一致では引継がない。旧配置を読むことは履歴検証に限定し、現在のRuntime Authority、修復AuthorityまたはProvider Effectへ流用しない。公開DoctorのHelp、引数ParserおよびDispatcherは、再起動Fence付きTask Recoveryに必要なexact Recovery ID、修復IDおよび旧Release Rootを同じ閉じた文法で到達可能にしなければならない。
 
+選択ユーザーの安定IdentityとログオンSession Identityを分離する。安定Identityは、再ログオンをまたいで同じ所有者の耐久記録を相関する根拠であり、それだけでは現在の変更権限にならない。旧記録のログオンSession Identityは発行時の証拠として上書きしない。現在の変更権限は、現在の署名済みRuntime、Native helper、Root Identityと保護、Policy、物理Lock、および変更直前・直後の現在Session観測がすべて成立した場合だけ得られる。旧Sessionのhandle、Capability、helper、Provider Home許可またはLockを再利用しない。
+
+再ログオン後のDocker Desktop修復履歴は、元記録を変更せず、前後Session、安定Identity、Runtime実行Identity、直前の引継ぎhashを持つ順序付きの引継ぎ記録を別途追加する。終了済みの旧修復は、現在のDocker状態を観測・変更できない場合でも、由来、原記録、引継ぎ連鎖および現在境界を確認し、Effect 0で履歴の採用と終了を記録できる。現在のDocker障害は同じ修復の再開とはせず、新しい修復Operationとして扱う。未終了の旧修復は、段階ごとに安全な再開、現在状態のexactな観測と収束、または同じ修復IDを保持した停止へ分類し、履歴採用だけでHost Effectを再発行しない。
+
+Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し、再ログオン時は同じ安定Identity、元の耐久記録、現在の保護境界および現在Sessionを結ぶ順序付き引継ぎ記録を追加する。引継ぎ後も変更前にHost世代、論理Home、Runtime Stateの各Lockを取得し、外部観測の間だけ解放したLockを同じIdentityで再取得してから続行する。Docker Desktop再起動Fenceは、終了済み修復記録と現在のfreshなEngine・資源不存在観測が両方成立した場合だけ利用でき、履歴の採用または引継ぎだけでは成立しない。
+
+いずれの引継ぎ連鎖も件数を上限8に制限し、自己参照、循環、分岐、番号飛び、前後Session不一致、Identity不一致、改変、部分書込みまたは上限超過をEffect 0で拒否する。新しい記録は同一Filesystem上の準備fileをflush・再読取りした後に排他的に公開し、単一の勝者だけを採用する。準備file、公開結果またはDirectory境界を確認できなければ、元記録と同じRecovery IDを保持して停止する。
+
 <a id="14-consoletask内部搬送回収の実装契約"></a>
 
 ## 12. 利用者との対話
@@ -325,6 +333,7 @@ Docker create要求の耐久化後に応答を失った状態は、Engineの空�
 ```text
 `INV-NO-PROVIDER-EFFECT-BEFORE-AUTHORITY`
 `INV-LOCK-ORDER-AND-REVALIDATION`
+`INV-SESSION-BOUND-AUTHORITY`
 `INV-DURABLE-BEFORE-EFFECT`
 `INV-STAGE-CLEAN-BEFORE-HANDOFF`
 `INV-CANDIDATE-EXACT-AND-NONCANONICAL`

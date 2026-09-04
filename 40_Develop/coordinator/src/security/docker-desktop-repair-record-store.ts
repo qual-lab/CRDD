@@ -20,11 +20,17 @@ const MAXIMUM_RECORDS = 24;
 const MAXIMUM_RECORD_BYTES = 65_536;
 const HISTORY_ADOPTION_FILE = "historical-adoption.json";
 const HISTORY_CLOSURE_FILE = "historical-closure.json";
+const HISTORY_HANDOFF_FILE = /^historical-handoff-([0-9]{2})\.json$/u;
+const MAXIMUM_HISTORY_HANDOFFS = 8;
 const HISTORY_FILES: readonly string[] = Object.freeze([
   HISTORY_ADOPTION_FILE,
   HISTORY_CLOSURE_FILE,
 ]);
 const HISTORY_SCHEMA = "crdd-coordinator/docker-desktop-repair-history/v1";
+const HISTORY_ADOPTION_SCHEMA =
+  "crdd-coordinator/docker-desktop-repair-history/v2";
+const HISTORY_HANDOFF_SCHEMA =
+  "crdd-coordinator/docker-desktop-repair-session-handoff/v1";
 
 export const DOCKER_DESKTOP_REPAIR_STAGES = Object.freeze([
   "prepared",
@@ -108,6 +114,7 @@ export type DockerDesktopRepairLedgerSnapshot = Readonly<{
 export type DockerDesktopRepairOperation = Readonly<{
   operationId: string;
   repairId: string;
+  originLocalUserBindingHash?: string;
   operationDirectory: string;
   staleName: string;
   staleDirectory: string;
@@ -118,11 +125,20 @@ export type DockerDesktopRepairOperation = Readonly<{
   ledger: DockerDesktopRepairLedgerSnapshot;
   history?: Readonly<{
     adoptionSha256: string;
+    handoffTipSha256?: string;
+    handoffCount?: number;
+    originLocalUserBindingHash?: string;
+    currentLocalUserBindingHash?: string;
+    currentSessionBound?: boolean;
     closed: boolean;
     liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null;
     staleState: DockerDesktopRepairStaleState;
   }>;
 }>;
+
+function isHistoryEntry(name: string) {
+  return HISTORY_FILES.includes(name) || HISTORY_HANDOFF_FILE.test(name);
+}
 
 export type DockerDesktopRepairRecordBoundary = Readonly<{
   runtimeStateRoot: string;
@@ -1276,6 +1292,7 @@ function toOperation(
   return Object.freeze({
     operationId: record.operationId,
     repairId: `docker-desktop-repair.${record.operationId}`,
+    originLocalUserBindingHash: record.localUserBindingHash,
     operationDirectory,
     staleName: record.staleName,
     staleDirectory: path.win32.join(
@@ -1306,14 +1323,14 @@ function readOriginalOperation(
     const entries = fs.readdirSync(directory, { withFileTypes: true });
     if (
       entries.length < 1 ||
-      entries.length > MAXIMUM_RECORDS + (historyAllowed ? 3 : 1)
+      entries.length >
+        MAXIMUM_RECORDS + (historyAllowed ? MAXIMUM_HISTORY_HANDOFFS + 3 : 1)
     )
       return null;
     const records = entries
       .filter(
         (entry) =>
-          entry.isFile() &&
-          !(historyAllowed && HISTORY_FILES.includes(entry.name)),
+          entry.isFile() && !(historyAllowed && isHistoryEntry(entry.name)),
       )
       .map((entry) => entry.name)
       .sort();
@@ -1470,10 +1487,26 @@ function historyFilePresent(directory: string, name: string): boolean | null {
   }
 }
 
+function commitHistoryDirectoryBoundary(directory: string) {
+  if (process.platform === "win32") {
+    const metadata = fs.lstatSync(directory);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink())
+      throw new Error("docker_desktop_repair_history_directory_invalid");
+    return;
+  }
+  const descriptor = fs.openSync(directory, "r");
+  try {
+    fs.fsyncSync(descriptor);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
 function readOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   directoryName: string,
   verifyHistory: DockerDesktopRepairHistoryVerifier,
+  allowPendingSessionHandoff = false,
 ): DockerDesktopRepairOperation | null {
   if (!parseDockerDesktopRepairDirectoryName(directoryName)) return null;
   const directory = path.win32.join(boundary.runtimeStateRoot, directoryName);
@@ -1488,10 +1521,9 @@ function readOperation(
     path.win32.join(directory, HISTORY_ADOPTION_FILE),
   );
   const adoption = parseHistoryBytes(adoptionBytes);
-  if (
-    !adoptionBytes ||
-    !adoption ||
-    !exactKeys(adoption, [
+  const adoptionV1 =
+    adoption?.schema === HISTORY_SCHEMA &&
+    exactKeys(adoption, [
       "schema",
       "kind",
       "repairId",
@@ -1499,8 +1531,28 @@ function readOperation(
       "originalTipSha256",
       "originManifest",
       "adoptingManifest",
-    ]) ||
-    adoption.schema !== HISTORY_SCHEMA ||
+    ]);
+  const adoptionV2 =
+    adoption?.schema === HISTORY_ADOPTION_SCHEMA &&
+    exactKeys(adoption, [
+      "schema",
+      "kind",
+      "repairId",
+      "originalRecordCount",
+      "originalTipSha256",
+      "originLocalUserBindingHash",
+      "adoptingLocalUserBindingHash",
+      "runtimeStateIdentityHash",
+      "runtimeStateProtectionHash",
+      "runtimeStateBindingHash",
+      "dockerPolicySha256",
+      "originManifest",
+      "adoptingManifest",
+    ]);
+  if (
+    !adoptionBytes ||
+    !adoption ||
+    (!adoptionV1 && !adoptionV2) ||
     adoption.kind !== "adoption" ||
     !hash64(adoption.originalTipSha256)
   )
@@ -1517,15 +1569,89 @@ function readOperation(
   const adoptionSha256 = createHash("sha256")
     .update(adoptionBytes)
     .digest("hex");
+  const historyEntries = fs
+    .readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => HISTORY_HANDOFF_FILE.test(entry.name));
+  if (
+    historyEntries.some((entry) => !entry.isFile()) ||
+    historyEntries.length > MAXIMUM_HISTORY_HANDOFFS
+  )
+    return null;
+  const handoffNames = historyEntries.map((entry) => entry.name).sort();
+  let handoffTipSha256 = adoptionSha256;
+  let historySession = adoptionV2
+    ? String(adoption.adoptingLocalUserBindingHash)
+    : boundary.localUserBindingHash;
+  const visitedSessions = new Set<string>();
+  if (adoptionV2) {
+    if (
+      !hash64(adoption.originLocalUserBindingHash) ||
+      !hash64(adoption.adoptingLocalUserBindingHash) ||
+      adoption.runtimeStateIdentityHash !== boundary.runtimeStateIdentityHash ||
+      adoption.runtimeStateProtectionHash !==
+        boundary.runtimeStateProtectionHash ||
+      adoption.runtimeStateBindingHash !== boundary.runtimeStateBindingHash ||
+      adoption.dockerPolicySha256 !== boundary.dockerPolicySha256
+    )
+      return null;
+    visitedSessions.add(String(adoption.originLocalUserBindingHash));
+    visitedSessions.add(historySession);
+  } else if (handoffNames.length > 0) return null;
+  for (let index = 0; index < handoffNames.length; index += 1) {
+    const name = handoffNames[index];
+    const match = HISTORY_HANDOFF_FILE.exec(name ?? "");
+    if (!match || Number(match[1]) !== index) return null;
+    const bytes = stableBytes(path.win32.join(directory, name ?? ""));
+    const handoff = parseHistoryBytes(bytes);
+    if (
+      !bytes ||
+      !handoff ||
+      !exactKeys(handoff, [
+        "schema",
+        "kind",
+        "repairId",
+        "sequence",
+        "previousHandoffSha256",
+        "fromLocalUserBindingHash",
+        "toLocalUserBindingHash",
+        "runtimeStateIdentityHash",
+        "runtimeStateProtectionHash",
+        "runtimeStateBindingHash",
+        "dockerPolicySha256",
+        "adoptingManifest",
+      ]) ||
+      handoff.schema !== HISTORY_HANDOFF_SCHEMA ||
+      handoff.kind !== "session_handoff" ||
+      handoff.repairId !== adoption.repairId ||
+      handoff.sequence !== index ||
+      handoff.previousHandoffSha256 !== handoffTipSha256 ||
+      handoff.fromLocalUserBindingHash !== historySession ||
+      !hash64(handoff.toLocalUserBindingHash) ||
+      handoff.toLocalUserBindingHash === historySession ||
+      visitedSessions.has(String(handoff.toLocalUserBindingHash)) ||
+      handoff.runtimeStateIdentityHash !== boundary.runtimeStateIdentityHash ||
+      handoff.runtimeStateProtectionHash !==
+        boundary.runtimeStateProtectionHash ||
+      handoff.runtimeStateBindingHash !== boundary.runtimeStateBindingHash ||
+      handoff.dockerPolicySha256 !== boundary.dockerPolicySha256
+    )
+      return null;
+    const handoffRelease = verifyHistory(handoff.adoptingManifest);
+    if (!handoffRelease || !releaseNotAfterBoundary(handoffRelease, boundary))
+      return null;
+    historySession = String(handoff.toLocalUserBindingHash);
+    visitedSessions.add(historySession);
+    handoffTipSha256 = createHash("sha256").update(bytes).digest("hex");
+  }
   let liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null = null;
   let staleState: DockerDesktopRepairStaleState = "unknown";
   if (closurePresent) {
     const closure = parseHistoryBytes(
       stableBytes(path.win32.join(directory, HISTORY_CLOSURE_FILE)),
     );
-    if (
-      !closure ||
-      !exactKeys(closure, [
+    const closureV1 =
+      closure?.schema === HISTORY_SCHEMA &&
+      exactKeys(closure, [
         "schema",
         "kind",
         "repairId",
@@ -1533,13 +1659,34 @@ function readOperation(
         "liveRunIdentity",
         "staleState",
         "closingManifest",
-      ]) ||
-      closure.schema !== HISTORY_SCHEMA ||
+      ]);
+    const closureV2 =
+      closure?.schema === HISTORY_ADOPTION_SCHEMA &&
+      exactKeys(closure, [
+        "schema",
+        "kind",
+        "repairId",
+        "adoptionSha256",
+        "handoffTipSha256",
+        "closingLocalUserBindingHash",
+        "liveRunIdentity",
+        "staleState",
+        "closingManifest",
+      ]);
+    if (
+      !closure ||
+      (!closureV1 && !closureV2) ||
       closure.kind !== "closure" ||
       closure.repairId !== adoption.repairId ||
       closure.adoptionSha256 !== adoptionSha256 ||
       !validIdentity(closure.liveRunIdentity) ||
       (closure.staleState !== "absent" && closure.staleState !== "retained")
+    )
+      return null;
+    if (
+      closureV2 &&
+      (closure.handoffTipSha256 !== handoffTipSha256 ||
+        closure.closingLocalUserBindingHash !== historySession)
     )
       return null;
     const closing = verifyHistory(closure.closingManifest);
@@ -1558,7 +1705,7 @@ function readOperation(
     historicalBoundary(boundary, origin),
     directoryName,
     true,
-    closurePresent ? "closed_history" : "current",
+    adoptionV2 || closurePresent ? "closed_history" : "current",
   );
   if (
     !operation ||
@@ -1567,11 +1714,25 @@ function readOperation(
     operation.previousRecordSha256 !== adoption.originalTipSha256
   )
     return null;
+  if (
+    adoptionV2 &&
+    operation.originLocalUserBindingHash !== adoption.originLocalUserBindingHash
+  )
+    return null;
+  const currentSessionBound = historySession === boundary.localUserBindingHash;
+  if (!closurePresent && !currentSessionBound && !allowPendingSessionHandoff)
+    return null;
   // Original stage and ledger are never rewritten or upgraded to confirmed.
   return Object.freeze({
     ...operation,
     history: Object.freeze({
       adoptionSha256,
+      handoffTipSha256,
+      handoffCount: handoffNames.length,
+      originLocalUserBindingHash:
+        operation.originLocalUserBindingHash ?? boundary.localUserBindingHash,
+      currentLocalUserBindingHash: historySession,
+      currentSessionBound,
       closed: closurePresent,
       liveRunIdentity,
       staleState,
@@ -1608,12 +1769,14 @@ export function inspectDockerDesktopRepairHistoricalOperation(
       historyFilePresent(directory, HISTORY_ADOPTION_FILE) !== false ||
       historyFilePresent(directory, HISTORY_CLOSURE_FILE) !== false
     )
-      return readOperation(boundary, directoryName, verifyHistory);
+      return readOperation(boundary, directoryName, verifyHistory, true);
     const origin = verifyHistory(originManifest);
     return origin && releaseNotAfterBoundary(origin, boundary)
       ? readOriginalOperation(
           historicalBoundary(boundary, origin),
           directoryName,
+          false,
+          "terminal",
         )
       : null;
   } catch {
@@ -1624,6 +1787,10 @@ export function inspectDockerDesktopRepairHistoricalOperation(
 function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
   if (bytes.length > MAXIMUM_RECORD_BYTES) return false;
   const target = path.win32.join(directory, name);
+  const preparation = path.win32.join(
+    directory,
+    `.crdd-history-${createHash("sha256").update(name).digest("hex")}.prepare`,
+  );
   try {
     const isHistoryFilePresent = historyFilePresent(directory, name);
     if (isHistoryFilePresent !== false)
@@ -1631,15 +1798,41 @@ function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
         isHistoryFilePresent === true &&
         stableBytes(target)?.equals(bytes) === true
       );
-    // No replacement, rollback, or deletion after an uncertain write. A partial
-    // file stays visible and makes subsequent inventory fail closed.
-    const descriptor = fs.openSync(target, "wx", 0o600);
-    try {
-      fs.writeFileSync(descriptor, bytes);
-      fs.fsyncSync(descriptor);
-    } finally {
-      fs.closeSync(descriptor);
+    const preparedPresent = historyFilePresent(
+      directory,
+      path.win32.basename(preparation),
+    );
+    if (preparedPresent === null) return false;
+    if (preparedPresent === true) {
+      if (stableBytes(preparation)?.equals(bytes) !== true) return false;
+    } else {
+      const descriptor = fs.openSync(preparation, "wx", 0o600);
+      try {
+        fs.writeFileSync(descriptor, bytes);
+        fs.fsyncSync(descriptor);
+      } finally {
+        fs.closeSync(descriptor);
+      }
     }
+    if (stableBytes(preparation)?.equals(bytes) !== true) return false;
+    try {
+      // A hard link is an exclusive same-filesystem publication. It prevents a
+      // late writer from replacing a winner after both observed target absence.
+      fs.linkSync(preparation, target);
+    } catch (error) {
+      if (
+        !error ||
+        typeof error !== "object" ||
+        !["EEXIST", "EPERM"].includes(String(Reflect.get(error, "code"))) ||
+        stableBytes(target)?.equals(bytes) !== true
+      )
+        return false;
+    }
+    commitHistoryDirectoryBoundary(directory);
+    if (stableBytes(target)?.equals(bytes) !== true) return false;
+    // Only this deterministic, byte-exact preparation file is ours to remove.
+    fs.unlinkSync(preparation);
+    commitHistoryDirectoryBoundary(directory);
     return stableBytes(target)?.equals(bytes) === true;
   } catch {
     return false;
@@ -1654,15 +1847,69 @@ export function persistDockerDesktopRepairHistoricalAdoption(
   verifyHistory: DockerDesktopRepairHistoryVerifier = verifyPinnedHistory,
 ): DockerDesktopRepairOperation | null {
   try {
+    const directoryName = `${OPERATION_PREFIX}${operation.operationId}`;
+    const existing = readOperation(
+      boundary,
+      directoryName,
+      verifyHistory,
+      true,
+    );
+    if (existing?.history) {
+      if (existing.history.closed || existing.history.currentSessionBound)
+        return readOperation(boundary, directoryName, verifyHistory, true);
+      if (
+        existing.history.handoffCount === undefined ||
+        existing.history.handoffTipSha256 === undefined ||
+        existing.history.currentLocalUserBindingHash === undefined ||
+        existing.history.handoffCount >= MAXIMUM_HISTORY_HANDOFFS
+      )
+        return null;
+      const adopting = verifyHistory(adoptingManifest);
+      if (!adopting || !releaseMatchesBoundary(adopting, boundary)) return null;
+      const sequence = existing.history.handoffCount;
+      const bytes = Buffer.from(
+        `${JSON.stringify({
+          schema: HISTORY_HANDOFF_SCHEMA,
+          kind: "session_handoff",
+          repairId: existing.repairId,
+          sequence,
+          previousHandoffSha256: existing.history.handoffTipSha256,
+          fromLocalUserBindingHash:
+            existing.history.currentLocalUserBindingHash,
+          toLocalUserBindingHash: boundary.localUserBindingHash,
+          runtimeStateIdentityHash: boundary.runtimeStateIdentityHash,
+          runtimeStateProtectionHash: boundary.runtimeStateProtectionHash,
+          runtimeStateBindingHash: boundary.runtimeStateBindingHash,
+          dockerPolicySha256: boundary.dockerPolicySha256,
+          adoptingManifest,
+        })}\n`,
+        "utf8",
+      );
+      if (
+        !writeHistoryFile(
+          existing.operationDirectory,
+          `historical-handoff-${String(sequence).padStart(2, "0")}.json`,
+          bytes,
+        )
+      )
+        return null;
+      return readOperation(boundary, directoryName, verifyHistory);
+    }
     // Snapshot caller data before verification; getters or later mutation never
     // get a second opportunity to alter the bytes being written.
     const bytes = Buffer.from(
       `${JSON.stringify({
-        schema: HISTORY_SCHEMA,
+        schema: HISTORY_ADOPTION_SCHEMA,
         kind: "adoption",
         repairId: operation.repairId,
         originalRecordCount: operation.sequence + 1,
         originalTipSha256: operation.previousRecordSha256,
+        originLocalUserBindingHash: operation.originLocalUserBindingHash,
+        adoptingLocalUserBindingHash: boundary.localUserBindingHash,
+        runtimeStateIdentityHash: boundary.runtimeStateIdentityHash,
+        runtimeStateProtectionHash: boundary.runtimeStateProtectionHash,
+        runtimeStateBindingHash: boundary.runtimeStateBindingHash,
+        dockerPolicySha256: boundary.dockerPolicySha256,
         originManifest,
         adoptingManifest,
       })}\n`,
@@ -1670,7 +1917,12 @@ export function persistDockerDesktopRepairHistoricalAdoption(
     );
     const value = parseHistoryBytes(bytes);
     const adopting = value && verifyHistory(value.adoptingManifest);
-    if (!value || !adopting || !releaseMatchesBoundary(adopting, boundary))
+    if (
+      !value ||
+      !hash64(value.originLocalUserBindingHash) ||
+      !adopting ||
+      !releaseMatchesBoundary(adopting, boundary)
+    )
       return null;
     const current = inspectDockerDesktopRepairHistoricalOperation(
       boundary,
@@ -1692,11 +1944,7 @@ export function persistDockerDesktopRepairHistoricalAdoption(
       )
     )
       return null;
-    return readOperation(
-      boundary,
-      `${OPERATION_PREFIX}${current.operationId}`,
-      verifyHistory,
-    );
+    return readOperation(boundary, directoryName, verifyHistory);
   } catch {
     return null;
   }
@@ -1721,6 +1969,8 @@ export function persistDockerDesktopRepairHistoricalClosure(
     if (
       !current?.history ||
       current.history.adoptionSha256 !== operation.history?.adoptionSha256 ||
+      current.history.currentSessionBound !== true ||
+      !current.history.handoffTipSha256 ||
       current.previousRecordSha256 !== operation.previousRecordSha256 ||
       !validIdentity(observation.liveRunIdentity) ||
       (observation.staleState !== "absent" &&
@@ -1729,10 +1979,12 @@ export function persistDockerDesktopRepairHistoricalClosure(
       return null;
     const bytes = Buffer.from(
       `${JSON.stringify({
-        schema: HISTORY_SCHEMA,
+        schema: HISTORY_ADOPTION_SCHEMA,
         kind: "closure",
         repairId: current.repairId,
         adoptionSha256: current.history.adoptionSha256,
+        handoffTipSha256: current.history.handoffTipSha256,
+        closingLocalUserBindingHash: boundary.localUserBindingHash,
         liveRunIdentity: observation.liveRunIdentity,
         staleState: observation.staleState,
         closingManifest,
@@ -1940,6 +2192,7 @@ export function createDockerDesktopRepairOperation(
   return Object.freeze({
     operationId: id,
     repairId: `docker-desktop-repair.${id}`,
+    originLocalUserBindingHash: boundary.localUserBindingHash,
     operationDirectory: path.win32.join(
       boundary.runtimeStateRoot,
       `${OPERATION_PREFIX}${id}`,

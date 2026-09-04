@@ -7,12 +7,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import * as DockerRecoveryRuntime from "../src/security/docker-recovery-runtime.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
-import {
-  assertRuntimeTraceCase,
-  assertRuntimeTraceExecutionCoverage,
-} from "./runtime-trace-case.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
 import {
   dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,
@@ -22,7 +18,7 @@ import {
   resumeDockerRecoveryJournalDirectoryForRecovery,
   writeCommittedDockerRecoveryJson,
 } from "../src/security/docker-recovery-journal.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
+import * as DockerRecoveryRuntime from "../src/security/docker-recovery-runtime.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot,
@@ -40,13 +36,13 @@ import {
   recordRuntimeOwnedDockerHostCleanupReceipt,
   recordRuntimeOwnedNormalMountCompletion,
   recoverExactDockerResourceWithRunner,
-  resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver,
-  recoverUnknownDockerCreateOutcomeWithRunner,
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
+  recoverUnknownDockerCreateOutcomeWithRunner,
+  resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver,
 } from "../src/security/docker-recovery-runtime-internal.ts";
 import {
-  acquireHostOperationRecoveryGenerationByIdentity,
   abandonOwnedHostOperationGenerationLock,
+  acquireHostOperationRecoveryGenerationByIdentity,
   classifyOwnedOperationDirectoryCreationFailure,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -60,6 +56,10 @@ import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
 } from "../src/security/host-recovery-record.ts";
+import {
+  assertRuntimeTraceCase,
+  assertRuntimeTraceExecutionCoverage,
+} from "./runtime-trace-case.ts";
 
 const inheritedTemporaryEnvironment = Object.freeze({
   TEMP: process.env.TEMP,
@@ -5476,13 +5476,227 @@ test("production共有回復engineはselected-user再bind不一致をEffect前�
       ),
       {
         status: "blocked",
-        reason: "docker_task_runtime_state_audit_failed",
+        reason: "docker_task_runtime_state_binding_changed",
         recoveryId: fixture.recoveryId,
       },
     );
     assert.deepEqual(fs.readdirSync(fixture.root).sort(), beforeEntries);
     assert.equal(fs.existsSync(fixture.hostRoot), true);
     assert.equal(fs.existsSync(fixture.hostMarker), true);
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("同一stable userの再ログオンはappend-only session handoff後に同じRecovery IDで回復する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const originalRoot = verifiedRoot(fixture.root);
+  const currentRoot = Object.freeze({
+    ...originalRoot,
+    localUserBindingHash: "0".repeat(64),
+  });
+  try {
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      currentRoot,
+      () => currentRoot,
+    );
+    assert.equal(
+      result.status,
+      "recovered",
+      `${JSON.stringify(result)} ${JSON.stringify(
+        inspectDockerRecoveryRootSnapshotWithLock(currentRoot, () => ({
+          release: () => true,
+        })),
+      )} ${JSON.stringify(fs.readdirSync(fixture.root).sort())}`,
+    );
+    assert.equal(result.recoveryId, null);
+    const handoffs = fs
+      .readdirSync(fixture.root)
+      .filter((name) =>
+        /^docker-task-session-handoff-[a-f0-9]{64}-[0-9]{2}\.json$/u.test(name),
+      );
+    assert.equal(handoffs.length, 1);
+    const handoff = readCommittedDockerRecoveryJson(
+      path.join(fixture.root, handoffs[0] ?? ""),
+      handoffs[0] ?? "",
+    ).value as Record<string, unknown>;
+    assert.equal(handoff.recoveryId, fixture.recoveryId);
+    assert.equal(
+      handoff.fromLocalUserBindingHash,
+      originalRoot.localUserBindingHash,
+    );
+    assert.equal(
+      handoff.toLocalUserBindingHash,
+      currentRoot.localUserBindingHash,
+    );
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("完了済みRecoveryも再ログオン連鎖を順序付きhandoffで再表示し、改変を拒否する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const originalRoot = verifiedRoot(fixture.root);
+  const firstRoot = Object.freeze({
+    ...originalRoot,
+    localUserBindingHash: "0".repeat(64),
+  });
+  const secondRoot = Object.freeze({
+    ...originalRoot,
+    localUserBindingHash: "1".repeat(64),
+  });
+  try {
+    assert.equal(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        firstRoot,
+        () => firstRoot,
+      ).status,
+      "recovered",
+    );
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        secondRoot,
+        () => secondRoot,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completion_replayed",
+        recoveryId: null,
+      },
+    );
+    const handoffs = fs
+      .readdirSync(fixture.root)
+      .filter((name) =>
+        /^docker-task-session-handoff-[a-f0-9]{64}-[0-9]{2}\.json$/u.test(name),
+      )
+      .sort();
+    assert.equal(handoffs.length, 2);
+    const second = readCommittedDockerRecoveryJson(
+      path.join(fixture.root, handoffs[1] ?? ""),
+      handoffs[1] ?? "",
+    ).value as Record<string, unknown>;
+    assert.equal(
+      second.fromLocalUserBindingHash,
+      firstRoot.localUserBindingHash,
+    );
+    assert.equal(
+      second.toLocalUserBindingHash,
+      secondRoot.localUserBindingHash,
+    );
+    const firstPath = path.join(fixture.root, handoffs[0] ?? "");
+    const changed = JSON.parse(fs.readFileSync(firstPath, "utf8"));
+    changed.toLocalUserBindingHash = "f".repeat(64);
+    fs.writeFileSync(firstPath, `${JSON.stringify(changed)}\n`, "utf8");
+    assert.equal(
+      inspectDockerRecoveryRootSnapshotWithLock(secondRoot, () => ({
+        release: () => true,
+      })).status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("完了済みRecoveryのsession handoffは8件で閉じ、9件目をEffect 0で拒否する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const originalRoot = verifiedRoot(fixture.root);
+  const reboundRoots = Array.from({ length: 9 }, (_, index) =>
+    Object.freeze({
+      ...originalRoot,
+      localUserBindingHash: createHash("sha256")
+        .update(`session-${index}`)
+        .digest("hex"),
+    }),
+  );
+  try {
+    for (const currentRoot of reboundRoots.slice(0, 8)) {
+      assert.equal(
+        recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+          fixture.recoveryId,
+          currentRoot,
+          () => currentRoot,
+        ).status,
+        "recovered",
+      );
+    }
+    const before = fs.readdirSync(fixture.root).sort();
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        reboundRoots[8] ?? originalRoot,
+        () => reboundRoots[8] ?? originalRoot,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_session_handoff_limit_exceeded",
+        recoveryId: fixture.recoveryId,
+      },
+    );
+    assert.deepEqual(fs.readdirSync(fixture.root).sort(), before);
+    assert.equal(
+      before.filter((name) =>
+        /^docker-task-session-handoff-[a-f0-9]{64}-[0-9]{2}\.json$/u.test(name),
+      ).length,
+      8,
+    );
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("Docker Task session handoffの番号飛びは有効なcommit pairでも拒否する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const originalRoot = verifiedRoot(fixture.root);
+  const firstRoot = Object.freeze({
+    ...originalRoot,
+    localUserBindingHash: "0".repeat(64),
+  });
+  try {
+    assert.equal(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        firstRoot,
+        () => firstRoot,
+      ).status,
+      "recovered",
+    );
+    const prefix = `docker-task-session-handoff-${createHash("sha256")
+      .update(fixture.recoveryId)
+      .digest("hex")}-`;
+    const firstName = `${prefix}00.json`;
+    const first = readCommittedDockerRecoveryJson(
+      path.join(fixture.root, firstName),
+      firstName,
+    );
+    writeCommittedDockerRecoveryJson(
+      fixture.root,
+      `${prefix}02.json`,
+      `${prefix}02.json`,
+      {
+        ...(first.value as Record<string, unknown>),
+        sequence: 2,
+        previousHandoffSha256: first.hash,
+        fromLocalUserBindingHash: firstRoot.localUserBindingHash,
+        toLocalUserBindingHash: "1".repeat(64),
+      },
+    );
+    const result = inspectDockerRecoveryRootSnapshotWithLock(firstRoot, () => ({
+      release: () => true,
+    }));
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "docker_task_session_handoff_invalid");
   } finally {
     fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
     fs.rmSync(fixture.hostMarker, { force: true });
@@ -5614,7 +5828,7 @@ test("cleanup-only回復も作成時selected-user再bind不一致を削除前に
       ),
       {
         status: "blocked",
-        reason: "docker_task_runtime_state_audit_failed",
+        reason: "docker_task_runtime_state_binding_changed",
         recoveryId: dockerTaskRecoveryId,
       },
     );

@@ -16,14 +16,18 @@ import {
   inspectRuntimeOwnedDevelopmentOperationContext,
 } from "./development-measurement-session.ts";
 import { observeRuntimeOwnedDockerDesktopRepairPolicy } from "./docker-desktop-repair-policy.ts";
+import {
+  inspectDockerDesktopRepairHistoricalOperation,
+  parseDockerDesktopRepairDirectoryName,
+} from "./docker-desktop-repair-record-store.ts";
 import { validateDockerHostTransitionLineage } from "./docker-host-transition-state.ts";
 import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 import {
   discoverDockerRecoveryJournalJsonForRecovery,
   dockerRecoveryCommitName,
+  hasDockerRecoveryJournalIntentForRecovery,
   inspectDockerRecoveryJournalDirectory,
   inspectDockerRecoveryMoveJournalForRecovery,
-  hasDockerRecoveryJournalIntentForRecovery,
   isDockerRecoveryJournalIntentName,
   isDockerRecoveryJournalTemporaryName,
   moveCommittedDockerRecoveryJson,
@@ -53,15 +57,11 @@ import {
 } from "./execution-environment.ts";
 import { parseExternalSendConsentActiveEntryName } from "./external-send-consent-record.ts";
 import {
-  inspectDockerDesktopRepairHistoricalOperation,
-  parseDockerDesktopRepairDirectoryName,
-} from "./docker-desktop-repair-record-store.ts";
-import { loadHistoricalReleaseManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
-import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
 } from "./host-recovery-record.ts";
+import { loadHistoricalReleaseManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
+import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
@@ -77,6 +77,9 @@ const COMPLETED_DOCKER_RECOVERY_RECEIPT =
 const ACKNOWLEDGED_DOCKER_RECOVERY_RECEIPT =
   /^acknowledged-docker-recovery-([a-f0-9]{64})\.json$/u;
 const MAX_COMPLETED_DOCKER_RECOVERY_RECEIPTS = 64;
+const DOCKER_TASK_SESSION_HANDOFF =
+  /^docker-task-session-handoff-([a-f0-9]{64})-([0-9]{2})\.json$/u;
+const MAX_DOCKER_TASK_SESSION_HANDOFFS = 8;
 const SAFE_RESOURCE =
   /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 const CREATE_PURPOSES = new Set([
@@ -355,6 +358,136 @@ function ensureCompletedDockerRecoveryReceipt(
     runtimeStateBinding,
   });
   inspectCompletedDockerRecoveryReceipt(rootPath, recoveryId);
+}
+
+type DockerTaskSessionHandoffState = Readonly<{
+  currentLocalUserBindingHash: string;
+  tipSha256: string;
+  count: number;
+}>;
+
+function dockerTaskSessionHandoffPrefix(recoveryId: string) {
+  return `docker-task-session-handoff-${createHash("sha256")
+    .update(recoveryId)
+    .digest("hex")}-`;
+}
+
+function inspectDockerTaskSessionHandoffs(
+  rootPath: string,
+  recoveryId: string,
+  durableBinding: RuntimeStateBindingEvidence,
+): DockerTaskSessionHandoffState {
+  const parsed = parseDockerTaskRecoveryId(recoveryId);
+  if (!parsed) throw new Error("docker_task_recovery_id_invalid");
+  const prefix = dockerTaskSessionHandoffPrefix(recoveryId);
+  const names = fs
+    .readdirSync(rootPath, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.name.startsWith(prefix) &&
+        !entry.name.endsWith(".crdd-commit.json"),
+    );
+  if (
+    names.some((entry) => !entry.isFile() || entry.isSymbolicLink()) ||
+    names.length > MAX_DOCKER_TASK_SESSION_HANDOFFS
+  )
+    throw new Error("docker_task_session_handoff_invalid");
+  const ordered = names.map((entry) => entry.name).sort();
+  let currentLocalUserBindingHash = durableBinding.localUserBindingHash;
+  let tipSha256 = parsed.baseHash;
+  const visited = new Set([currentLocalUserBindingHash]);
+  for (let index = 0; index < ordered.length; index += 1) {
+    const name = ordered[index];
+    const matched = DOCKER_TASK_SESSION_HANDOFF.exec(name ?? "");
+    const record = readExactJson(path.join(rootPath, name ?? ""), name)
+      .value as Record<string, unknown>;
+    if (
+      !matched ||
+      Number(matched[2]) !== index ||
+      createHash("sha256").update(recoveryId).digest("hex") !== matched[1] ||
+      !exactRecordKeys(record, [
+        "schema",
+        "recoveryId",
+        "sequence",
+        "previousHandoffSha256",
+        "fromLocalUserBindingHash",
+        "toLocalUserBindingHash",
+        "runtimeStateIdentityHash",
+        "runtimeStateProtectionHash",
+        "runtimeStateBindingHash",
+        "operationNonce",
+        "baseHash",
+      ]) ||
+      record.schema !== "crdd-coordinator/docker-task-session-handoff/v1" ||
+      record.recoveryId !== recoveryId ||
+      record.sequence !== index ||
+      record.previousHandoffSha256 !== tipSha256 ||
+      record.fromLocalUserBindingHash !== currentLocalUserBindingHash ||
+      typeof record.toLocalUserBindingHash !== "string" ||
+      !HEX64.test(record.toLocalUserBindingHash) ||
+      record.toLocalUserBindingHash === currentLocalUserBindingHash ||
+      visited.has(record.toLocalUserBindingHash) ||
+      record.runtimeStateIdentityHash !==
+        durableBinding.runtimeStateIdentityHash ||
+      record.runtimeStateProtectionHash !==
+        durableBinding.runtimeStateProtectionHash ||
+      record.runtimeStateBindingHash !==
+        durableBinding.runtimeStateBindingHash ||
+      record.operationNonce !== parsed.operationNonce ||
+      record.baseHash !== parsed.baseHash
+    )
+      throw new Error("docker_task_session_handoff_invalid");
+    currentLocalUserBindingHash = record.toLocalUserBindingHash;
+    visited.add(currentLocalUserBindingHash);
+    tipSha256 = readExactJson(path.join(rootPath, name ?? ""), name).hash;
+  }
+  return Object.freeze({
+    currentLocalUserBindingHash,
+    tipSha256,
+    count: ordered.length,
+  });
+}
+
+function ensureDockerTaskSessionHandoff(
+  root: VerifiedRuntimeStateRoot,
+  recoveryId: string,
+  durableBinding: RuntimeStateBindingEvidence,
+) {
+  const current = inspectDockerTaskSessionHandoffs(
+    root.rootPath,
+    recoveryId,
+    durableBinding,
+  );
+  if (current.currentLocalUserBindingHash === root.localUserBindingHash)
+    return current;
+  if (current.count >= MAX_DOCKER_TASK_SESSION_HANDOFFS)
+    throw new Error("docker_task_session_handoff_limit_exceeded");
+  const parsed = parseDockerTaskRecoveryId(recoveryId);
+  if (!parsed) throw new Error("docker_task_recovery_id_invalid");
+  const name = `${dockerTaskSessionHandoffPrefix(recoveryId)}${String(
+    current.count,
+  ).padStart(2, "0")}.json`;
+  writeDurableJson(root.rootPath, name, {
+    schema: "crdd-coordinator/docker-task-session-handoff/v1",
+    recoveryId,
+    sequence: current.count,
+    previousHandoffSha256: current.tipSha256,
+    fromLocalUserBindingHash: current.currentLocalUserBindingHash,
+    toLocalUserBindingHash: root.localUserBindingHash,
+    runtimeStateIdentityHash: durableBinding.runtimeStateIdentityHash,
+    runtimeStateProtectionHash: durableBinding.runtimeStateProtectionHash,
+    runtimeStateBindingHash: durableBinding.runtimeStateBindingHash,
+    operationNonce: parsed.operationNonce,
+    baseHash: parsed.baseHash,
+  });
+  const rebound = inspectDockerTaskSessionHandoffs(
+    root.rootPath,
+    recoveryId,
+    durableBinding,
+  );
+  if (rebound.currentLocalUserBindingHash !== root.localUserBindingHash)
+    throw new Error("docker_task_session_handoff_write_unknown");
+  return rebound;
 }
 
 function validProductionPlan(plan: ProductionPlan) {
@@ -3176,8 +3309,6 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         root.runtimeStateIdentityHash ||
       durableRuntimeStateBinding.runtimeStateProtectionHash !==
         root.runtimeStateProtectionHash ||
-      durableRuntimeStateBinding.localUserBindingHash !==
-        root.localUserBindingHash ||
       durableRuntimeStateBinding.runtimeStateBindingHash !==
         root.stableLogicalHomeBindingHash
     )
@@ -3203,17 +3334,77 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       root.rootPath,
       parsed.token,
     );
-    if (
-      preliminaryInventory.status === "completed" &&
-      completionReceipt &&
-      JSON.stringify(completionReceipt.runtimeStateBinding) ===
-        JSON.stringify(durableRuntimeStateBinding)
-    )
-      return Object.freeze({
-        status: "recovered" as const,
-        reason: "docker_task_recovery_completion_replayed",
-        recoveryId: null,
-      });
+    if (preliminaryInventory.status === "completed" && completionReceipt) {
+      const homeLock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
+        parsed.stableLogicalHomeBindingHash,
+      );
+      const stateLock = homeLock
+        ? createDockerRecoveryRuntimeStateLockController(
+            root.stableLogicalHomeBindingHash,
+          )
+        : null;
+      if (homeLock && stateLock) {
+        let replaySucceeded = false;
+        let replayFailureReason = "docker_task_runtime_state_audit_failed";
+        try {
+          ensureDockerTaskSessionHandoff(
+            root,
+            parsed.token,
+            durableRuntimeStateBinding,
+          );
+          const observed = observeRuntimeStateRoot();
+          if (
+            !observed ||
+            observed.runtimeStateIdentityHash !==
+              root.runtimeStateIdentityHash ||
+            observed.runtimeStateProtectionHash !==
+              root.runtimeStateProtectionHash ||
+            observed.localUserBindingHash !== root.localUserBindingHash ||
+            observed.stableLogicalHomeBindingHash !==
+              root.stableLogicalHomeBindingHash
+          )
+            throw new Error("docker_task_runtime_state_binding_changed");
+          replaySucceeded = true;
+        } catch (error) {
+          replayFailureReason = safeRecoveryReason(
+            error,
+            "docker_task_runtime_state_audit_failed",
+          );
+        }
+        const releaseFailure = releaseRecoverySynchronizations([
+          {
+            release: () => stateLock.close(),
+            reason: "docker_task_runtime_state_lock_release_unconfirmed",
+          },
+          {
+            release: () => homeLock.release(),
+            reason: "docker_task_recovery_home_lock_release_unconfirmed",
+          },
+        ]);
+        if (releaseFailure)
+          return Object.freeze({
+            status: "blocked" as const,
+            reason: releaseFailure,
+            recoveryId: parsed.token,
+          });
+        if (replaySucceeded)
+          return Object.freeze({
+            status: "recovered" as const,
+            reason: "docker_task_recovery_completion_replayed",
+            recoveryId: null,
+          });
+        return Object.freeze({
+          status: "blocked" as const,
+          reason: replayFailureReason,
+          recoveryId: parsed.token,
+        });
+      } else if (homeLock && !homeLock.release())
+        return Object.freeze({
+          status: "blocked" as const,
+          reason: "docker_task_recovery_home_lock_release_unconfirmed",
+          recoveryId: parsed.token,
+        });
+    }
     return Object.freeze({
       status: "blocked" as const,
       reason: "docker_task_runtime_state_audit_failed",
@@ -3307,12 +3498,6 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       recoveryId: parsed.token,
     });
   }
-  const runtimeStateBinding = Object.freeze({
-    rootPath: root.rootPath,
-    ...durableRuntimeStateBinding,
-  });
-  let recoveryBaseLocalUserBindingHash: string | null =
-    durableRuntimeStateBinding.localUserBindingHash;
   const outsideHostOperationGenerationLock = <T>(effect: () => T) => {
     if (!hostOperationGeneration || !hostOperationGenerationIdentity)
       return effect();
@@ -3361,6 +3546,64 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     if (effectError) throw effectError;
     return effectResult as T;
   };
+  let sessionHandoff: DockerTaskSessionHandoffState;
+  try {
+    const currentBeforeHandoff = runtimeStateLockController.outsideLock(() =>
+      outsideHostOperationGenerationLock(observeRuntimeStateRoot),
+    );
+    if (
+      !currentBeforeHandoff ||
+      currentBeforeHandoff.runtimeStateIdentityHash !==
+        root.runtimeStateIdentityHash ||
+      currentBeforeHandoff.runtimeStateProtectionHash !==
+        root.runtimeStateProtectionHash ||
+      currentBeforeHandoff.localUserBindingHash !== root.localUserBindingHash ||
+      currentBeforeHandoff.stableLogicalHomeBindingHash !==
+        root.stableLogicalHomeBindingHash
+    )
+      throw new Error("docker_task_runtime_state_binding_changed");
+    sessionHandoff = ensureDockerTaskSessionHandoff(
+      root,
+      parsed.token,
+      durableRuntimeStateBinding,
+    );
+  } catch (error) {
+    const releaseFailure = releaseRecoverySynchronizations([
+      {
+        release: () => runtimeStateLockController.close(),
+        reason: "docker_task_runtime_state_lock_release_unconfirmed",
+      },
+      {
+        release: () => processAbsenceLock.release(),
+        reason: "docker_task_recovery_home_lock_release_unconfirmed",
+      },
+      ...(hostOperationGeneration
+        ? [
+            {
+              release: () =>
+                releaseHostOperationRecoveryGeneration(hostOperationGeneration),
+              reason: "docker_task_recovery_host_lock_release_unconfirmed",
+            },
+          ]
+        : []),
+    ]);
+    return Object.freeze({
+      status: "blocked" as const,
+      reason:
+        releaseFailure ??
+        safeRecoveryReason(error, "docker_task_session_handoff_failed_closed"),
+      recoveryId: parsed.token,
+    });
+  }
+  const runtimeStateBinding = Object.freeze({
+    rootPath: root.rootPath,
+    ...durableRuntimeStateBinding,
+    // The durable record keeps the issuing session. Mutations after a verified
+    // handoff are authorized only by the fresh current-session observation.
+    localUserBindingHash: sessionHandoff.currentLocalUserBindingHash,
+  });
+  const recoverySessionLocalUserBindingHash: string | null =
+    sessionHandoff.currentLocalUserBindingHash;
   const outsideRecoveryGenerationLocks = <T>(effect: () => T) => {
     const reboundDurableBinding = discoverRecoveryRuntimeStateBinding(
       root.rootPath,
@@ -3372,12 +3615,20 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         durableRuntimeStateBinding.runtimeStateIdentityHash ||
       reboundDurableBinding.runtimeStateProtectionHash !==
         durableRuntimeStateBinding.runtimeStateProtectionHash ||
-      reboundDurableBinding.localUserBindingHash !==
-        durableRuntimeStateBinding.localUserBindingHash ||
       reboundDurableBinding.runtimeStateBindingHash !==
         durableRuntimeStateBinding.runtimeStateBindingHash ||
-      !recoveryBaseLocalUserBindingHash ||
-      recoveryBaseLocalUserBindingHash !== root.localUserBindingHash
+      !recoverySessionLocalUserBindingHash
+    )
+      throw new Error("docker_task_runtime_state_user_binding_changed");
+    const reboundHandoff = inspectDockerTaskSessionHandoffs(
+      root.rootPath,
+      parsed.token,
+      durableRuntimeStateBinding,
+    );
+    if (
+      reboundHandoff.currentLocalUserBindingHash !==
+        recoverySessionLocalUserBindingHash ||
+      recoverySessionLocalUserBindingHash !== root.localUserBindingHash
     )
       throw new Error("docker_task_runtime_state_user_binding_changed");
     const rootBefore = fs.lstatSync(root.rootPath, { bigint: true });
@@ -3416,7 +3667,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     verifyRecoveryRuntimeStateBoundary();
     const initialInventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
     if (initialInventory.status !== "completed")
-      throw new Error("docker_task_runtime_state_audit_failed");
+      throw new Error(initialInventory.reason);
     if (
       !initialInventory.dockerRecoveryIds.some(
         (value: unknown) => value === parsed.token,
@@ -3433,8 +3684,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       durableRuntimeStateBinding,
     );
     const inventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
-    if (inventory.status !== "completed")
-      throw new Error("docker_task_runtime_state_audit_failed");
+    if (inventory.status !== "completed") throw new Error(inventory.reason);
     if (
       !inventory.dockerRecoveryIds.some(
         (value: unknown) => value === parsed.token,
@@ -3634,7 +3884,11 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       !validRuntimeStateBindingEvidence(base.runtimeStateBinding)
     )
       throw new Error("docker_task_recovery_base_mismatch");
-    recoveryBaseLocalUserBindingHash = String(base.localUserBindingHash ?? "");
+    if (
+      String(base.localUserBindingHash ?? "") !==
+      durableRuntimeStateBinding.localUserBindingHash
+    )
+      throw new Error("docker_task_recovery_base_session_binding_mismatch");
     const recoveryRuntimeStateBinding =
       base.runtimeStateBinding as RuntimeStateBindingEvidence;
     verifyRecoveryRuntimeStateBoundary();
@@ -5326,6 +5580,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
     const externalSendConsentRecordNames = new Set<string>();
     const completedDockerRecoveryReceiptNames = new Set<string>();
     const acknowledgedDockerRecoveryReceiptNames = new Set<string>();
+    const sessionHandoffRecoveryIds = new Set<string>();
     const journalIntents = inspectDockerRecoveryJournalDirectory(rootPath);
     const journalIntentRecoveryIds = new Set(
       journalIntents
@@ -5686,6 +5941,27 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       if (isDockerRecoveryJournalIntentName(entry.name)) continue;
       if (isDockerRecoveryJournalTemporaryName(entry.name))
         throw new Error("docker_task_runtime_state_orphan_temporary");
+      const sessionHandoffMatch = DOCKER_TASK_SESSION_HANDOFF.exec(entry.name);
+      if (sessionHandoffMatch?.[1]) {
+        if (
+          !entry.isFile() ||
+          entry.isSymbolicLink() ||
+          !entryNames.has(dockerRecoveryCommitName(entry.name))
+        )
+          throw new Error("docker_task_session_handoff_invalid");
+        const handoff = readExactJson(
+          path.join(rootPath, entry.name),
+          entry.name,
+        ).value as Record<string, unknown>;
+        if (
+          typeof handoff.recoveryId !== "string" ||
+          createHash("sha256").update(handoff.recoveryId).digest("hex") !==
+            sessionHandoffMatch[1]
+        )
+          throw new Error("docker_task_session_handoff_invalid");
+        sessionHandoffRecoveryIds.add(handoff.recoveryId);
+        continue;
+      }
       const completedReceiptMatch = COMPLETED_DOCKER_RECOVERY_RECEIPT.exec(
         entry.name,
       );
@@ -5945,6 +6221,23 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         )
           throw new Error("docker_task_runtime_state_base_invalid");
       }
+    }
+    for (const recoveryId of sessionHandoffRecoveryIds) {
+      const parsed = parseDockerTaskRecoveryId(recoveryId);
+      const record = parsed ? records.get(parsed.operationNonce) : null;
+      const completion = inspectCompletedDockerRecoveryReceipt(
+        rootPath,
+        recoveryId,
+      );
+      if ((!record || record.token !== recoveryId) && !completion)
+        throw new Error("docker_task_session_handoff_orphaned");
+      const durableBinding = discoverRecoveryRuntimeStateBinding(
+        rootPath,
+        parsed as NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>,
+      );
+      if (!durableBinding)
+        throw new Error("docker_task_session_handoff_invalid");
+      inspectDockerTaskSessionHandoffs(rootPath, recoveryId, durableBinding);
     }
     const pointerTokens = new Set<string>();
     const activeStableLogicalHomeBindingHashes = new Set<string>();
