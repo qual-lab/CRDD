@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-type RuntimeTraceObservation = Readonly<{
+type RuntimeTraceCommonObservation = Readonly<{
   id: string;
-  fromState: string;
   outcome: string;
-  expectedEndState: string;
   effectObservations: Readonly<{
     provider: number;
     host: number;
@@ -15,10 +13,28 @@ type RuntimeTraceObservation = Readonly<{
   resourcePostconditions: Readonly<Record<string, string>>;
 }>;
 
-export type RuntimeTraceCase = RuntimeTraceObservation &
+export type RuntimeTraceCase = RuntimeTraceCommonObservation &
   Readonly<
-    | { transitionId: string; attemptClassificationId?: never }
-    | { transitionId?: never; attemptClassificationId: string }
+    | {
+        transitionId: string;
+        attemptClassificationId?: never;
+        fromState: string;
+        expectedEndState: string;
+      }
+    | {
+        transitionId?: never;
+        attemptClassificationId: string;
+        fromState: string;
+        expectedEndState: string;
+      }
+    | {
+        transitionId?: never;
+        attemptClassificationId: string;
+        localAttemptObservation: string;
+        finalGlobalObservation: Readonly<{ state: string }>;
+        fromState?: never;
+        expectedEndState?: never;
+      }
   >;
 
 const runtimeTrace = JSON.parse(

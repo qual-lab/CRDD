@@ -15,7 +15,7 @@ import {
   DOCKER_DESKTOP_REPAIR_STAGES,
   type DockerDesktopRepairHistoryVerifier,
   inspectDockerDesktopRepairHistoricalOperation,
-  isCanonicalDockerDesktopRepairHistoricalOperationCore,
+  classifyCanonicalDockerDesktopRepairHistoricalOperation,
   inventoryDockerDesktopRepairOperations,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
@@ -710,11 +710,11 @@ test("履歴引継ぎ結果は元chain不変fieldと許可されたSession差分
     }),
   ]) {
     assert.equal(
-      isCanonicalDockerDesktopRepairHistoricalOperationCore(
+      classifyCanonicalDockerDesktopRepairHistoricalOperation(
         malformed,
         boundary,
       ),
-      false,
+      "invalid",
     );
   }
   for (const history of [
@@ -846,6 +846,164 @@ test("履歴引継ぎ結果は元chain不変fieldと許可されたSession差分
       ),
       false,
     );
+});
+
+test("Canonical履歴分類は全modeと非plain・余分field・疎配列・nested Proxyを一つのOwnerで閉じる", () => {
+  const original = operationFixture("prepared");
+  const openCurrent: DockerDesktopRepairOperation = {
+    ...original,
+    history: {
+      adoptionSha256: "a".repeat(64),
+      handoffTipSha256: "a".repeat(64),
+      handoffCount: 0,
+      originLocalUserBindingHash: boundary.localUserBindingHash,
+      currentLocalUserBindingHash: boundary.localUserBindingHash,
+      currentSessionBound: true,
+      closed: false,
+      liveRunIdentity: null,
+      staleState: "unknown",
+    },
+  };
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(original, boundary),
+    "no_history",
+  );
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      openCurrent,
+      boundary,
+    ),
+    "open_current",
+  );
+  const hostileReadProxy = new Proxy(openCurrent, {
+    get: () => {
+      throw new Error("canonical_classifier_must_use_descriptor_values");
+    },
+  });
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      hostileReadProxy,
+      boundary,
+    ),
+    "open_current",
+  );
+  assert.ok(openCurrent.history);
+  const openCurrentHistory = openCurrent.history;
+  const openPrior: DockerDesktopRepairOperation = {
+    ...openCurrent,
+    history: {
+      ...openCurrentHistory,
+      currentLocalUserBindingHash: "c".repeat(64),
+      currentSessionBound: false,
+    },
+  };
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      openPrior,
+      boundary,
+    ),
+    "open_prior",
+  );
+  const legacyClosed: DockerDesktopRepairOperation = {
+    ...original,
+    history: {
+      adoptionSha256: "a".repeat(64),
+      closed: true,
+      liveRunIdentity: RUN_IDENTITY,
+      staleState: "retained",
+    },
+  };
+  assert.ok(legacyClosed.history);
+  const legacyClosedHistory = legacyClosed.history;
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      legacyClosed,
+      boundary,
+      { liveRunIdentity: RUN_IDENTITY, staleState: "retained" },
+    ),
+    "closed",
+  );
+  const symbol = Symbol("extra");
+  const withSymbol = { ...openCurrentHistory, [symbol]: true };
+  const nonPlain = Object.assign(
+    Object.create({ inherited: true }) as Record<string, unknown>,
+    openCurrentHistory,
+  );
+  const nestedProxy = new Proxy(
+    { ...RUN_IDENTITY },
+    {
+      ownKeys: () => {
+        throw new Error("nested_hostile_proxy");
+      },
+    },
+  );
+  const cyclicIdentity = { ...RUN_IDENTITY } as Record<string, unknown>;
+  cyclicIdentity.dev = cyclicIdentity;
+  const sparseEffects = new Array(1) as unknown[];
+  const malformedOperations: unknown[] = [
+    { ...openCurrent, history: nonPlain },
+    { ...openCurrent, history: { ...openCurrentHistory, extra: true } },
+    { ...openCurrent, history: withSymbol },
+    {
+      ...openCurrent,
+      history: { ...openCurrentHistory, liveRunIdentity: nestedProxy },
+    },
+    {
+      ...legacyClosed,
+      history: { ...legacyClosedHistory, liveRunIdentity: cyclicIdentity },
+    },
+    {
+      ...openCurrent,
+      ledger: { ...openCurrent.ledger, processEffects: sparseEffects },
+    },
+  ];
+  for (const malformed of malformedOperations) {
+    assert.equal(
+      classifyCanonicalDockerDesktopRepairHistoricalOperation(
+        malformed,
+        boundary,
+      ),
+      "invalid",
+    );
+    assert.equal(
+      classifyDockerDesktopRepairHistoricalAdoptionRoute(
+        malformed as DockerDesktopRepairOperation,
+        boundary,
+      ),
+      "invalid",
+    );
+  }
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      legacyClosed,
+      boundary,
+      {
+        liveRunIdentity: RUN_IDENTITY,
+        staleState: "retained",
+        [symbol]: true,
+      } as never,
+    ),
+    "invalid",
+  );
+  const runtimeSource = fs.readFileSync(
+    new URL(
+      "../src/security/docker-desktop-runtime-repair.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.equal(runtimeSource.includes("validOpenRepairHistory"), false);
+  assert.equal(runtimeSource.includes("validClosedRepairHistory"), false);
+  assert.equal(
+    runtimeSource.includes("validRepairHistorySessionFields"),
+    false,
+  );
+  assert.equal(
+    runtimeSource.includes(
+      "classifyCanonicalDockerDesktopRepairHistoricalOperation",
+    ),
+    true,
+  );
 });
 
 test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続する", async () => {

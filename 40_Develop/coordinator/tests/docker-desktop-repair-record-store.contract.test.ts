@@ -921,7 +921,7 @@ test("修復履歴の公開済みtargetと同一fileの準備残存は対象限�
   assert.equal(fs.existsSync(publication.preparation), false);
 });
 
-test("本番耐久公開は実行時のfs差替えを注入面にせず固定依存で残存を収束する", (t) => {
+test("本番の回復可能な公開は実行時のfs差替えを注入面にせず固定依存で残存を収束する", (t) => {
   const value = historyFixture(t);
   const adopted = persistDockerDesktopRepairHistoricalAdoption(
     value.currentBoundary,

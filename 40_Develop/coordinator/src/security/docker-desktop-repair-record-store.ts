@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import {
   publishRepairHistoryFileUsingOperations,
   type RepairHistoryPublicationOperations,
@@ -140,6 +141,18 @@ export type DockerDesktopRepairOperation = Readonly<{
   }>;
 }>;
 
+export type CanonicalDockerDesktopRepairHistoryMode =
+  | "invalid"
+  | "no_history"
+  | "open_current"
+  | "open_prior"
+  | "closed";
+
+export type DockerDesktopRepairExpectedClosure = Readonly<{
+  liveRunIdentity: DockerDesktopRepairDirectoryIdentity;
+  staleState: "absent" | "retained";
+}>;
+
 function isHistoryEntry(name: string) {
   return (
     HISTORY_FILES.includes(name) ||
@@ -272,6 +285,31 @@ function exactKeys(value: object, expectedItems: readonly string[]) {
   );
 }
 
+function exactOwnDataValues(
+  value: unknown,
+  expectedItems: readonly string[],
+): Readonly<Record<string, unknown>> | null {
+  try {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      Object.getPrototypeOf(value) !== Object.prototype ||
+      !exactKeys(value, expectedItems)
+    )
+      return null;
+    const result: Record<string, unknown> = Object.create(null);
+    for (const key of expectedItems) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !("value" in descriptor)) return null;
+      result[key] = descriptor.value;
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
 function containsOnlyOwnDataDescriptors(
   value: unknown,
   seen = new Set<object>(),
@@ -297,6 +335,42 @@ function containsOnlyOwnDataDescriptors(
   }
 }
 
+function denseOwnDataArrayValues(
+  value: unknown,
+  maximumLength: number,
+): readonly unknown[] | null {
+  try {
+    if (
+      !Array.isArray(value) ||
+      Object.getPrototypeOf(value) !== Array.prototype
+    )
+      return null;
+    const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+    if (
+      !lengthDescriptor ||
+      !("value" in lengthDescriptor) ||
+      !Number.isSafeInteger(lengthDescriptor.value) ||
+      lengthDescriptor.value < 0 ||
+      lengthDescriptor.value > maximumLength
+    )
+      return null;
+    const indexKeys = Array.from(
+      { length: lengthDescriptor.value },
+      (_, index) => String(index),
+    );
+    if (!exactKeys(value, [...indexKeys, "length"])) return null;
+    const result: unknown[] = [];
+    for (const key of indexKeys) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !("value" in descriptor)) return null;
+      result.push(descriptor.value);
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
 function hash64(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 }
@@ -312,18 +386,15 @@ function safeIntegerString(value: unknown): value is string {
 function validIdentity(
   value: unknown,
 ): value is DockerDesktopRepairDirectoryIdentity {
+  const fields = exactOwnDataValues(value, ["dev", "ino", "birthtimeNs"]);
   return (
-    !!value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    Object.getPrototypeOf(value) === Object.prototype &&
-    exactKeys(value, ["dev", "ino", "birthtimeNs"]) &&
-    safeIntegerString(Reflect.get(value, "dev")) &&
-    safeIntegerString(Reflect.get(value, "ino")) &&
-    safeIntegerString(Reflect.get(value, "birthtimeNs")) &&
-    Reflect.get(value, "dev") !== "0" &&
-    Reflect.get(value, "ino") !== "0" &&
-    Reflect.get(value, "birthtimeNs") !== "0"
+    fields !== null &&
+    safeIntegerString(fields.dev) &&
+    safeIntegerString(fields.ino) &&
+    safeIntegerString(fields.birthtimeNs) &&
+    fields.dev !== "0" &&
+    fields.ino !== "0" &&
+    fields.birthtimeNs !== "0"
   );
 }
 
@@ -334,49 +405,41 @@ function validTriState(value: unknown): value is DockerDesktopRepairTriState {
 function validLedger(
   value: unknown,
 ): value is DockerDesktopRepairLedgerSnapshot {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Object.prototype ||
-    !exactKeys(value, [
-      "processEffects",
-      "processEffectIssued",
-      "processEffectConfirmation",
-      "filesystemEffects",
-      "filesystemEffectIssued",
-      "filesystemEffectConfirmation",
-      "engineReady",
-      "staleState",
-      "hostSafety",
-      "evidenceState",
-      "disposition",
-      "liveRunIdentity",
-    ])
-  )
-    return false;
-  const processEffects = Reflect.get(value, "processEffects");
-  const filesystemEffects = Reflect.get(value, "filesystemEffects");
+  const fields = exactOwnDataValues(value, [
+    "processEffects",
+    "processEffectIssued",
+    "processEffectConfirmation",
+    "filesystemEffects",
+    "filesystemEffectIssued",
+    "filesystemEffectConfirmation",
+    "engineReady",
+    "staleState",
+    "hostSafety",
+    "evidenceState",
+    "disposition",
+    "liveRunIdentity",
+  ]);
+  if (!fields) return false;
+  const processEffects = fields.processEffects;
+  const filesystemEffects = fields.filesystemEffects;
   return (
     validEffectEntries(processEffects, "process") &&
     validEffectEntries(filesystemEffects, "filesystem") &&
-    validTriState(Reflect.get(value, "processEffectIssued")) &&
+    validTriState(fields.processEffectIssued) &&
     ["not_issued", "confirmed", "unknown"].includes(
-      String(Reflect.get(value, "processEffectConfirmation")),
+      String(fields.processEffectConfirmation),
     ) &&
-    validTriState(Reflect.get(value, "filesystemEffectIssued")) &&
+    validTriState(fields.filesystemEffectIssued) &&
     ["not_issued", "confirmed", "unknown"].includes(
-      String(Reflect.get(value, "filesystemEffectConfirmation")),
+      String(fields.filesystemEffectConfirmation),
     ) &&
-    validTriState(Reflect.get(value, "engineReady")) &&
-    ["absent", "retained", "unknown"].includes(
-      String(Reflect.get(value, "staleState")),
-    ) &&
+    validTriState(fields.engineReady) &&
+    ["absent", "retained", "unknown"].includes(String(fields.staleState)) &&
     ["safe", "manual_recovery_required", "unknown"].includes(
-      String(Reflect.get(value, "hostSafety")),
+      String(fields.hostSafety),
     ) &&
     ["preserved", "not_preserved", "unknown"].includes(
-      String(Reflect.get(value, "evidenceState")),
+      String(fields.evidenceState),
     ) &&
     [
       "not_applicable",
@@ -386,18 +449,18 @@ function validLedger(
       "retained_by_human_decision",
       "known_effect_recovery_retained_by_human_decision",
       "historical_effect_unknown_retained_by_human_decision",
-    ].includes(String(Reflect.get(value, "disposition"))) &&
-    (Reflect.get(value, "liveRunIdentity") === null ||
-      validIdentity(Reflect.get(value, "liveRunIdentity"))) &&
+    ].includes(String(fields.disposition)) &&
+    (fields.liveRunIdentity === null ||
+      validIdentity(fields.liveRunIdentity)) &&
     aggregateMatches(
       processEffects,
-      Reflect.get(value, "processEffectIssued"),
-      Reflect.get(value, "processEffectConfirmation"),
+      fields.processEffectIssued,
+      fields.processEffectConfirmation,
     ) &&
     aggregateMatches(
       filesystemEffects,
-      Reflect.get(value, "filesystemEffectIssued"),
-      Reflect.get(value, "filesystemEffectConfirmation"),
+      fields.filesystemEffectIssued,
+      fields.filesystemEffectConfirmation,
     )
   );
 }
@@ -406,51 +469,39 @@ function validEffectEntries(
   value: unknown,
   kind: "process" | "filesystem",
 ): value is readonly DockerDesktopRepairEffectEntry[] {
-  if (
-    !(
-      Array.isArray(value) &&
-      value.length <= MAXIMUM_RECORDS * 2 &&
-      value.every(
-        (entry, index) =>
-          !!entry &&
-          typeof entry === "object" &&
-          !Array.isArray(entry) &&
-          Object.getPrototypeOf(entry) === Object.prototype &&
-          exactKeys(entry, [
-            "sequence",
-            "action",
-            "phase",
-            "issued",
-            "confirmation",
-          ]) &&
-          Reflect.get(entry, "sequence") === index &&
-          DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS.includes(
-            Reflect.get(entry, "action") as DockerDesktopRepairEffectAction,
-          ) &&
-          ["intent_recorded", "settled"].includes(
-            String(Reflect.get(entry, "phase")),
-          ) &&
-          (Reflect.get(entry, "phase") === "settled" ||
-            (Reflect.get(entry, "issued") === null &&
-              Reflect.get(entry, "confirmation") === "unknown")) &&
-          (Reflect.get(entry, "action") !== "record_write" ||
-            Reflect.get(entry, "phase") === "settled") &&
-          validTriState(Reflect.get(entry, "issued")) &&
-          ["not_issued", "confirmed", "unknown"].includes(
-            String(Reflect.get(entry, "confirmation")),
-          ) &&
-          confirmationCompatible(
-            Reflect.get(entry, "issued") as DockerDesktopRepairTriState,
-            Reflect.get(
-              entry,
-              "confirmation",
-            ) as DockerDesktopRepairEffectConfirmation,
-          ),
+  const rawEntries = denseOwnDataArrayValues(value, MAXIMUM_RECORDS * 2);
+  if (!rawEntries) return false;
+  const entries: DockerDesktopRepairEffectEntry[] = [];
+  for (const [index, entry] of rawEntries.entries()) {
+    const fields = exactOwnDataValues(entry, [
+      "sequence",
+      "action",
+      "phase",
+      "issued",
+      "confirmation",
+    ]);
+    if (
+      !fields ||
+      fields.sequence !== index ||
+      !DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS.includes(
+        fields.action as DockerDesktopRepairEffectAction,
+      ) ||
+      !["intent_recorded", "settled"].includes(String(fields.phase)) ||
+      (fields.phase !== "settled" &&
+        (fields.issued !== null || fields.confirmation !== "unknown")) ||
+      (fields.action === "record_write" && fields.phase !== "settled") ||
+      !validTriState(fields.issued) ||
+      !["not_issued", "confirmed", "unknown"].includes(
+        String(fields.confirmation),
+      ) ||
+      !confirmationCompatible(
+        fields.issued as DockerDesktopRepairTriState,
+        fields.confirmation as DockerDesktopRepairEffectConfirmation,
       )
     )
-  )
-    return false;
-  const entries = value as readonly DockerDesktopRepairEffectEntry[];
+      return false;
+    entries.push(fields as DockerDesktopRepairEffectEntry);
+  }
   const processActions = [
     "official_shutdown",
     "native_termination",
@@ -1364,71 +1415,173 @@ function toOperation(
   });
 }
 
-function isCanonicalDockerDesktopRepairHistoricalOperationCoreUnchecked(
+function validCanonicalRepairHistorySessionFields(
+  history: Readonly<Record<string, unknown>>,
+  boundary: DockerDesktopRepairRecordBoundary,
+) {
+  const handoffCount = history.handoffCount;
+  const adoptionSha256 = history.adoptionSha256;
+  const handoffTipSha256 = history.handoffTipSha256;
+  const originLocalUserBindingHash = history.originLocalUserBindingHash;
+  const currentLocalUserBindingHash = history.currentLocalUserBindingHash;
+  const currentSessionBound = history.currentSessionBound;
+  return (
+    hash64(adoptionSha256) &&
+    hash64(handoffTipSha256) &&
+    Number.isSafeInteger(handoffCount) &&
+    Number(handoffCount) >= 0 &&
+    Number(handoffCount) <= MAXIMUM_HISTORY_HANDOFFS &&
+    hash64(originLocalUserBindingHash) &&
+    hash64(currentLocalUserBindingHash) &&
+    typeof currentSessionBound === "boolean" &&
+    currentSessionBound ===
+      (currentLocalUserBindingHash === boundary.localUserBindingHash) &&
+    (handoffCount === 0
+      ? handoffTipSha256 === adoptionSha256
+      : handoffTipSha256 !== adoptionSha256)
+  );
+}
+
+function classifyCanonicalRepairHistory(
   value: unknown,
   boundary: DockerDesktopRepairRecordBoundary,
-): value is DockerDesktopRepairOperation {
+  expectedClosure: DockerDesktopRepairExpectedClosure | undefined,
+): Exclude<
+  CanonicalDockerDesktopRepairHistoryMode,
+  "invalid" | "no_history"
+> | null {
+  const sessionKeys = [
+    "adoptionSha256",
+    "handoffTipSha256",
+    "handoffCount",
+    "originLocalUserBindingHash",
+    "currentLocalUserBindingHash",
+    "currentSessionBound",
+    "closed",
+    "liveRunIdentity",
+    "staleState",
+  ] as const;
+  const legacyClosedKeys = [
+    "adoptionSha256",
+    "closed",
+    "liveRunIdentity",
+    "staleState",
+  ] as const;
+  const sessionFields = exactOwnDataValues(value, sessionKeys);
+  const legacyFields = sessionFields
+    ? null
+    : exactOwnDataValues(value, legacyClosedKeys);
+  const history = sessionFields ?? legacyFields;
+  if (!history || !containsOnlyOwnDataDescriptors(value)) return null;
+  if (history.closed === false) {
+    if (
+      !sessionFields ||
+      !validCanonicalRepairHistorySessionFields(history, boundary) ||
+      history.liveRunIdentity !== null ||
+      history.staleState !== "unknown" ||
+      expectedClosure !== undefined
+    )
+      return null;
+    return history.currentSessionBound === true ? "open_current" : "open_prior";
+  }
+  if (history.closed !== true || !hash64(history.adoptionSha256)) return null;
+  const hasSessionFields = sessionFields !== null;
   if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Object.prototype ||
-    !containsOnlyOwnDataDescriptors(value)
+    hasSessionFields &&
+    !validCanonicalRepairHistorySessionFields(history, boundary)
   )
-    return false;
+    return null;
+  if (
+    !validIdentity(history.liveRunIdentity) ||
+    (history.staleState !== "absent" && history.staleState !== "retained")
+  )
+    return null;
+  if (expectedClosure !== undefined) {
+    const closure = exactOwnDataValues(expectedClosure, [
+      "liveRunIdentity",
+      "staleState",
+    ]);
+    if (
+      !closure ||
+      !containsOnlyOwnDataDescriptors(expectedClosure) ||
+      !validIdentity(closure.liveRunIdentity) ||
+      (closure.staleState !== "absent" && closure.staleState !== "retained") ||
+      !isDeepStrictEqual(history.liveRunIdentity, closure.liveRunIdentity) ||
+      history.staleState !== closure.staleState
+    )
+      return null;
+  }
+  return "closed";
+}
+
+function classifyCanonicalDockerDesktopRepairHistoricalOperationUnchecked(
+  value: unknown,
+  boundary: DockerDesktopRepairRecordBoundary,
+  expectedClosure?: DockerDesktopRepairExpectedClosure,
+): CanonicalDockerDesktopRepairHistoryMode {
+  if (!value || typeof value !== "object") return "invalid";
   const hasHistory = Object.hasOwn(value, "history");
-  if (
-    !exactKeys(value, [
-      "operationId",
-      "repairId",
-      "originLocalUserBindingHash",
-      "operationDirectory",
-      "staleName",
-      "staleDirectory",
-      "runIdentity",
-      "stage",
-      "sequence",
-      "previousRecordSha256",
-      "ledger",
-      ...(hasHistory ? ["history"] : []),
-    ])
-  )
-    return false;
-  const id = Reflect.get(value, "operationId");
+  const operation = exactOwnDataValues(value, [
+    "operationId",
+    "repairId",
+    "originLocalUserBindingHash",
+    "operationDirectory",
+    "staleName",
+    "staleDirectory",
+    "runIdentity",
+    "stage",
+    "sequence",
+    "previousRecordSha256",
+    "ledger",
+    ...(hasHistory ? ["history"] : []),
+  ]);
+  if (!operation || !containsOnlyOwnDataDescriptors(value)) return "invalid";
+  const id = operation.operationId;
   const staleName = `run.crdd-stale-${String(id)}`;
-  const sequence = Reflect.get(value, "sequence");
-  return (
+  const sequence = operation.sequence;
+  const operationCoreValid =
     operationId(id) &&
-    Reflect.get(value, "repairId") === `docker-desktop-repair.${id}` &&
-    hash64(Reflect.get(value, "originLocalUserBindingHash")) &&
-    Reflect.get(value, "operationDirectory") ===
+    operation.repairId === `docker-desktop-repair.${id}` &&
+    hash64(operation.originLocalUserBindingHash) &&
+    operation.operationDirectory ===
       path.win32.join(boundary.runtimeStateRoot, `${OPERATION_PREFIX}${id}`) &&
-    Reflect.get(value, "staleName") === staleName &&
-    Reflect.get(value, "staleDirectory") ===
+    operation.staleName === staleName &&
+    operation.staleDirectory ===
       path.win32.join(boundary.localAppData, "Docker", staleName) &&
-    validIdentity(Reflect.get(value, "runIdentity")) &&
+    validIdentity(operation.runIdentity) &&
     DOCKER_DESKTOP_REPAIR_STAGES.includes(
-      Reflect.get(value, "stage") as DockerDesktopRepairStage,
+      operation.stage as DockerDesktopRepairStage,
     ) &&
     Number.isSafeInteger(sequence) &&
     Number(sequence) >= 0 &&
     Number(sequence) < MAXIMUM_RECORDS &&
-    hash64(Reflect.get(value, "previousRecordSha256")) &&
-    validLedger(Reflect.get(value, "ledger"))
+    hash64(operation.previousRecordSha256) &&
+    validLedger(operation.ledger);
+  if (!operationCoreValid) return "invalid";
+  if (!hasHistory)
+    return expectedClosure === undefined ? "no_history" : "invalid";
+  return (
+    classifyCanonicalRepairHistory(
+      operation.history,
+      boundary,
+      expectedClosure,
+    ) ?? "invalid"
   );
 }
 
-export function isCanonicalDockerDesktopRepairHistoricalOperationCore(
+export function classifyCanonicalDockerDesktopRepairHistoricalOperation(
   value: unknown,
   boundary: DockerDesktopRepairRecordBoundary,
-): value is DockerDesktopRepairOperation {
+  expectedClosure?: DockerDesktopRepairExpectedClosure,
+): CanonicalDockerDesktopRepairHistoryMode {
   try {
-    return isCanonicalDockerDesktopRepairHistoricalOperationCoreUnchecked(
+    return classifyCanonicalDockerDesktopRepairHistoricalOperationUnchecked(
       value,
       boundary,
+      expectedClosure,
     );
   } catch {
-    return false;
+    return "invalid";
   }
 }
 
@@ -1769,19 +1922,45 @@ function historyPublicationSameIdentity(left: string, right: string) {
   }
 }
 
-function historyPublicationCommitDirectory(directory: string) {
-  if (process.platform === "win32") {
-    const metadata = historyPublicationFs.lstatSync(directory);
-    if (!metadata.isDirectory() || metadata.isSymbolicLink())
-      throw new Error("docker_desktop_repair_history_directory_invalid");
-    return;
+function historyPublicationDirectoryIdentity(directory: string) {
+  const metadata = historyPublicationFs.lstatSync(directory, { bigint: true });
+  if (!metadata.isDirectory() || metadata.isSymbolicLink()) return null;
+  return Object.freeze({
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs,
+  });
+}
+
+function historyPublicationSameDirectoryIdentity(
+  left: unknown,
+  right: unknown,
+) {
+  if (!left || !right || typeof left !== "object" || typeof right !== "object")
+    return false;
+  return (
+    Reflect.get(left, "dev") === Reflect.get(right, "dev") &&
+    Reflect.get(left, "ino") === Reflect.get(right, "ino") &&
+    Reflect.get(left, "birthtimeNs") === Reflect.get(right, "birthtimeNs")
+  );
+}
+
+function confirmHistoryPublicationSettlementForCurrentInvocation(
+  directory: string,
+  initialDirectoryIdentity: unknown,
+) {
+  if (process.platform !== "win32") {
+    const descriptor = historyPublicationFs.openSync(directory, "r");
+    try {
+      historyPublicationFs.fsyncSync(descriptor);
+    } finally {
+      historyPublicationFs.closeSync(descriptor);
+    }
   }
-  const descriptor = historyPublicationFs.openSync(directory, "r");
-  try {
-    historyPublicationFs.fsyncSync(descriptor);
-  } finally {
-    historyPublicationFs.closeSync(descriptor);
-  }
+  return historyPublicationSameDirectoryIdentity(
+    initialDirectoryIdentity,
+    historyPublicationDirectoryIdentity(directory),
+  );
 }
 
 const productionHistoryPublicationOperations: RepairHistoryPublicationOperations =
@@ -1797,7 +1976,9 @@ const productionHistoryPublicationOperations: RepairHistoryPublicationOperations
     close: historyPublicationFs.closeSync,
     link: historyPublicationFs.linkSync,
     unlink: historyPublicationFs.unlinkSync,
-    commitDirectory: historyPublicationCommitDirectory,
+    captureDirectoryIdentity: historyPublicationDirectoryIdentity,
+    confirmPublicationSettlementForCurrentInvocation:
+      confirmHistoryPublicationSettlementForCurrentInvocation,
     observeBeforeLink: () => {},
     injectFault: () => {},
   });

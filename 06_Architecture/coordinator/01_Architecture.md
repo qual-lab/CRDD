@@ -237,6 +237,10 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 新しい履歴記録は同一Filesystem上の準備fileをflush・再読取りした後にhard linkで排他的に公開し、単一の勝者だけを採用する。読取り専用の利用側は、公開済みtargetだけ、公開済みtargetと同一fileの準備残存、準備fileだけ、不正または観測不能を区別し、残存物を削除せず、準備残存を含む履歴全体を`verified`または完了へ昇格しない。現在の署名済みRuntime、検証済みRoot／保護／Policy、現在Sessionおよび外側Lockを確認済みの対象限定persist経路だけが、期待byteと同一file Identityの準備残存を削除して公開済みtargetへ収束できる。共有公開処理のbyte一致やhard link成立自体はAuthorityを作らない。別file、別候補、未知名、不正byte、部分file、観測不能またはDirectory境界の確定不能では何も削除せず、元記録と同じRecovery IDを保持して停止する。
 
+公開成功は、Platform固有の確定確認、freshなtargetのexact byte、および準備fileの明示的な不存在を同じ最終判定で再確認した場合だけ成立する。POSIXではfileのflushに加えてDirectoryを`fsync`する。Windowsでは同じ呼出し中のDirectory Identity不変と最終形状を確認し、Process crashまたは再ログオン後に安全に再分類できることを保証するが、Directory metadataの電源断耐久性までは主張しない。したがって、この契約を「耐久公開」ではなく「回復可能な公開（Recoverable Publication）」と呼ぶ。
+
+異なるbyteの同時公開では、勝者が作った最終共有状態と敗者の局所結果を混同しない。敗者は公開前の競合拒否としてEffect 0を返し、敗者固有の開始状態または終了状態を捏造しない。全Process終了後の共有観測は、targetが勝者のexact byte、準備fileが不存在、状態が`STATE-REPAIR-HISTORY-PUBLISHED`であることを別に確認する。
+
 <a id="14-consoletask内部搬送回収の実装契約"></a>
 
 ## 12. 利用者との対話
@@ -385,12 +389,12 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 `INV-HOST-CLEANUP-AFTER-DOCKER-CLOSURE`
 `INV-CLEAN-BLOCK-HAS-NO-RECOVERY`
 `INV-UNKNOWN-PRESERVES-RECOVERY`
-`INV-REPAIR-HISTORY-DURABLE-PUBLICATION`
+`INV-REPAIR-HISTORY-RECOVERABLE-PUBLICATION`
 ```
 
 主系列外の遷移は、発生時点のActive状態から安全な終端へ移る。`BLOCKED-CLEAN`は全資源不存在とRecovery IDなし、`PROCESS-RESTART-REQUIRED`は資源回収済みだがProcess再利用不可、`RECOVERY-REQUIRED`はexact Authority付きEvidence保持、`OPERATOR-TRANSFER-REQUIRED`は安全な自動処置に足るAuthorityがない状態である。この四つを同じ`blocked`表示だけで同一視しない。
 
-修復履歴の耐久形状と、呼出し単位の公開成立は分ける。`STATE-REPAIR-HISTORY-TARGET-ONLY`はFilesystem上のtarget-only形状であり、その観測だけから現在の呼出しがDirectory確定まで完了したとは扱わない。現在の呼出しがtarget byte、準備file不存在、Directory確定を再確認した場合だけ`STATE-REPAIR-HISTORY-PUBLISHED`へ進む。外来準備file、競合targetまたは観測不能は遷移させず、対応する`ATTEMPT-*`分類として元の形状を保持する。
+修復履歴のFilesystem形状と、呼出し単位の回復可能な公開成立は分ける。`STATE-REPAIR-HISTORY-TARGET-ONLY`はFilesystem上のtarget-only形状であり、その観測だけから現在の呼出しがPlatform固有の確定確認まで完了したとは扱わない。現在の呼出しがPlatform固有の確定確認、targetのexact byte、準備fileの明示的な不存在を再確認した場合だけ`STATE-REPAIR-HISTORY-PUBLISHED`へ進む。外来準備file、競合targetまたは観測不能は遷移させず、対応する`ATTEMPT-*`分類として元の形状を保持する。異byte競合の敗者は局所試行の拒否であり、最終共有状態は勝者の公開結果として別に観測する。
 
 <a id="project-runtime-reference-architecture"></a>
 

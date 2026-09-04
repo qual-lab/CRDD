@@ -74,7 +74,8 @@ export function createRepairHistoryPublicationTestingAdapter(
   options: Readonly<{
     injectFault?: (point: RepairHistoryPublicationFaultPoint) => void;
     observeBeforeLink?: () => void;
-    observeDirectoryCommit?: () => void;
+    observePlatformConfirmation?: () => void;
+    overridePlatformConfirmation?: () => boolean | undefined;
     overridePresent?: (target: string) => boolean | null | undefined;
   }> = {},
 ) {
@@ -123,13 +124,34 @@ export function createRepairHistoryPublicationTestingAdapter(
     close: (descriptor) => fs.closeSync(descriptor),
     link: (source, target) => fs.linkSync(source, target),
     unlink: (target) => fs.unlinkSync(target),
-    commitDirectory: (target) => {
+    captureDirectoryIdentity: (target) => {
       if (path.resolve(target) !== root)
         throw new Error("testing_root_changed");
-      const metadata = fs.lstatSync(target);
+      const metadata = fs.lstatSync(target, { bigint: true });
       if (!metadata.isDirectory() || metadata.isSymbolicLink())
         throw new Error("testing_root_invalid");
-      options.observeDirectoryCommit?.();
+      return Object.freeze({
+        dev: metadata.dev,
+        ino: metadata.ino,
+        birthtimeNs: metadata.birthtimeNs,
+      });
+    },
+    confirmPublicationSettlementForCurrentInvocation: (target, initial) => {
+      if (path.resolve(target) !== root)
+        throw new Error("testing_root_changed");
+      options.observePlatformConfirmation?.();
+      const overridden = options.overridePlatformConfirmation?.();
+      if (overridden !== undefined) return overridden;
+      const metadata = fs.lstatSync(target, { bigint: true });
+      return (
+        metadata.isDirectory() &&
+        !metadata.isSymbolicLink() &&
+        !!initial &&
+        typeof initial === "object" &&
+        Reflect.get(initial, "dev") === metadata.dev &&
+        Reflect.get(initial, "ino") === metadata.ino &&
+        Reflect.get(initial, "birthtimeNs") === metadata.birthtimeNs
+      );
     },
     observeBeforeLink: options.observeBeforeLink ?? (() => {}),
     injectFault: options.injectFault ?? (() => {}),

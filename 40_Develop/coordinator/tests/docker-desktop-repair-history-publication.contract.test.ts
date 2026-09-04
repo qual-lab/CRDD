@@ -126,7 +126,7 @@ function sameFile(left: string, right: string) {
   return a.dev === b.dev && a.ino === b.ino && a.birthtimeNs === b.birthtimeNs;
 }
 
-test("耐久公開: absent target + absent prepareはexact targetへ公開してprepareを残さない", (t) => {
+test("回復可能な公開: absent target + absent prepareはexact targetへ公開してprepareを残さない", (t) => {
   const value = fixture(t);
   const adapter = createRepairHistoryPublicationTestingAdapter(value.directory);
   assert.equal(adapter.publish(TARGET, PREPARE, BYTES), true);
@@ -144,7 +144,7 @@ test("耐久公開: absent target + absent prepareはexact targetへ公開して
   });
 });
 
-test("耐久公開: prepare-onlyは同byteの対象限定再入場で収束する", (t) => {
+test("回復可能な公開: prepare-onlyは同byteの対象限定再入場で収束する", (t) => {
   const value = fixture(t);
   fs.writeFileSync(value.preparation, BYTES);
   const adapter = createRepairHistoryPublicationTestingAdapter(value.directory);
@@ -163,7 +163,7 @@ test("耐久公開: prepare-onlyは同byteの対象限定再入場で収束す�
   });
 });
 
-test("耐久公開: targetと同一fileのprepare residueだけを収束する", (t) => {
+test("回復可能な公開: targetと同一fileのprepare residueだけを収束する", (t) => {
   const value = fixture(t);
   fs.writeFileSync(value.preparation, BYTES);
   fs.linkSync(value.preparation, value.target);
@@ -184,7 +184,7 @@ test("耐久公開: targetと同一fileのprepare residueだけを収束する",
   });
 });
 
-test("耐久公開: same-byte foreign prepareは双方を変更せず拒否する", (t) => {
+test("回復可能な公開: same-byte foreign prepareは双方を変更せず拒否する", (t) => {
   const value = fixture(t);
   fs.writeFileSync(value.target, BYTES);
   fs.writeFileSync(value.preparation, BYTES);
@@ -250,15 +250,15 @@ function verifyDifferentTarget(t: test.TestContext, prepare: boolean) {
   );
 }
 
-test("耐久公開: different-byte targetはprepare=falseでも既存実体を変更しない", (t) => {
+test("回復可能な公開: different-byte targetはprepare=falseでも既存実体を変更しない", (t) => {
   verifyDifferentTarget(t, false);
 });
 
-test("耐久公開: different-byte targetはprepare=trueでも既存実体を変更しない", (t) => {
+test("回復可能な公開: different-byte targetはprepare=trueでも既存実体を変更しない", (t) => {
   verifyDifferentTarget(t, true);
 });
 
-test("耐久公開: 状態観測不能はUNKNOWNとしてEffect 0で拒否する", (t) => {
+test("回復可能な公開: 状態観測不能はUNKNOWNとしてEffect 0で拒否する", (t) => {
   const value = fixture(t);
   const adapter = createRepairHistoryPublicationTestingAdapter(
     value.directory,
@@ -284,6 +284,74 @@ test("耐久公開: 状態観測不能はUNKNOWNとしてEffect 0で拒否する
   );
 });
 
+test("回復可能な公開: 既存targetのPlatform確認中にprepareが現れた場合は成功にしない", (t) => {
+  const value = fixture(t);
+  fs.writeFileSync(value.target, BYTES);
+  const adapter = createRepairHistoryPublicationTestingAdapter(
+    value.directory,
+    {
+      observePlatformConfirmation: () => {
+        if (!fs.existsSync(value.preparation))
+          fs.writeFileSync(value.preparation, OTHER);
+      },
+    },
+  );
+  assert.equal(adapter.publish(TARGET, PREPARE, BYTES), false);
+  assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
+  assert.equal(fs.readFileSync(value.preparation).equals(OTHER), true);
+});
+
+test("回復可能な公開: Platform確認または最終shape観測が不明なら成功にしない", (t) => {
+  const platformUnknown = fixture(t);
+  fs.writeFileSync(platformUnknown.target, BYTES);
+  assert.equal(
+    createRepairHistoryPublicationTestingAdapter(platformUnknown.directory, {
+      overridePlatformConfirmation: () => false,
+    }).publish(TARGET, PREPARE, BYTES),
+    false,
+  );
+
+  const prepareUnknown = fixture(t);
+  fs.writeFileSync(prepareUnknown.target, BYTES);
+  let preparationObservations = 0;
+  assert.equal(
+    createRepairHistoryPublicationTestingAdapter(prepareUnknown.directory, {
+      overridePresent: (target) => {
+        if (target !== prepareUnknown.preparation) return undefined;
+        preparationObservations += 1;
+        return preparationObservations === 2 ? null : undefined;
+      },
+    }).publish(TARGET, PREPARE, BYTES),
+    false,
+  );
+
+  const targetUnknown = fixture(t);
+  fs.writeFileSync(targetUnknown.target, BYTES);
+  assert.equal(
+    createRepairHistoryPublicationTestingAdapter(targetUnknown.directory, {
+      observePlatformConfirmation: () => fs.rmSync(targetUnknown.target),
+    }).publish(TARGET, PREPARE, BYTES),
+    false,
+  );
+});
+
+test("回復可能な公開: 全成功分岐は共通の最終確定述語だけを通る", () => {
+  const source = fs.readFileSync(
+    fileURLToPath(
+      new URL(
+        "../src/security/docker-desktop-repair-history-publication.ts",
+        import.meta.url,
+      ),
+    ),
+    "utf8",
+  );
+  assert.equal(source.match(/return completed\(\);/gu)?.length, 3);
+  assert.equal(
+    /return\s+operations\.stableBytes\([^;]+===\s*true;/gu.test(source),
+    false,
+  );
+});
+
 function verifyFaultRecovery(
   t: test.TestContext,
   point: RepairHistoryPublicationFaultPoint,
@@ -303,24 +371,24 @@ function verifyFaultRecovery(
   assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
   assert.equal(
     fs.existsSync(value.preparation),
-    point !== "after_unlink_before_directory_commit",
+    point !== "after_unlink_before_platform_confirmation",
   );
   const firstCaseId =
-    point === "after_link_before_directory_commit"
+    point === "after_link_before_platform_confirmation"
       ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-LINK-FIRST"
-      : point === "after_first_directory_commit_before_unlink"
+      : point === "after_first_platform_confirmation_before_unlink"
         ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-FIRST-COMMIT-FIRST"
         : point === "at_unlink"
           ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AT-UNLINK-FIRST"
           : "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-UNLINK-FIRST";
   const firstEndState =
-    point === "after_unlink_before_directory_commit"
+    point === "after_unlink_before_platform_confirmation"
       ? "STATE-REPAIR-HISTORY-TARGET-ONLY"
       : "STATE-REPAIR-HISTORY-TARGET-WITH-SAME-FILE-PREPARE";
   observePublicationCase(firstCaseId, {
     id: firstCaseId,
     transitionId:
-      point === "after_unlink_before_directory_commit"
+      point === "after_unlink_before_platform_confirmation"
         ? "TRANS-REPAIR-HISTORY-ABSENT-TO-TARGET-ONLY"
         : "TRANS-REPAIR-HISTORY-ABSENT-TO-SAME-FILE-PREPARE",
     fromState: "STATE-REPAIR-HISTORY-ABSENT",
@@ -330,21 +398,23 @@ function verifyFaultRecovery(
     expectedStatus: "recovery_required",
     resourcePostconditions: {
       "RES-REPAIR-HISTORY-PREPARE":
-        point === "after_unlink_before_directory_commit" ? "absent" : "present",
+        point === "after_unlink_before_platform_confirmation"
+          ? "absent"
+          : "present",
     },
   });
   let commits = 0;
   const retry = createRepairHistoryPublicationTestingAdapter(value.directory, {
-    observeDirectoryCommit: () => commits++,
+    observePlatformConfirmation: () => commits++,
   });
   assert.equal(retry.publish(TARGET, PREPARE, BYTES), true);
   assert.equal(commits >= 1, true);
   assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
   assert.equal(fs.existsSync(value.preparation), false);
   const retryCaseId =
-    point === "after_link_before_directory_commit"
+    point === "after_link_before_platform_confirmation"
       ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-LINK-RETRY"
-      : point === "after_first_directory_commit_before_unlink"
+      : point === "after_first_platform_confirmation_before_unlink"
         ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-FIRST-COMMIT-RETRY"
         : point === "at_unlink"
           ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AT-UNLINK-RETRY"
@@ -352,7 +422,7 @@ function verifyFaultRecovery(
   observePublicationCase(retryCaseId, {
     id: retryCaseId,
     transitionId:
-      point === "after_unlink_before_directory_commit"
+      point === "after_unlink_before_platform_confirmation"
         ? "TRANS-REPAIR-HISTORY-TARGET-ONLY-TO-PUBLISHED"
         : "TRANS-REPAIR-HISTORY-SAME-FILE-PREPARE-TO-PUBLISHED",
     fromState: firstEndState,
@@ -364,20 +434,20 @@ function verifyFaultRecovery(
   });
 }
 
-test("耐久公開: after_link_before_directory_commitの中断を成功にせずfresh再入場で収束する", (t) => {
-  verifyFaultRecovery(t, "after_link_before_directory_commit");
+test("回復可能な公開: link後のPlatform確認前中断を成功にせずfresh再入場で収束する", (t) => {
+  verifyFaultRecovery(t, "after_link_before_platform_confirmation");
 });
 
-test("耐久公開: after_first_directory_commit_before_unlinkの中断を成功にせずfresh再入場で収束する", (t) => {
-  verifyFaultRecovery(t, "after_first_directory_commit_before_unlink");
+test("回復可能な公開: 最初のPlatform確認後かつunlink前の中断を成功にせずfresh再入場で収束する", (t) => {
+  verifyFaultRecovery(t, "after_first_platform_confirmation_before_unlink");
 });
 
-test("耐久公開: at_unlinkの中断を成功にせずfresh再入場で収束する", (t) => {
+test("回復可能な公開: unlink要求時の中断を成功にせずfresh再入場で収束する", (t) => {
   verifyFaultRecovery(t, "at_unlink");
 });
 
-test("耐久公開: after_unlink_before_directory_commitの中断を成功にせずfresh再入場で収束する", (t) => {
-  verifyFaultRecovery(t, "after_unlink_before_directory_commit");
+test("回復可能な公開: unlink後のPlatform確認前中断を成功にせずfresh再入場で収束する", (t) => {
+  verifyFaultRecovery(t, "after_unlink_before_platform_confirmation");
 });
 
 async function waitUntil(predicate: () => boolean, timeoutMs = 5_000) {
@@ -457,7 +527,7 @@ async function runRace(t: test.TestContext, contents: readonly Buffer[]) {
   return { ...value, results, readyBeforeRelease };
 }
 
-test("耐久公開: 同byteの実別Process競合は有限再入場後に同じtargetへ収束する", async (t) => {
+test("回復可能な公開: 同byteの実別Process競合は有限再入場後に同じtargetへ収束する", async (t) => {
   const value = await runRace(t, [BYTES, BYTES]);
   assert.equal(
     value.results.some(({ stdout }) => JSON.parse(stdout).result === true),
@@ -479,7 +549,7 @@ test("耐久公開: 同byteの実別Process競合は有限再入場後に同じt
   });
 });
 
-test("耐久公開: 異byteの実別Process競合は単一winnerを上書きしない", async (t) => {
+test("回復可能な公開: 異byteの実別Process競合は局所結果と最終共有状態を分離する", async (t) => {
   const value = await runRace(t, [BYTES, OTHER]);
   assert.equal(
     value.results.filter(({ stdout }) => JSON.parse(stdout).result === true)
@@ -518,7 +588,7 @@ test("耐久公開: 異byteの実別Process競合は単一winnerを上書きし�
       effectObservations: { provider: 0, host: 0, cleanup: 1 },
       expectedStatus: "completed",
       resourcePostconditions: {
-        "RES-REPAIR-HISTORY-PREPARE": "absent_or_preserved",
+        "RES-REPAIR-HISTORY-PREPARE": "absent",
       },
     },
   );
@@ -528,19 +598,19 @@ test("耐久公開: 異byteの実別Process競合は単一winnerを上書きし�
       id: "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE-LOSER",
       attemptClassificationId:
         "ATTEMPT-REPAIR-HISTORY-CONCURRENT-DIFFERENT-BYTE-LOSER",
-      fromState: "STATE-REPAIR-HISTORY-CONFLICT-TARGET",
+      localAttemptObservation: "different_byte_prepublication_rejection",
+      finalGlobalObservation: { state: "STATE-REPAIR-HISTORY-PUBLISHED" },
       outcome: "rejected",
-      expectedEndState: "STATE-REPAIR-HISTORY-CONFLICT-TARGET",
       effectObservations: { provider: 0, host: 0, cleanup: 0 },
       expectedStatus: "recovery_required",
       resourcePostconditions: {
-        "RES-REPAIR-HISTORY-PREPARE": "absent_or_preserved",
+        "RES-REPAIR-HISTORY-PREPARE": "absent",
       },
     },
   );
 });
 
-test("耐久公開Traceの全caseは正本・registry・実行集合が一致する", () => {
+test("回復可能な公開Traceの全caseは正本・registry・実行集合が一致する", () => {
   assertRuntimeTraceExecutionCoverage(
     "40_Develop/coordinator/tests/docker-desktop-repair-history-publication.contract.test.ts",
     Object.keys(publicationTraceAssertions),
@@ -548,7 +618,7 @@ test("耐久公開Traceの全caseは正本・registry・実行集合が一致す
   );
 });
 
-test("耐久公開のtesting adapterは本番entrypointから到達せず試験Rootだけを変更する", () => {
+test("回復可能な公開のtesting adapterは本番entrypointから到達せず試験Rootだけを変更する", () => {
   const closure = productionDependencyClosure(
     fileURLToPath(new URL("../bin/coordinator.ts", import.meta.url)),
   );

@@ -23,6 +23,7 @@ import {
 } from "./docker-desktop-repair-policy.ts";
 import {
   classifyDockerDesktopRepairResume,
+  classifyCanonicalDockerDesktopRepairHistoricalOperation,
   createDockerDesktopRepairOperation,
   type DockerDesktopRepairDirectoryIdentity,
   type DockerDesktopRepairEffectAction,
@@ -37,7 +38,6 @@ import {
   hasDockerDesktopRepairRecordCapacity,
   inspectDockerDesktopRepairHistoricalOperation,
   inventoryDockerDesktopRepairOperations,
-  isCanonicalDockerDesktopRepairHistoricalOperationCore,
   parseDockerDesktopRepairId,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
@@ -1787,107 +1787,18 @@ type HistoricalAdoptionRoute =
   | "current_session"
   | "session_handoff";
 
-const SHA256_HEX = /^[a-f0-9]{64}$/u;
-
-function validRepairDirectoryIdentity(
-  value: DockerDesktopRepairDirectoryIdentity | null,
-) {
-  if (
-    value === null ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Object.prototype
-  )
-    return false;
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    Object.keys(descriptors).sort().join("\0") !==
-    ["birthtimeNs", "dev", "ino"].join("\0")
-  )
-    return false;
-  const validComponent = (key: "dev" | "ino" | "birthtimeNs") => {
-    const descriptor = descriptors[key];
-    return (
-      descriptor !== undefined &&
-      "value" in descriptor &&
-      typeof descriptor.value === "string" &&
-      /^(?:0|[1-9][0-9]{0,39})$/u.test(descriptor.value) &&
-      descriptor.value !== "0"
-    );
-  };
-  return (
-    validComponent("dev") &&
-    validComponent("ino") &&
-    validComponent("birthtimeNs")
-  );
-}
-
-function validRepairHistorySessionFields(
-  history: NonNullable<DockerDesktopRepairOperation["history"]>,
-  boundary: PreparedBoundary,
-) {
-  if (
-    !SHA256_HEX.test(history.adoptionSha256) ||
-    !SHA256_HEX.test(history.handoffTipSha256 ?? "") ||
-    !Number.isSafeInteger(history.handoffCount) ||
-    (history.handoffCount ?? -1) < 0 ||
-    (history.handoffCount ?? 9) > 8 ||
-    !SHA256_HEX.test(history.originLocalUserBindingHash ?? "") ||
-    !SHA256_HEX.test(history.currentLocalUserBindingHash ?? "") ||
-    typeof history.currentSessionBound !== "boolean" ||
-    history.currentSessionBound !==
-      (history.currentLocalUserBindingHash === boundary.localUserBindingHash)
-  )
-    return false;
-  return history.handoffCount === 0
-    ? history.handoffTipSha256 === history.adoptionSha256
-    : history.handoffTipSha256 !== history.adoptionSha256;
-}
-
-function validOpenRepairHistory(
-  history: NonNullable<DockerDesktopRepairOperation["history"]>,
-  boundary: PreparedBoundary,
-) {
-  return (
-    history.closed === false &&
-    validRepairHistorySessionFields(history, boundary) &&
-    history.liveRunIdentity === null &&
-    history.staleState === "unknown"
-  );
-}
-
-function validClosedRepairHistory(
-  history: NonNullable<DockerDesktopRepairOperation["history"]>,
-  boundary: PreparedBoundary,
-) {
-  if (
-    history.closed !== true ||
-    !SHA256_HEX.test(history.adoptionSha256) ||
-    !validRepairDirectoryIdentity(history.liveRunIdentity) ||
-    (history.staleState !== "absent" && history.staleState !== "retained")
-  )
-    return false;
-  const sessionFields = [
-    history.handoffTipSha256,
-    history.handoffCount,
-    history.originLocalUserBindingHash,
-    history.currentLocalUserBindingHash,
-    history.currentSessionBound,
-  ];
-  return sessionFields.every((value) => value === undefined)
-    ? true
-    : sessionFields.every((value) => value !== undefined) &&
-        validRepairHistorySessionFields(history, boundary);
-}
-
 function sameRepairOperationCore(
   before: DockerDesktopRepairOperation,
   after: DockerDesktopRepairOperation,
   boundary: PreparedBoundary,
 ) {
   return (
-    isCanonicalDockerDesktopRepairHistoricalOperationCore(before, boundary) &&
-    isCanonicalDockerDesktopRepairHistoricalOperationCore(after, boundary) &&
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      before,
+      boundary,
+    ) !== "invalid" &&
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(after, boundary) !==
+      "invalid" &&
     before.operationId === after.operationId &&
     before.repairId === after.repairId &&
     before.originLocalUserBindingHash === after.originLocalUserBindingHash &&
@@ -1906,28 +1817,14 @@ export function classifyDockerDesktopRepairHistoricalAdoptionRoute(
   operation: DockerDesktopRepairOperation,
   boundary: PreparedBoundary,
 ): HistoricalAdoptionRoute {
-  if (
-    !isCanonicalDockerDesktopRepairHistoricalOperationCore(operation, boundary)
-  )
-    return "invalid";
-  if (!operation.history) return "initial_adoption";
-  if (operation.history.closed)
-    return validClosedRepairHistory(operation.history, boundary)
-      ? "closed"
-      : "invalid";
-  if (!validOpenRepairHistory(operation.history, boundary)) return "invalid";
-  if (
-    operation.history.currentSessionBound === true &&
-    operation.history.currentLocalUserBindingHash ===
-      boundary.localUserBindingHash
-  )
-    return "current_session";
-  if (
-    operation.history.currentSessionBound === false &&
-    operation.history.currentLocalUserBindingHash !==
-      boundary.localUserBindingHash
-  )
-    return "session_handoff";
+  const mode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    operation,
+    boundary,
+  );
+  if (mode === "no_history") return "initial_adoption";
+  if (mode === "closed") return "closed";
+  if (mode === "open_current") return "current_session";
+  if (mode === "open_prior") return "session_handoff";
   return "invalid";
 }
 
@@ -1946,19 +1843,34 @@ export function validateDockerDesktopRepairHistoricalAdoptionResult(
     after.history.currentLocalUserBindingHash !== boundary.localUserBindingHash
   )
     return false;
+  const beforeMode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    before,
+    boundary,
+  );
+  const afterMode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    after,
+    boundary,
+  );
+  if (
+    afterMode !== "open_current" ||
+    (route === "initial_adoption"
+      ? beforeMode !== "no_history"
+      : beforeMode !== "open_prior")
+  )
+    return false;
   if (route === "initial_adoption")
     return (
       after.history.handoffCount === 0 &&
       after.history.handoffTipSha256 === after.history.adoptionSha256 &&
       after.history.originLocalUserBindingHash ===
         before.originLocalUserBindingHash &&
-      validOpenRepairHistory(after.history, boundary)
+      afterMode === "open_current"
     );
   const prior = before.history;
   const priorHandoffCount = prior?.handoffCount;
   return (
     prior !== undefined &&
-    validOpenRepairHistory(prior, boundary) &&
+    beforeMode === "open_prior" &&
     typeof priorHandoffCount === "number" &&
     prior.currentSessionBound === false &&
     prior.currentLocalUserBindingHash !== boundary.localUserBindingHash &&
@@ -1969,7 +1881,7 @@ export function validateDockerDesktopRepairHistoricalAdoptionResult(
     after.history.handoffTipSha256 !== prior.handoffTipSha256 &&
     isDeepStrictEqual(after.history.liveRunIdentity, prior.liveRunIdentity) &&
     after.history.staleState === prior.staleState &&
-    validOpenRepairHistory(after.history, boundary)
+    afterMode === "open_current"
   );
 }
 
@@ -1984,14 +1896,22 @@ export function validateDockerDesktopRepairHistoricalClosureResult(
 ) {
   const prior = before.history;
   const closed = after.history;
+  const beforeMode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    before,
+    boundary,
+  );
+  const afterMode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    after,
+    boundary,
+    expected,
+  );
   return (
-    validRepairDirectoryIdentity(expected.liveRunIdentity) &&
     prior !== undefined &&
     closed !== undefined &&
-    validOpenRepairHistory(prior, boundary) &&
+    beforeMode === "open_current" &&
     prior.currentSessionBound === true &&
     closed.closed === true &&
-    validClosedRepairHistory(closed, boundary) &&
+    afterMode === "closed" &&
     sameRepairOperationCore(before, after, boundary) &&
     closed.adoptionSha256 === prior.adoptionSha256 &&
     closed.handoffTipSha256 === prior.handoffTipSha256 &&

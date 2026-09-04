@@ -194,6 +194,8 @@ Project全体E2Eへ進む直前の固定候補監査では、Docker完了Receipt
 
 固定候補`91891be`の独立再監査はCritical 0件、Major 2件、Minor 0件であり、修復履歴のCanonical検証が起点Identityと終了時の期待Identityを含む閉集合になっていないこと、および耐久公開の状態・遷移・試験対応が所有関係、拒否、観測不能、除去失敗を正確に区別していないことを検出した。局所修正を開始せず、Canonical data descriptor検証、起点Identity必須化、終了済み履歴と期待Identityの再検証、耐久形状と現在呼出しの確定状態の分離、13件の状態シナリオ、5件の非遷移となる試行分類、4か所の故障注入、および初回失敗と再入場の個別対応まで監査担当と再具体化した。更新後は集中確認74件、制限Process全回帰1,673件、実Windows Process Gate 7件、Runtime設計追跡32状態／31遷移／5試行分類／25検証対応、Project Runtime設計追跡、Coordinator全確認およびCRDD全体Checkerが成功した。別主体または競合による拒否は状態遷移へ混入させず、同byte競合だけを同じ公開先への収束とし、異byte競合では単一winnerを維持してloserの資源状態を推測しない。これは新しい固定改訂版の独立再監査前にはMajor解消または署名適格を意味しない。
 
+固定候補`3c26ccc`の独立再監査はCritical 0件、Major 2件、Minor 0件であり、Canonical履歴検証の所有がStoreとRuntimeへ分散していたこと、および公開の成功経路が同じ最終判定を通らずWindowsで確認できる保証を過大表示していたことを検出した。再度局所修正を止め、Canonical分類をStoreの単一ownerへ集約し、own data descriptorから固定した閉じた値だけで不正、履歴なし、終了済み、現在Session、過去Sessionを分類する方針を監査担当と合意した。Runtimeの重複検証は削除した。公開契約は「回復可能な公開」へ改め、全成功経路でPlatform固有の確定確認、freshな対象byteおよび準備fileの明示的不在を要求する。POSIXではDirectory `fsync`を行い、Windowsでは同じ呼出し中のDirectory Identityと最終形状および次回の安全な再分類だけを保証し、電源断耐久性を主張しない。異byte競合はloserの局所Effect 0とwinnerが作る最終共有状態を分けた。合意事項を状態・入力・利用側・故障点・観測の有限な意味ケースへ展開し、実装、試験およびEvidenceとの双方向未対応を0件にする規律を[品質保証](../../16_Quality_Assurance.md)と[保守](../../19_Maintenance.md#31-tracked-change-execution-contract)へ還元した。更新後は集中確認137件、制限Process全回帰1,677件、実Windows Process Gate 7件、Runtime設計追跡32状態／31遷移／5試行分類／25検証対応、Project Runtime設計追跡、Coordinator全確認およびCRDD全体Checkerが成功した。これは新しい固定改訂版の独立再監査前にはMajor解消または署名適格を意味しない。
+
 ## 9. 設計確定からリリース判断までの実行計画
 
 次の段階は依存順で進める。内部Taskへ分割できるが、後段の成功を前段の完了根拠へ流用しない。各段階の実装開始前に、対象Interface、保持する意図、変更禁止範囲、正常・準正常・異常、受入条件および検証方法をTask Packetへ固定する。

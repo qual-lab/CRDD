@@ -1,5 +1,5 @@
 const TRACE_SCHEMA = "crdd-coordinator/runtime-traceability";
-const TRACE_SCHEMA_REVISION = 5;
+const TRACE_SCHEMA_REVISION = 6;
 const VERIFICATION_KINDS = Object.freeze([
   "normal",
   "quasi_normal",
@@ -71,6 +71,13 @@ const ATTEMPT_CLASSIFICATION_KEYS = Object.freeze([
   "requiredVerificationKinds",
   "invariants",
 ]);
+const CONCURRENT_ATTEMPT_CLASSIFICATION_KEYS = Object.freeze([
+  "id",
+  "observationScope",
+  "risk",
+  "requiredVerificationKinds",
+  "invariants",
+]);
 const INVARIANT_KEYS = Object.freeze(["id", "statement"]);
 const BINDING_KEYS = Object.freeze([
   "id",
@@ -105,6 +112,17 @@ const ATTEMPT_CASE_KEYS = Object.freeze([
   "expectedStatus",
   "resourcePostconditions",
 ]);
+const CONCURRENT_ATTEMPT_CASE_KEYS = Object.freeze([
+  "id",
+  "attemptClassificationId",
+  "outcome",
+  "localAttemptObservation",
+  "finalGlobalObservation",
+  "effectObservations",
+  "expectedStatus",
+  "resourcePostconditions",
+]);
+const FINAL_GLOBAL_OBSERVATION_KEYS = Object.freeze(["state"]);
 const EFFECT_OBSERVATION_KEYS = Object.freeze(["provider", "host", "cleanup"]);
 const EXPECTED_STATUSES = new Set([
   "authorized",
@@ -117,7 +135,6 @@ const EXPECTED_STATUSES = new Set([
 ]);
 const RESOURCE_POSTCONDITIONS = new Set([
   "absent",
-  "absent_or_preserved",
   "present",
   "preserved",
   "transferred",
@@ -426,15 +443,26 @@ export function inspectCoordinatorRuntimeTraceability(
   for (const attempt of attemptClassifications.entries) {
     const attemptId = typeof attempt.id === "string" ? attempt.id : "unknown";
     attemptsById.set(attemptId, attempt);
+    const isConcurrentAttempt = hasExactKeys(
+      attempt,
+      CONCURRENT_ATTEMPT_CLASSIFICATION_KEYS,
+    );
     if (
-      !hasExactKeys(attempt, ATTEMPT_CLASSIFICATION_KEYS) ||
-      attempt.risk !== "high"
+      (!hasExactKeys(attempt, ATTEMPT_CLASSIFICATION_KEYS) &&
+        !isConcurrentAttempt) ||
+      attempt.risk !== "high" ||
+      (isConcurrentAttempt &&
+        attempt.observationScope !==
+          "local_attempt_with_separate_global_observation")
     )
       issues.push(`${attemptId}:attempt_classification_shape_invalid`);
-    if (typeof attempt.state !== "string" || !states.ids.has(attempt.state)) {
+    if (
+      !isConcurrentAttempt &&
+      (typeof attempt.state !== "string" || !states.ids.has(attempt.state))
+    ) {
       issues.push(`${attemptId}:state_unknown`);
-    } else {
-      usedStates.add(attempt.state);
+    } else if (!isConcurrentAttempt) {
+      usedStates.add(attempt.state as string);
     }
     for (const invariant of checkReferences(
       attempt.invariants,
@@ -515,7 +543,8 @@ export function inspectCoordinatorRuntimeTraceability(
         if (
           !isRecord(candidate) ||
           (!hasExactKeys(candidate, CASE_KEYS) &&
-            !hasExactKeys(candidate, ATTEMPT_CASE_KEYS))
+            !hasExactKeys(candidate, ATTEMPT_CASE_KEYS) &&
+            !hasExactKeys(candidate, CONCURRENT_ATTEMPT_CASE_KEYS))
         ) {
           issues.push(`${bindingId}:case_shape_invalid`);
           continue;
@@ -531,6 +560,10 @@ export function inspectCoordinatorRuntimeTraceability(
           candidate,
           "attemptClassificationId",
         );
+        const isConcurrentAttemptCase = hasExactKeys(
+          candidate,
+          CONCURRENT_ATTEMPT_CASE_KEYS,
+        );
         const transitionId = candidate.transitionId;
         const attemptId = candidate.attemptClassificationId;
         if (isAttemptCase) {
@@ -543,15 +576,39 @@ export function inspectCoordinatorRuntimeTraceability(
           }
           caseAttempts.add(attemptId);
           const attempt = attemptsById.get(attemptId);
-          const fromState = candidate.fromState;
-          if (typeof fromState !== "string" || fromState !== attempt?.state)
-            issues.push(`${bindingId}:case_from_state_mismatch:${attemptId}`);
           if (candidate.outcome !== "rejected")
             issues.push(
               `${bindingId}:case_attempt_outcome_invalid:${attemptId}`,
             );
-          if (candidate.expectedEndState !== fromState)
-            issues.push(`${bindingId}:case_attempt_mutates_state:${attemptId}`);
+          if (isConcurrentAttemptCase) {
+            if (
+              candidate.localAttemptObservation !==
+              "different_byte_prepublication_rejection"
+            )
+              issues.push(
+                `${bindingId}:case_local_attempt_observation_invalid:${attemptId}`,
+              );
+            if (
+              !isRecord(candidate.finalGlobalObservation) ||
+              !hasExactKeys(
+                candidate.finalGlobalObservation,
+                FINAL_GLOBAL_OBSERVATION_KEYS,
+              ) ||
+              typeof candidate.finalGlobalObservation.state !== "string" ||
+              !states.ids.has(candidate.finalGlobalObservation.state)
+            )
+              issues.push(
+                `${bindingId}:case_final_global_observation_invalid:${attemptId}`,
+              );
+          } else {
+            const fromState = candidate.fromState;
+            if (typeof fromState !== "string" || fromState !== attempt?.state)
+              issues.push(`${bindingId}:case_from_state_mismatch:${attemptId}`);
+            if (candidate.expectedEndState !== fromState)
+              issues.push(
+                `${bindingId}:case_attempt_mutates_state:${attemptId}`,
+              );
+          }
         } else if (
           typeof transitionId !== "string" ||
           !transitionIds.includes(transitionId)
@@ -565,7 +622,10 @@ export function inspectCoordinatorRuntimeTraceability(
           isStringArray(transition?.from) ? transition.from : [],
         );
         const fromState = candidate.fromState;
-        if (typeof fromState !== "string" || !states.ids.has(fromState))
+        if (
+          !isConcurrentAttemptCase &&
+          (typeof fromState !== "string" || !states.ids.has(fromState))
+        )
           issues.push(`${bindingId}:case_from_state_invalid`);
         if (
           !isAttemptCase &&
@@ -575,7 +635,10 @@ export function inspectCoordinatorRuntimeTraceability(
         if (candidate.outcome !== "taken" && candidate.outcome !== "rejected")
           issues.push(`${bindingId}:case_outcome_invalid:${transitionId}`);
         const endState = candidate.expectedEndState;
-        if (typeof endState !== "string" || !states.ids.has(endState))
+        if (
+          !isConcurrentAttemptCase &&
+          (typeof endState !== "string" || !states.ids.has(endState))
+        )
           issues.push(`${bindingId}:case_end_state_invalid:${transitionId}`);
         if (
           !isAttemptCase &&
@@ -685,7 +748,8 @@ export function inspectCoordinatorRuntimeTraceability(
       for (const candidate of binding.cases) {
         if (
           !isExactRecord(candidate, CASE_KEYS) &&
-          !isExactRecord(candidate, ATTEMPT_CASE_KEYS)
+          !isExactRecord(candidate, ATTEMPT_CASE_KEYS) &&
+          !isExactRecord(candidate, CONCURRENT_ATTEMPT_CASE_KEYS)
         )
           continue;
         const caseId = typeof candidate.id === "string" ? candidate.id : "";
@@ -705,7 +769,8 @@ export function inspectCoordinatorRuntimeTraceability(
             !binding.cases.some(
               (candidate) =>
                 (isExactRecord(candidate, CASE_KEYS) ||
-                  isExactRecord(candidate, ATTEMPT_CASE_KEYS)) &&
+                  isExactRecord(candidate, ATTEMPT_CASE_KEYS) ||
+                  isExactRecord(candidate, CONCURRENT_ATTEMPT_CASE_KEYS)) &&
                 isRecord(candidate.resourcePostconditions) &&
                 Object.hasOwn(candidate.resourcePostconditions, resourceId),
             )
