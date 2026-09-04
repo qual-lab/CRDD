@@ -128,8 +128,16 @@ function sameFile(left: string, right: string) {
 
 function observeFinalGlobalPublication(
   value: Readonly<{ target: string; preparation: string }>,
-  expectedTarget: Buffer,
+  attempts: readonly Readonly<{ input: Buffer; result: boolean }>[],
 ) {
+  const successfulAttempts = attempts.filter(({ result }) => result);
+  assert.equal(
+    successfulAttempts.length,
+    1,
+    "the race must have exactly one successful publication attempt",
+  );
+  const expectedTarget = successfulAttempts[0]?.input;
+  assert.ok(expectedTarget);
   let target: Buffer | null = null;
   let preparation: boolean | null = null;
   try {
@@ -509,6 +517,7 @@ async function runRace(t: test.TestContext, contents: readonly Buffer[]) {
   const start = path.join(value.directory, "start");
   const release = path.join(value.directory, "release");
   const children = contents.map((bytes, index) => {
+    const input = Buffer.from(bytes);
     const ready = path.join(value.directory, `ready-${index}`);
     const child = spawn(
       process.execPath,
@@ -540,7 +549,7 @@ async function runRace(t: test.TestContext, contents: readonly Buffer[]) {
     }>((resolve) =>
       child.once("close", (status) => resolve({ status, stdout, stderr })),
     );
-    return { child, ready, completion };
+    return { child, ready, completion, input };
   });
   fs.writeFileSync(start, "start\n", { flag: "wx" });
   await waitUntil(() =>
@@ -569,7 +578,15 @@ async function runRace(t: test.TestContext, contents: readonly Buffer[]) {
     });
     assert.equal(typeof JSON.parse(result.stdout).result, "boolean");
   }
-  return { ...value, results, readyBeforeRelease };
+  const attempts = results.map((result, index) => {
+    const input = children[index]?.input;
+    assert.ok(input);
+    return Object.freeze({
+      input,
+      result: JSON.parse(result.stdout).result as boolean,
+    });
+  });
+  return { ...value, results, attempts, readyBeforeRelease };
 }
 
 test("回復可能な公開: 同byteの実別Process競合は有限再入場後に同じtargetへ収束する", async (t) => {
@@ -606,10 +623,14 @@ test("回復可能な公開: 異byteの実別Process競合は局所結果と最�
       .length,
     1,
   );
-  const winner = fs.readFileSync(value.target);
-  assert.equal(winner.equals(BYTES) || winner.equals(OTHER), true);
+  const finalGlobalObservation = observeFinalGlobalPublication(
+    value,
+    value.attempts,
+  );
+  const successfulAttempt = value.attempts.find(({ result }) => result);
+  assert.ok(successfulAttempt);
+  const winner = successfulAttempt.input;
   const loser = winner.equals(BYTES) ? OTHER : BYTES;
-  const finalGlobalObservation = observeFinalGlobalPublication(value, winner);
   const retry = createRepairHistoryPublicationTestingAdapter(value.directory);
   assert.equal(retry.publish(TARGET, PREPARE, loser), false);
   assert.equal(fs.readFileSync(value.target).equals(winner), true);
@@ -655,7 +676,24 @@ test("回復可能な公開: 異byte競合後の準備file残存を最終共有�
   fs.writeFileSync(value.target, BYTES);
   fs.writeFileSync(value.preparation, OTHER);
   assert.throws(
-    () => observeFinalGlobalPublication(value, BYTES),
+    () =>
+      observeFinalGlobalPublication(value, [
+        { input: BYTES, result: true },
+        { input: OTHER, result: false },
+      ]),
+    /final global state must be observed/,
+  );
+});
+
+test("回復可能な公開: true側の入力と異なる最終targetをwinner成立へ流用しない", (t) => {
+  const value = fixture(t);
+  fs.writeFileSync(value.target, OTHER);
+  assert.throws(
+    () =>
+      observeFinalGlobalPublication(value, [
+        { input: BYTES, result: true },
+        { input: OTHER, result: false },
+      ]),
     /final global state must be observed/,
   );
 });

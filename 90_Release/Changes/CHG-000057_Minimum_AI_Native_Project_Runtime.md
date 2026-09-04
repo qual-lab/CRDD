@@ -198,6 +198,8 @@ Project全体E2Eへ進む直前の固定候補監査では、Docker完了Receipt
 
 固定候補`bf52c66`の独立再監査はCritical 0件、Major 1件、Minor 1件であり、異byte競合の全Process終了後に要求する準備file不存在が、実Filesystemの観測値ではなく手書きの期待値としてTraceへ登録されている適用漏れを検出した。Canonical分類、共通成功判定、Platform保証および局所試行と最終共有状態の分離は成立したため、新しい設計範囲を追加せず検証根拠の接続だけを構造是正した。更新候補は、loser再試行前に対象のexact winner byteと準備file不存在を実観測し、assertした同じ値をwinnerとloserのTraceへ渡す。準備fileを意図的に残す反証fixtureでは最終共有状態の完成判定が失敗する。現在状態の用語も回復可能な公開とFilesystem形状へ統一した。このFindingから、外部状態、共有状態および資源不存在を手書きの期待値で代用せず、実観測値と反証結果へ結合する規範を[品質保証](../../16_Quality_Assurance.md)と[実装標準](../../06_Architecture/99_Coding_Standards.md)へ還元した。更新後は集中確認138件、制限Process全回帰1,678件、実Windows Process Gate 7件、Runtime設計追跡32状態／31遷移／5試行分類／25検証対応、Project Runtime設計追跡、Coordinator全確認およびCRDD全体Checkerが成功した。これは新しい固定改訂版の独立再監査前にはMajor／Minor解消または署名適格を意味しない。
 
+固定候補`ea28d0d`の独立再監査はCritical 0件、Major 1件、Minor 0件であり、準備file不存在の実観測は成立した一方、最終targetから読んだbyteを期待winnerとして自己比較し、唯一`true`を返した子Processの事前入力と相関していないことを検出した。これは前回Majorのexact winner byte条件に残った検証Oracleの循環である。更新候補では競合Harnessが各子ProcessのEffect前入力と実結果を同じattemptとして保持し、唯一成功したattemptの入力から期待winner byteを導出する。最終targetと準備fileは独立に実観測し、期待値との一致および不存在をassertした同じ値だけをTraceへ渡す。true側の入力と異なる候補byteを最終targetへ置く反証fixtureでは同じ完成判定が失敗する。期待値を検証対象の観測結果自身から作らず、事前入力、正本契約または独立Producer結果から導出する検証Oracleの独立性を[品質保証](../../16_Quality_Assurance.md)と[実装標準](../../06_Architecture/99_Coding_Standards.md)へ追加した。更新後は集中確認139件、制限Process全回帰1,679件、実Windows Process Gate 7件、Runtime設計追跡32状態／31遷移／5試行分類／25検証対応、Project Runtime設計追跡、Coordinator全確認およびCRDD全体Checkerが成功した。これは新しい固定改訂版の独立再監査前にはMajor解消または署名適格を意味しない。
+
 ## 9. 設計確定からリリース判断までの実行計画
 
 次の段階は依存順で進める。内部Taskへ分割できるが、後段の成功を前段の完了根拠へ流用しない。各段階の実装開始前に、対象Interface、保持する意図、変更禁止範囲、正常・準正常・異常、受入条件および検証方法をTask Packetへ固定する。

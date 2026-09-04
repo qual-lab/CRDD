@@ -18,6 +18,8 @@
 
 固定候補`bf52c66`の独立再監査はCritical 0件、Major 1件、Minor 1件であり、まだ署名適格ではなかった。Canonical分類の単一所有、全成功分岐の共通最終判定、Platform別保証および競合の状態表現は成立したが、異byte競合の別Process試験が、全Process終了後の準備file不存在を実Filesystemから取得せず手書きの期待値としてTraceへ登録していた。これは新しい保証ではなく、合意済み条件から検証根拠への適用漏れである。更新候補では、全Process終了直後かつloser再試行前に、対象のexact winner byteと準備fileの明示的不在を実Filesystemから別々に観測し、同じ観測値をassert後のTraceへ結合する。準備fileを意図的に残した反証fixtureは同じ最終共有状態の判定を失敗させる。現在状態を示す旧称も、回復可能な公開、Filesystem状態およびProcess crash／再ログオン後の安全な再分類へ揃えた。この不足から、外部状態、共有状態または資源不存在の完成根拠を手書きの期待値で代用せず、実観測値と反証結果へ結合する規範を品質保証とCoding Standardsへ還元した。
 
+固定候補`ea28d0d`の独立再監査はCritical 0件、Major 1件、Minor 0件であり、まだ署名適格ではなかった。準備file不存在の実観測とTraceへの結合は成立したが、最終targetから読んだbyteをwinnerと命名し、その同じ値を期待値として比較していたため、`true`を返した子Processの事前入力との相関が閉じていなかった。これは前回Majorに含まれるexact winner byte条件の残存適用漏れである。更新候補では、競合Harnessが各子ProcessのEffect前入力と実結果を同じattemptとして保持し、唯一`true`を返したattemptの入力byteを独立した期待値として導出する。最終targetと準備fileは別に実Filesystemから観測し、期待winner byte、target観測、準備file不存在の三者が成立した場合だけTraceへ渡す。true側の入力と異なる候補byteをtargetへ置いた反証fixtureは同じ完成判定を失敗させる。この不足から、期待値を検証対象の観測結果自身から生成せず、事前入力、正本契約または独立Producer結果から導出する検証Oracleの独立性を品質保証とCoding Standardsへ還元した。
+
 この結果は更新後の署名前技術候補に対する自己確認である。更新固定版の独立再監査、Runtime実行Identityの再署名、実際のDocker Desktop修復、Docker Task Recoveryおよび実Provider最終E2Eは未完了であり、Major解消、v0.19全体の`Pass`またはRelease成立を意味しない。
 
 ## 2. 対象と変更禁止範囲
@@ -55,15 +57,15 @@
 
 | 確認 | 結果 |
 |---|---|
-| Coordinator制限Process全回帰 | 1,678件中1,678件成功、失敗・取消・skip 0、324.517秒 |
-| Canonical履歴分類、回復可能な公開、Runtime修復、設計追跡の集中確認 | 138件中138件成功、失敗・取消・skip 0 |
-| Windows実Process Gate | 本番同等のOS Process権限で7件中7件成功、失敗・取消・skip 0、4.317秒 |
+| Coordinator制限Process全回帰 | 1,679件中1,679件成功、失敗・取消・skip 0、313.937秒 |
+| Canonical履歴分類、回復可能な公開、Runtime修復、設計追跡の集中確認 | 139件中139件成功、失敗・取消・skip 0 |
+| Windows実Process Gate | 本番同等のOS Process権限で7件中7件成功、失敗・取消・skip 0、4.125秒 |
 | TypeScript型検査 | 2構成とも成功 |
 | Runtime設計追跡 | 資源10、状態32、遷移31、非遷移の試行分類5、不変条件12、検証対応25で成功 |
 | Project Runtime設計追跡 | Interface 9、耐久記録10、資源14、Lock 4、Authority 7、Effect 9、状態機械7、遷移54、検証対応23で成功 |
 | Lint | 318ファイル、警告・エラー0 |
 | 整形確認 | 317ファイルで差分0 |
-| CRDD全体Checker | Markdown 413件、リンク2,905件、Anchor 981件、エラー・警告0 |
+| CRDD全体Checker | Markdown 413件、リンク2,907件、Anchor 981件、エラー・警告0 |
 | 差分形式 | `git diff --check`成功 |
 
 ## 5. 反証できた事項
