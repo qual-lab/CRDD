@@ -447,7 +447,8 @@ function inspectTaskExecutions(
   return Object.freeze(executions);
 }
 
-function projectRuntimeResult(
+/** Canonical public result envelope for one Project Runtime objective request. */
+export function createProjectRuntimeObjectiveResult(
   request: ProjectRuntimeObjectiveRequest,
   options: Readonly<{
     status: "completed" | "blocked" | "cancelled";
@@ -502,7 +503,7 @@ function blocked(
     effectState?: "no_effect" | "settled" | "unknown";
   }> = {},
 ) {
-  return projectRuntimeResult(request, {
+  return createProjectRuntimeObjectiveResult(request, {
     status: "blocked",
     reason,
     ...options,
@@ -693,7 +694,7 @@ export async function runProjectRuntimeObjective(
       recoveryQueueId === queueId &&
       state.value
     )
-      return projectRuntimeResult(request, {
+      return createProjectRuntimeObjectiveResult(request, {
         status: "blocked",
         reason: "project_runtime_objective_already_running",
         queueId,
@@ -1426,7 +1427,7 @@ export async function runProjectRuntimeObjective(
         effectState: "unknown",
       });
     if (!selected.value || selected.value.queueId !== queueId)
-      return projectRuntimeResult(request, {
+      return createProjectRuntimeObjectiveResult(request, {
         status: "blocked",
         reason: "project_runtime_objective_queued_waiting_foreground",
         queueId,
@@ -1440,7 +1441,7 @@ export async function runProjectRuntimeObjective(
       });
   }
   if (queue.state === "integration_pending" && state.value) {
-    return projectRuntimeResult(request, {
+    return createProjectRuntimeObjectiveResult(request, {
       status: "completed",
       reason: "project_runtime_tasks_already_integration_pending",
       queueId,
@@ -1461,7 +1462,7 @@ export async function runProjectRuntimeObjective(
         manualRecoveryRequired: true,
         effectState: "unknown",
       });
-    return projectRuntimeResult(request, {
+    return createProjectRuntimeObjectiveResult(request, {
       status: "completed",
       reason: "project_runtime_objective_already_accepted",
       queueId,
@@ -1475,7 +1476,7 @@ export async function runProjectRuntimeObjective(
     });
   }
   if (queue.state === "cancelled" && state.value)
-    return projectRuntimeResult(request, {
+    return createProjectRuntimeObjectiveResult(request, {
       status: "cancelled",
       reason: "project_runtime_objective_already_cancelled",
       queueId,
@@ -1496,7 +1497,7 @@ export async function runProjectRuntimeObjective(
           (entry.kind === "docker" ? "acknowledged" : "settled"),
       ),
     );
-    return projectRuntimeResult(request, {
+    return createProjectRuntimeObjectiveResult(request, {
       status: "blocked",
       reason: `project_runtime_objective_${queue.state}`,
       queueId,
@@ -1559,7 +1560,7 @@ export async function runProjectRuntimeObjective(
     latest.status === "completed" && latest.value
       ? projectProjectRuntimeState(latest.value)
       : null;
-  return projectRuntimeResult(request, {
+  return createProjectRuntimeObjectiveResult(request, {
     status: execution.status,
     reason: execution.reason,
     queueId,

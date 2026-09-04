@@ -16,10 +16,13 @@ import {
   resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
 } from "./docker-recovery-runtime.ts";
 import {
+  createProjectRuntimeObjectiveResult,
   inspectProjectRuntimeObjectiveRequest,
   runProjectRuntimeObjective,
   type ProjectRuntimeObjectiveRequest,
 } from "./project-runtime-objective-intake.ts";
+import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
+import { projectProjectRuntimeState } from "./project-runtime-state.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "./project-runtime-candidate-integration-adapter.ts";
 import { inspectMcpProjectRuntimeDecision } from "./mcp-project-runtime-adapter.ts";
 import { integrateProjectRuntimeOperation } from "./project-runtime-integration.ts";
@@ -403,6 +406,35 @@ async function executeProjectRuntimePublicObjective(
       adoptionAuthorized: request.adoptResult,
     },
   );
+  if (
+    integration.status === "completed" &&
+    integration.reason === "project_runtime_milestone_accepted"
+  ) {
+    const latest = readProjectRuntimeState(
+      repositoryRoot,
+      stable("binding", repositoryRoot),
+      request.projectId,
+    );
+    if (latest.status !== "completed" || latest.value === null)
+      return createProjectRuntimeObjectiveResult(request, {
+        status: "blocked",
+        reason: "project_runtime_state_observation_unknown",
+        queueId: execution.queueId,
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown",
+      });
+    return createProjectRuntimeObjectiveResult(request, {
+      status: "completed",
+      reason: integration.reason,
+      queueId: execution.queueId,
+      projection: projectProjectRuntimeState(latest.value),
+      cleanupConfirmed: integration.cleanupConfirmed,
+      manualRecoveryRequired: integration.manualRecoveryRequired,
+      recoveryIds: integration.recoveryIds,
+      effectState: "settled",
+    });
+  }
   if (
     integration.status !== "blocked" ||
     integration.reason !== "project_runtime_integration_conflict" ||

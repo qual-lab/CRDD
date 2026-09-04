@@ -115,7 +115,7 @@ const observation = (
       {
         taskRole: "reviewer",
         provider: "claude",
-        operationId: "OP-100002",
+        operationId: "OP-100001",
       },
     ];
   const runtimeEvents =
@@ -210,7 +210,7 @@ const normalRun = (
     {
       taskRole: "reviewer",
       provider: reviewerProvider,
-      operationId: `OP-${operationPrefix}00002`,
+      operationId: `OP-${operationPrefix}00001`,
     },
   ];
   return {
@@ -275,7 +275,7 @@ const recoverySettlementFixture = () => ({
         {
           taskRole: "reviewer",
           provider: "codex",
-          operationId: "OP-500002",
+          operationId: "OP-500001",
         },
       ],
       recoveryEvents,
@@ -597,7 +597,7 @@ test("選定と実Process開始の統合順序違反およびrun間Operation再�
             {
               taskRole: "reviewer",
               provider: "codex",
-              operationId: "OP-200002",
+              operationId: "OP-100001",
             },
           ],
         }),

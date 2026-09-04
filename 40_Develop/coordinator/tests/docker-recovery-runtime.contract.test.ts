@@ -1487,6 +1487,7 @@ function createKilledFullProductionRecoveryRoot(
     | "submission"
     | "receipt"
     | "receipt_proxy" = "expected",
+  recoveryCorrelationId: string | null = null,
 ) {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-full-recovery-test-"),
@@ -1512,6 +1513,7 @@ function createKilledFullProductionRecoveryRoot(
     const rootPath = process.argv[1];
     const handoff = process.argv[2];
     const hostPhase = process.argv[3];
+    const recoveryCorrelationId = process.argv[4] || null;
     const owned = host.createOwnedOperationDirectories();
     const context = host.createOwnedOperationContextCapability(owned);
     const mounts = host.createOwnedMountCapability(owned);
@@ -1577,6 +1579,7 @@ function createKilledFullProductionRecoveryRoot(
         proxyImageDigest: "sha256:" + "b".repeat(64),
         operationMode: "isolated_task",
         workspaceMountMode: "read_write",
+        ...(recoveryCorrelationId ? { recoveryCorrelationId } : {}),
       });
       if (hostPhase === "pending_base") {
         begun = recovery.beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver(
@@ -1693,7 +1696,15 @@ function createKilledFullProductionRecoveryRoot(
   `;
   const crashed = spawnSync(
     process.execPath,
-    ["--experimental-strip-types", "-e", source, root, handoff, hostPhase],
+    [
+      "--experimental-strip-types",
+      "-e",
+      source,
+      root,
+      handoff,
+      hostPhase,
+      recoveryCorrelationId ?? "",
+    ],
     { windowsHide: true, encoding: "utf8", timeout: 15_000 },
   );
   assert.notEqual(crashed.status, 0, crashed.stderr);
@@ -4993,6 +5004,60 @@ test("Project Operation correlation resolves the exact durable Docker Recovery I
     fs.rmSync(owned.root, { recursive: true, force: true });
     fs.rmSync(initialHost.marker, { force: true });
     fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("Project Operation相関を持つDocker Recoveryはexact IDの解決後に完了できる", () => {
+  const correlationId = "project-operation-recovery";
+  const fixture = createKilledFullProductionRecoveryRoot(
+    "receipt",
+    correlationId,
+  );
+  const root = verifiedRoot(fixture.root);
+  const docker = exactContainerRunner({
+    Name: "/crdd-claude-0123456789abcdef",
+    Config: Object.freeze({
+      User: "65534:65534",
+      Image: `sha256:${"a".repeat(64)}`,
+      Labels: Object.freeze({
+        "crdd.coordinator.runtime": "0123456789abcdef",
+      }),
+    }),
+    NetworkSettings: Object.freeze({
+      Networks: Object.freeze({
+        "crdd-internal-0123456789abcdef": Object.freeze({}),
+      }),
+    }),
+  });
+  try {
+    assert.deepEqual(
+      resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver(
+        [correlationId],
+        root,
+        () => root,
+      ),
+      {
+        status: "completed",
+        bindings: [{ correlationId, recoveryId: fixture.recoveryId }],
+        absentCorrelationIds: [],
+      },
+    );
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        docker.runDockerCommand,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completed",
+        recoveryId: null,
+      },
+    );
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
+  } finally {
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 

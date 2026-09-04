@@ -1089,21 +1089,35 @@ export function buildProjectRuntimeRealProviderReport(
   )
     problems.push("recovery_canonical_repository_changed");
 
-  const allOperationIds = [
-    ...input.normalRuns.flatMap((run) =>
+  // Executor and reviewer are stages of one Coordinator Task attempt and must
+  // retain that attempt's Operation ID. Distinct public executions and a
+  // recovery reentry are separate attempts and must never reuse it.
+  const operationIdGroups = [
+    ...input.normalRuns.map((run) =>
       run.observation.processStartEvents.map((event) => event.operationId),
     ),
-    ...input.cancellation.processStartEvents.map((event) => event.operationId),
-    ...input.recoverySettlement.parentLoss.processStartEvents.map(
+    input.cancellation.processStartEvents.map((event) => event.operationId),
+    input.recoverySettlement.parentLoss.processStartEvents.map(
       (event) => event.operationId,
     ),
-    ...input.recoverySettlement.reentry.processStartEvents.map(
+    input.recoverySettlement.reentry.processStartEvents.map(
       (event) => event.operationId,
     ),
   ];
+  const attemptOperationIds = operationIdGroups
+    .filter((group) => group.length > 0)
+    .map((group) => new Set(group));
+  if (attemptOperationIds.some((identities) => identities.size !== 1))
+    problems.push("provider_operation_identity_inconsistent");
+  const distinctAttemptOperationIds = attemptOperationIds.flatMap(
+    (identities) => [...identities],
+  );
   if (
-    allOperationIds.some((value) => !/^OP-[0-9]{6,}$/u.test(value)) ||
-    new Set(allOperationIds).size !== allOperationIds.length
+    distinctAttemptOperationIds.some(
+      (value) => !/^OP-[0-9]{6,}$/u.test(value),
+    ) ||
+    new Set(distinctAttemptOperationIds).size !==
+      distinctAttemptOperationIds.length
   )
     problems.push("provider_operation_identity_reused");
 

@@ -159,6 +159,15 @@ test("development composition uses the explicitly supplied candidate integration
   );
   assert.equal(result.status, "completed", JSON.stringify(result));
   assert.equal(result.reason, "project_runtime_milestone_accepted");
+  assert.equal(
+    result.contract,
+    "crdd-coordinator/project-runtime-objective-intake/v1",
+  );
+  assert.equal(result.requestId, "request-public-runtime");
+  assert.equal(result.projectId, "project-public-runtime");
+  assert.equal(result.milestoneId, "milestone-public-runtime");
+  assert.equal(result.projection?.milestoneState, "accepted");
+  assert.equal(result.effectState, "settled");
   assert.equal(integrationAdapterCalls, 1);
   assert.equal(taskStarts, 1);
   const mcp = await handleMcpProjectRuntimeRequest(

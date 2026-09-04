@@ -171,7 +171,7 @@ process.stdin.on("data", (chunk) => {
       );
     if (mode !== "cancelled")
       process.stderr.write(
-        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "reviewer", provider: "claude", operationId: "OP-100002" })}\n`,
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "reviewer", provider: "claude", operationId: "OP-100001" })}\n`,
       );
     process.stdout.write(responseLine);
   }

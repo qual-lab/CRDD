@@ -3855,33 +3855,8 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       throw new Error("docker_task_recovery_base_commit_mismatch");
     const base = baseFile.value as Record<string, unknown>;
     if (
-      !exactRecordKeys(base, [
-        "schema",
-        "operationNonce",
-        "provider",
-        "operationId",
-        "grantRef",
-        "profileId",
-        "stableLogicalHomeBindingHash",
-        "providerHomeIdentityHash",
-        "providerHomeProtectionHash",
-        "localUserBindingHash",
-        "runtimeStateBinding",
-        "ownershipLabel",
-        "resources",
-        "images",
-        "operationMode",
-        "workspaceMountMode",
-        "initialHostRecoveryId",
-        "initialHostRecovery",
-        "hostPaths",
-      ]) ||
-      base.schema !== "crdd-coordinator-task-docker-recovery/v1" ||
-      base.operationNonce !== parsed.operationNonce ||
-      base.stableLogicalHomeBindingHash !==
-        parsed.stableLogicalHomeBindingHash ||
-      base.ownershipLabel === undefined ||
-      !validRuntimeStateBindingEvidence(base.runtimeStateBinding)
+      !validateDockerRecoveryBase(base, parsed.operationNonce) ||
+      base.stableLogicalHomeBindingHash !== parsed.stableLogicalHomeBindingHash
     )
       throw new Error("docker_task_recovery_base_mismatch");
     if (

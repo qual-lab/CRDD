@@ -1045,9 +1045,12 @@ export function settleProjectTask(
         state: "integration_pending" as const,
       });
     }
+    if (objectiveTasks.some((task) => task.state === "cancelled")) {
+      return Object.freeze({ ...objective, state: "cancelled" as const });
+    }
     if (
       objectiveTasks.some((task) =>
-        ["failed", "cancelled", "recovery_required"].includes(task.state),
+        ["failed", "recovery_required"].includes(task.state),
       )
     ) {
       return Object.freeze({ ...objective, state: "blocked" as const });
@@ -1058,7 +1061,9 @@ export function settleProjectTask(
     (task) => task.state === "recovery_required",
   )
     ? "recovery_required"
-    : state.milestone.state;
+    : tasks.some((task) => task.state === "cancelled")
+      ? "cancelled"
+      : state.milestone.state;
   return Object.freeze({
     status: "completed",
     reason: "project_runtime_task_settled",
@@ -1141,7 +1146,13 @@ export function settleProjectTaskBeforeEffect(
   );
   const objectives = state.objectives.map((objective) =>
     objective.definition.id === task.definition.objectiveId
-      ? Object.freeze({ ...objective, state: "blocked" as const })
+      ? Object.freeze({
+          ...objective,
+          state:
+            input.outcome === "cancelled"
+              ? ("cancelled" as const)
+              : ("blocked" as const),
+        })
       : objective,
   );
   return Object.freeze({
@@ -1155,7 +1166,9 @@ export function settleProjectTaskBeforeEffect(
         state:
           input.outcome === "recovery_required"
             ? ("recovery_required" as const)
-            : state.milestone.state,
+            : input.outcome === "cancelled"
+              ? ("cancelled" as const)
+              : state.milestone.state,
       }),
       objectives,
       tasks,

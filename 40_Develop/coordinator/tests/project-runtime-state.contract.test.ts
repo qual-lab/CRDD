@@ -200,6 +200,28 @@ describe("Project Runtime state contract", () => {
     assert.deepEqual(selectSchedulableProjectTasks(settled.state), []);
   });
 
+  it("取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影する", () => {
+    let state = stateFor([task("task-a")], 1);
+    state = start(state, "task-a");
+    const settled = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      authorityBindingId: "authority-task-a",
+      outcome: "cancelled",
+      cleanupConfirmed: true,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
+    });
+    assert.equal(settled.status, "completed");
+    assert.ok(settled.state);
+    const projection = projectProjectRuntimeState(settled.state);
+    assert.equal(projection.milestoneState, "cancelled");
+    assert.equal(projection.objectiveCounts.cancelled, 1);
+    assert.equal(projection.taskCounts.cancelled, 1);
+    assert.equal(projection.nextAction, "wait_for_task");
+  });
+
   it("Recovery中はcleanup後も競合予約を維持する", () => {
     let state = stateFor([
       task("task-a", [], ["shared/file.txt"]),
