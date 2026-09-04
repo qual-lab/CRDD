@@ -17,12 +17,12 @@ const coordinatorExecutable = path.resolve(
   "../bin/coordinator.ts",
 );
 
-test("旧版復旧記録の引継ぎはexact IDと元配布Rootの明示ペアだけを受理する", () => {
+test("旧版修復記録の引継ぎはexact IDと修復記録の生成元配布Rootだけを受理する", () => {
   const id = `docker-desktop-repair.${"a".repeat(32)}`;
   const args = [
     "--adopt-docker-desktop-repair",
     id,
-    "--from-release",
+    "--repair-release-root",
     "C:\\old-release",
     "--json",
   ];
@@ -35,11 +35,12 @@ test("旧版復旧記録の引継ぎはexact IDと元配布Rootの明示ペア�
     repairDockerDesktopRuntime: false,
     closeDockerDesktopRepairId: null,
     adoptDockerDesktopRepairId: id,
-    historicalReleaseRoot: "C:\\old-release",
+    repairReleaseRoot: "C:\\old-release",
   });
   for (const invalidArguments of [
     ["--adopt-docker-desktop-repair", id],
-    ["--from-release", "C:\\old-release"],
+    ["--repair-release-root", "C:\\old-release"],
+    ["--adopt-docker-desktop-repair", id, "--from-release", "C:\\old-release"],
     [...args, "--repair-docker-desktop-runtime"],
     [...args, "--isolation"],
     [...args, "--recover-isolation", "host.example"],
@@ -51,7 +52,7 @@ test("旧版復旧記録の引継ぎはexact IDと元配布Rootの明示ペア�
   }
 });
 
-test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・元配布Rootの組だけを受理する", () => {
+test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・修復記録の生成元配布Rootの組だけを受理する", () => {
   const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   const repairId = `docker-desktop-repair.${"d".repeat(32)}`;
   const parsed = parseDoctorArguments(
@@ -60,7 +61,7 @@ test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・�
       recoveryId,
       "--after-docker-desktop-repair",
       repairId,
-      "--from-release",
+      "--repair-release-root",
       "C:\\old-release",
       "--json",
     ],
@@ -74,7 +75,7 @@ test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・�
     repairDockerDesktopRuntime: false,
     closeDockerDesktopRepairId: null,
     afterDockerDesktopRepairId: repairId,
-    historicalReleaseRoot: "C:\\old-release",
+    repairReleaseRoot: "C:\\old-release",
   });
   for (const invalid of [
     [
@@ -86,7 +87,7 @@ test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・�
     [
       "--after-docker-desktop-repair",
       repairId,
-      "--from-release",
+      "--repair-release-root",
       "C:\\old-release",
     ],
     [
@@ -94,7 +95,7 @@ test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・�
       "host.example",
       "--after-docker-desktop-repair",
       repairId,
-      "--from-release",
+      "--repair-release-root",
       "C:\\old-release",
     ],
   ])
@@ -252,6 +253,12 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
     true,
   );
   assert.equal(result.stdout.includes("coordinator capabilities --json"), true);
+  assert.equal(result.stdout.includes("--repair-release-root"), true);
+  assert.equal(
+    result.stdout.includes("it is not the Docker task origin"),
+    true,
+  );
+  assert.equal(result.stdout.includes("--from-release"), false);
   assert.equal(result.stdout.includes("coordinator activate"), false);
   assert.equal(result.stdout.includes("coordinator disable"), false);
   assert.equal(result.stdout.includes("coordinator provision"), false);

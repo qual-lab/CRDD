@@ -187,7 +187,7 @@ export function parseDoctorArguments(
   let closeDockerDesktopRepairId: string | null = null;
   let adoptDockerDesktopRepairId: string | null = null;
   let afterDockerDesktopRepairId: string | null = null;
-  let historicalReleaseRoot: string | null = null;
+  let repairReleaseRoot: string | null = null;
 
   for (let index = 0; index < argumentValues.length; index += 1) {
     const token = argumentValues[index];
@@ -201,7 +201,7 @@ export function parseDoctorArguments(
         "--close-docker-desktop-runtime-repair",
         "--adopt-docker-desktop-repair",
         "--after-docker-desktop-repair",
-        "--from-release",
+        "--repair-release-root",
       ].includes(token) ||
       seen.has(token)
     ) {
@@ -257,14 +257,14 @@ export function parseDoctorArguments(
             isJsonRequested,
           );
         afterDockerDesktopRepairId = value;
-      } else if (token === "--from-release") historicalReleaseRoot = value;
+      } else if (token === "--repair-release-root") repairReleaseRoot = value;
     }
   }
 
   if (
     (adoptDockerDesktopRepairId === null &&
       afterDockerDesktopRepairId === null) !==
-      (historicalReleaseRoot === null) ||
+      (repairReleaseRoot === null) ||
     (adoptDockerDesktopRepairId !== null &&
       afterDockerDesktopRepairId !== null) ||
     (adoptDockerDesktopRepairId !== null &&
@@ -334,10 +334,10 @@ export function parseDoctorArguments(
       repairDockerDesktopRuntime: shouldRepairDockerDesktopRuntime,
       closeDockerDesktopRepairId,
       ...(afterDockerDesktopRepairId !== null
-        ? { afterDockerDesktopRepairId, historicalReleaseRoot }
+        ? { afterDockerDesktopRepairId, repairReleaseRoot }
         : {}),
       ...(adoptDockerDesktopRepairId !== null
-        ? { adoptDockerDesktopRepairId, historicalReleaseRoot }
+        ? { adoptDockerDesktopRepairId, repairReleaseRoot }
         : {}),
     }),
     isJsonRequested,

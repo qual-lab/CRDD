@@ -86,7 +86,7 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
   assert.equal(result.stderr, "");
 });
 
-test("実CLIの再起動Fence付きdocker-task dispatchは公開三引数をRecoveryへ渡す", () => {
+test("実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成元配布RootをRecoveryへ渡す", () => {
   const repairId = `docker-desktop-repair.${"4".repeat(32)}`;
   const result = spawnSync(
     process.execPath,
@@ -98,7 +98,7 @@ test("実CLIの再起動Fence付きdocker-task dispatchは公開三引数をReco
       recoveryId,
       "--after-docker-desktop-repair",
       repairId,
-      "--from-release",
+      "--repair-release-root",
       path.resolve("fixture-historical-release"),
       "--json",
     ],
@@ -212,7 +212,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
         repairDockerDesktopRuntime: false,
         closeDockerDesktopRepairId: null,
         adoptDockerDesktopRepairId: repairId,
-        historicalReleaseRoot: "C:\\old-release",
+        repairReleaseRoot: "C:\\old-release",
       },
       {
         repair: async () => assert.fail("adoption must not repair"),

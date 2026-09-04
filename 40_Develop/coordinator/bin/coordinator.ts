@@ -99,7 +99,7 @@ function printHelp() {
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
   );
   process.stdout.write(
-    `  coordinator doctor --recover-isolation <docker-task-recovery-id> --after-docker-desktop-repair <repair-id> --from-release <absolute-root> [--json]\n`,
+    `  coordinator doctor --recover-isolation <docker-task-recovery-id> --after-docker-desktop-repair <repair-id> --repair-release-root <absolute-root> [--json]\n`,
   );
   process.stdout.write(
     `  coordinator doctor --repair-docker-desktop-runtime [--json]\n`,
@@ -108,7 +108,10 @@ function printHelp() {
     `  coordinator doctor --close-docker-desktop-runtime-repair <repair-id> [--json]\n`,
   );
   process.stdout.write(
-    `  coordinator doctor --adopt-docker-desktop-repair <repair-id> --from-release <absolute-root> [--json]\n`,
+    `  coordinator doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root> [--json]\n`,
+  );
+  process.stdout.write(
+    `    --repair-release-root is the signed distribution root that issued the named Docker Desktop repair record; it is not the Docker task origin.\n`,
   );
   process.stdout.write(
     `    Windows only; explicit last-resort repair for the fixed known Docker Desktop failure. Never an automatic fallback and never deletes the retained run directory.\n`,
@@ -574,10 +577,10 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
         repairDockerDesktopRuntime: options.repairDockerDesktopRuntime,
         closeDockerDesktopRepairId: options.closeDockerDesktopRepairId,
         ...(typeof options.adoptDockerDesktopRepairId === "string" &&
-        typeof options.historicalReleaseRoot === "string"
+        typeof options.repairReleaseRoot === "string"
           ? {
               adoptDockerDesktopRepairId: options.adoptDockerDesktopRepairId,
-              historicalReleaseRoot: options.historicalReleaseRoot,
+              repairReleaseRoot: options.repairReleaseRoot,
             }
           : {}),
       },
@@ -597,11 +600,11 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
             ? recoverOwnedOperationDirectories(recoveryId)
             : recoveryId.startsWith("docker-task.")
               ? typeof options.afterDockerDesktopRepairId === "string" &&
-                typeof options.historicalReleaseRoot === "string"
+                typeof options.repairReleaseRoot === "string"
                 ? recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
                     recoveryId,
                     options.afterDockerDesktopRepairId,
-                    options.historicalReleaseRoot,
+                    options.repairReleaseRoot,
                   )
                 : recoverRuntimeOwnedDockerTask(recoveryId)
               : recoverDockerIsolationProbe(recoveryId)

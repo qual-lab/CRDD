@@ -4987,7 +4987,7 @@ function recoverRuntimeOwnedDockerTaskInternal(token: unknown) {
 export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
   token: unknown,
   repairId: unknown,
-  historicalReleaseRoot: unknown,
+  repairReleaseRoot: unknown,
   developmentContext?: unknown,
 ) {
   const parsed = parseDockerTaskRecoveryId(token);
@@ -4997,8 +4997,8 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       !parsed ||
       typeof repairId !== "string" ||
       !/^docker-desktop-repair\.[a-f0-9]{32}$/u.test(repairId) ||
-      typeof historicalReleaseRoot !== "string" ||
-      !path.isAbsolute(historicalReleaseRoot)
+      typeof repairReleaseRoot !== "string" ||
+      !path.isAbsolute(repairReleaseRoot)
     )
       throw new Error("docker_task_recovery_restart_fence_input_invalid");
     phase = "authority";
@@ -5052,9 +5052,10 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       localAppData = path.win32.dirname(localAppData);
     }
     phase = "historical_manifest";
-    const originManifest = loadHistoricalReleaseManifestEnvelopeForVerification(
-      historicalReleaseRoot,
-    ).envelope;
+    const originManifest =
+      loadHistoricalReleaseManifestEnvelopeForVerification(
+        repairReleaseRoot,
+      ).envelope;
     phase = "historical_repair";
     const repair = inspectDockerDesktopRepairHistoricalOperation(
       {

@@ -202,6 +202,10 @@ Project全体E2Eへ進む直前の固定候補監査では、Docker完了Receipt
 
 固定候補`5b6e744`の独立再監査はCritical／Major／Minor 0件で、同一Scopeの署名前技術Gateを`Pass`した。成功した子ProcessのEffect前入力、実Filesystemの最終target、準備file不存在およびTraceが独立した根拠で結合され、二つの反証fixtureが同じ完成判定を失敗させることを確認した。Canonical分類、公開の共通完了判定、Platform保証、競合時の局所／共有状態、現在用語、Evidenceおよび変更禁止範囲に新規Findingはない。残るGateはRuntime実行Identityの署名と、署名済み実Docker／実Provider最終E2Eである。
 
+署名済みDocker Desktop修復後のTask Recoveryでは、公開引数`--from-release`をDocker Taskの生成元配布版と解釈して旧Rootを指定したため、修復記録の由来照合がEffect 0で停止した。実装契約上、このRootはTaskではなく、再起動Fenceに使用する修復IDを発行した署名済み配布Rootである。安全な拒否は成立したが、必須入力の所有対象をHelp、引数名および検証設計から利用者が判別できず、実際の誤操作を誘発したため、公開Interfaceの構造不備と判定した。曖昧な`--from-release`を互換入口として残さず`--repair-release-root`へ置換し、現在版が修復IDを発行した場合は現在の署名配布Root、旧版由来ならその旧署名配布Rootを渡す同じ意味をHelp、Parser、Dispatcher、Recovery、Architectureおよび結合試験へ固定する。旧名、対象Taskの生成元Root、由来不一致およびRoot欠落はEffect前に拒否する。
+
+同じHost調査では、安全のため削除せず保持した`run.crdd-*`が複数世代にわたり蓄積していることも確認した。現在のv0.19修復契約には、未解決Recoveryとの参照と物理退避物の削除可能性を区別して安全に清掃するAuthorityがないため、既存物を名前または経過時間だけで削除しない。CRDD共通の保守規範には、耐久Evidenceと物理残存の分離、exact Identity、参照、削除可能条件、保持期限／件数上限、再入場および終了後不存在観測を追加した。Runtimeによる有限保持と自動清掃の実装は、現在のv0.19完成条件を拡張せず、v0.20の実行知でCurrent Stateと移行を再確認して扱う。
+
 ## 9. 設計確定からリリース判断までの実行計画
 
 次の段階は依存順で進める。内部Taskへ分割できるが、後段の成功を前段の完了根拠へ流用しない。各段階の実装開始前に、対象Interface、保持する意図、変更禁止範囲、正常・準正常・異常、受入条件および検証方法をTask Packetへ固定する。
