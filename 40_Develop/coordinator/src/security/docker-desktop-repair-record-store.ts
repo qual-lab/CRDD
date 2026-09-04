@@ -137,7 +137,34 @@ export type DockerDesktopRepairOperation = Readonly<{
 }>;
 
 function isHistoryEntry(name: string) {
-  return HISTORY_FILES.includes(name) || HISTORY_HANDOFF_FILE.test(name);
+  return (
+    HISTORY_FILES.includes(name) ||
+    HISTORY_HANDOFF_FILE.test(name) ||
+    knownHistoryPreparationTarget(name) !== null
+  );
+}
+
+function historyPreparationName(name: string) {
+  return `.crdd-history-${createHash("sha256").update(name).digest("hex")}.prepare`;
+}
+
+function knownHistoryTargetNames() {
+  return [
+    ...HISTORY_FILES,
+    ...Array.from(
+      { length: MAXIMUM_HISTORY_HANDOFFS },
+      (_, sequence) =>
+        `historical-handoff-${String(sequence).padStart(2, "0")}.json`,
+    ),
+  ];
+}
+
+function knownHistoryPreparationTarget(name: string) {
+  return (
+    knownHistoryTargetNames().find(
+      (targetName) => historyPreparationName(targetName) === name,
+    ) ?? null
+  );
 }
 
 export type DockerDesktopRepairRecordBoundary = Readonly<{
@@ -1324,7 +1351,7 @@ function readOriginalOperation(
     if (
       entries.length < 1 ||
       entries.length >
-        MAXIMUM_RECORDS + (historyAllowed ? MAXIMUM_HISTORY_HANDOFFS + 3 : 1)
+        MAXIMUM_RECORDS + (historyAllowed ? MAXIMUM_HISTORY_HANDOFFS + 4 : 1)
     )
       return null;
     const records = entries
@@ -1487,6 +1514,74 @@ function historyFilePresent(directory: string, name: string): boolean | null {
   }
 }
 
+type HistoryPreparationState = Readonly<{
+  targetName: string;
+  preparationName: string;
+  state: "prepared" | "published_residue";
+}>;
+
+function sameRegularFileIdentity(left: string, right: string) {
+  try {
+    const leftMetadata = fs.lstatSync(left, { bigint: true });
+    const rightMetadata = fs.lstatSync(right, { bigint: true });
+    return (
+      leftMetadata.isFile() &&
+      !leftMetadata.isSymbolicLink() &&
+      rightMetadata.isFile() &&
+      !rightMetadata.isSymbolicLink() &&
+      leftMetadata.dev === rightMetadata.dev &&
+      leftMetadata.ino === rightMetadata.ino &&
+      leftMetadata.birthtimeNs === rightMetadata.birthtimeNs
+    );
+  } catch {
+    return false;
+  }
+}
+
+function classifyHistoryPreparations(
+  directory: string,
+): readonly HistoryPreparationState[] | null {
+  try {
+    const entries = fs.readdirSync(directory, { withFileTypes: true });
+    const preparations = entries.filter((entry) =>
+      entry.name.startsWith(".crdd-history-"),
+    );
+    const states: HistoryPreparationState[] = [];
+    for (const entry of preparations) {
+      const targetName = knownHistoryPreparationTarget(entry.name);
+      if (!targetName || !entry.isFile()) return null;
+      const preparation = path.win32.join(directory, entry.name);
+      const preparationBytes = stableBytes(preparation);
+      if (!preparationBytes) return null;
+      const target = path.win32.join(directory, targetName);
+      const targetPresent = historyFilePresent(directory, targetName);
+      if (targetPresent === null) return null;
+      if (!targetPresent) {
+        states.push({
+          targetName,
+          preparationName: entry.name,
+          state: "prepared",
+        });
+        continue;
+      }
+      const targetBytes = stableBytes(target);
+      if (
+        !targetBytes?.equals(preparationBytes) ||
+        !sameRegularFileIdentity(target, preparation)
+      )
+        return null;
+      states.push({
+        targetName,
+        preparationName: entry.name,
+        state: "published_residue",
+      });
+    }
+    return Object.freeze(states);
+  } catch {
+    return null;
+  }
+}
+
 function commitHistoryDirectoryBoundary(directory: string) {
   if (process.platform === "win32") {
     const metadata = fs.lstatSync(directory);
@@ -1507,16 +1602,28 @@ function readOperation(
   directoryName: string,
   verifyHistory: DockerDesktopRepairHistoryVerifier,
   allowPendingSessionHandoff = false,
+  allowKnownHistoryPreparation = false,
 ): DockerDesktopRepairOperation | null {
   if (!parseDockerDesktopRepairDirectoryName(directoryName)) return null;
   const directory = path.win32.join(boundary.runtimeStateRoot, directoryName);
+  const preparationStates = classifyHistoryPreparations(directory);
+  if (
+    preparationStates === null ||
+    (!allowKnownHistoryPreparation && preparationStates.length > 0)
+  )
+    return null;
   const adoptionPresent = historyFilePresent(directory, HISTORY_ADOPTION_FILE);
   const closurePresent = historyFilePresent(directory, HISTORY_CLOSURE_FILE);
   if (adoptionPresent === null || closurePresent === null) return null;
   if (!adoptionPresent)
     return closurePresent
       ? null
-      : readOriginalOperation(boundary, directoryName, false, "terminal");
+      : readOriginalOperation(
+          boundary,
+          directoryName,
+          allowKnownHistoryPreparation,
+          "terminal",
+        );
   const adoptionBytes = stableBytes(
     path.win32.join(directory, HISTORY_ADOPTION_FILE),
   );
@@ -1579,6 +1686,7 @@ function readOperation(
     return null;
   const handoffNames = historyEntries.map((entry) => entry.name).sort();
   let handoffTipSha256 = adoptionSha256;
+  let previousRelease = adopting;
   let historySession = adoptionV2
     ? String(adoption.adoptingLocalUserBindingHash)
     : boundary.localUserBindingHash;
@@ -1637,8 +1745,16 @@ function readOperation(
     )
       return null;
     const handoffRelease = verifyHistory(handoff.adoptingManifest);
-    if (!handoffRelease || !releaseNotAfterBoundary(handoffRelease, boundary))
+    if (
+      !handoffRelease ||
+      !releaseNotAfterBoundary(handoffRelease, boundary) ||
+      !releaseNotAfterBoundary(
+        previousRelease,
+        historicalBoundary(boundary, handoffRelease),
+      )
+    )
       return null;
+    previousRelease = handoffRelease;
     historySession = String(handoff.toLocalUserBindingHash);
     visitedSessions.add(historySession);
     handoffTipSha256 = createHash("sha256").update(bytes).digest("hex");
@@ -1693,7 +1809,10 @@ function readOperation(
     if (
       !closing ||
       !releaseNotAfterBoundary(closing, boundary) ||
-      !releaseNotAfterBoundary(adopting, historicalBoundary(boundary, closing))
+      !releaseNotAfterBoundary(
+        previousRelease,
+        historicalBoundary(boundary, closing),
+      )
     )
       return null;
     liveRunIdentity = closure.liveRunIdentity;
@@ -1787,22 +1906,30 @@ export function inspectDockerDesktopRepairHistoricalOperation(
 function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
   if (bytes.length > MAXIMUM_RECORD_BYTES) return false;
   const target = path.win32.join(directory, name);
-  const preparation = path.win32.join(
-    directory,
-    `.crdd-history-${createHash("sha256").update(name).digest("hex")}.prepare`,
-  );
+  const preparation = path.win32.join(directory, historyPreparationName(name));
   try {
     const isHistoryFilePresent = historyFilePresent(directory, name);
-    if (isHistoryFilePresent !== false)
-      return (
-        isHistoryFilePresent === true &&
-        stableBytes(target)?.equals(bytes) === true
-      );
     const preparedPresent = historyFilePresent(
       directory,
       path.win32.basename(preparation),
     );
-    if (preparedPresent === null) return false;
+    if (isHistoryFilePresent === null || preparedPresent === null) return false;
+    if (isHistoryFilePresent === true) {
+      if (stableBytes(target)?.equals(bytes) !== true) return false;
+      if (preparedPresent === false) return true;
+      if (
+        stableBytes(preparation)?.equals(bytes) !== true ||
+        !sameRegularFileIdentity(target, preparation)
+      )
+        return false;
+      commitHistoryDirectoryBoundary(directory);
+      fs.unlinkSync(preparation);
+      commitHistoryDirectoryBoundary(directory);
+      return (
+        historyFilePresent(directory, path.win32.basename(preparation)) ===
+          false && stableBytes(target)?.equals(bytes) === true
+      );
+    }
     if (preparedPresent === true) {
       if (stableBytes(preparation)?.equals(bytes) !== true) return false;
     } else {
@@ -1829,7 +1956,11 @@ function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
         return false;
     }
     commitHistoryDirectoryBoundary(directory);
-    if (stableBytes(target)?.equals(bytes) !== true) return false;
+    if (
+      stableBytes(target)?.equals(bytes) !== true ||
+      !sameRegularFileIdentity(target, preparation)
+    )
+      return false;
     // Only this deterministic, byte-exact preparation file is ours to remove.
     fs.unlinkSync(preparation);
     commitHistoryDirectoryBoundary(directory);
@@ -1837,6 +1968,18 @@ function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
   } catch {
     return false;
   }
+}
+
+function settlePublishedHistoryResidues(directory: string) {
+  const states = classifyHistoryPreparations(directory);
+  if (states === null) return false;
+  for (const state of states) {
+    if (state.state !== "published_residue") continue;
+    const bytes = stableBytes(path.win32.join(directory, state.targetName));
+    if (!bytes || !writeHistoryFile(directory, state.targetName, bytes))
+      return false;
+  }
+  return true;
 }
 
 export function persistDockerDesktopRepairHistoricalAdoption(
@@ -1853,7 +1996,13 @@ export function persistDockerDesktopRepairHistoricalAdoption(
       directoryName,
       verifyHistory,
       true,
+      true,
     );
+    if (
+      existing &&
+      !settlePublishedHistoryResidues(existing.operationDirectory)
+    )
+      return null;
     if (existing?.history) {
       if (existing.history.closed || existing.history.currentSessionBound)
         return readOperation(boundary, directoryName, verifyHistory, true);
@@ -1924,12 +2073,16 @@ export function persistDockerDesktopRepairHistoricalAdoption(
       !releaseMatchesBoundary(adopting, boundary)
     )
       return null;
-    const current = inspectDockerDesktopRepairHistoricalOperation(
-      boundary,
-      operation.repairId,
-      value.originManifest,
-      verifyHistory,
-    );
+    const origin = value && verifyHistory(value.originManifest);
+    const current =
+      origin && releaseNotAfterBoundary(origin, boundary)
+        ? readOriginalOperation(
+            historicalBoundary(boundary, origin),
+            directoryName,
+            true,
+            "terminal",
+          )
+        : null;
     if (
       !current ||
       current.previousRecordSha256 !== operation.previousRecordSha256 ||
@@ -1965,7 +2118,11 @@ export function persistDockerDesktopRepairHistoricalClosure(
       boundary,
       `${OPERATION_PREFIX}${operation.operationId}`,
       verifyHistory,
+      false,
+      true,
     );
+    if (current && !settlePublishedHistoryResidues(current.operationDirectory))
+      return null;
     if (
       !current?.history ||
       current.history.adoptionSha256 !== operation.history?.adoptionSha256 ||

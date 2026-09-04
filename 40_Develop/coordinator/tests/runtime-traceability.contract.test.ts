@@ -38,11 +38,11 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     inspectCoordinatorRuntimeTraceability(currentTrace(), repositoryReader),
     {
       status: "accepted",
-      resources: 9,
-      states: 20,
-      transitions: 21,
-      invariants: 10,
-      verificationBindings: 10,
+      resources: 10,
+      states: 23,
+      transitions: 23,
+      invariants: 12,
+      verificationBindings: 14,
     },
   );
 });

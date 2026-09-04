@@ -247,6 +247,7 @@ const recoveryTraceAssertions: Readonly<
   "CASE-PARTIAL-PAIR-TO-RECOVERY": assertRuntimeTraceCase,
   "CASE-RECOVERY-TO-RECOVERED": assertRuntimeTraceCase,
   "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED": assertRuntimeTraceCase,
+  "CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED": assertRuntimeTraceCase,
 });
 const executedRecoveryTraceCases = new Set<string>();
 
@@ -5073,25 +5074,6 @@ test("production正常完了後は同じHost Operation内で同一logical Home�
   }
 });
 
-test("Canonical Recovery Trace全caseは正本・registry・実行集合が一致する", () => {
-  const testPath =
-    "40_Develop/coordinator/tests/docker-recovery-runtime.contract.test.ts";
-  assertRuntimeTraceExecutionCoverage(
-    testPath,
-    Object.keys(recoveryTraceAssertions),
-    executedRecoveryTraceCases,
-  );
-  const missing = new Set(executedRecoveryTraceCases);
-  missing.delete("CASE-RECOVERY-TO-RECOVERED");
-  assert.throws(() =>
-    assertRuntimeTraceExecutionCoverage(
-      testPath,
-      Object.keys(recoveryTraceAssertions),
-      missing,
-    ),
-  );
-});
-
 test("production abandonはAuthorityを解放してもdurable Recovery inventoryをcleanにしない", () => {
   const runtimeParent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-abandon-recovery-test-"),
@@ -5531,6 +5513,28 @@ test("同一stable userの再ログオンはappend-only session handoff後に同
     assert.equal(
       handoff.toLocalUserBindingHash,
       currentRoot.localUserBindingHash,
+    );
+    recoveryTraceAssertions["CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED"]?.(
+      "CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED",
+      {
+        id: "CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED",
+        transitionId: "TRANS-SESSION-HANDOFF-TO-RECOVERED",
+        fromState: "STATE-SESSION-HANDOFF-RECOVERY-REQUIRED",
+        outcome: "taken",
+        expectedEndState: "STATE-RECOVERED",
+        effectObservations: { provider: 0, host: 1, cleanup: 1 },
+        expectedStatus: "completed",
+        resourcePostconditions: {
+          "RES-HOST-GENERATION": "absent",
+          "RES-LOGICAL-HOME-LOCK": "absent",
+          "RES-RUNTIME-STATE-LOCK": "absent",
+          "RES-DOCKER-OWNED": "absent",
+          "RES-OPERATION-WORKSPACE": "absent",
+        },
+      },
+    );
+    executedRecoveryTraceCases.add(
+      "CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED",
     );
   } finally {
     fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
@@ -6313,4 +6317,23 @@ test("Docker Recovery contractはEffect前記録とcleanup後完了を固定す�
     callerRecoveryIdAccepted: false,
     providerEffectAllowed: false,
   });
+});
+
+test("Canonical Recovery Trace全caseは正本・registry・実行集合が一致する", () => {
+  const testPath =
+    "40_Develop/coordinator/tests/docker-recovery-runtime.contract.test.ts";
+  assertRuntimeTraceExecutionCoverage(
+    testPath,
+    Object.keys(recoveryTraceAssertions),
+    executedRecoveryTraceCases,
+  );
+  const missing = new Set(executedRecoveryTraceCases);
+  missing.delete("CASE-RECOVERY-TO-RECOVERED");
+  assert.throws(() =>
+    assertRuntimeTraceExecutionCoverage(
+      testPath,
+      Object.keys(recoveryTraceAssertions),
+      missing,
+    ),
+  );
 });

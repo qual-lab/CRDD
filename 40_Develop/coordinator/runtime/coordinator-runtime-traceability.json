@@ -12,7 +12,8 @@
     {"id":"RES-DOCKER-OWNED","owner":"docker_process_controller","kind":"child_process_container_and_network","lifecycle":"submission_to_exact_absence"},
     {"id":"RES-OPERATION-WORKSPACE","owner":"repository_and_task_runtime","kind":"filesystem_directory","lifecycle":"materialization_to_host_cleanup"},
     {"id":"RES-CANDIDATE-ENTRY","owner":"candidate_store","kind":"durable_filesystem_entry","lifecycle":"staged_to_expiry_export_or_discard"},
-    {"id":"RES-TASK-CONTROL","owner":"coordinator_task_runtime","kind":"process_local_capability_state","lifecycle":"task_start_to_final_settlement"}
+    {"id":"RES-TASK-CONTROL","owner":"coordinator_task_runtime","kind":"process_local_capability_state","lifecycle":"task_start_to_final_settlement"},
+    {"id":"RES-REPAIR-HISTORY-PREPARE","owner":"docker_desktop_repair_history_publisher","kind":"durable_same_filesystem_prepare_entry","lifecycle":"prepare_creation_to_exclusive_publication_settlement_or_preserved_failure"}
   ],
   "states": [
     {"id":"STATE-ADMISSION","scope":"task","invocationTerminal":false,"operationTerminal":false,"description":"No task effect has started"},
@@ -34,7 +35,10 @@
     {"id":"STATE-DURABLE-PAIR-PARTIAL-PRE-EFFECT","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"Exact content exists without commit sidecar before the bound host effect"},
     {"id":"STATE-RECOVERY-REQUIRED","scope":"recovery","invocationTerminal":true,"operationTerminal":false,"description":"Current invocation stopped with evidence and exact recovery authority preserved"},
     {"id":"STATE-OPERATOR-TRANSFER-REQUIRED","scope":"recovery","invocationTerminal":true,"operationTerminal":false,"description":"Current invocation stopped without authenticated actionable recovery authority and requires operator evidence transfer"},
-    {"id":"STATE-RECOVERED","scope":"recovery","invocationTerminal":true,"operationTerminal":true,"description":"Exact resources and recovery evidence are absent"}
+    {"id":"STATE-RECOVERED","scope":"recovery","invocationTerminal":true,"operationTerminal":true,"description":"Exact resources and recovery evidence are absent"},
+    {"id":"STATE-REPAIR-HISTORY-PREPARED","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"An exact same-filesystem repair history preparation exists but publication settlement is not yet observed"},
+    {"id":"STATE-REPAIR-HISTORY-PUBLISHED","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"The exact repair history target is published and its owned preparation residue is confirmed absent"},
+    {"id":"STATE-SESSION-HANDOFF-RECOVERY-REQUIRED","scope":"recovery","invocationTerminal":true,"operationTerminal":false,"description":"The durable recovery belongs to the same stable user but requires an append-only handoff to the current login session"}
   ],
   "transitions": [
     {"id":"TRANS-ADMISSION-TO-OPERATION-ACQUIRING","from":["STATE-ADMISSION"],"to":"STATE-OPERATION-ACQUIRING","invocation":"same","risk":"high","requiredVerificationKinds":["normal"],"resourcesAcquired":["RES-TASK-CONTROL"],"resourcesReleased":[],"resourcesTransferred":[],"invariants":["INV-NO-PROVIDER-EFFECT-BEFORE-AUTHORITY"]},
@@ -57,7 +61,9 @@
     {"id":"TRANS-ACTIVE-TO-PROCESS-RESTART","from":["STATE-ADMISSION","STATE-OPERATION-ACQUIRING","STATE-OPERATION-READY","STATE-TASK-AUTHORIZED","STATE-EXECUTOR-CLEAN","STATE-CANDIDATE-CAPTURED","STATE-REVIEWER-CLEAN","STATE-REMEDIATION-AUTHORIZED","STATE-REMEDIATION-EXECUTOR-CLEAN","STATE-REMEDIATION-CANDIDATE-CAPTURED","STATE-REMEDIATION-REVIEWER-CLEAN"],"to":"STATE-PROCESS-RESTART-REQUIRED","invocation":"same","risk":"high","requiredVerificationKinds":["abnormal"],"resourcesAcquired":[],"resourcesReleased":["RES-HOST-GENERATION","RES-INTERACTIVE-CONSOLE","RES-LOGICAL-HOME-LOCK","RES-RUNTIME-STATE-LOCK","RES-MOUNT-GRANT","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE","RES-CANDIDATE-ENTRY","RES-TASK-CONTROL"],"resourcesTransferred":[],"invariants":["INV-CLEAN-BLOCK-HAS-NO-RECOVERY","INV-UNKNOWN-PRESERVES-RECOVERY"]},
     {"id":"TRANS-HOST-CLEAN-TO-PROCESS-RESTART","from":["STATE-HOST-CLEAN"],"to":"STATE-PROCESS-RESTART-REQUIRED","invocation":"same","risk":"high","requiredVerificationKinds":["abnormal"],"resourcesAcquired":[],"resourcesReleased":["RES-TASK-CONTROL"],"resourcesTransferred":["RES-CANDIDATE-ENTRY"],"invariants":["INV-RESULT-AFTER-CLEANUP","INV-CANDIDATE-EXACT-AND-NONCANONICAL","INV-CLEAN-BLOCK-HAS-NO-RECOVERY"]},
     {"id":"TRANS-PARTIAL-PAIR-TO-RECOVERY","from":["STATE-DURABLE-PAIR-PARTIAL-PRE-EFFECT"],"to":"STATE-RECOVERY-REQUIRED","invocation":"same","risk":"high","requiredVerificationKinds":["abnormal"],"resourcesAcquired":[],"resourcesReleased":[],"resourcesTransferred":["RES-HOST-GENERATION","RES-OPERATION-WORKSPACE"],"invariants":["INV-DURABLE-BEFORE-EFFECT","INV-UNKNOWN-PRESERVES-RECOVERY"]},
-    {"id":"TRANS-RECOVERY-TO-RECOVERED","from":["STATE-RECOVERY-REQUIRED"],"to":"STATE-RECOVERED","invocation":"recovery","risk":"high","requiredVerificationKinds":["normal","quasi_normal"],"resourcesAcquired":["RES-HOST-GENERATION","RES-LOGICAL-HOME-LOCK","RES-RUNTIME-STATE-LOCK"],"resourcesReleased":["RES-HOST-GENERATION","RES-LOGICAL-HOME-LOCK","RES-RUNTIME-STATE-LOCK","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE"],"resourcesTransferred":[],"invariants":["INV-LOCK-ORDER-AND-REVALIDATION","INV-SESSION-BOUND-AUTHORITY","INV-HOST-CLEANUP-AFTER-DOCKER-CLOSURE","INV-UNKNOWN-PRESERVES-RECOVERY"]}
+    {"id":"TRANS-RECOVERY-TO-RECOVERED","from":["STATE-RECOVERY-REQUIRED"],"to":"STATE-RECOVERED","invocation":"recovery","risk":"high","requiredVerificationKinds":["normal","quasi_normal"],"resourcesAcquired":["RES-HOST-GENERATION","RES-LOGICAL-HOME-LOCK","RES-RUNTIME-STATE-LOCK"],"resourcesReleased":["RES-HOST-GENERATION","RES-LOGICAL-HOME-LOCK","RES-RUNTIME-STATE-LOCK","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE"],"resourcesTransferred":[],"invariants":["INV-LOCK-ORDER-AND-REVALIDATION","INV-SESSION-BOUND-AUTHORITY","INV-HOST-CLEANUP-AFTER-DOCKER-CLOSURE","INV-UNKNOWN-PRESERVES-RECOVERY"]},
+    {"id":"TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED","from":["STATE-REPAIR-HISTORY-PREPARED"],"to":"STATE-REPAIR-HISTORY-PUBLISHED","invocation":"same","risk":"high","requiredVerificationKinds":["normal","quasi_normal","abnormal"],"resourcesAcquired":[],"resourcesReleased":["RES-REPAIR-HISTORY-PREPARE"],"resourcesTransferred":[],"invariants":["INV-SESSION-BOUND-AUTHORITY","INV-REPAIR-HISTORY-DURABLE-PUBLICATION","INV-UNKNOWN-PRESERVES-RECOVERY"]},
+    {"id":"TRANS-SESSION-HANDOFF-TO-RECOVERED","from":["STATE-SESSION-HANDOFF-RECOVERY-REQUIRED"],"to":"STATE-RECOVERED","invocation":"recovery","risk":"high","requiredVerificationKinds":["quasi_normal"],"resourcesAcquired":["RES-HOST-GENERATION","RES-LOGICAL-HOME-LOCK","RES-RUNTIME-STATE-LOCK"],"resourcesReleased":["RES-HOST-GENERATION","RES-LOGICAL-HOME-LOCK","RES-RUNTIME-STATE-LOCK","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE"],"resourcesTransferred":[],"invariants":["INV-LOCK-ORDER-AND-REVALIDATION","INV-SESSION-BOUND-AUTHORITY","INV-UNKNOWN-PRESERVES-RECOVERY"]}
   ],
   "invariants": [
     {"id":"INV-NO-PROVIDER-EFFECT-BEFORE-AUTHORITY","statement":"Provider effect requires repository, policy, scope, grant, revision and recovery preconditions"},
@@ -70,7 +76,8 @@
     {"id":"INV-RESULT-AFTER-CLEANUP","statement":"Successful result publication follows all required cleanup and candidate revalidation"},
     {"id":"INV-HOST-CLEANUP-AFTER-DOCKER-CLOSURE","statement":"Host cleanup refuses active Docker binding evidence; legacy host-preclean recovery finalizes only after exact Docker reconciliation and binding closure"},
     {"id":"INV-CLEAN-BLOCK-HAS-NO-RECOVERY","statement":"A clean blocked result requires all owned resources absent and no actionable recovery identifier"},
-    {"id":"INV-UNKNOWN-PRESERVES-RECOVERY","statement":"Unknown state preserves evidence and every actionable recovery identifier"}
+    {"id":"INV-UNKNOWN-PRESERVES-RECOVERY","statement":"Unknown state preserves evidence and every actionable recovery identifier"},
+    {"id":"INV-REPAIR-HISTORY-DURABLE-PUBLICATION","statement":"Repair adoption, session handoff and closure publish through one exclusive same-filesystem state machine; read-only observation never settles residue, and only a current-authority targeted writer removes an exact same-identity preparation"}
   ],
   "verificationBoundaryByBinding": {
     "VER-TASK-NORMAL": "contract_projection",
@@ -82,7 +89,11 @@
     "VER-PARTIAL-PAIR-ABNORMAL": "actual_filesystem_process",
     "VER-HOST-CLEANUP-ACTIVE-BINDING-ABNORMAL": "contract_projection",
     "VER-RECOVERY-NORMAL": "actual_filesystem_process",
-    "VER-RECOVERY-HOST-PRECLEAN-QUASI": "actual_filesystem_process"
+    "VER-RECOVERY-HOST-PRECLEAN-QUASI": "actual_filesystem_process",
+    "VER-TASK-CROSS-LOGIN-HANDOFF": "actual_filesystem_process",
+    "VER-REPAIR-HISTORY-PUBLICATION-NORMAL": "actual_filesystem_process",
+    "VER-REPAIR-HISTORY-PUBLICATION-QUASI": "actual_filesystem_process",
+    "VER-REPAIR-HISTORY-PUBLICATION-ABNORMAL": "actual_filesystem_process"
   },
   "verificationBindings": [
     {"id":"VER-TASK-NORMAL","transitionIds":["TRANS-ADMISSION-TO-OPERATION-ACQUIRING","TRANS-OPERATION-ACQUIRING-TO-READY","TRANS-OPERATION-TO-AUTHORIZED","TRANS-AUTHORIZED-TO-EXECUTOR-CLEAN","TRANS-EXECUTOR-TO-CANDIDATE","TRANS-CANDIDATE-TO-REVIEWER-CLEAN","TRANS-REVIEWER-TO-STAGED","TRANS-STAGED-TO-HOST-CLEAN","TRANS-HOST-CLEAN-TO-RESULT"],"kind":"normal","testPath":"40_Develop/coordinator/tests/coordinator-task-runtime.contract.test.ts","testName":"Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続する","observedResources":["RES-HOST-GENERATION","RES-INTERACTIVE-CONSOLE","RES-LOGICAL-HOME-LOCK","RES-RUNTIME-STATE-LOCK","RES-MOUNT-GRANT","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE","RES-CANDIDATE-ENTRY","RES-TASK-CONTROL"], "cases": [
@@ -174,6 +185,18 @@
     ]},
     {"id":"VER-RECOVERY-HOST-PRECLEAN-QUASI","transitionIds":["TRANS-RECOVERY-TO-RECOVERED"],"kind":"quasi_normal","testPath":"40_Develop/coordinator/tests/docker-recovery-runtime.contract.test.ts","testName":"Host begin前のactive binding content-only crashを旧Host先行削除後もexact closureから残存0へ収束する","observedResources":["RES-HOST-GENERATION","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE"], "cases": [
       {"id":"CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED","transitionId":"TRANS-RECOVERY-TO-RECOVERED","fromState":"STATE-RECOVERY-REQUIRED","outcome":"taken","expectedEndState":"STATE-RECOVERED","effectObservations":{"provider":0,"host":0,"cleanup":1},"expectedStatus":"completed","resourcePostconditions":{"RES-HOST-GENERATION":"absent","RES-DOCKER-OWNED":"absent","RES-OPERATION-WORKSPACE":"absent"}}
+    ]},
+    {"id":"VER-TASK-CROSS-LOGIN-HANDOFF","transitionIds":["TRANS-SESSION-HANDOFF-TO-RECOVERED"],"kind":"quasi_normal","testPath":"40_Develop/coordinator/tests/docker-recovery-runtime.contract.test.ts","testName":"同一stable userの再ログオンはappend-only session handoff後に同じRecovery IDで回復する","observedResources":["RES-HOST-GENERATION","RES-LOGICAL-HOME-LOCK","RES-RUNTIME-STATE-LOCK","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE"],"cases":[
+      {"id":"CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED","transitionId":"TRANS-SESSION-HANDOFF-TO-RECOVERED","fromState":"STATE-SESSION-HANDOFF-RECOVERY-REQUIRED","outcome":"taken","expectedEndState":"STATE-RECOVERED","effectObservations":{"provider":0,"host":1,"cleanup":1},"expectedStatus":"completed","resourcePostconditions":{"RES-HOST-GENERATION":"absent","RES-LOGICAL-HOME-LOCK":"absent","RES-RUNTIME-STATE-LOCK":"absent","RES-DOCKER-OWNED":"absent","RES-OPERATION-WORKSPACE":"absent"}}
+    ]},
+    {"id":"VER-REPAIR-HISTORY-PUBLICATION-NORMAL","transitionIds":["TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED"],"kind":"normal","testPath":"40_Develop/coordinator/tests/docker-desktop-repair-record-store.contract.test.ts","testName":"historical adoption keeps original bytes, ID and stage; ordinary current-version inventory stays strict","observedResources":["RES-REPAIR-HISTORY-PREPARE"],"cases":[
+      {"id":"CASE-REPAIR-HISTORY-PUBLICATION-NORMAL","transitionId":"TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED","fromState":"STATE-REPAIR-HISTORY-PREPARED","outcome":"taken","expectedEndState":"STATE-REPAIR-HISTORY-PUBLISHED","effectObservations":{"provider":0,"host":0,"cleanup":1},"expectedStatus":"completed","resourcePostconditions":{"RES-REPAIR-HISTORY-PREPARE":"absent"}}
+    ]},
+    {"id":"VER-REPAIR-HISTORY-PUBLICATION-QUASI","transitionIds":["TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED"],"kind":"quasi_normal","testPath":"40_Develop/coordinator/tests/docker-desktop-repair-record-store.contract.test.ts","testName":"修復履歴の公開済みtargetと同一fileの準備残存は対象限定persistだけが収束する","observedResources":["RES-REPAIR-HISTORY-PREPARE"],"cases":[
+      {"id":"CASE-REPAIR-HISTORY-PUBLICATION-RESUME","transitionId":"TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED","fromState":"STATE-REPAIR-HISTORY-PREPARED","outcome":"taken","expectedEndState":"STATE-REPAIR-HISTORY-PUBLISHED","effectObservations":{"provider":0,"host":0,"cleanup":1},"expectedStatus":"completed","resourcePostconditions":{"RES-REPAIR-HISTORY-PREPARE":"absent"}}
+    ]},
+    {"id":"VER-REPAIR-HISTORY-PUBLICATION-ABNORMAL","transitionIds":["TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED"],"kind":"abnormal","testPath":"40_Develop/coordinator/tests/docker-desktop-repair-record-store.contract.test.ts","testName":"修復履歴adoptionはbyteが同じでも別fileのprepareを削除せず拒否する","observedResources":["RES-REPAIR-HISTORY-PREPARE"],"cases":[
+      {"id":"CASE-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE","transitionId":"TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED","fromState":"STATE-REPAIR-HISTORY-PREPARED","outcome":"rejected","expectedEndState":"STATE-REPAIR-HISTORY-PREPARED","effectObservations":{"provider":0,"host":0,"cleanup":0},"expectedStatus":"recovery_required","resourcePostconditions":{"RES-REPAIR-HISTORY-PREPARE":"preserved"}}
     ]}
   ]
 }

@@ -186,6 +186,8 @@ Project全体E2Eへ進む直前の固定候補監査では、Docker完了Receipt
 
 その後の署名済み最終E2E準備では、Docker Desktop修復記録とDocker Task Recoveryが選択ユーザーの安定Identityだけでなく発行時のログオンSession Identityへ結合されており、PC再起動または再ログオン後に同じ利用者が既存Recoveryへ再入場できない構造問題を確認した。局所的にSession比較を外さず、安定Identityを耐久相関、Session Identityを発行時証拠、現在の署名済みRuntime・Root保護・Policy・物理Lock・fresh観測を変更権限として分離した。元記録とRecovery IDは不変とし、再ログオンごとに上限付き・順序付き・改変検知可能な引継ぎ記録を追加する。終了済みの旧Docker Desktop修復は、現在Dockerが利用不能でもEffect 0で履歴採用と終了を記録し、現在障害は別Operationへ分離する。未終了修復は段階別に再開・観測収束・同一ID停止へ分類し、Task Recoveryは同じIDで現在Sessionへ再結合する。再起動Fenceは引継ぎだけでは成立させない。関連する正常、境界変更、改変、Lock再取得、複数Sessionおよび連鎖上限の契約試験を追加した。[再ログオン回復の署名前検証](../../07_Quality/Verification_Results/2026-09-04_Cross_Login_Recovery_Closure_Pre_Sign_Verification.md)は関連191件、型検査、設計追跡、Lintおよび整形確認の成功を記録する。これは更新固定版の独立再監査前には解消済みまたは署名適格を意味しない。
 
+初回固定版`f78fff4`の独立再監査はCritical 0件、Major 2件、Minor 0件であり、修復履歴を対象へ公開した後に準備ファイルだけが残る中断状態から安全に再入場できないことと、Release引継ぎ連鎖の単調性を各要素間で検証していないことを検出した。局所修正を開始せず、読取り専用分類と対象限定の変更再入場、準備・公開・準備残存の耐久状態、`origin <= adoption <= handoff[0] <= ... <= handoff[n] <= closure <= current boundary`のRelease不変条件、同じSequenceでの署名済みRelease Identity一致、およびTask／修復履歴／耐久公開の直接設計追跡を監査担当と一体で再具体化した。更新候補は、同内容だけで準備ファイルの所有を推定せず対象と同じファイル実体である場合だけ収束し、準備ファイル除去やDirectory確定の失敗を成功へ畳まない。降格、別Release Identity、自己参照、循環、分岐、番号飛び、準備だけ、公開後残存、同内容の別実体および除去失敗を反証試験へ接続した。[再ログオン回復の署名前検証](../../07_Quality/Verification_Results/2026-09-04_Cross_Login_Recovery_Closure_Pre_Sign_Verification.md)は、制限Process全回帰1,654件、Docker Desktop修復と設計追跡の集中確認114件、Docker Task Recovery 106件、型検査、設計追跡および静的確認の成功を記録する。これは更新固定版の独立再監査前にはMajor解消または署名適格を意味しない。
+
 ## 9. 設計確定からリリース判断までの実行計画
 
 次の段階は依存順で進める。内部Taskへ分割できるが、後段の成功を前段の完了根拠へ流用しない。各段階の実装開始前に、対象Interface、保持する意図、変更禁止範囲、正常・準正常・異常、受入条件および検証方法をTask Packetへ固定する。

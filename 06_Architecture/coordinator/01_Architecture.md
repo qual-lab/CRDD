@@ -231,7 +231,9 @@ Docker create要求の耐久化後に応答を失った状態は、Engineの空�
 
 Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し、再ログオン時は同じ安定Identity、元の耐久記録、現在の保護境界および現在Sessionを結ぶ順序付き引継ぎ記録を追加する。引継ぎ後も変更前にHost世代、論理Home、Runtime Stateの各Lockを取得し、外部観測の間だけ解放したLockを同じIdentityで再取得してから続行する。Docker Desktop再起動Fenceは、終了済み修復記録と現在のfreshなEngine・資源不存在観測が両方成立した場合だけ利用でき、履歴の採用または引継ぎだけでは成立しない。
 
-いずれの引継ぎ連鎖も件数を上限8に制限し、自己参照、循環、分岐、番号飛び、前後Session不一致、Identity不一致、改変、部分書込みまたは上限超過をEffect 0で拒否する。新しい記録は同一Filesystem上の準備fileをflush・再読取りした後に排他的に公開し、単一の勝者だけを採用する。準備file、公開結果またはDirectory境界を確認できなければ、元記録と同じRecovery IDを保持して停止する。
+いずれの引継ぎ連鎖も件数を上限8に制限し、自己参照、循環、分岐、番号飛び、前後Session不一致、Identity不一致、改変、部分書込みまたは上限超過をEffect 0で拒否する。Releaseは`origin <= adoption <= handoff[0] <= ... <= handoff[n] <= closure <= current boundary`の単調な連鎖とし、同じRelease番号では同じ署名済みRelease Identityだけを許す。将来Release、降格または同じ番号の別Identityが混在する連鎖は採用しない。
+
+新しい履歴記録は同一Filesystem上の準備fileをflush・再読取りした後にhard linkで排他的に公開し、単一の勝者だけを採用する。読取り専用の利用側は、公開済みtargetだけ、公開済みtargetと同一fileの準備残存、準備fileだけ、不正または観測不能を区別し、残存物を削除せず、準備残存を含む履歴全体を`verified`または完了へ昇格しない。現在の署名済みRuntime、検証済みRoot／保護／Policy、現在Sessionおよび外側Lockを確認済みの対象限定persist経路だけが、期待byteと同一file Identityの準備残存を削除して公開済みtargetへ収束できる。共有公開処理のbyte一致やhard link成立自体はAuthorityを作らない。別file、別候補、未知名、不正byte、部分file、観測不能またはDirectory境界の確定不能では何も削除せず、元記録と同じRecovery IDを保持して停止する。
 
 <a id="14-consoletask内部搬送回収の実装契約"></a>
 
@@ -273,6 +275,7 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 `RES-OPERATION-WORKSPACE`     隔離Workspace
 `RES-CANDIDATE-ENTRY`         耐久Candidate Store entry
 `RES-TASK-CONTROL`            Process-local取消・終端Capability
+`RES-REPAIR-HISTORY-PREPARE`  修復履歴を排他的に公開する同一Filesystem上の準備file
 ```
 
 状態IDは主系列と終端・回復系列を分ける。
@@ -300,6 +303,12 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 `STATE-RECOVERY-REQUIRED`
 `STATE-OPERATOR-TRANSFER-REQUIRED`
 `STATE-RECOVERED`
+
+`STATE-REPAIR-HISTORY-PREPARED`
+→ `STATE-REPAIR-HISTORY-PUBLISHED`
+
+`STATE-SESSION-HANDOFF-RECOVERY-REQUIRED`
+→ `STATE-RECOVERED`
 ```
 
 遷移ID:
@@ -326,6 +335,8 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 `TRANS-HOST-CLEAN-TO-PROCESS-RESTART`
 `TRANS-PARTIAL-PAIR-TO-RECOVERY`
 `TRANS-RECOVERY-TO-RECOVERED`
+`TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED`
+`TRANS-SESSION-HANDOFF-TO-RECOVERED`
 ```
 
 不変条件ID:
@@ -342,6 +353,7 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 `INV-HOST-CLEANUP-AFTER-DOCKER-CLOSURE`
 `INV-CLEAN-BLOCK-HAS-NO-RECOVERY`
 `INV-UNKNOWN-PRESERVES-RECOVERY`
+`INV-REPAIR-HISTORY-DURABLE-PUBLICATION`
 ```
 
 主系列外の遷移は、発生時点のActive状態から安全な終端へ移る。`BLOCKED-CLEAN`は全資源不存在とRecovery IDなし、`PROCESS-RESTART-REQUIRED`は資源回収済みだがProcess再利用不可、`RECOVERY-REQUIRED`はexact Authority付きEvidence保持、`OPERATOR-TRANSFER-REQUIRED`は安全な自動処置に足るAuthorityがない状態である。この四つを同じ`blocked`表示だけで同一視しない。
