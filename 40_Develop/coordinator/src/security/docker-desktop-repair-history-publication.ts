@@ -1,6 +1,7 @@
 export type RepairHistoryPublicationFaultPoint =
   | "after_link_before_directory_commit"
   | "after_first_directory_commit_before_unlink"
+  | "at_unlink"
   | "after_unlink_before_directory_commit";
 
 export type RepairHistoryPublicationOperations = Readonly<{
@@ -44,6 +45,7 @@ export function publishRepairHistoryFileUsingOperations(
         return false;
       operations.commitDirectory(directory);
       operations.injectFault("after_first_directory_commit_before_unlink");
+      operations.injectFault("at_unlink");
       operations.unlink(preparation);
       operations.injectFault("after_unlink_before_directory_commit");
       operations.commitDirectory(directory);
@@ -86,6 +88,7 @@ export function publishRepairHistoryFileUsingOperations(
     )
       return false;
     operations.injectFault("after_first_directory_commit_before_unlink");
+    operations.injectFault("at_unlink");
     operations.unlink(preparation);
     operations.injectFault("after_unlink_before_directory_commit");
     operations.commitDirectory(directory);

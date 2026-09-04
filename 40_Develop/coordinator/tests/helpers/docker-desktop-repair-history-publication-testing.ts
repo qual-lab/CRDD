@@ -75,6 +75,7 @@ export function createRepairHistoryPublicationTestingAdapter(
     injectFault?: (point: RepairHistoryPublicationFaultPoint) => void;
     observeBeforeLink?: () => void;
     observeDirectoryCommit?: () => void;
+    overridePresent?: (target: string) => boolean | null | undefined;
   }> = {},
 ) {
   const temporaryRoot = fs.realpathSync.native(os.tmpdir());
@@ -101,6 +102,8 @@ export function createRepairHistoryPublicationTestingAdapter(
   }
   const operations: RepairHistoryPublicationOperations = Object.freeze({
     present: (target) => {
+      const overridden = options.overridePresent?.(target);
+      if (overridden !== undefined) return overridden;
       try {
         fs.lstatSync(target);
         return true;

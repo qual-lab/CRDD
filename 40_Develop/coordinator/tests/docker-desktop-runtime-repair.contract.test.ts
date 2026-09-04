@@ -15,6 +15,7 @@ import {
   DOCKER_DESKTOP_REPAIR_STAGES,
   type DockerDesktopRepairHistoryVerifier,
   inspectDockerDesktopRepairHistoricalOperation,
+  isCanonicalDockerDesktopRepairHistoricalOperationCore,
   inventoryDockerDesktopRepairOperations,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
@@ -523,6 +524,7 @@ function operationFixture(
   return Object.freeze({
     operationId: id,
     repairId: `docker-desktop-repair.${id}`,
+    originLocalUserBindingHash: boundary.localUserBindingHash,
     operationDirectory: `C:\\runtime-state\\docker-desktop-repair-${id}`,
     staleName: `run.crdd-stale-${id}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${id}`,
@@ -544,7 +546,7 @@ test("履歴引継ぎrouteは不正・履歴なし・終了済み・同一Sessio
     adoptionSha256: "a".repeat(64),
     handoffTipSha256: "a".repeat(64),
     handoffCount: 0,
-    originLocalUserBindingHash: "b".repeat(64),
+    originLocalUserBindingHash: boundary.localUserBindingHash,
     currentLocalUserBindingHash: boundary.localUserBindingHash,
     currentSessionBound: true,
     closed: false,
@@ -678,6 +680,43 @@ test("履歴引継ぎ結果は元chain不変fieldと許可されたSession差分
       ),
       false,
     );
+  const withoutOrigin = { ...adopted } as Record<string, unknown>;
+  delete withoutOrigin.originLocalUserBindingHash;
+  const accessorIdentity = Object.defineProperty(
+    { ...adopted.runIdentity },
+    "ino",
+    { enumerable: true, get: () => "2" },
+  );
+  const accessorLedger = Object.defineProperty(
+    { ...adopted.ledger },
+    "engineReady",
+    { enumerable: true, get: () => false },
+  );
+  for (const malformed of [
+    withoutOrigin,
+    { ...adopted, operationId: "F".repeat(32) },
+    { ...adopted, repairId: `docker-desktop-repair.${"e".repeat(32)}` },
+    { ...adopted, runIdentity: { ...adopted.runIdentity, ino: "0" } },
+    { ...adopted, runIdentity: { ...adopted.runIdentity, extra: "4" } },
+    { ...adopted, runIdentity: accessorIdentity },
+    { ...adopted, sequence: -1 },
+    { ...adopted, sequence: Number.MAX_SAFE_INTEGER },
+    { ...adopted, previousRecordSha256: "F".repeat(64) },
+    { ...adopted, ledger: accessorLedger },
+    new Proxy(adopted, {
+      ownKeys: () => {
+        throw new Error("hostile_proxy");
+      },
+    }),
+  ]) {
+    assert.equal(
+      isCanonicalDockerDesktopRepairHistoricalOperationCore(
+        malformed,
+        boundary,
+      ),
+      false,
+    );
+  }
   for (const history of [
     { ...adoptedHistory, adoptionSha256: "A".repeat(64) },
     { ...adoptedHistory, handoffTipSha256: "b".repeat(64) },
@@ -773,6 +812,18 @@ test("履歴引継ぎ結果は元chain不変fieldと許可されたSession差分
       expectedClosure,
     ),
     true,
+  );
+  assert.equal(
+    validateDockerDesktopRepairHistoricalClosureResult(
+      handed,
+      closed,
+      boundary,
+      {
+        liveRunIdentity: { ...RUN_IDENTITY, ino: "0" },
+        staleState: "retained",
+      },
+    ),
+    false,
   );
   assert.ok(closed.history);
   for (const history of [
@@ -1013,6 +1064,15 @@ test("履歴終了の異常境界は新規修復許可を出さず、既存Host�
 
 test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しない", async () => {
   const operation = operationFixture("renamed", {
+    processEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "official_shutdown",
+        phase: "intent_recorded",
+        issued: null,
+        confirmation: "unknown",
+      }),
+    ]),
     processEffectIssued: null,
     processEffectConfirmation: "unknown",
   });

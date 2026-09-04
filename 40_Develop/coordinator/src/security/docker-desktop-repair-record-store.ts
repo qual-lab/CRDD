@@ -272,6 +272,31 @@ function exactKeys(value: object, expectedItems: readonly string[]) {
   );
 }
 
+function containsOnlyOwnDataDescriptors(
+  value: unknown,
+  seen = new Set<object>(),
+): boolean {
+  if (
+    value === null ||
+    (typeof value !== "object" && typeof value !== "function")
+  )
+    return true;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  try {
+    for (const key of Reflect.ownKeys(value)) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !("value" in descriptor)) return false;
+      if (!containsOnlyOwnDataDescriptors(descriptor.value, seen)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    seen.delete(value);
+  }
+}
+
 function hash64(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 }
@@ -1337,6 +1362,74 @@ function toOperation(
     previousRecordSha256: recordSha256,
     ledger: record.ledger,
   });
+}
+
+function isCanonicalDockerDesktopRepairHistoricalOperationCoreUnchecked(
+  value: unknown,
+  boundary: DockerDesktopRepairRecordBoundary,
+): value is DockerDesktopRepairOperation {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype ||
+    !containsOnlyOwnDataDescriptors(value)
+  )
+    return false;
+  const hasHistory = Object.hasOwn(value, "history");
+  if (
+    !exactKeys(value, [
+      "operationId",
+      "repairId",
+      "originLocalUserBindingHash",
+      "operationDirectory",
+      "staleName",
+      "staleDirectory",
+      "runIdentity",
+      "stage",
+      "sequence",
+      "previousRecordSha256",
+      "ledger",
+      ...(hasHistory ? ["history"] : []),
+    ])
+  )
+    return false;
+  const id = Reflect.get(value, "operationId");
+  const staleName = `run.crdd-stale-${String(id)}`;
+  const sequence = Reflect.get(value, "sequence");
+  return (
+    operationId(id) &&
+    Reflect.get(value, "repairId") === `docker-desktop-repair.${id}` &&
+    hash64(Reflect.get(value, "originLocalUserBindingHash")) &&
+    Reflect.get(value, "operationDirectory") ===
+      path.win32.join(boundary.runtimeStateRoot, `${OPERATION_PREFIX}${id}`) &&
+    Reflect.get(value, "staleName") === staleName &&
+    Reflect.get(value, "staleDirectory") ===
+      path.win32.join(boundary.localAppData, "Docker", staleName) &&
+    validIdentity(Reflect.get(value, "runIdentity")) &&
+    DOCKER_DESKTOP_REPAIR_STAGES.includes(
+      Reflect.get(value, "stage") as DockerDesktopRepairStage,
+    ) &&
+    Number.isSafeInteger(sequence) &&
+    Number(sequence) >= 0 &&
+    Number(sequence) < MAXIMUM_RECORDS &&
+    hash64(Reflect.get(value, "previousRecordSha256")) &&
+    validLedger(Reflect.get(value, "ledger"))
+  );
+}
+
+export function isCanonicalDockerDesktopRepairHistoricalOperationCore(
+  value: unknown,
+  boundary: DockerDesktopRepairRecordBoundary,
+): value is DockerDesktopRepairOperation {
+  try {
+    return isCanonicalDockerDesktopRepairHistoricalOperationCoreUnchecked(
+      value,
+      boundary,
+    );
+  } catch {
+    return false;
+  }
 }
 
 function readOriginalOperation(

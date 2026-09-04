@@ -39,10 +39,11 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     {
       status: "accepted",
       resources: 10,
-      states: 25,
-      transitions: 34,
+      states: 32,
+      transitions: 31,
+      attemptClassifications: 5,
       invariants: 12,
-      verificationBindings: 15,
+      verificationBindings: 25,
     },
   );
 });
@@ -238,7 +239,7 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
   }
 });
 
-test("検証caseの重複tuple・source未接続・未観測資源・拒否結果の誤到達を拒否する", () => {
+test("検証caseのsource未接続・未観測資源・拒否結果の誤到達を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   const bindings = structuredClone(trace.verificationBindings) as Record<
     string,
@@ -266,11 +267,6 @@ test("検証caseの重複tuple・source未接続・未観測資源・拒否結�
     assert.ok(
       result.issues.includes(
         "VER-TASK-NORMAL:case_rejected_reaches_to:TRANS-ADMISSION-TO-OPERATION-ACQUIRING",
-      ),
-    );
-    assert.ok(
-      result.issues.includes(
-        "VER-TASK-NORMAL:case_tuple_duplicate:TRANS-ADMISSION-TO-OPERATION-ACQUIRING:STATE-ADMISSION:normal",
       ),
     );
     assert.ok(result.issues.includes("VER-TASK-NORMAL:test_case_id_not_found"));
@@ -303,6 +299,41 @@ test("bindingが宣言するだけでcaseが観測しない資源を拒否する
     assert.ok(
       result.issues.includes(
         "VER-PARTIAL-PAIR-ABNORMAL:RES-CANDIDATE-ENTRY:observed_resource_unused",
+      ),
+    );
+  }
+});
+
+test("拒否試行を実遷移または状態変更として記録するTraceを拒否する", () => {
+  const trace = currentTrace() as Record<string, unknown>;
+  const bindings = structuredClone(trace.verificationBindings) as Record<
+    string,
+    unknown
+  >[];
+  const binding = bindings.find(
+    (candidate) =>
+      candidate.id === "VER-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE",
+  );
+  assert.ok(binding);
+  const cases = structuredClone(binding.cases) as Record<string, unknown>[];
+  cases[0] = {
+    ...cases[0],
+    outcome: "taken",
+    expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
+  };
+  binding.cases = cases;
+  trace.verificationBindings = bindings;
+  const result = inspectCoordinatorRuntimeTraceability(trace, repositoryReader);
+  assert.equal(result.status, "blocked");
+  if (result.status === "blocked") {
+    assert.ok(
+      result.issues.includes(
+        "VER-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE:case_attempt_outcome_invalid:ATTEMPT-REPAIR-HISTORY-FOREIGN-PREPARE",
+      ),
+    );
+    assert.ok(
+      result.issues.includes(
+        "VER-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE:case_attempt_mutates_state:ATTEMPT-REPAIR-HISTORY-FOREIGN-PREPARE",
       ),
     );
   }

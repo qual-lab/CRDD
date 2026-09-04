@@ -37,6 +37,7 @@ import {
   hasDockerDesktopRepairRecordCapacity,
   inspectDockerDesktopRepairHistoricalOperation,
   inventoryDockerDesktopRepairOperations,
+  isCanonicalDockerDesktopRepairHistoricalOperationCore,
   parseDockerDesktopRepairId,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
@@ -1882,8 +1883,11 @@ function validClosedRepairHistory(
 function sameRepairOperationCore(
   before: DockerDesktopRepairOperation,
   after: DockerDesktopRepairOperation,
+  boundary: PreparedBoundary,
 ) {
   return (
+    isCanonicalDockerDesktopRepairHistoricalOperationCore(before, boundary) &&
+    isCanonicalDockerDesktopRepairHistoricalOperationCore(after, boundary) &&
     before.operationId === after.operationId &&
     before.repairId === after.repairId &&
     before.originLocalUserBindingHash === after.originLocalUserBindingHash &&
@@ -1903,10 +1907,7 @@ export function classifyDockerDesktopRepairHistoricalAdoptionRoute(
   boundary: PreparedBoundary,
 ): HistoricalAdoptionRoute {
   if (
-    !parseDockerDesktopRepairId(operation.repairId) ||
-    operation.repairId !== `docker-desktop-repair.${operation.operationId}` ||
-    operation.operationDirectory.length === 0 ||
-    operation.staleDirectory.length === 0
+    !isCanonicalDockerDesktopRepairHistoricalOperationCore(operation, boundary)
   )
     return "invalid";
   if (!operation.history) return "initial_adoption";
@@ -1938,7 +1939,7 @@ export function validateDockerDesktopRepairHistoricalAdoptionResult(
 ) {
   if (
     (route !== "initial_adoption" && route !== "session_handoff") ||
-    !sameRepairOperationCore(before, after) ||
+    !sameRepairOperationCore(before, after, boundary) ||
     !after.history ||
     after.history.closed ||
     after.history.currentSessionBound !== true ||
@@ -1950,7 +1951,7 @@ export function validateDockerDesktopRepairHistoricalAdoptionResult(
       after.history.handoffCount === 0 &&
       after.history.handoffTipSha256 === after.history.adoptionSha256 &&
       after.history.originLocalUserBindingHash ===
-        (before.originLocalUserBindingHash ?? boundary.localUserBindingHash) &&
+        before.originLocalUserBindingHash &&
       validOpenRepairHistory(after.history, boundary)
     );
   const prior = before.history;
@@ -1984,19 +1985,20 @@ export function validateDockerDesktopRepairHistoricalClosureResult(
   const prior = before.history;
   const closed = after.history;
   return (
+    validRepairDirectoryIdentity(expected.liveRunIdentity) &&
     prior !== undefined &&
     closed !== undefined &&
     validOpenRepairHistory(prior, boundary) &&
     prior.currentSessionBound === true &&
     closed.closed === true &&
-    sameRepairOperationCore(before, after) &&
+    validClosedRepairHistory(closed, boundary) &&
+    sameRepairOperationCore(before, after, boundary) &&
     closed.adoptionSha256 === prior.adoptionSha256 &&
     closed.handoffTipSha256 === prior.handoffTipSha256 &&
     closed.handoffCount === prior.handoffCount &&
     closed.originLocalUserBindingHash === prior.originLocalUserBindingHash &&
     closed.currentLocalUserBindingHash === prior.currentLocalUserBindingHash &&
     closed.currentSessionBound === prior.currentSessionBound &&
-    validRepairHistorySessionFields(closed, boundary) &&
     isDeepStrictEqual(closed.liveRunIdentity, expected.liveRunIdentity) &&
     closed.staleState === expected.staleState
   );

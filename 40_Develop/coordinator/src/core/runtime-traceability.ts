@@ -1,5 +1,5 @@
 const TRACE_SCHEMA = "crdd-coordinator/runtime-traceability";
-const TRACE_SCHEMA_REVISION = 4;
+const TRACE_SCHEMA_REVISION = 5;
 const VERIFICATION_KINDS = Object.freeze([
   "normal",
   "quasi_normal",
@@ -14,6 +14,7 @@ type AcceptedInspection = Readonly<{
   resources: number;
   states: number;
   transitions: number;
+  attemptClassifications: number;
   invariants: number;
   verificationBindings: number;
 }>;
@@ -38,6 +39,7 @@ const ROOT_KEYS = Object.freeze([
   "resources",
   "states",
   "transitions",
+  "attemptClassifications",
   "invariants",
   "verificationBoundaryByBinding",
   "verificationBindings",
@@ -62,6 +64,13 @@ const TRANSITION_KEYS = Object.freeze([
   "resourcesTransferred",
   "invariants",
 ]);
+const ATTEMPT_CLASSIFICATION_KEYS = Object.freeze([
+  "id",
+  "state",
+  "risk",
+  "requiredVerificationKinds",
+  "invariants",
+]);
 const INVARIANT_KEYS = Object.freeze(["id", "statement"]);
 const BINDING_KEYS = Object.freeze([
   "id",
@@ -72,9 +81,23 @@ const BINDING_KEYS = Object.freeze([
   "observedResources",
   "cases",
 ]);
+const ATTEMPT_BINDING_KEYS = Object.freeze([
+  ...BINDING_KEYS,
+  "attemptClassificationIds",
+]);
 const CASE_KEYS = Object.freeze([
   "id",
   "transitionId",
+  "fromState",
+  "outcome",
+  "expectedEndState",
+  "effectObservations",
+  "expectedStatus",
+  "resourcePostconditions",
+]);
+const ATTEMPT_CASE_KEYS = Object.freeze([
+  "id",
+  "attemptClassificationId",
   "fromState",
   "outcome",
   "expectedEndState",
@@ -94,6 +117,7 @@ const EXPECTED_STATUSES = new Set([
 ]);
 const RESOURCE_POSTCONDITIONS = new Set([
   "absent",
+  "absent_or_preserved",
   "present",
   "preserved",
   "transferred",
@@ -235,6 +259,12 @@ export function inspectCoordinatorRuntimeTraceability(
     "TRANS-",
     issues,
   );
+  const attemptClassifications = addUniqueIds(
+    input.attemptClassifications,
+    "attempt_classification",
+    "ATTEMPT-",
+    issues,
+  );
   const invariants = addUniqueIds(
     input.invariants,
     "invariant",
@@ -304,6 +334,7 @@ export function inspectCoordinatorRuntimeTraceability(
   const usedStates = new Set<string>();
   const usedInvariants = new Set<string>();
   const requiredKindsByTransition = new Map<string, Set<VerificationKind>>();
+  const requiredKindsByAttempt = new Map<string, Set<VerificationKind>>();
   const transitionsById = new Map<string, JsonRecord>();
   for (const transition of transitions.entries) {
     const transitionId =
@@ -391,16 +422,55 @@ export function inspectCoordinatorRuntimeTraceability(
     }
   }
 
+  const attemptsById = new Map<string, JsonRecord>();
+  for (const attempt of attemptClassifications.entries) {
+    const attemptId = typeof attempt.id === "string" ? attempt.id : "unknown";
+    attemptsById.set(attemptId, attempt);
+    if (
+      !hasExactKeys(attempt, ATTEMPT_CLASSIFICATION_KEYS) ||
+      attempt.risk !== "high"
+    )
+      issues.push(`${attemptId}:attempt_classification_shape_invalid`);
+    if (typeof attempt.state !== "string" || !states.ids.has(attempt.state)) {
+      issues.push(`${attemptId}:state_unknown`);
+    } else {
+      usedStates.add(attempt.state);
+    }
+    for (const invariant of checkReferences(
+      attempt.invariants,
+      invariants.ids,
+      `${attemptId}:invariants`,
+      issues,
+    )) {
+      usedInvariants.add(invariant);
+    }
+    const requiredItems = checkReferences(
+      attempt.requiredVerificationKinds,
+      new Set(VERIFICATION_KINDS),
+      `${attemptId}:requiredVerificationKinds`,
+      issues,
+    );
+    if (requiredItems.length === 0)
+      issues.push(`${attemptId}:verification_requirement_empty`);
+    requiredKindsByAttempt.set(
+      attemptId,
+      new Set(requiredItems as VerificationKind[]),
+    );
+  }
+
   const observedKindsByTransition = new Map<string, Set<VerificationKind>>();
   const observedKindsByTransitionAndState = new Map<
     string,
     Set<VerificationKind>
   >();
-  const observedCaseTuples = new Set<string>();
+  const observedKindsByAttempt = new Map<string, Set<VerificationKind>>();
   const caseIds = new Set<string>();
   for (const binding of bindings.entries) {
     const bindingId = typeof binding.id === "string" ? binding.id : "unknown";
-    if (!hasExactKeys(binding, BINDING_KEYS))
+    if (
+      !hasExactKeys(binding, BINDING_KEYS) &&
+      !hasExactKeys(binding, ATTEMPT_BINDING_KEYS)
+    )
       issues.push(`${bindingId}:verification_shape_invalid`);
     const kind = binding.kind;
     if (!VERIFICATION_KINDS.includes(kind as VerificationKind)) {
@@ -413,7 +483,15 @@ export function inspectCoordinatorRuntimeTraceability(
       `${bindingId}:transitionIds`,
       issues,
     );
-    if (transitionIds.length === 0)
+    const attemptIds = Object.hasOwn(binding, "attemptClassificationIds")
+      ? checkReferences(
+          binding.attemptClassificationIds,
+          attemptClassifications.ids,
+          `${bindingId}:attemptClassificationIds`,
+          issues,
+        )
+      : [];
+    if (transitionIds.length === 0 && attemptIds.length === 0)
       issues.push(`${bindingId}:transition_population_empty`);
     for (const transitionId of transitionIds) {
       const observed =
@@ -422,12 +500,23 @@ export function inspectCoordinatorRuntimeTraceability(
       observed.add(kind as VerificationKind);
       observedKindsByTransition.set(transitionId, observed);
     }
+    for (const attemptId of attemptIds) {
+      const observed =
+        observedKindsByAttempt.get(attemptId) ?? new Set<VerificationKind>();
+      observed.add(kind as VerificationKind);
+      observedKindsByAttempt.set(attemptId, observed);
+    }
     if (!Array.isArray(binding.cases) || binding.cases.length === 0) {
       issues.push(`${bindingId}:case_population_invalid`);
     } else {
       const caseTransitions = new Set<string>();
+      const caseAttempts = new Set<string>();
       for (const candidate of binding.cases) {
-        if (!isRecord(candidate) || !hasExactKeys(candidate, CASE_KEYS)) {
+        if (
+          !isRecord(candidate) ||
+          (!hasExactKeys(candidate, CASE_KEYS) &&
+            !hasExactKeys(candidate, ATTEMPT_CASE_KEYS))
+        ) {
           issues.push(`${bindingId}:case_shape_invalid`);
           continue;
         }
@@ -438,34 +527,69 @@ export function inspectCoordinatorRuntimeTraceability(
         )
           issues.push(`${bindingId}:case_id_invalid_or_duplicate`);
         else caseIds.add(candidate.id);
+        const isAttemptCase = Object.hasOwn(
+          candidate,
+          "attemptClassificationId",
+        );
         const transitionId = candidate.transitionId;
-        if (
+        const attemptId = candidate.attemptClassificationId;
+        if (isAttemptCase) {
+          if (
+            typeof attemptId !== "string" ||
+            !attemptIds.includes(attemptId)
+          ) {
+            issues.push(`${bindingId}:case_attempt_classification_invalid`);
+            continue;
+          }
+          caseAttempts.add(attemptId);
+          const attempt = attemptsById.get(attemptId);
+          const fromState = candidate.fromState;
+          if (typeof fromState !== "string" || fromState !== attempt?.state)
+            issues.push(`${bindingId}:case_from_state_mismatch:${attemptId}`);
+          if (candidate.outcome !== "rejected")
+            issues.push(
+              `${bindingId}:case_attempt_outcome_invalid:${attemptId}`,
+            );
+          if (candidate.expectedEndState !== fromState)
+            issues.push(`${bindingId}:case_attempt_mutates_state:${attemptId}`);
+        } else if (
           typeof transitionId !== "string" ||
           !transitionIds.includes(transitionId)
         ) {
           issues.push(`${bindingId}:case_transition_invalid`);
           continue;
         }
-        caseTransitions.add(transitionId);
-        const transition = transitionsById.get(transitionId);
+        if (!isAttemptCase) caseTransitions.add(transitionId as string);
+        const transition = transitionsById.get(transitionId as string);
         const declaredFrom = new Set(
           isStringArray(transition?.from) ? transition.from : [],
         );
         const fromState = candidate.fromState;
         if (typeof fromState !== "string" || !states.ids.has(fromState))
           issues.push(`${bindingId}:case_from_state_invalid`);
-        if (typeof fromState !== "string" || !declaredFrom.has(fromState))
+        if (
+          !isAttemptCase &&
+          (typeof fromState !== "string" || !declaredFrom.has(fromState))
+        )
           issues.push(`${bindingId}:case_from_state_mismatch:${transitionId}`);
         if (candidate.outcome !== "taken" && candidate.outcome !== "rejected")
           issues.push(`${bindingId}:case_outcome_invalid:${transitionId}`);
         const endState = candidate.expectedEndState;
         if (typeof endState !== "string" || !states.ids.has(endState))
           issues.push(`${bindingId}:case_end_state_invalid:${transitionId}`);
-        if (candidate.outcome === "taken" && endState !== transition?.to)
+        if (
+          !isAttemptCase &&
+          candidate.outcome === "taken" &&
+          endState !== transition?.to
+        )
           issues.push(
             `${bindingId}:case_taken_end_state_mismatch:${transitionId}`,
           );
-        if (candidate.outcome === "rejected" && endState === transition?.to)
+        if (
+          !isAttemptCase &&
+          candidate.outcome === "rejected" &&
+          endState === transition?.to
+        )
           issues.push(`${bindingId}:case_rejected_reaches_to:${transitionId}`);
         if (
           !isRecord(candidate.effectObservations) ||
@@ -506,13 +630,8 @@ export function inspectCoordinatorRuntimeTraceability(
           }
         }
         if (typeof fromState === "string") {
-          const key = `${transitionId}\u0000${fromState}`;
-          const tuple = `${key}\u0000${kind}`;
-          if (observedCaseTuples.has(tuple))
-            issues.push(
-              `${bindingId}:case_tuple_duplicate:${transitionId}:${fromState}:${kind}`,
-            );
-          else observedCaseTuples.add(tuple);
+          const subjectId = isAttemptCase ? attemptId : transitionId;
+          const key = `${subjectId}\u0000${fromState}`;
           const observed =
             observedKindsByTransitionAndState.get(key) ??
             new Set<VerificationKind>();
@@ -524,6 +643,8 @@ export function inspectCoordinatorRuntimeTraceability(
         transitionIds.some((transitionId) => !caseTransitions.has(transitionId))
       )
         issues.push(`${bindingId}:case_transition_population_incomplete`);
+      if (attemptIds.some((attemptId) => !caseAttempts.has(attemptId)))
+        issues.push(`${bindingId}:case_attempt_population_incomplete`);
     }
     for (const resource of checkReferences(
       binding.observedResources,
@@ -562,7 +683,11 @@ export function inspectCoordinatorRuntimeTraceability(
     }
     if (Array.isArray(binding.cases) && testSource) {
       for (const candidate of binding.cases) {
-        if (!isExactRecord(candidate, CASE_KEYS)) continue;
+        if (
+          !isExactRecord(candidate, CASE_KEYS) &&
+          !isExactRecord(candidate, ATTEMPT_CASE_KEYS)
+        )
+          continue;
         const caseId = typeof candidate.id === "string" ? candidate.id : "";
         const registryEntry = new RegExp(
           `${escapeRegularExpression(JSON.stringify(caseId))}\\s*:\\s*assertRuntimeTraceCase\\b`,
@@ -579,7 +704,8 @@ export function inspectCoordinatorRuntimeTraceability(
             typeof resourceId === "string" &&
             !binding.cases.some(
               (candidate) =>
-                isExactRecord(candidate, CASE_KEYS) &&
+                (isExactRecord(candidate, CASE_KEYS) ||
+                  isExactRecord(candidate, ATTEMPT_CASE_KEYS)) &&
                 isRecord(candidate.resourcePostconditions) &&
                 Object.hasOwn(candidate.resourcePostconditions, resourceId),
             )
@@ -587,6 +713,15 @@ export function inspectCoordinatorRuntimeTraceability(
             issues.push(`${bindingId}:${resourceId}:observed_resource_unused`);
         }
       }
+    }
+  }
+
+  for (const [attemptId, requiredKinds] of requiredKindsByAttempt) {
+    const observedKinds =
+      observedKindsByAttempt.get(attemptId) ?? new Set<VerificationKind>();
+    for (const requiredKind of requiredKinds) {
+      if (!observedKinds.has(requiredKind))
+        issues.push(`${attemptId}:verification_missing:${requiredKind}`);
     }
   }
 
@@ -638,6 +773,7 @@ export function inspectCoordinatorRuntimeTraceability(
         ...resources.ids,
         ...states.ids,
         ...transitions.ids,
+        ...attemptClassifications.ids,
         ...invariants.ids,
       ]) {
         if (!architecture.includes(`\`${id}\``))
@@ -659,6 +795,7 @@ export function inspectCoordinatorRuntimeTraceability(
     resources: resources.ids.size,
     states: states.ids.size,
     transitions: transitions.ids.size,
+    attemptClassifications: attemptClassifications.ids.size,
     invariants: invariants.ids.size,
     verificationBindings: bindings.ids.size,
   };

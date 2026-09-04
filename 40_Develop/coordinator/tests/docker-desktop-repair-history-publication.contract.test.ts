@@ -28,35 +28,36 @@ const publicationTraceAssertions: Readonly<
     assertRuntimeTraceCase,
   "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-TARGET-WITH-PREPARE":
     assertRuntimeTraceCase,
-  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-LINK": assertRuntimeTraceCase,
-  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-FIRST-COMMIT":
+  "CASE-REPAIR-HISTORY-PUBLICATION-UNKNOWN-OBSERVATION": assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-LINK-FIRST":
     assertRuntimeTraceCase,
-  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-UNLINK": assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-LINK-RETRY":
+    assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-FIRST-COMMIT-FIRST":
+    assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-FIRST-COMMIT-RETRY":
+    assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AT-UNLINK-FIRST":
+    assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AT-UNLINK-RETRY":
+    assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-UNLINK-FIRST":
+    assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-UNLINK-RETRY":
+    assertRuntimeTraceCase,
   "CASE-REPAIR-HISTORY-PUBLICATION-SAME-BYTE-RACE": assertRuntimeTraceCase,
-  "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE": assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE-WINNER":
+    assertRuntimeTraceCase,
+  "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE-LOSER":
+    assertRuntimeTraceCase,
 });
 const executedPublicationTraceCases = new Set<string>();
 
 function observePublicationCase(
   caseId: string,
-  taken: boolean,
-  rejectedPostcondition: "absent" | "preserved" = "preserved",
+  observed: Parameters<typeof assertRuntimeTraceCase>[1],
 ) {
-  const transitionId = `TRANS-${caseId.slice("CASE-".length)}`;
-  publicationTraceAssertions[caseId]?.(caseId, {
-    id: caseId,
-    transitionId,
-    fromState: "STATE-REPAIR-HISTORY-PREPARED",
-    outcome: taken ? "taken" : "rejected",
-    expectedEndState: taken
-      ? "STATE-REPAIR-HISTORY-PUBLISHED"
-      : "STATE-REPAIR-HISTORY-PREPARED",
-    effectObservations: { provider: 0, host: 0, cleanup: taken ? 1 : 0 },
-    expectedStatus: taken ? "completed" : "recovery_required",
-    resourcePostconditions: {
-      "RES-REPAIR-HISTORY-PREPARE": taken ? "absent" : rejectedPostcondition,
-    },
-  });
+  publicationTraceAssertions[caseId]?.(caseId, observed);
   executedPublicationTraceCases.add(caseId);
 }
 
@@ -96,7 +97,11 @@ function productionDependencyClosure(entry: string) {
     const source = fs.readFileSync(current, "utf8");
     for (const specifier of relativeImports(source)) {
       const resolved = path.resolve(path.dirname(current), specifier);
-      if (fs.existsSync(resolved) && !visited.has(resolved))
+      if (
+        fs.existsSync(resolved) &&
+        fs.statSync(resolved).isFile() &&
+        !visited.has(resolved)
+      )
         pending.push(resolved);
     }
   }
@@ -127,7 +132,16 @@ test("耐久公開: absent target + absent prepareはexact targetへ公開して
   assert.equal(adapter.publish(TARGET, PREPARE, BYTES), true);
   assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
   assert.equal(fs.existsSync(value.preparation), false);
-  observePublicationCase("CASE-REPAIR-HISTORY-PUBLICATION-ABSENT", true);
+  observePublicationCase("CASE-REPAIR-HISTORY-PUBLICATION-ABSENT", {
+    id: "CASE-REPAIR-HISTORY-PUBLICATION-ABSENT",
+    transitionId: "TRANS-REPAIR-HISTORY-ABSENT-TO-PUBLISHED",
+    fromState: "STATE-REPAIR-HISTORY-ABSENT",
+    outcome: "taken",
+    expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
+    effectObservations: { provider: 0, host: 0, cleanup: 1 },
+    expectedStatus: "completed",
+    resourcePostconditions: { "RES-REPAIR-HISTORY-PREPARE": "absent" },
+  });
 });
 
 test("耐久公開: prepare-onlyは同byteの対象限定再入場で収束する", (t) => {
@@ -137,7 +151,16 @@ test("耐久公開: prepare-onlyは同byteの対象限定再入場で収束す�
   assert.equal(adapter.publish(TARGET, PREPARE, BYTES), true);
   assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
   assert.equal(fs.existsSync(value.preparation), false);
-  observePublicationCase("CASE-REPAIR-HISTORY-PUBLICATION-PREPARE-ONLY", true);
+  observePublicationCase("CASE-REPAIR-HISTORY-PUBLICATION-PREPARE-ONLY", {
+    id: "CASE-REPAIR-HISTORY-PUBLICATION-PREPARE-ONLY",
+    transitionId: "TRANS-REPAIR-HISTORY-PREPARE-ONLY-TO-PUBLISHED",
+    fromState: "STATE-REPAIR-HISTORY-PREPARE-ONLY",
+    outcome: "taken",
+    expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
+    effectObservations: { provider: 0, host: 0, cleanup: 1 },
+    expectedStatus: "completed",
+    resourcePostconditions: { "RES-REPAIR-HISTORY-PREPARE": "absent" },
+  });
 });
 
 test("耐久公開: targetと同一fileのprepare residueだけを収束する", (t) => {
@@ -149,10 +172,16 @@ test("耐久公開: targetと同一fileのprepare residueだけを収束する",
   assert.equal(adapter.publish(TARGET, PREPARE, BYTES), true);
   assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
   assert.equal(fs.existsSync(value.preparation), false);
-  observePublicationCase(
-    "CASE-REPAIR-HISTORY-PUBLICATION-PUBLISHED-RESIDUE",
-    true,
-  );
+  observePublicationCase("CASE-REPAIR-HISTORY-PUBLICATION-PUBLISHED-RESIDUE", {
+    id: "CASE-REPAIR-HISTORY-PUBLICATION-PUBLISHED-RESIDUE",
+    transitionId: "TRANS-REPAIR-HISTORY-SAME-FILE-PREPARE-TO-PUBLISHED",
+    fromState: "STATE-REPAIR-HISTORY-TARGET-WITH-SAME-FILE-PREPARE",
+    outcome: "taken",
+    expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
+    effectObservations: { provider: 0, host: 0, cleanup: 1 },
+    expectedStatus: "completed",
+    resourcePostconditions: { "RES-REPAIR-HISTORY-PREPARE": "absent" },
+  });
 });
 
 test("耐久公開: same-byte foreign prepareは双方を変更せず拒否する", (t) => {
@@ -164,82 +193,192 @@ test("耐久公開: same-byte foreign prepareは双方を変更せず拒否す�
   assert.equal(adapter.publish(TARGET, PREPARE, BYTES), false);
   assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
   assert.equal(fs.readFileSync(value.preparation).equals(BYTES), true);
+  observePublicationCase("CASE-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE", {
+    id: "CASE-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE",
+    attemptClassificationId: "ATTEMPT-REPAIR-HISTORY-FOREIGN-PREPARE",
+    fromState: "STATE-REPAIR-HISTORY-FOREIGN-PREPARE",
+    outcome: "rejected",
+    expectedEndState: "STATE-REPAIR-HISTORY-FOREIGN-PREPARE",
+    effectObservations: { provider: 0, host: 0, cleanup: 0 },
+    expectedStatus: "recovery_required",
+    resourcePostconditions: {
+      "RES-REPAIR-HISTORY-PREPARE": "preserved",
+    },
+  });
+});
+
+function verifyDifferentTarget(t: test.TestContext, prepare: boolean) {
+  const value = fixture(t);
+  fs.writeFileSync(value.target, OTHER);
+  if (prepare) fs.writeFileSync(value.preparation, BYTES);
+  const adapter = createRepairHistoryPublicationTestingAdapter(value.directory);
+  assert.equal(adapter.publish(TARGET, PREPARE, BYTES), false);
+  assert.equal(fs.readFileSync(value.target).equals(OTHER), true);
+  assert.equal(fs.existsSync(value.preparation), prepare);
+  if (prepare)
+    assert.equal(fs.readFileSync(value.preparation).equals(BYTES), true);
   observePublicationCase(
-    "CASE-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE",
-    false,
+    prepare
+      ? "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-TARGET-WITH-PREPARE"
+      : "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-TARGET-NO-PREPARE",
+    prepare
+      ? {
+          id: "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-TARGET-WITH-PREPARE",
+          attemptClassificationId:
+            "ATTEMPT-REPAIR-HISTORY-CONFLICT-TARGET-WITH-PREPARE",
+          fromState: "STATE-REPAIR-HISTORY-CONFLICT-TARGET-WITH-PREPARE",
+          outcome: "rejected",
+          expectedEndState: "STATE-REPAIR-HISTORY-CONFLICT-TARGET-WITH-PREPARE",
+          effectObservations: { provider: 0, host: 0, cleanup: 0 },
+          expectedStatus: "recovery_required",
+          resourcePostconditions: {
+            "RES-REPAIR-HISTORY-PREPARE": "preserved",
+          },
+        }
+      : {
+          id: "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-TARGET-NO-PREPARE",
+          attemptClassificationId: "ATTEMPT-REPAIR-HISTORY-CONFLICT-TARGET",
+          fromState: "STATE-REPAIR-HISTORY-CONFLICT-TARGET",
+          outcome: "rejected",
+          expectedEndState: "STATE-REPAIR-HISTORY-CONFLICT-TARGET",
+          effectObservations: { provider: 0, host: 0, cleanup: 0 },
+          expectedStatus: "recovery_required",
+          resourcePostconditions: {
+            "RES-REPAIR-HISTORY-PREPARE": "absent",
+          },
+        },
+  );
+}
+
+test("耐久公開: different-byte targetはprepare=falseでも既存実体を変更しない", (t) => {
+  verifyDifferentTarget(t, false);
+});
+
+test("耐久公開: different-byte targetはprepare=trueでも既存実体を変更しない", (t) => {
+  verifyDifferentTarget(t, true);
+});
+
+test("耐久公開: 状態観測不能はUNKNOWNとしてEffect 0で拒否する", (t) => {
+  const value = fixture(t);
+  const adapter = createRepairHistoryPublicationTestingAdapter(
+    value.directory,
+    {
+      overridePresent: () => null,
+    },
+  );
+  assert.equal(adapter.publish(TARGET, PREPARE, BYTES), false);
+  assert.equal(fs.existsSync(value.target), false);
+  assert.equal(fs.existsSync(value.preparation), false);
+  observePublicationCase(
+    "CASE-REPAIR-HISTORY-PUBLICATION-UNKNOWN-OBSERVATION",
+    {
+      id: "CASE-REPAIR-HISTORY-PUBLICATION-UNKNOWN-OBSERVATION",
+      attemptClassificationId: "ATTEMPT-REPAIR-HISTORY-UNKNOWN",
+      fromState: "STATE-REPAIR-HISTORY-UNKNOWN",
+      outcome: "rejected",
+      expectedEndState: "STATE-REPAIR-HISTORY-UNKNOWN",
+      effectObservations: { provider: 0, host: 0, cleanup: 0 },
+      expectedStatus: "recovery_required",
+      resourcePostconditions: { "RES-REPAIR-HISTORY-PREPARE": "unacquired" },
+    },
   );
 });
 
-for (const prepare of [false, true]) {
-  test(`耐久公開: different-byte targetはprepare=${prepare}でも既存実体を変更しない`, (t) => {
-    const value = fixture(t);
-    fs.writeFileSync(value.target, OTHER);
-    if (prepare) fs.writeFileSync(value.preparation, BYTES);
-    const adapter = createRepairHistoryPublicationTestingAdapter(
-      value.directory,
-    );
-    assert.equal(adapter.publish(TARGET, PREPARE, BYTES), false);
-    assert.equal(fs.readFileSync(value.target).equals(OTHER), true);
-    assert.equal(fs.existsSync(value.preparation), prepare);
-    if (prepare)
-      assert.equal(fs.readFileSync(value.preparation).equals(BYTES), true);
-    observePublicationCase(
-      prepare
-        ? "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-TARGET-WITH-PREPARE"
-        : "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-TARGET-NO-PREPARE",
-      false,
-      prepare ? "preserved" : "absent",
-    );
+function verifyFaultRecovery(
+  t: test.TestContext,
+  point: RepairHistoryPublicationFaultPoint,
+) {
+  const value = fixture(t);
+  let injected = false;
+  const first = createRepairHistoryPublicationTestingAdapter(value.directory, {
+    injectFault: (candidate: RepairHistoryPublicationFaultPoint) => {
+      if (candidate === point && !injected) {
+        injected = true;
+        throw new Error(`injected_${point}`);
+      }
+    },
+  });
+  assert.equal(first.publish(TARGET, PREPARE, BYTES), false);
+  assert.equal(injected, true);
+  assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
+  assert.equal(
+    fs.existsSync(value.preparation),
+    point !== "after_unlink_before_directory_commit",
+  );
+  const firstCaseId =
+    point === "after_link_before_directory_commit"
+      ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-LINK-FIRST"
+      : point === "after_first_directory_commit_before_unlink"
+        ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-FIRST-COMMIT-FIRST"
+        : point === "at_unlink"
+          ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AT-UNLINK-FIRST"
+          : "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-UNLINK-FIRST";
+  const firstEndState =
+    point === "after_unlink_before_directory_commit"
+      ? "STATE-REPAIR-HISTORY-TARGET-ONLY"
+      : "STATE-REPAIR-HISTORY-TARGET-WITH-SAME-FILE-PREPARE";
+  observePublicationCase(firstCaseId, {
+    id: firstCaseId,
+    transitionId:
+      point === "after_unlink_before_directory_commit"
+        ? "TRANS-REPAIR-HISTORY-ABSENT-TO-TARGET-ONLY"
+        : "TRANS-REPAIR-HISTORY-ABSENT-TO-SAME-FILE-PREPARE",
+    fromState: "STATE-REPAIR-HISTORY-ABSENT",
+    outcome: "taken",
+    expectedEndState: firstEndState,
+    effectObservations: { provider: 0, host: 0, cleanup: 0 },
+    expectedStatus: "recovery_required",
+    resourcePostconditions: {
+      "RES-REPAIR-HISTORY-PREPARE":
+        point === "after_unlink_before_directory_commit" ? "absent" : "present",
+    },
+  });
+  let commits = 0;
+  const retry = createRepairHistoryPublicationTestingAdapter(value.directory, {
+    observeDirectoryCommit: () => commits++,
+  });
+  assert.equal(retry.publish(TARGET, PREPARE, BYTES), true);
+  assert.equal(commits >= 1, true);
+  assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
+  assert.equal(fs.existsSync(value.preparation), false);
+  const retryCaseId =
+    point === "after_link_before_directory_commit"
+      ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-LINK-RETRY"
+      : point === "after_first_directory_commit_before_unlink"
+        ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-FIRST-COMMIT-RETRY"
+        : point === "at_unlink"
+          ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AT-UNLINK-RETRY"
+          : "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-UNLINK-RETRY";
+  observePublicationCase(retryCaseId, {
+    id: retryCaseId,
+    transitionId:
+      point === "after_unlink_before_directory_commit"
+        ? "TRANS-REPAIR-HISTORY-TARGET-ONLY-TO-PUBLISHED"
+        : "TRANS-REPAIR-HISTORY-SAME-FILE-PREPARE-TO-PUBLISHED",
+    fromState: firstEndState,
+    outcome: "taken",
+    expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
+    effectObservations: { provider: 0, host: 0, cleanup: 1 },
+    expectedStatus: "completed",
+    resourcePostconditions: { "RES-REPAIR-HISTORY-PREPARE": "absent" },
   });
 }
 
-for (const point of [
-  "after_link_before_directory_commit",
-  "after_first_directory_commit_before_unlink",
-  "after_unlink_before_directory_commit",
-] as const) {
-  test(`耐久公開: ${point}の中断を成功にせずfresh再入場で収束する`, (t) => {
-    const value = fixture(t);
-    let injected = false;
-    const first = createRepairHistoryPublicationTestingAdapter(
-      value.directory,
-      {
-        injectFault: (candidate: RepairHistoryPublicationFaultPoint) => {
-          if (candidate === point && !injected) {
-            injected = true;
-            throw new Error(`injected_${point}`);
-          }
-        },
-      },
-    );
-    assert.equal(first.publish(TARGET, PREPARE, BYTES), false);
-    assert.equal(injected, true);
-    assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
-    assert.equal(
-      fs.existsSync(value.preparation),
-      point !== "after_unlink_before_directory_commit",
-    );
-    let commits = 0;
-    const retry = createRepairHistoryPublicationTestingAdapter(
-      value.directory,
-      {
-        observeDirectoryCommit: () => commits++,
-      },
-    );
-    assert.equal(retry.publish(TARGET, PREPARE, BYTES), true);
-    assert.equal(commits >= 1, true);
-    assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
-    assert.equal(fs.existsSync(value.preparation), false);
-    observePublicationCase(
-      point === "after_link_before_directory_commit"
-        ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-LINK"
-        : point === "after_first_directory_commit_before_unlink"
-          ? "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-FIRST-COMMIT"
-          : "CASE-REPAIR-HISTORY-PUBLICATION-FAULT-AFTER-UNLINK",
-      true,
-    );
-  });
-}
+test("耐久公開: after_link_before_directory_commitの中断を成功にせずfresh再入場で収束する", (t) => {
+  verifyFaultRecovery(t, "after_link_before_directory_commit");
+});
+
+test("耐久公開: after_first_directory_commit_before_unlinkの中断を成功にせずfresh再入場で収束する", (t) => {
+  verifyFaultRecovery(t, "after_first_directory_commit_before_unlink");
+});
+
+test("耐久公開: at_unlinkの中断を成功にせずfresh再入場で収束する", (t) => {
+  verifyFaultRecovery(t, "at_unlink");
+});
+
+test("耐久公開: after_unlink_before_directory_commitの中断を成功にせずfresh再入場で収束する", (t) => {
+  verifyFaultRecovery(t, "after_unlink_before_directory_commit");
+});
 
 async function waitUntil(predicate: () => boolean, timeoutMs = 5_000) {
   const end = Date.now() + timeoutMs;
@@ -328,10 +467,16 @@ test("耐久公開: 同byteの実別Process競合は有限再入場後に同じt
   assert.equal(retry.publish(TARGET, PREPARE, BYTES), true);
   assert.equal(fs.readFileSync(value.target).equals(BYTES), true);
   assert.equal(fs.existsSync(value.preparation), false);
-  observePublicationCase(
-    "CASE-REPAIR-HISTORY-PUBLICATION-SAME-BYTE-RACE",
-    true,
-  );
+  observePublicationCase("CASE-REPAIR-HISTORY-PUBLICATION-SAME-BYTE-RACE", {
+    id: "CASE-REPAIR-HISTORY-PUBLICATION-SAME-BYTE-RACE",
+    transitionId: "TRANS-REPAIR-HISTORY-CONCURRENT-SAME-BYTE-TO-PUBLISHED",
+    fromState: "STATE-REPAIR-HISTORY-ABSENT",
+    outcome: "taken",
+    expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
+    effectObservations: { provider: 0, host: 0, cleanup: 1 },
+    expectedStatus: "completed",
+    resourcePostconditions: { "RES-REPAIR-HISTORY-PREPARE": "absent" },
+  });
 });
 
 test("耐久公開: 異byteの実別Process競合は単一winnerを上書きしない", async (t) => {
@@ -362,8 +507,36 @@ test("耐久公開: 異byteの実別Process競合は単一winnerを上書きし�
       "foreign preparation residue must not be deleted or rewritten",
     );
   observePublicationCase(
-    "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE",
-    false,
+    "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE-WINNER",
+    {
+      id: "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE-WINNER",
+      transitionId:
+        "TRANS-REPAIR-HISTORY-CONCURRENT-DIFFERENT-BYTE-WINNER-TO-PUBLISHED",
+      fromState: "STATE-REPAIR-HISTORY-ABSENT",
+      outcome: "taken",
+      expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
+      effectObservations: { provider: 0, host: 0, cleanup: 1 },
+      expectedStatus: "completed",
+      resourcePostconditions: {
+        "RES-REPAIR-HISTORY-PREPARE": "absent_or_preserved",
+      },
+    },
+  );
+  observePublicationCase(
+    "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE-LOSER",
+    {
+      id: "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE-LOSER",
+      attemptClassificationId:
+        "ATTEMPT-REPAIR-HISTORY-CONCURRENT-DIFFERENT-BYTE-LOSER",
+      fromState: "STATE-REPAIR-HISTORY-CONFLICT-TARGET",
+      outcome: "rejected",
+      expectedEndState: "STATE-REPAIR-HISTORY-CONFLICT-TARGET",
+      effectObservations: { provider: 0, host: 0, cleanup: 0 },
+      expectedStatus: "recovery_required",
+      resourcePostconditions: {
+        "RES-REPAIR-HISTORY-PREPARE": "absent_or_preserved",
+      },
+    },
   );
 });
 
