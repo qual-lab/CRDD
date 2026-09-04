@@ -126,6 +126,51 @@ function sameFile(left: string, right: string) {
   return a.dev === b.dev && a.ino === b.ino && a.birthtimeNs === b.birthtimeNs;
 }
 
+function observeFinalGlobalPublication(
+  value: Readonly<{ target: string; preparation: string }>,
+  expectedTarget: Buffer,
+) {
+  let target: Buffer | null = null;
+  let preparation: boolean | null = null;
+  try {
+    target = fs.readFileSync(value.target);
+  } catch {
+    target = null;
+  }
+  try {
+    fs.lstatSync(value.preparation);
+    preparation = true;
+  } catch (error) {
+    preparation =
+      error &&
+      typeof error === "object" &&
+      Reflect.get(error, "code") === "ENOENT"
+        ? false
+        : null;
+  }
+  const state =
+    target?.equals(expectedTarget) === true && preparation === false
+      ? ("STATE-REPAIR-HISTORY-PUBLISHED" as const)
+      : null;
+  const preparationPostcondition =
+    preparation === false
+      ? ("absent" as const)
+      : preparation === true
+        ? ("present" as const)
+        : null;
+  assert.equal(
+    state,
+    "STATE-REPAIR-HISTORY-PUBLISHED",
+    "the final global state must be observed from the exact target and absent preparation",
+  );
+  assert.equal(
+    preparationPostcondition,
+    "absent",
+    "the final preparation absence must come from the filesystem observation",
+  );
+  return Object.freeze({ state, preparationPostcondition });
+}
+
 test("回復可能な公開: absent target + absent prepareはexact targetへ公開してprepareを残さない", (t) => {
   const value = fixture(t);
   const adapter = createRepairHistoryPublicationTestingAdapter(value.directory);
@@ -564,18 +609,11 @@ test("回復可能な公開: 異byteの実別Process競合は局所結果と最�
   const winner = fs.readFileSync(value.target);
   assert.equal(winner.equals(BYTES) || winner.equals(OTHER), true);
   const loser = winner.equals(BYTES) ? OTHER : BYTES;
-  const preparationBeforeRetry = fs.existsSync(value.preparation)
-    ? fs.readFileSync(value.preparation)
-    : null;
+  const finalGlobalObservation = observeFinalGlobalPublication(value, winner);
   const retry = createRepairHistoryPublicationTestingAdapter(value.directory);
   assert.equal(retry.publish(TARGET, PREPARE, loser), false);
   assert.equal(fs.readFileSync(value.target).equals(winner), true);
-  if (preparationBeforeRetry)
-    assert.equal(
-      fs.readFileSync(value.preparation).equals(preparationBeforeRetry),
-      true,
-      "foreign preparation residue must not be deleted or rewritten",
-    );
+  assert.equal(fs.existsSync(value.preparation), false);
   observePublicationCase(
     "CASE-REPAIR-HISTORY-PUBLICATION-DIFFERENT-BYTE-RACE-WINNER",
     {
@@ -584,11 +622,12 @@ test("回復可能な公開: 異byteの実別Process競合は局所結果と最�
         "TRANS-REPAIR-HISTORY-CONCURRENT-DIFFERENT-BYTE-WINNER-TO-PUBLISHED",
       fromState: "STATE-REPAIR-HISTORY-ABSENT",
       outcome: "taken",
-      expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
+      expectedEndState: finalGlobalObservation.state,
       effectObservations: { provider: 0, host: 0, cleanup: 1 },
       expectedStatus: "completed",
       resourcePostconditions: {
-        "RES-REPAIR-HISTORY-PREPARE": "absent",
+        "RES-REPAIR-HISTORY-PREPARE":
+          finalGlobalObservation.preparationPostcondition,
       },
     },
   );
@@ -599,14 +638,25 @@ test("回復可能な公開: 異byteの実別Process競合は局所結果と最�
       attemptClassificationId:
         "ATTEMPT-REPAIR-HISTORY-CONCURRENT-DIFFERENT-BYTE-LOSER",
       localAttemptObservation: "different_byte_prepublication_rejection",
-      finalGlobalObservation: { state: "STATE-REPAIR-HISTORY-PUBLISHED" },
+      finalGlobalObservation: { state: finalGlobalObservation.state },
       outcome: "rejected",
       effectObservations: { provider: 0, host: 0, cleanup: 0 },
       expectedStatus: "recovery_required",
       resourcePostconditions: {
-        "RES-REPAIR-HISTORY-PREPARE": "absent",
+        "RES-REPAIR-HISTORY-PREPARE":
+          finalGlobalObservation.preparationPostcondition,
       },
     },
+  );
+});
+
+test("回復可能な公開: 異byte競合後の準備file残存を最終共有状態の成立根拠にしない", (t) => {
+  const value = fixture(t);
+  fs.writeFileSync(value.target, BYTES);
+  fs.writeFileSync(value.preparation, OTHER);
+  assert.throws(
+    () => observeFinalGlobalPublication(value, BYTES),
+    /final global state must be observed/,
   );
 });
 

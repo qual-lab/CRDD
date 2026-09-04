@@ -16,6 +16,8 @@
 
 固定候補`3c26ccc`の独立再監査はCritical 0件、Major 2件、Minor 0件であり、まだ署名適格ではなかった。検出事項は、修復履歴のCanonical検証がStoreとRuntimeへ分散していたこと、および公開完了の判定が成功経路ごとに異なり、Windowsで確認できる保証を電源断耐久性まで含むように過大表示していたことだった。局所修正を開始せず、Canonical分類の単一所有、own data descriptorによる閉じた入力観測、全成功経路の共通最終判定、Platform別の確定保証、競合した各試行の局所結果と最終共有状態の分離、および合意事項から試験・利用側・Evidenceへの双方向対応までを監査担当と再具体化した。更新候補では、Runtime側の重複検証を削除し、Storeが不正、履歴なし、終了済み、現在Session、過去Sessionを一度だけ分類する。公開成功はPlatform確認、freshな対象byteおよび準備fileの明示的不在が同時に成立した場合だけ返す。POSIXではDirectoryを`fsync`し、Windowsでは同じ呼出し中のDirectory Identityと最終形状を確認して次回安全に再分類できることだけを保証する。異byte競合のloserは局所Effect 0として記録し、winnerが作った最終共有状態をloser自身の遷移として扱わない。
 
+固定候補`bf52c66`の独立再監査はCritical 0件、Major 1件、Minor 1件であり、まだ署名適格ではなかった。Canonical分類の単一所有、全成功分岐の共通最終判定、Platform別保証および競合の状態表現は成立したが、異byte競合の別Process試験が、全Process終了後の準備file不存在を実Filesystemから取得せず手書きの期待値としてTraceへ登録していた。これは新しい保証ではなく、合意済み条件から検証根拠への適用漏れである。更新候補では、全Process終了直後かつloser再試行前に、対象のexact winner byteと準備fileの明示的不在を実Filesystemから別々に観測し、同じ観測値をassert後のTraceへ結合する。準備fileを意図的に残した反証fixtureは同じ最終共有状態の判定を失敗させる。現在状態を示す旧称も、回復可能な公開、Filesystem状態およびProcess crash／再ログオン後の安全な再分類へ揃えた。この不足から、外部状態、共有状態または資源不存在の完成根拠を手書きの期待値で代用せず、実観測値と反証結果へ結合する規範を品質保証とCoding Standardsへ還元した。
+
 この結果は更新後の署名前技術候補に対する自己確認である。更新固定版の独立再監査、Runtime実行Identityの再署名、実際のDocker Desktop修復、Docker Task Recoveryおよび実Provider最終E2Eは未完了であり、Major解消、v0.19全体の`Pass`またはRelease成立を意味しない。
 
 ## 2. 対象と変更禁止範囲
@@ -28,7 +30,7 @@
 - Docker Task Recoveryの同一Recovery IDによるSession引継ぎ
 - Host世代、論理Home、Runtime State Lockの観測前解放と同一Identityでの再取得
 - 引継ぎ記録の改変、番号飛び、循環および上限の拒否
-- 修復履歴の準備、公開、準備残存および次回再入場の耐久状態
+- 修復履歴の準備、公開、準備残存および次回再入場のFilesystem状態
 - 同一Release列だけを許す起点、採用、各引継ぎ、終了、現在境界の単調性
 
 元記録の書換え・削除、旧Session Authorityの再利用、自動Docker修復、再起動Fenceの緩和、Provider EffectおよびRecovery IDの再発行は行わない。
@@ -53,15 +55,15 @@
 
 | 確認 | 結果 |
 |---|---|
-| Coordinator制限Process全回帰 | 1,677件中1,677件成功、失敗・取消・skip 0、306.545秒 |
-| Canonical履歴分類、回復可能な公開、Runtime修復、設計追跡の集中確認 | 137件中137件成功、失敗・取消・skip 0 |
-| Windows実Process Gate | 本番同等のOS Process権限で7件中7件成功、失敗・取消・skip 0、3.896秒 |
+| Coordinator制限Process全回帰 | 1,678件中1,678件成功、失敗・取消・skip 0、324.517秒 |
+| Canonical履歴分類、回復可能な公開、Runtime修復、設計追跡の集中確認 | 138件中138件成功、失敗・取消・skip 0 |
+| Windows実Process Gate | 本番同等のOS Process権限で7件中7件成功、失敗・取消・skip 0、4.317秒 |
 | TypeScript型検査 | 2構成とも成功 |
 | Runtime設計追跡 | 資源10、状態32、遷移31、非遷移の試行分類5、不変条件12、検証対応25で成功 |
 | Project Runtime設計追跡 | Interface 9、耐久記録10、資源14、Lock 4、Authority 7、Effect 9、状態機械7、遷移54、検証対応23で成功 |
 | Lint | 318ファイル、警告・エラー0 |
 | 整形確認 | 317ファイルで差分0 |
-| CRDD全体Checker | Markdown 413件、リンク2,903件、Anchor 981件、エラー・警告0 |
+| CRDD全体Checker | Markdown 413件、リンク2,905件、Anchor 981件、エラー・警告0 |
 | 差分形式 | `git diff --check`成功 |
 
 ## 5. 反証できた事項
@@ -84,11 +86,11 @@
 - 実Storeへ正しい引継ぎが保存された後に返却投影だけが壊れても、保存済み記録を削除せず、次回再入場が追加書込みなしで同じ状態へ収束する。
 - Helper取得不能またはfreshな境界変化では履歴fileのbyteを変更せず、Host操作を発行しない。
 - 同byteの別Process競合は全参加Processが公開Barrierへ到達してから解放して同じ対象へ収束し、異byteの競合は単一の勝者を上書きせず、他者の準備残存を削除しない。
-- 耐久公開の正常、準正常、異常13シナリオは、設計正本、機械可読Trace、実行された静的名称の試験caseの三者が全数一致しなければ確認済みにしない。
-- 別主体または競合による拒否は耐久状態の遷移へ混入させず、試行分類としてEffect 0と変更前後の同一状態を検証する。
-- 公開先と準備ファイルの耐久形状が同じでも、現在呼出しでDirectory確定と準備ファイル除去まで観測できたかを別に保持し、前回の残存形状から現在呼出しの成功を推定しない。
+- 回復可能な公開の正常、準正常、異常13シナリオは、設計正本、機械可読Trace、実行された静的名称の試験caseの三者が全数一致しなければ確認済みにしない。
+- 別主体または競合による拒否はFilesystem状態の遷移へ混入させず、試行分類としてEffect 0と変更前後の同一状態を検証する。
+- 公開先と準備ファイルのFilesystem形状が同じでも、現在呼出しでDirectory確定と準備ファイル除去まで観測できたかを別に保持し、前回の残存形状から現在呼出しの成功を推定しない。
 - 修復履歴は、accessor、循環、非plain objectまたは観測不能なProxyを実行せず拒否し、起点Identity、各引継ぎ、終了済み履歴および終了時の期待Identityを一つのCanonical検証へ閉じる。
-- 試験用耐久公開AdapterはOS一時領域の実Path配下かつ非reparseのDirectoryだけを受理し、本番Coordinator entrypointの依存閉包へ混入しない。
+- 試験用の回復可能な公開AdapterはOS一時領域の実Path配下かつ非reparseのDirectoryだけを受理し、本番Coordinator entrypointの依存閉包へ混入しない。
 - 終了済み履歴は認証済みの読取り専用表示に限り、引継ぎ、終了追記、Host観測または新しいEffectへ進めない。
 - Canonical履歴分類はStoreだけが所有し、Runtime利用側へ同じfield検証を再実装しない。非plain object、余分な文字列／symbol key、疎な配列、入れ子Proxyおよびaccessorを実行せず拒否する。
 - 透明なProxyに`get` trapがあっても、own data descriptorから固定した値だけで分類し、property accessによる副作用を起こさない。

@@ -13,7 +13,7 @@
     {"id":"RES-OPERATION-WORKSPACE","owner":"repository_and_task_runtime","kind":"filesystem_directory","lifecycle":"materialization_to_host_cleanup"},
     {"id":"RES-CANDIDATE-ENTRY","owner":"candidate_store","kind":"durable_filesystem_entry","lifecycle":"staged_to_expiry_export_or_discard"},
     {"id":"RES-TASK-CONTROL","owner":"coordinator_task_runtime","kind":"process_local_capability_state","lifecycle":"task_start_to_final_settlement"},
-    {"id":"RES-REPAIR-HISTORY-PREPARE","owner":"docker_desktop_repair_history_publisher","kind":"durable_same_filesystem_prepare_entry","lifecycle":"prepare_creation_to_exclusive_publication_settlement_or_preserved_failure"}
+    {"id":"RES-REPAIR-HISTORY-PREPARE","owner":"docker_desktop_repair_history_publisher","kind":"recoverable_same_filesystem_prepare_entry","lifecycle":"prepare_creation_to_exclusive_publication_observation_or_preserved_failure"}
   ],
   "states": [
     {"id":"STATE-ADMISSION","scope":"task","invocationTerminal":false,"operationTerminal":false,"description":"No task effect has started"},
@@ -39,7 +39,7 @@
     {"id":"STATE-REPAIR-HISTORY-ABSENT","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"Neither target nor preparation is observed"},
     {"id":"STATE-REPAIR-HISTORY-PREPARE-ONLY","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"Only the exact preparation is observed"},
     {"id":"STATE-REPAIR-HISTORY-TARGET-WITH-SAME-FILE-PREPARE","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"The exact target and preparation identify the same regular file"},
-    {"id":"STATE-REPAIR-HISTORY-TARGET-ONLY","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"The exact target is observed without preparation; this durable shape alone does not prove settlement by the current invocation"},
+    {"id":"STATE-REPAIR-HISTORY-TARGET-ONLY","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"The exact target is observed without preparation; this filesystem shape alone does not prove settlement by the current invocation"},
     {"id":"STATE-REPAIR-HISTORY-PUBLISHED","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"The current invocation confirmed exact target bytes, explicit preparation absence and platform-specific publication settlement; on Windows this does not claim power-loss durability of directory metadata"},
     {"id":"STATE-REPAIR-HISTORY-FOREIGN-PREPARE","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"Target and same-byte preparation are different regular files"},
     {"id":"STATE-REPAIR-HISTORY-CONFLICT-TARGET","scope":"recovery","invocationTerminal":false,"operationTerminal":false,"description":"A target with different bytes exists without preparation"},
