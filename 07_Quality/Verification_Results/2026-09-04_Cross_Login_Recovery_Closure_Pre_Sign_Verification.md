@@ -10,6 +10,8 @@
 
 その後の実Store／実Filesystem縦断では、履歴の存在を理由にRuntimeが永続化処理を省略し、試験用Stubがその差を隠していたことを検出した。これは新しい保証範囲ではなく、合意済みの引継ぎ契約が本番利用側へ伝播していない同じ構造是正クラスタである。履歴の有無だけで分岐せず、不正、履歴なし、終了済み、現在Session、過去Sessionを順序付きで分類し、過去Sessionだけは実Storeへexact 1件の引継ぎを追加するよう是正した。元chainの全fieldを不変に保ち、初回採用、Session引継ぎ、終了で許された差分だけを保存結果から再検証する。保存後の検証失敗または後段失敗でも、耐久記録をrollbackまたは推測削除せず、同じIdentityで次回inventoryへ返す。
 
+固定候補`e23ba72`の独立再監査はCritical 0件、Major 2件、Minor 1件であり、まだ署名適格ではなかった。検出事項は、Runtime側の履歴相関検証が全fieldを閉じていないこと、耐久公開の競合・故障状態と実Store異常縦断が設計追跡へ全数対応していないこと、および試験用Adapterの書込み境界が絶対Path確認に留まることだった。これらを同じ公開契約伝播クラスタとして再具体化し、履歴のCore・Session・終了field全体、実Store保存前失敗と保存後投影失敗、11件の耐久公開状態、実別Process競合、一時領域の実Path・非reparse境界、本番entrypointから試験Adapterへ到達しない依存閉包へ一括反映した。
+
 この結果は更新後の署名前技術候補に対する自己確認である。更新固定版の独立再監査、Runtime実行Identityの再署名、実際のDocker Desktop修復、Docker Task Recoveryおよび実Provider最終E2Eは未完了であり、Major解消、v0.19全体の`Pass`またはRelease成立を意味しない。
 
 ## 2. 対象と変更禁止範囲
@@ -47,11 +49,11 @@
 
 | 確認 | 結果 |
 |---|---|
-| Coordinator制限Process全回帰 | 1,670件中1,670件成功、失敗・取消・skip 0、291.828秒 |
-| 修復履歴の耐久公開、実Store縦断、Runtime修復、設計追跡の集中確認 | 130件中130件成功、失敗・取消・skip 0、7.144秒 |
-| Windows実Process Gate | 7件中7件成功、失敗・取消・skip 0、3.649秒 |
+| Coordinator制限Process全回帰 | 1,670件中1,670件成功、失敗・取消・skip 0、329.339秒 |
+| 修復履歴の耐久公開、実Store縦断、Runtime修復、設計追跡の集中確認 | 130件中130件成功、失敗・取消・skip 0、8.333秒 |
+| Windows実Process Gate | 本番同等のOS Process権限で7件中7件成功、失敗・取消・skip 0、3.925秒。管理された制限環境内では`taskkill`観測が期限を超えたため、同じ試験を実Windows境界で再実行した |
 | TypeScript型検査 | 2構成とも成功 |
-| Runtime設計追跡 | 資源10、状態25、遷移24、不変条件12、検証対応15で成功 |
+| Runtime設計追跡 | 資源10、状態25、遷移34、不変条件12、検証対応15で成功 |
 | Project Runtime設計追跡 | Interface 9、耐久記録10、資源14、Lock 4、Authority 7、Effect 9、状態機械7、遷移54、検証対応23で成功 |
 | Lint | 318ファイル、警告・エラー0 |
 | 整形確認 | 317ファイルで差分0 |
@@ -75,6 +77,11 @@
 - 履歴が存在することを、現在Sessionへの引継ぎが保存済みであることと同一視しない。
 - 現在Sessionは実行時に観測したexactな`localUserBindingHash`で判定し、呼出側が申告したIdentityを採用しない。
 - 実Storeが返した元chainのfield差、許可されていない引継ぎ差分または終了差分を成功へ畳まない。
+- 実Storeへ正しい引継ぎが保存された後に返却投影だけが壊れても、保存済み記録を削除せず、次回再入場が追加書込みなしで同じ状態へ収束する。
+- Helper取得不能またはfreshな境界変化では履歴fileのbyteを変更せず、Host操作を発行しない。
+- 同byteの別Process競合は全参加Processが公開Barrierへ到達してから解放して同じ対象へ収束し、異byteの競合は単一の勝者を上書きせず、他者の準備残存を削除しない。
+- 耐久公開の正常、準正常、異常11状態は、設計正本、機械可読Trace、実行された試験caseの三者が全数一致しなければ確認済みにしない。
+- 試験用耐久公開AdapterはOS一時領域の実Path配下かつ非reparseのDirectoryだけを受理し、本番Coordinator entrypointの依存閉包へ混入しない。
 - 終了済み履歴は認証済みの読取り専用表示に限り、引継ぎ、終了追記、Host観測または新しいEffectへ進めない。
 
 ## 6. 残るGate

@@ -1786,6 +1786,99 @@ type HistoricalAdoptionRoute =
   | "current_session"
   | "session_handoff";
 
+const SHA256_HEX = /^[a-f0-9]{64}$/u;
+
+function validRepairDirectoryIdentity(
+  value: DockerDesktopRepairDirectoryIdentity | null,
+) {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  )
+    return false;
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (
+    Object.keys(descriptors).sort().join("\0") !==
+    ["birthtimeNs", "dev", "ino"].join("\0")
+  )
+    return false;
+  const validComponent = (key: "dev" | "ino" | "birthtimeNs") => {
+    const descriptor = descriptors[key];
+    return (
+      descriptor !== undefined &&
+      "value" in descriptor &&
+      typeof descriptor.value === "string" &&
+      /^(?:0|[1-9][0-9]{0,39})$/u.test(descriptor.value) &&
+      descriptor.value !== "0"
+    );
+  };
+  return (
+    validComponent("dev") &&
+    validComponent("ino") &&
+    validComponent("birthtimeNs")
+  );
+}
+
+function validRepairHistorySessionFields(
+  history: NonNullable<DockerDesktopRepairOperation["history"]>,
+  boundary: PreparedBoundary,
+) {
+  if (
+    !SHA256_HEX.test(history.adoptionSha256) ||
+    !SHA256_HEX.test(history.handoffTipSha256 ?? "") ||
+    !Number.isSafeInteger(history.handoffCount) ||
+    (history.handoffCount ?? -1) < 0 ||
+    (history.handoffCount ?? 9) > 8 ||
+    !SHA256_HEX.test(history.originLocalUserBindingHash ?? "") ||
+    !SHA256_HEX.test(history.currentLocalUserBindingHash ?? "") ||
+    typeof history.currentSessionBound !== "boolean" ||
+    history.currentSessionBound !==
+      (history.currentLocalUserBindingHash === boundary.localUserBindingHash)
+  )
+    return false;
+  return history.handoffCount === 0
+    ? history.handoffTipSha256 === history.adoptionSha256
+    : history.handoffTipSha256 !== history.adoptionSha256;
+}
+
+function validOpenRepairHistory(
+  history: NonNullable<DockerDesktopRepairOperation["history"]>,
+  boundary: PreparedBoundary,
+) {
+  return (
+    history.closed === false &&
+    validRepairHistorySessionFields(history, boundary) &&
+    history.liveRunIdentity === null &&
+    history.staleState === "unknown"
+  );
+}
+
+function validClosedRepairHistory(
+  history: NonNullable<DockerDesktopRepairOperation["history"]>,
+  boundary: PreparedBoundary,
+) {
+  if (
+    history.closed !== true ||
+    !SHA256_HEX.test(history.adoptionSha256) ||
+    !validRepairDirectoryIdentity(history.liveRunIdentity) ||
+    (history.staleState !== "absent" && history.staleState !== "retained")
+  )
+    return false;
+  const sessionFields = [
+    history.handoffTipSha256,
+    history.handoffCount,
+    history.originLocalUserBindingHash,
+    history.currentLocalUserBindingHash,
+    history.currentSessionBound,
+  ];
+  return sessionFields.every((value) => value === undefined)
+    ? true
+    : sessionFields.every((value) => value !== undefined) &&
+        validRepairHistorySessionFields(history, boundary);
+}
+
 function sameRepairOperationCore(
   before: DockerDesktopRepairOperation,
   after: DockerDesktopRepairOperation,
@@ -1817,7 +1910,11 @@ export function classifyDockerDesktopRepairHistoricalAdoptionRoute(
   )
     return "invalid";
   if (!operation.history) return "initial_adoption";
-  if (operation.history.closed) return "closed";
+  if (operation.history.closed)
+    return validClosedRepairHistory(operation.history, boundary)
+      ? "closed"
+      : "invalid";
+  if (!validOpenRepairHistory(operation.history, boundary)) return "invalid";
   if (
     operation.history.currentSessionBound === true &&
     operation.history.currentLocalUserBindingHash ===
@@ -1826,7 +1923,6 @@ export function classifyDockerDesktopRepairHistoricalAdoptionRoute(
     return "current_session";
   if (
     operation.history.currentSessionBound === false &&
-    typeof operation.history.currentLocalUserBindingHash === "string" &&
     operation.history.currentLocalUserBindingHash !==
       boundary.localUserBindingHash
   )
@@ -1852,35 +1948,34 @@ export function validateDockerDesktopRepairHistoricalAdoptionResult(
   if (route === "initial_adoption")
     return (
       after.history.handoffCount === 0 &&
-      typeof after.history.originLocalUserBindingHash === "string" &&
-      after.history.originLocalUserBindingHash.length === 64 &&
-      (before.originLocalUserBindingHash === undefined ||
-        after.history.originLocalUserBindingHash ===
-          before.originLocalUserBindingHash) &&
-      typeof after.history.adoptionSha256 === "string" &&
-      after.history.adoptionSha256.length === 64
+      after.history.handoffTipSha256 === after.history.adoptionSha256 &&
+      after.history.originLocalUserBindingHash ===
+        (before.originLocalUserBindingHash ?? boundary.localUserBindingHash) &&
+      validOpenRepairHistory(after.history, boundary)
     );
   const prior = before.history;
+  const priorHandoffCount = prior?.handoffCount;
   return (
     prior !== undefined &&
-    prior.closed === false &&
+    validOpenRepairHistory(prior, boundary) &&
+    typeof priorHandoffCount === "number" &&
     prior.currentSessionBound === false &&
     prior.currentLocalUserBindingHash !== boundary.localUserBindingHash &&
     after.history.adoptionSha256 === prior.adoptionSha256 &&
     after.history.originLocalUserBindingHash ===
       prior.originLocalUserBindingHash &&
-    after.history.handoffCount === (prior.handoffCount ?? -1) + 1 &&
-    typeof after.history.handoffTipSha256 === "string" &&
-    after.history.handoffTipSha256.length === 64 &&
+    after.history.handoffCount === priorHandoffCount + 1 &&
     after.history.handoffTipSha256 !== prior.handoffTipSha256 &&
     isDeepStrictEqual(after.history.liveRunIdentity, prior.liveRunIdentity) &&
-    after.history.staleState === prior.staleState
+    after.history.staleState === prior.staleState &&
+    validOpenRepairHistory(after.history, boundary)
   );
 }
 
 export function validateDockerDesktopRepairHistoricalClosureResult(
   before: DockerDesktopRepairOperation,
   after: DockerDesktopRepairOperation,
+  boundary: PreparedBoundary,
   expected: Readonly<{
     liveRunIdentity: DockerDesktopRepairDirectoryIdentity;
     staleState: "absent" | "retained";
@@ -1891,7 +1986,8 @@ export function validateDockerDesktopRepairHistoricalClosureResult(
   return (
     prior !== undefined &&
     closed !== undefined &&
-    prior.closed === false &&
+    validOpenRepairHistory(prior, boundary) &&
+    prior.currentSessionBound === true &&
     closed.closed === true &&
     sameRepairOperationCore(before, after) &&
     closed.adoptionSha256 === prior.adoptionSha256 &&
@@ -1900,6 +1996,7 @@ export function validateDockerDesktopRepairHistoricalClosureResult(
     closed.originLocalUserBindingHash === prior.originLocalUserBindingHash &&
     closed.currentLocalUserBindingHash === prior.currentLocalUserBindingHash &&
     closed.currentSessionBound === prior.currentSessionBound &&
+    validRepairHistorySessionFields(closed, boundary) &&
     isDeepStrictEqual(closed.liveRunIdentity, expected.liveRunIdentity) &&
     closed.staleState === expected.staleState
   );
@@ -4115,6 +4212,7 @@ export async function adoptWindowsDockerDesktopRepairUsingDependencies(
                 !validateDockerDesktopRepairHistoricalClosureResult(
                   adopted,
                   closed,
+                  boundary,
                   { liveRunIdentity, staleState },
                 )
               ) {

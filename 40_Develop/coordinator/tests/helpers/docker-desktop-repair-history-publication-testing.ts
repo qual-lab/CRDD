@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   publishRepairHistoryFileUsingOperations,
@@ -76,8 +77,28 @@ export function createRepairHistoryPublicationTestingAdapter(
     observeDirectoryCommit?: () => void;
   }> = {},
 ) {
-  const root = path.resolve(directory);
-  if (!path.isAbsolute(root)) throw new Error("testing_root_invalid");
+  const temporaryRoot = fs.realpathSync.native(os.tmpdir());
+  const requestedRoot = path.resolve(directory);
+  const root = fs.realpathSync.native(requestedRoot);
+  const comparablePath = (value: string) =>
+    process.platform === "win32" ? value.toLowerCase() : value;
+  if (comparablePath(requestedRoot) !== comparablePath(root))
+    throw new Error("testing_root_invalid");
+  const relativeRoot = path.relative(temporaryRoot, root);
+  if (
+    relativeRoot.length === 0 ||
+    relativeRoot.startsWith(`..${path.sep}`) ||
+    relativeRoot === ".." ||
+    path.isAbsolute(relativeRoot)
+  )
+    throw new Error("testing_root_invalid");
+  let cursor = temporaryRoot;
+  for (const segment of relativeRoot.split(path.sep)) {
+    cursor = path.join(cursor, segment);
+    const metadata = fs.lstatSync(cursor);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink())
+      throw new Error("testing_root_invalid");
+  }
   const operations: RepairHistoryPublicationOperations = Object.freeze({
     present: (target) => {
       try {
@@ -117,6 +138,30 @@ export function createRepairHistoryPublicationTestingAdapter(
         path.basename(preparationName) !== preparationName
       )
         throw new Error("testing_name_invalid");
+      for (const candidate of [
+        path.join(root, targetName),
+        path.join(root, preparationName),
+      ]) {
+        const relative = path.relative(root, candidate);
+        if (
+          relative.length === 0 ||
+          relative.startsWith(`..${path.sep}`) ||
+          relative === ".." ||
+          path.isAbsolute(relative)
+        )
+          throw new Error("testing_target_invalid");
+        try {
+          if (fs.lstatSync(candidate).isSymbolicLink())
+            throw new Error("testing_target_invalid");
+        } catch (error) {
+          if (
+            !error ||
+            typeof error !== "object" ||
+            Reflect.get(error, "code") !== "ENOENT"
+          )
+            throw error;
+        }
+      }
       return publishRepairHistoryFileUsingOperations(
         operations,
         root,

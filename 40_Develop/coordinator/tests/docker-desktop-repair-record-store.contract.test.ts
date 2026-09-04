@@ -22,19 +22,6 @@ import {
   persistDockerDesktopRepairStage,
 } from "../src/security/docker-desktop-repair-record-store.ts";
 import { inspectDockerRecoveryRootSnapshotWithLock } from "../src/security/docker-recovery-runtime-internal.ts";
-import {
-  assertRuntimeTraceCase,
-  assertRuntimeTraceExecutionCoverage,
-} from "./runtime-trace-case.ts";
-
-const repairHistoryTraceAssertions: Readonly<
-  Record<string, typeof assertRuntimeTraceCase>
-> = Object.freeze({
-  "CASE-REPAIR-HISTORY-PUBLICATION-NORMAL": assertRuntimeTraceCase,
-  "CASE-REPAIR-HISTORY-PUBLICATION-RESUME": assertRuntimeTraceCase,
-  "CASE-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE": assertRuntimeTraceCase,
-});
-const executedRepairHistoryTraceCases = new Set<string>();
 
 function fixture(t: TestContext) {
   const root = fs.mkdtempSync(
@@ -342,20 +329,6 @@ test("historical adoption keeps original bytes, ID and stage; ordinary current-v
     value.verifyHistory,
   );
   assert.ok(adopted?.history);
-  repairHistoryTraceAssertions["CASE-REPAIR-HISTORY-PUBLICATION-NORMAL"]?.(
-    "CASE-REPAIR-HISTORY-PUBLICATION-NORMAL",
-    {
-      id: "CASE-REPAIR-HISTORY-PUBLICATION-NORMAL",
-      transitionId: "TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED",
-      fromState: "STATE-REPAIR-HISTORY-PREPARED",
-      outcome: "taken",
-      expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
-      effectObservations: { provider: 0, host: 0, cleanup: 1 },
-      expectedStatus: "completed",
-      resourcePostconditions: { "RES-REPAIR-HISTORY-PREPARE": "absent" },
-    },
-  );
-  executedRepairHistoryTraceCases.add("CASE-REPAIR-HISTORY-PUBLICATION-NORMAL");
   assert.equal(adopted.repairId, value.original.repairId);
   assert.equal(adopted.stage, "prepared");
   assert.deepEqual(adopted.ledger, value.original.ledger);
@@ -467,23 +440,6 @@ test("修復履歴adoptionはbyteが同じでも別fileのprepareを削除せず
   assert.equal(
     fs.readFileSync(publication.preparation).equals(beforePrepare),
     true,
-  );
-  repairHistoryTraceAssertions[
-    "CASE-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE"
-  ]?.("CASE-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE", {
-    id: "CASE-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE",
-    transitionId: "TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED",
-    fromState: "STATE-REPAIR-HISTORY-PREPARED",
-    outcome: "rejected",
-    expectedEndState: "STATE-REPAIR-HISTORY-PREPARED",
-    effectObservations: { provider: 0, host: 0, cleanup: 0 },
-    expectedStatus: "recovery_required",
-    resourcePostconditions: {
-      "RES-REPAIR-HISTORY-PREPARE": "preserved",
-    },
-  });
-  executedRepairHistoryTraceCases.add(
-    "CASE-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE",
   );
 });
 
@@ -963,20 +919,6 @@ test("修復履歴の公開済みtargetと同一fileの準備残存は対象限�
   );
   assert.ok(resumed);
   assert.equal(fs.existsSync(publication.preparation), false);
-  repairHistoryTraceAssertions["CASE-REPAIR-HISTORY-PUBLICATION-RESUME"]?.(
-    "CASE-REPAIR-HISTORY-PUBLICATION-RESUME",
-    {
-      id: "CASE-REPAIR-HISTORY-PUBLICATION-RESUME",
-      transitionId: "TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED",
-      fromState: "STATE-REPAIR-HISTORY-PREPARED",
-      outcome: "taken",
-      expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
-      effectObservations: { provider: 0, host: 0, cleanup: 1 },
-      expectedStatus: "completed",
-      resourcePostconditions: { "RES-REPAIR-HISTORY-PREPARE": "absent" },
-    },
-  );
-  executedRepairHistoryTraceCases.add("CASE-REPAIR-HISTORY-PUBLICATION-RESUME");
 });
 
 test("本番耐久公開は実行時のfs差替えを注入面にせず固定依存で残存を収束する", (t) => {
@@ -2461,12 +2403,4 @@ test("unknown Host Effectはknown recovery stageへ昇格せずhistorical stage�
       assert.deepEqual(snapshot(), beforeEntries);
     });
   }
-});
-
-test("修復履歴Traceの全caseは正本・registry・実行集合が一致する", () => {
-  assertRuntimeTraceExecutionCoverage(
-    "40_Develop/coordinator/tests/docker-desktop-repair-record-store.contract.test.ts",
-    Object.keys(repairHistoryTraceAssertions),
-    executedRepairHistoryTraceCases,
-  );
 });
