@@ -229,6 +229,8 @@ Docker create要求の耐久化後に応答を失った状態は、Engineの空�
 
 再ログオン後のDocker Desktop修復履歴は、元記録を変更せず、前後Session、安定Identity、Runtime実行Identity、直前の引継ぎhashを持つ順序付きの引継ぎ記録を別途追加する。終了済みの旧修復は、現在のDocker状態を観測・変更できない場合でも、由来、原記録、引継ぎ連鎖および現在境界を確認し、Effect 0で履歴の採用と終了を記録できる。現在のDocker障害は同じ修復の再開とはせず、新しい修復Operationとして扱う。未終了の旧修復は、段階ごとに安全な再開、現在状態のexactな観測と収束、または同じ修復IDを保持した停止へ分類し、履歴採用だけでHost Effectを再発行しない。
 
+Runtime利用側は履歴の有無だけで処置を決めない。`不正 → 履歴なし → 終了済み → 現在Session結合済み → 旧Session結合`の順で排他的に分類する。現在Session結合はboolean表示だけでなく、履歴が返す現在Session Identityと準備済み境界のIdentityが一致した場合だけ成立する。旧Session結合ではStoreの正式な引継ぎ処理をexactに1回呼び、元Operation、元adoption、ledgerおよび履歴連鎖の不変fieldを保持したまま、handoff件数、handoff tipおよび現在Session結合だけが許可どおり変化したことを再読取りで確認する。Storeへの書込み後に返値検証または後段が失敗しても、正規記録をrollback、削除または上書きせず、同じ修復IDを保持して次回inventoryから再分類する。終了済み履歴では現在境界の認証とread-only報告に必要なhelper確認を許すが、新しいhandoff、closure、Host観測またはHost Effectを発行しない。
+
 Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し、再ログオン時は同じ安定Identity、元の耐久記録、現在の保護境界および現在Sessionを結ぶ順序付き引継ぎ記録を追加する。引継ぎ後も変更前にHost世代、論理Home、Runtime Stateの各Lockを取得し、外部観測の間だけ解放したLockを同じIdentityで再取得してから続行する。Docker Desktop再起動Fenceは、終了済み修復記録と現在のfreshなEngine・資源不存在観測が両方成立した場合だけ利用でき、履歴の採用または引継ぎだけでは成立しない。
 
 いずれの引継ぎ連鎖も件数を上限8に制限し、自己参照、循環、分岐、番号飛び、前後Session不一致、Identity不一致、改変、部分書込みまたは上限超過をEffect 0で拒否する。Releaseは`origin <= adoption <= handoff[0] <= ... <= handoff[n] <= closure <= current boundary`の単調な連鎖とし、同じRelease番号では同じ署名済みRelease Identityだけを許す。将来Release、降格または同じ番号の別Identityが混在する連鎖は採用しない。
@@ -307,6 +309,9 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 `STATE-REPAIR-HISTORY-PREPARED`
 → `STATE-REPAIR-HISTORY-PUBLISHED`
 
+`STATE-REPAIR-HISTORY-PRIOR-SESSION`
+→ `STATE-REPAIR-HISTORY-CURRENT-SESSION`
+
 `STATE-SESSION-HANDOFF-RECOVERY-REQUIRED`
 → `STATE-RECOVERED`
 ```
@@ -337,6 +342,7 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 `TRANS-RECOVERY-TO-RECOVERED`
 `TRANS-REPAIR-HISTORY-PREPARED-TO-PUBLISHED`
 `TRANS-SESSION-HANDOFF-TO-RECOVERED`
+`TRANS-REPAIR-HISTORY-PRIOR-TO-CURRENT-SESSION`
 ```
 
 不変条件ID:

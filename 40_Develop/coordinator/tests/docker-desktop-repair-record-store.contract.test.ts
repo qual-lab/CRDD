@@ -979,7 +979,7 @@ test("修復履歴の公開済みtargetと同一fileの準備残存は対象限�
   executedRepairHistoryTraceCases.add("CASE-REPAIR-HISTORY-PUBLICATION-RESUME");
 });
 
-test("修復履歴は準備fileの削除失敗を成功にせず次の対象限定再入場で収束する", (t) => {
+test("本番耐久公開は実行時のfs差替えを注入面にせず固定依存で残存を収束する", (t) => {
   const value = historyFixture(t);
   const adopted = persistDockerDesktopRepairHistoricalAdoption(
     value.currentBoundary,
@@ -995,15 +995,17 @@ test("修復履歴は準備fileの削除失敗を成功にせず次の対象限�
     "published_residue",
   );
   const unlinkSync = fs.unlinkSync;
+  let injectedCalls = 0;
   try {
     fs.unlinkSync = ((target: fs.PathLike) => {
+      injectedCalls += 1;
       if (
         path.resolve(String(target)) === path.resolve(publication.preparation)
       )
         throw new Error("injected_history_prepare_unlink_failure");
       return unlinkSync(target);
     }) as typeof fs.unlinkSync;
-    assert.equal(
+    assert.ok(
       persistDockerDesktopRepairHistoricalAdoption(
         value.currentBoundary,
         value.original,
@@ -1011,23 +1013,13 @@ test("修復履歴は準備fileの削除失敗を成功にせず次の対象限�
         value.adoptingManifest,
         value.verifyHistory,
       ),
-      null,
     );
     assert.equal(fs.existsSync(publication.target), true);
-    assert.equal(fs.existsSync(publication.preparation), true);
+    assert.equal(fs.existsSync(publication.preparation), false);
+    assert.equal(injectedCalls, 0);
   } finally {
     fs.unlinkSync = unlinkSync;
   }
-  assert.ok(
-    persistDockerDesktopRepairHistoricalAdoption(
-      value.currentBoundary,
-      value.original,
-      value.originManifest,
-      value.adoptingManifest,
-      value.verifyHistory,
-    ),
-  );
-  assert.equal(fs.existsSync(publication.preparation), false);
 });
 
 for (const mutation of ["self", "cycle", "branch", "skip"] as const) {

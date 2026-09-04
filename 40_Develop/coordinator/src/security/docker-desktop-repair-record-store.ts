@@ -1,6 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  publishRepairHistoryFileUsingOperations,
+  type RepairHistoryPublicationOperations,
+} from "./docker-desktop-repair-history-publication.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "./platform-provisioner-release-trust.ts";
 import { verifyHistoricalPlatformProvisionerManifestCandidate } from "./platform-provisioner-trust-core.ts";
 
@@ -1582,20 +1586,128 @@ function classifyHistoryPreparations(
   }
 }
 
-function commitHistoryDirectoryBoundary(directory: string) {
+const historyPublicationFs = Object.freeze({
+  closeSync: fs.closeSync.bind(fs),
+  fstatSync: fs.fstatSync.bind(fs),
+  fsyncSync: fs.fsyncSync.bind(fs),
+  linkSync: fs.linkSync.bind(fs),
+  lstatSync: fs.lstatSync.bind(fs),
+  openSync: fs.openSync.bind(fs),
+  readSync: fs.readSync.bind(fs),
+  unlinkSync: fs.unlinkSync.bind(fs),
+  writeFileSync: fs.writeFileSync.bind(fs),
+});
+
+function historyPublicationStableBytes(target: string) {
+  let handle: number | null = null;
+  try {
+    const before = historyPublicationFs.lstatSync(target, { bigint: true });
+    if (
+      !before.isFile() ||
+      before.isSymbolicLink() ||
+      before.size < 1n ||
+      before.size > BigInt(MAXIMUM_RECORD_BYTES)
+    )
+      return null;
+    handle = historyPublicationFs.openSync(target, "r");
+    const opened = historyPublicationFs.fstatSync(handle, { bigint: true });
+    if (
+      opened.dev !== before.dev ||
+      opened.ino !== before.ino ||
+      opened.birthtimeNs !== before.birthtimeNs ||
+      opened.size !== before.size
+    )
+      return null;
+    const bytes = Buffer.alloc(Number(opened.size));
+    if (
+      historyPublicationFs.readSync(handle, bytes, 0, bytes.length, 0) !==
+      bytes.length
+    )
+      return null;
+    const after = historyPublicationFs.fstatSync(handle, { bigint: true });
+    const pathAfter = historyPublicationFs.lstatSync(target, { bigint: true });
+    return after.dev === opened.dev &&
+      after.ino === opened.ino &&
+      after.birthtimeNs === opened.birthtimeNs &&
+      after.size === opened.size &&
+      pathAfter.dev === opened.dev &&
+      pathAfter.ino === opened.ino &&
+      pathAfter.birthtimeNs === opened.birthtimeNs &&
+      pathAfter.size === opened.size
+      ? bytes
+      : null;
+  } catch {
+    return null;
+  } finally {
+    if (handle !== null) historyPublicationFs.closeSync(handle);
+  }
+}
+
+function historyPublicationPresent(target: string): boolean | null {
+  try {
+    historyPublicationFs.lstatSync(target);
+    return true;
+  } catch (error) {
+    return error &&
+      typeof error === "object" &&
+      Reflect.get(error, "code") === "ENOENT"
+      ? false
+      : null;
+  }
+}
+
+function historyPublicationSameIdentity(left: string, right: string) {
+  try {
+    const leftMetadata = historyPublicationFs.lstatSync(left, { bigint: true });
+    const rightMetadata = historyPublicationFs.lstatSync(right, {
+      bigint: true,
+    });
+    return (
+      leftMetadata.isFile() &&
+      !leftMetadata.isSymbolicLink() &&
+      rightMetadata.isFile() &&
+      !rightMetadata.isSymbolicLink() &&
+      leftMetadata.dev === rightMetadata.dev &&
+      leftMetadata.ino === rightMetadata.ino &&
+      leftMetadata.birthtimeNs === rightMetadata.birthtimeNs
+    );
+  } catch {
+    return false;
+  }
+}
+
+function historyPublicationCommitDirectory(directory: string) {
   if (process.platform === "win32") {
-    const metadata = fs.lstatSync(directory);
+    const metadata = historyPublicationFs.lstatSync(directory);
     if (!metadata.isDirectory() || metadata.isSymbolicLink())
       throw new Error("docker_desktop_repair_history_directory_invalid");
     return;
   }
-  const descriptor = fs.openSync(directory, "r");
+  const descriptor = historyPublicationFs.openSync(directory, "r");
   try {
-    fs.fsyncSync(descriptor);
+    historyPublicationFs.fsyncSync(descriptor);
   } finally {
-    fs.closeSync(descriptor);
+    historyPublicationFs.closeSync(descriptor);
   }
 }
+
+const productionHistoryPublicationOperations: RepairHistoryPublicationOperations =
+  Object.freeze({
+    present: historyPublicationPresent,
+    stableBytes: historyPublicationStableBytes,
+    sameRegularFileIdentity: historyPublicationSameIdentity,
+    openExclusive: (target) =>
+      historyPublicationFs.openSync(target, "wx", 0o600),
+    write: (descriptor, bytes) =>
+      historyPublicationFs.writeFileSync(descriptor, bytes),
+    sync: historyPublicationFs.fsyncSync,
+    close: historyPublicationFs.closeSync,
+    link: historyPublicationFs.linkSync,
+    unlink: historyPublicationFs.unlinkSync,
+    commitDirectory: historyPublicationCommitDirectory,
+    observeBeforeLink: () => {},
+    injectFault: () => {},
+  });
 
 function readOperation(
   boundary: DockerDesktopRepairRecordBoundary,
@@ -1904,70 +2016,16 @@ export function inspectDockerDesktopRepairHistoricalOperation(
 }
 
 function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
-  if (bytes.length > MAXIMUM_RECORD_BYTES) return false;
   const target = path.win32.join(directory, name);
   const preparation = path.win32.join(directory, historyPreparationName(name));
-  try {
-    const isHistoryFilePresent = historyFilePresent(directory, name);
-    const preparedPresent = historyFilePresent(
-      directory,
-      path.win32.basename(preparation),
-    );
-    if (isHistoryFilePresent === null || preparedPresent === null) return false;
-    if (isHistoryFilePresent === true) {
-      if (stableBytes(target)?.equals(bytes) !== true) return false;
-      if (preparedPresent === false) return true;
-      if (
-        stableBytes(preparation)?.equals(bytes) !== true ||
-        !sameRegularFileIdentity(target, preparation)
-      )
-        return false;
-      commitHistoryDirectoryBoundary(directory);
-      fs.unlinkSync(preparation);
-      commitHistoryDirectoryBoundary(directory);
-      return (
-        historyFilePresent(directory, path.win32.basename(preparation)) ===
-          false && stableBytes(target)?.equals(bytes) === true
-      );
-    }
-    if (preparedPresent === true) {
-      if (stableBytes(preparation)?.equals(bytes) !== true) return false;
-    } else {
-      const descriptor = fs.openSync(preparation, "wx", 0o600);
-      try {
-        fs.writeFileSync(descriptor, bytes);
-        fs.fsyncSync(descriptor);
-      } finally {
-        fs.closeSync(descriptor);
-      }
-    }
-    if (stableBytes(preparation)?.equals(bytes) !== true) return false;
-    try {
-      // A hard link is an exclusive same-filesystem publication. It prevents a
-      // late writer from replacing a winner after both observed target absence.
-      fs.linkSync(preparation, target);
-    } catch (error) {
-      if (
-        !error ||
-        typeof error !== "object" ||
-        !["EEXIST", "EPERM"].includes(String(Reflect.get(error, "code"))) ||
-        stableBytes(target)?.equals(bytes) !== true
-      )
-        return false;
-    }
-    commitHistoryDirectoryBoundary(directory);
-    if (
-      stableBytes(target)?.equals(bytes) !== true ||
-      !sameRegularFileIdentity(target, preparation)
-    )
-      return false;
-    // Only this deterministic, byte-exact preparation file is ours to remove.
-    fs.unlinkSync(preparation);
-    commitHistoryDirectoryBoundary(directory);
-    return stableBytes(target)?.equals(bytes) === true;
-  } catch {
-    return false;
-  }
+  return publishRepairHistoryFileUsingOperations(
+    productionHistoryPublicationOperations,
+    directory,
+    target,
+    preparation,
+    bytes,
+    MAXIMUM_RECORD_BYTES,
+  );
 }
 
 function settlePublishedHistoryResidues(directory: string) {
