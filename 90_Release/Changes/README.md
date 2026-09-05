@@ -10,7 +10,7 @@
 - v0.19.0の推論コンテキストと設計意図は、[CHG-000058](CHG-000058_Reasoning_Context_and_Design_Intent.md)で追跡する。Project Runtimeの実装Stepではなく、工程方法論として独立して採否・検証できるMeaningful Changeであるため、CHG-000057へ吸収しない。
 - v0.19.0のDogfoodingから得た保証コスト、変更経路および人間可読性の横断改善は、[CHG-000059](CHG-000059_Dogfooding_Assurance_Route_and_Readability.md)で追跡する。Project Runtime実装ではなく既存のChange、Quality Assurance、DocumentationおよびDocument Auditの責務を強化する独立したMeaningful Changeである。
 - v0.19.0のCRDD公式ブランドアイコン採用は、[CHG-000060](CHG-000060_CRDD_Brand_Icon_Adoption.md)で追跡する。Project Runtime、推論コンテキストまたは可読性改善とは独立した人間のブランド判断であり、既存CHGへ吸収しない。
-- v0.20.0の試験体系と自動回帰は[CHG-000061](CHG-000061_Test_Levels_and_Automated_Regression.md)、実行知の最小基盤は[CHG-000062](CHG-000062_Execution_Intelligence.md)で追跡する。どちらも未リリースの独立変更であり、v0.18統合台帳の固定集合へ追加しない。
+- v0.20.0の試験体系と自動回帰は[CHG-000061](CHG-000061_Test_Levels_and_Automated_Regression.md)、実行知の最小基盤は[CHG-000062](CHG-000062_Execution_Intelligence.md)、Runtime責務分離は[CHG-000063](CHG-000063_Runtime_Responsibility_Separation.md)で追跡する。いずれも未リリースの独立変更であり、v0.18統合台帳の固定集合へ追加しない。
 - 統合済みの旧CHG IDがどこへ移ったかを確認する場合は、[統合済み旧ID](#統合済み旧id)を読む。旧本文そのものが必要な場合だけ、各entryの固定Commitから`git show`で復元する。
 - SHA-256、固定byte、tag、旧Path等の機械検証情報は、通常利用者向け説明ではなく履歴Trustの検証入力である。現在のCapability、AuthorityまたはRelease状態をそこから推定しない。
 
