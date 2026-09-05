@@ -493,6 +493,65 @@ function isSharedRuntimePath(changedPath: string): boolean {
   );
 }
 
+function applicableConsumerBindings(
+  catalog: TestCatalog,
+  changedPath: string,
+  producerOwner: TestCatalogEntry["owner"],
+) {
+  const ownerBindings = catalog.consumerBindings.filter(
+    (binding) => binding.producerOwner === producerOwner,
+  );
+  const matchedBindings = ownerBindings.filter((binding) =>
+    binding.producerPaths.some(
+      (producerPath) =>
+        changedPath === producerPath ||
+        changedPath.startsWith(
+          producerPath.endsWith("/") ? producerPath : `${producerPath}/`,
+        ),
+    ),
+  );
+  return matchedBindings.length > 0 ? matchedBindings : ownerBindings;
+}
+
+export function selectRegressionStaticOwners(
+  catalog: TestCatalog,
+  changedPaths: readonly string[],
+  selectedEntries: readonly TestCatalogEntry[],
+): readonly TestCatalogEntry["owner"][] {
+  const owners = new Set(selectedEntries.map((entry) => entry.owner));
+  for (const rawPath of changedPaths) {
+    const changedPath = rawPath.replaceAll("\\", "/").replace(/^\.\//u, "");
+    const direct = catalog.tests.find(
+      (entry) => entry.path.toLowerCase() === changedPath.toLowerCase(),
+    );
+    if (direct !== undefined) {
+      owners.add(direct.owner);
+      continue;
+    }
+    if (isDocumentationPath(changedPath)) {
+      owners.add("checker");
+      continue;
+    }
+    if (
+      isSharedRuntimePath(changedPath) ||
+      ownerForPath(changedPath) === null
+    ) {
+      for (const entry of catalog.tests) owners.add(entry.owner);
+      continue;
+    }
+    const owner = ownerForPath(changedPath);
+    if (owner === null) continue;
+    owners.add(owner);
+    for (const binding of applicableConsumerBindings(
+      catalog,
+      changedPath,
+      owner,
+    ))
+      if (binding.consumerStatic) owners.add(binding.consumerOwner);
+  }
+  return [...owners].sort(ordinal);
+}
+
 export function selectRegressionTests(
   catalog: TestCatalog,
   changedPaths: readonly string[],
@@ -535,21 +594,11 @@ export function selectRegressionTests(
       (entry) => entry.owner === owner,
     );
     for (const entry of ownerEntries) selected.set(entry.path, entry);
-    const ownerBindings = catalog.consumerBindings.filter(
-      (binding) => binding.producerOwner === owner,
-    );
-    const matchedBindings = ownerBindings.filter((binding) =>
-      binding.producerPaths.some(
-        (producerPath) =>
-          changedPath === producerPath ||
-          changedPath.startsWith(
-            producerPath.endsWith("/") ? producerPath : `${producerPath}/`,
-          ),
-      ),
-    );
-    const applicableBindings =
-      matchedBindings.length > 0 ? matchedBindings : ownerBindings;
-    for (const binding of applicableBindings)
+    for (const binding of applicableConsumerBindings(
+      catalog,
+      changedPath,
+      owner,
+    ))
       for (const testId of binding.testIds) {
         const consumerTest = eligibleEntries.find(
           (entry) => entry.id === testId,

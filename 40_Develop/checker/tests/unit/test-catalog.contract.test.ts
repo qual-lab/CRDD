@@ -6,6 +6,7 @@ import {
   inspectTestCatalog,
   inspectResourceIntensiveTestAuthority,
   loadTestCatalog,
+  selectRegressionStaticOwners,
   selectRegressionTests,
   type TestCatalog,
 } from "../../test-catalog.ts";
@@ -92,6 +93,22 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
       ) || changedPath.includes("core"),
     );
   }
+});
+
+test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () => {
+  const changedPaths = [
+    "40_Develop/execution-intelligence/src/core/execution-intelligence.ts",
+  ];
+  const selectedEntries = selectRegressionTests(
+    catalog,
+    changedPaths,
+    new Set(["unit"]),
+  );
+  assert.ok(selectedEntries.every((entry) => entry.level === "unit"));
+  assert.deepEqual(
+    selectRegressionStaticOwners(catalog, changedPaths, selectedEntries),
+    ["coordinator", "execution-intelligence"],
+  );
 });
 
 test("利用側契約は欠落・Owner不一致・循環を拒否する", () => {

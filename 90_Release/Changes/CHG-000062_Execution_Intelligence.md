@@ -11,7 +11,7 @@
 
 CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／Task／Attemptの仕事Identityで観測する、Coordinatorから独立した共通基盤を実装した。閉じたmetadata Event、Repository-localでGit管理外の不変Store、欠測を保持する集約、非Authorityの改善候補、Project Runtimeからの実Event発行、およびexact Identityに基づく物理清掃を一つの変更として扱う。
 
-現在は決定論的な単体・結合試験を実装済みであり、Single Task Runtimeが返す検証済み実効Executor ProviderもEventへ接続した。独立レビューで露出した入口・観測、永続化、利用側伝播の暗黙依存は、exact Task Identity、検証済みRepository Root能力、Process間排他、不変公開、故障段階別結果、および利用側回帰の逆向き登録として一体で是正中である。Model、実Providerの利用量、人間の実作業時間、品質受入、Viewer UI、共有Store、運用成果および事業成果は未接続であり、本変更の成立から完成を推定しない。
+現在は決定論的な単体・結合試験を実装済みであり、Single Task Runtimeが返す検証済み実効Executor ProviderもEventへ接続した。独立レビューで露出した入口・観測、永続化、利用側伝播の暗黙依存は、exact Task Identity、検証済みRepository Root能力、Process間排他、不変公開、故障段階別結果、および利用側回帰の逆向き登録として一体で是正した。再レビューで残った実運用配線は、package-local toolchain、本番の非Authority発行診断、および試験levelから独立した利用側静的検査として閉じた。Model、実Providerの利用量、人間の実作業時間、品質受入、Viewer UI、共有Store、運用成果および事業成果は未接続であり、本変更の成立から完成を推定しない。
 
 ## 2. 人間が決定した範囲
 
@@ -60,7 +60,7 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 
 ## 6. 検証と現在の根拠
 
-[検証設計](../../07_Quality/03_Verification_Design.md#execution-intelligence-verification)の`EI-UT-*`、`EI-IT-*`、`EI-RT-*`を自動回帰へ登録した。共通コンポーネントの単体試験は閉Schema、Provider非依存性、欠測、集約、非Authority候補および不正memberを確認する。共通Storeの結合試験はexact Root、worktree／submodule、link拒否、不変保存、Process間並行、冪等再送、Identity衝突、故障注入、残存Lockおよび部分清掃を確認する。Coordinator結合試験はexact Task Identityと発行診断を含む専用AdapterからのProject Runtime発行を確認する。試験台帳は実行知の変更から登録済みCoordinator利用側契約と利用側静的検査を逆向きに選択する。
+[検証設計](../../07_Quality/03_Verification_Design.md#execution-intelligence-verification)の`EI-UT-*`、`EI-IT-*`、`EI-RT-*`を自動回帰へ登録した。共通コンポーネントの単体試験は閉Schema、Provider非依存性、欠測、集約、非Authority候補および不正memberを確認する。共通Storeの結合試験はexact Root、worktree／submodule、link拒否、不変保存、Process間並行、冪等再送、Identity衝突、故障注入、残存Lockおよび部分清掃を確認する。Coordinator結合試験はexact Task Identity、本番公開Runtimeの発行診断および診断失敗時のTask不変を含む専用AdapterからのProject Runtime発行を確認する。試験台帳は実行知の変更から登録済みCoordinator利用側契約と利用側静的検査を逆向きに選択し、level限定時も静的検査を維持する。実行知の静的検査は自身の固定package依存だけを使用する。
 
 本変更はCoordinator Runtime Execution Identityを構成するSourceを変更するため、将来の正式Release Candidateでは再署名と影響するRuntime検証を要する。開発中の固定候補確認では、外部Provider、署名および人間入力を発火しない。
 

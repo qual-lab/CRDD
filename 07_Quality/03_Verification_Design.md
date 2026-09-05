@@ -263,13 +263,13 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 | EI-IT-A-01 | 結合 | 同一Event IDの異内容、破損、未解決参照、Hash不一致 | 自動修復・推測・一括削除をせずEffect 0で停止する |
 | EI-IT-N-02 | 結合 | 公開Runtime構成からProject Runtimeが一つのTask Attemptを実行 | Coordinator AdapterがObjectiveを含むexact仕事Identityと検証済みTask結果を共通Eventへ変換し、検証済みRepository RootのStoreから再読取りできる |
 | EI-IT-A-02 | 結合 | Attempt、Operation、Authority Binding、Repository Revisionの各単独不一致 | 一致しないTask結果のstatus、reason、ProviderまたはcleanupをEventへ写さず、閉じた観測不能として記録する |
-| EI-IT-A-03 | 結合 | Event発行の未設定、拒否、例外または診断処理の例外 | 発行結果を成功へ丸めず非Authority診断へ区別し、元のTask結果とProject Stateを変更しない |
+| EI-IT-A-03 | 結合 | Event発行の未設定、拒否、例外または診断処理の例外 | 発行結果を成功へ丸めず、本番公開Runtimeを含む実構成で回復診断とは異なる閉じた非Authority診断へ区別し、元のTask結果、公開DTOおよびProject Stateを変更しない |
 | EI-IT-N-03 | 結合 | 通常Repository、linked worktree、submoduleのexact Root | Version Controlが返す自身のRootだけを保存能力にし、subdirectory、親、別Repositoryまたはlink経由を拒否する |
 | EI-IT-Q-02 | 結合 | 2 Processから同一byteの同一Eventを並行発行 | 上書きせず一つのEventへ冪等に収束し、Lockと一時fileが残らない |
 | EI-IT-A-04 | 結合 | 2 Processから同じEvent IDへ異なるbyteを並行発行 | 一方だけを不変保存し、他方をIdentity衝突として拒否する |
 | EI-IT-A-05 | 結合 | open、write、flush、publish、readback、Lock初期化・解放、一時file回収の各失敗 | Effect、cleanup、再試行、手動回復およびexact残存Artifactを区別し、成功へ丸めない |
 | EI-IT-A-06 | 結合 | 複数Event清掃中の途中失敗 | 削除済み、未削除、観測不能および残存Lockを区別し、全件完了を主張しない |
-| EI-RT-C-01 | 回帰 | 実行知のSource、公開入口、Storeまたはtoolchainを変更 | 実行知自身のUT／ITに加え、登録したCoordinator利用側契約と静的検査を同じ計画へ選ぶ |
+| EI-RT-C-01 | 回帰 | 実行知のSource、公開入口、Storeまたはtoolchainを変更 | 実行知自身のUT／ITに加え、登録したCoordinator利用側契約と静的検査を同じ計画へ選ぶ。試験levelを限定しても利用側静的検査は残し、指定外の利用側試験は実行しない。実行知の静的検査はCoordinatorのtoolchainへ依存しない |
 
 実Provider、Token／費用、人間の実作業時間、品質受入、Viewer、運用成果および事業成果は、本変更の自動回帰では未評価である。値が取得できないことを試験失敗へせず、取得済みまたは完成済みとも表示しない。性能試験・長時間試験は本変更の通常Gateではなく、人間が対象と上限を明示しない限り実行しない。
 

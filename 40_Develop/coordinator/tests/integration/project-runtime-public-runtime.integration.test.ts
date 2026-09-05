@@ -13,8 +13,11 @@ import {
 } from "../../src/security/mcp-project-runtime-adapter.ts";
 import {
   createDevelopmentProjectRuntimePublicObjectiveCandidate,
+  createProjectRuntimeExecutionIntelligenceDiagnosticReporter,
   createProjectRuntimeRecoveryDiagnosticReporter,
+  PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX,
 } from "../../src/security/project-runtime-public-runtime.ts";
+import { recordProjectRuntimeExecutionEvent } from "../../src/security/execution-intelligence-adapter.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
 import {
   readExecutionIntelligence,
@@ -54,6 +57,9 @@ test("development composition uses the explicitly supplied candidate integration
     createProjectRuntimeWindowsDecisionStoreTestingAdapter(decisionRoot);
   let integrationAdapterCalls = 0;
   let taskStarts = 0;
+  let shouldBlockExecutionPublication = false;
+  let shouldThrowFromPublicationObserver = false;
+  const publicationObservations: object[] = [];
   const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
     issueTaskAuthority: () => Object.freeze({}),
     startTask: () => {
@@ -95,6 +101,23 @@ test("development composition uses the explicitly supplied candidate integration
         }),
       ),
     frontProviderForTask: () => "codex",
+    recordExecutionEvent: (repositoryRoot, event) =>
+      shouldBlockExecutionPublication
+        ? Object.freeze({
+            status: "blocked" as const,
+            reason: "execution_event_store_test_unavailable",
+            effectState: "unknown" as const,
+            cleanupConfirmed: false,
+            retryAllowed: false,
+            manualRecoveryRequired: true,
+            residualArtifactIds: Object.freeze(["test-residual"]),
+          })
+        : recordProjectRuntimeExecutionEvent(repositoryRoot, event),
+    observeExecutionEventPublication: (observation) => {
+      publicationObservations.push(observation);
+      if (shouldThrowFromPublicationObserver)
+        throw new Error("publication_diagnostic_test_failure");
+    },
     openDecisionStore: () =>
       Object.freeze({
         status: "completed" as const,
@@ -273,6 +296,60 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(replay.reason, "project_runtime_objective_already_accepted");
   assert.equal(taskStarts, 1);
   assert.equal(integrationAdapterCalls, 1);
+
+  shouldBlockExecutionPublication = true;
+  const publicationBlocked = await runtime.run(
+    {
+      requestId: "request-public-runtime-publication-blocked",
+      projectId: "project-public-runtime-publication-blocked",
+      milestoneId: "milestone-public-runtime-publication-blocked",
+      repositoryRevision: revision,
+      objective: "Keep the Task result when execution publication is blocked.",
+      acceptanceCriteria: ["Task result remains accepted"],
+      allowedPaths: ["result.txt"],
+      readPaths: ["result.txt"],
+      maximumConcurrency: 1,
+      maximumReplans: 0,
+      originLane: "interactive",
+      requestedExecutorProvider: "codex",
+      adoptResult: false,
+    },
+    new AbortController().signal,
+    root,
+    Object.freeze({ principalId: "local-user-test-user" }),
+  );
+  assert.equal(publicationBlocked.status, "completed");
+  assert.equal(publicationBlocked.reason, "project_runtime_milestone_accepted");
+  assert.equal(
+    (publicationObservations.at(-1) as { status?: unknown }).status,
+    "blocked",
+  );
+  assert.equal(taskStarts, 2);
+
+  shouldThrowFromPublicationObserver = true;
+  const diagnosticFailed = await runtime.run(
+    {
+      requestId: "request-public-runtime-diagnostic-failed",
+      projectId: "project-public-runtime-diagnostic-failed",
+      milestoneId: "milestone-public-runtime-diagnostic-failed",
+      repositoryRevision: revision,
+      objective: "Keep the Task result when publication diagnostics fail.",
+      acceptanceCriteria: ["Task result remains accepted"],
+      allowedPaths: ["result.txt"],
+      readPaths: ["result.txt"],
+      maximumConcurrency: 1,
+      maximumReplans: 0,
+      originLane: "interactive",
+      requestedExecutorProvider: "codex",
+      adoptResult: false,
+    },
+    new AbortController().signal,
+    root,
+    Object.freeze({ principalId: "local-user-test-user" }),
+  );
+  assert.equal(diagnosticFailed.status, "completed");
+  assert.equal(diagnosticFailed.reason, "project_runtime_milestone_accepted");
+  assert.equal(taskStarts, 3);
 });
 
 class ControlledDiagnosticStream extends Writable {
@@ -305,6 +382,31 @@ test("回復診断を直列化しcallback成功だけを成功として扱う", 
   assert.equal(stream.entries, 2);
   stream.callbacks[1]?.(null);
   assert.equal(await second, "success");
+  reporter.dispose();
+});
+
+test("実行Event発行診断は回復診断と別の閉じた識別子で出力する", async () => {
+  const stream = new ControlledDiagnosticStream();
+  const reporter = createProjectRuntimeExecutionIntelligenceDiagnosticReporter(
+    stream,
+    200,
+  );
+  const result = reporter.report({
+    event: "untrusted_override",
+    status: "blocked",
+    reason: "execution_event_store_unavailable",
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  stream.callbacks[0]?.(null);
+  assert.equal(await result, "success");
+  assert.ok(
+    stream.writes[0]?.startsWith(PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX),
+  );
+  assert.match(
+    stream.writes[0] ?? "",
+    /"event":"project_runtime_execution_intelligence_publication"/u,
+  );
+  assert.doesNotMatch(stream.writes[0] ?? "", /untrusted_override/u);
   reporter.dispose();
 });
 

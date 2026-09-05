@@ -38,15 +38,19 @@ export function buildRegressionStagePlan(
   selectedEntries: readonly RegressionPlanEntry[],
   changedPaths: readonly string[],
   windowsProcessControlRequired: boolean,
+  staticOwners?: readonly string[],
 ): readonly RegressionStagePlan[] {
   const selectedOwners = [
     ...new Set(selectedEntries.map((entry) => entry.owner)),
+  ].sort();
+  const plannedStaticOwners = [
+    ...new Set(staticOwners ?? selectedOwners),
   ].sort();
   const levelPlans = regressionStageOrder.map((stage) => ({
     stage,
     owners:
       stage === "static"
-        ? selectedOwners
+        ? plannedStaticOwners
         : [
             ...new Set(
               selectedEntries

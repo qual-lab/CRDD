@@ -12,6 +12,7 @@ import {
   inspectResourceIntensiveTestAuthority,
   inspectTestCatalog,
   loadTestCatalog,
+  selectRegressionStaticOwners,
   selectRegressionTests,
   testLevels,
   type TestCatalog,
@@ -26,7 +27,6 @@ const catalogPath = path.join(
   "07_Quality",
   "04_Test_Catalog.json",
 );
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const PLATFORM_TOOLCHAIN = "+1.94.1-x86_64-pc-windows-msvc";
 const PLATFORM_TARGET = "x86_64-pc-windows-msvc";
 
@@ -98,6 +98,15 @@ function runCommand(
   return result.status ?? 1;
 }
 
+function runNpmScript(
+  script: "check" | "verify:repository",
+  cwd: string,
+): number {
+  return process.platform === "win32"
+    ? runCommand("cmd.exe", ["/d", "/s", "/c", `npm.cmd run ${script}`], cwd)
+    : runCommand("npm", ["run", script], cwd);
+}
+
 function runNodeTests(
   owner: "checker" | "coordinator" | "execution-intelligence",
   entries: readonly TestCatalogEntry[],
@@ -149,31 +158,22 @@ function runPlatformTests(level: TestLevel): number {
   );
 }
 
-function selectedOwners(entries: readonly TestCatalogEntry[]) {
-  return new Set(entries.map((entry) => entry.owner));
-}
-
 function runStaticStage(
-  entries: readonly TestCatalogEntry[],
+  staticOwners: readonly TestCatalogEntry["owner"][],
   changedPaths: readonly string[],
 ): number {
-  const owners = selectedOwners(entries);
+  const owners = new Set(staticOwners);
   if (owners.has("checker")) {
-    const checkerStatus = runCommand(npmCommand, ["run", "check"], checkerRoot);
+    const checkerStatus = runNpmScript("check", checkerRoot);
     if (checkerStatus !== 0) return checkerStatus;
     if (changedPaths.some((entry) => entry.toLowerCase().endsWith(".md"))) {
-      const repositoryStatus = runCommand(
-        npmCommand,
-        ["run", "verify:repository"],
-        checkerRoot,
-      );
+      const repositoryStatus = runNpmScript("verify:repository", checkerRoot);
       if (repositoryStatus !== 0) return repositoryStatus;
     }
   }
   if (owners.has("coordinator")) {
-    const status = runCommand(
-      npmCommand,
-      ["run", "check"],
+    const status = runNpmScript(
+      "check",
       path.join(repositoryRoot, "40_Develop", "coordinator"),
     );
     if (status !== 0) return status;
@@ -184,38 +184,8 @@ function runStaticStage(
       "40_Develop",
       "execution-intelligence",
     );
-    const toolRoot = path.join(repositoryRoot, "40_Develop", "coordinator");
-    const typeStatus = runCommand(
-      process.execPath,
-      [
-        path.join(toolRoot, "node_modules", "typescript", "bin", "tsc"),
-        "-p",
-        "./tsconfig.json",
-      ],
-      root,
-    );
-    if (typeStatus !== 0) return typeStatus;
-    for (const toolArguments of [
-      ["lint", ".", "--error-on-warnings"],
-      ["format", "."],
-    ]) {
-      const status = runCommand(
-        process.execPath,
-        [
-          path.join(
-            toolRoot,
-            "node_modules",
-            "@biomejs",
-            "biome",
-            "bin",
-            "biome",
-          ),
-          ...toolArguments,
-        ],
-        root,
-      );
-      if (status !== 0) return status;
-    }
+    const status = runNpmScript("check", root);
+    if (status !== 0) return status;
   }
   if (owners.has("platform-access"))
     return runCommand(
@@ -327,6 +297,11 @@ try {
   }
 
   const selectedEntries = selectRegressionTests(catalog, changedPaths, levels);
+  const staticOwners = selectRegressionStaticOwners(
+    catalog,
+    changedPaths,
+    selectedEntries,
+  );
   const isWindowsProcessControlRequired =
     process.platform === "win32" &&
     selectedEntries.some((entry) =>
@@ -364,6 +339,7 @@ try {
     selectedEntries,
     changedPaths,
     isWindowsProcessControlRequired,
+    staticOwners,
   );
   const plan = {
     contract: "crdd/regression-test-plan",
@@ -396,7 +372,7 @@ try {
   if (process.argv.includes("--plan") || isResourceIntensive) process.exit(0);
 
   const executeStage = createRegressionStageExecutor({
-    runStatic: () => runStaticStage(selectedEntries, changedPaths),
+    runStatic: () => runStaticStage(staticOwners, changedPaths),
     runLevel: (stage) =>
       runLevelStage(stage, selectedEntries, isWindowsProcessControlRequired),
     runWindowsProcess: () => runWindowsProcessStage(selectedEntries),

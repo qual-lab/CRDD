@@ -37,6 +37,7 @@ import {
 } from "./project-runtime-human-decision.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "./project-runtime-windows-decision-store.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "./project-runtime-single-task-adapter.ts";
+import type { ProjectRuntimeExecutionPublicationObservation } from "./project-runtime-execution.ts";
 import {
   observeProjectRuntimePlatformFamily,
   createProjectRuntimeWindowsPlatformAdapter,
@@ -49,6 +50,8 @@ export const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
   "crdd-coordinator/project-runtime-public-runtime/v1" as const;
 export const PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX =
   "[Project Runtime recovery] " as const;
+export const PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX =
+  "[Project Runtime execution intelligence] " as const;
 const PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS = 5_000;
 
 export type ProjectRuntimeRecoveryDiagnosticOutcome =
@@ -60,9 +63,13 @@ export type ProjectRuntimeRecoveryDiagnosticOutcome =
   | "unavailable"
   | "throw";
 
-export function createProjectRuntimeRecoveryDiagnosticReporter(
+function createProjectRuntimeInternalDiagnosticReporter(
   stream: Writable,
-  timeoutMs = PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS,
+  input: Readonly<{
+    prefix: string;
+    event: string;
+    timeoutMs: number;
+  }>,
 ) {
   let isUnavailable = !stream.writable || stream.destroyed;
   let isDisposed = false;
@@ -104,12 +111,12 @@ export function createProjectRuntimeRecoveryDiagnosticReporter(
         resolve(outcome);
       };
       pending = (outcome) => settle(outcome, true);
-      timer = setTimeout(() => settle("timeout", true), timeoutMs);
+      timer = setTimeout(() => settle("timeout", true), input.timeoutMs);
       try {
         stream.write(
-          `${PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX}${JSON.stringify({
-            event: "project_runtime_recovery_transition",
+          `${input.prefix}${JSON.stringify({
             ...event,
+            event: input.event,
           })}\n`,
           "utf8",
           (error) => {
@@ -138,11 +145,42 @@ export function createProjectRuntimeRecoveryDiagnosticReporter(
   return Object.freeze({ report, dispose });
 }
 
+export function createProjectRuntimeRecoveryDiagnosticReporter(
+  stream: Writable,
+  timeoutMs = PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS,
+) {
+  return createProjectRuntimeInternalDiagnosticReporter(stream, {
+    prefix: PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX,
+    event: "project_runtime_recovery_transition",
+    timeoutMs,
+  });
+}
+
+export function createProjectRuntimeExecutionIntelligenceDiagnosticReporter(
+  stream: Writable,
+  timeoutMs = PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS,
+) {
+  return createProjectRuntimeInternalDiagnosticReporter(stream, {
+    prefix: PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX,
+    event: "project_runtime_execution_intelligence_publication",
+    timeoutMs,
+  });
+}
+
 const productionRecoveryDiagnosticReporter =
   createProjectRuntimeRecoveryDiagnosticReporter(process.stderr);
+const productionExecutionIntelligenceDiagnosticReporter =
+  createProjectRuntimeExecutionIntelligenceDiagnosticReporter(process.stderr);
 
 async function writeProjectRuntimeRecoveryDiagnostic(event: object) {
   await productionRecoveryDiagnosticReporter.report(event);
+}
+
+function writeProjectRuntimeExecutionIntelligenceDiagnostic(
+  observation: ProjectRuntimeExecutionPublicationObservation,
+) {
+  if (observation.status === "completed") return;
+  void productionExecutionIntelligenceDiagnosticReporter.report(observation);
 }
 
 type PublicExecutionDependencies = Readonly<{
@@ -158,10 +196,22 @@ type PublicExecutionDependencies = Readonly<{
     repositoryRoot: string,
   ) => ProjectRuntimeIntegrationDependencies;
   resolveTaskRecoveryCorrelations?: typeof resolveRuntimeOwnedDockerTaskRecoveryCorrelations;
+  recordExecutionEvent: typeof recordProjectRuntimeExecutionEvent;
+  observeExecutionEventPublication: (
+    observation: ProjectRuntimeExecutionPublicationObservation,
+  ) => void;
 }>;
 
-export type ProjectRuntimePublicDevelopmentDependencies =
-  PublicExecutionDependencies;
+export type ProjectRuntimePublicDevelopmentDependencies = Omit<
+  PublicExecutionDependencies,
+  "recordExecutionEvent" | "observeExecutionEventPublication"
+> &
+  Partial<
+    Pick<
+      PublicExecutionDependencies,
+      "recordExecutionEvent" | "observeExecutionEventPublication"
+    >
+  >;
 
 const productionExecutionDependencies: PublicExecutionDependencies =
   Object.freeze({
@@ -178,6 +228,9 @@ const productionExecutionDependencies: PublicExecutionDependencies =
       createRuntimeOwnedProjectCandidateIntegrationAdapter,
     resolveTaskRecoveryCorrelations:
       resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
+    recordExecutionEvent: recordProjectRuntimeExecutionEvent,
+    observeExecutionEventPublication:
+      writeProjectRuntimeExecutionIntelligenceDiagnostic,
   });
 
 function stable(prefix: string, ...parts: readonly string[]) {
@@ -382,7 +435,9 @@ async function executeProjectRuntimePublicObjective(
             input,
           ),
         recordExecutionEvent: (event) =>
-          recordProjectRuntimeExecutionEvent(repositoryRoot, event),
+          runtimeDependencies.recordExecutionEvent(repositoryRoot, event),
+        observeExecutionEventPublication:
+          runtimeDependencies.observeExecutionEventPublication,
       },
     },
     request,
@@ -530,6 +585,11 @@ export function createDevelopmentProjectRuntimePublicObjectiveCandidate(
     createIntegrationAdapter:
       dependencies.createIntegrationAdapter ??
       createRuntimeOwnedProjectCandidateIntegrationAdapter,
+    recordExecutionEvent:
+      dependencies.recordExecutionEvent ?? recordProjectRuntimeExecutionEvent,
+    observeExecutionEventPublication:
+      dependencies.observeExecutionEventPublication ??
+      writeProjectRuntimeExecutionIntelligenceDiagnostic,
   });
   return Object.freeze({
     productionAuthority: false,

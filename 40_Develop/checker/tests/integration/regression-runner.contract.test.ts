@@ -222,6 +222,45 @@ test("共通component変更は利用側契約と利用側静的検査を同じ�
   ]);
 });
 
+test("利用側静的検査はunit限定でも残し、利用側ITは実行しない", () => {
+  const result = invokeRunner([
+    "--changed",
+    "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts",
+    "--levels",
+    "unit",
+    "--plan",
+  ]);
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  const plan = JSON.parse(result.stdout) as {
+    selected?: string[];
+    stages?: Array<{ stage?: string; owners?: string[] }>;
+  };
+  assert.ok((plan.selected?.length ?? 0) > 0);
+  assert.ok(
+    plan.selected?.every((entry) =>
+      entry.includes("execution-intelligence/tests/unit/"),
+    ),
+  );
+  assert.deepEqual(
+    plan.stages?.find((entry) => entry.stage === "static")?.owners,
+    ["coordinator", "execution-intelligence"],
+  );
+  assert.deepEqual(
+    plan.stages?.find((entry) => entry.stage === "integration")?.owners,
+    [],
+  );
+});
+
+test("実行知の静的検査はCoordinatorのtoolchainを参照しない", () => {
+  const source = fs.readFileSync(runner, "utf8");
+  assert.doesNotMatch(
+    source,
+    /toolRoot|coordinator[\\/]+node_modules|node_modules[\\/]+typescript/u,
+  );
+  assert.match(source, /runNpmScript\("check", root\)/u);
+});
+
 const selectedRegressionEntries = [
   { owner: "checker", level: "unit", path: "checker.unit.test.ts" },
   {

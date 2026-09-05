@@ -47,6 +47,15 @@ export type ProjectRuntimeTaskExecution = Readonly<{
   repositoryRoot: unknown;
 }>;
 
+export type ProjectRuntimeExecutionPublicationObservation =
+  | ExecutionIntelligencePublicationResult
+  | Readonly<{
+      status: "not_configured" | "unknown";
+      reason: string;
+      effectState: "no_effect" | "unknown";
+      cleanupConfirmed: boolean;
+    }>;
+
 export type ProjectRuntimeExecutionDependencies = Readonly<{
   issueTaskAuthority?: () => object | null;
   revokeTaskAuthority?: (capability: object) => boolean;
@@ -58,14 +67,7 @@ export type ProjectRuntimeExecutionDependencies = Readonly<{
     event: ExecutionIntelligenceEvent,
   ) => ExecutionIntelligencePublicationResult;
   observeExecutionEventPublication?: (
-    observation:
-      | ExecutionIntelligencePublicationResult
-      | Readonly<{
-          status: "not_configured" | "unknown";
-          reason: string;
-          effectState: "no_effect" | "unknown";
-          cleanupConfirmed: boolean;
-        }>,
+    observation: ProjectRuntimeExecutionPublicationObservation,
   ) => void;
   now?: () => Readonly<{ monotonicMs: number; iso: string }>;
 }>;
