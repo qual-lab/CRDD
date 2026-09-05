@@ -19,6 +19,8 @@ v0.19で成立したProject Runtime、MCP stdioおよびCoordinatorは、意味�
 
 人間判断経路では、判断Capabilityの秘密値生成とHashを専用Portへ分離し、Node暗号実装をCoordinator Adapterへ残した。判断ApplicationはBinding済みState Port、保護Store Port、回復Store Portおよび判断Capability Portだけを利用する形へ変更し、発行、適用、置換、無効化およびProcess loss後の回復をProject Runtimeへ移した。秘密値は保護Storeへ保存せず、Hashだけを記録する既存保証を維持する。
 
+Repository Pathの意味検証はHost filesystemへ問い合わせない純粋な共通処理へ集約した。公開Objective、Planner結果、Task状態および統合候補は、Windows drive、POSIX absolute、親移動、空segmentまたは現在Directory segmentを含むPathをRepository相対Pathとして受理しない。これによりProject Runtime Applicationから`node:path`依存を除去し、入口ごとのPath判定差を閉じた。
+
 ## 2. 人間が決定した範囲
 
 - Project Runtimeは独立packageへ分ける。

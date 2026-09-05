@@ -12,6 +12,7 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../internal/plain-data-snapshot.ts";
+import { repositoryPathWithin } from "../internal/repository-relative-path.ts";
 
 export const PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/project-runtime-objective-intake/v1" as const;
@@ -62,14 +63,7 @@ function inspectStrings(
 }
 
 function pathWithin(candidate: string, roots: readonly string[]) {
-  const normalized = candidate.replaceAll("\\", "/").toUpperCase();
-  return roots.some((rootValue) => {
-    const root = rootValue
-      .replaceAll("\\", "/")
-      .replace(/\/+$/u, "")
-      .toUpperCase();
-    return normalized === root || normalized.startsWith(`${root}/`);
-  });
+  return repositoryPathWithin(candidate, roots);
 }
 
 /** Validate an untrusted Planner result as a bounded Project Runtime plan. */

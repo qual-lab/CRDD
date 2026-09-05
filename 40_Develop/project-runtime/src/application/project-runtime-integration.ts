@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import {
   recordMilestoneIntegration,
   recordObjectiveIntegration,
@@ -18,6 +16,10 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../internal/plain-data-snapshot.ts";
+import {
+  normalizeRepositoryRelativePath,
+  repositoryPathWithin,
+} from "../internal/repository-relative-path.ts";
 
 type IntegrationInput = Readonly<{
   projectId: string;
@@ -52,14 +54,7 @@ function validHash(value: unknown): value is string {
 }
 
 function validPath(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 512 &&
-    !value.includes("\0") &&
-    !path.posix.isAbsolute(value.replaceAll("\\", "/")) &&
-    !value.replaceAll("\\", "/").split("/").includes("..")
-  );
+  return normalizeRepositoryRelativePath(value) !== null;
 }
 
 function stringArray(value: unknown, validator = validId) {
@@ -197,14 +192,7 @@ function inspectReceipt(
 }
 
 function pathWithinAllowed(candidate: string, allowedPaths: readonly string[]) {
-  const normalized = candidate.replaceAll("\\", "/").toUpperCase();
-  return allowedPaths.some((allowed) => {
-    const root = allowed
-      .replaceAll("\\", "/")
-      .replace(/\/+$/u, "")
-      .toUpperCase();
-    return normalized === root || normalized.startsWith(`${root}/`);
-  });
+  return repositoryPathWithin(candidate, allowedPaths);
 }
 
 function response(

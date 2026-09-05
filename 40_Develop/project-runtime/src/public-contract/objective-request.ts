@@ -2,6 +2,7 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../internal/plain-data-snapshot.ts";
+import { normalizeRepositoryRelativePath } from "../internal/repository-relative-path.ts";
 
 export type ProjectRuntimeObjectiveRequest = Readonly<{
   requestId: string;
@@ -129,6 +130,12 @@ export function inspectProjectRuntimeObjectiveRequest(
     !acceptanceCriteria ||
     !allowedPaths ||
     !readPaths ||
+    !allowedPaths.every(
+      (candidate) => normalizeRepositoryRelativePath(candidate) !== null,
+    ) ||
+    !readPaths.every(
+      (candidate) => normalizeRepositoryRelativePath(candidate) !== null,
+    ) ||
     !Number.isSafeInteger(request.maximumConcurrency) ||
     (request.maximumConcurrency as number) < 1 ||
     (request.maximumConcurrency as number) > 5 ||

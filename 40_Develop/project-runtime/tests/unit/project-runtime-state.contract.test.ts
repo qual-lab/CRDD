@@ -145,6 +145,26 @@ describe("Project Runtime state contract", () => {
     );
   });
 
+  it("Task定義のRepository外Pathを状態へ取り込まない", () => {
+    for (const pathValue of ["C:\\outside", "/outside", "../outside"]) {
+      const state = createProjectRuntimeState({
+        projectId: "crdd",
+        milestoneId: "v0.20",
+        repositoryRevision: revision,
+        maximumConcurrency: 1,
+        milestoneAcceptanceCriteria: ["全Taskが完了する"],
+        objectives: [
+          { id: "objective-1", acceptanceCriteria: ["結果が受理される"] },
+        ],
+        tasks: [task("task-1", [], [pathValue])],
+        ownerGeneration: "owner-1",
+      });
+      assert.equal(state.status, "blocked");
+      assert.equal(state.reason, "project_runtime_task_definition_invalid");
+      assert.equal(state.state, null);
+    }
+  });
+
   it("7件の独立Taskから最大5件だけを選ぶ", () => {
     const state = stateFor(
       Array.from({ length: 7 }, (_unused, index) => task(`task-${index + 1}`)),

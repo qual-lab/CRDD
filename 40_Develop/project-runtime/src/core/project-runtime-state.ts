@@ -1,3 +1,5 @@
+import { normalizeRepositoryRelativePath } from "../internal/repository-relative-path.ts";
+
 export const PROJECT_RUNTIME_STATE_CONTRACT =
   "crdd-coordinator/project-runtime-state/v1" as const;
 export const PROJECT_RUNTIME_MAXIMUM_CONCURRENCY = 5;
@@ -463,7 +465,7 @@ export function isProjectRuntimeRecoveryIdentity(
 function uniqueStrings(
   values: readonly string[],
   maximum: number,
-  kind: "identity_or_path" | "human_text",
+  kind: "identity_or_path" | "repository_path" | "human_text",
 ): readonly string[] | null {
   if (values.length > maximum) return null;
   const resultItems: string[] = [];
@@ -472,9 +474,13 @@ function uniqueStrings(
     if (typeof value !== "string" || value.length === 0 || value.length > 512)
       return null;
     const normalized =
-      kind === "identity_or_path" ? value.replaceAll("\\", "/") : value;
-    const key =
-      kind === "identity_or_path" ? normalized.toUpperCase() : normalized;
+      kind === "repository_path"
+        ? normalizeRepositoryRelativePath(value)
+        : kind === "identity_or_path"
+          ? value.replaceAll("\\", "/")
+          : value;
+    if (normalized === null) return null;
+    const key = kind === "human_text" ? normalized : normalized.toUpperCase();
     if (seen.has(key)) return null;
     seen.add(key);
     resultItems.push(normalized);
@@ -495,7 +501,7 @@ function snapshotDefinition(
   const allowedPaths = uniqueStrings(
     definition.allowedPaths,
     128,
-    "identity_or_path",
+    "repository_path",
   );
   const conflictKeys = uniqueStrings(
     definition.conflictKeys,

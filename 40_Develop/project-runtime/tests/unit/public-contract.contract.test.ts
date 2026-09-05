@@ -127,6 +127,31 @@ test("Objective要求は未知field・accessor・ProxyをEffect前に拒否す�
   );
 });
 
+test("Objective要求はRepository外を指すPath表現をEffect前に拒否する", () => {
+  for (const pathValue of [
+    "C:\\project\\outside",
+    "/absolute/path",
+    "../outside",
+    "inside/../outside",
+    "inside//file",
+  ]) {
+    assert.equal(
+      inspectProjectRuntimeObjectiveRequest({
+        ...objectiveRequest(),
+        allowedPaths: [pathValue],
+      }),
+      null,
+    );
+    assert.equal(
+      inspectProjectRuntimeObjectiveRequest({
+        ...objectiveRequest(),
+        readPaths: [pathValue],
+      }),
+      null,
+    );
+  }
+});
+
 test("判断要求はTransportに依存しない閉じた公開契約へsnapshotする", () => {
   assert.equal(
     PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
