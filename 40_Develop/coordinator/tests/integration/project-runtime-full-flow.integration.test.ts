@@ -20,6 +20,7 @@ import {
   type ProjectRuntimeReplanInput,
 } from "../../../project-runtime/src/index.ts";
 import { integrateProjectRuntimeOperation } from "../../src/security/project-runtime-integration.ts";
+import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security/project-runtime-integration-record-adapter.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 
@@ -180,26 +181,35 @@ test("public intake, bounded retry, progress and integration form one accepted f
   assert.equal(context.attempts, 2);
   const integrated = await integrateProjectRuntimeOperation(
     {
-      createCandidate: async () => ({
-        status: "candidate",
-        candidateId: "integrated-full",
-        candidateHash: "b".repeat(64),
-        baseRevision: revision,
-        changedPaths: ["result.txt"],
-        objectiveEvidence: { "objective-full": ["evidence-objective"] },
-        milestoneEvidence: ["evidence-milestone"],
-        conflicts: [],
-        cleanupConfirmed: true,
-      }),
-      observeCanonicalRepository: () => ({
-        status: "observed",
-        repositoryRevision: revision,
-        dirty: false,
-        observedPaths: ["result.txt"],
-      }),
-      adoptCandidate: async () => {
-        throw new Error("adoption_not_authorized");
+      candidate: {
+        createCandidate: async () => ({
+          status: "candidate",
+          candidateId: "integrated-full",
+          candidateHash: "b".repeat(64),
+          baseRevision: revision,
+          changedPaths: ["result.txt"],
+          objectiveEvidence: { "objective-full": ["evidence-objective"] },
+          milestoneEvidence: ["evidence-milestone"],
+          conflicts: [],
+          cleanupConfirmed: true,
+        }),
+        observeCanonicalRepository: () => ({
+          status: "observed",
+          repositoryRevision: revision,
+          dirty: false,
+          observedPaths: ["result.txt"],
+        }),
+        adoptCandidate: async () => {
+          throw new Error("adoption_not_authorized");
+        },
       },
+      records: createProjectRuntimeIntegrationRecordAdapter({
+        workingDirectory: context.root,
+        repositoryBindingId: "binding-full",
+        projectId: context.request.projectId,
+        milestoneId: context.request.milestoneId,
+        queueId: first.queueId ?? "invalid",
+      }),
     },
     {
       workingDirectory: context.root,

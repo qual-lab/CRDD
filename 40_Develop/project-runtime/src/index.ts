@@ -7,6 +7,7 @@ export * from "./ports/platform-contract.ts";
 export * from "./ports/execution-port.ts";
 export * from "./ports/execution-authorization-port.ts";
 export * from "./ports/execution-observation-port.ts";
+export * from "./ports/integration-record-port.ts";
 export * from "./ports/candidate-port.ts";
 export * from "./ports/clock-identity-port.ts";
 export * from "./ports/decision-port.ts";

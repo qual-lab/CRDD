@@ -1,5 +1,3 @@
-import { createHash, randomUUID } from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
 
 import {
@@ -16,11 +14,11 @@ import {
   requestProjectRuntimeHumanDecision,
   type ProjectRuntimeCandidateAdoptionReceipt,
   type ProjectRuntimeCandidatePort,
+  type ProjectRuntimeIntegrationRecordPort,
   type ProjectRuntimeIntegrationCandidate,
   type ProjectRuntimeState,
 } from "../../../project-runtime/src/index.ts";
 import { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "../../../project-runtime/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -35,6 +33,11 @@ type IntegrationInput = Readonly<{
   taskCandidateIds?: readonly string[];
   allowedPaths: readonly string[];
   adoptionAuthorized: boolean;
+}>;
+
+type IntegrationDependencies = Readonly<{
+  candidate: ProjectRuntimeCandidatePort;
+  records: ProjectRuntimeIntegrationRecordPort;
 }>;
 
 function validId(value: unknown, maximum = 512): value is string {
@@ -210,65 +213,6 @@ function pathWithinAllowed(candidate: string, allowedPaths: readonly string[]) {
   });
 }
 
-function writeImmutableRecord(
-  input: IntegrationInput,
-  kind: "integration" | "adoption",
-  identity: string,
-  value: unknown,
-) {
-  const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    input.workingDirectory,
-  );
-  const directory = path.join(
-    repositoryRoot,
-    ".crdd",
-    "project-runtime",
-    kind,
-    input.projectId,
-  );
-  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-  const payload = `${JSON.stringify({
-    contract: PROJECT_RUNTIME_INTEGRATION_CONTRACT,
-    kind,
-    repositoryBindingId: input.repositoryBindingId,
-    projectId: input.projectId,
-    milestoneId: input.milestoneId,
-    queueId: input.queueId,
-    identity,
-    contentHash: createHash("sha256")
-      .update(JSON.stringify(value))
-      .digest("hex"),
-    value,
-  })}\n`;
-  const target = path.join(directory, `${identity}.json`);
-  if (fs.existsSync(target)) {
-    if (fs.readFileSync(target, "utf8") !== payload)
-      throw new Error("project_runtime_integration_record_conflict");
-    return;
-  }
-  const temporary = path.join(directory, `.pending-${randomUUID()}.tmp`);
-  const descriptor = fs.openSync(
-    temporary,
-    fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
-    0o600,
-  );
-  try {
-    fs.writeFileSync(descriptor, payload, "utf8");
-    fs.fsyncSync(descriptor);
-  } finally {
-    fs.closeSync(descriptor);
-  }
-  try {
-    fs.renameSync(temporary, target);
-  } catch (error) {
-    fs.rmSync(temporary, { force: true });
-    if (!fs.existsSync(target) || fs.readFileSync(target, "utf8") !== payload)
-      throw error;
-  }
-  if (fs.readFileSync(target, "utf8") !== payload)
-    throw new Error("project_runtime_integration_record_readback_failed");
-}
-
 function response(
   input: IntegrationInput,
   status: "completed" | "blocked",
@@ -304,7 +248,7 @@ function response(
  * effects; neither runs while a Project State mutation lock is held.
  */
 export async function integrateProjectRuntimeOperation(
-  dependencies: ProjectRuntimeCandidatePort,
+  dependencies: IntegrationDependencies,
   input: IntegrationInput,
 ) {
   const stateRead = readProjectRuntimeState(
@@ -363,7 +307,7 @@ export async function integrateProjectRuntimeOperation(
 
   let rawCandidate: unknown;
   try {
-    rawCandidate = await dependencies.createCandidate({
+    rawCandidate = await dependencies.candidate.createCandidate({
       state,
       taskCandidateIds: Object.freeze([
         ...(taskCandidateIds as readonly string[]),
@@ -385,12 +329,12 @@ export async function integrateProjectRuntimeOperation(
       },
     );
   try {
-    writeImmutableRecord(
-      input,
-      "integration",
-      candidate.candidateId,
-      candidate,
-    );
+    const recorded = dependencies.records.write({
+      kind: "integration",
+      identity: candidate.candidateId,
+      value: candidate,
+    });
+    if (recorded.status !== "completed") throw new Error(recorded.reason);
   } catch {
     return response(
       input,
@@ -479,7 +423,7 @@ export async function integrateProjectRuntimeOperation(
 
   let receipt: ProjectRuntimeCandidateAdoptionReceipt | null = null;
   if (input.adoptionAuthorized) {
-    if (typeof dependencies.observeLeaseOwner !== "function")
+    if (typeof dependencies.candidate.observeLeaseOwner !== "function")
       return response(
         input,
         "blocked",
@@ -495,7 +439,7 @@ export async function integrateProjectRuntimeOperation(
       input.workingDirectory,
       input.repositoryBindingId,
       input.projectId,
-      dependencies.observeLeaseOwner,
+      dependencies.candidate.observeLeaseOwner,
     );
     if (prepared.status !== "completed")
       return response(input, "blocked", prepared.reason, state, {
@@ -527,7 +471,7 @@ export async function integrateProjectRuntimeOperation(
     }> | null = null;
     try {
       const observed = inspectRepository(
-        dependencies.observeCanonicalRepository(),
+        dependencies.candidate.observeCanonicalRepository(),
       );
       if (
         !observed ||
@@ -546,7 +490,7 @@ export async function integrateProjectRuntimeOperation(
       } else {
         let rawReceipt: unknown;
         try {
-          rawReceipt = await dependencies.adoptCandidate(candidate);
+          rawReceipt = await dependencies.candidate.adoptCandidate(candidate);
         } catch {
           rawReceipt = null;
         }
@@ -566,7 +510,12 @@ export async function integrateProjectRuntimeOperation(
           });
           receipt = null;
         } else {
-          writeImmutableRecord(input, "adoption", receipt.receiptId, receipt);
+          const recorded = dependencies.records.write({
+            kind: "adoption",
+            identity: receipt.receiptId,
+            value: receipt,
+          });
+          if (recorded.status !== "completed") throw new Error(recorded.reason);
         }
       }
     } catch {

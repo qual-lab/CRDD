@@ -11,6 +11,7 @@ import {
   readProjectRuntimeState,
 } from "../../src/security/project-runtime-durable-foundation.ts";
 import { integrateProjectRuntimeOperation } from "../../src/security/project-runtime-integration.ts";
+import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security/project-runtime-integration-record-adapter.ts";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../../mcp/src/index.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
@@ -115,11 +116,30 @@ function candidate(conflicts: readonly string[] = []) {
   };
 }
 
+function integrationDependencies(
+  root: string,
+  queueId: string,
+  candidatePort: Parameters<
+    typeof integrateProjectRuntimeOperation
+  >[0]["candidate"],
+) {
+  return {
+    candidate: candidatePort,
+    records: createProjectRuntimeIntegrationRecordAdapter({
+      workingDirectory: root,
+      repositoryBindingId: "binding-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      queueId,
+    }),
+  };
+}
+
 test("Task completion is integrated into Objective and Milestone acceptance", async (t) => {
   const { root, queueId } = await prepared(t);
   let adoptions = 0;
   const result = await integrateProjectRuntimeOperation(
-    {
+    integrationDependencies(root, queueId, {
       createCandidate: async () => candidate(),
       observeCanonicalRepository: () => ({
         status: "observed",
@@ -132,7 +152,7 @@ test("Task completion is integrated into Objective and Milestone acceptance", as
         adoptions += 1;
         return null;
       },
-    },
+    }),
     {
       workingDirectory: root,
       repositoryBindingId: "binding-a",
@@ -193,7 +213,7 @@ test("explicit adoption is serialized and requires a fresh matching repository o
   await new Promise<void>((resolve) => child.once("exit", () => resolve()));
   let adoptions = 0;
   const result = await integrateProjectRuntimeOperation(
-    {
+    integrationDependencies(root, queueId, {
       createCandidate: async () => candidate(),
       observeCanonicalRepository: () => ({
         status: "observed",
@@ -213,7 +233,7 @@ test("explicit adoption is serialized and requires a fresh matching repository o
           cleanupConfirmed: true,
         };
       },
-    },
+    }),
     {
       workingDirectory: root,
       repositoryBindingId: "binding-a",
@@ -234,7 +254,7 @@ test("integration conflict stops before adoption and requests a human decision",
   const { root, queueId } = await prepared(t);
   let adoptions = 0;
   const result = await integrateProjectRuntimeOperation(
-    {
+    integrationDependencies(root, queueId, {
       createCandidate: async () => candidate(["semantic-conflict"]),
       observeCanonicalRepository: () => {
         throw new Error("not_expected");
@@ -242,7 +262,7 @@ test("integration conflict stops before adoption and requests a human decision",
       adoptCandidate: async () => {
         adoptions += 1;
       },
-    },
+    }),
     {
       workingDirectory: root,
       repositoryBindingId: "binding-a",
@@ -275,7 +295,7 @@ test("revision mismatch blocks canonical adoption and releases its lease", async
     allowedPaths: ["result.txt"],
     adoptionAuthorized: true,
   } as const;
-  const dependencies = {
+  const dependencies = integrationDependencies(root, queueId, {
     createCandidate: async () => candidate(),
     observeCanonicalRepository: () => ({
       status: "observed",
@@ -292,7 +312,7 @@ test("revision mismatch blocks canonical adoption and releases its lease", async
     adoptCandidate: async () => {
       throw new Error("not_expected");
     },
-  };
+  });
   const first = await integrateProjectRuntimeOperation(dependencies, input);
   const second = await integrateProjectRuntimeOperation(dependencies, input);
   assert.equal(
@@ -318,7 +338,7 @@ test("canonical adoption preserves malformed acquisition evidence and exposes it
   fs.writeFileSync(marker, "not-json\n", "utf8");
   let adoptions = 0;
   const result = await integrateProjectRuntimeOperation(
-    {
+    integrationDependencies(root, queueId, {
       createCandidate: async () => candidate(),
       observeCanonicalRepository: () => ({
         status: "observed",
@@ -331,7 +351,7 @@ test("canonical adoption preserves malformed acquisition evidence and exposes it
         adoptions += 1;
         return null;
       },
-    },
+    }),
     {
       workingDirectory: root,
       repositoryBindingId: "binding-a",

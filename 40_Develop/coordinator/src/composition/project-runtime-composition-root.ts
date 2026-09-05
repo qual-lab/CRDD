@@ -29,6 +29,7 @@ import {
   type ProjectRuntimeCandidatePort,
 } from "../../../project-runtime/src/index.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../security/project-runtime-candidate-integration-adapter.ts";
+import { createProjectRuntimeIntegrationRecordAdapter } from "../security/project-runtime-integration-record-adapter.ts";
 import { integrateProjectRuntimeOperation } from "../security/project-runtime-integration.ts";
 import { createProjectRuntimeDecisionRecoveryStore } from "../security/project-runtime-decision-recovery-store.ts";
 import {
@@ -463,11 +464,21 @@ async function executeProjectRuntimePublicObjective(
     return execution;
   const integrationAdapter =
     runtimeDependencies.createIntegrationAdapter(repositoryRoot);
+  const repositoryBindingId = stable("binding", repositoryRoot);
   const integration = await integrateProjectRuntimeOperation(
-    Object.freeze({ ...integrationAdapter, observeLeaseOwner }),
+    Object.freeze({
+      candidate: Object.freeze({ ...integrationAdapter, observeLeaseOwner }),
+      records: createProjectRuntimeIntegrationRecordAdapter({
+        workingDirectory: repositoryRoot,
+        repositoryBindingId,
+        projectId: request.projectId,
+        milestoneId: request.milestoneId,
+        queueId: execution.queueId,
+      }),
+    }),
     {
       workingDirectory: repositoryRoot,
-      repositoryBindingId: stable("binding", repositoryRoot),
+      repositoryBindingId,
       projectId: request.projectId,
       milestoneId: request.milestoneId,
       queueId: execution.queueId,
