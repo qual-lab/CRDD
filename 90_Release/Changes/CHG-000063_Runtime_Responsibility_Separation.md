@@ -13,7 +13,7 @@ v0.19で成立したProject Runtime、MCP stdioおよびCoordinatorは、意味�
 
 本変更はProject RuntimeをProject-level execution lifecycleのApplication Core、Coordinatorを実行編成、MCPをTransport、実行知を観測・分析、Platform AccessをOS／Platform境界として分ける。物理移動を完成とせず、公開契約、依存方向、実装Adapter、利用側および自動回帰が同時に成立した場合だけ分離完了とする。
 
-2026-09-05に最初の移行単位として、Project状態機械とPlatform Port契約を`40_Develop/project-runtime/`へ移し、単体試験、公開入口、Coordinator利用側、設計対応、試験台帳および変更影響型回帰選択を同時に切り替えた。CoordinatorのWindows Platform AdapterはProject Runtimeの公開入口だけを利用する。Application、公開要求／結果、その他のPortおよびMCP Transportは未移行であり、上位の責務分離は未完了である。
+2026-09-05に最初の移行単位として、Project状態機械とPlatform Port契約を`40_Develop/project-runtime/`へ移し、続く移行単位でObjective要求と統合結果の公開契約を同packageへ移した。各単位で単体試験、公開入口、Coordinator利用側、設計対応、試験台帳および変更影響型回帰選択を同時に切り替えた。CoordinatorのWindows Platform Adapter、Objective入口、統合処理およびMCP AdapterはProject Runtimeの公開入口だけを利用する。Application、その他のPort、構成RootおよびMCP Transportは未移行であり、上位の責務分離は未完了である。
 
 ## 2. 人間が決定した範囲
 

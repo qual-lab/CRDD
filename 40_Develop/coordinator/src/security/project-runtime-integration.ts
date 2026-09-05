@@ -16,7 +16,7 @@ import {
   requestProjectRuntimeHumanDecision,
   type ProjectRuntimeState,
 } from "../../../project-runtime/src/index.ts";
-import { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "./project-runtime-integration-result.ts";
+import { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "../../../project-runtime/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 import {
   snapshotPlainArray,

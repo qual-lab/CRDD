@@ -3,14 +3,12 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
-import { inspectProjectRuntimeObjectiveRequest } from "./project-runtime-objective-request.ts";
 import {
   inspectProjectRuntimeIntegrationResult,
-  PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS,
-} from "./project-runtime-integration-result.ts";
-import {
+  inspectProjectRuntimeObjectiveRequest,
   isProjectRuntimeObjectiveProjectionCorrelationValid,
   isProjectRuntimeProjectionSemanticallyValid,
+  PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS,
   PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
   PROJECT_RUNTIME_MAXIMUM_TASKS,
   type ProjectRuntimeProjection,

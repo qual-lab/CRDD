@@ -16,13 +16,14 @@ const CORE_MODULES = Object.freeze([
   "40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts",
   "40_Develop/project-runtime/src/index.ts",
   "40_Develop/project-runtime/src/core/project-runtime-state.ts",
+  "40_Develop/project-runtime/src/internal/plain-data-snapshot.ts",
   "40_Develop/project-runtime/src/ports/platform-contract.ts",
+  "40_Develop/project-runtime/src/public-contract/integration-result.ts",
+  "40_Develop/project-runtime/src/public-contract/objective-request.ts",
 ]);
 
 const ALLOWED_SHARED_MODULES = Object.freeze([
   "40_Develop/coordinator/src/security/plain-data-snapshot.ts",
-  "40_Develop/coordinator/src/security/project-runtime-integration-result.ts",
-  "40_Develop/coordinator/src/security/project-runtime-objective-request.ts",
 ]);
 
 const ALLOWED_NODE_BUILTINS = Object.freeze(["node:crypto", "node:util"]);

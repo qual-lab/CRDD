@@ -1,8 +1,8 @@
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "./plain-data-snapshot.ts";
-import { isProjectRuntimeRecoveryIdentity } from "../../../project-runtime/src/index.ts";
+} from "../internal/plain-data-snapshot.ts";
+import { isProjectRuntimeRecoveryIdentity } from "../core/project-runtime-state.ts";
 
 export const PROJECT_RUNTIME_INTEGRATION_CONTRACT =
   "crdd-coordinator/project-runtime-integration/v1" as const;

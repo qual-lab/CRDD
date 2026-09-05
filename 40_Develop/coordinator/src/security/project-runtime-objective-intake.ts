@@ -42,12 +42,12 @@ import {
 import {
   inspectProjectRuntimeObjectiveRequest,
   type ProjectRuntimeObjectiveRequest,
-} from "./project-runtime-objective-request.ts";
+} from "../../../project-runtime/src/index.ts";
 
 export {
   inspectProjectRuntimeObjectiveRequest,
   type ProjectRuntimeObjectiveRequest,
-} from "./project-runtime-objective-request.ts";
+} from "../../../project-runtime/src/index.ts";
 
 export const PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/project-runtime-objective-intake/v1" as const;

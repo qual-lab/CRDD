@@ -1,7 +1,7 @@
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "./plain-data-snapshot.ts";
+} from "../internal/plain-data-snapshot.ts";
 
 export type ProjectRuntimeObjectiveRequest = Readonly<{
   requestId: string;

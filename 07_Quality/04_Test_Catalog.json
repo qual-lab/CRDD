@@ -33,9 +33,12 @@
         "coordinator:integration:project-runtime-candidate-integration-adapter",
         "coordinator:integration:project-runtime-durable-foundation",
         "coordinator:integration:project-runtime-execution",
+        "coordinator:integration:project-runtime-integration",
         "coordinator:integration:project-runtime-objective-intake",
+        "coordinator:integration:project-runtime-public-runtime",
         "coordinator:integration:project-runtime-replanning-and-decision",
         "coordinator:integration:project-runtime-single-task-adapter",
+        "coordinator:unit:mcp-project-runtime-adapter",
         "coordinator:unit:project-runtime-windows-platform-adapter"
       ]
     },
@@ -2330,6 +2333,26 @@
         "project",
         "runtime",
         "platform"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-runtime:unit:public-contract",
+      "owner": "project-runtime",
+      "path": "40_Develop/project-runtime/tests/unit/public-contract.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "public",
+        "contract"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
