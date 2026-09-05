@@ -20,17 +20,20 @@ import {
   inspectProjectRuntimeDecisionRequest,
   inspectProjectRuntimeObjectiveRequest,
   PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+  integrateProjectRuntimeOperation,
   type ProjectRuntimeObjectiveRequest,
 } from "../../../project-runtime/src/index.ts";
 import { runProjectRuntimeObjective } from "../security/project-runtime-objective-intake.ts";
-import { readProjectRuntimeState } from "../security/project-runtime-durable-foundation.ts";
+import {
+  createProjectRuntimePersistencePorts,
+  readProjectRuntimeState,
+} from "../security/project-runtime-durable-foundation.ts";
 import {
   projectProjectRuntimeState,
   type ProjectRuntimeCandidatePort,
 } from "../../../project-runtime/src/index.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../security/project-runtime-candidate-integration-adapter.ts";
 import { createProjectRuntimeIntegrationRecordAdapter } from "../security/project-runtime-integration-record-adapter.ts";
-import { integrateProjectRuntimeOperation } from "../security/project-runtime-integration.ts";
 import { createProjectRuntimeDecisionRecoveryStore } from "../security/project-runtime-decision-recovery-store.ts";
 import {
   issueProjectRuntimeHumanDecision,
@@ -475,10 +478,12 @@ async function executeProjectRuntimePublicObjective(
         milestoneId: request.milestoneId,
         queueId: execution.queueId,
       }),
+      persistence: createProjectRuntimePersistencePorts(
+        repositoryRoot,
+        repositoryBindingId,
+      ),
     }),
     {
-      workingDirectory: repositoryRoot,
-      repositoryBindingId,
       projectId: request.projectId,
       milestoneId: request.milestoneId,
       queueId: execution.queueId,

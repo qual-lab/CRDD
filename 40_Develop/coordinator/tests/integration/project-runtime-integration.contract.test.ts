@@ -7,10 +7,11 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  createProjectRuntimePersistencePorts,
   readProjectOperationQueueState,
   readProjectRuntimeState,
 } from "../../src/security/project-runtime-durable-foundation.ts";
-import { integrateProjectRuntimeOperation } from "../../src/security/project-runtime-integration.ts";
+import { integrateProjectRuntimeOperation } from "../../../project-runtime/src/index.ts";
 import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security/project-runtime-integration-record-adapter.ts";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../../mcp/src/index.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
@@ -132,6 +133,7 @@ function integrationDependencies(
       milestoneId: "milestone-a",
       queueId,
     }),
+    persistence: createProjectRuntimePersistencePorts(root, "binding-a"),
   };
 }
 
@@ -154,8 +156,6 @@ test("Task completion is integrated into Objective and Milestone acceptance", as
       },
     }),
     {
-      workingDirectory: root,
-      repositoryBindingId: "binding-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
       queueId,
@@ -235,8 +235,6 @@ test("explicit adoption is serialized and requires a fresh matching repository o
       },
     }),
     {
-      workingDirectory: root,
-      repositoryBindingId: "binding-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
       queueId,
@@ -264,8 +262,6 @@ test("integration conflict stops before adoption and requests a human decision",
       },
     }),
     {
-      workingDirectory: root,
-      repositoryBindingId: "binding-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
       queueId,
@@ -286,8 +282,6 @@ test("integration conflict stops before adoption and requests a human decision",
 test("revision mismatch blocks canonical adoption and releases its lease", async (t) => {
   const { root, queueId } = await prepared(t);
   const input = {
-    workingDirectory: root,
-    repositoryBindingId: "binding-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
     queueId,
@@ -353,8 +347,6 @@ test("canonical adoption preserves malformed acquisition evidence and exposes it
       },
     }),
     {
-      workingDirectory: root,
-      repositoryBindingId: "binding-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
       queueId,

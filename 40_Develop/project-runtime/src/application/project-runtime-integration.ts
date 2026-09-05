@@ -1,32 +1,25 @@
 import path from "node:path";
 
 import {
-  acquireProjectRuntimeLease,
-  readProjectOperationQueueState,
-  readProjectRuntimeState,
-  reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss,
-  updateProjectOperationQueueState,
-  writeProjectRuntimeState,
-} from "./project-runtime-durable-foundation.ts";
-import {
   recordMilestoneIntegration,
   recordObjectiveIntegration,
   requestProjectRuntimeHumanDecision,
-  type ProjectRuntimeCandidateAdoptionReceipt,
-  type ProjectRuntimeCandidatePort,
-  type ProjectRuntimeIntegrationRecordPort,
-  type ProjectRuntimeIntegrationCandidate,
   type ProjectRuntimeState,
-} from "../../../project-runtime/src/index.ts";
-import { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "../../../project-runtime/src/index.ts";
+} from "../core/project-runtime-state.ts";
+import type {
+  ProjectRuntimeCandidateAdoptionReceipt,
+  ProjectRuntimeCandidatePort,
+  ProjectRuntimeIntegrationCandidate,
+} from "../ports/candidate-port.ts";
+import type { ProjectRuntimeIntegrationRecordPort } from "../ports/integration-record-port.ts";
+import type { ProjectRuntimePersistencePorts } from "../ports/state-port.ts";
+import { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "../public-contract/integration-result.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "./plain-data-snapshot.ts";
+} from "../internal/plain-data-snapshot.ts";
 
 type IntegrationInput = Readonly<{
-  workingDirectory: string;
-  repositoryBindingId: string;
   projectId: string;
   milestoneId: string;
   queueId: string;
@@ -38,6 +31,7 @@ type IntegrationInput = Readonly<{
 type IntegrationDependencies = Readonly<{
   candidate: ProjectRuntimeCandidatePort;
   records: ProjectRuntimeIntegrationRecordPort;
+  persistence: ProjectRuntimePersistencePorts;
 }>;
 
 function validId(value: unknown, maximum = 512): value is string {
@@ -251,16 +245,8 @@ export async function integrateProjectRuntimeOperation(
   dependencies: IntegrationDependencies,
   input: IntegrationInput,
 ) {
-  const stateRead = readProjectRuntimeState(
-    input.workingDirectory,
-    input.repositoryBindingId,
-    input.projectId,
-  );
-  const queueRead = readProjectOperationQueueState(
-    input.workingDirectory,
-    input.repositoryBindingId,
-    input.queueId,
-  );
+  const stateRead = dependencies.persistence.state.readState(input.projectId);
+  const queueRead = dependencies.persistence.state.readQueue(input.queueId);
   if (
     stateRead.status !== "completed" ||
     stateRead.value === null ||
@@ -369,9 +355,7 @@ export async function integrateProjectRuntimeOperation(
         },
       );
       if (rejected.status === "completed") {
-        const written = writeProjectRuntimeState(
-          input.workingDirectory,
-          input.repositoryBindingId,
+        const written = dependencies.persistence.state.writeState(
           rejected.state,
           state.generation,
         );
@@ -383,18 +367,14 @@ export async function integrateProjectRuntimeOperation(
         objective.definition.id,
       );
       if (decision.status === "completed") {
-        const written = writeProjectRuntimeState(
-          input.workingDirectory,
-          input.repositoryBindingId,
+        const written = dependencies.persistence.state.writeState(
           decision.state,
           state.generation,
         );
         if (written.status === "completed") state = decision.state;
       }
     }
-    const decisionQueue = updateProjectOperationQueueState(
-      input.workingDirectory,
-      input.repositoryBindingId,
+    const decisionQueue = dependencies.persistence.state.updateQueue(
       input.queueId,
       queue.generation,
       {
@@ -435,9 +415,7 @@ export async function integrateProjectRuntimeOperation(
           manualRecoveryRequired: true,
         },
       );
-    const prepared = reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
-      input.workingDirectory,
-      input.repositoryBindingId,
+    const prepared = dependencies.persistence.lease.reconcileAdoptionOwnerLoss(
       input.projectId,
       dependencies.candidate.observeLeaseOwner,
     );
@@ -450,9 +428,7 @@ export async function integrateProjectRuntimeOperation(
           ? {}
           : { recoveryIds: Object.freeze([prepared.recoveryId]) }),
       });
-    const leaseResult = acquireProjectRuntimeLease(
-      input.workingDirectory,
-      input.repositoryBindingId,
+    const leaseResult = dependencies.persistence.lease.acquire(
       input.projectId,
       "canonical",
       "canonical-adoption",
@@ -561,9 +537,7 @@ export async function integrateProjectRuntimeOperation(
         candidateId: candidate.candidateId,
         receiptId: receipt?.receiptId ?? null,
       });
-    const written = writeProjectRuntimeState(
-      input.workingDirectory,
-      input.repositoryBindingId,
+    const written = dependencies.persistence.state.writeState(
       integrated.state,
       state.generation,
     );
@@ -595,9 +569,7 @@ export async function integrateProjectRuntimeOperation(
       receiptId: receipt?.receiptId ?? null,
     });
   if (milestone.state.generation !== state.generation) {
-    const milestoneWrite = writeProjectRuntimeState(
-      input.workingDirectory,
-      input.repositoryBindingId,
+    const milestoneWrite = dependencies.persistence.state.writeState(
       milestone.state,
       state.generation,
     );
@@ -609,9 +581,7 @@ export async function integrateProjectRuntimeOperation(
         manualRecoveryRequired: true,
       });
   }
-  const completedQueue = updateProjectOperationQueueState(
-    input.workingDirectory,
-    input.repositoryBindingId,
+  const completedQueue = dependencies.persistence.state.updateQueue(
     input.queueId,
     queue.generation,
     {

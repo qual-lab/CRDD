@@ -15,11 +15,11 @@ import {
 } from "../../src/security/project-runtime-human-decision.ts";
 import {
   resolveProjectRuntimeReplan as resolveProjectRuntimeReplanWithPort,
+  integrateProjectRuntimeOperation,
   type ProjectRuntimeDecisionRecord,
   type ProjectRuntimeReplanClassifier,
   type ProjectRuntimeReplanInput,
 } from "../../../project-runtime/src/index.ts";
-import { integrateProjectRuntimeOperation } from "../../src/security/project-runtime-integration.ts";
 import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security/project-runtime-integration-record-adapter.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
@@ -210,10 +210,12 @@ test("public intake, bounded retry, progress and integration form one accepted f
         milestoneId: context.request.milestoneId,
         queueId: first.queueId ?? "invalid",
       }),
+      persistence: createProjectRuntimePersistencePorts(
+        context.root,
+        "binding-full",
+      ),
     },
     {
-      workingDirectory: context.root,
-      repositoryBindingId: "binding-full",
       projectId: context.request.projectId,
       milestoneId: context.request.milestoneId,
       queueId: first.queueId ?? "invalid",
