@@ -101,3 +101,30 @@ Project RuntimeからCoordinator、MCP、ProviderまたはOS固有moduleへの�
 - CLIとMCP stdioの正常・準正常・異常の自動回帰が成功する。
 - 試験カタログと変更影響型runnerが新packageと全利用側を選択する。
 - Repository全体Checker、決定論的試験および独立レビューで未解決の必須指摘事項がない。
+
+## 9. 公開済み文書の現行案内補正
+
+責務分離で試験の所有Componentとファイル名が変わったため、v0.19.0で公開したCHG-000057の現在の試験案内だけを現行Pathへ補正する。公開時の本文、判断、結果および主張は変更しない。Checkerは公開tag上の原文Hash、置換前・途中・置換後の完全一致、置換数および現行参照先の実在を検証し、それ以外の本文差を拒否する。
+
+<!-- crdd-released-navigation-correction: 1 -->
+```json
+{
+  "schemaRevision": 1,
+  "sourceRelease": "v0.19.0",
+  "sourcePath": "90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md",
+  "sourceSha256": "e3ab9e61c2ab5b115438fab731937907452ab10b6153805895bebebbbc29f226",
+  "replacements": [
+    {
+      "before": "[Project状態契約試験](../../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)",
+      "after": "[Project状態契約試験](../../40_Develop/project-runtime/tests/unit/project-runtime-state.contract.test.ts)",
+      "count": 1
+    },
+    {
+      "before": "[MCP Adapter契約試験](../../40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts)",
+      "via": "[MCP Adapter契約試験](../../40_Develop/coordinator/tests/unit/mcp-project-runtime-adapter.contract.test.ts)",
+      "after": "[MCP Adapter契約試験](../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts)",
+      "count": 1
+    }
+  ]
+}
+```

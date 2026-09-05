@@ -596,6 +596,241 @@ function readReleasedNavigationMigrations(
   return result;
 }
 
+function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
+  if (repositoryMode !== "official") return;
+  const gitCorrectionText = (gitArguments: readonly string[]) =>
+    spawnSync("git", ["-C", root, ...gitArguments], {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 5_000,
+      maxBuffer: 16 * 1_048_576,
+    });
+  const marker = "<!-- crdd-released-navigation-correction: 1 -->";
+  const recordFiles = allFiles.filter(
+    (file) =>
+      /^90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md$/u.test(
+        relative(file),
+      ) && read(file).includes(marker),
+  );
+  const reject = (recordPath: string, detail: string) =>
+    add(
+      "error",
+      "invalid-released-navigation-correction",
+      relative(recordPath),
+      detail,
+    );
+  for (const recordPath of recordFiles) {
+    if (
+      lstatIfPresent(recordPath)?.isFile() !== true ||
+      pathContainsSymbolicLink(recordPath)
+    ) {
+      reject(recordPath, "Correction record is not a regular file.");
+      continue;
+    }
+    const content = read(recordPath);
+    const blocks = [
+      ...content.matchAll(
+        /<!-- crdd-released-navigation-correction: 1 -->\s*```json\s*\n([\s\S]*?)\n```/gu,
+      ),
+    ];
+    if (
+      content.split(marker).length !== 2 ||
+      blocks.length !== 1 ||
+      blocks[0][1].length > 65_536
+    ) {
+      reject(recordPath, "Expected one bounded correction record.");
+      continue;
+    }
+    let raw: unknown;
+    try {
+      raw = JSON.parse(blocks[0][1]);
+    } catch {
+      reject(recordPath, "Correction record is not valid JSON.");
+      continue;
+    }
+    const value = raw as Record<string, unknown>;
+    if (
+      !raw ||
+      typeof raw !== "object" ||
+      Array.isArray(raw) ||
+      Object.keys(value).sort().join("\0") !==
+        [
+          "replacements",
+          "schemaRevision",
+          "sourcePath",
+          "sourceRelease",
+          "sourceSha256",
+        ]
+          .sort()
+          .join("\0") ||
+      value.schemaRevision !== 1 ||
+      typeof value.sourcePath !== "string" ||
+      !/^90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md$/u.test(
+        value.sourcePath,
+      ) ||
+      samePath(recordPath, path.join(root, value.sourcePath)) ||
+      typeof value.sourceRelease !== "string" ||
+      !/^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u.test(
+        value.sourceRelease,
+      ) ||
+      typeof value.sourceSha256 !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(value.sourceSha256) ||
+      !Array.isArray(value.replacements) ||
+      value.replacements.length < 1 ||
+      value.replacements.length > 16
+    ) {
+      reject(recordPath, "Correction record shape is invalid.");
+      continue;
+    }
+    const sourceRelativePath = value.sourcePath as string;
+    const sourceRelease = value.sourceRelease as string;
+    const sourceSha256 = value.sourceSha256 as string;
+    const replacements = value.replacements as unknown[];
+    const sourcePath = path.join(root, ...sourceRelativePath.split("/"));
+    const sourceStat = lstatIfPresent(sourcePath);
+    const tagCommit = gitCorrectionText([
+      "rev-parse",
+      "--verify",
+      `${sourceRelease}^{commit}`,
+    ]);
+    const tagCommitId = (tagCommit.stdout ?? "").trim();
+    const ancestor = /^[0-9a-f]{40}$/u.test(tagCommitId)
+      ? gitCorrectionText(["merge-base", "--is-ancestor", tagCommitId, "HEAD"])
+      : null;
+    const fixedObject = /^[0-9a-f]{40}$/u.test(tagCommitId)
+      ? spawnSync(
+          "git",
+          ["-C", root, "show", `${tagCommitId}:${sourceRelativePath}`],
+          {
+            encoding: null,
+            windowsHide: true,
+            timeout: 5_000,
+            maxBuffer: 16 * 1_048_576,
+          },
+        )
+      : null;
+    const fixedBytes = Buffer.isBuffer(fixedObject?.stdout)
+      ? fixedObject.stdout
+      : Buffer.alloc(0);
+    if (
+      sourceStat?.isFile() !== true ||
+      pathContainsSymbolicLink(sourcePath) ||
+      tagCommit.error ||
+      tagCommit.status !== 0 ||
+      (tagCommit.stderr ?? "").trim() ||
+      !ancestor ||
+      ancestor.error ||
+      ancestor.status !== 0 ||
+      (ancestor.stderr ?? "").trim() ||
+      fixedObject?.error ||
+      fixedObject?.status !== 0 ||
+      createHash("sha256").update(fixedBytes).digest("hex") !== sourceSha256
+    ) {
+      reject(recordPath, "Released source identity could not be verified.");
+      continue;
+    }
+    let expectedText = fixedBytes.toString("utf8");
+    let intermediateText = expectedText;
+    let isReplacementSetValid = true;
+    const seenBefore = new Set<string>();
+    for (const rawReplacement of replacements) {
+      const replacement = rawReplacement as Record<string, unknown>;
+      const keys =
+        rawReplacement &&
+        typeof rawReplacement === "object" &&
+        !Array.isArray(rawReplacement)
+          ? Object.keys(replacement).sort().join("\0")
+          : "";
+      const before = replacement.before;
+      const via = replacement.via;
+      const after = replacement.after;
+      const count = replacement.count;
+      const beforeText = typeof before === "string" ? before : "";
+      const afterText = typeof after === "string" ? after : "";
+      const linkPattern = /^\[([^\]\r\n]+)\]\((\.\.\/\.\.\/[^)\r\n]+)\)$/u;
+      const beforeMatch = beforeText.match(linkPattern);
+      const afterMatch = afterText.match(linkPattern);
+      const viaMatch = typeof via === "string" ? via.match(linkPattern) : null;
+      const afterTarget = afterMatch
+        ? path.resolve(path.dirname(sourcePath), afterMatch[2])
+        : "";
+      const isBeforeLabelTargetDerived =
+        beforeMatch !== null &&
+        beforeMatch[1] === `\`${beforeMatch[2].slice(6)}\``;
+      const isLabelPreserved =
+        beforeMatch?.[1] === afterMatch?.[1] ||
+        (isBeforeLabelTargetDerived &&
+          afterMatch !== null &&
+          afterMatch[1] === `\`${afterMatch[2].slice(6)}\``);
+      const isViaLabelSame =
+        viaMatch !== null && viaMatch[1] === beforeMatch?.[1];
+      const isViaLabelTargetDerived =
+        isBeforeLabelTargetDerived &&
+        viaMatch !== null &&
+        viaMatch[1] === `\`${viaMatch[2].slice(6)}\``;
+      const isViaLabelPreserved =
+        via === undefined || isViaLabelSame || isViaLabelTargetDerived;
+      if (
+        (keys !== ["after", "before", "count"].join("\0") &&
+          keys !== ["after", "before", "count", "via"].join("\0")) ||
+        !beforeMatch ||
+        !afterMatch ||
+        !isLabelPreserved ||
+        !isViaLabelPreserved ||
+        !Number.isSafeInteger(count) ||
+        typeof count !== "number" ||
+        count < 1 ||
+        count > 64 ||
+        seenBefore.has(beforeText) ||
+        expectedText.split(beforeText).length - 1 !== count ||
+        !isWithin(root, afterTarget) ||
+        lstatIfPresent(afterTarget)?.isFile() !== true ||
+        pathContainsSymbolicLink(afterTarget)
+      ) {
+        isReplacementSetValid = false;
+        break;
+      }
+      seenBefore.add(beforeText);
+      expectedText = expectedText.replaceAll(beforeText, afterText);
+      intermediateText = intermediateText.replaceAll(
+        beforeText,
+        typeof via === "string" ? via : afterText,
+      );
+    }
+    const currentHead = spawnSync(
+      "git",
+      ["-C", root, "show", `HEAD:${sourceRelativePath}`],
+      {
+        encoding: null,
+        windowsHide: true,
+        timeout: 5_000,
+        maxBuffer: 16 * 1_048_576,
+      },
+    );
+    const currentHeadBytes = Buffer.isBuffer(currentHead.stdout)
+      ? currentHead.stdout
+      : Buffer.alloc(0);
+    const currentWorktree = fs.readFileSync(sourcePath, "utf8");
+    const normalize = (text: string) => text.replaceAll("\r\n", "\n");
+    if (!isReplacementSetValid) {
+      reject(recordPath, "Released-link replacement mapping is invalid.");
+      continue;
+    }
+    if (
+      currentHead.error ||
+      currentHead.status !== 0 ||
+      ![fixedBytes.toString("utf8"), intermediateText, expectedText].includes(
+        currentHeadBytes.toString("utf8"),
+      ) ||
+      normalize(currentWorktree) !== normalize(expectedText)
+    )
+      reject(
+        recordPath,
+        "Current source differs from the exact released-link correction.",
+      );
+  }
+}
+
 function checkConsolidatedChangeTraceLedger(
   allFiles: readonly string[],
 ): ConsolidationLedgerCheckResult {
@@ -3515,6 +3750,7 @@ const anchorCache = new Map<string, Set<string>>();
 const consolidationLedgerCheck = checkConsolidatedChangeTraceLedger(allFiles);
 const toolLayoutHistoricalReferences =
   checkToolLayoutHistoricalReferences(allFiles);
+checkReleasedNavigationCorrections(allFiles);
 let checkedLocalLinks = 0;
 let checkedAnchors = 0;
 let historicalReferencesObserved = 0;

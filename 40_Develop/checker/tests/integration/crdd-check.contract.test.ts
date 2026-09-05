@@ -3368,6 +3368,13 @@ function releasedNavigationFixture() {
       },
     ],
   };
+  const correctionRecord = {
+    schemaRevision: 1,
+    sourceRelease: "v0.2.0",
+    sourcePath,
+    sourceSha256,
+    replacements: [{ before, via, after, count: 2 }],
+  };
   const recordPath = path.join(
     root,
     "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
@@ -3375,7 +3382,7 @@ function releasedNavigationFixture() {
   const save = () =>
     write(
       recordPath,
-      `# 現行案内移行\n\n<!-- crdd-released-navigation-migration: 1 -->\n\x60\x60\x60json\n${JSON.stringify(record)}\n\x60\x60\x60\n`,
+      `# 現行案内移行\n\n<!-- crdd-released-navigation-migration: 1 -->\n\x60\x60\x60json\n${JSON.stringify(record)}\n\x60\x60\x60\n\n<!-- crdd-released-navigation-correction: 1 -->\n\x60\x60\x60json\n${JSON.stringify(correctionRecord)}\n\x60\x60\x60\n`,
     );
   save();
   return {
@@ -3385,6 +3392,7 @@ function releasedNavigationFixture() {
     viaText,
     expectedText,
     record,
+    correctionRecord,
     recordPath,
     save,
     commit,
@@ -3397,7 +3405,11 @@ test("公開済み案内の限定移行はHEAD旧版とcommit後新版を厳密�
   assert.equal(
     beforeCommit.status,
     0,
-    JSON.stringify(beforeCommit.report.findings),
+    JSON.stringify({
+      findings: beforeCommit.report.findings,
+      stderr: beforeCommit.stderr,
+      stdout: beforeCommit.stdout,
+    }),
   );
   assert.equal(
     beforeCommit.report.metrics.historical_references_identity_verified,
@@ -3435,6 +3447,20 @@ test("公開済み案内の限定移行はHEAD旧版とcommit後新版を厳密�
     changed.report.findings.some(
       (finding) => finding.code === "released-change-trace-content-changed",
     ),
+  );
+});
+
+test("公開済み案内の一般補正は公開tagの原文Identity差を拒否する", () => {
+  const state = releasedNavigationFixture();
+  state.correctionRecord.sourceSha256 = "0".repeat(64);
+  state.save();
+  const result = runChecker(state.root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "invalid-released-navigation-correction",
+    ),
+    JSON.stringify(result.report.findings),
   );
 });
 
