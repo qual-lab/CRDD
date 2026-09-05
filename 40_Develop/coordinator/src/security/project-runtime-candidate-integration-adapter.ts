@@ -104,15 +104,15 @@ function merge(
     )
   )
     return null;
-  const complete = sources as readonly NonNullable<
+  const completeItems = sources as readonly NonNullable<
     ReturnType<typeof exported>
   >[];
-  const baseTree = complete[0]?.bundle.baseTree;
-  const baseManifestHash = complete[0]?.bundle.baseManifestHash;
+  const baseTree = completeItems[0]?.bundle.baseTree;
+  const baseManifestHash = completeItems[0]?.bundle.baseManifestHash;
   if (
     !baseTree ||
     !baseManifestHash ||
-    complete.some(
+    completeItems.some(
       (source) =>
         source.bundle.baseTree !== baseTree ||
         source.bundle.baseManifestHash !== baseManifestHash,
@@ -121,7 +121,7 @@ function merge(
     return null;
   const entries = new Map<string, Entry>();
   const conflicts = new Set<string>();
-  for (const source of complete) {
+  for (const source of completeItems) {
     for (const entry of source.bundle.entries) {
       const existing = entries.get(entry.relativePath);
       if (existing && !sameEntry(existing, entry))
@@ -168,7 +168,7 @@ function merge(
     bundle,
     conflicts: Object.freeze([...conflicts]),
     classification: highestClassification(
-      complete.map((source) => source.classification),
+      completeItems.map((source) => source.classification),
     ),
   });
 }
@@ -243,8 +243,9 @@ function applyBundle(repositoryRoot: string, bundle: Bundle) {
     randomUUID(),
   );
   fs.mkdirSync(transactionRoot, { recursive: true, mode: 0o700 });
-  const applied: Array<Readonly<{ target: string; backup: string | null }>> =
-    [];
+  const appliedItems: Array<
+    Readonly<{ target: string; backup: string | null }>
+  > = [];
   try {
     for (let index = 0; index < bundle.entries.length; index += 1) {
       const entry = bundle.entries[index];
@@ -268,7 +269,7 @@ function applyBundle(repositoryRoot: string, bundle: Bundle) {
           ? null
           : path.join(transactionRoot, `${index}.backup`);
       if (backup) fs.renameSync(target, backup);
-      applied.push(Object.freeze({ target, backup }));
+      appliedItems.push(Object.freeze({ target, backup }));
       if (entry.operation === "upsert") {
         if (entry.contentBase64 === null)
           throw new Error("candidate_content_missing");
@@ -288,17 +289,18 @@ function applyBundle(repositoryRoot: string, bundle: Bundle) {
     fs.rmSync(transactionRoot, { recursive: true });
     return true;
   } catch {
-    let recovered = true;
-    for (const item of [...applied].reverse()) {
+    let isRecovered = true;
+    for (const item of [...appliedItems].reverse()) {
       try {
         const current = stableFile(item.target);
         if (current !== false) fs.rmSync(item.target);
         if (item.backup) fs.renameSync(item.backup, item.target);
       } catch {
-        recovered = false;
+        isRecovered = false;
       }
     }
-    if (recovered) fs.rmSync(transactionRoot, { recursive: true, force: true });
+    if (isRecovered)
+      fs.rmSync(transactionRoot, { recursive: true, force: true });
     return false;
   }
 }
@@ -332,7 +334,7 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
           objective.definition.id,
           Object.freeze(
             objective.definition.acceptanceCriteria.map(
-              (_, index) =>
+              (_unused, index) =>
                 `evidence-${digest(candidateId, objective.definition.id, String(index)).slice(0, 40)}`,
             ),
           ),
@@ -347,7 +349,7 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
         objectiveEvidence: Object.freeze(evidence),
         milestoneEvidence: Object.freeze(
           state.milestone.acceptanceCriteria.map(
-            (_, index) =>
+            (_unused, index) =>
               `evidence-${digest(candidateId, state.milestoneId, String(index)).slice(0, 40)}`,
           ),
         ),
@@ -367,12 +369,16 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
       );
       if (!base) return null;
       try {
-        const clean = currentMatchesBase(repositoryRoot, base, bundle.entries);
+        const isClean = currentMatchesBase(
+          repositoryRoot,
+          base,
+          bundle.entries,
+        );
         return Object.freeze({
           status: "observed",
           repositoryRevision: identity.commit,
-          dirty: !clean,
-          observedPaths: Object.freeze(clean ? [] : [...bundle.changedPaths]),
+          dirty: !isClean,
+          observedPaths: Object.freeze(isClean ? [] : [...bundle.changedPaths]),
         });
       } finally {
         fs.rmSync(base, { recursive: true, force: true });

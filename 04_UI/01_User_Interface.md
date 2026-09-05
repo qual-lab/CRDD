@@ -69,7 +69,7 @@ Process再起動の必要性: あり
 
 今回の確認対象は、Windows Terminal／PowerShellでの日本語表示、キーボード入力、一回のEnter、長いIDの折返し、文字拡大、拒否・時間切れ・取消・終了後表示とする。OS・端末・Shell・Nodeの実行版、実際に使用した起動経路、確認した項目と未確認項目を結果へ記録する。これは上記の人間判断に基づく限定的な利用品質確認であり、外部アクセシビリティ規格の適合表明ではない。読み上げは未評価として明示し、支援技術を利用できるとの主張は行わない。必要性や対象環境が変わった場合はQual-LabのRuntime保守が範囲を再評価する。
 
-入力の参照は[端末確認プログラム](../40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts)と[実行方法](../19_Workflows/01_Coordinator_Runtime.md#terminal-interaction-check)から再現する。[契約試験](../40_Develop/coordinator/tests/terminal-interaction-probe.contract.test.ts)は入力一致・不一致・時間切れ・取消・回収不明を区別する。参照が使うのは現行の端末writer／readerだけで、実行許可やProviderへの送信は行わない。この確認だけでは初期同意の全文表示、Task取消、回復操作、長い実結果の表示を確認したことにはならず、各公開入口の検証を別に保持する。
+入力の参照は[端末確認プログラム](../40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts)と[実行方法](../19_Workflows/01_Coordinator_Runtime.md#terminal-interaction-check)から再現する。[契約試験](../40_Develop/coordinator/tests/system/terminal-interaction-probe.contract.test.ts)は入力一致・不一致・時間切れ・取消・回収不明を区別する。参照が使うのは現行の端末writer／readerだけで、実行許可やProviderへの送信は行わない。この確認だけでは初期同意の全文表示、Task取消、回復操作、長い実結果の表示を確認したことにはならず、各公開入口の検証を別に保持する。
 
 ## 5. アクセシビリティ・利用品質の義務
 
@@ -88,13 +88,13 @@ Process再起動の必要性: あり
 
 | 操作単位 | UIが所有する確認 | SPECが所有する条件・結果 | 実装・試験の接続 |
 |---|---|---|---|
-| 診断・導入判断 | 通常利用可能と構文候補を識別 | [診断・回復](../05_SPEC/01_Behavior_Specification.md#診断回復の公開境界) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[診断試験](../40_Develop/coordinator/tests/doctor.contract.test.ts) |
-| 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/security/external-send-consent-runtime.ts)、[同意試験](../40_Develop/coordinator/tests/external-send-consent-runtime.contract.test.ts) |
-| Task入力・選定・待機 | 不正入力と処理中を分離、担当と理由 | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[引数試験](../40_Develop/coordinator/tests/cli-options.contract.test.ts) |
-| 候補の公開・export・discard | 候補ID、期限、未採用、次操作 | [利用者接点の境界](../05_SPEC/01_Behavior_Specification.md#user-interface-contract) | [候補Store試験](../40_Develop/coordinator/tests/candidate-bundle-store.contract.test.ts)、[表示試験](../40_Develop/coordinator/tests/command-report.contract.test.ts) |
-| 取消・遅延終了 | 要求と完了を区別し最終結果まで待つ | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [取消接続](../40_Develop/coordinator/src/core/task-cli-cancellation.ts)、[取消試験](../40_Develop/coordinator/tests/task-cli-cancellation.contract.test.ts) |
-| 回復・Process再起動 | 複数ID、IDなし不明、再起動を欠落させない | [利用者接点の境界](../05_SPEC/01_Behavior_Specification.md#user-interface-contract) | [結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[回復CLI結合試験](../40_Develop/coordinator/tests/coordinator-docker-recovery-cli.integration.test.ts) |
-| Checker実行 | 指摘・範囲・未確認を読み分ける。引数エラーでは手順へ戻る | [Checker契約](../05_SPEC/01_Behavior_Specification.md#checker-contract) | [配布本体](../template/tools/crdd-check.ts)、[契約試験](../40_Develop/checker/crdd-check.contract.test.ts)、[操作手順](../19_Workflows/02_Checker.md) |
+| 診断・導入判断 | 通常利用可能と構文候補を識別 | [診断・回復](../05_SPEC/01_Behavior_Specification.md#診断回復の公開境界) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[診断試験](../40_Develop/coordinator/tests/unit/doctor.contract.test.ts) |
+| 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/security/external-send-consent-runtime.ts)、[同意試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts) |
+| Task入力・選定・待機 | 不正入力と処理中を分離、担当と理由 | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[引数試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts) |
+| 候補の公開・export・discard | 候補ID、期限、未採用、次操作 | [利用者接点の境界](../05_SPEC/01_Behavior_Specification.md#user-interface-contract) | [候補Store試験](../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)、[表示試験](../40_Develop/coordinator/tests/unit/command-report.contract.test.ts) |
+| 取消・遅延終了 | 要求と完了を区別し最終結果まで待つ | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [取消接続](../40_Develop/coordinator/src/core/task-cli-cancellation.ts)、[取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts) |
+| 回復・Process再起動 | 複数ID、IDなし不明、再起動を欠落させない | [利用者接点の境界](../05_SPEC/01_Behavior_Specification.md#user-interface-contract) | [結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[回復CLI結合試験](../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts) |
+| Checker実行 | 指摘・範囲・未確認を読み分ける。引数エラーでは手順へ戻る | [Checker契約](../05_SPEC/01_Behavior_Specification.md#checker-contract) | [配布本体](../template/tools/crdd-check.ts)、[契約試験](../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)、[操作手順](../19_Workflows/02_Checker.md) |
 | Windows内部部品の結果 | binary応答ではなく、上位の診断・回収・再起動表示として影響を理解する | [内部部品契約](../05_SPEC/01_Behavior_Specification.md#platform-access-contract) | [nativeとAdapterの分担・試験](../06_Architecture/platform-access/01_Architecture.md#6-呼出し元との分担)。部品単体の成功を利用者のTask完了にしない |
 | 開発検証・公式署名 | 入力する人・目的・失敗段階を識別 | [実行基盤](../05_SPEC/01_Behavior_Specification.md#runtime-10の実行基盤)と[発行手順](../19_Workflows/01_Coordinator_Runtime.md) | 開発検証結果と正式署名結果を[品質状態](../07_Quality/01_Quality_Center.md)で分離 |
 

@@ -1677,9 +1677,9 @@ async function observeHistoricalRepair(
   operation: DockerDesktopRepairOperation,
 ) {
   const ledger = ledgerFrom(operation);
-  const originalTerminal = originalRepairChainIsTerminal(operation);
-  if (operation.history?.closed || originalTerminal) {
-    const retained =
+  const isOriginalTerminal = originalRepairChainIsTerminal(operation);
+  if (operation.history?.closed || isOriginalTerminal) {
+    const isRetained =
       operation.history?.staleState === "retained" ||
       operation.ledger.staleState === "retained";
     const liveRunIdentity =
@@ -1687,7 +1687,7 @@ async function observeHistoricalRepair(
       operation.ledger.liveRunIdentity ??
       operation.runIdentity;
     ledger.engineReady = operation.ledger.engineReady;
-    ledger.staleState = retained ? "retained" : operation.ledger.staleState;
+    ledger.staleState = isRetained ? "retained" : operation.ledger.staleState;
     ledger.hostSafety = operation.ledger.hostSafety;
     ledger.evidenceState = "preserved";
     ledger.liveRunIdentity = liveRunIdentity;
@@ -3761,12 +3761,12 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
         ledger.liveRunIdentity &&
         (ledger.staleState === "retained" || ledger.staleState === "absent")
       ) {
-        const originalTerminal = originalRepairChainIsTerminal(operation);
+        const isOriginalTerminal = originalRepairChainIsTerminal(operation);
         const expectedRun = ledger.liveRunIdentity;
         const expectedStale =
           ledger.staleState === "retained" ? operation.runIdentity : null;
         const closingManifest = dependencies.history.loadCurrentManifest();
-        const fresh = originalTerminal
+        const fresh = isOriginalTerminal
           ? null
           : await observeFreshRuntimeState(
               dependencies,
@@ -3776,7 +3776,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
               operation,
             );
         if (
-          !originalTerminal &&
+          !isOriginalTerminal &&
           (!fresh || !freshReadyStateMatches(fresh, expectedRun, expectedStale))
         ) {
           markUnknown(ledger);
@@ -4088,7 +4088,8 @@ export async function adoptWindowsDockerDesktopRepairUsingDependencies(
           reason = effectBoundaryFailureReason(verified);
           markUnknown(ledger);
         } else {
-          const originalWasTerminal = originalRepairChainIsTerminal(operation);
+          const isOriginalWasTerminal =
+            originalRepairChainIsTerminal(operation);
           const operationBeforeAdoption = operation;
           const adopted =
             adoptionRoute === "initial_adoption" ||
@@ -4115,8 +4116,8 @@ export async function adoptWindowsDockerDesktopRepairUsingDependencies(
             markUnknown(ledger);
           } else {
             operation = adopted;
-            let historyReady = true;
-            if (!adopted.history.closed && originalWasTerminal) {
+            let isHistoryReady = true;
+            if (!adopted.history.closed && isOriginalWasTerminal) {
               const liveRunIdentity =
                 adopted.ledger.liveRunIdentity ?? adopted.runIdentity;
               const staleState =
@@ -4141,12 +4142,12 @@ export async function adoptWindowsDockerDesktopRepairUsingDependencies(
                 reason =
                   "docker_desktop_repair_historical_closure_write_unknown";
                 markUnknown(ledger);
-                historyReady = false;
+                isHistoryReady = false;
               } else {
                 operation = closed;
               }
             }
-            if (historyReady) {
+            if (isHistoryReady) {
               const observed = await observeHistoricalRepair(
                 dependencies,
                 boundary,
@@ -4160,14 +4161,14 @@ export async function adoptWindowsDockerDesktopRepairUsingDependencies(
             }
             // Targeted adoption may unblock provenance one record at a time, but
             // it cannot declare the whole inventory safe while others are unknown.
-            const currentInventory = historyReady
-              ? originalWasTerminal
+            const currentInventory = isHistoryReady
+              ? isOriginalWasTerminal
                 ? durableInventoryState(dependencies, boundary)
                 : inventoryState(dependencies, boundary)
               : null;
             if (
-              (historyReady && !currentInventory) ||
-              (historyReady &&
+              (isHistoryReady && !currentInventory) ||
+              (isHistoryReady &&
                 currentInventory?.unfinished &&
                 currentInventory.unfinished.operationId !==
                   operation.operationId)

@@ -319,36 +319,36 @@ export function isProjectRuntimeProjectionSemanticallyValid(
           : projection.objectiveCounts.integration_pending > 0
             ? "verify_objective_integration"
             : null;
-  const allObjectivesPlanned =
+  const isAllObjectivesPlanned =
     projection.objectiveCounts.planned === objectiveTotal;
-  const allObjectivesAccepted =
+  const isAllObjectivesAccepted =
     projection.objectiveCounts.accepted === objectiveTotal;
-  const allTasksWaitingToStart =
+  const isAllTasksWaitingToStart =
     projection.taskCounts.ready + projection.taskCounts.waiting_dependency ===
     taskTotal;
-  const allTasksTerminalForIntegration =
+  const isAllTasksTerminalForIntegration =
     projection.taskCounts.completed + projection.taskCounts.superseded ===
     taskTotal;
-  const aggregateReachable =
-    (!allObjectivesPlanned || projection.taskCounts.completed === 0) &&
+  const isAggregateReachable =
+    (!isAllObjectivesPlanned || projection.taskCounts.completed === 0) &&
     (!allTasksComplete ||
       (projection.objectiveCounts.planned === 0 &&
         projection.objectiveCounts.executing === 0)) &&
     (projection.objectiveCounts.integration_pending === 0 ||
       projection.taskCounts.completed > 0);
-  const milestoneReachable =
-    aggregateReachable &&
+  const isMilestoneReachable =
+    isAggregateReachable &&
     (projection.milestoneState !== "planned" ||
-      (allObjectivesPlanned && allTasksWaitingToStart)) &&
+      (isAllObjectivesPlanned && isAllTasksWaitingToStart)) &&
     (projection.milestoneState !== "executing" ||
-      (!allObjectivesPlanned && !allObjectivesAccepted)) &&
+      (!isAllObjectivesPlanned && !isAllObjectivesAccepted)) &&
     (projection.milestoneState !== "integrating" ||
-      (allObjectivesAccepted && allTasksTerminalForIntegration)) &&
+      (isAllObjectivesAccepted && isAllTasksTerminalForIntegration)) &&
     (projection.milestoneState !== "accepted" ||
-      (allObjectivesAccepted &&
+      (isAllObjectivesAccepted &&
         projection.objectiveCounts.blocked === 0 &&
         projection.objectiveCounts.cancelled === 0 &&
-        allTasksTerminalForIntegration &&
+        isAllTasksTerminalForIntegration &&
         projection.taskCounts.recovery_required === 0)) &&
     (projection.milestoneState !== "recovery_required" ||
       projection.taskCounts.recovery_required > 0) &&
@@ -360,7 +360,7 @@ export function isProjectRuntimeProjectionSemanticallyValid(
         projection.taskCounts.cleanup_pending === 0 &&
         projection.taskCounts.recovery_required === 0));
   return (
-    milestoneReachable &&
+    isMilestoneReachable &&
     projection.recoveryRequired === recoveryRequired &&
     projection.humanDecisionRequired === humanDecisionRequired &&
     projection.workProgress === workProgress &&
@@ -468,7 +468,7 @@ function uniqueStrings(
   kind: "identity_or_path" | "human_text",
 ): readonly string[] | null {
   if (values.length > maximum) return null;
-  const result: string[] = [];
+  const resultItems: string[] = [];
   const seen = new Set<string>();
   for (const value of values) {
     if (typeof value !== "string" || value.length === 0 || value.length > 512)
@@ -479,9 +479,9 @@ function uniqueStrings(
       kind === "identity_or_path" ? normalized.toUpperCase() : normalized;
     if (seen.has(key)) return null;
     seen.add(key);
-    result.push(normalized);
+    resultItems.push(normalized);
   }
-  return Object.freeze(result);
+  return Object.freeze(resultItems);
 }
 
 function snapshotDefinition(
@@ -762,19 +762,19 @@ export function selectSchedulableProjectTasks(
     state.maximumConcurrency - state.tasks.filter(activeForCapacity).length,
   );
   if (available === 0) return Object.freeze([]);
-  const selected: ProjectTaskRecord[] = [];
-  const reserved = state.tasks.filter(reservesConflict);
+  const selectedItems: ProjectTaskRecord[] = [];
+  const reservedItems = state.tasks.filter(reservesConflict);
   for (const task of state.tasks) {
-    if (selected.length >= available) break;
+    if (selectedItems.length >= available) break;
     if (task.state !== "ready") continue;
     if (
-      reserved.some((active) => conflicts(task, active)) ||
-      selected.some((candidate) => conflicts(task, candidate))
+      reservedItems.some((active) => conflicts(task, active)) ||
+      selectedItems.some((candidate) => conflicts(task, candidate))
     )
       continue;
-    selected.push(task);
+    selectedItems.push(task);
   }
-  return Object.freeze(selected.map((task) => task.definition.id));
+  return Object.freeze(selectedItems.map((task) => task.definition.id));
 }
 
 function replaceTask(
@@ -1442,16 +1442,16 @@ export function recordProjectTaskOwnerLossRecoveries(
     recoveryId: string | null;
   }>[],
 ): StateResult {
-  const active = state.tasks.filter((task) =>
+  const activeItems = state.tasks.filter((task) =>
     ["starting", "running"].includes(task.state),
   );
-  const prepared = active.filter((task) => task.operationId !== null);
-  const reserved = active.filter((task) => task.operationId === null);
+  const preparedItems = activeItems.filter((task) => task.operationId !== null);
+  const reservedItems = activeItems.filter((task) => task.operationId === null);
   if (
     state.generation !== expectedGeneration ||
-    active.length === 0 ||
-    prepared.length + reserved.length !== active.length ||
-    bindings.length !== prepared.length ||
+    activeItems.length === 0 ||
+    preparedItems.length + reservedItems.length !== activeItems.length ||
+    bindings.length !== preparedItems.length ||
     new Set(bindings.map((entry) => entry.operationId)).size !==
       bindings.length ||
     bindings.some(
@@ -1473,10 +1473,10 @@ export function recordProjectTaskOwnerLossRecoveries(
     bindings.map((entry) => [entry.operationId, entry]),
   );
   if (
-    prepared.some(
+    preparedItems.some(
       (task) => task.operationId === null || !byOperation.has(task.operationId),
     ) ||
-    prepared.some((task) => {
+    preparedItems.some((task) => {
       const binding = task.operationId
         ? byOperation.get(task.operationId)
         : null;
@@ -1492,7 +1492,7 @@ export function recordProjectTaskOwnerLossRecoveries(
   const tasks = state.tasks.map((task) => {
     const binding =
       task.operationId === null ? undefined : byOperation.get(task.operationId);
-    if (reserved.includes(task) || binding?.status === "verified_absent")
+    if (reservedItems.includes(task) || binding?.status === "verified_absent")
       return Object.freeze({
         ...task,
         state: "ready" as const,
@@ -1530,7 +1530,7 @@ export function recordProjectTaskOwnerLossRecoveries(
         task.state === "recovery_required",
     )
       ? Object.freeze({ ...objective, state: "blocked" as const })
-      : reserved.some(
+      : reservedItems.some(
             (task) => task.definition.objectiveId === objective.definition.id,
           )
         ? Object.freeze({ ...objective, state: "executing" as const })
@@ -1551,7 +1551,7 @@ export function recordProjectTaskOwnerLossRecoveries(
       objectives,
       tasks,
     }),
-    taskIds: Object.freeze(active.map((task) => task.definition.id)),
+    taskIds: Object.freeze(activeItems.map((task) => task.definition.id)),
   });
 }
 
@@ -1871,7 +1871,7 @@ export function recordObjectiveIntegration(
         })
       : candidate,
   );
-  const allAccepted = objectives.every(
+  const isAllAccepted = objectives.every(
     (candidate) => candidate.state === "accepted",
   );
   return Object.freeze({
@@ -1884,7 +1884,7 @@ export function recordObjectiveIntegration(
       generation: state.generation + 1,
       milestone: Object.freeze({
         ...state.milestone,
-        state: allAccepted ? ("integrating" as const) : state.milestone.state,
+        state: isAllAccepted ? ("integrating" as const) : state.milestone.state,
       }),
       objectives,
     }),

@@ -8,7 +8,7 @@ const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
 // count. Filesystem and parser loops can legitimately exceed one million while
 // the LCOV payload remains bounded separately. Preserve the exact integer and
 // reject only values JavaScript cannot represent without loss.
-const MAXIMUM_COVERAGE_COUNT = Number.MAX_SAFE_INTEGER;
+const maximumCoverageCount = Number.MAX_SAFE_INTEGER;
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
@@ -31,19 +31,19 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
-  "40_Develop/coordinator/tests/authority-root-path-lexical.contract.test.ts",
-  "40_Develop/coordinator/tests/bounded-file-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/doctor.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-access-adapter.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-access-release.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-release-identity.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-provisioner-trust-core.contract.test.ts",
-  "40_Develop/coordinator/tests/root-observation.contract.test.ts",
-  "40_Develop/coordinator/tests/release-manifest-promotion.contract.test.ts",
-  "40_Develop/coordinator/tests/sign-release-manifest.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/authority-root-path-lexical.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/platform-access-adapter.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/platform-access-release.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/platform-provisioner-manifest-loader.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/platform-provisioner-trust-core.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/root-observation.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/release-manifest-promotion.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts",
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_NODE_OPTIONS = Object.freeze([
@@ -203,7 +203,7 @@ function count(raw: string, label: string) {
     throw new Error(`invalid ${label}`);
   }
   const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value > MAXIMUM_COVERAGE_COUNT) {
+  if (!Number.isSafeInteger(value) || value > maximumCoverageCount) {
     throw new Error(`invalid ${label}`);
   }
   return value;

@@ -71,7 +71,7 @@ type ActiveLease = Readonly<{
   identity: string;
 }>;
 
-const ACTIVE_LEASES = new WeakMap<ProjectRuntimeLease, ActiveLease>();
+const activeLeases = new WeakMap<ProjectRuntimeLease, ActiveLease>();
 
 type Envelope = Readonly<{
   schema: typeof PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT;
@@ -109,11 +109,11 @@ function errorCode(error: unknown) {
 }
 
 function exactKeys(value: object, keys: readonly string[]) {
-  const actual = Object.keys(value).sort();
-  const expected = [...keys].sort();
+  const actualValues = Object.keys(value).sort();
+  const expectedValues = [...keys].sort();
   return (
-    actual.length === expected.length &&
-    actual.every((key, index) => key === expected[index])
+    actualValues.length === expectedValues.length &&
+    actualValues.every((key, index) => key === expectedValues[index])
   );
 }
 
@@ -187,7 +187,7 @@ function recoveryObligations(
     const binding = plainObject(acknowledgement)
       ? acknowledgement.runtimeStateBinding
       : null;
-    const validAcknowledgement =
+    const isValidAcknowledgement =
       plainObject(acknowledgement) &&
       exactKeys(acknowledgement, acknowledgementKeys) &&
       [
@@ -239,7 +239,7 @@ function recoveryObligations(
       ) ||
       (entry.phase === "acknowledged" &&
         (entry.kind !== "docker" ||
-          !validAcknowledgement ||
+          !isValidAcknowledgement ||
           acknowledgement.recoveryId !== entry.recoveryId))
     )
       return false;
@@ -267,17 +267,21 @@ function nullableResultReference(value: unknown) {
 }
 
 function validTaskLifecycleTuple(task: ProjectRuntimeState["tasks"][number]) {
-  const attempt = task.attemptId !== null;
-  const operation = task.operationId !== null;
-  const authority = task.authorityBindingId !== null;
+  const isAttempt = task.attemptId !== null;
+  const isOperation = task.operationId !== null;
+  const isAuthority = task.authorityBindingId !== null;
   if (["planned", "waiting_dependency", "ready"].includes(task.state))
-    return task.startPhase === "none" && !attempt && !operation && !authority;
+    return (
+      task.startPhase === "none" && !isAttempt && !isOperation && !isAuthority
+    );
   if (task.state === "starting" && task.startPhase === "reserved")
-    return attempt && !operation && authority;
+    return isAttempt && !isOperation && isAuthority;
   if (task.state === "starting" && task.startPhase === "handoff_prepared")
-    return attempt && operation && authority;
+    return isAttempt && isOperation && isAuthority;
   if (task.state === "running")
-    return task.startPhase === "running" && attempt && operation && authority;
+    return (
+      task.startPhase === "running" && isAttempt && isOperation && isAuthority
+    );
   if (
     [
       "cleanup_pending",
@@ -288,7 +292,9 @@ function validTaskLifecycleTuple(task: ProjectRuntimeState["tasks"][number]) {
       "superseded",
     ].includes(task.state)
   )
-    return task.startPhase === "settled" && attempt && operation && authority;
+    return (
+      task.startPhase === "settled" && isAttempt && isOperation && isAuthority
+    );
   return false;
 }
 
@@ -658,7 +664,7 @@ function createLeaseAcquisitionMarker(
   );
   const bytes = `${JSON.stringify(value)}\n`;
   let descriptor: number | null = null;
-  let published = false;
+  let isPublished = false;
   try {
     descriptor = fs.openSync(
       temporary,
@@ -690,12 +696,12 @@ function createLeaseAcquisitionMarker(
       }
       throw error;
     }
-    published = true;
+    isPublished = true;
     if (fs.readFileSync(marker, "utf8") !== bytes)
       throw new Error("project_runtime_lease_acquisition_marker_mismatch");
   } catch (error) {
     if (descriptor !== null) fs.closeSync(descriptor);
-    if (!published) {
+    if (!isPublished) {
       try {
         fs.rmSync(temporary, { force: true });
       } catch {}
@@ -1004,20 +1010,20 @@ function readExactLeaseEvidence(
     recovered: `${base}-recovered.json`,
   });
   const allowed = new Set(Object.values(exactNames));
-  const inventory = fs.readdirSync(directory);
+  const inventoryEntries = fs.readdirSync(directory);
   if (
-    inventory.length > 4096 ||
-    inventory.some((name) => name.startsWith(base) && !allowed.has(name))
+    inventoryEntries.length > 4096 ||
+    inventoryEntries.some((name) => name.startsWith(base) && !allowed.has(name))
   )
     throw new Error("project_runtime_lease_evidence_inventory_mismatch");
 
   const read = (
     name: string,
     disposition: LeaseEvidenceContent["disposition"],
-    required: boolean,
+    isRequired: boolean,
   ): LeaseEvidenceEnvelope | null => {
     if (!fs.existsSync(path.join(directory, name))) {
-      if (required) throw new Error("project_runtime_lease_evidence_missing");
+      if (isRequired) throw new Error("project_runtime_lease_evidence_missing");
       return null;
     }
     const record = readEnvelopeFile(directory, name);
@@ -1069,12 +1075,12 @@ function validatedQueueHistory(
   queueId: string,
   expectedProjectId?: string,
 ): readonly QueueEnvelope[] | null {
-  const ordered = [...records].sort(
+  const orderedItems = [...records].sort(
     (left, right) => left.updatedGeneration - right.updatedGeneration,
   );
   let projectId = expectedProjectId ?? null;
-  const result: QueueEnvelope[] = [];
-  for (const record of ordered) {
+  const resultItems: QueueEnvelope[] = [];
+  for (const record of orderedItems) {
     const content = record.content;
     if (
       record.recordKind !== "queue-entry" ||
@@ -1087,9 +1093,9 @@ function validatedQueueHistory(
     )
       return null;
     projectId = content.projectId;
-    result.push(record as QueueEnvelope);
+    resultItems.push(record as QueueEnvelope);
   }
-  return Object.freeze(result);
+  return Object.freeze(resultItems);
 }
 
 function withMutationLock<T>(
@@ -1140,8 +1146,8 @@ export function writeProjectRuntimeState(
     const states = ensureDirectory(runtime, "states");
     const project = ensureDirectory(states, state.projectId);
     return withMutationLock(runtime, `state-${state.projectId}`, () => {
-      const existing = readEnvelopes(project, "generation-");
-      const latest = existing.reduce(
+      const existingItems = readEnvelopes(project, "generation-");
+      const latest = existingItems.reduce(
         (maximum, item) => Math.max(maximum, item.updatedGeneration),
         0,
       );
@@ -1235,17 +1241,17 @@ export function enqueueProjectOperation(
     const queue = ensureDirectory(runtime, "queue");
     const entryDirectory = ensureDirectory(queue, input.queueId);
     return withMutationLock(runtime, "queue-mutation", () => {
-      const observed = readEnvelopes(entryDirectory, "generation-");
-      const existing = validatedQueueHistory(
-        observed,
+      const observedItems = readEnvelopes(entryDirectory, "generation-");
+      const existingItems = validatedQueueHistory(
+        observedItems,
         repositoryBindingId,
         input.queueId,
         input.projectId,
       );
-      if (existing === null)
+      if (existingItems === null)
         return blocked("project_runtime_queue_record_mismatch", true);
-      if (existing.length > 0) {
-        const currentEnvelope = existing.at(-1);
+      if (existingItems.length > 0) {
+        const currentEnvelope = existingItems.at(-1);
         if (!currentEnvelope)
           return blocked("project_runtime_queue_observation_unknown", true);
         const current = currentEnvelope.content;
@@ -1301,14 +1307,14 @@ export function readProjectOperationQueueState(
       return blocked("project_runtime_queue_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
     const entryDirectory = path.join(runtime, "queue", queueId);
-    const existing = validatedQueueHistory(
+    const existingItems = validatedQueueHistory(
       readEnvelopes(entryDirectory, "generation-"),
       repositoryBindingId,
       queueId,
     );
-    if (existing === null)
+    if (existingItems === null)
       return blocked("project_runtime_queue_record_mismatch", true);
-    const currentEnvelope = existing.at(-1);
+    const currentEnvelope = existingItems.at(-1);
     if (!currentEnvelope)
       return blocked("project_runtime_queue_observation_unknown", true);
     const current = currentEnvelope.content;
@@ -1544,14 +1550,14 @@ export function updateProjectOperationQueueState(
     const { repositoryRoot, runtime } = storageRoot(workingDirectory);
     const entryDirectory = path.join(runtime, "queue", queueId);
     return withMutationLock(runtime, "queue-mutation", () => {
-      const existing = validatedQueueHistory(
+      const existingItems = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
         repositoryBindingId,
         queueId,
       );
-      if (existing === null)
+      if (existingItems === null)
         return blocked("project_runtime_queue_record_mismatch", true);
-      const currentEnvelope = existing.at(-1);
+      const currentEnvelope = existingItems.at(-1);
       if (
         !currentEnvelope ||
         currentEnvelope.updatedGeneration !== expectedGeneration
@@ -1594,9 +1600,7 @@ export function updateProjectOperationQueueState(
         )
       )
         return blocked("project_runtime_queue_owner_loss_reset_invalid");
-      const activeLease = next.lease
-        ? ACTIVE_LEASES.get(next.lease)
-        : undefined;
+      const activeLease = next.lease ? activeLeases.get(next.lease) : undefined;
       const nextLeaseRequired = ["leased", "running"].includes(next.state);
       const leaseRequired =
         current.ownerGeneration !== null || nextLeaseRequired;
@@ -1675,12 +1679,12 @@ export function settleProjectOperationQueueRecovery(
     const { runtime } = storageRoot(workingDirectory);
     const entryDirectory = path.join(runtime, "queue", queueId);
     return withMutationLock(runtime, "queue-mutation", () => {
-      const history = validatedQueueHistory(
+      const historyEntries = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
         repositoryBindingId,
         queueId,
       );
-      const currentEnvelope = history?.at(-1);
+      const currentEnvelope = historyEntries?.at(-1);
       if (
         !currentEnvelope ||
         currentEnvelope.updatedGeneration !== expectedGeneration ||
@@ -1730,11 +1734,11 @@ export function acquireProjectRuntimeLease(
   kind: LeaseKind,
 ): StoreResult<ProjectRuntimeLease> {
   let acquisitionMarker: string | null = null;
-  let acquisitionMarkerOwned = false;
+  let isAcquisitionMarkerOwned = false;
   let lockOwnershipMarker: string | null = null;
-  let lockOwnershipMarkerOwned = false;
+  let isLockOwnershipMarkerOwned = false;
   let lock: string | null = null;
-  let lockOwned = false;
+  let isLockOwned = false;
   let acquiredEvidence: string | null = null;
   let recoveryId: string | null = null;
   try {
@@ -1784,9 +1788,9 @@ export function acquireProjectRuntimeLease(
           recoveryId,
         }),
       );
-      acquisitionMarkerOwned = true;
+      isAcquisitionMarkerOwned = true;
       fs.mkdirSync(lock, { mode: 0o700 });
-      lockOwned = true;
+      isLockOwned = true;
       createLeaseLockOwnershipMarker(
         lockOwnershipMarker,
         Object.freeze({
@@ -1797,9 +1801,9 @@ export function acquireProjectRuntimeLease(
           recoveryId,
         }),
       );
-      lockOwnershipMarkerOwned = true;
+      isLockOwnershipMarkerOwned = true;
     } catch (error) {
-      if (!acquisitionMarkerOwned) {
+      if (!isAcquisitionMarkerOwned) {
         if (errorCode(error) === "EEXIST")
           return blocked("project_runtime_lease_unavailable");
         try {
@@ -1942,13 +1946,13 @@ export function acquireProjectRuntimeLease(
               "project_runtime_lease_acquisition_marker_release_unknown",
             );
           released = true;
-          ACTIVE_LEASES.delete(lease);
+          activeLeases.delete(lease);
           return completed<Readonly<{ released: true }>>(
             "project_runtime_lease_released",
             Object.freeze({ released: true as const }),
           );
         } catch {
-          ACTIVE_LEASES.delete(lease);
+          activeLeases.delete(lease);
           return blocked<Readonly<{ released: true }>>(
             "project_runtime_lease_release_unknown",
             true,
@@ -1956,7 +1960,7 @@ export function acquireProjectRuntimeLease(
         }
       },
     });
-    ACTIVE_LEASES.set(
+    activeLeases.set(
       lease,
       Object.freeze({
         repositoryRoot,
@@ -1977,7 +1981,8 @@ export function acquireProjectRuntimeLease(
   } catch {
     let cleanupConfirmed = true;
     try {
-      if (lockOwned && lock !== null && fs.existsSync(lock)) fs.rmdirSync(lock);
+      if (isLockOwned && lock !== null && fs.existsSync(lock))
+        fs.rmdirSync(lock);
       if (lock !== null && fs.existsSync(lock)) cleanupConfirmed = false;
     } catch {
       cleanupConfirmed = false;
@@ -1997,7 +2002,7 @@ export function acquireProjectRuntimeLease(
     try {
       if (
         cleanupConfirmed &&
-        lockOwnershipMarkerOwned &&
+        isLockOwnershipMarkerOwned &&
         lockOwnershipMarker !== null &&
         fs.existsSync(lockOwnershipMarker)
       )
@@ -2010,7 +2015,7 @@ export function acquireProjectRuntimeLease(
     try {
       if (
         cleanupConfirmed &&
-        acquisitionMarkerOwned &&
+        isAcquisitionMarkerOwned &&
         acquisitionMarker !== null &&
         fs.existsSync(acquisitionMarker)
       )
@@ -2134,17 +2139,17 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
         recoveryId,
       );
     const queueDirectory = path.join(runtime, "queue", first.queueId);
-    let history: readonly QueueEnvelope[] | null;
+    let historyEntries: readonly QueueEnvelope[] | null;
     try {
-      history = validatedQueueHistory(
+      historyEntries = validatedQueueHistory(
         readEnvelopes(queueDirectory, "generation-"),
         repositoryBindingId,
         first.queueId,
       );
     } catch {
-      history = null;
+      historyEntries = null;
     }
-    const queue = history?.at(-1)?.content;
+    const queue = historyEntries?.at(-1)?.content;
     if (
       !queue ||
       (queue.ownerGeneration === null && queue.state !== "queued") ||
@@ -2197,12 +2202,12 @@ export function settleProjectOperationQueueLeaseRelease(
     const { runtime } = storageRoot(workingDirectory);
     return withMutationLock(runtime, "queue-mutation", () => {
       const entryDirectory = path.join(runtime, "queue", queueId);
-      const history = validatedQueueHistory(
+      const historyEntries = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
         repositoryBindingId,
         queueId,
       );
-      const currentEnvelope = history?.at(-1);
+      const currentEnvelope = historyEntries?.at(-1);
       const current = currentEnvelope?.content;
       if (
         !currentEnvelope ||
@@ -2285,7 +2290,7 @@ function reconcileUnboundLeaseAcquisition(
   requestedQueueId: string,
   kind: LeaseKind,
   observeOwner: LeaseOwnerObserver,
-  retainAcquisitionMarkerForCaller = false,
+  shouldRetainAcquisitionMarkerForCaller = false,
 ): StoreResult<Readonly<{ recoveryId: string }>> {
   const identity = leaseIdentity(
     repositoryBindingId,
@@ -2593,13 +2598,13 @@ function reconcileUnboundLeaseAcquisition(
   }
   fs.rmSync(releaseMarker);
   if (fs.existsSync(lockOwnershipMarker)) fs.rmSync(lockOwnershipMarker);
-  if (!retainAcquisitionMarkerForCaller) fs.rmSync(acquisitionMarker);
+  if (!shouldRetainAcquisitionMarkerForCaller) fs.rmSync(acquisitionMarker);
   if (temporaryMarker !== null) fs.rmSync(temporaryMarker);
   if (
     fs.existsSync(lock) ||
     fs.existsSync(releaseMarker) ||
     fs.existsSync(lockOwnershipMarker) ||
-    (retainAcquisitionMarkerForCaller
+    (shouldRetainAcquisitionMarkerForCaller
       ? !fs.existsSync(acquisitionMarker)
       : fs.existsSync(acquisitionMarker)) ||
     leaseAcquisitionTemporaryFiles(locks, identity).length > 0
@@ -2706,13 +2711,13 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
     const { runtime } = storageRoot(workingDirectory);
     return withMutationLock(runtime, "queue-mutation", () => {
       const entryDirectory = path.join(runtime, "queue", queueId);
-      const history = validatedQueueHistory(
+      const historyEntries = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
         repositoryBindingId,
         queueId,
         projectId,
       );
-      const currentEnvelope = history?.at(-1);
+      const currentEnvelope = historyEntries?.at(-1);
       const current = currentEnvelope?.content;
       if (!currentEnvelope || !current)
         return blocked("project_runtime_lease_recovery_state_mismatch");

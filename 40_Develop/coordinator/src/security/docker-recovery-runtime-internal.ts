@@ -392,12 +392,12 @@ function inspectDockerTaskSessionHandoffs(
     names.length > MAX_DOCKER_TASK_SESSION_HANDOFFS
   )
     throw new Error("docker_task_session_handoff_invalid");
-  const ordered = names.map((entry) => entry.name).sort();
+  const orderedItems = names.map((entry) => entry.name).sort();
   let currentLocalUserBindingHash = durableBinding.localUserBindingHash;
   let tipSha256 = parsed.baseHash;
   const visited = new Set([currentLocalUserBindingHash]);
-  for (let index = 0; index < ordered.length; index += 1) {
-    const name = ordered[index];
+  for (let index = 0; index < orderedItems.length; index += 1) {
+    const name = orderedItems[index];
     const matched = DOCKER_TASK_SESSION_HANDOFF.exec(name ?? "");
     const record = readExactJson(path.join(rootPath, name ?? ""), name)
       .value as Record<string, unknown>;
@@ -444,7 +444,7 @@ function inspectDockerTaskSessionHandoffs(
   return Object.freeze({
     currentLocalUserBindingHash,
     tipSha256,
-    count: ordered.length,
+    count: orderedItems.length,
   });
 }
 
@@ -2396,7 +2396,7 @@ function removeRecoveryOperationDirectory(
   baseHash: string,
   stableLogicalHomeBindingHash: string,
   runtimeStateBinding: RuntimeStateBindingEvidence,
-  persistCompletionReceipt = false,
+  shouldPersistCompletionReceipt = false,
 ) {
   inventoryOperationDirectory(operationDirectory, recoveryId, nonce, baseHash);
   const cleanupDirectory = path.join(
@@ -2456,7 +2456,7 @@ function removeRecoveryOperationDirectory(
     originalEntries: Object.freeze(originalEntries),
   });
   verifyRecoveryCleanupManifest(operationDirectory, recoveryId);
-  if (persistCompletionReceipt)
+  if (shouldPersistCompletionReceipt)
     ensureCompletedDockerRecoveryReceipt(
       path.dirname(operationDirectory),
       recoveryId,
@@ -3087,7 +3087,7 @@ function observeSubmittedDockerResourceAbsentWithRunner(
 ) {
   const nameFilter =
     kind === "container" ? `name=^/${expectedName}$` : `name=^${expectedName}$`;
-  const execute = (...filters: readonly string[]) =>
+  const executeRecoveryOperation = (...filters: readonly string[]) =>
     runDocker(
       kind === "container"
         ? [
@@ -3109,8 +3109,8 @@ function observeSubmittedDockerResourceAbsentWithRunner(
           ],
     );
   return [
-    execute(nameFilter),
-    execute(nameFilter, `label=${ownershipLabel}`),
+    executeRecoveryOperation(nameFilter),
+    executeRecoveryOperation(nameFilter, `label=${ownershipLabel}`),
   ].every(
     (result) =>
       result.status === 0 &&
@@ -3344,7 +3344,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           )
         : null;
       if (homeLock && stateLock) {
-        let replaySucceeded = false;
+        let isReplaySucceeded = false;
         let replayFailureReason = "docker_task_runtime_state_audit_failed";
         try {
           ensureDockerTaskSessionHandoff(
@@ -3364,7 +3364,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
               root.stableLogicalHomeBindingHash
           )
             throw new Error("docker_task_runtime_state_binding_changed");
-          replaySucceeded = true;
+          isReplaySucceeded = true;
         } catch (error) {
           replayFailureReason = safeRecoveryReason(
             error,
@@ -3387,7 +3387,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
             reason: releaseFailure,
             recoveryId: parsed.token,
           });
-        if (replaySucceeded)
+        if (isReplaySucceeded)
           return Object.freeze({
             status: "recovered" as const,
             reason: "docker_task_recovery_completion_replayed",
@@ -5261,10 +5261,10 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
       receiptContentHash: receipt.receiptContentHash,
       receiptContentIdentity: receipt.receiptContentIdentity,
     });
-    const existingAcknowledged = recoveryPathPresent(
+    const isExistingAcknowledged = recoveryPathPresent(
       path.join(root.rootPath, acknowledgedName),
     );
-    if (!existingAcknowledged) {
+    if (!isExistingAcknowledged) {
       const acknowledgementCount = fs
         .readdirSync(root.rootPath)
         .filter((name) =>

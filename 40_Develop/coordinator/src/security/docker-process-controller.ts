@@ -257,13 +257,13 @@ export function createRuntimeOwnedLifecycleNoticeReporter(stream: Writable) {
     return new Promise<boolean>((resolve) => {
       let settled = false;
       const timer = setTimeout(() => settle(false), CANCELLATION_GRACE_MS);
-      const settle = (value: boolean) => {
+      const settle = (isValue: boolean) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
         stream.off("error", onFailure);
         stream.off("close", onFailure);
-        resolve(value);
+        resolve(isValue);
       };
       const onFailure = () => settle(false);
       stream.once("error", onFailure);
@@ -1045,9 +1045,9 @@ async function executePlan(
           break;
         }
         providerRequestStarted = true;
-        let startObserved = true;
+        let isStartObserved = true;
         try {
-          startObserved =
+          isStartObserved =
             !state.dependencies.reportProviderProcessStarted ||
             (await state.dependencies.reportProviderProcessStarted(
               Object.freeze({
@@ -1058,9 +1058,9 @@ async function executePlan(
               }),
             )) === true;
         } catch {
-          startObserved = false;
+          isStartObserved = false;
         }
-        if (!startObserved) {
+        if (!isStartObserved) {
           record.cancellationRequested = true;
           await handle.terminateAndWait(CANCELLATION_GRACE_MS);
           record.activeHandle = null;

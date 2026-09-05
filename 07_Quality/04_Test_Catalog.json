@@ -1,0 +1,2872 @@
+{
+  "contract": "crdd/test-catalog",
+  "contractRevision": 2,
+  "levels": [
+    "unit",
+    "integration",
+    "system",
+    "acceptance",
+    "performance",
+    "longevity"
+  ],
+  "regressionIsSelection": true,
+  "resourceIntensiveLevels": [
+    "performance",
+    "longevity"
+  ],
+  "runnerProfiles": {
+    "checker": "node_test",
+    "coordinator": "node_test",
+    "platform-access": "cargo_test"
+  },
+  "tests": [
+    {
+      "id": "coordinator:integration:bounded-file-snapshot",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "bounded",
+        "file",
+        "snapshot"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:candidate-bundle-store",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "candidate",
+        "bundle",
+        "store"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:candidate-store-kernel-lock",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "candidate",
+        "store",
+        "kernel",
+        "lock"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:claude-execution-plan",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/claude-execution-plan.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "claude",
+        "execution",
+        "plan"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:cli-options",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/cli-options.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "cli",
+        "options"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:codex-execution-plan",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/codex-execution-plan.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "codex",
+        "execution",
+        "plan"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:coordinator-claude-delegation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/coordinator-claude-delegation.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "coordinator",
+        "claude",
+        "delegation"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:coordinator-task-process",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "coordinator",
+        "task",
+        "process"
+      ],
+      "environment": "local_component_boundary",
+      "executionProfiles": [
+        "restricted_process",
+        "windows_process_control"
+      ],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:coordinator-task-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/coordinator-task-runtime.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "coordinator",
+        "task",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:development-execution-timing",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/development-execution-timing.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "development",
+        "execution",
+        "timing"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:development-native-observation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/development-native-observation.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "development",
+        "native",
+        "observation"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-desktop-repair-history-publication",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-desktop-repair-history-publication.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "desktop",
+        "repair",
+        "history",
+        "publication"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-desktop-repair-policy",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-desktop-repair-policy.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "desktop",
+        "repair",
+        "policy"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-desktop-repair-record-store",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-desktop-repair-record-store.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "desktop",
+        "repair",
+        "record",
+        "store"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-desktop-runtime-repair",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "desktop",
+        "runtime",
+        "repair"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-effect-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-effect-runtime.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "effect",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-owned-process",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "docker",
+        "owned",
+        "process"
+      ],
+      "environment": "local_component_boundary",
+      "executionProfiles": [
+        "restricted_process",
+        "windows_process_control"
+      ],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-process-controller",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "process",
+        "controller"
+      ],
+      "environment": "local_component_boundary",
+      "executionProfiles": [
+        "restricted_process",
+        "windows_process_control"
+      ],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-recovery-journal",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-recovery-journal.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "docker",
+        "recovery",
+        "journal"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-recovery-lock-controller",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-recovery-lock-controller.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "docker",
+        "recovery",
+        "lock",
+        "controller"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-recovery-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "recovery",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:external-send-consent-docker-recovery",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/external-send-consent-docker-recovery.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "external",
+        "send",
+        "consent",
+        "docker",
+        "recovery"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:external-send-consent-revocation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/external-send-consent-revocation.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "external",
+        "send",
+        "consent",
+        "revocation"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:external-send-consent-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "external",
+        "send",
+        "consent",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:external-send-policy-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/external-send-policy-runtime.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "external",
+        "send",
+        "policy",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:generate-release-key",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/generate-release-key.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "generate",
+        "release",
+        "key"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:git-object-reader-contract",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/git-object-reader.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "git",
+        "object",
+        "reader"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:git-object-reader-integration",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/git-object-reader.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "git",
+        "object",
+        "reader"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:native-runtime-trace",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/native-runtime-trace.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "native",
+        "runtime",
+        "trace"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:platform-access-coverage",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/platform-access-coverage.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "access",
+        "coverage"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:platform-access-release",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/platform-access-release.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "access",
+        "release"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:platform-access-ts-coverage",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "access",
+        "ts",
+        "coverage"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:platform-provisioner-manifest-loader",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/platform-provisioner-manifest-loader.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "provisioner",
+        "manifest",
+        "loader"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:platform-provisioner-package-filesystem",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "provisioner",
+        "package",
+        "filesystem"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:platform-provisioner-release-identity",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "provisioner",
+        "release",
+        "identity"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-candidate-integration-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-candidate-integration-adapter.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "candidate",
+        "adapter"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-decision-recovery-store",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-decision-recovery-store.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "decision",
+        "recovery",
+        "store"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-design-traceability",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "design",
+        "traceability"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-durable-foundation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-durable-foundation.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "durable",
+        "foundation"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-execution",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-execution.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "execution"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-full-flow",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-full-flow.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "full",
+        "flow"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-integration",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-integration.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-objective-intake",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-objective-intake.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "objective",
+        "intake"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-platform-independence",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-platform-independence.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "platform",
+        "independence"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-public-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-public-runtime.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "public",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-queue-priority",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-queue-priority.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "queue",
+        "priority"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-replanning-and-decision",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-replanning-and-decision.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "replanning",
+        "and",
+        "decision"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-single-task-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-single-task-adapter.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "single",
+        "task",
+        "adapter"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:project-runtime-windows-decision-store",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-windows-decision-store.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "windows",
+        "decision",
+        "store"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:provider-authority-coverage",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/provider-authority-coverage.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "authority",
+        "coverage"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:release-manifest-promotion",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/release-manifest-promotion.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "release",
+        "manifest",
+        "promotion"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:repository-git-layout",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/repository-git-layout.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "repository",
+        "git",
+        "layout"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:repository-operation-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/repository-operation-runtime.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "repository",
+        "operation",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:repository-root-resolution",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/repository-root-resolution.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "repository",
+        "root",
+        "resolution"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:repository-workspace-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "repository",
+        "workspace",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:runtime-process-safety-state",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/runtime-process-safety-state.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "runtime",
+        "process",
+        "safety",
+        "state"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:runtime-traceability",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "runtime",
+        "traceability"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:sign-release-manifest",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "sign",
+        "release",
+        "manifest"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:task-cli-cancellation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "task",
+        "cli",
+        "cancellation"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:test-execution-profile",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/test-execution-profile.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "execution",
+        "profile"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:coordinator-docker-recovery-cli",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts",
+      "level": "system",
+      "kind": "integration",
+      "semanticTags": [
+        "coordinator",
+        "docker",
+        "recovery",
+        "cli"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:coordinator-launch",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/coordinator-launch.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "coordinator",
+        "launch"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:dynamic-fake-provider-cancellation-verification",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "dynamic",
+        "fake",
+        "provider",
+        "cancellation",
+        "verification"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:dynamic-fake-provider-failure-verification",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "dynamic",
+        "fake",
+        "provider",
+        "failure",
+        "verification"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:interaction-boundary-regression",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/interaction-boundary-regression.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "interaction",
+        "boundary",
+        "regression"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:mcp-project-runtime-stdio",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/mcp-project-runtime-stdio.integration.test.ts",
+      "level": "system",
+      "kind": "integration",
+      "semanticTags": [
+        "mcp",
+        "project",
+        "runtime",
+        "stdio"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:project-runtime-real-provider-verification-script",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/project-runtime-real-provider-verification-script.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "real",
+        "provider",
+        "verification",
+        "script"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:signed-general-task-verification",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/signed-general-task-verification.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "signed",
+        "general",
+        "task",
+        "verification"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:signed-recovery-matrix-verification",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/signed-recovery-matrix-verification.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "signed",
+        "recovery",
+        "matrix",
+        "verification"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:signed-route-matrix-verification",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/signed-route-matrix-verification.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "signed",
+        "route",
+        "matrix",
+        "verification"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:terminal-interaction-probe",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/terminal-interaction-probe.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "terminal",
+        "interaction",
+        "probe"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:verification-result-record",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/verification-result-record.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "verification",
+        "result",
+        "record"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:authority-file-bundle",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/authority-file-bundle.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "authority",
+        "file",
+        "bundle"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:authority-grant-verifier",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/authority-grant-verifier.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "authority",
+        "grant",
+        "verifier"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:authority-prelaunch-verifier",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/authority-prelaunch-verifier.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "authority",
+        "prelaunch",
+        "verifier"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:authority-root-path-lexical",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/authority-root-path-lexical.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "authority",
+        "root",
+        "path",
+        "lexical"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:authority-trust-loader",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/authority-trust-loader.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "authority",
+        "trust",
+        "loader"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:candidate-store-windows-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/candidate-store-windows-adapter.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "candidate",
+        "store",
+        "windows",
+        "adapter"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:claude-docker-runtime-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/claude-docker-runtime-adapter.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "claude",
+        "docker",
+        "runtime",
+        "adapter"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:claude-structured-result",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/claude-structured-result.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "claude",
+        "structured",
+        "result"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:codex-docker-runtime-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/codex-docker-runtime-adapter.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "codex",
+        "docker",
+        "runtime",
+        "adapter"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:codex-structured-result",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/codex-structured-result.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "codex",
+        "structured",
+        "result"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:command-report",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/command-report.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "command",
+        "report"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:coordinator-operation-creation-internal",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/coordinator-operation-creation-internal.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "coordinator",
+        "operation",
+        "creation",
+        "internal"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:delegation-route-selection",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/delegation-route-selection.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "delegation",
+        "route",
+        "selection"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:delegation-selection-grant-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/delegation-selection-grant-runtime.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "delegation",
+        "selection",
+        "grant",
+        "runtime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:development-measurement-constraints",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/development-measurement-constraints.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "development",
+        "measurement",
+        "constraints"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:development-measurement-session",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/development-measurement-session.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "development",
+        "measurement",
+        "session"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:development-provider-measurement",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/development-provider-measurement.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "development",
+        "provider",
+        "measurement"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-cleanup-eligibility",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-cleanup-eligibility.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "cleanup",
+        "eligibility"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-host-transition-state",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-host-transition-state.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "host",
+        "transition",
+        "state"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-recovery-public-projection",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-recovery-public-projection.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "recovery",
+        "public",
+        "projection"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-recovery-state-machine",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-recovery-state-machine.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "recovery",
+        "state",
+        "machine"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-runtime-state-binding",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-runtime-state-binding.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "runtime",
+        "state",
+        "binding"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:doctor",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "doctor"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:dynamic-fake-provider-coverage",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/dynamic-fake-provider-coverage.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "dynamic",
+        "fake",
+        "provider",
+        "coverage"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:egress-proxy-policy",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/egress-proxy-policy.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "egress",
+        "proxy",
+        "policy"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:external-send-grant-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/external-send-grant-runtime.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "external",
+        "send",
+        "grant",
+        "runtime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:host-generation-loss-transition",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/host-generation-loss-transition.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "host",
+        "generation",
+        "loss",
+        "transition"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:local-personal-authority-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/local-personal-authority-runtime.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "local",
+        "personal",
+        "authority",
+        "runtime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:mcp-project-runtime-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/mcp-project-runtime-adapter.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "mcp",
+        "project",
+        "runtime",
+        "adapter"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:node-runtime-version",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/node-runtime-version.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "node",
+        "runtime",
+        "version"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:plain-data-snapshot",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "plain",
+        "data",
+        "snapshot"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:platform-access-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/platform-access-adapter.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "access",
+        "adapter"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:platform-key-storage-policy",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/platform-key-storage-policy.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "key",
+        "storage",
+        "policy"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:platform-provisioner-package-gate",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/platform-provisioner-package-gate.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "provisioner",
+        "package",
+        "gate"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:platform-provisioner-policy-identity",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/platform-provisioner-policy-identity.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "provisioner",
+        "policy",
+        "identity"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:platform-provisioner-release-trust",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/platform-provisioner-release-trust.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "provisioner",
+        "release",
+        "trust"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:platform-provisioner-trust-core",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/platform-provisioner-trust-core.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "platform",
+        "provisioner",
+        "trust",
+        "core"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:project-runtime-platform-contract",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/project-runtime-platform-contract.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "platform"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:project-runtime-state",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/project-runtime-state.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "state"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:project-runtime-windows-platform-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/project-runtime-windows-platform-adapter.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "windows",
+        "platform",
+        "adapter"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-authority-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-authority-runtime.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "authority",
+        "runtime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-billing-policy",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-billing-policy.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "billing",
+        "policy"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-eligibility-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-eligibility-runtime.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "eligibility",
+        "runtime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-home-coverage",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "home",
+        "coverage"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-home-mount-grant-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-home-mount-grant-runtime.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "home",
+        "mount",
+        "grant",
+        "runtime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-home-mount-grant",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-home-mount-grant.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "home",
+        "mount",
+        "grant"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-home-observation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-home-observation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "home",
+        "observation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-home",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-home.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "home"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-isolation-profile",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-isolation-profile.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "isolation",
+        "profile"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-lifecycle",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-lifecycle.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "lifecycle"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-model-profile-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "model",
+        "profile",
+        "runtime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-model-selection-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-model-selection-runtime.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "model",
+        "selection",
+        "runtime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-task-packet-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "task",
+        "packet",
+        "runtime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provider-task-structured-result",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "task",
+        "structured",
+        "result"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:provisioning-signature-primitives",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/provisioning-signature-primitives.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provisioning",
+        "signature",
+        "primitives"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:release-identity-grammar",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/release-identity-grammar.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "release",
+        "identity",
+        "grammar"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:root-observation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/root-observation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "root",
+        "observation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:root-protection-policy",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/root-protection-policy.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "root",
+        "protection",
+        "policy"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:runtime-trace-case",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/runtime-trace-case.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "runtime",
+        "trace",
+        "case"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:secret-material-policy",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/secret-material-policy.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "secret",
+        "material",
+        "policy"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:signed-runner-safety-observation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/signed-runner-safety-observation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "signed",
+        "runner",
+        "safety",
+        "observation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:integration:crdd-check",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/integration/crdd-check.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "crdd",
+        "check"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_check_result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:integration:tools-naming",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/integration/tools-naming.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "tools",
+        "naming"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_check_result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:integration:regression-runner",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/integration/regression-runner.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "regression",
+        "runner",
+        "performance",
+        "longevity",
+        "authority"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "execution_plan_observed",
+        "unauthorized_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:test-catalog",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/test-catalog.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "test",
+        "catalog"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_check_result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:unit:protocol",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/src/protocol.rs",
+      "level": "unit",
+      "kind": "unit",
+      "semanticTags": [
+        "protocol"
+      ],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "native_process_result_observed",
+        "owned_handles_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:unit:docker_repair",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/src/docker_repair.rs",
+      "level": "unit",
+      "kind": "unit",
+      "semanticTags": [
+        "docker",
+        "repair"
+      ],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "native_process_result_observed",
+        "owned_handles_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:unit:main",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/src/main.rs",
+      "level": "unit",
+      "kind": "unit",
+      "semanticTags": [
+        "cli",
+        "protocol"
+      ],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "native_process_result_observed",
+        "owned_handles_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:unit:windows",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/src/windows.rs",
+      "level": "unit",
+      "kind": "unit",
+      "semanticTags": [
+        "windows",
+        "process",
+        "filesystem"
+      ],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "native_process_result_observed",
+        "owned_handles_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:integration:cli",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/tests/cli.rs",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "cli",
+        "process",
+        "protocol"
+      ],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "native_process_result_observed",
+        "owned_handles_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    }
+  ]
+}

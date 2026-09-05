@@ -15,10 +15,14 @@
   },
   "include": [
     "./crdd-check.ts",
-    "./crdd-check.contract.test.ts",
-    "./tools-naming.contract.test.ts",
+    "./tests/integration/crdd-check.contract.test.ts",
+    "./tests/integration/regression-runner.contract.test.ts",
+    "./tests/integration/tools-naming.contract.test.ts",
+    "./tests/unit/test-catalog.contract.test.ts",
     "./test-discovery.ts",
     "./test-runner.ts",
+    "./test-catalog.ts",
+    "./regression-runner.ts",
     "./fault-injector.ts",
     "../../template/tools/crdd-check.ts"
   ]

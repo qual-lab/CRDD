@@ -289,17 +289,17 @@ export async function observePublicMcpProcess(
 ): Promise<PublicProcessObservation> {
   let stdout = "";
   let launchError: string | null = null;
-  let outputWithinLimit = true;
-  let timedOut = false;
+  let isOutputWithinLimit = true;
+  let isTimedOut = false;
   let inputEofIssued = false;
   let forcedTerminationIssued = false;
-  let processTreeTerminationAttempted = false;
+  let isProcessTreeTerminationAttempted = false;
   let processTreeTerminationConfirmed = false;
   let processTreeTerminationTriggerEvent: ProcessStartedRuntimeEvent | null =
     null;
   let inputCloseTriggerEvent: VerifiedRuntimeEvent | null = null;
-  let runtimeEventProtocolViolation = false;
-  let streamFailure = false;
+  let isRuntimeEventProtocolViolation = false;
+  let isStreamFailure = false;
   let terminationCompletion: Promise<boolean> | null = null;
   const pidIssued = Number.isSafeInteger(child.pid) && Number(child.pid) > 0;
   const grace = options.terminationGraceMs ?? 5_000;
@@ -329,17 +329,17 @@ export async function observePublicMcpProcess(
     try {
       child.stdin.end();
     } catch {
-      streamFailure = true;
+      isStreamFailure = true;
     }
   };
   const terminateProcessTree = (event: ProcessStartedRuntimeEvent) => {
     if (
       forcedTerminationIssued ||
-      processTreeTerminationAttempted ||
+      isProcessTreeTerminationAttempted ||
       !pidIssued
     )
       return;
-    processTreeTerminationAttempted = true;
+    isProcessTreeTerminationAttempted = true;
     processTreeTerminationTriggerEvent = event;
     terminationCompletion = (async () => {
       try {
@@ -373,7 +373,7 @@ export async function observePublicMcpProcess(
           killer.closed();
         return processTreeTerminationConfirmed;
       } catch {
-        streamFailure = true;
+        isStreamFailure = true;
         return false;
       }
     })();
@@ -383,7 +383,7 @@ export async function observePublicMcpProcess(
       line.endsWith("\r") ? line.slice(0, -1) : line,
     );
     if (parsed.kind === "violation") {
-      runtimeEventProtocolViolation = true;
+      isRuntimeEventProtocolViolation = true;
       return;
     }
     if (parsed.kind === "ignored") return;
@@ -406,7 +406,7 @@ export async function observePublicMcpProcess(
         }),
       );
     if (
-      runtimeEventProtocolViolation ||
+      isRuntimeEventProtocolViolation ||
       inputCloseTriggerEvent ||
       processTreeTerminationTriggerEvent
     )
@@ -418,20 +418,20 @@ export async function observePublicMcpProcess(
         closeInput();
       } else if (action === "terminate_process_tree") {
         if (event.event !== "process_started") {
-          runtimeEventProtocolViolation = true;
+          isRuntimeEventProtocolViolation = true;
           return;
         }
         terminateProcessTree(event);
       }
     } catch {
-      streamFailure = true;
+      isStreamFailure = true;
       closeInput();
     }
   };
   const accept = (stream: "stdout" | "stderr", chunk: Buffer) => {
     const currentBytes = stream === "stdout" ? stdoutBytes : stderrBytes;
     if (currentBytes + chunk.byteLength > options.maximumOutputBytes) {
-      outputWithinLimit = false;
+      isOutputWithinLimit = false;
       closeInput();
       return;
     }
@@ -458,8 +458,8 @@ export async function observePublicMcpProcess(
   const onStdoutData = (chunk: Buffer) => accept("stdout", chunk);
   const onStderrData = (chunk: Buffer) => accept("stderr", chunk);
   const onStreamError = () => {
-    if (!processTreeTerminationAttempted) {
-      streamFailure = true;
+    if (!isProcessTreeTerminationAttempted) {
+      isStreamFailure = true;
       closeInput();
     }
   };
@@ -531,14 +531,14 @@ export async function observePublicMcpProcess(
     child.once("close", onChildClose);
   });
   primaryTimer = setTimeout(() => {
-    timedOut = true;
+    isTimedOut = true;
     closeInput();
     cleanupTimer = setTimeout(() => {
       if (child.exitCode === null && child.signalCode === null) {
         try {
           forcedTerminationIssued = child.kill();
         } catch {
-          streamFailure = true;
+          isStreamFailure = true;
         }
       }
       finalTimer = setTimeout(
@@ -567,34 +567,34 @@ export async function observePublicMcpProcess(
   stderrPending += stderrEnd;
   if (stderrPending.length > 0) {
     if (KNOWN_PREFIXES.some((prefix) => stderrPending.startsWith(prefix)))
-      runtimeEventProtocolViolation = true;
+      isRuntimeEventProtocolViolation = true;
     stderrPending = "";
   }
 
   const responses: unknown[] = [];
-  let parseFailure = false;
+  let isParseFailure = false;
   for (const line of stdout.split(/\r?\n/u).filter(Boolean)) {
     try {
       responses.push(JSON.parse(line) as unknown);
     } catch {
-      parseFailure = true;
+      isParseFailure = true;
     }
   }
   return Object.freeze({
     exit,
     launchError,
     responses: Object.freeze(responses),
-    parseFailure,
-    outputWithinLimit,
-    timedOut,
+    parseFailure: isParseFailure,
+    outputWithinLimit: isOutputWithinLimit,
+    timedOut: isTimedOut,
     inputEofIssued,
     forcedTerminationIssued,
-    processTreeTerminationAttempted,
+    processTreeTerminationAttempted: isProcessTreeTerminationAttempted,
     processTreeTerminationConfirmed,
     processTreeTerminationTriggerEvent,
     inputCloseTriggerEvent,
     joined: exit !== null,
-    runtimeEventProtocolViolation,
+    runtimeEventProtocolViolation: isRuntimeEventProtocolViolation,
     selectionEventObserved: selectionEvents.length > 0,
     selectionEvents: Object.freeze(selectionEvents),
     processStartEventObserved: processStartEvents.length > 0,
@@ -602,7 +602,7 @@ export async function observePublicMcpProcess(
     runtimeEvents: Object.freeze(runtimeEvents),
     recoveryEvents: Object.freeze(recoveryEvents),
     pidIssued,
-    streamFailure,
+    streamFailure: isStreamFailure,
   });
 }
 
@@ -730,16 +730,16 @@ function changedSnapshotPaths(
 
 function runtimeEventsExactlyMatch(
   events: PublicProcessObservation["runtimeEvents"],
-  expected: readonly Readonly<{
+  expectedValues: readonly Readonly<{
     event: "selection" | "process_started";
     taskRole: string;
     provider: string;
   }>[],
 ) {
   return (
-    events.length === expected.length &&
+    events.length === expectedValues.length &&
     events.every((event, index) => {
-      const expectedEvent = expected[index];
+      const expectedEvent = expectedValues[index];
       return (
         expectedEvent !== undefined &&
         event.event === expectedEvent.event &&
@@ -783,13 +783,13 @@ export function buildProjectRuntimeRealProviderReport(
     if (value.timedOut) problems.push(`${prefix}_timeout`);
     if (value.parseFailure) problems.push(`${prefix}_response_parse`);
   };
-  input.normalRuns.forEach((run, index) => {
-    processProblems(`normal_${index + 1}`, run.observation);
+  input.normalRuns.forEach((operationRun, index) => {
+    processProblems(`normal_${index + 1}`, operationRun.observation);
   });
   processProblems("cancellation", input.cancellation);
   processProblems("recovery_reentry", input.recoverySettlement.reentry);
-  const normalResults = input.normalRuns.map((run, index) => {
-    const { observation, expected } = run;
+  const normalResults = input.normalRuns.map((operationRun, index) => {
+    const { observation, expected } = operationRun;
     if (!observation.inputEofIssued)
       problems.push(`normal_${index + 1}_eof_not_issued`);
     if (observation.responses.length !== 1)
@@ -815,8 +815,9 @@ export function buildProjectRuntimeRealProviderReport(
     })
   )
     problems.push("normal_semantic_result");
-  for (const [index, run] of input.normalRuns.entries()) {
-    const { expected, observation } = run;
+  for (const [index, operationRun] of input.normalRuns.entries()) {
+    const expected = operationRun.expected;
+    const observation = operationRun.observation;
     const expectedEvents = [
       {
         event: "selection" as const,
@@ -845,16 +846,19 @@ export function buildProjectRuntimeRealProviderReport(
     )
       problems.push(`normal_${index + 1}_provider_selection_mismatch`);
     const changedPaths = changedSnapshotPaths(
-      run.snapshotBefore,
-      run.snapshotAfter,
+      operationRun.snapshotBefore,
+      operationRun.snapshotAfter,
     );
     if (
-      run.snapshotBefore.headCommit !== run.snapshotAfter.headCommit ||
-      run.snapshotBefore.headTree !== run.snapshotAfter.headTree ||
-      JSON.stringify(changedPaths) !== JSON.stringify(run.expectedChangedPaths)
+      operationRun.snapshotBefore.headCommit !==
+        operationRun.snapshotAfter.headCommit ||
+      operationRun.snapshotBefore.headTree !==
+        operationRun.snapshotAfter.headTree ||
+      JSON.stringify(changedPaths) !==
+        JSON.stringify(operationRun.expectedChangedPaths)
     )
       problems.push(`normal_${index + 1}_canonical_repository_change_mismatch`);
-    if (!run.expectedCanonicalStateObserved)
+    if (!operationRun.expectedCanonicalStateObserved)
       problems.push(`normal_${index + 1}_canonical_state_mismatch`);
   }
 
@@ -1031,7 +1035,7 @@ export function buildProjectRuntimeRealProviderReport(
     typeof recoveryResult?.queueId === "string" ? recoveryResult.queueId : null;
   const terminationTrigger =
     recovery.parentLoss.processTreeTerminationTriggerEvent;
-  const recoveryEventsCorrelated =
+  const isRecoveryEventsCorrelated =
     lossProviderOperationIds.length === 1 &&
     terminationTrigger?.event === "process_started" &&
     terminationTrigger.taskRole === "executor" &&
@@ -1048,13 +1052,13 @@ export function buildProjectRuntimeRealProviderReport(
     recovery.reentry.recoveryEvents.length === expectedRecoveryPhases.length &&
     recovery.reentry.recoveryEvents.every((event, index) => {
       const expectedPhase = expectedRecoveryPhases[index];
-      const itemPhase = index < 5;
+      const isItemPhase = index < 5;
       return (
         event.phase === expectedPhase &&
         event.projectId === recovery.expected.projectId &&
         event.milestoneId === recovery.expected.milestoneId &&
         event.queueId === exactRecoveryQueueId &&
-        (itemPhase
+        (isItemPhase
           ? event.taskId === exactRecoveryTaskId &&
             event.operationId === exactProjectOperationId &&
             event.recoveryId === exactRecoveryId
@@ -1072,8 +1076,8 @@ export function buildProjectRuntimeRealProviderReport(
           event.stateGeneration >= previous.stateGeneration)
       );
     });
-  const recoverySettlementExercised =
-    recoveryEventsCorrelated &&
+  const isRecoverySettlementExercised =
+    isRecoveryEventsCorrelated &&
     recovery.parentTerminationRequestedAfterProcessStart &&
     recovery.parentLoss.forcedTerminationIssued &&
     recovery.parentLoss.processTreeTerminationConfirmed &&
@@ -1081,7 +1085,7 @@ export function buildProjectRuntimeRealProviderReport(
     !recovery.parentLoss.inputEofIssued &&
     recoveryResult?.status === "completed" &&
     recovery.reentry.joined;
-  if (!recoverySettlementExercised)
+  if (!isRecoverySettlementExercised)
     problems.push("recovery_settlement_lifecycle_mismatch");
   const recoveryChangedPaths = changedSnapshotPaths(
     recovery.snapshotBefore,
@@ -1099,8 +1103,10 @@ export function buildProjectRuntimeRealProviderReport(
   // retain that attempt's Operation ID. Distinct public executions and a
   // recovery reentry are separate attempts and must never reuse it.
   const operationIdGroups = [
-    ...input.normalRuns.map((run) =>
-      run.observation.processStartEvents.map((event) => event.operationId),
+    ...input.normalRuns.map((operationRun) =>
+      operationRun.observation.processStartEvents.map(
+        (event) => event.operationId,
+      ),
     ),
     input.cancellation.processStartEvents.map((event) => event.operationId),
     input.recoverySettlement.parentLoss.processStartEvents.map(
@@ -1111,8 +1117,8 @@ export function buildProjectRuntimeRealProviderReport(
     ),
   ];
   const attemptOperationIds = operationIdGroups
-    .filter((group) => group.length > 0)
-    .map((group) => new Set(group));
+    .filter((groupItems) => groupItems.length > 0)
+    .map((groupItems) => new Set(groupItems));
   if (attemptOperationIds.some((identities) => identities.size !== 1))
     problems.push("provider_operation_identity_inconsistent");
   const distinctAttemptOperationIds = attemptOperationIds.flatMap(
@@ -1127,14 +1133,14 @@ export function buildProjectRuntimeRealProviderReport(
   )
     problems.push("provider_operation_identity_reused");
 
-  const canonicalRepositoryChanged =
+  const isCanonicalRepositoryChanged =
     input.cancellationSnapshotBefore.sha256 !==
       input.cancellationSnapshotAfter.sha256 ||
     input.cancellationSnapshotBefore.headCommit !==
       input.cancellationSnapshotAfter.headCommit ||
     input.cancellationSnapshotBefore.headTree !==
       input.cancellationSnapshotAfter.headTree;
-  if (canonicalRepositoryChanged)
+  if (isCanonicalRepositoryChanged)
     problems.push("cancellation_canonical_repository_changed");
   if (
     input.dockerRecovery.status !== "completed" ||
@@ -1143,9 +1149,9 @@ export function buildProjectRuntimeRealProviderReport(
   )
     problems.push("post_run_recovery_state_not_clean");
 
-  const completed = problems.length === 0;
+  const isCompleted = problems.length === 0;
   const cleanupConfirmed =
-    input.normalRuns.every((run) => run.observation.joined) &&
+    input.normalRuns.every((operationRun) => operationRun.observation.joined) &&
     input.cancellation.joined &&
     input.recoverySettlement.parentLoss.joined &&
     input.recoverySettlement.reentry.joined &&
@@ -1155,25 +1161,27 @@ export function buildProjectRuntimeRealProviderReport(
   return Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
     contractRevision: 8,
-    status: completed ? "completed" : "blocked",
-    reason: completed
+    status: isCompleted ? "completed" : "blocked",
+    reason: isCompleted
       ? "project_runtime_public_mcp_real_providers_cancellation_and_recovery_verified"
       : "project_runtime_public_mcp_verification_incomplete",
     problems: Object.freeze(problems),
     cleanupConfirmed,
     manualRecoveryRequired: !cleanupConfirmed,
     processRestartRequired:
-      input.normalRuns.some((run) => !run.observation.joined) ||
+      input.normalRuns.some(
+        (operationRun) => !operationRun.observation.joined,
+      ) ||
       !input.cancellation.joined ||
       !input.recoverySettlement.parentLoss.joined ||
       !input.recoverySettlement.reentry.joined,
-    effectState: completed ? "settled" : "unknown",
+    effectState: isCompleted ? "settled" : "unknown",
     runId: input.runId,
     sourceIdentity: input.sourceIdentity,
     distributionIdentity: input.distributionIdentity,
     providers: Object.freeze(
-      input.normalRuns.map((run) => {
-        const event = run.observation.processStartEvents.find(
+      input.normalRuns.map((operationRun) => {
+        const event = operationRun.observation.processStartEvents.find(
           (candidate) => candidate.taskRole === "executor",
         );
         return event?.provider ?? null;
@@ -1182,7 +1190,9 @@ export function buildProjectRuntimeRealProviderReport(
     publicMcpProcess: Object.freeze({
       actualChildProcess:
         input.normalRuns.every(
-          (run) => run.observation.pidIssued && run.observation.joined,
+          (operationRun) =>
+            operationRun.observation.pidIssued &&
+            operationRun.observation.joined,
         ) &&
         input.cancellation.pidIssued &&
         input.cancellation.joined &&
@@ -1195,17 +1205,21 @@ export function buildProjectRuntimeRealProviderReport(
         (value) => value?.status === "completed",
       ).length,
       runs: Object.freeze(
-        input.normalRuns.map((run, index) =>
+        input.normalRuns.map((operationRun, index) =>
           Object.freeze({
-            responseId: run.expected.responseId,
-            childJoined: run.observation.joined,
-            inputEofIssued: run.observation.inputEofIssued,
-            selectionEvents: run.observation.selectionEvents,
-            processStartEvents: run.observation.processStartEvents,
+            responseId: operationRun.expected.responseId,
+            childJoined: operationRun.observation.joined,
+            inputEofIssued: operationRun.observation.inputEofIssued,
+            selectionEvents: operationRun.observation.selectionEvents,
+            processStartEvents: operationRun.observation.processStartEvents,
             changedPaths: Object.freeze(
-              changedSnapshotPaths(run.snapshotBefore, run.snapshotAfter),
+              changedSnapshotPaths(
+                operationRun.snapshotBefore,
+                operationRun.snapshotAfter,
+              ),
             ),
-            expectedCanonicalStateObserved: run.expectedCanonicalStateObserved,
+            expectedCanonicalStateObserved:
+              operationRun.expectedCanonicalStateObserved,
             semanticStatus: normalResults[index]?.status ?? null,
           }),
         ),
@@ -1226,7 +1240,7 @@ export function buildProjectRuntimeRealProviderReport(
       recoveryIds: cancellationResult?.recoveryIds ?? null,
       recoveryObligations: cancellationResult?.recoveryObligations ?? null,
       childJoined: input.cancellation.joined,
-      canonicalRepositoryChanged,
+      canonicalRepositoryChanged: isCanonicalRepositoryChanged,
       snapshotBeforeSha256: input.cancellationSnapshotBefore.sha256,
       snapshotAfterSha256: input.cancellationSnapshotAfter.sha256,
     }),
@@ -1235,7 +1249,7 @@ export function buildProjectRuntimeRealProviderReport(
       reason: input.dockerRecovery.reason ?? null,
       manualRecoveryRequired:
         input.dockerRecovery.manualRecoveryRequired ?? null,
-      recoverySettlementExercised,
+      recoverySettlementExercised: isRecoverySettlementExercised,
       parentProcessTerminationObserved:
         recovery.parentLoss.forcedTerminationIssued &&
         recovery.parentLoss.joined,
@@ -1250,12 +1264,15 @@ export function buildProjectRuntimeRealProviderReport(
     }),
     canonicalRepositoryObservation: Object.freeze({
       normalRuns: Object.freeze(
-        input.normalRuns.map((run) =>
+        input.normalRuns.map((operationRun) =>
           Object.freeze({
             changedPaths: Object.freeze(
-              changedSnapshotPaths(run.snapshotBefore, run.snapshotAfter),
+              changedSnapshotPaths(
+                operationRun.snapshotBefore,
+                operationRun.snapshotAfter,
+              ),
             ),
-            expectedChangedPaths: run.expectedChangedPaths,
+            expectedChangedPaths: operationRun.expectedChangedPaths,
           }),
         ),
       ),

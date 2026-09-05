@@ -428,7 +428,7 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
 <!-- crdd-released-navigation-migration: 1 -->
 ```json
 {
-  "schemaRevision": 1,
+  "schemaRevision": 2,
   "sources": [
     {
       "sourcePath": "90_Release/Changes/CHG-000001_Human_Decision_Presentation.md",
@@ -436,7 +436,8 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
       "replacements": [
         {
           "before": "[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)",
-          "after": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "via": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "after": "[`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)",
           "count": 2
         }
       ]
@@ -447,7 +448,8 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
       "replacements": [
         {
           "before": "[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)",
-          "after": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "via": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "after": "[`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)",
           "count": 3
         }
       ]
@@ -458,7 +460,8 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
       "replacements": [
         {
           "before": "[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)",
-          "after": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "via": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "after": "[`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)",
           "count": 1
         }
       ]
@@ -469,7 +472,8 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
       "replacements": [
         {
           "before": "[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)",
-          "after": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "via": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "after": "[`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)",
           "count": 2
         },
         {
@@ -485,7 +489,8 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
       "replacements": [
         {
           "before": "[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)",
-          "after": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "via": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "after": "[`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)",
           "count": 1
         }
       ]
@@ -496,7 +501,8 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
       "replacements": [
         {
           "before": "[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)",
-          "after": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "via": "[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)",
+          "after": "[`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)",
           "count": 2
         }
       ]

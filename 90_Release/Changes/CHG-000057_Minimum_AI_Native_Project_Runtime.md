@@ -85,7 +85,7 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 工程正本を接続した後、Project Modelの最初の実装として、Task、Objective、Milestoneを別状態で保持する純粋な状態契約を追加した。Task完了後はObjectiveを`integration_pending`へ進めるだけとし、受入条件ごとのEvidenceを伴うObjective統合、全Objective受入後のMilestone統合を、それぞれ別の世代更新として固定した。Project State投影もWork Progress、Quality、Human Decision、RecoveryおよびNext Actionを分離し、Task完了や未観測値からProject成功を生成しない。
 
-[Project状態契約試験](../../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)は、最大5件選択、Dependency、Path／Conflict、cleanup不明、Recovery、古い世代、Graph不正に加え、Task完了後の統合待ち、Objective／Milestoneの段階受入、Evidence不足、Recovery時の成功補正禁止を確認する。[MCP Adapter契約試験](../../40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts)は、薄い単一Task経路とAdapter固有Authority 0を維持する。
+[Project状態契約試験](../../40_Develop/coordinator/tests/unit/project-runtime-state.contract.test.ts)は、最大5件選択、Dependency、Path／Conflict、cleanup不明、Recovery、古い世代、Graph不正に加え、Task完了後の統合待ち、Objective／Milestoneの段階受入、Evidence不足、Recovery時の成功補正禁止を確認する。[MCP Adapter契約試験](../../40_Develop/coordinator/tests/unit/mcp-project-runtime-adapter.contract.test.ts)は、薄い単一Task経路とAdapter固有Authority 0を維持する。
 
 これはProject Runtime全体の完成、MCPの外部公開、v0.19.0 ReleaseまたはRisk受容を意味しない。この時点ではProject State Store、Project Operation lease、対話優先の耐久Operation Queue、正本採用Lease、Single Task Runtimeとの複数Task結合、部分再計画、Parent喪失、実成果物のIntegrationおよび公開入口E2Eが未接続だった。後続の部分接続を含む現在状態は本節末尾で追跡する。
 

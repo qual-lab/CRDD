@@ -26,14 +26,14 @@ export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
 ]);
 
 export const PROVIDER_HOME_COVERAGE_TESTS = Object.freeze([
-  "40_Develop/coordinator/tests/authority-root-path-lexical.contract.test.ts",
-  "40_Develop/coordinator/tests/plain-data-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/provider-home.contract.test.ts",
-  "40_Develop/coordinator/tests/provider-home-mount-grant.contract.test.ts",
-  "40_Develop/coordinator/tests/provider-lifecycle.contract.test.ts",
-  "40_Develop/coordinator/tests/doctor.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
-  "40_Develop/coordinator/tests/provider-home-coverage.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/authority-root-path-lexical.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/provider-home.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/provider-home-mount-grant.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/provider-lifecycle.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
 ]);
 
 const NODE_OPTIONS = Object.freeze([

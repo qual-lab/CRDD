@@ -82,10 +82,10 @@ export function startOwnedProcess(
   let terminationHelperCompletion: Promise<void> | null = null;
   const startCompletion = new Promise<boolean>((resolve) => {
     let settled = false;
-    const settle = (value: boolean) => {
+    const settle = (isValue: boolean) => {
       if (settled) return;
       settled = true;
-      resolve(value);
+      resolve(isValue);
     };
     child.once("spawn", () => {
       settle(

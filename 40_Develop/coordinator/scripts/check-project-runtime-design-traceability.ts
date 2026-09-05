@@ -5,7 +5,7 @@ import { inspectProjectRuntimeDesignTraceability } from "../src/core/project-run
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "../../..");
-const tracePath =
+const TRACE_PATH =
   "40_Develop/coordinator/runtime/project-runtime-design-traceability.json";
 
 function readRepositoryText(repositoryRelativePath: string): string | null {
@@ -25,7 +25,7 @@ function readRepositoryText(repositoryRelativePath: string): string | null {
 }
 
 let trace: unknown = null;
-const source = readRepositoryText(tracePath);
+const source = readRepositoryText(TRACE_PATH);
 if (source !== null) {
   try {
     trace = JSON.parse(source);

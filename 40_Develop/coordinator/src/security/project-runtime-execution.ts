@@ -109,7 +109,7 @@ function validSingleTaskResult(
       ![Object.prototype, null].includes(Object.getPrototypeOf(value))
     )
       return false;
-    const expected = [
+    const expectedValues = [
       "attemptId",
       "authorityBindingId",
       "candidateId",
@@ -124,31 +124,31 @@ function validSingleTaskResult(
       "repositoryRevision",
       "status",
     ].sort();
-    const expectedWithTypedRecovery = [
-      ...expected,
+    const expectedTypedRecoveryValues = [
+      ...expectedValues,
       "recoveryObligations",
     ].sort();
     const keys = Reflect.ownKeys(value);
     if (
-      (keys.length !== expected.length &&
-        keys.length !== expectedWithTypedRecovery.length) ||
+      (keys.length !== expectedValues.length &&
+        keys.length !== expectedTypedRecoveryValues.length) ||
       keys.some((key) => typeof key !== "string") ||
       ![...(keys as string[])]
         .sort()
         .every(
           (key, index) =>
             key ===
-            (keys.length === expected.length
-              ? expected[index]
-              : expectedWithTypedRecovery[index]),
+            (keys.length === expectedValues.length
+              ? expectedValues[index]
+              : expectedTypedRecoveryValues[index]),
         )
     )
       return false;
     const descriptors = Object.getOwnPropertyDescriptors(value);
     if (
-      (keys.length === expected.length
-        ? expected
-        : expectedWithTypedRecovery
+      (keys.length === expectedValues.length
+        ? expectedValues
+        : expectedTypedRecoveryValues
       ).some(
         (key) =>
           !descriptors[key] ||
@@ -695,15 +695,15 @@ export async function runProjectRuntimeOperation(
   const completedTaskIds: string[] = [];
   let processRestartRequired = false;
   while (true) {
-    const selected = selectSchedulableProjectTasks(state);
-    if (selected.length === 0) break;
+    const selectedItems = selectSchedulableProjectTasks(state);
+    if (selectedItems.length === 0) break;
     const attempts: Array<{
       taskId: string;
       attemptId: string;
       operationId: string;
       execution: ProjectRuntimeTaskExecution;
     }> = [];
-    for (const taskId of selected) {
+    for (const taskId of selectedItems) {
       const execution = executions.get(taskId);
       if (!execution)
         return finalizeOwnedFailure("project_runtime_task_execution_missing", {
@@ -855,10 +855,10 @@ export async function runProjectRuntimeOperation(
               recoveryObligations: Object.freeze([]),
             });
           if (input.cancellationSignal.aborted) {
-            const revoked = dependencies.revokeTaskAuthority?.(
+            const isRevoked = dependencies.revokeTaskAuthority?.(
               taskAuthorityCapability,
             );
-            return revoked === true
+            return isRevoked === true
               ? Object.freeze({
                   contract:
                     "crdd-coordinator/project-runtime-single-task-adapter" as const,
@@ -957,7 +957,7 @@ export async function runProjectRuntimeOperation(
       )
         ? outcome
         : null;
-      const exact =
+      const isExact =
         validatedOutcome !== null &&
         validatedOutcome.attemptId === attempt?.attemptId &&
         validatedOutcome.operationId === attempt?.operationId &&
@@ -968,35 +968,35 @@ export async function runProjectRuntimeOperation(
       const normalizedRecoveryObligations: Array<
         Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string }>
       > =
-        validatedOutcome && exact
+        validatedOutcome && isExact
           ? [...(validatedOutcome.recoveryObligations ?? [])]
           : [];
-      const exactExternalRecoveryClosure =
+      const isExactExternalRecoveryClosure =
         validatedOutcome !== null &&
-        exact &&
+        isExact &&
         normalizedRecoveryObligations.some(
           (entry) => entry.kind === "host" || entry.kind === "docker",
         );
-      const resultContradictsStartedEffect =
+      const isResultContradictsStartedEffect =
         effectStarted &&
         (!validatedOutcome ||
-          !exact ||
+          !isExact ||
           validatedOutcome.effectState !== "settled");
-      const delegatedResultIsUnknown =
+      const isDelegatedResultIsUnknown =
         delegatedAttemptIds.has(attempt.attemptId) &&
         !effectStarted &&
         (!validatedOutcome ||
-          !exact ||
+          !isExact ||
           validatedOutcome.effectState === "unknown");
-      const externalEffectUnresolved =
-        (resultContradictsStartedEffect || delegatedResultIsUnknown) &&
-        !exactExternalRecoveryClosure;
-      const processMustBeDiscarded =
-        resultContradictsStartedEffect ||
-        delegatedResultIsUnknown ||
+      const isExternalEffectUnresolved =
+        (isResultContradictsStartedEffect || isDelegatedResultIsUnknown) &&
+        !isExactExternalRecoveryClosure;
+      const isProcessDiscardRequired =
+        isResultContradictsStartedEffect ||
+        isDelegatedResultIsUnknown ||
         validatedOutcome?.processRestartRequired === true;
       if (
-        processMustBeDiscarded &&
+        isProcessDiscardRequired &&
         !normalizedRecoveryObligations.some(
           (entry) => entry.kind === "runtime_process",
         )
@@ -1024,24 +1024,24 @@ export async function runProjectRuntimeOperation(
         );
       }
       const recoveryRequired =
-        resultContradictsStartedEffect ||
-        delegatedResultIsUnknown ||
+        isResultContradictsStartedEffect ||
+        isDelegatedResultIsUnknown ||
         (validatedOutcome !== null &&
-          exact &&
+          isExact &&
           (validatedOutcome.effectState === "unknown" ||
             !validatedOutcome.cleanupConfirmed ||
             validatedOutcome.manualRecoveryRequired ||
             validatedOutcome.processRestartRequired ||
             validatedOutcome.recoveryIds.length > 0));
-      processRestartRequired ||= processMustBeDiscarded;
+      processRestartRequired ||= isProcessDiscardRequired;
       const recoveryObligations = recoveryRequired
         ? normalizedRecoveryObligations.map((entry) =>
             Object.freeze({ ...entry, phase: "required" as const }),
           )
         : [];
-      const recoveryUnresolved =
+      const isRecoveryUnresolved =
         recoveryRequired &&
-        (externalEffectUnresolved || recoveryObligations.length === 0);
+        (isExternalEffectUnresolved || recoveryObligations.length === 0);
       const settlementInput = {
         taskId: attempt?.taskId ?? "invalid",
         attemptId: attempt?.attemptId ?? "invalid",
@@ -1055,15 +1055,15 @@ export async function runProjectRuntimeOperation(
               ? "cancelled"
               : "failed",
         cleanupConfirmed:
-          !effectStarted && (!validatedOutcome || !exact)
+          !effectStarted && (!validatedOutcome || !isExact)
             ? !delegatedAttemptIds.has(attempt.attemptId)
-            : !resultContradictsStartedEffect &&
-              !delegatedResultIsUnknown &&
+            : !isResultContradictsStartedEffect &&
+              !isDelegatedResultIsUnknown &&
               validatedOutcome?.processRestartRequired !== true &&
-              exact &&
+              isExact &&
               validatedOutcome?.cleanupConfirmed === true,
         recoveryObligations,
-        recoveryUnresolved,
+        recoveryUnresolved: isRecoveryUnresolved,
         candidateId: validatedOutcome?.candidateId ?? null,
       } as const;
       const settlement = effectStarted
@@ -1105,7 +1105,7 @@ export async function runProjectRuntimeOperation(
         completedTaskIds.push(attempt?.taskId ?? "invalid");
       if (recoveryRequired) {
         terminalState = "recovery_required";
-      } else if ((!validatedOutcome || !exact) && terminalState === null) {
+      } else if ((!validatedOutcome || !isExact) && terminalState === null) {
         terminalState = "replan_required";
         terminalReference = stableId(
           "task-result-invalid",

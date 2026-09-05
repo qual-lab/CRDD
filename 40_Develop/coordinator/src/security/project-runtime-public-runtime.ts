@@ -63,18 +63,18 @@ export function createProjectRuntimeRecoveryDiagnosticReporter(
   stream: Writable,
   timeoutMs = PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS,
 ) {
-  let unavailable = !stream.writable || stream.destroyed;
-  let disposed = false;
+  let isUnavailable = !stream.writable || stream.destroyed;
+  let isDisposed = false;
   let pending:
     | ((outcome: ProjectRuntimeRecoveryDiagnosticOutcome) => void)
     | null = null;
   let tail = Promise.resolve();
   const onError = () => {
-    unavailable = true;
+    isUnavailable = true;
     pending?.("stream_error");
   };
   const onClose = () => {
-    unavailable = true;
+    isUnavailable = true;
     pending?.("stream_close");
     stream.off("error", onError);
     stream.off("close", onClose);
@@ -84,7 +84,7 @@ export function createProjectRuntimeRecoveryDiagnosticReporter(
 
   const writeOne = (event: object) =>
     new Promise<ProjectRuntimeRecoveryDiagnosticOutcome>((resolve) => {
-      if (disposed || unavailable || !stream.writable || stream.destroyed) {
+      if (isDisposed || isUnavailable || !stream.writable || stream.destroyed) {
         resolve("unavailable");
         return;
       }
@@ -92,14 +92,14 @@ export function createProjectRuntimeRecoveryDiagnosticReporter(
       let timer: ReturnType<typeof setTimeout> | null = null;
       const settle = (
         outcome: ProjectRuntimeRecoveryDiagnosticOutcome,
-        disable = false,
+        isDisable = false,
       ) => {
         if (settled) return;
         settled = true;
         if (timer) clearTimeout(timer);
         timer = null;
         pending = null;
-        if (disable) unavailable = true;
+        if (isDisable) isUnavailable = true;
         resolve(outcome);
       };
       pending = (outcome) => settle(outcome, true);
@@ -127,9 +127,9 @@ export function createProjectRuntimeRecoveryDiagnosticReporter(
     return result;
   };
   const dispose = () => {
-    if (disposed) return;
-    disposed = true;
-    unavailable = true;
+    if (isDisposed) return;
+    isDisposed = true;
+    isUnavailable = true;
     pending?.("unavailable");
     stream.off("error", onError);
     stream.off("close", onClose);
@@ -625,7 +625,7 @@ function executeProjectRuntimePublicDecision(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
-  const common = {
+  const commonFields = {
     workingDirectory: repositoryRoot,
     repositoryBindingId: stable("binding", repositoryRoot),
     projectId,
@@ -636,8 +636,8 @@ function executeProjectRuntimePublicDecision(
     recoveryStore: createProjectRuntimeDecisionRecoveryStore(repositoryRoot),
   } as const;
   if (record.disposition === "prepared")
-    return recoverProjectRuntimeHumanDecision(common, { recordId });
-  return submitProjectRuntimeHumanDecision(common, {
+    return recoverProjectRuntimeHumanDecision(commonFields, { recordId });
+  return submitProjectRuntimeHumanDecision(commonFields, {
     decisionId,
     recordId,
     repositoryRevision: request.repositoryRevision,

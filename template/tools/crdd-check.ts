@@ -426,6 +426,7 @@ type ReleasedNavigationMigration = Readonly<{
   sourceSha256: string;
   replacements: readonly Readonly<{
     before: string;
+    via?: string;
     after: string;
     count: number;
   }>[];
@@ -440,12 +441,12 @@ function readReleasedNavigationMigrations(
     "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
   );
   if (!fs.existsSync(recordPath)) return result;
-  const reject = () => {
+  const reject = (detail = "record_contract") => {
     add(
       "error",
       "invalid-released-navigation-migration",
       relative(recordPath),
-      "Expected one bounded record of exact released-source hashes and current-navigation replacements.",
+      `Expected one bounded record of exact released-source hashes and current-navigation replacements: ${detail}.`,
     );
     return new Map<string, ReleasedNavigationMigration>();
   };
@@ -483,7 +484,7 @@ function readReleasedNavigationMigrations(
   if (
     !isObject(record) ||
     !hasKeys(record, ["schemaRevision", "sources"]) ||
-    record.schemaRevision !== 1 ||
+    record.schemaRevision !== 2 ||
     !Array.isArray(record.sources) ||
     record.sources.length < 1 ||
     record.sources.length > 32
@@ -505,41 +506,84 @@ function readReleasedNavigationMigrations(
       result.has(entry.sourcePath)
     )
       return reject();
-    const replacements: { before: string; after: string; count: number }[] = [];
+    const replacements: {
+      before: string;
+      via?: string;
+      after: string;
+      count: number;
+    }[] = [];
     for (const replacement of entry.replacements) {
       if (
         !isObject(replacement) ||
-        !hasKeys(replacement, ["before", "after", "count"]) ||
+        (!hasKeys(replacement, ["before", "after", "count"]) &&
+          !hasKeys(replacement, ["before", "via", "after", "count"])) ||
         typeof replacement.before !== "string" ||
+        (Object.hasOwn(replacement, "via") &&
+          typeof replacement.via !== "string") ||
         typeof replacement.after !== "string" ||
         !Number.isSafeInteger(replacement.count) ||
         typeof replacement.count !== "number" ||
         replacement.count < 1 ||
         replacement.count > 64
       )
-        return reject();
-      const match = replacement.before.match(
-        /^\[`tools\/checker\/([a-z0-9.-]+\.ts)`\]\(\.\.\/\.\.\/tools\/checker\/\1\)$/u,
+        return reject("replacement_shape");
+      const beforeMatch = replacement.before.match(
+        /^\[([^\]\r\n]+)\]\(\.\.\/\.\.\/(tools\/checker|40_Develop\/(checker|coordinator)\/tests)\/([a-z0-9.-]+\.ts)\)$/u,
       );
+      const afterMatch = replacement.after.match(
+        /^\[([^\]\r\n]+)\]\(\.\.\/\.\.\/(40_Develop\/(checker|coordinator)(?:\/tests\/(?:unit|integration|system))?)\/([a-z0-9.-]+\.ts)\)$/u,
+      );
+      const beforeOwner =
+        beforeMatch?.[2] === "tools/checker" ? "checker" : beforeMatch?.[3];
+      const beforeTarget = beforeMatch
+        ? `${beforeMatch[2]}/${beforeMatch[4]}`
+        : null;
+      const afterTarget = afterMatch
+        ? `${afterMatch[2]}/${afterMatch[4]}`
+        : null;
+      const isLabelPreserved =
+        beforeMatch?.[1] === afterMatch?.[1] ||
+        (beforeMatch?.[1] === `\`${beforeTarget}\`` &&
+          afterMatch?.[1] === `\`${afterTarget}\``);
+      const viaValue =
+        typeof replacement.via === "string" ? replacement.via : undefined;
+      const viaMatch =
+        viaValue !== undefined
+          ? viaValue.match(
+              /^\[([^\]\r\n]+)\]\(\.\.\/\.\.\/(40_Develop\/(checker|coordinator)(?:\/tests)?)\/([a-z0-9.-]+\.ts)\)$/u,
+            )
+          : null;
+      const viaTarget = viaMatch ? `${viaMatch[2]}/${viaMatch[4]}` : null;
+      const viaMatches =
+        viaValue === undefined ||
+        (viaMatch !== null &&
+          beforeOwner === viaMatch[3] &&
+          beforeMatch?.[4] === viaMatch[4] &&
+          (beforeMatch?.[1] === viaMatch[1] ||
+            (beforeMatch?.[1] === `\`${beforeTarget}\`` &&
+              viaMatch[1] === `\`${viaTarget}\``)));
       if (
-        !match ||
-        replacement.after !==
-          replacement.before.replaceAll(
-            "tools/checker/",
-            "40_Develop/checker/",
-          ) ||
+        !beforeMatch ||
+        !afterMatch ||
+        !isLabelPreserved ||
+        !viaMatches ||
+        beforeOwner !== afterMatch[3] ||
+        beforeMatch[4] !== afterMatch[4] ||
         replacements.some((item) => item.before === replacement.before)
       )
-        return reject();
-      const successor = path.join(root, "40_Develop/checker", match[1]);
+        return reject("replacement_mapping");
+      const successor = path.join(root, afterMatch[2], afterMatch[4]);
       if (
         !allFiles.includes(successor) ||
         !lstatIfPresent(successor)?.isFile() ||
         pathContainsSymbolicLink(successor)
       )
-        return reject();
+        return reject(
+          `successor_unavailable:${afterMatch[2]}/${afterMatch[4]}`,
+        );
       replacements.push({
         before: replacement.before,
+        ...(viaValue === undefined ? {} : { via: viaValue }),
         after: replacement.after,
         count: replacement.count,
       });
@@ -1735,6 +1779,7 @@ function checkConsolidatedChangeTraceLedger(
           if (migration) {
             appliedNavigationSources.add(currentRelativePath);
             let expectedText = fixedBytes.toString("utf8");
+            let intermediateText = fixedBytes.toString("utf8");
             let hasExactReplacements =
               migration.sourceSha256 === fixedRow.sha256;
             for (const replacement of migration.replacements) {
@@ -1746,6 +1791,10 @@ function checkConsolidatedChangeTraceLedger(
               expectedText = expectedText.replaceAll(
                 replacement.before,
                 replacement.after,
+              );
+              intermediateText = intermediateText.replaceAll(
+                replacement.before,
+                replacement.via ?? replacement.after,
               );
             }
             if (
@@ -1768,6 +1817,7 @@ function checkConsolidatedChangeTraceLedger(
               !pathContainsSymbolicLink(currentFile) &&
               lstatIfPresent(currentFile)?.isFile() === true &&
               (currentBytes.equals(fixedBytes) ||
+                currentBytes.equals(Buffer.from(intermediateText, "utf8")) ||
                 currentBytes.equals(Buffer.from(expectedText, "utf8"))) &&
               normalizeLineEndings(worktreeText) ===
                 normalizeLineEndings(expectedText);

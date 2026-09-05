@@ -36,10 +36,10 @@ const bundledDistributionRoot = fileURLToPath(
 const MAXIMUM_FILES = 2_048;
 const MAXIMUM_PACKAGE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_PACKAGE_JSON_BYTES = 64 * 1024;
-const RUNTIME_EXECUTION_DIRECTORIES = Object.freeze(
+const runtimeExecutionDirectories = Object.freeze(
   new Set(["bin", "src", "runtime", "policies"]),
 );
-const RUNTIME_EXECUTION_ROOT_FILES = Object.freeze(new Set(["package.json"]));
+const runtimeExecutionRootFiles = Object.freeze(new Set(["package.json"]));
 const RUNTIME_EXECUTION_LAUNCHER_PATH = "bin/launch.ts";
 const VERIFY_KEYS = new Set([
   "manifestEnvelope",
@@ -134,9 +134,9 @@ function createVerifiedPackageCapabilityState() {
     },
     revoke: (capability: unknown) => {
       if (!capability || typeof capability !== "object") return false;
-      const existed = capabilities.has(capability);
+      const isExisted = capabilities.has(capability);
       capabilities.delete(capability);
-      return existed;
+      return isExisted;
     },
   });
 }
@@ -393,7 +393,7 @@ type SourceToken = Readonly<{
   escaped: boolean;
 }>;
 
-const CANONICAL_NODE_MODULE_SPECIFIERS = Object.freeze(
+const canonicalNodeModuleSpecifiers = Object.freeze(
   new Set(
     builtinModules.map((name) =>
       name.startsWith("node:") ? name : `node:${name}`,
@@ -438,10 +438,10 @@ function canStartRegularExpression(previous: SourceToken | undefined) {
 
 function tokenizeTypeScriptModuleSyntax(source: string) {
   const tokens: SourceToken[] = [];
-  const push = (kind: SourceToken["kind"], value: string, escaped = false) =>
-    tokens.push(Object.freeze({ kind, value, escaped }));
+  const push = (kind: SourceToken["kind"], value: string, isEscaped = false) =>
+    tokens.push(Object.freeze({ kind, value, escaped: isEscaped }));
 
-  const scan = (start: number, stopAtTemplateExpressionEnd: boolean) => {
+  const scan = (start: number, shouldStopAtTemplateExpressionEnd: boolean) => {
     let index = start;
     let braceDepth = 0;
     while (index < source.length) {
@@ -472,14 +472,14 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
       }
       if (character === '"' || character === "'") {
         const quote = character;
-        let escaped = false;
+        let isEscaped = false;
         let value = "";
         index += 1;
         let terminated = false;
         while (index < source.length) {
           const current = source[index] as string;
           if (current === "\\") {
-            escaped = true;
+            isEscaped = true;
             if (index + 1 >= source.length)
               throw new Error(
                 "platform_provisioner_runtime_dependency_parse_failed",
@@ -504,7 +504,7 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
           throw new Error(
             "platform_provisioner_runtime_dependency_parse_failed",
           );
-        push("string", value, escaped);
+        push("string", value, isEscaped);
         continue;
       }
       if (character === "`") {
@@ -539,7 +539,7 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
         canStartRegularExpression(tokens.at(-1))
       ) {
         index += 1;
-        let inCharacterClass = false;
+        let isInCharacterClass = false;
         let terminated = false;
         while (index < source.length) {
           const current = source[index] as string;
@@ -547,9 +547,9 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
             index += 2;
             continue;
           }
-          if (current === "[") inCharacterClass = true;
-          else if (current === "]") inCharacterClass = false;
-          else if (current === "/" && !inCharacterClass) {
+          if (current === "[") isInCharacterClass = true;
+          else if (current === "]") isInCharacterClass = false;
+          else if (current === "/" && !isInCharacterClass) {
             index += 1;
             while (/[A-Za-z]/u.test(source[index] ?? "")) index += 1;
             terminated = true;
@@ -577,9 +577,9 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
         push("number", source.slice(numberStart, index));
         continue;
       }
-      if (character === "{" && stopAtTemplateExpressionEnd) {
+      if (character === "{" && shouldStopAtTemplateExpressionEnd) {
         braceDepth += 1;
-      } else if (character === "}" && stopAtTemplateExpressionEnd) {
+      } else if (character === "}" && shouldStopAtTemplateExpressionEnd) {
         if (braceDepth === 0) return index + 1;
         braceDepth -= 1;
       }
@@ -592,7 +592,7 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
         index += 1;
       }
     }
-    if (stopAtTemplateExpressionEnd)
+    if (shouldStopAtTemplateExpressionEnd)
       throw new Error("platform_provisioner_runtime_dependency_parse_failed");
     return index;
   };
@@ -777,8 +777,8 @@ function selectedScriptProcessBindings(
         cursor += 1;
         continue;
       }
-      const typeOnly = tokens[cursor]?.value === "type";
-      if (typeOnly) cursor += 1;
+      const isTypeOnly = tokens[cursor]?.value === "type";
+      if (isTypeOnly) cursor += 1;
       const imported = tokens[cursor];
       if (imported?.kind !== "identifier")
         throw new Error("platform_provisioner_runtime_dependency_parse_failed");
@@ -796,7 +796,7 @@ function selectedScriptProcessBindings(
         localIndex = cursor + 1;
         cursor += 2;
       }
-      if (!typeOnly) {
+      if (!isTypeOnly) {
         if (!allowedNames.has(imported.value))
           throw new Error(
             "platform_provisioner_runtime_dependency_child_unbound",
@@ -932,7 +932,7 @@ function canonicalRelativeModuleTarget(
   relativePath: string,
   specifier: string,
 ) {
-  if (CANONICAL_NODE_MODULE_SPECIFIERS.has(specifier)) return null;
+  if (canonicalNodeModuleSpecifiers.has(specifier)) return null;
   if (!specifier.startsWith("."))
     throw new Error("platform_provisioner_runtime_dependency_noncanonical");
   if (
@@ -1029,7 +1029,7 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
   }
   verifyLauncherEntryBindings(packageRoot);
   const scriptPaths = new Set<string>();
-  const pending: string[] = [];
+  const pendingItems: string[] = [];
   for (const entry of Object.values(COORDINATOR_LAUNCH_ENTRIES)) {
     const target = canonicalRelativeModuleTarget(
       RUNTIME_EXECUTION_LAUNCHER_PATH,
@@ -1039,15 +1039,15 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
       throw new Error("platform_provisioner_launch_entry_invalid");
     }
     const rootSegment = target.split("/")[0];
-    if (rootSegment === "scripts") pending.push(target);
-    else if (!rootSegment || !RUNTIME_EXECUTION_DIRECTORIES.has(rootSegment)) {
+    if (rootSegment === "scripts") pendingItems.push(target);
+    else if (!rootSegment || !runtimeExecutionDirectories.has(rootSegment)) {
       throw new Error(
         "platform_provisioner_runtime_dependency_outside_execution_set",
       );
     }
   }
-  while (pending.length > 0) {
-    const relative = pending.shift();
+  while (pendingItems.length > 0) {
+    const relative = pendingItems.shift();
     if (!relative || scriptPaths.has(relative)) continue;
     if (relative.split("/")[0] !== "scripts") {
       throw new Error(
@@ -1064,11 +1064,8 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
       observed.bytes,
     )) {
       const rootSegment = target.split("/")[0];
-      if (rootSegment === "scripts") pending.push(target);
-      else if (
-        !rootSegment ||
-        !RUNTIME_EXECUTION_DIRECTORIES.has(rootSegment)
-      ) {
+      if (rootSegment === "scripts") pendingItems.push(target);
+      else if (!rootSegment || !runtimeExecutionDirectories.has(rootSegment)) {
         throw new Error(
           "platform_provisioner_runtime_dependency_outside_execution_set",
         );
@@ -1089,7 +1086,7 @@ function verifyStaticRuntimeModuleBoundary(
       target === ".." ||
       target.startsWith("../") ||
       !rootSegment ||
-      (!RUNTIME_EXECUTION_DIRECTORIES.has(rootSegment) &&
+      (!runtimeExecutionDirectories.has(rootSegment) &&
         !(rootSegment === "scripts" && scriptPaths.has(target)))
     ) {
       throw new Error(
@@ -1120,11 +1117,11 @@ function packageEntries(
     );
     for (const entry of snapshot.dirents) {
       if (relativeDirectory === "") {
-        const included = entry.isDirectory()
-          ? RUNTIME_EXECUTION_DIRECTORIES.has(entry.name) ||
+        const isIncluded = entry.isDirectory()
+          ? runtimeExecutionDirectories.has(entry.name) ||
             (entry.name === "scripts" && scriptPaths.size > 0)
-          : RUNTIME_EXECUTION_ROOT_FILES.has(entry.name);
-        if (!included) continue;
+          : runtimeExecutionRootFiles.has(entry.name);
+        if (!isIncluded) continue;
       }
       const relative = relativeDirectory
         ? `${relativeDirectory}/${entry.name}`

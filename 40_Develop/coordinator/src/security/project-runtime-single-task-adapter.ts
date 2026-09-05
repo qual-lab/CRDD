@@ -419,13 +419,13 @@ export async function runProjectRuntimeSingleTaskAttempt(
       "single_task_start_observation_invalid",
     );
   if (input.observeStarted) {
-    let observed = false;
+    let isObserved = false;
     try {
-      observed = (await input.observeStarted()) === true;
+      isObserved = (await input.observeStarted()) === true;
     } catch {
-      observed = false;
+      isObserved = false;
     }
-    if (!observed) {
+    if (!isObserved) {
       try {
         const cancellation = dependencies.cancelTask(started.controlCapability);
         if (cancellation instanceof Promise)
@@ -482,11 +482,11 @@ export async function runProjectRuntimeSingleTaskAttempt(
       repositoryRevision,
       "single_task_completion_observation_invalid",
     );
-  const recoveryOrCleanupUnknown =
+  const isRecoveryOrCleanupUnknown =
     completion.cleanupConfirmed !== true ||
     completion.manualRecoveryRequired === true ||
     completion.recoveryIds.length > 0;
-  const settledRuntimeCancellation =
+  const isSettledRuntimeCancellation =
     cancellationTransferred &&
     input.cancellationSignal.aborted &&
     completion.status === "blocked" &&
@@ -495,14 +495,14 @@ export async function runProjectRuntimeSingleTaskAttempt(
     completion.processRestartRequired === false &&
     completion.recoveryIds.length === 0 &&
     SETTLED_RUNTIME_CANCELLATION_REASONS.has(completion.reason);
-  const completionStatus = settledRuntimeCancellation
+  const completionStatus = isSettledRuntimeCancellation
     ? "cancelled"
-    : recoveryOrCleanupUnknown && completion.status === "completed"
+    : isRecoveryOrCleanupUnknown && completion.status === "completed"
       ? "blocked"
       : completion.status;
-  const completionReason = settledRuntimeCancellation
+  const completionReason = isSettledRuntimeCancellation
     ? "single_task_cancelled_after_effect_cleanup"
-    : recoveryOrCleanupUnknown && completion.status === "completed"
+    : isRecoveryOrCleanupUnknown && completion.status === "completed"
       ? "single_task_completion_cleanup_unknown"
       : completion.reason;
   return result({
@@ -512,9 +512,9 @@ export async function runProjectRuntimeSingleTaskAttempt(
     repositoryRevision,
     status: completionStatus,
     reason: completionReason,
-    effectState: recoveryOrCleanupUnknown ? "unknown" : "settled",
+    effectState: isRecoveryOrCleanupUnknown ? "unknown" : "settled",
     cleanupConfirmed: completion.cleanupConfirmed,
-    manualRecoveryRequired: recoveryOrCleanupUnknown
+    manualRecoveryRequired: isRecoveryOrCleanupUnknown
       ? true
       : completion.manualRecoveryRequired,
     processRestartRequired: completion.processRestartRequired,

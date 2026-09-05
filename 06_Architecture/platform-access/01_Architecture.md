@@ -72,9 +72,9 @@ Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対
 
 | 対象 | 確認先 |
 |---|---|
-| 要求・応答とCLI | [Rust CLI試験](../../40_Develop/platform-access/tests/cli.rs)、protocol内試験、[TS Adapter試験](../../40_Develop/coordinator/tests/platform-access-adapter.contract.test.ts) |
-| 配布物・署名 | [成果物試験](../../40_Develop/coordinator/tests/platform-access-release.contract.test.ts)、[Trust Core試験](../../40_Develop/coordinator/tests/platform-provisioner-trust-core.contract.test.ts)、[Release Identity試験](../../40_Develop/coordinator/tests/platform-provisioner-release-identity.contract.test.ts) |
-| Home／Store／State | windows.rs内試験、[Home観測試験](../../40_Develop/coordinator/tests/provider-home-observation.contract.test.ts)、[Store Adapter試験](../../40_Develop/coordinator/tests/candidate-store-windows-adapter.contract.test.ts) |
-| Docker復旧 | docker_repair.rs内試験、[復旧Runtime試験](../../40_Develop/coordinator/tests/docker-desktop-runtime-repair.contract.test.ts) |
+| 要求・応答とCLI | [Rust CLI試験](../../40_Develop/platform-access/tests/cli.rs)、protocol内試験、[TS Adapter試験](../../40_Develop/coordinator/tests/unit/platform-access-adapter.contract.test.ts) |
+| 配布物・署名 | [成果物試験](../../40_Develop/coordinator/tests/integration/platform-access-release.contract.test.ts)、[Trust Core試験](../../40_Develop/coordinator/tests/unit/platform-provisioner-trust-core.contract.test.ts)、[Release Identity試験](../../40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts) |
+| Home／Store／State | windows.rs内試験、[Home観測試験](../../40_Develop/coordinator/tests/unit/provider-home-observation.contract.test.ts)、[Store Adapter試験](../../40_Develop/coordinator/tests/unit/candidate-store-windows-adapter.contract.test.ts) |
+| Docker復旧 | docker_repair.rs内試験、[復旧Runtime試験](../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts) |
 
 単体試験の合格から、本物のDocker Desktop復旧、署名済み配布物の実行または終了後資源0を推定しない。本番同等入口のE2Eと回復行列を別に実測する。

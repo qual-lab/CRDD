@@ -227,6 +227,24 @@ cleanupの試験は、例外を捕捉したことまたは終了値を返した�
 
 一つの試験ファイルが複数kindを同時に所有する場合は、責務ごとに分割する。分割自体が検証リスクを増やす既存集合は、公開挙動と安全条件を包含する`contract`へ一度収束させ、後続の実質変更で分割する。
 
+CRDDが所有するToolの実行可能な試験は、主試験レベルをDirectory、試験種類をfilenameで表す。存在しない試験のために空Directoryを作らない。
+
+```text
+tests/
+├ unit/
+├ integration/
+├ system/
+├ acceptance/
+├ performance/
+├ longevity/
+├ fixtures/
+└ support/
+```
+
+`unit`、`integration`、`system`、`acceptance`、`performance`、`longevity`は[品質保証](../16_Quality_Assurance.md#17-test-levels-and-regression)のUT、IT、ST、UAT、PT、LTに対応する。`fixtures`と`support`は試験レベルではなく、runnerの実行対象にしない。回帰専用Directoryは作らず、回帰runnerが既存試験を選択する。E2E表示だけで配置を決めず、公開入口から利用者成果までなら`system`、限定したComponent連鎖なら`integration`に置く。
+
+Rust等の言語またはFrameworkの標準配置を維持する場合は、物理Directoryの移動を強制せず、試験カタログで同じ論理レベルを明示する。PTまたはLTのコードが存在しても通常runnerから自動実行せず、人間の明示指示と実行上限がなければEffect 0で停止する。
+
 ## 7. 機械識別子（machine identifier）
 
 | 対象 | 必須形式 |

@@ -262,12 +262,12 @@ function inspectStrings(
   value: unknown,
   maximumItems: number,
   maximumText: number,
-  allowEmpty = false,
+  shouldAllowEmpty = false,
 ): readonly string[] | null {
   const snapshot = snapshotPlainArray(value, maximumItems);
   if (
     snapshot.status !== "ok" ||
-    (!allowEmpty && snapshot.value.length === 0) ||
+    (!shouldAllowEmpty && snapshot.value.length === 0) ||
     !snapshot.value.every((entry) => validText(entry, maximumText)) ||
     new Set(
       snapshot.value.map((entry) =>
@@ -1294,7 +1294,7 @@ export async function runProjectRuntimeObjective(
         stateGeneration: recoveryState.generation,
       });
     }
-    const externallyOwned = recoveryState.tasks.flatMap((task) =>
+    const externallyOwnedItems = recoveryState.tasks.flatMap((task) =>
       task.recoveryObligations
         .filter(
           (entry) =>
@@ -1303,7 +1303,7 @@ export async function runProjectRuntimeObjective(
         )
         .map((entry) => ({ taskId: task.definition.id, ...entry })),
     );
-    if (externallyOwned.length > 0)
+    if (externallyOwnedItems.length > 0)
       return blocked(request, "project_runtime_external_recovery_required", {
         cleanupConfirmed: false,
         manualRecoveryRequired: true,

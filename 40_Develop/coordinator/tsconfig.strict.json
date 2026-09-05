@@ -43,6 +43,7 @@
     "scripts/release-staging-manifest.ts",
     "scripts/verify-dynamic-fake-provider-cancellation.ts",
     "scripts/verify-dynamic-fake-provider-failures.ts",
+    "scripts/verify-project-runtime-real-providers.ts",
     "scripts/sign-release-manifest.ts",
     "src/core/cli-options.ts",
     "src/core/doctor.ts",

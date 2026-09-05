@@ -23,15 +23,15 @@ export const PROVIDER_AUTHORITY_COVERAGE_SOURCES = Object.freeze([
 ]);
 
 export const PROVIDER_AUTHORITY_COVERAGE_TESTS = Object.freeze([
-  "40_Develop/coordinator/tests/plain-data-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/provider-isolation-profile.contract.test.ts",
-  "40_Develop/coordinator/tests/authority-grant-verifier.contract.test.ts",
-  "40_Develop/coordinator/tests/authority-trust-loader.contract.test.ts",
-  "40_Develop/coordinator/tests/authority-file-bundle.contract.test.ts",
-  "40_Develop/coordinator/tests/authority-prelaunch-verifier.contract.test.ts",
-  "40_Develop/coordinator/tests/egress-proxy-policy.contract.test.ts",
-  "40_Develop/coordinator/tests/local-personal-authority-runtime.contract.test.ts",
-  "40_Develop/coordinator/tests/provider-authority-runtime.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/provider-isolation-profile.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/authority-grant-verifier.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/authority-trust-loader.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/authority-file-bundle.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/authority-prelaunch-verifier.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/egress-proxy-policy.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/local-personal-authority-runtime.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/provider-authority-runtime.contract.test.ts",
 ]);
 
 const NODE_OPTIONS = Object.freeze([

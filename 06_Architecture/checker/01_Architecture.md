@@ -79,11 +79,11 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 | 確認する不確実性 | 正常・準正常・異常の代表 | 接続先 |
 |---|---|---|
-| Root・入力の意味 | 明示Root、省略、未知引数、値欠落 | [Checker契約試験](../../40_Develop/checker/crdd-check.contract.test.ts) |
+| Root・入力の意味 | 明示Root、省略、未知引数、値欠落 | [Checker契約試験](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts) |
 | 範囲の取り違え | 全体、限定、一段展開、全体検査の残存 | 同契約試験のscope／references項目 |
 | 発見と読取り | Git、fallback、読取失敗、link／Gitlink | 同契約試験の発見・境界・fault injection項目 |
 | 固定履歴の偽装 | 正しい台帳、原文変更、旧対象残存、後継欠落 | 同契約試験の歴史参照項目 |
 | 表示と終了 | テキスト、JSON配列、summary、0／1／2 | 同契約試験の出力・引数項目 |
-| 試験そのものの脱落 | nested試験、重複・未知entry、TypeScript所有集合との差 | [試験列挙](../../40_Develop/checker/test-discovery.ts)、[命名契約](../../40_Develop/checker/tools-naming.contract.test.ts) |
+| 試験そのものの脱落 | nested試験、重複・未知entry、TypeScript所有集合との差 | [試験列挙](../../40_Develop/checker/test-discovery.ts)、[命名契約](../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts) |
 
 この表は試験への接続であり、全件の最新実行結果ではない。結果は品質記録へ分離する。意味監査、初見利用者の理解、中断時の実子Process観測は、Checkerの指摘件数から証明しない。

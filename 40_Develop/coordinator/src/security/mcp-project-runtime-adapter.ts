@@ -49,12 +49,12 @@ export type McpProjectRuntimeDependencies = Readonly<{
   ) => Promise<unknown>;
 }>;
 
-const REQUEST_KEYS = new Set(["jsonrpc", "id", "method", "params"] as const);
-const CALL_KEYS = new Set(["_meta", "name", "arguments"] as const);
-const DISCOVER_KEYS = new Set(["_meta"] as const);
-const LIST_KEYS = new Set(["_meta", "cursor"] as const);
-const LIST_KEYS_NO_CURSOR = new Set(["_meta"] as const);
-const OBJECTIVE_KEYS = new Set([
+const requestKeys = new Set(["jsonrpc", "id", "method", "params"] as const);
+const callKeys = new Set(["_meta", "name", "arguments"] as const);
+const discoverKeys = new Set(["_meta"] as const);
+const listKeys = new Set(["_meta", "cursor"] as const);
+const listKeysNoCursor = new Set(["_meta"] as const);
+const objectiveKeys = new Set([
   "requestId",
   "projectId",
   "milestoneId",
@@ -70,7 +70,7 @@ const OBJECTIVE_KEYS = new Set([
   "decisionCapabilityReplacement",
   "requestedExecutorProvider",
 ] as const);
-const DECISION_KEYS = new Set([
+const decisionKeys = new Set([
   "decisionId",
   "projectId",
   "milestoneId",
@@ -80,8 +80,8 @@ const DECISION_KEYS = new Set([
   "continuationCapability",
   "comment",
 ] as const);
-const DECISION_KEYS_NO_COMMENT = new Set(
-  [...DECISION_KEYS].filter((key) => key !== "comment"),
+const decisionKeysNoComment = new Set(
+  [...decisionKeys].filter((key) => key !== "comment"),
 );
 const OBJECTIVE_RESULT_KEYS = new Set([
   "contract",
@@ -99,7 +99,7 @@ const OBJECTIVE_RESULT_KEYS = new Set([
   "recoveryObligations",
   "effectState",
 ]);
-const INTEGRATION_RESULT_WITH_DECISION_KEYS = new Set([
+const integrationResultWithDecisionKeys = new Set([
   ...PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS,
   "decision",
 ]);
@@ -111,12 +111,12 @@ const PUBLIC_BLOCKED_RESULT_KEYS = new Set([
   "manualRecoveryRequired",
   "effectState",
 ]);
-const DECISION_BLOCKED_RESTART_KEYS = new Set([
+const decisionBlockedRestartKeys = new Set([
   ...PUBLIC_BLOCKED_RESULT_KEYS,
   "processRestartRequired",
   "recoveryId",
 ]);
-const DECISION_APPLIED_RESULT_KEYS = new Set([
+const decisionAppliedResultKeys = new Set([
   "contract",
   "status",
   "reason",
@@ -127,7 +127,7 @@ const DECISION_APPLIED_RESULT_KEYS = new Set([
   "manualRecoveryRequired",
   "effectState",
 ] as const);
-const DECISION_ISSUED_RESULT_KEYS = new Set([
+const decisionIssuedResultKeys = new Set([
   "contract",
   "status",
   "reason",
@@ -140,11 +140,11 @@ const DECISION_ISSUED_RESULT_KEYS = new Set([
   "manualRecoveryRequired",
   "effectState",
 ] as const);
-const DECISION_REPLACED_RESULT_KEYS = new Set([
-  ...DECISION_ISSUED_RESULT_KEYS,
+const decisionReplacedResultKeys = new Set([
+  ...decisionIssuedResultKeys,
   "replacementRequestId",
 ]);
-const DECISION_RECOVERED_RESULT_KEYS = new Set([
+const decisionRecoveredResultKeys = new Set([
   "contract",
   "status",
   "reason",
@@ -215,8 +215,8 @@ export function inspectMcpProjectRuntimeDecision(value: unknown): Readonly<{
   comment?: string;
 }> | null {
   const input =
-    snapshotPlainRecord(value, DECISION_KEYS) ??
-    snapshotPlainRecord(value, DECISION_KEYS_NO_COMMENT);
+    snapshotPlainRecord(value, decisionKeys) ??
+    snapshotPlainRecord(value, decisionKeysNoComment);
   const record: Readonly<Record<string, unknown>> | null = input;
   if (
     !record ||
@@ -278,7 +278,7 @@ function tool(
   title: string,
   description: string,
   properties: object,
-  required: readonly string[],
+  requiredItems: readonly string[],
 ) {
   return Object.freeze({
     name,
@@ -287,7 +287,7 @@ function tool(
     inputSchema: Object.freeze({
       type: "object",
       additionalProperties: false,
-      required: Object.freeze([...required]),
+      required: Object.freeze([...requiredItems]),
       properties: Object.freeze(properties),
     }),
   });
@@ -346,7 +346,7 @@ function definitions() {
           enum: Object.freeze(["auto", "codex", "claude"]),
         }),
       },
-      [...OBJECTIVE_KEYS].filter(
+      [...objectiveKeys].filter(
         (key) =>
           key !== "decisionCapabilityReplacement" &&
           key !== "requestedExecutorProvider",
@@ -369,11 +369,11 @@ function definitions() {
         }),
         comment: Object.freeze({ type: "string", maxLength: 1024 }),
       },
-      [...DECISION_KEYS_NO_COMMENT],
+      [...decisionKeysNoComment],
     ),
   ]);
 }
-const OBJECTIVE_COUNTS = new Set([
+const objectiveCountKeys = new Set([
   "planned",
   "executing",
   "integration_pending",
@@ -381,7 +381,7 @@ const OBJECTIVE_COUNTS = new Set([
   "blocked",
   "cancelled",
 ] as const);
-const TASK_COUNTS = new Set([
+const taskCountKeys = new Set([
   "planned",
   "waiting_dependency",
   "ready",
@@ -394,7 +394,7 @@ const TASK_COUNTS = new Set([
   "recovery_required",
   "superseded",
 ] as const);
-const PROJECTION_KEYS = new Set([
+const projectionKeys = new Set([
   "projectId",
   "milestoneId",
   "generation",
@@ -433,16 +433,16 @@ function countSnapshot(
 }
 
 function projectionSnapshot(value: unknown) {
-  const record = snapshotPlainRecord(value, PROJECTION_KEYS);
+  const record = snapshotPlainRecord(value, projectionKeys);
   if (!record) return null;
   const objectiveCounts = countSnapshot(
     record.objectiveCounts,
-    OBJECTIVE_COUNTS,
+    objectiveCountKeys,
     PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
   );
   const taskCounts = countSnapshot(
     record.taskCounts,
-    TASK_COUNTS,
+    taskCountKeys,
     PROJECT_RUNTIME_MAXIMUM_TASKS,
   );
   const rawSummaries = snapshotPlainArray(
@@ -460,13 +460,13 @@ function projectionSnapshot(value: unknown) {
     );
     const summaryTaskCounts = countSnapshot(
       summary?.taskCounts,
-      TASK_COUNTS,
+      taskCountKeys,
       PROJECT_RUNTIME_MAXIMUM_TASKS,
     );
     if (
       !summary ||
       !stable(summary.objectiveId) ||
-      !OBJECTIVE_COUNTS.has(summary.objectiveState as never) ||
+      !objectiveCountKeys.has(summary.objectiveState as never) ||
       !summaryTaskCounts
     )
       return null;
@@ -619,7 +619,7 @@ function decisionSnapshot(
     ]),
   );
   if (simple) return simple;
-  const restart = snapshotPlainRecord(raw, DECISION_BLOCKED_RESTART_KEYS);
+  const restart = snapshotPlainRecord(raw, decisionBlockedRestartKeys);
   if (
     restart &&
     restart.status === "blocked" &&
@@ -632,7 +632,7 @@ function decisionSnapshot(
     (restart.recoveryId === null || stable(restart.recoveryId))
   )
     return Object.freeze({ ...restart });
-  const applied = snapshotPlainRecord(raw, DECISION_APPLIED_RESULT_KEYS);
+  const applied = snapshotPlainRecord(raw, decisionAppliedResultKeys);
   if (
     applied &&
     applied.contract === PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT &&
@@ -648,8 +648,8 @@ function decisionSnapshot(
   )
     return Object.freeze({ ...applied });
   const issued =
-    snapshotPlainRecord(raw, DECISION_ISSUED_RESULT_KEYS) ??
-    snapshotPlainRecord(raw, DECISION_REPLACED_RESULT_KEYS);
+    snapshotPlainRecord(raw, decisionIssuedResultKeys) ??
+    snapshotPlainRecord(raw, decisionReplacedResultKeys);
   if (issued) {
     const allowed = snapshotPlainArray(issued.allowedOptions, 2);
     if (
@@ -679,7 +679,7 @@ function decisionSnapshot(
       allowedOptions: Object.freeze([...allowed.value]),
     });
   }
-  const recovered = snapshotPlainRecord(raw, DECISION_RECOVERED_RESULT_KEYS);
+  const recovered = snapshotPlainRecord(raw, decisionRecoveredResultKeys);
   if (
     recovered &&
     recovered.contract === PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT &&
@@ -719,7 +719,7 @@ function objectiveSnapshot(
         (entry) => entry.kind === "runtime_process",
       ),
     );
-    const correlationValid =
+    const isCorrelationValid =
       projection === null ||
       isProjectRuntimeObjectiveProjectionCorrelationValid(
         {
@@ -753,7 +753,7 @@ function objectiveSnapshot(
       typeof objective.manualRecoveryRequired !== "boolean" ||
       typeof objective.processRestartRequired !== "boolean" ||
       !recoveries ||
-      !correlationValid ||
+      !isCorrelationValid ||
       !["no_effect", "settled", "unknown"].includes(
         String(objective.effectState),
       ) ||
@@ -798,7 +798,7 @@ function objectiveSnapshot(
   if (directIntegration) return directIntegration;
   const integratedWithDecision = snapshotPlainRecord(
     raw,
-    INTEGRATION_RESULT_WITH_DECISION_KEYS,
+    integrationResultWithDecisionKeys,
   );
   if (!integratedWithDecision) return null;
   const decision = decisionSnapshot(integratedWithDecision.decision);
@@ -827,7 +827,7 @@ export async function handleMcpProjectRuntimeRequest(
   dependencies: McpProjectRuntimeDependencies,
   signal: AbortSignal = new AbortController().signal,
 ): Promise<McpResponse> {
-  const request = snapshotPlainRecord(rawRequest, REQUEST_KEYS);
+  const request = snapshotPlainRecord(rawRequest, requestKeys);
   if (
     !request ||
     !validId(request.id) ||
@@ -836,7 +836,7 @@ export async function handleMcpProjectRuntimeRequest(
   )
     return error(null, -32600, "Invalid Request");
   if (request.method === "server/discover") {
-    const params = snapshotPlainRecord(request.params, DISCOVER_KEYS);
+    const params = snapshotPlainRecord(request.params, discoverKeys);
     return !params || !envelope(params._meta)
       ? error(request.id, -32602, "Invalid params")
       : complete(request.id, {
@@ -850,8 +850,8 @@ export async function handleMcpProjectRuntimeRequest(
   }
   if (request.method === "tools/list") {
     const params =
-      snapshotPlainRecord(request.params, LIST_KEYS_NO_CURSOR) ??
-      snapshotPlainRecord(request.params, LIST_KEYS);
+      snapshotPlainRecord(request.params, listKeysNoCursor) ??
+      snapshotPlainRecord(request.params, listKeys);
     const paramsRecord: Readonly<Record<string, unknown>> | null = params;
     return !params ||
       !envelope(params._meta) ||
@@ -865,7 +865,7 @@ export async function handleMcpProjectRuntimeRequest(
   }
   if (request.method !== "tools/call")
     return error(request.id, -32601, "Method not found");
-  const params = snapshotPlainRecord(request.params, CALL_KEYS);
+  const params = snapshotPlainRecord(request.params, callKeys);
   if (
     !params ||
     !envelope(params._meta) ||
@@ -938,18 +938,18 @@ export async function handleMcpProjectRuntimeRequest(
       manualRecoveryRequired: true,
       effectState: "unknown",
     });
-  const failed = result.status !== "completed";
+  const isFailed = result.status !== "completed";
   return complete(request.id, {
     content: Object.freeze([
       Object.freeze({
         type: "text",
-        text: failed
+        text: isFailed
           ? "処理は完了していません。構造化された理由を確認してください。"
           : "処理が完了しました。",
       }),
     ]),
     structuredContent: result,
-    isError: failed,
+    isError: isFailed,
   });
 }
 

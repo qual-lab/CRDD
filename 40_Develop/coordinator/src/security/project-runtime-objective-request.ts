@@ -83,7 +83,7 @@ const OPTIONAL_REQUEST_KEYS = Object.freeze([
   "decisionCapabilityReplacement",
   "requestedExecutorProvider",
 ] as const);
-const REQUEST_KEY_SETS = Object.freeze(
+const requestKeySets = Object.freeze(
   [0, 1, 2, 3].map(
     (mask) =>
       new Set([
@@ -98,7 +98,7 @@ const REQUEST_KEY_SETS = Object.freeze(
 export function inspectProjectRuntimeObjectiveRequest(
   value: unknown,
 ): ProjectRuntimeObjectiveRequest | null {
-  const requestSnapshot = REQUEST_KEY_SETS.reduce<Readonly<
+  const requestSnapshot = requestKeySets.reduce<Readonly<
     Record<string, unknown>
   > | null>(
     (accepted, keys) => accepted ?? snapshotPlainRecord(value, keys),

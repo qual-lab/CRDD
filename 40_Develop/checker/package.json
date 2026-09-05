@@ -9,6 +9,9 @@
     "format:check": "biome format ../..",
     "lint": "biome lint ../.. --error-on-warnings",
     "test": "node ./test-runner.ts",
+    "test:catalog": "node --test ./tests/unit/test-catalog.contract.test.ts",
+    "test:regression:plan": "node ./regression-runner.ts --base main --plan",
+    "test:regression": "node ./regression-runner.ts --base main",
     "typecheck": "tsc -p ./tsconfig.json",
     "verify:repository": "node ./crdd-check.ts --root ../.. --json --summary"
   },

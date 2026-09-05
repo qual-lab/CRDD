@@ -34,8 +34,8 @@ export async function runMcpProjectRuntimeStdio(
   input.once("error", abortForParentLoss);
   input.once("close", abortForParentLoss);
   let pending = "";
-  let failed = false;
-  let semanticResultObserved = false;
+  let isFailed = false;
+  let isSemanticResultObserved = false;
   let semanticCleanupConfirmed = true;
   let semanticManualRecoveryRequired = false;
   try {
@@ -44,7 +44,7 @@ export async function runMcpProjectRuntimeStdio(
       const chunk = String(rawChunk);
       pending += chunk;
       if (Buffer.byteLength(pending, "utf8") > MAXIMUM_REQUEST_BYTES) {
-        failed = true;
+        isFailed = true;
         break;
       }
       for (;;) {
@@ -78,21 +78,21 @@ export async function runMcpProjectRuntimeStdio(
             typeof semantic.cleanupConfirmed === "boolean" &&
             typeof semantic.manualRecoveryRequired === "boolean"
           ) {
-            semanticResultObserved = true;
+            isSemanticResultObserved = true;
             semanticCleanupConfirmed &&= semantic.cleanupConfirmed;
             semanticManualRecoveryRequired ||= semantic.manualRecoveryRequired;
           }
         }
         if (!(await write(output, response))) {
-          failed = true;
+          isFailed = true;
           break;
         }
       }
-      if (failed) break;
+      if (isFailed) break;
     }
-    if (pending.trim().length > 0) failed = true;
+    if (pending.trim().length > 0) isFailed = true;
   } catch {
-    failed = true;
+    isFailed = true;
   } finally {
     controller.abort();
     input.removeListener("end", abortForParentLoss);
@@ -101,12 +101,12 @@ export async function runMcpProjectRuntimeStdio(
   }
   return Object.freeze({
     contract: MCP_PROJECT_RUNTIME_STDIO_CONTRACT,
-    status: failed ? ("blocked" as const) : ("completed" as const),
-    reason: failed
+    status: isFailed ? ("blocked" as const) : ("completed" as const),
+    reason: isFailed
       ? "project_runtime_mcp_stdio_failed"
       : "project_runtime_mcp_stdio_closed",
     transportCleanupConfirmed: true,
-    semanticResultObserved,
+    semanticResultObserved: isSemanticResultObserved,
     semanticCleanupConfirmed,
     cleanupConfirmed: semanticCleanupConfirmed,
     manualRecoveryRequired: semanticManualRecoveryRequired,

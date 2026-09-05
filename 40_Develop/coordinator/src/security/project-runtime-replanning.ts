@@ -61,14 +61,14 @@ function validDecision(raw: unknown): raw is ProjectRuntimeReplanDecision {
   );
 }
 
-function blocked(reason: string, recovery = false) {
+function blocked(reason: string, isRecovery = false) {
   return Object.freeze({
     contract: PROJECT_RUNTIME_REPLANNING_CONTRACT,
     status: "blocked" as const,
     reason,
-    cleanupConfirmed: !recovery,
-    manualRecoveryRequired: recovery,
-    effectState: recovery ? ("unknown" as const) : ("no_effect" as const),
+    cleanupConfirmed: !isRecovery,
+    manualRecoveryRequired: isRecovery,
+    effectState: isRecovery ? ("unknown" as const) : ("no_effect" as const),
   });
 }
 
