@@ -354,6 +354,18 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 
 維持責任者は親Coordinator、採否はQual-Labの人間の決定権限者とする。再評価契機は現行Runtimeの完成固定と実務自己適用の収束後、または新しい根拠が現在の完了・安全判断へ影響した時点とする。保留中は現在の検証と横断確認を維持するため処理時間と人間負荷が残り得る。安全上の問題が現在成立すると分かった場合は、将来候補のまま退避せず現行是正へ戻す。細部と再現根拠はCHG・Evidence、具体的なRuntime設計は[実行設計](../06_Architecture/coordinator/01_Architecture.md)が所有し、上位規則や専門機能を増殖させない。
 
+<a id="v020-runtime-responsibility-separation"></a>
+
+##### v0.20 Runtime責務分離
+
+2026-09-05、人間の決定権限者は、Project Runtime、公開アプリケーション契約、MCP TransportおよびProvider実行がCoordinator packageへ物理的に集中している状態を、v0.20の後続機能を追加する前に是正する作業意図を採用した。目的はFolder数や抽象層を増やすことではなく、Project RuntimeをProject-level execution lifecycleのApplication Core、Coordinatorを実行編成、MCPをTransport、Execution Intelligenceを観測・分析、Platform AccessをOS／Platform境界として分離し、依存方向を機械的に強制できるようにすることである。
+
+Project RuntimeはObjectiveをProject-level execution stateへ変換し、Task Graph、Queue、再計画、人間判断、統合および受入のlifecycleを管理する。Provider選択・Provider実行・OS機構・Transport sessionを所有せず、必要な実行能力はExecution Portとして要求する。CoordinatorはそのPortを実装するAdapterとなり、Project RuntimeからCoordinator実装を参照しない。MCP stdio／HTTPとCLIは、Project Runtimeが所有する同じ公開アプリケーション契約へ接続し、Project Authority、成功、正本変更またはRecovery Authorityを生成しない。
+
+初期配置は`40_Develop/project-runtime/`、`40_Develop/mcp/`、`40_Develop/coordinator/`、`40_Develop/execution-intelligence/`および`40_Develop/platform-access/`の責務単位を候補とする。公開アプリケーション契約は、独立したLifecycleまたは複数所有者による版管理の必要性が実証されるまでProject Runtimeの公開入口として所有し、先行して独立packageへしない。Architecture、Workflow、検証およびpackageの成果物も同じ責務へ分ける。
+
+完成には、Project RuntimeからCoordinator／Provider／MCP／OS固有実装への推移的依存0、CoordinatorによるExecution Port実装、MCP／CLIの公開契約だけを介した接続、内部Pathを参照する利用側0、およびv0.19のCLI／MCP stdio／Project lifecycleの意味回帰0を必要とする。Project RuntimeへRuntime Stateを集約することを、Project Management State、WBS、Topic、Risk、Forecast、Provider orchestrationまたはOS実装を所有させる根拠にしない。具体的な移動集合、package境界、互換性、Runtime実行Identityへの影響および完成条件は、着手時の変更トレースで固定する。
+
 <a id="bounded-distributed-execution-candidate"></a>
 
 ##### v0.20 限定分散と統合結果の評価
@@ -608,21 +620,23 @@ HTTP接続の存在からProject Authority、Repository操作権限、Human Auth
 - Process、socket、stream、request、Sessionその他の資源所有、上限、終了条件、cleanupおよびRecovery。
 - 正常・準正常・異常経路、stdioとの意味同等性、公開入口からの結合試験／総合試験および回帰試験。
 
-具体的なFramework、待受port、Network公開範囲、配布方式および運用形態はArchitectureで選択する。Linux／macOSへ同じ機構を要求せず、Transportの意味契約と安全保証をPlatform固有実装から分離する。
+具体的なFramework、待受port、配布方式および運用形態はArchitectureで選択する。v0.20の実装・検証範囲は同じHostの`localhost`接続に限定し、LAN、InternetまたはRemote Hostから到達可能なlistenを成立済みとしない。Linux／macOSへ同じ機構を要求せず、Transportの意味契約と安全保証をPlatform固有実装から分離する。
 
 ### 11.3. 採用していない範囲
 
-本採用単独では、Internetへの公開、Remote Hostでの常設運用、複数Repository、Organization Runtime、Self-hosted Provider、追加Credentialの保管、API key課金、無人の外部EffectまたはProject Authorityの上位継承を意味しない。Linux Hostでの限定Remote構成は別途採用した§12と接続し、そのTrust Boundaryと完成条件を混同しない。その他は個別の価値、Trust Boundary、運用責任および人間判断を必要とする別候補として保持する。
+本採用単独では、LAN／Internetへの公開、Remote Hostでの常設運用、複数Repository、Organization Runtime、Self-hosted Provider、追加Credentialの保管、API key課金、無人の外部EffectまたはProject Authorityの上位継承を意味しない。Linux対応とRemote構成は§12の保留候補とし、TransportのPlatform非依存設計だけを現在の完成条件へ残す。その他も個別の価値、Trust Boundary、運用責任および人間判断を必要とする別候補として保持する。
 
 v0.20での正確な実装範囲と完成条件は、Current State、利用側、脅威、対応Platformおよび既存MCP契約を再確認した変更トレースで固定する。MCP Streamable HTTPが起動したこと、接続できたこと、または一部Methodが応答したことだけから、協働接続面全体の完成を主張しない。
 
 <a id="v020-linux-remote-runtime"></a>
 
-## 12. v0.20 Linux対応とRemote Runtime
+## 12. Linux対応とRemote Runtimeの将来候補
 
-### 12.1. 採用した目的
+### 12.1. 現在の処置
 
-2026-09-05、人間の決定権限者は、Project RuntimeのLinux対応と、Linux Host上のRuntimeを別Clientから利用する限定Remote構成を一つのv0.20作業意図として採用した。目的はLinux Adapterの存在確認ではなく、MCP Streamable HTTP、明示したRepository BindingおよびProject Runtimeを通じ、Windows端末へ常駐しなくても単一Projectの許可済み作業と結果確認を安全に行える利用者成果を成立させることである。
+2026-09-05、人間の決定権限者は、Project RuntimeのLinux対応と、Linux Host上のRuntimeを別Clientから利用する限定Remote構成を一度v0.20作業意図へ採用した。その後、Runtime責務分離、限定分散実行、Project State投影およびMCP Streamable HTTPの初回実装と同時に、新しいPlatform実装とRemote Trust Boundaryまで扱うと完成条件と原因分離が過大になると判断し、v0.20の固定範囲から除外した。
+
+現在状態は`Held / Unscheduled`であり、特定の次版、期限、実装着手またはReleaseを予約しない。v0.20のローカルMCP Streamable HTTP、Project State投影および限定分散実行が完了し、分離後のProject Runtime lifecycleと公開契約が安定したことを再評価契機とする。v0.20ではCoreのPlatform非依存、Transport分離およびWindows固有処理のAdapter内への封じ込めを維持するが、それらをLinux対応済みまたはRemote運用可能の根拠にしない。
 
 ### 12.2. 同じ保証と新しい境界
 
