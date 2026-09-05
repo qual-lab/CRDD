@@ -98,6 +98,25 @@ function start(
 }
 
 describe("Project Runtime state contract", () => {
+  it("Hostが有効なowner generationを供給しない場合は状態を作らない", () => {
+    const state = createProjectRuntimeState({
+      projectId: "crdd",
+      milestoneId: "v0.20",
+      repositoryRevision: revision,
+      maximumConcurrency: 1,
+      milestoneAcceptanceCriteria: ["全Taskが完了する"],
+      objectives: [
+        { id: "objective-1", acceptanceCriteria: ["結果が受理される"] },
+      ],
+      tasks: [task("task-1")],
+      ownerGeneration: "",
+    });
+
+    assert.equal(state.status, "blocked");
+    assert.equal(state.reason, "project_runtime_input_invalid");
+    assert.equal(state.state, null);
+  });
+
   it("受入条件の説明文をPathとして正規化しない", () => {
     const state = createProjectRuntimeState({
       projectId: "crdd",
@@ -109,6 +128,7 @@ describe("Project Runtime state contract", () => {
         { id: "objective-1", acceptanceCriteria: ["値はC:\\workである"] },
       ],
       tasks: [task("task-1", [], ["src\\file.ts"])],
+      ownerGeneration: "owner-1",
     });
     assert.equal(state.status, "completed");
     assert.equal(
@@ -286,6 +306,7 @@ describe("Project Runtime state contract", () => {
           },
         ],
         tasks,
+        ownerGeneration: "owner-1",
       });
       assert.equal(result.status, "blocked");
       assert.equal(result.reason, "project_runtime_task_graph_invalid");

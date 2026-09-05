@@ -96,6 +96,7 @@ test("real candidate bundles are merged and explicitly adopted into the bound re
         conflictKeys: [],
       },
     ],
+    ownerGeneration: "owner-a",
   });
   assert.equal(state.status, "completed");
   if (state.status !== "completed") return;

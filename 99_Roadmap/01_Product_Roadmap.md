@@ -2,7 +2,7 @@
 
 Status: Non-normative Open Work Registry
 Owner: Qual-Lab
-Last Updated: 2026-09-05
+Last Updated: 2026-09-06
 Related:
 - [CRDD標準自身の課題探索・要求形成](../01_Discovery/01_CRDD_Product_Discovery.md)
 - [05_Autonomous_Operation.md](../05_Autonomous_Operation.md)
@@ -32,6 +32,7 @@ Related:
 | v0.20 限定分散実行と統合結果の評価 | Adopted | Planned | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#bounded-distributed-execution-candidate) | v0.19で成立したTask Graph、最大5並列、再計画および統合を基礎に、一つの目的を安全に分解・限定並列実行し、個別Taskの合格ではなく統合後に採用可能な結果へ至ったかを評価する。依存、共有資源、Lock、判断前提、取消、再試行上限および統合後回帰を扱い、完成時間、人間の実作業時間、競合、手戻り、不要Loop、Provider利用および後工程品質を実行知へ接続する。大規模Worker Pool、Cross-project scheduling、無制限再計画または並列起動数自体の最大化を意味しない。v0.20着手時にv0.19の実装済み範囲と未検証範囲を分離し、実証Task、比較条件および完成条件をCHGで固定する |
 | v0.20 Project Stateの読み取り専用投影 | Adopted | Planned | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v020-read-only-project-state-projection) | Project Runtimeが既に所有する状態と実行知から、現在の進行、実行中Task、停止理由、人間判断待ち、Recovery義務および統合結果を、非Authorityの読み取り専用結果として取得可能にする。MCP stdio／HTTPで同じcanonicalな投影を用い、ProjectionからTask、判断、Authority、成功または正本変更を生成しない。独立したPM台帳、手入力進捗率、予測機能、Topic管理またはフルProject Management機能を意味しない。v0.20着手時に最小field、現行性、unknown／未観測、情報分類、取得権限および公開契約試験をCHGで固定する |
 | v0.20 ローカルMCP Streamable HTTP接続 | Adopted | Planned | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v020-mcp-streamable-http) | v0.19で成立したMCP stdioと同じ公開アプリケーション契約へ、同じHostの`localhost`に限定したMCP Streamable HTTPから到達できる接続境界を追加する。MCP Transport、MCP固有Schema、Transport非依存の公開アプリケーション契約、Project Runtime内部Modelを分け、公開契約に内部Event、Telemetry、Provider契約または管理操作を集約しない。TransportからProject Authority、成功、Repository操作権限またはRecovery Authorityを生成せず、認証、接続先、Repository Binding、Session、取消、切断、再送、結果投影、情報最小化および資源回収を設計・検証する。LAN／Internet公開、Remote常設運用、複数Repository、Organization RuntimeまたはSelf-hosted Providerを意味しない |
+| v0.20以降 Context Operating System（CROS）構想 | Exploring | Unscheduled | [CROS発展境界](#cros-evolution-boundary) | 各ProjectのCRDDを正本のまま維持し、複数RepositoryのContext解決、利用目的単位のContext Package、安定したMCP／HTTP Interface、Agent実行Session、人間判断待ち／再開および結果の正本還流を担うRuntime／Federation層の候補。CRDDを中央Databaseへ置換せず、CROS自身を新しいContext正本または人間判断主体にしない。v0.20の単一Repository・localhost境界には追加せず、ローカルHTTPとProject State投影の実測後に段階と版境界を再評価する |
 | Linux対応とRemote Runtime | Held | Unscheduled | [Discoveryの保留境界](../01_Discovery/01_CRDD_Product_Discovery.md#v020-linux-remote-runtime) | 2026-09-05に一度v0.20へ採用したが、Runtime責務分離、限定分散実行、Project State投影、HTTP、Linux Platform実装およびRemote Trust Boundaryを同時に扱うScope膨張を避けるため、v0.20から除外した。ローカルMCP HTTP、Project State投影および限定分散実行の完了後に価値、対応Platform、Network・認証・運用責任および本番同等E2Eを再評価する。現在は特定版、実装着手またはReleaseを予約しない |
 | v0.20以降 Project Management Projection | Exploring | Unscheduled | [Project Operation／Projection構想](#v020-project-operation-projection) | Roadmap、CHG、Work、Evidence、Gitおよび試験結果から、WBS、進捗、Milestone、阻害事項、Risk、依存、予測およびRelease準備状態を生成する候補。Viewごとの状態や手入力進捗を別正本にせず、同じCanonical Contextから非Authorityの表現として投影する。新しいProject Management正本、巨大なContext Graphまたは実装着手を本行から推定しない。採用時はPropertyごとの正本、unknown、予測精度、変更候補から正本更新までのAuthorityを固定する |
 | v0.20以降 Topic／Project Attention | Exploring | Unscheduled | [Project Operation／Projection構想](#v020-project-operation-projection) | Topicは、既存のDiscovery、Decision、CHG、RoadmapまたはWorkへ情報欠落なく一意に還元できず、複数Contextを束ねて継続追跡する価値がある関心事を一時的に保持する候補である。Risk／Issueの独立正本を先に作らず、Topic内の局所的な意味とRelationから横断Viewを投影する。Attention継続と意味整理を経て既存管理単位へ分解・昇格または「何もしない」の判断で閉じる |
@@ -72,6 +73,30 @@ Topicは、Conversation上のAttentionが移動してもProjectとして失っ�
 MeetingはTopicと異なり、時間境界を持つCommunication Activityである。CRDDへ保持する候補は生Transcriptではなく、議論したTopic、確認したDecision、作成・更新した正本、残った問いおよびSourceである。Message Theme、Meeting、TopicをそれぞれCommunication内の意味クラスタ、Communication Activity、Project Attentionとして分離する。外部会話から抽出した候補は、既存Context照合と人間のAuthorityなしに正本へ昇格しない。
 
 配置候補は`20_Project/Topics/`と`20_Project/Meetings/`である。`20_Project`は工程横断の現在Context、`99_Roadmap`は将来実施・再評価すると決めた意図として分離する。WBS、Risk、Issue、Dashboardの正本Directoryは作らない。採否判断では、既存文書だけで投影できる範囲、追加Propertyの正本、Topicの分離可能性、Meetingからの意味保持、Dependencyによる順序導出、複数AIとの共用、外部PM Toolなしで不足する情報、およびViewから正本へ戻すAuthorityを代表ケースで検証する。
+
+<a id="cros-evolution-boundary"></a>
+
+### 2.2. Context Operating System（CROS）発展境界
+
+CROSは、複数ProjectのCRDD Contextを横断解決し、安定したInterfaceとして外部へ提供し、Agent実行を統括して結果を該当する正本Repositoryへ還流するRuntime／Federation層の候補である。各CRDDは独立した正本を維持し、CROSの内部Databaseにはしない。CRDD標準はContextの意味、各CRDDはProject固有の真実、CROSは解決・連合・実行、Qual等は人間との対話、外部Toolは表示・操作Surfaceを所有する。
+
+```text
+Human／Qual／外部AI・Tool
+          ↕ MCP／HTTP
+CROS
+  ├ Project Registry／Repository Binding
+  ├ Context Resolver／Context Package
+  ├ Multi-Repository Federation
+  ├ Task Session／Human Decision Wait・Resume
+  ├ Execution Policy／Agent Organization
+  └ 派生Index／Provenance／Audit
+          ↕ Repository Contract
+各ProjectのCRDD正本
+```
+
+CROSはProduct Requirement、Projectの「なぜ」、人間の重要判断または外部Toolの表示状態を所有しない。Task実行から得たChange、Evidence、DecisionおよびProgressは、対象CRDDの契約とAuthorityに従って還流する。Portfolio Context、Runtime IndexおよびCacheは派生結果であり中央正本に昇格しない。外部向けInterfaceはStorage操作の細粒度な列挙ではなく、`project context`、`portfolio context`、`release context`等の利用目的を一回の呼出しで満たす粒度を候補とし、明示値、決定論的算出値および推定値の出典を追跡可能にする。
+
+発展順序の候補は、v0.20で単一Repositoryの公開Application契約、読み取り専用投影およびlocalhost HTTPを成立させた後、Project Registry／Binding、複数Repository横断解決、Context Package、Task Session、人間判断待ち／再開、外部AI／Toolとの投影を順に評価する。Multi-Repository、LAN／Internet公開、Remote常設運用またはOrganization Runtimeをv0.20へ追加せず、各段階で正本非複製、情報分類、認証・認可、RepositoryごとのAuthority、失敗時のEffectおよび結果還流を確認する。CRDDの既存v1／v2の到達点や版番号は本構想だけで変更せず、v0.20完了後に価値・安全性・運用費用のEvidenceから採否と版境界を人間が決める。
 
 ## 3. 境界
 

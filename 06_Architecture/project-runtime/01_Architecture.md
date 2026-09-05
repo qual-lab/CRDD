@@ -2,7 +2,7 @@
 
 状態: v0.20設計候補
 担当責任者: Qual-Lab
-最終更新日: 2026-09-05
+最終更新日: 2026-09-06
 
 Related:
 - [Runtime責務分離](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)
@@ -85,7 +85,7 @@ public-contract ← application ← core
 
 ## 6. 状態、Authority、資源
 
-v0.19のTask、Objective、Milestone、QueueおよびDecision状態と遷移を意味変更せず継承する。正本は移行完了まで[v0.19 Project Runtime詳細設計](../coordinator/03_Project_Runtime_Design.md)と機械可読な設計対応である。v0.20の物理移動を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。
+v0.19のTask、Objective、Milestone、QueueおよびDecision状態と遷移を意味変更せず継承する。正本は移行完了まで[v0.19 Project Runtime詳細設計](../coordinator/03_Project_Runtime_Design.md)と機械可読な設計対応である。v0.20の物理移動を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。Project Stateを所有するProcess世代はCoreが乱数や時刻から生成せず、Hostが有効な`ownerGeneration`として明示入力する。Coreは欠落または不正な世代を状態生成前に拒否する。
 
 Project RuntimeはAuthorityを生成しない。人間または上位Runtimeから受け取ったProject／Milestone AuthorityをTask単位へ縮小し、Task要求と`authorityBindingId`へ結合してExecution Portへ渡す。Runtime packageの実行許可CapabilityはExecution Authorization Portから外部Effect直前に取得し、Task Authority、Task内容または許可Pathの根拠として扱わない。Transport metadata、Provider出力、Project State、実行知EventまたはAdapterの存在からAuthorityを導出しない。
 

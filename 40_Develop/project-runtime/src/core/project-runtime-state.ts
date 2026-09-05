@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 export const PROJECT_RUNTIME_STATE_CONTRACT =
   "crdd-coordinator/project-runtime-state/v1" as const;
 export const PROJECT_RUNTIME_MAXIMUM_CONCURRENCY = 5;
@@ -574,12 +572,13 @@ export function createProjectRuntimeState(
     milestoneAcceptanceCriteria: readonly string[];
     objectives: readonly ProjectObjectiveDefinition[];
     tasks: readonly ProjectTaskDefinition[];
-    ownerGeneration?: string;
+    ownerGeneration: string;
   }>,
 ): StateResult {
   if (
     !validIdentity(input.projectId) ||
     !validIdentity(input.milestoneId) ||
+    !validIdentity(input.ownerGeneration) ||
     !validRevision(input.repositoryRevision) ||
     !Number.isSafeInteger(input.maximumConcurrency) ||
     input.maximumConcurrency < 1 ||
@@ -682,10 +681,7 @@ export function createProjectRuntimeState(
     milestoneId: input.milestoneId,
     repositoryRevision: input.repositoryRevision,
     generation: 1,
-    ownerGeneration:
-      input.ownerGeneration && validIdentity(input.ownerGeneration)
-        ? input.ownerGeneration
-        : randomUUID(),
+    ownerGeneration: input.ownerGeneration,
     decisionApplicationId: null,
     maximumConcurrency: input.maximumConcurrency,
     milestone: Object.freeze({

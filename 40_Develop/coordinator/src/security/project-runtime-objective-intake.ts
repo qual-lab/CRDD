@@ -465,6 +465,7 @@ export async function runProjectRuntimeObjective(
       milestoneAcceptanceCriteria: plan.milestoneAcceptanceCriteria,
       objectives: plan.objectives,
       tasks: plan.tasks,
+      ownerGeneration: getRuntimeProcessInstanceIdentity(),
     });
     if (created.status !== "completed") return blocked(request, created.reason);
     const written = writeProjectRuntimeState(
