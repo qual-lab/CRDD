@@ -6,27 +6,64 @@ import path from "node:path";
 import test from "node:test";
 
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
-import {
-  closeWindowsDockerDesktopRepairUsingDependencies,
-  adoptWindowsDockerDesktopRepairUsingDependencies,
-  describeDockerDesktopRuntimeRepairContract,
-  observeDockerDesktopEngineResult,
-  repairWindowsDockerDesktopRuntimeUsingDependencies,
-  type PreparedBoundary,
-  type RepairDependencies,
-} from "../src/security/docker-desktop-runtime-repair.ts";
 import type {
   DockerDesktopRepairLedgerSnapshot,
   DockerDesktopRepairOperation,
 } from "../src/security/docker-desktop-repair-record-store.ts";
 import {
   createDockerDesktopRepairOperation,
-  inventoryDockerDesktopRepairOperations,
-  persistDockerDesktopRepairStage,
   DOCKER_DESKTOP_REPAIR_STAGES,
+  type DockerDesktopRepairHistoryVerifier,
+  inspectDockerDesktopRepairHistoricalOperation,
+  classifyCanonicalDockerDesktopRepairHistoricalOperation,
+  inventoryDockerDesktopRepairOperations,
+  persistDockerDesktopRepairHistoricalAdoption,
+  persistDockerDesktopRepairHistoricalClosure,
+  persistDockerDesktopRepairStage,
 } from "../src/security/docker-desktop-repair-record-store.ts";
+import {
+  adoptWindowsDockerDesktopRepairUsingDependencies,
+  classifyDockerDesktopRepairHistoricalAdoptionRoute,
+  closeWindowsDockerDesktopRepairUsingDependencies,
+  describeDockerDesktopRuntimeRepairContract,
+  observeDockerDesktopEngineResult,
+  type PreparedBoundary,
+  type RepairDependencies,
+  repairWindowsDockerDesktopRuntimeUsingDependencies,
+  validateDockerDesktopRepairHistoricalAdoptionResult,
+  validateDockerDesktopRepairHistoricalClosureResult,
+} from "../src/security/docker-desktop-runtime-repair.ts";
+import {
+  assertRuntimeTraceCase,
+  assertRuntimeTraceExecutionCoverage,
+} from "./runtime-trace-case.ts";
+
+const repairRuntimeTraceAssertions: Readonly<
+  Record<string, typeof assertRuntimeTraceCase>
+> = Object.freeze({
+  "CASE-REPAIR-HISTORY-PRIOR-TO-CURRENT-SESSION": assertRuntimeTraceCase,
+});
+const executedRepairRuntimeTraceCases = new Set<string>();
 
 const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
+
+function snapshotDirectoryBytes(root: string) {
+  const result = new Map<string, string>();
+  const visit = (directory: string) => {
+    for (const name of fs.readdirSync(directory).sort()) {
+      const target = path.join(directory, name);
+      const metadata = fs.lstatSync(target);
+      if (metadata.isDirectory()) visit(target);
+      else
+        result.set(
+          path.relative(root, target),
+          fs.readFileSync(target).toString("base64"),
+        );
+    }
+  };
+  visit(root);
+  return result;
+}
 
 test("Docker停止時の空行はCLI失敗とpipe不存在の両方がある場合だけ受理する", () => {
   const base = {
@@ -487,6 +524,7 @@ function operationFixture(
   return Object.freeze({
     operationId: id,
     repairId: `docker-desktop-repair.${id}`,
+    originLocalUserBindingHash: boundary.localUserBindingHash,
     operationDirectory: `C:\\runtime-state\\docker-desktop-repair-${id}`,
     staleName: `run.crdd-stale-${id}`,
     staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${id}`,
@@ -497,6 +535,476 @@ function operationFixture(
     ledger,
   });
 }
+
+test("履歴引継ぎrouteは不正・履歴なし・終了済み・同一Session・新Sessionを排他的に分類する", () => {
+  const original = operationFixture("prepared");
+  assert.equal(
+    classifyDockerDesktopRepairHistoricalAdoptionRoute(original, boundary),
+    "initial_adoption",
+  );
+  const history = {
+    adoptionSha256: "a".repeat(64),
+    handoffTipSha256: "a".repeat(64),
+    handoffCount: 0,
+    originLocalUserBindingHash: boundary.localUserBindingHash,
+    currentLocalUserBindingHash: boundary.localUserBindingHash,
+    currentSessionBound: true,
+    closed: false,
+    liveRunIdentity: null,
+    staleState: "unknown" as const,
+  };
+  assert.equal(
+    classifyDockerDesktopRepairHistoricalAdoptionRoute(
+      {
+        ...original,
+        history: {
+          ...history,
+          closed: true,
+          liveRunIdentity: RUN_IDENTITY,
+          staleState: "retained",
+        },
+      },
+      boundary,
+    ),
+    "closed",
+  );
+  for (const liveRunIdentity of [
+    { ...RUN_IDENTITY, ino: "0" },
+    { ...RUN_IDENTITY, extra: "4" },
+  ])
+    assert.equal(
+      classifyDockerDesktopRepairHistoricalAdoptionRoute(
+        {
+          ...original,
+          history: {
+            ...history,
+            closed: true,
+            liveRunIdentity,
+            staleState: "retained",
+          },
+        },
+        boundary,
+      ),
+      "invalid",
+    );
+  assert.equal(
+    classifyDockerDesktopRepairHistoricalAdoptionRoute(
+      { ...original, history },
+      boundary,
+    ),
+    "current_session",
+  );
+  assert.equal(
+    classifyDockerDesktopRepairHistoricalAdoptionRoute(
+      {
+        ...original,
+        history: {
+          ...history,
+          currentLocalUserBindingHash: "c".repeat(64),
+          currentSessionBound: false,
+        },
+      },
+      boundary,
+    ),
+    "session_handoff",
+  );
+  const { handoffTipSha256: _tip, ...missingTip } = history;
+  const { handoffCount: _count, ...missingCount } = history;
+  for (const invalidHistory of [
+    { ...history, currentLocalUserBindingHash: "c".repeat(64) },
+    { ...history, currentSessionBound: false },
+    { ...history, adoptionSha256: "A".repeat(64) },
+    missingTip,
+    missingCount,
+    { ...history, handoffCount: 9 },
+    { ...history, originLocalUserBindingHash: "not-a-hash" },
+    { ...history, liveRunIdentity: RUN_IDENTITY },
+    { ...history, staleState: "absent" as const },
+  ])
+    assert.equal(
+      classifyDockerDesktopRepairHistoricalAdoptionRoute(
+        { ...original, history: invalidHistory },
+        boundary,
+      ),
+      "invalid",
+    );
+});
+
+test("履歴引継ぎ結果は元chain不変fieldと許可されたSession差分を全数検証する", () => {
+  const before = operationFixture("prepared");
+  const adopted: DockerDesktopRepairOperation = {
+    ...before,
+    history: {
+      adoptionSha256: "a".repeat(64),
+      handoffTipSha256: "a".repeat(64),
+      handoffCount: 0,
+      originLocalUserBindingHash: boundary.localUserBindingHash,
+      currentLocalUserBindingHash: boundary.localUserBindingHash,
+      currentSessionBound: true,
+      closed: false,
+      liveRunIdentity: null,
+      staleState: "unknown",
+    },
+  };
+  assert.equal(
+    validateDockerDesktopRepairHistoricalAdoptionResult(
+      "initial_adoption",
+      before,
+      adopted,
+      boundary,
+    ),
+    true,
+  );
+  assert.ok(adopted.history);
+  const adoptedHistory = adopted.history;
+  const changedCores: DockerDesktopRepairOperation[] = [
+    { ...adopted, operationId: "e".repeat(32) },
+    { ...adopted, repairId: `docker-desktop-repair.${"e".repeat(32)}` },
+    { ...adopted, originLocalUserBindingHash: "e".repeat(64) },
+    { ...adopted, operationDirectory: `${adopted.operationDirectory}-other` },
+    { ...adopted, staleName: `${adopted.staleName}-other` },
+    { ...adopted, staleDirectory: `${adopted.staleDirectory}-other` },
+    { ...adopted, runIdentity: { ...adopted.runIdentity, ino: "99" } },
+    { ...adopted, stage: "processes_stopped" },
+    { ...adopted, sequence: adopted.sequence + 1 },
+    { ...adopted, previousRecordSha256: "e".repeat(64) },
+    { ...adopted, ledger: { ...adopted.ledger, engineReady: true } },
+  ];
+  for (const changed of changedCores)
+    assert.equal(
+      validateDockerDesktopRepairHistoricalAdoptionResult(
+        "initial_adoption",
+        before,
+        changed,
+        boundary,
+      ),
+      false,
+    );
+  const withoutOrigin = { ...adopted } as Record<string, unknown>;
+  delete withoutOrigin.originLocalUserBindingHash;
+  const accessorIdentity = Object.defineProperty(
+    { ...adopted.runIdentity },
+    "ino",
+    { enumerable: true, get: () => "2" },
+  );
+  const accessorLedger = Object.defineProperty(
+    { ...adopted.ledger },
+    "engineReady",
+    { enumerable: true, get: () => false },
+  );
+  for (const malformed of [
+    withoutOrigin,
+    { ...adopted, operationId: "F".repeat(32) },
+    { ...adopted, repairId: `docker-desktop-repair.${"e".repeat(32)}` },
+    { ...adopted, runIdentity: { ...adopted.runIdentity, ino: "0" } },
+    { ...adopted, runIdentity: { ...adopted.runIdentity, extra: "4" } },
+    { ...adopted, runIdentity: accessorIdentity },
+    { ...adopted, sequence: -1 },
+    { ...adopted, sequence: Number.MAX_SAFE_INTEGER },
+    { ...adopted, previousRecordSha256: "F".repeat(64) },
+    { ...adopted, ledger: accessorLedger },
+    new Proxy(adopted, {
+      ownKeys: () => {
+        throw new Error("hostile_proxy");
+      },
+    }),
+  ]) {
+    assert.equal(
+      classifyCanonicalDockerDesktopRepairHistoricalOperation(
+        malformed,
+        boundary,
+      ),
+      "invalid",
+    );
+  }
+  for (const history of [
+    { ...adoptedHistory, adoptionSha256: "A".repeat(64) },
+    { ...adoptedHistory, handoffTipSha256: "b".repeat(64) },
+    { ...adoptedHistory, handoffCount: 1 },
+    { ...adoptedHistory, originLocalUserBindingHash: "e".repeat(64) },
+    { ...adoptedHistory, currentLocalUserBindingHash: "e".repeat(64) },
+    { ...adoptedHistory, currentSessionBound: false },
+    { ...adoptedHistory, closed: true },
+    { ...adoptedHistory, liveRunIdentity: RUN_IDENTITY },
+    { ...adoptedHistory, staleState: "absent" as const },
+  ])
+    assert.equal(
+      validateDockerDesktopRepairHistoricalAdoptionResult(
+        "initial_adoption",
+        before,
+        { ...adopted, history },
+        boundary,
+      ),
+      false,
+    );
+  const prior: DockerDesktopRepairOperation = {
+    ...before,
+    history: {
+      ...adoptedHistory,
+      currentLocalUserBindingHash: "c".repeat(64),
+      currentSessionBound: false,
+    },
+  };
+  assert.ok(prior.history);
+  const priorHistory = prior.history;
+  const handed: DockerDesktopRepairOperation = {
+    ...prior,
+    history: {
+      ...priorHistory,
+      handoffTipSha256: "d".repeat(64),
+      handoffCount: 1,
+      currentLocalUserBindingHash: boundary.localUserBindingHash,
+      currentSessionBound: true,
+    },
+  };
+  assert.equal(
+    validateDockerDesktopRepairHistoricalAdoptionResult(
+      "session_handoff",
+      prior,
+      handed,
+      boundary,
+    ),
+    true,
+  );
+  assert.ok(handed.history);
+  const handedHistory = handed.history;
+  const priorHandoffTip = priorHistory.handoffTipSha256;
+  assert.ok(priorHandoffTip);
+  for (const history of [
+    { ...handedHistory, adoptionSha256: "e".repeat(64) },
+    { ...handedHistory, handoffTipSha256: priorHandoffTip },
+    { ...handedHistory, handoffCount: 2 },
+    { ...handedHistory, originLocalUserBindingHash: "e".repeat(64) },
+    { ...handedHistory, currentLocalUserBindingHash: "e".repeat(64) },
+    { ...handedHistory, currentSessionBound: false },
+    { ...handedHistory, closed: true },
+    { ...handedHistory, liveRunIdentity: RUN_IDENTITY },
+    { ...handedHistory, staleState: "retained" as const },
+  ])
+    assert.equal(
+      validateDockerDesktopRepairHistoricalAdoptionResult(
+        "session_handoff",
+        prior,
+        { ...handed, history },
+        boundary,
+      ),
+      false,
+    );
+
+  const closed: DockerDesktopRepairOperation = {
+    ...handed,
+    history: {
+      ...handedHistory,
+      closed: true,
+      liveRunIdentity: RUN_IDENTITY,
+      staleState: "retained",
+    },
+  };
+  const expectedClosure = {
+    liveRunIdentity: RUN_IDENTITY,
+    staleState: "retained" as const,
+  };
+  assert.equal(
+    validateDockerDesktopRepairHistoricalClosureResult(
+      handed,
+      closed,
+      boundary,
+      expectedClosure,
+    ),
+    true,
+  );
+  assert.equal(
+    validateDockerDesktopRepairHistoricalClosureResult(
+      handed,
+      closed,
+      boundary,
+      {
+        liveRunIdentity: { ...RUN_IDENTITY, ino: "0" },
+        staleState: "retained",
+      },
+    ),
+    false,
+  );
+  assert.ok(closed.history);
+  for (const history of [
+    { ...closed.history, adoptionSha256: "e".repeat(64) },
+    { ...closed.history, handoffTipSha256: "e".repeat(64) },
+    { ...closed.history, handoffCount: 2 },
+    { ...closed.history, originLocalUserBindingHash: "e".repeat(64) },
+    { ...closed.history, currentLocalUserBindingHash: "e".repeat(64) },
+    { ...closed.history, currentSessionBound: false },
+    { ...closed.history, closed: false },
+    { ...closed.history, liveRunIdentity: { ...RUN_IDENTITY, ino: "99" } },
+    { ...closed.history, staleState: "absent" as const },
+  ])
+    assert.equal(
+      validateDockerDesktopRepairHistoricalClosureResult(
+        handed,
+        { ...closed, history },
+        boundary,
+        expectedClosure,
+      ),
+      false,
+    );
+});
+
+test("Canonical履歴分類は全modeと非plain・余分field・疎配列・nested Proxyを一つのOwnerで閉じる", () => {
+  const original = operationFixture("prepared");
+  const openCurrent: DockerDesktopRepairOperation = {
+    ...original,
+    history: {
+      adoptionSha256: "a".repeat(64),
+      handoffTipSha256: "a".repeat(64),
+      handoffCount: 0,
+      originLocalUserBindingHash: boundary.localUserBindingHash,
+      currentLocalUserBindingHash: boundary.localUserBindingHash,
+      currentSessionBound: true,
+      closed: false,
+      liveRunIdentity: null,
+      staleState: "unknown",
+    },
+  };
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(original, boundary),
+    "no_history",
+  );
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      openCurrent,
+      boundary,
+    ),
+    "open_current",
+  );
+  const hostileReadProxy = new Proxy(openCurrent, {
+    get: () => {
+      throw new Error("canonical_classifier_must_use_descriptor_values");
+    },
+  });
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      hostileReadProxy,
+      boundary,
+    ),
+    "open_current",
+  );
+  assert.ok(openCurrent.history);
+  const openCurrentHistory = openCurrent.history;
+  const openPrior: DockerDesktopRepairOperation = {
+    ...openCurrent,
+    history: {
+      ...openCurrentHistory,
+      currentLocalUserBindingHash: "c".repeat(64),
+      currentSessionBound: false,
+    },
+  };
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      openPrior,
+      boundary,
+    ),
+    "open_prior",
+  );
+  const legacyClosed: DockerDesktopRepairOperation = {
+    ...original,
+    history: {
+      adoptionSha256: "a".repeat(64),
+      closed: true,
+      liveRunIdentity: RUN_IDENTITY,
+      staleState: "retained",
+    },
+  };
+  assert.ok(legacyClosed.history);
+  const legacyClosedHistory = legacyClosed.history;
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      legacyClosed,
+      boundary,
+      { liveRunIdentity: RUN_IDENTITY, staleState: "retained" },
+    ),
+    "closed",
+  );
+  const symbol = Symbol("extra");
+  const withSymbol = { ...openCurrentHistory, [symbol]: true };
+  const nonPlain = Object.assign(
+    Object.create({ inherited: true }) as Record<string, unknown>,
+    openCurrentHistory,
+  );
+  const nestedProxy = new Proxy(
+    { ...RUN_IDENTITY },
+    {
+      ownKeys: () => {
+        throw new Error("nested_hostile_proxy");
+      },
+    },
+  );
+  const cyclicIdentity = { ...RUN_IDENTITY } as Record<string, unknown>;
+  cyclicIdentity.dev = cyclicIdentity;
+  const sparseEffects = new Array(1) as unknown[];
+  const malformedOperations: unknown[] = [
+    { ...openCurrent, history: nonPlain },
+    { ...openCurrent, history: { ...openCurrentHistory, extra: true } },
+    { ...openCurrent, history: withSymbol },
+    {
+      ...openCurrent,
+      history: { ...openCurrentHistory, liveRunIdentity: nestedProxy },
+    },
+    {
+      ...legacyClosed,
+      history: { ...legacyClosedHistory, liveRunIdentity: cyclicIdentity },
+    },
+    {
+      ...openCurrent,
+      ledger: { ...openCurrent.ledger, processEffects: sparseEffects },
+    },
+  ];
+  for (const malformed of malformedOperations) {
+    assert.equal(
+      classifyCanonicalDockerDesktopRepairHistoricalOperation(
+        malformed,
+        boundary,
+      ),
+      "invalid",
+    );
+    assert.equal(
+      classifyDockerDesktopRepairHistoricalAdoptionRoute(
+        malformed as DockerDesktopRepairOperation,
+        boundary,
+      ),
+      "invalid",
+    );
+  }
+  assert.equal(
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      legacyClosed,
+      boundary,
+      {
+        liveRunIdentity: RUN_IDENTITY,
+        staleState: "retained",
+        [symbol]: true,
+      } as never,
+    ),
+    "invalid",
+  );
+  const runtimeSource = fs.readFileSync(
+    new URL(
+      "../src/security/docker-desktop-runtime-repair.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.equal(runtimeSource.includes("validOpenRepairHistory"), false);
+  assert.equal(runtimeSource.includes("validClosedRepairHistory"), false);
+  assert.equal(
+    runtimeSource.includes("validRepairHistorySessionFields"),
+    false,
+  );
+  assert.equal(
+    runtimeSource.includes(
+      "classifyCanonicalDockerDesktopRepairHistoricalOperation",
+    ),
+    true,
+  );
+});
 
 test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続する", async () => {
   for (const stage of DOCKER_DESKTOP_REPAIR_STAGES) {
@@ -512,6 +1020,11 @@ test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観�
       ...original,
       history: {
         adoptionSha256: "a".repeat(64),
+        handoffTipSha256: "a".repeat(64),
+        handoffCount: 0,
+        originLocalUserBindingHash: boundary.localUserBindingHash,
+        currentLocalUserBindingHash: boundary.localUserBindingHash,
+        currentSessionBound: true,
         closed: false,
         liveRunIdentity: null,
         staleState: "unknown",
@@ -614,6 +1127,11 @@ test("履歴終了の異常境界は新規修復許可を出さず、既存Host�
       ...original,
       history: {
         adoptionSha256: "a".repeat(64),
+        handoffTipSha256: "a".repeat(64),
+        handoffCount: 0,
+        originLocalUserBindingHash: boundary.localUserBindingHash,
+        currentLocalUserBindingHash: boundary.localUserBindingHash,
+        currentSessionBound: true,
         closed: false,
         liveRunIdentity: null,
         staleState: "unknown",
@@ -704,6 +1222,15 @@ test("履歴終了の異常境界は新規修復許可を出さず、既存Host�
 
 test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しない", async () => {
   const operation = operationFixture("renamed", {
+    processEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "official_shutdown",
+        phase: "intent_recorded",
+        issued: null,
+        confirmation: "unknown",
+      }),
+    ]),
     processEffectIssued: null,
     processEffectConfirmation: "unknown",
   });
@@ -735,6 +1262,499 @@ test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実
       ["start", "shutdown", "wsl", "rename"].includes(call),
     ),
     false,
+  );
+});
+
+test("旧Sessionで終了済みの修復は現在Dockerを観測せずEffect 0で引継ぎと終了を完了する", async () => {
+  const original = operationFixture("closed_retained", {
+    engineReady: true,
+    staleState: "retained",
+    hostSafety: "safe",
+    evidenceState: "preserved",
+    disposition: "retained_by_human_decision",
+    liveRunIdentity: { dev: "9", ino: "8", birthtimeNs: "7" },
+  });
+  let operation: DockerDesktopRepairOperation = original;
+  let dockerObservationCount = 0;
+  let closureWrites = 0;
+  const state = fixture({
+    observeEngine: () => {
+      dockerObservationCount += 1;
+      return "known_unavailable";
+    },
+    observePath: () => {
+      dockerObservationCount += 1;
+      return { state: "unknown", identity: null };
+    },
+    inventory: () => ({ status: "verified", operations: [operation] }),
+    history: {
+      inspect: () => operation,
+      loadOriginManifest: () => ({}),
+      loadCurrentManifest: () => ({}),
+      persistAdoption: (_boundary, current) => {
+        operation = {
+          ...current,
+          history: {
+            adoptionSha256: "a".repeat(64),
+            handoffTipSha256: "a".repeat(64),
+            handoffCount: 0,
+            originLocalUserBindingHash: boundary.localUserBindingHash,
+            currentLocalUserBindingHash: boundary.localUserBindingHash,
+            currentSessionBound: true,
+            closed: false,
+            liveRunIdentity: null,
+            staleState: "unknown",
+          },
+        };
+        return operation;
+      },
+      persistClosure: (_boundary, current, observation) => {
+        closureWrites += 1;
+        assert.ok(current.history);
+        operation = {
+          ...current,
+          history: { ...current.history, ...observation, closed: true },
+        };
+        return operation;
+      },
+    },
+  });
+  const result = await adoptWindowsDockerDesktopRepairUsingDependencies(
+    original.repairId,
+    "C:\\old-release",
+    state.dependencies,
+  );
+  assert.equal(
+    result.status,
+    "historical_closed_retained",
+    JSON.stringify(result),
+  );
+  assert.equal(result.newRepairPermitted, true);
+  assert.equal(result.processEffectIssued, false);
+  assert.equal(result.filesystemEffectIssued, true);
+  assert.equal(dockerObservationCount, 0);
+  assert.equal(closureWrites, 1);
+  assert.equal(
+    state.calls.some((call) =>
+      ["start", "shutdown", "wsl", "rename"].includes(call),
+    ),
+    false,
+  );
+});
+
+test("実Runtime利用側は実Storeのadoptionから再ログオンhandoffとclosureまで同じ履歴を収束する", async (t) => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-repair-runtime-history-"),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const runtimeStateRoot = path.join(root, "RuntimeState");
+  const localAppData = path.join(root, "LocalAppData");
+  fs.mkdirSync(runtimeStateRoot);
+  fs.mkdirSync(path.join(localAppData, "Docker", "run"), {
+    recursive: true,
+  });
+  const originBoundary: PreparedBoundary = Object.freeze({
+    ...boundary,
+    runtimeStateRoot,
+    localAppData,
+    runDirectory: path.join(localAppData, "Docker", "run"),
+    socketPath: path.join(localAppData, "Docker", "run", "dockerInference"),
+    localUserBindingHash: "a".repeat(64),
+    crddManifestHash: "b".repeat(64),
+    crddReleaseSequence: 1,
+    runtimeExecutionIdentitySha256: "c".repeat(64),
+  });
+  const firstSessionBoundary: PreparedBoundary = Object.freeze({
+    ...originBoundary,
+    crddManifestHash: "e".repeat(64),
+    crddReleaseSequence: 2,
+    runtimeExecutionIdentitySha256: "f".repeat(64),
+  });
+  const nextSessionBoundary: PreparedBoundary = Object.freeze({
+    ...firstSessionBoundary,
+    localUserBindingHash: "1".repeat(64),
+  });
+  const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
+    processEffects: Object.freeze([]),
+    processEffectIssued: false,
+    processEffectConfirmation: "not_issued",
+    filesystemEffects: Object.freeze([]),
+    filesystemEffectIssued: false,
+    filesystemEffectConfirmation: "not_issued",
+    engineReady: false,
+    staleState: "absent",
+    hostSafety: "safe",
+    evidenceState: "not_preserved",
+    disposition: "not_applicable",
+    liveRunIdentity: null,
+  });
+  const created = createDockerDesktopRepairOperation(
+    originBoundary,
+    RUN_IDENTITY,
+    ledger,
+  );
+  const original = persistActualRepairRecord(
+    originBoundary,
+    created,
+    "prepared",
+    ledger,
+  );
+  assert.ok(original);
+  const originManifest = { release: "origin" };
+  const currentManifest = { release: "current" };
+  const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
+    const selected =
+      JSON.stringify(value) === JSON.stringify(originManifest)
+        ? originBoundary
+        : JSON.stringify(value) === JSON.stringify(currentManifest)
+          ? firstSessionBoundary
+          : null;
+    return selected
+      ? {
+          manifestHash: selected.crddManifestHash,
+          releaseSequence: selected.crddReleaseSequence,
+          runtimeExecutionIdentitySha256:
+            selected.runtimeExecutionIdentitySha256,
+          crddTree: "2".repeat(40),
+          packageContentRootSha256: "3".repeat(64),
+        }
+      : null;
+  };
+  let activeBoundary = firstSessionBoundary;
+  let helperHeld = false;
+  let helperAcquisitions = 0;
+  let helperReleases = 0;
+  let hostEffects = 0;
+  let adoptionWrites = 0;
+  const realHistory = Object.freeze({
+    inspect: (
+      current: Parameters<
+        typeof inspectDockerDesktopRepairHistoricalOperation
+      >[0],
+      repairId: string,
+      manifest: unknown,
+    ) =>
+      inspectDockerDesktopRepairHistoricalOperation(
+        current,
+        repairId,
+        manifest,
+        verifyHistory,
+      ),
+    persistAdoption: (
+      current: Parameters<
+        typeof persistDockerDesktopRepairHistoricalAdoption
+      >[0],
+      operation: DockerDesktopRepairOperation,
+      origin: unknown,
+      adopting: unknown,
+    ) => {
+      adoptionWrites += 1;
+      return persistDockerDesktopRepairHistoricalAdoption(
+        current,
+        operation,
+        origin,
+        adopting,
+        verifyHistory,
+      );
+    },
+    persistClosure: (
+      current: Parameters<
+        typeof persistDockerDesktopRepairHistoricalClosure
+      >[0],
+      operation: DockerDesktopRepairOperation,
+      observation: Parameters<
+        typeof persistDockerDesktopRepairHistoricalClosure
+      >[2],
+      closing: unknown,
+    ) =>
+      persistDockerDesktopRepairHistoricalClosure(
+        current,
+        operation,
+        observation,
+        closing,
+        verifyHistory,
+      ),
+    loadOriginManifest: () => originManifest,
+    loadCurrentManifest: () => currentManifest,
+  });
+  const createFailureCandidate = () => {
+    const candidate = createDockerDesktopRepairOperation(
+      originBoundary,
+      RUN_IDENTITY,
+      ledger,
+    );
+    const persisted = persistActualRepairRecord(
+      originBoundary,
+      candidate,
+      "prepared",
+      ledger,
+    );
+    assert.ok(persisted);
+    return persisted;
+  };
+  const helperFailureCandidate = createFailureCandidate();
+  const helperBefore = snapshotDirectoryBytes(
+    helperFailureCandidate.operationDirectory,
+  );
+  const helperFailure = fixture({
+    history: realHistory,
+    prepareBoundary: () => firstSessionBoundary,
+    acquireHelper: async () => ({ status: "unavailable", session: null }),
+  });
+  const helperFailureResult =
+    await adoptWindowsDockerDesktopRepairUsingDependencies(
+      helperFailureCandidate.repairId,
+      "C:\\old-release",
+      helperFailure.dependencies,
+    );
+  assert.equal(helperFailureResult.status, "blocked");
+  assert.equal(
+    helperFailureResult.reason,
+    "docker_desktop_repair_historical_helper_unavailable",
+  );
+  assert.equal(
+    helperFailure.calls.some((call) =>
+      ["shutdown", "wsl", "rename", "start"].includes(call),
+    ),
+    false,
+  );
+  assert.deepEqual(
+    snapshotDirectoryBytes(helperFailureCandidate.operationDirectory),
+    helperBefore,
+  );
+  fs.rmSync(helperFailureCandidate.operationDirectory, { recursive: true });
+
+  const boundaryFailureCandidate = createFailureCandidate();
+  const boundaryBefore = snapshotDirectoryBytes(
+    boundaryFailureCandidate.operationDirectory,
+  );
+  let boundaryReads = 0;
+  const boundaryFailure = fixture({
+    history: realHistory,
+    prepareBoundary: () =>
+      boundaryReads++ === 0 ? firstSessionBoundary : nextSessionBoundary,
+    acquireHelper: async () => ({ status: "acquired", session: session() }),
+  });
+  const boundaryFailureResult =
+    await adoptWindowsDockerDesktopRepairUsingDependencies(
+      boundaryFailureCandidate.repairId,
+      "C:\\old-release",
+      boundaryFailure.dependencies,
+    );
+  assert.equal(boundaryFailureResult.status, "blocked");
+  assert.equal(
+    boundaryFailureResult.repairId,
+    boundaryFailureCandidate.repairId,
+  );
+  assert.equal(
+    boundaryFailure.calls.some((call) =>
+      ["shutdown", "wsl", "rename", "start"].includes(call),
+    ),
+    false,
+  );
+  assert.deepEqual(
+    snapshotDirectoryBytes(boundaryFailureCandidate.operationDirectory),
+    boundaryBefore,
+  );
+  fs.rmSync(boundaryFailureCandidate.operationDirectory, { recursive: true });
+
+  const projectionFailureCandidate = createFailureCandidate();
+  const corruptProjectionHistory = {
+    ...realHistory,
+    persistAdoption: (
+      ...args: Parameters<typeof realHistory.persistAdoption>
+    ) => {
+      const persisted = realHistory.persistAdoption(...args);
+      assert.ok(persisted?.history);
+      return {
+        ...persisted,
+        history: { ...persisted.history, adoptionSha256: "z".repeat(64) },
+      };
+    },
+  };
+  const projectionFailure = fixture({
+    history: corruptProjectionHistory,
+    prepareBoundary: () => firstSessionBoundary,
+    acquireHelper: async () => ({ status: "acquired", session: session() }),
+    observeEngine: () => "ready",
+    observePath: (target) =>
+      target === firstSessionBoundary.runDirectory
+        ? { state: "present", identity: RUN_IDENTITY }
+        : { state: "confirmed_absent", identity: null },
+  });
+  const projectionFailureResult =
+    await adoptWindowsDockerDesktopRepairUsingDependencies(
+      projectionFailureCandidate.repairId,
+      "C:\\old-release",
+      projectionFailure.dependencies,
+    );
+  assert.equal(projectionFailureResult.status, "blocked");
+  const bytesAfterProjectionFailure = snapshotDirectoryBytes(
+    projectionFailureCandidate.operationDirectory,
+  );
+  const projectionRetry = fixture({
+    history: realHistory,
+    prepareBoundary: () => firstSessionBoundary,
+    acquireHelper: async () => ({ status: "acquired", session: session() }),
+    observeEngine: () => "ready",
+    observePath: (target) =>
+      target === firstSessionBoundary.runDirectory
+        ? { state: "present", identity: RUN_IDENTITY }
+        : { state: "confirmed_absent", identity: null },
+  });
+  const projectionRetryResult =
+    await adoptWindowsDockerDesktopRepairUsingDependencies(
+      projectionFailureCandidate.repairId,
+      "C:\\old-release",
+      projectionRetry.dependencies,
+    );
+  assert.equal(
+    projectionRetryResult.status,
+    "historical_recovered_pending_close",
+  );
+  assert.deepEqual(
+    snapshotDirectoryBytes(projectionFailureCandidate.operationDirectory),
+    bytesAfterProjectionFailure,
+  );
+  fs.rmSync(projectionFailureCandidate.operationDirectory, { recursive: true });
+  adoptionWrites = 0;
+  const state = fixture({
+    history: realHistory,
+    prepareBoundary: () => activeBoundary,
+    acquireHelper: async () => {
+      assert.equal(helperHeld, false);
+      helperHeld = true;
+      helperAcquisitions += 1;
+      return {
+        status: "acquired",
+        session: {
+          ...session(),
+          release: async () => {
+            assert.equal(helperHeld, true);
+            helperHeld = false;
+            helperReleases += 1;
+            return { cleanup: "confirmed", protocol: "completed" };
+          },
+        },
+      };
+    },
+    inventory: (current) =>
+      inventoryDockerDesktopRepairOperations(current, verifyHistory),
+    observeEngine: () => "ready",
+    observePath: (target) =>
+      target === activeBoundary.runDirectory
+        ? { state: "present", identity: RUN_IDENTITY }
+        : target.includes("run.crdd-stale-")
+          ? { state: "confirmed_absent", identity: null }
+          : { state: "unknown", identity: null },
+    officialShutdown: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    terminateDockerWsl: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    renameRunDirectory: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+  });
+  assert.ok(
+    inspectDockerDesktopRepairHistoricalOperation(
+      firstSessionBoundary,
+      original.repairId,
+      originManifest,
+      verifyHistory,
+    ),
+  );
+  const adopted = await adoptWindowsDockerDesktopRepairUsingDependencies(
+    original.repairId,
+    "C:\\old-release",
+    state.dependencies,
+  );
+  assert.equal(adopted.repairId, original.repairId, JSON.stringify(adopted));
+  assert.equal(
+    adopted.status,
+    "historical_recovered_pending_close",
+    JSON.stringify(adopted),
+  );
+  assert.equal(adoptionWrites, 1);
+  const sameSession = await adoptWindowsDockerDesktopRepairUsingDependencies(
+    original.repairId,
+    "C:\\old-release",
+    state.dependencies,
+  );
+  assert.equal(sameSession.status, "historical_recovered_pending_close");
+  assert.equal(adoptionWrites, 1);
+  activeBoundary = nextSessionBoundary;
+  const handed = await adoptWindowsDockerDesktopRepairUsingDependencies(
+    original.repairId,
+    "C:\\old-release",
+    state.dependencies,
+  );
+  assert.equal(handed.repairId, original.repairId);
+  assert.equal(handed.repairId, original.repairId, JSON.stringify(handed));
+  const directlyHanded = inspectDockerDesktopRepairHistoricalOperation(
+    nextSessionBoundary,
+    original.repairId,
+    originManifest,
+    verifyHistory,
+  );
+  assert.ok(directlyHanded, JSON.stringify(handed));
+  assert.equal(directlyHanded.history?.handoffCount, 1);
+  assert.equal(adoptionWrites, 2);
+  repairRuntimeTraceAssertions[
+    "CASE-REPAIR-HISTORY-PRIOR-TO-CURRENT-SESSION"
+  ]?.("CASE-REPAIR-HISTORY-PRIOR-TO-CURRENT-SESSION", {
+    id: "CASE-REPAIR-HISTORY-PRIOR-TO-CURRENT-SESSION",
+    transitionId: "TRANS-REPAIR-HISTORY-PRIOR-TO-CURRENT-SESSION",
+    fromState: "STATE-REPAIR-HISTORY-PRIOR-SESSION",
+    outcome: "taken",
+    expectedEndState: "STATE-REPAIR-HISTORY-CURRENT-SESSION",
+    effectObservations: { provider: 0, host: 0, cleanup: 1 },
+    expectedStatus: "completed",
+    resourcePostconditions: {
+      "RES-RUNTIME-STATE-LOCK": "absent",
+      "RES-REPAIR-HISTORY-PREPARE": "absent",
+    },
+  });
+  executedRepairRuntimeTraceCases.add(
+    "CASE-REPAIR-HISTORY-PRIOR-TO-CURRENT-SESSION",
+  );
+  const closed = await closeWindowsDockerDesktopRepairUsingDependencies(
+    original.repairId,
+    state.dependencies,
+  );
+  assert.equal(closed.status, "historical_closed_retained");
+  assert.equal(closed.repairId, original.repairId);
+  assert.equal(closed.nativeHelperCleanupConfirmed, true);
+  const closedAgain = await adoptWindowsDockerDesktopRepairUsingDependencies(
+    original.repairId,
+    "C:\\old-release",
+    state.dependencies,
+  );
+  assert.equal(closedAgain.status, "historical_closed_retained");
+  assert.equal(adoptionWrites, 2);
+  assert.equal(helperHeld, false);
+  assert.equal(helperAcquisitions, 5);
+  assert.equal(helperReleases, 5);
+  assert.equal(hostEffects, 0);
+  const inventory = inventoryDockerDesktopRepairOperations(
+    nextSessionBoundary,
+    verifyHistory,
+  );
+  assert.equal(inventory.status, "verified");
+  assert.equal(inventory.operations[0]?.repairId, original.repairId);
+  assert.equal(inventory.operations[0]?.history?.closed, true);
+  assert.equal(inventory.operations[0]?.history?.handoffCount, 1);
+});
+
+test("Docker Desktop修復Runtimeの設計Traceを全実行する", () => {
+  assertRuntimeTraceExecutionCoverage(
+    "40_Develop/coordinator/tests/docker-desktop-runtime-repair.contract.test.ts",
+    Object.keys(repairRuntimeTraceAssertions),
+    executedRepairRuntimeTraceCases,
   );
 });
 

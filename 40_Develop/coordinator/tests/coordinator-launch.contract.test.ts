@@ -27,6 +27,7 @@ test("共通Launcherの実行入口を一つの正本から解決する", () => 
     "verify-routes": "../scripts/verify-signed-route-matrix.ts",
     "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
     "sign-release": "../scripts/sign-release-manifest.ts",
+    "promote-release": "../scripts/promote-release-manifest.ts",
   });
   assert.equal(Object.isFrozen(COORDINATOR_LAUNCH_ENTRIES), true);
 });
@@ -78,6 +79,21 @@ test("用途ごとの入力と端末条件を区別し、内部Recovery引数を
       ...terminal,
       stdinIsTty: false,
     }).status,
+    "blocked",
+  );
+  assert.equal(
+    resolveCoordinatorLaunch(["promote-release"], {
+      ...terminal,
+      stdinIsTty: false,
+      stdoutIsTty: false,
+    }).status,
+    "ready",
+  );
+  assert.equal(
+    resolveCoordinatorLaunch(
+      ["promote-release", "--distribution-root", "C:\\fixed-staging"],
+      terminal,
+    ).status,
     "blocked",
   );
   for (const mode of ["verify-routes", "verify-recovery"]) {

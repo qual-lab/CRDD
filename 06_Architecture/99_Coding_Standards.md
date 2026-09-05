@@ -13,7 +13,7 @@ Scope: `40_Develop/**`と、CRDDが配布正本として所有し`40_Develop/**`
 
 本書はQual Suite Commit `d7493e25f719bef6e46b8dbba7926f9a74e1165e`、Tree `62fa90f2020803609935a10944dcffe03484af34`の`06_Architecture/qual-insight/99_Coding_Standards.md`と`90_Release/qual-insight/Changes/CHG-000004_Implementation_Naming_Convention.md`を設計入力として使用した。今後のQual Suite側の変更を自動採用せず、CRDD側の変更トレースと人間の決定権限を通じて本書を更新する。
 
-TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust toolchainは[CRDD標準の保守](../19_Maintenance.md#33-internal-typescript-runtime)を正本とする。旧名、互換層および移行の扱いは[本質的修正と互換層の境界](../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)を正本とする。
+TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust toolchainは本書を正本とする。旧名、互換層および移行の扱いは[本質的修正と互換層の境界](../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)を正本とする。
 
 ## 2. 適用境界
 
@@ -32,6 +32,51 @@ TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust tool
 - 過去のCHG、Evidence、CHANGELOG、tagまたはReleaseに記録された当時のPathとcommand
 
 これらを変更する場合は、命名整理ではなく各契約の破壊的変更として別に判断し、利用側と移行を追跡する。
+
+### 2.1. 実装言語と実行境界
+
+CRDD公式Repositoryが所有する内部Scriptは`.ts`を標準とし、Node.js 24.12 LTS以上のネイティブTypeScript型除去で実行する。Runtime依存として`tsx`、`ts-node`、Babel、Bundlerまたは専用の変換packageを要求しない。実行コードはESM、Node.js組込み機能および`import type`を基本とする。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
+
+ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path aliasまたはcompiler変換を前提とする構文を内部Scriptへ導入しない。
+
+TypeScriptだけでは安全に確認できないOS APIへ接続する最小部分は、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。CRDD本体、一般CLI、Policy、契約およびProcess lifecycleはTypeScriptに保持する。Rust成果物は公開CLI、独立製品、永続準備Lifecycleまたは採用RepositoryのBuild依存を所有せず、固定protocolで要求されたOS観測と限定操作だけを行う。この例外を内部Script一般のRust移行へ拡張しない。
+
+BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やBuild orchestrationとして新設しない。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Rustの固定成果物、toolchainおよび署名Identityへの結合は[Windowsネイティブ部品の設計](platform-access/01_Architecture.md)が所有し、反復するBuild・検証手順は[Coordinator RuntimeのWorkflow](../19_Workflows/01_Coordinator_Runtime.md)が所有する。
+
+Coordinatorのproduction sourceとtest sourceは、別々のstrict設定で`noEmit`検査する。攻撃的な不正shapeまたはNode.js API差替えを扱う試験fixtureは、`unknown`と実行時assertionで表現し、型に合わせて負例を弱めない。
+
+Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ同義に固定する。特定のversion managerは要求しない。`.mjs`、`.cjs`または`.js`を残す場合は、bootstrapまたは外部互換等の明示理由と適用範囲を変更トレースへ記録する。移行途中であること自体は恒久例外の理由にしない。拡張子の変更によってfolder、決定権限、公開範囲、package境界または単独配布の可否を変更しない。
+
+開発時の静的LintとFormatterは、Repository rootの`biome.json`を正本とするBiome 2.5.6へ固定する。BiomeはdevDependencyに限定し、Runtime成果物または実行時依存へ含めない。Lint、Formatter確認、TypeScript型検査およびRuntime testは別の確認軸として実行し、一つの成功を他の成功へ流用しない。既存Scriptへ一括自動修正を適用せず、移行または是正する単位ごとに整形と意味回帰を確認する。
+
+### 2.2. Platformと外部接続の境界
+
+CRDD公式Repositoryで新しいToolまたはRuntimeを設計する場合、業務・Project・Authority・状態遷移等のCore契約を、OS固有処理およびCLI／MCP／HTTP等のTransport固有処理から分離する。現在一つのOSまたはTransportだけを実装する場合も、Coreの意味へWindows Path、SID、DACL、POSIX mode、UID／GID、signal、Console、service manager、Container HostまたはTransport sessionを直接持ち込まない。
+
+```text
+External Interface Contract
+  ├ CLI Adapter
+  ├ MCP Adapter
+  └ Future Transport Adapter
+        ↓
+Tool／Runtime Core
+        ↓
+Platform Contract
+  ├ Windows Adapter
+  ├ Linux Adapter
+  └ macOS Adapter
+```
+
+これは全Platform、全Transportまたは空のAdapterを先に実装する規則ではない。現在実在するOS／Transport依存とCore責務の境界だけを抽出し、未実装対象は未対応としてFail Closedにする。Platform名の分岐、共通Interfaceまたはstubの存在だけを互換性へ読み替えない。
+
+- Platform間では同じ機構ではなく、Authority、Identity、分離、Effect制限、cleanup、RecoveryおよびEvidenceの同じ保証を要求する。
+- Transport Adapterはdecode／encode、request identity、取消通知および接続状態だけを所有し、CoreのAuthority、Project Model、状態遷移、Repository操作または成功条件を生成しない。
+- CoreからOS固有moduleまたはTransport実装を直接参照する必要が生じた場合は、Adapter境界不足としてArchitectureへ戻す。単なる文字列整形、純粋なdata変換または既存の標準library型まで無意味にAdapter化しない。
+- 対応Platform／Transportごとに、Build成果物、署名またはTrust Identity、必要環境、成立保証、未対応機能および検証済み範囲を明示する。未実装Platformを別Platformへ自動fallbackしない。
+- Windows、LinuxおよびmacOSで方式が異なる場合、最小公分母へ保証を弱めず、各Adapterで同じCore要求を満たす。満たせない保証は対応済みと表示しない。
+- 将来のToolも、最初のOS固有API、Filesystem規則、Process制御、Container接続またはTransport固有状態を追加する時点で、Coreに属する意味とAdapterが所有する方式を設計・試験へ分ける。
+
+Platform Adapterの追加は、新しいBuild、配布、Threat Model、移行、検証およびRelease判断を伴う独立した対応である。CoreがPlatform非依存であることだけから、そのPlatformで利用可能または安全と主張しない。
 
 ## 3. ファイルとフォルダ
 
@@ -110,7 +155,7 @@ Rustは`40_Develop/platform-access/**`のprivate crateだけへ適用する。mo
 
 CRDD所有Toolから子Processを開始する場合は、実行ファイルと引数配列を分離した`spawn`、`spawnSync`、`execFile`または同等APIを使用し、Shellによるcommand再解釈を無効にする。JSONその他の構造化入力は責務を持つTypeScript Runtime内で構成し、上限付きbyte列として標準入力または所有する固定protocolへ渡す。PowerShellのtext pipeline、`ConvertTo-Json`、長い`Start-Process ... -Command`、入れ子Shell、Shell固有の標準入力encoding property、または搬送だけを目的とする一時fileへ再構成してはならない。OSまたは外部ToolがShellを契約として必須化する例外は、送信byte、quoting、利用側、失敗形および代替不能性を所有契約へ固定し、通常のProcess起動へ一般化しない。
 
-[アーキテクチャ](../27_Architecture.md#24-状態処理順序副作用)の資源取得transactionに該当するToolでは、対象範囲で到達し得るobserver、Identity取得、再検証、parserおよび初期化を個別のthrow境界として試験する。各境界でcleanup成功とcleanup不明を区別し、Identity取得前はIDを捏造しないoperator transfer、取得後は対象に存在する同じexact IDの保持を確認する。内包producerのtyped failure集合を全public consumerとJSON／人間表示／exit等の該当する公開形態へ対応づけ、projector単体またはsource配線だけで成立を推定しない。read-only観測、取得Effect前の拒否、残存所有なしで終了を決定論的に観測できる局所資源は理由付き非該当とし、Recovery Authorityを新設しない。
+[アーキテクチャ](../27_Architecture.md#24-状態処理順序副作用)の資源取得transactionに該当するToolでは、対象範囲で到達し得るobserver、Identity取得、再検証、parserおよび初期化を個別のthrow境界として試験する。各境界でcleanup成功とcleanup不明を区別し、Identity取得前はIDを捏造しないoperator transfer、取得後は対象に存在する同じexact IDの保持を確認する。内包producerのtyped failure集合を、認証・認可・可視性で区分した各consumerとJSON／人間表示／exit等の該当する公開形態へ対応づけ、境界外のconsumerへ対象の存在、IdentityまたはRecovery Authorityを投影しないことも確認し、projector単体またはsource配線だけで成立を推定しない。read-only観測、取得Effect前の拒否、残存所有なしで終了を決定論的に観測できる局所資源は理由付き非該当とし、Recovery Authorityを新設しない。
 
 秘密入力はdirect TTY、外部送信等の対話承認はCRDD所有の固定console device、OAuthは公式Provider CLIとsystem browserのように、所有する対話入口を一つにする。固定console deviceを使う場合は、deviceの検査、表示、入力、取消およびhandle回収を一回の実操作を所有するlifecycleへ結合し、非リダイレクト、既存reader不存在、表示／入力失敗時のFail Closedを確認する。可用性確認だけのopen／closeを保護対象Process内の独立Gateとして先行させ、その後に同じdeviceまたは別のnative Effectを開始してはならない。診断用の受動確認は後続Effectを同じProcessで継続せず、結果の観測後に終了する。これはredirected standard inputへのfallbackを許可しない。対話端末を取得できない場合、標準入力、環境変数、argv、一時fileまたは別Shellへ推測fallbackしない。実行に必要な公開の構造化Taskと、passphrase、credential、OAuth codeその他の秘密を同じ搬送へ混在させない。
 
@@ -134,7 +179,7 @@ Source、fixture、CLIおよび子ProcessのPathは、Repositoryを意図的に�
 
 Trust、Security、Authority、Filesystem／Network／Process EffectまたはRecovery境界を新設・変更する試験は、正本の着手前整合確認で定めた確認母集団を使用する。適用可能な入力／状態、alias・symlink・junction・indirection・境界、preflightからEffect直前および結果公開までのlifecycle段階、各Effect発生点を組合せ、正常、拒否、境界、判定不能および処置件数0を確認する。全組合せを実行しない場合は同値分割、境界値、除外理由および未評価範囲を示し、肯定試験、最終Gateの拒否またはcoverage率だけから前段の安全性を推定しない。
 
-Trust、Authority、Recoveryまたは安全上重要な結果をAPI、IPC、callback、event、return値、fileまたは永続記録で搬送する試験は、production wiringから実producer、対象範囲で把握できるproduction consumerおよび外部公開契約を特定する。肯定入力は実producer出力、またはproductionと共有するCanonical validator／generatorから作り、手書きfixtureだけでproducerとの結合成立を主張しない。別の呼出しまたはprocessで保護対象Effect／Recoveryの十分な根拠または不可欠なAuthority predicateになる耐久状態だけをAuthority-bearing stateとして扱う。発行条件成立前の失敗は新規Authority 0、exact intent発行後の失敗は同じintentのRecovery保持、retryでは別・拡大Authority 0、partial／mismatch／unknownでは処置0とEvidence保持を確認する。fresh Authorityへ再結合する通常のqueue、progress、checkpointまたはEvidenceは、それだけではAuthorityにしない。
+Trust、Authority、Recoveryまたは安全上重要な結果をAPI、IPC、callback、event、return値、fileまたは永続記録で搬送する試験は、production wiringから実producer、対象範囲で把握できるproduction consumerおよび外部公開契約を特定する。肯定入力は実producer出力、またはproductionと共有するCanonical validator／generatorから作り、手書きfixtureだけでproducerとの結合成立を主張しない。外部状態、共有状態または資源不存在をTraceや完成根拠へ登録する場合は、実API、FilesystemまたはProcessから取得した観測値を判定に用い、期待するliteralを観測値として代入しない。期待値は、Effect前に固定した入力、正本契約または対象観測と独立したProducer結果から導出し、観測した出力を別名で期待値へ循環させない。同じ観測変数をassert後のTraceへ結合し、期待値と異なる候補値および反証状態では判定とTraceの両方が成立しないことを確認する。別の呼出しまたはprocessで保護対象Effect／Recoveryの十分な根拠または不可欠なAuthority predicateになる耐久状態だけをAuthority-bearing stateとして扱う。発行条件成立前の失敗は新規Authority 0、exact intent発行後の失敗は同じintentのRecovery保持、retryでは別・拡大Authority 0、partial／mismatch／unknownでは処置0とEvidence保持を確認する。fresh Authorityへ再結合する通常のqueue、progress、checkpointまたはEvidenceは、それだけではAuthorityにしない。
 
 外部イベント、非同期I/O、子Processまたは取消可能な処理を扱う契約試験は、開始前、保留中、正常完了、失敗、取消、タイムアウト、遅延・重複通知および資源回収を同じ状態母集団に含める。コールバックとイベントが同じ失敗から連続して発生する場合、取消と完了が競合する場合、または保留中のI/Oと終了処理が競合する場合を排他的な単発モックへ分解して成立を推定しない。対象実行基盤の実際の基本機能を使う限定試験、または実契約と同じ複合順序を再現する試験用実装を少なくとも一つ含め、イベント監視、保留要求、ハンドル、ロックおよび子Processの残存0を確認する。
 

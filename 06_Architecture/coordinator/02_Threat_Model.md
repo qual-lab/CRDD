@@ -1,6 +1,6 @@
 # Coordinator Runtimeの脅威モデル
 
-状態: Stable（v0.18.1）
+状態: Stable（v0.19.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-02
 
@@ -20,6 +20,7 @@
 - Container、network、Mount Grant、Process、Lock、一時領域およびRecovery record
 - 署名manifest、Platform Access成果物および配布TreeのIdentity
 - 人間の入力、取消、Risk受容、統合およびReleaseの決定権限
+- Project／Milestone／Objective／Taskの状態、Operation Queue、世代、Lease、Conflict予約、Integration候補および受入Evidence
 
 ## 3. 信頼境界
 
@@ -57,8 +58,31 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | owner loss／観測不能 | orphan、未知Effect | Effect前Recovery record、exact Recovery ID、新ProcessでのIdentity再結合 | read-back後だけ完了化 |
 | stale／別Operation Recoveryの誤処置 | 他Task破壊 | Repository・User・package・Operation Identityを結合し、曖昧時は上書きしない | `manualRecoveryRequired`を維持 |
 | Docker Desktop破損復旧の過剰処置 | Host状態破壊 | 通常Taskから分離、固定Process／Directory／mutex、最終手段のrenameは事前状態と回復契約を要求 | Engine再観測と残存記録確認 |
+| Docker再起動後にcreate応答喪失を未作成と誤認 | 既存資源の見逃し、二重Effect、永久停止 | Taskより後の検証済みProcess世代切替、署名済み復旧履歴、exact名・所有labelの不存在を結合して耐久化 | 空一覧だけ、任意の再起動、旧署名だけでは収束させない |
 | Console入力競合・文字化け | 誤承認、停止不能 | runtime-owned reader、入力種別の明示、一回入力、UTF-8機械結果と人間表示の分離 | reader／pipe／child終了 |
 | Cost目的の不適格model選択 | 品質低下、利用枠浪費 | 適格性を先に判定し、難易度・Risk・判断影響・Costから説明可能に選択 | Provider Effect前の選定記録 |
+
+### 4.1 v0.19 Project Runtimeの脅威
+
+次はv0.19.0 Project Runtimeに対する設計上のControlである。実装段階ごとに検証へ接続し、該当Controlと終了時観測が成立した範囲だけを公開能力とする。
+
+| 脅威 | 失敗影響 | 設計上のControl | 実装後に必要な終了時観測 |
+|---|---|---|---|
+| 古いProject世代・別Task結果の混入 | 状態破損、誤受入、Effect重複 | Project／Task／attempt／Operation／Repository Revisionを結合し、expected generation一致時だけ投影 | 別世代の結果反映0、Evidence保持 |
+| Queue／Leaseの二重所有またはstale奪取 | 同じMilestone・Taskの二重実行 | 耐久Queue、OS排他、owner generation、時刻だけに依存しない所有喪失判定 | 同じrequest identityのProject Operationは最大1。同一Task attempt／Operation IdentityのEffect再発行0 |
+| 容量・Conflict判定の競合 | 6件目起動、同一資源の並行変更 | 状態世代と同じtransactionでslot／Conflictを予約し、Effect直前に再検証 | 上限外・競合Task Effect 0 |
+| Transport・Schedule入力のAuthority化 | 未承認Objective、Scope拡張 | CLI／MCP／Scheduleは検証済み要求の搬送だけを行い、Authority生成を禁止 | Adapter由来Authority 0 |
+| 古い・置換済み人間判断の適用 | 誤再計画、別Milestoneの再開、Authority偽装 | decision ID、Project／Milestone、世代、改訂版、選択肢、認証済み人間主体を現在の判断要求へ結合し、accepted decision receiptを専用再開遷移へ要求する。MCP metadataやProvider identityからAuthorityを作らない | stale／superseded／不正入力によるDecision Record・Project変更・Task Effect・Authority生成0 |
+| 判断用継続Capabilityの盗難・replay・残存 | 別主体による判断、二重再開、長期Authority残存 | raw値はClientへ一度だけ返し、Runtimeは対象・主体・世代・改訂版・有限期限へ結合したhashと消費状態だけをRepository外のOS管理・Runtime保護Rootへ先に耐久化。Root identity、選択ユーザー、固定Volume、非reparse chain、Owner／Protection、atomic updateをPlatform Adapterで観測する | Repository状態改変・Root保護差・別主体・別decision・期限切れ・replayのEffect 0、無効入力後も正規Capabilityは期限内に一度だけ利用可能、raw値のRepository／Provider／Task Packet／ログ／Record保存0、終端後の失効確認 |
+| 判断Capability発行・受理後の部分状態 | 保護Record作成前のraw返却、二重発行、Capabilityだけ消費、MilestoneとQueueの不整合、`prepared`だけの失効、観測不能な保護Rootへの架空遷移、二重Lease、二重Task Effect | Platform Adapterだけが保護Recordを`absent → issued`へ作成・readbackし、その後だけraw値を返す。Root間の原子性を仮定せず、同Adapterが`issued → prepared`へCAS更新・readbackする。Decision／MilestoneをProject Stateへ一括適用・readbackした後だけ`prepared → finalized`へCAS更新・readbackする。Project側だけが不明で保護Rootを更新できる場合は、別の検証済みRecovery Storeへexactな回復意図を先に耐久化してから保護Recordを`recovery_required`へ進める。保護Root自体が不明なら同Rootの遷移を主張せず、別Recovery Storeだけへ回復意図を残す。そこも不明なら手動回復・Effect不明・Process再利用禁止とする。`prepared`の失効はProject旧世代・未適用のfresh確認後だけ、Recoveryは回復意図・保護Root・Project Stateを結合し、matching new世代ならfinalized、verified old/unappliedならinvalidatedへ収束してから回復意図をsettleする。Queueは保護Rootの`finalized`とProject側のID・世代一致をfreshに読取り観測した後に別更新する | 発行保存失敗・応答喪失、`prepared`後、Project適用後、保護Root読取り失敗、CAS応答喪失、readback不明、Recovery Store不明、取消・置換・期限、Process喪失を含む故障・再送で、確認できた状態だけを記録する。架空の保護Root遷移0、不明時Queue／Task Effect 0、Capability、Lease、Task Effectは各最大1回 |
+| Capability応答喪失 | 判断不能の長期停止、複数Capabilityの同時有効化 | raw未受領を自動推定せず、同じ主体・Objective requestの明示置換だけを受ける。旧hash失効receipt後に新しい1件を発行し、置換requestを冪等化 | 旧token Effect 0、新token一回成立、二重置換・replay拒否、旧・新同時有効0 |
+| 人間判断commentの注入・漏洩 | Prompt injection、Secret漏洩、表示崩れ | bounded UTF-8単一行として検証し、Authority・Scope・選択肢から分離。raw値をProvider、Task Packet、ログ、永続Record、通常結果へ渡さない | comment有無で判断結果不変、拒否時Effect 0、外部送信・永続化・反射0 |
+| 個別Task成功のProject成功化 | 未統合成果物の採用、受入誤判定 | Task、Objective、Milestoneを別状態・別世代とし、受入EvidenceとCross-task整合を要求 | Integration前のMilestone受入0 |
+| Integration候補の正本混入 | 未承認変更、既存変更の上書き | 隔離Workspace、固定候補hash、Adoption Authority、fresh Revision、短時間Adoption Lock | 採用前の正本Effect 0 |
+| 未対応Platformへの暗黙fallback | 保証低下、別OS機構での未観測Effect | Project Runtime CoreをPlatform Contractへ限定し、Adapter不在・保証未成立をFail Closed | Project／Task／Provider Effect 0 |
+| Project取消・Parent喪失後の部分残存 | slot誤解放、後続Task起動、Recovery衝突 | 対象Taskごとの終了・cleanup・Project State投影を分離し、unknownをexact Recoveryへ保持 | 全資源照合前のQueue完了0 |
+
+保護更新ごとの回復母集団には、初回作成、prepare、finalize、失効および期限更新のCAS未成立、成立後の応答喪失、readback不明を含める。fresh確認で、exactな`absent`＋raw未返却＋Project未適用はEffect 0で回復意図だけを終端し、`issued`は失効、`prepared`は回復待ち、matching newはfinalized、verified old/unappliedはinvalidated、`expired`＋Project未適用はexpiredのまま安全に終端する。不明・競合では観測できた継続状態を変えず、独立Recovery Intentをrequiredに保持する。
 
 ## 5. 署名済み配布物
 
@@ -109,5 +133,6 @@ Providerの終了、Promiseの完了または取消要求の受理はcleanup完�
 - timeout、cancel、Provider失敗、owner loss、cleanup不明、Recovery競合を注入し、終了後資源を確認する。
 - 外部送信許可の再利用と失効条件、model fallbackおよび同一Provider例外を検証する。
 - 削除したcommand、module、Native成果物およびmanifest fieldがhelp、parser、配布物、文書から再出現しないことを契約試験で固定する。
+- Project Runtimeでは[詳細設計](03_Project_Runtime_Design.md)の状態、資源、Lock、Authority、Effectおよび失敗注入点を、正常・準正常・異常の`PR-*`検証へ接続する。古い世代、重複request、容量競合、Queue owner喪失、Parent喪失、Transport切断、Integration conflict、採用直前Revision差およびPlatform不在を含める。
 
 機械試験は独立したArchitecture／Security Review、文書監査、不足／影響監査および準拠監査を代替しない。

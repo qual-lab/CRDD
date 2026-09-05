@@ -10,7 +10,7 @@ export type DockerDesktopRepairDoctorCommand = Readonly<{
   repairDockerDesktopRuntime: boolean;
   closeDockerDesktopRepairId: string | null;
   adoptDockerDesktopRepairId?: string;
-  historicalReleaseRoot?: string;
+  repairReleaseRoot?: string;
 }>;
 
 type DockerDesktopRepairDoctorHandlers = Readonly<{
@@ -59,12 +59,12 @@ export async function dispatchDockerDesktopRepairDoctorCommand(
     report =
       command.adoptDockerDesktopRepairId !== undefined
         ? handlers.adopt &&
-          command.historicalReleaseRoot !== undefined &&
+          command.repairReleaseRoot !== undefined &&
           !command.repairDockerDesktopRuntime &&
           command.closeDockerDesktopRepairId === null
           ? await handlers.adopt(
               command.adoptDockerDesktopRepairId,
-              command.historicalReleaseRoot,
+              command.repairReleaseRoot,
             )
           : failedClosedReport()
         : command.repairDockerDesktopRuntime

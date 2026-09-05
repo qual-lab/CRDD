@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Writable } from "node:stream";
 import test from "node:test";
 import { bindTaskCliCancellationSignals } from "../src/core/task-cli-cancellation.ts";
 import {
@@ -9,6 +10,7 @@ import { createDevelopmentMeasurementConstraints } from "../src/security/develop
 import type { OwnedCommandHandle } from "../src/security/docker-owned-process.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
+  createRuntimeOwnedLifecycleNoticeReporter,
   createIsolatedDockerProcessControllerCandidate,
   describeDockerProcessControllerContract,
   projectDockerProcessControllerCompletionResult,
@@ -388,6 +390,7 @@ function createFixture(
       const isAuth =
         command.purpose === "start_subscription_auth_probe_attached";
       return Object.freeze({
+        started: async () => true,
         wait: async () =>
           Object.freeze({
             status: 0,
@@ -480,6 +483,252 @@ function createFixture(
   };
 }
 
+const providerStartObservationTaskPlan = {
+  operationMode: "isolated_task",
+  taskRole: "reviewer",
+  taskWorkload: {
+    readPathCount: 1,
+    allowedPathCount: 1,
+    acceptanceCriterionCount: 1,
+    remediationFindingCount: 0,
+  },
+  taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+  taskPacketHash: "c".repeat(64),
+  providerInput: "Review the exact local candidate.",
+  workspaceSourcePath: "C:\\runtime-owned\\workspace",
+  workspaceMountMode: "read_only",
+} as const;
+const providerStartObservationTaskOutput = createProviderOutput({
+  structured_output: undefined,
+  result: JSON.stringify({
+    decision: "approved",
+    summary: "The exact candidate is acceptable.",
+    findings: [],
+  }),
+});
+
+test("Provider実ProcessのOS起動確認後だけRuntime所有の開始観測を公開する", async () => {
+  const notices: unknown[] = [];
+  const fixture = createFixture(
+    {
+      startCommand: (command: { purpose: string }) => ({
+        started: async () => true,
+        wait: async () => ({
+          status: 0,
+          signal: null,
+          stdout:
+            command.purpose === "start_provider_attached"
+              ? providerStartObservationTaskOutput
+              : command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput()
+                : "",
+          stderr: "",
+          outputExceeded: false,
+        }),
+        terminateAndWait: async () => true,
+      }),
+      reportProviderProcessStarted: async (notice: unknown) => {
+        notices.push(notice);
+        return true;
+      },
+    },
+    providerStartObservationTaskPlan,
+  );
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  const result = await started.completion;
+  assert.ok(result);
+  assert.equal(result.status, "completed");
+  assert.deepEqual(notices, [
+    {
+      event: "coordinator_provider_process_started",
+      taskRole: "reviewer",
+      provider: "claude",
+      operationId: "OP-123456",
+    },
+  ]);
+});
+
+test("Provider commandの同期起動失敗を実Process開始として公開しない", async () => {
+  const notices: unknown[] = [];
+  const fixture = createFixture(
+    {
+      startCommand: (command: { purpose: string }) => {
+        if (command.purpose === "start_provider_attached")
+          throw new Error("fixed_provider_start_failure");
+        return {
+          started: async () => true,
+          wait: async () => ({
+            status: 0,
+            signal: null,
+            stdout:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput()
+                : "",
+            stderr: "",
+            outputExceeded: false,
+          }),
+          terminateAndWait: async () => true,
+        };
+      },
+      reportProviderProcessStarted: async (notice: unknown) => {
+        notices.push(notice);
+        return true;
+      },
+    },
+    providerStartObservationTaskPlan,
+  );
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  const result = await started.completion;
+  assert.ok(result);
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "docker_process_controller_execution_failed_closed",
+  );
+  assert.equal(result.providerRequestStarted, false);
+  assert.deepEqual(notices, []);
+});
+
+test("Provider commandの非同期起動失敗も開始観測とProvider Effectへ昇格しない", async () => {
+  const notices: unknown[] = [];
+  let providerTerminationCount = 0;
+  const fixture = createFixture(
+    {
+      startCommand: (command: { purpose: string }) => ({
+        started: async () => command.purpose !== "start_provider_attached",
+        wait: async () => ({
+          status: 0,
+          signal: null,
+          stdout:
+            command.purpose === "start_subscription_auth_probe_attached"
+              ? createSubscriptionAuthOutput()
+              : "",
+          stderr: "",
+          outputExceeded: false,
+        }),
+        terminateAndWait: async () => {
+          if (command.purpose === "start_provider_attached")
+            providerTerminationCount += 1;
+          return true;
+        },
+      }),
+      reportProviderProcessStarted: async (notice: unknown) => {
+        notices.push(notice);
+        return true;
+      },
+    },
+    providerStartObservationTaskPlan,
+  );
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  const result = await started.completion;
+  assert.ok(result);
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "docker_process_controller_provider_start_failed",
+  );
+  assert.equal(result.providerRequestStarted, false);
+  assert.deepEqual(notices, []);
+  assert.equal(providerTerminationCount, 1);
+  assert.equal(result.cleanupConfirmed, true);
+});
+
+test("Lifecycle通知はbackpressureを失敗とせずwrite完了を待ち、close先着を拒否する", async () => {
+  const notice = {
+    event: "coordinator_provider_process_started" as const,
+    taskRole: "executor" as const,
+    provider: "codex" as const,
+    operationId: "OP-123456",
+  };
+  let written = "";
+  const backpressured = new Writable({
+    highWaterMark: 1,
+    write(chunk, _encoding, callback) {
+      written += chunk.toString("utf8");
+      setImmediate(callback);
+    },
+  });
+  assert.equal(
+    await createRuntimeOwnedLifecycleNoticeReporter(backpressured)(notice),
+    true,
+  );
+  assert.match(written, /^\[Coordinator lifecycle\] /u);
+  backpressured.end();
+
+  const closesBeforeWrite = new Writable({
+    write(_chunk, _encoding, _callback) {
+      // Keep the callback pending so close is the first observable outcome.
+    },
+  });
+  const reported =
+    createRuntimeOwnedLifecycleNoticeReporter(closesBeforeWrite)(notice);
+  closesBeforeWrite.destroy();
+  assert.equal(await reported, false);
+
+  const writeFails = new Writable({
+    write(_chunk, _encoding, callback) {
+      callback(new Error("fixed_notice_write_failure"));
+    },
+  });
+  assert.equal(
+    await createRuntimeOwnedLifecycleNoticeReporter(writeFails)(notice),
+    false,
+  );
+});
+
+test("実Process開始観測を公開できなければ対象Processを終了して成功を返さない", async () => {
+  let providerTerminationCount = 0;
+  const fixture = createFixture(
+    {
+      startCommand: (command: { purpose: string }) => ({
+        started: async () => true,
+        wait: async () => ({
+          status: 0,
+          signal: null,
+          stdout:
+            command.purpose === "start_subscription_auth_probe_attached"
+              ? createSubscriptionAuthOutput()
+              : command.purpose === "start_provider_attached"
+                ? providerStartObservationTaskOutput
+                : "",
+          stderr: "",
+          outputExceeded: false,
+        }),
+        terminateAndWait: async () => {
+          if (command.purpose === "start_provider_attached")
+            providerTerminationCount += 1;
+          return true;
+        },
+      }),
+      reportProviderProcessStarted: async () => false,
+    },
+    providerStartObservationTaskPlan,
+  );
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  const result = await started.completion;
+  assert.ok(result);
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "docker_process_controller_provider_start_observation_failed",
+  );
+  assert.equal(result.providerRequestStarted, true);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(providerTerminationCount, 1);
+});
+
 const cancellationCreatePurposes = [
   "create_subscription_auth_probe",
   "create_internal_network",
@@ -522,6 +771,7 @@ async function runCreateCancellationRace(
     startCommand: (command: { purpose: string }) => {
       commands.push(command.purpose);
       return {
+        started: async () => true,
         wait: async () => {
           if (command.purpose === purpose) {
             markReady();
@@ -869,6 +1119,7 @@ for (const stop of [
       startCommand: (command: { purpose: string }) => {
         if (command.purpose === "start_provider_attached") providerStarts += 1;
         return {
+          started: async () => true,
           wait: async () => {
             if (command.purpose === "start_proxy") {
               markReady();
@@ -1065,6 +1316,7 @@ test("Subscription OAuthを確認できなければProvider request前に停止�
     startCommand: (command: { purpose: string }) => {
       if (command.purpose === "start_provider_attached") providerStarted = true;
       return Object.freeze({
+        started: async () => true,
         wait: async () =>
           Object.freeze({
             status: 0,
@@ -1124,6 +1376,7 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
           if (command.purpose === "start_provider_attached")
             providerStarted = true;
           return Object.freeze({
+            started: async () => true,
             wait: async () =>
               Object.freeze({
                 status: 0,
@@ -1185,6 +1438,7 @@ test("Codex認証Probeは未知行・重複成功・制御文字をfail closed�
           if (command.purpose === "start_provider_attached")
             providerStarted = true;
           return Object.freeze({
+            started: async () => true,
             wait: async () =>
               Object.freeze({
                 status: 0,
@@ -1226,6 +1480,7 @@ test("Claude Max以外のSubscription OfferingではProvider request前に停止
     startCommand: (command: { purpose: string }) => {
       if (command.purpose === "start_provider_attached") providerStarted = true;
       return Object.freeze({
+        started: async () => true,
         wait: async () =>
           Object.freeze({
             status: 0,
@@ -1289,6 +1544,7 @@ test("Provider非ゼロ終了は生出力を返さず既知の運用原因だけ
   for (const [stdout, stderr, expectedReason] of cases) {
     const fixture = createFixture({
       startCommand: (command: { purpose: string }) => ({
+        started: async () => true,
         wait: async () => ({
           status: command.purpose === "start_provider_attached" ? 1 : 0,
           signal: null,
@@ -1334,6 +1590,7 @@ test("搬送失敗status:nullは出力上限やtimeoutでなく既存の実行�
       startCommand: (command: { purpose: string }) => {
         commands.push(command.purpose);
         return {
+          started: async () => true,
           wait: async () => ({
             status: command.purpose === failedPurpose ? null : 0,
             signal: null,
@@ -1369,6 +1626,7 @@ test("Provider非ゼロ分類はTask本文に似たstdoutと過長・制御文�
   ]) {
     const fixture = createFixture({
       startCommand: (command: { purpose: string }) => ({
+        started: async () => true,
         wait: async () => ({
           status: command.purpose === "start_provider_attached" ? 1 : 0,
           signal: null,
@@ -1399,6 +1657,7 @@ test("provider timeoutは終了要求後もcleanupを必須にする", async () 
   let terminationCount = 0;
   const fixture = createFixture({
     startCommand: (command: { purpose: string }) => ({
+      started: async () => true,
       wait: async () =>
         command.purpose === "start_provider_attached"
           ? null
@@ -1448,6 +1707,7 @@ for (const dockerCleanupConfirmed of [true, false]) {
           const owned = processes.start();
           handle = owned;
           return {
+            started: owned.started,
             wait: owned.wait,
             terminateAndWait: async (graceMs: number) => {
               terminationCount += 1;
@@ -1456,6 +1716,7 @@ for (const dockerCleanupConfirmed of [true, false]) {
           };
         }
         return {
+          started: async () => true,
           wait: async () => ({
             status: 0,
             signal: null,
@@ -1536,6 +1797,7 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
     startCommand: (command: { purpose: string }) => {
       if (command.purpose !== "start_provider_attached") {
         return {
+          started: async () => true,
           wait: async () => ({
             status: 0,
             signal: null,
@@ -1555,6 +1817,7 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
         finishProvider = resolve;
       });
       return {
+        started: async () => true,
         wait: async () => {
           await completion;
           return {
@@ -1678,6 +1941,7 @@ test("cleanup待機前にblockedなら遅延取消で失敗理由を上書きし
   });
   const fixture = createFixture({
     startCommand: (command: { purpose: string }) => ({
+      started: async () => true,
       wait: async () => ({
         status: 0,
         signal: null,
@@ -1777,6 +2041,7 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
 test("Provider Result不正時もcleanupし正規化Resultを公開しない", async () => {
   const fixture = createFixture({
     startCommand: (command: { purpose: string }) => ({
+      started: async () => true,
       wait: async () => ({
         status: 0,
         signal: null,
@@ -1840,6 +2105,7 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
   const fixture = createFixture(
     {
       startCommand: (command: { purpose: string }) => ({
+        started: async () => true,
         wait: async () => ({
           status: 0,
           signal: null,
@@ -1882,6 +2148,14 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
   assert.deepEqual(result.normalizedResult, {
     decision: "approved",
     findingCount: 0,
+    providerTurnObservation: {
+      provider: "claude",
+      taskRole: "reviewer",
+      requestedMaximumTurns: 5,
+      providerReportedTurns: 3,
+      resultAcceptanceMaximumTurns: 16,
+      requestedTurnTargetExceeded: false,
+    },
   });
   assert.equal(result.rawOutputReported, false);
   assert.equal(result.untrustedProviderTextReported, false);
@@ -1910,6 +2184,7 @@ test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収�
       const fixture = createFixture(
         {
           startCommand: (command: { purpose: string }) => ({
+            started: async () => true,
             wait: async () => ({
               status: 0,
               signal: null,
@@ -2327,7 +2602,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 25);
+  assert.equal(contract.contractRevision, 27);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);

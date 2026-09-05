@@ -5,7 +5,6 @@ import {
   createDockerProcessEnvironment,
   startOwnedProcess,
   STDOUT_LIMIT_BYTES,
-  type CommandHandle,
   type OwnedCommandHandle,
 } from "./docker-owned-process.ts";
 
@@ -529,7 +528,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
     command: Command,
     plan: PreparedPlan,
     managementCapability: unknown,
-  ): CommandHandle {
+  ): OwnedCommandHandle {
     if (!managementCapability || typeof managementCapability !== "object")
       throw new Error("docker_effect_management_required");
     const context = contextFor(plan, managementCapability);

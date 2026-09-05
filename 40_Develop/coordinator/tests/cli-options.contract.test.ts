@@ -17,12 +17,12 @@ const coordinatorExecutable = path.resolve(
   "../bin/coordinator.ts",
 );
 
-test("旧版復旧記録の引継ぎはexact IDと元配布Rootの明示ペアだけを受理する", () => {
+test("旧版修復記録の引継ぎはexact IDと修復記録の生成元配布Rootだけを受理する", () => {
   const id = `docker-desktop-repair.${"a".repeat(32)}`;
   const args = [
     "--adopt-docker-desktop-repair",
     id,
-    "--from-release",
+    "--repair-release-root",
     "C:\\old-release",
     "--json",
   ];
@@ -35,11 +35,12 @@ test("旧版復旧記録の引継ぎはexact IDと元配布Rootの明示ペア�
     repairDockerDesktopRuntime: false,
     closeDockerDesktopRepairId: null,
     adoptDockerDesktopRepairId: id,
-    historicalReleaseRoot: "C:\\old-release",
+    repairReleaseRoot: "C:\\old-release",
   });
   for (const invalidArguments of [
     ["--adopt-docker-desktop-repair", id],
-    ["--from-release", "C:\\old-release"],
+    ["--repair-release-root", "C:\\old-release"],
+    ["--adopt-docker-desktop-repair", id, "--from-release", "C:\\old-release"],
     [...args, "--repair-docker-desktop-runtime"],
     [...args, "--isolation"],
     [...args, "--recover-isolation", "host.example"],
@@ -49,6 +50,56 @@ test("旧版復旧記録の引継ぎはexact IDと元配布Rootの明示ペア�
       "blocked",
     );
   }
+});
+
+test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・修復記録の生成元配布Rootの組だけを受理する", () => {
+  const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  const repairId = `docker-desktop-repair.${"d".repeat(32)}`;
+  const parsed = parseDoctorArguments(
+    [
+      "--recover-isolation",
+      recoveryId,
+      "--after-docker-desktop-repair",
+      repairId,
+      "--repair-release-root",
+      "C:\\old-release",
+      "--json",
+    ],
+    undefined,
+  );
+  assert.equal(parsed.status, "ok");
+  assert.deepEqual(parsed.value, {
+    json: true,
+    activeIsolation: false,
+    recoveryId,
+    repairDockerDesktopRuntime: false,
+    closeDockerDesktopRepairId: null,
+    afterDockerDesktopRepairId: repairId,
+    repairReleaseRoot: "C:\\old-release",
+  });
+  for (const invalid of [
+    [
+      "--recover-isolation",
+      recoveryId,
+      "--after-docker-desktop-repair",
+      repairId,
+    ],
+    [
+      "--after-docker-desktop-repair",
+      repairId,
+      "--repair-release-root",
+      "C:\\old-release",
+    ],
+    [
+      "--recover-isolation",
+      "host.example",
+      "--after-docker-desktop-repair",
+      repairId,
+      "--repair-release-root",
+      "C:\\old-release",
+    ],
+  ])
+    assert.equal(parseDoctorArguments(invalid, undefined).status, "blocked");
 });
 
 test("doctorは診断と復旧に必要な引数だけを受理する", () => {
@@ -150,7 +201,7 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), {
     contract: "crdd-coordinator/capabilities",
-    contractRevision: 1,
+    contractRevision: 2,
     profile: "local_personal",
     commands: [
       {
@@ -160,6 +211,17 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
       },
       { command: "doctor", availability: "available" },
       { command: "candidate", availability: "available" },
+      {
+        command: "project",
+        availability: "development_candidate",
+        invocation: "project --request-stdin --json",
+      },
+      {
+        command: "mcp",
+        availability: "development_candidate",
+        invocation: "mcp --stdio",
+        operations: ["crdd.run_objective", "crdd.submit_decision"],
+      },
     ],
   });
 });
@@ -191,6 +253,12 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
     true,
   );
   assert.equal(result.stdout.includes("coordinator capabilities --json"), true);
+  assert.equal(result.stdout.includes("--repair-release-root"), true);
+  assert.equal(
+    result.stdout.includes("it is not the Docker task origin"),
+    true,
+  );
+  assert.equal(result.stdout.includes("--from-release"), false);
   assert.equal(result.stdout.includes("coordinator activate"), false);
   assert.equal(result.stdout.includes("coordinator disable"), false);
   assert.equal(result.stdout.includes("coordinator provision"), false);

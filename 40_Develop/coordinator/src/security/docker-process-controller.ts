@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Writable } from "node:stream";
 import { types as utilTypes } from "node:util";
 
 import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "./claude-docker-runtime-adapter.ts";
@@ -34,7 +35,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 25;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 27;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -91,6 +92,8 @@ const BLOCKED_COMPLETION_REASONS = new Set([
   "provider_task_reviewer_finding_invalid",
   "provider_task_reviewer_decision_inconsistent",
   "docker_process_controller_execution_failed_closed",
+  "docker_process_controller_provider_start_failed",
+  "docker_process_controller_provider_start_observation_failed",
   "repository_revision_changed",
 ]);
 const SAFE_IDENTIFIER =
@@ -100,6 +103,7 @@ type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
 type PreparedPlan = Readonly<{
   provider: "codex" | "claude";
   operationId: string;
+  recoveryCorrelationId?: string | null;
   grantRef: string;
   profileId: string;
   activeMountCapability: object;
@@ -140,6 +144,7 @@ type CommandExecution = Readonly<{
   outputExceeded: boolean;
 }>;
 type CommandHandle = Readonly<{
+  started: (timeoutMs: number) => Promise<boolean>;
   wait: (timeoutMs: number) => Promise<CommandExecution | null>;
   terminateAndWait: (graceMs: number) => Promise<boolean>;
 }>;
@@ -159,6 +164,12 @@ type CleanupObservation = Readonly<{
   processTreeTerminated: boolean;
   containersAbsent: boolean;
   networksAbsent: boolean;
+}>;
+type ProviderProcessStartedNotice = Readonly<{
+  event: "coordinator_provider_process_started";
+  taskRole: "executor" | "reviewer" | null;
+  provider: "codex" | "claude";
+  operationId: string;
 }>;
 type RuntimeDependencies = Readonly<{
   effectExecutorAvailable: boolean;
@@ -210,6 +221,9 @@ type RuntimeDependencies = Readonly<{
   ) => boolean;
   recordDockerAbsence?: (recoveryCapability: object) => boolean;
   recordMountCompletion?: (recoveryCapability: object) => boolean;
+  reportProviderProcessStarted?: (
+    notice: ProviderProcessStartedNotice,
+  ) => Promise<boolean>;
   consumeProviderAuthority: (
     useCapability: unknown,
     activeMountCapability: unknown,
@@ -236,6 +250,38 @@ type RuntimeState = Readonly<{
   controls: WeakMap<object, ExecutionRecord>;
 }>;
 type ExecutionResult = ReturnType<typeof createFinalResult>;
+
+export function createRuntimeOwnedLifecycleNoticeReporter(stream: Writable) {
+  return (notice: ProviderProcessStartedNotice): Promise<boolean> => {
+    if (!stream.writable || stream.destroyed) return Promise.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const timer = setTimeout(() => settle(false), CANCELLATION_GRACE_MS);
+      const settle = (value: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        stream.off("error", onFailure);
+        stream.off("close", onFailure);
+        resolve(value);
+      };
+      const onFailure = () => settle(false);
+      stream.once("error", onFailure);
+      stream.once("close", onFailure);
+      try {
+        stream.write(
+          `[Coordinator lifecycle] ${JSON.stringify(notice)}\n`,
+          "utf8",
+          (error) => {
+            if (error === undefined || error === null) settle(true);
+          },
+        );
+      } catch {
+        settle(false);
+      }
+    });
+  };
+}
 
 const BLOCKED_START_KEYS = Object.freeze([
   "cleanupConfirmed",
@@ -702,6 +748,8 @@ function isPlanValid(plan: PreparedPlan) {
   return (
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
+    (plan.recoveryCorrelationId == null ||
+      /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(plan.recoveryCorrelationId)) &&
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
     /^PROFILE-[0-9]{6,}$/u.test(plan.profileId) &&
     /^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) &&
@@ -981,13 +1029,47 @@ async function executePlan(
         reason = "provider_operation_cancelled";
         break;
       }
-      if (isProvider) providerRequestStarted = true;
       const handle = state.dependencies.startCommand(
         command,
         plan,
         record.managementCapability,
       );
       record.activeHandle = handle;
+      if (isProvider) {
+        const processStarted = await handle.started(CANCELLATION_GRACE_MS);
+        if (!processStarted) {
+          await handle.terminateAndWait(CANCELLATION_GRACE_MS);
+          record.activeHandle = null;
+          requestedStatus = "blocked";
+          reason = "docker_process_controller_provider_start_failed";
+          break;
+        }
+        providerRequestStarted = true;
+        let startObserved = true;
+        try {
+          startObserved =
+            !state.dependencies.reportProviderProcessStarted ||
+            (await state.dependencies.reportProviderProcessStarted(
+              Object.freeze({
+                event: "coordinator_provider_process_started",
+                taskRole: plan.taskRole,
+                provider: plan.provider,
+                operationId: plan.operationId,
+              }),
+            )) === true;
+        } catch {
+          startObserved = false;
+        }
+        if (!startObserved) {
+          record.cancellationRequested = true;
+          await handle.terminateAndWait(CANCELLATION_GRACE_MS);
+          record.activeHandle = null;
+          requestedStatus = "blocked";
+          reason =
+            "docker_process_controller_provider_start_observation_failed";
+          break;
+        }
+      }
       const execution = await handle.wait(
         isProvider ? PROVIDER_TIMEOUT_MS : SETUP_TIMEOUT_MS,
       );
@@ -1247,7 +1329,13 @@ function start(
       completed.status === "completed",
     );
   }
-  const recovery = state.dependencies.beginRecovery(plan, managementCapability);
+  const recovery = state.dependencies.beginRecovery(
+    Object.freeze({
+      ...plan,
+      recoveryCorrelationId: plan.recoveryCorrelationId ?? null,
+    }),
+    managementCapability,
+  );
   const readyRecovery = snapshotReadyRecovery(recovery);
   if (!readyRecovery) {
     const malformedCapability = ownDataValue(recovery, "recoveryCapability");
@@ -1414,6 +1502,9 @@ const productionState: RuntimeState = Object.freeze({
     recordResourceReceipt: recordRuntimeOwnedDockerResourceReceipt,
     recordDockerAbsence: recordRuntimeOwnedDockerAbsence,
     recordMountCompletion: recordRuntimeOwnedNormalMountCompletion,
+    reportProviderProcessStarted: createRuntimeOwnedLifecycleNoticeReporter(
+      process.stderr,
+    ),
     consumeProviderAuthority: consumeRuntimeOwnedProviderAuthority,
   }),
   controls: new WeakMap(),

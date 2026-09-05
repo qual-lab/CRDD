@@ -244,6 +244,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
     startCommand: (command) => {
       purposes.push(command.purpose);
       return Object.freeze({
+        started: async () => true,
         wait: async () =>
           Object.freeze({
             status: 0,

@@ -1,0 +1,64 @@
+{
+  "contract": "crdd/v0.19-final-signed-e2e-summary",
+  "contractRevision": 1,
+  "release": "v0.19.0",
+  "executedAt": "2026-09-05",
+  "sourceA": {
+    "commit": "7346a5580926d71d253ebebaa6538e41bfbdea05",
+    "tree": "9c6d72e1e96e923fbcd9fa4cad01d2186cb7117a"
+  },
+  "manifestCarrierB": {
+    "commit": "5929cb27a9aed9ebabf79e07e3f710f4046597ef",
+    "tree": "9aec06bb4c1a47d9f4f3d9133e5062bcffceceae"
+  },
+  "signedIdentity": {
+    "releaseSequence": "2026090504",
+    "manifestSha256": "d8c7f81e51e7be151fc23866215dc664265a9201c8ce88b3f99e0936cfbeb973",
+    "packageContentRootSha256": "3ab8200302a1722f09bd0e7ee799e2d4398077f52a6a08de7b36436f0522d8fe",
+    "runtimeExecutionIdentitySha256": "79e8cb3a3d11b1433e088d09d8c4b875b7de9ca2193f5e57ddc272d3225064d5"
+  },
+  "verification": {
+    "deterministicTests": { "passed": 1683, "failed": 0 },
+    "windowsRealProcessGate": { "passed": 7, "failed": 0 },
+    "signedRecoveryMatrix": {
+      "status": "completed",
+      "reason": "signed_recovery_matrix_verified",
+      "cleanupConfirmed": true,
+      "manualRecoveryRequired": false,
+      "recordSha256": "780e12d72f221eb289187738fa6088b13ace6dc721d70058a47d81cbae8f0a27"
+    },
+    "signedRouteMatrix": {
+      "status": "completed",
+      "reason": "signed_route_matrix_completed",
+      "attemptedRouteCount": 4,
+      "completedRouteCount": 4,
+      "retryableRouteAttemptCount": 0,
+      "cleanupConfirmed": true,
+      "manualRecoveryRequired": false,
+      "canonicalRepositoryChanged": false,
+      "recordSha256": "4a08b532740c5b0c2461bf87392af3541c8f0d992634d774c6c3f5dcadc28728"
+    },
+    "projectRuntimePublicMcp": {
+      "status": "completed",
+      "reason": "project_runtime_public_mcp_real_providers_cancellation_and_recovery_verified",
+      "realProviderRouteCount": 2,
+      "providerStartThenCancellationVerified": true,
+      "parentProcessLossExactRecoveryVerified": true,
+      "freshPublicReentryVerified": true,
+      "cleanupConfirmed": true,
+      "manualRecoveryRequired": false,
+      "processRestartRequired": false,
+      "effectState": "settled",
+      "problems": [],
+      "recordSha256": "7b8aacc3f137a478517fe7334a5888394d449da4d71c47c08957e40209bd1a6e"
+    },
+    "repositoryChecker": { "errors": 0, "warnings": 0 },
+    "finalIndependentAudit": { "critical": 0, "major": 0, "minor": 0 }
+  },
+  "releaseGate": "passed",
+  "rawProviderOutputIncluded": false,
+  "confirmationValueIncluded": false,
+  "secretIncluded": false,
+  "hostPathIncluded": false,
+  "recoveryAuthorityIncluded": false
+}

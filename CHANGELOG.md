@@ -9,6 +9,49 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0190-en"></a>
+
+### v0.19.0 — 2026-09-05
+
+This release strengthens Communication reasoning without making one mandatory reasoning schema. It distinguishes trigger, non-trigger, and insufficient-information cases for Cognitive Intent; preserves historical hypotheses and current intent separately; limits AI projection to relevant, current, traceable context; and keeps commerciality, research safety, persuasion risk, and post-adoption value with their responsible canonical artifacts.
+
+The dogfooding-wide change also makes assurance cost, planned and actual change routes, route deviations, and effective verification observable through existing Change Trace and quality evidence. Assurance cost is evaluated as the total cost to an accepted result, not as a target for reducing review or audit. Where an execution environment determines a required guarantee, active or resumed work distinguishes request issuance, handle acquisition, acceptance, effect, completion notification, observation, and durable settlement instead of inferring a later stage from an earlier one. Remediation derives its regression surface from changed meaning and affected consumers rather than changed files alone. Human readability remains the responsibility of the existing Document Audit, which checks intuitive display names, concise explanations, terminology dependency, sentence complexity, and information structure. This change does not add fixed profiles, an automatic routing engine, a platform knowledge base, a readability-only checker, mandatory spikes for every change, or length-based gates.
+
+The official Source A-to-B release path now promotes the signed manifest as opaque stable bytes through the launcher contained in the signed staging distribution itself. It verifies the execution-source topology, signature, Source A commit and tree, closed runtime dependency set, policy, native artifact, target repository HEAD, destination state, byte length, and SHA-256. An unsigned launcher in the working checkout cannot select an arbitrary staging path, and untracked working-copy dependencies do not contaminate the signed distribution-tree check. The complete staging file is published atomically through an exclusive same-filesystem hard link; the final path never exposes a partial write. The staging name is retained for a separate explicit discard so path races cannot delete another file. Interrupted runs resume only from source-only, same-file dual-name, or explicitly discarded destination-only states. Manual editing, JSON reserialization, text pipelines, and newline normalization are no longer valid promotion paths, and changed or unobservable files are not deleted automatically.
+
+The Project Runtime repository-binding lease now writes, flushes, closes, and reads back a unique preparation file before publishing the complete marker bytes through an exclusive same-filesystem hard link. A late or concurrent acquisition that observes preparation, publication, or lock-ownership state stops as unavailable without effect or manual-recovery claims. Only the dedicated fresh owner-loss reconciliation may establish owner absence and connect retained preparation, published markers, and legacy temporary files to the exact recovery obligation; acquisition never infers owner loss from another process's marker.
+
+The public Objective and canonical-adoption entries now inspect shared lease-acquisition resources before acquisition, resolve the actual source Queue from exact evidence, and invoke owner-loss reconciliation only after a fresh Platform owner observation. Live or unobservable ownership is left unchanged, while malformed or ambiguous evidence is retained and exposed through the exact non-authority recovery reference. Public re-entry Process tests verify that the recovery implementation is reachable from its real consumers rather than only through direct low-level tests.
+
+The Integration result field set and recovery-reference correlations now use one Core-owned canonical validator instead of a duplicated MCP schema. Shared lease residue is resolved through the Queue source of truth to the actual Project, Queue, owner, and recovery identity. Only an exact Queue in the same Project is eligible for automatic recovery; a foreign Project, missing Queue, or invalid Queue history leaves existing resources and new Project state unchanged and returns the exact binding-scoped non-authority recovery reference. Vertical checks cover actual producer results through the public Runtime and MCP, plus effect-free foreign, missing, and invalid Queue classifications.
+
+The same self-audit separates document ownership from content correctness. Tool implementation and static-analysis rules are canonical in Coding Standards; Runtime trust, resources, and execution identities remain in the responsible Architecture; repeatable commands remain in Workflow; and verification scope and results remain in Quality Assurance. Maintenance keeps change, migration, and release decisions instead of redefining those Tool contracts. This is a responsibility relocation with no change to the existing Runtime semantics, normative strength, or migration result, and it introduces no new artifact type.
+
+v0.19.0 is composed of four independently traceable changes:
+
+| Change trace | Release meaning |
+|---|---|
+| [CHG-000057](90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md) | Add the bounded single-project Runtime, authenticated MCP entry, durable queue, task graph, integration, decision, cancellation, and exact recovery boundaries |
+| [CHG-000058](90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md) | Preserve only decision-relevant reasoning context, distinguish current intent from history, and project a relevant traceable subset to AI |
+| [CHG-000059](90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md) | Make assurance cost and actual change routes observable; distinguish execution-environment completion stages; and strengthen meaning-derived remediation, document ownership, readability, and completion-claim discipline |
+| [CHG-000060](90_Release/Changes/CHG-000060_CRDD_Brand_Icon_Adoption.md) | Store two source-resolution variants of the same CRDD brand icon without extending trademark permission or Runtime identity |
+
+Adoption impact: the combined release is `breaking` because CHG-000058 and CHG-000059 change normative evaluation for applicable active or resumed work. CHG-000057 is an opt-in Runtime capability and does not remove the v0.18.1 single-task entry. CHG-000060 is additive and requires no migration.
+
+Migration note (v0.18.1 → v0.19.0):
+
+- `migration_required: true`
+- `change_classification: breaking`
+- Required for every existing-baseline update: evaluate adoption of the new baseline; inventory every active, resumed, or otherwise governed asset; decide each asset's disposition including an explicit none-applicable result; complete required treatment; and independently confirm that the migration preserves meaning before declaring the baseline update complete.
+- Required: assess active or resumed consumers of reasoning context, Communication, Change Trace, Quality Assurance, Documentation, Agent guidance, Architecture, and Document Audit. Preserve historical decisions and hypotheses; identify the current intent; do not claim overall completion when a required perspective remains unevaluated.
+- Required when execution-environment semantics affect a guarantee: identify the required stage from request through durable settlement, confirm the target Runtime/version/source or mark it unsupported or unevaluated, and derive remediation regression checks from the changed contract and affected consumers. Do not retroactively apply this to completed historical work or require a spike for deterministic local changes.
+- Conditional: Project Runtime adopters verify the Repository binding and authenticated local principal, use the durable queue and exact recovery identity, and keep the v0.18.1 single-task command available until the Project Runtime release gate is satisfied. Projects that do not enable Project Runtime need no Runtime migration.
+- Not required: retrospectively rewrite completed artifacts, create dedicated reasoning files or databases, introduce a new audit type, adopt the brand icon in a UI, or change existing trademark permissions.
+- Rollback / recovery: before returning from an activated Project Runtime, stop new objectives, settle every exact task, candidate, queue, decision, and recovery obligation, and retain evidence whose observation remains unknown. Restore the clone or submodule to the official v0.18.1 tag as one distribution.
+- Known risk if deferred: current work may lose decision-relevant context, overstate readiness, or apply a partially connected Project Runtime as complete. Runtime users may also create competing work or abandon an exact recovery obligation.
+- Verification: the final candidate requires the repository-wide checker, deterministic and real-process tests, authenticated MCP, cancellation, parent-loss, recovery-settlement, and interactive/scheduled-conflict evidence, followed by independent review and applicable audits on one fixed revision. Provider and signed E2E are required only when the Runtime execution identity changes or the final Runtime candidate is fixed.
+- Known limitation: v0.19.0 remains single-Repository and single-Project in responsibility. It does not establish multi-project scheduling, Linux or macOS availability, a permanent autonomous service, a universal reasoning schema, or legal clearance of third-party brand rights.
+
 <a id="changelog-v0181-en"></a>
 
 ### v0.18.1 — Coordinator Adoption Interface Correction
@@ -853,6 +896,51 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0190-ja"></a>
+
+### v0.19.0 — 2026-09-05
+
+本リリースは、一つの固定推論Schemaを必須にせず、Communicationの推論接続を強化する。認知意図の発火、非発火、判定情報不足を分け、当時の仮説と現在有効な意図を区別し、AIへは関係があり現在有効で追跡可能なContextだけを投影する。商業性、調査安全、説得リスクおよび採用後価値は、それぞれ責務を持つ正本へ維持する。
+
+Dogfoodingからの横断改善として、採用可能な結果までの保証コスト、計画した変更経路と実際の経路、その差と有効だった検証を既存の変更トレース・品質根拠から観測できるようにする。実行環境が必要保証を左右する現在または再開対象の作業では、要求発行、handle取得、受理、Effect成立、完了通知、観測および耐久的確定を区別し、前段階から後段階を推定しない。是正後の回帰面は変更ファイルだけでなく、変更した意味と利用側から導出する。人間可読性は新しい監査を増やさず、既存の文書監査で表示名、一言説明、用語依存、文の複雑さおよび情報構造を確認する。固定Profile、自動経路決定機構、Platform知識集、可読性専用Checker、全変更への小規模実測および文字数Gateは追加しない。
+
+公式ReleaseのSource AからBへの経路は、署名済みstaging自身に含まれる専用Launcherへ固定し、Manifestを不透明な安定byteとして扱う。実行元の配置、署名、Source AのCommit／Tree、staging内の閉じたRuntime依存集合、Policy、Native成果物、配置先Repositoryの現在HEAD、配置状態、byte数およびSHA-256を検証する。作業Checkoutの未署名Launcherから任意のstaging Pathを選べず、Git管理外の依存物を署名済み配布Treeの検査へ混入させない。完成済みのstaging fileを同一Filesystemの排他的hard linkでatomicに公開し、最終Pathへ部分byteを見せない。staging側の名前は公開Effectで削除せず、所有Rootを確認する別の明示破棄へ委ねる。中断後はsourceのみ、同一fileの二名、明示破棄後のdestinationのみから再開し、別Identity、内容変化または観測不能を自動削除しない。手動編集、JSON再serialize、text pipelineまたは改行正規化は正式経路にしない。
+
+Project RuntimeのRepository Binding単位Leaseは、一意な準備fileをwrite、flush、close、readbackした後、同一Filesystemの排他的hard linkで完全な取得中Markerを最終Pathへ公開する。準備中、公開済みまたはLock所有中の状態へ後着した取得は、回復残存と推定せず、手動回復不要、Effect 0の取得不可へ閉じる。owner不存在の確定と準備file、公開済みMarkerまたは旧実装の一時fileからexact Recoveryへの接続は、freshな専用reconciliationだけが所有する。
+
+公開Objective入口と正本採用入口は、Lease取得前に共有取得資源を確認し、exactな証跡から実際の元Queueを解決して、freshなPlatform owner観測後だけowner喪失reconciliationへ進む。生存・観測不能の所有状態は変更せず、不正または複数の証跡は保持したままexactな非Authority回復参照を返す。公開再入場のProcess試験により、低層回復関数の直接試験だけでなく実際の利用側からの到達性を確認する。
+
+Integration結果のfield集合と回復参照の相関をCore所有のCanonical検証契約へ統合し、MCP Adapterの重複Schemaを除く。共有Lease残存状態はMarkerからQueueだけを読むのではなく、Queue正本から実Project、Queue、ownerおよび回復IDまで解決する。同一Projectのexact Queueだけを自動回復し、別Project、Queue欠落またはQueue履歴不正では新しい永続状態も既存資源も変更せず、Binding単位のexactな非Authority回復参照を返す。実Producerから公開RuntimeとMCPまでの正常・回復結果、および別Project・欠落・不正QueueのEffect 0を確認する。
+
+署名後の最終E2Eは、通常終了後または取消後のDocker状態がcleanであることだけを実Recovery成立へ読み替えない。実Provider開始後に署名済み公開MCP親Process treeを停止し、freshな署名済み公開MCPへ同じObjectiveを再送する。耐久状態の`required`から回復、確認資源の有限終了、Queue settlementおよびfresh retryまでを同じIdentityへ結合し、再入場後の受入、正本不変、Process終了および最終Docker資源不存在が成立した場合だけRecovery settlementを完了と表示する。診断は非Authorityの検証投影であり、利用者へRecovery IDまたは回復権限を入力させない。
+
+同じ自己監査により、内容の正しさと文書の所有先を別に確認する。Toolの実装・静的検査規則は内部ツール・コーディング規約、Runtimeの信頼境界・資源・実行Identityは責務を持つアーキテクチャ、反復commandはWorkflow、検証範囲と結果は品質保証が正本となる。保守はこれらを再定義せず、変更、移行およびリリース判断を所有する。この責務再配置は既存Runtimeの意味、規範強度および移行結果を変更せず、新しい成果物種別も追加しない。
+
+v0.19.0は、独立して追跡できる次の4変更から構成する。
+
+| 変更トレース | リリース上の意味 |
+|---|---|
+| [CHG-000057](90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md) | 単一Projectの限定Runtime、認証済みMCP入口、耐久Queue、Task Graph、統合、判断、取消およびexact Recovery境界を追加する |
+| [CHG-000058](90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md) | 判断に必要な推論Contextだけを保持し、現在有効な意図と履歴を分け、関係があり追跡可能な範囲だけをAIへ投影する |
+| [CHG-000059](90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md) | 保証コストと実際の変更経路を観測可能にし、実行環境の成立段階、意味から導出する是正影響、文書の所有先、可読性および完了主張の規律を強化する |
+| [CHG-000060](90_Release/Changes/CHG-000060_CRDD_Brand_Icon_Adoption.md) | 同一CRDDブランドアイコンの2解像度原本を、商標許可やRuntime Identityを拡張せず保存する |
+
+採用への影響: 本リリースは、CHG-000058とCHG-000059が該当する現在または再開対象の作業に対する規範評価を変更するため`breaking`である。CHG-000057は選択して利用するRuntime能力であり、v0.18.1のSingle Task入口を削除しない。CHG-000060は追加のみで移行不要である。
+
+移行注記（v0.18.1 → v0.19.0）:
+
+- `migration_required: true`
+- `change_classification: breaking`
+- 既存基準版から更新するすべての採用先で必須: 新しい基準版の採用を評価し、現在、再開対象または管理対象となる全資産を棚卸しし、該当なしを含め各資産の処遇を決定する。必要な処置を完了し、意味欠損がないことを独立確認してから基準版更新の完了を表示する。
+- 必須: 現在または再開対象の推論Context、外部コミュニケーション、変更トレース、品質保証、文書化、エージェント案内、アーキテクチャおよび文書監査の利用側を適用判定する。当時の判断・仮説を上書きせず、現在有効な意図を識別し、必須観点が未評価の結果を全体完了と表示しない。
+- 実行環境の意味が保証へ影響する場合に必須: 要求から耐久的確定までの必要段階を特定し、対象Runtime・版・情報源を確認する。確定できなければ未対応／未評価または限定確認へ閉じ、変更した契約と利用側から是正後の回帰確認を導出する。完了済み履歴へ遡及適用せず、決定的なローカル変更へ小規模実測を一律要求しない。
+- 条件付き: Project Runtime採用時はRepository Bindingと認証済みLocal Principalを確認し、耐久Queueとexact Recovery Identityを使用する。Project RuntimeのRelease Gateが成立するまでv0.18.1のSingle Task commandを維持する。Project Runtimeを有効化しないProjectにRuntime移行は不要である。
+- 不要: 完了済み成果物の遡及改稿、専用の推論File／Database、新しい監査種別、ブランドアイコンのUI組込み、または既存商標許可の変更。
+- 切戻し／復旧: 有効化したProject Runtimeから戻す前に新しいObjectiveを停止し、exact Task、Candidate、Queue、DecisionおよびRecovery義務をすべて解消する。観測不能の根拠は保持し、cloneまたはsubmoduleを公式v0.18.1 tagへ一つの配布物として戻す。
+- 延期時の既知リスク: 現在作業で判断に必要なContextを失い、準備状態を過大表示し、または部分接続のProject Runtimeを完成扱いする可能性がある。Runtime利用者が競合作業を開始したり、exact Recovery義務を放棄したりする可能性もある。
+- 検証: 最終候補は、一つの固定改訂版に対するRepository全体Checker、決定論的試験、実Process試験、認証済みMCP、取消、親Process喪失、Recovery settlementおよび対話／スケジュール競合の根拠を必要とし、その後に独立レビューと適用する監査を行う。Provider／署名E2EはRuntime実行Identityが変わる場合または最終Runtime候補固定時だけ要求する。
+- 既知の制限: v0.19.0の責務は単一Repository／単一Projectに限定する。複数Projectのスケジュール、Linux／macOSでの利用可能性、常設自律Service、普遍的推論Schemaまたは第三者ブランド権利の法的確認を成立させない。
 
 <a id="changelog-v0181-ja"></a>
 

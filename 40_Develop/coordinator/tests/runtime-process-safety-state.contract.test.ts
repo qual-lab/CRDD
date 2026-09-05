@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 
 import {
   beginRuntimeProcessEffectDrain,
+  createRuntimeProcessRecoveryIdentity,
   createIsolatedRuntimeProcessSafetyStateCandidate,
   describeRuntimeProcessSafetyStateContract,
   endRuntimeProcessEffectDrain,
+  getRuntimeProcessInstanceIdentity,
+  inspectRuntimeProcessRecoveryIdentity,
 } from "../src/core/runtime-process-safety-state.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../src/security/coordinator-task-runtime.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "../src/security/external-send-grant-runtime.ts";
@@ -22,6 +26,57 @@ test("対話cleanup不明は同一Process stateを不可逆にpoisonする", () 
   firstProcess.poisonInteractiveCleanup();
   assert.equal(firstProcess.isPoisoned(), true);
   assert.equal(restartedProcess.isPoisoned(), false);
+});
+
+test("runtime_process回復Identityはattemptとoperationへ結合されfresh Processだけを識別する", () => {
+  const attemptId = "attempt-a";
+  const operationId = "operation-a";
+  const current = createRuntimeProcessRecoveryIdentity(attemptId, operationId);
+  assert.equal(
+    inspectRuntimeProcessRecoveryIdentity(current, attemptId, operationId)
+      ?.processIdentity,
+    getRuntimeProcessInstanceIdentity(),
+  );
+  assert.equal(
+    inspectRuntimeProcessRecoveryIdentity(current, "attempt-b", operationId),
+    null,
+  );
+  assert.equal(
+    inspectRuntimeProcessRecoveryIdentity(
+      current.replace(/.$/u, current.endsWith("0") ? "1" : "0"),
+      attemptId,
+      operationId,
+    ),
+    null,
+  );
+  const moduleUrl = pathToFileURL(
+    path.join(
+      import.meta.dirname,
+      "..",
+      "src",
+      "core",
+      "runtime-process-safety-state.ts",
+    ),
+  ).href;
+  const fresh = execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `import {createRuntimeProcessRecoveryIdentity} from ${JSON.stringify(moduleUrl)}; process.stdout.write(createRuntimeProcessRecoveryIdentity(${JSON.stringify(attemptId)}, ${JSON.stringify(operationId)}));`,
+    ],
+    { encoding: "utf8", windowsHide: true },
+  );
+  const inspectedFresh = inspectRuntimeProcessRecoveryIdentity(
+    fresh,
+    attemptId,
+    operationId,
+  );
+  assert.ok(inspectedFresh);
+  assert.notEqual(
+    inspectedFresh.processIdentity,
+    getRuntimeProcessInstanceIdentity(),
+  );
 });
 
 test("Host failure drainは所有tokenだけで解除でき既存poisonを消さない", () => {

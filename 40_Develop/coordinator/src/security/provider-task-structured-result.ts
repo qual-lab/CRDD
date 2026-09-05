@@ -1,14 +1,14 @@
 import { createHash } from "node:crypto";
 
 import {
-  CLAUDE_TASK_MAXIMUM_TURNS,
+  CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
   planClaudeTaskTurnBudget,
 } from "./claude-execution-plan.ts";
 import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 14;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 15;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -218,12 +218,16 @@ export function consumeProviderTaskRemediation(remediationCapability: unknown) {
 function structuredValue(
   provider: "codex" | "claude",
   taskRole: "executor" | "reviewer",
-  maximumTurns: number,
+  resultAcceptanceMaximumTurns: number,
   raw: string,
 ) {
   const parsed = parseUnambiguousJsonDocument(raw);
   if (provider === "codex")
-    return Object.freeze({ value: parsed, reason: null });
+    return Object.freeze({
+      value: parsed,
+      reason: null,
+      providerReportedTurns: null,
+    });
   if (!isRecord(parsed))
     return Object.freeze({
       value: null,
@@ -264,7 +268,7 @@ function structuredValue(
       reason: "provider_task_result_turn_count_invalid" as const,
     });
   }
-  if (numberOfTurns > maximumTurns) {
+  if (numberOfTurns > resultAcceptanceMaximumTurns) {
     return Object.freeze({
       value: null,
       reason: "provider_task_result_turn_limit_mismatch" as const,
@@ -277,7 +281,11 @@ function structuredValue(
     });
   }
   if (taskRole === "executor")
-    return Object.freeze({ value: parsed.structured_output, reason: null });
+    return Object.freeze({
+      value: parsed.structured_output,
+      reason: null,
+      providerReportedTurns: numberOfTurns,
+    });
   if (
     typeof parsed.result !== "string" ||
     Buffer.byteLength(parsed.result, "utf8") > MAXIMUM_RAW_BYTES
@@ -289,6 +297,7 @@ function structuredValue(
   const reviewerValue = parseUnambiguousJsonDocument(parsed.result);
   return Object.freeze({
     value: reviewerValue,
+    providerReportedTurns: numberOfTurns,
     reason:
       reviewerValue === null
         ? ("provider_task_result_json_invalid" as const)
@@ -332,7 +341,7 @@ export function normalizeProviderTaskStructuredResult(
   const extracted = structuredValue(
     provider,
     taskRole,
-    turnBudget?.status === "candidate" ? turnBudget.maximumTurns : 0,
+    turnBudget?.status === "candidate" ? turnBudget.hardMaximumTurns : 0,
     raw,
   );
   if (extracted.reason !== null || extracted.value === null) {
@@ -361,7 +370,24 @@ export function normalizeProviderTaskStructuredResult(
         status: "confirmed" as const,
         provider,
         taskRole,
-        normalizedResult: result.normalizedResult,
+        normalizedResult: Object.freeze({
+          ...result.normalizedResult,
+          ...(provider === "claude" &&
+          turnBudget?.status === "candidate" &&
+          typeof extracted.providerReportedTurns === "number"
+            ? {
+                providerTurnObservation: Object.freeze({
+                  provider: "claude" as const,
+                  taskRole,
+                  requestedMaximumTurns: turnBudget.maximumTurns,
+                  providerReportedTurns: extracted.providerReportedTurns,
+                  resultAcceptanceMaximumTurns: turnBudget.hardMaximumTurns,
+                  requestedTurnTargetExceeded:
+                    extracted.providerReportedTurns > turnBudget.maximumTurns,
+                }),
+              }
+            : {}),
+        }),
         rawOutputReported: false,
         untrustedProviderTextReported: false,
         credentialAbsenceVerified: false,
@@ -383,9 +409,11 @@ export function describeProviderTaskStructuredResultContract() {
     providers: Object.freeze(["codex", "claude"]),
     roles: Object.freeze(["executor", "reviewer"]),
     maximumRawBytes: MAXIMUM_RAW_BYTES,
-    claudeMaximumTurns: CLAUDE_TASK_MAXIMUM_TURNS,
-    claudeMaximumTurnsBasis:
-      "same_validated_task_scope_counts_as_execution_plan",
+    claudeResultAcceptanceMaximumTurns: CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
+    claudeResultAcceptanceMaximumTurnsBasis:
+      "runtime_guard_independent_of_provider_requested_turn_target",
+    acceptedClaudeTurnObservation:
+      "requested_target_reported_turns_absolute_acceptance_maximum_and_target_exceeded_after_validation",
     claudeMaximumApiEquivalentCostUsdByEffort: null,
     claudeApiEquivalentCostDisposition:
       "validated_nonnegative_finite_usage_metadata_not_billing_authority",

@@ -14,6 +14,8 @@
 
 [Rust crate](../../40_Develop/platform-access/Cargo.toml)から、固定成果物`crdd-platform-access.exe`を一つだけ生成し、`template/tools/coordinator/windows-x64/`へ同梱する。
 
+crateは`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Release成果物は固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を署名済みmanifestへ含める。言語・Buildの共通規則は[内部ツール・コーディング規約](../99_Coding_Standards.md)、反復手順は[Coordinator RuntimeのWorkflow](../../19_Workflows/01_Coordinator_Runtime.md)を参照する。
+
 ```text
 Coordinatorの用途別Adapter
   → 署名manifest・配布Tree・成果物Hashを検証

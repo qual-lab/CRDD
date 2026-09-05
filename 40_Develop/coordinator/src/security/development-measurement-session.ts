@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,6 @@ import { isRuntimeProcessEffectBlocked } from "../core/runtime-process-safety-st
 import { snapshotCoordinatorTaskRequest } from "./coordinator-task-request.ts";
 import { createDevelopmentMeasurementConstraints } from "./development-measurement-constraints.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
-import { confirmRuntimeOwnedDevelopmentMeasurementUsingConsole } from "./external-send-grant-runtime.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -87,10 +86,8 @@ type NativeVerification = Extract<
 const nativeVerifications = new WeakMap<Identity, NativeVerification>();
 type Dependencies = Readonly<{
   observe: (configuration: Configuration) => Identity | null;
-  confirm: typeof confirmRuntimeOwnedDevelopmentMeasurementUsingConsole;
   wallNow: () => number;
   monotonicNow: () => number;
-  randomChallenge: () => string;
   isEffectBlocked: () => boolean;
   verifyOperation: typeof verifyOwnedOperationManagementCapability;
   borrowRepository: typeof borrowRuntimeOwnedRepositorySource;
@@ -232,7 +229,6 @@ function observeProduction(configuration: Configuration): Identity | null {
     return null;
   const source = inspectFixedDevelopmentCoordinatorPackageCandidate({
     distributionRoot: sourceDistributionRoot,
-    expectedCrddTree: configuration.expectedTree,
     expectedPackageContentRootSha256:
       configuration.expectedPackageContentRootSha256,
   });
@@ -385,49 +381,13 @@ function createSessionRuntime(dependencies: Dependencies) {
           signal,
           closed: false,
         };
-        if (observe(session)?.result.status !== "recorded")
-          return blocked("development_measurement_preconfirmation_changed");
-        const challenge = dependencies.randomChallenge();
-        if (!/^[0-9]{6}$/u.test(challenge))
-          return blocked("development_measurement_challenge_invalid");
-        const notice = `開発版の限定実測（正式Releaseの署名を代替しません）\n${JSON.stringify(
-          {
-            repositoryRoot: configuration.repositoryRoot,
-            sourceCommit: configuration.expectedCommit,
-            sourceTree: configuration.expectedTree,
-            packageSha256: configuration.expectedPackageContentRootSha256,
-            nativeManifestHash:
-              configuration.expectedNativeRelease.manifestHash,
-            bindingSha256,
-            expiresAt: new Date(configuration.expiresAtMs).toISOString(),
-            maximumTasks: 2,
-            maximumCliInvocations: 8,
-            taskRetryAllowed: false,
-            subscriptionOnly: true,
-            apiKeyFallbackAllowed: false,
-            purchasesAllowed: false,
-            tasks: configuration.tasks.map((task) => ({
-              request: task.request,
-              executor: task.executor,
-              reviewer: task.reviewer,
-            })),
-          },
-          null,
-          2,
-        )}\n対象範囲内で2件を比較し、既存Subscription枠を消費します。対象外の候補清掃・Docker修復・再開は許可しません。`;
-        const confirmation = await dependencies.confirm(
-          notice,
-          challenge,
-          signal,
-        );
-        if (confirmation.status !== "confirmed")
-          return blocked(
-            `development_measurement_confirmation_${confirmation.status}`,
-          );
-        // The console owner returns only after reader/handles/lock cleanup.
-        // No authorization exists during the human wait or failed cleanup.
-        if (observe(session)?.result.status !== "recorded")
-          return blocked("development_measurement_confirmation_stale");
+        const finalObservation = observe(session);
+        if (
+          signal.aborted ||
+          dependencies.isEffectBlocked() ||
+          finalObservation?.result.status !== "recorded"
+        )
+          return blocked("development_measurement_admission_changed");
         const capability = Object.freeze({});
         sessions.set(capability, session);
         return Object.freeze({
@@ -542,15 +502,26 @@ function createSessionRuntime(dependencies: Dependencies) {
       context: object,
       shouldInitializeIfMissing: boolean,
     ) {
+      const session = sessions.get(context);
       const task = taskBindings.get(context);
       const cleanup = cleanupBindings.get(context);
       const binding = task ?? cleanup;
-      if (!binding || binding.settled || (cleanup && shouldInitializeIfMissing))
+      const activeSession = session ?? binding?.session;
+      if (
+        !activeSession ||
+        binding?.settled ||
+        ((session || cleanup) && shouldInitializeIfMissing)
+      )
         return null;
       try {
         let identity: Identity | null = null;
+        if (session) {
+          const observed = observe(session);
+          if (observed?.result.status !== "recorded") return null;
+          identity = observed.identity;
+        }
         if (task) {
-          const observed = observe(binding.session);
+          const observed = observe(task.session);
           if (observed?.result.status !== "recorded") return null;
           identity = observed.identity;
         }
@@ -558,18 +529,17 @@ function createSessionRuntime(dependencies: Dependencies) {
         // owning resource lifecycle still authorizes every exact mutation.
         if (cleanup) {
           if (dependencies.isEffectBlocked()) return null;
-          identity = binding.session.timing.measureIdentity(() =>
-            dependencies.observe(binding.session.configuration),
+          identity = cleanup.session.timing.measureIdentity(() =>
+            dependencies.observe(cleanup.session.configuration),
           );
-          if (digest(identity) !== digest(binding.session.identity))
+          if (digest(identity) !== digest(cleanup.session.identity))
             return null;
         }
         if (!identity) return null;
         return Object.freeze({
           identity,
-          distributionRoot:
-            binding.session.configuration.nativeDistributionRoot,
-          expectedRelease: binding.session.configuration.expectedNativeRelease,
+          distributionRoot: activeSession.configuration.nativeDistributionRoot,
+          expectedRelease: activeSession.configuration.expectedNativeRelease,
           executionSourceKind: "fixed_development_candidate" as const,
         });
       } catch {
@@ -668,10 +638,8 @@ function createSessionRuntime(dependencies: Dependencies) {
 const productionRuntime = createSessionRuntime(
   Object.freeze({
     observe: observeProduction,
-    confirm: confirmRuntimeOwnedDevelopmentMeasurementUsingConsole,
     wallNow: Date.now,
     monotonicNow: () => performance.now(),
-    randomChallenge: () => randomInt(0, 1_000_000).toString().padStart(6, "0"),
     isEffectBlocked: isRuntimeProcessEffectBlocked,
     verifyOperation: verifyOwnedOperationManagementCapability,
     borrowRepository: borrowRuntimeOwnedRepositorySource,

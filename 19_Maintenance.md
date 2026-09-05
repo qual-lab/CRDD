@@ -2,10 +2,10 @@
 
 # CRDD標準の保守（Maintenance）
 
-Version: v0.18.1
+Version: v0.19.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-09-01
+Last Updated: 2026-09-05
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -267,7 +267,11 @@ Issue、作業、変更トレース等から変更を実行する前に、次を
 
 保守作業の既定のFilesystem Effect範囲は現在のリポジトリだけとする。現在のリポジトリはタスク対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定し、Current Working DirectoryやTool／package Directoryを代用しない。Repository-local `.crdd`、試験一時物および生成物はこのRootを基準に配置し、subdirectoryから実行しても別のProject-local Rootを生成しない。Release staging、Git worktree、archive、log、試験一時物またはRuntime診断物であっても、親Directory、兄弟Repository、別RepositoryまたはOS一時Directoryへ暗黙に作成しない。リポジトリ外Rootが必要な場合は、[変更の安全性](01_Principles.md#56-change-safety)に従い、事前許可済みの用途限定Rootまたは人間が今回承認したexact Rootへ限定し、Operation所有、保持、cleanup、Recoveryおよび残存確認を同じ実行契約へ含める。
 
+安全のために退避したDirectory、隔離物または回復Evidenceは、削除しなかったことだけを終端条件にしない。意味を保持する耐久Evidenceと物理的な退避物を区別し、後者には所有Operation、exact Identity、未解決Recoveryからの参照、削除可能になる条件、保持期限または件数上限、清掃の発火点、失敗時の再入場および終了後の不存在観測を定義する。正常終了後も永久保持を既定にせず、回復義務が解消し、必要Evidenceが別の耐久記録へ保持され、対象が現在利用中でなく、Identityをexactに再確認できる場合だけ、用途限定Authorityで清掃できる。由来不明、参照中、Identity不一致または観測不能では削除せず、容量上限と必要な人間処置を示して停止する。時間や名前だけの自動削除、最古順の削除、別Operationの退避物の巻込みを行わない。
+
 編集計画と変更トレースは、工程、ファイル、コミット、確認者または個別指摘ごとに分解せず、[変更](12_Change.md)が定める変更意図を一次のまとまりとする。同じ未リリース意図に属する不足、回帰または利用側漏れは、原因契約を所有するCHGを再開して同じ検証・移行・切戻し・リリース境界で是正する。公開済み変更の訂正、または独立して採否、移行、切戻しもしくはリリースできる別意図だけを別CHGへ分ける。
+
+Qual-Lab / CRDD公式リポジトリの非自明な変更は、`main`から作成した一つの作業用featureブランチ内で、正本、実装、試験、移行、変更トレース、配布内容および必要なRelease manifestまで完成させ、一つのプルリクエストで`main`へ統合する。実行環境の名前空間prefixは付けてよいが、`develop`、`release/*`その他の多段統合用ブランチを設けない。Release manifestが自己参照を避ける場合は、署名対象のSource A、manifestだけを加えたCarrier B、および署名後にしか確定できない検証結果・状態遷移だけを加えたFinal Candidate Cを同じfeatureブランチ内で作成・検証する。AからBのManifestは対象ToolのWorkflowが所有する専用昇格入口で不透明なbyte列として配置し、手動編集、整形またはtext変換を挟まない。AからBはmanifest一件だけ、BからCはRelease計画で事前に列挙した文書の閉集合だけに限定し、Runtime実行Identityを変えない。Cを先端とする一つのプルリクエストを内容変更なしで`main`へ統合し、統合後の`main`がexact C Commit／Treeであることを確認してCへ公式tagを付ける。一致しない場合はtagを付けず、`main`上で内容を継ぎ足したり、manifest更新だけの別ブランチまたは別プルリクエストを作ったりしない。この運用プロファイルはCRDD公式リポジトリだけに適用し、採用リポジトリへ同じブランチ名、Commit数またはプルリクエスト構成を要求しない。
 
 非自明／軽微の操作条件、着手前整合確認の開始条件、専門観点の委譲、簡潔運用、結果の統合、および完成後確認との境界は[エージェント](10_Agent.md#pre-execution-alignment-check)を正本とする。CRDD標準の変更では、所有する正本文書、直接参照、ひな型、AI入口、公開案内、準拠基準、移行への影響候補を必要な範囲で確認する。別の計画書、承認段階またはすべての監査の事前実行を追加しない。
 
@@ -276,6 +280,10 @@ Issue、作業、変更トレース等から変更を実行する前に、次を
 作業中に対象範囲外変更、より重大な分類、決定権限競合、複数解釈可能な人間の判断、未確認移行、基準版変更、セキュリティ／プライバシー／法的リスク、必要アクセス権不足を検出した場合は、安全に取得した結果を残して停止または再整理する。
 
 複数の指摘または合意事項を一括して適用する場合は、編集計画の一次キーを編集の識別子とする。検索文字列の一意性検証を計画の組織原理にしない。挿入、置換、削除、移動を編集の種別として区別し、挿入型の編集にも挿入位置を一意に特定する目印を与えて、置換型と同じ検証にかける。指摘の識別子と編集の識別子の全数対応を、適用開始前に突き合わせる。指摘に対応する編集がない場合と、編集に対応する指摘がない場合の双方を検出する。ある編集が削除または変更する文字列を別の編集が目印に使う場合は、依存関係から適用順を定め、再測定の結果だけで順序を決めない。
+
+監査またはレビューと是正方針を合意する場合は、抽象的な処置名だけで開始条件を満たしたと扱わない。状態、資源、分岐または利用側ごとの期待結果、実装上の所有者または適用先、反証例と確認方法、変更禁止範囲および根拠を、必要な粒度で同じ条件集合へ具体化する。適用後は、各条件から実装または適用先、該当する全利用側、反証試験または理由付き非該当、根拠へ到達できることと、実際の変更および追加試験が合意条件または承認済み影響処置へ戻れることを双方向に確認する。利用側が存在しない場合は、空の母集団である理由を示せばよい。専用の表、IDまたは新しい管理成果物は要求せず、既存の計画、変更トレース、監査記録またはEvidenceから再構成できればよい。
+
+責務または判定を一つの所有者へ統合する是正では、新しい所有者を追加したことだけを完了根拠にしない。置換対象となる旧所有者、分岐固有の重複判定、旧Schemaおよび旧利用経路を対象母集団へ含め、削除、委譲、理由付き据置きの処置を全数確認する。単一の成功条件へ統合する場合は、成功を返すすべての分岐が同じ最終判定を通り、別経路から成功を生成できないことを確認する。試験件数やcoverage率はこの確認を代替しない。合意した状態、入力形状、利用側、故障点および観測結果の有限集合から必要な検証項目を導出し、未対応項目、対応先のない変更および実際の検証根拠を持たない完成主張が0であることを固定候補前に逆向きにも照合する。
 
 一つの指摘、根本原因または合意事項が複数箇所へ及ぶ場合、指摘と編集の対応だけで計画を閉じない。[エージェントの複数箇所へ及ぶ是正対象の列挙と照合](10_Agent.md#multi-location-remediation)に従い、元の指摘事項の意味を保持し、契約母集団と利用側母集団を分けて具体的な影響箇所を列挙する。
 
@@ -286,6 +294,10 @@ Issue、作業、変更トレース等から変更を実行する前に、次を
 修正後は、契約母集団と利用側母集団、受入条件、合否判定方法、新しい根拠、同一固定改訂版の独立再レビュー、現在状態への伝播を含む解消条件を照合してから、更新改訂版を再レビューへ渡す。
 
 同じ根本原因が再発し、局所修正では収束しない場合は、個別編集を継ぎ足さず、契約の決定権限、共通生成器、判定方法および利用側接続を対象とする構造是正へ戻す。
+
+変更適用後または是正後に確認した指摘事項は一つの排他的な原因名へ丸めず、必要に応じて、根本原因、事前に合理的に予測できたか、検出した工程、および是正を契機に追加確認された指摘・是正の量を別軸で保持する。追加確認されたものは、是正起因の回帰、既存の見落とし、修正により初めて確認可能になったもの、および承認済み範囲の拡大により確認対象になったものを既存の再レビュー分類に従って区別し、是正との因果を捏造しない。根本原因には要求、結合設計、実行環境の意味、実装または検証の不足等を含められる。予測可能性は事前に仕様・既存根拠・小規模実測から導出できた不足と、実Systemでのみ合理的に観測できた差を区別する。同じFindingが複数軸に該当してよく、最後に検出した工程だけを原因へ読み替えない。固定Schemaや全変更への数値記録は要求しない。
+
+是正前には、元の指摘、根本原因および直接変更する箇所だけでなく、変更する契約、状態、Authority、Identity、Effect、回復、永続化、公開投影または利用者経路から、影響し得る回帰面と必要な再検証を導出する。変更ファイル一覧だけを影響範囲の根拠にせず、是正によって新設・変更される意味と利用側を照合する。独立レビューまたは実環境E2Eを、この是正影響分析の最初の実施場所にしない。逆に、事前に合理的に導出できない実環境差を検出したこと自体は設計失敗とせず、次回に予測可能な契約・回帰確認へ還元できるかを評価する。
 
 Dogfooding、移行または別経路の完成によってCurrent Stateが変わり、以前のArchitecture候補、公開入口、永続状態または準備操作と同じ利用者成果を別経路が満たすようになった場合は、旧候補の実装継続を自動的な残件にしない。現在のconsumer、代替不能性、運用費用、追加するStateful Surfaceおよび削除時に失う保証を再評価し、不要なら現行正本、公開面、実装、試験およびロードマップから除去する。将来必要になり得ることだけを現行公開面へ残す理由にせず、再評価条件を満たした時点で新しい責務境界から設計する。
 
@@ -325,33 +337,18 @@ CRDD公式GitHubリポジトリでは対象リリースごとのマイルスト�
 
 <a id="33-internal-typescript-runtime"></a>
 
-## 3.3. CRDD内部実装のTypeScript／Rust境界
+## 3.3. Tool固有契約の所有境界
 
-CRDD公式リポジトリが所有する内部Scriptは、既存の責務別フォルダ配置を維持したまま`.ts`を標準とする。実行にはNode.js 24.12 LTS以上のネイティブTypeScript型除去を使用し、Runtime依存として`tsx`、`ts-node`、Babel、Bundlerまたは専用の変換packageを要求しない。実行コードはESM、Node.js組込み機能および`import type`を基本とする。
+CRDD標準の保守は、内部Toolの変更分類、追跡、統合、移行およびリリース判断を所有する。特定の言語、OS、Runtime、Provider、Credential領域、Process、署名成果物または検証手段の成立方式を、本書の保守Lifecycleへ混在させない。
 
-Coordinator Runtime 1.0の最小信頼境界（Minimum Trust Boundary）では、正常に動作するOSの認証、Filesystem、process、AppContainerおよび署名検証機能と、OSが認証した選択ローカル対話ユーザーを信頼計算基盤（Trusted Computing Base、TCB）として扱う。人間は真正性を確認した公式署名済みCRDD Releaseの公開Coordinator入口からTaskを開始しなければならず（MUST）、Runtimeは外部Effect前に署名manifest、Repository Revisionおよび同梱した単一のプラットフォームアクセス成果物を検証しなければならない（MUST）。同一ローカルユーザー、machine Administrator／SYSTEM、kernel、OSまたはVerifierが悪意を持ち、起動前置換、検査回避、debugger、injection等によってこの前提自体を破る攻撃への完全なtamper resistanceはCoordinator Runtime 1.0の保証対象外とする。ただし、別ローカルユーザー、Repository内容、Provider／workerとその出力、Network入力、未検証artifact、未検証Authority／Revisionおよびcaller supplied Pathは信頼対象へ昇格せず、観測可能なIdentity差または判定情報不足では処置前にfail closedとしなければならない（MUST）。この対象外境界を、署名manifest、artifact／Provider／Repository／Revision Identity、Authority、Provider Home、Egress、隔離、Process Effectまたは終了確認の省略根拠にしてはならない（MUST NOT）。悪意ある同一ユーザー、Administrator、kernelまたはOS侵害への耐性が必要になった場合は、OS保護済みbootstrap、managed install root、実行制御またはhardware-backed trustを別のHardened／Managed変更として再評価する。
+- 実装言語、命名、型、依存、静的検査およびBuild規則は、[内部ツール・コーディング規約](06_Architecture/99_Coding_Standards.md)が所有する。
+- Runtimeの信頼境界、Authority、資源、Provider Home、Mount Grant、Process、回復および署名Identityは、対象Toolの[アーキテクチャ](06_Architecture/01_Architecture.md)と脅威モデルが所有する。
+- 利用、開発確認、Build、署名および発行の反復可能な操作手順は、対象Toolの[Workflow](19_Workflows/01_Coordinator_Runtime.md)が所有する。
+- 検証義務、正常・準正常・異常、Fakeと実環境の証明範囲および現在の結果は、[品質保証](16_Quality_Assurance.md)と対象の検証設計・結果が所有する。
 
-OS APIへ安全に接続するためTypeScriptだけでは閉じない最小のプラットフォームアクセス部は、CRDD本体、一般CLI、Policyおよび契約をTypeScriptに保持したまま、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。Rust成果物は公開CLIや永続準備Lifecycleを所有せず、現在のOperationが要求する固定protocolの読み取り専用OS観測だけを実行する。この限定は内部Script一般をRustへ移す根拠、採用RepositoryへRustを要求する規則、独立製品または公開CLIの新設にはしない。BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やbuild orchestrationとして新設せず、Cargo commandを責務別の開発入口から直接実行する。
+Tool固有の実装方式から得た一般原則は、適用範囲、非発火例および既存正本との重複を確認した場合だけCRDD共通規範へ昇格する。単一Toolの現在実装、固定Path、期間、protocol、検証commandまたは技術選定を、CRDD全体または採用Repositoryの保守要件へ一般化しない。
 
-Rust製プラットフォームアクセス部（Rust platform-access crate）は、`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定し、`rustfmt --check`、ClippyのWarning拒否、`cargo test`、locked release buildおよび固定`llvm-tools-preview`によるcoverageを別々の確認軸にする。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測とセキュリティ判断上の検証義務（Security Decision Obligation）、未到達経路、残存risk、Ownerおよび再確認契機を分けて記録する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Release成果物は固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を署名済みmanifestへ含める。上限付きプロセス（Bounded Process）は、固定argv、環境、入出力、時間および成果物Identityを制限した内部process境界を指す。ただし署名manifestの成果物観測だけでは、前項で対象外としたTCB侵害に対する実行イメージの継続的同一性を保証しない。通常RuntimeのProcess Adapterは、最小信頼境界内で固定Release Trust、artifact／Provider Identity、Authority、Repository／Revision、Provider Home、Egress、隔離および終了確認を実装・検証するまではprocessを起動せず、入力Pathまたはhelper processより前に`blocked`へ閉じる。将来上限付きプロセスを導入しても、Root保護、Authority、CapabilityまたはEffectの成立へ流用しない。
-
-Provider processのライフサイクルはTypeScriptが所有し、固定Digest image、exact Provider CLI versionおよび自動更新停止を管理対象依存として扱う。shell、PATH、Host既定Home、Host CLIまたはAPI keyへfallbackせず、更新時はimage／CLI Identity、利用側、検証および復旧を再評価して人間が有効化する。caller suppliedの合成Fake観測候補による状態遷移、timeout、cancel、出力上限またはprocess tree不存在claimの評価を、Fake process実行、実Provider認証、Egress、subscription条件、Operation Authority、CapabilityまたはRelease成立へ流用しない。
-
-動的Fake Providerライフサイクル観測（Dynamic Fake Provider Lifecycle Observation）は、Repository所有の固定Docker Adapterが同じrunで観測した固定image、結果正規化、container／process tree不存在およびcleanupに限定する。plain object、Provider出力または合成claimから観測来歴を再構成せず、診断用Docker／一時Filesystem Effectと実Provider／Network／Operation Effectを分離する。Fake限定観測を実Provider readiness、OAuth、quota、Authority、Capability、GateまたはRelease成立へ流用しない。通常診断の同期process境界は実行中cancelを処理できず、timeoutをcancelと読み替えない。固定Fake専用の非同期取消検証を追加する場合も、固定signalの受領、Fake container内process終了、ホスト側Docker CLI attachプロセス（Host Docker CLI Attach Process）のclose、container不存在およびHost cleanupを同じrunで確認する。異常経路のHost側processは一つの所有境界で終了要求をexact 1回に制限し、close不明をcontainer cleanupで代用しない。通常診断、任意signal、実ProviderまたはOperationの取消Capabilityへ流用しない。
-
-専用Provider Home保護基盤（Dedicated Provider Home Protection Foundation）は、Windowsのlocal user＋Provider単位の永続Home方針、固定配置候補および読み取り専用のRuntime所有観測契約をTypeScriptに保持し、OS観測だけをprivate Rust platform-accessへ限定する。caller supplied Windows絶対Pathは非Authorityな字句候補に限り、Runtime observerのrequestへPath、SID、ACL、Profile IDまたはOperation IDを含めてはならない（MUST NOT）。observerはWindows既知フォルダーのローカルアプリデータ（Windows Known Folder local app data）からRootを独立取得し、固定`Qual-Lab/CRDD/ProviderHomes/{codex|claude}`を現在processのlocal interactive primary token、同じlogin session、Root handle／Identity、local fixed volume、全固定segmentのnon-link／non-reparse、selected user ownerおよびprotected DACLへ結合しなければならない（MUST）。Provider Homeのwrite-capable ACEはselected userとSYSTEMの継承付きFull Controlだけに限定し、別writer、未保護DACL、identity差または情報不足では修復せずfail closedとする。結果はProvider、nonce、既知flagおよびProvider Home Identity／保護／local user bindingのdomain-separated Hashだけへ限定し、Path、SID、login LUID、ACLまたはCredential内容を返してはならない（MUST NOT）。固定署名manifest、release artifactの起動前後一致および上限付きprocess終了を同じRuntime invocationで確認できない場合は観測Capabilityを発行しない。観測Capabilityはprocess-local、opaque、短命かつ一回限りとし、単独でAuthority、Operation Capability、Mount Grant、mount、loginまたはProvider spawnを成立させてはならない（MUST NOT）。observerはHome作成またはDACL修復を行わず、明示bootstrap Effect、回復、logout／revoke／削除は別Lifecycleとして再評価する。
-
-Runtime所有Provider Homeマウント許可（Runtime-owned Provider Home Mount Grant）は、同じOperation世代のopaque management Capabilityと、一回限りのRuntime所有Provider Home観測Capabilityからだけ発行しなければならない（MUST）。caller supplied Operation ID、観測Hash、時刻、Path、SID、ACLまたはCredential値を発行Authorityとして受理してはならない（MUST NOT）。Grantはprocess-local atomic store、Runtime所有の壁時計と単調時計、暗号学的乱数参照、最長5分および使用上限1回へ固定し、Provider、Profile、Operation、Provider Home Identity／保護状態およびselected local user bindingを結合する。発行control、使用useおよび消費後mount authorizationのaliasは分離し、use時にfreshなRuntime所有観測を再結合し、Operation終了時またはmount完了後の取消では全aliasとrecordを失効しなければならない（MUST）。process restartではGrantを永続復元せず全て失ってfail closedとし、active mount／container／Operation Filesystemの回復は別のDocker／Host Recovery契約が所有する。Mount AuthorizationはProvider Home Path、token、session、Credential、一般Runtime AuthorityまたはOperation Capabilityを含まず、実mount／unmount、Filesystem Effect、Provider spawnおよびcleanup確認が未成立なら実行可能へ昇格してはならない（MUST NOT）。
-
-ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path alias、またはcompiler変換を前提とする構文を内部Scriptへ導入しない。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
-
-開発時の静的LintとFormatterには、Repository rootの`biome.json`でversionと規則を固定したBiomeを使用する。Biomeは開発依存に限定し、Runtime成果物または実行時依存へ含めない。Lint、Formatter確認、TypeScript型検査およびRuntime testは別の確認軸として実行し、一つの成功を他の成功へ流用しない。既存Scriptへ一括自動修正を適用せず、TypeScriptへ移す単位ごとに整形と意味回帰を確認する。
-
-`.mjs`、`.cjs`または`.js`を残す場合は、bootstrapまたは外部互換等の明示理由と適用範囲を変更トレースへ記録する。移行途中であること自体は恒久例外の理由にしない。拡張子の変更によってfolder、決定権限、公開範囲、package境界または単独配布の可否を変更しない。
-
-Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ同義に固定する。特定のversion managerは要求しない。利用者または採用側へ見える拡張子、実行command、参照Pathを変更する場合は、変更トレースで利用側、移行、停止および復旧を示し、基準版の採用やリリースを別判断として扱う。
-
-CRDD公式Repositoryの`40_Develop/**`と配布用実装の具体的な命名、試験名および曖昧名の禁止は[内部ツール・コーディング規約](06_Architecture/99_Coding_Standards.md)を単一正本とする。
+Tool固有規則を変更して利用者または採用側へ見える拡張子、実行command、参照Pathその他の接続が変わる場合は、変更トレースで利用側、移行、停止および復旧を示す。基準版の採用とリリースは、実装規則の変更とは別の判断として扱う。
 
 <a id="34-essential-correction-and-compatibility-boundary"></a>
 

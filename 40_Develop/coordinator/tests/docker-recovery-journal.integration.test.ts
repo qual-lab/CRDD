@@ -20,6 +20,7 @@ import {
   resumeDockerRecoveryJournalDirectoryForRecovery,
   resumeDockerRecoveryJournalDirectory,
   writeCommittedDockerRecoveryJson,
+  writeOrResumeCommittedDockerRecoveryJson,
 } from "../src/security/docker-recovery-journal.ts";
 
 const scopedRuntimeStateBinding = Object.freeze({
@@ -463,6 +464,37 @@ test("target rename直後のprocess killは未commit finalを保持してFail Cl
       /docker_task_recovery_commit_missing/u,
     );
     assert.equal(fs.existsSync(target), true);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("exactなcreate側はcontent rename後のprocess killから同じpairを完成できる", () => {
+  const directory = temporaryDirectory();
+  try {
+    const child = crashWriter(directory, "rename-1");
+    assert.notEqual(child.status, 0);
+    const resumed = writeOrResumeCommittedDockerRecoveryJson(
+      directory,
+      "record.json",
+      "record.json",
+      { schema: "fixture/v1", value: true },
+    );
+    assert.deepEqual(resumed.value, { schema: "fixture/v1", value: true });
+    assert.deepEqual(
+      readCommittedDockerRecoveryJson(resumed.target).value,
+      resumed.value,
+    );
+    assert.throws(
+      () =>
+        writeOrResumeCommittedDockerRecoveryJson(
+          directory,
+          "record.json",
+          "record.json",
+          { schema: "fixture/v1", value: false },
+        ),
+      /docker_recovery_record_create_mismatch/u,
+    );
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }

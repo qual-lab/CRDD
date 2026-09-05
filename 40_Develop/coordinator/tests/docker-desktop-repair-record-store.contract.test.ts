@@ -7,19 +7,19 @@ import test, { type TestContext } from "node:test";
 
 import {
   canCreateDockerDesktopRepairOperation,
+  classifyDockerDesktopRepairResume,
   createDockerDesktopRepairOperation,
-  describeDockerDesktopRepairRecordStoreContract,
-  hasDockerDesktopRepairRecordCapacity,
-  inventoryDockerDesktopRepairOperations,
-  persistDockerDesktopRepairStage,
+  type DockerDesktopRepairHistoryVerifier,
   type DockerDesktopRepairLedgerSnapshot,
   type DockerDesktopRepairOperation,
-  type DockerDesktopRepairHistoryVerifier,
+  describeDockerDesktopRepairRecordStoreContract,
+  hasDockerDesktopRepairRecordCapacity,
   inspectDockerDesktopRepairHistoricalOperation,
+  inventoryDockerDesktopRepairOperations,
+  parseDockerDesktopRepairDirectoryName,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
-  classifyDockerDesktopRepairResume,
-  parseDockerDesktopRepairDirectoryName,
+  persistDockerDesktopRepairStage,
 } from "../src/security/docker-desktop-repair-record-store.ts";
 import { inspectDockerRecoveryRootSnapshotWithLock } from "../src/security/docker-recovery-runtime-internal.ts";
 
@@ -205,6 +205,8 @@ function historyFixture(t: TestContext) {
         manifestHash: target.crddManifestHash,
         releaseSequence: target.crddReleaseSequence,
         runtimeExecutionIdentitySha256: target.runtimeExecutionIdentitySha256,
+        crddTree: "d".repeat(40),
+        packageContentRootSha256: "e".repeat(64),
       }
     );
   };
@@ -217,6 +219,89 @@ function historyFixture(t: TestContext) {
     verifyHistory,
   };
 }
+
+function historyPreparationPath(
+  operationDirectory: string,
+  targetName: string,
+) {
+  return path.join(
+    operationDirectory,
+    `.crdd-history-${createHash("sha256").update(targetName).digest("hex")}.prepare`,
+  );
+}
+
+function leaveHistoryPublicationState(
+  operationDirectory: string,
+  targetName: string,
+  state: "prepare_only" | "published_residue" | "foreign_copy",
+) {
+  const target = path.join(operationDirectory, targetName);
+  const preparation = historyPreparationPath(operationDirectory, targetName);
+  if (state === "foreign_copy") fs.copyFileSync(target, preparation);
+  else fs.linkSync(target, preparation);
+  if (state === "prepare_only") fs.unlinkSync(target);
+  return { target, preparation };
+}
+
+test("revision 4の終了前修復記録は署名済み旧releaseの履歴としてのみ再構成できる", (t) => {
+  const base = fixture(t);
+  const created = createDockerDesktopRepairOperation(
+    base.boundary,
+    { dev: "1", ino: "2", birthtimeNs: "3" },
+    base.ledger,
+  );
+  const current = persistRecord(
+    base.boundary,
+    created,
+    "prepared",
+    base.ledger,
+  );
+  assert.ok(current);
+  const recordPath = path.join(
+    current.operationDirectory,
+    "repair-00-prepared.json",
+  );
+  const parsed = JSON.parse(fs.readFileSync(recordPath, "utf8"));
+  const { runtimeExecutionIdentitySha256: _removed, ...legacy } = parsed;
+  fs.writeFileSync(
+    recordPath,
+    `${JSON.stringify({
+      ...legacy,
+      contractRevision: 4,
+      crddTree: "a".repeat(40),
+      packageContentRootSha256: "b".repeat(64),
+    })}\n`,
+  );
+  const nextBoundary = {
+    ...base.boundary,
+    crddManifestHash: "c".repeat(64),
+    crddReleaseSequence: 2,
+    runtimeExecutionIdentitySha256: "d".repeat(64),
+  };
+  const originManifest = { release: "v0.18.0" };
+  const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) =>
+    value === originManifest
+      ? {
+          manifestHash: base.boundary.crddManifestHash,
+          releaseSequence: base.boundary.crddReleaseSequence,
+          runtimeExecutionIdentitySha256: null,
+          crddTree: "a".repeat(40),
+          packageContentRootSha256: "b".repeat(64),
+        }
+      : null;
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(nextBoundary, verifyHistory).status,
+    "unknown",
+  );
+  const inspected = inspectDockerDesktopRepairHistoricalOperation(
+    nextBoundary,
+    current.repairId,
+    originManifest,
+    verifyHistory,
+  );
+  assert.equal(inspected?.repairId, current.repairId);
+  assert.equal(inspected?.stage, "prepared");
+});
 
 test("historical adoption keeps original bytes, ID and stage; ordinary current-version inventory stays strict", (t) => {
   const value = historyFixture(t);
@@ -279,6 +364,128 @@ test("historical adoption keeps original bytes, ID and stage; ordinary current-v
     "unknown",
   );
 });
+
+for (const state of ["prepare_only", "published_residue"] as const) {
+  test(`修復履歴adoptionは公開途中の${state}から同じID・byteへ再入場する`, (t) => {
+    const value = historyFixture(t);
+    const adopted = persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      value.original,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(adopted);
+    const publication = leaveHistoryPublicationState(
+      adopted.operationDirectory,
+      "historical-adoption.json",
+      state,
+    );
+    assert.equal(
+      inventoryDockerDesktopRepairOperations(
+        value.currentBoundary,
+        value.verifyHistory,
+      ).status,
+      "unknown",
+    );
+    const resumed = persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      value.original,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(resumed?.history);
+    assert.equal(resumed.repairId, value.original.repairId);
+    assert.equal(fs.existsSync(publication.target), true);
+    assert.equal(fs.existsSync(publication.preparation), false);
+    assert.equal(
+      inventoryDockerDesktopRepairOperations(
+        value.currentBoundary,
+        value.verifyHistory,
+      ).status,
+      "verified",
+    );
+  });
+}
+
+test("修復履歴adoptionはbyteが同じでも別fileのprepareを削除せず拒否する", (t) => {
+  const value = historyFixture(t);
+  const adopted = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(adopted);
+  const publication = leaveHistoryPublicationState(
+    adopted.operationDirectory,
+    "historical-adoption.json",
+    "foreign_copy",
+  );
+  const beforeTarget = fs.readFileSync(publication.target);
+  const beforePrepare = fs.readFileSync(publication.preparation);
+  assert.equal(
+    persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      value.original,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    ),
+    null,
+  );
+  assert.equal(fs.readFileSync(publication.target).equals(beforeTarget), true);
+  assert.equal(
+    fs.readFileSync(publication.preparation).equals(beforePrepare),
+    true,
+  );
+});
+
+for (const mutation of ["partial", "directory", "unknown_name"] as const) {
+  test(`修復履歴は不正prepareを変更せず拒否する: ${mutation}`, (t) => {
+    const value = historyFixture(t);
+    const adopted = persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      value.original,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(adopted);
+    const preparation =
+      mutation === "unknown_name"
+        ? path.join(
+            adopted.operationDirectory,
+            `.crdd-history-${"f".repeat(64)}.prepare`,
+          )
+        : historyPreparationPath(
+            adopted.operationDirectory,
+            "historical-adoption.json",
+          );
+    if (mutation === "directory") fs.mkdirSync(preparation);
+    else fs.writeFileSync(preparation, "{");
+    assert.equal(
+      persistDockerDesktopRepairHistoricalAdoption(
+        value.currentBoundary,
+        value.original,
+        value.originManifest,
+        value.adoptingManifest,
+        value.verifyHistory,
+      ),
+      null,
+    );
+    assert.equal(fs.existsSync(preparation), true);
+    assert.equal(
+      inventoryDockerDesktopRepairOperations(
+        value.currentBoundary,
+        value.verifyHistory,
+      ).status,
+      "unknown",
+    );
+  });
+}
 
 test("historical inspection refuses every changed host/user/protection/policy binding and future releases", (t) => {
   const value = historyFixture(t);
@@ -516,7 +723,9 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
     value.verifyHistory,
   );
   assert.equal(inventory.status, "verified");
-  assert.deepEqual(inventory.operations, [closed]);
+  assert.equal(inventory.operations[0]?.repairId, closed.repairId);
+  assert.equal(inventory.operations[0]?.history?.closed, true);
+  assert.equal(inventory.operations[0]?.history?.currentSessionBound, false);
   const completed = inventory.operations[0];
   assert.ok(completed);
   assert.deepEqual(classifyDockerDesktopRepairResume(completed), {
@@ -545,6 +754,418 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
   }
   assert.deepEqual(snapshot(), beforeEntries);
 });
+
+test("修復履歴のsession handoffは8件で閉じ、9件目を記録せず拒否する", (t) => {
+  const value = historyFixture(t);
+  let operation = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(operation);
+  const boundaries = Array.from({ length: 9 }, (_, index) => ({
+    ...value.currentBoundary,
+    localUserBindingHash: createHash("sha256")
+      .update(`desktop-session-${index}`)
+      .digest("hex"),
+  }));
+  for (const boundary of boundaries.slice(0, 8)) {
+    operation = persistDockerDesktopRepairHistoricalAdoption(
+      boundary,
+      operation as DockerDesktopRepairOperation,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(operation);
+  }
+  const before = fs.readdirSync(value.original.operationDirectory).sort();
+  assert.equal(
+    persistDockerDesktopRepairHistoricalAdoption(
+      boundaries[8] ?? value.currentBoundary,
+      operation as DockerDesktopRepairOperation,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    ),
+    null,
+  );
+  assert.deepEqual(
+    fs.readdirSync(value.original.operationDirectory).sort(),
+    before,
+  );
+  assert.equal(
+    before.filter((name) => /^historical-handoff-[0-9]{2}\.json$/u.test(name))
+      .length,
+    8,
+  );
+});
+
+for (const targetKind of ["handoff", "closure"] as const) {
+  for (const state of ["prepare_only", "published_residue"] as const) {
+    test(`修復履歴${targetKind}は公開途中の${state}からexact receiptへ収束する`, (t) => {
+      const value = historyFixture(t);
+      const adopted = persistDockerDesktopRepairHistoricalAdoption(
+        value.currentBoundary,
+        value.original,
+        value.originManifest,
+        value.adoptingManifest,
+        value.verifyHistory,
+      );
+      assert.ok(adopted);
+      const nextBoundary = {
+        ...value.currentBoundary,
+        localUserBindingHash: "d".repeat(64),
+      };
+      const handed = persistDockerDesktopRepairHistoricalAdoption(
+        nextBoundary,
+        adopted,
+        value.originManifest,
+        value.adoptingManifest,
+        value.verifyHistory,
+      );
+      assert.ok(handed);
+      const observation = {
+        liveRunIdentity: { dev: "9", ino: "8", birthtimeNs: "7" },
+        staleState: "retained" as const,
+      };
+      const completed =
+        targetKind === "closure"
+          ? persistDockerDesktopRepairHistoricalClosure(
+              nextBoundary,
+              handed,
+              observation,
+              value.adoptingManifest,
+              value.verifyHistory,
+            )
+          : handed;
+      assert.ok(completed);
+      const targetName =
+        targetKind === "closure"
+          ? "historical-closure.json"
+          : "historical-handoff-00.json";
+      const publication = leaveHistoryPublicationState(
+        completed.operationDirectory,
+        targetName,
+        state,
+      );
+      assert.equal(
+        inventoryDockerDesktopRepairOperations(
+          nextBoundary,
+          value.verifyHistory,
+        ).status,
+        "unknown",
+      );
+      const resumed =
+        targetKind === "closure"
+          ? persistDockerDesktopRepairHistoricalClosure(
+              nextBoundary,
+              handed,
+              observation,
+              value.adoptingManifest,
+              value.verifyHistory,
+            )
+          : persistDockerDesktopRepairHistoricalAdoption(
+              nextBoundary,
+              adopted,
+              value.originManifest,
+              value.adoptingManifest,
+              value.verifyHistory,
+            );
+      assert.ok(resumed);
+      assert.equal(fs.existsSync(publication.target), true);
+      assert.equal(fs.existsSync(publication.preparation), false);
+      assert.equal(
+        inventoryDockerDesktopRepairOperations(
+          nextBoundary,
+          value.verifyHistory,
+        ).status,
+        "verified",
+      );
+    });
+  }
+}
+
+test("修復履歴の公開済みtargetと同一fileの準備残存は対象限定persistだけが収束する", (t) => {
+  const value = historyFixture(t);
+  const adopted = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(adopted);
+  const publication = leaveHistoryPublicationState(
+    adopted.operationDirectory,
+    "historical-adoption.json",
+    "published_residue",
+  );
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(
+      value.currentBoundary,
+      value.verifyHistory,
+    ).status,
+    "unknown",
+  );
+  const resumed = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(resumed);
+  assert.equal(fs.existsSync(publication.preparation), false);
+});
+
+test("本番の回復可能な公開は実行時のfs差替えを注入面にせず固定依存で残存を収束する", (t) => {
+  const value = historyFixture(t);
+  const adopted = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(adopted);
+  const publication = leaveHistoryPublicationState(
+    adopted.operationDirectory,
+    "historical-adoption.json",
+    "published_residue",
+  );
+  const unlinkSync = fs.unlinkSync;
+  let injectedCalls = 0;
+  try {
+    fs.unlinkSync = ((target: fs.PathLike) => {
+      injectedCalls += 1;
+      if (
+        path.resolve(String(target)) === path.resolve(publication.preparation)
+      )
+        throw new Error("injected_history_prepare_unlink_failure");
+      return unlinkSync(target);
+    }) as typeof fs.unlinkSync;
+    assert.ok(
+      persistDockerDesktopRepairHistoricalAdoption(
+        value.currentBoundary,
+        value.original,
+        value.originManifest,
+        value.adoptingManifest,
+        value.verifyHistory,
+      ),
+    );
+    assert.equal(fs.existsSync(publication.target), true);
+    assert.equal(fs.existsSync(publication.preparation), false);
+    assert.equal(injectedCalls, 0);
+  } finally {
+    fs.unlinkSync = unlinkSync;
+  }
+});
+
+for (const mutation of ["self", "cycle", "branch", "skip"] as const) {
+  test(`修復履歴session handoffは${mutation}連鎖を拒否する`, (t) => {
+    const value = historyFixture(t);
+    const adopted = persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      value.original,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(adopted);
+    const secondBoundary = {
+      ...value.currentBoundary,
+      localUserBindingHash: "d".repeat(64),
+    };
+    const first = persistDockerDesktopRepairHistoricalAdoption(
+      secondBoundary,
+      adopted,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(first);
+    const thirdBoundary = {
+      ...value.currentBoundary,
+      localUserBindingHash: "e".repeat(64),
+    };
+    const second = persistDockerDesktopRepairHistoricalAdoption(
+      thirdBoundary,
+      first,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+    assert.ok(second);
+    const firstPath = path.join(
+      second.operationDirectory,
+      "historical-handoff-00.json",
+    );
+    const secondPath = path.join(
+      second.operationDirectory,
+      "historical-handoff-01.json",
+    );
+    if (mutation === "skip") {
+      fs.renameSync(
+        firstPath,
+        path.join(second.operationDirectory, "historical-handoff-02.json"),
+      );
+    } else {
+      const receipt = JSON.parse(
+        fs.readFileSync(mutation === "self" ? firstPath : secondPath, "utf8"),
+      );
+      if (mutation === "self")
+        receipt.toLocalUserBindingHash = receipt.fromLocalUserBindingHash;
+      if (mutation === "cycle")
+        receipt.toLocalUserBindingHash =
+          value.currentBoundary.localUserBindingHash;
+      if (mutation === "branch") receipt.previousHandoffSha256 = "f".repeat(64);
+      fs.writeFileSync(
+        mutation === "self" ? firstPath : secondPath,
+        `${JSON.stringify(receipt)}\n`,
+      );
+    }
+    assert.equal(
+      inventoryDockerDesktopRepairOperations(thirdBoundary, value.verifyHistory)
+        .status,
+      "unknown",
+    );
+  });
+}
+
+for (const mutation of [
+  "handoff_downgrade",
+  "handoff_same_sequence_different_release",
+  "closure_downgrade",
+] as const) {
+  test(`修復履歴はRelease単調性違反を拒否する: ${mutation}`, (t) => {
+    const value = historyFixture(t);
+    const release3Manifest = { fixture: "release-3" };
+    const release3OtherManifest = { fixture: "release-3-other" };
+    const release4Manifest = { fixture: "release-4" };
+    const releases = new Map<
+      string,
+      ReturnType<DockerDesktopRepairHistoryVerifier>
+    >([
+      [
+        JSON.stringify(value.originManifest),
+        value.verifyHistory(value.originManifest),
+      ],
+      [
+        JSON.stringify(value.adoptingManifest),
+        value.verifyHistory(value.adoptingManifest),
+      ],
+      [
+        JSON.stringify(release3Manifest),
+        {
+          manifestHash: "3".repeat(64),
+          releaseSequence: 3,
+          runtimeExecutionIdentitySha256: "b".repeat(64),
+          crddTree: "3".repeat(40),
+          packageContentRootSha256: "3".repeat(64),
+        },
+      ],
+      [
+        JSON.stringify(release3OtherManifest),
+        {
+          manifestHash: "7".repeat(64),
+          releaseSequence: 3,
+          runtimeExecutionIdentitySha256: "7".repeat(64),
+          crddTree: "7".repeat(40),
+          packageContentRootSha256: "7".repeat(64),
+        },
+      ],
+      [
+        JSON.stringify(release4Manifest),
+        {
+          manifestHash: "4".repeat(64),
+          releaseSequence: 4,
+          runtimeExecutionIdentitySha256: "9".repeat(64),
+          crddTree: "4".repeat(40),
+          packageContentRootSha256: "4".repeat(64),
+        },
+      ],
+    ]);
+    const verifyHistory: DockerDesktopRepairHistoryVerifier = (manifest) =>
+      releases.get(JSON.stringify(manifest)) ?? null;
+    const adopted = persistDockerDesktopRepairHistoricalAdoption(
+      value.currentBoundary,
+      value.original,
+      value.originManifest,
+      value.adoptingManifest,
+      verifyHistory,
+    );
+    assert.ok(adopted);
+    const release3Boundary = {
+      ...value.currentBoundary,
+      crddManifestHash: "3".repeat(64),
+      crddReleaseSequence: 3,
+      runtimeExecutionIdentitySha256: "b".repeat(64),
+      localUserBindingHash: "d".repeat(64),
+    };
+    const first = persistDockerDesktopRepairHistoricalAdoption(
+      release3Boundary,
+      adopted,
+      value.originManifest,
+      release3Manifest,
+      verifyHistory,
+    );
+    assert.ok(first);
+    const release4Boundary = {
+      ...release3Boundary,
+      crddManifestHash: "4".repeat(64),
+      crddReleaseSequence: 4,
+      runtimeExecutionIdentitySha256: "9".repeat(64),
+      localUserBindingHash: "e".repeat(64),
+    };
+    const second = persistDockerDesktopRepairHistoricalAdoption(
+      release4Boundary,
+      first,
+      value.originManifest,
+      release4Manifest,
+      verifyHistory,
+    );
+    assert.ok(second);
+    if (mutation === "closure_downgrade") {
+      const closed = persistDockerDesktopRepairHistoricalClosure(
+        release4Boundary,
+        second,
+        {
+          liveRunIdentity: { dev: "9", ino: "8", birthtimeNs: "7" },
+          staleState: "retained",
+        },
+        release4Manifest,
+        verifyHistory,
+      );
+      assert.ok(closed);
+      const closurePath = path.join(
+        closed.operationDirectory,
+        "historical-closure.json",
+      );
+      const receipt = JSON.parse(fs.readFileSync(closurePath, "utf8"));
+      receipt.closingManifest = value.adoptingManifest;
+      fs.writeFileSync(closurePath, `${JSON.stringify(receipt)}\n`);
+    } else {
+      const handoffPath = path.join(
+        second.operationDirectory,
+        "historical-handoff-01.json",
+      );
+      const receipt = JSON.parse(fs.readFileSync(handoffPath, "utf8"));
+      receipt.adoptingManifest =
+        mutation === "handoff_downgrade"
+          ? value.adoptingManifest
+          : release3OtherManifest;
+      fs.writeFileSync(handoffPath, `${JSON.stringify(receipt)}\n`);
+    }
+    assert.equal(
+      inventoryDockerDesktopRepairOperations(release4Boundary, verifyHistory)
+        .status,
+      "unknown",
+    );
+  });
+}
 
 for (const mutation of [
   "missing",
@@ -880,26 +1501,81 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
     persistRecord(nextBoundary, closed, "prepared", closed.ledger),
     null,
   );
-  const nextOperation = createDockerDesktopRepairOperation(
-    nextBoundary,
-    { dev: "4", ino: "5", birthtimeNs: "6" },
-    ledger,
+  const laterReleaseBoundary = {
+    ...nextBoundary,
+    crddManifestHash: "e".repeat(64),
+    crddReleaseSequence: 2,
+    runtimeExecutionIdentitySha256: "f".repeat(64),
+  };
+  const originManifest = { release: "origin" };
+  const adoptingManifest = { release: "current" };
+  const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
+    const selected =
+      JSON.stringify(value) === JSON.stringify(originManifest)
+        ? boundary
+        : JSON.stringify(value) === JSON.stringify(adoptingManifest)
+          ? laterReleaseBoundary
+          : null;
+    return selected
+      ? {
+          manifestHash: selected.crddManifestHash,
+          releaseSequence: selected.crddReleaseSequence,
+          runtimeExecutionIdentitySha256:
+            selected.runtimeExecutionIdentitySha256,
+          crddTree: "a".repeat(40),
+          packageContentRootSha256: "b".repeat(64),
+        }
+      : null;
+  };
+  const historical = inspectDockerDesktopRepairHistoricalOperation(
+    laterReleaseBoundary,
+    closed.repairId,
+    originManifest,
+    verifyHistory,
   );
-  const nextPrepared = persistRecord(
-    nextBoundary,
-    nextOperation,
-    "prepared",
-    ledger,
+  assert.equal(historical?.stage, "closed_retained");
+  const adoptedAfterRelogin = persistDockerDesktopRepairHistoricalAdoption(
+    laterReleaseBoundary,
+    historical as DockerDesktopRepairOperation,
+    originManifest,
+    adoptingManifest,
+    verifyHistory,
   );
-  assert.ok(nextPrepared);
   assert.equal(
-    JSON.parse(
-      fs.readFileSync(
-        path.join(nextPrepared.operationDirectory, "repair-00-prepared.json"),
-        "utf8",
-      ),
-    ).localUserBindingHash,
-    nextBoundary.localUserBindingHash,
+    adoptedAfterRelogin?.history?.currentSessionBound,
+    true,
+    JSON.stringify(
+      fs
+        .readdirSync(closed.operationDirectory)
+        .map((name) => [
+          name,
+          fs.statSync(path.join(closed.operationDirectory, name)).isFile()
+            ? fs.readFileSync(
+                path.join(closed.operationDirectory, name),
+                "utf8",
+              )
+            : "directory",
+        ]),
+    ),
+  );
+  assert.equal(adoptedAfterRelogin?.history?.closed, false);
+  const historicallyClosed = persistDockerDesktopRepairHistoricalClosure(
+    laterReleaseBoundary,
+    adoptedAfterRelogin as DockerDesktopRepairOperation,
+    {
+      liveRunIdentity: closed.ledger.liveRunIdentity as NonNullable<
+        DockerDesktopRepairLedgerSnapshot["liveRunIdentity"]
+      >,
+      staleState: "retained",
+    },
+    adoptingManifest,
+    verifyHistory,
+  );
+  assert.equal(historicallyClosed?.history?.closed, true);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(laterReleaseBoundary, verifyHistory)
+      .status,
+    "verified",
   );
   assert.equal(
     inventoryDockerDesktopRepairOperations(boundary).status,
@@ -907,6 +1583,11 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
   );
   assert.equal(
     inventoryDockerDesktopRepairOperations(nextBoundary).status,
+    "unknown",
+  );
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(laterReleaseBoundary, verifyHistory)
+      .status,
     "verified",
   );
 });

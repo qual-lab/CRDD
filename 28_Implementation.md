@@ -1,10 +1,10 @@
 # CRDD実装工程（Implementation）
 
-Version: v0.18.1
+Version: v0.19.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.implementation.realize`
-Last Updated: 2026-09-01
+Last Updated: 2026-09-05
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)

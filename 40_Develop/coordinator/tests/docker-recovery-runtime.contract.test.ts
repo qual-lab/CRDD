@@ -8,10 +8,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
-import {
-  assertRuntimeTraceCase,
-  assertRuntimeTraceExecutionCoverage,
-} from "./runtime-trace-case.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
 import {
   dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,
@@ -21,9 +18,10 @@ import {
   resumeDockerRecoveryJournalDirectoryForRecovery,
   writeCommittedDockerRecoveryJson,
 } from "../src/security/docker-recovery-journal.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
+import * as DockerRecoveryRuntime from "../src/security/docker-recovery-runtime.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
+  acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot,
   beginRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver,
   classifyRuntimeOwnedDockerRecoveryEvidence,
@@ -31,18 +29,20 @@ import {
   createIsolatedDockerRecoveryRuntimeCandidate,
   describeDockerRecoveryRuntimeContract,
   finalizeRuntimeOwnedDockerRecovery,
+  finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot,
   inspectDockerRecoveryRootSnapshotWithLock,
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerAbsence,
   recordRuntimeOwnedDockerHostCleanupReceipt,
   recordRuntimeOwnedNormalMountCompletion,
   recoverExactDockerResourceWithRunner,
-  recoverUnknownDockerCreateOutcomeWithRunner,
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
+  recoverUnknownDockerCreateOutcomeWithRunner,
+  resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver,
 } from "../src/security/docker-recovery-runtime-internal.ts";
 import {
-  acquireHostOperationRecoveryGenerationByIdentity,
   abandonOwnedHostOperationGenerationLock,
+  acquireHostOperationRecoveryGenerationByIdentity,
   classifyOwnedOperationDirectoryCreationFailure,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -56,11 +56,117 @@ import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
 } from "../src/security/host-recovery-record.ts";
+import {
+  assertRuntimeTraceCase,
+  assertRuntimeTraceExecutionCoverage,
+} from "./runtime-trace-case.ts";
 
 const inheritedTemporaryEnvironment = Object.freeze({
   TEMP: process.env.TEMP,
   TMP: process.env.TMP,
   TMPDIR: process.env.TMPDIR,
+});
+
+test("production Docker recovery facade does not expose receipt acknowledgement authority", () => {
+  assert.equal(
+    Object.hasOwn(
+      DockerRecoveryRuntime,
+      "acknowledgeRuntimeOwnedDockerRecoveryCompletion",
+    ),
+    false,
+  );
+});
+
+test("Project記録後のDocker確認資源回収は入れ子accessorとProxyを実行前に拒否する", () => {
+  let getterCalls = 0;
+  const input = {
+    workingDirectory: process.cwd(),
+    repositoryBindingId: "binding",
+    projectId: "project",
+    milestoneId: "milestone",
+    stateGeneration: 1,
+    taskId: "task",
+    attemptId: "attempt",
+    operationId: "operation",
+    kind: "docker" as const,
+    recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+  };
+  const accessorInput = Object.defineProperty({ ...input }, "acknowledgement", {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      throw new Error("must_not_run");
+    },
+  });
+  assert.deepEqual(
+    DockerRecoveryRuntime.collectDockerRecoveryAcknowledgementAfterProjectRecord(
+      accessorInput as never,
+    ),
+    {
+      status: "blocked",
+      reason: "docker_task_recovery_acknowledgement_gc_authority_invalid",
+    },
+  );
+  assert.equal(getterCalls, 0);
+  const proxy = new Proxy(
+    {},
+    {
+      ownKeys() {
+        throw new Error("must_not_run");
+      },
+    },
+  );
+  assert.deepEqual(
+    DockerRecoveryRuntime.collectDockerRecoveryAcknowledgementAfterProjectRecord(
+      { ...input, acknowledgement: proxy },
+    ),
+    {
+      status: "blocked",
+      reason: "docker_task_recovery_acknowledgement_gc_authority_invalid",
+    },
+  );
+});
+
+test("Project記録後のDocker確認資源回収はfile identityをhashと誤分類しない", () => {
+  const input = {
+    workingDirectory: process.cwd(),
+    repositoryBindingId: "missing-binding",
+    projectId: "missing-project",
+    milestoneId: "milestone",
+    stateGeneration: 1,
+    taskId: "task",
+    attemptId: "attempt",
+    operationId: "operation",
+    kind: "docker" as const,
+    recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+    acknowledgement: {
+      repositoryBindingId: "missing-binding",
+      projectId: "missing-project",
+      milestoneId: "milestone",
+      taskId: "task",
+      attemptId: "attempt",
+      operationId: "operation",
+      recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+      settlementGeneration: 1,
+      runtimeStateBinding: {
+        runtimeStateIdentityHash: "d".repeat(64),
+        runtimeStateProtectionHash: "e".repeat(64),
+        localUserBindingHash: "f".repeat(64),
+        runtimeStateBindingHash: "0".repeat(64),
+      },
+      receiptContentHash: "1".repeat(64),
+      receiptContentIdentity: "1:2:3",
+    },
+  };
+  assert.deepEqual(
+    DockerRecoveryRuntime.collectDockerRecoveryAcknowledgementAfterProjectRecord(
+      input,
+    ),
+    {
+      status: "blocked",
+      reason: "docker_task_recovery_acknowledgement_gc_not_verified",
+    },
+  );
 });
 const inheritedTemporaryRoot = fs.realpathSync(os.tmpdir());
 const isolatedTemporaryRoot = fs.mkdtempSync(
@@ -83,6 +189,23 @@ function assertPathConfirmedAbsent(target: string) {
       "ENOENT",
     );
   }
+}
+
+function assertOnlyCompletedRecoveryEvidence(root: string) {
+  const names = fs.readdirSync(root).sort();
+  assert.equal(names.length % 2, 0);
+  const receipts = names.filter((name) =>
+    /^completed-docker-recovery-[a-f0-9]{64}\.json$/u.test(name),
+  );
+  assert.equal(receipts.length * 2, names.length);
+  for (const receipt of receipts)
+    assert.ok(names.includes(`${receipt}.crdd-commit.json`));
+  const inventory = inspectDockerRecoveryRootSnapshotWithLock(
+    verifiedRoot(root),
+  );
+  assert.equal(inventory.status, "completed");
+  assert.equal(inventory.reason, "docker_task_runtime_state_clean");
+  assert.deepEqual(inventory.dockerRecoveryIds, []);
 }
 
 test.after(() => {
@@ -124,6 +247,7 @@ const recoveryTraceAssertions: Readonly<
   "CASE-PARTIAL-PAIR-TO-RECOVERY": assertRuntimeTraceCase,
   "CASE-RECOVERY-TO-RECOVERED": assertRuntimeTraceCase,
   "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED": assertRuntimeTraceCase,
+  "CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED": assertRuntimeTraceCase,
 });
 const executedRecoveryTraceCases = new Set<string>();
 
@@ -1363,6 +1487,7 @@ function createKilledFullProductionRecoveryRoot(
     | "submission"
     | "receipt"
     | "receipt_proxy" = "expected",
+  recoveryCorrelationId: string | null = null,
 ) {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-full-recovery-test-"),
@@ -1388,6 +1513,7 @@ function createKilledFullProductionRecoveryRoot(
     const rootPath = process.argv[1];
     const handoff = process.argv[2];
     const hostPhase = process.argv[3];
+    const recoveryCorrelationId = process.argv[4] || null;
     const owned = host.createOwnedOperationDirectories();
     const context = host.createOwnedOperationContextCapability(owned);
     const mounts = host.createOwnedMountCapability(owned);
@@ -1453,6 +1579,7 @@ function createKilledFullProductionRecoveryRoot(
         proxyImageDigest: "sha256:" + "b".repeat(64),
         operationMode: "isolated_task",
         workspaceMountMode: "read_write",
+        ...(recoveryCorrelationId ? { recoveryCorrelationId } : {}),
       });
       if (hostPhase === "pending_base") {
         begun = recovery.beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver(
@@ -1569,7 +1696,15 @@ function createKilledFullProductionRecoveryRoot(
   `;
   const crashed = spawnSync(
     process.execPath,
-    ["--experimental-strip-types", "-e", source, root, handoff, hostPhase],
+    [
+      "--experimental-strip-types",
+      "-e",
+      source,
+      root,
+      handoff,
+      hostPhase,
+      recoveryCorrelationId ?? "",
+    ],
     { windowsHide: true, encoding: "utf8", timeout: 15_000 },
   );
   assert.notEqual(crashed.status, 0, crashed.stderr);
@@ -3208,7 +3343,7 @@ test("production共有回復engineはcleanup途中のprocess killから残存0�
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(root), []);
+    assertOnlyCompletedRecoveryEvidence(root);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -3342,7 +3477,7 @@ test("production共有回復engineはHost expected世代のprocess killを残存
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
     const hostEffectCount =
@@ -3351,10 +3486,7 @@ test("production共有回復engineはHost expected世代のprocess killを残存
       !fs.existsSync(fixture.hostMarker)
         ? 1
         : 0;
-    const cleanupEffectCount =
-      beforeRecoveryEntries > 0 && fs.readdirSync(fixture.root).length === 0
-        ? 1
-        : 0;
+    const cleanupEffectCount = beforeRecoveryEntries > 0 ? 1 : 0;
     const recoveryTraceAssertion =
       recoveryTraceAssertions["CASE-RECOVERY-TO-RECOVERED"];
     assert.ok(recoveryTraceAssertion);
@@ -3430,13 +3562,473 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
       /回復ID|次の操作: coordinator doctor|Runtime運用担当者|自動回復は停止しました/u,
     );
     assert.equal(docker.removeCount(), 1);
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        docker.runDockerCommand,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completion_replayed",
+        recoveryId: null,
+      },
+    );
+    assert.equal(docker.removeCount(), 1);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
+    const wrongRoot = Object.freeze({
+      ...root,
+      runtimeStateProtectionHash: "a".repeat(64),
+    });
+    assert.deepEqual(
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        fixture.recoveryId,
+        wrongRoot,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_completion_binding_mismatch",
+      },
+    );
+    const acknowledgement =
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        fixture.recoveryId,
+        root,
+      );
+    assert.equal(acknowledgement.status, "completed");
+    assert.equal(
+      acknowledgement.reason,
+      "docker_task_recovery_completion_acknowledged",
+    );
+    assert.ok(
+      "acknowledgement" in acknowledgement && acknowledgement.acknowledgement,
+    );
+    const replay =
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        fixture.recoveryId,
+        root,
+      );
+    assert.equal(replay.status, "completed");
+    assert.equal(
+      replay.reason,
+      "docker_task_recovery_completion_already_acknowledged",
+    );
+    assert.deepEqual(
+      "acknowledgement" in replay ? replay.acknowledgement : null,
+      "acknowledgement" in acknowledgement
+        ? acknowledgement.acknowledgement
+        : null,
+    );
+    assert.deepEqual(
+      finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+        fixture.recoveryId,
+        "acknowledgement" in acknowledgement
+          ? acknowledgement.acknowledgement
+          : null,
+        root,
+      ),
+      {
+        status: "completed",
+        reason: "docker_task_recovery_acknowledgement_collected",
+      },
+    );
+    assert.deepEqual(
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        `docker-task.${"c".repeat(64)}.${"d".repeat(64)}.${"e".repeat(64)}`,
+        root,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_completion_receipt_missing",
+      },
+    );
+    assert.equal(
+      fs
+        .readdirSync(fixture.root)
+        .some((name) =>
+          /^completed-docker-recovery-[a-f0-9]{64}\.json(?:\.crdd-commit\.json)?$/u.test(
+            name,
+          ),
+        ),
+      false,
+    );
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
+
+test("完了済みDocker Recovery receiptの改変は再実行成功へ流用しない", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("receipt");
+  const root = verifiedRoot(fixture.root);
+  const docker = exactContainerRunner({
+    Name: "/crdd-claude-0123456789abcdef",
+    Config: Object.freeze({
+      User: "65534:65534",
+      Image: `sha256:${"a".repeat(64)}`,
+      Labels: Object.freeze({
+        "crdd.coordinator.runtime": "0123456789abcdef",
+      }),
+    }),
+    NetworkSettings: Object.freeze({
+      Networks: Object.freeze({
+        "crdd-internal-0123456789abcdef": Object.freeze({}),
+      }),
+    }),
+  });
+  try {
+    assert.equal(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        docker.runDockerCommand,
+      ).status,
+      "recovered",
+    );
+    const receipt = fs
+      .readdirSync(fixture.root)
+      .find((name) =>
+        /^completed-docker-recovery-[a-f0-9]{64}\.json$/u.test(name),
+      );
+    assert.equal(typeof receipt, "string");
+    fs.appendFileSync(path.join(fixture.root, receipt ?? "missing"), " ");
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        docker.runDockerCommand,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_record_noncanonical",
+        recoveryId: fixture.recoveryId,
+      },
+    );
+    assert.equal(docker.removeCount(), 1);
+  } finally {
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
+test("Docker Recovery acknowledgementは上限64を1件越える65件を逐次回収する", (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-docker-ack-retention-"),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const root = verifiedRoot(directory);
+  const runtimeStateBinding = Object.freeze({
+    runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+    runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+    localUserBindingHash: root.localUserBindingHash,
+    runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
+  });
+  let staleReceipt:
+    | Readonly<{ name: string; logicalKey: string; value: unknown }>
+    | undefined;
+  for (let index = 0; index < 65; index += 1) {
+    const recoveryId = `docker-task.${root.stableLogicalHomeBindingHash}.${index
+      .toString(16)
+      .padStart(64, "0")}.${"a".repeat(64)}`;
+    const name = `completed-docker-recovery-${createHash("sha256")
+      .update(recoveryId)
+      .digest("hex")}.json`;
+    writeCommittedDockerRecoveryJson(directory, name, name, {
+      schema: "crdd-coordinator-docker-recovery-completion/v1",
+      recoveryId,
+      runtimeStateBinding,
+    });
+    if (index === 0) {
+      const observed = readCommittedDockerRecoveryJson(
+        path.join(directory, name),
+        name,
+      );
+      staleReceipt = Object.freeze({
+        name,
+        logicalKey: observed.logicalKey,
+        value: observed.value,
+      });
+    }
+    const acknowledged =
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        recoveryId,
+        root,
+      );
+    assert.equal(acknowledged.status, "completed");
+    assert.ok(
+      "acknowledgement" in acknowledged && acknowledged.acknowledgement,
+    );
+    const collected =
+      finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+        recoveryId,
+        "acknowledgement" in acknowledged ? acknowledged.acknowledgement : null,
+        root,
+      );
+    assert.equal(collected.status, "completed");
+    assert.deepEqual(
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        recoveryId,
+        root,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_completion_receipt_missing",
+      },
+    );
+  }
+  assert.equal(
+    fs
+      .readdirSync(directory)
+      .some((name) =>
+        /^(?:completed|acknowledged)-docker-recovery-/u.test(name),
+      ),
+    false,
+  );
+  assert.ok(staleReceipt);
+  const replayed = writeCommittedDockerRecoveryJson(
+    directory,
+    staleReceipt.name,
+    staleReceipt.logicalKey,
+    staleReceipt.value,
+  );
+  assert.equal(
+    (replayed.value as { recoveryId?: unknown }).recoveryId,
+    (staleReceipt.value as { recoveryId?: unknown }).recoveryId,
+  );
+  assert.equal(
+    removeCommittedDockerRecoveryJson(replayed.target, replayed.logicalKey),
+    true,
+  );
+  assert.deepEqual(fs.readdirSync(directory), []);
+});
+
+test("Docker Recovery acknowledgementは64件のTombstone上限で65件目を保持し、1件回収後に再開する", (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-docker-ack-limit-"),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const root = verifiedRoot(directory);
+  const runtimeStateBinding = Object.freeze({
+    runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+    runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+    localUserBindingHash: root.localUserBindingHash,
+    runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
+  });
+  const acknowledgements: Array<
+    Readonly<{
+      recoveryId: string;
+      acknowledgement: unknown;
+    }>
+  > = [];
+  const writeReceipt = (index: number) => {
+    const recoveryId = `docker-task.${root.stableLogicalHomeBindingHash}.${index
+      .toString(16)
+      .padStart(64, "0")}.${"b".repeat(64)}`;
+    const name = `completed-docker-recovery-${createHash("sha256")
+      .update(recoveryId)
+      .digest("hex")}.json`;
+    writeCommittedDockerRecoveryJson(directory, name, name, {
+      schema: "crdd-coordinator-docker-recovery-completion/v1",
+      recoveryId,
+      runtimeStateBinding,
+    });
+    return { recoveryId, name };
+  };
+  for (let index = 0; index < 64; index += 1) {
+    const { recoveryId } = writeReceipt(index);
+    const acknowledged =
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        recoveryId,
+        root,
+      );
+    assert.equal(acknowledged.status, "completed");
+    assert.ok("acknowledgement" in acknowledged);
+    acknowledgements.push({
+      recoveryId,
+      acknowledgement:
+        "acknowledgement" in acknowledged ? acknowledged.acknowledgement : null,
+    });
+  }
+  const sixtyFifth = writeReceipt(64);
+  assert.deepEqual(
+    acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+      sixtyFifth.recoveryId,
+      root,
+    ),
+    {
+      status: "blocked",
+      reason: "docker_task_recovery_acknowledgement_tombstone_limit_exceeded",
+    },
+  );
+  assert.equal(fs.existsSync(path.join(directory, sixtyFifth.name)), true);
+  assert.equal(
+    fs.existsSync(
+      path.join(directory, dockerRecoveryCommitName(sixtyFifth.name)),
+    ),
+    true,
+  );
+  const first = acknowledgements.shift();
+  assert.ok(first);
+  assert.equal(
+    finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+      first?.recoveryId,
+      first?.acknowledgement,
+      root,
+    ).status,
+    "completed",
+  );
+  const resumed =
+    acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+      sixtyFifth.recoveryId,
+      root,
+    );
+  assert.equal(resumed.status, "completed");
+  assert.ok("acknowledgement" in resumed);
+  acknowledgements.push({
+    recoveryId: sixtyFifth.recoveryId,
+    acknowledgement:
+      "acknowledgement" in resumed ? resumed.acknowledgement : null,
+  });
+  for (const entry of acknowledgements) {
+    assert.equal(
+      finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+        entry.recoveryId,
+        entry.acknowledgement,
+        root,
+      ).status,
+      "completed",
+    );
+  }
+  assert.deepEqual(fs.readdirSync(directory), []);
+});
+
+test("回収済みTombstoneに古い完了Receiptを再投入しても回収済み成功へ畳まない", (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-docker-ack-stale-replay-"),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const root = verifiedRoot(directory);
+  const recoveryId = `docker-task.${root.stableLogicalHomeBindingHash}.${"c".repeat(64)}.${"d".repeat(64)}`;
+  const name = `completed-docker-recovery-${createHash("sha256")
+    .update(recoveryId)
+    .digest("hex")}.json`;
+  const receiptValue = Object.freeze({
+    schema: "crdd-coordinator-docker-recovery-completion/v1",
+    recoveryId,
+    runtimeStateBinding: Object.freeze({
+      runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+      runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+      localUserBindingHash: root.localUserBindingHash,
+      runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
+    }),
+  });
+  writeCommittedDockerRecoveryJson(directory, name, name, receiptValue);
+  const acknowledged =
+    acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+      recoveryId,
+      root,
+    );
+  assert.equal(acknowledged.status, "completed");
+  assert.ok("acknowledgement" in acknowledged);
+  const authority =
+    "acknowledgement" in acknowledged ? acknowledged.acknowledgement : null;
+  assert.equal(
+    finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+      recoveryId,
+      authority,
+      root,
+    ).status,
+    "completed",
+  );
+  writeCommittedDockerRecoveryJson(directory, name, name, receiptValue);
+  const before = fs.readFileSync(path.join(directory, name));
+  const beforeCommit = fs.readFileSync(
+    path.join(directory, dockerRecoveryCommitName(name)),
+  );
+  assert.deepEqual(
+    finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+      recoveryId,
+      authority,
+      root,
+    ),
+    {
+      status: "blocked",
+      reason: "docker_task_recovery_acknowledgement_gc_mismatch",
+    },
+  );
+  assert.deepEqual(fs.readFileSync(path.join(directory, name)), before);
+  assert.deepEqual(
+    fs.readFileSync(path.join(directory, dockerRecoveryCommitName(name))),
+    beforeCommit,
+  );
+});
+
+for (const removeBoundary of [1, 2] as const) {
+  test(`Docker acknowledgement GCはpair削除境界${removeBoundary}の中断から再開する`, (t) => {
+    const directory = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-docker-ack-gc-reentry-"),
+    );
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const root = verifiedRoot(directory);
+    const recoveryId = `docker-task.${root.stableLogicalHomeBindingHash}.${"b".repeat(64)}.${"c".repeat(64)}`;
+    const name = `completed-docker-recovery-${createHash("sha256")
+      .update(recoveryId)
+      .digest("hex")}.json`;
+    writeCommittedDockerRecoveryJson(directory, name, name, {
+      schema: "crdd-coordinator-docker-recovery-completion/v1",
+      recoveryId,
+      runtimeStateBinding: {
+        runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+        runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+        localUserBindingHash: root.localUserBindingHash,
+        runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
+      },
+    });
+    const acknowledged =
+      acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
+        recoveryId,
+        root,
+      );
+    assert.ok(
+      acknowledged.status === "completed" && "acknowledgement" in acknowledged,
+    );
+    const originalRemove = fs.rmSync;
+    let matchingRemovals = 0;
+    fs.rmSync = ((target: fs.PathLike, options?: fs.RmOptions) => {
+      const result = originalRemove(target, options);
+      if (String(target).includes("acknowledged-docker-recovery-")) {
+        matchingRemovals += 1;
+        if (matchingRemovals === removeBoundary)
+          throw new Error("fixture_gc_interruption");
+      }
+      return result;
+    }) as typeof fs.rmSync;
+    try {
+      assert.equal(
+        finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+          recoveryId,
+          acknowledged.acknowledgement,
+          root,
+        ).status,
+        "blocked",
+      );
+    } finally {
+      fs.rmSync = originalRemove;
+    }
+    assert.equal(
+      finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
+        recoveryId,
+        acknowledged.acknowledgement,
+        root,
+      ).status,
+      "completed",
+    );
+    assert.deepEqual(fs.readdirSync(directory), []);
+  });
+}
 
 test("Hostを先に明示回復してもEffect前Docker Recoveryはexact absenceから残存0へ収束する", () => {
   const fixture = createKilledFullProductionRecoveryRoot("expected");
@@ -3455,7 +4047,7 @@ test("Hostを先に明示回復してもEffect前Docker Recoveryはexact absence
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3480,7 +4072,7 @@ test("Host begin前のactive binding content-only crashを旧Host先行削除後
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
     recoveryTraceAssertions["CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED"]?.(
@@ -3528,7 +4120,7 @@ for (const crashPoint of [
           fs.readdirSync(fixture.root, { recursive: true }).sort(),
         ),
       );
-      assert.deepEqual(fs.readdirSync(fixture.root), []);
+      assertOnlyCompletedRecoveryEvidence(fixture.root);
       assert.equal(fs.existsSync(fixture.hostRoot), false);
       assert.equal(fs.existsSync(fixture.hostMarker), false);
     } finally {
@@ -3571,7 +4163,7 @@ test("Hostを先に明示回復してもreceipt済みDockerをexact照合・削�
       },
     );
     assert.equal(docker.removeCount(), 1);
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3610,6 +4202,32 @@ test("closed production engineはcreate submission後receipt前のprocess kill�
     assert.ok(fs.readdirSync(fixture.root).length > 0);
     assert.equal(fs.existsSync(fixture.hostRoot), true);
     assert.equal(fs.existsSync(fixture.hostMarker), true);
+  } finally {
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
+test("検証済みDocker再起動境界後はsubmission済み資源のexact不存在を耐久化して回復する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("submission");
+  const root = verifiedRoot(fixture.root);
+  try {
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+      () => dockerResult(),
+      {
+        recoveryId: fixture.recoveryId,
+        repairId: `docker-desktop-repair.${"a".repeat(32)}`,
+        repairRecordSha256: "b".repeat(64),
+      },
+    );
+    assert.deepEqual(result, {
+      status: "recovered",
+      reason: "docker_task_recovery_completed",
+      recoveryId: null,
+    });
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3676,7 +4294,7 @@ test("closed production engineは発見IDをreconciled receiptへ耐久化して
       },
     );
     assert.equal(docker.removeCount(), 1);
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
@@ -3705,7 +4323,7 @@ test("production共有回復engineはHost previous世代のprocess killをEffect
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
@@ -3731,7 +4349,7 @@ test("Host active bindingのexact content-onlyをEffect前状態として残存0
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
@@ -4233,7 +4851,7 @@ test("production共有回復engineはpending base完成直後の実process kill�
         recoveryId: null,
       },
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
     assert.deepEqual(
@@ -4306,7 +4924,7 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
       status: "completed",
     });
     recoveryCapability = null;
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.equal(fs.existsSync(owned.root), false);
     assert.equal(fs.existsSync(initialHost.marker), false);
   } finally {
@@ -4316,6 +4934,130 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
     fs.rmSync(owned.root, { recursive: true, force: true });
     fs.rmSync(initialHost.marker, { force: true });
     fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("Project Operation correlation resolves the exact durable Docker Recovery ID after owner loss", async () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-project-recovery-correlation-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  const root = verifiedRoot(runtimeRootPath);
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const operation = verifyOwnedOperationManagementCapability(management);
+  const correlationId = "project-operation-a";
+  const plan = Object.freeze({
+    ...productionPlan(operation.operationId, "d".repeat(64)),
+    recoveryCorrelationId: correlationId,
+  });
+  const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  let recoveryCapability: object | null = null;
+  try {
+    const begun = beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+      plan,
+      management,
+      providerHomeForPlan(plan),
+      root,
+      () => root,
+    );
+    assert.ok(begun && begun.status === "ready");
+    recoveryCapability = begun.recoveryCapability;
+    const recoveryId = begun.recoveryId;
+    assert.equal(abandonRuntimeOwnedDockerRecovery(recoveryCapability), true);
+    recoveryCapability = null;
+    assert.equal(
+      await abandonOwnedHostOperationGenerationLock(management),
+      true,
+    );
+    assert.deepEqual(
+      resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver(
+        [correlationId],
+        root,
+        () => root,
+      ),
+      {
+        status: "completed",
+        bindings: [{ correlationId, recoveryId }],
+        absentCorrelationIds: [],
+      },
+    );
+    assert.deepEqual(
+      resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver(
+        ["project-operation-absent"],
+        root,
+        () => root,
+      ),
+      {
+        status: "completed",
+        bindings: [],
+        absentCorrelationIds: ["project-operation-absent"],
+      },
+    );
+  } finally {
+    if (recoveryCapability)
+      void abandonRuntimeOwnedDockerRecovery(recoveryCapability);
+    void abandonOwnedHostOperationGenerationLock(management);
+    fs.rmSync(owned.root, { recursive: true, force: true });
+    fs.rmSync(initialHost.marker, { force: true });
+    fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("Project Operation相関を持つDocker Recoveryはexact IDの解決後に完了できる", () => {
+  const correlationId = "project-operation-recovery";
+  const fixture = createKilledFullProductionRecoveryRoot(
+    "receipt",
+    correlationId,
+  );
+  const root = verifiedRoot(fixture.root);
+  const docker = exactContainerRunner({
+    Name: "/crdd-claude-0123456789abcdef",
+    Config: Object.freeze({
+      User: "65534:65534",
+      Image: `sha256:${"a".repeat(64)}`,
+      Labels: Object.freeze({
+        "crdd.coordinator.runtime": "0123456789abcdef",
+      }),
+    }),
+    NetworkSettings: Object.freeze({
+      Networks: Object.freeze({
+        "crdd-internal-0123456789abcdef": Object.freeze({}),
+      }),
+    }),
+  });
+  try {
+    assert.deepEqual(
+      resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver(
+        [correlationId],
+        root,
+        () => root,
+      ),
+      {
+        status: "completed",
+        bindings: [{ correlationId, recoveryId: fixture.recoveryId }],
+        absentCorrelationIds: [],
+      },
+    );
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        docker.runDockerCommand,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completed",
+        recoveryId: null,
+      },
+    );
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
+  } finally {
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 
@@ -4386,7 +5128,7 @@ test("production正常完了後は同じHost Operation内で同一logical Home�
       });
     }
     begunCapabilities.length = 0;
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
   } finally {
     for (const capability of begunCapabilities)
       void abandonRuntimeOwnedDockerRecovery(capability);
@@ -4395,25 +5137,6 @@ test("production正常完了後は同じHost Operation内で同一logical Home�
     fs.rmSync(initialHost.marker, { force: true });
     fs.rmSync(runtimeParent, { recursive: true, force: true });
   }
-});
-
-test("Canonical Recovery Trace全caseは正本・registry・実行集合が一致する", () => {
-  const testPath =
-    "40_Develop/coordinator/tests/docker-recovery-runtime.contract.test.ts";
-  assertRuntimeTraceExecutionCoverage(
-    testPath,
-    Object.keys(recoveryTraceAssertions),
-    executedRecoveryTraceCases,
-  );
-  const missing = new Set(executedRecoveryTraceCases);
-  missing.delete("CASE-RECOVERY-TO-RECOVERED");
-  assert.throws(() =>
-    assertRuntimeTraceExecutionCoverage(
-      testPath,
-      Object.keys(recoveryTraceAssertions),
-      missing,
-    ),
-  );
 });
 
 test("production abandonはAuthorityを解放してもdurable Recovery inventoryをcleanにしない", () => {
@@ -4641,7 +5364,7 @@ test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回�
       reason: "docker_task_recovery_finalization_completed",
       recoveryId: null,
     });
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.equal(fs.existsSync(handoff.hostRoot), false);
     assert.equal(fs.existsSync(handoff.hostMarker), false);
   } finally {
@@ -4700,7 +5423,7 @@ test("active binding削除済み・pointer残存もfresh Processで残存0へ回
       reason: "docker_task_recovery_completed",
       recoveryId: null,
     });
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.equal(fs.existsSync(handoff.hostRoot), false);
     assert.equal(fs.existsSync(handoff.hostMarker), false);
   } finally {
@@ -4730,7 +5453,7 @@ test("fresh fixtureはhandoff前失敗もproduction Recoveryで残存0へ閉じ�
       { encoding: "utf8", timeout: 15_000, windowsHide: true },
     );
     assert.notEqual(setup.status, 0, `${setup.stdout}\n${setup.stderr}`);
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.deepEqual(
       fs
         .readdirSync(os.tmpdir())
@@ -4800,13 +5523,249 @@ test("production共有回復engineはselected-user再bind不一致をEffect前�
       ),
       {
         status: "blocked",
-        reason: "docker_task_runtime_state_audit_failed",
+        reason: "docker_task_runtime_state_binding_changed",
         recoveryId: fixture.recoveryId,
       },
     );
     assert.deepEqual(fs.readdirSync(fixture.root).sort(), beforeEntries);
     assert.equal(fs.existsSync(fixture.hostRoot), true);
     assert.equal(fs.existsSync(fixture.hostMarker), true);
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("同一stable userの再ログオンはappend-only session handoff後に同じRecovery IDで回復する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const originalRoot = verifiedRoot(fixture.root);
+  const currentRoot = Object.freeze({
+    ...originalRoot,
+    localUserBindingHash: "0".repeat(64),
+  });
+  try {
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      currentRoot,
+      () => currentRoot,
+    );
+    assert.equal(
+      result.status,
+      "recovered",
+      `${JSON.stringify(result)} ${JSON.stringify(
+        inspectDockerRecoveryRootSnapshotWithLock(currentRoot, () => ({
+          release: () => true,
+        })),
+      )} ${JSON.stringify(fs.readdirSync(fixture.root).sort())}`,
+    );
+    assert.equal(result.recoveryId, null);
+    const handoffs = fs
+      .readdirSync(fixture.root)
+      .filter((name) =>
+        /^docker-task-session-handoff-[a-f0-9]{64}-[0-9]{2}\.json$/u.test(name),
+      );
+    assert.equal(handoffs.length, 1);
+    const handoff = readCommittedDockerRecoveryJson(
+      path.join(fixture.root, handoffs[0] ?? ""),
+      handoffs[0] ?? "",
+    ).value as Record<string, unknown>;
+    assert.equal(handoff.recoveryId, fixture.recoveryId);
+    assert.equal(
+      handoff.fromLocalUserBindingHash,
+      originalRoot.localUserBindingHash,
+    );
+    assert.equal(
+      handoff.toLocalUserBindingHash,
+      currentRoot.localUserBindingHash,
+    );
+    recoveryTraceAssertions["CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED"]?.(
+      "CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED",
+      {
+        id: "CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED",
+        transitionId: "TRANS-SESSION-HANDOFF-TO-RECOVERED",
+        fromState: "STATE-SESSION-HANDOFF-RECOVERY-REQUIRED",
+        outcome: "taken",
+        expectedEndState: "STATE-RECOVERED",
+        effectObservations: { provider: 0, host: 1, cleanup: 1 },
+        expectedStatus: "completed",
+        resourcePostconditions: {
+          "RES-HOST-GENERATION": "absent",
+          "RES-LOGICAL-HOME-LOCK": "absent",
+          "RES-RUNTIME-STATE-LOCK": "absent",
+          "RES-DOCKER-OWNED": "absent",
+          "RES-OPERATION-WORKSPACE": "absent",
+        },
+      },
+    );
+    executedRecoveryTraceCases.add(
+      "CASE-TASK-CROSS-LOGIN-HANDOFF-TO-RECOVERED",
+    );
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("完了済みRecoveryも再ログオン連鎖を順序付きhandoffで再表示し、改変を拒否する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const originalRoot = verifiedRoot(fixture.root);
+  const firstRoot = Object.freeze({
+    ...originalRoot,
+    localUserBindingHash: "0".repeat(64),
+  });
+  const secondRoot = Object.freeze({
+    ...originalRoot,
+    localUserBindingHash: "1".repeat(64),
+  });
+  try {
+    assert.equal(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        firstRoot,
+        () => firstRoot,
+      ).status,
+      "recovered",
+    );
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        secondRoot,
+        () => secondRoot,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completion_replayed",
+        recoveryId: null,
+      },
+    );
+    const handoffs = fs
+      .readdirSync(fixture.root)
+      .filter((name) =>
+        /^docker-task-session-handoff-[a-f0-9]{64}-[0-9]{2}\.json$/u.test(name),
+      )
+      .sort();
+    assert.equal(handoffs.length, 2);
+    const second = readCommittedDockerRecoveryJson(
+      path.join(fixture.root, handoffs[1] ?? ""),
+      handoffs[1] ?? "",
+    ).value as Record<string, unknown>;
+    assert.equal(
+      second.fromLocalUserBindingHash,
+      firstRoot.localUserBindingHash,
+    );
+    assert.equal(
+      second.toLocalUserBindingHash,
+      secondRoot.localUserBindingHash,
+    );
+    const firstPath = path.join(fixture.root, handoffs[0] ?? "");
+    const changed = JSON.parse(fs.readFileSync(firstPath, "utf8"));
+    changed.toLocalUserBindingHash = "f".repeat(64);
+    fs.writeFileSync(firstPath, `${JSON.stringify(changed)}\n`, "utf8");
+    assert.equal(
+      inspectDockerRecoveryRootSnapshotWithLock(secondRoot, () => ({
+        release: () => true,
+      })).status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("完了済みRecoveryのsession handoffは8件で閉じ、9件目をEffect 0で拒否する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const originalRoot = verifiedRoot(fixture.root);
+  const reboundRoots = Array.from({ length: 9 }, (_, index) =>
+    Object.freeze({
+      ...originalRoot,
+      localUserBindingHash: createHash("sha256")
+        .update(`session-${index}`)
+        .digest("hex"),
+    }),
+  );
+  try {
+    for (const currentRoot of reboundRoots.slice(0, 8)) {
+      assert.equal(
+        recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+          fixture.recoveryId,
+          currentRoot,
+          () => currentRoot,
+        ).status,
+        "recovered",
+      );
+    }
+    const before = fs.readdirSync(fixture.root).sort();
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        reboundRoots[8] ?? originalRoot,
+        () => reboundRoots[8] ?? originalRoot,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_session_handoff_limit_exceeded",
+        recoveryId: fixture.recoveryId,
+      },
+    );
+    assert.deepEqual(fs.readdirSync(fixture.root).sort(), before);
+    assert.equal(
+      before.filter((name) =>
+        /^docker-task-session-handoff-[a-f0-9]{64}-[0-9]{2}\.json$/u.test(name),
+      ).length,
+      8,
+    );
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("Docker Task session handoffの番号飛びは有効なcommit pairでも拒否する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const originalRoot = verifiedRoot(fixture.root);
+  const firstRoot = Object.freeze({
+    ...originalRoot,
+    localUserBindingHash: "0".repeat(64),
+  });
+  try {
+    assert.equal(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        firstRoot,
+        () => firstRoot,
+      ).status,
+      "recovered",
+    );
+    const prefix = `docker-task-session-handoff-${createHash("sha256")
+      .update(fixture.recoveryId)
+      .digest("hex")}-`;
+    const firstName = `${prefix}00.json`;
+    const first = readCommittedDockerRecoveryJson(
+      path.join(fixture.root, firstName),
+      firstName,
+    );
+    writeCommittedDockerRecoveryJson(
+      fixture.root,
+      `${prefix}02.json`,
+      `${prefix}02.json`,
+      {
+        ...(first.value as Record<string, unknown>),
+        sequence: 2,
+        previousHandoffSha256: first.hash,
+        fromLocalUserBindingHash: firstRoot.localUserBindingHash,
+        toLocalUserBindingHash: "1".repeat(64),
+      },
+    );
+    const result = inspectDockerRecoveryRootSnapshotWithLock(firstRoot, () => ({
+      release: () => true,
+    }));
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "docker_task_session_handoff_invalid");
   } finally {
     fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
     fs.rmSync(fixture.hostMarker, { force: true });
@@ -4938,7 +5897,7 @@ test("cleanup-only回復も作成時selected-user再bind不一致を削除前に
       ),
       {
         status: "blocked",
-        reason: "docker_task_runtime_state_audit_failed",
+        reason: "docker_task_runtime_state_binding_changed",
         recoveryId: dockerTaskRecoveryId,
       },
     );
@@ -4993,7 +5952,7 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
       },
     );
     assert.equal(isRuntimeStateLockWasReleasedForObservation, true);
-    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.equal(
       loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,
       "host_only",
@@ -5230,7 +6189,7 @@ for (const networkState of ["pre-connect", "post-connect"] as const) {
         },
       );
       assert.equal(docker.removeCount(), 1);
-      assert.deepEqual(fs.readdirSync(fixture.root), []);
+      assertOnlyCompletedRecoveryEvidence(fixture.root);
       assert.equal(fs.existsSync(fixture.hostRoot), false);
       assert.equal(fs.existsSync(fixture.hostMarker), false);
     } finally {
@@ -5423,4 +6382,23 @@ test("Docker Recovery contractはEffect前記録とcleanup後完了を固定す�
     callerRecoveryIdAccepted: false,
     providerEffectAllowed: false,
   });
+});
+
+test("Canonical Recovery Trace全caseは正本・registry・実行集合が一致する", () => {
+  const testPath =
+    "40_Develop/coordinator/tests/docker-recovery-runtime.contract.test.ts";
+  assertRuntimeTraceExecutionCoverage(
+    testPath,
+    Object.keys(recoveryTraceAssertions),
+    executedRecoveryTraceCases,
+  );
+  const missing = new Set(executedRecoveryTraceCases);
+  missing.delete("CASE-RECOVERY-TO-RECOVERED");
+  assert.throws(() =>
+    assertRuntimeTraceExecutionCoverage(
+      testPath,
+      Object.keys(recoveryTraceAssertions),
+      missing,
+    ),
+  );
 });

@@ -11,8 +11,10 @@ import {
   calculateRuntimeExecutionIdentityCandidate,
   compilePlatformProvisionerManifestPayloadCandidate,
   describePlatformProvisionerTrustCoreContract,
+  verifyHistoricalPlatformProvisionerManifestCandidate,
   verifyPlatformProvisionerManifestCandidate,
 } from "../src/security/platform-provisioner-trust-core.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 
 function fixture() {
   const signer = generateKeyPairSync("ed25519");
@@ -95,6 +97,82 @@ test("revision 5 manifestは閉じた実行集合とPlatform Access成果物を�
   assert.equal("nativeProvisionSupervisorArtifact" in result, false);
   assert.equal(result.runtimeAuthorityConferred, false);
   assert.equal(result.runtimeCapabilityIssued, false);
+});
+
+test("旧revision 2署名は履歴由来の確認だけに受理し現在の実行Authorityへ昇格しない", () => {
+  const signer = generateKeyPairSync("ed25519");
+  const spki = signer.publicKey.export({ type: "spki", format: "der" });
+  const payload = {
+    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
+    contractRevision: 2,
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
+    crddVersion: "v0.18.0",
+    expiresAt: "2026-09-07T00:00:00.000Z",
+    issuedAt: "2026-08-31T00:00:00.000Z",
+    keyStoragePolicySha256: "1".repeat(64),
+    nativeProvisionSupervisorArtifact: {
+      byteLength: 120_832,
+      entrypointContractRevision: 2,
+      relativePath:
+        "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+      rustToolchain: "1.94.1",
+      sha256: "2".repeat(64),
+      target: "x86_64-pc-windows-msvc",
+    },
+    packageContentRootSha256: "3".repeat(64),
+    packageName: "@qual-lab/crdd-coordinator",
+    packageVersion: "0.0.0-development",
+    platformAccessArtifact: {
+      byteLength: 212_992,
+      protocolRevision: 3,
+      relativePath:
+        "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+      rustToolchain: "1.94.1",
+      sha256: "4".repeat(64),
+      target: "x86_64-pc-windows-msvc",
+    },
+    releaseSequence: 2026083108,
+    rootProtectionPolicySha256: "5".repeat(64),
+  };
+  const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
+  assert.equal(canonical.status, "candidate");
+  if (canonical.status !== "candidate") return;
+  const prefix = Buffer.from(
+    "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V2\0",
+    "ascii",
+  );
+  const length = Buffer.alloc(8);
+  length.writeBigUInt64BE(BigInt(canonical.canonicalBytes.length));
+  const message = Buffer.concat([prefix, length, canonical.canonicalBytes]);
+  const envelope = {
+    contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
+    contractRevision: 2,
+    payload,
+    signatures: [
+      {
+        keyId: createHash("sha256").update(spki).digest("hex"),
+        algorithm: "Ed25519",
+        signature: sign(null, message, signer.privateKey).toString("base64url"),
+      },
+    ],
+  };
+  const historical = verifyHistoricalPlatformProvisionerManifestCandidate(
+    envelope,
+    spki,
+  );
+  assert.equal(historical?.historicalSignatureVerified, true);
+  assert.equal(historical?.runtimeAuthorityConferred, false);
+  assert.equal(historical?.runtimeCapabilityIssued, false);
+  assert.equal(
+    verifyPlatformProvisionerManifestCandidate({
+      manifestEnvelope: envelope,
+      releaseSignerSpkiDer: spki,
+      observedPackageContent: fixture().observedPackageContent,
+      evaluationTime: "2026-09-01T00:00:00.000Z",
+    }).status,
+    "blocked",
+  );
 });
 
 test("削除済みnative supervisor fieldと旧revisionを受理しない", () => {

@@ -14,9 +14,11 @@ import {
   beginPlatformAccessArtifactSigningObservation,
   verifyPlatformAccessArtifactSigningObservation,
 } from "./platform-access-release.ts";
-import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
+import {
+  loadPlatformProvisionerManifestEnvelopeForVerification,
+  PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
+} from "./platform-provisioner-manifest-loader.ts";
 import { getPlatformProvisionerPolicyIdentity } from "./platform-provisioner-policy-identity.ts";
-import { inspectPlatformProvisionerReleaseIdentityCandidate } from "./platform-provisioner-release-identity.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "./platform-provisioner-release-trust.ts";
 import {
   calculatePlatformProvisionerPackageContentRootCandidate,
@@ -63,7 +65,6 @@ const EXPECTED_RELEASE_KEYS = new Set([
 ]);
 const DEVELOPMENT_SOURCE_KEYS = new Set([
   "distributionRoot",
-  "expectedCrddTree",
   "expectedPackageContentRootSha256",
 ]);
 const DEVELOPMENT_ENTRYPOINTS = Object.freeze([
@@ -130,6 +131,12 @@ function createVerifiedPackageCapabilityState() {
             VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS &&
           sameVerifiedPackageIdentity(record.identity, current),
       );
+    },
+    revoke: (capability: unknown) => {
+      if (!capability || typeof capability !== "object") return false;
+      const existed = capabilities.has(capability);
+      capabilities.delete(capability);
+      return existed;
     },
   });
 }
@@ -1342,8 +1349,6 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
       typeof input.distributionRoot !== "string" ||
       !path.isAbsolute(input.distributionRoot) ||
       path.normalize(input.distributionRoot) !== input.distributionRoot ||
-      typeof input.expectedCrddTree !== "string" ||
-      !isCanonicalCrddGitObjectId(input.expectedCrddTree) ||
       typeof input.expectedPackageContentRootSha256 !== "string" ||
       !/^[a-f0-9]{64}$/u.test(input.expectedPackageContentRootSha256)
     )
@@ -1352,20 +1357,32 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
     const root = directoryIdentity(input.distributionRoot);
     const packageRoot = path.join(root.realPath, "40_Develop", "coordinator");
     const observed = observePackage(packageRoot);
-    const distribution = inspectPlatformProvisionerReleaseIdentityCandidate(
+    const manifestPath = path.join(
       root.realPath,
-      input.expectedCrddTree,
+      ...PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH.split("/"),
     );
+    let releaseManifestPresent = false;
+    try {
+      fs.lstatSync(manifestPath);
+      releaseManifestPresent = true;
+    } catch (error) {
+      if (
+        !error ||
+        typeof error !== "object" ||
+        !("code" in error) ||
+        error.code !== "ENOENT"
+      )
+        throw error;
+    }
     if (
-      distribution.status !== "candidate" ||
       observed.contentRoot.packageContentRootSha256 !==
-        input.expectedPackageContentRootSha256
+      input.expectedPackageContentRootSha256
     )
       return blocked("development_package_identity_mismatch");
     // A signed manifest changes a repository-contained runtime from a
     // development source into a release distribution. Native artifacts are
     // ordinary signed-tree entries and may be present in either source kind.
-    if (distribution.manifestExcludedFromSignedGitTree)
+    if (releaseManifestPresent)
       return blocked("development_package_release_artifact_present");
 
     const entrypoints = DEVELOPMENT_ENTRYPOINTS.map((entrypoint) =>
@@ -1388,7 +1405,6 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
           root.identity.dev.toString(),
           root.identity.ino.toString(),
           root.identity.birthtimeNs.toString(),
-          distribution.crddTree,
           observed.contentRoot.packageContentRootSha256,
         ]),
         "utf8",
@@ -1398,7 +1414,6 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
       ...publicObservation(observed, false),
       reason: "fixed_development_package_observed_authorization_required",
       executionSourceKind: "fixed_development_candidate" as const,
-      crddTree: distribution.crddTree,
       sourceIdentitySha256,
       entrypoints: Object.freeze(
         entrypoints.map((entrypoint) => {
@@ -1615,6 +1630,12 @@ export function consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
     current,
     performance.now(),
   );
+}
+
+export function revokeRuntimeOwnedVerifiedCoordinatorPackageCapability(
+  capability: unknown,
+) {
+  return verifiedPackageCapabilityState.revoke(capability);
 }
 
 export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {

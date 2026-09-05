@@ -11,7 +11,6 @@ import {
   createIsolatedDevelopmentMeasurementSessionCandidate,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
 } from "../src/security/development-measurement-session.ts";
-import { confirmInteractiveConsoleChallengeOutcomeUsingAdapter } from "../src/security/external-send-grant-runtime.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../src/security/provider-home-windows-adapter.ts";
 import { assertPresent } from "./test-support.ts";
 
@@ -67,15 +66,8 @@ function harness() {
   const state = {
     identity: "2".repeat(64),
     isBlocked: false,
-    confirmationCount: 0,
     observationCount: 0,
-    notice: "",
-    confirmationStatus: "confirmed" as
-      | "confirmed"
-      | "declined_invalid"
-      | "cleanup_unknown"
-      | "timeout",
-    beforeConfirmation: () => {},
+    beforeObservation: (_count: number) => {},
     observationThrows: false,
     operationValid: true,
     repositoryRoot,
@@ -86,6 +78,7 @@ function harness() {
   const runtime = createIsolatedDevelopmentMeasurementSessionCandidate({
     observe: () => {
       state.observationCount += 1;
+      state.beforeObservation(state.observationCount);
       if (state.observationThrows)
         throw new Error("private observation details");
       return {
@@ -94,15 +87,8 @@ function harness() {
         repositoryIdentitySha256: "4".repeat(64),
       };
     },
-    confirm: async (notice) => {
-      state.confirmationCount += 1;
-      state.notice = notice;
-      state.beforeConfirmation();
-      return { status: state.confirmationStatus };
-    },
     wallNow: () => clock.wall,
     monotonicNow: () => clock.monotonic,
-    randomChallenge: () => "123456",
     isEffectBlocked: () => state.isBlocked,
     verifyOperation: (capability) => {
       if (
@@ -144,7 +130,7 @@ function harness() {
   return { runtime, state, clock, createOperation };
 }
 
-test("一回の確認から2Task・最大8呼出しへ結合し、試験tokenは本番へ流用できない", async () => {
+test("固定Identityから2Task・最大8呼出しへ結合し、試験tokenは本番へ流用できない", async () => {
   const { runtime, state, createOperation } = harness();
   const admitted = await runtime.request(
     configuration(),
@@ -210,7 +196,6 @@ test("一回の確認から2Task・最大8呼出しへ結合し、試験tokenは
       null,
     );
   }
-  assert.equal(state.confirmationCount, 1);
   assert.equal(runtime.inspect(admitted.capability)?.invocationCount, 8);
   const measured = runtime.inspect(admitted.capability);
   assert.equal(measured?.identityObservation.callCount, state.observationCount);
@@ -220,7 +205,6 @@ test("一回の確認から2Task・最大8呼出しへ結合し、試験tokenは
       .status,
     "blocked",
   );
-  assert.equal(state.confirmationCount, 1);
 });
 
 for (const failure of [
@@ -230,10 +214,11 @@ for (const failure of [
   "process_blocked",
   "observer_throw",
 ] as const) {
-  test(`承認待ち中の${failure}は許可を発行しない`, async () => {
+  test(`最終Admission再確認時の${failure}は許可を発行しない`, async () => {
     const { runtime, state, clock } = harness();
     const abort = new AbortController();
-    state.beforeConfirmation = () => {
+    state.beforeObservation = (count) => {
+      if (count !== 2) return;
       if (failure === "expiry") clock.wall = 1_100;
       if (failure === "cancel") abort.abort();
       if (failure === "source_replaced") state.identity = "5".repeat(64);
@@ -250,23 +235,7 @@ for (const failure of [
   });
 }
 
-for (const status of [
-  "declined_invalid",
-  "cleanup_unknown",
-  "timeout",
-] as const) {
-  test(`確認結果${status}から実行許可へ昇格しない`, async () => {
-    const { runtime, state } = harness();
-    state.confirmationStatus = status;
-    assert.equal(
-      (await runtime.request(configuration(), new AbortController().signal))
-        .capability,
-      null,
-    );
-  });
-}
-
-test("不正設定・Task・追加keyは人間へ確認する前に拒否する", async () => {
+test("不正設定・Task・追加keyはIdentity観測前に拒否する", async () => {
   for (const invalid of [
     { ...configuration(), confirmed: true },
     { ...configuration(), expiresAtMs: 3_600_101 },
@@ -290,21 +259,21 @@ test("不正設定・Task・追加keyは人間へ確認する前に拒否する"
       (await runtime.request(invalid, new AbortController().signal)).status,
       "blocked",
     );
-    assert.equal(state.confirmationCount, 0);
+    assert.equal(state.observationCount, 0);
   }
 });
 
-test("設定を承認待ち中に変更しても表示済みのTask snapshotだけに限定する", async () => {
+test("設定をAdmission中に変更しても固定したTask snapshotだけに限定する", async () => {
   const { runtime, state } = harness();
   const config = configuration();
-  state.beforeConfirmation = () => {
+  state.beforeObservation = (count) => {
+    if (count !== 2) return;
     const firstTask = config.tasks[0];
     assertPresent(firstTask);
     firstTask.objective = "Changed scope";
   };
   const result = await runtime.request(config, new AbortController().signal);
   assertPresent(result.capability);
-  assert.equal(state.notice.includes("Changed scope"), false);
   assert.equal(runtime.reserveTask(result.capability, config.tasks[0]), null);
   assertPresent(runtime.reserveTask(result.capability, task("codex")));
 });
@@ -371,24 +340,23 @@ test("期限切れで新規消費を止めても既発行tokenの終了記録は
   assert.equal(runtime.reserveTask(result.capability, task("claude")), null);
 });
 
-test("共通console lifecycleで開発版承認の目的を表示し外部送信だけの承認と混同しない", async () => {
-  const writes: string[] = [];
-  const result = await confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
-    "bounded scope",
-    "123456",
-    { input: 1, output: 2 },
+test("開発SessionはMCP認証用のread-only native観測だけを期限内に許可する", async () => {
+  const { runtime, clock } = harness();
+  const admitted = await runtime.request(
+    configuration(),
     new AbortController().signal,
-    {
-      writeText: async (_handle, text) => {
-        writes.push(text);
-        return { status: "completed" };
-      },
-      readLine: async () => ({ status: "completed", line: "123456" }),
-    },
-    "development_measurement",
   );
-  assert.equal(result.status, "confirmed");
-  assert.match(writes.join(""), /この固定開発版による限定実測を承認/);
+  assertPresent(admitted.capability);
+  assertPresent(runtime.borrowNativeObservation(admitted.capability, false));
+  assert.equal(
+    runtime.borrowNativeObservation(admitted.capability, true),
+    null,
+  );
+  clock.wall = 1_100;
+  assert.equal(
+    runtime.borrowNativeObservation(admitted.capability, false),
+    null,
+  );
 });
 
 for (const stop of ["expiry", "cancel"] as const) {

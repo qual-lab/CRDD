@@ -6,6 +6,8 @@ import { canonicalizeProvisioningJsonValueCandidate } from "./provisioning-signa
 
 export const PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH =
   "template/tools/coordinator/coordinator-package-manifest.json";
+export const HISTORICAL_V2_PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH =
+  "90_Release/coordinator-package-manifest.json";
 
 export const PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES = 128 * 1024;
 
@@ -72,7 +74,7 @@ function stableManifestBytes(target: string) {
   }
 }
 
-function manifestPath(distributionRoot: string) {
+function manifestPath(distributionRoot: string, relativePath: string) {
   if (
     typeof distributionRoot !== "string" ||
     distributionRoot.length === 0 ||
@@ -90,16 +92,16 @@ function manifestPath(distributionRoot: string) {
   ) {
     throw new Error("platform_provisioner_distribution_root_invalid");
   }
-  return path.join(
-    resolved,
-    ...PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH.split("/"),
-  );
+  return path.join(resolved, ...relativePath.split("/"));
 }
 
-export function loadPlatformProvisionerManifestEnvelopeForVerification(
+function loadManifestAtRelativePath(
   distributionRoot: string,
+  relativePath: string,
 ) {
-  const bytes = stableManifestBytes(manifestPath(distributionRoot));
+  const bytes = stableManifestBytes(
+    manifestPath(distributionRoot, relativePath),
+  );
   if (
     bytes.length >= 3 &&
     bytes[0] === 0xef &&
@@ -121,6 +123,65 @@ export function loadPlatformProvisionerManifestEnvelopeForVerification(
     envelope: parsed,
     manifestFileSha256: createHash("sha256").update(bytes).digest("hex"),
   });
+}
+
+export function loadPlatformProvisionerManifestEnvelopeForVerification(
+  distributionRoot: string,
+) {
+  return loadManifestAtRelativePath(
+    distributionRoot,
+    PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
+  );
+}
+
+export function loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification(
+  distributionRoot: string,
+) {
+  return loadManifestAtRelativePath(
+    distributionRoot,
+    HISTORICAL_V2_PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
+  );
+}
+
+function manifestEntryExists(distributionRoot: string, relativePath: string) {
+  try {
+    fs.lstatSync(manifestPath(distributionRoot, relativePath));
+    return true;
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    )
+      return false;
+    throw error;
+  }
+}
+
+/**
+ * Loads exactly one signed manifest layout for historical recovery. This is
+ * not a general fallback: an ambiguous root containing both layouts is
+ * rejected before either manifest can be used.
+ */
+export function loadHistoricalReleaseManifestEnvelopeForVerification(
+  distributionRoot: string,
+) {
+  const currentExists = manifestEntryExists(
+    distributionRoot,
+    PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
+  );
+  const historicalExists = manifestEntryExists(
+    distributionRoot,
+    HISTORICAL_V2_PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
+  );
+  if (currentExists === historicalExists)
+    throw new Error("platform_provisioner_historical_manifest_ambiguous");
+  return currentExists
+    ? loadPlatformProvisionerManifestEnvelopeForVerification(distributionRoot)
+    : loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification(
+        distributionRoot,
+      );
 }
 
 export function inspectPlatformProvisionerManifestFileCandidate(

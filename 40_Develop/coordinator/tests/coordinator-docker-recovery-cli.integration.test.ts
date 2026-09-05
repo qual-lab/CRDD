@@ -86,6 +86,33 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
   assert.equal(result.stderr, "");
 });
 
+test("実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成元配布RootをRecoveryへ渡す", () => {
+  const repairId = `docker-desktop-repair.${"4".repeat(32)}`;
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      path.resolve("bin/coordinator.ts"),
+      "doctor",
+      "--recover-isolation",
+      recoveryId,
+      "--after-docker-desktop-repair",
+      repairId,
+      "--repair-release-root",
+      path.resolve("fixture-historical-release"),
+      "--json",
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+  assert.equal(result.status, 2, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.status, "blocked");
+  assert.match(report.reason, /^docker_task_recovery_restart_fence_/u);
+  assert.equal(report.restartFenceVerified, false);
+  assert.equal(report.recoveryId, recoveryId);
+  assert.equal(result.stderr, "");
+});
+
 test("実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影する", () => {
   const executable = path.resolve("bin/coordinator.ts");
   const invalid = spawnSync(
@@ -185,7 +212,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
         repairDockerDesktopRuntime: false,
         closeDockerDesktopRepairId: null,
         adoptDockerDesktopRepairId: repairId,
-        historicalReleaseRoot: "C:\\old-release",
+        repairReleaseRoot: "C:\\old-release",
       },
       {
         repair: async () => assert.fail("adoption must not repair"),

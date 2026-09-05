@@ -12,6 +12,7 @@ import {
   classifyCoordinatorTaskTerminalLifecycleState,
   createIsolatedCoordinatorTaskOperationCreationCandidate,
   createIsolatedCoordinatorTaskRuntimeCandidate,
+  projectDevelopmentTaskResultAfterOuterCleanup,
   describeCoordinatorTaskRuntimeContract,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
@@ -569,6 +570,7 @@ function fixture(
     admissionRecoveryThrows?: boolean;
     lifecycleObserverThrows?: boolean;
     timingObserver?: (state: string) => void;
+    providerTurnObservation?: boolean | "invalid" | "invalid_maximum";
     terminalObserver?: (state: string) => void;
     inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
     createOperationOverride?: () => Readonly<{
@@ -1205,6 +1207,27 @@ function fixture(
                     : (options.executorChangedPaths ?? ["fixture.txt"])),
                 ]),
                 verificationCount: 1,
+                ...(options.providerTurnObservation && role === "executor"
+                  ? {
+                      providerTurnObservation: Object.freeze({
+                        provider:
+                          options.providerTurnObservation === "invalid"
+                            ? "unknown"
+                            : "claude",
+                        taskRole: "executor",
+                        requestedMaximumTurns: 8,
+                        providerReportedTurns:
+                          options.providerTurnObservation === "invalid_maximum"
+                            ? 17
+                            : 9,
+                        resultAcceptanceMaximumTurns:
+                          options.providerTurnObservation === "invalid_maximum"
+                            ? 17
+                            : 16,
+                        requestedTurnTargetExceeded: true,
+                      }),
+                    }
+                  : {}),
               })
             : Object.freeze({
                 decision: effectiveReviewerDecision,
@@ -1766,6 +1789,71 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(harness.selectionRequests[1]?.subjectProvider, "claude");
   assert.equal(harness.selectionRequests[1]?.requiresIndependentProvider, true);
   await assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
+});
+
+test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する", async () => {
+  const harness = fixture({ providerTurnObservation: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "completed");
+  assert.deepEqual(result.providerTurnObservations, [
+    {
+      provider: "claude",
+      taskRole: "executor",
+      requestedMaximumTurns: 8,
+      providerReportedTurns: 9,
+      resultAcceptanceMaximumTurns: 16,
+      requestedTurnTargetExceeded: true,
+      attempt: 0,
+    },
+  ]);
+
+  const invalid = await fixture({
+    providerTurnObservation: "invalid",
+  }).runtime.start(request(), "C:\\repository", "2026-08-25T00:00:00.000Z")
+    .completion;
+  assert.equal(invalid.status, "completed");
+  assert.deepEqual(invalid.providerTurnObservations, []);
+
+  const invalidMaximum = await fixture({
+    providerTurnObservation: "invalid_maximum",
+  }).runtime.start(request(), "C:\\repository", "2026-08-25T00:00:00.000Z")
+    .completion;
+  assert.equal(invalidMaximum.status, "completed");
+  assert.deepEqual(invalidMaximum.providerTurnObservations, []);
+
+  const cleanupUnknown = await fixture({
+    providerTurnObservation: true,
+    processCleanupFailureRole: "executor",
+  }).runtime.start(request(), "C:\\repository", "2026-08-25T00:00:00.000Z")
+    .completion;
+  assert.equal(cleanupUnknown.status, "blocked");
+  assert.equal(
+    Object.hasOwn(cleanupUnknown, "providerTurnObservations"),
+    false,
+  );
+});
+
+test("外周Candidate破棄が未確認ならturn観測だけを開発結果から除去する", () => {
+  const projected = projectDevelopmentTaskResultAfterOuterCleanup(
+    Object.freeze({
+      status: "completed",
+      reason: "coordinator_task_candidate_approved",
+      cleanupConfirmed: true,
+      candidateRecoveryId: "candidate.recovery.example",
+      providerTurnObservations: Object.freeze([
+        Object.freeze({ provider: "claude", providerReportedTurns: 9 }),
+      ]),
+    }),
+    false,
+  );
+  assert.equal(Object.hasOwn(projected, "providerTurnObservations"), false);
+  assert.equal(projected.status, "completed");
+  assert.equal(projected.cleanupConfirmed, true);
+  assert.equal(projected.candidateRecoveryId, "candidate.recovery.example");
 });
 
 test("lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しない", async () => {
@@ -3592,7 +3680,11 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 27);
+  assert.equal(contract.contractRevision, 28);
+  assert.equal(
+    contract.providerTurnObservations,
+    "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",
+  );
   assert.equal(
     contract.successfulHostRecoveryProjection,
     "explicit_null_never_omitted",

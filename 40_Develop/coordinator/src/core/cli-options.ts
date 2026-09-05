@@ -186,7 +186,8 @@ export function parseDoctorArguments(
   let shouldRepairDockerDesktopRuntime = false;
   let closeDockerDesktopRepairId: string | null = null;
   let adoptDockerDesktopRepairId: string | null = null;
-  let historicalReleaseRoot: string | null = null;
+  let afterDockerDesktopRepairId: string | null = null;
+  let repairReleaseRoot: string | null = null;
 
   for (let index = 0; index < argumentValues.length; index += 1) {
     const token = argumentValues[index];
@@ -199,7 +200,8 @@ export function parseDoctorArguments(
         "--repair-docker-desktop-runtime",
         "--close-docker-desktop-runtime-repair",
         "--adopt-docker-desktop-repair",
-        "--from-release",
+        "--after-docker-desktop-repair",
+        "--repair-release-root",
       ].includes(token) ||
       seen.has(token)
     ) {
@@ -246,13 +248,25 @@ export function parseDoctorArguments(
             isJsonRequested,
           );
         adoptDockerDesktopRepairId = value;
-      } else if (token === "--from-release") historicalReleaseRoot = value;
+      } else if (token === "--after-docker-desktop-repair") {
+        if (!/^docker-desktop-repair\.[a-f0-9]{32}$/u.test(value))
+          return response(
+            "blocked",
+            "doctor_arguments_invalid",
+            null,
+            isJsonRequested,
+          );
+        afterDockerDesktopRepairId = value;
+      } else if (token === "--repair-release-root") repairReleaseRoot = value;
     }
   }
 
   if (
-    (adoptDockerDesktopRepairId === null) !==
-      (historicalReleaseRoot === null) ||
+    (adoptDockerDesktopRepairId === null &&
+      afterDockerDesktopRepairId === null) !==
+      (repairReleaseRoot === null) ||
+    (adoptDockerDesktopRepairId !== null &&
+      afterDockerDesktopRepairId !== null) ||
     (adoptDockerDesktopRepairId !== null &&
       (isActiveIsolation ||
         recoveryId !== null ||
@@ -269,7 +283,8 @@ export function parseDoctorArguments(
     recoveryId !== null &&
     (isActiveIsolation ||
       shouldRepairDockerDesktopRuntime ||
-      closeDockerDesktopRepairId !== null)
+      closeDockerDesktopRepairId !== null ||
+      adoptDockerDesktopRepairId !== null)
   ) {
     return response(
       "blocked",
@@ -278,6 +293,18 @@ export function parseDoctorArguments(
       isJsonRequested,
     );
   }
+  if (
+    afterDockerDesktopRepairId !== null &&
+    (recoveryId === null ||
+      typeof recoveryId !== "string" ||
+      !recoveryId.startsWith("docker-task."))
+  )
+    return response(
+      "blocked",
+      "doctor_arguments_incompatible",
+      null,
+      isJsonRequested,
+    );
   if (
     shouldRepairDockerDesktopRuntime &&
     (isActiveIsolation || closeDockerDesktopRepairId !== null)
@@ -306,8 +333,11 @@ export function parseDoctorArguments(
       recoveryId,
       repairDockerDesktopRuntime: shouldRepairDockerDesktopRuntime,
       closeDockerDesktopRepairId,
+      ...(afterDockerDesktopRepairId !== null
+        ? { afterDockerDesktopRepairId, repairReleaseRoot }
+        : {}),
       ...(adoptDockerDesktopRepairId !== null
-        ? { adoptDockerDesktopRepairId, historicalReleaseRoot }
+        ? { adoptDockerDesktopRepairId, repairReleaseRoot }
         : {}),
     }),
     isJsonRequested,

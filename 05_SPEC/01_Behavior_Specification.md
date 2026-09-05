@@ -1,14 +1,14 @@
 # CRDD内部ツールの振る舞い仕様
 
-Status: Stable
+Status: Stable (v0.19.0)
 Owner: Qual-Lab
-Last Updated: 2026-09-02
+Last Updated: 2026-09-05
 
 ## 対象と読み方
 
 本書はCRDD参照Runtimeの入力、利用条件、結果、停止・回復、および現在の実装範囲を所有する。上位の[エージェント組織](../04_Agent_Organization.md)や人間の決定権限を再定義しない。実行手順は[作業手順](../19_Workflows/01_Coordinator_Runtime.md)、成立方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証の現在状態は[品質確認](../07_Quality/01_Quality_Center.md)へ分離する。
 
-既存実装を責務別に整理した仕様である。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。内容とReleaseメタデータはv0.18.1の最終候補としてStableであり、公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。網羅状態は本書の各制限と[変更トレース](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)で追跡する。
+Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Project Runtime節はv0.19で公開を目指す開発候補であり、現在利用可能な公開Capabilityではない。候補の部分実装を公開済みと読み替えず、現在状態は[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)と[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。
 
 利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
 
@@ -22,9 +22,9 @@ Last Updated: 2026-09-02
 
 Coordinatorは依頼を安全な候補成果物へつなぐ実行ツール、[Checker](#checker-contract)は文書を変更せず整合を検査する独立ツール、[platform-access](#platform-access-contract)はCoordinatorから利用するWindows内部部品である。以下のRuntime利用条件を、Checker単独実行の条件へ適用しない。
 
-現在の実装候補は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。現行Runtime実行Identityでは、fresh cloneと親Repository＋submoduleの一般Task、実Providerの4経路4/4、および失敗／timeout／cancel／親Process消失／cleanup不明を含むRecovery Matrixを実測した。字句解析、共通Launcher結合、子Process／Worker起動APIのimportと全利用箇所の照合、および説明不能な起動形のFail Closedも署名Identityへ含む。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。旧版での実務自己適用の有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。実行単位EvidenceとA／B／C Release契約の限定再確認、最終Release CommitでのIdentity不変確認およびRelease判断は別に残る。
+公開済みv0.18.1は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。現行Runtime実行Identityでは、fresh cloneと親Repository＋submoduleの一般Task、実Providerの4経路4/4、および失敗／timeout／cancel／親Process消失／cleanup不明を含むRecovery Matrixを実測した。字句解析、共通Launcher結合、子Process／Worker起動APIのimportと全利用箇所の照合、および説明不能な起動形のFail Closedも署名Identityへ含む。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。旧版での実務自己適用の有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。この未実証範囲は公開済みBaselineの利用制限であり、公開判断の残件ではない。
 
-過去の`f2243b46…f1aaa`および`33cca9b8…2473a`に対する実測は未公開候補の履歴である。独立確認で、前者は共通Launcherから到達する署名・4経路・Recovery Runnerの閉包不足、後者は依存抽出と選択scriptの子Process／Worker targetをFail Closedに閉じる不足を検出した。どちらもv0.18.1の最終Authority根拠へ流用しない。字句解析、literal Launcher結合および子Process target結合を含む新しいIdentityの署名・fresh clone／submodule一般Task・4経路・Recovery・独立確認が完了するまで本CapabilityはRelease未完了である。
+過去の`f2243b46…f1aaa`および`33cca9b8…2473a`に対する実測は未公開候補の履歴である。独立確認で、前者は共通Launcherから到達する署名・4経路・Recovery Runnerの閉包不足、後者は依存抽出と選択scriptの子Process／Worker targetをFail Closedに閉じる不足を検出した。どちらもv0.18.1の最終Authority根拠へ流用しない。これらを是正したRuntime実行Identity `e290df01…d9d41`と公式`v0.18.1` tagが現在の公開基準である。
 
 | 層 | 現在の状態 |
 |---|---|
@@ -450,3 +450,38 @@ Local Personalで接続済みのHome／State観測と、未接続の保護済み
 | Checker | 配布本体を公式Repositoryの入口から呼び出す。通常`--json`は指摘配列、`--json --summary`は対象・件数・未確認を含む報告。エラーありはexit 1、エラーなしはexit 0 | 警告、未確認、限定範囲、実行不能を0件によって消さない。機械検査は意味上の準拠・専門品質を認定しない |
 
 上表は既存公開契約を利用者操作へ接続した概要であり、Runtime内部のAuthorityや成功条件を変更しない。UIと仕様の対応確認は両工程の完了を代替せず、[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)に未確認範囲を残す。
+<a id="project-runtime-contract"></a>
+
+## Project Runtime契約
+
+本節はv0.19.0で公開したProject Runtime契約を定義する。人間または許可されたMCP／CLI入口から一つのProjectとMilestoneを受け取り、複数ObjectiveとTask Graphへ計画し、Single Task Runtimeを実行単位として使用して、統合済み結果とProject Stateを返す。MCPとCLIは同じ意味契約へ到達し、Transport固有入力からAuthority、Project正本または追加のEffect権限を生成しない。共通Objective入口、対話優先Queue、同一計画の再試行・部分再計画・人間判断移送、Task候補の耐久状態への受渡し、OS管理Rootの判断記録、MCP標準入出力Process、実Candidate Storeの統合候補・明示採用・受入を接続した。公開MCPの実Provider 2経路、実Provider開始後の取消、親Process消失後のexact Recoveryとfresh再入場は最終署名E2Eで確認した。任意Project検索、複数Repository横断、Linux／macOS実装、実電源断および無制限規模の運用保証は含まない。
+
+Project RuntimeはTask総数を5件へ制限しないが、同時にRunningとなるTaskを最大5件に制限する。Dependency、共有資源、許可Path、仕様・判断の競合、Lock、Provider利用枠またはIntegration Boundaryが独立実行を許さない場合は5未満を選ぶ。利用可能な枠があっても実行可能性を確認できないTaskを開始しない。
+
+Task失敗時は、現在Planを維持できる、影響部分の再計画が必要、人間判断が必要、の三結果へ分類する。再計画は承認済みMilestone Scope、Authority、費用・回数上限および保持する意図の内側だけで行う。Scope拡張、価値判断、Authority不足、重大Risk受容またはMilestone Acceptanceの変更を自動再計画しない。
+
+個別TaskのCompletedまたはReviewer PassをObjective／Milestoneの成功にしない。全Taskの結果を統合し、仕様、共有判断、共有資源、Artifact、Dependency、残存Conflictおよび受入条件を確認した後だけObjective Acceptance、さらにMilestone Acceptanceを成立させる。統合または確認が不明なら進捗と候補を保持して通常成功を返さない。
+
+Project Stateは、現在のMilestone／Objective、Task総数、Running／Ready／Waiting／Completed、Dependency、Blocker、Risk、Human Decision、Critical Path、Next Action、Integration State、Quality StateおよびCompletion Forecastを取得可能にする。未観測値を0または完了へ補正せず、Work ProgressとQualityを別に表示する。
+
+Project Runtimeへの入力は、Project Identity、Repository BindingとRevision、Milestone目的と受入条件、許可された読取り／変更範囲、Provider送信境界、費用・回数・時間上限、最大同時実行数および再計画上限を明示する。最大同時実行数は1～5の範囲に限定し、省略時の既定値は実装が固定して表示する。MCP／CLI Adapterはこの入力を追加Authorityへ変換しない。
+
+v0.19のMCP公開面は`crdd.run_objective`と`crdd.submit_decision`だけとする。`crdd.run_objective`は検証済みProject Binding、現在Revision、Milestone Authorityおよび宣言済み上限へObjective要求を結合する。同じ選択ユーザー、Project／Milestoneおよびrequest identityの再送は新しいOperationを作らず、最新Project State、現在の判断要求または終端結果を返す。別主体、別Project／Milestoneまたは別request identityを状態取得へ流用しない。`crdd.submit_decision`は`decisionId`、`projectId`、`milestoneId`、`generation`、`revision`、`selectedOption`、Runtime発行のopaqueな一回限り・期限付きの継続Capabilityおよび任意の`comment`を受け取り、`run_objective`受付時に検証した選択ユーザーのOS principal、既存Milestone Authorityと現在の判断要求を照合する。Capabilityのraw値はClientへ一度だけ返し、Runtimeは対象、主体、世代、改訂版、有限期限へ結合したhashと消費状態だけをRepository外のOS管理・Runtime保護Rootへ先に耐久化する。Platform AdapterがRoot identity、選択ユーザー、固定Volume、非reparse chain、Owner／Protectionまたはatomic updateを確認できない場合はEffect 0にする。Repository側は非AuthorityのRecord IDだけを持つ。人間へ手入力を要求せず、raw値をRepository、Provider、Task Packet、ログ、永続RecordまたはMCP metadataへ保存・転送しない。
+
+すべて一致したpending判断の適用では、Root間の原子性を仮定しない。一意なdecision application ID、expected／new Project世代および入力hashを保護Recordへ`prepared`として耐久化し、Repository内Project Stateの一回のatomic replaceでDecision accepted、Milestone executing、application IDおよびcontinuation Record IDを適用する。fresh readback後に保護Recordを`finalized`へ進めてCapability消費を確定する。再起動時は両Rootのapplication ID、世代およびdispositionから、同一applicationの再適用、未適用への復帰、finalizeまたはRecoveryを一意に選ぶ。Project Stateだけが不明で保護Rootを更新できる場合は、別の検証済みRecovery Storeへexactな回復意図を先に耐久化してから保護RecordをRecoveryへ進める。保護Rootの読取り、CAS応答またはreadback自体が不明なら、そのRootの状態遷移を主張せず、別Recovery Storeだけへ回復意図を残す。Recovery Storeも不明なら状態を捏造せず、手動回復必須、Effect状態不明、Process再利用禁止として停止する。回復時は回復意図、保護RootおよびProject Stateをfreshに結合し、継続Recordをfinalizedまたはinvalidatedへ収束・readbackした後だけ回復意図をsettleする。Queueは`finalized`とProject Stateのapplication ID／new世代をfreshに確認した後、別の短時間更新でLeaseする。Decision／Milestone commit後・Queue Lease前は正当な「判断受理済み・再開待ち」であり、再送時も二重Leaseと二重Task Effectを防ぐ。stale、superseded、取消済み、許可外選択肢、別主体、Capability欠落・失効・消費済みまたはAuthority不明ではDecision Record、Project変更、Authority生成および新規Task Effectを0にし、無効入力だけで正規Capabilityを変更しない。accepted、Runtime-ownedな置換／取消、Project終端または期限切れではCapabilityを失効させる。応答喪失時は同じ認証主体が同じ`crdd.run_objective` request identityへ明示的な置換意図と一意な置換request identityを添え、旧hashの失効を耐久化・readbackした後だけ新しい1件を発行できる。旧・新を同時に有効化せず、置換requestの再送は冪等に扱う。MCP metadata、接続Session、Provider identityまたはcomment本文からHuman Authorityを生成しない。`comment`は省略可能な非Authority注記で、正しいUTF-8の最大1024 byteかつC0制御文字とDELを含まない単一行に限る。未知field、上限超過、制御文字または認識済みSecretを含む入力を拒否し、生値をProvider、Task Packet、ログ、永続Recordまたは通常結果へ渡さない。内部Task、Scheduler、再計画、統合、LockまたはRecoveryを直接操作するMCP toolは公開しない。`crdd.get_project_state`はv0.20以降の候補であり、本版の公開契約ではない。
+
+保護Root更新の応答またはreadbackを失った場合は、更新種別とfreshな観測結果を組にして回復する。初回作成後にRecordがexactに`absent`、raw未返却、Project未適用なら継続遷移なしで回復意図だけをsettleする。freshな`issued`はexact Recoveryで`invalidated`へ進める。freshな`prepared`は`recovery_required`へ進め、Project Stateとの既存照合へ接続する。freshな`finalized`、`invalidated`または`expired`は、それぞれ対応するProject状態と矛盾しない場合だけ回復意図をsettleする。観測不能または競合では回復意図を`required`に保持する。
+
+Task状態の`completed`はTask結果と資源回収の確認、Objective／Milestone状態の`accepted`は受入条件と統合の確認を意味する。`failed`、`cancelled`、`cleanup_pending`、`recovery_required`および`superseded`を`completed`へ数えない。`recovery_required`は現在の呼出しが終了してもProject Operationが終端していないため、通常の次Task開始またはMilestone成功を許可しない。
+
+SchedulerはTask開始前に、現在のProject世代、Dependency、Task Authority、変更範囲、共有資源、Conflict reservation、Provider利用条件および実行中枠を再確認する。`starting`、`running`および実行資源が残る`cleanup_pending`を最大5枠へ数え、cleanup不明のTaskを空き枠へ補正しない。開始判断を耐久化する前、または開始直前の再確認に失敗した場合はProvider Effectを発行しない。
+
+Project Runtimeは、Taskごとに一意なattempt IDとSingle Task Operation Identityを保持する。再試行、部分再計画、Parent再開またはMCP request再送で同じTask Effectを二重発行しない。古い世代、別attempt、別Projectまたは別Repository Revisionの結果を現在Taskへ適用しない。
+
+取消は取消要求、Taskへの通知、Task終了、資源回収およびProject State反映を別々に観測する。MCP切断、Parent Process喪失、Promise完了または子Processへのsignal送信だけを取消完了としない。cleanup、Lock解放またはRecoveryが不明なら、取得できたIdentityと未確認事項を保持して通常成功を返さない。
+
+同じRepository Bindingへ対話起点とスケジュール起点のOperationが到着した場合、Runtimeは要求を耐久キューへ記録し、対話起点を既定の優先Laneとする。優先Laneの存在だけで実行中Operationを横取りまたは取消せず、未開始のスケジュールOperationだけを待機させる。各Operationは固定Repository Revisionから隔離Workspaceを作り、正本Worktreeへ直接変更しない。正本への採用はRepository単位で直列化し、採用直前にRevision、dirty state、対象Pathおよび意味競合を再確認する。不一致なら自動上書きせず、承認Scope内の再計画または人間判断へ進める。
+
+この競合契約は、外部Schedulerから既に許可されたObjectiveが到着する場合の安全境界であり、Schedule／Repository EventからObjective、Authorityまたは変更意図を自動生成する能力をv0.19へ追加しない。
+
+耐久キューはRepository-local `.crdd`の機械可読状態として保持し、要求Identity、起点、優先Lane、基準Revision、Scope、状態、所有者世代、lease、attempt、再開条件および結果参照を持つ。MD、Process内配列、時刻だけのstale判定またはLock fileの存在だけを排他根拠にしない。OS排他と所有者観測を組み合わせ、Parent喪失、期限切れ、重複起動または観測不能では新規Effectを止め、既存EffectとRecoveryを照合する。Runtimeを経由しない直接編集は強制排他できないため、Operation開始前と採用前の再確認を必須とする。

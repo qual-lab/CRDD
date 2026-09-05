@@ -111,6 +111,7 @@ export function createTaskControllerCancellationFixture(
         processStarted = true;
         events.push("process-start");
         return {
+          started: owned.started,
           wait: owned.wait,
           terminateAndWait: async (graceMs) => {
             terminationCount += 1;
@@ -120,6 +121,7 @@ export function createTaskControllerCancellationFixture(
         };
       }
       return {
+        started: async () => true,
         wait: async () => ({
           status: 0,
           signal: null,

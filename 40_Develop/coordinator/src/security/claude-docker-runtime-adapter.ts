@@ -57,6 +57,7 @@ type Command = Readonly<{
 type PreparedPlan = Readonly<{
   provider: "claude";
   operationId: string;
+  recoveryCorrelationId: string | null;
   grantRef: string;
   profileId: string;
   activeMountCapability: object;
@@ -305,6 +306,7 @@ function buildPlan(
   preparedWallClockMs: number,
   preparedMonotonicMs: number,
   taskPacket: ConsumedTaskPacket | null,
+  recoveryCorrelationId: string | null,
 ) {
   const claude = taskPacket
     ? planClaudeIsolatedTask({
@@ -524,6 +526,7 @@ function buildPlan(
   return Object.freeze({
     provider: "claude" as const,
     operationId: binding.operationId,
+    recoveryCorrelationId,
     grantRef: activation.grant.grantRef,
     profileId: activation.grant.profileId,
     activeMountCapability: activation.activeMountCapability,
@@ -571,7 +574,16 @@ function prepare(
   mountAuthorizationCapability: unknown,
   selectionUseCapability: unknown,
   taskPacketUseCapability: unknown = null,
+  recoveryCorrelationId: unknown = null,
 ) {
+  if (
+    recoveryCorrelationId !== null &&
+    (typeof recoveryCorrelationId !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(recoveryCorrelationId))
+  )
+    return createBlockedResult(
+      "claude_docker_runtime_recovery_correlation_invalid",
+    );
   const binding = state.verifyOperationMount(
     managementCapability,
     mountCapability,
@@ -657,6 +669,7 @@ function prepare(
             preparedWallClockMs,
             preparedMonotonicMs,
             taskPacket,
+            recoveryCorrelationId,
           )
         : null;
     if (!planCandidate) {
@@ -855,6 +868,7 @@ export function prepareRuntimeOwnedClaudeDockerTaskCandidate(
   mountAuthorizationCapability: unknown,
   selectionUseCapability: unknown,
   taskPacketUseCapability: unknown,
+  recoveryCorrelationId: unknown = null,
 ) {
   return performSafely(
     "claude_docker_runtime_task_preparation_failed_closed",
@@ -866,6 +880,7 @@ export function prepareRuntimeOwnedClaudeDockerTaskCandidate(
         mountAuthorizationCapability,
         selectionUseCapability,
         taskPacketUseCapability,
+        recoveryCorrelationId,
       ),
   );
 }

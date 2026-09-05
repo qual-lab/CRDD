@@ -1,0 +1,64 @@
+{
+  "contract": "crdd-coordinator/project-runtime-real-provider-verification-summary",
+  "contractRevision": 1,
+  "status": "completed",
+  "reason": "project_runtime_real_providers_verified",
+  "sourceACommit": "8cb138374d2c360f772b7ef9dbfa7d6e7797fd38",
+  "sourceBCommit": "d44ae1ae91c05eb0d75f061d3fd44aa7cac81172",
+  "sourceBTree": "41fd70a082f31392c4247615335c7eb701a801da",
+  "runId": "aabc79bcadf84666",
+  "providers": [
+    "codex",
+    "claude"
+  ],
+  "completedRouteCount": 2,
+  "canonicalAdoptionObserved": true,
+  "mcpProcess": {
+    "transport": "bounded_stdio_process_contract",
+    "authenticatedPrincipalObserved": true,
+    "semanticObjectiveCount": 2,
+    "invalidDecisionEffect": "no_effect",
+    "parentEofJoined": true
+  },
+  "taskOutcomes": [
+    {
+      "requestedExecutorProvider": "codex",
+      "status": "completed",
+      "cleanupConfirmed": true,
+      "manualRecoveryRequired": false,
+      "processRestartRequired": false,
+      "recoveryPresent": false,
+      "providerTurnObservations": [
+        {
+          "provider": "claude",
+          "taskRole": "reviewer",
+          "requestedMaximumTurns": 6,
+          "providerReportedTurns": 10,
+          "resultAcceptanceMaximumTurns": 16,
+          "requestedTurnTargetExceeded": true,
+          "attempt": 0
+        }
+      ]
+    },
+    {
+      "requestedExecutorProvider": "claude",
+      "status": "completed",
+      "cleanupConfirmed": true,
+      "manualRecoveryRequired": false,
+      "processRestartRequired": false,
+      "recoveryPresent": false,
+      "providerTurnObservations": [
+        {
+          "provider": "claude",
+          "taskRole": "executor",
+          "requestedMaximumTurns": 8,
+          "providerReportedTurns": 4,
+          "resultAcceptanceMaximumTurns": 16,
+          "requestedTurnTargetExceeded": false,
+          "attempt": 0
+        }
+      ]
+    }
+  ],
+  "releaseAuthorityConferred": false
+}

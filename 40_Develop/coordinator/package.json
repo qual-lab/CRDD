@@ -7,7 +7,7 @@
     "./cli": "./bin/coordinator.ts"
   },
   "scripts": {
-    "check": "npm run runtime-traceability:check && npm run typecheck && npm run lint && npm run format:check",
+    "check": "npm run runtime-traceability:check && npm run project-runtime-design-traceability:check && npm run typecheck && npm run lint && npm run format:check",
     "claude-docker-runtime-adapter:coverage": "node --experimental-test-coverage --test ./tests/claude-docker-runtime-adapter.contract.test.ts ./tests/provider-model-selection-runtime.contract.test.ts",
     "claude-execution-plan:coverage": "node --experimental-test-coverage --test ./tests/plain-data-snapshot.contract.test.ts ./tests/claude-execution-plan.contract.test.ts",
     "coordinator-task-runtime:coverage": "node --experimental-test-coverage --test ./tests/coordinator-task-runtime.contract.test.ts ./tests/provider-task-packet-runtime.contract.test.ts ./tests/provider-task-structured-result.contract.test.ts",
@@ -37,9 +37,10 @@
     "provider-home-mount-grant-runtime:coverage": "node --experimental-test-coverage --test ./tests/provider-home-mount-grant-runtime.contract.test.ts",
     "provider-lifecycle:coverage": "node --experimental-test-coverage --test ./tests/authority-root-path-lexical.contract.test.ts ./tests/plain-data-snapshot.contract.test.ts ./tests/provider-home.contract.test.ts ./tests/provider-lifecycle.contract.test.ts",
     "provider-model-selection-runtime:coverage": "node --experimental-test-coverage --test ./tests/provider-model-selection-runtime.contract.test.ts",
+    "project-runtime-design-traceability:check": "node ./scripts/check-project-runtime-design-traceability.ts",
     "repository-operation-runtime:coverage": "node --experimental-test-coverage --test ./tests/repository-operation-runtime.contract.test.ts ./tests/docker-process-controller.contract.test.ts",
     "runtime-traceability:check": "node ./scripts/check-runtime-traceability.ts",
-    "test": "node --test --test-concurrency=1 ./tests/*.test.ts",
+    "test": "npm run test:windows-process && npm run test:restricted-process",
     "test:restricted-process": "node --test --test-concurrency=1 \"--test-skip-pattern=^Windows Process Gate:\" ./tests/*.test.ts",
     "test:windows-process": "node --test --test-concurrency=1 \"--test-name-pattern=^Windows Process Gate:\" ./tests/coordinator-task-process.integration.test.ts ./tests/docker-owned-process.integration.test.ts ./tests/docker-process-controller.contract.test.ts",
     "typecheck": "tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"

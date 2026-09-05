@@ -1,10 +1,10 @@
 # 変更トレース: Coordinator採用入口の本質是正
 
 変更ID: `CHG-000056`
-- 状態: `In Progress`
+- 状態: `Released (v0.18.1)`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-09-01
-- 最終更新日: 2026-09-02
+- 最終更新日: 2026-09-03
 - 対象: Coordinator Runtimeの新規採用入口、公開CLI、配布Identity、Platform Access、仕様・設計・試験・利用案内
 - 対象version: `v0.18.1`
 - 変更分類: `corrective breaking`（v0.18.0で公開したが実用結果へ接続しない入口を削除する）
@@ -151,4 +151,4 @@ Runtime Authorityの責務境界をRepository全体から閉じた実行依存�
 
 現行Identityでは、fresh cloneと親Repository＋submoduleの一般Task、4経路4/4およびRecovery 7シナリオが完了した。両採用形態で実行前後Revision、Candidate base、exact capability、候補破棄、正本不変およびcleanupを確認した。各採用形態のExecution Commit／Tree、Candidate base、個別projection Hashおよび集約Hashは[検証結果](../../07_Quality/Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md#新規採用形態)へ固定した。4経路の最初の行列はreverseで安全停止し、新しい行列全体は完了した。途中のreverse単独診断は永続記録がないためRelease成立根拠へ使用せず、初回停止と最終行列の記録ID／Hashを分けて保持する。Recoveryはtimeout、出力量超過、不正出力、非0終了、cancel、cleanup観測不明からのfresh recovery、親Process消失後の子Process終了とfresh recoveryを確認した。
 
-manifest carrier Bの後に、署名後検証結果だけを反映する文書Commit Cを固定する。BからCの変更はWorkflowで宣言した6文書だけに閉じ、manifest、Runtime実行集合、PolicyおよびNative成果物を変えない。CでPackage content rootとRuntime実行Identityの不変を確認し、公式tagはBではなくCへ付ける。CのCommit／Treeはtagと結合した公式Release記録へ保存する。残るGateは、このEvidenceとA／B／C契約の限定独立再確認、最終CでのIdentity不変・許可Path確認、および人間による統合・Release判断である。現在、人間による追加判断は必要ない。
+manifest carrier Bの後に、署名後検証結果だけを反映する文書Commit Cを固定する。BからCの変更はWorkflowで宣言した6文書だけに閉じ、manifest、Runtime実行集合、PolicyおよびNative成果物を変えない。CでPackage content rootとRuntime実行Identityの不変を確認し、公式tagはBではなくCへ付ける。CのCommit／Treeはtagと結合した公式Release記録へ保存する。当時残っていたGateは、このEvidenceとA／B／C契約の限定独立再確認、最終CでのIdentity不変・許可Path確認、および人間による統合・Release判断であり、公式`v0.18.1` tagの公開までに完了した。この段落は公開前の判断履歴であり、現在のRelease残件を示さない。

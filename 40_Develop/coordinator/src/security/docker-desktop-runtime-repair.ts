@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import {
   createWindowsDockerCliEnvironment,
@@ -17,33 +18,37 @@ import {
   type DockerDesktopRepairNativeHelperSession,
 } from "./docker-desktop-repair-native-helper.ts";
 import {
-  observeRuntimeOwnedDockerDesktopRepairPolicy,
   type DockerDesktopRepairPolicy,
+  observeRuntimeOwnedDockerDesktopRepairPolicy,
 } from "./docker-desktop-repair-policy.ts";
 import {
-  createDockerDesktopRepairOperation,
   classifyDockerDesktopRepairResume,
-  hasDockerDesktopRepairRecordCapacity,
+  classifyCanonicalDockerDesktopRepairHistoricalOperation,
+  createDockerDesktopRepairOperation,
   type DockerDesktopRepairDirectoryIdentity,
-  type DockerDesktopRepairEvidenceState,
-  type DockerDesktopRepairEffectEntry,
   type DockerDesktopRepairEffectAction,
   type DockerDesktopRepairEffectConfirmation,
+  type DockerDesktopRepairEffectEntry,
+  type DockerDesktopRepairEvidenceState,
   type DockerDesktopRepairHostSafety,
   type DockerDesktopRepairLedgerSnapshot,
   type DockerDesktopRepairOperation,
   type DockerDesktopRepairRecordBoundary,
   type DockerDesktopRepairStaleState,
-  inventoryDockerDesktopRepairOperations,
+  hasDockerDesktopRepairRecordCapacity,
   inspectDockerDesktopRepairHistoricalOperation,
+  inventoryDockerDesktopRepairOperations,
+  parseDockerDesktopRepairId,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
-  parseDockerDesktopRepairId,
   persistDockerDesktopRepairStage,
   requiredDockerDesktopRepairRecordsThroughSafeStage,
 } from "./docker-desktop-repair-record-store.ts";
+import {
+  loadHistoricalReleaseManifestEnvelopeForVerification,
+  loadPlatformProvisionerManifestEnvelopeForVerification,
+} from "./platform-provisioner-manifest-loader.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
-import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 
 export const DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT =
   "crdd-coordinator/docker-desktop-runtime-repair";
@@ -920,6 +925,22 @@ function inventoryState(
   return Object.freeze({ inventory, unfinished: unfinishedItems[0] ?? null });
 }
 
+function durableInventoryState(
+  dependencies: RepairDependencies,
+  boundary: PreparedBoundary,
+) {
+  const inventory = dependencies.inventory(boundary);
+  if (inventory.status !== "verified") return null;
+  const unfinishedItems = inventory.operations.filter((operation) =>
+    operation.history
+      ? !operation.history.closed
+      : classifyDockerDesktopRepairResume(operation).state !== "terminal",
+  );
+  return unfinishedItems.length > 1
+    ? null
+    : Object.freeze({ inventory, unfinished: unfinishedItems[0] ?? null });
+}
+
 function registerProcessCancellation(listener: () => void) {
   process.once("SIGINT", listener);
   process.once("SIGTERM", listener);
@@ -1656,6 +1677,34 @@ async function observeHistoricalRepair(
   operation: DockerDesktopRepairOperation,
 ) {
   const ledger = ledgerFrom(operation);
+  const originalTerminal = originalRepairChainIsTerminal(operation);
+  if (operation.history?.closed || originalTerminal) {
+    const retained =
+      operation.history?.staleState === "retained" ||
+      operation.ledger.staleState === "retained";
+    const liveRunIdentity =
+      operation.history?.liveRunIdentity ??
+      operation.ledger.liveRunIdentity ??
+      operation.runIdentity;
+    ledger.engineReady = operation.ledger.engineReady;
+    ledger.staleState = retained ? "retained" : operation.ledger.staleState;
+    ledger.hostSafety = operation.ledger.hostSafety;
+    ledger.evidenceState = "preserved";
+    ledger.liveRunIdentity = liveRunIdentity;
+    ledger.disposition = operation.history?.closed
+      ? "historical_effect_unknown_retained_by_human_decision"
+      : operation.ledger.disposition;
+    return {
+      status: operation.history?.closed
+        ? ("historical_closed_retained" as const)
+        : ("historical_recovered_pending_close" as const),
+      reason: operation.history?.closed
+        ? "docker_desktop_repair_historical_evidence_retention_closed"
+        : "docker_desktop_repair_historical_terminal_evidence_verified",
+      ledger,
+      operation,
+    };
+  }
   const fresh = await observeFreshRuntimeState(
     dependencies,
     boundary,
@@ -1719,6 +1768,160 @@ async function observeHistoricalRepair(
         ? "docker_desktop_repair_historical_current_state_verified"
         : "docker_desktop_repair_historical_current_state_unconfirmed";
   return { status, reason, ledger, operation };
+}
+
+function originalRepairChainIsTerminal(
+  operation: DockerDesktopRepairOperation,
+): boolean {
+  return [
+    "closed_retained",
+    "closed_no_stale_known_effect_retained",
+    "closed_historical_effect_unknown_retained",
+  ].includes(operation.stage);
+}
+
+type HistoricalAdoptionRoute =
+  | "invalid"
+  | "initial_adoption"
+  | "closed"
+  | "current_session"
+  | "session_handoff";
+
+function sameRepairOperationCore(
+  before: DockerDesktopRepairOperation,
+  after: DockerDesktopRepairOperation,
+  boundary: PreparedBoundary,
+) {
+  return (
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(
+      before,
+      boundary,
+    ) !== "invalid" &&
+    classifyCanonicalDockerDesktopRepairHistoricalOperation(after, boundary) !==
+      "invalid" &&
+    before.operationId === after.operationId &&
+    before.repairId === after.repairId &&
+    before.originLocalUserBindingHash === after.originLocalUserBindingHash &&
+    before.operationDirectory === after.operationDirectory &&
+    before.staleName === after.staleName &&
+    before.staleDirectory === after.staleDirectory &&
+    sameIdentity(before.runIdentity, after.runIdentity) &&
+    before.stage === after.stage &&
+    before.sequence === after.sequence &&
+    before.previousRecordSha256 === after.previousRecordSha256 &&
+    isDeepStrictEqual(before.ledger, after.ledger)
+  );
+}
+
+export function classifyDockerDesktopRepairHistoricalAdoptionRoute(
+  operation: DockerDesktopRepairOperation,
+  boundary: PreparedBoundary,
+): HistoricalAdoptionRoute {
+  const mode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    operation,
+    boundary,
+  );
+  if (mode === "no_history") return "initial_adoption";
+  if (mode === "closed") return "closed";
+  if (mode === "open_current") return "current_session";
+  if (mode === "open_prior") return "session_handoff";
+  return "invalid";
+}
+
+export function validateDockerDesktopRepairHistoricalAdoptionResult(
+  route: HistoricalAdoptionRoute,
+  before: DockerDesktopRepairOperation,
+  after: DockerDesktopRepairOperation,
+  boundary: PreparedBoundary,
+) {
+  if (
+    (route !== "initial_adoption" && route !== "session_handoff") ||
+    !sameRepairOperationCore(before, after, boundary) ||
+    !after.history ||
+    after.history.closed ||
+    after.history.currentSessionBound !== true ||
+    after.history.currentLocalUserBindingHash !== boundary.localUserBindingHash
+  )
+    return false;
+  const beforeMode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    before,
+    boundary,
+  );
+  const afterMode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    after,
+    boundary,
+  );
+  if (
+    afterMode !== "open_current" ||
+    (route === "initial_adoption"
+      ? beforeMode !== "no_history"
+      : beforeMode !== "open_prior")
+  )
+    return false;
+  if (route === "initial_adoption")
+    return (
+      after.history.handoffCount === 0 &&
+      after.history.handoffTipSha256 === after.history.adoptionSha256 &&
+      after.history.originLocalUserBindingHash ===
+        before.originLocalUserBindingHash &&
+      afterMode === "open_current"
+    );
+  const prior = before.history;
+  const priorHandoffCount = prior?.handoffCount;
+  return (
+    prior !== undefined &&
+    beforeMode === "open_prior" &&
+    typeof priorHandoffCount === "number" &&
+    prior.currentSessionBound === false &&
+    prior.currentLocalUserBindingHash !== boundary.localUserBindingHash &&
+    after.history.adoptionSha256 === prior.adoptionSha256 &&
+    after.history.originLocalUserBindingHash ===
+      prior.originLocalUserBindingHash &&
+    after.history.handoffCount === priorHandoffCount + 1 &&
+    after.history.handoffTipSha256 !== prior.handoffTipSha256 &&
+    isDeepStrictEqual(after.history.liveRunIdentity, prior.liveRunIdentity) &&
+    after.history.staleState === prior.staleState &&
+    afterMode === "open_current"
+  );
+}
+
+export function validateDockerDesktopRepairHistoricalClosureResult(
+  before: DockerDesktopRepairOperation,
+  after: DockerDesktopRepairOperation,
+  boundary: PreparedBoundary,
+  expected: Readonly<{
+    liveRunIdentity: DockerDesktopRepairDirectoryIdentity;
+    staleState: "absent" | "retained";
+  }>,
+) {
+  const prior = before.history;
+  const closed = after.history;
+  const beforeMode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    before,
+    boundary,
+  );
+  const afterMode = classifyCanonicalDockerDesktopRepairHistoricalOperation(
+    after,
+    boundary,
+    expected,
+  );
+  return (
+    prior !== undefined &&
+    closed !== undefined &&
+    beforeMode === "open_current" &&
+    prior.currentSessionBound === true &&
+    closed.closed === true &&
+    afterMode === "closed" &&
+    sameRepairOperationCore(before, after, boundary) &&
+    closed.adoptionSha256 === prior.adoptionSha256 &&
+    closed.handoffTipSha256 === prior.handoffTipSha256 &&
+    closed.handoffCount === prior.handoffCount &&
+    closed.originLocalUserBindingHash === prior.originLocalUserBindingHash &&
+    closed.currentLocalUserBindingHash === prior.currentLocalUserBindingHash &&
+    closed.currentSessionBound === prior.currentSessionBound &&
+    isDeepStrictEqual(closed.liveRunIdentity, expected.liveRunIdentity) &&
+    closed.staleState === expected.staleState
+  );
 }
 
 async function executeRepair(
@@ -3558,18 +3761,24 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
         ledger.liveRunIdentity &&
         (ledger.staleState === "retained" || ledger.staleState === "absent")
       ) {
+        const originalTerminal = originalRepairChainIsTerminal(operation);
         const expectedRun = ledger.liveRunIdentity;
         const expectedStale =
           ledger.staleState === "retained" ? operation.runIdentity : null;
         const closingManifest = dependencies.history.loadCurrentManifest();
-        const fresh = await observeFreshRuntimeState(
-          dependencies,
-          boundary,
-          session,
-          cancellation,
-          operation,
-        );
-        if (!freshReadyStateMatches(fresh, expectedRun, expectedStale)) {
+        const fresh = originalTerminal
+          ? null
+          : await observeFreshRuntimeState(
+              dependencies,
+              boundary,
+              session,
+              cancellation,
+              operation,
+            );
+        if (
+          !originalTerminal &&
+          (!fresh || !freshReadyStateMatches(fresh, expectedRun, expectedStale))
+        ) {
           markUnknown(ledger);
           status = "blocked";
           reason = "docker_desktop_repair_close_precondition_unconfirmed";
@@ -3861,50 +4070,112 @@ export async function adoptWindowsDockerDesktopRepairUsingDependencies(
       reason = "docker_desktop_repair_historical_provenance_invalid";
     } else {
       restoreLedger(ledger, operation);
-      const verified = await verifyEffectBoundaryState(
-        dependencies,
+      const adoptionRoute = classifyDockerDesktopRepairHistoricalAdoptionRoute(
+        operation,
         boundary,
-        session,
-        cancellation,
       );
-      if (verified !== "verified") {
-        reason = effectBoundaryFailureReason(verified);
+      if (adoptionRoute === "invalid") {
+        reason = "docker_desktop_repair_historical_state_invalid";
         markUnknown(ledger);
       } else {
-        const adopted = operation.history
-          ? operation
-          : dependencies.history.persistAdoption(
-              boundary,
-              operation,
-              originManifest,
-              currentManifest,
-            );
-        if (!adopted?.history) {
-          reason = "docker_desktop_repair_historical_adoption_write_unknown";
+        const verified = await verifyEffectBoundaryState(
+          dependencies,
+          boundary,
+          session,
+          cancellation,
+        );
+        if (verified !== "verified") {
+          reason = effectBoundaryFailureReason(verified);
           markUnknown(ledger);
         } else {
-          operation = adopted;
-          const observed = await observeHistoricalRepair(
-            dependencies,
-            boundary,
-            session,
-            cancellation,
-            operation,
-          );
-          Object.assign(ledger, observed.ledger);
-          status = observed.status;
-          reason = observed.reason;
-          // Targeted adoption may unblock provenance one record at a time, but
-          // it cannot declare the whole inventory safe while others are unknown.
-          const currentInventory = inventoryState(dependencies, boundary);
+          const originalWasTerminal = originalRepairChainIsTerminal(operation);
+          const operationBeforeAdoption = operation;
+          const adopted =
+            adoptionRoute === "initial_adoption" ||
+            adoptionRoute === "session_handoff"
+              ? dependencies.history.persistAdoption(
+                  boundary,
+                  operation,
+                  originManifest,
+                  currentManifest,
+                )
+              : operation;
           if (
-            !currentInventory ||
-            (currentInventory.unfinished &&
-              currentInventory.unfinished.operationId !== operation.operationId)
+            !adopted?.history ||
+            ((adoptionRoute === "initial_adoption" ||
+              adoptionRoute === "session_handoff") &&
+              !validateDockerDesktopRepairHistoricalAdoptionResult(
+                adoptionRoute,
+                operationBeforeAdoption,
+                adopted,
+                boundary,
+              ))
           ) {
-            status = "blocked";
-            reason = "docker_desktop_repair_historical_inventory_incomplete";
-            ledger.hostSafety = "manual_recovery_required";
+            reason = "docker_desktop_repair_historical_adoption_write_unknown";
+            markUnknown(ledger);
+          } else {
+            operation = adopted;
+            let historyReady = true;
+            if (!adopted.history.closed && originalWasTerminal) {
+              const liveRunIdentity =
+                adopted.ledger.liveRunIdentity ?? adopted.runIdentity;
+              const staleState =
+                adopted.ledger.staleState === "retained"
+                  ? "retained"
+                  : "absent";
+              const closed = dependencies.history.persistClosure(
+                boundary,
+                adopted,
+                { liveRunIdentity, staleState },
+                currentManifest,
+              );
+              if (
+                !closed?.history?.closed ||
+                !validateDockerDesktopRepairHistoricalClosureResult(
+                  adopted,
+                  closed,
+                  boundary,
+                  { liveRunIdentity, staleState },
+                )
+              ) {
+                reason =
+                  "docker_desktop_repair_historical_closure_write_unknown";
+                markUnknown(ledger);
+                historyReady = false;
+              } else {
+                operation = closed;
+              }
+            }
+            if (historyReady) {
+              const observed = await observeHistoricalRepair(
+                dependencies,
+                boundary,
+                session,
+                cancellation,
+                operation,
+              );
+              Object.assign(ledger, observed.ledger);
+              status = observed.status;
+              reason = observed.reason;
+            }
+            // Targeted adoption may unblock provenance one record at a time, but
+            // it cannot declare the whole inventory safe while others are unknown.
+            const currentInventory = historyReady
+              ? originalWasTerminal
+                ? durableInventoryState(dependencies, boundary)
+                : inventoryState(dependencies, boundary)
+              : null;
+            if (
+              (historyReady && !currentInventory) ||
+              (historyReady &&
+                currentInventory?.unfinished &&
+                currentInventory.unfinished.operationId !==
+                  operation.operationId)
+            ) {
+              status = "blocked";
+              reason = "docker_desktop_repair_historical_inventory_incomplete";
+              ledger.hostSafety = "manual_recovery_required";
+            }
           }
         }
       }
@@ -3960,7 +4231,7 @@ const productionDependencies: RepairDependencies = Object.freeze({
     persistAdoption: persistDockerDesktopRepairHistoricalAdoption,
     persistClosure: persistDockerDesktopRepairHistoricalClosure,
     loadOriginManifest: (root: string) =>
-      loadPlatformProvisionerManifestEnvelopeForVerification(root).envelope,
+      loadHistoricalReleaseManifestEnvelopeForVerification(root).envelope,
     loadCurrentManifest: () =>
       loadPlatformProvisionerManifestEnvelopeForVerification(
         path.resolve(import.meta.dirname, "../../../.."),

@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   createDockerProcessEnvironment,
   startOwnedProcess,
+  startOwnedWindowsProcessTreeTermination,
   STDERR_LIMIT_BYTES,
   STDOUT_LIMIT_BYTES,
 } from "../src/security/docker-owned-process.ts";
@@ -26,6 +27,63 @@ function createSyntheticChild() {
     stderr: null as PassThrough | null,
   });
 }
+
+test("固定子: Windows process-tree終了helperを固定引数と制限環境で所有する", async () => {
+  if (process.platform !== "win32") return;
+  const child = createSyntheticChild();
+  child.pid = 700001;
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  let invocation: Readonly<{
+    executable: string;
+    argv: readonly string[];
+    options: childProcess.SpawnOptions;
+  }> | null = null;
+  await withSyntheticSpawn(
+    ((executable, argv, options) => {
+      invocation = {
+        executable: String(executable),
+        argv: [...(argv ?? [])].map(String),
+        options: options ?? {},
+      };
+      queueMicrotask(() => {
+        child.emit("spawn");
+        child.emit("close", 0, null);
+      });
+      return child;
+    }) as typeof childProcess.spawn,
+    async () => {
+      const handle = startOwnedWindowsProcessTreeTermination(612345);
+      assert.ok(handle);
+      assert.equal(await handle.started(100), true);
+      assert.deepEqual(await handle.wait(100), {
+        status: 0,
+        signal: null,
+        stdout: "",
+        stderr: "",
+        outputExceeded: false,
+      });
+      assert.equal(handle.closed(), true);
+      assert.equal(
+        invocation?.executable,
+        "C:\\Windows\\System32\\taskkill.exe",
+      );
+      assert.deepEqual(invocation?.argv, ["/PID", "612345", "/T", "/F"]);
+      assert.equal(invocation?.options.shell, false);
+      assert.equal(invocation?.options.windowsHide, true);
+      assert.deepEqual(invocation?.options.stdio, ["ignore", "pipe", "pipe"]);
+      assert.deepEqual(
+        invocation?.options.env,
+        createDockerProcessEnvironment(),
+      );
+    },
+  );
+  child.stdout.destroy();
+  child.stderr.destroy();
+
+  assert.equal(startOwnedWindowsProcessTreeTermination(0), null);
+  assert.equal(startOwnedWindowsProcessTreeTermination(Number.NaN), null);
+});
 
 async function withSyntheticSpawn(
   spawnFixture: typeof childProcess.spawn,
@@ -52,6 +110,7 @@ test("固定子: stdio構築前のEMFILE/ENFILEは所有を保持しerror後clos
         assert.ok(child.listenerCount("error") > 0);
         assert.ok(child.listenerCount("close") > 0);
         child.emit("error", Object.assign(new Error(code), { code }));
+        assert.equal(await handle.started(20), false);
         const result = await handle.wait(20);
         assert.equal(result?.status, null);
         assert.equal(result?.outputExceeded, false);
@@ -226,6 +285,7 @@ test(
         createDockerProcessEnvironment(),
         input,
       );
+      assert.equal(await handle.started(5_000), true);
       t.after(async () => {
         assert.equal(await handle.terminateAndWait(5_000), true);
       });
@@ -297,6 +357,7 @@ test(
       createDockerProcessEnvironment(),
       null,
     );
+    assert.equal(await handle.started(5_000), false);
     t.after(async () => {
       assert.equal(await handle.terminateAndWait(5_000), true);
     });
