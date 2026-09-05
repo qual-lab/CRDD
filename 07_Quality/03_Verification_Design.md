@@ -101,6 +101,18 @@ Git CLIは開発試験の生成・検査に限って使用し、本番readerの�
 
 Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場合は、`test:restricted-process`で実Windows Process Gate以外の全母集団を確認し、`test:windows-process`を通常のローカルユーザーProcessで確認する。前者だけを全体合格とせず、後者は安定prefixと契約試験でexact 7件へ固定する。試験カタログでは両方を所有する試験ファイルへ`restricted_process`と`windows_process_control`を明示し、変更影響型runnerは後者のAuthorityがない場合に試験Process開始前で停止する。制限Processで同じ7件を一般失敗として反復した回数を品質の追加Evidenceにせず、両Gateの合計、各実行環境および終了観測を同じ固定候補へ結合する。通常の`test`は7件を含む完全母集団を維持する。
 
+### 変更影響型回帰の信頼境界
+
+[試験カタログ](04_Test_Catalog.json) revision 3は、Rootと各登録項目のkey、列挙値、必須Boolean、非空かつ重複のない集合、およびRepository内の正規化相対Pathを閉じたSchemaとして検証する。欠落field、未知field、不明な列挙値、絶対Path、親Directory参照または区切り差を既定値へ畳まず、試験Process開始前に停止する。`externalEffect`と`humanInput`の欠落を`false`と推定しない。
+
+回帰対象はfilenameの語句一致から選ばない。登録済み試験そのものだけが変更された場合はその試験を直接選択できるが、production code、support、fixtureまたは設定の変更では、対象Toolが所有するUT・IT・STを安全側の閉包として選択する。共有カタログ・共有設定または所有者を確定できない実行可能変更では全Toolを選択する。Markdown変更ではCheckerとRepository文書検査を静的段階へ含める。この保守的選択を意味依存グラフの完成と読み替えず、将来、機械的に検証できる依存関係が成立した範囲だけ狭める。
+
+Git変更集合は、比較基準Commitから`HEAD`、`HEAD`からindex、indexからworktree、および未追跡fileの和集合として、renameの旧Pathと新Pathを含めてNUL区切りで取得する。一部の観測失敗を空差分へ畳まずEffect 0で停止する。明示Path指定時も同じRepository内相対Path検査を適用する。
+
+実行段階は静的検査、UT、IT、STの順とし、前段が失敗した場合は後段を`not_run_due_to_prior_stage`として開始しない。Windows実Process GateはIT段階の専用実環境確認として、制限Process用ITの成功後かつST開始前に成立させる。外部Provider、人間入力または公式署名を要する登録試験は自動回帰で開始しない。
+
+PT／LTは、対象、時間、反復、費用・Credit、Provider呼出し、生成データ、cleanupおよび中止条件をRuntimeが実際に強制できる実行制御がまだないため、revision 3のrunnerでは人間の許可情報が完全でも計画表示だけとし、試験Processを一件も起動しない。通常試験とPT／LTが同時に選択された場合も全体を計画表示で停止し、通常試験だけを暗黙実行して一部成立を全体結果へ見せない。実行対応は別の設計・実装・検証で上限強制と終了後cleanupを成立させてから有効化する。
+
 ### Lockの未到達条件と公開結果
 
 [Lock契約試験](../40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts)では、公開入力の拒否をfactory非呼出しまで確認し、Supervisorの各段階の送信例外と失敗通知listenerの例外を、既存の非同期喪失・回収確認／不明とは別条件として照合する。内部例外を捕捉したことだけでなく、権限非発行、単一finalizer、後続observerへの通知および公開結果を確認する。Windows測定で未到達の非Windows分岐、到達不能候補、未確認の競合は別評価とし、試験追加だけで全分岐を評価済みにしない。

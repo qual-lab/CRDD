@@ -2,11 +2,18 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  inspectTestCatalog,
+  collectChangedPathsFromGit,
+  executeRegressionStages,
+  regressionStageOrder,
+  type RegressionStage,
+} from "./regression-execution.ts";
+import {
   inspectResourceIntensiveTestAuthority,
+  inspectTestCatalog,
   loadTestCatalog,
   selectRegressionTests,
   testLevels,
+  type TestCatalog,
   type TestCatalogEntry,
   type TestLevel,
 } from "./test-catalog.ts";
@@ -18,6 +25,9 @@ const catalogPath = path.join(
   "07_Quality",
   "04_Test_Catalog.json",
 );
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const PLATFORM_TOOLCHAIN = "+1.94.1-x86_64-pc-windows-msvc";
+const PLATFORM_TARGET = "x86_64-pc-windows-msvc";
 
 function valuesAfter(name: string): string[] {
   const values: string[] = [];
@@ -56,21 +66,8 @@ function parseLevels(): Set<TestLevel> {
   return new Set(levels);
 }
 
-function changedPathsFromGit(base: string): string[] {
-  const result = spawnSync("git", ["diff", "--name-only", `${base}...HEAD`], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-    windowsHide: true,
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error("regression_runner_git_diff_failed");
-  return result.stdout.split(/\r?\n/u).filter(Boolean);
-}
-
-function assertResourceIntensiveAuthority(
-  levels: ReadonlySet<TestLevel>,
-): void {
-  const failures = inspectResourceIntensiveTestAuthority(levels, {
+function inspectRequestedResourceAuthority(levels: ReadonlySet<TestLevel>) {
+  const authority = {
     authorized: process.argv.includes("--resource-intensive-authorized"),
     purpose: valueAfter("--purpose"),
     environment: valueAfter("--environment"),
@@ -79,13 +76,25 @@ function assertResourceIntensiveAuthority(
     maximumCredits: nonNegativeNumber("--max-credits"),
     cleanup: valueAfter("--cleanup"),
     stopCondition: valueAfter("--stop-condition"),
+  };
+  return {
+    authority,
+    failures: inspectResourceIntensiveTestAuthority(levels, authority),
+  };
+}
+
+function runCommand(
+  command: string,
+  commandArguments: readonly string[],
+  cwd: string,
+): number {
+  const result = spawnSync(command, commandArguments, {
+    cwd,
+    stdio: "inherit",
+    windowsHide: true,
   });
-  if (failures.length > 0) {
-    process.stdout.write(
-      `${JSON.stringify({ status: "not_authorized", reason: "resource_intensive_test_authority_required", failures, effectIssued: false })}\n`,
-    );
-    process.exit(2);
-  }
+  if (result.error !== undefined) return 1;
+  return result.status ?? 1;
 }
 
 function runNodeTests(
@@ -113,141 +122,285 @@ function runNodeTests(
       ? [`--test-skip-pattern=${options.testSkipPattern}`]
       : []),
   ];
-  const result = spawnSync(
+  return runCommand(
     process.execPath,
     ["--test", "--test-concurrency=1", ...profileArguments, ...testPaths],
-    { cwd: root, stdio: "inherit", windowsHide: true },
+    root,
   );
-  if (result.error) throw result.error;
-  return result.status ?? 1;
 }
 
-function runPlatformTests(entries: readonly TestCatalogEntry[]): number {
-  if (entries.length === 0) return 0;
-  const result = spawnSync(
+function runPlatformTests(level: TestLevel): number {
+  if (level !== "unit" && level !== "integration") return 0;
+  const selectors =
+    level === "unit" ? ["--bin", "crdd-platform-access"] : ["--test", "cli"];
+  return runCommand(
     "cargo",
     [
-      "+1.94.1-x86_64-pc-windows-msvc",
+      PLATFORM_TOOLCHAIN,
       "test",
       "--frozen",
       "--all-features",
       "--target",
-      "x86_64-pc-windows-msvc",
+      PLATFORM_TARGET,
+      ...selectors,
     ],
-    {
-      cwd: path.join(repositoryRoot, "40_Develop", "platform-access"),
-      stdio: "inherit",
-      windowsHide: true,
-    },
+    path.join(repositoryRoot, "40_Develop", "platform-access"),
   );
-  if (result.error) throw result.error;
-  return result.status ?? 1;
 }
 
-const catalog = loadTestCatalog(catalogPath);
-const catalogFailures = inspectTestCatalog(repositoryRoot, catalog);
-if (catalogFailures.length > 0) {
-  process.stdout.write(
-    `${JSON.stringify({ status: "blocked", reason: "test_catalog_invalid", failures: catalogFailures }, null, 2)}\n`,
-  );
-  process.exit(2);
+function selectedOwners(entries: readonly TestCatalogEntry[]) {
+  return new Set(entries.map((entry) => entry.owner));
 }
 
-const levels = parseLevels();
-assertResourceIntensiveAuthority(levels);
-const explicitChangedPaths = valuesAfter("--changed");
-const base = valueAfter("--base");
-const changedPaths = process.argv.includes("--all")
-  ? [
-      "40_Develop/coordinator/package.json",
-      "40_Develop/checker/package.json",
-      "40_Develop/platform-access/Cargo.toml",
-    ]
-  : explicitChangedPaths.length > 0
-    ? explicitChangedPaths
-    : base !== null
-      ? changedPathsFromGit(base)
-      : [];
-if (changedPaths.length === 0) {
-  process.stdout.write(
-    `${JSON.stringify({ status: "blocked", reason: "regression_change_set_required", effectIssued: false })}\n`,
-  );
-  process.exit(2);
-}
-
-const selectedEntries = selectRegressionTests(catalog, changedPaths, levels);
-const windowsProcessEntries = selectedEntries.filter((entry) =>
-  entry.executionProfiles?.includes("windows_process_control"),
-);
-const isWindowsProcessControlRequired =
-  process.platform === "win32" && windowsProcessEntries.length > 0;
-if (
-  !process.argv.includes("--plan") &&
-  isWindowsProcessControlRequired &&
-  !process.argv.includes("--windows-process-control-authorized")
-) {
-  process.stdout.write(
-    `${JSON.stringify({ status: "blocked", reason: "windows_process_control_authority_required", requiredExecutionProfile: "windows_process_control", effectIssued: false })}\n`,
-  );
-  process.exit(2);
-}
-process.stdout.write(
-  `${JSON.stringify(
-    {
-      contract: "crdd/regression-test-plan",
-      contractRevision: 1,
-      status: "planned",
-      changedPaths,
-      levels: [...levels],
-      selected: selectedEntries.map((entry) => entry.path),
-      requiredExecutionProfiles: [
-        "restricted_process",
-        ...(isWindowsProcessControlRequired ? ["windows_process_control"] : []),
+function runStaticStage(
+  entries: readonly TestCatalogEntry[],
+  changedPaths: readonly string[],
+): number {
+  const owners = selectedOwners(entries);
+  if (owners.has("checker")) {
+    const checkerStatus = runCommand(npmCommand, ["run", "check"], checkerRoot);
+    if (checkerStatus !== 0) return checkerStatus;
+    if (changedPaths.some((entry) => entry.toLowerCase().endsWith(".md"))) {
+      const repositoryStatus = runCommand(
+        npmCommand,
+        ["run", "verify:repository"],
+        checkerRoot,
+      );
+      if (repositoryStatus !== 0) return repositoryStatus;
+    }
+  }
+  if (owners.has("coordinator")) {
+    const status = runCommand(
+      npmCommand,
+      ["run", "check"],
+      path.join(repositoryRoot, "40_Develop", "coordinator"),
+    );
+    if (status !== 0) return status;
+  }
+  if (owners.has("platform-access"))
+    return runCommand(
+      "cargo",
+      [
+        PLATFORM_TOOLCHAIN,
+        "check",
+        "--frozen",
+        "--all-features",
+        "--target",
+        PLATFORM_TARGET,
       ],
-      unexecutedResourceIntensive: catalog.tests
-        .filter(
-          (entry) =>
-            entry.level === "performance" || entry.level === "longevity",
-        )
-        .filter((entry) => !levels.has(entry.level))
-        .map((entry) => entry.path),
-    },
-    null,
-    2,
-  )}\n`,
-);
-if (process.argv.includes("--plan")) process.exit(0);
-if (
-  selectedEntries.some(
-    (entry) => entry.externalProviderEffect || entry.humanInput,
-  )
-) {
-  process.stdout.write(
-    `${JSON.stringify({ status: "blocked", reason: "interactive_or_provider_test_not_automatically_authorized", effectIssued: false })}\n`,
-  );
-  process.exit(2);
+      path.join(repositoryRoot, "40_Develop", "platform-access"),
+    );
+  return 0;
 }
 
-for (const owner of ["checker", "coordinator"] as const) {
-  const status = runNodeTests(
-    owner,
-    selectedEntries.filter((entry) => entry.owner === owner),
-    owner === "coordinator" && isWindowsProcessControlRequired
-      ? { testSkipPattern: "^Windows Process Gate:" }
-      : {},
+function runLevelStage(
+  level: TestLevel,
+  entries: readonly TestCatalogEntry[],
+  isWindowsProcessControlRequired: boolean,
+): number {
+  const levelEntries = entries.filter((entry) => entry.level === level);
+  for (const owner of ["checker", "coordinator"] as const) {
+    const ownerEntries = levelEntries.filter((entry) => entry.owner === owner);
+    const status = runNodeTests(
+      owner,
+      ownerEntries,
+      owner === "coordinator" &&
+        level === "integration" &&
+        isWindowsProcessControlRequired
+        ? { testSkipPattern: "^Windows Process Gate:" }
+        : {},
+    );
+    if (status !== 0) return status;
+  }
+  if (level === "integration" && isWindowsProcessControlRequired) {
+    const windowsEntries = levelEntries.filter((entry) =>
+      entry.executionProfiles?.includes("windows_process_control"),
+    );
+    const status = runNodeTests("coordinator", windowsEntries, {
+      testNamePattern: "^Windows Process Gate:",
+    });
+    if (status !== 0) return status;
+  }
+  if (levelEntries.some((entry) => entry.owner === "platform-access"))
+    return runPlatformTests(level);
+  return 0;
+}
+
+function buildStagePlan(
+  selectedEntries: readonly TestCatalogEntry[],
+  changedPaths: readonly string[],
+) {
+  const owners = [...selectedOwners(selectedEntries)].sort();
+  return regressionStageOrder.map((stage) => ({
+    stage,
+    owners:
+      stage === "static"
+        ? owners
+        : [
+            ...new Set(
+              selectedEntries
+                .filter((entry) => entry.level === stage)
+                .map((entry) => entry.owner),
+            ),
+          ].sort(),
+    selected:
+      stage === "static"
+        ? []
+        : selectedEntries
+            .filter((entry) => entry.level === stage)
+            .map((entry) => entry.path),
+    selectionReason:
+      stage === "static"
+        ? changedPaths.some((entry) => entry.toLowerCase().endsWith(".md"))
+          ? "owner_static_checks_and_repository_check"
+          : "owner_static_checks"
+        : "conservative_owner_closure_or_direct_test_change",
+  }));
+}
+
+function writeJson(value: unknown): void {
+  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+try {
+  const loadedCatalog = loadTestCatalog(catalogPath);
+  const catalogFailures = inspectTestCatalog(repositoryRoot, loadedCatalog);
+  if (catalogFailures.length > 0) {
+    writeJson({
+      status: "blocked",
+      reason: "test_catalog_invalid",
+      failures: catalogFailures,
+      effectIssued: false,
+    });
+    process.exit(2);
+  }
+  const catalog = loadedCatalog as TestCatalog;
+  const levels = parseLevels();
+  const resourceAuthority = inspectRequestedResourceAuthority(levels);
+  if (resourceAuthority.failures.length > 0) {
+    writeJson({
+      status: "not_authorized",
+      reason: "resource_intensive_test_authority_required",
+      failures: resourceAuthority.failures,
+      effectIssued: false,
+    });
+    process.exit(2);
+  }
+
+  const explicitChangedPaths = valuesAfter("--changed");
+  const base = valueAfter("--base");
+  const changedPaths = process.argv.includes("--all")
+    ? [
+        "40_Develop/coordinator/package.json",
+        "40_Develop/checker/package.json",
+        "40_Develop/platform-access/Cargo.toml",
+      ]
+    : explicitChangedPaths.length > 0
+      ? explicitChangedPaths
+      : base !== null
+        ? collectChangedPathsFromGit(repositoryRoot, base)
+        : [];
+  if (changedPaths.length === 0) {
+    writeJson({
+      status: "blocked",
+      reason: "regression_change_set_required",
+      effectIssued: false,
+    });
+    process.exit(2);
+  }
+
+  const selectedEntries = selectRegressionTests(catalog, changedPaths, levels);
+  const isWindowsProcessControlRequired =
+    process.platform === "win32" &&
+    selectedEntries.some((entry) =>
+      entry.executionProfiles?.includes("windows_process_control"),
+    );
+  if (
+    !process.argv.includes("--plan") &&
+    isWindowsProcessControlRequired &&
+    !process.argv.includes("--windows-process-control-authorized")
+  ) {
+    writeJson({
+      status: "blocked",
+      reason: "windows_process_control_authority_required",
+      requiredExecutionProfile: "windows_process_control",
+      effectIssued: false,
+    });
+    process.exit(2);
+  }
+  if (
+    selectedEntries.some(
+      (entry) => entry.externalProviderEffect || entry.humanInput,
+    )
+  ) {
+    writeJson({
+      status: "blocked",
+      reason: "interactive_or_provider_test_not_automatically_authorized",
+      effectIssued: false,
+    });
+    process.exit(2);
+  }
+
+  const isResourceIntensive =
+    levels.has("performance") || levels.has("longevity");
+  const plan = {
+    contract: "crdd/regression-test-plan",
+    contractRevision: 2,
+    status:
+      isResourceIntensive && !process.argv.includes("--plan")
+        ? "planned_not_executable"
+        : "planned",
+    changedPaths,
+    levels: [...levels],
+    selected: selectedEntries.map((entry) => entry.path),
+    stages: buildStagePlan(selectedEntries, changedPaths),
+    requiredExecutionProfiles: [
+      "restricted_process",
+      ...(isWindowsProcessControlRequired ? ["windows_process_control"] : []),
+    ],
+    resourceIntensiveAuthorityVerified: isResourceIntensive,
+    resourceIntensiveExecution: isResourceIntensive
+      ? "plan_only_until_runtime_limits_are_enforced"
+      : null,
+    unexecutedResourceIntensive: catalog.tests
+      .filter(
+        (entry) => entry.level === "performance" || entry.level === "longevity",
+      )
+      .filter((entry) => !levels.has(entry.level))
+      .map((entry) => entry.path),
+    effectIssued: false,
+  };
+  writeJson(plan);
+  if (process.argv.includes("--plan") || isResourceIntensive) process.exit(0);
+
+  const stageResults = executeRegressionStages(
+    regressionStageOrder,
+    (stage: RegressionStage) =>
+      stage === "static"
+        ? runStaticStage(selectedEntries, changedPaths)
+        : runLevelStage(
+            stage,
+            selectedEntries,
+            isWindowsProcessControlRequired,
+          ),
   );
-  if (status !== 0) process.exit(status);
-}
-if (isWindowsProcessControlRequired) {
-  const status = runNodeTests("coordinator", windowsProcessEntries, {
-    testNamePattern: "^Windows Process Gate:",
+  const failedStage = stageResults.find((entry) => entry.status === "failed");
+  writeJson({
+    status: failedStage === undefined ? "completed" : "blocked",
+    reason:
+      failedStage === undefined
+        ? "regression_stages_completed"
+        : "regression_stage_failed",
+    selectedCount: selectedEntries.length,
+    stages: stageResults,
   });
-  if (status !== 0) process.exit(status);
+  process.exit(failedStage?.exitCode ?? 0);
+} catch (error) {
+  writeJson({
+    status: "blocked",
+    reason: "regression_runner_observation_failed",
+    detail: error instanceof Error ? error.message : "unknown_error",
+    effectIssued: false,
+  });
+  process.exit(2);
 }
-const platformStatus = runPlatformTests(
-  selectedEntries.filter((entry) => entry.owner === "platform-access"),
-);
-if (platformStatus !== 0) process.exit(platformStatus);
-process.stdout.write(
-  `${JSON.stringify({ status: "completed", selectedCount: selectedEntries.length })}\n`,
-);

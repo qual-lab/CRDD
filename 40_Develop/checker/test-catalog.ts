@@ -11,18 +11,27 @@ export const testLevels = [
 ] as const;
 
 export type TestLevel = (typeof testLevels)[number];
+export const testKinds = ["unit", "contract", "integration"] as const;
+export const testEnvironments = [
+  "fixed_system_runtime",
+  "local_component_boundary",
+  "node_process",
+  "windows_rust_runtime",
+] as const;
+export const executionProfiles = [
+  "restricted_process",
+  "windows_process_control",
+] as const;
+
 export type TestCatalogEntry = Readonly<{
   id: string;
   owner: "checker" | "coordinator" | "platform-access";
   path: string;
   level: TestLevel;
-  kind: string;
+  kind: (typeof testKinds)[number];
   semanticTags: readonly string[];
-  environment: string;
-  executionProfiles?: readonly (
-    | "restricted_process"
-    | "windows_process_control"
-  )[];
+  environment: (typeof testEnvironments)[number];
+  executionProfiles?: readonly (typeof executionProfiles)[number][];
   externalProviderEffect: boolean;
   humanInput: boolean;
   postconditions: readonly string[];
@@ -31,7 +40,7 @@ export type TestCatalogEntry = Readonly<{
 
 export type TestCatalog = Readonly<{
   contract: "crdd/test-catalog";
-  contractRevision: 2;
+  contractRevision: 3;
   levels: readonly TestLevel[];
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
@@ -57,9 +66,31 @@ const RUNNER_PROFILES = Object.freeze({
   coordinator: "node_test",
   "platform-access": "cargo_test",
 });
-const EXECUTION_PROFILES = new Set([
-  "restricted_process",
-  "windows_process_control",
+const validExecutionProfiles = new Set(executionProfiles);
+const validTestKinds = new Set(testKinds);
+const validTestEnvironments = new Set(testEnvironments);
+const ROOT_KEYS = new Set([
+  "contract",
+  "contractRevision",
+  "levels",
+  "regressionIsSelection",
+  "resourceIntensiveLevels",
+  "runnerProfiles",
+  "tests",
+]);
+const ENTRY_KEYS = new Set([
+  "id",
+  "owner",
+  "path",
+  "level",
+  "kind",
+  "semanticTags",
+  "environment",
+  "executionProfiles",
+  "externalProviderEffect",
+  "humanInput",
+  "postconditions",
+  "mandatoryByDefault",
 ]);
 const IGNORED_WALK_DIRECTORIES = new Set([".git", "node_modules", "target"]);
 
@@ -122,22 +153,67 @@ function expectedNodeLevel(entryPath: string): string | null {
   );
 }
 
-export function loadTestCatalog(catalogPath: string): TestCatalog {
-  const parsed: unknown = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
-    throw new Error("test_catalog_not_object");
-  if (!("tests" in parsed) || !Array.isArray(parsed.tests))
-    throw new Error("test_catalog_tests_not_array");
-  return parsed as TestCatalog;
+export function loadTestCatalog(catalogPath: string): unknown {
+  return JSON.parse(fs.readFileSync(catalogPath, "utf8")) as unknown;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function inspectExactKeys(
+  value: Record<string, unknown>,
+  expected: ReadonlySet<string>,
+  prefix: string,
+  optional: ReadonlySet<string> = new Set(),
+): string[] {
+  const failures: string[] = [];
+  for (const key of Object.keys(value))
+    if (!expected.has(key)) failures.push(`${prefix}_unknown_key:${key}`);
+  for (const key of expected)
+    if (!(key in value) && !optional.has(key))
+      failures.push(`${prefix}_missing_key:${key}`);
+  return failures;
+}
+
+function isNonEmptyUniqueStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((entry) => typeof entry === "string" && entry.length > 0) &&
+    new Set(value).size === value.length
+  );
+}
+
+function isSafeRepositoryPath(value: string): boolean {
+  return (
+    value.length > 0 &&
+    !path.isAbsolute(value) &&
+    !value.includes("\\") &&
+    !/[\u0000-\u001f\u007f]/u.test(value) &&
+    value
+      .split("/")
+      .every(
+        (segment) => segment !== "" && segment !== "." && segment !== "..",
+      ) &&
+    path.posix.normalize(value) === value
+  );
 }
 
 export function inspectTestCatalog(
   repositoryRoot: string,
-  catalog: TestCatalog,
+  candidate: unknown,
 ): readonly string[] {
   const failures: string[] = [];
+  if (!isRecord(candidate)) return ["test_catalog_not_object"];
+  failures.push(...inspectExactKeys(candidate, ROOT_KEYS, "root"));
+  if (!Array.isArray(candidate.tests)) {
+    failures.push("test_catalog_tests_not_array");
+    return [...new Set(failures)].sort(ordinal);
+  }
+  const catalog = candidate as unknown as TestCatalog;
   if (catalog.contract !== "crdd/test-catalog") failures.push("contract");
-  if (catalog.contractRevision !== 2) failures.push("contract_revision");
+  if (catalog.contractRevision !== 3) failures.push("contract_revision");
   if (catalog.regressionIsSelection !== true)
     failures.push("regression_selection_contract");
   if (JSON.stringify(catalog.levels) !== JSON.stringify(testLevels))
@@ -151,22 +227,35 @@ export function inspectTestCatalog(
     JSON.stringify(catalog.runnerProfiles) !== JSON.stringify(RUNNER_PROFILES)
   )
     failures.push("runner_profile_population");
+  if (!isRecord(candidate.runnerProfiles))
+    failures.push("runner_profiles_not_object");
 
   const ids = new Set<string>();
   const paths = new Set<string>();
-  for (const entry of catalog.tests ?? []) {
-    if (typeof entry !== "object" || entry === null) {
-      failures.push("invalid_entry");
+  const validPaths: string[] = [];
+  for (const [index, rawEntry] of candidate.tests.entries()) {
+    if (!isRecord(rawEntry)) {
+      failures.push(`invalid_entry:${index}`);
       continue;
     }
+    failures.push(
+      ...inspectExactKeys(
+        rawEntry,
+        ENTRY_KEYS,
+        `entry_${index}`,
+        new Set(["executionProfiles"]),
+      ),
+    );
+    const entry = rawEntry as unknown as TestCatalogEntry;
     if (typeof entry.id !== "string" || entry.id.length === 0) {
-      failures.push("invalid_id");
+      failures.push(`invalid_id:${index}`);
       continue;
     }
-    if (typeof entry.path !== "string" || entry.path.length === 0) {
+    if (typeof entry.path !== "string" || !isSafeRepositoryPath(entry.path)) {
       failures.push(`invalid_path:${entry.id}`);
       continue;
     }
+    validPaths.push(entry.path);
     if (ids.has(entry.id)) failures.push(`duplicate_id:${entry.id}`);
     ids.add(entry.id);
     if (paths.has(entry.path.toLowerCase()))
@@ -175,11 +264,15 @@ export function inspectTestCatalog(
     if (!isTestLevel(entry.level)) failures.push(`invalid_level:${entry.path}`);
     if (!RUNNER_SUPPORTED_OWNERS.has(entry.owner))
       failures.push(`unsupported_owner:${entry.path}`);
+    if (!validTestKinds.has(entry.kind))
+      failures.push(`invalid_kind:${entry.path}`);
+    if (!validTestEnvironments.has(entry.environment))
+      failures.push(`invalid_environment:${entry.path}`);
     const nodeLevel = expectedNodeLevel(entry.path);
     if (nodeLevel !== null && nodeLevel !== entry.level)
       failures.push(`directory_level_mismatch:${entry.path}`);
-    if (!Array.isArray(entry.semanticTags) || entry.semanticTags.length === 0)
-      failures.push(`missing_semantic_tags:${entry.path}`);
+    if (!isNonEmptyUniqueStringArray(entry.semanticTags))
+      failures.push(`invalid_semantic_tags:${entry.path}`);
     if (
       entry.executionProfiles !== undefined &&
       (!Array.isArray(entry.executionProfiles) ||
@@ -187,15 +280,22 @@ export function inspectTestCatalog(
         new Set(entry.executionProfiles).size !==
           entry.executionProfiles.length ||
         entry.executionProfiles.some(
-          (profile) => !EXECUTION_PROFILES.has(profile),
+          (profile) =>
+            typeof profile !== "string" ||
+            !validExecutionProfiles.has(
+              profile as (typeof executionProfiles)[number],
+            ),
         ))
     )
       failures.push(`invalid_execution_profiles:${entry.path}`);
-    if (
-      !Array.isArray(entry.postconditions) ||
-      entry.postconditions.length === 0
-    )
-      failures.push(`missing_postconditions:${entry.path}`);
+    if (!isNonEmptyUniqueStringArray(entry.postconditions))
+      failures.push(`invalid_postconditions:${entry.path}`);
+    if (typeof entry.externalProviderEffect !== "boolean")
+      failures.push(`invalid_external_provider_effect:${entry.path}`);
+    if (typeof entry.humanInput !== "boolean")
+      failures.push(`invalid_human_input:${entry.path}`);
+    if (typeof entry.mandatoryByDefault !== "boolean")
+      failures.push(`invalid_mandatory_by_default:${entry.path}`);
     if (RESOURCE_INTENSIVE_LEVELS.has(entry.level) && entry.mandatoryByDefault)
       failures.push(`resource_intensive_default:${entry.path}`);
     if (!fs.existsSync(path.join(repositoryRoot, ...entry.path.split("/"))))
@@ -203,9 +303,7 @@ export function inspectTestCatalog(
   }
 
   const actualPaths = discoverRepositoryTestFiles(repositoryRoot);
-  const registeredPaths = [...catalog.tests.map((entry) => entry.path)].sort(
-    ordinal,
-  );
+  const registeredPaths = validPaths.sort(ordinal);
   const actualSet = new Set(actualPaths.map((entry) => entry.toLowerCase()));
   const registeredSet = new Set(
     registeredPaths.map((entry) => entry.toLowerCase()),
@@ -257,36 +355,25 @@ export function inspectResourceIntensiveTestAuthority(
   return failures;
 }
 
-function tokens(value: string): Set<string> {
-  const ignored = new Set([
-    "src",
-    "tests",
-    "test",
-    "contract",
-    "integration",
-    "unit",
-    "develop",
-    "coordinator",
-    "checker",
-    "security",
-    "core",
-    "platform",
-    "access",
-  ]);
-  return new Set(
-    value
-      .toLowerCase()
-      .split(/[^a-z0-9]+/u)
-      .filter((token) => token.length >= 3 && !ignored.has(token)),
-  );
-}
-
 function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/coordinator/")) return "coordinator";
   if (changedPath.startsWith("40_Develop/checker/")) return "checker";
   if (changedPath.startsWith("40_Develop/platform-access/"))
     return "platform-access";
   return null;
+}
+
+function isDocumentationPath(changedPath: string): boolean {
+  return changedPath.toLowerCase().endsWith(".md");
+}
+
+function isSharedRuntimePath(changedPath: string): boolean {
+  return (
+    changedPath === "07_Quality/04_Test_Catalog.json" ||
+    changedPath === "biome.json" ||
+    changedPath === ".node-version" ||
+    changedPath === ".nvmrc"
+  );
 }
 
 export function selectRegressionTests(
@@ -313,33 +400,22 @@ export function selectRegressionTests(
       selected.set(direct.path, direct);
       continue;
     }
+    if (isSharedRuntimePath(changedPath)) {
+      for (const entry of eligibleEntries) selected.set(entry.path, entry);
+      continue;
+    }
     const owner = ownerForPath(changedPath);
     if (owner === null) {
-      for (const entry of eligibleEntries.filter(
-        (candidate) => candidate.owner === "checker",
-      ))
-        selected.set(entry.path, entry);
+      const candidates = isDocumentationPath(changedPath)
+        ? eligibleEntries.filter((candidate) => candidate.owner === "checker")
+        : eligibleEntries;
+      for (const entry of candidates) selected.set(entry.path, entry);
       continue;
     }
     const ownerEntries = eligibleEntries.filter(
       (entry) => entry.owner === owner,
     );
-    if (
-      /\/(?:package\.json|Cargo\.(?:toml|lock)|tsconfig[^/]*\.json)$/u.test(
-        changedPath,
-      ) ||
-      changedPath.includes("/runtime/") ||
-      changedPath.includes("/bin/")
-    ) {
-      for (const entry of ownerEntries) selected.set(entry.path, entry);
-      continue;
-    }
-    const changedTokens = tokens(changedPath);
-    const matches = ownerEntries.filter((entry) =>
-      entry.semanticTags.some((tag) => changedTokens.has(tag.toLowerCase())),
-    );
-    for (const entry of matches.length === 0 ? ownerEntries : matches)
-      selected.set(entry.path, entry);
+    for (const entry of ownerEntries) selected.set(entry.path, entry);
   }
   return [...selected.values()].sort((left, right) =>
     ordinal(left.path, right.path),

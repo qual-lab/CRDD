@@ -87,11 +87,11 @@ const projectConfigs = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "coordinator", "tsconfig.tests.json"),
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
-  checkerAndTemplate: 11,
+  checkerAndTemplate: 12,
   coordinatorProduction: 148,
   coordinatorTests: 159,
   rustPlatformAccess: 6,
-  uniqueTotal: 320,
+  uniqueTotal: 321,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;

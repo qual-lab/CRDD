@@ -73,7 +73,9 @@ tests/
 
 試験カタログは、少なくとも実行対象、試験レベル、試験種類、検証義務または設計要素、必要環境、発火条件、正常・準正常・異常の対象、外部Effect、人間入力および終了後観測への参照を持つ。実在試験集合と登録集合を独立に取得して欠落・余剰を検査し、同じ手書き一覧を期待値と実績へ流用しない。
 
-自動回帰runnerは、まず高速な静的検査・単体試験を実行し、影響する結合試験、総合試験へ進む。試験失敗、前提不成立、環境不足および未実行を区別する。外部Provider、公式署名、秘密入力、人間判断、長時間または大きなCredit消費を自動的に発火しない。
+カタログは閉じたSchemaとして扱い、欠落した安全field、未知field、不正Pathまたは未知の列挙値を既定値へ畳まない。登録試験そのものだけが変わった場合を除き、production code、support、fixtureまたは設定の変更では対象ToolのUT・IT・ST全体を安全側の閉包として選ぶ。共有設定または所有者不明の実行可能変更では全Toolを選び、filename tokenを意味依存の代替にしない。Gitの変更集合はCommit差分だけでなく、staged、unstaged、untrackedおよびrenameの両Pathを含める。
+
+自動回帰runnerは、静的検査、単体試験、結合試験、総合試験の順に実行し、前段が失敗した後段を開始しない。Windows実Process Gateは結合試験の専用実環境確認として総合試験より前に置く。試験失敗、前提不成立、環境不足および未実行を区別する。外部Provider、公式署名、秘密入力、人間判断、長時間または大きなCredit消費を自動的に発火しない。
 
 ## 6. PT／LTの実行AuthorityとGate
 
@@ -87,6 +89,8 @@ tests/
 - 中止条件
 
 許可がない場合、runnerは`not_authorized`または同等の非実行結果を返し、試験Process、Provider Effect、課金または長時間待機を開始しない。
+
+現在のrunnerは上限を実行時に強制する制御をまだ持たないため、許可情報が完全でもPT／LTを計画表示に留め、試験Processを開始しない。通常試験と同時に選ばれた場合も全体を計画表示で停止する。上限強制、有限終了およびcleanupの設計・実装・検証を別変更で成立させるまで実行可能とは表示しない。
 
 PT／LTの未実行が監査またはReleaseを停止するのは、現在の要求、品質戦略、受入条件または人間が固定したRelease Gateが、その実測を必須としている場合だけである。それ以外では理由付き非該当または任意の未実行として扱い、全体`Pass`へ実施済みと偽装せず、通常の必須検証を停止しない。
 
@@ -104,11 +108,17 @@ PT／LTの未実行が監査またはReleaseを停止するのは、現在の要
 ### 7.1 現在の自己適用結果
 
 - Checker、CoordinatorおよびPlatform Accessの実在試験を試験カタログへ全件登録し、未登録、重複、消失およびDirectoryと主試験レベルの不一致を機械検出する。
-- Checkerの278件とCoordinatorの制限Process用1683件は、移行後のDirectoryおよび更新した参照で全件成功した。
+- Checkerの288件とCoordinatorの制限Process用1683件は、移行後のDirectoryおよび更新した参照で全件成功した。
 - Windowsで実子孫Processの終了を確認する7件は、制限ProcessではOSから終了要求を拒否されるため、通常の失敗へ混ぜず、`restricted_process`と`windows_process_control`の二つの実行Profileへ分離した。試験カタログは対象3ファイルを両Profileへ結合し、回帰runnerは専用Authorityなしでは試験Process開始前に停止する。Authorityを明示して必要な実行環境から起動した7件は全件成功した。
 - 回帰runner自身の契約試験は、Windows実Process Profileの計画表示、AuthorityなしのEffect 0、および専用Profile実行後の通常終了を確認した。これにより、実装不具合と実行環境不足を同じ失敗として反復しない。
 - 過去の中断で残ったRepository-local試験Directory 275件は、対応する試験子Processが現存しないことと、全対象が検証済みの`.crdd/test-tmp`配下であることを確認して削除した。終了後資源の残存を回帰結果へ含め、同種の蓄積を成功扱いしない。
 - 性能試験および長時間試験は実行していない。現在の必須非機能要求または受入条件に含まれないため、通常回帰の未達とは扱わない。
+
+### 7.2 独立レビューで検出した共通原因と是正
+
+初回固定候補の独立レビューは、変更選定のfilename依存、安全field欠落時の既定値化、PT／LT上限の非強制、段階実行の未接続、およびGit未コミット差分の欠落を検出した。これらを個別例外ではなく、回帰runnerが「何を検査対象とし、どの順で、どのAuthorityと終了条件で起動できるか」という一つの信頼境界の不成立として扱った。
+
+是正では、試験カタログrevision 3の閉Schema、所有Tool単位の保守的閉包、静的→UT→IT→STの停止順、Commit・index・worktree・未追跡を含むGit観測、およびPT／LTの全面的な計画専用境界を同時に固定した。各合意事項を正常・準正常・異常の契約試験へ全数対応させた。Focused test 28件、Checker 288件、Coordinator制限Process用1683件、Windows実Process Gate 7件、Platform AccessのRust unit 19件・実子確認1件・CLI結合1件、型・Lint・Format、およびRepository Checker（Markdown 415件、local link 2907件、error 0、warning 0）が成功した。独立再レビューで解消判定するまで、この自己確認を最終`Pass`へ読み替えない。
 
 ## 8. 完成条件
 
