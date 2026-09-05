@@ -19,10 +19,10 @@ import {
   describeProjectRuntimeExecutionContract,
   runProjectRuntimeOperation,
 } from "../../src/security/project-runtime-execution.ts";
-import type { ProjectRuntimeSingleTaskResult } from "../../src/security/project-runtime-single-task-adapter.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "../../src/security/project-runtime-single-task-adapter.ts";
 import {
   createProjectRuntimeState,
+  type ProjectRuntimeSingleTaskResult,
   type ProjectTaskDefinition,
 } from "../../../project-runtime/src/index.ts";
 

@@ -5,9 +5,19 @@ import {
   inspectProjectRuntimeIntegrationResult,
   inspectProjectRuntimeObjectiveRequest,
   PROJECT_RUNTIME_INTEGRATION_CONTRACT,
+  PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
+  PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
 } from "../../src/index.ts";
 
 const repositoryRevision = "a".repeat(40);
+
+test("Execution Portは既存Single Task結果契約を意味変更せず所有する", () => {
+  assert.equal(
+    PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
+    "crdd-coordinator/project-runtime-single-task-adapter",
+  );
+  assert.equal(PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 1);
+});
 
 function objectiveRequest() {
   return {

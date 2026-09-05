@@ -29,12 +29,10 @@ import {
   inspectProjectRuntimeObjectiveRequest,
   runProjectRuntimeObjective,
 } from "../../src/security/project-runtime-objective-intake.ts";
-import type {
-  ProjectRuntimeSingleTaskAttemptInput,
-  ProjectRuntimeSingleTaskResult,
-} from "../../src/security/project-runtime-single-task-adapter.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
+  type ProjectRuntimeSingleTaskAttemptInput,
+  type ProjectRuntimeSingleTaskResult,
   reserveProjectTaskStart,
   settleProjectTaskRecoveryObligation,
 } from "../../../project-runtime/src/index.ts";

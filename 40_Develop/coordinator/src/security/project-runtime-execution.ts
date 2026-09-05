@@ -11,10 +11,6 @@ import {
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
 } from "./project-runtime-durable-foundation.ts";
-import type {
-  ProjectRuntimeSingleTaskAttemptInput,
-  ProjectRuntimeSingleTaskResult,
-} from "./project-runtime-single-task-adapter.ts";
 import {
   isProjectRuntimeRecoveryIdentity,
   observeProjectTaskStarted,
@@ -25,6 +21,8 @@ import {
   settleProjectTaskBeforeEffect,
   type ProjectTaskRecoveryKind,
   type ProjectRuntimeState,
+  type ProjectRuntimeSingleTaskAttemptInput,
+  type ProjectRuntimeSingleTaskResult,
 } from "../../../project-runtime/src/index.ts";
 import {
   createRuntimeProcessRecoveryIdentity,

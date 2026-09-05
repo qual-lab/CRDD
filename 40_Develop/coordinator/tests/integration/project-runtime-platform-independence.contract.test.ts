@@ -17,6 +17,7 @@ const CORE_MODULES = Object.freeze([
   "40_Develop/project-runtime/src/index.ts",
   "40_Develop/project-runtime/src/core/project-runtime-state.ts",
   "40_Develop/project-runtime/src/internal/plain-data-snapshot.ts",
+  "40_Develop/project-runtime/src/ports/execution-port.ts",
   "40_Develop/project-runtime/src/ports/platform-contract.ts",
   "40_Develop/project-runtime/src/public-contract/integration-result.ts",
   "40_Develop/project-runtime/src/public-contract/objective-request.ts",

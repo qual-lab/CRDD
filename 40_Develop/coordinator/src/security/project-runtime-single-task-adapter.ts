@@ -1,10 +1,13 @@
 import { types as utilTypes } from "node:util";
 
-import { isProjectRuntimeRecoveryIdentity } from "../../../project-runtime/src/index.ts";
-
-export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT =
-  "crdd-coordinator/project-runtime-single-task-adapter" as const;
-export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 1;
+import {
+  isProjectRuntimeRecoveryIdentity,
+  PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
+  PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
+  type ProjectRuntimeSingleTaskAttemptInput,
+  type ProjectRuntimeSingleTaskRecoveryObligation,
+  type ProjectRuntimeSingleTaskResult,
+} from "../../../project-runtime/src/index.ts";
 
 const STABLE_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
 const REPOSITORY_REVISION = /^[0-9a-f]{40,64}$/u;
@@ -25,41 +28,6 @@ export const PROJECT_RUNTIME_SINGLE_TASK_PRE_EFFECT_REJECTIONS = Object.freeze([
 const preEffectRejectionSet: ReadonlySet<string> = new Set(
   PROJECT_RUNTIME_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
 );
-
-export type ProjectRuntimeSingleTaskAttemptInput = Readonly<{
-  attemptId: string;
-  operationId: string;
-  authorityBindingId: string;
-  repositoryRevision: string;
-  taskAuthorityCapability: object;
-  taskRequest: unknown;
-  repositoryRoot: unknown;
-  cancellationSignal: AbortSignal;
-  observeStarted?: () => Promise<boolean>;
-}>;
-
-export type ProjectRuntimeSingleTaskRecoveryObligation = Readonly<{
-  kind: "host" | "docker" | "candidate" | "candidate_store";
-  recoveryId: string;
-}>;
-
-export type ProjectRuntimeSingleTaskResult = Readonly<{
-  contract: typeof PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT;
-  attemptId: string | null;
-  operationId: string | null;
-  authorityBindingId: string | null;
-  repositoryRevision: string | null;
-  status: "completed" | "blocked" | "cancelled";
-  reason: string;
-  effectState: "no_effect" | "settled" | "unknown";
-  cleanupConfirmed: boolean;
-  manualRecoveryRequired: boolean;
-  processRestartRequired: boolean;
-  candidateId: string | null;
-  recoveryIds: readonly string[];
-  recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
-  executorProvider?: "codex" | "claude";
-}>;
 
 export type ProjectRuntimeSingleTaskDependencies = Readonly<{
   startTask: (
