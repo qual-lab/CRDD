@@ -5,20 +5,17 @@ import {
   type ExecutionIntelligencePublicationResult,
 } from "../../../execution-intelligence/src/index.ts";
 import { writeExecutionIntelligenceEvent } from "../../../execution-intelligence/src/index.ts";
+import type {
+  ProjectRuntimeExecutionObservationPublication,
+  ProjectRuntimeTaskAttemptObservation,
+} from "../../../project-runtime/src/index.ts";
 
 /**
  * Coordinator-specific projection into the shared Execution Intelligence
  * contract. The shared component does not know Single Task Runtime semantics.
  */
 export function createProjectRuntimeTaskAttemptEvent(
-  input: Readonly<{
-    occurredAt: string;
-    startedAtMs: number;
-    endedAtMs: number;
-    identity: ExecutionIntelligenceEvent["identity"];
-    outcome: ExecutionIntelligenceEvent["outcome"];
-    provider?: "codex" | "claude";
-  }>,
+  input: ProjectRuntimeTaskAttemptObservation,
 ): ExecutionIntelligenceEvent {
   return createTaskAttemptSettledEvent({
     occurredAt: input.occurredAt,
@@ -77,8 +74,8 @@ export function createProjectRuntimeTaskAttemptEvent(
 
 export function recordProjectRuntimeExecutionEvent(
   repositoryRoot: string,
-  event: ExecutionIntelligenceEvent,
-): ExecutionIntelligencePublicationResult {
+  observation: ProjectRuntimeTaskAttemptObservation,
+): ProjectRuntimeExecutionObservationPublication {
   const verifiedRoot =
     verifyExecutionIntelligenceRepositoryRoot(repositoryRoot);
   if (verifiedRoot.status !== "completed")
@@ -91,7 +88,10 @@ export function recordProjectRuntimeExecutionEvent(
       manualRecoveryRequired: false,
       residualArtifactIds: Object.freeze([]),
     });
-  return writeExecutionIntelligenceEvent(verifiedRoot.root, event);
+  return writeExecutionIntelligenceEvent(
+    verifiedRoot.root,
+    createProjectRuntimeTaskAttemptEvent(observation),
+  );
 }
 
 export type {

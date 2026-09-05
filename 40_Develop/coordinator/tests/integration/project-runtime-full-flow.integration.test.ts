@@ -9,8 +9,8 @@ import { readProjectRuntimeState } from "../../src/security/project-runtime-dura
 import {
   issueProjectRuntimeHumanDecision,
   submitProjectRuntimeHumanDecision,
-  type ProjectRuntimeDecisionRecord,
 } from "../../src/security/project-runtime-human-decision.ts";
+import type { ProjectRuntimeDecisionRecord } from "../../../project-runtime/src/index.ts";
 import { integrateProjectRuntimeOperation } from "../../src/security/project-runtime-integration.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { resolveProjectRuntimeReplan } from "../../src/security/project-runtime-replanning.ts";

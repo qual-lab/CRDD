@@ -8,8 +8,10 @@ import {
   readRuntimeOwnedCandidateBundle,
 } from "./candidate-bundle-store.ts";
 import { materializeGitCommitTreeCandidate } from "./git-object-reader.ts";
-import type { ProjectRuntimeIntegrationDependencies } from "./project-runtime-integration.ts";
-import type { ProjectRuntimeState } from "../../../project-runtime/src/index.ts";
+import type {
+  ProjectRuntimeCandidatePort,
+  ProjectRuntimeState,
+} from "../../../project-runtime/src/index.ts";
 import { resolveRepositoryGitLayout } from "./repository-git-layout-internal.ts";
 import { inspectRepositoryIdentityCandidate } from "./repository-operation-runtime.ts";
 
@@ -308,7 +310,7 @@ function applyBundle(repositoryRoot: string, bundle: Bundle) {
 export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
   repositoryRoot: string,
   candidateStore: CandidateStore = productionCandidateStore,
-): ProjectRuntimeIntegrationDependencies {
+): ProjectRuntimeCandidatePort {
   const integrated = new Map<string, Bundle>();
   let pendingObservationBundle: Bundle | null = null;
   return Object.freeze({

@@ -11,11 +11,11 @@ import {
   readCommittedDockerRecoveryJson,
   writeCommittedDockerRecoveryJson,
 } from "./docker-recovery-journal.ts";
-import {
-  isProjectRuntimeDecisionRecord,
-  type ProjectRuntimeDecisionRecord,
-  type ProjectRuntimeDecisionStore,
-} from "./project-runtime-human-decision.ts";
+import { isProjectRuntimeDecisionRecord } from "./project-runtime-human-decision.ts";
+import type {
+  ProjectRuntimeDecisionRecord,
+  ProjectRuntimeDecisionStore,
+} from "../../../project-runtime/src/index.ts";
 
 export const PROJECT_RUNTIME_WINDOWS_DECISION_STORE_CONTRACT =
   "crdd-coordinator/project-runtime-windows-decision-store/v1" as const;

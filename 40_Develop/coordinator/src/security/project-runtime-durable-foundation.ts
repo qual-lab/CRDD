@@ -3,6 +3,16 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type {
+  ProjectQueueEntry,
+  ProjectQueueState,
+  ProjectRuntimeLease,
+  ProjectRuntimeLeaseAcquisitionResolution,
+  ProjectRuntimeLeaseKind,
+  ProjectRuntimeLeaseOwnerObservation,
+  ProjectRuntimeLeasePort,
+  ProjectRuntimePersistencePorts,
+  ProjectRuntimePortResult,
+  ProjectRuntimeStatePort,
   ProjectRuntimeState,
   ProjectTaskRecoveryObligation,
 } from "../../../project-runtime/src/index.ts";
@@ -11,50 +21,8 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-
 export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
   "crdd-coordinator/project-runtime-durable-foundation/v1" as const;
 
-export type ProjectQueueState =
-  | "queued"
-  | "leased"
-  | "running"
-  | "waiting_foreground"
-  | "integration_pending"
-  | "replan_required"
-  | "human_decision_required"
-  | "recovery_required"
-  | "completed"
-  | "cancelled";
-
-export type ProjectQueueEntry = Readonly<{
-  queueId: string;
-  projectId: string;
-  milestoneId: string;
-  requestHash: string;
-  originLane: "interactive" | "scheduled";
-  repositoryRevision: string;
-  scopeHash: string;
-  state: ProjectQueueState;
-  generation: number;
-  ownerGeneration: string | null;
-  resumeCondition: string | null;
-  resultReference: string | null;
-}>;
-
-type StoreResult<T> = Readonly<
-  | { status: "completed"; reason: string; value: T }
-  | {
-      status: "blocked";
-      reason: string;
-      value: null;
-      manualRecoveryRequired: boolean;
-      recoveryId: string | null;
-    }
->;
-
-type LeaseKind = "project-operation" | "canonical-adoption";
-export type ProjectRuntimeLease = Readonly<{
-  kind: LeaseKind;
-  ownerGeneration: string;
-  release: () => StoreResult<Readonly<{ released: true }>>;
-}>;
+type StoreResult<T> = ProjectRuntimePortResult<T>;
+type LeaseKind = ProjectRuntimeLeaseKind;
 
 type ActiveLease = Readonly<{
   repositoryRoot: string;
@@ -2047,15 +2015,6 @@ export function acquireProjectRuntimeLease(
   }
 }
 
-export type ProjectRuntimeLeaseAcquisitionResolution = Readonly<{
-  repositoryBindingId: string;
-  projectId: string;
-  queueId: string;
-  ownerGeneration: string;
-  ownerProcessId: number;
-  recoveryId: string;
-}>;
-
 export function inspectProjectRuntimeLeaseAcquisitionOwner(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -3093,6 +3052,102 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
       recoveryId,
     );
   }
+}
+
+/**
+ * Bind repository-local infrastructure once at the composition root. Project
+ * Runtime receives only the resulting capability and never an OS Path.
+ */
+export function createProjectRuntimePersistencePorts(
+  workingDirectory: string,
+  repositoryBindingId: string,
+): ProjectRuntimePersistencePorts {
+  const statePort: ProjectRuntimeStatePort = Object.freeze({
+    writeState: (state, expectedGeneration) =>
+      writeProjectRuntimeState(
+        workingDirectory,
+        repositoryBindingId,
+        state,
+        expectedGeneration,
+      ),
+    readState: (projectId) =>
+      readProjectRuntimeState(workingDirectory, repositoryBindingId, projectId),
+    enqueueOperation: (input) =>
+      enqueueProjectOperation(workingDirectory, repositoryBindingId, input),
+    readQueue: (queueId) =>
+      readProjectOperationQueueState(
+        workingDirectory,
+        repositoryBindingId,
+        queueId,
+      ),
+    selectNextOperation: () =>
+      selectNextProjectOperation(workingDirectory, repositoryBindingId),
+    updateQueue: (queueId, expectedGeneration, next) =>
+      updateProjectOperationQueueState(
+        workingDirectory,
+        repositoryBindingId,
+        queueId,
+        expectedGeneration,
+        next,
+      ),
+    settleQueueRecovery: (queueId, expectedGeneration, recoveryId) =>
+      settleProjectOperationQueueRecovery(
+        workingDirectory,
+        repositoryBindingId,
+        queueId,
+        expectedGeneration,
+        recoveryId,
+      ),
+    settleQueueLeaseRelease: (queueId, expectedGeneration, ownerGeneration) =>
+      settleProjectOperationQueueLeaseRelease(
+        workingDirectory,
+        repositoryBindingId,
+        queueId,
+        expectedGeneration,
+        ownerGeneration,
+      ),
+  });
+  const leasePort: ProjectRuntimeLeasePort = Object.freeze({
+    acquire: (projectId, queueId, kind) =>
+      acquireProjectRuntimeLease(
+        workingDirectory,
+        repositoryBindingId,
+        projectId,
+        queueId,
+        kind,
+      ),
+    inspectAcquisitionOwner: () =>
+      inspectProjectRuntimeLeaseAcquisitionOwner(
+        workingDirectory,
+        repositoryBindingId,
+      ),
+    reconcileOperationOwnerLoss: (
+      projectId,
+      queueId,
+      observeOwner: ProjectRuntimeLeaseOwnerObservation,
+    ) =>
+      reconcileProjectRuntimeLeaseOwnerLoss(
+        workingDirectory,
+        repositoryBindingId,
+        projectId,
+        queueId,
+        observeOwner,
+      ),
+    reconcileAdoptionOwnerLoss: (
+      projectId,
+      observeOwner: ProjectRuntimeLeaseOwnerObservation,
+    ) =>
+      reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
+        workingDirectory,
+        repositoryBindingId,
+        projectId,
+        observeOwner,
+      ),
+  });
+  return Object.freeze({
+    state: statePort,
+    lease: leasePort,
+  });
 }
 
 export function describeProjectRuntimeDurableFoundation() {

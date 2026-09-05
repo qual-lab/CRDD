@@ -2324,6 +2324,27 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "project-runtime:unit:execution-observation-port",
+      "owner": "project-runtime",
+      "path": "40_Develop/project-runtime/tests/unit/execution-observation-port.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "execution",
+        "observation",
+        "port"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "project-runtime:unit:platform-contract",
       "owner": "project-runtime",
       "path": "40_Develop/project-runtime/tests/unit/platform-contract.contract.test.ts",

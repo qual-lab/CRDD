@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   acquireProjectRuntimeLease,
+  createProjectRuntimePersistencePorts,
   describeProjectRuntimeDurableFoundation,
   enqueueProjectOperation,
   readProjectOperationQueueState,
@@ -143,6 +144,19 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
   const stale = writeProjectRuntimeState(root, "binding-a", state, 0);
   assert.equal(stale.status, "blocked");
   assert.equal(stale.reason, "project_runtime_state_generation_conflict");
+});
+
+test("Repository RootとBindingを構成時に閉じたState／Lease Portを返す", (t) => {
+  const { root, state } = fixture(t);
+  const ports = createProjectRuntimePersistencePorts(root, "binding-a");
+  assert.equal(ports.state.writeState.length, 2);
+  assert.equal(ports.state.readState.length, 1);
+  assert.equal(ports.lease.acquire.length, 3);
+  const write = ports.state.writeState(state, 0);
+  assert.equal(write.status, "completed");
+  const read = ports.state.readState("project-a");
+  assert.equal(read.status, "completed");
+  assert.deepEqual(read.value, state);
 });
 
 test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {

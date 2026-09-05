@@ -986,9 +986,11 @@ test("Task試行の終了を非Authorityの実行Eventとして一度記録す�
   const outcome = await runProjectRuntimeOperation(
     {
       runSingleTaskAttempt: completed,
-      recordExecutionEvent: (event) => {
-        events.push(event);
-        return recorded(event.eventId);
+      executionObservation: {
+        recordTaskAttempt: (event) => {
+          events.push(event);
+          return recorded("event-test");
+        },
       },
       now: () => ({
         monotonicMs: clock++ * 25,
@@ -1002,16 +1004,13 @@ test("Task試行の終了を非Authorityの実行Eventとして一度記録す�
   const event = events[0] as {
     identity: { objectiveId: string; taskId: string };
     outcome: { status: string };
-    execution: { durationMs: { state: string; value: number } };
+    startedAtMs: number;
+    endedAtMs: number;
   };
   assert.equal(event.identity.objectiveId, "objective-a");
   assert.equal(event.identity.taskId, "task-a");
   assert.equal(event.outcome.status, "completed");
-  assert.deepEqual(event.execution.durationMs, {
-    state: "observed",
-    value: 25,
-    source: "project_runtime_monotonic_clock",
-  });
+  assert.equal(event.endedAtMs - event.startedAtMs, 25);
 });
 
 for (const mismatchedField of [
@@ -1033,9 +1032,11 @@ for (const mismatchedField of [
               : `other-${mismatchedField}`,
           executorProvider: "codex" as const,
         }),
-        recordExecutionEvent: (event) => {
-          events.push(event);
-          return recorded(event.eventId);
+        executionObservation: {
+          recordTaskAttempt: (event) => {
+            events.push(event);
+            return recorded("event-mismatch-test");
+          },
         },
       },
       input,
@@ -1043,7 +1044,7 @@ for (const mismatchedField of [
     assert.equal(events.length, 1);
     const observed = events[0] as {
       outcome: { status: string; reason: string };
-      execution: { provider: { state: string } };
+      provider?: "codex" | "claude";
     };
     assert.deepEqual(observed.outcome, {
       status: "unknown",
@@ -1053,7 +1054,7 @@ for (const mismatchedField of [
       manualRecoveryRequired: true,
       processRestartRequired: true,
     });
-    assert.equal(observed.execution.provider.state, "not_observed");
+    assert.equal(observed.provider, undefined);
   });
 
 test("実行Event記録と二次診断の失敗はTask結果を変えない", async (t) => {
@@ -1062,12 +1063,14 @@ test("実行Event記録と二次診断の失敗はTask結果を変えない", as
   const outcome = await runProjectRuntimeOperation(
     {
       runSingleTaskAttempt: completed,
-      recordExecutionEvent: () => {
-        throw new Error("recorder_failed");
-      },
-      observeExecutionEventPublication: (observation) => {
-        publications.push(observation);
-        throw new Error("diagnostic_failed");
+      executionObservation: {
+        recordTaskAttempt: () => {
+          throw new Error("recorder_failed");
+        },
+        observePublication: (observation) => {
+          publications.push(observation);
+          throw new Error("diagnostic_failed");
+        },
       },
     },
     input,
@@ -1089,8 +1092,9 @@ test("記録未設定を記録成功へ丸めない", async (t) => {
   const outcome = await runProjectRuntimeOperation(
     {
       runSingleTaskAttempt: completed,
-      observeExecutionEventPublication: (observation) =>
-        publications.push(observation),
+      executionObservation: {
+        observePublication: (observation) => publications.push(observation),
+      },
     },
     input,
   );
@@ -1113,9 +1117,11 @@ for (const invalidClock of [
     await runProjectRuntimeOperation(
       {
         runSingleTaskAttempt: completed,
-        recordExecutionEvent: (event) => {
-          events.push(event);
-          return recorded(event.eventId);
+        executionObservation: {
+          recordTaskAttempt: (event) => {
+            events.push(event);
+            return recorded("event-clock-test");
+          },
         },
         now: () => {
           invocation += 1;
@@ -1129,12 +1135,7 @@ for (const invalidClock of [
       input,
     );
     assert.equal(events.length, 1);
-    assert.deepEqual(
-      (events[0] as { execution: { durationMs: unknown } }).execution
-        .durationMs,
-      {
-        state: "not_observed",
-        reason: "project_runtime_monotonic_clock_invalid",
-      },
-    );
+    const observed = events[0] as { startedAtMs: number; endedAtMs: number };
+    assert.equal(observed.startedAtMs, invalidClock.started);
+    assert.equal(observed.endedAtMs, invalidClock.ended);
   });

@@ -19,13 +19,13 @@ import {
   recoverProjectRuntimeHumanDecision,
   replaceProjectRuntimeHumanDecision,
   submitProjectRuntimeHumanDecision,
-  type ProjectRuntimeDecisionRecord,
-  type ProjectRuntimeDecisionRecoveryIntent,
 } from "../../src/security/project-runtime-human-decision.ts";
 import { resolveProjectRuntimeReplan } from "../../src/security/project-runtime-replanning.ts";
 import {
   applyProjectRuntimeHumanDecision,
   createProjectRuntimeState,
+  type ProjectRuntimeDecisionRecord,
+  type ProjectRuntimeDecisionRecoveryIntent,
 } from "../../../project-runtime/src/index.ts";
 
 const revision = "a".repeat(40);

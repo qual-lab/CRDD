@@ -23,16 +23,14 @@ import {
   type ProjectRuntimeState,
   type ProjectRuntimeSingleTaskAttemptInput,
   type ProjectRuntimeSingleTaskResult,
+  type ProjectRuntimeExecutionObservationPort,
+  type ProjectRuntimeExecutionObservationPublication,
+  type ProjectRuntimeTaskAttemptObservation,
 } from "../../../project-runtime/src/index.ts";
 import {
   createRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../core/runtime-process-safety-state.ts";
-import {
-  createProjectRuntimeTaskAttemptEvent,
-  type ExecutionIntelligenceEvent,
-  type ExecutionIntelligencePublicationResult,
-} from "./execution-intelligence-adapter.ts";
 
 export const PROJECT_RUNTIME_EXECUTION_CONTRACT =
   "crdd-coordinator/project-runtime-execution/v1" as const;
@@ -46,13 +44,7 @@ export type ProjectRuntimeTaskExecution = Readonly<{
 }>;
 
 export type ProjectRuntimeExecutionPublicationObservation =
-  | ExecutionIntelligencePublicationResult
-  | Readonly<{
-      status: "not_configured" | "unknown";
-      reason: string;
-      effectState: "no_effect" | "unknown";
-      cleanupConfirmed: boolean;
-    }>;
+  ProjectRuntimeExecutionObservationPublication;
 
 export type ProjectRuntimeExecutionDependencies = Readonly<{
   issueTaskAuthority?: () => object | null;
@@ -61,12 +53,7 @@ export type ProjectRuntimeExecutionDependencies = Readonly<{
   runSingleTaskAttempt: (
     input: ProjectRuntimeSingleTaskAttemptInput,
   ) => Promise<ProjectRuntimeSingleTaskResult>;
-  recordExecutionEvent?: (
-    event: ExecutionIntelligenceEvent,
-  ) => ExecutionIntelligencePublicationResult;
-  observeExecutionEventPublication?: (
-    observation: ProjectRuntimeExecutionPublicationObservation,
-  ) => void;
+  executionObservation?: ProjectRuntimeExecutionObservationPort;
   now?: () => Readonly<{ monotonicMs: number; iso: string }>;
 }>;
 
@@ -997,7 +984,7 @@ export async function runProjectRuntimeOperation(
         iso: new Date().toISOString(),
       };
       if (taskDefinition) {
-        const event = createProjectRuntimeTaskAttemptEvent({
+        const event = Object.freeze({
           occurredAt: endedAt.iso,
           startedAtMs:
             attemptStartedAt.get(attempt.attemptId) ?? endedAt.monotonicMs,
@@ -1035,18 +1022,12 @@ export async function runProjectRuntimeOperation(
           validatedOutcome.executorProvider !== undefined
             ? { provider: validatedOutcome.executorProvider }
             : {}),
-        });
-        let publicationObservation:
-          | ExecutionIntelligencePublicationResult
-          | Readonly<{
-              status: "not_configured" | "unknown";
-              reason: string;
-              effectState: "no_effect" | "unknown";
-              cleanupConfirmed: boolean;
-            }>;
+        } satisfies ProjectRuntimeTaskAttemptObservation);
+        let publicationObservation: ProjectRuntimeExecutionPublicationObservation;
         try {
-          publicationObservation = dependencies.recordExecutionEvent
-            ? dependencies.recordExecutionEvent(event)
+          publicationObservation = dependencies.executionObservation
+            ?.recordTaskAttempt
+            ? dependencies.executionObservation.recordTaskAttempt(event)
             : Object.freeze({
                 status: "not_configured" as const,
                 reason: "execution_event_recorder_not_configured",
@@ -1062,7 +1043,7 @@ export async function runProjectRuntimeOperation(
           });
         }
         try {
-          dependencies.observeExecutionEventPublication?.(
+          dependencies.executionObservation?.observePublication?.(
             publicationObservation,
           );
         } catch {

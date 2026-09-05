@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import type { ProjectRuntimeDecisionRecord } from "../../src/security/project-runtime-human-decision.ts";
+import type { ProjectRuntimeDecisionRecord } from "../../../project-runtime/src/index.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
 
 function record(): ProjectRuntimeDecisionRecord {

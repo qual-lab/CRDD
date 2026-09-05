@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { createProjectRuntimeDecisionRecoveryStore } from "../../src/security/project-runtime-decision-recovery-store.ts";
-import type { ProjectRuntimeDecisionRecoveryIntent } from "../../src/security/project-runtime-human-decision.ts";
+import type { ProjectRuntimeDecisionRecoveryIntent } from "../../../project-runtime/src/index.ts";
 
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(

@@ -22,11 +22,13 @@ import {
   type ProjectRuntimeObjectiveRequest,
 } from "./project-runtime-objective-intake.ts";
 import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
-import { projectProjectRuntimeState } from "../../../project-runtime/src/index.ts";
+import {
+  projectProjectRuntimeState,
+  type ProjectRuntimeCandidatePort,
+} from "../../../project-runtime/src/index.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "./project-runtime-candidate-integration-adapter.ts";
 import { inspectMcpProjectRuntimeDecision } from "./mcp-project-runtime-adapter.ts";
 import { integrateProjectRuntimeOperation } from "./project-runtime-integration.ts";
-import type { ProjectRuntimeIntegrationDependencies } from "./project-runtime-integration.ts";
 import { createProjectRuntimeDecisionRecoveryStore } from "./project-runtime-decision-recovery-store.ts";
 import {
   issueProjectRuntimeHumanDecision,
@@ -194,7 +196,7 @@ type PublicExecutionDependencies = Readonly<{
   openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore;
   createIntegrationAdapter: (
     repositoryRoot: string,
-  ) => ProjectRuntimeIntegrationDependencies;
+  ) => ProjectRuntimeCandidatePort;
   resolveTaskRecoveryCorrelations?: typeof resolveRuntimeOwnedDockerTaskRecoveryCorrelations;
   recordExecutionEvent: typeof recordProjectRuntimeExecutionEvent;
   observeExecutionEventPublication: (
@@ -434,10 +436,15 @@ async function executeProjectRuntimePublicObjective(
             },
             input,
           ),
-        recordExecutionEvent: (event) =>
-          runtimeDependencies.recordExecutionEvent(repositoryRoot, event),
-        observeExecutionEventPublication:
-          runtimeDependencies.observeExecutionEventPublication,
+        executionObservation: {
+          recordTaskAttempt: (observation) =>
+            runtimeDependencies.recordExecutionEvent(
+              repositoryRoot,
+              observation,
+            ),
+          observePublication:
+            runtimeDependencies.observeExecutionEventPublication,
+        },
       },
     },
     request,
