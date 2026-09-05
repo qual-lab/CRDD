@@ -6,7 +6,7 @@ import {
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
 } from "./project-runtime-durable-foundation.ts";
-import { applyProjectRuntimeHumanDecision } from "./project-runtime-state.ts";
+import { applyProjectRuntimeHumanDecision } from "../../../project-runtime/src/index.ts";
 
 export const PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT =
   "crdd-coordinator/project-runtime-human-decision/v1" as const;

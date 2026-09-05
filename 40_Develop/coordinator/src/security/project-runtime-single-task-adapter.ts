@@ -1,6 +1,6 @@
 import { types as utilTypes } from "node:util";
 
-import { isProjectRuntimeRecoveryIdentity } from "./project-runtime-state.ts";
+import { isProjectRuntimeRecoveryIdentity } from "../../../project-runtime/src/index.ts";
 
 export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT =
   "crdd-coordinator/project-runtime-single-task-adapter" as const;

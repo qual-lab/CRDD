@@ -26,7 +26,7 @@ import { resolveProjectRuntimeReplan } from "../../src/security/project-runtime-
 import {
   applyProjectRuntimeHumanDecision,
   createProjectRuntimeState,
-} from "../../src/security/project-runtime-state.ts";
+} from "../../../project-runtime/src/index.ts";
 
 const revision = "a".repeat(40);
 const hash = (value: string) =>

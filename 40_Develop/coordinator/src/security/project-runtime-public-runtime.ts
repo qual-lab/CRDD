@@ -22,7 +22,7 @@ import {
   type ProjectRuntimeObjectiveRequest,
 } from "./project-runtime-objective-intake.ts";
 import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
-import { projectProjectRuntimeState } from "./project-runtime-state.ts";
+import { projectProjectRuntimeState } from "../../../project-runtime/src/index.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "./project-runtime-candidate-integration-adapter.ts";
 import { inspectMcpProjectRuntimeDecision } from "./mcp-project-runtime-adapter.ts";
 import { integrateProjectRuntimeOperation } from "./project-runtime-integration.ts";

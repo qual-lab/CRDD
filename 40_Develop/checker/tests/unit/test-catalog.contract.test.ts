@@ -112,7 +112,9 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
 });
 
 test("利用側契約は欠落・Owner不一致・循環を拒否する", () => {
-  const first = catalog.consumerBindings[0];
+  const first = catalog.consumerBindings.find(
+    (binding) => binding.producerOwner === "execution-intelligence",
+  );
   assert.ok(first);
   const missing = {
     ...catalog,
@@ -160,15 +162,23 @@ test("利用側契約は欠落・Owner不一致・循環を拒否する", () => 
 });
 
 test("利用側契約の未分類Producer変更は登録済み利用側全件へ閉じる", () => {
-  const selectedPaths = selectRegressionTests(catalog, [
-    "40_Develop/execution-intelligence/src/new-boundary.ts",
-  ]).map((entry) => entry.path);
-  for (const binding of catalog.consumerBindings)
-    for (const testId of binding.testIds) {
-      const entry = catalog.tests.find((candidate) => candidate.id === testId);
-      assert.ok(entry);
-      assert.ok(selectedPaths.includes(entry.path));
-    }
+  for (const producerOwner of [
+    ...new Set(catalog.consumerBindings.map((entry) => entry.producerOwner)),
+  ]) {
+    const selectedPaths = selectRegressionTests(catalog, [
+      `40_Develop/${producerOwner}/src/new-boundary.ts`,
+    ]).map((entry) => entry.path);
+    for (const binding of catalog.consumerBindings.filter(
+      (entry) => entry.producerOwner === producerOwner,
+    ))
+      for (const testId of binding.testIds) {
+        const entry = catalog.tests.find(
+          (candidate) => candidate.id === testId,
+        );
+        assert.ok(entry);
+        assert.ok(selectedPaths.includes(entry.path));
+      }
+  }
 });
 
 test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じる", () => {

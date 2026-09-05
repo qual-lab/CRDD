@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
+const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
 /**
  * Project Runtime Core population for the responsibility-separation stage.
@@ -12,16 +12,17 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
  * reaches an OS-specific module (01_Architecture.md 14.9, PR-A-07 companion).
  */
 const CORE_MODULES = Object.freeze([
-  "src/security/mcp-project-runtime-adapter.ts",
-  "src/security/project-runtime-platform-contract.ts",
-  "src/security/project-runtime-single-task-adapter.ts",
-  "src/security/project-runtime-state.ts",
+  "40_Develop/coordinator/src/security/mcp-project-runtime-adapter.ts",
+  "40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts",
+  "40_Develop/project-runtime/src/index.ts",
+  "40_Develop/project-runtime/src/core/project-runtime-state.ts",
+  "40_Develop/project-runtime/src/ports/platform-contract.ts",
 ]);
 
 const ALLOWED_SHARED_MODULES = Object.freeze([
-  "src/security/plain-data-snapshot.ts",
-  "src/security/project-runtime-integration-result.ts",
-  "src/security/project-runtime-objective-request.ts",
+  "40_Develop/coordinator/src/security/plain-data-snapshot.ts",
+  "40_Develop/coordinator/src/security/project-runtime-integration-result.ts",
+  "40_Develop/coordinator/src/security/project-runtime-objective-request.ts",
 ]);
 
 const ALLOWED_NODE_BUILTINS = Object.freeze(["node:crypto", "node:util"]);
@@ -50,8 +51,8 @@ function normalize(relativePath: string): string {
   return relativePath.replaceAll("\\", "/");
 }
 
-function readCoordinatorSource(relativePath: string): string {
-  return fs.readFileSync(path.join(coordinatorRoot, relativePath), "utf8");
+function readRuntimeSource(relativePath: string): string {
+  return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
 }
 
 /**
@@ -100,7 +101,7 @@ test("Project Runtime CoreのimportはPlatform非依存の閉集合に一致す�
     if (moduleRelativePath === undefined) break;
     if (visitedModules.has(moduleRelativePath)) continue;
     visitedModules.add(moduleRelativePath);
-    const source = readCoordinatorSource(moduleRelativePath);
+    const source = readRuntimeSource(moduleRelativePath);
     const scan = importSpecifierScan(source);
     assert.ok(
       scan.isConsistent,
@@ -120,9 +121,9 @@ test("Project Runtime CoreのimportはPlatform非依存の閉集合に一致す�
       );
       const resolved = normalize(
         path.relative(
-          coordinatorRoot,
+          repositoryRoot,
           path.resolve(
-            coordinatorRoot,
+            repositoryRoot,
             path.dirname(moduleRelativePath),
             specifier,
           ),
@@ -147,7 +148,7 @@ test("Project Runtime CoreはOS固有tokenとOS Path実値を含まない", () =
     ...CORE_MODULES,
     ...ALLOWED_SHARED_MODULES,
   ]) {
-    const source = readCoordinatorSource(moduleRelativePath);
+    const source = readRuntimeSource(moduleRelativePath);
     for (const pattern of FORBIDDEN_SOURCE_PATTERNS)
       assert.equal(
         pattern.test(source),
@@ -179,19 +180,19 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
 
 test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しない", () => {
   const windowsAdapterPath =
-    "src/security/project-runtime-windows-platform-adapter.ts";
+    "40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts";
   assert.ok(
-    fs.existsSync(path.join(coordinatorRoot, windowsAdapterPath)),
+    fs.existsSync(path.join(repositoryRoot, windowsAdapterPath)),
     "windows adapter module must exist",
   );
   for (const moduleRelativePath of CORE_MODULES) {
-    const source = readCoordinatorSource(moduleRelativePath);
+    const source = readRuntimeSource(moduleRelativePath);
     assert.equal(
       source.includes("project-runtime-windows-platform-adapter"),
       false,
       `${moduleRelativePath} must not reference the windows adapter`,
     );
   }
-  const windowsAdapterSource = readCoordinatorSource(windowsAdapterPath);
+  const windowsAdapterSource = readRuntimeSource(windowsAdapterPath);
   assert.equal(/process\.platform/u.test(windowsAdapterSource), true);
 });

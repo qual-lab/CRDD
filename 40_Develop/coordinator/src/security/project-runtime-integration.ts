@@ -15,7 +15,7 @@ import {
   recordObjectiveIntegration,
   requestProjectRuntimeHumanDecision,
   type ProjectRuntimeState,
-} from "./project-runtime-state.ts";
+} from "../../../project-runtime/src/index.ts";
 import { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "./project-runtime-integration-result.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 import {

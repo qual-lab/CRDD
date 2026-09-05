@@ -1,7 +1,7 @@
 # 変更トレース: Runtime責務分離
 
 変更ID: `CHG-000063`
-状態: `Design in Progress`
+状態: `Implementation in Progress`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `refactoring`
@@ -12,6 +12,8 @@
 v0.19で成立したProject Runtime、MCP stdioおよびCoordinatorは、意味上の責務を分けていた一方、実装と公開入口の多くをCoordinator package内部へ集約している。この状態では、Coordinator固有のProvider実行、Windows／Docker、Project lifecycle、MCP Transportおよび公開契約の変更が同じpackage境界へ伝播し、後続の限定分散実行、Project State投影およびMCP Streamable HTTPで変更理由と回帰範囲を分離しにくい。
 
 本変更はProject RuntimeをProject-level execution lifecycleのApplication Core、Coordinatorを実行編成、MCPをTransport、実行知を観測・分析、Platform AccessをOS／Platform境界として分ける。物理移動を完成とせず、公開契約、依存方向、実装Adapter、利用側および自動回帰が同時に成立した場合だけ分離完了とする。
+
+2026-09-05に最初の移行単位として、Project状態機械とPlatform Port契約を`40_Develop/project-runtime/`へ移し、単体試験、公開入口、Coordinator利用側、設計対応、試験台帳および変更影響型回帰選択を同時に切り替えた。CoordinatorのWindows Platform AdapterはProject Runtimeの公開入口だけを利用する。Application、公開要求／結果、その他のPortおよびMCP Transportは未移行であり、上位の責務分離は未完了である。
 
 ## 2. 人間が決定した範囲
 
@@ -99,4 +101,3 @@ Project RuntimeからCoordinator、MCP、ProviderまたはOS固有moduleへの�
 - CLIとMCP stdioの正常・準正常・異常の自動回帰が成功する。
 - 試験カタログと変更影響型runnerが新packageと全利用側を選択する。
 - Repository全体Checker、決定論的試験および独立レビューで未解決の必須指摘事項がない。
-

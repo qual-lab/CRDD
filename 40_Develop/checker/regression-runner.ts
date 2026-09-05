@@ -108,7 +108,11 @@ function runNpmScript(
 }
 
 function runNodeTests(
-  owner: "checker" | "coordinator" | "execution-intelligence",
+  owner:
+    | "checker"
+    | "coordinator"
+    | "execution-intelligence"
+    | "project-runtime",
   entries: readonly TestCatalogEntry[],
   options: Readonly<{
     testNamePattern?: string;
@@ -187,6 +191,14 @@ function runStaticStage(
     const status = runNpmScript("check", root);
     if (status !== 0) return status;
   }
+  for (const owner of ["project-runtime"] as const)
+    if (owners.has(owner)) {
+      const status = runNpmScript(
+        "check",
+        path.join(repositoryRoot, "40_Develop", owner),
+      );
+      if (status !== 0) return status;
+    }
   if (owners.has("platform-access"))
     return runCommand(
       "cargo",
@@ -213,6 +225,7 @@ function runLevelStage(
     "checker",
     "coordinator",
     "execution-intelligence",
+    "project-runtime",
   ] as const) {
     const ownerEntries = levelEntries.filter((entry) => entry.owner === owner);
     const status = runNodeTests(
@@ -280,6 +293,7 @@ try {
         "40_Develop/coordinator/package.json",
         "40_Develop/checker/package.json",
         "40_Develop/execution-intelligence/package.json",
+        "40_Develop/project-runtime/package.json",
         "40_Develop/platform-access/Cargo.toml",
       ]
     : explicitChangedPaths.length > 0

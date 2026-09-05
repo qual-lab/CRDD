@@ -29,6 +29,7 @@ export type TestCatalogEntry = Readonly<{
     | "checker"
     | "coordinator"
     | "execution-intelligence"
+    | "project-runtime"
     | "platform-access";
   path: string;
   level: TestLevel;
@@ -44,7 +45,7 @@ export type TestCatalogEntry = Readonly<{
 
 export type TestCatalog = Readonly<{
   contract: "crdd/test-catalog";
-  contractRevision: 4;
+  contractRevision: 5;
   levels: readonly TestLevel[];
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
@@ -52,6 +53,7 @@ export type TestCatalog = Readonly<{
     checker: "node_test";
     coordinator: "node_test";
     "execution-intelligence": "node_test";
+    "project-runtime": "node_test";
     "platform-access": "cargo_test";
   }>;
   consumerBindings: readonly Readonly<{
@@ -72,12 +74,14 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "checker",
   "coordinator",
   "execution-intelligence",
+  "project-runtime",
   "platform-access",
 ]);
 const RUNNER_PROFILES = Object.freeze({
   checker: "node_test",
   coordinator: "node_test",
   "execution-intelligence": "node_test",
+  "project-runtime": "node_test",
   "platform-access": "cargo_test",
 });
 const validExecutionProfiles = new Set(executionProfiles);
@@ -149,6 +153,7 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "checker",
     "coordinator",
     "execution-intelligence",
+    "project-runtime",
   ].flatMap((owner) =>
     walkFiles(
       repositoryRoot,
@@ -175,7 +180,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:checker|coordinator|execution-intelligence)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:checker|coordinator|execution-intelligence|project-runtime)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -241,7 +246,7 @@ export function inspectTestCatalog(
   }
   const catalog = candidate as unknown as TestCatalog;
   if (catalog.contract !== "crdd/test-catalog") failures.push("contract");
-  if (catalog.contractRevision !== 4) failures.push("contract_revision");
+  if (catalog.contractRevision !== 5) failures.push("contract_revision");
   if (catalog.regressionIsSelection !== true)
     failures.push("regression_selection_contract");
   if (JSON.stringify(catalog.levels) !== JSON.stringify(testLevels))
@@ -475,6 +480,8 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/checker/")) return "checker";
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))
     return "execution-intelligence";
+  if (changedPath.startsWith("40_Develop/project-runtime/"))
+    return "project-runtime";
   if (changedPath.startsWith("40_Develop/platform-access/"))
     return "platform-access";
   return null;

@@ -19,7 +19,7 @@ import {
   settleProjectTaskRecoveryObligation,
   type ProjectRuntimeState,
   type ProjectTaskDefinition,
-} from "../../src/security/project-runtime-state.ts";
+} from "../../src/index.ts";
 
 const revision = "a".repeat(40);
 

@@ -3,3 +3,6 @@
 
 # This policy is repository configuration bound to the reviewed Git revision.
 !/.crdd/external-send-policy.json
+
+# Tool package dependencies are restored from their lockfiles.
+**/node_modules/

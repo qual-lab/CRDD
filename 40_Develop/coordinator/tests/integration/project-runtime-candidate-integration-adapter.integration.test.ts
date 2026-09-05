@@ -8,7 +8,7 @@ import test from "node:test";
 
 import { createCandidateBundleStoreTestingAdapter } from "../../src/security/candidate-bundle-store.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../../src/security/project-runtime-candidate-integration-adapter.ts";
-import { createProjectRuntimeState } from "../../src/security/project-runtime-state.ts";
+import { createProjectRuntimeState } from "../../../project-runtime/src/index.ts";
 
 test("real candidate bundles are merged and explicitly adopted into the bound repository", async (t) => {
   const repository = fs.mkdtempSync(

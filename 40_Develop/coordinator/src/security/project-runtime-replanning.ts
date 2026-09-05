@@ -9,7 +9,7 @@ import {
   requestProjectRuntimeHumanDecision,
   retryProjectRuntimeTask,
   type ProjectTaskDefinition,
-} from "./project-runtime-state.ts";
+} from "../../../project-runtime/src/index.ts";
 
 export const PROJECT_RUNTIME_REPLANNING_CONTRACT =
   "crdd-coordinator/project-runtime-replanning/v1" as const;

@@ -9,7 +9,7 @@ import {
 } from "./candidate-bundle-store.ts";
 import { materializeGitCommitTreeCandidate } from "./git-object-reader.ts";
 import type { ProjectRuntimeIntegrationDependencies } from "./project-runtime-integration.ts";
-import type { ProjectRuntimeState } from "./project-runtime-state.ts";
+import type { ProjectRuntimeState } from "../../../project-runtime/src/index.ts";
 import { resolveRepositoryGitLayout } from "./repository-git-layout-internal.ts";
 import { inspectRepositoryIdentityCandidate } from "./repository-operation-runtime.ts";
 

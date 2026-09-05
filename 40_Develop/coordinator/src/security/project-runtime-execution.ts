@@ -25,7 +25,7 @@ import {
   settleProjectTaskBeforeEffect,
   type ProjectTaskRecoveryKind,
   type ProjectRuntimeState,
-} from "./project-runtime-state.ts";
+} from "../../../project-runtime/src/index.ts";
 import {
   createRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,

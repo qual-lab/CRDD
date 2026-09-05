@@ -1,6 +1,6 @@
 {
   "contract": "crdd/test-catalog",
-  "contractRevision": 4,
+  "contractRevision": 5,
   "levels": [
     "unit",
     "integration",
@@ -18,9 +18,27 @@
     "checker": "node_test",
     "coordinator": "node_test",
     "execution-intelligence": "node_test",
+    "project-runtime": "node_test",
     "platform-access": "cargo_test"
   },
   "consumerBindings": [
+    {
+      "producerOwner": "project-runtime",
+      "producerPaths": [
+        "40_Develop/project-runtime/src"
+      ],
+      "consumerOwner": "coordinator",
+      "consumerStatic": true,
+      "testIds": [
+        "coordinator:integration:project-runtime-candidate-integration-adapter",
+        "coordinator:integration:project-runtime-durable-foundation",
+        "coordinator:integration:project-runtime-execution",
+        "coordinator:integration:project-runtime-objective-intake",
+        "coordinator:integration:project-runtime-replanning-and-decision",
+        "coordinator:integration:project-runtime-single-task-adapter",
+        "coordinator:unit:project-runtime-windows-platform-adapter"
+      ]
+    },
     {
       "producerOwner": "execution-intelligence",
       "producerPaths": [
@@ -2303,9 +2321,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:project-runtime-platform-contract",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/project-runtime-platform-contract.contract.test.ts",
+      "id": "project-runtime:unit:platform-contract",
+      "owner": "project-runtime",
+      "path": "40_Develop/project-runtime/tests/unit/platform-contract.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -2322,9 +2340,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:project-runtime-state",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/project-runtime-state.contract.test.ts",
+      "id": "project-runtime:unit:state",
+      "owner": "project-runtime",
+      "path": "40_Develop/project-runtime/tests/unit/project-runtime-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

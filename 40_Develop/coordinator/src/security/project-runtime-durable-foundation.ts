@@ -5,7 +5,7 @@ import path from "node:path";
 import type {
   ProjectRuntimeState,
   ProjectTaskRecoveryObligation,
-} from "./project-runtime-state.ts";
+} from "../../../project-runtime/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 
 export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =

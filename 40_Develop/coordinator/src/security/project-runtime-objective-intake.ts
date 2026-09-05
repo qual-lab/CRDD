@@ -34,7 +34,7 @@ import {
   type ProjectDockerRecoveryAcknowledgement,
   type ProjectTaskDefinition,
   type ProjectRuntimeState,
-} from "./project-runtime-state.ts";
+} from "../../../project-runtime/src/index.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,

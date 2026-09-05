@@ -14,7 +14,7 @@ import {
   PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
   PROJECT_RUNTIME_MAXIMUM_TASKS,
   type ProjectRuntimeProjection,
-} from "./project-runtime-state.ts";
+} from "../../../project-runtime/src/index.ts";
 
 export const MCP_PROJECT_RUNTIME_PROTOCOL_VERSION = "2026-07-28" as const;
 export const MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL = "crdd.run_objective" as const;

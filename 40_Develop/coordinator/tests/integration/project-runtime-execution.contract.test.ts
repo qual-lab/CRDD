@@ -24,7 +24,7 @@ import { runProjectRuntimeSingleTaskAttempt } from "../../src/security/project-r
 import {
   createProjectRuntimeState,
   type ProjectTaskDefinition,
-} from "../../src/security/project-runtime-state.ts";
+} from "../../../project-runtime/src/index.ts";
 
 const revision = "a".repeat(40);
 

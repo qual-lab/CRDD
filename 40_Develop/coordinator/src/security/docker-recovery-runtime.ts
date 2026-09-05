@@ -10,7 +10,7 @@ import {
   type ProjectSettledDockerRecovery,
 } from "./docker-project-recovery-settlement.ts";
 import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
-import type { ProjectDockerRecoveryAcknowledgement } from "./project-runtime-state.ts";
+import type { ProjectDockerRecoveryAcknowledgement } from "../../../project-runtime/src/index.ts";
 import {
   acknowledgeRuntimeOwnedDockerRecoveryCompletion,
   finalizeRuntimeOwnedDockerRecoveryAcknowledgement,

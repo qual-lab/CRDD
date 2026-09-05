@@ -11,7 +11,7 @@ import {
   type ProjectRuntimePlatformAdapter,
   type ProjectRuntimePlatformBoundary,
   resolveProjectRuntimePlatformAdapter,
-} from "../../src/security/project-runtime-platform-contract.ts";
+} from "../../src/index.ts";
 
 const resolvableBoundaries = Object.freeze(
   PROJECT_RUNTIME_PLATFORM_BOUNDARIES.filter(

@@ -23,7 +23,7 @@ import {
 import {
   createProjectRuntimeState,
   type ProjectRuntimeState,
-} from "../../src/security/project-runtime-state.ts";
+} from "../../../project-runtime/src/index.ts";
 
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 

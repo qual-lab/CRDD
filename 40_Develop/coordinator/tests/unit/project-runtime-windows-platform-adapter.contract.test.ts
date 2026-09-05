@@ -7,7 +7,7 @@ import {
   createWindowsNativeHelperEnvironment,
 } from "../../src/core/windows-child-environment.ts";
 import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../../src/security/docker-recovery-runtime.ts";
-import { resolveProjectRuntimePlatformAdapter } from "../../src/security/project-runtime-platform-contract.ts";
+import { resolveProjectRuntimePlatformAdapter } from "../../../project-runtime/src/index.ts";
 import {
   createProjectRuntimeWindowsPlatformAdapter,
   observeProjectRuntimePlatformFamily,

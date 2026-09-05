@@ -75,6 +75,7 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "checker"),
   path.join(repositoryRoot, "40_Develop", "coordinator"),
   path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
+  path.join(repositoryRoot, "40_Develop", "project-runtime"),
   path.join(repositoryRoot, "template", "tools"),
 ]);
 const projectConfigs = Object.freeze([
@@ -92,14 +93,16 @@ const projectConfigs = Object.freeze([
     "execution-intelligence",
     "tsconfig.json",
   ),
+  path.join(repositoryRoot, "40_Develop", "project-runtime", "tsconfig.json"),
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 12,
-  coordinatorProduction: 149,
-  coordinatorTests: 159,
+  coordinatorProduction: 147,
+  coordinatorTests: 157,
   executionIntelligence: 7,
+  projectRuntime: 5,
   rustPlatformAccess: 6,
-  uniqueTotal: 329,
+  uniqueTotal: 330,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
@@ -1698,6 +1701,18 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
             isOwnedProgramFile(file) &&
             isContainedPath(file, executionIntelligenceRoot),
         );
+      const projectRuntimeRoot = path.join(
+        repositoryRoot,
+        "40_Develop",
+        "project-runtime",
+      );
+      const projectRuntimeFiles = projects[4]?.program
+        .getSourceFileNames()
+        .filter(
+          (file) =>
+            isOwnedProgramFile(file) &&
+            isContainedPath(file, projectRuntimeRoot),
+        );
       assert.equal(
         checkerFiles?.length,
         EXPECTED_OWNED_SOURCE_COUNTS.checkerAndTemplate,
@@ -1729,6 +1744,10 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
       assert.equal(
         executionIntelligenceFiles?.length,
         EXPECTED_OWNED_SOURCE_COUNTS.executionIntelligence,
+      );
+      assert.equal(
+        projectRuntimeFiles?.length,
+        EXPECTED_OWNED_SOURCE_COUNTS.projectRuntime,
       );
       const { sourceFiles, violations } = inspectProjects(projects);
       assert.equal(sourceFiles.size, EXPECTED_OWNED_SOURCE_COUNTS.uniqueTotal);
@@ -1781,6 +1800,16 @@ test("40_Develop配下のREADMEを拒否し、説明の正本分離を維持す�
   );
   assert.doesNotThrow(() =>
     assertFileName(path.join(repositoryRoot, "README.md")),
+  );
+});
+
+test("各Tool packageの再生成可能な依存DirectoryをGit対象から除外する", () => {
+  const ignoreRules = fs
+    .readFileSync(path.join(repositoryRoot, ".gitignore"), "utf8")
+    .split(/\r?\n/u);
+  assert.ok(
+    ignoreRules.includes("**/node_modules/"),
+    "Repository Rootの.gitignoreは全階層のnode_modulesを除外する",
   );
 });
 

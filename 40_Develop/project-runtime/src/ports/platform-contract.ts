@@ -5,7 +5,7 @@ export const PROJECT_RUNTIME_PLATFORM_CONTRACT =
 export const PROJECT_RUNTIME_PLATFORM_CONTRACT_REVISION = 1;
 
 /**
- * IF-PLATFORM boundary families fixed by the reference architecture
+ * Project RuntimeのIF-PLATFORM境界群。
  * (01_Architecture.md 14.9). The lock_lease family is declared here because
  * the contract owns the closed family population. The Windows adapter now
  * supplies owner-liveness observation; resolution still fails closed for
