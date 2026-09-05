@@ -209,11 +209,16 @@ const selectedRegressionEntries = [
   { owner: "checker", level: "system", path: "checker.system.test.ts" },
 ] as const;
 
-function executeInjectedPlan(failedStep: string | null = null) {
+function executeInjectedPlan(
+  failedStep: string | null = null,
+  windowsProcessControlRequired = true,
+) {
   const observedSteps: string[] = [];
-  const plans = buildRegressionStagePlan(selectedRegressionEntries, [
-    "40_Develop/coordinator/src/coordinator.ts",
-  ]);
+  const plans = buildRegressionStagePlan(
+    selectedRegressionEntries,
+    ["40_Develop/coordinator/src/coordinator.ts"],
+    windowsProcessControlRequired,
+  );
   const executeStage = createRegressionStageExecutor({
     runStatic: () => {
       observedSteps.push("static");
@@ -277,31 +282,7 @@ test("同じ計画の各工程失敗は後続levelとWindows Gateを開始しな
 });
 
 test("Windows Gate不要時は表示計画にも実行記録にも現れない", () => {
-  const selectedWithoutWindows = selectedRegressionEntries.map((entry) => ({
-    ...entry,
-    executionProfiles: undefined,
-  }));
-  const plans = buildRegressionStagePlan(selectedWithoutWindows, [
-    "40_Develop/checker/src/check.ts",
-  ]);
-  const observedSteps: string[] = [];
-  const results = executeRegressionStages(
-    plans,
-    createRegressionStageExecutor({
-      runStatic: () => {
-        observedSteps.push("static");
-        return 0;
-      },
-      runLevel: (stage) => {
-        observedSteps.push(stage);
-        return 0;
-      },
-      runWindowsProcess: () => {
-        observedSteps.push("windows_process_control");
-        return 0;
-      },
-    }),
-  );
+  const { plans, observedSteps, results } = executeInjectedPlan(null, false);
   assert.deepEqual(
     plans.map((entry) => entry.stage),
     ["static", "unit", "integration", "system"],

@@ -316,7 +316,11 @@ try {
 
   const isResourceIntensive =
     levels.has("performance") || levels.has("longevity");
-  const stagePlans = buildRegressionStagePlan(selectedEntries, changedPaths);
+  const stagePlans = buildRegressionStagePlan(
+    selectedEntries,
+    changedPaths,
+    isWindowsProcessControlRequired,
+  );
   const plan = {
     contract: "crdd/regression-test-plan",
     contractRevision: 2,

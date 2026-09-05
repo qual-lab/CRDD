@@ -37,6 +37,7 @@ export type RegressionStagePlan = Readonly<{
 export function buildRegressionStagePlan(
   selectedEntries: readonly RegressionPlanEntry[],
   changedPaths: readonly string[],
+  windowsProcessControlRequired: boolean,
 ): readonly RegressionStagePlan[] {
   const selectedOwners = [
     ...new Set(selectedEntries.map((entry) => entry.owner)),
@@ -71,7 +72,8 @@ export function buildRegressionStagePlan(
       entry.level === "integration" &&
       entry.executionProfiles?.includes("windows_process_control"),
   );
-  if (windowsEntries.length === 0) return levelPlans;
+  if (!windowsProcessControlRequired || windowsEntries.length === 0)
+    return levelPlans;
   const integrationIndex = levelPlans.findIndex(
     (entry) => entry.stage === "integration",
   );
