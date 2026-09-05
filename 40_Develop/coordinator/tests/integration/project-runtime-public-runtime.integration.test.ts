@@ -16,7 +16,10 @@ import {
   createProjectRuntimeRecoveryDiagnosticReporter,
 } from "../../src/security/project-runtime-public-runtime.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
-import { readExecutionIntelligence } from "../../../execution-intelligence/src/index.ts";
+import {
+  readExecutionIntelligence,
+  verifyExecutionIntelligenceRepositoryRoot,
+} from "../../../execution-intelligence/src/index.ts";
 
 test("development composition uses the explicitly supplied candidate integration boundary", async (t) => {
   const root = fs.mkdtempSync(
@@ -171,7 +174,11 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(result.effectState, "settled");
   assert.equal(integrationAdapterCalls, 1);
   assert.equal(taskStarts, 1);
-  const executionIntelligence = readExecutionIntelligence(root);
+  const verifiedRoot = verifyExecutionIntelligenceRepositoryRoot(root);
+  assert.equal(verifiedRoot.status, "completed");
+  if (verifiedRoot.status !== "completed")
+    throw new Error("execution_intelligence_root_not_verified");
+  const executionIntelligence = readExecutionIntelligence(verifiedRoot.root);
   assert.equal(executionIntelligence.status, "completed");
   if (executionIntelligence.status !== "completed")
     throw new Error("execution_intelligence_observation_failed");

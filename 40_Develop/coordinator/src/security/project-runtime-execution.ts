@@ -33,6 +33,7 @@ import {
 import {
   createProjectRuntimeTaskAttemptEvent,
   type ExecutionIntelligenceEvent,
+  type ExecutionIntelligencePublicationResult,
 } from "./execution-intelligence-adapter.ts";
 
 export const PROJECT_RUNTIME_EXECUTION_CONTRACT =
@@ -55,7 +56,17 @@ export type ProjectRuntimeExecutionDependencies = Readonly<{
   ) => Promise<ProjectRuntimeSingleTaskResult>;
   recordExecutionEvent?: (
     event: ExecutionIntelligenceEvent,
-  ) => unknown | Promise<unknown>;
+  ) => ExecutionIntelligencePublicationResult;
+  observeExecutionEventPublication?: (
+    observation:
+      | ExecutionIntelligencePublicationResult
+      | Readonly<{
+          status: "not_configured" | "unknown";
+          reason: string;
+          effectState: "no_effect" | "unknown";
+          cleanupConfirmed: boolean;
+        }>,
+  ) => void;
   now?: () => Readonly<{ monotonicMs: number; iso: string }>;
 }>;
 
@@ -971,6 +982,13 @@ export async function runProjectRuntimeOperation(
       )
         ? outcome
         : null;
+      const isExact =
+        validatedOutcome !== null &&
+        validatedOutcome.attemptId === attempt.attemptId &&
+        validatedOutcome.operationId === attempt.operationId &&
+        validatedOutcome.authorityBindingId ===
+          attempt.execution.authorityBindingId &&
+        validatedOutcome.repositoryRevision === state.repositoryRevision;
       const taskDefinition = state.tasks.find(
         (task) => task.definition.id === attempt.taskId,
       )?.definition;
@@ -992,40 +1010,65 @@ export async function runProjectRuntimeOperation(
             attemptId: attempt.attemptId,
             operationId: attempt.operationId,
           },
-          outcome: validatedOutcome
-            ? {
-                status: validatedOutcome.status,
-                reason: validatedOutcome.reason,
-                effectState: validatedOutcome.effectState,
-                cleanupConfirmed: validatedOutcome.cleanupConfirmed,
-                manualRecoveryRequired: validatedOutcome.manualRecoveryRequired,
-                processRestartRequired: validatedOutcome.processRestartRequired,
-              }
-            : {
-                status: "unknown",
-                reason: "task_attempt_result_not_observable",
-                effectState: "unknown",
-                cleanupConfirmed: false,
-                manualRecoveryRequired: true,
-                processRestartRequired: true,
-              },
-          ...(validatedOutcome?.executorProvider === undefined
-            ? {}
-            : { provider: validatedOutcome.executorProvider }),
+          outcome:
+            validatedOutcome && isExact
+              ? {
+                  status: validatedOutcome.status,
+                  reason: validatedOutcome.reason,
+                  effectState: validatedOutcome.effectState,
+                  cleanupConfirmed: validatedOutcome.cleanupConfirmed,
+                  manualRecoveryRequired:
+                    validatedOutcome.manualRecoveryRequired,
+                  processRestartRequired:
+                    validatedOutcome.processRestartRequired,
+                }
+              : {
+                  status: "unknown",
+                  reason: "task_attempt_result_not_observable",
+                  effectState: "unknown",
+                  cleanupConfirmed: false,
+                  manualRecoveryRequired: true,
+                  processRestartRequired: true,
+                },
+          ...(validatedOutcome &&
+          isExact &&
+          validatedOutcome.executorProvider !== undefined
+            ? { provider: validatedOutcome.executorProvider }
+            : {}),
         });
+        let publicationObservation:
+          | ExecutionIntelligencePublicationResult
+          | Readonly<{
+              status: "not_configured" | "unknown";
+              reason: string;
+              effectState: "no_effect" | "unknown";
+              cleanupConfirmed: boolean;
+            }>;
         try {
-          await dependencies.recordExecutionEvent?.(event);
+          publicationObservation = dependencies.recordExecutionEvent
+            ? dependencies.recordExecutionEvent(event)
+            : Object.freeze({
+                status: "not_configured" as const,
+                reason: "execution_event_recorder_not_configured",
+                effectState: "no_effect" as const,
+                cleanupConfirmed: true,
+              });
         } catch {
-          // Measurement is non-authority and never changes the Task result.
+          publicationObservation = Object.freeze({
+            status: "unknown" as const,
+            reason: "execution_event_recorder_threw",
+            effectState: "unknown" as const,
+            cleanupConfirmed: false,
+          });
+        }
+        try {
+          dependencies.observeExecutionEventPublication?.(
+            publicationObservation,
+          );
+        } catch {
+          // A secondary diagnostic is non-authority and cannot change the Task.
         }
       }
-      const isExact =
-        validatedOutcome !== null &&
-        validatedOutcome.attemptId === attempt?.attemptId &&
-        validatedOutcome.operationId === attempt?.operationId &&
-        validatedOutcome.authorityBindingId ===
-          attempt?.execution.authorityBindingId &&
-        validatedOutcome.repositoryRevision === state.repositoryRevision;
       const effectStarted = startedAttemptIds.has(attempt.attemptId);
       const normalizedRecoveryObligations: Array<
         Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string }>

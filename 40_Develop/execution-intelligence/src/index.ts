@@ -18,4 +18,10 @@ export {
   applyExecutionIntelligenceRetention,
   readExecutionIntelligence,
   writeExecutionIntelligenceEvent,
+  type ExecutionIntelligencePublicationResult,
 } from "./store/execution-intelligence-store.ts";
+
+export {
+  verifyExecutionIntelligenceRepositoryRoot,
+  type VerifiedExecutionRepositoryRoot,
+} from "./store/verified-repository-root.ts";

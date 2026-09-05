@@ -58,8 +58,8 @@ test("直接変更した試験だけはその試験に限定する", () => {
   );
 });
 
-test("実行知の実装変更は共通コンポーネントのUT／ITだけを選ぶ", () => {
-  const expectedPaths = catalog.tests
+test("実行知の実装変更は共通試験と登録済み利用側契約を選ぶ", () => {
+  const ownerPaths = catalog.tests
     .filter(
       (entry) =>
         entry.owner === "execution-intelligence" &&
@@ -67,14 +67,91 @@ test("実行知の実装変更は共通コンポーネントのUT／ITだけを�
     )
     .map((entry) => entry.path)
     .sort();
-  const selectedPaths = selectRegressionTests(catalog, [
-    "40_Develop/execution-intelligence/src/core/execution-intelligence.ts",
-  ])
-    .map((entry) => entry.path)
-    .sort();
+  for (const [changedPath, consumerPath] of [
+    [
+      "40_Develop/execution-intelligence/src/core/execution-intelligence.ts",
+      "40_Develop/coordinator/tests/integration/project-runtime-execution.contract.test.ts",
+    ],
+    [
+      "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts",
+      "40_Develop/coordinator/tests/integration/project-runtime-public-runtime.integration.test.ts",
+    ],
+    [
+      "40_Develop/execution-intelligence/src/index.ts",
+      "40_Develop/coordinator/tests/integration/project-runtime-execution.contract.test.ts",
+    ],
+  ]) {
+    const selectedPaths = selectRegressionTests(catalog, [changedPath]).map(
+      (entry) => entry.path,
+    );
+    assert.ok(ownerPaths.every((entry) => selectedPaths.includes(entry)));
+    assert.ok(selectedPaths.includes(consumerPath));
+    assert.ok(
+      selectedPaths.some((entry) =>
+        entry.includes("project-runtime-public-runtime"),
+      ) || changedPath.includes("core"),
+    );
+  }
+});
 
-  assert.deepEqual(selectedPaths, expectedPaths);
-  assert.ok(selectedPaths.length > 0);
+test("利用側契約は欠落・Owner不一致・循環を拒否する", () => {
+  const first = catalog.consumerBindings[0];
+  assert.ok(first);
+  const missing = {
+    ...catalog,
+    consumerBindings: [{ ...first, testIds: ["missing:test"] }],
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, missing).includes(
+      "consumer_test_missing:missing:test",
+    ),
+  );
+
+  const ownerMismatch = {
+    ...catalog,
+    consumerBindings: [
+      {
+        ...first,
+        testIds: ["execution-intelligence:integration:store"],
+      },
+    ],
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, ownerMismatch).includes(
+      "consumer_test_owner_mismatch:execution-intelligence:integration:store",
+    ),
+  );
+
+  const cycle = {
+    ...catalog,
+    consumerBindings: [
+      first,
+      {
+        producerOwner: "coordinator" as const,
+        producerPaths: ["40_Develop/coordinator/src/security"],
+        consumerOwner: "execution-intelligence" as const,
+        consumerStatic: true as const,
+        testIds: ["execution-intelligence:integration:store"],
+      },
+    ],
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, cycle).includes(
+      "consumer_cycle:coordinator->execution-intelligence",
+    ),
+  );
+});
+
+test("利用側契約の未分類Producer変更は登録済み利用側全件へ閉じる", () => {
+  const selectedPaths = selectRegressionTests(catalog, [
+    "40_Develop/execution-intelligence/src/new-boundary.ts",
+  ]).map((entry) => entry.path);
+  for (const binding of catalog.consumerBindings)
+    for (const testId of binding.testIds) {
+      const entry = catalog.tests.find((candidate) => candidate.id === testId);
+      assert.ok(entry);
+      assert.ok(selectedPaths.includes(entry.path));
+    }
 });
 
 test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じる", () => {

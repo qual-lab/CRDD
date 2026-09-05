@@ -198,6 +198,30 @@ test("Tool配下MarkdownもCheckerとRepository静的検査へ接続する", () 
   }
 });
 
+test("共通component変更は利用側契約と利用側静的検査を同じ計画へ含める", () => {
+  const result = invokeRunner([
+    "--changed",
+    "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts",
+    "--plan",
+  ]);
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  const plan = JSON.parse(result.stdout) as {
+    selected?: string[];
+    stages?: Array<{ stage?: string; owners?: string[] }>;
+  };
+  assert.ok(
+    plan.selected?.includes(
+      "40_Develop/coordinator/tests/integration/project-runtime-public-runtime.integration.test.ts",
+    ),
+  );
+  const staticStage = plan.stages?.find((entry) => entry.stage === "static");
+  assert.deepEqual(staticStage?.owners, [
+    "coordinator",
+    "execution-intelligence",
+  ]);
+});
+
 const selectedRegressionEntries = [
   { owner: "checker", level: "unit", path: "checker.unit.test.ts" },
   {

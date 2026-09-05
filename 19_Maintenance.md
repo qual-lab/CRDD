@@ -343,7 +343,7 @@ CRDD標準の保守は、内部Toolの変更分類、追跡、統合、移行お
 
 - 実装言語、命名、型、依存、静的検査およびBuild規則は、[内部ツール・コーディング規約](06_Architecture/99_Coding_Standards.md)が所有する。
 - Runtimeの信頼境界、Authority、資源、Provider Home、Mount Grant、Process、回復および署名Identityは、対象Toolの[アーキテクチャ](06_Architecture/01_Architecture.md)と脅威モデルが所有する。
-- 利用、開発確認、Build、署名および発行の反復可能な操作手順は、対象Toolの[Workflow](19_Workflows/01_Coordinator_Runtime.md)が所有する。
+- 利用、開発確認、Build、署名および発行の反復可能な操作手順は、対象ToolのWorkflow（[Coordinator Runtime](19_Workflows/01_Coordinator_Runtime.md)、[Checker](19_Workflows/02_Checker.md)、[実行知](19_Workflows/03_Execution_Intelligence.md)）が所有する。
 - 検証義務、正常・準正常・異常、Fakeと実環境の証明範囲および現在の結果は、[品質保証](16_Quality_Assurance.md)と対象の検証設計・結果が所有する。
 
 Tool固有の実装方式から得た一般原則は、適用範囲、非発火例および既存正本との重複を確認した場合だけCRDD共通規範へ昇格する。単一Toolの現在実装、固定Path、期間、protocol、検証commandまたは技術選定を、CRDD全体または採用Repositoryの保守要件へ一般化しない。

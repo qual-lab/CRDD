@@ -97,9 +97,9 @@ const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 12,
   coordinatorProduction: 149,
   coordinatorTests: 159,
-  executionIntelligence: 5,
+  executionIntelligence: 7,
   rustPlatformAccess: 6,
-  uniqueTotal: 327,
+  uniqueTotal: 329,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
@@ -406,6 +406,21 @@ function collectRetiredReferenceCounts(): Map<string, number> {
 
 function assertFileName(file: string): void {
   const name = path.basename(file);
+  const relativeToDevelop = path.relative(
+    path.join(repositoryRoot, "40_Develop"),
+    file,
+  );
+  if (
+    name === "README.md" &&
+    relativeToDevelop !== "" &&
+    !relativeToDevelop.startsWith(`..${path.sep}`) &&
+    relativeToDevelop !== ".." &&
+    !path.isAbsolute(relativeToDevelop)
+  ) {
+    assert.fail(
+      `40_Develop must not contain README.md; move design to 06_Architecture and repeatable operations to 19_Workflows: ${file}`,
+    );
+  }
   if (RESERVED_FILE_NAMES.has(name)) return;
   if (name.endsWith(".test.ts")) {
     assert.match(name, TEST_FILE, `test filename: ${file}`);
@@ -482,11 +497,14 @@ function resolveOwnedSource(file: string): string {
   return resolved;
 }
 
-function isOwnedProgramFile(file: string): boolean {
+function isOwnedProgramFile(
+  file: string,
+  ownershipRoots: readonly string[] = sourceOwnershipRoots,
+): boolean {
   return (
     !file.endsWith(".d.ts") &&
     !file.includes(`${path.sep}node_modules${path.sep}`) &&
-    sourceOwnershipRoots.some((root) => isContainedPath(file, root))
+    ownershipRoots.some((root) => isContainedPath(file, root))
   );
 }
 
@@ -564,6 +582,7 @@ function isFunctionInitializer(initializer: Expression | undefined): boolean {
 type FixedInitializerContext = Readonly<{
   activeSymbolIds: ReadonlySet<number>;
   checker: Checker;
+  ownershipRoots: readonly string[];
   sourceFile: SourceFile;
 }>;
 
@@ -1004,6 +1023,7 @@ function isSafeDirectAggregateRead(
   const context: FixedInitializerContext = {
     activeSymbolIds: new Set(),
     checker,
+    ownershipRoots: sourceOwnershipRoots,
     sourceFile: declaration.getSourceFile(),
   };
   const initialSeed = directAggregateSeed(declaration.initializer, context);
@@ -1087,7 +1107,7 @@ function isFixedModuleConstantReference(
   const normalizedDeclarationSource = path.normalize(
     declarationSource.fileName,
   );
-  if (!isOwnedProgramFile(normalizedDeclarationSource))
+  if (!isOwnedProgramFile(normalizedDeclarationSource, context.ownershipRoots))
     return isGlobalIntrinsic(
       identifier,
       context.checker,
@@ -1327,6 +1347,7 @@ function isFixedInitializer(
 function isModuleConstant(
   declaration: VariableDeclaration,
   checker: Checker,
+  ownershipRoots: readonly string[] = sourceOwnershipRoots,
 ): boolean {
   const declarationList = declaration.parent;
   const variableStatement = declarationList?.parent;
@@ -1342,6 +1363,7 @@ function isModuleConstant(
   const context = {
     activeSymbolIds: new Set<number>(),
     checker,
+    ownershipRoots,
     sourceFile: declaration.getSourceFile(),
   };
   if (
@@ -1468,6 +1490,7 @@ function inspectBindingName(
 function inspectSourceFile(
   sourceFile: SourceFile,
   checker: Checker,
+  ownershipRoots: readonly string[] = sourceOwnershipRoots,
 ): NamingViolation[] {
   const violations: NamingViolation[] = [];
   const visit = (node: Node): void => {
@@ -1527,7 +1550,7 @@ function inspectSourceFile(
           node.name,
           "variable",
           checker,
-          isModuleConstant(node, checker),
+          isModuleConstant(node, checker, ownershipRoots),
         ),
       );
     } else if (isParameterDeclaration(node)) {
@@ -1748,6 +1771,19 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
   }
 });
 
+test("40_Develop配下のREADMEを拒否し、説明の正本分離を維持する", () => {
+  assert.throws(
+    () =>
+      assertFileName(
+        path.join(repositoryRoot, "40_Develop", "example", "README.md"),
+      ),
+    /40_Develop must not contain README\.md/u,
+  );
+  assert.doesNotThrow(() =>
+    assertFileName(path.join(repositoryRoot, "README.md")),
+  );
+});
+
 test("Checker試験の実行集合はnested配置を含む所有集合と完全一致する", () => {
   const temporaryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-checker-test-discovery-"),
@@ -1954,10 +1990,17 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
 });
 
 test("型付き命名classifierは構文境界の正負例を同じ規則で判定する", () => {
+  const temporaryParent = path.join(repositoryRoot, ".crdd", "test-tmp");
+  fs.mkdirSync(temporaryParent, { recursive: true });
   const temporaryRoot = fs.mkdtempSync(
-    path.join(checkerRoot, ".naming-fixture-"),
+    path.join(temporaryParent, "naming-fixture-"),
   );
   try {
+    fs.writeFileSync(
+      path.join(temporaryRoot, "package.json"),
+      JSON.stringify({ private: true, type: "module" }),
+      "utf8",
+    );
     const fixtureFile = path.join(temporaryRoot, "fixture.ts");
     const shadowFixtureFile = path.join(temporaryRoot, "shadow-fixture.ts");
     const configFile = path.join(temporaryRoot, "tsconfig.json");
@@ -2265,7 +2308,7 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
       }),
       "utf8",
     );
-    const api = new API({ cwd: temporaryRoot });
+    const api = new API({ cwd: checkerRoot });
     try {
       const snapshot = api.updateSnapshot({ openProjects: [configFile] });
       try {
@@ -2276,8 +2319,8 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         assert.ok(fixtureSource);
         assert.ok(shadowSource);
         const violations = [
-          ...inspectSourceFile(fixtureSource, project.checker),
-          ...inspectSourceFile(shadowSource, project.checker),
+          ...inspectSourceFile(fixtureSource, project.checker, [temporaryRoot]),
+          ...inspectSourceFile(shadowSource, project.checker, [temporaryRoot]),
         ];
         const keyForViolation = (violation: NamingViolation): string =>
           `${path.basename(violation.file)}:${violation.line}:${violation.column}|${violation.kind}|${violation.name}|${violation.rule}`;

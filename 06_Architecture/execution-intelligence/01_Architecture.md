@@ -44,7 +44,9 @@ Project RuntimeがTask Attemptを予約
   ↓
 Single Task Runtimeへ委譲
   ↓
-結果をexact Identityで検証
+Attempt、Operation、Authority Binding、Repository Revisionを確定
+  ↓
+結果を同じexact Identityで検証
   ↓
 Task Attempt終了Eventを構成
   ↓
@@ -53,17 +55,19 @@ Repository-local Storeへ記録
 Project Stateのsettlementを継続
 ```
 
-Event発行は非Authorityの観測であり、Task Authority、採用、回復、Project Stateまたは正本変更を生成しない。Event Storeの失敗をTask成功へ見せかけず、同時に測定不能だけを理由に本来のTask結果を失敗へ変更しない。分析側はEvent不存在を実行0件と推定せず、観測対象とStoreの利用可能性を別に確認する。
+Event発行は非Authorityの観測であり、Task Authority、採用、回復、Project Stateまたは正本変更を生成しない。仕事Identityは結果取得後に組み直さず、Task結果の検証とEvent生成へ同じ値を使用する。一項目でも一致しない結果からstatus、reason、Providerまたはcleanupを転記せず、観測不能として閉じる。
+
+Event Storeの失敗をTask成功へ見せかけず、同時に測定不能だけを理由に本来のTask結果を失敗へ変更しない。発行結果は同期的に観測し、未設定、拒否、例外および成功を区別した非Authority診断へ渡せる。診断処理自身の失敗もTask結果を変更しない。分析側はEvent不存在を実行0件と推定せず、観測対象とStoreの利用可能性を別に確認する。
 
 CRDD採用Repositoryや別Runtimeは公開入口`@qual-lab/crdd-execution-intelligence`へ薄いAdapterを接続できる。AdapterはProvider SDKまたはRuntimeの結果から実際に観測したmetadataだけをEventへ写し、Work Identity、情報分類、同意および外部EffectのAuthorityを自身の境界で確認する。公開入口はProvider SDKを透過監視せず、通常会話やPrompt／Responseを自動収集しない。
 
 ## 4. 保存と改変検知
 
-保存先は検証済みRepository Root直下のGit管理外`.crdd/execution/events/`である。Tool配下、親Directory、兄弟Repositoryまたは任意の一時Directoryへ同名Rootを作らない。
+保存先は検証済みRepository Root直下のGit管理外`.crdd/execution/events/`である。Tool配下、親Directory、兄弟Repositoryまたは任意の一時Directoryへ同名Rootを作らない。保存APIは任意のPath文字列を受け取らず、Version Controlからexact Root、実Path、Directory種別およびlink不使用を確認した実行時能力だけを受け取る。この能力は公開型と同じ構造の値を作るだけでは成立せず、各操作の入口で再確認する。通常Repository、linked worktreeおよびsubmoduleは、それぞれのexact Rootだけを許可する。
 
-Eventは一つずつ不変JSONへ保存する。同じEvent IDと同じbyteの再送は冪等、同じEvent IDと異なる内容はIdentity衝突として拒否する。一時fileを新規作成してrenameし、保存後にexact byteを再読取りする。読み取りはEvent件数10,000件、合計32 MiBを上限とし、未知file、Schema不正、filenameとEvent IDの不一致または破損を黙って除外せず、Store全体を観測不能として停止する。
+Eventは一つずつ不変JSONへ保存する。Process間の変更はStore専用Lockで直列化し、所有不明または残存Lockを時刻だけで奪取しない。同じEvent IDと同じbyteの再送は冪等、同じEvent IDと異なる内容はIdentity衝突として拒否する。一時fileを排他的に作成して書込みとflushを行い、既存targetを置換しない公開操作の後にexact byteを再読取りする。open、write、flush、publish、readback、一時file回収、Lock初期化およびLock解放の失敗では、EventのEffect、cleanup、再試行可否、手動回復要否およびexactな残存Artifactを分けて返す。読み取りはEvent件数10,000件、合計32 MiBを上限とし、未知file、Schema不正、filenameとEvent IDの不一致または破損を黙って除外せず、Store全体を観測不能として停止する。
 
-Event内容の署名、共有Database、複数Process writerの順序保証およびRaw情報保持は現行範囲外である。現在の不変file方式は、同じEvent IDの競合を安全に拒否するが、全Eventのグローバル順序を保証しない。
+Event内容の署名、共有Database、全Eventのグローバル順序およびRaw情報保持は現行範囲外である。現在の不変file方式は、同一Filesystem上の複数Process writerについて、同じEvent IDの上書きを禁止し、同一byteを冪等、異内容を衝突として扱う。Process停止やOS障害をまたぐ耐久性は、実環境で証明していない範囲まで主張しない。
 
 ## 5. 集約、改善候補、正本昇格
 
@@ -82,10 +86,12 @@ Git管理外のEventをCRDD正本へ昇格する場合は、元Eventの集約、
 - 集約または昇格先を示す耐久Evidence IDがある。
 - 削除後に同じexact Pathの不存在を確認する。
 
-一部でも不明なら削除せず停止する。由来不明の既存退避物やExecution Store外の資源を、この清掃契約へ混ぜない。保持期間・件数上限を超えた場合は清掃候補を作れるが、上記条件なしに物理削除しない。
+一部でも不明なら削除せず停止する。複数Eventの処理途中で失敗した場合は、削除済み、未削除および観測不能のIdentityを分け、部分成立を全件完了へ丸めない。清掃も書込みと同じProcess間Lockを使用し、Lock解放を確認できなければ残存資源として返す。由来不明の既存退避物やExecution Store外の資源を、この清掃契約へ混ぜない。保持期間・件数上限を超えた場合は清掃候補を作れるが、上記条件なしに物理削除しない。
 
 ## 7. 検証と完成境界
 
-共通コンポーネントの単体試験は閉Schema、Provider非依存性、欠測、集約および非Authority候補を確認する。同コンポーネントの結合試験はRepository-local保存、再送、Identity衝突、破損およびexact清掃を確認する。Coordinator側の結合試験はProject Runtime結果からAdapterを経た実Event発行を確認する。実Provider、Token／費用取得、人間時間、品質受入、共有Store、Viewer UI、運用成果および事業成果は未接続であり、本変更の完成から推定しない。
+共通コンポーネントの単体試験は閉Schema、Provider非依存性、欠測、集約および非Authority候補を確認する。同コンポーネントの結合試験はexact Repository Root、通常Repository／worktree／submodule、link拒否、不変保存、並行Writer、再送、Identity衝突、各永続化段階の失敗、残存資源および部分清掃を確認する。Coordinator側の結合試験はexact Task Identity、発行診断および公開RuntimeからAdapterを経た実Event発行を確認する。
+
+共通コンポーネントのSource、公開入口、保存契約またはtoolchainが変わった場合は、試験台帳に登録した利用側契約と利用側の静的検査も同じ自動回帰計画へ含める。利用側は共通コンポーネントの内部Pathではなく公開入口だけを使用する。登録外の新しいProducer Pathは、既知の利用側契約全件へ安全側に閉じる。実Provider、Token／費用取得、人間時間、品質受入、共有Store、Viewer UI、運用成果および事業成果は未接続であり、本変更の完成から推定しない。
 
 v0.20の本変更が成立するのは、共通Event、Git管理外Store、欠測を保持する集約、非Authority改善候補、Project Runtime発行および安全な物理清掃が、決定論的な試験と独立レビューを通過した場合である。

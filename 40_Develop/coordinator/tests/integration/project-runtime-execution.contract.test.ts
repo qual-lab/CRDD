@@ -134,6 +134,19 @@ function completedAfterStart(
   };
 }
 
+function recorded(eventId: string) {
+  return Object.freeze({
+    status: "completed" as const,
+    reason: "execution_event_recorded" as const,
+    eventId,
+    effectState: "settled" as const,
+    cleanupConfirmed: true as const,
+    retryAllowed: false as const,
+    manualRecoveryRequired: false as const,
+    residualArtifactIds: Object.freeze([]) as readonly [],
+  });
+}
+
 test("PR-N-01 connects one durable Project task to the Single Task boundary", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
   let effects = 0;
@@ -973,7 +986,10 @@ test("Task試行の終了を非Authorityの実行Eventとして一度記録す�
   const outcome = await runProjectRuntimeOperation(
     {
       runSingleTaskAttempt: completed,
-      recordExecutionEvent: (event) => events.push(event),
+      recordExecutionEvent: (event) => {
+        events.push(event);
+        return recorded(event.eventId);
+      },
       now: () => ({
         monotonicMs: clock++ * 25,
         iso: "2026-09-05T00:00:01.000Z",
@@ -997,3 +1013,128 @@ test("Task試行の終了を非Authorityの実行Eventとして一度記録す�
     source: "project_runtime_monotonic_clock",
   });
 });
+
+for (const mismatchedField of [
+  "attemptId",
+  "operationId",
+  "authorityBindingId",
+  "repositoryRevision",
+] as const)
+  test(`別Task結果の${mismatchedField}を実行Eventへ転記しない`, async (t) => {
+    const { input } = fixture(t, [task("task-a")]);
+    const events: unknown[] = [];
+    await runProjectRuntimeOperation(
+      {
+        runSingleTaskAttempt: async (attempt) => ({
+          ...completedAfterStart(attempt),
+          [mismatchedField]:
+            mismatchedField === "repositoryRevision"
+              ? "b".repeat(40)
+              : `other-${mismatchedField}`,
+          executorProvider: "codex" as const,
+        }),
+        recordExecutionEvent: (event) => {
+          events.push(event);
+          return recorded(event.eventId);
+        },
+      },
+      input,
+    );
+    assert.equal(events.length, 1);
+    const observed = events[0] as {
+      outcome: { status: string; reason: string };
+      execution: { provider: { state: string } };
+    };
+    assert.deepEqual(observed.outcome, {
+      status: "unknown",
+      reason: "task_attempt_result_not_observable",
+      effectState: "unknown",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      processRestartRequired: true,
+    });
+    assert.equal(observed.execution.provider.state, "not_observed");
+  });
+
+test("実行Event記録と二次診断の失敗はTask結果を変えない", async (t) => {
+  const { input } = fixture(t, [task("task-a")]);
+  const publications: unknown[] = [];
+  const outcome = await runProjectRuntimeOperation(
+    {
+      runSingleTaskAttempt: completed,
+      recordExecutionEvent: () => {
+        throw new Error("recorder_failed");
+      },
+      observeExecutionEventPublication: (observation) => {
+        publications.push(observation);
+        throw new Error("diagnostic_failed");
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed");
+  assert.deepEqual(publications, [
+    {
+      status: "unknown",
+      reason: "execution_event_recorder_threw",
+      effectState: "unknown",
+      cleanupConfirmed: false,
+    },
+  ]);
+});
+
+test("記録未設定を記録成功へ丸めない", async (t) => {
+  const { input } = fixture(t, [task("task-a")]);
+  const publications: unknown[] = [];
+  const outcome = await runProjectRuntimeOperation(
+    {
+      runSingleTaskAttempt: completed,
+      observeExecutionEventPublication: (observation) =>
+        publications.push(observation),
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed");
+  assert.equal(
+    (publications[0] as { status: string }).status,
+    "not_configured",
+  );
+});
+
+for (const invalidClock of [
+  { started: 20, ended: 10 },
+  { started: Number.NaN, ended: 10 },
+  { started: 10, ended: Number.POSITIVE_INFINITY },
+])
+  test("不正な時間差を0msの観測値へ補正しない", async (t) => {
+    const { input } = fixture(t, [task("task-a")]);
+    const events: unknown[] = [];
+    let invocation = 0;
+    await runProjectRuntimeOperation(
+      {
+        runSingleTaskAttempt: completed,
+        recordExecutionEvent: (event) => {
+          events.push(event);
+          return recorded(event.eventId);
+        },
+        now: () => {
+          invocation += 1;
+          return {
+            monotonicMs:
+              invocation === 1 ? invalidClock.started : invalidClock.ended,
+            iso: "2026-09-05T00:00:01.000Z",
+          };
+        },
+      },
+      input,
+    );
+    assert.equal(events.length, 1);
+    assert.deepEqual(
+      (events[0] as { execution: { durationMs: unknown } }).execution
+        .durationMs,
+      {
+        state: "not_observed",
+        reason: "project_runtime_monotonic_clock_invalid",
+      },
+    );
+  });

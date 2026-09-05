@@ -12,7 +12,6 @@
     "moduleResolution": "NodeNext",
     "target": "ES2023",
     "types": ["node"],
-    "typeRoots": ["../coordinator/node_modules/@types"],
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },

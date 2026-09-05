@@ -112,9 +112,11 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 - Rust crate rootの`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、Cargo build scriptの`build.rs`および`.gitignore`
 - Rust executable入口の`src/main.rs`
 - Git設定の`.gitignore`
-- packageまたは主要成果物の入口にある`README.md`
+- Repository、Release台帳または配布用ひな型など、`40_Develop`の外側で入口を所有する`README.md`
 
 上記以外の新しい予約名を推定しない。必要になった場合は、所有するecosystem、exact Pathおよび検出規則を本書へ追加してから使用する。
+
+`40_Develop`は実装、試験、packageおよび実行設定だけを所有し、配下に`README.md`を置いてはならない（MUST NOT）。実装の構造と公開面はArchitecture、反復可能な導入・開発・実行手順はWorkflow、検証義務と結果はQualityが所有する。packageの機械入口は`package.json`と公開`index`等で表し、説明を実装Directoryへ複製しない。
 
 ## 4. TypeScript識別子
 

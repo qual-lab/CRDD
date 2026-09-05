@@ -44,7 +44,7 @@ export type TestCatalogEntry = Readonly<{
 
 export type TestCatalog = Readonly<{
   contract: "crdd/test-catalog";
-  contractRevision: 3;
+  contractRevision: 4;
   levels: readonly TestLevel[];
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
@@ -54,6 +54,13 @@ export type TestCatalog = Readonly<{
     "execution-intelligence": "node_test";
     "platform-access": "cargo_test";
   }>;
+  consumerBindings: readonly Readonly<{
+    producerOwner: TestCatalogEntry["owner"];
+    producerPaths: readonly string[];
+    consumerOwner: TestCatalogEntry["owner"];
+    consumerStatic: true;
+    testIds: readonly string[];
+  }>[];
   tests: readonly TestCatalogEntry[];
 }>;
 
@@ -83,7 +90,15 @@ const ROOT_KEYS = new Set([
   "regressionIsSelection",
   "resourceIntensiveLevels",
   "runnerProfiles",
+  "consumerBindings",
   "tests",
+]);
+const CONSUMER_BINDING_KEYS = new Set([
+  "producerOwner",
+  "producerPaths",
+  "consumerOwner",
+  "consumerStatic",
+  "testIds",
 ]);
 const ENTRY_KEYS = new Set([
   "id",
@@ -226,7 +241,7 @@ export function inspectTestCatalog(
   }
   const catalog = candidate as unknown as TestCatalog;
   if (catalog.contract !== "crdd/test-catalog") failures.push("contract");
-  if (catalog.contractRevision !== 3) failures.push("contract_revision");
+  if (catalog.contractRevision !== 4) failures.push("contract_revision");
   if (catalog.regressionIsSelection !== true)
     failures.push("regression_selection_contract");
   if (JSON.stringify(catalog.levels) !== JSON.stringify(testLevels))
@@ -242,6 +257,8 @@ export function inspectTestCatalog(
     failures.push("runner_profile_population");
   if (!isRecord(candidate.runnerProfiles))
     failures.push("runner_profiles_not_object");
+  if (!Array.isArray(candidate.consumerBindings))
+    failures.push("consumer_bindings_not_array");
 
   const ids = new Set<string>();
   const paths = new Set<string>();
@@ -327,6 +344,58 @@ export function inspectTestCatalog(
   for (const entry of registeredPaths)
     if (!actualSet.has(entry.toLowerCase()))
       failures.push(`nonexistent_catalog_entry:${entry}`);
+
+  const ownerEdges = new Set<string>();
+  const bindings = Array.isArray(candidate.consumerBindings)
+    ? candidate.consumerBindings
+    : [];
+  for (const [index, rawBinding] of bindings.entries()) {
+    if (!isRecord(rawBinding)) {
+      failures.push(`invalid_consumer_binding:${index}`);
+      continue;
+    }
+    failures.push(
+      ...inspectExactKeys(
+        rawBinding,
+        CONSUMER_BINDING_KEYS,
+        `consumer_binding_${index}`,
+      ),
+    );
+    const binding =
+      rawBinding as unknown as TestCatalog["consumerBindings"][number];
+    if (
+      !RUNNER_SUPPORTED_OWNERS.has(binding.producerOwner) ||
+      !RUNNER_SUPPORTED_OWNERS.has(binding.consumerOwner) ||
+      binding.producerOwner === binding.consumerOwner
+    )
+      failures.push(`invalid_consumer_owner:${index}`);
+    if (binding.consumerStatic !== true)
+      failures.push(`consumer_static_missing:${index}`);
+    if (
+      !isNonEmptyUniqueStringArray(binding.producerPaths) ||
+      binding.producerPaths.some(
+        (entry) =>
+          !isSafeRepositoryPath(entry) ||
+          !entry.startsWith(`40_Develop/${binding.producerOwner}/`),
+      )
+    )
+      failures.push(`invalid_consumer_producer_paths:${index}`);
+    if (!isNonEmptyUniqueStringArray(binding.testIds))
+      failures.push(`invalid_consumer_test_ids:${index}`);
+    else
+      for (const testId of binding.testIds) {
+        const entry = catalog.tests.find(
+          (candidateEntry) => candidateEntry.id === testId,
+        );
+        if (!entry) failures.push(`consumer_test_missing:${testId}`);
+        else if (entry.owner !== binding.consumerOwner)
+          failures.push(`consumer_test_owner_mismatch:${testId}`);
+      }
+    const edge = `${binding.producerOwner}->${binding.consumerOwner}`;
+    const reverse = `${binding.consumerOwner}->${binding.producerOwner}`;
+    if (ownerEdges.has(reverse)) failures.push(`consumer_cycle:${edge}`);
+    ownerEdges.add(edge);
+  }
 
   const windowsGatePaths = actualPaths
     .filter((entry) => entry.endsWith(".test.ts"))
@@ -466,6 +535,28 @@ export function selectRegressionTests(
       (entry) => entry.owner === owner,
     );
     for (const entry of ownerEntries) selected.set(entry.path, entry);
+    const ownerBindings = catalog.consumerBindings.filter(
+      (binding) => binding.producerOwner === owner,
+    );
+    const matchedBindings = ownerBindings.filter((binding) =>
+      binding.producerPaths.some(
+        (producerPath) =>
+          changedPath === producerPath ||
+          changedPath.startsWith(
+            producerPath.endsWith("/") ? producerPath : `${producerPath}/`,
+          ),
+      ),
+    );
+    const applicableBindings =
+      matchedBindings.length > 0 ? matchedBindings : ownerBindings;
+    for (const binding of applicableBindings)
+      for (const testId of binding.testIds) {
+        const consumerTest = eligibleEntries.find(
+          (entry) => entry.id === testId,
+        );
+        if (consumerTest !== undefined)
+          selected.set(consumerTest.path, consumerTest);
+      }
   }
   return [...selected.values()].sort((left, right) =>
     ordinal(left.path, right.path),

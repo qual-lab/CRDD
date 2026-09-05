@@ -1,6 +1,6 @@
 {
   "contract": "crdd/test-catalog",
-  "contractRevision": 3,
+  "contractRevision": 4,
   "levels": [
     "unit",
     "integration",
@@ -20,6 +20,34 @@
     "execution-intelligence": "node_test",
     "platform-access": "cargo_test"
   },
+  "consumerBindings": [
+    {
+      "producerOwner": "execution-intelligence",
+      "producerPaths": [
+        "40_Develop/execution-intelligence/src/core",
+        "40_Develop/execution-intelligence/src/index.ts"
+      ],
+      "consumerOwner": "coordinator",
+      "consumerStatic": true,
+      "testIds": [
+        "coordinator:integration:project-runtime-execution"
+      ]
+    },
+    {
+      "producerOwner": "execution-intelligence",
+      "producerPaths": [
+        "40_Develop/execution-intelligence/src/store",
+        "40_Develop/execution-intelligence/src/index.ts",
+        "40_Develop/execution-intelligence/package.json",
+        "40_Develop/execution-intelligence/tsconfig.json"
+      ],
+      "consumerOwner": "coordinator",
+      "consumerStatic": true,
+      "testIds": [
+        "coordinator:integration:project-runtime-public-runtime"
+      ]
+    }
+  ],
   "tests": [
     {
       "id": "coordinator:integration:bounded-file-snapshot",
