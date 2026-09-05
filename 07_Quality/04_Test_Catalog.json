@@ -2345,15 +2345,17 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:platform-contract",
+      "id": "project-runtime:unit:objective-intake",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/platform-contract.contract.test.ts",
+      "path": "40_Develop/project-runtime/tests/unit/objective-intake.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
         "project",
         "runtime",
-        "platform"
+        "objective",
+        "intake",
+        "public"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -2374,6 +2376,25 @@
         "runtime",
         "public",
         "contract"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-runtime:unit:platform-contract",
+      "owner": "project-runtime",
+      "path": "40_Develop/project-runtime/tests/unit/platform-contract.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "platform"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

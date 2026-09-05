@@ -18,9 +18,9 @@ import {
 import {
   createProjectRuntimeObjectiveResult,
   inspectProjectRuntimeObjectiveRequest,
-  runProjectRuntimeObjective,
   type ProjectRuntimeObjectiveRequest,
-} from "./project-runtime-objective-intake.ts";
+} from "../../../project-runtime/src/index.ts";
+import { runProjectRuntimeObjective } from "./project-runtime-objective-intake.ts";
 import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
 import {
   projectProjectRuntimeState,

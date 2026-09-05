@@ -29,10 +29,11 @@ import {
   recordProjectTaskOwnerLossRecoveries,
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
-  type ProjectObjectiveDefinition,
+  createProjectRuntimeObjectiveResult,
+  inspectProjectRuntimeObjectivePlan,
+  PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
   type ProjectTaskRecoveryObligation,
   type ProjectDockerRecoveryAcknowledgement,
-  type ProjectTaskDefinition,
   type ProjectRuntimeState,
 } from "../../../project-runtime/src/index.ts";
 import {
@@ -48,15 +49,6 @@ export {
   inspectProjectRuntimeObjectiveRequest,
   type ProjectRuntimeObjectiveRequest,
 } from "../../../project-runtime/src/index.ts";
-
-export const PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT =
-  "crdd-coordinator/project-runtime-objective-intake/v1" as const;
-
-export type ProjectRuntimeObjectivePlan = Readonly<{
-  milestoneAcceptanceCriteria: readonly string[];
-  objectives: readonly ProjectObjectiveDefinition[];
-  tasks: readonly ProjectTaskDefinition[];
-}>;
 
 export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
   authenticatedPrincipalId: string;
@@ -249,47 +241,6 @@ function validId(value: unknown): value is string {
   );
 }
 
-function validText(value: unknown, maximum: number): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= maximum &&
-    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
-  );
-}
-
-function inspectStrings(
-  value: unknown,
-  maximumItems: number,
-  maximumText: number,
-  shouldAllowEmpty = false,
-): readonly string[] | null {
-  const snapshot = snapshotPlainArray(value, maximumItems);
-  if (
-    snapshot.status !== "ok" ||
-    (!shouldAllowEmpty && snapshot.value.length === 0) ||
-    !snapshot.value.every((entry) => validText(entry, maximumText)) ||
-    new Set(
-      snapshot.value.map((entry) =>
-        (entry as string).replaceAll("\\", "/").toUpperCase(),
-      ),
-    ).size !== snapshot.value.length
-  )
-    return null;
-  return Object.freeze([...(snapshot.value as readonly string[])]);
-}
-
-function pathWithin(candidate: string, roots: readonly string[]) {
-  const normalized = candidate.replaceAll("\\", "/").toUpperCase();
-  return roots.some((rootValue) => {
-    const root = rootValue
-      .replaceAll("\\", "/")
-      .replace(/\/+$/u, "")
-      .toUpperCase();
-    return normalized === root || normalized.startsWith(`${root}/`);
-  });
-}
-
 function inspectBinding(raw: unknown, revision: string) {
   const value = snapshotPlainRecord(
     raw,
@@ -321,87 +272,6 @@ function inspectBinding(raw: unknown, revision: string) {
         bindingCapability: value.bindingCapability,
       })
     : null;
-}
-
-function inspectPlan(
-  raw: unknown,
-  request: ProjectRuntimeObjectiveRequest,
-): ProjectRuntimeObjectivePlan | null {
-  const plan = snapshotPlainRecord(
-    raw,
-    new Set(["milestoneAcceptanceCriteria", "objectives", "tasks"] as const),
-  );
-  if (!plan) return null;
-  const milestoneAcceptanceCriteria = inspectStrings(
-    plan.milestoneAcceptanceCriteria,
-    128,
-    2_048,
-  );
-  const rawObjectives = snapshotPlainArray(plan.objectives, 128);
-  const rawTasks = snapshotPlainArray(plan.tasks, 1024);
-  if (
-    !milestoneAcceptanceCriteria ||
-    rawObjectives.status !== "ok" ||
-    rawTasks.status !== "ok" ||
-    rawObjectives.value.length === 0 ||
-    rawTasks.value.length === 0
-  )
-    return null;
-  const objectives: ProjectObjectiveDefinition[] = [];
-  for (const rawObjective of rawObjectives.value) {
-    const objective = snapshotPlainRecord(
-      rawObjective,
-      new Set(["id", "acceptanceCriteria"] as const),
-    );
-    if (!objective || !validId(objective.id)) return null;
-    const acceptanceCriteria = inspectStrings(
-      objective.acceptanceCriteria,
-      128,
-      2_048,
-    );
-    if (!acceptanceCriteria) return null;
-    objectives.push(Object.freeze({ id: objective.id, acceptanceCriteria }));
-  }
-  const tasks: ProjectTaskDefinition[] = [];
-  for (const rawTask of rawTasks.value) {
-    const task = snapshotPlainRecord(
-      rawTask,
-      new Set([
-        "id",
-        "objectiveId",
-        "dependencies",
-        "allowedPaths",
-        "conflictKeys",
-      ] as const),
-    );
-    if (!task || !validId(task.id) || !validId(task.objectiveId)) return null;
-    const dependencies = inspectStrings(task.dependencies, 128, 512, true);
-    const allowedPaths = inspectStrings(task.allowedPaths, 128, 512);
-    const conflictKeys = inspectStrings(task.conflictKeys, 128, 512, true);
-    if (
-      !dependencies ||
-      !allowedPaths ||
-      !conflictKeys ||
-      !allowedPaths.every((candidate) =>
-        pathWithin(candidate, request.allowedPaths),
-      )
-    )
-      return null;
-    tasks.push(
-      Object.freeze({
-        id: task.id,
-        objectiveId: task.objectiveId,
-        dependencies,
-        allowedPaths,
-        conflictKeys,
-      }),
-    );
-  }
-  return Object.freeze({
-    milestoneAcceptanceCriteria,
-    objectives: Object.freeze(objectives),
-    tasks: Object.freeze(tasks),
-  });
 }
 
 function inspectTaskExecutions(
@@ -445,45 +315,6 @@ function inspectTaskExecutions(
   )
     return null;
   return Object.freeze(executions);
-}
-
-/** Canonical public result envelope for one Project Runtime objective request. */
-export function createProjectRuntimeObjectiveResult(
-  request: ProjectRuntimeObjectiveRequest,
-  options: Readonly<{
-    status: "completed" | "blocked" | "cancelled";
-    reason: string;
-    queueId?: string | null;
-    projection?: ReturnType<typeof projectProjectRuntimeState> | null;
-    cleanupConfirmed?: boolean;
-    manualRecoveryRequired?: boolean;
-    processRestartRequired?: boolean;
-    recoveryIds?: readonly string[];
-    recoveryObligations?: readonly Readonly<{
-      kind: ProjectTaskRecoveryObligation["kind"];
-      recoveryId: string;
-    }>[];
-    effectState?: "no_effect" | "settled" | "unknown";
-  }>,
-) {
-  return Object.freeze({
-    contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
-    status: options.status,
-    reason: options.reason,
-    requestId: request.requestId,
-    projectId: request.projectId,
-    milestoneId: request.milestoneId,
-    queueId: options.queueId ?? null,
-    projection: options.projection ?? null,
-    cleanupConfirmed: options.cleanupConfirmed ?? true,
-    manualRecoveryRequired: options.manualRecoveryRequired ?? false,
-    processRestartRequired: options.processRestartRequired ?? false,
-    recoveryIds: Object.freeze([...(options.recoveryIds ?? [])]),
-    recoveryObligations: Object.freeze([
-      ...(options.recoveryObligations ?? []),
-    ]),
-    effectState: options.effectState ?? ("no_effect" as const),
-  });
 }
 
 function blocked(
@@ -548,7 +379,7 @@ export async function runProjectRuntimeObjective(
   } catch {
     rawPlan = null;
   }
-  const plan = inspectPlan(rawPlan, request);
+  const plan = inspectProjectRuntimeObjectivePlan(rawPlan, request);
   if (!plan)
     return blocked(request, "project_runtime_plan_invalid_or_out_of_scope");
   const queueId = stableId(
