@@ -1,44 +1,38 @@
-import { createHash, randomBytes } from "node:crypto";
-
+import { applyProjectRuntimeHumanDecision } from "../core/project-runtime-state.ts";
 import {
-  readProjectOperationQueueState,
-  readProjectRuntimeState,
-  updateProjectOperationQueueState,
-  writeProjectRuntimeState,
-} from "./project-runtime-durable-foundation.ts";
-import {
-  applyProjectRuntimeHumanDecision,
   isProjectRuntimeDecisionRecord,
-  PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
   type ProjectRuntimeDecisionRecord,
   type ProjectRuntimeDecisionRecoveryIntent,
   type ProjectRuntimeDecisionRecoveryStore,
   type ProjectRuntimeDecisionStore,
-} from "../../../project-runtime/src/index.ts";
+} from "../ports/decision-port.ts";
+import type { ProjectRuntimeDecisionCapabilityPort } from "../ports/decision-capability-port.ts";
+import type { ProjectRuntimePersistencePorts } from "../ports/state-port.ts";
+import { PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT } from "../public-contract/decision-request.ts";
 
 type Common = Readonly<{
-  workingDirectory: string;
-  repositoryBindingId: string;
   projectId: string;
   milestoneId: string;
   queueId: string;
   principalId: string;
   store: ProjectRuntimeDecisionStore;
   recoveryStore?: ProjectRuntimeDecisionRecoveryStore;
+  capability: ProjectRuntimeDecisionCapabilityPort;
+  persistence: ProjectRuntimePersistencePorts;
 }>;
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const REVISION = /^[0-9a-f]{40,64}$/u;
 
-function digest(value: string) {
-  return createHash("sha256").update(value).digest("hex");
-}
 export function projectRuntimeDecisionRecordId(
+  capability: ProjectRuntimeDecisionCapabilityPort,
   projectId: string,
   milestoneId: string,
   decisionId: string,
 ) {
-  return `decision-${digest([projectId, milestoneId, decisionId].join("\0")).slice(0, 40)}`;
+  return `decision-${capability
+    .hash([projectId, milestoneId, decisionId].join("\0"))
+    .slice(0, 40)}`;
 }
 function validId(value: unknown): value is string {
   return typeof value === "string" && ID.test(value);
@@ -63,15 +57,20 @@ function blocked(reason: string, isRecovery = false) {
   });
 }
 
-function recoveryIdentity(record: ProjectRuntimeDecisionRecord) {
-  return `decision-recovery-${digest(
-    [
-      record.recordId,
-      record.applicationId ?? "none",
-      String(record.expectedGeneration),
-      String(record.newGeneration ?? "none"),
-    ].join("\0"),
-  ).slice(0, 40)}`;
+function recoveryIdentity(
+  capability: ProjectRuntimeDecisionCapabilityPort,
+  record: ProjectRuntimeDecisionRecord,
+) {
+  return `decision-recovery-${capability
+    .hash(
+      [
+        record.recordId,
+        record.applicationId ?? "none",
+        String(record.expectedGeneration),
+        String(record.newGeneration ?? "none"),
+      ].join("\0"),
+    )
+    .slice(0, 40)}`;
 }
 
 function recoveryStored(
@@ -92,7 +91,7 @@ function persistRecoveryIntent(
   record: ProjectRuntimeDecisionRecord,
   unknownBoundary: string,
 ) {
-  const recoveryId = recoveryIdentity(record);
+  const recoveryId = recoveryIdentity(commonFields.capability, record);
   if (!commonFields.recoveryStore) return null;
   const intent: ProjectRuntimeDecisionRecoveryIntent = Object.freeze({
     recoveryId,
@@ -143,7 +142,7 @@ function settleRecoveryIntent(
   record: ProjectRuntimeDecisionRecord,
 ) {
   if (!commonFields.recoveryStore) return true;
-  const recoveryId = recoveryIdentity(record);
+  const recoveryId = recoveryIdentity(commonFields.capability, record);
   try {
     const observed = commonFields.recoveryStore.read(recoveryId) as Readonly<{
       status: string;
@@ -178,7 +177,6 @@ export function issueProjectRuntimeHumanDecision(
 ) {
   if (
     ![
-      commonFields.repositoryBindingId,
       commonFields.projectId,
       commonFields.milestoneId,
       commonFields.queueId,
@@ -199,8 +197,9 @@ export function issueProjectRuntimeHumanDecision(
   )
     return blocked("project_runtime_decision_request_invalid");
   const now = input.nowEpochMs ?? Date.now();
-  const capability = randomBytes(32).toString("base64url");
+  const capability = commonFields.capability.issue();
   const recordId = projectRuntimeDecisionRecordId(
+    commonFields.capability,
     commonFields.projectId,
     commonFields.milestoneId,
     input.decisionId,
@@ -215,7 +214,7 @@ export function issueProjectRuntimeHumanDecision(
     expectedGeneration: input.expectedGeneration,
     principalId: commonFields.principalId,
     allowedOptions: Object.freeze([...input.allowedOptions]),
-    capabilityHash: digest(capability),
+    capabilityHash: capability.hash,
     expiresAtEpochMs: now + input.lifetimeMs,
     disposition: "pending",
     applicationId: null,
@@ -235,7 +234,7 @@ export function issueProjectRuntimeHumanDecision(
     reason: "project_runtime_human_decision_issued",
     decisionId: input.decisionId,
     recordId,
-    continuationCapability: capability,
+    continuationCapability: capability.secret,
     allowedOptions: record.allowedOptions,
     expiresAtEpochMs: record.expiresAtEpochMs,
     cleanupConfirmed: true,
@@ -259,7 +258,6 @@ export function submitProjectRuntimeHumanDecision(
 ) {
   if (
     ![
-      commonFields.repositoryBindingId,
       commonFields.projectId,
       commonFields.milestoneId,
       commonFields.queueId,
@@ -316,17 +314,14 @@ export function submitProjectRuntimeHumanDecision(
     record.expectedGeneration !== input.generation ||
     record.principalId !== commonFields.principalId ||
     !record.allowedOptions.includes(input.selectedOption) ||
-    record.capabilityHash !== digest(input.continuationCapability)
+    record.capabilityHash !==
+      commonFields.capability.hash(input.continuationCapability)
   )
     return blocked("project_runtime_decision_binding_mismatch_or_expired");
-  const stateRead = readProjectRuntimeState(
-    commonFields.workingDirectory,
-    commonFields.repositoryBindingId,
+  const stateRead = commonFields.persistence.state.readState(
     commonFields.projectId,
   );
-  const queueRead = readProjectOperationQueueState(
-    commonFields.workingDirectory,
-    commonFields.repositoryBindingId,
+  const queueRead = commonFields.persistence.state.readQueue(
     commonFields.queueId,
   );
   if (
@@ -346,7 +341,13 @@ export function submitProjectRuntimeHumanDecision(
     queueRead.value.ownerGeneration !== null
   )
     return blocked("project_runtime_decision_stale");
-  const applicationId = `decision-application-${digest([record.recordId, String(input.generation), input.selectedOption].join("\0")).slice(0, 40)}`;
+  const applicationId = `decision-application-${commonFields.capability
+    .hash(
+      [record.recordId, String(input.generation), input.selectedOption].join(
+        "\0",
+      ),
+    )
+    .slice(0, 40)}`;
   const prepared = Object.freeze({
     ...record,
     disposition: "prepared" as const,
@@ -368,17 +369,13 @@ export function submitProjectRuntimeHumanDecision(
   );
   if (transition.status !== "completed" || !transition.state)
     return recoveryBlocked(commonFields, prepared, "project_transition");
-  const written = writeProjectRuntimeState(
-    commonFields.workingDirectory,
-    commonFields.repositoryBindingId,
+  const written = commonFields.persistence.state.writeState(
     transition.state,
     input.generation,
   );
   if (written.status !== "completed")
     return recoveryBlocked(commonFields, prepared, "project_write");
-  const readback = readProjectRuntimeState(
-    commonFields.workingDirectory,
-    commonFields.repositoryBindingId,
+  const readback = commonFields.persistence.state.readState(
     commonFields.projectId,
   );
   if (
@@ -402,9 +399,7 @@ export function submitProjectRuntimeHumanDecision(
   } catch {
     return recoveryBlocked(commonFields, prepared, "continuation_finalize");
   }
-  const queueUpdate = updateProjectOperationQueueState(
-    commonFields.workingDirectory,
-    commonFields.repositoryBindingId,
+  const queueUpdate = commonFields.persistence.state.updateQueue(
     commonFields.queueId,
     queueRead.value.generation,
     {
@@ -494,10 +489,10 @@ export function replaceProjectRuntimeHumanDecision(
   } catch {
     return recoveryBlocked(commonFields, record, "replacement_invalidation");
   }
-  const capability = randomBytes(32).toString("base64url");
+  const capability = commonFields.capability.issue();
   const replacement: ProjectRuntimeDecisionRecord = Object.freeze({
     ...invalidated,
-    capabilityHash: digest(capability),
+    capabilityHash: capability.hash,
     expiresAtEpochMs: (input.nowEpochMs ?? Date.now()) + input.lifetimeMs,
     disposition: "pending",
     applicationId: null,
@@ -522,7 +517,7 @@ export function replaceProjectRuntimeHumanDecision(
     decisionId: replacement.decisionId,
     recordId: replacement.recordId,
     replacementRequestId: input.replacementRequestId,
-    continuationCapability: capability,
+    continuationCapability: capability.secret,
     allowedOptions: replacement.allowedOptions,
     expiresAtEpochMs: replacement.expiresAtEpochMs,
     cleanupConfirmed: true,
@@ -568,9 +563,7 @@ export function invalidateProjectRuntimeHumanDecision(
     });
   if (record.disposition !== "pending")
     return blocked("project_runtime_decision_invalidation_not_applicable");
-  const state = readProjectRuntimeState(
-    commonFields.workingDirectory,
-    commonFields.repositoryBindingId,
+  const state = commonFields.persistence.state.readState(
     commonFields.projectId,
   );
   if (state.status !== "completed" || !state.value)
@@ -656,9 +649,7 @@ export function recoverProjectRuntimeHumanDecision(
     record.newGeneration !== record.expectedGeneration + 1
   )
     return blocked("project_runtime_decision_recovery_not_applicable");
-  const state = readProjectRuntimeState(
-    commonFields.workingDirectory,
-    commonFields.repositoryBindingId,
+  const state = commonFields.persistence.state.readState(
     commonFields.projectId,
   );
   if (state.status !== "completed" || !state.value)
@@ -700,17 +691,13 @@ export function recoverProjectRuntimeHumanDecision(
   }
   if (next.disposition === "invalidated")
     return blocked("project_runtime_decision_recovery_invalidated");
-  const queueRead = readProjectOperationQueueState(
-    commonFields.workingDirectory,
-    commonFields.repositoryBindingId,
+  const queueRead = commonFields.persistence.state.readQueue(
     commonFields.queueId,
   );
   if (queueRead.status !== "completed")
     return recoveryBlocked(commonFields, next, "recovery_queue_observation");
   if (queueRead.value.state === "human_decision_required") {
-    const queueUpdate = updateProjectOperationQueueState(
-      commonFields.workingDirectory,
-      commonFields.repositoryBindingId,
+    const queueUpdate = commonFields.persistence.state.updateQueue(
       commonFields.queueId,
       queueRead.value.generation,
       {

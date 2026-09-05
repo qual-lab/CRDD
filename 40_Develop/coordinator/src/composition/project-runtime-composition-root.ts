@@ -21,6 +21,11 @@ import {
   inspectProjectRuntimeObjectiveRequest,
   PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
   integrateProjectRuntimeOperation,
+  issueProjectRuntimeHumanDecision,
+  projectRuntimeDecisionRecordId,
+  recoverProjectRuntimeHumanDecision,
+  replaceProjectRuntimeHumanDecision,
+  submitProjectRuntimeHumanDecision,
   type ProjectRuntimeObjectiveRequest,
 } from "../../../project-runtime/src/index.ts";
 import { runProjectRuntimeObjective } from "../security/project-runtime-objective-intake.ts";
@@ -35,13 +40,7 @@ import {
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../security/project-runtime-candidate-integration-adapter.ts";
 import { createProjectRuntimeIntegrationRecordAdapter } from "../security/project-runtime-integration-record-adapter.ts";
 import { createProjectRuntimeDecisionRecoveryStore } from "../security/project-runtime-decision-recovery-store.ts";
-import {
-  issueProjectRuntimeHumanDecision,
-  projectRuntimeDecisionRecordId,
-  recoverProjectRuntimeHumanDecision,
-  replaceProjectRuntimeHumanDecision,
-  submitProjectRuntimeHumanDecision,
-} from "../security/project-runtime-human-decision.ts";
+import { createProjectRuntimeDecisionCapabilityAdapter } from "../security/project-runtime-decision-capability-adapter.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../security/project-runtime-windows-decision-store.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "../security/project-runtime-single-task-adapter.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../security/project-runtime-execution-authorization-adapter.ts";
@@ -542,15 +541,19 @@ async function executeProjectRuntimePublicObjective(
     execution.queueId,
     integration.candidateId,
   );
+  const decisionCapability = createProjectRuntimeDecisionCapabilityAdapter();
   const decisionCommon = {
-    workingDirectory: repositoryRoot,
-    repositoryBindingId: stable("binding", repositoryRoot),
     projectId: request.projectId,
     milestoneId: request.milestoneId,
     queueId: execution.queueId,
     principalId: protectedStore.principalId,
     store: protectedStore.store,
     recoveryStore: createProjectRuntimeDecisionRecoveryStore(repositoryRoot),
+    capability: decisionCapability,
+    persistence: createProjectRuntimePersistencePorts(
+      repositoryRoot,
+      stable("binding", repositoryRoot),
+    ),
   } as const;
   const decision = request.decisionCapabilityReplacement
     ? request.decisionCapabilityReplacement.decisionId !== decisionId
@@ -564,6 +567,7 @@ async function executeProjectRuntimePublicObjective(
         })
       : replaceProjectRuntimeHumanDecision(decisionCommon, {
           recordId: projectRuntimeDecisionRecordId(
+            decisionCapability,
             request.projectId,
             request.milestoneId,
             decisionId,
@@ -692,7 +696,9 @@ function executeProjectRuntimePublicDecision(
       manualRecoveryRequired: true,
       effectState: "unknown" as const,
     });
+  const decisionCapability = createProjectRuntimeDecisionCapabilityAdapter();
   const recordId = projectRuntimeDecisionRecordId(
+    decisionCapability,
     projectId,
     milestoneId,
     decisionId,
@@ -716,14 +722,17 @@ function executeProjectRuntimePublicDecision(
       effectState: "no_effect" as const,
     });
   const commonFields = {
-    workingDirectory: repositoryRoot,
-    repositoryBindingId: stable("binding", repositoryRoot),
     projectId,
     milestoneId,
     queueId: record.queueId,
     principalId: protectedStore.principalId,
     store: protectedStore.store,
     recoveryStore: createProjectRuntimeDecisionRecoveryStore(repositoryRoot),
+    capability: decisionCapability,
+    persistence: createProjectRuntimePersistencePorts(
+      repositoryRoot,
+      stable("binding", repositoryRoot),
+    ),
   } as const;
   if (record.disposition === "prepared")
     return recoverProjectRuntimeHumanDecision(commonFields, { recordId });

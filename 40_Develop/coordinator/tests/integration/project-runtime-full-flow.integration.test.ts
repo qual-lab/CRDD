@@ -10,12 +10,10 @@ import {
   readProjectRuntimeState,
 } from "../../src/security/project-runtime-durable-foundation.ts";
 import {
-  issueProjectRuntimeHumanDecision,
-  submitProjectRuntimeHumanDecision,
-} from "../../src/security/project-runtime-human-decision.ts";
-import {
   resolveProjectRuntimeReplan as resolveProjectRuntimeReplanWithPort,
   integrateProjectRuntimeOperation,
+  issueProjectRuntimeHumanDecision,
+  submitProjectRuntimeHumanDecision,
   type ProjectRuntimeDecisionRecord,
   type ProjectRuntimeReplanClassifier,
   type ProjectRuntimeReplanInput,
@@ -23,6 +21,7 @@ import {
 import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security/project-runtime-integration-record-adapter.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
+import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/security/project-runtime-decision-capability-adapter.ts";
 
 const revision = "a".repeat(40);
 
@@ -284,7 +283,16 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
       return { status: "completed", value: next };
     },
   };
-  const commonFields = { ...input, principalId: "principal-full", store };
+  const commonFields = {
+    ...input,
+    capability: createProjectRuntimeDecisionCapabilityAdapter(),
+    persistence: createProjectRuntimePersistencePorts(
+      context.root,
+      "binding-full",
+    ),
+    principalId: "principal-full",
+    store,
+  };
   const issued = issueProjectRuntimeHumanDecision(commonFields, {
     decisionId: "decision-full",
     repositoryRevision: revision,

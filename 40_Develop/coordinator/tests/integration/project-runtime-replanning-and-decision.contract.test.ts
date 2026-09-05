@@ -7,24 +7,23 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-  enqueueProjectOperation,
   createProjectRuntimePersistencePorts,
+  enqueueProjectOperation,
   readProjectOperationQueueState,
   readProjectRuntimeState,
   writeProjectRuntimeState,
 } from "../../src/security/project-runtime-durable-foundation.ts";
+import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/security/project-runtime-decision-capability-adapter.ts";
 import { runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts } from "../../../project-runtime/src/index.ts";
 import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import {
+  applyProjectRuntimeHumanDecision,
   invalidateProjectRuntimeHumanDecision,
   issueProjectRuntimeHumanDecision,
   recoverProjectRuntimeHumanDecision,
   replaceProjectRuntimeHumanDecision,
   submitProjectRuntimeHumanDecision,
-} from "../../src/security/project-runtime-human-decision.ts";
-import {
-  applyProjectRuntimeHumanDecision,
   createProjectRuntimeState,
   resolveProjectRuntimeReplan as resolveProjectRuntimeReplanWithPort,
   type ProjectRuntimeDecisionRecord,
@@ -34,6 +33,13 @@ import {
 } from "../../../project-runtime/src/index.ts";
 
 const revision = "a".repeat(40);
+
+function decisionApplicationDependencies(root: string) {
+  return {
+    capability: createProjectRuntimeDecisionCapabilityAdapter(),
+    persistence: createProjectRuntimePersistencePorts(root, "binding-a"),
+  };
+}
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 
@@ -273,7 +279,12 @@ test("human decision capability is one-time, principal-bound and finalized after
       return { status: "completed", value: next };
     },
   };
-  const commonFields = { ...input, principalId: "principal-a", store };
+  const commonFields = {
+    ...input,
+    ...decisionApplicationDependencies(root),
+    principalId: "principal-a",
+    store,
+  };
   const state = readProjectRuntimeState(root, "binding-a", "project-a");
   assert.equal(state.status, "completed");
   if (state.status !== "completed" || !state.value) throw new Error("state");
@@ -359,7 +370,12 @@ test("prepared human decision is reconciled from durable Project state without r
       return { status: "completed", value: next };
     },
   };
-  const commonFields = { ...input, principalId: "principal-a", store };
+  const commonFields = {
+    ...input,
+    ...decisionApplicationDependencies(root),
+    principalId: "principal-a",
+    store,
+  };
   const before = readProjectRuntimeState(root, "binding-a", "project-a");
   assert.equal(before.status, "completed");
   if (before.status !== "completed" || !before.value) throw new Error("state");
@@ -444,7 +460,12 @@ test("explicit replacement invalidates the former capability before issuing one 
   const state = readProjectRuntimeState(root, "binding-a", "project-a");
   assert.equal(state.status, "completed");
   if (state.status !== "completed" || !state.value) throw new Error("state");
-  const commonFields = { ...input, principalId: "principal-a", store };
+  const commonFields = {
+    ...input,
+    ...decisionApplicationDependencies(root),
+    principalId: "principal-a",
+    store,
+  };
   const issued = issueProjectRuntimeHumanDecision(commonFields, {
     decisionId: "decision-replace",
     repositoryRevision: revision,
@@ -517,7 +538,12 @@ test("parent lifecycle invalidation requires a fresh changed generation", async 
   const before = readProjectRuntimeState(root, "binding-a", "project-a");
   assert.equal(before.status, "completed");
   if (before.status !== "completed" || !before.value) throw new Error("state");
-  const commonFields = { ...input, principalId: "principal-a", store };
+  const commonFields = {
+    ...input,
+    ...decisionApplicationDependencies(root),
+    principalId: "principal-a",
+    store,
+  };
   const issued = issueProjectRuntimeHumanDecision(commonFields, {
     decisionId: "decision-invalidate",
     repositoryRevision: revision,
@@ -576,6 +602,7 @@ test("issuance and expiry uncertainty persist an exact independent recovery inte
   const failedIssue = issueProjectRuntimeHumanDecision(
     {
       ...input,
+      ...decisionApplicationDependencies(root),
       principalId: "principal-a",
       recoveryStore,
       store: {
@@ -625,6 +652,7 @@ test("issuance and expiry uncertainty persist an exact independent recovery inte
   };
   const commonFields = {
     ...input,
+    ...decisionApplicationDependencies(root),
     principalId: "principal-a",
     store,
     recoveryStore,

@@ -17,8 +17,8 @@ type IntegrationRecordBinding = Readonly<{
   queueId: string;
 }>;
 
-const recordIdentity = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
-const bindingIdentity = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,511}$/u;
+const RECORD_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+const BINDING_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,511}$/u;
 
 function completed(): ProjectRuntimePortResult<Readonly<{ written: true }>> {
   return Object.freeze({
@@ -50,11 +50,11 @@ export function createProjectRuntimeIntegrationRecordAdapter(
       try {
         if (
           (record.kind !== "integration" && record.kind !== "adoption") ||
-          !recordIdentity.test(record.identity) ||
-          !bindingIdentity.test(binding.repositoryBindingId) ||
-          !bindingIdentity.test(binding.projectId) ||
-          !bindingIdentity.test(binding.milestoneId) ||
-          !bindingIdentity.test(binding.queueId)
+          !RECORD_IDENTITY.test(record.identity) ||
+          !BINDING_IDENTITY.test(binding.repositoryBindingId) ||
+          !BINDING_IDENTITY.test(binding.projectId) ||
+          !BINDING_IDENTITY.test(binding.milestoneId) ||
+          !BINDING_IDENTITY.test(binding.queueId)
         )
           return blocked();
         const directory = path.join(
