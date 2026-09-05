@@ -1,6 +1,6 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
-状態: Stable Baseline（v0.18.1）／Project Runtime Candidate（v0.19.0）
+状態: Stable（v0.19.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-02
 

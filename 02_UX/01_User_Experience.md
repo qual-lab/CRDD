@@ -1,8 +1,8 @@
 # CRDD内部ツールの利用体験
 
-状態: v0.18.1 Stable Baseline／v0.19 Project Runtime Candidate（未実装）
+状態: Stable（v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-02
+最終更新日: 2026-09-05
 工程規則: [UX](../22_UX.md)
 
 ## 1. 目的と対象
@@ -20,7 +20,7 @@
 | 標準を保守する人・CI | Checkerの指摘と未確認範囲を読み、対象文書を直せる | 機械検査を意味監査や準拠認定とみなさない |
 | Runtimeを開発・配布する人 | 開発反復と公式署名を分けて検証できる | 一般利用者へRelease秘密鍵を要求しない。native補助は内部部品 |
 
-§2～§5は現行のCoordinator、Checker、および内部native補助の利用者への影響を扱うv0.18.1 Stable Baselineである。新GUI、TUI、複数Project運営、新しい外部ツール利用、配布方式の新設は対象に含めない。§6だけはv0.19 Project Runtimeの未実装Candidateを扱い、MCP／CLIの同一意味体験を設計する。Candidateの記述は現在利用可能な能力、公開済み契約または工程移行承認を意味しない。
+§2～§5はCoordinator、Checker、および内部native補助の利用者への影響を扱う。§6はv0.19.0で公開したProject RuntimeのMCP／CLIに共通する意味体験を扱う。新GUI、TUI、複数Project運営、新しい外部ツール利用、配布方式の新設は対象に含めない。
 
 ## 2. 利用者体験の流れと提供責務
 
@@ -78,7 +78,7 @@ platform-accessは独立した利用者画面を持たないが、利用者へ�
 次工程の[情報構造](../03_IA/01_Information_Architecture.md)と[UI](../04_UI/01_User_Interface.md)は、この候補の照合先であって承認済み引渡しではない。既知差の所有者・再確認条件は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)、実施履歴とレビューは[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)へ集約する。Qual-Labが内容・未確認範囲と独立レビューを確認して工程移行を判断する。
 ## 6. Milestoneを委ねる利用体験
 
-本節はv0.19 Project Runtimeの未実装Candidateであり、現在のv0.18.1 Runtimeで利用できる体験ではない。
+本節はv0.19.0で公開したProject Runtimeの利用体験を定義する。公開範囲は、認証済みのCLI／MCP入口から一つのProjectとMilestoneを扱う現在の契約に限る。
 
 v0.19では、人間がTaskを一件ずつ分解・起動・監視する体験から、対象ProjectとMilestone、保持する意図、受入条件および判断権限を示し、Project Runtimeへ進行を委ねる体験へ拡張する。人間が内部Taskの切替や空いた実行枠ごとに承認を繰り返すことを正常経路にしない。
 

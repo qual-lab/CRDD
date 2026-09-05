@@ -1,13 +1,13 @@
 # CRDD内部ツールの操作・表示
 
-状態: v0.18.1 Stable Baseline／v0.19 Project Runtime Candidate（未実装）
+状態: Stable（v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-02
+最終更新日: 2026-09-05
 工程規則: [UI](../25_UI.md)、[UIと仕様の対応レビュー](../24_UI_Behavior_Specification.md)
 
 ## 1. 対象と読み方
 
-[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）に必要な入力・認識・フィードバック・回復を整理する。§2～§7はv0.18.1 Stable Baseline、§8「Project Runtimeの状態表示」は未実装のv0.19 Candidateである。新しいGUIやTUIを設計した文書ではない。
+[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。新しいGUIやTUIを設計した文書ではない。
 
 以下の「現行」は[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[対話入力](../40_Develop/coordinator/src/core/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
 
@@ -117,7 +117,7 @@ Process再起動の必要性: あり
 UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが候補内容・移行方針を採用し、PR #32でmainへ統合した。[公開準備と最終確認](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)は別に追跡する。表示の「読めた」という観測と、その後の採用判断を区別し、全アクセシビリティ対応やRelease完了を実証済みとしない。
 ## 8. Project Runtimeの状態表示
 
-本節はv0.19 Project Runtimeの未実装Candidateであり、現行CLI／MCPで表示できる能力を示さない。
+本節はv0.19.0で公開したProject RuntimeのCLI／MCP表示契約を定義する。内部Task操作や任意Project検索は公開しない。
 
 v0.19の主要表示は、内部WorkerのLogではなくMilestoneの現在状態とする。最初にProject、Milestone、完了Objective数、Current Objective、Task内訳、Critical Path、Blocker、Risk、Human Decision、QualityおよびNext Actionを示す。機械ID、Provider出力、回復詳細は必要な場合に段階的に表示するが、重大な停止・回収不明・人間判断を詳細へ隠さない。
 

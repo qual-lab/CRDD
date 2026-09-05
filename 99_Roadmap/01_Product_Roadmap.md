@@ -22,11 +22,10 @@ Related:
 
 ## 1. 現在の未完了作業
 
-2026-09-01、v0.18.0を公開し、2026-09-02に採用入口とRuntime実行Identityを是正したv0.18.1を公開した。正式署名4経路E2E、回復経路、採用形態E2E、タグ、公開Releaseおよび不要ブランチ整理まで完了したため、v0.18の完了項目は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去した。v0.19のCommunication ClosureはCHG-000058の固定候補でChecker、独立レビュー、必要な監査、指摘是正および再確認を完了した。CHG-000059の後続一般化は、`008c583`後に追加した意味変換、状態表示、上位完成、相関不変条件、三値観測、実行環境の成立段階および変更した意味から導出する是正影響を含むSource A署名前監査で、初回Major 2件を是正した固定改訂版`1f3f49b`がCritical／Major／Minor 0件でPassした。v0.19全体のRelease GateはProject Runtimeの残る署名後結合確認、ブランド素材を含む最終収載判断およびリリース判断が終わるまで成立しない。
+2026-09-05、v0.19.0のCommunication／推論コンテキスト、Project Runtime、Dogfooding横断改善およびブランド素材を公開した。署名済みRecovery Matrix、4経路4/4、公開MCPの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recoveryとfresh再入場、および最終独立監査を完了した。完了項目は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去し、本書にはv0.20以降に再評価または実行する項目だけを残す。
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| v0.19 Minimum AI-native Project Runtime | Adopted | In Progress | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[CHG-000057の現在状態と次Gate](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md#8-現在状態と次のgate)、[正常縦断E2E](../90_Release/Changes/Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](../90_Release/Changes/Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)、[Source A署名前監査](../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Source_A_Pre_Sign_Audit.md) | 署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk自己適用の正本採用、技術候補`45409e5`の決定論的Project全体確認、および固定改訂版`661de97`の当時監査が成立した。後続E2E検証器の独立確認で正常経路の集約、実Process開始前取消、OS起動前の開始判定、通知書込み未確認、および実行横断の相関不足を検出し、技術候補`2518ecd`でObjectiveごとの公開Process相関、OS起動確認後の通知、選定・開始の単一順序および全実行間のOperation ID一意性へ是正した。独立再確認はCritical／Major／Minor 0件でPassした。さらにSource A署名前監査でRelease closureと規範の公開伝播を是正し、固定改訂版`1f3f49b`がCritical／Major／Minor 0件でPassした。最終監査でclean観測だけを実Recovery成立へ読み替える検証欠落を検出したため、現在は実Provider開始後の公開MCP親Process tree停止、同一Objectiveのfresh再入場、耐久Recovery段階のIdentity相関および最終Docker資源不存在を一体で確認する構造是正を進めている。更新固定版の独立再監査後にRuntime実行Identityを固定し、署名後最終E2Eを行う。Linux／macOSは実装せず、Project Runtime CoreとMCPのPlatform非依存を維持する |
 | v0.20 実行知（Execution Intelligence） | Adopted | Planned | [Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v020-execution-intelligence) | AI WorkをProject／Milestone／Objective／Task／Attemptへ結合し、実行、成果物、人間受入、運用・事業結果を混同せず評価する。Provider、Model、Agent／Operation、入出力Token、Cache、費用／Credit、Latency、Retry、結果、Prompt Versionおよび品質評価のうち取得できる事実を共通Telemetry候補として扱い、取得不能値を推測しない。目的は監視製品の再実装ではなく、Provider／Model／Prompt／Context投入と人間負荷を比較して改善判断へ接続することである。Git管理外の実行履歴、集約と正本昇格の分離、改善候補→人間判断→実験→採用のLoopをv0.20開始時に具体化する。Runtimeの退避Directoryや隔離物についても、耐久Evidenceと物理残存を分け、exact Identityと未解決参照を確認した有限保持・件数上限・再入場可能な清掃を設計する。時間または名前だけの自動削除や、由来不明の既存退避物の一括削除は行わない。v0.19の完成条件、実行記録の収集開始、巨大Dashboard、全推論保存、全Provider指標の同一化または自動自己変更を意味しない。v0.20着手判断時にCurrent Stateと実行可能な差分を再確認してCHGを作成する |
 | v0.20以降 Project Management Projection | Exploring | Unscheduled | 本対話で保持した次版候補。既存のProject Runtime、実行知およびCRDD／Git正本との責務境界をv0.19完了後に再評価する | Roadmap、CHG、Work、Evidence、Gitおよび試験結果から、進捗、Milestone、阻害事項、Risk、依存、予測およびRelease準備状態を表示する候補。WBSや進捗率を別正本へ二重入力せず、CRDD／Gitの事実から生成する非AuthorityのProjectionとする。新しいProject Management正本、巨大なContext Graphまたは実装着手を本行から推定しない。v0.19完了後に実行知との順序、最小表示、必要な追加情報、精度限界および採否を人間が具体化する |
 | v0.20以降 Topic／Project Attention | Exploring | Unscheduled | 本対話で保持した概念候補。Project Management Projectionの設計開始時に既存管理単位で表現できない実例を再確認する | Topicは、既存のDiscovery、Decision、CHG、RoadmapまたはWorkへ情報欠落なく一意に還元できず、複数Contextを束ねて継続追跡する価値がある関心事を一時的に保持する候補である。Backlogや新しい恒久正本の代替にせず、Attention継続と意味整理を経て既存管理単位へ分解・昇格または「何もしない」の判断で閉じる。単に曖昧な発話、一意に分類可能な事項、会話履歴の全件保存からTopicを作らない。v0.19完了後に必要性、最小Model、統合・分割・終了条件、Project Projectionへの表示およびCoreへ加える妥当性を人間が具体化する |
@@ -37,14 +36,9 @@ Related:
 
 長期研究候補のうち、[v0.19へ採用したProject Runtime境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)は上表の実行項目へ移した。[有用性・照合費用の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)は、CHG-000057へ明示収載した観測だけをCurrent Scopeとし、残る候補は`Held / Unscheduled`を維持する。
 
-## 2. v0.19の実行順序
+## 2. v0.20開始時の再整理
 
-v0.19は次の順序で収束させる。内部Taskの並列化は許すが、後段のGateを先行完了へ読み替えない。
-
-1. 完了: 到達可能な署名固定版で、既存Docker Recoveryを正式な公開入口から収束させた。
-2. 完了: 署名固定候補の正常縦断2経路、終了後資源の確認、および低RiskなCRDD品質文書更新1件の自己適用を完了した。限定有用性評価では測定値と未測定値を分け、総合的な優位は未確定とした。
-3. 完了: 決定論的Project全体確認を終えた固定候補へ独立確認と必要監査を一括し、3系統ともCritical 0、Major 0、Minor 0で署名前に収束した。
-4. 進行中: 最終E2Eがclean観測だけで実Recovery成立を表示できないよう是正し、実Provider開始後の公開MCP親Process tree停止、同一Objectiveのfresh再入場、耐久Recovery段階のIdentity相関および最終Docker資源不存在を固定候補で確認する。独立再監査でCritical／Major 0件となった後にRuntime実行Identityを固定し、認証済み公開MCP Clientからの実Provider経路、取消およびRecovery settlementを署名後最終E2Eで確認する。その結果と各変更のRelease Gateからv0.19の収載内容を人間が確定する。
+v0.19.0の完了経路は[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)と[最終署名E2E](../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md)へ保持する。v0.20開始時は上表の採用済み項目と探索中項目を混同せず、順序、収載範囲、完成条件および独立保留できる事項を人間が再整理する。
 
 ## 3. 境界
 

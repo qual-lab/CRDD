@@ -1,6 +1,6 @@
 # Coordinator Runtimeの脅威モデル
 
-状態: Stable Baseline（v0.18.1）／Project Runtime Candidate（v0.19.0）
+状態: Stable（v0.19.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-02
 
@@ -62,9 +62,9 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | Console入力競合・文字化け | 誤承認、停止不能 | runtime-owned reader、入力種別の明示、一回入力、UTF-8機械結果と人間表示の分離 | reader／pipe／child終了 |
 | Cost目的の不適格model選択 | 品質低下、利用枠浪費 | 適格性を先に判定し、難易度・Risk・判断影響・Costから説明可能に選択 | Provider Effect前の選定記録 |
 
-### 4.1 v0.19 Project Runtime候補の脅威
+### 4.1 v0.19 Project Runtimeの脅威
 
-次は設計確認で固定する未実装のProject Runtime Candidateに対する設計上のControlであり、v0.18.1の現在能力として主張しない。実装段階ごとに検証へ接続し、該当Controlと終了時観測が成立するまで公開能力へ昇格しない。
+次はv0.19.0 Project Runtimeに対する設計上のControlである。実装段階ごとに検証へ接続し、該当Controlと終了時観測が成立した範囲だけを公開能力とする。
 
 | 脅威 | 失敗影響 | 設計上のControl | 実装後に必要な終了時観測 |
 |---|---|---|---|

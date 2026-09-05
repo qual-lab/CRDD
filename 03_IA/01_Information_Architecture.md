@@ -1,13 +1,13 @@
 # CRDD内部ツールの情報構造
 
-状態: v0.18.1 Stable Baseline／v0.19 Project Runtime Candidate（未実装）
+状態: Stable（v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-02
+最終更新日: 2026-09-05
 工程規則: [情報アーキテクチャ](../23_IA.md)
 
 ## 1. 対象と結論
 
-[利用体験](../02_UX/01_User_Experience.md)の導入、設定、依頼、待機、結果、復旧を、利用者が扱う対象と導線へ変換する。Runtime内部のクラスやファイル配置を利用者の情報分類にしない。§2～§5はv0.18.1 Stable Baseline、§6は未実装のv0.19 Project Runtime Candidateである。Candidateを現在利用可能な情報構造または公開済みMCP契約として扱わない。
+[利用体験](../02_UX/01_User_Experience.md)の導入、設定、依頼、待機、結果、復旧を、利用者が扱う対象と導線へ変換する。Runtime内部のクラスやファイル配置を利用者の情報分類にしない。§2～§5は既存ツール、§6はv0.19.0で公開したProject Runtimeの情報構造を扱う。
 
 ## 2. 扱う対象・関係・責任
 
@@ -63,7 +63,7 @@
 確認方法は[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)へ接続する。対象全体を覆う設計候補を整理し、未取得値・意味説明・候補操作の限定再確認と、今回のPowerShellでの入力・表示確認を終えた。初見利用者の導線理解、別環境、支援技術などの[UI未評価範囲](../04_UI/01_User_Interface.md#open-issues)と専門確認が残るため、工程網羅状態は`Blocked`を維持する。この候補をUI・SPECの照合に使うことを、通常工程移行の承認としない。内容と工程移行の決定権限者はQual-Lab。新しい安定ID、権限、設定継承または業務オブジェクトは採用していない。
 ## 6. Project Runtimeの情報階層
 
-本節はv0.19 Project Runtimeの未実装Candidateであり、現行Runtimeの公開情報構造ではない。
+本節はv0.19.0で公開したProject Runtimeの情報構造を定義する。任意Projectの一覧・検索や複数Repositoryの横断管理は含まない。
 
 v0.19のProject Runtimeは、`Project → Milestone／Version → Objective → Task`を基本階層とする。ProjectとRepositoryを同一語にせず、v0.19では一つのProjectが一つの明示Binding済みRepositoryを使用する。MCP要求、実行Operation、Provider SessionおよびCandidateはこの階層の正本ではなく、対象を参照する実行・搬送情報である。
 

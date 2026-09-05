@@ -1,7 +1,7 @@
 # 変更トレース: Dogfoodingからの保証コスト・変更経路・可読性改善
 
 変更ID: `CHG-000059`
-- 状態: `In Progress`
+- 状態: `Released`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-09-02
 - 対象: v0.18～v0.18.1のDogfoodingと外部レビューから確認した、保証活動、変更経路および人間可読性の横断改善
@@ -9,6 +9,7 @@
 - 変更分類: `breaking`
 - `migration_required`: `true`。現在または再開対象の変更、保証活動および人間可読成果物だけを適用判定し、既存CHGの遡及更新、新しい監査、専用データベースまたは固定Profileは要求しない
 - リリースレベル: `MINOR`
+- リリース: `v0.19.0`（2026-09-05）
 
 正本: [変更トレース](../../12_Change.md)、[品質保証](../../16_Quality_Assurance.md)、[文書化](../../03_Documentation.md)、[エージェント](../../10_Agent.md)、[外部コミュニケーション](../../17_Communication.md)、[アーキテクチャ](../../27_Architecture.md)、[文書監査](../../51_Document_Audit.md)
 
@@ -122,5 +123,7 @@ Source A署名後のManifest取込みでは、stagingからRepositoryへ人手�
 最初の固定候補は昇格関数内の検査順序を確認したが、昇格コード自体の実行元と実際の開発Checkout構成を結合していなかった。そのため、作業CheckoutのGit管理外依存物を配布Treeの検査へ混入させ、署名後の実経路で初めてSource A不一致が判明した。追加是正では、昇格入口を署名済みstaging内のLauncher自身へ移し、作業Checkoutの未署名Launcherへ任意のstaging Pathを渡す引数を削除した。実行元は配置先Repository直下の`.crdd/release-staging/<候補ID>`と実Pathで一致しなければEffect 0で停止する。Source AのCommit／Treeと配置先は作業Repositoryから、Runtime実行集合、Policy、Native成果物および署名済みManifestはstagingから検証する。Git管理外の`node_modules`や一時物が存在する実配置も契約試験へ含め、実行コードのTrustと配置先のRepository Identityを混同しない。
 
 ## 9. 既知の制限と後続評価
+
+本変更は最終固定候補のChecker、署名E2Eおよび独立監査で再確認され、人間の決定権限者がv0.19.0への収載と公開を承認した。
 
 本変更は観測契約を整えるものであり、現時点で最適な変更経路、最小保証コストまたは可読性の単一尺度を確定しない。一定量の実績が蓄積した後、経路不足の共通パターン、保証コストと品質の関係、および文書監査で繰り返す可読性指摘を、追加変更の根拠として再評価する。

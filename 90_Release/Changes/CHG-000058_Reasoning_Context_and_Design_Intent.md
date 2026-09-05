@@ -1,7 +1,7 @@
 # 変更トレース: 推論コンテキストと設計意図
 
 変更ID: `CHG-000058`
-- 状態: `In Progress`
+- 状態: `Released`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-09-02
 - 対象: 成果物へ吸収されて失われる工程内の判断根拠を、再利用・変更・検証可能なコンテキストとして保持するCRDD工程強化
@@ -9,6 +9,7 @@
 - 変更分類: `breaking`
 - `migration_required`: `true`。現在または再開対象の専門判断、認知意図および外部コミュニケーションだけを適用判定し、完了済み履歴の遡及改稿や専用ファイルの新設は要求しない
 - リリースレベル: `MINOR`
+- リリース: `v0.19.0`（2026-09-05）
 
 正本: [CRDD自身のDiscovery](../../01_Discovery/01_CRDD_Product_Discovery.md#v019-reasoning-context)、[スキル](../../11_Skill.md#23-expert-exploration-and-convergence-contract)、[課題探索・要求形成](../../21_Discovery.md#34-decision-changing-evidence)、[UX](../../22_UX.md#transformation-contract)、[IA](../../23_IA.md#transformation-contract)、[UI](../../25_UI.md#transformation-contract)、[外部コミュニケーション](../../17_Communication.md#3-外部コミュニケーションのコンテキスト)、[検証](../../29_Verification.md#27-プロダクトコンテキストと体験の検証)
 
@@ -97,4 +98,4 @@ Communication固定候補では、正本だけに存在していた認知意図�
 
 固定改訂版`3d446c4793f30e44c3c02be34bc5567f89813d07`では、全体Checkerが394文書、2,749リンク、946アンカーを確認し、Error 0、Warning 0、終了Code 0だった。Communication／Reasoning専門レビュー、文書監査、Conformance／Gap・Impact確認は、初回指摘の是正後にすべてPass、残Finding 0となった。[対象、是正、結果および限界](../../07_Quality/Verification_Results/2026-09-02_Communication_Closure_Verification.md)を参照する。
 
-これによりCommunicationのv0.19固定候補はClosure条件を満たし、Issue #30の外部記録とクローズも完了した。CHG-000058全体のRelease、Project Runtimeを用いる追加自己適用、実Communication成果物での有用性および人間による最終収載判断は別のGateであり、本節から成立を推定しない。
+これによりCommunicationのv0.19固定候補はClosure条件を満たし、Issue #30の外部記録とクローズも完了した。人間の決定権限者は本変更をv0.19.0へ収載し、公開することを承認した。実Communication成果物での追加有用性評価は、公開済み規範の成立条件ではなく後続の学習対象である。

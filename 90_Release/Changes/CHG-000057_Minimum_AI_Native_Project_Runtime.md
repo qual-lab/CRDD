@@ -1,7 +1,7 @@
 # 変更トレース: Minimum AI-native Project Runtime
 
 変更ID: `CHG-000057`
-- 状態: `In Progress`
+- 状態: `Released`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-09-01
 - 対象: v0.18 Single Task Runtimeを実行単位として再利用する、単一Project／単一RepositoryのMilestone運営Runtime
@@ -9,6 +9,7 @@
 - 変更分類: `additive`
 - `migration_required`: `false`。v0.18.1のSingle Task入口は保持する。新しいProject Runtimeを選択して利用する場合だけ、その能力の採用条件と追加契約を確認する
 - リリースレベル: `MINOR`
+- リリース: `v0.19.0`（2026-09-05）
 
 正本: [Discovery](../../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)、[UX](../../02_UX/01_User_Experience.md#6-milestoneを委ねる利用体験)、[IA](../../03_IA/01_Information_Architecture.md#6-project-runtimeの情報階層)、[UI](../../04_UI/01_User_Interface.md#8-project-runtimeの状態表示)、[振る舞い仕様](../../05_SPEC/01_Behavior_Specification.md#project-runtime-contract)、[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-reference-architecture)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification)
 
@@ -71,14 +72,16 @@ Objectiveは同じMeaningful Changeの段階であり、工程Step、個別実�
 
 ## 8. 現在状態と次のGate
 
+最終Source Aは`7346a5580926d71d253ebebaa6538e41bfbdea05`、署名Manifestだけを収載したcarrier Bは`5929cb27a9aed9ebabf79e07e3f710f4046597ef`である。Runtime実行Identity `79e8cb3a3d11b1433e088d09d8c4b875b7de9ca2193f5e57ddc272d3225064d5`に対し、署名済みRecovery Matrix、4経路4/4、認証済み公開MCP Clientからの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recovery、耐久Recovery段階、fresh再入場および最終資源不存在を確認した。最終独立監査はCritical／Major／Minor 0件であり、人間の決定権限者がv0.19.0への収載と公開を承認した。[最終署名E2E](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md)を現在のRelease根拠とする。後続候補は本変更の未完了事項ではない。
+
 本節の表だけが現在有効な状態と次のGateを示す。表より後の段落は実装・検証の発展を時系列で残す履歴であり、「この時点では」「当時」「その後」と明示した状態を現在値へ読み替えない。後続の観測や是正で過去の判断・失敗を上書きせず、後段は上表の根拠となる時系列履歴として読む。
 
 | 区分 | 現在値 |
 |---|---|
-| 成立 | 設計対応、契約・結合試験、署名固定版の正常縦断2経路、うち1経路の正本採用、低Risk文書1件の自己適用と正本採用、認証主体の意味入口への伝播、Repository Binding単位の別Process排他、Lease取得後のfresh優先選択、Task Authorityの実行直前発行と未使用Authority失効、Task開始の`reserved / handoff_prepared / running`分離、Task別・種別別のexact Recovery相関、個別回復義務の耐久settlement、Queue／State／個別義務の途中中断から完了済みEffectを再発行しない再開、再計画上限と独立したfresh retry、終端request再送のEffect 0投影、親EOF取消、対話／スケジュール競合、Docker完了receiptによる冪等再入場を含む署名前の決定論的Project全体確認。技術候補`003b72f`では、操作Triggerを閉じたRuntime Eventへ限定し、Parent Process終了を固定Windows Process-tree helperとChild Processの実`close`観測へ結合した。`exit`またはstreamの`destroyed`を`close`と同一視せず、helper永久保留とChild `close`欠落の複合状態も共通の絶対期限後に未joinとして有限時間で停止する。通常2経路、取消、親喪失回復および回復再入場は、いずれも未joinを成功へ昇格しない。7段階の回復Eventは公開結果のQueue、同一Task、OperationおよびRecovery IDへ相関し、回復診断のcallback、stream error／close、timeoutおよび遅延通知を別結果として閉じた |
-| 未成立 | 再ログオンをまたぐDocker Desktop修復履歴とDocker Task Recoveryの構造是正に対する独立再監査、認証済み公開MCP Clientからの実Provider経路、実Provider実行中の取消、および実Docker資源を用いたRecovery settlementの署名後最終E2E |
-| 次Gate | 再ログオン回復の独立再監査でCritical／Major 0件を確認し、Runtime実行Identityの固定と最終E2E、未評価事項のRelease処遇、収載・分類・移行・残存Riskの人間判断へ進む |
-| 根拠 | [正常縦断E2E](Evidence/CHG-000057_Project_Runtime_Real_Provider_E2E_d44ae1a.md)、[自己適用](Evidence/CHG-000057_Project_Runtime_Self_Application_0acc157.md)、[初回署名前検証](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Pre_Sign_Verification.md)、[確認済み回復の収束に関する署名前検証](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Acknowledgement_Closure_Pre_Sign_Verification.md)、[監査是正後の署名前検証](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Audit_Remediation_Pre_Sign_Verification.md)、[公開件数境界に関する署名前検証](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Projection_Bounds_Pre_Sign_Verification.md)、[最終署名前監査](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Pre_Sign_Audit.md)、[E2E観測契約の署名前検証](../../07_Quality/Verification_Results/2026-09-04_Project_Runtime_E2E_Observation_Closure_Pre_Sign_Verification.md)、[Process終了観測の署名前検証](../../07_Quality/Verification_Results/2026-09-04_Project_Runtime_Process_Close_Closure_Pre_Sign_Verification.md)、[端末資源観測の署名前検証](../../07_Quality/Verification_Results/2026-09-04_Project_Runtime_Terminal_Observation_Closure_Pre_Sign_Verification.md)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification) |
+| 成立 | 設計対応、契約・結合試験、回帰1,683件、Windows実Process Gate 7件、署名済みRecovery Matrix、4経路4/4、認証済み公開MCP Clientからの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recovery、耐久Recovery段階、freshな公開MCP再入場、正本不変および最終資源不存在。通常2経路、取消、親喪失回復および回復再入場は、いずれも未joinを成功へ昇格しない。7段階の回復Eventは公開結果のQueue、同一Task、OperationおよびRecovery IDへ相関する |
+| 未成立 | v0.19.0の宣言済み完成条件にはなし。Linux／macOS実環境、突然の電源断、任意規模・長時間負荷、由来不明退避物の清掃Authorityは未評価または後続判断 |
+| 次Gate | 完了。公式tagを公開し、後続候補はv0.20開始時に別変更として再評価する |
+| 根拠 | [最終署名E2E](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md)、[Source A署名前監査](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Source_A_Pre_Sign_Audit.md)、[最終署名前監査](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Pre_Sign_Audit.md)、[検証設計](../../07_Quality/03_Verification_Design.md#project-runtime-verification) |
 
 工程正本を接続した後、Project Modelの最初の実装として、Task、Objective、Milestoneを別状態で保持する純粋な状態契約を追加した。Task完了後はObjectiveを`integration_pending`へ進めるだけとし、受入条件ごとのEvidenceを伴うObjective統合、全Objective受入後のMilestone統合を、それぞれ別の世代更新として固定した。Project State投影もWork Progress、Quality、Human Decision、RecoveryおよびNext Actionを分離し、Task完了や未観測値からProject成功を生成しない。
 

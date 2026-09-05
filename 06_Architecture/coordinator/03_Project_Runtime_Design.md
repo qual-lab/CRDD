@@ -1,6 +1,6 @@
 # Project Runtime詳細設計
 
-状態: Project Runtime Candidate（v0.19.0、設計固定・部分実装、公開前）
+状態: Stable（v0.19.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-02
 
@@ -243,7 +243,9 @@ MCPの公開結果は、操作別のexact contractと閉じたData Transfer Obje
 
 対応を主張する各組合せは、入力framing、UTF-8 byte、request identity、切断、取消、Process owner喪失、Filesystem保護、Lock、cleanupおよびRecoveryを実入口で検証する。CoreがPlatform非依存であることだけをLinux／macOS対応の証拠にしない。
 
-## 10. 実装と検証への接続
+## 10. 実装と検証への接続履歴
+
+本節の段階表示は実装中に固定した接続履歴であり、v0.19.0の現在状態を上書きしない。公開時点では、認証済み公開MCP Clientの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recovery、耐久Recovery段階、fresh再入場および最終資源不存在を署名固定版で確認した。現在の公開範囲と未評価事項は[最終署名E2E](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md)を正とする。
 
 現時点で実在する実装候補は、Project状態の純粋契約、共通Objective入口と二つの意味操作だけを持つMCP Adapter、責務分離段階のPlatform契約・Windows Platform Adapter・Single Task Adapter、耐久基盤のProject State Store・Operation Queue・Project Operation Lease・正本採用Lease、Project実行所有者、再計画、人間判断および統合である。Project実行所有者はQueueをLeaseしてから、Taskを`starting / reserved`、Operation ID確定後に`starting / handoff_prepared`としてEffect前に世代付きで耐久化し、Single Task Adapterの開始通知後だけ`running`へ進める。結果はattemptとRepository Revisionへ照合し、最大5件、Dependency、Path／意味競合を現在のProject Stateから再選択する。cleanup不明、結果Identity不一致または観測不能はProject StateとQueueを`recovery_required`へ進め、Taskの枠と競合予約を保持する。部分再計画は依存されていない失敗Taskだけを同じObjective内の後継へ置換し、旧Taskを`superseded`の履歴として保持する。生存するTaskが失敗Taskへ依存する場合は依存を暗黙に付け替えずEffect 0で停止する。Objectiveの完了判定と進捗では`completed`と`superseded`を終端として数えるが、受入Evidenceは後継を含む現在の実行結果から別途要求する。正常なTask完了はQueueを`integration_pending`へ進めるだけで、統合契約がEvidenceを確認するまでObjectiveまたはMilestoneを受け入れない。
 

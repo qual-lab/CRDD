@@ -1,8 +1,8 @@
 # CRDD内部ツールの振る舞い仕様
 
-Status: Stable Baseline (v0.18.1) / Project Runtime Candidate (v0.19.0)
+Status: Stable (v0.19.0)
 Owner: Qual-Lab
-Last Updated: 2026-09-02
+Last Updated: 2026-09-05
 
 ## 対象と読み方
 
@@ -454,7 +454,7 @@ Local Personalで接続済みのHome／State観測と、未接続の保護済み
 
 ## Project Runtime契約
 
-本節はv0.19で公開を目指す開発候補であり、現在利用可能なRelease契約ではない。候補は、人間または許可されたMCP／CLI入口から一つのProjectとMilestoneを受け取り、複数ObjectiveとTask Graphへ計画し、v0.18 Single Task Runtimeを実行単位として使用し、統合済み結果とProject Stateを返す。MCPとCLIは同じ意味契約へ到達し、Transport固有入力からAuthority、Project正本または追加のEffect権限を生成しない。現在は共通Objective入口、対話優先Queue、同一計画の再試行・部分再計画・人間判断移送、Task候補の耐久状態への受渡し、OS管理Rootの判断記録、MCP標準入出力Process、実Candidate Storeの統合候補・明示採用・受入を開発候補として接続した。判断Capabilityの置換・全失効、独立Recovery Intent Store、切断・電源断を含む本番同等E2E、実Providerによる複数Task結果の統合・採用およびRelease判断は未成立である。
+本節はv0.19.0で公開したProject Runtime契約を定義する。人間または許可されたMCP／CLI入口から一つのProjectとMilestoneを受け取り、複数ObjectiveとTask Graphへ計画し、Single Task Runtimeを実行単位として使用して、統合済み結果とProject Stateを返す。MCPとCLIは同じ意味契約へ到達し、Transport固有入力からAuthority、Project正本または追加のEffect権限を生成しない。共通Objective入口、対話優先Queue、同一計画の再試行・部分再計画・人間判断移送、Task候補の耐久状態への受渡し、OS管理Rootの判断記録、MCP標準入出力Process、実Candidate Storeの統合候補・明示採用・受入を接続した。公開MCPの実Provider 2経路、実Provider開始後の取消、親Process消失後のexact Recoveryとfresh再入場は最終署名E2Eで確認した。任意Project検索、複数Repository横断、Linux／macOS実装、実電源断および無制限規模の運用保証は含まない。
 
 Project RuntimeはTask総数を5件へ制限しないが、同時にRunningとなるTaskを最大5件に制限する。Dependency、共有資源、許可Path、仕様・判断の競合、Lock、Provider利用枠またはIntegration Boundaryが独立実行を許さない場合は5未満を選ぶ。利用可能な枠があっても実行可能性を確認できないTaskを開始しない。
 
