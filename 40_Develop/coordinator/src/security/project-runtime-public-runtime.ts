@@ -39,6 +39,7 @@ import {
 } from "./project-runtime-human-decision.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "./project-runtime-windows-decision-store.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "./project-runtime-single-task-adapter.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "./project-runtime-execution-authorization-adapter.ts";
 import type { ProjectRuntimeExecutionPublicationObservation } from "./project-runtime-execution.ts";
 import {
   observeProjectRuntimePlatformFamily,
@@ -186,8 +187,8 @@ function writeProjectRuntimeExecutionIntelligenceDiagnostic(
 }
 
 type PublicExecutionDependencies = Readonly<{
-  issueTaskAuthority: () => object | null;
-  revokeTaskAuthority?: (capability: object) => boolean;
+  issueRuntimeExecutionAuthorization: () => object | null;
+  revokeRuntimeExecutionAuthorization?: (capability: object) => boolean;
   startTask: typeof startRuntimeOwnedCoordinatorTask;
   cancelTask: typeof cancelRuntimeOwnedCoordinatorTask;
   frontProviderForTask: (
@@ -217,11 +218,12 @@ export type ProjectRuntimePublicDevelopmentDependencies = Omit<
 
 const productionExecutionDependencies: PublicExecutionDependencies =
   Object.freeze({
-    issueTaskAuthority: () =>
+    issueRuntimeExecutionAuthorization: () =>
       issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
         evaluationTime: new Date().toISOString(),
       }).capability,
-    revokeTaskAuthority: revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
+    revokeRuntimeExecutionAuthorization:
+      revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
     startTask: startRuntimeOwnedCoordinatorTask,
     cancelTask: cancelRuntimeOwnedCoordinatorTask,
     frontProviderForTask: () => "codex",
@@ -397,9 +399,6 @@ async function executeProjectRuntimePublicObjective(
                 request.repositoryRevision,
                 String(task.retryCount),
               ),
-              // This is a non-authority placeholder. The verified, single-use
-              // capability is issued just before the reserved Task attempt.
-              taskAuthorityCapability: Object.freeze({}),
               repositoryRoot,
               taskRequest: buildProjectRuntimeCoordinatorTaskRequest(
                 request,
@@ -424,10 +423,16 @@ async function executeProjectRuntimePublicObjective(
         : {}),
       observeRecoveryTransition: writeProjectRuntimeRecoveryDiagnostic,
       execution: {
-        issueTaskAuthority: runtimeDependencies.issueTaskAuthority,
-        ...(runtimeDependencies.revokeTaskAuthority
-          ? { revokeTaskAuthority: runtimeDependencies.revokeTaskAuthority }
-          : {}),
+        authorization: createProjectRuntimeExecutionAuthorizationAdapter({
+          issueRuntimeCapability:
+            runtimeDependencies.issueRuntimeExecutionAuthorization,
+          ...(runtimeDependencies.revokeRuntimeExecutionAuthorization
+            ? {
+                revokeRuntimeCapability:
+                  runtimeDependencies.revokeRuntimeExecutionAuthorization,
+              }
+            : {}),
+        }),
         runSingleTaskAttempt: (input) =>
           runProjectRuntimeSingleTaskAttempt(
             {

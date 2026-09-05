@@ -2424,6 +2424,27 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:unit:project-runtime-execution-authorization-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/project-runtime-execution-authorization-adapter.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "execution",
+        "authorization",
+        "adapter"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:project-runtime-execution-host-adapter",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/project-runtime-execution-host-adapter.contract.test.ts",

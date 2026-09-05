@@ -4,6 +4,7 @@ export * from "./core/project-runtime-state.ts";
 export * from "./core/project-runtime-queue.ts";
 export * from "./ports/platform-contract.ts";
 export * from "./ports/execution-port.ts";
+export * from "./ports/execution-authorization-port.ts";
 export * from "./ports/execution-observation-port.ts";
 export * from "./ports/candidate-port.ts";
 export * from "./ports/clock-identity-port.ts";

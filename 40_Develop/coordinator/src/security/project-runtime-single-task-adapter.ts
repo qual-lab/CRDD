@@ -33,7 +33,7 @@ export type ProjectRuntimeSingleTaskDependencies = Readonly<{
   startTask: (
     taskRequest: unknown,
     repositoryRoot: unknown,
-    taskAuthorityCapability: object,
+    runtimeExecutionCapability: object,
     recoveryCorrelationId?: string,
   ) => unknown;
   cancelTask: (controlCapability: object) => unknown;
@@ -329,7 +329,7 @@ export async function runProjectRuntimeSingleTaskAttempt(
     !STABLE_IDENTITY.test(input.authorityBindingId) ||
     typeof input.repositoryRevision !== "string" ||
     !REPOSITORY_REVISION.test(input.repositoryRevision) ||
-    !isOpaqueCapability(input.taskAuthorityCapability) ||
+    !isOpaqueCapability(input.runtimeExecutionCapability) ||
     !(input.cancellationSignal instanceof AbortSignal) ||
     (input.observeStarted !== undefined &&
       typeof input.observeStarted !== "function")
@@ -365,7 +365,7 @@ export async function runProjectRuntimeSingleTaskAttempt(
     rawStarted = dependencies.startTask(
       input.taskRequest,
       input.repositoryRoot,
-      input.taskAuthorityCapability,
+      input.runtimeExecutionCapability,
       input.operationId,
     );
   } catch (error) {

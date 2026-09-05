@@ -15,6 +15,7 @@ import {
 } from "../../src/security/project-runtime-durable-foundation.ts";
 import { runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts } from "../../src/security/project-runtime-execution.ts";
 import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import {
   invalidateProjectRuntimeHumanDecision,
   issueProjectRuntimeHumanDecision,
@@ -38,7 +39,7 @@ const hash = (value: string) =>
 
 type BoundExecutionDependencies = Omit<
   Parameters<typeof runProjectRuntimeOperationWithPorts>[0],
-  "persistence" | "clockIdentity" | "processSafety"
+  "persistence" | "clockIdentity" | "processSafety" | "authorization"
 >;
 type BoundExecutionInput = Parameters<
   typeof runProjectRuntimeOperationWithPorts
@@ -54,6 +55,10 @@ function runProjectRuntimeOperation(
     {
       ...dependencies,
       ...createProjectRuntimeExecutionHostPorts(),
+      authorization: createProjectRuntimeExecutionAuthorizationAdapter({
+        issueRuntimeCapability: () => Object.freeze({}),
+        revokeRuntimeCapability: () => true,
+      }),
       persistence: createProjectRuntimePersistencePorts(
         workingDirectory,
         repositoryBindingId,
@@ -159,7 +164,6 @@ async function failTask(root: string) {
           taskId: "task-a",
           authorityBindingId: "authority-a",
           taskRequest: {},
-          taskAuthorityCapability: {},
           repositoryRoot: root,
         },
       ],

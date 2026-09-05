@@ -55,6 +55,7 @@ CoreはI/Oを発行しない。ApplicationはPortの閉じた結果だけを解�
 | Port | 必要能力 | 主な実装所有者 |
 |---|---|---|
 | Execution Port | narrowed Task Authorityで一つのTask Attemptを実行し、exact Identity付き結果を返す | Coordinator Adapter |
+| Execution Authorization Port | 署名済みRuntime packageを一回起動する不透明Capabilityの発行と未使用時の失効を要求する。Task Authorityとは区別する | Coordinator Adapter |
 | State Port | expected generation付きProject State／Queueの読取り・更新 | Repository-local Persistence Adapter |
 | Lease Port | Project Operation、State、Adoptionの取得・settlementを観測する | Platform／Persistence Adapter |
 | Candidate Port | Task候補の読取り、統合候補の構成、明示採用とrollback | Coordinator Candidate Adapter |
@@ -86,7 +87,7 @@ public-contract ← application ← core
 
 v0.19のTask、Objective、Milestone、QueueおよびDecision状態と遷移を意味変更せず継承する。正本は移行完了まで[v0.19 Project Runtime詳細設計](../coordinator/03_Project_Runtime_Design.md)と機械可読な設計対応である。v0.20の物理移動を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。
 
-Project RuntimeはAuthorityを生成しない。人間または上位Runtimeから受け取ったProject／Milestone AuthorityをTask単位へ縮小し、Portへ渡す。Transport metadata、Provider出力、Project State、実行知EventまたはAdapterの存在からAuthorityを導出しない。
+Project RuntimeはAuthorityを生成しない。人間または上位Runtimeから受け取ったProject／Milestone AuthorityをTask単位へ縮小し、Task要求と`authorityBindingId`へ結合してExecution Portへ渡す。Runtime packageの実行許可CapabilityはExecution Authorization Portから外部Effect直前に取得し、Task Authority、Task内容または許可Pathの根拠として扱わない。Transport metadata、Provider出力、Project State、実行知EventまたはAdapterの存在からAuthorityを導出しない。
 
 Applicationは長時間待機中に短時間Lockを保持しない。Port呼出し前後でProject generation、Task／attempt／Operation、Authority、取消、RecoveryおよびLeaseを再照合する。PortのcleanupまたはEffectが不明な場合は、同じProcess・Queue・Taskを再利用せずexact Recovery義務を保持する。
 

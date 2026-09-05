@@ -21,6 +21,7 @@ import {
 } from "../../../project-runtime/src/index.ts";
 import { integrateProjectRuntimeOperation } from "../../src/security/project-runtime-integration.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 
 const revision = "a".repeat(40);
 
@@ -99,11 +100,14 @@ function fixture(t: test.TestContext) {
           taskId: task.definition.id,
           authorityBindingId: `authority-${task.retryCount}`,
           taskRequest: {},
-          taskAuthorityCapability: {},
           repositoryRoot: root,
         })),
     observeLeaseOwner: () => ({ status: "absent" }),
     execution: {
+      authorization: createProjectRuntimeExecutionAuthorizationAdapter({
+        issueRuntimeCapability: () => Object.freeze({}),
+        revokeRuntimeCapability: () => true,
+      }),
       runSingleTaskAttempt: async (input: {
         attemptId: string;
         operationId: string;

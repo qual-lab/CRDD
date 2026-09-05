@@ -83,7 +83,7 @@ function validInput(
     operationId: OPERATION_ID,
     authorityBindingId: AUTHORITY_BINDING_ID,
     repositoryRevision: repositoryRevisionValue,
-    taskAuthorityCapability: Object.freeze({}),
+    runtimeExecutionCapability: Object.freeze({}),
     taskRequest: Object.freeze({ objective: "bounded" }),
     repositoryRoot: "C:\\repository",
     cancellationSignal: new AbortController().signal,
@@ -142,7 +142,7 @@ test("入力不正はTask Effect 0の入力拒否として閉じる", async () =
     validInput({ operationId: ".leading-dot" }),
     validInput({ authorityBindingId: ".leading-dot" }),
     validInput({ repositoryRevision: "not-hex" }),
-    validInput({ taskAuthorityCapability: null }),
+    validInput({ runtimeExecutionCapability: null }),
     validInput({ cancellationSignal: {} }),
   ];
   for (const input of invalidInputs) {
@@ -652,7 +652,7 @@ test("開始観測はaccessorやProxyの開始Recordをfail closedで拒否す�
 test("契約表示はProject状態・後続Task・受入の非所有を宣言する", () => {
   assert.deepEqual(describeProjectRuntimeSingleTaskAdapterContract(), {
     contract: CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     taskRequestSchemaOwnership: "single_task_runtime",
     projectStateOwnership: "none",
     followUpTaskCreation: "none",

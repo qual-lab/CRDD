@@ -13,6 +13,7 @@ import {
 import { integrateProjectRuntimeOperation } from "../../src/security/project-runtime-integration.ts";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../src/security/mcp-project-runtime-adapter.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 
 const revision = "a".repeat(40);
 async function prepared(t: test.TestContext) {
@@ -52,12 +53,15 @@ async function prepared(t: test.TestContext) {
           taskId: "task-a",
           authorityBindingId: "authority-a",
           taskRequest: {},
-          taskAuthorityCapability: {},
           repositoryRoot: root,
         },
       ],
       observeLeaseOwner: () => ({ status: "absent" }),
       execution: {
+        authorization: createProjectRuntimeExecutionAuthorizationAdapter({
+          issueRuntimeCapability: () => Object.freeze({}),
+          revokeRuntimeCapability: () => true,
+        }),
         runSingleTaskAttempt: async (input) => {
           assert.equal(await input.observeStarted?.(), true);
           return {

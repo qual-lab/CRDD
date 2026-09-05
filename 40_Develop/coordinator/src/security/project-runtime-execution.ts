@@ -14,6 +14,7 @@ import {
   type ProjectRuntimeSingleTaskResult,
   type ProjectRuntimeExecutionObservationPort,
   type ProjectRuntimeExecutionObservationPublication,
+  type ProjectRuntimeExecutionAuthorizationPort,
   type ProjectRuntimeClockIdentityPort,
   type ProjectRuntimePersistencePorts,
   type ProjectRuntimeProcessSafetyPort,
@@ -26,7 +27,6 @@ export type ProjectRuntimeTaskExecution = Readonly<{
   taskId: string;
   authorityBindingId: string;
   taskRequest: unknown;
-  taskAuthorityCapability: object;
   repositoryRoot: unknown;
 }>;
 
@@ -37,8 +37,7 @@ export type ProjectRuntimeExecutionDependencies = Readonly<{
   persistence: ProjectRuntimePersistencePorts;
   clockIdentity: ProjectRuntimeClockIdentityPort;
   processSafety: ProjectRuntimeProcessSafetyPort;
-  issueTaskAuthority?: () => object | null;
-  revokeTaskAuthority?: (capability: object) => boolean;
+  authorization: ProjectRuntimeExecutionAuthorizationPort;
   runSingleTaskAttempt: (
     input: ProjectRuntimeSingleTaskAttemptInput,
   ) => Promise<ProjectRuntimeSingleTaskResult>;
@@ -373,9 +372,7 @@ function taskExecutionMap(
         (task) =>
           task.definition.id === entry.taskId && task.state !== "superseded",
       ) ||
-      !validIdentity(entry.authorityBindingId) ||
-      !entry.taskAuthorityCapability ||
-      typeof entry.taskAuthorityCapability !== "object"
+      !validIdentity(entry.authorityBindingId)
     )
       return null;
     result.set(entry.taskId, entry);
@@ -808,12 +805,22 @@ export async function runProjectRuntimeOperation(
               recoveryIds: Object.freeze([]),
               recoveryObligations: Object.freeze([]),
             });
-          const taskAuthorityCapability = dependencies.issueTaskAuthority
-            ? dependencies.issueTaskAuthority()
-            : attempt.execution.taskAuthorityCapability;
+          const issuedAuthorization = dependencies.authorization.issue({
+            projectId: input.projectId,
+            milestoneId: input.milestoneId,
+            taskId: attempt.taskId,
+            attemptId: attempt.attemptId,
+            operationId: attempt.operationId,
+            authorityBindingId: attempt.execution.authorityBindingId,
+            repositoryRevision: state.repositoryRevision,
+          });
+          const runtimeExecutionCapability =
+            issuedAuthorization.status === "completed"
+              ? issuedAuthorization.value
+              : null;
           if (
-            !taskAuthorityCapability ||
-            typeof taskAuthorityCapability !== "object"
+            !runtimeExecutionCapability ||
+            typeof runtimeExecutionCapability !== "object"
           )
             return Object.freeze({
               contract:
@@ -823,7 +830,7 @@ export async function runProjectRuntimeOperation(
               authorityBindingId: attempt.execution.authorityBindingId,
               repositoryRevision: state.repositoryRevision,
               status: "blocked" as const,
-              reason: "single_task_authority_issue_failed",
+              reason: "single_task_runtime_execution_authorization_failed",
               effectState: "no_effect" as const,
               cleanupConfirmed: true,
               manualRecoveryRequired: false,
@@ -833,9 +840,11 @@ export async function runProjectRuntimeOperation(
               recoveryObligations: Object.freeze([]),
             });
           if (input.cancellationSignal.aborted) {
-            const isRevoked = dependencies.revokeTaskAuthority?.(
-              taskAuthorityCapability,
-            );
+            const revocation =
+              dependencies.authorization.revokeUnused(
+                runtimeExecutionCapability,
+              );
+            const isRevoked = revocation.status === "completed";
             return isRevoked === true
               ? Object.freeze({
                   contract:
@@ -845,7 +854,8 @@ export async function runProjectRuntimeOperation(
                   authorityBindingId: attempt.execution.authorityBindingId,
                   repositoryRevision: state.repositoryRevision,
                   status: "cancelled" as const,
-                  reason: "single_task_cancelled_after_authority_revoked",
+                  reason:
+                    "single_task_cancelled_after_execution_authorization_revoked",
                   effectState: "no_effect" as const,
                   cleanupConfirmed: true,
                   manualRecoveryRequired: false,
@@ -876,7 +886,8 @@ export async function runProjectRuntimeOperation(
                     authorityBindingId: attempt.execution.authorityBindingId,
                     repositoryRevision: state.repositoryRevision,
                     status: "blocked" as const,
-                    reason: "single_task_authority_revocation_unknown",
+                    reason:
+                      "single_task_execution_authorization_revocation_unknown",
                     effectState: "unknown" as const,
                     cleanupConfirmed: false,
                     manualRecoveryRequired: true,
@@ -898,7 +909,7 @@ export async function runProjectRuntimeOperation(
             operationId: attempt.operationId,
             authorityBindingId: attempt.execution.authorityBindingId,
             repositoryRevision: state.repositoryRevision,
-            taskAuthorityCapability,
+            runtimeExecutionCapability,
             taskRequest: attempt.execution.taskRequest,
             repositoryRoot: attempt.execution.repositoryRoot,
             cancellationSignal: input.cancellationSignal,

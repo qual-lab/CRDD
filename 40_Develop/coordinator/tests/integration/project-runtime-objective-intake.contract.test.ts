@@ -27,8 +27,9 @@ import {
 } from "../../src/security/project-runtime-durable-foundation.ts";
 import {
   inspectProjectRuntimeObjectiveRequest,
-  runProjectRuntimeObjective,
+  runProjectRuntimeObjective as runProjectRuntimeObjectiveWithPorts,
 } from "../../src/security/project-runtime-objective-intake.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   type ProjectRuntimeSingleTaskAttemptInput,
@@ -38,6 +39,34 @@ import {
 } from "../../../project-runtime/src/index.ts";
 
 const revision = "a".repeat(40);
+type ObjectiveDependencies = Parameters<
+  typeof runProjectRuntimeObjectiveWithPorts
+>[0];
+type TestObjectiveDependencies = Omit<ObjectiveDependencies, "execution"> &
+  Readonly<{
+    execution: Omit<ObjectiveDependencies["execution"], "authorization">;
+  }>;
+
+function runProjectRuntimeObjective(
+  dependencies: TestObjectiveDependencies,
+  rawRequest: unknown,
+  cancellationSignal: AbortSignal,
+) {
+  return runProjectRuntimeObjectiveWithPorts(
+    {
+      ...dependencies,
+      execution: {
+        ...dependencies.execution,
+        authorization: createProjectRuntimeExecutionAuthorizationAdapter({
+          issueRuntimeCapability: () => Object.freeze({}),
+          revokeRuntimeCapability: () => true,
+        }),
+      },
+    },
+    rawRequest,
+    cancellationSignal,
+  );
+}
 const dockerAcknowledgement = Object.freeze({
   runtimeStateBinding: Object.freeze({
     runtimeStateIdentityHash: "1".repeat(64),
@@ -255,7 +284,6 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
         taskId: "task-a",
         authorityBindingId: "authority-a",
         taskRequest: {},
-        taskAuthorityCapability: {},
         repositoryRoot: workingDirectory,
       },
     ],
@@ -410,7 +438,6 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
           taskId: "task-a",
           authorityBindingId: "authority-a",
           taskRequest: {},
-          taskAuthorityCapability: {},
           repositoryRoot: workingDirectory,
         },
       ],
@@ -644,7 +671,6 @@ test("a scheduled Objective arriving during interactive execution waits without 
         taskId: "task-a",
         authorityBindingId: "authority-a",
         taskRequest: {},
-        taskAuthorityCapability: {},
         repositoryRoot: workingDirectory,
       },
     ],
@@ -721,7 +747,6 @@ test("binding or planner scope failure creates no Project State or Task effect",
         taskId: "task-a",
         authorityBindingId: "authority-a",
         taskRequest: {},
-        taskAuthorityCapability: {},
         repositoryRoot: workingDirectory,
       },
     ],
@@ -911,7 +936,6 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
         taskId: "task-a",
         authorityBindingId: "authority-a",
         taskRequest: {},
-        taskAuthorityCapability: {},
         repositoryRoot: workingDirectory,
       },
     ],
@@ -1227,7 +1251,6 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
         taskId: "task-a",
         authorityBindingId: "authority-a",
         taskRequest: {},
-        taskAuthorityCapability: {},
         repositoryRoot: workingDirectory,
       },
     ],
@@ -1415,7 +1438,6 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
           taskId: "task-a",
           authorityBindingId: "authority-a",
           taskRequest: {},
-          taskAuthorityCapability: {},
           repositoryRoot: workingDirectory,
         },
       ],
@@ -1468,7 +1490,6 @@ for (const interruption of [
           taskId: "task-a",
           authorityBindingId: "authority-a",
           taskRequest: {},
-          taskAuthorityCapability: {},
           repositoryRoot: workingDirectory,
         },
       ],

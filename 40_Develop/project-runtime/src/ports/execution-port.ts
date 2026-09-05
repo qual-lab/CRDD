@@ -1,13 +1,13 @@
 export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT =
   "crdd-coordinator/project-runtime-single-task-adapter" as const;
-export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 1;
+export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 2;
 
 export type ProjectRuntimeSingleTaskAttemptInput = Readonly<{
   attemptId: string;
   operationId: string;
   authorityBindingId: string;
   repositoryRevision: string;
-  taskAuthorityCapability: object;
+  runtimeExecutionCapability: object;
   taskRequest: unknown;
   repositoryRoot: unknown;
   cancellationSignal: AbortSignal;

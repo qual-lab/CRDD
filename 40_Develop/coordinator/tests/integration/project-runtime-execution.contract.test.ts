@@ -21,6 +21,7 @@ import {
   runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts,
 } from "../../src/security/project-runtime-execution.ts";
 import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "../../src/security/project-runtime-single-task-adapter.ts";
 import {
   createProjectRuntimeState,
@@ -32,11 +33,13 @@ const revision = "a".repeat(40);
 
 type BoundExecutionDependencies = Omit<
   Parameters<typeof runProjectRuntimeOperationWithPorts>[0],
-  "persistence" | "clockIdentity" | "processSafety"
+  "persistence" | "clockIdentity" | "processSafety" | "authorization"
 > &
   Readonly<{
     now?: () => Readonly<{ monotonicMs: number; iso: string }>;
-    poisonProcessAfterAuthorityRevocationUnknown?: () => void;
+    poisonProcessAfterExecutionAuthorizationRevocationUnknown?: () => void;
+    issueRuntimeExecutionAuthorization?: () => object | null;
+    revokeRuntimeExecutionAuthorization?: (capability: object) => boolean;
   }>;
 type BoundExecutionInput = Parameters<
   typeof runProjectRuntimeOperationWithPorts
@@ -50,7 +53,9 @@ function runProjectRuntimeOperation(
   const { workingDirectory, repositoryBindingId, ...applicationInput } = input;
   const {
     now,
-    poisonProcessAfterAuthorityRevocationUnknown,
+    poisonProcessAfterExecutionAuthorizationRevocationUnknown,
+    issueRuntimeExecutionAuthorization,
+    revokeRuntimeExecutionAuthorization,
     ...applicationDependencies
   } = dependencies;
   return runProjectRuntimeOperationWithPorts(
@@ -58,12 +63,18 @@ function runProjectRuntimeOperation(
       ...applicationDependencies,
       ...createProjectRuntimeExecutionHostPorts({
         ...(now ? { now } : {}),
-        ...(poisonProcessAfterAuthorityRevocationUnknown
+        ...(poisonProcessAfterExecutionAuthorizationRevocationUnknown
           ? {
               poisonAfterCleanupUnknown:
-                poisonProcessAfterAuthorityRevocationUnknown,
+                poisonProcessAfterExecutionAuthorizationRevocationUnknown,
             }
           : {}),
+      }),
+      authorization: createProjectRuntimeExecutionAuthorizationAdapter({
+        issueRuntimeCapability:
+          issueRuntimeExecutionAuthorization ?? (() => Object.freeze({})),
+        revokeRuntimeCapability:
+          revokeRuntimeExecutionAuthorization ?? (() => true),
       }),
       persistence: createProjectRuntimePersistencePorts(
         workingDirectory,
@@ -141,7 +152,6 @@ function fixture(
       taskId: entry.id,
       authorityBindingId: `authority-${entry.id}`,
       taskRequest: { taskId: entry.id },
-      taskAuthorityCapability: {},
       repositoryRoot: root,
     })),
     cancellationSignal: new AbortController().signal,
@@ -328,16 +338,16 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
   let active = 0;
   let maximumActive = 0;
   let preparedAtFirstEffect: number | null = null;
-  let authoritiesIssued = 0;
-  const observedAuthorities = new Set<object>();
+  let authorizationsIssued = 0;
+  const observedAuthorizations = new Set<object>();
   const outcome = await runProjectRuntimeOperation(
     {
-      issueTaskAuthority: () => {
-        authoritiesIssued += 1;
-        return Object.freeze({ sequence: authoritiesIssued });
+      issueRuntimeExecutionAuthorization: () => {
+        authorizationsIssued += 1;
+        return Object.freeze({ sequence: authorizationsIssued });
       },
       runSingleTaskAttempt: async (attempt) => {
-        observedAuthorities.add(attempt.taskAuthorityCapability);
+        observedAuthorizations.add(attempt.runtimeExecutionCapability);
         if (preparedAtFirstEffect === null) {
           const observed = readProjectRuntimeState(
             root,
@@ -367,8 +377,8 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
   assert.equal(preparedAtFirstEffect, 5);
   assert.equal(maximumActive, 5);
   assert.equal(outcome.completedTaskIds.length, 7);
-  assert.equal(authoritiesIssued, 7);
-  assert.equal(observedAuthorities.size, 7);
+  assert.equal(authorizationsIssued, 7);
+  assert.equal(observedAuthorizations.size, 7);
 });
 
 test("PR-N-03 and PR-Q-01 enforce dependency and conflict reservations across waves", async (t) => {
@@ -668,7 +678,8 @@ test("runtime_process義務は同じTask attemptとoperationにだけ結合す�
   let firstRecoveryId = "";
   const outcome = await runProjectRuntimeOperation(
     {
-      poisonProcessAfterAuthorityRevocationUnknown: () => undefined,
+      poisonProcessAfterExecutionAuthorizationRevocationUnknown: () =>
+        undefined,
       runSingleTaskAttempt: async (attempt) => {
         await attempt.observeStarted?.();
         if ((attempt.taskRequest as { taskId: string }).taskId === "task-a") {
@@ -724,7 +735,7 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
     let poisoned = 0;
     const outcome = await runProjectRuntimeOperation(
       {
-        poisonProcessAfterAuthorityRevocationUnknown: () => {
+        poisonProcessAfterExecutionAuthorizationRevocationUnknown: () => {
           poisoned += 1;
         },
         runSingleTaskAttempt: async (attempt) => {
@@ -747,7 +758,7 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
     let poisoned = 0;
     const outcome = await runProjectRuntimeOperation(
       {
-        poisonProcessAfterAuthorityRevocationUnknown: () => {
+        poisonProcessAfterExecutionAuthorizationRevocationUnknown: () => {
           poisoned += 1;
         },
         runSingleTaskAttempt: async () => {
@@ -895,11 +906,11 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
   const controller = new AbortController();
   controller.abort();
   let effects = 0;
-  let authoritiesIssued = 0;
+  let authorizationsIssued = 0;
   const outcome = await runProjectRuntimeOperation(
     {
-      issueTaskAuthority: () => {
-        authoritiesIssued += 1;
+      issueRuntimeExecutionAuthorization: () => {
+        authorizationsIssued += 1;
         return {};
       },
       runSingleTaskAttempt: async (attempt) => {
@@ -911,7 +922,7 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
   );
   assert.equal(outcome.status, "cancelled", JSON.stringify(outcome));
   assert.equal(effects, 0);
-  assert.equal(authoritiesIssued, 0);
+  assert.equal(authorizationsIssued, 0);
   const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
   assert.equal(queue.status, "completed");
   assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
@@ -921,20 +932,20 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
   );
 });
 
-test("PR-Q-04 revokes a freshly issued unused Authority when cancellation arrives at the issue boundary", async (t) => {
+test("PR-Q-04は実行許可発行直後の取消で未使用Capabilityを失効する", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
   const controller = new AbortController();
-  const authority = {};
+  const runtimeCapability = {};
   let effects = 0;
   let revocations = 0;
   const outcome = await runProjectRuntimeOperation(
     {
-      issueTaskAuthority: () => {
+      issueRuntimeExecutionAuthorization: () => {
         controller.abort();
-        return authority;
+        return runtimeCapability;
       },
-      revokeTaskAuthority: (candidate) => {
-        assert.equal(candidate, authority);
+      revokeRuntimeExecutionAuthorization: (candidate) => {
+        assert.equal(candidate, runtimeCapability);
         revocations += 1;
         return true;
       },
@@ -955,12 +966,12 @@ test("PR-Q-04 revokes a freshly issued unused Authority when cancellation arrive
   assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
 });
 
-test("Authority発行失敗はEffect 0でreplanへ閉じる", async (t) => {
+test("Runtime実行許可の発行失敗はEffect 0でreplanへ閉じる", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
   let effects = 0;
   const outcome = await runProjectRuntimeOperation(
     {
-      issueTaskAuthority: () => null,
+      issueRuntimeExecutionAuthorization: () => null,
       runSingleTaskAttempt: async (attempt) => {
         effects += 1;
         return completed(attempt);
@@ -977,19 +988,19 @@ test("Authority発行失敗はEffect 0でreplanへ閉じる", async (t) => {
   assert.equal(state.value?.tasks[0]?.state, "failed");
 });
 
-test("未使用Authorityの取消結果が不明なら同一Processをpoisonして再起動を要求する", async (t) => {
+test("未使用の実行許可を失効できたか不明なら同一Processの再利用を禁止する", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
   const controller = new AbortController();
   let poisoned = 0;
   let effects = 0;
   const outcome = await runProjectRuntimeOperation(
     {
-      issueTaskAuthority: () => {
+      issueRuntimeExecutionAuthorization: () => {
         controller.abort();
         return {};
       },
-      revokeTaskAuthority: () => false,
-      poisonProcessAfterAuthorityRevocationUnknown: () => {
+      revokeRuntimeExecutionAuthorization: () => false,
+      poisonProcessAfterExecutionAuthorizationRevocationUnknown: () => {
         poisoned += 1;
       },
       runSingleTaskAttempt: async (attempt) => {

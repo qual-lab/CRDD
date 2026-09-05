@@ -300,7 +300,6 @@ function inspectTaskExecutions(
         "taskId",
         "authorityBindingId",
         "taskRequest",
-        "taskAuthorityCapability",
         "repositoryRoot",
       ] as const),
     );
@@ -308,9 +307,7 @@ function inspectTaskExecutions(
       !execution ||
       !validId(execution.taskId) ||
       !activeTaskIds.includes(execution.taskId) ||
-      !validId(execution.authorityBindingId) ||
-      !execution.taskAuthorityCapability ||
-      typeof execution.taskAuthorityCapability !== "object"
+      !validId(execution.authorityBindingId)
     )
       return null;
     executions.push(Object.freeze(execution as ProjectRuntimeTaskExecution));

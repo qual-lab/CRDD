@@ -16,7 +16,7 @@ test("Execution Portは既存Single Task結果契約を意味変更せず所有�
     PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
     "crdd-coordinator/project-runtime-single-task-adapter",
   );
-  assert.equal(PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 1);
+  assert.equal(PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 2);
 });
 
 function objectiveRequest() {

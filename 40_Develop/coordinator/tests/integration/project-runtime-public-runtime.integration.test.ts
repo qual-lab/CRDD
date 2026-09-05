@@ -61,7 +61,7 @@ test("development composition uses the explicitly supplied candidate integration
   let shouldThrowFromPublicationObserver = false;
   const publicationObservations: object[] = [];
   const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
-    issueTaskAuthority: () => Object.freeze({}),
+    issueRuntimeExecutionAuthorization: () => Object.freeze({}),
     startTask: () => {
       taskStarts += 1;
       return Object.freeze({
