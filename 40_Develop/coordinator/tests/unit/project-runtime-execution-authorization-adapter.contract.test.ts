@@ -51,15 +51,15 @@ test("不正な相関・発行失敗・失効不明は閉じた結果となり�
       throw new Error("hostile getter");
     },
   });
-  assert.equal(
-    createProjectRuntimeExecutionAuthorizationAdapter({
-      issueRuntimeCapability: () => {
-        issueCount += 1;
-        return Object.freeze({});
-      },
-    }).issue(hostile).manualRecoveryRequired,
-    false,
-  );
+  const hostileResult = createProjectRuntimeExecutionAuthorizationAdapter({
+    issueRuntimeCapability: () => {
+      issueCount += 1;
+      return Object.freeze({});
+    },
+  }).issue(hostile);
+  assert.equal(hostileResult.status, "blocked");
+  if (hostileResult.status !== "blocked") throw new Error("test setup");
+  assert.equal(hostileResult.manualRecoveryRequired, false);
   assert.equal(issueCount, 0);
 
   const throwing = createProjectRuntimeExecutionAuthorizationAdapter({
@@ -80,9 +80,12 @@ test("不正な相関・発行失敗・失効不明は閉じた結果となり�
   const absent = createProjectRuntimeExecutionAuthorizationAdapter({
     issueRuntimeCapability: () => null,
   });
-  assert.equal(absent.issue(request).manualRecoveryRequired, false);
-  assert.equal(
-    absent.revokeUnused(Object.freeze({})).manualRecoveryRequired,
-    true,
-  );
+  const absentIssue = absent.issue(request);
+  assert.equal(absentIssue.status, "blocked");
+  if (absentIssue.status !== "blocked") throw new Error("test setup");
+  assert.equal(absentIssue.manualRecoveryRequired, false);
+  const absentRevoke = absent.revokeUnused(Object.freeze({}));
+  assert.equal(absentRevoke.status, "blocked");
+  if (absentRevoke.status !== "blocked") throw new Error("test setup");
+  assert.equal(absentRevoke.manualRecoveryRequired, true);
 });

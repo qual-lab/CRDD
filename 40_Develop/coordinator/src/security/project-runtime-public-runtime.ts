@@ -40,7 +40,7 @@ import {
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "./project-runtime-windows-decision-store.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "./project-runtime-single-task-adapter.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "./project-runtime-execution-authorization-adapter.ts";
-import type { ProjectRuntimeExecutionPublicationObservation } from "./project-runtime-execution.ts";
+import type { ProjectRuntimeExecutionPublicationObservation } from "../../../project-runtime/src/index.ts";
 import {
   observeProjectRuntimePlatformFamily,
   createProjectRuntimeWindowsPlatformAdapter,

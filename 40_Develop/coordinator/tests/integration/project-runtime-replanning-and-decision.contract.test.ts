@@ -13,7 +13,7 @@ import {
   readProjectRuntimeState,
   writeProjectRuntimeState,
 } from "../../src/security/project-runtime-durable-foundation.ts";
-import { runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts } from "../../src/security/project-runtime-execution.ts";
+import { runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts } from "../../../project-runtime/src/index.ts";
 import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import {

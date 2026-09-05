@@ -21,7 +21,7 @@ import {
   runProjectRuntimeOperation,
   type ProjectRuntimeExecutionDependencies,
   type ProjectRuntimeTaskExecution,
-} from "./project-runtime-execution.ts";
+} from "../../../project-runtime/src/index.ts";
 import { createProjectRuntimeExecutionHostPorts } from "./project-runtime-execution-host-adapter.ts";
 import {
   createProjectRuntimeState,

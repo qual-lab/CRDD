@@ -10,16 +10,20 @@ import {
   settleProjectTaskBeforeEffect,
   type ProjectTaskRecoveryKind,
   type ProjectRuntimeState,
-  type ProjectRuntimeSingleTaskAttemptInput,
-  type ProjectRuntimeSingleTaskResult,
-  type ProjectRuntimeExecutionObservationPort,
-  type ProjectRuntimeExecutionObservationPublication,
-  type ProjectRuntimeExecutionAuthorizationPort,
-  type ProjectRuntimeClockIdentityPort,
-  type ProjectRuntimePersistencePorts,
-  type ProjectRuntimeProcessSafetyPort,
-  type ProjectRuntimeTaskAttemptObservation,
-} from "../../../project-runtime/src/index.ts";
+} from "../core/project-runtime-state.ts";
+import type { ProjectRuntimeClockIdentityPort } from "../ports/clock-identity-port.ts";
+import type { ProjectRuntimeExecutionAuthorizationPort } from "../ports/execution-authorization-port.ts";
+import type {
+  ProjectRuntimeExecutionObservationPort,
+  ProjectRuntimeExecutionObservationPublication,
+  ProjectRuntimeTaskAttemptObservation,
+} from "../ports/execution-observation-port.ts";
+import type {
+  ProjectRuntimeSingleTaskAttemptInput,
+  ProjectRuntimeSingleTaskResult,
+} from "../ports/execution-port.ts";
+import type { ProjectRuntimePersistencePorts } from "../ports/state-port.ts";
+import type { ProjectRuntimeProcessSafetyPort } from "../ports/process-safety-port.ts";
 export const PROJECT_RUNTIME_EXECUTION_CONTRACT =
   "crdd-coordinator/project-runtime-execution/v1" as const;
 
@@ -840,10 +844,9 @@ export async function runProjectRuntimeOperation(
               recoveryObligations: Object.freeze([]),
             });
           if (input.cancellationSignal.aborted) {
-            const revocation =
-              dependencies.authorization.revokeUnused(
-                runtimeExecutionCapability,
-              );
+            const revocation = dependencies.authorization.revokeUnused(
+              runtimeExecutionCapability,
+            );
             const isRevoked = revocation.status === "completed";
             return isRevoked === true
               ? Object.freeze({

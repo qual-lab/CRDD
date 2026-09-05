@@ -5,11 +5,10 @@ import type {
   ProjectRuntimeExecutionAuthorizationRequest,
 } from "../../../project-runtime/src/index.ts";
 
-export type ProjectRuntimeExecutionAuthorizationAdapterDependencies =
-  Readonly<{
-    issueRuntimeCapability: () => object | null;
-    revokeRuntimeCapability?: (capability: object) => boolean;
-  }>;
+export type ProjectRuntimeExecutionAuthorizationAdapterDependencies = Readonly<{
+  issueRuntimeCapability: () => object | null;
+  revokeRuntimeCapability?: (capability: object) => boolean;
+}>;
 
 function isOpaqueCapability(value: unknown): value is object {
   return (

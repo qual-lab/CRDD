@@ -19,7 +19,7 @@ import {
 import {
   describeProjectRuntimeExecutionContract,
   runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts,
-} from "../../src/security/project-runtime-execution.ts";
+} from "../../../project-runtime/src/index.ts";
 import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "../../src/security/project-runtime-single-task-adapter.ts";
