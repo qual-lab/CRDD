@@ -14,6 +14,7 @@ v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シ�
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
+| v0.20 実行知 | Ready for Release Handoff | 固定改訂版`3aea329`で決定論的回帰と独立再レビューを完了し、Critical／Major／Moderate／Minorは0件。`40_Develop`配下のREADMEは0件で、利用・開発手順をWorkflowへ移管し、再作成をCheckerで拒否する。[検証結果](Verification_Results/2026-09-05_Execution_Intelligence_Verification.md)を参照。実Provider、Linux／macOS、共有Store、性能・長時間試験、品質受入、運用・事業成果は未評価または未接続であり、本状態から成立を推定しない |
 | v0.19 Project Runtime | Release Gate成立 | 署名済みRecovery Matrix、4経路4/4、認証済み公開MCP Clientからの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recovery、耐久Recovery段階、fresh再入場および最終資源不存在を確認した。[最終署名E2E](Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md)と[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md#8-現在状態と次のgate)を参照。最終独立監査はCritical／Major／Minor 0件。Linux／macOS実環境、突然の電源断、任意規模・長時間負荷、由来不明退避物の清掃Authorityは未評価または後続対象 |
 | v0.18.1 Coordinator採用入口 | 公開済み。現行署名Identityの採用形態E2E、4経路4/4、固定Recovery Matrix 7シナリオ完了。検証済みDocker Desktop再起動後のTask Recovery公開引数経路は到達不能 | [現行Identityと検証結果](Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)、公式tag `v0.18.1`／Commit `14872bd19c3569a4c06752545a6057b2b4aaf3ab`。過去の4/4・7シナリオは有効だが、限定的な公開Recovery不具合と区別する。現行Sourceの入口是正は、到達可能な新しい署名固定版まで公開Baselineへ適用されない |
 | 移行前の正式署名E2E | 固定版に限り完了 | [0c3e6d2の結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)。4経路4/4、復旧7/7、cleanup確認済み |
