@@ -5,10 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  buildRegressionStagePlan,
   createRegressionStageExecutor,
   collectChangedPathsFromGit,
   executeRegressionStages,
-  regressionStageOrder,
 } from "../../regression-execution.ts";
 
 const checkerRoot = path.resolve(import.meta.dirname, "../..");
@@ -137,10 +137,17 @@ test("Windows実Process試験は専用実行Profileを計画へ明示する", ()
   assert.equal(result.stderr, "");
   const plan = JSON.parse(result.stdout) as {
     requiredExecutionProfiles?: unknown;
+    stages?: Array<{ stage?: string; selected?: string[] }>;
   };
   assert.deepEqual(plan.requiredExecutionProfiles, [
     "restricted_process",
     "windows_process_control",
+  ]);
+  const windowsStage = plan.stages?.find(
+    (entry) => entry.stage === "windows_process_control",
+  );
+  assert.deepEqual(windowsStage?.selected, [
+    "40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts",
   ]);
 });
 
@@ -191,25 +198,76 @@ test("Tool配下MarkdownもCheckerとRepository静的検査へ接続する", () 
   }
 });
 
-test("回帰stageは静的確認からSTへ順序実行する", () => {
-  const observedStages: string[] = [];
-  const results = executeRegressionStages(regressionStageOrder, (stage) => {
-    observedStages.push(stage);
-    return 0;
+const selectedRegressionEntries = [
+  { owner: "checker", level: "unit", path: "checker.unit.test.ts" },
+  {
+    owner: "coordinator",
+    level: "integration",
+    path: "coordinator.integration.test.ts",
+    executionProfiles: ["restricted_process", "windows_process_control"],
+  },
+  { owner: "checker", level: "system", path: "checker.system.test.ts" },
+] as const;
+
+function executeInjectedPlan(failedStep: string | null = null) {
+  const observedSteps: string[] = [];
+  const plans = buildRegressionStagePlan(selectedRegressionEntries, [
+    "40_Develop/coordinator/src/coordinator.ts",
+  ]);
+  const executeStage = createRegressionStageExecutor({
+    runStatic: () => {
+      observedSteps.push("static");
+      return failedStep === "static" ? 1 : 0;
+    },
+    runLevel: (stage) => {
+      observedSteps.push(stage);
+      return failedStep === stage ? 1 : 0;
+    },
+    runWindowsProcess: () => {
+      observedSteps.push("windows_process_control");
+      return failedStep === "windows_process_control" ? 1 : 0;
+    },
   });
-  assert.deepEqual(observedStages, ["static", "unit", "integration", "system"]);
+  const results = executeRegressionStages(plans, executeStage);
+  return { observedSteps, plans, results };
+}
+
+test("実配線は表示した同じ計画を静的確認からWindows GateとSTまで順序実行する", () => {
+  const { observedSteps, plans, results } = executeInjectedPlan();
+  assert.deepEqual(
+    plans.map((entry) => entry.stage),
+    observedSteps,
+  );
+  assert.deepEqual(observedSteps, [
+    "static",
+    "unit",
+    "integration",
+    "windows_process_control",
+    "system",
+  ]);
   assert.ok(results.every((entry) => entry.status === "completed"));
+  assert.deepEqual(
+    results.map((result) => ({
+      stage: result.stage,
+      owners: result.owners,
+      selected: result.selected,
+      selectionReason: result.selectionReason,
+    })),
+    plans,
+  );
 });
 
-test("前段失敗は後段を未実行にする", () => {
-  for (const failedStage of ["static", "unit", "integration"] as const) {
-    const observedStages: string[] = [];
-    const results = executeRegressionStages(regressionStageOrder, (stage) => {
-      observedStages.push(stage);
-      return stage === failedStage ? 1 : 0;
-    });
-    assert.equal(observedStages.at(-1), failedStage);
-    const failureIndex = regressionStageOrder.indexOf(failedStage);
+test("同じ計画の各工程失敗は後続levelとWindows Gateを開始しない", () => {
+  for (const failedStep of [
+    "static",
+    "unit",
+    "integration",
+    "windows_process_control",
+    "system",
+  ]) {
+    const { observedSteps, plans, results } = executeInjectedPlan(failedStep);
+    assert.equal(observedSteps.at(-1), failedStep);
+    const failureIndex = plans.findIndex((entry) => entry.stage === failedStep);
     assert.ok(
       results
         .slice(failureIndex + 1)
@@ -218,59 +276,41 @@ test("前段失敗は後段を未実行にする", () => {
   }
 });
 
-test("実配線はWindows Gateを結合試験後かつ総合試験前に一度だけ実行する", () => {
-  const observedSteps: string[] = [];
-  const executeStage = createRegressionStageExecutor({
-    windowsProcessControlRequired: true,
-    runStatic: () => {
-      observedSteps.push("static");
-      return 0;
-    },
-    runLevel: (stage) => {
-      observedSteps.push(stage);
-      return 0;
-    },
-    runWindowsProcess: () => {
-      observedSteps.push("windows_process_control");
-      return 0;
-    },
-  });
-  executeRegressionStages(regressionStageOrder, executeStage);
-  assert.deepEqual(observedSteps, [
-    "static",
-    "unit",
-    "integration",
-    "windows_process_control",
-    "system",
+test("Windows Gate不要時は表示計画にも実行記録にも現れない", () => {
+  const selectedWithoutWindows = selectedRegressionEntries.map((entry) => ({
+    ...entry,
+    executionProfiles: undefined,
+  }));
+  const plans = buildRegressionStagePlan(selectedWithoutWindows, [
+    "40_Develop/checker/src/check.ts",
   ]);
-});
-
-test("実配線の各失敗は後続levelとWindows Gateを開始しない", () => {
-  for (const failedStep of [
-    "static",
-    "unit",
-    "integration",
-    "windows_process_control",
-  ]) {
-    const observedSteps: string[] = [];
-    const executeStage = createRegressionStageExecutor({
-      windowsProcessControlRequired: true,
+  const observedSteps: string[] = [];
+  const results = executeRegressionStages(
+    plans,
+    createRegressionStageExecutor({
       runStatic: () => {
         observedSteps.push("static");
-        return failedStep === "static" ? 1 : 0;
+        return 0;
       },
       runLevel: (stage) => {
         observedSteps.push(stage);
-        return failedStep === stage ? 1 : 0;
+        return 0;
       },
       runWindowsProcess: () => {
         observedSteps.push("windows_process_control");
-        return failedStep === "windows_process_control" ? 1 : 0;
+        return 0;
       },
-    });
-    executeRegressionStages(regressionStageOrder, executeStage);
-    assert.equal(observedSteps.at(-1), failedStep);
-  }
+    }),
+  );
+  assert.deepEqual(
+    plans.map((entry) => entry.stage),
+    ["static", "unit", "integration", "system"],
+  );
+  assert.deepEqual(
+    observedSteps,
+    plans.map((entry) => entry.stage),
+  );
+  assert.ok(results.every((entry) => entry.status === "completed"));
 });
 
 test("明示変更PathはRepository内の正規化相対Pathだけを受理する", () => {

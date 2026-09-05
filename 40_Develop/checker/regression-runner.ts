@@ -7,7 +7,6 @@ import {
   createRegressionStageExecutor,
   executeRegressionStages,
   normalizeExplicitChangedPaths,
-  regressionStageOrder,
 } from "./regression-execution.ts";
 import {
   inspectResourceIntensiveTestAuthority,
@@ -317,6 +316,7 @@ try {
 
   const isResourceIntensive =
     levels.has("performance") || levels.has("longevity");
+  const stagePlans = buildRegressionStagePlan(selectedEntries, changedPaths);
   const plan = {
     contract: "crdd/regression-test-plan",
     contractRevision: 2,
@@ -327,7 +327,7 @@ try {
     changedPaths,
     levels: [...levels],
     selected: selectedEntries.map((entry) => entry.path),
-    stages: buildRegressionStagePlan(selectedEntries, changedPaths),
+    stages: stagePlans,
     requiredExecutionProfiles: [
       "restricted_process",
       ...(isWindowsProcessControlRequired ? ["windows_process_control"] : []),
@@ -348,16 +348,12 @@ try {
   if (process.argv.includes("--plan") || isResourceIntensive) process.exit(0);
 
   const executeStage = createRegressionStageExecutor({
-    windowsProcessControlRequired: isWindowsProcessControlRequired,
     runStatic: () => runStaticStage(selectedEntries, changedPaths),
     runLevel: (stage) =>
       runLevelStage(stage, selectedEntries, isWindowsProcessControlRequired),
     runWindowsProcess: () => runWindowsProcessStage(selectedEntries),
   });
-  const stageResults = executeRegressionStages(
-    regressionStageOrder,
-    executeStage,
-  );
+  const stageResults = executeRegressionStages(stagePlans, executeStage);
   const failedStage = stageResults.find((entry) => entry.status === "failed");
   writeJson({
     status: failedStage === undefined ? "completed" : "blocked",

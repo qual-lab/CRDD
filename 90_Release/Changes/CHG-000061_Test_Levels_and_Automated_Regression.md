@@ -120,7 +120,7 @@ PT／LTの未実行が監査またはReleaseを停止するのは、現在の要
 
 是正では、試験カタログrevision 3の閉Schema、所有Tool単位の保守的閉包、静的→UT→IT→STの停止順、Commit・index・worktree・未追跡を含むGit観測、およびPT／LTの全面的な計画専用境界を同時に固定した。各合意事項を正常・準正常・異常の契約試験へ全数対応させた。Focused test 28件、Checker 288件、Coordinator制限Process用1683件、Windows実Process Gate 7件、Platform AccessのRust unit 19件・実子確認1件・CLI結合1件、型・Lint・Format、およびRepository Checker（Markdown 415件、local link 2907件、error 0、warning 0）が成功した。
 
-独立再レビューで残った指摘に対しては、文書の配置に依存しないChecker選択、段階計画から実行処理への実配線と失敗時の後続停止、Windows実Process試験3ファイルと実行Profileの完全一致、明示変更PathのRepository相対境界、および公開field名の正規表記を一括して閉じた。実配線は依存注入した実行記録により`static → unit → integration → windows_process_control → system`を確認し、各段階の失敗が後続を起動しないことを反証した。集中契約試験26件、命名契約7件、Checker全293件、型・Lint・Format、およびRepository Checker（Markdown 415件、local link 2907件、error 0、warning 0）が成功した。独立再レビューで解消判定するまで、この自己確認を最終`Pass`へ読み替えない。
+独立再レビューで残った指摘に対しては、文書の配置に依存しないChecker選択、段階計画から実行処理への実配線と失敗時の後続停止、Windows実Process試験3ファイルと実行Profileの完全一致、明示変更PathのRepository相対境界、および公開field名の正規表記を一括して閉じた。再レビューで、表示用計画と実行順序を別々に生成できる余地が残っていることを確認したため、Windows実Process確認を含む純粋な段階計画を唯一の実行入力へ変更した。同じ計画を依存注入した実行処理へ渡し、`static → unit → integration → windows_process_control → system`の表示と実行の一致、Windows実Process確認が不要な場合の非出現、および各段階の失敗後に後続を起動しないことを反証した。集中契約試験25件、命名契約7件、Checker全292件、型・Lint・Format、およびRepository Checker（Markdown 415件、local link 2907件、error 0、warning 0）が成功した。独立再レビューで解消判定するまで、この自己確認を最終`Pass`へ読み替えない。
 
 ## 8. 完成条件
 

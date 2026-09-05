@@ -8,8 +8,14 @@ export const regressionStageOrder = [
 ] as const;
 
 export type RegressionStage = (typeof regressionStageOrder)[number];
+export type RegressionExecutionStep =
+  | RegressionStage
+  | "windows_process_control";
 export type RegressionStageResult = Readonly<{
-  stage: RegressionStage;
+  stage: RegressionExecutionStep;
+  owners: readonly string[];
+  selected: readonly string[];
+  selectionReason: string;
   status: "completed" | "failed" | "not_run_due_to_prior_stage";
   exitCode: number | null;
 }>;
@@ -18,10 +24,11 @@ export type RegressionPlanEntry = Readonly<{
   owner: string;
   level: string;
   path: string;
+  executionProfiles?: readonly string[];
 }>;
 
 export type RegressionStagePlan = Readonly<{
-  stage: RegressionStage;
+  stage: RegressionExecutionStep;
   owners: readonly string[];
   selected: readonly string[];
   selectionReason: string;
@@ -34,7 +41,7 @@ export function buildRegressionStagePlan(
   const selectedOwners = [
     ...new Set(selectedEntries.map((entry) => entry.owner)),
   ].sort();
-  return regressionStageOrder.map((stage) => ({
+  const levelPlans = regressionStageOrder.map((stage) => ({
     stage,
     owners:
       stage === "static"
@@ -59,10 +66,28 @@ export function buildRegressionStagePlan(
           : "owner_static_checks"
         : "conservative_owner_closure_or_direct_test_change",
   }));
+  const windowsEntries = selectedEntries.filter(
+    (entry) =>
+      entry.level === "integration" &&
+      entry.executionProfiles?.includes("windows_process_control"),
+  );
+  if (windowsEntries.length === 0) return levelPlans;
+  const integrationIndex = levelPlans.findIndex(
+    (entry) => entry.stage === "integration",
+  );
+  return [
+    ...levelPlans.slice(0, integrationIndex + 1),
+    {
+      stage: "windows_process_control",
+      owners: [...new Set(windowsEntries.map((entry) => entry.owner))].sort(),
+      selected: windowsEntries.map((entry) => entry.path),
+      selectionReason: "required_execution_profile",
+    },
+    ...levelPlans.slice(integrationIndex + 1),
+  ];
 }
 
 export type RegressionStageExecutorDependencies = Readonly<{
-  windowsProcessControlRequired: boolean;
   runStatic: () => number;
   runLevel: (stage: Exclude<RegressionStage, "static">) => number;
   runWindowsProcess: () => number;
@@ -70,35 +95,33 @@ export type RegressionStageExecutorDependencies = Readonly<{
 
 export function createRegressionStageExecutor(
   dependencies: RegressionStageExecutorDependencies,
-): (stage: RegressionStage) => number {
-  return (stage) => {
-    if (stage === "static") return dependencies.runStatic();
-    const levelStatus = dependencies.runLevel(stage);
-    if (levelStatus !== 0) return levelStatus;
-    if (stage === "integration" && dependencies.windowsProcessControlRequired)
+): (plan: RegressionStagePlan) => number {
+  return (plan) => {
+    if (plan.stage === "static") return dependencies.runStatic();
+    if (plan.stage === "windows_process_control")
       return dependencies.runWindowsProcess();
-    return 0;
+    return dependencies.runLevel(plan.stage);
   };
 }
 
 export function executeRegressionStages(
-  stages: readonly RegressionStage[],
-  executeStage: (stage: RegressionStage) => number,
+  plans: readonly RegressionStagePlan[],
+  executeStage: (plan: RegressionStagePlan) => number,
 ): readonly RegressionStageResult[] {
   const results: RegressionStageResult[] = [];
   let priorStageFailed = false;
-  for (const stage of stages) {
+  for (const plan of plans) {
     if (priorStageFailed) {
       results.push({
-        stage,
+        ...plan,
         status: "not_run_due_to_prior_stage",
         exitCode: null,
       });
       continue;
     }
-    const exitCode = executeStage(stage);
+    const exitCode = executeStage(plan);
     const status = exitCode === 0 ? "completed" : "failed";
-    results.push({ stage, status, exitCode });
+    results.push({ ...plan, status, exitCode });
     if (exitCode !== 0) priorStageFailed = true;
   }
   return results;
