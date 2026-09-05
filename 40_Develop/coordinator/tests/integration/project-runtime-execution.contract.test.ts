@@ -965,3 +965,35 @@ test("contract remains a partial Project Runtime capability", () => {
     upperProjectRuntimeCapabilityComplete: false,
   });
 });
+
+test("Task試行の終了を非Authorityの実行Eventとして一度記録する", async (t) => {
+  const { input } = fixture(t, [task("task-a")]);
+  const events: unknown[] = [];
+  let clock = 0;
+  const outcome = await runProjectRuntimeOperation(
+    {
+      runSingleTaskAttempt: completed,
+      recordExecutionEvent: (event) => events.push(event),
+      now: () => ({
+        monotonicMs: clock++ * 25,
+        iso: "2026-09-05T00:00:01.000Z",
+      }),
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed");
+  assert.equal(events.length, 1);
+  const event = events[0] as {
+    identity: { objectiveId: string; taskId: string };
+    outcome: { status: string };
+    execution: { durationMs: { state: string; value: number } };
+  };
+  assert.equal(event.identity.objectiveId, "objective-a");
+  assert.equal(event.identity.taskId, "task-a");
+  assert.equal(event.outcome.status, "completed");
+  assert.deepEqual(event.execution.durationMs, {
+    state: "observed",
+    value: 25,
+    source: "project_runtime_monotonic_clock",
+  });
+});

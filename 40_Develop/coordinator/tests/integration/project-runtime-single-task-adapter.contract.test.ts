@@ -120,6 +120,20 @@ test("正常完了はattemptと固定Revisionへ結合した閉結果で返る",
   assert.equal(startArguments[1], "C:\\repository");
 });
 
+test("実行元が返した実効Executor Providerだけを閉結果へ保持する", async () => {
+  const { dependencies } = harness({
+    completion: Promise.resolve(
+      completionRecord({ executorProvider: "claude" }),
+    ),
+  });
+  const attempt = await runProjectRuntimeSingleTaskAttempt(
+    dependencies,
+    validInput(),
+  );
+  assert.equal(attempt.status, "completed");
+  assert.equal(attempt.executorProvider, "claude");
+});
+
 test("入力不正はTask Effect 0の入力拒否として閉じる", async () => {
   const { dependencies, startCalls } = harness();
   const invalidInputs = [
@@ -278,6 +292,7 @@ test("完了結果の観測不能・形不一致は成功へ補正せずfail clo
       completionRecord({ status: "completed", cleanupConfirmed: false }),
     ),
     Promise.resolve(completionRecord({ dockerRecoveryIds: "not-an-array" })),
+    Promise.resolve(completionRecord({ executorProvider: "unknown" })),
     // Accessor properties may return a validated value first and a different
     // value later; observation must reject them outright.
     Promise.resolve(getterSwappedReason),

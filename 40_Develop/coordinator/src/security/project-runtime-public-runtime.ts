@@ -43,6 +43,7 @@ import {
 } from "./project-runtime-windows-platform-adapter.ts";
 import { inspectRepositoryIdentityCandidate } from "./repository-operation-runtime.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
+import { recordProjectRuntimeExecutionEvent } from "./execution-intelligence-adapter.ts";
 
 export const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
   "crdd-coordinator/project-runtime-public-runtime/v1" as const;
@@ -380,6 +381,8 @@ async function executeProjectRuntimePublicObjective(
             },
             input,
           ),
+        recordExecutionEvent: (event) =>
+          recordProjectRuntimeExecutionEvent(repositoryRoot, event),
       },
     },
     request,

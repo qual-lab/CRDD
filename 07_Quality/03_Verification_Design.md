@@ -247,6 +247,24 @@ MCP投影は列挙値と件数型だけでなく、Milestone状態、Objective�
 
 Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に加え、現在Runtime Rootのidentity・protection・local user・bindingの4 hashとReceiptを照合する。別Root、改変、Receiptと確認済みTombstoneの両方がない状態を成功へ畳まず、Tombstoneの作成・readback後だけReceiptを除去し、Project側の`acknowledged` readbackとTombstone除去まで終えた同じBindingの再入場だけを既処理として扱う。Runtime内部のReceipt identityはSHA-256ではなく、committed pairを指す非空・256文字以下の不透明なfile identityとして検証し、Project側の拡張確認情報から内部回収契約へ渡すfieldはexactな3項目へ再構成する。
 
+<a id="execution-intelligence-verification"></a>
+
+## 実行知の検証設計
+
+実行知は[実行知のアーキテクチャ](../06_Architecture/execution-intelligence/01_Architecture.md)に従い、共通Event、利用側Adapter、保存、集約、改善候補および清掃を別々に確認する。
+
+| ID | 試験レベル | 入力・変化 | 期待する主な観測 |
+|---|---|---|---|
+| EI-UT-N-01 | 単体 | 正常終了したTask Attemptの共通入力 | 仕事Identity、Role、Provider、結果、所要時間をProvider／Runtime非依存の閉Eventへ変換できる |
+| EI-UT-Q-01 | 単体 | Provider等の一部指標を取得できない | 0へ補正せず観測件数と値の集約を分け、品質はTask終了時点で非該当となる |
+| EI-UT-A-01 | 単体 | 未知field、不正Event、Raw出力相当field | Eventと集約を拒否し、未知要素を黙って除外しない |
+| EI-IT-N-01 | 結合 | Repository-local Storeへの初回記録と同一byte再送 | `.crdd/execution/events/`へ一つだけ不変保存し、再送は冪等となる |
+| EI-IT-Q-01 | 結合 | exact Hash、未解決参照0、耐久Evidence IDを持つ清掃 | 指定Eventだけを削除し、終了後の不存在を確認する |
+| EI-IT-A-01 | 結合 | 同一Event IDの異内容、破損、未解決参照、Hash不一致 | 自動修復・推測・一括削除をせずEffect 0で停止する |
+| EI-IT-N-02 | 結合 | 公開Runtime構成からProject Runtimeが一つのTask Attemptを実行 | Coordinator AdapterがObjectiveを含むexact仕事Identityと検証済みTask結果を共通Eventへ変換し、検証済みRepository RootのStoreから再読取りできる |
+
+実Provider、Token／費用、人間の実作業時間、品質受入、Viewer、運用成果および事業成果は、本変更の自動回帰では未評価である。値が取得できないことを試験失敗へせず、取得済みまたは完成済みとも表示しない。性能試験・長時間試験は本変更の通常Gateではなく、人間が対象と上限を明示しない限り実行しない。
+
 <a id="reasoning-context-verification"></a>
 
 ## 推論コンテキストの検証設計

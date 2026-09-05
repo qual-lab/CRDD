@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { performance } from "node:perf_hooks";
 import { types as utilTypes } from "node:util";
 
 import {
@@ -29,6 +30,10 @@ import {
   createRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../core/runtime-process-safety-state.ts";
+import {
+  createProjectRuntimeTaskAttemptEvent,
+  type ExecutionIntelligenceEvent,
+} from "./execution-intelligence-adapter.ts";
 
 export const PROJECT_RUNTIME_EXECUTION_CONTRACT =
   "crdd-coordinator/project-runtime-execution/v1" as const;
@@ -48,6 +53,10 @@ export type ProjectRuntimeExecutionDependencies = Readonly<{
   runSingleTaskAttempt: (
     input: ProjectRuntimeSingleTaskAttemptInput,
   ) => Promise<ProjectRuntimeSingleTaskResult>;
+  recordExecutionEvent?: (
+    event: ExecutionIntelligenceEvent,
+  ) => unknown | Promise<unknown>;
+  now?: () => Readonly<{ monotonicMs: number; iso: string }>;
 }>;
 
 export type ProjectRuntimeExecutionResult = Readonly<{
@@ -124,32 +133,25 @@ function validSingleTaskResult(
       "repositoryRevision",
       "status",
     ].sort();
-    const expectedTypedRecoveryValues = [
+    const expectedActualValues = [
       ...expectedValues,
-      "recoveryObligations",
+      ...(Object.hasOwn(value, "recoveryObligations")
+        ? ["recoveryObligations"]
+        : []),
+      ...(Object.hasOwn(value, "executorProvider") ? ["executorProvider"] : []),
     ].sort();
     const keys = Reflect.ownKeys(value);
     if (
-      (keys.length !== expectedValues.length &&
-        keys.length !== expectedTypedRecoveryValues.length) ||
+      keys.length !== expectedActualValues.length ||
       keys.some((key) => typeof key !== "string") ||
       ![...(keys as string[])]
         .sort()
-        .every(
-          (key, index) =>
-            key ===
-            (keys.length === expectedValues.length
-              ? expectedValues[index]
-              : expectedTypedRecoveryValues[index]),
-        )
+        .every((key, index) => key === expectedActualValues[index])
     )
       return false;
     const descriptors = Object.getOwnPropertyDescriptors(value);
     if (
-      (keys.length === expectedValues.length
-        ? expectedValues
-        : expectedTypedRecoveryValues
-      ).some(
+      expectedActualValues.some(
         (key) =>
           !descriptors[key] ||
           !("value" in descriptors[key]) ||
@@ -188,6 +190,12 @@ function validSingleTaskResult(
           key !== "length" &&
           (typeof key !== "string" || !/^(0|[1-9][0-9]*)$/u.test(key)),
       )
+    )
+      return false;
+    if (
+      record.executorProvider !== undefined &&
+      record.executorProvider !== "codex" &&
+      record.executorProvider !== "claude"
     )
       return false;
     for (let index = 0; index < record.recoveryIds.length; index += 1) {
@@ -809,8 +817,14 @@ export async function runProjectRuntimeOperation(
       string,
       Readonly<{ attemptId: string; operationId: string }>
     >();
+    const attemptStartedAt = new Map<string, number>();
     const outcomes = await Promise.all(
       attempts.map(async (attempt) => {
+        const startedAt = dependencies.now?.() ?? {
+          monotonicMs: performance.now(),
+          iso: new Date().toISOString(),
+        };
+        attemptStartedAt.set(attempt.attemptId, startedAt.monotonicMs);
         try {
           if (input.cancellationSignal.aborted)
             return Object.freeze({
@@ -957,6 +971,54 @@ export async function runProjectRuntimeOperation(
       )
         ? outcome
         : null;
+      const taskDefinition = state.tasks.find(
+        (task) => task.definition.id === attempt.taskId,
+      )?.definition;
+      const endedAt = dependencies.now?.() ?? {
+        monotonicMs: performance.now(),
+        iso: new Date().toISOString(),
+      };
+      if (taskDefinition) {
+        const event = createProjectRuntimeTaskAttemptEvent({
+          occurredAt: endedAt.iso,
+          startedAtMs:
+            attemptStartedAt.get(attempt.attemptId) ?? endedAt.monotonicMs,
+          endedAtMs: endedAt.monotonicMs,
+          identity: {
+            projectId: input.projectId,
+            milestoneId: input.milestoneId,
+            objectiveId: taskDefinition.objectiveId,
+            taskId: attempt.taskId,
+            attemptId: attempt.attemptId,
+            operationId: attempt.operationId,
+          },
+          outcome: validatedOutcome
+            ? {
+                status: validatedOutcome.status,
+                reason: validatedOutcome.reason,
+                effectState: validatedOutcome.effectState,
+                cleanupConfirmed: validatedOutcome.cleanupConfirmed,
+                manualRecoveryRequired: validatedOutcome.manualRecoveryRequired,
+                processRestartRequired: validatedOutcome.processRestartRequired,
+              }
+            : {
+                status: "unknown",
+                reason: "task_attempt_result_not_observable",
+                effectState: "unknown",
+                cleanupConfirmed: false,
+                manualRecoveryRequired: true,
+                processRestartRequired: true,
+              },
+          ...(validatedOutcome?.executorProvider === undefined
+            ? {}
+            : { provider: validatedOutcome.executorProvider }),
+        });
+        try {
+          await dependencies.recordExecutionEvent?.(event);
+        } catch {
+          // Measurement is non-authority and never changes the Task result.
+        }
+      }
       const isExact =
         validatedOutcome !== null &&
         validatedOutcome.attemptId === attempt?.attemptId &&

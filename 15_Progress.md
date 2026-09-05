@@ -68,6 +68,18 @@ Quality Centerに表示する検証計画対実績や割合は、品質保証の
 
 品質は、速度、人間負荷、費用または処理量で相殺できる単なる加点項目にしない。後工程Finding、人間による追加修正、Recoveryおよび未成立を含む現在の品質状態を[`品質保証`](16_Quality_Assurance.md)から参照し、品質を維持または改善した範囲で効率を評価する。成功値は観測前に捏造せず、実OperationのProfileを蓄積した後に集約する。測定不能な時間、Provider利用量または人間Attentionを0として扱わず、取得不能、推定または代理指標を区別する。
 
+<a id="execution-intelligence-observation"></a>
+
+## 1.2. 実行知の観測と改善境界
+
+CRDDへ明示的に結合したAI実行を継続評価する場合は、LLM呼出しではなくProject、Milestone、Objective、TaskおよびAttemptを主Identityにする。Provider／Model、Role、入力戦略、時間、利用量、Retry、検証、人間介入、候補および結果は、この仕事Identityへ結合でき、対象の判断に必要で、実際に取得できた範囲だけを観測する。通常会話、内部推論全文、Raw Provider出力、秘密情報または明示BindingされていないAI Sessionを既定で収集しない。
+
+観測できた値、観測しなかった値、対象外の値を区別する。未観測を0、失敗、正常または平均値へ補正せず、値を持つ観測にはSourceを付ける。実行終了を成果物品質、人間受入、運用成果または事業成果へ昇格せず、各階層のEvidenceと観測期間を別々に持つ。
+
+高頻度の実行履歴はGit管理外の実行Storeへ置き、長期的に再利用するFinding、Decision、Experiment Resultまたは変更理由だけを人間判断と通常の変更契約を経て正本へ昇格する。集約、表示または改善候補は非Authorityであり、Project State、進捗、品質、採用、Provider選定、Runtime Ruleまたは正本を自動変更しない。
+
+保持と物理清掃では、耐久Evidenceと物理残存を分ける。時間、名前または件数だけで削除せず、exact Identity、内容Hash、未解決参照の不存在、昇格または集約先、および削除後の不存在を確認する。取得不能、改変、競合または由来不明の場合は物理残存を成功として隠さず、削除せずに停止する。
+
 ---
 
 <a id="2-lifecycle-slice"></a>

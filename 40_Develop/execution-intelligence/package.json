@@ -1,0 +1,19 @@
+{
+  "name": "@qual-lab/crdd-execution-intelligence",
+  "version": "0.0.0-development",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "format:check": "node ../coordinator/node_modules/@biomejs/biome/bin/biome format .",
+    "lint": "node ../coordinator/node_modules/@biomejs/biome/bin/biome lint . --error-on-warnings",
+    "test": "node --test --test-concurrency=1 ./tests/unit/*.test.ts ./tests/integration/*.test.ts",
+    "typecheck": "node ../coordinator/node_modules/typescript/bin/tsc -p ./tsconfig.json"
+  },
+  "engines": {
+    "node": ">=24.12.0"
+  }
+}

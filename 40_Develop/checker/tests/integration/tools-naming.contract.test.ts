@@ -74,6 +74,7 @@ const pathInspectionRoots = Object.freeze([
 const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "checker"),
   path.join(repositoryRoot, "40_Develop", "coordinator"),
+  path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
   path.join(repositoryRoot, "template", "tools"),
 ]);
 const projectConfigs = Object.freeze([
@@ -85,13 +86,20 @@ const projectConfigs = Object.freeze([
     "tsconfig.strict.json",
   ),
   path.join(repositoryRoot, "40_Develop", "coordinator", "tsconfig.tests.json"),
+  path.join(
+    repositoryRoot,
+    "40_Develop",
+    "execution-intelligence",
+    "tsconfig.json",
+  ),
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 12,
-  coordinatorProduction: 148,
+  coordinatorProduction: 149,
   coordinatorTests: 159,
+  executionIntelligence: 5,
   rustPlatformAccess: 6,
-  uniqueTotal: 321,
+  uniqueTotal: 327,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
@@ -1655,6 +1663,18 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
           (file) =>
             isOwnedProgramFile(file) && isContainedPath(file, productionRoot),
         );
+      const executionIntelligenceRoot = path.join(
+        repositoryRoot,
+        "40_Develop",
+        "execution-intelligence",
+      );
+      const executionIntelligenceFiles = projects[3]?.program
+        .getSourceFileNames()
+        .filter(
+          (file) =>
+            isOwnedProgramFile(file) &&
+            isContainedPath(file, executionIntelligenceRoot),
+        );
       assert.equal(
         checkerFiles?.length,
         EXPECTED_OWNED_SOURCE_COUNTS.checkerAndTemplate,
@@ -1682,6 +1702,10 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
           ),
         ).length,
         EXPECTED_OWNED_SOURCE_COUNTS.coordinatorTests,
+      );
+      assert.equal(
+        executionIntelligenceFiles?.length,
+        EXPECTED_OWNED_SOURCE_COUNTS.executionIntelligence,
       );
       const { sourceFiles, violations } = inspectProjects(projects);
       assert.equal(sourceFiles.size, EXPECTED_OWNED_SOURCE_COUNTS.uniqueTotal);

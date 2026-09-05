@@ -99,7 +99,7 @@ function runCommand(
 }
 
 function runNodeTests(
-  owner: "checker" | "coordinator",
+  owner: "checker" | "coordinator" | "execution-intelligence",
   entries: readonly TestCatalogEntry[],
   options: Readonly<{
     testNamePattern?: string;
@@ -178,6 +178,45 @@ function runStaticStage(
     );
     if (status !== 0) return status;
   }
+  if (owners.has("execution-intelligence")) {
+    const root = path.join(
+      repositoryRoot,
+      "40_Develop",
+      "execution-intelligence",
+    );
+    const toolRoot = path.join(repositoryRoot, "40_Develop", "coordinator");
+    const typeStatus = runCommand(
+      process.execPath,
+      [
+        path.join(toolRoot, "node_modules", "typescript", "bin", "tsc"),
+        "-p",
+        "./tsconfig.json",
+      ],
+      root,
+    );
+    if (typeStatus !== 0) return typeStatus;
+    for (const toolArguments of [
+      ["lint", ".", "--error-on-warnings"],
+      ["format", "."],
+    ]) {
+      const status = runCommand(
+        process.execPath,
+        [
+          path.join(
+            toolRoot,
+            "node_modules",
+            "@biomejs",
+            "biome",
+            "bin",
+            "biome",
+          ),
+          ...toolArguments,
+        ],
+        root,
+      );
+      if (status !== 0) return status;
+    }
+  }
   if (owners.has("platform-access"))
     return runCommand(
       "cargo",
@@ -200,7 +239,11 @@ function runLevelStage(
   shouldSkipWindowsProcessTests: boolean,
 ): number {
   const levelEntries = entries.filter((entry) => entry.level === level);
-  for (const owner of ["checker", "coordinator"] as const) {
+  for (const owner of [
+    "checker",
+    "coordinator",
+    "execution-intelligence",
+  ] as const) {
     const ownerEntries = levelEntries.filter((entry) => entry.owner === owner);
     const status = runNodeTests(
       owner,
@@ -266,6 +309,7 @@ try {
     ? [
         "40_Develop/coordinator/package.json",
         "40_Develop/checker/package.json",
+        "40_Develop/execution-intelligence/package.json",
         "40_Develop/platform-access/Cargo.toml",
       ]
     : explicitChangedPaths.length > 0

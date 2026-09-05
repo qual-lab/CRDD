@@ -17,6 +17,7 @@
   "runnerProfiles": {
     "checker": "node_test",
     "coordinator": "node_test",
+    "execution-intelligence": "node_test",
     "platform-access": "cargo_test"
   },
   "tests": [
@@ -194,6 +195,27 @@
         "coordinator",
         "task",
         "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-intelligence:integration:store",
+      "owner": "execution-intelligence",
+      "path": "40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "execution",
+        "intelligence",
+        "store",
+        "retention"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -1735,6 +1757,26 @@
         "operation",
         "creation",
         "internal"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-intelligence:unit:event-contract",
+      "owner": "execution-intelligence",
+      "path": "40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "execution",
+        "intelligence",
+        "observation",
+        "aggregation"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

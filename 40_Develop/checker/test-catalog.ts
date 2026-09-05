@@ -25,7 +25,11 @@ export const executionProfiles = [
 
 export type TestCatalogEntry = Readonly<{
   id: string;
-  owner: "checker" | "coordinator" | "platform-access";
+  owner:
+    | "checker"
+    | "coordinator"
+    | "execution-intelligence"
+    | "platform-access";
   path: string;
   level: TestLevel;
   kind: (typeof testKinds)[number];
@@ -47,6 +51,7 @@ export type TestCatalog = Readonly<{
   runnerProfiles: Readonly<{
     checker: "node_test";
     coordinator: "node_test";
+    "execution-intelligence": "node_test";
     "platform-access": "cargo_test";
   }>;
   tests: readonly TestCatalogEntry[];
@@ -59,11 +64,13 @@ const RESOURCE_INTENSIVE_LEVELS = new Set<TestLevel>([
 const RUNNER_SUPPORTED_OWNERS = new Set([
   "checker",
   "coordinator",
+  "execution-intelligence",
   "platform-access",
 ]);
 const RUNNER_PROFILES = Object.freeze({
   checker: "node_test",
   coordinator: "node_test",
+  "execution-intelligence": "node_test",
   "platform-access": "cargo_test",
 });
 const validExecutionProfiles = new Set(executionProfiles);
@@ -123,7 +130,11 @@ function walkFiles(root: string, directory: string): string[] {
 }
 
 export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
-  const nodeTests = ["checker", "coordinator"].flatMap((owner) =>
+  const nodeTests = [
+    "checker",
+    "coordinator",
+    "execution-intelligence",
+  ].flatMap((owner) =>
     walkFiles(
       repositoryRoot,
       path.join(repositoryRoot, "40_Develop", owner, "tests"),
@@ -149,7 +160,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:checker|coordinator)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:checker|coordinator|execution-intelligence)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -393,6 +404,8 @@ export function inspectResourceIntensiveTestAuthority(
 function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/coordinator/")) return "coordinator";
   if (changedPath.startsWith("40_Develop/checker/")) return "checker";
+  if (changedPath.startsWith("40_Develop/execution-intelligence/"))
+    return "execution-intelligence";
   if (changedPath.startsWith("40_Develop/platform-access/"))
     return "platform-access";
   return null;

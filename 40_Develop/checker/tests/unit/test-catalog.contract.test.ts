@@ -58,6 +58,25 @@ test("直接変更した試験だけはその試験に限定する", () => {
   );
 });
 
+test("実行知の実装変更は共通コンポーネントのUT／ITだけを選ぶ", () => {
+  const expectedPaths = catalog.tests
+    .filter(
+      (entry) =>
+        entry.owner === "execution-intelligence" &&
+        ["unit", "integration", "system"].includes(entry.level),
+    )
+    .map((entry) => entry.path)
+    .sort();
+  const selectedPaths = selectRegressionTests(catalog, [
+    "40_Develop/execution-intelligence/src/core/execution-intelligence.ts",
+  ])
+    .map((entry) => entry.path)
+    .sort();
+
+  assert.deepEqual(selectedPaths, expectedPaths);
+  assert.ok(selectedPaths.length > 0);
+});
+
 test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じる", () => {
   const expected = catalog.tests.filter(
     (entry) =>

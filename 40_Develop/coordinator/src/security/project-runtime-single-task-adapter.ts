@@ -58,6 +58,7 @@ export type ProjectRuntimeSingleTaskResult = Readonly<{
   candidateId: string | null;
   recoveryIds: readonly string[];
   recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
+  executorProvider?: "codex" | "claude";
 }>;
 
 export type ProjectRuntimeSingleTaskDependencies = Readonly<{
@@ -85,6 +86,7 @@ function result(
     candidateId: string | null;
     recoveryIds: readonly string[];
     recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
+    executorProvider?: "codex" | "claude";
   }>,
 ): ProjectRuntimeSingleTaskResult {
   return Object.freeze({
@@ -224,6 +226,7 @@ function inspectCompletionRecord(value: unknown): Readonly<{
   candidateId: string | null;
   recoveryIds: readonly string[];
   recoveryObligations: readonly ProjectRuntimeSingleTaskRecoveryObligation[];
+  executorProvider?: "codex" | "claude";
 }> | null {
   try {
     if (!isPlainContainer(value)) return null;
@@ -246,6 +249,7 @@ function inspectCompletionRecord(value: unknown): Readonly<{
       "candidateStoreRecoveryId",
     );
     const rawDockerRecoveryIds = ownDataProperty(value, "dockerRecoveryIds");
+    const executorProvider = ownDataProperty(value, "executorProvider");
     // The v0.18 completion record never carries status "cancelled": effect-era
     // cancellation settles as "blocked" with a runtime-owned cancellation
     // reason, and accepting values the producer cannot emit would widen the
@@ -263,6 +267,9 @@ function inspectCompletionRecord(value: unknown): Readonly<{
       !Array.isArray(rawDockerRecoveryIds) ||
       utilTypes.isProxy(rawDockerRecoveryIds) ||
       rawDockerRecoveryIds.length > 128 ||
+      (executorProvider !== undefined &&
+        executorProvider !== "codex" &&
+        executorProvider !== "claude") ||
       (status === "completed" && cleanupConfirmed !== true)
     )
       return null;
@@ -312,6 +319,9 @@ function inspectCompletionRecord(value: unknown): Readonly<{
       recoveryObligations: Object.freeze(
         recoveryObligations.map((entry) => Object.freeze(entry)),
       ),
+      ...(executorProvider === "codex" || executorProvider === "claude"
+        ? { executorProvider }
+        : {}),
     });
   } catch {
     return null;
@@ -521,6 +531,9 @@ export async function runProjectRuntimeSingleTaskAttempt(
     candidateId: completion.candidateId,
     recoveryIds: completion.recoveryIds,
     recoveryObligations: completion.recoveryObligations,
+    ...(completion.executorProvider === undefined
+      ? {}
+      : { executorProvider: completion.executorProvider }),
   });
 }
 

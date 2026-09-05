@@ -376,7 +376,7 @@ MCPの公開結果は、操作別のexact contractと閉じたData Transfer Obje
 | `IMPL-MCP-ADAPTER-CANDIDATE` | `IF-TRANSPORT`、`IF-PROJECT-CORE`、`IF-DECISION` | `run_objective`と`submit_decision`を同じProject意味契約へ写し、bounded stdio Processへ部分接続 |
 | `IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE` | `IF-SINGLE-TASK`、`IF-PLATFORM` | 部分接続・実装確認中 |
 | `IMPL-DURABLE-FOUNDATION-CANDIDATE` | `IF-STATE-STORE`、`IF-QUEUE` | 部分接続・実装確認中 |
-| `IMPL-PROJECT-EXECUTION-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION`、`IF-TRANSPORT` | 単一・複数Task実行、候補IDの耐久状態への受渡しを部分接続 |
+| `IMPL-PROJECT-EXECUTION-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER`、`IF-INTEGRATION`、`IF-TRANSPORT` | 単一・複数Task実行、候補IDの耐久状態への受渡し、およびTask Attempt終了時に[共通の実行知](../execution-intelligence/01_Architecture.md)へ接続する専用Adapterを部分接続。実行知の記録失敗はTask結果を改変せず、分析側で観測不能として扱う |
 | `IMPL-REPLANNING-CANDIDATE` | `IF-PROJECT-CORE`、`IF-SCHEDULER` | 同一計画のfresh attempt、部分再計画、人間判断移送と上限を部分接続 |
 | `IMPL-HUMAN-DECISION-CANDIDATE` | `IF-DECISION` | 一回限りCapabilityのhash保持、主体・世代・改訂版結合、Windows保護Rootの不変世代列、prepare／Project readback／finalize、明示置換、Project終端を含む失効および独立Recovery Intent Storeを部分接続。実Clientと電源断を含む全Recovery settlementは未確認 |
 | `IMPL-INTEGRATION-CANDIDATE` | `IF-INTEGRATION`、`IF-PROJECT-CORE` | 実Candidate StoreのTask候補から統合候補、Conflict停止、fresh base照合、明示採用とrollback、Objective／Milestone受入を部分接続。公開Runtimeの構成点でCandidate Store境界を固定し、固定開発版では検証済み署名配布のStoreだけを注入可能にした。固定2経路のうち1経路と自己適用1件で正本採用まで成立。任意Task、全経路および残る異常E2Eは未確認 |

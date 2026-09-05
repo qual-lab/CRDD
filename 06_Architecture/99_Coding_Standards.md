@@ -75,6 +75,7 @@ Platform Contract
 - 対応Platform／Transportごとに、Build成果物、署名またはTrust Identity、必要環境、成立保証、未対応機能および検証済み範囲を明示する。未実装Platformを別Platformへ自動fallbackしない。
 - Windows、LinuxおよびmacOSで方式が異なる場合、最小公分母へ保証を弱めず、各Adapterで同じCore要求を満たす。満たせない保証は対応済みと表示しない。
 - 将来のToolも、最初のOS固有API、Filesystem規則、Process制御、Container接続またはTransport固有状態を追加する時点で、Coreに属する意味とAdapterが所有する方式を設計・試験へ分ける。
+- 最初に機能を生成・利用したToolを、その機能の所有者と自動的に扱わない。別のRuntime、Transportまたは採用Repositoryから同じ意味を利用する独立した理由があり、変更理由、公開契約および試験境界を単独で説明できる場合は共通コンポーネントへ分け、元のToolには専用Adapterだけを置く。将来利用の想像だけで分けず、現在の利用側または採用済み計画から境界を説明できることを要する。
 
 Platform Adapterの追加は、新しいBuild、配布、Threat Model、移行、検証およびRelease判断を伴う独立した対応である。CoreがPlatform非依存であることだけから、そのPlatformで利用可能または安全と主張しない。
 
