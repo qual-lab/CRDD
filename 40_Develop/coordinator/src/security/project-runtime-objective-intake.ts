@@ -5,18 +5,7 @@ import {
   inspectRuntimeProcessRecoveryIdentity,
 } from "../core/runtime-process-safety-state.ts";
 
-import {
-  createProjectRuntimePersistencePorts,
-  enqueueProjectOperation,
-  inspectProjectRuntimeLeaseAcquisitionOwner,
-  readProjectOperationQueueState,
-  readProjectRuntimeState,
-  reconcileProjectRuntimeLeaseOwnerLoss,
-  selectNextProjectOperation,
-  settleProjectOperationQueueRecovery,
-  updateProjectOperationQueueState,
-  writeProjectRuntimeState,
-} from "./project-runtime-durable-foundation.ts";
+import { createProjectRuntimePersistencePorts } from "./project-runtime-durable-foundation.ts";
 import {
   runProjectRuntimeOperation,
   type ProjectRuntimeExecutionDependencies,
@@ -370,10 +359,11 @@ export async function runProjectRuntimeObjective(
     .digest("hex");
 
   const workingDirectory = binding.workingDirectory;
-  const acquisitionOwner = inspectProjectRuntimeLeaseAcquisitionOwner(
+  const persistence = createProjectRuntimePersistencePorts(
     workingDirectory,
     binding.repositoryBindingId,
   );
+  const acquisitionOwner = persistence.lease.inspectAcquisitionOwner();
   if (acquisitionOwner.status !== "completed")
     return blocked(request, acquisitionOwner.reason, {
       cleanupConfirmed: false,
@@ -401,11 +391,7 @@ export async function runProjectRuntimeObjective(
         effectState: "unknown",
       },
     );
-  const observedState = readProjectRuntimeState(
-    workingDirectory,
-    binding.repositoryBindingId,
-    request.projectId,
-  );
+  const observedState = persistence.state.readState(request.projectId);
   let state = observedState;
   if (state.status !== "completed")
     return blocked(request, state.reason, {
@@ -425,12 +411,7 @@ export async function runProjectRuntimeObjective(
       ownerGeneration: getRuntimeProcessInstanceIdentity(),
     });
     if (created.status !== "completed") return blocked(request, created.reason);
-    const written = writeProjectRuntimeState(
-      workingDirectory,
-      binding.repositoryBindingId,
-      created.state,
-      0,
-    );
+    const written = persistence.state.writeState(created.state, 0);
     if (written.status !== "completed")
       return blocked(request, written.reason, {
         cleanupConfirmed: false,
@@ -448,19 +429,15 @@ export async function runProjectRuntimeObjective(
   ) {
     return blocked(request, "project_runtime_existing_state_identity_mismatch");
   }
-  const queued = enqueueProjectOperation(
-    workingDirectory,
-    binding.repositoryBindingId,
-    {
-      queueId,
-      projectId: request.projectId,
-      milestoneId: request.milestoneId,
-      requestHash,
-      originLane: request.originLane,
-      repositoryRevision: request.repositoryRevision,
-      scopeHash,
-    },
-  );
+  const queued = persistence.state.enqueueOperation({
+    queueId,
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    requestHash,
+    originLane: request.originLane,
+    repositoryRevision: request.repositoryRevision,
+    scopeHash,
+  });
   if (queued.status !== "completed")
     return blocked(request, queued.reason, {
       cleanupConfirmed: false,
@@ -472,9 +449,7 @@ export async function runProjectRuntimeObjective(
     resolvedAcquisition?.queueId ??
     (queue.ownerGeneration === null ? null : queueId);
   if (recoveryQueueId !== null) {
-    const reconciled = reconcileProjectRuntimeLeaseOwnerLoss(
-      workingDirectory,
-      binding.repositoryBindingId,
+    const reconciled = persistence.lease.reconcileOperationOwnerLoss(
       request.projectId,
       recoveryQueueId,
       dependencies.observeLeaseOwner,
@@ -512,11 +487,7 @@ export async function runProjectRuntimeObjective(
           ? "unknown"
           : "no_effect",
       });
-    const reread = readProjectOperationQueueState(
-      workingDirectory,
-      binding.repositoryBindingId,
-      queueId,
-    );
+    const reread = persistence.state.readQueue(queueId);
     if (reread.status !== "completed")
       return blocked(request, reread.reason, {
         cleanupConfirmed: false,
@@ -579,9 +550,7 @@ export async function runProjectRuntimeObjective(
           manualRecoveryRequired: true,
           effectState: "unknown",
         });
-      const boundWrite = writeProjectRuntimeState(
-        workingDirectory,
-        binding.repositoryBindingId,
+      const boundWrite = persistence.state.writeState(
         bound.state,
         state.value.generation,
       );
@@ -630,9 +599,7 @@ export async function runProjectRuntimeObjective(
             effectState: "unknown",
           },
         );
-      const reopenedQueue = updateProjectOperationQueueState(
-        workingDirectory,
-        binding.repositoryBindingId,
+      const reopenedQueue = persistence.state.updateQueue(
         queueId,
         queue.generation,
         {
@@ -650,9 +617,7 @@ export async function runProjectRuntimeObjective(
         });
       queue = reopenedQueue.value;
     } else {
-      const reboundQueue = updateProjectOperationQueueState(
-        workingDirectory,
-        binding.repositoryBindingId,
+      const reboundQueue = persistence.state.updateQueue(
         queueId,
         queue.generation,
         {
@@ -735,9 +700,7 @@ export async function runProjectRuntimeObjective(
                 Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
               ],
             });
-          const recoveringWrite = writeProjectRuntimeState(
-            workingDirectory,
-            binding.repositoryBindingId,
+          const recoveringWrite = persistence.state.writeState(
             recovering.state,
             recoveryState.generation,
           );
@@ -828,9 +791,7 @@ export async function runProjectRuntimeObjective(
               Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
             ],
           });
-        const settledWrite = writeProjectRuntimeState(
-          workingDirectory,
-          binding.repositoryBindingId,
+        const settledWrite = persistence.state.writeState(
           settledItem.state,
           recoveryState.generation,
         );
@@ -984,9 +945,7 @@ export async function runProjectRuntimeObjective(
             manualRecoveryRequired: true,
             effectState: "unknown",
           });
-        const markedWrite = writeProjectRuntimeState(
-          workingDirectory,
-          binding.repositoryBindingId,
+        const markedWrite = persistence.state.writeState(
           marked.state,
           recoveryState.generation,
         );
@@ -1119,9 +1078,7 @@ export async function runProjectRuntimeObjective(
         ),
       });
     if (queue.state === "recovery_required") {
-      const queueSettlement = settleProjectOperationQueueRecovery(
-        workingDirectory,
-        binding.repositoryBindingId,
+      const queueSettlement = persistence.state.settleQueueRecovery(
         queueId,
         queue.generation,
         recoveryApplication,
@@ -1169,9 +1126,7 @@ export async function runProjectRuntimeObjective(
           manualRecoveryRequired: false,
           effectState: "no_effect",
         });
-      const retryWrite = writeProjectRuntimeState(
-        workingDirectory,
-        binding.repositoryBindingId,
+      const retryWrite = persistence.state.writeState(
         retry.state,
         recoveryState.generation,
       );
@@ -1207,10 +1162,7 @@ export async function runProjectRuntimeObjective(
         manualRecoveryRequired: true,
         effectState: "unknown",
       });
-    const selected = selectNextProjectOperation(
-      workingDirectory,
-      binding.repositoryBindingId,
-    );
+    const selected = persistence.state.selectNextOperation();
     if (selected.status !== "completed")
       return blocked(request, selected.reason, {
         cleanupConfirmed: false,
@@ -1340,10 +1292,7 @@ export async function runProjectRuntimeObjective(
     {
       ...dependencies.execution,
       ...executionHostPorts,
-      persistence: createProjectRuntimePersistencePorts(
-        workingDirectory,
-        binding.repositoryBindingId,
-      ),
+      persistence,
     },
     {
       projectId: request.projectId,
@@ -1355,11 +1304,7 @@ export async function runProjectRuntimeObjective(
       cancellationSignal,
     },
   );
-  const latest = readProjectRuntimeState(
-    workingDirectory,
-    binding.repositoryBindingId,
-    request.projectId,
-  );
+  const latest = persistence.state.readState(request.projectId);
   const projection =
     latest.status === "completed" && latest.value
       ? projectProjectRuntimeState(latest.value)
