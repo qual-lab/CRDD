@@ -75,7 +75,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
     ],
     [
       "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts",
-      "40_Develop/coordinator/tests/integration/project-runtime-public-runtime.integration.test.ts",
+      "40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts",
     ],
     [
       "40_Develop/execution-intelligence/src/index.ts",
@@ -89,7 +89,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
     assert.ok(selectedPaths.includes(consumerPath));
     assert.ok(
       selectedPaths.some((entry) =>
-        entry.includes("project-runtime-public-runtime"),
+        entry.includes("project-runtime-composition-root"),
       ) || changedPath.includes("core"),
     );
   }

@@ -35,7 +35,7 @@ import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/se
 import {
   runProjectRuntimePublicDecision,
   runProjectRuntimePublicObjective,
-} from "../src/security/project-runtime-public-runtime.ts";
+} from "../src/composition/project-runtime-composition-root.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../src/security/project-runtime-windows-decision-store.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import {

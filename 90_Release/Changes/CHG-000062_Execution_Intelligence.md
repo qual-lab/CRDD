@@ -42,7 +42,7 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 - [Repository Root検証](../../40_Develop/execution-intelligence/src/store/verified-repository-root.ts): exact worktree RootだけからStoreの実行時能力を発行し、任意Path、linkまたは構造的な偽造を拒否する。
 - [Coordinator Adapter](../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts): Single Task Runtime固有結果を共通Eventへ変換する唯一の接続部。
 - [Project実行](../../40_Develop/project-runtime/src/application/project-runtime-execution.ts): Task Attempt終了Eventの発行。
-- [公開Runtime構成](../../40_Develop/coordinator/src/security/project-runtime-public-runtime.ts): 検証済みRepository RootのStoreへの接続。
+- [公開Runtime構成](../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts): 検証済みRepository RootのStoreへの接続。
 
 ## 5. 正常・準正常・異常
 

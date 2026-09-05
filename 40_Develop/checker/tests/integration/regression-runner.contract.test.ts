@@ -212,7 +212,7 @@ test("共通component変更は利用側契約と利用側静的検査を同じ�
   };
   assert.ok(
     plan.selected?.includes(
-      "40_Develop/coordinator/tests/integration/project-runtime-public-runtime.integration.test.ts",
+      "40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts",
     ),
   );
   const staticStage = plan.stages?.find((entry) => entry.stage === "static");

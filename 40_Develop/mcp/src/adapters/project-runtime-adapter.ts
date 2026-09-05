@@ -5,6 +5,7 @@ import {
 } from "../internal/plain-data-snapshot.ts";
 import {
   inspectProjectRuntimeIntegrationResult,
+  inspectProjectRuntimeDecisionRequest,
   inspectProjectRuntimeObjectiveRequest,
   isProjectRuntimeObjectiveProjectionCorrelationValid,
   isProjectRuntimeProjectionSemanticallyValid,
@@ -174,9 +175,6 @@ function stable(value: unknown): value is string {
     /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value)
   );
 }
-function revision(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
-}
 function text(value: unknown, maximum: number): value is string {
   return (
     typeof value === "string" &&
@@ -201,48 +199,6 @@ function envelope(value: unknown) {
 }
 function objective(value: unknown): Readonly<Record<string, unknown>> | null {
   return inspectProjectRuntimeObjectiveRequest(value);
-}
-export function inspectMcpProjectRuntimeDecision(value: unknown): Readonly<{
-  decisionId: string;
-  projectId: string;
-  milestoneId: string;
-  generation: number;
-  repositoryRevision: string;
-  selectedOption: "resume" | "cancel";
-  continuationCapability: string;
-  comment?: string;
-}> | null {
-  const input =
-    snapshotPlainRecord(value, decisionKeys) ??
-    snapshotPlainRecord(value, decisionKeysNoComment);
-  const record: Readonly<Record<string, unknown>> | null = input;
-  if (
-    !record ||
-    !stable(record.decisionId) ||
-    !stable(record.projectId) ||
-    !stable(record.milestoneId) ||
-    !revision(record.repositoryRevision) ||
-    !Number.isSafeInteger(record.generation) ||
-    Number(record.generation) < 1 ||
-    (record.selectedOption !== "resume" &&
-      record.selectedOption !== "cancel") ||
-    !text(record.continuationCapability, 512) ||
-    (record.comment !== undefined &&
-      (typeof record.comment !== "string" ||
-        Buffer.byteLength(record.comment, "utf8") > 1024 ||
-        /[\r\n\u0000-\u001f\u007f]/u.test(record.comment)))
-  )
-    return null;
-  return Object.freeze({ ...record }) as Readonly<{
-    decisionId: string;
-    projectId: string;
-    milestoneId: string;
-    generation: number;
-    repositoryRevision: string;
-    selectedOption: "resume" | "cancel";
-    continuationCapability: string;
-    comment?: string;
-  }>;
 }
 function error(
   id: JsonRpcId | null,
@@ -874,7 +830,7 @@ export async function handleMcpProjectRuntimeRequest(
   const args =
     params.name === MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL
       ? objective(params.arguments)
-      : inspectMcpProjectRuntimeDecision(params.arguments);
+      : inspectProjectRuntimeDecisionRequest(params.arguments);
   if (!args) return error(request.id, -32602, "Invalid params");
   let authentication: unknown;
   try {

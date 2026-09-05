@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  inspectProjectRuntimeDecisionRequest,
   inspectProjectRuntimeIntegrationResult,
   inspectProjectRuntimeObjectiveRequest,
   PROJECT_RUNTIME_INTEGRATION_CONTRACT,
@@ -53,6 +54,19 @@ function integrationResult() {
   } as const;
 }
 
+function decisionRequest() {
+  return {
+    decisionId: "decision-1",
+    projectId: "project-1",
+    milestoneId: "milestone-1",
+    generation: 2,
+    repositoryRevision,
+    selectedOption: "resume",
+    continuationCapability: "opaque-capability",
+    comment: "再開する",
+  } as const;
+}
+
 test("Objective要求は閉じた公開契約へsnapshotする", () => {
   const source = objectiveRequest();
   const inspected = inspectProjectRuntimeObjectiveRequest(source);
@@ -101,6 +115,36 @@ test("Objective要求は未知field・accessor・ProxyをEffect前に拒否す�
     inspectProjectRuntimeObjectiveRequest({
       ...objectiveRequest(),
       acceptanceCriteria: alteredCriteria,
+    }),
+    null,
+  );
+});
+
+test("判断要求はTransportに依存しない閉じた公開契約へsnapshotする", () => {
+  const source = decisionRequest();
+  const inspected = inspectProjectRuntimeDecisionRequest(source);
+  assert.ok(inspected);
+  assert.notEqual(inspected, source);
+  assert.ok(Object.isFrozen(inspected));
+  assert.equal(inspected.selectedOption, "resume");
+});
+
+test("判断要求は未知field・改行comment・不正世代をEffect前に拒否する", () => {
+  assert.equal(
+    inspectProjectRuntimeDecisionRequest({ ...decisionRequest(), extra: 1 }),
+    null,
+  );
+  assert.equal(
+    inspectProjectRuntimeDecisionRequest({
+      ...decisionRequest(),
+      comment: "line1\nline2",
+    }),
+    null,
+  );
+  assert.equal(
+    inspectProjectRuntimeDecisionRequest({
+      ...decisionRequest(),
+      generation: 0,
     }),
     null,
   );

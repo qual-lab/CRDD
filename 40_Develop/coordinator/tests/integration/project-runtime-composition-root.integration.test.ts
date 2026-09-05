@@ -16,7 +16,7 @@ import {
   createProjectRuntimeExecutionIntelligenceDiagnosticReporter,
   createProjectRuntimeRecoveryDiagnosticReporter,
   PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX,
-} from "../../src/security/project-runtime-public-runtime.ts";
+} from "../../src/composition/project-runtime-composition-root.ts";
 import { recordProjectRuntimeExecutionEvent } from "../../src/security/execution-intelligence-adapter.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
 import {

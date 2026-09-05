@@ -36,7 +36,7 @@
         "coordinator:integration:project-runtime-execution",
         "coordinator:integration:project-runtime-integration",
         "coordinator:integration:project-runtime-objective-intake",
-        "coordinator:integration:project-runtime-public-runtime",
+        "coordinator:integration:project-runtime-composition-root",
         "coordinator:integration:project-runtime-replanning-and-decision",
         "coordinator:integration:project-runtime-single-task-adapter",
         "coordinator:unit:project-runtime-windows-platform-adapter"
@@ -76,7 +76,7 @@
       "consumerOwner": "coordinator",
       "consumerStatic": true,
       "testIds": [
-        "coordinator:integration:project-runtime-public-runtime"
+        "coordinator:integration:project-runtime-composition-root"
       ]
     }
   ],
@@ -1018,9 +1018,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-public-runtime",
+      "id": "coordinator:integration:project-runtime-composition-root",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-public-runtime.integration.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [

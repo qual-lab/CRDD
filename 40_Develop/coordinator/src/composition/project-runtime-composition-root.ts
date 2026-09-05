@@ -4,50 +4,50 @@ import type { Writable } from "node:stream";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
-} from "./coordinator-task-runtime.ts";
+} from "../security/coordinator-task-runtime.ts";
 import {
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
-} from "./platform-provisioner-package-filesystem.ts";
+} from "../security/platform-provisioner-package-filesystem.ts";
 import {
   collectDockerRecoveryAcknowledgementAfterProjectRecord,
   consumeDockerRecoveryReceiptAfterProjectSettlement,
   recoverRuntimeOwnedDockerTask,
   resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
-} from "./docker-recovery-runtime.ts";
+} from "../security/docker-recovery-runtime.ts";
 import {
   createProjectRuntimeObjectiveResult,
+  inspectProjectRuntimeDecisionRequest,
   inspectProjectRuntimeObjectiveRequest,
   type ProjectRuntimeObjectiveRequest,
 } from "../../../project-runtime/src/index.ts";
-import { runProjectRuntimeObjective } from "./project-runtime-objective-intake.ts";
-import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
+import { runProjectRuntimeObjective } from "../security/project-runtime-objective-intake.ts";
+import { readProjectRuntimeState } from "../security/project-runtime-durable-foundation.ts";
 import {
   projectProjectRuntimeState,
   type ProjectRuntimeCandidatePort,
 } from "../../../project-runtime/src/index.ts";
-import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "./project-runtime-candidate-integration-adapter.ts";
-import { inspectMcpProjectRuntimeDecision } from "../../../mcp/src/index.ts";
-import { integrateProjectRuntimeOperation } from "./project-runtime-integration.ts";
-import { createProjectRuntimeDecisionRecoveryStore } from "./project-runtime-decision-recovery-store.ts";
+import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../security/project-runtime-candidate-integration-adapter.ts";
+import { integrateProjectRuntimeOperation } from "../security/project-runtime-integration.ts";
+import { createProjectRuntimeDecisionRecoveryStore } from "../security/project-runtime-decision-recovery-store.ts";
 import {
   issueProjectRuntimeHumanDecision,
   projectRuntimeDecisionRecordId,
   recoverProjectRuntimeHumanDecision,
   replaceProjectRuntimeHumanDecision,
   submitProjectRuntimeHumanDecision,
-} from "./project-runtime-human-decision.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "./project-runtime-windows-decision-store.ts";
-import { runProjectRuntimeSingleTaskAttempt } from "./project-runtime-single-task-adapter.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "./project-runtime-execution-authorization-adapter.ts";
+} from "../security/project-runtime-human-decision.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../security/project-runtime-windows-decision-store.ts";
+import { runProjectRuntimeSingleTaskAttempt } from "../security/project-runtime-single-task-adapter.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../security/project-runtime-execution-authorization-adapter.ts";
 import type { ProjectRuntimeExecutionPublicationObservation } from "../../../project-runtime/src/index.ts";
 import {
   observeProjectRuntimePlatformFamily,
   createProjectRuntimeWindowsPlatformAdapter,
-} from "./project-runtime-windows-platform-adapter.ts";
-import { inspectRepositoryIdentityCandidate } from "./repository-operation-runtime.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
-import { recordProjectRuntimeExecutionEvent } from "./execution-intelligence-adapter.ts";
+} from "../security/project-runtime-windows-platform-adapter.ts";
+import { inspectRepositoryIdentityCandidate } from "../security/repository-operation-runtime.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../security/repository-root-resolution.ts";
+import { recordProjectRuntimeExecutionEvent } from "../security/execution-intelligence-adapter.ts";
 
 export const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
   "crdd-coordinator/project-runtime-public-runtime/v1" as const;
@@ -638,7 +638,7 @@ function executeProjectRuntimePublicDecision(
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
 ) {
-  const request = inspectMcpProjectRuntimeDecision(rawRequest);
+  const request = inspectProjectRuntimeDecisionRequest(rawRequest);
   if (!request)
     return Object.freeze({
       contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,

@@ -61,7 +61,7 @@ function normalize(relativePath: string): string {
   return relativePath.replaceAll("\\", "/");
 }
 
-const CORE_MODULES = discoverProjectRuntimeModules();
+const coreModules = discoverProjectRuntimeModules();
 
 function readRuntimeSource(relativePath: string): string {
   return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
@@ -104,10 +104,10 @@ function importSpecifierScan(source: string): Readonly<{
 }
 
 test("Project Runtime CoreのimportはPlatform非依存の閉集合に一致する", () => {
-  const allowedModules = new Set(CORE_MODULES);
+  const allowedModules = new Set(coreModules);
   const allowedBuiltins = new Set(ALLOWED_NODE_BUILTINS);
   const visitedModules = new Set<string>();
-  const pendingModules = [...CORE_MODULES];
+  const pendingModules = [...coreModules];
   while (pendingModules.length > 0) {
     const moduleRelativePath = pendingModules.pop();
     if (moduleRelativePath === undefined) break;
@@ -156,7 +156,7 @@ test("Project Runtime CoreのimportはPlatform非依存の閉集合に一致す�
 });
 
 test("Project Runtime CoreはOS固有tokenとOS Path実値を含まない", () => {
-  for (const moduleRelativePath of CORE_MODULES) {
+  for (const moduleRelativePath of coreModules) {
     const source = readRuntimeSource(moduleRelativePath);
     for (const pattern of FORBIDDEN_SOURCE_PATTERNS)
       assert.equal(
@@ -194,7 +194,7 @@ test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照�
     fs.existsSync(path.join(repositoryRoot, windowsAdapterPath)),
     "windows adapter module must exist",
   );
-  for (const moduleRelativePath of CORE_MODULES) {
+  for (const moduleRelativePath of coreModules) {
     const source = readRuntimeSource(moduleRelativePath);
     assert.equal(
       source.includes("project-runtime-windows-platform-adapter"),
