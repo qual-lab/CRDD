@@ -356,9 +356,9 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 
 <a id="bounded-distributed-execution-candidate"></a>
 
-##### 限定分散と統合結果の評価候補
+##### v0.20 限定分散と統合結果の評価
 
-2026-08-31の収束方針整理から、v0.19の能力像に向けた候補として、目的の分析、作業分解、依存関係、限定並列実行、再計画、統合後の検証を接続する。状態は`Held / Unscheduled`であり、v0.19への収載・設計・実装許可ではない。v0.18には現在の不確実性に基づく検証選択と収束判断を還元し、採用済みの是正・完了条件を次版へ移さない。
+2026-09-05、人間の決定権限者は、v0.19で成立したObjective Planning、Task Graph、最大5並列、再計画および統合を基礎に、目的の分析、作業分解、依存関係、限定並列実行、再計画、統合後の検証が実務上有効かを評価する作業意図をv0.20へ採用した。新しい並列基盤を一から作るのではなく、実装済みの範囲と未確認の利用者成果を分け、個別Taskの合格ではなく統合後に採用可能な結果へ到達したかを実行知へ接続する。
 
 最初の実証規模は2～4作業程度を候補とし、標準の必要件数や成功条件にはしない。分析・計画の専門性は役割・スキルへ、実行境界の強制はRuntimeへ置き、Coreへ専門機能を追加する前提にしない。次を同じ目的に対する一つの実証として評価する。
 
@@ -367,7 +367,7 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 - 個別レビュー承認を統合受入と同一視しない。統合した改訂版で作業間の仕様・前提・資源・成果物の整合と目的の受入条件を検証し、統合変更によって影響した個別結果を再評価する。
 - 統合後に採用可能な結果へ至る時間、人間の実作業時間、不要な反復、統合時の指摘・競合・手戻り、失敗・停止、Provider別利用量および後工程品質を比較する。並列起動数や個別合格数だけを成果にせず、改善率は実測から評価する。
 
-現在の影響が不明な問題は将来候補へ逃がさず、親が不足根拠を確認する。人間の常時監視を成立条件にせず、既存の許可・正本から処置を決められない目的変更、重要判断またはリスク受容だけを人間へ返す。大規模Worker Pool、自動Quota最適化、完全な意味競合推論、Cross-project schedulingは本候補の最低条件ではない。維持責任者・再評価契機・保留影響は上記の次版候補と共通とし、新しいロードマップや管理台帳を増やさない。
+現在の影響が不明な問題は将来候補へ逃がさず、親が不足根拠を確認する。人間の常時監視を成立条件にせず、既存の許可・正本から処置を決められない目的変更、重要判断またはリスク受容だけを人間へ返す。大規模Worker Pool、自動Quota最適化、完全な意味競合推論、Cross-project schedulingはv0.20の最低条件ではない。実証Task、比較条件、既存機能との差分および完成条件はv0.20の変更トレースで固定し、新しいロードマップや管理台帳を増やさない。
 
 #### 7.3.3. 人間可読文書の意味構造改善候補
 
@@ -587,3 +587,71 @@ v0.20では実行知全体の完成を前提としない。最初の対象は、
 運用成果（Operational Outcome）／事業成果（Business Result）は、目的との関係、結果Source、観測期間、帰属不確実性、取得費用およびPrivacy／Securityが成立する適用先から段階的に接続する。外部Sourceの事業データをCRDDへ複製せず、安定参照と必要な評価結果だけを保持する。初期自己適用では、CRDD自身のProject Runtime、Communication Repositoryおよび外部AI APIを使う採用先候補から、Eventの十分性、人間時間の測定可能性、入力戦略比較、Provider差および結果接続の実用性を検証する。
 
 未決事項は、最小Event集合、同意・情報分類、保持Policy、Human Active Timeの測定方法、外部利用量の信頼境界、評価者の自己参照、実験の十分性、Viewerの形および事業結果接続の最初の適用先である。これらはv0.20設計開始時にEvidenceと利用側から具体化し、109項目相当の構想を一括Schemaや巨大Applicationへ先行固定しない。
+
+<a id="v020-mcp-streamable-http"></a>
+
+## 11. v0.20 MCP Streamable HTTP接続
+
+### 11.1. 採用した目的
+
+2026-09-05、人間の決定権限者は、v0.19で成立したMCP stdioの薄い協働接続面を、MCP Streamable HTTPからも利用できるようにする作業意図をv0.20へ採用した。目的は新しいProject Runtimeを別に作ることではなく、Transport固有処理を外部接続境界へ閉じ、stdioとHTTPが同じProject Runtimeの意味契約、結果契約、安全境界およびRecovery契約へ到達できるようにすることである。
+
+HTTP接続の存在からProject Authority、Repository操作権限、Human Authority、成功またはRecovery Authorityを生成しない。MCP ServerはRepositoryを直接操作せず、検証済みのProject／Repository Identity、選択利用者、Policyおよび要求操作をProject Runtimeで再検証する。公開結果は既存のcanonicalな結果投影から生成し、Transportごとに同じ意味を再定義しない。
+
+### 11.2. v0.20で具体化する境界
+
+設計開始時に、少なくとも次を既存のstdio経路と対比して具体化する。
+
+- 利用者Journey、Client、接続先、待受範囲および対応Platform。
+- 認証、Session、接続・切断、取消、timeout、再送・重複、順序およびreplay防止。
+- Repository Binding、情報分類、入力最小化、結果投影および監査可能な相関Identity。
+- Process、socket、stream、request、Sessionその他の資源所有、上限、終了条件、cleanupおよびRecovery。
+- 正常・準正常・異常経路、stdioとの意味同等性、公開入口からの結合試験／総合試験および回帰試験。
+
+具体的なFramework、待受port、Network公開範囲、配布方式および運用形態はArchitectureで選択する。Linux／macOSへ同じ機構を要求せず、Transportの意味契約と安全保証をPlatform固有実装から分離する。
+
+### 11.3. 採用していない範囲
+
+本採用単独では、Internetへの公開、Remote Hostでの常設運用、複数Repository、Organization Runtime、Self-hosted Provider、追加Credentialの保管、API key課金、無人の外部EffectまたはProject Authorityの上位継承を意味しない。Linux Hostでの限定Remote構成は別途採用した§12と接続し、そのTrust Boundaryと完成条件を混同しない。その他は個別の価値、Trust Boundary、運用責任および人間判断を必要とする別候補として保持する。
+
+v0.20での正確な実装範囲と完成条件は、Current State、利用側、脅威、対応Platformおよび既存MCP契約を再確認した変更トレースで固定する。MCP Streamable HTTPが起動したこと、接続できたこと、または一部Methodが応答したことだけから、協働接続面全体の完成を主張しない。
+
+<a id="v020-linux-remote-runtime"></a>
+
+## 12. v0.20 Linux対応とRemote Runtime
+
+### 12.1. 採用した目的
+
+2026-09-05、人間の決定権限者は、Project RuntimeのLinux対応と、Linux Host上のRuntimeを別Clientから利用する限定Remote構成を一つのv0.20作業意図として採用した。目的はLinux Adapterの存在確認ではなく、MCP Streamable HTTP、明示したRepository BindingおよびProject Runtimeを通じ、Windows端末へ常駐しなくても単一Projectの許可済み作業と結果確認を安全に行える利用者成果を成立させることである。
+
+### 12.2. 同じ保証と新しい境界
+
+Linux対応はWindowsのAPIやDocker Desktop固有方式を移植せず、Project Runtime Coreが要求するPrincipal／Provider Home、Filesystem／Repository、Lock／Lease、Process／取消、Container Host、Runtime Root／RecoveryおよびEvidenceの保証をLinuxの実環境で成立させる。要求発行、handle取得、受理、Effect成立、終了通知、観測および耐久的確定を区別し、Linux上の実Processと実Filesystemで正常・準正常・異常を検証する。
+
+Remote構成では、Remote Host、Network、認証、暗号化、接続先Identity、replay防止、Session／request相関、情報保持、監査、取消、切断後の処置、更新、停止、Recoveryおよび運用責任を新しいTrust Boundaryとして設計する。ClientやTransportからProject Authority、Credential、CapabilityまたはRecovery Authorityを暗黙継承しない。最初の対象は明示構成した単一Project／Repositoryとし、Repositoryの自動探索や複数Repository運営を完成条件にしない。
+
+### 12.3. 分離して保持する候補
+
+macOS対応はLinux対応の完了から推定せず、別の成果物、Build、署名Identity、検証母集団およびRelease判断を必要とする将来候補として保持する。Self-hosted ProviderもProvider Adapterの将来候補に留め、LinuxまたはRemote構成の成立条件へ混ぜない。Internet一般公開、Organization Runtime、Cross-project schedulingおよび無人の外部Effectもv0.20の本採用には含めない。
+
+具体的な対応Linux、配布・更新方法、Host配置、Client、Network範囲、認証方式、運用責任および本番同等E2Eは、専門探索と脅威確認を行った変更トレースで固定する。一部のLinux契約試験、HTTP応答またはRemote Process起動だけから、Linux対応またはRemote Runtime全体の完成を主張しない。
+
+<a id="v020-read-only-project-state-projection"></a>
+
+## 13. v0.20 Project Stateの読み取り専用投影
+
+### 13.1. 採用した目的
+
+2026-09-05、人間の決定権限者は、Project Runtimeが既に所有する状態とv0.20の実行知を、利用者が内部TaskやAgent Logを追わずに確認できる読み取り専用のProject State投影をv0.20へ採用した。目的は新しいProject Management正本を作ることではなく、MCP stdio／HTTPおよび将来の最小Viewerが、現在の進行、実行中Task、停止理由、人間判断待ち、Recovery義務および統合結果を同じcanonicalな意味から取得できることである。
+
+### 13.2. 投影の境界
+
+投影はProject Runtimeの現在状態と許可された実行知を参照する非Authorityの読み取り結果である。Projection、Client metadata、表示状態または取得回数から、Task、計画、判断、Authority、Recovery Authority、成功、受入または正本変更を生成しない。古い状態、未観測、取得不能、非該当および解消済み履歴を区別し、欠測を0、正常または現在の阻害へ補正しない。
+
+最小field、現行性とRevision、Project／Milestone／Objectiveとの相関、情報分類、取得主体、公開可能範囲およびstdio／HTTP間の意味同等性は、v0.20の変更トレースで具体化する。内部Path、Credential、Provider生出力、秘密のCapabilityまたは境界外のProject存在を公開しない。
+
+### 13.3. 採用していない範囲
+
+本採用は、手入力するWBS／進捗率、独立したProject Management Database、予測、Portfolio、Topic管理、会議管理またはProject状態からの自動実行を含まない。これらを扱うフルのProject Management Projectionは探索中の別候補に留め、読み取り専用投影の存在から採用を推定しない。
+
+一部fieldの取得や画面表示だけで完成を主張せず、実producerからcanonicalなProject State、公開投影、MCP stdio／HTTP consumerまでの縦断、状態の現行性、閉じたSchema、権限制御、unknown、取消、Recoveryおよび終了後観測を検証する。
