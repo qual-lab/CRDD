@@ -3,6 +3,8 @@ import { performance } from "node:perf_hooks";
 
 import {
   createRuntimeProcessRecoveryIdentity,
+  getRuntimeProcessInstanceIdentity,
+  inspectRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../core/runtime-process-safety-state.ts";
 import type {
@@ -33,9 +35,13 @@ export function createProjectRuntimeExecutionHostPorts(
           .update(parts.join("\0"))
           .digest("hex")
           .slice(0, 40)}`,
+      createContentHash: (content: string) =>
+        createHash("sha256").update(content).digest("hex"),
     }) satisfies ProjectRuntimeClockIdentityPort,
     processSafety: Object.freeze({
+      getProcessInstanceIdentity: getRuntimeProcessInstanceIdentity,
       createRecoveryIdentity: createRuntimeProcessRecoveryIdentity,
+      inspectRecoveryIdentity: inspectRuntimeProcessRecoveryIdentity,
       poisonAfterCleanupUnknown:
         options.poisonAfterCleanupUnknown ??
         poisonRuntimeProcessAfterCleanupUnknown,

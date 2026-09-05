@@ -7,4 +7,5 @@ export type ProjectRuntimeClockReading = Readonly<{
 export type ProjectRuntimeClockIdentityPort = Readonly<{
   now: () => ProjectRuntimeClockReading;
   createStableId: (prefix: string, parts: readonly string[]) => string;
+  createContentHash: (content: string) => string;
 }>;

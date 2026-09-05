@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { inspectRuntimeProcessRecoveryIdentity } from "../../src/core/runtime-process-safety-state.ts";
 import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
 
 test("Host Adapterは時刻と安定IdentityをProject Runtime Portへ閉じる", () => {
@@ -24,6 +23,14 @@ test("Host Adapterは時刻と安定IdentityをProject Runtime Portへ閉じる"
     ports.clockIdentity.createStableId("attempt", ["project", "task", "1"]),
     /^attempt-[0-9a-f]{40}$/u,
   );
+  assert.match(
+    ports.clockIdentity.createContentHash("content"),
+    /^[0-9a-f]{64}$/u,
+  );
+  assert.notEqual(
+    ports.clockIdentity.createContentHash("content"),
+    ports.clockIdentity.createContentHash("changed"),
+  );
 });
 
 test("Host AdapterはProcess Recovery Identityと再利用禁止通知をProject Runtimeから分離する", () => {
@@ -38,8 +45,12 @@ test("Host AdapterはProcess Recovery Identityと再利用禁止通知をProject
     "attempt-12345678",
     "operation-12345678",
   );
+  assert.match(
+    ports.processSafety.getProcessInstanceIdentity(),
+    /^[0-9a-f-]{36}$/u,
+  );
   assert.deepEqual(
-    inspectRuntimeProcessRecoveryIdentity(
+    ports.processSafety.inspectRecoveryIdentity(
       recoveryId,
       "attempt-12345678",
       "operation-12345678",

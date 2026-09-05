@@ -1,14 +1,8 @@
-import { createHash } from "node:crypto";
-
-import {
-  getRuntimeProcessInstanceIdentity,
-  inspectRuntimeProcessRecoveryIdentity,
-} from "../core/runtime-process-safety-state.ts";
-
 import { createProjectRuntimePersistencePorts } from "./project-runtime-durable-foundation.ts";
 import {
   runProjectRuntimeOperation,
   type ProjectRuntimeExecutionDependencies,
+  type ProjectRuntimeClockIdentityPort,
 } from "../../../project-runtime/src/index.ts";
 import { createProjectRuntimeExecutionHostPorts } from "./project-runtime-execution-host-adapter.ts";
 import {
@@ -135,17 +129,11 @@ async function observeRecoveryTransition(
   }
 }
 
-function stableId(prefix: string, ...values: readonly string[]) {
-  return `${prefix}-${createHash("sha256")
-    .update(values.join("\0"))
-    .digest("hex")
-    .slice(0, 40)}`;
-}
-
 function recoveryApplicationId(
   projectId: string,
   queueId: string,
   state: ProjectRuntimeState,
+  clockIdentity: ProjectRuntimeClockIdentityPort,
 ) {
   const recoveries = state.tasks
     .flatMap((task) =>
@@ -156,12 +144,11 @@ function recoveryApplicationId(
     .sort();
   return recoveries.length === 0
     ? null
-    : stableId(
-        "project-recovery-application",
+    : clockIdentity.createStableId("project-recovery-application", [
         projectId,
         queueId,
         ...recoveries,
-      );
+      ]);
 }
 
 function exactRecoveryCompleted(value: unknown) {
@@ -330,33 +317,29 @@ export async function runProjectRuntimeObjective(
   const plan = inspectProjectRuntimeObjectivePlan(rawPlan, request);
   if (!plan)
     return blocked(request, "project_runtime_plan_invalid_or_out_of_scope");
-  const queueId = stableId(
-    "queue",
+  const executionHostPorts = createProjectRuntimeExecutionHostPorts();
+  const queueId = executionHostPorts.clockIdentity.createStableId("queue", [
     binding.repositoryBindingId,
     request.projectId,
     request.milestoneId,
     request.requestId,
     dependencies.authenticatedPrincipalId,
+  ]);
+  const requestHash = executionHostPorts.clockIdentity.createContentHash(
+    JSON.stringify({
+      ...request,
+      authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
+      acceptanceCriteria: [...request.acceptanceCriteria],
+      allowedPaths: [...request.allowedPaths],
+      readPaths: [...request.readPaths],
+    }),
   );
-  const requestHash = createHash("sha256")
-    .update(
-      JSON.stringify({
-        ...request,
-        authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
-        acceptanceCriteria: [...request.acceptanceCriteria],
-        allowedPaths: [...request.allowedPaths],
-        readPaths: [...request.readPaths],
-      }),
-    )
-    .digest("hex");
-  const scopeHash = createHash("sha256")
-    .update(
-      JSON.stringify({
-        allowedPaths: request.allowedPaths,
-        readPaths: request.readPaths,
-      }),
-    )
-    .digest("hex");
+  const scopeHash = executionHostPorts.clockIdentity.createContentHash(
+    JSON.stringify({
+      allowedPaths: request.allowedPaths,
+      readPaths: request.readPaths,
+    }),
+  );
 
   const workingDirectory = binding.workingDirectory;
   const persistence = createProjectRuntimePersistencePorts(
@@ -408,7 +391,8 @@ export async function runProjectRuntimeObjective(
       milestoneAcceptanceCriteria: plan.milestoneAcceptanceCriteria,
       objectives: plan.objectives,
       tasks: plan.tasks,
-      ownerGeneration: getRuntimeProcessInstanceIdentity(),
+      ownerGeneration:
+        executionHostPorts.processSafety.getProcessInstanceIdentity(),
     });
     if (created.status !== "completed") return blocked(request, created.reason);
     const written = persistence.state.writeState(created.state, 0);
@@ -511,6 +495,7 @@ export async function runProjectRuntimeObjective(
       request.projectId,
       queueId,
       state.value,
+      executionHostPorts.clockIdentity,
     );
     if (applicationId === null && activeTasks.length > 0) {
       let bindings: ReturnType<typeof inspectRecoveryCorrelationBindings> =
@@ -583,6 +568,7 @@ export async function runProjectRuntimeObjective(
         request.projectId,
         queueId,
         boundWrite.value,
+        executionHostPorts.clockIdentity,
       );
     }
     if (!applicationId) {
@@ -647,6 +633,7 @@ export async function runProjectRuntimeObjective(
       request.projectId,
       queueId,
       recoveryState,
+      executionHostPorts.clockIdentity,
     );
     const unresolvedTasks = recoveryState.tasks.filter(
       (task) => task.state === "recovery_required" && task.recoveryUnresolved,
@@ -741,7 +728,7 @@ export async function runProjectRuntimeObjective(
           );
           const match =
             task?.attemptId && task.operationId
-              ? inspectRuntimeProcessRecoveryIdentity(
+              ? executionHostPorts.processSafety.inspectRecoveryIdentity(
                   item.recoveryId,
                   task.attemptId,
                   task.operationId,
@@ -749,7 +736,8 @@ export async function runProjectRuntimeObjective(
               : null;
           recovery =
             match &&
-            match.processIdentity !== getRuntimeProcessInstanceIdentity()
+            match.processIdentity !==
+              executionHostPorts.processSafety.getProcessInstanceIdentity()
               ? Object.freeze({
                   status: "recovered" as const,
                   recoveryId: null,
@@ -1271,7 +1259,6 @@ export async function runProjectRuntimeObjective(
       effectState: "unknown",
     });
   let rawExecutions: unknown;
-  const executionHostPorts = createProjectRuntimeExecutionHostPorts();
   try {
     rawExecutions = dependencies.createTaskExecutions(
       request,

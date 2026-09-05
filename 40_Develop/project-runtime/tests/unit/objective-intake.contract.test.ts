@@ -86,6 +86,7 @@ test("Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮�
     {
       now: () => ({ monotonicMs: 0, iso: "2026-09-06T00:00:00.000Z" }),
       createStableId: (prefix, parts) => `${prefix}-${parts.join("-")}`,
+      createContentHash: (content) => content,
     },
   );
   assert.ok(result);
@@ -108,6 +109,7 @@ test("Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮�
       {
         now: () => ({ monotonicMs: 0, iso: "2026-09-06T00:00:00.000Z" }),
         createStableId: () => "authority-a",
+        createContentHash: (content) => content,
       },
     ),
     null,

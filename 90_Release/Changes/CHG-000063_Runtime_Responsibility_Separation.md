@@ -25,6 +25,8 @@ Task実行集合のAuthority binding生成はCoordinatorからProject Runtimeへ
 
 Objective受付に残る実行調停は、移設前の境界整理として、Project状態、QueueおよびProject Operation Leaseへの全アクセスをBinding済みのState／Lease Portへ統一した。Application判断はCoordinatorの永続化関数を個別に選ばず、構成時に検証済みRepositoryへ結合された同じPersistence Port集合だけを受付からTask実行、回復再入場および最終投影まで利用する。これにより、次の移行単位では永続化機構を伴わず意味上の調停だけをProject Runtimeへ移せる。
 
+同じ移行準備で、Queue、要求範囲および回復適用のIdentity生成と内容HashはClock／Identity Portへ、現在Process世代とRuntime Process Recovery Identityの検証はProcess Safety Portへ集約した。Objective ApplicationはNode暗号実装やCoordinatorのProcess安全状態を直接参照せず、Hostが注入した能力の結果だけを利用する。
+
 ## 2. 人間が決定した範囲
 
 - Project Runtimeは独立packageへ分ける。
