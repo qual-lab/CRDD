@@ -5,6 +5,8 @@ import {
   inspectProjectRuntimeDecisionRequest,
   inspectProjectRuntimeIntegrationResult,
   inspectProjectRuntimeObjectiveRequest,
+  isProjectRuntimeDecisionRecord,
+  PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
   PROJECT_RUNTIME_INTEGRATION_CONTRACT,
   PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
   PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
@@ -121,12 +123,67 @@ test("Objective要求は未知field・accessor・ProxyをEffect前に拒否す�
 });
 
 test("判断要求はTransportに依存しない閉じた公開契約へsnapshotする", () => {
+  assert.equal(
+    PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
+    "crdd-coordinator/project-runtime-human-decision/v1",
+  );
   const source = decisionRequest();
   const inspected = inspectProjectRuntimeDecisionRequest(source);
   assert.ok(inspected);
   assert.notEqual(inspected, source);
   assert.ok(Object.isFrozen(inspected));
   assert.equal(inspected.selectedOption, "resume");
+});
+
+test("判断Store RecordはProject Runtimeの閉じた意味契約で検証する", () => {
+  const record = {
+    recordId: "decision-record-1",
+    decisionId: "decision-1",
+    projectId: "project-1",
+    milestoneId: "milestone-1",
+    queueId: "queue-1",
+    repositoryRevision,
+    expectedGeneration: 1,
+    principalId: "principal-1",
+    allowedOptions: ["resume", "cancel"],
+    capabilityHash: "b".repeat(64),
+    expiresAtEpochMs: 1,
+    disposition: "pending",
+    applicationId: null,
+    selectedOption: null,
+    newGeneration: null,
+    replacementRequestId: null,
+  } as const;
+  assert.equal(isProjectRuntimeDecisionRecord(record), true);
+  assert.equal(
+    isProjectRuntimeDecisionRecord({ ...record, provider: "codex" }),
+    false,
+  );
+  assert.equal(
+    isProjectRuntimeDecisionRecord({
+      ...record,
+      disposition: "completed",
+    }),
+    false,
+  );
+  assert.equal(
+    isProjectRuntimeDecisionRecord({
+      ...record,
+      selectedOption: "resume",
+      newGeneration: 1,
+    }),
+    false,
+  );
+  assert.equal(
+    isProjectRuntimeDecisionRecord(
+      new Proxy(record, {
+        getPrototypeOf: () => {
+          throw new Error("untrusted-record");
+        },
+      }),
+    ),
+    false,
+  );
 });
 
 test("判断要求は未知field・改行comment・不正世代をEffect前に拒否する", () => {

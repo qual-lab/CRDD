@@ -8,14 +8,13 @@ import {
 } from "./project-runtime-durable-foundation.ts";
 import {
   applyProjectRuntimeHumanDecision,
+  isProjectRuntimeDecisionRecord,
+  PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
   type ProjectRuntimeDecisionRecord,
   type ProjectRuntimeDecisionRecoveryIntent,
   type ProjectRuntimeDecisionRecoveryStore,
   type ProjectRuntimeDecisionStore,
 } from "../../../project-runtime/src/index.ts";
-
-export const PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT =
-  "crdd-coordinator/project-runtime-human-decision/v1" as const;
 
 type Common = Readonly<{
   workingDirectory: string;
@@ -30,7 +29,6 @@ type Common = Readonly<{
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const REVISION = /^[0-9a-f]{40,64}$/u;
-const HASH = /^[0-9a-f]{64}$/u;
 
 function digest(value: string) {
   return createHash("sha256").update(value).digest("hex");
@@ -44,52 +42,6 @@ export function projectRuntimeDecisionRecordId(
 }
 function validId(value: unknown): value is string {
   return typeof value === "string" && ID.test(value);
-}
-export function isProjectRuntimeDecisionRecord(
-  raw: unknown,
-): raw is ProjectRuntimeDecisionRecord {
-  if (
-    !raw ||
-    typeof raw !== "object" ||
-    Array.isArray(raw) ||
-    Object.getPrototypeOf(raw) !== Object.prototype
-  )
-    return false;
-  const value = raw as ProjectRuntimeDecisionRecord;
-  return (
-    validId(value.recordId) &&
-    validId(value.decisionId) &&
-    validId(value.projectId) &&
-    validId(value.milestoneId) &&
-    validId(value.queueId) &&
-    REVISION.test(value.repositoryRevision) &&
-    Number.isSafeInteger(value.expectedGeneration) &&
-    value.expectedGeneration >= 1 &&
-    validId(value.principalId) &&
-    Array.isArray(value.allowedOptions) &&
-    value.allowedOptions.length > 0 &&
-    value.allowedOptions.every(
-      (option) => option === "resume" || option === "cancel",
-    ) &&
-    HASH.test(value.capabilityHash) &&
-    Number.isSafeInteger(value.expiresAtEpochMs) &&
-    [
-      "pending",
-      "prepared",
-      "finalized",
-      "invalidated",
-      "expired",
-      "recovery_required",
-    ].includes(value.disposition) &&
-    (value.applicationId === null || validId(value.applicationId)) &&
-    (value.selectedOption === null ||
-      value.selectedOption === "resume" ||
-      value.selectedOption === "cancel") &&
-    (value.newGeneration === null ||
-      (Number.isSafeInteger(value.newGeneration) &&
-        value.newGeneration >= 2)) &&
-    (value.replacementRequestId === null || validId(value.replacementRequestId))
-  );
 }
 function stored(raw: unknown, expected?: ProjectRuntimeDecisionRecord) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
