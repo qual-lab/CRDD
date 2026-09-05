@@ -14,6 +14,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const CORE_MODULES = Object.freeze([
   "40_Develop/coordinator/src/security/mcp-project-runtime-adapter.ts",
   "40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts",
+  "40_Develop/project-runtime/src/application/project-runtime-replanning.ts",
   "40_Develop/project-runtime/src/index.ts",
   "40_Develop/project-runtime/src/core/project-runtime-state.ts",
   "40_Develop/project-runtime/src/core/project-runtime-queue.ts",

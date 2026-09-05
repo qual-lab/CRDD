@@ -1,15 +1,10 @@
 import {
-  readProjectOperationQueueState,
-  readProjectRuntimeState,
-  updateProjectOperationQueueState,
-  writeProjectRuntimeState,
-} from "./project-runtime-durable-foundation.ts";
-import {
   applyProjectRuntimePartialReplan,
   requestProjectRuntimeHumanDecision,
   retryProjectRuntimeTask,
   type ProjectTaskDefinition,
-} from "../../../project-runtime/src/index.ts";
+} from "../core/project-runtime-state.ts";
+import type { ProjectRuntimeStatePort } from "../ports/state-port.ts";
 
 export const PROJECT_RUNTIME_REPLANNING_CONTRACT =
   "crdd-coordinator/project-runtime-replanning/v1" as const;
@@ -27,14 +22,20 @@ export type ProjectRuntimeReplanDecision =
     }>
   | Readonly<{ disposition: "maintain_plan"; reason: string }>;
 
-type Input = Readonly<{
-  workingDirectory: string;
-  repositoryBindingId: string;
+export type ProjectRuntimeReplanInput = Readonly<{
   projectId: string;
   milestoneId: string;
   queueId: string;
   maximumReplans: number;
 }>;
+
+export type ProjectRuntimeReplanClassifier = (
+  context: Readonly<{
+    failedTaskIds: readonly string[];
+    generation: number;
+    repositoryRevision: string;
+  }>,
+) => unknown;
 
 function validDecision(raw: unknown): raw is ProjectRuntimeReplanDecision {
   if (
@@ -74,25 +75,12 @@ function blocked(reason: string, isRecovery = false) {
 
 /** Resolve one durable replan boundary without widening Milestone scope or authority. */
 export function resolveProjectRuntimeReplan(
-  input: Input,
-  classify: (
-    context: Readonly<{
-      failedTaskIds: readonly string[];
-      generation: number;
-      repositoryRevision: string;
-    }>,
-  ) => unknown,
+  statePort: ProjectRuntimeStatePort,
+  input: ProjectRuntimeReplanInput,
+  classify: ProjectRuntimeReplanClassifier,
 ) {
-  const stateRead = readProjectRuntimeState(
-    input.workingDirectory,
-    input.repositoryBindingId,
-    input.projectId,
-  );
-  const queueRead = readProjectOperationQueueState(
-    input.workingDirectory,
-    input.repositoryBindingId,
-    input.queueId,
-  );
+  const stateRead = statePort.readState(input.projectId);
+  const queueRead = statePort.readQueue(input.queueId);
   if (
     stateRead.status !== "completed" ||
     !stateRead.value ||
@@ -149,39 +137,28 @@ export function resolveProjectRuntimeReplan(
           );
   if (transition.status !== "completed" || !transition.state)
     return blocked(transition.reason);
-  const written = writeProjectRuntimeState(
-    input.workingDirectory,
-    input.repositoryBindingId,
-    transition.state,
-    state.generation,
-  );
+  const written = statePort.writeState(transition.state, state.generation);
   if (written.status !== "completed") return blocked(written.reason, true);
   state = written.value;
-  const queueUpdate = updateProjectOperationQueueState(
-    input.workingDirectory,
-    input.repositoryBindingId,
-    input.queueId,
-    queue.generation,
-    {
-      state:
-        raw.disposition === "human_decision"
-          ? "human_decision_required"
-          : "queued",
-      lease: null,
-      resumeCondition:
-        raw.disposition === "maintain_plan"
-          ? "same_plan_retry"
-          : raw.disposition === "partial_replan"
-            ? "partial_replan_applied"
-            : "human_decision",
-      resultReference:
-        raw.disposition === "maintain_plan"
-          ? (failedTaskIds[0] ?? null)
-          : raw.disposition === "partial_replan"
-            ? raw.failedTaskId
-            : raw.objectiveId,
-    },
-  );
+  const queueUpdate = statePort.updateQueue(input.queueId, queue.generation, {
+    state:
+      raw.disposition === "human_decision"
+        ? "human_decision_required"
+        : "queued",
+    lease: null,
+    resumeCondition:
+      raw.disposition === "maintain_plan"
+        ? "same_plan_retry"
+        : raw.disposition === "partial_replan"
+          ? "partial_replan_applied"
+          : "human_decision",
+    resultReference:
+      raw.disposition === "maintain_plan"
+        ? (failedTaskIds[0] ?? null)
+        : raw.disposition === "partial_replan"
+          ? raw.failedTaskId
+          : raw.objectiveId,
+  });
   if (queueUpdate.status !== "completed")
     return blocked(queueUpdate.reason, true);
   return Object.freeze({

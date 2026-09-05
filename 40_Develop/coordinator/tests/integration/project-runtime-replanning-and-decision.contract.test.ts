@@ -8,6 +8,7 @@ import test from "node:test";
 
 import {
   enqueueProjectOperation,
+  createProjectRuntimePersistencePorts,
   readProjectOperationQueueState,
   readProjectRuntimeState,
   writeProjectRuntimeState,
@@ -20,17 +21,31 @@ import {
   replaceProjectRuntimeHumanDecision,
   submitProjectRuntimeHumanDecision,
 } from "../../src/security/project-runtime-human-decision.ts";
-import { resolveProjectRuntimeReplan } from "../../src/security/project-runtime-replanning.ts";
 import {
   applyProjectRuntimeHumanDecision,
   createProjectRuntimeState,
+  resolveProjectRuntimeReplan as resolveProjectRuntimeReplanWithPort,
   type ProjectRuntimeDecisionRecord,
   type ProjectRuntimeDecisionRecoveryIntent,
+  type ProjectRuntimeReplanClassifier,
+  type ProjectRuntimeReplanInput,
 } from "../../../project-runtime/src/index.ts";
 
 const revision = "a".repeat(40);
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
+
+function resolveProjectRuntimeReplan(
+  input: ProjectRuntimeReplanInput &
+    Readonly<{ workingDirectory: string; repositoryBindingId: string }>,
+  classify: ProjectRuntimeReplanClassifier,
+) {
+  const ports = createProjectRuntimePersistencePorts(
+    input.workingDirectory,
+    input.repositoryBindingId,
+  );
+  return resolveProjectRuntimeReplanWithPort(ports.state, input, classify);
+}
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-replan-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });

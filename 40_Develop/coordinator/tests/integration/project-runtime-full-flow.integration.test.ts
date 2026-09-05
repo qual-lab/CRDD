@@ -5,17 +5,36 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { readProjectRuntimeState } from "../../src/security/project-runtime-durable-foundation.ts";
+import {
+  createProjectRuntimePersistencePorts,
+  readProjectRuntimeState,
+} from "../../src/security/project-runtime-durable-foundation.ts";
 import {
   issueProjectRuntimeHumanDecision,
   submitProjectRuntimeHumanDecision,
 } from "../../src/security/project-runtime-human-decision.ts";
-import type { ProjectRuntimeDecisionRecord } from "../../../project-runtime/src/index.ts";
+import {
+  resolveProjectRuntimeReplan as resolveProjectRuntimeReplanWithPort,
+  type ProjectRuntimeDecisionRecord,
+  type ProjectRuntimeReplanClassifier,
+  type ProjectRuntimeReplanInput,
+} from "../../../project-runtime/src/index.ts";
 import { integrateProjectRuntimeOperation } from "../../src/security/project-runtime-integration.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
-import { resolveProjectRuntimeReplan } from "../../src/security/project-runtime-replanning.ts";
 
 const revision = "a".repeat(40);
+
+function resolveProjectRuntimeReplan(
+  input: ProjectRuntimeReplanInput &
+    Readonly<{ workingDirectory: string; repositoryBindingId: string }>,
+  classify: ProjectRuntimeReplanClassifier,
+) {
+  const ports = createProjectRuntimePersistencePorts(
+    input.workingDirectory,
+    input.repositoryBindingId,
+  );
+  return resolveProjectRuntimeReplanWithPort(ports.state, input, classify);
+}
 
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(

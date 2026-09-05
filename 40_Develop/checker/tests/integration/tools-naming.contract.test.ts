@@ -100,7 +100,7 @@ const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   coordinatorProduction: 145,
   coordinatorTests: 157,
   executionIntelligence: 7,
-  projectRuntime: 18,
+  projectRuntime: 19,
   rustPlatformAccess: 6,
   uniqueTotal: 341,
 });
