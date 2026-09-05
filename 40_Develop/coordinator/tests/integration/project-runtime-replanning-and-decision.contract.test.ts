@@ -13,7 +13,7 @@ import {
   readProjectRuntimeState,
   writeProjectRuntimeState,
 } from "../../src/security/project-runtime-durable-foundation.ts";
-import { runProjectRuntimeOperation } from "../../src/security/project-runtime-execution.ts";
+import { runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts } from "../../src/security/project-runtime-execution.ts";
 import {
   invalidateProjectRuntimeHumanDecision,
   issueProjectRuntimeHumanDecision,
@@ -34,6 +34,32 @@ import {
 const revision = "a".repeat(40);
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
+
+type BoundExecutionDependencies = Omit<
+  Parameters<typeof runProjectRuntimeOperationWithPorts>[0],
+  "persistence"
+>;
+type BoundExecutionInput = Parameters<
+  typeof runProjectRuntimeOperationWithPorts
+>[1] &
+  Readonly<{ workingDirectory: string; repositoryBindingId: string }>;
+
+function runProjectRuntimeOperation(
+  dependencies: BoundExecutionDependencies,
+  input: BoundExecutionInput,
+) {
+  const { workingDirectory, repositoryBindingId, ...applicationInput } = input;
+  return runProjectRuntimeOperationWithPorts(
+    {
+      ...dependencies,
+      persistence: createProjectRuntimePersistencePorts(
+        workingDirectory,
+        repositoryBindingId,
+      ),
+    },
+    applicationInput,
+  );
+}
 
 function resolveProjectRuntimeReplan(
   input: ProjectRuntimeReplanInput &

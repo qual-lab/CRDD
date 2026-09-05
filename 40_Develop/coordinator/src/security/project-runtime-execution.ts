@@ -3,15 +3,6 @@ import { performance } from "node:perf_hooks";
 import { types as utilTypes } from "node:util";
 
 import {
-  acquireProjectRuntimeLease,
-  readProjectOperationQueueState,
-  readProjectRuntimeState,
-  settleProjectOperationQueueLeaseRelease,
-  selectNextProjectOperation,
-  updateProjectOperationQueueState,
-  writeProjectRuntimeState,
-} from "./project-runtime-durable-foundation.ts";
-import {
   isProjectRuntimeRecoveryIdentity,
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
@@ -25,6 +16,7 @@ import {
   type ProjectRuntimeSingleTaskResult,
   type ProjectRuntimeExecutionObservationPort,
   type ProjectRuntimeExecutionObservationPublication,
+  type ProjectRuntimePersistencePorts,
   type ProjectRuntimeTaskAttemptObservation,
 } from "../../../project-runtime/src/index.ts";
 import {
@@ -47,6 +39,7 @@ export type ProjectRuntimeExecutionPublicationObservation =
   ProjectRuntimeExecutionObservationPublication;
 
 export type ProjectRuntimeExecutionDependencies = Readonly<{
+  persistence: ProjectRuntimePersistencePorts;
   issueTaskAuthority?: () => object | null;
   revokeTaskAuthority?: (capability: object) => boolean;
   poisonProcessAfterAuthorityRevocationUnknown?: () => void;
@@ -77,8 +70,6 @@ export type ProjectRuntimeExecutionResult = Readonly<{
 }>;
 
 type ExecutionInput = Readonly<{
-  workingDirectory: string;
-  repositoryBindingId: string;
   projectId: string;
   milestoneId: string;
   queueId: string;
@@ -395,16 +386,11 @@ function taskExecutionMap(
 }
 
 function persistedState(
-  input: ExecutionInput,
+  dependencies: ProjectRuntimeExecutionDependencies,
   state: ProjectRuntimeState,
   expectedGeneration: number,
 ) {
-  return writeProjectRuntimeState(
-    input.workingDirectory,
-    input.repositoryBindingId,
-    state,
-    expectedGeneration,
-  );
+  return dependencies.persistence.state.writeState(state, expectedGeneration);
 }
 
 /**
@@ -421,16 +407,8 @@ export async function runProjectRuntimeOperation(
 ): Promise<ProjectRuntimeExecutionResult> {
   if (!(input.cancellationSignal instanceof AbortSignal))
     return blocked(input, "project_runtime_execution_input_invalid");
-  const stateRead = readProjectRuntimeState(
-    input.workingDirectory,
-    input.repositoryBindingId,
-    input.projectId,
-  );
-  const queueRead = readProjectOperationQueueState(
-    input.workingDirectory,
-    input.repositoryBindingId,
-    input.queueId,
-  );
+  const stateRead = dependencies.persistence.state.readState(input.projectId);
+  const queueRead = dependencies.persistence.state.readQueue(input.queueId);
   if (
     stateRead.status !== "completed" ||
     stateRead.value === null ||
@@ -485,9 +463,7 @@ export async function runProjectRuntimeOperation(
       state,
     });
 
-  const leaseResult = acquireProjectRuntimeLease(
-    input.workingDirectory,
-    input.repositoryBindingId,
+  const leaseResult = dependencies.persistence.lease.acquire(
     input.projectId,
     input.queueId,
     "project-operation",
@@ -534,9 +510,7 @@ export async function runProjectRuntimeOperation(
         processRestartRequired: terminal.processRestartRequired,
         effectState: "unknown",
       });
-    const settled = settleProjectOperationQueueLeaseRelease(
-      input.workingDirectory,
-      input.repositoryBindingId,
+    const settled = dependencies.persistence.state.settleQueueLeaseRelease(
       input.queueId,
       terminalQueue.generation,
       lease.ownerGeneration,
@@ -570,9 +544,7 @@ export async function runProjectRuntimeOperation(
       processRestartRequired: options.processRestartRequired ?? false,
       effectState: "unknown",
     });
-    const recoveryQueue = updateProjectOperationQueueState(
-      input.workingDirectory,
-      input.repositoryBindingId,
+    const recoveryQueue = dependencies.persistence.state.updateQueue(
       input.queueId,
       queue.generation,
       {
@@ -606,10 +578,8 @@ export async function runProjectRuntimeOperation(
   // Selection made before the binding-wide lease is only advisory. Re-read
   // the complete durable queue population while this process exclusively owns
   // the Project Operation boundary, then bind exactly that selected Queue.
-  const selectedAfterLease = selectNextProjectOperation(
-    input.workingDirectory,
-    input.repositoryBindingId,
-  );
+  const selectedAfterLease =
+    dependencies.persistence.state.selectNextOperation();
   if (selectedAfterLease.status !== "completed")
     return completeWithoutOwnedQueue(
       blocked(input, selectedAfterLease.reason, {
@@ -632,9 +602,7 @@ export async function runProjectRuntimeOperation(
       }),
     );
 
-  const leaseQueue = updateProjectOperationQueueState(
-    input.workingDirectory,
-    input.repositoryBindingId,
+  const leaseQueue = dependencies.persistence.state.updateQueue(
     input.queueId,
     queue.generation,
     {
@@ -655,9 +623,7 @@ export async function runProjectRuntimeOperation(
     );
   queue = leaseQueue.value;
   if (input.cancellationSignal.aborted) {
-    const cancelled = updateProjectOperationQueueState(
-      input.workingDirectory,
-      input.repositoryBindingId,
+    const cancelled = dependencies.persistence.state.updateQueue(
       input.queueId,
       queue.generation,
       {
@@ -682,9 +648,7 @@ export async function runProjectRuntimeOperation(
       cancelled.value,
     );
   }
-  const runningQueue = updateProjectOperationQueueState(
-    input.workingDirectory,
-    input.repositoryBindingId,
+  const runningQueue = dependencies.persistence.state.updateQueue(
     input.queueId,
     queue.generation,
     {
@@ -742,7 +706,7 @@ export async function runProjectRuntimeOperation(
           completedTaskIds,
         });
       const reserveWrite = persistedState(
-        input,
+        dependencies,
         reserved.state,
         state.generation,
       );
@@ -765,7 +729,7 @@ export async function runProjectRuntimeOperation(
           completedTaskIds,
         });
       const preparedWrite = persistedState(
-        input,
+        dependencies,
         prepared.state,
         state.generation,
       );
@@ -799,7 +763,11 @@ export async function runProjectRuntimeOperation(
           attempt.operationId,
         );
         if (started.status !== "completed" || !started.state) return false;
-        const written = persistedState(input, started.state, state.generation);
+        const written = persistedState(
+          dependencies,
+          started.state,
+          state.generation,
+        );
         if (written.status !== "completed") return false;
         state = written.value;
         startedAttemptIds.add(attempt.attemptId);
@@ -1176,7 +1144,7 @@ export async function runProjectRuntimeOperation(
           processRestartRequired,
         });
       const settlementWrite = persistedState(
-        input,
+        dependencies,
         settlement.state,
         state.generation,
       );
@@ -1244,9 +1212,7 @@ export async function runProjectRuntimeOperation(
                   .sort(),
               );
       }
-      const queueTerminal = updateProjectOperationQueueState(
-        input.workingDirectory,
-        input.repositoryBindingId,
+      const queueTerminal = dependencies.persistence.state.updateQueue(
         input.queueId,
         queue.generation,
         {
@@ -1310,9 +1276,7 @@ export async function runProjectRuntimeOperation(
       state,
       completedTaskIds,
     });
-  const integration = updateProjectOperationQueueState(
-    input.workingDirectory,
-    input.repositoryBindingId,
+  const integration = dependencies.persistence.state.updateQueue(
     input.queueId,
     queue.generation,
     {

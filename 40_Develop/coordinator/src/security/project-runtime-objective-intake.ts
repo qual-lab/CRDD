@@ -6,6 +6,7 @@ import {
 } from "../core/runtime-process-safety-state.ts";
 
 import {
+  createProjectRuntimePersistencePorts,
   enqueueProjectOperation,
   inspectProjectRuntimeLeaseAcquisitionOwner,
   readProjectOperationQueueState,
@@ -126,7 +127,7 @@ export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
       stateGeneration: number;
     }>,
   ) => void | Promise<void>;
-  execution: ProjectRuntimeExecutionDependencies;
+  execution: Omit<ProjectRuntimeExecutionDependencies, "persistence">;
 }>;
 
 async function observeRecoveryTransition(
@@ -1371,17 +1372,24 @@ export async function runProjectRuntimeObjective(
   const taskExecutions = inspectTaskExecutions(rawExecutions, executableState);
   if (!taskExecutions)
     return blocked(request, "project_runtime_task_execution_set_invalid");
-  const execution = await runProjectRuntimeOperation(dependencies.execution, {
-    workingDirectory,
-    repositoryBindingId: binding.repositoryBindingId,
-    projectId: request.projectId,
-    milestoneId: request.milestoneId,
-    queueId,
-    taskExecutions: taskExecutions.map((entry) =>
-      Object.freeze({ ...entry, repositoryRoot: binding.repositoryRoot }),
-    ),
-    cancellationSignal,
-  });
+  const execution = await runProjectRuntimeOperation(
+    {
+      ...dependencies.execution,
+      persistence: createProjectRuntimePersistencePorts(
+        workingDirectory,
+        binding.repositoryBindingId,
+      ),
+    },
+    {
+      projectId: request.projectId,
+      milestoneId: request.milestoneId,
+      queueId,
+      taskExecutions: taskExecutions.map((entry) =>
+        Object.freeze({ ...entry, repositoryRoot: binding.repositoryRoot }),
+      ),
+      cancellationSignal,
+    },
+  );
   const latest = readProjectRuntimeState(
     workingDirectory,
     binding.repositoryBindingId,

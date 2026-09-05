@@ -9,6 +9,7 @@ import test from "node:test";
 import { createRuntimeProcessRecoveryIdentity } from "../../src/core/runtime-process-safety-state.ts";
 
 import {
+  createProjectRuntimePersistencePorts,
   enqueueProjectOperation,
   readProjectOperationQueueState,
   readProjectRuntimeState,
@@ -17,7 +18,7 @@ import {
 } from "../../src/security/project-runtime-durable-foundation.ts";
 import {
   describeProjectRuntimeExecutionContract,
-  runProjectRuntimeOperation,
+  runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts,
 } from "../../src/security/project-runtime-execution.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "../../src/security/project-runtime-single-task-adapter.ts";
 import {
@@ -27,6 +28,32 @@ import {
 } from "../../../project-runtime/src/index.ts";
 
 const revision = "a".repeat(40);
+
+type BoundExecutionDependencies = Omit<
+  Parameters<typeof runProjectRuntimeOperationWithPorts>[0],
+  "persistence"
+>;
+type BoundExecutionInput = Parameters<
+  typeof runProjectRuntimeOperationWithPorts
+>[1] &
+  Readonly<{ workingDirectory: string; repositoryBindingId: string }>;
+
+function runProjectRuntimeOperation(
+  dependencies: BoundExecutionDependencies,
+  input: BoundExecutionInput,
+) {
+  const { workingDirectory, repositoryBindingId, ...applicationInput } = input;
+  return runProjectRuntimeOperationWithPorts(
+    {
+      ...dependencies,
+      persistence: createProjectRuntimePersistencePorts(
+        workingDirectory,
+        repositoryBindingId,
+      ),
+    },
+    applicationInput,
+  );
+}
 
 function hash(value: string) {
   return createHash("sha256").update(value).digest("hex");
