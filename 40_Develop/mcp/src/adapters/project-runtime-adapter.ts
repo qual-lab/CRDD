@@ -2,7 +2,7 @@ import { types as utilTypes } from "node:util";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "./plain-data-snapshot.ts";
+} from "../internal/plain-data-snapshot.ts";
 import {
   inspectProjectRuntimeIntegrationResult,
   inspectProjectRuntimeObjectiveRequest,
@@ -19,7 +19,7 @@ export const MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL = "crdd.run_objective" as const;
 export const MCP_PROJECT_RUNTIME_DECISION_TOOL =
   "crdd.submit_decision" as const;
 export const MCP_PROJECT_RUNTIME_ADAPTER_CONTRACT =
-  "crdd-coordinator/mcp-project-runtime-adapter/v2" as const;
+  "crdd-mcp/project-runtime-adapter/v1" as const;
 const PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/project-runtime-objective-intake/v1" as const;
 const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
@@ -961,6 +961,6 @@ export function describeMcpProjectRuntimeAdapterContract() {
     ]),
     transportState: "stateless_per_request",
     clientMetadataAuthority: "none",
-    projectModelOwnership: "coordinator_core",
+    projectModelOwnership: "project_runtime",
   });
 }

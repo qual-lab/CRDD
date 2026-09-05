@@ -10,7 +10,7 @@ import {
   handleMcpProjectRuntimeRequest,
   MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
-} from "../../src/security/mcp-project-runtime-adapter.ts";
+} from "../../../mcp/src/index.ts";
 import {
   createDevelopmentProjectRuntimePublicObjectiveCandidate,
   createProjectRuntimeExecutionIntelligenceDiagnosticReporter,

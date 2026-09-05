@@ -5,7 +5,7 @@ import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 
 import { startOwnedWindowsProcessTreeTermination } from "../src/security/docker-owned-process.ts";
-import { inspectMcpProjectRuntimeObjectiveResult } from "../src/security/mcp-project-runtime-adapter.ts";
+import { inspectMcpProjectRuntimeObjectiveResult } from "../../mcp/src/index.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
 
 export type JsonRecord = Readonly<Record<string, unknown>>;

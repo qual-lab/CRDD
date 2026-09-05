@@ -76,6 +76,7 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "coordinator"),
   path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
   path.join(repositoryRoot, "40_Develop", "project-runtime"),
+  path.join(repositoryRoot, "40_Develop", "mcp"),
   path.join(repositoryRoot, "template", "tools"),
 ]);
 const projectConfigs = Object.freeze([
@@ -94,15 +95,17 @@ const projectConfigs = Object.freeze([
     "tsconfig.json",
   ),
   path.join(repositoryRoot, "40_Develop", "project-runtime", "tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "mcp", "tsconfig.json"),
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 12,
-  coordinatorProduction: 146,
-  coordinatorTests: 159,
+  coordinatorProduction: 144,
+  coordinatorTests: 157,
   executionIntelligence: 7,
   projectRuntime: 25,
+  mcp: 7,
   rustPlatformAccess: 6,
-  uniqueTotal: 350,
+  uniqueTotal: 353,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
@@ -1713,6 +1716,12 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
             isOwnedProgramFile(file) &&
             isContainedPath(file, projectRuntimeRoot),
         );
+      const mcpRoot = path.join(repositoryRoot, "40_Develop", "mcp");
+      const mcpFiles = projects[5]?.program
+        .getSourceFileNames()
+        .filter(
+          (file) => isOwnedProgramFile(file) && isContainedPath(file, mcpRoot),
+        );
       assert.equal(
         checkerFiles?.length,
         EXPECTED_OWNED_SOURCE_COUNTS.checkerAndTemplate,
@@ -1749,6 +1758,7 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
         projectRuntimeFiles?.length,
         EXPECTED_OWNED_SOURCE_COUNTS.projectRuntime,
       );
+      assert.equal(mcpFiles?.length, EXPECTED_OWNED_SOURCE_COUNTS.mcp);
       const { sourceFiles, violations } = inspectProjects(projects);
       assert.equal(sourceFiles.size, EXPECTED_OWNED_SOURCE_COUNTS.uniqueTotal);
       const pathSourceFiles = collectOwnedTypeScriptPaths(files);

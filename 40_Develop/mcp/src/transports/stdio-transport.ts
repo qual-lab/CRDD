@@ -3,11 +3,11 @@ import type { Readable, Writable } from "node:stream";
 import {
   handleMcpProjectRuntimeRequest,
   type McpProjectRuntimeDependencies,
-} from "./mcp-project-runtime-adapter.ts";
-import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
+} from "../adapters/project-runtime-adapter.ts";
+import { parseUnambiguousJsonDocument } from "../internal/unambiguous-json.ts";
 
 export const MCP_PROJECT_RUNTIME_STDIO_CONTRACT =
-  "crdd-coordinator/mcp-project-runtime-stdio/v1" as const;
+  "crdd-mcp/stdio-transport/v1" as const;
 const MAXIMUM_REQUEST_BYTES = 128 * 1024;
 
 function write(output: Writable, value: unknown) {

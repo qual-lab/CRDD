@@ -26,7 +26,6 @@
     "src/security/project-runtime-durable-foundation.ts",
     "src/security/project-runtime-single-task-adapter.ts",
     "src/security/project-runtime-windows-platform-adapter.ts",
-    "src/security/mcp-project-runtime-adapter.ts",
     "src/security/development-measurement-session.ts",
     "bin/coordinator.ts",
     "scripts/generate-release-key.ts",

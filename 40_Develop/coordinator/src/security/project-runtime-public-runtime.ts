@@ -27,7 +27,7 @@ import {
   type ProjectRuntimeCandidatePort,
 } from "../../../project-runtime/src/index.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "./project-runtime-candidate-integration-adapter.ts";
-import { inspectMcpProjectRuntimeDecision } from "./mcp-project-runtime-adapter.ts";
+import { inspectMcpProjectRuntimeDecision } from "../../../mcp/src/index.ts";
 import { integrateProjectRuntimeOperation } from "./project-runtime-integration.ts";
 import { createProjectRuntimeDecisionRecoveryStore } from "./project-runtime-decision-recovery-store.ts";
 import {

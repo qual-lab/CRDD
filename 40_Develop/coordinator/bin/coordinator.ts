@@ -26,7 +26,7 @@ import {
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "../src/security/candidate-bundle-store.ts";
 import { parseUnambiguousJsonDocument } from "../src/security/claude-structured-result.ts";
-import { runMcpProjectRuntimeStdio } from "../src/security/mcp-project-runtime-stdio.ts";
+import { runMcpProjectRuntimeStdio } from "../../mcp/src/index.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,

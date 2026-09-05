@@ -11,7 +11,7 @@ import {
   readProjectRuntimeState,
 } from "../../src/security/project-runtime-durable-foundation.ts";
 import { integrateProjectRuntimeOperation } from "../../src/security/project-runtime-integration.ts";
-import { inspectMcpProjectRuntimeObjectiveResult } from "../../src/security/mcp-project-runtime-adapter.ts";
+import { inspectMcpProjectRuntimeObjectiveResult } from "../../../mcp/src/index.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 

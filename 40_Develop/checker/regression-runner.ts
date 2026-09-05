@@ -112,6 +112,7 @@ function runNodeTests(
     | "checker"
     | "coordinator"
     | "execution-intelligence"
+    | "mcp"
     | "project-runtime",
   entries: readonly TestCatalogEntry[],
   options: Readonly<{
@@ -191,7 +192,7 @@ function runStaticStage(
     const status = runNpmScript("check", root);
     if (status !== 0) return status;
   }
-  for (const owner of ["project-runtime"] as const)
+  for (const owner of ["mcp", "project-runtime"] as const)
     if (owners.has(owner)) {
       const status = runNpmScript(
         "check",
@@ -225,6 +226,7 @@ function runLevelStage(
     "checker",
     "coordinator",
     "execution-intelligence",
+    "mcp",
     "project-runtime",
   ] as const) {
     const ownerEntries = levelEntries.filter((entry) => entry.owner === owner);
@@ -293,6 +295,7 @@ try {
         "40_Develop/coordinator/package.json",
         "40_Develop/checker/package.json",
         "40_Develop/execution-intelligence/package.json",
+        "40_Develop/mcp/package.json",
         "40_Develop/project-runtime/package.json",
         "40_Develop/platform-access/Cargo.toml",
       ]

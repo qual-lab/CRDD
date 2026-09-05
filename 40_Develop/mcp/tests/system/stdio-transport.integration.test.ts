@@ -5,7 +5,7 @@ import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { runMcpProjectRuntimeStdio } from "../../src/security/mcp-project-runtime-stdio.ts";
+import { runMcpProjectRuntimeStdio } from "../../src/index.ts";
 
 function output() {
   let content = "";
@@ -80,7 +80,7 @@ test("stdio process rejects trailing and oversized frames without semantic effec
 
 test("coordinator binary exposes the bounded MCP stdio process", () => {
   const entry = fileURLToPath(
-    new URL("../../bin/coordinator.ts", import.meta.url),
+    new URL("../../../coordinator/bin/coordinator.ts", import.meta.url),
   );
   const request = JSON.stringify({
     jsonrpc: "2.0",

@@ -8,7 +8,7 @@ import {
   MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
   type McpProjectRuntimeDependencies,
-} from "../../src/security/mcp-project-runtime-adapter.ts";
+} from "../../src/index.ts";
 
 const revision = "a".repeat(40);
 const META = Object.freeze({
@@ -879,7 +879,7 @@ test("MCP DecisionはObjective専用fieldを拒否する", async () => {
 
 test("MCP contract reports stateless transport and the exact public tools", () => {
   assert.deepEqual(describeMcpProjectRuntimeAdapterContract(), {
-    contract: "crdd-coordinator/mcp-project-runtime-adapter/v2",
+    contract: "crdd-mcp/project-runtime-adapter/v1",
     protocolVersion: MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
     tools: [
       MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
@@ -887,6 +887,6 @@ test("MCP contract reports stateless transport and the exact public tools", () =
     ],
     transportState: "stateless_per_request",
     clientMetadataAuthority: "none",
-    projectModelOwnership: "coordinator_core",
+    projectModelOwnership: "project_runtime",
   });
 });

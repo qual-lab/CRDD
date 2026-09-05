@@ -11,29 +11,29 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * check below rejects any transitive import that leaves this closed set or
  * reaches an OS-specific module (01_Architecture.md 14.9, PR-A-07 companion).
  */
-const CORE_MODULES = Object.freeze([
-  "40_Develop/coordinator/src/security/mcp-project-runtime-adapter.ts",
-  "40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts",
-  "40_Develop/project-runtime/src/application/project-runtime-replanning.ts",
-  "40_Develop/project-runtime/src/index.ts",
-  "40_Develop/project-runtime/src/core/project-runtime-state.ts",
-  "40_Develop/project-runtime/src/core/project-runtime-queue.ts",
-  "40_Develop/project-runtime/src/internal/plain-data-snapshot.ts",
-  "40_Develop/project-runtime/src/ports/candidate-port.ts",
-  "40_Develop/project-runtime/src/ports/decision-port.ts",
-  "40_Develop/project-runtime/src/ports/execution-observation-port.ts",
-  "40_Develop/project-runtime/src/ports/execution-port.ts",
-  "40_Develop/project-runtime/src/ports/lease-port.ts",
-  "40_Develop/project-runtime/src/ports/platform-contract.ts",
-  "40_Develop/project-runtime/src/ports/port-result.ts",
-  "40_Develop/project-runtime/src/ports/state-port.ts",
-  "40_Develop/project-runtime/src/public-contract/integration-result.ts",
-  "40_Develop/project-runtime/src/public-contract/objective-request.ts",
-]);
-
-const ALLOWED_SHARED_MODULES = Object.freeze([
-  "40_Develop/coordinator/src/security/plain-data-snapshot.ts",
-]);
+function discoverProjectRuntimeModules(): readonly string[] {
+  const sourceRoot = path.join(
+    repositoryRoot,
+    "40_Develop/project-runtime/src",
+  );
+  const modules: string[] = [];
+  const pendingDirectories = [sourceRoot];
+  while (pendingDirectories.length > 0) {
+    const directory = pendingDirectories.pop();
+    assert.ok(directory !== undefined);
+    const metadata = fs.lstatSync(directory);
+    assert.equal(metadata.isSymbolicLink(), false, directory);
+    assert.equal(metadata.isDirectory(), true, directory);
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = path.join(directory, entry.name);
+      assert.equal(entry.isSymbolicLink(), false, absolutePath);
+      if (entry.isDirectory()) pendingDirectories.push(absolutePath);
+      else if (entry.isFile() && entry.name.endsWith(".ts"))
+        modules.push(normalize(path.relative(repositoryRoot, absolutePath)));
+    }
+  }
+  return Object.freeze(modules.sort());
+}
 
 const ALLOWED_NODE_BUILTINS = Object.freeze(["node:crypto", "node:util"]);
 
@@ -60,6 +60,8 @@ const FORBIDDEN_SOURCE_PATTERNS = Object.freeze([
 function normalize(relativePath: string): string {
   return relativePath.replaceAll("\\", "/");
 }
+
+const CORE_MODULES = discoverProjectRuntimeModules();
 
 function readRuntimeSource(relativePath: string): string {
   return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
@@ -102,7 +104,7 @@ function importSpecifierScan(source: string): Readonly<{
 }
 
 test("Project Runtime CoreのimportはPlatform非依存の閉集合に一致する", () => {
-  const allowedModules = new Set([...CORE_MODULES, ...ALLOWED_SHARED_MODULES]);
+  const allowedModules = new Set(CORE_MODULES);
   const allowedBuiltins = new Set(ALLOWED_NODE_BUILTINS);
   const visitedModules = new Set<string>();
   const pendingModules = [...CORE_MODULES];
@@ -154,10 +156,7 @@ test("Project Runtime CoreのimportはPlatform非依存の閉集合に一致す�
 });
 
 test("Project Runtime CoreはOS固有tokenとOS Path実値を含まない", () => {
-  for (const moduleRelativePath of [
-    ...CORE_MODULES,
-    ...ALLOWED_SHARED_MODULES,
-  ]) {
+  for (const moduleRelativePath of CORE_MODULES) {
     const source = readRuntimeSource(moduleRelativePath);
     for (const pattern of FORBIDDEN_SOURCE_PATTERNS)
       assert.equal(
