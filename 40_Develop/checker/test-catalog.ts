@@ -93,6 +93,8 @@ const ENTRY_KEYS = new Set([
   "mandatoryByDefault",
 ]);
 const IGNORED_WALK_DIRECTORIES = new Set([".git", "node_modules", "target"]);
+const WINDOWS_PROCESS_GATE_DECLARATION =
+  /\btest\s*\(\s*[`"]Windows Process Gate:/u;
 
 function ordinal(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -314,6 +316,39 @@ export function inspectTestCatalog(
   for (const entry of registeredPaths)
     if (!actualSet.has(entry.toLowerCase()))
       failures.push(`nonexistent_catalog_entry:${entry}`);
+
+  const windowsGatePaths = actualPaths
+    .filter((entry) => entry.endsWith(".test.ts"))
+    .filter((entry) =>
+      fs
+        .readFileSync(path.join(repositoryRoot, ...entry.split("/")), "utf8")
+        .match(WINDOWS_PROCESS_GATE_DECLARATION),
+    );
+  const windowsProfileEntries = candidate.tests
+    .filter(isRecord)
+    .map((entry) => entry as unknown as TestCatalogEntry)
+    .filter(
+      (entry) =>
+        typeof entry.path === "string" &&
+        Array.isArray(entry.executionProfiles) &&
+        entry.executionProfiles.includes("windows_process_control"),
+    );
+  const windowsProfilePaths = windowsProfileEntries.map((entry) => entry.path);
+  const windowsGateSet = new Set(
+    windowsGatePaths.map((entry) => entry.toLowerCase()),
+  );
+  const windowsProfileSet = new Set(
+    windowsProfilePaths.map((entry) => entry.toLowerCase()),
+  );
+  for (const entry of windowsGatePaths)
+    if (!windowsProfileSet.has(entry.toLowerCase()))
+      failures.push(`windows_process_profile_missing:${entry}`);
+  for (const entry of windowsProfileEntries) {
+    if (!windowsGateSet.has(entry.path.toLowerCase()))
+      failures.push(`windows_process_profile_unexpected:${entry.path}`);
+    if (!entry.executionProfiles?.includes("restricted_process"))
+      failures.push(`windows_process_restricted_profile_missing:${entry.path}`);
+  }
   return [...new Set(failures)].sort(ordinal);
 }
 
@@ -404,12 +439,14 @@ export function selectRegressionTests(
       for (const entry of eligibleEntries) selected.set(entry.path, entry);
       continue;
     }
+    if (isDocumentationPath(changedPath)) {
+      for (const entry of eligibleEntries)
+        if (entry.owner === "checker") selected.set(entry.path, entry);
+      continue;
+    }
     const owner = ownerForPath(changedPath);
     if (owner === null) {
-      const candidates = isDocumentationPath(changedPath)
-        ? eligibleEntries.filter((candidate) => candidate.owner === "checker")
-        : eligibleEntries;
-      for (const entry of candidates) selected.set(entry.path, entry);
+      for (const entry of eligibleEntries) selected.set(entry.path, entry);
       continue;
     }
     const ownerEntries = eligibleEntries.filter(

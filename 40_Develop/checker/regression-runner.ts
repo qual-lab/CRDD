@@ -2,10 +2,12 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  buildRegressionStagePlan,
   collectChangedPathsFromGit,
+  createRegressionStageExecutor,
   executeRegressionStages,
+  normalizeExplicitChangedPaths,
   regressionStageOrder,
-  type RegressionStage,
 } from "./regression-execution.ts";
 import {
   inspectResourceIntensiveTestAuthority,
@@ -196,7 +198,7 @@ function runStaticStage(
 function runLevelStage(
   level: TestLevel,
   entries: readonly TestCatalogEntry[],
-  isWindowsProcessControlRequired: boolean,
+  shouldSkipWindowsProcessTests: boolean,
 ): number {
   const levelEntries = entries.filter((entry) => entry.level === level);
   for (const owner of ["checker", "coordinator"] as const) {
@@ -206,19 +208,10 @@ function runLevelStage(
       ownerEntries,
       owner === "coordinator" &&
         level === "integration" &&
-        isWindowsProcessControlRequired
+        shouldSkipWindowsProcessTests
         ? { testSkipPattern: "^Windows Process Gate:" }
         : {},
     );
-    if (status !== 0) return status;
-  }
-  if (level === "integration" && isWindowsProcessControlRequired) {
-    const windowsEntries = levelEntries.filter((entry) =>
-      entry.executionProfiles?.includes("windows_process_control"),
-    );
-    const status = runNodeTests("coordinator", windowsEntries, {
-      testNamePattern: "^Windows Process Gate:",
-    });
     if (status !== 0) return status;
   }
   if (levelEntries.some((entry) => entry.owner === "platform-access"))
@@ -226,36 +219,15 @@ function runLevelStage(
   return 0;
 }
 
-function buildStagePlan(
-  selectedEntries: readonly TestCatalogEntry[],
-  changedPaths: readonly string[],
-) {
-  const owners = [...selectedOwners(selectedEntries)].sort();
-  return regressionStageOrder.map((stage) => ({
-    stage,
-    owners:
-      stage === "static"
-        ? owners
-        : [
-            ...new Set(
-              selectedEntries
-                .filter((entry) => entry.level === stage)
-                .map((entry) => entry.owner),
-            ),
-          ].sort(),
-    selected:
-      stage === "static"
-        ? []
-        : selectedEntries
-            .filter((entry) => entry.level === stage)
-            .map((entry) => entry.path),
-    selectionReason:
-      stage === "static"
-        ? changedPaths.some((entry) => entry.toLowerCase().endsWith(".md"))
-          ? "owner_static_checks_and_repository_check"
-          : "owner_static_checks"
-        : "conservative_owner_closure_or_direct_test_change",
-  }));
+function runWindowsProcessStage(entries: readonly TestCatalogEntry[]): number {
+  const windowsEntries = entries.filter(
+    (entry) =>
+      entry.level === "integration" &&
+      entry.executionProfiles?.includes("windows_process_control"),
+  );
+  return runNodeTests("coordinator", windowsEntries, {
+    testNamePattern: "^Windows Process Gate:",
+  });
 }
 
 function writeJson(value: unknown): void {
@@ -287,7 +259,9 @@ try {
     process.exit(2);
   }
 
-  const explicitChangedPaths = valuesAfter("--changed");
+  const explicitChangedPaths = normalizeExplicitChangedPaths(
+    valuesAfter("--changed"),
+  );
   const base = valueAfter("--base");
   const changedPaths = process.argv.includes("--all")
     ? [
@@ -353,7 +327,7 @@ try {
     changedPaths,
     levels: [...levels],
     selected: selectedEntries.map((entry) => entry.path),
-    stages: buildStagePlan(selectedEntries, changedPaths),
+    stages: buildRegressionStagePlan(selectedEntries, changedPaths),
     requiredExecutionProfiles: [
       "restricted_process",
       ...(isWindowsProcessControlRequired ? ["windows_process_control"] : []),
@@ -373,16 +347,16 @@ try {
   writeJson(plan);
   if (process.argv.includes("--plan") || isResourceIntensive) process.exit(0);
 
+  const executeStage = createRegressionStageExecutor({
+    windowsProcessControlRequired: isWindowsProcessControlRequired,
+    runStatic: () => runStaticStage(selectedEntries, changedPaths),
+    runLevel: (stage) =>
+      runLevelStage(stage, selectedEntries, isWindowsProcessControlRequired),
+    runWindowsProcess: () => runWindowsProcessStage(selectedEntries),
+  });
   const stageResults = executeRegressionStages(
     regressionStageOrder,
-    (stage: RegressionStage) =>
-      stage === "static"
-        ? runStaticStage(selectedEntries, changedPaths)
-        : runLevelStage(
-            stage,
-            selectedEntries,
-            isWindowsProcessControlRequired,
-          ),
+    executeStage,
   );
   const failedStage = stageResults.find((entry) => entry.status === "failed");
   writeJson({

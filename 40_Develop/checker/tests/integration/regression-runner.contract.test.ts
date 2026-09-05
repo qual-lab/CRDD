@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  createRegressionStageExecutor,
   collectChangedPathsFromGit,
   executeRegressionStages,
   regressionStageOrder,
@@ -161,6 +162,35 @@ test("Windows実Process試験は専用実行Authorityなしに試験Processを�
   });
 });
 
+test("Tool配下MarkdownもCheckerとRepository静的検査へ接続する", () => {
+  for (const changedPath of [
+    "16_Quality_Assurance.md",
+    "40_Develop/coordinator/README.md",
+    "40_Develop/platform-access/README.md",
+  ]) {
+    const result = invokeRunner(["--changed", changedPath, "--plan"]);
+    assert.equal(result.status, 0, changedPath);
+    const plan = JSON.parse(result.stdout) as {
+      selected?: string[];
+      stages?: Array<{
+        stage?: string;
+        owners?: string[];
+        selectionReason?: string;
+      }>;
+    };
+    assert.ok(
+      plan.selected?.every((entry) => entry.startsWith("40_Develop/checker/")),
+      changedPath,
+    );
+    const staticStage = plan.stages?.find((entry) => entry.stage === "static");
+    assert.deepEqual(staticStage?.owners, ["checker"]);
+    assert.equal(
+      staticStage?.selectionReason,
+      "owner_static_checks_and_repository_check",
+    );
+  }
+});
+
 test("回帰stageは静的確認からSTへ順序実行する", () => {
   const observedStages: string[] = [];
   const results = executeRegressionStages(regressionStageOrder, (stage) => {
@@ -185,6 +215,79 @@ test("前段失敗は後段を未実行にする", () => {
         .slice(failureIndex + 1)
         .every((entry) => entry.status === "not_run_due_to_prior_stage"),
     );
+  }
+});
+
+test("実配線はWindows Gateを結合試験後かつ総合試験前に一度だけ実行する", () => {
+  const observedSteps: string[] = [];
+  const executeStage = createRegressionStageExecutor({
+    windowsProcessControlRequired: true,
+    runStatic: () => {
+      observedSteps.push("static");
+      return 0;
+    },
+    runLevel: (stage) => {
+      observedSteps.push(stage);
+      return 0;
+    },
+    runWindowsProcess: () => {
+      observedSteps.push("windows_process_control");
+      return 0;
+    },
+  });
+  executeRegressionStages(regressionStageOrder, executeStage);
+  assert.deepEqual(observedSteps, [
+    "static",
+    "unit",
+    "integration",
+    "windows_process_control",
+    "system",
+  ]);
+});
+
+test("実配線の各失敗は後続levelとWindows Gateを開始しない", () => {
+  for (const failedStep of [
+    "static",
+    "unit",
+    "integration",
+    "windows_process_control",
+  ]) {
+    const observedSteps: string[] = [];
+    const executeStage = createRegressionStageExecutor({
+      windowsProcessControlRequired: true,
+      runStatic: () => {
+        observedSteps.push("static");
+        return failedStep === "static" ? 1 : 0;
+      },
+      runLevel: (stage) => {
+        observedSteps.push(stage);
+        return failedStep === stage ? 1 : 0;
+      },
+      runWindowsProcess: () => {
+        observedSteps.push("windows_process_control");
+        return failedStep === "windows_process_control" ? 1 : 0;
+      },
+    });
+    executeRegressionStages(regressionStageOrder, executeStage);
+    assert.equal(observedSteps.at(-1), failedStep);
+  }
+});
+
+test("明示変更PathはRepository内の正規化相対Pathだけを受理する", () => {
+  for (const changedPath of [
+    "../outside.ts",
+    "C:/outside.ts",
+    "/outside.ts",
+    "40_Develop\\checker\\test-catalog.ts",
+    "./40_Develop/checker/test-catalog.ts",
+  ]) {
+    const result = invokeRunner(["--changed", changedPath, "--plan"]);
+    assert.equal(result.status, 2, changedPath);
+    const outcome = JSON.parse(result.stdout) as Record<string, unknown>;
+    assert.equal(outcome.status, "blocked");
+    assert.equal(outcome.reason, "regression_runner_observation_failed");
+    assert.equal(outcome.detail, "regression_runner_changed_path_invalid");
+    assert.equal(outcome.effectIssued, false);
   }
 });
 

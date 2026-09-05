@@ -91,11 +91,18 @@ test("共有設定とowner不明の実行変更は全ownerへ閉じる", () => {
 });
 
 test("文書変更はRepository規則を検査するCheckerへ接続する", () => {
-  const selectedEntries = selectRegressionTests(catalog, [
+  for (const changedPath of [
     "16_Quality_Assurance.md",
-  ]);
-  assert.ok(selectedEntries.length > 0);
-  assert.ok(selectedEntries.every((entry) => entry.owner === "checker"));
+    "40_Develop/coordinator/README.md",
+    "40_Develop/platform-access/README.md",
+  ]) {
+    const selectedEntries = selectRegressionTests(catalog, [changedPath]);
+    assert.ok(selectedEntries.length > 0);
+    assert.ok(
+      selectedEntries.every((entry) => entry.owner === "checker"),
+      changedPath,
+    );
+  }
 });
 
 test("PT／LTは明示Authorityと全上限がなければEffect前に拒否する", () => {
@@ -183,6 +190,57 @@ test("実行Profileは閉集合かつ重複なしでなければならない", (
   assert.ok(
     inspectTestCatalog(repositoryRoot, invalid as typeof catalog).includes(
       `invalid_execution_profiles:${first.path}`,
+    ),
+  );
+});
+
+test("Windows実Process Gateの3 fileと実行Profileをexactに照合する", () => {
+  const gatePaths = [
+    "40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts",
+    "40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts",
+    "40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts",
+  ];
+  for (const gatePath of gatePaths) {
+    const invalid = {
+      ...catalog,
+      tests: catalog.tests.map((entry) =>
+        entry.path === gatePath
+          ? { ...entry, executionProfiles: ["restricted_process"] }
+          : entry,
+      ),
+    };
+    assert.ok(
+      inspectTestCatalog(repositoryRoot, invalid).includes(
+        `windows_process_profile_missing:${gatePath}`,
+      ),
+      gatePath,
+    );
+  }
+
+  const ordinaryEntry = catalog.tests.find(
+    (entry) =>
+      entry.owner === "coordinator" &&
+      !gatePaths.includes(entry.path) &&
+      entry.level === "integration",
+  );
+  assert.ok(ordinaryEntry);
+  const invalid = {
+    ...catalog,
+    tests: catalog.tests.map((entry) =>
+      entry.path === ordinaryEntry.path
+        ? {
+            ...entry,
+            executionProfiles: [
+              "restricted_process",
+              "windows_process_control",
+            ],
+          }
+        : entry,
+    ),
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, invalid).includes(
+      `windows_process_profile_unexpected:${ordinaryEntry.path}`,
     ),
   );
 });

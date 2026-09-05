@@ -103,7 +103,7 @@ Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場
 
 ### 変更影響型回帰の信頼境界
 
-[試験カタログ](04_Test_Catalog.json) revision 3は、Rootと各登録項目のkey、列挙値、必須Boolean、非空かつ重複のない集合、およびRepository内の正規化相対Pathを閉じたSchemaとして検証する。欠落field、未知field、不明な列挙値、絶対Path、親Directory参照または区切り差を既定値へ畳まず、試験Process開始前に停止する。`externalEffect`と`humanInput`の欠落を`false`と推定しない。
+[試験カタログ](04_Test_Catalog.json) revision 3は、Rootと各登録項目のkey、列挙値、必須Boolean、非空かつ重複のない集合、およびRepository内の正規化相対Pathを閉じたSchemaとして検証する。欠落field、未知field、不明な列挙値、絶対Path、親Directory参照または区切り差を既定値へ畳まず、試験Process開始前に停止する。`externalProviderEffect`と`humanInput`の欠落を`false`と推定しない。
 
 回帰対象はfilenameの語句一致から選ばない。登録済み試験そのものだけが変更された場合はその試験を直接選択できるが、production code、support、fixtureまたは設定の変更では、対象Toolが所有するUT・IT・STを安全側の閉包として選択する。共有カタログ・共有設定または所有者を確定できない実行可能変更では全Toolを選択する。Markdown変更ではCheckerとRepository文書検査を静的段階へ含める。この保守的選択を意味依存グラフの完成と読み替えず、将来、機械的に検証できる依存関係が成立した範囲だけ狭める。
 
