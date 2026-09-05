@@ -20,7 +20,6 @@ import {
 import {
   runProjectRuntimeOperation,
   type ProjectRuntimeExecutionDependencies,
-  type ProjectRuntimeTaskExecution,
 } from "../../../project-runtime/src/index.ts";
 import { createProjectRuntimeExecutionHostPorts } from "./project-runtime-execution-host-adapter.ts";
 import {
@@ -32,16 +31,14 @@ import {
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
   createProjectRuntimeObjectiveResult,
+  createProjectRuntimeTaskExecutionSet,
   inspectProjectRuntimeObjectivePlan,
   PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
   type ProjectTaskRecoveryObligation,
   type ProjectDockerRecoveryAcknowledgement,
   type ProjectRuntimeState,
 } from "../../../project-runtime/src/index.ts";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "./plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   inspectProjectRuntimeObjectiveRequest,
   type ProjectRuntimeObjectiveRequest,
@@ -277,46 +274,6 @@ function inspectBinding(raw: unknown, revision: string) {
         bindingCapability: value.bindingCapability,
       })
     : null;
-}
-
-function inspectTaskExecutions(
-  raw: unknown,
-  state: ProjectRuntimeState,
-): readonly ProjectRuntimeTaskExecution[] | null {
-  const activeTaskIds = state.tasks
-    .filter((task) => task.state !== "superseded")
-    .map((task) => task.definition.id);
-  const rawExecutions = snapshotPlainArray(raw, activeTaskIds.length);
-  if (
-    rawExecutions.status !== "ok" ||
-    rawExecutions.value.length !== activeTaskIds.length
-  )
-    return null;
-  const executions: ProjectRuntimeTaskExecution[] = [];
-  for (const rawExecution of rawExecutions.value) {
-    const execution = snapshotPlainRecord(
-      rawExecution,
-      new Set([
-        "taskId",
-        "authorityBindingId",
-        "taskRequest",
-        "repositoryRoot",
-      ] as const),
-    );
-    if (
-      !execution ||
-      !validId(execution.taskId) ||
-      !activeTaskIds.includes(execution.taskId) ||
-      !validId(execution.authorityBindingId)
-    )
-      return null;
-    executions.push(Object.freeze(execution as ProjectRuntimeTaskExecution));
-  }
-  if (
-    new Set(executions.map((entry) => entry.taskId)).size !== executions.length
-  )
-    return null;
-  return Object.freeze(executions);
 }
 
 function blocked(
@@ -1362,6 +1319,7 @@ export async function runProjectRuntimeObjective(
       effectState: "unknown",
     });
   let rawExecutions: unknown;
+  const executionHostPorts = createProjectRuntimeExecutionHostPorts();
   try {
     rawExecutions = dependencies.createTaskExecutions(
       request,
@@ -1371,13 +1329,17 @@ export async function runProjectRuntimeObjective(
   } catch {
     rawExecutions = null;
   }
-  const taskExecutions = inspectTaskExecutions(rawExecutions, executableState);
+  const taskExecutions = createProjectRuntimeTaskExecutionSet(
+    rawExecutions,
+    executableState,
+    executionHostPorts.clockIdentity,
+  );
   if (!taskExecutions)
     return blocked(request, "project_runtime_task_execution_set_invalid");
   const execution = await runProjectRuntimeOperation(
     {
       ...dependencies.execution,
-      ...createProjectRuntimeExecutionHostPorts(),
+      ...executionHostPorts,
       persistence: createProjectRuntimePersistencePorts(
         workingDirectory,
         binding.repositoryBindingId,

@@ -282,7 +282,6 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     createTaskExecutions: () => [
       {
         taskId: "task-a",
-        authorityBindingId: "authority-a",
         taskRequest: {},
         repositoryRoot: workingDirectory,
       },
@@ -436,7 +435,6 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
       createTaskExecutions: () => [
         {
           taskId: "task-a",
-          authorityBindingId: "authority-a",
           taskRequest: {},
           repositoryRoot: workingDirectory,
         },
@@ -669,7 +667,6 @@ test("a scheduled Objective arriving during interactive execution waits without 
     createTaskExecutions: () => [
       {
         taskId: "task-a",
-        authorityBindingId: "authority-a",
         taskRequest: {},
         repositoryRoot: workingDirectory,
       },
@@ -745,7 +742,6 @@ test("binding or planner scope failure creates no Project State or Task effect",
     createTaskExecutions: () => [
       {
         taskId: "task-a",
-        authorityBindingId: "authority-a",
         taskRequest: {},
         repositoryRoot: workingDirectory,
       },
@@ -934,7 +930,6 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     createTaskExecutions: () => [
       {
         taskId: "task-a",
-        authorityBindingId: "authority-a",
         taskRequest: {},
         repositoryRoot: workingDirectory,
       },
@@ -1249,7 +1244,6 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
     createTaskExecutions: () => [
       {
         taskId: "task-a",
-        authorityBindingId: "authority-a",
         taskRequest: {},
         repositoryRoot: workingDirectory,
       },
@@ -1436,7 +1430,6 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
       createTaskExecutions: () => [
         {
           taskId: "task-a",
-          authorityBindingId: "authority-a",
           taskRequest: {},
           repositoryRoot: workingDirectory,
         },
@@ -1488,7 +1481,6 @@ for (const interruption of [
       createTaskExecutions: () => [
         {
           taskId: "task-a",
-          authorityBindingId: "authority-a",
           taskRequest: {},
           repositoryRoot: workingDirectory,
         },

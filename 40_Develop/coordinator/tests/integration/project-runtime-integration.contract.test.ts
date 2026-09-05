@@ -53,7 +53,6 @@ async function prepared(t: test.TestContext) {
       createTaskExecutions: () => [
         {
           taskId: "task-a",
-          authorityBindingId: "authority-a",
           taskRequest: {},
           repositoryRoot: root,
         },

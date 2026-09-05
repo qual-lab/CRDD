@@ -98,7 +98,6 @@ function fixture(t: test.TestContext) {
         .filter((task) => task.state !== "superseded")
         .map((task) => ({
           taskId: task.definition.id,
-          authorityBindingId: `authority-${task.retryCount}`,
           taskRequest: {},
           repositoryRoot: root,
         })),

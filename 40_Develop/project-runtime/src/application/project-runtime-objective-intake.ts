@@ -2,8 +2,11 @@ import type {
   ProjectObjectiveDefinition,
   ProjectTaskDefinition,
   ProjectTaskRecoveryObligation,
+  ProjectRuntimeState,
   projectProjectRuntimeState,
 } from "../core/project-runtime-state.ts";
+import type { ProjectRuntimeClockIdentityPort } from "../ports/clock-identity-port.ts";
+import type { ProjectRuntimeTaskExecution } from "./project-runtime-execution.ts";
 import {
   inspectProjectRuntimeObjectiveRequest,
   type ProjectRuntimeObjectiveRequest,
@@ -147,6 +150,62 @@ export function inspectProjectRuntimeObjectivePlan(
     objectives: Object.freeze(objectives),
     tasks: Object.freeze(tasks),
   });
+}
+
+/**
+ * Bind Host-prepared Task payloads to the exact current Task scope. The Host
+ * supplies execution mechanics; Project Runtime owns the Task Authority
+ * binding identity and rejects payloads outside the current active Task set.
+ */
+export function createProjectRuntimeTaskExecutionSet(
+  raw: unknown,
+  state: ProjectRuntimeState,
+  clockIdentity: ProjectRuntimeClockIdentityPort,
+): readonly ProjectRuntimeTaskExecution[] | null {
+  const activeTasks = state.tasks.filter((task) => task.state !== "superseded");
+  const rawExecutions = snapshotPlainArray(raw, activeTasks.length);
+  if (
+    rawExecutions.status !== "ok" ||
+    rawExecutions.value.length !== activeTasks.length
+  )
+    return null;
+  const executions: ProjectRuntimeTaskExecution[] = [];
+  for (const rawExecution of rawExecutions.value) {
+    const execution = snapshotPlainRecord(
+      rawExecution,
+      new Set(["taskId", "taskRequest", "repositoryRoot"] as const),
+    );
+    const task = activeTasks.find(
+      (candidate) => candidate.definition.id === execution?.taskId,
+    );
+    if (!execution || !task) return null;
+    let authorityBindingId: string;
+    try {
+      authorityBindingId = clockIdentity.createStableId("authority", [
+        state.projectId,
+        state.milestoneId,
+        state.repositoryRevision,
+        task.definition.objectiveId,
+        task.definition.id,
+        String(task.retryCount),
+      ]);
+    } catch {
+      return null;
+    }
+    if (!validId(authorityBindingId)) return null;
+    executions.push(
+      Object.freeze({
+        taskId: task.definition.id,
+        authorityBindingId,
+        taskRequest: execution.taskRequest,
+        repositoryRoot: execution.repositoryRoot,
+      }),
+    );
+  }
+  return new Set(executions.map((entry) => entry.taskId)).size ===
+    activeTasks.length
+    ? Object.freeze(executions)
+    : null;
 }
 
 /** Canonical public result envelope for one Project Runtime objective request. */

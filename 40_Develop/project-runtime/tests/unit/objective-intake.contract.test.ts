@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createProjectRuntimeState,
   createProjectRuntimeObjectiveResult,
+  createProjectRuntimeTaskExecutionSet,
   inspectProjectRuntimeObjectivePlan,
   inspectProjectRuntimeObjectiveRequest,
   PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
@@ -61,6 +63,52 @@ test("Objective Planは許可Path内の閉じた値だけを受理する", () =>
         ],
       },
       request,
+    ),
+    null,
+  );
+});
+
+test("Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮小する", () => {
+  const created = createProjectRuntimeState({
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    maximumConcurrency: 1,
+    milestoneAcceptanceCriteria: ["全Taskを統合できる"],
+    objectives: PROJECT_RUNTIME_OBJECTIVE_PLAN.objectives,
+    tasks: PROJECT_RUNTIME_OBJECTIVE_PLAN.tasks,
+    ownerGeneration: "owner-a",
+  });
+  assert.ok(created.state);
+  const result = createProjectRuntimeTaskExecutionSet(
+    [{ taskId: "task-a", taskRequest: {}, repositoryRoot: {} }],
+    created.state,
+    {
+      now: () => ({ monotonicMs: 0, iso: "2026-09-06T00:00:00.000Z" }),
+      createStableId: (prefix, parts) => `${prefix}-${parts.join("-")}`,
+    },
+  );
+  assert.ok(result);
+  assert.equal(result[0]?.taskId, "task-a");
+  assert.equal(
+    result[0]?.authorityBindingId,
+    `authority-project-a-milestone-a-${"a".repeat(40)}-objective-a-task-a-0`,
+  );
+  assert.equal(
+    createProjectRuntimeTaskExecutionSet(
+      [
+        {
+          taskId: "task-a",
+          authorityBindingId: "host-supplied",
+          taskRequest: {},
+          repositoryRoot: {},
+        },
+      ],
+      created.state,
+      {
+        now: () => ({ monotonicMs: 0, iso: "2026-09-06T00:00:00.000Z" }),
+        createStableId: () => "authority-a",
+      },
     ),
     null,
   );

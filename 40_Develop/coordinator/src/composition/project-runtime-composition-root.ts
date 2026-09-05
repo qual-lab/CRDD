@@ -392,24 +392,30 @@ async function executeProjectRuntimePublicObjective(
       createTaskExecutions(request, _bindingCapability, state) {
         return state.tasks
           .filter((task) => task.state !== "superseded")
-          .map((task) =>
-            Object.freeze({
+          .map((task) => {
+            const objective = state.objectives.find(
+              (candidate) =>
+                candidate.definition.id === task.definition.objectiveId,
+            );
+            return Object.freeze({
               taskId: task.definition.id,
-              authorityBindingId: stable(
-                "authority",
-                task.definition.id,
-                request.repositoryRevision,
-                String(task.retryCount),
-              ),
               repositoryRoot,
               taskRequest: buildProjectRuntimeCoordinatorTaskRequest(
-                request,
+                Object.freeze({
+                  ...request,
+                  acceptanceCriteria: Object.freeze([
+                    ...(objective?.definition.acceptanceCriteria ?? []),
+                  ]),
+                  allowedPaths: Object.freeze([
+                    ...task.definition.allowedPaths,
+                  ]),
+                }),
                 runtimeDependencies.frontProviderForTask(
                   request.requestedExecutorProvider ?? "auto",
                 ),
               ),
-            }),
-          );
+            });
+          });
       },
       observeLeaseOwner,
       recoverTaskRecovery: recoverRuntimeOwnedDockerTask,
