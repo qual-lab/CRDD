@@ -20,6 +20,7 @@ import {
   describeProjectRuntimeExecutionContract,
   runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts,
 } from "../../src/security/project-runtime-execution.ts";
+import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "../../src/security/project-runtime-single-task-adapter.ts";
 import {
   createProjectRuntimeState,
@@ -31,8 +32,12 @@ const revision = "a".repeat(40);
 
 type BoundExecutionDependencies = Omit<
   Parameters<typeof runProjectRuntimeOperationWithPorts>[0],
-  "persistence"
->;
+  "persistence" | "clockIdentity" | "processSafety"
+> &
+  Readonly<{
+    now?: () => Readonly<{ monotonicMs: number; iso: string }>;
+    poisonProcessAfterAuthorityRevocationUnknown?: () => void;
+  }>;
 type BoundExecutionInput = Parameters<
   typeof runProjectRuntimeOperationWithPorts
 >[1] &
@@ -43,9 +48,23 @@ function runProjectRuntimeOperation(
   input: BoundExecutionInput,
 ) {
   const { workingDirectory, repositoryBindingId, ...applicationInput } = input;
+  const {
+    now,
+    poisonProcessAfterAuthorityRevocationUnknown,
+    ...applicationDependencies
+  } = dependencies;
   return runProjectRuntimeOperationWithPorts(
     {
-      ...dependencies,
+      ...applicationDependencies,
+      ...createProjectRuntimeExecutionHostPorts({
+        ...(now ? { now } : {}),
+        ...(poisonProcessAfterAuthorityRevocationUnknown
+          ? {
+              poisonAfterCleanupUnknown:
+                poisonProcessAfterAuthorityRevocationUnknown,
+            }
+          : {}),
+      }),
       persistence: createProjectRuntimePersistencePorts(
         workingDirectory,
         repositoryBindingId,

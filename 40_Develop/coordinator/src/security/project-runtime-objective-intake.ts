@@ -22,6 +22,7 @@ import {
   type ProjectRuntimeExecutionDependencies,
   type ProjectRuntimeTaskExecution,
 } from "./project-runtime-execution.ts";
+import { createProjectRuntimeExecutionHostPorts } from "./project-runtime-execution-host-adapter.ts";
 import {
   createProjectRuntimeState,
   acknowledgeProjectDockerRecoveryObligation,
@@ -127,7 +128,10 @@ export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
       stateGeneration: number;
     }>,
   ) => void | Promise<void>;
-  execution: Omit<ProjectRuntimeExecutionDependencies, "persistence">;
+  execution: Omit<
+    ProjectRuntimeExecutionDependencies,
+    "persistence" | "clockIdentity" | "processSafety"
+  >;
 }>;
 
 async function observeRecoveryTransition(
@@ -1375,6 +1379,7 @@ export async function runProjectRuntimeObjective(
   const execution = await runProjectRuntimeOperation(
     {
       ...dependencies.execution,
+      ...createProjectRuntimeExecutionHostPorts(),
       persistence: createProjectRuntimePersistencePorts(
         workingDirectory,
         binding.repositoryBindingId,

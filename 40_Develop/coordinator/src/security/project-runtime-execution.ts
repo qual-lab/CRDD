@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-import { performance } from "node:perf_hooks";
 import { types as utilTypes } from "node:util";
 
 import {
@@ -16,14 +14,11 @@ import {
   type ProjectRuntimeSingleTaskResult,
   type ProjectRuntimeExecutionObservationPort,
   type ProjectRuntimeExecutionObservationPublication,
+  type ProjectRuntimeClockIdentityPort,
   type ProjectRuntimePersistencePorts,
+  type ProjectRuntimeProcessSafetyPort,
   type ProjectRuntimeTaskAttemptObservation,
 } from "../../../project-runtime/src/index.ts";
-import {
-  createRuntimeProcessRecoveryIdentity,
-  poisonRuntimeProcessAfterCleanupUnknown,
-} from "../core/runtime-process-safety-state.ts";
-
 export const PROJECT_RUNTIME_EXECUTION_CONTRACT =
   "crdd-coordinator/project-runtime-execution/v1" as const;
 
@@ -40,14 +35,14 @@ export type ProjectRuntimeExecutionPublicationObservation =
 
 export type ProjectRuntimeExecutionDependencies = Readonly<{
   persistence: ProjectRuntimePersistencePorts;
+  clockIdentity: ProjectRuntimeClockIdentityPort;
+  processSafety: ProjectRuntimeProcessSafetyPort;
   issueTaskAuthority?: () => object | null;
   revokeTaskAuthority?: (capability: object) => boolean;
-  poisonProcessAfterAuthorityRevocationUnknown?: () => void;
   runSingleTaskAttempt: (
     input: ProjectRuntimeSingleTaskAttemptInput,
   ) => Promise<ProjectRuntimeSingleTaskResult>;
   executionObservation?: ProjectRuntimeExecutionObservationPort;
-  now?: () => Readonly<{ monotonicMs: number; iso: string }>;
 }>;
 
 export type ProjectRuntimeExecutionResult = Readonly<{
@@ -77,9 +72,12 @@ type ExecutionInput = Readonly<{
   cancellationSignal: AbortSignal;
 }>;
 
-function stableId(prefix: string, ...parts: readonly string[]) {
-  const value = createHash("sha256").update(parts.join("\0")).digest("hex");
-  return `${prefix}-${value.slice(0, 40)}`;
+function stableId(
+  dependencies: ProjectRuntimeExecutionDependencies,
+  prefix: string,
+  ...parts: readonly string[]
+) {
+  return dependencies.clockIdentity.createStableId(prefix, parts);
 }
 
 function validIdentity(value: unknown): value is string {
@@ -552,6 +550,7 @@ export async function runProjectRuntimeOperation(
         lease,
         resumeCondition: "owned_operation_failure",
         resultReference: stableId(
+          dependencies,
           "project-operation-recovery",
           input.projectId,
           input.queueId,
@@ -681,12 +680,14 @@ export async function runProjectRuntimeOperation(
           completedTaskIds,
         });
       const attemptId = stableId(
+        dependencies,
         "attempt",
         input.queueId,
         taskId,
         String(state.generation),
       );
       const operationId = stableId(
+        dependencies,
         "operation",
         input.queueId,
         taskId,
@@ -786,10 +787,7 @@ export async function runProjectRuntimeOperation(
     const attemptStartedAt = new Map<string, number>();
     const outcomes = await Promise.all(
       attempts.map(async (attempt) => {
-        const startedAt = dependencies.now?.() ?? {
-          monotonicMs: performance.now(),
-          iso: new Date().toISOString(),
-        };
+        const startedAt = dependencies.clockIdentity.now();
         attemptStartedAt.set(attempt.attemptId, startedAt.monotonicMs);
         try {
           if (input.cancellationSignal.aborted)
@@ -857,12 +855,9 @@ export async function runProjectRuntimeOperation(
                   recoveryObligations: Object.freeze([]),
                 })
               : (() => {
-                  (
-                    dependencies.poisonProcessAfterAuthorityRevocationUnknown ??
-                    poisonRuntimeProcessAfterCleanupUnknown
-                  )();
+                  dependencies.processSafety.poisonAfterCleanupUnknown();
                   const runtimeProcessRecoveryId =
-                    createRuntimeProcessRecoveryIdentity(
+                    dependencies.processSafety.createRecoveryIdentity(
                       attempt.attemptId,
                       attempt.operationId,
                     );
@@ -947,10 +942,7 @@ export async function runProjectRuntimeOperation(
       const taskDefinition = state.tasks.find(
         (task) => task.definition.id === attempt.taskId,
       )?.definition;
-      const endedAt = dependencies.now?.() ?? {
-        monotonicMs: performance.now(),
-        iso: new Date().toISOString(),
-      };
+      const endedAt = dependencies.clockIdentity.now();
       if (taskDefinition) {
         const event = Object.freeze({
           occurredAt: endedAt.iso,
@@ -1055,14 +1047,12 @@ export async function runProjectRuntimeOperation(
           (entry) => entry.kind === "runtime_process",
         )
       ) {
-        const runtimeProcessRecoveryId = createRuntimeProcessRecoveryIdentity(
-          attempt.attemptId,
-          attempt.operationId,
-        );
-        (
-          dependencies.poisonProcessAfterAuthorityRevocationUnknown ??
-          poisonRuntimeProcessAfterCleanupUnknown
-        )();
+        const runtimeProcessRecoveryId =
+          dependencies.processSafety.createRecoveryIdentity(
+            attempt.attemptId,
+            attempt.operationId,
+          );
+        dependencies.processSafety.poisonAfterCleanupUnknown();
         runtimeIssuedRecoveryIds.set(
           runtimeProcessRecoveryId,
           Object.freeze({
@@ -1162,6 +1152,7 @@ export async function runProjectRuntimeOperation(
       } else if ((!validatedOutcome || !isExact) && terminalState === null) {
         terminalState = "replan_required";
         terminalReference = stableId(
+          dependencies,
           "task-result-invalid",
           attempt.taskId,
           attempt.attemptId,
@@ -1177,6 +1168,7 @@ export async function runProjectRuntimeOperation(
       ) {
         terminalState = "replan_required";
         terminalReference = stableId(
+          dependencies,
           "task-result",
           attempt.taskId,
           attempt.attemptId,
@@ -1197,12 +1189,14 @@ export async function runProjectRuntimeOperation(
         terminalReference =
           exactRecoveries.length > 0
             ? stableId(
+                dependencies,
                 "project-recovery-application",
                 input.projectId,
                 input.queueId,
                 ...exactRecoveries,
               )
             : stableId(
+                dependencies,
                 "project-unresolved-recovery",
                 input.projectId,
                 input.queueId,
@@ -1284,6 +1278,7 @@ export async function runProjectRuntimeOperation(
       lease,
       resumeCondition: "objective_integration",
       resultReference: stableId(
+        dependencies,
         "project-result",
         input.projectId,
         input.queueId,

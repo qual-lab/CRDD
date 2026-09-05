@@ -2,7 +2,7 @@
 
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-08-31
+Last Updated: 2026-09-06
 
 ## 対象・判断・現在状態
 
@@ -27,6 +27,54 @@ Generator等の将来Toolの存在を仮定して空成果物は作らない。�
 
 ### v0.20で固定する依存方向
 
+次の図はv0.20で目指す全体構成と依存方向を示す。図は責務境界の正本であり、各要素の実装済み・計画中という到達状態は、個別設計と対応するCHGで判定する。MCP Streamable HTTP、読み取り専用Project State投影および限定分散実行は、図に含まれていても単体の存在だけで完成とは扱わない。
+
+```text
+利用者／外部Actor
+        │
+        ├──────── CLI
+        ├──────── MCP stdio
+        └──────── MCP Streamable HTTP（v0.20計画）
+                         │
+                  Transport Adapter
+             decode／encode／session／取消通知
+                         │
+                         ▼
+             Project Runtime公開契約
+          Objective／判断／結果／状態投影
+                         │
+                         ▼
+                 Project Runtime
+          ┌──────────────┼──────────────┐
+          │              │              │
+      Application       Core           Ports
+   受付／調停／統合   状態／不変条件   必要能力の契約
+                                         │
+               ┌─────────────────────────┼──────────────────────┐
+               │                         │                      │
+               ▼                         ▼                      ▼
+       Coordinator Adapter       永続化／判断Adapter      実行観測Adapter
+               │                         │                      │
+               ▼                         ▼                      ▼
+          Coordinator             Repository-local       Execution Intelligence
+       選定／隔離／Review          `.crdd` State          非Authority Event／集約
+          ┌────┴────┐                    ▲
+          │         │                    │
+          ▼         ▼                    │
+     Provider    Platform Adapter ───────┘
+     Adapter     Process／Filesystem／
+          │      Lock／cleanup／Recovery
+     ┌────┴────┐          │
+     ▼         ▼          ▼
+   Codex   Claude Code  Platform Access／Docker／OS
+
+構成Root（v0.20ではCoordinator CLI）
+  └─ Project Runtimeへ各Port実装を注入する。
+     Project Runtime、MCP、実行知または各Adapterは独自に全体を再構成しない。
+```
+
+矢印は利用または注入の向きを表す。Project RuntimeはCoordinator、MCP、Provider、OSおよび実行知の実装へ逆依存しない。実行知Eventは観測であり、Project状態、実行許可、採用判断またはRecovery Authorityへ昇格しない。Project運営上のWBS、Risk／Issue、Topicおよび予測はこの実行構成図のProject Stateに含めず、別のProject Management投影として扱う。
+
 MCP stdio、MCP Streamable HTTPおよびCLIは、Transport固有のdecode、encode、sessionおよび取消通知だけを担うAdapterとする。MCPを公開意味契約の所有者にせず、Transport非依存の公開アプリケーション契約をProject Runtimeの手前に置く。公開アプリケーション契約が所有できるのは、外部ActorがProject Runtimeへ渡す意図、結果、継続に必要な非Authority参照およびそれらの意味相関に限る。内部Event、実行知のTelemetry、Provider契約、管理操作またはProject正本を取り込まない。
 
 Project Runtimeは必要な実行能力をExecution Portとして定義し、Coordinator固有型へ依存しない。Coordinator AdapterがそのPortを実装し、Provider選定、隔離、実行、独立Review、候補および回収を編成する。物理Directoryまたはpackageの分離は、この依存方向とAuthority所有を契約試験で固定した後に行う。ファイル移動だけを責務分離と扱わない。
@@ -39,7 +87,7 @@ Coordinatorの中心経路は、固定配布物とRepositoryを検証し、必�
 
 共有・永続資源は取得者、Lock順序、失効、取消後の責務、終了確認を持つ。成功通知だけで資源不存在を推定せず、回復不明は停止・Evidence保持・処置可能なIDの返却へ閉じる。具体的な[実行順序](coordinator/01_Architecture.md#3-主実行シーケンス)、[資源所有](coordinator/01_Architecture.md#4-資源所有)、[Lock](coordinator/01_Architecture.md#5-lock順序と解放窓)、[回収順](coordinator/01_Architecture.md#7-cleanup依存順)、[不変条件](coordinator/01_Architecture.md#8-不変条件)は詳細正本から辿る。
 
-Provider実行の方式はWindows上のDocker Desktop Linux Engineと固定公式CLI、専用認証Home、限定Egressである。Project Runtimeの公開入口にはMCP stdio Adapterが接続済みであり、MCP Streamable HTTPとLinux Adapterはv0.20の独立した計画対象である。API key課金へのfallback、任意外部ツール、直接Provider間spawn、正本への自動commit／push／mergeを、実行知の分離やAdapterの存在から追加しない。
+Provider実行の方式はWindows上のDocker Desktop Linux Engineと固定公式CLI、専用認証Home、限定Egressである。Project Runtimeの公開入口にはMCP stdio Adapterが接続済みであり、MCP Streamable HTTPはv0.20の計画対象である。Linux／Remote Runtime、macOSおよびSelf-hosted Providerはv0.20の対象外とし、将来の検証可能性を損なわない境界だけを維持する。API key課金へのfallback、任意外部ツール、直接Provider間spawn、正本への自動commit／push／mergeを、実行知の分離やAdapterの存在から追加しない。
 
 ## 検証義務・未確認範囲・引渡し
 

@@ -14,6 +14,7 @@ import {
   writeProjectRuntimeState,
 } from "../../src/security/project-runtime-durable-foundation.ts";
 import { runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts } from "../../src/security/project-runtime-execution.ts";
+import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
 import {
   invalidateProjectRuntimeHumanDecision,
   issueProjectRuntimeHumanDecision,
@@ -37,7 +38,7 @@ const hash = (value: string) =>
 
 type BoundExecutionDependencies = Omit<
   Parameters<typeof runProjectRuntimeOperationWithPorts>[0],
-  "persistence"
+  "persistence" | "clockIdentity" | "processSafety"
 >;
 type BoundExecutionInput = Parameters<
   typeof runProjectRuntimeOperationWithPorts
@@ -52,6 +53,7 @@ function runProjectRuntimeOperation(
   return runProjectRuntimeOperationWithPorts(
     {
       ...dependencies,
+      ...createProjectRuntimeExecutionHostPorts(),
       persistence: createProjectRuntimePersistencePorts(
         workingDirectory,
         repositoryBindingId,

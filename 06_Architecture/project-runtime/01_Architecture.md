@@ -62,6 +62,7 @@ CoreはI/Oを発行しない。ApplicationはPortの閉じた結果だけを解�
 | Platform Observation Port | Repository Root、principal、owner、Process、cleanup、Recoveryの必要観測 | Platform Adapter |
 | Execution Observation Port | Task Attempt終了の非Authority Eventを記録する | 実行知Adapter |
 | Clock／Identity Port | 契約が必要とする現在時刻と新規IDを返す | Host Adapter |
+| Process Safety Port | cleanup不明時のProcess再利用禁止とexact Recovery Identity生成を要求する | Host Adapter |
 
 Portは任意関数の集合ではなく、要求、受理、Effect、完了、観測および耐久的確定を区別した結果を返す。未知fieldまたは不明状態を成功・不存在・空集合へ畳まない。
 
@@ -125,4 +126,3 @@ Coordinator CLI composition root
 ## 10. 完成境界
 
 Project Runtimeのpackage作成、Core試験合格または安全な拒否だけでは分離完了としない。全Portの実装接続、公開入口、利用側閉包、CLI／MCP stdio回帰、状態・Authority・Recoveryの意味保持、内部Path参照0および独立レビューが揃った場合だけ完成とする。
-

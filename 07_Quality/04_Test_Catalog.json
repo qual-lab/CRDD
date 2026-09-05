@@ -2424,6 +2424,28 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:unit:project-runtime-execution-host-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/project-runtime-execution-host-adapter.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "clock",
+        "identity",
+        "process",
+        "adapter"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:project-runtime-windows-platform-adapter",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/project-runtime-windows-platform-adapter.contract.test.ts",
