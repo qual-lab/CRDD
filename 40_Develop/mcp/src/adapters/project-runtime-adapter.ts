@@ -14,6 +14,7 @@ import {
   PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
   PROJECT_RUNTIME_MAXIMUM_TASKS,
   PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
+  PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
   type ProjectRuntimeProjection,
 } from "../../../project-runtime/src/index.ts";
 
@@ -23,8 +24,6 @@ export const MCP_PROJECT_RUNTIME_DECISION_TOOL =
   "crdd.submit_decision" as const;
 export const MCP_PROJECT_RUNTIME_ADAPTER_CONTRACT =
   "crdd-mcp/project-runtime-adapter/v1" as const;
-const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
-  "crdd-coordinator/project-runtime-public-runtime/v1" as const;
 
 type JsonRpcId = string | number;
 type McpResponse = Readonly<{

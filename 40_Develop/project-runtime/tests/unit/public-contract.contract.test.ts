@@ -8,6 +8,7 @@ import {
   isProjectRuntimeDecisionRecord,
   PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
   PROJECT_RUNTIME_INTEGRATION_CONTRACT,
+  PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
   PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
   PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
 } from "../../src/index.ts";
@@ -70,6 +71,10 @@ function decisionRequest() {
 }
 
 test("Objective要求は閉じた公開契約へsnapshotする", () => {
+  assert.equal(
+    PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+    "crdd-coordinator/project-runtime-public-runtime/v1",
+  );
   const source = objectiveRequest();
   const inspected = inspectProjectRuntimeObjectiveRequest(source);
   assert.ok(inspected);

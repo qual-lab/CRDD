@@ -17,3 +17,4 @@ export * from "./ports/state-port.ts";
 export * from "./public-contract/integration-result.ts";
 export * from "./public-contract/objective-request.ts";
 export * from "./public-contract/decision-request.ts";
+export * from "./public-contract/runtime-result.ts";

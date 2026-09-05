@@ -19,6 +19,7 @@ import {
   createProjectRuntimeObjectiveResult,
   inspectProjectRuntimeDecisionRequest,
   inspectProjectRuntimeObjectiveRequest,
+  PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
   type ProjectRuntimeObjectiveRequest,
 } from "../../../project-runtime/src/index.ts";
 import { runProjectRuntimeObjective } from "../security/project-runtime-objective-intake.ts";
@@ -49,8 +50,6 @@ import { inspectRepositoryIdentityCandidate } from "../security/repository-opera
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../security/repository-root-resolution.ts";
 import { recordProjectRuntimeExecutionEvent } from "../security/execution-intelligence-adapter.ts";
 
-export const PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT =
-  "crdd-coordinator/project-runtime-public-runtime/v1" as const;
 export const PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX =
   "[Project Runtime recovery] " as const;
 export const PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX =
