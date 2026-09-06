@@ -7,8 +7,8 @@
 ## 対象
 
 - 対象変更: [CHG-000062](../../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
-- 固定改訂版: `0e233e1664eba85393b35b5970e3c9d065b4d698`
-- 固定Tree: `57669a93c17740dc1ad7bb07a921bf733a407e60`
+- 固定改訂版: `4287cb5743ff5171d531817b14a407ff96e93a0d`
+- 固定Tree: `5dff31e188677ccde9d44f7843db70edd56e55d3`
 - 対象範囲: Runtime責務分離、Project Stateの読み取り専用投影、MCP stdio／localhost HTTP、実行知の組込みAPI、限定分散の統合結果評価
 
 ## 結論
@@ -21,20 +21,22 @@
 
 初期固定候補への独立レビューで、外部入力のplain data境界、集約の安全な整数演算、実行知の物理清掃Authority、HTTP終了時の資源回収、MCP ProtocolとAdapterの物理境界、およびRuntime Execution Identityの依存閉包に未成立が見つかった。これらを個別の例外処理ではなく、入力・永続化・利用側閉包の三責務へまとめて是正した。実行知から物理削除APIを除去し、MCP ProtocolをAdapter／Transportから分離し、HTTP終了を受信途中のRequest、実行中HandlerおよびSocketのjoinへ接続した。外部入力はAccessor、Proxy、Symbol、非列挙field、疎配列および余分fieldを実行せず拒否し、集約は安全な整数範囲を越える値を結果へ補正しない。
 
+その固定候補の最終再レビューでは、実行知Event IDと入力Identityの単一Snapshot、利用する兄弟Componentのpackage metadataを含むRuntime Execution Identity、Signal受付からHTTP終了確定までのlistener lifecycle、およびJSON-RPC error envelopeの単一所有に未完が見つかった。Event IDを同じCanonical Identityから決定論的に再構成して検査し、到達した兄弟Componentの`package.json`を依存閉包へ含め、Signal listenerを`close()`の確定まで保持し、error envelopeの生成をProtocolだけへ集約した。各是正は対象Componentの利用側試験へ接続し、Repository全体の変更影響型回帰を再実行した。
+
 ## 検証結果
 
 | 確認 | 結果 | 確認できた範囲 |
 |---|---|---|
 | Project Runtime単体試験 | 60件中60件成功 | 状態、公開契約、Port、正常・準正常・異常 |
-| MCP単体・総合試験 | 26件中26件成功 | stdio／HTTP公開Launcher、状態参照、認証、拒否、Protocol分離、取消、受信途中Requestを含む終了join |
-| 実行知単体・結合試験 | 37件中37件成功 | 組込みRecorder、plain data境界、部分観測、Store、安全な整数集約、統合評価、物理削除APIの不存在 |
+| MCP単体・総合試験 | 29件中29件成功 | stdio／HTTP公開Launcher、状態参照、認証、拒否、Protocol分離、error envelopeの単一所有、取消、重複Signalおよび受信途中Requestを含む終了join |
+| 実行知単体・結合試験 | 39件中39件成功 | 組込みRecorder、plain data境界、単一Snapshotからの決定論的Event ID、部分観測、Store、安全な整数集約、統合評価、物理削除APIの不存在 |
 | 公開Runtimeと限定分散のFocused試験 | 12件中12件成功 | 実状態からMCP結果、2 Task同時実行、Attempt保存、統合受入 |
 | 試験台帳契約 | 16件中16件成功 | 実在試験、利用側閉包、PT／LT非発火、実行Profile |
 | 実行知変更の変更影響型回帰 | 選択4ファイル、84件中84件成功 | 実行知UT／IT、CoordinatorのTask実行と限定分散全体試験、両package静的検査 |
 | Source所有と命名の回帰 | 9件中9件成功 | TypeScript全実体と型検査Projectの完全一致、Rust許可Root、命名、廃止Path |
 | Repository全体の変更影響型回帰 | 選択155項目、全5段階成功 | 全所有componentの静的検査、UT、IT、Windows実Process Gate、ST |
 | Windows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
-| Coordinator静的検査 | 成功 | Runtime／Project設計対応、型、Lint、Format |
+| Coordinator静的検査 | 成功 | Runtime／Project設計対応、兄弟Component package metadataを含むRuntime Execution Identity、型、Lint、Format |
 
 Source所有の回帰は固定件数をIdentityとして使わず、`40_Develop/**`と`template/tools/**`のTypeScript実体を、各型検査Projectが所有する実Path集合と完全一致させた。この確認により、未所属だったCoordinator公開sourceと`template/tools`のLauncherを型検査へ接続し、Launcherの同期結果とMCP非同期契約の差も修正した。
 
