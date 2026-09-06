@@ -1,14 +1,14 @@
 # v0.20公開Runtimeと限定分散の固定候補検証結果
 
-状態: 署名前の構造是正済み。独立再レビュー待ち
+状態: 署名前の利用側閉包を構造是正済み。独立再レビュー待ち
 担当責任者: Qual-Lab
-最終更新日: 2026-09-06
+最終更新日: 2026-09-07
 
 ## 対象
 
 - 対象変更: [CHG-000062](../../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
-- 固定改訂版: `971370b13a83c81c557722079eee7ca0f8e34650`
-- 固定Tree: `bcd32a55a26c71cf89093ccf2cfb6726f054d6f0`
+- 固定改訂版: `df1c576c0f0f5636bc0ee72ed77e22340a28cc70`
+- 固定Tree: `7e00f7ab2419926c7a7f7dc3713fb4734f760d9f`
 - 対象範囲: Runtime責務分離、Project Stateの読み取り専用投影、MCP stdio／localhost HTTP、実行知の組込みAPI、限定分散の統合結果評価
 
 ## 結論
@@ -37,8 +37,8 @@
 | Repository全体の変更影響型回帰 | 選択155項目、全5段階成功 | 全所有componentの静的検査、UT、IT、Windows実Process Gate、ST |
 | Windows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | Coordinator静的検査 | 成功 | Runtime／Project設計対応、兄弟Component package metadataを含むRuntime Execution Identity、型、Lint、Format |
-| 正式署名の利用側閉包 | 42件中42件成功 | 署名処理が配布全体を観測し、必須成果物をPath再解釈なしで解決すること。4つの必須実行入口、公開Launcher、兄弟package metadataまたは到達sourceの欠落を秘密鍵読取り前に拒否し、新しいlocal TypeScript子Process入口のRegistry登録漏れも拒否すること |
-| 追加是正後のCoordinator制限Process回帰 | 1,659件中1,659件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
+| 正式署名の利用側閉包 | 39件中39件成功 | 署名処理が配布全体を観測し、必須成果物をPath再解釈なしで解決すること。必須実行入口、公開Launcher、兄弟package metadataまたは到達sourceの欠落を秘密鍵読取り前に拒否すること。local TypeScript子Process入口の宣言・実利用・必須集合を完全一致させ、変数、template literal、直接URL、直接Worker／子Process生成、未使用宣言および宣言欠落を拒否すること |
+| 追加是正後のCoordinator制限Process回帰 | 1,669件中1,669件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
 | 追加是正後のWindows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | 追加是正後のRepository全体Checker | Error 0、Warning 0 | Markdown 425件、Local link 3,011件、履歴参照24件、Anchor 1,005件 |
 
@@ -52,7 +52,9 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 続く署名前監査では、配布物観測が配布Root相対Pathを返すのに、固定Manifest利用側だけが旧package相対Pathを検索していたため、正しい配布でも`platform_provisioner_interactive_console_reader_missing`へ停止することを検出した。固定改訂版`2bcc1dad8ae953f477db5ee3948d9188f1b295f0`で、必須成果物のPath解決を配布物観測へ集約し、利用側によるPathの再解釈を除去した。
 
-同固定版の独立再レビューでは、4つの必須実行入口を開発利用側だけがnullableな一覧として所有し、配布物観測と固定Manifest利用側が欠落を必須成果物の不成立として一括拒否していない伝播未完を検出した。固定改訂版`971370b13a83c81c557722079eee7ca0f8e34650`で、配布Root相対Pathを持つ単一Registry、同一Snapshotからの非nullableな解決、および解決済み成果物だけを受け取る利用側へ統一した。さらに、本番source中の相対`.ts` `new URL(..., import.meta.url)`子Process入口を自動導出し、Registryの子Process集合との完全一致を要求した。各必須成果物を一つずつ削除する動的反証は、公開観測、秘密鍵読取り前の署名事前検査および非対話CLIの同じ拒否理由まで縦断する。上表の42件、1,659件、Windows実Process 7件、静的検査およびRepository全体Checkerは同是正後に成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
+同固定版の独立再レビューでは、4つの必須実行入口を開発利用側だけがnullableな一覧として所有し、配布物観測と固定Manifest利用側が欠落を必須成果物の不成立として一括拒否していない伝播未完を検出した。固定改訂版`971370b13a83c81c557722079eee7ca0f8e34650`で、配布Root相対Pathを持つ単一Registry、同一Snapshotからの非nullableな解決、および解決済み成果物だけを受け取る利用側へ統一した。
+
+その再レビューでは、子Process入口の自動導出が特定の`new URL()`表記だけを対象とし、宣言と実利用の全数対応を証明できないことを検出した。固定改訂版`df1c576c0f0f5636bc0ee72ed77e22340a28cc70`では、local TypeScript子Process入口を専用の不変descriptorへ集約し、本番sourceから導出した宣言集合・実利用集合・必須Registry集合の完全一致を要求する。利用側は解決済みdescriptorを薄いWorker／spawn境界へ渡し、Canonical Pathを再構成しない。変数、template literal、直接URL、直接Worker／子Process生成、未使用宣言および宣言欠落を個別に拒否し、各必須成果物の欠落は公開観測、秘密鍵読取り前の署名事前検査および非対話CLIまで縦断する。上表の39件、1,669件、Windows実Process 7件、静的検査およびRepository全体Checkerは同固定版で成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
 
 ## 限定分散の観測
 

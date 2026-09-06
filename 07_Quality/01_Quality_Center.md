@@ -2,11 +2,11 @@
 
 状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-06
+最終更新日: 2026-09-07
 
 ## 結論
 
-v0.20.0 Candidateは、試験体系と自動回帰、実行知、Runtime責務分離、限定分散実行と統合結果、読み取り専用Project State、およびlocalhost限定MCP HTTPを対象とする。CHG-000061、CHG-000062およびCHG-000064は決定論的回帰、Windows実Process確認および独立一括監査を完了した。CHG-000063は署名前監査と独立再レビューで検出した必須成果物のPath再解釈および利用側伝播の未完を構造是正し、固定改訂版`971370b13a83c81c557722079eee7ca0f8e34650`の回帰を完了して独立再レビューを待っている。再レビュー後に同じ固定候補からRuntime実行Identityを生成・署名し、影響する正式署名E2Eを完走して、候補内容と最終配布物の一致を確認する。branch、本候補表示または署名前の検証だけではv0.20.0の公開、採用、準拠またはRuntime実行Authorityを成立させない。
+v0.20.0 Candidateは、試験体系と自動回帰、実行知、Runtime責務分離、限定分散実行と統合結果、読み取り専用Project State、およびlocalhost限定MCP HTTPを対象とする。CHG-000061、CHG-000062およびCHG-000064は決定論的回帰、Windows実Process確認および独立一括監査を完了した。CHG-000063は署名前監査と独立再レビューで検出した必須成果物のPath再解釈および利用側伝播の未完を構造是正し、固定改訂版`df1c576c0f0f5636bc0ee72ed77e22340a28cc70`の回帰を完了して独立再レビューを待っている。再レビュー後に同じ固定候補からRuntime実行Identityを生成・署名し、影響する正式署名E2Eを完走して、候補内容と最終配布物の一致を確認する。branch、本候補表示または署名前の検証だけではv0.20.0の公開、採用、準拠またはRuntime実行Authorityを成立させない。
 
 v0.19.0の公開基準は、Source A `7346a5580926d71d253ebebaa6538e41bfbdea05`、manifest-only carrier B `5929cb27a9aed9ebabf79e07e3f710f4046597ef`、Runtime実行Identity `79e8cb3a3d11b1433e088d09d8c4b875b7de9ca2193f5e57ddc272d3225064d5`およびRelease sequence `2026090504`へ固定した。署名済みRecovery Matrix、4経路4/4、公開MCPの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recoveryとfresh再入場が完了し、最終独立監査はCritical／Major／Minor 0件だった。branch、作業中Commitまたは本書だけで公開基準を作らず、公開状態と最終Commitは公式tagから確認する。
 
@@ -18,7 +18,7 @@ v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シ�
 |---|---|---|
 | v0.20 試験体系と自動回帰 | Ready for Release Handoff | 固定改訂版`ae8efe1`で試験カタログ、変更影響型runner、段階実行、Windows実Process GateおよびPT／LTのEffect 0を確認した。決定論的回帰と独立最終レビューを完了し、Critical／Major／Moderate／Minorは0件。[検証結果](Verification_Results/2026-09-05_Test_Levels_and_Automated_Regression_Verification.md)を参照。UAT、任意のPT／LT、実Provider、公式署名およびLinux／macOSは未実施または対象外であり、本状態から成立を推定しない |
 | v0.20 実行知 | Ready for Release Handoff | 固定改訂版`3aea329`で決定論的回帰と独立再レビューを完了し、Critical／Major／Moderate／Minorは0件。`40_Develop`配下のREADMEは0件で、利用・開発手順をWorkflowへ移管し、再作成をCheckerで拒否する。[検証結果](Verification_Results/2026-09-05_Execution_Intelligence_Verification.md)を参照。実Provider、Linux／macOS、共有Store、性能・長時間試験、品質受入、運用・事業成果は未評価または未接続であり、本状態から成立を推定しない |
-| v0.20 Runtime責務分離 | Independent Re-review Pending | 署名前監査と独立再レビューで検出した配布Root相対Pathの再解釈および必須実行入口の利用側伝播未完を、単一Registry、同一Snapshotでの非nullable解決、子Process入口の自動導出と完全一致へ構造是正した。固定改訂版`971370b13a83c81c557722079eee7ca0f8e34650`でFocused 42件、制限Process 1,659件、Windows実Process 7件、静的検査およびRepository全体Checkerが成功した。[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)を参照。独立再レビュー、正式署名および正式E2Eは未完了 |
+| v0.20 Runtime責務分離 | Independent Re-review Pending | 署名前監査と独立再レビューで検出した配布Root相対Pathの再解釈および必須実行入口の利用側伝播未完を、単一Registry、同一Snapshotでの非nullable解決、子Process入口の専用宣言境界、および宣言・実利用・必須集合の完全一致へ構造是正した。固定改訂版`df1c576c0f0f5636bc0ee72ed77e22340a28cc70`でFocused 39件、制限Process 1,669件、Windows実Process 7件、静的検査およびRepository全体Checkerが成功した。[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)を参照。独立再レビュー、正式署名および正式E2Eは未完了 |
 | v0.19 Project Runtime | Release Gate成立 | 署名済みRecovery Matrix、4経路4/4、認証済み公開MCP Clientからの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recovery、耐久Recovery段階、fresh再入場および最終資源不存在を確認した。[最終署名E2E](Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md)と[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md#8-現在状態と次のgate)を参照。最終独立監査はCritical／Major／Minor 0件。Linux／macOS実環境、突然の電源断、任意規模・長時間負荷、由来不明退避物の清掃Authorityは未評価または後続対象 |
 | v0.18.1 Coordinator採用入口 | 公開済み。現行署名Identityの採用形態E2E、4経路4/4、固定Recovery Matrix 7シナリオ完了。検証済みDocker Desktop再起動後のTask Recovery公開引数経路は到達不能 | [現行Identityと検証結果](Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)、公式tag `v0.18.1`／Commit `14872bd19c3569a4c06752545a6057b2b4aaf3ab`。過去の4/4・7シナリオは有効だが、限定的な公開Recovery不具合と区別する。現行Sourceの入口是正は、到達可能な新しい署名固定版まで公開Baselineへ適用されない |
 | 移行前の正式署名E2E | 固定版に限り完了 | [0c3e6d2の結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)。4経路4/4、復旧7/7、cleanup確認済み |
