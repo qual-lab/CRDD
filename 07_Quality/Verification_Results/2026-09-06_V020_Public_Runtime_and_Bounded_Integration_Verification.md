@@ -37,12 +37,18 @@
 | Repository全体の変更影響型回帰 | 選択155項目、全5段階成功 | 全所有componentの静的検査、UT、IT、Windows実Process Gate、ST |
 | Windows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | Coordinator静的検査 | 成功 | Runtime／Project設計対応、兄弟Component package metadataを含むRuntime Execution Identity、型、Lint、Format |
+| 正式署名の利用側閉包 | 40件中40件成功 | 署名処理がCoordinator単体でなく、公開Launcherから到達するProject Runtime、MCP、実行知およびpackage metadataを含む配布全体の依存閉包を観測すること |
+| 追加是正後のCoordinator制限Process回帰 | 1,657件中1,657件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
+| 追加是正後のWindows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
+| 追加是正後のRepository全体Checker | Error 0、Warning 0 | Markdown 425件、Local link 3,010件、履歴参照24件、Anchor 1,005件 |
 
 Source所有の回帰は固定件数をIdentityとして使わず、`40_Develop/**`と`template/tools/**`のTypeScript実体を、各型検査Projectが所有する実Path集合と完全一致させた。この確認により、未所属だったCoordinator公開sourceと`template/tools`のLauncherを型検査へ接続し、Launcherの同期結果とMCP非同期契約の差も修正した。
 
 Windows実Process Gateは専用のProcess制御が成立する実行環境で7件を完走した。同じ試験をその能力がない制限環境から実行した結果は全7件が終了観測不能となったため、製品回帰の根拠には採用していない。実行許可の宣言だけを、実行環境の能力成立と同一視しない。
 
 全回帰は`node 40_Develop/checker/regression-runner.ts --base main --windows-process-control-authorized`で実行した。通常の静的確認、UTおよびITを制限Processで実行した後、Windows実Process Gateだけを専用実行Profileで実行し、最後にSTへ進んだ。PT／LT、実Providerおよび署名は選択・実行していない。
+
+正式署名の最初の秘密入力前検査は`release_manifest_package_observation_failed`で停止した。原因は、Runtime依存閉包のProducerと通常の検証・起動利用側は責務分離後の配布全体へ移行していた一方、正式署名のConsumerだけが分離前のCoordinator単体観測を呼んでいたことだった。この試行では秘密鍵またはpassphraseを読み取らず、署名、Manifest生成および外部Effectは発生していない。固定改訂版`e8012024`で署名Consumerを正規の配布全体観測へ接続し、署名経路の静的契約と実配布形の回帰を追加した。上表の40件、1,657件、7件、静的検査およびRepository全体Checkerは同是正後に成功した。実署名と正式E2Eは後続Gateであり、本結果から成功を推定しない。
 
 ## 限定分散の観測
 
