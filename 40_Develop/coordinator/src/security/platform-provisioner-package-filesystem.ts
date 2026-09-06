@@ -814,6 +814,10 @@ function selectedScriptProcessBindings(
         local = alias.value;
         localIndex = cursor + 1;
         cursor += 2;
+        if (!isTypeOnly)
+          throw new Error(
+            "platform_provisioner_runtime_dependency_child_unbound",
+          );
       }
       if (!isTypeOnly) {
         if (!allowedNames.has(imported.value))
@@ -834,6 +838,98 @@ function selectedScriptProcessBindings(
     }
   }
   return Object.freeze({ bindings, declarationTokenIndices });
+}
+
+function assertChildProcessModuleBoundary(tokens: readonly SourceToken[]) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token?.value === "require") {
+      const specifier = tokens[index + 2];
+      if (
+        tokens[index + 1]?.value === "(" &&
+        specifier?.kind === "string" &&
+        ["node:child_process", "child_process"].includes(specifier.value)
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
+    }
+    if (token?.value === "export") {
+      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+        if (tokens[cursor]?.value === ";") break;
+        if (tokens[cursor]?.value !== "from") continue;
+        const specifier = tokens[cursor + 1];
+        if (
+          specifier?.kind === "string" &&
+          ["node:child_process", "child_process"].includes(specifier.value)
+        )
+          throw new Error(
+            "platform_provisioner_runtime_dependency_child_process_unbound",
+          );
+        break;
+      }
+    }
+    if (
+      token?.value === "import" &&
+      tokens[index + 1]?.value === "(" &&
+      tokens[index + 2]?.kind === "string" &&
+      ["node:child_process", "child_process"].includes(
+        tokens[index + 2]?.value ?? "",
+      )
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_process_unbound",
+      );
+    if (
+      token?.kind === "identifier" &&
+      tokens[index + 1]?.value === "(" &&
+      tokens[index + 2]?.kind === "string" &&
+      ["node:child_process", "child_process"].includes(
+        tokens[index + 2]?.value ?? "",
+      ) &&
+      token.value !== "import"
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_process_unbound",
+      );
+  }
+}
+
+const runtimeChildProcessOwnerPrimitives = new Map<string, ReadonlySet<string>>(
+  [
+    [
+      "src/core/runtime-local-typescript-child-entrypoints.ts",
+      new Set(["spawn"]),
+    ],
+    ["src/security/candidate-store-windows-adapter.ts", new Set(["spawnSync"])],
+    ["src/security/docker-desktop-repair-native-helper.ts", new Set(["spawn"])],
+    ["src/security/docker-desktop-runtime-repair.ts", new Set(["spawnSync"])],
+    ["src/security/docker-owned-process.ts", new Set(["spawn"])],
+    ["src/security/docker-isolation.ts", new Set(["spawn", "spawnSync"])],
+    [
+      "src/security/docker-recovery-runtime-internal.ts",
+      new Set(["spawnSync"]),
+    ],
+    ["src/security/provider-home-windows-adapter.ts", new Set(["spawnSync"])],
+    ["scripts/check-dynamic-fake-provider-coverage.ts", new Set(["spawnSync"])],
+    ["scripts/check-platform-access-coverage.ts", new Set(["spawnSync"])],
+    ["scripts/check-platform-access-ts-coverage.ts", new Set(["spawnSync"])],
+    ["scripts/check-provider-authority-coverage.ts", new Set(["spawnSync"])],
+    ["scripts/check-provider-home-coverage.ts", new Set(["spawnSync"])],
+    ["scripts/verify-project-runtime-real-providers.ts", new Set(["spawn"])],
+    ["scripts/verify-signed-recovery-matrix.ts", new Set(["spawnSync"])],
+    [
+      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
+      new Set(["execFileSync"]),
+    ],
+  ],
+);
+
+function coordinatorRelativeSourcePath(relativePath: string) {
+  const prefix = "40_Develop/coordinator/";
+  return relativePath.startsWith(prefix)
+    ? relativePath.slice(prefix.length)
+    : relativePath;
 }
 
 function isFixedTaskkillInvocation(
@@ -1240,6 +1336,24 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
   for (let index = 0; index < tokens.length; index += 1) {
     if (!tokenSequenceMatches(tokens, index, ["new", "URL", "("])) continue;
     if (
+      tokens[index + 3]?.kind === "string" &&
+      /[?#%]/u.test(tokens[index + 3]?.value ?? "") &&
+      tokens
+        .slice(index + 4, index + 24)
+        .some((_, offset) =>
+          tokenSequenceMatches(tokens, index + 4 + offset, [
+            "import",
+            ".",
+            "meta",
+            ".",
+            "url",
+          ]),
+        )
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_url_unbound",
+      );
+    if (
       ["bin/launch.ts", "40_Develop/coordinator/bin/launch.ts"].includes(
         relativePath,
       ) &&
@@ -1420,6 +1534,7 @@ function isNodeSelfExecutableArgument(
   tokens: readonly SourceToken[],
   start: number,
 ) {
+  while (tokens[start]?.value === "(") start += 1;
   const token = tokens[start];
   if (
     token?.kind === "string" &&
@@ -1428,7 +1543,9 @@ function isNodeSelfExecutableArgument(
     return true;
   return (
     tokenSequenceMatches(tokens, start, ["process", ".", "execPath"]) ||
+    tokenSequenceMatches(tokens, start, ["process", "?.", "execPath"]) ||
     tokenSequenceMatches(tokens, start, ["process", ".", "argv0"]) ||
+    tokenSequenceMatches(tokens, start, ["process", "?.", "argv0"]) ||
     tokenSequenceMatches(tokens, start, [
       "process",
       ".",
@@ -1450,20 +1567,41 @@ function isNodeSelfExecutableArgument(
   );
 }
 
-function isLocalTypeScriptProcessTarget(
+function classifyLocalTypeScriptProcessTarget(
   relativePath: string,
   tokens: readonly SourceToken[],
   start: number,
 ) {
   if (tokens[start]?.value === "[") start += 1;
+  const token = tokens[start];
+  if (token?.kind === "string") {
+    if (token.escaped || /[?#%]/u.test(token.value)) return "unknown" as const;
+    return token.value.endsWith(".ts")
+      ? ("local_ts" as const)
+      : ("proven_non_local_ts" as const);
+  }
+  if (
+    tokenSequenceMatches(tokens, start, [
+      "fileURLToPath",
+      "(",
+      "new",
+      "URL",
+      "(",
+    ]) &&
+    tokens[start + 5]?.kind === "string"
+  ) {
+    const specifier = tokens[start + 5];
+    if (!specifier || specifier.escaped || /[?#%]/u.test(specifier.value))
+      return "unknown" as const;
+  }
   try {
-    return (
-      scriptChildTargetFromTokens(relativePath, tokens, start)?.endsWith(
-        ".ts",
-      ) === true
-    );
+    const target = scriptChildTargetFromTokens(relativePath, tokens, start);
+    if (!target) return "unknown" as const;
+    return target.endsWith(".ts")
+      ? ("local_ts" as const)
+      : ("proven_non_local_ts" as const);
   } catch {
-    return false;
+    return "unknown" as const;
   }
 }
 
@@ -1471,34 +1609,70 @@ function assertNoUnboundRuntimeChildProcess(
   relativePath: string,
   tokens: readonly SourceToken[],
 ) {
+  assertChildProcessModuleBoundary(tokens);
   const bindings = selectedScriptProcessBindings(tokens, false);
+  const sourcePath = coordinatorRelativeSourcePath(relativePath);
+  const allowedPrimitives = runtimeChildProcessOwnerPrimitives.get(sourcePath);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (token?.kind !== "identifier") continue;
     const imported = bindings.bindings.get(token.value);
     if (!imported || bindings.declarationTokenIndices.has(index)) continue;
-    if (tokens[index + 1]?.value !== "(") continue;
+    if (!allowedPrimitives?.has(imported))
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_process_unbound",
+      );
     if (imported === "fork") {
       throw new Error(
         "platform_provisioner_runtime_dependency_child_process_unbound",
       );
     }
+    if (tokens[index - 1]?.value === "." || tokens[index + 1]?.value !== "(")
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_process_unbound",
+      );
+    if (sourcePath.startsWith("scripts/")) continue;
     if (
-      relativePath !==
-        "src/core/runtime-local-typescript-child-entrypoints.ts" &&
-      relativePath !==
-        "40_Develop/coordinator/src/core/runtime-local-typescript-child-entrypoints.ts" &&
-      ["spawn", "spawnSync", "execFile", "execFileSync"].includes(imported)
+      sourcePath === "src/core/runtime-local-typescript-child-entrypoints.ts"
     ) {
+      if (
+        imported !== "spawn" ||
+        !tokenSequenceMatches(tokens, index + 1, [
+          "(",
+          "process",
+          ".",
+          "execPath",
+          ",",
+          "[",
+          "entrypoint",
+          ".",
+          "filePath",
+          ",",
+          ".",
+          ".",
+          ".",
+          "args",
+          "]",
+          ",",
+          "options",
+          ")",
+        ])
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
+      continue;
+    }
+    if (["spawn", "spawnSync", "execFile", "execFileSync"].includes(imported)) {
       const argumentStarts = directCallArgumentStarts(tokens, index + 1);
       if (
         argumentStarts.length >= 2 &&
         isNodeSelfExecutableArgument(tokens, argumentStarts[0] as number) &&
-        isLocalTypeScriptProcessTarget(
+        classifyLocalTypeScriptProcessTarget(
           relativePath,
           tokens,
           argumentStarts[1] as number,
-        )
+        ) !== "proven_non_local_ts"
       )
         throw new Error(
           "platform_provisioner_runtime_dependency_child_process_unbound",

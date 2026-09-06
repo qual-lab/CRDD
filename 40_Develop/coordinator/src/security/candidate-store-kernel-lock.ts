@@ -45,11 +45,6 @@ type InteractiveConsoleLockWorker = Readonly<{
   ) => unknown;
 }>;
 
-type InteractiveConsoleLockWorkerFactory = (
-  pipeName: string,
-  sharedState: SharedArrayBuffer,
-) => InteractiveConsoleLockWorker;
-
 export type InteractiveConsoleKernelLockOutcome = Readonly<{
   status: "acquired" | "unavailable" | "cleanup_unknown";
   lock: Readonly<{
@@ -217,26 +212,24 @@ async function terminateAndConfirmInteractiveConsoleLockWorker(
   );
 }
 
-export async function acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
-  workerFactory: InteractiveConsoleLockWorkerFactory,
-): Promise<InteractiveConsoleKernelLockOutcome> {
-  if (process.platform !== "win32")
-    return Object.freeze({ status: "unavailable", lock: null });
+export function prepareInteractiveConsoleKernelLockRequest() {
+  if (process.platform !== "win32") return null;
   const lockIdentity = createHash("sha256")
     .update("crdd-interactive-console-kernel-lock-v1\0")
     .digest("hex")
     .slice(0, 32);
   const sharedState = new SharedArrayBuffer(4);
+  return Object.freeze({
+    pipeName: `\\\\.\\pipe\\CRDD.Coordinator.InteractiveConsole.${lockIdentity}`,
+    sharedState,
+  });
+}
+
+export async function acquireInteractiveConsoleKernelLockOutcomeUsingWorker(
+  worker: InteractiveConsoleLockWorker,
+  sharedState: SharedArrayBuffer,
+): Promise<InteractiveConsoleKernelLockOutcome> {
   const state = new Int32Array(sharedState);
-  let worker: InteractiveConsoleLockWorker;
-  try {
-    worker = workerFactory(
-      `\\\\.\\pipe\\CRDD.Coordinator.InteractiveConsole.${lockIdentity}`,
-      sharedState,
-    );
-  } catch {
-    return Object.freeze({ status: "cleanup_unknown", lock: null });
-  }
   const exit = boundedWorkerExit(worker);
   if (!waitForState(state, 0, HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS)) {
     await terminateAndConfirmInteractiveConsoleLockWorker(worker, exit);
@@ -285,12 +278,34 @@ export async function acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
 }
 
 export function acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome() {
-  return acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
-    (pipeName, sharedState) =>
-      createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {
-        env: {},
-        workerData: Object.freeze({ pipeName, state: sharedState }),
+  const request = prepareInteractiveConsoleKernelLockRequest();
+  if (!request)
+    return Promise.resolve(
+      Object.freeze({
+        status: "unavailable",
+        lock: null,
+      }) as InteractiveConsoleKernelLockOutcome,
+    );
+  let worker: InteractiveConsoleLockWorker;
+  try {
+    worker = createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {
+      env: {},
+      workerData: Object.freeze({
+        pipeName: request.pipeName,
+        state: request.sharedState,
       }),
+    });
+  } catch {
+    return Promise.resolve(
+      Object.freeze({
+        status: "cleanup_unknown",
+        lock: null,
+      }) as InteractiveConsoleKernelLockOutcome,
+    );
+  }
+  return acquireInteractiveConsoleKernelLockOutcomeUsingWorker(
+    worker,
+    request.sharedState,
   );
 }
 
@@ -325,10 +340,6 @@ export function acquireRuntimeOwnedHostOperationKernelLock(
 }
 
 type SupervisorChild = ChildProcess;
-type SupervisorChildFactory = (
-  pipeName: string,
-  environment: NodeJS.ProcessEnv,
-) => SupervisorChild;
 type SupervisorObservation =
   | "expected"
   | "unavailable"
@@ -435,10 +446,9 @@ function unresolvedSupervisorLock(child: SupervisorChild) {
   });
 }
 
-export async function acquireHostOperationSupervisorLockUsingChildFactory(
+export function prepareHostOperationSupervisorLockRequest(
   rootName: unknown,
   nonce: unknown,
-  childFactory: SupervisorChildFactory,
   timing: Readonly<{
     acquireTimeoutMs: number;
     releaseTimeoutMs: number;
@@ -446,9 +456,12 @@ export async function acquireHostOperationSupervisorLockUsingChildFactory(
     acquireTimeoutMs: HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS,
     releaseTimeoutMs: HOST_SUPERVISOR_RELEASE_TIMEOUT_MS,
   }),
-): Promise<HostOperationSupervisorLockOutcome> {
-  if (process.platform !== "win32")
-    return Object.freeze({ status: "unavailable", lock: null });
+): Readonly<{
+  pipeName: string;
+  environment: NodeJS.ProcessEnv;
+  timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number }>;
+}> | null {
+  if (process.platform !== "win32") return null;
   if (
     !Number.isSafeInteger(timing.acquireTimeoutMs) ||
     timing.acquireTimeoutMs < 1 ||
@@ -457,21 +470,21 @@ export async function acquireHostOperationSupervisorLockUsingChildFactory(
     timing.releaseTimeoutMs < 1 ||
     timing.releaseTimeoutMs > LOCK_RELEASE_TIMEOUT_MS
   )
-    return Object.freeze({ status: "unavailable", lock: null });
+    return null;
   const bindingHash = hostOperationGenerationBindingHash(rootName, nonce);
   const environment = createWindowsHostOperationSupervisorEnvironment();
-  if (!bindingHash || !environment)
-    return Object.freeze({ status: "unavailable", lock: null });
+  if (!bindingHash || !environment) return null;
   const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${bindingHash.slice(0, 32)}`;
-  let child: SupervisorChild;
-  try {
-    child = childFactory(pipeName, environment);
-  } catch {
-    return Object.freeze({
-      status: "cleanup_confirmed_failure",
-      lock: null,
-    });
-  }
+  return Object.freeze({ pipeName, environment, timing });
+}
+
+export async function acquireHostOperationSupervisorLockUsingChild(
+  request: NonNullable<
+    ReturnType<typeof prepareHostOperationSupervisorLockRequest>
+  >,
+  child: SupervisorChild,
+): Promise<HostOperationSupervisorLockOutcome> {
+  const { timing } = request;
   const acquired = await waitForSupervisorStatus(
     child,
     "acquired",
@@ -671,22 +684,36 @@ export function acquireRuntimeOwnedHostOperationSupervisorLock(
   rootName: unknown,
   nonce: unknown,
 ) {
-  return acquireHostOperationSupervisorLockUsingChildFactory(
-    rootName,
-    nonce,
-    (pipeName, environment) =>
-      spawnRuntimeLocalTypeScriptChild(
-        "host_operation_lock_supervisor",
-        [pipeName],
-        {
-          cwd: fileURLToPath(new URL(".", import.meta.url)),
-          env: environment,
-          shell: false,
-          windowsHide: true,
-          stdio: ["ignore", "ignore", "ignore", "ipc"],
-        },
-      ),
-  );
+  const request = prepareHostOperationSupervisorLockRequest(rootName, nonce);
+  if (!request)
+    return Promise.resolve(
+      Object.freeze({
+        status: "unavailable",
+        lock: null,
+      }) as HostOperationSupervisorLockOutcome,
+    );
+  let child: SupervisorChild;
+  try {
+    child = spawnRuntimeLocalTypeScriptChild(
+      "host_operation_lock_supervisor",
+      [request.pipeName],
+      {
+        cwd: fileURLToPath(new URL(".", import.meta.url)),
+        env: request.environment,
+        shell: false,
+        windowsHide: true,
+        stdio: ["ignore", "ignore", "ignore", "ipc"],
+      },
+    );
+  } catch {
+    return Promise.resolve(
+      Object.freeze({
+        status: "cleanup_confirmed_failure",
+        lock: null,
+      }) as HostOperationSupervisorLockOutcome,
+    );
+  }
+  return acquireHostOperationSupervisorLockUsingChild(request, child);
 }
 
 export function describeCandidateStoreKernelLockContract() {

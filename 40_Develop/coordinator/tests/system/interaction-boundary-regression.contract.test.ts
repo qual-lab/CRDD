@@ -13,7 +13,6 @@ import {
   describeInteractiveConsoleContract,
   INTERACTIVE_CONSOLE_CONTRACT,
   readInteractiveConsoleLine,
-  readInteractiveConsoleLineOutcomeUsingAdapter,
   readTerminalLineUsingStream,
   withInteractiveConsoleAsyncOutcomeUsingAdapter,
   withInteractiveConsoleAsyncUsingAdapter,
@@ -23,6 +22,7 @@ import {
   writeWindowsTerminalTextOutcomeUsingStream,
   writeWindowsTerminalTextUsingStream,
 } from "../../src/core/interactive-console.ts";
+import { readInteractiveConsoleLineOutcomeUsingAdapter } from "../support/interactive-console-child-harness.ts";
 import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
@@ -2015,6 +2015,21 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     "src/security/docker-recovery-runtime-internal.ts",
     "src/security/provider-home-windows-adapter.ts",
   ]);
+
+  const productionFactorySeams = [
+    /\bcreateChild\b/u,
+    /\bworkerFactory\b/u,
+    /\bchildFactory\b/u,
+    /\bspawnFactory\b/u,
+    /\bUsingFactory\b/u,
+    /\bUsingChildFactory\b/u,
+  ];
+  for (const file of sourceFiles(path.join(coordinatorRoot, "src"))) {
+    const source = fs.readFileSync(file, "utf8");
+    for (const pattern of productionFactorySeams) {
+      assert.equal(pattern.test(source), false, `${file}: ${pattern.source}`);
+    }
+  }
 
   for (const directory of ["bin", "scripts", "src"]) {
     for (const file of sourceFiles(path.join(coordinatorRoot, directory))) {

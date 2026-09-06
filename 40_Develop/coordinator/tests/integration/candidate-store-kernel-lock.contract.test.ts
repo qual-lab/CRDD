@@ -7,8 +7,6 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  acquireHostOperationSupervisorLockUsingChildFactory,
-  acquireInteractiveConsoleKernelLockOutcomeUsingFactory,
   acquireRuntimeOwnedCandidateStoreKernelLock,
   acquireRuntimeOwnedDockerRuntimeStateKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
@@ -17,6 +15,10 @@ import {
   acquireRuntimeOwnedLogicalProviderHomeKernelLock,
   describeCandidateStoreKernelLockContract,
 } from "../../src/security/candidate-store-kernel-lock.ts";
+import {
+  acquireHostOperationSupervisorLockUsingChildFactory,
+  acquireInteractiveConsoleKernelLockOutcomeUsingFactory,
+} from "../support/candidate-store-kernel-lock-harness.ts";
 
 const FAST_SUPERVISOR_TIMING = Object.freeze({
   acquireTimeoutMs: 10,

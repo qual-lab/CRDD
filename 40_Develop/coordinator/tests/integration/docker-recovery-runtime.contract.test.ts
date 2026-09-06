@@ -2343,9 +2343,9 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
             path.resolve("src/security/docker-recovery-runtime-internal.ts")
         )
           assert.equal(
-            fs
-              .readFileSync(target, "utf8")
-              .includes("docker-recovery-runtime-internal.ts"),
+            /(?:from\s*|import\s*\(|require\s*\()\s*["'][^"']*docker-recovery-runtime-internal\.ts["']/u.test(
+              fs.readFileSync(target, "utf8"),
+            ),
             false,
             target,
           );

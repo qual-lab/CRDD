@@ -68,7 +68,6 @@ type WindowsTerminalStream = Readonly<{
 
 type InteractiveConsoleReaderProcessAdapter = Readonly<{
   isTty: (descriptor: number) => boolean;
-  createChild: () => ChildProcess;
   setTimeout: typeof setTimeout;
   clearTimeout: typeof clearTimeout;
 }>;
@@ -412,9 +411,10 @@ function parseReaderResult(source: Buffer) {
   });
 }
 
-export function readInteractiveConsoleLineOutcomeUsingAdapter(
+export function readInteractiveConsoleLineOutcomeUsingChild(
   inputDescriptor: number,
   cancellationSignal: AbortSignal,
+  child: ChildProcess,
   adapter: InteractiveConsoleReaderProcessAdapter,
 ): Promise<InteractiveConsoleReadOutcome> {
   if (
@@ -431,13 +431,6 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
     );
   }
   return new Promise((resolve) => {
-    let child: ChildProcess;
-    try {
-      child = adapter.createChild();
-    } catch {
-      resolve(Object.freeze({ status: "reader_failed", line: null }));
-      return;
-    }
     let settled = false;
     let isInvalid = false;
     let isChildClosed = false;
@@ -620,19 +613,6 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
   });
 }
 
-export async function readInteractiveConsoleLineUsingAdapter(
-  inputDescriptor: number,
-  cancellationSignal: AbortSignal,
-  adapter: InteractiveConsoleReaderProcessAdapter,
-) {
-  const outcome = await readInteractiveConsoleLineOutcomeUsingAdapter(
-    inputDescriptor,
-    cancellationSignal,
-    adapter,
-  );
-  return outcome.status === "completed" ? outcome.line : null;
-}
-
 export function readInteractiveConsoleLine(
   inputDescriptor: number,
   cancellationSignal: AbortSignal,
@@ -647,31 +627,49 @@ export function readInteractiveConsoleLineOutcome(
   inputDescriptor: number,
   cancellationSignal: AbortSignal,
 ) {
-  return readInteractiveConsoleLineOutcomeUsingAdapter(
+  if (
+    !Number.isSafeInteger(inputDescriptor) ||
+    inputDescriptor < 0 ||
+    cancellationSignal.aborted ||
+    !tty.isatty(inputDescriptor)
+  )
+    return Promise.resolve(
+      Object.freeze({
+        status: cancellationSignal.aborted ? "cancelled" : "reader_failed",
+        line: null,
+      }) as InteractiveConsoleReadOutcome,
+    );
+  const environment = createInteractiveConsoleReaderEnvironment();
+  if (!environment)
+    return Promise.resolve(
+      Object.freeze({
+        status: "reader_failed",
+        line: null,
+      }) as InteractiveConsoleReadOutcome,
+    );
+  let child: ChildProcess;
+  try {
+    child = spawnRuntimeLocalTypeScriptChild("interactive_console_reader", [], {
+      shell: false,
+      detached: false,
+      windowsHide: false,
+      cwd: path.dirname(fileURLToPath(import.meta.url)),
+      env: environment,
+      stdio: ["ignore", "pipe", "ignore", "ipc"],
+    });
+  } catch {
+    return Promise.resolve(
+      Object.freeze({
+        status: "reader_failed",
+        line: null,
+      }) as InteractiveConsoleReadOutcome,
+    );
+  }
+  return readInteractiveConsoleLineOutcomeUsingChild(
     inputDescriptor,
     cancellationSignal,
-    Object.freeze({
-      isTty: tty.isatty,
-      createChild: () => {
-        const environment = createInteractiveConsoleReaderEnvironment();
-        if (!environment)
-          throw new Error("interactive_console_reader_environment_unavailable");
-        return spawnRuntimeLocalTypeScriptChild(
-          "interactive_console_reader",
-          [],
-          {
-            shell: false,
-            detached: false,
-            windowsHide: false,
-            cwd: path.dirname(fileURLToPath(import.meta.url)),
-            env: environment,
-            stdio: ["ignore", "pipe", "ignore", "ipc"],
-          },
-        );
-      },
-      setTimeout,
-      clearTimeout,
-    }),
+    child,
+    Object.freeze({ isTty: tty.isatty, setTimeout, clearTimeout }),
   ).then((outcome) => {
     if (outcome.status === "cleanup_unknown")
       poisonRuntimeProcessAfterInteractiveCleanupUnknown();

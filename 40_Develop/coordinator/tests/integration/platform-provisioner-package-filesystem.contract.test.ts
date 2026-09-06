@@ -270,6 +270,30 @@ test("開発版はRuntime依存閉包を実体照合し、署名・実行Authori
   }
 });
 
+test("実行能力を持たないchild_processのtype-only importはRuntime候補を失効させない", () => {
+  const fixture = developmentFixture();
+  try {
+    fs.appendFileSync(
+      path.join(
+        fixture.packageRoot,
+        "src",
+        "security",
+        "candidate-store-kernel-lock.ts",
+      ),
+      'import type { ChildProcess } from "node:child_process"; export type FixtureChild = ChildProcess;\n',
+    );
+    const result =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+        fixture.distributionRoot,
+      );
+    assert.equal(result.status, "candidate", JSON.stringify(result));
+    assert.equal(result.runtimeAuthorityConferred, false);
+    assert.equal(result.effectAuthorizationIssued, false);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 test("利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補として受理しない", () => {
   for (const launcher of ["crdd-coordinator.ts", "crdd-mcp.ts"]) {
     const fixture = developmentFixture();
@@ -373,6 +397,22 @@ for (const scenario of [
   "query_specifier",
   "fragment_specifier",
   "percent_encoded_specifier",
+  "child_process_reexport_bridge",
+  "child_process_require",
+  "fork_function_value",
+  "fork_parenthesized",
+  "fork_call",
+  "fork_apply",
+  "fork_bind",
+  "fork_reflect_apply",
+  "parenthesized_node_target",
+  "optional_node_target",
+  "node_variable_target",
+  "argv0_variable_target",
+  "query_process_target",
+  "fragment_process_target",
+  "percent_process_target",
+  "encoded_separator_process_target",
 ] as const) {
   test(`local TypeScript子entrypointの宣言・利用迂回を拒否する: ${scenario}`, () => {
     const fixture = developmentFixture();
@@ -592,10 +632,111 @@ for (const scenario of [
         );
       if (scenario === "percent_encoded_specifier")
         fs.appendFileSync(consumer, 'import "./unregistered%2Dchild.ts";\n');
+      if (scenario === "child_process_reexport_bridge") {
+        fs.writeFileSync(
+          path.join(fixture.packageRoot, "src", "security", "child-bridge.ts"),
+          'export { spawn as launch } from "node:child_process";\n',
+        );
+        fs.appendFileSync(
+          consumer,
+          'import { launch } from "./child-bridge.ts"; launch(process.argv0, ["./unregistered-child.ts"]);\n',
+        );
+      }
+      if (scenario === "child_process_require")
+        fs.appendFileSync(
+          consumer,
+          'import { createRequire } from "node:module"; const load = createRequire(import.meta.url); const child = load("node:child_process"); child.spawn(process.argv0, ["./unregistered-child.ts"]);\n',
+        );
+      if (scenario === "fork_function_value")
+        fs.appendFileSync(
+          consumer,
+          'import { fork } from "node:child_process"; const launch = fork; void launch;\n',
+        );
+      if (scenario === "fork_parenthesized")
+        fs.appendFileSync(
+          consumer,
+          'import { fork } from "node:child_process"; (fork)("./unregistered-child.ts");\n',
+        );
+      if (scenario === "fork_call")
+        fs.appendFileSync(
+          consumer,
+          'import { fork } from "node:child_process"; fork.call(undefined, "./unregistered-child.ts");\n',
+        );
+      if (scenario === "fork_apply")
+        fs.appendFileSync(
+          consumer,
+          'import { fork } from "node:child_process"; fork.apply(undefined, ["./unregistered-child.ts"]);\n',
+        );
+      if (scenario === "fork_bind")
+        fs.appendFileSync(
+          consumer,
+          'import { fork } from "node:child_process"; const launch = fork.bind(undefined); void launch;\n',
+        );
+      if (scenario === "fork_reflect_apply")
+        fs.appendFileSync(
+          consumer,
+          'import { fork } from "node:child_process"; Reflect.apply(fork, undefined, ["./unregistered-child.ts"]);\n',
+        );
+      if (scenario === "parenthesized_node_target")
+        fs.appendFileSync(
+          declarationModule,
+          'spawn((process.argv0), ["./unregistered-child.ts"]);\n',
+        );
+      if (scenario === "optional_node_target")
+        fs.appendFileSync(
+          declarationModule,
+          'spawn(process?.argv0, ["./unregistered-child.ts"]);\n',
+        );
+      if (scenario === "node_variable_target")
+        fs.appendFileSync(
+          declarationModule,
+          'const unboundNodeTarget = "./unregistered-child.ts"; spawn("node", [unboundNodeTarget]);\n',
+        );
+      if (scenario === "argv0_variable_target")
+        fs.appendFileSync(
+          declarationModule,
+          'const unboundArgvTarget = "./unregistered-child.ts"; spawn(process.argv0, [unboundArgvTarget]);\n',
+        );
+      if (
+        [
+          "query_process_target",
+          "fragment_process_target",
+          "percent_process_target",
+          "encoded_separator_process_target",
+        ].includes(scenario)
+      ) {
+        const target =
+          scenario === "query_process_target"
+            ? "./unregistered-child.ts?run"
+            : scenario === "fragment_process_target"
+              ? "./unregistered-child.ts#run"
+              : scenario === "percent_process_target"
+                ? "./unregistered-child.%74%73"
+                : "./nested%2Funregistered-child.ts";
+        fs.appendFileSync(
+          declarationModule,
+          `import { fileURLToPath } from "node:url"; spawn(process.argv0, [fileURLToPath(new URL("${target}", import.meta.url))]);\n`,
+        );
+      }
       if (
         scenario === "variable_declaration" ||
         scenario === "template_declaration" ||
-        scenario === "direct_url"
+        scenario === "direct_url" ||
+        scenario === "child_process_reexport_bridge" ||
+        scenario === "child_process_require" ||
+        scenario === "fork_parenthesized" ||
+        scenario === "fork_call" ||
+        scenario === "fork_apply" ||
+        scenario === "fork_bind" ||
+        scenario === "fork_reflect_apply" ||
+        scenario === "parenthesized_node_target" ||
+        scenario === "optional_node_target" ||
+        scenario === "node_variable_target" ||
+        scenario === "argv0_variable_target" ||
+        scenario === "query_process_target" ||
+        scenario === "fragment_process_target" ||
+        scenario === "percent_process_target" ||
+        scenario === "encoded_separator_process_target"
       )
         fs.writeFileSync(
           path.join(
@@ -1693,7 +1834,7 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
     );
     assert.equal(
       inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
-      "candidate",
+      "blocked",
     );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

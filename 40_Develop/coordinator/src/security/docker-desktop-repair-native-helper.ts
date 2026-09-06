@@ -63,7 +63,6 @@ export type DockerDesktopRepairNativeHelperOutcome = Readonly<{
 }>;
 
 type NativeChild = ChildProcessWithoutNullStreams;
-type SpawnFactory = typeof spawn;
 
 function sameArtifact(left: unknown, right: unknown) {
   if (!left || !right || typeof left !== "object" || typeof right !== "object")
@@ -425,9 +424,8 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
   });
 }
 
-export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelperUsingFactory(
+export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelper(
   expectedPlatformArtifact: unknown,
-  spawnFactory: SpawnFactory,
 ): Promise<DockerDesktopRepairNativeHelperOutcome> {
   if (process.platform !== "win32")
     return Object.freeze({ status: "unavailable", session: null });
@@ -450,7 +448,7 @@ export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelperUsingFac
     return Object.freeze({ status: "unavailable", session: null });
   let child: NativeChild;
   try {
-    child = spawnFactory(executablePath, ["--docker-desktop-repair-helper"], {
+    child = spawn(executablePath, ["--docker-desktop-repair-helper"], {
       cwd: bundledDistributionRoot,
       env: environment,
       shell: false,
@@ -498,15 +496,6 @@ export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelperUsingFac
     });
   }
   return Object.freeze({ status: "acquired", session: created.session });
-}
-
-export function acquireRuntimeOwnedDockerDesktopRepairNativeHelper(
-  expectedPlatformArtifact: unknown,
-) {
-  return acquireRuntimeOwnedDockerDesktopRepairNativeHelperUsingFactory(
-    expectedPlatformArtifact,
-    spawn,
-  );
 }
 
 export function describeDockerDesktopRepairNativeHelperContract() {
