@@ -7,8 +7,8 @@
 ## 対象
 
 - 対象変更: [CHG-000062](../../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
-- 固定改訂版: `da3c6eb69f8f2a7172ff8ebc5b8ebe2de77880e7`
-- 固定Tree: `13b99bee4b60a2069d2feac9ec4bb2de1f701adf`
+- 固定改訂版: `5ae51ff8f4acdb56c73f00cc09abdcf8c3c7892b`
+- 固定Tree: `1f17d6cb100dc92e6b63ed9134dd8251b088217f`
 - 対象範囲: Runtime責務分離、Project Stateの読み取り専用投影、MCP stdio／localhost HTTP、実行知の組込みAPI、限定分散の統合結果評価
 
 ## 結論
@@ -37,8 +37,8 @@
 | Repository全体の変更影響型回帰 | 選択155項目、全5段階成功 | 全所有componentの静的検査、UT、IT、Windows実Process Gate、ST |
 | Windows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | Coordinator静的検査 | 成功 | Runtime／Project設計対応、兄弟Component package metadataを含むRuntime Execution Identity、型、Lint、Format |
-| 正式署名の利用側閉包 | 105件中105件成功 | 配布全体の正規観測と、必須成果物・実行入口・Recovery Matrix入口の欠落を秘密鍵読取りおよび入力Promptより前に拒否すること。宣言、正規wrapper呼出しおよび実行時Registryを完全一致させ、別名・型専用・namespace・dynamic・require・再export、直接Worker／`fork`／Node自身からのlocal TypeScript起動、query／fragment／percent encodingおよびRecovery経路の迂回を拒否すること |
-| 追加是正後のCoordinator制限Process回帰 | 1,697件中1,697件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
+| 正式署名の利用側閉包 | 136件中136件成功 | 配布全体の正規観測と、必須成果物・実行入口・Recovery Matrix入口の欠落を秘密鍵読取りおよび入力Promptより前に拒否すること。実行能力を持つimport、source別primitive、直接呼出しおよび実行targetを実ソースから導出し、宣言集合との完全一致を要求すること。別名・namespace・dynamic・require・再export、関数値化、`.call`／`.apply`／`.bind`／`Reflect.apply`、直接Worker／`fork`／Node自身からのlocal TypeScript起動、query／fragment／percent encoding／encoded separatorおよびRecovery経路の迂回を拒否し、type-only importは実行能力として数えないこと |
+| 追加是正後のCoordinator制限Process回帰 | 1,714件中1,714件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
 | 追加是正後のWindows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | 追加是正後のRepository全体Checker | Error 0、Warning 0 | Markdown 425件、Local link 3,011件、履歴参照24件、Anchor 1,005件 |
 
@@ -56,7 +56,9 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 その再レビューでは、子Process入口の自動導出が特定の`new URL()`表記だけを対象とし、宣言と実利用の全数対応を証明できないことを検出した。固定改訂版`df1c576c0f0f5636bc0ee72ed77e22340a28cc70`では、local TypeScript子Process入口を専用descriptorへ集約したが、descriptor自身が可変な`URL`を公開し、利用集合もresolver名の出現から求めていたため、正規wrapperの実呼出しと実行時targetの同一性を証明できなかった。
 
-現在の固定改訂版`da3c6eb69f8f2a7172ff8ebc5b8ebe2de77880e7`では、Registryを専用module内部の不変なprimitive値へ閉じ、利用側には役割と引数だけを受け取るWorker／spawn wrapperを公開する。spawn wrapperは非公開の不変Pathと呼出しごとの新しい引数列から子Processを起動し、利用側から実行ファイル、targetまたはspawn factoryを受け取らない。本番実行集合からは正規名・非alias・値importのwrapper直接呼出しを静的に導出し、宣言集合、導出した利用集合および実行時Registryを役割・起動種別・Pathで完全一致させる。署名・Recoveryを含む実Process入口へ同じ境界を適用し、別名・型専用・namespace・dynamic・require・再export、直接Worker、`fork`、`process.execPath`／`process.argv0`／`process.argv[0]`／literal Nodeからのlocal TypeScript起動、query／fragment／percent encoding、および観測projectionの他利用側取込みを拒否する。Recovery Matrix入口の欠落も署名前検査へ加え、秘密鍵読取りと入力Promptより前に停止する。上表の105件、1,697件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
+固定改訂版`da3c6eb69f8f2a7172ff8ebc5b8ebe2de77880e7`では、Registryを専用module内部の不変なprimitive値へ閉じ、利用側には役割と引数だけを受け取るWorker／spawn wrapperを公開した。一段具体化した独立再レビューでは、`child_process`の再export・関数値化や呼出し方の再構成、Node自身から起動するtargetの判定不能形、および本番関数へ残ったProcess／Worker生成factoryによって、この境界を迂回できることを検出した。
+
+現在の固定改訂版`5ae51ff8f4acdb56c73f00cc09abdcf8c3c7892b`では、実行能力を持つ`node:child_process`の値importを正規名・非aliasのnamed importへ限定し、sourceとprimitiveの許可関係、およびimport bindingの全利用を字句解析する。正規の直接呼出し以外と判定不能なNode-self targetは拒否し、type-only importは実行能力として数えない。query、fragment、percent encodingまたはencoded separatorを取り除いて正規Pathへ補正せず、不正・不明として停止する。本番のProcess／Worker生成factoryは除去し、検証済みの本番leafが起動を所有した後、既に生成済みのhandleと最小状態だけをlifecycle helperへ渡す。factoryを用いる異常注入は試験専用harnessへ隔離した。上表の136件、1,714件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
 
 ## 限定分散の観測
 
