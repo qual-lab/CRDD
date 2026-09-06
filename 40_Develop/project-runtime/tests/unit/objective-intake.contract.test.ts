@@ -80,7 +80,7 @@ test("Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮�
     ownerGeneration: "owner-a",
   });
   assert.ok(created.state);
-  const result = createProjectRuntimeTaskExecutionSet(
+  const taskExecutions = createProjectRuntimeTaskExecutionSet(
     [{ taskId: "task-a", taskRequest: {}, repositoryRoot: {} }],
     created.state,
     {
@@ -89,10 +89,10 @@ test("Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮�
       createContentHash: (content) => content,
     },
   );
-  assert.ok(result);
-  assert.equal(result[0]?.taskId, "task-a");
+  assert.ok(taskExecutions);
+  assert.equal(taskExecutions[0]?.taskId, "task-a");
   assert.equal(
-    result[0]?.authorityBindingId,
+    taskExecutions[0]?.authorityBindingId,
     `authority-project-a-milestone-a-${"a".repeat(40)}-objective-a-task-a-0`,
   );
   assert.equal(

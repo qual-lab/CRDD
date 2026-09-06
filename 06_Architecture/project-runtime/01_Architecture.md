@@ -64,6 +64,7 @@ CoreはI/Oを発行しない。ApplicationはPortの閉じた結果だけを解�
 | Execution Observation Port | Task Attempt終了の非Authority Eventを記録する | 実行知Adapter |
 | Clock／Identity Port | 契約が必要とする現在時刻、決定論的IDおよび内容Hashを返す。言語Runtimeの時刻・暗号実装をApplicationへ露出しない | Host Adapter |
 | Process Safety Port | 現在のProcess世代、cleanup不明時のProcess再利用禁止、exact Recovery Identityの生成および検証を要求する | Host Adapter |
+| Task Recovery Port | Owner lossとの相関解決、Task回復、Docker回復受領、検証資源の最終化および非Authority診断を、Repository実装情報を含まないexact Identityで要求する | Coordinator Recovery Adapter |
 
 Portは任意関数の集合ではなく、要求、受理、Effect、完了、観測および耐久的確定を区別した結果を返す。未知fieldまたは不明状態を成功・不存在・空集合へ畳まない。
 

@@ -18,6 +18,7 @@ export * from "./ports/lease-port.ts";
 export * from "./ports/port-result.ts";
 export * from "./ports/process-safety-port.ts";
 export * from "./ports/state-port.ts";
+export * from "./ports/task-recovery-port.ts";
 export * from "./public-contract/integration-result.ts";
 export * from "./public-contract/objective-request.ts";
 export * from "./public-contract/decision-request.ts";

@@ -6,6 +6,10 @@ import {
 } from "../../../project-runtime/src/index.ts";
 import { createProjectRuntimeExecutionHostPorts } from "./project-runtime-execution-host-adapter.ts";
 import {
+  createProjectRuntimeTaskRecoveryAdapter,
+  type ProjectRuntimeTaskRecoveryHostDependencies,
+} from "./project-runtime-task-recovery-adapter.ts";
+import {
   createProjectRuntimeState,
   acknowledgeProjectDockerRecoveryObligation,
   markProjectTaskRecoveryObligationRecovering,
@@ -56,78 +60,12 @@ export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
       ownerGeneration: string;
     }>,
   ) => unknown;
-  recoverTaskRecovery?: (recoveryId: string) => unknown;
-  acknowledgeTaskRecovery?: (
-    settlement: Readonly<{
-      workingDirectory: string;
-      repositoryBindingId: string;
-      projectId: string;
-      milestoneId: string;
-      stateGeneration: number;
-      taskId: string;
-      attemptId: string;
-      operationId: string;
-      kind: "docker";
-      recoveryId: string;
-    }>,
-  ) => unknown;
-  finalizeTaskRecoveryAcknowledgement?: (
-    settlement: Readonly<{
-      workingDirectory: string;
-      repositoryBindingId: string;
-      projectId: string;
-      milestoneId: string;
-      stateGeneration: number;
-      taskId: string;
-      attemptId: string;
-      operationId: string;
-      kind: "docker";
-      recoveryId: string;
-      acknowledgement: ProjectDockerRecoveryAcknowledgement;
-    }>,
-  ) => unknown;
-  resolveTaskRecoveryCorrelations?: (
-    correlationIds: readonly string[],
-  ) => unknown;
-  observeRecoveryTransition?: (
-    event: Readonly<{
-      phase:
-        | "required"
-        | "recovering"
-        | "settled"
-        | "acknowledged"
-        | "verification_resources_finalized"
-        | "queue_settled"
-        | "retry_ready";
-      projectId: string;
-      milestoneId: string;
-      queueId: string;
-      taskId: string | null;
-      operationId: string | null;
-      recoveryId: string | null;
-      stateGeneration: number;
-    }>,
-  ) => void | Promise<void>;
   execution: Omit<
     ProjectRuntimeExecutionDependencies,
     "persistence" | "clockIdentity" | "processSafety"
   >;
-}>;
-
-async function observeRecoveryTransition(
-  dependencies: ProjectRuntimeObjectiveIntakeDependencies,
-  event: Parameters<
-    NonNullable<
-      ProjectRuntimeObjectiveIntakeDependencies["observeRecoveryTransition"]
-    >
-  >[0],
-) {
-  try {
-    await dependencies.observeRecoveryTransition?.(Object.freeze({ ...event }));
-  } catch {
-    // Recovery correctness never depends on a diagnostic observer.
-  }
-}
+}> &
+  ProjectRuntimeTaskRecoveryHostDependencies;
 
 function recoveryApplicationId(
   projectId: string,
@@ -346,6 +284,11 @@ export async function runProjectRuntimeObjective(
     workingDirectory,
     binding.repositoryBindingId,
   );
+  const taskRecovery = createProjectRuntimeTaskRecoveryAdapter(
+    workingDirectory,
+    binding.repositoryBindingId,
+    dependencies,
+  );
   const acquisitionOwner = persistence.lease.inspectAcquisitionOwner();
   if (acquisitionOwner.status !== "completed")
     return blocked(request, acquisitionOwner.reason, {
@@ -503,9 +446,7 @@ export async function runProjectRuntimeObjective(
       if (operationIds.length > 0) {
         let rawBindings: unknown;
         try {
-          rawBindings =
-            dependencies.resolveTaskRecoveryCorrelations?.(operationIds) ??
-            null;
+          rawBindings = taskRecovery.resolveCorrelations(operationIds);
         } catch {
           rawBindings = null;
         }
@@ -552,7 +493,7 @@ export async function runProjectRuntimeObjective(
       });
       for (const task of boundWrite.value.tasks) {
         for (const obligation of task.recoveryObligations) {
-          await observeRecoveryTransition(dependencies, {
+          await taskRecovery.observeTransition({
             phase: "required",
             projectId: request.projectId,
             milestoneId: request.milestoneId,
@@ -707,7 +648,7 @@ export async function runProjectRuntimeObjective(
             value: recoveringWrite.value,
           });
           recoveryState = recoveringWrite.value;
-          await observeRecoveryTransition(dependencies, {
+          await taskRecovery.observeTransition({
             phase: "recovering",
             projectId: request.projectId,
             milestoneId: request.milestoneId,
@@ -746,8 +687,7 @@ export async function runProjectRuntimeObjective(
               : null;
         } else {
           try {
-            recovery =
-              dependencies.recoverTaskRecovery?.(item.recoveryId) ?? null;
+            recovery = taskRecovery.recover(item.recoveryId);
           } catch {
             recovery = null;
           }
@@ -799,7 +739,7 @@ export async function runProjectRuntimeObjective(
           value: settledWrite.value,
         });
         recoveryState = settledWrite.value;
-        await observeRecoveryTransition(dependencies, {
+        await taskRecovery.observeTransition({
           phase: "settled",
           projectId: request.projectId,
           milestoneId: request.milestoneId,
@@ -848,21 +788,18 @@ export async function runProjectRuntimeObjective(
       if (currentObligation?.phase === "settled") {
         let acknowledgementResult: unknown;
         try {
-          acknowledgementResult =
-            dependencies.acknowledgeTaskRecovery?.(
-              Object.freeze({
-                workingDirectory,
-                repositoryBindingId: binding.repositoryBindingId,
-                projectId: request.projectId,
-                milestoneId: request.milestoneId,
-                stateGeneration: recoveryState.generation,
-                taskId: item.taskId,
-                attemptId: settledTask.attemptId,
-                operationId: settledTask.operationId,
-                kind: "docker" as const,
-                recoveryId: item.recoveryId,
-              }),
-            ) ?? null;
+          acknowledgementResult = taskRecovery.acknowledgeDocker(
+            Object.freeze({
+              projectId: request.projectId,
+              milestoneId: request.milestoneId,
+              stateGeneration: recoveryState.generation,
+              taskId: item.taskId,
+              attemptId: settledTask.attemptId,
+              operationId: settledTask.operationId,
+              kind: "docker" as const,
+              recoveryId: item.recoveryId,
+            }),
+          );
         } catch {
           acknowledgementResult = null;
         }
@@ -949,7 +886,7 @@ export async function runProjectRuntimeObjective(
           reason: markedWrite.reason,
           value: markedWrite.value,
         });
-        await observeRecoveryTransition(dependencies, {
+        await taskRecovery.observeTransition({
           phase: "acknowledged",
           projectId: request.projectId,
           milestoneId: request.milestoneId,
@@ -981,22 +918,19 @@ export async function runProjectRuntimeObjective(
         );
       let finalized: unknown;
       try {
-        finalized =
-          dependencies.finalizeTaskRecoveryAcknowledgement?.(
-            Object.freeze({
-              workingDirectory,
-              repositoryBindingId: binding.repositoryBindingId,
-              projectId: request.projectId,
-              milestoneId: request.milestoneId,
-              stateGeneration: recoveryState.generation,
-              taskId: item.taskId,
-              attemptId: settledTask.attemptId,
-              operationId: settledTask.operationId,
-              kind: "docker" as const,
-              recoveryId: item.recoveryId,
-              acknowledgement: currentObligation.acknowledgement,
-            }),
-          ) ?? null;
+        finalized = taskRecovery.finalizeDockerAcknowledgement(
+          Object.freeze({
+            projectId: request.projectId,
+            milestoneId: request.milestoneId,
+            stateGeneration: recoveryState.generation,
+            taskId: item.taskId,
+            attemptId: settledTask.attemptId,
+            operationId: settledTask.operationId,
+            kind: "docker" as const,
+            recoveryId: item.recoveryId,
+          }),
+          currentObligation.acknowledgement,
+        );
       } catch {
         finalized = null;
       }
@@ -1021,7 +955,7 @@ export async function runProjectRuntimeObjective(
             ],
           },
         );
-      await observeRecoveryTransition(dependencies, {
+      await taskRecovery.observeTransition({
         phase: "verification_resources_finalized",
         projectId: request.projectId,
         milestoneId: request.milestoneId,
@@ -1078,7 +1012,7 @@ export async function runProjectRuntimeObjective(
           effectState: "unknown",
         });
       queue = queueSettlement.value;
-      await observeRecoveryTransition(dependencies, {
+      await taskRecovery.observeTransition({
         phase: "queue_settled",
         projectId: request.projectId,
         milestoneId: request.milestoneId,
@@ -1130,7 +1064,7 @@ export async function runProjectRuntimeObjective(
         value: retryWrite.value,
       });
       recoveryState = retryWrite.value;
-      await observeRecoveryTransition(dependencies, {
+      await taskRecovery.observeTransition({
         phase: "retry_ready",
         projectId: request.projectId,
         milestoneId: request.milestoneId,

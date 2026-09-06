@@ -33,7 +33,7 @@
     {"id":"RES-PROJECT-STATE","owner":"project_state_store","terminalCondition":"expected_generation_atomic_replace_observed"},
     {"id":"RES-SCHEDULER-SLOT","owner":"project_scheduler","terminalCondition":"task_process_absent_and_cleanup_confirmed"},
     {"id":"RES-CONFLICT-RESERVATION","owner":"project_scheduler","terminalCondition":"effect_candidate_and_recovery_impact_reconciled"},
-    {"id":"RES-SINGLE-TASK-BINDING","owner":"parent_coordinator","terminalCondition":"exact_operation_settled_to_result_cleanup_or_recovery"},
+    {"id":"RES-SINGLE-TASK-BINDING","owner":"project_runtime","terminalCondition":"exact_operation_settled_to_result_cleanup_or_recovery"},
     {"id":"RES-INTEGRATION-WORKSPACE","owner":"integration_owner","terminalCondition":"candidate_adopted_or_discarded_and_workspace_cleanup_observed"},
     {"id":"RES-ADOPTION-LEASE","owner":"integration_owner","terminalCondition":"adoption_receipt_and_repository_revision_observed"},
     {"id":"RES-CANCELLATION-CONTROLLER","owner":"parent_coordinator","terminalCondition":"all_target_tasks_terminated_cleaned_and_projected"},
@@ -51,7 +51,7 @@
   ],
   "authorities": [
     {"id":"AUTH-MILESTONE","owner":"authenticated_human_via_parent_coordinator","scope":"one_project_one_repository_one_milestone_and_declared_limits","terminalCondition":"milestone_terminal_or_authority_revoked"},
-    {"id":"AUTH-TASK","owner":"parent_coordinator","scope":"strict_subset_of_milestone_for_one_task_attempt","issuance":"after_durable_attempt_reservation_immediately_before_effect","terminalCondition":"attempt_settled_or_superseded_or_revoked"},
+    {"id":"AUTH-TASK","owner":"project_runtime","scope":"strict_subset_of_milestone_for_one_task_attempt","issuance":"binding_derived_from_current_project_milestone_objective_task_attempt_and_repository_revision; execution_authorization_is_separate_and_issued_after_durable_attempt_reservation_immediately_before_effect","terminalCondition":"attempt_settled_or_superseded_or_revoked"},
     {"id":"AUTH-SINGLE-TASK-OPERATION","owner":"single_task_adapter","scope":"one_exact_single_task_operation_and_candidate_boundary","terminalCondition":"operation_cleanup_or_exact_recovery_obligation_observed"},
     {"id":"AUTH-INTEGRATION","owner":"integration_owner","scope":"fixed_task_result_set_and_acceptance_criteria_without_canonical_write","terminalCondition":"integration_candidate_fixed_or_discarded"},
     {"id":"AUTH-ADOPTION","owner":"authenticated_human_via_parent_coordinator","scope":"fixed_candidate_fixed_paths_and_fresh_canonical_revision","terminalCondition":"adoption_receipt_or_no_effect_rejection_observed"},

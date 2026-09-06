@@ -27,6 +27,8 @@ Objective受付に残る実行調停は、移設前の境界整理として、Pr
 
 同じ移行準備で、Queue、要求範囲および回復適用のIdentity生成と内容HashはClock／Identity Portへ、現在Process世代とRuntime Process Recovery Identityの検証はProcess Safety Portへ集約した。Objective ApplicationはNode暗号実装やCoordinatorのProcess安全状態を直接参照せず、Hostが注入した能力の結果だけを利用する。
 
+Task回復は専用Portへ分離した。Project Runtimeへ公開するのはProject、Milestone、Task、Attempt、Operation、回復種別およびRecovery Identityであり、Coordinator Adapterが検証済みRepositoryの作業DirectoryとBindingを閉じてDocker回復、受領Recordおよび検証資源の最終化へ接続する。診断Observerの失敗はAdapter内で隔離し、回復の成否へ昇格しない。
+
 ## 2. 人間が決定した範囲
 
 - Project Runtimeは独立packageへ分ける。

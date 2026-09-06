@@ -151,12 +151,12 @@ Lock IDと順序は次で固定する。
 
 ## 7. AuthorityとEffect順序
 
-Milestone AuthorityはParent CoordinatorだけがTask Authorityへ縮小できる。Task AuthorityはProject、Milestone、Objective、Task、attempt、Repository Revision、読取り／変更Path、Provider境界、予算および期限へ結合する。Task Graph作成時には先行発行せず、Task開始予約を耐久化した後、各attemptの外部Effect直前にfreshな一回限りのAuthorityを発行する。待機、排他競合または開始前取消では発行しない。発行とSingle Task開始の間に取消を観測した場合は、発行元が同じCapabilityを失効してから取消完了を返す。失効を確認できなければ未使用と推定せずRecoveryへ閉じる。Queue record、Progress、Provider出力、MCP client info、Task結果または時刻はAuthorityを生成・拡張しない。
+Milestone AuthorityはProject RuntimeだけがTask Authorityへ縮小できる。Task AuthorityはProject、Milestone、Objective、Task、attempt、Repository Revision、読取り／変更Path、Provider境界、予算および期限へ結合する。Coordinator AdapterはTask Authorityを生成または拡張せず、Project Runtimeが縮小したTask要求をExecution Portで実行する。Task Graph作成時には実行許可Capabilityを先行発行せず、Task開始予約を耐久化した後、各attemptの外部Effect直前にfreshな一回限りのExecution Authorizationを発行する。待機、排他競合または開始前取消では発行しない。発行とSingle Task開始の間に取消を観測した場合は、発行元が同じCapabilityを失効してから取消完了を返す。失効を確認できなければ未使用と推定せずRecoveryへ閉じる。Queue record、Progress、Provider出力、MCP client info、Task結果または時刻はAuthorityを生成・拡張しない。
 
 | Authority ID | 所有者 | 許可する範囲 | 終端条件 |
 |---|---|---|---|
 | `AUTH-MILESTONE` | 認証済み人間から委任されたParent Coordinator | 単一Project／Repository／Milestoneと宣言済み上限 | Milestone終端または取消 |
-| `AUTH-TASK` | Parent Coordinator | Milestone Authorityの厳密な部分集合である単一Task attempt | attemptのsettle、`superseded`または取消 |
+| `AUTH-TASK` | Project Runtime | Milestone Authorityの厳密な部分集合である単一Task attempt | attemptのsettle、`superseded`または取消 |
 | `AUTH-SINGLE-TASK-OPERATION` | Single Task Adapter | exactなOperation、候補およびRecovery境界 | cleanupまたはexact Recovery義務の確定 |
 | `AUTH-INTEGRATION` | Integration owner | 固定Task結果集合と受入条件。正本書込みは含まない | Integration候補の固定または破棄 |
 | `AUTH-ADOPTION` | 認証済み人間から委任されたParent Coordinator | 固定候補、固定Path、freshな正本Revision | 採用receiptまたはEffect 0の拒否 |
@@ -340,7 +340,7 @@ MCPの公開結果は、操作別のexact contractと閉じたData Transfer Obje
 | `INV-MAX-FIVE-CLEANUP-AWARE` | cleanup不明を含む占有Taskは最大5件とする |
 | `INV-REVALIDATE-AFTER-WAIT` | 待機後は世代・Identity・Authority・取消・競合を再確認する |
 | `INV-NO-LOCK-ACROSS-EXTERNAL-WAIT` | 外部待機中に短時間変更Lockを保持しない |
-| `INV-NARROWED-AUTHORITY` | Task AuthorityはParent Coordinatorだけが縮小生成する |
+| `INV-NARROWED-AUTHORITY` | Task AuthorityはProject Runtimeだけが現在のProject／Milestone／Objective／Task／attempt／Repository RevisionとTask固有範囲へ縮小し、Coordinator Adapterは生成・拡張しない |
 | `INV-TASK-COMPLETE-NOT-ACCEPTED` | Task完了をObjective／Milestone受入へ読み替えない |
 | `INV-EXACT-RESULT-IDENTITY` | 世代・Task・attempt・Operation・候補・Recovery Identityを照合する。Runtime Process回復IDはParent RuntimeだけがProcess Instance・Task・attempt・Operationへ結合して発行する。下位実行への委譲後にhandoff結果が不明、またはEffect開始後の結果が`settled`でない場合は同じProcessを再利用せず、Runtime Process義務だけから外部Effect解決を推定しない |
 | `INV-INTEGRATE-BEFORE-ADOPTION` | 意味統合と受入確認を正本採用より先に行う |
