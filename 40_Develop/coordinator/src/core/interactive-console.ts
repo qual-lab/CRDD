@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import tty from "node:tty";
 import { fileURLToPath } from "node:url";
@@ -68,7 +68,7 @@ type WindowsTerminalStream = Readonly<{
 
 type InteractiveConsoleReaderProcessAdapter = Readonly<{
   isTty: (descriptor: number) => boolean;
-  spawn: typeof spawn;
+  createChild: () => ChildProcess;
   setTimeout: typeof setTimeout;
   clearTimeout: typeof clearTimeout;
 }>;
@@ -431,26 +431,9 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
     );
   }
   return new Promise((resolve) => {
-    let child: ReturnType<typeof spawn>;
+    let child: ChildProcess;
     try {
-      const environment = createInteractiveConsoleReaderEnvironment();
-      if (!environment) {
-        resolve(Object.freeze({ status: "reader_failed", line: null }));
-        return;
-      }
-      child = spawnRuntimeLocalTypeScriptChild(
-        adapter.spawn,
-        "interactive_console_reader",
-        [],
-        {
-          shell: false,
-          detached: false,
-          windowsHide: false,
-          cwd: path.dirname(fileURLToPath(import.meta.url)),
-          env: environment,
-          stdio: ["ignore", "pipe", "ignore", "ipc"],
-        },
-      );
+      child = adapter.createChild();
     } catch {
       resolve(Object.freeze({ status: "reader_failed", line: null }));
       return;
@@ -669,7 +652,23 @@ export function readInteractiveConsoleLineOutcome(
     cancellationSignal,
     Object.freeze({
       isTty: tty.isatty,
-      spawn,
+      createChild: () => {
+        const environment = createInteractiveConsoleReaderEnvironment();
+        if (!environment)
+          throw new Error("interactive_console_reader_environment_unavailable");
+        return spawnRuntimeLocalTypeScriptChild(
+          "interactive_console_reader",
+          [],
+          {
+            shell: false,
+            detached: false,
+            windowsHide: false,
+            cwd: path.dirname(fileURLToPath(import.meta.url)),
+            env: environment,
+            stdio: ["ignore", "pipe", "ignore", "ipc"],
+          },
+        );
+      },
       setTimeout,
       clearTimeout,
     }),

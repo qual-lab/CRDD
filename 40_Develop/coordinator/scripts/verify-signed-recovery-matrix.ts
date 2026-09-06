@@ -1,5 +1,5 @@
 import type { ChildProcess } from "node:child_process";
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -195,7 +195,6 @@ async function verifyParentLossThenRecover() {
   if (!childEnvironment)
     throw new Error("signed_recovery_matrix_child_environment_unavailable");
   const child: ChildProcess = spawnRuntimeLocalTypeScriptChild(
-    spawn,
     "signed_recovery_matrix_child",
     [INTERNAL_CHILD_ARGUMENT],
     {
@@ -276,7 +275,6 @@ async function verifyCleanupUnknownThenRecover() {
       "signed_recovery_matrix_child_environment_unavailable",
     );
   const child: ChildProcess = spawnRuntimeLocalTypeScriptChild(
-    spawn,
     "signed_recovery_matrix_child",
     [INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT],
     {

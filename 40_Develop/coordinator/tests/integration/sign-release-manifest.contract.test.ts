@@ -436,6 +436,7 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
     "40_Develop/coordinator/src/core/interactive-console-reader.ts",
     "40_Develop/coordinator/src/security/candidate-store-lock-worker.ts",
     "40_Develop/coordinator/src/security/host-operation-lock-supervisor.ts",
+    "40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts",
     "template/tools/crdd-mcp.ts",
     "40_Develop/mcp/package.json",
     "40_Develop/project-runtime/src/index.ts",

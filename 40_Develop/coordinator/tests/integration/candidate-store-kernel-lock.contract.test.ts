@@ -3,12 +3,11 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { EventEmitter, once } from "node:events";
 import { createServer } from "node:net";
-import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  acquireHostOperationSupervisorLockUsingFactory,
+  acquireHostOperationSupervisorLockUsingChildFactory,
   acquireInteractiveConsoleKernelLockOutcomeUsingFactory,
   acquireRuntimeOwnedCandidateStoreKernelLock,
   acquireRuntimeOwnedDockerRuntimeStateKernelLock,
@@ -50,17 +49,12 @@ function supervisorChildScenario(
     | "release_nonzero_exit",
 ) {
   let captured: Readonly<{
-    executable: string;
-    args: readonly string[];
-    options: unknown;
+    pipeName: string;
+    environment: NodeJS.ProcessEnv;
   }> | null = null;
   let killCount = 0;
-  const factory = (
-    executable: string,
-    args: readonly string[],
-    options: unknown,
-  ) => {
-    captured = Object.freeze({ executable, args, options });
+  const factory = (pipeName: string, environment: NodeJS.ProcessEnv) => {
+    captured = Object.freeze({ pipeName, environment });
     const child = new EventEmitter() as EventEmitter & {
       connected: boolean;
       exitCode: number | null;
@@ -182,7 +176,7 @@ test("固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒�
   const nonce = "a".repeat(32);
   let factoryCalls = 0;
   const factory: Parameters<
-    typeof acquireHostOperationSupervisorLockUsingFactory
+    typeof acquireHostOperationSupervisorLockUsingChildFactory
   >[2] = () => {
     factoryCalls += 1;
     throw new Error("invalid_input_reached_factory");
@@ -222,7 +216,7 @@ test("固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒�
   ];
   for (const input of invalidInputs) {
     assert.deepEqual(
-      await acquireHostOperationSupervisorLockUsingFactory(
+      await acquireHostOperationSupervisorLockUsingChildFactory(
         input.rootName,
         input.nonce,
         factory,
@@ -242,7 +236,7 @@ test("固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒�
     [64, 48, 1000, 5000],
   ] as const) {
     const scenario = supervisorChildScenario("normal");
-    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+    const outcome = await acquireHostOperationSupervisorLockUsingChildFactory(
       `crdd-coordinator-doctor-${"a".repeat(suffixLength)}`,
       "a".repeat(nonceLength),
       scenario.factory,
@@ -264,11 +258,11 @@ test("固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ�
     const scenario = supervisorChildScenario("normal");
     const supervisorChildren: ReturnType<typeof spawn>[] = [];
     const messages: unknown[] = [];
-    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+    const outcome = await acquireHostOperationSupervisorLockUsingChildFactory(
       "crdd-coordinator-doctor-SENDTHROW",
       "b".repeat(32),
-      (executable, args, options) => {
-        const child = scenario.factory(executable, args, options);
+      (pipeName, environment) => {
+        const child = scenario.factory(pipeName, environment);
         supervisorChildren.push(child);
         const send = child.send.bind(child);
         child.send = ((message: unknown) => {
@@ -319,11 +313,11 @@ test("固定Supervisor: 失敗listenerの例外は他の通知・終了・失効
 }, async () => {
   const scenario = supervisorChildScenario("normal");
   const supervisorChildren: ReturnType<typeof spawn>[] = [];
-  const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+  const outcome = await acquireHostOperationSupervisorLockUsingChildFactory(
     "crdd-coordinator-doctor-LISTENER",
     "c".repeat(32),
-    (executable, args, options) => {
-      const child = scenario.factory(executable, args, options);
+    (pipeName, environment) => {
+      const child = scenario.factory(pipeName, environment);
       supervisorChildren.push(child);
       return child;
     },
@@ -477,7 +471,7 @@ test("追加境界: Supervisorのspawnと終了要求失敗を資源取得前後
   const rootName = "crdd-coordinator-doctor-SPAWNFAIL";
   const nonce = "b".repeat(32);
   assert.deepEqual(
-    await acquireHostOperationSupervisorLockUsingFactory(
+    await acquireHostOperationSupervisorLockUsingChildFactory(
       rootName,
       nonce,
       () => {
@@ -490,11 +484,11 @@ test("追加境界: Supervisorのspawnと終了要求失敗を資源取得前後
   const scenario = supervisorChildScenario("normal");
   let supervisorChild: ReturnType<typeof spawn> | null = null;
   let killCount = 0;
-  const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+  const outcome = await acquireHostOperationSupervisorLockUsingChildFactory(
     rootName,
     nonce,
-    (executable, args, options) => {
-      supervisorChild = scenario.factory(executable, args, options);
+    (pipeName, environment) => {
+      supervisorChild = scenario.factory(pipeName, environment);
       supervisorChild.kill = () => {
         killCount += 1;
         throw new Error("fixture_kill_failed");
@@ -542,11 +536,11 @@ test("追加境界: SupervisorはIPC形状違反と終了中競合を単一の�
     const scenario = supervisorChildScenario("normal");
     let supervisorChild: ReturnType<typeof spawn> | null = null;
     const messages: unknown[] = [];
-    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+    const outcome = await acquireHostOperationSupervisorLockUsingChildFactory(
       "crdd-coordinator-doctor-BOUNDARY",
       "c".repeat(32),
-      (executable, args, options) => {
-        const child = scenario.factory(executable, args, options);
+      (pipeName, environment) => {
+        const child = scenario.factory(pipeName, environment);
         supervisorChild = child;
         const send = child.send.bind(child);
         child.send = ((message: unknown) => {
@@ -848,7 +842,7 @@ test("Host Operation lock Supervisorは往復、競合とexit確認済みrelease
   assert.equal(await next.lock.release(), "released");
 });
 
-test("Host Operation Supervisorは固定spawn Profileと異常状態を構造化する", async (context) => {
+test("Host Operation Supervisorは固定入力と異常状態を構造化する", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
     return;
@@ -856,7 +850,7 @@ test("Host Operation Supervisorは固定spawn Profileと異常状態を構造化
   const rootName = "crdd-coordinator-doctor-SCENARIO";
   const nonce = "aaaaaaaa-bbbb-4ccc-8ddd-ffffffffffff";
   const normal = supervisorChildScenario("normal");
-  const acquired = await acquireHostOperationSupervisorLockUsingFactory(
+  const acquired = await acquireHostOperationSupervisorLockUsingChildFactory(
     rootName,
     nonce,
     normal.factory,
@@ -866,19 +860,10 @@ test("Host Operation Supervisorは固定spawn Profileと異常状態を構造化
   assert.ok(acquired.lock);
   assert.equal(await acquired.lock.confirmReady(), "ready");
   assert.equal(await acquired.lock.release(), "released");
-  const spawnProfile = normal.captured();
-  assert.ok(spawnProfile);
-  assert.equal(spawnProfile.executable, process.execPath);
-  assert.equal(spawnProfile.args.length, 2);
-  assert.equal(
-    path.basename(spawnProfile.args[0] ?? ""),
-    "host-operation-lock-supervisor.ts",
-  );
-  const options = spawnProfile.options as Record<string, unknown>;
-  assert.equal(options.shell, false);
-  assert.equal(options.windowsHide, true);
-  assert.deepEqual(options.stdio, ["ignore", "ignore", "ignore", "ipc"]);
-  const environment = options.env as Record<string, string>;
+  const childInput = normal.captured();
+  assert.ok(childInput);
+  assert.equal(childInput.pipeName.startsWith("\\\\.\\pipe\\"), true);
+  const environment = childInput.environment as Record<string, string>;
   for (const name of [
     "PATH",
     "HOME",
@@ -896,7 +881,7 @@ test("Host Operation Supervisorは固定spawn Profileと異常状態を構造化
 
   for (const scenario of ["ready_malformed", "ready_exit"] as const) {
     const candidate = supervisorChildScenario(scenario);
-    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+    const outcome = await acquireHostOperationSupervisorLockUsingChildFactory(
       rootName,
       `${nonce.slice(0, -1)}${scenario === "ready_malformed" ? "1" : "2"}`,
       candidate.factory,
@@ -916,7 +901,7 @@ test("Host Operation Supervisorは固定spawn Profileと異常状態を構造化
     "release_nonzero_exit",
   ] as const) {
     const candidate = supervisorChildScenario(scenario);
-    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+    const outcome = await acquireHostOperationSupervisorLockUsingChildFactory(
       rootName,
       `${nonce.slice(0, -1)}${scenario.length % 10}`,
       candidate.factory,
@@ -938,7 +923,7 @@ test("Host Operation Supervisorはterminate未確認だけをcleanup不明にす
   const terminated = supervisorChildScenario("acquire_timeout_terminated");
   assert.equal(
     (
-      await acquireHostOperationSupervisorLockUsingFactory(
+      await acquireHostOperationSupervisorLockUsingChildFactory(
         rootName,
         nonce,
         terminated.factory,
@@ -948,7 +933,7 @@ test("Host Operation Supervisorはterminate未確認だけをcleanup不明にす
     "cleanup_confirmed_failure",
   );
   const unconfirmed = supervisorChildScenario("acquire_timeout_unconfirmed");
-  const unknown = await acquireHostOperationSupervisorLockUsingFactory(
+  const unknown = await acquireHostOperationSupervisorLockUsingChildFactory(
     rootName,
     `${nonce.slice(0, -1)}1`,
     unconfirmed.factory,
@@ -973,7 +958,7 @@ test("Host Operation Supervisorの非同期喪失と複合通知は単一finaliz
   ] as const;
   for (const [index, scenario] of scenarios.entries()) {
     const candidate = supervisorChildScenario(scenario);
-    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+    const outcome = await acquireHostOperationSupervisorLockUsingChildFactory(
       rootName,
       `${nonce.slice(0, -1)}${index}`,
       candidate.factory,
@@ -999,7 +984,7 @@ test("Host Operation Supervisorのcleanup不明は遅延通知で降格せずexa
     return;
   }
   const candidate = supervisorChildScenario("ready_duplicate_unconfirmed");
-  const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+  const outcome = await acquireHostOperationSupervisorLockUsingChildFactory(
     "crdd-coordinator-doctor-UNKNOWN",
     "dddddddd-eeee-4fff-8aaa-ffffffffffff",
     candidate.factory,

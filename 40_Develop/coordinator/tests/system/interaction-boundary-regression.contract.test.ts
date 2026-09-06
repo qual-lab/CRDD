@@ -1425,11 +1425,11 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
       milliseconds: number;
       cleared: boolean;
     }> = [];
-    const spawnRecords: unknown[][] = [];
+    let createCount = 0;
     const adapter = Object.freeze({
       isTty: () => true,
-      spawn: (...args: unknown[]) => {
-        spawnRecords.push(args);
+      createChild: () => {
+        createCount += 1;
         return child;
       },
       setTimeout: (callback: () => void, milliseconds: number) => {
@@ -1447,7 +1447,7 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
       sendCallbacks,
       killSignals,
       timers,
-      spawnRecords,
+      createCount: () => createCount,
       adapter,
     };
   }
@@ -1461,34 +1461,7 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
         typeof readInteractiveConsoleLineOutcomeUsingAdapter
       >[2],
     );
-    assert.equal(scenario.spawnRecords.length, 1);
-    const [executable, argv, options] = scenario.spawnRecords[0] ?? [];
-    assert.equal(executable, process.execPath);
-    assert.equal(Array.isArray(argv), true);
-    assert.equal((argv as unknown[]).length, 1);
-    assert.match(
-      String((argv as unknown[])[0]),
-      /interactive-console-reader\.ts$/u,
-    );
-    const spawnOptions = options as Readonly<Record<string, unknown>>;
-    const { env, ...optionsWithoutEnvironment } = spawnOptions;
-    assert.deepEqual(optionsWithoutEnvironment, {
-      shell: false,
-      detached: false,
-      windowsHide: false,
-      cwd: path.dirname(String((argv as unknown[])[0])),
-      stdio: ["ignore", "pipe", "ignore", "ipc"],
-    });
-    assert.equal((env as Record<string, string>).PATH, "");
-    assert.equal((env as Record<string, string>).USERPROFILE, "");
-    assert.equal(
-      (env as Record<string, string>).SystemRoot,
-      process.env.SystemRoot,
-    );
-    assert.equal(
-      (env as Record<string, string>).WINDIR,
-      process.env.SystemRoot,
-    );
+    assert.equal(scenario.createCount(), 1);
 
     let isCompleted = false;
     void pending.then(() => {

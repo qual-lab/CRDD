@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createWindowsHostOperationSupervisorEnvironment } from "../core/windows-child-environment.ts";
 import {
@@ -324,11 +324,10 @@ export function acquireRuntimeOwnedHostOperationKernelLock(
   return acquireNamedPipeKernelLock(pipeName);
 }
 
-type SupervisorChild = ReturnType<typeof spawn>;
-type SupervisorSpawnFactory = (
-  executable: string,
-  args: readonly string[],
-  options: Parameters<typeof spawn>[2],
+type SupervisorChild = ChildProcess;
+type SupervisorChildFactory = (
+  pipeName: string,
+  environment: NodeJS.ProcessEnv,
 ) => SupervisorChild;
 type SupervisorObservation =
   | "expected"
@@ -436,10 +435,10 @@ function unresolvedSupervisorLock(child: SupervisorChild) {
   });
 }
 
-export async function acquireHostOperationSupervisorLockUsingFactory(
+export async function acquireHostOperationSupervisorLockUsingChildFactory(
   rootName: unknown,
   nonce: unknown,
-  spawnFactory: SupervisorSpawnFactory,
+  childFactory: SupervisorChildFactory,
   timing: Readonly<{
     acquireTimeoutMs: number;
     releaseTimeoutMs: number;
@@ -466,18 +465,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
   const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${bindingHash.slice(0, 32)}`;
   let child: SupervisorChild;
   try {
-    child = spawnRuntimeLocalTypeScriptChild(
-      spawnFactory,
-      "host_operation_lock_supervisor",
-      [pipeName],
-      {
-        cwd: fileURLToPath(new URL(".", import.meta.url)),
-        env: environment,
-        shell: false,
-        windowsHide: true,
-        stdio: ["ignore", "ignore", "ignore", "ipc"],
-      },
-    );
+    child = childFactory(pipeName, environment);
   } catch {
     return Object.freeze({
       status: "cleanup_confirmed_failure",
@@ -683,7 +671,22 @@ export function acquireRuntimeOwnedHostOperationSupervisorLock(
   rootName: unknown,
   nonce: unknown,
 ) {
-  return acquireHostOperationSupervisorLockUsingFactory(rootName, nonce, spawn);
+  return acquireHostOperationSupervisorLockUsingChildFactory(
+    rootName,
+    nonce,
+    (pipeName, environment) =>
+      spawnRuntimeLocalTypeScriptChild(
+        "host_operation_lock_supervisor",
+        [pipeName],
+        {
+          cwd: fileURLToPath(new URL(".", import.meta.url)),
+          env: environment,
+          shell: false,
+          windowsHide: true,
+          stdio: ["ignore", "ignore", "ignore", "ipc"],
+        },
+      ),
+  );
 }
 
 export function describeCandidateStoreKernelLockContract() {

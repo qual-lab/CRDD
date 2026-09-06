@@ -1,4 +1,4 @@
-import type { SpawnOptions } from "node:child_process";
+import { spawn, type SpawnOptions } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker, type WorkerOptions } from "node:worker_threads";
@@ -118,12 +118,7 @@ export function createRuntimeLocalTypeScriptWorker(
   return new Worker(new URL(entrypoint.relativePath, import.meta.url), options);
 }
 
-export function spawnRuntimeLocalTypeScriptChild<T>(
-  spawnFactory: (
-    executable: string,
-    args: readonly string[],
-    options: SpawnOptions,
-  ) => T,
+export function spawnRuntimeLocalTypeScriptChild(
   role: RuntimeLocalTypeScriptChildRole,
   args: readonly string[],
   options: SpawnOptions,
@@ -131,9 +126,5 @@ export function spawnRuntimeLocalTypeScriptChild<T>(
   if (options.shell === true || typeof options.shell === "string")
     throw new Error("runtime_local_typescript_child_spawn_shell_forbidden");
   const entrypoint = entrypointFor(role, "spawn");
-  return spawnFactory(
-    process.execPath,
-    [entrypoint.filePath, ...args],
-    options,
-  );
+  return spawn(process.execPath, [entrypoint.filePath, ...args], options);
 }
