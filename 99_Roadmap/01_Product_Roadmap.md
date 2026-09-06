@@ -74,21 +74,14 @@ Related:
 
 | 版 | 利用者ができるようになること | 成立させる基盤 | この版では行わないこと |
 |---|---|---|---|
-| v0.18.0 | CRDDの工程、Agent OrganizationおよびCoordinator Runtime 1.0を用いて、権限を限定した委譲、独立レビュー、取消、cleanupおよびRecoveryを一つの公式Repository内で実行できる | 工程間Traceability、Agentの役割・Authority分離、署名済みReference Runtime、Tool開発規則、Dogfoodingによる工程改善 | AIによるProject全体の継続運営、複数Repository、一般用途のProject Runtime |
-| v0.18.1 | CRDDをcloneまたはsubmoduleとして導入し、不要な事前設定Commandを経ず、正式RuntimeのCapabilityを確認してTaskを直接開始できる。文書だけの変更ではRuntime実行Identityが不変なら再署名や実Provider E2Eを繰り返さずに済む | 導入Interfaceの簡素化、Release IdentityとRuntime実行Identityの分離、閉じたRuntime依存集合、正式配布物と開発確認の分離 | 利用者独自の発行者Trust Policy、Project単位の長期実行状態、複数TaskのProject運営 |
-| v0.19.0 | 単一Projectで、Objective受付、Task Graph、Queue、候補統合、人間判断待ち、取消、Recoveryおよび正本採用までを一つのProject Runtimeとして扱える。Communicationと設計判断では、必要な推論Contextを履歴と現在値に分けてAIへ渡せる | Minimum AI-native Project Runtime、認証済みMCP入口、推論Context／Design Intent、Communication強化、収束・可読性・実行環境意味の工程還元 | 複数Repository、Project間の資源配分、常設Remote Runtime、普遍的な推論Schema |
 | v0.20.0 | 一つのローカルProjectで、分離されたProject RuntimeをMCP stdio／localhost HTTPから利用し、実行状態と実行効果を観測しながら、競合しない少数Taskを安全に並行実行して一つの受入結果へ統合できる | 試験レベル別の自動回帰、実行知、Runtime責務分離、限定分散実行、読み取り専用Project State、認証済みlocalhost HTTP | 複数Repository、常設Remote運用、一般Network公開、自律的なOperation開始、Project Management正本の新設 |
 | v0.21.0 | 複数ProjectのCRDD正本を中央へ移さず横断参照し、Projectの現在地・注意事項・会議から昇格した判断を目的別に把握できる。利用者または組織が信頼するRuntime発行者を選び、MCP／HTTPからTask Sessionを開始して、人間判断待ちと再開を扱える。読み取り中心の参照Operationで自律実行の価値を試せる | Project Management Projection、Topic、Meeting／Context Promotion、利用者所有Trust Policy、CROS、最小Organization Runtime、自律Operationの意味契約 | Project間の自動優先順位・Capacity配分、Organization横断Effect Authority、Linux常設運用、未承認の外部Effect |
 | v0.22.0 | Linux Server上へRuntimeを常設し、認証済みのRemote入口から許可済みOperationをQueueへ受け付け、時刻・Event Trigger、切断、取消、再起動およびRecoveryを跨いで限定的に完遂できる。効果と人間負荷を実行知で評価できる | Linux Platform Adapter、Remote Trust Boundary、耐久Queue／Scheduler、Remote Trigger、限定自律Operation、実行評価 | Internet一般公開、Multi-tenant、無制限な自己目的生成、Organization全体の自動最適化 |
 | 将来版 | Self-hosted Provider、macOS、より高度なCapability Routing／再計画、Project間の投資・優先順位・Capacity最適化を、先行版のEvidenceに基づいて選択的に追加できる | Provider／Platform Adapter、Trust Policy、実行知、v0.21の複数Repository分離、v0.22の常設実行Evidence | 実環境の根拠がない対応表明、単一Scoreによる自動判断、人間または配置先所有者のAuthority代替 |
 
-発展の中心は、機能数ではなく人間が扱う抽象度である。v0.18は工程と安全なAgent委譲、v0.19は単一Projectの実行Lifecycle、v0.20は分離・観測・限定並列化、v0.21は複数ProjectのContext把握と判断接続、v0.22は常設環境での限定的な継続実行を成立させる。将来のOrganization Runtime完成形は、複数Projectを読めることではなく、Project間の資源・優先順位・投資およびEffect Authorityを扱う能力として別に判断する。
+公開済みv0.19.0以前の到達点と移行情報は[CHANGELOG](../CHANGELOG.md)を正本とし、本書へ複製しない。発展の中心は、機能数ではなく人間が扱う抽象度である。v0.20は分離・観測・限定並列化、v0.21は複数ProjectのContext把握と判断接続、v0.22は常設環境での限定的な継続実行を成立させる。将来のOrganization Runtime完成形は、複数Projectを読めることではなく、Project間の資源・優先順位・投資およびEffect Authorityを扱う能力として別に判断する。
 
 ```text
-v0.18  CRDD工程とAgent委譲を安全に成立させる
-   ↓
-v0.19  単一Projectの実行Lifecycleを閉じる
-   ↓
 v0.20  ローカルの単一Projectを、分離・観測・限定並列化する
    ↓
 v0.21  複数ProjectのContextを結び、人間判断と安全な受付をつなぐ
