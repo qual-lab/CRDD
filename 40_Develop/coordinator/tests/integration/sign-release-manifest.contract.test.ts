@@ -543,6 +543,39 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
       source:
         'import { runInteractiveConsoleReaderLifecycle } from "../core/interactive-console-reader-lifecycle-internal.ts"; void runInteractiveConsoleReaderLifecycle;\n',
     },
+    {
+      name: "loader_namespace",
+      relativePath:
+        "40_Develop/coordinator/src/security/candidate-store-kernel-lock.ts",
+      source:
+        'import * as moduleBuiltin from "node:module"; void moduleBuiltin.createRequire;\n',
+    },
+    {
+      name: "loader_bracket",
+      relativePath:
+        "40_Develop/coordinator/src/security/candidate-store-kernel-lock.ts",
+      source: 'void process["getBuiltinModule"]?.("node:child_process");\n',
+    },
+    {
+      name: "loader_reconstructed",
+      relativePath:
+        "40_Develop/coordinator/src/security/candidate-store-kernel-lock.ts",
+      source: 'void import(["node:", "child_", "process"].join(""));\n',
+    },
+    {
+      name: "external_process_conditional_target",
+      relativePath:
+        "40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts",
+      source:
+        "spawnSync(selectedExecutable || process.argv0, [], { shell: false });\n",
+    },
+    {
+      name: "injected_wrapper_property_call",
+      relativePath:
+        "40_Develop/coordinator/src/security/docker-effect-runtime.ts",
+      source:
+        "dependencies.startProcess(process.execPath, [], createDockerProcessEnvironment(), null);\n",
+    },
   ] as const;
   for (const scenario of cases) {
     const distributionRoot = runtimeDistributionFixture(

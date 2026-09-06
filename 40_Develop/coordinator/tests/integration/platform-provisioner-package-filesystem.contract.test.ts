@@ -17,6 +17,7 @@ import {
   inspectVerifiedNativeDistributionCandidate,
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   assertRuntimeSourceModuleBoundaryForVerification,
+  assertRuntimeSourceDeclaredGraphBoundaryForVerification,
   verifyBundledCoordinatorPackageCandidate,
 } from "../../src/security/platform-provisioner-package-filesystem.ts";
 import {
@@ -301,6 +302,158 @@ test("実行能力を持たないchild_processのtype-only importはRuntime候�
     assert.equal(result.effectAuthorizationIssued, false);
   } finally {
     fixture.cleanup();
+  }
+});
+
+test("type-only star再公開は実行能力として扱わず、value star再公開だけを拒否する", () => {
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceModuleBoundaryForVerification(
+      "src/index.ts",
+      [
+        'export type * from "node:child_process";',
+        'export type * as ChildTypes from "node:child_process";',
+        'export type * from "node:worker_threads";',
+        "",
+      ].join("\n"),
+    ),
+  );
+  assert.throws(
+    () =>
+      assertRuntimeSourceModuleBoundaryForVerification(
+        "src/index.ts",
+        'export * from "node:child_process";\n',
+      ),
+    /runtime_dependency_child_process_unbound/u,
+  );
+});
+
+test("loader能力のnamespace・bracket取得と文字列再構成を直接の理由で拒否する", () => {
+  for (const source of [
+    'import * as moduleBuiltin from "node:module"; void moduleBuiltin.createRequire;\n',
+    'import moduleBuiltin from "node:module"; void moduleBuiltin;\n',
+    'export { createRequire } from "node:module";\n',
+    'void process["getBuiltinModule"]?.("node:child_process");\n',
+    'void process?.["getBuiltinModule"]?.("node:child_process");\n',
+    'void import(["node:", "child_", "process"].join(""));\n',
+  ]) {
+    assert.throws(
+      () =>
+        assertRuntimeSourceModuleBoundaryForVerification(
+          "src/security/loader-attack.ts",
+          source,
+        ),
+      /runtime_dependency_(?:child_process|loader)_unbound/u,
+    );
+  }
+});
+
+test("宣言済みProcess利用側は実ソースのcall・scope・引数から完全一致を要求する", () => {
+  const sourcePath = "src/security/candidate-store-windows-adapter.ts";
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, sourcePath),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
+  );
+  for (const mutated of [
+    source.replace(
+      "spawnSync(selectedExecutable, [], {",
+      "spawnSync(selectedExecutable || process.argv0, [], {",
+    ),
+    source.replace('import { spawnSync } from "node:child_process";', ""),
+    source.replace(
+      "spawnSync(selectedExecutable, [], {",
+      "spawnSync((selectedExecutable = process.argv0), [], {",
+    ),
+    source
+      .replace(
+        "const selectedExecutable =",
+        "if (false) { const selectedExecutable =",
+      )
+      .replace(
+        "const execution = spawnSync(selectedExecutable, [], {",
+        "}\n  const execution = spawnSync(selectedExecutable, [], {",
+      ),
+  ]) {
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          mutated,
+        ),
+      /runtime_dependency_child_process_unbound/u,
+    );
+  }
+});
+
+test("Process wrapper注入後のproperty callと内部lifecycle callを利用側閉包へ含める", () => {
+  const dockerPath = "src/security/docker-effect-runtime.ts";
+  const dockerSource = fs.readFileSync(
+    path.join(coordinatorRoot, dockerPath),
+    "utf8",
+  );
+  assert.throws(
+    () =>
+      assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+        dockerPath,
+        dockerSource.replace(
+          "dependencies.startProcess(\n      DOCKER_EXECUTABLE,",
+          "dependencies.startProcess(\n      process.execPath,",
+        ),
+      ),
+    /runtime_dependency_child_process_unbound/u,
+  );
+
+  const lifecyclePath = "src/core/interactive-console.ts";
+  const lifecycleSource = fs.readFileSync(
+    path.join(coordinatorRoot, lifecyclePath),
+    "utf8",
+  );
+  assert.throws(
+    () =>
+      assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+        lifecyclePath,
+        lifecycleSource.replace(
+          "runInteractiveConsoleReaderLifecycle(",
+          "Promise.resolve(",
+        ),
+      ),
+    /runtime_dependency_child_lifecycle_unbound/u,
+  );
+});
+
+test("配布観測から開発・署名・導入・Capability利用側までを実ソースから閉じる", () => {
+  const sourcePath = "src/security/platform-provisioner-package-filesystem.ts";
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, sourcePath),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
+  );
+  for (const mutated of [
+    source.replace(
+      "const observed = observeRuntimeDistribution(root.realPath);",
+      "const observed = observePackage(root.realPath);",
+    ),
+    source.replace(
+      "const reverified = verifyInstalledCoordinatorPackageCandidate(request);",
+      "const reverified = release;",
+    ),
+    source.replace(
+      "const verification =\n    verifyBundledCoordinatorPackageFromFixedManifestCandidate(input);",
+      "const verification = verifyBundledCoordinatorPackageCandidate(input);",
+    ),
+  ]) {
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          mutated,
+        ),
+      /runtime_dependency_public_consumer_unbound/u,
+    );
   }
 });
 

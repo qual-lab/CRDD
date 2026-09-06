@@ -969,8 +969,79 @@ function assertLoaderCapabilityBoundary(
       declaration,
     ),
   );
-  if (allowedDynamicImports.length > 1)
+  const isRealProviderVerification =
+    coordinatorRelativeSourcePath(relativePath) ===
+    "scripts/verify-project-runtime-real-providers.ts";
+  if (
+    allowedDynamicImports.length > 1 ||
+    (isRealProviderVerification && allowedDynamicImports.length !== 1)
+  )
     throw new Error("platform_provisioner_runtime_dependency_loader_unbound");
+  if (isRealProviderVerification) {
+    const hasCanonicalBinding = (
+      specifier: string,
+      imported: string,
+      local: string,
+    ) =>
+      declarations.some(
+        (declaration) =>
+          declaration.kind === "static_import" &&
+          declaration.specifierIndex !== null &&
+          tokens[declaration.specifierIndex]?.value === specifier &&
+          declaration.bindings.length === 1 &&
+          declaration.bindings[0]?.imported === imported &&
+          declaration.bindings[0]?.local === local &&
+          !declaration.bindings[0]?.typeOnly,
+      );
+    const dynamic = allowedDynamicImports[0];
+    const nativeModuleUses = tokens
+      .map((token, index) => (token.value === "nativeModule" ? index : -1))
+      .filter((index) => index >= 0);
+    if (
+      !dynamic ||
+      !hasCanonicalBinding("node:path", "default", "path") ||
+      !hasCanonicalBinding("node:url", "pathToFileURL", "pathToFileURL") ||
+      !tokenSequenceMatches(tokens, dynamic.start - 5, [
+        "const",
+        "nativeModule",
+        "=",
+        "(",
+        "await",
+      ]) ||
+      nativeModuleUses.length !== 2 ||
+      !tokenSequenceMatches(tokens, nativeModuleUses[1] ?? -1, [
+        "nativeModule",
+        ".",
+        "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+        "(",
+      ]) ||
+      !tokenSequenceExistsBetween(tokens, 0, dynamic.start, [
+        "const",
+        "distributionRoot",
+        "=",
+        "path",
+        ".",
+        "resolve",
+        "(",
+        "process",
+        ".",
+        "argv",
+        "[",
+        "2",
+        "]",
+        "??",
+        "",
+        ")",
+      ]) ||
+      !tokenSequenceExistsBetween(tokens, 0, dynamic.start, [
+        "stableDirectory",
+        "(",
+        "distributionRoot",
+        ")",
+      ])
+    )
+      throw new Error("platform_provisioner_runtime_dependency_loader_unbound");
+  }
   for (const declaration of declarations) {
     if (
       declaration.kind === "dynamic_import" &&
@@ -978,6 +1049,25 @@ function assertLoaderCapabilityBoundary(
       !allowedDynamicImports.includes(declaration)
     )
       throw new Error(loaderReason(declaration.start));
+    const specifier =
+      declaration.specifierIndex === null
+        ? null
+        : tokens[declaration.specifierIndex]?.value;
+    if (
+      specifier === "node:module" &&
+      !declaration.wholeTypeOnly &&
+      !(
+        coordinatorRelativeSourcePath(relativePath) ===
+          "src/security/platform-provisioner-package-filesystem.ts" &&
+        declaration.kind === "static_import" &&
+        declaration.bindings.length === 1 &&
+        declaration.bindings[0]?.imported === "builtinModules" &&
+        declaration.bindings[0]?.local === "builtinModules"
+      )
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_process_unbound",
+      );
     if (declaration.kind !== "static_import") continue;
     for (const binding of declaration.bindings) {
       if (!binding.typeOnly && binding.imported === "createRequire")
@@ -990,7 +1080,19 @@ function assertLoaderCapabilityBoundary(
     const token = tokens[index];
     if (
       token?.kind === "identifier" &&
-      (token.value === "require" || token.value === "getBuiltinModule")
+      (token.value === "require" ||
+        token.value === "getBuiltinModule" ||
+        token.value === "createRequire")
+    )
+      throw new Error(loaderReason(index));
+    if (
+      token?.kind === "string" &&
+      token.value === "getBuiltinModule" &&
+      tokens[index - 1]?.value === "[" &&
+      tokens[index + 1]?.value === "]" &&
+      (tokens[index - 2]?.value === "process" ||
+        (tokens[index - 2]?.value === "?." &&
+          tokens[index - 3]?.value === "process"))
     )
       throw new Error(loaderReason(index));
   }
@@ -1112,8 +1214,9 @@ function selectedScriptProcessBindings(
     if (!allowedNames) continue;
     if (
       declaration.kind === "reexport" &&
-      declaration.bindings.length > 0 &&
-      declaration.bindings.every((binding) => binding.typeOnly)
+      (declaration.wholeTypeOnly ||
+        (declaration.bindings.length > 0 &&
+          declaration.bindings.every((binding) => binding.typeOnly)))
     )
       continue;
     if (declaration.kind !== "static_import")
@@ -1149,8 +1252,9 @@ function assertProtectedModuleSpecifierPositions(
         (declaration.kind !== "static_import" &&
           !(
             declaration.kind === "reexport" &&
-            declaration.bindings.length > 0 &&
-            declaration.bindings.every((binding) => binding.typeOnly)
+            (declaration.wholeTypeOnly ||
+              (declaration.bindings.length > 0 &&
+                declaration.bindings.every((binding) => binding.typeOnly)))
           ))
       )
         return [];
@@ -1186,6 +1290,7 @@ type RuntimeExternalProcessCallsite = Readonly<{
   primitive: string;
   executablePrefix: readonly string[];
   argvPrefix: readonly string[];
+  argumentCount: number;
   authorityProof?: readonly string[];
 }>;
 
@@ -1329,7 +1434,25 @@ const runtimeExternalProcessCallsites = Object.freeze(
       "scripts/verify-signed-recovery-matrix.ts",
       "verifyParentLossThenRecover",
       "spawnSync",
-      ["path", ".", "join"],
+      [
+        "path",
+        ".",
+        "join",
+        "(",
+        "process",
+        ".",
+        "env",
+        ".",
+        "SystemRoot",
+        "??",
+        "C:Windows",
+        ",",
+        "System32",
+        ",",
+        "taskkill.exe",
+        ",",
+        ")",
+      ],
       ["["],
     ],
     [
@@ -1354,6 +1477,7 @@ const runtimeExternalProcessCallsites = Object.freeze(
         primitive,
         executablePrefix: Object.freeze(executablePrefix),
         argvPrefix: Object.freeze(argvPrefix),
+        argumentCount: 3,
         ...(authorityProof
           ? { authorityProof: Object.freeze(authorityProof) }
           : {}),
@@ -1642,6 +1766,92 @@ function directCallArgumentStarts(
     else if (stack.length === 0 && value === ",") expectingArgument = true;
   }
   throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+}
+
+type DirectCallArgumentRange = Readonly<{ start: number; end: number }>;
+
+function directCallArgumentRanges(
+  tokens: readonly SourceToken[],
+  openingParenthesis: number,
+) {
+  const starts = directCallArgumentStarts(tokens, openingParenthesis);
+  const ranges: DirectCallArgumentRange[] = [];
+  const closing = new Map([
+    ["(", ")"],
+    ["[", "]"],
+    ["{", "}"],
+  ]);
+  const stack: string[] = [];
+  let argumentIndex = 0;
+  for (let index = openingParenthesis + 1; index < tokens.length; index += 1) {
+    const value = tokens[index]?.value ?? "";
+    if (stack.length === 0 && (value === "," || value === ")")) {
+      const start = starts[argumentIndex];
+      if (start !== undefined) {
+        ranges.push(Object.freeze({ start, end: index }));
+        argumentIndex += 1;
+      }
+      if (value === ")") return Object.freeze(ranges);
+      continue;
+    }
+    const expectedClosing = closing.get(value);
+    if (expectedClosing) stack.push(expectedClosing);
+    else if (stack.at(-1) === value) stack.pop();
+  }
+  throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+}
+
+function exactExpressionMatches(
+  tokens: readonly SourceToken[],
+  range: DirectCallArgumentRange | undefined,
+  expected: readonly string[],
+) {
+  return (
+    range !== undefined &&
+    range.end - range.start === expected.length &&
+    tokenSequenceMatches(tokens, range.start, expected)
+  );
+}
+
+function expressionContainsTopLevelAlternative(
+  tokens: readonly SourceToken[],
+  range: DirectCallArgumentRange,
+) {
+  const closing = new Map([
+    ["(", ")"],
+    ["[", "]"],
+    ["{", "}"],
+  ]);
+  const stack: string[] = [];
+  for (let index = range.start; index < range.end; index += 1) {
+    const value = tokens[index]?.value ?? "";
+    const expectedClosing = closing.get(value);
+    if (expectedClosing) stack.push(expectedClosing);
+    else if (stack.at(-1) === value) stack.pop();
+    else if (
+      stack.length === 0 &&
+      ["||", "&&", "??", "?", "=", ","].includes(value)
+    )
+      return true;
+  }
+  return false;
+}
+
+function prefixedArrayExpressionMatches(
+  tokens: readonly SourceToken[],
+  range: DirectCallArgumentRange | undefined,
+  expectedPrefix: readonly string[],
+) {
+  if (
+    range === undefined ||
+    !tokenSequenceMatches(tokens, range.start, expectedPrefix)
+  )
+    return false;
+  if (expectedPrefix[0] === "[")
+    return (
+      tokens[range.start]?.value === "[" && tokens[range.end - 1]?.value === "]"
+    );
+  return range.end - range.start === expectedPrefix.length;
 }
 
 function usedLocalTypeScriptChildRoleKinds(
@@ -2156,11 +2366,110 @@ function tokenSequenceExistsBetween(
   return false;
 }
 
+function tokenSequenceIndicesBetween(
+  tokens: readonly SourceToken[],
+  start: number,
+  end: number,
+  sequence: readonly string[],
+) {
+  const indices: number[] = [];
+  for (let index = start; index + sequence.length <= end; index += 1) {
+    if (tokenSequenceMatches(tokens, index, sequence)) indices.push(index);
+  }
+  return Object.freeze(indices);
+}
+
+function containingBlockPath(
+  tokens: readonly SourceToken[],
+  tokenIndex: number,
+) {
+  const stack: number[] = [];
+  for (let index = 0; index < tokenIndex; index += 1) {
+    if (tokens[index]?.value === "{") stack.push(index);
+    else if (tokens[index]?.value === "}") stack.pop();
+  }
+  return Object.freeze(stack);
+}
+
+function blockPathDominates(
+  proofPath: readonly number[],
+  consumerPath: readonly number[],
+) {
+  return (
+    proofPath.length <= consumerPath.length &&
+    proofPath.every((opening, index) => consumerPath[index] === opening)
+  );
+}
+
+function hasUniqueDominatingProof(
+  tokens: readonly SourceToken[],
+  consumerIndex: number,
+  sequence: readonly string[],
+) {
+  const consumerPath = containingBlockPath(tokens, consumerIndex);
+  return (
+    tokenSequenceIndicesBetween(tokens, 0, consumerIndex, sequence).filter(
+      (proofIndex) =>
+        tokens[proofIndex - 1]?.value !== "function" &&
+        blockPathDominates(
+          containingBlockPath(tokens, proofIndex),
+          consumerPath,
+        ),
+    ).length === 1
+  );
+}
+
+function hasDominatingProof(
+  tokens: readonly SourceToken[],
+  consumerIndex: number,
+  sequence: readonly string[],
+) {
+  const consumerOwner = containingNamedFunction(tokens, consumerIndex);
+  return tokenSequenceIndicesBetween(tokens, 0, consumerIndex, sequence).some(
+    (proofIndex) => {
+      if (tokens[proofIndex - 1]?.value === "function") return false;
+      const proofOwner = containingNamedFunction(tokens, proofIndex);
+      if ((proofOwner?.name ?? null) !== (consumerOwner?.name ?? null))
+        return false;
+      return !containingBlockPath(tokens, proofIndex).some((opening) =>
+        tokenSequenceMatches(tokens, opening - 4, [
+          "if",
+          "(",
+          "false",
+          ")",
+          "{",
+        ]),
+      );
+    },
+  );
+}
+
 function assertInternalLifecycleConsumerBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
+  enforceDeclaredGraph: boolean,
 ) {
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
+  const ownedCapability = internalLifecycleConsumers.get(sourcePath);
+  if (ownedCapability && enforceDeclaredGraph) {
+    for (const expected of ownedCapability.calls) {
+      let declarationCount = 0;
+      for (let index = 0; index < tokens.length; index += 1) {
+        if (
+          tokens[index]?.value === expected.symbol &&
+          tokens[index - 1]?.value === "function" &&
+          (tokens[index - 2]?.value === "export" ||
+            (tokens[index - 2]?.value === "async" &&
+              tokens[index - 3]?.value === "export"))
+        )
+          declarationCount += 1;
+      }
+      if (declarationCount !== 1)
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
+        );
+    }
+  }
   const importedDeclarations = new Map<string, Set<number>>();
   for (const declaration of moduleDeclarationsFromTokens(tokens)) {
     const specifier =
@@ -2223,26 +2532,27 @@ function assertInternalLifecycleConsumerBoundary(
           "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
         );
       const owner = containingNamedFunction(tokens, index);
-      const argumentStarts =
+      const argumentRanges =
         tokens[index + 1]?.value === "("
-          ? directCallArgumentStarts(tokens, index + 1)
+          ? directCallArgumentRanges(tokens, index + 1)
           : Object.freeze([]);
       if (
         tokens[index - 1]?.value === "." ||
         tokens[index + 1]?.value !== "(" ||
         owner?.name !== call.containingFunction ||
-        argumentStarts.length !== call.argumentPrefixes.length ||
-        !call.argumentPrefixes.every((prefix, argumentIndex) =>
-          argumentMatchesPrefix(tokens, argumentStarts[argumentIndex], prefix),
-        ) ||
+        argumentRanges.length !== call.argumentPrefixes.length ||
+        !call.argumentPrefixes.every((prefix, argumentIndex) => {
+          const range = argumentRanges[argumentIndex];
+          return (
+            range !== undefined &&
+            argumentMatchesPrefix(tokens, range.start, prefix) &&
+            !expressionContainsTopLevelAlternative(tokens, range) &&
+            (prefix.length > 3 || range.end - range.start === prefix.length)
+          );
+        }) ||
         (call.beforePrefixes !== undefined &&
           !call.beforePrefixes.every((prefix) =>
-            tokenSequenceExistsBetween(
-              tokens,
-              owner?.opening ?? 0,
-              index,
-              prefix,
-            ),
+            hasDominatingProof(tokens, index, prefix),
           )) ||
         (call.afterPrefixes !== undefined &&
           !call.afterPrefixes.every((prefix) =>
@@ -2261,8 +2571,9 @@ function assertInternalLifecycleConsumerBoundary(
     }
     if (
       sourcePath === capability.leaf &&
-      declarationIndices.size > 0 &&
-      capability.calls.some((call) => observed.get(call.symbol) !== 1)
+      (enforceDeclaredGraph || declarationIndices.size > 0) &&
+      (declarationIndices.size !== capability.calls.length ||
+        capability.calls.some((call) => observed.get(call.symbol) !== 1))
     )
       throw new Error(
         "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
@@ -2273,6 +2584,7 @@ function assertInternalLifecycleConsumerBoundary(
 function assertProcessWrapperConsumerBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
+  enforceDeclaredGraph: boolean,
 ) {
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
   const importedIndices = new Map<string, Set<number>>();
@@ -2316,6 +2628,7 @@ function assertProcessWrapperConsumerBoundary(
   }
   for (const [symbol, capability] of processWrapperConsumers) {
     const observed = new Map<ProcessWrapperUse, number>();
+    let declarationCount = 0;
     for (let index = 0; index < tokens.length; index += 1) {
       if (
         tokens[index]?.kind !== "identifier" ||
@@ -2332,6 +2645,7 @@ function assertProcessWrapperConsumerBoundary(
           throw new Error(
             "platform_provisioner_runtime_dependency_child_process_unbound",
           );
+        declarationCount += 1;
         continue;
       }
       const owner = containingNamedFunction(tokens, index);
@@ -2355,8 +2669,87 @@ function assertProcessWrapperConsumerBoundary(
       (use) => use.source === sourcePath,
     );
     if (
-      (sourcePath === capability.target || importedIndices.has(symbol)) &&
-      expectedUses.some((use) => observed.get(use) !== 1)
+      (enforceDeclaredGraph &&
+        sourcePath === capability.target &&
+        declarationCount !== 1) ||
+      (sourcePath !== capability.target &&
+        expectedUses.length > 0 &&
+        enforceDeclaredGraph &&
+        (importedIndices.get(symbol)?.size ?? 0) !== 1) ||
+      ((enforceDeclaredGraph || importedIndices.has(symbol)) &&
+        expectedUses.some((use) => observed.get(use) !== 1))
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_process_unbound",
+      );
+  }
+  if (
+    enforceDeclaredGraph &&
+    sourcePath === "src/security/docker-effect-runtime.ts"
+  ) {
+    const expectedOwners = new Set(["startCommand", "runShort"]);
+    const observedOwners = new Set<string>();
+    for (let index = 0; index < tokens.length; index += 1) {
+      if (
+        !tokenSequenceMatches(tokens, index, [
+          "dependencies",
+          ".",
+          "startProcess",
+          "(",
+        ])
+      )
+        continue;
+      const owner = containingNamedFunction(tokens, index);
+      const arguments_ = directCallArgumentRanges(tokens, index + 3);
+      if (
+        !owner ||
+        !expectedOwners.has(owner.name) ||
+        observedOwners.has(owner.name) ||
+        arguments_.length !== 4 ||
+        !exactExpressionMatches(tokens, arguments_[0], ["DOCKER_EXECUTABLE"]) ||
+        !prefixedArrayExpressionMatches(tokens, arguments_[1], [
+          "[",
+          "--host",
+          ",",
+          "DOCKER_ENGINE",
+          ",",
+          "--config",
+        ]) ||
+        !exactExpressionMatches(tokens, arguments_[2], [
+          "createDockerProcessEnvironment",
+          "(",
+          ")",
+        ]) ||
+        !tokenSequenceExistsBetween(tokens, owner.opening, index, [
+          "dependencies",
+          ".",
+          "verifyCli",
+          "(",
+          "context",
+          ".",
+          "cli",
+          ")",
+        ]) ||
+        !tokenSequenceMatches(tokens, index - 3, ["const", "handle", "="]) ||
+        !tokenSequenceExistsBetween(tokens, index, owner.closing, [
+          "context",
+          ".",
+          "handles",
+          ".",
+          "add",
+          "(",
+          "handle",
+          ")",
+        ])
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
+      observedOwners.add(owner.name);
+    }
+    if (
+      observedOwners.size !== expectedOwners.size ||
+      [...expectedOwners].some((owner) => !observedOwners.has(owner))
     )
       throw new Error(
         "platform_provisioner_runtime_dependency_child_process_unbound",
@@ -2441,6 +2834,7 @@ function assertWorkerCreationImportBoundary(
 function assertNoUnboundRuntimeChildProcess(
   relativePath: string,
   tokens: readonly SourceToken[],
+  enforceDeclaredGraph: boolean,
 ) {
   assertChildProcessModuleBoundary(tokens);
   const bindings = selectedScriptProcessBindings(tokens, false);
@@ -2468,27 +2862,24 @@ function assertNoUnboundRuntimeChildProcess(
         "platform_provisioner_runtime_dependency_child_process_unbound",
       );
     const owner = containingNamedFunction(tokens, index);
-    const argumentStarts = directCallArgumentStarts(tokens, index + 1);
-    const executableStart = argumentStarts[0];
-    const argvStart = argumentStarts[1];
+    const argumentRanges = directCallArgumentRanges(tokens, index + 1);
     const matching = expectedCallsites.filter(
       (callsite) =>
         callsite.primitive === imported &&
         callsite.containingFunction === owner?.name &&
-        argumentMatchesPrefix(
+        argumentRanges.length === callsite.argumentCount &&
+        exactExpressionMatches(
           tokens,
-          executableStart,
+          argumentRanges[0],
           callsite.executablePrefix,
         ) &&
-        argumentMatchesPrefix(tokens, argvStart, callsite.argvPrefix) &&
+        prefixedArrayExpressionMatches(
+          tokens,
+          argumentRanges[1],
+          callsite.argvPrefix,
+        ) &&
         (!callsite.authorityProof ||
-          tokens.some((_, proofStart) =>
-            tokenSequenceMatches(
-              tokens,
-              proofStart,
-              callsite.authorityProof ?? [],
-            ),
-          )),
+          hasUniqueDominatingProof(tokens, index, callsite.authorityProof)),
     );
     if (matching.length !== 1)
       throw new Error(
@@ -2498,7 +2889,7 @@ function assertNoUnboundRuntimeChildProcess(
     observedCallsites.set(matched, (observedCallsites.get(matched) ?? 0) + 1);
   }
   if (
-    bindings.bindings.size > 0 &&
+    (enforceDeclaredGraph || bindings.bindings.size > 0) &&
     expectedCallsites.some((callsite) => observedCallsites.get(callsite) !== 1)
   )
     throw new Error(
@@ -2603,7 +2994,145 @@ function assertNoUnboundRuntimeExecPath(
   }
 }
 
-function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
+function assertPublicRuntimeObservationConsumerClosure(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+  enforceDeclaredGraph: boolean,
+) {
+  if (
+    !enforceDeclaredGraph ||
+    coordinatorRelativeSourcePath(relativePath) !==
+      "src/security/platform-provisioner-package-filesystem.ts"
+  )
+    return;
+  const expected = Object.freeze([
+    [
+      "observeRuntimeDistribution",
+      "inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
+      ["distributionRoot"],
+    ],
+    [
+      "observeRuntimeDistribution",
+      "inspectBundledCoordinatorPackageFilesystemCandidate",
+      ["bundledDistributionRoot"],
+    ],
+    [
+      "observeRuntimeDistribution",
+      "inspectFixedDevelopmentCoordinatorPackageCandidate",
+      ["root", ".", "realPath"],
+    ],
+    [
+      "observeRuntimeDistribution",
+      "inspectFixedDevelopmentCoordinatorPackageCandidate",
+      ["root", ".", "realPath"],
+    ],
+    [
+      "observeRuntimeDistribution",
+      "verifyOwnedBundledManifest",
+      ["bundledDistributionRoot"],
+    ],
+    [
+      "observeRuntimeDistribution",
+      "verifyInstalledCoordinatorPackageCandidate",
+      ["distributionRoot", ".", "realPath"],
+    ],
+    [
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      ["input"],
+    ],
+    [
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      [
+        "{",
+        "evaluationTime",
+        ":",
+        "new",
+        "Date",
+        "(",
+        ")",
+        ".",
+        "toISOString",
+        "(",
+        ")",
+        ",",
+        "}",
+      ],
+    ],
+    [
+      "verifyInstalledCoordinatorPackageCandidate",
+      "inspectVerifiedNativeDistributionCandidate",
+      ["request"],
+    ],
+    [
+      "verifyInstalledCoordinatorPackageCandidate",
+      "inspectVerifiedNativeDistributionCandidate",
+      ["request"],
+    ],
+  ] as const);
+  const remaining = [...expected];
+  const symbols = new Set(expected.map(([symbol]) => symbol));
+  const precedingTopLevelFunction = (tokenIndex: number) => {
+    for (let index = tokenIndex - 1; index >= 1; index -= 1) {
+      if (
+        tokens[index - 1]?.value === "function" &&
+        tokens[index]?.kind === "identifier"
+      )
+        return tokens[index]?.value ?? null;
+    }
+    return null;
+  };
+  for (let index = 0; index < tokens.length; index += 1) {
+    const symbol = tokens[index]?.value ?? "";
+    if (
+      tokens[index]?.kind !== "identifier" ||
+      !symbols.has(symbol as never) ||
+      tokens[index - 1]?.value === "function"
+    )
+      continue;
+    if (
+      tokens[index - 1]?.value === "typeof" &&
+      symbol === "verifyBundledCoordinatorPackageFromFixedManifestCandidate"
+    )
+      continue;
+    if (tokens[index - 1]?.value === "." || tokens[index + 1]?.value !== "(")
+      throw new Error(
+        "platform_provisioner_runtime_dependency_public_consumer_unbound",
+      );
+    const owner = precedingTopLevelFunction(index);
+    let ranges: readonly DirectCallArgumentRange[];
+    try {
+      ranges = directCallArgumentRanges(tokens, index + 1);
+    } catch {
+      throw new Error(
+        `platform_provisioner_runtime_dependency_public_consumer_unbound:${symbol}:${index}`,
+      );
+    }
+    const matchingIndex = remaining.findIndex(
+      ([expectedSymbol, expectedOwner, argument]) =>
+        symbol === expectedSymbol &&
+        owner === expectedOwner &&
+        ranges.length === 1 &&
+        exactExpressionMatches(tokens, ranges[0], argument),
+    );
+    if (matchingIndex < 0)
+      throw new Error(
+        "platform_provisioner_runtime_dependency_public_consumer_unbound",
+      );
+    remaining.splice(matchingIndex, 1);
+  }
+  if (remaining.length !== 0)
+    throw new Error(
+      "platform_provisioner_runtime_dependency_public_consumer_unbound",
+    );
+}
+
+function staticRelativeModuleTargets(
+  relativePath: string,
+  bytes: Buffer,
+  enforceDeclaredGraph = true,
+) {
   if (!relativePath.endsWith(".ts")) return Object.freeze([]);
   const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const targets: string[] = [];
@@ -2630,11 +3159,28 @@ function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
       ),
     );
     assertNoUndeclaredLocalTypeScriptImportMetaUrl(relativePath, tokens);
-    assertInternalLifecycleConsumerBoundary(relativePath, tokens);
-    assertProcessWrapperConsumerBoundary(relativePath, tokens);
+    assertInternalLifecycleConsumerBoundary(
+      relativePath,
+      tokens,
+      enforceDeclaredGraph,
+    );
+    assertProcessWrapperConsumerBoundary(
+      relativePath,
+      tokens,
+      enforceDeclaredGraph,
+    );
     assertWorkerCreationImportBoundary(relativePath, tokens);
-    assertNoUnboundRuntimeChildProcess(relativePath, tokens);
+    assertNoUnboundRuntimeChildProcess(
+      relativePath,
+      tokens,
+      enforceDeclaredGraph,
+    );
     assertNoUnboundRuntimeExecPath(relativePath, tokens);
+    assertPublicRuntimeObservationConsumerClosure(
+      relativePath,
+      tokens,
+      enforceDeclaredGraph,
+    );
   } catch (error) {
     throw new Error(`${relativePath}:modules:${String(error)}`);
   }
@@ -2645,7 +3191,14 @@ export function assertRuntimeSourceModuleBoundaryForVerification(
   relativePath: string,
   source: string,
 ) {
-  staticRelativeModuleTargets(relativePath, Buffer.from(source, "utf8"));
+  staticRelativeModuleTargets(relativePath, Buffer.from(source, "utf8"), false);
+}
+
+export function assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+  relativePath: string,
+  source: string,
+) {
+  staticRelativeModuleTargets(relativePath, Buffer.from(source, "utf8"), true);
 }
 
 function verifyLauncherEntryBindings(packageRoot: string) {
@@ -2683,6 +3236,14 @@ function verifyLauncherEntryBindings(packageRoot: string) {
 }
 
 function collectRuntimeExecutionScriptPaths(packageRoot: string) {
+  const enforceDeclaredGraph = fs.existsSync(
+    path.join(
+      packageRoot,
+      "src",
+      "security",
+      "platform-provisioner-package-filesystem.ts",
+    ),
+  );
   const scriptPaths = new Set<string>();
   const pendingItems: string[] = [];
   if (fs.existsSync(path.join(packageRoot, "bin", "launch.ts"))) {
@@ -2737,6 +3298,7 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
     for (const target of staticRelativeModuleTargets(
       relative,
       observed.bytes,
+      enforceDeclaredGraph,
     )) {
       const rootSegment = target.split("/")[0];
       if (rootSegment === "scripts") pendingItems.push(target);
@@ -2754,8 +3316,13 @@ function verifyStaticRuntimeModuleBoundary(
   relativePath: string,
   bytes: Buffer,
   scriptPaths: ReadonlySet<string>,
+  enforceDeclaredGraph: boolean,
 ) {
-  for (const target of staticRelativeModuleTargets(relativePath, bytes)) {
+  for (const target of staticRelativeModuleTargets(
+    relativePath,
+    bytes,
+    enforceDeclaredGraph,
+  )) {
     const rootSegment = target.split("/")[0];
     if (
       target === ".." ||
@@ -2775,6 +3342,14 @@ function packageEntries(
   root: Readonly<{ realPath: string; identity: EntityIdentity }>,
 ) {
   const scriptPaths = collectRuntimeExecutionScriptPaths(root.realPath);
+  const enforceDeclaredGraph = fs.existsSync(
+    path.join(
+      root.realPath,
+      "src",
+      "security",
+      "platform-provisioner-package-filesystem.ts",
+    ),
+  );
   const files: string[] = [];
   const directoryInventories: Array<
     Readonly<{
@@ -2831,6 +3406,7 @@ function packageEntries(
     ),
     directoryInventories: Object.freeze(directoryInventories),
     scriptPaths,
+    enforceDeclaredGraph,
   });
 }
 
@@ -2910,6 +3486,7 @@ function observePackage(packageRoot: string) {
       relative,
       canonicalBytes,
       inventory.scriptPaths,
+      inventory.enforceDeclaredGraph,
     );
     if (relative === "package.json") packageJsonBytes = canonicalBytes;
     files.push(
@@ -3260,6 +3837,7 @@ function observeRuntimeDistribution(distributionRootPath: string) {
     for (const target of staticRelativeModuleTargets(
       relative,
       canonicalBytes,
+      coordinatorInventory.enforceDeclaredGraph,
     )) {
       if (
         !isBundledRuntimeExecutionPath(
