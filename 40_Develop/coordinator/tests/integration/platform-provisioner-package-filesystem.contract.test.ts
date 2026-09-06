@@ -70,11 +70,22 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     }),
   );
   for (const entrypoint of entrypoints) {
-    if (entrypoint === omittedEntrypoint) continue;
     const target = path.join(packageRoot, entrypoint);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, "export const fixture = true;\n");
   }
+  fs.writeFileSync(
+    path.join(packageRoot, "src", "core", "interactive-console.ts"),
+    'new URL("./interactive-console-reader.ts", import.meta.url);\n',
+  );
+  fs.writeFileSync(
+    path.join(packageRoot, "src", "security", "candidate-store-kernel-lock.ts"),
+    [
+      'new URL("./candidate-store-lock-worker.ts", import.meta.url);',
+      'new URL("./host-operation-lock-supervisor.ts", import.meta.url);',
+      "",
+    ].join("\n"),
+  );
   const publicToolsRoot = path.join(distributionRoot, "template", "tools");
   fs.mkdirSync(publicToolsRoot, { recursive: true });
   fs.writeFileSync(
@@ -107,6 +118,8 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
       distributionRoot,
     );
   assert.equal(observed.status, "candidate", JSON.stringify(observed));
+  if (omittedEntrypoint)
+    fs.unlinkSync(path.join(packageRoot, omittedEntrypoint));
   return {
     root,
     distributionRoot,
@@ -183,7 +196,40 @@ test("Tree一致だけで起動entrypointの不足を受理しない", () => {
       fixture.input,
     );
     assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "development_package_entrypoint_missing");
+    assert.equal(result.reason, "development_package_observation_failed");
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("新しいlocal TypeScript子entrypointの必須Registry登録漏れを受理しない", () => {
+  const fixture = developmentFixture();
+  try {
+    fs.appendFileSync(
+      path.join(
+        fixture.packageRoot,
+        "src",
+        "security",
+        "candidate-store-kernel-lock.ts",
+      ),
+      'new URL("./unregistered-child.ts", import.meta.url);\n',
+    );
+    fs.writeFileSync(
+      path.join(
+        fixture.packageRoot,
+        "src",
+        "security",
+        "unregistered-child.ts",
+      ),
+      "export {};\n",
+    );
+    const result =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+        fixture.distributionRoot,
+      );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.runtimeAuthorityConferred, false);
+    assert.equal(result.effectAuthorizationIssued, false);
   } finally {
     fixture.cleanup();
   }
@@ -747,6 +793,28 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
       path.join(coordinatorRoot, "src", "entry.ts"),
       'export { value } from "../../project-runtime/src/index.ts";\n',
     );
+    for (const [relativePath, source] of [
+      ["bin/coordinator.ts", "export {};\n"],
+      ["src/core/interactive-console-reader.ts", "export {};\n"],
+      ["src/security/candidate-store-lock-worker.ts", "export {};\n"],
+      ["src/security/host-operation-lock-supervisor.ts", "export {};\n"],
+      [
+        "src/core/interactive-console.ts",
+        'new URL("./interactive-console-reader.ts", import.meta.url);\n',
+      ],
+      [
+        "src/security/candidate-store-kernel-lock.ts",
+        [
+          'new URL("./candidate-store-lock-worker.ts", import.meta.url);',
+          'new URL("./host-operation-lock-supervisor.ts", import.meta.url);',
+          "",
+        ].join("\n"),
+      ],
+    ] as const) {
+      const target = path.join(coordinatorRoot, ...relativePath.split("/"));
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, source);
+    }
     fs.writeFileSync(
       path.join(projectRuntimeRoot, "index.ts"),
       'export { value } from "./core/value.ts";\n',
@@ -1399,8 +1467,22 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.requiredArtifactResolution,
-    "owned_by_distribution_observer_and_consumed_without_path_reinterpretation",
+    "single_distribution_root_relative_registry_atomically_resolved_non_nullable_and_consumed_without_path_reinterpretation",
   );
+  assert.equal(
+    contract.localNodeChildEntrypointRegistration,
+    "all_local_typescript_import_meta_url_targets_exactly_match_required_registry",
+  );
+  const source = fs.readFileSync(
+    path.resolve(
+      import.meta.dirname,
+      "../../src/security/platform-provisioner-package-filesystem.ts",
+    ),
+    "utf8",
+  );
+  assert.equal(source.includes("observed.observation.files.find"), false);
+  assert.equal(source.includes("DEVELOPMENT_ENTRYPOINTS"), false);
+  assert.equal(source.includes("developmentEntrypoints"), false);
   assert.equal(
     contract.runtimeOwnedPackageFilesystemRead,
     "implemented_candidate_without_permission_authority",

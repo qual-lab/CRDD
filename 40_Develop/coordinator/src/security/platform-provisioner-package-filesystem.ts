@@ -66,12 +66,32 @@ const DEVELOPMENT_SOURCE_KEYS = new Set([
   "distributionRoot",
   "expectedPackageContentRootSha256",
 ]);
-const DEVELOPMENT_ENTRYPOINTS = Object.freeze([
-  "bin/coordinator.ts",
-  "src/core/interactive-console-reader.ts",
-  "src/security/candidate-store-lock-worker.ts",
-  "src/security/host-operation-lock-supervisor.ts",
+const COORDINATOR_DISTRIBUTION_PREFIX = "40_Develop/coordinator/";
+const RUNTIME_DISTRIBUTION_REQUIRED_ENTRYPOINTS = Object.freeze([
+  Object.freeze({
+    role: "public_cli",
+    distributionRelativePath: `${COORDINATOR_DISTRIBUTION_PREFIX}bin/coordinator.ts`,
+  }),
+  Object.freeze({
+    role: "interactive_console_reader",
+    distributionRelativePath: `${COORDINATOR_DISTRIBUTION_PREFIX}src/core/interactive-console-reader.ts`,
+  }),
+  Object.freeze({
+    role: "candidate_store_lock_worker",
+    distributionRelativePath: `${COORDINATOR_DISTRIBUTION_PREFIX}src/security/candidate-store-lock-worker.ts`,
+  }),
+  Object.freeze({
+    role: "host_operation_lock_supervisor",
+    distributionRelativePath: `${COORDINATOR_DISTRIBUTION_PREFIX}src/security/host-operation-lock-supervisor.ts`,
+  }),
 ]);
+const RUNTIME_DISTRIBUTION_LOCAL_NODE_CHILD_ROLES = Object.freeze(
+  new Set([
+    "interactive_console_reader",
+    "candidate_store_lock_worker",
+    "host_operation_lock_supervisor",
+  ]),
+);
 const CANONICAL_TEXT_FILE_SUFFIXES = Object.freeze([
   ".Dockerfile",
   ".json",
@@ -961,6 +981,38 @@ function canonicalRelativeModuleTarget(
   );
 }
 
+function localTypeScriptImportMetaUrlTargets(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+) {
+  const targets: string[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (
+      !tokenSequenceMatches(tokens, index, ["new", "URL", "("]) ||
+      tokens[index + 3]?.kind !== "string" ||
+      !tokenSequenceMatches(tokens, index + 4, [
+        ",",
+        "import",
+        ".",
+        "meta",
+        ".",
+        "url",
+        ")",
+      ])
+    )
+      continue;
+    const specifier = tokens[index + 3];
+    if (!specifier || specifier.escaped)
+      throw new Error("platform_provisioner_runtime_dependency_noncanonical");
+    if (!specifier.value.endsWith(".ts")) continue;
+    const target = canonicalRelativeModuleTarget(relativePath, specifier.value);
+    if (!target)
+      throw new Error("platform_provisioner_runtime_dependency_noncanonical");
+    targets.push(target);
+  }
+  return Object.freeze(targets);
+}
+
 function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
   if (!relativePath.endsWith(".ts")) return Object.freeze([]);
   const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
@@ -982,6 +1034,7 @@ function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
       if (target) targets.push(target);
     }
     targets.push(...selectedScriptChildModuleTargets(relativePath, tokens));
+    targets.push(...localTypeScriptImportMetaUrlTargets(relativePath, tokens));
   } catch (error) {
     throw new Error(`${relativePath}:modules:${String(error)}`);
   }
@@ -1303,8 +1356,58 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
 const runtimeDistributionEntrypoints = Object.freeze(
   new Set(["template/tools/crdd-coordinator.ts", "template/tools/crdd-mcp.ts"]),
 );
-const RUNTIME_DISTRIBUTION_INTERACTIVE_CONSOLE_READER_PATH =
-  "40_Develop/coordinator/src/core/interactive-console-reader.ts";
+
+function runtimeLocalNodeChildTargets(
+  observedFiles: ReadonlyMap<
+    string,
+    Readonly<{
+      byteLength: number;
+      sha256: string;
+      identity: EntityIdentity;
+      bytes: Buffer;
+    }>
+  >,
+) {
+  const targets = new Set<string>();
+  for (const [relativePath, artifact] of observedFiles) {
+    if (
+      !relativePath.startsWith(COORDINATOR_DISTRIBUTION_PREFIX) ||
+      !relativePath.endsWith(".ts")
+    )
+      continue;
+    const source = new TextDecoder("utf-8", { fatal: true }).decode(
+      artifact.bytes,
+    );
+    const tokens = tokenizeTypeScriptModuleSyntax(source);
+    for (const target of localTypeScriptImportMetaUrlTargets(
+      relativePath,
+      tokens,
+    ))
+      targets.add(target);
+  }
+  return targets;
+}
+
+function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>) {
+  return (
+    left.size === right.size && [...left].every((value) => right.has(value))
+  );
+}
+
+function coordinatorPackageRelativePath(distributionRelativePath: string) {
+  if (!distributionRelativePath.startsWith(COORDINATOR_DISTRIBUTION_PREFIX))
+    throw new Error("platform_provisioner_runtime_required_artifact_invalid");
+  const packageRelativePath = distributionRelativePath.slice(
+    COORDINATOR_DISTRIBUTION_PREFIX.length,
+  );
+  if (
+    packageRelativePath.length === 0 ||
+    packageRelativePath.startsWith("/") ||
+    path.posix.normalize(packageRelativePath) !== packageRelativePath
+  )
+    throw new Error("platform_provisioner_runtime_required_artifact_invalid");
+  return packageRelativePath;
+}
 
 function resolveRuntimeDistributionRequiredArtifacts(
   observedFiles: ReadonlyMap<
@@ -1317,26 +1420,55 @@ function resolveRuntimeDistributionRequiredArtifacts(
     }>
   >,
 ) {
-  const interactiveConsoleReader = observedFiles.get(
-    RUNTIME_DISTRIBUTION_INTERACTIVE_CONSOLE_READER_PATH,
+  const expectedLocalNodeChildTargets = new Set(
+    RUNTIME_DISTRIBUTION_REQUIRED_ENTRYPOINTS.filter((entrypoint) =>
+      RUNTIME_DISTRIBUTION_LOCAL_NODE_CHILD_ROLES.has(entrypoint.role),
+    ).map((entrypoint) => entrypoint.distributionRelativePath),
   );
-  return Object.freeze({
-    interactiveConsoleReader: interactiveConsoleReader
-      ? Object.freeze({
-          relativePath: RUNTIME_DISTRIBUTION_INTERACTIVE_CONSOLE_READER_PATH,
-          sha256: interactiveConsoleReader.sha256,
-        })
-      : null,
-    developmentEntrypoints: Object.freeze(
-      DEVELOPMENT_ENTRYPOINTS.map((entrypoint) => {
-        const artifact = observedFiles.get(
-          `40_Develop/coordinator/${entrypoint}`,
+  const observedLocalNodeChildTargets =
+    runtimeLocalNodeChildTargets(observedFiles);
+  if (
+    !sameStringSet(expectedLocalNodeChildTargets, observedLocalNodeChildTargets)
+  )
+    throw new Error(
+      "platform_provisioner_runtime_child_entrypoint_registry_mismatch",
+    );
+  const resolvedByRole = new Map<
+    string,
+    Readonly<{
+      role: string;
+      distributionRelativePath: string;
+      packageRelativePath: string;
+      sha256: string;
+    }>
+  >();
+  const requiredEntrypoints = RUNTIME_DISTRIBUTION_REQUIRED_ENTRYPOINTS.map(
+    (entrypoint) => {
+      const artifact = observedFiles.get(entrypoint.distributionRelativePath);
+      if (!artifact || resolvedByRole.has(entrypoint.role))
+        throw new Error(
+          "platform_provisioner_runtime_required_artifact_missing",
         );
-        return artifact
-          ? Object.freeze({ relativePath: entrypoint, sha256: artifact.sha256 })
-          : null;
-      }),
-    ),
+      const resolved = Object.freeze({
+        role: entrypoint.role,
+        distributionRelativePath: entrypoint.distributionRelativePath,
+        packageRelativePath: coordinatorPackageRelativePath(
+          entrypoint.distributionRelativePath,
+        ),
+        sha256: artifact.sha256,
+      });
+      resolvedByRole.set(entrypoint.role, resolved);
+      return resolved;
+    },
+  );
+  const interactiveConsoleReader = resolvedByRole.get(
+    "interactive_console_reader",
+  );
+  if (!interactiveConsoleReader)
+    throw new Error("platform_provisioner_runtime_required_artifact_missing");
+  return Object.freeze({
+    interactiveConsoleReader,
+    requiredEntrypoints: Object.freeze(requiredEntrypoints),
   });
 }
 
@@ -1672,9 +1804,7 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
     if (releaseManifestPresent)
       return blocked("development_package_release_artifact_present");
 
-    const entrypoints = observed.requiredArtifacts.developmentEntrypoints;
-    if (entrypoints.some((entrypoint) => !entrypoint))
-      return blocked("development_package_entrypoint_missing");
+    const entrypoints = observed.requiredArtifacts.requiredEntrypoints;
     const reobserved = observeRuntimeDistribution(root.realPath);
     if (
       reobserved.contentRoot.packageContentRootSha256 !==
@@ -1701,14 +1831,12 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
       executionSourceKind: "fixed_development_candidate" as const,
       sourceIdentitySha256,
       entrypoints: Object.freeze(
-        entrypoints.map((entrypoint) => {
-          if (!entrypoint)
-            throw new Error("development_package_entrypoint_missing");
-          return Object.freeze({
-            relativePath: entrypoint.relativePath,
+        entrypoints.map((entrypoint) =>
+          Object.freeze({
+            relativePath: entrypoint.packageRelativePath,
             sha256: entrypoint.sha256,
-          });
-        }),
+          }),
+        ),
       ),
       releaseIdentityRuntimeOwned: false,
       pathReported: false,
@@ -2111,7 +2239,9 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     runtimeExecutionSet:
       "closed_public_launchers_coordinator_package_and_transitively_reached_sibling_sources_with_package_metadata",
     requiredArtifactResolution:
-      "owned_by_distribution_observer_and_consumed_without_path_reinterpretation",
+      "single_distribution_root_relative_registry_atomically_resolved_non_nullable_and_consumed_without_path_reinterpretation",
+    localNodeChildEntrypointRegistration:
+      "all_local_typescript_import_meta_url_targets_exactly_match_required_registry",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",
     packageContentRootCalculation:
       "implemented_canonical_lf_for_declared_repository_text_and_raw_bytes_for_other_files",

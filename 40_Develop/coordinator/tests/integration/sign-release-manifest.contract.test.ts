@@ -17,6 +17,7 @@ import {
   signReleaseManifest,
   preflightReleaseManifest,
 } from "../../scripts/sign-release-manifest.ts";
+import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../../src/security/platform-provisioner-package-filesystem.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
 
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
@@ -431,6 +432,10 @@ test("Release stagingの非秘密検査はpassphrase入力より前に完了す�
 
 test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflightで拒否する", () => {
   const cases = [
+    "40_Develop/coordinator/bin/coordinator.ts",
+    "40_Develop/coordinator/src/core/interactive-console-reader.ts",
+    "40_Develop/coordinator/src/security/candidate-store-lock-worker.ts",
+    "40_Develop/coordinator/src/security/host-operation-lock-supervisor.ts",
     "template/tools/crdd-mcp.ts",
     "40_Develop/mcp/package.json",
     "40_Develop/project-runtime/src/index.ts",
@@ -442,7 +447,19 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
       "private-key-must-not-be-read.pem",
     );
     try {
+      const complete =
+        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+          distributionRoot,
+        );
+      assert.equal(complete.status, "candidate", relativePath);
       fs.unlinkSync(path.join(distributionRoot, ...relativePath.split("/")));
+      const incomplete =
+        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+          distributionRoot,
+        );
+      assert.equal(incomplete.status, "blocked", relativePath);
+      assert.equal(incomplete.runtimeAuthorityConferred, false, relativePath);
+      assert.equal(incomplete.effectAuthorizationIssued, false, relativePath);
       assert.throws(
         () =>
           preflightReleaseManifest({
@@ -459,6 +476,42 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
         relativePath,
       );
       assert.equal(fs.existsSync(privateKeyPath), false);
+      const cli = spawnSync(
+        process.execPath,
+        [
+          path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+          "--distribution-root",
+          distributionRoot,
+          "--private-key",
+          privateKeyPath,
+          "--crdd-version",
+          "v0.20.0",
+          "--release-sequence",
+          "20",
+          "--crdd-commit",
+          "a".repeat(40),
+          "--crdd-tree",
+          "b".repeat(40),
+          "--issued-at",
+          "2026-09-06T00:00:00.000Z",
+          "--expires-at",
+          "2027-09-06T00:00:00.000Z",
+        ],
+        {
+          encoding: "utf8",
+          input: "passphrase-must-not-be-read\n",
+          shell: false,
+          timeout: 5_000,
+          windowsHide: true,
+        },
+      );
+      assert.equal(cli.status, 1, relativePath);
+      assert.equal(cli.stdout, "", relativePath);
+      assert.equal(
+        cli.stderr,
+        "release_manifest_package_observation_failed\n",
+        relativePath,
+      );
     } finally {
       fs.rmSync(distributionRoot, { recursive: true, force: true });
     }
