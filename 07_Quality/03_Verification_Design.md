@@ -1,8 +1,8 @@
 # CRDD内部ツールの検証設計
 
-状態: Candidate（v0.19.0、Released Baseline: v0.18.1）
+状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-02
+最終更新日: 2026-09-06
 
 ## 対象と判定
 

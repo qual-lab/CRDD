@@ -1,6 +1,6 @@
 # Project Runtimeアーキテクチャ
 
-状態: v0.20実装中
+状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-06
 

@@ -1,8 +1,8 @@
 # Coordinator Runtimeの脅威モデル
 
-状態: Stable（v0.19.0）
+状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-02
+最終更新日: 2026-09-06
 
 ## 1. 目的と境界
 

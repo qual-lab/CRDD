@@ -2,10 +2,11 @@
 
 # CRDD文書規則（Documentation）
 
-Version: v0.19.0
-Status: Stable
+Version: v0.20.0
+Status: Candidate
+Released Baseline: v0.19.0
 Owner: Qual-Lab
-Last Updated: 2026-09-05
+Last Updated: 2026-09-06
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)

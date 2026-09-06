@@ -1,8 +1,8 @@
 # CRDD内部ツールの振る舞い仕様
 
-Status: Stable (v0.19.0)
+Status: Candidate (v0.20.0, Released Baseline: v0.19.0)
 Owner: Qual-Lab
-Last Updated: 2026-09-05
+Last Updated: 2026-09-06
 
 ## 対象と読み方
 

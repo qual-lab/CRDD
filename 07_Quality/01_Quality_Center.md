@@ -1,10 +1,12 @@
 # CRDD内部ツールの品質の現在状態
 
-状態: Stable（v0.19.0）
+状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-05
+最終更新日: 2026-09-06
 
 ## 結論
+
+v0.20.0 Candidateは、試験体系と自動回帰、実行知、Runtime責務分離、限定分散実行と統合結果、読み取り専用Project State、およびlocalhost限定MCP HTTPを対象とする。CHG-000061〜064は決定論的回帰、Windows実Process確認および独立一括監査を完了し、`Ready for Release Handoff`である。現在の残るRelease Gateは、同じ固定候補からRuntime実行Identityを生成・署名し、影響する正式署名E2Eを完走して、候補内容と最終配布物の一致を確認することである。branch、本候補表示または署名前の検証だけではv0.20.0の公開、採用、準拠またはRuntime実行Authorityを成立させない。
 
 v0.19.0の公開基準は、Source A `7346a5580926d71d253ebebaa6538e41bfbdea05`、manifest-only carrier B `5929cb27a9aed9ebabf79e07e3f710f4046597ef`、Runtime実行Identity `79e8cb3a3d11b1433e088d09d8c4b875b7de9ca2193f5e57ddc272d3225064d5`およびRelease sequence `2026090504`へ固定した。署名済みRecovery Matrix、4経路4/4、公開MCPの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recoveryとfresh再入場が完了し、最終独立監査はCritical／Major／Minor 0件だった。branch、作業中Commitまたは本書だけで公開基準を作らず、公開状態と最終Commitは公式tagから確認する。
 

@@ -1,11 +1,11 @@
 # 変更トレース: 試験体系と自動回帰
 
 変更ID: `CHG-000061`
-状態: `Ready for Verification`
+状態: `Ready for Release Handoff`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `normative`
-最終更新日: 2026-09-05
+最終更新日: 2026-09-06
 
 ## 1. 結論と現在状態
 

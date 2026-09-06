@@ -1,8 +1,8 @@
 # MCP Transportアーキテクチャ
 
-状態: v0.20実装中
+状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-05
+最終更新日: 2026-09-06
 
 Related:
 - [Runtime責務分離](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)
