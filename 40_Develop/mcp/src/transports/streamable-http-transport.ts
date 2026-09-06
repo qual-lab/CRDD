@@ -9,9 +9,12 @@ import { types as utilTypes } from "node:util";
 
 import {
   handleMcpProjectRuntimeRequest,
-  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
   type McpProjectRuntimeDependencies,
 } from "../adapters/project-runtime-adapter.ts";
+import {
+  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  protocolError,
+} from "../protocol/project-runtime-protocol.ts";
 import { parseUnambiguousJsonDocument } from "../protocol/unambiguous-json-document.ts";
 
 export const MCP_PROJECT_RUNTIME_STREAMABLE_HTTP_CONTRACT =
@@ -53,14 +56,6 @@ function authorized(headers: IncomingHttpHeaders, expected: Buffer) {
   return (
     bytes.byteLength === expected.byteLength && timingSafeEqual(bytes, expected)
   );
-}
-
-function jsonError(code: number, message: string) {
-  return Object.freeze({
-    jsonrpc: "2.0",
-    id: null,
-    error: Object.freeze({ code, message }),
-  });
 }
 
 function respondJson(
@@ -178,16 +173,28 @@ export async function startMcpProjectRuntimeStreamableHttp(
       try {
         const origin = request.headers.origin;
         if (typeof origin === "string" && !allowedOrigins.has(origin)) {
-          respondJson(response, 403, jsonError(-32000, "Origin not allowed"));
+          respondJson(
+            response,
+            403,
+            protocolError(null, -32000, "Origin not allowed"),
+          );
           return;
         }
         if (request.url !== ENDPOINT) {
-          respondJson(response, 404, jsonError(-32601, "Method not found"));
+          respondJson(
+            response,
+            404,
+            protocolError(null, -32601, "Method not found"),
+          );
           return;
         }
         if (request.method !== "POST") {
           response.setHeader("allow", "POST");
-          respondJson(response, 405, jsonError(-32600, "POST required"));
+          respondJson(
+            response,
+            405,
+            protocolError(null, -32600, "POST required"),
+          );
           return;
         }
         if (!authorized(request.headers, expectedToken)) {
@@ -195,7 +202,7 @@ export async function startMcpProjectRuntimeStreamableHttp(
           respondJson(
             response,
             401,
-            jsonError(-32001, "Authentication required"),
+            protocolError(null, -32001, "Authentication required"),
           );
           return;
         }
@@ -206,18 +213,30 @@ export async function startMcpProjectRuntimeStreamableHttp(
             .toLowerCase() !== "application/json" ||
           !acceptsRequiredRepresentations(request.headers)
         ) {
-          respondJson(response, 400, jsonError(-32600, "Invalid HTTP headers"));
+          respondJson(
+            response,
+            400,
+            protocolError(null, -32600, "Invalid HTTP headers"),
+          );
           return;
         }
         const source = await readBody(request);
         const body =
           source === null ? null : parseUnambiguousJsonDocument(source);
         if (!body) {
-          respondJson(response, 400, jsonError(-32700, "Parse error"));
+          respondJson(
+            response,
+            400,
+            protocolError(null, -32700, "Parse error"),
+          );
           return;
         }
         if (!headersMatch(request.headers, body)) {
-          respondJson(response, 400, jsonError(-32020, "Header mismatch"));
+          respondJson(
+            response,
+            400,
+            protocolError(null, -32020, "Header mismatch"),
+          );
           return;
         }
         const result = await handleMcpProjectRuntimeRequest(
@@ -234,7 +253,11 @@ export async function startMcpProjectRuntimeStreamableHttp(
       } catch {
         if (isClosing || controller.signal.aborted) response.destroy();
         else if (!response.headersSent)
-          respondJson(response, 500, jsonError(-32603, "Internal error"));
+          respondJson(
+            response,
+            500,
+            protocolError(null, -32603, "Internal error"),
+          );
         else response.destroy();
       } finally {
         response.removeListener("close", abortOnDisconnect);

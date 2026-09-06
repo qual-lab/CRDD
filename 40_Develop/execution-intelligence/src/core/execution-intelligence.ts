@@ -104,6 +104,32 @@ function identity(value: unknown): value is string {
   return typeof value === "string" && ID.test(value);
 }
 
+const taskAttemptIdentityKeys = new Set([
+  "attemptId",
+  "milestoneId",
+  "objectiveId",
+  "operationId",
+  "projectId",
+  "taskId",
+] as const);
+
+function taskAttemptEventId(
+  value: ExecutionIntelligenceEvent["identity"],
+): string {
+  return `execution-${createHash("sha256")
+    .update(
+      [
+        value.projectId,
+        value.milestoneId,
+        value.objectiveId,
+        value.taskId,
+        value.attemptId,
+        value.operationId,
+      ].join("\0"),
+    )
+    .digest("hex")}`;
+}
+
 function count(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= 0;
 }
@@ -168,14 +194,7 @@ export function inspectExecutionIntelligenceEvent(
     if (!event) return null;
     const identitySnapshot = snapshotPlainRecord(
       event.identity,
-      new Set([
-        "attemptId",
-        "milestoneId",
-        "objectiveId",
-        "operationId",
-        "projectId",
-        "taskId",
-      ] as const),
+      taskAttemptIdentityKeys,
     );
     const executionSnapshot = snapshotPlainRecord(
       event.execution,
@@ -303,14 +322,16 @@ export function inspectExecutionIntelligenceEvent(
       typeof outcomeSnapshot.processRestartRequired !== "boolean"
     )
       return null;
+    const canonicalIdentity = Object.freeze({
+      ...identitySnapshot,
+    }) as ExecutionIntelligenceEvent["identity"];
+    if (event.eventId !== taskAttemptEventId(canonicalIdentity)) return null;
     return Object.freeze({
       contract: EXECUTION_INTELLIGENCE_EVENT_CONTRACT,
       eventId: event.eventId,
       eventType: "task_attempt_settled" as const,
       occurredAt: event.occurredAt,
-      identity: Object.freeze({
-        ...identitySnapshot,
-      }) as ExecutionIntelligenceEvent["identity"],
+      identity: canonicalIdentity,
       execution: Object.freeze({
         role: executionSnapshot.role,
         provider,
@@ -339,27 +360,29 @@ export function inspectExecutionIntelligenceEvent(
 export function createTaskAttemptSettledEvent(
   input: TaskAttemptSettledEventInput,
 ): ExecutionIntelligenceEvent {
-  const eventId = `execution-${createHash("sha256")
-    .update(
-      [
-        input.identity.projectId,
-        input.identity.milestoneId,
-        input.identity.objectiveId,
-        input.identity.taskId,
-        input.identity.attemptId,
-        input.identity.operationId,
-      ].join("\0"),
-    )
-    .digest("hex")}`;
+  const inputSnapshot = snapshotPlainRecord(
+    input,
+    new Set(["execution", "identity", "occurredAt", "outcome", "quality"]),
+  );
+  if (!inputSnapshot) throw new Error("execution_intelligence_event_invalid");
+  const identitySnapshot = snapshotPlainRecord(
+    inputSnapshot.identity,
+    taskAttemptIdentityKeys,
+  );
+  if (!identitySnapshot || !Object.values(identitySnapshot).every(identity))
+    throw new Error("execution_intelligence_event_invalid");
+  const canonicalIdentity = Object.freeze({
+    ...identitySnapshot,
+  }) as ExecutionIntelligenceEvent["identity"];
   const event = {
     contract: EXECUTION_INTELLIGENCE_EVENT_CONTRACT,
-    eventId,
+    eventId: taskAttemptEventId(canonicalIdentity),
     eventType: "task_attempt_settled" as const,
-    occurredAt: input.occurredAt,
-    identity: input.identity,
-    execution: input.execution,
-    outcome: input.outcome,
-    quality: input.quality,
+    occurredAt: inputSnapshot.occurredAt,
+    identity: canonicalIdentity,
+    execution: inputSnapshot.execution,
+    outcome: inputSnapshot.outcome,
+    quality: inputSnapshot.quality,
   };
   const inspected = inspectExecutionIntelligenceEvent(event);
   if (!inspected) throw new Error("execution_intelligence_event_invalid");

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { request as httpRequest } from "node:http";
 import { createConnection } from "node:net";
 import path from "node:path";
@@ -7,6 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  closeMcpHttpOnProcessSignal,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
   startMcpProjectRuntimeStreamableHttp,
   type McpProjectRuntimeDependencies,
@@ -407,4 +409,125 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
   await assert.rejects(pending);
   await server.close();
   assert.equal(isCancellationObserved, true);
+});
+
+test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了まで残る", async () => {
+  let markStarted: (() => void) | null = null;
+  let markAborted: (() => void) | null = null;
+  let releaseHandler: (() => void) | null = null;
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  const aborted = new Promise<void>((resolve) => {
+    markAborted = resolve;
+  });
+  const server = await startMcpProjectRuntimeStreamableHttp(
+    dependencies({
+      runObjective: async (_request, signal) =>
+        new Promise((resolve) => {
+          markStarted?.();
+          const cancel = () => {
+            markAborted?.();
+            releaseHandler = () =>
+              resolve({
+                contract:
+                  "crdd-coordinator/project-runtime-objective-intake/v1",
+                status: "cancelled",
+                reason: "project_runtime_transport_shutdown",
+                requestId: "objective-signal",
+                projectId: "project-a",
+                milestoneId: "milestone-a",
+                queueId: null,
+                projection: null,
+                cleanupConfirmed: true,
+                manualRecoveryRequired: false,
+                processRestartRequired: false,
+                recoveryIds: [],
+                recoveryObligations: [],
+                effectState: "settled",
+              });
+          };
+          if (signal.aborted) cancel();
+          else signal.addEventListener("abort", cancel, { once: true });
+        }),
+    }),
+    { port: 0, bearerToken: TOKEN },
+  );
+  const body = {
+    jsonrpc: "2.0",
+    id: "objective-signal",
+    method: "tools/call",
+    params: {
+      _meta: META,
+      name: "crdd.run_objective",
+      arguments: {
+        requestId: "objective-signal",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        repositoryRevision: revision,
+        objective: "Wait for process shutdown.",
+        acceptanceCriteria: ["Cancellation is joined."],
+        allowedPaths: ["result.txt"],
+        readPaths: ["README.md"],
+        maximumConcurrency: 1,
+        maximumReplans: 0,
+        originLane: "interactive",
+        adoptResult: false,
+      },
+    },
+  };
+  const response = fetch(
+    `http://${server.host}:${server.port}${server.endpoint}`,
+    {
+      method: "POST",
+      headers: headers(body.method, body.params.name),
+      body: JSON.stringify(body),
+    },
+  ).then(
+    () => "completed" as const,
+    () => "disconnected" as const,
+  );
+  await started;
+  const signals = new EventEmitter();
+  const closing = closeMcpHttpOnProcessSignal(server, signals);
+  assert.equal(signals.listenerCount("SIGINT"), 1);
+  assert.equal(signals.listenerCount("SIGTERM"), 1);
+  signals.emit("SIGTERM");
+  await aborted;
+  let isCloseSettled = false;
+  closing.finally(() => {
+    isCloseSettled = true;
+  });
+  signals.emit("SIGINT");
+  signals.emit("SIGTERM");
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(isCloseSettled, false);
+  assert.equal(signals.listenerCount("SIGINT"), 1);
+  assert.equal(signals.listenerCount("SIGTERM"), 1);
+  const release = releaseHandler as (() => void) | null;
+  assert.ok(release);
+  release();
+  assert.deepEqual(await closing, {
+    status: "completed",
+    cleanupConfirmed: true,
+  });
+  assert.equal(await response, "disconnected");
+  assert.equal(signals.listenerCount("SIGINT"), 0);
+  assert.equal(signals.listenerCount("SIGTERM"), 0);
+});
+
+test("公開Launcherのsignal所有は終了失敗を成功へ変えずlistenerを解放する", async () => {
+  const signals = new EventEmitter();
+  const closing = closeMcpHttpOnProcessSignal(
+    {
+      close: async () => {
+        throw new Error("cleanup_unconfirmed");
+      },
+    },
+    signals,
+  );
+  signals.emit("SIGINT");
+  await assert.rejects(closing, /cleanup_unconfirmed/u);
+  assert.equal(signals.listenerCount("SIGINT"), 0);
+  assert.equal(signals.listenerCount("SIGTERM"), 0);
 });

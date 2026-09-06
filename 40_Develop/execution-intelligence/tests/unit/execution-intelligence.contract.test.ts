@@ -261,6 +261,34 @@ test("公開Event検査はAccessor・Proxyを実行せずcanonical copyだけを
   assert.deepEqual(inspected, base);
 });
 
+test("Event生成は入力を一度だけsnapshotしIdentityと決定的IDを一致させる", () => {
+  const base = event();
+  let getterCalls = 0;
+  const input = {
+    occurredAt: base.occurredAt,
+    get identity() {
+      getterCalls += 1;
+      return base.identity;
+    },
+    execution: base.execution,
+    outcome: base.outcome,
+    quality: base.quality,
+  };
+  assert.throws(
+    () => createTaskAttemptSettledEvent(input),
+    /execution_intelligence_event_invalid/u,
+  );
+  assert.equal(getterCalls, 0);
+
+  const forged = {
+    ...base,
+    eventId: `execution-${"a".repeat(64)}`,
+  };
+  assert.equal(inspectExecutionIntelligenceEvent(forged), null);
+  assert.equal(event("completed", "task-a").eventId, base.eventId);
+  assert.notEqual(event("completed", "task-b").eventId, base.eventId);
+});
+
 function evaluationInput() {
   const observedCount = (value: number) => ({
     state: "observed" as const,

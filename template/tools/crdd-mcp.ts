@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {
+  closeMcpHttpOnProcessSignal,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
   runMcpProjectRuntimeStdio,
   startMcpProjectRuntimeStreamableHttp,
@@ -90,17 +91,7 @@ async function main() {
   process.stderr.write(
     `CRDD MCP is listening on http://${server.host}:${server.port}${server.endpoint}\n`,
   );
-  let stop: (() => void) | null = null;
-  await new Promise<void>((resolve) => {
-    stop = resolve;
-    process.once("SIGINT", resolve);
-    process.once("SIGTERM", resolve);
-  });
-  if (stop) {
-    process.removeListener("SIGINT", stop);
-    process.removeListener("SIGTERM", stop);
-  }
-  const closed = await server.close();
+  const closed = await closeMcpHttpOnProcessSignal(server);
   return closed.cleanupConfirmed ? 0 : 2;
 }
 

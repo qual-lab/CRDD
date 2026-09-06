@@ -247,7 +247,7 @@ MCP投影は列挙値と件数型だけでなく、Milestone状態、Objective�
 
 Project Stateの読み取り専用公開は、Project Runtimeへ`readState`以外のState能力を渡さない単体試験、MCP Adapterの同一canonical結果試験、Coordinator公開AdapterのRepository／改訂版／主体Binding試験、および`template/tools/crdd-mcp.ts`からのstdio／HTTP Transport別総合試験を接続する。状態の`observed / absent / unknown`、保存状態と要求改訂版の不一致、投影内相関、認証不能およびStore Recovery要否を別ケースにし、`absent`を未開始・完了・成功へ、`unknown`を不存在・空値へ補正しない。状態参照からTask、Queue、判断Capability、AuthorityまたはFilesystem Effectが発行されないことを確認する。
 
-MCP Streamable HTTPは`2026-07-28`のPOST単位・Sessionなしの契約を対象とする。`127.0.0.1`以外へのbind、Bearer未設定／不一致、許可外Origin、Protocol／Method／Name headerと本文の不一致、Content-Type／Accept不足、不正UTF-8、重複JSON key、128 KiB超過、未知Method、response切断およびServer終了を固定する。拒否ケースではProject Runtime呼出し0、切断では当該要求への取消伝播、Server終了では進行要求のjoin後にTransport資源回収完了を観測する。HTTP connection、headerまたはtokenからProject Authorityを生成せず、token値を結果・log・Repositoryへ残さない。
+MCP Streamable HTTPは`2026-07-28`のPOST単位・Sessionなしの契約を対象とする。`127.0.0.1`以外へのbind、Bearer未設定／不一致、許可外Origin、Protocol／Method／Name headerと本文の不一致、Content-Type／Accept不足、不正UTF-8、重複JSON key、128 KiB超過、未知Method、response切断およびServer終了を固定する。拒否ケースではProject Runtime呼出し0、切断では当該要求への取消伝播、Server終了では進行要求のjoin後にTransport資源回収完了を観測する。公開Launcherの実行中Applicationへsignalを与える総合試験では、最初のsignalから取消・join完了まで`SIGINT`／`SIGTERM` listenerが残ること、重複signalが同じ終了Promiseへ収束すること、終了失敗を成功へ変えず最後にlistenerが0件となることを確認する。HTTP connection、headerまたはtokenからProject Authorityを生成せず、token値を結果・log・Repositoryへ残さない。
 
 Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に加え、現在Runtime Rootのidentity・protection・local user・bindingの4 hashとReceiptを照合する。別Root、改変、Receiptと確認済みTombstoneの両方がない状態を成功へ畳まず、Tombstoneの作成・readback後だけReceiptを除去し、Project側の`acknowledged` readbackとTombstone除去まで終えた同じBindingの再入場だけを既処理として扱う。Runtime内部のReceipt identityはSHA-256ではなく、committed pairを指す非空・256文字以下の不透明なfile identityとして検証し、Project側の拡張確認情報から内部回収契約へ渡すfieldはexactな3項目へ再構成する。
 
@@ -261,7 +261,7 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 |---|---|---|---|
 | EI-UT-N-01 | 単体 | 正常終了したTask Attemptの共通入力 | 仕事Identity、Role、Provider、結果、所要時間をProvider／Runtime非依存の閉Eventへ変換できる |
 | EI-UT-Q-01 | 単体 | Provider等の一部指標を取得できない | 0へ補正せず観測件数と値の集約を分け、品質はTask終了時点で非該当となる |
-| EI-UT-A-01 | 単体 | 未知field、不正Event、Raw出力相当field | Eventと集約を拒否し、未知要素を黙って除外しない |
+| EI-UT-A-01 | 単体 | 未知field、不正Event、Raw出力相当field、Identityと一致しないEvent ID | Eventと集約を拒否し、未知要素を黙って除外しない。canonicalな仕事Identity全体から決定的Event IDを再構成して一致を確認する |
 | EI-UT-N-02 | 単体 | 同じProject／Milestoneの予定Task全件、実Attempt、統合受入および効用測定 | 評価処理を完了し、Provider別件数を観測済みAttemptから集約する。Task成功を統合受入とは扱わない |
 | EI-UT-Q-02 | 単体 | 統合結果未観測または予定TaskのAttempt不足 | 欠測を0へ補正せず、欠落Taskと未観測統合を示して`incomplete`とする |
 | EI-UT-A-02 | 単体 | 別Project／Milestone、予定外Task、重複Eventまたは未知field | 対象を推測分割せず閉じた評価入力を拒否する |
@@ -275,7 +275,7 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 | EI-IT-Q-02 | 結合 | 2 Processから同一byteの同一Eventを並行発行 | 上書きせず一つのEventへ冪等に収束し、Lockと一時fileが残らない |
 | EI-IT-A-04 | 結合 | 2 Processから同じEvent IDへ異なるbyteを並行発行 | 一方だけを不変保存し、他方をIdentity衝突として拒否する |
 | EI-IT-A-05 | 結合 | open、write、flush、publish、readback、Lock初期化・解放、一時file回収の各失敗 | Effect、cleanup、再試行、手動回復およびexact残存Artifactを区別し、成功へ丸めない |
-| EI-IT-A-06 | 結合 | Accessorが検査時と永続化時に異なる値を返そうとする | Accessorを実行せず、Store作成前にEffect 0で拒否する |
+| EI-IT-A-06 | 結合 | top-levelまたは入れ子Accessorが検査時と永続化時に異なる値を返そうとする | Accessorを実行せず、一度だけ作ったcanonical snapshot以外をRecorder／Storeへ渡さない。Store作成前にEffect 0で拒否する |
 | EI-IT-N-04 | 結合 | 同じObjectiveの競合しない2 Taskを上限2で実行し、実Attempt Eventと統合結果を評価 | 2 Taskの同時実行を観測し、両Attemptを不変Storeから再読取りして統合受入と同じ評価Identityへ接続する。個別Task成功を統合受入へ読み替えず、未観測の時間、費用、人間作業および後工程品質を欠測のまま保持する |
 | EI-RT-C-01 | 回帰 | 実行知のSource、公開入口、Storeまたはtoolchainを変更 | 実行知自身のUT／ITに加え、登録したCoordinator利用側契約と静的検査を同じ計画へ選ぶ。試験levelを限定しても利用側静的検査は残し、指定外の利用側試験は実行しない。実行知の静的検査はCoordinatorのtoolchainへ依存しない |
 

@@ -55,13 +55,13 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 | 異常 | HTTP認証、Originまたはmirror headerが不正 | Applicationを呼ばずHTTP／JSON-RPC errorを返す |
 | 異常 | payload過大、不正UTF-8、重複JSON keyまたは未知field | 意味処理前に拒否する |
 | 異常 | response完了前にClientが切断 | 対象要求へ取消を伝播し、成功やcleanup完了を捏造しない |
-| 異常 | Server終了時に要求が進行中 | 取消を要求し、全要求をjoinしてから資源回収完了を返す |
+| 異常 | Server終了時に要求が進行中、または終了中にsignalが重複 | 最初のsignalで取消を要求し、signal listenerを保持したまま全要求をjoinする。終了結果がsettleした後にだけlistenerを解除し、失敗を資源回収完了へ変えない |
 
 ## 6. 検証と完成条件
 
 - Project Runtime単体試験で、正常、不存在、観測不能、改訂版不一致、未知fieldおよび投影相関を確認する。
 - MCP Adapter試験で3 toolの閉Schema、認証先行、canonical結果保持および不正結果拒否を確認する。
-- HTTP結合試験でlocalhost bind、Bearer、Origin、必須header、容量・UTF-8、切断取消、Server終了時joinおよびstdioとの意味一致を確認する。
+- HTTP結合試験でlocalhost bind、Bearer、Origin、必須header、容量・UTF-8、切断取消、Server終了時join、実行中Applicationと重複signalを含む公開Launcherのlistener所有、およびstdioとの意味一致を確認する。
 - Coordinator公開Adapterの結合試験とMCP公開Launcherの総合試験で、現行Repositoryと選択利用者へ結合した状態参照を確認する。
 - Project RuntimeからMCP／Coordinatorへの逆依存0、MCPからCoordinator内部Pathへの依存0を維持する。
 - 独立レビュー、全体Checkerおよび対象回帰が成功するまで完成と表示しない。

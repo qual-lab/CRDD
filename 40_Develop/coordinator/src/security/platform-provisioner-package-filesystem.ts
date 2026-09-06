@@ -1283,10 +1283,22 @@ function observePackage(packageRoot: string) {
   });
 }
 
-const RUNTIME_COMPONENT_SOURCE_PREFIXES = Object.freeze([
-  "40_Develop/mcp/src/",
-  "40_Develop/project-runtime/src/",
-  "40_Develop/execution-intelligence/src/",
+const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
+  Object.freeze({
+    sourcePrefix: "40_Develop/mcp/src/",
+    packagePath: "40_Develop/mcp/package.json",
+    packageName: "@qual-lab/crdd-mcp",
+  }),
+  Object.freeze({
+    sourcePrefix: "40_Develop/project-runtime/src/",
+    packagePath: "40_Develop/project-runtime/package.json",
+    packageName: "@qual-lab/crdd-project-runtime",
+  }),
+  Object.freeze({
+    sourcePrefix: "40_Develop/execution-intelligence/src/",
+    packagePath: "40_Develop/execution-intelligence/package.json",
+    packageName: "@qual-lab/crdd-execution-intelligence",
+  }),
 ]);
 const runtimeDistributionEntrypoints = Object.freeze(
   new Set(["template/tools/crdd-coordinator.ts", "template/tools/crdd-mcp.ts"]),
@@ -1295,14 +1307,52 @@ const runtimeDistributionEntrypoints = Object.freeze(
 function isBundledRuntimeExecutionPath(
   relativePath: string,
   coordinatorPaths: ReadonlySet<string>,
+  reachedComponentMetadata: ReadonlySet<string>,
 ) {
   return (
     coordinatorPaths.has(relativePath) ||
     runtimeDistributionEntrypoints.has(relativePath) ||
-    RUNTIME_COMPONENT_SOURCE_PREFIXES.some((prefix) =>
-      relativePath.startsWith(prefix),
+    reachedComponentMetadata.has(relativePath) ||
+    RUNTIME_SIBLING_COMPONENTS.some((component) =>
+      relativePath.startsWith(component.sourcePrefix),
     )
   );
+}
+
+function runtimeSiblingComponentForSource(relativePath: string) {
+  return RUNTIME_SIBLING_COMPONENTS.find((component) =>
+    relativePath.startsWith(component.sourcePrefix),
+  );
+}
+
+function verifyRuntimeSiblingPackageMetadata(
+  relativePath: string,
+  bytes: Buffer,
+) {
+  const component = RUNTIME_SIBLING_COMPONENTS.find(
+    (candidate) => candidate.packagePath === relativePath,
+  );
+  if (!component)
+    throw new Error("platform_provisioner_package_metadata_invalid");
+  const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  if (source.charCodeAt(0) === 0xfeff)
+    throw new Error("platform_provisioner_package_metadata_invalid");
+  const parsed: unknown = JSON.parse(source);
+  if (
+    parsed === null ||
+    typeof parsed !== "object" ||
+    Array.isArray(parsed) ||
+    Object.getPrototypeOf(parsed) !== Object.prototype
+  )
+    throw new Error("platform_provisioner_package_metadata_invalid");
+  const metadata = parsed as Readonly<Record<string, unknown>>;
+  if (
+    metadata.name !== component.packageName ||
+    typeof metadata.version !== "string" ||
+    metadata.private !== true ||
+    metadata.type !== "module"
+  )
+    throw new Error("platform_provisioner_package_metadata_invalid");
 }
 
 /**
@@ -1325,6 +1375,7 @@ function observeRuntimeDistribution(distributionRootPath: string) {
     ),
   );
   const pendingPaths = [...coordinatorPaths, ...runtimeDistributionEntrypoints];
+  const reachedComponentMetadata = new Set<string>();
   const observedFiles = new Map<
     string,
     Readonly<{
@@ -1339,7 +1390,18 @@ function observeRuntimeDistribution(distributionRootPath: string) {
   while (pendingPaths.length > 0) {
     const relative = pendingPaths.shift();
     if (!relative || observedFiles.has(relative)) continue;
-    if (!isBundledRuntimeExecutionPath(relative, coordinatorPaths)) {
+    const component = runtimeSiblingComponentForSource(relative);
+    if (component && !reachedComponentMetadata.has(component.packagePath)) {
+      reachedComponentMetadata.add(component.packagePath);
+      pendingPaths.push(component.packagePath);
+    }
+    if (
+      !isBundledRuntimeExecutionPath(
+        relative,
+        coordinatorPaths,
+        reachedComponentMetadata,
+      )
+    ) {
       throw new Error(
         "platform_provisioner_runtime_dependency_outside_execution_set",
       );
@@ -1359,6 +1421,8 @@ function observeRuntimeDistribution(distributionRootPath: string) {
       relative,
       observed.bytes,
     );
+    if (reachedComponentMetadata.has(relative))
+      verifyRuntimeSiblingPackageMetadata(relative, canonicalBytes);
     packageByteLength += canonicalBytes.byteLength;
     if (packageByteLength > MAXIMUM_PACKAGE_BYTES) {
       throw new Error("platform_provisioner_package_budget_exceeded");
@@ -1376,7 +1440,13 @@ function observeRuntimeDistribution(distributionRootPath: string) {
       relative,
       canonicalBytes,
     )) {
-      if (!isBundledRuntimeExecutionPath(target, coordinatorPaths)) {
+      if (
+        !isBundledRuntimeExecutionPath(
+          target,
+          coordinatorPaths,
+          reachedComponentMetadata,
+        )
+      ) {
         throw new Error(
           "platform_provisioner_runtime_dependency_outside_execution_set",
         );

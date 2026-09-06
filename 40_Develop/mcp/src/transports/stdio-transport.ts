@@ -4,6 +4,7 @@ import {
   handleMcpProjectRuntimeRequest,
   type McpProjectRuntimeDependencies,
 } from "../adapters/project-runtime-adapter.ts";
+import { protocolError } from "../protocol/project-runtime-protocol.ts";
 import { parseUnambiguousJsonDocument } from "../protocol/unambiguous-json-document.ts";
 
 export const MCP_PROJECT_RUNTIME_STDIO_CONTRACT =
@@ -60,11 +61,7 @@ export async function runMcpProjectRuntimeStdio(
               dependencies,
               controller.signal,
             )
-          : Object.freeze({
-              jsonrpc: "2.0",
-              id: null,
-              error: Object.freeze({ code: -32700, message: "Parse error" }),
-            });
+          : protocolError(null, -32700, "Parse error");
         if ("result" in response && response.result) {
           const result = response.result as Readonly<{
             structuredContent?: Readonly<{

@@ -101,6 +101,29 @@ test("an embedded TypeScript application can record and read through one public 
   assert.equal(observed.events[0]?.eventId, source.eventId);
 });
 
+test("Recorderはtop-level Accessorを実行せずStore Effect 0で拒否する", (t) => {
+  const root = fixture(t);
+  const created = createExecutionIntelligenceRecorder(root);
+  assert.equal(created.status, "completed");
+  if (created.status !== "completed") throw new Error("recorder_not_ready");
+  const source = event();
+  let getterCalls = 0;
+  const result = created.recorder.recordTaskAttempt({
+    occurredAt: source.occurredAt,
+    get identity() {
+      getterCalls += 1;
+      return source.identity;
+    },
+    execution: source.execution,
+    outcome: source.outcome,
+    quality: source.quality,
+  });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.effectState, "no_effect");
+  assert.equal(getterCalls, 0);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "execution")), false);
+});
+
 function runWriter(root: string, reason: string) {
   return new Promise<Readonly<{ exitCode: number | null; result: unknown }>>(
     (resolve, reject) => {

@@ -82,7 +82,7 @@ Project RuntimeからCoordinator、MCP、ProviderまたはOS固有moduleへの�
 5. `template/tools/crdd-coordinator.ts`をCLIの構成Root、`template/tools/crdd-mcp.ts`をMCP Serverの構成Rootとする。各入口は公開indexだけを使ってProject Runtime、Coordinator Adapter、Platform／Persistence／実行知Adapterを結合し、MCP packageやCoordinator CLIへ別入口の責務を集約しない。
 6. source、test、fixture、script、traceability、package設定、試験カタログ、文書参照およびRuntime実行Identityの依存閉包を同じ変更で更新する。
 
-Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず、`template/tools/crdd-coordinator.ts`と`template/tools/crdd-mcp.ts`を公開Processの起点に含め、canonicalな静的importで到達するMCP、Project Runtimeおよび実行知のsourceを実体から推移的に導出する。文書、試験、未利用sourceおよび許可されていない兄弟Componentは含めず、公開Launcherの欠落または実際の依存が宣言済み実行集合から外れた場合は開発候補と正式候補の双方をEffect 0で拒否する。
+Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず、`template/tools/crdd-coordinator.ts`と`template/tools/crdd-mcp.ts`を公開Processの起点に含める。Coordinatorのproduction sourceは明示された実行集合として、参照の有無にかかわらず含める。公開Launcherからcanonicalな静的importで到達するMCP、Project Runtimeおよび実行知については、到達したsourceと、そのNode module解釈を決める各componentの`package.json`を実体から推移的に導出する。文書、試験、到達しない兄弟Componentのsourceおよび許可されていない兄弟Componentは含めない。公開Launcher、到達したpackage metadataまたは実際の依存が欠落する、package名・版・`private`・module種別が契約外である、もしくは宣言済み実行集合から外れた場合は、開発候補と正式候補の双方をEffect 0で拒否する。
 7. 内部Path参照、逆向き依存、二重定義および旧入口を機械検出し、CLI／MCP stdio／回復経路の意味回帰を実行する。
 
 移行中の一時的な互換exportは作らない。旧Pathと新Pathを同時に正規入口として残すと、利用側閉包とRuntime実行Identityが二重化するため、移動単位ごとに全利用側を同じ変更で切り替える。

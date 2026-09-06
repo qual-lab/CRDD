@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   describeMcpProjectRuntimeAdapterContract,
@@ -8,6 +11,7 @@ import {
   MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
   MCP_PROJECT_RUNTIME_STATE_TOOL,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  protocolError,
   type McpProjectRuntimeDependencies,
 } from "../../src/index.ts";
 
@@ -1033,4 +1037,21 @@ test("MCP contract reports stateless transport and the exact public tools", () =
     clientMetadataAuthority: "none",
     projectModelOwnership: "project_runtime",
   });
+});
+
+test("JSON-RPC error envelopeはProtocolだけが所有しTransportは再定義しない", () => {
+  assert.deepEqual(protocolError(null, -32700, "Parse error"), {
+    jsonrpc: "2.0",
+    id: null,
+    error: { code: -32700, message: "Parse error" },
+  });
+  const sourceRoot = fileURLToPath(new URL("../../src/", import.meta.url));
+  for (const relative of [
+    "transports/stdio-transport.ts",
+    "transports/streamable-http-transport.ts",
+  ]) {
+    const source = fs.readFileSync(path.join(sourceRoot, relative), "utf8");
+    assert.doesNotMatch(source, /jsonrpc\s*:/u, relative);
+    assert.match(source, /protocolError\(/u, relative);
+  }
 });

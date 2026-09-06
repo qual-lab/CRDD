@@ -726,6 +726,23 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
         devDependencies: {},
       }),
     );
+    const projectRuntimePackagePath = path.join(
+      root,
+      "40_Develop",
+      "project-runtime",
+      "package.json",
+    );
+    const projectRuntimeMetadata = {
+      name: "@qual-lab/crdd-project-runtime",
+      version: "0.0.0-development",
+      private: true,
+      type: "module",
+      exports: { ".": "./src/index.ts" },
+    };
+    fs.writeFileSync(
+      projectRuntimePackagePath,
+      JSON.stringify(projectRuntimeMetadata),
+    );
     fs.writeFileSync(
       path.join(coordinatorRoot, "src", "entry.ts"),
       'export { value } from "../../project-runtime/src/index.ts";\n',
@@ -775,6 +792,45 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     assert.equal(
       documentationOnly.packageContentRootSha256,
       first.packageContentRootSha256,
+    );
+
+    fs.writeFileSync(
+      projectRuntimePackagePath,
+      JSON.stringify({ ...projectRuntimeMetadata, type: "commonjs" }),
+    );
+    const incompatibleMetadata =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(incompatibleMetadata.status, "blocked");
+    assert.equal(incompatibleMetadata.runtimeAuthorityConferred, false);
+    fs.writeFileSync(
+      projectRuntimePackagePath,
+      JSON.stringify(projectRuntimeMetadata),
+    );
+
+    fs.rmSync(projectRuntimePackagePath);
+    const missingMetadata =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(missingMetadata.status, "blocked");
+    assert.equal(missingMetadata.runtimeAuthorityConferred, false);
+    fs.writeFileSync(
+      projectRuntimePackagePath,
+      JSON.stringify(projectRuntimeMetadata),
+    );
+
+    fs.writeFileSync(
+      projectRuntimePackagePath,
+      JSON.stringify({ ...projectRuntimeMetadata, version: "0.0.1" }),
+    );
+    const metadataChanged =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(metadataChanged.status, "candidate");
+    assert.notEqual(
+      metadataChanged.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+    fs.writeFileSync(
+      projectRuntimePackagePath,
+      JSON.stringify(projectRuntimeMetadata),
     );
 
     fs.writeFileSync(unusedSiblingPath, "export const unusedSibling = 2;\n");
