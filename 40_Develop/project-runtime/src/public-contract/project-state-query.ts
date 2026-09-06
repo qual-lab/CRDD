@@ -64,7 +64,7 @@ const projectionKeys = new Set([
   "recoveryRequired",
   "nextAction",
 ] as const);
-const objectiveStates = Object.freeze([
+const OBJECTIVE_STATES = Object.freeze([
   "planned",
   "executing",
   "integration_pending",
@@ -72,7 +72,7 @@ const objectiveStates = Object.freeze([
   "blocked",
   "cancelled",
 ] as const);
-const taskStates = Object.freeze([
+const TASK_STATES = Object.freeze([
   "planned",
   "waiting_dependency",
   "ready",
@@ -135,12 +135,12 @@ export function inspectProjectRuntimeProjection(
   if (!record) return null;
   const objectiveCounts = countSnapshot(
     record.objectiveCounts,
-    objectiveStates,
+    OBJECTIVE_STATES,
     PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
   );
   const taskCounts = countSnapshot(
     record.taskCounts,
-    taskStates,
+    TASK_STATES,
     PROJECT_RUNTIME_MAXIMUM_TASKS,
   );
   const rawSummaries = snapshotPlainArray(
@@ -158,13 +158,13 @@ export function inspectProjectRuntimeProjection(
     );
     const counts = countSnapshot(
       summary?.taskCounts,
-      taskStates,
+      TASK_STATES,
       PROJECT_RUNTIME_MAXIMUM_TASKS,
     );
     if (
       !summary ||
       !validId(summary.objectiveId) ||
-      !objectiveStates.includes(summary.objectiveState as never) ||
+      !OBJECTIVE_STATES.includes(summary.objectiveState as never) ||
       !counts
     )
       return null;
@@ -172,7 +172,7 @@ export function inspectProjectRuntimeProjection(
       Object.freeze({
         objectiveId: summary.objectiveId,
         objectiveState:
-          summary.objectiveState as (typeof objectiveStates)[number],
+          summary.objectiveState as (typeof OBJECTIVE_STATES)[number],
         taskCounts: counts,
       }),
     );

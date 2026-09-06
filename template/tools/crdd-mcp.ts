@@ -41,9 +41,9 @@ function dependencies(): McpProjectRuntimeDependencies {
         process.cwd(),
         authentication,
       ),
-    submitDecision: (request, authentication) =>
+    submitDecision: async (request, authentication) =>
       runProjectRuntimePublicDecision(request, process.cwd(), authentication),
-    getProjectState: (request, authentication) =>
+    getProjectState: async (request, authentication) =>
       runProjectRuntimePublicStateQuery(request, process.cwd(), authentication),
   };
 }

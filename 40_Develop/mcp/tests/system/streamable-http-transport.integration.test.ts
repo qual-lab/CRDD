@@ -11,9 +11,9 @@ import {
   type McpProjectRuntimeDependencies,
 } from "../../src/index.ts";
 
-const token = "local-development-token-0123456789abcdef";
+const TOKEN = "local-development-token-0123456789abcdef";
 const revision = "a".repeat(40);
-const meta = Object.freeze({
+const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion":
     MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
@@ -48,7 +48,7 @@ function dependencies(
 
 function headers(method: string, name?: string) {
   return {
-    authorization: `Bearer ${token}`,
+    authorization: `Bearer ${TOKEN}`,
     accept: "application/json, text/event-stream",
     "content-type": "application/json",
     "mcp-protocol-version": MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
@@ -112,7 +112,7 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
   );
   const child = spawn(process.execPath, [entry, "--http", "--port", "0"], {
     cwd: path.dirname(entry),
-    env: { ...process.env, CRDD_MCP_HTTP_BEARER_TOKEN: token },
+    env: { ...process.env, CRDD_MCP_HTTP_BEARER_TOKEN: TOKEN },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -122,7 +122,7 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
       jsonrpc: "2.0",
       id: "discover-http-process",
       method: "server/discover",
-      params: { _meta: meta },
+      params: { _meta: META },
     };
     const response = await fetch(`http://127.0.0.1:${port}/mcp`, {
       method: "POST",
@@ -148,7 +148,7 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
 test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送する", async () => {
   const server = await startMcpProjectRuntimeStreamableHttp(dependencies(), {
     port: 0,
-    bearerToken: token,
+    bearerToken: TOKEN,
   });
   try {
     const body = {
@@ -156,7 +156,7 @@ test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送す
       id: "state-a",
       method: "tools/call",
       params: {
-        _meta: meta,
+        _meta: META,
         name: "crdd.get_project_state",
         arguments: {
           requestId: "query-a",
@@ -197,7 +197,7 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
         effects += 1;
       },
     }),
-    { port: 0, bearerToken: token },
+    { port: 0, bearerToken: TOKEN },
   );
   const url = `http://${server.host}:${server.port}${server.endpoint}`;
   const body = {
@@ -205,7 +205,7 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
     id: 1,
     method: "tools/call",
     params: {
-      _meta: meta,
+      _meta: META,
       name: "crdd.get_project_state",
       arguments: {
         requestId: "query-a",
@@ -255,7 +255,7 @@ test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否�
         effects += 1;
       },
     }),
-    { port: 0, bearerToken: token },
+    { port: 0, bearerToken: TOKEN },
   );
   const url = new URL(`http://${server.host}:${server.port}${server.endpoint}`);
   const requestHeaders = headers("tools/call", "crdd.get_project_state");
@@ -280,7 +280,7 @@ test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否�
 });
 
 test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時にjoinする", async () => {
-  let cancellationObserved = false;
+  let isCancellationObserved = false;
   let markStarted: (() => void) | null = null;
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
@@ -291,7 +291,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
         new Promise((resolve) => {
           markStarted?.();
           const cancel = () => {
-            cancellationObserved = true;
+            isCancellationObserved = true;
             resolve({
               contract: "crdd-coordinator/project-runtime-objective-intake/v1",
               status: "cancelled",
@@ -313,7 +313,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
           else signal.addEventListener("abort", cancel, { once: true });
         }),
     }),
-    { port: 0, bearerToken: token },
+    { port: 0, bearerToken: TOKEN },
   );
   const controller = new AbortController();
   const body = {
@@ -321,7 +321,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
     id: 1,
     method: "tools/call",
     params: {
-      _meta: meta,
+      _meta: META,
       name: "crdd.run_objective",
       arguments: {
         requestId: "objective-a",
@@ -352,5 +352,5 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
   controller.abort();
   await assert.rejects(pending);
   await server.close();
-  assert.equal(cancellationObserved, true);
+  assert.equal(isCancellationObserved, true);
 });

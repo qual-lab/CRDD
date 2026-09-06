@@ -12,7 +12,7 @@
     "test:catalog": "node --test ./tests/unit/test-catalog.contract.test.ts",
     "test:regression:plan": "node ./regression-runner.ts --base main --plan",
     "test:regression": "node ./regression-runner.ts --base main",
-    "typecheck": "tsc -p ./tsconfig.json",
+    "typecheck": "tsc -p ./tsconfig.json && tsc -p ./template-tools-tsconfig.json",
     "verify:repository": "node ./crdd-check.ts --root ../.. --json --summary"
   },
   "engines": {

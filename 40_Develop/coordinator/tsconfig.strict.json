@@ -18,6 +18,8 @@
     "skipLibCheck": true
   },
   "files": [
+    "src/index.ts",
+    "src/composition/project-runtime-public-adapter.ts",
     "bin/launch.ts",
     "src/core/verification-result-record.ts",
     "scripts/measure-development-providers.ts",

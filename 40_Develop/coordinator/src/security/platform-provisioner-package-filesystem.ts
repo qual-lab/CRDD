@@ -1283,7 +1283,7 @@ function observePackage(packageRoot: string) {
   });
 }
 
-const runtimeComponentSourcePrefixes = Object.freeze([
+const RUNTIME_COMPONENT_SOURCE_PREFIXES = Object.freeze([
   "40_Develop/mcp/src/",
   "40_Develop/project-runtime/src/",
   "40_Develop/execution-intelligence/src/",
@@ -1299,7 +1299,7 @@ function isBundledRuntimeExecutionPath(
   return (
     coordinatorPaths.has(relativePath) ||
     runtimeDistributionEntrypoints.has(relativePath) ||
-    runtimeComponentSourcePrefixes.some((prefix) =>
+    RUNTIME_COMPONENT_SOURCE_PREFIXES.some((prefix) =>
       relativePath.startsWith(prefix),
     )
   );
@@ -1324,7 +1324,7 @@ function observeRuntimeDistribution(distributionRootPath: string) {
       (relative) => `40_Develop/coordinator/${relative}`,
     ),
   );
-  const pending = [...coordinatorPaths, ...runtimeDistributionEntrypoints];
+  const pendingPaths = [...coordinatorPaths, ...runtimeDistributionEntrypoints];
   const observedFiles = new Map<
     string,
     Readonly<{
@@ -1336,8 +1336,8 @@ function observeRuntimeDistribution(distributionRootPath: string) {
   >();
   let packageByteLength = 0;
 
-  while (pending.length > 0) {
-    const relative = pending.shift();
+  while (pendingPaths.length > 0) {
+    const relative = pendingPaths.shift();
     if (!relative || observedFiles.has(relative)) continue;
     if (!isBundledRuntimeExecutionPath(relative, coordinatorPaths)) {
       throw new Error(
@@ -1381,7 +1381,7 @@ function observeRuntimeDistribution(distributionRootPath: string) {
           "platform_provisioner_runtime_dependency_outside_execution_set",
         );
       }
-      if (!observedFiles.has(target)) pending.push(target);
+      if (!observedFiles.has(target)) pendingPaths.push(target);
     }
     if (observedFiles.size > MAXIMUM_FILES) {
       throw new Error("platform_provisioner_package_file_count_exceeded");
