@@ -1,4 +1,5 @@
 export * from "./application/project-runtime-objective-intake.ts";
+export * from "./application/project-runtime-objective-application.ts";
 export * from "./application/project-runtime-replanning.ts";
 export * from "./application/project-runtime-execution.ts";
 export * from "./application/project-runtime-integration.ts";
