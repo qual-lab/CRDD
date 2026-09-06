@@ -2,6 +2,7 @@ import {
   createTaskAttemptSettledEvent,
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
+  usageNotObserved,
 } from "../../src/index.ts";
 
 const [repositoryRoot, reason = "task_completed"] = process.argv.slice(2);
@@ -34,7 +35,7 @@ else {
           value: 10,
           source: "process_fixture",
         },
-        usage: { state: "not_observed", reason: "usage_not_reported" },
+        usage: usageNotObserved("usage_not_reported"),
         humanActiveMs: {
           state: "not_observed",
           reason: "human_time_not_reported",

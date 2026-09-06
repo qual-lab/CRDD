@@ -6,7 +6,7 @@
 
 ## 1. 目的と責務
 
-実行知（Execution Intelligence）は、CRDDへ明示的に結合した仕事について、実行時に観測できた事実をProject、Milestone、Objective、TaskおよびAttemptへ接続し、改善判断に使える形で保持する。LLM監視製品、会話履歴、推論全文、Project Stateの第二正本または自動最適化機構は作らない。
+実行知（Execution Intelligence）は、CRDDへ明示的に結合した仕事について、実行時に観測できた事実をProject、Milestone、Objective、TaskおよびAttemptへ接続し、改善判断に使える形で保持する。Coordinator専用品ではなく、AI APIを利用するTypeScriptアプリケーションや別Runtimeから組み込めるProvider非依存ライブラリを第一の利用境界とする。LLM監視製品、会話履歴、推論全文、Project Stateの第二正本または自動最適化機構は作らない。
 
 [進捗管理](../../15_Progress.md#execution-intelligence-observation)がCRDD共通の意味と評価境界を所有する。本書は実行知そのもののEvent、保存、集約、保持、利用側Adapterおよび完成境界を所有する。実装は独立した[公開入口](../../40_Develop/execution-intelligence/src/index.ts)、[共通Eventと集約](../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts)、[Repository-local Store](../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts)へ分離する。Coordinatorは[専用Adapter](../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts)から接続し、共通SchemaへSingle Task Runtime固有の意味を持ち込まない。
 
@@ -21,6 +21,8 @@ Execution Intelligenceの共通Event契約
 
 最初のProducerがCoordinatorであることを、実行知の所有権とは扱わない。別Runtimeまたは採用Repositoryは、明示的な仕事Identityと実際に観測したmetadataを同じ公開入口へ渡せる。共通コンポーネントはProvider SDK、Coordinator状態、MCP Protocol、HTTP session、認証方式または外部送信Authorityを所有しない。
 
+TypeScriptアプリケーションは`@qual-lab/crdd-execution-intelligence`の公開入口からRepositoryへ結合したRecorderを一度生成し、`recordTaskAttempt`、`recordEvent`および`read`だけを利用できる。Recorderは検証済みRepository Root能力を内部に保持し、呼出側へFilesystem Path能力を渡さない。Eventだけを扱う利用側は生成・検査・集約APIを単独利用でき、Repository-local保存を必須にしない。package数に合わせたProcess Launcherは追加せず、非TypeScriptまたはProcess外の利用要求が成立した場合だけ、情報分類・認証・backpressure・再送を持つ独立取込Adapterを別に設計する。
+
 ## 2. 最小Event
 
 v0.20の最小Eventは、一つのTask Attemptが終了した観測である。
@@ -29,11 +31,11 @@ v0.20の最小Eventは、一つのTask Attemptが終了した観測である。
 |---|---|---|
 | 仕事Identity | Project、Milestone、Objective、Task、Attempt、Operation | LLM requestを主Identityにしない |
 | 発生 | Event ID、種別、観測時刻 | 同じAttempt／OperationのEvent IDは決定論的である |
-| 実行 | Role、Provider、Model、入力戦略参照、所要時間、利用量、人間の実作業時間 | 取得不能値を0へ補正しない |
+| 実行 | Role、Provider、Model、入力戦略参照、所要時間、利用量、人間の実作業時間 | 取得不能値を0へ補正しない。入力／出力Token、Cache読取り／書込み、費用／Creditを個別に観測する |
 | 結果 | status、reason、Effect、cleanup、手動回復、Process再起動 | Task結果を再解釈しない |
 | 品質 | 受入または拒否とEvidence参照 | Task終了時点では非該当とし、実行成功を受入へ昇格しない |
 
-観測値は`observed`、`not_observed`、`not_applicable`のいずれかで表す。`observed`は値とSource、その他は理由を必須とする。未知field、Raw Provider出力、Prompt、Response、Credential、Capabilityおよび内部推論はEvent Schemaへ入れない。
+観測値は`observed`、`not_observed`、`not_applicable`のいずれかで表す。`observed`は値とSource、その他は理由を必須とする。利用量は一括した観測にせず、入力Token、出力Token、Cache読取りToken、Cache書込みTokenおよび費用／Creditの各fieldへ同じ三状態を適用する。費用／Creditは非負の量と単位を組にし、単位が異なる値を集約側で暗黙変換しない。未知field、Raw Provider出力、Prompt、Response、Credential、Capabilityおよび内部推論はEvent Schemaへ入れない。
 
 RoleとProviderは特定のCoordinatorまたはProvider名へ固定せず、安定した識別子として検証する。各Adapterは実効値を観測できた場合だけ`observed`を構成する。現行Coordinator Adapterは、Single Task結果から検証済みの実効Executor Providerを取得できる場合だけ記録する。Model、Token、費用および人間時間はまだ返さないため未観測とする。要求されたProviderを実効Providerとして代用しない。入力戦略はProject Runtimeが実際に構成したSingle Task Request契約への参照、時間はAttempt委譲の前後で観測した値だけを記録する。
 
@@ -60,6 +62,8 @@ Event発行は非Authorityの観測であり、Task Authority、採用、回復�
 Event Storeの失敗をTask成功へ見せかけず、同時に測定不能だけを理由に本来のTask結果を失敗へ変更しない。発行結果は同期的に観測し、未設定、拒否、例外および成功を区別する。本番の公開Runtimeは、失敗結果を回復診断と異なる閉じた非Authority診断へ接続する。公開DTO、Task結果またはAuthorityへ診断を追加せず、診断処理自身の失敗もTask結果を変更しない。分析側はEvent不存在を実行0件と推定せず、観測対象とStoreの利用可能性を別に確認する。
 
 CRDD採用Repositoryや別Runtimeは公開入口`@qual-lab/crdd-execution-intelligence`へ薄いAdapterを接続できる。AdapterはProvider SDKまたはRuntimeの結果から実際に観測したmetadataだけをEventへ写し、Work Identity、情報分類、同意および外部EffectのAuthorityを自身の境界で確認する。公開入口はProvider SDKを透過監視せず、通常会話やPrompt／Responseを自動収集しない。
+
+公開入口は観測済み、未観測および非該当を作る補助関数を提供するが、Provider固有Resultを自動解釈しない。AI API呼出しの開始・完了・失敗、実効Provider／Model、利用量および時間のどれを観測できたかは利用側Adapterが決める。API呼出し要求、HTTP応答受信、stream終了、利用量Receipt取得および業務上の受入を同一視しない。
 
 ## 4. 保存と改変検知
 

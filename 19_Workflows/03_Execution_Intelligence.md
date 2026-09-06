@@ -19,6 +19,44 @@
 
 外部AI APIを利用する採用Repositoryでは、API呼出しそのものを実行知へ委譲しない。利用側が既存の認証、送信許可および実行契約に従ってAPIを実行し、結果から確認できたProvider、Model、利用量、所要時間および結果だけをAdapterで変換する。Prompt、Response、秘密値、外部送信Authorityまたは内部推論をEventへ渡さない。
 
+TypeScriptアプリケーションでは、公開packageから`createExecutionIntelligenceRecorder`をimportし、起動時にexact Repository Rootへ一度結合する。成立後はRecorderへ仕事Identityと観測済みmetadataを渡す。Root検証を各呼出箇所で再実装せず、低水準Store APIを使う必要がある場合だけ同じ公開packageの検証済みRoot能力を直接扱う。
+
+```ts
+import {
+  createExecutionIntelligenceRecorder,
+  notApplicable,
+  notObserved,
+  observed,
+} from "@qual-lab/crdd-execution-intelligence";
+
+const created = createExecutionIntelligenceRecorder(repositoryRoot);
+if (created.status !== "completed") throw new Error(created.reason);
+
+created.recorder.recordTaskAttempt({
+  occurredAt: new Date().toISOString(),
+  identity: workIdentity,
+  execution: {
+    role: "executor",
+    provider: observed("example-provider", "api_response"),
+    model: observed("example-model", "api_response"),
+    inputStrategyRef: observed("app/request-policy/v1", "application"),
+    durationMs: observed(durationMs, "monotonic_clock"),
+    usage: {
+      inputTokens: observed(inputTokens, "provider_usage_receipt"),
+      outputTokens: observed(outputTokens, "provider_usage_receipt"),
+      cacheReadTokens: notObserved("provider_did_not_report_cache_read"),
+      cacheWriteTokens: notApplicable("provider_has_no_cache_write_metric"),
+      costOrCredits: notObserved("billing_receipt_not_available"),
+    },
+    humanActiveMs: notApplicable("unattended_api_execution"),
+  },
+  outcome,
+  quality: notObserved("acceptance_not_evaluated"),
+});
+```
+
+この例の`workIdentity`、`durationMs`、`inputTokens`、`outputTokens`および`outcome`は利用側が成立させる値であり、ライブラリが推定する値ではない。利用量の一部だけ取得できる場合は取得済みfieldだけを`observed`にし、費用が不明だからTokenも未観測にする、またはCache未報告を0にする処理を行わない。ApplicationがBundlerやWorkspace packageを使う場合も公開package入口だけへ依存し、`src/core`や`src/store`を直接importしない。npm等の独立配布形態は現行Release範囲に含めず、CRDD clone／submodule内の同じ改訂版を利用する。
+
 ## CRDD公式Repositoryでの開発確認
 
 対象packageの固定開発依存を使用する。

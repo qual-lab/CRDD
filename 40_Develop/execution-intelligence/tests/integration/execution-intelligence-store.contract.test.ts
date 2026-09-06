@@ -8,10 +8,12 @@ import test from "node:test";
 
 import {
   applyExecutionIntelligenceRetention,
+  createExecutionIntelligenceRecorder,
   createTaskAttemptSettledEvent,
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
+  usageNotObserved,
   type VerifiedExecutionRepositoryRoot,
 } from "../../src/index.ts";
 
@@ -62,7 +64,7 @@ function eventForTask(taskId: string) {
         value: 10,
         source: "integration_clock",
       },
-      usage: { state: "not_observed", reason: "usage_not_reported" },
+      usage: usageNotObserved("usage_not_reported"),
       humanActiveMs: {
         state: "not_observed",
         reason: "human_time_not_reported",
@@ -78,6 +80,27 @@ function eventForTask(taskId: string) {
 function event() {
   return eventForTask("task-a");
 }
+
+test("an embedded TypeScript application can record and read through one public recorder", (t) => {
+  const root = fixture(t);
+  const created = createExecutionIntelligenceRecorder(root);
+  assert.equal(created.status, "completed");
+  if (created.status !== "completed") throw new Error("recorder_not_ready");
+  const source = event();
+  const publication = created.recorder.recordTaskAttempt({
+    occurredAt: source.occurredAt,
+    identity: source.identity,
+    execution: source.execution,
+    outcome: source.outcome,
+    quality: source.quality,
+  });
+  assert.equal(publication.status, "completed");
+  const observed = created.recorder.read();
+  assert.equal(observed.status, "completed");
+  if (observed.status !== "completed") throw new Error("events_not_observed");
+  assert.equal(observed.events.length, 1);
+  assert.equal(observed.events[0]?.eventId, source.eventId);
+});
 
 function runWriter(root: string, reason: string) {
   return new Promise<Readonly<{ exitCode: number | null; result: unknown }>>(

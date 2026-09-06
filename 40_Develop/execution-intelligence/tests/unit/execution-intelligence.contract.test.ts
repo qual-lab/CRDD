@@ -6,9 +6,29 @@ import {
   createTaskAttemptSettledEvent,
   evaluateBoundedIntegratedResult,
   inspectExecutionIntelligenceEvent,
+  notApplicable,
+  notObserved,
+  observed,
   proposeExecutionImprovementCandidates,
   summarizeExecutionIntelligence,
+  usageNotObserved,
 } from "../../src/index.ts";
+
+test("public observation helpers preserve values, absence and non-applicability", () => {
+  assert.deepEqual(observed(12, "provider_receipt"), {
+    state: "observed",
+    value: 12,
+    source: "provider_receipt",
+  });
+  assert.deepEqual(notObserved("usage_not_reported"), {
+    state: "not_observed",
+    reason: "usage_not_reported",
+  });
+  assert.deepEqual(notApplicable("human_time_not_measured"), {
+    state: "not_applicable",
+    reason: "human_time_not_measured",
+  });
+});
 
 function event(
   status: "completed" | "blocked" = "completed",
@@ -46,7 +66,7 @@ function event(
         source: "unit_fixture",
       },
       durationMs: { state: "observed", value: 75, source: "unit_clock" },
-      usage: { state: "not_observed", reason: "usage_not_reported" },
+      usage: usageNotObserved("usage_not_reported"),
       humanActiveMs: {
         state: "not_observed",
         reason: "human_time_not_reported",
@@ -64,7 +84,7 @@ test("creates a closed metadata-only event and preserves missing observations", 
   assert.equal(inspectExecutionIntelligenceEvent(created), created);
   assert.equal(created.execution.durationMs.state, "observed");
   assert.equal(created.execution.provider.state, "not_observed");
-  assert.equal(created.execution.usage.state, "not_observed");
+  assert.equal(created.execution.usage.inputTokens.state, "not_observed");
   assert.equal(created.quality.state, "not_applicable");
   assert.equal(Object.isFrozen(created.execution.provider), true);
   assert.equal(Object.isFrozen(created.identity), true);
@@ -109,9 +129,81 @@ test("aggregates observed facts without turning missing values into zero", () =>
   assert.equal(summary.eventCount, 1);
   assert.equal(summary.totalObservedDurationMs, 75);
   assert.equal(summary.providerObservationCount, 0);
-  assert.equal(summary.usageObservationCount, 0);
+  assert.equal(summary.usageObservedEventCount, 0);
+  assert.equal(summary.usageFullyObservedEventCount, 0);
+  assert.equal(summary.observedUsageFieldCount, 0);
   assert.equal(summary.humanActiveObservationCount, 0);
   assert.equal(summary.missingnessPreserved, true);
+});
+
+test("preserves partially observed AI API usage without inventing cost or cache values", () => {
+  const base = event();
+  const partial = createTaskAttemptSettledEvent({
+    occurredAt: base.occurredAt,
+    identity: base.identity,
+    execution: {
+      ...base.execution,
+      usage: {
+        inputTokens: observed(120, "provider_usage_receipt"),
+        outputTokens: observed(45, "provider_usage_receipt"),
+        cacheReadTokens: notObserved("provider_did_not_report_cache_read"),
+        cacheWriteTokens: notApplicable("provider_has_no_cache_write_metric"),
+        costOrCredits: notObserved("billing_receipt_not_available"),
+      },
+    },
+    outcome: base.outcome,
+    quality: base.quality,
+  });
+  const summary = summarizeExecutionIntelligence([partial]);
+  assert.ok(summary);
+  assert.equal(summary.usageObservedEventCount, 1);
+  assert.equal(summary.usageFullyObservedEventCount, 0);
+  assert.equal(summary.observedUsageFieldCount, 2);
+  assert.equal(partial.execution.usage.costOrCredits.state, "not_observed");
+});
+
+test("accepts an explicit cost unit and rejects invalid usage members", () => {
+  const base = event();
+  const measured = createTaskAttemptSettledEvent({
+    occurredAt: base.occurredAt,
+    identity: base.identity,
+    execution: {
+      ...base.execution,
+      usage: {
+        inputTokens: observed(120, "provider_usage_receipt"),
+        outputTokens: observed(45, "provider_usage_receipt"),
+        cacheReadTokens: observed(20, "provider_usage_receipt"),
+        cacheWriteTokens: observed(0, "provider_usage_receipt"),
+        costOrCredits: observed(
+          { amount: 0.0025, unit: "USD" },
+          "billing_receipt",
+        ),
+      },
+    },
+    outcome: base.outcome,
+    quality: base.quality,
+  });
+  assert.equal(
+    measured.execution.usage.costOrCredits.state === "observed" &&
+      measured.execution.usage.costOrCredits.value.unit,
+    "USD",
+  );
+  assert.equal(
+    inspectExecutionIntelligenceEvent({
+      ...measured,
+      execution: {
+        ...measured.execution,
+        usage: {
+          ...measured.execution.usage,
+          costOrCredits: observed(
+            { amount: -1, unit: "USD" },
+            "billing_receipt",
+          ),
+        },
+      },
+    }),
+    null,
+  );
 });
 
 test("returns non-authoritative improvement candidates", () => {

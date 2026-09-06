@@ -11,7 +11,7 @@
 
 CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／Task／Attemptの仕事Identityで観測する、Coordinatorから独立した共通基盤を実装した。閉じたmetadata Event、Repository-localでGit管理外の不変Store、欠測を保持する集約、非Authorityの改善候補、Project Runtimeからの実Event発行、およびexact Identityに基づく物理清掃を一つの変更として扱う。
 
-現在は決定論的な単体・結合試験を実装済みであり、Single Task Runtimeが返す検証済み実効Executor ProviderもEventへ接続した。独立レビューで露出した入口・観測、永続化、利用側伝播の暗黙依存は、exact Task Identity、検証済みRepository Root能力、Process間排他、不変公開、故障段階別結果、および利用側回帰の逆向き登録として一体で是正した。再レビューで残った実運用配線は、package-local toolchain、本番の非Authority発行診断、および試験levelから独立した利用側静的検査として閉じた。Model、実Providerの利用量、人間の実作業時間、品質受入、Viewer UI、共有Store、運用成果および事業成果は未接続であり、本変更の成立から完成を推定しない。
+現在は決定論的な単体・結合試験を実装済みであり、Single Task Runtimeが返す検証済み実効Executor ProviderもEventへ接続した。独立レビューで露出した入口・観測、永続化、利用側伝播の暗黙依存は、exact Task Identity、検証済みRepository Root能力、Process間排他、不変公開、故障段階別結果、および利用側回帰の逆向き登録として一体で是正した。再レビューで残った実運用配線は、package-local toolchain、本番の非Authority発行診断、および試験levelから独立した利用側静的検査として閉じた。TypeScriptアプリケーション向けには、公開packageからRepositoryへ一度結合できるRecorderと観測値生成補助を追加し、Coordinatorや低水準Store APIを経由せずAI APIのmetadataを記録・読取りできる境界へした。Model、実Providerの利用量、人間の実作業時間、品質受入、Viewer UI、共有Store、運用成果および事業成果は未接続であり、本変更の成立から完成を推定しない。
 
 2026-09-06、v0.19で成立した限定分散実行を作り直さず、予定Task、実Attemptおよび統合後の受入結果を同じ評価へ接続する共通契約を本変更へ追加した。個別Taskの成功を統合受入へ読み替えず、Task、統合結果、Providerおよび効用測定の欠測を保持する。これは新しい分散実行基盤ではなく実行知の評価利用側であるため、独立した変更IDを増やさない。
 
@@ -20,6 +20,7 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 - 実行知をv0.20の最初の実装項目とする。
 - LLM requestではなく仕事Identityを主Identityにする。
 - 取得不能値を0へ補正しない。
+- AI API利用量は入力／出力Token、Cache読取り／書込みおよび単位付き費用／Creditへ分け、一部観測を全体欠測へ丸めない。
 - 高頻度EventはGit管理外`.crdd/execution/`へ保存し、正本昇格と分ける。
 - 改善候補は人間判断前の非Authorityな提案とし、自動自己変更を行わない。
 - Raw Prompt／Response、内部推論全文、秘密情報および通常会話を既定収集しない。
@@ -43,6 +44,7 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 - [共通Eventと集約](../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts): Provider／Runtime非依存の閉Schema、欠測表現、集約、非Authority改善候補。
 - [限定分散の統合結果評価](../../40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts): 予定Task、実Attempt、統合結果および効用測定を同じ評価Identityへ結合する閉契約。
 - [公開入口](../../40_Develop/execution-intelligence/src/index.ts): CRDD採用Repositoryや各Runtimeの薄いAdapterが利用するexport。
+- [組込みRecorder](../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts): TypeScriptアプリケーションをexact Repository Rootへ一度結合し、Event生成・保存・読取りを公開APIだけで扱うFacade。
 - [Execution Store](../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts): Repository-local不変保存、改変検知、bounded読取り、exact清掃。
 - [Repository Root検証](../../40_Develop/execution-intelligence/src/store/verified-repository-root.ts): exact worktree RootだけからStoreの実行時能力を発行し、任意Path、linkまたは構造的な偽造を拒否する。
 - [Coordinator Adapter](../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts): Single Task Runtime固有結果を共通Eventへ変換する唯一の接続部。
@@ -54,7 +56,7 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 | 区分 | 代表例 | 期待する処置 |
 |---|---|---|
 | 正常 | Project RuntimeでTaskが完了しEventを初回保存 | exact仕事Identityと観測値を保存し集約できる |
-| 準正常 | Provider、利用量、人間時間または品質が未観測 | 理由付き未観測／非該当として保持し、0へ補正しない |
+| 準正常 | Provider、利用量の一部、人間時間または品質が未観測 | fieldごとに理由付き未観測／非該当として保持し、取得済み値を捨てず0へ補正しない |
 | 準正常 | 同じEventを同じbyteで再送 | 二重保存せず冪等に完了する |
 | 異常 | 同じEvent IDで内容が異なる | Identity衝突として拒否する |
 | 異常 | Event破損、未知field、件数・容量上限超過 | 一部だけを黙って採用せずStore観測を停止する |

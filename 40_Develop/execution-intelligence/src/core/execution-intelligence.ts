@@ -8,6 +8,16 @@ export type ExecutionObservation<T> =
   | Readonly<{ state: "not_observed"; reason: string }>
   | Readonly<{ state: "not_applicable"; reason: string }>;
 
+export type ExecutionUsage = Readonly<{
+  inputTokens: ExecutionObservation<number>;
+  outputTokens: ExecutionObservation<number>;
+  cacheReadTokens: ExecutionObservation<number>;
+  cacheWriteTokens: ExecutionObservation<number>;
+  costOrCredits: ExecutionObservation<
+    Readonly<{ amount: number; unit: string }>
+  >;
+}>;
+
 export type ExecutionIntelligenceEvent = Readonly<{
   contract: typeof EXECUTION_INTELLIGENCE_EVENT_CONTRACT;
   eventId: string;
@@ -27,14 +37,7 @@ export type ExecutionIntelligenceEvent = Readonly<{
     model: ExecutionObservation<string>;
     inputStrategyRef: ExecutionObservation<string>;
     durationMs: ExecutionObservation<number>;
-    usage: ExecutionObservation<
-      Readonly<{
-        inputTokens: number;
-        outputTokens: number;
-        cacheReadTokens: number;
-        costOrCredits: number;
-      }>
-    >;
+    usage: ExecutionUsage;
     humanActiveMs: ExecutionObservation<number>;
   }>;
   outcome: Readonly<{
@@ -52,6 +55,36 @@ export type ExecutionIntelligenceEvent = Readonly<{
     }>
   >;
 }>;
+
+export type TaskAttemptSettledEventInput = Readonly<{
+  occurredAt: string;
+  identity: ExecutionIntelligenceEvent["identity"];
+  execution: ExecutionIntelligenceEvent["execution"];
+  outcome: ExecutionIntelligenceEvent["outcome"];
+  quality: ExecutionIntelligenceEvent["quality"];
+}>;
+
+export function observed<T>(value: T, source: string): ExecutionObservation<T> {
+  return Object.freeze({ state: "observed" as const, value, source });
+}
+
+export function notObserved(reason: string): ExecutionObservation<never> {
+  return Object.freeze({ state: "not_observed" as const, reason });
+}
+
+export function notApplicable(reason: string): ExecutionObservation<never> {
+  return Object.freeze({ state: "not_applicable" as const, reason });
+}
+
+export function usageNotObserved(reason: string): ExecutionUsage {
+  return Object.freeze({
+    inputTokens: notObserved(reason),
+    outputTokens: notObserved(reason),
+    cacheReadTokens: notObserved(reason),
+    cacheWriteTokens: notObserved(reason),
+    costOrCredits: notObserved(reason),
+  });
+}
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const OBSERVATION_STATES = new Set([
@@ -92,6 +125,10 @@ function identity(value: unknown): value is string {
 
 function count(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
+function nonnegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 function freezeData(value: unknown): void {
@@ -164,17 +201,26 @@ export function inspectExecutionIntelligenceEvent(
       ) ||
       !observation(value.execution.durationMs, count) ||
       !observation(value.execution.humanActiveMs, count) ||
-      !observation(value.execution.usage, (entry) => {
-        if (!plain(entry)) return false;
-        return (
-          exactKeys(entry, [
-            "cacheReadTokens",
-            "costOrCredits",
-            "inputTokens",
-            "outputTokens",
-          ]) && Object.values(entry).every(count)
-        );
-      }) ||
+      !plain(value.execution.usage) ||
+      !exactKeys(value.execution.usage, [
+        "cacheReadTokens",
+        "cacheWriteTokens",
+        "costOrCredits",
+        "inputTokens",
+        "outputTokens",
+      ]) ||
+      !observation(value.execution.usage.inputTokens, count) ||
+      !observation(value.execution.usage.outputTokens, count) ||
+      !observation(value.execution.usage.cacheReadTokens, count) ||
+      !observation(value.execution.usage.cacheWriteTokens, count) ||
+      !observation(
+        value.execution.usage.costOrCredits,
+        (entry) =>
+          plain(entry) &&
+          exactKeys(entry, ["amount", "unit"]) &&
+          nonnegativeNumber(entry.amount) &&
+          identity(entry.unit),
+      ) ||
       !plain(value.outcome) ||
       !exactKeys(value.outcome, [
         "cleanupConfirmed",
@@ -214,13 +260,7 @@ export function inspectExecutionIntelligenceEvent(
 }
 
 export function createTaskAttemptSettledEvent(
-  input: Readonly<{
-    occurredAt: string;
-    identity: ExecutionIntelligenceEvent["identity"];
-    execution: ExecutionIntelligenceEvent["execution"];
-    outcome: ExecutionIntelligenceEvent["outcome"];
-    quality: ExecutionIntelligenceEvent["quality"];
-  }>,
+  input: TaskAttemptSettledEventInput,
 ): ExecutionIntelligenceEvent {
   const eventId = `execution-${createHash("sha256")
     .update(
@@ -259,7 +299,9 @@ export type ExecutionIntelligenceSummary = Readonly<{
   observedDurationCount: number;
   totalObservedDurationMs: number | null;
   providerObservationCount: number;
-  usageObservationCount: number;
+  usageObservedEventCount: number;
+  usageFullyObservedEventCount: number;
+  observedUsageFieldCount: number;
   humanActiveObservationCount: number;
   qualityObservationCount: number;
   missingnessPreserved: true;
@@ -299,9 +341,24 @@ export function summarizeExecutionIntelligence(
     providerObservationCount: validEvents.filter(
       (event) => event.execution.provider.state === "observed",
     ).length,
-    usageObservationCount: validEvents.filter(
-      (event) => event.execution.usage.state === "observed",
+    usageObservedEventCount: validEvents.filter((event) =>
+      Object.values(event.execution.usage).some(
+        (entry) => entry.state === "observed",
+      ),
     ).length,
+    usageFullyObservedEventCount: validEvents.filter((event) =>
+      Object.values(event.execution.usage).every(
+        (entry) => entry.state === "observed",
+      ),
+    ).length,
+    observedUsageFieldCount: validEvents.reduce(
+      (count, event) =>
+        count +
+        Object.values(event.execution.usage).filter(
+          (entry) => entry.state === "observed",
+        ).length,
+      0,
+    ),
     humanActiveObservationCount: validEvents.filter(
       (event) => event.execution.humanActiveMs.state === "observed",
     ).length,

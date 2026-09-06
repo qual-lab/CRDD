@@ -7,12 +7,23 @@ export {
   createTaskAttemptSettledEvent,
   EXECUTION_INTELLIGENCE_EVENT_CONTRACT,
   inspectExecutionIntelligenceEvent,
+  notApplicable,
+  notObserved,
+  observed,
   proposeExecutionImprovementCandidates,
   summarizeExecutionIntelligence,
   type ExecutionIntelligenceEvent,
   type ExecutionIntelligenceSummary,
   type ExecutionObservation,
+  type ExecutionUsage,
+  type TaskAttemptSettledEventInput,
+  usageNotObserved,
 } from "./core/execution-intelligence.ts";
+
+export {
+  createExecutionIntelligenceRecorder,
+  type ExecutionIntelligenceRecorder,
+} from "./application/execution-intelligence-recorder.ts";
 
 export * from "./core/bounded-integrated-result-evaluation.ts";
 

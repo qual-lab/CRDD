@@ -1,5 +1,6 @@
 import {
   createTaskAttemptSettledEvent,
+  usageNotObserved,
   verifyExecutionIntelligenceRepositoryRoot,
   type ExecutionIntelligenceEvent,
   type ExecutionIntelligencePublicationResult,
@@ -55,10 +56,9 @@ export function createProjectRuntimeTaskAttemptEvent(
               state: "not_observed",
               reason: "project_runtime_monotonic_clock_invalid",
             },
-      usage: {
-        state: "not_observed",
-        reason: "provider_usage_not_exposed_by_single_task_result",
-      },
+      usage: usageNotObserved(
+        "provider_usage_not_exposed_by_single_task_result",
+      ),
       humanActiveMs: {
         state: "not_observed",
         reason: "human_active_time_not_observed_for_task_attempt",
