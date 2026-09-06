@@ -1,7 +1,7 @@
 # 変更トレース: Runtime責務分離
 
 変更ID: `CHG-000063`
-状態: `Ready for Independent Review`
+状態: `Ready for Release Handoff`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `refactoring`
