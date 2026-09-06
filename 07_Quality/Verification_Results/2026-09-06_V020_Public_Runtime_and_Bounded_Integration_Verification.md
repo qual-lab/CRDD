@@ -7,8 +7,8 @@
 ## 対象
 
 - 対象変更: [CHG-000062](../../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
-- 固定改訂版: `df1c576c0f0f5636bc0ee72ed77e22340a28cc70`
-- 固定Tree: `7e00f7ab2419926c7a7f7dc3713fb4734f760d9f`
+- 固定改訂版: `57ee29c0b02fc80a6ea763a5bc63619b8ad09416`
+- 固定Tree: `3c64e4178126f283c694d77112a068b5b10a03e0`
 - 対象範囲: Runtime責務分離、Project Stateの読み取り専用投影、MCP stdio／localhost HTTP、実行知の組込みAPI、限定分散の統合結果評価
 
 ## 結論
@@ -37,8 +37,8 @@
 | Repository全体の変更影響型回帰 | 選択155項目、全5段階成功 | 全所有componentの静的検査、UT、IT、Windows実Process Gate、ST |
 | Windows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | Coordinator静的検査 | 成功 | Runtime／Project設計対応、兄弟Component package metadataを含むRuntime Execution Identity、型、Lint、Format |
-| 正式署名の利用側閉包 | 39件中39件成功 | 署名処理が配布全体を観測し、必須成果物をPath再解釈なしで解決すること。必須実行入口、公開Launcher、兄弟package metadataまたは到達sourceの欠落を秘密鍵読取り前に拒否すること。local TypeScript子Process入口の宣言・実利用・必須集合を完全一致させ、変数、template literal、直接URL、直接Worker／子Process生成、未使用宣言および宣言欠落を拒否すること |
-| 追加是正後のCoordinator制限Process回帰 | 1,669件中1,669件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
+| 正式署名の利用側閉包 | 69件中69件成功 | 署名処理が配布全体を観測し、必須成果物をPath再解釈なしで解決すること。必須実行入口、公開Launcher、兄弟package metadataまたは到達sourceの欠落を秘密鍵読取り前に拒否すること。local TypeScript子Process入口の宣言、実ソース上の正規wrapper呼出しおよび実行時Registryを役割・起動種別・Pathで完全一致させ、別名import、再export、関数値化、動的import、直接Worker／子Process生成、`process.execPath`の再構成、未使用宣言、宣言欠落およびRecovery経路の迂回を拒否すること |
+| 追加是正後のCoordinator制限Process回帰 | 1,684件中1,684件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
 | 追加是正後のWindows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | 追加是正後のRepository全体Checker | Error 0、Warning 0 | Markdown 425件、Local link 3,011件、履歴参照24件、Anchor 1,005件 |
 
@@ -54,7 +54,9 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 同固定版の独立再レビューでは、4つの必須実行入口を開発利用側だけがnullableな一覧として所有し、配布物観測と固定Manifest利用側が欠落を必須成果物の不成立として一括拒否していない伝播未完を検出した。固定改訂版`971370b13a83c81c557722079eee7ca0f8e34650`で、配布Root相対Pathを持つ単一Registry、同一Snapshotからの非nullableな解決、および解決済み成果物だけを受け取る利用側へ統一した。
 
-その再レビューでは、子Process入口の自動導出が特定の`new URL()`表記だけを対象とし、宣言と実利用の全数対応を証明できないことを検出した。固定改訂版`df1c576c0f0f5636bc0ee72ed77e22340a28cc70`では、local TypeScript子Process入口を専用の不変descriptorへ集約し、本番sourceから導出した宣言集合・実利用集合・必須Registry集合の完全一致を要求する。利用側は解決済みdescriptorを薄いWorker／spawn境界へ渡し、Canonical Pathを再構成しない。変数、template literal、直接URL、直接Worker／子Process生成、未使用宣言および宣言欠落を個別に拒否し、各必須成果物の欠落は公開観測、秘密鍵読取り前の署名事前検査および非対話CLIまで縦断する。上表の39件、1,669件、Windows実Process 7件、静的検査およびRepository全体Checkerは同固定版で成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
+その再レビューでは、子Process入口の自動導出が特定の`new URL()`表記だけを対象とし、宣言と実利用の全数対応を証明できないことを検出した。固定改訂版`df1c576c0f0f5636bc0ee72ed77e22340a28cc70`では、local TypeScript子Process入口を専用descriptorへ集約したが、descriptor自身が可変な`URL`を公開し、利用集合もresolver名の出現から求めていたため、正規wrapperの実呼出しと実行時targetの同一性を証明できなかった。
+
+現在の固定改訂版`57ee29c0b02fc80a6ea763a5bc63619b8ad09416`では、Registryを専用module内部の不変なprimitive値へ閉じ、利用側には役割だけを受け取るWorker／spawn wrapperを公開する。wrapperは役割と起動種別を外部Effect前に検証し、毎回内部Registryから新しいtargetを構成する。本番実行集合からは正規名・非aliasのwrapper直接呼出しを静的に導出し、宣言集合、導出した利用集合および実行時Registryを役割・起動種別・Pathで完全一致させる。署名・Recoveryを含む実Process入口へ同じ境界を適用し、別名import、再export、関数値化、namespace／dynamic import、直接Worker／spawn、`process.execPath`のalias／Reflect参照、文字列連結URL、重複Path、役割と起動種別の不一致、および観測projectionの他利用側取込みを個別に拒否する。上表の69件、1,684件、Windows実Process 7件、静的検査およびRepository全体Checkerは同固定版で成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
 
 ## 限定分散の観測
 
@@ -76,6 +78,7 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 - 旧固定改訂版`11b7e99c7448aed7067c61a2d50282ad944db349`と検証記録Commit`f2a1ce691620e19781e921ee98581b6419310330`への二つの独立再レビューは、当時の対象にCritical 0、Major 0、Moderate 0、Minor 0を返した。その後の署名前検査と監査で上記の利用側未完を検出したため、この結果を現在の固定改訂版へ流用しない。現在の固定改訂版と本記録を対象とする独立再レビューが必要である。
 - OS／Consoleから実行中Applicationを持つ公開MCP ProcessへのSignal配送と、その配送後の取消・join。Node.js Signal event受領後の構成試験を、この実行環境境界の成立へ読み替えない。
+- local TypeScript子Processの利用集合は、本番実行集合に存在する正規wrapper直接呼出しを静的に導出した集合であり、一般的な到達可能性解析ではない。動的コード、任意のproperty名再構成、`execArgv`／`NODE_OPTIONS`によるpreload、TypeScript実行集合外または外部Processからの起動を完全に検出する主張はしない。
 - 正式候補固定後の署名および対象E2E。成功するまでRelease完了と表示しない。
 
 実Provider、PT／LTまたは長時間試験は、人間が対象、上限および目的を明示しない限り自動実行しない。未観測値を0へ補正せず、現在のRelease判断へ使用しない。
