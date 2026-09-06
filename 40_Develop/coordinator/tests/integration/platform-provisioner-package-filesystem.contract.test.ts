@@ -35,6 +35,7 @@ import {
 } from "../../src/core/runtime-local-typescript-child-entrypoints.ts";
 
 const developmentFixtureRoots = new Set<string>();
+const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 const runtimeChildEntrypointModuleFixture = [
   'import { spawn } from "node:child_process";',
   'import { Worker, type WorkerOptions } from "node:worker_threads";',
@@ -439,6 +440,11 @@ for (const scenario of [
   "escaped_child_process_specifier",
   "template_worker_threads_specifier",
   "optional_bracket_argv0_allowed_owner",
+  "semicolonless_value_reexport",
+  "concatenated_dynamic_import",
+  "create_require_namespace",
+  "start_owned_process_sibling_import",
+  "absolute_node_allowed_owner",
 ] as const) {
   test(`local TypeScript子entrypointの宣言・利用迂回を拒否する: ${scenario}`, () => {
     const fixture = developmentFixture();
@@ -868,6 +874,56 @@ for (const scenario of [
           consumer,
           "const protectedModule = `node:worker_threads`; void protectedModule;\n",
         );
+      if (scenario === "semicolonless_value_reexport")
+        fs.appendFileSync(
+          consumer,
+          'import type { ChildProcess } from "node:child_process"\nexport { spawn } from "node:child_process"\n',
+        );
+      if (scenario === "concatenated_dynamic_import")
+        fs.appendFileSync(
+          consumer,
+          'const protectedName = "node:" + "child_process"; void import(protectedName);\n',
+        );
+      if (scenario === "create_require_namespace")
+        fs.appendFileSync(
+          consumer,
+          'import * as moduleBuiltin from "node:module"; const load = moduleBuiltin.createRequire(import.meta.url); void load("node:child_process");\n',
+        );
+      if (scenario === "start_owned_process_sibling_import") {
+        fs.writeFileSync(
+          path.join(
+            fixture.packageRoot,
+            "src",
+            "security",
+            "docker-owned-process.ts",
+          ),
+          "export function startOwnedProcess() {}\n",
+        );
+        fs.appendFileSync(
+          consumer,
+          'import { startOwnedProcess } from "./docker-owned-process.ts"; void startOwnedProcess;\n',
+        );
+      }
+      if (scenario === "absolute_node_allowed_owner") {
+        const owner = path.join(
+          fixture.packageRoot,
+          "src",
+          "security",
+          "docker-owned-process.ts",
+        );
+        fs.writeFileSync(
+          owner,
+          [
+            'import { spawn } from "node:child_process";',
+            'export function startOwnedProcess() { return spawn("C:\\\\Program Files\\\\nodejs\\\\node.exe", ["./unregistered-child.ts"]); }',
+            "",
+          ].join("\n"),
+        );
+        fs.appendFileSync(
+          path.join(fixture.packageRoot, "src", "index.ts"),
+          'import "./security/docker-owned-process.ts";\n',
+        );
+      }
       const directBoundaryExpectations = new Map<
         string,
         Readonly<{ relativePath: string; reason: RegExp }>
@@ -887,6 +943,10 @@ for (const scenario of [
           "loader_call",
           "process_builtin_loader",
           "escaped_child_process_specifier",
+          "semicolonless_value_reexport",
+          "concatenated_dynamic_import",
+          "create_require_namespace",
+          "start_owned_process_sibling_import",
         ].map(
           (name) =>
             [
@@ -897,6 +957,13 @@ for (const scenario of [
               },
             ] as const,
         ),
+        [
+          "absolute_node_allowed_owner",
+          {
+            relativePath: "src/security/docker-owned-process.ts",
+            reason: /runtime_dependency_child_process_unbound/u,
+          },
+        ],
         ...[
           "worker_process_builtin_loader",
           "template_worker_threads_specifier",
@@ -1004,6 +1071,34 @@ for (const scenario of [
     }
   });
 }
+
+test("内部lifecycleまたはProcess wrapperを正規leafから再転送しない", () => {
+  const interactiveSource = fs.readFileSync(
+    path.join(coordinatorRoot, "src", "core", "interactive-console.ts"),
+    "utf8",
+  );
+  assert.throws(
+    () =>
+      assertRuntimeSourceModuleBoundaryForVerification(
+        "src/core/interactive-console.ts",
+        `${interactiveSource}\nexport { runInteractiveConsoleReaderLifecycle };\n`,
+      ),
+    /runtime_dependency_child_lifecycle_unbound/u,
+  );
+
+  const dockerEffectSource = fs.readFileSync(
+    path.join(coordinatorRoot, "src", "security", "docker-effect-runtime.ts"),
+    "utf8",
+  );
+  assert.throws(
+    () =>
+      assertRuntimeSourceModuleBoundaryForVerification(
+        "src/security/docker-effect-runtime.ts",
+        `${dockerEffectSource}\nconst leakedStartProcess = startOwnedProcess; void leakedStartProcess;\n`,
+      ),
+    /runtime_dependency_child_process_unbound/u,
+  );
+});
 
 for (const target of ["package", "expected_package"] as const) {
   test(`開発版の${target}差替えを拒否する`, () => {

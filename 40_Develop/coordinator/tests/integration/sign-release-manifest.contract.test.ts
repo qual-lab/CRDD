@@ -17,7 +17,11 @@ import {
   signReleaseManifest,
   preflightReleaseManifest,
 } from "../../scripts/sign-release-manifest.ts";
-import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../../src/security/platform-provisioner-package-filesystem.ts";
+import {
+  inspectFixedDevelopmentCoordinatorPackageCandidate,
+  inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate,
+  verifyInstalledCoordinatorPackageCandidate,
+} from "../../src/security/platform-provisioner-package-filesystem.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
 
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
@@ -519,7 +523,7 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
   }
 });
 
-test("実行primitive閉包の代表違反を署名preflightとCLIで秘密入力前に拒否する", () => {
+test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘密入力前に拒否する", async () => {
   const cases = [
     {
       name: "capability_acquisition",
@@ -549,6 +553,11 @@ test("実行primitive閉包の代表違反を署名preflightとCLIで秘密入�
       "private-key-must-not-be-read.pem",
     );
     try {
+      const baseline =
+        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+          distributionRoot,
+        );
+      assert.equal(baseline.status, "candidate", scenario.name);
       fs.appendFileSync(
         path.join(distributionRoot, ...scenario.relativePath.split("/")),
         scenario.source,
@@ -560,6 +569,59 @@ test("実行primitive閉包の代表違反を署名preflightとCLIで秘密入�
       assert.equal(observed.status, "blocked", scenario.name);
       assert.equal(observed.runtimeAuthorityConferred, false, scenario.name);
       assert.equal(observed.effectAuthorizationIssued, false, scenario.name);
+      if (scenario.name === "capability_acquisition") {
+        const fixed = inspectFixedDevelopmentCoordinatorPackageCandidate({
+          distributionRoot,
+          expectedPackageContentRootSha256: baseline.packageContentRootSha256,
+        });
+        assert.equal(fixed.status, "blocked");
+        assert.equal(fixed.runtimeAuthorityConferred, false);
+        assert.equal(fixed.effectAuthorizationIssued, false);
+        const installed = verifyInstalledCoordinatorPackageCandidate({
+          distributionRoot,
+          evaluationTime: "2026-09-06T00:00:00.000Z",
+          expectedRelease: {
+            manifestHash: "a".repeat(64),
+            releaseSequence: 20,
+            crddVersion: "v0.20.0",
+            crddCommit: "b".repeat(40),
+            crddTree: "c".repeat(40),
+            packageContentRootSha256: "d".repeat(64),
+            runtimeExecutionIdentitySha256: "e".repeat(64),
+          },
+        });
+        assert.equal(installed.status, "blocked");
+        assert.equal(installed.runtimeAuthorityConferred, false);
+        assert.equal(installed.effectAuthorizationIssued, false);
+        const copiedModuleUrl = pathToFileURL(
+          path.join(
+            distributionRoot,
+            "40_Develop",
+            "coordinator",
+            "src",
+            "security",
+            "platform-provisioner-package-filesystem.ts",
+          ),
+        );
+        copiedModuleUrl.searchParams.set(
+          "closure",
+          randomBytes(8).toString("hex"),
+        );
+        const copiedImplementation: typeof import("../../src/security/platform-provisioner-package-filesystem.ts") =
+          await import(copiedModuleUrl.href);
+        const issued =
+          copiedImplementation.issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
+            { evaluationTime: "2026-09-06T00:00:00.000Z" },
+          );
+        assert.equal(issued.capability, null);
+        assert.equal(issued.verification.status, "blocked");
+        assert.equal(issued.verification.runtimeAuthorityConferred, false);
+        assert.equal(issued.verification.effectAuthorizationIssued, false);
+        const publicResults = JSON.stringify([fixed, installed, issued]);
+        assert.equal(publicResults.includes(distributionRoot), false);
+        assert.equal(publicResults.includes("child_process"), false);
+        assert.equal(publicResults.includes("spawn"), false);
+      }
       const input = {
         distributionRoot,
         privateKeyPath,

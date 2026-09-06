@@ -407,6 +407,7 @@ type SourceToken = Readonly<{
   kind: "identifier" | "string" | "punctuation" | "number";
   value: string;
   escaped: boolean;
+  lineBreakBefore: boolean;
 }>;
 
 const NODE_CHILD_PROCESS_SPECIFIER = ["node:", "child_", "process"].join("");
@@ -491,8 +492,22 @@ function decodeStaticStringLiteral(raw: string) {
 
 function tokenizeTypeScriptModuleSyntax(source: string) {
   const tokens: SourceToken[] = [];
-  const push = (kind: SourceToken["kind"], value: string, isEscaped = false) =>
-    tokens.push(Object.freeze({ kind, value, escaped: isEscaped }));
+  let lineBreakBeforeNextToken = false;
+  const push = (
+    kind: SourceToken["kind"],
+    value: string,
+    isEscaped = false,
+  ) => {
+    tokens.push(
+      Object.freeze({
+        kind,
+        value,
+        escaped: isEscaped,
+        lineBreakBefore: lineBreakBeforeNextToken,
+      }),
+    );
+    lineBreakBeforeNextToken = false;
+  };
 
   const scan = (start: number, shouldStopAtTemplateExpressionEnd: boolean) => {
     let index = start;
@@ -501,6 +516,8 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
       const character = source[index] as string;
       const next = source[index + 1];
       if (/\s/u.test(character)) {
+        if (character === "\n" || character === "\r")
+          lineBreakBeforeNextToken = true;
         index += 1;
         continue;
       }
@@ -511,6 +528,7 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
       }
       if (character === "/" && next === "/") {
         const lineEnd = source.indexOf("\n", index + 2);
+        if (lineEnd !== -1) lineBreakBeforeNextToken = true;
         index = lineEnd === -1 ? source.length : lineEnd + 1;
         continue;
       }
@@ -520,6 +538,8 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
           throw new Error(
             "platform_provisioner_runtime_dependency_parse_failed",
           );
+        if (/[\r\n]/u.test(source.slice(index, commentEnd + 2)))
+          lineBreakBeforeNextToken = true;
         index = commentEnd + 2;
         continue;
       }
@@ -671,71 +691,342 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
   return Object.freeze(tokens);
 }
 
-function moduleSpecifiersFromTokens(tokens: readonly SourceToken[]) {
-  const specifiers: SourceToken[] = [];
+type ModuleDeclarationBinding = Readonly<{
+  imported: string;
+  local: string;
+  typeOnly: boolean;
+  localTokenIndex: number;
+}>;
+
+type ModuleDeclaration = Readonly<{
+  kind:
+    | "static_import"
+    | "dynamic_import"
+    | "reexport"
+    | "local_export"
+    | "import_meta";
+  start: number;
+  end: number;
+  specifierIndex: number | null;
+  wholeTypeOnly: boolean;
+  bindings: readonly ModuleDeclarationBinding[];
+}>;
+
+function matchingTokenIndex(
+  tokens: readonly SourceToken[],
+  openingIndex: number,
+  opening: string,
+  closing: string,
+) {
+  if (tokens[openingIndex]?.value !== opening)
+    throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+  let depth = 0;
+  for (let index = openingIndex; index < tokens.length; index += 1) {
+    if (tokens[index]?.value === opening) depth += 1;
+    else if (tokens[index]?.value === closing) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+}
+
+function namedModuleBindings(
+  tokens: readonly SourceToken[],
+  openingBrace: number,
+  closingBrace: number,
+  wholeTypeOnly: boolean,
+) {
+  const bindings: ModuleDeclarationBinding[] = [];
+  let cursor = openingBrace + 1;
+  while (cursor < closingBrace) {
+    if (tokens[cursor]?.value === ",") {
+      cursor += 1;
+      continue;
+    }
+    const inlineTypeOnly = tokens[cursor]?.value === "type";
+    if (inlineTypeOnly) cursor += 1;
+    const imported = tokens[cursor];
+    if (imported?.kind !== "identifier")
+      throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+    cursor += 1;
+    let local = imported;
+    if (tokens[cursor]?.value === "as") {
+      cursor += 1;
+      local = tokens[cursor] as SourceToken;
+      if (local?.kind !== "identifier")
+        throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+      cursor += 1;
+    }
+    bindings.push(
+      Object.freeze({
+        imported: imported.value,
+        local: local.value,
+        typeOnly: wholeTypeOnly || inlineTypeOnly,
+        localTokenIndex: tokens.indexOf(local),
+      }),
+    );
+  }
+  return Object.freeze(bindings);
+}
+
+function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
+  const declarations: ModuleDeclaration[] = [];
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (token?.kind !== "identifier") continue;
+    if (token?.kind !== "identifier" || tokens[index - 1]?.value === ".")
+      continue;
     if (token.value === "import") {
       const next = tokens[index + 1];
-      if (next?.value === ".") continue;
+      if (next?.value === ".") {
+        declarations.push(
+          Object.freeze({
+            kind: "import_meta",
+            start: index,
+            end: index + 2,
+            specifierIndex: null,
+            wholeTypeOnly: false,
+            bindings: Object.freeze([]),
+          }),
+        );
+        continue;
+      }
       if (next?.value === "(") {
-        const specifier = tokens[index + 2];
-        if (specifier?.kind !== "string" || tokens[index + 3]?.value !== ")")
-          throw new Error(
-            "platform_provisioner_runtime_dependency_dynamic_unbound",
-          );
-        specifiers.push(specifier);
-        index += 3;
+        const closing = matchingTokenIndex(tokens, index + 1, "(", ")");
+        const specifierIndex =
+          closing === index + 3 && tokens[index + 2]?.kind === "string"
+            ? index + 2
+            : null;
+        declarations.push(
+          Object.freeze({
+            kind: "dynamic_import",
+            start: index,
+            end: closing,
+            specifierIndex,
+            wholeTypeOnly: false,
+            bindings: Object.freeze([]),
+          }),
+        );
+        index = closing;
         continue;
       }
       if (next?.kind === "string") {
-        specifiers.push(next);
+        declarations.push(
+          Object.freeze({
+            kind: "static_import",
+            start: index,
+            end: index + 1,
+            specifierIndex: index + 1,
+            wholeTypeOnly: false,
+            bindings: Object.freeze([]),
+          }),
+        );
         index += 1;
         continue;
       }
-      let found: SourceToken | null = null;
-      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
-        const candidate = tokens[cursor];
-        if (candidate?.value === ";") break;
-        if (candidate?.value === "=")
+      let cursor = index + 1;
+      const wholeTypeOnly = tokens[cursor]?.value === "type";
+      if (wholeTypeOnly) cursor += 1;
+      const bindings: ModuleDeclarationBinding[] = [];
+      if (tokens[cursor]?.kind === "identifier") {
+        if (tokens[cursor + 1]?.value === "=")
           throw new Error(
             "platform_provisioner_runtime_dependency_noncanonical",
           );
-        if (candidate?.value === "from") {
-          const value = tokens[cursor + 1];
-          if (value?.kind !== "string")
-            throw new Error(
-              "platform_provisioner_runtime_dependency_parse_failed",
-            );
-          found = value;
-          break;
-        }
+        bindings.push(
+          Object.freeze({
+            imported: "default",
+            local: tokens[cursor]?.value ?? "",
+            typeOnly: wholeTypeOnly,
+            localTokenIndex: cursor,
+          }),
+        );
+        cursor += 1;
+        if (tokens[cursor]?.value === ",") cursor += 1;
       }
-      if (!found)
+      if (tokens[cursor]?.value === "*") {
+        if (
+          tokens[cursor + 1]?.value !== "as" ||
+          tokens[cursor + 2]?.kind !== "identifier"
+        )
+          throw new Error(
+            "platform_provisioner_runtime_dependency_parse_failed",
+          );
+        bindings.push(
+          Object.freeze({
+            imported: "*",
+            local: tokens[cursor + 2]?.value ?? "",
+            typeOnly: wholeTypeOnly,
+            localTokenIndex: cursor + 2,
+          }),
+        );
+        cursor += 3;
+      } else if (tokens[cursor]?.value === "{") {
+        const closing = matchingTokenIndex(tokens, cursor, "{", "}");
+        bindings.push(
+          ...namedModuleBindings(tokens, cursor, closing, wholeTypeOnly),
+        );
+        cursor = closing + 1;
+      }
+      if (
+        tokens[cursor]?.value !== "from" ||
+        tokens[cursor + 1]?.kind !== "string"
+      )
         throw new Error("platform_provisioner_runtime_dependency_parse_failed");
-      specifiers.push(found);
+      declarations.push(
+        Object.freeze({
+          kind: "static_import",
+          start: index,
+          end: cursor + 1,
+          specifierIndex: cursor + 1,
+          wholeTypeOnly,
+          bindings: Object.freeze(bindings),
+        }),
+      );
+      index = cursor + 1;
     } else if (token.value === "export") {
-      const first = tokens[index + 1];
-      const reexportStart = first?.value === "type" ? tokens[index + 2] : first;
-      if (reexportStart?.value !== "*" && reexportStart?.value !== "{")
+      let cursor = index + 1;
+      const wholeTypeOnly = tokens[cursor]?.value === "type";
+      if (wholeTypeOnly) cursor += 1;
+      if (tokens[cursor]?.value !== "*" && tokens[cursor]?.value !== "{")
         continue;
-      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
-        const candidate = tokens[cursor];
-        if (candidate?.value === ";") break;
-        if (candidate?.value === "from") {
-          const value = tokens[cursor + 1];
-          if (value?.kind !== "string")
-            throw new Error(
-              "platform_provisioner_runtime_dependency_parse_failed",
-            );
-          specifiers.push(value);
-          break;
-        }
+      let bindings: readonly ModuleDeclarationBinding[] = Object.freeze([]);
+      if (tokens[cursor]?.value === "{") {
+        const closing = matchingTokenIndex(tokens, cursor, "{", "}");
+        bindings = namedModuleBindings(tokens, cursor, closing, wholeTypeOnly);
+        cursor = closing + 1;
+      } else {
+        cursor += 1;
+        if (tokens[cursor]?.value === "as") cursor += 2;
       }
+      const isReexport = tokens[cursor]?.value === "from";
+      if (isReexport && tokens[cursor + 1]?.kind !== "string")
+        throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+      declarations.push(
+        Object.freeze({
+          kind: isReexport ? "reexport" : "local_export",
+          start: index,
+          end: isReexport ? cursor + 1 : cursor - 1,
+          specifierIndex: isReexport ? cursor + 1 : null,
+          wholeTypeOnly,
+          bindings,
+        }),
+      );
+      if (isReexport) index = cursor + 1;
     }
   }
-  return Object.freeze(specifiers);
+  return Object.freeze(declarations);
+}
+
+function isExactRealProviderVerificationDynamicImport(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+  declaration: ModuleDeclaration,
+) {
+  return (
+    coordinatorRelativeSourcePath(relativePath) ===
+      "scripts/verify-project-runtime-real-providers.ts" &&
+    declaration.kind === "dynamic_import" &&
+    tokenSequenceMatches(tokens, declaration.start, [
+      "import",
+      "(",
+      "pathToFileURL",
+      "(",
+      "path",
+      ".",
+      "join",
+      "(",
+      "distributionRoot",
+      ",",
+      "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
+      ",",
+      ")",
+      ",",
+      ")",
+      ".",
+      "href",
+      ")",
+    ]) &&
+    declaration.end === declaration.start + 17
+  );
+}
+
+function assertLoaderCapabilityBoundary(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+  declarations: readonly ModuleDeclaration[],
+) {
+  const loaderReason = (index: number) =>
+    tokens
+      .slice(index, index + 24)
+      .some((token) => token.value === NODE_WORKER_THREADS_SPECIFIER)
+      ? "platform_provisioner_runtime_dependency_child_worker_unbound"
+      : "platform_provisioner_runtime_dependency_child_process_unbound";
+  const allowedDynamicImports = declarations.filter((declaration) =>
+    isExactRealProviderVerificationDynamicImport(
+      relativePath,
+      tokens,
+      declaration,
+    ),
+  );
+  if (allowedDynamicImports.length > 1)
+    throw new Error("platform_provisioner_runtime_dependency_loader_unbound");
+  for (const declaration of declarations) {
+    if (
+      declaration.kind === "dynamic_import" &&
+      declaration.specifierIndex === null &&
+      !allowedDynamicImports.includes(declaration)
+    )
+      throw new Error(loaderReason(declaration.start));
+    if (declaration.kind !== "static_import") continue;
+    for (const binding of declaration.bindings) {
+      if (!binding.typeOnly && binding.imported === "createRequire")
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
+    }
+  }
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (
+      token?.kind === "identifier" &&
+      (token.value === "require" || token.value === "getBuiltinModule")
+    )
+      throw new Error(loaderReason(index));
+  }
+}
+
+function moduleSpecifiersFromTokens(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+) {
+  const declarations = moduleDeclarationsFromTokens(tokens);
+  assertLoaderCapabilityBoundary(relativePath, tokens, declarations);
+  return Object.freeze(
+    declarations.flatMap((declaration) => {
+      if (
+        declaration.kind === "dynamic_import" &&
+        declaration.specifierIndex === null
+      ) {
+        if (
+          isExactRealProviderVerificationDynamicImport(
+            relativePath,
+            tokens,
+            declaration,
+          )
+        )
+          return [];
+        throw new Error(
+          "platform_provisioner_runtime_dependency_dynamic_unbound",
+        );
+      }
+      const specifier =
+        declaration.specifierIndex === null
+          ? null
+          : tokens[declaration.specifierIndex];
+      return specifier ? [specifier] : [];
+    }),
+  );
 }
 
 function tokenSequenceMatches(
@@ -814,126 +1105,35 @@ function selectedScriptProcessBindings(
       ? ([[NODE_WORKER_THREADS_SPECIFIER, new Set(["Worker"])]] as const)
       : []),
   ]);
-  for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index]?.value !== "import") continue;
-    const first = tokens[index + 1];
-    if (first?.value === "(") {
-      const dynamicSpecifier = tokens[index + 2];
+  for (const declaration of moduleDeclarationsFromTokens(tokens)) {
+    if (declaration.specifierIndex === null) continue;
+    const moduleToken = tokens[declaration.specifierIndex];
+    const allowedNames = allowedImports.get(moduleToken?.value ?? "");
+    if (!allowedNames) continue;
+    if (
+      declaration.kind === "reexport" &&
+      declaration.bindings.length > 0 &&
+      declaration.bindings.every((binding) => binding.typeOnly)
+    )
+      continue;
+    if (declaration.kind !== "static_import")
+      throw new Error("platform_provisioner_runtime_dependency_child_unbound");
+    for (const binding of declaration.bindings) {
+      if (binding.typeOnly) continue;
       if (
-        dynamicSpecifier?.kind === "string" &&
-        allowedImports.has(dynamicSpecifier.value)
+        binding.imported === "default" ||
+        binding.imported === "*" ||
+        binding.local !== binding.imported ||
+        !allowedNames.has(binding.imported)
       )
         throw new Error(
           "platform_provisioner_runtime_dependency_child_unbound",
         );
-      continue;
-    }
-    let fromIndex = index + 1;
-    while (
-      fromIndex < tokens.length &&
-      tokens[fromIndex]?.value !== "from" &&
-      tokens[fromIndex]?.value !== ";"
-    )
-      fromIndex += 1;
-    if (tokens[fromIndex]?.value !== "from") continue;
-    const moduleToken = tokens[fromIndex + 1];
-    if (moduleToken?.kind !== "string")
-      throw new Error("platform_provisioner_runtime_dependency_parse_failed");
-    const allowedNames = allowedImports.get(moduleToken.value);
-    if (!allowedNames) continue;
-    if (first?.value === "type") continue;
-    if (first?.value !== "{")
-      throw new Error("platform_provisioner_runtime_dependency_child_unbound");
-    let cursor = index + 2;
-    while (cursor < tokens.length && tokens[cursor]?.value !== "}") {
-      if (tokens[cursor]?.value === ",") {
-        cursor += 1;
-        continue;
-      }
-      const isTypeOnly = tokens[cursor]?.value === "type";
-      if (isTypeOnly) cursor += 1;
-      const imported = tokens[cursor];
-      if (imported?.kind !== "identifier")
-        throw new Error("platform_provisioner_runtime_dependency_parse_failed");
-      const importedIndex = cursor;
-      cursor += 1;
-      let local = imported.value;
-      let localIndex = importedIndex;
-      if (tokens[cursor]?.value === "as") {
-        const alias = tokens[cursor + 1];
-        if (alias?.kind !== "identifier")
-          throw new Error(
-            "platform_provisioner_runtime_dependency_parse_failed",
-          );
-        local = alias.value;
-        localIndex = cursor + 1;
-        cursor += 2;
-        if (!isTypeOnly)
-          throw new Error(
-            "platform_provisioner_runtime_dependency_child_unbound",
-          );
-      }
-      if (!isTypeOnly) {
-        if (!allowedNames.has(imported.value))
-          throw new Error(
-            "platform_provisioner_runtime_dependency_child_unbound",
-          );
-        bindings.set(local, imported.value);
-        declarationTokenIndices.add(localIndex);
-      }
-      if (tokens[cursor]?.value === ",") cursor += 1;
-    }
-    if (
-      tokens[cursor]?.value !== "}" ||
-      cursor + 1 !== fromIndex ||
-      tokens[fromIndex + 1]?.value !== moduleToken.value
-    ) {
-      throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+      bindings.set(binding.local, binding.imported);
+      declarationTokenIndices.add(binding.localTokenIndex);
     }
   }
   return Object.freeze({ bindings, declarationTokenIndices });
-}
-
-function isPureTypeReexportSpecifier(
-  tokens: readonly SourceToken[],
-  specifierIndex: number,
-) {
-  if (tokens[specifierIndex - 1]?.value !== "from") return false;
-  let start = specifierIndex - 2;
-  while (start >= 0 && tokens[start]?.value !== ";") start -= 1;
-  start += 1;
-  if (tokens[start]?.value !== "export") return false;
-  if (tokens[start + 1]?.value === "type") return true;
-  if (tokens[start + 1]?.value !== "{") return false;
-  const closing = specifierIndex - 2;
-  if (tokens[closing]?.value !== "}") return false;
-  let cursor = start + 2;
-  while (cursor < closing) {
-    if (tokens[cursor]?.value === ",") {
-      cursor += 1;
-      continue;
-    }
-    if (tokens[cursor]?.value !== "type") return false;
-    cursor += 1;
-    if (tokens[cursor]?.kind !== "identifier") return false;
-    cursor += 1;
-    if (tokens[cursor]?.value === "as") {
-      cursor += 1;
-      if (tokens[cursor]?.kind !== "identifier") return false;
-      cursor += 1;
-    }
-  }
-  return true;
-}
-
-function isCanonicalStaticImportSpecifier(
-  tokens: readonly SourceToken[],
-  specifierIndex: number,
-) {
-  if (tokens[specifierIndex - 1]?.value !== "from") return false;
-  let start = specifierIndex - 2;
-  while (start >= 0 && tokens[start]?.value !== ";") start -= 1;
-  return tokens[start + 1]?.value === "import";
 }
 
 function assertProtectedModuleSpecifierPositions(
@@ -942,6 +1142,21 @@ function assertProtectedModuleSpecifierPositions(
   canonicalSpecifier: string,
   reason: string,
 ) {
+  const allowedSpecifierIndices = new Set(
+    moduleDeclarationsFromTokens(tokens).flatMap((declaration) => {
+      if (
+        declaration.specifierIndex === null ||
+        (declaration.kind !== "static_import" &&
+          !(
+            declaration.kind === "reexport" &&
+            declaration.bindings.length > 0 &&
+            declaration.bindings.every((binding) => binding.typeOnly)
+          ))
+      )
+        return [];
+      return [declaration.specifierIndex];
+    }),
+  );
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (token?.kind !== "string" || !protectedSpecifiers.has(token.value))
@@ -949,8 +1164,7 @@ function assertProtectedModuleSpecifierPositions(
     if (
       token.value === canonicalSpecifier &&
       !token.escaped &&
-      (isCanonicalStaticImportSpecifier(tokens, index) ||
-        isPureTypeReexportSpecifier(tokens, index))
+      allowedSpecifierIndices.has(index)
     )
       continue;
     throw new Error(reason);
@@ -966,35 +1180,198 @@ function assertChildProcessModuleBoundary(tokens: readonly SourceToken[]) {
   );
 }
 
-const runtimeChildProcessOwnerPrimitives = new Map<string, ReadonlySet<string>>(
+type RuntimeExternalProcessCallsite = Readonly<{
+  source: string;
+  containingFunction: string;
+  primitive: string;
+  executablePrefix: readonly string[];
+  argvPrefix: readonly string[];
+  authorityProof?: readonly string[];
+}>;
+
+const runtimeExternalProcessCallsites = Object.freeze(
   [
     [
       "src/core/runtime-local-typescript-child-entrypoints.ts",
-      new Set(["spawn"]),
+      "spawnRuntimeLocalTypeScriptChild",
+      "spawn",
+      ["process", ".", "execPath"],
+      ["[", "entrypoint", ".", "filePath"],
     ],
-    ["src/security/candidate-store-windows-adapter.ts", new Set(["spawnSync"])],
-    ["src/security/docker-desktop-repair-native-helper.ts", new Set(["spawn"])],
-    ["src/security/docker-desktop-runtime-repair.ts", new Set(["spawnSync"])],
-    ["src/security/docker-owned-process.ts", new Set(["spawn"])],
-    ["src/security/docker-isolation.ts", new Set(["spawn", "spawnSync"])],
+    [
+      "src/security/candidate-store-windows-adapter.ts",
+      "inspectRuntimeOwnedWindowsProtectedRoot",
+      "spawnSync",
+      ["selectedExecutable"],
+      ["[", "]"],
+      ["const", "selectedExecutable", "="],
+    ],
+    [
+      "src/security/provider-home-windows-adapter.ts",
+      "inspectRuntimeOwnedWindowsProviderHomeCandidate",
+      "spawnSync",
+      ["selectedExecutable"],
+      ["[", "]"],
+      ["const", "selectedExecutable", "="],
+    ],
+    [
+      "src/security/docker-desktop-repair-native-helper.ts",
+      "acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+      "spawn",
+      ["executablePath"],
+      ["[", "--docker-desktop-repair-helper"],
+      ["const", "executablePath", "="],
+    ],
+    [
+      "src/security/docker-desktop-runtime-repair.ts",
+      "observeEngine",
+      "spawnSync",
+      ["cli", ".", "path"],
+      ["[", "--host"],
+      ["const", "cli", "="],
+    ],
+    [
+      "src/security/docker-desktop-runtime-repair.ts",
+      "officialShutdown",
+      "spawnSync",
+      ["cli", ".", "path"],
+      ["[", "-Shutdown"],
+      ["const", "cli", "="],
+    ],
+    [
+      "src/security/docker-desktop-runtime-repair.ts",
+      "terminateDockerWsl",
+      "spawnSync",
+      ["executable"],
+      ["[", "--terminate"],
+      ["const", "executable", "="],
+    ],
+    [
+      "src/security/docker-owned-process.ts",
+      "startOwnedProcess",
+      "spawn",
+      ["executable"],
+      ["[", ".", ".", ".", "argv"],
+    ],
+    [
+      "src/security/docker-owned-process.ts",
+      "terminateAndWait",
+      "spawn",
+      ["TASKKILL_EXECUTABLE"],
+      ["[", "/PID"],
+    ],
+    [
+      "src/security/docker-isolation.ts",
+      "executeDocker",
+      "spawnSync",
+      ["executable"],
+      ["args"],
+      ["const", "executable", "=", "verifyTrustedDockerCliCapability"],
+    ],
+    [
+      "src/security/docker-isolation.ts",
+      "startOwnedAttachedProcess",
+      "spawn",
+      ["executable"],
+      ["args"],
+    ],
     [
       "src/security/docker-recovery-runtime-internal.ts",
-      new Set(["spawnSync"]),
+      "runRecoveryDocker",
+      "spawnSync",
+      ["DOCKER_EXECUTABLE"],
+      ["[", "--host"],
+      ["verifyRecoveryDockerCli", "(", ")"],
     ],
-    ["src/security/provider-home-windows-adapter.ts", new Set(["spawnSync"])],
-    ["scripts/check-dynamic-fake-provider-coverage.ts", new Set(["spawnSync"])],
-    ["scripts/check-platform-access-coverage.ts", new Set(["spawnSync"])],
-    ["scripts/check-platform-access-ts-coverage.ts", new Set(["spawnSync"])],
-    ["scripts/check-provider-authority-coverage.ts", new Set(["spawnSync"])],
-    ["scripts/check-provider-home-coverage.ts", new Set(["spawnSync"])],
-    ["scripts/verify-project-runtime-real-providers.ts", new Set(["spawn"])],
-    ["scripts/verify-signed-recovery-matrix.ts", new Set(["spawnSync"])],
+    [
+      "scripts/check-dynamic-fake-provider-coverage.ts",
+      "inspectOnce",
+      "spawnSync",
+      ["process", ".", "execPath"],
+      ["["],
+    ],
+    [
+      "scripts/check-platform-access-coverage.ts",
+      "executeCommand",
+      "spawnSync",
+      ["command"],
+      ["[", ".", ".", ".", "commandArguments"],
+    ],
+    [
+      "scripts/check-platform-access-ts-coverage.ts",
+      "inspectPlatformAccessTsCoverage",
+      "spawnSync",
+      ["process", ".", "execPath"],
+      ["["],
+    ],
+    [
+      "scripts/check-provider-authority-coverage.ts",
+      "inspectOnce",
+      "spawnSync",
+      ["process", ".", "execPath"],
+      ["["],
+    ],
+    [
+      "scripts/check-provider-home-coverage.ts",
+      "inspectOnce",
+      "spawnSync",
+      ["process", ".", "execPath"],
+      ["["],
+    ],
+    [
+      "scripts/verify-project-runtime-real-providers.ts",
+      "startPublicMcpProcess",
+      "spawn",
+      ["process", ".", "execPath"],
+      ["["],
+    ],
+    [
+      "scripts/verify-signed-recovery-matrix.ts",
+      "verifyParentLossThenRecover",
+      "spawnSync",
+      ["path", ".", "join"],
+      ["["],
+    ],
     [
       "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
-      new Set(["execFileSync"]),
+      "observeExactRepositoryRoot",
+      "execFileSync",
+      ["git"],
+      ["[", "-C"],
     ],
-  ],
+  ].map(
+    ([
+      source,
+      containingFunction,
+      primitive,
+      executablePrefix,
+      argvPrefix,
+      authorityProof,
+    ]) =>
+      Object.freeze({
+        source,
+        containingFunction,
+        primitive,
+        executablePrefix: Object.freeze(executablePrefix),
+        argvPrefix: Object.freeze(argvPrefix),
+        ...(authorityProof
+          ? { authorityProof: Object.freeze(authorityProof) }
+          : {}),
+      }) as RuntimeExternalProcessCallsite,
+  ),
 );
+
+const runtimeChildProcessOwnerPrimitives = new Map<
+  string,
+  ReadonlySet<string>
+>();
+for (const callsite of runtimeExternalProcessCallsites) {
+  const primitives = new Set(
+    runtimeChildProcessOwnerPrimitives.get(callsite.source) ?? [],
+  );
+  primitives.add(callsite.primitive);
+  runtimeChildProcessOwnerPrimitives.set(callsite.source, primitives);
+}
 
 function coordinatorRelativeSourcePath(relativePath: string) {
   const prefix = "40_Develop/coordinator/";
@@ -1064,13 +1441,18 @@ function selectedScriptChildModuleTargets(
         "[",
       ])
     ) {
-      const target = scriptChildTargetFromTokens(
-        relativePath,
-        tokens,
-        index + 7,
-      );
-      if (target) targets.push(target);
-      accountedUses.add(index);
+      try {
+        const target = scriptChildTargetFromTokens(
+          relativePath,
+          tokens,
+          index + 7,
+        );
+        if (target) targets.push(target);
+        accountedUses.add(index);
+      } catch {
+        // Calls with a compound argv are owned by the exact external-process
+        // call-site boundary rather than by the single-entrypoint projection.
+      }
     } else if (
       imported === "spawnSync" &&
       tokens[index + 1]?.value === "(" &&
@@ -1097,17 +1479,19 @@ function selectedScriptChildModuleTargets(
       );
       if (target) targets.push(target);
       accountedUses.add(index);
-    } else
+    } else if (imported === "fork" || imported === "Worker")
       throw new Error("platform_provisioner_runtime_dependency_child_unbound");
   }
   if (
-    [...processBindings.bindings.keys()].some((local) =>
-      tokens.some(
-        (token, index) =>
-          token.value === local &&
-          !processBindings.declarationTokenIndices.has(index) &&
-          !accountedUses.has(index),
-      ),
+    [...processBindings.bindings.entries()].some(
+      ([local, imported]) =>
+        (imported === "fork" || imported === "Worker") &&
+        tokens.some(
+          (token, index) =>
+            token.value === local &&
+            !processBindings.declarationTokenIndices.has(index) &&
+            !accountedUses.has(index),
+        ),
     )
   )
     throw new Error("platform_provisioner_runtime_dependency_child_unbound");
@@ -1269,85 +1653,26 @@ function usedLocalTypeScriptChildRoleKinds(
   const uses: Array<Readonly<{ role: string; kind: "worker" | "spawn" }>> = [];
   const importedWrappers = new Set<string>();
   const declarationIndices = new Set<number>();
-  for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index]?.value === "export") {
-      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
-        if (tokens[cursor]?.value === ";") break;
-        if (tokens[cursor]?.value !== "from") continue;
-        const specifier = tokens[cursor + 1];
-        if (
-          specifier?.kind === "string" &&
-          specifier.value.startsWith(".") &&
-          localTypeScriptChildModulePaths.has(
-            canonicalRelativeModuleTarget(relativePath, specifier.value) ?? "",
-          )
-        )
-          throw new Error(
-            "platform_provisioner_runtime_dependency_child_use_noncanonical",
-          );
-        break;
-      }
-    }
-    if (tokens[index]?.value !== "import") continue;
-    if (tokens[index + 1]?.value === "(") {
-      const specifier = tokens[index + 2];
-      if (
-        specifier?.kind === "string" &&
-        specifier.value.startsWith(".") &&
-        localTypeScriptChildModulePaths.has(
-          canonicalRelativeModuleTarget(relativePath, specifier.value) ?? "",
-        )
-      )
-        throw new Error(
-          "platform_provisioner_runtime_dependency_child_use_noncanonical",
-        );
+  for (const declaration of moduleDeclarationsFromTokens(tokens)) {
+    const specifier =
+      declaration.specifierIndex === null
+        ? undefined
+        : tokens[declaration.specifierIndex];
+    if (specifier?.kind !== "string" || !specifier.value.startsWith("."))
       continue;
-    }
-    let fromIndex = index + 1;
-    while (
-      fromIndex < tokens.length &&
-      tokens[fromIndex]?.value !== "from" &&
-      tokens[fromIndex]?.value !== ";"
-    )
-      fromIndex += 1;
-    if (tokens[fromIndex]?.value !== "from") continue;
-    const specifier = tokens[fromIndex + 1];
-    if (
-      specifier?.kind !== "string" ||
-      !specifier.value.startsWith(".") ||
-      !localTypeScriptChildModulePaths.has(
-        canonicalRelativeModuleTarget(relativePath, specifier.value) ?? "",
-      )
-    )
-      continue;
-    if (tokens[index + 1]?.value === "type" || tokens[index + 1]?.value !== "{")
+    const target = canonicalRelativeModuleTarget(relativePath, specifier.value);
+    if (!target || !localTypeScriptChildModulePaths.has(target)) continue;
+    if (declaration.kind !== "static_import")
       throw new Error(
         "platform_provisioner_runtime_dependency_child_use_noncanonical",
       );
-    const closingBrace = fromIndex - 1;
-    if (tokens[closingBrace]?.value !== "}")
-      throw new Error(
-        "platform_provisioner_runtime_dependency_child_use_noncanonical",
-      );
-    for (let cursor = index + 2; cursor < closingBrace; cursor += 1) {
-      const token = tokens[cursor];
-      if (!token || token.value === ",") continue;
-      if (token.value === "type")
-        throw new Error(
-          "platform_provisioner_runtime_dependency_child_use_noncanonical",
-        );
-      if (token.value === "as")
-        throw new Error(
-          "platform_provisioner_runtime_dependency_child_use_noncanonical",
-        );
-      if (token.kind !== "identifier")
-        throw new Error(
-          "platform_provisioner_runtime_dependency_child_use_noncanonical",
-        );
-      const isWrapper = localTypeScriptChildWrapperKinds.has(token.value);
+    for (const binding of declaration.bindings) {
+      const isWrapper = localTypeScriptChildWrapperKinds.has(binding.imported);
       const isObserverProjection =
-        token.value === localTypeScriptChildRegistrySnapshotName;
+        binding.imported === localTypeScriptChildRegistrySnapshotName;
       if (
+        binding.typeOnly ||
+        binding.local !== binding.imported ||
         (!isWrapper && !isObserverProjection) ||
         (isObserverProjection &&
           !localTypeScriptChildObserverPaths.has(relativePath)) ||
@@ -1356,8 +1681,8 @@ function usedLocalTypeScriptChildRoleKinds(
         throw new Error(
           "platform_provisioner_runtime_dependency_child_use_noncanonical",
         );
-      if (isWrapper) importedWrappers.add(token.value);
-      declarationIndices.add(cursor);
+      if (isWrapper) importedWrappers.add(binding.local);
+      declarationIndices.add(binding.localTokenIndex);
     }
   }
   for (let index = 0; index < tokens.length; index += 1) {
@@ -1482,41 +1807,366 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
   }
 }
 
+type InternalLifecycleCall = Readonly<{
+  symbol: string;
+  containingFunction: string;
+  argumentPrefixes: readonly (readonly string[])[];
+  beforePrefixes?: readonly (readonly string[])[];
+  afterPrefixes?: readonly (readonly string[])[];
+}>;
+
 const internalLifecycleConsumers = Object.freeze(
-  new Map<string, ReadonlySet<string>>([
+  new Map<
+    string,
+    Readonly<{
+      leaf: string;
+      calls: readonly InternalLifecycleCall[];
+    }>
+  >([
     [
       "src/core/interactive-console-reader-lifecycle-internal.ts",
-      new Set(["src/core/interactive-console.ts"]),
+      Object.freeze({
+        leaf: "src/core/interactive-console.ts",
+        calls: Object.freeze([
+          Object.freeze({
+            symbol: "runInteractiveConsoleReaderLifecycle",
+            containingFunction: "readInteractiveConsoleLineOutcome",
+            argumentPrefixes: Object.freeze([
+              Object.freeze([
+                "Object",
+                ".",
+                "freeze",
+                "(",
+                "{",
+                "inputDescriptor",
+                "}",
+              ]),
+              Object.freeze(["cancellationSignal"]),
+              Object.freeze(["child"]),
+              Object.freeze([
+                "Object",
+                ".",
+                "freeze",
+                "(",
+                "{",
+                "setTimeout",
+                ",",
+                "clearTimeout",
+                "}",
+              ]),
+            ]),
+            beforePrefixes: Object.freeze([
+              Object.freeze([
+                "tty",
+                ".",
+                "isatty",
+                "(",
+                "inputDescriptor",
+                ")",
+              ]),
+              Object.freeze([
+                "child",
+                "=",
+                "spawnRuntimeLocalTypeScriptChild",
+                "(",
+                "interactive_console_reader",
+              ]),
+            ]),
+            afterPrefixes: Object.freeze([
+              Object.freeze([".", "then", "(", "(", "outcome", ")", "=>"]),
+            ]),
+          }),
+        ]),
+      }),
     ],
     [
       "src/security/candidate-store-kernel-lock-lifecycle-internal.ts",
-      new Set(["src/security/candidate-store-kernel-lock.ts"]),
+      Object.freeze({
+        leaf: "src/security/candidate-store-kernel-lock.ts",
+        calls: Object.freeze([
+          Object.freeze({
+            symbol: "prepareInteractiveConsoleKernelLockRequest",
+            containingFunction:
+              "acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome",
+            argumentPrefixes: Object.freeze([]),
+            beforePrefixes: Object.freeze([
+              Object.freeze(["const", "request", "="]),
+            ]),
+          }),
+          Object.freeze({
+            symbol: "runInteractiveConsoleKernelLockLifecycle",
+            containingFunction:
+              "acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome",
+            argumentPrefixes: Object.freeze([
+              Object.freeze(["worker"]),
+              Object.freeze(["request", ".", "sharedState"]),
+            ]),
+            beforePrefixes: Object.freeze([
+              Object.freeze([
+                "worker",
+                "=",
+                "createRuntimeLocalTypeScriptWorker",
+                "(",
+                "candidate_store_lock_worker",
+              ]),
+            ]),
+          }),
+          Object.freeze({
+            symbol: "runHostOperationSupervisorLifecycle",
+            containingFunction:
+              "acquireRuntimeOwnedHostOperationSupervisorLock",
+            argumentPrefixes: Object.freeze([
+              Object.freeze(["request"]),
+              Object.freeze(["child"]),
+            ]),
+            beforePrefixes: Object.freeze([
+              Object.freeze([
+                "child",
+                "=",
+                "spawnRuntimeLocalTypeScriptChild",
+                "(",
+                "host_operation_lock_supervisor",
+              ]),
+            ]),
+          }),
+        ]),
+      }),
     ],
     [
       "src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts",
-      new Set(["src/security/docker-desktop-repair-native-helper.ts"]),
+      Object.freeze({
+        leaf: "src/security/docker-desktop-repair-native-helper.ts",
+        calls: Object.freeze([
+          Object.freeze({
+            symbol: "createDockerDesktopRepairNativeHelperLifecycle",
+            containingFunction:
+              "acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+            argumentPrefixes: Object.freeze([
+              Object.freeze(["child"]),
+              Object.freeze(["policy", ".", "policySha256"]),
+            ]),
+            beforePrefixes: Object.freeze([
+              Object.freeze(["const", "signingObservation", "="]),
+              Object.freeze(["child", "=", "spawn", "(", "executablePath"]),
+            ]),
+            afterPrefixes: Object.freeze([
+              Object.freeze([
+                "const",
+                "initial",
+                "=",
+                "await",
+                "created",
+                ".",
+                "waitForInitial",
+              ]),
+            ]),
+          }),
+        ]),
+      }),
     ],
   ]),
 );
+
+type ProcessWrapperUse = Readonly<{
+  source: string;
+  containingFunction: string | null;
+  prefix: readonly string[];
+}>;
+
+const processWrapperConsumers = Object.freeze(
+  new Map<
+    string,
+    Readonly<{
+      target: string;
+      exported: boolean;
+      uses: readonly ProcessWrapperUse[];
+    }>
+  >([
+    [
+      "startOwnedProcess",
+      Object.freeze({
+        target: "src/security/docker-owned-process.ts",
+        exported: true,
+        uses: Object.freeze([
+          Object.freeze({
+            source: "src/security/docker-owned-process.ts",
+            containingFunction: "startOwnedWindowsProcessTreeTermination",
+            prefix: Object.freeze([
+              "startOwnedProcess",
+              "(",
+              "TASKKILL_EXECUTABLE",
+              ",",
+              "[",
+            ]),
+          }),
+          Object.freeze({
+            source: "src/security/docker-effect-runtime.ts",
+            containingFunction: null,
+            prefix: Object.freeze([
+              ",",
+              "startProcess",
+              ":",
+              "startOwnedProcess",
+              ",",
+            ]),
+          }),
+        ]),
+      }),
+    ],
+    [
+      "startOwnedAttachedProcess",
+      Object.freeze({
+        target: "src/security/docker-isolation.ts",
+        exported: false,
+        uses: Object.freeze([
+          Object.freeze({
+            source: "src/security/docker-isolation.ts",
+            containingFunction: "startAttachedDockerCommand",
+            prefix: Object.freeze([
+              "startOwnedAttachedProcess",
+              "(",
+              "executable",
+              ",",
+              "[",
+            ]),
+          }),
+          Object.freeze({
+            source: "src/security/docker-isolation.ts",
+            containingFunction: "verifyOwnedAttachTerminationForFixture",
+            prefix: Object.freeze([
+              "startOwnedAttachedProcess",
+              "(",
+              "process",
+              ".",
+              "execPath",
+              ",",
+              "[",
+            ]),
+          }),
+        ]),
+      }),
+    ],
+    [
+      "executeCommand",
+      Object.freeze({
+        target: "scripts/check-platform-access-coverage.ts",
+        exported: false,
+        uses: Object.freeze([
+          Object.freeze({
+            source: "scripts/check-platform-access-coverage.ts",
+            containingFunction: "llvmTool",
+            prefix: Object.freeze(["executeCommand", "(", "rustc", ",", "["]),
+          }),
+          Object.freeze({
+            source: "scripts/check-platform-access-coverage.ts",
+            containingFunction: null,
+            prefix: Object.freeze(["executeCommand", "(", "cargo", ",", "["]),
+          }),
+          Object.freeze({
+            source: "scripts/check-platform-access-coverage.ts",
+            containingFunction: null,
+            prefix: Object.freeze([
+              "executeCommand",
+              "(",
+              "llvmTool",
+              "(",
+              "llvm-profdata",
+            ]),
+          }),
+          Object.freeze({
+            source: "scripts/check-platform-access-coverage.ts",
+            containingFunction: null,
+            prefix: Object.freeze([
+              "executeCommand",
+              "(",
+              "llvmTool",
+              "(",
+              "llvm-cov",
+            ]),
+          }),
+        ]),
+      }),
+    ],
+  ]),
+);
+
+function containingNamedFunction(
+  tokens: readonly SourceToken[],
+  tokenIndex: number,
+) {
+  let selected: Readonly<{
+    name: string;
+    opening: number;
+    closing: number;
+  }> | null = null;
+  for (let index = 0; index < tokenIndex; index += 1) {
+    if (
+      tokens[index]?.value !== "function" ||
+      tokens[index + 1]?.kind !== "identifier" ||
+      tokens[index + 2]?.value !== "("
+    )
+      continue;
+    const parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+    let bodyStart = parametersEnd + 1;
+    while (bodyStart < tokenIndex) {
+      if (
+        tokens[bodyStart]?.value === "{" &&
+        tokens[bodyStart - 1]?.value !== "<" &&
+        tokens[bodyStart - 1]?.value !== ":"
+      )
+        break;
+      bodyStart += 1;
+    }
+    if (tokens[bodyStart]?.value !== "{") continue;
+    const bodyEnd = matchingTokenIndex(tokens, bodyStart, "{", "}");
+    if (
+      tokenIndex > bodyStart &&
+      tokenIndex < bodyEnd &&
+      (!selected || bodyStart > selected.opening)
+    )
+      selected = Object.freeze({
+        name: tokens[index + 1]?.value ?? "",
+        opening: bodyStart,
+        closing: bodyEnd,
+      });
+  }
+  return selected;
+}
+
+function argumentMatchesPrefix(
+  tokens: readonly SourceToken[],
+  argumentStart: number | undefined,
+  prefix: readonly string[],
+) {
+  return (
+    argumentStart !== undefined &&
+    tokenSequenceMatches(tokens, argumentStart, prefix)
+  );
+}
+
+function tokenSequenceExistsBetween(
+  tokens: readonly SourceToken[],
+  start: number,
+  end: number,
+  sequence: readonly string[],
+) {
+  for (let index = start; index + sequence.length <= end; index += 1) {
+    if (tokenSequenceMatches(tokens, index, sequence)) return true;
+  }
+  return false;
+}
 
 function assertInternalLifecycleConsumerBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
 ) {
-  for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index]?.value !== "import" && tokens[index]?.value !== "export")
-      continue;
-    let fromIndex = index + 1;
-    while (
-      fromIndex < tokens.length &&
-      tokens[fromIndex]?.value !== "from" &&
-      tokens[fromIndex]?.value !== ";"
-    )
-      fromIndex += 1;
-    const dynamic =
-      tokens[index]?.value === "import" && tokens[index + 1]?.value === "(";
-    const specifierIndex = dynamic ? index + 2 : fromIndex + 1;
-    const specifier = tokens[specifierIndex];
+  const sourcePath = coordinatorRelativeSourcePath(relativePath);
+  const importedDeclarations = new Map<string, Set<number>>();
+  for (const declaration of moduleDeclarationsFromTokens(tokens)) {
+    const specifier =
+      declaration.specifierIndex === null
+        ? undefined
+        : tokens[declaration.specifierIndex];
     if (specifier?.kind !== "string" || !specifier.value.startsWith("."))
       continue;
     const resolvedTarget = canonicalRelativeModuleTarget(
@@ -1527,67 +2177,191 @@ function assertInternalLifecycleConsumerBoundary(
       ? coordinatorRelativeSourcePath(resolvedTarget)
       : null;
     if (!target || !internalLifecycleConsumers.has(target)) continue;
-    const sourcePath = coordinatorRelativeSourcePath(relativePath);
+    const capability = internalLifecycleConsumers.get(target);
     if (
-      dynamic ||
-      tokens[index]?.value !== "import" ||
-      !internalLifecycleConsumers.get(target)?.has(sourcePath) ||
-      tokens[index + 1]?.value !== "{" ||
-      tokens[fromIndex - 1]?.value !== "}"
+      !capability ||
+      declaration.kind !== "static_import" ||
+      capability.leaf !== sourcePath
     )
       throw new Error(
         "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
       );
-    for (let cursor = index + 2; cursor < fromIndex - 1; cursor += 1) {
-      if (tokens[cursor]?.value === ",") continue;
+    const expectedSymbols = new Set(
+      capability.calls.map((call) => call.symbol),
+    );
+    const declarationIndices = new Set<number>();
+    for (const binding of declaration.bindings) {
       if (
-        tokens[cursor]?.kind !== "identifier" ||
-        tokens[cursor]?.value === "as" ||
-        tokens[cursor - 1]?.value === "as"
+        binding.typeOnly ||
+        binding.imported !== binding.local ||
+        !expectedSymbols.has(binding.imported)
       )
         throw new Error(
           "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
         );
+      declarationIndices.add(binding.localTokenIndex);
     }
+    if (declarationIndices.size !== expectedSymbols.size)
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
+      );
+    importedDeclarations.set(target, declarationIndices);
+  }
+  for (const [target, capability] of internalLifecycleConsumers) {
+    if (sourcePath === target) continue;
+    const declarationIndices = importedDeclarations.get(target) ?? new Set();
+    const observed = new Map<string, number>();
+    for (let index = 0; index < tokens.length; index += 1) {
+      if (tokens[index]?.kind !== "identifier") continue;
+      const symbol = tokens[index]?.value ?? "";
+      const call = capability.calls.find(
+        (candidate) => candidate.symbol === symbol,
+      );
+      if (!call || declarationIndices.has(index)) continue;
+      if (sourcePath !== capability.leaf)
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
+        );
+      const owner = containingNamedFunction(tokens, index);
+      const argumentStarts =
+        tokens[index + 1]?.value === "("
+          ? directCallArgumentStarts(tokens, index + 1)
+          : Object.freeze([]);
+      if (
+        tokens[index - 1]?.value === "." ||
+        tokens[index + 1]?.value !== "(" ||
+        owner?.name !== call.containingFunction ||
+        argumentStarts.length !== call.argumentPrefixes.length ||
+        !call.argumentPrefixes.every((prefix, argumentIndex) =>
+          argumentMatchesPrefix(tokens, argumentStarts[argumentIndex], prefix),
+        ) ||
+        (call.beforePrefixes !== undefined &&
+          !call.beforePrefixes.every((prefix) =>
+            tokenSequenceExistsBetween(
+              tokens,
+              owner?.opening ?? 0,
+              index,
+              prefix,
+            ),
+          )) ||
+        (call.afterPrefixes !== undefined &&
+          !call.afterPrefixes.every((prefix) =>
+            tokenSequenceExistsBetween(
+              tokens,
+              index + 1,
+              owner?.closing ?? 0,
+              prefix,
+            ),
+          ))
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
+        );
+      observed.set(symbol, (observed.get(symbol) ?? 0) + 1);
+    }
+    if (
+      sourcePath === capability.leaf &&
+      declarationIndices.size > 0 &&
+      capability.calls.some((call) => observed.get(call.symbol) !== 1)
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
+      );
   }
 }
 
-function workerThreadImportNames(
+function assertProcessWrapperConsumerBoundary(
+  relativePath: string,
   tokens: readonly SourceToken[],
-  importIndex: number,
 ) {
-  if (tokens[importIndex + 1]?.value === "(")
-    throw new Error(
-      "platform_provisioner_runtime_dependency_child_worker_unbound",
+  const sourcePath = coordinatorRelativeSourcePath(relativePath);
+  const importedIndices = new Map<string, Set<number>>();
+  for (const declaration of moduleDeclarationsFromTokens(tokens)) {
+    if (declaration.specifierIndex === null) continue;
+    const specifier = tokens[declaration.specifierIndex];
+    if (specifier?.kind !== "string" || !specifier.value.startsWith("."))
+      continue;
+    const resolved = canonicalRelativeModuleTarget(
+      relativePath,
+      specifier.value,
     );
-  let closingBrace = importIndex + 2;
-  while (
-    closingBrace < tokens.length &&
-    tokens[closingBrace]?.value !== "}" &&
-    tokens[closingBrace]?.value !== ";"
-  )
-    closingBrace += 1;
-  if (
-    tokens[importIndex + 1]?.value !== "{" ||
-    tokens[closingBrace]?.value !== "}" ||
-    tokens[closingBrace + 1]?.value !== "from"
-  )
-    throw new Error(
-      "platform_provisioner_runtime_dependency_child_worker_unbound",
-    );
-  const names = new Map<string, boolean>();
-  for (let cursor = importIndex + 2; cursor < closingBrace; cursor += 1) {
-    if (tokens[cursor]?.value === ",") continue;
-    const isType = tokens[cursor]?.value === "type";
-    if (isType) cursor += 1;
-    const imported = tokens[cursor];
-    if (imported?.kind !== "identifier" || tokens[cursor + 1]?.value === "as")
-      throw new Error(
-        "platform_provisioner_runtime_dependency_child_worker_unbound",
+    const target = resolved ? coordinatorRelativeSourcePath(resolved) : null;
+    for (const [symbol, capability] of processWrapperConsumers) {
+      if (target !== capability.target) continue;
+      const relevantBindings = declaration.bindings.filter(
+        (binding) => binding.imported === symbol || binding.local === symbol,
       );
-    names.set(imported.value, isType);
+      if (relevantBindings.length === 0) continue;
+      const allowedConsumer = capability.uses.some(
+        (use) => use.source === sourcePath,
+      );
+      if (declaration.kind !== "static_import" || !allowedConsumer)
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
+      for (const binding of relevantBindings) {
+        if (
+          binding.typeOnly ||
+          binding.imported !== symbol ||
+          binding.local !== symbol
+        )
+          throw new Error(
+            "platform_provisioner_runtime_dependency_child_process_unbound",
+          );
+        const indices = importedIndices.get(symbol) ?? new Set<number>();
+        indices.add(binding.localTokenIndex);
+        importedIndices.set(symbol, indices);
+      }
+    }
   }
-  return names;
+  for (const [symbol, capability] of processWrapperConsumers) {
+    const observed = new Map<ProcessWrapperUse, number>();
+    for (let index = 0; index < tokens.length; index += 1) {
+      if (
+        tokens[index]?.kind !== "identifier" ||
+        tokens[index]?.value !== symbol
+      )
+        continue;
+      if (importedIndices.get(symbol)?.has(index)) continue;
+      if (tokens[index - 1]?.value === "function") {
+        if (
+          sourcePath !== capability.target ||
+          (capability.exported && tokens[index - 2]?.value !== "export") ||
+          (!capability.exported && tokens[index - 2]?.value === "export")
+        )
+          throw new Error(
+            "platform_provisioner_runtime_dependency_child_process_unbound",
+          );
+        continue;
+      }
+      const owner = containingNamedFunction(tokens, index);
+      const matching = capability.uses.filter((use) => {
+        const symbolOffset = use.prefix.indexOf(symbol);
+        return (
+          use.source === sourcePath &&
+          use.containingFunction === (owner?.name ?? null) &&
+          symbolOffset >= 0 &&
+          tokenSequenceMatches(tokens, index - symbolOffset, use.prefix)
+        );
+      });
+      if (matching.length !== 1)
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
+      const matched = matching[0] as ProcessWrapperUse;
+      observed.set(matched, (observed.get(matched) ?? 0) + 1);
+    }
+    const expectedUses = capability.uses.filter(
+      (use) => use.source === sourcePath,
+    );
+    if (
+      (sourcePath === capability.target || importedIndices.has(symbol)) &&
+      expectedUses.some((use) => observed.get(use) !== 1)
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_process_unbound",
+      );
+  }
 }
 
 function assertWorkerCreationImportBoundary(
@@ -1600,28 +2374,43 @@ function assertWorkerCreationImportBoundary(
     NODE_WORKER_THREADS_SPECIFIER,
     "platform_provisioner_runtime_dependency_child_worker_unbound",
   );
-  for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index]?.value !== "import") continue;
-    let specifier: SourceToken | undefined;
-    if (tokens[index + 1]?.value === "(") specifier = tokens[index + 2];
-    else {
-      let fromIndex = index + 1;
-      while (
-        fromIndex < tokens.length &&
-        tokens[fromIndex]?.value !== "from" &&
-        tokens[fromIndex]?.value !== ";"
-      )
-        fromIndex += 1;
-      if (tokens[fromIndex]?.value === "from")
-        specifier = tokens[fromIndex + 1];
-    }
+  for (const declaration of moduleDeclarationsFromTokens(tokens)) {
+    const specifier =
+      declaration.specifierIndex === null
+        ? undefined
+        : tokens[declaration.specifierIndex];
     if (
       specifier?.kind !== "string" ||
       specifier.value !== NODE_WORKER_THREADS_SPECIFIER
     )
       continue;
-    const names = workerThreadImportNames(tokens, index);
-    if ([...names.values()].every((isType) => isType)) continue;
+    const names = new Map(
+      declaration.bindings.map((binding) => [
+        binding.imported,
+        binding.typeOnly,
+      ]),
+    );
+    if (
+      [...names.values()].every((isType) => isType) &&
+      (declaration.kind === "static_import" || declaration.kind === "reexport")
+    )
+      continue;
+    if (declaration.kind !== "static_import")
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_worker_unbound",
+      );
+    if (
+      declaration.bindings.some(
+        (binding) =>
+          !binding.typeOnly &&
+          (binding.imported === "default" ||
+            binding.imported === "*" ||
+            binding.local !== binding.imported),
+      )
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_worker_unbound",
+      );
     if (localTypeScriptChildModulePaths.has(relativePath)) {
       if (
         names.size !== 2 ||
@@ -1649,82 +2438,6 @@ function assertWorkerCreationImportBoundary(
   }
 }
 
-function classifyNodeSelfExecutableArgument(
-  tokens: readonly SourceToken[],
-  start: number,
-) {
-  while (tokens[start]?.value === "(") start += 1;
-  const token = tokens[start];
-  if (
-    token?.kind === "string" &&
-    ["node", "node.exe"].includes(token.value.toLowerCase())
-  )
-    return "node_self" as const;
-  const knownNodeSelfForms = [
-    ["process", ".", "execPath"],
-    ["process", "?.", "execPath"],
-    ["process", "[", "execPath", "]"],
-    ["process", "?.", "[", "execPath", "]"],
-    ["process", ".", "argv0"],
-    ["process", "?.", "argv0"],
-    ["process", "[", "argv0", "]"],
-    ["process", "?.", "[", "argv0", "]"],
-    ["process", ".", "argv", "[", "0", "]"],
-    ["process", "?.", "argv", "[", "0", "]"],
-    ["process", ".", "argv", "?.", "[", "0", "]"],
-    ["process", "?.", "argv", "?.", "[", "0", "]"],
-    ["process", ".", "argv", ".", "at", "(", "0", ")"],
-    ["process", "?.", "argv", ".", "at", "(", "0", ")"],
-    ["process", ".", "argv", "?.", "at", "(", "0", ")"],
-    ["process", "?.", "argv", "?.", "at", "(", "0", ")"],
-  ] as const;
-  if (
-    knownNodeSelfForms.some((form) => tokenSequenceMatches(tokens, start, form))
-  )
-    return "node_self" as const;
-  return token?.kind === "string"
-    ? ("proven_non_node" as const)
-    : ("generic_external_authority" as const);
-}
-
-function classifyLocalTypeScriptProcessTarget(
-  relativePath: string,
-  tokens: readonly SourceToken[],
-  start: number,
-) {
-  if (tokens[start]?.value === "[") start += 1;
-  const token = tokens[start];
-  if (token?.kind === "string") {
-    if (token.escaped || /[?#%]/u.test(token.value)) return "unknown" as const;
-    return token.value.endsWith(".ts")
-      ? ("local_ts" as const)
-      : ("proven_non_local_ts" as const);
-  }
-  if (
-    tokenSequenceMatches(tokens, start, [
-      "fileURLToPath",
-      "(",
-      "new",
-      "URL",
-      "(",
-    ]) &&
-    tokens[start + 5]?.kind === "string"
-  ) {
-    const specifier = tokens[start + 5];
-    if (!specifier || specifier.escaped || /[?#%]/u.test(specifier.value))
-      return "unknown" as const;
-  }
-  try {
-    const target = scriptChildTargetFromTokens(relativePath, tokens, start);
-    if (!target) return "unknown" as const;
-    return target.endsWith(".ts")
-      ? ("local_ts" as const)
-      : ("proven_non_local_ts" as const);
-  } catch {
-    return "unknown" as const;
-  }
-}
-
 function assertNoUnboundRuntimeChildProcess(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -1732,13 +2445,19 @@ function assertNoUnboundRuntimeChildProcess(
   assertChildProcessModuleBoundary(tokens);
   const bindings = selectedScriptProcessBindings(tokens, false);
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
-  const allowedPrimitives = runtimeChildProcessOwnerPrimitives.get(sourcePath);
+  const expectedCallsites = runtimeExternalProcessCallsites.filter(
+    (callsite) => callsite.source === sourcePath,
+  );
   for (const imported of bindings.bindings.values()) {
-    if (imported === "fork" || !allowedPrimitives?.has(imported))
+    if (
+      imported === "fork" ||
+      !expectedCallsites.some((callsite) => callsite.primitive === imported)
+    )
       throw new Error(
         "platform_provisioner_runtime_dependency_child_process_unbound",
       );
   }
+  const observedCallsites = new Map<RuntimeExternalProcessCallsite, number>();
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (token?.kind !== "identifier") continue;
@@ -1748,57 +2467,43 @@ function assertNoUnboundRuntimeChildProcess(
       throw new Error(
         "platform_provisioner_runtime_dependency_child_process_unbound",
       );
-    if (sourcePath.startsWith("scripts/")) continue;
-    if (
-      sourcePath === "src/core/runtime-local-typescript-child-entrypoints.ts"
-    ) {
-      if (
-        imported !== "spawn" ||
-        !tokenSequenceMatches(tokens, index + 1, [
-          "(",
-          "process",
-          ".",
-          "execPath",
-          ",",
-          "[",
-          "entrypoint",
-          ".",
-          "filePath",
-          ",",
-          ".",
-          ".",
-          ".",
-          "args",
-          "]",
-          ",",
-          "options",
-          ")",
-        ])
-      )
-        throw new Error(
-          "platform_provisioner_runtime_dependency_child_process_unbound",
-        );
-      continue;
-    }
-    if (["spawn", "spawnSync", "execFile", "execFileSync"].includes(imported)) {
-      const argumentStarts = directCallArgumentStarts(tokens, index + 1);
-      if (
-        argumentStarts.length >= 2 &&
-        classifyNodeSelfExecutableArgument(
+    const owner = containingNamedFunction(tokens, index);
+    const argumentStarts = directCallArgumentStarts(tokens, index + 1);
+    const executableStart = argumentStarts[0];
+    const argvStart = argumentStarts[1];
+    const matching = expectedCallsites.filter(
+      (callsite) =>
+        callsite.primitive === imported &&
+        callsite.containingFunction === owner?.name &&
+        argumentMatchesPrefix(
           tokens,
-          argumentStarts[0] as number,
-        ) === "node_self" &&
-        classifyLocalTypeScriptProcessTarget(
-          relativePath,
-          tokens,
-          argumentStarts[1] as number,
-        ) !== "proven_non_local_ts"
-      )
-        throw new Error(
-          "platform_provisioner_runtime_dependency_child_process_unbound",
-        );
-    }
+          executableStart,
+          callsite.executablePrefix,
+        ) &&
+        argumentMatchesPrefix(tokens, argvStart, callsite.argvPrefix) &&
+        (!callsite.authorityProof ||
+          tokens.some((_, proofStart) =>
+            tokenSequenceMatches(
+              tokens,
+              proofStart,
+              callsite.authorityProof ?? [],
+            ),
+          )),
+    );
+    if (matching.length !== 1)
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_process_unbound",
+      );
+    const matched = matching[0] as RuntimeExternalProcessCallsite;
+    observedCallsites.set(matched, (observedCallsites.get(matched) ?? 0) + 1);
   }
+  if (
+    bindings.bindings.size > 0 &&
+    expectedCallsites.some((callsite) => observedCallsites.get(callsite) !== 1)
+  )
+    throw new Error(
+      "platform_provisioner_runtime_dependency_child_process_unbound",
+    );
 }
 
 function isAllowedExecPathUse(
@@ -1806,6 +2511,18 @@ function isAllowedExecPathUse(
   tokens: readonly SourceToken[],
   index: number,
 ) {
+  const sourcePath = coordinatorRelativeSourcePath(relativePath);
+  if (
+    sourcePath.startsWith("scripts/") &&
+    runtimeChildProcessOwnerPrimitives.has(sourcePath) &&
+    tokens[index - 2]?.value === "process" &&
+    tokens[index - 1]?.value === "." &&
+    tokens[index - 3]?.value === "(" &&
+    runtimeChildProcessOwnerPrimitives
+      .get(sourcePath)
+      ?.has(tokens[index - 4]?.value ?? "")
+  )
+    return true;
   if (localTypeScriptChildModulePaths.has(relativePath))
     return tokenSequenceMatches(tokens, index - 2, [
       "process",
@@ -1897,7 +2614,7 @@ function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
     throw new Error(`${relativePath}:tokenize:${String(error)}`);
   }
   try {
-    for (const specifier of moduleSpecifiersFromTokens(tokens)) {
+    for (const specifier of moduleSpecifiersFromTokens(relativePath, tokens)) {
       if (specifier.escaped)
         throw new Error("platform_provisioner_runtime_dependency_noncanonical");
       const target = canonicalRelativeModuleTarget(
@@ -1914,6 +2631,7 @@ function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
     );
     assertNoUndeclaredLocalTypeScriptImportMetaUrl(relativePath, tokens);
     assertInternalLifecycleConsumerBoundary(relativePath, tokens);
+    assertProcessWrapperConsumerBoundary(relativePath, tokens);
     assertWorkerCreationImportBoundary(relativePath, tokens);
     assertNoUnboundRuntimeChildProcess(relativePath, tokens);
     assertNoUnboundRuntimeExecPath(relativePath, tokens);
