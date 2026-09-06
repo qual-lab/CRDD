@@ -1053,9 +1053,13 @@ function assertLoaderCapabilityBoundary(
       declaration.specifierIndex === null
         ? null
         : tokens[declaration.specifierIndex]?.value;
+    const declarationIsTypeOnly =
+      declaration.wholeTypeOnly ||
+      (declaration.bindings.length > 0 &&
+        declaration.bindings.every((binding) => binding.typeOnly));
     if (
       specifier === "node:module" &&
-      !declaration.wholeTypeOnly &&
+      !declarationIsTypeOnly &&
       !(
         coordinatorRelativeSourcePath(relativePath) ===
           "src/security/platform-provisioner-package-filesystem.ts" &&
@@ -1482,6 +1486,378 @@ const runtimeExternalProcessCallsites = Object.freeze(
           ? { authorityProof: Object.freeze(authorityProof) }
           : {}),
       }) as RuntimeExternalProcessCallsite,
+  ),
+);
+
+type RuntimeCapabilityGraphKind = "runtime" | "verification_tool";
+type ExactExternalProcessCallGraph = Readonly<{
+  graph: RuntimeCapabilityGraphKind;
+  source: string;
+  containingFunction: string;
+  primitive: string;
+  occurrence: number;
+  argumentShapeSha256: string;
+  functionBodySha256: string;
+  resultBinding: string | null;
+}>;
+
+const exactExternalProcessCallGraph = Object.freeze(
+  [
+    [
+      "verification_tool",
+      "scripts/check-dynamic-fake-provider-coverage.ts",
+      "inspectOnce",
+      "spawnSync",
+      1,
+      "fa326a2530eecbd1064de35a92411873f029e08266979b5f6ca4cc60c6148903",
+      "3cda1dcdfd715312c9e182f7db9b5928e69bba969d8c33409b929b12639ba4af",
+      "result",
+    ],
+    [
+      "verification_tool",
+      "scripts/check-platform-access-coverage.ts",
+      "executeCommand",
+      "spawnSync",
+      1,
+      "b6a5108c3c476218317e007a515489698f55b97312aea21bfa5d409df2da8759",
+      "30d235c4c85913095597d7190ef2a0d47137089cd8d67326f1735ad1d93373f4",
+      "result",
+    ],
+    [
+      "verification_tool",
+      "scripts/check-platform-access-ts-coverage.ts",
+      "inspectPlatformAccessTsCoverage",
+      "spawnSync",
+      1,
+      "1f91cd0a05e398cc14aed104bc44c4670362ad14c3e99df1d23f0268759cac41",
+      "2156e68319534aebf4587a558bb03f2c4ddd095f7df1ed175b680ff72b20d59f",
+      "result",
+    ],
+    [
+      "verification_tool",
+      "scripts/check-provider-authority-coverage.ts",
+      "inspectOnce",
+      "spawnSync",
+      1,
+      "322ed39c5de1bee92d0536797e846c14316cf12d23f4967a20fee770fa768450",
+      "e064e05140f5a2f15daf3cb10fd3800cb7315b3da27eb268845393609a0c8ace",
+      "result",
+    ],
+    [
+      "verification_tool",
+      "scripts/check-provider-home-coverage.ts",
+      "inspectOnce",
+      "spawnSync",
+      1,
+      "ca3c5e16992ce06bac78afb5741d30d10e255784fbcf9b8690201ea8341d5eb2",
+      "b600d44cc08c47c02d10f5d442755dea9046179305d06bc9909a93cf3569b154",
+      "result",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-project-runtime-real-providers.ts",
+      "startPublicMcpProcess",
+      "spawn",
+      1,
+      "e71d353847dd434716b0c14acbcf18ddda0e67ec4427861955b9005a5a4c9332",
+      "1651c0789135d4113ea059519ce8cb6b51eee9dbd6078a73819e66bb9c9e9698",
+      null,
+    ],
+    [
+      "runtime",
+      "scripts/verify-signed-recovery-matrix.ts",
+      "verifyParentLossThenRecover",
+      "spawnSync",
+      1,
+      "e884e9b6eba53bd395a4b7c8f53092d8d2a83a734f7128441873b7a41227acf1",
+      "d5d15e95389f2ec8dd17f24133e01d7fc4608f77ca8436d6a05f38ed800ee525",
+      "killed",
+    ],
+    [
+      "runtime",
+      "src/core/runtime-local-typescript-child-entrypoints.ts",
+      "spawnRuntimeLocalTypeScriptChild",
+      "spawn",
+      1,
+      "0f377ab85a702ba116d4b691a1be853719d31a2090b338ae1fed37343bb42048",
+      "ccd848f5da81ed311e1f92629acb9a7e50d77eeeacd1e8aff3d64e75f9fe893a",
+      null,
+    ],
+    [
+      "runtime",
+      "src/security/candidate-store-windows-adapter.ts",
+      "inspectRuntimeOwnedWindowsProtectedRoot",
+      "spawnSync",
+      1,
+      "7ba14539964956eac19a4e9c86ca2e9527028f43516b33a18285d707799d141f",
+      "c41302e593fb1faacea42b7c3fc914465b895be7aa6d721f8335f7edb8ea6029",
+      "execution",
+    ],
+    [
+      "runtime",
+      "src/security/docker-desktop-repair-native-helper.ts",
+      "acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+      "spawn",
+      1,
+      "a3ebbea18c8d9b8637a58342aab2ba85792186533699e3b160a7dbc5ceefeacc",
+      "b50047dfbeaeafdd474b8e99a8fb65c868cd554cabefc6c2ce4767b47f2d69bc",
+      "child",
+    ],
+    [
+      "runtime",
+      "src/security/docker-desktop-runtime-repair.ts",
+      "observeEngine",
+      "spawnSync",
+      1,
+      "0ec051f2a580b8a2ba0f78b97eb04d3cbd155861a6f71dd18df42534fc3f4c9c",
+      "97b20af5cc6fc9907b9cbd4df8d94067be50cfd23c16e43a75300c9fd63874bf",
+      "result",
+    ],
+    [
+      "runtime",
+      "src/security/docker-desktop-runtime-repair.ts",
+      "officialShutdown",
+      "spawnSync",
+      1,
+      "63c6cc4c46126b99f4713037834b26630bd7c1419f074a45c4b234b21d1a8aa9",
+      "50ba4abd62cf3bc15292574d2d71f614f9691b0c4ec1752ead7c068dfe4eff81",
+      "result",
+    ],
+    [
+      "runtime",
+      "src/security/docker-desktop-runtime-repair.ts",
+      "terminateDockerWsl",
+      "spawnSync",
+      1,
+      "61d765d5dbbdef25253ce9b32c388f0e490b51cf5adcd0eddd386393af8d4a22",
+      "3081cae733c9c0755519a23d8f2cbb291d7403cc20744f8d7d2b6c5410ae8ea4",
+      "result",
+    ],
+    [
+      "runtime",
+      "src/security/docker-isolation.ts",
+      "executeDocker",
+      "spawnSync",
+      1,
+      "8a03aecddb3dfc59988189c919e653e83d398aa0378fd89b075e9f69572c93fa",
+      "328d0c18c9cb398f4c20b83147df71f51964a7e9b4c6136d962c9a89240b77f3",
+      null,
+    ],
+    [
+      "runtime",
+      "src/security/docker-isolation.ts",
+      "startOwnedAttachedProcess",
+      "spawn",
+      1,
+      "1ada9fda9b1fca6f673aa058621cd2c8c65cb875f12f2b51a55b2b01c791c0c0",
+      "6d181739c35d711b062e01af044433f859591342ddbe769fc8390abf45ef9fe6",
+      "child",
+    ],
+    [
+      "runtime",
+      "src/security/docker-owned-process.ts",
+      "startOwnedProcess",
+      "spawn",
+      1,
+      "b56524d55d9f666369d91d8187ba4b80c0a157ff0868dc927e29cb6ab207f5cd",
+      "4c06970be3f200e7e8ac09106ab4f3efd667c35c696331f49955e06a96aa4b20",
+      "child",
+    ],
+    [
+      "runtime",
+      "src/security/docker-owned-process.ts",
+      "terminateAndWait",
+      "spawn",
+      1,
+      "210013dfb4c54fde4ea0b895c0fa45a3d05852a377a8436c0e50cc6df16bfd24",
+      "c730036777b19b8bec426664849e1a4d0b195ddcd63bb5eecafc69c6b30a092e",
+      "killer",
+    ],
+    [
+      "runtime",
+      "src/security/docker-recovery-runtime-internal.ts",
+      "runRecoveryDocker",
+      "spawnSync",
+      1,
+      "691ddaa18cc3b9a99031b0a5de1c5eef3351abd41d930722e82510e0b140904f",
+      "75c52d23cfafcc1df89ed9ae6a1bb49a9a21d84f04e7c910aa18c1a2bb782e2e",
+      "result",
+    ],
+    [
+      "runtime",
+      "src/security/provider-home-windows-adapter.ts",
+      "inspectRuntimeOwnedWindowsProviderHomeCandidate",
+      "spawnSync",
+      1,
+      "7ba14539964956eac19a4e9c86ca2e9527028f43516b33a18285d707799d141f",
+      "75fe97d4efe1f052b606a12290adddb94cb7fb12eb7c53e3165fcd2803fb3c88",
+      "execution",
+    ],
+    [
+      "runtime",
+      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
+      "observeExactRepositoryRoot",
+      "execFileSync",
+      1,
+      "5e0d844c15465eab569ee204969466e374ea4bfbca4f49da5f9826e9fd5b843a",
+      "2dd92e2d79454613468b1879a97bce06a43c3100f14a1c65b6afb3c01e369d7d",
+      "observed",
+    ],
+  ].map(
+    ([
+      graph,
+      source,
+      containingFunction,
+      primitive,
+      occurrence,
+      argumentShapeSha256,
+      functionBodySha256,
+      resultBinding,
+    ]) =>
+      Object.freeze({
+        graph,
+        source,
+        containingFunction,
+        primitive,
+        occurrence,
+        argumentShapeSha256,
+        functionBodySha256,
+        resultBinding,
+      }) as ExactExternalProcessCallGraph,
+  ),
+);
+
+type ExactAuditedFunctionFlow = Readonly<{
+  graph: RuntimeCapabilityGraphKind;
+  source: string;
+  functionName: string;
+  bodySha256: string;
+}>;
+
+const exactAuditedFunctionFlowGraph = Object.freeze(
+  [
+    [
+      "runtime",
+      "src/core/interactive-console.ts",
+      "readInteractiveConsoleLineOutcome",
+      "a824b755243d910aaf0afc7e1de06600253fefd697430a8230cae17037d953fd",
+    ],
+    [
+      "runtime",
+      "src/security/candidate-store-kernel-lock.ts",
+      "acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome",
+      "d1ede2ef40a83149d1e294918de5008e44a1ee68dcd0eafac83bf5aa82638caf",
+    ],
+    [
+      "runtime",
+      "src/security/candidate-store-kernel-lock.ts",
+      "acquireRuntimeOwnedHostOperationSupervisorLock",
+      "cdfebf69a2b539d1c1e05982fd23e256dc66ee0cbdc6770698a6571a7a4e9e22",
+    ],
+    [
+      "runtime",
+      "src/security/docker-desktop-repair-native-helper.ts",
+      "acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+      "b50047dfbeaeafdd474b8e99a8fb65c868cd554cabefc6c2ce4767b47f2d69bc",
+    ],
+    [
+      "runtime",
+      "src/security/docker-effect-runtime.ts",
+      "startCommand",
+      "2180973bf2b786076450e0b84b522d6be9651229939568b4d36474aae4c2a685",
+    ],
+    [
+      "runtime",
+      "src/security/docker-effect-runtime.ts",
+      "runShort",
+      "5518b0c92b947572dd4813109f4a58bb09a95a83f353c13e57ba7bccda263088",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
+      "ace97426202a2140020ed9817e81715c1bcc6f767ae28cefcb614b52634f2df8",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "inspectBundledCoordinatorPackageFilesystemCandidate",
+      "bd51ffe2a1d278715e1c8812b7e604d9d0345bca8d8b5112c364be6cb667be8b",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "inspectFixedDevelopmentCoordinatorPackageCandidate",
+      "c3be49d003b884b45a940de5a1b590343bc7202db39c328349cbc2b4913cd4c8",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "verifyOwnedBundledManifest",
+      "ce658bca729912b475ffcbddd89c2c92fcfa9eadbd5b8de4b99dafe3127f35a4",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "936e6c4837f13687013d7369b0cae8e99df048b0ef9c17f7f978ba6faca31820",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "be02e3b122acad751fdc04dd9bce2b3577d41985aed7d59c1b1bc4fbd9c36bef",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "verifyInstalledCoordinatorPackageCandidate",
+      "d4d9d543fbb737c1827e491dad1b448be77a73600f62dc8fb00f5214f2b05f9f",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "inspectVerifiedNativeDistributionCandidate",
+      "57f7ff13ab64c0e2fbabddb33a8b40587442d28ea8c825af4af3acd4803026b2",
+    ],
+    [
+      "runtime",
+      "scripts/sign-release-manifest.ts",
+      "prepareReleaseManifestCandidate",
+      "d435a8bd72965a4d6b862ddea43bc5677f47167949547574a535a1b40dbf1fee",
+    ],
+    [
+      "runtime",
+      "scripts/sign-release-manifest.ts",
+      "preflightReleaseManifest",
+      "2e803beee61f758c74c09d5fae13fc1260dee24123c7e3a8a569a964e0b9628c",
+    ],
+    [
+      "runtime",
+      "scripts/sign-release-manifest.ts",
+      "signReleaseManifest",
+      "e880fe961d6bfd85cdef93bb69b920b4c3be1abf49e25d255046940e71ac4da8",
+    ],
+    [
+      "runtime",
+      "scripts/sign-release-manifest.ts",
+      "main",
+      "5638b3027d7049cb80f1dadf6c46e9a4aa07700802d1c8265aaadb47f2bc4d1d",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-project-runtime-real-providers.ts",
+      "main",
+      "4e6c26167676209145a20c6d5ccb420e43746b8899bbedc289c63d2e4f407ff5",
+    ],
+  ].map(
+    ([graph, source, functionName, bodySha256]) =>
+      Object.freeze({
+        graph,
+        source,
+        functionName,
+        bodySha256,
+      }) as ExactAuditedFunctionFlow,
   ),
 );
 
@@ -2839,6 +3215,10 @@ function assertNoUnboundRuntimeChildProcess(
   assertChildProcessModuleBoundary(tokens);
   const bindings = selectedScriptProcessBindings(tokens, false);
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
+  const exactExpected = exactExternalProcessCallGraph.filter(
+    (callsite) => callsite.source === sourcePath,
+  );
+  const exactObserved = new Map<ExactExternalProcessCallGraph, number>();
   const expectedCallsites = runtimeExternalProcessCallsites.filter(
     (callsite) => callsite.source === sourcePath,
   );
@@ -2863,6 +3243,50 @@ function assertNoUnboundRuntimeChildProcess(
       );
     const owner = containingNamedFunction(tokens, index);
     const argumentRanges = directCallArgumentRanges(tokens, index + 1);
+    const argumentShapeSha256 = createHash("sha256")
+      .update(
+        JSON.stringify(
+          argumentRanges.map((range) =>
+            tokens.slice(range.start, range.end).map((item) => item.value),
+          ),
+        ),
+      )
+      .digest("hex");
+    const resultBinding =
+      tokens[index - 1]?.value === "=" &&
+      tokens[index - 2]?.kind === "identifier"
+        ? (tokens[index - 2]?.value ?? null)
+        : null;
+    const functionBodySha256 = owner
+      ? createHash("sha256")
+          .update(
+            JSON.stringify(
+              tokens
+                .slice(owner.opening, owner.closing + 1)
+                .map((item) => item.value),
+            ),
+          )
+          .digest("hex")
+      : null;
+    if (enforceDeclaredGraph) {
+      const exactMatching = exactExpected.filter(
+        (callsite) =>
+          callsite.primitive === imported &&
+          callsite.containingFunction === owner?.name &&
+          callsite.argumentShapeSha256 === argumentShapeSha256 &&
+          callsite.functionBodySha256 === functionBodySha256 &&
+          callsite.resultBinding === resultBinding,
+      );
+      if (exactMatching.length !== 1)
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
+      const exactMatched = exactMatching[0] as ExactExternalProcessCallGraph;
+      exactObserved.set(
+        exactMatched,
+        (exactObserved.get(exactMatched) ?? 0) + 1,
+      );
+    }
     const matching = expectedCallsites.filter(
       (callsite) =>
         callsite.primitive === imported &&
@@ -2895,6 +3319,148 @@ function assertNoUnboundRuntimeChildProcess(
     throw new Error(
       "platform_provisioner_runtime_dependency_child_process_unbound",
     );
+  if (
+    enforceDeclaredGraph &&
+    exactExpected.some(
+      (callsite) => exactObserved.get(callsite) !== callsite.occurrence,
+    )
+  )
+    throw new Error(
+      "platform_provisioner_runtime_dependency_child_process_unbound",
+    );
+}
+
+function runtimeNamedFunctionGraphSnapshotForVerification(
+  source: string | readonly SourceToken[],
+  names: readonly string[],
+) {
+  const tokens =
+    typeof source === "string"
+      ? tokenizeTypeScriptModuleSyntax(source)
+      : source;
+  const remaining = new Set(names);
+  const functions: Array<
+    Readonly<{ name: string; bodySha256: string; bodyTokenCount: number }>
+  > = [];
+  for (let index = 0; index + 2 < tokens.length; index += 1) {
+    if (
+      tokens[index]?.value !== "function" ||
+      tokens[index + 1]?.kind !== "identifier" ||
+      !remaining.has(tokens[index + 1]?.value ?? "") ||
+      tokens[index + 2]?.value !== "("
+    )
+      continue;
+    const name = tokens[index + 1]?.value ?? "";
+    const parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+    let bodyStart = parametersEnd + 1;
+    while (bodyStart < tokens.length && tokens[bodyStart]?.value !== "{")
+      bodyStart += 1;
+    if (tokens[bodyStart]?.value !== "{")
+      throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+    const bodyEnd = matchingTokenIndex(tokens, bodyStart, "{", "}");
+    const body = tokens
+      .slice(bodyStart, bodyEnd + 1)
+      .map((token) => token.value);
+    functions.push(
+      Object.freeze({
+        name,
+        bodySha256: createHash("sha256")
+          .update(JSON.stringify(body))
+          .digest("hex"),
+        bodyTokenCount: body.length,
+      }),
+    );
+    remaining.delete(name);
+  }
+  if (remaining.size !== 0 || functions.length !== names.length)
+    throw new Error(
+      "platform_provisioner_runtime_dependency_capability_graph_mismatch",
+    );
+  return Object.freeze(functions);
+}
+
+function assertExactAuditedFunctionFlows(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+  enforceDeclaredGraph: boolean,
+) {
+  if (!enforceDeclaredGraph) return;
+  const sourcePath = coordinatorRelativeSourcePath(relativePath);
+  const expected = exactAuditedFunctionFlowGraph.filter(
+    (flow) => flow.source === sourcePath,
+  );
+  if (expected.length === 0) return;
+  const observed = runtimeNamedFunctionGraphSnapshotForVerification(
+    tokens,
+    expected.map((flow) => flow.functionName),
+  );
+  if (
+    expected.length !== observed.length ||
+    observed.some(
+      (flow) =>
+        expected.find((candidate) => candidate.functionName === flow.name)
+          ?.bodySha256 !== flow.bodySha256,
+    )
+  )
+    throw new Error(
+      "platform_provisioner_runtime_dependency_capability_flow_unbound",
+    );
+}
+
+function assertExactCapabilityGraphSourceUniverse(
+  graph: RuntimeCapabilityGraphKind,
+  sources: ReadonlySet<string>,
+) {
+  const expected = exactExternalProcessCallGraph.filter(
+    (callsite) => callsite.graph === graph,
+  );
+  const expectedCount = graph === "runtime" ? 14 : 6;
+  const stableIdentities = expected.map(
+    (callsite) =>
+      `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
+  );
+  const expectedFlowSources = exactAuditedFunctionFlowGraph
+    .filter((flow) => flow.graph === graph)
+    .map((flow) => flow.source);
+  const globalCallIdentities = exactExternalProcessCallGraph.map(
+    (callsite) =>
+      `${callsite.graph}\u0000${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
+  );
+  const globalFlowIdentities = exactAuditedFunctionFlowGraph.map(
+    (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
+  );
+  if (
+    exactExternalProcessCallGraph.length !== 20 ||
+    new Set(globalCallIdentities).size !== globalCallIdentities.length ||
+    new Set(globalFlowIdentities).size !== globalFlowIdentities.length ||
+    expected.length !== expectedCount ||
+    new Set(stableIdentities).size !== stableIdentities.length ||
+    expected.some((callsite) => !sources.has(callsite.source)) ||
+    expectedFlowSources.some((source) => !sources.has(source))
+  )
+    throw new Error(
+      "platform_provisioner_runtime_dependency_capability_graph_mismatch",
+    );
+}
+
+export function assertVerificationToolCapabilityGraphForVerification(
+  sources: Readonly<Record<string, string>>,
+) {
+  const paths = Object.keys(sources).sort((left, right) =>
+    left.localeCompare(right, "en"),
+  );
+  for (const relativePath of paths) {
+    if (!relativePath.startsWith("scripts/") || !relativePath.endsWith(".ts"))
+      throw new Error(
+        "platform_provisioner_runtime_dependency_capability_graph_mismatch",
+      );
+    staticRelativeModuleTargets(
+      relativePath,
+      Buffer.from(sources[relativePath] ?? "", "utf8"),
+      true,
+    );
+  }
+  assertExactCapabilityGraphSourceUniverse("verification_tool", new Set(paths));
 }
 
 function isAllowedExecPathUse(
@@ -3128,6 +3694,23 @@ function assertPublicRuntimeObservationConsumerClosure(
     );
 }
 
+export function assertReleaseSigningConsumerClosureForVerification(
+  source: string,
+) {
+  const tokens = tokenizeTypeScriptModuleSyntax(source);
+  try {
+    assertExactAuditedFunctionFlows(
+      "scripts/sign-release-manifest.ts",
+      tokens,
+      true,
+    );
+  } catch {
+    throw new Error(
+      "platform_provisioner_runtime_dependency_signing_consumer_unbound",
+    );
+  }
+}
+
 function staticRelativeModuleTargets(
   relativePath: string,
   bytes: Buffer,
@@ -3181,6 +3764,7 @@ function staticRelativeModuleTargets(
       tokens,
       enforceDeclaredGraph,
     );
+    assertExactAuditedFunctionFlows(relativePath, tokens, enforceDeclaredGraph);
   } catch (error) {
     throw new Error(`${relativePath}:modules:${String(error)}`);
   }
@@ -3856,6 +4440,22 @@ function observeRuntimeDistribution(distributionRootPath: string) {
       throw new Error("platform_provisioner_package_file_count_exceeded");
     }
   }
+
+  const observedCapabilitySources = new Set(
+    [...observedFiles.keys()].map(coordinatorRelativeSourcePath),
+  );
+  // Synthetic package-boundary fixtures intentionally omit the observer
+  // implementation. A real runtime distribution contains this source and is
+  // therefore required to close the complete, source-derived runtime graph.
+  if (
+    observedCapabilitySources.has(
+      "src/security/platform-provisioner-package-filesystem.ts",
+    )
+  )
+    assertExactCapabilityGraphSourceUniverse(
+      "runtime",
+      observedCapabilitySources,
+    );
 
   const packageJson = observedFiles.get("40_Develop/coordinator/package.json");
   const metadata = packageMetadata(packageJson?.bytes ?? null);

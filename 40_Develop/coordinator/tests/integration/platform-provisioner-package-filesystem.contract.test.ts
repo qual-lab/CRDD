@@ -16,6 +16,8 @@ import {
   inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate,
   inspectVerifiedNativeDistributionCandidate,
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
+  assertReleaseSigningConsumerClosureForVerification,
+  assertVerificationToolCapabilityGraphForVerification,
   assertRuntimeSourceModuleBoundaryForVerification,
   assertRuntimeSourceDeclaredGraphBoundaryForVerification,
   verifyBundledCoordinatorPackageCandidate,
@@ -37,6 +39,25 @@ import {
 
 const developmentFixtureRoots = new Set<string>();
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
+
+function verificationToolSources() {
+  const scriptsRoot = path.join(coordinatorRoot, "scripts");
+  const sources: Record<string, string> = {};
+  const visit = (root: string, relativeRoot: string) => {
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      const relative = `${relativeRoot}/${entry.name}`;
+      const absolute = path.join(root, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolute, relative);
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith(".ts"))
+        sources[relative] = fs.readFileSync(absolute, "utf8");
+    }
+  };
+  visit(scriptsRoot, "scripts");
+  return sources;
+}
 const runtimeChildEntrypointModuleFixture = [
   'import { spawn } from "node:child_process";',
   'import { Worker, type WorkerOptions } from "node:worker_threads";',
@@ -313,6 +334,8 @@ test("type-only star再公開は実行能力として扱わず、value star再�
         'export type * from "node:child_process";',
         'export type * as ChildTypes from "node:child_process";',
         'export type * from "node:worker_threads";',
+        'import { type Module } from "node:module";',
+        'export { type Module as NodeModule } from "node:module";',
         "",
       ].join("\n"),
     ),
@@ -387,6 +410,53 @@ test("宣言済みProcess利用側は実ソースのcall・scope・引数から�
   }
 });
 
+test("検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させる", () => {
+  const sources = verificationToolSources();
+  assert.doesNotThrow(() =>
+    assertVerificationToolCapabilityGraphForVerification(sources),
+  );
+
+  const missing = { ...sources };
+  delete missing["scripts/check-dynamic-fake-provider-coverage.ts"];
+  assert.throws(
+    () => assertVerificationToolCapabilityGraphForVerification(missing),
+    /runtime_dependency_capability_graph_mismatch/u,
+  );
+
+  const changedOptions = { ...sources };
+  changedOptions["scripts/check-dynamic-fake-provider-coverage.ts"] =
+    sources["scripts/check-dynamic-fake-provider-coverage.ts"]?.replace(
+      "timeout: 120_000,",
+      "timeout: 1,",
+    ) ?? "";
+  assert.throws(
+    () => assertVerificationToolCapabilityGraphForVerification(changedOptions),
+    /runtime_dependency_child_process_unbound/u,
+  );
+
+  const unknown = { ...sources };
+  unknown["scripts/nested/unregistered-process.ts"] =
+    'import { spawnSync } from "node:child_process";\nspawnSync(process.execPath, ["--version"], { shell: false });\n';
+  assert.throws(
+    () => assertVerificationToolCapabilityGraphForVerification(unknown),
+    /runtime_dependency_child_process_unbound/u,
+  );
+
+  const loaderResultReplaced = { ...sources };
+  loaderResultReplaced["scripts/verify-project-runtime-real-providers.ts"] =
+    sources["scripts/verify-project-runtime-real-providers.ts"]?.replace(
+      "const native =\n    nativeModule.verifyBundledCoordinatorPackageFromFixedManifestCandidate({",
+      'const native = Object.freeze({ status: "candidate", reason: "decoy" });\n    void nativeModule.verifyBundledCoordinatorPackageFromFixedManifestCandidate({',
+    ) ?? "";
+  assert.throws(
+    () =>
+      assertVerificationToolCapabilityGraphForVerification(
+        loaderResultReplaced,
+      ),
+    /runtime_dependency_capability_flow_unbound/u,
+  );
+});
+
 test("Process wrapper注入後のproperty callと内部lifecycle callを利用側閉包へ含める", () => {
   const dockerPath = "src/security/docker-effect-runtime.ts";
   const dockerSource = fs.readFileSync(
@@ -421,6 +491,17 @@ test("Process wrapper注入後のproperty callと内部lifecycle callを利用�
       ),
     /runtime_dependency_child_lifecycle_unbound/u,
   );
+  assert.throws(
+    () =>
+      assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+        lifecyclePath,
+        lifecycleSource.replace(
+          "return runInteractiveConsoleReaderLifecycle(",
+          "if (false) return runInteractiveConsoleReaderLifecycle(",
+        ),
+      ),
+    /runtime_dependency_capability_flow_unbound/u,
+  );
 });
 
 test("配布観測から開発・署名・導入・Capability利用側までを実ソースから閉じる", () => {
@@ -445,6 +526,15 @@ test("配布観測から開発・署名・導入・Capability利用側までを�
       "const verification =\n    verifyBundledCoordinatorPackageFromFixedManifestCandidate(input);",
       "const verification = verifyBundledCoordinatorPackageCandidate(input);",
     ),
+    source
+      .replace(
+        "const observed = observeRuntimeDistribution(root.realPath);",
+        "const observed = observePackage(root.realPath);",
+      )
+      .replace(
+        "const manifestPath = path.join(",
+        "void observeRuntimeDistribution(root.realPath);\n    const manifestPath = path.join(",
+      ),
   ]) {
     assert.throws(
       () =>
@@ -452,9 +542,37 @@ test("配布観測から開発・署名・導入・Capability利用側までを�
           sourcePath,
           mutated,
         ),
-      /runtime_dependency_public_consumer_unbound/u,
+      /runtime_dependency_(?:public_consumer|capability_flow)_unbound/u,
     );
   }
+});
+
+test("署名入口は配布観測結果を秘密入力前の検査と署名結果へ同じflowで伝播する", () => {
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertReleaseSigningConsumerClosureForVerification(source),
+  );
+  for (const mutated of [
+    source.replace(
+      "preflightReleaseManifest(options);",
+      "void preflightReleaseManifest;",
+    ),
+    source.replace(
+      "packageContentRootSha256: packageObservation.packageContentRootSha256,",
+      "packageContentRootSha256: compiled.payload.packageContentRootSha256,",
+    ),
+    source.replace(
+      'const passphrase = await readHiddenLine("Release key passphrase: ");',
+      'const passphrase = "not-observed";',
+    ),
+  ])
+    assert.throws(
+      () => assertReleaseSigningConsumerClosureForVerification(mutated),
+      /runtime_dependency_signing_consumer_unbound/u,
+    );
 });
 
 test("利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補として受理しない", () => {

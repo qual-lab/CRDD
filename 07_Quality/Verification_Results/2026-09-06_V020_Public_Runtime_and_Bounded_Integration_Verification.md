@@ -1,6 +1,6 @@
 # v0.20公開Runtimeと限定分散の固定候補検証結果
 
-状態: 署名前の利用側閉包を構造是正済み。独立再レビュー待ち
+状態: 配布全体の構造是正を自己確認済み。独立再レビュー待ち
 担当責任者: Qual-Lab
 最終更新日: 2026-09-07
 
@@ -62,7 +62,11 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 固定改訂版`f92b782ae542f96305f426f33c944cd2af615827`への二つの独立再レビューでは、namespace／default／再exportやbracket表記によるloader再取得、Authority証明と実行呼出しの結合不足、`dependencies.startProcess`を含むwrapper／Lifecycle利用側の取り残し、公開経路の構造的な識別不足、および正当な`export type *`の過剰拒否を検出した。
 
-現在の固定改訂版`98146b3b70295bc122784871233d0bd7cf58c423`では、module宣言、loader、外部Process呼出し、Process wrapper、内部Lifecycleおよび公開利用側を同じ前方構文解析結果から導出する。各外部Process呼出しは、所有関数、exact primitive、実行対象式、引数構造、事前Authority証明および期待件数へ結合し、単なるimport、文字列出現または宣言一覧を成立根拠にしない。公開観測、固定開発版、同梱版、署名Manifest、Capability発行・消費および配置後検証についても、実ソースから導出した呼出し集合と独立した期待集合を双方向に照合する。Canonical Path／Identity／Stateは正規Producerが解決した値を利用し、利用側で再構成しない。正当な型専用star re-exportは許可するが、値re-export、未確認loader、条件付きまたは別引数の実行呼出し、死んだ分岐のAuthority証明、wrapper property利用、Lifecycle呼出し欠落および公開経路欠落は拒否する。重点126件、制限Process 1,743件、Windows実Process 7件、静的検査およびRepository全体Checker（Error 0、Warning 0）は成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
+固定改訂版`98146b3b70295bc122784871233d0bd7cf58c423`では、重点126件、制限Process 1,743件、Windows実Process 7件、静的検査およびRepository全体Checker（Error 0、Warning 0）は成功した。しかし、同固定版への二つの独立再レビューは、file単位のtoken／prefix照合を配布全体の利用グラフとして扱っているため、Expected sourceの欠落、全引数と値の由来、Authority guardの支配、生成handleの所有、正規観測結果からManifest／Identity／Capability／公開結果までの伝播を証明しないと判定した。結果はCritical 0、Major 3、Moderate 3で一致し、片方は加えて正当な`node:module` inline type-only import／re-exportの過剰拒否をMinor 1とした。現行の正規実装に誤った子Process起動を確認した結果ではないが、許可外変更を正規変更として受理できるため署名前Gateには不適格である。
+
+一括是正では、実配布対象と検証Tool対象の全sourceを宣言集合とは独立に列挙し、20の外部Process呼出しをRuntime 14件とTool 6件へ重複・無所属なしで分けた。各呼出しはsource、所有関数、実行primitive、完全な引数式、結果bindingおよび監査対象flowへ結合し、source欠落、未知の実行source、引数・option変更、結果差替え、死んだ分岐、遅延した所有、decoy呼出しを拒否する。公開経路はobserver resultからcandidate guard、Manifest／Identity、Capabilityまたは公開結果までを利用側ごとに固定し、署名では秘密入力より前、native／promotion／recoveryではAuthorityまたはEffectより前の判定を要求する。正当なinline type-only import／re-exportは実行能力として扱わない。
+
+自己確認では、重点128件、制限Process 1,745件、Windows実Process Gate 7件、`npm run check`およびRepository全体Checkerが成功し、CheckerはError 0、Warning 0だった。実Provider、正式署名および正式E2Eは実施していない。新固定候補を独立再レビューへ渡し、合格後に同じ候補を署名してpristine positive／mutation negative E2Eを確認するまで、利用側閉包の正式成立、Runtime実行Authorityまたはv0.20.0公開を主張しない。
 
 ## 限定分散の観測
 
