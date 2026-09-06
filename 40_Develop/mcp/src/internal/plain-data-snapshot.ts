@@ -61,6 +61,34 @@ export function snapshotPlainRecord<const K extends string>(
   }
 }
 
+export function snapshotOpenPlainRecord(
+  value: unknown,
+): Readonly<Record<string, unknown>> | null {
+  try {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      utilTypes.isProxy(value) ||
+      Array.isArray(value)
+    )
+      return null;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.some((key) => typeof key !== "string")) return null;
+    const snapshot = Object.create(null) as Record<string, unknown>;
+    for (const key of keys as string[]) {
+      const descriptor = descriptors[key];
+      if (!dataDescriptor(descriptor)) return null;
+      snapshot[key] = descriptor.value;
+    }
+    return Object.freeze(snapshot);
+  } catch {
+    return null;
+  }
+}
+
 export function snapshotPlainArray<T = unknown>(
   value: unknown,
   maximumLength: number,

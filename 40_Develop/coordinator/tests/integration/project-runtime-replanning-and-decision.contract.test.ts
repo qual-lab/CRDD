@@ -211,6 +211,66 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(queue.status === "completed" && queue.value.state, "queued");
 });
 
+test("再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否する", async (t) => {
+  const { root, input } = fixture(t);
+  await failTask(root);
+  const beforeState = readProjectRuntimeState(root, "binding-a", "project-a");
+  const beforeQueue = readProjectOperationQueueState(
+    root,
+    "binding-a",
+    "queue-a",
+  );
+  let getterCalls = 0;
+  const cases: Array<() => unknown> = [
+    () => ({ disposition: "maintain_plan", reason: "retry", extra: true }),
+    () => ({
+      disposition: "human_decision",
+      objectiveId: "objective-a",
+      get reason() {
+        getterCalls += 1;
+        return "choose";
+      },
+    }),
+    () =>
+      new Proxy(
+        { disposition: "maintain_plan", reason: "retry" },
+        {
+          getPrototypeOf: () => {
+            throw new Error("trap");
+          },
+        },
+      ),
+    () => ({
+      disposition: "partial_replan",
+      failedTaskId: "task-a",
+      replacements: [
+        {
+          id: "task-b",
+          objectiveId: "objective-a",
+          dependencies: [],
+          allowedPaths: ["result.txt"],
+          conflictKeys: [],
+          extra: true,
+        },
+      ],
+    }),
+  ];
+  for (const classify of cases) {
+    const result = resolveProjectRuntimeReplan(input, classify);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "project_runtime_replan_decision_invalid");
+    assert.deepEqual(
+      readProjectRuntimeState(root, "binding-a", "project-a"),
+      beforeState,
+    );
+    assert.deepEqual(
+      readProjectOperationQueueState(root, "binding-a", "queue-a"),
+      beforeQueue,
+    );
+  }
+  assert.equal(getterCalls, 0);
+});
+
 test("maintaining the plan creates a fresh attempt and enforces the retry limit", async (t) => {
   const { root, input } = fixture(t);
   assert.equal(

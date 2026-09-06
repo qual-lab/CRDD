@@ -9,7 +9,7 @@
 
 ## 1. 結論と現在状態
 
-CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／Task／Attemptの仕事Identityで観測する、Coordinatorから独立した共通基盤を実装した。閉じたmetadata Event、Repository-localでGit管理外の不変Store、欠測を保持する集約、非Authorityの改善候補、Project Runtimeからの実Event発行、およびexact Identityに基づく物理清掃を一つの変更として扱う。
+CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／Task／Attemptの仕事Identityで観測する、Coordinatorから独立した共通基盤を実装した。閉じたmetadata Event、Repository-localでGit管理外の不変Store、欠測を保持する集約、非Authorityの改善候補、およびProject Runtimeからの実Event発行を一つの変更として扱う。保持状態は清掃判断の入力として読み取れるが、真正な耐久Evidence生成元と参照解決器が未成立のため、清掃候補生成と物理削除は公開しない。
 
 現在は決定論的な単体・結合試験を実装済みであり、Single Task Runtimeが返す検証済み実効Executor ProviderもEventへ接続した。独立レビューで露出した入口・観測、永続化、利用側伝播の暗黙依存は、exact Task Identity、検証済みRepository Root能力、Process間排他、不変公開、故障段階別結果、および利用側回帰の逆向き登録として一体で是正した。再レビューで残った実運用配線は、package-local toolchain、本番の非Authority発行診断、および試験levelから独立した利用側静的検査として閉じた。TypeScriptアプリケーション向けには、公開packageからRepositoryへ一度結合できるRecorderと観測値生成補助を追加し、Coordinatorや低水準Store APIを経由せずAI APIのmetadataを記録・読取りできる境界へした。Model、実Providerの利用量、人間の実作業時間、品質受入、Viewer UI、共有Store、運用成果および事業成果は未接続であり、本変更の成立から完成を推定しない。
 
@@ -26,7 +26,7 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 - 高頻度EventはGit管理外`.crdd/execution/`へ保存し、正本昇格と分ける。
 - 改善候補は人間判断前の非Authorityな提案とし、自動自己変更を行わない。
 - Raw Prompt／Response、内部推論全文、秘密情報および通常会話を既定収集しない。
-- 物理清掃は時間や名前だけで行わず、exact Identity、Hash、未解決参照0および耐久Evidenceを要求する。
+- 保持状態の読取りを清掃判断の入力にはできるが、真正な耐久Evidence生成元と参照解決器が成立するまで清掃候補生成と物理削除を公開しない。
 - 限定分散の成果単位を個別Taskの合格数ではなく、統合後に受入可能な結果へ到達したかで評価する。
 
 ## 3. 目指さないこと
@@ -41,13 +41,13 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 
 ## 4. 実装と責務
 
-- [進捗管理](../../15_Progress.md#execution-intelligence-observation): CRDD共通の観測、評価、昇格および清掃境界。
+- [進捗管理](../../15_Progress.md#execution-intelligence-observation): CRDD共通の観測、評価、昇格および清掃候補境界。
 - [実行知のアーキテクチャ](../../06_Architecture/execution-intelligence/01_Architecture.md): 共通Event、Store、集約、利用側Adapter、改善候補、保持および完成境界。
 - [共通Eventと集約](../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts): Provider／Runtime非依存の閉Schema、欠測表現、集約、非Authority改善候補。
 - [限定分散の統合結果評価](../../40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts): 予定Task、実Attempt、統合結果および効用測定を同じ評価Identityへ結合する閉契約。
 - [公開入口](../../40_Develop/execution-intelligence/src/index.ts): CRDD採用Repositoryや各Runtimeの薄いAdapterが利用するexport。
 - [組込みRecorder](../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts): TypeScriptアプリケーションをexact Repository Rootへ一度結合し、Event生成・保存・読取りを公開APIだけで扱うFacade。
-- [Execution Store](../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts): Repository-local不変保存、改変検知、bounded読取り、exact清掃。
+- [Execution Store](../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts): Repository-local不変保存、改変検知、bounded読取り。保持期間に基づく物理削除は提供しない。
 - [Repository Root検証](../../40_Develop/execution-intelligence/src/store/verified-repository-root.ts): exact worktree RootだけからStoreの実行時能力を発行し、任意Path、linkまたは構造的な偽造を拒否する。
 - [Coordinator Adapter](../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts): Single Task Runtime固有結果を共通Eventへ変換する唯一の接続部。
 - [Project実行](../../40_Develop/project-runtime/src/application/project-runtime-execution.ts): Task Attempt終了Eventの発行。
@@ -62,17 +62,17 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 | 準正常 | 同じEventを同じbyteで再送 | 二重保存せず冪等に完了する |
 | 異常 | 同じEvent IDで内容が異なる | Identity衝突として拒否する |
 | 異常 | Event破損、未知field、件数・容量上限超過 | 一部だけを黙って採用せずStore観測を停止する |
-| 異常 | 未解決参照またはHash不一致の清掃 | 対象を削除せず停止する |
+| 準正常 | 保持状態を読み取り、Runtime外で清掃要否を検討する | 清掃候補や削除権限へ昇格せず、Event byteは変更しない |
 | 異常 | Task結果のIdentity fieldが一つでも不一致 | 結果値を転記せず、観測不能として閉じる |
 | 異常 | 並行Writerが同じIdentityへ異内容を発行 | 既存内容を置換せずIdentity衝突として拒否する |
-| 異常 | 永続化または清掃の途中失敗 | Effect、cleanup、残存Artifact、削除済み／未削除／観測不能を分けて返す |
+| 異常 | 永続化途中の失敗 | Effect、cleanup、残存Artifactおよび観測不能を分けて返す |
 | 正常 | 予定Task全件と統合受入を同じProject／Milestoneで観測 | 評価処理を完了し、Task成功と統合受入を別fieldで返す |
 | 準正常 | 統合結果または予定TaskのAttemptが未観測 | 欠測を保持して評価を`incomplete`とする |
 | 異常 | 別Project、別Milestone、予定外Task、重複Eventまたは未知fieldが混在 | 対象を推測分割せず入力を拒否する |
 
 ## 6. 検証と現在の根拠
 
-[検証設計](../../07_Quality/03_Verification_Design.md#execution-intelligence-verification)の`EI-UT-*`、`EI-IT-*`、`EI-RT-*`を自動回帰へ登録した。共通コンポーネントの単体試験は閉Schema、Provider非依存性、欠測、集約、限定分散の統合結果評価、非Authority候補および不正memberを確認する。共通Storeの結合試験はexact Root、worktree／submodule、link拒否、不変保存、Process間並行、冪等再送、Identity衝突、故障注入、残存Lockおよび部分清掃を確認する。Coordinator結合試験はexact Task Identity、本番公開Runtimeの発行診断および診断失敗時のTask不変を含む専用AdapterからのProject Runtime発行を確認する。試験台帳は実行知の変更から登録済みCoordinator利用側契約と利用側静的検査を逆向きに選択し、level限定時も静的検査を維持する。実行知の静的検査は自身の固定package依存だけを使用する。
+[検証設計](../../07_Quality/03_Verification_Design.md#execution-intelligence-verification)の`EI-UT-*`、`EI-IT-*`、`EI-RT-*`を自動回帰へ登録した。共通コンポーネントの単体試験は閉Schema、Accessor／Proxy拒否、Provider非依存性、欠測、checked集約、限定分散の統合結果評価、非Authorityな改善候補および不正memberを確認する。共通Storeの結合試験はexact Root、worktree／submodule、link拒否、不変保存、Process間並行、冪等再送、Identity衝突、故障注入、残存Lockおよび清掃候補生成・物理削除APIの不存在を確認する。Coordinator結合試験はexact Task Identity、本番公開Runtimeの発行診断および診断失敗時のTask不変を含む専用AdapterからのProject Runtime発行を確認する。
 
 現在の固定候補に対する決定論的な縦断結果は、[v0.20公開Runtimeと限定分散の検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)へ記録する。以前の独立再レビュー済み範囲を拡張したため、今回追加した組込みRecorder、利用量の部分観測および限定分散評価は、最終一括監査前の独立レビュー対象とする。
 

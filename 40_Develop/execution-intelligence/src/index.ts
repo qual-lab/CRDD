@@ -28,7 +28,6 @@ export {
 export * from "./core/bounded-integrated-result-evaluation.ts";
 
 export {
-  applyExecutionIntelligenceRetention,
   readExecutionIntelligence,
   writeExecutionIntelligenceEvent,
   type ExecutionIntelligencePublicationResult,

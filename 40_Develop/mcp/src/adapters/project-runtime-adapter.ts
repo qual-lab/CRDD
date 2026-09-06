@@ -1,4 +1,3 @@
-import { types as utilTypes } from "node:util";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -19,22 +18,32 @@ import {
   PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
   type ProjectRuntimeProjection,
 } from "../../../project-runtime/src/index.ts";
+import {
+  callKeys,
+  discoverKeys,
+  getMcpProjectRuntimeToolDefinitions,
+  inspectMcpEnvelope,
+  inspectProtocolRequest,
+  listKeys,
+  listKeysNoCursor,
+  MCP_PROJECT_RUNTIME_DECISION_TOOL,
+  MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  MCP_PROJECT_RUNTIME_STATE_TOOL,
+  protocolComplete,
+  protocolError,
+  type McpResponse,
+} from "../protocol/project-runtime-protocol.ts";
 
-export const MCP_PROJECT_RUNTIME_PROTOCOL_VERSION = "2026-07-28" as const;
-export const MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL = "crdd.run_objective" as const;
-export const MCP_PROJECT_RUNTIME_DECISION_TOOL =
-  "crdd.submit_decision" as const;
-export const MCP_PROJECT_RUNTIME_STATE_TOOL = "crdd.get_project_state" as const;
+export {
+  MCP_PROJECT_RUNTIME_DECISION_TOOL,
+  MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  MCP_PROJECT_RUNTIME_STATE_TOOL,
+} from "../protocol/project-runtime-protocol.ts";
+
 export const MCP_PROJECT_RUNTIME_ADAPTER_CONTRACT =
   "crdd-mcp/project-runtime-adapter/v2" as const;
-
-type JsonRpcId = string | number;
-type McpResponse = Readonly<{
-  jsonrpc: "2.0";
-  id: JsonRpcId | null;
-  result?: unknown;
-  error?: Readonly<{ code: number; message: string }>;
-}>;
 export type McpProjectRuntimeDependencies = Readonly<{
   authenticateClient: () => unknown;
   runObjective: (
@@ -52,45 +61,6 @@ export type McpProjectRuntimeDependencies = Readonly<{
   ) => Promise<unknown>;
 }>;
 
-const requestKeys = new Set(["jsonrpc", "id", "method", "params"] as const);
-const callKeys = new Set(["_meta", "name", "arguments"] as const);
-const discoverKeys = new Set(["_meta"] as const);
-const listKeys = new Set(["_meta", "cursor"] as const);
-const listKeysNoCursor = new Set(["_meta"] as const);
-const objectiveKeys = new Set([
-  "requestId",
-  "projectId",
-  "milestoneId",
-  "repositoryRevision",
-  "objective",
-  "acceptanceCriteria",
-  "allowedPaths",
-  "readPaths",
-  "maximumConcurrency",
-  "maximumReplans",
-  "originLane",
-  "adoptResult",
-  "decisionCapabilityReplacement",
-  "requestedExecutorProvider",
-] as const);
-const decisionKeys = new Set([
-  "decisionId",
-  "projectId",
-  "milestoneId",
-  "generation",
-  "repositoryRevision",
-  "selectedOption",
-  "continuationCapability",
-  "comment",
-] as const);
-const decisionKeysNoComment = new Set(
-  [...decisionKeys].filter((key) => key !== "comment"),
-);
-const stateQueryKeys = new Set([
-  "requestId",
-  "projectId",
-  "repositoryRevision",
-] as const);
 const OBJECTIVE_RESULT_KEYS = new Set([
   "contract",
   "status",
@@ -163,21 +133,6 @@ const decisionRecoveredResultKeys = new Set([
   "effectState",
 ] as const);
 
-function plain(value: unknown): value is Record<string, unknown> {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      !utilTypes.isProxy(value) &&
-      Object.getPrototypeOf(value) === Object.prototype,
-  );
-}
-function validId(value: unknown): value is JsonRpcId {
-  return (
-    (typeof value === "string" && value.length > 0 && value.length <= 128) ||
-    (typeof value === "number" && Number.isSafeInteger(value))
-  );
-}
 function stable(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -192,160 +147,8 @@ function text(value: unknown, maximum: number): value is string {
     !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
   );
 }
-function envelope(value: unknown) {
-  if (!plain(value)) return false;
-  const allowed = new Set([
-    "io.modelcontextprotocol/protocolVersion",
-    "io.modelcontextprotocol/clientCapabilities",
-    "io.modelcontextprotocol/clientInfo",
-  ]);
-  return (
-    Object.keys(value).every((key) => allowed.has(key)) &&
-    value["io.modelcontextprotocol/protocolVersion"] ===
-      MCP_PROJECT_RUNTIME_PROTOCOL_VERSION &&
-    plain(value["io.modelcontextprotocol/clientCapabilities"])
-  );
-}
 function objective(value: unknown): Readonly<Record<string, unknown>> | null {
   return inspectProjectRuntimeObjectiveRequest(value);
-}
-function error(
-  id: JsonRpcId | null,
-  code: number,
-  message: string,
-): McpResponse {
-  return Object.freeze({
-    jsonrpc: "2.0",
-    id,
-    error: Object.freeze({ code, message }),
-  });
-}
-function complete(id: JsonRpcId, result: Readonly<Record<string, unknown>>) {
-  return Object.freeze({
-    jsonrpc: "2.0" as const,
-    id,
-    result: Object.freeze({
-      resultType: "complete",
-      ...result,
-      _meta: Object.freeze({
-        "io.modelcontextprotocol/serverInfo": Object.freeze({
-          name: "crdd-coordinator",
-          version: "0.20.0-development",
-        }),
-      }),
-    }),
-  });
-}
-function tool(
-  name: string,
-  title: string,
-  description: string,
-  properties: object,
-  requiredItems: readonly string[],
-) {
-  return Object.freeze({
-    name,
-    title,
-    description,
-    inputSchema: Object.freeze({
-      type: "object",
-      additionalProperties: false,
-      required: Object.freeze([...requiredItems]),
-      properties: Object.freeze(properties),
-    }),
-  });
-}
-function definitions() {
-  const id = Object.freeze({
-    type: "string",
-    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-  });
-  const rev = Object.freeze({ type: "string", pattern: "^[0-9a-f]{40,64}$" });
-  const list = (maximum: number) =>
-    Object.freeze({
-      type: "array",
-      minItems: 1,
-      maxItems: maximum,
-      items: Object.freeze({ type: "string" }),
-    });
-  return Object.freeze([
-    tool(
-      MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
-      "CRDD Objectiveを実行",
-      "検証済みProjectへObjectiveを登録し、Project Runtimeで実行します。",
-      {
-        requestId: id,
-        projectId: id,
-        milestoneId: id,
-        repositoryRevision: rev,
-        objective: Object.freeze({ type: "string", maxLength: 16_384 }),
-        acceptanceCriteria: list(128),
-        allowedPaths: list(128),
-        readPaths: list(128),
-        maximumConcurrency: Object.freeze({
-          type: "integer",
-          minimum: 1,
-          maximum: 5,
-        }),
-        maximumReplans: Object.freeze({
-          type: "integer",
-          minimum: 0,
-          maximum: 32,
-        }),
-        originLane: Object.freeze({
-          enum: Object.freeze(["interactive", "scheduled"]),
-        }),
-        adoptResult: Object.freeze({ type: "boolean" }),
-        decisionCapabilityReplacement: Object.freeze({
-          type: "object",
-          additionalProperties: false,
-          required: Object.freeze(["decisionId", "replacementRequestId"]),
-          properties: Object.freeze({
-            decisionId: id,
-            replacementRequestId: id,
-          }),
-        }),
-        requestedExecutorProvider: Object.freeze({
-          enum: Object.freeze(["auto", "codex", "claude"]),
-        }),
-      },
-      [...objectiveKeys].filter(
-        (key) =>
-          key !== "decisionCapabilityReplacement" &&
-          key !== "requestedExecutorProvider",
-      ),
-    ),
-    tool(
-      MCP_PROJECT_RUNTIME_DECISION_TOOL,
-      "CRDDの判断を送信",
-      "現在の判断要求へ、一回限りの継続権限を使って選択を返します。",
-      {
-        decisionId: id,
-        projectId: id,
-        milestoneId: id,
-        generation: Object.freeze({ type: "integer", minimum: 1 }),
-        repositoryRevision: rev,
-        selectedOption: id,
-        continuationCapability: Object.freeze({
-          type: "string",
-          maxLength: 512,
-        }),
-        comment: Object.freeze({ type: "string", maxLength: 1024 }),
-      },
-      [...decisionKeysNoComment],
-    ),
-    tool(
-      MCP_PROJECT_RUNTIME_STATE_TOOL,
-      "CRDD Projectの現在状態を取得",
-      "Project Runtimeの現在状態を、書込み権限を持たない投影として取得します。",
-      {
-        requestId: id,
-        projectId: id,
-        repositoryRevision: rev,
-      },
-      [...stateQueryKeys],
-    ),
-  ]);
 }
 const objectiveCountKeys = new Set([
   "planned",
@@ -801,19 +604,13 @@ export async function handleMcpProjectRuntimeRequest(
   dependencies: McpProjectRuntimeDependencies,
   signal: AbortSignal = new AbortController().signal,
 ): Promise<McpResponse> {
-  const request = snapshotPlainRecord(rawRequest, requestKeys);
-  if (
-    !request ||
-    !validId(request.id) ||
-    request.jsonrpc !== "2.0" ||
-    typeof request.method !== "string"
-  )
-    return error(null, -32600, "Invalid Request");
+  const request = inspectProtocolRequest(rawRequest);
+  if (!request) return protocolError(null, -32600, "Invalid Request");
   if (request.method === "server/discover") {
     const params = snapshotPlainRecord(request.params, discoverKeys);
-    return !params || !envelope(params._meta)
-      ? error(request.id, -32602, "Invalid params")
-      : complete(request.id, {
+    return !params || !inspectMcpEnvelope(params._meta)
+      ? protocolError(request.id, -32602, "Invalid params")
+      : protocolComplete(request.id, {
           supportedVersions: Object.freeze([
             MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
           ]),
@@ -828,48 +625,48 @@ export async function handleMcpProjectRuntimeRequest(
       snapshotPlainRecord(request.params, listKeys);
     const paramsRecord: Readonly<Record<string, unknown>> | null = params;
     return !params ||
-      !envelope(params._meta) ||
+      !inspectMcpEnvelope(params._meta) ||
       (Object.hasOwn(params, "cursor") && paramsRecord?.cursor !== null)
-      ? error(request.id, -32602, "Invalid params")
-      : complete(request.id, {
-          tools: definitions(),
+      ? protocolError(request.id, -32602, "Invalid params")
+      : protocolComplete(request.id, {
+          tools: getMcpProjectRuntimeToolDefinitions(),
           ttlMs: 0,
           cacheScope: "private",
         });
   }
   if (request.method !== "tools/call")
-    return error(request.id, -32601, "Method not found");
+    return protocolError(request.id, -32601, "Method not found");
   const params = snapshotPlainRecord(request.params, callKeys);
   if (
     !params ||
-    !envelope(params._meta) ||
+    !inspectMcpEnvelope(params._meta) ||
     (params.name !== MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL &&
       params.name !== MCP_PROJECT_RUNTIME_DECISION_TOOL &&
       params.name !== MCP_PROJECT_RUNTIME_STATE_TOOL)
   )
-    return error(request.id, -32602, "Invalid params");
+    return protocolError(request.id, -32602, "Invalid params");
   const args =
     params.name === MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL
       ? objective(params.arguments)
       : params.name === MCP_PROJECT_RUNTIME_DECISION_TOOL
         ? inspectProjectRuntimeDecisionRequest(params.arguments)
         : inspectProjectRuntimeStateQuery(params.arguments);
-  if (!args) return error(request.id, -32602, "Invalid params");
+  if (!args) return protocolError(request.id, -32602, "Invalid params");
   let authentication: unknown;
   try {
     authentication = dependencies.authenticateClient();
   } catch {
     authentication = null;
   }
+  const authenticationSnapshot = snapshotPlainRecord(
+    authentication,
+    new Set(["principalId", "status"] as const),
+  );
   if (
-    !plain(authentication) ||
-    authentication.status !== "verified" ||
-    !stable(authentication.principalId) ||
-    Object.keys(authentication).some(
-      (key) => key !== "status" && key !== "principalId",
-    )
+    authenticationSnapshot?.status !== "verified" ||
+    !stable(authenticationSnapshot.principalId)
   )
-    return complete(request.id, {
+    return protocolComplete(request.id, {
       content: Object.freeze([
         Object.freeze({
           type: "text",
@@ -887,7 +684,7 @@ export async function handleMcpProjectRuntimeRequest(
     });
   let raw: unknown;
   const authenticatedContext = Object.freeze({
-    principalId: String(authentication.principalId),
+    principalId: authenticationSnapshot.principalId,
   });
   try {
     raw =
@@ -920,7 +717,7 @@ export async function handleMcpProjectRuntimeRequest(
       effectState: "unknown",
     });
   const isFailed = result.status !== "completed";
-  return complete(request.id, {
+  return protocolComplete(request.id, {
     content: Object.freeze([
       Object.freeze({
         type: "text",

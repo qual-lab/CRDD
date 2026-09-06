@@ -36,9 +36,9 @@ v0.20の責務分離では既存MCP stdioを独立packageへ移し、MCP Streama
    └ support/
 ```
 
-- `protocol`はMCPの閉じたEnvelope、tool名、Protocol errorおよびframingを所有する。
+- `protocol`はMCP version、閉じたJSON-RPC Envelope／ID／metadata、method／tool名、Protocol response／errorおよび完全な単一JSON文書の判定を所有する。Project RuntimeやCoordinatorへ依存しない。
 - `adapters`はMCP入力をProject Runtime公開要求へ変換し、公開結果をMCP結果へ投影する。
-- `transports`はstdio、後続のlocalhost HTTP等のbyte搬送とSession lifecycleを所有する。
+- `transports`はstdio、localhost HTTP等のbyte framing、fatal UTF-8、容量、header、socketおよびSession lifecycleを所有する。
 - `src/index.ts`を唯一の公開入口とし、利用側は内部Pathを参照しない。
 - `template/tools/crdd-mcp.ts`は配布・起動の構成Rootであり、MCP ProtocolやProject Runtimeの意味を再定義しない。
 
@@ -80,7 +80,7 @@ HTTP TransportはMCP `2026-07-28`へ固定し、一つの`/mcp` endpointでPOST�
 - `Origin`がない非Browser Clientを許可し、Originがある場合は起動時のlocalhost allowlistとのexact一致だけを許可する。
 - `MCP-Protocol-Version`、`Mcp-Method`および`tools/call`の`Mcp-Name`を本文の`_meta`、`method`、`params.name`と照合する。
 - `application/json`のfatal UTF-8かつ128 KiB以下の単一JSON-RPC文書だけを受理し、ClientはJSONとSSEの双方をAcceptに示す。
-- response切断は当該要求の取消であり、別要求またはProject全体の取消に拡張しない。Server終了は進行要求へ取消を伝播し、join後にだけTransport cleanup完了を返す。
+- response切断は当該要求の取消であり、別要求またはProject全体の取消に拡張しない。Server終了はclosingへ一度だけ遷移し、`server.close()`で新規accept停止を開始してから、受信中body／request、Application、handler、残存socketの順に取消・回収し、Server終了と全Registryの空を確認した場合だけTransport cleanup完了を返す。二重closeとsignal競合は同じ終了Promiseへ収束する。
 - HTTP接続、Bearer tokenおよびheaderはTransport認証・相関情報であり、Project AuthorityまたはRecovery Authorityではない。
 
 ## 6. 正常・準正常・異常
@@ -95,6 +95,7 @@ HTTP TransportはMCP `2026-07-28`へ固定し、一つの`/mcp` endpointでPOST�
 | 異常 | connection切断またはresponse書込み不明 | Application結果を捏造せず、再取得可能なIdentityを保持する |
 | 異常 | MCPとProject Runtimeの結果Schemaが不一致 | 閉じた変換で拒否し、部分結果を公開しない |
 | 異常 | HTTP認証、Originまたはmirror headerが不一致 | Applicationを呼ばずHTTP／Protocol errorで停止する |
+| 異常 | Content-Length途中、slow bodyまたはidle keep-alive中にServer終了 | 新規acceptを停止し、body reader、Application、handler、socketを回収してから終了を確認する |
 
 ## 7. 検証と完成境界
 

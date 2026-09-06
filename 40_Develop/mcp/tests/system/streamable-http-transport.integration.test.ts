@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { request as httpRequest } from "node:http";
+import { createConnection } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -187,6 +188,59 @@ test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送す
       cleanupConfirmed: true,
     });
   }
+});
+
+test("HTTP終了は受信途中のbodyとidle socketを回収して冪等に完了する", async () => {
+  let semanticEffects = 0;
+  const server = await startMcpProjectRuntimeStreamableHttp(
+    dependencies({
+      runObjective: async () => {
+        semanticEffects += 1;
+        return null;
+      },
+    }),
+    { port: 0, bearerToken: TOKEN },
+  );
+  const socket = createConnection({ host: server.host, port: server.port });
+  const socketClosed = new Promise<void>((resolve) =>
+    socket.once("close", resolve),
+  );
+  await new Promise<void>((resolve, reject) => {
+    socket.once("connect", resolve);
+    socket.once("error", reject);
+  });
+  socket.write(
+    [
+      "POST /mcp HTTP/1.1",
+      `Host: ${server.host}:${server.port}`,
+      `Authorization: Bearer ${TOKEN}`,
+      "Accept: application/json, text/event-stream",
+      "Content-Type: application/json",
+      `MCP-Protocol-Version: ${MCP_PROJECT_RUNTIME_PROTOCOL_VERSION}`,
+      "MCP-Method: tools/call",
+      "MCP-Name: crdd.run_objective",
+      "Content-Length: 1000",
+      "Connection: keep-alive",
+      "",
+      "{",
+    ].join("\r\n"),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const first = server.close();
+  const second = server.close();
+  assert.equal(first, second);
+  assert.deepEqual(
+    await Promise.race([
+      first,
+      new Promise((_unusedResolve, reject) =>
+        setTimeout(() => reject(new Error("http_close_timeout")), 1_000),
+      ),
+    ]),
+    { status: "completed", cleanupConfirmed: true },
+  );
+  await socketClosed;
+  assert.equal(socket.closed, true);
+  assert.equal(semanticEffects, 0);
 });
 
 test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否する", async () => {

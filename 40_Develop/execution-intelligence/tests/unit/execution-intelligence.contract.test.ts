@@ -81,7 +81,7 @@ function event(
 
 test("creates a closed metadata-only event and preserves missing observations", () => {
   const created = event();
-  assert.equal(inspectExecutionIntelligenceEvent(created), created);
+  assert.deepEqual(inspectExecutionIntelligenceEvent(created), created);
   assert.equal(created.execution.durationMs.state, "observed");
   assert.equal(created.execution.provider.state, "not_observed");
   assert.equal(created.execution.usage.inputTokens.state, "not_observed");
@@ -231,6 +231,36 @@ test("rejects an invalid member instead of silently dropping it", () => {
   assert.equal(summarizeExecutionIntelligence([duplicate, duplicate]), null);
 });
 
+test("公開Event検査はAccessor・Proxyを実行せずcanonical copyだけを返す", () => {
+  const base = event();
+  let getterCalls = 0;
+  const outcome = {
+    ...base.outcome,
+    get status() {
+      getterCalls += 1;
+      return "completed";
+    },
+  };
+  assert.equal(inspectExecutionIntelligenceEvent({ ...base, outcome }), null);
+  assert.equal(getterCalls, 0);
+  assert.doesNotThrow(() =>
+    assert.equal(
+      inspectExecutionIntelligenceEvent(
+        new Proxy(base, {
+          getPrototypeOf: () => {
+            throw new Error("trap");
+          },
+        }),
+      ),
+      null,
+    ),
+  );
+  const inspected = inspectExecutionIntelligenceEvent(base);
+  assert.ok(inspected);
+  assert.notEqual(inspected, base);
+  assert.deepEqual(inspected, base);
+});
+
 function evaluationInput() {
   const observedCount = (value: number) => ({
     state: "observed" as const,
@@ -313,6 +343,79 @@ test("rejects cross-project events and unknown evaluation fields", () => {
   );
   assert.equal(
     evaluateBoundedIntegratedResult({ ...base, automaticAdoption: true }),
+    null,
+  );
+});
+
+test("限定統合入力はProxy・Accessor・疎な配列を例外なく拒否する", () => {
+  const base = evaluationInput();
+  const trapped = new Proxy(base, {
+    getPrototypeOf: () => {
+      throw new Error("trap");
+    },
+  });
+  assert.doesNotThrow(() =>
+    assert.equal(evaluateBoundedIntegratedResult(trapped), null),
+  );
+  let getterCalls = 0;
+  const accessor = {
+    ...base,
+    get projectId() {
+      getterCalls += 1;
+      return "project-a";
+    },
+  };
+  assert.equal(evaluateBoundedIntegratedResult(accessor), null);
+  assert.equal(getterCalls, 0);
+  const sparseItems = [...base.expectedTaskIds];
+  delete sparseItems[0];
+  assert.equal(
+    evaluateBoundedIntegratedResult({
+      ...base,
+      expectedTaskIds: sparseItems,
+    }),
+    null,
+  );
+});
+
+test("Provider集計はprototype名を通常の観測IDとして決定論的に数える", () => {
+  const base = evaluationInput();
+  const providers = ["constructor", "toString", "hasOwnProperty"];
+  const result = evaluateBoundedIntegratedResult({
+    ...base,
+    expectedTaskIds: providers.map((_unusedProvider, index) => `task-${index}`),
+    taskAttemptEvents: providers.map((provider, index) =>
+      event("completed", `task-${index}`, provider),
+    ),
+  });
+  assert.ok(result);
+  assert.deepEqual(result.providerAttemptCounts, {
+    constructor: 1,
+    hasOwnProperty: 1,
+    toString: 1,
+  });
+});
+
+test("観測時間の合計が安全整数を越える場合は誤った数値を返さない", () => {
+  const maximumEvent = (taskId: string) => {
+    const base = event("completed", taskId);
+    return createTaskAttemptSettledEvent({
+      occurredAt: base.occurredAt,
+      identity: base.identity,
+      execution: {
+        ...base.execution,
+        durationMs: observed(Number.MAX_SAFE_INTEGER, "boundary_fixture"),
+      },
+      outcome: base.outcome,
+      quality: base.quality,
+    });
+  };
+  assert.equal(
+    summarizeExecutionIntelligence([
+      maximumEvent("task-max-a"),
+      maximumEvent("task-max-b"),
+      maximumEvent("task-max-c"),
+    ]),
     null,
   );
 });

@@ -5,6 +5,10 @@ import {
   type ProjectTaskDefinition,
 } from "../core/project-runtime-state.ts";
 import type { ProjectRuntimeStatePort } from "../ports/state-port.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../internal/plain-data-snapshot.ts";
 
 export const PROJECT_RUNTIME_REPLANNING_CONTRACT =
   "crdd-coordinator/project-runtime-replanning/v1" as const;
@@ -37,29 +41,108 @@ export type ProjectRuntimeReplanClassifier = (
   }>,
 ) => unknown;
 
-function validDecision(raw: unknown): raw is ProjectRuntimeReplanDecision {
-  if (
-    !raw ||
-    typeof raw !== "object" ||
-    Array.isArray(raw) ||
-    Object.getPrototypeOf(raw) !== Object.prototype
-  )
-    return false;
-  const value = raw as ProjectRuntimeReplanDecision;
-  if (value.disposition === "maintain_plan")
-    return typeof value.reason === "string" && value.reason.length > 0;
-  if (value.disposition === "human_decision")
-    return (
-      typeof value.objectiveId === "string" &&
-      typeof value.reason === "string" &&
-      value.reason.length > 0
-    );
+function validId(value: unknown): value is string {
   return (
-    value.disposition === "partial_replan" &&
-    typeof value.failedTaskId === "string" &&
-    Array.isArray(value.replacements) &&
-    value.replacements.length > 0
+    typeof value === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value)
   );
+}
+
+function validText(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 512 &&
+    !value.includes("\0")
+  );
+}
+
+function inspectStrings(
+  value: unknown,
+  maximum: number,
+  isEmptyAllowed: boolean,
+) {
+  const snapshot = snapshotPlainArray<string>(value, maximum);
+  if (
+    snapshot.status !== "ok" ||
+    (!isEmptyAllowed && snapshot.value.length === 0) ||
+    !snapshot.value.every((entry) => validText(entry)) ||
+    new Set(snapshot.value).size !== snapshot.value.length
+  )
+    return null;
+  return Object.freeze([...snapshot.value]);
+}
+
+function inspectTaskDefinition(value: unknown): ProjectTaskDefinition | null {
+  const task = snapshotPlainRecord(
+    value,
+    new Set([
+      "allowedPaths",
+      "conflictKeys",
+      "dependencies",
+      "id",
+      "objectiveId",
+    ] as const),
+  );
+  if (!task || !validId(task.id) || !validId(task.objectiveId)) return null;
+  const dependencies = inspectStrings(task.dependencies, 128, true);
+  const allowedPaths = inspectStrings(task.allowedPaths, 128, false);
+  const conflictKeys = inspectStrings(task.conflictKeys, 128, true);
+  return dependencies && allowedPaths && conflictKeys
+    ? Object.freeze({
+        id: task.id,
+        objectiveId: task.objectiveId,
+        dependencies,
+        allowedPaths,
+        conflictKeys,
+      })
+    : null;
+}
+
+function inspectDecision(raw: unknown): ProjectRuntimeReplanDecision | null {
+  const maintain = snapshotPlainRecord(
+    raw,
+    new Set(["disposition", "reason"] as const),
+  );
+  if (maintain?.disposition === "maintain_plan" && validText(maintain.reason))
+    return Object.freeze({
+      disposition: "maintain_plan",
+      reason: maintain.reason,
+    });
+  const human = snapshotPlainRecord(
+    raw,
+    new Set(["disposition", "objectiveId", "reason"] as const),
+  );
+  if (
+    human?.disposition === "human_decision" &&
+    validId(human.objectiveId) &&
+    validText(human.reason)
+  )
+    return Object.freeze({
+      disposition: "human_decision",
+      objectiveId: human.objectiveId,
+      reason: human.reason,
+    });
+  const partial = snapshotPlainRecord(
+    raw,
+    new Set(["disposition", "failedTaskId", "replacements"] as const),
+  );
+  if (
+    partial?.disposition !== "partial_replan" ||
+    !validId(partial.failedTaskId)
+  )
+    return null;
+  const replacements = snapshotPlainArray(partial.replacements, 128);
+  if (replacements.status !== "ok" || replacements.value.length === 0)
+    return null;
+  const inspectedTasks = replacements.value.map(inspectTaskDefinition);
+  return inspectedTasks.some((entry) => entry === null)
+    ? null
+    : Object.freeze({
+        disposition: "partial_replan",
+        failedTaskId: partial.failedTaskId,
+        replacements: Object.freeze(inspectedTasks as ProjectTaskDefinition[]),
+      });
 }
 
 function blocked(reason: string, isRecovery = false) {
@@ -102,38 +185,39 @@ export function resolveProjectRuntimeReplan(
     .map((task) => task.definition.id);
   if (failedTaskIds.length === 0)
     return blocked("project_runtime_replan_failed_task_missing", true);
-  let raw: unknown;
+  let decision: ProjectRuntimeReplanDecision | null;
   try {
-    raw = classify(
-      Object.freeze({
-        failedTaskIds: Object.freeze(failedTaskIds),
-        generation: state.generation,
-        repositoryRevision: state.repositoryRevision,
-      }),
+    decision = inspectDecision(
+      classify(
+        Object.freeze({
+          failedTaskIds: Object.freeze(failedTaskIds),
+          generation: state.generation,
+          repositoryRevision: state.repositoryRevision,
+        }),
+      ),
     );
   } catch {
-    raw = null;
+    decision = null;
   }
-  if (!validDecision(raw))
-    return blocked("project_runtime_replan_decision_invalid");
+  if (!decision) return blocked("project_runtime_replan_decision_invalid");
   const transition =
-    raw.disposition === "maintain_plan"
+    decision.disposition === "maintain_plan"
       ? retryProjectRuntimeTask(
           state,
           state.generation,
           failedTaskIds[0] ?? "",
           input.maximumReplans,
         )
-      : raw.disposition === "partial_replan"
+      : decision.disposition === "partial_replan"
         ? applyProjectRuntimePartialReplan(state, state.generation, {
-            failedTaskId: raw.failedTaskId,
-            replacements: raw.replacements,
+            failedTaskId: decision.failedTaskId,
+            replacements: decision.replacements,
             maximumReplans: input.maximumReplans,
           })
         : requestProjectRuntimeHumanDecision(
             state,
             state.generation,
-            raw.objectiveId,
+            decision.objectiveId,
           );
   if (transition.status !== "completed" || !transition.state)
     return blocked(transition.reason);
@@ -142,38 +226,38 @@ export function resolveProjectRuntimeReplan(
   state = written.value;
   const queueUpdate = statePort.updateQueue(input.queueId, queue.generation, {
     state:
-      raw.disposition === "human_decision"
+      decision.disposition === "human_decision"
         ? "human_decision_required"
         : "queued",
     lease: null,
     resumeCondition:
-      raw.disposition === "maintain_plan"
+      decision.disposition === "maintain_plan"
         ? "same_plan_retry"
-        : raw.disposition === "partial_replan"
+        : decision.disposition === "partial_replan"
           ? "partial_replan_applied"
           : "human_decision",
     resultReference:
-      raw.disposition === "maintain_plan"
+      decision.disposition === "maintain_plan"
         ? (failedTaskIds[0] ?? null)
-        : raw.disposition === "partial_replan"
-          ? raw.failedTaskId
-          : raw.objectiveId,
+        : decision.disposition === "partial_replan"
+          ? decision.failedTaskId
+          : decision.objectiveId,
   });
   if (queueUpdate.status !== "completed")
     return blocked(queueUpdate.reason, true);
   return Object.freeze({
     contract: PROJECT_RUNTIME_REPLANNING_CONTRACT,
     status:
-      raw.disposition === "human_decision"
+      decision.disposition === "human_decision"
         ? ("blocked" as const)
         : ("completed" as const),
     reason:
-      raw.disposition === "maintain_plan"
+      decision.disposition === "maintain_plan"
         ? "project_runtime_same_plan_retry_ready"
-        : raw.disposition === "partial_replan"
+        : decision.disposition === "partial_replan"
           ? "project_runtime_partial_replan_ready"
           : "project_runtime_human_decision_required",
-    disposition: raw.disposition,
+    disposition: decision.disposition,
     generation: state.generation,
     taskIds: transition.taskIds,
     cleanupConfirmed: true,

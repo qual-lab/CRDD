@@ -255,7 +255,7 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 
 ## 実行知の検証設計
 
-実行知は[実行知のアーキテクチャ](../06_Architecture/execution-intelligence/01_Architecture.md)に従い、共通Event、利用側Adapter、保存、集約、限定分散の統合結果評価、改善候補および清掃を別々に確認する。
+実行知は[実行知のアーキテクチャ](../06_Architecture/execution-intelligence/01_Architecture.md)に従い、共通Event、利用側Adapter、保存、集約、限定分散の統合結果評価、改善候補、および未成立Authorityによる清掃候補生成・物理削除が公開されないことを別々に確認する。
 
 | ID | 試験レベル | 入力・変化 | 期待する主な観測 |
 |---|---|---|---|
@@ -266,7 +266,7 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 | EI-UT-Q-02 | 単体 | 統合結果未観測または予定TaskのAttempt不足 | 欠測を0へ補正せず、欠落Taskと未観測統合を示して`incomplete`とする |
 | EI-UT-A-02 | 単体 | 別Project／Milestone、予定外Task、重複Eventまたは未知field | 対象を推測分割せず閉じた評価入力を拒否する |
 | EI-IT-N-01 | 結合 | Repository-local Storeへの初回記録と同一byte再送 | `.crdd/execution/events/`へ一つだけ不変保存し、再送は冪等となる |
-| EI-IT-Q-01 | 結合 | exact Hash、未解決参照0、耐久Evidence IDを持つ清掃 | 指定Eventだけを削除し、終了後の不存在を確認する |
+| EI-IT-Q-01 | 結合 | 呼出側が架空Evidence IDと空の未解決参照一覧を提示 | 物理削除APIが存在せず、保存済みEvent byteが不変である |
 | EI-IT-A-01 | 結合 | 同一Event IDの異内容、破損、未解決参照、Hash不一致 | 自動修復・推測・一括削除をせずEffect 0で停止する |
 | EI-IT-N-02 | 結合 | 公開Runtime構成からProject Runtimeが一つのTask Attemptを実行 | Coordinator AdapterがObjectiveを含むexact仕事Identityと検証済みTask結果を共通Eventへ変換し、検証済みRepository RootのStoreから再読取りできる |
 | EI-IT-A-02 | 結合 | Attempt、Operation、Authority Binding、Repository Revisionの各単独不一致 | 一致しないTask結果のstatus、reason、ProviderまたはcleanupをEventへ写さず、閉じた観測不能として記録する |
@@ -275,7 +275,7 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 | EI-IT-Q-02 | 結合 | 2 Processから同一byteの同一Eventを並行発行 | 上書きせず一つのEventへ冪等に収束し、Lockと一時fileが残らない |
 | EI-IT-A-04 | 結合 | 2 Processから同じEvent IDへ異なるbyteを並行発行 | 一方だけを不変保存し、他方をIdentity衝突として拒否する |
 | EI-IT-A-05 | 結合 | open、write、flush、publish、readback、Lock初期化・解放、一時file回収の各失敗 | Effect、cleanup、再試行、手動回復およびexact残存Artifactを区別し、成功へ丸めない |
-| EI-IT-A-06 | 結合 | 複数Event清掃中の途中失敗 | 削除済み、未削除、観測不能および残存Lockを区別し、全件完了を主張しない |
+| EI-IT-A-06 | 結合 | Accessorが検査時と永続化時に異なる値を返そうとする | Accessorを実行せず、Store作成前にEffect 0で拒否する |
 | EI-IT-N-04 | 結合 | 同じObjectiveの競合しない2 Taskを上限2で実行し、実Attempt Eventと統合結果を評価 | 2 Taskの同時実行を観測し、両Attemptを不変Storeから再読取りして統合受入と同じ評価Identityへ接続する。個別Task成功を統合受入へ読み替えず、未観測の時間、費用、人間作業および後工程品質を欠測のまま保持する |
 | EI-RT-C-01 | 回帰 | 実行知のSource、公開入口、Storeまたはtoolchainを変更 | 実行知自身のUT／ITに加え、登録したCoordinator利用側契約と静的検査を同じ計画へ選ぶ。試験levelを限定しても利用側静的検査は残し、指定外の利用側試験は実行しない。実行知の静的検査はCoordinatorのtoolchainへ依存しない |
 

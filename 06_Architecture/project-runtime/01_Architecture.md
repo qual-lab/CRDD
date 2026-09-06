@@ -27,6 +27,7 @@ Project Runtimeが所有するのは意味と遷移であり、外部能力の�
 │  ├ public-contract/
 │  ├ application/
 │  ├ core/
+│  ├ internal/
 │  └ ports/
 └ tests/
    ├ unit/
@@ -47,6 +48,7 @@ Project Runtimeが所有するのは意味と遷移であり、外部能力の�
 | 公開契約 | Objective／Decision要求、Project結果、読み取り専用投影、closed schema | MCP envelope、CLI option、Provider result、OS Path |
 | Application | Objective受付、Task Graph、実行順、再計画、判断移送、統合、受入、Recoveryの調停 | Provider選定実装、Process起動、Filesystem書込み |
 | Core | 状態機械、不変条件、Identity相関、純粋な選択・遷移・投影 | I/O、時刻取得、乱数取得、外部待機 |
+| Internal | 副作用を持たないplain-data snapshotとRepository相対Path正規化 | 公開契約、状態、I/O、Adapter |
 | Ports | 必要能力と閉じた結果型 | Adapter実装、fallback、暗黙Authority |
 
 CoreはI/Oを発行しない。ApplicationはPortの閉じた結果だけを解釈し、例外、欠落、時刻超過またはProcess終了から成功を推定しない。
@@ -72,14 +74,17 @@ Portは任意関数の集合ではなく、要求、受理、Effect、完了、�
 ## 5. 許可する依存
 
 ```text
-public-contract ← application ← core
-                         ↓
-                       ports
+external consumer → index
+                     ├→ public-contract → core validator
+                     ├→ application → core / public-contract / ports / internal
+                     ├→ core → internal
+                     └→ ports → core
 ```
 
 - `core`はNode標準I/O、Coordinator、MCP、Provider、Platformまたは実行知へ依存しない。
-- `application`は`core`、`public-contract`および`ports`だけへ依存する。
-- `ports`はProject Runtimeの意味型だけを参照し、Adapter型を参照しない。
+- `internal`は純粋なsnapshot／Path utilityに限定し、`core`、`public-contract`および`application`からだけ利用する。
+- `application`は`core`、`public-contract`、`ports`および`internal`だけへ依存する。
+- `public-contract`は検証に必要な`core`の意味型／validatorと`internal`だけ、`ports`は`core`の意味型だけを参照し、いずれもAdapter型を参照しない。
 - package公開入口は内部層を構成して公開するが、外部Adapterをimportしない。
 - Coordinator、MCPおよび各Adapterは公開入口へ依存できる。逆方向は禁止する。
 

@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../internal/plain-data-snapshot.ts";
 
 export const EXECUTION_INTELLIGENCE_EVENT_CONTRACT =
   "crdd/execution-intelligence-event/v1" as const;
@@ -87,29 +91,6 @@ export function usageNotObserved(reason: string): ExecutionUsage {
 }
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
-const OBSERVATION_STATES = new Set([
-  "observed",
-  "not_observed",
-  "not_applicable",
-]);
-
-function plain(value: unknown): value is Record<string, unknown> {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    [Object.prototype, null].includes(Object.getPrototypeOf(value))
-  );
-}
-
-function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
-  const actualKeys = Object.keys(value).sort();
-  return (
-    actualKeys.length === keys.length &&
-    [...keys].sort().every((key, index) => key === actualKeys[index])
-  );
-}
-
 function text(value: unknown, maximum = 512): value is string {
   return (
     typeof value === "string" &&
@@ -131,34 +112,49 @@ function nonnegativeNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-function freezeData(value: unknown): void {
-  if (value === null || typeof value !== "object") return;
-  for (const member of Object.values(value)) freezeData(member);
-  if (!Object.isFrozen(value)) Object.freeze(value);
-}
-
-function observation(
+function observation<T>(
   value: unknown,
-  inspectObserved: (observed: unknown) => boolean,
-) {
-  if (!plain(value) || !OBSERVATION_STATES.has(String(value.state)))
-    return false;
-  if (value.state === "observed")
-    return (
-      exactKeys(value, ["source", "state", "value"]) &&
-      text(value.source, 128) &&
-      inspectObserved(value.value)
-    );
-  return exactKeys(value, ["reason", "state"]) && text(value.reason, 256);
+  inspectObserved: (observed: unknown) => T | null,
+): ExecutionObservation<T> | null {
+  const observedSnapshot = snapshotPlainRecord(
+    value,
+    new Set(["source", "state", "value"] as const),
+  );
+  if (
+    observedSnapshot?.state === "observed" &&
+    text(observedSnapshot.source, 128)
+  ) {
+    const inspected = inspectObserved(observedSnapshot.value);
+    return inspected === null
+      ? null
+      : Object.freeze({
+          state: "observed" as const,
+          value: inspected,
+          source: observedSnapshot.source,
+        });
+  }
+  const absentSnapshot = snapshotPlainRecord(
+    value,
+    new Set(["reason", "state"] as const),
+  );
+  return absentSnapshot &&
+    (absentSnapshot.state === "not_observed" ||
+      absentSnapshot.state === "not_applicable") &&
+    text(absentSnapshot.reason, 256)
+    ? Object.freeze({
+        state: absentSnapshot.state,
+        reason: absentSnapshot.reason,
+      })
+    : null;
 }
 
 export function inspectExecutionIntelligenceEvent(
   value: unknown,
 ): ExecutionIntelligenceEvent | null {
   try {
-    if (
-      !plain(value) ||
-      !exactKeys(value, [
+    const event = snapshotPlainRecord(
+      value,
+      new Set([
         "contract",
         "eventId",
         "eventType",
@@ -167,24 +163,23 @@ export function inspectExecutionIntelligenceEvent(
         "occurredAt",
         "outcome",
         "quality",
-      ]) ||
-      value.contract !== EXECUTION_INTELLIGENCE_EVENT_CONTRACT ||
-      value.eventType !== "task_attempt_settled" ||
-      !identity(value.eventId) ||
-      !text(value.occurredAt, 64) ||
-      Number.isNaN(Date.parse(value.occurredAt)) ||
-      !plain(value.identity) ||
-      !exactKeys(value.identity, [
+      ] as const),
+    );
+    if (!event) return null;
+    const identitySnapshot = snapshotPlainRecord(
+      event.identity,
+      new Set([
         "attemptId",
         "milestoneId",
         "objectiveId",
         "operationId",
         "projectId",
         "taskId",
-      ]) ||
-      !Object.values(value.identity).every(identity) ||
-      !plain(value.execution) ||
-      !exactKeys(value.execution, [
+      ] as const),
+    );
+    const executionSnapshot = snapshotPlainRecord(
+      event.execution,
+      new Set([
         "durationMs",
         "humanActiveMs",
         "inputStrategyRef",
@@ -192,68 +187,150 @@ export function inspectExecutionIntelligenceEvent(
         "provider",
         "role",
         "usage",
-      ]) ||
-      !identity(value.execution.role) ||
-      !observation(value.execution.provider, (entry) => identity(entry)) ||
-      !observation(value.execution.model, (entry) => text(entry, 128)) ||
-      !observation(value.execution.inputStrategyRef, (entry) =>
-        text(entry, 256),
-      ) ||
-      !observation(value.execution.durationMs, count) ||
-      !observation(value.execution.humanActiveMs, count) ||
-      !plain(value.execution.usage) ||
-      !exactKeys(value.execution.usage, [
-        "cacheReadTokens",
-        "cacheWriteTokens",
-        "costOrCredits",
-        "inputTokens",
-        "outputTokens",
-      ]) ||
-      !observation(value.execution.usage.inputTokens, count) ||
-      !observation(value.execution.usage.outputTokens, count) ||
-      !observation(value.execution.usage.cacheReadTokens, count) ||
-      !observation(value.execution.usage.cacheWriteTokens, count) ||
-      !observation(
-        value.execution.usage.costOrCredits,
-        (entry) =>
-          plain(entry) &&
-          exactKeys(entry, ["amount", "unit"]) &&
-          nonnegativeNumber(entry.amount) &&
-          identity(entry.unit),
-      ) ||
-      !plain(value.outcome) ||
-      !exactKeys(value.outcome, [
+      ] as const),
+    );
+    const outcomeSnapshot = snapshotPlainRecord(
+      event.outcome,
+      new Set([
         "cleanupConfirmed",
         "effectState",
         "manualRecoveryRequired",
         "processRestartRequired",
         "reason",
         "status",
-      ]) ||
+      ] as const),
+    );
+    if (!identitySnapshot || !executionSnapshot || !outcomeSnapshot)
+      return null;
+    const usageSnapshot = snapshotPlainRecord(
+      executionSnapshot.usage,
+      new Set([
+        "cacheReadTokens",
+        "cacheWriteTokens",
+        "costOrCredits",
+        "inputTokens",
+        "outputTokens",
+      ] as const),
+    );
+    if (!usageSnapshot) return null;
+    const provider = observation(executionSnapshot.provider, (entry) =>
+      identity(entry) ? entry : null,
+    );
+    const model = observation(executionSnapshot.model, (entry) =>
+      text(entry, 128) ? entry : null,
+    );
+    const inputStrategyRef = observation(
+      executionSnapshot.inputStrategyRef,
+      (entry) => (text(entry, 256) ? entry : null),
+    );
+    const durationMs = observation(executionSnapshot.durationMs, (entry) =>
+      count(entry) ? entry : null,
+    );
+    const humanActiveMs = observation(
+      executionSnapshot.humanActiveMs,
+      (entry) => (count(entry) ? entry : null),
+    );
+    const inputTokens = observation(usageSnapshot.inputTokens, (entry) =>
+      count(entry) ? entry : null,
+    );
+    const outputTokens = observation(usageSnapshot.outputTokens, (entry) =>
+      count(entry) ? entry : null,
+    );
+    const cacheReadTokens = observation(
+      usageSnapshot.cacheReadTokens,
+      (entry) => (count(entry) ? entry : null),
+    );
+    const cacheWriteTokens = observation(
+      usageSnapshot.cacheWriteTokens,
+      (entry) => (count(entry) ? entry : null),
+    );
+    const costOrCredits = observation(usageSnapshot.costOrCredits, (entry) => {
+      const cost = snapshotPlainRecord(
+        entry,
+        new Set(["amount", "unit"] as const),
+      );
+      return cost && nonnegativeNumber(cost.amount) && identity(cost.unit)
+        ? Object.freeze({ amount: cost.amount, unit: cost.unit })
+        : null;
+    });
+    const quality = observation(event.quality, (entry) => {
+      const qualitySnapshot = snapshotPlainRecord(
+        entry,
+        new Set(["evidenceIds", "result"] as const),
+      );
+      if (
+        !qualitySnapshot ||
+        (qualitySnapshot.result !== "accepted" &&
+          qualitySnapshot.result !== "rejected")
+      )
+        return null;
+      const evidence = snapshotPlainArray(qualitySnapshot.evidenceIds, 64);
+      if (evidence.status !== "ok" || !evidence.value.every(identity))
+        return null;
+      return Object.freeze({
+        result: qualitySnapshot.result,
+        evidenceIds: Object.freeze([...evidence.value]),
+      });
+    });
+    if (
+      event.contract !== EXECUTION_INTELLIGENCE_EVENT_CONTRACT ||
+      event.eventType !== "task_attempt_settled" ||
+      !identity(event.eventId) ||
+      !text(event.occurredAt, 64) ||
+      Number.isNaN(Date.parse(event.occurredAt)) ||
+      !Object.values(identitySnapshot).every(identity) ||
+      !identity(executionSnapshot.role) ||
+      !provider ||
+      !model ||
+      !inputStrategyRef ||
+      !durationMs ||
+      !humanActiveMs ||
+      !inputTokens ||
+      !outputTokens ||
+      !cacheReadTokens ||
+      !cacheWriteTokens ||
+      !costOrCredits ||
+      !quality ||
       !["completed", "blocked", "cancelled", "unknown"].includes(
-        String(value.outcome.status),
+        String(outcomeSnapshot.status),
       ) ||
       !["no_effect", "settled", "unknown"].includes(
-        String(value.outcome.effectState),
+        String(outcomeSnapshot.effectState),
       ) ||
-      !text(value.outcome.reason, 512) ||
-      typeof value.outcome.cleanupConfirmed !== "boolean" ||
-      typeof value.outcome.manualRecoveryRequired !== "boolean" ||
-      typeof value.outcome.processRestartRequired !== "boolean" ||
-      !observation(value.quality, (entry) => {
-        if (!plain(entry) || !exactKeys(entry, ["evidenceIds", "result"]))
-          return false;
-        return (
-          (entry.result === "accepted" || entry.result === "rejected") &&
-          Array.isArray(entry.evidenceIds) &&
-          entry.evidenceIds.length <= 64 &&
-          entry.evidenceIds.every(identity)
-        );
-      })
+      !text(outcomeSnapshot.reason, 512) ||
+      typeof outcomeSnapshot.cleanupConfirmed !== "boolean" ||
+      typeof outcomeSnapshot.manualRecoveryRequired !== "boolean" ||
+      typeof outcomeSnapshot.processRestartRequired !== "boolean"
     )
       return null;
-    freezeData(value);
-    return value as ExecutionIntelligenceEvent;
+    return Object.freeze({
+      contract: EXECUTION_INTELLIGENCE_EVENT_CONTRACT,
+      eventId: event.eventId,
+      eventType: "task_attempt_settled" as const,
+      occurredAt: event.occurredAt,
+      identity: Object.freeze({
+        ...identitySnapshot,
+      }) as ExecutionIntelligenceEvent["identity"],
+      execution: Object.freeze({
+        role: executionSnapshot.role,
+        provider,
+        model,
+        inputStrategyRef,
+        durationMs,
+        usage: Object.freeze({
+          inputTokens,
+          outputTokens,
+          cacheReadTokens,
+          cacheWriteTokens,
+          costOrCredits,
+        }),
+        humanActiveMs,
+      }) as ExecutionIntelligenceEvent["execution"],
+      outcome: Object.freeze({
+        ...outcomeSnapshot,
+      }) as ExecutionIntelligenceEvent["outcome"],
+      quality,
+    });
   } catch {
     return null;
   }
@@ -279,10 +356,10 @@ export function createTaskAttemptSettledEvent(
     eventId,
     eventType: "task_attempt_settled" as const,
     occurredAt: input.occurredAt,
-    identity: Object.freeze({ ...input.identity }),
-    execution: Object.freeze({ ...input.execution }),
-    outcome: Object.freeze({ ...input.outcome }),
-    quality: Object.freeze({ ...input.quality }),
+    identity: input.identity,
+    execution: input.execution,
+    outcome: input.outcome,
+    quality: input.quality,
   };
   const inspected = inspectExecutionIntelligenceEvent(event);
   if (!inspected) throw new Error("execution_intelligence_event_invalid");
@@ -326,6 +403,16 @@ export function summarizeExecutionIntelligence(
   const statusCount = (
     status: ExecutionIntelligenceEvent["outcome"]["status"],
   ) => validEvents.filter((event) => event.outcome.status === status).length;
+  let totalObservedDurationMs: number | null = null;
+  if (durationValues.length > 0) {
+    let total = 0;
+    for (const value of durationValues) {
+      const next: number = total + value;
+      if (!Number.isSafeInteger(next)) return null;
+      total = next;
+    }
+    totalObservedDurationMs = total;
+  }
   return Object.freeze({
     contract: "crdd/execution-intelligence-summary/v1" as const,
     eventCount: validEvents.length,
@@ -334,10 +421,7 @@ export function summarizeExecutionIntelligence(
     cancelledCount: statusCount("cancelled"),
     unknownCount: statusCount("unknown"),
     observedDurationCount: durationValues.length,
-    totalObservedDurationMs:
-      durationValues.length === 0
-        ? null
-        : durationValues.reduce((sum, value) => sum + value, 0),
+    totalObservedDurationMs,
     providerObservationCount: validEvents.filter(
       (event) => event.execution.provider.state === "observed",
     ).length,

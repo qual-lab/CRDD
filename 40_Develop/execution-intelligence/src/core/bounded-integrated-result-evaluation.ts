@@ -3,6 +3,10 @@ import {
   type ExecutionIntelligenceEvent,
   type ExecutionObservation,
 } from "./execution-intelligence.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../internal/plain-data-snapshot.ts";
 
 export const BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT =
   "crdd/bounded-integrated-result-evaluation-input/v1" as const;
@@ -65,24 +69,6 @@ export type BoundedIntegratedResultEvaluation = Readonly<{
   missingnessPreserved: true;
 }>;
 
-function plain(value: unknown): value is Record<string, unknown> {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    [Object.prototype, null].includes(Object.getPrototypeOf(value))
-  );
-}
-
-function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
-  const actualKeys = Object.keys(value).sort();
-  const expectedKeys = [...keys].sort();
-  return (
-    actualKeys.length === expectedKeys.length &&
-    expectedKeys.every((key, index) => key === actualKeys[index])
-  );
-}
-
 function id(value: unknown): value is string {
   return typeof value === "string" && ID.test(value);
 }
@@ -104,25 +90,31 @@ function inspectObservation<T>(
   value: unknown,
   inspectValue: (entry: unknown) => T | null,
 ): ExecutionObservation<T> | null {
-  if (!plain(value) || typeof value.state !== "string") return null;
-  if (value.state === "observed") {
-    if (!exactKeys(value, ["source", "state", "value"]) || !text(value.source))
-      return null;
-    const inspected = inspectValue(value.value);
+  const observed = snapshotPlainRecord(
+    value,
+    new Set(["source", "state", "value"] as const),
+  );
+  if (observed?.state === "observed") {
+    if (!text(observed.source)) return null;
+    const inspected = inspectValue(observed.value);
     return inspected === null
       ? null
       : Object.freeze({
           state: "observed" as const,
           value: inspected,
-          source: value.source,
+          source: observed.source,
         });
   }
+  const absent = snapshotPlainRecord(
+    value,
+    new Set(["reason", "state"] as const),
+  );
   if (
-    (value.state === "not_observed" || value.state === "not_applicable") &&
-    exactKeys(value, ["reason", "state"]) &&
-    text(value.reason)
+    absent &&
+    (absent.state === "not_observed" || absent.state === "not_applicable") &&
+    text(absent.reason)
   )
-    return Object.freeze({ state: value.state, reason: value.reason });
+    return Object.freeze({ state: absent.state, reason: absent.reason });
   return null;
 }
 
@@ -130,19 +122,24 @@ function inspectIntegratedResult(
   value: unknown,
 ): IntegratedResultObservation | null {
   return inspectObservation(value, (entry) => {
+    const result = snapshotPlainRecord(
+      entry,
+      new Set(["evidenceIds", "result"] as const),
+    );
+    const evidence = result
+      ? snapshotPlainArray(result.evidenceIds, MAXIMUM_EVIDENCE_IDS)
+      : { status: "blocked" as const, value: null };
     if (
-      !plain(entry) ||
-      !exactKeys(entry, ["evidenceIds", "result"]) ||
-      (entry.result !== "accepted" && entry.result !== "rejected") ||
-      !Array.isArray(entry.evidenceIds) ||
-      entry.evidenceIds.length > MAXIMUM_EVIDENCE_IDS ||
-      !entry.evidenceIds.every(id) ||
-      new Set(entry.evidenceIds).size !== entry.evidenceIds.length
+      !result ||
+      (result.result !== "accepted" && result.result !== "rejected") ||
+      evidence.status !== "ok" ||
+      !evidence.value.every(id) ||
+      new Set(evidence.value).size !== evidence.value.length
     )
       return null;
     return Object.freeze({
-      result: entry.result,
-      evidenceIds: Object.freeze([...entry.evidenceIds]),
+      result: result.result,
+      evidenceIds: Object.freeze([...evidence.value]),
     });
   });
 }
@@ -159,11 +156,14 @@ function inspectMeasurements(
     "reviewLoopCount",
     "timeToAcceptedResultMs",
   ] as const;
-  if (!plain(value) || !exactKeys(value, keys)) return null;
+  const measurements = snapshotPlainRecord(value, new Set(keys));
+  if (!measurements) return null;
   const inspected = Object.fromEntries(
     keys.map((key) => [
       key,
-      inspectObservation(value[key], (entry) => (count(entry) ? entry : null)),
+      inspectObservation(measurements[key], (entry) =>
+        count(entry) ? entry : null,
+      ),
     ]),
   ) as Record<(typeof keys)[number], CountObservation | null>;
   if (keys.some((key) => inspected[key] === null)) return null;
@@ -175,9 +175,9 @@ function inspectMeasurements(
 export function inspectBoundedIntegratedResultEvaluationInput(
   value: unknown,
 ): BoundedIntegratedResultEvaluationInput | null {
-  if (
-    !plain(value) ||
-    !exactKeys(value, [
+  const input = snapshotPlainRecord(
+    value,
+    new Set([
       "contract",
       "evaluationId",
       "expectedTaskIds",
@@ -186,24 +186,32 @@ export function inspectBoundedIntegratedResultEvaluationInput(
       "milestoneId",
       "projectId",
       "taskAttemptEvents",
-    ]) ||
-    value.contract !== BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT ||
-    !id(value.evaluationId) ||
-    !id(value.projectId) ||
-    !id(value.milestoneId) ||
-    !Array.isArray(value.expectedTaskIds) ||
-    value.expectedTaskIds.length === 0 ||
-    value.expectedTaskIds.length > MAXIMUM_TASKS ||
-    !value.expectedTaskIds.every(id) ||
-    new Set(value.expectedTaskIds).size !== value.expectedTaskIds.length ||
-    !Array.isArray(value.taskAttemptEvents) ||
-    value.taskAttemptEvents.length > MAXIMUM_TASKS * 33
+    ] as const),
+  );
+  if (!input) return null;
+  const expectedTaskIds = snapshotPlainArray<string>(
+    input.expectedTaskIds,
+    MAXIMUM_TASKS,
+  );
+  const taskAttemptEvents = snapshotPlainArray(
+    input.taskAttemptEvents,
+    MAXIMUM_TASKS * 33,
+  );
+  if (
+    input.contract !== BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT ||
+    !id(input.evaluationId) ||
+    !id(input.projectId) ||
+    !id(input.milestoneId) ||
+    expectedTaskIds.status !== "ok" ||
+    expectedTaskIds.value.length === 0 ||
+    !expectedTaskIds.value.every(id) ||
+    new Set(expectedTaskIds.value).size !== expectedTaskIds.value.length ||
+    taskAttemptEvents.status !== "ok"
   )
     return null;
-  const expectedTaskIds = value.expectedTaskIds as string[];
-  const events = value.taskAttemptEvents.map(inspectExecutionIntelligenceEvent);
-  const integratedResult = inspectIntegratedResult(value.integratedResult);
-  const measurements = inspectMeasurements(value.measurements);
+  const events = taskAttemptEvents.value.map(inspectExecutionIntelligenceEvent);
+  const integratedResult = inspectIntegratedResult(input.integratedResult);
+  const measurements = inspectMeasurements(input.measurements);
   if (
     events.some((entry) => entry === null) ||
     !integratedResult ||
@@ -215,18 +223,18 @@ export function inspectBoundedIntegratedResultEvaluationInput(
   if (
     exactEvents.some(
       (event) =>
-        event.identity.projectId !== value.projectId ||
-        event.identity.milestoneId !== value.milestoneId ||
-        !expectedTaskIds.includes(event.identity.taskId),
+        event.identity.projectId !== input.projectId ||
+        event.identity.milestoneId !== input.milestoneId ||
+        !expectedTaskIds.value.includes(event.identity.taskId),
     )
   )
     return null;
   return Object.freeze({
     contract: BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
-    evaluationId: value.evaluationId,
-    projectId: value.projectId,
-    milestoneId: value.milestoneId,
-    expectedTaskIds: Object.freeze([...expectedTaskIds]),
+    evaluationId: input.evaluationId,
+    projectId: input.projectId,
+    milestoneId: input.milestoneId,
+    expectedTaskIds: Object.freeze([...expectedTaskIds.value]),
     taskAttemptEvents: Object.freeze(exactEvents),
     integratedResult,
     measurements,
@@ -244,7 +252,7 @@ export function evaluateBoundedIntegratedResult(
   const missingTaskIds = input.expectedTaskIds.filter(
     (taskId) => !observedTaskIds.has(taskId),
   );
-  const providerAttemptCounts: Record<string, number> = {};
+  const providerAttempts = new Map<string, number>();
   let providerNotObservedCount = 0;
   for (const event of input.taskAttemptEvents) {
     if (event.execution.provider.state !== "observed") {
@@ -252,9 +260,13 @@ export function evaluateBoundedIntegratedResult(
       continue;
     }
     const provider = event.execution.provider.value;
-    providerAttemptCounts[provider] =
-      (providerAttemptCounts[provider] ?? 0) + 1;
+    providerAttempts.set(provider, (providerAttempts.get(provider) ?? 0) + 1);
   }
+  const providerAttemptCounts = Object.fromEntries(
+    [...providerAttempts.entries()].sort(([left], [right]) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    ),
+  );
   const isIntegratedAcceptedResult =
     input.integratedResult.state === "observed"
       ? input.integratedResult.value.result === "accepted"

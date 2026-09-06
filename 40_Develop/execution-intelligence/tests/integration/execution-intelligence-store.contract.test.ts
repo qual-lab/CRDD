@@ -7,7 +7,6 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-  applyExecutionIntelligenceRetention,
   createExecutionIntelligenceRecorder,
   createTaskAttemptSettledEvent,
   readExecutionIntelligence,
@@ -180,6 +179,28 @@ test("rejects conflicting content for the same exact identity", (t) => {
   );
 });
 
+test("Accessorを含むEventは永続化前に拒否してStoreを作らない", (t) => {
+  const root = fixture(t);
+  const capability = verifiedRoot(root);
+  const base = event();
+  let getterCalls = 0;
+  const result = writeExecutionIntelligenceEvent(capability, {
+    ...base,
+    outcome: {
+      ...base.outcome,
+      get status() {
+        getterCalls += 1;
+        return getterCalls < 3 ? "completed" : "forged";
+      },
+    },
+  });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "execution_event_invalid");
+  assert.equal(result.effectState, "no_effect");
+  assert.equal(getterCalls, 0);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "execution")), false);
+});
+
 test("fails closed when stored content is corrupt", (t) => {
   const root = fixture(t);
   const capability = verifiedRoot(root);
@@ -228,7 +249,7 @@ test("does not hide an unknown residual file from the store result", (t) => {
   });
 });
 
-test("cleans only exact hashes after durable evidence and no unresolved references", (t) => {
+test("物理保持削除を公開せず自己申告のEvidenceでEventを変更しない", async (t) => {
   const root = fixture(t);
   const capability = verifiedRoot(root);
   const created = event();
@@ -236,32 +257,26 @@ test("cleans only exact hashes after durable evidence and no unresolved referenc
   const observed = readExecutionIntelligence(capability);
   assert.equal(observed.status, "completed");
   if (observed.status !== "completed") throw new Error("observation_failed");
-  assert.equal(
-    applyExecutionIntelligenceRetention(capability, {
-      eventHashes: {},
-      unresolvedReferenceEventIds: [],
-      durableEvidenceId: "evidence-a",
-    }).reason,
-    "execution_retention_not_safe",
+  const before = fs.readFileSync(
+    path.join(root, ".crdd", "execution", "events", `${created.eventId}.json`),
   );
-  assert.equal(
-    applyExecutionIntelligenceRetention(capability, {
-      eventHashes: observed.hashes,
-      unresolvedReferenceEventIds: [created.eventId],
-      durableEvidenceId: "evidence-a",
-    }).reason,
-    "execution_retention_not_safe",
-  );
-  const cleaned = applyExecutionIntelligenceRetention(capability, {
-    eventHashes: observed.hashes,
-    unresolvedReferenceEventIds: [],
-    durableEvidenceId: "evidence-a",
-  });
-  assert.equal(cleaned.status, "completed");
-  assert.deepEqual(cleaned.removedEventIds, [created.eventId]);
+  const publicApi = await import("../../src/index.ts");
+  assert.equal("applyExecutionIntelligenceRetention" in publicApi, false);
   const after = readExecutionIntelligence(capability);
   assert.equal(after.status, "completed");
-  if (after.status === "completed") assert.equal(after.events.length, 0);
+  if (after.status === "completed") assert.equal(after.events.length, 1);
+  assert.deepEqual(
+    fs.readFileSync(
+      path.join(
+        root,
+        ".crdd",
+        "execution",
+        "events",
+        `${created.eventId}.json`,
+      ),
+    ),
+    before,
+  );
 });
 
 test("Repository RootはexactなVCS worktreeだけを実行時能力にする", (t) => {
@@ -507,48 +522,6 @@ test("一時fileの回収不明はexactな残存Identityを返す", (t) => {
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.residualArtifactIds.length, 1);
   assert.match(result.residualArtifactIds[0] ?? "", /^\.execution-pending-/u);
-});
-
-test("保持処理の部分失敗は削除済み・未削除を分けて返す", (t) => {
-  const root = fixture(t);
-  const capability = verifiedRoot(root);
-  const first = eventForTask("task-a");
-  const second = eventForTask("task-b");
-  assert.equal(
-    writeExecutionIntelligenceEvent(capability, first).status,
-    "completed",
-  );
-  assert.equal(
-    writeExecutionIntelligenceEvent(capability, second).status,
-    "completed",
-  );
-  const observed = readExecutionIntelligence(capability);
-  assert.equal(observed.status, "completed");
-  if (observed.status !== "completed") throw new Error("observation_failed");
-  const originalUnlink = fs.unlinkSync;
-  let eventRemovalCount = 0;
-  fs.unlinkSync = ((target: fs.PathLike) => {
-    if (String(target).endsWith(".json")) {
-      eventRemovalCount += 1;
-      if (eventRemovalCount === 2)
-        throw new Error("injected_retention_failure");
-    }
-    return originalUnlink(target);
-  }) as typeof fs.unlinkSync;
-  t.after(() => {
-    fs.unlinkSync = originalUnlink;
-  });
-  const result = applyExecutionIntelligenceRetention(capability, {
-    eventHashes: observed.hashes,
-    unresolvedReferenceEventIds: [],
-    durableEvidenceId: "evidence-a",
-  });
-  const requestedIds = Object.keys(observed.hashes).sort();
-  assert.equal(result?.status, "blocked");
-  assert.equal(result?.effectState, "unknown");
-  assert.deepEqual(result?.removedEventIds, requestedIds.slice(0, 1));
-  assert.deepEqual(result?.remainingEventIds, requestedIds.slice(1));
-  assert.deepEqual(result?.unobservableEventIds, []);
 });
 
 test("所有不明の残存Lockを自動奪取しない", (t) => {

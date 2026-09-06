@@ -60,6 +60,92 @@ test("MCP semantic operations require a runtime-observed client principal before
     "project_runtime_mcp_client_not_authenticated",
   );
 });
+
+test("MCP envelope and authentication reject accessors and proxies without invoking them", async () => {
+  let effects = 0;
+  let getterCalls = 0;
+  const accessorMeta = Object.defineProperties(
+    {},
+    {
+      "io.modelcontextprotocol/protocolVersion": {
+        enumerable: true,
+        get() {
+          getterCalls += 1;
+          return MCP_PROJECT_RUNTIME_PROTOCOL_VERSION;
+        },
+      },
+      "io.modelcontextprotocol/clientCapabilities": {
+        enumerable: true,
+        value: {},
+      },
+    },
+  );
+  const accessorResult = await handleMcpProjectRuntimeRequest(
+    request("tools/call", {
+      _meta: accessorMeta,
+      name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+      arguments: objective(),
+    }),
+    dependencies({
+      runObjective: async () => {
+        effects += 1;
+        return { status: "completed" };
+      },
+    }),
+  );
+  assert.equal(accessorResult.error?.code, -32602);
+  assert.equal(getterCalls, 0);
+  assert.equal(effects, 0);
+
+  const proxyResult = await handleMcpProjectRuntimeRequest(
+    request("tools/call", {
+      _meta: new Proxy(META, {
+        getPrototypeOf() {
+          throw new Error("trap");
+        },
+      }),
+      name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+      arguments: objective(),
+    }),
+    dependencies(),
+  );
+  assert.equal(proxyResult.error?.code, -32602);
+
+  const authentication = Object.defineProperties(
+    {},
+    {
+      status: { enumerable: true, value: "verified" },
+      principalId: {
+        enumerable: true,
+        get() {
+          getterCalls += 1;
+          return "principal-a";
+        },
+      },
+    },
+  );
+  const authenticationResult = await handleMcpProjectRuntimeRequest(
+    request("tools/call", {
+      _meta: META,
+      name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+      arguments: objective(),
+    }),
+    dependencies({
+      authenticateClient: () => authentication,
+      runObjective: async () => {
+        effects += 1;
+        return { status: "completed" };
+      },
+    }),
+  );
+  assert.equal(
+    (authenticationResult.result as { structuredContent: { reason: string } })
+      .structuredContent.reason,
+    "project_runtime_mcp_client_not_authenticated",
+  );
+  assert.equal(getterCalls, 0);
+  assert.equal(effects, 0);
+});
 function decision() {
   return {
     decisionId: "decision-a",

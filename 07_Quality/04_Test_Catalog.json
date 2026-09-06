@@ -279,7 +279,7 @@
         "execution",
         "intelligence",
         "store",
-        "retention"
+        "immutable"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -2258,7 +2258,8 @@
         "mcp",
         "project",
         "runtime",
-        "adapter"
+        "adapter",
+        "protocol"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

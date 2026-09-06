@@ -736,6 +736,21 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     );
     const valuePath = path.join(projectRuntimeRoot, "core", "value.ts");
     fs.writeFileSync(valuePath, "export const value = 1;\n");
+    const unusedCoordinatorPath = path.join(
+      coordinatorRoot,
+      "src",
+      "unused-production.ts",
+    );
+    fs.writeFileSync(
+      unusedCoordinatorPath,
+      "export const unusedProduction = 1;\n",
+    );
+    const unusedSiblingPath = path.join(
+      projectRuntimeRoot,
+      "core",
+      "unused-sibling.ts",
+    );
+    fs.writeFileSync(unusedSiblingPath, "export const unusedSibling = 1;\n");
     const publicToolsRoot = path.join(root, "template", "tools");
     fs.mkdirSync(publicToolsRoot, { recursive: true });
     fs.writeFileSync(
@@ -759,6 +774,27 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     assert.equal(documentationOnly.status, "candidate");
     assert.equal(
       documentationOnly.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+
+    fs.writeFileSync(unusedSiblingPath, "export const unusedSibling = 2;\n");
+    const unusedSiblingChanged =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(unusedSiblingChanged.status, "candidate");
+    assert.equal(
+      unusedSiblingChanged.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+
+    fs.writeFileSync(
+      unusedCoordinatorPath,
+      "export const unusedProduction = 2;\n",
+    );
+    const unusedCoordinatorChanged =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(unusedCoordinatorChanged.status, "candidate");
+    assert.notEqual(
+      unusedCoordinatorChanged.packageContentRootSha256,
       first.packageContentRootSha256,
     );
 

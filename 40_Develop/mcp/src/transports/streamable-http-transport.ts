@@ -4,6 +4,7 @@ import http, {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
+import type { Socket } from "node:net";
 import { types as utilTypes } from "node:util";
 
 import {
@@ -11,7 +12,7 @@ import {
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
   type McpProjectRuntimeDependencies,
 } from "../adapters/project-runtime-adapter.ts";
-import { parseUnambiguousJsonDocument } from "../internal/unambiguous-json.ts";
+import { parseUnambiguousJsonDocument } from "../protocol/unambiguous-json-document.ts";
 
 export const MCP_PROJECT_RUNTIME_STREAMABLE_HTTP_CONTRACT =
   "crdd-mcp/streamable-http-transport/v1" as const;
@@ -158,10 +159,18 @@ export async function startMcpProjectRuntimeStreamableHttp(
   const allowedOrigins = new Set(options.allowedOrigins ?? []);
   const active = new Set<Promise<void>>();
   const controllers = new Set<AbortController>();
+  const requests = new Set<IncomingMessage>();
+  const sockets = new Set<Socket>();
+  let isClosing = false;
   const server = http.createServer((request, response) => {
+    if (isClosing) {
+      request.destroy();
+      return;
+    }
+    requests.add(request);
+    const controller = new AbortController();
+    controllers.add(controller);
     const operation = (async () => {
-      const controller = new AbortController();
-      controllers.add(controller);
       const abortOnDisconnect = () => {
         if (!response.writableFinished) controller.abort();
       };
@@ -223,16 +232,26 @@ export async function startMcpProjectRuntimeStreamableHttp(
             result,
           );
       } catch {
-        if (!response.headersSent)
+        if (isClosing || controller.signal.aborted) response.destroy();
+        else if (!response.headersSent)
           respondJson(response, 500, jsonError(-32603, "Internal error"));
         else response.destroy();
       } finally {
         response.removeListener("close", abortOnDisconnect);
+        requests.delete(request);
         controllers.delete(controller);
       }
     })();
     active.add(operation);
     operation.finally(() => active.delete(operation)).catch(() => undefined);
+  });
+  server.on("connection", (socket) => {
+    if (isClosing) {
+      socket.destroy();
+      return;
+    }
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
   });
   await new Promise<void>((resolve, reject) => {
     const failed = (error: Error) => reject(error);
@@ -247,20 +266,52 @@ export async function startMcpProjectRuntimeStreamableHttp(
     server.close();
     throw new Error("project_runtime_mcp_http_address_unavailable");
   }
+  let closePromise: Promise<
+    Readonly<{ status: "completed"; cleanupConfirmed: true }>
+  > | null = null;
+  const close = () => {
+    if (closePromise) return closePromise;
+    isClosing = true;
+    closePromise = (async () => {
+      const serverClosed = new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+      server.closeIdleConnections();
+      for (const request of requests) request.destroy();
+      for (const controller of controllers) controller.abort();
+      await Promise.allSettled([...active]);
+      const socketClosures = [...sockets].map(
+        (socket) =>
+          new Promise<void>((resolve) => {
+            if (socket.closed) {
+              sockets.delete(socket);
+              resolve();
+            } else socket.once("close", () => resolve());
+          }),
+      );
+      for (const socket of sockets) if (!socket.destroyed) socket.destroy();
+      await Promise.all(socketClosures);
+      await serverClosed;
+      if (
+        active.size !== 0 ||
+        controllers.size !== 0 ||
+        requests.size !== 0 ||
+        sockets.size !== 0
+      )
+        throw new Error("project_runtime_mcp_http_cleanup_unconfirmed");
+      return Object.freeze({
+        status: "completed" as const,
+        cleanupConfirmed: true as const,
+      });
+    })();
+    return closePromise;
+  };
   return Object.freeze({
     contract: MCP_PROJECT_RUNTIME_STREAMABLE_HTTP_CONTRACT,
     host: "127.0.0.1" as const,
     port: address.port,
     endpoint: ENDPOINT,
-    close: async () => {
-      for (const controller of controllers) controller.abort();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-      await Promise.allSettled([...active]);
-      return Object.freeze({
-        status: "completed" as const,
-        cleanupConfirmed: true,
-      });
-    },
+    close,
   });
 }
 

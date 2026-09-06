@@ -4,7 +4,7 @@ import {
   handleMcpProjectRuntimeRequest,
   type McpProjectRuntimeDependencies,
 } from "../adapters/project-runtime-adapter.ts";
-import { parseUnambiguousJsonDocument } from "../internal/unambiguous-json.ts";
+import { parseUnambiguousJsonDocument } from "../protocol/unambiguous-json-document.ts";
 
 export const MCP_PROJECT_RUNTIME_STDIO_CONTRACT =
   "crdd-mcp/stdio-transport/v1" as const;

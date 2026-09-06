@@ -85,21 +85,16 @@ Event内容の署名、共有Database、全Eventのグローバル順序およ�
 
 Git管理外のEventをCRDD正本へ昇格する場合は、元Eventの集約、判断、比較条件および限界を確認し、通常の変更契約を用いる。Event fileをそのままGitへ移さない。
 
-## 6. 保持と清掃
+## 6. 保持と清掃候補
 
-物理清掃は時刻、Directory名または件数超過だけで自動実行しない。次をすべて満たす要求だけを受け付ける。
+v0.20はEventの保持状態を読み取れるため、Runtime外で非Authorityな清掃候補を検討する入力にはできるが、清掃候補の生成APIや物理削除APIを公開しない。呼出側が提示するEvidence IDや空の未解決参照一覧は、耐久Evidenceの存在または参照不存在の証明ではないためである。真正な昇格・集約Receiptの生成元と、全参照を権威的に解決する仕組みが揃うまではEvent byteを変更しない。
 
-- 清掃対象Event IDと保存byteのSHA-256がexactに一致する。
-- 対象に未解決参照がない。
-- 集約または昇格先を示す耐久Evidence IDがある。
-- 削除後に同じexact Pathの不存在を確認する。
-
-一部でも不明なら削除せず停止する。複数Eventの処理途中で失敗した場合は、削除済み、未削除および観測不能のIdentityを分け、部分成立を全件完了へ丸めない。清掃も書込みと同じProcess間Lockを使用し、Lock解放を確認できなければ残存資源として返す。由来不明の既存退避物やExecution Store外の資源を、この清掃契約へ混ぜない。保持期間・件数上限を超えた場合は清掃候補を作れるが、上記条件なしに物理削除しない。
+物理削除は将来候補としてQual-Labが所有し、耐久的な昇格／集約Receipt Producerと権威的なReference Resolverが成立した時点で再評価する。保留中はStore容量が自動回収されないため、利用者はRepository-local `.crdd`の容量を観測し、必要な場合はRuntime外の明示運用として扱う。書込み途中の一時file、Mutation Lock、失敗時rollbackおよび残存Artifactの回収はStore操作自身のcleanupであり、この保留対象には含めない。
 
 ## 7. 検証と完成境界
 
-共通コンポーネントの単体試験は閉Schema、Provider非依存性、欠測、集約、限定分散の統合結果評価および非Authority候補を確認する。同コンポーネントの結合試験はexact Repository Root、通常Repository／worktree／submodule、link拒否、不変保存、並行Writer、再送、Identity衝突、各永続化段階の失敗、残存資源および部分清掃を確認する。Coordinator側の結合試験はexact Task Identity、発行診断および公開RuntimeからAdapterを経た実Event発行を確認する。
+共通コンポーネントの単体試験は閉Schema、Accessor／Proxy拒否、Provider非依存性、欠測、checked集約、限定分散の統合結果評価および非Authorityな改善候補を確認する。同コンポーネントの結合試験はexact Repository Root、通常Repository／worktree／submodule、link拒否、不変保存、並行Writer、再送、Identity衝突、各永続化段階の失敗、残存資源、および清掃候補生成・物理削除APIが存在せずEvent byteが不変であることを確認する。Coordinator側の結合試験はexact Task Identity、発行診断および公開RuntimeからAdapterを経た実Event発行を確認する。
 
 共通コンポーネントのSource、公開入口、保存契約またはtoolchainが変わった場合は、試験台帳に登録した利用側契約と利用側の静的検査も同じ自動回帰計画へ含める。利用側の静的検査は、実行する試験levelを限定した場合も除外しない。利用側契約試験自体は指定levelへ従い、指定外の試験まで実行しない。実行知の静的検査は自身のpackageと固定lockfileが所有するtoolchainで実行し、Coordinatorの開発依存へfallbackしない。利用側は共通コンポーネントの内部Pathではなく公開入口だけを使用する。登録外の新しいProducer Pathは、既知の利用側契約全件へ安全側に閉じる。実Provider、Token／費用取得、人間時間、品質受入、共有Store、Viewer UI、運用成果および事業成果は未接続であり、本変更の完成から推定しない。
 
-v0.20の本変更が成立するのは、共通Event、Git管理外Store、欠測を保持する集約、非Authority改善候補、Project Runtime発行および安全な物理清掃が、決定論的な試験と独立レビューを通過した場合である。
+v0.20の本変更が成立するのは、共通Event、Git管理外Store、欠測を保持する集約、非Authorityな改善候補、Project Runtime発行、および清掃候補生成・物理削除が公開されていないことが、決定論的な試験と独立レビューを通過した場合である。

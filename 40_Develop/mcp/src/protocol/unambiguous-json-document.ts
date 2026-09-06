@@ -7,7 +7,6 @@ function skip(raw: string, start: number) {
   while (index < raw.length && WHITESPACE.has(raw[index] ?? "")) index += 1;
   return index;
 }
-
 function scanString(raw: string, start: number) {
   if (raw[start] !== '"') return null;
   let index = start + 1;
@@ -19,45 +18,43 @@ function scanString(raw: string, start: number) {
       index += 1;
       continue;
     }
-    const escapeCharacter = raw[index + 1];
-    if (!escapeCharacter || !'"\\/bfnrtu'.includes(escapeCharacter))
-      return null;
-    if (escapeCharacter !== "u") {
+    const escaped = raw[index + 1];
+    if (!escaped || !'"\\/bfnrtu'.includes(escaped)) return null;
+    if (escaped !== "u") {
       index += 2;
       continue;
     }
     const hexadecimal = raw.slice(index + 2, index + 6);
     if (
       hexadecimal.length !== 4 ||
-      ![...hexadecimal].every((value) => HEX.test(value))
+      ![...hexadecimal].every((entry) => HEX.test(entry))
     )
       return null;
     index += 6;
   }
   return null;
 }
-
 function scanArray(raw: string, start: number): Scan | null {
   let index = skip(raw, start + 1);
-  let hasDuplicateKey = false;
+  let hasDuplicate = false;
   if (raw[index] === "]")
     return { nextIndex: index + 1, hasDuplicateKey: false };
   while (index < raw.length) {
     const value = scanValue(raw, index);
     if (!value) return null;
-    hasDuplicateKey ||= value.hasDuplicateKey;
+    hasDuplicate ||= value.hasDuplicateKey;
     index = skip(raw, value.nextIndex);
-    if (raw[index] === "]") return { nextIndex: index + 1, hasDuplicateKey };
+    if (raw[index] === "]")
+      return { nextIndex: index + 1, hasDuplicateKey: hasDuplicate };
     if (raw[index] !== ",") return null;
     index = skip(raw, index + 1);
   }
   return null;
 }
-
 function scanObject(raw: string, start: number): Scan | null {
   const keys = new Set<string>();
   let index = skip(raw, start + 1);
-  let hasDuplicateKey = false;
+  let hasDuplicate = false;
   if (raw[index] === "}")
     return { nextIndex: index + 1, hasDuplicateKey: false };
   while (index < raw.length) {
@@ -69,21 +66,21 @@ function scanObject(raw: string, start: number): Scan | null {
     } catch {
       return null;
     }
-    hasDuplicateKey ||= keys.has(key);
+    hasDuplicate ||= keys.has(key);
     keys.add(key);
     index = skip(raw, keyEnd);
     if (raw[index] !== ":") return null;
     const value = scanValue(raw, skip(raw, index + 1));
     if (!value) return null;
-    hasDuplicateKey ||= value.hasDuplicateKey;
+    hasDuplicate ||= value.hasDuplicateKey;
     index = skip(raw, value.nextIndex);
-    if (raw[index] === "}") return { nextIndex: index + 1, hasDuplicateKey };
+    if (raw[index] === "}")
+      return { nextIndex: index + 1, hasDuplicateKey: hasDuplicate };
     if (raw[index] !== ",") return null;
     index = skip(raw, index + 1);
   }
   return null;
 }
-
 function scanValue(raw: string, start: number): Scan | null {
   const index = skip(raw, start);
   if (raw[index] === "{") return scanObject(raw, index);
@@ -102,7 +99,6 @@ function scanValue(raw: string, start: number): Scan | null {
     ? { nextIndex: index + (number[0]?.length ?? 0), hasDuplicateKey: false }
     : null;
 }
-
 export function parseUnambiguousJsonDocument(raw: string) {
   if (raw.length === 0 || raw.charCodeAt(0) === 0xfeff) return null;
   const scanned = scanValue(raw, 0);
