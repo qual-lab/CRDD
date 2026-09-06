@@ -1,7 +1,7 @@
 # 変更トレース: 実行知の最小基盤
 
 変更ID: `CHG-000062`
-状態: `Implementation in Progress`
+状態: `Ready for Independent Review`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `feature`
@@ -14,6 +14,8 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 現在は決定論的な単体・結合試験を実装済みであり、Single Task Runtimeが返す検証済み実効Executor ProviderもEventへ接続した。独立レビューで露出した入口・観測、永続化、利用側伝播の暗黙依存は、exact Task Identity、検証済みRepository Root能力、Process間排他、不変公開、故障段階別結果、および利用側回帰の逆向き登録として一体で是正した。再レビューで残った実運用配線は、package-local toolchain、本番の非Authority発行診断、および試験levelから独立した利用側静的検査として閉じた。TypeScriptアプリケーション向けには、公開packageからRepositoryへ一度結合できるRecorderと観測値生成補助を追加し、Coordinatorや低水準Store APIを経由せずAI APIのmetadataを記録・読取りできる境界へした。Model、実Providerの利用量、人間の実作業時間、品質受入、Viewer UI、共有Store、運用成果および事業成果は未接続であり、本変更の成立から完成を推定しない。
 
 2026-09-06、v0.19で成立した限定分散実行を作り直さず、予定Task、実Attemptおよび統合後の受入結果を同じ評価へ接続する共通契約を本変更へ追加した。個別Taskの成功を統合受入へ読み替えず、Task、統合結果、Providerおよび効用測定の欠測を保持する。これは新しい分散実行基盤ではなく実行知の評価利用側であるため、独立した変更IDを増やさない。
+
+固定改訂版`ce7c4d3073099926b3302eb9aa8e2c03d18aa699`では、競合しない2 Taskを上限2で実際に同時実行し、Project Runtimeが発行した2件のAttempt Eventを不変Storeから再読取りして、一つの統合受入結果へ接続した。最大同時実行数2、予定Task 2件、観測Attempt 2件、Retry 0件、Conflict 0件および統合受入を確認した。これは統合評価経路の技術的成立を示す限定実測であり、実Provider間の速度、費用、人間作業時間または品質改善は未観測のため主張しない。
 
 ## 2. 人間が決定した範囲
 
@@ -71,6 +73,10 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 ## 6. 検証と現在の根拠
 
 [検証設計](../../07_Quality/03_Verification_Design.md#execution-intelligence-verification)の`EI-UT-*`、`EI-IT-*`、`EI-RT-*`を自動回帰へ登録した。共通コンポーネントの単体試験は閉Schema、Provider非依存性、欠測、集約、限定分散の統合結果評価、非Authority候補および不正memberを確認する。共通Storeの結合試験はexact Root、worktree／submodule、link拒否、不変保存、Process間並行、冪等再送、Identity衝突、故障注入、残存Lockおよび部分清掃を確認する。Coordinator結合試験はexact Task Identity、本番公開Runtimeの発行診断および診断失敗時のTask不変を含む専用AdapterからのProject Runtime発行を確認する。試験台帳は実行知の変更から登録済みCoordinator利用側契約と利用側静的検査を逆向きに選択し、level限定時も静的検査を維持する。実行知の静的検査は自身の固定package依存だけを使用する。
+
+現在の固定候補に対する決定論的な縦断結果は、[v0.20公開Runtimeと限定分散の検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)へ記録する。以前の独立再レビュー済み範囲を拡張したため、今回追加した組込みRecorder、利用量の部分観測および限定分散評価は、最終一括監査前の独立レビュー対象とする。
+
+実行知Coreの変更影響型回帰は、共通packageの単体・結合試験に加え、CoordinatorのTask実行契約と限定分散全体試験を利用側として選択する。これにより評価契約だけが成功し、実際のProject Runtime発行または統合経路が未確認になる状態を防ぐ。
 
 本変更はCoordinator Runtime Execution Identityを構成するSourceを変更するため、将来の正式Release Candidateでは再署名と影響するRuntime検証を要する。開発中の固定候補確認では、外部Provider、署名および人間入力を発火しない。
 

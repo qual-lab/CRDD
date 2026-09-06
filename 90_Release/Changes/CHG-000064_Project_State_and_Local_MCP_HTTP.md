@@ -1,7 +1,7 @@
 # 変更トレース: Project状態参照とローカルMCP HTTP
 
 変更ID: `CHG-000064`
-状態: `Implementation in Progress`
+状態: `Ready for Independent Review`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `feature`
@@ -14,6 +14,8 @@ Project Runtimeが所有する現在状態を、正本変更や実行権限を�
 状態参照はProject RuntimeのState Portから`readState`だけを受け取り、Task、判断、Authority、成功、進捗率または正本変更を生成しない。状態の不存在と観測不能、要求したRepository改訂版と保存状態の不一致を区別する。MCPは同じcanonical結果を閉じたtool結果へ投影し、独自のProject状態を所有しない。
 
 HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。IPv4 localhostだけへbindし、Bearer認証、Origin確認、Protocol／Method／Nameのmirror header照合、UTF-8と容量上限、切断時の取消伝播および終了時の進行要求joinを要求する。旧版のGET stream、Transport Session IDまたはLAN／Internet公開互換を追加しない。
+
+固定改訂版`ce7c4d3073099926b3302eb9aa8e2c03d18aa699`で、公開Runtimeが作成した受入済みProject Stateを状態参照ApplicationからMCP Adapterへ渡し、`observed`、受入済みMilestoneおよび`no_effect`を同じ閉じた結果として確認した。別の総合試験では`template/tools/crdd-mcp.ts`のstdio／localhost HTTP公開Process、認証済み状態参照、拒否、切断取消および終了joinを確認した。公開RuntimeからTransportまでの全層を単一試験Fixtureへ偽装統合せず、実状態の意味縦断と実Process Transportの縦断を相補的な根拠として扱う。
 
 ## 2. 人間が決定した範囲
 

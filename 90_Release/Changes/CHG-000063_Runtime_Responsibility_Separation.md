@@ -1,7 +1,7 @@
 # 変更トレース: Runtime責務分離
 
 変更ID: `CHG-000063`
-状態: `Implementation in Progress`
+状態: `Ready for Independent Review`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `refactoring`
@@ -14,6 +14,8 @@ v0.19で成立したProject Runtime、MCP stdioおよびCoordinatorは、意味�
 本変更はProject RuntimeをProject-level execution lifecycleのApplication Core、Coordinatorを実行編成、MCPをTransport、実行知を観測・分析、Platform AccessをOS／Platform境界として分ける。物理移動を完成とせず、公開契約、依存方向、実装Adapter、利用側および自動回帰が同時に成立した場合だけ分離完了とする。
 
 2026-09-05に最初の移行単位として、Project状態機械とPlatform Port契約を`40_Develop/project-runtime/`へ移し、続く移行単位でObjective要求と統合結果の公開契約、および一つのTask Attemptを要求するExecution Port契約を同packageへ移した。さらに、実行観測、候補統合、人間判断、Queue、StateおよびLeaseの意味型とPortをProject Runtimeの公開入口へ集約した。実行知、候補Store、Windows保護StoreおよびRepository-local永続化の実装はCoordinator側に保持し、Repository RootとBindingを構成時に閉じたState／Lease Adapterを追加した。Application移行では、再計画処理、Objective受付のPlan検証と公開結果生成、Task実行の状態調停、候補統合、人間判断、およびObjective受付後のQueue・回復・実行・最終投影の調停本体をProject Runtimeへ移した。これらはRepository Path、Node暗号および永続化関数を直接参照せず、Objective受付が構成したBinding済みPortだけを利用する。Coordinator側のObjective入口は、未信頼入力、認証主体、Repository BindingおよびPlanner結果を検証し、Host Adapterを一度構成する薄いAdapterへ縮小した。時刻・安定Identity生成、状態所有者のProcess世代、cleanup不明時のProcess再利用禁止およびRecovery Identity生成もHost側から注入し、Project Runtime CoreがOS／言語RuntimeのIdentity生成へ依存しない境界へ変更した。従来Task Authorityと誤称していた署名済みRuntime packageの一回限りCapabilityは、Task要求と`authorityBindingId`が担う意味上のTask Authorityから分離し、専用のExecution Authorization PortとCoordinator Adapterから発行・失効する契約改訂2へ変更した。構成RootとMCP Transportも独立した所有Pathへ移し、MCPがCoordinator内部moduleや人間判断契約文字列を複製しない依存へ切り替えた。各単位で単体試験、公開入口、Coordinator利用側、設計対応、試験台帳および変更影響型回帰選択を同時に切り替えている。上位の責務分離完了表示は、依存検査、公開入口の総合試験および独立レビューまで保留する。
+
+固定改訂版`ce7c4d3073099926b3302eb9aa8e2c03d18aa699`では、公開Runtimeが作成したProject Stateを同じPersistence Portから再読取りし、Project Runtimeの公開契約、MCP Adapterおよび閉じたMCP結果まで縦断した。MCP stdio／localhost HTTPの公開Launcher、HTTPの状態参照、取消・終了join、およびProject Runtimeからの逆依存0は、package試験と静的検査で成立した。残る完成条件は最終一括監査であり、実Provider、署名、Linux／macOSまたはRemote Runtimeの成立を本結果から推定しない。
 
 統合経路では、Project Runtimeが要求する統合記録Portを追加し、Repository Root、`.crdd`配置、Hash生成および不変公開をCoordinatorの統合記録Adapterへ分離した。同一記録の再試行、Identity衝突およびPath逸脱の拒否をAdapter契約試験で固定した。その後、状態・Queue・LeaseをBinding済みPortへ切り替え、候補の検証、競合判断、受入状態遷移および公開結果生成を含む統合Application本体をProject Runtimeへ移した。Coordinatorには候補生成、Repository観測、採用および統合記録の環境依存Adapterだけを残した。
 

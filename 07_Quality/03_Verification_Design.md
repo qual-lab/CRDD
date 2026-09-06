@@ -276,6 +276,7 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 | EI-IT-A-04 | 結合 | 2 Processから同じEvent IDへ異なるbyteを並行発行 | 一方だけを不変保存し、他方をIdentity衝突として拒否する |
 | EI-IT-A-05 | 結合 | open、write、flush、publish、readback、Lock初期化・解放、一時file回収の各失敗 | Effect、cleanup、再試行、手動回復およびexact残存Artifactを区別し、成功へ丸めない |
 | EI-IT-A-06 | 結合 | 複数Event清掃中の途中失敗 | 削除済み、未削除、観測不能および残存Lockを区別し、全件完了を主張しない |
+| EI-IT-N-04 | 結合 | 同じObjectiveの競合しない2 Taskを上限2で実行し、実Attempt Eventと統合結果を評価 | 2 Taskの同時実行を観測し、両Attemptを不変Storeから再読取りして統合受入と同じ評価Identityへ接続する。個別Task成功を統合受入へ読み替えず、未観測の時間、費用、人間作業および後工程品質を欠測のまま保持する |
 | EI-RT-C-01 | 回帰 | 実行知のSource、公開入口、Storeまたはtoolchainを変更 | 実行知自身のUT／ITに加え、登録したCoordinator利用側契約と静的検査を同じ計画へ選ぶ。試験levelを限定しても利用側静的検査は残し、指定外の利用側試験は実行しない。実行知の静的検査はCoordinatorのtoolchainへ依存しない |
 
 実Provider、Token／費用、人間の実作業時間、品質受入、Viewer、運用成果および事業成果は、本変更の自動回帰では未評価である。値が取得できないことを試験失敗へせず、取得済みまたは完成済みとも表示しない。性能試験・長時間試験は本変更の通常Gateではなく、人間が対象と上限を明示しない限り実行しない。
