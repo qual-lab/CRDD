@@ -1,14 +1,14 @@
 # v0.20公開Runtimeと限定分散の固定候補検証結果
 
-状態: 独立再レビュー合格。Release引継ぎ可能
+状態: 署名前の構造是正済み。独立再レビュー待ち
 担当責任者: Qual-Lab
 最終更新日: 2026-09-06
 
 ## 対象
 
 - 対象変更: [CHG-000062](../../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
-- 固定改訂版: `11b7e99c7448aed7067c61a2d50282ad944db349`
-- 固定Tree: `8c663a269ec4a767d9253298b520909875e74fe1`
+- 固定改訂版: `2bcc1dad8ae953f477db5ee3948d9188f1b295f0`
+- 固定Tree: `b16f4299b157622871761bbd2c693737a3aa0380`
 - 対象範囲: Runtime責務分離、Project Stateの読み取り専用投影、MCP stdio／localhost HTTP、実行知の組込みAPI、限定分散の統合結果評価
 
 ## 結論
@@ -37,8 +37,8 @@
 | Repository全体の変更影響型回帰 | 選択155項目、全5段階成功 | 全所有componentの静的検査、UT、IT、Windows実Process Gate、ST |
 | Windows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | Coordinator静的検査 | 成功 | Runtime／Project設計対応、兄弟Component package metadataを含むRuntime Execution Identity、型、Lint、Format |
-| 正式署名の利用側閉包 | 40件中40件成功 | 署名処理がCoordinator単体でなく、公開Launcherから到達するProject Runtime、MCP、実行知およびpackage metadataを含む配布全体の依存閉包を観測すること |
-| 追加是正後のCoordinator制限Process回帰 | 1,657件中1,657件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
+| 正式署名の利用側閉包 | 41件中41件成功 | 署名処理が配布全体を観測し、必須成果物をPath再解釈なしで解決すること。公開Launcher、兄弟package metadataまたは到達sourceの欠落を秘密鍵読取り前に拒否すること |
+| 追加是正後のCoordinator制限Process回帰 | 1,658件中1,658件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
 | 追加是正後のWindows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | 追加是正後のRepository全体Checker | Error 0、Warning 0 | Markdown 425件、Local link 3,010件、履歴参照24件、Anchor 1,005件 |
 
@@ -48,7 +48,9 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 全回帰は`node 40_Develop/checker/regression-runner.ts --base main --windows-process-control-authorized`で実行した。通常の静的確認、UTおよびITを制限Processで実行した後、Windows実Process Gateだけを専用実行Profileで実行し、最後にSTへ進んだ。PT／LT、実Providerおよび署名は選択・実行していない。
 
-正式署名の最初の秘密入力前検査は`release_manifest_package_observation_failed`で停止した。原因は、Runtime依存閉包のProducerと通常の検証・起動利用側は責務分離後の配布全体へ移行していた一方、正式署名のConsumerだけが分離前のCoordinator単体観測を呼んでいたことだった。この試行では秘密鍵またはpassphraseを読み取らず、署名、Manifest生成および外部Effectは発生していない。固定改訂版`e8012024`で署名Consumerを正規の配布全体観測へ接続し、署名経路の静的契約と実配布形の回帰を追加した。上表の40件、1,657件、7件、静的検査およびRepository全体Checkerは同是正後に成功した。実署名と正式E2Eは後続Gateであり、本結果から成功を推定しない。
+正式署名の最初の秘密入力前検査は`release_manifest_package_observation_failed`で停止した。原因は、Runtime依存閉包のProducerと通常の検証・起動利用側は責務分離後の配布全体へ移行していた一方、正式署名のConsumerだけが分離前のCoordinator単体観測を呼んでいたことだった。この試行では秘密鍵またはpassphraseを読み取らず、署名、Manifest生成および外部Effectは発生していない。固定改訂版`e8012024`で署名Consumerを正規の配布全体観測へ接続した。
+
+続く署名前監査では、配布物観測が配布Root相対Pathを返すのに、固定Manifest利用側だけが旧package相対Pathを検索していたため、正しい配布でも`platform_provisioner_interactive_console_reader_missing`へ停止することを検出した。固定改訂版`2bcc1dad8ae953f477db5ee3948d9188f1b295f0`で、必須成果物のPath解決を配布物観測へ集約し、利用側によるPathの再解釈を除去した。秘密鍵読取り前の動的署名事前検査を含む上表の41件、1,658件、Windows実Process 7件、静的検査およびRepository全体Checkerは同是正後に成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
 
 ## 限定分散の観測
 
@@ -68,7 +70,7 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 ## 未評価範囲と次のGate
 
-- 固定改訂版`11b7e99c7448aed7067c61a2d50282ad944db349`と検証記録Commit`f2a1ce691620e19781e921ee98581b6419310330`を対象に、二つの独立再レビューが初期指摘、是正後の利用側閉包、Authority／Effect／cleanup、試験設計および完成主張を水平確認した。結果は双方ともCritical 0、Major 0、Moderate 0、Minor 0であり、署名前Gateを合格と判定した。
+- 旧固定改訂版`11b7e99c7448aed7067c61a2d50282ad944db349`と検証記録Commit`f2a1ce691620e19781e921ee98581b6419310330`への二つの独立再レビューは、当時の対象にCritical 0、Major 0、Moderate 0、Minor 0を返した。その後の署名前検査と監査で上記の利用側未完を検出したため、この結果を現在の固定改訂版へ流用しない。現在の固定改訂版と本記録を対象とする独立再レビューが必要である。
 - OS／Consoleから実行中Applicationを持つ公開MCP ProcessへのSignal配送と、その配送後の取消・join。Node.js Signal event受領後の構成試験を、この実行環境境界の成立へ読み替えない。
 - 正式候補固定後の署名および対象E2E。成功するまでRelease完了と表示しない。
 

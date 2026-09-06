@@ -1,7 +1,7 @@
 # 変更トレース: Runtime責務分離
 
 変更ID: `CHG-000063`
-状態: `Ready for Release Handoff`
+状態: `Independent Re-review Pending`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `refactoring`
@@ -18,6 +18,8 @@ v0.19で成立したProject Runtime、MCP stdioおよびCoordinatorは、意味�
 固定改訂版`ce7c4d3073099926b3302eb9aa8e2c03d18aa699`では、公開Runtimeが作成したProject Stateを同じPersistence Portから再読取りし、Project Runtimeの公開契約、MCP Adapterおよび閉じたMCP結果まで縦断した。MCP stdio／localhost HTTPの公開Launcher、HTTPの状態参照、取消・終了join、およびProject Runtimeからの逆依存0は、package試験と静的検査で成立した。残る完成条件は最終一括監査であり、実Provider、署名、Linux／macOSまたはRemote Runtimeの成立を本結果から推定しない。
 
 正式署名の秘密入力前検査では、署名処理だけが分離前のCoordinator単体Filesystem観測を使用し、Project Runtime、MCPおよび実行知を含む現在のRuntime依存閉包を観測できないことを検出した。固定改訂版`e8012024`で、署名時の内容Root計算を開発版、同梱版、別配布版および昇格後検証と同じ配布全体の依存閉包へ統一した。旧単体観測はcallerが選択したpackageの非Authority診断だけに残し、正式署名からは到達させない。署名経路が正規観測を使用する契約試験と、責務分離後の実配布構成を使う秘密鍵不一致試験を追加し、秘密値を読む前にこの閉包を検証できる状態へ変更した。
+
+その署名前監査では、配布物観測が返すPathは配布Root相対である一方、固定Manifestの利用側だけが旧Coordinator package相対Pathを再解釈し、正しい署名済み配布でも実行許可Capabilityを発行できないことを検出した。固定改訂版`2bcc1dad8ae953f477db5ee3948d9188f1b295f0`で、必須成果物のPath解決とHash取得を配布物観測へ集約し、開発版と固定Manifest利用側は解決済み成果物だけを使用する構造へ変更した。公開Launcher、到達した兄弟package metadataまたは到達sourceの欠落を、秘密鍵読取り前の署名事前検査で実際に拒否する動的回帰を追加した。固定改訂版の全回帰とCheckerは成功済みであり、独立再レビュー、正式署名および正式E2Eは後続Gateとして保持する。
 
 統合経路では、Project Runtimeが要求する統合記録Portを追加し、Repository Root、`.crdd`配置、Hash生成および不変公開をCoordinatorの統合記録Adapterへ分離した。同一記録の再試行、Identity衝突およびPath逸脱の拒否をAdapter契約試験で固定した。その後、状態・Queue・LeaseをBinding済みPortへ切り替え、候補の検証、競合判断、受入状態遷移および公開結果生成を含む統合Application本体をProject Runtimeへ移した。Coordinatorには候補生成、Repository観測、採用および統合記録の環境依存Adapterだけを残した。
 
