@@ -20,7 +20,7 @@ Last Updated: 2026-09-01
 
 ## 毎回の起動方法を組み立てない
 
-通常操作は、検証済みNodeから同じ配布物の`bin/launch.ts`を直接起動する。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般Taskは第一級の`task`入口を使う。利用可能な入口は`capabilities --json`から取得し、準備commandを推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
+通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientを接続する場合は別の公開入口`template/tools/crdd-mcp.ts`を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" task --request-stdin --json

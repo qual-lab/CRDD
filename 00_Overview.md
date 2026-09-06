@@ -182,6 +182,8 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `CHANGELOG.md` | CRDD標準自体のバージョン間変更履歴。プロダクト固有のCHANGELOGとは別に扱う |
 | `template/` | プロジェクトへCRDDを導入するためのひな型とAI入口ファイル |
 | `template/tools/crdd-check.ts` | 採用プロジェクトへ配布する軽量チェッカーの正本。全体確認を既定とし、親AIエージェントがレビュー／監査前の共通事前確認と参照関係の把握に使用する |
+| `template/tools/crdd-coordinator.ts` | clone／submodule利用者向けの安定したCoordinator起動入口。実行編成、診断、候補およびProject RuntimeのCLI操作へ接続する |
+| `template/tools/crdd-mcp.ts` | clone／submodule利用者向けの安定したMCP Server起動入口。stdioまたはlocalhost HTTPをProject Runtime公開契約へ接続する |
 | `40_Develop/checker/crdd-check.ts` | CRDD標準リポジトリのprivate checker packageから配布用チェッカー正本を呼び出す入口。配布正本は`template/tools/crdd-check.ts`であり、監査または準拠判定の正本ではない |
 | `06_Architecture/99_Coding_Standards.md` | CRDD公式Repositoryの内部ツールに適用するファイル、フォルダ、TypeScript／Rust識別子、試験名および機械識別子（machine identifier）の命名正本 |
 | `40_Develop/platform-access/` | OS固有の読み取り専用アクセス観測だけを所有するprivate Rust crate。CRDD本体・CLI・Policy・契約はTypeScriptに保持し、単独配布または公開CLIにしない |

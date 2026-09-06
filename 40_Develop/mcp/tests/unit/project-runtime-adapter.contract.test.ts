@@ -6,6 +6,7 @@ import {
   handleMcpProjectRuntimeRequest,
   MCP_PROJECT_RUNTIME_DECISION_TOOL,
   MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+  MCP_PROJECT_RUNTIME_STATE_TOOL,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
   type McpProjectRuntimeDependencies,
 } from "../../src/index.ts";
@@ -101,6 +102,19 @@ function dependencies(
       applicationId: "application-a",
       generation: 5,
     }),
+    getProjectState: async (input) => ({
+      contract: "crdd-coordinator/project-runtime-state-query/v1",
+      status: "completed",
+      reason: "project_runtime_state_absent",
+      requestId: input.requestId,
+      projectId: input.projectId,
+      repositoryRevision: input.repositoryRevision,
+      observationState: "absent",
+      projection: null,
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect",
+    }),
     ...overrides,
     authenticateClient:
       overrides.authenticateClient ??
@@ -108,7 +122,7 @@ function dependencies(
   };
 }
 
-test("MCP discovery and tool list expose only the two v0.19 public operations", async () => {
+test("MCP discovery and tool list expose the three public operations", async () => {
   const discover = await handleMcpProjectRuntimeRequest(
     request("server/discover", { _meta: META }),
     dependencies(),
@@ -122,7 +136,50 @@ test("MCP discovery and tool list expose only the two v0.19 public operations", 
   const tools = (listed.result as { tools: readonly { name: string }[] }).tools;
   assert.deepEqual(
     tools.map((tool) => tool.name),
-    [MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL, MCP_PROJECT_RUNTIME_DECISION_TOOL],
+    [
+      MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+      MCP_PROJECT_RUNTIME_DECISION_TOOL,
+      MCP_PROJECT_RUNTIME_STATE_TOOL,
+    ],
+  );
+});
+
+test("MCP state tool returns the canonical read-only result", async () => {
+  let authentication: unknown = null;
+  const response = await handleMcpProjectRuntimeRequest(
+    request("tools/call", {
+      _meta: META,
+      name: MCP_PROJECT_RUNTIME_STATE_TOOL,
+      arguments: {
+        requestId: "state-a",
+        projectId: "project-a",
+        repositoryRevision: revision,
+      },
+    }),
+    dependencies({
+      getProjectState: async (input, observedAuthentication) => {
+        authentication = observedAuthentication;
+        return {
+          contract: "crdd-coordinator/project-runtime-state-query/v1",
+          status: "completed",
+          reason: "project_runtime_state_absent",
+          requestId: input.requestId,
+          projectId: input.projectId,
+          repositoryRevision: input.repositoryRevision,
+          observationState: "absent",
+          projection: null,
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          effectState: "no_effect",
+        };
+      },
+    }),
+  );
+  assert.deepEqual(authentication, { principalId: "principal-a" });
+  assert.equal(
+    (response.result as { structuredContent: { observationState: string } })
+      .structuredContent.observationState,
+    "absent",
   );
 });
 
@@ -879,11 +936,12 @@ test("MCP DecisionはObjective専用fieldを拒否する", async () => {
 
 test("MCP contract reports stateless transport and the exact public tools", () => {
   assert.deepEqual(describeMcpProjectRuntimeAdapterContract(), {
-    contract: "crdd-mcp/project-runtime-adapter/v1",
+    contract: "crdd-mcp/project-runtime-adapter/v2",
     protocolVersion: MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
     tools: [
       MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
       MCP_PROJECT_RUNTIME_DECISION_TOOL,
+      MCP_PROJECT_RUNTIME_STATE_TOOL,
     ],
     transportState: "stateless_per_request",
     clientMetadataAuthority: "none",

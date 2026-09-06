@@ -669,3 +669,66 @@ macOS対応はLinux対応の完了から推定せず、別の成果物、Build�
 本採用は、手入力するWBS／進捗率、独立したProject Management Database、予測、Portfolio、Topic管理、会議管理またはProject状態からの自動実行を含まない。これらを扱うフルのProject Management Projectionは探索中の別候補に留め、読み取り専用投影の存在から採用を推定しない。
 
 一部fieldの取得や画面表示だけで完成を主張せず、実producerからcanonicalなProject State、公開投影、MCP stdio／HTTP consumerまでの縦断、状態の現行性、閉じたSchema、権限制御、unknown、取消、Recoveryおよび終了後観測を検証する。
+
+<a id="discovery-process-method-projection"></a>
+
+## 14. Discoveryの業務プロセス投影候補
+
+### 14.1. 候補として保持する目的
+
+業務変革を扱うDiscoveryでは、分析対象の境界、関係者、Input／Output、活動、判断、Authority、Handoff、例外、手戻り、処理時間、待機および滞留を、一貫した根拠へ接続して理解する必要がある。CRDD独自の業務分析記法を先に作らず、同じDiscovery ContextからSIPOC、BPMN／Swimlane、Value Stream等の既存手法へ目的別の表示を生成できる可能性を、未採用候補として保持する。
+
+候補の基本順序は、SIPOCによる対象境界、BPMN／Swimlaneによる現在の役割・活動・判断・受け渡し、Value Streamによる処理・待機・滞留、Pain PointとRoot Cause、Process・Authority・標準化・自動化・AIを含む解決候補の比較、To-Be、KPI／実測による学びへの還流である。この順序は全Discoveryへ成果物一式を要求する工程ではなく、対象業務と判断に必要なViewだけを選ぶ候補である。
+
+### 14.2. 正本と投影の境界
+
+SIPOC図、BPMN図またはValue Stream図そのものを第二の正本にしない。情報源から確認したReality、根拠、Actor、Activity、Decision、Authority、Handoff、Pain Point、Root Cause、Opportunity、As-Is／To-BeおよびMetricの意味をDiscoveryが必要な深さで保持し、図はその目的別投影として扱う。既存成果物で十分に表現できる場合は、新しいSchema、Directoryまたは必須Templateを作らない。
+
+AI Opportunityは解決候補の一つであり、AIを配置できる場所の探索を目的にしない。Process変更、Authority変更、標準化、自動化、System連携およびHuman／AI責任再設計と比較し、根拠より効果・因果・確実性を強めない。Businessは価値、戦略、優先順位、投資および事業KPI、Discoveryは現実の業務、課題、原因候補、OpportunityおよびAs-Is／To-Be、Product／Engineeringは要求、体験、設計、実装および検証を所有する。
+
+### 14.3. 採否の再評価条件
+
+現在状態は`Exploring / Unscheduled`であり、v0.20の採用済み6項目、実装着手または新しい準拠義務へ追加しない。代表的な業務変革で、既存Discovery成果物だけでは分析境界・責任・待機・原因・改善効果の接続を再構成しにくいEvidenceが得られた時点で、次を確認して採否を人間が決める。
+
+- 同じ意味情報から複数手法へ投影する実用価値と、手入力・維持費用。
+- As-IsからPain Point、Evidence、Root Cause、Opportunity、Decision、To-Be、Requirement、Implementation、ValidationおよびKPIまでの追跡可能性。
+- SIPOC、BPMN、SwimlaneおよびValue Streamとの互換性と、Mermaid等による簡易表示の十分性。
+- 時間、量、待機、手戻りおよびKPIの`unknown`と非該当を誤って0へ補正しない契約。
+- AI Opportunity抽出、MCP QueryまたはProcess差分比較を追加する場合の情報分類、Authority、誤推定および利用側。
+
+再評価までは、添付案の例示Schemaを正式Schemaとして採用せず、Communication Repository等からの自動抽出やAIによる自動Solution選択も許可しない。
+
+<a id="oss-runtime-trust-policy-candidate"></a>
+
+## 15. OSS Runtimeの利用者所有Trust Policy候補
+
+### 15.1. 候補として保持する目的
+
+CRDD RuntimeをOSSとしてfork、改変および組織内再配布できる状態と、Qual-Lab公式配布物の真正性を検証できる状態を両立するため、公式配布署名と実行許可を分離するTrust Modelを未採用候補として保持する。Qual-Lab署名が証明する範囲は「Qual-Labが当該ArtifactをBuild・配布したこと」とし、その署名だけを任意環境における唯一の実行資格にはしない。
+
+候補では、少なくとも次の意味を独立して評価する。
+
+- CRDD準拠性（CRDD Conformance）：Runtimeが対象CRDD Contractへ準拠しているか。
+- Artifact完全性（Artifact Integrity）：選択したArtifactが検証対象から改変されていないか。
+- 発行者Identityと信頼（Publisher Identity / Trust）：誰がBuild・署名し、その発行者を利用者が信頼するか。
+- 配置先の実行許可（Deployment Execution Authorization）：そのArtifactを対象環境で実行してよいと誰が決めたか。
+
+これらを`Qual-Lab署名済み`という一つの結果へ畳まない。Fork版は、CRDD準拠性とArtifact完全性を満たし、利用者または組織が許可した発行者の署名を持つ場合に成立し得る。未署名のLocal開発版を許す場合も、正式配布と誤認させず、配置先所有者が用途と範囲を明示的に許可した開発Policyへ限定する。
+
+### 15.2. Authorityと正本の境界
+
+信頼する発行者、許容する署名方式、未署名Local開発の可否および配置先での実行許可は、Qual-Labが一律に決めるのではなくDeployment Ownerが所有する。Qual-Labは公式Buildの由来と完全性を証明できるが、利用者環境のTrust PolicyやRisk受容を代理決定しない。Runtime Coreも、自身が公式版であること、利用者が発行者を信頼していること、または配置先の実行許可を、署名の存在だけから生成しない。
+
+Trust Policyを将来機械可読化する場合は、公式発行者、組織独自発行者および限定Local開発を区別し、既定値、Policy所有者、更新・失効、鍵Rotation、署名者変更、移行、監査記録およびfail-closed条件を設計する。本文の例示名やYAML風表現を現行Schema、設定Pathまたは実装許可として扱わない。
+
+### 15.3. 採否の再評価条件
+
+現在状態は`Exploring / Unscheduled`であり、v0.20の署名、Runtime Authority、配布物または採用済み6項目を変更しない。v1前、または公式版以外のBuildを実際に配布・実行する要求が生じた時点で、次を確認して採否とVersion境界を人間が決める。
+
+- 公式Build、Fork Build、組織BuildおよびLocal開発版の利用シナリオと脅威。
+- CRDD準拠性、Artifact完全性、発行者信頼および配置先実行許可を独立して検証・表示できる契約。
+- 利用者所有Policyが、秘密鍵、署名、鍵失効、供給網、RollbackおよびRecoveryへ与える影響。
+- 公式署名のないRuntimeを許す場合の既定拒否、用途限定、表示、監査および正式配布との混同防止。
+- CROS、複数Repository、Remote Runtimeおよび企業内配布へ拡張した場合のPolicy継承とAuthority分離。
+
+再評価までは、Qual-Lab署名を外すこと、任意の未署名Binaryを実行可能にすること、または例示Policyを既定設定として採用することを本候補から推定しない。

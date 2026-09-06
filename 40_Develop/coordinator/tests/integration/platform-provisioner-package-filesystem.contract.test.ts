@@ -13,6 +13,7 @@ import {
   inspectBundledCoordinatorPackageFilesystemCandidate,
   inspectFixedDevelopmentCoordinatorPackageCandidate,
   inspectPlatformProvisionerPackageFilesystemCandidate,
+  inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate,
   inspectVerifiedNativeDistributionCandidate,
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   verifyBundledCoordinatorPackageCandidate,
@@ -49,6 +50,7 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
   const packageRoot = path.join(distributionRoot, "40_Develop", "coordinator");
   const entrypoints = [
     "bin/coordinator.ts",
+    "src/index.ts",
     "src/core/interactive-console-reader.ts",
     "src/security/candidate-store-lock-worker.ts",
     "src/security/host-operation-lock-supervisor.ts",
@@ -73,6 +75,16 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, "export const fixture = true;\n");
   }
+  const publicToolsRoot = path.join(distributionRoot, "template", "tools");
+  fs.mkdirSync(publicToolsRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(publicToolsRoot, "crdd-coordinator.ts"),
+    'import "../../40_Develop/coordinator/bin/coordinator.ts";\n',
+  );
+  fs.writeFileSync(
+    path.join(publicToolsRoot, "crdd-mcp.ts"),
+    'import "../../40_Develop/coordinator/src/index.ts";\n',
+  );
   fs.writeFileSync(
     path.join(distributionRoot, "README.md"),
     "# Fixed fixture\n",
@@ -91,8 +103,10 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
   git("-c", "core.autocrlf=false", "add", "--force", "--", ".");
   const expectedCrddTree = git("write-tree");
   const observed =
-    inspectPlatformProvisionerPackageFilesystemCandidate(packageRoot);
-  assert.equal(observed.status, "candidate");
+    inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+      distributionRoot,
+    );
+  assert.equal(observed.status, "candidate", JSON.stringify(observed));
   return {
     root,
     distributionRoot,
@@ -140,6 +154,25 @@ test("開発版はRuntime依存閉包を実体照合し、署名・実行Authori
     assert.notEqual(replaced.sourceIdentitySha256, result.sourceIdentitySha256);
   } finally {
     fixture.cleanup();
+  }
+});
+
+test("利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補として受理しない", () => {
+  for (const launcher of ["crdd-coordinator.ts", "crdd-mcp.ts"]) {
+    const fixture = developmentFixture();
+    try {
+      fs.unlinkSync(
+        path.join(fixture.distributionRoot, "template", "tools", launcher),
+      );
+      const result =
+        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+          fixture.distributionRoot,
+        );
+      assert.equal(result.status, "blocked");
+      assert.equal(result.runtimeAuthorityConferred, false);
+    } finally {
+      fixture.cleanup();
+    }
   }
 });
 
@@ -661,6 +694,103 @@ test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは
       runtimeChanged.packageContentRootSha256,
       first.packageContentRootSha256,
     );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("責務分離後のRuntime componentを静的依存閉包として実行Identityへ含める", () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-runtime-distribution-closure-"),
+  );
+  try {
+    const coordinatorRoot = path.join(root, "40_Develop", "coordinator");
+    const projectRuntimeRoot = path.join(
+      root,
+      "40_Develop",
+      "project-runtime",
+      "src",
+    );
+    fs.mkdirSync(path.join(coordinatorRoot, "src"), { recursive: true });
+    fs.mkdirSync(path.join(projectRuntimeRoot, "core"), { recursive: true });
+    fs.writeFileSync(
+      path.join(coordinatorRoot, "package.json"),
+      JSON.stringify({
+        name: "@qual-lab/crdd-coordinator",
+        version: "0.0.0-development",
+        private: true,
+        type: "module",
+        exports: { "./cli": "./bin/coordinator.ts" },
+        scripts: {},
+        engines: {},
+        devDependencies: {},
+      }),
+    );
+    fs.writeFileSync(
+      path.join(coordinatorRoot, "src", "entry.ts"),
+      'export { value } from "../../project-runtime/src/index.ts";\n',
+    );
+    fs.writeFileSync(
+      path.join(projectRuntimeRoot, "index.ts"),
+      'export { value } from "./core/value.ts";\n',
+    );
+    const valuePath = path.join(projectRuntimeRoot, "core", "value.ts");
+    fs.writeFileSync(valuePath, "export const value = 1;\n");
+    const publicToolsRoot = path.join(root, "template", "tools");
+    fs.mkdirSync(publicToolsRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(publicToolsRoot, "crdd-coordinator.ts"),
+      'import "../../40_Develop/coordinator/src/entry.ts";\n',
+    );
+    fs.writeFileSync(
+      path.join(publicToolsRoot, "crdd-mcp.ts"),
+      'import "../../40_Develop/coordinator/src/entry.ts";\n',
+    );
+
+    const first =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(first.status, "candidate");
+    fs.writeFileSync(
+      path.join(root, "README.md"),
+      "not in the runtime execution closure\n",
+    );
+    const documentationOnly =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(documentationOnly.status, "candidate");
+    assert.equal(
+      documentationOnly.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+
+    fs.appendFileSync(
+      path.join(root, "template", "tools", "crdd-mcp.ts"),
+      "// public launcher changed\n",
+    );
+    const launcherChanged =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(launcherChanged.status, "candidate");
+    assert.notEqual(
+      launcherChanged.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+
+    fs.writeFileSync(valuePath, "export const value = 2;\n");
+    const dependencyChanged =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(dependencyChanged.status, "candidate");
+    assert.notEqual(
+      dependencyChanged.packageContentRootSha256,
+      first.packageContentRootSha256,
+    );
+
+    fs.writeFileSync(
+      path.join(coordinatorRoot, "src", "entry.ts"),
+      'export { value } from "../../untrusted-component/src/index.ts";\n',
+    );
+    const outside =
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
+    assert.equal(outside.status, "blocked");
+    assert.equal(outside.runtimeAuthorityConferred, false);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

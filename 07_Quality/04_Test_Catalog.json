@@ -50,7 +50,9 @@
       "consumerOwner": "mcp",
       "consumerStatic": true,
       "testIds": [
-        "mcp:unit:project-runtime"
+        "mcp:unit:project-runtime",
+        "mcp:system:stdio",
+        "mcp:system:streamable-http"
       ]
     },
     {
@@ -1847,6 +1849,28 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "mcp:system:streamable-http",
+      "owner": "mcp",
+      "path": "40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts",
+      "level": "system",
+      "kind": "integration",
+      "semanticTags": [
+        "mcp",
+        "project",
+        "runtime",
+        "http",
+        "transport"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:integration:project-runtime-integration-record-adapter",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/project-runtime-integration-record-adapter.contract.test.ts",
@@ -2447,6 +2471,27 @@
         "runtime",
         "public",
         "contract"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-runtime:unit:state-query",
+      "owner": "project-runtime",
+      "path": "40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "state",
+        "query",
+        "public"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

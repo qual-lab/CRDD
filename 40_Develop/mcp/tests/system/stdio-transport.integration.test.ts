@@ -39,6 +39,7 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
       }),
       runObjective: async () => assert.fail("objective not expected"),
       submitDecision: async () => assert.fail("decision not expected"),
+      getProjectState: async () => assert.fail("state query not expected"),
     },
     Readable.from([`${JSON.stringify(request)}\n`]),
     sink.stream,
@@ -62,6 +63,9 @@ test("stdio process rejects trailing and oversized frames without semantic effec
     submitDecision: async () => {
       effects += 1;
     },
+    getProjectState: async () => {
+      effects += 1;
+    },
   };
   const trailing = await runMcpProjectRuntimeStdio(
     dependencies,
@@ -78,9 +82,9 @@ test("stdio process rejects trailing and oversized frames without semantic effec
   assert.equal(effects, 0);
 });
 
-test("coordinator binary exposes the bounded MCP stdio process", () => {
+test("template toolsの公開入口はbounded MCP stdio processを提供する", () => {
   const entry = fileURLToPath(
-    new URL("../../../coordinator/bin/coordinator.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-mcp.ts", import.meta.url),
   );
   const request = JSON.stringify({
     jsonrpc: "2.0",
@@ -93,7 +97,7 @@ test("coordinator binary exposes the bounded MCP stdio process", () => {
       },
     },
   });
-  const result = spawnSync(process.execPath, [entry, "mcp", "--stdio"], {
+  const result = spawnSync(process.execPath, [entry, "--stdio"], {
     cwd: path.dirname(entry),
     input: `${request}\n`,
     encoding: "utf8",
@@ -104,6 +108,20 @@ test("coordinator binary exposes the bounded MCP stdio process", () => {
   const response = JSON.parse(result.stdout);
   assert.equal(response.id, "discover-1");
   assert.equal(response.result.resultType, "complete");
+});
+
+test("MCP公開Launcherは未知の起動形式を意味処理前に拒否する", () => {
+  const entry = fileURLToPath(
+    new URL("../../../../template/tools/crdd-mcp.ts", import.meta.url),
+  );
+  const result = spawnSync(process.execPath, [entry, "--unknown"], {
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 10_000,
+  });
+  assert.equal(result.status, 64);
+  assert.equal(result.stderr.includes("使い方"), true);
+  assert.equal(result.stdout, "");
 });
 
 test("parent EOF aborts and joins an active semantic request before stdio closes", async () => {
@@ -141,6 +159,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
           else signal.addEventListener("abort", cancel, { once: true });
         }),
       submitDecision: async () => assert.fail("decision not expected"),
+      getProjectState: async () => assert.fail("state query not expected"),
     },
     input,
     sink.stream,
@@ -224,6 +243,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
         effectState: "unknown",
       }),
       submitDecision: async () => assert.fail("decision not expected"),
+      getProjectState: async () => assert.fail("state query not expected"),
     },
     Readable.from([`${JSON.stringify(objectiveRequest)}\n`]),
     sink.stream,

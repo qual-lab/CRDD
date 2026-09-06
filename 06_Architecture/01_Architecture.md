@@ -16,7 +16,7 @@ CRDD自身が提供するCoordinator Runtime、実行知（Execution Intelligenc
 
 | 対象 | 所有する責務 | 接続・制限 |
 |---|---|---|
-| Coordinator | Repository／Revision、実行編成、Authority、隔離候補、結果・回収の調整 | [状態・資源・Lock・回復設計](coordinator/01_Architecture.md)。Providerの自己申告を実行許可にしない |
+| Coordinator | Repository／Revision、実行編成、Authority、隔離候補、結果・回収の調整 | [状態・資源・Lock・回復設計](coordinator/01_Architecture.md)。Providerの自己申告を実行許可にせず、MCP Transportを所有しない |
 | 実行知 | 仕事Identityへ結合した実行Event、欠測を保つ集約、非Authority改善候補、Repository-local保存と清掃 | [実行知のアーキテクチャ](execution-intelligence/01_Architecture.md)。Coordinator、MCP、Provider SDKまたはProject Stateを所有しない |
 | Windowsプラットフォームアクセス | TypeScriptだけで閉じないOS観測と限定native操作 | [native境界・資源・回復の設計](platform-access/01_Architecture.md)、[脅威モデル](coordinator/02_Threat_Model.md)。一般PolicyやCLI責務をRustへ移さない |
 | Checker | 文書・参照・契約の決定論的確認 | [検査範囲・配布・終了の設計](checker/01_Architecture.md)。private packageが配布正本を参照し、Checker合格を専門レビューや準拠承認にしない |
@@ -34,10 +34,10 @@ Generator等の将来Toolの存在を仮定して空成果物は作らない。�
         │
         ├──────── CLI
         ├──────── MCP stdio
-        └──────── MCP Streamable HTTP（v0.20計画）
+        └──────── MCP Streamable HTTP（v0.20実装中）
                          │
                   Transport Adapter
-             decode／encode／session／取消通知
+             decode／encode／接続lifecycle／取消通知
                          │
                          ▼
              Project Runtime公開契約
@@ -68,14 +68,22 @@ Generator等の将来Toolの存在を仮定して空成果物は作らない。�
      ▼         ▼          ▼
    Codex   Claude Code  Platform Access／Docker／OS
 
-構成Root（v0.20ではCoordinator CLI）
-  └─ Project Runtimeへ各Port実装を注入する。
-     Project Runtime、MCP、実行知または各Adapterは独自に全体を再構成しない。
+利用者向け構成Root
+  ├─ template/tools/crdd-coordinator.ts
+  │    └─ CLIとCoordinator AdapterをProject Runtimeへ接続する。
+  └─ template/tools/crdd-mcp.ts
+       └─ MCP Transport、Project Runtime、Coordinator公開Adapterを接続する。
+
+内部Component
+  └─ Project Runtime、MCP、実行知、Platform Accessは、利用目的のない
+     見かけ上のLauncherや独自の全体構成Rootを持たない。
 ```
 
 矢印は利用または注入の向きを表す。Project RuntimeはCoordinator、MCP、Provider、OSおよび実行知の実装へ逆依存しない。実行知Eventは観測であり、Project状態、実行許可、採用判断またはRecovery Authorityへ昇格しない。Project運営上のWBS、Risk／Issue、Topicおよび予測はこの実行構成図のProject Stateに含めず、別のProject Management投影として扱う。
 
-MCP stdio、MCP Streamable HTTPおよびCLIは、Transport固有のdecode、encode、sessionおよび取消通知だけを担うAdapterとする。MCPを公開意味契約の所有者にせず、Transport非依存の公開アプリケーション契約をProject Runtimeの手前に置く。公開アプリケーション契約が所有できるのは、外部ActorがProject Runtimeへ渡す意図、結果、継続に必要な非Authority参照およびそれらの意味相関に限る。内部Event、実行知のTelemetry、Provider契約、管理操作またはProject正本を取り込まない。
+MCP stdio、MCP Streamable HTTPおよびCLIは、Transport固有のdecode、encode、接続lifecycleおよび取消通知だけを担うAdapterとする。MCPを公開意味契約の所有者にせず、Transport非依存の公開アプリケーション契約をProject Runtimeの手前に置く。公開アプリケーション契約が所有できるのは、外部ActorがProject Runtimeへ渡す意図、結果、継続に必要な非Authority参照およびそれらの意味相関に限る。内部Event、実行知のTelemetry、Provider契約、管理操作またはProject正本を取り込まない。
+
+Launcherはpackageの数に合わせて作らず、利用者が独立して開始・終了する公開アプリケーションにだけ置く。v0.20ではChecker、Coordinator、MCP Serverの3入口を`template/tools/`に固定する。Project Runtimeと実行知は公開API、Platform AccessはCoordinatorが所有するnative workerとして接続し、単独Processとして利用する要件が確定するまでLauncherを追加しない。単一の巨大な総合Launcherにも集約せず、検査、外部接続および実行編成で異なるAuthority、lifecycle、失敗影響を保つ。
 
 Project Runtimeは必要な実行能力をExecution Portとして定義し、Coordinator固有型へ依存しない。Coordinator AdapterがそのPortを実装し、Provider選定、隔離、実行、独立Review、候補および回収を編成する。物理Directoryまたはpackageの分離は、この依存方向とAuthority所有を契約試験で固定した後に行う。ファイル移動だけを責務分離と扱わない。
 
@@ -87,7 +95,7 @@ Coordinatorの中心経路は、固定配布物とRepositoryを検証し、必�
 
 共有・永続資源は取得者、Lock順序、失効、取消後の責務、終了確認を持つ。成功通知だけで資源不存在を推定せず、回復不明は停止・Evidence保持・処置可能なIDの返却へ閉じる。具体的な[実行順序](coordinator/01_Architecture.md#3-主実行シーケンス)、[資源所有](coordinator/01_Architecture.md#4-資源所有)、[Lock](coordinator/01_Architecture.md#5-lock順序と解放窓)、[回収順](coordinator/01_Architecture.md#7-cleanup依存順)、[不変条件](coordinator/01_Architecture.md#8-不変条件)は詳細正本から辿る。
 
-Provider実行の方式はWindows上のDocker Desktop Linux Engineと固定公式CLI、専用認証Home、限定Egressである。Project Runtimeの公開入口にはMCP stdio Adapterが接続済みであり、MCP Streamable HTTPはv0.20の計画対象である。Linux／Remote Runtime、macOSおよびSelf-hosted Providerはv0.20の対象外とし、将来の検証可能性を損なわない境界だけを維持する。API key課金へのfallback、任意外部ツール、直接Provider間spawn、正本への自動commit／push／mergeを、実行知の分離やAdapterの存在から追加しない。
+Provider実行の方式はWindows上のDocker Desktop Linux Engineと固定公式CLI、専用認証Home、限定Egressである。Project Runtimeの公開入口にはMCP stdio Adapterが接続済みであり、v0.20では同じ公開アプリケーション契約へ到達するlocalhost限定のMCP Streamable HTTP Adapterを実装中である。Linux／Remote Runtime、macOSおよびSelf-hosted Providerはv0.20の対象外とし、将来の検証可能性を損なわない境界だけを維持する。API key課金へのfallback、任意外部ツール、直接Provider間spawn、正本への自動commit／push／mergeを、実行知の分離やAdapterの存在から追加しない。
 
 ## 検証義務・未確認範囲・引渡し
 

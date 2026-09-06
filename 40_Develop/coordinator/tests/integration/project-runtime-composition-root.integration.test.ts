@@ -164,6 +164,17 @@ test("development composition uses the explicitly supplied candidate integration
       });
     },
   });
+  const before = runtime.runStateQuery(
+    {
+      requestId: "query-before",
+      projectId: "project-public-runtime",
+      repositoryRevision: revision,
+    },
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  assert.equal(before.status, "completed");
+  assert.equal(before.observationState, "absent");
   const result = await runtime.run(
     {
       requestId: "request-public-runtime",
@@ -184,6 +195,18 @@ test("development composition uses the explicitly supplied candidate integration
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
   );
+  const after = runtime.runStateQuery(
+    {
+      requestId: "query-after",
+      projectId: "project-public-runtime",
+      repositoryRevision: revision,
+    },
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  assert.equal(after.status, "completed");
+  assert.equal(after.observationState, "observed");
+  assert.equal(after.projection?.milestoneState, "accepted");
   assert.equal(result.status, "completed", JSON.stringify(result));
   assert.equal(result.reason, "project_runtime_milestone_accepted");
   assert.equal(
@@ -253,6 +276,9 @@ test("development composition uses the explicitly supplied candidate integration
       runObjective: async () => result,
       submitDecision: async () => {
         throw new Error("decision_not_expected");
+      },
+      getProjectState: async () => {
+        throw new Error("state_query_not_expected");
       },
     },
   );

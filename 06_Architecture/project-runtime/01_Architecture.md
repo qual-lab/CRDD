@@ -1,6 +1,6 @@
 # Project Runtimeアーキテクチャ
 
-状態: v0.20設計候補
+状態: v0.20実装中
 担当責任者: Qual-Lab
 最終更新日: 2026-09-06
 
@@ -9,6 +9,7 @@ Related:
 - [v0.19 Project Runtime詳細設計](../coordinator/03_Project_Runtime_Design.md)
 - [MCP Transport](../mcp/01_Architecture.md)
 - [実行知](../execution-intelligence/01_Architecture.md)
+- [Project状態参照とローカルMCP HTTP](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
 
 ## 1. 目的と責務
 
@@ -101,11 +102,21 @@ Applicationは長時間待機中に短時間Lockを保持しない。Port呼出�
 - 同じrequest identityの現在結果を再取得する。
 - v0.20の別変更で採用した場合に限り、Project Stateを読み取り専用で投影する。
 
+Project State参照は`requestId`、`projectId`および`repositoryRevision`だけを受け取る。Applicationへ渡すState Portは`readState`だけへ縮小し、書込み、Queue更新、Lease、Task実行または判断Capabilityを構成できない。結果は次を区別する。
+
+```text
+observed  現行改訂版へ結合したcanonical投影を取得
+absent    対象Projectの状態が存在しないことを観測
+unknown   Store、Identityまたは改訂版を現在値として確認不能
+```
+
+`absent`から未開始、完了または成功を推定しない。`unknown`を`absent`、空配列またはfalseへ畳まず、既存のRecovery要否と状態参照自身がEffect 0であることを別fieldで返す。公開投影はMilestone、Objective、Taskの集約状態、判断待ち、Recovery要求、品質状態および次の実行上の処置に限定し、進捗率、予定、RiskまたはProject Management判断を追加しない。
+
 各操作は認証済み主体、Project／Repository Binding、request identity、Authority参照および取消を明示入力として受ける。MCP session、CLI process、HTTP connectionまたはWindows user tokenを公開契約自身のAuthorityにしない。
 
 ## 8. 構成Root
 
-v0.20ではCoordinator CLIを既定の構成Rootとする。構成RootだけがProject Runtime ApplicationへCoordinator、Persistence、Platform、Candidate、Decisionおよび実行知Adapterを注入する。
+v0.20では`template/tools/crdd-coordinator.ts`と`template/tools/crdd-mcp.ts`を、利用目的ごとの構成Rootとする。前者はCLI、後者はMCP stdio／HTTPを所有し、どちらも公開indexだけを使ってProject Runtime ApplicationへCoordinator、Persistence、Platform、Candidate、Decisionおよび実行知Adapterを注入する。Coordinator CLIはMCP Transportを所有せず、MCP packageはCoordinator内部moduleへ依存しない。
 
 ```text
 Coordinator CLI composition root
@@ -117,7 +128,7 @@ Coordinator CLI composition root
   └ Execution Intelligence adapter
 ```
 
-構成RootをProject Runtime内部へ置かない。MCP stdioも独自にCoordinator内部moduleを組み立てず、同じ公開Applicationを受け取る。
+構成RootをProject Runtime内部へ置かない。MCP公開LauncherはCoordinatorの公開Adapterから同じApplicationを受け取り、内部Pathを組み立てない。Project Runtimeを単独Processとして利用する要件はないため、見かけ上のLauncherを追加しない。
 
 ## 9. 移行と検証
 

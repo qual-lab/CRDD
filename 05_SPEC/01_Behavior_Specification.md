@@ -39,7 +39,7 @@ RuntimeはCRDDのAuthority、固定改訂版、検証、ReviewおよびCurrent D
 
 ## 共通起動入口
 
-`40_Develop/coordinator/bin/launch.ts`は同じ配布物内の既存入口を選ぶ一回限りのCLIである。任意script、別Node、別配布物を選択する機能ではない。
+利用者は`template/tools/crdd-coordinator.ts`を安定した公開Coordinator入口として使用する。この入口は同じ配布物の`40_Develop/coordinator/bin/launch.ts`へだけ接続する。内部共通起動入口は既存の実行入口を選ぶ一回限りのCLIであり、任意script、別Node、別配布物を選択する機能ではない。MCP Serverは別の公開入口`template/tools/crdd-mcp.ts`が所有し、Coordinatorのsubcommandとして起動しない。
 
 | 用途 | 接続先 | 入出力条件 |
 |---|---|---|

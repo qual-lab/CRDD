@@ -19,12 +19,15 @@ import {
   createProjectRuntimeObjectiveResult,
   inspectProjectRuntimeDecisionRequest,
   inspectProjectRuntimeObjectiveRequest,
+  inspectProjectRuntimeStateQuery,
   PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+  PROJECT_RUNTIME_STATE_QUERY_CONTRACT,
   integrateProjectRuntimeOperation,
   issueProjectRuntimeHumanDecision,
   projectRuntimeDecisionRecordId,
   recoverProjectRuntimeHumanDecision,
   replaceProjectRuntimeHumanDecision,
+  queryProjectRuntimeState,
   submitProjectRuntimeHumanDecision,
   type ProjectRuntimeObjectiveRequest,
 } from "../../../project-runtime/src/index.ts";
@@ -654,6 +657,17 @@ export function createDevelopmentProjectRuntimePublicObjectiveCandidate(
         workingDirectory,
         authenticationContext,
       ),
+    runStateQuery: (
+      rawRequest: unknown,
+      workingDirectory: string,
+      authenticationContext?: Readonly<{ principalId: string }>,
+    ) =>
+      executeProjectRuntimePublicStateQuery(
+        fixed.openDecisionStore,
+        rawRequest,
+        workingDirectory,
+        authenticationContext,
+      ),
   });
 }
 
@@ -759,6 +773,89 @@ export function runProjectRuntimePublicDecision(
   authenticationContext?: Readonly<{ principalId: string }>,
 ) {
   return executeProjectRuntimePublicDecision(
+    openRuntimeOwnedWindowsProjectDecisionStore,
+    rawRequest,
+    workingDirectory,
+    authenticationContext,
+  );
+}
+
+/** Read-only state entry shared by local transports. No mutation port is exposed. */
+function executeProjectRuntimePublicStateQuery(
+  openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore,
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  const request = inspectProjectRuntimeStateQuery(rawRequest);
+  if (!request)
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "project_runtime_state_query_invalid",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  let repositoryRoot: string;
+  try {
+    repositoryRoot =
+      resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+  } catch {
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "project_runtime_repository_root_not_verified",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  }
+  const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
+  if (!identity || identity.commit !== request.repositoryRevision)
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_STATE_QUERY_CONTRACT,
+      status: "blocked" as const,
+      reason: "project_runtime_state_revision_mismatch",
+      requestId: request.requestId,
+      projectId: request.projectId,
+      repositoryRevision: request.repositoryRevision,
+      observationState: "unknown" as const,
+      projection: null,
+      cleanupConfirmed: true as const,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  const authenticated = openDecisionStore();
+  if (
+    authenticated.status !== "completed" ||
+    (authenticationContext !== undefined &&
+      authenticationContext.principalId !== authenticated.principalId)
+  )
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "project_runtime_authenticated_principal_not_verified",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  return queryProjectRuntimeState(
+    createProjectRuntimePersistencePorts(
+      repositoryRoot,
+      stable("binding", repositoryRoot),
+    ).state,
+    request,
+  );
+}
+
+/** Production read-only state entry shared by local transports. */
+export function runProjectRuntimePublicStateQuery(
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  return executeProjectRuntimePublicStateQuery(
     openRuntimeOwnedWindowsProjectDecisionStore,
     rawRequest,
     workingDirectory,

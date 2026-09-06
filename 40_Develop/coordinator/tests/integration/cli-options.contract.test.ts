@@ -16,6 +16,10 @@ const coordinatorExecutable = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../bin/coordinator.ts",
 );
+const publicCoordinatorLauncher = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../template/tools/crdd-coordinator.ts",
+);
 
 test("旧版修復記録の引継ぎはexact IDと修復記録の生成元配布Rootだけを受理する", () => {
   const id = `docker-desktop-repair.${"a".repeat(32)}`;
@@ -207,7 +211,7 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), {
     contract: "crdd-coordinator/capabilities",
-    contractRevision: 2,
+    contractRevision: 4,
     profile: "local_personal",
     commands: [
       {
@@ -222,18 +226,30 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
         availability: "development_candidate",
         invocation: "project --request-stdin --json",
       },
-      {
-        command: "mcp",
-        availability: "development_candidate",
-        invocation: "mcp --stdio",
-        operations: ["crdd.run_objective", "crdd.submit_decision"],
-      },
     ],
   });
 });
 
+test("template toolsの安定入口はCoordinator共通Launcherへ同一Processで接続する", () => {
+  const result = spawnSync(
+    process.execPath,
+    [publicCoordinatorLauncher, "automation", "capabilities", "--json"],
+    { encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.contract, "crdd-coordinator/capabilities");
+  assert.equal(output.contractRevision, 4);
+  assert.equal(
+    output.commands.some(
+      (entry: { command?: string }) => entry.command === "mcp",
+    ),
+    false,
+  );
+});
+
 test("削除したcommandは互換処理へ入らず未知commandとして拒否される", () => {
-  for (const command of ["activate", "disable", "provision"]) {
+  for (const command of ["activate", "disable", "provision", "mcp"]) {
     const result = spawnSync(
       process.execPath,
       [coordinatorExecutable, command, "--json"],
@@ -268,6 +284,7 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
   assert.equal(result.stdout.includes("coordinator activate"), false);
   assert.equal(result.stdout.includes("coordinator disable"), false);
   assert.equal(result.stdout.includes("coordinator provision"), false);
+  assert.equal(result.stdout.includes("coordinator mcp"), false);
 });
 
 test("実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否する", () => {

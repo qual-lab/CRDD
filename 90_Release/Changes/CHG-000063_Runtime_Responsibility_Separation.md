@@ -35,7 +35,8 @@ Task回復は専用Portへ分離した。Project Runtimeへ公開するのはPro
 - Project RuntimeはObjectiveをProject-level execution stateへ変換し、そのlifecycleを管理するApplication Coreとする。
 - Project RuntimeはProvider、Coordinator、MCPまたはOS固有実装を直接参照せず、必要能力をPortとして要求する。
 - Coordinatorは実行編成とProvider実行を所有し、Project RuntimeのExecution Portを実装するAdapterとなる。
-- MCP stdioと後続のMCP Streamable HTTPは独立したTransport packageへ分け、Project Runtimeの公開アプリケーション契約だけを利用する。
+- MCP stdioと後続のMCP Streamable HTTPは独立したTransport packageへ分け、Project Runtimeの公開アプリケーション契約だけを利用する。利用者向けMCP起動入口は`template/tools/crdd-mcp.ts`とし、Coordinator CLIのsubcommandにしない。
+- 公開ProcessのLauncherはpackageごとに機械的に作らず、独立した利用目的を持つChecker、CoordinatorおよびMCP Serverだけを`template/tools/`へ置く。Project Runtime、実行知およびPlatform Accessは内部能力として接続する。
 - 公開アプリケーション契約は、独立した版管理の必要性が実証されるまでProject Runtimeが所有する。便利な共有箱として別packageを先に作らない。
 - 実行知とPlatform Accessの既存独立境界を維持し、Project RuntimeまたはMCPへ再集約しない。
 
@@ -76,8 +77,10 @@ Project RuntimeからCoordinator、MCP、ProviderまたはOS固有moduleへの�
 2. `40_Develop/project-runtime/`へpackage、Core、Application、Portおよび公開契約を作る。
 3. Project Runtimeが直接利用しているCoordinator／Repository／Windows／Docker／実行知機能をPortへ置き換え、既存実装をCoordinator側Adapterとして接続する。
 4. `40_Develop/mcp/`へProtocolとstdio Transportを移し、Project Runtimeの公開入口だけを利用する。
-5. CoordinatorのCLIを構成Rootとして、Project Runtime、Coordinator Adapter、Platform Adapter、Persistence Adapterおよび実行知Adapterを一度だけ結合する。
+5. `template/tools/crdd-coordinator.ts`をCLIの構成Root、`template/tools/crdd-mcp.ts`をMCP Serverの構成Rootとする。各入口は公開indexだけを使ってProject Runtime、Coordinator Adapter、Platform／Persistence／実行知Adapterを結合し、MCP packageやCoordinator CLIへ別入口の責務を集約しない。
 6. source、test、fixture、script、traceability、package設定、試験カタログ、文書参照およびRuntime実行Identityの依存閉包を同じ変更で更新する。
+
+Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず、`template/tools/crdd-coordinator.ts`と`template/tools/crdd-mcp.ts`を公開Processの起点に含め、canonicalな静的importで到達するMCP、Project Runtimeおよび実行知のsourceを実体から推移的に導出する。文書、試験、未利用sourceおよび許可されていない兄弟Componentは含めず、公開Launcherの欠落または実際の依存が宣言済み実行集合から外れた場合は開発候補と正式候補の双方をEffect 0で拒否する。
 7. 内部Path参照、逆向き依存、二重定義および旧入口を機械検出し、CLI／MCP stdio／回復経路の意味回帰を実行する。
 
 移行中の一時的な互換exportは作らない。旧Pathと新Pathを同時に正規入口として残すと、利用側閉包とRuntime実行Identityが二重化するため、移動単位ごとに全利用側を同じ変更で切り替える。

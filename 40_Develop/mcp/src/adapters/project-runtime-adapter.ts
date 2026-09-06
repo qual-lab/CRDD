@@ -7,6 +7,8 @@ import {
   inspectProjectRuntimeIntegrationResult,
   inspectProjectRuntimeDecisionRequest,
   inspectProjectRuntimeObjectiveRequest,
+  inspectProjectRuntimeStateQuery,
+  inspectProjectRuntimeStateQueryResult,
   isProjectRuntimeObjectiveProjectionCorrelationValid,
   isProjectRuntimeProjectionSemanticallyValid,
   PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
@@ -22,8 +24,9 @@ export const MCP_PROJECT_RUNTIME_PROTOCOL_VERSION = "2026-07-28" as const;
 export const MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL = "crdd.run_objective" as const;
 export const MCP_PROJECT_RUNTIME_DECISION_TOOL =
   "crdd.submit_decision" as const;
+export const MCP_PROJECT_RUNTIME_STATE_TOOL = "crdd.get_project_state" as const;
 export const MCP_PROJECT_RUNTIME_ADAPTER_CONTRACT =
-  "crdd-mcp/project-runtime-adapter/v1" as const;
+  "crdd-mcp/project-runtime-adapter/v2" as const;
 
 type JsonRpcId = string | number;
 type McpResponse = Readonly<{
@@ -40,6 +43,10 @@ export type McpProjectRuntimeDependencies = Readonly<{
     authentication: Readonly<{ principalId: string }>,
   ) => Promise<unknown>;
   submitDecision: (
+    request: Readonly<Record<string, unknown>>,
+    authentication: Readonly<{ principalId: string }>,
+  ) => Promise<unknown>;
+  getProjectState: (
     request: Readonly<Record<string, unknown>>,
     authentication: Readonly<{ principalId: string }>,
   ) => Promise<unknown>;
@@ -79,6 +86,11 @@ const decisionKeys = new Set([
 const decisionKeysNoComment = new Set(
   [...decisionKeys].filter((key) => key !== "comment"),
 );
+const stateQueryKeys = new Set([
+  "requestId",
+  "projectId",
+  "repositoryRevision",
+] as const);
 const OBJECTIVE_RESULT_KEYS = new Set([
   "contract",
   "status",
@@ -218,7 +230,7 @@ function complete(id: JsonRpcId, result: Readonly<Record<string, unknown>>) {
       _meta: Object.freeze({
         "io.modelcontextprotocol/serverInfo": Object.freeze({
           name: "crdd-coordinator",
-          version: "0.19.0-development",
+          version: "0.20.0-development",
         }),
       }),
     }),
@@ -321,6 +333,17 @@ function definitions() {
         comment: Object.freeze({ type: "string", maxLength: 1024 }),
       },
       [...decisionKeysNoComment],
+    ),
+    tool(
+      MCP_PROJECT_RUNTIME_STATE_TOOL,
+      "CRDD Projectの現在状態を取得",
+      "Project Runtimeの現在状態を、書込み権限を持たない投影として取得します。",
+      {
+        requestId: id,
+        projectId: id,
+        repositoryRevision: rev,
+      },
+      [...stateQueryKeys],
     ),
   ]);
 }
@@ -821,13 +844,16 @@ export async function handleMcpProjectRuntimeRequest(
     !params ||
     !envelope(params._meta) ||
     (params.name !== MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL &&
-      params.name !== MCP_PROJECT_RUNTIME_DECISION_TOOL)
+      params.name !== MCP_PROJECT_RUNTIME_DECISION_TOOL &&
+      params.name !== MCP_PROJECT_RUNTIME_STATE_TOOL)
   )
     return error(request.id, -32602, "Invalid params");
   const args =
     params.name === MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL
       ? objective(params.arguments)
-      : inspectProjectRuntimeDecisionRequest(params.arguments);
+      : params.name === MCP_PROJECT_RUNTIME_DECISION_TOOL
+        ? inspectProjectRuntimeDecisionRequest(params.arguments)
+        : inspectProjectRuntimeStateQuery(params.arguments);
   if (!args) return error(request.id, -32602, "Invalid params");
   let authentication: unknown;
   try {
@@ -867,7 +893,9 @@ export async function handleMcpProjectRuntimeRequest(
     raw =
       params.name === MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL
         ? await dependencies.runObjective(args, signal, authenticatedContext)
-        : await dependencies.submitDecision(args, authenticatedContext);
+        : params.name === MCP_PROJECT_RUNTIME_DECISION_TOOL
+          ? await dependencies.submitDecision(args, authenticatedContext)
+          : await dependencies.getProjectState(args, authenticatedContext);
   } catch {
     raw = null;
   }
@@ -876,7 +904,9 @@ export async function handleMcpProjectRuntimeRequest(
     snapshot =
       params.name === MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL
         ? objectiveSnapshot(raw)
-        : decisionSnapshot(raw);
+        : params.name === MCP_PROJECT_RUNTIME_DECISION_TOOL
+          ? decisionSnapshot(raw)
+          : inspectProjectRuntimeStateQueryResult(raw);
   } catch {
     snapshot = null;
   }
@@ -911,6 +941,7 @@ export function describeMcpProjectRuntimeAdapterContract() {
     tools: Object.freeze([
       MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
       MCP_PROJECT_RUNTIME_DECISION_TOOL,
+      MCP_PROJECT_RUNTIME_STATE_TOOL,
     ]),
     transportState: "stateless_per_request",
     clientMetadataAuthority: "none",

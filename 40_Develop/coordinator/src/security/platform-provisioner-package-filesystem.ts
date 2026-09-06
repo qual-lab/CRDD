@@ -29,7 +29,6 @@ import {
   isCanonicalCrddVersion,
 } from "./release-identity-grammar.ts";
 
-const bundledPackageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const bundledDistributionRoot = fileURLToPath(
   new URL("../../../../", import.meta.url),
 );
@@ -1284,6 +1283,165 @@ function observePackage(packageRoot: string) {
   });
 }
 
+const runtimeComponentSourcePrefixes = Object.freeze([
+  "40_Develop/mcp/src/",
+  "40_Develop/project-runtime/src/",
+  "40_Develop/execution-intelligence/src/",
+]);
+const runtimeDistributionEntrypoints = Object.freeze(
+  new Set(["template/tools/crdd-coordinator.ts", "template/tools/crdd-mcp.ts"]),
+);
+
+function isBundledRuntimeExecutionPath(
+  relativePath: string,
+  coordinatorPaths: ReadonlySet<string>,
+) {
+  return (
+    coordinatorPaths.has(relativePath) ||
+    runtimeDistributionEntrypoints.has(relativePath) ||
+    runtimeComponentSourcePrefixes.some((prefix) =>
+      relativePath.startsWith(prefix),
+    )
+  );
+}
+
+/**
+ * Observe the real execution closure after Runtime responsibility separation.
+ * The Coordinator remains the primary package, while sibling components are
+ * included only when they are reached by canonical static imports.
+ */
+function observeRuntimeDistribution(distributionRootPath: string) {
+  const distributionRoot = directoryIdentity(distributionRootPath);
+  const developRoot = directoryIdentity(
+    path.join(distributionRoot.realPath, "40_Develop"),
+  );
+  const coordinatorRoot = directoryIdentity(
+    path.join(developRoot.realPath, "coordinator"),
+  );
+  const coordinatorInventory = packageEntries(coordinatorRoot);
+  const coordinatorPaths = new Set(
+    coordinatorInventory.files.map(
+      (relative) => `40_Develop/coordinator/${relative}`,
+    ),
+  );
+  const pending = [...coordinatorPaths, ...runtimeDistributionEntrypoints];
+  const observedFiles = new Map<
+    string,
+    Readonly<{
+      byteLength: number;
+      sha256: string;
+      identity: EntityIdentity;
+      bytes: Buffer;
+    }>
+  >();
+  let packageByteLength = 0;
+
+  while (pending.length > 0) {
+    const relative = pending.shift();
+    if (!relative || observedFiles.has(relative)) continue;
+    if (!isBundledRuntimeExecutionPath(relative, coordinatorPaths)) {
+      throw new Error(
+        "platform_provisioner_runtime_dependency_outside_execution_set",
+      );
+    }
+    const maximum =
+      relative === "40_Develop/coordinator/package.json"
+        ? MAXIMUM_PACKAGE_JSON_BYTES
+        : MAXIMUM_PACKAGE_BYTES - packageByteLength;
+    if (maximum < 0) {
+      throw new Error("platform_provisioner_package_budget_exceeded");
+    }
+    const observed = readStableFile(
+      path.join(distributionRoot.realPath, ...relative.split("/")),
+      maximum,
+    );
+    const canonicalBytes = canonicalPackageFileContent(
+      relative,
+      observed.bytes,
+    );
+    packageByteLength += canonicalBytes.byteLength;
+    if (packageByteLength > MAXIMUM_PACKAGE_BYTES) {
+      throw new Error("platform_provisioner_package_budget_exceeded");
+    }
+    observedFiles.set(
+      relative,
+      Object.freeze({
+        byteLength: canonicalBytes.byteLength,
+        sha256: createHash("sha256").update(canonicalBytes).digest("hex"),
+        identity: observed.identity,
+        bytes: canonicalBytes,
+      }),
+    );
+    for (const target of staticRelativeModuleTargets(
+      relative,
+      canonicalBytes,
+    )) {
+      if (!isBundledRuntimeExecutionPath(target, coordinatorPaths)) {
+        throw new Error(
+          "platform_provisioner_runtime_dependency_outside_execution_set",
+        );
+      }
+      if (!observedFiles.has(target)) pending.push(target);
+    }
+    if (observedFiles.size > MAXIMUM_FILES) {
+      throw new Error("platform_provisioner_package_file_count_exceeded");
+    }
+  }
+
+  const packageJson = observedFiles.get("40_Develop/coordinator/package.json");
+  const metadata = packageMetadata(packageJson?.bytes ?? null);
+  for (const [relative, first] of observedFiles) {
+    const second = readStableFile(
+      path.join(distributionRoot.realPath, ...relative.split("/")),
+      MAXIMUM_PACKAGE_BYTES,
+    );
+    const canonicalBytes = canonicalPackageFileContent(relative, second.bytes);
+    if (
+      !sameIdentity(first.identity, second.identity) ||
+      canonicalBytes.byteLength !== first.byteLength ||
+      createHash("sha256").update(canonicalBytes).digest("hex") !== first.sha256
+    ) {
+      throw new Error("platform_provisioner_package_file_changed");
+    }
+  }
+  for (const inventory of coordinatorInventory.directoryInventories) {
+    verifyDirectory(inventory.directory);
+    const current = readDirectoryEntrySnapshot(inventory.directory.realPath);
+    if (!sameDirectoryEntries(inventory.entries, current.entries)) {
+      throw new Error("platform_provisioner_package_root_changed");
+    }
+  }
+  verifyDirectory(coordinatorRoot);
+  verifyDirectory(developRoot);
+  verifyDirectory(distributionRoot);
+
+  const files = [...observedFiles.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, "en"))
+    .map(([relative, file]) =>
+      Object.freeze({
+        path: relative,
+        byteLength: file.byteLength,
+        sha256: file.sha256,
+      }),
+    );
+  const observation: PackageObservation = Object.freeze({
+    ...metadata,
+    files: Object.freeze(files),
+  });
+  const contentRoot =
+    calculatePlatformProvisionerPackageContentRootCandidate(observation);
+  if (contentRoot.status !== "candidate") {
+    throw new Error("platform_provisioner_package_content_invalid");
+  }
+  return Object.freeze({
+    observation,
+    packageByteLength,
+    contentRoot,
+    permissionPolicyConfirmed: false,
+    windowsWritePolicyConfirmed: false,
+  });
+}
+
 function publicObservation(
   observed: ReturnType<typeof observePackage>,
   isRuntimeOwnedPackageRoot: boolean,
@@ -1327,9 +1485,33 @@ export function inspectPlatformProvisionerPackageFilesystemCandidate(
   }
 }
 
+export function inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+  distributionRoot: unknown,
+) {
+  try {
+    if (
+      typeof distributionRoot !== "string" ||
+      distributionRoot.length === 0 ||
+      !path.isAbsolute(distributionRoot) ||
+      path.normalize(distributionRoot) !== distributionRoot
+    ) {
+      return blocked("platform_provisioner_distribution_root_invalid");
+    }
+    return publicObservation(
+      observeRuntimeDistribution(distributionRoot),
+      false,
+    );
+  } catch {
+    return blocked("platform_provisioner_distribution_filesystem_invalid");
+  }
+}
+
 export function inspectBundledCoordinatorPackageFilesystemCandidate() {
   try {
-    return publicObservation(observePackage(bundledPackageRoot), true);
+    return publicObservation(
+      observeRuntimeDistribution(bundledDistributionRoot),
+      true,
+    );
   } catch {
     return blocked("platform_provisioner_bundled_package_filesystem_invalid");
   }
@@ -1352,8 +1534,7 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
       return blocked("development_package_input_invalid");
 
     const root = directoryIdentity(input.distributionRoot);
-    const packageRoot = path.join(root.realPath, "40_Develop", "coordinator");
-    const observed = observePackage(packageRoot);
+    const observed = observeRuntimeDistribution(root.realPath);
     const manifestPath = path.join(
       root.realPath,
       ...PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH.split("/"),
@@ -1383,11 +1564,13 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
       return blocked("development_package_release_artifact_present");
 
     const entrypoints = DEVELOPMENT_ENTRYPOINTS.map((entrypoint) =>
-      observed.observation.files.find((file) => file.path === entrypoint),
+      observed.observation.files.find(
+        (file) => file.path === `40_Develop/coordinator/${entrypoint}`,
+      ),
     );
     if (entrypoints.some((entrypoint) => !entrypoint))
       return blocked("development_package_entrypoint_missing");
-    const reobserved = observePackage(packageRoot);
+    const reobserved = observeRuntimeDistribution(root.realPath);
     if (
       reobserved.contentRoot.packageContentRootSha256 !==
       observed.contentRoot.packageContentRootSha256
@@ -1480,7 +1663,7 @@ function verifyOwnedBundledManifest(
   manifestEnvelope: unknown,
   evaluationTime: unknown,
 ) {
-  const observed = observePackage(bundledPackageRoot);
+  const observed = observeRuntimeDistribution(bundledDistributionRoot);
   const policyIdentity = getPlatformProvisionerPolicyIdentity();
   const verification = verifyPlatformProvisionerManifestCandidate({
     manifestEnvelope,
@@ -1664,12 +1847,7 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
       return blocked("platform_provisioner_installed_package_input_invalid");
     }
     const distributionRoot = directoryIdentity(input.distributionRoot);
-    const packageRoot = path.join(
-      distributionRoot.realPath,
-      "40_Develop",
-      "coordinator",
-    );
-    const observed = observePackage(packageRoot);
+    const observed = observeRuntimeDistribution(distributionRoot.realPath);
     const loaded = loadPlatformProvisionerManifestEnvelopeForVerification(
       distributionRoot.realPath,
     );

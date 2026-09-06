@@ -9,7 +9,7 @@
 
 [利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。新しいGUIやTUIを設計した文書ではない。
 
-以下の「現行」は[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[対話入力](../40_Develop/coordinator/src/core/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
+以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[対話入力](../40_Develop/coordinator/src/core/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
 
 ## 2. 操作接点と表示構造
 
@@ -28,7 +28,7 @@
 
 ## 3. 状態の認識と操作条件
 
-[共通起動入口](../40_Develop/coordinator/bin/launch.ts)は、端末表示が必要な操作で出力が転送されている場合、実処理へ接続する前に「画面へ表示できる端末から直接起動してください」と表示する。この停止は同意拒否、Provider失敗、資源回収不明とは別である。引数や例外stackを説明へ転記しない。対象入口への接続後に予期しない例外が発生した場合は、実行状態・回収未確認を表示し、成功やEffect 0を推定しない。ウィンドウを勝手に作る、閉じる、確認コードを記録する処理は追加しない。
+[公開Coordinator入口](../template/tools/crdd-coordinator.ts)は、同じ配布物の[内部共通起動入口](../40_Develop/coordinator/bin/launch.ts)へ接続する。端末表示が必要な操作で出力が転送されている場合、実処理へ接続する前に「画面へ表示できる端末から直接起動してください」と表示する。この停止は同意拒否、Provider失敗、資源回収不明とは別である。引数や例外stackを説明へ転記しない。対象入口への接続後に予期しない例外が発生した場合は、実行状態・回収未確認を表示し、成功やEffect 0を推定しない。ウィンドウを勝手に作る、閉じる、確認コードを記録する処理は追加しない。
 
 4経路・復旧検証では「最終結果を保存しました」とRepository相対の記録Directoryをstderrへ表示し、構造化結果のstdoutは維持する。開始保存失敗は検証未開始、終了保存失敗は元の実行結果を保持すべき状態として説明する。画面を閉じたことをユーザーの失敗とせず、保存済み要約を確認する。開始記録だけなら結果未確認とし、自動再実行を案内しない。
 
