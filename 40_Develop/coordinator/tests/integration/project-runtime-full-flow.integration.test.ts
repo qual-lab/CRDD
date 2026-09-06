@@ -6,9 +6,18 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
+  evaluateBoundedIntegratedResult,
+  notObserved,
+  observed,
+  readExecutionIntelligence,
+  verifyExecutionIntelligenceRepositoryRoot,
+} from "../../../execution-intelligence/src/index.ts";
+import {
   createProjectRuntimePersistencePorts,
   readProjectRuntimeState,
 } from "../../src/security/project-runtime-durable-foundation.ts";
+import { recordProjectRuntimeExecutionEvent } from "../../src/security/execution-intelligence-adapter.ts";
 import {
   resolveProjectRuntimeReplan as resolveProjectRuntimeReplanWithPort,
   integrateProjectRuntimeOperation,
@@ -231,6 +240,221 @@ test("public intake, bounded retry, progress and integration form one accepted f
     finalState.status === "completed" && finalState.value?.milestone.state,
     "accepted",
   );
+});
+
+test("bounded parallel attempts are evaluated by one integrated accepted result", async (t) => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-project-bounded-evaluation-"),
+  );
+  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const request = Object.freeze({
+    requestId: "request-bounded-evaluation",
+    projectId: "project-bounded-evaluation",
+    milestoneId: "milestone-bounded-evaluation",
+    repositoryRevision: revision,
+    objective: "Produce and integrate two independent bounded results.",
+    acceptanceCriteria: Object.freeze(["both results accepted"]),
+    allowedPaths: Object.freeze(["result-a.txt", "result-b.txt"]),
+    readPaths: Object.freeze(["README.md"]),
+    maximumConcurrency: 2,
+    maximumReplans: 0,
+    originLane: "interactive" as const,
+    adoptResult: false,
+  });
+  let active = 0;
+  let maximumActive = 0;
+  let releaseBoth: (() => void) | undefined;
+  const bothStarted = new Promise<void>((resolve) => {
+    releaseBoth = resolve;
+  });
+  const dependencies = {
+    authenticatedPrincipalId: "principal-bounded-evaluation",
+    verifyProjectBinding: () => ({
+      status: "verified",
+      repositoryBindingId: "binding-bounded-evaluation",
+      repositoryRevision: revision,
+      workingDirectory: root,
+      repositoryRoot: root,
+      bindingCapability: {},
+    }),
+    planObjective: () => ({
+      milestoneAcceptanceCriteria: ["both results accepted"],
+      objectives: [
+        {
+          id: "objective-bounded-evaluation",
+          acceptanceCriteria: ["both results accepted"],
+        },
+      ],
+      tasks: [
+        {
+          id: "task-a",
+          objectiveId: "objective-bounded-evaluation",
+          dependencies: [],
+          allowedPaths: ["result-a.txt"],
+          conflictKeys: ["result-a.txt"],
+        },
+        {
+          id: "task-b",
+          objectiveId: "objective-bounded-evaluation",
+          dependencies: [],
+          allowedPaths: ["result-b.txt"],
+          conflictKeys: ["result-b.txt"],
+        },
+      ],
+    }),
+    createTaskExecutions: (
+      _request: unknown,
+      _binding: unknown,
+      state: {
+        tasks: readonly { definition: { id: string }; state: string }[];
+      },
+    ) =>
+      state.tasks.map((task) => ({
+        taskId: task.definition.id,
+        taskRequest: {},
+        repositoryRoot: root,
+      })),
+    observeLeaseOwner: () => ({ status: "absent" }),
+    execution: {
+      authorization: createProjectRuntimeExecutionAuthorizationAdapter({
+        issueRuntimeCapability: () => Object.freeze({}),
+        revokeRuntimeCapability: () => true,
+      }),
+      executionObservation: {
+        recordTaskAttempt: (
+          event: Parameters<typeof recordProjectRuntimeExecutionEvent>[1],
+        ) => recordProjectRuntimeExecutionEvent(root, event),
+      },
+      runSingleTaskAttempt: async (input: {
+        attemptId: string;
+        operationId: string;
+        authorityBindingId: string;
+        repositoryRevision: string;
+        observeStarted?: () => Promise<boolean>;
+      }) => {
+        assert.equal(await input.observeStarted?.(), true);
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        if (active === 2) releaseBoth?.();
+        await bothStarted;
+        active -= 1;
+        return {
+          contract:
+            "crdd-coordinator/project-runtime-single-task-adapter" as const,
+          attemptId: input.attemptId,
+          operationId: input.operationId,
+          authorityBindingId: input.authorityBindingId,
+          repositoryRevision: input.repositoryRevision,
+          status: "completed" as const,
+          reason: "task_completed",
+          effectState: "settled" as const,
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+          candidateId: `candidate-${input.attemptId}`,
+          recoveryIds: Object.freeze([]),
+          executorProvider: input.attemptId.includes("task-a")
+            ? ("codex" as const)
+            : ("claude" as const),
+        };
+      },
+    },
+  };
+  const execution = await runProjectRuntimeObjective(
+    dependencies,
+    request,
+    new AbortController().signal,
+  );
+  assert.equal(
+    execution.reason,
+    "project_runtime_tasks_completed_integration_pending",
+  );
+  assert.equal(maximumActive, 2);
+  const integrated = await integrateProjectRuntimeOperation(
+    {
+      candidate: {
+        createCandidate: async () => ({
+          status: "candidate",
+          candidateId: "integrated-bounded-evaluation",
+          candidateHash: "b".repeat(64),
+          baseRevision: revision,
+          changedPaths: ["result-a.txt", "result-b.txt"],
+          objectiveEvidence: {
+            "objective-bounded-evaluation": ["evidence-objective"],
+          },
+          milestoneEvidence: ["evidence-milestone"],
+          conflicts: [],
+          cleanupConfirmed: true,
+        }),
+        observeCanonicalRepository: () => ({
+          status: "observed",
+          repositoryRevision: revision,
+          dirty: false,
+          observedPaths: ["result-a.txt", "result-b.txt"],
+        }),
+        adoptCandidate: async () => {
+          throw new Error("adoption_not_authorized");
+        },
+      },
+      records: createProjectRuntimeIntegrationRecordAdapter({
+        workingDirectory: root,
+        repositoryBindingId: "binding-bounded-evaluation",
+        projectId: request.projectId,
+        milestoneId: request.milestoneId,
+        queueId: execution.queueId ?? "invalid",
+      }),
+      persistence: createProjectRuntimePersistencePorts(
+        root,
+        "binding-bounded-evaluation",
+      ),
+    },
+    {
+      projectId: request.projectId,
+      milestoneId: request.milestoneId,
+      queueId: execution.queueId ?? "invalid",
+      allowedPaths: request.allowedPaths,
+      adoptionAuthorized: false,
+    },
+  );
+  assert.equal(integrated.reason, "project_runtime_milestone_accepted");
+  const verified = verifyExecutionIntelligenceRepositoryRoot(root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") throw new Error("root_not_verified");
+  const intelligence = readExecutionIntelligence(verified.root);
+  assert.equal(intelligence.status, "completed");
+  if (intelligence.status !== "completed")
+    throw new Error("execution_events_not_observed");
+  const evaluation = evaluateBoundedIntegratedResult({
+    contract: BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
+    evaluationId: "evaluation-bounded-evaluation",
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    expectedTaskIds: ["task-a", "task-b"],
+    taskAttemptEvents: intelligence.events,
+    integratedResult: observed(
+      { result: "accepted", evidenceIds: ["evidence-milestone"] },
+      "project_runtime_integration_result",
+    ),
+    measurements: {
+      timeToAcceptedResultMs: notObserved(
+        "deterministic_contract_test_is_not_a_latency_benchmark",
+      ),
+      humanActiveMs: notObserved("no_human_activity_observer_attached"),
+      reviewLoopCount: observed(0, "bounded_test_fixture"),
+      remediationCount: observed(0, "bounded_test_fixture"),
+      retryCount: observed(0, "project_runtime_terminal_state"),
+      integrationConflictCount: observed(0, "integration_candidate"),
+      postIntegrationFindingCount: notObserved(
+        "independent_review_not_part_of_this_test",
+      ),
+    },
+  });
+  assert.equal(evaluation?.status, "completed");
+  assert.equal(evaluation?.integratedAcceptedResult, true);
+  assert.equal(evaluation?.observedTaskCount, 2);
+  assert.equal(evaluation?.attemptCount, 2);
+  assert.equal(evaluation?.taskSuccessIsIntegrationAcceptance, false);
 });
 
 test("human decision is one-time and resumes only through a fresh bounded plan", async (t) => {

@@ -10,6 +10,7 @@ import {
   handleMcpProjectRuntimeRequest,
   MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  MCP_PROJECT_RUNTIME_STATE_TOOL,
 } from "../../../mcp/src/index.ts";
 import {
   createDevelopmentProjectRuntimePublicObjectiveCandidate,
@@ -297,6 +298,56 @@ test("development composition uses the explicitly supplied candidate integration
     "project_runtime_milestone_accepted",
   );
   assert.deepEqual(mcpResult.structuredContent.recoveryIds, []);
+
+  const mcpState = await handleMcpProjectRuntimeRequest(
+    {
+      jsonrpc: "2.0",
+      id: "state-after-objective",
+      method: "tools/call",
+      params: {
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion":
+            MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
+        name: MCP_PROJECT_RUNTIME_STATE_TOOL,
+        arguments: {
+          requestId: "query-through-mcp",
+          projectId: "project-public-runtime",
+          repositoryRevision: revision,
+        },
+      },
+    },
+    {
+      authenticateClient: () => ({
+        status: "verified",
+        principalId: "local-user-test-user",
+      }),
+      runObjective: async () => {
+        throw new Error("objective_not_expected");
+      },
+      submitDecision: async () => {
+        throw new Error("decision_not_expected");
+      },
+      getProjectState: async (request, authentication) =>
+        runtime.runStateQuery(request, root, authentication),
+    },
+  );
+  const mcpStateResult = mcpState.result as {
+    structuredContent: {
+      observationState: string;
+      projection: { milestoneState: string } | null;
+      effectState: string;
+    };
+    isError: boolean;
+  };
+  assert.equal(mcpStateResult.isError, false);
+  assert.equal(mcpStateResult.structuredContent.observationState, "observed");
+  assert.equal(
+    mcpStateResult.structuredContent.projection?.milestoneState,
+    "accepted",
+  );
+  assert.equal(mcpStateResult.structuredContent.effectState, "no_effect");
 
   const replay = await runtime.run(
     {

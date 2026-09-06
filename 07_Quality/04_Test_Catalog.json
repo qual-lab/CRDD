@@ -34,6 +34,7 @@
         "coordinator:integration:project-runtime-candidate-integration-adapter",
         "coordinator:integration:project-runtime-durable-foundation",
         "coordinator:integration:project-runtime-execution",
+        "coordinator:integration:project-runtime-full-flow",
         "coordinator:integration:project-runtime-integration",
         "coordinator:integration:project-runtime-objective-intake",
         "coordinator:integration:project-runtime-composition-root",
@@ -64,7 +65,8 @@
       "consumerOwner": "coordinator",
       "consumerStatic": true,
       "testIds": [
-        "coordinator:integration:project-runtime-execution"
+        "coordinator:integration:project-runtime-execution",
+        "coordinator:integration:project-runtime-full-flow"
       ]
     },
     {
@@ -947,7 +949,10 @@
         "project",
         "runtime",
         "full",
-        "flow"
+        "flow",
+        "bounded",
+        "integration",
+        "execution-intelligence"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -1028,7 +1033,9 @@
       "semanticTags": [
         "project",
         "runtime",
-        "public"
+        "public",
+        "state",
+        "mcp"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
