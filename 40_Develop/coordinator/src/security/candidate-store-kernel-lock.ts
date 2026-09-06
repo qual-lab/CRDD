@@ -1,14 +1,22 @@
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { Worker } from "node:worker_threads";
 import { createWindowsHostOperationSupervisorEnvironment } from "../core/windows-child-environment.ts";
+import {
+  createRuntimeLocalTypeScriptWorker,
+  runtimeLocalTypeScriptChildEntrypoint,
+  spawnRuntimeLocalTypeScriptChild,
+} from "../core/runtime-local-typescript-child-entrypoints.ts";
 
 const SYNCHRONOUS_LOCK_ACQUIRE_TIMEOUT_MS = 5_000;
 const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
 const LOCK_RELEASE_TIMEOUT_MS = 5_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
 const HOST_SUPERVISOR_RELEASE_TIMEOUT_MS = 1_000;
+const candidateStoreLockWorkerEntrypoint =
+  runtimeLocalTypeScriptChildEntrypoint("candidate_store_lock_worker");
+const hostOperationLockSupervisorEntrypoint =
+  runtimeLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor");
 
 type HostOperationSupervisorCleanup =
   | "released"
@@ -68,8 +76,8 @@ function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
 function acquireNamedPipeKernelLock(pipeName: string) {
   const sharedState = new SharedArrayBuffer(4);
   const state = new Int32Array(sharedState);
-  const worker = new Worker(
-    new URL("./candidate-store-lock-worker.ts", import.meta.url),
+  const worker = createRuntimeLocalTypeScriptWorker(
+    candidateStoreLockWorkerEntrypoint,
     {
       env: {},
       workerData: Object.freeze({ pipeName, state: sharedState }),
@@ -285,7 +293,7 @@ export async function acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
 export function acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome() {
   return acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
     (pipeName, sharedState) =>
-      new Worker(new URL("./candidate-store-lock-worker.ts", import.meta.url), {
+      createRuntimeLocalTypeScriptWorker(candidateStoreLockWorkerEntrypoint, {
         env: {},
         workerData: Object.freeze({ pipeName, state: sharedState }),
       }),
@@ -464,14 +472,10 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
   const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${bindingHash.slice(0, 32)}`;
   let child: SupervisorChild;
   try {
-    child = spawnFactory(
-      process.execPath,
-      [
-        fileURLToPath(
-          new URL("./host-operation-lock-supervisor.ts", import.meta.url),
-        ),
-        pipeName,
-      ],
+    child = spawnRuntimeLocalTypeScriptChild(
+      spawnFactory,
+      hostOperationLockSupervisorEntrypoint,
+      [pipeName],
       {
         cwd: fileURLToPath(new URL(".", import.meta.url)),
         env: environment,
