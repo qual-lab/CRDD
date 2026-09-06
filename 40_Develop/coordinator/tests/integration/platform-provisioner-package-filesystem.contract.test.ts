@@ -16,6 +16,7 @@ import {
   inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate,
   inspectVerifiedNativeDistributionCandidate,
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
+  assertRuntimeSourceModuleBoundaryForVerification,
   verifyBundledCoordinatorPackageCandidate,
 } from "../../src/security/platform-provisioner-package-filesystem.ts";
 import {
@@ -280,7 +281,15 @@ test("実行能力を持たないchild_processのtype-only importはRuntime候�
         "security",
         "candidate-store-kernel-lock.ts",
       ),
-      'import type { ChildProcess } from "node:child_process"; export type FixtureChild = ChildProcess;\n',
+      [
+        'import type { ChildProcess } from "node:child_process";',
+        'import { type SpawnOptions } from "node:child_process";',
+        'export type { ChildProcessWithoutNullStreams } from "node:child_process";',
+        'export { type WorkerOptions } from "node:worker_threads";',
+        "export type FixtureChild = ChildProcess;",
+        "export type FixtureOptions = SpawnOptions;",
+        "",
+      ].join("\n"),
     );
     const result =
       inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
@@ -413,6 +422,23 @@ for (const scenario of [
   "fragment_process_target",
   "percent_process_target",
   "encoded_separator_process_target",
+  "unused_unknown_owner_spawn",
+  "unused_known_owner_primitive",
+  "unused_fork_import",
+  "immediate_create_require",
+  "parenthesized_loader",
+  "loader_call",
+  "process_builtin_loader",
+  "worker_process_builtin_loader",
+  "bracket_argv0_allowed_owner",
+  "bracket_argv_index_allowed_owner",
+  "internal_lifecycle_sibling_import",
+  "internal_lifecycle_reexport",
+  "internal_lifecycle_dynamic_import",
+  "internal_lifecycle_alias_import",
+  "escaped_child_process_specifier",
+  "template_worker_threads_specifier",
+  "optional_bracket_argv0_allowed_owner",
 ] as const) {
   test(`local TypeScript子entrypointの宣言・利用迂回を拒否する: ${scenario}`, () => {
     const fixture = developmentFixture();
@@ -718,6 +744,218 @@ for (const scenario of [
           `import { fileURLToPath } from "node:url"; spawn(process.argv0, [fileURLToPath(new URL("${target}", import.meta.url))]);\n`,
         );
       }
+      if (scenario === "unused_unknown_owner_spawn")
+        fs.appendFileSync(
+          path.join(fixture.packageRoot, "src", "index.ts"),
+          'import { spawn } from "node:child_process";\n',
+        );
+      if (scenario === "unused_known_owner_primitive")
+        fs.appendFileSync(
+          consumer,
+          'import { execFile } from "node:child_process";\n',
+        );
+      if (scenario === "unused_fork_import")
+        fs.appendFileSync(
+          consumer,
+          'import { fork } from "node:child_process";\n',
+        );
+      if (scenario === "immediate_create_require")
+        fs.appendFileSync(
+          consumer,
+          'import { createRequire } from "node:module"; const child = createRequire(import.meta.url)("node:child_process"); void child;\n',
+        );
+      if (scenario === "parenthesized_loader")
+        fs.appendFileSync(
+          consumer,
+          'import { createRequire } from "node:module"; const load = createRequire(import.meta.url); const child = (load)("node:child_process"); void child;\n',
+        );
+      if (scenario === "loader_call")
+        fs.appendFileSync(
+          consumer,
+          'import { createRequire } from "node:module"; const load = createRequire(import.meta.url); const child = load.call(undefined, "node:child_process"); void child;\n',
+        );
+      if (scenario === "process_builtin_loader")
+        fs.appendFileSync(
+          consumer,
+          'const child = process.getBuiltinModule?.("node:child_process"); void child;\n',
+        );
+      if (scenario === "worker_process_builtin_loader")
+        fs.appendFileSync(
+          consumer,
+          "const threads = process.getBuiltinModule?.(`node:worker_threads`); void threads;\n",
+        );
+      if (
+        scenario === "bracket_argv0_allowed_owner" ||
+        scenario === "bracket_argv_index_allowed_owner" ||
+        scenario === "optional_bracket_argv0_allowed_owner"
+      ) {
+        const owner = path.join(
+          fixture.packageRoot,
+          "src",
+          "security",
+          "docker-owned-process.ts",
+        );
+        fs.writeFileSync(
+          owner,
+          [
+            'import { spawn } from "node:child_process";',
+            scenario === "bracket_argv0_allowed_owner"
+              ? 'spawn(process["argv0"], ["./unregistered-child.ts"]);'
+              : scenario === "bracket_argv_index_allowed_owner"
+                ? 'spawn(process.argv["0"], ["./unregistered-child.ts"]);'
+                : 'spawn(process?.["argv0"], ["./unregistered-child.ts"]);',
+            "",
+          ].join("\n"),
+        );
+        fs.appendFileSync(
+          path.join(fixture.packageRoot, "src", "index.ts"),
+          'import "./security/docker-owned-process.ts";\n',
+        );
+        fs.writeFileSync(
+          path.join(
+            fixture.packageRoot,
+            "src",
+            "security",
+            "unregistered-child.ts",
+          ),
+          "export {};\n",
+        );
+      }
+      if (
+        [
+          "internal_lifecycle_sibling_import",
+          "internal_lifecycle_reexport",
+          "internal_lifecycle_dynamic_import",
+          "internal_lifecycle_alias_import",
+        ].includes(scenario)
+      ) {
+        const sibling = path.join(
+          fixture.packageRoot,
+          "src",
+          "security",
+          "docker-owned-process.ts",
+        );
+        const importSource =
+          scenario === "internal_lifecycle_reexport"
+            ? 'export { runInteractiveConsoleReaderLifecycle } from "../core/interactive-console-reader-lifecycle-internal.ts";\n'
+            : scenario === "internal_lifecycle_dynamic_import"
+              ? 'void import("../core/interactive-console-reader-lifecycle-internal.ts");\n'
+              : scenario === "internal_lifecycle_alias_import"
+                ? 'import { runInteractiveConsoleReaderLifecycle as run } from "../core/interactive-console-reader-lifecycle-internal.ts"; void run;\n'
+                : 'import { runInteractiveConsoleReaderLifecycle } from "../core/interactive-console-reader-lifecycle-internal.ts"; void runInteractiveConsoleReaderLifecycle;\n';
+        fs.writeFileSync(sibling, importSource);
+        fs.writeFileSync(
+          path.join(
+            fixture.packageRoot,
+            "src",
+            "core",
+            "interactive-console-reader-lifecycle-internal.ts",
+          ),
+          "export function runInteractiveConsoleReaderLifecycle() {}\n",
+        );
+        fs.appendFileSync(
+          path.join(fixture.packageRoot, "src", "index.ts"),
+          'import "./security/docker-owned-process.ts";\n',
+        );
+      }
+      if (scenario === "escaped_child_process_specifier")
+        fs.appendFileSync(
+          consumer,
+          'const protectedModule = "node:\\u0063hild_process"; void protectedModule;\n',
+        );
+      if (scenario === "template_worker_threads_specifier")
+        fs.appendFileSync(
+          consumer,
+          "const protectedModule = `node:worker_threads`; void protectedModule;\n",
+        );
+      const directBoundaryExpectations = new Map<
+        string,
+        Readonly<{ relativePath: string; reason: RegExp }>
+      >([
+        [
+          "unused_unknown_owner_spawn",
+          {
+            relativePath: "src/index.ts",
+            reason: /runtime_dependency_child_process_unbound/u,
+          },
+        ],
+        ...[
+          "unused_known_owner_primitive",
+          "unused_fork_import",
+          "immediate_create_require",
+          "parenthesized_loader",
+          "loader_call",
+          "process_builtin_loader",
+          "escaped_child_process_specifier",
+        ].map(
+          (name) =>
+            [
+              name,
+              {
+                relativePath: "src/security/candidate-store-kernel-lock.ts",
+                reason: /runtime_dependency_child_process_unbound/u,
+              },
+            ] as const,
+        ),
+        ...[
+          "worker_process_builtin_loader",
+          "template_worker_threads_specifier",
+        ].map(
+          (name) =>
+            [
+              name,
+              {
+                relativePath: "src/security/candidate-store-kernel-lock.ts",
+                reason: /runtime_dependency_child_worker_unbound/u,
+              },
+            ] as const,
+        ),
+        ...[
+          "bracket_argv0_allowed_owner",
+          "bracket_argv_index_allowed_owner",
+          "optional_bracket_argv0_allowed_owner",
+        ].map(
+          (name) =>
+            [
+              name,
+              {
+                relativePath: "src/security/docker-owned-process.ts",
+                reason: /runtime_dependency_child_process_unbound/u,
+              },
+            ] as const,
+        ),
+        ...[
+          "internal_lifecycle_sibling_import",
+          "internal_lifecycle_reexport",
+          "internal_lifecycle_dynamic_import",
+          "internal_lifecycle_alias_import",
+        ].map(
+          (name) =>
+            [
+              name,
+              {
+                relativePath: "src/security/docker-owned-process.ts",
+                reason: /runtime_dependency_child_lifecycle_unbound/u,
+              },
+            ] as const,
+        ),
+      ]);
+      const directExpectation = directBoundaryExpectations.get(scenario);
+      if (directExpectation) {
+        const source = fs.readFileSync(
+          path.join(fixture.packageRoot, directExpectation.relativePath),
+          "utf8",
+        );
+        assert.throws(
+          () =>
+            assertRuntimeSourceModuleBoundaryForVerification(
+              directExpectation.relativePath,
+              source,
+            ),
+          directExpectation.reason,
+          scenario,
+        );
+      }
       if (
         scenario === "variable_declaration" ||
         scenario === "template_declaration" ||
@@ -754,6 +992,13 @@ for (const scenario of [
       assert.equal(result.status, "blocked", scenario);
       assert.equal(result.runtimeAuthorityConferred, false, scenario);
       assert.equal(result.effectAuthorizationIssued, false, scenario);
+      if (directExpectation) {
+        const fixed = inspectFixedDevelopmentCoordinatorPackageCandidate(
+          fixture.input,
+        );
+        assert.equal(fixed.status, "blocked", scenario);
+        assert.equal(fixed.runtimeAuthorityConferred, false, scenario);
+      }
     } finally {
       fixture.cleanup();
     }

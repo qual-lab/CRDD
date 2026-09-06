@@ -519,6 +519,105 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
   }
 });
 
+test("実行primitive閉包の代表違反を署名preflightとCLIで秘密入力前に拒否する", () => {
+  const cases = [
+    {
+      name: "capability_acquisition",
+      relativePath: "40_Develop/coordinator/src/index.ts",
+      source: 'import { spawn } from "node:child_process";\n',
+    },
+    {
+      name: "node_self_classification",
+      relativePath:
+        "40_Develop/coordinator/src/security/docker-owned-process.ts",
+      source: 'spawn(process["argv0"], ["./unregistered-child.ts"]);\n',
+    },
+    {
+      name: "lifecycle_consumer",
+      relativePath:
+        "40_Develop/coordinator/src/security/docker-owned-process.ts",
+      source:
+        'import { runInteractiveConsoleReaderLifecycle } from "../core/interactive-console-reader-lifecycle-internal.ts"; void runInteractiveConsoleReaderLifecycle;\n',
+    },
+  ] as const;
+  for (const scenario of cases) {
+    const distributionRoot = runtimeDistributionFixture(
+      scenario.name.replaceAll("_", "-"),
+    );
+    const privateKeyPath = path.join(
+      distributionRoot,
+      "private-key-must-not-be-read.pem",
+    );
+    try {
+      fs.appendFileSync(
+        path.join(distributionRoot, ...scenario.relativePath.split("/")),
+        scenario.source,
+      );
+      const observed =
+        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+          distributionRoot,
+        );
+      assert.equal(observed.status, "blocked", scenario.name);
+      assert.equal(observed.runtimeAuthorityConferred, false, scenario.name);
+      assert.equal(observed.effectAuthorizationIssued, false, scenario.name);
+      const input = {
+        distributionRoot,
+        privateKeyPath,
+        crddVersion: "v0.20.0",
+        releaseSequence: 20,
+        crddCommit: "a".repeat(40),
+        crddTree: "b".repeat(40),
+        issuedAt: "2026-09-06T00:00:00.000Z",
+        expiresAt: "2027-09-06T00:00:00.000Z",
+      } as const;
+      assert.throws(
+        () => preflightReleaseManifest(input),
+        /release_manifest_package_observation_failed/u,
+        scenario.name,
+      );
+      assert.equal(fs.existsSync(privateKeyPath), false, scenario.name);
+      const cli = spawnSync(
+        process.execPath,
+        [
+          path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+          "--distribution-root",
+          distributionRoot,
+          "--private-key",
+          privateKeyPath,
+          "--crdd-version",
+          "v0.20.0",
+          "--release-sequence",
+          "20",
+          "--crdd-commit",
+          "a".repeat(40),
+          "--crdd-tree",
+          "b".repeat(40),
+          "--issued-at",
+          "2026-09-06T00:00:00.000Z",
+          "--expires-at",
+          "2027-09-06T00:00:00.000Z",
+        ],
+        {
+          encoding: "utf8",
+          input: "passphrase-must-not-be-read\n",
+          shell: false,
+          timeout: 5_000,
+          windowsHide: true,
+        },
+      );
+      assert.equal(cli.status, 1, scenario.name);
+      assert.equal(cli.stdout, "", scenario.name);
+      assert.equal(
+        cli.stderr,
+        "release_manifest_package_observation_failed\n",
+        scenario.name,
+      );
+    } finally {
+      fs.rmSync(distributionRoot, { recursive: true, force: true });
+    }
+  }
+});
+
 test("Release署名RootはRepository-localの単一candidate directoryだけを受理する", () => {
   const candidate = uniqueReleaseCandidate("contract-root");
   const outside = fs.mkdtempSync(

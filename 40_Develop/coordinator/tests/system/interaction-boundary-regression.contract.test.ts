@@ -1499,6 +1499,52 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
 
   {
     const scenario = readerProcessScenario();
+    let ttyChecks = 0;
+    const adapter = Object.freeze({
+      ...scenario.adapter,
+      isTty: () => {
+        ttyChecks += 1;
+        return ttyChecks === 1;
+      },
+    });
+    const pending = readInteractiveConsoleLineOutcomeUsingAdapter(
+      17,
+      new AbortController().signal,
+      adapter as unknown as Parameters<
+        typeof readInteractiveConsoleLineOutcomeUsingAdapter
+      >[2],
+    );
+    scenario.child.stdout.emit("close");
+    scenario.child.emit("close", 2);
+    assert.deepEqual(await pending, { status: "reader_failed", line: null });
+    assert.equal(ttyChecks, 1);
+  }
+
+  {
+    const scenario = readerProcessScenario();
+    const controller = new AbortController();
+    const adapter = Object.freeze({
+      ...scenario.adapter,
+      createChild: () => {
+        controller.abort();
+        return scenario.child;
+      },
+    });
+    const pending = readInteractiveConsoleLineOutcomeUsingAdapter(
+      17,
+      controller.signal,
+      adapter as unknown as Parameters<
+        typeof readInteractiveConsoleLineOutcomeUsingAdapter
+      >[2],
+    );
+    assert.deepEqual(scenario.messages, ["cancel"]);
+    scenario.child.stdout.emit("close");
+    scenario.child.emit("close", null);
+    assert.deepEqual(await pending, { status: "cancelled", line: null });
+  }
+
+  {
+    const scenario = readerProcessScenario();
     const pending = readInteractiveConsoleLineOutcomeUsingAdapter(
       17,
       new AbortController().signal,
@@ -2004,10 +2050,13 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     .map((file) => path.relative(coordinatorRoot, file).replaceAll("\\", "/"))
     .sort();
   assert.deepEqual(productionChildProcessOwners, [
+    "src/core/interactive-console-reader-lifecycle-internal.ts",
     "src/core/interactive-console.ts",
     "src/core/runtime-local-typescript-child-entrypoints.ts",
+    "src/security/candidate-store-kernel-lock-lifecycle-internal.ts",
     "src/security/candidate-store-kernel-lock.ts",
     "src/security/candidate-store-windows-adapter.ts",
+    "src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts",
     "src/security/docker-desktop-repair-native-helper.ts",
     "src/security/docker-desktop-runtime-repair.ts",
     "src/security/docker-isolation.ts",
@@ -2023,6 +2072,9 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     /\bspawnFactory\b/u,
     /\bUsingFactory\b/u,
     /\bUsingChildFactory\b/u,
+    /\bUsingChild\b/u,
+    /\bUsingWorker\b/u,
+    /\bcreateDockerDesktopRepairNativeHelperSessionUsingChild\b/u,
   ];
   for (const file of sourceFiles(path.join(coordinatorRoot, "src"))) {
     const source = fs.readFileSync(file, "utf8");

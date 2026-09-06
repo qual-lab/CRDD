@@ -1,9 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 
-import {
-  readInteractiveConsoleLineOutcomeUsingChild,
-  type InteractiveConsoleReadOutcome,
-} from "../../src/core/interactive-console.ts";
+import type { InteractiveConsoleReadOutcome } from "../../src/core/interactive-console.ts";
+import { runInteractiveConsoleReaderLifecycle } from "../../src/core/interactive-console-reader-lifecycle-internal.ts";
 
 export function readInteractiveConsoleLineOutcomeUsingAdapter(
   inputDescriptor: number,
@@ -38,10 +36,13 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
       }) as InteractiveConsoleReadOutcome,
     );
   }
-  return readInteractiveConsoleLineOutcomeUsingChild(
-    inputDescriptor,
+  return runInteractiveConsoleReaderLifecycle(
+    Object.freeze({ inputDescriptor }),
     cancellationSignal,
     child,
-    adapter,
+    Object.freeze({
+      setTimeout: adapter.setTimeout,
+      clearTimeout: adapter.clearTimeout,
+    }),
   );
 }

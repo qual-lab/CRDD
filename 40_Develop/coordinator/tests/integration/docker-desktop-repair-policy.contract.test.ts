@@ -8,10 +8,8 @@ import {
   observeRuntimeOwnedDockerDesktopRepairPolicy,
   WINDOWS_DOCKER_DESKTOP_REPAIR_POLICY_RELATIVE_PATH,
 } from "../../src/security/docker-desktop-repair-policy.ts";
-import {
-  createDockerDesktopRepairNativeHelperSessionUsingChild,
-  describeDockerDesktopRepairNativeHelperContract,
-} from "../../src/security/docker-desktop-repair-native-helper.ts";
+import { describeDockerDesktopRepairNativeHelperContract } from "../../src/security/docker-desktop-repair-native-helper.ts";
+import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts";
 
 test("署名対象PolicyはDocker DesktopとEngineと全成果物を単一authorityへ固定する", () => {
   const policy = observeRuntimeOwnedDockerDesktopRepairPolicy();
@@ -118,10 +116,7 @@ test("native helper adapterは固定frameを順序処理しQ応答とexit 0ま�
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-    child,
-    hash,
-  );
+  const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "R");
   assert.equal(await created.session.inspectProcesses(), "verified");
   assert.equal(await created.session.terminateProcesses(), "terminated");
@@ -148,10 +143,7 @@ test("native helperはC応答後の非0 exitをcleanup成功と分離してproto
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-    child,
-    hash,
-  );
+  const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "R");
   assert.deepEqual(await created.session.release(), {
     cleanup: "confirmed",
@@ -172,10 +164,7 @@ test("native helper喪失はcommand失敗とbounded cleanup確認を分離する
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-    child,
-    hash,
-  );
+  const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "R");
   assert.equal(await created.session.verifyArtifacts(), "unknown");
   const cleanupStarted = Date.now();
@@ -200,10 +189,7 @@ test("正常な取消cleanupはprotocol failureへ変換しない", async () => 
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-    child,
-    hash,
-  );
+  const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "R");
   assert.deepEqual(await created.session.abort(), {
     cleanup: "confirmed",
@@ -224,10 +210,7 @@ test("helper failure後のabortはprotocol failureを保持する", async () => 
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-    child,
-    hash,
-  );
+  const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "R");
   assert.equal(await created.session.verifyArtifacts(), "unknown");
   assert.deepEqual(await created.session.abort(), {
@@ -250,10 +233,7 @@ test("不正initial frameはprotocol failureとしてbounded cleanupへ閉じる
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-    child,
-    hash,
-  );
+  const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "X");
   assert.deepEqual(await created.failProtocol(), {
     cleanup: "confirmed",
@@ -278,10 +258,7 @@ test("native launcherはCreateProcess後のidentity不明をissued済みとし�
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-    child,
-    hash,
-  );
+  const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "R");
   assert.equal(await created.session.launchDesktop(), "partial_or_unknown");
   assert.deepEqual(await created.session.release(), {
@@ -307,10 +284,7 @@ test("native K/NはEffect非発行とProcess不存在を混同しない", async 
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-    child,
-    hash,
-  );
+  const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "R");
   assert.equal(
     await created.session.terminateProcesses(),
@@ -335,10 +309,7 @@ test("release中の不正frameは資源回収完了まで待ちprotocol成功と
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-    child,
-    hash,
-  );
+  const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "R");
   const started = Date.now();
   const first = created.session.release();
@@ -370,10 +341,7 @@ test("Q確認後のstdin.end throw／errorはprotocol成功とcleanupを直交�
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
-    const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-      child,
-      hash,
-    );
+    const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
     assert.equal(await created.waitForInitial(), "R");
     Object.defineProperty(child.stdin, "end", {
       configurable: true,
@@ -408,10 +376,7 @@ test("active protocol中の全stdio errorは恒久listenerからfailure cleanup�
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
-    const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-      child,
-      hash,
-    );
+    const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
     assert.equal(await created.waitForInitial(), "R");
     child[streamName].emit("error", new Error("synthetic stdio failure"));
     await created.session.failureDetected;
@@ -435,10 +400,7 @@ test("C確認後のstdout／stderr errorもprotocol Evidence不明として失�
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
-    const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
-      child,
-      hash,
-    );
+    const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
     assert.equal(await created.waitForInitial(), "R");
     child.stdout.once("data", (chunk: Buffer) => {
       if (chunk.subarray(8, 9).toString("ascii") === "C")

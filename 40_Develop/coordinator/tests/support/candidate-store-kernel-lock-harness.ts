@@ -1,16 +1,18 @@
 import type { ChildProcess } from "node:child_process";
 
 import {
-  acquireHostOperationSupervisorLockUsingChild,
-  acquireInteractiveConsoleKernelLockOutcomeUsingWorker,
   type HostOperationSupervisorLockOutcome,
   type InteractiveConsoleKernelLockOutcome,
   prepareHostOperationSupervisorLockRequest,
-  prepareInteractiveConsoleKernelLockRequest,
 } from "../../src/security/candidate-store-kernel-lock.ts";
+import {
+  prepareInteractiveConsoleKernelLockRequest,
+  runHostOperationSupervisorLifecycle,
+  runInteractiveConsoleKernelLockLifecycle,
+} from "../../src/security/candidate-store-kernel-lock-lifecycle-internal.ts";
 
 type InteractiveWorker = Parameters<
-  typeof acquireInteractiveConsoleKernelLockOutcomeUsingWorker
+  typeof runInteractiveConsoleKernelLockLifecycle
 >[0];
 
 export async function acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
@@ -27,10 +29,7 @@ export async function acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
   } catch {
     return Object.freeze({ status: "cleanup_unknown", lock: null });
   }
-  return acquireInteractiveConsoleKernelLockOutcomeUsingWorker(
-    worker,
-    request.sharedState,
-  );
+  return runInteractiveConsoleKernelLockLifecycle(worker, request.sharedState);
 }
 
 export async function acquireHostOperationSupervisorLockUsingChildFactory(
@@ -57,5 +56,5 @@ export async function acquireHostOperationSupervisorLockUsingChildFactory(
   } catch {
     return Object.freeze({ status: "cleanup_confirmed_failure", lock: null });
   }
-  return acquireHostOperationSupervisorLockUsingChild(request, child);
+  return runHostOperationSupervisorLifecycle(request, child);
 }

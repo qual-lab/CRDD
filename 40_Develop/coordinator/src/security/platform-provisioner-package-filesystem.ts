@@ -409,6 +409,11 @@ type SourceToken = Readonly<{
   escaped: boolean;
 }>;
 
+const NODE_CHILD_PROCESS_SPECIFIER = ["node:", "child_", "process"].join("");
+const BARE_CHILD_PROCESS_SPECIFIER = ["child_", "process"].join("");
+const NODE_WORKER_THREADS_SPECIFIER = ["node:", "worker_", "threads"].join("");
+const BARE_WORKER_THREADS_SPECIFIER = ["worker_", "threads"].join("");
+
 const canonicalNodeModuleSpecifiers = Object.freeze(
   new Set(
     builtinModules.map((name) =>
@@ -450,6 +455,38 @@ function canStartRegularExpression(previous: SourceToken | undefined) {
     ].includes(previous.value);
   }
   return ![")", "]", "}", "++", "--"].includes(previous.value);
+}
+
+function decodeStaticStringLiteral(raw: string) {
+  return raw
+    .replace(
+      /\\(?:u\{([0-9a-fA-F]+)\}|u([0-9a-fA-F]{4})|x([0-9a-fA-F]{2})|([0btnvfr\\'"`]))/gu,
+      (_match, codePoint, unicode, hex, simple: string | undefined) => {
+        if (codePoint)
+          return String.fromCodePoint(Number.parseInt(codePoint, 16));
+        if (unicode) return String.fromCharCode(Number.parseInt(unicode, 16));
+        if (hex) return String.fromCharCode(Number.parseInt(hex, 16));
+        return (
+          (
+            {
+              "0": "\0",
+              b: "\b",
+              t: "\t",
+              n: "\n",
+              v: "\v",
+              f: "\f",
+              r: "\r",
+              "\\": "\\",
+              "'": "'",
+              '"': '"',
+              "`": "`",
+            } as Readonly<Record<string, string>>
+          )[simple ?? ""] ?? ""
+        );
+      },
+    )
+    .replace(/\\(?:\r\n|\r|\n)/gu, "")
+    .replace(/\\([^0-9xu])/gu, "$1");
 }
 
 function tokenizeTypeScriptModuleSyntax(source: string) {
@@ -520,15 +557,24 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
           throw new Error(
             "platform_provisioner_runtime_dependency_parse_failed",
           );
-        push("string", value, isEscaped);
+        push(
+          "string",
+          isEscaped ? decodeStaticStringLiteral(value) : value,
+          isEscaped,
+        );
         continue;
       }
       if (character === "`") {
+        let value = "";
+        let isEscaped = false;
+        let hasExpression = false;
         index += 1;
         let terminated = false;
         while (index < source.length) {
           const current = source[index] as string;
           if (current === "\\") {
+            isEscaped = true;
+            value += source.slice(index, index + 2);
             index += 2;
             continue;
           }
@@ -538,14 +584,22 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
             break;
           }
           if (current === "$" && source[index + 1] === "{") {
+            hasExpression = true;
             index = scan(index + 2, true);
             continue;
           }
+          value += current;
           index += 1;
         }
         if (!terminated)
           throw new Error(
             "platform_provisioner_runtime_dependency_parse_failed",
+          );
+        if (!hasExpression)
+          push(
+            "string",
+            isEscaped ? decodeStaticStringLiteral(value) : value,
+            true,
           );
         continue;
       }
@@ -753,11 +807,11 @@ function selectedScriptProcessBindings(
   const declarationTokenIndices = new Set<number>();
   const allowedImports = new Map<string, ReadonlySet<string>>([
     [
-      "node:child_process",
+      NODE_CHILD_PROCESS_SPECIFIER,
       new Set(["spawn", "spawnSync", "execFile", "execFileSync", "fork"]),
     ],
     ...(includeWorkerThreads
-      ? ([["node:worker_threads", new Set(["Worker"])]] as const)
+      ? ([[NODE_WORKER_THREADS_SPECIFIER, new Set(["Worker"])]] as const)
       : []),
   ]);
   for (let index = 0; index < tokens.length; index += 1) {
@@ -840,59 +894,76 @@ function selectedScriptProcessBindings(
   return Object.freeze({ bindings, declarationTokenIndices });
 }
 
-function assertChildProcessModuleBoundary(tokens: readonly SourceToken[]) {
+function isPureTypeReexportSpecifier(
+  tokens: readonly SourceToken[],
+  specifierIndex: number,
+) {
+  if (tokens[specifierIndex - 1]?.value !== "from") return false;
+  let start = specifierIndex - 2;
+  while (start >= 0 && tokens[start]?.value !== ";") start -= 1;
+  start += 1;
+  if (tokens[start]?.value !== "export") return false;
+  if (tokens[start + 1]?.value === "type") return true;
+  if (tokens[start + 1]?.value !== "{") return false;
+  const closing = specifierIndex - 2;
+  if (tokens[closing]?.value !== "}") return false;
+  let cursor = start + 2;
+  while (cursor < closing) {
+    if (tokens[cursor]?.value === ",") {
+      cursor += 1;
+      continue;
+    }
+    if (tokens[cursor]?.value !== "type") return false;
+    cursor += 1;
+    if (tokens[cursor]?.kind !== "identifier") return false;
+    cursor += 1;
+    if (tokens[cursor]?.value === "as") {
+      cursor += 1;
+      if (tokens[cursor]?.kind !== "identifier") return false;
+      cursor += 1;
+    }
+  }
+  return true;
+}
+
+function isCanonicalStaticImportSpecifier(
+  tokens: readonly SourceToken[],
+  specifierIndex: number,
+) {
+  if (tokens[specifierIndex - 1]?.value !== "from") return false;
+  let start = specifierIndex - 2;
+  while (start >= 0 && tokens[start]?.value !== ";") start -= 1;
+  return tokens[start + 1]?.value === "import";
+}
+
+function assertProtectedModuleSpecifierPositions(
+  tokens: readonly SourceToken[],
+  protectedSpecifiers: ReadonlySet<string>,
+  canonicalSpecifier: string,
+  reason: string,
+) {
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (token?.value === "require") {
-      const specifier = tokens[index + 2];
-      if (
-        tokens[index + 1]?.value === "(" &&
-        specifier?.kind === "string" &&
-        ["node:child_process", "child_process"].includes(specifier.value)
-      )
-        throw new Error(
-          "platform_provisioner_runtime_dependency_child_process_unbound",
-        );
-    }
-    if (token?.value === "export") {
-      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
-        if (tokens[cursor]?.value === ";") break;
-        if (tokens[cursor]?.value !== "from") continue;
-        const specifier = tokens[cursor + 1];
-        if (
-          specifier?.kind === "string" &&
-          ["node:child_process", "child_process"].includes(specifier.value)
-        )
-          throw new Error(
-            "platform_provisioner_runtime_dependency_child_process_unbound",
-          );
-        break;
-      }
-    }
+    if (token?.kind !== "string" || !protectedSpecifiers.has(token.value))
+      continue;
     if (
-      token?.value === "import" &&
-      tokens[index + 1]?.value === "(" &&
-      tokens[index + 2]?.kind === "string" &&
-      ["node:child_process", "child_process"].includes(
-        tokens[index + 2]?.value ?? "",
-      )
+      token.value === canonicalSpecifier &&
+      !token.escaped &&
+      (isCanonicalStaticImportSpecifier(tokens, index) ||
+        isPureTypeReexportSpecifier(tokens, index))
     )
-      throw new Error(
-        "platform_provisioner_runtime_dependency_child_process_unbound",
-      );
-    if (
-      token?.kind === "identifier" &&
-      tokens[index + 1]?.value === "(" &&
-      tokens[index + 2]?.kind === "string" &&
-      ["node:child_process", "child_process"].includes(
-        tokens[index + 2]?.value ?? "",
-      ) &&
-      token.value !== "import"
-    )
-      throw new Error(
-        "platform_provisioner_runtime_dependency_child_process_unbound",
-      );
+      continue;
+    throw new Error(reason);
   }
+}
+
+function assertChildProcessModuleBoundary(tokens: readonly SourceToken[]) {
+  assertProtectedModuleSpecifierPositions(
+    tokens,
+    new Set([NODE_CHILD_PROCESS_SPECIFIER, BARE_CHILD_PROCESS_SPECIFIER]),
+    NODE_CHILD_PROCESS_SPECIFIER,
+    "platform_provisioner_runtime_dependency_child_process_unbound",
+  );
 }
 
 const runtimeChildProcessOwnerPrimitives = new Map<string, ReadonlySet<string>>(
@@ -1411,6 +1482,76 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
   }
 }
 
+const internalLifecycleConsumers = Object.freeze(
+  new Map<string, ReadonlySet<string>>([
+    [
+      "src/core/interactive-console-reader-lifecycle-internal.ts",
+      new Set(["src/core/interactive-console.ts"]),
+    ],
+    [
+      "src/security/candidate-store-kernel-lock-lifecycle-internal.ts",
+      new Set(["src/security/candidate-store-kernel-lock.ts"]),
+    ],
+    [
+      "src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts",
+      new Set(["src/security/docker-desktop-repair-native-helper.ts"]),
+    ],
+  ]),
+);
+
+function assertInternalLifecycleConsumerBoundary(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index]?.value !== "import" && tokens[index]?.value !== "export")
+      continue;
+    let fromIndex = index + 1;
+    while (
+      fromIndex < tokens.length &&
+      tokens[fromIndex]?.value !== "from" &&
+      tokens[fromIndex]?.value !== ";"
+    )
+      fromIndex += 1;
+    const dynamic =
+      tokens[index]?.value === "import" && tokens[index + 1]?.value === "(";
+    const specifierIndex = dynamic ? index + 2 : fromIndex + 1;
+    const specifier = tokens[specifierIndex];
+    if (specifier?.kind !== "string" || !specifier.value.startsWith("."))
+      continue;
+    const resolvedTarget = canonicalRelativeModuleTarget(
+      relativePath,
+      specifier.value,
+    );
+    const target = resolvedTarget
+      ? coordinatorRelativeSourcePath(resolvedTarget)
+      : null;
+    if (!target || !internalLifecycleConsumers.has(target)) continue;
+    const sourcePath = coordinatorRelativeSourcePath(relativePath);
+    if (
+      dynamic ||
+      tokens[index]?.value !== "import" ||
+      !internalLifecycleConsumers.get(target)?.has(sourcePath) ||
+      tokens[index + 1]?.value !== "{" ||
+      tokens[fromIndex - 1]?.value !== "}"
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
+      );
+    for (let cursor = index + 2; cursor < fromIndex - 1; cursor += 1) {
+      if (tokens[cursor]?.value === ",") continue;
+      if (
+        tokens[cursor]?.kind !== "identifier" ||
+        tokens[cursor]?.value === "as" ||
+        tokens[cursor - 1]?.value === "as"
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_lifecycle_unbound",
+        );
+    }
+  }
+}
+
 function workerThreadImportNames(
   tokens: readonly SourceToken[],
   importIndex: number,
@@ -1453,35 +1594,13 @@ function assertWorkerCreationImportBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
 ) {
+  assertProtectedModuleSpecifierPositions(
+    tokens,
+    new Set([NODE_WORKER_THREADS_SPECIFIER, BARE_WORKER_THREADS_SPECIFIER]),
+    NODE_WORKER_THREADS_SPECIFIER,
+    "platform_provisioner_runtime_dependency_child_worker_unbound",
+  );
   for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index]?.value === "require") {
-      const specifier = tokens[index + 2];
-      if (
-        tokens[index + 1]?.value === "(" &&
-        specifier?.kind === "string" &&
-        (specifier.value === "node:worker_threads" ||
-          specifier.value === "worker_threads")
-      )
-        throw new Error(
-          "platform_provisioner_runtime_dependency_child_worker_unbound",
-        );
-    }
-    if (tokens[index]?.value === "export") {
-      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
-        if (tokens[cursor]?.value === ";") break;
-        if (tokens[cursor]?.value !== "from") continue;
-        const specifier = tokens[cursor + 1];
-        if (
-          specifier?.kind === "string" &&
-          (specifier.value === "node:worker_threads" ||
-            specifier.value === "worker_threads")
-        )
-          throw new Error(
-            "platform_provisioner_runtime_dependency_child_worker_unbound",
-          );
-        break;
-      }
-    }
     if (tokens[index]?.value !== "import") continue;
     let specifier: SourceToken | undefined;
     if (tokens[index + 1]?.value === "(") specifier = tokens[index + 2];
@@ -1498,11 +1617,11 @@ function assertWorkerCreationImportBoundary(
     }
     if (
       specifier?.kind !== "string" ||
-      (specifier.value !== "node:worker_threads" &&
-        specifier.value !== "worker_threads")
+      specifier.value !== NODE_WORKER_THREADS_SPECIFIER
     )
       continue;
     const names = workerThreadImportNames(tokens, index);
+    if ([...names.values()].every((isType) => isType)) continue;
     if (localTypeScriptChildModulePaths.has(relativePath)) {
       if (
         names.size !== 2 ||
@@ -1530,7 +1649,7 @@ function assertWorkerCreationImportBoundary(
   }
 }
 
-function isNodeSelfExecutableArgument(
+function classifyNodeSelfExecutableArgument(
   tokens: readonly SourceToken[],
   start: number,
 ) {
@@ -1540,31 +1659,32 @@ function isNodeSelfExecutableArgument(
     token?.kind === "string" &&
     ["node", "node.exe"].includes(token.value.toLowerCase())
   )
-    return true;
-  return (
-    tokenSequenceMatches(tokens, start, ["process", ".", "execPath"]) ||
-    tokenSequenceMatches(tokens, start, ["process", "?.", "execPath"]) ||
-    tokenSequenceMatches(tokens, start, ["process", ".", "argv0"]) ||
-    tokenSequenceMatches(tokens, start, ["process", "?.", "argv0"]) ||
-    tokenSequenceMatches(tokens, start, [
-      "process",
-      ".",
-      "argv",
-      "[",
-      "0",
-      "]",
-    ]) ||
-    tokenSequenceMatches(tokens, start, [
-      "process",
-      ".",
-      "argv",
-      ".",
-      "at",
-      "(",
-      "0",
-      ")",
-    ])
-  );
+    return "node_self" as const;
+  const knownNodeSelfForms = [
+    ["process", ".", "execPath"],
+    ["process", "?.", "execPath"],
+    ["process", "[", "execPath", "]"],
+    ["process", "?.", "[", "execPath", "]"],
+    ["process", ".", "argv0"],
+    ["process", "?.", "argv0"],
+    ["process", "[", "argv0", "]"],
+    ["process", "?.", "[", "argv0", "]"],
+    ["process", ".", "argv", "[", "0", "]"],
+    ["process", "?.", "argv", "[", "0", "]"],
+    ["process", ".", "argv", "?.", "[", "0", "]"],
+    ["process", "?.", "argv", "?.", "[", "0", "]"],
+    ["process", ".", "argv", ".", "at", "(", "0", ")"],
+    ["process", "?.", "argv", ".", "at", "(", "0", ")"],
+    ["process", ".", "argv", "?.", "at", "(", "0", ")"],
+    ["process", "?.", "argv", "?.", "at", "(", "0", ")"],
+  ] as const;
+  if (
+    knownNodeSelfForms.some((form) => tokenSequenceMatches(tokens, start, form))
+  )
+    return "node_self" as const;
+  return token?.kind === "string"
+    ? ("proven_non_node" as const)
+    : ("generic_external_authority" as const);
 }
 
 function classifyLocalTypeScriptProcessTarget(
@@ -1613,20 +1733,17 @@ function assertNoUnboundRuntimeChildProcess(
   const bindings = selectedScriptProcessBindings(tokens, false);
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
   const allowedPrimitives = runtimeChildProcessOwnerPrimitives.get(sourcePath);
+  for (const imported of bindings.bindings.values()) {
+    if (imported === "fork" || !allowedPrimitives?.has(imported))
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_process_unbound",
+      );
+  }
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (token?.kind !== "identifier") continue;
     const imported = bindings.bindings.get(token.value);
     if (!imported || bindings.declarationTokenIndices.has(index)) continue;
-    if (!allowedPrimitives?.has(imported))
-      throw new Error(
-        "platform_provisioner_runtime_dependency_child_process_unbound",
-      );
-    if (imported === "fork") {
-      throw new Error(
-        "platform_provisioner_runtime_dependency_child_process_unbound",
-      );
-    }
     if (tokens[index - 1]?.value === "." || tokens[index + 1]?.value !== "(")
       throw new Error(
         "platform_provisioner_runtime_dependency_child_process_unbound",
@@ -1667,7 +1784,10 @@ function assertNoUnboundRuntimeChildProcess(
       const argumentStarts = directCallArgumentStarts(tokens, index + 1);
       if (
         argumentStarts.length >= 2 &&
-        isNodeSelfExecutableArgument(tokens, argumentStarts[0] as number) &&
+        classifyNodeSelfExecutableArgument(
+          tokens,
+          argumentStarts[0] as number,
+        ) === "node_self" &&
         classifyLocalTypeScriptProcessTarget(
           relativePath,
           tokens,
@@ -1793,6 +1913,7 @@ function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
       ),
     );
     assertNoUndeclaredLocalTypeScriptImportMetaUrl(relativePath, tokens);
+    assertInternalLifecycleConsumerBoundary(relativePath, tokens);
     assertWorkerCreationImportBoundary(relativePath, tokens);
     assertNoUnboundRuntimeChildProcess(relativePath, tokens);
     assertNoUnboundRuntimeExecPath(relativePath, tokens);
@@ -1800,6 +1921,13 @@ function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
     throw new Error(`${relativePath}:modules:${String(error)}`);
   }
   return Object.freeze(targets);
+}
+
+export function assertRuntimeSourceModuleBoundaryForVerification(
+  relativePath: string,
+  source: string,
+) {
+  staticRelativeModuleTargets(relativePath, Buffer.from(source, "utf8"));
 }
 
 function verifyLauncherEntryBindings(packageRoot: string) {

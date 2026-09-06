@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import tty from "node:tty";
 import { fileURLToPath } from "node:url";
-import { readInteractiveConsoleLineOutcomeUsingChild } from "../../src/core/interactive-console.ts";
+import { runInteractiveConsoleReaderLifecycle } from "../../src/core/interactive-console-reader-lifecycle-internal.ts";
 import { spawnRuntimeLocalTypeScriptChild } from "../../src/core/runtime-local-typescript-child-entrypoints.ts";
 import { createInteractiveConsoleReaderEnvironment } from "../../src/core/windows-child-environment.ts";
 import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/security/candidate-store-kernel-lock.ts";
@@ -31,12 +30,11 @@ try {
     },
   );
   process.stdout.write(`${JSON.stringify({ readerPid: child.pid })}\n`);
-  const outcome = await readInteractiveConsoleLineOutcomeUsingChild(
-    descriptor,
+  const outcome = await runInteractiveConsoleReaderLifecycle(
+    Object.freeze({ inputDescriptor: descriptor }),
     controller.signal,
     child,
     Object.freeze({
-      isTty: tty.isatty,
       setTimeout,
       clearTimeout,
     }),
