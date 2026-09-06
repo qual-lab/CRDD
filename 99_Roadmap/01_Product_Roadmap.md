@@ -44,6 +44,7 @@ Related:
 | v0.21 Meeting／Context Promotion | Adopted | Planned | [Project Operation／Projection構想](#v020-project-operation-projection) | Meetingを時間境界のあるCommunication Activityとして扱い、生Transcriptではなく、そのMeetingで確認されたDecision、更新されたContext、未解決事項および参照元を保持する。TopicをMeetingへ所有させず、AI Chat、Slack、Review等を跨ぐAttentionと分離する。会話要約を直接正本化せず、既存Context照合と人間のAuthorityを経てCanonical Contextへ昇格する |
 | v0.21 OSS Runtimeの利用者所有Trust Policy | Adopted | Planned | [OSS Runtime Trust Policy候補](../01_Discovery/01_CRDD_Product_Discovery.md#oss-runtime-trust-policy-candidate) | Qual-Lab公式署名を公式Buildの発行者・完全性Evidenceへ限定し、CRDD準拠性、Artifact完全性、発行者信頼および配置先の実行許可を分離する。Fork／組織Buildの独自署名と用途限定の未署名Local開発を、Deployment Ownerが所有するPolicyで安全に扱える契約を設計する。CROSの複数Repository・実行Sessionへ進む前に、Policy所有者、既定拒否、鍵更新・失効、移行および監査境界を固定する |
 | v0.21 自律Operationの意味契約とTrigger | Adopted | Planned | [自律Operationの責務境界](../05_Autonomous_Operation.md#autonomous-operation-responsibility) | Operationが所有する目的、Context、Authority、期待結果および停止条件と、Runtimeが所有する検知・開始を分離する。MCPを受付Transport、Schedulerを時刻・Event Triggerとして扱い、どちらにも目的や実行Authorityを暗黙付与しない。CROSのTask Sessionと人間判断待ち／再開へ接続し、重複開始、判断不足および情報不足ではEffect 0となる受入条件を固定する |
+| v0.21 Repository Tool／Capability Registry | Adopted | Planned | [Repository Capability構想](#repository-tool-capability-registry) | CRDD標準ToolとProject固有ToolをRepositoryの明示Capabilityとして登録し、MCP、Coordinator、CROS、Scheduler、CIまたはHuman CLIから共通利用できる境界を設計する。`tools/`は浅い配置を推奨するが階層を意味の正本にせず、Git管理されたMetadataからEntry、Runtime、由来、公開可否、AuthorityおよびHuman Gateを解決する。Toolの存在、Capability登録、MCP公開および実行許可を分離し、Directory自動探索やCaller由来の任意Shellを実行入口にしない |
 | v0.21 Remote MCP接続 | Adopted | Planned | [CROS発展境界](#cros-evolution-boundary)、[v0.20のローカルMCP](../01_Discovery/01_CRDD_Product_Discovery.md#v020-mcp-streamable-http) | `127.0.0.1`固定の現行Transportを一般Network bindへ単純拡張せず、TLS終端、利用者認証、Project・操作単位の認可、情報分類、再送・切断・取消、秘密管理および監査可能な結果を持つRemote接続境界を設計する。v0.21では複数RepositoryのContext参照、Project Projection、Context Packageおよび人間判断待ち／再開を主対象とし、常設Linux Runtime、耐久Queue、Remote Triggerによる継続実行またはInternet一般公開はv0.22以降とする |
 | v0.21 Context Operating System（CROS） | Adopted | Planned | [CROS発展境界](#cros-evolution-boundary) | 各ProjectのCRDDを正本のまま維持し、複数RepositoryのContext解決、利用目的単位のContext Package、安定したMCP／HTTP Interface、Agent実行Session、人間判断待ち／再開および結果の正本還流を担うRuntime／Federation層を段階的に成立させる。CRDDを中央Databaseへ置換せず、CROS自身を新しいContext正本または人間判断主体にしない。v0.20の単一Repository・localhost境界を基礎とし、v0.21着手時に各段階の完成条件と順序を固定する |
 | v0.21 Organization Runtime（最小構成） | Adopted | Planned | [CROS発展境界](#cros-evolution-boundary)、[長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md) | CROSの複数Repository Bindingを利用し、Project一覧、Portfolioの読み取り専用投影、対象Projectの選択・Routing、およびProjectごとのContext・Authority・Runtime State・Recovery分離を成立させる。Project間の自動優先順位付け、Capacity／費用配分、横断Effect認可、無制限SchedulingまたはOrganization正本の新設は含めず、将来のOrganization Runtime完成形と区別する |
@@ -76,7 +77,7 @@ Related:
 | 版 | 利用者ができるようになること | 成立させる基盤 | この版では行わないこと |
 |---|---|---|---|
 | v0.20.0 | 一つのローカルProjectで、分離されたProject RuntimeをMCP stdio／localhost HTTPから利用し、実行状態と実行効果を観測しながら、競合しない少数Taskを安全に並行実行して一つの受入結果へ統合できる | 試験レベル別の自動回帰、実行知、Runtime責務分離、限定分散実行、読み取り専用Project State、認証済みlocalhost HTTP | 複数Repository、常設Remote運用、一般Network公開、自律的なOperation開始、Project Management正本の新設 |
-| v0.21.0 | 複数ProjectのCRDD正本を中央へ移さず横断参照し、Projectの現在地・注意事項・会議から昇格した判断を目的別に把握できる。利用者または組織が信頼するRuntime発行者を選び、認証・認可されたRemote MCPを含むMCP／HTTPからTask Sessionへ接続して、人間判断待ちと再開を扱える。読み取り中心の参照Operationで自律実行の価値を試せる | Project Management Projection、Topic、Meeting／Context Promotion、利用者所有Trust Policy、Remote MCP、CROS、最小Organization Runtime、自律Operationの意味契約 | Project間の自動優先順位・Capacity配分、Organization横断Effect Authority、Linux常設運用、耐久Queue、Remote Triggerによる継続実行、Internet一般公開、未承認の外部Effect |
+| v0.21.0 | 複数ProjectのCRDD正本を中央へ移さず横断参照し、Projectの現在地・注意事項・会議から昇格した判断を目的別に把握できる。Repository固有Toolを明示Capabilityとして登録し、利用者または組織が信頼するRuntime発行者を選び、認証・認可されたRemote MCPを含む共通入口からTask Sessionへ接続して、人間判断待ちと再開を扱える。読み取り中心の参照Operationで自律実行の価値を試せる | Project Management Projection、Topic、Meeting／Context Promotion、Repository Capability Registry、利用者所有Trust Policy、Remote MCP、CROS、最小Organization Runtime、自律Operationの意味契約 | Directory自動探索によるTool公開、Caller由来の任意Shell、Project間の自動優先順位・Capacity配分、Organization横断Effect Authority、Linux常設運用、耐久Queue、Remote Triggerによる継続実行、Internet一般公開、未承認の外部Effect |
 | v0.22.0 | Linux Server上へRuntimeを常設し、認証済みのRemote入口から許可済みOperationをQueueへ受け付け、時刻・Event Trigger、切断、取消、再起動およびRecoveryを跨いで限定的に完遂できる。効果と人間負荷を実行知で評価できる | Linux Platform Adapter、Remote Trust Boundary、耐久Queue／Scheduler、Remote Trigger、限定自律Operation、実行評価 | Internet一般公開、Multi-tenant、無制限な自己目的生成、Organization全体の自動最適化 |
 | 将来版 | Self-hosted Provider、macOS、より高度なCapability Routing／再計画、Project間の投資・優先順位・Capacity最適化を、先行版のEvidenceに基づいて選択的に追加できる | Provider／Platform Adapter、Trust Policy、実行知、v0.21の複数Repository分離、v0.22の常設実行Evidence | 実環境の根拠がない対応表明、単一Scoreによる自動判断、人間または配置先所有者のAuthority代替 |
 
@@ -96,7 +97,7 @@ v0.22  Linuxへ常設し、QueueとRemote Triggerで限定Operationを継続実�
 
 v0.19.0の完了経路は[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)と[最終署名E2E](../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md)へ保持する。2026-09-05、人間の決定権限者は、実行知、試験体系と自動回帰、Runtime責務分離、限定分散実行と統合結果の評価、Project Stateの読み取り専用投影、およびローカルMCP Streamable HTTP接続の6項目をv0.20の改訂計画基準として固定した。当初含めたLinux対応とRemote Runtimeは、Platform実装とRemote Trust Boundaryの同時追加によるScope膨張を避けるため`Held / Unscheduled`へ戻した。v0.20.0は、ローカル前提でProject Runtimeを分離・観測可能にし、限定並列実行を安全に成立させる版とする。探索中・保留中の項目をこの範囲へ暗黙追加しない。後から計画を変更する場合は、変更理由、影響する利用側・完成条件、追加・除外・保留の処置および必要な変更トレースを明示し、過去の計画基準を遡及上書きしない。
 
-2026-09-06、人間の決定権限者は、Project Management Projection、Topic／Project Attention、Meeting／Context Promotion、OSS Runtimeの利用者所有Trust Policy、Remote MCP接続、CROS、Organization Runtimeの最小構成、自律Operationの意味契約とTrigger、および読み取り中心の参照実証をv0.21.0の対象として採用した。Trust Policyは、現在のQual-Lab固定Release Trustを破棄する変更ではなく、CRDD準拠性、Artifact完全性、発行者信頼および配置先の実行許可を分離し、CROSより先に利用者所有の信頼境界を成立させる変更とする。Remote MCPはlocalhost制約を単純に外す変更ではなく、TLS、認証、Project・操作単位の認可、情報分類、再送・切断・取消および監査可能性を持つ接続境界として設計し、複数RepositoryのContext参照、Project Projectionおよび人間判断待ち／再開を主対象とする。Organization Runtimeの最小構成は、複数Repositoryの読取り・投影・RoutingとProject単位の分離までを扱い、Project間の自動最適化または横断Effect Authorityを含めない。自律Operationは目的・Context・Authority・期待結果・停止条件を所有し、MCPを受付Transport、Schedulerを時刻・Event Triggerとして扱う。v0.21では読み取り中心または外部Effectを伴わない参照実証までを上限とし、常設Linux Runtime、耐久Queue、Remote Triggerによる継続実行およびInternet一般公開はv0.22以降へ分離する。
+2026-09-06、人間の決定権限者は、Project Management Projection、Topic／Project Attention、Meeting／Context Promotion、OSS Runtimeの利用者所有Trust Policy、Repository Tool／Capability Registry、Remote MCP接続、CROS、Organization Runtimeの最小構成、自律Operationの意味契約とTrigger、および読み取り中心の参照実証をv0.21.0の対象として採用した。Trust Policyは、現在のQual-Lab固定Release Trustを破棄する変更ではなく、CRDD準拠性、Artifact完全性、発行者信頼および配置先の実行許可を分離し、CROSより先に利用者所有の信頼境界を成立させる変更とする。Repository Capabilityは、Toolの存在、明示登録、MCP等への公開および実行Authorityを分離し、MCP専用CommandまたはDirectory自動探索として設計しない。Remote MCPはlocalhost制約を単純に外す変更ではなく、TLS、認証、Project・操作単位の認可、情報分類、再送・切断・取消および監査可能性を持つ接続境界として設計し、複数RepositoryのContext参照、Project Projectionおよび人間判断待ち／再開を主対象とする。Organization Runtimeの最小構成は、複数Repositoryの読取り・投影・RoutingとProject単位の分離までを扱い、Project間の自動最適化または横断Effect Authorityを含めない。自律Operationは目的・Context・Authority・期待結果・停止条件を所有し、MCPを受付Transport、Schedulerを時刻・Event Triggerとして扱う。v0.21では読み取り中心または外部Effectを伴わない参照実証までを上限とし、常設Linux Runtime、耐久Queue、Remote Triggerによる継続実行およびInternet一般公開はv0.22以降へ分離する。
 
 同日、人間の決定権限者は、Linux対応とRemote Runtime、耐久Queue／Scheduler、Remote Triggerによる限定自律Operation実行、および実行知による効果評価をv0.22.0の対象として採用した。macOS対応は実機または正式な実行環境を利用できるまで版未定で保持した。これは版への収載判断であり、個別設計、実装着手、LAN／Internet一般公開、Multi-tenant、無制限な自己目的生成またはOrganization横断Authorityの採用を意味しない。v0.20.0のRelease完了後に、v0.21各項目の依存順、変更トレース、受入条件および検証範囲を具体化する。
 
@@ -127,9 +128,28 @@ MeetingはTopicと異なり、時間境界を持つCommunication Activityであ�
 
 配置候補は`20_Project/Topics/`と`20_Project/Meetings/`である。`20_Project`は工程横断の現在Context、`99_Roadmap`は将来実施・再評価すると決めた意図として分離する。WBS、Risk、Issue、Dashboardの正本Directoryは作らない。採否判断では、既存文書だけで投影できる範囲、追加Propertyの正本、Topicの分離可能性、Meetingからの意味保持、Dependencyによる順序導出、複数AIとの共用、外部PM Toolなしで不足する情報、およびViewから正本へ戻すAuthorityを代表ケースで検証する。
 
+<a id="repository-tool-capability-registry"></a>
+
+### 3.2. Repository Tool／Capability Registry構想
+
+CRDD採用Repositoryは、Build、Test、Preview、Asset同期、Data変換、Migration、Validation、Code Generationその他のProject固有Toolを保持できる。v0.21では、これらをMCP Serverへ個別実装せず、Repositoryが所有するCapabilityとして明示登録し、MCPを外部へ投影する経路の一つとして扱う。
+
+`tools/<capability-name>/`程度の浅い配置を認知負荷の低い既定として推奨するが、階層数を規範化しない。複雑なToolは自身の責務内で必要な階層を持てる。Runtime、CROSおよびMCPはDirectory名・深さ・実行可能ファイルの存在から能力を推定せず、Git管理されたRepository-local設定が明示する安定ID、Entry Point、Runtime、由来、公開先、AuthorityおよびHuman Gateから解決する。具体的な設定PathとSchemaは、実装要求と安全境界を確認してv0.21の設計で固定し、Root Manifestの存在を前提にしない。
+
+```text
+Tool exists
+  ≠ Capability registered
+  ≠ MCP exposed
+  ≠ Execution authorized
+```
+
+同じCapabilityはMCP専用にせず、Coordinator、CROS、Scheduler、CI、QualまたはHuman CLIから共通のCapability Runtimeを介して利用できる構造を候補とする。Callerから任意Shell文字列を受け取らず、登録済みEntry Point、Working Directory、Environment／Credential、Filesystem／Network／外部Effect、Timeout、取消、出力量、cleanupおよび実行知への結果接続を閉じた契約として確認する。破壊的操作は登録や公開だけから許可せず、別の実行Authorityと必要なHuman Gateを要求できるようにする。
+
+HumanがReviewするTool実装とCapability定義はGit管理された`tools/`側に置き、Repository-local `.crdd`はRuntime生成状態、Cache、実行知およびLocal Runtime Dataに限定する。複数Repository対応ではCROSがRepositoryごとのCapability Catalogを解決するが、Capabilityを別Repositoryへ自動継承したり、中央Catalogを各Repositoryの正本へ昇格させたりしない。将来Repository-level Metadataが実際に必要になった場合だけ、Project Identity、Federation Metadata、Context公開およびTool設定参照を持つRoot Manifestの採否を別途判断する。
+
 <a id="cros-evolution-boundary"></a>
 
-### 3.2. Context Operating System（CROS）発展境界
+### 3.3. Context Operating System（CROS）発展境界
 
 CROSは、複数ProjectのCRDD Contextを横断解決し、安定したInterfaceとして外部へ提供し、Agent実行を統括して結果を該当する正本Repositoryへ還流するRuntime／Federation層の候補である。各CRDDは独立した正本を維持し、CROSの内部Databaseにはしない。CRDD標準はContextの意味、各CRDDはProject固有の真実、CROSは解決・連合・実行、Qual等は人間との対話、外部Toolは表示・操作Surfaceを所有する。
 
@@ -149,7 +169,7 @@ CROS
 
 CROSはProduct Requirement、Projectの「なぜ」、人間の重要判断または外部Toolの表示状態を所有しない。Task実行から得たChange、Evidence、DecisionおよびProgressは、対象CRDDの契約とAuthorityに従って還流する。Portfolio Context、Runtime IndexおよびCacheは派生結果であり中央正本に昇格しない。外部向けInterfaceはStorage操作の細粒度な列挙ではなく、`project context`、`portfolio context`、`release context`等の利用目的を一回の呼出しで満たす粒度を候補とし、明示値、決定論的算出値および推定値の出典を追跡可能にする。
 
-発展順序は、v0.20で成立させる単一Repositoryの公開Application契約、読み取り専用投影およびlocalhost HTTPを基礎として、v0.21でProject Registry／Binding、複数Repository横断解決、Context Package、Task Session、人間判断待ち／再開、外部AI／Toolとの投影、および最小Organization Runtimeを段階的に評価する。最小Organization RuntimeはPortfolioの読み取り専用投影、対象Projectの選択・RoutingおよびProject単位の分離を上限とし、LAN／Internet公開、Remote常設運用、Project間の自動最適化またはOrganization横断Effect Authorityをv0.21へ暗黙追加しない。各段階で正本非複製、情報分類、認証・認可、RepositoryごとのAuthority、失敗時のEffectおよび結果還流を確認する。CRDDのv2能力地平が想定するOrganization Runtime完成形は変更せず、v0.20のRelease完了後にv0.21各段階の具体的な受入条件、順序および保留境界を固定する。
+発展順序は、v0.20で成立させる単一Repositoryの公開Application契約、読み取り専用投影およびlocalhost HTTPを基礎として、v0.21でProject Registry／Binding、複数Repository横断解決、Context Package、Task Session、人間判断待ち／再開、認証・認可されたRemote MCP、外部AI／Toolとの投影、および最小Organization Runtimeを段階的に評価する。最小Organization RuntimeはPortfolioの読み取り専用投影、対象Projectの選択・RoutingおよびProject単位の分離を上限とし、未認証または一般Internetへの公開、Remote常設実行、Project間の自動最適化またはOrganization横断Effect Authorityをv0.21へ暗黙追加しない。各段階で正本非複製、情報分類、認証・認可、RepositoryごとのAuthority、失敗時のEffectおよび結果還流を確認する。CRDDのv2能力地平が想定するOrganization Runtime完成形は変更せず、v0.20のRelease完了後にv0.21各段階の具体的な受入条件、順序および保留境界を固定する。
 
 ## 4. 境界
 
