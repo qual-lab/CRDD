@@ -7,8 +7,8 @@
 ## 対象
 
 - 対象変更: [CHG-000062](../../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
-- 固定改訂版: `f92b782ae542f96305f426f33c944cd2af615827`
-- 固定Tree: `dfa826ca5d6a26703a31623259a6c7b0e7407f3e`
+- 固定改訂版: `98146b3b70295bc122784871233d0bd7cf58c423`
+- 固定Tree: `1a2d46e74fbe8061567396f60dbde280aef72f23`
 - 対象範囲: Runtime責務分離、Project Stateの読み取り専用投影、MCP stdio／localhost HTTP、実行知の組込みAPI、限定分散の統合結果評価
 
 ## 結論
@@ -37,8 +37,8 @@
 | Repository全体の変更影響型回帰 | 選択155項目、全5段階成功 | 全所有componentの静的検査、UT、IT、Windows実Process Gate、ST |
 | Windows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | Coordinator静的検査 | 成功 | Runtime／Project設計対応、兄弟Component package metadataを含むRuntime Execution Identity、型、Lint、Format |
-| 正式署名の利用側閉包 | 重点121件中121件成功 | 配布全体の正規観測と、必須成果物・実行入口・Recovery Matrix入口の欠落を秘密鍵読取りおよび入力Promptより前に拒否すること。実行能力の取得・再搬送・呼出し・実行対象と内部Lifecycle利用を実ソースから導出し、正規の呼出し宣言集合と双方向に照合すること。semicolonなし宣言、loader再取得、別名・namespace・dynamic・require・再export、関数値化、直接Worker／`fork`／Node自身からのlocal TypeScript起動、未知の外部実行対象および兄弟leafからの内部Lifecycle利用を拒否し、type-only import／re-exportは実行能力として数えないこと |
-| 追加是正後のCoordinator制限Process回帰 | 1,738件中1,738件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
+| 正式署名の利用側閉包 | 重点126件中126件成功 | 配布全体の正規観測と、必須成果物・実行入口・Recovery Matrix入口の欠落を秘密鍵読取りおよび入力Promptより前に拒否すること。実行能力の取得・再搬送・呼出し・実行対象と内部Lifecycle利用を実ソースから導出し、正規の呼出し集合と双方向に照合すること。semicolonなし宣言、loader再取得、別名・namespace・dynamic・require・再export、関数値化、直接Worker／`fork`／Node自身からのlocal TypeScript起動、未知の外部実行対象、兄弟leafからの内部Lifecycle利用、公開観測・Capability・同梱版・固定開発版・署名経路の取り残しを拒否し、type-only import／re-exportは実行能力として数えないこと |
+| 追加是正後のCoordinator制限Process回帰 | 1,743件中1,743件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
 | 追加是正後のWindows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | 追加是正後のRepository全体Checker | Error 0、Warning 0 | Markdown 425件、Local link 3,011件、履歴参照24件、Anchor 1,005件 |
 
@@ -60,7 +60,9 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 固定改訂版`5ae51ff8f4acdb56c73f00cc09abdcf8c3c7892b`では、実行能力を持つ`node:child_process`の値importを正規名・非aliasのnamed importへ限定し、sourceとprimitiveの許可関係、およびimport bindingの全利用を字句解析した。しかし独立再レビューにより、未使用の値import、loader取得の再構成、Node自己起動targetのbracket／optional表記、および本番leafから分離したLifecycle helperの公開範囲に未完が確認された。
 
-現在の固定改訂版`f92b782ae542f96305f426f33c944cd2af615827`では、静的import、再export、動的importおよび型／値bindingを一つの前方module宣言解釈から導出する。改行や直前semicolonから宣言範囲を逆算せず、semicolonなしの連続宣言も値再exportを型専用へ誤分類しない。`createRequire`、bare `require`、`process.getBuiltinModule`および非literal動的importによる保護module再取得を拒否する。子Process呼出しはsource全体の許可ではなく、所有関数、primitive、実行対象式、引数式、Authority証明および期待件数を持つ正規呼出し集合と、実ソースから導出した集合を双方向に照合する。Process wrapperと内部Lifecycleも、宣言、export、import、全値利用、正規leaf、引数の由来、事前handle生成および既存終端cleanupへの後続処理を一組として検証する。代表違反は公開観測、固定開発版、同梱版、Capability非発行、署名preflightおよび非対話署名CLIまで縦断し、内部理由、Path、symbolまたは秘密入力を公開しないことを確認した。重点121件、制限Process 1,738件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
+固定改訂版`f92b782ae542f96305f426f33c944cd2af615827`への二つの独立再レビューでは、namespace／default／再exportやbracket表記によるloader再取得、Authority証明と実行呼出しの結合不足、`dependencies.startProcess`を含むwrapper／Lifecycle利用側の取り残し、公開経路の構造的な識別不足、および正当な`export type *`の過剰拒否を検出した。
+
+現在の固定改訂版`98146b3b70295bc122784871233d0bd7cf58c423`では、module宣言、loader、外部Process呼出し、Process wrapper、内部Lifecycleおよび公開利用側を同じ前方構文解析結果から導出する。各外部Process呼出しは、所有関数、exact primitive、実行対象式、引数構造、事前Authority証明および期待件数へ結合し、単なるimport、文字列出現または宣言一覧を成立根拠にしない。公開観測、固定開発版、同梱版、署名Manifest、Capability発行・消費および配置後検証についても、実ソースから導出した呼出し集合と独立した期待集合を双方向に照合する。Canonical Path／Identity／Stateは正規Producerが解決した値を利用し、利用側で再構成しない。正当な型専用star re-exportは許可するが、値re-export、未確認loader、条件付きまたは別引数の実行呼出し、死んだ分岐のAuthority証明、wrapper property利用、Lifecycle呼出し欠落および公開経路欠落は拒否する。重点126件、制限Process 1,743件、Windows実Process 7件、静的検査およびRepository全体Checker（Error 0、Warning 0）は成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
 
 ## 限定分散の観測
 
