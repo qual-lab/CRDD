@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import { inspectGitCommitTreeCandidate } from "../src/security/git-object-reader.ts";
-import { inspectPlatformProvisionerPackageFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
+import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { getPlatformProvisionerPolicyIdentity } from "../src/security/platform-provisioner-policy-identity.ts";
 import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/security/platform-provisioner-release-identity.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/security/platform-provisioner-release-trust.ts";
@@ -253,9 +253,10 @@ function prepareReleaseManifestCandidate(
   const distributionRoot = repositoryLocalDistributionRoot(
     options.distributionRoot,
   );
-  const packageRoot = path.join(distributionRoot, "40_Develop", "coordinator");
   const packageObservation =
-    inspectPlatformProvisionerPackageFilesystemCandidate(packageRoot);
+    inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+      distributionRoot,
+    );
   const platformAccessObservation =
     beginReleaseStagingManifestSession(distributionRoot);
   if (packageObservation.status !== "candidate" || !platformAccessObservation) {

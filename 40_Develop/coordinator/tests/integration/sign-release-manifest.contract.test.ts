@@ -199,6 +199,16 @@ test("production署名sourceはTrust差替え、検証skipまたはtest hookを�
     false,
   );
   assert.match(signerSource, /inspectGitCommitTreeCandidate/u);
+  assert.match(
+    signerSource,
+    /inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate\(\s*distributionRoot,?\s*\)/u,
+  );
+  assert.equal(
+    signerSource.includes(
+      "inspectPlatformProvisionerPackageFilesystemCandidate",
+    ),
+    false,
+  );
 });
 
 test("SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より前に明示拒否する", () => {
@@ -727,35 +737,42 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       ),
       { recursive: true },
     );
-    fs.mkdirSync(
-      path.join(distributionRoot, "40_Develop", "coordinator", "src"),
-      {
+    for (const [source, destination] of [
+      [
+        path.join(repositoryRoot, "40_Develop", "coordinator"),
+        path.join(distributionRoot, "40_Develop", "coordinator"),
+      ],
+      [
+        path.join(repositoryRoot, "40_Develop", "mcp"),
+        path.join(distributionRoot, "40_Develop", "mcp"),
+      ],
+      [
+        path.join(repositoryRoot, "40_Develop", "project-runtime"),
+        path.join(distributionRoot, "40_Develop", "project-runtime"),
+      ],
+      [
+        path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
+        path.join(distributionRoot, "40_Develop", "execution-intelligence"),
+      ],
+    ] as const) {
+      fs.cpSync(source, destination, {
         recursive: true,
-      },
-    );
-    fs.writeFileSync(
-      path.join(distributionRoot, "40_Develop", "coordinator", "package.json"),
-      JSON.stringify({
-        name: "@qual-lab/crdd-coordinator",
-        version: "0.0.0-development",
-        private: true,
-        type: "module",
-        exports: { "./cli": "./bin/coordinator.ts" },
-        scripts: {},
-        engines: {},
-        devDependencies: {},
-      }),
-    );
-    fs.writeFileSync(
-      path.join(
-        distributionRoot,
-        "40_Develop",
-        "coordinator",
-        "src",
-        "fixture.ts",
-      ),
-      "export const FIXTURE = true;\n",
-    );
+        filter: (entry) => {
+          assert.equal(fs.lstatSync(entry).isSymbolicLink(), false);
+          const name = path.basename(entry);
+          return name !== "node_modules" && name !== "tests";
+        },
+      });
+    }
+    fs.mkdirSync(path.join(distributionRoot, "template", "tools"), {
+      recursive: true,
+    });
+    for (const launcher of ["crdd-coordinator.ts", "crdd-mcp.ts"] as const) {
+      fs.copyFileSync(
+        path.join(repositoryRoot, "template", "tools", launcher),
+        path.join(distributionRoot, "template", "tools", launcher),
+      );
+    }
     const { privateKey } = generateKeyPairSync("ed25519");
     fs.mkdirSync(keyDirectory);
     fs.writeFileSync(
