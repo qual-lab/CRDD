@@ -7,8 +7,8 @@
 ## 対象
 
 - 対象変更: [CHG-000062](../../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
-- 固定改訂版: `5ae51ff8f4acdb56c73f00cc09abdcf8c3c7892b`
-- 固定Tree: `1f17d6cb100dc92e6b63ed9134dd8251b088217f`
+- 固定改訂版: `1e6aab7e8a5567f1f622feb285a866b7ee02bd0c`
+- 固定Tree: `9b9744284616b2f9242e94cff4819bec440ad6cc`
 - 対象範囲: Runtime責務分離、Project Stateの読み取り専用投影、MCP stdio／localhost HTTP、実行知の組込みAPI、限定分散の統合結果評価
 
 ## 結論
@@ -38,7 +38,7 @@
 | Windows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | Coordinator静的検査 | 成功 | Runtime／Project設計対応、兄弟Component package metadataを含むRuntime Execution Identity、型、Lint、Format |
 | 正式署名の利用側閉包 | 136件中136件成功 | 配布全体の正規観測と、必須成果物・実行入口・Recovery Matrix入口の欠落を秘密鍵読取りおよび入力Promptより前に拒否すること。実行能力を持つimport、source別primitive、直接呼出しおよび実行targetを実ソースから導出し、宣言集合との完全一致を要求すること。別名・namespace・dynamic・require・再export、関数値化、`.call`／`.apply`／`.bind`／`Reflect.apply`、直接Worker／`fork`／Node自身からのlocal TypeScript起動、query／fragment／percent encoding／encoded separatorおよびRecovery経路の迂回を拒否し、type-only importは実行能力として数えないこと |
-| 追加是正後のCoordinator制限Process回帰 | 1,714件中1,714件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
+| 追加是正後のCoordinator制限Process回帰 | 全件成功（終了コード0） | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
 | 追加是正後のWindows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | 追加是正後のRepository全体Checker | Error 0、Warning 0 | Markdown 425件、Local link 3,011件、履歴参照24件、Anchor 1,005件 |
 
@@ -58,7 +58,9 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 固定改訂版`da3c6eb69f8f2a7172ff8ebc5b8ebe2de77880e7`では、Registryを専用module内部の不変なprimitive値へ閉じ、利用側には役割と引数だけを受け取るWorker／spawn wrapperを公開した。一段具体化した独立再レビューでは、`child_process`の再export・関数値化や呼出し方の再構成、Node自身から起動するtargetの判定不能形、および本番関数へ残ったProcess／Worker生成factoryによって、この境界を迂回できることを検出した。
 
-現在の固定改訂版`5ae51ff8f4acdb56c73f00cc09abdcf8c3c7892b`では、実行能力を持つ`node:child_process`の値importを正規名・非aliasのnamed importへ限定し、sourceとprimitiveの許可関係、およびimport bindingの全利用を字句解析する。正規の直接呼出し以外と判定不能なNode-self targetは拒否し、type-only importは実行能力として数えない。query、fragment、percent encodingまたはencoded separatorを取り除いて正規Pathへ補正せず、不正・不明として停止する。本番のProcess／Worker生成factoryは除去し、検証済みの本番leafが起動を所有した後、既に生成済みのhandleと最小状態だけをlifecycle helperへ渡す。factoryを用いる異常注入は試験専用harnessへ隔離した。上表の136件、1,714件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
+固定改訂版`5ae51ff8f4acdb56c73f00cc09abdcf8c3c7892b`では、実行能力を持つ`node:child_process`の値importを正規名・非aliasのnamed importへ限定し、sourceとprimitiveの許可関係、およびimport bindingの全利用を字句解析した。しかし独立再レビューにより、未使用の値import、loader取得の再構成、Node自己起動targetのbracket／optional表記、および本番leafから分離したLifecycle helperの公開範囲に未完が確認された。
+
+現在の固定改訂版`1e6aab7e8a5567f1f622feb285a866b7ee02bd0c`では、保護moduleのliteral specifierをtoken位置から検査し、値importは利用有無にかかわらず宣言時にsourceとprimitiveの許可関係へ照合する。純粋な型import／型re-exportだけをEffectなしとして許可し、`fork`、escaped specifier、template specifierおよびloader再構成を拒否する。実行targetはgenericな外部Process Authorityの判定前にNode自己起動の既知表記を分類し、dot、bracket、optionalおよび`at(0)`の表記差で制約を迂回できない。Process、Workerおよび対話入力Readerの生成後Lifecycleは専用内部moduleへ移し、本番では対応するleafだけが静的importできる。再export、dynamic／alias importおよび兄弟実装からの利用を拒否し、試験は同じ状態機械を試験支援境界から検証する。対話入力ReaderはTTY／descriptor前提をEffect前に一度固定し、handle所有後に取消listenerを登録してから取消状態を再確認する。制限Process全回帰、Windows実Process 7件、静的検査およびRepository全体Checkerは成功した。独立再レビュー、実署名および正式E2Eは後続Gateであり、本結果から成功を推定しない。
 
 ## 限定分散の観測
 
