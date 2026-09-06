@@ -1303,6 +1303,42 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
 const runtimeDistributionEntrypoints = Object.freeze(
   new Set(["template/tools/crdd-coordinator.ts", "template/tools/crdd-mcp.ts"]),
 );
+const RUNTIME_DISTRIBUTION_INTERACTIVE_CONSOLE_READER_PATH =
+  "40_Develop/coordinator/src/core/interactive-console-reader.ts";
+
+function resolveRuntimeDistributionRequiredArtifacts(
+  observedFiles: ReadonlyMap<
+    string,
+    Readonly<{
+      byteLength: number;
+      sha256: string;
+      identity: EntityIdentity;
+      bytes: Buffer;
+    }>
+  >,
+) {
+  const interactiveConsoleReader = observedFiles.get(
+    RUNTIME_DISTRIBUTION_INTERACTIVE_CONSOLE_READER_PATH,
+  );
+  return Object.freeze({
+    interactiveConsoleReader: interactiveConsoleReader
+      ? Object.freeze({
+          relativePath: RUNTIME_DISTRIBUTION_INTERACTIVE_CONSOLE_READER_PATH,
+          sha256: interactiveConsoleReader.sha256,
+        })
+      : null,
+    developmentEntrypoints: Object.freeze(
+      DEVELOPMENT_ENTRYPOINTS.map((entrypoint) => {
+        const artifact = observedFiles.get(
+          `40_Develop/coordinator/${entrypoint}`,
+        );
+        return artifact
+          ? Object.freeze({ relativePath: entrypoint, sha256: artifact.sha256 })
+          : null;
+      }),
+    ),
+  });
+}
 
 function isBundledRuntimeExecutionPath(
   relativePath: string,
@@ -1503,10 +1539,13 @@ function observeRuntimeDistribution(distributionRootPath: string) {
   if (contentRoot.status !== "candidate") {
     throw new Error("platform_provisioner_package_content_invalid");
   }
+  const requiredArtifacts =
+    resolveRuntimeDistributionRequiredArtifacts(observedFiles);
   return Object.freeze({
     observation,
     packageByteLength,
     contentRoot,
+    requiredArtifacts,
     permissionPolicyConfirmed: false,
     windowsWritePolicyConfirmed: false,
   });
@@ -1633,11 +1672,7 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
     if (releaseManifestPresent)
       return blocked("development_package_release_artifact_present");
 
-    const entrypoints = DEVELOPMENT_ENTRYPOINTS.map((entrypoint) =>
-      observed.observation.files.find(
-        (file) => file.path === `40_Develop/coordinator/${entrypoint}`,
-      ),
-    );
+    const entrypoints = observed.requiredArtifacts.developmentEntrypoints;
     if (entrypoints.some((entrypoint) => !entrypoint))
       return blocked("development_package_entrypoint_missing");
     const reobserved = observeRuntimeDistribution(root.realPath);
@@ -1670,7 +1705,7 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
           if (!entrypoint)
             throw new Error("development_package_entrypoint_missing");
           return Object.freeze({
-            relativePath: entrypoint.path,
+            relativePath: entrypoint.relativePath,
             sha256: entrypoint.sha256,
           });
         }),
@@ -1776,9 +1811,8 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
         "platform_provisioner_manifest_changed_during_verification",
       );
     }
-    const interactiveConsoleReaderArtifact = observed.observation.files.find(
-      (file) => file.path === "src/core/interactive-console-reader.ts",
-    );
+    const interactiveConsoleReaderArtifact =
+      observed.requiredArtifacts.interactiveConsoleReader;
     if (!interactiveConsoleReaderArtifact) {
       return blocked("platform_provisioner_interactive_console_reader_missing");
     }
@@ -2075,7 +2109,9 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     packageRootSelection: "implemented_fixed_module_relative_candidate",
     recursiveFileInventory: "implemented_candidate",
     runtimeExecutionSet:
-      "closed_bin_src_runtime_policies_and_package_json_namespace",
+      "closed_public_launchers_coordinator_package_and_transitively_reached_sibling_sources_with_package_metadata",
+    requiredArtifactResolution:
+      "owned_by_distribution_observer_and_consumed_without_path_reinterpretation",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",
     packageContentRootCalculation:
       "implemented_canonical_lf_for_declared_repository_text_and_raw_bytes_for_other_files",

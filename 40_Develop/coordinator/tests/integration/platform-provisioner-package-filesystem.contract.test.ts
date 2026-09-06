@@ -1394,6 +1394,14 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   const contract = describePlatformProvisionerPackageFilesystemContract();
   assert.equal(contract.contractRevision, 6);
   assert.equal(
+    contract.runtimeExecutionSet,
+    "closed_public_launchers_coordinator_package_and_transitively_reached_sibling_sources_with_package_metadata",
+  );
+  assert.equal(
+    contract.requiredArtifactResolution,
+    "owned_by_distribution_observer_and_consumed_without_path_reinterpretation",
+  );
+  assert.equal(
     contract.runtimeOwnedPackageFilesystemRead,
     "implemented_candidate_without_permission_authority",
   );

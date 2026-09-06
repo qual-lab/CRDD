@@ -120,6 +120,59 @@ function uniqueReleaseCandidate(prefix: string) {
   return value;
 }
 
+function runtimeDistributionFixture(prefix: string) {
+  const distributionRoot = uniqueReleaseCandidate(prefix);
+  for (const component of [
+    "coordinator",
+    "mcp",
+    "project-runtime",
+    "execution-intelligence",
+  ] as const) {
+    fs.cpSync(
+      path.join(repositoryRoot, "40_Develop", component),
+      path.join(distributionRoot, "40_Develop", component),
+      {
+        recursive: true,
+        filter: (entry) => {
+          assert.equal(fs.lstatSync(entry).isSymbolicLink(), false);
+          const name = path.basename(entry);
+          return name !== "node_modules" && name !== "tests";
+        },
+      },
+    );
+  }
+  fs.mkdirSync(path.join(distributionRoot, "template", "tools"), {
+    recursive: true,
+  });
+  for (const launcher of ["crdd-coordinator.ts", "crdd-mcp.ts"] as const) {
+    fs.copyFileSync(
+      path.join(repositoryRoot, "template", "tools", launcher),
+      path.join(distributionRoot, "template", "tools", launcher),
+    );
+  }
+  const nativeTarget = path.join(
+    distributionRoot,
+    "template",
+    "tools",
+    "coordinator",
+    "windows-x64",
+    "crdd-platform-access.exe",
+  );
+  fs.mkdirSync(path.dirname(nativeTarget), { recursive: true });
+  fs.copyFileSync(
+    path.join(
+      repositoryRoot,
+      "template",
+      "tools",
+      "coordinator",
+      "windows-x64",
+      "crdd-platform-access.exe",
+    ),
+    nativeTarget,
+  );
+  return distributionRoot;
+}
+
 test("production署名sourceはTrust差替え、検証skipまたはtest hookを持たない", () => {
   const forbiddenNames = [
     "ContractTestTrust",
@@ -374,6 +427,42 @@ test("Release stagingの非秘密検査はpassphrase入力より前に完了す�
   assert.equal(cli.status, 1);
   assert.equal(cli.stdout, "");
   assert.equal(cli.stderr, "release_manifest_distribution_root_invalid\n");
+});
+
+test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflightで拒否する", () => {
+  const cases = [
+    "template/tools/crdd-mcp.ts",
+    "40_Develop/mcp/package.json",
+    "40_Develop/project-runtime/src/index.ts",
+  ] as const;
+  for (const relativePath of cases) {
+    const distributionRoot = runtimeDistributionFixture("contract-closure");
+    const privateKeyPath = path.join(
+      distributionRoot,
+      "private-key-must-not-be-read.pem",
+    );
+    try {
+      fs.unlinkSync(path.join(distributionRoot, ...relativePath.split("/")));
+      assert.throws(
+        () =>
+          preflightReleaseManifest({
+            distributionRoot,
+            privateKeyPath,
+            crddVersion: "v0.20.0",
+            releaseSequence: 20,
+            crddCommit: "a".repeat(40),
+            crddTree: "b".repeat(40),
+            issuedAt: "2026-09-06T00:00:00.000Z",
+            expiresAt: "2027-09-06T00:00:00.000Z",
+          }),
+        /release_manifest_package_observation_failed/u,
+        relativePath,
+      );
+      assert.equal(fs.existsSync(privateKeyPath), false);
+    } finally {
+      fs.rmSync(distributionRoot, { recursive: true, force: true });
+    }
+  }
 });
 
 test("Release署名RootはRepository-localの単一candidate directoryだけを受理する", () => {
