@@ -46,7 +46,7 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 - [共通Eventと集約](../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts): Provider／Runtime非依存の閉Schema、欠測表現、集約、非Authority改善候補。
 - [限定分散の統合結果評価](../../40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts): 予定Task、実Attempt、統合結果および効用測定を同じ評価Identityへ結合する閉契約。
 - [公開入口](../../40_Develop/execution-intelligence/src/index.ts): CRDD採用Repositoryや各Runtimeの薄いAdapterが利用するexport。
-- [組込みRecorder](../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts): TypeScriptアプリケーションをexact Repository Rootへ一度結合し、Event生成・保存・読取りを公開APIだけで扱うFacade。
+- [組込みRecorder](../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts): TypeScriptアプリケーションをexact Repository Rootへ一度結合し、Event生成・保存・読取りを公開APIだけで扱うFacade。入力生成の拒否だけをEffect 0へ分類し、生成後のStore結果または契約外例外を入力不正へ変換しない。
 - [Execution Store](../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts): Repository-local不変保存、改変検知、bounded読取り。保持期間に基づく物理削除は提供しない。
 - [Repository Root検証](../../40_Develop/execution-intelligence/src/store/verified-repository-root.ts): exact worktree RootだけからStoreの実行時能力を発行し、任意Path、linkまたは構造的な偽造を拒否する。
 - [Coordinator Adapter](../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts): Single Task Runtime固有結果を共通Eventへ変換する唯一の接続部。

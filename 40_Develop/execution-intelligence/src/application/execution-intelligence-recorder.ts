@@ -20,6 +20,11 @@ export type ExecutionIntelligenceRecorder = Readonly<{
   read: () => ReturnType<typeof readExecutionIntelligence>;
 }>;
 
+type ExecutionIntelligenceEventWriter = (
+  root: Parameters<typeof writeExecutionIntelligenceEvent>[0],
+  event: ExecutionIntelligenceEvent,
+) => ExecutionIntelligencePublicationResult;
+
 function invalidEventPublication(): ExecutionIntelligencePublicationResult {
   return Object.freeze({
     status: "blocked" as const,
@@ -29,6 +34,32 @@ function invalidEventPublication(): ExecutionIntelligencePublicationResult {
     retryAllowed: false,
     manualRecoveryRequired: false,
     residualArtifactIds: Object.freeze([]),
+  });
+}
+
+/**
+ * Package-internal composition boundary. The writer argument is intentionally
+ * not exported from the package index: production callers always receive the
+ * repository-bound store, while contract tests can prove that canonical input
+ * rejection and persistent publication failures remain distinct boundaries.
+ */
+export function createBoundExecutionIntelligenceRecorder(
+  capability: Parameters<typeof writeExecutionIntelligenceEvent>[0],
+  writeEvent: ExecutionIntelligenceEventWriter,
+): ExecutionIntelligenceRecorder {
+  return Object.freeze({
+    recordTaskAttempt: (input: TaskAttemptSettledEventInput) => {
+      let event: ExecutionIntelligenceEvent;
+      try {
+        event = createTaskAttemptSettledEvent(input);
+      } catch {
+        return invalidEventPublication();
+      }
+      return writeEvent(capability, event);
+    },
+    recordEvent: (event: ExecutionIntelligenceEvent) =>
+      writeEvent(capability, event),
+    read: () => readExecutionIntelligence(capability),
   });
 }
 
@@ -44,22 +75,10 @@ export function createExecutionIntelligenceRecorder(repositoryRoot: string):
     }> {
   const verified = verifyExecutionIntelligenceRepositoryRoot(repositoryRoot);
   if (verified.status !== "completed") return verified;
-  const capability = verified.root;
-  const recorder = Object.freeze({
-    recordTaskAttempt: (input: TaskAttemptSettledEventInput) => {
-      try {
-        return writeExecutionIntelligenceEvent(
-          capability,
-          createTaskAttemptSettledEvent(input),
-        );
-      } catch {
-        return invalidEventPublication();
-      }
-    },
-    recordEvent: (event: ExecutionIntelligenceEvent) =>
-      writeExecutionIntelligenceEvent(capability, event),
-    read: () => readExecutionIntelligence(capability),
-  });
+  const recorder = createBoundExecutionIntelligenceRecorder(
+    verified.root,
+    writeExecutionIntelligenceEvent,
+  );
   return Object.freeze({
     status: "completed" as const,
     reason: "execution_intelligence_recorder_ready" as const,

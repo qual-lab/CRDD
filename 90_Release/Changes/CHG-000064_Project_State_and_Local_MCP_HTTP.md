@@ -15,7 +15,7 @@ Project Runtimeが所有する現在状態を、正本変更や実行権限を�
 
 HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。IPv4 localhostだけへbindし、Bearer認証、Origin確認、Protocol／Method／Nameのmirror header照合、UTF-8と容量上限、切断時の取消伝播および終了時の進行要求joinを要求する。旧版のGET stream、Transport Session IDまたはLAN／Internet公開互換を追加しない。
 
-固定改訂版`ce7c4d3073099926b3302eb9aa8e2c03d18aa699`で、公開Runtimeが作成した受入済みProject Stateを状態参照ApplicationからMCP Adapterへ渡し、`observed`、受入済みMilestoneおよび`no_effect`を同じ閉じた結果として確認した。別の総合試験では`template/tools/crdd-mcp.ts`のstdio／localhost HTTP公開Process、認証済み状態参照、拒否、切断取消および終了joinを確認した。公開RuntimeからTransportまでの全層を単一試験Fixtureへ偽装統合せず、実状態の意味縦断と実Process Transportの縦断を相補的な根拠として扱う。
+固定改訂版`ce7c4d3073099926b3302eb9aa8e2c03d18aa699`で、公開Runtimeが作成した受入済みProject Stateを状態参照ApplicationからMCP Adapterへ渡し、`observed`、受入済みMilestoneおよび`no_effect`を同じ閉じた結果として確認した。別の総合試験では`template/tools/crdd-mcp.ts`のstdio／localhost HTTP公開Process、認証済み状態参照、拒否、切断取消および終了joinを確認した。Node.js Signal event受領後のlistener保持、重複eventおよび実行中Applicationのjoinは、同じ本番Serverと注入可能なSignal sourceを使う構成試験で確認した。OS／Consoleから公開ProcessへのSignal配送は未評価であり、実Process Transportの確認へ含めない。公開RuntimeからTransportまでの全層を単一試験Fixtureへ偽装統合せず、実状態の意味縦断、実Process TransportおよびSignal受領後の構成試験を相補的な根拠として扱う。
 
 ## 2. 人間が決定した範囲
 
@@ -55,13 +55,13 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 | 異常 | HTTP認証、Originまたはmirror headerが不正 | Applicationを呼ばずHTTP／JSON-RPC errorを返す |
 | 異常 | payload過大、不正UTF-8、重複JSON keyまたは未知field | 意味処理前に拒否する |
 | 異常 | response完了前にClientが切断 | 対象要求へ取消を伝播し、成功やcleanup完了を捏造しない |
-| 異常 | Server終了時に要求が進行中、または終了中にsignalが重複 | 最初のsignalで取消を要求し、signal listenerを保持したまま全要求をjoinする。終了結果がsettleした後にだけlistenerを解除し、失敗を資源回収完了へ変えない |
+| 異常 | Server終了時に要求が進行中、またはNode.jsが終了中にSignal eventを重複受領 | 最初のeventで取消を要求し、Signal listenerを保持したまま全要求をjoinする。終了結果がsettleした後にだけlistenerを解除し、失敗を資源回収完了へ変えない。OS／Consoleからの配送成立は推定しない |
 
 ## 6. 検証と完成条件
 
 - Project Runtime単体試験で、正常、不存在、観測不能、改訂版不一致、未知fieldおよび投影相関を確認する。
 - MCP Adapter試験で3 toolの閉Schema、認証先行、canonical結果保持および不正結果拒否を確認する。
-- HTTP結合試験でlocalhost bind、Bearer、Origin、必須header、容量・UTF-8、切断取消、Server終了時join、実行中Applicationと重複signalを含む公開Launcherのlistener所有、およびstdioとの意味一致を確認する。
+- HTTP結合試験でlocalhost bind、Bearer、Origin、必須header、容量・UTF-8、切断取消、Server終了時join、実行中Applicationと重複Signal eventを含む公開Launcherのlistener所有、およびstdioとの意味一致を確認する。OS／Consoleから実ProcessへのSignal配送は本変更で未評価とし、構成試験を配送成立の証拠にしない。
 - Coordinator公開Adapterの結合試験とMCP公開Launcherの総合試験で、現行Repositoryと選択利用者へ結合した状態参照を確認する。
 - Project RuntimeからMCP／Coordinatorへの逆依存0、MCPからCoordinator内部Pathへの依存0を維持する。
 - 独立レビュー、全体Checkerおよび対象回帰が成功するまで完成と表示しない。

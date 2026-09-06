@@ -247,7 +247,7 @@ MCP投影は列挙値と件数型だけでなく、Milestone状態、Objective�
 
 Project Stateの読み取り専用公開は、Project Runtimeへ`readState`以外のState能力を渡さない単体試験、MCP Adapterの同一canonical結果試験、Coordinator公開AdapterのRepository／改訂版／主体Binding試験、および`template/tools/crdd-mcp.ts`からのstdio／HTTP Transport別総合試験を接続する。状態の`observed / absent / unknown`、保存状態と要求改訂版の不一致、投影内相関、認証不能およびStore Recovery要否を別ケースにし、`absent`を未開始・完了・成功へ、`unknown`を不存在・空値へ補正しない。状態参照からTask、Queue、判断Capability、AuthorityまたはFilesystem Effectが発行されないことを確認する。
 
-MCP Streamable HTTPは`2026-07-28`のPOST単位・Sessionなしの契約を対象とする。`127.0.0.1`以外へのbind、Bearer未設定／不一致、許可外Origin、Protocol／Method／Name headerと本文の不一致、Content-Type／Accept不足、不正UTF-8、重複JSON key、128 KiB超過、未知Method、response切断およびServer終了を固定する。拒否ケースではProject Runtime呼出し0、切断では当該要求への取消伝播、Server終了では進行要求のjoin後にTransport資源回収完了を観測する。公開Launcherの実行中Applicationへsignalを与える総合試験では、最初のsignalから取消・join完了まで`SIGINT`／`SIGTERM` listenerが残ること、重複signalが同じ終了Promiseへ収束すること、終了失敗を成功へ変えず最後にlistenerが0件となることを確認する。HTTP connection、headerまたはtokenからProject Authorityを生成せず、token値を結果・log・Repositoryへ残さない。
+MCP Streamable HTTPは`2026-07-28`のPOST単位・Sessionなしの契約を対象とする。`127.0.0.1`以外へのbind、Bearer未設定／不一致、許可外Origin、Protocol／Method／Name headerと本文の不一致、Content-Type／Accept不足、不正UTF-8、重複JSON key、128 KiB超過、未知Method、response切断およびServer終了を固定する。拒否ケースではProject Runtime呼出し0、切断では当該要求への取消伝播、Server終了では進行要求のjoin後にTransport資源回収完了を観測する。公開Launcherが使用する同じSignal所有境界へ注入可能なsourceからeventを与える総合試験では、最初のeventから取消・join完了まで`SIGINT`／`SIGTERM` listenerが残ること、重複eventが同じ終了Promiseへ収束すること、終了失敗を成功へ変えず最後にlistenerが0件となることを確認する。公開Processの起動・HTTP到達・idle終了を実子Processで別に確認し、両Evidenceの合成をOS／Consoleから実行中ApplicationへのSignal配送成立へ読み替えない。HTTP connection、headerまたはtokenからProject Authorityを生成せず、token値を結果・log・Repositoryへ残さない。
 
 Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に加え、現在Runtime Rootのidentity・protection・local user・bindingの4 hashとReceiptを照合する。別Root、改変、Receiptと確認済みTombstoneの両方がない状態を成功へ畳まず、Tombstoneの作成・readback後だけReceiptを除去し、Project側の`acknowledged` readbackとTombstone除去まで終えた同じBindingの再入場だけを既処理として扱う。Runtime内部のReceipt identityはSHA-256ではなく、committed pairを指す非空・256文字以下の不透明なfile identityとして検証し、Project側の拡張確認情報から内部回収契約へ渡すfieldはexactな3項目へ再構成する。
 
@@ -278,6 +278,8 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 | EI-IT-A-06 | 結合 | top-levelまたは入れ子Accessorが検査時と永続化時に異なる値を返そうとする | Accessorを実行せず、一度だけ作ったcanonical snapshot以外をRecorder／Storeへ渡さない。Store作成前にEffect 0で拒否する |
 | EI-IT-N-04 | 結合 | 同じObjectiveの競合しない2 Taskを上限2で実行し、実Attempt Eventと統合結果を評価 | 2 Taskの同時実行を観測し、両Attemptを不変Storeから再読取りして統合受入と同じ評価Identityへ接続する。個別Task成功を統合受入へ読み替えず、未観測の時間、費用、人間作業および後工程品質を欠測のまま保持する |
 | EI-RT-C-01 | 回帰 | 実行知のSource、公開入口、Storeまたはtoolchainを変更 | 実行知自身のUT／ITに加え、登録したCoordinator利用側契約と静的検査を同じ計画へ選ぶ。試験levelを限定しても利用側静的検査は残し、指定外の利用側試験は実行しない。実行知の静的検査はCoordinatorのtoolchainへ依存しない |
+
+組込みRecorderは、Canonical Event生成とStore公開を別の失敗境界として検証する。top-levelまたはnested Accessor等による生成拒否ではAccessorを実行せず、Store呼出しと`.crdd/execution`作成を0にして`execution_event_invalid / no_effect / cleanupConfirmed`を返す。生成済みEventを受け取ったStoreが契約外例外を送出する反例では、それを入力不正またはEffect 0へ変換しない。Project Runtime利用側はこの例外を`effectState: unknown / cleanupConfirmed: false`として二次観測へ閉じ、Task結果やAuthorityを変更しない。試験用Writerの差替えはpackage内部の構成境界だけに限定し、公開package APIへ故障注入面を追加しない。
 
 実Provider、Token／費用、人間の実作業時間、品質受入、Viewer、運用成果および事業成果は、本変更の自動回帰では未評価である。値が取得できないことを試験失敗へせず、取得済みまたは完成済みとも表示しない。性能試験・長時間試験は本変更の通常Gateではなく、人間が対象と上限を明示しない限り実行しない。
 

@@ -15,6 +15,7 @@ import {
   usageNotObserved,
   type VerifiedExecutionRepositoryRoot,
 } from "../../src/index.ts";
+import { createBoundExecutionIntelligenceRecorder } from "../../src/application/execution-intelligence-recorder.ts";
 
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-execution-store-"));
@@ -121,6 +122,30 @@ test("Recorderはtop-level Accessorを実行せずStore Effect 0で拒否する"
   assert.equal(result.status, "blocked");
   assert.equal(result.effectState, "no_effect");
   assert.equal(getterCalls, 0);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "execution")), false);
+});
+
+test("Recorderは生成後のStore例外を入力不正やEffect 0へ偽装しない", (t) => {
+  const root = fixture(t);
+  const capability = verifiedRoot(root);
+  let storeCalls = 0;
+  const recorder = createBoundExecutionIntelligenceRecorder(capability, () => {
+    storeCalls += 1;
+    throw new Error("store_boundary_failed");
+  });
+  const source = event();
+  assert.throws(
+    () =>
+      recorder.recordTaskAttempt({
+        occurredAt: source.occurredAt,
+        identity: source.identity,
+        execution: source.execution,
+        outcome: source.outcome,
+        quality: source.quality,
+      }),
+    /store_boundary_failed/u,
+  );
+  assert.equal(storeCalls, 1);
   assert.equal(fs.existsSync(path.join(root, ".crdd", "execution")), false);
 });
 

@@ -21,7 +21,7 @@ Execution Intelligenceの共通Event契約
 
 最初のProducerがCoordinatorであることを、実行知の所有権とは扱わない。別Runtimeまたは採用Repositoryは、明示的な仕事Identityと実際に観測したmetadataを同じ公開入口へ渡せる。共通コンポーネントはProvider SDK、Coordinator状態、MCP Protocol、HTTP session、認証方式または外部送信Authorityを所有しない。
 
-TypeScriptアプリケーションは`@qual-lab/crdd-execution-intelligence`の公開入口からRepositoryへ結合したRecorderを一度生成し、`recordTaskAttempt`、`recordEvent`および`read`だけを利用できる。Recorderは検証済みRepository Root能力を内部に保持し、呼出側へFilesystem Path能力を渡さない。Eventだけを扱う利用側は生成・検査・集約APIを単独利用でき、Repository-local保存を必須にしない。package数に合わせたProcess Launcherは追加せず、非TypeScriptまたはProcess外の利用要求が成立した場合だけ、情報分類・認証・backpressure・再送を持つ独立取込Adapterを別に設計する。
+TypeScriptアプリケーションは`@qual-lab/crdd-execution-intelligence`の公開入口からRepositoryへ結合したRecorderを一度生成し、`recordTaskAttempt`、`recordEvent`および`read`だけを利用できる。Recorderは検証済みRepository Root能力を内部に保持し、呼出側へFilesystem Path能力を渡さない。`recordTaskAttempt`は、Effect前のCanonical Event生成と、その後のStore公開を別の境界として扱う。入力生成の拒否だけを`execution_event_invalid / no_effect / cleanupConfirmed`へ分類し、生成後にStoreが返す故障段階別結果を変更しない。Store境界から契約外例外が出た場合も入力不正へ偽装せず、利用側はEffect不明・cleanup未確認として閉じる。Eventだけを扱う利用側は生成・検査・集約APIを単独利用でき、Repository-local保存を必須にしない。package数に合わせたProcess Launcherは追加せず、非TypeScriptまたはProcess外の利用要求が成立した場合だけ、情報分類・認証・backpressure・再送を持つ独立取込Adapterを別に設計する。
 
 ## 2. 最小Event
 
