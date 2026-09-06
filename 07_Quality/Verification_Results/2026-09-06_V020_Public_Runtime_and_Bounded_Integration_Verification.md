@@ -7,13 +7,13 @@
 ## 対象
 
 - 対象変更: [CHG-000062](../../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
-- 固定改訂版: `4287cb5743ff5171d531817b14a407ff96e93a0d`
-- 固定Tree: `5dff31e188677ccde9d44f7843db70edd56e55d3`
+- 固定改訂版: `11b7e99c7448aed7067c61a2d50282ad944db349`
+- 固定Tree: `8c663a269ec4a767d9253298b520909875e74fe1`
 - 対象範囲: Runtime責務分離、Project Stateの読み取り専用投影、MCP stdio／localhost HTTP、実行知の組込みAPI、限定分散の統合結果評価
 
 ## 結論
 
-公開Runtimeが生成したProject Stateを、同じPersistence Port、Project Runtimeの状態参照Application、MCP Adapterおよび閉じたMCP結果へ縦断できた。MCPのstdio／localhost HTTP公開Processも、同じ公開契約、認証、拒否、切断取消および終了joinを保持した。
+公開Runtimeが生成したProject Stateを、同じPersistence Port、Project Runtimeの状態参照Application、MCP Adapterおよび閉じたMCP結果へ縦断できた。MCPのstdio／localhost HTTP公開Processでは、同じ公開契約、認証、拒否、切断取消、HTTP到達およびidle終了を確認した。実行中Applicationと重複Signal eventの終了joinは、本番Serverと公開Launcherが使う同じSignal所有境界へ注入可能なsourceを接続して確認した。OS／Consoleから実行中の公開ProcessへのSignal配送は未評価である。
 
 競合しない2 Taskは上限2で同時実行され、Project Runtimeから2件のAttempt Eventとして不変Storeへ保存された。予定Task、再読取りした実Attemptおよび統合後の受入結果は同じ評価Identityへ接続され、個別Task成功とは別に統合受入が成立した。
 
@@ -21,15 +21,15 @@
 
 初期固定候補への独立レビューで、外部入力のplain data境界、集約の安全な整数演算、実行知の物理清掃Authority、HTTP終了時の資源回収、MCP ProtocolとAdapterの物理境界、およびRuntime Execution Identityの依存閉包に未成立が見つかった。これらを個別の例外処理ではなく、入力・永続化・利用側閉包の三責務へまとめて是正した。実行知から物理削除APIを除去し、MCP ProtocolをAdapter／Transportから分離し、HTTP終了を受信途中のRequest、実行中HandlerおよびSocketのjoinへ接続した。外部入力はAccessor、Proxy、Symbol、非列挙field、疎配列および余分fieldを実行せず拒否し、集約は安全な整数範囲を越える値を結果へ補正しない。
 
-その固定候補の最終再レビューでは、実行知Event IDと入力Identityの単一Snapshot、利用する兄弟Componentのpackage metadataを含むRuntime Execution Identity、Signal受付からHTTP終了確定までのlistener lifecycle、およびJSON-RPC error envelopeの単一所有に未完が見つかった。Event IDを同じCanonical Identityから決定論的に再構成して検査し、到達した兄弟Componentの`package.json`を依存閉包へ含め、Signal listenerを`close()`の確定まで保持し、error envelopeの生成をProtocolだけへ集約した。各是正は対象Componentの利用側試験へ接続し、Repository全体の変更影響型回帰を再実行した。
+その固定候補の最終再レビューでは、実行知Event IDと入力Identityの単一Snapshot、利用する兄弟Componentのpackage metadataを含むRuntime Execution Identity、Signal受付からHTTP終了確定までのlistener lifecycle、およびJSON-RPC error envelopeの単一所有に未完が見つかった。Event IDを同じCanonical Identityから決定論的に再構成して検査し、到達した兄弟Componentの`package.json`を依存閉包へ含め、Signal listenerを`close()`の確定まで保持し、error envelopeの生成をProtocolだけへ集約した。その再監査では、Recorderが入力生成失敗とStore公開中の契約外例外を同じEffect 0へ畳む未完も検出した。Canonical Event生成とStore公開を分離し、前者だけを入力不正へ分類して、後者の結果または例外を偽装しない境界へ是正した。各是正は対象Componentの利用側試験へ接続し、Repository全体の変更影響型回帰を再実行した。
 
 ## 検証結果
 
 | 確認 | 結果 | 確認できた範囲 |
 |---|---|---|
 | Project Runtime単体試験 | 60件中60件成功 | 状態、公開契約、Port、正常・準正常・異常 |
-| MCP単体・総合試験 | 29件中29件成功 | stdio／HTTP公開Launcher、状態参照、認証、拒否、Protocol分離、error envelopeの単一所有、取消、重複Signalおよび受信途中Requestを含む終了join |
-| 実行知単体・結合試験 | 39件中39件成功 | 組込みRecorder、plain data境界、単一Snapshotからの決定論的Event ID、部分観測、Store、安全な整数集約、統合評価、物理削除APIの不存在 |
+| MCP単体・総合試験 | 29件中29件成功 | stdio／HTTP公開Launcher、状態参照、認証、拒否、Protocol分離、error envelopeの単一所有、取消、Node.js Signal event受領後のlistener保持および受信途中Requestを含む終了join |
+| 実行知単体・結合試験 | 40件中40件成功 | 組込みRecorderの生成／Store境界、plain data境界、単一Snapshotからの決定論的Event ID、部分観測、Store、安全な整数集約、統合評価、物理削除APIの不存在 |
 | 公開Runtimeと限定分散のFocused試験 | 12件中12件成功 | 実状態からMCP結果、2 Task同時実行、Attempt保存、統合受入 |
 | 試験台帳契約 | 16件中16件成功 | 実在試験、利用側閉包、PT／LT非発火、実行Profile |
 | 実行知変更の変更影響型回帰 | 選択4ファイル、84件中84件成功 | 実行知UT／IT、CoordinatorのTask実行と限定分散全体試験、両package静的検査 |
@@ -63,6 +63,7 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 ## 未評価範囲と次のGate
 
 - 現在の固定改訂版に対する、初期指摘事項と利用側閉包を対象にした独立再レビューおよび最終一括監査。
+- OS／Consoleから実行中Applicationを持つ公開MCP ProcessへのSignal配送と、その配送後の取消・join。Node.js Signal event受領後の構成試験を、この実行環境境界の成立へ読み替えない。
 - 正式候補固定後の署名および対象E2E。
 
 実Provider、PT／LTまたは長時間試験は、人間が対象、上限および目的を明示しない限り自動実行しない。未観測値を0へ補正せず、現在のRelease判断へ使用しない。
