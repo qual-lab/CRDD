@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { createWindowsHostOperationSupervisorEnvironment } from "../core/windows-child-environment.ts";
 import {
   createRuntimeLocalTypeScriptWorker,
-  runtimeLocalTypeScriptChildEntrypoint,
   spawnRuntimeLocalTypeScriptChild,
 } from "../core/runtime-local-typescript-child-entrypoints.ts";
 
@@ -13,11 +12,6 @@ const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
 const LOCK_RELEASE_TIMEOUT_MS = 5_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
 const HOST_SUPERVISOR_RELEASE_TIMEOUT_MS = 1_000;
-const candidateStoreLockWorkerEntrypoint =
-  runtimeLocalTypeScriptChildEntrypoint("candidate_store_lock_worker");
-const hostOperationLockSupervisorEntrypoint =
-  runtimeLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor");
-
 type HostOperationSupervisorCleanup =
   | "released"
   | "cleanup_confirmed_failure"
@@ -77,7 +71,7 @@ function acquireNamedPipeKernelLock(pipeName: string) {
   const sharedState = new SharedArrayBuffer(4);
   const state = new Int32Array(sharedState);
   const worker = createRuntimeLocalTypeScriptWorker(
-    candidateStoreLockWorkerEntrypoint,
+    "candidate_store_lock_worker",
     {
       env: {},
       workerData: Object.freeze({ pipeName, state: sharedState }),
@@ -293,7 +287,7 @@ export async function acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
 export function acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome() {
   return acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
     (pipeName, sharedState) =>
-      createRuntimeLocalTypeScriptWorker(candidateStoreLockWorkerEntrypoint, {
+      createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {
         env: {},
         workerData: Object.freeze({ pipeName, state: sharedState }),
       }),
@@ -474,7 +468,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
   try {
     child = spawnRuntimeLocalTypeScriptChild(
       spawnFactory,
-      hostOperationLockSupervisorEntrypoint,
+      "host_operation_lock_supervisor",
       [pipeName],
       {
         cwd: fileURLToPath(new URL(".", import.meta.url)),

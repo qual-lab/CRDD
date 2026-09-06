@@ -13,6 +13,7 @@ import {
   runRecordedVerification,
 } from "../src/core/verification-result-record.ts";
 import { createInteractiveConsoleReaderEnvironment } from "../src/core/windows-child-environment.ts";
+import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";
 import {
   createDynamicFakeProviderRecoverableResidue,
   recoverDockerIsolationProbe,
@@ -193,9 +194,10 @@ async function verifyParentLossThenRecover() {
   const childEnvironment = createRecoveryMatrixChildEnvironment();
   if (!childEnvironment)
     throw new Error("signed_recovery_matrix_child_environment_unavailable");
-  const child: ChildProcess = spawn(
-    process.execPath,
-    [fileURLToPath(import.meta.url), INTERNAL_CHILD_ARGUMENT],
+  const child: ChildProcess = spawnRuntimeLocalTypeScriptChild(
+    spawn,
+    "signed_recovery_matrix_child",
+    [INTERNAL_CHILD_ARGUMENT],
     {
       cwd: process.cwd(),
       env: childEnvironment,
@@ -273,9 +275,10 @@ async function verifyCleanupUnknownThenRecover() {
     throw new RecoveryMatrixFailure(
       "signed_recovery_matrix_child_environment_unavailable",
     );
-  const child: ChildProcess = spawn(
-    process.execPath,
-    [fileURLToPath(import.meta.url), INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT],
+  const child: ChildProcess = spawnRuntimeLocalTypeScriptChild(
+    spawn,
+    "signed_recovery_matrix_child",
+    [INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT],
     {
       cwd: process.cwd(),
       env: childEnvironment,

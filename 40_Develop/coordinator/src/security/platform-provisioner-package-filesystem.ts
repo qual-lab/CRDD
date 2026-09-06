@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { COORDINATOR_LAUNCH_ENTRIES } from "../core/coordinator-launch.ts";
-import { RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS } from "../core/runtime-local-typescript-child-entrypoints.ts";
+import { runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver } from "../core/runtime-local-typescript-child-entrypoints.ts";
 import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
@@ -68,6 +68,8 @@ const DEVELOPMENT_SOURCE_KEYS = new Set([
   "expectedPackageContentRootSha256",
 ]);
 const COORDINATOR_DISTRIBUTION_PREFIX = "40_Develop/coordinator/";
+const RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS =
+  runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver();
 const RUNTIME_DISTRIBUTION_REQUIRED_ENTRYPOINTS = Object.freeze([
   Object.freeze({
     role: "public_cli",
@@ -914,6 +916,13 @@ function selectedScriptChildModuleTargets(
       if (target) targets.push(target);
       accountedUses.add(index);
     } else if (
+      imported === "spawn" &&
+      tokens[index - 2]?.value === "spawnRuntimeLocalTypeScriptChild" &&
+      tokens[index - 1]?.value === "(" &&
+      tokens[index + 1]?.value === ","
+    ) {
+      accountedUses.add(index);
+    } else if (
       imported === "Worker" &&
       tokens[index - 1]?.value === "new" &&
       tokens[index + 1]?.value === "("
@@ -980,7 +989,9 @@ function declaredLocalTypeScriptChildTargets(
   relativePath: string,
   tokens: readonly SourceToken[],
 ) {
-  const targets: string[] = [];
+  const declarations: Array<
+    Readonly<{ role: string; kind: "worker" | "spawn"; target: string }>
+  > = [];
   for (let index = 0; index < tokens.length; index += 1) {
     if (
       tokens[index]?.kind !== "identifier" ||
@@ -998,7 +1009,9 @@ function declaredLocalTypeScriptChildTargets(
       tokens[index + 3]?.value !== "," ||
       tokens[index + 4]?.kind !== "string" ||
       tokens[index + 5]?.value !== "," ||
-      !tokenSequenceMatches(tokens, index + 6, [
+      tokens[index + 6]?.kind !== "string" ||
+      tokens[index + 7]?.value !== "," ||
+      !tokenSequenceMatches(tokens, index + 8, [
         "import",
         ".",
         "meta",
@@ -1008,15 +1021,19 @@ function declaredLocalTypeScriptChildTargets(
     )
       throw new Error("platform_provisioner_runtime_dependency_noncanonical");
     const closingIndex =
-      tokens[index + 11]?.value === "," ? index + 12 : index + 11;
+      tokens[index + 13]?.value === "," ? index + 14 : index + 13;
     if (tokens[closingIndex]?.value !== ")")
       throw new Error("platform_provisioner_runtime_dependency_noncanonical");
     const role = tokens[index + 2];
-    const specifier = tokens[index + 4];
+    const kind = tokens[index + 4];
+    const specifier = tokens[index + 6];
     if (
       !role ||
       role.escaped ||
       !RUNTIME_DISTRIBUTION_LOCAL_NODE_CHILD_ROLES.has(role.value) ||
+      !kind ||
+      kind.escaped ||
+      (kind.value !== "worker" && kind.value !== "spawn") ||
       !specifier ||
       specifier.escaped ||
       !specifier.value.endsWith(".ts")
@@ -1025,40 +1042,195 @@ function declaredLocalTypeScriptChildTargets(
     const target = canonicalRelativeModuleTarget(relativePath, specifier.value);
     if (!target)
       throw new Error("platform_provisioner_runtime_dependency_noncanonical");
-    targets.push(target);
+    declarations.push(
+      Object.freeze({ role: role.value, kind: kind.value, target }),
+    );
   }
-  return Object.freeze(targets);
+  return Object.freeze(declarations);
 }
 
-function usedLocalTypeScriptChildRoles(
+const localTypeScriptChildWrapperKinds = Object.freeze(
+  new Map<string, "worker" | "spawn">([
+    ["createRuntimeLocalTypeScriptWorker", "worker"],
+    ["spawnRuntimeLocalTypeScriptChild", "spawn"],
+  ]),
+);
+const localTypeScriptChildModulePaths = Object.freeze(
+  new Set([
+    "src/core/runtime-local-typescript-child-entrypoints.ts",
+    "40_Develop/coordinator/src/core/runtime-local-typescript-child-entrypoints.ts",
+  ]),
+);
+const localTypeScriptChildObserverPaths = Object.freeze(
+  new Set([
+    "src/security/platform-provisioner-package-filesystem.ts",
+    "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
+  ]),
+);
+const localTypeScriptChildRegistrySnapshotName =
+  "runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver";
+
+function directCallArgumentStarts(
+  tokens: readonly SourceToken[],
+  openingParenthesis: number,
+) {
+  const starts: number[] = [];
+  const closing = new Map([
+    ["(", ")"],
+    ["[", "]"],
+    ["{", "}"],
+  ]);
+  const stack: string[] = [];
+  let expectingArgument = true;
+  for (let index = openingParenthesis + 1; index < tokens.length; index += 1) {
+    const value = tokens[index]?.value ?? "";
+    if (stack.length === 0 && value === ")") return Object.freeze(starts);
+    if (expectingArgument && stack.length === 0 && value !== ",") {
+      starts.push(index);
+      expectingArgument = false;
+    }
+    const expectedClosing = closing.get(value);
+    if (expectedClosing) stack.push(expectedClosing);
+    else if (stack.at(-1) === value) stack.pop();
+    else if (stack.length === 0 && value === ",") expectingArgument = true;
+  }
+  throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+}
+
+function usedLocalTypeScriptChildRoleKinds(
   relativePath: string,
   tokens: readonly SourceToken[],
 ) {
-  const roles: string[] = [];
+  if (localTypeScriptChildModulePaths.has(relativePath))
+    return Object.freeze([]);
+  const uses: Array<Readonly<{ role: string; kind: "worker" | "spawn" }>> = [];
+  const importedWrappers = new Set<string>();
+  const declarationIndices = new Set<number>();
   for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index]?.value === "export") {
+      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+        if (tokens[cursor]?.value === ";") break;
+        if (tokens[cursor]?.value !== "from") continue;
+        const specifier = tokens[cursor + 1];
+        if (
+          specifier?.kind === "string" &&
+          specifier.value.startsWith(".") &&
+          localTypeScriptChildModulePaths.has(
+            canonicalRelativeModuleTarget(relativePath, specifier.value) ?? "",
+          )
+        )
+          throw new Error(
+            "platform_provisioner_runtime_dependency_child_use_noncanonical",
+          );
+        break;
+      }
+    }
+    if (tokens[index]?.value !== "import") continue;
+    if (tokens[index + 1]?.value === "(") {
+      const specifier = tokens[index + 2];
+      if (
+        specifier?.kind === "string" &&
+        specifier.value.startsWith(".") &&
+        localTypeScriptChildModulePaths.has(
+          canonicalRelativeModuleTarget(relativePath, specifier.value) ?? "",
+        )
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_use_noncanonical",
+        );
+      continue;
+    }
+    let fromIndex = index + 1;
+    while (
+      fromIndex < tokens.length &&
+      tokens[fromIndex]?.value !== "from" &&
+      tokens[fromIndex]?.value !== ";"
+    )
+      fromIndex += 1;
+    if (tokens[fromIndex]?.value !== "from") continue;
+    const specifier = tokens[fromIndex + 1];
     if (
-      tokens[index]?.kind !== "identifier" ||
-      tokens[index]?.value !== "runtimeLocalTypeScriptChildEntrypoint"
+      specifier?.kind !== "string" ||
+      !specifier.value.startsWith(".") ||
+      !localTypeScriptChildModulePaths.has(
+        canonicalRelativeModuleTarget(relativePath, specifier.value) ?? "",
+      )
     )
       continue;
-    if (tokens[index - 1]?.value === "function") continue;
-    if (tokens[index + 1]?.value !== "(") continue;
-    const closingIndex =
-      tokens[index + 3]?.value === "," ? index + 4 : index + 3;
+    if (tokens[index + 1]?.value !== "{")
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_use_noncanonical",
+      );
+    const closingBrace = fromIndex - 1;
+    if (tokens[closingBrace]?.value !== "}")
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_use_noncanonical",
+      );
+    for (let cursor = index + 2; cursor < closingBrace; cursor += 1) {
+      const token = tokens[cursor];
+      if (!token || token.value === "," || token.value === "type") continue;
+      if (token.value === "as")
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_use_noncanonical",
+        );
+      if (token.kind !== "identifier")
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_use_noncanonical",
+        );
+      const isWrapper = localTypeScriptChildWrapperKinds.has(token.value);
+      const isObserverProjection =
+        token.value === localTypeScriptChildRegistrySnapshotName;
+      if (
+        (!isWrapper && !isObserverProjection) ||
+        (isObserverProjection &&
+          !localTypeScriptChildObserverPaths.has(relativePath)) ||
+        (isWrapper && localTypeScriptChildObserverPaths.has(relativePath))
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_use_noncanonical",
+        );
+      if (isWrapper) importedWrappers.add(token.value);
+      declarationIndices.add(cursor);
+    }
+  }
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index]?.kind !== "identifier") continue;
+    const name = tokens[index]?.value ?? "";
     if (
-      tokens[index + 2]?.kind !== "string" ||
-      tokens[index + 2]?.escaped ||
-      tokens[closingIndex]?.value !== ")" ||
+      name === "runtimeLocalTypeScriptChildEntrypoint" ||
+      (name === localTypeScriptChildRegistrySnapshotName &&
+        !declarationIndices.has(index) &&
+        !localTypeScriptChildObserverPaths.has(relativePath))
+    )
+      throw new Error(
+        `${relativePath}:platform_provisioner_runtime_dependency_child_use_noncanonical`,
+      );
+    const kind = localTypeScriptChildWrapperKinds.get(name);
+    if (!kind || declarationIndices.has(index)) continue;
+    if (
+      !importedWrappers.has(name) ||
+      tokens[index - 1]?.value === "." ||
+      tokens[index + 1]?.value !== "("
+    )
+      throw new Error(
+        `${relativePath}:platform_provisioner_runtime_dependency_child_use_noncanonical`,
+      );
+    const argumentStarts = directCallArgumentStarts(tokens, index + 1);
+    const roleToken = argumentStarts[kind === "worker" ? 0 : 1];
+    if (
+      roleToken === undefined ||
+      tokens[roleToken]?.kind !== "string" ||
+      tokens[roleToken]?.escaped ||
       !RUNTIME_DISTRIBUTION_LOCAL_NODE_CHILD_ROLES.has(
-        tokens[index + 2]?.value ?? "",
+        tokens[roleToken]?.value ?? "",
       )
     )
       throw new Error(
         `${relativePath}:platform_provisioner_runtime_dependency_child_use_noncanonical`,
       );
-    roles.push(tokens[index + 2]?.value ?? "");
+    uses.push(Object.freeze({ role: tokens[roleToken]?.value ?? "", kind }));
   }
-  return Object.freeze(roles);
+  return Object.freeze(uses);
 }
 
 function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
@@ -1086,7 +1258,24 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
     )
       continue;
     if (
+      localTypeScriptChildModulePaths.has(relativePath) &&
+      tokenSequenceMatches(tokens, index + 3, [
+        "entrypoint",
+        ".",
+        "relativePath",
+        ",",
+        "import",
+        ".",
+        "meta",
+        ".",
+        "url",
+        ")",
+      ])
+    )
+      continue;
+    if (
       tokens[index + 3]?.kind === "string" &&
+      tokens[index + 4]?.value === "," &&
       !tokens[index + 3]?.value.endsWith(".ts")
     )
       continue;
@@ -1108,38 +1297,176 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
   }
 }
 
-function assertNoDirectLocalTypeScriptChildConstruction(
-  relativePath: string,
+function workerThreadImportNames(
   tokens: readonly SourceToken[],
+  importIndex: number,
 ) {
-  const declarationModule =
-    "40_Develop/coordinator/src/core/runtime-local-typescript-child-entrypoints.ts";
-  if (
-    [
-      "src/core/runtime-local-typescript-child-entrypoints.ts",
-      declarationModule,
-    ].includes(relativePath)
+  if (tokens[importIndex + 1]?.value === "(")
+    throw new Error(
+      "platform_provisioner_runtime_dependency_child_worker_unbound",
+    );
+  let closingBrace = importIndex + 2;
+  while (
+    closingBrace < tokens.length &&
+    tokens[closingBrace]?.value !== "}" &&
+    tokens[closingBrace]?.value !== ";"
   )
-    return;
-  const isCoordinatorSource =
-    relativePath.startsWith("src/") ||
-    relativePath.startsWith("40_Develop/coordinator/src/");
-  for (let index = 0; index < tokens.length; index += 1) {
-    if (
-      isCoordinatorSource &&
-      tokenSequenceMatches(tokens, index, ["new", "Worker", "("])
-    )
+    closingBrace += 1;
+  if (
+    tokens[importIndex + 1]?.value !== "{" ||
+    tokens[closingBrace]?.value !== "}" ||
+    tokens[closingBrace + 1]?.value !== "from"
+  )
+    throw new Error(
+      "platform_provisioner_runtime_dependency_child_worker_unbound",
+    );
+  const names = new Map<string, boolean>();
+  for (let cursor = importIndex + 2; cursor < closingBrace; cursor += 1) {
+    if (tokens[cursor]?.value === ",") continue;
+    const isType = tokens[cursor]?.value === "type";
+    if (isType) cursor += 1;
+    const imported = tokens[cursor];
+    if (imported?.kind !== "identifier" || tokens[cursor + 1]?.value === "as")
       throw new Error(
         "platform_provisioner_runtime_dependency_child_worker_unbound",
       );
-    if (!tokenSequenceMatches(tokens, index, ["process", ".", "execPath"]))
-      continue;
+    names.set(imported.value, isType);
+  }
+  return names;
+}
+
+function assertWorkerCreationImportBoundary(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index]?.value !== "import") continue;
+    let specifier: SourceToken | undefined;
+    if (tokens[index + 1]?.value === "(") specifier = tokens[index + 2];
+    else {
+      let fromIndex = index + 1;
+      while (
+        fromIndex < tokens.length &&
+        tokens[fromIndex]?.value !== "from" &&
+        tokens[fromIndex]?.value !== ";"
+      )
+        fromIndex += 1;
+      if (tokens[fromIndex]?.value === "from")
+        specifier = tokens[fromIndex + 1];
+    }
     if (
-      isCoordinatorSource &&
-      tokenSequenceMatches(tokens, index + 3, [",", "[", "-e"])
+      specifier?.kind !== "string" ||
+      (specifier.value !== "node:worker_threads" &&
+        specifier.value !== "worker_threads")
     )
       continue;
-    if (isCoordinatorSource)
+    const names = workerThreadImportNames(tokens, index);
+    if (localTypeScriptChildModulePaths.has(relativePath)) {
+      if (
+        names.size !== 2 ||
+        names.get("Worker") !== false ||
+        names.get("WorkerOptions") !== true
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_worker_unbound",
+        );
+      continue;
+    }
+    if (
+      [
+        "src/security/candidate-store-lock-worker.ts",
+        "40_Develop/coordinator/src/security/candidate-store-lock-worker.ts",
+      ].includes(relativePath) &&
+      names.size === 2 &&
+      names.get("parentPort") === false &&
+      names.get("workerData") === false
+    )
+      continue;
+    throw new Error(
+      "platform_provisioner_runtime_dependency_child_worker_unbound",
+    );
+  }
+}
+
+function isAllowedExecPathUse(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+  index: number,
+) {
+  if (localTypeScriptChildModulePaths.has(relativePath))
+    return tokenSequenceMatches(tokens, index - 2, [
+      "process",
+      ".",
+      "execPath",
+    ]);
+  if (
+    ["bin/launch.ts", "40_Develop/coordinator/bin/launch.ts"].includes(
+      relativePath,
+    )
+  )
+    return tokenSequenceMatches(tokens, index - 7, [
+      "process",
+      ".",
+      "argv",
+      "=",
+      "[",
+      "process",
+      ".",
+      "execPath",
+      ",",
+      "fileURLToPath",
+      "(",
+      "target",
+      ")",
+      ",",
+    ]);
+  if (
+    [
+      "src/security/docker-isolation.ts",
+      "40_Develop/coordinator/src/security/docker-isolation.ts",
+    ].includes(relativePath)
+  )
+    return tokenSequenceMatches(tokens, index - 4, [
+      "startOwnedAttachedProcess",
+      "(",
+      "process",
+      ".",
+      "execPath",
+      ",",
+      "[",
+      "-e",
+      ",",
+      "OWNED_ATTACH_FIXTURE_SOURCES",
+      "[",
+      "scenario",
+      "]",
+      "]",
+      ",",
+    ]);
+  return false;
+}
+
+function assertNoUnboundRuntimeExecPath(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index]?.value !== "execPath") continue;
+    if (
+      tokens[index]?.kind === "string" &&
+      tokens[index - 1]?.value !== "[" &&
+      !tokenSequenceMatches(tokens, index - 6, [
+        "Reflect",
+        ".",
+        "get",
+        "(",
+        "process",
+        ",",
+        "execPath",
+      ])
+    )
+      continue;
+    if (!isAllowedExecPathUse(relativePath, tokens, index))
       throw new Error(
         "platform_provisioner_runtime_dependency_child_process_unbound",
       );
@@ -1167,9 +1494,14 @@ function staticRelativeModuleTargets(relativePath: string, bytes: Buffer) {
       if (target) targets.push(target);
     }
     targets.push(...selectedScriptChildModuleTargets(relativePath, tokens));
-    targets.push(...declaredLocalTypeScriptChildTargets(relativePath, tokens));
+    targets.push(
+      ...declaredLocalTypeScriptChildTargets(relativePath, tokens).map(
+        (declaration) => declaration.target,
+      ),
+    );
     assertNoUndeclaredLocalTypeScriptImportMetaUrl(relativePath, tokens);
-    assertNoDirectLocalTypeScriptChildConstruction(relativePath, tokens);
+    assertWorkerCreationImportBoundary(relativePath, tokens);
+    assertNoUnboundRuntimeExecPath(relativePath, tokens);
   } catch (error) {
     throw new Error(`${relativePath}:modules:${String(error)}`);
   }
@@ -1211,26 +1543,42 @@ function verifyLauncherEntryBindings(packageRoot: string) {
 }
 
 function collectRuntimeExecutionScriptPaths(packageRoot: string) {
-  if (!fs.existsSync(path.join(packageRoot, "bin", "launch.ts"))) {
-    return Object.freeze(new Set<string>());
-  }
-  verifyLauncherEntryBindings(packageRoot);
   const scriptPaths = new Set<string>();
   const pendingItems: string[] = [];
-  for (const entry of Object.values(COORDINATOR_LAUNCH_ENTRIES)) {
-    const target = canonicalRelativeModuleTarget(
-      RUNTIME_EXECUTION_LAUNCHER_PATH,
-      entry,
-    );
-    if (!target) {
-      throw new Error("platform_provisioner_launch_entry_invalid");
-    }
-    const rootSegment = target.split("/")[0];
-    if (rootSegment === "scripts") pendingItems.push(target);
-    else if (!rootSegment || !runtimeExecutionDirectories.has(rootSegment)) {
-      throw new Error(
-        "platform_provisioner_runtime_dependency_outside_execution_set",
+  if (fs.existsSync(path.join(packageRoot, "bin", "launch.ts"))) {
+    verifyLauncherEntryBindings(packageRoot);
+    for (const entry of Object.values(COORDINATOR_LAUNCH_ENTRIES)) {
+      const target = canonicalRelativeModuleTarget(
+        RUNTIME_EXECUTION_LAUNCHER_PATH,
+        entry,
       );
+      if (!target) {
+        throw new Error("platform_provisioner_launch_entry_invalid");
+      }
+      const rootSegment = target.split("/")[0];
+      if (rootSegment === "scripts") pendingItems.push(target);
+      else if (!rootSegment || !runtimeExecutionDirectories.has(rootSegment)) {
+        throw new Error(
+          "platform_provisioner_runtime_dependency_outside_execution_set",
+        );
+      }
+    }
+  }
+  if (
+    fs.existsSync(
+      path.join(
+        packageRoot,
+        "src",
+        "core",
+        "runtime-local-typescript-child-entrypoints.ts",
+      ),
+    )
+  ) {
+    for (const entrypoint of RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS) {
+      const target = coordinatorPackageRelativePath(
+        entrypoint.distributionRelativePath,
+      );
+      if (target.startsWith("scripts/")) pendingItems.push(target);
     }
   }
   while (pendingItems.length > 0) {
@@ -1503,27 +1851,36 @@ function runtimeLocalNodeChildTargets(
     }>
   >,
 ) {
-  const targets = new Set<string>();
-  const usedRoles = new Set<string>();
+  const declarations = new Map<
+    string,
+    Readonly<{ role: string; kind: "worker" | "spawn"; target: string }>
+  >();
+  const declaredTargets = new Set<string>();
+  const usedRoleKinds = new Set<string>();
   for (const [relativePath, artifact] of observedFiles) {
-    if (
-      !relativePath.startsWith(COORDINATOR_DISTRIBUTION_PREFIX) ||
-      !relativePath.endsWith(".ts")
-    )
-      continue;
+    if (!relativePath.endsWith(".ts")) continue;
     const source = new TextDecoder("utf-8", { fatal: true }).decode(
       artifact.bytes,
     );
     const tokens = tokenizeTypeScriptModuleSyntax(source);
-    for (const target of declaredLocalTypeScriptChildTargets(
+    for (const declaration of declaredLocalTypeScriptChildTargets(
       relativePath,
       tokens,
-    ))
-      targets.add(target);
-    for (const role of usedLocalTypeScriptChildRoles(relativePath, tokens))
-      usedRoles.add(role);
+    )) {
+      if (
+        declarations.has(declaration.role) ||
+        declaredTargets.has(declaration.target)
+      )
+        throw new Error(
+          "platform_provisioner_runtime_child_entrypoint_registry_mismatch",
+        );
+      declarations.set(declaration.role, declaration);
+      declaredTargets.add(declaration.target);
+    }
+    for (const use of usedLocalTypeScriptChildRoleKinds(relativePath, tokens))
+      usedRoleKinds.add(`${use.role}\0${use.kind}`);
   }
-  return Object.freeze({ targets, usedRoles });
+  return Object.freeze({ declarations, usedRoleKinds });
 }
 
 function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>) {
@@ -1558,25 +1915,32 @@ function resolveRuntimeDistributionRequiredArtifacts(
     }>
   >,
 ) {
-  const expectedLocalNodeChildTargets = new Set(
-    RUNTIME_DISTRIBUTION_REQUIRED_ENTRYPOINTS.filter((entrypoint) =>
-      RUNTIME_DISTRIBUTION_LOCAL_NODE_CHILD_ROLES.has(entrypoint.role),
-    ).map((entrypoint) => entrypoint.distributionRelativePath),
-  );
   const observedLocalNodeChildren = runtimeLocalNodeChildTargets(observedFiles);
-  const expectedLocalNodeChildRoles = new Set(
-    RUNTIME_DISTRIBUTION_REQUIRED_ENTRYPOINTS.filter((entrypoint) =>
-      RUNTIME_DISTRIBUTION_LOCAL_NODE_CHILD_ROLES.has(entrypoint.role),
-    ).map((entrypoint) => entrypoint.role),
+  const expectedLocalNodeChildren = new Map(
+    RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS.map((entrypoint) => [
+      entrypoint.role,
+      entrypoint,
+    ]),
+  );
+  const expectedLocalNodeChildUses = new Set(
+    RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS.map(
+      (entrypoint) => `${entrypoint.role}\0${entrypoint.kind}`,
+    ),
   );
   if (
+    expectedLocalNodeChildren.size !==
+      observedLocalNodeChildren.declarations.size ||
+    [...expectedLocalNodeChildren].some(([role, expected]) => {
+      const observed = observedLocalNodeChildren.declarations.get(role);
+      return (
+        !observed ||
+        observed.kind !== expected.kind ||
+        observed.target !== expected.distributionRelativePath
+      );
+    }) ||
     !sameStringSet(
-      expectedLocalNodeChildTargets,
-      observedLocalNodeChildren.targets,
-    ) ||
-    !sameStringSet(
-      expectedLocalNodeChildRoles,
-      observedLocalNodeChildren.usedRoles,
+      expectedLocalNodeChildUses,
+      observedLocalNodeChildren.usedRoleKinds,
     )
   )
     throw new Error(
@@ -2390,7 +2754,7 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     requiredArtifactResolution:
       "single_distribution_root_relative_registry_atomically_resolved_non_nullable_and_consumed_without_path_reinterpretation",
     localNodeChildEntrypointRegistration:
-      "all_local_typescript_import_meta_url_targets_exactly_match_required_registry",
+      "declared_role_kind_path_actual_canonical_wrapper_call_sites_and_required_registry_exactly_match_with_runtime_kind_validation",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",
     packageContentRootCalculation:
       "implemented_canonical_lf_for_declared_repository_text_and_raw_bytes_for_other_files",

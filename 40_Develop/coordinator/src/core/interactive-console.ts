@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
-import path from "node:path";
 import tty from "node:tty";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
@@ -10,10 +11,7 @@ import {
 } from "./interactive-console-reader.ts";
 import { createInteractiveConsoleReaderEnvironment } from "./windows-child-environment.ts";
 import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "./runtime-process-safety-state.ts";
-import {
-  runtimeLocalTypeScriptChildEntrypoint,
-  spawnRuntimeLocalTypeScriptChild,
-} from "./runtime-local-typescript-child-entrypoints.ts";
+import { spawnRuntimeLocalTypeScriptChild } from "./runtime-local-typescript-child-entrypoints.ts";
 
 export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
@@ -21,9 +19,6 @@ export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
 export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 16;
 
-const readerEntrypoint = runtimeLocalTypeScriptChildEntrypoint(
-  "interactive_console_reader",
-);
 const READER_MAXIMUM_OUTPUT_BYTES = 512;
 const READER_CANCEL_GRACE_MS = 500;
 const READER_TIMEOUT_MS = 110_000;
@@ -445,13 +440,13 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
       }
       child = spawnRuntimeLocalTypeScriptChild(
         adapter.spawn,
-        readerEntrypoint,
+        "interactive_console_reader",
         [],
         {
           shell: false,
           detached: false,
           windowsHide: false,
-          cwd: path.dirname(readerEntrypoint.filePath),
+          cwd: path.dirname(fileURLToPath(import.meta.url)),
           env: environment,
           stdio: ["ignore", "pipe", "ignore", "ipc"],
         },

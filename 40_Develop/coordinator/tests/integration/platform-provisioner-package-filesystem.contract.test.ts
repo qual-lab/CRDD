@@ -27,25 +27,33 @@ import {
 } from "../../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "../support/test-support.ts";
+import {
+  createRuntimeLocalTypeScriptWorker,
+  runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver,
+  spawnRuntimeLocalTypeScriptChild,
+} from "../../src/core/runtime-local-typescript-child-entrypoints.ts";
 
 const developmentFixtureRoots = new Set<string>();
 const runtimeChildEntrypointModuleFixture = [
-  'import { Worker } from "node:worker_threads";',
-  "function declareLocalTypeScriptChildEntrypoint(role: string, relativePath: string, baseUrl: string) {",
-  "  return { role, url: new URL(relativePath, baseUrl), filePath: relativePath };",
+  'import { Worker, type WorkerOptions } from "node:worker_threads";',
+  "function declareLocalTypeScriptChildEntrypoint(role: string, kind: string, relativePath: string, baseUrl: string) {",
+  "  return { role, kind, relativePath, filePath: relativePath, distributionRelativePath: relativePath };",
   "}",
-  "export const entries = [",
-  '  declareLocalTypeScriptChildEntrypoint("interactive_console_reader", "./interactive-console-reader.ts", import.meta.url,),',
-  '  declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "../security/candidate-store-lock-worker.ts", import.meta.url,),',
-  '  declareLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor", "../security/host-operation-lock-supervisor.ts", import.meta.url,),',
+  "const entries = [",
+  '  declareLocalTypeScriptChildEntrypoint("interactive_console_reader", "spawn", "./interactive-console-reader.ts", import.meta.url,),',
+  '  declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", "../security/candidate-store-lock-worker.ts", import.meta.url,),',
+  '  declareLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor", "spawn", "../security/host-operation-lock-supervisor.ts", import.meta.url,),',
+  '  declareLocalTypeScriptChildEntrypoint("signed_recovery_matrix_child", "spawn", "../../scripts/verify-signed-recovery-matrix.ts", import.meta.url,),',
   "];",
-  "export function createRuntimeLocalTypeScriptWorker(entrypoint: any, options: any) {",
-  "  return new Worker(entrypoint.url, options);",
+  "export function createRuntimeLocalTypeScriptWorker(role: any, options: WorkerOptions) {",
+  "  const entrypoint = entries.find((entrypoint) => entrypoint.role === role);",
+  "  return new Worker(new URL(entrypoint.relativePath, import.meta.url), options);",
   "}",
-  "export function spawnRuntimeLocalTypeScriptChild(spawnFactory: any, entrypoint: any, args: string[], options: any) {",
+  "export function spawnRuntimeLocalTypeScriptChild(spawnFactory: any, role: any, args: string[], options: any) {",
+  "  const entrypoint = entries.find((entrypoint) => entrypoint.role === role);",
   "  return spawnFactory(process.execPath, [entrypoint.filePath, ...args], options);",
   "}",
-  "export function runtimeLocalTypeScriptChildEntrypoint(role: string) { return entries.find((entrypoint) => entrypoint.role === role); }",
+  "export function runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver() { return entries; }",
   "",
 ].join("\n");
 
@@ -58,6 +66,90 @@ function removeDevelopmentFixture(root: string) {
 
 after(() => {
   for (const root of developmentFixtureRoots) removeDevelopmentFixture(root);
+});
+
+test("local TypeScript子wrapperはroleとkindを実行前に検証し、targetを外へ公開しない", () => {
+  let spawnCount = 0;
+  const spawnFactory = (executable: string, args: readonly string[]) => {
+    spawnCount += 1;
+    return Object.freeze({ executable, args: Object.freeze([...args]) });
+  };
+  assert.throws(
+    () =>
+      spawnRuntimeLocalTypeScriptChild(
+        spawnFactory,
+        "unknown" as never,
+        [],
+        {},
+      ),
+    /runtime_local_typescript_child_entrypoint_unknown/u,
+  );
+  assert.throws(
+    () =>
+      spawnRuntimeLocalTypeScriptChild(
+        spawnFactory,
+        "candidate_store_lock_worker",
+        [],
+        {},
+      ),
+    /runtime_local_typescript_child_entrypoint_kind_mismatch/u,
+  );
+  assert.throws(
+    () =>
+      spawnRuntimeLocalTypeScriptChild(
+        spawnFactory,
+        "host_operation_lock_supervisor",
+        [],
+        { shell: true },
+      ),
+    /runtime_local_typescript_child_spawn_shell_forbidden/u,
+  );
+  assert.equal(spawnCount, 0);
+  assert.throws(
+    () =>
+      createRuntimeLocalTypeScriptWorker("host_operation_lock_supervisor", {}),
+    /runtime_local_typescript_child_entrypoint_kind_mismatch/u,
+  );
+  assert.throws(
+    () => createRuntimeLocalTypeScriptWorker("unknown" as never, {}),
+    /runtime_local_typescript_child_entrypoint_unknown/u,
+  );
+  assert.throws(
+    () =>
+      createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {
+        eval: true,
+      }),
+    /runtime_local_typescript_child_worker_eval_forbidden/u,
+  );
+  const first = spawnRuntimeLocalTypeScriptChild(
+    spawnFactory,
+    "signed_recovery_matrix_child",
+    ["first"],
+    { shell: false },
+  );
+  const second = spawnRuntimeLocalTypeScriptChild(
+    spawnFactory,
+    "signed_recovery_matrix_child",
+    ["second"],
+    { shell: false },
+  );
+  assert.equal(first.executable, process.execPath);
+  assert.equal(second.executable, process.execPath);
+  assert.equal(first.args[0], second.args[0]);
+  assert.notEqual(first.args[0], "first");
+  const projection =
+    runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver();
+  assert.equal(projection.length, 4);
+  assert.equal(
+    projection.every(
+      (entrypoint) =>
+        Object.isFrozen(entrypoint) &&
+        !("url" in entrypoint) &&
+        !("filePath" in entrypoint) &&
+        !("relativePath" in entrypoint),
+    ),
+    true,
+  );
 });
 
 function developmentFixture(omittedEntrypoint: string | null = null) {
@@ -74,6 +166,7 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     "src/core/runtime-local-typescript-child-entrypoints.ts",
     "src/security/candidate-store-lock-worker.ts",
     "src/security/host-operation-lock-supervisor.ts",
+    "scripts/verify-signed-recovery-matrix.ts",
   ];
   fs.mkdirSync(packageRoot, { recursive: true });
   fs.writeFileSync(
@@ -106,17 +199,26 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
   fs.writeFileSync(
     path.join(packageRoot, "src", "core", "interactive-console.ts"),
     [
-      'import { runtimeLocalTypeScriptChildEntrypoint, spawnRuntimeLocalTypeScriptChild } from "./runtime-local-typescript-child-entrypoints.ts";',
-      'spawnRuntimeLocalTypeScriptChild(spawn, runtimeLocalTypeScriptChildEntrypoint("interactive_console_reader"), [], {});',
+      'import { spawnRuntimeLocalTypeScriptChild } from "./runtime-local-typescript-child-entrypoints.ts";',
+      'spawnRuntimeLocalTypeScriptChild(spawn, "interactive_console_reader", [], {});',
       "",
     ].join("\n"),
   );
   fs.writeFileSync(
     path.join(packageRoot, "src", "security", "candidate-store-kernel-lock.ts"),
     [
-      'import { createRuntimeLocalTypeScriptWorker, runtimeLocalTypeScriptChildEntrypoint, spawnRuntimeLocalTypeScriptChild } from "../core/runtime-local-typescript-child-entrypoints.ts";',
-      'createRuntimeLocalTypeScriptWorker(runtimeLocalTypeScriptChildEntrypoint("candidate_store_lock_worker"), {});',
-      'spawnRuntimeLocalTypeScriptChild(spawn, runtimeLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor"), [], {});',
+      'import { createRuntimeLocalTypeScriptWorker, spawnRuntimeLocalTypeScriptChild } from "../core/runtime-local-typescript-child-entrypoints.ts";',
+      'createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {});',
+      'spawnRuntimeLocalTypeScriptChild(spawn, "host_operation_lock_supervisor", [], {});',
+      "",
+    ].join("\n"),
+  );
+  fs.writeFileSync(
+    path.join(packageRoot, "scripts", "verify-signed-recovery-matrix.ts"),
+    [
+      'import { spawn } from "node:child_process";',
+      'import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";',
+      'spawnRuntimeLocalTypeScriptChild(spawn, "signed_recovery_matrix_child", [], { shell: false });',
       "",
     ].join("\n"),
   );
@@ -177,7 +279,7 @@ test("開発版はRuntime依存閉包を実体照合し、署名・実行Authori
     );
     assert.equal(result.status, "candidate");
     assert.equal(result.executionSourceKind, "fixed_development_candidate");
-    assert.equal(result.entrypoints.length, 4);
+    assert.equal(result.entrypoints.length, 5);
     assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
     assert.equal(result.releaseIdentityRuntimeOwned, false);
     assert.equal(result.crddDistributionConfirmed, false);
@@ -246,7 +348,7 @@ test("新しいlocal TypeScript子entrypoint宣言の必須Registry登録漏れ�
         "core",
         "runtime-local-typescript-child-entrypoints.ts",
       ),
-      'declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "../security/unregistered-child.ts", import.meta.url,);\n',
+      'declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", "../security/unregistered-child.ts", import.meta.url,);\n',
     );
     fs.writeFileSync(
       path.join(
@@ -280,6 +382,20 @@ for (const scenario of [
   "use_without_declaration",
   "variable_use",
   "template_use",
+  "duplicate_path",
+  "wrong_wrapper_kind",
+  "worker_namespace",
+  "worker_dynamic_import",
+  "bare_worker_threads",
+  "same_name_local_function",
+  "wrapper_alias_import",
+  "wrapper_reexport",
+  "wrapper_function_value",
+  "process_alias",
+  "reflect_exec_path",
+  "concatenated_url",
+  "observer_projection_import",
+  "recovery_direct_spawn",
 ] as const) {
   test(`local TypeScript子entrypointの宣言・利用迂回を拒否する: ${scenario}`, () => {
     const fixture = developmentFixture();
@@ -299,12 +415,12 @@ for (const scenario of [
       if (scenario === "variable_declaration")
         fs.appendFileSync(
           declarationModule,
-          'const extraChild = "../security/unregistered-child.ts"; declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", extraChild, import.meta.url);\n',
+          'const extraChild = "../security/unregistered-child.ts"; declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", extraChild, import.meta.url);\n',
         );
       if (scenario === "template_declaration")
         fs.appendFileSync(
           declarationModule,
-          'declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", `../security/unregistered-child.ts`, import.meta.url);\n',
+          'declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", `../security/unregistered-child.ts`, import.meta.url);\n',
         );
       if (scenario === "direct_url")
         fs.appendFileSync(
@@ -314,19 +430,19 @@ for (const scenario of [
       if (scenario === "direct_worker")
         fs.appendFileSync(
           consumer,
-          'new Worker(runtimeLocalTypeScriptChildEntrypoint("candidate_store_lock_worker").url);\n',
+          'import { Worker as ThreadWorker } from "node:worker_threads"; new ThreadWorker(new URL("./unregistered-child.ts", import.meta.url));\n',
         );
       if (scenario === "direct_process_exec")
         fs.appendFileSync(
           consumer,
-          'spawn(process.execPath, [runtimeLocalTypeScriptChildEntrypoint("candidate_store_lock_worker").filePath]);\n',
+          'spawn(process["execPath"], ["./unregistered-child.ts"]);\n',
         );
       if (scenario === "registered_without_declaration") {
         const source = fs.readFileSync(declarationModule, "utf8");
         fs.writeFileSync(
           declarationModule,
           source.replace(
-            '  declareLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor", "../security/host-operation-lock-supervisor.ts", import.meta.url,),\n',
+            '  declareLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor", "spawn", "../security/host-operation-lock-supervisor.ts", import.meta.url,),\n',
             "",
           ),
         );
@@ -336,7 +452,7 @@ for (const scenario of [
         fs.writeFileSync(
           consumer,
           source.replace(
-            'spawnRuntimeLocalTypeScriptChild(spawn, runtimeLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor"), [], {});',
+            'spawnRuntimeLocalTypeScriptChild(spawn, "host_operation_lock_supervisor", [], {});',
             "",
           ),
         );
@@ -346,7 +462,7 @@ for (const scenario of [
         fs.writeFileSync(
           declarationModule,
           source.replace(
-            '  declareLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor", "../security/host-operation-lock-supervisor.ts", import.meta.url,),\n',
+            '  declareLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor", "spawn", "../security/host-operation-lock-supervisor.ts", import.meta.url,),\n',
             "",
           ),
         );
@@ -354,12 +470,91 @@ for (const scenario of [
       if (scenario === "variable_use")
         fs.appendFileSync(
           consumer,
-          'const childRole = "candidate_store_lock_worker"; runtimeLocalTypeScriptChildEntrypoint(childRole);\n',
+          'const childRole = "candidate_store_lock_worker"; createRuntimeLocalTypeScriptWorker(childRole, {});\n',
         );
       if (scenario === "template_use")
         fs.appendFileSync(
           consumer,
-          "runtimeLocalTypeScriptChildEntrypoint(`candidate_store_lock_worker`);\n",
+          "createRuntimeLocalTypeScriptWorker(`candidate_store_lock_worker`, {});\n",
+        );
+      if (scenario === "duplicate_path") {
+        const source = fs.readFileSync(declarationModule, "utf8");
+        fs.writeFileSync(
+          declarationModule,
+          source.replace(
+            '"./interactive-console-reader.ts"',
+            '"../security/host-operation-lock-supervisor.ts"',
+          ),
+        );
+      }
+      if (scenario === "wrong_wrapper_kind")
+        fs.appendFileSync(
+          consumer,
+          'spawnRuntimeLocalTypeScriptChild(spawn, "candidate_store_lock_worker", [], {});\n',
+        );
+      if (scenario === "worker_namespace")
+        fs.appendFileSync(
+          consumer,
+          'import * as threads from "node:worker_threads"; new threads.Worker("./unregistered-child.ts");\n',
+        );
+      if (scenario === "worker_dynamic_import")
+        fs.appendFileSync(
+          consumer,
+          'const threads = await import("node:worker_threads"); new threads.Worker("./unregistered-child.ts");\n',
+        );
+      if (scenario === "bare_worker_threads")
+        fs.appendFileSync(
+          consumer,
+          'import { Worker } from "worker_threads"; new Worker("./unregistered-child.ts");\n',
+        );
+      if (scenario === "same_name_local_function")
+        fs.appendFileSync(
+          consumer,
+          "function createRuntimeLocalTypeScriptWorker() {}\n",
+        );
+      if (scenario === "wrapper_alias_import")
+        fs.appendFileSync(
+          consumer,
+          'import { createRuntimeLocalTypeScriptWorker as createWorker } from "../core/runtime-local-typescript-child-entrypoints.ts"; createWorker("candidate_store_lock_worker", {});\n',
+        );
+      if (scenario === "wrapper_reexport")
+        fs.appendFileSync(
+          consumer,
+          'export { createRuntimeLocalTypeScriptWorker } from "../core/runtime-local-typescript-child-entrypoints.ts";\n',
+        );
+      if (scenario === "wrapper_function_value")
+        fs.appendFileSync(
+          consumer,
+          "const factory = createRuntimeLocalTypeScriptWorker; void factory;\n",
+        );
+      if (scenario === "process_alias")
+        fs.appendFileSync(
+          consumer,
+          'const runtimeProcess = process; spawn(runtimeProcess.execPath, ["./unregistered-child.ts"]);\n',
+        );
+      if (scenario === "reflect_exec_path")
+        fs.appendFileSync(
+          consumer,
+          'spawn(Reflect.get(process, "execPath"), ["./unregistered-child.ts"]);\n',
+        );
+      if (scenario === "concatenated_url")
+        fs.appendFileSync(
+          consumer,
+          'new URL("./unregistered-child." + "ts", import.meta.url);\n',
+        );
+      if (scenario === "observer_projection_import")
+        fs.appendFileSync(
+          consumer,
+          'import { runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver } from "../core/runtime-local-typescript-child-entrypoints.ts"; runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver();\n',
+        );
+      if (scenario === "recovery_direct_spawn")
+        fs.appendFileSync(
+          path.join(
+            fixture.packageRoot,
+            "scripts",
+            "verify-signed-recovery-matrix.ts",
+          ),
+          'spawn(process.execPath, ["./verify-signed-recovery-matrix.ts"]);\n',
         );
       if (
         scenario === "variable_declaration" ||
@@ -958,17 +1153,26 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
       [
         "src/core/interactive-console.ts",
         [
-          'import { runtimeLocalTypeScriptChildEntrypoint } from "./runtime-local-typescript-child-entrypoints.ts";',
-          'runtimeLocalTypeScriptChildEntrypoint("interactive_console_reader");',
+          'import { spawnRuntimeLocalTypeScriptChild } from "./runtime-local-typescript-child-entrypoints.ts";',
+          'spawnRuntimeLocalTypeScriptChild(spawn, "interactive_console_reader", [], {});',
           "",
         ].join("\n"),
       ],
       [
         "src/security/candidate-store-kernel-lock.ts",
         [
-          'import { runtimeLocalTypeScriptChildEntrypoint } from "../core/runtime-local-typescript-child-entrypoints.ts";',
-          'runtimeLocalTypeScriptChildEntrypoint("candidate_store_lock_worker");',
-          'runtimeLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor");',
+          'import { createRuntimeLocalTypeScriptWorker, spawnRuntimeLocalTypeScriptChild } from "../core/runtime-local-typescript-child-entrypoints.ts";',
+          'createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {});',
+          'spawnRuntimeLocalTypeScriptChild(spawn, "host_operation_lock_supervisor", [], {});',
+          "",
+        ].join("\n"),
+      ],
+      [
+        "scripts/verify-signed-recovery-matrix.ts",
+        [
+          'import { spawn } from "node:child_process";',
+          'import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";',
+          'spawnRuntimeLocalTypeScriptChild(spawn, "signed_recovery_matrix_child", [], { shell: false });',
           "",
         ].join("\n"),
       ],
@@ -1012,6 +1216,34 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     const first =
       inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
     assert.equal(first.status, "candidate");
+    const originalSiblingValue = fs.readFileSync(valuePath, "utf8");
+    fs.writeFileSync(
+      valuePath,
+      [
+        'import { spawnRuntimeLocalTypeScriptChild } from "../../../coordinator/src/core/runtime-local-typescript-child-entrypoints.ts";',
+        'spawnRuntimeLocalTypeScriptChild(spawn, "interactive_console_reader", [], {});',
+        "export const value = 1;",
+        "",
+      ].join("\n"),
+    );
+    assert.equal(
+      inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root)
+        .status,
+      "candidate",
+    );
+    for (const bypass of [
+      'import { Worker as ThreadWorker } from "node:worker_threads";\nnew ThreadWorker("./child.ts");\nexport const value = 1;\n',
+      "const runtimeProcess = process;\nvoid runtimeProcess.execPath;\nexport const value = 1;\n",
+    ]) {
+      fs.writeFileSync(valuePath, bypass);
+      assert.equal(
+        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root)
+          .status,
+        "blocked",
+        bypass,
+      );
+    }
+    fs.writeFileSync(valuePath, originalSiblingValue);
     fs.writeFileSync(
       path.join(root, "README.md"),
       "not in the runtime execution closure\n",
@@ -1189,6 +1421,8 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
         'await import("../scripts/verify-signed-recovery-matrix.ts");',
         'await import("../scripts/sign-release-manifest.ts");',
         'await import("../scripts/promote-release-manifest.ts");',
+        "const target = new URL(plan.entryRelativePath, import.meta.url);",
+        "process.argv = [process.execPath, fileURLToPath(target), ...plan.forwardedArgs];",
         "",
       ].join("\n"),
     );
@@ -1231,6 +1465,20 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
 
     const first = inspectPlatformProvisionerPackageFilesystemCandidate(root);
     assert.equal(first.status, "candidate");
+    const launcherPath = path.join(root, "bin", "launch.ts");
+    const canonicalLauncher = fs.readFileSync(launcherPath, "utf8");
+    fs.writeFileSync(
+      launcherPath,
+      canonicalLauncher.replace(
+        "fileURLToPath(target)",
+        "fileURLToPath(otherTarget)",
+      ),
+    );
+    assert.equal(
+      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+      "blocked",
+    );
+    fs.writeFileSync(launcherPath, canonicalLauncher);
     fs.writeFileSync(unrelated, "export const unrelated = 2;\n");
     const unrelatedChanged =
       inspectPlatformProvisionerPackageFilesystemCandidate(root);
@@ -1385,21 +1633,13 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
       'import { spawnSync } from "node:child_process";\nspawnSync(process.execPath, ["./late-child.ts"]);\n',
       'import { execFile } from "node:child_process";\nexecFile(process.execPath, ["./late-child.ts"]);\n',
       'import { execFileSync } from "node:child_process";\nexecFileSync(process.execPath, ["./late-child.ts"]);\n',
+      'import { spawn as launchSelf } from "node:child_process";\nimport { fileURLToPath } from "node:url";\nlaunchSelf(process.execPath, [fileURLToPath(import.meta.url)]);\n',
     ]) {
       fs.writeFileSync(target, source);
       const result = inspectPlatformProvisionerPackageFilesystemCandidate(root);
       assert.equal(result.status, "blocked", source);
       assert.equal(result.runtimeAuthorityConferred, false, source);
     }
-
-    fs.writeFileSync(
-      target,
-      'import { spawn as launchSelf } from "node:child_process";\nimport { fileURLToPath } from "node:url";\nlaunchSelf(process.execPath, [fileURLToPath(import.meta.url)]);\n',
-    );
-    assert.equal(
-      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
-      "candidate",
-    );
 
     const childTarget = path.join(root, "scripts", "late-child.ts");
     fs.writeFileSync(childTarget, "export const child = true;\n");
@@ -1633,7 +1873,7 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.localNodeChildEntrypointRegistration,
-    "all_local_typescript_import_meta_url_targets_exactly_match_required_registry",
+    "declared_role_kind_path_actual_canonical_wrapper_call_sites_and_required_registry_exactly_match_with_runtime_kind_validation",
   );
   const source = fs.readFileSync(
     path.resolve(
