@@ -14,6 +14,8 @@ export {
   type ExecutionObservation,
 } from "./core/execution-intelligence.ts";
 
+export * from "./core/bounded-integrated-result-evaluation.ts";
+
 export {
   applyExecutionIntelligenceRetention,
   readExecutionIntelligence,

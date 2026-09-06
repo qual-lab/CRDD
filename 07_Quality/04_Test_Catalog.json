@@ -1847,6 +1847,66 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:project-runtime-integration-record-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-integration-record-adapter.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "integration",
+        "record",
+        "adapter"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-runtime:unit:human-decision-application",
+      "owner": "project-runtime",
+      "path": "40_Develop/project-runtime/tests/unit/human-decision-application.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project-runtime",
+        "human-decision",
+        "application"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-runtime:unit:integration-application",
+      "owner": "project-runtime",
+      "path": "40_Develop/project-runtime/tests/unit/integration-application.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project-runtime",
+        "integration",
+        "application"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:delegation-route-selection",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/delegation-route-selection.contract.test.ts",
@@ -2467,6 +2527,27 @@
         "clock",
         "identity",
         "process",
+        "adapter"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:project-runtime-decision-capability-adapter",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/project-runtime-decision-capability-adapter.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "decision",
+        "capability",
         "adapter"
       ],
       "environment": "node_process",

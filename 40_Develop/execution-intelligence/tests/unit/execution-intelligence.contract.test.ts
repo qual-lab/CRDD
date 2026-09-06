@@ -2,22 +2,28 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
   createTaskAttemptSettledEvent,
+  evaluateBoundedIntegratedResult,
   inspectExecutionIntelligenceEvent,
   proposeExecutionImprovementCandidates,
   summarizeExecutionIntelligence,
 } from "../../src/index.ts";
 
-function event(status: "completed" | "blocked" = "completed") {
+function event(
+  status: "completed" | "blocked" = "completed",
+  taskId = "task-a",
+  provider: string | null = null,
+) {
   return createTaskAttemptSettledEvent({
     occurredAt: "2026-09-05T00:00:01.000Z",
     identity: {
       projectId: "project-a",
       milestoneId: "milestone-a",
       objectiveId: "objective-a",
-      taskId: "task-a",
-      attemptId: "attempt-a",
-      operationId: "operation-a",
+      taskId,
+      attemptId: `attempt-${taskId}`,
+      operationId: `operation-${taskId}`,
     },
     outcome: {
       status,
@@ -29,10 +35,10 @@ function event(status: "completed" | "blocked" = "completed") {
     },
     execution: {
       role: "executor",
-      provider: {
-        state: "not_observed",
-        reason: "provider_not_reported",
-      },
+      provider:
+        provider === null
+          ? { state: "not_observed", reason: "provider_not_reported" }
+          : { state: "observed", value: provider, source: "runtime_receipt" },
       model: { state: "not_observed", reason: "model_not_reported" },
       inputStrategyRef: {
         state: "observed",
@@ -131,4 +137,90 @@ test("rejects an invalid member instead of silently dropping it", () => {
   );
   const duplicate = event();
   assert.equal(summarizeExecutionIntelligence([duplicate, duplicate]), null);
+});
+
+function evaluationInput() {
+  const observedCount = (value: number) => ({
+    state: "observed" as const,
+    value,
+    source: "dogfooding_record",
+  });
+  return {
+    contract: BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
+    evaluationId: "evaluation-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    expectedTaskIds: ["task-a", "task-b"],
+    taskAttemptEvents: [
+      event("completed", "task-a", "codex"),
+      event("completed", "task-b", "claude"),
+    ],
+    integratedResult: {
+      state: "observed" as const,
+      value: { result: "accepted" as const, evidenceIds: ["evidence-a"] },
+      source: "project_runtime_integration",
+    },
+    measurements: {
+      timeToAcceptedResultMs: observedCount(1_200),
+      humanActiveMs: observedCount(20),
+      reviewLoopCount: observedCount(1),
+      remediationCount: observedCount(0),
+      retryCount: observedCount(0),
+      integrationConflictCount: observedCount(0),
+      postIntegrationFindingCount: observedCount(0),
+    },
+  };
+}
+
+test("evaluates bounded work by the integrated accepted result rather than task success", () => {
+  const result = evaluateBoundedIntegratedResult(evaluationInput());
+  assert.ok(result);
+  assert.equal(result.status, "completed");
+  assert.equal(result.integratedAcceptedResult, true);
+  assert.equal(result.attemptCount, 2);
+  assert.equal(result.observedTaskCount, 2);
+  assert.deepEqual(result.providerAttemptCounts, { codex: 1, claude: 1 });
+  assert.equal(result.taskSuccessIsIntegrationAcceptance, false);
+  assert.equal(result.authorityConferred, false);
+});
+
+test("preserves an unobserved integrated result and missing task evidence", () => {
+  const base = evaluationInput();
+  const result = evaluateBoundedIntegratedResult({
+    ...base,
+    taskAttemptEvents: base.taskAttemptEvents.slice(0, 1),
+    integratedResult: {
+      state: "not_observed",
+      reason: "integration_not_run",
+    },
+  });
+  assert.ok(result);
+  assert.equal(result.status, "incomplete");
+  assert.equal(result.reason, "expected_task_attempt_not_observed");
+  assert.equal(result.integratedAcceptedResult, null);
+  assert.deepEqual(result.missingTaskIds, ["task-b"]);
+  assert.equal(result.missingnessPreserved, true);
+});
+
+test("rejects cross-project events and unknown evaluation fields", () => {
+  const base = evaluationInput();
+  assert.equal(
+    evaluateBoundedIntegratedResult({
+      ...base,
+      taskAttemptEvents: [
+        {
+          ...base.taskAttemptEvents[0],
+          identity: {
+            ...base.taskAttemptEvents[0]?.identity,
+            projectId: "other-project",
+          },
+        },
+      ],
+    }),
+    null,
+  );
+  assert.equal(
+    evaluateBoundedIntegratedResult({ ...base, automaticAdoption: true }),
+    null,
+  );
 });

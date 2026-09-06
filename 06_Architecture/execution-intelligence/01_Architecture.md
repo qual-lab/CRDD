@@ -75,6 +75,10 @@ Event内容の署名、共有Database、全Eventのグローバル順序およ�
 
 改善候補は`proposal`、`authorityConferred: false`、`automaticChangeAllowed: false`を必須とする。現在は非完了Attemptの調査とProvider Identity観測の改善だけを候補化する。Provider順位、Runtime Rule変更、Prompt変更、正本更新または外部Effectは自動発行しない。
 
+限定分散実行の評価では、対象Project／Milestone、予定Task集合、Task Attempt EventおよびProject Runtimeが観測した統合結果を同じ評価Identityへ結合する。全Taskの成功を統合受入へ読み替えず、統合結果と予定TaskのAttemptがともに観測できた場合だけ評価を完了する。別Project、別Milestone、予定外Task、重複Eventまたは未知fieldは混在したまま集約しない。Provider別件数は実効Providerを観測できたAttemptだけから算出し、欠測を推定配分しない。
+
+完成時間、人間の実作業時間、Review Loop、是正、再試行、統合競合および統合後Findingは、実測できた値とSourceを持つ観測だけを使う。未観測値は0へ補正しない。評価は非Authorityであり、統合受入、再実行、Provider変更、追加課金または正本更新を生成しない。
+
 Git管理外のEventをCRDD正本へ昇格する場合は、元Eventの集約、判断、比較条件および限界を確認し、通常の変更契約を用いる。Event fileをそのままGitへ移さない。
 
 ## 6. 保持と清掃
@@ -90,7 +94,7 @@ Git管理外のEventをCRDD正本へ昇格する場合は、元Eventの集約、
 
 ## 7. 検証と完成境界
 
-共通コンポーネントの単体試験は閉Schema、Provider非依存性、欠測、集約および非Authority候補を確認する。同コンポーネントの結合試験はexact Repository Root、通常Repository／worktree／submodule、link拒否、不変保存、並行Writer、再送、Identity衝突、各永続化段階の失敗、残存資源および部分清掃を確認する。Coordinator側の結合試験はexact Task Identity、発行診断および公開RuntimeからAdapterを経た実Event発行を確認する。
+共通コンポーネントの単体試験は閉Schema、Provider非依存性、欠測、集約、限定分散の統合結果評価および非Authority候補を確認する。同コンポーネントの結合試験はexact Repository Root、通常Repository／worktree／submodule、link拒否、不変保存、並行Writer、再送、Identity衝突、各永続化段階の失敗、残存資源および部分清掃を確認する。Coordinator側の結合試験はexact Task Identity、発行診断および公開RuntimeからAdapterを経た実Event発行を確認する。
 
 共通コンポーネントのSource、公開入口、保存契約またはtoolchainが変わった場合は、試験台帳に登録した利用側契約と利用側の静的検査も同じ自動回帰計画へ含める。利用側の静的検査は、実行する試験levelを限定した場合も除外しない。利用側契約試験自体は指定levelへ従い、指定外の試験まで実行しない。実行知の静的検査は自身のpackageと固定lockfileが所有するtoolchainで実行し、Coordinatorの開発依存へfallbackしない。利用側は共通コンポーネントの内部Pathではなく公開入口だけを使用する。登録外の新しいProducer Pathは、既知の利用側契約全件へ安全側に閉じる。実Provider、Token／費用取得、人間時間、品質受入、共有Store、Viewer UI、運用成果および事業成果は未接続であり、本変更の完成から推定しない。
 
