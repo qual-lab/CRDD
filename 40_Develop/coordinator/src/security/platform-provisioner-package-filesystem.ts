@@ -84,9 +84,7 @@ const runtimeDistributionRequiredEntrypoints = Object.freeze([
 ]);
 const runtimeDistributionLocalNodeChildRoles = Object.freeze(
   new Set<string>(
-    runtimeLocalTypescriptChildEntrypoints.map(
-      (entrypoint) => entrypoint.role,
-    ),
+    runtimeLocalTypescriptChildEntrypoints.map((entrypoint) => entrypoint.role),
   ),
 );
 const CANONICAL_TEXT_FILE_SUFFIXES = Object.freeze([
@@ -893,7 +891,12 @@ function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
       let bindings: readonly ModuleDeclarationBinding[] = Object.freeze([]);
       if (tokens[cursor]?.value === "{") {
         const closing = matchingTokenIndex(tokens, cursor, "{", "}");
-        bindings = namedModuleBindings(tokens, cursor, closing, isWholeTypeOnly);
+        bindings = namedModuleBindings(
+          tokens,
+          cursor,
+          closing,
+          isWholeTypeOnly,
+        );
         cursor = closing + 1;
       } else {
         cursor += 1;
@@ -2672,7 +2675,8 @@ function directCallArgumentStarts(
     const expectedClosing = closing.get(value);
     if (expectedClosing) stackTokens.push(expectedClosing);
     else if (stackTokens.at(-1) === value) stackTokens.pop();
-    else if (stackTokens.length === 0 && value === ",") isExpectingArgument = true;
+    else if (stackTokens.length === 0 && value === ",")
+      isExpectingArgument = true;
   }
   throw new Error("platform_provisioner_runtime_dependency_parse_failed");
 }
@@ -3363,7 +3367,8 @@ function tokenSequenceIndicesBetween(
 ) {
   const indices: number[] = [];
   for (let index = start; index + sequenceTokens.length <= end; index += 1) {
-    if (tokenSequenceMatches(tokens, index, sequenceTokens)) indices.push(index);
+    if (tokenSequenceMatches(tokens, index, sequenceTokens))
+      indices.push(index);
   }
   return Object.freeze(indices);
 }
@@ -3386,7 +3391,9 @@ function blockPathDominates(
 ) {
   return (
     proofPathTokens.length <= consumerPathTokens.length &&
-    proofPathTokens.every((opening, index) => consumerPathTokens[index] === opening)
+    proofPathTokens.every(
+      (opening, index) => consumerPathTokens[index] === opening,
+    )
   );
 }
 
@@ -3397,7 +3404,12 @@ function hasUniqueDominatingProof(
 ) {
   const consumerPathTokens = containingBlockPath(tokens, consumerIndex);
   return (
-    tokenSequenceIndicesBetween(tokens, 0, consumerIndex, sequenceTokens).filter(
+    tokenSequenceIndicesBetween(
+      tokens,
+      0,
+      consumerIndex,
+      sequenceTokens,
+    ).filter(
       (proofIndex) =>
         tokens[proofIndex - 1]?.value !== "function" &&
         blockPathDominates(
@@ -3414,23 +3426,20 @@ function hasDominatingProof(
   sequenceTokens: readonly string[],
 ) {
   const consumerOwner = containingNamedFunction(tokens, consumerIndex);
-  return tokenSequenceIndicesBetween(tokens, 0, consumerIndex, sequenceTokens).some(
-    (proofIndex) => {
-      if (tokens[proofIndex - 1]?.value === "function") return false;
-      const proofOwner = containingNamedFunction(tokens, proofIndex);
-      if ((proofOwner?.name ?? null) !== (consumerOwner?.name ?? null))
-        return false;
-      return !containingBlockPath(tokens, proofIndex).some((opening) =>
-        tokenSequenceMatches(tokens, opening - 4, [
-          "if",
-          "(",
-          "false",
-          ")",
-          "{",
-        ]),
-      );
-    },
-  );
+  return tokenSequenceIndicesBetween(
+    tokens,
+    0,
+    consumerIndex,
+    sequenceTokens,
+  ).some((proofIndex) => {
+    if (tokens[proofIndex - 1]?.value === "function") return false;
+    const proofOwner = containingNamedFunction(tokens, proofIndex);
+    if ((proofOwner?.name ?? null) !== (consumerOwner?.name ?? null))
+      return false;
+    return !containingBlockPath(tokens, proofIndex).some((opening) =>
+      tokenSequenceMatches(tokens, opening - 4, ["if", "(", "false", ")", "{"]),
+    );
+  });
 }
 
 function assertInternalLifecycleConsumerBoundary(
@@ -3536,7 +3545,8 @@ function assertInternalLifecycleConsumerBoundary(
             range !== undefined &&
             argumentMatchesPrefix(tokens, range.start, prefixTokens) &&
             !expressionContainsTopLevelAlternative(tokens, range) &&
-            (prefixTokens.length > 3 || range.end - range.start === prefixTokens.length)
+            (prefixTokens.length > 3 ||
+              range.end - range.start === prefixTokens.length)
           );
         }) ||
         (call.beforePrefixes !== undefined &&
@@ -3895,7 +3905,8 @@ function assertNoUnboundRuntimeChildProcess(
         throw new Error(
           `platform_provisioner_runtime_dependency_child_process_unbound:${sourcePath}:${owner?.name ?? "module"}:${imported}:${argumentShapeSha256}:${functionBodySha256 ?? "none"}:${resultBinding ?? "none"}`,
         );
-      const exactMatched = exactMatchingTokens[0] as ExactExternalProcessCallGraph;
+      const exactMatched =
+        exactMatchingTokens[0] as ExactExternalProcessCallGraph;
       const provenanceIdentity = `${exactMatched.source}\0${exactMatched.containingFunction}`;
       const provenance = exactExecutableProvenance.get(provenanceIdentity);
       if (!provenance)
@@ -3963,7 +3974,12 @@ function assertNoUnboundRuntimeChildProcess(
               `platform_provisioner_runtime_dependency_child_process_ownership_unbound:${exactMatched.source}:${exactMatched.containingFunction}`,
             );
           const proofIndices = ownership.proofs.map((proofTokens) =>
-            tokenSequenceIndicesBetween(tokens, index + 1, ownerEnd, proofTokens),
+            tokenSequenceIndicesBetween(
+              tokens,
+              index + 1,
+              ownerEnd,
+              proofTokens,
+            ),
           );
           if (proofIndices.some((matches) => matches.length < 1))
             throw new Error(
@@ -4130,8 +4146,9 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
     const graphEdges: Array<
       Readonly<{ from: number; to: number; kind: string }>
     > = [];
-    const delimiterStackTokens: Array<Readonly<{ node: number; closing: string }>> =
-      [];
+    const delimiterStackTokens: Array<
+      Readonly<{ node: number; closing: string }>
+    > = [];
     const delimiterClosing = new Map([
       ["(", ")"],
       ["[", "]"],
@@ -4350,8 +4367,7 @@ function assertExactCapabilityGraphSourceUniverse(
           `${callsite.source}\0${callsite.containingFunction}`,
         ),
     ) ||
-    exactAuditedSemanticGraphSha256.size !==
-      exactAuditedFunctionFlows.length ||
+    exactAuditedSemanticGraphSha256.size !== exactAuditedFunctionFlows.length ||
     exactAuditedFunctionFlows.some(
       (flow) =>
         !exactAuditedSemanticGraphSha256.has(
@@ -5672,7 +5688,8 @@ function assertReleaseSigningProtectedPath(source: string) {
       "(",
     ]).filter(
       (index) =>
-        containingNamedFunction(tokens, index + prefixTokens.length)?.name === owner,
+        containingNamedFunction(tokens, index + prefixTokens.length)?.name ===
+        owner,
     );
     if (matches.length !== 1) throw new Error(`call_graph:${owner}:${symbol}`);
     return (matches[0] as number) + prefixTokens.length;
@@ -5975,7 +5992,11 @@ function staticRelativeModuleTargets(
       tokens,
       shouldEnforceDeclaredGraph,
     );
-    assertExactAuditedFunctionFlows(relativePath, tokens, shouldEnforceDeclaredGraph);
+    assertExactAuditedFunctionFlows(
+      relativePath,
+      tokens,
+      shouldEnforceDeclaredGraph,
+    );
   } catch (error) {
     throw new Error(`${relativePath}:modules:${String(error)}`);
   }

@@ -37,7 +37,9 @@ function parseDistributionList(
     )
       return null;
     const foldedNames = lines.map((line) => line.toLowerCase());
-    return new Set(foldedNames).size === foldedNames.length ? foldedNames : null;
+    return new Set(foldedNames).size === foldedNames.length
+      ? foldedNames
+      : null;
   } catch {
     return null;
   }

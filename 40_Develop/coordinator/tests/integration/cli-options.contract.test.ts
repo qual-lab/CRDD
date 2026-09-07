@@ -36,7 +36,7 @@ test("検証付き再起動と記録後回復はexact Taskを指定する別操�
   );
   assert.equal(recover.status, "ok");
   assert.equal(recover.value?.afterRecordedDockerRestart, true);
-  for (const argumentsList of [
+  for (const argumentValues of [
     ["--restart-docker-for-recovery"],
     ["--restart-docker-for-recovery", "invalid"],
     ["--restart-docker-for-recovery", id, "--isolation"],
@@ -56,9 +56,9 @@ test("検証付き再起動と記録後回復はexact Taskを指定する別操�
     ],
   ])
     assert.equal(
-      parseDoctorArguments(argumentsList, undefined).status,
+      parseDoctorArguments(argumentValues, undefined).status,
       "blocked",
-      JSON.stringify(argumentsList),
+      JSON.stringify(argumentValues),
     );
 });
 
