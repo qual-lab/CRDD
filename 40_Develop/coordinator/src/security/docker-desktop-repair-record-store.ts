@@ -34,6 +34,8 @@ const HISTORY_FILES: readonly string[] = Object.freeze([
 const HISTORY_SCHEMA = "crdd-coordinator/docker-desktop-repair-history/v1";
 const HISTORY_ADOPTION_SCHEMA =
   "crdd-coordinator/docker-desktop-repair-history/v2";
+const HISTORY_POLICY_TRANSITION_SCHEMA =
+  "crdd-coordinator/docker-desktop-repair-history/v3";
 const HISTORY_HANDOFF_SCHEMA =
   "crdd-coordinator/docker-desktop-repair-session-handoff/v1";
 
@@ -1712,13 +1714,16 @@ function releaseNotAfterBoundary(
 function historicalBoundary(
   boundary: DockerDesktopRepairRecordBoundary,
   release: HistoricalReleaseIdentity,
+  dockerPolicySha256 = boundary.dockerPolicySha256,
 ): DockerDesktopRepairRecordBoundary {
-  // Only the signed release tuple changes. Host, selected user, root protection
-  // and policy MUST still match the current verified boundary in every record.
+  // Host, selected user and root protection remain current. The signed release
+  // tuple and its recorded policy are historical facts; adoption separately
+  // binds all later actions to the current policy.
   const { historicalV4: ignoredValue, ...current } = boundary;
   return release.runtimeExecutionIdentitySha256 === null
     ? Object.freeze({
         ...current,
+        dockerPolicySha256,
         crddManifestHash: release.manifestHash,
         crddReleaseSequence: release.releaseSequence,
         historicalV4: {
@@ -1728,10 +1733,32 @@ function historicalBoundary(
       })
     : Object.freeze({
         ...current,
+        dockerPolicySha256,
         crddManifestHash: release.manifestHash,
         crddReleaseSequence: release.releaseSequence,
         runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
       });
+}
+
+function originalDockerPolicySha256(
+  runtimeStateRoot: string,
+  directoryName: string,
+) {
+  try {
+    const bytes = stableBytes(
+      path.win32.join(
+        runtimeStateRoot,
+        directoryName,
+        "repair-00-prepared.json",
+      ),
+    );
+    const parsed = parseHistoryBytes(bytes);
+    return parsed && hash64(parsed.dockerPolicySha256)
+      ? String(parsed.dockerPolicySha256)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseHistoryBytes(
@@ -2042,10 +2069,28 @@ function readOperation(
       "originManifest",
       "adoptingManifest",
     ]);
+  const isAdoptionV3 =
+    adoption?.schema === HISTORY_POLICY_TRANSITION_SCHEMA &&
+    exactKeys(adoption, [
+      "schema",
+      "kind",
+      "repairId",
+      "originalRecordCount",
+      "originalTipSha256",
+      "originLocalUserBindingHash",
+      "adoptingLocalUserBindingHash",
+      "runtimeStateIdentityHash",
+      "runtimeStateProtectionHash",
+      "runtimeStateBindingHash",
+      "originDockerPolicySha256",
+      "dockerPolicySha256",
+      "originManifest",
+      "adoptingManifest",
+    ]);
   if (
     !adoptionBytes ||
     !adoption ||
-    (!isAdoptionV1 && !isAdoptionV2) ||
+    (!isAdoptionV1 && !isAdoptionV2 && !isAdoptionV3) ||
     adoption.kind !== "adoption" ||
     !hash64(adoption.originalTipSha256)
   )
@@ -2073,11 +2118,12 @@ function readOperation(
   const handoffNames = historyEntries.map((entry) => entry.name).sort();
   let handoffTipSha256 = adoptionSha256;
   let previousRelease = adopting;
-  let historySession = isAdoptionV2
-    ? String(adoption.adoptingLocalUserBindingHash)
-    : boundary.localUserBindingHash;
+  let historySession =
+    isAdoptionV2 || isAdoptionV3
+      ? String(adoption.adoptingLocalUserBindingHash)
+      : boundary.localUserBindingHash;
   const visitedSessions = new Set<string>();
-  if (isAdoptionV2) {
+  if (isAdoptionV2 || isAdoptionV3) {
     if (
       !hash64(adoption.originLocalUserBindingHash) ||
       !hash64(adoption.adoptingLocalUserBindingHash) ||
@@ -2085,7 +2131,8 @@ function readOperation(
       adoption.runtimeStateProtectionHash !==
         boundary.runtimeStateProtectionHash ||
       adoption.runtimeStateBindingHash !== boundary.runtimeStateBindingHash ||
-      adoption.dockerPolicySha256 !== boundary.dockerPolicySha256
+      adoption.dockerPolicySha256 !== boundary.dockerPolicySha256 ||
+      (isAdoptionV3 && !hash64(adoption.originDockerPolicySha256))
     )
       return null;
     visitedSessions.add(String(adoption.originLocalUserBindingHash));
@@ -2207,10 +2254,18 @@ function readOperation(
   // Only a fully validated closure permits reading a prior login's chain.
   // No operation is returned until its original chain and receipt anchors match.
   const operation = readOriginalOperation(
-    historicalBoundary(boundary, origin),
+    historicalBoundary(
+      boundary,
+      origin,
+      isAdoptionV3
+        ? String(adoption.originDockerPolicySha256)
+        : boundary.dockerPolicySha256,
+    ),
     directoryName,
     true,
-    isAdoptionV2 || closurePresent ? "closed_history" : "current",
+    isAdoptionV2 || isAdoptionV3 || closurePresent
+      ? "closed_history"
+      : "current",
   );
   if (
     !operation ||
@@ -2220,7 +2275,7 @@ function readOperation(
   )
     return null;
   if (
-    isAdoptionV2 &&
+    (isAdoptionV2 || isAdoptionV3) &&
     operation.originLocalUserBindingHash !== adoption.originLocalUserBindingHash
   )
     return null;
@@ -2281,9 +2336,15 @@ export function inspectDockerDesktopRepairHistoricalOperation(
     )
       return readOperation(boundary, directoryName, verifyHistory, true);
     const origin = verifyHistory(originManifest);
-    return origin && releaseNotAfterBoundary(origin, boundary)
+    const originPolicySha256 = originalDockerPolicySha256(
+      boundary.runtimeStateRoot,
+      directoryName,
+    );
+    return origin &&
+      originPolicySha256 &&
+      releaseNotAfterBoundary(origin, boundary)
       ? readOriginalOperation(
-          historicalBoundary(boundary, origin),
+          historicalBoundary(boundary, origin, originPolicySha256),
           directoryName,
           false,
           "terminal",
@@ -2385,7 +2446,7 @@ export function persistDockerDesktopRepairHistoricalAdoption(
     // get a second opportunity to alter the bytes being written.
     const bytes = Buffer.from(
       `${JSON.stringify({
-        schema: HISTORY_ADOPTION_SCHEMA,
+        schema: HISTORY_POLICY_TRANSITION_SCHEMA,
         kind: "adoption",
         repairId: operation.repairId,
         originalRecordCount: operation.sequence + 1,
@@ -2395,6 +2456,10 @@ export function persistDockerDesktopRepairHistoricalAdoption(
         runtimeStateIdentityHash: boundary.runtimeStateIdentityHash,
         runtimeStateProtectionHash: boundary.runtimeStateProtectionHash,
         runtimeStateBindingHash: boundary.runtimeStateBindingHash,
+        originDockerPolicySha256: originalDockerPolicySha256(
+          boundary.runtimeStateRoot,
+          directoryName,
+        ),
         dockerPolicySha256: boundary.dockerPolicySha256,
         originManifest,
         adoptingManifest,
@@ -2406,6 +2471,7 @@ export function persistDockerDesktopRepairHistoricalAdoption(
     if (
       !value ||
       !hash64(value.originLocalUserBindingHash) ||
+      !hash64(value.originDockerPolicySha256) ||
       !adopting ||
       !releaseMatchesBoundary(adopting, boundary)
     )
@@ -2414,7 +2480,11 @@ export function persistDockerDesktopRepairHistoricalAdoption(
     const current =
       origin && releaseNotAfterBoundary(origin, boundary)
         ? readOriginalOperation(
-            historicalBoundary(boundary, origin),
+            historicalBoundary(
+              boundary,
+              origin,
+              String(value.originDockerPolicySha256),
+            ),
             directoryName,
             true,
             "terminal",

@@ -487,14 +487,70 @@ for (const mutation of ["partial", "directory", "unknown_name"] as const) {
   });
 }
 
-test("historical inspection refuses every changed host/user/protection/policy binding and future releases", (t) => {
+test("historical inspection preserves the recorded origin policy and binds adoption to the current policy", (t) => {
+  const value = historyFixture(t);
+  const nextPolicyBoundary = {
+    ...value.currentBoundary,
+    dockerPolicySha256: "f".repeat(64),
+  };
+  const acrossPolicy = inspectDockerDesktopRepairHistoricalOperation(
+    nextPolicyBoundary,
+    value.original.repairId,
+    value.originManifest,
+    value.verifyHistory,
+  );
+  assert.equal(acrossPolicy?.repairId, value.original.repairId);
+  const adopted =
+    acrossPolicy &&
+    persistDockerDesktopRepairHistoricalAdoption(
+      nextPolicyBoundary,
+      acrossPolicy,
+      value.originManifest,
+      value.adoptingManifest,
+      value.verifyHistory,
+    );
+  assert.ok(adopted?.history);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(
+      nextPolicyBoundary,
+      value.verifyHistory,
+    ).status,
+    "verified",
+  );
+  const receipt = JSON.parse(
+    fs.readFileSync(
+      path.join(value.original.operationDirectory, "historical-adoption.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    receipt.schema,
+    "crdd-coordinator/docker-desktop-repair-history/v3",
+  );
+  assert.equal(
+    receipt.originDockerPolicySha256,
+    value.boundary.dockerPolicySha256,
+  );
+  assert.equal(
+    receipt.dockerPolicySha256,
+    nextPolicyBoundary.dockerPolicySha256,
+  );
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(
+      value.currentBoundary,
+      value.verifyHistory,
+    ).status,
+    "unknown",
+  );
+});
+
+test("historical inspection refuses changed host/user/protection bindings and future releases", (t) => {
   const value = historyFixture(t);
   for (const field of [
     "runtimeStateIdentityHash",
     "runtimeStateProtectionHash",
     "localUserBindingHash",
     "runtimeStateBindingHash",
-    "dockerPolicySha256",
   ] as const) {
     assert.equal(
       inspectDockerDesktopRepairHistoricalOperation(
