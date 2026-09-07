@@ -178,6 +178,7 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
       "coordinator",
       "coordinator-package-manifest.json",
     ),
+    { force: true },
   );
   const oracleRoot = path.join(root, "oracle");
   fs.cpSync(distributionRoot, oracleRoot, { recursive: true });

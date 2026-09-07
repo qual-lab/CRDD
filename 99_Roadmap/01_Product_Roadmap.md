@@ -178,7 +178,7 @@ Registryが保持する候補は、安定Runtime ID、Adapter種別、検証可�
 
 ### 3.4. Context Operating System（CROS）発展境界
 
-CROSは、複数ProjectのCRDD Contextを横断解決し、安定したInterfaceとして外部へ提供し、Agent実行を統括して結果を該当する正本Repositoryへ還流するRuntime／Federation層の候補である。各CRDDは独立した正本を維持し、CROSの内部Databaseにはしない。CRDD標準はContextの意味、各CRDDはProject固有の真実、CROSは解決・連合・実行、Qual等は人間との対話、外部Toolは表示・操作Surfaceを所有する。
+CROSは、複数ProjectのCRDD Contextを横断解決し、安定したInterfaceとして外部へ提供し、Agent実行を統括して結果を該当する正本Repositoryへ還流するRuntime／Federation層の候補である。各CRDDは独立した正本を維持し、CROSの内部Databaseにはしない。CRDD標準はContextの意味、各CRDDはProject固有の真実、CROSは解決・連合・実行、Qual等は人間との対話、外部Toolは表示・操作Surfaceを所有する。CROSとLocal Workの責務、Current Active Scope、工程横断Feedback、Platform検証および変更単位でのIntegrationを含む協働実行像は、[Discoveryの協働プロジェクト実行モデル](../01_Discovery/01_CRDD_Product_Discovery.md#cros-collaborative-project-execution-model)を正本とする。
 
 ```text
 Human／Qual／外部AI・Tool

@@ -465,6 +465,237 @@ Self-hosted LLMもProvider Adapter候補へ接続できるかを評価する。F
 
 候補構造は`MCP／API → Organization Runtime → Repository Router → Project Runtime → Coordinator`とし、Project単位でContext、Authority、Runtime State、Lock、Capability namespace、EvidenceおよびRecoveryを分離する。`repository_id`、`project_id`および`organization_id`の安定識別を評価するが、上位scopeから下位ProjectへのAuthority、CredentialまたはRecoveryを暗黙継承しない。複数RepositoryにまたがるEffectは、部分成功、取消、再開およびexact recoveryを設計するまで非対応とする。
 
+<a id="cros-collaborative-project-execution-model"></a>
+
+#### 協働プロジェクト実行モデル
+
+CROSは、複数Project、複数の専門家、人間、AIおよび異なる実行Platformを、一つの作業場所へ集中させず、Context、判断、引き渡しおよび全体把握で接続する。専門作業はLocal環境を基本とし、Roadmap Version、CHG、FeatureまたはObjectiveを変更境界として共有する。人間または委任された決定権限者が現在変更可能な範囲を宣言し、CROSはその境界を参加者、AIおよびRuntimeへ伝播する。
+
+「プロジェクト／ポートフォリオ管理機能（Project／Portfolio Management Function）」は特定部署の名称ではなく、単一または複数Projectの状態、依存、Risk、阻害事項、判断待ちおよびRelease状況を俯瞰する機能を指す。PM、PMO、Program／Portfolio責任者、Product責任者その他の実際の担い手は、採用組織の責務と決定権限に従う。
+
+```text
+                ┌──────────────────────────────────────┐
+                │ プロジェクト／ポートフォリオ管理機能 │
+                │                                      │
+                │ ・全Project／担当Projectの現在地     │
+                │ ・Risk／Blocker／判断待ち             │
+                │ ・依存関係／Release状況               │
+                └─────────────────┬────────────────────┘
+                                  │
+                           Qual／MCP／UI
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────┐
+│                            CROS                            │
+│                                                            │
+│ Multi Repo／Context／Projection／Attention／Decision       │
+│ Capability／Task Session／Execution Intelligence           │
+│                                                            │
+│       Read broadly／coordinate across／write narrowly      │
+└────────────────┬───────────────────────────┬───────────────┘
+                 │                           │
+        Project AのCRDD             Project BのCRDD
+                 │                           │
+        ┌────────┴────────┐                  ...
+        │                 │
+      Context        CHG／Version
+                          │
+                          ▼
+                 専門家によるLocal作業
+```
+
+| CROSが担うもの | Local Workが担うもの |
+|---|---|
+| Project／Portfolioの俯瞰、Context接続 | 専門成果物、CodeおよびDesignの制作 |
+| Risk、阻害事項、注意事項および判断待ち | Platform固有作業と実機／実Display確認 |
+| Task／変更依頼、Review／Findingおよび引き渡しの接続 | IDE、Figmaその他の専門Toolによる作業 |
+| Evidence集約とCHG／Version Integration状態の投影 | 専門家による評価と候補作成 |
+
+共有CROSの基本境界は、広く読み、横断的に調整し、書込みを狭く限定することである。専門家のLocal Working Copyや専門Toolを中央管理せず、CROSがProjectの正本、成果物所有者または専門判断を置き換えない。
+
+変更・統合の基本単位は、工程ごとの長寿命Branchではなく、Roadmap Version、CHG、FeatureまたはObjectiveとする。CROSは採用Projectへ特定のBranch名やGit運用を要求せず、Projectが採用した基準Branchと統合先をContextとして扱う。
+
+```text
+Projectの基準Revision
+        │ branch／isolated worktree
+        ▼
+Version／Feature Candidate
+        │
+        ├── CHG-101
+        ├── CHG-102
+        └── CHG-103
+        │
+        ▼  全CHGの成立と統合検証
+Projectが定めたIntegration Target
+```
+
+CHGごとに、現在Canonicalな変更を許可する工程範囲（Current Active Scope）を明示する。後工程はActive Scope外でもContext参照、Review、Finding、Constraint FeedbackおよびImpact確認を行えるが、Canonical成果物の変更、Implementation、IntegrationまたはAuthorityを伴う変更を先行させない。
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ CHG-101                                                  │
+│ Current Active Scope: UX → IA → UI                       │
+│                                                          │
+│ UX              IA              UI                       │
+│ ● Write         ● Write         ● Write                  │
+│    └───────────────┬───────────────┘                     │
+│                    ▼                                     │
+│              Current Candidate                           │
+│                    │                                     │
+│       ┌────────────┴────────────┐                        │
+│       ▼                         ▼                        │
+│ Architecture                 Engineer                    │
+│ ○ Read／Review              ○ Read／Review               │
+│ ○ Finding                  ○ Constraint Feedback        │
+│ × Canonical Change         × Implementation             │
+│       └──────────── Feedback ────────────┘               │
+│                    │                                     │
+│                    ▼                                     │
+│              UX／IA／UI Ownerが再調整                    │
+└──────────────────────────────────────────────────────────┘
+```
+
+Humanまたは適切なAuthorityが、現在候補と根拠から次の変更範囲を開放する。初期段階ではCROSによる自動開放を基本としない。後工程から前工程へのFeedbackは許可するが、Findingを理由に後工程の担当者が前工程のCanonical成果物を直接変更せず、原則として成果物所有者へ戻す。
+
+```text
+Architecture Finding
+        │
+        ▼
+┌─────────────────┐
+│ UI Candidate    │
+│ Rework Required │
+└────────┬────────┘
+         │
+         ▼
+       UI Owner
+         │
+    Candidate v2
+         │
+         ▼
+Architecture Review
+```
+
+```text
+Human／委任されたAuthority
+       │ 「UI Candidate Ready」
+       ▼
+UX       IA       UI       SPEC      ARCH      IMPL
+✓        ✓        ✓         ●          ●        Hold
+Accepted Accepted Accepted  Write      Write
+                                      ▲
+                              Review／Feedbackは先行可能
+```
+
+Implementation後の候補は、必要なPlatformへ検証入力として投影する。Platform環境は原則として同じ候補の検証Consumerであり、検証先で独立したCanonical変更を開始しない。Findingがあれば、候補の実装所有者へ戻す。
+
+```text
+                    CHG-101
+                       │
+                 Implementation
+                       │
+               Candidate Revision
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+      Linux環境     Windows環境    macOS環境
+      Build／Test   Build／Test    Build／Test
+          └────────────┼────────────┘
+                       ▼
+                    Evidence
+                 ┌─────┴─────┐
+                 ▼           ▼
+             Findingなし   Findingあり
+                 │           │
+                 ▼           └── 実装所有者へ戻す
+             Acceptance
+```
+
+統合は工程名の完了ではなく、CHG、FeatureまたはObjectiveがその受入条件を満たし、相互の変更を統合しても成立することを基準とする。個別Taskや個別CHGの成功を統合結果の成功へ読み替えない。
+
+```text
+Version／Feature Candidate
+│
+├ CHG-101  ✓ Accepted
+├ CHG-102  ✓ Accepted
+└ CHG-103  ✓ Accepted
+│
+▼
+Version Integration
+├ Cross-CHG Regression
+├ Integration／System Verification
+├ Release Verification
+└ 必要なHuman Acceptance
+│
+▼
+Projectが定めたIntegration Target
+```
+
+全体の候補Workflowは次の通りである。この図は固定工程順、全工程の常時発火、特定Branch構成または自動実行許可を意味しない。
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│          プロジェクト／ポートフォリオ管理機能           │
+│       Portfolio／Project／Attention／Decision View       │
+└────────────────────────┬────────────────────────────────┘
+                         │
+                    CROS／MCP
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│ Project                                                 │
+│ Roadmap Version: vNext                                  │
+│   ├ CHG-101                                             │
+│   ├ CHG-102                                             │
+│   └ CHG-103                                             │
+└────────────────────────┬────────────────────────────────┘
+                         │ CHG-101
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+         UX              IA             UI
+       [Write]         [Write]        [Write]
+          └──────────────┼──────────────┘
+                         ▼
+                     Candidate
+                 ┌───────┴────────┐
+                 ▼                ▼
+          Architecture         Engineer
+             [Review]          [Review]
+                 └──── Feedback ──┘
+                         ▼
+             Human／委任Authorityの判断
+             「次の範囲まで進めてよい」
+                         ▼
+                SPEC／Architecture
+                         ▼
+                  Implementation
+                         ▼
+                 Candidate Revision
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+            Linux      Windows     macOS
+             Test        Test       Test
+              └──────────┼──────────┘
+                         ▼
+                      Evidence
+                         ▼
+                    CHG Accepted
+                         ▼
+                 Version Integration
+                         ▼
+             ProjectのIntegration Target
+```
+
+CROSはActive Scopeの共有、Contextの横断参照、Artifact／Candidate State、Review／Finding、人間判断、引き渡し、Platform Verification、Evidenceおよび統合状態の接続を担う。将来、実行知の根拠から「この条件ならArchitectureまで並行開始可能」と提案できる可能性は評価するが、提案とHuman Decisionを分離し、完全自動Workflowを既定にしない。
+
+本モデルは次の原則を保持する。
+
+- Contextは共有するが、成果物所有者を曖昧にしない。
+- Reviewは工程境界を越えられるが、Canonicalな書込みは越境させない。
+- 統合は工程完了ではなく、変更単位の成立と統合済み結果に従う。
+- PlatformはProject階層ではなく、実行・検証条件として扱う。
+- Human Interventionは排除せず、判断、受入および専門評価等の意味ある地点へ集中させる。
+- CROSは作業を中央集権化するより、分散したHuman、AI、ToolおよびPlatformを同じContextと判断へ接続する。
+
 ### 7.8. 研究候補と保持条件
 
 作業評価、推論経路選択、能力モデル、Capability Routing、意味競合検出、意味範囲ロック、自律再計画、キュー／スケジューラーおよびポートフォリオ投影は、各段階を具体化するときの研究・実装候補である。Capability Routingはambient authorityを許さず、発行主体、対象Project、操作、期限、単回性、委譲時の減衰、取消および再利用拒否を説明可能にする。
