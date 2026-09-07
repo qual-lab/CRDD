@@ -1459,13 +1459,6 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ],
       ["["],
     ],
-    [
-      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
-      "observeExactRepositoryRoot",
-      "execFileSync",
-      ["git"],
-      ["[", "-C"],
-    ],
   ].map(
     ([
       source,
@@ -1693,16 +1686,6 @@ const exactExternalProcessCallGraph = Object.freeze(
       "75fe97d4efe1f052b606a12290adddb94cb7fb12eb7c53e3165fcd2803fb3c88",
       "execution",
     ],
-    [
-      "runtime",
-      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
-      "observeExactRepositoryRoot",
-      "execFileSync",
-      1,
-      "5e0d844c15465eab569ee204969466e374ea4bfbca4f49da5f9826e9fd5b843a",
-      "2dd92e2d79454613468b1879a97bce06a43c3100f14a1c65b6afb3c01e369d7d",
-      "observed",
-    ],
   ].map(
     ([
       graph,
@@ -1775,6 +1758,18 @@ const exactAuditedFunctionFlowGraph = Object.freeze(
     [
       "runtime",
       "src/security/platform-provisioner-package-filesystem.ts",
+      "blocked",
+      "dfdb12e7113528ca75e1afda0f8c114ba2ffcb5e028babd270fda491c35f8817",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "publicObservation",
+      "14cd7b5627f969fe374f4ab2838658ba890c1f213c7f0efe1820e92783539335",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
       "inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
       "ace97426202a2140020ed9817e81715c1bcc6f767ae28cefcb614b52634f2df8",
     ],
@@ -1799,6 +1794,12 @@ const exactAuditedFunctionFlowGraph = Object.freeze(
     [
       "runtime",
       "src/security/platform-provisioner-package-filesystem.ts",
+      "verifiedFixedPackageRecord",
+      "7a0a8cf541157ecf26d43f68afdd7419b2ff03cd62d6387d87c2d5bed3e71c27",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
       "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
       "936e6c4837f13687013d7369b0cae8e99df048b0ef9c17f7f978ba6faca31820",
     ],
@@ -1807,6 +1808,12 @@ const exactAuditedFunctionFlowGraph = Object.freeze(
       "src/security/platform-provisioner-package-filesystem.ts",
       "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
       "be02e3b122acad751fdc04dd9bce2b3577d41985aed7d59c1b1bc4fbd9c36bef",
+    ],
+    [
+      "runtime",
+      "src/security/platform-provisioner-package-filesystem.ts",
+      "revokeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "a8ee6b60c6116a981dc80210ca122f8317fb2a45d36b05422d803b08d87c727c",
     ],
     [
       "runtime",
@@ -1859,6 +1866,350 @@ const exactAuditedFunctionFlowGraph = Object.freeze(
         bodySha256,
       }) as ExactAuditedFunctionFlow,
   ),
+);
+
+const exactAuditedSemanticGraphSha256 = Object.freeze(
+  new Map([
+    [
+      "src/core/interactive-console.ts\0readInteractiveConsoleLineOutcome",
+      "bc7946d27e9093d12cb588aef1d6a61a26389a809fc23705a1501246335aed11",
+    ],
+    [
+      "src/security/candidate-store-kernel-lock.ts\0acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome",
+      "04232e397db010eddd93ede49129dfe466720cdfaa032af3272850dde6f87f8b",
+    ],
+    [
+      "src/security/candidate-store-kernel-lock.ts\0acquireRuntimeOwnedHostOperationSupervisorLock",
+      "0cb9a47490a153066b41d87d8b9393bfb6654e677b1f0b3887f3c1e897eb1013",
+    ],
+    [
+      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+      "962dff946d48019ce6b9a48b4f307e18f04a8a7dc611b84bdde9197eb002b55d",
+    ],
+    [
+      "src/security/docker-effect-runtime.ts\0startCommand",
+      "fd77f6568390e1782b4c400612c40ff531711dd948fe37135d9ef5831af92e91",
+    ],
+    [
+      "src/security/docker-effect-runtime.ts\0runShort",
+      "8270be7428ac78ee27dee38173fc258235a85f5f6343fa88b4a51a9f974f74cb",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0blocked",
+      "513840ce7ec03df7da0ae1e4e5c38c174632ba8f3154dbe9322e9c4581e842b8",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0publicObservation",
+      "635e5529715df0d1099b542e0f8d3a3ecb4b95e8a233d85cabd199dda45232d5",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
+      "af2eca911050ed4e40f486f87e565296a6d8b4fda40cc340f3266e9502c01d31",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0inspectBundledCoordinatorPackageFilesystemCandidate",
+      "62f84954cda384122b36651083fad91a8abc8b4babbadc54f4981f4ab4734af6",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0inspectFixedDevelopmentCoordinatorPackageCandidate",
+      "488195180f3cea3198f349b826be78cb343c32677a3d56fee9210bd184ae0ff1",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0verifyOwnedBundledManifest",
+      "a3291727157f1e5d046b35475488179166924b28443341801bf3592f59e6d972",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0verifiedFixedPackageRecord",
+      "9d21b48a5d98171e0f66430b6d26a2a7edb7923f650685164bf7bcd882448514",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "c25fab4cd57bf101ca8aa6c867aed638ef3f4e7baab4bdfa154c90233ca28aa2",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "211ace196613fedee3668838c9dde8643a1b647f561201713d27b4967e294fa4",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0revokeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "9224f60e47e6b99e2109e2c2aa23cc383120fe78adfafa4b5313516bf5df9e88",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0verifyInstalledCoordinatorPackageCandidate",
+      "e70c39fd3c7ddbe4f61c7244b4021ff5475862eb851a9fdeb98b8e463fcb3d5e",
+    ],
+    [
+      "src/security/platform-provisioner-package-filesystem.ts\0inspectVerifiedNativeDistributionCandidate",
+      "9754b331b9eb7a3b8a37a0c017d51188c49c0f4849a28c6f713064740fc8ee73",
+    ],
+    [
+      "scripts/sign-release-manifest.ts\0prepareReleaseManifestCandidate",
+      "043dc60de9e69bb97db94a8c16200deeb1918f59f77a4827313c536376cc8541",
+    ],
+    [
+      "scripts/sign-release-manifest.ts\0preflightReleaseManifest",
+      "c7d6521de4e6bc1add91be0011249bd1fa07d4d8d2df6985dbf4347064fd7421",
+    ],
+    [
+      "scripts/sign-release-manifest.ts\0signReleaseManifest",
+      "8d54357ae6aa1e9bd08c3a76a7e8dad20d1a8733fb7ecab19c09e0ce488a2556",
+    ],
+    [
+      "scripts/sign-release-manifest.ts\0main",
+      "95aa8ce4993179add57b05011fb310af1e6e11894485b3ffd5b8905cc7d110ed",
+    ],
+    [
+      "scripts/verify-project-runtime-real-providers.ts\0main",
+      "a0bb16c227a6859b44042cf6f39b76bf8f2643d68957d7a0b0f5fba061e4a74d",
+    ],
+  ]),
+);
+
+const auditedExportedFunctionIdentities = Object.freeze(
+  new Set([
+    "src/core/interactive-console.ts\0readInteractiveConsoleLineOutcome",
+    "src/security/candidate-store-kernel-lock.ts\0acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome",
+    "src/security/candidate-store-kernel-lock.ts\0acquireRuntimeOwnedHostOperationSupervisorLock",
+    "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+    "src/security/platform-provisioner-package-filesystem.ts\0inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
+    "src/security/platform-provisioner-package-filesystem.ts\0inspectBundledCoordinatorPackageFilesystemCandidate",
+    "src/security/platform-provisioner-package-filesystem.ts\0inspectFixedDevelopmentCoordinatorPackageCandidate",
+    "src/security/platform-provisioner-package-filesystem.ts\0revokeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+    "src/security/platform-provisioner-package-filesystem.ts\0issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+    "src/security/platform-provisioner-package-filesystem.ts\0consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+    "src/security/platform-provisioner-package-filesystem.ts\0verifyInstalledCoordinatorPackageCandidate",
+    "src/security/platform-provisioner-package-filesystem.ts\0inspectVerifiedNativeDistributionCandidate",
+    "scripts/sign-release-manifest.ts\0preflightReleaseManifest",
+    "scripts/sign-release-manifest.ts\0signReleaseManifest",
+  ]),
+);
+
+const auditedFunctionLexicalParents = Object.freeze(
+  new Map([
+    ["src/security/docker-effect-runtime.ts\0startCommand", "createRuntime"],
+    ["src/security/docker-effect-runtime.ts\0runShort", "createRuntime"],
+  ]),
+);
+
+type AsyncProcessOwnership = Readonly<{
+  classification: "wrapper_return" | "immediate_owner" | "lifecycle_transfer";
+  proofs: readonly (readonly string[])[];
+}>;
+
+const exactAsyncProcessOwnership = Object.freeze(
+  new Map<string, AsyncProcessOwnership>([
+    [
+      "scripts/verify-project-runtime-real-providers.ts\0startPublicMcpProcess",
+      Object.freeze({
+        classification: "wrapper_return",
+        proofs: Object.freeze([]),
+      }),
+    ],
+    [
+      "src/core/runtime-local-typescript-child-entrypoints.ts\0spawnRuntimeLocalTypeScriptChild",
+      Object.freeze({
+        classification: "wrapper_return",
+        proofs: Object.freeze([]),
+      }),
+    ],
+    [
+      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+      Object.freeze({
+        classification: "lifecycle_transfer",
+        proofs: Object.freeze([
+          Object.freeze([
+            "const",
+            "created",
+            "=",
+            "createDockerDesktopRepairNativeHelperLifecycle",
+            "(",
+            "child",
+            ",",
+          ]),
+        ]),
+      }),
+    ],
+    [
+      "src/security/docker-isolation.ts\0startOwnedAttachedProcess",
+      Object.freeze({
+        classification: "immediate_owner",
+        proofs: Object.freeze([
+          Object.freeze(["child", ".", "once", "(", "spawn"]),
+          Object.freeze(["child", ".", "once", "(", "error"]),
+          Object.freeze(["child", ".", "once", "(", "close"]),
+        ]),
+      }),
+    ],
+    [
+      "src/security/docker-owned-process.ts\0startOwnedProcess",
+      Object.freeze({
+        classification: "immediate_owner",
+        proofs: Object.freeze([
+          Object.freeze(["child", ".", "once", "(", "spawn"]),
+          Object.freeze(["child", ".", "once", "(", "error"]),
+          Object.freeze(["child", ".", "once", "(", "close"]),
+        ]),
+      }),
+    ],
+    [
+      "src/security/docker-owned-process.ts\0terminateAndWait",
+      Object.freeze({
+        classification: "immediate_owner",
+        proofs: Object.freeze([
+          Object.freeze(["killer", ".", "once", "(", "error"]),
+          Object.freeze(["killer", ".", "once", "(", "close"]),
+        ]),
+      }),
+    ],
+  ]),
+);
+
+type ExecutableProvenance = Readonly<{
+  classification:
+    | "node_self"
+    | "validated_local_artifact"
+    | "registered_platform_helper"
+    | "closed_wrapper_parameter"
+    | "closed_verification_toolchain";
+  proofs: readonly (readonly string[])[];
+}>;
+
+const exactExecutableProvenance = Object.freeze(
+  new Map<string, ExecutableProvenance>([
+    ...[
+      "src/core/runtime-local-typescript-child-entrypoints.ts\0spawnRuntimeLocalTypeScriptChild",
+      "scripts/check-dynamic-fake-provider-coverage.ts\0inspectOnce",
+      "scripts/check-platform-access-ts-coverage.ts\0inspectPlatformAccessTsCoverage",
+      "scripts/check-provider-authority-coverage.ts\0inspectOnce",
+      "scripts/check-provider-home-coverage.ts\0inspectOnce",
+      "scripts/verify-project-runtime-real-providers.ts\0startPublicMcpProcess",
+    ].map(
+      (identity) =>
+        [
+          identity,
+          Object.freeze({
+            classification: "node_self" as const,
+            proofs: Object.freeze([
+              Object.freeze(["process", ".", "execPath"]),
+            ]),
+          }),
+        ] as const,
+    ),
+    ...[
+      [
+        "src/security/candidate-store-windows-adapter.ts\0inspectRuntimeOwnedWindowsProtectedRoot",
+        [["beginPlatformAccessArtifactSigningObservation", "("]],
+      ],
+      [
+        "src/security/provider-home-windows-adapter.ts\0inspectRuntimeOwnedWindowsProviderHomeCandidate",
+        [["beginPlatformAccessArtifactSigningObservation", "("]],
+      ],
+      [
+        "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+        [["beginPlatformAccessArtifactSigningObservation", "("]],
+      ],
+      [
+        "src/security/docker-desktop-runtime-repair.ts\0observeEngine",
+        [
+          [
+            "const",
+            "cli",
+            "=",
+            "boundary",
+            ".",
+            "policy",
+            ".",
+            "artifacts",
+            ".",
+            "get",
+          ],
+        ],
+      ],
+      [
+        "src/security/docker-desktop-runtime-repair.ts\0officialShutdown",
+        [
+          [
+            "const",
+            "cli",
+            "=",
+            "boundary",
+            ".",
+            "policy",
+            ".",
+            "artifacts",
+            ".",
+            "get",
+          ],
+        ],
+      ],
+      [
+        "src/security/docker-desktop-runtime-repair.ts\0terminateDockerWsl",
+        [
+          [
+            "const",
+            "environment",
+            "=",
+            "createWindowsNativeHelperEnvironment",
+            "(",
+          ],
+        ],
+      ],
+      [
+        "src/security/docker-isolation.ts\0executeDocker",
+        [["verifyTrustedDockerCliCapability", "(", "cliCapability", ")"]],
+      ],
+      [
+        "src/security/docker-recovery-runtime-internal.ts\0runRecoveryDocker",
+        [["verifyRecoveryDockerCli", "(", ")"]],
+      ],
+    ].map(
+      ([identity, proofs]) =>
+        [
+          identity as string,
+          Object.freeze({
+            classification: "validated_local_artifact" as const,
+            proofs: Object.freeze(
+              (proofs as readonly (readonly string[])[]).map((proof) =>
+                Object.freeze(proof),
+              ),
+            ),
+          }),
+        ] as const,
+    ),
+    ...[
+      "src/security/docker-owned-process.ts\0startOwnedProcess",
+      "src/security/docker-isolation.ts\0startOwnedAttachedProcess",
+    ].map(
+      (identity) =>
+        [
+          identity,
+          Object.freeze({
+            classification: "closed_wrapper_parameter" as const,
+            proofs: Object.freeze([]),
+          }),
+        ] as const,
+    ),
+    [
+      "scripts/check-platform-access-coverage.ts\0executeCommand",
+      Object.freeze({
+        classification: "closed_verification_toolchain" as const,
+        proofs: Object.freeze([]),
+      }),
+    ],
+    ...[
+      "src/security/docker-owned-process.ts\0terminateAndWait",
+      "scripts/verify-signed-recovery-matrix.ts\0verifyParentLossThenRecover",
+    ].map(
+      (identity) =>
+        [
+          identity,
+          Object.freeze({
+            classification: "registered_platform_helper" as const,
+            proofs: Object.freeze([]),
+          }),
+        ] as const,
+    ),
+  ]),
 );
 
 const runtimeChildProcessOwnerPrimitives = new Map<
@@ -2680,19 +3031,101 @@ function containingNamedFunction(
   tokens: readonly SourceToken[],
   tokenIndex: number,
 ) {
-  let selected: Readonly<{
-    name: string;
-    opening: number;
-    closing: number;
-  }> | null = null;
-  for (let index = 0; index < tokenIndex; index += 1) {
+  const candidates: Array<
+    Readonly<{
+      name: string;
+      opening: number;
+      closing: number;
+    }>
+  > = [];
+  const select = (name: string, opening: number, closing: number) => {
+    if (tokenIndex > opening && tokenIndex < closing)
+      candidates.push(Object.freeze({ name, opening, closing }));
+  };
+  const matchingOpening = (
+    closingIndex: number,
+    opening: string,
+    closing: string,
+  ) => {
+    let depth = 0;
+    for (let index = closingIndex; index >= 0; index -= 1) {
+      if (tokens[index]?.value === closing) depth += 1;
+      else if (tokens[index]?.value === opening) {
+        depth -= 1;
+        if (depth === 0) return index;
+      }
+    }
+    return null;
+  };
+  const arrowName = (arrowIndex: number) => {
+    let cursor = arrowIndex - 1;
+    if (tokens[cursor]?.value === ")") {
+      const opening = matchingOpening(cursor, "(", ")");
+      if (opening === null) return `anonymous@${arrowIndex}`;
+      cursor = opening - 1;
+    } else if (tokens[cursor]?.kind === "identifier") cursor -= 1;
+    if (tokens[cursor]?.value === "async") cursor -= 1;
     if (
+      (tokens[cursor]?.value === ":" || tokens[cursor]?.value === "=") &&
+      tokens[cursor - 1]?.kind === "identifier"
+    )
+      return tokens[cursor - 1]?.value ?? `anonymous@${arrowIndex}`;
+    return `anonymous@${arrowIndex}`;
+  };
+  for (let index = 0; index < tokenIndex; index += 1) {
+    if (tokens[index]?.value === "=>") {
+      const callableName = arrowName(index);
+      if (callableName.startsWith("anonymous@")) continue;
+      const bodyStart = index + 1;
+      if (tokens[bodyStart]?.value === "{") {
+        try {
+          select(
+            callableName,
+            bodyStart,
+            matchingTokenIndex(tokens, bodyStart, "{", "}"),
+          );
+        } catch {
+          // A malformed unrelated arrow is not evidence about the protected
+          // value. The protected declaration itself is checked separately.
+        }
+      } else {
+        const closing = new Map([
+          ["(", ")"],
+          ["[", "]"],
+          ["{", "}"],
+        ]);
+        const stack: string[] = [];
+        let end = tokens.length;
+        for (let cursor = bodyStart; cursor < tokens.length; cursor += 1) {
+          const value = tokens[cursor]?.value ?? "";
+          const expected = closing.get(value);
+          if (expected) stack.push(expected);
+          else if (stack.at(-1) === value) stack.pop();
+          else if (
+            stack.length === 0 &&
+            [",", ";", "}", ")", "]"].includes(value)
+          ) {
+            end = cursor;
+            break;
+          }
+        }
+        select(callableName, index, end);
+      }
+      continue;
+    }
+    if (
+      tokens[index]?.kind !== "identifier" ||
       tokens[index]?.value !== "function" ||
       tokens[index + 1]?.kind !== "identifier" ||
       tokens[index + 2]?.value !== "("
     )
       continue;
-    const parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+    let parametersEnd: number;
+    try {
+      parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+    } catch {
+      continue;
+    }
     let bodyStart = parametersEnd + 1;
     while (bodyStart < tokenIndex) {
       if (
@@ -2704,19 +3137,17 @@ function containingNamedFunction(
       bodyStart += 1;
     }
     if (tokens[bodyStart]?.value !== "{") continue;
-    const bodyEnd = matchingTokenIndex(tokens, bodyStart, "{", "}");
-    if (
-      tokenIndex > bodyStart &&
-      tokenIndex < bodyEnd &&
-      (!selected || bodyStart > selected.opening)
-    )
-      selected = Object.freeze({
-        name: tokens[index + 1]?.value ?? "",
-        opening: bodyStart,
-        closing: bodyEnd,
-      });
+    let bodyEnd: number;
+    try {
+      bodyEnd = matchingTokenIndex(tokens, bodyStart, "{", "}");
+    } catch {
+      continue;
+    }
+    select(tokens[index + 1]?.value ?? "", bodyStart, bodyEnd);
   }
-  return selected;
+  return (
+    candidates.sort((left, right) => right.opening - left.opening)[0] ?? null
+  );
 }
 
 function argumentMatchesPrefix(
@@ -3274,7 +3705,6 @@ function assertNoUnboundRuntimeChildProcess(
           callsite.primitive === imported &&
           callsite.containingFunction === owner?.name &&
           callsite.argumentShapeSha256 === argumentShapeSha256 &&
-          callsite.functionBodySha256 === functionBodySha256 &&
           callsite.resultBinding === resultBinding,
       );
       if (exactMatching.length !== 1)
@@ -3282,6 +3712,98 @@ function assertNoUnboundRuntimeChildProcess(
           "platform_provisioner_runtime_dependency_child_process_unbound",
         );
       const exactMatched = exactMatching[0] as ExactExternalProcessCallGraph;
+      const provenanceIdentity = `${exactMatched.source}\0${exactMatched.containingFunction}`;
+      const provenance = exactExecutableProvenance.get(provenanceIdentity);
+      if (!provenance)
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_executable_unbound",
+        );
+      const ownerEnd = owner?.closing ?? tokens.length;
+      if (
+        provenance.classification === "node_self" &&
+        !exactExpressionMatches(tokens, argumentRanges[0], [
+          "process",
+          ".",
+          "execPath",
+        ])
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_executable_unbound",
+        );
+      if (
+        provenance.classification !== "node_self" &&
+        provenance.proofs.some(
+          (proof) =>
+            !hasUniqueDominatingProof(tokens, index, proof) &&
+            !tokenSequenceExistsBetween(
+              tokens,
+              owner?.opening ?? 0,
+              index,
+              proof,
+            ),
+        )
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_executable_unbound",
+        );
+      if (
+        provenance.classification === "closed_wrapper_parameter" &&
+        !processWrapperConsumers.has(exactMatched.containingFunction)
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_executable_unbound",
+        );
+      if (
+        provenance.classification === "closed_verification_toolchain" &&
+        !processWrapperConsumers.has("executeCommand")
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_executable_unbound",
+        );
+      if (exactMatched.primitive === "spawn") {
+        const ownership = exactAsyncProcessOwnership.get(
+          `${exactMatched.source}\0${exactMatched.containingFunction}`,
+        );
+        if (!ownership)
+          throw new Error(
+            `platform_provisioner_runtime_dependency_child_process_ownership_unbound:${exactMatched.source}:${exactMatched.containingFunction}`,
+          );
+        if (ownership.classification === "wrapper_return") {
+          if (tokens[index - 1]?.value !== "return")
+            throw new Error(
+              `platform_provisioner_runtime_dependency_child_process_ownership_unbound:${exactMatched.source}:${exactMatched.containingFunction}`,
+            );
+        } else {
+          if (!exactMatched.resultBinding)
+            throw new Error(
+              `platform_provisioner_runtime_dependency_child_process_ownership_unbound:${exactMatched.source}:${exactMatched.containingFunction}`,
+            );
+          const proofIndices = ownership.proofs.map((proof) =>
+            tokenSequenceIndicesBetween(tokens, index + 1, ownerEnd, proof),
+          );
+          if (proofIndices.some((matches) => matches.length < 1))
+            throw new Error(
+              `platform_provisioner_runtime_dependency_child_process_ownership_unbound:${exactMatched.source}:${exactMatched.containingFunction}`,
+            );
+          const firstProof = Math.min(
+            ...proofIndices.map((matches) => matches[0] as number),
+          );
+          if (
+            tokenSequenceIndicesBetween(tokens, index + 1, firstProof, [
+              "await",
+            ]).length !== 0
+          )
+            throw new Error(
+              `platform_provisioner_runtime_dependency_child_process_ownership_unbound:${exactMatched.source}:${exactMatched.containingFunction}`,
+            );
+        }
+      }
+      // The scope, argument, binding and ownership graph above are primary.
+      // Exact body identity is retained only as supplementary tamper evidence.
+      if (exactMatched.functionBodySha256 !== functionBodySha256)
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
       exactObserved.set(
         exactMatched,
         (exactObserved.get(exactMatched) ?? 0) + 1,
@@ -3331,6 +3853,7 @@ function assertNoUnboundRuntimeChildProcess(
 }
 
 function runtimeNamedFunctionGraphSnapshotForVerification(
+  relativePath: string,
   source: string | readonly SourceToken[],
   names: readonly string[],
 ) {
@@ -3338,29 +3861,157 @@ function runtimeNamedFunctionGraphSnapshotForVerification(
     typeof source === "string"
       ? tokenizeTypeScriptModuleSyntax(source)
       : source;
-  const remaining = new Set(names);
+  const requested = new Set(names);
   const functions: Array<
-    Readonly<{ name: string; bodySha256: string; bodyTokenCount: number }>
+    Readonly<{
+      name: string;
+      bodySha256: string;
+      bodyTokenCount: number;
+      semanticGraphSha256: string;
+      declarationOccurrence: number;
+      lexicalScope: string;
+      exported: boolean;
+    }>
   > = [];
+  const occurrences = new Map<string, number>();
   for (let index = 0; index + 2 < tokens.length; index += 1) {
     if (
+      tokens[index]?.kind !== "identifier" ||
       tokens[index]?.value !== "function" ||
       tokens[index + 1]?.kind !== "identifier" ||
-      !remaining.has(tokens[index + 1]?.value ?? "") ||
+      !requested.has(tokens[index + 1]?.value ?? "") ||
       tokens[index + 2]?.value !== "("
     )
       continue;
     const name = tokens[index + 1]?.value ?? "";
+    const declarationOccurrence = (occurrences.get(name) ?? 0) + 1;
+    occurrences.set(name, declarationOccurrence);
+    const sourcePath = coordinatorRelativeSourcePath(relativePath);
+    const expectedParent =
+      auditedFunctionLexicalParents.get(`${sourcePath}\0${name}`) ?? null;
+    const parent = containingNamedFunction(tokens, index);
+    if ((parent?.name ?? null) !== expectedParent)
+      throw new Error(
+        `platform_provisioner_runtime_dependency_capability_graph_mismatch:${name}:scope:${parent?.name ?? "module"}`,
+      );
+    const exported =
+      tokens[index - 1]?.value === "export" ||
+      (tokens[index - 1]?.value === "async" &&
+        tokens[index - 2]?.value === "export");
+    const expectedExported = auditedExportedFunctionIdentities.has(
+      `${sourcePath}\0${name}`,
+    );
+    if (exported !== expectedExported)
+      throw new Error(
+        `platform_provisioner_runtime_dependency_capability_graph_mismatch:${name}:export`,
+      );
     const parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
     let bodyStart = parametersEnd + 1;
     while (bodyStart < tokens.length && tokens[bodyStart]?.value !== "{")
       bodyStart += 1;
     if (tokens[bodyStart]?.value !== "{")
-      throw new Error("platform_provisioner_runtime_dependency_parse_failed");
+      throw new Error(
+        `platform_provisioner_runtime_dependency_parse_failed:${name}:body`,
+      );
     const bodyEnd = matchingTokenIndex(tokens, bodyStart, "{", "}");
     const body = tokens
       .slice(bodyStart, bodyEnd + 1)
       .map((token) => token.value);
+    const graphNodes = body.map((value, nodeIndex) =>
+      Object.freeze({
+        id: nodeIndex,
+        kind: [
+          "if",
+          "else",
+          "switch",
+          "for",
+          "while",
+          "try",
+          "catch",
+          "finally",
+        ].includes(value)
+          ? "guard"
+          : ["return", "throw"].includes(value)
+            ? "completion"
+            : ["const", "let", "var"].includes(value)
+              ? "binding"
+              : value === "await"
+                ? "await"
+                : value === "new"
+                  ? "construct"
+                  : "token",
+        value,
+      }),
+    );
+    const graphEdges: Array<
+      Readonly<{ from: number; to: number; kind: string }>
+    > = [];
+    const delimiterStack: Array<Readonly<{ node: number; closing: string }>> =
+      [];
+    const delimiterClosing = new Map([
+      ["(", ")"],
+      ["[", "]"],
+      ["{", "}"],
+    ]);
+    for (let nodeIndex = 0; nodeIndex < body.length; nodeIndex += 1) {
+      if (nodeIndex > 0)
+        graphEdges.push(
+          Object.freeze({ from: nodeIndex - 1, to: nodeIndex, kind: "next" }),
+        );
+      const closing = delimiterClosing.get(body[nodeIndex] ?? "");
+      if (closing)
+        delimiterStack.push(Object.freeze({ node: nodeIndex, closing }));
+      else if (delimiterStack.at(-1)?.closing === body[nodeIndex]) {
+        const opening = delimiterStack.pop();
+        if (opening)
+          graphEdges.push(
+            Object.freeze({ from: opening.node, to: nodeIndex, kind: "pair" }),
+          );
+      }
+      if (
+        nodeIndex + 1 < body.length &&
+        body[nodeIndex + 1] === "(" &&
+        /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(body[nodeIndex] ?? "")
+      )
+        graphEdges.push(
+          Object.freeze({ from: nodeIndex, to: nodeIndex + 1, kind: "call" }),
+        );
+      if (
+        ["const", "let", "var"].includes(body[nodeIndex] ?? "") &&
+        /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(body[nodeIndex + 1] ?? "")
+      )
+        graphEdges.push(
+          Object.freeze({
+            from: nodeIndex,
+            to: nodeIndex + 1,
+            kind: "declares",
+          }),
+        );
+      if (
+        ["return", "throw"].includes(body[nodeIndex] ?? "") &&
+        nodeIndex + 1 < body.length
+      )
+        graphEdges.push(
+          Object.freeze({
+            from: nodeIndex,
+            to: nodeIndex + 1,
+            kind: "completes_with",
+          }),
+        );
+    }
+    if (delimiterStack.length !== 0)
+      throw new Error(
+        `platform_provisioner_runtime_dependency_parse_failed:${name}:semantic-graph`,
+      );
+    const semanticGraphSha256 = createHash("sha256")
+      .update(
+        JSON.stringify({
+          scope: `${sourcePath}\0${expectedParent ?? "module"}\0${name}\0${declarationOccurrence}\0${exported ? "exported" : "local"}`,
+          nodes: graphNodes,
+          edges: graphEdges,
+        }),
+      )
+      .digest("hex");
     functions.push(
       Object.freeze({
         name,
@@ -3368,15 +4019,83 @@ function runtimeNamedFunctionGraphSnapshotForVerification(
           .update(JSON.stringify(body))
           .digest("hex"),
         bodyTokenCount: body.length,
+        semanticGraphSha256,
+        declarationOccurrence,
+        lexicalScope: expectedParent ?? "module",
+        exported,
       }),
     );
-    remaining.delete(name);
   }
-  if (remaining.size !== 0 || functions.length !== names.length)
+  if (
+    functions.length !== names.length ||
+    names.some((name) => occurrences.get(name) !== 1)
+  )
     throw new Error(
       "platform_provisioner_runtime_dependency_capability_graph_mismatch",
     );
   return Object.freeze(functions);
+}
+
+export function auditedFunctionSemanticGraphForVerification(
+  relativePath: string,
+  source: string,
+) {
+  const sourcePath = coordinatorRelativeSourcePath(relativePath);
+  return runtimeNamedFunctionGraphSnapshotForVerification(
+    relativePath,
+    source,
+    exactAuditedFunctionFlowGraph
+      .filter((flow) => flow.source === sourcePath)
+      .map((flow) => flow.functionName),
+  );
+}
+
+const protectedPreBodyEffectSymbols = Object.freeze(
+  new Set([
+    "readHiddenLine",
+    "readFileSync",
+    "createPrivateKey",
+    "sign",
+    "spawn",
+    "spawnSync",
+    "execFile",
+    "execFileSync",
+    "Worker",
+  ]),
+);
+
+function assertNoAuditedPreBodyEffects(
+  tokens: readonly SourceToken[],
+  functionNames: ReadonlySet<string>,
+) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (
+      tokens[index]?.value === "function" &&
+      functionNames.has(tokens[index + 1]?.value ?? "") &&
+      tokens[index + 2]?.value === "("
+    ) {
+      const parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+      const parameterTokens = tokens.slice(index + 3, parametersEnd);
+      if (
+        parameterTokens.some((token) =>
+          protectedPreBodyEffectSymbols.has(token.value),
+        )
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_capability_graph_mismatch",
+        );
+    }
+    if (
+      protectedPreBodyEffectSymbols.has(tokens[index]?.value ?? "") &&
+      (tokens[index + 1]?.value === "(" ||
+        (tokens[index - 1]?.value === "new" &&
+          tokens[index + 1]?.value === "(")) &&
+      containingNamedFunction(tokens, index) === null
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_capability_graph_mismatch",
+      );
+  }
 }
 
 function assertExactAuditedFunctionFlows(
@@ -3390,12 +4109,29 @@ function assertExactAuditedFunctionFlows(
     (flow) => flow.source === sourcePath,
   );
   if (expected.length === 0) return;
+  assertNoAuditedPreBodyEffects(
+    tokens,
+    new Set(expected.map((flow) => flow.functionName)),
+  );
   const observed = runtimeNamedFunctionGraphSnapshotForVerification(
+    relativePath,
     tokens,
     expected.map((flow) => flow.functionName),
   );
   if (
     expected.length !== observed.length ||
+    observed.some(
+      (flow) =>
+        exactAuditedSemanticGraphSha256.get(`${sourcePath}\0${flow.name}`) !==
+        flow.semanticGraphSha256,
+    )
+  )
+    throw new Error(
+      "platform_provisioner_runtime_dependency_capability_flow_unbound",
+    );
+  // Exact body identity is supplementary evidence. The scope-aware semantic
+  // graph above is the primary contract and is checked first.
+  if (
     observed.some(
       (flow) =>
         expected.find((candidate) => candidate.functionName === flow.name)
@@ -3414,7 +4150,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expected = exactExternalProcessCallGraph.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 14 : 6;
+  const expectedCount = graph === "runtime" ? 13 : 6;
   const stableIdentities = expected.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -3430,7 +4166,22 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCallGraph.length !== 20 ||
+    exactExternalProcessCallGraph.length !== 19 ||
+    exactExecutableProvenance.size !== exactExternalProcessCallGraph.length ||
+    exactExternalProcessCallGraph.some(
+      (callsite) =>
+        !exactExecutableProvenance.has(
+          `${callsite.source}\0${callsite.containingFunction}`,
+        ),
+    ) ||
+    exactAuditedSemanticGraphSha256.size !==
+      exactAuditedFunctionFlowGraph.length ||
+    exactAuditedFunctionFlowGraph.some(
+      (flow) =>
+        !exactAuditedSemanticGraphSha256.has(
+          `${flow.source}\0${flow.functionName}`,
+        ),
+    ) ||
     new Set(globalCallIdentities).size !== globalCallIdentities.length ||
     new Set(globalFlowIdentities).size !== globalFlowIdentities.length ||
     expected.length !== expectedCount ||
@@ -3560,6 +4311,391 @@ function assertNoUnboundRuntimeExecPath(
   }
 }
 
+const runtimePackageCapabilityExports = Object.freeze(
+  new Set([
+    "inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
+    "inspectBundledCoordinatorPackageFilesystemCandidate",
+    "inspectFixedDevelopmentCoordinatorPackageCandidate",
+    "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+    "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+    "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+    "revokeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+    "verifyInstalledCoordinatorPackageCandidate",
+    "inspectVerifiedNativeDistributionCandidate",
+  ]),
+);
+
+type RuntimePackageCapabilityConsumer = Readonly<{
+  source: string;
+  symbol: string;
+  owner: string;
+  use: "call" | "reference" | "type_query";
+  occurrence: number;
+}>;
+
+function runtimePackageCapabilityConsumers(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+) {
+  const source = coordinatorRelativeSourcePath(relativePath);
+  if (source === "src/security/platform-provisioner-package-filesystem.ts")
+    return Object.freeze([]);
+  const result: RuntimePackageCapabilityConsumer[] = [];
+  for (const declaration of moduleDeclarationsFromTokens(tokens)) {
+    if (
+      declaration.kind !== "static_import" ||
+      declaration.specifierIndex === null
+    )
+      continue;
+    const target = canonicalRelativeModuleTarget(
+      relativePath,
+      tokens[declaration.specifierIndex]?.value ?? "",
+    );
+    if (
+      coordinatorRelativeSourcePath(target ?? "") !==
+      "src/security/platform-provisioner-package-filesystem.ts"
+    )
+      continue;
+    for (const binding of declaration.bindings) {
+      if (
+        binding.typeOnly ||
+        !runtimePackageCapabilityExports.has(binding.imported)
+      )
+        continue;
+      let occurrence = 0;
+      for (let index = 0; index < tokens.length; index += 1) {
+        if (
+          index === binding.localTokenIndex ||
+          tokens[index]?.kind !== "identifier" ||
+          tokens[index]?.value !== binding.local
+        )
+          continue;
+        occurrence += 1;
+        const owner = containingNamedFunction(tokens, index)?.name ?? "module";
+        const use =
+          tokens[index - 1]?.value === "typeof"
+            ? "type_query"
+            : tokens[index + 1]?.value === "("
+              ? "call"
+              : "reference";
+        result.push(
+          Object.freeze({
+            source,
+            symbol: binding.imported,
+            owner,
+            use,
+            occurrence,
+          }),
+        );
+      }
+    }
+  }
+  return Object.freeze(result);
+}
+
+export function runtimePackageCapabilityConsumerGraphForVerification(
+  sources: Readonly<Record<string, string>>,
+) {
+  return Object.freeze(
+    Object.entries(sources)
+      .flatMap(([relativePath, source]) =>
+        runtimePackageCapabilityConsumers(
+          relativePath,
+          tokenizeTypeScriptModuleSyntax(source),
+        ),
+      )
+      .sort((left, right) =>
+        `${left.source}\0${left.symbol}\0${left.owner}\0${left.use}\0${left.occurrence}`.localeCompare(
+          `${right.source}\0${right.symbol}\0${right.owner}\0${right.use}\0${right.occurrence}`,
+          "en",
+        ),
+      ),
+  );
+}
+
+const exactRuntimePackageCapabilityConsumerGraph = Object.freeze(
+  [
+    [
+      "bin/coordinator.ts",
+      "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "runTaskCommand",
+      "call",
+      1,
+    ],
+    [
+      "scripts/promote-release-manifest.ts",
+      "inspectVerifiedNativeDistributionCandidate",
+      "expectedRelease",
+      "call",
+      1,
+    ],
+    [
+      "scripts/promote-release-manifest.ts",
+      "inspectVerifiedNativeDistributionCandidate",
+      "productionComposition",
+      "call",
+      2,
+    ],
+    [
+      "scripts/sign-release-manifest.ts",
+      "inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
+      "prepareReleaseManifestCandidate",
+      "call",
+      1,
+    ],
+    [
+      "scripts/verify-project-runtime-real-providers.ts",
+      "inspectBundledCoordinatorPackageFilesystemCandidate",
+      "main",
+      "call",
+      1,
+    ],
+    [
+      "scripts/verify-project-runtime-real-providers.ts",
+      "inspectVerifiedNativeDistributionCandidate",
+      "main",
+      "call",
+      1,
+    ],
+    [
+      "scripts/verify-signed-general-task.ts",
+      "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "module",
+      "reference",
+      1,
+    ],
+    [
+      "scripts/verify-signed-recovery-matrix.ts",
+      "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "verifySignedPackagePrerequisite",
+      "call",
+      1,
+    ],
+    [
+      "src/composition/project-runtime-composition-root.ts",
+      "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "issueRuntimeExecutionAuthorization",
+      "call",
+      1,
+    ],
+    [
+      "src/composition/project-runtime-composition-root.ts",
+      "revokeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "module",
+      "reference",
+      1,
+    ],
+    [
+      "src/security/candidate-store-windows-adapter.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "inspectRuntimeOwnedWindowsProtectedRoot",
+      "call",
+      1,
+    ],
+    [
+      "src/security/coordinator-task-runtime.ts",
+      "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "startRuntimeOwnedCoordinatorTask",
+      "call",
+      1,
+    ],
+    [
+      "src/security/development-measurement-session.ts",
+      "inspectFixedDevelopmentCoordinatorPackageCandidate",
+      "observeProduction",
+      "call",
+      1,
+    ],
+    [
+      "src/security/development-measurement-session.ts",
+      "inspectVerifiedNativeDistributionCandidate",
+      "module",
+      "type_query",
+      1,
+    ],
+    [
+      "src/security/development-measurement-session.ts",
+      "inspectVerifiedNativeDistributionCandidate",
+      "observeProduction",
+      "call",
+      2,
+    ],
+    [
+      "src/security/docker-desktop-runtime-repair.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "preparedBoundary",
+      "call",
+      1,
+    ],
+    [
+      "src/security/docker-recovery-runtime-internal.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart",
+      "call",
+      1,
+    ],
+    [
+      "src/security/local-personal-authority-runtime.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "verifyRelease",
+      "call",
+      1,
+    ],
+    [
+      "src/security/provider-home-windows-adapter.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "inspectRuntimeOwnedWindowsProviderHomeCandidate",
+      "call",
+      1,
+    ],
+  ].map(
+    ([source, symbol, owner, use, occurrence]) =>
+      Object.freeze({
+        source,
+        symbol,
+        owner,
+        use,
+        occurrence,
+      }) as RuntimePackageCapabilityConsumer,
+  ),
+);
+
+function runtimePackageCapabilityConsumerIdentity(
+  consumer: RuntimePackageCapabilityConsumer,
+) {
+  return `${consumer.source}\0${consumer.symbol}\0${consumer.owner}\0${consumer.use}\0${consumer.occurrence}`;
+}
+
+function assertRuntimePackageCapabilityHandoffClosure(
+  sources: Readonly<Record<string, string>>,
+) {
+  const exact = (relativePath: string, sequence: readonly string[]) => {
+    const source = sources[relativePath];
+    if (typeof source !== "string")
+      throw new Error(
+        "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
+      );
+    const tokens = tokenizeTypeScriptModuleSyntax(source);
+    const matches = tokenSequenceIndicesBetween(
+      tokens,
+      0,
+      tokens.length,
+      sequence,
+    );
+    if (matches.length !== 1)
+      throw new Error(
+        "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
+      );
+    return Object.freeze({ tokens, index: matches[0] as number });
+  };
+  exact("src/composition/project-runtime-composition-root.ts", [
+    "issueRuntimeCapability",
+    ":",
+    "runtimeDependencies",
+    ".",
+    "issueRuntimeExecutionAuthorization",
+  ]);
+  exact("src/composition/project-runtime-composition-root.ts", [
+    "revokeRuntimeCapability",
+    ":",
+    "runtimeDependencies",
+    ".",
+    "revokeRuntimeExecutionAuthorization",
+  ]);
+  exact("src/security/project-runtime-execution-authorization-adapter.ts", [
+    "const",
+    "capability",
+    "=",
+    "dependencies",
+    ".",
+    "issueRuntimeCapability",
+    "(",
+    ")",
+  ]);
+  exact("src/security/project-runtime-execution-authorization-adapter.ts", [
+    "dependencies",
+    ".",
+    "revokeRuntimeCapability",
+    "?.",
+    "(",
+    "capability",
+    ")",
+    "=",
+    "=",
+    "=",
+    "true",
+  ]);
+  const consumed = exact("src/security/coordinator-task-runtime.ts", [
+    "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+    "(",
+    "verifiedPackageCapability",
+    ",",
+    ")",
+  ]);
+  const firstEffect = exact("src/security/coordinator-task-runtime.ts", [
+    "return",
+    "productionRuntime",
+    ".",
+    "start",
+    "(",
+  ]);
+  if (
+    consumed.index >= firstEffect.index ||
+    containingNamedFunction(consumed.tokens, consumed.index)?.name !==
+      "startRuntimeOwnedCoordinatorTask" ||
+    containingNamedFunction(firstEffect.tokens, firstEffect.index)?.name !==
+      "startRuntimeOwnedCoordinatorTask"
+  )
+    throw new Error(
+      "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
+    );
+}
+
+function assertExactRuntimePackageCapabilityConsumerGraph(
+  sources: Readonly<Record<string, string>>,
+  scope: "repository" | "runtime_distribution",
+) {
+  assertRuntimePackageCapabilityHandoffClosure(sources);
+  const observed =
+    runtimePackageCapabilityConsumerGraphForVerification(sources);
+  const expected = exactRuntimePackageCapabilityConsumerGraph.filter(
+    (consumer) =>
+      scope === "repository" ||
+      consumer.source !== "scripts/verify-project-runtime-real-providers.ts",
+  );
+  const observedIdentities = observed.map(
+    runtimePackageCapabilityConsumerIdentity,
+  );
+  const expectedIdentities = expected.map(
+    runtimePackageCapabilityConsumerIdentity,
+  );
+  if (
+    new Set(expectedIdentities).size !== expectedIdentities.length ||
+    observedIdentities.length !== expectedIdentities.length ||
+    observedIdentities.some(
+      (identity, index) => identity !== expectedIdentities[index],
+    )
+  ) {
+    const observedSet = new Set(observedIdentities);
+    const expectedSet = new Set(expectedIdentities);
+    const missing = expectedIdentities.filter(
+      (identity) => !observedSet.has(identity),
+    );
+    const unexpected = observedIdentities.filter(
+      (identity) => !expectedSet.has(identity),
+    );
+    throw new Error(
+      `platform_provisioner_runtime_dependency_consumer_graph_mismatch:missing=${JSON.stringify(missing)}:unexpected=${JSON.stringify(unexpected)}`,
+    );
+  }
+}
+
+export function assertRuntimePackageCapabilityConsumerGraphForVerification(
+  sources: Readonly<Record<string, string>>,
+) {
+  assertExactRuntimePackageCapabilityConsumerGraph(sources, "repository");
+}
+
 function assertPublicRuntimeObservationConsumerClosure(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -3639,16 +4775,6 @@ function assertPublicRuntimeObservationConsumerClosure(
   ] as const);
   const remaining = [...expected];
   const symbols = new Set(expected.map(([symbol]) => symbol));
-  const precedingTopLevelFunction = (tokenIndex: number) => {
-    for (let index = tokenIndex - 1; index >= 1; index -= 1) {
-      if (
-        tokens[index - 1]?.value === "function" &&
-        tokens[index]?.kind === "identifier"
-      )
-        return tokens[index]?.value ?? null;
-    }
-    return null;
-  };
   for (let index = 0; index < tokens.length; index += 1) {
     const symbol = tokens[index]?.value ?? "";
     if (
@@ -3666,7 +4792,7 @@ function assertPublicRuntimeObservationConsumerClosure(
       throw new Error(
         "platform_provisioner_runtime_dependency_public_consumer_unbound",
       );
-    const owner = precedingTopLevelFunction(index);
+    const owner = containingNamedFunction(tokens, index)?.name ?? null;
     let ranges: readonly DirectCallArgumentRange[];
     try {
       ranges = directCallArgumentRanges(tokens, index + 1);
@@ -4421,7 +5547,7 @@ function observeRuntimeDistribution(distributionRootPath: string) {
     for (const target of staticRelativeModuleTargets(
       relative,
       canonicalBytes,
-      coordinatorInventory.enforceDeclaredGraph,
+      true,
     )) {
       if (
         !isBundledRuntimeExecutionPath(
@@ -4444,18 +5570,23 @@ function observeRuntimeDistribution(distributionRootPath: string) {
   const observedCapabilitySources = new Set(
     [...observedFiles.keys()].map(coordinatorRelativeSourcePath),
   );
-  // Synthetic package-boundary fixtures intentionally omit the observer
-  // implementation. A real runtime distribution contains this source and is
-  // therefore required to close the complete, source-derived runtime graph.
-  if (
-    observedCapabilitySources.has(
-      "src/security/platform-provisioner-package-filesystem.ts",
-    )
-  )
-    assertExactCapabilityGraphSourceUniverse(
-      "runtime",
-      observedCapabilitySources,
-    );
+  assertExactCapabilityGraphSourceUniverse(
+    "runtime",
+    observedCapabilitySources,
+  );
+  assertExactRuntimePackageCapabilityConsumerGraph(
+    Object.freeze(
+      Object.fromEntries(
+        [...observedFiles.entries()]
+          .filter(([relativePath]) => relativePath.endsWith(".ts"))
+          .map(([relativePath, observed]) => [
+            coordinatorRelativeSourcePath(relativePath),
+            new TextDecoder("utf-8", { fatal: true }).decode(observed.bytes),
+          ]),
+      ),
+    ),
+    "runtime_distribution",
+  );
 
   const packageJson = observedFiles.get("40_Develop/coordinator/package.json");
   const metadata = packageMetadata(packageJson?.bytes ?? null);

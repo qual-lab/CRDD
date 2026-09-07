@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -39,28 +38,14 @@ function observeExactRepositoryRoot(candidate: string): string | null {
   try {
     const resolved = path.resolve(candidate);
     if (!inspectPathChain(resolved)) return null;
-    const observed = execFileSync(
-      "git",
-      ["-C", resolved, "rev-parse", "--show-toplevel"],
-      {
-        encoding: "utf8",
-        windowsHide: true,
-        timeout: 5_000,
-        stdio: ["ignore", "pipe", "ignore"],
-      },
-    ).trim();
-    if (!observed) return null;
-    const observedRoot = path.resolve(observed);
-    if (!samePath(observedRoot, resolved) || !inspectPathChain(observedRoot))
-      return null;
-    const gitBoundary = path.join(observedRoot, ".git");
+    const gitBoundary = path.join(resolved, ".git");
     const gitMetadata = fs.lstatSync(gitBoundary);
     if (
       gitMetadata.isSymbolicLink() ||
       (!gitMetadata.isDirectory() && !gitMetadata.isFile())
     )
       return null;
-    return observedRoot;
+    return resolved;
   } catch {
     return null;
   }

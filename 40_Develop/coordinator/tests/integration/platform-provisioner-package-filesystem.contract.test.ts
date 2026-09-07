@@ -17,6 +17,7 @@ import {
   inspectVerifiedNativeDistributionCandidate,
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   assertReleaseSigningConsumerClosureForVerification,
+  assertRuntimePackageCapabilityConsumerGraphForVerification,
   assertVerificationToolCapabilityGraphForVerification,
   assertRuntimeSourceModuleBoundaryForVerification,
   assertRuntimeSourceDeclaredGraphBoundaryForVerification,
@@ -58,30 +59,25 @@ function verificationToolSources() {
   visit(scriptsRoot, "scripts");
   return sources;
 }
-const runtimeChildEntrypointModuleFixture = [
-  'import { spawn } from "node:child_process";',
-  'import { Worker, type WorkerOptions } from "node:worker_threads";',
-  "function declareLocalTypeScriptChildEntrypoint(role: string, kind: string, relativePath: string, baseUrl: string) {",
-  "  return { role, kind, relativePath, filePath: relativePath, distributionRelativePath: relativePath };",
-  "}",
-  "const entries = [",
-  '  declareLocalTypeScriptChildEntrypoint("interactive_console_reader", "spawn", "./interactive-console-reader.ts", import.meta.url,),',
-  '  declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", "../security/candidate-store-lock-worker.ts", import.meta.url,),',
-  '  declareLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor", "spawn", "../security/host-operation-lock-supervisor.ts", import.meta.url,),',
-  '  declareLocalTypeScriptChildEntrypoint("signed_recovery_matrix_child", "spawn", "../../scripts/verify-signed-recovery-matrix.ts", import.meta.url,),',
-  "];",
-  "export function createRuntimeLocalTypeScriptWorker(role: any, options: WorkerOptions) {",
-  "  const entrypoint = entries.find((entrypoint) => entrypoint.role === role);",
-  "  return new Worker(new URL(entrypoint.relativePath, import.meta.url), options);",
-  "}",
-  "export function spawnRuntimeLocalTypeScriptChild(role: any, args: string[], options: any) {",
-  "  const entrypoint = entries.find((entrypoint) => entrypoint.role === role);",
-  "  return spawn(process.execPath, [entrypoint.filePath, ...args], options);",
-  "}",
-  "export function runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver() { return entries; }",
-  "",
-].join("\n");
 
+function runtimeTypeScriptSources() {
+  const sources: Record<string, string> = {};
+  const visit = (root: string, relativeRoot: string) => {
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      const relative = `${relativeRoot}/${entry.name}`;
+      const absolute = path.join(root, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolute, relative);
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith(".ts"))
+        sources[relative] = fs.readFileSync(absolute, "utf8");
+    }
+  };
+  for (const root of ["bin", "src", "scripts"])
+    visit(path.join(coordinatorRoot, root), root);
+  return sources;
+}
 function removeDevelopmentFixture(root: string) {
   assert.equal(path.dirname(root), path.resolve(os.tmpdir()));
   assert.equal(fs.realpathSync.native(root), root);
@@ -148,82 +144,26 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
   developmentFixtureRoots.add(root);
   const distributionRoot = path.join(root, "distribution");
   const packageRoot = path.join(distributionRoot, "40_Develop", "coordinator");
-  const entrypoints = [
-    "bin/coordinator.ts",
-    "src/index.ts",
-    "src/core/interactive-console-reader.ts",
-    "src/core/runtime-local-typescript-child-entrypoints.ts",
-    "src/security/candidate-store-lock-worker.ts",
-    "src/security/host-operation-lock-supervisor.ts",
-    "scripts/verify-signed-recovery-matrix.ts",
-  ];
-  fs.mkdirSync(packageRoot, { recursive: true });
-  fs.writeFileSync(
-    path.join(packageRoot, "package.json"),
-    JSON.stringify({
-      name: "@qual-lab/crdd-coordinator",
-      version: "0.0.0-development",
-      private: true,
-      type: "module",
-      exports: { "./cli": "./bin/coordinator.ts" },
-      scripts: {},
-      engines: {},
-      devDependencies: {},
-    }),
-  );
-  for (const entrypoint of entrypoints) {
-    const target = path.join(packageRoot, entrypoint);
+  const repositoryRoot = path.resolve(coordinatorRoot, "../..");
+  for (const relative of [
+    "40_Develop/coordinator/package.json",
+    "40_Develop/coordinator/bin",
+    "40_Develop/coordinator/src",
+    "40_Develop/coordinator/scripts",
+    "40_Develop/mcp/package.json",
+    "40_Develop/mcp/src",
+    "40_Develop/project-runtime/package.json",
+    "40_Develop/project-runtime/src",
+    "40_Develop/execution-intelligence/package.json",
+    "40_Develop/execution-intelligence/src",
+    "template/tools",
+    "README.md",
+  ]) {
+    const source = path.join(repositoryRoot, ...relative.split("/"));
+    const target = path.join(distributionRoot, ...relative.split("/"));
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, "export const fixture = true;\n");
+    fs.cpSync(source, target, { recursive: true });
   }
-  fs.writeFileSync(
-    path.join(
-      packageRoot,
-      "src",
-      "core",
-      "runtime-local-typescript-child-entrypoints.ts",
-    ),
-    runtimeChildEntrypointModuleFixture,
-  );
-  fs.writeFileSync(
-    path.join(packageRoot, "src", "core", "interactive-console.ts"),
-    [
-      'import { spawnRuntimeLocalTypeScriptChild } from "./runtime-local-typescript-child-entrypoints.ts";',
-      'spawnRuntimeLocalTypeScriptChild("interactive_console_reader", [], {});',
-      "",
-    ].join("\n"),
-  );
-  fs.writeFileSync(
-    path.join(packageRoot, "src", "security", "candidate-store-kernel-lock.ts"),
-    [
-      'import { createRuntimeLocalTypeScriptWorker, spawnRuntimeLocalTypeScriptChild } from "../core/runtime-local-typescript-child-entrypoints.ts";',
-      'createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {});',
-      'spawnRuntimeLocalTypeScriptChild("host_operation_lock_supervisor", [], {});',
-      "",
-    ].join("\n"),
-  );
-  fs.writeFileSync(
-    path.join(packageRoot, "scripts", "verify-signed-recovery-matrix.ts"),
-    [
-      'import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";',
-      'spawnRuntimeLocalTypeScriptChild("signed_recovery_matrix_child", [], { shell: false });',
-      "",
-    ].join("\n"),
-  );
-  const publicToolsRoot = path.join(distributionRoot, "template", "tools");
-  fs.mkdirSync(publicToolsRoot, { recursive: true });
-  fs.writeFileSync(
-    path.join(publicToolsRoot, "crdd-coordinator.ts"),
-    'import "../../40_Develop/coordinator/bin/coordinator.ts";\n',
-  );
-  fs.writeFileSync(
-    path.join(publicToolsRoot, "crdd-mcp.ts"),
-    'import "../../40_Develop/coordinator/src/index.ts";\n',
-  );
-  fs.writeFileSync(
-    path.join(distributionRoot, "README.md"),
-    "# Fixed fixture\n",
-  );
   const oracleRoot = path.join(root, "oracle");
   fs.cpSync(distributionRoot, oracleRoot, { recursive: true });
   function git(...args: string[]) {
@@ -504,6 +444,43 @@ test("Process wrapper注入後のproperty callと内部lifecycle callを利用�
   );
 });
 
+test("非同期子Processは同期完了・所有保持・lifecycle移管のいずれかを証明する", () => {
+  const cases = [
+    {
+      path: "src/core/runtime-local-typescript-child-entrypoints.ts",
+      mutate: (source: string) =>
+        source.replace(
+          "return spawn(process.execPath,",
+          "spawn(process.execPath,",
+        ),
+    },
+    {
+      path: "src/security/docker-owned-process.ts",
+      mutate: (source: string) =>
+        source.replace('child.once("spawn",', 'child.on("spawn",'),
+    },
+    {
+      path: "src/security/docker-desktop-repair-native-helper.ts",
+      mutate: (source: string) =>
+        source.replace("const created =", "const ignored ="),
+    },
+  ];
+  for (const target of cases) {
+    const source = fs.readFileSync(
+      path.join(coordinatorRoot, target.path),
+      "utf8",
+    );
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          target.path,
+          target.mutate(source),
+        ),
+      /runtime_dependency_child_process_ownership_unbound/u,
+    );
+  }
+});
+
 test("配布観測から開発・署名・導入・Capability利用側までを実ソースから閉じる", () => {
   const sourcePath = "src/security/platform-provisioner-package-filesystem.ts";
   const source = fs.readFileSync(
@@ -547,6 +524,36 @@ test("配布観測から開発・署名・導入・Capability利用側までを�
   }
 });
 
+test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致させる", () => {
+  const sources = runtimeTypeScriptSources();
+  assert.doesNotThrow(() =>
+    assertRuntimePackageCapabilityConsumerGraphForVerification(sources),
+  );
+
+  const missing = { ...sources };
+  missing["src/composition/project-runtime-composition-root.ts"] =
+    sources["src/composition/project-runtime-composition-root.ts"]?.replace(
+      "revokeRuntimeExecutionAuthorization:\n      revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,",
+      "revokeRuntimeExecutionAuthorization: () => false,",
+    ) ?? "";
+  assert.throws(
+    () => assertRuntimePackageCapabilityConsumerGraphForVerification(missing),
+    /runtime_dependency_consumer_graph_mismatch/u,
+  );
+
+  const additional = { ...sources };
+  additional["src/security/coordinator-task-runtime.ts"] =
+    sources["src/security/coordinator-task-runtime.ts"]?.replace(
+      "!consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
+      "!consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(consumeRuntimeOwnedVerifiedCoordinatorPackageCapability({}),) && !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
+    ) ?? "";
+  assert.throws(
+    () =>
+      assertRuntimePackageCapabilityConsumerGraphForVerification(additional),
+    /runtime_dependency_consumer_graph_mismatch/u,
+  );
+});
+
 test("署名入口は配布観測結果を秘密入力前の検査と署名結果へ同じflowで伝播する", () => {
   const source = fs.readFileSync(
     path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
@@ -572,6 +579,66 @@ test("署名入口は配布観測結果を秘密入力前の検査と署名結�
     assert.throws(
       () => assertReleaseSigningConsumerClosureForVerification(mutated),
       /runtime_dependency_signing_consumer_unbound/u,
+    );
+});
+
+test("署名の保護対象flowを同名decoy・事前Effect・条件付き証明で迂回できない", () => {
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+    "utf8",
+  );
+  const mutations = [
+    `function main() {}\n${source}`,
+    `function decoy() { function signReleaseManifest() {} }\n${source}`,
+    `readHiddenLine("before-main");\n${source}`,
+    `class BeforeMain { static value = readHiddenLine("before-main"); }\n${source}`,
+    `[0].map(() => readHiddenLine("before-main"));\n${source}`,
+    source.replace(
+      "async function main() {",
+      'async function main(value = readHiddenLine("before-main")) {',
+    ),
+    source.replace(
+      "preflightReleaseManifest(options);",
+      "if (false) preflightReleaseManifest(options);",
+    ),
+  ];
+  for (const mutated of mutations)
+    assert.throws(
+      () => assertReleaseSigningConsumerClosureForVerification(mutated),
+      /runtime_dependency_signing_consumer_unbound/u,
+    );
+});
+
+test("公開結果はCanonical観測値を欠落・再解釈・混合せず投影する", () => {
+  const sourcePath = "src/security/platform-provisioner-package-filesystem.ts";
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, sourcePath),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
+  );
+  for (const mutated of [
+    source.replace(
+      "packageName: observed.observation.packageName,",
+      "packageName: observed.observation.packageVersion,",
+    ),
+    source.replace(
+      "packageContentRootSha256: observed.contentRoot.packageContentRootSha256,",
+      'packageContentRootSha256: observed.contentRoot.packageContentRootSha256 ?? "",',
+    ),
+    source.replace(
+      "packageByteLength: observed.packageByteLength,",
+      "packageByteLength: observed.packageByteLength, additional: true,",
+    ),
+  ])
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          mutated,
+        ),
+      /runtime_dependency_capability_flow_unbound/u,
     );
 });
 
@@ -762,9 +829,22 @@ for (const scenario of [
         fs.writeFileSync(
           declarationModule,
           source.replace(
-            '  declareLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor", "spawn", "../security/host-operation-lock-supervisor.ts", import.meta.url,),\n',
+            [
+              "  declareLocalTypeScriptChildEntrypoint(",
+              '    "host_operation_lock_supervisor",',
+              '    "spawn",',
+              '    "../security/host-operation-lock-supervisor.ts",',
+              "    import.meta.url,",
+              "  ),",
+              "",
+            ].join("\n"),
             "",
           ),
+        );
+        assert.notEqual(
+          fs.readFileSync(declarationModule, "utf8"),
+          source,
+          scenario,
         );
       }
       if (scenario === "declared_without_use") {
@@ -772,19 +852,33 @@ for (const scenario of [
         fs.writeFileSync(
           consumer,
           source.replace(
-            'spawnRuntimeLocalTypeScriptChild("host_operation_lock_supervisor", [], {});',
-            "",
+            '      "host_operation_lock_supervisor",',
+            '      "candidate_store_lock_worker",',
           ),
         );
+        assert.notEqual(fs.readFileSync(consumer, "utf8"), source, scenario);
       }
       if (scenario === "use_without_declaration") {
         const source = fs.readFileSync(declarationModule, "utf8");
         fs.writeFileSync(
           declarationModule,
           source.replace(
-            '  declareLocalTypeScriptChildEntrypoint("host_operation_lock_supervisor", "spawn", "../security/host-operation-lock-supervisor.ts", import.meta.url,),\n',
+            [
+              "  declareLocalTypeScriptChildEntrypoint(",
+              '    "host_operation_lock_supervisor",',
+              '    "spawn",',
+              '    "../security/host-operation-lock-supervisor.ts",',
+              "    import.meta.url,",
+              "  ),",
+              "",
+            ].join("\n"),
             "",
           ),
+        );
+        assert.notEqual(
+          fs.readFileSync(declarationModule, "utf8"),
+          source,
+          scenario,
         );
       }
       if (scenario === "variable_use")
@@ -1882,9 +1976,8 @@ test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは
 });
 
 test("責務分離後のRuntime componentを静的依存閉包として実行Identityへ含める", () => {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-runtime-distribution-closure-"),
-  );
+  const fixture = developmentFixture();
+  const root = fixture.distributionRoot;
   try {
     const coordinatorRoot = path.join(root, "40_Develop", "coordinator");
     const projectRuntimeRoot = path.join(
@@ -1893,87 +1986,20 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
       "project-runtime",
       "src",
     );
-    fs.mkdirSync(path.join(coordinatorRoot, "src"), { recursive: true });
-    fs.mkdirSync(path.join(projectRuntimeRoot, "core"), { recursive: true });
-    fs.writeFileSync(
-      path.join(coordinatorRoot, "package.json"),
-      JSON.stringify({
-        name: "@qual-lab/crdd-coordinator",
-        version: "0.0.0-development",
-        private: true,
-        type: "module",
-        exports: { "./cli": "./bin/coordinator.ts" },
-        scripts: {},
-        engines: {},
-        devDependencies: {},
-      }),
-    );
     const projectRuntimePackagePath = path.join(
       root,
       "40_Develop",
       "project-runtime",
       "package.json",
     );
-    const projectRuntimeMetadata = {
-      name: "@qual-lab/crdd-project-runtime",
-      version: "0.0.0-development",
-      private: true,
-      type: "module",
-      exports: { ".": "./src/index.ts" },
-    };
-    fs.writeFileSync(
-      projectRuntimePackagePath,
-      JSON.stringify(projectRuntimeMetadata),
+    const projectRuntimeMetadata = JSON.parse(
+      fs.readFileSync(projectRuntimePackagePath, "utf8"),
+    ) as Record<string, unknown>;
+    const valuePath = path.join(
+      projectRuntimeRoot,
+      "public-contract",
+      "integration-result.ts",
     );
-    fs.writeFileSync(
-      path.join(coordinatorRoot, "src", "entry.ts"),
-      'export { value } from "../../project-runtime/src/index.ts";\n',
-    );
-    for (const [relativePath, source] of [
-      ["bin/coordinator.ts", "export {};\n"],
-      ["src/core/interactive-console-reader.ts", "export {};\n"],
-      ["src/security/candidate-store-lock-worker.ts", "export {};\n"],
-      ["src/security/host-operation-lock-supervisor.ts", "export {};\n"],
-      [
-        "src/core/runtime-local-typescript-child-entrypoints.ts",
-        runtimeChildEntrypointModuleFixture,
-      ],
-      [
-        "src/core/interactive-console.ts",
-        [
-          'import { spawnRuntimeLocalTypeScriptChild } from "./runtime-local-typescript-child-entrypoints.ts";',
-          'spawnRuntimeLocalTypeScriptChild("interactive_console_reader", [], {});',
-          "",
-        ].join("\n"),
-      ],
-      [
-        "src/security/candidate-store-kernel-lock.ts",
-        [
-          'import { createRuntimeLocalTypeScriptWorker, spawnRuntimeLocalTypeScriptChild } from "../core/runtime-local-typescript-child-entrypoints.ts";',
-          'createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {});',
-          'spawnRuntimeLocalTypeScriptChild("host_operation_lock_supervisor", [], {});',
-          "",
-        ].join("\n"),
-      ],
-      [
-        "scripts/verify-signed-recovery-matrix.ts",
-        [
-          'import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";',
-          'spawnRuntimeLocalTypeScriptChild("signed_recovery_matrix_child", [], { shell: false });',
-          "",
-        ].join("\n"),
-      ],
-    ] as const) {
-      const target = path.join(coordinatorRoot, ...relativePath.split("/"));
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.writeFileSync(target, source);
-    }
-    fs.writeFileSync(
-      path.join(projectRuntimeRoot, "index.ts"),
-      'export { value } from "./core/value.ts";\n',
-    );
-    const valuePath = path.join(projectRuntimeRoot, "core", "value.ts");
-    fs.writeFileSync(valuePath, "export const value = 1;\n");
     const unusedCoordinatorPath = path.join(
       coordinatorRoot,
       "src",
@@ -1989,17 +2015,6 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
       "unused-sibling.ts",
     );
     fs.writeFileSync(unusedSiblingPath, "export const unusedSibling = 1;\n");
-    const publicToolsRoot = path.join(root, "template", "tools");
-    fs.mkdirSync(publicToolsRoot, { recursive: true });
-    fs.writeFileSync(
-      path.join(publicToolsRoot, "crdd-coordinator.ts"),
-      'import "../../40_Develop/coordinator/src/entry.ts";\n',
-    );
-    fs.writeFileSync(
-      path.join(publicToolsRoot, "crdd-mcp.ts"),
-      'import "../../40_Develop/coordinator/src/entry.ts";\n',
-    );
-
     const first =
       inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
     assert.equal(first.status, "candidate");
@@ -2086,7 +2101,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     const unusedSiblingChanged =
       inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
     assert.equal(unusedSiblingChanged.status, "candidate");
-    assert.equal(
+    assert.notEqual(
       unusedSiblingChanged.packageContentRootSha256,
       first.packageContentRootSha256,
     );
@@ -2115,7 +2130,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
       first.packageContentRootSha256,
     );
 
-    fs.writeFileSync(valuePath, "export const value = 2;\n");
+    fs.appendFileSync(valuePath, "// changed runtime dependency\n");
     const dependencyChanged =
       inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
     assert.equal(dependencyChanged.status, "candidate");
@@ -2125,7 +2140,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     );
 
     fs.writeFileSync(
-      path.join(coordinatorRoot, "src", "entry.ts"),
+      path.join(coordinatorRoot, "src", "index.ts"),
       'export { value } from "../../untrusted-component/src/index.ts";\n',
     );
     const outside =
@@ -2133,7 +2148,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     assert.equal(outside.status, "blocked");
     assert.equal(outside.runtimeAuthorityConferred, false);
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    fixture.cleanup();
   }
 });
 
