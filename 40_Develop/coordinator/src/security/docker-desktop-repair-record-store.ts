@@ -2118,6 +2118,10 @@ function readOperation(
   const handoffNames = historyEntries.map((entry) => entry.name).sort();
   let handoffTipSha256 = adoptionSha256;
   let previousRelease = adopting;
+  const historyPolicySha256 =
+    isAdoptionV2 || isAdoptionV3
+      ? String(adoption.dockerPolicySha256)
+      : boundary.dockerPolicySha256;
   let historySession =
     isAdoptionV2 || isAdoptionV3
       ? String(adoption.adoptingLocalUserBindingHash)
@@ -2131,7 +2135,7 @@ function readOperation(
       adoption.runtimeStateProtectionHash !==
         boundary.runtimeStateProtectionHash ||
       adoption.runtimeStateBindingHash !== boundary.runtimeStateBindingHash ||
-      adoption.dockerPolicySha256 !== boundary.dockerPolicySha256 ||
+      !hash64(adoption.dockerPolicySha256) ||
       (isAdoptionV3 && !hash64(adoption.originDockerPolicySha256))
     )
       return null;
@@ -2174,7 +2178,7 @@ function readOperation(
       handoff.runtimeStateProtectionHash !==
         boundary.runtimeStateProtectionHash ||
       handoff.runtimeStateBindingHash !== boundary.runtimeStateBindingHash ||
-      handoff.dockerPolicySha256 !== boundary.dockerPolicySha256
+      handoff.dockerPolicySha256 !== historyPolicySha256
     )
       return null;
     const handoffRelease = verifyHistory(handoff.adoptingManifest);
@@ -2251,6 +2255,11 @@ function readOperation(
     liveRunIdentity = closure.liveRunIdentity;
     staleState = closure.staleState;
   }
+  // A terminal history is immutable evidence and cannot issue Host Effects, so
+  // it remains readable under the policy that governed it. An open operation
+  // must match the current policy before it can be resumed.
+  if (!closurePresent && historyPolicySha256 !== boundary.dockerPolicySha256)
+    return null;
   // Only a fully validated closure permits reading a prior login's chain.
   // No operation is returned until its original chain and receipt anchors match.
   const operation = readOriginalOperation(
@@ -2259,7 +2268,7 @@ function readOperation(
       origin,
       isAdoptionV3
         ? String(adoption.originDockerPolicySha256)
-        : boundary.dockerPolicySha256,
+        : historyPolicySha256,
     ),
     directoryName,
     true,

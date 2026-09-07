@@ -419,6 +419,13 @@ test("修復履歴adoptionはbyteが同じでも別fileのprepareを削除せず
     value.verifyHistory,
   );
   assert.ok(adopted);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(
+      { ...value.currentBoundary, dockerPolicySha256: "f".repeat(64) },
+      value.verifyHistory,
+    ).status,
+    "unknown",
+  );
   const publication = leaveHistoryPublicationState(
     adopted.operationDirectory,
     "historical-adoption.json",
@@ -797,7 +804,6 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
     "runtimeStateIdentityHash",
     "runtimeStateProtectionHash",
     "runtimeStateBindingHash",
-    "dockerPolicySha256",
   ] as const) {
     assert.equal(
       inventoryDockerDesktopRepairOperations(
@@ -808,6 +814,17 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
       field,
     );
   }
+  const afterPolicyChange = inventoryDockerDesktopRepairOperations(
+    { ...nextBoundary, dockerPolicySha256: "f".repeat(64) },
+    value.verifyHistory,
+  );
+  assert.equal(afterPolicyChange.status, "verified");
+  assert.equal(afterPolicyChange.operations[0]?.history?.closed, true);
+  assert.deepEqual(
+    afterPolicyChange.operations[0] &&
+      classifyDockerDesktopRepairResume(afterPolicyChange.operations[0]),
+    { state: "terminal", action: null, nextStage: null },
+  );
   assert.deepEqual(snapshot(), beforeEntries);
 });
 
