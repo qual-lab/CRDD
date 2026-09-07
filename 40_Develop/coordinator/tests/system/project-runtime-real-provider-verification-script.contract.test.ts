@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -18,6 +19,32 @@ const fixture = fileURLToPath(
     import.meta.url,
   ),
 );
+const verificationScriptSource = fs.readFileSync(
+  fileURLToPath(
+    new URL(
+      "../../scripts/verify-project-runtime-real-providers.ts",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
+
+test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () => {
+  assert.match(
+    verificationScriptSource,
+    /"template",\s*"tools",\s*"crdd-mcp\.ts"/u,
+  );
+  assert.doesNotMatch(
+    verificationScriptSource,
+    /"coordinator\.ts",\s*\),\s*"mcp",\s*"--stdio"/u,
+  );
+  assert.equal(
+    verificationScriptSource.match(
+      /closeInputWhen:\s*\(\{ stdout \}\)\s*=>\s*\n?\s*stdout\.split\(\/\\r\?\\n\/u\)\.some\(Boolean\)/gu,
+    )?.length,
+    2,
+  );
+});
 const projection = (isCancelled: boolean) => ({
   projectId: "project-a",
   milestoneId: "milestone-a",

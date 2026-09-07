@@ -2056,6 +2056,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     "src/security/candidate-store-kernel-lock-lifecycle-internal.ts",
     "src/security/candidate-store-kernel-lock.ts",
     "src/security/candidate-store-windows-adapter.ts",
+    "src/security/docker-cli-trust.ts",
     "src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts",
     "src/security/docker-desktop-repair-native-helper.ts",
     "src/security/docker-desktop-runtime-repair.ts",

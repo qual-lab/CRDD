@@ -57,14 +57,7 @@ function startPublicMcpProcess(
   return spawn(
     process.execPath,
     [
-      path.join(
-        distributionRoot,
-        "40_Develop",
-        "coordinator",
-        "bin",
-        "coordinator.ts",
-      ),
-      "mcp",
+      path.join(distributionRoot, "template", "tools", "crdd-mcp.ts"),
       "--stdio",
     ],
     {
@@ -264,6 +257,7 @@ async function main() {
   const cancellationObservation = observePublicMcpProcess(cancellationChild, {
     maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
     timeoutMs: PROCESS_TIMEOUT_MS,
+    closeInputWhen: ({ stdout }) => stdout.split(/\r?\n/u).some(Boolean),
     onVerifiedRuntimeEvent: (event) => {
       const shouldClose =
         !isCancellationRequestedAfterProcessStart &&
@@ -311,6 +305,7 @@ async function main() {
     {
       maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
       timeoutMs: PROCESS_TIMEOUT_MS,
+      closeInputWhen: ({ stdout }) => stdout.split(/\r?\n/u).some(Boolean),
       onVerifiedRuntimeEvent: (event) => {
         const shouldTerminate =
           !isParentTerminationRequestedAfterProcessStart &&

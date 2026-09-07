@@ -1324,6 +1324,13 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ["const", "selectedExecutable", "="],
     ],
     [
+      "src/security/docker-cli-trust.ts",
+      "inspectDockerAuthenticode",
+      "spawnSync",
+      ["powershell"],
+      ["[", "-NoLogo"],
+    ],
+    [
       "src/security/docker-desktop-repair-native-helper.ts",
       "acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
       "spawn",
@@ -1388,7 +1395,7 @@ const runtimeExternalProcessCallsites = Object.freeze(
       "src/security/docker-recovery-runtime-internal.ts",
       "runRecoveryDocker",
       "spawnSync",
-      ["DOCKER_EXECUTABLE"],
+      ["DOCKER_CLI_EXECUTABLE"],
       ["[", "--host"],
       ["verifyRecoveryDockerCli", "(", ")"],
     ],
@@ -1559,8 +1566,8 @@ const exactExternalProcessCallGraph = Object.freeze(
       "startPublicMcpProcess",
       "spawn",
       1,
-      "e71d353847dd434716b0c14acbcf18ddda0e67ec4427861955b9005a5a4c9332",
-      "1651c0789135d4113ea059519ce8cb6b51eee9dbd6078a73819e66bb9c9e9698",
+      "e9883be43c52dc83c81aa58efa713c82954d30458bcbc987d5a4060b6a5a820e",
+      "d106c87f6164952180c3e709153f378472ffd3c28fa6527f7065823f0c838628",
       null,
     ],
     [
@@ -1592,6 +1599,16 @@ const exactExternalProcessCallGraph = Object.freeze(
       "7ba14539964956eac19a4e9c86ca2e9527028f43516b33a18285d707799d141f",
       "c41302e593fb1faacea42b7c3fc914465b895be7aa6d721f8335f7edb8ea6029",
       "execution",
+    ],
+    [
+      "runtime",
+      "src/security/docker-cli-trust.ts",
+      "inspectDockerAuthenticode",
+      "spawnSync",
+      1,
+      "09c761c58f78148f769232a93aaf76c4d459ab14fdd6b5274a9f0b51fbcbdfb3",
+      "dbcf18f7c5694ca2aea5075e6e330069748d791e5b3e9627f084d3c6a4638c1a",
+      "result",
     ],
     [
       "runtime",
@@ -1679,8 +1696,8 @@ const exactExternalProcessCallGraph = Object.freeze(
       "runRecoveryDocker",
       "spawnSync",
       1,
-      "691ddaa18cc3b9a99031b0a5de1c5eef3351abd41d930722e82510e0b140904f",
-      "75c52d23cfafcc1df89ed9ae6a1bb49a9a21d84f04e7c910aa18c1a2bb782e2e",
+      "096b174a1da2c11026ea6beab99a40387bf7199aacb543b4fabc509c414f8f9a",
+      "2f5fc1c3ad16a830a6baac78c6247006990fe50f02b455b3efee5311698c06f8",
       "result",
     ],
     [
@@ -1764,13 +1781,13 @@ const exactAuditedFunctionFlowGraph = Object.freeze(
       "runtime",
       "src/security/docker-effect-runtime.ts",
       "startCommand",
-      "2180973bf2b786076450e0b84b522d6be9651229939568b4d36474aae4c2a685",
+      "62348a015df5ccc9de1b7c91db7eb3f2d7b9eb2d56c95e797fd5c01025049df7",
     ],
     [
       "runtime",
       "src/security/docker-effect-runtime.ts",
       "runShort",
-      "5518b0c92b947572dd4813109f4a58bb09a95a83f353c13e57ba7bccda263088",
+      "4e52250cbe16c11275ece5e6ee1a3ed48139a66c7d639116e84e011f9d14c503",
     ],
     [
       "runtime",
@@ -1872,7 +1889,7 @@ const exactAuditedFunctionFlowGraph = Object.freeze(
       "verification_tool",
       "scripts/verify-project-runtime-real-providers.ts",
       "main",
-      "4e6c26167676209145a20c6d5ccb420e43746b8899bbedc289c63d2e4f407ff5",
+      "4d5a581c4d3731b94ec6e0ddb34672e3f014f69dc1715f0187f1a1755a611a23",
     ],
   ].map(
     ([graph, source, functionName, bodySha256]) =>
@@ -1905,11 +1922,11 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "src/security/docker-effect-runtime.ts\0startCommand",
-      "fd77f6568390e1782b4c400612c40ff531711dd948fe37135d9ef5831af92e91",
+      "403716e55c4d1da7d158c5cc80c958498f52984cad56a790dfaceda4d4bcf6f0",
     ],
     [
       "src/security/docker-effect-runtime.ts\0runShort",
-      "8270be7428ac78ee27dee38173fc258235a85f5f6343fa88b4a51a9f974f74cb",
+      "bbc21c577a40778321e1f1ac2b358b86b39bf1479581680cd75e90d85fd93396",
     ],
     [
       "src/security/platform-provisioner-package-filesystem.ts\0blocked",
@@ -1977,7 +1994,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "a0bb16c227a6859b44042cf6f39b76bf8f2643d68957d7a0b0f5fba061e4a74d",
+      "b0cce4c45b1b6d4c89f6febba4ccc5daca391a249c5786dfc665661e7e5eaaa5",
     ],
   ]),
 );
@@ -2124,6 +2141,13 @@ const exactExecutableProvenance = Object.freeze(
       [
         "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
         [["beginPlatformAccessArtifactSigningObservation", "("]],
+      ],
+      [
+        "src/security/docker-cli-trust.ts\0inspectDockerAuthenticode",
+        [
+          ["const", "environment", "=", "createWindowsDockerCliEnvironment"],
+          ["fs", ".", "realpathSync", ".", "native", "(", "powershell"],
+        ],
       ],
       [
         "src/security/docker-desktop-runtime-repair.ts\0observeEngine",
@@ -3531,7 +3555,9 @@ function assertProcessWrapperConsumerBoundary(
         !expectedOwners.has(owner.name) ||
         observedOwners.has(owner.name) ||
         arguments_.length !== 4 ||
-        !exactExpressionMatches(tokens, arguments_[0], ["DOCKER_EXECUTABLE"]) ||
+        !exactExpressionMatches(tokens, arguments_[0], [
+          "DOCKER_CLI_EXECUTABLE",
+        ]) ||
         !prefixedArrayExpressionMatches(tokens, arguments_[1], [
           "[",
           "--host",
@@ -3727,7 +3753,7 @@ function assertNoUnboundRuntimeChildProcess(
       );
       if (exactMatching.length !== 1)
         throw new Error(
-          "platform_provisioner_runtime_dependency_child_process_unbound",
+          `platform_provisioner_runtime_dependency_child_process_unbound:${sourcePath}:${owner?.name ?? "module"}:${imported}:${argumentShapeSha256}:${functionBodySha256 ?? "none"}:${resultBinding ?? "none"}`,
         );
       const exactMatched = exactMatching[0] as ExactExternalProcessCallGraph;
       const provenanceIdentity = `${exactMatched.source}\0${exactMatched.containingFunction}`;
@@ -4160,7 +4186,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expected = exactExternalProcessCallGraph.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 14 : 6;
+  const expectedCount = graph === "runtime" ? 15 : 6;
   const stableIdentities = expected.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -4176,7 +4202,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCallGraph.length !== 20 ||
+    exactExternalProcessCallGraph.length !== 21 ||
     exactExecutableProvenance.size !== exactExternalProcessCallGraph.length ||
     exactExternalProcessCallGraph.some(
       (callsite) =>

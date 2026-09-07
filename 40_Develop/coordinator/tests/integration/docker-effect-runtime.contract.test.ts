@@ -175,10 +175,15 @@ function createEffectFixture(
       }),
     readCli: () =>
       Object.freeze({
+        executablePath:
+          "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
         rootIdentity: "root",
         executableIdentity: "executable",
+        bytes: 43_247_024,
         sha256:
-          "C8EAA01D1E78CAECD65D730E670CBFE4DFCE006E1C6F18167C003587CB4BB610",
+          "60028870931EA6E91955BFEAEE358EC6C6920F6162C17A3D828C3C82AB3C3599",
+        publisherOrganization: "Docker Inc",
+        trustBasis: "windows_authenticode_valid_docker_inc_publisher",
       }),
     verifyCli: () => undefined,
     createConfig: () => {
@@ -769,10 +774,16 @@ test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除し
   }
 });
 
-test("Docker Effect contractは固定CLIと任意command禁止を公開する", () => {
+test("Docker Effect contractは発行者Trustと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();
   assert.equal(contract.contractRevision, 8);
-  assert.equal(contract.dockerCli.bytes, 41_631_088);
+  assert.equal(contract.dockerCli.exactVersionRequired, false);
+  assert.equal(contract.dockerCli.exactHashRequiredAcrossOperations, false);
+  assert.equal(
+    contract.dockerCli.sameIdentityAndHashRequiredWithinOperation,
+    true,
+  );
+  assert.equal(contract.dockerCli.publisherOrganization, "Docker Inc");
   assert.equal(contract.dockerCli.pathLookupAllowed, false);
   assert.equal(contract.dockerCli.shellAllowed, false);
   assert.equal(contract.environment, "runtime_owned_minimal_replacement");

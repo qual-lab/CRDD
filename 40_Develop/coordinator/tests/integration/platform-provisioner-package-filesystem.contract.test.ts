@@ -170,6 +170,15 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.cpSync(source, target, { recursive: true });
   }
+  fs.rmSync(
+    path.join(
+      distributionRoot,
+      "template",
+      "tools",
+      "coordinator",
+      "coordinator-package-manifest.json",
+    ),
+  );
   const oracleRoot = path.join(root, "oracle");
   fs.cpSync(distributionRoot, oracleRoot, { recursive: true });
   function git(...args: string[]) {
@@ -211,7 +220,7 @@ test("開発版はRuntime依存閉包を実体照合し、署名・実行Authori
     const result = inspectFixedDevelopmentCoordinatorPackageCandidate(
       fixture.input,
     );
-    assert.equal(result.status, "candidate");
+    assert.equal(result.status, "candidate", JSON.stringify(result));
     assert.equal(result.executionSourceKind, "fixed_development_candidate");
     assert.equal(result.entrypoints.length, 5);
     assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
@@ -414,7 +423,7 @@ test("Process wrapper注入後のproperty callと内部lifecycle callを利用�
       assertRuntimeSourceDeclaredGraphBoundaryForVerification(
         dockerPath,
         dockerSource.replace(
-          "dependencies.startProcess(\n      DOCKER_EXECUTABLE,",
+          "dependencies.startProcess(\n      DOCKER_CLI_EXECUTABLE,",
           "dependencies.startProcess(\n      process.execPath,",
         ),
       ),

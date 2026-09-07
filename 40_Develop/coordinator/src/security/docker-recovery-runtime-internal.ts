@@ -21,6 +21,12 @@ import {
   parseDockerDesktopRepairDirectoryName,
 } from "./docker-desktop-repair-record-store.ts";
 import { validateDockerHostTransitionLineage } from "./docker-host-transition-state.ts";
+import {
+  DOCKER_CLI_EXECUTABLE,
+  observeTrustedDockerCli,
+  verifyTrustedDockerCliSnapshot,
+  type DockerCliTrustSnapshot,
+} from "./docker-cli-trust.ts";
 import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 import {
   discoverDockerRecoveryJournalJsonForRecovery,
@@ -89,12 +95,8 @@ const CREATE_PURPOSES = new Set([
   "create_proxy",
   "create_provider",
 ]);
-const DOCKER_EXECUTABLE =
-  "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
-const DOCKER_EXECUTABLE_BYTES = 41_631_088;
-const DOCKER_EXECUTABLE_SHA256 =
-  "C8EAA01D1E78CAECD65D730E670CBFE4DFCE006E1C6F18167C003587CB4BB610";
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
+let recoveryDockerCliSnapshot: DockerCliTrustSnapshot | null = null;
 
 type ProductionPlan = Readonly<{
   provider: "codex" | "claude";
@@ -2683,18 +2685,15 @@ function currentHostRecoveryTokenForInventory(
 }
 
 function verifyRecoveryDockerCli() {
-  const metadata = fs.lstatSync(DOCKER_EXECUTABLE);
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.size !== DOCKER_EXECUTABLE_BYTES ||
-    fs.realpathSync(DOCKER_EXECUTABLE) !== DOCKER_EXECUTABLE ||
-    createHash("sha256")
-      .update(fs.readFileSync(DOCKER_EXECUTABLE))
-      .digest("hex")
-      .toUpperCase() !== DOCKER_EXECUTABLE_SHA256
-  )
+  try {
+    if (recoveryDockerCliSnapshot === null) {
+      recoveryDockerCliSnapshot = observeTrustedDockerCli();
+    } else {
+      verifyTrustedDockerCliSnapshot(recoveryDockerCliSnapshot);
+    }
+  } catch {
     throw new Error("docker_task_recovery_cli_untrusted");
+  }
 }
 
 function recoveryConfigIdentity(configDirectory: string) {
@@ -2723,7 +2722,7 @@ function runRecoveryDocker(
   });
   if (!environment) throw new Error("docker_recovery_environment_unavailable");
   const result = spawnSync(
-    DOCKER_EXECUTABLE,
+    DOCKER_CLI_EXECUTABLE,
     ["--host", DOCKER_ENGINE, "--config", configDirectory, ...argv],
     {
       windowsHide: true,
