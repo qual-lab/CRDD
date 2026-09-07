@@ -1,6 +1,6 @@
 # v0.20公開Runtimeと限定分散の固定候補検証結果
 
-状態: 配布全体の構造是正を自己確認済み。独立再レビュー待ち
+状態: 配布全体の構造是正を自己確認済み。正式署名・公開縦断E2E待ち
 担当責任者: Qual-Lab
 最終更新日: 2026-09-07
 
@@ -66,7 +66,7 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 是正固定版`f77b6e3fd88504cb6cb51bbdec8470eeaa79ef93`（Tree `0c1b653ee9c20380f3a30183a796801207670da2`）では、実配布対象と検証Tool対象の全sourceを宣言集合とは独立に列挙し、20の外部Process呼出しをRuntime 14件とTool 6件へ重複・無所属なしで分けた。各呼出しはsource、所有関数、実行primitive、完全な引数式、結果bindingおよび監査対象flowへ結合し、source欠落、未知の実行source、引数・option変更、結果差替え、死んだ分岐、遅延した所有、decoy呼出しを拒否する。公開経路はobserver resultからcandidate guard、Manifest／Identity、Capabilityまたは公開結果までを利用側ごとに固定し、署名では秘密入力より前、native／promotion／recoveryではAuthorityまたはEffectより前の判定を要求する。正当なinline type-only import／re-exportは実行能力として扱わない。
 
-自己確認では、重点128件、制限Process 1,745件、Windows実Process Gate 7件、`npm run check`およびRepository全体Checkerが成功し、CheckerはError 0、Warning 0だった。実Provider、正式署名および正式E2Eは実施していない。新固定候補を独立再レビューへ渡し、合格後に同じ候補を署名してpristine positive／mutation negative E2Eを確認するまで、利用側閉包の正式成立、Runtime実行Authorityまたはv0.20.0公開を主張しない。
+限定グラフによる保護経路是正後の自己確認では、制限Process 1,752件、Windows実Process Gate 7件、`npm run check`およびRepository全体Checker 426文書が成功し、CheckerはError 0、Warning 0だった。実Provider、正式署名および正式E2Eは実施していない。次は同じ固定候補を署名してpristine positive／mutation negative E2Eを確認し、その実行結果を含む改訂版へ独立再レビューと最終監査を行う。これらが完了するまで、利用側閉包の正式成立、Runtime実行Authorityまたはv0.20.0公開を主張しない。
 
 ## 限定分散の観測
 

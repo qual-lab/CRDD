@@ -6,7 +6,7 @@ Version: v0.20.0
 Status: Candidate
 Released Baseline: v0.19.0
 Owner: Qual-Lab
-Last Updated: 2026-09-06
+Last Updated: 2026-09-07
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -941,7 +941,63 @@ SPEC-000044 verified_by test-or-evidence-reference
 
 変更トレースの契機、意図、想定／実際の影響、成果物のトレース、リリース帰属は[変更](12_Change.md)を正本とし、文書化側に別ひな型を作らない。リリース記録とCHANGELOGは[リリース](13_Release.md)、作業手順は[作業手順](14_Workflow.md)に従う。
 
-## 10.4. 妥当性確認と監査
+<a id="104-structured-first"></a>
+
+## 10.4. 構造を先に選ぶ文書表現
+
+文書は情報量を減らすのではなく、意味の種類に合う構造を先に選ぶ。背景、思想または理由のように文章でなければ関係を保てない情報だけを文章で補う。
+
+```text
+表
+  ↓ 適さない場合
+箇条書き
+  ↓ 時間・依存・遷移を示す場合
+図またはFlow
+  ↓ 補足が必要な場合
+短い文章
+  ↓ 構造化すると意味を失う場合だけ
+長い文章
+```
+
+| 情報 | 優先する表現 |
+|---|---|
+| 状態、属性、Input／Output | 表 |
+| 条件、規則、例外、受入条件 | 箇条書き、Checklistまたは表 |
+| 比較、判断 | 比較表または判断表 |
+| 責務、決定権限 | 責務表またはMatrix |
+| Process、依存、状態遷移 | 図、Flowまたは遷移表 |
+| 履歴、指摘事項と是正 | Timelineまたは対応表 |
+| 背景、思想、理由 | 一つの意味目的に限定した短い文章 |
+
+一つの段落は一つの意味目的に限定する。定義、条件、例外、処置、決定主体、結果または理由を同じ長文へ詰め込まず、読者が係り先を構造から区別できるようにする。
+
+工程または成果物ごとの役割は次を維持する。ここで示す工程は代表例ではなく、CRDDの工程連鎖全体である。
+
+| 工程／成果物 | 正本 | 所有する情報 |
+|---|---|---|
+| Roadmap | `99_Roadmap` | 未完了項目、現在状態、次のGate、詳細正本への参照 |
+| `CHG-*` | `90_Release/Changes` | 変更前後の責務・契約差、指摘と構造是正、根拠、残るGate |
+| 課題探索・要求形成（Discovery） | `21_Discovery.md`と`01_Discovery` | 起点、問題、情報源、根拠、不確実性、仮説、要求および判断 |
+| 利用者体験（UX） | `22_UX.md`と`02_UX` | 利用者、望ましい成果、体験原則、Journeyおよび受入可能な体験 |
+| 情報設計（IA） | `23_IA.md`と`03_IA` | 情報オブジェクト、関係、責務、Navigationおよび用語 |
+| 利用者画面（UI） | `25_UI.md`と`04_UI` | 認識、操作、Feedback、状態表示および視覚表現 |
+| UI／振る舞い仕様の対応 | `24_UI_Behavior_Specification.md` | UI契約と振る舞い仕様の対応、相互の欠落および不整合 |
+| 振る舞い仕様（SPEC） | `26_Behavior_Specification.md`と`05_SPEC` | Input、事前条件、状態、振る舞い、Output、Error、Effectおよび受入条件 |
+| アーキテクチャ（Architecture） | `27_Architecture.md`と`06_Architecture` | Component、依存、Interface、Authority、Effect、Failureおよび品質特性 |
+| 実装（Implementation） | `28_Implementation.md`と`40_Develop` | 現在のSource、構成、実装上の所有者および開発者試験 |
+| 検証（Verification） | `29_Verification.md` | 検証・根拠戦略、独立確認、指摘事項、Release準備状況の推奨および学び |
+| 品質保証（Quality） | `16_Quality_Assurance.md`と`07_Quality` | 工程横断の検証義務、検証設計、確定済み結果および現在品質状態 |
+| 外部コミュニケーション（Communication） | `17_Communication.md`と該当時の`80_Communication` | 目的、受け手、主張、根拠、媒体、公開状態、測定および学び候補 |
+| 検証結果 | `07_Quality/Verification_Results` | 対象改訂版、実行条件、確認結果および未確認範囲 |
+| Git | Version Control履歴 | 実際の差分と時系列 |
+
+Roadmapへ設計詳細を複製せず、`CHG-*`を開発日誌にしない。DiscoveryからVerificationまでの全工程と、適用する外部CommunicationおよびQualityでは、各工程が所有する意味を、工程の責務に合う表、Matrix、Diagram、FlowまたはChecklistへ分ける。
+
+構造化のために新しい正本、状態、IDまたは管理成果物を機械的に追加しない。表のセルへ長文を移すだけの変更、文章を断片化して前後関係を失う変更、同じ説明の複製、規範強度・条件・例外・履歴の欠落は改善と扱わない。
+
+<a id="105-validity-check-and-audit"></a>
+
+## 10.5. 妥当性確認と監査
 
 本書は、検査対象となる規則を定義する。検査の実行方法は、次を正本とする。
 

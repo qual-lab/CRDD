@@ -78,6 +78,10 @@ function runtimeTypeScriptSources() {
   };
   for (const root of ["bin", "src", "scripts"])
     visit(path.join(coordinatorRoot, root), root);
+  visit(
+    path.resolve(coordinatorRoot, "../project-runtime/src"),
+    "40_Develop/project-runtime/src",
+  );
   return sources;
 }
 function removeDevelopmentFixture(root: string) {
@@ -579,9 +583,51 @@ test("実行能力の反証は利用側伝播の意図したphaseで拒否する
     },
     {
       phase: "consumer_handoff",
+      path: "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+      from: "? issuedAuthorization.value\n              : null;",
+      to: "? {}\n              : null;",
+    },
+    {
+      phase: "consumer_handoff",
+      path: "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+      from: "runtimeExecutionCapability,\n            taskRequest:",
+      to: "runtimeExecutionCapability: {},\n            taskRequest:",
+    },
+    {
+      phase: "consumer_import",
+      path: "src/security/coordinator-task-runtime.ts",
+      from: "!consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(\n      verifiedPackageCapability,",
+      to: "!decoy.consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(\n      verifiedPackageCapability,",
+    },
+    {
+      phase: "consumer_handoff",
       path: "src/security/coordinator-task-runtime.ts",
       from: "  if (\n    !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
       to: "  void productionRuntime.start(rawRequest, repositoryRoot, new Date().toISOString(), recoveryCorrelationId);\n  if (\n    !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
+    },
+    {
+      phase: "assurance_consumer",
+      path: "scripts/promote-release-manifest.ts",
+      from: "expectedRelease: release.expected,",
+      to: "expectedRelease: { ...release.expected },",
+    },
+    {
+      phase: "assurance_consumer",
+      path: "scripts/promote-release-manifest.ts",
+      from: "sourceCommit: release.expected.crddCommit,",
+      to: "sourceCommit: release.expected.crddTree,",
+    },
+    {
+      phase: "assurance_consumer",
+      path: "src/security/docker-recovery-runtime-internal.ts",
+      from: "crddManifestHash: verification.manifestHash,",
+      to: 'crddManifestHash: "forged",',
+    },
+    {
+      phase: "assurance_consumer",
+      path: "src/security/docker-recovery-runtime-internal.ts",
+      from: "runtimeExecutionIdentitySha256:\n          verification.runtimeExecutionIdentitySha256,",
+      to: 'runtimeExecutionIdentitySha256: "forged",',
     },
   ] as const;
   for (const scenario of cases) {
@@ -597,8 +643,7 @@ test("実行能力の反証は利用側伝播の意図したphaseで拒否する
       result.publicReason,
       "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
     );
-    assert.equal(result.capabilityIssued, false);
-    assert.equal(result.effectState, "no_effect");
+    assert.equal(result.runtimeExecution, "not_performed");
     assert.throws(
       () => assertRuntimePackageCapabilityConsumerGraphForVerification(mutated),
       /platform_provisioner_runtime_dependency_consumer_graph_mismatch/u,
@@ -627,6 +672,18 @@ test("署名入口は配布観測結果を秘密入力前の検査と署名結�
       'const passphrase = await readHiddenLine("Release key passphrase: ");',
       'const passphrase = "not-observed";',
     ),
+    source.replace(
+      "compilePlatformProvisionerManifestPayloadCandidate,",
+      "compilePlatformProvisionerManifestPayloadCandidate as compilePayload,",
+    ),
+    source.replace(
+      'signature: signature.toString("base64url"),',
+      'signature: "forged",',
+    ),
+    source.replace(
+      "payload: compiled.payload,",
+      "payload: { ...compiled.payload },",
+    ),
   ])
     assert.throws(
       () => assertReleaseSigningConsumerClosureForVerification(mutated),
@@ -642,7 +699,10 @@ test("署名の保護対象flowを同名decoy・事前Effect・条件付き証�
   const mutations = [
     `function main() {}\n${source}`,
     `function decoy() { function signReleaseManifest() {} }\n${source}`,
+    `await main();\n${source}`,
     `readHiddenLine("before-main");\n${source}`,
+    `fs["readFileSync"]("before-main");\n${source}`,
+    `Reflect.get(fs, "readFileSync")("before-main");\n${source}`,
     `class BeforeMain { static value = readHiddenLine("before-main"); }\n${source}`,
     `[0].map(() => readHiddenLine("before-main"));\n${source}`,
     source.replace(
@@ -716,8 +776,7 @@ test("署名の反証は意図した保護phaseで最初に拒否しEffect経路
       result.publicReason,
       "platform_provisioner_runtime_dependency_signing_consumer_unbound",
     );
-    assert.equal(result.capabilityIssued, false);
-    assert.equal(result.effectState, "no_effect");
+    assert.equal(result.runtimeExecution, "not_performed");
     assert.throws(
       () => assertReleaseSigningConsumerClosureForVerification(mutated),
       /platform_provisioner_runtime_dependency_signing_consumer_unbound/u,

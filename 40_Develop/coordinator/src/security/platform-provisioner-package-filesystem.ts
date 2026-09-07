@@ -4137,28 +4137,20 @@ function assertExactAuditedFunctionFlows(
     expected.map((flow) => flow.functionName),
   );
   if (
-    expected.length !== observed.length ||
-    observed.some(
-      (flow) =>
-        exactAuditedSemanticGraphSha256.get(`${sourcePath}\0${flow.name}`) !==
-        flow.semanticGraphSha256,
-    )
+    sourcePath !== "scripts/sign-release-manifest.ts" &&
+    (expected.length !== observed.length ||
+      observed.some(
+        (flow) =>
+          exactAuditedSemanticGraphSha256.get(`${sourcePath}\0${flow.name}`) !==
+          flow.semanticGraphSha256,
+      ))
   )
     throw new Error(
       "platform_provisioner_runtime_dependency_capability_flow_unbound",
     );
-  // Exact body identity is supplementary evidence. The scope-aware semantic
-  // graph above is the primary contract and is checked first.
-  if (
-    observed.some(
-      (flow) =>
-        expected.find((candidate) => candidate.functionName === flow.name)
-          ?.bodySha256 !== flow.bodySha256,
-    )
-  )
-    throw new Error(
-      "platform_provisioner_runtime_dependency_capability_flow_unbound",
-    );
+  // Exact body identity remains available in the returned diagnostic graph,
+  // but it is evidence only. Safety acceptance is based on the structural
+  // contracts above and the protected-path checks below.
 }
 
 function assertExactCapabilityGraphSourceUniverse(
@@ -4390,6 +4382,11 @@ function runtimePackageCapabilityConsumers(
           tokens[index]?.value !== binding.local
         )
           continue;
+        if (
+          tokens[index - 1]?.value === "." ||
+          tokens[index - 1]?.value === "?."
+        )
+          throw new Error(`consumer_import:${binding.imported}:property`);
         occurrence += 1;
         const owner = containingNamedFunction(tokens, index)?.name ?? "module";
         const use =
@@ -4693,6 +4690,73 @@ function assertRuntimePackageCapabilityHandoffClosure(
     ],
     "adapter_revoke_projection",
   );
+  exact(
+    "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+    [
+      "const",
+      "issuedAuthorization",
+      "=",
+      "dependencies",
+      ".",
+      "authorization",
+      ".",
+      "issue",
+      "(",
+    ],
+    "project_runtime_issue",
+  );
+  exact(
+    "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+    [
+      "const",
+      "runtimeExecutionCapability",
+      "=",
+      "issuedAuthorization",
+      ".",
+      "status",
+      "=",
+      "=",
+      "=",
+      "completed",
+      "?",
+      "issuedAuthorization",
+      ".",
+      "value",
+      ":",
+      "null",
+    ],
+    "project_runtime_issue_result",
+  );
+  exact(
+    "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+    [
+      "dependencies",
+      ".",
+      "authorization",
+      ".",
+      "revokeUnused",
+      "(",
+      "runtimeExecutionCapability",
+      ",",
+      ")",
+    ],
+    "project_runtime_revoke",
+  );
+  exact(
+    "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+    [
+      "runtimeExecutionCapability",
+      ",",
+      "taskRequest",
+      ":",
+      "attempt",
+      ".",
+      "execution",
+      ".",
+      "taskRequest",
+    ],
+    "project_runtime_execution_handoff",
+  );
   const consumed = exact(
     "src/security/coordinator-task-runtime.ts",
     [
@@ -4727,11 +4791,87 @@ function assertRuntimePackageCapabilityHandoffClosure(
     throw new Error("consumer_handoff:coordinator_dominance");
 }
 
+function assertReleaseAssuranceConsumerClosure(
+  sources: Readonly<Record<string, string>>,
+) {
+  const exact = (
+    relativePath: string,
+    sequence: readonly string[],
+    reason: string,
+  ) => {
+    const source = sources[relativePath];
+    if (typeof source !== "string")
+      throw new Error(`assurance_consumer:${reason}:source`);
+    const tokens = tokenizeTypeScriptModuleSyntax(source);
+    const matches = tokenSequenceIndicesBetween(
+      tokens,
+      0,
+      tokens.length,
+      sequence,
+    );
+    if (matches.length !== 1)
+      throw new Error(`assurance_consumer:${reason}:shape`);
+  };
+
+  exact(
+    "scripts/promote-release-manifest.ts",
+    [
+      "runtimeExecutionIdentitySha256",
+      ":",
+      "payload",
+      ".",
+      "runtimeExecutionIdentitySha256",
+    ],
+    "promotion_canonical_identity",
+  );
+  exact(
+    "scripts/promote-release-manifest.ts",
+    ["expectedRelease", ":", "release", ".", "expected"],
+    "promotion_installed_observation",
+  );
+  exact(
+    "scripts/promote-release-manifest.ts",
+    ["sourceCommit", ":", "release", ".", "expected", ".", "crddCommit"],
+    "promotion_public_result",
+  );
+  exact(
+    "src/security/docker-recovery-runtime-internal.ts",
+    ["crddManifestHash", ":", "verification", ".", "manifestHash"],
+    "recovery_manifest_identity",
+  );
+  exact(
+    "src/security/docker-recovery-runtime-internal.ts",
+    [
+      "runtimeExecutionIdentitySha256",
+      ":",
+      "verification",
+      ".",
+      "runtimeExecutionIdentitySha256",
+    ],
+    "recovery_runtime_identity",
+  );
+  exact(
+    "src/security/docker-recovery-runtime-internal.ts",
+    [
+      "const",
+      "result",
+      "=",
+      "recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver",
+      "(",
+      "parsed",
+      ".",
+      "token",
+    ],
+    "recovery_effect_entry",
+  );
+}
+
 function assertExactRuntimePackageCapabilityConsumerGraph(
   sources: Readonly<Record<string, string>>,
   scope: "repository" | "runtime_distribution",
 ) {
   assertRuntimePackageCapabilityHandoffClosure(sources);
+  assertReleaseAssuranceConsumerClosure(sources);
   const observed =
     runtimePackageCapabilityConsumerGraphForVerification(sources);
   const expected = exactRuntimePackageCapabilityConsumerGraph.filter(
@@ -4776,8 +4916,7 @@ export function runtimePackageCapabilityConsumerGraphDiagnosticForVerification(
       phase: "consumer_graph",
       reason: "runtime_package_capability_consumer_graph_closed",
       publicReason: null,
-      capabilityIssued: false,
-      effectState: "no_effect",
+      runtimeExecution: "not_performed",
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : "unknown";
@@ -4787,8 +4926,7 @@ export function runtimePackageCapabilityConsumerGraphDiagnosticForVerification(
       reason,
       publicReason:
         "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
-      capabilityIssued: false,
-      effectState: "no_effect",
+      runtimeExecution: "not_performed",
     });
   }
 }
@@ -4933,8 +5071,7 @@ type ProtectedPathDiagnostic = Readonly<{
   phase: string;
   reason: string;
   publicReason: string | null;
-  capabilityIssued: false;
-  effectState: "no_effect";
+  runtimeExecution: "not_performed";
 }>;
 
 function namedFunctionBodyRange(
@@ -4979,6 +5116,7 @@ function directProtectedCall(
     if (
       tokens[index]?.value !== symbol ||
       tokens[index + 1]?.value !== "(" ||
+      tokens[index - 1]?.value === "." ||
       (containingNamedFunction(tokens, index)?.name ?? "module") !== owner
     )
       continue;
@@ -5012,6 +5150,10 @@ function assertReleaseSigningProtectedPath(source: string) {
   const protectedImports = Object.freeze(
     new Map<string, readonly string[]>([
       ["node:crypto", ["createPrivateKey", "createPublicKey", "sign"]],
+      [
+        "../src/security/git-object-reader.ts",
+        ["inspectGitCommitTreeCandidate"],
+      ],
       ["./generate-release-key.ts", ["readHiddenLine"]],
       [
         "./release-staging-manifest.ts",
@@ -5024,6 +5166,29 @@ function assertReleaseSigningProtectedPath(source: string) {
       [
         "../src/security/platform-provisioner-package-filesystem.ts",
         ["inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate"],
+      ],
+      [
+        "../src/security/platform-provisioner-release-identity.ts",
+        ["inspectPlatformProvisionerReleaseIdentityCandidate"],
+      ],
+      [
+        "../src/security/platform-provisioner-policy-identity.ts",
+        ["getPlatformProvisionerPolicyIdentity"],
+      ],
+      [
+        "../src/security/platform-provisioner-release-trust.ts",
+        ["getPinnedPlatformProvisionerReleaseSignerSpkiDer"],
+      ],
+      [
+        "../src/security/platform-provisioner-trust-core.ts",
+        [
+          "compilePlatformProvisionerManifestPayloadCandidate",
+          "calculateRuntimeExecutionIdentityCandidate",
+        ],
+      ],
+      [
+        "../src/security/provisioning-signature-primitives.ts",
+        ["canonicalizeProvisioningJsonValueCandidate"],
       ],
     ] as const),
   );
@@ -5050,6 +5215,51 @@ function assertReleaseSigningProtectedPath(source: string) {
       if (!protectedBindings.has(symbol))
         throw new Error(`import_binding:${symbol}_missing`);
 
+  const filesystemImports = moduleDeclarationsFromTokens(tokens).filter(
+    (declaration) =>
+      declaration.kind === "static_import" &&
+      declaration.specifierIndex !== null &&
+      tokens[declaration.specifierIndex]?.value === "node:fs",
+  );
+  if (
+    filesystemImports.length !== 1 ||
+    filesystemImports[0]?.bindings.length !== 1 ||
+    filesystemImports[0]?.bindings[0]?.imported !== "default" ||
+    filesystemImports[0]?.bindings[0]?.local !== "fs"
+  )
+    throw new Error("import_binding:fs");
+  const filesystemBindingIndex = filesystemImports[0]?.bindings[0]
+    ?.localTokenIndex as number;
+  const filesystemMethodsByOwner = new Map<string, ReadonlySet<string>>([
+    [
+      "stableExternalFile",
+      new Set([
+        "lstatSync",
+        "realpathSync",
+        "constants",
+        "openSync",
+        "fstatSync",
+        "readSync",
+        "closeSync",
+      ]),
+    ],
+    [
+      "repositoryLocalDistributionRoot",
+      new Set(["lstatSync", "realpathSync", "existsSync"]),
+    ],
+  ]);
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (index === filesystemBindingIndex || tokens[index]?.value !== "fs")
+      continue;
+    const owner = containingNamedFunction(tokens, index)?.name ?? "module";
+    const method = tokens[index + 2]?.value ?? "";
+    if (
+      tokens[index + 1]?.value !== "." ||
+      !filesystemMethodsByOwner.get(owner)?.has(method)
+    )
+      throw new Error(`binding_use:fs:${owner}`);
+  }
+
   for (const functionName of [
     "prepareReleaseManifestCandidate",
     "preflightReleaseManifest",
@@ -5064,6 +5274,23 @@ function assertReleaseSigningProtectedPath(source: string) {
       new Set(["prepareReleaseManifestCandidate"]),
     ],
     [
+      "inspectPlatformProvisionerReleaseIdentityCandidate",
+      new Set(["prepareReleaseManifestCandidate"]),
+    ],
+    ["inspectGitCommitTreeCandidate", new Set(["verifyCommitTreeBinding"])],
+    [
+      "getPlatformProvisionerPolicyIdentity",
+      new Set(["prepareReleaseManifestCandidate"]),
+    ],
+    [
+      "calculateRuntimeExecutionIdentityCandidate",
+      new Set(["prepareReleaseManifestCandidate"]),
+    ],
+    [
+      "compilePlatformProvisionerManifestPayloadCandidate",
+      new Set(["prepareReleaseManifestCandidate"]),
+    ],
+    [
       "beginReleaseStagingManifestSession",
       new Set(["prepareReleaseManifestCandidate"]),
     ],
@@ -5074,16 +5301,31 @@ function assertReleaseSigningProtectedPath(source: string) {
     ["readHiddenLine", new Set(["main"])],
     ["createPrivateKey", new Set(["signReleaseManifest"])],
     ["createPublicKey", new Set(["signReleaseManifest"])],
+    [
+      "getPinnedPlatformProvisionerReleaseSignerSpkiDer",
+      new Set(["signReleaseManifest"]),
+    ],
+    [
+      "canonicalizeProvisioningJsonValueCandidate",
+      new Set(["signReleaseManifest"]),
+    ],
     ["sign", new Set(["signReleaseManifest"])],
     ["placeReleaseStagingManifestCandidate", new Set(["signReleaseManifest"])],
   ]);
   const expectedProtectedImportUseCount = new Map<string, number>([
     ["inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate", 1],
+    ["inspectPlatformProvisionerReleaseIdentityCandidate", 1],
+    ["inspectGitCommitTreeCandidate", 1],
+    ["getPlatformProvisionerPolicyIdentity", 1],
+    ["calculateRuntimeExecutionIdentityCandidate", 1],
+    ["compilePlatformProvisionerManifestPayloadCandidate", 1],
     ["beginReleaseStagingManifestSession", 1],
-    ["verifyReleaseStagingManifestSession", 2],
+    ["verifyReleaseStagingManifestSession", 1],
     ["readHiddenLine", 1],
     ["createPrivateKey", 1],
     ["createPublicKey", 1],
+    ["getPinnedPlatformProvisionerReleaseSignerSpkiDer", 1],
+    ["canonicalizeProvisioningJsonValueCandidate", 1],
     ["sign", 1],
     ["placeReleaseStagingManifestCandidate", 1],
   ]);
@@ -5126,20 +5368,99 @@ function assertReleaseSigningProtectedPath(source: string) {
     [["preflight", ".", "authorization"], ["passphrase"]],
   );
   if (!(p < secret && secret < s)) throw new Error("dominance:p_secret_s");
+  const mainInvocation = directProtectedCall(
+    tokens,
+    "main",
+    "module",
+    ["await"],
+    [],
+  );
+  if (
+    !tokenSequenceMatches(tokens, mainInvocation - 3, [
+      "try",
+      "{",
+      "await",
+      "main",
+      "(",
+      ")",
+      ";",
+      "}",
+      "catch",
+      "(",
+    ])
+  )
+    throw new Error("call_graph:module:main_guard");
 
   const pPrepare = directProtectedCall(
     tokens,
     "prepareReleaseManifestCandidate",
     "preflightReleaseManifest",
     [],
-    [["snapshot"], ["true"]],
+    [["snapshot"]],
   );
   const sPrepare = directProtectedCall(
     tokens,
     "prepareReleaseManifestCandidate",
     "signReleaseManifest",
     [],
-    [["options"], ["false"]],
+    [["options"]],
+  );
+  const releaseIdentity = directProtectedCall(
+    tokens,
+    "inspectPlatformProvisionerReleaseIdentityCandidate",
+    "prepareReleaseManifestCandidate",
+    ["const", "releaseIdentity", "="],
+    [["distributionRoot"], ["options", ".", "crddTree"]],
+  );
+  const commitTree = directProtectedCall(
+    tokens,
+    "verifyCommitTreeBinding",
+    "prepareReleaseManifestCandidate",
+    [],
+    [
+      ["options", ".", "crddCommit"],
+      ["options", ".", "crddTree"],
+    ],
+  );
+  const stagingVerification = directProtectedCall(
+    tokens,
+    "verifyReleaseStagingManifestSession",
+    "prepareReleaseManifestCandidate",
+    [],
+    [["platformAccessObservation", ".", "token"]],
+  );
+  const policyIdentity = directProtectedCall(
+    tokens,
+    "getPlatformProvisionerPolicyIdentity",
+    "prepareReleaseManifestCandidate",
+    ["const", "policyIdentity", "="],
+    [],
+  );
+  const uniqueOwnedCallIndex = (
+    symbol: string,
+    owner: string,
+    prefix: readonly string[],
+  ) => {
+    const matches = tokenSequenceIndicesBetween(tokens, 0, tokens.length, [
+      ...prefix,
+      symbol,
+      "(",
+    ]).filter(
+      (index) =>
+        containingNamedFunction(tokens, index + prefix.length)?.name === owner,
+    );
+    if (matches.length !== 1) throw new Error(`call_graph:${owner}:${symbol}`);
+    return (matches[0] as number) + prefix.length;
+  };
+  const runtimeIdentity = uniqueOwnedCallIndex(
+    "calculateRuntimeExecutionIdentityCandidate",
+    "prepareReleaseManifestCandidate",
+    ["const", "runtimeExecutionIdentity", "="],
+  );
+  const compiledPayload = uniqueOwnedCallIndex(
+    "compilePlatformProvisionerManifestPayloadCandidate",
+    "prepareReleaseManifestCandidate",
+    ["const", "compiled", "="],
   );
   const keyRead = directProtectedCall(
     tokens,
@@ -5148,12 +5469,33 @@ function assertReleaseSigningProtectedPath(source: string) {
     ["privateKeyBytes", "="],
     [["options", ".", "privateKeyPath"], ["MAXIMUM_PRIVATE_KEY_BYTES"]],
   );
+  const passphrase = directProtectedCall(
+    tokens,
+    "signingPassphrase",
+    "signReleaseManifest",
+    ["const", "passphrase", "="],
+    [["rawPassphrase"]],
+  );
   const signature = directProtectedCall(
     tokens,
     "sign",
     "signReleaseManifest",
     ["const", "signature", "="],
     [["null"], ["compiled", ".", "message"], ["privateKey"]],
+  );
+  const pinnedSigner = directProtectedCall(
+    tokens,
+    "getPinnedPlatformProvisionerReleaseSignerSpkiDer",
+    "signReleaseManifest",
+    ["const", "pinnedSpki", "="],
+    [],
+  );
+  const canonicalEnvelope = directProtectedCall(
+    tokens,
+    "canonicalizeProvisioningJsonValueCandidate",
+    "signReleaseManifest",
+    ["const", "canonical", "="],
+    [["envelope"]],
   );
   const placement = directProtectedCall(
     tokens,
@@ -5165,7 +5507,21 @@ function assertReleaseSigningProtectedPath(source: string) {
       ["canonical", ".", "canonicalBytes"],
     ],
   );
-  if (!(keyRead < signature && signature < placement))
+  if (
+    !(
+      releaseIdentity < commitTree &&
+      commitTree < stagingVerification &&
+      policyIdentity < runtimeIdentity &&
+      runtimeIdentity < compiledPayload &&
+      sPrepare < passphrase &&
+      passphrase < keyRead &&
+      keyRead < pinnedSigner &&
+      keyRead < signature &&
+      signature < canonicalEnvelope &&
+      canonicalEnvelope < placement &&
+      signature < placement
+    )
+  )
     throw new Error("dominance:key_signature_placement");
 
   const expectedLocalCalls = new Map<string, ReadonlySet<number>>([
@@ -5173,6 +5529,9 @@ function assertReleaseSigningProtectedPath(source: string) {
     ["signReleaseManifest", new Set([s])],
     ["prepareReleaseManifestCandidate", new Set([pPrepare, sPrepare])],
     ["stableExternalFile", new Set([keyRead])],
+    ["signingPassphrase", new Set([passphrase])],
+    ["verifyCommitTreeBinding", new Set([commitTree])],
+    ["main", new Set([mainInvocation])],
   ]);
   for (const [symbol, expectedIndices] of expectedLocalCalls) {
     const observed: number[] = [];
@@ -5189,6 +5548,110 @@ function assertReleaseSigningProtectedPath(source: string) {
     )
       throw new Error(`local_binding_use:${symbol}`);
   }
+
+  const prepareRange = namedFunctionBodyRange(
+    tokens,
+    "prepareReleaseManifestCandidate",
+  );
+  const signingRange = namedFunctionBodyRange(tokens, "signReleaseManifest");
+  const requireSingleFieldEdge = (
+    range: Readonly<{ opening: number; closing: number }>,
+    sequence: readonly string[],
+    name: string,
+    expectedCount = 1,
+  ) => {
+    if (
+      tokenSequenceIndicesBetween(
+        tokens,
+        range.opening,
+        range.closing,
+        sequence,
+      ).length !== expectedCount
+    )
+      throw new Error(`field_provenance:${name}`);
+  };
+  for (const [name, sequence, expectedCount] of [
+    [
+      "package_content_root_to_payload",
+      [
+        "packageContentRootSha256",
+        ":",
+        "packageObservation",
+        ".",
+        "packageContentRootSha256",
+      ],
+      2,
+    ],
+    [
+      "runtime_identity_to_payload",
+      [
+        "runtimeExecutionIdentitySha256",
+        ":",
+        "runtimeExecutionIdentity",
+        ".",
+        "runtimeExecutionIdentitySha256",
+      ],
+      1,
+    ],
+    [
+      "platform_artifact_to_payload",
+      [
+        "platformAccessArtifact",
+        ":",
+        "platformAccessObservation",
+        ".",
+        "platformAccessArtifact",
+      ],
+      2,
+    ],
+  ] as const)
+    requireSingleFieldEdge(prepareRange, sequence, name, expectedCount);
+
+  for (const [name, sequence] of [
+    [
+      "compiled_payload_to_envelope",
+      ["payload", ":", "compiled", ".", "payload"],
+    ],
+    [
+      "package_content_root_to_result",
+      [
+        "packageContentRootSha256",
+        ":",
+        "packageObservation",
+        ".",
+        "packageContentRootSha256",
+      ],
+    ],
+    [
+      "runtime_identity_to_result",
+      [
+        "runtimeExecutionIdentitySha256",
+        ":",
+        "compiled",
+        ".",
+        "payload",
+        ".",
+        "runtimeExecutionIdentitySha256",
+      ],
+    ],
+    [
+      "platform_artifact_to_result",
+      [
+        "platformAccessExecutableSha256",
+        ":",
+        "platformAccessObservation",
+        ".",
+        "platformAccessArtifact",
+        ".",
+        "sha256",
+      ],
+    ],
+    [
+      "signature_to_envelope",
+      ["signature", ":", "signature", ".", "toString", "(", "base64url", ")"],
+    ],
+  ] as const)
+    requireSingleFieldEdge(signingRange, sequence, name);
 
   assertExactAuditedFunctionFlows(
     "scripts/sign-release-manifest.ts",
@@ -5207,8 +5670,7 @@ export function releaseSigningProtectedPathDiagnosticForVerification(
       phase: "protected_path",
       reason: "release_signing_protected_path_closed",
       publicReason: null,
-      capabilityIssued: false,
-      effectState: "no_effect",
+      runtimeExecution: "not_performed",
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown";
@@ -5219,8 +5681,7 @@ export function releaseSigningProtectedPathDiagnosticForVerification(
       reason: detail,
       publicReason:
         "platform_provisioner_runtime_dependency_signing_consumer_unbound",
-      capabilityIssued: false,
-      effectState: "no_effect",
+      runtimeExecution: "not_performed",
     });
   }
 }

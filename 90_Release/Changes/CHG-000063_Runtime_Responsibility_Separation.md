@@ -1,7 +1,7 @@
 # 変更トレース: Runtime責務分離
 
 変更ID: `CHG-000063`
-状態: `Independent Re-review Pending`
+状態: `Formal E2E Pending`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `refactoring`
@@ -54,6 +54,8 @@ Task回復は専用Portへ分離した。Project Runtimeへ公開するのはPro
 その後の署名前監査では、本文Hashとtoken列の一致が保護経路のbinding、値由来、guard支配および公開結果への伝播を保証せず、同名decoy、別名import、wrapperまたは別結果への差替えを見逃し得ることを検出した。また、実行知のRepository Root能力が`.git`の存在確認へ簡略化され、Version Controlが認証したexact Rootという既存保証を失っていた。これらは追加改善ではなく、現在の署名・実行能力・保存境界の完成主張を成立させるための構造是正として扱う。
 
 是正では、署名経路をP検査、秘密入力、一回限りの不透明なP能力を消費する独立S検査、秘密鍵読取り、署名、配置、公開結果の唯一経路へ変更した。P入力はAccessor／Proxy、追加・欠落fieldを拒否して一度だけsnapshotし、Sは同じ固定入力から配布物を独立再観測する。署名とProject RuntimeからCoordinatorへの実行能力受渡しは、実sourceから導出する限定構文・binding・値由来グラフと独立Expectedグラフを完全一致させる。別名import、shadow、結果再構成、失効結果差替えおよびGuard前Effectを意図した検査段階で拒否する。実行知はGitの`--show-toplevel`観測を各Store操作で再実行し、偽の`.git`と能力発行後の境界消失・置換で`.crdd`を作らない回帰を追加した。一般TypeScript解析、未宣言の保護経路または任意Application全体のdataflow証明は本変更へ拡張しない。
+
+公開、署名、昇格および回復は、主機能の成功から成立を推定せず、各経路が必要とする入力由来、Identity、Authority、Effect前Guard、終端観測および公開結果を同じ限定グラフへ載せた。正規観測値を利用側が再構成する変更、署名値・Payload・昇格元Commit・回復Identityの差替えは、意図した検査段階とEffect 0までを反証する。自己確認は制限Process 1,752件、Windows実Process Gate 7件、静的検査およびRepository全体Checker 426文書（Error 0、Warning 0）で成功した。ここからは静的確認を反復せず、固定候補の正式署名と公開縦断E2Eを先に実行し、その実行結果を取り込んだ一つの改訂版へ独立再レビューと最終監査を行う。
 
 ## 2. 人間が決定した範囲
 

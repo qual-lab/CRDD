@@ -307,10 +307,7 @@ function assertReleaseManifestStaticOptions(options: ManifestPreflightOptions) {
   }
 }
 
-function prepareReleaseManifestCandidate(
-  options: ManifestPreflightOptions,
-  isVerifyDistributionIdentity: boolean,
-) {
+function prepareReleaseManifestCandidate(options: ManifestPreflightOptions) {
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   assertReleaseManifestStaticOptions(options);
   const distributionRoot = repositoryLocalDistributionRoot(
@@ -358,24 +355,21 @@ function prepareReleaseManifestCandidate(
   if (compiled.status !== "candidate") {
     throw new Error("release_manifest_payload_invalid");
   }
-  if (isVerifyDistributionIdentity) {
-    const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
-      distributionRoot,
-      options.crddTree,
-    );
-    if (
-      releaseIdentity.status !== "candidate" ||
-      releaseIdentity.manifestExcludedFromSignedGitTree !== false ||
-      releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !==
-        true ||
-      releaseIdentity.gitMetadataExcludedFromSignedGitTree !== false
-    ) {
-      throw new Error("release_manifest_distribution_tree_mismatch");
-    }
-    verifyCommitTreeBinding(options.crddCommit, options.crddTree);
-    if (!verifyReleaseStagingManifestSession(platformAccessObservation.token)) {
-      throw new Error("release_manifest_artifact_changed_before_signing");
-    }
+  const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
+    distributionRoot,
+    options.crddTree,
+  );
+  if (
+    releaseIdentity.status !== "candidate" ||
+    releaseIdentity.manifestExcludedFromSignedGitTree !== false ||
+    releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !== true ||
+    releaseIdentity.gitMetadataExcludedFromSignedGitTree !== false
+  ) {
+    throw new Error("release_manifest_distribution_tree_mismatch");
+  }
+  verifyCommitTreeBinding(options.crddCommit, options.crddTree);
+  if (!verifyReleaseStagingManifestSession(platformAccessObservation.token)) {
+    throw new Error("release_manifest_artifact_changed_before_signing");
   }
   return Object.freeze({
     distributionRoot,
@@ -387,7 +381,7 @@ function prepareReleaseManifestCandidate(
 
 export function preflightReleaseManifest(options: ManifestPreflightOptions) {
   const snapshot = snapshotManifestPreflightOptions(options);
-  prepareReleaseManifestCandidate(snapshot, true);
+  prepareReleaseManifestCandidate(snapshot);
   const authorization = Object.freeze({
     contract:
       "crdd-coordinator/release-manifest-preflight-authorization" as const,
@@ -421,12 +415,11 @@ export function signReleaseManifest(
     Object.freeze({ options: authorized.options, consumed: true }),
   );
   const options = authorized.options;
-  const {
-    distributionRoot,
-    packageObservation,
-    platformAccessObservation,
-    compiled,
-  } = prepareReleaseManifestCandidate(options, false);
+  const { packageObservation, platformAccessObservation, compiled } =
+    prepareReleaseManifestCandidate(options);
+
+  // The passphrase and private key are acquired only after the independent
+  // signing-time observation has completed in full.
   const passphrase = signingPassphrase(rawPassphrase);
   let privateKeyBytes: Buffer | null = null;
   try {
@@ -446,23 +439,6 @@ export function signReleaseManifest(
     const pinnedSpki = getPinnedPlatformProvisionerReleaseSignerSpkiDer();
     if (!signerSpki.equals(pinnedSpki)) {
       throw new Error("release_manifest_private_key_not_pinned");
-    }
-    const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
-      distributionRoot,
-      options.crddTree,
-    );
-    if (
-      releaseIdentity.status !== "candidate" ||
-      releaseIdentity.manifestExcludedFromSignedGitTree !== false ||
-      releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !==
-        true ||
-      releaseIdentity.gitMetadataExcludedFromSignedGitTree !== false
-    ) {
-      throw new Error("release_manifest_distribution_tree_mismatch");
-    }
-    verifyCommitTreeBinding(options.crddCommit, options.crddTree);
-    if (!verifyReleaseStagingManifestSession(platformAccessObservation.token)) {
-      throw new Error("release_manifest_artifact_changed_before_signing");
     }
     const signature = sign(null, compiled.message, privateKey);
     const envelope = {
