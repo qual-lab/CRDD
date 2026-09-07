@@ -90,6 +90,10 @@ Runtimeの信頼単位は、Coordinator本体、共通Launcherから到達する
 
 Release秘密鍵はRelease署名時だけHuman-only入力として使用し、環境、File、logまたはRuntimeへ保存しない。通常利用者と開発E2Eは秘密鍵を必要とせず、固定済みの署名配布物を検証して使う。Authenticodeは追加Defenseであり、Ed25519 Release Identityを置換しない。
 
+署名処理では、秘密入力前のP検査が一回限りの不透明な能力を発行し、その能力を消費したS検査だけが秘密鍵読取りと署名へ到達できる。P検査の省略、別入力への差替え、能力の偽造・再利用、P観測値の署名への流用、S検査後の値再解釈、および署名・配置後の結果field差替えを脅威として扱う。保護経路の反証は単に最終結果が拒否されたことではなく、期待した検査段階と理由が最初の拒否であり、Capability未発行かつEffect 0であることを確認する。
+
+実行能力の利用側は、Project RuntimeのExecution Authorization Port、Coordinator Adapter、能力消費、最初のProvider Effect、取消、回復および公開結果までを同じ利用側閉包として検査する。Producerまたは代表利用側だけの更新を完成とせず、Actual利用側集合と独立したExpected集合を完全一致させる。CanonicalなCapability、Path、IdentityまたはStateを利用側で再構成、fallback、混合または別名化しない。
+
 ## 6. Provider Homeと外部送信
 
 Provider HomeはOSから選択ユーザーを結合し、Repository-local `.crdd`とは分離した専用sessionとして観測する。親Process環境の全継承を行わず、必要なOS値とRuntime所有値だけを渡す。他ProviderのCredential、Proxyまたは任意PATHを混入させない。

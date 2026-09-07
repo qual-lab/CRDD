@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -14,8 +14,8 @@ import {
   ReleaseStagingManifestError,
 } from "../../scripts/release-staging-manifest.ts";
 import {
-  signReleaseManifest,
   preflightReleaseManifest,
+  signReleaseManifest as consumeReleaseManifestPreflightAuthorization,
 } from "../../scripts/sign-release-manifest.ts";
 import {
   inspectFixedDevelopmentCoordinatorPackageCandidate,
@@ -33,6 +33,20 @@ const releaseStagingRoot = path.join(
   "release-staging",
 );
 
+type ContractTestManifestOptions = Parameters<
+  typeof preflightReleaseManifest
+>[0] &
+  Readonly<{ passphrase: string }>;
+
+function signReleaseManifest(options: ContractTestManifestOptions) {
+  const { passphrase, ...preflightOptions } = options;
+  const preflight = preflightReleaseManifest(preflightOptions);
+  return consumeReleaseManifestPreflightAuthorization(
+    preflight.authorization,
+    passphrase,
+  );
+}
+
 test("期限なしは明示指定だけを受け、CLIの排他違反とundefinedを秘密入力前に拒否する", () => {
   const options = {
     distributionRoot: repositoryRoot,
@@ -49,23 +63,54 @@ test("期限なしは明示指定だけを受け、CLIの排他違反とundefine
     issuedAt: "2026-09-01T00:00:00.000Z",
     expiresAt: null,
   };
-  for (const operation of [signReleaseManifest, preflightReleaseManifest]) {
+  const { passphrase: _passphrase, ...preflightOnlyOptions } = options;
+  let accessorReadCount = 0;
+  const accessorOptions = { ...preflightOnlyOptions };
+  Object.defineProperty(accessorOptions, "expiresAt", {
+    enumerable: true,
+    configurable: true,
+    get() {
+      accessorReadCount += 1;
+      return null;
+    },
+  });
+  assert.throws(
+    () => preflightReleaseManifest(accessorOptions),
+    /release_manifest_options_invalid/u,
+  );
+  assert.equal(accessorReadCount, 0);
+  assert.throws(
+    () => preflightReleaseManifest(new Proxy(preflightOnlyOptions, {})),
+    /release_manifest_options_invalid/u,
+  );
+  assert.throws(
+    () =>
+      preflightReleaseManifest({
+        ...preflightOnlyOptions,
+        unrecognizedOption: "must-not-be-ignored",
+      } as never),
+    /release_manifest_options_invalid/u,
+  );
+  for (const [operation, input] of [
+    [signReleaseManifest, options],
+    [preflightReleaseManifest, preflightOnlyOptions],
+  ] as const) {
     assert.throws(
-      () => Reflect.apply(operation, undefined, [options]),
+      () => Reflect.apply(operation, undefined, [input]),
       /release_manifest_distribution_root_invalid/u,
     );
     assert.throws(
       () =>
         Reflect.apply(operation, undefined, [
-          { ...options, expiresAt: undefined },
+          { ...input, expiresAt: undefined },
         ]),
       /release_manifest_time_invalid/u,
     );
-    const missing = { ...options };
+    const missing = { ...input };
     Reflect.deleteProperty(missing, "expiresAt");
     assert.throws(
       () => Reflect.apply(operation, undefined, [missing]),
-      /release_manifest_time_invalid/u,
+      /release_manifest_options_invalid/u,
     );
   }
   const args = [
@@ -759,6 +804,21 @@ test("Release署名RootはRepository-localの単一candidate directoryだけを�
   }
 });
 
+test("偽造または再利用したP検査能力は秘密値処理と署名Effectの前に拒否する", () => {
+  const forged = Object.freeze({
+    contract: "crdd-coordinator/release-manifest-preflight-authorization",
+    contractRevision: 1,
+  });
+  assert.throws(
+    () =>
+      Reflect.apply(consumeReleaseManifestPreflightAuthorization, undefined, [
+        forged,
+        "must-not-be-consumed",
+      ]),
+    /release_manifest_preflight_authorization_invalid/u,
+  );
+});
+
 function ephemeralEnvelopeBytes() {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const payload = Buffer.from("CRDD test-only placement envelope", "utf8");
@@ -1002,118 +1062,41 @@ test("偽造tokenと既存manifestをRelease staging成功へ流用しない", (
   }
 });
 
-test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない", async () => {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-manifest-sign-"));
-  const sourceRoot = path.join(parent, "source");
-  const distributionRoot = path.join(
-    sourceRoot,
-    ".crdd",
-    "release-staging",
-    "test-sign",
-  );
-  const keyDirectory = path.join(parent, "key");
+test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない", () => {
+  const distributionRoot = uniqueReleaseCandidate("test-key-pin");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-manifest-key-"));
+  const archive = path.join(parent, "release-tree.tar");
+  const privateKeyPath = path.join(parent, "crdd-release-v1-private.pem");
   try {
-    // Preserve the production source-relative key exclusion boundary. Both the
-    // isolated tool distribution and its external test key stay in the fixture.
-    for (const directory of ["scripts", "src", "runtime"]) {
-      fs.cpSync(
-        path.join(coordinatorRoot, directory),
-        path.join(sourceRoot, "40_Develop", "coordinator", directory),
-        {
-          recursive: true,
-          filter: (source) => {
-            assert.equal(fs.lstatSync(source).isSymbolicLink(), false);
-            return true;
-          },
-        },
-      );
-    }
-    const signerPath = path.join(
-      sourceRoot,
-      "40_Develop",
-      "coordinator",
-      "scripts",
-      "sign-release-manifest.ts",
-    );
-    assert.deepEqual(
-      fs.readFileSync(signerPath),
-      fs.readFileSync(
-        path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
-      ),
-    );
-    const implementation: typeof import("../../scripts/sign-release-manifest.ts") =
-      await import(pathToFileURL(signerPath).href);
-    fs.mkdirSync(
-      path.join(
-        distributionRoot,
-        "template",
-        "tools",
-        "coordinator",
-        "windows-x64",
-      ),
-      { recursive: true },
-    );
-    fs.writeFileSync(
-      path.join(
-        distributionRoot,
-        "template",
-        "tools",
-        "coordinator",
-        "windows-x64",
-        "crdd-platform-access.exe",
-      ),
-      Buffer.from("not-a-real-executable", "ascii"),
-    );
-    fs.mkdirSync(
-      path.join(
-        distributionRoot,
-        "template",
-        "tools",
-        "coordinator",
-        "windows-x64",
-      ),
-      { recursive: true },
-    );
-    for (const [source, destination] of [
+    execFileSync(
+      "git",
       [
-        path.join(repositoryRoot, "40_Develop", "coordinator"),
-        path.join(distributionRoot, "40_Develop", "coordinator"),
+        "-C",
+        repositoryRoot,
+        "archive",
+        "--format=tar",
+        `--output=${archive}`,
+        "HEAD",
       ],
-      [
-        path.join(repositoryRoot, "40_Develop", "mcp"),
-        path.join(distributionRoot, "40_Develop", "mcp"),
-      ],
-      [
-        path.join(repositoryRoot, "40_Develop", "project-runtime"),
-        path.join(distributionRoot, "40_Develop", "project-runtime"),
-      ],
-      [
-        path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
-        path.join(distributionRoot, "40_Develop", "execution-intelligence"),
-      ],
-    ] as const) {
-      fs.cpSync(source, destination, {
-        recursive: true,
-        filter: (entry) => {
-          assert.equal(fs.lstatSync(entry).isSymbolicLink(), false);
-          const name = path.basename(entry);
-          return name !== "node_modules" && name !== "tests";
-        },
-      });
-    }
-    fs.mkdirSync(path.join(distributionRoot, "template", "tools"), {
-      recursive: true,
+      { windowsHide: true, stdio: "ignore" },
+    );
+    execFileSync("tar", ["-xf", archive, "-C", distributionRoot], {
+      windowsHide: true,
+      stdio: "ignore",
     });
-    for (const launcher of ["crdd-coordinator.ts", "crdd-mcp.ts"] as const) {
-      fs.copyFileSync(
-        path.join(repositoryRoot, "template", "tools", launcher),
-        path.join(distributionRoot, "template", "tools", launcher),
-      );
-    }
+    const crddCommit = execFileSync(
+      "git",
+      ["-C", repositoryRoot, "rev-parse", "HEAD"],
+      { encoding: "utf8", windowsHide: true },
+    ).trim();
+    const crddTree = execFileSync(
+      "git",
+      ["-C", repositoryRoot, "rev-parse", "HEAD^{tree}"],
+      { encoding: "utf8", windowsHide: true },
+    ).trim();
     const { privateKey } = generateKeyPairSync("ed25519");
-    fs.mkdirSync(keyDirectory);
     fs.writeFileSync(
-      path.join(keyDirectory, "crdd-release-v1-private.pem"),
+      privateKeyPath,
       privateKey.export({
         type: "pkcs8",
         format: "pem",
@@ -1122,23 +1105,31 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       }),
       { flag: "wx" },
     );
+    const preflight = preflightReleaseManifest({
+      distributionRoot,
+      privateKeyPath,
+      crddVersion: "v0.20.0",
+      releaseSequence: 20,
+      crddCommit,
+      crddTree,
+      issuedAt: "2026-09-07T00:00:00.000Z",
+      expiresAt: "2027-09-07T00:00:00.000Z",
+    });
     assert.throws(
       () =>
-        implementation.signReleaseManifest({
-          distributionRoot,
-          privateKeyPath: path.join(
-            keyDirectory,
-            "crdd-release-v1-private.pem",
-          ),
-          passphrase: TEST_PASSPHRASE,
-          crddVersion: "v0.18.0",
-          releaseSequence: 18,
-          crddCommit: "0".repeat(40),
-          crddTree: "1".repeat(40),
-          issuedAt: "2026-08-16T00:00:00.000Z",
-          expiresAt: "2027-08-16T00:00:00.000Z",
-        }),
+        consumeReleaseManifestPreflightAuthorization(
+          preflight.authorization,
+          TEST_PASSPHRASE,
+        ),
       /release_manifest_private_key_not_pinned/u,
+    );
+    assert.throws(
+      () =>
+        consumeReleaseManifestPreflightAuthorization(
+          preflight.authorization,
+          TEST_PASSPHRASE,
+        ),
+      /release_manifest_preflight_authorization_invalid/u,
     );
     assert.equal(
       fs.existsSync(
@@ -1153,7 +1144,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       false,
     );
   } finally {
+    fs.rmSync(distributionRoot, { recursive: true, force: true });
     fs.rmSync(parent, { recursive: true, force: true });
-    assert.equal(fs.existsSync(parent), false);
   }
 });

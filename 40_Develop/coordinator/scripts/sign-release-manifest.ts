@@ -7,6 +7,7 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { types as utilTypes } from "node:util";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import { inspectGitCommitTreeCandidate } from "../src/security/git-object-reader.ts";
 import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
@@ -43,6 +44,16 @@ const releaseStagingRoot = path.join(
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
 const MAXIMUM_PASSPHRASE_BYTES = 1_024;
 const RELEASE_CANDIDATE_DIRECTORY = /^[a-z0-9][a-z0-9-]{0,127}$/u;
+const MANIFEST_PREFLIGHT_OPTION_KEYS = Object.freeze([
+  "distributionRoot",
+  "privateKeyPath",
+  "crddVersion",
+  "releaseSequence",
+  "crddCommit",
+  "crddTree",
+  "issuedAt",
+  "expiresAt",
+] as const);
 
 type ManifestOptions = Readonly<{
   distributionRoot: string;
@@ -58,11 +69,63 @@ type ManifestOptions = Readonly<{
 
 type ManifestPreflightOptions = Omit<ManifestOptions, "passphrase">;
 
+export type ReleaseManifestPreflightAuthorization = Readonly<{
+  contract: "crdd-coordinator/release-manifest-preflight-authorization";
+  contractRevision: 1;
+}>;
+
+type AuthorizedReleaseManifestPreflight = Readonly<{
+  options: ManifestPreflightOptions;
+  consumed: boolean;
+}>;
+
+const authorizedReleaseManifestPreflights = new WeakMap<
+  ReleaseManifestPreflightAuthorization,
+  AuthorizedReleaseManifestPreflight
+>();
+
 function isContainedBy(parent: string, candidate: string) {
   const relative = path.relative(parent, candidate);
   return (
     relative === "" ||
     (!relative.startsWith("..") && !path.isAbsolute(relative))
+  );
+}
+
+function snapshotManifestPreflightOptions(
+  value: unknown,
+): ManifestPreflightOptions {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    utilTypes.isProxy(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  )
+    throw new Error("release_manifest_options_invalid");
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const keys = Reflect.ownKeys(descriptors);
+  if (
+    keys.length !== MANIFEST_PREFLIGHT_OPTION_KEYS.length ||
+    keys.some(
+      (key) =>
+        typeof key !== "string" ||
+        !MANIFEST_PREFLIGHT_OPTION_KEYS.includes(
+          key as (typeof MANIFEST_PREFLIGHT_OPTION_KEYS)[number],
+        ),
+    ) ||
+    MANIFEST_PREFLIGHT_OPTION_KEYS.some((key) => {
+      const descriptor = descriptors[key];
+      return !descriptor || !("value" in descriptor);
+    })
+  )
+    throw new Error("release_manifest_options_invalid");
+  return Object.freeze(
+    Object.fromEntries(
+      MANIFEST_PREFLIGHT_OPTION_KEYS.map((key) => [
+        key,
+        descriptors[key]?.value,
+      ]),
+    ) as ManifestPreflightOptions,
   );
 }
 
@@ -323,7 +386,17 @@ function prepareReleaseManifestCandidate(
 }
 
 export function preflightReleaseManifest(options: ManifestPreflightOptions) {
-  prepareReleaseManifestCandidate(options, true);
+  const snapshot = snapshotManifestPreflightOptions(options);
+  prepareReleaseManifestCandidate(snapshot, true);
+  const authorization = Object.freeze({
+    contract:
+      "crdd-coordinator/release-manifest-preflight-authorization" as const,
+    contractRevision: 1 as const,
+  });
+  authorizedReleaseManifestPreflights.set(
+    authorization,
+    Object.freeze({ options: snapshot, consumed: false }),
+  );
   return Object.freeze({
     contract: "crdd-coordinator/release-manifest-preflight-result",
     contractRevision: 1,
@@ -331,17 +404,30 @@ export function preflightReleaseManifest(options: ManifestPreflightOptions) {
     passphraseRead: false,
     privateKeyRead: false,
     releaseStagingFilesystemEffectIssued: false,
+    authorization,
   });
 }
 
-export function signReleaseManifest(options: ManifestOptions) {
+export function signReleaseManifest(
+  authorization: ReleaseManifestPreflightAuthorization,
+  rawPassphrase: unknown,
+) {
+  const authorized = authorizedReleaseManifestPreflights.get(authorization);
+  if (!authorized || authorized.consumed) {
+    throw new Error("release_manifest_preflight_authorization_invalid");
+  }
+  authorizedReleaseManifestPreflights.set(
+    authorization,
+    Object.freeze({ options: authorized.options, consumed: true }),
+  );
+  const options = authorized.options;
   const {
     distributionRoot,
     packageObservation,
     platformAccessObservation,
     compiled,
   } = prepareReleaseManifestCandidate(options, false);
-  const passphrase = signingPassphrase(options.passphrase);
+  const passphrase = signingPassphrase(rawPassphrase);
   let privateKeyBytes: Buffer | null = null;
   try {
     privateKeyBytes = stableExternalFile(
@@ -497,9 +583,9 @@ async function main() {
   const options = parseArguments(process.argv.slice(2));
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   assertReleaseManifestStaticOptions(options);
-  preflightReleaseManifest(options);
+  const preflight = preflightReleaseManifest(options);
   const passphrase = await readHiddenLine("Release key passphrase: ");
-  const result = signReleaseManifest({ ...options, passphrase });
+  const result = signReleaseManifest(preflight.authorization, passphrase);
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 

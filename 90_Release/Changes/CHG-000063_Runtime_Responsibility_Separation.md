@@ -51,6 +51,10 @@ Objective受付後の実行調停は、Project状態、QueueおよびProject Ope
 
 Task回復は専用Portへ分離した。Project Runtimeへ公開するのはProject、Milestone、Task、Attempt、Operation、回復種別およびRecovery Identityであり、Coordinator Adapterが検証済みRepositoryの作業DirectoryとBindingを閉じてDocker回復、受領Recordおよび検証資源の最終化へ接続する。診断Observerの失敗はAdapter内で隔離し、回復の成否へ昇格しない。
 
+その後の署名前監査では、本文Hashとtoken列の一致が保護経路のbinding、値由来、guard支配および公開結果への伝播を保証せず、同名decoy、別名import、wrapperまたは別結果への差替えを見逃し得ることを検出した。また、実行知のRepository Root能力が`.git`の存在確認へ簡略化され、Version Controlが認証したexact Rootという既存保証を失っていた。これらは追加改善ではなく、現在の署名・実行能力・保存境界の完成主張を成立させるための構造是正として扱う。
+
+是正では、署名経路をP検査、秘密入力、一回限りの不透明なP能力を消費する独立S検査、秘密鍵読取り、署名、配置、公開結果の唯一経路へ変更した。P入力はAccessor／Proxy、追加・欠落fieldを拒否して一度だけsnapshotし、Sは同じ固定入力から配布物を独立再観測する。署名とProject RuntimeからCoordinatorへの実行能力受渡しは、実sourceから導出する限定構文・binding・値由来グラフと独立Expectedグラフを完全一致させる。別名import、shadow、結果再構成、失効結果差替えおよびGuard前Effectを意図した検査段階で拒否する。実行知はGitの`--show-toplevel`観測を各Store操作で再実行し、偽の`.git`と能力発行後の境界消失・置換で`.crdd`を作らない回帰を追加した。一般TypeScript解析、未宣言の保護経路または任意Application全体のdataflow証明は本変更へ拡張しない。
+
 ## 2. 人間が決定した範囲
 
 - Project Runtimeは独立packageへ分ける。

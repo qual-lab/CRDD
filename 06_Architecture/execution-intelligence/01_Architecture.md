@@ -67,7 +67,7 @@ CRDD採用Repositoryや別Runtimeは公開入口`@qual-lab/crdd-execution-intell
 
 ## 4. 保存と改変検知
 
-保存先は検証済みRepository Root直下のGit管理外`.crdd/execution/events/`である。Tool配下、親Directory、兄弟Repositoryまたは任意の一時Directoryへ同名Rootを作らない。保存APIは任意のPath文字列を受け取らず、Version Controlからexact Root、実Path、Directory種別およびlink不使用を確認した実行時能力だけを受け取る。この能力は公開型と同じ構造の値を作るだけでは成立せず、各操作の入口で再確認する。通常Repository、linked worktreeおよびsubmoduleは、それぞれのexact Rootだけを許可する。
+保存先は検証済みRepository Root直下のGit管理外`.crdd/execution/events/`である。Tool配下、親Directory、兄弟Repositoryまたは任意の一時Directoryへ同名Rootを作らない。保存APIは任意のPath文字列を受け取らず、固定した`git -C <candidate> rev-parse --show-toplevel`の結果が候補の実Pathと完全一致し、Directory種別、link不使用および`.git`境界を確認した実行時能力だけを受け取る。`.git`という名前のfileまたはDirectoryが存在するだけではVersion Control Rootとみなさない。この能力は公開型と同じ構造の値を作るだけでは成立せず、各読取り・書込み操作の入口で同じ観測をやり直す。能力発行後に`.git`が消失、置換または偽装された場合は`.crdd`を作らずEffect 0で停止する。通常Repository、linked worktreeおよびsubmoduleは、それぞれのexact Rootだけを許可する。
 
 Eventは一つずつ不変JSONへ保存する。Process間の変更はStore専用Lockで直列化し、所有不明または残存Lockを時刻だけで奪取しない。同じEvent IDと同じbyteの再送は冪等、同じEvent IDと異なる内容はIdentity衝突として拒否する。一時fileを排他的に作成して書込みとflushを行い、既存targetを置換しない公開操作の後にexact byteを再読取りする。open、write、flush、publish、readback、一時file回収、Lock初期化およびLock解放の失敗では、EventのEffect、cleanup、再試行可否、手動回復要否およびexactな残存Artifactを分けて返す。読み取りはEvent件数10,000件、合計32 MiBを上限とし、未知file、Schema不正、filenameとEvent IDの不一致または破損を黙って除外せず、Store全体を観測不能として停止する。
 

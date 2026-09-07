@@ -1459,6 +1459,13 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ],
       ["["],
     ],
+    [
+      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
+      "observeExactRepositoryRoot",
+      "execFileSync",
+      ["git"],
+      ["[", "-C"],
+    ],
   ].map(
     ([
       source,
@@ -1686,6 +1693,16 @@ const exactExternalProcessCallGraph = Object.freeze(
       "75fe97d4efe1f052b606a12290adddb94cb7fb12eb7c53e3165fcd2803fb3c88",
       "execution",
     ],
+    [
+      "runtime",
+      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
+      "observeExactRepositoryRoot",
+      "execFileSync",
+      1,
+      "5e0d844c15465eab569ee204969466e374ea4bfbca4f49da5f9826e9fd5b843a",
+      "2dd92e2d79454613468b1879a97bce06a43c3100f14a1c65b6afb3c01e369d7d",
+      "observed",
+    ],
   ].map(
     ([
       graph,
@@ -1837,19 +1854,19 @@ const exactAuditedFunctionFlowGraph = Object.freeze(
       "runtime",
       "scripts/sign-release-manifest.ts",
       "preflightReleaseManifest",
-      "2e803beee61f758c74c09d5fae13fc1260dee24123c7e3a8a569a964e0b9628c",
+      "d757f5d1f0d233d8853fd3153180a54ffed32b0467bcb5ee5b3022972f45bfaf",
     ],
     [
       "runtime",
       "scripts/sign-release-manifest.ts",
       "signReleaseManifest",
-      "e880fe961d6bfd85cdef93bb69b920b4c3be1abf49e25d255046940e71ac4da8",
+      "cb3755246ade4c1a7e8358e5973909c3720f8c145587b037ae0fcf639c75b7c6",
     ],
     [
       "runtime",
       "scripts/sign-release-manifest.ts",
       "main",
-      "5638b3027d7049cb80f1dadf6c46e9a4aa07700802d1c8265aaadb47f2bc4d1d",
+      "a7fef8f9e2878dff7e00ccd2bd8824a6540c7947571ee93362ec418acb613bbb",
     ],
     [
       "verification_tool",
@@ -1948,15 +1965,15 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/sign-release-manifest.ts\0preflightReleaseManifest",
-      "c7d6521de4e6bc1add91be0011249bd1fa07d4d8d2df6985dbf4347064fd7421",
+      "31f5effed8c7b876655a6c548c335eeb1275e674e3b9008c326616ce58f65937",
     ],
     [
       "scripts/sign-release-manifest.ts\0signReleaseManifest",
-      "8d54357ae6aa1e9bd08c3a76a7e8dad20d1a8733fb7ecab19c09e0ce488a2556",
+      "5827d31d0a7be10358138cba862b6fbdaca73b97ac5255f37364eec384b48e5e",
     ],
     [
       "scripts/sign-release-manifest.ts\0main",
-      "95aa8ce4993179add57b05011fb310af1e6e11894485b3ffd5b8905cc7d110ed",
+      "10c60bf189c32bdc5d9e5202f945f6ed5b9d2475d26eac9a54bcf63a96c1a2a0",
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
@@ -2199,6 +2216,7 @@ const exactExecutableProvenance = Object.freeze(
     ...[
       "src/security/docker-owned-process.ts\0terminateAndWait",
       "scripts/verify-signed-recovery-matrix.ts\0verifyParentLossThenRecover",
+      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts\0observeExactRepositoryRoot",
     ].map(
       (identity) =>
         [
@@ -3852,7 +3870,7 @@ function assertNoUnboundRuntimeChildProcess(
     );
 }
 
-function runtimeNamedFunctionGraphSnapshotForVerification(
+export function runtimeNamedFunctionGraphSnapshotForVerification(
   relativePath: string,
   source: string | readonly SourceToken[],
   names: readonly string[],
@@ -4150,7 +4168,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expected = exactExternalProcessCallGraph.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 13 : 6;
+  const expectedCount = graph === "runtime" ? 14 : 6;
   const stableIdentities = expected.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -4166,7 +4184,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCallGraph.length !== 19 ||
+    exactExternalProcessCallGraph.length !== 20 ||
     exactExecutableProvenance.size !== exactExternalProcessCallGraph.length ||
     exactExternalProcessCallGraph.some(
       (callsite) =>
@@ -4362,6 +4380,8 @@ function runtimePackageCapabilityConsumers(
         !runtimePackageCapabilityExports.has(binding.imported)
       )
         continue;
+      if (binding.local !== binding.imported)
+        throw new Error(`consumer_import:${binding.imported}:alias`);
       let occurrence = 0;
       for (let index = 0; index < tokens.length; index += 1) {
         if (
@@ -4569,12 +4589,14 @@ function runtimePackageCapabilityConsumerIdentity(
 function assertRuntimePackageCapabilityHandoffClosure(
   sources: Readonly<Record<string, string>>,
 ) {
-  const exact = (relativePath: string, sequence: readonly string[]) => {
+  const exact = (
+    relativePath: string,
+    sequence: readonly string[],
+    reason: string,
+  ) => {
     const source = sources[relativePath];
     if (typeof source !== "string")
-      throw new Error(
-        "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
-      );
+      throw new Error(`consumer_handoff:${reason}:source`);
     const tokens = tokenizeTypeScriptModuleSyntax(source);
     const matches = tokenSequenceIndicesBetween(
       tokens,
@@ -4583,72 +4605,126 @@ function assertRuntimePackageCapabilityHandoffClosure(
       sequence,
     );
     if (matches.length !== 1)
-      throw new Error(
-        "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
-      );
+      throw new Error(`consumer_handoff:${reason}:shape`);
     return Object.freeze({ tokens, index: matches[0] as number });
   };
-  exact("src/composition/project-runtime-composition-root.ts", [
-    "issueRuntimeCapability",
-    ":",
-    "runtimeDependencies",
-    ".",
-    "issueRuntimeExecutionAuthorization",
-  ]);
-  exact("src/composition/project-runtime-composition-root.ts", [
-    "revokeRuntimeCapability",
-    ":",
-    "runtimeDependencies",
-    ".",
-    "revokeRuntimeExecutionAuthorization",
-  ]);
-  exact("src/security/project-runtime-execution-authorization-adapter.ts", [
-    "const",
-    "capability",
-    "=",
-    "dependencies",
-    ".",
-    "issueRuntimeCapability",
-    "(",
-    ")",
-  ]);
-  exact("src/security/project-runtime-execution-authorization-adapter.ts", [
-    "dependencies",
-    ".",
-    "revokeRuntimeCapability",
-    "?.",
-    "(",
-    "capability",
-    ")",
-    "=",
-    "=",
-    "=",
-    "true",
-  ]);
-  const consumed = exact("src/security/coordinator-task-runtime.ts", [
-    "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
-    "(",
-    "verifiedPackageCapability",
-    ",",
-    ")",
-  ]);
-  const firstEffect = exact("src/security/coordinator-task-runtime.ts", [
-    "return",
-    "productionRuntime",
-    ".",
-    "start",
-    "(",
-  ]);
+  exact(
+    "src/composition/project-runtime-composition-root.ts",
+    [
+      "issueRuntimeCapability",
+      ":",
+      "runtimeDependencies",
+      ".",
+      "issueRuntimeExecutionAuthorization",
+    ],
+    "composition_issue",
+  );
+  exact(
+    "src/composition/project-runtime-composition-root.ts",
+    [
+      "revokeRuntimeCapability",
+      ":",
+      "runtimeDependencies",
+      ".",
+      "revokeRuntimeExecutionAuthorization",
+    ],
+    "composition_revoke",
+  );
+  exact(
+    "src/security/project-runtime-execution-authorization-adapter.ts",
+    [
+      "const",
+      "capability",
+      "=",
+      "dependencies",
+      ".",
+      "issueRuntimeCapability",
+      "(",
+      ")",
+    ],
+    "adapter_issue",
+  );
+  exact(
+    "src/security/project-runtime-execution-authorization-adapter.ts",
+    [
+      "status",
+      ":",
+      "completed",
+      "as",
+      "const",
+      ",",
+      "reason",
+      ":",
+      "project_runtime_execution_authorization_issued",
+      ",",
+      "value",
+      ":",
+      "capability",
+    ],
+    "adapter_issue_projection",
+  );
+  exact(
+    "src/security/project-runtime-execution-authorization-adapter.ts",
+    [
+      "dependencies",
+      ".",
+      "revokeRuntimeCapability",
+      "?.",
+      "(",
+      "capability",
+      ")",
+      "=",
+      "=",
+      "=",
+      "true",
+    ],
+    "adapter_revoke",
+  );
+  exact(
+    "src/security/project-runtime-execution-authorization-adapter.ts",
+    [
+      "reason",
+      ":",
+      "project_runtime_execution_authorization_revoked",
+      ",",
+      "value",
+      ":",
+      "null",
+    ],
+    "adapter_revoke_projection",
+  );
+  const consumed = exact(
+    "src/security/coordinator-task-runtime.ts",
+    [
+      "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "(",
+      "verifiedPackageCapability",
+      ",",
+      ")",
+    ],
+    "coordinator_consume",
+  );
+  const firstEffect = exact(
+    "src/security/coordinator-task-runtime.ts",
+    ["return", "productionRuntime", ".", "start", "("],
+    "coordinator_first_effect",
+  );
+  const allProductionStarts = tokenSequenceIndicesBetween(
+    firstEffect.tokens,
+    0,
+    firstEffect.tokens.length,
+    ["productionRuntime", ".", "start", "("],
+  );
   if (
     consumed.index >= firstEffect.index ||
+    allProductionStarts.length !== 1 ||
+    allProductionStarts[0] !== firstEffect.index + 1 ||
     containingNamedFunction(consumed.tokens, consumed.index)?.name !==
       "startRuntimeOwnedCoordinatorTask" ||
     containingNamedFunction(firstEffect.tokens, firstEffect.index)?.name !==
       "startRuntimeOwnedCoordinatorTask"
   )
-    throw new Error(
-      "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
-    );
+    throw new Error("consumer_handoff:coordinator_dominance");
 }
 
 function assertExactRuntimePackageCapabilityConsumerGraph(
@@ -4685,15 +4761,47 @@ function assertExactRuntimePackageCapabilityConsumerGraph(
       (identity) => !expectedSet.has(identity),
     );
     throw new Error(
-      `platform_provisioner_runtime_dependency_consumer_graph_mismatch:missing=${JSON.stringify(missing)}:unexpected=${JSON.stringify(unexpected)}`,
+      `consumer_set:mismatch:missing=${JSON.stringify(missing)}:unexpected=${JSON.stringify(unexpected)}`,
     );
+  }
+}
+
+export function runtimePackageCapabilityConsumerGraphDiagnosticForVerification(
+  sources: Readonly<Record<string, string>>,
+): ProtectedPathDiagnostic {
+  try {
+    assertExactRuntimePackageCapabilityConsumerGraph(sources, "repository");
+    return Object.freeze({
+      status: "accepted",
+      phase: "consumer_graph",
+      reason: "runtime_package_capability_consumer_graph_closed",
+      publicReason: null,
+      capabilityIssued: false,
+      effectState: "no_effect",
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "unknown";
+    return Object.freeze({
+      status: "blocked",
+      phase: reason.split(":", 1)[0] ?? "consumer_graph",
+      reason,
+      publicReason:
+        "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
+      capabilityIssued: false,
+      effectState: "no_effect",
+    });
   }
 }
 
 export function assertRuntimePackageCapabilityConsumerGraphForVerification(
   sources: Readonly<Record<string, string>>,
 ) {
-  assertExactRuntimePackageCapabilityConsumerGraph(sources, "repository");
+  const diagnostic =
+    runtimePackageCapabilityConsumerGraphDiagnosticForVerification(sources);
+  if (diagnostic.status === "blocked")
+    throw new Error(
+      `platform_provisioner_runtime_dependency_consumer_graph_mismatch:${diagnostic.reason}`,
+    );
 }
 
 function assertPublicRuntimeObservationConsumerClosure(
@@ -4820,21 +4928,312 @@ function assertPublicRuntimeObservationConsumerClosure(
     );
 }
 
+type ProtectedPathDiagnostic = Readonly<{
+  status: "accepted" | "blocked";
+  phase: string;
+  reason: string;
+  publicReason: string | null;
+  capabilityIssued: false;
+  effectState: "no_effect";
+}>;
+
+function namedFunctionBodyRange(
+  tokens: readonly SourceToken[],
+  functionName: string,
+) {
+  const matches: Array<Readonly<{ opening: number; closing: number }>> = [];
+  for (let index = 0; index + 2 < tokens.length; index += 1) {
+    if (
+      tokens[index]?.value !== "function" ||
+      tokens[index + 1]?.value !== functionName ||
+      tokens[index + 2]?.value !== "(" ||
+      containingNamedFunction(tokens, index) !== null
+    )
+      continue;
+    const parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+    let opening = parametersEnd + 1;
+    while (opening < tokens.length && tokens[opening]?.value !== "{")
+      opening += 1;
+    if (tokens[opening]?.value !== "{") continue;
+    matches.push(
+      Object.freeze({
+        opening,
+        closing: matchingTokenIndex(tokens, opening, "{", "}"),
+      }),
+    );
+  }
+  if (matches.length !== 1)
+    throw new Error(`declaration:${functionName}_not_unique`);
+  return matches[0] as Readonly<{ opening: number; closing: number }>;
+}
+
+function directProtectedCall(
+  tokens: readonly SourceToken[],
+  symbol: string,
+  owner: string,
+  prefix: readonly string[],
+  argumentsShape: readonly (readonly string[])[],
+) {
+  const matches: number[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (
+      tokens[index]?.value !== symbol ||
+      tokens[index + 1]?.value !== "(" ||
+      (containingNamedFunction(tokens, index)?.name ?? "module") !== owner
+    )
+      continue;
+    if (
+      prefix.length > index ||
+      prefix.some(
+        (value, offset) =>
+          tokens[index - prefix.length + offset]?.value !== value,
+      )
+    )
+      continue;
+    const ranges = directCallArgumentRanges(tokens, index + 1);
+    if (
+      ranges.length === argumentsShape.length &&
+      ranges.every((range, offset) =>
+        exactExpressionMatches(
+          tokens,
+          range,
+          argumentsShape[offset] as readonly string[],
+        ),
+      )
+    )
+      matches.push(index);
+  }
+  if (matches.length !== 1) throw new Error(`call_graph:${owner}:${symbol}`);
+  return matches[0] as number;
+}
+
+function assertReleaseSigningProtectedPath(source: string) {
+  const tokens = tokenizeTypeScriptModuleSyntax(source);
+  const protectedImports = Object.freeze(
+    new Map<string, readonly string[]>([
+      ["node:crypto", ["createPrivateKey", "createPublicKey", "sign"]],
+      ["./generate-release-key.ts", ["readHiddenLine"]],
+      [
+        "./release-staging-manifest.ts",
+        [
+          "beginReleaseStagingManifestSession",
+          "placeReleaseStagingManifestCandidate",
+          "verifyReleaseStagingManifestSession",
+        ],
+      ],
+      [
+        "../src/security/platform-provisioner-package-filesystem.ts",
+        ["inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate"],
+      ],
+    ] as const),
+  );
+  const protectedBindings = new Map<string, number>();
+  for (const declaration of moduleDeclarationsFromTokens(tokens)) {
+    if (declaration.kind !== "static_import") continue;
+    const specifier =
+      declaration.specifierIndex === null
+        ? null
+        : (tokens[declaration.specifierIndex]?.value ?? null);
+    const required =
+      specifier === null ? undefined : protectedImports.get(specifier);
+    for (const binding of declaration.bindings) {
+      if (!required?.includes(binding.imported as never)) continue;
+      if (binding.typeOnly || binding.local !== binding.imported)
+        throw new Error(`import_binding:${binding.imported}`);
+      if (protectedBindings.has(binding.imported))
+        throw new Error(`import_binding:${binding.imported}_duplicate`);
+      protectedBindings.set(binding.imported, binding.localTokenIndex);
+    }
+  }
+  for (const required of protectedImports.values())
+    for (const symbol of required)
+      if (!protectedBindings.has(symbol))
+        throw new Error(`import_binding:${symbol}_missing`);
+
+  for (const functionName of [
+    "prepareReleaseManifestCandidate",
+    "preflightReleaseManifest",
+    "signReleaseManifest",
+    "main",
+  ])
+    namedFunctionBodyRange(tokens, functionName);
+
+  const permittedOwners = new Map<string, ReadonlySet<string>>([
+    [
+      "inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
+      new Set(["prepareReleaseManifestCandidate"]),
+    ],
+    [
+      "beginReleaseStagingManifestSession",
+      new Set(["prepareReleaseManifestCandidate"]),
+    ],
+    [
+      "verifyReleaseStagingManifestSession",
+      new Set(["prepareReleaseManifestCandidate", "signReleaseManifest"]),
+    ],
+    ["readHiddenLine", new Set(["main"])],
+    ["createPrivateKey", new Set(["signReleaseManifest"])],
+    ["createPublicKey", new Set(["signReleaseManifest"])],
+    ["sign", new Set(["signReleaseManifest"])],
+    ["placeReleaseStagingManifestCandidate", new Set(["signReleaseManifest"])],
+  ]);
+  const expectedProtectedImportUseCount = new Map<string, number>([
+    ["inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate", 1],
+    ["beginReleaseStagingManifestSession", 1],
+    ["verifyReleaseStagingManifestSession", 2],
+    ["readHiddenLine", 1],
+    ["createPrivateKey", 1],
+    ["createPublicKey", 1],
+    ["sign", 1],
+    ["placeReleaseStagingManifestCandidate", 1],
+  ]);
+  for (const [symbol, bindingIndex] of protectedBindings) {
+    let useCount = 0;
+    for (let index = 0; index < tokens.length; index += 1) {
+      if (index === bindingIndex || tokens[index]?.value !== symbol) continue;
+      useCount += 1;
+      const owner = containingNamedFunction(tokens, index)?.name ?? "module";
+      if (
+        !permittedOwners.get(symbol)?.has(owner) ||
+        tokens[index - 1]?.value === "." ||
+        tokens[index + 1]?.value !== "("
+      )
+        throw new Error(`binding_use:${symbol}:${owner}`);
+    }
+    if (useCount !== expectedProtectedImportUseCount.get(symbol))
+      throw new Error(`binding_use:${symbol}:count`);
+  }
+
+  const p = directProtectedCall(
+    tokens,
+    "preflightReleaseManifest",
+    "main",
+    ["const", "preflight", "="],
+    [["options"]],
+  );
+  const secret = directProtectedCall(
+    tokens,
+    "readHiddenLine",
+    "main",
+    ["const", "passphrase", "=", "await"],
+    [["Release key passphrase: "]],
+  );
+  const s = directProtectedCall(
+    tokens,
+    "signReleaseManifest",
+    "main",
+    ["const", "result", "="],
+    [["preflight", ".", "authorization"], ["passphrase"]],
+  );
+  if (!(p < secret && secret < s)) throw new Error("dominance:p_secret_s");
+
+  const pPrepare = directProtectedCall(
+    tokens,
+    "prepareReleaseManifestCandidate",
+    "preflightReleaseManifest",
+    [],
+    [["snapshot"], ["true"]],
+  );
+  const sPrepare = directProtectedCall(
+    tokens,
+    "prepareReleaseManifestCandidate",
+    "signReleaseManifest",
+    [],
+    [["options"], ["false"]],
+  );
+  const keyRead = directProtectedCall(
+    tokens,
+    "stableExternalFile",
+    "signReleaseManifest",
+    ["privateKeyBytes", "="],
+    [["options", ".", "privateKeyPath"], ["MAXIMUM_PRIVATE_KEY_BYTES"]],
+  );
+  const signature = directProtectedCall(
+    tokens,
+    "sign",
+    "signReleaseManifest",
+    ["const", "signature", "="],
+    [["null"], ["compiled", ".", "message"], ["privateKey"]],
+  );
+  const placement = directProtectedCall(
+    tokens,
+    "placeReleaseStagingManifestCandidate",
+    "signReleaseManifest",
+    ["const", "placement", "="],
+    [
+      ["platformAccessObservation", ".", "token"],
+      ["canonical", ".", "canonicalBytes"],
+    ],
+  );
+  if (!(keyRead < signature && signature < placement))
+    throw new Error("dominance:key_signature_placement");
+
+  const expectedLocalCalls = new Map<string, ReadonlySet<number>>([
+    ["preflightReleaseManifest", new Set([p])],
+    ["signReleaseManifest", new Set([s])],
+    ["prepareReleaseManifestCandidate", new Set([pPrepare, sPrepare])],
+    ["stableExternalFile", new Set([keyRead])],
+  ]);
+  for (const [symbol, expectedIndices] of expectedLocalCalls) {
+    const observed: number[] = [];
+    for (let index = 0; index < tokens.length; index += 1) {
+      if (
+        tokens[index]?.value === symbol &&
+        tokens[index - 1]?.value !== "function"
+      )
+        observed.push(index);
+    }
+    if (
+      observed.length !== expectedIndices.size ||
+      observed.some((index) => !expectedIndices.has(index))
+    )
+      throw new Error(`local_binding_use:${symbol}`);
+  }
+
+  assertExactAuditedFunctionFlows(
+    "scripts/sign-release-manifest.ts",
+    tokens,
+    true,
+  );
+}
+
+export function releaseSigningProtectedPathDiagnosticForVerification(
+  source: string,
+): ProtectedPathDiagnostic {
+  try {
+    assertReleaseSigningProtectedPath(source);
+    return Object.freeze({
+      status: "accepted",
+      phase: "protected_path",
+      reason: "release_signing_protected_path_closed",
+      publicReason: null,
+      capabilityIssued: false,
+      effectState: "no_effect",
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown";
+    const separator = detail.indexOf(":");
+    return Object.freeze({
+      status: "blocked",
+      phase: separator < 0 ? "protected_path" : detail.slice(0, separator),
+      reason: detail,
+      publicReason:
+        "platform_provisioner_runtime_dependency_signing_consumer_unbound",
+      capabilityIssued: false,
+      effectState: "no_effect",
+    });
+  }
+}
+
 export function assertReleaseSigningConsumerClosureForVerification(
   source: string,
 ) {
-  const tokens = tokenizeTypeScriptModuleSyntax(source);
-  try {
-    assertExactAuditedFunctionFlows(
-      "scripts/sign-release-manifest.ts",
-      tokens,
-      true,
-    );
-  } catch {
+  const diagnostic =
+    releaseSigningProtectedPathDiagnosticForVerification(source);
+  if (diagnostic.status === "blocked")
     throw new Error(
       "platform_provisioner_runtime_dependency_signing_consumer_unbound",
     );
-  }
 }
 
 function staticRelativeModuleTargets(

@@ -347,6 +347,21 @@ test("Repository RootはexactなVCS worktreeだけを実行時能力にする", 
     verifyExecutionIntelligenceRepositoryRoot(nonRepository).status,
     "blocked",
   );
+  for (const boundaryKind of ["file", "directory"] as const) {
+    const fakeRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), `crdd-execution-fake-git-${boundaryKind}-`),
+    );
+    t.after(() => fs.rmSync(fakeRoot, { recursive: true, force: true }));
+    const fakeBoundary = path.join(fakeRoot, ".git");
+    if (boundaryKind === "file")
+      fs.writeFileSync(fakeBoundary, "gitdir: nowhere\n", "utf8");
+    else fs.mkdirSync(fakeBoundary);
+    assert.deepEqual(createExecutionIntelligenceRecorder(fakeRoot), {
+      status: "blocked",
+      reason: "execution_repository_root_invalid",
+    });
+    assert.equal(fs.existsSync(path.join(fakeRoot, ".crdd")), false);
+  }
   const forged = Object.freeze({
     contract: "crdd/verified-execution-repository-root/v1" as const,
   });
@@ -354,6 +369,29 @@ test("Repository RootはexactなVCS worktreeだけを実行時能力にする", 
     writeExecutionIntelligenceEvent(forged, event()).status,
     "blocked",
   );
+});
+
+test("能力発行後にGit境界が失効した場合はStore Effect 0で拒否する", (t) => {
+  for (const replacement of [
+    "absent",
+    "fake_file",
+    "fake_directory",
+  ] as const) {
+    const root = fixture(t);
+    const created = createExecutionIntelligenceRecorder(root);
+    assert.equal(created.status, "completed");
+    if (created.status !== "completed") throw new Error("recorder_not_ready");
+    const gitBoundary = path.join(root, ".git");
+    fs.rmSync(gitBoundary, { recursive: true, force: true });
+    if (replacement === "fake_file")
+      fs.writeFileSync(gitBoundary, "gitdir: nowhere\n", "utf8");
+    if (replacement === "fake_directory") fs.mkdirSync(gitBoundary);
+
+    const result = created.recorder.recordEvent(eventForTask(replacement));
+    assert.equal(result.status, "blocked");
+    assert.equal(result.effectState, "no_effect");
+    assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
+  }
 });
 
 test("並行Processの同一Eventは冪等で、異なる内容は上書きしない", async (t) => {

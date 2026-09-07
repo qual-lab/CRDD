@@ -16,6 +16,8 @@ import {
   inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate,
   inspectVerifiedNativeDistributionCandidate,
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
+  releaseSigningProtectedPathDiagnosticForVerification,
+  runtimePackageCapabilityConsumerGraphDiagnosticForVerification,
   assertReleaseSigningConsumerClosureForVerification,
   assertRuntimePackageCapabilityConsumerGraphForVerification,
   assertVerificationToolCapabilityGraphForVerification,
@@ -554,6 +556,56 @@ test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致
   );
 });
 
+test("実行能力の反証は利用側伝播の意図したphaseで拒否する", () => {
+  const sources = runtimeTypeScriptSources();
+  const cases = [
+    {
+      phase: "consumer_import",
+      path: "src/composition/project-runtime-composition-root.ts",
+      from: "issueRuntimeOwnedVerifiedCoordinatorPackageCapability,",
+      to: "issueRuntimeOwnedVerifiedCoordinatorPackageCapability as issueCapability,",
+    },
+    {
+      phase: "consumer_handoff",
+      path: "src/security/project-runtime-execution-authorization-adapter.ts",
+      from: "value: capability,",
+      to: "value: { ...capability },",
+    },
+    {
+      phase: "consumer_handoff",
+      path: "src/security/project-runtime-execution-authorization-adapter.ts",
+      from: 'reason: "project_runtime_execution_authorization_revoked",\n              value: null,',
+      to: 'reason: "project_runtime_execution_authorization_revoked",\n              value: capability,',
+    },
+    {
+      phase: "consumer_handoff",
+      path: "src/security/coordinator-task-runtime.ts",
+      from: "  if (\n    !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
+      to: "  void productionRuntime.start(rawRequest, repositoryRoot, new Date().toISOString(), recoveryCorrelationId);\n  if (\n    !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
+    },
+  ] as const;
+  for (const scenario of cases) {
+    const mutated = { ...sources };
+    const before = mutated[scenario.path] ?? "";
+    mutated[scenario.path] = before.replace(scenario.from, scenario.to);
+    assert.notEqual(mutated[scenario.path], before, scenario.path);
+    const result =
+      runtimePackageCapabilityConsumerGraphDiagnosticForVerification(mutated);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.phase, scenario.phase, result.reason);
+    assert.equal(
+      result.publicReason,
+      "platform_provisioner_runtime_dependency_consumer_graph_mismatch",
+    );
+    assert.equal(result.capabilityIssued, false);
+    assert.equal(result.effectState, "no_effect");
+    assert.throws(
+      () => assertRuntimePackageCapabilityConsumerGraphForVerification(mutated),
+      /platform_provisioner_runtime_dependency_consumer_graph_mismatch/u,
+    );
+  }
+});
+
 test("署名入口は配布観測結果を秘密入力前の検査と署名結果へ同じflowで伝播する", () => {
   const source = fs.readFileSync(
     path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
@@ -607,6 +659,70 @@ test("署名の保護対象flowを同名decoy・事前Effect・条件付き証�
       () => assertReleaseSigningConsumerClosureForVerification(mutated),
       /runtime_dependency_signing_consumer_unbound/u,
     );
+});
+
+test("署名の反証は意図した保護phaseで最初に拒否しEffect経路へ到達させない", () => {
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+    "utf8",
+  );
+  const cases = [
+    {
+      phase: "binding_use",
+      mutate: (value: string) =>
+        value.replace(
+          "async function main() {",
+          "async function main() {\n  const readHiddenLine = () => Promise.resolve('forged');",
+        ),
+    },
+    {
+      phase: "binding_use",
+      mutate: (value: string) =>
+        `class HiddenPrompt { static value = readHiddenLine('forged'); }\n${value}`,
+    },
+    {
+      phase: "call_graph",
+      mutate: (value: string) =>
+        value.replace(
+          "const preflight = preflightReleaseManifest(options);",
+          "const preflight = false ? preflightReleaseManifest(options) : preflightReleaseManifest(options);",
+        ),
+    },
+    {
+      phase: "binding_use",
+      mutate: (value: string) =>
+        value.replace(
+          "const preflight = preflightReleaseManifest(options);",
+          "const early = await readHiddenLine('early');\n  void early;\n  const preflight = preflightReleaseManifest(options);",
+        ),
+    },
+    {
+      phase: "call_graph",
+      mutate: (value: string) =>
+        value.replace(
+          "preflight.authorization, passphrase",
+          "{ ...preflight.authorization }, passphrase",
+        ),
+    },
+  ] as const;
+  for (const scenario of cases) {
+    const mutated = scenario.mutate(source);
+    assert.notEqual(mutated, source);
+    const result =
+      releaseSigningProtectedPathDiagnosticForVerification(mutated);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.phase, scenario.phase, result.reason);
+    assert.equal(
+      result.publicReason,
+      "platform_provisioner_runtime_dependency_signing_consumer_unbound",
+    );
+    assert.equal(result.capabilityIssued, false);
+    assert.equal(result.effectState, "no_effect");
+    assert.throws(
+      () => assertReleaseSigningConsumerClosureForVerification(mutated),
+      /platform_provisioner_runtime_dependency_signing_consumer_unbound/u,
+    );
+  }
 });
 
 test("公開結果はCanonical観測値を欠落・再解釈・混合せず投影する", () => {
