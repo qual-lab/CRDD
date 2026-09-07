@@ -4,7 +4,7 @@ import path from "node:path";
 
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 7;
+export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 8;
 export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
   "loaded_kernel32_os_observed_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
@@ -174,6 +174,26 @@ export function createWindowsDockerDesktopRepairHelperEnvironment(): Readonly<
   return Object.freeze({ ...environment, SYSTEMDRIVE: systemDrive });
 }
 
+export function createWindowsPowerShellAuthenticodeEnvironment(): Readonly<
+  Record<string, string>
+> | null {
+  if (process.platform !== "win32") return null;
+  const windowsDirectory = observedWindowsDirectoryFromLoadedSystemModule();
+  if (!windowsDirectory) return null;
+  const system32 = path.win32.join(windowsDirectory, "System32");
+  const powerShellDirectory = path.win32.join(
+    system32,
+    "WindowsPowerShell",
+    "v1.0",
+  );
+  return Object.freeze({
+    SystemRoot: windowsDirectory,
+    WINDIR: windowsDirectory,
+    PATH: [system32, windowsDirectory, powerShellDirectory].join(";"),
+    PATHEXT: ".COM;.EXE;.BAT;.CMD",
+  });
+}
+
 // Pure path validation; callers must obtain the directory from the OS observer.
 // This does not turn a caller-supplied path into an execution capability.
 export function deriveWindowsSystemDrive(windowsDirectory: unknown) {
@@ -239,6 +259,11 @@ export function describeWindowsChildEnvironmentContract() {
       "docker_recovery_runtime",
       "docker_desktop_runtime_repair",
     ]),
+    powerShellAuthenticodeConsumers: Object.freeze([
+      "docker_cli_authenticode_inspection",
+    ]),
+    powerShellAuthenticodeEnvironment:
+      "loaded_os_directory_minimal_powershell_initialization_block",
     dockerDesktopLauncherConsumers: Object.freeze([]),
     dockerRepairHelperSystemDrive: "loaded_kernel32_os_directory_local_drive",
     dockerDesktopLauncherEnvironment:

@@ -41,6 +41,7 @@ import {
   createWindowsHostOperationSupervisorEnvironment,
   createWindowsNativeHelperEnvironment,
   createWindowsNodeConsoleReaderEnvironment,
+  createWindowsPowerShellAuthenticodeEnvironment,
   deriveWindowsSystemDrive,
   describeWindowsChildEnvironmentContract,
   WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
@@ -996,7 +997,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
 
   assert.deepEqual(describeWindowsChildEnvironmentContract(), {
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-    contractRevision: 7,
+    contractRevision: 8,
     provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
@@ -1019,6 +1020,9 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
       "docker_recovery_runtime",
       "docker_desktop_runtime_repair",
     ],
+    powerShellAuthenticodeConsumers: ["docker_cli_authenticode_inspection"],
+    powerShellAuthenticodeEnvironment:
+      "loaded_os_directory_minimal_powershell_initialization_block",
     dockerDesktopLauncherConsumers: [],
     dockerRepairHelperSystemDrive: "loaded_kernel32_os_directory_local_drive",
     dockerDesktopLauncherEnvironment:
@@ -1033,6 +1037,62 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
       createWindowsNativeHelperEnvironment()?.SystemRoot,
     ),
   });
+});
+
+test("Authenticode検査用PowerShellは親環境を継承せず最小OS環境で起動する", (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows contract");
+    return;
+  }
+  const environment = createWindowsPowerShellAuthenticodeEnvironment();
+  assert.ok(environment);
+  assert.deepEqual(Object.keys(environment).sort(), [
+    "PATH",
+    "PATHEXT",
+    "SystemRoot",
+    "WINDIR",
+  ]);
+  const systemRoot = environment.SystemRoot;
+  if (typeof systemRoot !== "string" || systemRoot.length === 0) {
+    assert.fail("SystemRoot must be present in the PowerShell environment");
+  }
+  assert.equal(systemRoot, environment.WINDIR);
+  assert.equal(
+    environment.PATH,
+    [
+      path.win32.join(systemRoot, "System32"),
+      systemRoot,
+      path.win32.join(systemRoot, "System32", "WindowsPowerShell", "v1.0"),
+    ].join(";"),
+  );
+  const powershell = path.win32.join(
+    systemRoot,
+    "System32",
+    "WindowsPowerShell",
+    "v1.0",
+    "powershell.exe",
+  );
+  const result = spawnSync(
+    powershell,
+    [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "Write-Output 'CRDD_POWERSHELL_ENVIRONMENT_OK'",
+    ],
+    {
+      cwd: systemRoot,
+      env: environment,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 5_000,
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.signal, null);
+  assert.equal(result.stdout, "CRDD_POWERSHELL_ENVIRONMENT_OK\r\n");
+  assert.equal(result.stderr, "");
 });
 
 test("Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否する", () => {

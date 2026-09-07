@@ -1607,7 +1607,7 @@ const exactExternalProcessCallGraph = Object.freeze(
       "spawnSync",
       1,
       "09c761c58f78148f769232a93aaf76c4d459ab14fdd6b5274a9f0b51fbcbdfb3",
-      "dbcf18f7c5694ca2aea5075e6e330069748d791e5b3e9627f084d3c6a4638c1a",
+      "2ece3abb0156af99dd93e3a70d5cac1f072f9c637215d0b5a3fb681c399eaf95",
       "result",
     ],
     [
@@ -2145,7 +2145,12 @@ const exactExecutableProvenance = Object.freeze(
       [
         "src/security/docker-cli-trust.ts\0inspectDockerAuthenticode",
         [
-          ["const", "environment", "=", "createWindowsDockerCliEnvironment"],
+          [
+            "const",
+            "environment",
+            "=",
+            "createWindowsPowerShellAuthenticodeEnvironment",
+          ],
           ["fs", ".", "realpathSync", ".", "native", "(", "powershell"],
         ],
       ],

@@ -175,3 +175,17 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
   ]
 }
 ```
+
+## 10. 正式E2Eで検出したDocker CLI署名検査環境
+
+| 項目 | 内容 |
+|---|---|
+| 検出地点 | v0.20.0正式候補の4経路E2E、forward経路の開始前Recovery |
+| 表示結果 | `docker_process_controller_recovery_conflict` |
+| 直接原因 | Docker CLI用の中立化環境をPowerShellのAuthenticode検査へ流用し、PowerShell初期化に必要なOS環境まで空にした |
+| 構造是正 | Authenticode検査専用の最小OS環境を子Process契約へ追加し、Docker CLI実行環境と分離する |
+| 保持する保護 | 固定公式Path、Docker Inc署名、Filesystem Identity、Operation内Hash固定、親環境非継承 |
+| 変更しない範囲 | Docker更新を特定Version／過去Hashへ固定しない。Recovery Authorityや残存記録を手動削除しない |
+| 再検証 | 専用環境の閉集合、実PowerShell起動、Docker CLI Trust、該当Recovery、正式4経路E2E |
+
+この不具合はProvider Effect前にfail-closedで停止したため、Canonical Repositoryの変更またはProvider送信は発生していない。Runtime実行Identityを構成するsourceが変わるため、是正後の正式候補は旧署名を流用せず再署名する。

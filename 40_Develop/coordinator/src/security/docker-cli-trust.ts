@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
+import { createWindowsPowerShellAuthenticodeEnvironment } from "../core/windows-child-environment.ts";
 
 export const DOCKER_CLI_TRUST_CONTRACT = "crdd-coordinator/docker-cli-trust";
 export const DOCKER_CLI_TRUST_CONTRACT_REVISION = 1;
@@ -43,10 +43,7 @@ function filesystemIdentity(target: string, expected: "file" | "directory") {
 }
 
 function inspectDockerAuthenticode() {
-  const environment = createWindowsDockerCliEnvironment({
-    dockerConfig: null,
-    dockerHome: null,
-  });
+  const environment = createWindowsPowerShellAuthenticodeEnvironment();
   if (!environment) throw new Error("docker_cli_authenticode_unavailable");
   const systemRoot = environment.SystemRoot;
   if (typeof systemRoot !== "string" || systemRoot.length === 0)
