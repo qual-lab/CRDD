@@ -7,9 +7,10 @@ import {
 
 function fixture(change: string = "") {
   const events: string[] = [];
-  let boundaryLive = true;
+  let isBoundaryLive = true;
   const controller = new AbortController();
-  let wsl: "running" | "stopped" | "unknown" = "running";
+  let wsl: "running" | "stopped" | "unknown" =
+    change === "idle" ? "stopped" : "running";
   let processes: "verified" | "absent" = "verified";
   const session = {
     assertLive: () => change !== "dead",
@@ -18,6 +19,16 @@ function fixture(change: string = "") {
     inspectClientProcesses: async () =>
       change === "client" ? ("verified" as const) : ("absent" as const),
     inspectProcesses: async () => processes,
+    stopDesktop: async () => {
+      events.push("S");
+      if (change === "unissued") return "not_issued" as const;
+      if (change === "terminate") return "outcome_unknown" as const;
+      if (change !== "residual" && !change.startsWith("delayed")) {
+        processes = "absent";
+        wsl = "stopped";
+      }
+      return "command_completed" as const;
+    },
     terminateProcesses: async () => {
       events.push("K");
       processes = "absent";
@@ -41,29 +52,91 @@ function fixture(change: string = "") {
   };
   const machine = createDockerRestartMachineForVerification({
     session,
-    boundary: () => boundaryLive,
+    boundary: () => isBoundaryLive,
     signal: controller.signal,
     observeWsl: () => (change === "wsl" ? "unknown" : wsl),
-    terminateWsl: () => {
-      events.push("W");
-      if (change !== "residual") wsl = "stopped";
-      return change !== "terminate";
-    },
     engineReady: () => change !== "engine",
     containersAbsent: () => change !== "containers",
     now: () => 0,
-    wait: async () => {},
+    wait: async () => {
+      if (!change.startsWith("delayed")) return;
+      events.push("wait");
+      if (change === "delayed-cancel") controller.abort();
+      if (change === "delayed-lock") isBoundaryLive = false;
+      if (change === "delayed-exit") {
+        processes = "absent";
+        wsl = "stopped";
+      }
+    },
   });
   return {
     machine,
     events,
     session,
     loseBoundary: () => {
-      boundaryLive = false;
+      isBoundaryLive = false;
     },
     controller,
   };
 }
+
+test("official stop waits for delayed process exit without reissuing stop", async () => {
+  const f = fixture("delayed-exit");
+  assert.equal(await f.machine.stop(), "stopped");
+  assert.deepEqual(f.events, ["S", "wait"]);
+  assert.equal(f.machine.getEffectOutcomeUnknown(), false);
+  await f.machine.release();
+});
+
+for (const reason of ["delayed-timeout", "delayed-cancel", "delayed-lock"]) {
+  test(`post-stop observation ${reason} remains bounded and unknown`, async () => {
+    const f = fixture(reason);
+    assert.equal(await f.machine.stop(), "unknown");
+    assert.equal(f.events.filter((event) => event === "S").length, 1);
+    assert.equal(
+      f.events.filter((event) => event === "wait").length,
+      reason === "delayed-timeout" ? 29 : 1,
+    );
+    assert.equal(f.machine.getEffectOutcomeUnknown(), true);
+    await f.machine.release();
+  });
+}
+
+for (const reason of [
+  "dead",
+  "artifact",
+  "client",
+  "wsl",
+  "containers",
+  "unissued",
+]) {
+  test(`pre-effect refusal ${reason} does not claim unknown issued effect`, async () => {
+    const f = fixture(reason);
+    assert.equal(await f.machine.stop(), "unknown");
+    assert.equal(f.machine.getEffectOutcomeUnknown(), false);
+    await f.machine.release();
+  });
+}
+
+for (const reason of ["terminate", "residual"]) {
+  test(`issued stop ${reason} preserves unknown effect`, async () => {
+    const f = fixture(reason);
+    assert.equal(await f.machine.stop(), "unknown");
+    assert.equal(f.machine.getEffectOutcomeUnknown(), true);
+    await f.machine.release();
+  });
+}
+
+test("start precondition refusal is unissued but failed readiness remains unknown", async () => {
+  const f = fixture("engine");
+  assert.equal(await f.machine.start(), "unknown");
+  assert.equal(f.machine.getEffectOutcomeUnknown(), false);
+  assert.equal(await f.machine.stop(), "stopped");
+  assert.equal(f.machine.getEffectOutcomeUnknown(), false);
+  assert.equal(await f.machine.start(), "unknown");
+  assert.equal(f.machine.getEffectOutcomeUnknown(), true);
+  await f.machine.release();
+});
 
 for (const stage of ["before-kill", "before-wsl", "before-launch"] as const) {
   for (const mode of ["lock-loss", "cancel"] as const) {
@@ -81,14 +154,14 @@ for (const stage of ["before-kill", "before-wsl", "before-launch"] as const) {
         assert.equal(await f.machine.stop(), "unknown");
         assert.deepEqual(f.events, []);
       } else if (stage === "before-wsl") {
-        const original = f.session.terminateProcesses;
-        f.session.terminateProcesses = async () => {
+        const original = f.session.stopDesktop;
+        f.session.stopDesktop = async () => {
           const value = await original();
           lose();
           return value;
         };
         assert.equal(await f.machine.stop(), "unknown");
-        assert.deepEqual(f.events, ["K"]);
+        assert.deepEqual(f.events, ["S"]);
       } else {
         assert.equal(await f.machine.stop(), "stopped");
         const original = f.session.inspectProcesses;
@@ -98,15 +171,31 @@ for (const stage of ["before-kill", "before-wsl", "before-launch"] as const) {
           return value;
         };
         assert.equal(await f.machine.start(), "unknown");
-        assert.deepEqual(f.events, ["K", "W"]);
+        assert.deepEqual(f.events, ["S"]);
       }
       assert.deepEqual(await f.machine.release(), {
         cleanup: "confirmed",
-        protocol: "completed",
+        protocol: mode === "cancel" ? "not_applicable" : "completed",
       });
     });
   }
 }
+
+test("cancellation joins Native abort once and preserves unknown cleanup", async () => {
+  const f = fixture();
+  let calls = 0;
+  f.session.abort = async () => {
+    calls += 1;
+    throw new Error("unobserved native exit");
+  };
+  f.controller.abort();
+  assert.equal(await f.machine.stop(), "unknown");
+  const first = f.machine.release();
+  assert.equal(first, f.machine.release());
+  assert.deepEqual(await first, { cleanup: "unknown", protocol: "failed" });
+  assert.equal(calls, 1);
+  assert.deepEqual(f.events, []);
+});
 
 test("restart machine stops both boundaries before launch and joins release", async () => {
   const { machine, events } = fixture();
@@ -116,7 +205,14 @@ test("restart machine stops both boundaries before launch and joins release", as
     cleanup: "confirmed",
     protocol: "completed",
   });
-  assert.deepEqual(events, ["K", "W", "L", "Q"]);
+  assert.deepEqual(events, ["S", "L", "Q"]);
+});
+
+test("idle WSL with Desktop present uses official stop, not forced termination", async () => {
+  const { machine, events } = fixture("idle");
+  assert.equal(await machine.stop(), "stopped");
+  assert.deepEqual(events, ["S"]);
+  await machine.release();
 });
 
 for (const failure of [

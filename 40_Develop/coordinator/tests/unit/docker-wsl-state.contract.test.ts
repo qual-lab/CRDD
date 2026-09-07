@@ -58,7 +58,7 @@ test("failed or incomplete processes are never empty successful lists", () => {
   }
 });
 test("rejects malformed encoding and unsupported lines", () => {
-  const invalid = [
+  const invalidSamples = [
     Buffer.from([0xff]),
     Buffer.from([0xff, 0xfe, 0x61]),
     Buffer.from([0xfe, 0xff, 0, 0x61]),
@@ -66,7 +66,7 @@ test("rejects malformed encoding and unsupported lines", () => {
     Buffer.from([0x00, 0xd8]),
     Buffer.from("Ubuntu\0", "utf8"),
   ];
-  for (const bytes of invalid)
+  for (const bytes of invalidSamples)
     assert.equal(
       observeDockerWslState(registered, completed(bytes)),
       "unknown",

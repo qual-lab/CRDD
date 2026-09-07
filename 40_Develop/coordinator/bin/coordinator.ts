@@ -93,7 +93,10 @@ function printHelp() {
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
   );
   process.stdout.write(
-    `  coordinator doctor --restart-docker-for-recovery <docker-task-recovery-id> [--json]\n`,
+    `  coordinator doctor --restart-docker-for-recovery <docker-task-recovery-id> [--restart-origin-release-root <absolute-root>] [--json]\n`,
+  );
+  process.stdout.write(
+    `    --restart-origin-release-root supplies a task-origin distribution candidate for verification; the path itself grants no authority and is not --repair-release-root.\n`,
   );
   process.stdout.write(
     `  coordinator doctor --recover-isolation <docker-task-recovery-id> --after-recorded-docker-restart [--json]\n`,
@@ -559,6 +562,9 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
             ? await restartRuntimeOwnedDockerForRecovery(
                 options.restartDockerForRecoveryId,
                 controller.signal,
+                typeof options.restartOriginReleaseRoot === "string"
+                  ? options.restartOriginReleaseRoot
+                  : undefined,
               )
             : {
                 status: "blocked",

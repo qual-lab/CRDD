@@ -63,7 +63,7 @@ test("期限なしは明示指定だけを受け、CLIの排他違反とundefine
     issuedAt: "2026-09-01T00:00:00.000Z",
     expiresAt: null,
   };
-  const { passphrase: _passphrase, ...preflightOnlyOptions } = options;
+  const { passphrase: omittedPassphrase, ...preflightOnlyOptions } = options;
   let accessorReadCount = 0;
   const accessorOptions = { ...preflightOnlyOptions };
   Object.defineProperty(accessorOptions, "expiresAt", {

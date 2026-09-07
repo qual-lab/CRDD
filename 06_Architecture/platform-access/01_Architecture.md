@@ -1,8 +1,8 @@
 # Windowsネイティブ部品の設計
 
-状態: Stable（v0.18.1）
+状態: Candidate（v0.20.0、正式実機検証未完了）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-01
+最終更新日: 2026-09-07
 
 ## 1. 役割と非目標
 
@@ -43,7 +43,8 @@ Coordinatorの用途別Adapter（許可・耐久記録・全体結果の所有�
   │                                      Windows API
   └→ Docker操作 [docker_repair.rs]
         ├ 障害修復protocol
-        ├ 検証付き再起動protocol（実装接続中）
+        ├ 検証付き再起動protocol（Source接続済み・実機未完了）
+        │   └→ 公式停止CLI → 子Process・Job所有 [windows_owned_child.rs]
         ├ artifact固定・Process観測／限定操作
         ├→ 発行元署名検証 [docker_authenticode.rs] → Windows署名検証API
         └→ Known Folder・選択ユーザー情報 [windows.rs]
@@ -57,6 +58,7 @@ Coordinator側で再検証 → 診断／回復結果
 | Windows観測 | `src/windows.rs` | OS主体、ACL、Known Folder、Filesystem実体と限定初期化 |
 | Docker操作 | `src/docker_repair.rs` | 用途別protocol、mutex、固定artifact、Process確認・限定操作 |
 | 発行元検証 | `src/docker_authenticode.rs` | 開いたDocker artifactのWindows署名・発行元検証 |
+| 停止CLIの子Process所有 | `src/windows_owned_child.rs` | 停止前生成、Jobへの割当、実行、有限待機、取消と終了観測 |
 
 再起動protocolのSourceが存在することは、署名済み配布物への収載、耐久記録との接続または実機E2E完了を意味しない。操作許可、Directory退避、Task復旧、再起動完了の総合判定はこのbinaryへ移さず、Coordinator側に保持する。Linux／macOSの実装経路はない。
 
@@ -77,6 +79,7 @@ Root／Home／Store／Stateのbyte・flag定義は[protocol.rs](../../40_Develop
 | Root | revision 3、`CRDDPA03`／`CRDDPR03`、応答86 bytes | nonce、role、Path、期待実体、既知flag、終了状態 |
 | Home／Store／State | revision 3、`CRDDPH02`／`CRDDHO02`、要求76・応答182 bytes | provider、nonce、主体・保護・安定Identity。初期化flagはStore／Stateだけ |
 | Docker復旧 | `CRDDDR04`、応答41 bytes | 固定mode、状態、Policy Hash、子Process結果 |
+| 検証付き再起動 | `CRDDDS01`、応答41 bytes | 別mode・Policy Hash。`S`は公式停止、`N`未発行／`T`exit 0と子回収確認／`P`発行後不明 |
 
 部分応答、余分なbyte、異なるnonce／role、不正flagまたは異常終了を正常候補へ補正しない。公開結果へPath、SID、ACL、Credentialまたはraw OS errorを戻さず、閉じた理由、flagおよびHashだけを返す。
 
@@ -85,6 +88,16 @@ Root／Home／Store／Stateのbyte・flag定義は[protocol.rs](../../40_Develop
 観測は、要求検証、固定対象のopen、主体・保護・実体の観測、前後一致、応答の順で行う。Directory、token、security descriptor、Known Folderおよびhash handleは所有箇所で解放する。初期化後の失敗を「Effectなし」へ補正しない。
 
 Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対象だけを終了・再起動する。TypeScript側は子Processとstdioの終了を待ち、観測不能なら`cleanup_unknown`へ閉じる。helperの終了だけでDocker Engine復旧や退避Directory削除を宣言しない。
+
+検証付き再起動の停止は、同一handleで署名・実体を固定した`resources/cli-plugins/docker-desktop.exe`へ`desktop stop --timeout 30`を渡す。`force`、`detach`および旧修復の`K`へのfallbackはない。旧修復protocolの`K`は変更しない。
+
+| 子Process境界 | 保証・不明時の処置 |
+|---|---|
+| 起動 | `CREATE_SUSPENDED`で生成し、kill-on-close Jobへ割り当ててから再開する |
+| 入出力 | 明示したNUL handleだけを継承する。CLI出力を応答protocolへ混入させない |
+| 待機 | 外側35秒の有限待機。stdin EOF・予期しない追加入力・観測不能を取消として扱う |
+| 回収 | 同一子handle終了とJob内Process不存在を確認。回収不明なら`P`後にhelperを異常終了し、後続の正常終了応答を禁止する |
+| 全体成立 | `T`だけではDocker停止成立を主張しない。Coordinatorが管理Process、CLI、WSLとEngineを再観測する |
 
 ## 6. 呼出し元との分担
 

@@ -6,7 +6,7 @@ import {
   type DockerRestartPhase,
 } from "../../src/core/docker-restart-state.ts";
 
-const confirmedObservation: DockerRestartObservation = Object.freeze({
+const CONFIRMED_OBSERVATION: DockerRestartObservation = Object.freeze({
   boundaryMatches: true,
   cancellationRequested: false,
   intentRecorded: true,
@@ -31,20 +31,20 @@ const phases: readonly DockerRestartPhase[] = [
 test("restart progress requires each ordered stage before completion", () => {
   let phase: DockerRestartPhase = "prepared";
   for (const expected of phases.slice(1)) {
-    const result = classifyDockerRestartProgress(phase, confirmedObservation);
+    const result = classifyDockerRestartProgress(phase, CONFIRMED_OBSERVATION);
     assert.equal(result.status, "advance");
     assert.equal(result.phase, expected);
     assert.equal(result.recoveryRequired, true);
     phase = result.phase;
   }
   assert.equal(
-    classifyDockerRestartProgress(phase, confirmedObservation).status,
+    classifyDockerRestartProgress(phase, CONFIRMED_OBSERVATION).status,
     "complete",
   );
 });
 
 for (const phase of phases) {
-  for (const [field, value, reason] of [
+  for (const [field, isObserved, reason] of [
     ["boundaryMatches", false, "docker_restart_boundary_unconfirmed"],
     ["cancellationRequested", true, "docker_restart_cancelled"],
     ["recordConfirmed", false, "docker_restart_record_unconfirmed"],
@@ -52,8 +52,8 @@ for (const phase of phases) {
   ] as const) {
     test(`${phase}: ${field} prevents advancement or effect replay`, () => {
       const result = classifyDockerRestartProgress(phase, {
-        ...confirmedObservation,
-        [field]: value,
+        ...CONFIRMED_OBSERVATION,
+        [field]: isObserved,
       });
       assert.equal(result.status, "blocked");
       assert.equal(result.phase, phase);
@@ -84,7 +84,7 @@ for (const [phase, fields, reason] of [
   for (const field of fields) {
     test(`${phase}: missing ${field} cannot be replaced by other success flags`, () => {
       const result = classifyDockerRestartProgress(phase, {
-        ...confirmedObservation,
+        ...CONFIRMED_OBSERVATION,
         [field]: false,
       });
       assert.equal(result.status, "blocked");

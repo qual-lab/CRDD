@@ -125,6 +125,8 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 - 順序1の`restartCompleted`と`cleanupConfirmed`がともに成立した場合だけ順序2へ進む。旧障害修復の引数と混在させない。
 - 正常なrun Directoryを退避・削除しない。署名鍵入力や元Taskの再実行は、この操作に含まない。
 - 途中失敗では同じ回復IDと記録を保持する。初回操作を繰り返すことで未知のEffectを再発行せず、停止理由に従って再入場条件を確認する。
+- 別署名の部分記録は、実行担当が生成元の署名Rootを確認して限定引継ぎへ渡す。旧記録の手動修正・削除で再開しない。旧単一`stop_intent`からの初回引継ぎは別の継続停止意図へ進むが、現在Runtimeの`stop_intent`再入場は観測だけであり、同じ停止を再発行しない。
+- 正常停止は公式Desktop CLIを使い、強制停止・detach・旧障害修復へのfallbackはしない。子Processの取消・回収とDocker全体の停止確認は別々に判定する。
 
 ## Docker Desktopの旧復旧記録を扱うとき
 

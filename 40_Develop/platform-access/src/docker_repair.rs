@@ -7,6 +7,9 @@ use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::PathBuf;
 use std::ptr::{null, null_mut};
+use std::time::Duration;
+use windows_sys::Win32::System::Console::{GetStdHandle, STD_INPUT_HANDLE};
+use windows_sys::Win32::System::Pipes::PeekNamedPipe;
 
 use windows_sys::Win32::Foundation::{
     CloseHandle, ERROR_ALREADY_EXISTS, ERROR_NO_MORE_FILES, FILETIME, GetLastError, HANDLE,
@@ -360,6 +363,11 @@ fn lock_current_artifacts() -> Option<Vec<LockedArtifact>> {
             false,
         ),
         (
+            "desktop_plugin",
+            r"C:\Program Files\Docker\Docker\resources\cli-plugins\docker-desktop.exe",
+            false,
+        ),
+        (
             "launcher",
             r"C:\Program Files\Docker\Docker\Docker Desktop.exe",
             false,
@@ -474,7 +482,7 @@ fn managed_process_artifacts<'a>(
     artifacts
         .iter()
         .filter(|artifact| {
-            !matches!(artifact.policy.role.as_str(), "docker_cli" | "desktop_cli")
+            !is_cli_role(artifact.policy.role.as_str())
                 && artifact
                     .policy
                     .path
@@ -486,7 +494,7 @@ fn managed_process_artifacts<'a>(
 }
 
 fn is_cli_role(role: &str) -> bool {
-    matches!(role, "docker_cli" | "desktop_cli")
+    matches!(role, "docker_cli" | "desktop_cli" | "desktop_plugin")
 }
 
 fn cli_process_artifacts<'a>(
@@ -945,6 +953,66 @@ pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
 }
 
 /// Separate trust contract for restart; legacy repair records keep their policy.
+fn stdin_cancelled() -> bool {
+    // SAFETY: borrowed standard handle, never closed here.
+    let input = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
+    pipe_cancelled(input)
+}
+
+fn pipe_cancelled(input: HANDLE) -> bool {
+    if input.is_null() || input == INVALID_HANDLE_VALUE {
+        return true;
+    }
+    let mut available = 0;
+    // SAFETY: read-only pipe state query. EOF/error or unsolicited input cancels the in-flight operation.
+    (unsafe { PeekNamedPipe(input, null_mut(), 0, null_mut(), &mut available, null_mut()) }) == 0
+        || available != 0
+}
+
+fn stop_desktop(
+    artifacts: &mut [LockedArtifact],
+    mut cancelled: impl FnMut() -> bool,
+) -> (u8, bool) {
+    if !verify_locked_artifacts(artifacts) {
+        return (b'N', true);
+    }
+    let Some(plugin) = exact_artifact("desktop_plugin", artifacts) else {
+        return (b'N', true);
+    };
+    let Some(mut context) = launcher_context() else {
+        return (b'N', true);
+    };
+    let command = format!(
+        "\"{}\" desktop stop --timeout 30",
+        plugin.policy.path.display()
+    );
+    if cancelled() {
+        return (b'N', true);
+    }
+    let child = match crate::windows_owned_child::OwnedChild::spawn(
+        &plugin.policy.path,
+        OsStr::new(&command),
+        &mut context.environment,
+        &context.current_directory,
+    ) {
+        Ok(child) => child,
+        Err(failure) => {
+            return (
+                if failure.process_created { b'P' } else { b'N' },
+                failure.cleanup_confirmed,
+            );
+        }
+    };
+    let result = child.wait(Duration::from_secs(35), cancelled);
+    if result.completion == crate::windows_owned_child::Completion::Exited(0)
+        && result.cleanup_confirmed
+    {
+        (b'T', true)
+    } else {
+        (b'P', result.cleanup_confirmed)
+    }
+}
+
 pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> i32 {
     let Some(policy_hash) = sha256_bytes(RESTART_POLICY) else {
         return 2;
@@ -993,7 +1061,19 @@ pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> 
                 ProcessInventory::Verified(_) => b'V',
                 ProcessInventory::Unknown => b'U',
             },
-            b'K' => terminate_processes(&artifacts),
+            b'S' => {
+                if stdin_cancelled() {
+                    b'N'
+                } else {
+                    let (status, cleanup_confirmed) = stop_desktop(&mut artifacts, stdin_cancelled);
+                    if !cleanup_confirmed {
+                        // Never acknowledge a later Q as clean after unresolved child ownership.
+                        let _ = respond(writer, status);
+                        return 3;
+                    }
+                    status
+                }
+            }
             b'L' => launch_desktop(&mut artifacts),
             _ => return 2,
         };
@@ -1006,6 +1086,43 @@ pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn eof_during_owned_child_wait_cancels_and_joins_child() {
+        let mut read = null_mut();
+        let mut write = null_mut();
+        // SAFETY: two output handles, no inheritance and default bounded pipe.
+        assert_ne!(
+            unsafe {
+                windows_sys::Win32::System::Pipes::CreatePipe(&mut read, &mut write, null(), 0)
+            },
+            0
+        );
+        let read = OwnedHandle(read);
+        let mut write = Some(OwnedHandle(write));
+        assert!(!pipe_cancelled(read.0));
+        let exe = std::env::current_exe().unwrap();
+        let command = format!(
+            "\"{}\" --exact windows_owned_child::tests::sleep_child --ignored",
+            exe.display()
+        );
+        let child = crate::windows_owned_child::OwnedChild::spawn(
+            &exe,
+            OsStr::new(&command),
+            &mut [0, 0],
+            exe.parent().unwrap(),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        let result = child.wait(Duration::from_secs(3), || {
+            write.take();
+            pipe_cancelled(read.0)
+        });
+        assert_eq!(
+            result.completion,
+            crate::windows_owned_child::Completion::Cancelled
+        );
+        assert!(result.cleanup_confirmed);
+    }
 
     #[test]
     fn cli_inventory_scope_never_expands_managed_termination_roles() {

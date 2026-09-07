@@ -78,12 +78,12 @@ function acquireNamedPipeKernelLock(pipeName: string) {
     },
   );
   worker.unref();
-  let workerLost = false;
+  let isWorkerLost = false;
   worker.once("error", () => {
-    workerLost = true;
+    isWorkerLost = true;
   });
   worker.once("exit", () => {
-    workerLost = true;
+    isWorkerLost = true;
   });
   if (!waitForState(state, 0, SYNCHRONOUS_LOCK_ACQUIRE_TIMEOUT_MS)) {
     void worker.terminate();
@@ -97,7 +97,7 @@ function acquireNamedPipeKernelLock(pipeName: string) {
   return Object.freeze({
     assertLive: () =>
       !isReleased &&
-      !workerLost &&
+      !isWorkerLost &&
       worker.threadId > 0 &&
       Atomics.load(state, 0) === 1,
     release: () => {

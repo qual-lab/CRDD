@@ -18,6 +18,9 @@ export type DockerDesktopRepairNativeHelperSession = Readonly<{
   verifyArtifacts: () => Promise<"verified" | "unknown">;
   inspectProcesses: () => Promise<"absent" | "verified" | "unknown">;
   inspectClientProcesses: () => Promise<"absent" | "verified" | "unknown">;
+  stopDesktop: () => Promise<
+    "not_issued" | "command_completed" | "outcome_unknown"
+  >;
   terminateProcesses: () => Promise<
     | "absent"
     | "not_issued_unknown"
@@ -238,7 +241,7 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
       pending = Object.freeze({ resolve, timer });
     });
   };
-  const command = async (value: "I" | "K" | "L" | "V" | "B") => {
+  const command = async (value: "I" | "K" | "L" | "V" | "B" | "S") => {
     if (hasFailed || released || !child.stdin.writable) return null;
     const response = receive(COMMAND_TIMEOUT_MS);
     const written = new Promise<boolean>((resolve) => {
@@ -307,6 +310,13 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
       if (status === "T") return "terminated";
       if (status === "P") return "partial_or_unknown";
       return "unknown";
+    },
+    stopDesktop: async () => {
+      if (protocol !== "restart") return "not_issued";
+      const status = await command("S");
+      if (status === "N") return "not_issued";
+      if (status === "T") return "command_completed";
+      return "outcome_unknown";
     },
     launchDesktop: async () => {
       const status = await command("L");

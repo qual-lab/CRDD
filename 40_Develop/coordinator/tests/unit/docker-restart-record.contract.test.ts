@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createDockerRestartRecord,
-  DOCKER_RESTART_PHASES,
   type DockerRestartBinding,
+  dockerRestartPhases,
   parseDockerRestartRecord,
   validateDockerRestartRecordChain,
 } from "../../src/security/docker-restart-record.ts";
@@ -21,7 +21,7 @@ const binding: DockerRestartBinding = {
 };
 function chain() {
   const records: Buffer[] = [];
-  for (const phase of DOCKER_RESTART_PHASES)
+  for (const phase of dockerRestartPhases)
     records.push(createDockerRestartRecord(binding, phase, records.at(-1)));
   return records;
 }

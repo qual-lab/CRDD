@@ -190,7 +190,8 @@ export function parseDoctorArguments(
   let afterDockerDesktopRepairId: string | null = null;
   let repairReleaseRoot: string | null = null;
   let restartDockerForRecoveryId: string | null = null;
-  let afterRecordedDockerRestart = false;
+  let restartOriginReleaseRoot: string | null = null;
+  let isAfterRecordedDockerRestart = false;
 
   for (let index = 0; index < argumentValues.length; index += 1) {
     const token = argumentValues[index];
@@ -206,6 +207,7 @@ export function parseDoctorArguments(
         "--after-docker-desktop-repair",
         "--repair-release-root",
         "--restart-docker-for-recovery",
+        "--restart-origin-release-root",
         "--after-recorded-docker-restart",
       ].includes(token) ||
       seen.has(token)
@@ -223,7 +225,7 @@ export function parseDoctorArguments(
     else if (token === "--repair-docker-desktop-runtime")
       shouldRepairDockerDesktopRuntime = true;
     else if (token === "--after-recorded-docker-restart")
-      afterRecordedDockerRestart = true;
+      isAfterRecordedDockerRestart = true;
     else {
       const value = argumentValues[index + 1];
       if (!validToken(value) || value.startsWith("--")) {
@@ -274,10 +276,14 @@ export function parseDoctorArguments(
           );
         afterDockerDesktopRepairId = value;
       } else if (token === "--repair-release-root") repairReleaseRoot = value;
+      else if (token === "--restart-origin-release-root")
+        restartOriginReleaseRoot = value;
     }
   }
 
   if (
+    (restartOriginReleaseRoot !== null &&
+      restartDockerForRecoveryId === null) ||
     (restartDockerForRecoveryId !== null &&
       (isActiveIsolation ||
         recoveryId !== null ||
@@ -286,8 +292,8 @@ export function parseDoctorArguments(
         adoptDockerDesktopRepairId !== null ||
         afterDockerDesktopRepairId !== null ||
         repairReleaseRoot !== null ||
-        afterRecordedDockerRestart)) ||
-    (afterRecordedDockerRestart &&
+        isAfterRecordedDockerRestart)) ||
+    (isAfterRecordedDockerRestart &&
       (!parseDockerTaskRecoveryId(recoveryId) ||
         afterDockerDesktopRepairId !== null ||
         repairReleaseRoot !== null))
@@ -373,7 +379,10 @@ export function parseDoctorArguments(
       ...(restartDockerForRecoveryId !== null
         ? { restartDockerForRecoveryId }
         : {}),
-      ...(afterRecordedDockerRestart
+      ...(restartOriginReleaseRoot !== null
+        ? { restartOriginReleaseRoot }
+        : {}),
+      ...(isAfterRecordedDockerRestart
         ? { afterRecordedDockerRestart: true }
         : {}),
       ...(afterDockerDesktopRepairId !== null

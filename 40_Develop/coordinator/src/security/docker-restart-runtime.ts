@@ -1,6 +1,7 @@
 import { executeDockerRestart } from "../core/docker-restart-execution.ts";
 import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "./docker-desktop-repair-native-helper.ts";
 import {
+  commitRuntimeOwnedDockerRestartHandoff,
   persistRuntimeOwnedDockerRestartPhase,
   prepareRuntimeOwnedDockerRestart,
   releaseRuntimeOwnedDockerRestartPreparation,
@@ -12,6 +13,7 @@ import { createDockerRestartMachine } from "./docker-restart-machine.ts";
 export async function restartRuntimeOwnedDockerForRecovery(
   recoveryId: unknown,
   signal: AbortSignal,
+  originReleaseRoot?: unknown,
 ) {
   if (signal.aborted)
     return Object.freeze({
@@ -21,7 +23,10 @@ export async function restartRuntimeOwnedDockerForRecovery(
       restartCompleted: false,
       taskRecoveryCompleted: false,
     });
-  const preparation = prepareRuntimeOwnedDockerRestart(recoveryId);
+  const preparation = prepareRuntimeOwnedDockerRestart(
+    recoveryId,
+    originReleaseRoot,
+  );
   if (preparation.status !== "prepared")
     return Object.freeze({
       ...preparation,
@@ -61,6 +66,15 @@ export async function restartRuntimeOwnedDockerForRecovery(
       const session = acquired.session;
       helperCleanupConfirmed = false;
       releaseHelper = () => session.release();
+      if (
+        preparation.handoffPending &&
+        (!verifyRuntimeOwnedDockerRestartPreparation(context) ||
+          (await session.verifyArtifacts()) !== "verified" ||
+          (await session.inspectClientProcesses()) !== "absent" ||
+          signal.aborted ||
+          !commitRuntimeOwnedDockerRestartHandoff(context))
+      )
+        throw new Error("docker_restart_handoff_unconfirmed");
       const machine = createDockerRestartMachine(
         session,
         () => verifyRuntimeOwnedDockerRestartPreparation(context),
@@ -69,26 +83,28 @@ export async function restartRuntimeOwnedDockerForRecovery(
       result = await executeDockerRestart(
         context,
         {
+          observeStopped: () => machine.observeStopped(),
+          observeReady: () => machine.observeReady(),
           verifyBoundary: async () =>
             verifyRuntimeOwnedDockerRestartPreparation(context),
           persist: async (_context, phase) =>
             phase !== "prepared" &&
             persistRuntimeOwnedDockerRestartPhase(context, phase),
           stop: async () => {
-            const stopped = (await machine.stop()) === "stopped";
+            const isStopped = (await machine.stop()) === "stopped";
             return {
-              stopCompleted: stopped,
-              managedProcessesAbsent: stopped,
-              engineStopped: stopped,
-              effectOutcomeUnknown: !stopped,
+              stopCompleted: isStopped,
+              managedProcessesAbsent: isStopped,
+              engineStopped: isStopped,
+              effectOutcomeUnknown: machine.getEffectOutcomeUnknown(),
             };
           },
           start: async () => {
-            const ready = (await machine.start()) === "ready";
+            const isReady = (await machine.start()) === "ready";
             return {
-              startCompleted: ready,
-              engineReady: ready,
-              effectOutcomeUnknown: !ready,
+              startCompleted: isReady,
+              engineReady: isReady,
+              effectOutcomeUnknown: machine.getEffectOutcomeUnknown(),
             };
           },
           cleanup: async () => {
@@ -98,6 +114,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
           },
         },
         signal,
+        preparation.currentPhase ?? undefined,
       );
     }
   } catch {

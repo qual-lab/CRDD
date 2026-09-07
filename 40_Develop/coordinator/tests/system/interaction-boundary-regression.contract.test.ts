@@ -22,7 +22,6 @@ import {
   writeWindowsTerminalTextOutcomeUsingStream,
   writeWindowsTerminalTextUsingStream,
 } from "../../src/core/interactive-console.ts";
-import { readInteractiveConsoleLineOutcomeUsingAdapter } from "../support/interactive-console-child-harness.ts";
 import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
@@ -48,6 +47,7 @@ import {
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
 } from "../../src/core/windows-child-environment.ts";
 import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/security/candidate-store-kernel-lock.ts";
+import { readInteractiveConsoleLineOutcomeUsingAdapter } from "../support/interactive-console-child-harness.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -2123,7 +2123,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     "src/security/docker-isolation.ts",
     "src/security/docker-owned-process.ts",
     "src/security/docker-recovery-runtime-internal.ts",
-    // queryWsl: fixed OS enumeration; terminateWsl: exact docker-desktop;
+    // queryWsl: fixed OS enumeration only; no WSL termination spawn.
     // queryDocker: trusted fixed CLI, Engine/empty-container observation only.
     // Their argument/provenance closure is owned by the protected-path graph.
     "src/security/docker-restart-machine.ts",

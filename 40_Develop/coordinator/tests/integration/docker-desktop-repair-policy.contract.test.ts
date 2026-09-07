@@ -6,6 +6,32 @@ import test from "node:test";
 import { describeDockerDesktopRepairNativeHelperContract } from "../../src/security/docker-desktop-repair-native-helper.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts";
 
+for (const status of ["N", "T", "P", "X"] as const) {
+  test(`restart S distinguishes command outcome ${status} from Docker completion`, async () => {
+    const source = `const frame=s=>Buffer.concat([Buffer.from("CRDDDS01"),Buffer.from(s),Buffer.alloc(32,0xaa)]);process.stdout.write(frame("R"));process.stdin.on("data",c=>{const k=c.toString();if(k==="S")process.stdout.write(frame("${status}"));else if(k==="Q"){process.stdout.write(frame("C"));setTimeout(()=>process.exit(0),25)}else process.exit(3)});`;
+    const child = spawn(process.execPath, ["-e", source], {
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const created = createDockerDesktopRepairNativeHelperLifecycle(
+      child,
+      "a".repeat(64),
+      "restart",
+    );
+    assert.equal(await created.waitForInitial(), "R");
+    assert.equal(
+      await created.session.stopDesktop(),
+      status === "N"
+        ? "not_issued"
+        : status === "T"
+          ? "command_completed"
+          : "outcome_unknown",
+    );
+    assert.equal((await created.session.release()).cleanup, "confirmed");
+  });
+}
+
 for (const status of ["A", "V", "U"] as const) {
   test(`restart B client observation maps ${status} without issuing termination`, async () => {
     const source = `const frame=s=>Buffer.concat([Buffer.from("CRDDDS01"),Buffer.from(s),Buffer.alloc(32,0xaa)]);process.stdout.write(frame("R"));process.stdin.on("data",c=>{const k=c.toString();if(k==="B")process.stdout.write(frame("${status}"));else if(k==="Q"){process.stdout.write(frame("C"));setTimeout(()=>process.exit(0),25)}else process.exit(3)});`;

@@ -44,6 +44,8 @@ import {
   resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver,
   verifyRuntimeOwnedDockerRestartPreparation,
 } from "../../src/security/docker-recovery-runtime-internal.ts";
+import { createDockerRestartContinuationRecord } from "../../src/security/docker-restart-continuation-record.ts";
+import { createDockerRestartHandoffRecord } from "../../src/security/docker-restart-handoff-record.ts";
 import { createDockerRestartRecord } from "../../src/security/docker-restart-record.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
@@ -2351,6 +2353,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     "persistRuntimeOwnedDockerRestartPhase",
     "verifyRuntimeOwnedDockerRestartPreparation",
     "releaseRuntimeOwnedDockerRestartPreparation",
+    "commitRuntimeOwnedDockerRestartHandoff",
   ])
     assert.equal(facade.includes(symbol), false, symbol);
   const internalConsumers: string[] = [];
@@ -2396,6 +2399,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     .filter(Boolean)
     .sort();
   assert.deepEqual(importedNames, [
+    "commitRuntimeOwnedDockerRestartHandoff",
     "persistRuntimeOwnedDockerRestartPhase",
     "prepareRuntimeOwnedDockerRestart",
     "releaseRuntimeOwnedDockerRestartPreparation",
@@ -2497,6 +2501,10 @@ test("production inventory validates restart prefixes and rejects task/submissio
     "settled_fence",
     "unsettled_fence",
     "wrong_fence_hash",
+    "handoff",
+    "continuation",
+    "wrong_handoff",
+    "continuation_fence",
   ] as const) {
     const rootPath = fs.mkdtempSync(
       path.join(os.tmpdir(), "crdd-restart-inventory-"),
@@ -2549,6 +2557,61 @@ test("production inventory validates restart prefixes and rejects task/submissio
         JSON.parse(bytes.toString("utf8")),
       );
       let last = first;
+      if (
+        [
+          "handoff",
+          "continuation",
+          "wrong_handoff",
+          "continuation_fence",
+        ].includes(mutation)
+      ) {
+        const handoff = createDockerRestartHandoffRecord(
+          [first],
+          binding,
+          [],
+          "d".repeat(64),
+        );
+        writeCommittedDockerRecoveryJson(
+          directory,
+          "engine-handoff-00.json",
+          "engine-handoff-00.json",
+          JSON.parse(handoff.toString()),
+        );
+        if (mutation !== "handoff") {
+          let previous: Buffer | undefined;
+          const phases =
+            mutation === "continuation_fence"
+              ? ([
+                  "stop_intent",
+                  "stopped",
+                  "start_intent",
+                  "ready",
+                  "settled",
+                ] as const)
+              : (["stop_intent"] as const);
+          for (const [index, phase] of phases.entries()) {
+            const next = createDockerRestartRecord(
+              { ...binding, runtimeExecutionIdentitySha256: "d".repeat(64) },
+              phase,
+              previous,
+            );
+            last = createDockerRestartContinuationRecord(
+              next,
+              mutation === "wrong_handoff"
+                ? "f".repeat(64)
+                : createHash("sha256").update(handoff).digest("hex"),
+            );
+            const recordName = `engine-continuation-${String(index).padStart(2, "0")}.json`;
+            writeCommittedDockerRecoveryJson(
+              directory,
+              recordName,
+              recordName,
+              JSON.parse(last.toString()),
+            );
+            previous = next;
+          }
+        }
+      }
       if (mutation === "settled_fence" || mutation === "wrong_fence_hash") {
         for (const [index, phase] of (
           ["stopped", "start_intent", "ready", "settled"] as const
@@ -2584,7 +2647,13 @@ test("production inventory validates restart prefixes and rejects task/submissio
       );
       assert.equal(
         result.status,
-        mutation === "none" || mutation === "settled_fence"
+        [
+          "none",
+          "settled_fence",
+          "handoff",
+          "continuation",
+          "continuation_fence",
+        ].includes(mutation)
           ? "completed"
           : "blocked",
         `${mutation}: ${JSON.stringify(result)}`,

@@ -3207,6 +3207,223 @@
         "owned_handles_settled_or_reported"
       ],
       "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-restart-execution",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-restart-execution.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "restart",
+        "execution"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-restart-machine",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-restart-machine.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "restart",
+        "machine"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-restart-preparation-order",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-restart-preparation-order.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "restart",
+        "preparation",
+        "order"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-restart-runtime",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-restart-runtime.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "restart",
+        "runtime"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-restart-continuation-record",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-restart-continuation-record.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "restart",
+        "continuation",
+        "record"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-restart-handoff-record",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-restart-handoff-record.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "restart",
+        "handoff",
+        "record"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-restart-record",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-restart-record.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "restart",
+        "record"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-restart-state",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-restart-state.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "restart",
+        "state"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:docker-wsl-state",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/docker-wsl-state.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "wsl",
+        "state"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:unit:docker_authenticode",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/src/docker_authenticode.rs",
+      "level": "unit",
+      "kind": "unit",
+      "semanticTags": [
+        "docker",
+        "authenticode"
+      ],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "native_process_result_observed",
+        "owned_handles_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:unit:windows_owned_child",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/src/windows_owned_child.rs",
+      "level": "unit",
+      "kind": "unit",
+      "semanticTags": [
+        "windows",
+        "owned",
+        "child"
+      ],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "native_process_result_observed",
+        "owned_handles_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
     }
   ]
 }

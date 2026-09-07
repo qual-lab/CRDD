@@ -36,7 +36,7 @@ test("検証付き再起動と記録後回復はexact Taskを指定する別操�
   );
   assert.equal(recover.status, "ok");
   assert.equal(recover.value?.afterRecordedDockerRestart, true);
-  for (const arguments_ of [
+  for (const argumentsList of [
     ["--restart-docker-for-recovery"],
     ["--restart-docker-for-recovery", "invalid"],
     ["--restart-docker-for-recovery", id, "--isolation"],
@@ -56,9 +56,47 @@ test("検証付き再起動と記録後回復はexact Taskを指定する別操�
     ],
   ])
     assert.equal(
-      parseDoctorArguments(arguments_, undefined).status,
+      parseDoctorArguments(argumentsList, undefined).status,
       "blocked",
-      JSON.stringify(arguments_),
+      JSON.stringify(argumentsList),
+    );
+});
+
+test("再起動元配布候補は再起動専用引数であり修復元を代用しない", () => {
+  const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  const option = "--restart-origin-release-root";
+  const root = "C:\\origin";
+  for (const args of [
+    ["--restart-docker-for-recovery", id, option, root],
+    [option, root, "--restart-docker-for-recovery", id, "--json"],
+  ]) {
+    const result = parseDoctorArguments(args, undefined);
+    assert.equal(result.status, "ok");
+    assert.equal(result.value?.restartOriginReleaseRoot, root);
+    assert.equal(result.value?.repairReleaseRoot, undefined);
+  }
+  for (const args of [
+    [option],
+    [option, root],
+    ["--restart-docker-for-recovery", id, option],
+    ["--restart-docker-for-recovery", id, option, "--json"],
+    ["--restart-docker-for-recovery", id, option, root, option, root],
+    [
+      "--restart-docker-for-recovery",
+      id,
+      option,
+      root,
+      "--repair-release-root",
+      root,
+    ],
+    ["--recover-isolation", id, option, root],
+    ["--isolation", option, root],
+    ["--repair-docker-desktop-runtime", option, root],
+  ])
+    assert.equal(
+      parseDoctorArguments(args, undefined).status,
+      "blocked",
+      JSON.stringify(args),
     );
 });
 

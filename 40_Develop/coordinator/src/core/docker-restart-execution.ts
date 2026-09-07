@@ -28,6 +28,8 @@ export type DockerRestartPorts = Readonly<{
     }>
   >;
   cleanup: (context: DockerRestartContext) => Promise<boolean>;
+  observeStopped?: () => Promise<boolean>;
+  observeReady?: () => Promise<boolean>;
 }>;
 export type DockerRestartExecutionResult = Readonly<{
   status: "completed" | "blocked";
@@ -47,12 +49,21 @@ export async function executeDockerRestart(
   context: DockerRestartContext,
   ports: DockerRestartPorts,
   signal: AbortSignal,
+  resumePhase?: DockerRestartPhase,
 ): Promise<DockerRestartExecutionResult> {
-  let phase: DockerRestartPhase = "prepared";
+  const isValidResumePhase =
+    resumePhase === undefined ||
+    ["stop_intent", "stopped", "start_intent", "ready", "settled"].includes(
+      resumePhase,
+    );
+  let phase: DockerRestartPhase = isValidResumePhase
+    ? (resumePhase ?? "prepared")
+    : "prepared";
   let reason = "docker_restart_execution_failed";
   let cleanupConfirmed = false;
-  let intentAttempted = false;
-  let effectOutcomeUnknown = false;
+  let hasAttemptedIntent = resumePhase !== undefined;
+  // A stored phase does not prove the previous effect's current outcome.
+  let isEffectOutcomeUnknown = resumePhase !== undefined;
   const observation: DockerRestartObservation = {
     boundaryMatches: true,
     cancellationRequested: false,
@@ -71,9 +82,10 @@ export async function executeDockerRestart(
   };
   const checkBoundary = async (): Promise<void> => {
     if (signal.aborted) fail("docker_restart_cancelled");
-    const matches = await ports.verifyBoundary(context);
+    const isBoundaryMatching = await ports.verifyBoundary(context);
     if (signal.aborted) fail("docker_restart_cancelled");
-    if (matches !== true) fail("docker_restart_boundary_unconfirmed");
+    if (isBoundaryMatching !== true)
+      fail("docker_restart_boundary_unconfirmed");
   };
   const advance = (values: Partial<DockerRestartObservation> = {}): void => {
     const transition = classifyDockerRestartProgress(phase, {
@@ -85,7 +97,7 @@ export async function executeDockerRestart(
   };
   const persist = async (next: DockerRestartPhase): Promise<void> => {
     await checkBoundary();
-    intentAttempted = true;
+    hasAttemptedIntent = true;
     const confirmed = await ports.persist(context, next);
     await checkBoundary();
     if (confirmed !== true) fail("docker_restart_record_unconfirmed");
@@ -104,24 +116,59 @@ export async function executeDockerRestart(
     });
   consumedContexts.add(context);
   try {
-    await persist("stop_intent");
-    advance();
-    await checkBoundary();
-    effectOutcomeUnknown = true;
-    const stopped = await ports.stop(context);
-    effectOutcomeUnknown = stopped.effectOutcomeUnknown !== false;
-    await checkBoundary();
-    advance(stopped);
-    await persist("stopped");
-    await persist("start_intent");
-    advance();
-    await checkBoundary();
-    effectOutcomeUnknown = true;
-    const started = await ports.start(context);
-    effectOutcomeUnknown = started.effectOutcomeUnknown !== false;
-    await checkBoundary();
-    advance(started);
-    await persist("ready");
+    if (!isValidResumePhase) fail("docker_restart_resume_phase_invalid");
+    if (resumePhase !== undefined) await checkBoundary();
+    if (resumePhase === "start_intent" || resumePhase === "settled")
+      fail("docker_restart_resume_requires_observation");
+    if (resumePhase === "ready" || resumePhase === "stopped") {
+      const confirmed =
+        resumePhase === "ready"
+          ? await ports.observeReady?.()
+          : await ports.observeStopped?.();
+      await checkBoundary();
+      if (confirmed !== true)
+        fail(
+          resumePhase === "ready"
+            ? "docker_restart_start_unconfirmed"
+            : "docker_restart_stop_unconfirmed",
+        );
+      isEffectOutcomeUnknown = false;
+    }
+    if (phase === "prepared") {
+      await persist("stop_intent");
+      advance();
+    }
+    if (phase === "stop_intent") {
+      await checkBoundary();
+      isEffectOutcomeUnknown = true;
+      const isStoppedObserved =
+        resumePhase === "stop_intent" &&
+        (await ports.observeStopped?.()) === true;
+      const stopped =
+        resumePhase === "stop_intent"
+          ? {
+              stopCompleted: isStoppedObserved,
+              managedProcessesAbsent: isStoppedObserved,
+              engineStopped: isStoppedObserved,
+              effectOutcomeUnknown: !isStoppedObserved,
+            }
+          : await ports.stop(context);
+      await checkBoundary();
+      isEffectOutcomeUnknown = stopped.effectOutcomeUnknown !== false;
+      advance(stopped);
+      await persist("stopped");
+    }
+    if (phase === "stopped") {
+      await persist("start_intent");
+      advance();
+      await checkBoundary();
+      isEffectOutcomeUnknown = true;
+      const started = await ports.start(context);
+      isEffectOutcomeUnknown = started.effectOutcomeUnknown !== false;
+      await checkBoundary();
+      advance(started);
+      await persist("ready");
+    }
     reason = "docker_restart_ready";
   } catch (error) {
     reason =
@@ -149,15 +196,15 @@ export async function executeDockerRestart(
           : "docker_restart_execution_failed";
     }
   }
-  const completed = reason === "docker_restart_settled";
+  const isCompleted = reason === "docker_restart_settled";
   return Object.freeze({
-    status: completed ? "completed" : "blocked",
+    status: isCompleted ? "completed" : "blocked",
     reason,
     phase,
     cleanupConfirmed,
-    restartCompleted: completed,
+    restartCompleted: isCompleted,
     taskRecoveryCompleted: false,
-    recoveryRequired: !completed && intentAttempted,
-    effectOutcomeUnknown,
+    recoveryRequired: !isCompleted && hasAttemptedIntent,
+    effectOutcomeUnknown: isEffectOutcomeUnknown,
   });
 }

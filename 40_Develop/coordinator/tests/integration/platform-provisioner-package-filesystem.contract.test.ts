@@ -52,11 +52,18 @@ test("restart machineのWSL対象とDocker観測引数は閉集合で保持す�
   assert.doesNotThrow(() =>
     assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
   );
+  assert.equal((source.match(/\bspawnSync\s*\(/gu) ?? []).length, 2);
+  assert.doesNotMatch(
+    source,
+    /terminateWsl|terminateProcesses|--terminate|--shutdown/u,
+  );
+  assert.match(source, /session\.stopDesktop\(\)/u);
   for (const [from, to] of [
-    ["--terminate", "--shutdown"],
+    ["--list", "--terminate"],
     ["--no-trunc", "--all"],
-    ['"docker-desktop"', '"another-distro"'],
+    ["--running", "--shutdown"],
   ] as const) {
+    assert.ok(source.includes(from));
     assert.throws(
       () =>
         assertRuntimeSourceDeclaredGraphBoundaryForVerification(
@@ -66,6 +73,14 @@ test("restart machineのWSL対象とDocker観測引数は閉集合で保持す�
       /runtime_dependency_child_process_unbound/u,
     );
   }
+  assert.throws(
+    () =>
+      assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+        sourcePath,
+        `${source}\nfunction terminateWsl() { return spawnSync("wsl.exe", ["--terminate", "docker-desktop"]); }\n`,
+      ),
+    /runtime_dependency_child_process_unbound/u,
+  );
 });
 
 test("Native repair/restart spawnは同じ署名観測所有者と閉じた引数集合を要求する", () => {
@@ -178,11 +193,11 @@ test("local TypeScript子wrapperはroleとkindを実行前に検証し、target�
       }),
     /runtime_local_typescript_child_worker_eval_forbidden/u,
   );
-  const projection =
+  const projectionTokens =
     runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver();
-  assert.equal(projection.length, 4);
+  assert.equal(projectionTokens.length, 4);
   assert.equal(
-    projection.every(
+    projectionTokens.every(
       (entrypoint) =>
         Object.isFrozen(entrypoint) &&
         !("url" in entrypoint) &&

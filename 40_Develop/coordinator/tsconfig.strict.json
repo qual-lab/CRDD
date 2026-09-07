@@ -38,6 +38,7 @@
     "scripts/check-platform-access-ts-coverage.ts",
     "scripts/check-native-runtime-trace.ts",
     "scripts/check-runtime-traceability.ts",
+    "scripts/check-runtime-capability-graph.ts",
     "scripts/check-project-runtime-design-traceability.ts",
     "scripts/platform-access-coverage-path.ts",
     "scripts/release-staging-manifest.ts",

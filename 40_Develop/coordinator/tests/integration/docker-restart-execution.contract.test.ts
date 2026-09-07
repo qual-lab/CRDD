@@ -77,6 +77,151 @@ function fixture() {
   return { context, controller, calls, ports };
 }
 
+for (const phase of ["stop_intent", "stopped", "ready"] as const) {
+  test(`restart resume from ${phase} uses observation without replaying completed effects`, async () => {
+    const f = fixture();
+    const result = await executeDockerRestart(
+      f.context,
+      {
+        ...f.ports,
+        observeStopped: async () => {
+          f.calls.push("observeStopped");
+          return true;
+        },
+        observeReady: async () => {
+          f.calls.push("observeReady");
+          return true;
+        },
+      },
+      f.controller.signal,
+      phase,
+    );
+    assert.equal(result.status, "completed");
+    assert.equal(result.phase, "settled");
+    assert.equal(result.effectOutcomeUnknown, false);
+    assert.equal(result.taskRecoveryCompleted, false);
+    const expectedCalls =
+      phase === "stop_intent"
+        ? [
+            "observeStopped",
+            "stopped",
+            "start_intent",
+            "start",
+            "ready",
+            "cleanup",
+            "settled",
+          ]
+        : phase === "stopped"
+          ? [
+              "observeStopped",
+              "start_intent",
+              "start",
+              "ready",
+              "cleanup",
+              "settled",
+            ]
+          : ["observeReady", "cleanup", "settled"];
+    assert.deepEqual(
+      f.calls.filter((value) => value !== "boundary"),
+      expectedCalls,
+    );
+  });
+
+  for (const failure of ["false", "throw", "missing", "cancel"] as const) {
+    test(`restart resume ${phase} observation ${failure} never issues next effect`, async () => {
+      const f = fixture();
+      const observe = async () => {
+        f.calls.push("observe");
+        if (failure === "throw") throw new Error("observation failed");
+        if (failure === "cancel") f.controller.abort();
+        return failure === "cancel";
+      };
+      const result = await executeDockerRestart(
+        f.context,
+        {
+          ...f.ports,
+          ...(failure === "missing"
+            ? {}
+            : { observeStopped: observe, observeReady: observe }),
+        },
+        f.controller.signal,
+        phase,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(result.recoveryRequired, true);
+      assert.equal(result.restartCompleted, false);
+      assert.equal(result.effectOutcomeUnknown, true);
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(f.calls.includes("stop"), false);
+      assert.equal(f.calls.includes("start"), false);
+      assert.equal(f.calls.includes("start_intent"), false);
+      assert.equal(f.calls.includes("settled"), false);
+      assert.equal(f.calls.filter((value) => value === "cleanup").length, 1);
+      if (failure === "cancel")
+        assert.equal(result.reason, "docker_restart_cancelled");
+    });
+  }
+
+  test(`restart resume ${phase} rejects cancellation before observation`, async () => {
+    const f = fixture();
+    f.controller.abort();
+    const result = await executeDockerRestart(
+      f.context,
+      {
+        ...f.ports,
+        observeStopped: async () => {
+          throw new Error("must not observe");
+        },
+        observeReady: async () => {
+          throw new Error("must not observe");
+        },
+      },
+      f.controller.signal,
+      phase,
+    );
+    assert.equal(result.reason, "docker_restart_cancelled");
+    assert.equal(result.recoveryRequired, true);
+    assert.equal(result.effectOutcomeUnknown, true);
+    assert.deepEqual(f.calls, ["cleanup"]);
+  });
+}
+
+for (const phase of ["start_intent", "settled"] as const) {
+  test(`restart resume ${phase} refuses replay and retains obligation`, async () => {
+    const f = fixture();
+    const result = await executeDockerRestart(
+      f.context,
+      f.ports,
+      f.controller.signal,
+      phase,
+    );
+    assert.equal(result.reason, "docker_restart_resume_requires_observation");
+    assert.equal(result.status, "blocked");
+    assert.equal(result.recoveryRequired, true);
+    assert.equal(result.restartCompleted, false);
+    assert.equal(result.phase, phase);
+    assert.equal(result.effectOutcomeUnknown, true);
+    assert.deepEqual(f.calls, ["boundary", "cleanup"]);
+  });
+}
+
+test("restart resume rejects unknown or prepared persisted phases without effects", async () => {
+  for (const phase of ["prepared", "unknown", null, {}, 0]) {
+    const f = fixture();
+    const result = await executeDockerRestart(
+      f.context,
+      f.ports,
+      f.controller.signal,
+      phase as Parameters<typeof executeDockerRestart>[3],
+    );
+    assert.equal(result.reason, "docker_restart_resume_phase_invalid");
+    assert.equal(result.status, "blocked");
+    assert.equal(result.recoveryRequired, true);
+    assert.equal(result.effectOutcomeUnknown, true);
+    assert.deepEqual(f.calls, ["cleanup"]);
+  }
+});
+
 test("restart driver settles restart only, persists intents and cleans before settlement", async () => {
   const f = fixture();
   const result = await executeDockerRestart(

@@ -118,20 +118,20 @@ export function runInteractiveConsoleReaderLifecycle(
         !isInvalid && !cancellationSignal.aborted
           ? parseReaderResult(Buffer.concat(outputBuffers, outputBytes))
           : null;
-      const completed =
+      const isCompleted =
         parsed?.status === "completed" &&
         (childExitCode === 0 ||
           (isCompletionObserved && isCompletionForceStopIssued));
       resolve(
         Object.freeze({
-          status: completed
+          status: isCompleted
             ? "completed"
             : outcomeStatus === "cleanup_unknown"
               ? "cleanup_unknown"
               : cancellationSignal.aborted
                 ? "cancelled"
                 : outcomeStatus,
-          line: completed ? parsed.line : null,
+          line: isCompleted ? parsed.line : null,
         }),
       );
     };

@@ -18,7 +18,6 @@ type Session = NonNullable<DockerDesktopRestartNativeHelperOutcome["session"]>;
 type MachinePorts = Readonly<{
   session: Session;
   observeWsl: () => DockerWslState;
-  terminateWsl: () => boolean;
   engineReady: () => boolean;
   containersAbsent: () => boolean;
   now: () => number;
@@ -30,6 +29,21 @@ type MachinePorts = Readonly<{
 function createMachine(ports: MachinePorts) {
   const { session } = ports;
   let stopConfirmed = false;
+  let isEffectOutcomeUnknown = false;
+  let abortOutcome: ReturnType<Session["abort"]> | null = null;
+  let releaseOutcome: ReturnType<Session["release"]> | null = null;
+  const cancel = () => {
+    if (abortOutcome || releaseOutcome) return;
+    // Start asynchronously so synchronous adapter failures are joined as well.
+    abortOutcome = Promise.resolve()
+      .then(() => session.abort())
+      .catch(() => ({
+        cleanup: "unknown" as const,
+        protocol: "failed" as const,
+      }));
+  };
+  ports.signal?.addEventListener("abort", cancel, { once: true });
+  if (ports.signal?.aborted) cancel();
   const live = () =>
     !ports.signal?.aborted &&
     (ports.boundary?.() ?? true) &&
@@ -43,9 +57,20 @@ function createMachine(ports: MachinePorts) {
     ports.observeWsl() === "stopped" &&
     (await trusted());
   return Object.freeze({
+    getEffectOutcomeUnknown: () => isEffectOutcomeUnknown,
+    observeStopped: async () => {
+      stopConfirmed = await stopped();
+      return stopConfirmed;
+    },
+    observeReady: async () =>
+      (await trusted()) &&
+      ports.engineReady() &&
+      ports.observeWsl() === "running" &&
+      (await trusted()),
     observeWslState: () => ports.observeWsl(),
     stop: async (): Promise<"stopped" | "unknown"> => {
       stopConfirmed = false;
+      isEffectOutcomeUnknown = false;
       try {
         if (
           !(await trusted()) ||
@@ -57,33 +82,44 @@ function createMachine(ports: MachinePorts) {
         const beforeWsl = ports.observeWsl();
         if (
           beforeWsl === "unknown" ||
-          (beforeWsl === "running" && !ports.containersAbsent()) ||
-          (beforeWsl === "stopped" && processes !== "absent") ||
+          ((beforeWsl === "running" || processes === "verified") &&
+            !ports.containersAbsent()) ||
           !live()
         )
           return "unknown";
-        if (processes === "verified") {
-          const result = await session.terminateProcesses();
-          if (result !== "absent" && result !== "terminated") return "unknown";
+        if (processes === "verified" || beforeWsl === "running") {
+          if (!(await trusted())) return "unknown";
+          isEffectOutcomeUnknown = true;
+          const result = await session.stopDesktop();
+          if (result === "not_issued") isEffectOutcomeUnknown = false;
+          if (result !== "command_completed" || !live()) return "unknown";
+          // CLI completion can precede Desktop process exit. Observe, never infer it.
+          const deadline = ports.now() + 30_000;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            if (!live()) return "unknown";
+            stopConfirmed = await stopped();
+            if (stopConfirmed) {
+              isEffectOutcomeUnknown = false;
+              return "stopped";
+            }
+            if (!live() || ports.now() >= deadline || attempt === 29)
+              return "unknown";
+            await ports.wait();
+          }
         }
-        const wsl = ports.observeWsl();
-        if (wsl === "unknown" || !(await trusted())) return "unknown";
-        if (wsl === "running" && !ports.terminateWsl()) return "unknown";
         stopConfirmed = await stopped();
+        if (stopConfirmed) isEffectOutcomeUnknown = false;
         return stopConfirmed ? "stopped" : "unknown";
       } catch {
         return "unknown";
       }
     },
     start: async (): Promise<"ready" | "unknown"> => {
+      isEffectOutcomeUnknown = false;
       try {
-        if (
-          !stopConfirmed ||
-          !(await stopped()) ||
-          !live() ||
-          (await session.launchDesktop()) !== "started"
-        )
-          return "unknown";
+        if (!stopConfirmed || !(await stopped()) || !live()) return "unknown";
+        isEffectOutcomeUnknown = true;
+        if ((await session.launchDesktop()) !== "started") return "unknown";
         const deadline = ports.now() + 90_000;
         for (
           let attempt = 0;
@@ -95,8 +131,10 @@ function createMachine(ports: MachinePorts) {
             ports.engineReady() &&
             ports.observeWsl() === "running" &&
             (await trusted())
-          )
+          ) {
+            isEffectOutcomeUnknown = false;
             return "ready";
+          }
           await ports.wait();
         }
         return "unknown";
@@ -104,7 +142,13 @@ function createMachine(ports: MachinePorts) {
         return "unknown";
       }
     },
-    release: () => session.release(),
+    release: () => {
+      if (releaseOutcome) return releaseOutcome;
+      ports.signal?.removeEventListener("abort", cancel);
+      releaseOutcome =
+        abortOutcome ?? Promise.resolve().then(() => session.release());
+      return releaseOutcome;
+    },
   });
 }
 
@@ -134,26 +178,6 @@ function observeWsl(): DockerWslState {
   return registered && running
     ? observeDockerWslState(registered, running)
     : "unknown";
-}
-
-function terminateWsl() {
-  const env = createWindowsNativeHelperEnvironment();
-  if (!env?.SystemRoot) return false;
-  const executable = path.win32.join(env.SystemRoot, "System32", "wsl.exe");
-  const result = spawnSync(executable, ["--terminate", "docker-desktop"], {
-    env,
-    shell: false,
-    windowsHide: true,
-    timeout: 15_000,
-    maxBuffer: 65_536,
-    encoding: "buffer",
-  });
-  return (
-    result.pid !== undefined &&
-    !result.error &&
-    result.status === 0 &&
-    result.signal === null
-  );
 }
 
 export function isDockerRestartEngineReady(
@@ -252,7 +276,6 @@ export function createDockerRestartMachine(
     boundary,
     signal,
     observeWsl,
-    terminateWsl,
     engineReady: () => queryDocker("engine"),
     containersAbsent: () => queryDocker("containers"),
     now: Date.now,

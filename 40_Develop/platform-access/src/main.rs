@@ -10,6 +10,10 @@ mod docker_repair;
 #[cfg(windows)]
 mod docker_authenticode;
 
+#[allow(dead_code)]
+#[cfg(windows)]
+mod windows_owned_child;
+
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};

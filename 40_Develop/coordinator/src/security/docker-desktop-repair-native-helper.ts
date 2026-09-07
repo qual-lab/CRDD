@@ -64,6 +64,9 @@ export type DockerDesktopRestartNativeHelperOutcome = Readonly<{
   session:
     | (DockerDesktopRepairNativeHelperSession &
         Readonly<{
+          stopDesktop: () => Promise<
+            "not_issued" | "command_completed" | "outcome_unknown"
+          >;
           inspectClientProcesses: () => Promise<
             "absent" | "verified" | "unknown"
           >;

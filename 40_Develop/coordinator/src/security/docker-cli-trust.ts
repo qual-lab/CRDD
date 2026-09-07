@@ -28,10 +28,10 @@ export type DockerCliTrustSnapshot = Readonly<{
 
 function filesystemIdentity(target: string, expected: "file" | "directory") {
   const metadata = fs.lstatSync(target, { bigint: true });
-  const expectedType =
+  const isExpectedType =
     expected === "file" ? metadata.isFile() : metadata.isDirectory();
   if (
-    !expectedType ||
+    !isExpectedType ||
     metadata.isSymbolicLink() ||
     metadata.dev <= 0n ||
     metadata.ino <= 0n ||

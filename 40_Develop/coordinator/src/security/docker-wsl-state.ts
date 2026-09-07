@@ -23,10 +23,10 @@ function parseDistributionList(
     return null;
   const bytes = result.stdout;
   if (bytes.byteLength === 0) return [];
-  const utf16 = (bytes[0] === 0xff && bytes[1] === 0xfe) || bytes.includes(0);
-  if (utf16 && bytes.byteLength % 2 !== 0) return null;
+  const isUtf16 = (bytes[0] === 0xff && bytes[1] === 0xfe) || bytes.includes(0);
+  if (isUtf16 && bytes.byteLength % 2 !== 0) return null;
   try {
-    const text = new TextDecoder(utf16 ? "utf-16le" : "utf-8", {
+    const text = new TextDecoder(isUtf16 ? "utf-16le" : "utf-8", {
       fatal: true,
     }).decode(bytes);
     const lines = text.replace(/\r\n/gu, "\n").split("\n");
@@ -36,8 +36,8 @@ function parseDistributionList(
       lines.some((line) => !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(line))
     )
       return null;
-    const folded = lines.map((line) => line.toLowerCase());
-    return new Set(folded).size === folded.length ? folded : null;
+    const foldedNames = lines.map((line) => line.toLowerCase());
+    return new Set(foldedNames).size === foldedNames.length ? foldedNames : null;
   } catch {
     return null;
   }
@@ -48,14 +48,14 @@ export function observeDockerWslState(
   registeredResult: WslListCompletion,
   runningResult: WslListCompletion,
 ): DockerWslState {
-  const registered = parseDistributionList(registeredResult);
-  const running = parseDistributionList(runningResult);
+  const registeredNames = parseDistributionList(registeredResult);
+  const runningNames = parseDistributionList(runningResult);
   if (
-    !registered ||
-    !running ||
-    !registered.includes("docker-desktop") ||
-    running.some((name) => !registered.includes(name))
+    !registeredNames ||
+    !runningNames ||
+    !registeredNames.includes("docker-desktop") ||
+    runningNames.some((name) => !registeredNames.includes(name))
   )
     return "unknown";
-  return running.includes("docker-desktop") ? "running" : "stopped";
+  return runningNames.includes("docker-desktop") ? "running" : "stopped";
 }

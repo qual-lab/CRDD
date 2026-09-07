@@ -4,14 +4,14 @@ import {
   parseDockerTaskRecoveryId,
 } from "./docker-recovery-identity.ts";
 
-export const DOCKER_RESTART_PHASES = [
+export const dockerRestartPhases = [
   "stop_intent",
   "stopped",
   "start_intent",
   "ready",
   "settled",
 ] as const;
-export type DockerRestartPhase = (typeof DOCKER_RESTART_PHASES)[number];
+export type DockerRestartPhase = (typeof dockerRestartPhases)[number];
 export type DockerRestartBinding = Readonly<{
   recoveryId: string;
   operationNonce: string;
@@ -30,7 +30,7 @@ export type DockerRestartRecord = DockerRestartBinding &
     previousRecordSha256: string | null;
     phase: DockerRestartPhase;
   }>;
-const HASH_KEYS = [
+const hashKeys = [
   "operationNonce",
   "runtimeExecutionIdentitySha256",
   "localUserBindingHash",
@@ -39,11 +39,11 @@ const HASH_KEYS = [
   "stableLogicalHomeBindingHash",
   "pendingSubmissionSha256",
 ] as const;
-const BINDING_KEYS = ["recoveryId", ...HASH_KEYS] as const;
-const RECORD_KEYS = [
+const bindingKeys = ["recoveryId", ...hashKeys] as const;
+const recordKeys = [
   "contract",
   "contractRevision",
-  ...BINDING_KEYS,
+  ...bindingKeys,
   "sequence",
   "previousRecordSha256",
   "phase",
@@ -52,18 +52,19 @@ const digest = (bytes: Uint8Array) =>
   createHash("sha256").update(bytes).digest("hex");
 
 function validBinding(value: Record<string, unknown>): boolean {
-  const parsed = parseDockerTaskRecoveryId(value.recoveryId);
+  const parsedRecoveryId = parseDockerTaskRecoveryId(value.recoveryId);
   return (
-    parsed !== null &&
-    HASH_KEYS.every((key) => isSha256Hex(value[key])) &&
-    parsed.operationNonce === value.operationNonce &&
-    parsed.stableLogicalHomeBindingHash === value.stableLogicalHomeBindingHash
+    parsedRecoveryId !== null &&
+    hashKeys.every((key) => isSha256Hex(value[key])) &&
+    parsedRecoveryId.operationNonce === value.operationNonce &&
+    parsedRecoveryId.stableLogicalHomeBindingHash ===
+      value.stableLogicalHomeBindingHash
   );
 }
 
 function encode(record: DockerRestartRecord): Buffer {
   return Buffer.from(
-    `${JSON.stringify(Object.fromEntries(RECORD_KEYS.map((key) => [key, record[key]])))}\n`,
+    `${JSON.stringify(Object.fromEntries(recordKeys.map((key) => [key, record[key]])))}\n`,
     "utf8",
   );
 }
@@ -81,8 +82,8 @@ export function parseDockerRestartRecord(
       return null;
     const record = value as Record<string, unknown>;
     if (
-      Object.keys(record).length !== RECORD_KEYS.length ||
-      !RECORD_KEYS.every((key) => Object.hasOwn(record, key)) ||
+      Object.keys(record).length !== recordKeys.length ||
+      !recordKeys.every((key) => Object.hasOwn(record, key)) ||
       !validBinding(record)
     )
       return null;
@@ -91,7 +92,7 @@ export function parseDockerRestartRecord(
       record.contractRevision !== 1
     )
       return null;
-    const index = DOCKER_RESTART_PHASES.indexOf(
+    const index = dockerRestartPhases.indexOf(
       record.phase as DockerRestartPhase,
     );
     if (
@@ -115,22 +116,22 @@ export function validateDockerRestartRecordChain(
   records: readonly Uint8Array[],
   expectedBinding: DockerRestartBinding,
 ): readonly DockerRestartRecord[] | null {
-  if (records.length === 0 || records.length > DOCKER_RESTART_PHASES.length)
+  if (records.length === 0 || records.length > dockerRestartPhases.length)
     return null;
-  const parsed: DockerRestartRecord[] = [];
+  const parsedRecords: DockerRestartRecord[] = [];
   for (const [index, bytes] of records.entries()) {
     const record = parseDockerRestartRecord(bytes);
     const previous = records[index - 1];
     if (
       !record ||
       record.sequence !== index ||
-      !BINDING_KEYS.every((key) => record[key] === expectedBinding[key]) ||
+      !bindingKeys.every((key) => record[key] === expectedBinding[key]) ||
       record.previousRecordSha256 !== (previous ? digest(previous) : null)
     )
       return null;
-    parsed.push(record);
+    parsedRecords.push(record);
   }
-  return Object.freeze(parsed);
+  return Object.freeze(parsedRecords);
 }
 
 /** The caller must validate the complete persisted chain before appending. */
@@ -139,7 +140,7 @@ export function createDockerRestartRecord(
   phase: DockerRestartPhase,
   previousRecordBytes?: Uint8Array,
 ): Buffer {
-  const sequence = DOCKER_RESTART_PHASES.indexOf(phase);
+  const sequence = dockerRestartPhases.indexOf(phase);
   const previous = previousRecordBytes
     ? parseDockerRestartRecord(previousRecordBytes)
     : null;
@@ -149,7 +150,7 @@ export function createDockerRestartRecord(
       ? previousRecordBytes !== undefined
       : !previous ||
         previous.sequence !== sequence - 1 ||
-        !BINDING_KEYS.every((key) => previous[key] === binding[key]))
+        !bindingKeys.every((key) => previous[key] === binding[key]))
   )
     throw new Error("docker_restart_record_predecessor_invalid");
   const bytes = encode({

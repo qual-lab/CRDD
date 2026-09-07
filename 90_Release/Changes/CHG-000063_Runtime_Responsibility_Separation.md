@@ -213,13 +213,13 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 再起動の順序判定 | `docker-restart-state.ts`を追加。意図記録、停止、起動、回収、終了の順序を分離し、不明・取消・記録失敗では進めない |
 | 判定の単体契約 | `docker-restart-state.contract.test.ts`の33件成功。型検査と対象2ファイルのBiome確認も成功 |
 | 実機の署名観測 | 更新済Dockerのdesktop_cli、launcher、frontend、backend、buildはAuthenticode有効。旧dev_envs実体は不存在 |
-| 再起動実行制御 | `docker-restart-execution.ts`を追加。操作前の意図記録、待機後の境界・取消再確認、未確定操作の再発行拒否、finallyでの回収を32件の注入型結合試験で確認。本番の記録・Native Adapterは未接続 |
+| 再起動実行制御 | `docker-restart-execution.ts`を追加。操作前の意図記録、待機後の境界・取消再確認、未確定操作の再発行拒否、finallyでの回収を32件の注入型結合試験で確認。この確認時点では本番の記録・Native Adapterは未接続。後続接続は下記に記録 |
 | Nativeの検証方式 | `docker_authenticode.rs`で同一handleのWinVerifyTrustと検証済み署名者のDocker Inc組織名を確認。失効確認はキャッシュ限定、確認不能は拒否。未署名file拒否とインストール済み署名実体の検証成功を確認 |
 | Native再起動部品 | 旧修復経路と別の`--docker-desktop-restart-helper`を追加。現在の必須実体と存在する場合のdev_envsを署名検証し、同一操作中のsize・Hash・Identityを固定。`CRDDDS01`応答を用い、旧修復記録のPolicy Hashへ流用しない |
 | Native実機観測 | 更新済Dockerで検証・終了命令だけを送り、ready／検証／終了の応答を確認。停止・起動命令は未送信。通常ユーザー環境で成功し、制限環境の失敗を成功へ合算しない |
 | 部品回帰 | TypeScriptの状態・実行制御65件成功。Rustの通常試験20件とCLI試験1件成功、明示実機試験は別実行。cargo check／clippy／fmt成功 |
 | 公開復旧への接続 | 未完了。純粋な順序判定は証跡の認証、永続化、排他または実機操作の実装ではない |
-| 保護記録の利用側 | 再起動記録の連続prefix、Task・Root・submissionとの結合を検査し、完了連鎖を旧修復記録とは別の再起動根拠として扱う内部経路を追加。公開入口からは未接続 |
+| 保護記録の利用側 | 再起動記録の連続prefix、Task・Root・submissionとの結合を検査し、完了連鎖を旧修復記録とは別の再起動根拠として扱う内部経路を追加。この確認時点では公開入口から未接続。後続接続は下記に記録 |
 | 関連回帰 | 状態判定・記録・注入型実行制御・既存Docker Recoveryを合わせた178件が成功。実停止・実再起動・正式E2Eの成功を意味しない |
 | WSL停止観測 | 登録一覧と稼働一覧の正常終了・完全出力を厳密に判定する部品を追加。実機の読み取り専用確認は両照会exit 0、登録32 bytes、稼働0 bytesで`stopped`。単独の時点観測は再起動完了の証跡へ流用しない |
 
@@ -251,3 +251,58 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 担当は本変更の保守担当とし、本件の公開回復接続・実機E2E後の一括確認時に、既存アーキテクチャ規則、検証設計およびひな型への反映範囲を確定する。記録だけで現在の未接続保証を解消済みにせず、現在の是正と実機検証は継続する。
 
 内部ブロック図についても、利用者は最終のCRDD還元時に他の図と合わせた必須化条件の見直しを希望した。今回、主要6ツールの既存Architectureへ、実装の責務・子フォルダ・ファイル名群を単位とするテキスト図を追加した。ファイル単位の列挙や図に合わせた再配置は行わない。還元時は、状態遷移図との役割分担、図と実装・検証の整合確認、単純な対象への非適用条件を検討し、図の有無だけを完成判定にしない。現時点では共通規範の必須条件を変更していない。
+
+### 部分再起動記録を保持した是正候補
+
+状態: 承認済み是正をSourceへ接続。新署名・実機停止再開・正式E2Eは未完了。以下の候補表は着手時の検討を保持し、現在の限定再入場は[取消と回復の正本](../../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。候補表全体の実装完了を意味しない。
+
+| 今回接続した範囲 | 根拠・残る確認 |
+|---|---|
+| 公式停止 | Native `S`→署名固定pluginの`desktop stop --timeout 30`。旧repair `K`不変、restartの`K`は除去 |
+| 子Process寿命 | suspended生成→kill-on-close Job→再開、NUL限定継承、EOF取消、同一handle終了・Job回収。Native通常27件＋CLI1件とclippy成功。実Docker停止は未確認 |
+| 旧署名引継ぎ | `originReleaseRoot`から由来確認し、原記録不変でhandoff／continuationを追記。現在署名と旧由来を分離 |
+| 再入場 | 旧単一`stop_intent`の初回引継ぎは`currentPhase=null`から新継続停止意図と公式停止へ接続。現在Runtimeの`stop_intent`は再観測のみ、`stopped`は未発行起動、`ready`は確定へ。`start_intent`再発行は不可 |
+| 残るGate | 同一固定候補の全Consumer回帰、署名、実機E2E、最終独立監査。Source・局所試験からリリース成立を推定しない |
+
+| 現在の観測・不足 | 是正候補と保持条件 |
+|---|---|
+| 実機の再起動が`stop_intent`で停止した。WSL停止とDesktop Process生存が同時に観測された | Engine休止とDesktop全体停止を区別する。旧要求が未発行だったとは遡及推定しない |
+| 準備処理は既存`engine-restart-*`を一律拒否し、復旧側は完了5記録と現在Runtime Identityを要求する | 新署名だけでは再入場できない。旧記録の由来確認、現在Authority、部分状態照合を別契約として接続する |
+| 既存`desktop_cli`は`DockerCli.exe`であり、公式Desktop pluginとは別実体 | `resources/cli-plugins/docker-desktop.exe`の署名・exact実体を検証し、公式停止`desktop stop --timeout <上限>`へ接続する候補。Help確認は停止成功の証明ではない |
+| 旧修復の停止操作と正常再起動は別責務 | 旧Native `K`修復経路、run退避条件、旧修復記録の検証は変更しない。正常再起動ではrunを退避・削除しない |
+
+| 保存済み状態 | freshな観測と必要条件 | 候補の処置 |
+|---|---|---|
+| 記録なし | 現在署名・境界・排他・対象1件を確認 | 通常の新規準備へ進む |
+| `stop_intent` | 旧操作主体・CLI不存在、Desktop管理Process不存在、登録済みWSL停止をすべて確認 | 旧要求の成否を断定せず、現在の停止成立を追加記録。停止Effectを再発行しない |
+| 旧単一`stop_intent` | Desktop生存、旧主体・CLI不存在、他Task／他資源不存在、対象実体のTrustを確認 | 初回引継ぎ後、別の継続意図記録→公式停止→完了観測。継続記録が既に`stop_intent`なら再発行せず観測のみ |
+| `stopped` | 旧主体不存在と現在も停止中であることを確認 | 有効な引継ぎと現在Authorityの下で、未発行の起動意図を記録して進む候補 |
+| `start_intent` | 起動結果・世代・順序を確認できる | 起動を再発行せず観測から照合。不足なら同じ回復IDを保持して停止 |
+| `ready` | 起動後のEngine応答、対象資源不存在、回収と境界を再確認 | 未完了の確定処理だけを行う候補。再停止・再起動しない |
+| `settled` | 完了連鎖とfreshな対象不存在が成立 | 再起動せず、別操作のTask復旧へ接続する |
+| 任意状態 | 改変、分岐、観測不能、旧主体生存、Lock喪失、対象増加またはIdentity差 | 操作を追加発行せずexact回復IDと原記録を保持 |
+
+記録は旧5段階連鎖を上書きせず、別の順序付き引継ぎ・照合記録を追加する候補とする。
+
+| 記録契約 | 必須の結合・不足完成条件 |
+|---|---|
+| 由来と現在権限 | 旧署名配布物と旧記録Identityを照合。新署名は現在の操作権限だけに使用し、署名成立だけで互換性を推定しない。許容する旧契約Revisionを明示する |
+| 対象不変 | exact Recovery ID、Operation nonce、未確定submission Hash、安定ユーザー／Home、保護Root Identityを保持。新旧Runtime Identityと旧連鎖tip Hashを別fieldとして結ぶ |
+| 排他 | 現在のHost・Home・Runtime State Lockを非同期処理中も保持・再検証。旧helper／CLI／操作主体の不存在は別途観測し、Lock取得だけから推定しない |
+| 耐久化と再入場 | 排他的な追記、前記録Hash、上限、canonical byteを検証。書込み後の応答喪失は再読取りで分類し、削除・巻戻し・別Identityへの書換えで解消しない |
+| Effect重複防止 | 引継ぎ完了は停止／起動許可ではない。各新Effectの意図と観測結果を結合し、途中失敗後は保存状態を再分類。未確定Effectの無条件再発行を禁止する |
+| 完成結果 | 引継ぎ成立、停止成立、再起動成立、Task復旧成立を分離。部分記録や履歴採用から再起動Fenceを発行しない |
+
+既知の利用側と反証試験の予定対応は次のとおり。手書き一覧だけを全数性の根拠にせず、実装開始時にimport、公開入口、記録名利用、署名の依存集合から差分を導出する。
+
+| 利用側・変更単位 | 反証と予定確認先 |
+|---|---|
+| 記録型・連鎖検証 | 別署名、別Task／Root／submission、分岐・番号飛び・部分byte・上限超過を拒否：`unit/docker-restart-record.contract.test.ts` |
+| inventory・準備・追記・再入場 | 旧Identityの有効prefixを由来として保持し、現在Authorityへ流用しない。引継ぎ書込み後失敗、同時再入場、Lock喪失：`integration/docker-recovery-runtime.contract.test.ts`、`docker-recovery-lock-controller.integration.test.ts` |
+| 状態判定・実行制御 | 上表の各状態、取消・応答喪失・再読取りで停止／起動の発行回数と理由を確認：`unit/docker-restart-state.contract.test.ts`、`integration/docker-restart-execution.contract.test.ts` |
+| 公式plugin・Native・実機観測 | 未署名／差替え／旧CLI生存／停止timeout／WSL観測不能／Desktop残存を拒否。停止exit 0単独では不成立：`integration/docker-restart-machine.contract.test.ts`とNative対象試験。実停止は別の許可済み実機検証 |
+| composition・Task復旧・Fence・残存清掃 | 引継ぎ済み未完了を成功扱いせず、settled後もfresh対象不存在がなければ義務を保持。新記録名の読取り・残存分類を閉じる：`integration/docker-restart-runtime.contract.test.ts`、`docker-recovery-runtime.contract.test.ts`、`docker-recovery-journal.integration.test.ts` |
+| 公開facade・Help・Parser・Dispatcher・結果表示 | exact対象必須、任意forceなし、再起動とTask復旧は別結果、元Task再実行なし：`integration/cli-options.contract.test.ts`、`system/coordinator-docker-recovery-cli.integration.test.ts` |
+| 署名・公開Process経路・試験選択・Workflow | 新plugin／sourceが署名依存集合と実ソース由来の入口集合に含まれること、旧K経路不変を確認：`system/interaction-boundary-regression.contract.test.ts`、該当署名試験と回帰選択。手順は実装確定後に同期 |
+
+現在正本との照合では「旧証跡と現在Authorityの分離」「未確定Effect非再発行」「同じ回復IDの保持」と整合する。ただし既存の旧修復Session引継ぎ契約を、新しい部分再起動や別Runtimeへの実行継続へ自動拡張してはならない。旧操作主体の終了証明、新旧契約の互換条件、各保存状態からの正確な観測、追記途中失敗の収束、および公式停止対象のTrustは未完了の設計・検証義務として残る。

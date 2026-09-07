@@ -68,23 +68,23 @@ const DEVELOPMENT_SOURCE_KEYS = new Set([
   "expectedPackageContentRootSha256",
 ]);
 const COORDINATOR_DISTRIBUTION_PREFIX = "40_Develop/coordinator/";
-const RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS =
+const runtimeLocalTypescriptChildEntrypoints =
   runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver();
-const RUNTIME_DISTRIBUTION_REQUIRED_ENTRYPOINTS = Object.freeze([
+const runtimeDistributionRequiredEntrypoints = Object.freeze([
   Object.freeze({
     role: "public_cli",
     distributionRelativePath: `${COORDINATOR_DISTRIBUTION_PREFIX}bin/coordinator.ts`,
   }),
-  ...RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS.map((entrypoint) =>
+  ...runtimeLocalTypescriptChildEntrypoints.map((entrypoint) =>
     Object.freeze({
       role: entrypoint.role,
       distributionRelativePath: entrypoint.distributionRelativePath,
     }),
   ),
 ]);
-const RUNTIME_DISTRIBUTION_LOCAL_NODE_CHILD_ROLES = Object.freeze(
+const runtimeDistributionLocalNodeChildRoles = Object.freeze(
   new Set<string>(
-    RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS.map(
+    runtimeLocalTypescriptChildEntrypoints.map(
       (entrypoint) => entrypoint.role,
     ),
   ),
@@ -410,10 +410,10 @@ type SourceToken = Readonly<{
   lineBreakBefore: boolean;
 }>;
 
-const NODE_CHILD_PROCESS_SPECIFIER = ["node:", "child_", "process"].join("");
-const BARE_CHILD_PROCESS_SPECIFIER = ["child_", "process"].join("");
-const NODE_WORKER_THREADS_SPECIFIER = ["node:", "worker_", "threads"].join("");
-const BARE_WORKER_THREADS_SPECIFIER = ["worker_", "threads"].join("");
+const nodeChildProcessSpecifier = ["node:", "child_", "process"].join("");
+const bareChildProcessSpecifier = ["child_", "process"].join("");
+const nodeWorkerThreadsSpecifier = ["node:", "worker_", "threads"].join("");
+const bareWorkerThreadsSpecifier = ["worker_", "threads"].join("");
 
 const canonicalNodeModuleSpecifiers = Object.freeze(
   new Set(
@@ -492,7 +492,7 @@ function decodeStaticStringLiteral(raw: string) {
 
 function tokenizeTypeScriptModuleSyntax(source: string) {
   const tokens: SourceToken[] = [];
-  let lineBreakBeforeNextToken = false;
+  let hasLineBreakBeforeNextToken = false;
   const push = (
     kind: SourceToken["kind"],
     value: string,
@@ -503,10 +503,10 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
         kind,
         value,
         escaped: isEscaped,
-        lineBreakBefore: lineBreakBeforeNextToken,
+        lineBreakBefore: hasLineBreakBeforeNextToken,
       }),
     );
-    lineBreakBeforeNextToken = false;
+    hasLineBreakBeforeNextToken = false;
   };
 
   const scan = (start: number, shouldStopAtTemplateExpressionEnd: boolean) => {
@@ -517,7 +517,7 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
       const next = source[index + 1];
       if (/\s/u.test(character)) {
         if (character === "\n" || character === "\r")
-          lineBreakBeforeNextToken = true;
+          hasLineBreakBeforeNextToken = true;
         index += 1;
         continue;
       }
@@ -528,7 +528,7 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
       }
       if (character === "/" && next === "/") {
         const lineEnd = source.indexOf("\n", index + 2);
-        if (lineEnd !== -1) lineBreakBeforeNextToken = true;
+        if (lineEnd !== -1) hasLineBreakBeforeNextToken = true;
         index = lineEnd === -1 ? source.length : lineEnd + 1;
         continue;
       }
@@ -539,7 +539,7 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
             "platform_provisioner_runtime_dependency_parse_failed",
           );
         if (/[\r\n]/u.test(source.slice(index, commentEnd + 2)))
-          lineBreakBeforeNextToken = true;
+          hasLineBreakBeforeNextToken = true;
         index = commentEnd + 2;
         continue;
       }
@@ -735,7 +735,7 @@ function namedModuleBindings(
   tokens: readonly SourceToken[],
   openingBrace: number,
   closingBrace: number,
-  wholeTypeOnly: boolean,
+  isWholeTypeOnly: boolean,
 ) {
   const bindings: ModuleDeclarationBinding[] = [];
   let cursor = openingBrace + 1;
@@ -744,8 +744,8 @@ function namedModuleBindings(
       cursor += 1;
       continue;
     }
-    const inlineTypeOnly = tokens[cursor]?.value === "type";
-    if (inlineTypeOnly) cursor += 1;
+    const isInlineTypeOnly = tokens[cursor]?.value === "type";
+    if (isInlineTypeOnly) cursor += 1;
     const imported = tokens[cursor];
     if (imported?.kind !== "identifier")
       throw new Error("platform_provisioner_runtime_dependency_parse_failed");
@@ -762,7 +762,7 @@ function namedModuleBindings(
       Object.freeze({
         imported: imported.value,
         local: local.value,
-        typeOnly: wholeTypeOnly || inlineTypeOnly,
+        typeOnly: isWholeTypeOnly || isInlineTypeOnly,
         localTokenIndex: tokens.indexOf(local),
       }),
     );
@@ -825,8 +825,8 @@ function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
         continue;
       }
       let cursor = index + 1;
-      const wholeTypeOnly = tokens[cursor]?.value === "type";
-      if (wholeTypeOnly) cursor += 1;
+      const isWholeTypeOnly = tokens[cursor]?.value === "type";
+      if (isWholeTypeOnly) cursor += 1;
       const bindings: ModuleDeclarationBinding[] = [];
       if (tokens[cursor]?.kind === "identifier") {
         if (tokens[cursor + 1]?.value === "=")
@@ -837,7 +837,7 @@ function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
           Object.freeze({
             imported: "default",
             local: tokens[cursor]?.value ?? "",
-            typeOnly: wholeTypeOnly,
+            typeOnly: isWholeTypeOnly,
             localTokenIndex: cursor,
           }),
         );
@@ -856,7 +856,7 @@ function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
           Object.freeze({
             imported: "*",
             local: tokens[cursor + 2]?.value ?? "",
-            typeOnly: wholeTypeOnly,
+            typeOnly: isWholeTypeOnly,
             localTokenIndex: cursor + 2,
           }),
         );
@@ -864,7 +864,7 @@ function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
       } else if (tokens[cursor]?.value === "{") {
         const closing = matchingTokenIndex(tokens, cursor, "{", "}");
         bindings.push(
-          ...namedModuleBindings(tokens, cursor, closing, wholeTypeOnly),
+          ...namedModuleBindings(tokens, cursor, closing, isWholeTypeOnly),
         );
         cursor = closing + 1;
       }
@@ -879,21 +879,21 @@ function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
           start: index,
           end: cursor + 1,
           specifierIndex: cursor + 1,
-          wholeTypeOnly,
+          wholeTypeOnly: isWholeTypeOnly,
           bindings: Object.freeze(bindings),
         }),
       );
       index = cursor + 1;
     } else if (token.value === "export") {
       let cursor = index + 1;
-      const wholeTypeOnly = tokens[cursor]?.value === "type";
-      if (wholeTypeOnly) cursor += 1;
+      const isWholeTypeOnly = tokens[cursor]?.value === "type";
+      if (isWholeTypeOnly) cursor += 1;
       if (tokens[cursor]?.value !== "*" && tokens[cursor]?.value !== "{")
         continue;
       let bindings: readonly ModuleDeclarationBinding[] = Object.freeze([]);
       if (tokens[cursor]?.value === "{") {
         const closing = matchingTokenIndex(tokens, cursor, "{", "}");
-        bindings = namedModuleBindings(tokens, cursor, closing, wholeTypeOnly);
+        bindings = namedModuleBindings(tokens, cursor, closing, isWholeTypeOnly);
         cursor = closing + 1;
       } else {
         cursor += 1;
@@ -908,7 +908,7 @@ function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
           start: index,
           end: isReexport ? cursor + 1 : cursor - 1,
           specifierIndex: isReexport ? cursor + 1 : null,
-          wholeTypeOnly,
+          wholeTypeOnly: isWholeTypeOnly,
           bindings,
         }),
       );
@@ -959,7 +959,7 @@ function assertLoaderCapabilityBoundary(
   const loaderReason = (index: number) =>
     tokens
       .slice(index, index + 24)
-      .some((token) => token.value === NODE_WORKER_THREADS_SPECIFIER)
+      .some((token) => token.value === nodeWorkerThreadsSpecifier)
       ? "platform_provisioner_runtime_dependency_child_worker_unbound"
       : "platform_provisioner_runtime_dependency_child_process_unbound";
   const allowedDynamicImports = declarations.filter((declaration) =>
@@ -1053,13 +1053,13 @@ function assertLoaderCapabilityBoundary(
       declaration.specifierIndex === null
         ? null
         : tokens[declaration.specifierIndex]?.value;
-    const declarationIsTypeOnly =
+    const isDeclarationTypeOnly =
       declaration.wholeTypeOnly ||
       (declaration.bindings.length > 0 &&
         declaration.bindings.every((binding) => binding.typeOnly));
     if (
       specifier === "node:module" &&
-      !declarationIsTypeOnly &&
+      !isDeclarationTypeOnly &&
       !(
         coordinatorRelativeSourcePath(relativePath) ===
           "src/security/platform-provisioner-package-filesystem.ts" &&
@@ -1198,17 +1198,17 @@ type SelectedScriptProcessBindings = Readonly<{
 
 function selectedScriptProcessBindings(
   tokens: readonly SourceToken[],
-  includeWorkerThreads = true,
+  shouldIncludeWorkerThreads = true,
 ): SelectedScriptProcessBindings {
   const bindings = new Map<string, string>();
   const declarationTokenIndices = new Set<number>();
   const allowedImports = new Map<string, ReadonlySet<string>>([
     [
-      NODE_CHILD_PROCESS_SPECIFIER,
+      nodeChildProcessSpecifier,
       new Set(["spawn", "spawnSync", "execFile", "execFileSync", "fork"]),
     ],
-    ...(includeWorkerThreads
-      ? ([[NODE_WORKER_THREADS_SPECIFIER, new Set(["Worker"])]] as const)
+    ...(shouldIncludeWorkerThreads
+      ? ([[nodeWorkerThreadsSpecifier, new Set(["Worker"])]] as const)
       : []),
   ]);
   for (const declaration of moduleDeclarationsFromTokens(tokens)) {
@@ -1282,8 +1282,8 @@ function assertProtectedModuleSpecifierPositions(
 function assertChildProcessModuleBoundary(tokens: readonly SourceToken[]) {
   assertProtectedModuleSpecifierPositions(
     tokens,
-    new Set([NODE_CHILD_PROCESS_SPECIFIER, BARE_CHILD_PROCESS_SPECIFIER]),
-    NODE_CHILD_PROCESS_SPECIFIER,
+    new Set([nodeChildProcessSpecifier, bareChildProcessSpecifier]),
+    nodeChildProcessSpecifier,
     "platform_provisioner_runtime_dependency_child_process_unbound",
   );
 }
@@ -1326,14 +1326,6 @@ const runtimeExternalProcessCallsites = Object.freeze(
         "--quiet",
         "]",
       ],
-      ["const", "executable", "="],
-    ],
-    [
-      "src/security/docker-restart-machine.ts",
-      "terminateWsl",
-      "spawnSync",
-      ["executable"],
-      ["[", "--terminate", ",", "docker-desktop", "]"],
       ["const", "executable", "="],
     ],
     [
@@ -1599,7 +1591,7 @@ type ExactExternalProcessCallGraph = Readonly<{
   resultBinding: string | null;
 }>;
 
-const exactExternalProcessCallGraph = Object.freeze(
+const exactExternalProcessCalls = Object.freeze(
   [
     [
       "runtime",
@@ -1610,16 +1602,6 @@ const exactExternalProcessCallGraph = Object.freeze(
       "2895dc58b2ac8984f4f7caa7491fcd43d8c111747ceef5e1c985e2366a1652c9",
       "d73a0d7358558169a4cfcd0b5e9d5e2a0c120e904a650cfdc5ab6a82a2f8a532",
       null,
-    ],
-    [
-      "runtime",
-      "src/security/docker-restart-machine.ts",
-      "terminateWsl",
-      "spawnSync",
-      1,
-      "25b8efff9457ff55b3c1d20e2caec6abad373e0a09079c8cdfac35deb6241453",
-      "7f34747da04c9127ad4bdef6ab9cdb31281819e268fbb6944d36fd8e7d67c807",
-      "result",
     ],
     [
       "runtime",
@@ -1872,7 +1854,7 @@ type ExactAuditedFunctionFlow = Readonly<{
   bodySha256: string;
 }>;
 
-const exactAuditedFunctionFlowGraph = Object.freeze(
+const exactAuditedFunctionFlows = Object.freeze(
   [
     [
       "runtime",
@@ -2255,30 +2237,6 @@ const exactExecutableProvenance = Object.freeze(
       }),
     ],
     [
-      "src/security/docker-restart-machine.ts\0terminateWsl",
-      Object.freeze({
-        classification: "registered_platform_helper",
-        proofs: Object.freeze([
-          Object.freeze(["createWindowsNativeHelperEnvironment", "("]),
-          Object.freeze([
-            "path",
-            ".",
-            "win32",
-            ".",
-            "join",
-            "(",
-            "env",
-            ".",
-            "SystemRoot",
-            ",",
-            "System32",
-            ",",
-            "wsl.exe",
-          ]),
-        ]),
-      }),
-    ],
-    [
       "src/security/docker-restart-machine.ts\0queryDocker",
       Object.freeze({
         classification: "registered_platform_helper",
@@ -2392,8 +2350,8 @@ const exactExecutableProvenance = Object.freeze(
           Object.freeze({
             classification: "validated_local_artifact" as const,
             proofs: Object.freeze(
-              (proofs as readonly (readonly string[])[]).map((proof) =>
-                Object.freeze(proof),
+              (proofs as readonly (readonly string[])[]).map((proofTokens) =>
+                Object.freeze(proofTokens),
               ),
             ),
           }),
@@ -2652,7 +2610,7 @@ function declaredLocalTypeScriptChildTargets(
     if (
       !role ||
       role.escaped ||
-      !RUNTIME_DISTRIBUTION_LOCAL_NODE_CHILD_ROLES.has(role.value) ||
+      !runtimeDistributionLocalNodeChildRoles.has(role.value) ||
       !kind ||
       kind.escaped ||
       (kind.value !== "worker" && kind.value !== "spawn") ||
@@ -2689,7 +2647,7 @@ const localTypeScriptChildObserverPaths = Object.freeze(
     "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
   ]),
 );
-const localTypeScriptChildRegistrySnapshotName =
+const LOCAL_TYPESCRIPT_CHILD_REGISTRY_SNAPSHOT_NAME =
   "runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver";
 
 function directCallArgumentStarts(
@@ -2702,19 +2660,19 @@ function directCallArgumentStarts(
     ["[", "]"],
     ["{", "}"],
   ]);
-  const stack: string[] = [];
-  let expectingArgument = true;
+  const stackTokens: string[] = [];
+  let isExpectingArgument = true;
   for (let index = openingParenthesis + 1; index < tokens.length; index += 1) {
     const value = tokens[index]?.value ?? "";
-    if (stack.length === 0 && value === ")") return Object.freeze(starts);
-    if (expectingArgument && stack.length === 0 && value !== ",") {
+    if (stackTokens.length === 0 && value === ")") return Object.freeze(starts);
+    if (isExpectingArgument && stackTokens.length === 0 && value !== ",") {
       starts.push(index);
-      expectingArgument = false;
+      isExpectingArgument = false;
     }
     const expectedClosing = closing.get(value);
-    if (expectedClosing) stack.push(expectedClosing);
-    else if (stack.at(-1) === value) stack.pop();
-    else if (stack.length === 0 && value === ",") expectingArgument = true;
+    if (expectedClosing) stackTokens.push(expectedClosing);
+    else if (stackTokens.at(-1) === value) stackTokens.pop();
+    else if (stackTokens.length === 0 && value === ",") isExpectingArgument = true;
   }
   throw new Error("platform_provisioner_runtime_dependency_parse_failed");
 }
@@ -2732,11 +2690,11 @@ function directCallArgumentRanges(
     ["[", "]"],
     ["{", "}"],
   ]);
-  const stack: string[] = [];
+  const stackTokens: string[] = [];
   let argumentIndex = 0;
   for (let index = openingParenthesis + 1; index < tokens.length; index += 1) {
     const value = tokens[index]?.value ?? "";
-    if (stack.length === 0 && (value === "," || value === ")")) {
+    if (stackTokens.length === 0 && (value === "," || value === ")")) {
       const start = starts[argumentIndex];
       if (start !== undefined) {
         ranges.push(Object.freeze({ start, end: index }));
@@ -2746,8 +2704,8 @@ function directCallArgumentRanges(
       continue;
     }
     const expectedClosing = closing.get(value);
-    if (expectedClosing) stack.push(expectedClosing);
-    else if (stack.at(-1) === value) stack.pop();
+    if (expectedClosing) stackTokens.push(expectedClosing);
+    else if (stackTokens.at(-1) === value) stackTokens.pop();
   }
   throw new Error("platform_provisioner_runtime_dependency_parse_failed");
 }
@@ -2755,12 +2713,12 @@ function directCallArgumentRanges(
 function exactExpressionMatches(
   tokens: readonly SourceToken[],
   range: DirectCallArgumentRange | undefined,
-  expected: readonly string[],
+  expectedTokens: readonly string[],
 ) {
   return (
     range !== undefined &&
-    range.end - range.start === expected.length &&
-    tokenSequenceMatches(tokens, range.start, expected)
+    range.end - range.start === expectedTokens.length &&
+    tokenSequenceMatches(tokens, range.start, expectedTokens)
   );
 }
 
@@ -2773,14 +2731,14 @@ function expressionContainsTopLevelAlternative(
     ["[", "]"],
     ["{", "}"],
   ]);
-  const stack: string[] = [];
+  const stackTokens: string[] = [];
   for (let index = range.start; index < range.end; index += 1) {
     const value = tokens[index]?.value ?? "";
     const expectedClosing = closing.get(value);
-    if (expectedClosing) stack.push(expectedClosing);
-    else if (stack.at(-1) === value) stack.pop();
+    if (expectedClosing) stackTokens.push(expectedClosing);
+    else if (stackTokens.at(-1) === value) stackTokens.pop();
     else if (
-      stack.length === 0 &&
+      stackTokens.length === 0 &&
       ["||", "&&", "??", "?", "=", ","].includes(value)
     )
       return true;
@@ -2791,18 +2749,18 @@ function expressionContainsTopLevelAlternative(
 function prefixedArrayExpressionMatches(
   tokens: readonly SourceToken[],
   range: DirectCallArgumentRange | undefined,
-  expectedPrefix: readonly string[],
+  expectedPrefixTokens: readonly string[],
 ) {
   if (
     range === undefined ||
-    !tokenSequenceMatches(tokens, range.start, expectedPrefix)
+    !tokenSequenceMatches(tokens, range.start, expectedPrefixTokens)
   )
     return false;
-  if (expectedPrefix[0] === "[")
+  if (expectedPrefixTokens[0] === "[")
     return (
       tokens[range.start]?.value === "[" && tokens[range.end - 1]?.value === "]"
     );
-  return range.end - range.start === expectedPrefix.length;
+  return range.end - range.start === expectedPrefixTokens.length;
 }
 
 function usedLocalTypeScriptChildRoleKinds(
@@ -2830,7 +2788,7 @@ function usedLocalTypeScriptChildRoleKinds(
     for (const binding of declaration.bindings) {
       const isWrapper = localTypeScriptChildWrapperKinds.has(binding.imported);
       const isObserverProjection =
-        binding.imported === localTypeScriptChildRegistrySnapshotName;
+        binding.imported === LOCAL_TYPESCRIPT_CHILD_REGISTRY_SNAPSHOT_NAME;
       if (
         binding.typeOnly ||
         binding.local !== binding.imported ||
@@ -2851,7 +2809,7 @@ function usedLocalTypeScriptChildRoleKinds(
     const name = tokens[index]?.value ?? "";
     if (
       name === "runtimeLocalTypeScriptChildEntrypoint" ||
-      (name === localTypeScriptChildRegistrySnapshotName &&
+      (name === LOCAL_TYPESCRIPT_CHILD_REGISTRY_SNAPSHOT_NAME &&
         !declarationIndices.has(index) &&
         !localTypeScriptChildObserverPaths.has(relativePath))
     )
@@ -2874,7 +2832,7 @@ function usedLocalTypeScriptChildRoleKinds(
       roleToken === undefined ||
       tokens[roleToken]?.kind !== "string" ||
       tokens[roleToken]?.escaped ||
-      !RUNTIME_DISTRIBUTION_LOCAL_NODE_CHILD_ROLES.has(
+      !runtimeDistributionLocalNodeChildRoles.has(
         tokens[roleToken]?.value ?? "",
       )
     )
@@ -2897,7 +2855,7 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
       /[?#%]/u.test(tokens[index + 3]?.value ?? "") &&
       tokens
         .slice(index + 4, index + 24)
-        .some((_, offset) =>
+        .some((_token, offset) =>
           tokenSequenceMatches(tokens, index + 4 + offset, [
             "import",
             ".",
@@ -2952,7 +2910,7 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
       continue;
     const hasImportMetaUrl = tokens
       .slice(index + 3, index + 24)
-      .some((_, offset) =>
+      .some((_token, offset) =>
         tokenSequenceMatches(tokens, index + 3 + offset, [
           "import",
           ".",
@@ -3318,15 +3276,15 @@ function containingNamedFunction(
           ["[", "]"],
           ["{", "}"],
         ]);
-        const stack: string[] = [];
+        const stackTokens: string[] = [];
         let end = tokens.length;
         for (let cursor = bodyStart; cursor < tokens.length; cursor += 1) {
           const value = tokens[cursor]?.value ?? "";
           const expected = closing.get(value);
-          if (expected) stack.push(expected);
-          else if (stack.at(-1) === value) stack.pop();
+          if (expected) stackTokens.push(expected);
+          else if (stackTokens.at(-1) === value) stackTokens.pop();
           else if (
-            stack.length === 0 &&
+            stackTokens.length === 0 &&
             [",", ";", "}", ")", "]"].includes(value)
           ) {
             end = cursor;
@@ -3377,11 +3335,11 @@ function containingNamedFunction(
 function argumentMatchesPrefix(
   tokens: readonly SourceToken[],
   argumentStart: number | undefined,
-  prefix: readonly string[],
+  prefixTokens: readonly string[],
 ) {
   return (
     argumentStart !== undefined &&
-    tokenSequenceMatches(tokens, argumentStart, prefix)
+    tokenSequenceMatches(tokens, argumentStart, prefixTokens)
   );
 }
 
@@ -3389,10 +3347,10 @@ function tokenSequenceExistsBetween(
   tokens: readonly SourceToken[],
   start: number,
   end: number,
-  sequence: readonly string[],
+  sequenceTokens: readonly string[],
 ) {
-  for (let index = start; index + sequence.length <= end; index += 1) {
-    if (tokenSequenceMatches(tokens, index, sequence)) return true;
+  for (let index = start; index + sequenceTokens.length <= end; index += 1) {
+    if (tokenSequenceMatches(tokens, index, sequenceTokens)) return true;
   }
   return false;
 }
@@ -3401,11 +3359,11 @@ function tokenSequenceIndicesBetween(
   tokens: readonly SourceToken[],
   start: number,
   end: number,
-  sequence: readonly string[],
+  sequenceTokens: readonly string[],
 ) {
   const indices: number[] = [];
-  for (let index = start; index + sequence.length <= end; index += 1) {
-    if (tokenSequenceMatches(tokens, index, sequence)) indices.push(index);
+  for (let index = start; index + sequenceTokens.length <= end; index += 1) {
+    if (tokenSequenceMatches(tokens, index, sequenceTokens)) indices.push(index);
   }
   return Object.freeze(indices);
 }
@@ -3414,37 +3372,37 @@ function containingBlockPath(
   tokens: readonly SourceToken[],
   tokenIndex: number,
 ) {
-  const stack: number[] = [];
+  const stackTokens: number[] = [];
   for (let index = 0; index < tokenIndex; index += 1) {
-    if (tokens[index]?.value === "{") stack.push(index);
-    else if (tokens[index]?.value === "}") stack.pop();
+    if (tokens[index]?.value === "{") stackTokens.push(index);
+    else if (tokens[index]?.value === "}") stackTokens.pop();
   }
-  return Object.freeze(stack);
+  return Object.freeze(stackTokens);
 }
 
 function blockPathDominates(
-  proofPath: readonly number[],
-  consumerPath: readonly number[],
+  proofPathTokens: readonly number[],
+  consumerPathTokens: readonly number[],
 ) {
   return (
-    proofPath.length <= consumerPath.length &&
-    proofPath.every((opening, index) => consumerPath[index] === opening)
+    proofPathTokens.length <= consumerPathTokens.length &&
+    proofPathTokens.every((opening, index) => consumerPathTokens[index] === opening)
   );
 }
 
 function hasUniqueDominatingProof(
   tokens: readonly SourceToken[],
   consumerIndex: number,
-  sequence: readonly string[],
+  sequenceTokens: readonly string[],
 ) {
-  const consumerPath = containingBlockPath(tokens, consumerIndex);
+  const consumerPathTokens = containingBlockPath(tokens, consumerIndex);
   return (
-    tokenSequenceIndicesBetween(tokens, 0, consumerIndex, sequence).filter(
+    tokenSequenceIndicesBetween(tokens, 0, consumerIndex, sequenceTokens).filter(
       (proofIndex) =>
         tokens[proofIndex - 1]?.value !== "function" &&
         blockPathDominates(
           containingBlockPath(tokens, proofIndex),
-          consumerPath,
+          consumerPathTokens,
         ),
     ).length === 1
   );
@@ -3453,10 +3411,10 @@ function hasUniqueDominatingProof(
 function hasDominatingProof(
   tokens: readonly SourceToken[],
   consumerIndex: number,
-  sequence: readonly string[],
+  sequenceTokens: readonly string[],
 ) {
   const consumerOwner = containingNamedFunction(tokens, consumerIndex);
-  return tokenSequenceIndicesBetween(tokens, 0, consumerIndex, sequence).some(
+  return tokenSequenceIndicesBetween(tokens, 0, consumerIndex, sequenceTokens).some(
     (proofIndex) => {
       if (tokens[proofIndex - 1]?.value === "function") return false;
       const proofOwner = containingNamedFunction(tokens, proofIndex);
@@ -3478,11 +3436,11 @@ function hasDominatingProof(
 function assertInternalLifecycleConsumerBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
-  enforceDeclaredGraph: boolean,
+  shouldEnforceDeclaredGraph: boolean,
 ) {
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
   const ownedCapability = internalLifecycleConsumers.get(sourcePath);
-  if (ownedCapability && enforceDeclaredGraph) {
+  if (ownedCapability && shouldEnforceDeclaredGraph) {
     for (const expected of ownedCapability.calls) {
       let declarationCount = 0;
       for (let index = 0; index < tokens.length; index += 1) {
@@ -3572,26 +3530,26 @@ function assertInternalLifecycleConsumerBoundary(
         tokens[index + 1]?.value !== "(" ||
         owner?.name !== call.containingFunction ||
         argumentRanges.length !== call.argumentPrefixes.length ||
-        !call.argumentPrefixes.every((prefix, argumentIndex) => {
+        !call.argumentPrefixes.every((prefixTokens, argumentIndex) => {
           const range = argumentRanges[argumentIndex];
           return (
             range !== undefined &&
-            argumentMatchesPrefix(tokens, range.start, prefix) &&
+            argumentMatchesPrefix(tokens, range.start, prefixTokens) &&
             !expressionContainsTopLevelAlternative(tokens, range) &&
-            (prefix.length > 3 || range.end - range.start === prefix.length)
+            (prefixTokens.length > 3 || range.end - range.start === prefixTokens.length)
           );
         }) ||
         (call.beforePrefixes !== undefined &&
-          !call.beforePrefixes.every((prefix) =>
-            hasDominatingProof(tokens, index, prefix),
+          !call.beforePrefixes.every((prefixTokens) =>
+            hasDominatingProof(tokens, index, prefixTokens),
           )) ||
         (call.afterPrefixes !== undefined &&
-          !call.afterPrefixes.every((prefix) =>
+          !call.afterPrefixes.every((prefixTokens) =>
             tokenSequenceExistsBetween(
               tokens,
               index + 1,
               owner?.closing ?? 0,
-              prefix,
+              prefixTokens,
             ),
           ))
       )
@@ -3602,7 +3560,7 @@ function assertInternalLifecycleConsumerBoundary(
     }
     if (
       sourcePath === capability.leaf &&
-      (enforceDeclaredGraph || declarationIndices.size > 0) &&
+      (shouldEnforceDeclaredGraph || declarationIndices.size > 0) &&
       (declarationIndices.size !== capability.calls.length ||
         capability.calls.some((call) => observed.get(call.symbol) !== 1))
     )
@@ -3615,7 +3573,7 @@ function assertInternalLifecycleConsumerBoundary(
 function assertProcessWrapperConsumerBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
-  enforceDeclaredGraph: boolean,
+  shouldEnforceDeclaredGraph: boolean,
 ) {
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
   const importedIndices = new Map<string, Set<number>>();
@@ -3635,10 +3593,10 @@ function assertProcessWrapperConsumerBoundary(
         (binding) => binding.imported === symbol || binding.local === symbol,
       );
       if (relevantBindings.length === 0) continue;
-      const allowedConsumer = capability.uses.some(
+      const isAllowedConsumer = capability.uses.some(
         (use) => use.source === sourcePath,
       );
-      if (declaration.kind !== "static_import" || !allowedConsumer)
+      if (declaration.kind !== "static_import" || !isAllowedConsumer)
         throw new Error(
           "platform_provisioner_runtime_dependency_child_process_unbound",
         );
@@ -3680,7 +3638,7 @@ function assertProcessWrapperConsumerBoundary(
         continue;
       }
       const owner = containingNamedFunction(tokens, index);
-      const matching = capability.uses.filter((use) => {
+      const matchingTokens = capability.uses.filter((use) => {
         const symbolOffset = use.prefix.indexOf(symbol);
         return (
           use.source === sourcePath &&
@@ -3689,25 +3647,25 @@ function assertProcessWrapperConsumerBoundary(
           tokenSequenceMatches(tokens, index - symbolOffset, use.prefix)
         );
       });
-      if (matching.length !== 1)
+      if (matchingTokens.length !== 1)
         throw new Error(
           "platform_provisioner_runtime_dependency_child_process_unbound",
         );
-      const matched = matching[0] as ProcessWrapperUse;
+      const matched = matchingTokens[0] as ProcessWrapperUse;
       observed.set(matched, (observed.get(matched) ?? 0) + 1);
     }
     const expectedUses = capability.uses.filter(
       (use) => use.source === sourcePath,
     );
     if (
-      (enforceDeclaredGraph &&
+      (shouldEnforceDeclaredGraph &&
         sourcePath === capability.target &&
         declarationCount !== 1) ||
       (sourcePath !== capability.target &&
         expectedUses.length > 0 &&
-        enforceDeclaredGraph &&
+        shouldEnforceDeclaredGraph &&
         (importedIndices.get(symbol)?.size ?? 0) !== 1) ||
-      ((enforceDeclaredGraph || importedIndices.has(symbol)) &&
+      ((shouldEnforceDeclaredGraph || importedIndices.has(symbol)) &&
         expectedUses.some((use) => observed.get(use) !== 1))
     )
       throw new Error(
@@ -3715,7 +3673,7 @@ function assertProcessWrapperConsumerBoundary(
       );
   }
   if (
-    enforceDeclaredGraph &&
+    shouldEnforceDeclaredGraph &&
     sourcePath === "src/security/docker-effect-runtime.ts"
   ) {
     const expectedOwners = new Set(["startCommand", "runShort"]);
@@ -3731,16 +3689,16 @@ function assertProcessWrapperConsumerBoundary(
       )
         continue;
       const owner = containingNamedFunction(tokens, index);
-      const arguments_ = directCallArgumentRanges(tokens, index + 3);
+      const argumentTokens = directCallArgumentRanges(tokens, index + 3);
       if (
         !owner ||
         !expectedOwners.has(owner.name) ||
         observedOwners.has(owner.name) ||
-        arguments_.length !== 4 ||
-        !exactExpressionMatches(tokens, arguments_[0], [
+        argumentTokens.length !== 4 ||
+        !exactExpressionMatches(tokens, argumentTokens[0], [
           "DOCKER_CLI_EXECUTABLE",
         ]) ||
-        !prefixedArrayExpressionMatches(tokens, arguments_[1], [
+        !prefixedArrayExpressionMatches(tokens, argumentTokens[1], [
           "[",
           "--host",
           ",",
@@ -3748,7 +3706,7 @@ function assertProcessWrapperConsumerBoundary(
           ",",
           "--config",
         ]) ||
-        !exactExpressionMatches(tokens, arguments_[2], [
+        !exactExpressionMatches(tokens, argumentTokens[2], [
           "createDockerProcessEnvironment",
           "(",
           ")",
@@ -3796,8 +3754,8 @@ function assertWorkerCreationImportBoundary(
 ) {
   assertProtectedModuleSpecifierPositions(
     tokens,
-    new Set([NODE_WORKER_THREADS_SPECIFIER, BARE_WORKER_THREADS_SPECIFIER]),
-    NODE_WORKER_THREADS_SPECIFIER,
+    new Set([nodeWorkerThreadsSpecifier, bareWorkerThreadsSpecifier]),
+    nodeWorkerThreadsSpecifier,
     "platform_provisioner_runtime_dependency_child_worker_unbound",
   );
   for (const declaration of moduleDeclarationsFromTokens(tokens)) {
@@ -3807,7 +3765,7 @@ function assertWorkerCreationImportBoundary(
         : tokens[declaration.specifierIndex];
     if (
       specifier?.kind !== "string" ||
-      specifier.value !== NODE_WORKER_THREADS_SPECIFIER
+      specifier.value !== nodeWorkerThreadsSpecifier
     )
       continue;
     const names = new Map(
@@ -3867,12 +3825,12 @@ function assertWorkerCreationImportBoundary(
 function assertNoUnboundRuntimeChildProcess(
   relativePath: string,
   tokens: readonly SourceToken[],
-  enforceDeclaredGraph: boolean,
+  shouldEnforceDeclaredGraph: boolean,
 ) {
   assertChildProcessModuleBoundary(tokens);
   const bindings = selectedScriptProcessBindings(tokens, false);
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
-  const exactExpected = exactExternalProcessCallGraph.filter(
+  const exactExpectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.source === sourcePath,
   );
   const exactObserved = new Map<ExactExternalProcessCallGraph, number>();
@@ -3925,19 +3883,19 @@ function assertNoUnboundRuntimeChildProcess(
           )
           .digest("hex")
       : null;
-    if (enforceDeclaredGraph) {
-      const exactMatching = exactExpected.filter(
+    if (shouldEnforceDeclaredGraph) {
+      const exactMatchingTokens = exactExpectedTokens.filter(
         (callsite) =>
           callsite.primitive === imported &&
           callsite.containingFunction === owner?.name &&
           callsite.argumentShapeSha256 === argumentShapeSha256 &&
           callsite.resultBinding === resultBinding,
       );
-      if (exactMatching.length !== 1)
+      if (exactMatchingTokens.length !== 1)
         throw new Error(
           `platform_provisioner_runtime_dependency_child_process_unbound:${sourcePath}:${owner?.name ?? "module"}:${imported}:${argumentShapeSha256}:${functionBodySha256 ?? "none"}:${resultBinding ?? "none"}`,
         );
-      const exactMatched = exactMatching[0] as ExactExternalProcessCallGraph;
+      const exactMatched = exactMatchingTokens[0] as ExactExternalProcessCallGraph;
       const provenanceIdentity = `${exactMatched.source}\0${exactMatched.containingFunction}`;
       const provenance = exactExecutableProvenance.get(provenanceIdentity);
       if (!provenance)
@@ -3959,13 +3917,13 @@ function assertNoUnboundRuntimeChildProcess(
       if (
         provenance.classification !== "node_self" &&
         provenance.proofs.some(
-          (proof) =>
-            !hasUniqueDominatingProof(tokens, index, proof) &&
+          (proofTokens) =>
+            !hasUniqueDominatingProof(tokens, index, proofTokens) &&
             !tokenSequenceExistsBetween(
               tokens,
               owner?.opening ?? 0,
               index,
-              proof,
+              proofTokens,
             ),
         )
       )
@@ -4004,8 +3962,8 @@ function assertNoUnboundRuntimeChildProcess(
             throw new Error(
               `platform_provisioner_runtime_dependency_child_process_ownership_unbound:${exactMatched.source}:${exactMatched.containingFunction}`,
             );
-          const proofIndices = ownership.proofs.map((proof) =>
-            tokenSequenceIndicesBetween(tokens, index + 1, ownerEnd, proof),
+          const proofIndices = ownership.proofs.map((proofTokens) =>
+            tokenSequenceIndicesBetween(tokens, index + 1, ownerEnd, proofTokens),
           );
           if (proofIndices.some((matches) => matches.length < 1))
             throw new Error(
@@ -4035,7 +3993,7 @@ function assertNoUnboundRuntimeChildProcess(
         (exactObserved.get(exactMatched) ?? 0) + 1,
       );
     }
-    const matching = expectedCallsites.filter(
+    const matchingTokens = expectedCallsites.filter(
       (callsite) =>
         callsite.primitive === imported &&
         callsite.containingFunction === owner?.name &&
@@ -4053,23 +4011,23 @@ function assertNoUnboundRuntimeChildProcess(
         (!callsite.authorityProof ||
           hasUniqueDominatingProof(tokens, index, callsite.authorityProof)),
     );
-    if (matching.length !== 1)
+    if (matchingTokens.length !== 1)
       throw new Error(
         "platform_provisioner_runtime_dependency_child_process_unbound",
       );
-    const matched = matching[0] as RuntimeExternalProcessCallsite;
+    const matched = matchingTokens[0] as RuntimeExternalProcessCallsite;
     observedCallsites.set(matched, (observedCallsites.get(matched) ?? 0) + 1);
   }
   if (
-    (enforceDeclaredGraph || bindings.bindings.size > 0) &&
+    (shouldEnforceDeclaredGraph || bindings.bindings.size > 0) &&
     expectedCallsites.some((callsite) => observedCallsites.get(callsite) !== 1)
   )
     throw new Error(
       "platform_provisioner_runtime_dependency_child_process_unbound",
     );
   if (
-    enforceDeclaredGraph &&
-    exactExpected.some(
+    shouldEnforceDeclaredGraph &&
+    exactExpectedTokens.some(
       (callsite) => exactObserved.get(callsite) !== callsite.occurrence,
     )
   )
@@ -4120,14 +4078,14 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
       throw new Error(
         `platform_provisioner_runtime_dependency_capability_graph_mismatch:${name}:scope:${parent?.name ?? "module"}`,
       );
-    const exported =
+    const isExported =
       tokens[index - 1]?.value === "export" ||
       (tokens[index - 1]?.value === "async" &&
         tokens[index - 2]?.value === "export");
-    const expectedExported = auditedExportedFunctionIdentities.has(
+    const isExpectedExported = auditedExportedFunctionIdentities.has(
       `${sourcePath}\0${name}`,
     );
-    if (exported !== expectedExported)
+    if (isExported !== isExpectedExported)
       throw new Error(
         `platform_provisioner_runtime_dependency_capability_graph_mismatch:${name}:export`,
       );
@@ -4140,10 +4098,10 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
         `platform_provisioner_runtime_dependency_parse_failed:${name}:body`,
       );
     const bodyEnd = matchingTokenIndex(tokens, bodyStart, "{", "}");
-    const body = tokens
+    const bodyTokens = tokens
       .slice(bodyStart, bodyEnd + 1)
       .map((token) => token.value);
-    const graphNodes = body.map((value, nodeIndex) =>
+    const graphNodes = bodyTokens.map((value, nodeIndex) =>
       Object.freeze({
         id: nodeIndex,
         kind: [
@@ -4172,39 +4130,39 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
     const graphEdges: Array<
       Readonly<{ from: number; to: number; kind: string }>
     > = [];
-    const delimiterStack: Array<Readonly<{ node: number; closing: string }>> =
+    const delimiterStackTokens: Array<Readonly<{ node: number; closing: string }>> =
       [];
     const delimiterClosing = new Map([
       ["(", ")"],
       ["[", "]"],
       ["{", "}"],
     ]);
-    for (let nodeIndex = 0; nodeIndex < body.length; nodeIndex += 1) {
+    for (let nodeIndex = 0; nodeIndex < bodyTokens.length; nodeIndex += 1) {
       if (nodeIndex > 0)
         graphEdges.push(
           Object.freeze({ from: nodeIndex - 1, to: nodeIndex, kind: "next" }),
         );
-      const closing = delimiterClosing.get(body[nodeIndex] ?? "");
+      const closing = delimiterClosing.get(bodyTokens[nodeIndex] ?? "");
       if (closing)
-        delimiterStack.push(Object.freeze({ node: nodeIndex, closing }));
-      else if (delimiterStack.at(-1)?.closing === body[nodeIndex]) {
-        const opening = delimiterStack.pop();
+        delimiterStackTokens.push(Object.freeze({ node: nodeIndex, closing }));
+      else if (delimiterStackTokens.at(-1)?.closing === bodyTokens[nodeIndex]) {
+        const opening = delimiterStackTokens.pop();
         if (opening)
           graphEdges.push(
             Object.freeze({ from: opening.node, to: nodeIndex, kind: "pair" }),
           );
       }
       if (
-        nodeIndex + 1 < body.length &&
-        body[nodeIndex + 1] === "(" &&
-        /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(body[nodeIndex] ?? "")
+        nodeIndex + 1 < bodyTokens.length &&
+        bodyTokens[nodeIndex + 1] === "(" &&
+        /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(bodyTokens[nodeIndex] ?? "")
       )
         graphEdges.push(
           Object.freeze({ from: nodeIndex, to: nodeIndex + 1, kind: "call" }),
         );
       if (
-        ["const", "let", "var"].includes(body[nodeIndex] ?? "") &&
-        /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(body[nodeIndex + 1] ?? "")
+        ["const", "let", "var"].includes(bodyTokens[nodeIndex] ?? "") &&
+        /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(bodyTokens[nodeIndex + 1] ?? "")
       )
         graphEdges.push(
           Object.freeze({
@@ -4214,8 +4172,8 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
           }),
         );
       if (
-        ["return", "throw"].includes(body[nodeIndex] ?? "") &&
-        nodeIndex + 1 < body.length
+        ["return", "throw"].includes(bodyTokens[nodeIndex] ?? "") &&
+        nodeIndex + 1 < bodyTokens.length
       )
         graphEdges.push(
           Object.freeze({
@@ -4225,14 +4183,14 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
           }),
         );
     }
-    if (delimiterStack.length !== 0)
+    if (delimiterStackTokens.length !== 0)
       throw new Error(
         `platform_provisioner_runtime_dependency_parse_failed:${name}:semantic-graph`,
       );
     const semanticGraphSha256 = createHash("sha256")
       .update(
         JSON.stringify({
-          scope: `${sourcePath}\0${expectedParent ?? "module"}\0${name}\0${declarationOccurrence}\0${exported ? "exported" : "local"}`,
+          scope: `${sourcePath}\0${expectedParent ?? "module"}\0${name}\0${declarationOccurrence}\0${isExported ? "exported" : "local"}`,
           nodes: graphNodes,
           edges: graphEdges,
         }),
@@ -4242,13 +4200,13 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
       Object.freeze({
         name,
         bodySha256: createHash("sha256")
-          .update(JSON.stringify(body))
+          .update(JSON.stringify(bodyTokens))
           .digest("hex"),
-        bodyTokenCount: body.length,
+        bodyTokenCount: bodyTokens.length,
         semanticGraphSha256,
         declarationOccurrence,
         lexicalScope: expectedParent ?? "module",
-        exported,
+        exported: isExported,
       }),
     );
   }
@@ -4270,7 +4228,7 @@ export function auditedFunctionSemanticGraphForVerification(
   return runtimeNamedFunctionGraphSnapshotForVerification(
     relativePath,
     source,
-    exactAuditedFunctionFlowGraph
+    exactAuditedFunctionFlows
       .filter((flow) => flow.source === sourcePath)
       .map((flow) => flow.functionName),
   );
@@ -4327,27 +4285,27 @@ function assertNoAuditedPreBodyEffects(
 function assertExactAuditedFunctionFlows(
   relativePath: string,
   tokens: readonly SourceToken[],
-  enforceDeclaredGraph: boolean,
+  shouldEnforceDeclaredGraph: boolean,
 ) {
-  if (!enforceDeclaredGraph) return;
+  if (!shouldEnforceDeclaredGraph) return;
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
-  const expected = exactAuditedFunctionFlowGraph.filter(
+  const expectedTokens = exactAuditedFunctionFlows.filter(
     (flow) => flow.source === sourcePath,
   );
-  if (expected.length === 0) return;
+  if (expectedTokens.length === 0) return;
   assertNoAuditedPreBodyEffects(
     tokens,
-    new Set(expected.map((flow) => flow.functionName)),
+    new Set(expectedTokens.map((flow) => flow.functionName)),
   );
-  const observed = runtimeNamedFunctionGraphSnapshotForVerification(
+  const observedTokens = runtimeNamedFunctionGraphSnapshotForVerification(
     relativePath,
     tokens,
-    expected.map((flow) => flow.functionName),
+    expectedTokens.map((flow) => flow.functionName),
   );
   if (
     sourcePath !== "scripts/sign-release-manifest.ts" &&
-    (expected.length !== observed.length ||
-      observed.some(
+    (expectedTokens.length !== observedTokens.length ||
+      observedTokens.some(
         (flow) =>
           exactAuditedSemanticGraphSha256.get(`${sourcePath}\0${flow.name}`) !==
           flow.semanticGraphSha256,
@@ -4365,36 +4323,36 @@ function assertExactCapabilityGraphSourceUniverse(
   graph: RuntimeCapabilityGraphKind,
   sources: ReadonlySet<string>,
 ) {
-  const expected = exactExternalProcessCallGraph.filter(
+  const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 18 : 6;
-  const stableIdentities = expected.map(
+  const expectedCount = graph === "runtime" ? 17 : 6;
+  const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
   );
-  const expectedFlowSources = exactAuditedFunctionFlowGraph
+  const expectedFlowSources = exactAuditedFunctionFlows
     .filter((flow) => flow.graph === graph)
     .map((flow) => flow.source);
-  const globalCallIdentities = exactExternalProcessCallGraph.map(
+  const globalCallIdentities = exactExternalProcessCalls.map(
     (callsite) =>
       `${callsite.graph}\u0000${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
   );
-  const globalFlowIdentities = exactAuditedFunctionFlowGraph.map(
+  const globalFlowIdentities = exactAuditedFunctionFlows.map(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCallGraph.length !== 24 ||
-    exactExecutableProvenance.size !== exactExternalProcessCallGraph.length ||
-    exactExternalProcessCallGraph.some(
+    exactExternalProcessCalls.length !== 23 ||
+    exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
+    exactExternalProcessCalls.some(
       (callsite) =>
         !exactExecutableProvenance.has(
           `${callsite.source}\0${callsite.containingFunction}`,
         ),
     ) ||
     exactAuditedSemanticGraphSha256.size !==
-      exactAuditedFunctionFlowGraph.length ||
-    exactAuditedFunctionFlowGraph.some(
+      exactAuditedFunctionFlows.length ||
+    exactAuditedFunctionFlows.some(
       (flow) =>
         !exactAuditedSemanticGraphSha256.has(
           `${flow.source}\0${flow.functionName}`,
@@ -4402,9 +4360,9 @@ function assertExactCapabilityGraphSourceUniverse(
     ) ||
     new Set(globalCallIdentities).size !== globalCallIdentities.length ||
     new Set(globalFlowIdentities).size !== globalFlowIdentities.length ||
-    expected.length !== expectedCount ||
+    expectedTokens.length !== expectedCount ||
     new Set(stableIdentities).size !== stableIdentities.length ||
-    expected.some((callsite) => !sources.has(callsite.source)) ||
+    expectedTokens.some((callsite) => !sources.has(callsite.source)) ||
     expectedFlowSources.some((source) => !sources.has(source))
   )
     throw new Error(
@@ -4558,7 +4516,7 @@ function runtimePackageCapabilityConsumers(
   const source = coordinatorRelativeSourcePath(relativePath);
   if (source === "src/security/platform-provisioner-package-filesystem.ts")
     return Object.freeze([]);
-  const result: RuntimePackageCapabilityConsumer[] = [];
+  const resultTokens: RuntimePackageCapabilityConsumer[] = [];
   for (const declaration of moduleDeclarationsFromTokens(tokens)) {
     if (
       declaration.kind !== "static_import" ||
@@ -4603,7 +4561,7 @@ function runtimePackageCapabilityConsumers(
             : tokens[index + 1]?.value === "("
               ? "call"
               : "reference";
-        result.push(
+        resultTokens.push(
           Object.freeze({
             source,
             symbol: binding.imported,
@@ -4615,7 +4573,7 @@ function runtimePackageCapabilityConsumers(
       }
     }
   }
-  return Object.freeze(result);
+  return Object.freeze(resultTokens);
 }
 
 export function runtimePackageCapabilityConsumerGraphForVerification(
@@ -4638,7 +4596,7 @@ export function runtimePackageCapabilityConsumerGraphForVerification(
   );
 }
 
-const exactRuntimePackageCapabilityConsumerGraph = Object.freeze(
+const exactRuntimePackageCapabilityConsumers = Object.freeze(
   [
     [
       "bin/coordinator.ts",
@@ -4810,7 +4768,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
 ) {
   const exact = (
     relativePath: string,
-    sequence: readonly string[],
+    sequenceTokens: readonly string[],
     reason: string,
   ) => {
     const source = sources[relativePath];
@@ -4821,7 +4779,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
       tokens,
       0,
       tokens.length,
-      sequence,
+      sequenceTokens,
     );
     if (matches.length !== 1)
       throw new Error(`consumer_handoff:${reason}:shape`);
@@ -5018,7 +4976,7 @@ function assertReleaseAssuranceConsumerClosure(
 ) {
   const exact = (
     relativePath: string,
-    sequence: readonly string[],
+    sequenceTokens: readonly string[],
     reason: string,
     owners?: readonly string[],
   ) => {
@@ -5030,7 +4988,7 @@ function assertReleaseAssuranceConsumerClosure(
       tokens,
       0,
       tokens.length,
-      sequence,
+      sequenceTokens,
     );
     if (
       owners
@@ -5139,17 +5097,17 @@ function assertExactRuntimePackageCapabilityConsumerGraph(
 ) {
   assertRuntimePackageCapabilityHandoffClosure(sources);
   assertReleaseAssuranceConsumerClosure(sources);
-  const observed =
+  const observedTokens =
     runtimePackageCapabilityConsumerGraphForVerification(sources);
-  const expected = exactRuntimePackageCapabilityConsumerGraph.filter(
+  const expectedTokens = exactRuntimePackageCapabilityConsumers.filter(
     (consumer) =>
       scope === "repository" ||
       consumer.source !== "scripts/verify-project-runtime-real-providers.ts",
   );
-  const observedIdentities = observed.map(
+  const observedIdentities = observedTokens.map(
     runtimePackageCapabilityConsumerIdentity,
   );
-  const expectedIdentities = expected.map(
+  const expectedIdentities = expectedTokens.map(
     runtimePackageCapabilityConsumerIdentity,
   );
   if (
@@ -5161,14 +5119,14 @@ function assertExactRuntimePackageCapabilityConsumerGraph(
   ) {
     const observedSet = new Set(observedIdentities);
     const expectedSet = new Set(expectedIdentities);
-    const missing = expectedIdentities.filter(
+    const missingTokens = expectedIdentities.filter(
       (identity) => !observedSet.has(identity),
     );
-    const unexpected = observedIdentities.filter(
+    const unexpectedTokens = observedIdentities.filter(
       (identity) => !expectedSet.has(identity),
     );
     throw new Error(
-      `consumer_set:mismatch:missing=${JSON.stringify(missing)}:unexpected=${JSON.stringify(unexpected)}`,
+      `consumer_set:mismatch:missing=${JSON.stringify(missingTokens)}:unexpected=${JSON.stringify(unexpectedTokens)}`,
     );
   }
 }
@@ -5212,10 +5170,10 @@ export function assertRuntimePackageCapabilityConsumerGraphForVerification(
 function assertPublicRuntimeObservationConsumerClosure(
   relativePath: string,
   tokens: readonly SourceToken[],
-  enforceDeclaredGraph: boolean,
+  shouldEnforceDeclaredGraph: boolean,
 ) {
   if (
-    !enforceDeclaredGraph ||
+    !shouldEnforceDeclaredGraph ||
     coordinatorRelativeSourcePath(relativePath) !==
       "src/security/platform-provisioner-package-filesystem.ts"
   )
@@ -5286,7 +5244,7 @@ function assertPublicRuntimeObservationConsumerClosure(
       ["request"],
     ],
   ] as const);
-  const remaining = [...expected];
+  const remainingTokens = [...expected];
   const symbols = new Set(expected.map(([symbol]) => symbol));
   for (let index = 0; index < tokens.length; index += 1) {
     const symbol = tokens[index]?.value ?? "";
@@ -5314,7 +5272,7 @@ function assertPublicRuntimeObservationConsumerClosure(
         `platform_provisioner_runtime_dependency_public_consumer_unbound:${symbol}:${index}`,
       );
     }
-    const matchingIndex = remaining.findIndex(
+    const matchingIndex = remainingTokens.findIndex(
       ([expectedSymbol, expectedOwner, argument]) =>
         symbol === expectedSymbol &&
         owner === expectedOwner &&
@@ -5325,9 +5283,9 @@ function assertPublicRuntimeObservationConsumerClosure(
       throw new Error(
         "platform_provisioner_runtime_dependency_public_consumer_unbound",
       );
-    remaining.splice(matchingIndex, 1);
+    remainingTokens.splice(matchingIndex, 1);
   }
-  if (remaining.length !== 0)
+  if (remainingTokens.length !== 0)
     throw new Error(
       "platform_provisioner_runtime_dependency_public_consumer_unbound",
     );
@@ -5375,8 +5333,8 @@ function directProtectedCall(
   tokens: readonly SourceToken[],
   symbol: string,
   owner: string,
-  prefix: readonly string[],
-  argumentsShape: readonly (readonly string[])[],
+  prefixTokens: readonly string[],
+  argumentShapes: readonly (readonly string[])[],
 ) {
   const matches: number[] = [];
   for (let index = 0; index < tokens.length; index += 1) {
@@ -5388,21 +5346,21 @@ function directProtectedCall(
     )
       continue;
     if (
-      prefix.length > index ||
-      prefix.some(
+      prefixTokens.length > index ||
+      prefixTokens.some(
         (value, offset) =>
-          tokens[index - prefix.length + offset]?.value !== value,
+          tokens[index - prefixTokens.length + offset]?.value !== value,
       )
     )
       continue;
     const ranges = directCallArgumentRanges(tokens, index + 1);
     if (
-      ranges.length === argumentsShape.length &&
+      ranges.length === argumentShapes.length &&
       ranges.every((range, offset) =>
         exactExpressionMatches(
           tokens,
           range,
-          argumentsShape[offset] as readonly string[],
+          argumentShapes[offset] as readonly string[],
         ),
       )
     )
@@ -5466,10 +5424,10 @@ function assertReleaseSigningProtectedPath(source: string) {
       declaration.specifierIndex === null
         ? null
         : (tokens[declaration.specifierIndex]?.value ?? null);
-    const required =
+    const requiredTokens =
       specifier === null ? undefined : protectedImports.get(specifier);
     for (const binding of declaration.bindings) {
-      if (!required?.includes(binding.imported as never)) continue;
+      if (!requiredTokens?.includes(binding.imported as never)) continue;
       if (binding.typeOnly || binding.local !== binding.imported)
         throw new Error(`import_binding:${binding.imported}`);
       if (protectedBindings.has(binding.imported))
@@ -5477,8 +5435,8 @@ function assertReleaseSigningProtectedPath(source: string) {
       protectedBindings.set(binding.imported, binding.localTokenIndex);
     }
   }
-  for (const required of protectedImports.values())
-    for (const symbol of required)
+  for (const requiredTokens of protectedImports.values())
+    for (const symbol of requiredTokens)
       if (!protectedBindings.has(symbol))
         throw new Error(`import_binding:${symbol}_missing`);
 
@@ -5706,18 +5664,18 @@ function assertReleaseSigningProtectedPath(source: string) {
   const uniqueOwnedCallIndex = (
     symbol: string,
     owner: string,
-    prefix: readonly string[],
+    prefixTokens: readonly string[],
   ) => {
     const matches = tokenSequenceIndicesBetween(tokens, 0, tokens.length, [
-      ...prefix,
+      ...prefixTokens,
       symbol,
       "(",
     ]).filter(
       (index) =>
-        containingNamedFunction(tokens, index + prefix.length)?.name === owner,
+        containingNamedFunction(tokens, index + prefixTokens.length)?.name === owner,
     );
     if (matches.length !== 1) throw new Error(`call_graph:${owner}:${symbol}`);
-    return (matches[0] as number) + prefix.length;
+    return (matches[0] as number) + prefixTokens.length;
   };
   const runtimeIdentity = uniqueOwnedCallIndex(
     "calculateRuntimeExecutionIdentityCandidate",
@@ -5801,17 +5759,17 @@ function assertReleaseSigningProtectedPath(source: string) {
     ["main", new Set([mainInvocation])],
   ]);
   for (const [symbol, expectedIndices] of expectedLocalCalls) {
-    const observed: number[] = [];
+    const observedTokens: number[] = [];
     for (let index = 0; index < tokens.length; index += 1) {
       if (
         tokens[index]?.value === symbol &&
         tokens[index - 1]?.value !== "function"
       )
-        observed.push(index);
+        observedTokens.push(index);
     }
     if (
-      observed.length !== expectedIndices.size ||
-      observed.some((index) => !expectedIndices.has(index))
+      observedTokens.length !== expectedIndices.size ||
+      observedTokens.some((index) => !expectedIndices.has(index))
     )
       throw new Error(`local_binding_use:${symbol}`);
   }
@@ -5823,7 +5781,7 @@ function assertReleaseSigningProtectedPath(source: string) {
   const signingRange = namedFunctionBodyRange(tokens, "signReleaseManifest");
   const requireSingleFieldEdge = (
     range: Readonly<{ opening: number; closing: number }>,
-    sequence: readonly string[],
+    sequenceTokens: readonly string[],
     name: string,
     expectedCount = 1,
   ) => {
@@ -5832,7 +5790,7 @@ function assertReleaseSigningProtectedPath(source: string) {
         tokens,
         range.opening,
         range.closing,
-        sequence,
+        sequenceTokens,
       ).length !== expectedCount
     )
       throw new Error(`field_provenance:${name}`);
@@ -5967,7 +5925,7 @@ export function assertReleaseSigningConsumerClosureForVerification(
 function staticRelativeModuleTargets(
   relativePath: string,
   bytes: Buffer,
-  enforceDeclaredGraph = true,
+  shouldEnforceDeclaredGraph = true,
 ) {
   if (!relativePath.endsWith(".ts")) return Object.freeze([]);
   const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
@@ -5998,26 +5956,26 @@ function staticRelativeModuleTargets(
     assertInternalLifecycleConsumerBoundary(
       relativePath,
       tokens,
-      enforceDeclaredGraph,
+      shouldEnforceDeclaredGraph,
     );
     assertProcessWrapperConsumerBoundary(
       relativePath,
       tokens,
-      enforceDeclaredGraph,
+      shouldEnforceDeclaredGraph,
     );
     assertWorkerCreationImportBoundary(relativePath, tokens);
     assertNoUnboundRuntimeChildProcess(
       relativePath,
       tokens,
-      enforceDeclaredGraph,
+      shouldEnforceDeclaredGraph,
     );
     assertNoUnboundRuntimeExecPath(relativePath, tokens);
     assertPublicRuntimeObservationConsumerClosure(
       relativePath,
       tokens,
-      enforceDeclaredGraph,
+      shouldEnforceDeclaredGraph,
     );
-    assertExactAuditedFunctionFlows(relativePath, tokens, enforceDeclaredGraph);
+    assertExactAuditedFunctionFlows(relativePath, tokens, shouldEnforceDeclaredGraph);
   } catch (error) {
     throw new Error(`${relativePath}:modules:${String(error)}`);
   }
@@ -6073,7 +6031,7 @@ function verifyLauncherEntryBindings(packageRoot: string) {
 }
 
 function collectRuntimeExecutionScriptPaths(packageRoot: string) {
-  const enforceDeclaredGraph = fs.existsSync(
+  const shouldEnforceDeclaredGraph = fs.existsSync(
     path.join(
       packageRoot,
       "src",
@@ -6112,7 +6070,7 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
       ),
     )
   ) {
-    for (const entrypoint of RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS) {
+    for (const entrypoint of runtimeLocalTypescriptChildEntrypoints) {
       const target = coordinatorPackageRelativePath(
         entrypoint.distributionRelativePath,
       );
@@ -6135,7 +6093,7 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
     for (const target of staticRelativeModuleTargets(
       relative,
       observed.bytes,
-      enforceDeclaredGraph,
+      shouldEnforceDeclaredGraph,
     )) {
       const rootSegment = target.split("/")[0];
       if (rootSegment === "scripts") pendingItems.push(target);
@@ -6153,12 +6111,12 @@ function verifyStaticRuntimeModuleBoundary(
   relativePath: string,
   bytes: Buffer,
   scriptPaths: ReadonlySet<string>,
-  enforceDeclaredGraph: boolean,
+  shouldEnforceDeclaredGraph: boolean,
 ) {
   for (const target of staticRelativeModuleTargets(
     relativePath,
     bytes,
-    enforceDeclaredGraph,
+    shouldEnforceDeclaredGraph,
   )) {
     const rootSegment = target.split("/")[0];
     if (
@@ -6179,7 +6137,7 @@ function packageEntries(
   root: Readonly<{ realPath: string; identity: EntityIdentity }>,
 ) {
   const scriptPaths = collectRuntimeExecutionScriptPaths(root.realPath);
-  const enforceDeclaredGraph = fs.existsSync(
+  const shouldEnforceDeclaredGraph = fs.existsSync(
     path.join(
       root.realPath,
       "src",
@@ -6243,7 +6201,7 @@ function packageEntries(
     ),
     directoryInventories: Object.freeze(directoryInventories),
     scriptPaths,
-    enforceDeclaredGraph,
+    enforceDeclaredGraph: shouldEnforceDeclaredGraph,
   });
 }
 
@@ -6471,13 +6429,13 @@ function resolveRuntimeDistributionRequiredArtifacts(
 ) {
   const observedLocalNodeChildren = runtimeLocalNodeChildTargets(observedFiles);
   const expectedLocalNodeChildren = new Map(
-    RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS.map((entrypoint) => [
+    runtimeLocalTypescriptChildEntrypoints.map((entrypoint) => [
       entrypoint.role,
       entrypoint,
     ]),
   );
   const expectedLocalNodeChildUses = new Set(
-    RUNTIME_LOCAL_TYPESCRIPT_CHILD_ENTRYPOINTS.map(
+    runtimeLocalTypescriptChildEntrypoints.map(
       (entrypoint) => `${entrypoint.role}\0${entrypoint.kind}`,
     ),
   );
@@ -6509,7 +6467,7 @@ function resolveRuntimeDistributionRequiredArtifacts(
       sha256: string;
     }>
   >();
-  const requiredEntrypoints = RUNTIME_DISTRIBUTION_REQUIRED_ENTRYPOINTS.map(
+  const requiredEntrypoints = runtimeDistributionRequiredEntrypoints.map(
     (entrypoint) => {
       const artifact = observedFiles.get(entrypoint.distributionRelativePath);
       if (!artifact || resolvedByRole.has(entrypoint.role))
