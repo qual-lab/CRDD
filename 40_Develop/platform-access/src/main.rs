@@ -1,5 +1,8 @@
 mod protocol;
 
+#[cfg(windows)]
+mod windows_directory;
+
 #[allow(dead_code)]
 #[cfg(windows)]
 mod windows;
@@ -131,6 +134,7 @@ fn valid_appcontainer_pipe_name(value: &str) -> bool {
 }
 
 enum InvocationMode {
+    WindowsDirectory,
     Standard,
     AppContainer(String),
     DockerDesktopRepair,
@@ -142,6 +146,13 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
     let Some(mode) = arguments.next() else {
         return Ok(InvocationMode::Standard);
     };
+    if mode == OsStr::new("--system-windows-directory") {
+        return if arguments.next().is_none() {
+            Ok(InvocationMode::WindowsDirectory)
+        } else {
+            Err(())
+        };
+    }
     if mode == OsStr::new("--docker-desktop-repair-helper") {
         return if arguments.next().is_none() {
             Ok(InvocationMode::DockerDesktopRepair)
@@ -170,6 +181,16 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
 
 fn main() {
     let exit_code = match invocation_mode() {
+        Ok(InvocationMode::WindowsDirectory) => {
+            #[cfg(windows)]
+            {
+                windows_directory::run(&mut std::io::stdout())
+            }
+            #[cfg(not(windows))]
+            {
+                2
+            }
+        }
         Ok(InvocationMode::Standard) => {
             execute(&mut std::io::stdin(), &mut std::io::stdout(), false)
         }

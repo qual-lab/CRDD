@@ -23,13 +23,16 @@ const compositionBody = stripTypeScriptTypes(
     .replace("export async function", "async function"),
 );
 
-async function compose(change: "handoff" | "handoff_failed" | "resume") {
+async function compose(
+  change: "handoff" | "handoff_failed" | "resume" | "handoff_live",
+) {
   const calls: string[] = [];
   const context = Object.freeze({});
   const controller = new AbortController();
   let processes: "verified" | "absent" =
-    change === "resume" ? "absent" : "verified";
-  let wsl: "running" | "stopped" = change === "resume" ? "stopped" : "running";
+    change === "handoff_live" ? "verified" : "absent";
+  let wsl: "running" | "stopped" =
+    change === "handoff_live" ? "running" : "stopped";
   const session = {
     assertLive: () => true,
     verifyArtifacts: async () => "verified" as const,
@@ -71,7 +74,8 @@ async function compose(change: "handoff" | "handoff_failed" | "resume") {
         platformAccessArtifact: {},
         recoveryId: "fixture",
         handoffPending: change !== "resume",
-        currentPhase: change === "resume" ? "stop_intent" : null,
+        currentPhase: "stop_intent",
+        continuationSeedRequired: change !== "resume",
       }),
       acquireRuntimeOwnedDockerDesktopRestartNativeHelper: async () => ({
         status: "acquired",
@@ -118,7 +122,7 @@ async function compose(change: "handoff" | "handoff_failed" | "resume") {
   return { result: await runComposition("fixture", controller.signal), calls };
 }
 
-test("production composition commits origin handoff before fresh stop intent and native S", async () => {
+test("production composition preserves inherited stop intent without native S replay", async () => {
   const { result, calls } = await compose("handoff");
   assert.equal(result.status, "completed");
   assert.equal(result.restartCompleted, true);
@@ -126,7 +130,6 @@ test("production composition commits origin handoff before fresh stop intent and
   assert.deepEqual(calls, [
     "handoff",
     "stop_intent",
-    "S",
     "stopped",
     "start_intent",
     "L",
@@ -143,6 +146,15 @@ test("production composition failed handoff cannot issue stop start or phase pub
   assert.equal(result.restartCompleted, false);
   assert.equal(result.cleanupConfirmed, true);
   assert.deepEqual(calls, ["handoff", "helper_release", "lock_release"]);
+});
+
+test("inherited stop intent with live Desktop remains blocked without replay", async () => {
+  const { result, calls } = await compose("handoff_live");
+  assert.equal(result.status, "blocked");
+  assert.equal(result.restartCompleted, false);
+  assert.equal(calls.includes("S"), false);
+  assert.equal(calls.includes("L"), false);
+  assert.equal(calls.includes("settled"), false);
 });
 
 test("production composition resumes current stop intent by observation without native S", async () => {

@@ -8,7 +8,7 @@ import {
 /** Data provenance only. No signature, filesystem, lock or effect authority. */
 export type DockerRestartHandoffRecord = Readonly<{
   contract: "crdd-coordinator/docker-restart-handoff-record";
-  contractRevision: 1;
+  contractRevision: 1 | 2;
   originRecordRevision: 1;
   originBindingSha256: string;
   originTipSha256: string;
@@ -16,6 +16,8 @@ export type DockerRestartHandoffRecord = Readonly<{
   toRuntimeIdentitySha256: string;
   sequence: number;
   previousHandoffSha256: string | null;
+  continuationCount?: number;
+  continuationTipSha256?: string | null;
 }>;
 const keys = [
   "contract",
@@ -32,7 +34,7 @@ const digest = (bytes: Uint8Array) =>
   createHash("sha256").update(bytes).digest("hex");
 const encode = (record: DockerRestartHandoffRecord) =>
   Buffer.from(
-    `${JSON.stringify(Object.fromEntries(keys.map((key) => [key, record[key]])))}\n`,
+    `${JSON.stringify(Object.fromEntries((record.contractRevision === 2 ? ([...keys, "continuationCount", "continuationTipSha256"] as const) : keys).map((key) => [key, record[key]])))}\n`,
   );
 
 export function parseDockerRestartHandoffRecord(
@@ -43,14 +45,25 @@ export function parseDockerRestartHandoffRecord(
     const value = JSON.parse(
       new TextDecoder("utf-8", { fatal: true }).decode(bytes),
     );
+    const expectedKeys =
+      value?.contractRevision === 2
+        ? [...keys, "continuationCount", "continuationTipSha256"]
+        : keys;
     if (
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      Object.keys(value).length !== keys.length ||
-      !keys.every((key) => Object.hasOwn(value, key)) ||
+      Object.keys(value).length !== expectedKeys.length ||
+      !expectedKeys.every((key) => Object.hasOwn(value, key)) ||
       value.contract !== "crdd-coordinator/docker-restart-handoff-record" ||
-      value.contractRevision !== 1 ||
+      ![1, 2].includes(value.contractRevision) ||
+      (value.contractRevision === 2 &&
+        (!Number.isInteger(value.continuationCount) ||
+          value.continuationCount < 0 ||
+          value.continuationCount > 4 ||
+          (value.continuationCount === 0
+            ? value.continuationTipSha256 !== null
+            : !isSha256Hex(value.continuationTipSha256)))) ||
       value.originRecordRevision !== 1 ||
       ![
         value.originBindingSha256,
@@ -105,7 +118,9 @@ export function validateDockerRestartHandoffChain(
   for (const [index, bytes] of handoffs.entries()) {
     const record = parseDockerRestartHandoffRecord(bytes);
     if (
-      !record ||
+      // Revision 2 requires the continuation-aware history resolver. A legacy
+      // consumer must not accept its migration boundary without that evidence.
+      record?.contractRevision !== 1 ||
       record.sequence !== index ||
       record.originBindingSha256 !== bindingHash ||
       record.originTipSha256 !== tipHash ||

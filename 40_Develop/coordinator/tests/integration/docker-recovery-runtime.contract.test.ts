@@ -44,7 +44,11 @@ import {
   resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver,
   verifyRuntimeOwnedDockerRestartPreparation,
 } from "../../src/security/docker-recovery-runtime-internal.ts";
-import { createDockerRestartContinuationRecord } from "../../src/security/docker-restart-continuation-record.ts";
+import {
+  createDockerRestartContinuationRecord,
+  createDockerRestartMigratedPhase,
+  createDockerRestartMigrationRecord,
+} from "../../src/security/docker-restart-continuation-record.ts";
 import { createDockerRestartHandoffRecord } from "../../src/security/docker-restart-handoff-record.ts";
 import { createDockerRestartRecord } from "../../src/security/docker-restart-record.ts";
 import {
@@ -2505,6 +2509,7 @@ test("production inventory validates restart prefixes and rejects task/submissio
     "continuation",
     "wrong_handoff",
     "continuation_fence",
+    "migration_fence",
   ] as const) {
     const rootPath = fs.mkdtempSync(
       path.join(os.tmpdir(), "crdd-restart-inventory-"),
@@ -2563,6 +2568,7 @@ test("production inventory validates restart prefixes and rejects task/submissio
           "continuation",
           "wrong_handoff",
           "continuation_fence",
+          "migration_fence",
         ].includes(mutation)
       ) {
         const handoff = createDockerRestartHandoffRecord(
@@ -2580,7 +2586,7 @@ test("production inventory validates restart prefixes and rejects task/submissio
         if (mutation !== "handoff") {
           let previous: Buffer | undefined;
           const phases =
-            mutation === "continuation_fence"
+            mutation === "continuation_fence" || mutation === "migration_fence"
               ? ([
                   "stop_intent",
                   "stopped",
@@ -2589,9 +2595,31 @@ test("production inventory validates restart prefixes and rejects task/submissio
                   "settled",
                 ] as const)
               : (["stop_intent"] as const);
+          let activeHandoff = handoff;
+          const continuations: Buffer[] = [];
           for (const [index, phase] of phases.entries()) {
-            const next = createDockerRestartRecord(
-              { ...binding, runtimeExecutionIdentitySha256: "d".repeat(64) },
+            const migrated = mutation === "migration_fence" && index > 0;
+            if (migrated && index === 1) {
+              activeHandoff = createDockerRestartMigrationRecord(
+                [first],
+                { ...binding, runtimeExecutionIdentitySha256: "e".repeat(64) },
+                [handoff],
+                continuations,
+              );
+              writeCommittedDockerRecoveryJson(
+                directory,
+                "engine-handoff-01.json",
+                "engine-handoff-01.json",
+                JSON.parse(activeHandoff.toString()),
+              );
+            }
+            const next = createDockerRestartMigratedPhase(
+              {
+                ...binding,
+                runtimeExecutionIdentitySha256: (migrated ? "e" : "d").repeat(
+                  64,
+                ),
+              },
               phase,
               previous,
             );
@@ -2599,8 +2627,9 @@ test("production inventory validates restart prefixes and rejects task/submissio
               next,
               mutation === "wrong_handoff"
                 ? "f".repeat(64)
-                : createHash("sha256").update(handoff).digest("hex"),
+                : createHash("sha256").update(activeHandoff).digest("hex"),
             );
+            continuations.push(last);
             const recordName = `engine-continuation-${String(index).padStart(2, "0")}.json`;
             writeCommittedDockerRecoveryJson(
               directory,
@@ -2653,6 +2682,7 @@ test("production inventory validates restart prefixes and rejects task/submissio
           "handoff",
           "continuation",
           "continuation_fence",
+          "migration_fence",
         ].includes(mutation)
           ? "completed"
           : "blocked",

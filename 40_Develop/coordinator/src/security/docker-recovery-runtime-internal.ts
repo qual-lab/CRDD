@@ -52,13 +52,11 @@ import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine
 import {
   createDockerRestartContinuationRecord,
   parseDockerRestartContinuationRecord,
-  validateDockerRestartContinuationChain,
+  resolveDockerRestartHistory,
+  createDockerRestartMigrationRecord,
+  createDockerRestartMigratedPhase,
 } from "./docker-restart-continuation-record.ts";
-import {
-  createDockerRestartHandoffRecord,
-  parseDockerRestartHandoffRecord,
-  validateDockerRestartHandoffChain,
-} from "./docker-restart-handoff-record.ts";
+import { parseDockerRestartHandoffRecord } from "./docker-restart-handoff-record.ts";
 import {
   createDockerRestartRecord,
   type DockerRestartBinding,
@@ -207,6 +205,7 @@ type DockerRestartPreparation = Readonly<{
   records: Buffer[];
   originRecords: Buffer[];
   handoffs: Buffer[];
+  continuationRecords: Buffer[];
   pendingHandoff: Buffer | null;
   continuation: boolean;
 };
@@ -2258,21 +2257,15 @@ function inventoryOperationDirectory(
     if (
       !first ||
       !handoff ||
-      !validateDockerRestartHandoffChain(
+      !resolveDockerRestartHistory(
         originRecords,
-        first,
+        {
+          ...first,
+          runtimeExecutionIdentitySha256: handoff.toRuntimeIdentitySha256,
+        },
         handoffs,
-        handoff.toRuntimeIdentitySha256,
-      ) ||
-      (continuationNames.length &&
-        !validateDockerRestartContinuationChain(
-          continuationNames.map(read),
-          {
-            ...first,
-            runtimeExecutionIdentitySha256: handoff.toRuntimeIdentitySha256,
-          },
-          tip as Buffer,
-        ))
+        continuationNames.map(read),
+      )
     )
       throw new Error("docker_task_recovery_restart_chain_invalid");
   }
@@ -5529,37 +5522,26 @@ export function prepareRuntimeOwnedDockerRestart(
         })
       )
         throw new Error("docker_restart_origin_unverified");
-      if (!handoffs.length) {
-        if (continuationRecords.length)
-          throw new Error("docker_restart_handoff_invalid");
-        pendingHandoff = createDockerRestartHandoffRecord(
+      const lastRuntime = handoffs.length
+        ? parseDockerRestartHandoffRecord(handoffs.at(-1) as Buffer)
+            ?.toRuntimeIdentitySha256
+        : origin.runtimeExecutionIdentitySha256;
+      if (lastRuntime !== binding.runtimeExecutionIdentitySha256) {
+        pendingHandoff = createDockerRestartMigrationRecord(
           originRecords,
-          origin,
-          [],
-          binding.runtimeExecutionIdentitySha256,
-        );
-      } else if (
-        !validateDockerRestartHandoffChain(
-          originRecords,
-          origin,
-          handoffs,
-          binding.runtimeExecutionIdentitySha256,
-        )
-      ) {
-        throw new Error("docker_restart_handoff_invalid");
-      }
-      if (continuationRecords.length) {
-        const parsedContinuations = validateDockerRestartContinuationChain(
-          continuationRecords,
           binding,
-          handoffs.at(-1) as Buffer,
-        );
-        if (!parsedContinuations)
-          throw new Error("docker_restart_continuation_invalid");
-        records = parsedContinuations.map((record) =>
-          Buffer.from(canonical(record)),
+          handoffs,
+          continuationRecords,
         );
       }
+      const resolved = resolveDockerRestartHistory(
+        originRecords,
+        binding,
+        pendingHandoff ? [...handoffs, pendingHandoff] : handoffs,
+        continuationRecords,
+      );
+      if (!resolved) throw new Error("docker_restart_continuation_invalid");
+      records = [...resolved.rawRecords];
     } else {
       if (
         handoffs.length ||
@@ -5593,6 +5575,7 @@ export function prepareRuntimeOwnedDockerRestart(
       records,
       originRecords,
       handoffs,
+      continuationRecords,
       pendingHandoff,
       continuation: hasContinuation,
       closed: false,
@@ -5606,7 +5589,10 @@ export function prepareRuntimeOwnedDockerRestart(
       cleanupConfirmed: false,
       currentPhase: records.length
         ? (parseDockerRestartRecord(records.at(-1) as Buffer)?.phase ?? null)
-        : null,
+        : hasContinuation
+          ? ("stop_intent" as const)
+          : null,
+      continuationSeedRequired: hasContinuation && records.length === 0,
       handoffPending: pendingHandoff !== null,
       historicalStopIntent: hasContinuation,
     });
@@ -5691,12 +5677,7 @@ export function verifyRuntimeOwnedDockerRestartPreparation(
         (name, index) =>
           readExactJson(path.join(record.directory, name)).serialized !==
           (record.continuation
-            ? createDockerRestartContinuationRecord(
-                record.records[index] as Buffer,
-                createHash("sha256")
-                  .update(record.handoffs.at(-1) as Buffer)
-                  .digest("hex"),
-              ).toString("utf8")
+            ? record.continuationRecords[index]?.toString("utf8")
             : record.records[index]?.toString("utf8")),
       )
     )
@@ -5721,11 +5702,11 @@ export function persistRuntimeOwnedDockerRestartPhase(
   // A failed publication is consumed even if bytes were not observed afterward.
   record.persistenceFailed = true;
   try {
-    const bytes = createDockerRestartRecord(
-      record.binding,
-      phase,
-      record.records.at(-1),
-    );
+    const bytes = (
+      record.continuation
+        ? createDockerRestartMigratedPhase
+        : createDockerRestartRecord
+    )(record.binding, phase, record.records.at(-1));
     const parsed = parseDockerRestartRecord(bytes);
     if (!parsed || parsed.sequence !== record.records.length) return false;
     const name = `${record.continuation ? "engine-continuation" : "engine-restart"}-${String(parsed.sequence).padStart(2, "0")}.json`;
@@ -5744,6 +5725,7 @@ export function persistRuntimeOwnedDockerRestartPhase(
     );
     if (published.serialized !== persistedBytes.toString("utf8")) return false;
     record.records.push(bytes);
+    if (record.continuation) record.continuationRecords.push(persistedBytes);
     record.persistenceFailed = false;
     if (!verifyRuntimeOwnedDockerRestartPreparation(capability)) {
       record.persistenceFailed = true;
@@ -5836,12 +5818,15 @@ export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
       root.rootPath,
       `docker-task-${parsed.operationNonce}`,
     );
-    const hasContinuation = inventoryOperationDirectory(
+    const restartInventory = inventoryOperationDirectory(
       directory,
       parsed.token,
       parsed.operationNonce,
       parsed.baseHash,
-    ).some((name) => name.startsWith("engine-continuation-"));
+    );
+    const hasContinuation = restartInventory.some((name) =>
+      name.startsWith("engine-continuation-"),
+    );
     const records = Array.from({ length: 5 }, (unusedValue, sequence) => {
       void unusedValue;
       return readExactJson(
@@ -5863,22 +5848,37 @@ export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
     const first = firstBytes
       ? parseDockerRestartRecord(Buffer.from(firstBytes))
       : null;
+    if (!first) throw new Error("docker_task_recovery_restart_chain_invalid");
+    const expectedBinding = {
+      ...first,
+      recoveryId: parsed.token,
+      operationNonce: parsed.operationNonce,
+      stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
+      runtimeExecutionIdentitySha256:
+        verification.runtimeExecutionIdentitySha256,
+      localUserBindingHash: root.localUserBindingHash,
+      runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+      runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+    };
+    const readPrefix = (prefix: string) =>
+      restartInventory
+        .filter((name) => name.startsWith(prefix))
+        .sort()
+        .map((name) =>
+          Buffer.from(readExactJson(path.join(directory, name)).serialized),
+        );
     if (
-      !first ||
-      !validateDockerRestartRecordChain(
-        rawRecords.map((record) => Buffer.from(record)),
-        {
-          ...first,
-          recoveryId: parsed.token,
-          operationNonce: parsed.operationNonce,
-          stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
-          runtimeExecutionIdentitySha256:
-            verification.runtimeExecutionIdentitySha256,
-          localUserBindingHash: root.localUserBindingHash,
-          runtimeStateIdentityHash: root.runtimeStateIdentityHash,
-          runtimeStateProtectionHash: root.runtimeStateProtectionHash,
-        },
-      )
+      !(hasContinuation
+        ? resolveDockerRestartHistory(
+            readPrefix("engine-restart-"),
+            expectedBinding,
+            readPrefix("engine-handoff-"),
+            records.map((record) => Buffer.from(record.serialized)),
+          )
+        : validateDockerRestartRecordChain(
+            rawRecords.map((record) => Buffer.from(record)),
+            expectedBinding,
+          ))
     )
       throw new Error("docker_task_recovery_restart_chain_invalid");
     const names = fs.readdirSync(directory);

@@ -12,6 +12,21 @@
 
 ## 2. 成果物と依存
 
+### OSディレクトリの初期取得
+
+Windows環境生成はNodeの診断レポートを使用せず、同梱Nativeの`--system-windows-directory`から`GetSystemWindowsDirectoryW()`の結果を取得する。これは読取り専用の初期取得であり、通常Task・RecoveryのAuthorityを発行しない。
+
+| 境界 | 保持する条件 |
+| --- | --- |
+| 起動前 | 配布内の固定絶対Path、ソースに固定したNative SHA-256、ファイル実体の観測 |
+| 起動環境 | 空の明示環境。親のSystemRoot・PATH・Proxyを信頼根拠にしない |
+| 応答 | `CRDDWD01`、UTF-16 code unit数のLE u32、exact UTF-16LE本文。余剰・欠落・不正文字を拒否 |
+| 終了 | 5秒以内の正常終了、stderrなし、実行前後の同一成果物確認 |
+| 利用側 | 絶対Path・正規形・Filesystem実体を確認してから環境へ設定。失敗はnullで後続を停止 |
+| 更新 | Native成果物と初期取得用Hashを同じ候補で更新し、実結合試験後に正式署名する |
+
+署名前検査からも利用するため、通常Runtimeの署名検証を逆参照する循環は作らない。固定Hashは初期取得部品の同一性だけを担い、Publisher Trustや実行許可の代替にはしない。
+
 [Rust crate](../../40_Develop/platform-access/Cargo.toml)から、固定成果物`crdd-platform-access.exe`を一つだけ生成し、`template/tools/coordinator/windows-x64/`へ同梱する。
 
 crateは`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Release成果物は固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を署名済みmanifestへ含める。言語・Buildの共通規則は[内部ツール・コーディング規約](../99_Coding_Standards.md)、反復手順は[Coordinator RuntimeのWorkflow](../../19_Workflows/01_Coordinator_Runtime.md)を参照する。

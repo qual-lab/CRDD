@@ -5,6 +5,9 @@ import {
   createDockerRestartContinuationRecord,
   parseDockerRestartContinuationRecord,
   validateDockerRestartContinuationChain,
+  resolveDockerRestartHistory,
+  createDockerRestartMigrationRecord,
+  createDockerRestartMigratedPhase,
 } from "../../src/security/docker-restart-continuation-record.ts";
 import { createDockerRestartRecord } from "../../src/security/docker-restart-record.ts";
 
@@ -19,6 +22,108 @@ const binding = {
   stableLogicalHomeBindingHash: hash,
   pendingSubmissionSha256: hash,
 };
+
+test("A to B to C preserves prior bytes and completes one mixed-generation phase chain", () => {
+  const origin = [createDockerRestartRecord(binding, "stop_intent")];
+  const b = { ...binding, runtimeExecutionIdentitySha256: "b".repeat(64) };
+  const c = { ...binding, runtimeExecutionIdentitySha256: "c".repeat(64) };
+  const firstHandoff = createDockerRestartMigrationRecord(origin, b, [], []);
+  const first = createDockerRestartRecord(b, "stop_intent");
+  const firstWrapper = createDockerRestartContinuationRecord(
+    first,
+    createHash("sha256").update(firstHandoff).digest("hex"),
+  );
+  const saved = Buffer.from(firstWrapper);
+  const secondHandoff = createDockerRestartMigrationRecord(
+    origin,
+    c,
+    [firstHandoff],
+    [firstWrapper],
+  );
+  const handoffs = [firstHandoff, secondHandoff];
+  const wrappers = [firstWrapper];
+  let previous = first;
+  assert.equal(
+    resolveDockerRestartHistory(origin, c, handoffs, wrappers)?.currentPhase,
+    "stop_intent",
+  );
+  for (const phase of [
+    "stopped",
+    "start_intent",
+    "ready",
+    "settled",
+  ] as const) {
+    previous = createDockerRestartMigratedPhase(c, phase, previous);
+    wrappers.push(
+      createDockerRestartContinuationRecord(
+        previous,
+        createHash("sha256").update(secondHandoff).digest("hex"),
+      ),
+    );
+  }
+  assert.equal(
+    resolveDockerRestartHistory(origin, c, handoffs, wrappers)?.currentPhase,
+    "settled",
+  );
+  assert.deepEqual(firstWrapper, saved);
+  assert.equal(
+    resolveDockerRestartHistory(
+      origin,
+      { ...c, pendingSubmissionSha256: "d".repeat(64) },
+      handoffs,
+      wrappers,
+    ),
+    null,
+  );
+  assert.equal(
+    resolveDockerRestartHistory(origin, c, handoffs, wrappers.slice(1)),
+    null,
+  );
+  assert.equal(
+    resolveDockerRestartHistory(origin, c, [...handoffs].reverse(), wrappers),
+    null,
+  );
+  const oldAppend = createDockerRestartRecord(b, "stopped", first);
+  const oldWrapper = createDockerRestartContinuationRecord(
+    oldAppend,
+    createHash("sha256").update(firstHandoff).digest("hex"),
+  );
+  assert.equal(
+    resolveDockerRestartHistory(origin, c, handoffs, [
+      firstWrapper,
+      oldWrapper,
+    ]),
+    null,
+  );
+  assert.throws(() =>
+    createDockerRestartMigrationRecord(origin, b, handoffs, wrappers),
+  );
+});
+
+test("migration boundary tampering and repeat migration without progress remain explicit", () => {
+  const origin = [createDockerRestartRecord(binding, "stop_intent")];
+  const b = { ...binding, runtimeExecutionIdentitySha256: "b".repeat(64) };
+  const c = { ...binding, runtimeExecutionIdentitySha256: "c".repeat(64) };
+  const first = createDockerRestartMigrationRecord(origin, b, [], []);
+  const second = createDockerRestartMigrationRecord(origin, c, [first], []);
+  assert.equal(
+    resolveDockerRestartHistory(origin, c, [first, second], [])?.currentPhase,
+    "stop_intent",
+  );
+  for (const mutation of [
+    { continuationCount: 1, continuationTipSha256: hash },
+    { originTipSha256: "d".repeat(64) },
+    { fromRuntimeIdentitySha256: hash },
+  ]) {
+    const altered = Buffer.from(
+      `${JSON.stringify({ ...JSON.parse(second.toString()), ...mutation })}\n`,
+    );
+    assert.equal(
+      resolveDockerRestartHistory(origin, c, [first, altered], []),
+      null,
+    );
+  }
+});
 test("continuation binds exact handoff and preserves phase predecessor contract", () => {
   const handoff = Buffer.from("test history bytes");
   const tip = createHash("sha256").update(handoff).digest("hex");

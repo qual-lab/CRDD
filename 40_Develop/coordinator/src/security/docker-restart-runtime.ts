@@ -75,6 +75,11 @@ export async function restartRuntimeOwnedDockerForRecovery(
           !commitRuntimeOwnedDockerRestartHandoff(context))
       )
         throw new Error("docker_restart_handoff_unconfirmed");
+      if (
+        preparation.continuationSeedRequired &&
+        !persistRuntimeOwnedDockerRestartPhase(context, "stop_intent")
+      )
+        throw new Error("docker_restart_record_unconfirmed");
       const machine = createDockerRestartMachine(
         session,
         () => verifyRuntimeOwnedDockerRestartPreparation(context),

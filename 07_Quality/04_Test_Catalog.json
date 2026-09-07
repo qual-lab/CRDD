@@ -3249,6 +3249,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:docker-restart-real-observation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-restart-real-observation.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["docker", "restart", "real-observation"],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["boundary_result_observed", "owned_resources_settled_or_reported"],
+      "mandatoryByDefault": false
+    },
+    {
       "id": "coordinator:integration:docker-restart-preparation-order",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/docker-restart-preparation-order.contract.test.ts",
@@ -3403,6 +3416,19 @@
         "native_process_result_observed",
         "owned_handles_settled_or_reported"
       ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:unit:windows_directory",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/src/windows_directory.rs",
+      "level": "unit",
+      "kind": "unit",
+      "semanticTags": ["windows", "environment", "bootstrap"],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["boundary_result_observed", "owned_resources_settled_or_reported"],
       "mandatoryByDefault": true
     },
     {

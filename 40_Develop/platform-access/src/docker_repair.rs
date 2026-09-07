@@ -27,7 +27,7 @@ use windows_sys::Win32::Storage::FileSystem::{
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
-use windows_sys::Win32::System::SystemInformation::GetWindowsDirectoryW;
+use windows_sys::Win32::System::SystemInformation::GetSystemWindowsDirectoryW;
 use windows_sys::Win32::System::Threading::{
     CREATE_UNICODE_ENVIRONMENT, CreateMutexW, CreateProcessW, GetExitCodeProcess, GetProcessTimes,
     OpenProcess, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
@@ -721,7 +721,8 @@ fn launcher_context() -> Option<LauncherContext> {
     let mut windows = vec![0_u16; 32_768];
     // SAFETY: windows is a writable bounded UTF-16 buffer.
     let length =
-        usize::try_from(unsafe { GetWindowsDirectoryW(windows.as_mut_ptr(), 32_768) }).ok()?;
+        usize::try_from(unsafe { GetSystemWindowsDirectoryW(windows.as_mut_ptr(), 32_768) })
+            .ok()?;
     if length == 0 || length >= windows.len() {
         return None;
     }

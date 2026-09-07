@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { observeSystemWindowsDirectory } from "../security/windows-directory-bootstrap.ts";
 
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 8;
+export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 9;
 export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
-  "loaded_kernel32_os_observed_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
+  "native_system_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
 // Windows may populate these names even when Node receives an empty env map.
 // Keep the names present with fixed neutral values so the child cannot observe
@@ -46,7 +47,7 @@ const NEUTRAL_NAMES = Object.freeze([
 
 function fixedWindowsEnvironment(additions: Readonly<Record<string, string>>) {
   if (process.platform !== "win32") return null;
-  const windowsDirectory = observedWindowsDirectoryFromLoadedSystemModule();
+  const windowsDirectory = observedWindowsDirectoryFromNative();
   if (!windowsDirectory) return null;
   const environment: Record<string, string> = Object.create(null);
   for (const name of NEUTRAL_NAMES) environment[name] = "";
@@ -72,26 +73,11 @@ function fixedWindowsEnvironment(additions: Readonly<Record<string, string>>) {
   return Object.freeze(environment);
 }
 
-function observedWindowsDirectoryFromLoadedSystemModule() {
+function observedWindowsDirectoryFromNative() {
   try {
-    const report = process.report.getReport() as Readonly<{
-      sharedObjects?: unknown;
-    }>;
-    const sharedObjects = report.sharedObjects;
-    if (!Array.isArray(sharedObjects)) return null;
-    const candidates = sharedObjects.filter(
-      (candidate): candidate is string =>
-        typeof candidate === "string" &&
-        path.win32.basename(candidate).toLocaleLowerCase("en-US") ===
-          "kernel32.dll" &&
-        path.win32
-          .basename(path.win32.dirname(candidate))
-          .toLocaleLowerCase("en-US") === "system32",
-    );
-    if (candidates.length !== 1) return null;
-    const candidate = candidates[0];
-    if (!candidate) return null;
-    const kernel32 = path.win32.normalize(candidate);
+    const directory = observeSystemWindowsDirectory();
+    if (!directory) return null;
+    const kernel32 = path.win32.join(directory, "System32", "kernel32.dll");
     const system32 = path.win32.dirname(kernel32);
     const windowsDirectory = path.win32.dirname(system32);
     const rootMetadata = fs.lstatSync(windowsDirectory);
@@ -178,7 +164,7 @@ export function createWindowsPowerShellAuthenticodeEnvironment(): Readonly<
   Record<string, string>
 > | null {
   if (process.platform !== "win32") return null;
-  const windowsDirectory = observedWindowsDirectoryFromLoadedSystemModule();
+  const windowsDirectory = observedWindowsDirectoryFromNative();
   if (!windowsDirectory) return null;
   const system32 = path.win32.join(windowsDirectory, "System32");
   const powerShellDirectory = path.win32.join(
@@ -263,9 +249,10 @@ export function describeWindowsChildEnvironmentContract() {
       "docker_cli_authenticode_inspection",
     ]),
     powerShellAuthenticodeEnvironment:
-      "loaded_os_directory_minimal_powershell_initialization_block",
+      "native_os_directory_minimal_powershell_initialization_block",
     dockerDesktopLauncherConsumers: Object.freeze([]),
-    dockerRepairHelperSystemDrive: "loaded_kernel32_os_directory_local_drive",
+    dockerRepairHelperSystemDrive:
+      "native_system_windows_directory_local_drive",
     dockerDesktopLauncherEnvironment:
       "native_helper_known_folder_and_loaded_os_directory_minimal_unicode_block",
     userProfileEnvironmentAuthority: false,

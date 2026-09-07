@@ -1304,6 +1304,32 @@ type RuntimeExternalProcessCallsite = Readonly<{
 const runtimeExternalProcessCallsites = Object.freeze(
   [
     [
+      "src/security/windows-directory-bootstrap.ts",
+      "observeSystemWindowsDirectory",
+      "spawnSync",
+      [
+        "path",
+        ".",
+        "join",
+        "(",
+        "distributionRoot",
+        ",",
+        ".",
+        ".",
+        ".",
+        "PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH",
+        ".",
+        "split",
+        "(",
+        "/",
+        ")",
+        ",",
+        ")",
+      ],
+      ["[", "--system-windows-directory", "]"],
+      ["const", "snapshot", "="],
+    ],
+    [
       "src/security/docker-restart-machine.ts",
       "queryWsl",
       "spawnSync",
@@ -1596,6 +1622,16 @@ type ExactExternalProcessCallGraph = Readonly<{
 
 const exactExternalProcessCalls = Object.freeze(
   [
+    [
+      "runtime",
+      "src/security/windows-directory-bootstrap.ts",
+      "observeSystemWindowsDirectory",
+      "spawnSync",
+      1,
+      "d0718dc4405efae990f6fb8ad6b0bc39fdba7b0b524dc5fea37ae95de2887275",
+      "604b0b444fdef6d7591514d60af6097c68080a2170ceae0d48ce4e8cf5bcc451",
+      "result",
+    ],
     [
       "runtime",
       "src/security/docker-restart-machine.ts",
@@ -2215,6 +2251,39 @@ type ExecutableProvenance = Readonly<{
 
 const exactExecutableProvenance = Object.freeze(
   new Map<string, ExecutableProvenance>([
+    [
+      "src/security/windows-directory-bootstrap.ts\0observeSystemWindowsDirectory",
+      Object.freeze({
+        classification: "validated_local_artifact",
+        proofs: Object.freeze([
+          Object.freeze([
+            "beginPlatformAccessArtifactSigningObservation",
+            "(",
+            "distributionRoot",
+            ")",
+          ]),
+          Object.freeze([
+            "if",
+            "(",
+            "!",
+            "snapshot",
+            "||",
+            "snapshot",
+            ".",
+            "artifact",
+            ".",
+            "sha256",
+            "!",
+            "=",
+            "=",
+            "BOOTSTRAP_ARTIFACT_SHA256",
+            ")",
+            "return",
+            "null",
+          ]),
+        ]),
+      }),
+    ],
     [
       "src/security/docker-restart-machine.ts\0queryWsl",
       Object.freeze({
@@ -4343,7 +4412,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 17 : 6;
+  const expectedCount = graph === "runtime" ? 18 : 6;
   const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -4359,7 +4428,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCalls.length !== 23 ||
+    exactExternalProcessCalls.length !== 24 ||
     exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
     exactExternalProcessCalls.some(
       (callsite) =>

@@ -6,6 +6,10 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { createDockerRestartHandoffRecord } from "../../src/security/docker-restart-handoff-record.ts";
 import {
+  createDockerRestartMigrationRecord,
+  resolveDockerRestartHistory,
+} from "../../src/security/docker-restart-continuation-record.ts";
+import {
   createDockerRestartRecord,
   parseDockerRestartRecord,
   validateDockerRestartRecordChain,
@@ -109,6 +113,8 @@ function runPreparation(isHistoryValid: boolean) {
     parseDockerRestartRecord,
     validateDockerRestartRecordChain,
     createDockerRestartHandoffRecord,
+    createDockerRestartMigrationRecord,
+    resolveDockerRestartHistory,
     loadHistoricalReleaseManifestEnvelopeForVerification: () => ({
       envelope: {},
     }),
@@ -141,7 +147,8 @@ test("invalid historical signature blocks before protected-root session handoff"
 test("fresh continuation keeps historical stop intent distinct from current phase", () => {
   const { result, writes } = runPreparation(true);
   assert.equal(result.status, "prepared");
-  assert.equal(result.currentPhase, null);
+  assert.equal(result.currentPhase, "stop_intent");
+  assert.equal(result.continuationSeedRequired, true);
   assert.equal(result.handoffPending, true);
   assert.equal(result.historicalStopIntent, true);
   assert.equal(writes, 1);

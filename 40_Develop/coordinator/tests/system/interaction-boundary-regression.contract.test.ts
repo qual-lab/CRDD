@@ -108,7 +108,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
       "single_use_verified_package_capability_and_fresh_content_root",
     readerArguments: "fixed_entrypoint_only_no_dynamic_arguments",
     readerEnvironment:
-      "windows_loaded_kernel32_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
+      "windows_native_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
     platformGuarantee:
       "windows_local_personal_only_posix_fixed_empty_candidate_not_promoted",
     readerTimeoutMs: 110_000,
@@ -997,7 +997,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
 
   assert.deepEqual(describeWindowsChildEnvironmentContract(), {
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-    contractRevision: 8,
+    contractRevision: 9,
     provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
@@ -1022,9 +1022,10 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     ],
     powerShellAuthenticodeConsumers: ["docker_cli_authenticode_inspection"],
     powerShellAuthenticodeEnvironment:
-      "loaded_os_directory_minimal_powershell_initialization_block",
+      "native_os_directory_minimal_powershell_initialization_block",
     dockerDesktopLauncherConsumers: [],
-    dockerRepairHelperSystemDrive: "loaded_kernel32_os_directory_local_drive",
+    dockerRepairHelperSystemDrive:
+      "native_system_windows_directory_local_drive",
     dockerDesktopLauncherEnvironment:
       "native_helper_known_folder_and_loaded_os_directory_minimal_unicode_block",
     userProfileEnvironmentAuthority: false,
@@ -2128,6 +2129,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     // Their argument/provenance closure is owned by the protected-path graph.
     "src/security/docker-restart-machine.ts",
     "src/security/provider-home-windows-adapter.ts",
+    "src/security/windows-directory-bootstrap.ts",
   ]);
 
   const productionFactorySeams = [

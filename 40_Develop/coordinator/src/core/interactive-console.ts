@@ -532,7 +532,7 @@ export function describeInteractiveConsoleContract() {
       "single_use_verified_package_capability_and_fresh_content_root",
     readerArguments: "fixed_entrypoint_only_no_dynamic_arguments",
     readerEnvironment:
-      "windows_loaded_kernel32_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
+      "windows_native_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
     platformGuarantee:
       "windows_local_personal_only_posix_fixed_empty_candidate_not_promoted",
     readerTimeoutMs: READER_TIMEOUT_MS,
