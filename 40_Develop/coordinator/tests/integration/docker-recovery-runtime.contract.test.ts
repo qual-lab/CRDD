@@ -31,15 +31,20 @@ import {
   finalizeRuntimeOwnedDockerRecovery,
   finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot,
   inspectDockerRecoveryRootSnapshotWithLock,
+  persistRuntimeOwnedDockerRestartPhase,
   prepareRuntimeOwnedDockerHostCleanup,
+  prepareRuntimeOwnedDockerRestart,
   recordRuntimeOwnedDockerAbsence,
   recordRuntimeOwnedDockerHostCleanupReceipt,
   recordRuntimeOwnedNormalMountCompletion,
   recoverExactDockerResourceWithRunner,
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
   recoverUnknownDockerCreateOutcomeWithRunner,
+  releaseRuntimeOwnedDockerRestartPreparation,
   resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver,
+  verifyRuntimeOwnedDockerRestartPreparation,
 } from "../../src/security/docker-recovery-runtime-internal.ts";
+import { createDockerRestartRecord } from "../../src/security/docker-restart-record.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   acquireHostOperationRecoveryGenerationByIdentity,
@@ -75,6 +80,23 @@ test("production Docker recovery facade does not expose receipt acknowledgement 
     ),
     false,
   );
+});
+
+test("restart preparation rejects arbitrary capability and invalid task before publication", () => {
+  for (const value of [null, undefined, {}, "invalid", 0]) {
+    assert.equal(verifyRuntimeOwnedDockerRestartPreparation(value), false);
+    assert.equal(
+      persistRuntimeOwnedDockerRestartPhase(value, "stop_intent"),
+      false,
+    );
+    assert.equal(releaseRuntimeOwnedDockerRestartPreparation(value), false);
+  }
+  const result = prepareRuntimeOwnedDockerRestart("invalid");
+  assert.equal(result.status, "blocked");
+  assert.equal(result.capability, null);
+  assert.equal(result.cleanupConfirmed, true);
+  if (result.status === "blocked")
+    assert.equal(result.reason, "docker_restart_id_invalid");
 });
 
 test("Project記録後のDocker確認資源回収は入れ子accessorとProxyを実行前に拒否する", () => {
@@ -2325,8 +2347,13 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     "inspectDockerRecoveryRootSnapshotWithLock",
     "recoverExactDockerResourceWithRunner",
     "recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver",
+    "prepareRuntimeOwnedDockerRestart",
+    "persistRuntimeOwnedDockerRestartPhase",
+    "verifyRuntimeOwnedDockerRestartPreparation",
+    "releaseRuntimeOwnedDockerRestartPreparation",
   ])
     assert.equal(facade.includes(symbol), false, symbol);
+  const internalConsumers: string[] = [];
   for (const root of ["src", "bin"]) {
     const pendingSourcePaths = [path.resolve(root)];
     while (pendingSourcePaths.length > 0) {
@@ -2335,23 +2362,49 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
       for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
         const target = path.join(current, entry.name);
         if (entry.isDirectory()) pendingSourcePaths.push(target);
-        else if (
-          entry.isFile() &&
-          entry.name.endsWith(".ts") &&
-          target !== path.resolve("src/security/docker-recovery-runtime.ts") &&
-          target !==
-            path.resolve("src/security/docker-recovery-runtime-internal.ts")
-        )
-          assert.equal(
+        else if (entry.isFile() && entry.name.endsWith(".ts")) {
+          const source = fs.readFileSync(target, "utf8");
+          if (
             /(?:from\s*|import\s*\(|require\s*\()\s*["'][^"']*docker-recovery-runtime-internal\.ts["']/u.test(
-              fs.readFileSync(target, "utf8"),
-            ),
-            false,
-            target,
-          );
+              source,
+            )
+          )
+            internalConsumers.push(
+              path.relative(path.resolve("."), target).replaceAll("\\", "/"),
+            );
+        }
       }
     }
   }
+  assert.deepEqual(internalConsumers.sort(), [
+    "src/security/docker-recovery-runtime.ts",
+    "src/security/docker-restart-runtime.ts",
+  ]);
+  const composition = fs.readFileSync(
+    path.resolve("src/security/docker-restart-runtime.ts"),
+    "utf8",
+  );
+  const imports = [
+    ...composition.matchAll(
+      /import\s*\{([^{}]+)\}\s*from\s*["']\.\/docker-recovery-runtime-internal\.ts["']/gu,
+    ),
+  ];
+  assert.equal(imports.length, 1);
+  const importedNames = imports[0]?.[1]
+    ?.split(",")
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .sort();
+  assert.deepEqual(importedNames, [
+    "persistRuntimeOwnedDockerRestartPhase",
+    "prepareRuntimeOwnedDockerRestart",
+    "releaseRuntimeOwnedDockerRestartPreparation",
+    "verifyRuntimeOwnedDockerRestartPreparation",
+  ]);
+  assert.equal(
+    (composition.match(/docker-recovery-runtime-internal\.ts/gu) ?? []).length,
+    1,
+  );
   const blocked = spawnSync(
     process.execPath,
     [
@@ -2431,6 +2484,116 @@ test("production inventoryは別Homeの複数base move中間状態をexact ID別
     assert.deepEqual(result.dockerRecoveryIds, [first, second]);
   } finally {
     fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
+test("production inventory validates restart prefixes and rejects task/submission/chain drift", () => {
+  for (const mutation of [
+    "none",
+    "gap",
+    "task",
+    "submission",
+    "root",
+    "settled_fence",
+    "unsettled_fence",
+    "wrong_fence_hash",
+  ] as const) {
+    const rootPath = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-restart-inventory-"),
+    );
+    try {
+      const recoveryId = addSplitRootBaseMove(rootPath, "a", "full");
+      const directory = path.join(rootPath, `docker-task-${"a".repeat(64)}`);
+      const submission = writeCommittedDockerRecoveryJson(
+        directory,
+        "submission-create_subscription_auth_probe.json",
+        "submission-create_subscription_auth_probe.json",
+        {
+          schema: "crdd-coordinator-docker-resource-submission/v1",
+          purpose: "create_subscription_auth_probe",
+          recoveryId,
+        },
+      );
+      const binding = {
+        recoveryId:
+          mutation === "task"
+            ? recoveryId.replace(
+                `docker-task.${"a".repeat(64)}`,
+                `docker-task.${"b".repeat(64)}`,
+              )
+            : recoveryId,
+        operationNonce: "a".repeat(64),
+        runtimeExecutionIdentitySha256: "c".repeat(64),
+        localUserBindingHash: "6".repeat(64),
+        runtimeStateIdentityHash:
+          mutation === "root" ? "d".repeat(64) : "4".repeat(64),
+        runtimeStateProtectionHash: "5".repeat(64),
+        stableLogicalHomeBindingHash:
+          mutation === "task" ? "b".repeat(64) : "a".repeat(64),
+        pendingSubmissionSha256:
+          mutation === "submission" ? "e".repeat(64) : submission.hash,
+      };
+      const first = createDockerRestartRecord(binding, "stop_intent");
+      const bytes =
+        mutation === "gap"
+          ? createDockerRestartRecord(binding, "stopped", first)
+          : first;
+      const name =
+        mutation === "gap"
+          ? "engine-restart-01.json"
+          : "engine-restart-00.json";
+      writeCommittedDockerRecoveryJson(
+        directory,
+        name,
+        name,
+        JSON.parse(bytes.toString("utf8")),
+      );
+      let last = first;
+      if (mutation === "settled_fence" || mutation === "wrong_fence_hash") {
+        for (const [index, phase] of (
+          ["stopped", "start_intent", "ready", "settled"] as const
+        ).entries()) {
+          last = createDockerRestartRecord(binding, phase, last);
+          const recordName = `engine-restart-${String(index + 1).padStart(2, "0")}.json`;
+          writeCommittedDockerRecoveryJson(
+            directory,
+            recordName,
+            recordName,
+            JSON.parse(last.toString("utf8")),
+          );
+        }
+      }
+      if (mutation.endsWith("fence") || mutation === "wrong_fence_hash") {
+        const fenceName = "restart-fence-create_subscription_auth_probe.json";
+        writeCommittedDockerRecoveryJson(directory, fenceName, fenceName, {
+          schema: "crdd-coordinator-docker-engine-restart-fence/v2",
+          purpose: "create_subscription_auth_probe",
+          recoveryId,
+          origin: "engine_restart",
+          restartRecordSha256:
+            mutation === "wrong_fence_hash"
+              ? "f".repeat(64)
+              : createHash("sha256").update(last).digest("hex"),
+          pendingSubmissionSha256: submission.hash,
+          exactResourceAbsent: true,
+        });
+      }
+      const result = inspectDockerRecoveryRootSnapshotWithLock(
+        verifiedRoot(rootPath),
+        () => Object.freeze({ release: () => true }),
+      );
+      assert.equal(
+        result.status,
+        mutation === "none" || mutation === "settled_fence"
+          ? "completed"
+          : "blocked",
+        `${mutation}: ${JSON.stringify(result)}`,
+      );
+      if (mutation === "none")
+        assert.deepEqual(result.dockerRecoveryIds, [recoveryId]);
+    } finally {
+      fs.rmSync(rootPath, { recursive: true, force: true });
+    }
   }
 });
 

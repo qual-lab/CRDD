@@ -5,8 +5,18 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
+import {
+  createRuntimeLocalTypeScriptWorker,
+  runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver,
+  spawnRuntimeLocalTypeScriptChild,
+} from "../../src/core/runtime-local-typescript-child-entrypoints.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/security/development-measurement-constraints.ts";
 import {
+  assertReleaseSigningConsumerClosureForVerification,
+  assertRuntimePackageCapabilityConsumerGraphForVerification,
+  assertRuntimeSourceDeclaredGraphBoundaryForVerification,
+  assertRuntimeSourceModuleBoundaryForVerification,
+  assertVerificationToolCapabilityGraphForVerification,
   consumeRuntimeOwnedVerifiedCoordinatorPackageCapability,
   createIsolatedVerifiedPackageCapabilityStateCandidate,
   describePlatformProvisionerPackageFilesystemContract,
@@ -18,30 +28,70 @@ import {
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   releaseSigningProtectedPathDiagnosticForVerification,
   runtimePackageCapabilityConsumerGraphDiagnosticForVerification,
-  assertReleaseSigningConsumerClosureForVerification,
-  assertRuntimePackageCapabilityConsumerGraphForVerification,
-  assertVerificationToolCapabilityGraphForVerification,
-  assertRuntimeSourceModuleBoundaryForVerification,
-  assertRuntimeSourceDeclaredGraphBoundaryForVerification,
   verifyBundledCoordinatorPackageCandidate,
 } from "../../src/security/platform-provisioner-package-filesystem.ts";
 import {
+  calculateRuntimeExecutionIdentityCandidate,
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
-  calculateRuntimeExecutionIdentityCandidate,
 } from "../../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "../support/test-support.ts";
-import {
-  createRuntimeLocalTypeScriptWorker,
-  runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver,
-  spawnRuntimeLocalTypeScriptChild,
-} from "../../src/core/runtime-local-typescript-child-entrypoints.ts";
 
 const developmentFixtureRoots = new Set<string>();
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
+
+test("restart machineのWSL対象とDocker観測引数は閉集合で保持する", () => {
+  const sourcePath = "src/security/docker-restart-machine.ts";
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, sourcePath),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
+  );
+  for (const [from, to] of [
+    ["--terminate", "--shutdown"],
+    ["--no-trunc", "--all"],
+    ['"docker-desktop"', '"another-distro"'],
+  ] as const) {
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          source.replace(from, to),
+        ),
+      /runtime_dependency_child_process_unbound/u,
+    );
+  }
+});
+
+test("Native repair/restart spawnは同じ署名観測所有者と閉じた引数集合を要求する", () => {
+  const sourcePath = "src/security/docker-desktop-repair-native-helper.ts";
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, sourcePath),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
+  );
+  for (const flag of [
+    "--docker-desktop-repair-helper",
+    "--docker-desktop-restart-helper",
+  ]) {
+    assert.ok(source.includes(flag));
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          source.replace(flag, "--unauthorized-helper"),
+        ),
+      /runtime_dependency_child_process_unbound/u,
+    );
+  }
+});
 
 function verificationToolSources() {
   const scriptsRoot = path.join(coordinatorRoot, "scripts");
@@ -568,6 +618,37 @@ test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致
       assertRuntimePackageCapabilityConsumerGraphForVerification(additional),
     /runtime_dependency_consumer_graph_mismatch/u,
   );
+});
+
+test("旧修復と新再起動のRuntime Identityは所有関数ごとにCanonical検証値を要求する", () => {
+  const sources = runtimeTypeScriptSources();
+  const sourcePath = "src/security/docker-recovery-runtime-internal.ts";
+  const source = sources[sourcePath];
+  assert.ok(source);
+  for (const owner of [
+    "recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart",
+    "prepareRuntimeOwnedDockerRestart",
+    "recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart",
+  ]) {
+    const start = source.indexOf(`export function ${owner}(`);
+    assert.ok(start >= 0);
+    const suffix = source.slice(start);
+    const altered =
+      source.slice(0, start) +
+      suffix.replace(
+        /runtimeExecutionIdentitySha256:\s*verification\.runtimeExecutionIdentitySha256/u,
+        "runtimeExecutionIdentitySha256: callerIdentity",
+      );
+    assert.notEqual(altered, source);
+    assert.throws(
+      () =>
+        assertRuntimePackageCapabilityConsumerGraphForVerification({
+          ...sources,
+          [sourcePath]: altered,
+        }),
+      /assurance_consumer:recovery_runtime_identity:shape/u,
+    );
+  }
 });
 
 test("実行能力の反証は利用側伝播の意図したphaseで拒否する", () => {

@@ -43,6 +43,29 @@ Project Runtimeが所有するのは意味と遷移であり、外部能力の�
 
 ## 3. 内部層
 
+### 内部ブロック図
+
+矢印は依存・呼出しを示す。Portの実装はpackage外から注入され、CoreがCoordinatorを直接呼ぶ構造ではない。各ブロックの所有範囲は下表と次節のPort定義に従う。
+
+```text
+外部利用側
+  ↓ 公開入口（index）
+公開要求・結果（public-contract）
+  ↓
+Application
+  ├─ Objective受付・実行調停
+  ├─ 再計画・人間判断
+  └─ 統合・状態参照
+       │
+       ├→ Core：Project状態・Queue・遷移判定
+       │     └→ Internal：入力snapshot・相対Path
+       └→ Ports：実行・永続化・判断・回復・観測
+                    ↑ 実装を注入
+           外部Adapter（Coordinator等）
+```
+
+実装上の塊は`src/application/`、`core/`、`public-contract/`、`ports/`、`internal/`に対応する。公開契約からCoreのvalidatorを利用する依存も含め、正確な許可方向は§5に示す。図は処理順序や全importの列挙ではない。
+
 | 層 | 所有するもの | 所有しないもの |
 |---|---|---|
 | 公開契約 | Objective／Decision要求、Project結果、読み取り専用投影、closed schema | MCP envelope、CLI option、Provider result、OS Path |

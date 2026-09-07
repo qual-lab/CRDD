@@ -44,6 +44,34 @@ v0.20の責務分離では既存MCP stdioを独立packageへ移し、MCP Streama
 
 ## 3. 依存と所有権
 
+### 内部ブロック図
+
+矢印は要求の搬送・呼出しを示す。結果は逆方向に返る。ProtocolはTransport間で共有し、Projectの意味契約を再定義しない。
+
+```text
+配布Launcher：構成と起動
+  ↓
+Transport（transports/）
+  ├─ stdio：標準入出力・framing
+  └─ localhost HTTP：認証・header・body・socket
+       │
+       ├→ Protocol（protocol/）
+       │    JSON文書・MCP envelope・method・error
+       ↓
+Project Runtime Adapter（adapters/）
+  │ MCP要求と公開要求・結果の変換
+  ↓ 公開入口だけを利用
+Project Runtime【別package】
+
+終了制御（transports/process-signal-*）
+  → 受付停止・要求取消・Application終了待ち・Transport回収
+
+純粋な入力snapshot（internal/）
+  → 各利用箇所の入力を固定。実行権限は発行しない
+```
+
+`src/index.ts`が利用側への公開窓口となる。Coordinatorとの具体的な組合せはLauncherが所有し、MCP内部にProvider実行・Repository書込みのブロックを置かない。
+
 MCPはProject Runtime packageの公開入口だけへ依存する。Coordinator、Provider、Candidate Store、Windows Adapter、実行知StoreまたはProject Runtime内部Pathをimportしない。
 
 Project Runtimeの状態、Identity、Recovery、判断または結果fieldをMCP Schemaで独立再定義しない。MCP固有Envelopeは保持するが、そのpayloadはProject Runtimeのcanonicalな公開契約を一つの変換規則で投影する。公開契約変更時はMCP利用側試験を変更影響型runnerが必ず選択する。

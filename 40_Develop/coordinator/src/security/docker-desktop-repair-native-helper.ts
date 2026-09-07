@@ -1,10 +1,11 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createWindowsDockerDesktopRepairHelperEnvironment } from "../core/windows-child-environment.ts";
-import { observeRuntimeOwnedDockerDesktopRepairPolicy } from "./docker-desktop-repair-policy.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "./docker-desktop-repair-native-helper-lifecycle-internal.ts";
+import { observeRuntimeOwnedDockerDesktopRepairPolicy } from "./docker-desktop-repair-policy.ts";
 import {
   beginPlatformAccessArtifactSigningObservation,
   observePlatformAccessReleaseArtifactCandidate,
@@ -58,6 +59,18 @@ export type DockerDesktopRepairNativeHelperOutcome = Readonly<{
   session: DockerDesktopRepairNativeHelperSession | null;
 }>;
 
+export type DockerDesktopRestartNativeHelperOutcome = Readonly<{
+  status: DockerDesktopRepairNativeHelperOutcome["status"];
+  session:
+    | (DockerDesktopRepairNativeHelperSession &
+        Readonly<{
+          inspectClientProcesses: () => Promise<
+            "absent" | "verified" | "unknown"
+          >;
+        }>)
+    | null;
+}>;
+
 type NativeChild = ChildProcessWithoutNullStreams;
 
 function sameArtifact(left: unknown, right: unknown) {
@@ -78,9 +91,38 @@ function sameArtifact(left: unknown, right: unknown) {
 export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelper(
   expectedPlatformArtifact: unknown,
 ): Promise<DockerDesktopRepairNativeHelperOutcome> {
+  return acquireRuntimeOwnedDockerDesktopNativeHelper(
+    expectedPlatformArtifact,
+    "repair",
+  );
+}
+
+export async function acquireRuntimeOwnedDockerDesktopRestartNativeHelper(
+  expectedPlatformArtifact: unknown,
+): Promise<DockerDesktopRestartNativeHelperOutcome> {
+  return acquireRuntimeOwnedDockerDesktopNativeHelper(
+    expectedPlatformArtifact,
+    "restart",
+  );
+}
+
+async function acquireRuntimeOwnedDockerDesktopNativeHelper(
+  expectedPlatformArtifact: unknown,
+  protocol: "repair" | "restart",
+): Promise<DockerDesktopRestartNativeHelperOutcome> {
   if (process.platform !== "win32")
     return Object.freeze({ status: "unavailable", session: null });
-  const policy = observeRuntimeOwnedDockerDesktopRepairPolicy();
+  const policy =
+    protocol === "repair"
+      ? observeRuntimeOwnedDockerDesktopRepairPolicy()
+      : Object.freeze({
+          policySha256: createHash("sha256")
+            .update(
+              "CRDD_DOCKER_RESTART_TRUST_V1|official-fixed-paths|Docker Inc|cache-only|deny-write-delete|optional-dev-envs",
+              "ascii",
+            )
+            .digest("hex"),
+        });
   const artifactBefore = observePlatformAccessReleaseArtifactCandidate(
     bundledDistributionRoot,
   );
@@ -99,19 +141,28 @@ export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelper(
     return Object.freeze({ status: "unavailable", session: null });
   let child: NativeChild;
   try {
-    child = spawn(executablePath, ["--docker-desktop-repair-helper"], {
-      cwd: bundledDistributionRoot,
-      env: environment,
-      shell: false,
-      windowsHide: true,
-      stdio: ["pipe", "pipe", "pipe"],
-    }) as NativeChild;
+    child = spawn(
+      executablePath,
+      [
+        protocol === "repair"
+          ? "--docker-desktop-repair-helper"
+          : "--docker-desktop-restart-helper",
+      ],
+      {
+        cwd: bundledDistributionRoot,
+        env: environment,
+        shell: false,
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    ) as NativeChild;
   } catch {
     return Object.freeze({ status: "cleanup_unknown", session: null });
   }
   const created = createDockerDesktopRepairNativeHelperLifecycle(
     child,
     policy.policySha256,
+    protocol,
   );
   const initial = await created.waitForInitial();
   const artifactAfter = observePlatformAccessReleaseArtifactCandidate(

@@ -1,15 +1,104 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
+import { describeDockerDesktopRepairNativeHelperContract } from "../../src/security/docker-desktop-repair-native-helper.ts";
+import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts";
+
+for (const status of ["A", "V", "U"] as const) {
+  test(`restart B client observation maps ${status} without issuing termination`, async () => {
+    const source = `const frame=s=>Buffer.concat([Buffer.from("CRDDDS01"),Buffer.from(s),Buffer.alloc(32,0xaa)]);process.stdout.write(frame("R"));process.stdin.on("data",c=>{const k=c.toString();if(k==="B")process.stdout.write(frame("${status}"));else if(k==="Q"){process.stdout.write(frame("C"));setTimeout(()=>process.exit(0),25)}else process.exit(3)});`;
+    const child = spawn(process.execPath, ["-e", source], {
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const created = createDockerDesktopRepairNativeHelperLifecycle(
+      child,
+      "a".repeat(64),
+      "restart",
+    );
+    assert.equal(await created.waitForInitial(), "R");
+    assert.equal(
+      await created.session.inspectClientProcesses(),
+      status === "A" ? "absent" : status === "V" ? "verified" : "unknown",
+    );
+    assert.deepEqual(await created.session.release(), {
+      cleanup: "confirmed",
+      protocol: "completed",
+    });
+  });
+}
 
 import {
   describeDockerDesktopRepairPolicyContract,
   observeRuntimeOwnedDockerDesktopRepairPolicy,
   WINDOWS_DOCKER_DESKTOP_REPAIR_POLICY_RELATIVE_PATH,
 } from "../../src/security/docker-desktop-repair-policy.ts";
-import { describeDockerDesktopRepairNativeHelperContract } from "../../src/security/docker-desktop-repair-native-helper.ts";
-import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts";
+
+for (const entry of [
+  {
+    protocol: "restart" as const,
+    magic: "CRDDDS01",
+    correctHash: true,
+    accepted: true,
+  },
+  {
+    protocol: "restart" as const,
+    magic: "CRDDDR04",
+    correctHash: true,
+    accepted: false,
+  },
+  {
+    protocol: "repair" as const,
+    magic: "CRDDDS01",
+    correctHash: true,
+    accepted: false,
+  },
+  {
+    protocol: "restart" as const,
+    magic: "CRDDDS01",
+    correctHash: false,
+    accepted: false,
+  },
+]) {
+  test(`Native protocol separation ${JSON.stringify(entry)}`, async () => {
+    const policy =
+      "CRDD_DOCKER_RESTART_TRUST_V1|official-fixed-paths|Docker Inc|cache-only|deny-write-delete|optional-dev-envs";
+    const hash = createHash("sha256").update(policy, "ascii").digest("hex");
+    const source = [
+      `const hash=Buffer.from(${JSON.stringify(entry.correctHash ? hash : "0".repeat(64))},"hex");`,
+      `const frame=(s)=>Buffer.concat([Buffer.from(${JSON.stringify(entry.magic)}),Buffer.from(s),hash]);`,
+      'process.stdout.write(frame("R"));',
+      'process.stdin.on("data",(c)=>{process.stdout.write(frame(c.toString()==="Q"?"C":"V"));if(c.toString()==="Q")setTimeout(()=>process.exit(0),25);});',
+      'process.stdin.on("end",()=>process.exit(0));',
+    ].join("");
+    const child = spawn(process.execPath, ["-e", source], {
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const created = createDockerDesktopRepairNativeHelperLifecycle(
+      child,
+      hash,
+      entry.protocol,
+    );
+    assert.equal(await created.waitForInitial(), entry.accepted ? "R" : null);
+    if (entry.accepted) {
+      assert.equal(await created.session.verifyArtifacts(), "verified");
+      assert.deepEqual(await created.session.release(), {
+        cleanup: "confirmed",
+        protocol: "completed",
+      });
+    } else {
+      assert.deepEqual(await created.failProtocol(), {
+        cleanup: "confirmed",
+        protocol: "failed",
+      });
+    }
+  });
+}
 
 test("署名対象PolicyはDocker DesktopとEngineと全成果物を単一authorityへ固定する", () => {
   const policy = observeRuntimeOwnedDockerDesktopRepairPolicy();
@@ -118,6 +207,7 @@ test("native helper adapterは固定frameを順序処理しQ応答とexit 0ま�
   });
   const created = createDockerDesktopRepairNativeHelperLifecycle(child, hash);
   assert.equal(await created.waitForInitial(), "R");
+  assert.equal(await created.session.inspectClientProcesses(), "unknown");
   assert.equal(await created.session.inspectProcesses(), "verified");
   assert.equal(await created.session.terminateProcesses(), "terminated");
   assert.equal(await created.session.verifyArtifacts(), "verified");

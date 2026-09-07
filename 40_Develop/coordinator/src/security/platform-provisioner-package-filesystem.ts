@@ -1301,6 +1301,84 @@ type RuntimeExternalProcessCallsite = Readonly<{
 const runtimeExternalProcessCallsites = Object.freeze(
   [
     [
+      "src/security/docker-restart-machine.ts",
+      "queryWsl",
+      "spawnSync",
+      ["executable"],
+      [
+        "kind",
+        "=",
+        "=",
+        "=",
+        "registered",
+        "?",
+        "[",
+        "--list",
+        ",",
+        "--quiet",
+        "]",
+        ":",
+        "[",
+        "--list",
+        ",",
+        "--running",
+        ",",
+        "--quiet",
+        "]",
+      ],
+      ["const", "executable", "="],
+    ],
+    [
+      "src/security/docker-restart-machine.ts",
+      "terminateWsl",
+      "spawnSync",
+      ["executable"],
+      ["[", "--terminate", ",", "docker-desktop", "]"],
+      ["const", "executable", "="],
+    ],
+    [
+      "src/security/docker-restart-machine.ts",
+      "queryDocker",
+      "spawnSync",
+      ["cli", ".", "executablePath"],
+      [
+        "kind",
+        "=",
+        "=",
+        "=",
+        "engine",
+        "?",
+        "[",
+        "--host",
+        ",",
+        "npipe:////./pipe/dockerDesktopLinuxEngine",
+        ",",
+        "version",
+        ",",
+        "--format",
+        ",",
+        "{{json .Server}}",
+        ",",
+        "]",
+        ":",
+        "[",
+        "--host",
+        ",",
+        "npipe:////./pipe/dockerDesktopLinuxEngine",
+        ",",
+        "container",
+        ",",
+        "ls",
+        ",",
+        "--quiet",
+        ",",
+        "--no-trunc",
+        ",",
+        "]",
+      ],
+      ["const", "cli", "="],
+    ],
+    [
       "src/core/runtime-local-typescript-child-entrypoints.ts",
       "spawnRuntimeLocalTypeScriptChild",
       "spawn",
@@ -1332,10 +1410,23 @@ const runtimeExternalProcessCallsites = Object.freeze(
     ],
     [
       "src/security/docker-desktop-repair-native-helper.ts",
-      "acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+      "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "spawn",
       ["executablePath"],
-      ["[", "--docker-desktop-repair-helper"],
+      [
+        "[",
+        "protocol",
+        "=",
+        "=",
+        "=",
+        "repair",
+        "?",
+        "--docker-desktop-repair-helper",
+        ":",
+        "--docker-desktop-restart-helper",
+        ",",
+        "]",
+      ],
       ["const", "executablePath", "="],
     ],
     [
@@ -1511,6 +1602,36 @@ type ExactExternalProcessCallGraph = Readonly<{
 const exactExternalProcessCallGraph = Object.freeze(
   [
     [
+      "runtime",
+      "src/security/docker-restart-machine.ts",
+      "queryWsl",
+      "spawnSync",
+      1,
+      "2895dc58b2ac8984f4f7caa7491fcd43d8c111747ceef5e1c985e2366a1652c9",
+      "d73a0d7358558169a4cfcd0b5e9d5e2a0c120e904a650cfdc5ab6a82a2f8a532",
+      null,
+    ],
+    [
+      "runtime",
+      "src/security/docker-restart-machine.ts",
+      "terminateWsl",
+      "spawnSync",
+      1,
+      "25b8efff9457ff55b3c1d20e2caec6abad373e0a09079c8cdfac35deb6241453",
+      "7f34747da04c9127ad4bdef6ab9cdb31281819e268fbb6944d36fd8e7d67c807",
+      "result",
+    ],
+    [
+      "runtime",
+      "src/security/docker-restart-machine.ts",
+      "queryDocker",
+      "spawnSync",
+      1,
+      "6a31be0054f52016103de47b26ae4e0a602f0c44f3cbc7b0a85dbd8b4af4eef8",
+      "7aff5de0b48887db4c2bd1c16ab14eaee30639b001e0abc2727596cf7214e036",
+      "result",
+    ],
+    [
       "verification_tool",
       "scripts/check-dynamic-fake-provider-coverage.ts",
       "inspectOnce",
@@ -1613,11 +1734,11 @@ const exactExternalProcessCallGraph = Object.freeze(
     [
       "runtime",
       "src/security/docker-desktop-repair-native-helper.ts",
-      "acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+      "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "spawn",
       1,
-      "a3ebbea18c8d9b8637a58342aab2ba85792186533699e3b160a7dbc5ceefeacc",
-      "b50047dfbeaeafdd474b8e99a8fb65c868cd554cabefc6c2ce4767b47f2d69bc",
+      "dc69604bb0ab39482971013a5c2710e260d365fde8b35301df0300429e8f0802",
+      "e76343735ada43692fe974619aaa8d048fed4380520e550e9f4e947ccd70013a",
       "child",
     ],
     [
@@ -1774,8 +1895,8 @@ const exactAuditedFunctionFlowGraph = Object.freeze(
     [
       "runtime",
       "src/security/docker-desktop-repair-native-helper.ts",
-      "acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
-      "b50047dfbeaeafdd474b8e99a8fb65c868cd554cabefc6c2ce4767b47f2d69bc",
+      "acquireRuntimeOwnedDockerDesktopNativeHelper",
+      "e76343735ada43692fe974619aaa8d048fed4380520e550e9f4e947ccd70013a",
     ],
     [
       "runtime",
@@ -1917,8 +2038,8 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
       "0cb9a47490a153066b41d87d8b9393bfb6654e677b1f0b3887f3c1e897eb1013",
     ],
     [
-      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
-      "962dff946d48019ce6b9a48b4f307e18f04a8a7dc611b84bdde9197eb002b55d",
+      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
+      "ca5236d41c884da28a27591d2c9bd05ec9ab29eba76db217e501e4e782fe4a58",
     ],
     [
       "src/security/docker-effect-runtime.ts\0startCommand",
@@ -2004,7 +2125,6 @@ const auditedExportedFunctionIdentities = Object.freeze(
     "src/core/interactive-console.ts\0readInteractiveConsoleLineOutcome",
     "src/security/candidate-store-kernel-lock.ts\0acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome",
     "src/security/candidate-store-kernel-lock.ts\0acquireRuntimeOwnedHostOperationSupervisorLock",
-    "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
     "src/security/platform-provisioner-package-filesystem.ts\0inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
     "src/security/platform-provisioner-package-filesystem.ts\0inspectBundledCoordinatorPackageFilesystemCandidate",
     "src/security/platform-provisioner-package-filesystem.ts\0inspectFixedDevelopmentCoordinatorPackageCandidate",
@@ -2047,7 +2167,7 @@ const exactAsyncProcessOwnership = Object.freeze(
       }),
     ],
     [
-      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
       Object.freeze({
         classification: "lifecycle_transfer",
         proofs: Object.freeze([
@@ -2110,6 +2230,63 @@ type ExecutableProvenance = Readonly<{
 
 const exactExecutableProvenance = Object.freeze(
   new Map<string, ExecutableProvenance>([
+    [
+      "src/security/docker-restart-machine.ts\0queryWsl",
+      Object.freeze({
+        classification: "registered_platform_helper",
+        proofs: Object.freeze([
+          Object.freeze(["createWindowsNativeHelperEnvironment", "("]),
+          Object.freeze([
+            "path",
+            ".",
+            "win32",
+            ".",
+            "join",
+            "(",
+            "env",
+            ".",
+            "SystemRoot",
+            ",",
+            "System32",
+            ",",
+            "wsl.exe",
+          ]),
+        ]),
+      }),
+    ],
+    [
+      "src/security/docker-restart-machine.ts\0terminateWsl",
+      Object.freeze({
+        classification: "registered_platform_helper",
+        proofs: Object.freeze([
+          Object.freeze(["createWindowsNativeHelperEnvironment", "("]),
+          Object.freeze([
+            "path",
+            ".",
+            "win32",
+            ".",
+            "join",
+            "(",
+            "env",
+            ".",
+            "SystemRoot",
+            ",",
+            "System32",
+            ",",
+            "wsl.exe",
+          ]),
+        ]),
+      }),
+    ],
+    [
+      "src/security/docker-restart-machine.ts\0queryDocker",
+      Object.freeze({
+        classification: "registered_platform_helper",
+        proofs: Object.freeze([
+          Object.freeze(["const", "cli", "=", "observeTrustedDockerCli", "("]),
+        ]),
+      }),
+    ],
     ...[
       "src/core/runtime-local-typescript-child-entrypoints.ts\0spawnRuntimeLocalTypeScriptChild",
       "scripts/check-dynamic-fake-provider-coverage.ts\0inspectOnce",
@@ -2139,7 +2316,7 @@ const exactExecutableProvenance = Object.freeze(
         [["beginPlatformAccessArtifactSigningObservation", "("]],
       ],
       [
-        "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+        "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
         [["beginPlatformAccessArtifactSigningObservation", "("]],
       ],
       [
@@ -2923,11 +3100,11 @@ const internalLifecycleConsumers = Object.freeze(
         calls: Object.freeze([
           Object.freeze({
             symbol: "createDockerDesktopRepairNativeHelperLifecycle",
-            containingFunction:
-              "acquireRuntimeOwnedDockerDesktopRepairNativeHelper",
+            containingFunction: "acquireRuntimeOwnedDockerDesktopNativeHelper",
             argumentPrefixes: Object.freeze([
               Object.freeze(["child"]),
               Object.freeze(["policy", ".", "policySha256"]),
+              Object.freeze(["protocol"]),
             ]),
             beforePrefixes: Object.freeze([
               Object.freeze(["const", "signingObservation", "="]),
@@ -4191,7 +4368,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expected = exactExternalProcessCallGraph.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 15 : 6;
+  const expectedCount = graph === "runtime" ? 18 : 6;
   const stableIdentities = expected.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -4207,7 +4384,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCallGraph.length !== 21 ||
+    exactExternalProcessCallGraph.length !== 24 ||
     exactExecutableProvenance.size !== exactExternalProcessCallGraph.length ||
     exactExternalProcessCallGraph.some(
       (callsite) =>
@@ -4578,6 +4755,20 @@ const exactRuntimePackageCapabilityConsumerGraph = Object.freeze(
     [
       "src/security/docker-recovery-runtime-internal.ts",
       "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "prepareRuntimeOwnedDockerRestart",
+      "call",
+      2,
+    ],
+    [
+      "src/security/docker-recovery-runtime-internal.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart",
+      "call",
+      3,
+    ],
+    [
+      "src/security/docker-recovery-runtime-internal.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
       "recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart",
       "call",
       1,
@@ -4829,6 +5020,7 @@ function assertReleaseAssuranceConsumerClosure(
     relativePath: string,
     sequence: readonly string[],
     reason: string,
+    owners?: readonly string[],
   ) => {
     const source = sources[relativePath];
     if (typeof source !== "string")
@@ -4840,7 +5032,18 @@ function assertReleaseAssuranceConsumerClosure(
       tokens.length,
       sequence,
     );
-    if (matches.length !== 1)
+    if (
+      owners
+        ? matches.length !== owners.length ||
+          owners.some(
+            (owner) =>
+              matches.filter(
+                (index) =>
+                  containingNamedFunction(tokens, index)?.name === owner,
+              ).length !== 1,
+          )
+        : matches.length !== 1
+    )
       throw new Error(`assurance_consumer:${reason}:shape`);
   };
 
@@ -4880,6 +5083,39 @@ function assertReleaseAssuranceConsumerClosure(
       "runtimeExecutionIdentitySha256",
     ],
     "recovery_runtime_identity",
+    [
+      "recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart",
+      "prepareRuntimeOwnedDockerRestart",
+      "recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart",
+    ],
+  );
+  for (const field of [
+    "runtimeOwnedReleaseTrustConfirmed",
+    "runtimeExecutionIdentityRuntimeOwned",
+    "crddDistributionConfirmed",
+  ]) {
+    exact(
+      "src/security/docker-recovery-runtime-internal.ts",
+      ["verification", ".", field, "!", "=", "=", "true"],
+      `restart_verified_${field}`,
+      [
+        "prepareRuntimeOwnedDockerRestart",
+        "recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart",
+      ],
+    );
+  }
+  exact(
+    "src/security/docker-recovery-runtime-internal.ts",
+    [
+      "return",
+      "recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver",
+      "(",
+      "parsed",
+      ".",
+      "token",
+    ],
+    "restart_recovery_effect_entry",
+    ["recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart"],
   );
   exact(
     "src/security/docker-recovery-runtime-internal.ts",

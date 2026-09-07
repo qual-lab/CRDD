@@ -1,16 +1,16 @@
-import { createHash } from "node:crypto";
 import type { ChildProcess } from "node:child_process";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import {
+  createRuntimeLocalTypeScriptWorker,
+  spawnRuntimeLocalTypeScriptChild,
+} from "../core/runtime-local-typescript-child-entrypoints.ts";
 import { createWindowsHostOperationSupervisorEnvironment } from "../core/windows-child-environment.ts";
 import {
   prepareInteractiveConsoleKernelLockRequest,
   runHostOperationSupervisorLifecycle,
   runInteractiveConsoleKernelLockLifecycle,
 } from "./candidate-store-kernel-lock-lifecycle-internal.ts";
-import {
-  createRuntimeLocalTypeScriptWorker,
-  spawnRuntimeLocalTypeScriptChild,
-} from "../core/runtime-local-typescript-child-entrypoints.ts";
 
 const SYNCHRONOUS_LOCK_ACQUIRE_TIMEOUT_MS = 5_000;
 const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
@@ -78,6 +78,13 @@ function acquireNamedPipeKernelLock(pipeName: string) {
     },
   );
   worker.unref();
+  let workerLost = false;
+  worker.once("error", () => {
+    workerLost = true;
+  });
+  worker.once("exit", () => {
+    workerLost = true;
+  });
   if (!waitForState(state, 0, SYNCHRONOUS_LOCK_ACQUIRE_TIMEOUT_MS)) {
     void worker.terminate();
     return null;
@@ -88,6 +95,11 @@ function acquireNamedPipeKernelLock(pipeName: string) {
   }
   let isReleased = false;
   return Object.freeze({
+    assertLive: () =>
+      !isReleased &&
+      !workerLost &&
+      worker.threadId > 0 &&
+      Atomics.load(state, 0) === 1,
     release: () => {
       if (isReleased) return false;
       isReleased = true;

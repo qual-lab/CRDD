@@ -23,6 +23,40 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 ## 3. 検査の順序
 
+### 内部ブロック
+
+Checker本体は一つの配布Sourceであり、以下のブロックはその内部責務を示す。図に合わせて架空のpackageやフォルダへ分割したものではない。
+
+```text
+公式Repository入口 [40_Develop/checker/crdd-check.ts]
+  ↓ import（採用先は配布本体から直接開始）
+配布本体 [template/tools/crdd-check.ts]
+  ├ 引数・モード・Rootの受付
+  ↓
+  ファイル発見・読取り境界 ─→ Git／Filesystem（読取り）
+  ↓
+  Markdown・アンカー・参照索引
+  ↓
+  対象範囲選択＋公式歴史参照の照合
+  ↓
+  全体検査／対象文書検査
+  ↓
+  指摘・未確認・範囲の集計 → stdout／終了値
+
+開発試験入口 [test-runner.ts]
+  → 試験列挙 [test-discovery.ts]
+  → tests/（通常Checkerとは別の子Process・fixture lifecycle）
+```
+
+| 内部ブロック | Source群・関数群 | 役割 |
+|---|---|---|
+| 開発用接続部 | `40_Develop/checker/crdd-check.ts` | 配布本体へ接続し、検査実装を複製しない |
+| 発見・参照・範囲 | 配布本体の`discoverProjectFiles`、`anchorsFor*`、`resolveLocalTarget`と範囲選択部 | 確認する文書集合と参照先を構成する |
+| 規則照合・報告 | 配布本体の`check*`群と末尾の集計・出力部 | 機械的指摘と未確認範囲を返す |
+| 開発検証 | `40_Develop/checker/test-*`、`tests/` | 試験発見と契約検証。通常実行の構成部ではない |
+
+専門的な意味監査、外部URLへの照会、自動文書修正は接続していない。次の順序説明と境界表が、その制約を具体化する。
+
 ```text
 引数を読む（対象Root・出力形式・限定範囲）
   → 公式／採用先のモードとRepository境界を調べる

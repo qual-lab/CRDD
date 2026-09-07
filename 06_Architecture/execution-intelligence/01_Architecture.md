@@ -23,6 +23,35 @@ Execution Intelligenceの共通Event契約
 
 TypeScriptアプリケーションは`@qual-lab/crdd-execution-intelligence`の公開入口からRepositoryへ結合したRecorderを一度生成し、`recordTaskAttempt`、`recordEvent`および`read`だけを利用できる。Recorderは検証済みRepository Root能力を内部に保持し、呼出側へFilesystem Path能力を渡さない。`recordTaskAttempt`は、Effect前のCanonical Event生成と、その後のStore公開を別の境界として扱う。入力生成の拒否だけを`execution_event_invalid / no_effect / cleanupConfirmed`へ分類し、生成後にStoreが返す故障段階別結果を変更しない。Store境界から契約外例外が出た場合も入力不正へ偽装せず、利用側はEffect不明・cleanup未確認として閉じる。Eventだけを扱う利用側は生成・検査・集約APIを単独利用でき、Repository-local保存を必須にしない。package数に合わせたProcess Launcherは追加せず、非TypeScriptまたはProcess外の利用要求が成立した場合だけ、情報分類・認証・backpressure・再送を持つ独立取込Adapterを別に設計する。
 
+### 内部ブロックと依存
+
+下図は公開入口の内側を責務で分けたものであり、処理全体を常に直列実行する意味ではない。Eventだけの利用は保存経路を通らない。
+
+```text
+利用側Adapter（Coordinator／採用アプリケーション）
+  ↓ 明示した仕事Identityと観測metadata
+公開入口 src/index.ts
+  ├→ Recorder [application/]
+  │     ├→ Event生成・検査 [core/]
+  │     └→ Repository検証・不変保存／読取り [store/]
+  │                    └→ Event検査 [core/]
+  └→ Event生成・検査／集約／統合結果評価 [core/]
+                       └→ plain-data snapshot [internal/]
+
+store/ → GitによるRoot確認・Filesystem → .crdd/execution/events/
+core/  → 非Authorityな集約・改善候補（自動実行へは接続しない）
+```
+
+| 内部ブロック | Source群 | 所有する処理 |
+|---|---|---|
+| 公開入口 | `src/index.ts` | 利用側に公開するAPIの選択。内部Pathへの直接依存を不要にする |
+| Recorder | `src/application/` | Repository結合、Event生成と保存の接続、結果の返却 |
+| Event・評価 | `src/core/` | 閉Schema、欠測、集約、統合結果評価、非Authority改善候補 |
+| 保存境界 | `src/store/` | Git Root検証、不変公開、排他、読戻し、失敗残存 |
+| 入力snapshot | `src/internal/` | Accessor／Proxyを評価せずplain dataを検査・固定する |
+
+Provider SDKの自動計測、独立した取込サーバー、ViewerおよびEvent物理削除は、この内部構成へ接続済みとは扱わない。各境界の条件と未接続範囲は以下の節が所有する。
+
 ## 2. 最小Event
 
 v0.20の最小Eventは、一つのTask Attemptが終了した観測である。

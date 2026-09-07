@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
+import { runProjectRuntimePublicObjective } from "../src/composition/project-runtime-composition-root.ts";
 import {
   parseCandidateArguments,
   parseDoctorArguments,
@@ -11,9 +12,9 @@ import {
   renderSafeHumanCommandReport,
   type SafeCommandReport,
 } from "../src/core/command-report.ts";
-import { renderDoctorCommandFailure, runDoctor } from "../src/core/doctor.ts";
 import { dispatchDockerDesktopRepairDoctorCommand } from "../src/core/docker-desktop-repair-doctor-dispatch.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
+import { renderDoctorCommandFailure, runDoctor } from "../src/core/doctor.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import {
   bindTaskCliCancellationSignals,
@@ -30,20 +31,21 @@ import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
-import { runProjectRuntimePublicObjective } from "../src/composition/project-runtime-composition-root.ts";
-import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import {
-  closeRuntimeOwnedWindowsDockerDesktopRepair,
   adoptRuntimeOwnedWindowsDockerDesktopRepair,
+  closeRuntimeOwnedWindowsDockerDesktopRepair,
   repairRuntimeOwnedWindowsDockerDesktopRuntime,
 } from "../src/security/docker-desktop-runtime-repair.ts";
+import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import {
   inspectRuntimeOwnedDockerTaskRecoveryState,
   recoverRuntimeOwnedDockerTask,
+  recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart,
   recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart,
 } from "../src/security/docker-recovery-runtime.ts";
+import { restartRuntimeOwnedDockerForRecovery } from "../src/security/docker-restart-runtime.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
 class UsageError extends Error {
@@ -89,6 +91,12 @@ function printHelp() {
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
   process.stdout.write(
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
+  );
+  process.stdout.write(
+    `  coordinator doctor --restart-docker-for-recovery <docker-task-recovery-id> [--json]\n`,
+  );
+  process.stdout.write(
+    `  coordinator doctor --recover-isolation <docker-task-recovery-id> --after-recorded-docker-restart [--json]\n`,
   );
   process.stdout.write(
     `  coordinator doctor --recover-isolation <docker-task-recovery-id> --after-docker-desktop-repair <repair-id> --repair-release-root <absolute-root> [--json]\n`,
@@ -538,7 +546,48 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
         adopt: adoptRuntimeOwnedWindowsDockerDesktopRepair,
       },
     );
-    if (dockerRepair) {
+    if (typeof options.restartDockerForRecoveryId === "string") {
+      const controller = new AbortController();
+      const binding = bindTaskCliCancellationSignals(async () =>
+        controller.abort(),
+      );
+      let restart: unknown;
+      let released: ReturnType<typeof binding.unbind>;
+      try {
+        restart =
+          binding.status === "bound"
+            ? await restartRuntimeOwnedDockerForRecovery(
+                options.restartDockerForRecoveryId,
+                controller.signal,
+              )
+            : {
+                status: "blocked",
+                reason: "docker_restart_cancellation_binding_failed",
+                cleanupConfirmed: true,
+                restartCompleted: false,
+                taskRecoveryCompleted: false,
+              };
+      } finally {
+        released = binding.unbind();
+      }
+      const result = plainRecord(restart);
+      const report =
+        released.status === "released" && result
+          ? result
+          : {
+              status: "blocked",
+              reason: "docker_restart_cancellation_cleanup_unconfirmed",
+              cleanupConfirmed: false,
+              restartCompleted: false,
+              taskRecoveryCompleted: false,
+            };
+      const rendered = renderDockerRecoveryDoctorReport(
+        { ...report, contract: "crdd-coordinator/docker-restart-for-recovery" },
+        options.json,
+      );
+      process.stdout.write(rendered.stdout);
+      process.exitCode = rendered.exitCode;
+    } else if (dockerRepair) {
       process.stdout.write(dockerRepair.stdout);
       process.exitCode = dockerRepair.exitCode;
     } else {
@@ -547,14 +596,18 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
           ? recoveryId.startsWith("host.")
             ? recoverOwnedOperationDirectories(recoveryId)
             : recoveryId.startsWith("docker-task.")
-              ? typeof options.afterDockerDesktopRepairId === "string" &&
-                typeof options.repairReleaseRoot === "string"
-                ? recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
+              ? options.afterRecordedDockerRestart === true
+                ? recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
                     recoveryId,
-                    options.afterDockerDesktopRepairId,
-                    options.repairReleaseRoot,
                   )
-                : recoverRuntimeOwnedDockerTask(recoveryId)
+                : typeof options.afterDockerDesktopRepairId === "string" &&
+                    typeof options.repairReleaseRoot === "string"
+                  ? recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
+                      recoveryId,
+                      options.afterDockerDesktopRepairId,
+                      options.repairReleaseRoot,
+                    )
+                  : recoverRuntimeOwnedDockerTask(recoveryId)
               : recoverDockerIsolationProbe(recoveryId)
           : Object.freeze({
               ...runDoctor({

@@ -12,6 +12,38 @@
 
 ## 2. 現行Profileと公開入口
 
+### 内部ブロック図
+
+以下は主要責務の接続を示す。`security/`は現在も複数責務を含むため、一つの箱にせずファイル名のまとまりと役割で分ける。新しいDirectory配置を要求する図ではない。
+
+```text
+CLI・共通Launcher（bin/）
+  ├→ Task実行編成（coordinator-task-*）
+  │    ├→ 入力・選定・結果判定（core/ のTask・Provider群）
+  │    ├→ 実行許可・署名検証（Authority・package検証群）
+  │    ├→ Provider実行（codex-* / claude-*）
+  │    │    └→ Docker・Process制御（docker-* / 実行環境群）
+  │    └→ 候補・Repository操作（candidate-* / repository-*）
+  │
+  ├→ Project接続（composition/）
+  │    ├→ Project Runtime【別package：意味・状態・調停】
+  │    └→ Port実装（security/project-runtime-*）
+  │         実行・永続化・Lease・判断・候補統合・回復
+  │
+  └→ 診断・明示回復
+       ├→ Task資源回復（docker-recovery-* 等）
+       └→ Docker修復／検証付き再起動（desktop-* / restart-*）
+
+上記の環境依存処理
+  ├→ Native接続・OS観測 → Platform Access【別package】
+  └→ 観測Adapter → Execution Intelligence【別package】
+
+署名・検証・配布補助（scripts/）
+  → 同じ配布物・実行依存集合の検証を利用
+```
+
+Provider・候補・回復・署名の実装群は主に`src/security/`、純粋な判定・契約は`src/core/`に所在する。矢印は主要接続であり、全importや実行順序ではない。各操作のAuthority・回収順序は後続節に従う。検証付き再起動は本版で接続中であり、図への掲載を署名済み配布物での実機成立と扱わない。
+
 現行Profileは`local_personal`である。利用可能な公開CLIは次の閉集合に限定する。
 
 | command | 利用目的 | 主なEffect |
@@ -232,6 +264,103 @@ ExecutorはCanonical Repositoryを直接変更せず、隔離候補だけを生�
 回収を直接観測できなければ、exact Recovery ID、`manualRecoveryRequired`、`processRestartRequired`および`effectStateUnknown`を保持して停止する。新しいProcessで同じRepository・選択ユーザー・配布Identityへ再結合できた場合だけ復旧を続ける。復旧後も元Taskを自動再開しない。
 
 Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使う。対象Process、固定artifact、mutex、耐久記録、Directory Identityおよび再開条件を確認する。親Directory renameはWindowsの限定最終手段であり、推測削除や無条件再起動を行わない。
+
+### 正常復帰後の検証付き再起動（Source接続済み・正式E2E未完了）
+
+  正常Engineへ戻った後にも作成結果不明のTaskを復旧できるよう、障害修復とは別に検証付き再起動を設ける。現在の署名済み配布物にはこの経路はなく、以下を既存機能の完成主張として扱わない。
+
+| 責務 | 障害修復 | 検証付き再起動 |
+|---|---|---|
+| 発火 | 既知のDocker Desktop障害 | exact Taskの作成要求が未確定で、停止境界が必要 |
+| 正常Engine | 新規修復を開始しない | 必要な対象・権限・排他を確認した場合だけ開始候補 |
+| Filesystem | 障害時のrun退避を所有 | runの退避・削除を行わない。保護された復旧記録だけを所有 |
+| 停止根拠 | 既存の修復履歴契約 | 作成要求より後の旧実行主体の停止完了と、後続起動を順序付きで記録 |
+| Taskの完了 | 別のTask復旧が判定 | 別のTask復旧が判定。再起動成功だけでは完了しない |
+
+#### 実行と回復の全体図
+
+以下は責務間の接続図であり、新しい保存状態名の定義ではない。「未接続」は現在の署名済み配布物にない経路を示す。再起動の終了とTask回復の終了を分け、Taskの自動再実行には接続しない。
+
+```text
+Task受付・境界検証
+  ↓
+許可されたTask実行
+  ↓
+結果と資源回収を確認
+  ├─ 確認済み → Task結果を返す
+  └─ 残存・観測不能 → 同じ回復IDを保持して停止
+                         ↓
+                     現在の回復条件を検証
+                       ├─ 権限不足・競合・不明 → 停止を維持
+                       ├─ 通常回復が可能 ──────────────┐
+                       ├─ 既知のDocker障害             │
+                       │    ↓                         │
+                       │  既存の障害修復               │
+                       │    ↓                         │
+                       │  停止・再起動の根拠を検証 ────┤
+                       └─ 作成結果不明・停止境界が必要 │
+                            ↓                         │
+                          検証付き再起動【未接続】     │
+                            ↓                         │
+                          停止・再起動の根拠を検証 ────┘
+                                                      ↓
+                                             Task固有の資源回復
+                                                      ↓
+                                         対象資源と記録の終了条件
+                                           ├─ 不成立・不明
+                                           │    → 同じ回復IDで停止
+                                           └─ 成立 → Task回復完了
+                                                      ↓
+                                             元Taskは再実行しない
+```
+
+#### 再起動内部の状態遷移
+
+状態名は`docker-restart-state.ts`の設計状態に対応する。純粋な状態判定、実行制御、停止観測、保護記録および公開入口はSource上で接続済みである。実停止・再起動を含む正式E2Eは未完了であり、図の存在や契約試験の成功を実機対応の完了根拠にしない。
+
+```text
+準備（prepared）
+  │ 境界・排他を確認し、停止意図を耐久記録
+  ↓
+停止意図記録済み（stop_intent）
+  │ 旧ProcessとEngineの停止を確認・記録
+  ↓
+停止確認済み（stopped）
+  │ 起動意図を耐久記録
+  ↓
+起動意図記録済み（start_intent）
+  │ 起動完了とEngine応答を確認・記録
+  ↓
+起動確認済み（ready）
+  │ helper回収・境界再確認・記録確定
+  ↓
+再起動終了（settled）── Task回復完了ではない
+
+各段階の失敗・取消・観測不能
+  ↓
+停止結果（blocked）＋ 最後に到達したphaseを保持
+  ├─ prepared：検証失敗・取消で先へ進めない
+  ├─ stop_intent / stopped / start_intent：不明な処理を再発行しない
+  └─ ready：回収不明・境界差・記録失敗では終了にしない
+
+意図記録を試みた後の不明状態 → 同じ対象の回復義務を保持
+※ blockedはphaseではなく結果分類。この図はEffect再発行を許可しない。
+```
+
+| 成立条件 | 不成立・不明時の扱い |
+|---|---|
+| exact Recovery IDと開始時の未確定要求集合へ結合する | 別Task、要求追加、Identity差では再利用しない |
+| 別の実行中Taskとの排他とDocker全体への影響を確認する | 他利用者の稼働資源を停止する許可を対象Taskの復旧許可から推定しない |
+| 旧実行主体の停止完了を確認する | shutdown要求の終了値、空一覧、固定待機時間だけで停止境界を発行しない |
+| 停止より後の起動とEngine応答を確認する | 起動handle取得だけで利用可能へ進めない |
+| 各Effect前に意図を記録し、実行後に結果を記録する | 取消・応答喪失・部分記録では同じIDの回復義務を保持し、未確定Effectを無条件に再発行しない |
+| 現在の実行Authorityと過去の証跡の由来を別々に検証する | 旧manifestや履歴から現在の操作許可を発行しない |
+
+新しい再起動記録を既存の修復記録v4へ偽装しない。旧修復履歴のrun生成時刻条件は保持し、新記録には停止完了の独立した根拠を要求する。各記録をそれぞれ検証した後だけ、Task復旧が使用する検証済み停止・再起動の根拠へ接続する。
+
+Native部品の既存の同一handle確認・停止待機・排他は再利用候補とするが、既存部品にはDocker 4.41.2の固定Policyが埋め込まれている。新経路は古いVersion／Hashへの固定を継承せず、操作対象の公式Path・発行者・実体を検証したsnapshotへ結合し、操作中の差替えを拒否する。検証対象にはCLIだけでなく停止・起動する実行ファイルも含む。TypeScriptから渡したPathやHashだけをNative操作Authorityにしない。Native側の検証・handle固定・Process照合までの方式は実装前に確定する。
+
+利用側への伝播対象は、公開Help／引数Parser／Dispatcher、Native要求と結果、保護記録の読取りと再入場、Task復旧、結果投影、署名依存集合およびWorkflowとする。正常再起動、対象なし、他Task稼働、観測不能、停止中断、起動失敗、資源残存、取消、親喪失および再入場を契約試験から公開入口の結合試験へ対応付ける。
 
 Docker create要求の耐久化後に応答を失った状態は、Engineの空一覧だけから未作成へ収束させない。ただし、同じ選択ユーザー・保護Root・Policyへ結合されたDocker Desktop最終復旧が当該要求より後にProcess世代を切り、Engine再起動・安全状態・Evidence保持を確認して終了した場合、その署名済み履歴を再起動境界として利用できる。現在のRuntime Authorityと旧復旧記録の由来確認を分離し、旧manifestは履歴検証だけに使って実行Capabilityを発行しない。対象Taskのexact名と所有labelがともに不存在であることを再観測し、その結果と復旧記録hashをTaskのOperation Directoryへ耐久化した後だけ、未知のcreate結果をEffect 0へ収束させる。順序、由来、終了状態または不存在のいずれかが不明なら回復義務を保持する。
 

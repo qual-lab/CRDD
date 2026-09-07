@@ -7,6 +7,9 @@ mod windows;
 #[cfg(windows)]
 mod docker_repair;
 
+#[cfg(windows)]
+mod docker_authenticode;
+
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
@@ -127,6 +130,7 @@ enum InvocationMode {
     Standard,
     AppContainer(String),
     DockerDesktopRepair,
+    DockerDesktopRestart,
 }
 
 fn invocation_mode() -> Result<InvocationMode, ()> {
@@ -137,6 +141,13 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
     if mode == OsStr::new("--docker-desktop-repair-helper") {
         return if arguments.next().is_none() {
             Ok(InvocationMode::DockerDesktopRepair)
+        } else {
+            Err(())
+        };
+    }
+    if mode == OsStr::new("--docker-desktop-restart-helper") {
+        return if arguments.next().is_none() {
+            Ok(InvocationMode::DockerDesktopRestart)
         } else {
             Err(())
         };
@@ -171,6 +182,16 @@ fn main() {
             #[cfg(windows)]
             {
                 docker_repair::run(&mut std::io::stdin(), &mut std::io::stdout())
+            }
+            #[cfg(not(windows))]
+            {
+                2
+            }
+        }
+        Ok(InvocationMode::DockerDesktopRestart) => {
+            #[cfg(windows)]
+            {
+                docker_repair::run_restart(&mut std::io::stdin(), &mut std::io::stdout())
             }
             #[cfg(not(windows))]
             {

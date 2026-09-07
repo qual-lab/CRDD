@@ -2123,6 +2123,10 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     "src/security/docker-isolation.ts",
     "src/security/docker-owned-process.ts",
     "src/security/docker-recovery-runtime-internal.ts",
+    // queryWsl: fixed OS enumeration; terminateWsl: exact docker-desktop;
+    // queryDocker: trusted fixed CLI, Engine/empty-container observation only.
+    // Their argument/provenance closure is owned by the protected-path graph.
+    "src/security/docker-restart-machine.ts",
     "src/security/provider-home-windows-adapter.ts",
   ]);
 

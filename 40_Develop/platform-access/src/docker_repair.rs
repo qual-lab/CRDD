@@ -41,6 +41,8 @@ const MAXIMUM_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 const MAXIMUM_PROCESS_ENTRIES: usize = 4_096;
 const PROCESS_WAIT_MS: u32 = 10_000;
 const SYNCHRONIZE_ACCESS: u32 = 0x0010_0000;
+const RESTART_POLICY: &[u8] = b"CRDD_DOCKER_RESTART_TRUST_V1|official-fixed-paths|Docker Inc|cache-only|deny-write-delete|optional-dev-envs";
+const RESTART_RESPONSE_MAGIC: &[u8; 8] = b"CRDDDS01";
 
 struct OwnedHandle(HANDLE);
 
@@ -345,6 +347,88 @@ fn verify_locked_artifacts(artifacts: &mut [LockedArtifact]) -> bool {
     })
 }
 
+fn lock_current_artifacts() -> Option<Vec<LockedArtifact>> {
+    let entries = [
+        (
+            "docker_cli",
+            r"C:\Program Files\Docker\Docker\resources\bin\docker.exe",
+            false,
+        ),
+        (
+            "desktop_cli",
+            r"C:\Program Files\Docker\Docker\DockerCli.exe",
+            false,
+        ),
+        (
+            "launcher",
+            r"C:\Program Files\Docker\Docker\Docker Desktop.exe",
+            false,
+        ),
+        (
+            "frontend",
+            r"C:\Program Files\Docker\Docker\frontend\Docker Desktop.exe",
+            false,
+        ),
+        (
+            "backend",
+            r"C:\Program Files\Docker\Docker\resources\com.docker.backend.exe",
+            false,
+        ),
+        (
+            "build",
+            r"C:\Program Files\Docker\Docker\resources\com.docker.build.exe",
+            false,
+        ),
+        (
+            "dev_envs",
+            r"C:\Program Files\Docker\Docker\resources\com.docker.dev-envs.exe",
+            true,
+        ),
+    ];
+    let mut artifacts = Vec::new();
+    for (role, source, optional) in entries {
+        let path = PathBuf::from(source);
+        let mut file = match OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(&path)
+        {
+            Ok(file) => file,
+            Err(error) if optional && error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => return None,
+        };
+        let handle = file.as_raw_handle().cast::<c_void>();
+        let information = handle_information(handle)?;
+        let bytes =
+            (u64::from(information.nFileSizeHigh) << 32) | u64::from(information.nFileSizeLow);
+        if information.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
+            || !(1..=MAXIMUM_ARTIFACT_BYTES).contains(&bytes)
+            || !final_dos_path(handle)?
+                .to_string_lossy()
+                .eq_ignore_ascii_case(source)
+            || !crate::docker_authenticode::verify_docker_publisher(&file)
+        {
+            return None;
+        }
+        let sha256 = sha256_file(&mut file, bytes)?;
+        if !same_file(&information, &handle_information(handle)?) {
+            return None;
+        }
+        artifacts.push(LockedArtifact {
+            policy: PolicyArtifact {
+                role: role.to_owned(),
+                path,
+                bytes,
+                sha256,
+            },
+            file,
+            information,
+        });
+    }
+    Some(artifacts)
+}
+
 fn mutex_name() -> Option<Vec<u16>> {
     let identity = crate::windows::current_selected_user_identity_hash()?;
     let mut text = String::from(r"Global\CRDD.Coordinator.DockerDesktopRepair.");
@@ -401,6 +485,28 @@ fn managed_process_artifacts<'a>(
         .collect()
 }
 
+fn is_cli_role(role: &str) -> bool {
+    matches!(role, "docker_cli" | "desktop_cli")
+}
+
+fn cli_process_artifacts<'a>(
+    name: &str,
+    artifacts: &'a [LockedArtifact],
+) -> Vec<&'a LockedArtifact> {
+    artifacts
+        .iter()
+        .filter(|artifact| {
+            is_cli_role(&artifact.policy.role)
+                && artifact
+                    .policy
+                    .path
+                    .file_name()
+                    .map(|value| value.to_string_lossy().eq_ignore_ascii_case(name))
+                    .unwrap_or(false)
+        })
+        .collect()
+}
+
 fn process_path(handle: HANDLE) -> Option<PathBuf> {
     let mut units = vec![0_u16; 32_768];
     let mut length = u32::try_from(units.len()).ok()?;
@@ -429,6 +535,10 @@ fn process_creation(handle: HANDLE) -> Option<u64> {
 }
 
 fn inventory_processes(artifacts: &[LockedArtifact]) -> ProcessInventory {
+    inventory_process_scope(artifacts, false)
+}
+
+fn inventory_process_scope(artifacts: &[LockedArtifact], cli_only: bool) -> ProcessInventory {
     // SAFETY: no process ID filter is used and the returned snapshot is owned below.
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
     if snapshot == INVALID_HANDLE_VALUE {
@@ -451,12 +561,25 @@ fn inventory_processes(artifacts: &[LockedArtifact]) -> ProcessInventory {
         let Some(name) = process_basename(&entry) else {
             return ProcessInventory::Unknown;
         };
-        let candidates = managed_process_artifacts(&name, artifacts);
+        let candidates = if cli_only {
+            cli_process_artifacts(&name, artifacts)
+        } else {
+            managed_process_artifacts(&name, artifacts)
+        };
+        // A removed optional executable must not hide a still-running old process.
+        if !cli_only
+            && candidates.is_empty()
+            && name.eq_ignore_ascii_case("com.docker.dev-envs.exe")
+        {
+            return ProcessInventory::Unknown;
+        }
         if !candidates.is_empty() {
-            // SAFETY: requested rights are bounded to identity observation, wait, and exact process termination.
+            // SAFETY: CLI scope requests observation only; legacy managed scope also permits exact termination.
             let handle = unsafe {
                 OpenProcess(
-                    PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | SYNCHRONIZE_ACCESS,
+                    PROCESS_QUERY_LIMITED_INFORMATION
+                        | SYNCHRONIZE_ACCESS
+                        | if cli_only { 0 } else { PROCESS_TERMINATE },
                     0,
                     entry.th32ProcessID,
                 )
@@ -821,9 +944,115 @@ pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
     }
 }
 
+/// Separate trust contract for restart; legacy repair records keep their policy.
+pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> i32 {
+    let Some(policy_hash) = sha256_bytes(RESTART_POLICY) else {
+        return 2;
+    };
+    let respond = |writer: &mut W, status: u8| -> bool {
+        let mut frame = [0_u8; RESPONSE_BYTES];
+        frame[..8].copy_from_slice(RESTART_RESPONSE_MAGIC);
+        frame[8] = status;
+        frame[9..].copy_from_slice(&policy_hash);
+        writer.write_all(&frame).is_ok() && writer.flush().is_ok()
+    };
+    let Some(_mutex) = acquire_mutex() else {
+        let _ = respond(writer, b'L');
+        return 2;
+    };
+    let Some(mut artifacts) = lock_current_artifacts() else {
+        let _ = respond(writer, b'U');
+        return 2;
+    };
+    if !respond(writer, b'R') {
+        return 3;
+    }
+    loop {
+        let mut command = [0_u8; 1];
+        match reader.read_exact(&mut command) {
+            Ok(()) => (),
+            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return 0,
+            Err(_) => return 3,
+        }
+        if command[0] == b'Q' {
+            return if respond(writer, b'C') { 0 } else { 3 };
+        }
+        if !verify_locked_artifacts(&mut artifacts) {
+            let _ = respond(writer, b'U');
+            return 2;
+        }
+        let status = match command[0] {
+            b'V' => b'V',
+            b'B' => match inventory_process_scope(&artifacts, true) {
+                ProcessInventory::Absent => b'A',
+                ProcessInventory::Verified(_) => b'V',
+                ProcessInventory::Unknown => b'U',
+            },
+            b'I' => match inventory_processes(&artifacts) {
+                ProcessInventory::Absent => b'A',
+                ProcessInventory::Verified(_) => b'V',
+                ProcessInventory::Unknown => b'U',
+            },
+            b'K' => terminate_processes(&artifacts),
+            b'L' => launch_desktop(&mut artifacts),
+            _ => return 2,
+        };
+        if !respond(writer, status) {
+            return 3;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cli_inventory_scope_never_expands_managed_termination_roles() {
+        for role in ["docker_cli", "desktop_cli"] {
+            assert!(is_cli_role(role));
+        }
+        for role in [
+            "backend",
+            "desktop",
+            "service",
+            "dev_envs",
+            "",
+            "docker_cli_extra",
+        ] {
+            assert!(!is_cli_role(role));
+        }
+    }
+
+    #[test]
+    #[ignore = "Explicit installed Docker read-only CLI inventory probe"]
+    fn restart_cli_inventory_is_read_only_and_closed() {
+        let mut input = std::io::Cursor::new(b"BQ");
+        let mut output = Vec::new();
+        assert_eq!(run_restart(&mut input, &mut output), 0);
+        assert_eq!(output.len(), RESPONSE_BYTES * 3);
+        assert_eq!(output[8], b'R');
+        assert!(matches!(output[RESPONSE_BYTES + 8], b'A' | b'V' | b'U'));
+        println!(
+            "restart_cli_inventory_status={}",
+            char::from(output[RESPONSE_BYTES + 8])
+        );
+        assert_eq!(output[2 * RESPONSE_BYTES + 8], b'C');
+    }
+
+    #[test]
+    #[ignore = "Explicit installed Docker read-only restart trust probe"]
+    fn restart_trust_accepts_current_installation_without_process_effects() {
+        let mut input = std::io::Cursor::new(b"VQ");
+        let mut output = Vec::new();
+        assert_eq!(run_restart(&mut input, &mut output), 0);
+        assert_eq!(output.len(), RESPONSE_BYTES * 3);
+        for (frame, status) in output.chunks_exact(RESPONSE_BYTES).zip([b'R', b'V', b'C']) {
+            assert_eq!(&frame[..8], RESTART_RESPONSE_MAGIC);
+            assert_eq!(frame[8], status);
+            assert_eq!(&frame[9..], sha256_bytes(RESTART_POLICY).unwrap());
+        }
+    }
 
     #[test]
     fn embedded_policy_is_strict_and_complete() {

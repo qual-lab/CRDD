@@ -112,6 +112,20 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 対話境界を、PowerShellのtext pipeline、`ConvertTo-Json`、一時request file、長い`Start-Process ... -Command`または入れ子Shellへ再構成してはならない。Windows PowerShell 5.1とPowerShell 7ではprocess標準入力API、既定encodingおよび引数再構成が異なり、正しいTaskが実行前に壊れるためである。Release鍵生成／署名は既存のdirect TTY command、外部送信承認はRuntime所有のconsole challenge、OAuth bootstrapは公式Provider CLIと外部system browserをそれぞれ唯一の対話入口とする。対話端末を取得できない場合は別搬送へfallbackせず停止する。
 
 
+## 正常なDockerで作成結果不明のTaskを回復するとき
+
+この経路はv0.20候補で接続中であり、正式署名・実機E2E完了前の配布物では利用可能と扱わない。状態と必要な観測は[取消と回復の設計](../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
+
+| 順序 | 操作 | 完了の意味 |
+|---|---|---|
+| 1 | `doctor --restart-docker-for-recovery <docker-task-recovery-id> --json` | 同じ対象のための停止・起動・記録確定。Task回復完了ではない |
+| 2 | `doctor --recover-isolation <same-docker-task-recovery-id> --after-recorded-docker-restart --json` | 検証済み再起動記録と現在の対象資源を再確認し、Task固有の回復を行う |
+
+- Docker全体への停止影響を含む許可範囲を確認してから順序1を実行する。他Task、残存CLI、排他不成立または観測不能では停止し、対象を勝手に終了・削除しない。
+- 順序1の`restartCompleted`と`cleanupConfirmed`がともに成立した場合だけ順序2へ進む。旧障害修復の引数と混在させない。
+- 正常なrun Directoryを退避・削除しない。署名鍵入力や元Taskの再実行は、この操作に含まない。
+- 途中失敗では同じ回復IDと記録を保持する。初回操作を繰り返すことで未知のEffectを再発行せず、停止理由に従って再入場条件を確認する。
+
 ## Docker Desktopの旧復旧記録を扱うとき
 
 Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。現在の正常状態を確認後、既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。

@@ -10,6 +10,7 @@ import {
   parseDoctorArguments,
   parseTaskArguments,
 } from "../../src/core/cli-options.ts";
+import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
 import { assertPresent } from "../support/test-support.ts";
 
 const coordinatorExecutable = path.resolve(
@@ -20,6 +21,73 @@ const publicCoordinatorLauncher = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../../template/tools/crdd-coordinator.ts",
 );
+
+test("検証付き再起動と記録後回復はexact Taskを指定する別操作", () => {
+  const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  const restart = parseDoctorArguments(
+    ["--restart-docker-for-recovery", id, "--json"],
+    undefined,
+  );
+  assert.equal(restart.status, "ok");
+  assert.equal(restart.value?.restartDockerForRecoveryId, id);
+  const recover = parseDoctorArguments(
+    ["--recover-isolation", id, "--after-recorded-docker-restart"],
+    undefined,
+  );
+  assert.equal(recover.status, "ok");
+  assert.equal(recover.value?.afterRecordedDockerRestart, true);
+  for (const arguments_ of [
+    ["--restart-docker-for-recovery"],
+    ["--restart-docker-for-recovery", "invalid"],
+    ["--restart-docker-for-recovery", id, "--isolation"],
+    ["--restart-docker-for-recovery", id, "--recover-isolation", id],
+    ["--restart-docker-for-recovery", id, "--repair-docker-desktop-runtime"],
+    ["--restart-docker-for-recovery", id, "--after-recorded-docker-restart"],
+    ["--after-recorded-docker-restart"],
+    ["--recover-isolation", "host.invalid", "--after-recorded-docker-restart"],
+    [
+      "--recover-isolation",
+      id,
+      "--after-recorded-docker-restart",
+      "--after-docker-desktop-repair",
+      `docker-desktop-repair.${"a".repeat(32)}`,
+      "--repair-release-root",
+      "C:\\old",
+    ],
+  ])
+    assert.equal(
+      parseDoctorArguments(arguments_, undefined).status,
+      "blocked",
+      JSON.stringify(arguments_),
+    );
+});
+
+test("再起動結果はTask回復を成功へ混同せずcleanup不明を拒否する", () => {
+  const base = {
+    contract: "crdd-coordinator/docker-restart-for-recovery",
+    status: "completed",
+    reason: "docker_restart_settled",
+    restartCompleted: true,
+    taskRecoveryCompleted: false,
+    cleanupConfirmed: true,
+  };
+  assert.equal(renderDockerRecoveryDoctorReport(base, true).exitCode, 0);
+  assert.match(
+    renderDockerRecoveryDoctorReport(base, false).stdout,
+    /Taskの復旧・再実行は行っていません/u,
+  );
+  for (const patch of [
+    { cleanupConfirmed: false },
+    { restartCompleted: false },
+    { taskRecoveryCompleted: true },
+    { status: "blocked" },
+  ]) {
+    assert.equal(
+      renderDockerRecoveryDoctorReport({ ...base, ...patch }, true).exitCode,
+      2,
+    );
+  }
+});
 
 test("旧版修復記録の引継ぎはexact IDと修復記録の生成元配布Rootだけを受理する", () => {
   const id = `docker-desktop-repair.${"a".repeat(32)}`;

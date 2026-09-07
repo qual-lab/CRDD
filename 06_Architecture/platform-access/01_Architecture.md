@@ -31,6 +31,35 @@ Coordinatorの用途別Adapter
 
 ## 3. 操作ごとの境界
 
+### 内部ブロックとOS接続
+
+```text
+Coordinatorの用途別Adapter（許可・耐久記録・全体結果の所有者）
+  ↓ 固定binaryへの要求
+受付・dispatch [main.rs]
+  ├→ Root／Home／Store／State要求・応答 [protocol.rs]
+  │     └→ 主体・保護・実体観測／限定初期化 [windows.rs]
+  │                                         ↓
+  │                                      Windows API
+  └→ Docker操作 [docker_repair.rs]
+        ├ 障害修復protocol
+        ├ 検証付き再起動protocol（実装接続中）
+        ├ artifact固定・Process観測／限定操作
+        ├→ 発行元署名検証 [docker_authenticode.rs] → Windows署名検証API
+        └→ Known Folder・選択ユーザー情報 [windows.rs]
+  ↓ 閉じた応答frameとProcess終了
+Coordinator側で再検証 → 診断／回復結果
+```
+
+| 内部ブロック | Source群 | 所有範囲 |
+|---|---|---|
+| 受付・応答形式 | `src/main.rs`、`src/protocol.rs` | mode選択、要求形式、Root／Home系応答の符号化 |
+| Windows観測 | `src/windows.rs` | OS主体、ACL、Known Folder、Filesystem実体と限定初期化 |
+| Docker操作 | `src/docker_repair.rs` | 用途別protocol、mutex、固定artifact、Process確認・限定操作 |
+| 発行元検証 | `src/docker_authenticode.rs` | 開いたDocker artifactのWindows署名・発行元検証 |
+
+再起動protocolのSourceが存在することは、署名済み配布物への収載、耐久記録との接続または実機E2E完了を意味しない。操作許可、Directory退避、Task復旧、再起動完了の総合判定はこのbinaryへ移さず、Coordinator側に保持する。Linux／macOSの実装経路はない。
+
 | 経路 | 実装上の所有者 | 条件・効果・限界 |
 |---|---|---|
 | Provider Home観測 | `windows.rs`の`observe_provider_home` | Codex／Claudeの選択HomeをOS Known Folderから結合する。Credential本文は読まず、既存Homeを修復しない |

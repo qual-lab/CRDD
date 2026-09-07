@@ -4,7 +4,7 @@ const RESPONSE_BYTES = 41;
 const COMMAND_TIMEOUT_MS = 60_000;
 const START_TIMEOUT_MS = 30_000;
 const RELEASE_TIMEOUT_MS = 5_000;
-const responseMagic = Buffer.from("CRDDDR04", "ascii");
+export type DockerDesktopNativeHelperProtocol = "repair" | "restart";
 
 export type DockerDesktopRepairHelperReleaseOutcome = Readonly<{
   cleanup: "confirmed" | "unknown";
@@ -17,6 +17,7 @@ export type DockerDesktopRepairNativeHelperSession = Readonly<{
   failureDetected: Promise<void>;
   verifyArtifacts: () => Promise<"verified" | "unknown">;
   inspectProcesses: () => Promise<"absent" | "verified" | "unknown">;
+  inspectClientProcesses: () => Promise<"absent" | "verified" | "unknown">;
   terminateProcesses: () => Promise<
     | "absent"
     | "not_issued_unknown"
@@ -38,10 +39,19 @@ export type DockerDesktopRepairNativeHelperOutcome = Readonly<{
 
 type NativeChild = ChildProcessWithoutNullStreams;
 
-function validatedStatus(frame: Buffer, expectedPolicyHash: string) {
+function validatedStatus(
+  frame: Buffer,
+  expectedPolicyHash: string,
+  protocol: DockerDesktopNativeHelperProtocol,
+) {
   if (
+    (protocol !== "repair" && protocol !== "restart") ||
     frame.length !== RESPONSE_BYTES ||
-    !frame.subarray(0, 8).equals(responseMagic) ||
+    !frame
+      .subarray(0, 8)
+      .equals(
+        Buffer.from(protocol === "repair" ? "CRDDDR04" : "CRDDDS01", "ascii"),
+      ) ||
     frame.subarray(9).toString("hex") !== expectedPolicyHash
   )
     return null;
@@ -52,6 +62,7 @@ function validatedStatus(frame: Buffer, expectedPolicyHash: string) {
 export function createDockerDesktopRepairNativeHelperLifecycle(
   child: NativeChild,
   expectedPolicyHash: string,
+  protocol: DockerDesktopNativeHelperProtocol = "repair",
 ): Readonly<{
   waitForInitial: () => Promise<string | null>;
   waitForUnavailableExit: () => Promise<boolean>;
@@ -227,7 +238,7 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
       pending = Object.freeze({ resolve, timer });
     });
   };
-  const command = async (value: "I" | "K" | "L" | "V") => {
+  const command = async (value: "I" | "K" | "L" | "V" | "B") => {
     if (hasFailed || released || !child.stdin.writable) return null;
     const response = receive(COMMAND_TIMEOUT_MS);
     const written = new Promise<boolean>((resolve) => {
@@ -256,7 +267,7 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
       return null;
     }
     const frame = await response;
-    return frame ? validatedStatus(frame, expectedPolicyHash) : null;
+    return frame ? validatedStatus(frame, expectedPolicyHash, protocol) : null;
   };
   const session: DockerDesktopRepairNativeHelperSession = Object.freeze({
     assertLive: () =>
@@ -278,6 +289,13 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
       (await command("V")) === "V" ? "verified" : "unknown",
     inspectProcesses: async () => {
       const status = await command("I");
+      if (status === "A") return "absent";
+      if (status === "V") return "verified";
+      return "unknown";
+    },
+    inspectClientProcesses: async () => {
+      if (protocol !== "restart") return "unknown";
+      const status = await command("B");
       if (status === "A") return "absent";
       if (status === "V") return "verified";
       return "unknown";
@@ -332,7 +350,10 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
           return joinFailedCleanup("failed");
         }
         const frame = await response;
-        if (!frame || validatedStatus(frame, expectedPolicyHash) !== "C") {
+        if (
+          !frame ||
+          validatedStatus(frame, expectedPolicyHash, protocol) !== "C"
+        ) {
           fail();
           return joinFailedCleanup("failed");
         }
@@ -368,7 +389,9 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
   return Object.freeze({
     waitForInitial: async () => {
       const frame = await receive(START_TIMEOUT_MS);
-      return frame ? validatedStatus(frame, expectedPolicyHash) : null;
+      return frame
+        ? validatedStatus(frame, expectedPolicyHash, protocol)
+        : null;
     },
     waitForUnavailableExit: async () => {
       if (!hasFailed) fail();

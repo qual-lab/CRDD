@@ -25,6 +25,32 @@ const FAST_SUPERVISOR_TIMING = Object.freeze({
   releaseTimeoutMs: 10,
 });
 
+test("restart kernel domains retain live ownership across await and invalidate on release", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const hash = randomBytes(32).toString("hex");
+  for (const acquire of [
+    () => acquireRuntimeOwnedDockerRuntimeStateKernelLock(hash),
+    () => acquireRuntimeOwnedLogicalProviderHomeKernelLock(hash),
+    () =>
+      acquireRuntimeOwnedHostOperationKernelLock(
+        "crdd-coordinator-doctor-restart-fixture",
+        "a".repeat(32),
+      ),
+  ]) {
+    const lock = acquire();
+    assert.ok(lock);
+    try {
+      assert.equal(lock.assertLive(), true);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal(lock.assertLive(), true);
+    } finally {
+      assert.equal(lock.release(), true);
+    }
+    assert.equal(lock.assertLive(), false);
+  }
+});
+
 async function acquireInteractiveConsoleLockForConcurrentTestRun() {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const outcome =

@@ -1,3 +1,4 @@
+import { parseDockerTaskRecoveryId } from "../security/docker-recovery-identity.ts";
 import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
 
 const MAXIMUM_ARGUMENTS = 16;
@@ -188,6 +189,8 @@ export function parseDoctorArguments(
   let adoptDockerDesktopRepairId: string | null = null;
   let afterDockerDesktopRepairId: string | null = null;
   let repairReleaseRoot: string | null = null;
+  let restartDockerForRecoveryId: string | null = null;
+  let afterRecordedDockerRestart = false;
 
   for (let index = 0; index < argumentValues.length; index += 1) {
     const token = argumentValues[index];
@@ -202,6 +205,8 @@ export function parseDoctorArguments(
         "--adopt-docker-desktop-repair",
         "--after-docker-desktop-repair",
         "--repair-release-root",
+        "--restart-docker-for-recovery",
+        "--after-recorded-docker-restart",
       ].includes(token) ||
       seen.has(token)
     ) {
@@ -217,6 +222,8 @@ export function parseDoctorArguments(
     else if (token === "--isolation") isActiveIsolation = true;
     else if (token === "--repair-docker-desktop-runtime")
       shouldRepairDockerDesktopRuntime = true;
+    else if (token === "--after-recorded-docker-restart")
+      afterRecordedDockerRestart = true;
     else {
       const value = argumentValues[index + 1];
       if (!validToken(value) || value.startsWith("--")) {
@@ -229,7 +236,16 @@ export function parseDoctorArguments(
       }
       index += 1;
       if (token === "--recover-isolation") recoveryId = value;
-      else if (token === "--close-docker-desktop-runtime-repair") {
+      else if (token === "--restart-docker-for-recovery") {
+        if (!parseDockerTaskRecoveryId(value))
+          return response(
+            "blocked",
+            "doctor_arguments_invalid",
+            null,
+            isJsonRequested,
+          );
+        restartDockerForRecoveryId = value;
+      } else if (token === "--close-docker-desktop-runtime-repair") {
         if (!/^docker-desktop-repair\.[a-f0-9]{32}$/u.test(value)) {
           return response(
             "blocked",
@@ -261,6 +277,27 @@ export function parseDoctorArguments(
     }
   }
 
+  if (
+    (restartDockerForRecoveryId !== null &&
+      (isActiveIsolation ||
+        recoveryId !== null ||
+        shouldRepairDockerDesktopRuntime ||
+        closeDockerDesktopRepairId !== null ||
+        adoptDockerDesktopRepairId !== null ||
+        afterDockerDesktopRepairId !== null ||
+        repairReleaseRoot !== null ||
+        afterRecordedDockerRestart)) ||
+    (afterRecordedDockerRestart &&
+      (!parseDockerTaskRecoveryId(recoveryId) ||
+        afterDockerDesktopRepairId !== null ||
+        repairReleaseRoot !== null))
+  )
+    return response(
+      "blocked",
+      "doctor_arguments_incompatible",
+      null,
+      isJsonRequested,
+    );
   if (
     (adoptDockerDesktopRepairId === null &&
       afterDockerDesktopRepairId === null) !==
@@ -333,6 +370,12 @@ export function parseDoctorArguments(
       recoveryId,
       repairDockerDesktopRuntime: shouldRepairDockerDesktopRuntime,
       closeDockerDesktopRepairId,
+      ...(restartDockerForRecoveryId !== null
+        ? { restartDockerForRecoveryId }
+        : {}),
+      ...(afterRecordedDockerRestart
+        ? { afterRecordedDockerRestart: true }
+        : {}),
       ...(afterDockerDesktopRepairId !== null
         ? { afterDockerDesktopRepairId, repairReleaseRoot }
         : {}),
