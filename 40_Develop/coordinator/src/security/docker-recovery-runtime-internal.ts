@@ -5651,7 +5651,14 @@ export function verifyRuntimeOwnedDockerRestartPreparation(
     )
       return false;
     const inventory = inspectDockerRecoveryRootSnapshot(record.root.rootPath);
-    const names = fs.readdirSync(record.directory);
+    const parsed = parseDockerTaskRecoveryId(record.binding.recoveryId);
+    if (!parsed) return false;
+    const names = inventoryOperationDirectory(
+      record.directory,
+      parsed.token,
+      parsed.operationNonce,
+      parsed.baseHash,
+    );
     const publishedNames = names
       .filter((name) =>
         record.continuation
@@ -5829,9 +5836,12 @@ export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
       root.rootPath,
       `docker-task-${parsed.operationNonce}`,
     );
-    const hasContinuation = fs
-      .readdirSync(directory)
-      .some((name) => name.startsWith("engine-continuation-"));
+    const hasContinuation = inventoryOperationDirectory(
+      directory,
+      parsed.token,
+      parsed.operationNonce,
+      parsed.baseHash,
+    ).some((name) => name.startsWith("engine-continuation-"));
     const records = Array.from({ length: 5 }, (unusedValue, sequence) => {
       void unusedValue;
       return readExactJson(

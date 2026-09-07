@@ -303,6 +303,12 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 公式plugin・Native・実機観測 | 未署名／差替え／旧CLI生存／停止timeout／WSL観測不能／Desktop残存を拒否。停止exit 0単独では不成立：`integration/docker-restart-machine.contract.test.ts`とNative対象試験。実停止は別の許可済み実機検証 |
 | composition・Task復旧・Fence・残存清掃 | 引継ぎ済み未完了を成功扱いせず、settled後もfresh対象不存在がなければ義務を保持。新記録名の読取り・残存分類を閉じる：`integration/docker-restart-runtime.contract.test.ts`、`docker-recovery-runtime.contract.test.ts`、`docker-recovery-journal.integration.test.ts` |
 | 公開facade・Help・Parser・Dispatcher・結果表示 | exact対象必須、任意forceなし、再起動とTask復旧は別結果、元Task再実行なし：`integration/cli-options.contract.test.ts`、`system/coordinator-docker-recovery-cli.integration.test.ts` |
+
+2026-09-08の署名候補`7b9eac79`による実機確認は、引継ぎ開始前に停止した。準備の再確認だけが生のDirectory一覧を使い、耐久書込みの確認ファイルを記録本体へ混入させていた。準備・再確認・再起動後Recoveryで検証済み記録一覧を使用するよう統一し、未知ファイルや不正な書込み確認の拒否は維持した。
+
+- 再確認の利用契約試験を追加し、確認ファイルの併存を許容しつつ一覧検証失敗を拒否することを確認した。
+- 実ファイルへ耐久記録を生成する既存Recovery試験と合わせて112件成功。型・静的検査も成功した。
+- この根拠は実機再起動、Task回復または正式E2Eの完了を意味しない。修正候補の署名と実機再確認は未完了。
 | 署名・公開Process経路・試験選択・Workflow | 新plugin／sourceが署名依存集合と実ソース由来の入口集合に含まれること、旧K経路不変を確認：`system/interaction-boundary-regression.contract.test.ts`、該当署名試験と回帰選択。手順は実装確定後に同期 |
 
 現在正本との照合では「旧証跡と現在Authorityの分離」「未確定Effect非再発行」「同じ回復IDの保持」と整合する。ただし既存の旧修復Session引継ぎ契約を、新しい部分再起動や別Runtimeへの実行継続へ自動拡張してはならない。旧操作主体の終了証明、新旧契約の互換条件、各保存状態からの正確な観測、追記途中失敗の収束、および公式停止対象のTrustは未完了の設計・検証義務として残る。

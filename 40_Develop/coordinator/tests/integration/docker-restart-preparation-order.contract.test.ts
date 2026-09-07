@@ -146,3 +146,82 @@ test("fresh continuation keeps historical stop intent distinct from current phas
   assert.equal(result.historicalStopIntent, true);
   assert.equal(writes, 1);
 });
+
+test("restart revalidation consumes validated record inventory, not publication companions", () => {
+  const verifierEnd = source.indexOf(
+    "export function persistRuntimeOwnedDockerRestartPhase(",
+    end,
+  );
+  assert.ok(verifierEnd > end);
+  const verifierBody = stripTypeScriptTypes(
+    source.slice(end, verifierEnd).replace("export function", "function"),
+  );
+  const hash = "a".repeat(64);
+  const token = `docker-task.${hash}.${hash}.${hash}`;
+  const capability = {};
+  const directory = path.resolve("fixture-root", `docker-task-${hash}`);
+  const record = {
+    closed: false,
+    persistenceFailed: false,
+    locks: [{ assertLive: () => true }],
+    root: { rootPath: path.dirname(directory) },
+    rootIdentity: "fixed",
+    directory,
+    directoryIdentity: "fixed",
+    submissionName: "submission-create_subscription_auth_probe.json",
+    binding: { recoveryId: token, pendingSubmissionSha256: hash },
+    continuation: true,
+    originRecords: [Buffer.from("origin\n")],
+    handoffs: [Buffer.from("handoff\n")],
+    records: [],
+  };
+  const recordNames = [
+    record.submissionName,
+    "engine-restart-00.json",
+    "engine-handoff-00.json",
+  ];
+  let inventoryReads = 0;
+  let isInventoryValid = true;
+  const context = {
+    Buffer,
+    path,
+    capability,
+    dockerRestartPreparations: new WeakMap([[capability, record]]),
+    restartPathIdentity: () => "fixed",
+    parseDockerTaskRecoveryId: () => ({
+      token,
+      operationNonce: hash,
+      baseHash: hash,
+    }),
+    fs: {
+      readdirSync: () =>
+        recordNames.flatMap((name) => [name, `${name}.crdd-commit.json`]),
+    },
+    inventoryOperationDirectory: (...args: string[]) => {
+      inventoryReads++;
+      assert.deepEqual(args, [directory, token, hash, hash]);
+      if (!isInventoryValid) throw new Error("invalid durable publication");
+      return recordNames;
+    },
+    inspectDockerRecoveryRootSnapshot: () => ({
+      status: "completed",
+      dockerRecoveryIds: [token],
+    }),
+    readExactJson: (name: string) => ({
+      hash,
+      serialized: name.endsWith("engine-restart-00.json")
+        ? "origin\n"
+        : "handoff\n",
+    }),
+  };
+  const verify = () =>
+    runInNewContext(
+      `${verifierBody}\nverifyRuntimeOwnedDockerRestartPreparation(capability);`,
+      context,
+    );
+  assert.equal(verify(), true);
+  assert.equal(inventoryReads, 1);
+  isInventoryValid = false;
+  assert.equal(verify(), false);
+  assert.equal(inventoryReads, 2);
+});
