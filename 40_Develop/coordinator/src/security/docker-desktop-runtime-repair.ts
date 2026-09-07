@@ -13,17 +13,18 @@ import {
   inspectRuntimeOwnedWindowsRuntimeState,
 } from "./candidate-store-windows-adapter.ts";
 import {
+  observeTrustedDockerCli,
+  verifyTrustedDockerCliSnapshot,
+} from "./docker-cli-trust.ts";
+import { DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256 } from "./docker-desktop-current-artifact-trust.ts";
+import {
   acquireRuntimeOwnedDockerDesktopRepairNativeHelper,
   type DockerDesktopRepairNativeHelperOutcome,
   type DockerDesktopRepairNativeHelperSession,
 } from "./docker-desktop-repair-native-helper.ts";
 import {
-  type DockerDesktopRepairPolicy,
-  observeRuntimeOwnedDockerDesktopRepairPolicy,
-} from "./docker-desktop-repair-policy.ts";
-import {
-  classifyDockerDesktopRepairResume,
   classifyCanonicalDockerDesktopRepairHistoricalOperation,
+  classifyDockerDesktopRepairResume,
   createDockerDesktopRepairOperation,
   type DockerDesktopRepairDirectoryIdentity,
   type DockerDesktopRepairEffectAction,
@@ -44,6 +45,7 @@ import {
   persistDockerDesktopRepairStage,
   requiredDockerDesktopRepairRecordsThroughSafeStage,
 } from "./docker-desktop-repair-record-store.ts";
+import { isDockerRestartEngineReady } from "./docker-restart-machine.ts";
 import {
   loadHistoricalReleaseManifestEnvelopeForVerification,
   loadPlatformProvisionerManifestEnvelopeForVerification,
@@ -96,7 +98,6 @@ export type PreparedBoundary = DockerDesktopRepairRecordBoundary &
     crddManifestHash: string;
     crddReleaseSequence: number;
     runtimeExecutionIdentitySha256: string;
-    policy: DockerDesktopRepairPolicy;
   }>;
 
 type MutableLedger = {
@@ -510,8 +511,6 @@ function identityAt(target: string) {
 
 function preparedBoundary(): PreparedBoundary | null {
   if (process.platform !== "win32") return null;
-  const policy = observeRuntimeOwnedDockerDesktopRepairPolicy();
-  if (!policy) return null;
   const packageVerification =
     verifyBundledCoordinatorPackageFromFixedManifestCandidate({
       evaluationTime: new Date().toISOString(),
@@ -563,7 +562,7 @@ function preparedBoundary(): PreparedBoundary | null {
     runtimeStateProtectionHash: root.runtimeStateProtectionHash,
     localUserBindingHash: root.localUserBindingHash,
     runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
-    dockerPolicySha256: policy.policySha256,
+    dockerPolicySha256: DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256,
     crddManifestHash: packageVerification.manifestHash,
     crddReleaseSequence: packageVerification.releaseSequence as number,
     runtimeExecutionIdentitySha256:
@@ -572,7 +571,6 @@ function preparedBoundary(): PreparedBoundary | null {
     runDirectory,
     socketPath: path.win32.join(runDirectory, "dockerInference"),
     platformAccessArtifact: packageVerification.platformAccessArtifact,
-    policy,
   });
 }
 
@@ -580,16 +578,24 @@ function dockerConfig(operation: DockerDesktopRepairOperation) {
   return path.win32.join(operation.operationDirectory, "docker-config");
 }
 
+function observeCurrentTrustedDockerCli() {
+  try {
+    return observeTrustedDockerCli();
+  } catch {
+    return null;
+  }
+}
+
 function observeEngine(boundary: PreparedBoundary): EngineObservation {
-  const cli = boundary.policy.artifacts.get("docker_cli");
-  if (!cli) return "unknown";
   const environment = createWindowsDockerCliEnvironment({
     dockerConfig: boundary.runtimeStateRoot,
     dockerHome: boundary.runtimeStateRoot,
   });
   if (!environment) return "unknown";
+  const cli = observeCurrentTrustedDockerCli();
+  if (!cli) return "unknown";
   const result = spawnSync(
-    cli.path,
+    cli.executablePath,
     [
       "--host",
       DOCKER_ENGINE,
@@ -597,7 +603,7 @@ function observeEngine(boundary: PreparedBoundary): EngineObservation {
       boundary.runtimeStateRoot,
       "version",
       "--format",
-      "{{.Server.Version}}",
+      "{{json .Server}}",
     ],
     {
       env: environment,
@@ -608,14 +614,48 @@ function observeEngine(boundary: PreparedBoundary): EngineObservation {
       maxBuffer: 4_096,
     },
   );
-  return observeDockerDesktopEngineResult(
-    result,
-    boundary.policy.engineVersion,
-    () => {
-      const handle = fs.openSync(DOCKER_ENGINE_PIPE, "r+");
-      fs.closeSync(handle);
-    },
-  );
+  try {
+    verifyTrustedDockerCliSnapshot(cli);
+  } catch {
+    return "unknown";
+  }
+  if (isDockerRestartEngineReady(result)) return "ready";
+  return observeDockerDesktopUnavailableResult(result, () => {
+    const handle = fs.openSync(DOCKER_ENGINE_PIPE, "r+");
+    fs.closeSync(handle);
+  });
+}
+
+function observeDockerDesktopUnavailableResult(
+  result: Readonly<{
+    pid: number | undefined;
+    error?: Error | undefined;
+    signal: NodeJS.Signals | null;
+    status: number | null;
+    stdout: unknown;
+  }>,
+  probeEnginePipe: () => void,
+): EngineObservation {
+  if (
+    result.pid === undefined ||
+    result.error ||
+    result.signal !== null ||
+    result.status === null ||
+    result.status === 0 ||
+    typeof result.stdout !== "string" ||
+    (result.stdout !== "" && result.stdout !== "\n" && result.stdout !== "\r\n")
+  )
+    return "unknown";
+  try {
+    probeEnginePipe();
+    return "unknown";
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+    return code === "ENOENT" ? "known_unavailable" : "unknown";
+  }
 }
 
 export function observeDockerDesktopEngineResult(
@@ -681,18 +721,19 @@ function observeKnownSocketFailure(boundary: PreparedBoundary) {
 }
 
 function officialShutdown(
-  boundary: PreparedBoundary,
+  _boundary: PreparedBoundary,
   operation: DockerDesktopRepairOperation,
 ): TaggedEffect {
-  const cli = boundary.policy.artifacts.get("desktop_cli");
   const config = dockerConfig(operation);
   const environment = createWindowsDockerCliEnvironment({
     dockerConfig: config,
     dockerHome: config,
   });
-  if (!cli || !environment)
+  if (!environment)
     return Object.freeze({ issued: false, confirmation: "not_issued" });
-  const result = spawnSync(cli.path, ["-Shutdown"], {
+  const cli = observeCurrentTrustedDockerCli();
+  if (!cli) return Object.freeze({ issued: false, confirmation: "not_issued" });
+  const result = spawnSync(cli.executablePath, ["-Shutdown"], {
     env: environment,
     shell: false,
     windowsHide: true,
@@ -700,6 +741,15 @@ function officialShutdown(
     timeout: 30_000,
     maxBuffer: 4_096,
   });
+  try {
+    verifyTrustedDockerCliSnapshot(cli);
+  } catch {
+    return Object.freeze({
+      issued: result.pid !== undefined,
+      confirmation:
+        result.pid === undefined ? "not_issued" : ("unknown" as const),
+    });
+  }
   return Object.freeze({
     issued: result.pid !== undefined,
     confirmation:
@@ -4297,7 +4347,10 @@ export function describeDockerDesktopRuntimeRepairContract() {
     desktopLaunch:
       "native_create_process_exact_launcher_handle_identity_and_minimal_known_folder_environment",
     dockerIdentityCoverage:
-      "direct_effect_executable_set_and_engine_response_version_only",
+      "official_fixed_paths_valid_docker_inc_publisher_and_same_operation_identity_hash",
+    exactDockerVersionRequired: false,
+    crossOperationArtifactHashPinning: false,
+    sameOperationArtifactIdentityRequired: true,
     dockerInstallationAttestation: false,
     officialDockerDistributionAndUpdaterInTrustedComputingBase: true,
     wslTermination: "docker_desktop_distribution_only",

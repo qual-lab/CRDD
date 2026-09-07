@@ -59,6 +59,19 @@ Task回復は専用Portへ分離した。Project Runtimeへ公開するのはPro
 
 正式E2E直前のDocker Desktop更新では、通常TaskのDocker CLI信頼が過去の特定Version、Hashおよびbyte数へ結合され、正規のDocker Inc更新を危険な差替えと同一視していたことを確認した。通常実行の信頼を、固定公式配置、有効なDocker Inc Authenticode署名、Filesystem実体、Linux Engine能力、およびOperation中の同一Identity／Hashへ変更した。版またはHashが前回と異なることだけでは停止せず、真正性、必要CapabilityまたはOperation中の同一性を確認できない場合はDocker Effect前に停止する。特定VersionとArtifactを固定するDocker Desktop修復PolicyはHost状態を変更する限定修復だけに残し、通常Taskへ流用しない。Provider image Digest、署名済みRuntime／Native成果物、再現可能Build入力およびProtocol Revisionは、それぞれが所有する再現性、完全性またはbyte解釈の保証として維持した。開発E2EはProvider開始前の最終応答でもstdinを閉じるため、環境Gateの拒否を45分のtimeoutへ拡大しない。Docker Effect契約12件、配布依存閉包119件と是正した反証1件、実Provider E2E観測契約28件、固定改訂版`491ae717`の制限Process全回帰1,753件、Windows実Process Gate 7件、静的検査、Repository全体Checker、および更新後Docker 29.7.2の実署名観測は成功した。正式署名と公開縦断E2E、独立再レビューおよび最終監査は後続Gateとして保持する。
 
+### 基準版Capabilityの移行照合
+
+v0.20の実Docker結合試験で、検証付き再起動が正常な停止・起動だけを置換し、v0.19で成立していた既知socket障害からの復帰を新経路へ接続していないことを確認した。新しいComponentや状態機械の存在だけを置換完了とせず、基準版の成立済みCapabilityから次の対応を固定する。
+
+| 基準版のCapability | 基準版の根拠 | v0.20の所有者／実装 | 必要な実境界確認 | 現在状態 |
+|---|---|---|---|---|
+| 正常Engine上で未確定Taskを回復するための検証付き再起動 | v0.19のTask Recovery契約とv0.20で追加した再起動記録試験 | 検証付き再起動、再起動記録、Task Recovery | 正常停止、正常起動、freshな資源不存在、Task回復 | Source接続済み、実機未完了 |
+| Docker Desktopの既知socket障害から復帰する | [v0.18のHost復旧記録](Evidence/CHG-000015_Verification_Run_Record_1531092.md)、v0.19修復契約 | 障害修復。正常再起動とは別責務のまま、現行DockerのTrust境界と接続する | 既知障害分類、公式停止、残存ProcessとWSLの停止、run世代退避、起動、Engine観測 | v0.20の新再起動へ未接続。現在のDocker更新後は旧版固定Policyが修復Capabilityを取得できない |
+| 障害修復後も元のexact Task回復義務を保持する | v0.19の修復記録、Recovery IDおよびTask Recovery試験 | 障害修復記録とTask Recoveryの再起動Fence | 修復終了記録、現在Engine、対象資源のfreshな不存在、元Recovery IDによる再入場 | 既存契約あり。現行Trust境界による修復完走後の再確認が必要 |
+| 復旧処理の途中結果を再発行せず、物理残存を無断削除しない | v0.19の耐久修復Recordと回復試験 | 障害修復Record、再起動Record、Runtime State | 各Effect前Intent、結果不明時の停止、保持物のexact Identity、終了後cleanup | 保持。5回の盲目的再試行は採用しない |
+
+削除・置換対象の判断では、Git tag `v0.19.0`、当時の変更トレース、検証結果および公開契約を確認する。上表が新しい根拠で閉じる前に、旧修復を不要、検証付き再起動へ置換済み、または回帰不要と扱わない。一方、同じCapabilityが現行Trust境界と実Lifecycleで成立した後は、版固定された旧Policyや重複実装を互換目的で残さない。
+
 ## 2. 人間が決定した範囲
 
 - Project Runtimeは独立packageへ分ける。
@@ -216,6 +229,7 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 再起動実行制御 | `docker-restart-execution.ts`を追加。操作前の意図記録、待機後の境界・取消再確認、未確定操作の再発行拒否、finallyでの回収を32件の注入型結合試験で確認。この確認時点では本番の記録・Native Adapterは未接続。後続接続は下記に記録 |
 | Nativeの検証方式 | `docker_authenticode.rs`で同一handleのWinVerifyTrustと検証済み署名者のDocker Inc組織名を確認。失効確認はキャッシュ限定、確認不能は拒否。未署名file拒否とインストール済み署名実体の検証成功を確認 |
 | Native再起動部品 | 旧修復経路と別の`--docker-desktop-restart-helper`を追加。現在の必須実体と存在する場合のdev_envsを署名検証し、同一操作中のsize・Hash・Identityを固定。`CRDDDS01`応答を用い、旧修復記録のPolicy Hashへ流用しない |
+| 障害修復のTrust移行 | 障害修復のHost Effect順序と耐久記録は維持し、Native Capability取得を検証付き再起動と同じ公式Path・Docker Inc署名・同一操作Identity固定へ統合した。Docker 4.41.2の版固定Policyは現在の修復Authorityに使用せず、旧記録の履歴検証と現行Effect Authorityを分離する |
 | Native実機観測 | 更新済Dockerで検証・終了命令だけを送り、ready／検証／終了の応答を確認。停止・起動命令は未送信。通常ユーザー環境で成功し、制限環境の失敗を成功へ合算しない |
 | 部品回帰 | TypeScriptの状態・実行制御65件成功。Rustの通常試験20件とCLI試験1件成功、明示実機試験は別実行。cargo check／clippy／fmt成功 |
 | 公開復旧への接続 | 未完了。純粋な順序判定は証跡の認証、永続化、排他または実機操作の実装ではない |

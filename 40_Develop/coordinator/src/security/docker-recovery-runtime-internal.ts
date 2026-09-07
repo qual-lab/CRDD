@@ -22,7 +22,7 @@ import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "./docker-cli-trust.ts";
-import { observeRuntimeOwnedDockerDesktopRepairPolicy } from "./docker-desktop-repair-policy.ts";
+import { DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256 } from "./docker-desktop-current-artifact-trust.ts";
 import {
   inspectDockerDesktopRepairHistoricalOperation,
   parseDockerDesktopRepairDirectoryName,
@@ -51,10 +51,10 @@ import { createDockerRecoveryRuntimeStateLockController } from "./docker-recover
 import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine.ts";
 import {
   createDockerRestartContinuationRecord,
+  createDockerRestartMigratedPhase,
+  createDockerRestartMigrationRecord,
   parseDockerRestartContinuationRecord,
   resolveDockerRestartHistory,
-  createDockerRestartMigrationRecord,
-  createDockerRestartMigratedPhase,
 } from "./docker-restart-continuation-record.ts";
 import { parseDockerRestartHandoffRecord } from "./docker-restart-handoff-record.ts";
 import {
@@ -5232,9 +5232,8 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
     const root = consumeRuntimeOwnedRuntimeStateRootCapability(
       observation.rootCapability,
     );
-    phase = "repair_policy";
-    const policy = observeRuntimeOwnedDockerDesktopRepairPolicy();
-    if (observation.status !== "candidate" || !root || !policy)
+    phase = "repair_trust";
+    if (observation.status !== "candidate" || !root)
       throw new Error("docker_task_recovery_restart_fence_boundary_invalid");
     let localAppData = root.rootPath;
     for (const expected of ["RuntimeState", "CRDD", "Qual-Lab"]) {
@@ -5258,7 +5257,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
         runtimeStateProtectionHash: root.runtimeStateProtectionHash,
         localUserBindingHash: root.localUserBindingHash,
         runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
-        dockerPolicySha256: policy.policySha256,
+        dockerPolicySha256: DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256,
         crddManifestHash: verification.manifestHash,
         crddReleaseSequence: releaseSequence as number,
         runtimeExecutionIdentitySha256:

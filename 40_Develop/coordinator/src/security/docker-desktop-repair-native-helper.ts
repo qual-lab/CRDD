@@ -1,11 +1,13 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createWindowsDockerDesktopRepairHelperEnvironment } from "../core/windows-child-environment.ts";
+import {
+  DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256,
+  describeDockerDesktopCurrentArtifactTrustContract,
+} from "./docker-desktop-current-artifact-trust.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "./docker-desktop-repair-native-helper-lifecycle-internal.ts";
-import { observeRuntimeOwnedDockerDesktopRepairPolicy } from "./docker-desktop-repair-policy.ts";
 import {
   beginPlatformAccessArtifactSigningObservation,
   observePlatformAccessReleaseArtifactCandidate,
@@ -94,38 +96,23 @@ function sameArtifact(left: unknown, right: unknown) {
 export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelper(
   expectedPlatformArtifact: unknown,
 ): Promise<DockerDesktopRepairNativeHelperOutcome> {
-  return acquireRuntimeOwnedDockerDesktopNativeHelper(
-    expectedPlatformArtifact,
-    "repair",
-  );
+  return acquireRuntimeOwnedDockerDesktopNativeHelper(expectedPlatformArtifact);
 }
 
 export async function acquireRuntimeOwnedDockerDesktopRestartNativeHelper(
   expectedPlatformArtifact: unknown,
 ): Promise<DockerDesktopRestartNativeHelperOutcome> {
-  return acquireRuntimeOwnedDockerDesktopNativeHelper(
-    expectedPlatformArtifact,
-    "restart",
-  );
+  return acquireRuntimeOwnedDockerDesktopNativeHelper(expectedPlatformArtifact);
 }
 
 async function acquireRuntimeOwnedDockerDesktopNativeHelper(
   expectedPlatformArtifact: unknown,
-  protocol: "repair" | "restart",
 ): Promise<DockerDesktopRestartNativeHelperOutcome> {
   if (process.platform !== "win32")
     return Object.freeze({ status: "unavailable", session: null });
-  const policy =
-    protocol === "repair"
-      ? observeRuntimeOwnedDockerDesktopRepairPolicy()
-      : Object.freeze({
-          policySha256: createHash("sha256")
-            .update(
-              "CRDD_DOCKER_RESTART_TRUST_V1|official-fixed-paths|Docker Inc|cache-only|deny-write-delete|optional-dev-envs",
-              "ascii",
-            )
-            .digest("hex"),
-        });
+  const policy = Object.freeze({
+    policySha256: DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256,
+  });
   const artifactBefore = observePlatformAccessReleaseArtifactCandidate(
     bundledDistributionRoot,
   );
@@ -144,28 +131,20 @@ async function acquireRuntimeOwnedDockerDesktopNativeHelper(
     return Object.freeze({ status: "unavailable", session: null });
   let child: NativeChild;
   try {
-    child = spawn(
-      executablePath,
-      [
-        protocol === "repair"
-          ? "--docker-desktop-repair-helper"
-          : "--docker-desktop-restart-helper",
-      ],
-      {
-        cwd: bundledDistributionRoot,
-        env: environment,
-        shell: false,
-        windowsHide: true,
-        stdio: ["pipe", "pipe", "pipe"],
-      },
-    ) as NativeChild;
+    child = spawn(executablePath, ["--docker-desktop-restart-helper"], {
+      cwd: bundledDistributionRoot,
+      env: environment,
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    }) as NativeChild;
   } catch {
     return Object.freeze({ status: "cleanup_unknown", session: null });
   }
   const created = createDockerDesktopRepairNativeHelperLifecycle(
     child,
     policy.policySha256,
-    protocol,
+    "restart",
   );
   const initial = await created.waitForInitial();
   const artifactAfter = observePlatformAccessReleaseArtifactCandidate(
@@ -208,7 +187,12 @@ export function describeDockerDesktopRepairNativeHelperContract() {
     implementation: "signed_platform_access_native_helper",
     protocolRevision: 4,
     lockIdentity: "global_selected_user_docker_desktop_repair_domain",
-    policy: "single_signed_policy_embedded_in_native_and_read_by_runtime",
+    policy:
+      "shared_current_artifact_trust_policy_embedded_in_native_and_runtime",
+    currentRepairAndRestartTrustBoundary:
+      "official_fixed_paths_valid_docker_inc_publisher_same_operation_identity_hash",
+    legacyVersionPolicyUsedForCurrentAuthority: false,
+    currentArtifactTrust: describeDockerDesktopCurrentArtifactTrustContract(),
     packageUpdateExclusion: "read_handles_deny_write_and_delete_until_release",
     processTermination:
       "same_verified_kernel_process_handle_query_terminate_wait_close",

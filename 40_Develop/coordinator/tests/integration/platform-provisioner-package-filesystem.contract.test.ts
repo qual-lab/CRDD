@@ -92,20 +92,17 @@ test("Native repair/restart spawnは同じ署名観測所有者と閉じた引�
   assert.doesNotThrow(() =>
     assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
   );
-  for (const flag of [
-    "--docker-desktop-repair-helper",
-    "--docker-desktop-restart-helper",
-  ]) {
-    assert.ok(source.includes(flag));
-    assert.throws(
-      () =>
-        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
-          sourcePath,
-          source.replace(flag, "--unauthorized-helper"),
-        ),
-      /runtime_dependency_child_process_unbound/u,
-    );
-  }
+  const flag = "--docker-desktop-restart-helper";
+  assert.ok(source.includes(flag));
+  assert.doesNotMatch(source, /--docker-desktop-repair-helper/u);
+  assert.throws(
+    () =>
+      assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+        sourcePath,
+        source.replace(flag, "--unauthorized-helper"),
+      ),
+    /runtime_dependency_child_process_unbound/u,
+  );
 });
 
 function verificationToolSources() {

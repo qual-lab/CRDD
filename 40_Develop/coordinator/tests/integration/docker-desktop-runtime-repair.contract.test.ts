@@ -11,11 +11,11 @@ import type {
   DockerDesktopRepairOperation,
 } from "../../src/security/docker-desktop-repair-record-store.ts";
 import {
+  classifyCanonicalDockerDesktopRepairHistoricalOperation,
   createDockerDesktopRepairOperation,
   DOCKER_DESKTOP_REPAIR_STAGES,
   type DockerDesktopRepairHistoryVerifier,
   inspectDockerDesktopRepairHistoricalOperation,
-  classifyCanonicalDockerDesktopRepairHistoricalOperation,
   inventoryDockerDesktopRepairOperations,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
@@ -3997,6 +3997,9 @@ test("Contractは自動fallback・全WSL停止・削除・PID killを許可し�
   assert.equal(contract.platform, "windows");
   assert.equal(contract.invocation, "explicit_doctor_only");
   assert.equal(contract.automaticFallback, false);
+  assert.equal(contract.exactDockerVersionRequired, false);
+  assert.equal(contract.crossOperationArtifactHashPinning, false);
+  assert.equal(contract.sameOperationArtifactIdentityRequired, true);
   assert.equal(contract.wslTermination, "docker_desktop_distribution_only");
   assert.equal(contract.staleDirectoryDeletion, false);
   assert.equal(contract.providerEffectIssued, false);

@@ -358,7 +358,7 @@ Task受付・境界検証
 
 新しい再起動記録を既存の修復記録v4へ偽装しない。旧修復履歴のrun生成時刻条件は保持し、新記録には停止完了の独立した根拠を要求する。各記録をそれぞれ検証した後だけ、Task復旧が使用する検証済み停止・再起動の根拠へ接続する。
 
-新経路は旧修復のDocker 4.41.2固定Policyと`K`停止を変更・流用しない。公式Path・発行者・実体をNative側で検証したsnapshotへ結合し、操作中の差替えを拒否する。公式Desktop pluginの`S`停止、子Job・EOF取消・応答の責務は[Native設計](../platform-access/01_Architecture.md#5-状態資源回復)を参照する。TypeScriptから渡したPathやHashだけをNative操作Authorityにしない。停止CLIのexit 0の後にも管理Process・CLI不存在とWSL停止を確認し、その後の起動・Linux Engine応答を別に確認する。
+検証付き再起動と障害修復は、公式Path、Docker Incの有効な署名および同一操作中の実体Identity／Hash固定を共通のNative Trust境界として使用する。Dockerの版または過去操作のHashを次の操作へ固定せず、正規Updaterによる更新を再署名や再設定なしで受理する一方、署名不明、Path差、操作中の差替えまたは必要実体の欠落ではEffect 0とする。正常再起動は公式Desktop pluginの`S`停止を使用し、run Directoryを変更しない。正常起動が既知socket障害で成立しない場合は、同じ起動Effectを盲目的に再発行せず、正常再起動を終了してから既存の障害修復Lifecycleへ移る。障害修復だけが`K`停止、Docker WSL停止およびrun世代退避を所有する。子Job・EOF取消・応答の責務は[Native設計](../platform-access/01_Architecture.md#5-状態資源回復)を参照する。TypeScriptから渡したPathやHashだけをNative操作Authorityにしない。停止CLIのexit 0の後にも管理Process・CLI不存在とWSL停止を確認し、その後の起動・Linux Engine応答を別に確認する。
 
 #### 保存状態からの限定再入場
 

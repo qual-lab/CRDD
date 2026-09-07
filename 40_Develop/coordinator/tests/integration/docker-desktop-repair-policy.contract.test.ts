@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
+import { describeDockerDesktopCurrentArtifactTrustContract } from "../../src/security/docker-desktop-current-artifact-trust.ts";
 import { describeDockerDesktopRepairNativeHelperContract } from "../../src/security/docker-desktop-repair-native-helper.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts";
 
@@ -199,6 +200,11 @@ test("native helperはPIDでなく同じkernel handleを停止authorityにする
   const contract = describeDockerDesktopRepairNativeHelperContract();
   assert.equal(contract.pidAsTerminationAuthority, false);
   assert.equal(contract.processTreeTermination, false);
+  assert.equal(contract.legacyVersionPolicyUsedForCurrentAuthority, false);
+  assert.equal(
+    contract.currentRepairAndRestartTrustBoundary,
+    "official_fixed_paths_valid_docker_inc_publisher_same_operation_identity_hash",
+  );
   assert.equal(
     contract.processTermination,
     "same_verified_kernel_process_handle_query_terminate_wait_close",
@@ -210,6 +216,27 @@ test("native helperはPIDでなく同じkernel handleを停止authorityにする
   assert.equal(
     contract.cancellationCleanup,
     "close_stdin_and_join_exit_child_close_and_all_stdio_within_bound",
+  );
+});
+
+test("現在の障害修復と再起動はDocker更新を許容し操作中の実体だけを固定する", () => {
+  const contract = describeDockerDesktopCurrentArtifactTrustContract();
+  assert.equal(contract.publisherOrganization, "Docker Inc");
+  assert.equal(contract.authenticodeRequired, true);
+  assert.equal(contract.exactVersionRequired, false);
+  assert.equal(contract.exactHashRequiredAcrossOperations, false);
+  assert.equal(contract.sameIdentityAndHashRequiredWithinOperation, true);
+  const adapter = fs.readFileSync(
+    new URL(
+      "../../src/security/docker-desktop-repair-native-helper.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.equal(adapter.includes("docker-desktop-repair-policy.ts"), false);
+  assert.equal(
+    (adapter.match(/\["--docker-desktop-restart-helper"\]/gu) ?? []).length,
+    1,
   );
 });
 
