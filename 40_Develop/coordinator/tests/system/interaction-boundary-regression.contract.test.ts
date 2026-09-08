@@ -2125,7 +2125,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     "src/security/docker-owned-process.ts",
     "src/security/docker-recovery-runtime-internal.ts",
     // queryWsl: fixed OS enumeration only; no WSL termination spawn.
-    // queryDocker: trusted fixed CLI, Engine/empty-container observation only.
+    // queryDockerEngine/queryContainersAbsent: trusted fixed CLI observations only.
     // Their argument/provenance closure is owned by the protected-path graph.
     "src/security/docker-restart-machine.ts",
     "src/security/provider-home-windows-adapter.ts",

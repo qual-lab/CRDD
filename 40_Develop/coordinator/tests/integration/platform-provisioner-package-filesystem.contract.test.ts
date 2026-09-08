@@ -52,7 +52,7 @@ test("restart machineのWSL対象とDocker観測引数は閉集合で保持す�
   assert.doesNotThrow(() =>
     assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
   );
-  assert.equal((source.match(/\bspawnSync\s*\(/gu) ?? []).length, 2);
+  assert.equal((source.match(/\bspawnSync\s*\(/gu) ?? []).length, 3);
   assert.doesNotMatch(
     source,
     /terminateWsl|terminateProcesses|--terminate|--shutdown/u,

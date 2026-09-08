@@ -1359,16 +1359,10 @@ const runtimeExternalProcessCallsites = Object.freeze(
     ],
     [
       "src/security/docker-restart-machine.ts",
-      "queryDocker",
+      "queryDockerEngine",
       "spawnSync",
       ["cli", ".", "executablePath"],
       [
-        "kind",
-        "=",
-        "=",
-        "=",
-        "engine",
-        "?",
         "[",
         "--host",
         ",",
@@ -1381,7 +1375,15 @@ const runtimeExternalProcessCallsites = Object.freeze(
         "{{json .Server}}",
         ",",
         "]",
-        ":",
+      ],
+      ["const", "cli", "="],
+    ],
+    [
+      "src/security/docker-restart-machine.ts",
+      "queryContainersAbsent",
+      "spawnSync",
+      ["cli", ".", "executablePath"],
+      [
         "[",
         "--host",
         ",",
@@ -1624,11 +1626,21 @@ const exactExternalProcessCalls = Object.freeze(
     [
       "runtime",
       "src/security/docker-restart-machine.ts",
-      "queryDocker",
+      "queryDockerEngine",
       "spawnSync",
       1,
-      "6a31be0054f52016103de47b26ae4e0a602f0c44f3cbc7b0a85dbd8b4af4eef8",
-      "7aff5de0b48887db4c2bd1c16ab14eaee30639b001e0abc2727596cf7214e036",
+      "bda32a5b8d50f7ee690c40295feb53149d77412ab3432238140247e9a7cfc993",
+      "ceca34343116bad8cef083394eee464dc319efd6c01174d49b8504384f3a6e32",
+      "result",
+    ],
+    [
+      "runtime",
+      "src/security/docker-restart-machine.ts",
+      "queryContainersAbsent",
+      "spawnSync",
+      1,
+      "8fd4a361488670b0d0a0235e494eaa2ee17b45f1d975dfb63214746fbefceb61",
+      "ccf17e27db593206dfdef29cdaf962949c035e6ecac0a27be77388121f0bf076",
       "result",
     ],
     [
@@ -2278,7 +2290,16 @@ const exactExecutableProvenance = Object.freeze(
       }),
     ],
     [
-      "src/security/docker-restart-machine.ts\0queryDocker",
+      "src/security/docker-restart-machine.ts\0queryDockerEngine",
+      Object.freeze({
+        classification: "registered_platform_helper",
+        proofs: Object.freeze([
+          Object.freeze(["const", "cli", "=", "observeTrustedDockerCli", "("]),
+        ]),
+      }),
+    ],
+    [
+      "src/security/docker-restart-machine.ts\0queryContainersAbsent",
       Object.freeze({
         classification: "registered_platform_helper",
         proofs: Object.freeze([
@@ -4351,7 +4372,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 17 : 6;
+  const expectedCount = graph === "runtime" ? 18 : 6;
   const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -4367,7 +4388,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCalls.length !== 23 ||
+    exactExternalProcessCalls.length !== 24 ||
     exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
     exactExternalProcessCalls.some(
       (callsite) =>

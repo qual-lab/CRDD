@@ -5,7 +5,7 @@
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `refactoring`
-最終更新日: 2026-09-07
+最終更新日: 2026-09-09
 
 ## 1. 結論と現在状態
 
@@ -439,3 +439,17 @@ v0.19と同じ順序の限定実測によりDocker Engineは復帰したが、v0
 `Engine ready / WSL stopped`の現在実環境を使った読取り専用結合試験は、Runtime Lockなし／ありの両方を含む4件すべてに成功した。これにより、backend差を安全条件の欠落へ変えず、実装詳細だけを過剰固定しない境界を実環境で確認した。
 
 集中した状態・記録・machine・Composition・回復Facade・公開CLIの結合回帰258件、静的検査、型検査、Lint、整形、Capability／Traceability検査、通常Windows Process Gate 7件および制限Process回帰1937件（成功1934、失敗0、明示実環境3件skip）が成功した。Repository全体Checkerはerror 0／warning 0である。これは新しいSource候補の回帰根拠であり、既存署名候補、未完了回復記録または正式4経路E2Eを完了済みへ変更しない。次は固定Commitの独立事前監査、再署名、同じ回復IDの実再入場および正式4経路E2Eを必要とする。
+
+### 保護対象Process利用側の閉包（2026-09-09）
+
+Engine観測を三値へ戻す際、旧`queryDocker`を`queryDockerEngine`と`queryContainersAbsent`へ分割した一方、署名・package検査が所有する保護対象Process呼出し集合には旧所有関数が残った。通常のmachine試験は新しい意味を検証できたが、固定packageのCanonical基線は無効となり、署名経路の反証試験が本来の変異理由より前に一括停止した。
+
+| 閉包対象 | 現在の処置 |
+|---|---|
+| 実呼出し | Docker Engine観測とContainer不存在観測を別の所有関数、引数式および結果bindingとして導出する |
+| 実行ファイルの由来 | 両呼出しとも同じ署名済みDocker CLI観測を要求し、利用側によるPath再構成を許可しない |
+| 宣言集合 | 旧所有関数を除去し、新しい2利用側、完全な引数式、本文Hashおよび意味グラフHashへ置換する |
+| 件数不変条件 | Runtime呼出し集合を17件から18件、全呼出し集合を23件から24件へ更新し、Actualとの完全一致を要求する |
+| 反証 | WSL一覧、Engine観測、Container不存在観測の3呼出しを閉集合として固定し、旧件数や旧所有関数を成功へ流用しない |
+
+署名・package経路の集中試験138件では137件が初回成功し、残る1件は旧呼出し件数を保持した試験期待値だった。新しい3呼出しの閉集合へ更新した対象試験は成功した。これは責務分割時に機能利用側だけでなく、署名、package、検証用の派生Consumerも同じ変更単位で移行する必要があることを示す。全制限Process回帰、通常Windows Process Gate、独立再レビュー、再署名、同じ回復IDの実再入場および正式4経路E2Eは後続Gateとして保持する。
