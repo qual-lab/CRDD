@@ -42,6 +42,7 @@ import {
   recoverUnknownDockerCreateOutcomeWithRunner,
   releaseRuntimeOwnedDockerRestartPreparation,
   resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver,
+  selectPendingDockerSubmissionNamesFromInventory,
   verifyRuntimeOwnedDockerRestartPreparation,
 } from "../../src/security/docker-recovery-runtime-internal.ts";
 import {
@@ -103,6 +104,27 @@ test("restart preparation rejects arbitrary capability and invalid task before p
   assert.equal(result.cleanupConfirmed, true);
   if (result.status === "blocked")
     assert.equal(result.reason, "docker_restart_id_invalid");
+});
+
+test("Docker回復の未処理Task選択はcommit確認記録をTask本体へ混入させない", () => {
+  const submission = "submission-create_subscription_auth_probe.json";
+  const receipt = "receipt-create_subscription_auth_probe.json";
+  assert.deepEqual(
+    selectPendingDockerSubmissionNamesFromInventory([
+      submission,
+      `${submission}.crdd-commit.json`,
+    ]),
+    [submission],
+  );
+  assert.deepEqual(
+    selectPendingDockerSubmissionNamesFromInventory([
+      submission,
+      `${submission}.crdd-commit.json`,
+      receipt,
+      `${receipt}.crdd-commit.json`,
+    ]),
+    [],
+  );
 });
 
 test("Project記録後のDocker確認資源回収は入れ子accessorとProxyを実行前に拒否する", () => {

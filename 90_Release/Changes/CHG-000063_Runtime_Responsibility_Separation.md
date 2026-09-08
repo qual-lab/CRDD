@@ -453,3 +453,13 @@ Engine観測を三値へ戻す際、旧`queryDocker`を`queryDockerEngine`と`qu
 | 反証 | WSL一覧、Engine観測、Container不存在観測の3呼出しを閉集合として固定し、旧件数や旧所有関数を成功へ流用しない |
 
 署名・package経路の集中試験138件では137件が初回成功し、残る1件は旧呼出し件数を保持した試験期待値だった。新しい3呼出しの閉集合へ更新した対象試験は成功した。これは責務分割時に機能利用側だけでなく、署名、package、検証用の派生Consumerも同じ変更単位で移行する必要があることを示す。全制限Process回帰、通常Windows Process Gate、独立再レビュー、再署名、同じ回復IDの実再入場および正式4経路E2Eは後続Gateとして保持する。
+
+同固定候補の正式再入場では、検証付きDocker再起動の連鎖を`settled`まで確認できた後、Task回復が`docker_task_recovery_restart_submission_mismatch`でEffect 0停止した。実記録には未処理Submissionが1件だけ存在し、そのHashは再起動記録と一致していた。回復利用側が検証済みの記録一覧を得た後にDirectoryを生読みし直し、Submission本体に付随する`.crdd-commit.json`を二つ目のSubmissionとして数えたことが直接原因である。
+
+| 閉じる対象 | 構造是正 | 反証 |
+|---|---|---|
+| 現行の再起動記録からTask回復する入口 | 検証済み記録一覧を保持し、未処理Submission選択へそのまま渡す | Submission本体とcommit確認記録が併存しても本体1件だけを選ぶ |
+| 旧Docker Desktop修復記録からTask回復する入口 | 同じ正規一覧生成を使用し、生のDirectory一覧と独自の存在判定を廃止する | Receipt本体があれば処理済みとし、commit確認記録を本体へ昇格しない |
+| 回復記録の完全性 | 未知項目、孤立したcommit確認記録、不正な記録名および不正な内容は従来どおり正規一覧生成で拒否する | sidecarを無条件に無視する例外へ縮小しない |
+
+この是正はDocker環境または回復データの修復ではなく、同じCanonical inventoryを二つのTask回復Consumerへ伝播する利用側閉包である。集中試験の成功だけを実Task回復または正式4経路E2Eの完了とは扱わず、新しい固定候補で同じRecovery IDへの再入場を必要とする。

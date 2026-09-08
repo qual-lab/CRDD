@@ -2361,6 +2361,21 @@ function inventoryOperationDirectory(
   return Object.freeze([...dataNames].sort());
 }
 
+/** Select unresolved submission data records from an already validated inventory. */
+export function selectPendingDockerSubmissionNamesFromInventory(
+  names: readonly string[],
+) {
+  const inventory = new Set(names);
+  return Object.freeze(
+    names.filter(
+      (name) =>
+        /^submission-.+\.json$/u.test(name) &&
+        !name.endsWith(".crdd-commit.json") &&
+        !inventory.has(name.replace(/^submission-/u, "receipt-")),
+    ),
+  );
+}
+
 function ensureHostCleanupReceipt(
   operationDirectory: string,
   recoveryId: string,
@@ -5296,20 +5311,14 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       root.rootPath,
       `docker-task-${parsed.operationNonce}`,
     );
-    const pendingSubmissionNames = fs
-      .readdirSync(operationDirectory, { withFileTypes: true })
-      .filter(
-        (entry) =>
-          entry.isFile() &&
-          /^submission-.+\.json$/u.test(entry.name) &&
-          !fs.existsSync(
-            path.join(
-              operationDirectory,
-              entry.name.replace(/^submission-/u, "receipt-"),
-            ),
-          ),
-      )
-      .map((entry) => entry.name);
+    const operationInventory = inventoryOperationDirectory(
+      operationDirectory,
+      parsed.token,
+      parsed.operationNonce,
+      parsed.baseHash,
+    );
+    const pendingSubmissionNames =
+      selectPendingDockerSubmissionNamesFromInventory(operationInventory);
     if (pendingSubmissionNames.length === 0)
       throw new Error("docker_task_recovery_restart_fence_not_needed");
     phase = "ordering";
@@ -5880,12 +5889,8 @@ export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
           ))
     )
       throw new Error("docker_task_recovery_restart_chain_invalid");
-    const names = fs.readdirSync(directory);
-    const pendingNames = names.filter(
-      (name) =>
-        /^submission-.+\.json$/u.test(name) &&
-        !names.includes(name.replace(/^submission-/u, "receipt-")),
-    );
+    const pendingNames =
+      selectPendingDockerSubmissionNamesFromInventory(restartInventory);
     const pendingName = pendingNames[0];
     const settled = records.at(-1);
     if (
