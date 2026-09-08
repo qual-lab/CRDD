@@ -230,6 +230,7 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | Nativeの検証方式 | `docker_authenticode.rs`で同一handleのWinVerifyTrustと検証済み署名者のDocker Inc組織名を確認。失効確認はキャッシュ限定、確認不能は拒否。未署名file拒否とインストール済み署名実体の検証成功を確認 |
 | Native再起動部品 | 旧修復経路と別の`--docker-desktop-restart-helper`を追加。現在の必須実体と存在する場合のdev_envsを署名検証し、同一操作中のsize・Hash・Identityを固定。`CRDDDS01`応答を用い、旧修復記録のPolicy Hashへ流用しない |
 | 障害修復のTrust移行 | 障害修復のHost Effect順序と耐久記録は維持し、Native Capability取得を検証付き再起動と同じ公式Path・Docker Inc署名・同一操作Identity固定へ統合した。Docker 4.41.2の版固定Policyは現在の修復Authorityに使用せず、旧記録の履歴検証と現行Effect Authorityを分離する |
+| 障害修復の停止責務 | 障害修復は専用`CRDDDR05`で公式停止`S`と残存Process終了`K`を順序付きで許可し、通常再起動`CRDDDS01`は`S`だけを許可する。旧`docker.exe -Shutdown`と版固定Policyは現行実行集合から削除した |
 | Native実機観測 | 更新済Dockerで検証・終了命令だけを送り、ready／検証／終了の応答を確認。停止・起動命令は未送信。通常ユーザー環境で成功し、制限環境の失敗を成功へ合算しない |
 | 部品回帰 | TypeScriptの状態・実行制御65件成功。Rustの通常試験20件とCLI試験1件成功、明示実機試験は別実行。cargo check／clippy／fmt成功 |
 | 公開復旧への接続 | 未完了。純粋な順序判定は証跡の認証、永続化、排他または実機操作の実装ではない |

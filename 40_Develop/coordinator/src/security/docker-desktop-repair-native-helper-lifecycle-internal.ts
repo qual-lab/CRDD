@@ -53,7 +53,7 @@ function validatedStatus(
     !frame
       .subarray(0, 8)
       .equals(
-        Buffer.from(protocol === "repair" ? "CRDDDR04" : "CRDDDS01", "ascii"),
+        Buffer.from(protocol === "repair" ? "CRDDDR05" : "CRDDDS01", "ascii"),
       ) ||
     frame.subarray(9).toString("hex") !== expectedPolicyHash
   )

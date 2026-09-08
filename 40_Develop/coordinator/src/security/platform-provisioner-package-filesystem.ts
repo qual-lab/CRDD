@@ -1434,8 +1434,8 @@ const runtimeExternalProcessCallsites = Object.freeze(
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "spawn",
       ["executablePath"],
-      ["[", "--docker-desktop-restart-helper", "]"],
-      ["const", "executablePath", "="],
+      ["[", "helperMode", "]"],
+      ["const", "helperMode", "="],
     ],
     [
       "src/security/docker-desktop-runtime-repair.ts",
@@ -1443,14 +1443,6 @@ const runtimeExternalProcessCallsites = Object.freeze(
       "spawnSync",
       ["cli", ".", "executablePath"],
       ["[", "--host"],
-      ["const", "cli", "=", "observeCurrentTrustedDockerCli", "("],
-    ],
-    [
-      "src/security/docker-desktop-runtime-repair.ts",
-      "officialShutdown",
-      "spawnSync",
-      ["cli", ".", "executablePath"],
-      ["[", "-Shutdown"],
       ["const", "cli", "=", "observeCurrentTrustedDockerCli", "("],
     ],
     [
@@ -1745,8 +1737,8 @@ const exactExternalProcessCalls = Object.freeze(
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "spawn",
       1,
-      "0356f5b5de7afc932836e697cf704cfda455cfcd272b6cc6b132fccfe3f78a4d",
-      "039f52079255c8f9bbff5337f28a04d243c6a1fab96372c322eff07929eb011b",
+      "7f9681a86d5eaf457e2173355a325d8dfb143891700adcf4a04f68cb87f0af25",
+      "19a39f7b7414cd19d6a9f9e8eb78a760604609ff8e0c0c4d40466fbebcf68dda",
       "child",
     ],
     [
@@ -1904,7 +1896,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "runtime",
       "src/security/docker-desktop-repair-native-helper.ts",
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
-      "039f52079255c8f9bbff5337f28a04d243c6a1fab96372c322eff07929eb011b",
+      "19a39f7b7414cd19d6a9f9e8eb78a760604609ff8e0c0c4d40466fbebcf68dda",
     ],
     [
       "runtime",
@@ -2047,7 +2039,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
-      "7c998785a7a14ed4dc6a879034f2cc74af2c2a9d069a4e2b787cb92a618be21a",
+      "3d9f426c29beb8c27155b23eb684b8a3124a0d5997b3323605467185c6d876a4",
     ],
     [
       "src/security/docker-effect-runtime.ts\0startCommand",
@@ -3096,7 +3088,7 @@ const internalLifecycleConsumers = Object.freeze(
             argumentPrefixes: Object.freeze([
               Object.freeze(["child"]),
               Object.freeze(["policy", ".", "policySha256"]),
-              Object.freeze(["restart"]),
+              Object.freeze(["protocol"]),
             ]),
             beforePrefixes: Object.freeze([
               Object.freeze(["const", "signingObservation", "="]),

@@ -34,12 +34,8 @@ use windows_sys::Win32::System::Threading::{
     QueryFullProcessImageNameW, STARTUPINFOW, TerminateProcess, WaitForSingleObject,
 };
 
-const POLICY_BYTES: &[u8] =
-    include_bytes!("../../coordinator/policies/windows-docker-desktop-4.41.2.policy");
-const POLICY_MAGIC: &str = "CRDD_WINDOWS_DOCKER_DESKTOP_REPAIR_POLICY_V1";
-const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR04";
+const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR05";
 const RESPONSE_BYTES: usize = 41;
-const MAXIMUM_POLICY_BYTES: usize = 16_384;
 const MAXIMUM_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 const MAXIMUM_PROCESS_ENTRIES: usize = 4_096;
 const PROCESS_WAIT_MS: u32 = 10_000;
@@ -104,80 +100,6 @@ enum ProcessInventory {
     Absent,
     Verified(Vec<VerifiedProcess>),
     Unknown,
-}
-
-fn hex_nibble(value: u8) -> Option<u8> {
-    match value {
-        b'0'..=b'9' => Some(value - b'0'),
-        b'A'..=b'F' => Some(value - b'A' + 10),
-        _ => None,
-    }
-}
-
-fn parse_sha256(value: &str) -> Option<[u8; 32]> {
-    let bytes = value.as_bytes();
-    if bytes.len() != 64 {
-        return None;
-    }
-    let mut output = [0_u8; 32];
-    for index in 0..32 {
-        output[index] = (hex_nibble(bytes[index * 2])? << 4) | hex_nibble(bytes[index * 2 + 1])?;
-    }
-    Some(output)
-}
-
-fn parse_policy() -> Option<Vec<PolicyArtifact>> {
-    if POLICY_BYTES.is_empty()
-        || POLICY_BYTES.len() > MAXIMUM_POLICY_BYTES
-        || !POLICY_BYTES.ends_with(b"\n")
-        || POLICY_BYTES.contains(&b'\r')
-        || POLICY_BYTES.contains(&0)
-    {
-        return None;
-    }
-    let source = std::str::from_utf8(POLICY_BYTES).ok()?;
-    let mut lines = source.trim_end_matches('\n').split('\n');
-    if lines.next()? != POLICY_MAGIC
-        || lines.next()? != "version|4.41.2"
-        || lines.next()? != "engine|28.1.1"
-    {
-        return None;
-    }
-    let expected_roles = [
-        "docker_cli",
-        "desktop_cli",
-        "launcher",
-        "frontend",
-        "backend",
-        "build",
-        "dev_envs",
-    ];
-    let mut artifacts = Vec::with_capacity(expected_roles.len());
-    for expected_role in expected_roles {
-        let mut fields = lines.next()?.split('|');
-        let role = fields.next()?;
-        let path = fields.next()?;
-        let bytes = fields.next()?.parse::<u64>().ok()?;
-        let sha256 = parse_sha256(fields.next()?)?;
-        if fields.next().is_some()
-            || role != expected_role
-            || !path.starts_with("C:\\")
-            || path.contains('\0')
-            || !(1..=MAXIMUM_ARTIFACT_BYTES).contains(&bytes)
-        {
-            return None;
-        }
-        artifacts.push(PolicyArtifact {
-            role: role.to_owned(),
-            path: PathBuf::from(path),
-            bytes,
-            sha256,
-        });
-    }
-    if lines.next().is_some() {
-        return None;
-    }
-    Some(artifacts)
 }
 
 fn begin_sha256() -> Option<(OwnedAlgorithm, OwnedHash)> {
@@ -290,41 +212,6 @@ fn final_dos_path(handle: HANDLE) -> Option<PathBuf> {
 
 fn filetime_value(value: FILETIME) -> u64 {
     (u64::from(value.dwHighDateTime) << 32) | u64::from(value.dwLowDateTime)
-}
-
-fn lock_artifacts(policy: &[PolicyArtifact]) -> Option<Vec<LockedArtifact>> {
-    let mut result = Vec::with_capacity(policy.len());
-    for entry in policy {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .share_mode(FILE_SHARE_READ)
-            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
-            .open(&entry.path)
-            .ok()?;
-        let handle = file.as_raw_handle().cast::<c_void>();
-        let information = handle_information(handle)?;
-        let length =
-            (u64::from(information.nFileSizeHigh) << 32) | u64::from(information.nFileSizeLow);
-        if information.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
-            || length != entry.bytes
-            || !final_dos_path(handle)?
-                .to_string_lossy()
-                .eq_ignore_ascii_case(&entry.path.to_string_lossy())
-            || sha256_file(&mut file, entry.bytes)? != entry.sha256
-        {
-            return None;
-        }
-        let after = handle_information(handle)?;
-        if !same_file(&information, &after) {
-            return None;
-        }
-        result.push(LockedArtifact {
-            policy: entry.clone(),
-            file,
-            information,
-        });
-    }
-    Some(result)
 }
 
 fn verify_locked_artifacts(artifacts: &mut [LockedArtifact]) -> bool {
@@ -898,18 +785,14 @@ fn write_response(writer: &mut impl Write, status: u8, policy_hash: &[u8; 32]) -
 }
 
 pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
-    let Some(policy_hash) = sha256_bytes(POLICY_BYTES) else {
+    let Some(policy_hash) = sha256_bytes(RESTART_POLICY) else {
         return 2;
     };
     let Some(_mutex) = acquire_mutex() else {
         let _ = write_response(writer, b'L', &policy_hash);
         return 2;
     };
-    let Some(policy) = parse_policy() else {
-        let _ = write_response(writer, b'U', &policy_hash);
-        return 2;
-    };
-    let Some(mut artifacts) = lock_artifacts(&policy) else {
+    let Some(mut artifacts) = lock_current_artifacts() else {
         let _ = write_response(writer, b'U', &policy_hash);
         return 2;
     };
@@ -936,6 +819,18 @@ pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
                 ProcessInventory::Verified(_) => b'V',
                 ProcessInventory::Unknown => b'U',
             },
+            b'S' => {
+                if stdin_cancelled() {
+                    b'N'
+                } else {
+                    let (status, cleanup_confirmed) = stop_desktop(&mut artifacts, stdin_cancelled);
+                    if !cleanup_confirmed {
+                        let _ = write_response(writer, status, &policy_hash);
+                        return 3;
+                    }
+                    status
+                }
+            }
             b'K' => terminate_processes(&artifacts),
             b'L' => launch_desktop(&mut artifacts),
             b'Q' => {
@@ -1014,6 +909,10 @@ fn stop_desktop(
     }
 }
 
+fn restart_command_is_allowed(command: u8) -> bool {
+    matches!(command, b'V' | b'B' | b'I' | b'S' | b'L' | b'Q')
+}
+
 pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> i32 {
     let Some(policy_hash) = sha256_bytes(RESTART_POLICY) else {
         return 2;
@@ -1042,6 +941,9 @@ pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> 
             Ok(()) => (),
             Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return 0,
             Err(_) => return 3,
+        }
+        if !restart_command_is_allowed(command[0]) {
+            return 2;
         }
         if command[0] == b'Q' {
             return if respond(writer, b'C') { 0 } else { 3 };
@@ -1173,12 +1075,25 @@ mod tests {
     }
 
     #[test]
-    fn embedded_policy_is_strict_and_complete() {
-        let policy = parse_policy().unwrap();
-        assert_eq!(policy.len(), 7);
-        assert_eq!(policy[0].role, "docker_cli");
-        assert_eq!(policy[6].role, "dev_envs");
-        assert!(POLICY_BYTES.len() < MAXIMUM_POLICY_BYTES);
+    #[ignore = "Explicit installed Docker read-only repair trust probe"]
+    fn repair_trust_accepts_current_installation_without_process_effects() {
+        let mut input = std::io::Cursor::new(b"VQ");
+        let mut output = Vec::new();
+        assert_eq!(run(&mut input, &mut output), 0);
+        assert_eq!(output.len(), RESPONSE_BYTES * 3);
+        for (frame, status) in output.chunks_exact(RESPONSE_BYTES).zip([b'R', b'V', b'C']) {
+            assert_eq!(&frame[..8], RESPONSE_MAGIC);
+            assert_eq!(frame[8], status);
+            assert_eq!(&frame[9..], sha256_bytes(RESTART_POLICY).unwrap());
+        }
+    }
+
+    #[test]
+    fn restart_protocol_rejects_force_termination_command() {
+        assert!(!restart_command_is_allowed(b'K'));
+        for command in [b'V', b'B', b'I', b'S', b'L', b'Q'] {
+            assert!(restart_command_is_allowed(command));
+        }
     }
 
     #[test]

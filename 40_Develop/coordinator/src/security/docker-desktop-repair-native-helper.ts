@@ -96,17 +96,24 @@ function sameArtifact(left: unknown, right: unknown) {
 export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelper(
   expectedPlatformArtifact: unknown,
 ): Promise<DockerDesktopRepairNativeHelperOutcome> {
-  return acquireRuntimeOwnedDockerDesktopNativeHelper(expectedPlatformArtifact);
+  return acquireRuntimeOwnedDockerDesktopNativeHelper(
+    expectedPlatformArtifact,
+    "repair",
+  );
 }
 
 export async function acquireRuntimeOwnedDockerDesktopRestartNativeHelper(
   expectedPlatformArtifact: unknown,
 ): Promise<DockerDesktopRestartNativeHelperOutcome> {
-  return acquireRuntimeOwnedDockerDesktopNativeHelper(expectedPlatformArtifact);
+  return acquireRuntimeOwnedDockerDesktopNativeHelper(
+    expectedPlatformArtifact,
+    "restart",
+  );
 }
 
 async function acquireRuntimeOwnedDockerDesktopNativeHelper(
   expectedPlatformArtifact: unknown,
+  protocol: "repair" | "restart",
 ): Promise<DockerDesktopRestartNativeHelperOutcome> {
   if (process.platform !== "win32")
     return Object.freeze({ status: "unavailable", session: null });
@@ -130,8 +137,12 @@ async function acquireRuntimeOwnedDockerDesktopNativeHelper(
   )
     return Object.freeze({ status: "unavailable", session: null });
   let child: NativeChild;
+  const helperMode =
+    protocol === "repair"
+      ? "--docker-desktop-repair-helper"
+      : "--docker-desktop-restart-helper";
   try {
-    child = spawn(executablePath, ["--docker-desktop-restart-helper"], {
+    child = spawn(executablePath, [helperMode], {
       cwd: bundledDistributionRoot,
       env: environment,
       shell: false,
@@ -144,7 +155,7 @@ async function acquireRuntimeOwnedDockerDesktopNativeHelper(
   const created = createDockerDesktopRepairNativeHelperLifecycle(
     child,
     policy.policySha256,
-    "restart",
+    protocol,
   );
   const initial = await created.waitForInitial();
   const artifactAfter = observePlatformAccessReleaseArtifactCandidate(
@@ -185,7 +196,7 @@ async function acquireRuntimeOwnedDockerDesktopNativeHelper(
 export function describeDockerDesktopRepairNativeHelperContract() {
   return Object.freeze({
     implementation: "signed_platform_access_native_helper",
-    protocolRevision: 4,
+    protocolRevision: 5,
     lockIdentity: "global_selected_user_docker_desktop_repair_domain",
     policy:
       "shared_current_artifact_trust_policy_embedded_in_native_and_runtime",

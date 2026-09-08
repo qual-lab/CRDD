@@ -353,16 +353,16 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:docker-desktop-repair-policy",
+      "id": "coordinator:integration:docker-desktop-native-helper",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/docker-desktop-repair-policy.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/docker-desktop-native-helper.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
         "docker",
         "desktop",
         "repair",
-        "policy"
+        "native-helper"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,

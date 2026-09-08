@@ -94,7 +94,8 @@ test("Native repair/restart spawnは同じ署名観測所有者と閉じた引�
   );
   const flag = "--docker-desktop-restart-helper";
   assert.ok(source.includes(flag));
-  assert.doesNotMatch(source, /--docker-desktop-repair-helper/u);
+  assert.match(source, /--docker-desktop-repair-helper/u);
+  assert.match(source, /spawn\(executablePath, \[helperMode\]/u);
   assert.throws(
     () =>
       assertRuntimeSourceDeclaredGraphBoundaryForVerification(

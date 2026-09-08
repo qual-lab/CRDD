@@ -4016,6 +4016,11 @@ test("Contractは自動fallback・全WSL停止・削除・PID killを許可し�
     false,
   );
   assert.equal(
+    sources.some((source) => source.includes('"-Shutdown"')),
+    false,
+  );
+  assert.match(sources[0] ?? "", /await session\.stopDesktop\(\)/u);
+  assert.equal(
     sources.some((source) => source.includes("taskkill")),
     false,
   );

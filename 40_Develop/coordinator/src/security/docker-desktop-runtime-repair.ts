@@ -183,7 +183,8 @@ export type RepairDependencies = Readonly<{
   officialShutdown: (
     boundary: PreparedBoundary,
     operation: DockerDesktopRepairOperation,
-  ) => TaggedEffect;
+    session: DockerDesktopRepairNativeHelperSession,
+  ) => TaggedEffect | Promise<TaggedEffect>;
   terminateDockerWsl: () => TaggedEffect;
   renameRunDirectory: (
     boundary: PreparedBoundary,
@@ -574,10 +575,6 @@ function preparedBoundary(): PreparedBoundary | null {
   });
 }
 
-function dockerConfig(operation: DockerDesktopRepairOperation) {
-  return path.win32.join(operation.operationDirectory, "docker-config");
-}
-
 function observeCurrentTrustedDockerCli() {
   try {
     return observeTrustedDockerCli();
@@ -731,42 +728,20 @@ function observeKnownSocketFailure(boundary: PreparedBoundary) {
   }
 }
 
-function officialShutdown(
+async function officialShutdown(
   _boundary: PreparedBoundary,
-  operation: DockerDesktopRepairOperation,
-): TaggedEffect {
-  const config = dockerConfig(operation);
-  const environment = createWindowsDockerCliEnvironment({
-    dockerConfig: config,
-    dockerHome: config,
-  });
-  if (!environment)
+  _operation: DockerDesktopRepairOperation,
+  session: DockerDesktopRepairNativeHelperSession,
+): Promise<TaggedEffect> {
+  if (!("stopDesktop" in session) || typeof session.stopDesktop !== "function")
     return Object.freeze({ issued: false, confirmation: "not_issued" });
-  const cli = observeCurrentTrustedDockerCli();
-  if (!cli) return Object.freeze({ issued: false, confirmation: "not_issued" });
-  const result = spawnSync(cli.executablePath, ["-Shutdown"], {
-    env: environment,
-    shell: false,
-    windowsHide: true,
-    encoding: "buffer",
-    timeout: 30_000,
-    maxBuffer: 4_096,
-  });
-  try {
-    verifyTrustedDockerCliSnapshot(cli);
-  } catch {
-    return Object.freeze({
-      issued: result.pid !== undefined,
-      confirmation:
-        result.pid === undefined ? "not_issued" : ("unknown" as const),
-    });
-  }
+  const result = await session.stopDesktop();
   return Object.freeze({
-    issued: result.pid !== undefined,
+    issued: result !== "not_issued",
     confirmation:
-      result.pid === undefined
+      result === "not_issued"
         ? "not_issued"
-        : result.status === 0 && result.signal === null && !result.error
+        : result === "command_completed"
           ? "confirmed"
           : "unknown",
   });
@@ -2539,7 +2514,11 @@ async function executeRepair(
           reason = "docker_desktop_repair_cancelled_before_host_effect";
           return { status, reason, ledger, operation };
         }
-        const shutdown = dependencies.officialShutdown(boundary, operation);
+        const shutdown = await dependencies.officialShutdown(
+          boundary,
+          operation,
+          session,
+        );
         const shutdownSettlement = await persistHostEffectSettlement(
           dependencies,
           boundary,
