@@ -433,6 +433,7 @@ v0.19と同じ順序の限定実測によりDocker Engineは復帰したが、v0
 | Engine観測 | 信頼済みDocker CLIの完全なLinux Server応答を`ready`、CLI失敗かつEngine pipe不存在を`known_unavailable`、それ以外を`unknown`とする |
 | 起動成立 | Engineが`ready`であることを必須とし、WSL Distributionの`running`は要求しない |
 | 停止成立 | 管理ProcessとClientの不存在、Engineの`known_unavailable`およびWSLの`stopped`をすべて要求する |
+| 観測資源の回収 | Engine pipeのopen後にcloseが失敗した場合は回収不明をstickyに保持し、最終cleanupへ伝播する |
 | 反証 | Engine ReadyかつWSL stoppedのbackendを成功させ、Engineが残存する停止結果および観測不能を拒否する |
 
 `Engine ready / WSL stopped`の現在実環境を使った読取り専用結合試験は、Runtime Lockなし／ありの両方を含む4件すべてに成功した。これにより、backend差を安全条件の欠落へ変えず、実装詳細だけを過剰固定しない境界を実環境で確認した。

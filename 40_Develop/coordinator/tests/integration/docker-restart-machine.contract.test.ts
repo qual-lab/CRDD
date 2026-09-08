@@ -14,7 +14,9 @@ function fixture(change: string = "") {
   let wsl: "running" | "stopped" | "unknown" =
     change === "idle" ? "stopped" : "running";
   let engine: "ready" | "known_unavailable" | "unknown" =
-    change === "engine-observation" ? "unknown" : "ready";
+    change === "engine-observation" || change === "engine-cleanup"
+      ? "unknown"
+      : "ready";
   let processes: "verified" | "absent" = "verified";
   const session = {
     assertLive: () => change !== "dead",
@@ -61,7 +63,10 @@ function fixture(change: string = "") {
     boundary: () => isBoundaryLive,
     signal: controller.signal,
     observeWsl: () => (change === "wsl" ? "unknown" : wsl),
-    observeEngine: () => engine,
+    observeEngine: () =>
+      change === "engine-cleanup"
+        ? { state: engine, cleanup: "unknown" as const }
+        : engine,
     containersAbsent: () => change !== "containers",
     now: () => 0,
     wait: async () => {
@@ -310,22 +315,31 @@ test("Engine observation distinguishes known unavailability from unknown failure
     stdout: "",
   };
   assert.equal(
-    observeDockerRestartEngineResult(unavailable, () => "absent"),
+    observeDockerRestartEngineResult(unavailable, () => ({
+      state: "absent",
+      cleanup: "confirmed",
+    })).state,
     "known_unavailable",
   );
   assert.equal(
-    observeDockerRestartEngineResult(unavailable, () => "present"),
+    observeDockerRestartEngineResult(unavailable, () => ({
+      state: "present",
+      cleanup: "confirmed",
+    })).state,
     "unknown",
   );
   assert.equal(
-    observeDockerRestartEngineResult(unavailable, () => "unknown"),
+    observeDockerRestartEngineResult(unavailable, () => ({
+      state: "unknown",
+      cleanup: "confirmed",
+    })).state,
     "unknown",
   );
   assert.equal(
     observeDockerRestartEngineResult(
       { ...unavailable, error: new Error("timeout") },
-      () => "absent",
-    ),
+      () => ({ state: "absent", cleanup: "confirmed" }),
+    ).state,
     "unknown",
   );
 });
@@ -339,14 +353,14 @@ test("Engine pipe observation treats only explicit absence as absent", () => {
   assert.equal(
     observeDockerRestartEnginePipe(() => {
       throw failure("ENOENT");
-    }),
+    }).state,
     "absent",
   );
   for (const code of ["EACCES", "EPERM", "EMFILE", "ENFILE", undefined])
     assert.equal(
       observeDockerRestartEnginePipe(() => {
         throw failure(code);
-      }),
+      }).state,
       "unknown",
       code ?? "generic",
     );
@@ -354,7 +368,7 @@ test("Engine pipe observation treats only explicit absence as absent", () => {
     observeDockerRestartEnginePipe(
       () => 1,
       () => {},
-    ),
+    ).state,
     "present",
   );
   assert.equal(
@@ -363,7 +377,25 @@ test("Engine pipe observation treats only explicit absence as absent", () => {
       () => {
         throw failure("EIO");
       },
-    ),
+    ).state,
     "unknown",
   );
+  assert.equal(
+    observeDockerRestartEnginePipe(
+      () => 1,
+      () => {
+        throw failure("EIO");
+      },
+    ).cleanup,
+    "unknown",
+  );
+});
+
+test("Engine pipe cleanup uncertainty is sticky through machine release", async () => {
+  const f = fixture("engine-cleanup");
+  assert.equal(await f.machine.observeReady(), false);
+  assert.deepEqual(await f.machine.release(), {
+    cleanup: "unknown",
+    protocol: "completed",
+  });
 });
