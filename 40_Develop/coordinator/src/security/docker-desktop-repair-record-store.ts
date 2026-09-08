@@ -2118,10 +2118,15 @@ function readOperation(
   const handoffNames = historyEntries.map((entry) => entry.name).sort();
   let handoffTipSha256 = adoptionSha256;
   let previousRelease = adopting;
+  const recordedOriginPolicySha256 = originalDockerPolicySha256(
+    boundary.runtimeStateRoot,
+    directoryName,
+  );
   const historyPolicySha256 =
     isAdoptionV2 || isAdoptionV3
       ? String(adoption.dockerPolicySha256)
-      : boundary.dockerPolicySha256;
+      : recordedOriginPolicySha256;
+  if (!historyPolicySha256) return null;
   let historySession =
     isAdoptionV2 || isAdoptionV3
       ? String(adoption.adoptingLocalUserBindingHash)

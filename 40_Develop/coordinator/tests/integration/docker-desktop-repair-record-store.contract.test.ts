@@ -828,6 +828,63 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
   assert.deepEqual(snapshot(), beforeEntries);
 });
 
+test("終了済みv1履歴は原記録のポリシーで検証し、ポリシー更新後も再開不能Evidenceとして読める", (t) => {
+  const value = historyFixture(t);
+  const adopted = persistDockerDesktopRepairHistoricalAdoption(
+    value.currentBoundary,
+    value.original,
+    value.originManifest,
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(adopted?.history);
+  const adoptionPath = path.join(
+    adopted.operationDirectory,
+    "historical-adoption.json",
+  );
+  const currentReceipt = JSON.parse(fs.readFileSync(adoptionPath, "utf8"));
+  fs.writeFileSync(
+    adoptionPath,
+    `${JSON.stringify({
+      schema: "crdd-coordinator/docker-desktop-repair-history/v1",
+      kind: "adoption",
+      repairId: currentReceipt.repairId,
+      originalRecordCount: currentReceipt.originalRecordCount,
+      originalTipSha256: currentReceipt.originalTipSha256,
+      originManifest: currentReceipt.originManifest,
+      adoptingManifest: currentReceipt.adoptingManifest,
+    })}\n`,
+  );
+  const legacy = inventoryDockerDesktopRepairOperations(
+    value.currentBoundary,
+    value.verifyHistory,
+  ).operations[0];
+  assert.ok(legacy?.history);
+  const closed = persistDockerDesktopRepairHistoricalClosure(
+    value.currentBoundary,
+    legacy,
+    {
+      liveRunIdentity: { dev: "9", ino: "8", birthtimeNs: "7" },
+      staleState: "retained",
+    },
+    value.adoptingManifest,
+    value.verifyHistory,
+  );
+  assert.ok(closed?.history?.closed);
+  const afterPolicyChange = inventoryDockerDesktopRepairOperations(
+    { ...value.currentBoundary, dockerPolicySha256: "f".repeat(64) },
+    value.verifyHistory,
+  );
+  assert.equal(afterPolicyChange.status, "verified");
+  const completed = afterPolicyChange.operations[0];
+  assert.ok(completed);
+  assert.deepEqual(classifyDockerDesktopRepairResume(completed), {
+    state: "terminal",
+    action: null,
+    nextStage: null,
+  });
+});
+
 test("修復履歴のsession handoffは8件で閉じ、9件目を記録せず拒否する", (t) => {
   const value = historyFixture(t);
   let operation = persistDockerDesktopRepairHistoricalAdoption(
