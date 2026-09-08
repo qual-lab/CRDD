@@ -371,3 +371,14 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | Process停止境界の回帰失敗 | 試験fixtureが全ファイルのopen/closeを差し替え、新規Native観測まで壊していた。差替えをコンソールdeviceと対応descriptorだけに限定し、他の実Filesystem操作を保持。期待値を変更せず関連6試験と型検査成功 |
 | 異なる署名鍵の拒否試験 | 現行観測処理は現在の配布集合を受理するが、HEADから展開する旧集合を拒否。作業候補の改訂版固定後に再実行し、鍵拒否とmanifest非生成の成立を確認する。現時点では未合格 |
 | ローカル清掃 | 不要な旧試験worktreeと一時ランチャーを清掃。未完了Taskの回復記録、現在の署名候補、必要な検証記録は保持。清掃を回復完了の代替にしない |
+
+### Docker更新後の停止観測是正（2026-09-08）
+
+署名候補による修復再入場は、履歴検証を通過した後に`docker_desktop_engine_state_unknown`でEffect 0停止した。読み取り実測では、Docker CLI 29.7.2がEngine停止時の`{{json .Server}}`へ`null`を出力して終了コード1を返し、対象named pipeは`ENOENT`だった。旧契約は空出力だけを停止候補としていたため、既知の停止状態を未分類にしていた。
+
+| 保持する保証 | 是正・確認 |
+|---|---|
+| Docker版を固定しない | AuthenticodeでDocker Inc発行物を確認し、同一操作中の実体・Hash固定を維持する |
+| 停止状態を出力だけで決めない | 非ゼロ終了、厳密な空出力またはJSON `null`、named pipeの明示的`ENOENT`がすべて成立した場合だけ`known_unavailable`とする |
+| 想定外を安全側へ閉じる | 空白付き`null`、大文字、任意本文、pipe存在・権限拒否・観測不能は引き続き`unknown`とする |
+| 実Producer形状を回帰する | 実子ProcessのLF／CRLF／JSON `null`搬送とpipe判定を契約試験へ追加する。修復完了は新しい署名候補の実機Lifecycleで別途確認する |

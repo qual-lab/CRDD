@@ -586,6 +586,17 @@ function observeCurrentTrustedDockerCli() {
   }
 }
 
+function isKnownUnavailableDockerServerOutput(stdout: string) {
+  return (
+    stdout === "" ||
+    stdout === "\n" ||
+    stdout === "\r\n" ||
+    stdout === "null" ||
+    stdout === "null\n" ||
+    stdout === "null\r\n"
+  );
+}
+
 function observeEngine(boundary: PreparedBoundary): EngineObservation {
   const environment = createWindowsDockerCliEnvironment({
     dockerConfig: boundary.runtimeStateRoot,
@@ -643,7 +654,7 @@ function observeDockerDesktopUnavailableResult(
     result.status === null ||
     result.status === 0 ||
     typeof result.stdout !== "string" ||
-    (result.stdout !== "" && result.stdout !== "\n" && result.stdout !== "\r\n")
+    !isKnownUnavailableDockerServerOutput(result.stdout)
   )
     return "unknown";
   try {
@@ -687,7 +698,7 @@ export function observeDockerDesktopEngineResult(
     result.status === null ||
     result.status === 0 ||
     typeof result.stdout !== "string" ||
-    (result.stdout !== "" && result.stdout !== "\n" && result.stdout !== "\r\n")
+    !isKnownUnavailableDockerServerOutput(result.stdout)
   )
     return "unknown";
   try {

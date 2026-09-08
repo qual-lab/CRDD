@@ -65,7 +65,7 @@ function snapshotDirectoryBytes(root: string) {
   return result;
 }
 
-test("Docker停止時の空行はCLI失敗とpipe不存在の両方がある場合だけ受理する", () => {
+test("Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の両方がある場合だけ受理する", () => {
   const base = {
     pid: 123,
     status: 1,
@@ -73,7 +73,7 @@ test("Docker停止時の空行はCLI失敗とpipe不存在の両方がある場�
     stdout: "\n",
     stderr: "engine unavailable",
   } as const;
-  for (const stdout of ["", "\n", "\r\n"]) {
+  for (const stdout of ["", "\n", "\r\n", "null", "null\n", "null\r\n"]) {
     for (const pipe of ["ENOENT", "EACCES", "EPERM", "EIO", "present"]) {
       let probes = 0;
       const result = observeDockerDesktopEngineResult(
@@ -95,7 +95,9 @@ test("Docker停止時の空行はCLI失敗とpipe不存在の両方がある場�
     { stdout: "\r" },
     { stdout: "\n\n" },
     { stdout: "\r\n\r\n" },
-    { stdout: "null\n" },
+    { stdout: " null\n" },
+    { stdout: "null \n" },
+    { stdout: "NULL\n" },
     { stdout: "28.1.1\n" },
     { stdout: Buffer.from("\n") },
     { pid: undefined },
@@ -135,8 +137,8 @@ test("Docker停止時の空行はCLI失敗とpipe不存在の両方がある場�
   }
 });
 
-test("実子Processの空行・非zero終了を停止判定へ搬送する", () => {
-  for (const stdout of ["\n", "\r\n", "unexpected\n"]) {
+test("実子Processの空行・JSON null・非zero終了を停止判定へ搬送する", () => {
+  for (const stdout of ["\n", "\r\n", "null\n", "null\r\n", "unexpected\n"]) {
     const result = spawnSync(
       process.execPath,
       [
