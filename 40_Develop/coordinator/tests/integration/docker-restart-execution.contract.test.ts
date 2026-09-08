@@ -391,3 +391,36 @@ test("restart driver rechecks boundary after await and cleans on initial rejecti
   assert.equal(f.calls.includes("stop"), false);
   assert.equal(result.cleanupConfirmed, true);
 });
+
+test("restart resume from start_intent blocks when boundary changes after ready observation", async () => {
+  const f = fixture();
+  let boundaryChecks = 0;
+  const result = await executeDockerRestart(
+    f.context,
+    {
+      ...f.ports,
+      verifyBoundary: async () => {
+        f.calls.push("boundary");
+        boundaryChecks += 1;
+        return boundaryChecks < 2;
+      },
+      observeReady: async () => {
+        f.calls.push("observeReady");
+        return true;
+      },
+    },
+    f.controller.signal,
+    "start_intent",
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "docker_restart_boundary_unconfirmed");
+  assert.equal(result.recoveryRequired, true);
+  assert.equal(result.restartCompleted, false);
+  assert.equal(result.effectOutcomeUnknown, true);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(f.calls.includes("stop"), false);
+  assert.equal(f.calls.includes("start"), false);
+  assert.equal(f.calls.includes("ready"), false);
+  assert.equal(f.calls.includes("settled"), false);
+  assert.equal(f.calls.filter((value) => value === "cleanup").length, 1);
+});

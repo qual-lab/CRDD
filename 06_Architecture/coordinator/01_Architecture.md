@@ -411,7 +411,7 @@ Task受付・境界検証
 | `ready` | Engineを再観測し、回収後の確定だけを進める |
 | `settled` | 再起動Effectを再発行せず停止。完了Task復旧は別入口 |
 
-別Runtimeの引継ぎは元記録が単一`stop_intent`である限定契約だけを受理する。引継ぎ直後に現在Runtimeの継続記録がなければ`currentPhase=null`となり、新しい継続停止意図を追記して公式停止へ進む。旧要求の再送とは区別し、原記録を保持する。任意の旧phase継続を保証しない。Host・Home・Runtime Stateの3 Lock、Native実体と旧CLI不存在を確認して引継ぎを確定し、待機後にも境界・取消を照合する。これらはSource接続の説明であり、新署名・実機停止再開の成功は未確認である。
+別Runtimeの引継ぎは、元記録が単一`stop_intent`である限定契約だけを受理する。現在Runtimeの継続記録がまだなければ、元の`stop_intent`を現在phaseとして継承し、同じphaseの継続記録をseedとして追記する。その後は公式停止を再発行せず、停止状態のfreshな観測からだけ再開する。原記録は保持し、任意の旧phase継続は保証しない。Host・Home・Runtime Stateの3 Lock、Native実体と旧CLI不存在を確認して引継ぎを確定し、待機後にも境界・取消を照合する。これらはSource接続の説明であり、新署名・実機停止再開の成功は未確認である。
 
 利用側への伝播対象は、公開Help／引数Parser／Dispatcher、Native要求と結果、保護記録の読取りと再入場、Task復旧、結果投影、署名依存集合およびWorkflowとする。正常再起動、対象なし、他Task稼働、観測不能、停止中断、起動失敗、資源残存、取消、親喪失および再入場を契約試験から公開入口の結合試験へ対応付ける。再入場は保存済みphaseごとに、前のEffectを再発行せず現在状態を観測して次の耐久phaseへ進める経路を持つ。とくに`start_intent`は起動要求済み・結果未確定を表すため、Engine Readyのfreshな観測から`ready`へ収束できなければならない。
 
