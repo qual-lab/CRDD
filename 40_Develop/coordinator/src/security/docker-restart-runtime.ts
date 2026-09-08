@@ -85,6 +85,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
         () => verifyRuntimeOwnedDockerRestartPreparation(context),
         signal,
       );
+      releaseHelper = () => machine.release();
       result = await executeDockerRestart(
         context,
         {

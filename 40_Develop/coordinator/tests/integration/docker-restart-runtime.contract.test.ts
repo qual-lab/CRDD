@@ -29,16 +29,22 @@ async function compose(
     | "handoff_failed"
     | "resume"
     | "resume_start_intent"
+    | "engine_cleanup_unknown"
     | "handoff_live",
 ) {
   const calls: string[] = [];
   const context = Object.freeze({});
   const controller = new AbortController();
-  const isResume = change === "resume" || change === "resume_start_intent";
+  const isResume =
+    change === "resume" ||
+    change === "resume_start_intent" ||
+    change === "engine_cleanup_unknown";
   let processes: "verified" | "absent" =
     change === "handoff_live" ? "verified" : "absent";
   let wsl: "running" | "stopped" =
-    change === "handoff_live" || change === "resume_start_intent"
+    change === "handoff_live" ||
+    change === "resume_start_intent" ||
+    change === "engine_cleanup_unknown"
       ? "running"
       : "stopped";
   const session = {
@@ -83,7 +89,10 @@ async function compose(
         recoveryId: "fixture",
         handoffPending: !isResume,
         currentPhase:
-          change === "resume_start_intent" ? "start_intent" : "stop_intent",
+          change === "resume_start_intent" ||
+          change === "engine_cleanup_unknown"
+            ? "start_intent"
+            : "stop_intent",
         continuationSeedRequired: !isResume,
       }),
       acquireRuntimeOwnedDockerDesktopRestartNativeHelper: async () => ({
@@ -120,8 +129,12 @@ async function compose(
           boundary,
           signal,
           observeWsl: () => wsl,
-          observeEngine: () =>
-            wsl === "running" ? "ready" : "known_unavailable",
+          observeEngine: () => {
+            const state = wsl === "running" ? "ready" : "known_unavailable";
+            return change === "engine_cleanup_unknown"
+              ? { state, cleanup: "unknown" as const }
+              : state;
+          },
           containersAbsent: () => true,
           now: () => 0,
           wait: async () => {},
@@ -193,6 +206,17 @@ test("production composition resumes current start intent by ready observation w
   ]);
   assert.equal(calls.includes("S"), false);
   assert.equal(calls.includes("L"), false);
+});
+
+test("production composition preserves Engine observation cleanup uncertainty through finally", async () => {
+  const { result, calls } = await compose("engine_cleanup_unknown");
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "docker_restart_cleanup_unconfirmed");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.restartCompleted, false);
+  assert.equal(calls.filter((call) => call === "helper_release").length, 1);
+  assert.equal(calls.includes("settled"), false);
+  assert.deepEqual(calls, ["ready", "helper_release", "lock_release"]);
 });
 
 test("signed restart entry rejects cancellation before preparation", async () => {
