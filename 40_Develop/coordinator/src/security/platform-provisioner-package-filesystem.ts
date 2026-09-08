@@ -1754,16 +1754,6 @@ const exactExternalProcessCalls = Object.freeze(
     [
       "runtime",
       "src/security/docker-desktop-runtime-repair.ts",
-      "officialShutdown",
-      "spawnSync",
-      1,
-      "3d6911a6a1a7605c9e8c5536480315b7b06bb4f41b7dba08c4a2284a722b6662",
-      "3c5e175b2e34a51c4d0a62c477b35f51628f350afa3ea0f39137db811b0ce477",
-      "result",
-    ],
-    [
-      "runtime",
-      "src/security/docker-desktop-runtime-repair.ts",
       "terminateDockerWsl",
       "spawnSync",
       1,
@@ -2342,10 +2332,6 @@ const exactExecutableProvenance = Object.freeze(
       ],
       [
         "src/security/docker-desktop-runtime-repair.ts\0observeEngine",
-        [["const", "cli", "=", "observeCurrentTrustedDockerCli", "("]],
-      ],
-      [
-        "src/security/docker-desktop-runtime-repair.ts\0officialShutdown",
         [["const", "cli", "=", "observeCurrentTrustedDockerCli", "("]],
       ],
       [
@@ -4365,7 +4351,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 18 : 6;
+  const expectedCount = graph === "runtime" ? 17 : 6;
   const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -4381,7 +4367,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCalls.length !== 24 ||
+    exactExternalProcessCalls.length !== 23 ||
     exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
     exactExternalProcessCalls.some(
       (callsite) =>
