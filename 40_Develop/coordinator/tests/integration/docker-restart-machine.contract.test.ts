@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createDockerRestartMachineForVerification,
   isDockerRestartEngineReady,
+  observeDockerRestartEngineResult,
 } from "../../src/security/docker-restart-machine.ts";
 
 function fixture(change: string = "") {
@@ -11,6 +12,8 @@ function fixture(change: string = "") {
   const controller = new AbortController();
   let wsl: "running" | "stopped" | "unknown" =
     change === "idle" ? "stopped" : "running";
+  let engine: "ready" | "known_unavailable" | "unknown" =
+    change === "engine-observation" ? "unknown" : "ready";
   let processes: "verified" | "absent" = "verified";
   const session = {
     assertLive: () => change !== "dead",
@@ -26,6 +29,7 @@ function fixture(change: string = "") {
       if (change !== "residual" && !change.startsWith("delayed")) {
         processes = "absent";
         wsl = "stopped";
+        if (change !== "engine-still-ready") engine = "known_unavailable";
       }
       return "command_completed" as const;
     },
@@ -36,7 +40,8 @@ function fixture(change: string = "") {
     },
     launchDesktop: async () => {
       events.push("L");
-      wsl = "running";
+      if (change !== "non-wsl") wsl = "running";
+      engine = change === "engine" ? "unknown" : "ready";
       return "started" as const;
     },
     release: async () => {
@@ -55,7 +60,7 @@ function fixture(change: string = "") {
     boundary: () => isBoundaryLive,
     signal: controller.signal,
     observeWsl: () => (change === "wsl" ? "unknown" : wsl),
-    engineReady: () => change !== "engine",
+    observeEngine: () => engine,
     containersAbsent: () => change !== "containers",
     now: () => 0,
     wait: async () => {
@@ -66,6 +71,7 @@ function fixture(change: string = "") {
       if (change === "delayed-exit") {
         processes = "absent";
         wsl = "stopped";
+        engine = "known_unavailable";
       }
     },
   });
@@ -107,6 +113,7 @@ for (const reason of [
   "artifact",
   "client",
   "wsl",
+  "engine-observation",
   "containers",
   "unissued",
 ]) {
@@ -215,6 +222,22 @@ test("idle WSL with Desktop present uses official stop, not forced termination",
   await machine.release();
 });
 
+test("ready Linux Engine does not depend on the optional WSL backend state", async () => {
+  const { machine, events } = fixture("non-wsl");
+  assert.equal(await machine.stop(), "stopped");
+  assert.equal(await machine.start(), "ready");
+  assert.deepEqual(events, ["S", "L"]);
+  await machine.release();
+});
+
+test("stopped state requires the Engine to be known unavailable", async () => {
+  const { machine, events } = fixture("engine-still-ready");
+  assert.equal(await machine.stop(), "unknown");
+  assert.deepEqual(events, ["S"]);
+  assert.equal(machine.getEffectOutcomeUnknown(), true);
+  await machine.release();
+});
+
 for (const failure of [
   "dead",
   "artifact",
@@ -274,5 +297,34 @@ test("Engine reply requires a successful Linux server result, not arbitrary JSON
   assert.equal(
     isDockerRestartEngineReady({ ...result, stderr: "warning" }),
     false,
+  );
+});
+
+test("Engine observation distinguishes known unavailability from unknown failure", () => {
+  const unavailable = {
+    pid: 1,
+    status: 1,
+    signal: null,
+    stderr: "connection failed",
+    stdout: "",
+  };
+  assert.equal(
+    observeDockerRestartEngineResult(unavailable, () => {
+      throw new Error("pipe absent");
+    }),
+    "known_unavailable",
+  );
+  assert.equal(
+    observeDockerRestartEngineResult(unavailable, () => {}),
+    "unknown",
+  );
+  assert.equal(
+    observeDockerRestartEngineResult(
+      { ...unavailable, error: new Error("timeout") },
+      () => {
+        throw new Error("pipe absent");
+      },
+    ),
+    "unknown",
   );
 });

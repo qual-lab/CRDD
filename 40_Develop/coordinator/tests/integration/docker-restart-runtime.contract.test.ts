@@ -120,7 +120,8 @@ async function compose(
           boundary,
           signal,
           observeWsl: () => wsl,
-          engineReady: () => wsl === "running",
+          observeEngine: () =>
+            wsl === "running" ? "ready" : "known_unavailable",
           containersAbsent: () => true,
           now: () => 0,
           wait: async () => {},

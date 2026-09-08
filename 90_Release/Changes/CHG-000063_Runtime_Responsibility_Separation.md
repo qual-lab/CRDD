@@ -426,4 +426,15 @@ v0.19と同じ順序の限定実測によりDocker Engineは復帰したが、v0
 | 利用側まで閉じる | Coreの状態駆動だけでなく、Native machineを含む署名入口相当Compositionで、停止・起動Effect 0と`ready → settled`を確認する |
 | 実観測を型上の断定へ置換しない | Native実観測試験は`unknown`を明示分岐で拒否し、その後だけ確定状態として保持する |
 
+最初の再署名候補による実再入場では、Linux Engineが正常応答する一方、Docker Desktopが選択したbackendでは`docker-desktop` WSL Distributionが`stopped`であり、v0.20のRestart machineがReadyを拒否した。v0.19の修復処理はEngineを`ready / known_unavailable / unknown`で観測しており、WSLの稼働状態を起動成立へ要求していなかった。責務分離時にこの三値契約を真偽値へ縮小し、特定backendの実装詳細を上位の成立条件へ追加したことが回帰原因である。
+
+| 回帰是正 | 現在の契約 |
+|---|---|
+| Engine観測 | 信頼済みDocker CLIの完全なLinux Server応答を`ready`、CLI失敗かつEngine pipe不存在を`known_unavailable`、それ以外を`unknown`とする |
+| 起動成立 | Engineが`ready`であることを必須とし、WSL Distributionの`running`は要求しない |
+| 停止成立 | 管理ProcessとClientの不存在、Engineの`known_unavailable`およびWSLの`stopped`をすべて要求する |
+| 反証 | Engine ReadyかつWSL stoppedのbackendを成功させ、Engineが残存する停止結果および観測不能を拒否する |
+
+`Engine ready / WSL stopped`の現在実環境を使った読取り専用結合試験は、Runtime Lockなし／ありの両方を含む4件すべてに成功した。これにより、backend差を安全条件の欠落へ変えず、実装詳細だけを過剰固定しない境界を実環境で確認した。
+
 集中した状態・記録・machine・Composition・回復Facade・公開CLIの結合回帰258件、静的検査、型検査、Lint、整形、Capability／Traceability検査、通常Windows Process Gate 7件および制限Process回帰1937件（成功1934、失敗0、明示実環境3件skip）が成功した。Repository全体Checkerはerror 0／warning 0である。これは新しいSource候補の回帰根拠であり、既存署名候補、未完了回復記録または正式4経路E2Eを完了済みへ変更しない。次は固定Commitの独立事前監査、再署名、同じ回復IDの実再入場および正式4経路E2Eを必要とする。

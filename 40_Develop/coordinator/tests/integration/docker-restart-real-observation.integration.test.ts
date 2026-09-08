@@ -119,14 +119,18 @@ for (const hasRuntimeLock of [false, true]) {
         () => true,
         new AbortController().signal,
       );
-      context.diagnostic("entering composed Native/WSL observation");
+      context.diagnostic("entering composed Native/Engine/WSL observation");
       const wslState = machine.observeWslState();
       assert.notEqual(wslState, "unknown");
       assert.equal(
+        await machine.observeReady(),
+        true,
+        "a verified Linux Engine response is ready independently of the optional WSL backend state",
+      );
+      assert.equal(
         await machine.observeStopped(),
-        observedClientState === "absent" &&
-          observedProcessState === "absent" &&
-          wslState === "stopped",
+        false,
+        "an Engine that answered as ready cannot simultaneously be observed as stopped",
       );
       context.diagnostic("composed observation completed");
     } finally {

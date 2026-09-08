@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import {
   createWindowsDockerCliEnvironment,
@@ -15,10 +16,14 @@ import {
 } from "./docker-wsl-state.ts";
 
 type Session = NonNullable<DockerDesktopRestartNativeHelperOutcome["session"]>;
+export type DockerRestartEngineObservation =
+  | "ready"
+  | "known_unavailable"
+  | "unknown";
 type MachinePorts = Readonly<{
   session: Session;
   observeWsl: () => DockerWslState;
-  engineReady: () => boolean;
+  observeEngine: () => DockerRestartEngineObservation;
   containersAbsent: () => boolean;
   now: () => number;
   wait: () => Promise<void>;
@@ -54,6 +59,7 @@ function createMachine(ports: MachinePorts) {
     (await trusted()) &&
     (await session.inspectClientProcesses()) === "absent" &&
     (await session.inspectProcesses()) === "absent" &&
+    ports.observeEngine() === "known_unavailable" &&
     ports.observeWsl() === "stopped" &&
     (await trusted());
   return Object.freeze({
@@ -64,8 +70,7 @@ function createMachine(ports: MachinePorts) {
     },
     observeReady: async () =>
       (await trusted()) &&
-      ports.engineReady() &&
-      ports.observeWsl() === "running" &&
+      ports.observeEngine() === "ready" &&
       (await trusted()),
     observeWslState: () => ports.observeWsl(),
     stop: async (): Promise<"stopped" | "unknown"> => {
@@ -80,9 +85,13 @@ function createMachine(ports: MachinePorts) {
         const processes = await session.inspectProcesses();
         if (processes === "unknown" || !live()) return "unknown";
         const beforeWsl = ports.observeWsl();
+        const beforeEngine = ports.observeEngine();
         if (
           beforeWsl === "unknown" ||
-          ((beforeWsl === "running" || processes === "verified") &&
+          beforeEngine === "unknown" ||
+          ((beforeEngine === "ready" ||
+            beforeWsl === "running" ||
+            processes === "verified") &&
             !ports.containersAbsent()) ||
           !live()
         )
@@ -127,11 +136,7 @@ function createMachine(ports: MachinePorts) {
           attempt += 1
         ) {
           if (!(await trusted())) return "unknown";
-          if (
-            ports.engineReady() &&
-            ports.observeWsl() === "running" &&
-            (await trusted())
-          ) {
+          if (ports.observeEngine() === "ready" && (await trusted())) {
             isEffectOutcomeUnknown = false;
             return "ready";
           }
@@ -189,60 +194,84 @@ export function isDockerRestartEngineReady(
     stderr: unknown;
   }>,
 ) {
+  return (
+    observeDockerRestartEngineResult(result, () => {
+      throw new Error("engine pipe unavailable");
+    }) === "ready"
+  );
+}
+
+export function observeDockerRestartEngineResult(
+  result: Readonly<{
+    pid?: number;
+    status: number | null;
+    signal: string | null;
+    error?: unknown;
+    stdout: unknown;
+    stderr: unknown;
+  }>,
+  probeEnginePipe: () => void,
+): DockerRestartEngineObservation {
   if (
-    result.status !== 0 ||
-    result.signal !== null ||
-    result.error != null ||
-    result.stderr !== "" ||
-    typeof result.stdout !== "string" ||
-    result.stdout.length > 16_384
+    result.status === 0 &&
+    result.signal === null &&
+    result.error == null &&
+    result.stderr === "" &&
+    typeof result.stdout === "string" &&
+    result.stdout.length <= 16_384
   )
-    return false;
+    try {
+      const server: unknown = JSON.parse(result.stdout);
+      if (!server || typeof server !== "object" || Array.isArray(server))
+        return "unknown";
+      const value = server as Record<string, unknown>;
+      return value.Os === "linux" &&
+        typeof value.Version === "string" &&
+        /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/u.test(value.Version) &&
+        typeof value.ApiVersion === "string" &&
+        /^1\.\d+$/u.test(value.ApiVersion) &&
+        typeof value.Arch === "string" &&
+        /^(?:amd64|arm64)$/u.test(value.Arch)
+        ? "ready"
+        : "unknown";
+    } catch {
+      return "unknown";
+    }
+  if (
+    result.pid === undefined ||
+    result.error != null ||
+    result.signal !== null ||
+    result.status === null ||
+    result.status === 0 ||
+    typeof result.stdout !== "string" ||
+    (result.stdout !== "" && result.stdout !== "\n" && result.stdout !== "\r\n")
+  )
+    return "unknown";
   try {
-    const server: unknown = JSON.parse(result.stdout);
-    if (!server || typeof server !== "object" || Array.isArray(server))
-      return false;
-    const value = server as Record<string, unknown>;
-    return (
-      value.Os === "linux" &&
-      typeof value.Version === "string" &&
-      /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/u.test(value.Version) &&
-      typeof value.ApiVersion === "string" &&
-      /^1\.\d+$/u.test(value.ApiVersion) &&
-      typeof value.Arch === "string" &&
-      /^(?:amd64|arm64)$/u.test(value.Arch)
-    );
+    probeEnginePipe();
+    return "unknown";
   } catch {
-    return false;
+    return "known_unavailable";
   }
 }
 
-function queryDocker(kind: "engine" | "containers") {
+function queryDockerEngine(): DockerRestartEngineObservation {
   try {
     const cli = observeTrustedDockerCli();
     const env = createWindowsDockerCliEnvironment({
       dockerConfig: null,
       dockerHome: null,
     });
-    if (!env) return false;
+    if (!env) return "unknown";
     const result = spawnSync(
       cli.executablePath,
-      kind === "engine"
-        ? [
-            "--host",
-            "npipe:////./pipe/dockerDesktopLinuxEngine",
-            "version",
-            "--format",
-            "{{json .Server}}",
-          ]
-        : [
-            "--host",
-            "npipe:////./pipe/dockerDesktopLinuxEngine",
-            "container",
-            "ls",
-            "--quiet",
-            "--no-trunc",
-          ],
+      [
+        "--host",
+        "npipe:////./pipe/dockerDesktopLinuxEngine",
+        "version",
+        "--format",
+        "{{json .Server}}",
+      ],
       {
         env,
         shell: false,
@@ -253,13 +282,50 @@ function queryDocker(kind: "engine" | "containers") {
       },
     );
     verifyTrustedDockerCliSnapshot(cli);
-    return kind === "engine"
-      ? isDockerRestartEngineReady(result)
-      : result.status === 0 &&
-          result.signal === null &&
-          !result.error &&
-          result.stdout === "" &&
-          result.stderr === "";
+    return observeDockerRestartEngineResult(result, () => {
+      const handle = fs.openSync("\\\\.\\pipe\\dockerDesktopLinuxEngine", "r+");
+      fs.closeSync(handle);
+    });
+  } catch {
+    return "unknown";
+  }
+}
+
+function queryContainersAbsent() {
+  try {
+    const cli = observeTrustedDockerCli();
+    const env = createWindowsDockerCliEnvironment({
+      dockerConfig: null,
+      dockerHome: null,
+    });
+    if (!env) return false;
+    const result = spawnSync(
+      cli.executablePath,
+      [
+        "--host",
+        "npipe:////./pipe/dockerDesktopLinuxEngine",
+        "container",
+        "ls",
+        "--quiet",
+        "--no-trunc",
+      ],
+      {
+        env,
+        shell: false,
+        windowsHide: true,
+        timeout: 5_000,
+        maxBuffer: 16_384,
+        encoding: "utf8",
+      },
+    );
+    verifyTrustedDockerCliSnapshot(cli);
+    return (
+      result.status === 0 &&
+      result.signal === null &&
+      !result.error &&
+      result.stdout === "" &&
+      result.stderr === ""
+    );
   } catch {
     return false;
   }
@@ -276,8 +342,8 @@ export function createDockerRestartMachine(
     boundary,
     signal,
     observeWsl,
-    engineReady: () => queryDocker("engine"),
-    containersAbsent: () => queryDocker("containers"),
+    observeEngine: queryDockerEngine,
+    containersAbsent: queryContainersAbsent,
     now: Date.now,
     wait: () => new Promise((resolve) => setTimeout(resolve, 1_000)),
   });
