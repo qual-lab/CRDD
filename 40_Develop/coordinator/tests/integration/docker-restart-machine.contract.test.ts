@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createDockerRestartMachineForVerification,
   isDockerRestartEngineReady,
+  observeDockerRestartEnginePipe,
   observeDockerRestartEngineResult,
 } from "../../src/security/docker-restart-machine.ts";
 
@@ -309,20 +310,58 @@ test("Engine observation distinguishes known unavailability from unknown failure
     stdout: "",
   };
   assert.equal(
-    observeDockerRestartEngineResult(unavailable, () => {
-      throw new Error("pipe absent");
-    }),
+    observeDockerRestartEngineResult(unavailable, () => "absent"),
     "known_unavailable",
   );
   assert.equal(
-    observeDockerRestartEngineResult(unavailable, () => {}),
+    observeDockerRestartEngineResult(unavailable, () => "present"),
+    "unknown",
+  );
+  assert.equal(
+    observeDockerRestartEngineResult(unavailable, () => "unknown"),
     "unknown",
   );
   assert.equal(
     observeDockerRestartEngineResult(
       { ...unavailable, error: new Error("timeout") },
+      () => "absent",
+    ),
+    "unknown",
+  );
+});
+
+test("Engine pipe observation treats only explicit absence as absent", () => {
+  const failure = (code?: string) => {
+    const error = new Error(code ?? "generic failure") as NodeJS.ErrnoException;
+    error.code = code;
+    return error;
+  };
+  assert.equal(
+    observeDockerRestartEnginePipe(() => {
+      throw failure("ENOENT");
+    }),
+    "absent",
+  );
+  for (const code of ["EACCES", "EPERM", "EMFILE", "ENFILE", undefined])
+    assert.equal(
+      observeDockerRestartEnginePipe(() => {
+        throw failure(code);
+      }),
+      "unknown",
+      code ?? "generic",
+    );
+  assert.equal(
+    observeDockerRestartEnginePipe(
+      () => 1,
+      () => {},
+    ),
+    "present",
+  );
+  assert.equal(
+    observeDockerRestartEnginePipe(
+      () => 1,
       () => {
-        throw new Error("pipe absent");
+        throw failure("EIO");
       },
     ),
     "unknown",

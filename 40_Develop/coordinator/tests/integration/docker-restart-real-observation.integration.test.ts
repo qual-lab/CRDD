@@ -122,6 +122,13 @@ for (const hasRuntimeLock of [false, true]) {
       context.diagnostic("entering composed Native/Engine/WSL observation");
       const wslState = machine.observeWslState();
       assert.notEqual(wslState, "unknown");
+      context.diagnostic(`observed WSL backend state: ${wslState}`);
+      if (process.env.CRDD_EXPECT_NON_WSL_DOCKER_BACKEND === "1")
+        assert.equal(
+          wslState,
+          "stopped",
+          "the explicitly selected non-WSL backend profile must keep the Docker WSL distribution stopped",
+        );
       assert.equal(
         await machine.observeReady(),
         true,

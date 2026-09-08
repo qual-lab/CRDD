@@ -380,7 +380,7 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 保持する保証 | 是正・確認 |
 |---|---|
 | Docker版を固定しない | AuthenticodeでDocker Inc発行物を確認し、同一操作中の実体・Hash固定を維持する |
-| 停止状態を出力だけで決めない | 非ゼロ終了、厳密な空出力またはJSON `null`、named pipeの明示的`ENOENT`がすべて成立した場合だけ`known_unavailable`とする |
+| 停止状態を出力だけで決めない | 非ゼロ終了、厳密な空出力またはJSON `null`、named pipeの明示的`ENOENT`がすべて成立した場合だけ`known_unavailable`とする。権限・資源不足、一般エラー、open後のclose失敗は`unknown`とする |
 | 想定外を安全側へ閉じる | 空白付き`null`、大文字、任意本文、pipe存在・権限拒否・観測不能は引き続き`unknown`とする |
 | 実Producer形状を回帰する | 実子ProcessのLF／CRLF／JSON `null`搬送とpipe判定を契約試験へ追加する。修復完了は新しい署名候補の実機Lifecycleで別途確認する |
 

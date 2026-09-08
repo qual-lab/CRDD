@@ -20,6 +20,10 @@ export type DockerRestartEngineObservation =
   | "ready"
   | "known_unavailable"
   | "unknown";
+export type DockerRestartEnginePipeObservation =
+  | "present"
+  | "absent"
+  | "unknown";
 type MachinePorts = Readonly<{
   session: Session;
   observeWsl: () => DockerWslState;
@@ -194,11 +198,28 @@ export function isDockerRestartEngineReady(
     stderr: unknown;
   }>,
 ) {
-  return (
-    observeDockerRestartEngineResult(result, () => {
-      throw new Error("engine pipe unavailable");
-    }) === "ready"
-  );
+  return observeDockerRestartEngineResult(result, () => "unknown") === "ready";
+}
+
+export function observeDockerRestartEnginePipe(
+  openPipe: () => number = () =>
+    fs.openSync("\\\\.\\pipe\\dockerDesktopLinuxEngine", "r+"),
+  closePipe: (handle: number) => void = (handle) => fs.closeSync(handle),
+): DockerRestartEnginePipeObservation {
+  let handle: number;
+  try {
+    handle = openPipe();
+  } catch (error) {
+    return error instanceof Error && "code" in error && error.code === "ENOENT"
+      ? "absent"
+      : "unknown";
+  }
+  try {
+    closePipe(handle);
+    return "present";
+  } catch {
+    return "unknown";
+  }
 }
 
 export function observeDockerRestartEngineResult(
@@ -210,7 +231,7 @@ export function observeDockerRestartEngineResult(
     stdout: unknown;
     stderr: unknown;
   }>,
-  probeEnginePipe: () => void,
+  observeEnginePipe: () => DockerRestartEnginePipeObservation,
 ): DockerRestartEngineObservation {
   if (
     result.status === 0 &&
@@ -247,12 +268,7 @@ export function observeDockerRestartEngineResult(
     (result.stdout !== "" && result.stdout !== "\n" && result.stdout !== "\r\n")
   )
     return "unknown";
-  try {
-    probeEnginePipe();
-    return "unknown";
-  } catch {
-    return "known_unavailable";
-  }
+  return observeEnginePipe() === "absent" ? "known_unavailable" : "unknown";
 }
 
 function queryDockerEngine(): DockerRestartEngineObservation {
@@ -282,10 +298,10 @@ function queryDockerEngine(): DockerRestartEngineObservation {
       },
     );
     verifyTrustedDockerCliSnapshot(cli);
-    return observeDockerRestartEngineResult(result, () => {
-      const handle = fs.openSync("\\\\.\\pipe\\dockerDesktopLinuxEngine", "r+");
-      fs.closeSync(handle);
-    });
+    return observeDockerRestartEngineResult(
+      result,
+      observeDockerRestartEnginePipe,
+    );
   } catch {
     return "unknown";
   }
