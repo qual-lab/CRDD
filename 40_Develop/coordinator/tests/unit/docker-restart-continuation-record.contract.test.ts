@@ -72,6 +72,22 @@ test("A to B to C preserves prior bytes and completes one mixed-generation phase
       ?.currentPhase,
     "settled",
   );
+  const d = { ...binding, runtimeExecutionIdentitySha256: "d".repeat(64) };
+  const settledHandoff = createDockerRestartMigrationRecord(
+    originRecords,
+    d,
+    handoffs,
+    wrappers,
+  );
+  assert.equal(
+    resolveDockerRestartHistory(
+      originRecords,
+      d,
+      [...handoffs, settledHandoff],
+      wrappers,
+    )?.currentPhase,
+    "settled",
+  );
   assert.deepEqual(firstWrapper, saved);
   assert.equal(
     resolveDockerRestartHistory(

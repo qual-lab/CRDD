@@ -40,13 +40,19 @@ test("migration codec preserves a closed continuation boundary without legacy ac
   const bytes = Buffer.from(`${JSON.stringify(value)}\n`);
   assert.equal(parseDockerRestartHandoffRecord(bytes)?.continuationCount, 1);
   assert.equal(
+    parseDockerRestartHandoffRecord(
+      Buffer.from(`${JSON.stringify({ ...value, continuationCount: 5 })}\n`),
+    )?.continuationCount,
+    5,
+  );
+  assert.equal(
     validateDockerRestartHandoffChain(originRecords, binding, [bytes], h(2)),
     null,
   );
   assert.equal(parseDockerRestartHandoffRecord(original)?.contractRevision, 1);
   for (const mutation of [
     { continuationCount: -1 },
-    { continuationCount: 5 },
+    { continuationCount: 6 },
     { continuationCount: 0.5 },
     { continuationCount: 0 },
     { continuationTipSha256: null },

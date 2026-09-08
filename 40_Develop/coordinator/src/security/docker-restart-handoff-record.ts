@@ -60,7 +60,7 @@ export function parseDockerRestartHandoffRecord(
       (value.contractRevision === 2 &&
         (!Number.isInteger(value.continuationCount) ||
           value.continuationCount < 0 ||
-          value.continuationCount > 4 ||
+          value.continuationCount > 5 ||
           (value.continuationCount === 0
             ? value.continuationTipSha256 !== null
             : !isSha256Hex(value.continuationTipSha256)))) ||
