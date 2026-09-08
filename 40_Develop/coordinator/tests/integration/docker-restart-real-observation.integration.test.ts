@@ -106,8 +106,8 @@ for (const hasRuntimeLock of [false, true]) {
         assert.equal(await session.verifyArtifacts(), "verified");
         const clientState = await session.inspectClientProcesses();
         const processState = await session.inspectProcesses();
-        assert.notEqual(clientState, "unknown");
-        assert.notEqual(processState, "unknown");
+        if (clientState === "unknown" || processState === "unknown")
+          assert.fail("native process observation must be determinate");
         observedClientState ??= clientState;
         observedProcessState ??= processState;
         assert.equal(clientState, observedClientState);

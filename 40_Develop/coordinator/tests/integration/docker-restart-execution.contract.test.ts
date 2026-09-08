@@ -77,7 +77,12 @@ function fixture() {
   return { context, controller, calls, ports };
 }
 
-for (const phase of ["stop_intent", "stopped", "ready"] as const) {
+for (const phase of [
+  "stop_intent",
+  "stopped",
+  "start_intent",
+  "ready",
+] as const) {
   test(`restart resume from ${phase} uses observation without replaying completed effects`, async () => {
     const f = fixture();
     const result = await executeDockerRestart(
@@ -120,7 +125,9 @@ for (const phase of ["stop_intent", "stopped", "ready"] as const) {
               "cleanup",
               "settled",
             ]
-          : ["observeReady", "cleanup", "settled"];
+          : phase === "start_intent"
+            ? ["observeReady", "ready", "cleanup", "settled"]
+            : ["observeReady", "cleanup", "settled"];
     assert.deepEqual(
       f.calls.filter((value) => value !== "boundary"),
       expectedCalls,
@@ -186,7 +193,7 @@ for (const phase of ["stop_intent", "stopped", "ready"] as const) {
   });
 }
 
-for (const phase of ["start_intent", "settled"] as const) {
+for (const phase of ["settled"] as const) {
   test(`restart resume ${phase} refuses replay and retains obligation`, async () => {
     const f = fixture();
     const result = await executeDockerRestart(

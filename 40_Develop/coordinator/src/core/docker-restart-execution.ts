@@ -118,21 +118,33 @@ export async function executeDockerRestart(
   try {
     if (!isValidResumePhase) fail("docker_restart_resume_phase_invalid");
     if (resumePhase !== undefined) await checkBoundary();
-    if (resumePhase === "start_intent" || resumePhase === "settled")
+    if (resumePhase === "settled")
       fail("docker_restart_resume_requires_observation");
-    if (resumePhase === "ready" || resumePhase === "stopped") {
+    if (
+      resumePhase === "ready" ||
+      resumePhase === "stopped" ||
+      resumePhase === "start_intent"
+    ) {
       const confirmed =
-        resumePhase === "ready"
+        resumePhase === "ready" || resumePhase === "start_intent"
           ? await ports.observeReady?.()
           : await ports.observeStopped?.();
       await checkBoundary();
       if (confirmed !== true)
         fail(
-          resumePhase === "ready"
+          resumePhase === "ready" || resumePhase === "start_intent"
             ? "docker_restart_start_unconfirmed"
             : "docker_restart_stop_unconfirmed",
         );
       isEffectOutcomeUnknown = false;
+      if (resumePhase === "start_intent") {
+        advance({
+          startCompleted: true,
+          engineReady: true,
+          effectOutcomeUnknown: false,
+        });
+        await persist("ready");
+      }
     }
     if (phase === "prepared") {
       await persist("stop_intent");

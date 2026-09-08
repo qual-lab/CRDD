@@ -24,15 +24,23 @@ const compositionBody = stripTypeScriptTypes(
 );
 
 async function compose(
-  change: "handoff" | "handoff_failed" | "resume" | "handoff_live",
+  change:
+    | "handoff"
+    | "handoff_failed"
+    | "resume"
+    | "resume_start_intent"
+    | "handoff_live",
 ) {
   const calls: string[] = [];
   const context = Object.freeze({});
   const controller = new AbortController();
+  const isResume = change === "resume" || change === "resume_start_intent";
   let processes: "verified" | "absent" =
     change === "handoff_live" ? "verified" : "absent";
   let wsl: "running" | "stopped" =
-    change === "handoff_live" ? "running" : "stopped";
+    change === "handoff_live" || change === "resume_start_intent"
+      ? "running"
+      : "stopped";
   const session = {
     assertLive: () => true,
     verifyArtifacts: async () => "verified" as const,
@@ -73,9 +81,10 @@ async function compose(
         capability: context,
         platformAccessArtifact: {},
         recoveryId: "fixture",
-        handoffPending: change !== "resume",
-        currentPhase: "stop_intent",
-        continuationSeedRequired: change !== "resume",
+        handoffPending: !isResume,
+        currentPhase:
+          change === "resume_start_intent" ? "start_intent" : "stop_intent",
+        continuationSeedRequired: !isResume,
       }),
       acquireRuntimeOwnedDockerDesktopRestartNativeHelper: async () => ({
         status: "acquired",
@@ -169,6 +178,20 @@ test("production composition resumes current stop intent by observation without 
     "settled",
     "lock_release",
   ]);
+});
+
+test("production composition resumes current start intent by ready observation without native effect replay", async () => {
+  const { result, calls } = await compose("resume_start_intent");
+  assert.equal(result.status, "completed");
+  assert.equal(result.restartCompleted, true);
+  assert.deepEqual(calls, [
+    "ready",
+    "helper_release",
+    "settled",
+    "lock_release",
+  ]);
+  assert.equal(calls.includes("S"), false);
+  assert.equal(calls.includes("L"), false);
 });
 
 test("signed restart entry rejects cancellation before preparation", async () => {

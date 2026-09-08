@@ -413,3 +413,17 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 Docker固有の表だけで閉じず、Checker、Project Runtime、Coordinator、実行知、MCPおよびPlatform Accessの全Toolへ結合ブロックを展開した。人間向けの責務境界とブロック間の時間順は[Tool全体の結合ブロック](../../06_Architecture/01_Architecture.md#tool全体の結合ブロック)と[ブロック間シーケンス](../../06_Architecture/01_Architecture.md#ブロック間シーケンスの正本)、機械可読なOwner、Lifecycle profile、一段／二段の結合経路、実在ITおよび終了後条件は[試験カタログ](../../07_Quality/04_Test_Catalog.json) revision 8が所有する。Catalogは全Toolのブロック参加、実在するArchitecture見出し、最大二段の経路およびIT接続を拒否条件として検査する。
 
 MCPでは、stdioのparent EOFから進行要求取消・joinまでと、localhost HTTPのidle socket・listener shutdownを公開LauncherのSTから分離した実境界ITとして追加した。最初の実stdio結合では、要求処理を`await`している間に入力streamの読取りが停止し、親EOFを観測できない不具合を検出した。Transportの入力観測を意味処理から分離し、要求処理中もEOF／error／closeを観測して同じ取消Signalへ接続し、意味結果を受け取ってからTransport終了を返す構造へ是正した。stdio／HTTPのTransport lifecycleを含む16件は成功し、最終E2Eを最初の切断・join発見地点にしない境界を固定した。
+
+### 前版の再観測能力の復帰（2026-09-08）
+
+v0.19と同じ順序の限定実測によりDocker Engineは復帰したが、v0.20の耐久再起動記録が`start_intent`で停止し、公開回復入口は起動後の状態を再観測できなかった。原因はDocker Desktop固有障害ではなく、正常再起動を別部品へ分けた際に、前版が一つのLifecycleとして所有していた「起動後を観測して同じ回復処理へ戻る」能力を移行対象から落としたことである。
+
+| 成立条件 | 是正・根拠 |
+|---|---|
+| Effectを再発行しない | 保存済み`start_intent`では停止・起動を呼ばず、現在のEngine Readyだけをfreshに観測する |
+| 同じ回復Identityで収束する | Ready成立時だけ同じ連鎖へ`ready`を耐久追記し、helper回収後に`settled`へ進める |
+| 不明状態を成功へ補正しない | Ready不成立、観測例外、観測手段欠落、取消または境界不一致はEffect 0で停止し、回復義務を保持する |
+| 利用側まで閉じる | Coreの状態駆動だけでなく、Native machineを含む署名入口相当Compositionで、停止・起動Effect 0と`ready → settled`を確認する |
+| 実観測を型上の断定へ置換しない | Native実観測試験は`unknown`を明示分岐で拒否し、その後だけ確定状態として保持する |
+
+集中した状態・記録・machine・Composition・回復Facade・公開CLIの結合回帰258件、静的検査、型検査、Lint、整形、Capability／Traceability検査、通常Windows Process Gate 7件および制限Process回帰1937件（成功1934、失敗0、明示実環境3件skip）が成功した。Repository全体Checkerはerror 0／warning 0である。これは新しいSource候補の回帰根拠であり、既存署名候補、未完了回復記録または正式4経路E2Eを完了済みへ変更しない。次は固定Commitの独立事前監査、再署名、同じ回復IDの実再入場および正式4経路E2Eを必要とする。
