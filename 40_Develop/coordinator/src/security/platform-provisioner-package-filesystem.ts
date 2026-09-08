@@ -1738,7 +1738,7 @@ const exactExternalProcessCalls = Object.freeze(
       "spawn",
       1,
       "7f9681a86d5eaf457e2173355a325d8dfb143891700adcf4a04f68cb87f0af25",
-      "19a39f7b7414cd19d6a9f9e8eb78a760604609ff8e0c0c4d40466fbebcf68dda",
+      "cf76fcbdb58e59faf7b42ec759376e5763d51f19110ec12e99f1d5d4b526d334",
       "child",
     ],
     [
@@ -1886,7 +1886,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "runtime",
       "src/security/docker-desktop-repair-native-helper.ts",
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
-      "19a39f7b7414cd19d6a9f9e8eb78a760604609ff8e0c0c4d40466fbebcf68dda",
+      "cf76fcbdb58e59faf7b42ec759376e5763d51f19110ec12e99f1d5d4b526d334",
     ],
     [
       "runtime",
@@ -2029,7 +2029,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
-      "3d9f426c29beb8c27155b23eb684b8a3124a0d5997b3323605467185c6d876a4",
+      "ab2c10133248652d19939052c86e0833034431d5c0671746f7a0c6c6f7685ff9",
     ],
     [
       "src/security/docker-effect-runtime.ts\0startCommand",

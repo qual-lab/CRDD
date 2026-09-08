@@ -696,7 +696,7 @@ export function inspectGitCommitTreeCandidate(candidate: unknown) {
 
 function materializeGitCommitTreeCandidateUsingPolicy(
   candidate: unknown,
-  rejectRecognizedSecretMaterial: boolean,
+  shouldRejectRecognizedSecretMaterial: boolean,
 ) {
   try {
     const candidateKeys =
@@ -759,7 +759,7 @@ function materializeGitCommitTreeCandidateUsingPolicy(
       Buffer.from(left.relativePath).compare(Buffer.from(right.relativePath)),
     );
     if (
-      rejectRecognizedSecretMaterial &&
+      shouldRejectRecognizedSecretMaterial &&
       entries.some((entry) =>
         containsRecognizedSecretMaterial(entry.relativePath, entry.bytes),
       )

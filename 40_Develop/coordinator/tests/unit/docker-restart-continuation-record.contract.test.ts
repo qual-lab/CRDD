@@ -24,10 +24,15 @@ const binding = {
 };
 
 test("A to B to C preserves prior bytes and completes one mixed-generation phase chain", () => {
-  const origin = [createDockerRestartRecord(binding, "stop_intent")];
+  const originRecords = [createDockerRestartRecord(binding, "stop_intent")];
   const b = { ...binding, runtimeExecutionIdentitySha256: "b".repeat(64) };
   const c = { ...binding, runtimeExecutionIdentitySha256: "c".repeat(64) };
-  const firstHandoff = createDockerRestartMigrationRecord(origin, b, [], []);
+  const firstHandoff = createDockerRestartMigrationRecord(
+    originRecords,
+    b,
+    [],
+    [],
+  );
   const first = createDockerRestartRecord(b, "stop_intent");
   const firstWrapper = createDockerRestartContinuationRecord(
     first,
@@ -35,7 +40,7 @@ test("A to B to C preserves prior bytes and completes one mixed-generation phase
   );
   const saved = Buffer.from(firstWrapper);
   const secondHandoff = createDockerRestartMigrationRecord(
-    origin,
+    originRecords,
     c,
     [firstHandoff],
     [firstWrapper],
@@ -44,7 +49,8 @@ test("A to B to C preserves prior bytes and completes one mixed-generation phase
   const wrappers = [firstWrapper];
   let previous = first;
   assert.equal(
-    resolveDockerRestartHistory(origin, c, handoffs, wrappers)?.currentPhase,
+    resolveDockerRestartHistory(originRecords, c, handoffs, wrappers)
+      ?.currentPhase,
     "stop_intent",
   );
   for (const phase of [
@@ -62,13 +68,14 @@ test("A to B to C preserves prior bytes and completes one mixed-generation phase
     );
   }
   assert.equal(
-    resolveDockerRestartHistory(origin, c, handoffs, wrappers)?.currentPhase,
+    resolveDockerRestartHistory(originRecords, c, handoffs, wrappers)
+      ?.currentPhase,
     "settled",
   );
   assert.deepEqual(firstWrapper, saved);
   assert.equal(
     resolveDockerRestartHistory(
-      origin,
+      originRecords,
       { ...c, pendingSubmissionSha256: "d".repeat(64) },
       handoffs,
       wrappers,
@@ -76,11 +83,16 @@ test("A to B to C preserves prior bytes and completes one mixed-generation phase
     null,
   );
   assert.equal(
-    resolveDockerRestartHistory(origin, c, handoffs, wrappers.slice(1)),
+    resolveDockerRestartHistory(originRecords, c, handoffs, wrappers.slice(1)),
     null,
   );
   assert.equal(
-    resolveDockerRestartHistory(origin, c, [...handoffs].reverse(), wrappers),
+    resolveDockerRestartHistory(
+      originRecords,
+      c,
+      [...handoffs].reverse(),
+      wrappers,
+    ),
     null,
   );
   const oldAppend = createDockerRestartRecord(b, "stopped", first);
@@ -89,25 +101,31 @@ test("A to B to C preserves prior bytes and completes one mixed-generation phase
     createHash("sha256").update(firstHandoff).digest("hex"),
   );
   assert.equal(
-    resolveDockerRestartHistory(origin, c, handoffs, [
+    resolveDockerRestartHistory(originRecords, c, handoffs, [
       firstWrapper,
       oldWrapper,
     ]),
     null,
   );
   assert.throws(() =>
-    createDockerRestartMigrationRecord(origin, b, handoffs, wrappers),
+    createDockerRestartMigrationRecord(originRecords, b, handoffs, wrappers),
   );
 });
 
 test("migration boundary tampering and repeat migration without progress remain explicit", () => {
-  const origin = [createDockerRestartRecord(binding, "stop_intent")];
+  const originRecords = [createDockerRestartRecord(binding, "stop_intent")];
   const b = { ...binding, runtimeExecutionIdentitySha256: "b".repeat(64) };
   const c = { ...binding, runtimeExecutionIdentitySha256: "c".repeat(64) };
-  const first = createDockerRestartMigrationRecord(origin, b, [], []);
-  const second = createDockerRestartMigrationRecord(origin, c, [first], []);
+  const first = createDockerRestartMigrationRecord(originRecords, b, [], []);
+  const second = createDockerRestartMigrationRecord(
+    originRecords,
+    c,
+    [first],
+    [],
+  );
   assert.equal(
-    resolveDockerRestartHistory(origin, c, [first, second], [])?.currentPhase,
+    resolveDockerRestartHistory(originRecords, c, [first, second], [])
+      ?.currentPhase,
     "stop_intent",
   );
   for (const mutation of [
@@ -119,7 +137,7 @@ test("migration boundary tampering and repeat migration without progress remain 
       `${JSON.stringify({ ...JSON.parse(second.toString()), ...mutation })}\n`,
     );
     assert.equal(
-      resolveDockerRestartHistory(origin, c, [first, altered], []),
+      resolveDockerRestartHistory(originRecords, c, [first, altered], []),
       null,
     );
   }

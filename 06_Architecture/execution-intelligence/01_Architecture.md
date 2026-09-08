@@ -42,6 +42,18 @@ store/ → GitによるRoot確認・Filesystem → .crdd/execution/events/
 core/  → 非Authorityな集約・改善候補（自動実行へは接続しない）
 ```
 
+### ブロック状態遷移
+
+| 現在状態 | 契機／事前条件 | 処理と観測 | 次状態 | 終了後条件 |
+|---|---|---|---|---|
+| 未観測 | 仕事Identity付きEvent候補 | plain-data化、Schema、Identityを検証 | 正規Event／拒否 | 拒否時はStore Effect 0 |
+| 正規Event | 検証済みRepository Root | Process間排他と一時fileを取得 | 公開準備／失敗残存 | Lockと一時fileの所有者が一意 |
+| 公開準備 | flush済みbyte | immutable publishとreadback | 保存済み／不明 | 上書き0、衝突時は既存byteを再観測 |
+| 保存済み | 集約要求 | 欠測を保持して集約 | 集約済み | Event byte不変、Authority発行0 |
+| 失敗残存 | exact Artifactを観測 | 再試行／清掃候補を分類 | 再入場／保持 | 物理削除せず、残存と不明を区別 |
+
+RecorderがEventを作れたこととStoreが耐久公開したことを同一状態にしない。改善候補、保持期限または清掃候補は、Project状態、採用判断、実行許可または削除Authorityへ昇格しない。
+
 | 内部ブロック | Source群 | 所有する処理 |
 |---|---|---|
 | 公開入口 | `src/index.ts` | 利用側に公開するAPIの選択。内部Pathへの直接依存を不要にする |

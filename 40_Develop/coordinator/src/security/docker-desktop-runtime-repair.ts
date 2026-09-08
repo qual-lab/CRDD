@@ -16,7 +16,7 @@ import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "./docker-cli-trust.ts";
-import { DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256 } from "./docker-desktop-current-artifact-trust.ts";
+import { dockerDesktopCurrentArtifactTrustPolicySha256 } from "./docker-desktop-current-artifact-trust.ts";
 import {
   acquireRuntimeOwnedDockerDesktopRepairNativeHelper,
   type DockerDesktopRepairNativeHelperOutcome,
@@ -564,7 +564,7 @@ function preparedBoundary(): PreparedBoundary | null {
     runtimeStateProtectionHash: root.runtimeStateProtectionHash,
     localUserBindingHash: root.localUserBindingHash,
     runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
-    dockerPolicySha256: DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256,
+    dockerPolicySha256: dockerDesktopCurrentArtifactTrustPolicySha256,
     crddManifestHash: packageVerification.manifestHash,
     crddReleaseSequence: packageVerification.releaseSequence as number,
     runtimeExecutionIdentitySha256:
@@ -726,15 +726,15 @@ type RuntimeDirectoryLockObservationDependencies = Readonly<{
 }>;
 
 function sameRuntimeDirectoryEntries(
-  before: readonly RuntimeDirectoryEntryObservation[],
-  after: readonly RuntimeDirectoryEntryObservation[],
+  beforeEntries: readonly RuntimeDirectoryEntryObservation[],
+  afterEntries: readonly RuntimeDirectoryEntryObservation[],
 ) {
-  if (before.length !== after.length) return false;
-  return before.every(
+  if (beforeEntries.length !== afterEntries.length) return false;
+  return beforeEntries.every(
     (entry, index) =>
-      entry.name === after[index]?.name &&
-      entry.isDirectory === after[index]?.isDirectory &&
-      entry.isSymbolicLink === after[index]?.isSymbolicLink,
+      entry.name === afterEntries[index]?.name &&
+      entry.isDirectory === afterEntries[index]?.isDirectory &&
+      entry.isSymbolicLink === afterEntries[index]?.isSymbolicLink,
   );
 }
 
@@ -746,8 +746,7 @@ function validRuntimeDirectoryEntry(entry: RuntimeDirectoryEntryObservation) {
     entry.name !== ".." &&
     !entry.name.includes("/") &&
     !entry.name.includes("\\") &&
-    !entry.isDirectory &&
-    !entry.isSymbolicLink
+    !entry.isDirectory
   );
 }
 
@@ -767,7 +766,7 @@ export function observeDockerDesktopRuntimeDirectoryLockUsingDependencies(
       beforeEntries.some((entry) => !validRuntimeDirectoryEntry(entry))
     )
       return null;
-    let lockObserved = false;
+    let wasLockObserved = false;
     for (const entry of beforeEntries) {
       try {
         dependencies.probeEntry(
@@ -779,14 +778,14 @@ export function observeDockerDesktopRuntimeDirectoryLockUsingDependencies(
             ? String(error.code)
             : "";
         if (!knownSocketErrorCodes.has(code)) return null;
-        lockObserved = true;
+        wasLockObserved = true;
       }
     }
     const afterEntries = [...dependencies.readEntries(boundary.runDirectory)]
       .map((entry) => Object.freeze({ ...entry }))
       .sort((left, right) => left.name.localeCompare(right.name, "en-US"));
     const afterIdentity = dependencies.identityAt(boundary.runDirectory);
-    return lockObserved &&
+    return wasLockObserved &&
       afterIdentity &&
       sameIdentity(beforeIdentity, afterIdentity) &&
       sameRuntimeDirectoryEntries(beforeEntries, afterEntries)
@@ -809,6 +808,11 @@ function observeKnownSocketFailure(boundary: PreparedBoundary) {
         }),
       ),
     probeEntry: (target) => {
+      // Windows AF_UNIX endpoints used by Docker Desktop can be reported by
+      // Dirent as symbolic-link-like entries while lstat/open are denied by
+      // the live endpoint.  We therefore never follow them for metadata here;
+      // the exact parent identity, bounded stable entry set and known access
+      // denial together form the observation.
       const handle = fs.openSync(target, "r");
       fs.closeSync(handle);
     },

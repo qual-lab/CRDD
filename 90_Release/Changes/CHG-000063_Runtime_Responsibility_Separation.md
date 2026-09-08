@@ -393,10 +393,10 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 旧Evidenceの保持 | 元Operation、Effect不明、引継ぎ連鎖および修復IDを変更せず、明示終了記録だけを追加する |
 | 復旧成功との分離 | Engine停止中の旧履歴終了は`manualRecoveryRequired=true`を維持し、再起動Fenceまたは復旧成功に使わない |
 | 新修復への引継ぎ | 現在境界、Process、exact `run` Identity、stale不存在および既知lockが揃う場合だけEffect 0で旧履歴を閉じ、新Operationを許可する |
-| 環境変化への追従 | 特定socket名を固定せず、有限・非link・安定した`Docker/run`直下集合の既知lockを分類する |
-| Fail Closed | 列挙不能、64件超過、子Directory／link、未知error、集合またはDirectory Identity変化では旧履歴も新Host Effectも進めない |
+| 環境変化への追従 | 特定socket名を固定せず、有限かつ安定した`Docker/run`直下集合の既知lockを分類する。Windows AF_UNIX endpointがNode.jsのDirentでlink相当となり、個別`lstat`も拒否される実挙動を許容する |
+| Fail Closed | 列挙不能、64件超過、子Directory、未知error、集合またはDirectory Identity変化では旧履歴も新Host Effectも進めない。link相当を無条件許可せず、exact親Identity、非Directory、安定集合および既知access拒否を共同条件にする |
 
-集中契約試験では、特定名に依存しないlock検知、通常file、件数上限、子Directory、集合変化、Directory Identity変化、および旧履歴をEffect 0で閉じて新修復を許可する経路を追加し、Docker Desktop修復契約52件が成功した。実Dockerの旧履歴終了から新修復、Engine復帰、Task回復および正式4経路E2Eは後続の実機Gateとして保持する。
+集中契約試験では、特定名に依存しないlock検知、通常file、Windows AF_UNIXのlink相当項目、未知error、件数上限、子Directory、集合変化、Directory Identity変化、および旧履歴をEffect 0で閉じて新修復を許可する経路を追加し、Docker Desktop修復契約52件が成功した。実Dockerの旧履歴終了から新修復、Engine復帰、Task回復および正式4経路E2Eは後続の実機Gateとして保持する。
 
 ### 外部境界の段階的結合への還元（2026-09-08）
 
@@ -404,8 +404,12 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 
 | 還元先 | 固定した内容 |
 |---|---|
-| アーキテクチャ | 外部境界を責務、状態、Authorityおよび資源のlifecycleで結合単位へ分け、複雑な対象には内部ブロックのテキスト図と状態遷移表を必須化 |
-| 結合試験 | 主要経路だけでなく、同じ結合単位が所有する失敗、取消、cleanup、Recoveryおよび再入場を実境界へ段階的に接続 |
+| アーキテクチャ | 外部境界を責務、状態、Authorityおよび資源のlifecycleで結合単位へ分ける。ブロック表、状態遷移表、その視覚投影である状態遷移図、ブロック間シーケンス図、クラス／型関係図およびDFDの適用条件・正本範囲・plain-text記法を分離する |
+| 結合試験 | 主要経路だけでなく、同じ結合単位が所有する失敗、取消、cleanup、Recoveryおよび再入場を、ブロック内部、隣接一段、意味伝播を伴う二段の順で実境界へ接続 |
 | 総合試験との境界 | 複数の独立単位を公開入口から利用者成果まで組み合わせる範囲はSTが所有し、ITへ全組合せを重複させない |
 | 回帰選択 | 結合単位の意味変更時は付随lifecycleのITと前版Capabilityの実境界Evidenceまで選択 |
-| 完成判定 | テキスト図、状態遷移表、実装所有者および検証項目の未対応を固定候補前の不整合として扱う |
+| 完成判定 | 責務表、状態遷移表、シーケンス、実装所有者および検証項目の未対応を固定候補前の不整合として扱う。試験Catalogは正本の意味を複製せず、参照と試験IDの対応を所有する |
+
+Docker固有の表だけで閉じず、Checker、Project Runtime、Coordinator、実行知、MCPおよびPlatform Accessの全Toolへ結合ブロックを展開した。人間向けの責務境界とブロック間の時間順は[Tool全体の結合ブロック](../../06_Architecture/01_Architecture.md#tool全体の結合ブロック)と[ブロック間シーケンス](../../06_Architecture/01_Architecture.md#ブロック間シーケンスの正本)、機械可読なOwner、Lifecycle profile、一段／二段の結合経路、実在ITおよび終了後条件は[試験カタログ](../../07_Quality/04_Test_Catalog.json) revision 8が所有する。Catalogは全Toolのブロック参加、実在するArchitecture見出し、最大二段の経路およびIT接続を拒否条件として検査する。
+
+MCPでは、stdioのparent EOFから進行要求取消・joinまでと、localhost HTTPのidle socket・listener shutdownを公開LauncherのSTから分離した実境界ITとして追加した。最初の実stdio結合では、要求処理を`await`している間に入力streamの読取りが停止し、親EOFを観測できない不具合を検出した。Transportの入力観測を意味処理から分離し、要求処理中もEOF／error／closeを観測して同じ取消Signalへ接続し、意味結果を受け取ってからTransport終了を返す構造へ是正した。stdio／HTTPのTransport lifecycleを含む16件は成功し、最終E2Eを最初の切断・join発見地点にしない境界を固定した。

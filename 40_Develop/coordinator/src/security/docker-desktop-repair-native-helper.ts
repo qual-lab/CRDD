@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { createWindowsDockerDesktopRepairHelperEnvironment } from "../core/windows-child-environment.ts";
 import {
-  DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256,
+  dockerDesktopCurrentArtifactTrustPolicySha256,
   describeDockerDesktopCurrentArtifactTrustContract,
 } from "./docker-desktop-current-artifact-trust.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "./docker-desktop-repair-native-helper-lifecycle-internal.ts";
@@ -118,7 +118,7 @@ async function acquireRuntimeOwnedDockerDesktopNativeHelper(
   if (process.platform !== "win32")
     return Object.freeze({ status: "unavailable", session: null });
   const policy = Object.freeze({
-    policySha256: DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256,
+    policySha256: dockerDesktopCurrentArtifactTrustPolicySha256,
   });
   const artifactBefore = observePlatformAccessReleaseArtifactCandidate(
     bundledDistributionRoot,

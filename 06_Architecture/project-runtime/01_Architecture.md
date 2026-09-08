@@ -121,6 +121,20 @@ Project RuntimeはAuthorityを生成しない。人間または上位Runtimeか�
 
 Applicationは長時間待機中に短時間Lockを保持しない。Port呼出し前後でProject generation、Task／attempt／Operation、Authority、取消、RecoveryおよびLeaseを再照合する。PortのcleanupまたはEffectが不明な場合は、同じProcess・Queue・Taskを再利用せずexact Recovery義務を保持する。
 
+### ブロック状態遷移
+
+詳細な個別状態名は[Project Runtime詳細設計](../coordinator/03_Project_Runtime_Design.md)が所有する。次表はPackageをまたぐ結合ブロックのLifecycleを示し、個別状態の第二正本にはしない。
+
+| ブロック状態 | 契機／事前条件 | Portとの結合 | 次状態 | 終了後条件 |
+|---|---|---|---|---|
+| Objective受付 | Project／Milestone Authorityと現行世代 | State／Clock／Identity | Task準備／判断待ち／拒否 | 不正入力ではTask Effect 0 |
+| Task準備 | dependencyと縮小Authority成立 | Execution Authorization／Execution | 実行中／停止 | 外部Effect直前に世代・取消を再確認 |
+| 実行中 | Attempt結果または取消 | Candidate／Observation／Process Safety | 統合準備／Recovery | cleanup不明を通常失敗へ畳まない |
+| 判断待ち | 一回限り判断要求 | Decision／Lease | 再計画／取消／Recovery | 待機中に短時間Lockを保持しない |
+| 統合準備 | 必要Task結果と候補が相関 | Candidate／State | Accepted Result／停止 | 個別Task成功を統合受入へしない |
+| Recovery | exact義務とfresh owner観測 | Task Recovery／Platform Observation | 再入場／手動処置 | Identityを置換せず、旧世代を再利用しない |
+| 状態投影 | 読取り専用要求 | read-only State | observed／absent／unknown | Effect 0、unknownをabsentへ畳まない |
+
 ## 7. 公開アプリケーション契約
 
 公開契約はTransportに依存しない次の意味操作を持つ。

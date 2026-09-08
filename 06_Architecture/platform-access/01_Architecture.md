@@ -106,6 +106,19 @@ Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対
 
 検証付き再起動の停止は、同一handleで署名・実体を固定した`resources/cli-plugins/docker-desktop.exe`へ`desktop stop --timeout 30`を渡す。`force`、`detach`および旧修復の`K`へのfallbackはない。旧修復protocolの`K`は変更しない。
 
+### ブロック状態遷移
+
+| 現在状態 | 契機／事前条件 | 処理と観測 | 次状態 | 終了後条件 |
+|---|---|---|---|---|
+| 要求待ち | 完全frameとmode | length、nonce、role、Path候補を検証 | 観測準備／拒否 | 拒否時はOS Effect 0 |
+| 観測準備 | 固定対象をopen | 主体、ACL、実体、署名、前後Identityを確認 | 観測済み／不明 | 全handleを所有集合へ保持 |
+| 観測済み | 観測mode | 閉じた応答を生成 | 応答後終了 | Path／Credential／raw error非公開 |
+| Effect準備 | 操作modeと検証済みAuthority | mutex／Job／子Processを取得しintent後にEffect | Effect観測中／失敗 | 未割当子Processを実行しない |
+| Effect観測中 | 完了、timeout、取消 | 子Process、Job、stdio、対象状態を再観測 | 応答後終了／不明 | `T`だけでDocker全体成立を主張しない |
+| 不明 | helperまたはcleanup観測不能 | 正常応答を禁止して異常終了 | 呼出側Recovery | 呼出側がexact Operationと資源義務を保持 |
+
+native部品自身は耐久Recovery recordを所有しない。呼出側はhelper終了を全体cleanupとみなさず、同じOperationの状態、資源、Effect receiptと再結合する。
+
 | 子Process境界 | 保証・不明時の処置 |
 |---|---|
 | 起動 | `CREATE_SUSPENDED`で生成し、kill-on-close Jobへ割り当ててから再開する |

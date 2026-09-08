@@ -59,6 +59,31 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 
 最新実行と独立確認が終わるまで、この対応表だけで各部品を完了にしない。
 
+### Tool結合ブロックと段階的な結合試験
+
+[Tool全体の結合ブロック](../06_Architecture/01_Architecture.md#tool全体の結合ブロック)を結合試験の選択単位とする。ブロックはSource配置ではなく、共同で成立させる状態、Authority、資源、外部境界および終了後条件から定義する。公開機能の主経路だけでなく、取消、cleanup、Recovery、再入場、耐久記録およびsettlementを省略しない。
+
+| 段階 | 確認する範囲 | 合格から主張できないこと |
+|---|---|---|
+| ブロック内結合 | 実producer、実Adapterまたは安全に同等な実境界、実consumerを一つのLifecycleで接続する | 隣接ブロック、公開Tool全体、複数Toolの成立 |
+| 隣接ブロック結合 | 上流結果を再構成せず下流へ渡し、Identity、状態、Authority、Effect、cleanupを共同で観測する | 公開入口の入力搬送、最終利用者結果、全Provider経路の成立 |
+| Tool内公開経路 | 公開CLI／API／TransportからToolの最終結果と終了後条件までを接続する | 他Toolを含むProject全体またはRelease成立 |
+| 総合試験 | 複数Toolと本番同等Process・環境を通してAccepted Resultまたは安全停止を観測する | ブロック内の未観測Lifecycleを推定すること |
+
+Lifecycle profileは次の意味で用いる。`pure_component`でも入力拒否と結果settlementを持つが、存在しない外部資源やRecoveryを作らない。`external_effect_operation`では全Lifecycleを確認し、単発mockまたは最終E2Eだけで代替しない。
+
+| profile | 必須の確認 |
+|---|---|
+| `pure_component` | 受付、正常処理、入力拒否、結果settlement、外部Effect 0 |
+| `read_only_boundary` | 境界取得、安定読取り、失敗／観測不能、取消、子資源cleanup、終了結果 |
+| `transport_session` | bind／接続、搬送、切断、取消、同時要求、shutdown、listener／session終了 |
+| `durable_operation` | intent、競合、write／flush／publish／readback、失敗残存、Recovery、再入場、settlement |
+| `external_effect_operation` | Authority取得、Effect前再確認、要求／受理／完了／観測、timeout／取消、全資源cleanup、Recovery、再入場、settlement |
+
+[試験カタログ](04_Test_Catalog.json) revision 8は、全Toolが一つ以上の結合ブロックを持ち、各ブロックが詳細Architecture、責務、外部境界、Lifecycle profile、実在する結合試験および終了後条件へ接続することを機械検査する。さらに、ブロック間シーケンスの正本と、一段または二段の段階的結合経路、経路を反証する結合試験および終了後条件を対応させる。ブロック変更時は、Architectureだけ、試験だけ、またはカタログだけを更新して完了としない。ブロックの試験が固定Fakeに限られる場合は、実境界の確認を別の結合試験または未確認義務として残し、最終E2Eまで発見を遅延させない。
+
+段階的結合の順序は固定しない。下位の外部境界または副次lifecycleから原因を局所化する場合はボトムアップ、公開入口から未接続Consumerを探索する場合はトップダウンを用いる。ただし、いずれもブロック内部、隣接一段、意味伝播が必要な二段、総合試験／E2Eの順で根拠を区別し、二段以内の不成立を最終E2Eで初めて発見する計画にしない。
+
 <a id="tool-user-experience-verification"></a>
 
 ### 利用体験・操作・表示と仕様の接続
@@ -103,7 +128,7 @@ Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場
 
 ### 変更影響型回帰の信頼境界
 
-[試験カタログ](04_Test_Catalog.json) revision 3は、Rootと各登録項目のkey、列挙値、必須Boolean、非空かつ重複のない集合、およびRepository内の正規化相対Pathを閉じたSchemaとして検証する。欠落field、未知field、不明な列挙値、絶対Path、親Directory参照または区切り差を既定値へ畳まず、試験Process開始前に停止する。`externalProviderEffect`と`humanInput`の欠落を`false`と推定しない。
+[試験カタログ](04_Test_Catalog.json) revision 8は、Rootと各登録項目のkey、列挙値、必須Boolean、非空かつ重複のない集合、およびRepository内の正規化相対Pathを閉じたSchemaとして検証する。欠落field、未知field、不明な列挙値、絶対Path、親Directory参照または区切り差を既定値へ畳まず、試験Process開始前に停止する。`externalProviderEffect`と`humanInput`の欠落を`false`と推定しない。結合ブロックについてはOwner全数、Architecture参照、Lifecycle profile、実在するITおよび終了後条件を照合し、結合経路についてはテキストシーケンス図への参照、二または三ブロックの経路、実在するITおよび終了後条件を照合する。
 
 回帰対象はfilenameの語句一致から選ばない。登録済み試験そのものだけが変更された場合はその試験を直接選択できるが、production code、support、fixtureまたは設定の変更では、対象Toolが所有するUT・IT・STを安全側の閉包として選択する。共有カタログ・共有設定または所有者を確定できない実行可能変更では全Toolを選択する。Markdown変更ではCheckerとRepository文書検査を静的段階へ含める。この保守的選択を意味依存グラフの完成と読み替えず、将来、機械的に検証できる依存関係が成立した範囲だけ狭める。
 

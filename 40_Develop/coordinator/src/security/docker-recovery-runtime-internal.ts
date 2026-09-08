@@ -22,7 +22,7 @@ import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "./docker-cli-trust.ts";
-import { DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256 } from "./docker-desktop-current-artifact-trust.ts";
+import { dockerDesktopCurrentArtifactTrustPolicySha256 } from "./docker-desktop-current-artifact-trust.ts";
 import {
   inspectDockerDesktopRepairHistoricalOperation,
   parseDockerDesktopRepairDirectoryName,
@@ -5257,7 +5257,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
         runtimeStateProtectionHash: root.runtimeStateProtectionHash,
         localUserBindingHash: root.localUserBindingHash,
         runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
-        dockerPolicySha256: DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY_SHA256,
+        dockerPolicySha256: dockerDesktopCurrentArtifactTrustPolicySha256,
         crddManifestHash: verification.manifestHash,
         crddReleaseSequence: releaseSequence as number,
         runtimeExecutionIdentitySha256:

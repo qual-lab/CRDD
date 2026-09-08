@@ -25,6 +25,181 @@ CRDD自身が提供するCoordinator Runtime、実行知（Execution Intelligenc
 
 Generator等の将来Toolの存在を仮定して空成果物は作らない。新しいToolでは同じ責務分離を適用し、実際の入力・利用者・実行境界から必要な設計を追加する。
 
+### Tool全体の結合ブロック
+
+結合ブロックは、ファイルやDirectoryではなく、同じ状態、Authority、資源および終了条件を共同で成立させる責務の単位である。主機能だけでなく、取消、cleanup、Recovery、再入場、耐久記録および結果settlementを、その成立に必要な副次機能として同じブロックまたは隣接ブロックへ明示する。正確な試験IDと自動回帰接続は[試験カタログ](../07_Quality/04_Test_Catalog.json)が所有し、次表は人間が責務境界を判断する正本である。
+
+```text
+公開入口
+  ↓
+意味契約／受付ブロック
+  ↓
+Core／Applicationブロック
+  ↓
+Port／Adapterブロック
+  ↓
+外部境界ブロック
+  ↓
+終了観測
+  ├─ 正常settlement
+  ├─ 取消＋cleanup
+  └─ Recovery記録＋再入場
+
+段階的な結合確認
+  block内の実境界
+    → 隣接block間
+      → 公開入口からのTool全体
+        → 複数Toolを通る総合試験
+```
+
+| Tool | 結合ブロック | 共同で成立させる責務 | Lifecycle上の副次機能 | 詳細正本 |
+|---|---|---|---|---|
+| Checker | Repository検査 | Root／範囲受付、発見、参照解決、決定論的報告 | Git子Process終了、読取不能、未確認範囲、Effect 0 | [Checker](checker/01_Architecture.md#3-検査の順序) |
+| Checker | 回帰実行 | 試験発見、子Process実行、結果集約 | timeout、取消、fixture cleanup、部分結果 | [Checker](checker/01_Architecture.md#5-資源と終了) |
+| Project Runtime | Objective／Task | Objective受付、Task遷移、Execution Port調停 | 待機、取消、世代再照合、Effect不明時のRecovery | [Project Runtime](project-runtime/01_Architecture.md#6-状態authority資源) |
+| Project Runtime | 判断／Recovery | 人間判断、再計画、Lease、Recovery再入場 | 一回限りAuthority、stale世代拒否、再開settlement | [Project Runtime](project-runtime/01_Architecture.md#9-移行と検証) |
+| Project Runtime | 統合／投影 | 候補統合、Accepted Result、読取り専用状態投影 | 未採用候補の隔離、投影Effect 0、相関不一致拒否 | [Project Runtime](project-runtime/01_Architecture.md#7-公開アプリケーション契約) |
+| Coordinator | Provider Task | 選定、隔離実行、Review、結果settlement | 外部送信、timeout、取消、Process／Container cleanup | [Coordinator](coordinator/01_Architecture.md#3-一般taskの主シーケンス) |
+| Coordinator | 候補公開 | 候補snapshot、Store、統合公開 | Lock、衝突、破棄、正本採用前Effect 0 | [Coordinator](coordinator/01_Architecture.md#10-provider実行と候補) |
+| Coordinator | Release署名 | 配布依存観測、署名、候補promotion | preflight、秘密入力、失敗staging、単一snapshot | [Coordinator](coordinator/01_Architecture.md#9-署名済み配布物) |
+| Coordinator | Docker Task回復 | Docker Task実行、資源回収、Task Recovery | Container／Network／Volume不存在、exact Identity再入場 | [Coordinator](coordinator/01_Architecture.md#11-取消と回復) |
+| Coordinator | Docker Desktop修復 | 障害分類、修復Effect、履歴Recovery | 停止、run Directory退避、再起動、Engine再観測、旧義務settlement | [Coordinator](coordinator/01_Architecture.md#docker外部境界の結合単位) |
+| 実行知 | Event発行 | Event検証、非Authority発行、利用側観測 | 欠測保持、無効Event拒否、主処理結果の不変 | [実行知](execution-intelligence/01_Architecture.md#3-発行と失敗境界) |
+| 実行知 | 耐久Store | Repository結合、immutable publish、保持候補 | Process間排他、衝突再読取、残存分類、清掃候補 | [実行知](execution-intelligence/01_Architecture.md#4-保存と改変検知) |
+| MCP | 公開契約Adapter | decode／encode、公開契約投影、閉じた結果 | session開始・取消・終了、切断、再接続、Effect不明の保持 | [MCP](mcp/01_Architecture.md#3-依存と所有権) |
+| MCP | Transport | stdio／localhost HTTP搬送 | bind、同時接続、切断、shutdown、listener不存在 | [MCP](mcp/01_Architecture.md#5-transport-lifecycle) |
+| Platform Access | OS観測／Process | protocol、OS主体・実体観測、所有子Process | handle／Job／stdio回収、timeout、取消、部分frame拒否 | [Platform Access](platform-access/01_Architecture.md#5-状態資源回復) |
+| Platform Access | Docker native操作 | 署名済みartifact固定、限定停止・再起動 | mutex、Process tree、Effect確認、helper異常終了 | [Platform Access](platform-access/01_Architecture.md#5-状態資源回復) |
+
+ブロックの増減または責務移動では、表だけを更新して完了しない。詳細設計のテキスト図、状態遷移表および適用条件を満たす状態遷移図、試験カタログの結合ブロック、実在する結合試験、変更影響型回帰の利用側を同じ固定候補で一致させる。ブロック内の単体試験だけ、隣接Adapterのmockだけ、またはTool全体のE2Eだけで中間境界の成立を代替しない。
+
+### ブロック間シーケンスの正本
+
+前表は責務と境界、各Toolの状態遷移表はブロック内部の状態を所有する。以下のテキストシーケンス図は、順序に意味があるブロック間の呼出し、CanonicalなIdentity／Authority／状態の受渡し、応答および逆順cleanup／Recoveryだけを所有する。試験IDと実行条件は試験カタログが所有し、図へ複製しない。
+
+```text
+表        = 誰が何を所有するか
+状態遷移表 = 一つのblock内で何が起きるか
+sequence  = blockをまたいで、いつ何を渡すか
+試験Catalog = どの試験がそのsequenceを反証するか
+```
+
+一段の結合で責務を切り分けられる経路は隣接する二ブロック、Identity、Authority、状態、Effect、cleanupまたはRecoveryが伝播する経路は一つ先を含む三ブロックまでを結合単位とする。四ブロック以上の全体経路は総合試験（ST）またはE2Eが所有する。順序やlifecycle伝播を持たない一意な局所変換には、シーケンス図を機械的に追加しない。
+
+#### 検査と回帰実行
+
+```text
+利用者          Repository検査          回帰実行          子Process
+  │                   │                    │                  │
+  │-- 検査対象／基準 ->│                    │                  │
+  │                   │-- Root・差分観測  │                  │
+  │                   │-- {Canonical対象集合}／実行計画 ---->│
+  │                   │                    │-- 試験開始 ------>│
+  │                   │                    │<-- 結果／終了観測-│
+  │                   │                    │                  │
+  │                   │   [timeout／取消]  │-- 取消要求 ------>│
+  │                   │                    │<-- Process不存在-│
+  │<-- 完全／部分／停止を区別した結果 ------│                  │
+  │                   │                    │                  │
+  └─ cleanup（逆順）: 子Process -> 回帰実行 -> Repository検査
+```
+
+回帰実行はRepository検査が確定した対象集合を再解釈しない。子Processの開始、結果受信、終了観測および一時資源の不存在が揃うまで、完全実行と表示しない。
+
+#### Task実行と公開
+
+```text
+受付と実行
+
+外部Actor       MCP Transport       MCP Adapter       Project Runtime       Coordinator
+   │                  │                  │                    │                   │
+   │-- Objective ---->│                  │                    │                   │
+   │                  │-- decode済み --->│                    │                   │
+   │                  │                  │-- {Objective ID} ->│                   │
+   │                  │                  │                    │-- {Execution Port Authority} -->│
+   │                  │                  │                    │                   │-- Provider実行
+   │                  │                  │                    │                   │-- settlement
+
+候補と公開
+
+Coordinator        候補公開         Project Runtime       統合／投影        MCP Adapter／Transport       外部Actor
+    │                  │                    │                  │                      │                     │
+    │-- {Candidate ID}->│                    │                  │                      │                     │
+    │                  │-- {Candidate Reference} ------------>│                      │                     │
+    │                  │                    │-- 候補／受入条件->│                      │                     │
+    │                  │                    │<-- {Accepted Result／Recovery Ref} ------│                     │
+    │                  │                    │-- Canonical公開結果 --------------------->│-- 公開結果 -------->│
+    │                  │                    │                  │                      │                     │
+    │                  │   [失敗／切断]     │<-- {Operation ID}の取消 -----------------│                     │
+    │<-- 同じIdentityの取消／Recovery再入場-│                  │                      │                     │
+    └─ cleanup（逆順）: Coordinator -> Project Runtime -> MCP Adapter -> MCP Transport
+```
+
+各ConsumerはCanonicalな候補、結果、Recovery参照を再構成しない。未settle候補、相関不一致またはcleanup不明をAccepted Resultへ投影しない。
+
+#### 実行観測の耐久化
+
+```text
+Project Runtime            Event発行                 耐久Store
+      │                         │                        │
+      │-- {Task ID}／Task結果 ->│                        │
+      │                         │-- 非Authority Event -->│
+      │                         │                        │-- immutable publish
+      │                         │                        │-- collision readback
+      │                         │<-- 保存／欠測／失敗 ---│
+      │<-- 観測状態 ------------│                        │
+      │                         │                        │
+      │   [保存失敗]            │-x Task結果／Authorityの変更なし
+      └─ cleanup（逆順）: 耐久Store -> Event発行
+```
+
+実行知の保存失敗は主処理の結果やAuthorityを変更しない。欠測または保存失敗は成功値へ畳まず、同じ仕事Identityへ結合して観測可能にする。
+
+#### Docker回復と再入場
+
+```text
+Project Runtime    Docker Task回復    Platform観測／所有Process    Docker Desktop修復       実Docker
+      │                   │                       │                       │                    │
+      │-- {Recovery ID} ->│                       │                       │                    │
+      │                   │-- fresh状態観測 ----->│                       │                    │
+      │                   │<-- {Exact Runtime State} --------------------│                    │
+      │                   │-- {Recovery ID}／修復要求 ------------------->│                    │
+      │                   │                       │<-- 限定Effect Authority│                    │
+      │                   │                       │-- stop／start要求 ------------------------->│
+      │                   │                       │<-- Engine応答 ------------------------------│
+      │                   │                       │-- Process終了／資源不存在 ->│              │
+      │                   │<-- Engine／資源のfresh再観測 ----------------│                    │
+      │<-- 同じ{Recovery ID}のsettlement／停止 ---│                       │                    │
+      │                   │                       │                       │                    │
+      │   [観測不能／Identity不一致]              │                       │                    │
+      │                   │-x Effect再発行なし    │                       │                    │
+      └─ cleanup（逆順）: 実Docker -> Platform観測／所有Process -> Docker Desktop修復 -> Docker Task回復
+```
+
+要求発行、Process handle取得、Docker停止／開始要求、Engine応答および資源不存在を別の成立点として扱う。観測不能、Identity不一致またはcleanup不明ではEffectを再発行せず、同じRecovery Identityを保持して停止する。
+
+#### Release候補と署名
+
+```text
+固定候補         配布依存観測          署名入口          秘密鍵境界         配置／再読取
+   │                  │                   │                  │                  │
+   │-- candidate ---->│                   │                  │                  │
+   │                  │-- {Runtime Dependency Snapshot} --->│                  │
+   │                  │                   │-- 全非秘密preflight                  │
+   │                  │                   │                  │                  │
+   │                  │   [preflight成立] │-- 一回だけの入力->│                  │
+   │                  │                   │<-- Key Capability│                  │
+   │                  │                   │-- 署名済みmanifest ----------------->│
+   │                  │                   │<-- byte一致／Hash／配置観測 ---------│
+   │<-- promotion可能 --------------------│                  │                  │
+   │                  │                   │                  │                  │
+   │   [preflight／署名／配置不成立]       │-x promotionなし  │                  │
+   │<-- 失敗staging保持 ------------------│                  │                  │
+   └─ cleanup（逆順）: 秘密鍵境界 -> 署名入口 -> 配置／再読取
+```
+
+署名入口は単一snapshotを使用し、Consumer側でPathまたはRuntime Identityを再解釈しない。preflight完了前に秘密入力を要求せず、署名または配置の不成立をpromotionへ進めない。
+
 ### v0.20で固定する依存方向
 
 次の図はv0.20で目指す全体構成と依存方向を示す。図は責務境界の正本であり、各要素の実装済み・計画中という到達状態は、個別設計と対応するCHGで判定する。MCP Streamable HTTP、読み取り専用Project State投影および限定分散実行は、図に含まれていても単体の存在だけで完成とは扱わない。

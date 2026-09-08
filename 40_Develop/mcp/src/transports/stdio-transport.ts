@@ -30,71 +30,109 @@ export async function runMcpProjectRuntimeStdio(
   output: Writable,
 ) {
   const controller = new AbortController();
-  const abortForParentLoss = () => controller.abort();
-  input.once("end", abortForParentLoss);
-  input.once("error", abortForParentLoss);
-  input.once("close", abortForParentLoss);
   let pending = "";
+  const lines: string[] = [];
+  let queuedBytes = 0;
+  let isInputClosed = false;
+  let didInputError = false;
   let isFailed = false;
   let isSemanticResultObserved = false;
   let semanticCleanupConfirmed = true;
   let semanticManualRecoveryRequired = false;
+  let wake: (() => void) | null = null;
+  const notify = () => {
+    wake?.();
+    wake = null;
+  };
+  const closeForParentLoss = () => {
+    if (isInputClosed) return;
+    isInputClosed = true;
+    controller.abort();
+    notify();
+  };
+  const failInput = () => {
+    didInputError = true;
+    closeForParentLoss();
+  };
+  const receive = (rawChunk: string | Buffer) => {
+    if (isInputClosed || isFailed) return;
+    pending += String(rawChunk);
+    for (;;) {
+      const newline = pending.indexOf("\n");
+      if (newline < 0) break;
+      const line = pending.slice(0, newline).replace(/\r$/u, "");
+      pending = pending.slice(newline + 1);
+      if (line.length === 0) continue;
+      queuedBytes += Buffer.byteLength(line, "utf8");
+      lines.push(line);
+    }
+    if (
+      Buffer.byteLength(pending, "utf8") + queuedBytes >
+      MAXIMUM_REQUEST_BYTES
+    ) {
+      isFailed = true;
+      controller.abort();
+      input.pause();
+    }
+    notify();
+  };
+  const waitForInput = () =>
+    new Promise<void>((resolve) => {
+      wake = resolve;
+      if (lines.length > 0 || isInputClosed || isFailed) notify();
+    });
   try {
     input.setEncoding("utf8");
-    for await (const rawChunk of input) {
-      const chunk = String(rawChunk);
-      pending += chunk;
-      if (Buffer.byteLength(pending, "utf8") > MAXIMUM_REQUEST_BYTES) {
-        isFailed = true;
-        break;
+    input.on("data", receive);
+    input.once("end", closeForParentLoss);
+    input.once("error", failInput);
+    input.once("close", closeForParentLoss);
+    input.resume();
+    while (!isFailed && (lines.length > 0 || !isInputClosed)) {
+      if (lines.length === 0) {
+        await waitForInput();
+        continue;
       }
-      for (;;) {
-        const newline = pending.indexOf("\n");
-        if (newline < 0) break;
-        const line = pending.slice(0, newline).replace(/\r$/u, "");
-        pending = pending.slice(newline + 1);
-        if (line.length === 0) continue;
-        const request = parseUnambiguousJsonDocument(line);
-        const response = request
-          ? await handleMcpProjectRuntimeRequest(
-              request,
-              dependencies,
-              controller.signal,
-            )
-          : protocolError(null, -32700, "Parse error");
-        if ("result" in response && response.result) {
-          const result = response.result as Readonly<{
-            structuredContent?: Readonly<{
-              cleanupConfirmed?: unknown;
-              manualRecoveryRequired?: unknown;
-            }>;
+      const line = lines.shift();
+      if (line === undefined) continue;
+      queuedBytes -= Buffer.byteLength(line, "utf8");
+      const request = parseUnambiguousJsonDocument(line);
+      const response = request
+        ? await handleMcpProjectRuntimeRequest(
+            request,
+            dependencies,
+            controller.signal,
+          )
+        : protocolError(null, -32700, "Parse error");
+      if ("result" in response && response.result) {
+        const result = response.result as Readonly<{
+          structuredContent?: Readonly<{
+            cleanupConfirmed?: unknown;
+            manualRecoveryRequired?: unknown;
           }>;
-          const semantic = result.structuredContent;
-          if (
-            semantic &&
-            typeof semantic.cleanupConfirmed === "boolean" &&
-            typeof semantic.manualRecoveryRequired === "boolean"
-          ) {
-            isSemanticResultObserved = true;
-            semanticCleanupConfirmed &&= semantic.cleanupConfirmed;
-            semanticManualRecoveryRequired ||= semantic.manualRecoveryRequired;
-          }
-        }
-        if (!(await write(output, response))) {
-          isFailed = true;
-          break;
+        }>;
+        const semantic = result.structuredContent;
+        if (
+          semantic &&
+          typeof semantic.cleanupConfirmed === "boolean" &&
+          typeof semantic.manualRecoveryRequired === "boolean"
+        ) {
+          isSemanticResultObserved = true;
+          semanticCleanupConfirmed &&= semantic.cleanupConfirmed;
+          semanticManualRecoveryRequired ||= semantic.manualRecoveryRequired;
         }
       }
-      if (isFailed) break;
+      if (!(await write(output, response))) isFailed = true;
     }
-    if (pending.trim().length > 0) isFailed = true;
+    if (pending.trim().length > 0 || didInputError) isFailed = true;
   } catch {
     isFailed = true;
   } finally {
     controller.abort();
-    input.removeListener("end", abortForParentLoss);
-    input.removeListener("error", abortForParentLoss);
-    input.removeListener("close", abortForParentLoss);
+    input.removeListener("data", receive);
+    input.removeListener("end", closeForParentLoss);
+    input.removeListener("error", failInput);
+    input.removeListener("close", closeForParentLoss);
   }
   return Object.freeze({
     contract: MCP_PROJECT_RUNTIME_STDIO_CONTRACT,

@@ -22,6 +22,13 @@ export const executionProfiles = [
   "restricted_process",
   "windows_process_control",
 ] as const;
+export const integrationLifecycleProfiles = [
+  "pure_component",
+  "read_only_boundary",
+  "transport_session",
+  "durable_operation",
+  "external_effect_operation",
+] as const;
 
 export type TestCatalogEntry = Readonly<{
   id: string;
@@ -46,7 +53,7 @@ export type TestCatalogEntry = Readonly<{
 
 export type TestCatalog = Readonly<{
   contract: "crdd/test-catalog";
-  contractRevision: 6;
+  contractRevision: 8;
   levels: readonly TestLevel[];
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
@@ -58,6 +65,23 @@ export type TestCatalog = Readonly<{
     "project-runtime": "node_test";
     "platform-access": "cargo_test";
   }>;
+  integrationBlocks: readonly Readonly<{
+    id: string;
+    owner: TestCatalogEntry["owner"];
+    architectureAnchor: string;
+    responsibilities: readonly string[];
+    externalBoundaries: readonly string[];
+    lifecycleProfile: (typeof integrationLifecycleProfiles)[number];
+    testIds: readonly string[];
+    postconditions: readonly string[];
+  }>[];
+  integrationCorridors: readonly Readonly<{
+    id: string;
+    architectureAnchor: string;
+    blockPath: readonly string[];
+    testIds: readonly string[];
+    postconditions: readonly string[];
+  }>[];
   consumerBindings: readonly Readonly<{
     producerOwner: TestCatalogEntry["owner"];
     producerPaths: readonly string[];
@@ -89,6 +113,7 @@ const RUNNER_PROFILES = Object.freeze({
   "platform-access": "cargo_test",
 });
 const validExecutionProfiles = new Set(executionProfiles);
+const validIntegrationLifecycleProfiles = new Set(integrationLifecycleProfiles);
 const validTestKinds = new Set(testKinds);
 const validTestEnvironments = new Set(testEnvironments);
 const ROOT_KEYS = new Set([
@@ -98,8 +123,27 @@ const ROOT_KEYS = new Set([
   "regressionIsSelection",
   "resourceIntensiveLevels",
   "runnerProfiles",
+  "integrationBlocks",
+  "integrationCorridors",
   "consumerBindings",
   "tests",
+]);
+const INTEGRATION_BLOCK_KEYS = new Set([
+  "id",
+  "owner",
+  "architectureAnchor",
+  "responsibilities",
+  "externalBoundaries",
+  "lifecycleProfile",
+  "testIds",
+  "postconditions",
+]);
+const INTEGRATION_CORRIDOR_KEYS = new Set([
+  "id",
+  "architectureAnchor",
+  "blockPath",
+  "testIds",
+  "postconditions",
 ]);
 const CONSUMER_BINDING_KEYS = new Set([
   "producerOwner",
@@ -238,6 +282,40 @@ function isSafeRepositoryPath(value: string): boolean {
   );
 }
 
+function markdownHeadingAnchorExists(
+  repositoryRoot: string,
+  architectureAnchor: string,
+): boolean {
+  const [repositoryRelativePath, fragment, ...extraFragments] =
+    architectureAnchor.split("#");
+  if (
+    extraFragments.length > 0 ||
+    !repositoryRelativePath ||
+    !fragment ||
+    !isSafeRepositoryPath(repositoryRelativePath)
+  )
+    return false;
+  const absolutePath = path.join(
+    repositoryRoot,
+    ...repositoryRelativePath.split("/"),
+  );
+  if (!fs.existsSync(absolutePath) || !fs.lstatSync(absolutePath).isFile())
+    return false;
+  return fs
+    .readFileSync(absolutePath, "utf8")
+    .split(/\r?\n/u)
+    .filter((line) => /^#{1,6}\s+/u.test(line))
+    .map((line) =>
+      line
+        .replace(/^#{1,6}\s+/u, "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+        .replace(/\s+/gu, "-"),
+    )
+    .includes(fragment);
+}
+
 export function inspectTestCatalog(
   repositoryRoot: string,
   candidate: unknown,
@@ -251,7 +329,7 @@ export function inspectTestCatalog(
   }
   const catalog = candidate as unknown as TestCatalog;
   if (catalog.contract !== "crdd/test-catalog") failures.push("contract");
-  if (catalog.contractRevision !== 6) failures.push("contract_revision");
+  if (catalog.contractRevision !== 8) failures.push("contract_revision");
   if (catalog.regressionIsSelection !== true)
     failures.push("regression_selection_contract");
   if (JSON.stringify(catalog.levels) !== JSON.stringify(testLevels))
@@ -269,6 +347,10 @@ export function inspectTestCatalog(
     failures.push("runner_profiles_not_object");
   if (!Array.isArray(candidate.consumerBindings))
     failures.push("consumer_bindings_not_array");
+  if (!Array.isArray(candidate.integrationBlocks))
+    failures.push("integration_blocks_not_array");
+  if (!Array.isArray(candidate.integrationCorridors))
+    failures.push("integration_corridors_not_array");
 
   const ids = new Set<string>();
   const paths = new Set<string>();
@@ -406,6 +488,141 @@ export function inspectTestCatalog(
     if (ownerEdges.has(reverse)) failures.push(`consumer_cycle:${edge}`);
     ownerEdges.add(edge);
   }
+
+  const blockIds = new Set<string>();
+  const blockOwners = new Set<TestCatalogEntry["owner"]>();
+  const blocks = Array.isArray(candidate.integrationBlocks)
+    ? candidate.integrationBlocks
+    : [];
+  for (const [index, rawBlock] of blocks.entries()) {
+    if (!isRecord(rawBlock)) {
+      failures.push(`invalid_integration_block:${index}`);
+      continue;
+    }
+    failures.push(
+      ...inspectExactKeys(
+        rawBlock,
+        INTEGRATION_BLOCK_KEYS,
+        `integration_block_${index}`,
+      ),
+    );
+    const block =
+      rawBlock as unknown as TestCatalog["integrationBlocks"][number];
+    if (typeof block.id !== "string" || block.id.length === 0) {
+      failures.push(`invalid_integration_block_id:${index}`);
+      continue;
+    }
+    if (blockIds.has(block.id))
+      failures.push(`duplicate_integration_block_id:${block.id}`);
+    blockIds.add(block.id);
+    if (!RUNNER_SUPPORTED_OWNERS.has(block.owner))
+      failures.push(`invalid_integration_block_owner:${block.id}`);
+    else blockOwners.add(block.owner);
+    if (
+      typeof block.architectureAnchor !== "string" ||
+      !markdownHeadingAnchorExists(repositoryRoot, block.architectureAnchor)
+    )
+      failures.push(`invalid_integration_block_architecture:${block.id}`);
+    if (!isNonEmptyUniqueStringArray(block.responsibilities))
+      failures.push(`invalid_integration_block_responsibilities:${block.id}`);
+    if (!isNonEmptyUniqueStringArray(block.externalBoundaries))
+      failures.push(`invalid_integration_block_boundaries:${block.id}`);
+    if (!validIntegrationLifecycleProfiles.has(block.lifecycleProfile))
+      failures.push(`invalid_integration_block_lifecycle:${block.id}`);
+    if (!isNonEmptyUniqueStringArray(block.postconditions))
+      failures.push(`invalid_integration_block_postconditions:${block.id}`);
+    if (!isNonEmptyUniqueStringArray(block.testIds))
+      failures.push(`invalid_integration_block_tests:${block.id}`);
+    else {
+      let hasIntegrationTest = false;
+      for (const testId of block.testIds) {
+        const entry = catalog.tests.find(
+          (candidateEntry) => candidateEntry.id === testId,
+        );
+        if (!entry)
+          failures.push(`integration_block_test_missing:${block.id}:${testId}`);
+        else if (entry.level === "integration") hasIntegrationTest = true;
+      }
+      if (!hasIntegrationTest)
+        failures.push(`integration_block_integration_test_missing:${block.id}`);
+    }
+  }
+  for (const owner of RUNNER_SUPPORTED_OWNERS)
+    if (!blockOwners.has(owner as TestCatalogEntry["owner"]))
+      failures.push(`integration_block_owner_missing:${owner}`);
+
+  const corridorIds = new Set<string>();
+  const corridorBlocks = new Set<string>();
+  const corridors = Array.isArray(candidate.integrationCorridors)
+    ? candidate.integrationCorridors
+    : [];
+  for (const [index, rawCorridor] of corridors.entries()) {
+    if (!isRecord(rawCorridor)) {
+      failures.push(`invalid_integration_corridor:${index}`);
+      continue;
+    }
+    failures.push(
+      ...inspectExactKeys(
+        rawCorridor,
+        INTEGRATION_CORRIDOR_KEYS,
+        `integration_corridor_${index}`,
+      ),
+    );
+    const corridor =
+      rawCorridor as unknown as TestCatalog["integrationCorridors"][number];
+    if (typeof corridor.id !== "string" || corridor.id.length === 0) {
+      failures.push(`invalid_integration_corridor_id:${index}`);
+      continue;
+    }
+    if (corridorIds.has(corridor.id))
+      failures.push(`duplicate_integration_corridor_id:${corridor.id}`);
+    corridorIds.add(corridor.id);
+    if (
+      typeof corridor.architectureAnchor !== "string" ||
+      !markdownHeadingAnchorExists(repositoryRoot, corridor.architectureAnchor)
+    )
+      failures.push(`invalid_integration_corridor_architecture:${corridor.id}`);
+    if (
+      !isNonEmptyUniqueStringArray(corridor.blockPath) ||
+      corridor.blockPath.length < 2 ||
+      corridor.blockPath.length > 3
+    )
+      failures.push(`invalid_integration_corridor_path:${corridor.id}`);
+    else
+      for (const blockId of corridor.blockPath) {
+        corridorBlocks.add(blockId);
+        if (!blockIds.has(blockId))
+          failures.push(
+            `integration_corridor_block_missing:${corridor.id}:${blockId}`,
+          );
+      }
+    if (!isNonEmptyUniqueStringArray(corridor.postconditions))
+      failures.push(
+        `invalid_integration_corridor_postconditions:${corridor.id}`,
+      );
+    if (!isNonEmptyUniqueStringArray(corridor.testIds))
+      failures.push(`invalid_integration_corridor_tests:${corridor.id}`);
+    else {
+      let hasIntegrationTest = false;
+      for (const testId of corridor.testIds) {
+        const entry = catalog.tests.find(
+          (candidateEntry) => candidateEntry.id === testId,
+        );
+        if (!entry)
+          failures.push(
+            `integration_corridor_test_missing:${corridor.id}:${testId}`,
+          );
+        else if (entry.level === "integration") hasIntegrationTest = true;
+      }
+      if (!hasIntegrationTest)
+        failures.push(
+          `integration_corridor_integration_test_missing:${corridor.id}`,
+        );
+    }
+  }
+  for (const blockId of blockIds)
+    if (!corridorBlocks.has(blockId))
+      failures.push(`integration_corridor_block_uncovered:${blockId}`);
 
   const windowsGatePaths = actualPaths
     .filter((entry) => entry.endsWith(".test.ts"))

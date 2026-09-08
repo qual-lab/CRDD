@@ -28,9 +28,9 @@ test("Windows environment observation completes with three runtime lock workers"
       assert.ok(createWindowsNativeHelperEnvironment());
     }
   } finally {
-    const released = locks.map((lock) => lock.release());
-    assert.equal(released.length, locks.length);
-    assert.ok(released.every((value) => value === true));
+    const releaseResults = locks.map((lock) => lock.release());
+    assert.equal(releaseResults.length, locks.length);
+    assert.ok(releaseResults.every((wasReleased) => wasReleased === true));
   }
 });
 

@@ -2598,8 +2598,8 @@ test("production inventory validates restart prefixes and rejects task/submissio
           let activeHandoff = handoff;
           const continuations: Buffer[] = [];
           for (const [index, phase] of phases.entries()) {
-            const migrated = mutation === "migration_fence" && index > 0;
-            if (migrated && index === 1) {
+            const isMigrated = mutation === "migration_fence" && index > 0;
+            if (isMigrated && index === 1) {
               activeHandoff = createDockerRestartMigrationRecord(
                 [first],
                 { ...binding, runtimeExecutionIdentitySha256: "e".repeat(64) },
@@ -2616,7 +2616,7 @@ test("production inventory validates restart prefixes and rejects task/submissio
             const next = createDockerRestartMigratedPhase(
               {
                 ...binding,
-                runtimeExecutionIdentitySha256: (migrated ? "e" : "d").repeat(
+                runtimeExecutionIdentitySha256: (isMigrated ? "e" : "d").repeat(
                   64,
                 ),
               },

@@ -186,6 +186,18 @@ test("Docker runtime directoryのlock観測は特定socket名に依存せず、�
       ...overrides,
     });
   assert.deepEqual(observe(), RUN_IDENTITY);
+  assert.deepEqual(
+    observe({
+      readEntries: () =>
+        entries.map((entry) => ({ ...entry, isSymbolicLink: true })),
+      probeEntry: () => {
+        throw Object.assign(new Error("locked Windows AF_UNIX endpoint"), {
+          code: "EACCES",
+        });
+      },
+    }),
+    RUN_IDENTITY,
+  );
   assert.equal(
     observe({
       probeEntry: () => undefined,
@@ -195,7 +207,7 @@ test("Docker runtime directoryのlock観測は特定socket名に依存せず、�
   assert.equal(
     observe({
       readEntries: () =>
-        Array.from({ length: 65 }, (_, index) => ({
+        Array.from({ length: 65 }, (_unusedEntry, index) => ({
           name: `socket-${index}`,
           isDirectory: false,
           isSymbolicLink: false,
@@ -208,6 +220,18 @@ test("Docker runtime directoryのlock観測は特定socket名に依存せず、�
       readEntries: () => [
         { name: "nested", isDirectory: true, isSymbolicLink: false },
       ],
+    }),
+    null,
+  );
+  assert.equal(
+    observe({
+      readEntries: () =>
+        entries.map((entry) => ({ ...entry, isSymbolicLink: true })),
+      probeEntry: () => {
+        throw Object.assign(new Error("unexpected observation failure"), {
+          code: "EINVAL",
+        });
+      },
     }),
     null,
   );

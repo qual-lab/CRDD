@@ -103,6 +103,18 @@ Checker本体は一つの配布Sourceであり、以下のブロックはその�
 
 通常Checker本体は文書の生成・修正・削除を行わない。開発試験は別の資源所有者であり、`os.tmpdir()`の解決先を承認済みのRepository-local `.crdd/test-tmp`へ指定して実行する。通常のCheckerに、存在しないAuthority、候補Store、永続Recoveryを追加しない。
 
+### ブロック状態遷移
+
+| 現在状態 | 契機／事前条件 | 処理と観測 | 次状態 | 終了後条件 |
+|---|---|---|---|---|
+| 未受付 | 正規化済みRootと引数 | Root、mode、範囲を検証 | 発見中／拒否 | 拒否時は子Process・書込み0 |
+| 発見中 | Gitまたは理由付きfallbackを開始 | 文書、参照、未確認境界を列挙 | 索引済み／失敗 | Git子Process終了、読取りだけ |
+| 索引済み | 対象集合確定 | 構造・参照・契約を照合 | 集計中 | Repository byte不変 |
+| 集計中 | 全検査終了 | 指摘・warning・未確認を分けて構成 | 報告済み | stdoutとexitが同じ結果を表す |
+| 試験実行中 | 開発runnerが試験を開始 | timeout／取消／終了を観測 | 完了／部分失敗 | 全子Process終了、fixture残存を分類 |
+
+通常検査と開発試験runnerを同じLifecycleへ畳まない。試験runnerのcleanupまたは子Process終了が不明な場合、通常Checkerが読取り専用であることを根拠に成功へ補正しない。
+
 ## 6. 結果の意味と利用側
 
 正常に報告を構築した場合、errorがあればexit 1、なければexit 0。warningや未確認があっても0になり得る。引数拒否はstderrとexit 2であり、未捕捉例外・外部からの終了とは分ける。`--help`は現行の引数ではない。

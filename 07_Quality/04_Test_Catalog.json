@@ -1,6 +1,6 @@
 {
   "contract": "crdd/test-catalog",
-  "contractRevision": 6,
+  "contractRevision": 8,
   "levels": [
     "unit",
     "integration",
@@ -22,6 +22,226 @@
     "project-runtime": "node_test",
     "platform-access": "cargo_test"
   },
+  "integrationBlocks": [
+    {
+      "id": "checker:repository-verification",
+      "owner": "checker",
+      "architectureAnchor": "06_Architecture/checker/01_Architecture.md#3-検査の順序",
+      "responsibilities": ["root_scope_intake", "file_reference_discovery", "deterministic_reporting"],
+      "externalBoundaries": ["git_process", "repository_filesystem", "stdout_exit_status"],
+      "lifecycleProfile": "read_only_boundary",
+      "testIds": ["checker:integration:crdd-check", "checker:integration:tools-naming"],
+      "postconditions": ["repository_content_unchanged", "child_process_settled", "unchecked_scope_not_hidden"]
+    },
+    {
+      "id": "checker:regression-runner",
+      "owner": "checker",
+      "architectureAnchor": "06_Architecture/checker/01_Architecture.md#5-資源と終了",
+      "responsibilities": ["test_discovery", "bounded_child_execution", "result_aggregation"],
+      "externalBoundaries": ["node_child_process", "test_fixture_root", "exit_status"],
+      "lifecycleProfile": "external_effect_operation",
+      "testIds": ["checker:integration:regression-runner", "checker:unit:test-catalog"],
+      "postconditions": ["child_process_absent", "fixture_cleanup_classified", "partial_result_not_reported_complete"]
+    },
+    {
+      "id": "project-runtime:objective-task-lifecycle",
+      "owner": "project-runtime",
+      "architectureAnchor": "06_Architecture/project-runtime/01_Architecture.md#6-状態authority資源",
+      "responsibilities": ["objective_intake", "task_state_transition", "execution_port_coordination"],
+      "externalBoundaries": ["execution_port", "state_port", "host_identity_port"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["project-runtime:unit:objective-intake", "coordinator:integration:project-runtime-objective-intake", "coordinator:integration:project-runtime-full-flow"],
+      "postconditions": ["generation_reverified", "task_authority_narrowed", "unknown_effect_requires_recovery"]
+    },
+    {
+      "id": "project-runtime:decision-recovery",
+      "owner": "project-runtime",
+      "architectureAnchor": "06_Architecture/project-runtime/01_Architecture.md#9-移行と検証",
+      "responsibilities": ["human_decision_wait", "replanning", "recovery_reentry"],
+      "externalBoundaries": ["decision_port", "task_recovery_port", "lease_port"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["project-runtime:unit:human-decision-application", "coordinator:integration:project-runtime-replanning-and-decision", "coordinator:integration:project-runtime-decision-recovery-store"],
+      "postconditions": ["decision_authority_single_use", "recovery_identity_exact", "stale_generation_rejected"]
+    },
+    {
+      "id": "project-runtime:integration-projection",
+      "owner": "project-runtime",
+      "architectureAnchor": "06_Architecture/project-runtime/01_Architecture.md#7-公開アプリケーション契約",
+      "responsibilities": ["candidate_integration", "accepted_result", "read_only_state_projection"],
+      "externalBoundaries": ["candidate_port", "integration_record", "public_application_contract"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["project-runtime:unit:integration-application", "coordinator:integration:project-runtime-integration", "coordinator:integration:project-runtime-candidate-integration-adapter"],
+      "postconditions": ["candidate_and_result_correlated", "projection_effect_zero", "unaccepted_candidate_not_published"]
+    },
+    {
+      "id": "coordinator:provider-task-lifecycle",
+      "owner": "coordinator",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#3-一般taskの主シーケンス",
+      "responsibilities": ["provider_selection", "isolated_task_execution", "review_and_result_settlement"],
+      "externalBoundaries": ["docker_engine", "provider_cli", "external_send"],
+      "lifecycleProfile": "external_effect_operation",
+      "testIds": ["coordinator:integration:coordinator-task-process", "coordinator:integration:coordinator-task-runtime", "coordinator:integration:task-cli-cancellation"],
+      "postconditions": ["provider_process_absent", "external_send_authority_settled", "candidate_disposition_known"]
+    },
+    {
+      "id": "coordinator:candidate-publication",
+      "owner": "coordinator",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#10-provider実行と候補",
+      "responsibilities": ["candidate_snapshot", "candidate_store", "integration_publication"],
+      "externalBoundaries": ["repository_filesystem", "candidate_store", "project_runtime_candidate_port"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["coordinator:integration:candidate-bundle-store", "coordinator:integration:candidate-store-kernel-lock", "coordinator:integration:project-runtime-candidate-integration-adapter"],
+      "postconditions": ["canonical_repository_unchanged_before_acceptance", "candidate_identity_exact", "failed_candidate_disposition_known"]
+    },
+    {
+      "id": "coordinator:release-signing",
+      "owner": "coordinator",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#9-署名済み配布物",
+      "responsibilities": ["runtime_dependency_observation", "manifest_signing", "release_candidate_promotion"],
+      "externalBoundaries": ["git_object_store", "release_key", "distribution_filesystem"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["coordinator:integration:platform-provisioner-package-filesystem", "coordinator:integration:sign-release-manifest", "coordinator:integration:release-manifest-promotion", "coordinator:integration:release-candidate-preparation"],
+      "postconditions": ["passphrase_read_after_preflight", "runtime_identity_single_snapshot", "failed_staging_not_promoted"]
+    },
+    {
+      "id": "coordinator:docker-task-recovery",
+      "owner": "coordinator",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#11-取消と回復",
+      "responsibilities": ["docker_task_execution", "resource_cleanup", "task_recovery_reentry"],
+      "externalBoundaries": ["docker_engine", "container_network_volume", "runtime_state_store"],
+      "lifecycleProfile": "external_effect_operation",
+      "testIds": ["coordinator:integration:docker-process-controller", "coordinator:integration:docker-effect-runtime", "coordinator:integration:docker-recovery-runtime", "coordinator:system:coordinator-docker-recovery-cli"],
+      "postconditions": ["owned_resources_absent_or_recovery_exact", "cleanup_observed", "reentry_preserves_identity"]
+    },
+    {
+      "id": "coordinator:docker-desktop-repair",
+      "owner": "coordinator",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#docker外部境界の結合単位",
+      "responsibilities": ["desktop_failure_classification", "repair_intent_and_effect", "historical_recovery_and_reentry"],
+      "externalBoundaries": ["docker_desktop_process", "docker_runtime_directory", "platform_access_native_helper"],
+      "lifecycleProfile": "external_effect_operation",
+      "testIds": ["coordinator:integration:docker-desktop-native-helper", "coordinator:integration:docker-desktop-runtime-repair", "coordinator:integration:docker-desktop-repair-history-publication", "coordinator:integration:docker-restart-real-observation"],
+      "postconditions": ["repair_record_durable", "runtime_directory_identity_exact", "engine_and_process_state_reobserved"]
+    },
+    {
+      "id": "execution-intelligence:event-publication",
+      "owner": "execution-intelligence",
+      "architectureAnchor": "06_Architecture/execution-intelligence/01_Architecture.md#3-発行と失敗境界",
+      "responsibilities": ["event_validation", "non_authority_publication", "consumer_observation"],
+      "externalBoundaries": ["runtime_event_producer", "execution_intelligence_public_api", "consumer_adapter"],
+      "lifecycleProfile": "pure_component",
+      "testIds": ["execution-intelligence:unit:event-contract", "coordinator:integration:project-runtime-execution"],
+      "postconditions": ["event_never_becomes_authority", "invalid_event_not_published", "producer_result_unchanged"]
+    },
+    {
+      "id": "execution-intelligence:durable-store",
+      "owner": "execution-intelligence",
+      "architectureAnchor": "06_Architecture/execution-intelligence/01_Architecture.md#4-保存と改変検知",
+      "responsibilities": ["repository_root_binding", "immutable_event_publish", "retention_cleanup_classification"],
+      "externalBoundaries": ["repository_filesystem", "process_lock", "execution_intelligence_consumer"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
+      "postconditions": ["event_not_overwritten", "collision_reobserved", "cleanup_candidate_not_authority"]
+    },
+    {
+      "id": "mcp:public-contract-adapter",
+      "owner": "mcp",
+      "architectureAnchor": "06_Architecture/mcp/01_Architecture.md#3-依存と所有権",
+      "responsibilities": ["transport_decode_encode", "public_contract_projection", "closed_result_mapping"],
+      "externalBoundaries": ["mcp_request", "project_runtime_public_contract", "mcp_response"],
+      "lifecycleProfile": "pure_component",
+      "testIds": ["mcp:unit:project-runtime", "mcp:integration:transport-lifecycle", "coordinator:integration:project-runtime-composition-root"],
+      "postconditions": ["transport_does_not_issue_authority", "canonical_result_not_reinterpreted", "unknown_field_rejected"]
+    },
+    {
+      "id": "mcp:transport-session",
+      "owner": "mcp",
+      "architectureAnchor": "06_Architecture/mcp/01_Architecture.md#5-transport-lifecycle",
+      "responsibilities": ["stdio_session", "localhost_http_session", "cancellation_and_connection_close"],
+      "externalBoundaries": ["stdio", "localhost_http", "client_disconnect"],
+      "lifecycleProfile": "transport_session",
+      "testIds": ["mcp:integration:transport-lifecycle", "mcp:system:stdio", "mcp:system:streamable-http", "coordinator:integration:project-runtime-composition-root"],
+      "postconditions": ["listener_closed", "inflight_request_classified", "disconnect_not_reported_success"]
+    },
+    {
+      "id": "platform-access:observation-protocol",
+      "owner": "platform-access",
+      "architectureAnchor": "06_Architecture/platform-access/01_Architecture.md#4-バイナリ境界",
+      "responsibilities": ["request_frame_validation", "windows_identity_observation", "closed_response_frame"],
+      "externalBoundaries": ["windows_api", "stdin_stdout_protocol", "filesystem_handle"],
+      "lifecycleProfile": "read_only_boundary",
+      "testIds": ["platform-access:integration:cli", "coordinator:integration:development-native-observation"],
+      "postconditions": ["native_handles_closed", "partial_frame_rejected", "raw_path_and_credential_not_reported"]
+    },
+    {
+      "id": "platform-access:owned-process-effect",
+      "owner": "platform-access",
+      "architectureAnchor": "06_Architecture/platform-access/01_Architecture.md#5-状態資源回復",
+      "responsibilities": ["trusted_artifact_open", "owned_child_process", "docker_repair_and_restart_protocol"],
+      "externalBoundaries": ["windows_process_api", "job_object", "docker_desktop_cli"],
+      "lifecycleProfile": "external_effect_operation",
+      "testIds": ["platform-access:integration:cli", "platform-access:unit:windows_owned_child", "coordinator:integration:docker-desktop-native-helper", "coordinator:integration:docker-restart-execution"],
+      "postconditions": ["child_and_job_settled", "effect_confirmation_preserved", "unknown_cleanup_blocks_success"]
+    }
+  ],
+  "integrationCorridors": [
+    {
+      "id": "checker:discovery-to-regression",
+      "architectureAnchor": "06_Architecture/01_Architecture.md#検査と回帰実行",
+      "blockPath": ["checker:repository-verification", "checker:regression-runner"],
+      "testIds": ["checker:integration:crdd-check", "checker:integration:regression-runner"],
+      "postconditions": ["discovered_scope_matches_execution_plan", "all_child_processes_settled", "partial_run_not_reported_complete"]
+    },
+    {
+      "id": "runtime:objective-to-candidate",
+      "architectureAnchor": "06_Architecture/01_Architecture.md#task実行と公開",
+      "blockPath": ["project-runtime:objective-task-lifecycle", "coordinator:provider-task-lifecycle", "coordinator:candidate-publication"],
+      "testIds": ["coordinator:integration:project-runtime-full-flow", "coordinator:integration:project-runtime-execution", "coordinator:integration:project-runtime-candidate-integration-adapter"],
+      "postconditions": ["authority_narrowing_preserved", "attempt_identity_preserved", "candidate_not_published_before_settlement"]
+    },
+    {
+      "id": "runtime:candidate-to-mcp-result",
+      "architectureAnchor": "06_Architecture/01_Architecture.md#task実行と公開",
+      "blockPath": ["coordinator:candidate-publication", "project-runtime:integration-projection", "mcp:public-contract-adapter"],
+      "testIds": ["coordinator:integration:project-runtime-candidate-integration-adapter", "coordinator:integration:project-runtime-integration", "mcp:integration:transport-lifecycle"],
+      "postconditions": ["canonical_result_not_reinterpreted", "recovery_references_preserved", "unaccepted_candidate_not_exposed"]
+    },
+    {
+      "id": "mcp:contract-to-transport",
+      "architectureAnchor": "06_Architecture/01_Architecture.md#task実行と公開",
+      "blockPath": ["mcp:public-contract-adapter", "mcp:transport-session"],
+      "testIds": ["mcp:integration:transport-lifecycle", "mcp:system:stdio", "mcp:system:streamable-http"],
+      "postconditions": ["request_identity_preserved", "disconnect_cancellation_joined", "transport_resources_absent"]
+    },
+    {
+      "id": "runtime:attempt-to-durable-observation",
+      "architectureAnchor": "06_Architecture/01_Architecture.md#実行観測の耐久化",
+      "blockPath": ["project-runtime:objective-task-lifecycle", "execution-intelligence:event-publication", "execution-intelligence:durable-store"],
+      "testIds": ["coordinator:integration:project-runtime-execution", "execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
+      "postconditions": ["task_result_unchanged_by_observation", "event_identity_preserved", "store_failure_not_hidden"]
+    },
+    {
+      "id": "runtime:decision-to-docker-recovery",
+      "architectureAnchor": "06_Architecture/01_Architecture.md#docker回復と再入場",
+      "blockPath": ["project-runtime:decision-recovery", "coordinator:docker-task-recovery", "coordinator:docker-desktop-repair"],
+      "testIds": ["coordinator:integration:project-runtime-decision-recovery-store", "coordinator:integration:docker-recovery-runtime", "coordinator:integration:docker-desktop-runtime-repair"],
+      "postconditions": ["exact_recovery_identity_preserved", "unknown_effect_not_reissued", "reentry_requires_fresh_observation"]
+    },
+    {
+      "id": "platform:observation-to-desktop-repair",
+      "architectureAnchor": "06_Architecture/01_Architecture.md#docker回復と再入場",
+      "blockPath": ["platform-access:observation-protocol", "platform-access:owned-process-effect", "coordinator:docker-desktop-repair"],
+      "testIds": ["platform-access:integration:cli", "coordinator:integration:docker-desktop-native-helper", "coordinator:integration:docker-restart-execution"],
+      "postconditions": ["native_identity_preserved", "child_process_cleanup_observed", "helper_result_not_equal_host_recovery"]
+    },
+    {
+      "id": "release:candidate-to-signed-runtime",
+      "architectureAnchor": "06_Architecture/01_Architecture.md#release候補と署名",
+      "blockPath": ["coordinator:candidate-publication", "coordinator:release-signing", "platform-access:observation-protocol"],
+      "testIds": ["coordinator:integration:release-candidate-preparation", "coordinator:integration:sign-release-manifest", "coordinator:integration:platform-access-release"],
+      "postconditions": ["fixed_candidate_identity_preserved", "signing_uses_single_snapshot", "bundled_native_artifact_verified"]
+    }
+  ],
   "consumerBindings": [
     {
       "producerOwner": "project-runtime",
@@ -85,6 +305,19 @@
     }
   ],
   "tests": [
+    {
+      "id": "mcp:integration:transport-lifecycle",
+      "owner": "mcp",
+      "path": "40_Develop/mcp/tests/integration/transport-lifecycle.contract.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["mcp", "transport", "lifecycle", "cancellation", "cleanup"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["active_request_joined", "listener_absent", "transport_resources_closed"],
+      "mandatoryByDefault": true
+    },
     {
       "id": "coordinator:integration:bounded-file-snapshot",
       "owner": "coordinator",
@@ -1852,6 +2085,28 @@
       "humanInput": false,
       "postconditions": [
         "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:release-candidate-preparation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/release-candidate-preparation.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "release",
+        "candidate",
+        "preparation",
+        "filesystem"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "fixed_revision_exported",
+        "staging_identity_verified",
+        "failure_residue_classified"
       ],
       "mandatoryByDefault": true
     },

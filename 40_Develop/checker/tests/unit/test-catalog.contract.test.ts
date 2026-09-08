@@ -25,6 +25,132 @@ test("実在試験、登録試験、実行可能Ownerをexactに照合する", (
   assert.deepEqual(inspectTestCatalog(repositoryRoot, loadedCatalog), []);
 });
 
+test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉じる", () => {
+  assert.deepEqual(
+    [...new Set(catalog.integrationBlocks.map((entry) => entry.owner))].sort(),
+    [
+      "checker",
+      "coordinator",
+      "execution-intelligence",
+      "mcp",
+      "platform-access",
+      "project-runtime",
+    ],
+  );
+  for (const block of catalog.integrationBlocks) {
+    assert.ok(block.architectureAnchor.includes("#"), block.id);
+    assert.ok(block.responsibilities.length > 0, block.id);
+    assert.ok(block.externalBoundaries.length > 0, block.id);
+    assert.ok(block.postconditions.length > 0, block.id);
+    assert.ok(
+      block.testIds.some(
+        (testId) =>
+          catalog.tests.find((entry) => entry.id === testId)?.level ===
+          "integration",
+      ),
+      block.id,
+    );
+  }
+});
+
+test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒否する", () => {
+  const first = catalog.integrationBlocks[0];
+  assert.ok(first);
+  const withoutPlatform = {
+    ...catalog,
+    integrationBlocks: catalog.integrationBlocks.filter(
+      (entry) => entry.owner !== "platform-access",
+    ),
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, withoutPlatform).includes(
+      "integration_block_owner_missing:platform-access",
+    ),
+  );
+  const missingTest = {
+    ...catalog,
+    integrationBlocks: [
+      { ...first, testIds: ["missing:integration:test"] },
+      ...catalog.integrationBlocks.slice(1),
+    ],
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, missingTest).includes(
+      `integration_block_test_missing:${first.id}:missing:integration:test`,
+    ),
+  );
+  const missingLifecycle = {
+    ...catalog,
+    integrationBlocks: [
+      { ...first, lifecycleProfile: "unknown" },
+      ...catalog.integrationBlocks.slice(1),
+    ],
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, missingLifecycle).includes(
+      `invalid_integration_block_lifecycle:${first.id}`,
+    ),
+  );
+});
+
+test("ブロック間結合は実在Sequence、二段以内の経路、IT、全block被覆へ閉じる", () => {
+  const first = catalog.integrationCorridors[0];
+  assert.ok(first);
+  const invalidArchitecture = {
+    ...catalog,
+    integrationCorridors: [
+      {
+        ...first,
+        architectureAnchor:
+          "06_Architecture/01_Architecture.md#存在しないシーケンス",
+      },
+      ...catalog.integrationCorridors.slice(1),
+    ],
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, invalidArchitecture).includes(
+      `invalid_integration_corridor_architecture:${first.id}`,
+    ),
+  );
+
+  const overlongPath = {
+    ...catalog,
+    integrationCorridors: [
+      {
+        ...first,
+        blockPath: [
+          ...first.blockPath,
+          "project-runtime:objective-task-lifecycle",
+          "mcp:transport-session",
+        ],
+      },
+      ...catalog.integrationCorridors.slice(1),
+    ],
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, overlongPath).includes(
+      `invalid_integration_corridor_path:${first.id}`,
+    ),
+  );
+
+  const systemOnly = catalog.tests.find((entry) => entry.level === "system");
+  assert.ok(systemOnly);
+  const missingIntegration = {
+    ...catalog,
+    integrationCorridors: [
+      { ...first, testIds: [systemOnly.id] },
+      ...catalog.integrationCorridors.slice(1),
+    ],
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, missingIntegration).includes(
+      `integration_corridor_integration_test_missing:${first.id}`,
+    ),
+  );
+
+  assert.deepEqual(inspectTestCatalog(repositoryRoot, catalog), []);
+});
+
 test("変更した意味に対応する試験を選び、未分類の実装変更はOwner全件へ閉じる", () => {
   const focusedEntries = selectRegressionTests(catalog, [
     "40_Develop/coordinator/src/security/provider-lifecycle.ts",
