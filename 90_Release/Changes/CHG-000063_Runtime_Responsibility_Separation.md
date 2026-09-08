@@ -383,3 +383,29 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 停止状態を出力だけで決めない | 非ゼロ終了、厳密な空出力またはJSON `null`、named pipeの明示的`ENOENT`がすべて成立した場合だけ`known_unavailable`とする |
 | 想定外を安全側へ閉じる | 空白付き`null`、大文字、任意本文、pipe存在・権限拒否・観測不能は引き続き`unknown`とする |
 | 実Producer形状を回帰する | 実子ProcessのLF／CRLF／JSON `null`搬送とpipe判定を契約試験へ追加する。修復完了は新しい署名候補の実機Lifecycleで別途確認する |
+
+### 旧修復履歴と現在障害の循環解消（2026-09-08）
+
+正式4経路E2Eの開始前回復で、旧Release由来の未終了修復を現在Sessionへ引き継げた一方、現在のDocker Engineは`Docker/run`直下のsocket lockにより起動不能だった。従来は旧履歴を閉じるためにEngine readyを要求し、新修復を始めるために旧履歴終了を要求していたため、どちらにも進めない循環が生じた。この条件はv0.19.0にも存在したが、当時の成立実測はクリーンな単一修復経路であり、未終了履歴と後日の別socket障害の組合せを反証していなかった。
+
+| 契約 | 構造是正 |
+|---|---|
+| 旧Evidenceの保持 | 元Operation、Effect不明、引継ぎ連鎖および修復IDを変更せず、明示終了記録だけを追加する |
+| 復旧成功との分離 | Engine停止中の旧履歴終了は`manualRecoveryRequired=true`を維持し、再起動Fenceまたは復旧成功に使わない |
+| 新修復への引継ぎ | 現在境界、Process、exact `run` Identity、stale不存在および既知lockが揃う場合だけEffect 0で旧履歴を閉じ、新Operationを許可する |
+| 環境変化への追従 | 特定socket名を固定せず、有限・非link・安定した`Docker/run`直下集合の既知lockを分類する |
+| Fail Closed | 列挙不能、64件超過、子Directory／link、未知error、集合またはDirectory Identity変化では旧履歴も新Host Effectも進めない |
+
+集中契約試験では、特定名に依存しないlock検知、通常file、件数上限、子Directory、集合変化、Directory Identity変化、および旧履歴をEffect 0で閉じて新修復を許可する経路を追加し、Docker Desktop修復契約52件が成功した。実Dockerの旧履歴終了から新修復、Engine復帰、Task回復および正式4経路E2Eは後続の実機Gateとして保持する。
+
+### 外部境界の段階的結合への還元（2026-09-08）
+
+今回の長い修正Loopは、実Dockerへの基本接続だけでなく、Recovery、再起動、履歴引継ぎ、cleanupおよび再入場を含む付随lifecycleが、独立した結合単位として早期実測されていなかったことにも起因する。最終E2Eをこれらの最初の発見地点にしないため、CRDD共通のアーキテクチャと品質保証へ次を還元した。
+
+| 還元先 | 固定した内容 |
+|---|---|
+| アーキテクチャ | 外部境界を責務、状態、Authorityおよび資源のlifecycleで結合単位へ分け、複雑な対象には内部ブロックのテキスト図と状態遷移表を必須化 |
+| 結合試験 | 主要経路だけでなく、同じ結合単位が所有する失敗、取消、cleanup、Recoveryおよび再入場を実境界へ段階的に接続 |
+| 総合試験との境界 | 複数の独立単位を公開入口から利用者成果まで組み合わせる範囲はSTが所有し、ITへ全組合せを重複させない |
+| 回帰選択 | 結合単位の意味変更時は付随lifecycleのITと前版Capabilityの実境界Evidenceまで選択 |
+| 完成判定 | テキスト図、状態遷移表、実装所有者および検証項目の未対応を固定候補前の不整合として扱う |

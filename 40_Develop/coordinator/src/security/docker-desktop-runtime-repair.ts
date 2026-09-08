@@ -66,6 +66,7 @@ const RUNTIME_STATE_SEGMENTS = Object.freeze([
 const knownSocketErrorCodes = Object.freeze(
   new Set(["EACCES", "EBUSY", "EPERM"]),
 );
+const MAXIMUM_RUNTIME_DIRECTORY_ENTRIES = 64;
 const ENGINE_WAIT_ATTEMPTS = 60;
 const HOST_EFFECT_ACTION_NAMES = new Set<DockerDesktopRepairEffectAction>([
   "official_shutdown",
@@ -710,22 +711,108 @@ export function observeDockerDesktopEngineResult(
   }
 }
 
-function observeKnownSocketFailure(boundary: PreparedBoundary) {
+type RuntimeDirectoryEntryObservation = Readonly<{
+  name: string;
+  isDirectory: boolean;
+  isSymbolicLink: boolean;
+}>;
+
+type RuntimeDirectoryLockObservationDependencies = Readonly<{
+  identityAt: (target: string) => DockerDesktopRepairDirectoryIdentity | null;
+  readEntries: (
+    directory: string,
+  ) => readonly RuntimeDirectoryEntryObservation[];
+  probeEntry: (target: string) => void;
+}>;
+
+function sameRuntimeDirectoryEntries(
+  before: readonly RuntimeDirectoryEntryObservation[],
+  after: readonly RuntimeDirectoryEntryObservation[],
+) {
+  if (before.length !== after.length) return false;
+  return before.every(
+    (entry, index) =>
+      entry.name === after[index]?.name &&
+      entry.isDirectory === after[index]?.isDirectory &&
+      entry.isSymbolicLink === after[index]?.isSymbolicLink,
+  );
+}
+
+function validRuntimeDirectoryEntry(entry: RuntimeDirectoryEntryObservation) {
+  return (
+    entry.name.length > 0 &&
+    entry.name.length <= 255 &&
+    entry.name !== "." &&
+    entry.name !== ".." &&
+    !entry.name.includes("/") &&
+    !entry.name.includes("\\") &&
+    !entry.isDirectory &&
+    !entry.isSymbolicLink
+  );
+}
+
+export function observeDockerDesktopRuntimeDirectoryLockUsingDependencies(
+  boundary: PreparedBoundary,
+  dependencies: RuntimeDirectoryLockObservationDependencies,
+) {
   try {
-    const runIdentity = identityAt(boundary.runDirectory);
-    if (!runIdentity) return null;
-    const handle = fs.openSync(boundary.socketPath, "r");
-    fs.closeSync(handle);
-    return null;
-  } catch (error) {
-    const code =
-      error && typeof error === "object" && "code" in error
-        ? String(error.code)
-        : "";
-    return knownSocketErrorCodes.has(code)
-      ? identityAt(boundary.runDirectory)
+    const beforeIdentity = dependencies.identityAt(boundary.runDirectory);
+    if (!beforeIdentity) return null;
+    const beforeEntries = [...dependencies.readEntries(boundary.runDirectory)]
+      .map((entry) => Object.freeze({ ...entry }))
+      .sort((left, right) => left.name.localeCompare(right.name, "en-US"));
+    if (
+      beforeEntries.length === 0 ||
+      beforeEntries.length > MAXIMUM_RUNTIME_DIRECTORY_ENTRIES ||
+      beforeEntries.some((entry) => !validRuntimeDirectoryEntry(entry))
+    )
+      return null;
+    let lockObserved = false;
+    for (const entry of beforeEntries) {
+      try {
+        dependencies.probeEntry(
+          path.win32.join(boundary.runDirectory, entry.name),
+        );
+      } catch (error) {
+        const code =
+          error && typeof error === "object" && "code" in error
+            ? String(error.code)
+            : "";
+        if (!knownSocketErrorCodes.has(code)) return null;
+        lockObserved = true;
+      }
+    }
+    const afterEntries = [...dependencies.readEntries(boundary.runDirectory)]
+      .map((entry) => Object.freeze({ ...entry }))
+      .sort((left, right) => left.name.localeCompare(right.name, "en-US"));
+    const afterIdentity = dependencies.identityAt(boundary.runDirectory);
+    return lockObserved &&
+      afterIdentity &&
+      sameIdentity(beforeIdentity, afterIdentity) &&
+      sameRuntimeDirectoryEntries(beforeEntries, afterEntries)
+      ? beforeIdentity
       : null;
+  } catch {
+    return null;
   }
+}
+
+function observeKnownSocketFailure(boundary: PreparedBoundary) {
+  return observeDockerDesktopRuntimeDirectoryLockUsingDependencies(boundary, {
+    identityAt,
+    readEntries: (directory) =>
+      fs.readdirSync(directory, { withFileTypes: true }).map((entry) =>
+        Object.freeze({
+          name: entry.name,
+          isDirectory: entry.isDirectory(),
+          isSymbolicLink: entry.isSymbolicLink(),
+        }),
+      ),
+    probeEntry: (target) => {
+      const handle = fs.openSync(target, "r");
+      fs.closeSync(handle);
+    },
+  });
 }
 
 async function officialShutdown(
@@ -1252,6 +1339,24 @@ function freshReadyStateMatches(
       : state.stale.state === "present" &&
         state.stale.identity !== null &&
         sameIdentity(state.stale.identity, staleIdentity))
+  );
+}
+
+function historicalBrokenRuntimeCanBeRetainedForNewRepair(
+  state: FreshRuntimeState,
+  operation: DockerDesktopRepairOperation,
+  lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null,
+) {
+  return (
+    state.boundaryState === "verified" &&
+    state.engine === "known_unavailable" &&
+    state.processes === "verified" &&
+    state.run.state === "present" &&
+    state.run.identity !== null &&
+    sameIdentity(state.run.identity, operation.runIdentity) &&
+    state.stale.state === "confirmed_absent" &&
+    lockedRunIdentity !== null &&
+    sameIdentity(lockedRunIdentity, operation.runIdentity)
   );
 }
 
@@ -3795,38 +3900,103 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
       Object.assign(ledger, observed.ledger);
       status = observed.status;
       reason = observed.reason;
-      if (
-        status === "historical_recovered_pending_close" &&
-        dependencies.history &&
-        ledger.liveRunIdentity &&
-        (ledger.staleState === "retained" || ledger.staleState === "absent")
-      ) {
+      if (dependencies.history) {
         const isOriginalTerminal = originalRepairChainIsTerminal(operation);
-        const expectedRun = ledger.liveRunIdentity;
-        const expectedStale =
-          ledger.staleState === "retained" ? operation.runIdentity : null;
-        const closingManifest = dependencies.history.loadCurrentManifest();
-        const fresh = isOriginalTerminal
-          ? null
-          : await observeFreshRuntimeState(
-              dependencies,
-              boundary,
-              session,
-              cancellation,
-              operation,
-            );
+        let closureObservation: Readonly<{
+          liveRunIdentity: DockerDesktopRepairDirectoryIdentity;
+          staleState: "absent" | "retained";
+          reason: string;
+        }> | null = null;
         if (
-          !isOriginalTerminal &&
-          (!fresh || !freshReadyStateMatches(fresh, expectedRun, expectedStale))
+          status === "historical_recovered_pending_close" &&
+          ledger.liveRunIdentity &&
+          (ledger.staleState === "retained" || ledger.staleState === "absent")
         ) {
-          markUnknown(ledger);
-          status = "blocked";
-          reason = "docker_desktop_repair_close_precondition_unconfirmed";
-        } else {
+          const expectedRun = ledger.liveRunIdentity;
+          const expectedStale =
+            ledger.staleState === "retained" ? operation.runIdentity : null;
+          const fresh = isOriginalTerminal
+            ? null
+            : await observeFreshRuntimeState(
+                dependencies,
+                boundary,
+                session,
+                cancellation,
+                operation,
+              );
+          if (
+            !isOriginalTerminal &&
+            (!fresh ||
+              !freshReadyStateMatches(fresh, expectedRun, expectedStale))
+          ) {
+            markUnknown(ledger);
+            status = "blocked";
+            reason = "docker_desktop_repair_close_precondition_unconfirmed";
+          } else {
+            closureObservation = Object.freeze({
+              liveRunIdentity: expectedRun,
+              staleState: ledger.staleState,
+              reason:
+                "docker_desktop_repair_historical_evidence_retention_closed",
+            });
+          }
+        } else if (status === "blocked" && !isOriginalTerminal) {
+          const fresh = await observeFreshRuntimeState(
+            dependencies,
+            boundary,
+            session,
+            cancellation,
+            operation,
+          );
+          const lockedRunIdentity =
+            fresh.boundaryState === "verified" &&
+            fresh.engine === "known_unavailable" &&
+            fresh.processes === "verified"
+              ? dependencies.observeKnownSocketFailure(boundary)
+              : null;
+          const currentBoundary = dependencies.prepareBoundary();
+          const currentRun = observePathUsing(
+            dependencies,
+            boundary.runDirectory,
+          );
+          const currentStale = observePathUsing(
+            dependencies,
+            operation.staleDirectory,
+          );
+          if (
+            historicalBrokenRuntimeCanBeRetainedForNewRepair(
+              fresh,
+              operation,
+              lockedRunIdentity,
+            ) &&
+            currentBoundary !== null &&
+            samePreparedAuthority(boundary, currentBoundary) &&
+            currentRun.state === "present" &&
+            currentRun.identity !== null &&
+            sameIdentity(currentRun.identity, operation.runIdentity) &&
+            currentStale.state === "confirmed_absent"
+          ) {
+            ledger.engineReady = false;
+            ledger.staleState = "absent";
+            ledger.hostSafety = "manual_recovery_required";
+            ledger.evidenceState = "preserved";
+            ledger.liveRunIdentity = operation.runIdentity;
+            ledger.disposition =
+              "historical_effect_unknown_retained_by_human_decision";
+            closureObservation = Object.freeze({
+              liveRunIdentity: operation.runIdentity,
+              staleState: "absent" as const,
+              reason:
+                "docker_desktop_repair_historical_broken_state_retained_for_new_repair",
+            });
+          }
+        }
+        if (closureObservation) {
+          const closingManifest = dependencies.history.loadCurrentManifest();
           const closed = dependencies.history.persistClosure(
             boundary,
             operation,
-            { liveRunIdentity: expectedRun, staleState: ledger.staleState },
+            closureObservation,
             closingManifest,
           );
           if (!closed?.history?.closed) {
@@ -3838,8 +4008,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
             status = "historical_closed_retained";
             ledger.disposition =
               "historical_effect_unknown_retained_by_human_decision";
-            reason =
-              "docker_desktop_repair_historical_evidence_retention_closed";
+            reason = closureObservation.reason;
           }
         }
       }

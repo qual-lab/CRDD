@@ -26,6 +26,7 @@ import {
   classifyDockerDesktopRepairHistoricalAdoptionRoute,
   closeWindowsDockerDesktopRepairUsingDependencies,
   describeDockerDesktopRuntimeRepairContract,
+  observeDockerDesktopRuntimeDirectoryLockUsingDependencies,
   observeDockerDesktopEngineResult,
   type PreparedBoundary,
   type RepairDependencies,
@@ -157,6 +158,85 @@ test("実子Processの空行・JSON null・非zero終了を停止判定へ搬送
       stdout === "unexpected\n" ? "unknown" : "known_unavailable",
     );
   }
+});
+
+test("Docker runtime directoryのlock観測は特定socket名に依存せず、境界変化を拒否する", () => {
+  const entries = [
+    { name: "sailor-ingest.sock", isDirectory: false, isSymbolicLink: false },
+    {
+      name: "userAnalyticsOtlpHttp.sock",
+      isDirectory: false,
+      isSymbolicLink: false,
+    },
+  ] as const;
+  const observe = (
+    overrides: Partial<
+      Parameters<
+        typeof observeDockerDesktopRuntimeDirectoryLockUsingDependencies
+      >[1]
+    > = {},
+  ) =>
+    observeDockerDesktopRuntimeDirectoryLockUsingDependencies(boundary, {
+      identityAt: () => RUN_IDENTITY,
+      readEntries: () => entries,
+      probeEntry: (target) => {
+        if (target.endsWith("sailor-ingest.sock"))
+          throw Object.assign(new Error("locked"), { code: "EACCES" });
+      },
+      ...overrides,
+    });
+  assert.deepEqual(observe(), RUN_IDENTITY);
+  assert.equal(
+    observe({
+      probeEntry: () => undefined,
+    }),
+    null,
+  );
+  assert.equal(
+    observe({
+      readEntries: () =>
+        Array.from({ length: 65 }, (_, index) => ({
+          name: `socket-${index}`,
+          isDirectory: false,
+          isSymbolicLink: false,
+        })),
+    }),
+    null,
+  );
+  assert.equal(
+    observe({
+      readEntries: () => [
+        { name: "nested", isDirectory: true, isSymbolicLink: false },
+      ],
+    }),
+    null,
+  );
+  assert.equal(
+    observe({
+      identityAt: (() => {
+        let calls = 0;
+        return () => {
+          calls += 1;
+          return calls === 1 ? RUN_IDENTITY : { ...RUN_IDENTITY, ino: "99" };
+        };
+      })(),
+    }),
+    null,
+  );
+  assert.equal(
+    observe({
+      readEntries: (() => {
+        let calls = 0;
+        return () => {
+          calls += 1;
+          return calls === 1
+            ? entries
+            : [{ ...entries[0], name: "replaced.sock" }];
+        };
+      })(),
+    }),
+    null,
+  );
 });
 const policy = Object.freeze({
   policySha256: "5".repeat(64),
@@ -1220,6 +1300,88 @@ test("履歴終了の異常境界は新規修復許可を出さず、既存Host�
         2,
       );
   }
+});
+
+test("既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を閉じ、新修復を許可する", async () => {
+  const original = operationFixture("prepared", {
+    processEffectIssued: null,
+    processEffectConfirmation: "unknown",
+    filesystemEffectIssued: true,
+    filesystemEffectConfirmation: "confirmed",
+    engineReady: false,
+    staleState: "absent",
+    hostSafety: "manual_recovery_required",
+    evidenceState: "preserved",
+    disposition: "historical_effect_unknown_pending_human_decision",
+  });
+  let operation: DockerDesktopRepairOperation = {
+    ...original,
+    history: {
+      adoptionSha256: "a".repeat(64),
+      handoffTipSha256: "b".repeat(64),
+      handoffCount: 1,
+      originLocalUserBindingHash: boundary.localUserBindingHash,
+      currentLocalUserBindingHash: boundary.localUserBindingHash,
+      currentSessionBound: true,
+      closed: false,
+      liveRunIdentity: null,
+      staleState: "unknown",
+    },
+  };
+  let closureWrites = 0;
+  let hostEffects = 0;
+  const state = fixture({
+    inventory: () => ({ status: "verified", operations: [operation] }),
+    observeEngine: () => "known_unavailable",
+    observeKnownSocketFailure: () => RUN_IDENTITY,
+    observePath: (target) =>
+      target === boundary.runDirectory
+        ? { state: "present", identity: RUN_IDENTITY }
+        : { state: "confirmed_absent", identity: null },
+    history: {
+      inspect: () => operation,
+      loadOriginManifest: () => ({}),
+      loadCurrentManifest: () => ({}),
+      persistAdoption: () => assert.fail("already adopted"),
+      persistClosure: (_currentBoundary, current, observation) => {
+        closureWrites += 1;
+        assert.ok(current.history);
+        operation = {
+          ...current,
+          history: { ...current.history, ...observation, closed: true },
+        };
+        return operation;
+      },
+    },
+    officialShutdown: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    terminateDockerWsl: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    renameRunDirectory: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+  });
+  const result = await closeWindowsDockerDesktopRepairUsingDependencies(
+    operation.repairId,
+    state.dependencies,
+  );
+  assert.equal(result.status, "historical_closed_retained");
+  assert.equal(
+    result.reason,
+    "docker_desktop_repair_historical_broken_state_retained_for_new_repair",
+  );
+  assert.equal(result.engineReady, false);
+  assert.equal(result.staleRuntimeDirectory, "absent");
+  assert.equal(result.evidenceState, "preserved");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.newRepairPermitted, true);
+  assert.equal(closureWrites, 1);
+  assert.equal(hostEffects, 0);
 });
 
 test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しない", async () => {

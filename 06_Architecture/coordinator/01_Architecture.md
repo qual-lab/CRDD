@@ -265,6 +265,44 @@ ExecutorはCanonical Repositoryを直接変更せず、隔離候補だけを生�
 
 Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使う。対象Process、固定artifact、mutex、耐久記録、Directory Identityおよび再開条件を確認する。親Directory renameはWindowsの限定最終手段であり、推測削除や無条件再起動を行わない。
 
+#### Docker外部境界の結合単位
+
+Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorityおよび資源のlifecycleを閉じられる単位に分ける。各単位を実Dockerまたは安全に同等な実境界へ段階的に接続し、最後に公開Task入口から組み合わせる。
+
+```text
+[Docker CLI Trust・同一Operation Identity]
+                    ↓
+[Task作成・実行] ──取消／応答不明──> [Task資源観測・回収]
+        │                                  │
+        │正常完了                          │残存・観測不能
+        ↓                                  ↓
+   [Task結果]                      [Task Recovery記録・再入場]
+                                           │
+                           Engine正常 ─────┤
+                                           │ 既知のDesktop障害
+                                           ↓
+                              [Desktop障害修復Lifecycle]
+                                           ↓
+                              [Engine・資源のfresh観測]
+                                           ↓
+                              [Task固有Recovery・settlement]
+```
+
+障害修復の耐久状態は次の遷移だけを許可する。各Effectの発行前後で同じ修復ID、境界および記録prefixを照合し、不明状態を次へ進めない。
+
+| 現在状態 | 成立条件／処置 | 次状態 | 不成立・取消・観測不能 |
+|---|---|---|---|
+| 未作成 | 境界、排他、修復対象を確認し初期記録を耐久化 | `prepared` | Effect 0で停止 |
+| `prepared` | 公式停止と必要な限定強制停止を行い、対象Process不存在を確認 | `processes_stopped` | 同じ修復IDで停止 |
+| `prepared`／`processes_stopped` | stale対象がなく、既知Effectまたは履歴Effect不明を分類 | `no_stale_known_effect_recovery_pending`または`no_stale_historical_effect_unknown_pending` | 推測で不存在へ畳まない |
+| `processes_stopped` | exactな`run` Directoryを同一親内へrenameし、新旧Identityを確認 | `renamed` | rename結果不明として同じ修復IDを保持 |
+| `renamed` | Desktopを起動し、Engine応答、Host安全性、Evidence保持を確認 | `recovered_pending_disposition` | 起動を盲目的に再発行せず停止 |
+| `recovered_pending_disposition` | 人間が残存Evidenceの保持を決定し、終了記録を耐久化 | `closed_retained` | 回復済みと表示しない |
+| `no_stale_known_effect_recovery_pending` | 既知EffectのEvidence保持を決定し終了記録を耐久化 | `closed_no_stale_known_effect_retained` | 回復義務を保持 |
+| `no_stale_historical_effect_unknown_pending` | 履歴Effect不明のEvidence保持を決定し終了記録を耐久化 | `closed_historical_effect_unknown_retained` | Effect不存在を捏造しない |
+
+未終了の旧修復履歴はこの新規修復状態へ直接継ぎ足さない。由来、現在Session、同一`run` Identity、現在Engine停止、Process集合、stale対象不存在および既知lockを確認した場合だけ、Host Effect 0で旧履歴を証拠保持終了へ閉じ、新しい修復IDの`prepared`を別Operationとして開始できる。
+
 ### 正常復帰後の検証付き再起動（Source接続済み・正式E2E未完了）
 
   正常Engineへ戻った後にも作成結果不明のTaskを復旧できるよう、障害修復とは別に検証付き再起動を設ける。現在の署名済み配布物にはこの経路はなく、以下を既存機能の完成主張として扱わない。
@@ -383,6 +421,10 @@ Docker create要求の耐久化後に応答を失った状態は、Engineの空�
 選択ユーザーの安定IdentityとログオンSession Identityを分離する。安定Identityは、再ログオンをまたいで同じ所有者の耐久記録を相関する根拠であり、それだけでは現在の変更権限にならない。旧記録のログオンSession Identityは発行時の証拠として上書きしない。現在の変更権限は、現在の署名済みRuntime、Native helper、Root Identityと保護、Policy、物理Lock、および変更直前・直後の現在Session観測がすべて成立した場合だけ得られる。旧Sessionのhandle、Capability、helper、Provider Home許可またはLockを再利用しない。
 
 再ログオン後のDocker Desktop修復履歴は、元記録を変更せず、前後Session、安定Identity、Runtime実行Identity、直前の引継ぎhashを持つ順序付きの引継ぎ記録を別途追加する。終了済みの旧修復は、現在のDocker状態を観測・変更できない場合でも、由来、原記録、引継ぎ連鎖および現在境界を確認し、Effect 0で履歴の採用と終了を記録できる。現在のDocker障害は同じ修復の再開とはせず、新しい修復Operationとして扱う。未終了の旧修復は、段階ごとに安全な再開、現在状態のexactな観測と収束、または同じ修復IDを保持した停止へ分類し、履歴採用だけでHost Effectを再発行しない。
+
+未終了の旧修復が現在Sessionへ正しく引き継がれた後、現在Engineが既知の停止、現在のDocker Process集合が検証済み、`Docker/run`が旧記録と同一Identity、旧stale対象が明示的不在、かつ同じ`Docker/run`直下に既知のlock障害がある場合は、明示終了操作により旧履歴の不確定Effectを証拠として保持して閉じ、新しい修復Operationを許可できる。この処置はDockerの復旧成功を意味せず、`manualRecoveryRequired`を維持し、Host Effectを発行しない。新しい修復だけが現在Authorityの下で停止、`run`世代退避、再起動およびEngine確認を行う。これにより「旧履歴を閉じるには既に復旧済みであることが必要だが、復旧するには旧履歴が閉じていることが必要」という循環を作らない。
+
+既知のruntime directory lockは特定のsocket名へ固定しない。検証済みの`Docker/run`直下だけを有限件数で列挙し、子Directoryまたはlinkを拒否し、項目集合とDirectory Identityが観測前後で不変で、少なくとも一つの直下項目が既知のlock errorを返す場合だけ認定する。名前の追加だけで修復範囲を拡張せず、列挙不能、件数超過、境界変化または未知errorではEffect 0とする。修復Effectは個別項目を削除せず、信頼済みProcess停止後にexactな`run` Directory全体を同一親内へ退避する。
 
 Runtime利用側は履歴の有無だけで処置を決めない。`不正 → 履歴なし → 終了済み → 現在Session結合済み → 旧Session結合`の順で排他的に分類する。現在Session結合はboolean表示だけでなく、履歴が返す現在Session Identityと準備済み境界のIdentityが一致した場合だけ成立する。旧Session結合ではStoreの正式な引継ぎ処理をexactに1回呼び、元Operation、元adoption、ledgerおよび履歴連鎖の不変fieldを保持したまま、handoff件数、handoff tipおよび現在Session結合だけが許可どおり変化したことを再読取りで確認する。Storeへの書込み後に返値検証または後段が失敗しても、正規記録をrollback、削除または上書きせず、同じ修復IDを保持して次回inventoryから再分類する。終了済み履歴では現在境界の認証とread-only報告に必要なhelper確認を許すが、新しいhandoff、closure、Host観測またはHost Effectを発行しない。
 
