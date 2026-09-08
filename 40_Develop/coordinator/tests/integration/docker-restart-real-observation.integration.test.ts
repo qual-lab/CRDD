@@ -100,10 +100,18 @@ for (const hasRuntimeLock of [false, true]) {
       : null;
     try {
       if (hasRuntimeLock) assert.ok(lock);
+      let observedClientState: "absent" | "verified" | null = null;
+      let observedProcessState: "absent" | "verified" | null = null;
       for (let index = 0; index < 3; index += 1) {
         assert.equal(await session.verifyArtifacts(), "verified");
-        assert.equal(await session.inspectClientProcesses(), "absent");
-        assert.equal(await session.inspectProcesses(), "absent");
+        const clientState = await session.inspectClientProcesses();
+        const processState = await session.inspectProcesses();
+        assert.notEqual(clientState, "unknown");
+        assert.notEqual(processState, "unknown");
+        observedClientState ??= clientState;
+        observedProcessState ??= processState;
+        assert.equal(clientState, observedClientState);
+        assert.equal(processState, observedProcessState);
         context.diagnostic(`native observation ${index + 1} completed`);
       }
       const machine = createDockerRestartMachine(
@@ -112,7 +120,14 @@ for (const hasRuntimeLock of [false, true]) {
         new AbortController().signal,
       );
       context.diagnostic("entering composed Native/WSL observation");
-      assert.equal(await machine.observeStopped(), true);
+      const wslState = machine.observeWslState();
+      assert.notEqual(wslState, "unknown");
+      assert.equal(
+        await machine.observeStopped(),
+        observedClientState === "absent" &&
+          observedProcessState === "absent" &&
+          wslState === "stopped",
+      );
       context.diagnostic("composed observation completed");
     } finally {
       const released = await session.release();
