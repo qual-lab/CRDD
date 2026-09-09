@@ -305,6 +305,8 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 
 `prepared`のProcess操作は、要求したかどうかだけでなく、freshな実状態から必要性を分類する。Engineが既知停止、修復対象の`run` Identityが一致、stale対象が不存在で、Docker Desktop Processも明示的不在なら、公式停止とNative強制停止は`known_not_needed`である。この場合はHost操作を発行せず、`issued=false`／`confirmation=not_issued`を同じ修復IDへ耐久化して次の段階へ進む。再開時は保存済みの`not_issued`だけを信用せず、同じ条件を再観測する。Processの再出現、Identity差、観測不能またはEngine状態の変化では後続Effectを発行しない。
 
+署名済みRuntimeの更新をまたぐ未完了修復は、旧RuntimeのHost操作を新Runtimeから再発行しない。旧署名と引継ぎ連鎖を検証し、全Host Effectがsettledな`not_issued`であること、現在境界、現在`run` Identityおよび旧stale対象不存在をfresh観測できる場合は、過去のHost Effect 0だけを確定して旧Operationを証拠保持終了できる。現在Dockerの故障または復旧は同時に推定せず、新しい修復Operationが現在の証拠から改めて判定する。
+
 ### 正常復帰後の検証付き再起動（Source接続済み・正式E2E未完了）
 
   正常Engineへ戻った後にも作成結果不明のTaskを復旧できるよう、障害修復とは別に検証付き再起動を設ける。現在の署名済み配布物にはこの経路はなく、以下を既存機能の完成主張として扱わない。

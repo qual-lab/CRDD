@@ -1362,6 +1362,25 @@ function historicalBrokenRuntimeCanBeRetainedForNewRepair(
   );
 }
 
+function historicalOperationHasNoIssuedHostEffect(
+  operation: DockerDesktopRepairOperation,
+) {
+  const hostEffects = [
+    ...operation.ledger.processEffects,
+    ...operation.ledger.filesystemEffects,
+  ].filter((entry) => HOST_EFFECT_ACTION_NAMES.has(entry.action));
+  return (
+    operation.ledger.processEffectIssued === false &&
+    operation.ledger.processEffectConfirmation === "not_issued" &&
+    hostEffects.every(
+      (entry) =>
+        entry.phase === "settled" &&
+        entry.issued === false &&
+        entry.confirmation === "not_issued",
+    )
+  );
+}
+
 function freshStoppedStateMatches(
   state: FreshRuntimeState,
   operation: DockerDesktopRepairOperation,
@@ -4005,7 +4024,33 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
             dependencies,
             operation.staleDirectory,
           );
+          const noHostEffectWasIssued =
+            historicalOperationHasNoIssuedHostEffect(operation);
           if (
+            noHostEffectWasIssued &&
+            fresh.boundaryState === "verified" &&
+            currentBoundary !== null &&
+            samePreparedAuthority(boundary, currentBoundary) &&
+            currentRun.state === "present" &&
+            currentRun.identity !== null &&
+            fresh.run.identity !== null &&
+            sameIdentity(currentRun.identity, fresh.run.identity) &&
+            currentStale.state === "confirmed_absent"
+          ) {
+            ledger.engineReady = fresh.engine === "ready";
+            ledger.staleState = "absent";
+            ledger.hostSafety = "manual_recovery_required";
+            ledger.evidenceState = "preserved";
+            ledger.liveRunIdentity = currentRun.identity;
+            ledger.disposition =
+              "historical_effect_unknown_retained_by_human_decision";
+            closureObservation = Object.freeze({
+              liveRunIdentity: currentRun.identity,
+              staleState: "absent" as const,
+              reason:
+                "docker_desktop_repair_historical_no_host_effect_retained_for_new_repair",
+            });
+          } else if (
             historicalBrokenRuntimeCanBeRetainedForNewRepair(
               fresh,
               lockedRunIdentity,
