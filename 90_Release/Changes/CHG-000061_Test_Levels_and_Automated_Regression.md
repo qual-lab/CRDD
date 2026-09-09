@@ -209,6 +209,8 @@ v0.19.0の固定Binary、Task計画および実変更Evidenceを比較し、Code
 
 この経路へ戻した後もCodex Executorは変更0件を返したため、v0.19.0との差をTask入力まで広げて再確認した。v0.20の検証Taskは、Reviewerへ投影判定を指示する一条件へ縮約され、Executorに必要な対象Path、既存BASEの置換および期待する最終内容が受入条件として分離されていなかった。Role共通の三条件へ戻した実測でもCodexだけが変更0件だったため、成立済みCapabilityの復元ではTaskの意味を要約し直さず、v0.19.0で成立したObjective、三条件、読取り範囲およびExecutor指示を同じ意味単位で復元する。Reviewer固有の候補投影と秘密情報保護は維持する。読取り範囲の復元では、直接のTask Packetだけでなく、`readPathCount`から導出されるReviewerの最大Turn数、CLI引数および試験Oracleも同じ変更単位として追従させる。結合試験はProcess初期化だけでなく、実Workspaceの許可対象1件が変更され、対象外変更0件、終了後残存0件になるまでを成立条件とする。
 
+Task入力を正確に復元してもCodex Executorだけが変更0件だった。過去の試行順を再構成すると、明示的なSandboxを試した時点ではTask条件が未成立であり、Task条件を復元した後はSandboxを省略していたため、両方を満たす組合せは未検証だった。現行のCodex CLI公式契約では、非対話のWorkspace内書込みに`--sandbox workspace-write`を使用する。固定CLI、Role別Filesystem権限Profile、`approval_policy="never"`、Docker隔離を維持したまま、Executorへ`workspace-write`、Reviewerへ`read-only`を明示し、正しいTask入力との組合せを実境界で反証する。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。

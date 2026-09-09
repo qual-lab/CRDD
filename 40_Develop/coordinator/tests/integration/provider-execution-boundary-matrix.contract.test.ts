@@ -133,10 +133,14 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
       assert.equal(plan.providerHomeCommandReadAllowed, false);
       assert.equal(
         plan.explicitSandboxOption,
-        "omitted_role_permission_profile_is_authoritative",
+        "workspace_write_executor_read_only_reviewer",
       );
       assert.equal(argv.includes("--approve-for-me"), false);
-      assert.equal(argv.includes("--sandbox"), false);
+      assert.equal(argv.includes("--sandbox"), true);
+      assert.equal(
+        argv[argv.indexOf("--sandbox") + 1],
+        item.role === "executor" ? "workspace-write" : "read-only",
+      );
       assert.equal(argv.includes('approval_policy="never"'), true);
       assert.equal(
         argv.includes("--approve-for-me") && argv.includes("--sandbox"),
