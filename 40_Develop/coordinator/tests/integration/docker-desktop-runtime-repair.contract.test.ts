@@ -1408,6 +1408,93 @@ test("既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を�
   assert.equal(hostEffects, 0);
 });
 
+test("旧runが新しい既知障害世代へ置換済みでも履歴を保持して新修復を許可する", async () => {
+  const replacementRunIdentity = Object.freeze({
+    dev: "9",
+    ino: "8",
+    birthtimeNs: "7",
+  });
+  const original = operationFixture("prepared", {
+    processEffectIssued: null,
+    processEffectConfirmation: "unknown",
+    filesystemEffectIssued: true,
+    filesystemEffectConfirmation: "confirmed",
+    engineReady: false,
+    staleState: "absent",
+    hostSafety: "manual_recovery_required",
+    evidenceState: "preserved",
+    disposition: "historical_effect_unknown_pending_human_decision",
+  });
+  let operation: DockerDesktopRepairOperation = {
+    ...original,
+    history: {
+      adoptionSha256: "a".repeat(64),
+      handoffTipSha256: "b".repeat(64),
+      handoffCount: 1,
+      originLocalUserBindingHash: boundary.localUserBindingHash,
+      currentLocalUserBindingHash: boundary.localUserBindingHash,
+      currentSessionBound: true,
+      closed: false,
+      liveRunIdentity: null,
+      staleState: "unknown",
+    },
+  };
+  let closureWrites = 0;
+  let hostEffects = 0;
+  const state = fixture({
+    inventory: () => ({ status: "verified", operations: [operation] }),
+    observeEngine: () => "known_unavailable",
+    observeKnownSocketFailure: () => replacementRunIdentity,
+    observePath: (target) =>
+      target === boundary.runDirectory
+        ? { state: "present", identity: replacementRunIdentity }
+        : { state: "confirmed_absent", identity: null },
+    history: {
+      inspect: () => operation,
+      loadOriginManifest: () => ({}),
+      loadCurrentManifest: () => ({}),
+      persistAdoption: () => assert.fail("already adopted"),
+      persistClosure: (_currentBoundary, current, observation) => {
+        closureWrites += 1;
+        assert.deepEqual(observation.liveRunIdentity, replacementRunIdentity);
+        assert.ok(current.history);
+        operation = {
+          ...current,
+          history: { ...current.history, ...observation, closed: true },
+        };
+        return operation;
+      },
+    },
+    officialShutdown: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    terminateDockerWsl: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    renameRunDirectory: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+  });
+  const result = await closeWindowsDockerDesktopRepairUsingDependencies(
+    operation.repairId,
+    state.dependencies,
+  );
+  assert.equal(result.status, "historical_closed_retained");
+  assert.equal(
+    result.reason,
+    "docker_desktop_repair_historical_superseded_state_retained_for_new_repair",
+  );
+  assert.equal(result.engineReady, false);
+  assert.equal(result.staleRuntimeDirectory, "absent");
+  assert.equal(result.evidenceState, "preserved");
+  assert.equal(result.newRepairPermitted, true);
+  assert.equal(closureWrites, 1);
+  assert.equal(hostEffects, 0);
+});
+
 test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しない", async () => {
   const operation = operationFixture("renamed", {
     processEffects: Object.freeze([

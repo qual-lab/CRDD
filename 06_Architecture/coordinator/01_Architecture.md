@@ -301,7 +301,7 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 | `no_stale_known_effect_recovery_pending` | 既知EffectのEvidence保持を決定し終了記録を耐久化 | `closed_no_stale_known_effect_retained` | 回復義務を保持 |
 | `no_stale_historical_effect_unknown_pending` | 履歴Effect不明のEvidence保持を決定し終了記録を耐久化 | `closed_historical_effect_unknown_retained` | Effect不存在を捏造しない |
 
-未終了の旧修復履歴はこの新規修復状態へ直接継ぎ足さない。由来、現在Session、同一`run` Identity、現在Engine停止、Process集合、stale対象不存在および既知lockを確認した場合だけ、Host Effect 0で旧履歴を証拠保持終了へ閉じ、新しい修復IDの`prepared`を別Operationとして開始できる。
+未終了の旧修復履歴はこの新規修復状態へ直接継ぎ足さない。由来、現在Session、現在Engine停止、Process集合、stale対象不存在、現在の`run` Identityおよびその既知lockを確認した場合だけ、Host Effect 0で旧履歴を証拠保持終了へ閉じ、新しい修復IDの`prepared`を別Operationとして開始できる。現在の`run`が旧履歴のIdentityと異なる場合は、旧対象が既定の`run`／stale位置に存在しないことと、新世代の`run`が同じfresh観測とlockで一致することを要求し、世代交代を旧Effect不存在の証明へ読み替えない。
 
 ### 正常復帰後の検証付き再起動（Source接続済み・正式E2E未完了）
 

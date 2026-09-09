@@ -217,6 +217,8 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 対象外 | 空一覧だけによる義務消去、過去記録の書換え、任意のDocker資源削除、元Taskの自動再実行、正常環境を故障状態へ変える操作 |
 | 残る設計確認 | 実行中Taskとの排他、Docker全体への停止影響、既存Native操作の再利用範囲、停止完了と遅延createの関係、耐久記録と再入場、公開入口・署名経路への伝播 |
 
+実機回復では、未終了の旧Docker Desktop修復履歴が指す`run` Directoryと、Docker更新後に残った現在の`run` Directoryが別Identityになり、旧履歴を終了できずInventory全体を塞ぐ状態を確認した。旧EvidenceとEffect不明は保持し、旧stale位置の不存在、現在Engineの既知停止、Process境界、現在`run`のfresh Identityおよび既知socket lockが一致する場合に限り、Host Effect 0で旧履歴を世代交代終了できるようにする。現在の`run`は別Operationで修復し、世代交代を旧Effect不存在の証明へ読み替えない。
+
 着手前整合で、既存Native修復部品にもDocker 4.41.2の固定Policyが埋め込まれていることを確認した。通常CLIの更新追従だけでは停止・起動Consumerまで閉じていない。正常再起動の設計は[取消と回復](../../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)へ置き、Native操作対象のTrust検証を未完了の成立条件として保持する。旧修復記録v4へ正常再起動を混在させず、新記録を検証してからTask復旧へ接続する方針は読み取り専用の着手前整合確認でも一致した。これは独立した完成監査の合格ではない。
 
 正常Engine、既知障害、Engine観測不能、作成結果不明の対象なし、停止途中の失敗、再起動後の資源残存、取消、再入場を別々に検証する。検証付き再起動の成功と対象Taskの復旧完了は別結果とし、前者だけで後者を成立させない。完成後の独立監査は正式E2Eの結果と合わせて行う。

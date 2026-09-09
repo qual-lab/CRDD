@@ -1348,7 +1348,6 @@ function freshReadyStateMatches(
 
 function historicalBrokenRuntimeCanBeRetainedForNewRepair(
   state: FreshRuntimeState,
-  operation: DockerDesktopRepairOperation,
   lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null,
 ) {
   return (
@@ -1357,10 +1356,9 @@ function historicalBrokenRuntimeCanBeRetainedForNewRepair(
     state.processes === "verified" &&
     state.run.state === "present" &&
     state.run.identity !== null &&
-    sameIdentity(state.run.identity, operation.runIdentity) &&
     state.stale.state === "confirmed_absent" &&
     lockedRunIdentity !== null &&
-    sameIdentity(lockedRunIdentity, operation.runIdentity)
+    sameIdentity(lockedRunIdentity, state.run.identity)
   );
 }
 
@@ -3970,28 +3968,33 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
           if (
             historicalBrokenRuntimeCanBeRetainedForNewRepair(
               fresh,
-              operation,
               lockedRunIdentity,
             ) &&
             currentBoundary !== null &&
             samePreparedAuthority(boundary, currentBoundary) &&
             currentRun.state === "present" &&
             currentRun.identity !== null &&
-            sameIdentity(currentRun.identity, operation.runIdentity) &&
+            fresh.run.identity !== null &&
+            sameIdentity(currentRun.identity, fresh.run.identity) &&
             currentStale.state === "confirmed_absent"
           ) {
+            const isSupersededRun = !sameIdentity(
+              currentRun.identity,
+              operation.runIdentity,
+            );
             ledger.engineReady = false;
             ledger.staleState = "absent";
             ledger.hostSafety = "manual_recovery_required";
             ledger.evidenceState = "preserved";
-            ledger.liveRunIdentity = operation.runIdentity;
+            ledger.liveRunIdentity = currentRun.identity;
             ledger.disposition =
               "historical_effect_unknown_retained_by_human_decision";
             closureObservation = Object.freeze({
-              liveRunIdentity: operation.runIdentity,
+              liveRunIdentity: currentRun.identity,
               staleState: "absent" as const,
-              reason:
-                "docker_desktop_repair_historical_broken_state_retained_for_new_repair",
+              reason: isSupersededRun
+                ? "docker_desktop_repair_historical_superseded_state_retained_for_new_repair"
+                : "docker_desktop_repair_historical_broken_state_retained_for_new_repair",
             });
           }
         }
