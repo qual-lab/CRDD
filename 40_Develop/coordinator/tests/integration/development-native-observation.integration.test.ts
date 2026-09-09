@@ -257,9 +257,8 @@ async function runProbe(target: string, scenario: string) {
       false,
     );
     assert.ok(first && second);
-    assert.equal(Reflect.get(first, "verification"), verifications.at(-2));
-    assert.equal(Reflect.get(second, "verification"), verifications.at(-1));
-    assert.notEqual(
+    assert.equal(Reflect.get(first, "verification"), verifications.at(-1));
+    assert.equal(
       Reflect.get(first, "verification"),
       Reflect.get(second, "verification"),
     );
@@ -296,13 +295,17 @@ async function runProbe(target: string, scenario: string) {
           );
   const shouldReturnCandidate =
     scenario === "normal" ||
+    scenario === "post-source" ||
+    scenario === "post-native" ||
+    scenario === "post-repository" ||
     (scenario.startsWith("cleanup-") && !target.endsWith("-init"));
   assert.equal(result.status, shouldReturnCandidate ? "candidate" : "blocked");
+  const adapterNativeCalls = nativeCalls;
   if (shouldReturnCandidate) {
     assert.equal(
-      nativeCalls,
-      2,
-      "one fresh pre-borrow and one fresh post-borrow; no adapter duplicate",
+      adapterNativeCalls,
+      scenario === "normal" ? 0 : 1,
+      "one full check per lifecycle boundary; adapter post-observation reuses the same binding",
     );
     assert.equal(spawnCalls, 1);
     assert.equal(result.artifactVerifiedBeforeAndAfter, true);
@@ -311,6 +314,20 @@ async function runProbe(target: string, scenario: string) {
         ? result.observationCapability
         : result.rootCapability;
     assert.ok(capability);
+    if (
+      scenario === "post-source" ||
+      scenario === "post-native" ||
+      scenario === "post-repository"
+    ) {
+      assert.equal(
+        boundary.beginInvocation(
+          target === "claude" ? "claude" : "codex",
+          "executor",
+        ),
+        null,
+        "the next provider-effect boundary must reject the changed identity",
+      );
+    }
   } else {
     const isAfterSpawn = scenario.startsWith("post-");
     assert.equal(spawnCalls, isAfterSpawn ? 1 : 0);
@@ -321,7 +338,6 @@ async function runProbe(target: string, scenario: string) {
         : result.rootCapability;
     assert.equal(capability, null);
   }
-  const adapterNativeCalls = nativeCalls;
   assert.equal(
     session.cancelRuntimeOwnedDevelopmentMeasurementSession(
       admitted.capability,

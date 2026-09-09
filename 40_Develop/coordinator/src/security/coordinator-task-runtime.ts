@@ -297,7 +297,7 @@ type RuntimeDependencies = Readonly<{
     role: TaskRole,
   ) => Readonly<{
     commandRestriction: (purpose: string) => boolean;
-    settle: () => void;
+    settle: () => unknown;
   }> | null;
   observeLifecycleState?: (state: RuntimeLifecycleState) => void;
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
@@ -1109,11 +1109,16 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
   if (dependencies.beginInvocation && !invocation)
     return blocked("coordinator_task_development_invocation_not_authorized");
   args[12] = invocation?.commandRestriction;
+  let result: Awaited<ReturnType<typeof executeStageBody>>;
+  let settlement: unknown;
   try {
-    return await executeStageBody(...args);
+    result = await executeStageBody(...args);
   } finally {
-    invocation?.settle();
+    settlement = invocation?.settle();
   }
+  return settlement === false
+    ? blocked("coordinator_task_development_invocation_settlement_invalid")
+    : result;
 }
 
 async function executeStageBody(

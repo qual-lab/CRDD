@@ -1601,6 +1601,28 @@ test("呼出し予約拒否は準備・Provider開始前に停止し既存Operat
   assert.equal(result.cleanupConfirmed, true);
 });
 
+test("Provider終了後の開発Identity再検証が失敗した場合は成功を公開しない", async () => {
+  const harness = fixture({
+    beginInvocation: () => ({
+      commandRestriction: () => true,
+      settle: () => false,
+    }),
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_development_invocation_settlement_invalid",
+  );
+  assert.equal(harness.processStartCount(), 1);
+  assert.equal(harness.cleanupCount(), 1);
+  assert.equal(result.cleanupConfirmed, true);
+});
+
 test("呼出し予約後の準備失敗でも終了記録を一回だけ残す", async () => {
   let settlementCount = 0;
   const harness = fixture({

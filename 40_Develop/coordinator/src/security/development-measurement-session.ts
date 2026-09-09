@@ -81,8 +81,9 @@ type NativeVerification = Extract<
   ReturnType<typeof inspectVerifiedNativeDistributionCandidate>,
   { status: "candidate" }
 >;
-// Only the production observer can bind its fresh native result to an identity.
-// No session-wide cache, caller claim, or isolated test identity is accepted.
+// Only the production observer can bind a verified native result to an identity.
+// The exact immutable identity may be reused inside one already-verified native
+// lifecycle boundary; caller claims and isolated test identities remain invalid.
 const nativeVerifications = new WeakMap<Identity, NativeVerification>();
 type Dependencies = Readonly<{
   observe: (configuration: Configuration) => Identity | null;
@@ -106,6 +107,10 @@ type TaskBinding = {
   task: Task;
   token: object;
   managementCapability: object | null;
+  nativeBoundaryIdentity: Identity | null;
+  cleanupBoundaryIdentity: Identity | null;
+  nativeBoundaryVerified: boolean;
+  cleanupBoundaryVerified: boolean;
   settled: boolean;
 };
 
@@ -443,6 +448,10 @@ function createSessionRuntime(dependencies: Dependencies) {
         task,
         token: reserved.value,
         managementCapability: null,
+        nativeBoundaryIdentity: null,
+        cleanupBoundaryIdentity: null,
+        nativeBoundaryVerified: false,
+        cleanupBoundaryVerified: false,
         settled: false,
       });
       return capability;
@@ -544,19 +553,33 @@ function createSessionRuntime(dependencies: Dependencies) {
           identity = observed.identity;
         }
         if (task) {
-          const observed = observe(task.session);
-          if (observed?.result.status !== "recorded") return null;
-          identity = observed.identity;
+          if (!task.nativeBoundaryVerified) {
+            const observed = observe(task.session);
+            if (observed?.result.status !== "recorded") return null;
+            identity = observed.identity;
+            task.nativeBoundaryIdentity = identity;
+            task.nativeBoundaryVerified = true;
+          } else {
+            if (checkBoundSession(task.session)?.result.status !== "recorded")
+              return null;
+            identity = task.nativeBoundaryIdentity;
+          }
         }
         // A cleanup context permits only a read-only native observation. Its
         // owning resource lifecycle still authorizes every exact mutation.
         if (cleanup) {
           if (dependencies.isEffectBlocked()) return null;
-          identity = cleanup.session.timing.measureIdentity(() =>
-            dependencies.observe(cleanup.session.configuration),
-          );
-          if (digest(identity) !== digest(cleanup.session.identity))
-            return null;
+          if (!cleanup.cleanupBoundaryVerified) {
+            identity = cleanup.session.timing.measureIdentity(() =>
+              dependencies.observe(cleanup.session.configuration),
+            );
+            if (digest(identity) !== digest(cleanup.session.identity))
+              return null;
+            cleanup.cleanupBoundaryIdentity = identity;
+            cleanup.cleanupBoundaryVerified = true;
+          } else {
+            identity = cleanup.cleanupBoundaryIdentity;
+          }
         }
         if (!identity) return null;
         return Object.freeze({
@@ -594,18 +617,26 @@ function createSessionRuntime(dependencies: Dependencies) {
       const binding = taskBindings.get(taskCapability);
       const observed =
         binding && operationValid(binding) && observe(binding.session);
-      return Boolean(
-        binding &&
-          observed &&
-          observed.result.status === "recorded" &&
-          binding.session.constraints.consumeInvocation(
-            invocationCapability,
-            binding.token,
-            provider,
-            role,
-            observed.observation,
-          ).status === "recorded",
-      );
+      if (
+        !binding ||
+        !observed ||
+        observed.result.status !== "recorded" ||
+        binding.session.constraints.consumeInvocation(
+          invocationCapability,
+          binding.token,
+          provider,
+          role,
+          observed.observation,
+        ).status !== "recorded"
+      )
+        return false;
+      // The provider-effect boundary just completed a full identity check. All
+      // native helper observations inside this invocation reuse that exact
+      // binding while their adapters still verify the native artifact before
+      // and after each helper process.
+      binding.nativeBoundaryVerified = true;
+      binding.nativeBoundaryIdentity = observed.identity;
+      return true;
     },
     settleInvocation(taskCapability: object, invocationCapability: object) {
       const binding = taskBindings.get(taskCapability);
@@ -616,6 +647,22 @@ function createSessionRuntime(dependencies: Dependencies) {
           .status === "recorded";
       if (wasSettled) invocationBindings.delete(invocationCapability);
       return wasSettled;
+    },
+    settleInvocationAndVerify(
+      taskCapability: object,
+      invocationCapability: object,
+    ) {
+      const binding = taskBindings.get(taskCapability);
+      if (!binding || invocationBindings.get(invocationCapability) !== binding)
+        return false;
+      const observed = operationValid(binding) && observe(binding.session);
+      const wasSettled =
+        binding.session.constraints.settleInvocation(invocationCapability)
+          .status === "recorded";
+      if (wasSettled) invocationBindings.delete(invocationCapability);
+      return Boolean(
+        wasSettled && observed && observed.result.status === "recorded",
+      );
     },
     settleTask(
       taskCapability: object,
@@ -768,7 +815,10 @@ export function reserveRuntimeOwnedDevelopmentMeasurementTask(
               )
             : boundary.checkNewWork(),
         settle: () => {
-          productionRuntime.settleInvocation(taskCapability, invocation);
+          return productionRuntime.settleInvocationAndVerify(
+            taskCapability,
+            invocation,
+          );
         },
       });
     },

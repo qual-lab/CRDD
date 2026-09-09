@@ -432,6 +432,48 @@ for (const stop of ["expiry", "cancel"] as const) {
   });
 }
 
+test("同じNative lifecycle内の補助観測は完全Identity検証を繰り返さずProvider Effect前に再検証する", async () => {
+  const { runtime, state, createOperation } = harness();
+  const admitted = await runtime.request(
+    configuration(),
+    new AbortController().signal,
+  );
+  assertPresent(admitted.capability);
+  const taskCapability = runtime.reserveTask(
+    admitted.capability,
+    task("codex"),
+  );
+  assertPresent(taskCapability);
+  const { management, repository } = createOperation();
+  assert.equal(
+    runtime.bindOperation(taskCapability, management, repository),
+    true,
+  );
+  const context = runtime.operationContext(management);
+  assertPresent(context?.cleanupContext);
+
+  const beforeTaskBoundary = state.observationCount;
+  assertPresent(runtime.borrowNativeObservation(taskCapability, true));
+  const afterTaskBoundary = state.observationCount;
+  assert.equal(afterTaskBoundary, beforeTaskBoundary + 1);
+  assertPresent(runtime.borrowNativeObservation(taskCapability, false));
+  assert.equal(state.observationCount, afterTaskBoundary);
+
+  const beforeCleanupBoundary = state.observationCount;
+  assertPresent(runtime.borrowNativeObservation(context.cleanupContext, false));
+  const afterCleanupBoundary = state.observationCount;
+  assert.equal(afterCleanupBoundary, beforeCleanupBoundary + 1);
+  assertPresent(runtime.borrowNativeObservation(context.cleanupContext, false));
+  assert.equal(state.observationCount, afterCleanupBoundary);
+
+  state.identity = "9".repeat(64);
+  assertPresent(runtime.borrowNativeObservation(taskCapability, false));
+  assert.equal(
+    runtime.reserveInvocation(taskCapability, "codex", "executor"),
+    null,
+  );
+});
+
 test("cleanup観測も実装差替え・観測失敗・process不明を推測して継続しない", async () => {
   for (const failure of ["replacement", "throw", "poison"] as const) {
     const { runtime, state, createOperation } = harness();
