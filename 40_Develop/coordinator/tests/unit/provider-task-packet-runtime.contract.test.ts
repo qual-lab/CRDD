@@ -349,7 +349,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
       assert.ok(consumed);
       assert.match(
         consumed.prompt,
-        /Review this candidate-visible content only/u,
+        /approve this criterion when the Runtime-authenticated projection contains one present record/u,
       );
       assert.match(
         consumed.prompt,
@@ -357,7 +357,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
       );
       assert.match(
         consumed.prompt,
-        /Do not claim those separate checks have run/u,
+        /do not claim those separate checks have run/iu,
       );
       assert.deepEqual(consumed.taskWorkload, {
         readPathCount: 1,

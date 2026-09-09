@@ -367,7 +367,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     objective:
       "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: [
-      `The visible candidate file ${TARGET_PATH} contains exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional visible text. Review this candidate-visible content only; the signed runner separately verifies the base bytes, changed-path closure, exact UTF-8 bytes, trailing LF, byte length and SHA-256. Do not claim those separate checks have run.`,
+      `For this fixed route verification, approve this criterion when the Runtime-authenticated projection contains one present record for ${TARGET_PATH} whose content is exactly ${JSON.stringify(EXPECTED_CONTENT)}. Otherwise request changes. Do not require a filesystem reread or other repository evidence. The signed runner separately verifies the base bytes, changed-path closure, exact UTF-8 bytes, trailing LF, byte length and SHA-256; do not claim those separate checks have run.`,
     ],
     allowedPaths: [TARGET_PATH],
     readPaths: [TARGET_PATH],
