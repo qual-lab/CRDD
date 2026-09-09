@@ -203,7 +203,9 @@ Provider終了／候補処置
 
 固定開発候補の初回実測では、Claude ExecutorからCodex Reviewerへの経路は成立した一方、Codex Executorだけが`provider_process_exit_nonzero`となった。ネットワークとProvider Homeを遮断した固定Codex 0.149.1のProcess初期化Probeにより、`--approve-for-me`と`--sandbox workspace-write`の同時指定をCLI自身が拒否することを確認した。各optionの存在と期待値を別々に確認した結合試験では、この組合せ契約を保証できていなかった。
 
-是正後は、Codex Executorの自動承認optionへ`workspace-write`選択を一元化し、明示的な`--sandbox`はReviewerの`read-only`だけに限定する。Root deny、Workspace限定write、Provider実行物readおよびProvider HomeのCommand read禁止を持つCRDD権限Profile、Dockerのread-only root、Capability drop、Network proxyおよびTask境界は変更しない。計画試験は、自動承認optionと明示Sandboxが同居しない相関不変条件を確認する。
+最初の是正では、Codex Executorの自動承認optionへ`workspace-write`選択を委ね、Process初期化の衝突を解消した。しかし実Provider境界では、Codexが初回と是正の双方で変更0件を返し、Reviewerが同じ未達を検出した。Process開始を実変更能力の成立と扱ったため、この是正だけでは不十分だった。
+
+v0.19.0の固定Binary、Task計画および実変更Evidenceを比較し、Codex Executorを実証済みの`approval_policy="never"`と明示的な`--sandbox workspace-write`へ戻す。Reviewerは`approval_policy="never"`と`read-only`を維持する。Root deny、Workspace限定write、Provider実行物read、Provider HomeのCommand read禁止、Dockerのread-only root、Capability drop、Network proxyおよびTask境界は変更しない。結合試験はProcess初期化だけでなく、実Workspaceの許可対象1件が変更され、対象外変更0件、終了後残存0件になるまでを成立条件とする。
 
 ## 8. 完成条件
 

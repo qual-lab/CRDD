@@ -135,8 +135,9 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
         plan.codexSandboxMode,
         item.role === "executor" ? "workspace-write" : "read-only",
       );
-      assert.equal(argv.includes("--approve-for-me"), item.role === "executor");
-      assert.equal(argv.includes("--sandbox"), item.role === "reviewer");
+      assert.equal(argv.includes("--approve-for-me"), false);
+      assert.equal(argv.includes("--sandbox"), true);
+      assert.equal(argv.includes('approval_policy="never"'), true);
       assert.equal(
         argv.includes("--approve-for-me") && argv.includes("--sandbox"),
         false,
