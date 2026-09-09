@@ -36,7 +36,7 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/securi
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 21;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 22;
 
 const TARGET_PATH =
   "40_Develop/coordinator/runtime/general-task-verification.txt";
@@ -735,15 +735,10 @@ export function createSignedGeneralTaskVerificationRequest(
     objective:
       "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: Object.freeze([
-      `The visible candidate marker is located at ${TARGET_PATH}; the runtime and signed runner separately verify that no other path changed.`,
-      `The base revision contains exactly ${JSON.stringify(BASE_CONTENT.trimEnd())}; replace only its final BASE token with OK instead of recreating or reformatting the file.`,
-      `The visible file content is exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional text. Review this visible content and the bounded replacement; exact UTF-8 bytes, trailing LF, byte length and SHA-256 are separate checks owned by the route verification runner, not proof requested from the reviewer. Do not claim those separate checks have run.`,
+      `The visible candidate file ${TARGET_PATH} contains exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional visible text. Review this candidate-visible content only; the signed runner separately verifies the base bytes, changed-path closure, exact UTF-8 bytes, trailing LF, byte length and SHA-256. Do not claim those separate checks have run.`,
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
-    readPaths: Object.freeze([
-      "06_Architecture/coordinator/01_Architecture.md",
-      TARGET_PATH,
-    ]),
+    readPaths: Object.freeze([TARGET_PATH]),
     workClass:
       routeProfile === "same-codex" || routeProfile === "same-claude"
         ? "bounded_verification"

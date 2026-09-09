@@ -28,7 +28,7 @@ import {
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
-export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 13;
+export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 14;
 
 const MAX_SAFE_ROUTE_ATTEMPTS = 3;
 const SAFE_RETRYABLE_ROUTE_REASONS = new Set([

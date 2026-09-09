@@ -672,7 +672,7 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 13);
+  assert.equal(contract.contractRevision, 14);
   assert.equal(
     contract.safeRetry,
     "maximum_three_attempts_per_route_only_for_exact_candidate_content_mismatch_after_exact_candidate_discard_and_exact_zero_residual_effect_reviewer_rejection_and_candidate_verification_failure_are_not_retried",

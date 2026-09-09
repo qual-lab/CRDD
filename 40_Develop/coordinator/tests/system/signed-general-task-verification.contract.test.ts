@@ -367,12 +367,10 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     objective:
       "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: [
-      `The visible candidate marker is located at ${TARGET_PATH}; the runtime and signed runner separately verify that no other path changed.`,
-      `The base revision contains exactly ${JSON.stringify(BASE_CONTENT.trimEnd())}; replace only its final BASE token with OK instead of recreating or reformatting the file.`,
-      `The visible file content is exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional text. Review this visible content and the bounded replacement; exact UTF-8 bytes, trailing LF, byte length and SHA-256 are separate checks owned by the route verification runner, not proof requested from the reviewer. Do not claim those separate checks have run.`,
+      `The visible candidate file ${TARGET_PATH} contains exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional visible text. Review this candidate-visible content only; the signed runner separately verifies the base bytes, changed-path closure, exact UTF-8 bytes, trailing LF, byte length and SHA-256. Do not claim those separate checks have run.`,
     ],
     allowedPaths: [TARGET_PATH],
-    readPaths: ["06_Architecture/coordinator/01_Architecture.md", TARGET_PATH],
+    readPaths: [TARGET_PATH],
     workClass: "bounded_implementation",
     planState: "complete",
     risk: "low",
@@ -384,7 +382,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 21);
+  assert.equal(contract.contractRevision, 22);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",

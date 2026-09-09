@@ -133,11 +133,12 @@ v0.19.0との比較では、Docker Desktopを起動するNative処理および�
 | 契約 | 是正 |
 |---|---|
 | 確認範囲 | 合成CandidateはCommit／Release候補ではなく、指定した受入条件だけを評価することをTask Packetへ明示する |
+| 条件の証明主体 | Reviewerへ渡す受入条件はReadable Candidateから観測できる意味に限定し、Base byte、変更Path閉包、改行、byte長およびHashはSigned Runnerの独立検証へ割り当てる |
 | 原因分類 | Candidateの固定Identity／内容不一致と、確認者による意味的不承認を別の結果理由にする |
 | 再試行 | 一回の是正後も続く確認者不承認を自動再試行対象から外す |
 | 保持する保証 | 独立確認、受入条件の実質的反証、Candidate範囲検証、cleanupおよびRecoveryのFail Closedは弱めない |
 
-この是正は、確認を通すためにFindingを無視する変更ではない。試験Candidateが所有しないRelease条件を追加しないことと、再実行により変化し得ない入力を反復しないことを固定し、独立確認の判断と機械的なCandidate破損を利用側が区別できるようにする。
+この是正は、確認を通すためにFindingを無視する変更ではない。試験Candidateが所有しないRelease条件を追加しないこと、各条件を実際に証明できる観測者へ割り当てること、および再実行により変化し得ない入力を反復しないことを固定し、独立確認の判断と機械的なCandidate破損を利用側が区別できるようにする。v0.19.0から存在した固定Taskには、Reviewerから観測できないBase履歴と編集方法が受入条件へ混在していた。全受入条件の評価を明示したことでこの潜在不整合が顕在化したため、Reviewerは現在のCandidateから確認できる表示内容だけを評価し、履歴・Path・byteの保証は既存Runnerの反証へ保持する。
 
 ## 8. 完成条件
 
