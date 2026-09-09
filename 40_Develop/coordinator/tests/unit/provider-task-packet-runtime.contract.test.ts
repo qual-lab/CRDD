@@ -208,7 +208,19 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
     assert.match(
       consumed?.prompt ?? "",
-      /Review only the immutable Runtime-provided content projection below/u,
+      /Review only the immutable Runtime-provided candidate content projection below/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /The \/work filesystem is not an input to this review/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /content is the complete UTF-8 candidate file content/u,
+    );
+    assert.doesNotMatch(
+      consumed?.prompt ?? "",
+      /Review the candidate in \/work/u,
     );
     assert.match(
       consumed?.prompt ?? "",

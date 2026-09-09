@@ -155,6 +155,8 @@ v0.19.0との比較では、Docker Desktopを起動するNative処理および�
 
 これはReviewerの判定を緩める変更ではない。明示した受入条件を確認するための入力をRuntimeが保証し、任意Process実行やProvider Home読取りを追加せず、観測不能をFindingまたは推測へ畳まないためのCapability是正である。
 
+4経路E2Eでは、Codex Reviewerを使う最初の経路が初めて完了した。一方、Claude Reviewerを使う次の経路は不承認となった。Task Packetに、旧来の`/work`確認指示と新しい内容投影限定指示が同居していたため、Providerによって優先する指示が分かれ得る状態だった。Reviewerの入力正本を内容投影だけへ一意化し、Filesystemは入力でないこと、および投影Recordの`content`だけが完全な候補本文で他fieldはMetadataであることを明示する。異なるProviderが同じ意味契約を受け取る場合、後段の禁止で旧指示を打ち消さず、入力所有者・観測手段・評価対象を一つの矛盾しない指示へ置換する。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。
