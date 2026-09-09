@@ -309,6 +309,29 @@ function createSessionRuntime(dependencies: Dependencies) {
     }
   }
 
+  function checkBoundSession(session: Session) {
+    try {
+      if (
+        session.signal.aborted ||
+        session.closed ||
+        dependencies.isEffectBlocked()
+      )
+        session.constraints.cancel();
+      const observation = {
+        bindingSha256: session.bindingSha256,
+        wallTimeMs: dependencies.wallNow(),
+        monotonicTimeMs: dependencies.monotonicNow(),
+      };
+      return {
+        observation,
+        result: session.constraints.check(observation),
+      };
+    } catch {
+      session.constraints.cancel();
+      return null;
+    }
+  }
+
   function operationValid(binding: TaskBinding) {
     try {
       return (
@@ -434,7 +457,7 @@ function createSessionRuntime(dependencies: Dependencies) {
         request: binding.task.request,
         checkNewWork: () =>
           !binding.settled &&
-          observe(binding.session)?.result.status === "recorded",
+          checkBoundSession(binding.session)?.result.status === "recorded",
       });
     },
     bindOperation(
@@ -492,7 +515,7 @@ function createSessionRuntime(dependencies: Dependencies) {
         ? Object.freeze({
             checkNewWork: () =>
               !binding.settled &&
-              observe(binding.session)?.result.status === "recorded",
+              checkBoundSession(binding.session)?.result.status === "recorded",
             newWorkContext: operationContexts.get(managementCapability),
             cleanupContext: cleanupContexts.get(managementCapability),
           })
@@ -618,7 +641,7 @@ function createSessionRuntime(dependencies: Dependencies) {
     inspect(capability: object) {
       const session = sessions.get(capability);
       if (!session) return null;
-      observe(session);
+      checkBoundSession(session);
       return Object.freeze({
         ...session.constraints.inspect(),
         identityObservation: session.timing.snapshot().identityObservation,

@@ -197,8 +197,13 @@ test("固定Identityから2Task・最大8呼出しへ結合し、試験tokenは�
     );
   }
   assert.equal(runtime.inspect(admitted.capability)?.invocationCount, 8);
+  const observationsBeforeInspect = state.observationCount;
   const measured = runtime.inspect(admitted.capability);
-  assert.equal(measured?.identityObservation.callCount, state.observationCount);
+  assert.equal(state.observationCount, observationsBeforeInspect);
+  assert.equal(
+    measured?.identityObservation.callCount,
+    observationsBeforeInspect,
+  );
   assert.equal(measured?.identityObservation.measurementComplete, true);
   assert.equal(
     (await runtime.request(configuration(), new AbortController().signal))
@@ -276,6 +281,31 @@ test("設定をAdmission中に変更しても固定したTask snapshotだけに�
   assertPresent(result.capability);
   assert.equal(runtime.reserveTask(result.capability, config.tasks[0]), null);
   assertPresent(runtime.reserveTask(result.capability, task("codex")));
+});
+
+test("進行中Taskのliveness参照は固定Identityを再Hashせず期限・取消・Process停止を維持する", async () => {
+  for (const stop of ["none", "expiry", "cancel", "process_blocked"] as const) {
+    const { runtime, state, clock } = harness();
+    const abort = new AbortController();
+    const admitted = await runtime.request(configuration(), abort.signal);
+    assertPresent(admitted.capability);
+    const taskCapability = runtime.reserveTask(
+      admitted.capability,
+      task("codex"),
+    );
+    assertPresent(taskCapability);
+    const boundary = runtime.taskBoundary(taskCapability);
+    assertPresent(boundary);
+    const observationsBeforeChecks = state.observationCount;
+    assert.equal(boundary.checkNewWork(), true);
+    assert.equal(boundary.checkNewWork(), true);
+    assert.equal(state.observationCount, observationsBeforeChecks);
+    if (stop === "expiry") clock.monotonic = 1_100;
+    if (stop === "cancel") abort.abort();
+    if (stop === "process_blocked") state.isBlocked = true;
+    assert.equal(boundary.checkNewWork(), stop === "none");
+    assert.equal(state.observationCount, observationsBeforeChecks);
+  }
 });
 
 test("偽Operation・別Repository・別Revision・別sessionへの再登録を拒否する", async () => {
