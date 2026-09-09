@@ -1715,14 +1715,13 @@ async function observeHostEffectPrecondition(
     stale.state === "confirmed_absent";
   if (
     isExactUnavailableRun &&
-    ((action === "official_shutdown" &&
-      (processes === "verified" || processes === "absent")) ||
+    ((action === "official_shutdown" && processes === "verified") ||
       (action === "native_termination" && processes === "verified") ||
       (action === "wsl_termination" && processes === "absent"))
   )
     return Object.freeze({ state: "proceed" as const, liveRunIdentity: null });
   if (
-    action === "native_termination" &&
+    (action === "official_shutdown" || action === "native_termination") &&
     isExactUnavailableRun &&
     processes === "absent"
   )
@@ -2507,10 +2506,16 @@ async function executeRepair(
         reason = "docker_desktop_repair_settled_prefix_invalid";
         return { status, reason, ledger, operation };
       }
+      const shutdownWasConfirmed =
+        settledShutdown?.issued === true &&
+        settledShutdown.confirmation === "confirmed";
+      const shutdownWasObservedNotNeeded =
+        settledShutdown?.issued === false &&
+        settledShutdown.confirmation === "not_issued";
       if (
         settledShutdown &&
-        (settledShutdown.issued !== true ||
-          settledShutdown.confirmation !== "confirmed")
+        !shutdownWasConfirmed &&
+        !shutdownWasObservedNotNeeded
       ) {
         reason = "docker_desktop_official_shutdown_unconfirmed";
         return { status, reason, ledger, operation };
@@ -2530,6 +2535,24 @@ async function executeRepair(
         markUnknown(ledger);
         reason = effectBoundaryFailureReason(shutdownBoundary);
         return { status, reason, ledger, operation };
+      }
+      if (shutdownWasObservedNotNeeded) {
+        const shutdownPrecondition = await observeHostEffectPrecondition(
+          dependencies,
+          boundary,
+          session,
+          cancellation,
+          operation,
+          "official_shutdown",
+        );
+        if (shutdownPrecondition.state !== "known_not_needed") {
+          markUnknown(ledger);
+          reason = hostEffectPreconditionBlockReason(
+            shutdownPrecondition,
+            cancellation,
+          );
+          return { status, reason, ledger, operation };
+        }
       }
       if (!settledShutdown) {
         if (!durableResumeAllowsHostAction(operation, "official_shutdown")) {
@@ -2607,6 +2630,14 @@ async function executeRepair(
           if (shutdownPrecondition.state === "recovered" && settled) {
             status = "recovered_pending_close";
             reason = "docker_desktop_runtime_recovered_pending_close";
+          } else if (
+            shutdownPrecondition.state === "known_not_needed" &&
+            settled
+          ) {
+            // A fresh same-boundary observation proved that Docker Desktop has
+            // no process to shut down. Continue the lifecycle without issuing
+            // a redundant host effect; a resumed operation must prove this
+            // state again above before trusting the durable settlement.
           } else {
             markUnknown(ledger);
             reason = hostEffectPreconditionBlockReason(
@@ -2614,39 +2645,48 @@ async function executeRepair(
               cancellation,
             );
           }
-          return { status, reason, ledger, operation };
+          if (shutdownPrecondition.state !== "known_not_needed" || !settled)
+            return { status, reason, ledger, operation };
         }
-        if (!cancellation.effectAllowed()) {
+        if (
+          shutdownPrecondition.state === "proceed" &&
+          !cancellation.effectAllowed()
+        ) {
           markUnknown(ledger);
           reason = "docker_desktop_repair_cancelled_before_host_effect";
           return { status, reason, ledger, operation };
         }
-        const shutdown = await dependencies.officialShutdown(
-          boundary,
-          operation,
-          session,
-        );
-        const shutdownSettlement = await persistHostEffectSettlement(
-          dependencies,
-          boundary,
-          session,
-          cancellation,
-          operation,
-          "process",
-          "official_shutdown",
-          shutdown,
-          ledger,
-        );
-        if (!shutdownSettlement) {
-          markUnknown(ledger);
-          reason = "docker_desktop_repair_effect_settlement_unknown";
-          return { status, reason, ledger, operation };
-        }
-        operation = shutdownSettlement;
-        if (shutdown.issued !== true || shutdown.confirmation !== "confirmed") {
-          if (shutdown.confirmation === "unknown") markUnknown(ledger);
-          reason = "docker_desktop_official_shutdown_unconfirmed";
-          return { status, reason, ledger, operation };
+        if (shutdownPrecondition.state === "proceed") {
+          const shutdown = await dependencies.officialShutdown(
+            boundary,
+            operation,
+            session,
+          );
+          const shutdownSettlement = await persistHostEffectSettlement(
+            dependencies,
+            boundary,
+            session,
+            cancellation,
+            operation,
+            "process",
+            "official_shutdown",
+            shutdown,
+            ledger,
+          );
+          if (!shutdownSettlement) {
+            markUnknown(ledger);
+            reason = "docker_desktop_repair_effect_settlement_unknown";
+            return { status, reason, ledger, operation };
+          }
+          operation = shutdownSettlement;
+          if (
+            shutdown.issued !== true ||
+            shutdown.confirmation !== "confirmed"
+          ) {
+            if (shutdown.confirmation === "unknown") markUnknown(ledger);
+            reason = "docker_desktop_official_shutdown_unconfirmed";
+            return { status, reason, ledger, operation };
+          }
         }
       }
       if (!cancellation.helperAvailable()) {

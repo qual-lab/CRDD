@@ -877,8 +877,10 @@ function legalLedgerTransition(
     !previousNative &&
     !previousWsl &&
     previousShutdown?.phase === "settled" &&
-    previousShutdown.issued === true &&
-    previousShutdown.confirmation === "confirmed" &&
+    ((previousShutdown.issued === true &&
+      previousShutdown.confirmation === "confirmed") ||
+      (previousShutdown.issued === false &&
+        previousShutdown.confirmation === "not_issued")) &&
     nextNative?.phase === "settled" &&
     nextNative.issued === false &&
     nextNative.confirmation === "not_issued";
@@ -993,18 +995,13 @@ function validKnownProcessPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
   const native = effectEntry(ledger, "native_termination");
   const wsl = effectEntry(ledger, "wsl_termination");
   if (!shutdown) return !native && !wsl;
-  if (
-    native &&
-    (shutdown.phase !== "settled" ||
-      shutdown.issued !== true ||
-      shutdown.confirmation !== "confirmed")
-  )
-    return false;
+  const shutdownKnown =
+    isSettledConfirmed(ledger, "official_shutdown") ||
+    isSettledNotIssued(ledger, "official_shutdown");
+  if (native && !shutdownKnown) return false;
   if (
     wsl &&
-    (shutdown.phase !== "settled" ||
-      shutdown.issued !== true ||
-      shutdown.confirmation !== "confirmed" ||
+    (!shutdownKnown ||
       !native ||
       native.phase === "intent_recorded" ||
       native.confirmation === "unknown")
@@ -2704,7 +2701,10 @@ export function classifyDockerDesktopRepairResume(
     const native = effectEntry(ledger, "native_termination");
     const wsl = effectEntry(ledger, "wsl_termination");
     if (!shutdown) return result("next_host_action", "official_shutdown");
-    if (!isSettledConfirmed(ledger, "official_shutdown"))
+    if (
+      !isSettledConfirmed(ledger, "official_shutdown") &&
+      !isSettledNotIssued(ledger, "official_shutdown")
+    )
       return result("manual_block");
     if (!native) return result("next_host_action", "native_termination");
     if (

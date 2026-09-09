@@ -3722,7 +3722,7 @@ test("official shutdown未確認のactual Store再開は全後続Host Effectを0
           result.reason,
           observed.confirmation === "unknown"
             ? "docker_desktop_repair_settled_prefix_invalid"
-            : "docker_desktop_official_shutdown_unconfirmed",
+            : "docker_desktop_repair_pre_effect_state_unknown",
         );
         assert.equal(hostCalls, 0);
       },
@@ -3730,7 +3730,7 @@ test("official shutdown未確認のactual Store再開は全後続Host Effectを0
   }
 });
 
-test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ進む", async (t) => {
+test("実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も再観測してWSLへ進む", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repair-ka-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const runtimeStateRoot = path.join(root, "RuntimeState");
@@ -3761,13 +3761,37 @@ test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ�
   });
   let isEngineReady = false;
   let wasLaunched = false;
+  let failNativeObservationOnce = true;
+  let shutdownCalls = 0;
   let nativeCalls = 0;
   let wslCalls = 0;
   const dependencies: RepairDependencies = {
     ...fixture().dependencies,
     prepareBoundary: () => actualBoundary,
     inventory: inventoryDockerDesktopRepairOperations,
-    persistStage: persistDockerDesktopRepairStage,
+    persistStage: (currentBoundary, current, stage, nextLedger) => {
+      const previousNative = current.ledger.processEffects.find(
+        (entry) => entry.action === "native_termination",
+      );
+      const nextNative = nextLedger.processEffects.find(
+        (entry) => entry.action === "native_termination",
+      );
+      if (
+        failNativeObservationOnce &&
+        !previousNative &&
+        nextNative?.phase === "settled" &&
+        nextNative.issued === false
+      ) {
+        failNativeObservationOnce = false;
+        return null;
+      }
+      return persistDockerDesktopRepairStage(
+        currentBoundary,
+        current,
+        stage,
+        nextLedger,
+      );
+    },
     observeEngine: () => (isEngineReady ? "ready" : "known_unavailable"),
     observeKnownSocketFailure: () => initialIdentity,
     identityAt,
@@ -3798,8 +3822,13 @@ test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ�
         },
       }),
     }),
-    officialShutdown: () =>
-      Object.freeze({ issued: true, confirmation: "confirmed" as const }),
+    officialShutdown: () => {
+      shutdownCalls += 1;
+      return Object.freeze({
+        issued: true,
+        confirmation: "confirmed" as const,
+      });
+    },
     terminateDockerWsl: () => {
       wslCalls += 1;
       return Object.freeze({
@@ -3817,6 +3846,10 @@ test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ�
     },
     awaitEngine: async () => (isEngineReady ? "ready" : "known_unavailable"),
   };
+  const first =
+    await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+  assert.equal(first.status, "blocked", JSON.stringify(first));
+  assert.equal(first.reason, "docker_desktop_repair_record_durability_unknown");
   const result =
     await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
   assert.equal(
@@ -3824,6 +3857,7 @@ test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ�
     "recovered_pending_close",
     JSON.stringify(result),
   );
+  assert.equal(shutdownCalls, 0);
   assert.equal(nativeCalls, 0);
   assert.equal(wslCalls, 1);
   const inventory = inventoryDockerDesktopRepairOperations(actualBoundary);
@@ -3834,6 +3868,16 @@ test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ�
   assert.deepEqual(native, {
     sequence: 1,
     action: "native_termination",
+    phase: "settled",
+    issued: false,
+    confirmation: "not_issued",
+  });
+  const shutdown = inventory.operations[0]?.ledger.processEffects.find(
+    (entry) => entry.action === "official_shutdown",
+  );
+  assert.deepEqual(shutdown, {
+    sequence: 0,
+    action: "official_shutdown",
     phase: "settled",
     issued: false,
     confirmation: "not_issued",

@@ -489,4 +489,6 @@ Engine観測を三値へ戻す際、旧`queryDocker`を`queryDockerEngine`と`qu
 | --- | --- | --- |
 | 旧履歴と現在世代 | 旧Operation Identityは履歴に保持し、freshな二回の現在`run`観測と既知lockだけを新修復対象へ結合する | 世代差を旧Effect不存在や復旧成功へ読み替えない |
 | Process状態 | 存在が検証済み、または不存在が確認済みの両方を既知状態として扱う | `unknown`は履歴閉鎖にも新修復にも使わない |
+
+新世代の修復を開始すると、Engine停止、exact `run` Identity、stale不存在およびDocker Process不存在を確認できたにもかかわらず、公式停止を必須Effectとして扱って`docker_desktop_official_shutdown_unconfirmed`で停止した。これはDocker Desktop自体の失敗ではなく、存在時の停止経路しか持たない修復状態機械の欠落だった。公式停止とNative停止の双方へ`known_not_needed`を導入し、Process不存在をfresh観測できた場合はEffect 0の`not_issued` settlementを耐久化する。耐久記録からの再開でも同じ実状態を再観測し、Process再出現または観測不能なら後続Effectを停止する。実Store試験では、no-op settlement後の保存失敗を挟み、同じ修復IDで再入場して公式停止・Native停止を0回のままWSL停止以降へ進めることを確認する。
 | 実環境対応 | 注入試験を実際に観測した`absent`状態へ固定し、署名候補から同じ履歴IDを閉じる | 既定fixtureの成功を実再入場成功へ昇格しない |

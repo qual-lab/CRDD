@@ -293,7 +293,7 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 | 現在状態 | 成立条件／処置 | 次状態 | 不成立・取消・観測不能 |
 |---|---|---|---|
 | 未作成 | 境界、排他、修復対象を確認し初期記録を耐久化 | `prepared` | Effect 0で停止 |
-| `prepared` | 公式停止と必要な限定強制停止を行い、対象Process不存在を確認 | `processes_stopped` | 同じ修復IDで停止 |
+| `prepared` | 対象Processをfresh観測し、存在時だけ公式停止と必要な限定強制停止を行う。不在時は各操作を`not_issued`として耐久化し、再開時にも同じ境界を再観測する | `processes_stopped` | 同じ修復IDで停止 |
 | `prepared`／`processes_stopped` | stale対象がなく、既知Effectまたは履歴Effect不明を分類 | `no_stale_known_effect_recovery_pending`または`no_stale_historical_effect_unknown_pending` | 推測で不存在へ畳まない |
 | `processes_stopped` | exactな`run` Directoryを同一親内へrenameし、新旧Identityを確認 | `renamed` | rename結果不明として同じ修復IDを保持 |
 | `renamed` | Desktopを起動し、Engine応答、Host安全性、Evidence保持を確認 | `recovered_pending_disposition` | 起動を盲目的に再発行せず停止 |
@@ -302,6 +302,8 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 | `no_stale_historical_effect_unknown_pending` | 履歴Effect不明のEvidence保持を決定し終了記録を耐久化 | `closed_historical_effect_unknown_retained` | Effect不存在を捏造しない |
 
 未終了の旧修復履歴はこの新規修復状態へ直接継ぎ足さない。由来、現在Session、現在Engine停止、Process集合、stale対象不存在、現在の`run` Identityおよびその既知lockを確認した場合だけ、Host Effect 0で旧履歴を証拠保持終了へ閉じ、新しい修復IDの`prepared`を別Operationとして開始できる。現在の`run`が旧履歴のIdentityと異なる場合は、旧対象が既定の`run`／stale位置に存在しないことと、新世代の`run`が同じfresh観測とlockで一致することを要求し、世代交代を旧Effect不存在の証明へ読み替えない。
+
+`prepared`のProcess操作は、要求したかどうかだけでなく、freshな実状態から必要性を分類する。Engineが既知停止、修復対象の`run` Identityが一致、stale対象が不存在で、Docker Desktop Processも明示的不在なら、公式停止とNative強制停止は`known_not_needed`である。この場合はHost操作を発行せず、`issued=false`／`confirmation=not_issued`を同じ修復IDへ耐久化して次の段階へ進む。再開時は保存済みの`not_issued`だけを信用せず、同じ条件を再観測する。Processの再出現、Identity差、観測不能またはEngine状態の変化では後続Effectを発行しない。
 
 ### 正常復帰後の検証付き再起動（Source接続済み・正式E2E未完了）
 
