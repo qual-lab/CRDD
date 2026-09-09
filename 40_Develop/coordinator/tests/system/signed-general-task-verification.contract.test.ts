@@ -365,7 +365,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     frontProvider: "codex",
     requestedExecutorProvider: "claude",
     objective:
-      "Set the bounded verification marker to the exact required final content.",
+      "Replace only the final BASE token in the existing bounded verification marker with OK; preserve the file as one UTF-8 line ending with LF and do not recreate or reformat it.",
     acceptanceCriteria: [
       `For this fixed route verification, approve this criterion when the Runtime-authenticated projection contains one present record for ${TARGET_PATH} whose content is exactly ${JSON.stringify(EXPECTED_CONTENT)}. Otherwise request changes. Do not require a filesystem reread or other repository evidence. The signed runner separately verifies the base bytes, changed-path closure, exact UTF-8 bytes, trailing LF, byte length and SHA-256; do not claim those separate checks have run.`,
     ],
