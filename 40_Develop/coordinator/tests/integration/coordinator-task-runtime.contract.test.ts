@@ -3104,10 +3104,7 @@ test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格
     "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_independent_review_not_approved",
-  );
+  assert.equal(result.reason, "coordinator_task_candidate_verification_failed");
   assert.equal(result.candidateDisposition, "not_issued");
   assert.equal(result.candidateId, null);
   assert.equal(result.candidateRevision, null);

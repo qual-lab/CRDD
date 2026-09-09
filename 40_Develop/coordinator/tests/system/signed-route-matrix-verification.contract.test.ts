@@ -338,7 +338,7 @@ test("安全再試行の全attemptを同じ作業対象Execution Revisionへ固�
   assert.equal(result.validationFailure, "execution_identity_mismatch");
 });
 
-test("安全な閉集合理由でも3回目は再試行せず全履歴を保持して停止する", async () => {
+test("是正後の独立Reviewer拒否は同一入力を再実行せず停止する", async () => {
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
     _root,
     _dependencies,
@@ -350,11 +350,11 @@ test("安全な閉集合理由でも3回目は再試行せず全履歴を保持�
       "not_issued",
     )) as typeof import("../../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
-  assert.equal(result.attemptedRouteCount, 3);
+  assert.equal(result.attemptedRouteCount, 1);
   assert.equal(result.completedRouteCount, 0);
-  assert.equal(result.retryableRouteAttemptCount, 2);
+  assert.equal(result.retryableRouteAttemptCount, 0);
   assert.equal(result.failedRouteProfile, "forward");
-  assert.equal((result.results as readonly unknown[]).length, 3);
+  assert.equal((result.results as readonly unknown[]).length, 1);
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);
 });

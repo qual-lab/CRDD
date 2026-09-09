@@ -1824,8 +1824,14 @@ async function runCoordinatorTaskCore(
       operation.managementCapability,
       operation.mountCapability,
     );
+    if (verified?.status !== "verified") {
+      return Object.freeze({
+        ...blocked("coordinator_task_candidate_verification_failed"),
+        externalSendAuthorizationMode,
+        candidateDisposition: "not_issued" as const,
+      });
+    }
     if (
-      verified?.status !== "verified" ||
       reviewerResult?.decision !== "approved" ||
       reviewerResult.findingCount !== 0
     ) {

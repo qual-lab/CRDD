@@ -152,6 +152,14 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
     assert.match(
       consumed?.prompt ?? "",
+      /intentionally ephemeral bounded candidate review/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /repository-wide maintenance, documentation, changelog, formatter, test-suite, audit, signing, and release gates are outside this review/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
       /Git metadata is intentionally absent/u,
     );
     assert.match(

@@ -122,6 +122,23 @@ PT／LTの未実行が監査またはReleaseを停止するのは、現在の要
 
 独立再レビューで残った指摘に対しては、文書の配置に依存しないChecker選択、段階計画から実行処理への実配線と失敗時の後続停止、Windows実Process試験3ファイルと実行Profileの完全一致、明示変更PathのRepository相対境界、および公開field名の正規表記を一括して閉じた。再レビューで、表示用計画と実行順序を別々に生成できる余地が残っていることを確認したため、Windows実Process確認を含む純粋な段階計画を唯一の実行入力へ変更した。同じ計画を依存注入した実行処理へ渡し、`static → unit → integration → windows_process_control → system`の表示と実行の一致、Windows実Process確認が不要な場合の非出現、および各段階の失敗後に後続を起動しないことを反証した。集中契約試験25件、命名契約7件、Checker全292件、型・Lint・Format、およびRepository Checker（Markdown 415件、local link 2907件、error 0、warning 0）が成功した。固定コミット`ae8efe1`の独立最終レビューは、Critical、Major、ModerateおよびMinorがすべて0で、新規指摘なしの`Pass`となった。
 
+### 7.3 合成E2Eの確認範囲と再試行
+
+v0.20.0の正式4経路E2Eでは、Docker回復義務を解消した後も、限定Candidateの独立確認がRepository全体の保守・公開Gateを受入条件へ追加し、一回の是正後も同じ不承認を返した。Runnerは同じ固定入力を最大3回反復したため、結果を変えないProvider利用と約15分の待機が発生した。
+
+v0.19.0との比較では、Docker Desktopを起動するNative処理および一般Taskの実行・確認Coreに、この現象を直接生む置換は確認されなかった。Docker Desktopの起動失敗は、短命な親Processから開始した手順とProcess lifetimeの不整合であり、通常User Sessionに存続する親Processからのv0.19.0相当の起動でEngine成立を確認した。Task側では、合成Candidateの役割が確認者へ十分に伝わらず、Candidate整合性不成立と確認者不承認が同じ理由へ畳まれ、変化しない意味判断まで安全再試行対象に含まれていた。
+
+是正は次の一単位として行う。
+
+| 契約 | 是正 |
+|---|---|
+| 確認範囲 | 合成CandidateはCommit／Release候補ではなく、指定した受入条件だけを評価することをTask Packetへ明示する |
+| 原因分類 | Candidateの固定Identity／内容不一致と、確認者による意味的不承認を別の結果理由にする |
+| 再試行 | 一回の是正後も続く確認者不承認を自動再試行対象から外す |
+| 保持する保証 | 独立確認、受入条件の実質的反証、Candidate範囲検証、cleanupおよびRecoveryのFail Closedは弱めない |
+
+この是正は、確認を通すためにFindingを無視する変更ではない。試験Candidateが所有しないRelease条件を追加しないことと、再実行により変化し得ない入力を反復しないことを固定し、独立確認の判断と機械的なCandidate破損を利用側が区別できるようにする。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。

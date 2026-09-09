@@ -183,6 +183,7 @@ function promptFor(packet: TaskPacket) {
         ].join(" ")
       : [
           "Review the candidate in /work without modifying any file. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems.",
+          "This is an intentionally ephemeral bounded candidate review, not a proposal to commit or release the repository. Evaluate only the stated acceptance criteria; repository-wide maintenance, documentation, changelog, formatter, test-suite, audit, signing, and release gates are outside this review and must not be reported as findings.",
           "Before this review, the runtime compared the candidate inventory with the exact base revision and rejected any changed path outside Allowed paths.",
           "Git metadata is intentionally absent. Independently inspect candidate semantics and content through Readable paths; do not report missing Git metadata or inability to re-enumerate out-of-scope paths as a finding.",
           'Reviewer result invariant: use decision "approved" only with findings []; if any finding exists, including info severity, use decision "changes_requested". Put non-blocking observations in summary rather than findings.',
