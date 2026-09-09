@@ -5477,7 +5477,10 @@ export function prepareRuntimeOwnedDockerRestart(
       operationNonce: parsed.operationNonce,
       runtimeExecutionIdentitySha256:
         verification.runtimeExecutionIdentitySha256,
-      localUserBindingHash: root.localUserBindingHash,
+      // The restart journal belongs to the durable operation principal. A
+      // same-user re-logon is proven separately by the append-only session
+      // handoff and must not rewrite the historical restart binding.
+      localUserBindingHash: durableBinding.localUserBindingHash,
       runtimeStateIdentityHash: root.runtimeStateIdentityHash,
       runtimeStateProtectionHash: root.runtimeStateProtectionHash,
       stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
@@ -5864,7 +5867,10 @@ export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
       stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
       runtimeExecutionIdentitySha256:
         verification.runtimeExecutionIdentitySha256,
-      localUserBindingHash: root.localUserBindingHash,
+      // Keep the immutable operation principal used by the restart history.
+      // The recovery path validates the current session through the protected
+      // Runtime root and its append-only session handoff.
+      localUserBindingHash: first.localUserBindingHash,
       runtimeStateIdentityHash: root.runtimeStateIdentityHash,
       runtimeStateProtectionHash: root.runtimeStateProtectionHash,
     };

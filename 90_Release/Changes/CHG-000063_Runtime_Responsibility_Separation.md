@@ -471,3 +471,12 @@ Engine観測を三値へ戻す際、旧`queryDocker`を`queryDockerEngine`と`qu
 | 継続記録数 | 記録名、履歴解決および引継ぎParserが5件上限を共有する | `settled`まで5件ある履歴を新しい未訪問Runtimeへ引き継げる |
 | 循環防止 | 過去に訪問済みのRuntime Identityへの再引継ぎは従来どおり拒否する | 件数上限の是正をIdentity循環の許可へ拡張しない |
 | 実機Gate | 既存記録を編集せず、固定候補からappend-only引継ぎとTask回復を再実行する | 単体試験成功を実回復完了と扱わない |
+
+同候補を通常ユーザーProcessから再入場させると、署名、起点Runtime Identity、Runtime State Identity、保護、Submission Hashは一致したが、再ログオン後の`localUserBindingHash`だけが発行時の値と異なり、`docker_restart_origin_unverified`でEffect 0停止した。通常のDocker Task回復には発行時Sessionを上書きしないappend-onlyなSession引継ぎが既にある一方、v0.20で追加した再起動履歴の準備と完了利用側だけが、過去記録を現在SessionのHashで検証していた。
+
+| 是正対象 | 正しい状態 | 反証 |
+| --- | --- | --- |
+| 再起動履歴の所有主体 | 発行時の耐久Operation Principalを再起動記録と継続記録で保持し、現在SessionのHashへ書き換えない | 同じ安定ユーザーの再ログオン後も、起点Recordを発行時bindingで検証できる |
+| 現在SessionのAuthority | 現在の署名済みRuntime、保護済みRuntime Root、物理Lockおよび既存のappend-only Session引継ぎで別途確認する | 過去RecordのPrincipal保持だけから現在Sessionの変更権限を推定しない |
+| 利用側閉包 | 準備、Runtime Identity引継ぎ、継続記録解決および`settled`後のTask回復が同じ耐久Principalを使う | 準備だけ成功し、完了利用側が現在Session Hashで再解釈する状態を許さない |
+| 実機Gate | 保存済み記録を編集せず、新しい固定候補からSession引継ぎ、Runtime引継ぎおよびTask回復を縦断する | 注入型試験の成功を実回復完了へ昇格しない |

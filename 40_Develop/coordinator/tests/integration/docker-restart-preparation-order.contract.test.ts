@@ -43,7 +43,7 @@ function runPreparation(isHistoryValid: boolean) {
     runtimeStateIdentityHash: h,
     runtimeStateProtectionHash: h,
     stableLogicalHomeBindingHash: h,
-    localUserBindingHash: h,
+    localUserBindingHash: "c".repeat(64),
   };
   const binding = {
     recoveryId: token,
@@ -99,6 +99,7 @@ function runPreparation(isHistoryValid: boolean) {
       runtimeStateIdentityHash: h,
       runtimeStateProtectionHash: h,
       runtimeStateBindingHash: h,
+      localUserBindingHash: h,
     }),
     inventoryOperationDirectory: () => [
       "submission-create_subscription_auth_probe.json",
@@ -144,7 +145,7 @@ test("invalid historical signature blocks before protected-root session handoff"
   assert.equal(writes, 0);
   assert.equal(releases, 3);
 });
-test("fresh continuation keeps historical stop intent distinct from current phase", () => {
+test("same stable user re-logon preserves the durable restart principal while preparing a fresh continuation", () => {
   const { result, writes } = runPreparation(true);
   assert.equal(result.status, "prepared");
   assert.equal(result.currentPhase, "stop_intent");
@@ -231,4 +232,115 @@ test("restart revalidation consumes validated record inventory, not publication 
   isInventoryValid = false;
   assert.equal(verify(), false);
   assert.equal(inventoryReads, 2);
+});
+
+test("recorded restart recovery resolves the immutable operation principal after same-user re-logon", () => {
+  const recoveryStart = source.indexOf(
+    "export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(",
+  );
+  const recoveryEnd = source.indexOf(
+    "export function classifyRuntimeOwnedDockerRecoveryEvidence(",
+    recoveryStart,
+  );
+  assert.ok(recoveryStart >= 0 && recoveryEnd > recoveryStart);
+  const recoveryBody = stripTypeScriptTypes(
+    source
+      .slice(recoveryStart, recoveryEnd)
+      .replace("export function", "function"),
+  );
+  const h = "a".repeat(64);
+  const currentRuntime = "b".repeat(64);
+  const currentSession = "c".repeat(64);
+  const token = `docker-task.${h}.${h}.${h}`;
+  const first = {
+    contract: "crdd-coordinator/docker-restart-record",
+    contractRevision: 1,
+    recoveryId: token,
+    operationNonce: h,
+    runtimeExecutionIdentitySha256: h,
+    localUserBindingHash: h,
+    runtimeStateIdentityHash: h,
+    runtimeStateProtectionHash: h,
+    stableLogicalHomeBindingHash: h,
+    pendingSubmissionSha256: h,
+    sequence: 0,
+    previousRecordSha256: null,
+    phase: "stop_intent",
+  };
+  const inventory = [
+    "submission-create_subscription_auth_probe.json",
+    "engine-restart-00.json",
+    ...Array.from(
+      { length: 5 },
+      (_, index) =>
+        `engine-continuation-${String(index).padStart(2, "0")}.json`,
+    ),
+    "engine-handoff-00.json",
+  ];
+  const resolvedBindings: Array<Record<string, unknown>> = [];
+  const context = {
+    Buffer,
+    path,
+    Object,
+    Error,
+    parseDockerTaskRecoveryId: () => ({
+      token,
+      operationNonce: h,
+      stableLogicalHomeBindingHash: h,
+      baseHash: h,
+    }),
+    verifyBundledCoordinatorPackageFromFixedManifestCandidate: () => ({
+      status: "candidate",
+      runtimeOwnedReleaseTrustConfirmed: true,
+      runtimeExecutionIdentityRuntimeOwned: true,
+      crddDistributionConfirmed: true,
+      runtimeExecutionIdentitySha256: currentRuntime,
+    }),
+    observeRuntimeStateRootFromWindows: () => ({
+      rootPath: path.resolve("fixture-root"),
+      runtimeStateIdentityHash: h,
+      runtimeStateProtectionHash: h,
+      stableLogicalHomeBindingHash: h,
+      localUserBindingHash: currentSession,
+    }),
+    inspectDockerRecoveryRootSnapshot: () => ({
+      status: "completed",
+      dockerRecoveryIds: [token],
+    }),
+    inventoryOperationDirectory: () => inventory,
+    readExactJson: (name: string) => ({
+      hash: name.endsWith("submission-create_subscription_auth_probe.json")
+        ? h
+        : "d".repeat(64),
+      serialized: name.includes("engine-restart") ? "origin\n" : "record\n",
+    }),
+    parseDockerRestartContinuationRecord: () => ({ record: first }),
+    canonical: () => "origin\n",
+    parseDockerRestartRecord: () => first,
+    resolveDockerRestartHistory: (
+      _origin: unknown,
+      binding: Record<string, unknown>,
+    ) => {
+      resolvedBindings.push(binding);
+      return { records: [], rawRecords: [], currentPhase: "settled" };
+    },
+    validateDockerRestartRecordChain: () => null,
+    selectPendingDockerSubmissionNamesFromInventory: () => [
+      "submission-create_subscription_auth_probe.json",
+    ],
+    recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver: () => ({
+      status: "completed",
+      reason: "docker_task_recovery_completed",
+    }),
+    safeRecoveryReason: (error: unknown) => String(error),
+  };
+  const result = runInNewContext(
+    `${recoveryBody}\nrecoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart("id");`,
+    context,
+  );
+  assert.equal(result.status, "completed");
+  const resolvedBinding = resolvedBindings[0];
+  assert.ok(resolvedBinding);
+  assert.equal(resolvedBinding.localUserBindingHash, h);
+  assert.notEqual(resolvedBinding.localUserBindingHash, currentSession);
 });
