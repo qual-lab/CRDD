@@ -75,18 +75,24 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
   assert.equal(executor.status, "candidate");
   assert.equal(executor.exactModel, "gpt-5.5");
   assert.equal(executor.workspaceMountMode, "read_write");
-  assert.equal(executor.codexSandboxMode, "workspace-write");
-  assert.equal(executor.approvalMode, "never_workspace_write");
+  assert.equal(
+    executor.explicitSandboxOption,
+    "omitted_role_permission_profile_is_authoritative",
+  );
+  assert.equal(executor.approvalMode, "never_with_role_permission_profile");
   assert.equal(executor.argv.includes("--approve-for-me"), false);
-  assert.equal(executor.argv.includes("--sandbox"), true);
+  assert.equal(executor.argv.includes("--sandbox"), false);
   assert.equal(executor.argv.includes('approval_policy="never"'), true);
   assert.equal(reviewer.status, "candidate");
   assert.equal(reviewer.exactModel, "gpt-5.5");
   assert.equal(reviewer.workspaceMountMode, "read_only");
-  assert.equal(reviewer.codexSandboxMode, "read-only");
-  assert.equal(reviewer.approvalMode, "never_read_only");
+  assert.equal(
+    reviewer.explicitSandboxOption,
+    "omitted_role_permission_profile_is_authoritative",
+  );
+  assert.equal(reviewer.approvalMode, "never_with_role_permission_profile");
   assert.equal(reviewer.argv.includes("--approve-for-me"), false);
-  assert.equal(reviewer.argv.includes("--sandbox"), true);
+  assert.equal(reviewer.argv.includes("--sandbox"), false);
   assert.equal(reviewer.argv.includes('approval_policy="never"'), true);
   for (const plan of [executor, reviewer]) {
     assert.equal(plan.taskPromptTransport, "stdin_only");
@@ -95,9 +101,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
     assert.equal(plan.webSearchAllowed, false);
     assert.equal(plan.providerHomeCommandReadAllowed, false);
     assert.equal(plan.argv.at(-1), "-");
-    const sandboxIndex = plan.argv.indexOf("--sandbox");
-    assert.notEqual(sandboxIndex, -1);
-    assert.equal(plan.argv[sandboxIndex + 1], plan.codexSandboxMode);
+    assert.equal(plan.argv.includes("--sandbox"), false);
     assert.equal(
       plan.argv.includes("features.respect_system_proxy=true"),
       true,
@@ -207,7 +211,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
 
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
-  assert.equal(contract.contractRevision, 10);
+  assert.equal(contract.contractRevision, 11);
   assert.equal(
     contract.distributionVerification.sigstoreBlobSignatureVerified,
     true,
@@ -239,8 +243,10 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
   assert.equal(contract.preferredModelFamily, "sol");
   assert.equal(contract.readOnlyProbeExactModel, "gpt-5.6-sol");
   assert.equal(contract.isolatedTaskExactModel, "gpt-5.5");
-  assert.equal(contract.isolatedTask.executorSandboxMode, "workspace-write");
-  assert.equal(contract.isolatedTask.reviewerSandboxMode, "read-only");
+  assert.equal(
+    contract.isolatedTask.explicitSandboxOption,
+    "omitted_role_permission_profile_is_authoritative",
+  );
   assert.equal(
     contract.outboundProxyPolicy,
     "official_cli_respect_system_proxy_required",

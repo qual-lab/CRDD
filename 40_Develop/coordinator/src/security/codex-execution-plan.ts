@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 10;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 11;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -211,8 +211,6 @@ export function planCodexIsolatedTask(candidate: unknown) {
       `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"},"${DISTRIBUTION_IDENTITY.executablePath}"="read"}`,
       "--config",
       `permissions.${permissionProfile}.network.enabled=false`,
-      "--sandbox",
-      taskRole === "executor" ? "workspace-write" : "read-only",
       "--skip-git-repo-check",
       "--cd",
       "/work",
@@ -229,9 +227,8 @@ export function planCodexIsolatedTask(candidate: unknown) {
     providerHomeMountRequired: true,
     workspaceMountRequired: true,
     workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
-    codexSandboxMode: taskRole === "executor" ? "workspace-write" : "read-only",
-    approvalMode:
-      taskRole === "executor" ? "never_workspace_write" : "never_read_only",
+    explicitSandboxOption: "omitted_role_permission_profile_is_authoritative",
+    approvalMode: "never_with_role_permission_profile",
     rootFilesystemReadOnly: true,
     taskPromptTransport: "stdin_only" as const,
     taskPromptInArgvAllowed: false,
@@ -307,8 +304,7 @@ export function describeCodexExecutionPlanContract() {
     outboundProxyPolicy: "official_cli_respect_system_proxy_required",
     isolatedTask: Object.freeze({
       roles: Object.freeze(["executor", "reviewer"]),
-      executorSandboxMode: "workspace-write",
-      reviewerSandboxMode: "read-only",
+      explicitSandboxOption: "omitted_role_permission_profile_is_authoritative",
       permissionProfile: "root_deny_minimal_read_workspace_role_access",
       providerHomeCommandReadAllowed: false,
       commandNetworkAccessAllowed: false,
