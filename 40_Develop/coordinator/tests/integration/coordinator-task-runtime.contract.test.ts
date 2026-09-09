@@ -565,6 +565,9 @@ function fixture(
     slateUnavailable?: boolean;
     useRealRouteSelection?: boolean;
     selectionMismatchAt?: number;
+    selectionRefreshFailureAt?: number;
+    selectionRefreshMismatchAt?: number;
+    selectionRefreshRevokeFailureAt?: number;
     admissionRecovery?: boolean;
     admissionRecoveryReason?: string;
     admissionRecoveryIds?: readonly string[];
@@ -618,6 +621,7 @@ function fixture(
   const externalSendNotices: Array<Record<string, unknown>> = [];
   const authorizedProviderSets: Array<readonly ("codex" | "claude")[]> = [];
   const events: string[] = [];
+  const selectionLifecycleEvents: string[] = [];
   const lifecycleStates: string[] = [];
   const lifecycleSnapshots: TraceSnapshot[] = [];
   let cleanupCount = 0;
@@ -983,7 +987,7 @@ function fixture(
       selection: Record<string, unknown>,
     ) => {
       selectionCount += 1;
-      selectionRequests.push(selection);
+      if (selectionCount % 2 === 1) selectionRequests.push(selection);
       const requested = selection.requestedExecutorProvider;
       const executor =
         requested === "claude" || requested === "codex"
@@ -999,27 +1003,52 @@ function fixture(
             ],
           })
         : null;
+      const logicalSelectionCount = Math.ceil(selectionCount / 2);
+      const selectionPhase = selectionCount % 2 === 1 ? "initial" : "refresh";
+      selectionLifecycleEvents.push(
+        `selection:${logicalSelectionCount}:${selectionPhase}`,
+      );
+      if (
+        selectionPhase === "refresh" &&
+        options.selectionRefreshFailureAt === logicalSelectionCount
+      )
+        return Object.freeze({
+          status: "blocked",
+          reason: "fixture_selection_refresh_failed",
+        });
       return Object.freeze({
         status: "issued",
         executorProvider:
-          options.selectionMismatchAt === selectionCount
+          (selectionPhase === "initial" &&
+            options.selectionMismatchAt === logicalSelectionCount) ||
+          (selectionPhase === "refresh" &&
+            options.selectionRefreshMismatchAt === logicalSelectionCount)
             ? executor === "codex"
               ? "claude"
               : "codex"
             : (route?.executorProvider ?? executor),
         profileId: executor === "claude" ? "PROFILE-200001" : "PROFILE-100003",
         selectionNotice:
-          route?.selectionNotice ?? `selection-${selectionCount}`,
+          route?.selectionNotice ?? `selection-${logicalSelectionCount}`,
         controlCapability: Object.freeze({}),
         useCapability: Object.freeze({}),
       });
     },
     revokeSelection: () => {
       selectionRevokeCount += 1;
-      return Object.freeze({ status: "revoked" });
+      selectionLifecycleEvents.push(`selection-revoke:${selectionRevokeCount}`);
+      return Object.freeze({
+        status:
+          options.selectionRefreshRevokeFailureAt === selectionRevokeCount
+            ? "blocked"
+            : "revoked",
+      });
     },
     observeProviderHome: () => {
       providerHomeObservationCount += 1;
+      selectionLifecycleEvents.push(
+        `provider-home:${providerHomeObservationCount}`,
+      );
       return Object.freeze({
         status: "candidate",
         observationCapability: Object.freeze({}),
@@ -1203,7 +1232,7 @@ function fixture(
         registerRecoveryHandoff(recoveryCapability, activeRecoveryId),
         true,
       );
-      const reviewerAttempt = selectionCount > 3 ? 1 : 0;
+      const reviewerAttempt = Math.ceil(selectionCount / 2) > 3 ? 1 : 0;
       const effectiveReviewerDecision =
         role === "reviewer" && reviewerAttempt === 1
           ? (options.finalReviewerDecision ?? reviewerDecision)
@@ -1462,6 +1491,7 @@ function fixture(
     mountGrantIssueCount: () => mountGrantIssueCount,
     authorizedProviderSets,
     events,
+    selectionLifecycleEvents,
     lifecycleStates,
     lifecycleSnapshots,
     observeLastControlInvalid: () => {
@@ -2246,7 +2276,7 @@ test("再選定が事前Slateと異なる場合は当該Stageの起動前にSele
     assert.equal(result.reason, "coordinator_task_selection_slate_mismatch");
     assert.equal(harness.processStartCount(), selectionMismatchAt - 1);
     assert.equal(harness.selectionNotices.length, selectionMismatchAt - 1);
-    assert.equal(harness.selectionRevokeCount(), 1);
+    assert.equal(harness.selectionRevokeCount(), selectionMismatchAt);
     assert.equal(
       harness.providerHomeObservationCount(),
       2 * (selectionMismatchAt - 1),
@@ -2255,6 +2285,55 @@ test("再選定が事前Slateと異なる場合は当該Stageの起動前にSele
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.manualRecoveryRequired, false);
     assert.equal(result.canonicalRepositoryChanged, false);
+  }
+});
+
+test("時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進む", async () => {
+  const harness = fixture();
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "completed");
+  assert.deepEqual(harness.selectionLifecycleEvents.slice(0, 5), [
+    "selection:1:initial",
+    "provider-home:1",
+    "provider-home:2",
+    "selection-revoke:1",
+    "selection:1:refresh",
+  ]);
+  assert.equal(harness.events[0], "notice:executor");
+  assert.equal(harness.processStartCount(), 2);
+});
+
+test("Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止する", async () => {
+  for (const [options, reason] of [
+    [
+      { selectionRefreshFailureAt: 1 },
+      "coordinator_task_provider_selection_refresh_failed",
+    ],
+    [
+      { selectionRefreshMismatchAt: 1 },
+      "coordinator_task_provider_selection_refresh_mismatch",
+    ],
+    [
+      { selectionRefreshRevokeFailureAt: 1 },
+      "coordinator_task_provider_selection_refresh_revoke_failed",
+    ],
+  ] as const) {
+    const harness = fixture(options);
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, reason);
+    assert.equal(harness.processStartCount(), 0);
+    assert.equal(harness.selectionNotices.length, 0);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
   }
 });
 
@@ -3827,7 +3906,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 32);
+  assert.equal(contract.contractRevision, 33);
   assert.equal(
     contract.providerTurnObservations,
     "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",

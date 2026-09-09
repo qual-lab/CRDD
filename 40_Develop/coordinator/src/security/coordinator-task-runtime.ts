@@ -110,7 +110,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 32;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 33;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -1072,6 +1072,17 @@ function projectProviderPreparationFailure(reason: unknown) {
   return "coordinator_task_provider_prepare_failed";
 }
 
+function sameProviderSelection(left: RuntimeRecord, right: RuntimeRecord) {
+  return (
+    left.executorProvider === right.executorProvider &&
+    left.profileId === right.profileId &&
+    left.selectedModel === right.selectedModel &&
+    left.selectedEffort === right.selectedEffort &&
+    left.speedMode === right.speedMode &&
+    left.selectionNotice === right.selectionNotice
+  );
+}
+
 function samePaths(left: unknown, right: unknown) {
   if (!Array.isArray(left) || !Array.isArray(right)) return false;
   const normalize = (values: unknown[]) =>
@@ -1124,22 +1135,23 @@ async function executeStageBody(
   if (control.cancellationRequested) {
     return blocked("coordinator_task_cancelled_before_stage_start");
   }
-  const selection = state.dependencies.issueSelection(
+  const selectionInput = selectionRequest(
+    request,
+    operation.operationId,
+    role === "executor" ? "executor" : "independent_reviewer",
+    subjectProvider,
+    role === "executor" &&
+      (request.requestedExecutorProvider === "codex" ||
+        request.requestedExecutorProvider === "claude")
+      ? request.requestedExecutorProvider
+      : role === "reviewer" && expectedProvider === subjectProvider
+        ? expectedProvider
+        : null,
+    role === "reviewer" ? expectedProvider !== subjectProvider : false,
+  );
+  let selection = state.dependencies.issueSelection(
     operation.managementCapability,
-    selectionRequest(
-      request,
-      operation.operationId,
-      role === "executor" ? "executor" : "independent_reviewer",
-      subjectProvider,
-      role === "executor" &&
-        (request.requestedExecutorProvider === "codex" ||
-          request.requestedExecutorProvider === "claude")
-        ? request.requestedExecutorProvider
-        : role === "reviewer" && expectedProvider === subjectProvider
-          ? expectedProvider
-          : null,
-      role === "reviewer" ? expectedProvider !== subjectProvider : false,
-    ),
+    selectionInput,
   );
   const provider =
     selection.executorProvider === "codex" ||
@@ -1186,32 +1198,6 @@ async function executeStageBody(
       revokeUnconsumed();
       return blocked("coordinator_task_selection_slate_mismatch");
     }
-    if (
-      !state.dependencies.reportSelectionNotice(
-        Object.freeze({
-          event: "coordinator_selection_before_provider_effect",
-          taskRole: role,
-          provider,
-          model: selection.selectedModel,
-          effort: selection.selectedEffort,
-          speedMode: selection.speedMode,
-          selectionReason: selection.selectionNotice,
-          inputBasis:
-            "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
-          callerDeclaredAttributes: Object.freeze([
-            "workClass",
-            "planState",
-            "risk",
-            "difficulty",
-            "decisionImpact",
-          ]),
-          highCostSelectionAllowed: false,
-        }),
-      )
-    ) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_selection_notice_unavailable");
-    }
     const first = state.dependencies.observeProviderHome(
       provider,
       evaluationTime,
@@ -1254,6 +1240,65 @@ async function executeStageBody(
       return blocked("coordinator_task_mount_grant_consume_failed");
     }
     mountControl = null;
+    const revokedSelection = state.dependencies.revokeSelection(
+      selectionControl,
+      operation.managementCapability,
+    );
+    selectionControl = null;
+    if (revokedSelection.status !== "revoked") {
+      return blocked(
+        "coordinator_task_provider_selection_refresh_revoke_failed",
+      );
+    }
+    const refreshedSelection = state.dependencies.issueSelection(
+      operation.managementCapability,
+      selectionInput,
+    );
+    const refreshedSelectionControl = objectCapability(
+      refreshedSelection.controlCapability,
+    );
+    const refreshedSelectionUse = objectCapability(
+      refreshedSelection.useCapability,
+    );
+    if (
+      refreshedSelection.status !== "issued" ||
+      !refreshedSelectionControl ||
+      !refreshedSelectionUse
+    ) {
+      return blocked("coordinator_task_provider_selection_refresh_failed");
+    }
+    selectionControl = refreshedSelectionControl;
+    if (!sameProviderSelection(selection, refreshedSelection)) {
+      revokeUnconsumed();
+      return blocked("coordinator_task_provider_selection_refresh_mismatch");
+    }
+    selection = refreshedSelection;
+    if (
+      !state.dependencies.reportSelectionNotice(
+        Object.freeze({
+          event: "coordinator_selection_before_provider_effect",
+          taskRole: role,
+          provider,
+          model: selection.selectedModel,
+          effort: selection.selectedEffort,
+          speedMode: selection.speedMode,
+          selectionReason: selection.selectionNotice,
+          inputBasis:
+            "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
+          callerDeclaredAttributes: Object.freeze([
+            "workClass",
+            "planState",
+            "risk",
+            "difficulty",
+            "decisionImpact",
+          ]),
+          highCostSelectionAllowed: false,
+        }),
+      )
+    ) {
+      revokeUnconsumed();
+      return blocked("coordinator_task_selection_notice_unavailable");
+    }
     const packet = state.dependencies.issueTaskPacket(
       operation.managementCapability,
       repositoryBindingCapability,
@@ -1285,7 +1330,7 @@ async function executeStageBody(
       operation.managementCapability,
       operation.mountCapability,
       mountAuthorization,
-      selection.useCapability as object,
+      refreshedSelectionUse,
       taskUse,
       control.recoveryCorrelationId,
     );
