@@ -163,6 +163,8 @@ Toolを空集合へ揃えた固定候補でも、同じClaude Reviewer不承認�
 
 4経路試験自体は汎用Review品質の評価ではなく、固定Candidateの搬送、Role分離、結果契約およびcleanupを確認するSystem Testである。そのため固定受入条件は、Runtime-authenticated投影内の対象Path、`present`状態およびexact contentから合否を決める決定表として記述し、Reviewerが試験目的外のRepository Evidenceを追加要求しないようにする。独立Reviewの厳格さを弱めるのではなく、System TestのOracleとReviewerが所有する意味判断を混同しない。
 
+決定表を明示した固定候補でも、Claude Reviewerを使うReverse経路だけが不承認となった。受入条件は現在の投影だけで判定できる一方、Objectiveには「既存の`BASE`を置換した」という履歴上の編集方法が残り、Reviewerへ渡していないBase Evidenceを暗黙に要求していた。System TestのObjectiveも現在の完成状態へ統一し、Base byteと置換過程の確認はSigned Runnerだけが所有する。受入条件だけでなくObjective、説明および検証結果を含むTask Packet全体で、各主張の証明主体を一致させる。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。
