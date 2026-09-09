@@ -5,11 +5,12 @@ import {
   describeSignedReviewerBoundaryVerificationContract,
   runSignedReviewerBoundaryVerification,
 } from "../../scripts/verify-signed-reviewer-boundary.ts";
+import { SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION } from "../../scripts/verify-signed-general-task.ts";
 
 function completed(route: "forward" | "reverse") {
   return Object.freeze({
     contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 23,
+    contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed",
     reason: "signed_general_task_verification_completed",
     requestedRouteProfile: route,

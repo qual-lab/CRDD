@@ -10,7 +10,7 @@ import { isCanonicalSignedRunnerRecoveryId } from "../security/signed-runner-saf
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
 
 const CONTRACT = "crdd-coordinator/local-verification-record";
-const CONTRACT_REVISION = 2;
+const CONTRACT_REVISION = 3;
 const MAX_RECORD_BYTES = 32 * 1024;
 const MAX_EXISTING_ENTRIES = 256;
 const REASONS = new Set([
@@ -57,6 +57,16 @@ const VALIDATION_FAILURES = new Set([
   "execution_identity_mismatch",
   "runner_exception",
   "process_restart_required",
+]);
+const REVIEWER_TARGET_CLASSIFICATIONS = new Set([
+  "exact",
+  "base_unchanged",
+  "crlf",
+  "missing_lf",
+  "extra_lf",
+  "literal_lf_escape",
+  "metadata_invalid",
+  "other_bytes",
 ]);
 const SCENARIOS = new Set([
   "timeout",
@@ -151,6 +161,10 @@ export function projectVerificationResult(
     reviewerFindingCount <= 64
       ? reviewerFindingCount
       : null;
+  summary.reviewerProjectedTargetClassification = known(
+    ownValue(value, "reviewerProjectedTargetClassification"),
+    REVIEWER_TARGET_CLASSIFICATIONS,
+  );
   for (const field of ["failedRouteProfile", "requestedRouteProfile"])
     summary[field] = known(ownValue(value, field), ROUTES);
   summary.validationFailure = known(

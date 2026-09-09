@@ -36,7 +36,7 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/securi
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 23;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 24;
 
 const TARGET_PATH =
   "40_Develop/coordinator/runtime/general-task-verification.txt";
@@ -122,6 +122,16 @@ export type SignedGeneralTaskVerificationResult = RuntimeRecord &
     reviewerDecision?: "approved" | "changes_requested" | null;
     reviewerFindingCount?: number | null;
     reviewerProjectedTargetExact?: boolean | null;
+    reviewerProjectedTargetClassification?:
+      | "exact"
+      | "base_unchanged"
+      | "crlf"
+      | "missing_lf"
+      | "extra_lf"
+      | "literal_lf_escape"
+      | "metadata_invalid"
+      | "other_bytes"
+      | null;
   }>;
 export type SignedGeneralTaskRouteProfile =
   | "forward"
@@ -463,21 +473,55 @@ function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
     reviewerResult.findingCount <= 64
       ? reviewerResult.findingCount
       : null;
-  const reviewerProjectedTargetExact =
+  const matches = (content: string) => {
+    const bytes = Buffer.from(content, "utf8");
+    return (
+      evidence?.totalBytes === bytes.byteLength &&
+      file?.byteLength === bytes.byteLength &&
+      file.sha256 === createHash("sha256").update(bytes).digest("hex")
+    );
+  };
+  const metadataValid =
+    evidence?.contentReported === false &&
+    typeof evidence.totalBytes === "number" &&
+    Number.isSafeInteger(evidence.totalBytes) &&
+    evidence.totalBytes >= 0 &&
+    files?.status === "ok" &&
+    files.value.length === 1 &&
+    file?.path === TARGET_PATH &&
+    file.state === "present" &&
+    typeof file.byteLength === "number" &&
+    Number.isSafeInteger(file.byteLength) &&
+    file.byteLength >= 0 &&
+    sha256(file.sha256) &&
+    file.encoding === "utf-8";
+  const reviewerProjectedTargetClassification =
     evidence === null
       ? null
-      : evidence.contentReported === false &&
-        typeof evidence.totalBytes === "number" &&
-        evidence.totalBytes === expectedBytes.byteLength &&
-        file?.path === TARGET_PATH &&
-        file.state === "present" &&
-        file.byteLength === expectedBytes.byteLength &&
-        file.sha256 === expectedSha256 &&
-        file.encoding === "utf-8";
+      : !metadataValid
+        ? ("metadata_invalid" as const)
+        : file.sha256 === expectedSha256 && matches(EXPECTED_CONTENT)
+          ? ("exact" as const)
+          : matches(BASE_CONTENT)
+            ? ("base_unchanged" as const)
+            : matches(EXPECTED_CONTENT.replace("\n", "\r\n"))
+              ? ("crlf" as const)
+              : matches(EXPECTED_CONTENT.trimEnd())
+                ? ("missing_lf" as const)
+                : matches(`${EXPECTED_CONTENT}\n`)
+                  ? ("extra_lf" as const)
+                  : matches(`${EXPECTED_CONTENT.trimEnd()}\\n`)
+                    ? ("literal_lf_escape" as const)
+                    : ("other_bytes" as const);
+  const reviewerProjectedTargetExact =
+    reviewerProjectedTargetClassification === null
+      ? null
+      : reviewerProjectedTargetClassification === "exact";
   return Object.freeze({
     reviewerDecision,
     reviewerFindingCount,
     reviewerProjectedTargetExact,
+    reviewerProjectedTargetClassification,
     remediationPerformed:
       typeof result?.remediationPerformed === "boolean"
         ? result.remediationPerformed
