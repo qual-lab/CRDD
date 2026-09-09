@@ -13,7 +13,7 @@ import { containsRecognizedSecretMaterial } from "./secret-material-policy.ts";
 
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 5;
+export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 6;
 
 const MAXIMUM_FILE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
@@ -22,6 +22,8 @@ const MAXIMUM_CHANGED_PATHS = 1_000;
 const MAXIMUM_CANDIDATE_CONTENT_BYTES = 16 * 1024 * 1024;
 const MAXIMUM_ALLOWED_PATHS = 64;
 const MAXIMUM_ALLOWED_PATH_BYTES = 1_024;
+const MAXIMUM_REVIEW_PROJECTION_BYTES = 1024 * 1024;
+const MAXIMUM_REVIEW_PROJECTION_FILES = 256;
 const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
@@ -563,6 +565,116 @@ export function captureRuntimeOwnedCandidateRevision(
   }
 }
 
+export function projectRuntimeOwnedCandidateReadContent(
+  workspaceCapability: unknown,
+  candidateCapability: unknown,
+  repositoryBindingCapability: unknown,
+  managementCapability: unknown,
+  mountCapability: unknown,
+  rawReadPaths: unknown,
+) {
+  try {
+    if (!candidateCapability || typeof candidateCapability !== "object")
+      return null;
+    const current = currentWorkspaceRecord(
+      workspaceCapability,
+      repositoryBindingCapability,
+      managementCapability,
+      mountCapability,
+    );
+    const candidate = candidates.get(candidateCapability);
+    const readPaths = allowedPaths(rawReadPaths);
+    if (!current || !candidate || !readPaths) return null;
+    if (candidate.workspaceRecord !== current.workspaceRecord) return null;
+
+    const currentInventory = inventory(current.workspace);
+    if (manifestHash(currentInventory) !== candidate.contentManifestHash)
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "candidate_read_projection_identity_mismatch" as const,
+      });
+
+    const selected = currentInventory.filter((entry) =>
+      isAllowed(entry.relativePath, readPaths),
+    );
+    if (selected.length > MAXIMUM_REVIEW_PROJECTION_FILES)
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "candidate_read_projection_budget_exceeded" as const,
+      });
+
+    let totalBytes = 0;
+    const files: Readonly<Record<string, unknown>>[] = [];
+    for (const entry of selected) {
+      totalBytes += entry.byteLength;
+      if (totalBytes > MAXIMUM_REVIEW_PROJECTION_BYTES)
+        return Object.freeze({
+          status: "blocked" as const,
+          reason: "candidate_read_projection_budget_exceeded" as const,
+        });
+      const observed = stableFileContent(
+        path.join(current.workspace, ...entry.relativePath.split("/")),
+        MAXIMUM_REVIEW_PROJECTION_BYTES,
+      );
+      if (
+        observed.byteLength !== entry.byteLength ||
+        observed.sha256 !== entry.sha256
+      ) {
+        return Object.freeze({
+          status: "blocked" as const,
+          reason: "candidate_read_projection_identity_mismatch" as const,
+        });
+      }
+      const content = new TextDecoder("utf-8", { fatal: true }).decode(
+        observed.content,
+      );
+      if (containsRecognizedSecretMaterial(entry.relativePath, content))
+        return Object.freeze({
+          status: "blocked" as const,
+          reason:
+            "candidate_read_projection_recognized_secret_rejected" as const,
+        });
+      files.push(
+        Object.freeze({
+          path: entry.relativePath,
+          state: "present",
+          byteLength: entry.byteLength,
+          sha256: entry.sha256,
+          encoding: "utf-8",
+          content,
+        }),
+      );
+    }
+    for (const readPath of readPaths) {
+      if (
+        !readPath.endsWith("/") &&
+        !selected.some((entry) => entry.relativePath === readPath)
+      ) {
+        files.push(Object.freeze({ path: readPath, state: "absent" }));
+      }
+    }
+    files.sort((left, right) =>
+      Buffer.from(String(left.path)).compare(Buffer.from(String(right.path))),
+    );
+    const projectionHash = createHash("sha256")
+      .update("crdd-candidate-read-projection-v1\0")
+      .update(candidate.patchHash)
+      .update("\0")
+      .update(JSON.stringify(files))
+      .digest("hex");
+    return Object.freeze({
+      status: "projected" as const,
+      candidatePatchHash: candidate.patchHash,
+      candidateContentManifestHash: candidate.contentManifestHash,
+      projectionHash,
+      totalBytes,
+      files: Object.freeze(files),
+    });
+  } catch {
+    return null;
+  }
+}
+
 export function verifyRuntimeOwnedCandidateRevision(
   candidateCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -719,6 +831,10 @@ export function describeRepositoryWorkspaceRuntimeContract() {
     source: "exact_head_commit_tree_without_external_git_cli",
     providerReadProjection:
       "explicit_file_or_directory_prefix_plus_write_scope",
+    reviewerReadProjection:
+      "candidate_identity_bound_explicit_utf8_content_maximum_1_mib_without_provider_filesystem_tool",
+    reviewerContentProjection:
+      "candidate_identity_bound_utf8_content_for_explicit_read_paths_with_secret_and_size_guards",
     recognizedSecretMaterial:
       "rejected_before_provider_visible_workspace_materialization",
     completeSecretAbsenceVerified: false,

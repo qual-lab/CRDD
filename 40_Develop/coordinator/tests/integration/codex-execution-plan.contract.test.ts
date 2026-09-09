@@ -91,8 +91,18 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
       true,
     );
     assert.equal(plan.argv.includes("features.code_mode_host=false"), true);
-    assert.equal(plan.argv.includes("features.shell_tool=true"), true);
-    assert.equal(plan.argv.includes("features.unified_exec=true"), true);
+    assert.equal(
+      plan.argv.includes(
+        `features.shell_tool=${plan.taskRole === "executor" ? "true" : "false"}`,
+      ),
+      true,
+    );
+    assert.equal(
+      plan.argv.includes(
+        `features.unified_exec=${plan.taskRole === "executor" ? "true" : "false"}`,
+      ),
+      true,
+    );
     assert.equal(
       plan.argv.some((value) => value.includes('filesystem={":root"="deny"')),
       true,
@@ -185,7 +195,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
 
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
-  assert.equal(contract.contractRevision, 6);
+  assert.equal(contract.contractRevision, 7);
   assert.equal(
     contract.distributionVerification.sigstoreBlobSignatureVerified,
     true,

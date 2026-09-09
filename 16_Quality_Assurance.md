@@ -254,6 +254,8 @@ E2Eは独立した試験レベルではなく、入口から成果までを端�
 
 AIを実行者または確認者に含む合成E2Eでは、試験用Candidateの受入条件と、Repository全体の保守・公開Gateを分ける。合成CandidateをCommitまたはRelease候補として扱わない場合は、その境界、確認者が評価する受入条件、別のRunnerが所有する機械検証、およびFindingにしてはならない範囲をTask Packetへ明示する。確認者は指定された受入条件を実質的に反証するが、対象外の文書、CHANGELOG、全試験、監査、署名またはRelease条件を新しい受入条件として追加しない。
 
+確認者が受入条件を判定するために必要な入力は、Path名だけでなく実際に観測可能な内容として提供する。外部Providerへ任意のShell実行権限を与えて読取り能力を補わない。Runtimeが許可済み読取り範囲から内容投影を作成し、固定Candidate Identity、内容Hash、情報量上限およびSecret検査へ結合する。投影後の差替え、非対応Encoding、上限超過または観測不能では、確認者が推測で判定せずProvider開始前に停止する。試験は、Filesystem Toolが無い確認者でも投影内容から受入条件を判定できることと、別Candidateの投影を流用できないことを反証する。
+
 | 合成E2Eの結果 | 処置 |
 |---|---|
 | Candidateのbyte、Pathまたは固定Identityが不一致 | 確認者の意味判断と区別し、Candidate整合性を所有する原因層へ戻す |

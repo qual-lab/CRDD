@@ -80,6 +80,7 @@ import {
   captureRuntimeOwnedCandidateRevision,
   materializeRuntimeOwnedRepositoryWorkspace,
   persistRuntimeOwnedCandidateRevision,
+  projectRuntimeOwnedCandidateReadContent,
   verifyRuntimeOwnedCandidateRevision,
 } from "./repository-workspace-runtime.ts";
 
@@ -109,7 +110,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 29;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 30;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -291,6 +292,14 @@ type RuntimeDependencies = Readonly<{
     repositoryRoot: string,
   ) => RuntimeRecord | null;
   materializeWorkspace: (
+    repositoryBindingCapability: object,
+    managementCapability: object,
+    mountCapability: object,
+    readPaths: readonly string[],
+  ) => RuntimeRecord | null;
+  projectReviewerReadContent?: (
+    workspaceCapability: object,
+    candidateCapability: object,
     repositoryBindingCapability: object,
     managementCapability: object,
     mountCapability: object,
@@ -907,7 +916,20 @@ function selectionRequest(
   });
 }
 
-function packetRequest(request: RuntimeRecord) {
+function packetRequest(
+  request: RuntimeRecord,
+  reviewerReadProjection: RuntimeRecord | null,
+) {
+  return Object.freeze({
+    objective: request.objective,
+    acceptanceCriteria: request.acceptanceCriteria,
+    allowedPaths: request.allowedPaths,
+    readPaths: request.readPaths,
+    reviewerReadProjection,
+  });
+}
+
+function externalSendScopeRequest(request: RuntimeRecord) {
   return Object.freeze({
     objective: request.objective,
     acceptanceCriteria: request.acceptanceCriteria,
@@ -963,6 +985,7 @@ async function executeStageBody(
   remediationCapability: object | null,
   control: ControlRecord,
   commandRestriction?: unknown,
+  reviewerReadProjection: RuntimeRecord | null = null,
 ) {
   if (control.cancellationRequested) {
     return blocked("coordinator_task_cancelled_before_stage_start");
@@ -1105,7 +1128,10 @@ async function executeStageBody(
       taskAttempt,
       externalSendGrantCapability,
       remediationCapability,
-      packetRequest(request),
+      packetRequest(
+        request,
+        role === "reviewer" ? reviewerReadProjection : null,
+      ),
     );
     taskControl = objectCapability(packet?.controlCapability);
     const taskUse = objectCapability(packet?.useCapability);
@@ -1561,7 +1587,7 @@ async function runCoordinatorTaskCore(
       operation.managementCapability,
       repositoryBinding,
       externalSendPolicyCapability,
-      packetRequest(request),
+      externalSendScopeRequest(request),
       slateProviders,
       control.cancellationController.signal,
     );
@@ -1714,6 +1740,24 @@ async function runCoordinatorTaskCore(
         blocked("coordinator_task_cancelled_before_independent_review"),
       );
     }
+    const reviewerReadProjection = state.dependencies.projectReviewerReadContent
+      ? state.dependencies.projectReviewerReadContent(
+          workspaceCapability,
+          candidateCapability,
+          repositoryBinding,
+          operation.managementCapability,
+          operation.mountCapability,
+          request.readPaths as readonly string[],
+        )
+      : null;
+    if (
+      state.dependencies.projectReviewerReadContent &&
+      reviewerReadProjection?.status !== "projected"
+    ) {
+      return candidateNotIssued(
+        blocked("coordinator_task_reviewer_read_projection_failed"),
+      );
+    }
     let reviewer = await executeStage(
       state,
       operation,
@@ -1727,6 +1771,8 @@ async function runCoordinatorTaskCore(
       slateReviewerProvider,
       null,
       control,
+      undefined,
+      reviewerReadProjection,
     );
     if (reviewer.status !== "completed") {
       shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
@@ -1796,6 +1842,25 @@ async function runCoordinatorTaskCore(
         control,
         "STATE-REMEDIATION-CANDIDATE-CAPTURED",
       );
+      const remediationReviewerReadProjection = state.dependencies
+        .projectReviewerReadContent
+        ? state.dependencies.projectReviewerReadContent(
+            workspaceCapability,
+            candidateCapability,
+            repositoryBinding,
+            operation.managementCapability,
+            operation.mountCapability,
+            request.readPaths as readonly string[],
+          )
+        : null;
+      if (
+        state.dependencies.projectReviewerReadContent &&
+        remediationReviewerReadProjection?.status !== "projected"
+      ) {
+        return candidateNotIssued(
+          blocked("coordinator_task_reviewer_read_projection_failed"),
+        );
+      }
       reviewer = await executeStage(
         state,
         operation,
@@ -1809,6 +1874,8 @@ async function runCoordinatorTaskCore(
         reviewer.provider as Provider,
         null,
         control,
+        undefined,
+        remediationReviewerReadProjection,
       );
       if (reviewer.status !== "completed") {
         shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
@@ -2129,6 +2196,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   isProcessPoisoned: isRuntimeProcessPoisoned,
   bindRepository: bindRuntimeOwnedRepositoryOperation,
   materializeWorkspace: materializeRuntimeOwnedRepositoryWorkspace,
+  projectReviewerReadContent: projectRuntimeOwnedCandidateReadContent,
   issueSelection: issueRuntimeOwnedDelegationSelectionGrant,
   preflightSlate: preflightRuntimeOwnedDelegationExecutionSlate,
   revokeSelection: revokeRuntimeOwnedDelegationSelectionGrant,

@@ -516,6 +516,8 @@ function fixture(
     externalSendAuthorizationMode?: unknown;
     externalSendNoticeOutcome?: "failed" | "throw";
     externalSendNoticeObserver?: () => void;
+    reviewerReadProjectionObserver?: (projection: unknown) => void;
+    reviewerReadProjectionFails?: boolean;
     externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
     pauseOperationCreation?: boolean;
@@ -952,6 +954,22 @@ function fixture(
           })
         : Object.freeze({ status: "materialized", workspaceCapability });
     },
+    projectReviewerReadContent: () =>
+      options.reviewerReadProjectionFails
+        ? Object.freeze({
+            status: "blocked",
+            reason: "candidate_read_projection_identity_mismatch",
+          })
+        : Object.freeze({
+            status: "projected",
+            candidatePatchHash: "1".repeat(64),
+            candidateContentManifestHash: "2".repeat(64),
+            projectionHash: "3".repeat(64),
+            totalBytes: 2,
+            files: Object.freeze([
+              Object.freeze({ path: "fixture.txt", content: "ok" }),
+            ]),
+          }),
     issueSelection: (
       _management: object,
       selection: Record<string, unknown>,
@@ -1066,8 +1084,14 @@ function fixture(
       taskAttempt: 0 | 1,
       externalSendGrant: object,
       _remediationCapability: object | null,
+      rawPacket: Record<string, unknown>,
     ) => {
       assert.equal(externalSendGrant, externalSendGrantCapability);
+      if (taskRole === "reviewer")
+        options.reviewerReadProjectionObserver?.(
+          rawPacket.reviewerReadProjection,
+        );
+      else assert.equal(rawPacket.reviewerReadProjection, null);
       if (
         options.remediationPacketSecretBlocked &&
         taskRole === "executor" &&
@@ -1763,7 +1787,12 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
     "CASE-NORMAL-STAGED-TO-HOST-CLEAN",
     "CASE-NORMAL-HOST-CLEAN-TO-RESULT",
   ] as const;
-  const harness = fixture();
+  let reviewerProjection: unknown = null;
+  const harness = fixture({
+    reviewerReadProjectionObserver: (projection) => {
+      reviewerProjection = projection;
+    },
+  });
   const started = harness.runtime.start(
     request(),
     "C:\\repository",
@@ -1788,6 +1817,10 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
   assert.equal(harness.selectionRequests[1]?.subjectProvider, "claude");
   assert.equal(harness.selectionRequests[1]?.requiresIndependentProvider, true);
+  assert.equal(
+    (reviewerProjection as Record<string, unknown>)?.status,
+    "projected",
+  );
   await assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
 });
 
@@ -1835,6 +1868,24 @@ test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する",
     Object.hasOwn(cleanupUnknown, "providerTurnObservations"),
     false,
   );
+});
+
+test("Candidate結合済みReviewer投影を作れなければReviewer Effect前に停止する", async () => {
+  const harness = fixture({ reviewerReadProjectionFails: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_reviewer_read_projection_failed",
+  );
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(harness.processStartCount(), 1);
 });
 
 test("外周Candidate破棄が未確認ならturn観測だけを開発結果から除去する", () => {
@@ -3677,7 +3728,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 29);
+  assert.equal(contract.contractRevision, 30);
   assert.equal(
     contract.providerTurnObservations,
     "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",

@@ -1,7 +1,7 @@
 # 変更トレース: 試験体系と自動回帰
 
 変更ID: `CHG-000061`
-状態: `Ready for Release Handoff`
+状態: `In Progress`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `normative`
@@ -139,6 +139,21 @@ v0.19.0との比較では、Docker Desktopを起動するNative処理および�
 | 保持する保証 | 独立確認、受入条件の実質的反証、Candidate範囲検証、cleanupおよびRecoveryのFail Closedは弱めない |
 
 この是正は、確認を通すためにFindingを無視する変更ではない。試験Candidateが所有しないRelease条件を追加しないこと、各条件を実際に証明できる観測者へ割り当てること、および再実行により変化し得ない入力を反復しないことを固定し、独立確認の判断と機械的なCandidate破損を利用側が区別できるようにする。v0.19.0から存在した固定Taskには、Reviewerから観測できないBase履歴と編集方法が受入条件へ混在していた。全受入条件の評価を明示したことでこの潜在不整合が顕在化したため、Reviewerは現在のCandidateから確認できる表示内容だけを評価し、履歴・Path・byteの保証は既存Runnerの反証へ保持する。
+
+### 7.4 Reviewerの実読取り能力
+
+受入条件をCandidateから観測可能な形へ整理した後も、Codex Reviewerは対象内容を確認できず不承認を返した。限定診断では、Reviewerが`Get-Content`、`type`、`ReadAllText`および`rg`による読取りを試みたが、全て実行Policyで拒否された。Workspaceはread-onlyで接続されていたものの、Providerが内容を読む手段はShell Processだけであり、`approval_policy=never`とProcess非許可により実読取り能力が成立していなかった。
+
+| 成立条件 | 構造是正 |
+|---|---|
+| 読取り範囲 | `readPaths`からRuntimeが候補内容を列挙する |
+| 候補同一性 | Patch Hashと内容Manifest Hashへ内容投影を結合する |
+| 情報境界 | UTF-8、1 MiB、256ファイル、認識済みSecret検査をProvider開始前に強制する |
+| Reviewer権限 | Codex ReviewerのShell／Filesystem Toolを無効化し、内容投影だけで確認する |
+| 差替え防止 | 投影生成時にCandidate Inventoryを再計算し、不一致ではEffect 0で停止する |
+| 回帰 | Repository Workspace、Task Packet、Codex実行計画およびCoordinator利用側の契約試験を接続する |
+
+これはReviewerの判定を緩める変更ではない。明示した受入条件を確認するための入力をRuntimeが保証し、任意Process実行やProvider Home読取りを追加せず、観測不能をFindingまたは推測へ畳まないためのCapability是正である。
 
 ## 8. 完成条件
 

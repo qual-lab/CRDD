@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { createSignedGeneralTaskVerificationRequest } from "../../scripts/verify-signed-general-task.ts";
 import { planClaudeIsolatedTask } from "../../src/security/claude-execution-plan.ts";
@@ -37,6 +38,45 @@ function packet() {
     ],
     allowedPaths: ["fixture.txt", "docs/"],
     readPaths: ["fixture.txt", "docs/", "README.md"],
+    reviewerReadProjection: null,
+  };
+}
+
+function reviewerPacket(
+  source: {
+    objective: string;
+    acceptanceCriteria: readonly string[];
+    allowedPaths: readonly string[];
+    readPaths: readonly string[];
+    reviewerReadProjection: null;
+  } = packet(),
+) {
+  const candidatePatchHash = "1".repeat(64);
+  const files = Object.freeze([
+    Object.freeze({
+      path: source.readPaths[0],
+      state: "present",
+      byteLength: 2,
+      sha256: createHash("sha256").update("ok").digest("hex"),
+      encoding: "utf-8",
+      content: "ok",
+    }),
+  ]);
+  return {
+    ...source,
+    reviewerReadProjection: {
+      status: "projected",
+      candidatePatchHash,
+      candidateContentManifestHash: "2".repeat(64),
+      projectionHash: createHash("sha256")
+        .update("crdd-candidate-read-projection-v1\0")
+        .update(candidatePatchHash)
+        .update("\0")
+        .update(JSON.stringify(files))
+        .digest("hex"),
+      totalBytes: 2,
+      files,
+    },
   };
 }
 
@@ -139,7 +179,7 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
       0,
       isolated.externalSendGrantCapability,
       null,
-      packet(),
+      reviewerPacket(),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
     const consumed = isolated.runtime.consume(
@@ -168,7 +208,7 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
     assert.match(
       consumed?.prompt ?? "",
-      /Independently inspect candidate semantics and content through Readable paths/u,
+      /Review only the immutable Runtime-provided content projection below/u,
     );
     assert.match(
       consumed?.prompt ?? "",
@@ -198,6 +238,11 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
       consumed?.prompt ?? "",
       /Modify only the allowed paths/u,
     );
+    assert.match(consumed?.prompt ?? "", /"content":"ok"/u);
+    assert.match(
+      consumed?.prompt ?? "",
+      /Do not invoke filesystem or shell tools/u,
+    );
   } finally {
     cleanupOwnedOperationDirectories(current.owned);
   }
@@ -215,7 +260,7 @@ test("文書を明示した受入条件は合成Reviewerの確認範囲から除
       0,
       isolated.externalSendGrantCapability,
       null,
-      {
+      reviewerPacket({
         objective: "Update the bounded documentation candidate.",
         acceptanceCriteria: [
           "README.md explains the current bounded behavior.",
@@ -223,7 +268,8 @@ test("文書を明示した受入条件は合成Reviewerの確認範囲から除
         ],
         allowedPaths: ["README.md"],
         readPaths: ["README.md"],
-      },
+        reviewerReadProjection: null,
+      }),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
     const consumed = isolated.runtime.consume(
@@ -263,12 +309,13 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         0,
         isolated.externalSendGrantCapability,
         null,
-        {
+        reviewerPacket({
           objective: request.objective,
           acceptanceCriteria: request.acceptanceCriteria,
           allowedPaths: request.allowedPaths,
           readPaths: request.readPaths,
-        },
+          reviewerReadProjection: null,
+        }),
       );
       if (issued?.status !== "issued") assert.fail("packet must be issued");
       const consumed = isolated.runtime.consume(
@@ -278,20 +325,20 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
       assert.ok(consumed);
       assert.match(
         consumed.prompt,
-        /Review this visible content and the bounded replacement/u,
+        /Review this candidate-visible content only/u,
       );
       assert.match(
         consumed.prompt,
-        /separate checks owned by the route verification runner, not proof requested from the reviewer/u,
+        /signed runner separately verifies the base bytes/u,
       );
       assert.match(
         consumed.prompt,
         /Do not claim those separate checks have run/u,
       );
       assert.deepEqual(consumed.taskWorkload, {
-        readPathCount: 2,
+        readPathCount: 1,
         allowedPathCount: 1,
-        acceptanceCriterionCount: 3,
+        acceptanceCriterionCount: 1,
         remediationFindingCount: 0,
       });
       const plan = planClaudeIsolatedTask({
@@ -302,8 +349,8 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         taskWorkload: consumed.taskWorkload,
       });
       if (plan.status !== "candidate") assert.fail(plan.reason);
-      assert.equal(plan.maximumTurns, 6);
-      assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "6");
+      assert.equal(plan.maximumTurns, 5);
+      assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "5");
       assert.equal(
         plan.argv[plan.argv.indexOf("--tools") + 1],
         "Read,Glob,Grep",
@@ -332,7 +379,7 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
       0,
       isolated.externalSendGrantCapability,
       null,
-      packet(),
+      reviewerPacket(),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
     assert.equal(
@@ -691,8 +738,11 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 15);
-  assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
+  assert.equal(contract.contractRevision, 16);
+  assert.equal(
+    contract.repositoryFileBytesEmbeddedInPrompt,
+    "reviewer_only_explicit_read_projection_bound_to_candidate_identity",
+  );
   assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);
   assert.equal(contract.promptTransport, "provider_stdin_only");

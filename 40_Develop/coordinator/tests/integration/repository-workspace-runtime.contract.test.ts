@@ -20,6 +20,7 @@ import {
   describeRepositoryWorkspaceRuntimeContract,
   materializeRuntimeOwnedRepositoryWorkspace,
   persistRuntimeOwnedCandidateRevision,
+  projectRuntimeOwnedCandidateReadContent,
   verifyRuntimeOwnedCandidateRevision,
 } from "../../src/security/repository-workspace-runtime.ts";
 
@@ -687,7 +688,7 @@ test("Executorが生成した認識済みSecretをCandidate Capabilityへ昇格�
 
 test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する", () => {
   const contract = describeRepositoryWorkspaceRuntimeContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.equal(contract.providerGitMetadataVisible, false);
   assert.equal(contract.workspaceWrite, "isolated_runtime_owned_only");
   assert.deepEqual(contract.candidateRevision, [
@@ -700,4 +701,57 @@ test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する"
   assert.equal(contract.canonicalRepositoryWriteAllowed, false);
   assert.match(contract.recognizedSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);
+});
+
+test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒否する", (t) => {
+  const source = repository(t);
+  const runtime = operation(t, source.root);
+  const materialized = materializeRuntimeOwnedRepositoryWorkspace(
+    runtime.bound.repositoryBindingCapability,
+    runtime.managementCapability,
+    runtime.mountCapability,
+    ["README.md"],
+  );
+  assert.equal(materialized?.status, "materialized");
+  fs.writeFileSync(path.join(runtime.workspace, "README.md"), "candidate\n");
+  const candidate = captureRuntimeOwnedCandidateRevision(
+    materialized?.workspaceCapability,
+    runtime.bound.repositoryBindingCapability,
+    runtime.managementCapability,
+    runtime.mountCapability,
+    ["README.md"],
+  );
+  assert.equal(candidate?.status, "candidate");
+  assert.ok(candidate?.status === "candidate");
+  const projected = projectRuntimeOwnedCandidateReadContent(
+    materialized?.workspaceCapability,
+    candidate.candidateCapability,
+    runtime.bound.repositoryBindingCapability,
+    runtime.managementCapability,
+    runtime.mountCapability,
+    ["README.md"],
+  );
+  assert.equal(projected?.status, "projected");
+  assert.deepEqual(projected?.files, [
+    {
+      path: "README.md",
+      state: "present",
+      byteLength: 10,
+      sha256: createHash("sha256").update("candidate\n").digest("hex"),
+      encoding: "utf-8",
+      content: "candidate\n",
+    },
+  ]);
+  fs.writeFileSync(path.join(runtime.workspace, "README.md"), "replaced\n");
+  assert.equal(
+    projectRuntimeOwnedCandidateReadContent(
+      materialized?.workspaceCapability,
+      candidate.candidateCapability,
+      runtime.bound.repositoryBindingCapability,
+      runtime.managementCapability,
+      runtime.mountCapability,
+      ["README.md"],
+    )?.status,
+    "blocked",
+  );
 });

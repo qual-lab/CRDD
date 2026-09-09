@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 6;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 7;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -186,9 +186,9 @@ export function planCodexIsolatedTask(candidate: unknown) {
       "--config",
       "features.code_mode_host=false",
       "--config",
-      "features.shell_tool=true",
+      `features.shell_tool=${taskRole === "executor" ? "true" : "false"}`,
       "--config",
-      "features.unified_exec=true",
+      `features.unified_exec=${taskRole === "executor" ? "true" : "false"}`,
       "--config",
       'approval_policy="never"',
       "--config",
@@ -230,6 +230,8 @@ export function planCodexIsolatedTask(candidate: unknown) {
     rootFilesystemReadOnly: true,
     taskPromptTransport: "stdin_only" as const,
     taskPromptInArgvAllowed: false,
+    reviewerFilesystemOrShellToolAllowed: false,
+    reviewerInput: "runtime_owned_immutable_candidate_content_projection_only",
     commandNetworkAccessAllowed: false,
     webSearchAllowed: false,
     mcpAllowed: false,
