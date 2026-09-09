@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 14;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 15;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -183,7 +183,7 @@ function promptFor(packet: TaskPacket) {
         ].join(" ")
       : [
           "Review the candidate in /work without modifying any file. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems.",
-          "This is an intentionally ephemeral bounded candidate review, not a proposal to commit or release the repository. Evaluate only the stated acceptance criteria; repository-wide maintenance, documentation, changelog, formatter, test-suite, audit, signing, and release gates are outside this review and must not be reported as findings.",
+          "This is an intentionally ephemeral bounded candidate review, not a proposal to commit or release the repository. Evaluate every stated acceptance criterion, including documentation or changelog when it is explicitly included in the acceptance criteria or candidate paths. Do not add repository-wide maintenance, documentation, changelog, formatter, test-suite, audit, signing, or release gates that are not stated acceptance criteria, and do not report those unstated gates as findings.",
           "Before this review, the runtime compared the candidate inventory with the exact base revision and rejected any changed path outside Allowed paths.",
           "Git metadata is intentionally absent. Independently inspect candidate semantics and content through Readable paths; do not report missing Git metadata or inability to re-enumerate out-of-scope paths as a finding.",
           'Reviewer result invariant: use decision "approved" only with findings []; if any finding exists, including info severity, use decision "changes_requested". Put non-blocking observations in summary rather than findings.',
@@ -513,7 +513,7 @@ export function describeProviderTaskPacketRuntimeContract() {
     remediationSecretBoundary:
       "finding_paths_and_messages_rejected_before_external_send_grant_consumption_and_packet_issue",
     reviewerScopeBoundary:
-      "runtime_verified_changed_path_scope_plus_independent_readable_candidate_semantics_without_git_metadata",
+      "all_stated_acceptance_criteria_including_explicit_documentation_plus_runtime_verified_changed_path_scope_and_independent_readable_candidate_semantics_without_git_metadata_or_unstated_repository_wide_gates",
     reviewerDecisionInvariant:
       "approved_requires_zero_findings_and_any_finding_requires_changes_requested",
     promptTransport: "provider_stdin_only",

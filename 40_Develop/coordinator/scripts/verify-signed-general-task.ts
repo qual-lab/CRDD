@@ -36,7 +36,7 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/securi
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 20;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 21;
 
 const TARGET_PATH =
   "40_Develop/coordinator/runtime/general-task-verification.txt";
@@ -1532,6 +1532,8 @@ export function describeSignedGeneralTaskVerificationContract() {
       "signed_distribution_source_and_manifest_only_distribution_commit_are_separate_from_work_repository_execution_revision_candidate_base_uses_execution_revision_observed_before_and_after_task",
     boundedRemediation:
       "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
+    taskFailureReasonProjection:
+      "known_task_failure_reason_preserved_candidate_integrity_failure_distinct_from_reviewer_semantic_rejection",
     resultMismatchDiagnostic:
       "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",
     candidateMismatchDiagnostic:

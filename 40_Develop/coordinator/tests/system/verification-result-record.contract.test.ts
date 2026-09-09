@@ -150,6 +150,23 @@ test("配布Identityと作業対象Execution Identityと経路不一致分類を
   assert.equal(child?.executionTree, "d".repeat(40));
 });
 
+test("Candidate整合性不成立をunknownへ劣化させず保存用Projectionへ保持する", () => {
+  const projected = projectVerificationResult({
+    status: "blocked",
+    reason: "coordinator_task_candidate_verification_failed",
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    effectStateUnknown: false,
+  });
+  assert.equal(
+    projected.reason,
+    "coordinator_task_candidate_verification_failed",
+  );
+  assert.equal(projected.cleanupConfirmed, true);
+  assert.equal(projected.manualRecoveryRequired, false);
+  assert.equal(projected.effectStateUnknown, false);
+});
+
 test("subdirectoryからも最寄りRepositoryへ開始・終了を別記録し、元結果を変更しない", async (t) => {
   const root = fixture(t);
   const cwd = path.join(root, "package");

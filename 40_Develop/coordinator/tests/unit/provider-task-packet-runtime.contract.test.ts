@@ -156,7 +156,11 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
     assert.match(
       consumed?.prompt ?? "",
-      /repository-wide maintenance, documentation, changelog, formatter, test-suite, audit, signing, and release gates are outside this review/u,
+      /Evaluate every stated acceptance criterion/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /Do not add repository-wide maintenance/u,
     );
     assert.match(
       consumed?.prompt ?? "",
@@ -194,6 +198,47 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
       consumed?.prompt ?? "",
       /Modify only the allowed paths/u,
     );
+  } finally {
+    cleanupOwnedOperationDirectories(current.owned);
+  }
+});
+
+test("文書を明示した受入条件は合成Reviewerの確認範囲から除外しない", () => {
+  const current = operation();
+  const isolated = packetRuntime();
+  try {
+    const issued = isolated.runtime.issue(
+      current.managementCapability,
+      isolated.repositoryBindingCapability,
+      "claude",
+      "reviewer",
+      0,
+      isolated.externalSendGrantCapability,
+      null,
+      {
+        objective: "Update the bounded documentation candidate.",
+        acceptanceCriteria: [
+          "README.md explains the current bounded behavior.",
+          "No unstated repository-wide release gate is added.",
+        ],
+        allowedPaths: ["README.md"],
+        readPaths: ["README.md"],
+      },
+    );
+    if (issued?.status !== "issued") assert.fail("packet must be issued");
+    const consumed = isolated.runtime.consume(
+      issued.useCapability,
+      current.managementCapability,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /including documentation or changelog when it is explicitly included in the acceptance criteria or candidate paths/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /README\.md explains the current bounded behavior/u,
+    );
+    assert.match(consumed?.prompt ?? "", /not stated acceptance criteria/u);
   } finally {
     cleanupOwnedOperationDirectories(current.owned);
   }
@@ -646,7 +691,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 14);
+  assert.equal(contract.contractRevision, 15);
   assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
   assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);
@@ -664,7 +709,7 @@ test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   );
   assert.equal(
     contract.reviewerScopeBoundary,
-    "runtime_verified_changed_path_scope_plus_independent_readable_candidate_semantics_without_git_metadata",
+    "all_stated_acceptance_criteria_including_explicit_documentation_plus_runtime_verified_changed_path_scope_and_independent_readable_candidate_semantics_without_git_metadata_or_unstated_repository_wide_gates",
   );
   assert.equal(
     contract.reviewerDecisionInvariant,

@@ -3677,7 +3677,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 28);
+  assert.equal(contract.contractRevision, 29);
   assert.equal(
     contract.providerTurnObservations,
     "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",
@@ -3696,6 +3696,10 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
     "preferred_subject_provider_excluded",
   );
   assert.equal(contract.independentReview.highRiskSameProviderAllowed, false);
+  assert.equal(
+    contract.candidateReviewClassification,
+    "candidate_integrity_verification_failure_is_distinct_from_independent_reviewer_semantic_rejection",
+  );
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");
   assert.equal(contract.canonicalRepositoryEffectAllowed, false);
   assert.equal(contract.directProviderToProviderSpawnAllowed, false);

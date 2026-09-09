@@ -384,7 +384,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 20);
+  assert.equal(contract.contractRevision, 21);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -392,6 +392,10 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   assert.equal(
     contract.boundedRemediation,
     "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
+  );
+  assert.equal(
+    contract.taskFailureReasonProjection,
+    "known_task_failure_reason_preserved_candidate_integrity_failure_distinct_from_reviewer_semantic_rejection",
   );
   assert.equal(
     contract.resultMismatchDiagnostic,
@@ -934,6 +938,27 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
   assert.equal(result.effectStateUnknown, false);
   assert.equal(fixture.calls.reads, 0);
   assert.equal(fixture.calls.discards, 0);
+});
+
+test("Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播する", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      status: "blocked",
+      reason: "coordinator_task_candidate_verification_failed",
+      candidateId: null,
+      candidateDisposition: "not_issued",
+    }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_candidate_verification_failed");
+  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.effectStateUnknown, false);
 });
 
 test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱いしない", async () => {

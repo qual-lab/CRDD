@@ -106,6 +106,7 @@ function completed(
 function safelyRetryable(
   reason:
     | "coordinator_task_independent_review_not_approved"
+    | "coordinator_task_candidate_verification_failed"
     | "signed_general_task_candidate_content_mismatch",
   authorizationMode: "interactive_initial_consent" | "reused_initial_consent",
   candidateDisposition: "discarded" | "not_issued" = "discarded",
@@ -355,6 +356,44 @@ test("是正後の独立Reviewer拒否は同一入力を再実行せず停止す
   assert.equal(result.retryableRouteAttemptCount, 0);
   assert.equal(result.failedRouteProfile, "forward");
   assert.equal((result.results as readonly unknown[]).length, 1);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+});
+
+test("Candidate整合性不成立は同一入力を再実行せず停止する", async () => {
+  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
+    _root,
+    _dependencies,
+    _route,
+  ) =>
+    safelyRetryable(
+      "coordinator_task_candidate_verification_failed",
+      "reused_initial_consent",
+      "not_issued",
+    )) as typeof import("../../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.attemptedRouteCount, 1);
+  assert.equal(result.retryableRouteAttemptCount, 0);
+  assert.equal(result.failedRouteProfile, "forward");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+});
+
+test("内容不一致でもCandidate未発行という矛盾した結果は再試行しない", async () => {
+  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
+    _root,
+    _dependencies,
+    _route,
+  ) =>
+    safelyRetryable(
+      "signed_general_task_candidate_content_mismatch",
+      "reused_initial_consent",
+      "not_issued",
+    )) as typeof import("../../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.attemptedRouteCount, 1);
+  assert.equal(result.retryableRouteAttemptCount, 0);
+  assert.equal(result.failedRouteProfile, "forward");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);
 });
@@ -633,7 +672,11 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 12);
+  assert.equal(contract.contractRevision, 13);
+  assert.equal(
+    contract.safeRetry,
+    "maximum_three_attempts_per_route_only_for_exact_candidate_content_mismatch_after_exact_candidate_discard_and_exact_zero_residual_effect_reviewer_rejection_and_candidate_verification_failure_are_not_retried",
+  );
   assert.equal(
     contract.verificationFixture,
     "same_signed_tracked_base_marker_exact_token_replacement_for_every_route",

@@ -109,7 +109,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 28;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 29;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -3100,6 +3100,8 @@ export function describeCoordinatorTaskRuntimeContract() {
         "low_risk_local_bounded_only_with_separate_grant_packet_process_and_read_only_candidate",
       highRiskSameProviderAllowed: false,
     }),
+    candidateReviewClassification:
+      "candidate_integrity_verification_failure_is_distinct_from_independent_reviewer_semantic_rejection",
     boundedRemediation:
       "maximum_one_same_executor_then_same_independent_reviewer",
     providerTurnObservations:

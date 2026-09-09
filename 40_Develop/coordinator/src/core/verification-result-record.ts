@@ -25,6 +25,7 @@ const REASONS = new Set([
   "signed_general_task_result_contract_mismatch",
   "signed_general_task_execution_repository_changed",
   "signed_general_task_execution_repository_observation_unknown",
+  "coordinator_task_candidate_verification_failed",
   "coordinator_task_independent_review_not_approved",
   "coordinator_task_remediated_candidate_invalid",
   "coordinator_task_repository_preflight_failed",
