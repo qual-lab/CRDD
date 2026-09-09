@@ -100,6 +100,16 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
   assert.ok(normalized && "decision" in normalized);
   assert.equal(normalized.decision, "changes_requested");
   assert.equal(normalized.findingCount, 1);
+  assert.deepEqual(normalized.findingDiagnostics, [
+    {
+      severity: "medium",
+      path: "fixture.txt",
+      category: "acceptance_criterion_not_met",
+      criterionNumber: 1,
+      messageSha256:
+        "7575966d1d25626e90f680efae8d0072505e4d4018462c7e5dfd5442959109f4",
+    },
+  ]);
   assert.ok(normalized.remediationCapability);
   assert.deepEqual(normalized.providerTurnObservation, {
     provider: "claude",
@@ -591,7 +601,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 15);
+  assert.equal(contract.contractRevision, 16);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeResultAcceptanceMaximumTurns, 16);

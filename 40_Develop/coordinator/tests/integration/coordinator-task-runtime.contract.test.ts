@@ -967,7 +967,14 @@ function fixture(
             projectionHash: "3".repeat(64),
             totalBytes: 2,
             files: Object.freeze([
-              Object.freeze({ path: "fixture.txt", content: "ok" }),
+              Object.freeze({
+                path: "fixture.txt",
+                state: "present",
+                byteLength: 2,
+                sha256: "4".repeat(64),
+                encoding: "utf-8",
+                content: "ok",
+              }),
             ]),
           }),
     issueSelection: (
@@ -1256,6 +1263,19 @@ function fixture(
             : Object.freeze({
                 decision: effectiveReviewerDecision,
                 findingCount: effectiveReviewerDecision === "approved" ? 0 : 1,
+                findingDiagnostics: Object.freeze(
+                  effectiveReviewerDecision === "approved"
+                    ? []
+                    : [
+                        Object.freeze({
+                          severity: "medium",
+                          path: "fixture.txt",
+                          category: "acceptance_criterion_not_met",
+                          criterionNumber: 1,
+                          messageSha256: "6".repeat(64),
+                        }),
+                      ],
+                ),
                 remediationCapability:
                   effectiveReviewerDecision === "changes_requested"
                     ? Object.freeze({})
@@ -2566,7 +2586,39 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
   assert.equal(result.candidateId, null);
   assert.equal(result.candidateRecoveryId, null);
   assert.equal(result.candidateStoreRecoveryId, null);
-  assert.equal(result.candidateRevision, null);
+  assert.deepEqual(result.candidateRevision?.changedPaths, ["fixture.txt"]);
+  assert.equal(result.executorProvider, "claude");
+  assert.equal(result.reviewerProvider, "codex");
+  assert.equal(result.remediationPerformed, true);
+  assert.deepEqual(result.reviewerResult, {
+    decision: "changes_requested",
+    findingCount: 1,
+    findingDiagnostics: [
+      {
+        severity: "medium",
+        path: "fixture.txt",
+        category: "acceptance_criterion_not_met",
+        criterionNumber: 1,
+        messageSha256: "6".repeat(64),
+      },
+    ],
+  });
+  assert.deepEqual(result.reviewerProjectionEvidence, {
+    candidatePatchHash: "1".repeat(64),
+    candidateContentManifestHash: "2".repeat(64),
+    projectionHash: "3".repeat(64),
+    totalBytes: 2,
+    files: [
+      {
+        path: "fixture.txt",
+        state: "present",
+        byteLength: 2,
+        sha256: "4".repeat(64),
+        encoding: "utf-8",
+      },
+    ],
+    contentReported: false,
+  });
   assert.equal(harness.cleanupCount(), 1);
 });
 
@@ -3728,7 +3780,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 30);
+  assert.equal(contract.contractRevision, 31);
   assert.equal(
     contract.providerTurnObservations,
     "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",

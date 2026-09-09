@@ -382,7 +382,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 22);
+  assert.equal(contract.contractRevision, 23);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -908,6 +908,26 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
       reason: "coordinator_task_independent_review_not_approved",
       candidateId: null,
       candidateDisposition: "not_issued",
+      remediationPerformed: true,
+      reviewerResult: Object.freeze({
+        decision: "changes_requested",
+        findingCount: 1,
+      }),
+      reviewerProjectionEvidence: Object.freeze({
+        totalBytes: Buffer.byteLength(EXPECTED_CONTENT),
+        contentReported: false,
+        files: Object.freeze([
+          Object.freeze({
+            path: TARGET_PATH,
+            state: "present",
+            byteLength: Buffer.byteLength(EXPECTED_CONTENT),
+            sha256: createHash("sha256")
+              .update(Buffer.from(EXPECTED_CONTENT, "utf8"))
+              .digest("hex"),
+            encoding: "utf-8",
+          }),
+        ]),
+      }),
     }),
   });
   const result = await runSignedGeneralTaskVerification(
@@ -934,6 +954,10 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
   assert.equal(result.candidateStoreRecoveryId, null);
   assert.deepEqual(result.candidateStoreRecoveryIds, []);
   assert.equal(result.effectStateUnknown, false);
+  assert.equal(result.reviewerDecision, "changes_requested");
+  assert.equal(result.reviewerFindingCount, 1);
+  assert.equal(result.reviewerProjectedTargetExact, true);
+  assert.equal(result.remediationPerformed, true);
   assert.equal(fixture.calls.reads, 0);
   assert.equal(fixture.calls.discards, 0);
 });

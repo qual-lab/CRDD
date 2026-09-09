@@ -59,7 +59,8 @@ Port／Adapterブロック
 | Project Runtime | Objective／Task | Objective受付、Task遷移、Execution Port調停 | 待機、取消、世代再照合、Effect不明時のRecovery | [Project Runtime](project-runtime/01_Architecture.md#6-状態authority資源) |
 | Project Runtime | 判断／Recovery | 人間判断、再計画、Lease、Recovery再入場 | 一回限りAuthority、stale世代拒否、再開settlement | [Project Runtime](project-runtime/01_Architecture.md#9-移行と検証) |
 | Project Runtime | 統合／投影 | 候補統合、Accepted Result、読取り専用状態投影 | 未採用候補の隔離、投影Effect 0、相関不一致拒否 | [Project Runtime](project-runtime/01_Architecture.md#7-公開アプリケーション契約) |
-| Coordinator | Provider Task | 選定、隔離実行、Review、結果settlement | 外部送信、timeout、取消、Process／Container cleanup | [Coordinator](coordinator/01_Architecture.md#3-一般taskの主シーケンス) |
+| Coordinator | Provider実行 | 選定、外部送信許可、隔離Executor実行、候補固定 | timeout、取消、Process／Container cleanup、候補未発行 | [Coordinator](coordinator/01_Architecture.md#3-一般taskの主シーケンス) |
+| Coordinator | Reviewer判定 | 候補結合済み内容投影、独立Review、構造化判定、限定是正 | 投影失敗、Provider終了、指摘の安全な診断、最終判定settlement | [Coordinator](coordinator/01_Architecture.md#3-一般taskの主シーケンス) |
 | Coordinator | 候補公開 | 候補snapshot、Store、統合公開 | Lock、衝突、破棄、正本採用前Effect 0 | [Coordinator](coordinator/01_Architecture.md#10-provider実行と候補) |
 | Coordinator | Release署名 | 配布依存観測、署名、候補promotion | preflight、秘密入力、失敗staging、単一snapshot | [Coordinator](coordinator/01_Architecture.md#9-署名済み配布物) |
 | Coordinator | Docker Task回復 | Docker Task実行、資源回収、Task Recovery | Container／Network／Volume不存在、exact Identity再入場 | [Coordinator](coordinator/01_Architecture.md#11-取消と回復) |
@@ -136,6 +137,30 @@ Coordinator        候補公開         Project Runtime       統合／投影   
 ```
 
 各ConsumerはCanonicalな候補、結果、Recovery参照を再構成しない。未settle候補、相関不一致またはcleanup不明をAccepted Resultへ投影しない。
+
+#### Provider実行とReviewer判定
+
+```text
+Provider実行               Reviewer判定                 候補公開
+    │                           │                          │
+    │-- {Candidate Identity} -->│                          │
+    │-- {認証済み内容投影} ----->│                          │
+    │                           │-- 実Reviewer起動         │
+    │                           │<-- 構造化判定／Finding --│
+    │                           │                          │
+    │   [changes_requested]     │-- 限定是正を同じExecutorへ戻す
+    │<-- {Finding Capability} --│
+    │-- {新Candidate／投影} ---->│
+    │                           │-- 同じReviewerで再判定
+    │                           │                          │
+    │                           │-- approved＋Finding 0 -->│
+    │                           │                          │-- 永続化／公開
+    │                           │                          │
+    │   [拒否／異常終了]        │-- 判定・分類・Hashだけを安全に記録
+    └─ cleanup（逆順）: Reviewer Process -> Provider Process -> 候補隔離領域
+```
+
+内容投影の正確性、実Reviewerの判定、Provider終了、限定是正後の再判定および候補処置は一つの結合境界である。固定Fakeだけからこの境界の成立を推定せず、正式4経路E2Eの前に署名済み候補からCodex／Claude Reviewerを各一回通す実境界結合を明示実行する。実行結果は生のProvider文面を保存せず、判定、Finding件数・分類・message Hash、候補投影Hash、対象byteの一致およびcleanupを保持する。
 
 #### 実行観測の耐久化
 

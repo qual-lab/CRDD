@@ -77,11 +77,21 @@
       "id": "coordinator:provider-task-lifecycle",
       "owner": "coordinator",
       "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#3-一般taskの主シーケンス",
-      "responsibilities": ["provider_selection", "isolated_task_execution", "review_and_result_settlement"],
+      "responsibilities": ["provider_selection", "external_send_authorization", "isolated_executor_execution", "candidate_capture"],
       "externalBoundaries": ["docker_engine", "provider_cli", "external_send"],
       "lifecycleProfile": "external_effect_operation",
       "testIds": ["coordinator:integration:coordinator-task-process", "coordinator:integration:coordinator-task-runtime", "coordinator:integration:task-cli-cancellation"],
-      "postconditions": ["provider_process_absent", "external_send_authority_settled", "candidate_disposition_known"]
+      "postconditions": ["executor_process_absent", "external_send_authority_settled", "candidate_identity_fixed_or_not_issued"]
+    },
+    {
+      "id": "coordinator:reviewer-decision-lifecycle",
+      "owner": "coordinator",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#3-一般taskの主シーケンス",
+      "responsibilities": ["candidate_bound_content_projection", "independent_reviewer_execution", "structured_decision", "bounded_remediation", "result_settlement"],
+      "externalBoundaries": ["provider_cli", "reviewer_content_projection", "candidate_disposition"],
+      "lifecycleProfile": "external_effect_operation",
+      "testIds": ["coordinator:unit:provider-task-structured-result", "coordinator:integration:coordinator-task-runtime", "coordinator:integration:signed-reviewer-real-boundary", "coordinator:system:signed-reviewer-boundary-verification"],
+      "postconditions": ["reviewer_process_absent", "reviewer_projection_identity_preserved", "candidate_disposition_known", "raw_provider_text_not_reported"]
     },
     {
       "id": "coordinator:candidate-publication",
@@ -198,6 +208,13 @@
       "blockPath": ["project-runtime:objective-task-lifecycle", "coordinator:provider-task-lifecycle", "coordinator:candidate-publication"],
       "testIds": ["coordinator:integration:project-runtime-full-flow", "coordinator:integration:project-runtime-execution", "coordinator:integration:project-runtime-candidate-integration-adapter"],
       "postconditions": ["authority_narrowing_preserved", "attempt_identity_preserved", "candidate_not_published_before_settlement"]
+    },
+    {
+      "id": "coordinator:provider-to-reviewed-candidate",
+      "architectureAnchor": "06_Architecture/01_Architecture.md#provider実行とreviewer判定",
+      "blockPath": ["coordinator:provider-task-lifecycle", "coordinator:reviewer-decision-lifecycle", "coordinator:candidate-publication"],
+      "testIds": ["coordinator:integration:coordinator-task-runtime", "coordinator:integration:signed-reviewer-real-boundary", "coordinator:system:signed-reviewer-boundary-verification", "coordinator:system:signed-general-task-verification"],
+      "postconditions": ["projection_and_candidate_identity_correlated", "reviewer_and_executor_processes_absent", "candidate_not_published_before_final_approval"]
     },
     {
       "id": "runtime:candidate-to-mcp-result",
@@ -1711,6 +1728,28 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:signed-reviewer-real-boundary",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/signed-reviewer-real-boundary.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "signed",
+        "reviewer",
+        "real-provider",
+        "explicit-boundary"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": true,
+      "humanInput": false,
+      "postconditions": [
+        "reviewer_projection_exact",
+        "provider_processes_settled",
+        "candidate_disposition_known"
+      ],
+      "mandatoryByDefault": false
+    },
+    {
       "id": "coordinator:system:project-runtime-real-provider-verification-script",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/system/project-runtime-real-provider-verification-script.contract.test.ts",
@@ -1772,6 +1811,28 @@
       "postconditions": [
         "public_result_observed",
         "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:signed-reviewer-boundary-verification",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/signed-reviewer-boundary-verification.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "signed",
+        "reviewer",
+        "real-provider",
+        "integration-boundary"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "explicit_real_provider_runner_contract_fixed",
+        "safe_failure_diagnostics_preserved",
+        "standard_regression_provider_effect_zero"
       ],
       "mandatoryByDefault": true
     },

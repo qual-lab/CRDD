@@ -110,7 +110,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 30;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 31;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -137,6 +137,29 @@ const PROVIDER_TURN_OBSERVATION_KEYS = new Set([
   "providerReportedTurns",
   "resultAcceptanceMaximumTurns",
   "requestedTurnTargetExceeded",
+]);
+const REVIEWER_FINDING_DIAGNOSTIC_KEYS = new Set([
+  "severity",
+  "path",
+  "category",
+  "criterionNumber",
+  "messageSha256",
+]);
+const REVIEWER_PROJECTION_KEYS = new Set([
+  "status",
+  "candidatePatchHash",
+  "candidateContentManifestHash",
+  "projectionHash",
+  "totalBytes",
+  "files",
+]);
+const REVIEWER_PROJECTION_FILE_KEYS = new Set([
+  "path",
+  "state",
+  "byteLength",
+  "sha256",
+  "encoding",
+  "content",
 ]);
 const INVALID_CONTROL_CANCELLATION_RESULT = Object.freeze({
   status: "blocked" as const,
@@ -630,6 +653,99 @@ function projectProviderTurnObservation(value: unknown) {
     providerReportedTurns: providerReportedTurns as number,
     resultAcceptanceMaximumTurns: resultAcceptanceMaximumTurns as number,
     requestedTurnTargetExceeded,
+  });
+}
+
+function sha256Value(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
+}
+
+function projectReviewerResultDiagnostics(value: unknown) {
+  const decision = ownPlainDataValue(value, "decision");
+  const findingCount = ownPlainDataValue(value, "findingCount");
+  const diagnostics = snapshotPlainArray<unknown>(
+    ownPlainDataValue(value, "findingDiagnostics"),
+    64,
+  );
+  if (
+    (decision !== "approved" && decision !== "changes_requested") ||
+    !Number.isSafeInteger(findingCount) ||
+    (findingCount as number) < 0 ||
+    diagnostics.status !== "ok" ||
+    diagnostics.value.length !== findingCount
+  )
+    return null;
+  const projected = diagnostics.value.map((item) => {
+    const record = snapshotPlainRecord(item, REVIEWER_FINDING_DIAGNOSTIC_KEYS);
+    if (
+      !record ||
+      typeof record.severity !== "string" ||
+      typeof record.path !== "string" ||
+      typeof record.category !== "string" ||
+      !Number.isSafeInteger(record.criterionNumber) ||
+      !sha256Value(record.messageSha256)
+    )
+      return null;
+    return Object.freeze({
+      severity: record.severity,
+      path: record.path,
+      category: record.category,
+      criterionNumber: record.criterionNumber,
+      messageSha256: record.messageSha256,
+    });
+  });
+  if (projected.some((item) => item === null)) return null;
+  return Object.freeze({
+    decision,
+    findingCount: findingCount as number,
+    findingDiagnostics: Object.freeze(projected),
+  });
+}
+
+function projectReviewerProjectionEvidence(value: unknown) {
+  const record = snapshotPlainRecord(value, REVIEWER_PROJECTION_KEYS);
+  const files = record
+    ? snapshotPlainArray<unknown>(record.files, 1_000)
+    : null;
+  if (
+    record?.status !== "projected" ||
+    !sha256Value(record.candidatePatchHash) ||
+    !sha256Value(record.candidateContentManifestHash) ||
+    !sha256Value(record.projectionHash) ||
+    !Number.isSafeInteger(record.totalBytes) ||
+    (record.totalBytes as number) < 0 ||
+    files?.status !== "ok"
+  )
+    return null;
+  const projectedFiles = files.value.map((item) => {
+    const file = snapshotPlainRecord(item, REVIEWER_PROJECTION_FILE_KEYS);
+    if (
+      !file ||
+      typeof file.path !== "string" ||
+      file.state !== "present" ||
+      !Number.isSafeInteger(file.byteLength) ||
+      (file.byteLength as number) < 0 ||
+      !sha256Value(file.sha256) ||
+      file.encoding !== "utf-8" ||
+      typeof file.content !== "string"
+    )
+      return null;
+    return Object.freeze({
+      path: file.path,
+      state: file.state,
+      byteLength: file.byteLength,
+      sha256: file.sha256,
+      encoding: file.encoding,
+    });
+  });
+  if (projectedFiles.some((item) => item === null)) return null;
+  return Object.freeze({
+    candidatePatchHash: record.candidatePatchHash,
+    candidateContentManifestHash: record.candidateContentManifestHash,
+    projectionHash: record.projectionHash,
+    totalBytes: record.totalBytes,
+    files: Object.freeze(projectedFiles),
+    contentReported: false,
   });
 }
 
@@ -1780,6 +1896,7 @@ async function runCoordinatorTaskCore(
     }
     advanceLifecycleState(state, control, "STATE-REVIEWER-CLEAN");
     let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
+    let finalReviewerReadProjection = reviewerReadProjection;
     retainTurnObservation(reviewer, 0);
     let remediationPerformed = false;
     if (reviewerResult?.decision === "changes_requested") {
@@ -1883,6 +2000,7 @@ async function runCoordinatorTaskCore(
       }
       advanceLifecycleState(state, control, "STATE-REMEDIATION-REVIEWER-CLEAN");
       reviewerResult = reviewer.normalizedResult as RuntimeRecord;
+      finalReviewerReadProjection = remediationReviewerReadProjection;
       retainTurnObservation(reviewer, 1);
     }
     const verified = state.dependencies.verifyCandidate(
@@ -1902,10 +2020,28 @@ async function runCoordinatorTaskCore(
       reviewerResult?.decision !== "approved" ||
       reviewerResult.findingCount !== 0
     ) {
+      const reviewerDiagnostics =
+        projectReviewerResultDiagnostics(reviewerResult);
+      const reviewerProjectionEvidence = projectReviewerProjectionEvidence(
+        finalReviewerReadProjection,
+      );
       return Object.freeze({
         ...blocked("coordinator_task_independent_review_not_approved"),
         externalSendAuthorizationMode,
         candidateDisposition: "not_issued" as const,
+        executorProvider: executor.provider,
+        reviewerProvider: reviewer.provider,
+        remediationPerformed,
+        candidateRevision: Object.freeze({
+          baseCommit: verified.baseCommit,
+          baseTree: verified.baseTree,
+          patchHash: verified.patchHash,
+          contentManifestHash: verified.contentManifestHash,
+          allowedPathsHash: verified.allowedPathsHash,
+          changedPaths: verified.changedPaths,
+        }),
+        reviewerResult: reviewerDiagnostics,
+        reviewerProjectionEvidence,
       });
     }
     const persisted = state.dependencies.persistCandidate(
@@ -1979,6 +2115,7 @@ async function runCoordinatorTaskCore(
           typeof reviewerResult.findingCount === "number"
             ? reviewerResult.findingCount
             : 0,
+        findingDiagnostics: Object.freeze([]),
       }),
       canonicalRepositoryChanged: false,
       rawOutputReported: false,

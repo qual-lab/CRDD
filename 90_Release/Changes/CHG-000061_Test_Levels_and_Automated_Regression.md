@@ -165,6 +165,26 @@ Toolを空集合へ揃えた固定候補でも、同じClaude Reviewer不承認�
 
 決定表を明示した固定候補でも、Claude Reviewerを使うReverse経路だけが不承認となった。受入条件は現在の投影だけで判定できる一方、Objectiveには「既存の`BASE`を置換した」という履歴上の編集方法が残り、Reviewerへ渡していないBase Evidenceを暗黙に要求していた。System TestのObjectiveも現在の完成状態へ統一し、Base byteと置換過程の確認はSigned Runnerだけが所有する。受入条件だけでなくObjective、説明および検証結果を含むTask Packet全体で、各主張の証明主体を一致させる。
 
+### 7.5 実Reviewer境界の段階的結合
+
+Objectiveを現在状態へ揃えた後もReverse経路の不承認が続いたため、文言調整を中止した。既存の試験体系には、内容投影とResult Parserの単体試験、固定FakeによるCoordinator結合試験、実Providerを使う4経路E2Eはあったが、次の二ブロック境界を直接確認する結合試験がなかった。
+
+```text
+候補結合済み内容投影
+  ↓
+実Codex／Claude Reviewer
+  ↓
+構造化判定
+  ↓
+必要な一回是正
+  ↓
+Provider終了／候補処置
+```
+
+この欠落により、投影内容が正しいままReviewerが不承認にしたのか、投影・搬送・是正のどこかが不成立なのかを最終E2E結果から切り分けられなかった。是正として、Provider実行とReviewer判定を別の結合ブロックに分け、署名済み固定候補からCodex ReviewerとClaude Reviewerを各一回だけ通す明示実行の結合試験を追加した。通常回帰では外部Providerを起動せず、明示実行だけが既存Subscriptionを使用する。
+
+失敗結果には生のProvider出力やFinding本文を保存しない。Runtimeが検証した判定、Finding件数、severity／path／category／criterion、本文Hash、候補投影Hash、対象fileのbyte長／Hash、是正有無および終了後資源だけを保存する。これにより、安全境界を維持したまま、最終4経路E2Eの前に境界不成立を局所化する。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。

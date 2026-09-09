@@ -8,7 +8,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 15;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 16;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -195,6 +195,18 @@ function reviewerResult(value: Record<string, unknown>) {
     normalizedResult: Object.freeze({
       decision: value.decision as "approved" | "changes_requested",
       findingCount: findings.length,
+      findingDiagnostics: Object.freeze(
+        (findings as NonNullable<(typeof findings)[number]>[]).map(
+          ({ severity, path, category, criterionNumber, messageSha256 }) =>
+            Object.freeze({
+              severity,
+              path,
+              category,
+              criterionNumber,
+              messageSha256,
+            }),
+        ),
+      ),
       ...(remediationCapability ? { remediationCapability } : {}),
     }),
     reason: null,

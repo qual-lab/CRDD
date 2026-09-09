@@ -36,7 +36,7 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/securi
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 22;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 23;
 
 const TARGET_PATH =
   "40_Develop/coordinator/runtime/general-task-verification.txt";
@@ -119,6 +119,9 @@ export type SignedGeneralTaskVerificationResult = RuntimeRecord &
     executorProvider?: "codex" | "claude" | null;
     reviewerProvider?: "codex" | "claude" | null;
     reviewerIndependence?: string;
+    reviewerDecision?: "approved" | "changes_requested" | null;
+    reviewerFindingCount?: number | null;
+    reviewerProjectedTargetExact?: boolean | null;
   }>;
 export type SignedGeneralTaskRouteProfile =
   | "forward"
@@ -432,6 +435,54 @@ function safeReason(value: unknown, fallback: string) {
 
 function sha256(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
+}
+
+function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
+  const reviewerResult = plainRecord(result?.reviewerResult);
+  const evidence = plainRecord(result?.reviewerProjectionEvidence);
+  const files = evidence
+    ? snapshotPlainArray<unknown>(evidence.files, 1)
+    : null;
+  const file =
+    files?.status === "ok" && files.value.length === 1
+      ? plainRecord(files.value[0])
+      : null;
+  const expectedBytes = Buffer.from(EXPECTED_CONTENT, "utf8");
+  const expectedSha256 = createHash("sha256")
+    .update(expectedBytes)
+    .digest("hex");
+  const reviewerDecision =
+    reviewerResult?.decision === "approved" ||
+    reviewerResult?.decision === "changes_requested"
+      ? reviewerResult.decision
+      : null;
+  const reviewerFindingCount =
+    typeof reviewerResult?.findingCount === "number" &&
+    Number.isSafeInteger(reviewerResult.findingCount) &&
+    reviewerResult.findingCount >= 0 &&
+    reviewerResult.findingCount <= 64
+      ? reviewerResult.findingCount
+      : null;
+  const reviewerProjectedTargetExact =
+    evidence === null
+      ? null
+      : evidence.contentReported === false &&
+        typeof evidence.totalBytes === "number" &&
+        evidence.totalBytes === expectedBytes.byteLength &&
+        file?.path === TARGET_PATH &&
+        file.state === "present" &&
+        file.byteLength === expectedBytes.byteLength &&
+        file.sha256 === expectedSha256 &&
+        file.encoding === "utf-8";
+  return Object.freeze({
+    reviewerDecision,
+    reviewerFindingCount,
+    reviewerProjectedTargetExact,
+    remediationPerformed:
+      typeof result?.remediationPerformed === "boolean"
+        ? result.remediationPerformed
+        : null,
+  });
 }
 
 function boundedRecoveryIds(
@@ -1243,6 +1294,7 @@ export async function runSignedGeneralTaskVerification(
           executionRevisionMismatch,
           route,
         );
+        const reviewerDiagnosis = reviewerDiagnosisProjection(taskResult);
         const mismatchReason = executionRevisionMismatch
           ? executionRevisionMismatch ===
             "execution_repository_revision_observation_unknown"
@@ -1260,6 +1312,7 @@ export async function runSignedGeneralTaskVerification(
               taskResult,
               Object.freeze({
                 resultContractMismatch,
+                ...reviewerDiagnosis,
                 ...executionStateProjection,
               }),
             )
@@ -1268,6 +1321,7 @@ export async function runSignedGeneralTaskVerification(
               taskResult,
               Object.freeze({
                 resultContractMismatch,
+                ...reviewerDiagnosis,
                 ...executionStateProjection,
               }),
             ) ??
@@ -1278,6 +1332,7 @@ export async function runSignedGeneralTaskVerification(
                 candidateDiscarded: false,
                 candidateDisposition: "recovery_required",
                 resultContractMismatch,
+                ...reviewerDiagnosis,
                 ...executionStateProjection,
               }),
             ));

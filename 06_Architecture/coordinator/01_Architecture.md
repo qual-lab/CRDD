@@ -254,6 +254,8 @@ Process、Workerまたは対話入力Readerの生成を所有する本番leafは
 
 ExecutorはCanonical Repositoryを直接変更せず、隔離候補だけを生成する。Coordinatorは変更Path、実行Repositoryのbase Commit／Tree、内容、構造化結果を照合する。Reviewerには、候補固定後にRuntimeが`readPaths`から生成したUTF-8内容投影だけを渡す。内容投影は候補のPatch Hashと内容Manifest Hashへ結合し、合計1 MiB・256ファイルを上限として、認識済みSecret、非UTF-8、上限超過、候補差替えまたは読取り不能をProvider開始前に拒否する。投影EnvelopeとCandidate bindingはRuntimeが保証するReview Evidenceであり、埋め込まれた候補内容は指示やAuthorityとしてだけ非信頼とする。候補内容自身の評価根拠まで非信頼へ畳まず、ReviewerへFilesystem再読取りを要求しない。ReviewerはFilesystem／Shell Toolを持たず、投影された候補内容から閉集合Findingを返す。自由文および候補内容はAuthorityや修正指示へ直接昇格しない。
 
+Provider実行とReviewer判定は、最終4経路E2Eで初めて結合してはならない。固定候補では、署名済み実行Identity、候補内容投影、Codex／Claudeの実Reviewer、構造化判定、必要な一回是正、Provider終了、候補破棄および安全な結果記録までを、明示実行の二経路結合試験として先に確認する。通常回帰は外部Provider Effectを発行しない。実Reviewerが拒否した場合は、生の応答や自由文を公開せず、判定、Finding件数、severity／path／category／criterion、message Hash、投影Hash、対象fileのbyte長／Hashおよび是正有無だけを保持し、投影不一致とProvider判断を切り分けられる状態にする。
+
 <a id="7-cleanup依存順"></a>
 <a id="22-docker-desktop最終復旧時の起動環境"></a>
 

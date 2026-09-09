@@ -10,6 +10,7 @@ import { isCanonicalSignedRunnerRecoveryId } from "../security/signed-runner-saf
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
 
 const CONTRACT = "crdd-coordinator/local-verification-record";
+const CONTRACT_REVISION = 2;
 const MAX_RECORD_BYTES = 32 * 1024;
 const MAX_EXISTING_ENTRIES = 256;
 const REASONS = new Set([
@@ -21,6 +22,8 @@ const REASONS = new Set([
   "signed_recovery_matrix_failed_closed",
   "signed_recovery_matrix_node_version_unsupported",
   "signed_general_task_verification_completed",
+  "signed_reviewer_boundary_integration_completed",
+  "signed_reviewer_boundary_integration_incomplete",
   "signed_general_task_candidate_content_mismatch",
   "signed_general_task_result_contract_mismatch",
   "signed_general_task_execution_repository_changed",
@@ -74,6 +77,7 @@ const booleanFields = [
   "candidateDiscarded",
   "exactCandidateContentVerified",
   "remediationPerformed",
+  "reviewerProjectedTargetExact",
   "freshRecoveryCompleted",
   "childProcessTerminationObserved",
   "residualOperationDirectory",
@@ -134,6 +138,19 @@ export function projectVerificationResult(
         ? observed
         : null;
   }
+  const reviewerDecision = ownValue(value, "reviewerDecision");
+  summary.reviewerDecision =
+    reviewerDecision === "approved" || reviewerDecision === "changes_requested"
+      ? reviewerDecision
+      : null;
+  const reviewerFindingCount = ownValue(value, "reviewerFindingCount");
+  summary.reviewerFindingCount =
+    typeof reviewerFindingCount === "number" &&
+    Number.isSafeInteger(reviewerFindingCount) &&
+    reviewerFindingCount >= 0 &&
+    reviewerFindingCount <= 64
+      ? reviewerFindingCount
+      : null;
   for (const field of ["failedRouteProfile", "requestedRouteProfile"])
     summary[field] = known(ownValue(value, field), ROUTES);
   summary.validationFailure = known(
@@ -309,7 +326,7 @@ function writeNewRecord(
 }
 
 export async function runRecordedVerification<T, E>(
-  kind: "routes" | "recovery",
+  kind: "routes" | "recovery" | "reviewer-boundary",
   workingDirectory: string,
   executeVerification: () => Promise<T>,
   onException: () => E,
@@ -320,7 +337,7 @@ export async function runRecordedVerification<T, E>(
   try {
     if (
       !isSupportedCoordinatorNodeRuntime(process.versions.node) ||
-      (kind !== "routes" && kind !== "recovery")
+      (kind !== "routes" && kind !== "recovery" && kind !== "reviewer-boundary")
     )
       throw new Error("verification_record_input_invalid");
     const root =
@@ -341,7 +358,7 @@ export async function runRecordedVerification<T, E>(
     directories = [...directories, observeDirectory(runPath)];
     started = Object.freeze({
       contract: CONTRACT,
-      contractRevision: 1,
+      contractRevision: CONTRACT_REVISION,
       recordId,
       kind,
       startedAt: new Date().toISOString(),
@@ -377,7 +394,7 @@ export async function runRecordedVerification<T, E>(
     // A valid-looking result alone is not enough: flush/read-back may have failed.
     writeNewRecord(directories, "complete.json", {
       contract: CONTRACT,
-      contractRevision: 1,
+      contractRevision: CONTRACT_REVISION,
       recordId,
       kind,
       startedAt: started.startedAt,

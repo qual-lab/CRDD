@@ -83,6 +83,9 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
       return true;
     },
     attemptedRouteCount: Infinity,
+    reviewerDecision: "changes_requested",
+    reviewerFindingCount: 1,
+    reviewerProjectedTargetExact: true,
     results: [
       {
         status: "blocked",
@@ -94,6 +97,9 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
   assert.equal(projected.reason, "unknown");
   assert.equal(projected.cleanupConfirmed, null);
   assert.equal(projected.attemptedRouteCount, null);
+  assert.equal(projected.reviewerDecision, "changes_requested");
+  assert.equal(projected.reviewerFindingCount, 1);
+  assert.equal(projected.reviewerProjectedTargetExact, true);
   assert.equal(projected.recoveryFieldsComplete, false);
   assert.deepEqual(projected.dockerRecoveryIds, [id]);
   assert.equal(wasGetterCalled, false);

@@ -2148,6 +2148,7 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
   assert.deepEqual(result.normalizedResult, {
     decision: "approved",
     findingCount: 0,
+    findingDiagnostics: [],
     providerTurnObservation: {
       provider: "claude",
       taskRole: "reviewer",
