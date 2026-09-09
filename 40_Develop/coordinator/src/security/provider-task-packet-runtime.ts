@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 16;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 17;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -246,7 +246,7 @@ function taskHash(
   remediationFindings: TaskPacket["remediationFindings"],
 ) {
   return createHash("sha256")
-    .update("crdd-provider-task-packet-v6\0")
+    .update("crdd-provider-task-packet-v7\0")
     .update(
       JSON.stringify({
         operationId,
@@ -268,6 +268,7 @@ function promptFor(packet: TaskPacket) {
     packet.taskRole === "executor"
       ? [
           "Work only inside /work. Modify only the allowed paths. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems.",
+          "Before returning, inspect the readable paths, perform the objective with only the available local workspace tools, and verify the resulting allowed-path content. A completed JSON result does not substitute for the requested workspace change.",
           "Executor result invariant: changedPaths is the complete set of paths that differ from the base revision after this attempt. During remediation it includes candidate changes already present before this attempt, not only paths written during the remediation turn.",
         ].join(" ")
       : [

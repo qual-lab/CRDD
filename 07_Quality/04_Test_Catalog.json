@@ -1,6 +1,6 @@
 {
   "contract": "crdd/test-catalog",
-  "contractRevision": 8,
+  "contractRevision": 9,
   "levels": [
     "unit",
     "integration",
@@ -1724,6 +1724,29 @@
       "postconditions": [
         "public_result_observed",
         "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:provider-execution-boundary-matrix",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/provider-execution-boundary-matrix.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "executor",
+        "reviewer",
+        "lifecycle",
+        "coverage"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "codex_and_claude_role_plans_closed",
+        "declared_lifecycle_cases_mapped_to_tests",
+        "real_route_set_closed"
       ],
       "mandatoryByDefault": true
     },

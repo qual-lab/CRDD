@@ -412,7 +412,7 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 回帰選択 | 結合単位の意味変更時は付随lifecycleのITと前版Capabilityの実境界Evidenceまで選択 |
 | 完成判定 | 責務表、状態遷移表、シーケンス、実装所有者および検証項目の未対応を固定候補前の不整合として扱う。試験Catalogは正本の意味を複製せず、参照と試験IDの対応を所有する |
 
-Docker固有の表だけで閉じず、Checker、Project Runtime、Coordinator、実行知、MCPおよびPlatform Accessの全Toolへ結合ブロックを展開した。人間向けの責務境界とブロック間の時間順は[Tool全体の結合ブロック](../../06_Architecture/01_Architecture.md#tool全体の結合ブロック)と[ブロック間シーケンス](../../06_Architecture/01_Architecture.md#ブロック間シーケンスの正本)、機械可読なOwner、Lifecycle profile、一段／二段の結合経路、実在ITおよび終了後条件は[試験カタログ](../../07_Quality/04_Test_Catalog.json) revision 8が所有する。Catalogは全Toolのブロック参加、実在するArchitecture見出し、最大二段の経路およびIT接続を拒否条件として検査する。
+Docker固有の表だけで閉じず、Checker、Project Runtime、Coordinator、実行知、MCPおよびPlatform Accessの全Toolへ結合ブロックを展開した。人間向けの責務境界とブロック間の時間順は[Tool全体の結合ブロック](../../06_Architecture/01_Architecture.md#tool全体の結合ブロック)と[ブロック間シーケンス](../../06_Architecture/01_Architecture.md#ブロック間シーケンスの正本)、機械可読なOwner、Lifecycle profile、一段／二段の結合経路、実在ITおよび終了後条件は[試験カタログ](../../07_Quality/04_Test_Catalog.json) revision 9が所有する。Catalogは全Toolのブロック参加、実在するArchitecture見出し、最大二段の経路およびIT接続を拒否条件として検査する。
 
 MCPでは、stdioのparent EOFから進行要求取消・joinまでと、localhost HTTPのidle socket・listener shutdownを公開LauncherのSTから分離した実境界ITとして追加した。最初の実stdio結合では、要求処理を`await`している間に入力streamの読取りが停止し、親EOFを観測できない不具合を検出した。Transportの入力観測を意味処理から分離し、要求処理中もEOF／error／closeを観測して同じ取消Signalへ接続し、意味結果を受け取ってからTransport終了を返す構造へ是正した。stdio／HTTPのTransport lifecycleを含む16件は成功し、最終E2Eを最初の切断・join発見地点にしない境界を固定した。
 

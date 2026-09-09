@@ -185,6 +185,19 @@ Provider終了／候補処置
 
 失敗結果には生のProvider出力やFinding本文を保存しない。Runtimeが検証した判定、Finding件数、severity／path／category／criterion、本文Hash、候補投影Hash、対象fileのbyte長／Hash、是正有無および終了後資源だけを保存する。これにより、安全境界を維持したまま、最終4経路E2Eの前に境界不成立を局所化する。
 
+### 7.6 Provider実行境界の全数化
+
+実Reviewer境界を追加した後、Reverse経路ではCodex Executorが完了結果を返しても候補内容が変化せず、一回是正後も同じ不承認となった。`workspace-write`の指定だけでは、現在のCodex CLIが無人実行時に書込み要求を承認する経路の成立を証明していなかった。一方、CLI helpに専用optionが存在することだけでも原因を確定できないため、推測修正ではなくProviderごとの最小実境界と全Lifecycle Matrixへ戻す。
+
+| 確認群 | 全数対象 |
+|---|---|
+| Role計画 | Codex／Claude × Executor／ReviewerのTool、Approval、Workspace権限、stdin |
+| 正常縦断 | 両ProviderをExecutorとReviewerの双方で一回ずつ使用し、実変更、申告、候補捕捉、投影、判定、処置、資源不存在を確認 |
+| 異常Lifecycle | 同期／非同期起動失敗、非ゼロ終了、timeout、取消、不正結果、申告差、投影失敗、cleanup不明、一回是正 |
+| 閉包 | 宣言caseを実在試験へ全数対応し、未対応、重複、消失を機械検出 |
+
+異常Lifecycleは実Providerの応答揺れへ依存させず、同じDocker・子Process・候補経路へ決定論的に注入する。正常縦断だけを明示した実Provider結合として実行し、Subscription消費と外部送信範囲を限定する。CLI option、正常終了codeまたはProvider申告からCapability成立を断定せず、実Workspaceのbyte変化と終了後条件を観測する。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。

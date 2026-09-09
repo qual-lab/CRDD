@@ -53,7 +53,7 @@ export type TestCatalogEntry = Readonly<{
 
 export type TestCatalog = Readonly<{
   contract: "crdd/test-catalog";
-  contractRevision: 8;
+  contractRevision: 9;
   levels: readonly TestLevel[];
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
@@ -329,7 +329,7 @@ export function inspectTestCatalog(
   }
   const catalog = candidate as unknown as TestCatalog;
   if (catalog.contract !== "crdd/test-catalog") failures.push("contract");
-  if (catalog.contractRevision !== 8) failures.push("contract_revision");
+  if (catalog.contractRevision !== 9) failures.push("contract_revision");
   if (catalog.regressionIsSelection !== true)
     failures.push("regression_selection_contract");
   if (JSON.stringify(catalog.levels) !== JSON.stringify(testLevels))

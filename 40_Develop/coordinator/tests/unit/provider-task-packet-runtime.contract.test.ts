@@ -153,6 +153,10 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
     );
     assert.match(
       consumed?.prompt ?? "",
+      /inspect the readable paths, perform the objective with only the available local workspace tools, and verify the resulting allowed-path content/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
       /not only paths written during the remediation turn/u,
     );
     assert.equal(
@@ -766,7 +770,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 16);
+  assert.equal(contract.contractRevision, 17);
   assert.equal(
     contract.repositoryFileBytesEmbeddedInPrompt,
     "reviewer_only_explicit_read_projection_bound_to_candidate_identity",

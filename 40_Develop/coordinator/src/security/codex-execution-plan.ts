@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 8;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 9;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -172,6 +172,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
     argv: Object.freeze([
       "exec",
       "--ephemeral",
+      ...(taskRole === "executor" ? ["--approve-for-me"] : []),
       "--ignore-user-config",
       "--ignore-rules",
       "--strict-config",
@@ -189,8 +190,9 @@ export function planCodexIsolatedTask(candidate: unknown) {
       `features.shell_tool=${taskRole === "executor" ? "true" : "false"}`,
       "--config",
       `features.unified_exec=${taskRole === "executor" ? "true" : "false"}`,
-      "--config",
-      'approval_policy="never"',
+      ...(taskRole === "reviewer"
+        ? ["--config", 'approval_policy="never"']
+        : []),
       "--config",
       'web_search="disabled"',
       "--config",
@@ -230,6 +232,10 @@ export function planCodexIsolatedTask(candidate: unknown) {
     workspaceMountRequired: true,
     workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
     codexSandboxMode: taskRole === "executor" ? "workspace-write" : "read-only",
+    approvalMode:
+      taskRole === "executor"
+        ? "automatic_review_workspace_write"
+        : "never_read_only",
     rootFilesystemReadOnly: true,
     taskPromptTransport: "stdin_only" as const,
     taskPromptInArgvAllowed: false,

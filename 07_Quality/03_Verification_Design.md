@@ -80,7 +80,9 @@ Lifecycle profileは次の意味で用いる。`pure_component`でも入力拒�
 | `durable_operation` | intent、競合、write／flush／publish／readback、失敗残存、Recovery、再入場、settlement |
 | `external_effect_operation` | Authority取得、Effect前再確認、要求／受理／完了／観測、timeout／取消、全資源cleanup、Recovery、再入場、settlement |
 
-[試験カタログ](04_Test_Catalog.json) revision 8は、全Toolが一つ以上の結合ブロックを持ち、各ブロックが詳細Architecture、責務、外部境界、Lifecycle profile、実在する結合試験および終了後条件へ接続することを機械検査する。さらに、ブロック間シーケンスの正本と、一段または二段の段階的結合経路、経路を反証する結合試験および終了後条件を対応させる。ブロック変更時は、Architectureだけ、試験だけ、またはカタログだけを更新して完了としない。ブロックの試験が固定Fakeに限られる場合は、実境界の確認を別の結合試験または未確認義務として残し、最終E2Eまで発見を遅延させない。
+[試験カタログ](04_Test_Catalog.json) revision 9は、全Toolが一つ以上の結合ブロックを持ち、各ブロックが詳細Architecture、責務、外部境界、Lifecycle profile、実在する結合試験および終了後条件へ接続することを機械検査する。さらに、ブロック間シーケンスの正本と、一段または二段の段階的結合経路、経路を反証する結合試験および終了後条件を対応させる。ブロック変更時は、Architectureだけ、試験だけ、またはカタログだけを更新して完了としない。ブロックの試験が固定Fakeに限られる場合は、実境界の確認を別の結合試験または未確認義務として残し、最終E2Eまで発見を遅延させない。
+
+Provider実行境界はReviewerだけを先に実測して完了としない。CodexとClaudeの双方について、ExecutorとReviewerのRole別計画、stdin搬送、隔離Workspaceの読書き権限、実変更、変更Path申告、候補捕捉、内容投影、構造化結果、Provider終了、候補処置および資源不存在を一つの有限Matrixへ置く。正常な実Provider経路は各ProviderをExecutorとReviewerの双方で一回ずつ通す。起動失敗、非ゼロ終了、timeout、取消、不正結果、変更Path不一致、内容投影失敗、cleanup不明および一回是正は決定論的な実Process／Docker境界で反証し、不安定な実Provider応答を異常系fixtureとして利用しない。宣言したMatrixの各caseは実在試験へ全数対応させ、代表caseの成功、CLI helpまたはProvider完了申告だけから境界完成を推定しない。
 
 実ProviderによるReviewer判定は、Provider計画やResult Parserの単体試験、固定FakeのCoordinator結合試験、および正式4経路E2Eの間に置く独立した実境界結合で確認する。署名済み固定候補からCodex ReviewerとClaude Reviewerを各一回通し、候補内容投影、構造化判定、必要な一回是正、Provider終了、候補処置およびcleanupまでを観測する。通常回帰からは自動実行せず、外部送信許可とSubscription消費を明示した実行だけがProvider Effectを持つ。失敗時は生のProvider出力を残さず、対象投影のexact一致、判定、Finding件数・分類・message Hash、是正有無および終了後資源から、投影不備とProvider判断を切り分ける。
 
@@ -130,7 +132,7 @@ Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場
 
 ### 変更影響型回帰の信頼境界
 
-[試験カタログ](04_Test_Catalog.json) revision 8は、Rootと各登録項目のkey、列挙値、必須Boolean、非空かつ重複のない集合、およびRepository内の正規化相対Pathを閉じたSchemaとして検証する。欠落field、未知field、不明な列挙値、絶対Path、親Directory参照または区切り差を既定値へ畳まず、試験Process開始前に停止する。`externalProviderEffect`と`humanInput`の欠落を`false`と推定しない。結合ブロックについてはOwner全数、Architecture参照、Lifecycle profile、実在するITおよび終了後条件を照合し、結合経路についてはテキストシーケンス図への参照、二または三ブロックの経路、実在するITおよび終了後条件を照合する。
+[試験カタログ](04_Test_Catalog.json) revision 9は、Rootと各登録項目のkey、列挙値、必須Boolean、非空かつ重複のない集合、およびRepository内の正規化相対Pathを閉じたSchemaとして検証する。欠落field、未知field、不明な列挙値、絶対Path、親Directory参照または区切り差を既定値へ畳まず、試験Process開始前に停止する。`externalProviderEffect`と`humanInput`の欠落を`false`と推定しない。結合ブロックについてはOwner全数、Architecture参照、Lifecycle profile、実在するITおよび終了後条件を照合し、結合経路についてはテキストシーケンス図への参照、二または三ブロックの経路、実在するITおよび終了後条件を照合する。
 
 回帰対象はfilenameの語句一致から選ばない。登録済み試験そのものだけが変更された場合はその試験を直接選択できるが、production code、support、fixtureまたは設定の変更では、対象Toolが所有するUT・IT・STを安全側の閉包として選択する。共有カタログ・共有設定または所有者を確定できない実行可能変更では全Toolを選択する。Markdown変更ではCheckerとRepository文書検査を静的段階へ含める。この保守的選択を意味依存グラフの完成と読み替えず、将来、機械的に検証できる依存関係が成立した範囲だけ狭める。
 
