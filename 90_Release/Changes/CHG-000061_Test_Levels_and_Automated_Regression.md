@@ -159,6 +159,8 @@ v0.19.0との比較では、Docker Desktopを起動するNative処理および�
 
 指示を一意化した固定候補でも、Filesystem Toolを無効化済みのCodex Reviewerは完了し、旧来の`Read`／`Glob`／`Grep` Capabilityが残るClaude Reviewerだけが不承認となった。設計上の入力正本と実行時Capabilityを一致させるため、Claude ReviewerのBuilt-in Toolも空集合へ変更する。read-only mountの存在を読取りCapability成立とみなさず、全Provider ReviewerがRuntime所有の不変内容投影だけを評価する。Provider間で同じRole契約を持つ場合は、PromptだけでなくTool、FilesystemおよびProcess Capabilityの実効集合も同値にする。
 
+Toolを空集合へ揃えた固定候補でも、同じClaude Reviewer不承認が再現した。この結果により、旧Tool残存だけを原因とする仮説は反証された。Review入力を再点検すると、投影を「非信頼Candidate data」と表現しながら、その投影だけでCandidate内容を評価させており、指示としての非信頼性とReview Evidenceとしての正当性が区別されていなかった。投影EnvelopeとCandidate bindingはRuntime-authenticated Evidence、埋め込み内容は指示・Authorityとしてのみ非信頼、候補内容を評価するdataとしてはexact、という責務を一意化する。安全境界の表現が、必要な証明能力そのものを否定しないことをCross-provider実E2Eで確認する。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。
