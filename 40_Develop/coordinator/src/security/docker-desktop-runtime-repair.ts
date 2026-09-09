@@ -1353,7 +1353,7 @@ function historicalBrokenRuntimeCanBeRetainedForNewRepair(
   return (
     state.boundaryState === "verified" &&
     state.engine === "known_unavailable" &&
-    state.processes === "verified" &&
+    (state.processes === "verified" || state.processes === "absent") &&
     state.run.state === "present" &&
     state.run.identity !== null &&
     state.stale.state === "confirmed_absent" &&
@@ -3953,7 +3953,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
           const lockedRunIdentity =
             fresh.boundaryState === "verified" &&
             fresh.engine === "known_unavailable" &&
-            fresh.processes === "verified"
+            (fresh.processes === "verified" || fresh.processes === "absent")
               ? dependencies.observeKnownSocketFailure(boundary)
               : null;
           const currentBoundary = dependencies.prepareBoundary();

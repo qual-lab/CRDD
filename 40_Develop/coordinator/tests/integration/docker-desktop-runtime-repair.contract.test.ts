@@ -1444,6 +1444,10 @@ test("旧runが新しい既知障害世代へ置換済みでも履歴を保持�
   const state = fixture({
     inventory: () => ({ status: "verified", operations: [operation] }),
     observeEngine: () => "known_unavailable",
+    acquireHelper: async () => ({
+      status: "acquired" as const,
+      session: session({ processes: "absent" }),
+    }),
     observeKnownSocketFailure: () => replacementRunIdentity,
     observePath: (target) =>
       target === boundary.runDirectory

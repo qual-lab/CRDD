@@ -482,3 +482,11 @@ Engine観測を三値へ戻す際、旧`queryDocker`を`queryDockerEngine`と`qu
 | 現在SessionのAuthority | 現在の署名済みRuntime、保護済みRuntime Root、物理Lockおよび既存のappend-only Session引継ぎで別途確認する | 過去RecordのPrincipal保持だけから現在Sessionの変更権限を推定しない |
 | 利用側閉包 | 準備、Runtime Identity引継ぎ、継続記録解決および`settled`後のTask回復が同じ耐久Principalを使う | 準備だけ成功し、完了利用側が現在Session Hashで再解釈する状態を許さない |
 | 実機Gate | 保存済み記録を編集せず、新しい固定候補からSession引継ぎ、Runtime引継ぎおよびTask回復を縦断する | 注入型試験の成功を実回復完了へ昇格しない |
+
+旧Docker Desktop修復履歴を閉じる実再入場では、現在の`Docker/run`が旧Operationの世代から更新後の新世代へ置換され、Docker Processは明示的不在だった。初回是正は新世代を受理したものの、注入試験が既定の`verified` Process状態だけを使い、実環境の`absent`状態を全数対応に含めていなかったため、同じ停止理由を残した。
+
+| 是正対象 | 正しい状態 | 反証 |
+| --- | --- | --- |
+| 旧履歴と現在世代 | 旧Operation Identityは履歴に保持し、freshな二回の現在`run`観測と既知lockだけを新修復対象へ結合する | 世代差を旧Effect不存在や復旧成功へ読み替えない |
+| Process状態 | 存在が検証済み、または不存在が確認済みの両方を既知状態として扱う | `unknown`は履歴閉鎖にも新修復にも使わない |
+| 実環境対応 | 注入試験を実際に観測した`absent`状態へ固定し、署名候補から同じ履歴IDを閉じる | 既定fixtureの成功を実再入場成功へ昇格しない |
