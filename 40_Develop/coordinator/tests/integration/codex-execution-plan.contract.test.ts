@@ -77,23 +77,20 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
   assert.equal(executor.workspaceMountMode, "read_write");
   assert.equal(
     executor.explicitSandboxOption,
-    "workspace_write_executor_read_only_reviewer",
+    "approve_for_me_executor_workspace_write_reviewer_read_only",
   );
-  assert.equal(executor.approvalMode, "never_with_role_permission_profile");
-  assert.equal(executor.argv.includes("--approve-for-me"), false);
-  assert.equal(
-    executor.argv[executor.argv.indexOf("--sandbox") + 1],
-    "workspace-write",
-  );
-  assert.equal(executor.argv.includes('approval_policy="never"'), true);
+  assert.equal(executor.approvalMode, "automatic_review_workspace_write");
+  assert.equal(executor.argv.includes("--approve-for-me"), true);
+  assert.equal(executor.argv.includes("--sandbox"), false);
+  assert.equal(executor.argv.includes('approval_policy="never"'), false);
   assert.equal(reviewer.status, "candidate");
   assert.equal(reviewer.exactModel, "gpt-5.5");
   assert.equal(reviewer.workspaceMountMode, "read_only");
   assert.equal(
     reviewer.explicitSandboxOption,
-    "workspace_write_executor_read_only_reviewer",
+    "approve_for_me_executor_workspace_write_reviewer_read_only",
   );
-  assert.equal(reviewer.approvalMode, "never_with_role_permission_profile");
+  assert.equal(reviewer.approvalMode, "never_read_only");
   assert.equal(reviewer.argv.includes("--approve-for-me"), false);
   assert.equal(
     reviewer.argv[reviewer.argv.indexOf("--sandbox") + 1],
@@ -107,7 +104,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
     assert.equal(plan.webSearchAllowed, false);
     assert.equal(plan.providerHomeCommandReadAllowed, false);
     assert.equal(plan.argv.at(-1), "-");
-    assert.equal(plan.argv.includes("--sandbox"), true);
+    assert.equal(plan.argv.includes("--sandbox"), plan.taskRole === "reviewer");
     assert.equal(
       plan.argv.includes("features.respect_system_proxy=true"),
       true,
@@ -217,7 +214,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
 
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
-  assert.equal(contract.contractRevision, 12);
+  assert.equal(contract.contractRevision, 13);
   assert.equal(
     contract.distributionVerification.sigstoreBlobSignatureVerified,
     true,
@@ -251,7 +248,7 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
   assert.equal(contract.isolatedTaskExactModel, "gpt-5.5");
   assert.equal(
     contract.isolatedTask.explicitSandboxOption,
-    "workspace_write_executor_read_only_reviewer",
+    "approve_for_me_executor_workspace_write_reviewer_read_only",
   );
   assert.equal(
     contract.outboundProxyPolicy,

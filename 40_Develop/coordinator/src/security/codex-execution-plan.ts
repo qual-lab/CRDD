@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 12;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 13;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -172,6 +172,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
     argv: Object.freeze([
       "exec",
       "--ephemeral",
+      ...(taskRole === "executor" ? ["--approve-for-me"] : []),
       "--ignore-user-config",
       "--ignore-rules",
       "--strict-config",
@@ -189,8 +190,9 @@ export function planCodexIsolatedTask(candidate: unknown) {
       `features.shell_tool=${taskRole === "executor" ? "true" : "false"}`,
       "--config",
       `features.unified_exec=${taskRole === "executor" ? "true" : "false"}`,
-      "--config",
-      'approval_policy="never"',
+      ...(taskRole === "reviewer"
+        ? ["--config", 'approval_policy="never"']
+        : []),
       "--config",
       'web_search="disabled"',
       "--config",
@@ -211,8 +213,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
       `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"},"${DISTRIBUTION_IDENTITY.executablePath}"="read"}`,
       "--config",
       `permissions.${permissionProfile}.network.enabled=false`,
-      "--sandbox",
-      taskRole === "executor" ? "workspace-write" : "read-only",
+      ...(taskRole === "reviewer" ? ["--sandbox", "read-only"] : []),
       "--skip-git-repo-check",
       "--cd",
       "/work",
@@ -229,8 +230,12 @@ export function planCodexIsolatedTask(candidate: unknown) {
     providerHomeMountRequired: true,
     workspaceMountRequired: true,
     workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
-    explicitSandboxOption: "workspace_write_executor_read_only_reviewer",
-    approvalMode: "never_with_role_permission_profile",
+    explicitSandboxOption:
+      "approve_for_me_executor_workspace_write_reviewer_read_only",
+    approvalMode:
+      taskRole === "executor"
+        ? "automatic_review_workspace_write"
+        : "never_read_only",
     rootFilesystemReadOnly: true,
     taskPromptTransport: "stdin_only" as const,
     taskPromptInArgvAllowed: false,
@@ -306,7 +311,8 @@ export function describeCodexExecutionPlanContract() {
     outboundProxyPolicy: "official_cli_respect_system_proxy_required",
     isolatedTask: Object.freeze({
       roles: Object.freeze(["executor", "reviewer"]),
-      explicitSandboxOption: "workspace_write_executor_read_only_reviewer",
+      explicitSandboxOption:
+        "approve_for_me_executor_workspace_write_reviewer_read_only",
       permissionProfile: "root_deny_minimal_read_workspace_role_access",
       providerHomeCommandReadAllowed: false,
       commandNetworkAccessAllowed: false,

@@ -211,6 +211,8 @@ v0.19.0の固定Binary、Task計画および実変更Evidenceを比較し、Code
 
 Task入力を正確に復元してもCodex Executorだけが変更0件だった。過去の試行順を再構成すると、明示的なSandboxを試した時点ではTask条件が未成立であり、Task条件を復元した後はSandboxを省略していたため、両方を満たす組合せは未検証だった。現行のCodex CLI公式契約では、非対話のWorkspace内書込みに`--sandbox workspace-write`を使用する。固定CLI、Role別Filesystem権限Profile、`approval_policy="never"`、Docker隔離を維持したまま、Executorへ`workspace-write`、Reviewerへ`read-only`を明示し、正しいTask入力との組合せを実境界で反証する。
 
+この組合せでもCodex Executorは変更0件だった。固定CLI `0.149.1`が提供する無人実行用`--approve-for-me`は、明示的な`--sandbox`と同時指定できず、自身が自動ReviewとWorkspace書込みSandboxを選択する。過去は不十分なTask条件としか組み合わせていなかったため、復元済みTask入力との組合せを最後の固定CLI内候補として反証する。これでも実変更が成立しなければ、引数の局所調整を終了し、固定CLIと現在のService／Tool契約の互換性を配布更新として扱う。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。
