@@ -213,8 +213,9 @@ export function planCodexIsolatedTask(candidate: unknown) {
       `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"},"${DISTRIBUTION_IDENTITY.executablePath}"="read"}`,
       "--config",
       `permissions.${permissionProfile}.network.enabled=false`,
-      "--sandbox",
-      taskRole === "executor" ? "workspace-write" : "read-only",
+      // --approve-for-me owns the executor's workspace-write sandbox selection.
+      // Codex 0.149.1 rejects an explicit --sandbox used with that option.
+      ...(taskRole === "reviewer" ? ["--sandbox", "read-only"] : []),
       "--skip-git-repo-check",
       "--cd",
       "/work",

@@ -136,6 +136,11 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
         item.role === "executor" ? "workspace-write" : "read-only",
       );
       assert.equal(argv.includes("--approve-for-me"), item.role === "executor");
+      assert.equal(argv.includes("--sandbox"), item.role === "reviewer");
+      assert.equal(
+        argv.includes("--approve-for-me") && argv.includes("--sandbox"),
+        false,
+      );
     } else {
       assert.equal(plan.providerHomeBuiltInToolAccessAllowed, false);
       const permissionMode = argv[argv.indexOf("--permission-mode") + 1];

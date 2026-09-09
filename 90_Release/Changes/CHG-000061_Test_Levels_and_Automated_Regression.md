@@ -201,6 +201,10 @@ Provider終了／候補処置
 
 異常Lifecycleは実Providerの応答揺れへ依存させず、同じDocker・子Process・候補経路へ決定論的に注入する。正常縦断だけを明示した実Provider結合として実行し、Subscription消費と外部送信範囲を限定する。CLI option、正常終了codeまたはProvider申告からCapability成立を断定せず、実Workspaceのbyte変化と終了後条件を観測する。
 
+固定開発候補の初回実測では、Claude ExecutorからCodex Reviewerへの経路は成立した一方、Codex Executorだけが`provider_process_exit_nonzero`となった。ネットワークとProvider Homeを遮断した固定Codex 0.149.1のProcess初期化Probeにより、`--approve-for-me`と`--sandbox workspace-write`の同時指定をCLI自身が拒否することを確認した。各optionの存在と期待値を別々に確認した結合試験では、この組合せ契約を保証できていなかった。
+
+是正後は、Codex Executorの自動承認optionへ`workspace-write`選択を一元化し、明示的な`--sandbox`はReviewerの`read-only`だけに限定する。Root deny、Workspace限定write、Provider実行物readおよびProvider HomeのCommand read禁止を持つCRDD権限Profile、Dockerのread-only root、Capability drop、Network proxyおよびTask境界は変更しない。計画試験は、自動承認optionと明示Sandboxが同居しない相関不変条件を確認する。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。
