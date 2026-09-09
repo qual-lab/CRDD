@@ -205,7 +205,9 @@ Provider終了／候補処置
 
 最初の是正では、Codex Executorの自動承認optionへ`workspace-write`選択を委ね、Process初期化の衝突を解消した。しかし実Provider境界では、Codexが初回と是正の双方で変更0件を返し、Reviewerが同じ未達を検出した。Process開始を実変更能力の成立と扱ったため、この是正だけでは不十分だった。
 
-v0.19.0の固定Binary、Task計画および実変更Evidenceを比較し、Codex Executorを実証済みの`approval_policy="never"`と明示的な`--sandbox workspace-write`へ戻す。Reviewerは`approval_policy="never"`と`read-only`を維持する。Root deny、Workspace限定write、Provider実行物read、Provider HomeのCommand read禁止、Dockerのread-only root、Capability drop、Network proxyおよびTask境界は変更しない。結合試験はProcess初期化だけでなく、実Workspaceの許可対象1件が変更され、対象外変更0件、終了後残存0件になるまでを成立条件とする。
+v0.19.0の固定Binary、Task計画および実変更Evidenceを比較し、Codex Executorを実証済みの`approval_policy="never"`と明示的な`--sandbox workspace-write`へ戻す。Reviewerは`approval_policy="never"`と`read-only`を維持する。Root deny、Workspace限定write、Provider実行物read、Provider HomeのCommand read禁止、Dockerのread-only root、Capability drop、Network proxyおよびTask境界は変更しない。
+
+この経路へ戻した後もCodex Executorは変更0件を返したため、v0.19.0との差をTask入力まで広げて再確認した。v0.20の検証Taskは、Reviewerへ投影判定を指示する一条件へ縮約され、Executorに必要な対象Path、既存BASEの置換および期待する最終内容が受入条件として分離されていなかった。検証TaskをRole共通で実行・判定できる三条件へ戻し、Reviewer固有の投影方法は最終内容条件の補足へ限定する。結合試験はProcess初期化だけでなく、実Workspaceの許可対象1件が変更され、対象外変更0件、終了後残存0件になるまでを成立条件とする。
 
 ## 8. 完成条件
 

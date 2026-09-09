@@ -36,7 +36,7 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/securi
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 24;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 25;
 
 const TARGET_PATH =
   "40_Develop/coordinator/runtime/general-task-verification.txt";
@@ -830,7 +830,9 @@ export function createSignedGeneralTaskVerificationRequest(
     objective:
       "Replace only the final BASE token in the existing bounded verification marker with OK; preserve the file as one UTF-8 line ending with LF and do not recreate or reformat it.",
     acceptanceCriteria: Object.freeze([
-      `For this fixed route verification, approve this criterion when the Runtime-authenticated projection contains one present record for ${TARGET_PATH} whose content is exactly ${JSON.stringify(EXPECTED_CONTENT)}. Otherwise request changes. Do not require a filesystem reread or other repository evidence. The signed runner separately verifies the base bytes, changed-path closure, exact UTF-8 bytes, trailing LF, byte length and SHA-256; do not claim those separate checks have run.`,
+      `Modify ${TARGET_PATH} and no other path.`,
+      `The existing file contains the bounded marker ending in BASE; replace only that final BASE token with OK and do not recreate or reformat the file.`,
+      `The resulting file content is exactly ${JSON.stringify(EXPECTED_CONTENT)}. The reviewer evaluates this content from the Runtime-authenticated projection and must not require a filesystem reread. The signed runner separately verifies the base bytes, changed-path closure, exact UTF-8 bytes, trailing LF, byte length and SHA-256; do not claim those separate checks have run.`,
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
     readPaths: Object.freeze([TARGET_PATH]),

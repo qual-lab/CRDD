@@ -353,7 +353,15 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
       assert.ok(consumed);
       assert.match(
         consumed.prompt,
-        /approve this criterion when the Runtime-authenticated projection contains one present record/u,
+        /Modify 40_Develop\/coordinator\/runtime\/general-task-verification\.txt and no other path/u,
+      );
+      assert.match(
+        consumed.prompt,
+        /replace only that final BASE token with OK/u,
+      );
+      assert.match(
+        consumed.prompt,
+        /reviewer evaluates this content from the Runtime-authenticated projection/u,
       );
       assert.match(
         consumed.prompt,
@@ -366,7 +374,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
       assert.deepEqual(consumed.taskWorkload, {
         readPathCount: 1,
         allowedPathCount: 1,
-        acceptanceCriterionCount: 1,
+        acceptanceCriterionCount: 3,
         remediationFindingCount: 0,
       });
       const plan = planClaudeIsolatedTask({
