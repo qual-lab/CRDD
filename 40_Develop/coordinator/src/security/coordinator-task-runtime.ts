@@ -110,7 +110,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 31;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 32;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -1054,6 +1054,24 @@ function externalSendScopeRequest(request: RuntimeRecord) {
   });
 }
 
+function projectProviderPreparationFailure(reason: unknown) {
+  if (typeof reason !== "string")
+    return "coordinator_task_provider_prepare_failed";
+  if (reason.endsWith("_docker_runtime_model_selection_invalid"))
+    return "coordinator_task_provider_model_selection_invalid";
+  if (reason.endsWith("_docker_runtime_mount_authorization_invalid"))
+    return "coordinator_task_provider_mount_authorization_invalid";
+  if (reason.endsWith("_docker_runtime_task_packet_invalid"))
+    return "coordinator_task_provider_task_packet_invalid";
+  if (reason.endsWith("_docker_runtime_plan_invalid"))
+    return "coordinator_task_provider_plan_invalid";
+  if (reason.endsWith("_docker_runtime_authority_invalid"))
+    return "coordinator_task_provider_authority_invalid";
+  if (reason.endsWith("_docker_runtime_recovery_correlation_invalid"))
+    return "coordinator_task_provider_recovery_correlation_invalid";
+  return "coordinator_task_provider_prepare_failed";
+}
+
 function samePaths(left: unknown, right: unknown) {
   if (!Array.isArray(left) || !Array.isArray(right)) return false;
   const normalize = (values: unknown[]) =>
@@ -1278,7 +1296,7 @@ async function executeStageBody(
       return blocked(
         prepared.reason === "claude_task_workload_split_required"
           ? "coordinator_task_workload_split_required"
-          : "coordinator_task_provider_prepare_failed",
+          : projectProviderPreparationFailure(prepared.reason),
       );
     }
     const rawProcess = state.dependencies.startProcess(

@@ -511,6 +511,7 @@ function fixture(
     candidateSecretAtCapture?: 1 | 2;
     remediationPacketSecretBlocked?: boolean;
     prepareWorkloadSplit?: boolean;
+    prepareFailureReason?: string;
     workspaceSecretBlocked?: boolean;
     externalSendDenied?: boolean;
     externalSendAuthorizationMode?: unknown;
@@ -1140,6 +1141,11 @@ function fixture(
           status: "blocked",
           reason: "claude_task_workload_split_required",
         });
+      if (options.prepareFailureReason)
+        return Object.freeze({
+          status: "blocked",
+          reason: options.prepareFailureReason,
+        });
       const preparedCapability = Object.freeze({});
       preparedRoles.set(preparedCapability, role);
       return Object.freeze({
@@ -1600,6 +1606,47 @@ test("作業量超過は一般的な起動失敗へ潰さず分割理由を返�
   assert.equal(harness.cleanupCount(), 1);
   assert.equal(result.cleanupConfirmed, true);
 });
+
+for (const [providerReason, publicReason] of [
+  [
+    "codex_docker_runtime_model_selection_invalid",
+    "coordinator_task_provider_model_selection_invalid",
+  ],
+  [
+    "claude_docker_runtime_mount_authorization_invalid",
+    "coordinator_task_provider_mount_authorization_invalid",
+  ],
+  [
+    "codex_docker_runtime_task_packet_invalid",
+    "coordinator_task_provider_task_packet_invalid",
+  ],
+  [
+    "claude_docker_runtime_plan_invalid",
+    "coordinator_task_provider_plan_invalid",
+  ],
+  [
+    "codex_docker_runtime_authority_invalid",
+    "coordinator_task_provider_authority_invalid",
+  ],
+  [
+    "claude_docker_runtime_recovery_correlation_invalid",
+    "coordinator_task_provider_recovery_correlation_invalid",
+  ],
+] as const) {
+  test(`Provider準備の固定理由を一般失敗へ潰さない: ${publicReason}`, async () => {
+    const harness = fixture({ prepareFailureReason: providerReason });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, publicReason);
+    assert.equal(harness.processStartCount(), 0);
+    assert.equal(harness.cleanupCount(), 1);
+    assert.equal(result.cleanupConfirmed, true);
+  });
+}
 
 function sha256Repository(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-sha256-task-"));
@@ -3780,7 +3827,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 31);
+  assert.equal(contract.contractRevision, 32);
   assert.equal(
     contract.providerTurnObservations,
     "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",
