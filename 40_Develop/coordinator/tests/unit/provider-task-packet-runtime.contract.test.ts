@@ -153,10 +153,6 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
     );
     assert.match(
       consumed?.prompt ?? "",
-      /inspect the readable paths, perform the objective with only the available local workspace tools, and verify the resulting allowed-path content/u,
-    );
-    assert.match(
-      consumed?.prompt ?? "",
       /not only paths written during the remediation turn/u,
     );
     assert.equal(
@@ -353,26 +349,26 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
       assert.ok(consumed);
       assert.match(
         consumed.prompt,
-        /Modify 40_Develop\/coordinator\/runtime\/general-task-verification\.txt and no other path/u,
+        /visible candidate marker is located at 40_Develop\/coordinator\/runtime\/general-task-verification\.txt/u,
       );
       assert.match(
         consumed.prompt,
-        /replace only that final BASE token with OK/u,
+        /replace only its final BASE token with OK/u,
       );
       assert.match(
         consumed.prompt,
-        /reviewer evaluates this content from the Runtime-authenticated projection/u,
+        /visible file content is exactly the single line/u,
       );
       assert.match(
         consumed.prompt,
-        /signed runner separately verifies the base bytes/u,
+        /separate checks owned by the route verification runner/u,
       );
       assert.match(
         consumed.prompt,
         /do not claim those separate checks have run/iu,
       );
       assert.deepEqual(consumed.taskWorkload, {
-        readPathCount: 1,
+        readPathCount: 2,
         allowedPathCount: 1,
         acceptanceCriterionCount: 3,
         remediationFindingCount: 0,
@@ -385,8 +381,8 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         taskWorkload: consumed.taskWorkload,
       });
       if (plan.status !== "candidate") assert.fail(plan.reason);
-      assert.equal(plan.maximumTurns, 5);
-      assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "5");
+      assert.equal(plan.maximumTurns, 6);
+      assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "6");
       assert.equal(plan.argv.includes("--tools="), true);
       assert.equal(plan.argv.includes("--tools"), false);
       assert.equal(plan.argv.includes("Read,Glob,Grep"), false);
@@ -778,7 +774,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 17);
+  assert.equal(contract.contractRevision, 18);
   assert.equal(
     contract.repositoryFileBytesEmbeddedInPrompt,
     "reviewer_only_explicit_read_projection_bound_to_candidate_identity",

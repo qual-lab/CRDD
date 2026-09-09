@@ -365,14 +365,14 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     frontProvider: "codex",
     requestedExecutorProvider: "claude",
     objective:
-      "Replace only the final BASE token in the existing bounded verification marker with OK; preserve the file as one UTF-8 line ending with LF and do not recreate or reformat it.",
+      "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: [
-      `Modify ${TARGET_PATH} and no other path.`,
-      `The existing file contains the bounded marker ending in BASE; replace only that final BASE token with OK and do not recreate or reformat the file.`,
-      `The resulting file content is exactly ${JSON.stringify(EXPECTED_CONTENT)}. The reviewer evaluates this content from the Runtime-authenticated projection and must not require a filesystem reread. The signed runner separately verifies the base bytes, changed-path closure, exact UTF-8 bytes, trailing LF, byte length and SHA-256; do not claim those separate checks have run.`,
+      `The visible candidate marker is located at ${TARGET_PATH}; the runtime and signed runner separately verify that no other path changed.`,
+      `The base revision contains exactly ${JSON.stringify(BASE_CONTENT.trimEnd())}; replace only its final BASE token with OK instead of recreating or reformatting the file.`,
+      `The visible file content is exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional text. Review this visible content and the bounded replacement; exact UTF-8 bytes, trailing LF, byte length and SHA-256 are separate checks owned by the route verification runner, not proof requested from the reviewer. Do not claim those separate checks have run.`,
     ],
     allowedPaths: [TARGET_PATH],
-    readPaths: [TARGET_PATH],
+    readPaths: ["06_Architecture/coordinator/01_Architecture.md", TARGET_PATH],
     workClass: "bounded_implementation",
     planState: "complete",
     risk: "low",
@@ -384,7 +384,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 25);
+  assert.equal(contract.contractRevision, 26);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
