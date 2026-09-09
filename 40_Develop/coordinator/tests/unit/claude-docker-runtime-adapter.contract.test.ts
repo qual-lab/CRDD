@@ -310,10 +310,11 @@ test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する"
   );
   assert.ok(provider);
   const permissionModeIndex = provider.argv.indexOf("--permission-mode");
-  const toolsIndex = provider.argv.indexOf("--tools");
   const disallowedToolsIndex = provider.argv.indexOf("--disallowedTools");
   assert.equal(provider.argv[permissionModeIndex + 1], "dontAsk");
-  assert.equal(provider.argv[toolsIndex + 1], "Read,Glob,Grep");
+  assert.equal(provider.argv.includes("--tools="), true);
+  assert.equal(provider.argv.includes("--tools"), false);
+  assert.equal(provider.argv.includes("Read,Glob,Grep"), false);
   assert.equal(
     provider.argv[disallowedToolsIndex + 1],
     "Bash,WebFetch,WebSearch,Task,NotebookEdit,mcp__*",

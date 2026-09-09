@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 16;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 17;
 
 export const CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS = 16;
 const TASK_WORKLOAD_KEYS = new Set([
@@ -516,8 +516,10 @@ export function planClaudeIsolatedTask(candidate: unknown) {
   const turnBudget = planClaudeTaskTurnBudget(taskRole, value.taskWorkload);
   if (turnBudget.status !== "candidate") return turnBudget;
   const maximumTurns = turnBudget.maximumTurns;
-  const tools =
-    taskRole === "executor" ? "Read,Glob,Grep,Edit,Write" : "Read,Glob,Grep";
+  const toolArguments =
+    taskRole === "executor"
+      ? ["--tools", "Read,Glob,Grep,Edit,Write"]
+      : ["--tools="];
   return Object.freeze({
     status: "candidate" as const,
     reason: "runtime_owned_activation_gates_required",
@@ -555,8 +557,7 @@ export function planClaudeIsolatedTask(candidate: unknown) {
       "--no-session-persistence",
       "--permission-mode",
       taskRole === "executor" ? "acceptEdits" : "dontAsk",
-      "--tools",
-      tools,
+      ...toolArguments,
       "--disallowedTools",
       "Bash,WebFetch,WebSearch,Task,NotebookEdit,mcp__*",
       "--disable-slash-commands",
@@ -569,6 +570,8 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     providerHomeMountRequired: true,
     workspaceMountRequired: true,
     workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
+    reviewerFilesystemOrShellToolAllowed: false,
+    reviewerInput: "runtime_owned_immutable_candidate_content_projection_only",
     taskPromptTransport: "stdin_only" as const,
     resultTransport:
       taskRole === "executor"

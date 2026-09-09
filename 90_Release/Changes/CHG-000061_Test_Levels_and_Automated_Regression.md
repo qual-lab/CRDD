@@ -157,6 +157,8 @@ v0.19.0との比較では、Docker Desktopを起動するNative処理および�
 
 4経路E2Eでは、Codex Reviewerを使う最初の経路が初めて完了した。一方、Claude Reviewerを使う次の経路は不承認となった。Task Packetに、旧来の`/work`確認指示と新しい内容投影限定指示が同居していたため、Providerによって優先する指示が分かれ得る状態だった。Reviewerの入力正本を内容投影だけへ一意化し、Filesystemは入力でないこと、および投影Recordの`content`だけが完全な候補本文で他fieldはMetadataであることを明示する。異なるProviderが同じ意味契約を受け取る場合、後段の禁止で旧指示を打ち消さず、入力所有者・観測手段・評価対象を一つの矛盾しない指示へ置換する。
 
+指示を一意化した固定候補でも、Filesystem Toolを無効化済みのCodex Reviewerは完了し、旧来の`Read`／`Glob`／`Grep` Capabilityが残るClaude Reviewerだけが不承認となった。設計上の入力正本と実行時Capabilityを一致させるため、Claude ReviewerのBuilt-in Toolも空集合へ変更する。read-only mountの存在を読取りCapability成立とみなさず、全Provider ReviewerがRuntime所有の不変内容投影だけを評価する。Provider間で同じRole契約を持つ場合は、PromptだけでなくTool、FilesystemおよびProcess Capabilityの実効集合も同値にする。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。

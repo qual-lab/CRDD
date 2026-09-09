@@ -477,9 +477,13 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     reviewer.argv[reviewer.argv.indexOf("--permission-mode") + 1],
     "dontAsk",
   );
+  assert.equal(reviewer.argv.includes("--tools="), true);
+  assert.equal(reviewer.argv.includes("--tools"), false);
+  assert.equal(reviewer.argv.includes("Read,Glob,Grep"), false);
+  assert.equal(reviewer.reviewerFilesystemOrShellToolAllowed, false);
   assert.equal(
-    reviewer.argv[reviewer.argv.indexOf("--tools") + 1],
-    "Read,Glob,Grep",
+    reviewer.reviewerInput,
+    "runtime_owned_immutable_candidate_content_projection_only",
   );
   for (const plan of [executor, reviewer]) {
     assert.equal(plan.taskPromptTransport, "stdin_only");

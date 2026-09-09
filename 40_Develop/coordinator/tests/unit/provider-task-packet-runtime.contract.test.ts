@@ -363,15 +363,19 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
       if (plan.status !== "candidate") assert.fail(plan.reason);
       assert.equal(plan.maximumTurns, 5);
       assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "5");
-      assert.equal(
-        plan.argv[plan.argv.indexOf("--tools") + 1],
-        "Read,Glob,Grep",
-      );
+      assert.equal(plan.argv.includes("--tools="), true);
+      assert.equal(plan.argv.includes("--tools"), false);
+      assert.equal(plan.argv.includes("Read,Glob,Grep"), false);
       assert.match(
         plan.argv[plan.argv.indexOf("--disallowedTools") + 1] ?? "",
         /^Bash,/u,
       );
       assert.equal(plan.workspaceMountMode, "read_only");
+      assert.equal(plan.reviewerFilesystemOrShellToolAllowed, false);
+      assert.equal(
+        plan.reviewerInput,
+        "runtime_owned_immutable_candidate_content_projection_only",
+      );
     } finally {
       cleanupOwnedOperationDirectories(current.owned);
     }
