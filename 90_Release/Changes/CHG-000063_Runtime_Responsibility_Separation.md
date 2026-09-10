@@ -203,6 +203,8 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 
 この不具合はProvider Effect前にfail-closedで停止したため、Canonical Repositoryの変更またはProvider送信は発生していない。Runtime実行Identityを構成するsourceが変わるため、是正後の正式候補は旧署名を流用せず再署名する。
 
+正式4経路E2Eの完走後、同じ署名候補のRecovery Matrixでは、最小化したRuntime子ProcessからDocker CLIのAuthenticode検査を多段起動した場合だけ`docker_cli_untrusted`となる利用側未接続を検出した。v0.19.0にはDocker CLI Publisher Trust自体がなく、v0.20.0で追加した成立条件を直接起動だけで確認し、Recovery Matrixの中立化子Processまで伝播できていなかった。PowerShell専用環境へ、親環境から継承せずNative OS観測で検証した`USERPROFILE`を追加し、同じ中立化親ProcessからAuthenticode cmdletの初期化まで行う結合試験を追加する。単にRecovery Matrixへambient環境を渡す変更は行わない。
+
 ## 11. 正常なDockerへ戻った後のTask復旧
 
 状態: 着手前整合確認済み・部分実装。実機操作への接続・実機復旧・正式E2Eは未完了。

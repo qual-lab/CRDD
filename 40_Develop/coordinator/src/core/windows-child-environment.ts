@@ -5,7 +5,7 @@ import { observeSystemWindowsDirectory } from "../security/windows-directory-boo
 
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 9;
+export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 10;
 export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
   "native_system_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
@@ -165,7 +165,8 @@ export function createWindowsPowerShellAuthenticodeEnvironment(): Readonly<
 > | null {
   if (process.platform !== "win32") return null;
   const windowsDirectory = observedWindowsDirectoryFromNative();
-  if (!windowsDirectory) return null;
+  const userProfile = observedWindowsUserProfileFromOs();
+  if (!windowsDirectory || !userProfile) return null;
   const system32 = path.win32.join(windowsDirectory, "System32");
   const powerShellDirectory = path.win32.join(
     system32,
@@ -175,6 +176,7 @@ export function createWindowsPowerShellAuthenticodeEnvironment(): Readonly<
   return Object.freeze({
     SystemRoot: windowsDirectory,
     WINDIR: windowsDirectory,
+    USERPROFILE: userProfile,
     PATH: [system32, windowsDirectory, powerShellDirectory].join(";"),
     PATHEXT: ".COM;.EXE;.BAT;.CMD",
   });
@@ -249,7 +251,7 @@ export function describeWindowsChildEnvironmentContract() {
       "docker_cli_authenticode_inspection",
     ]),
     powerShellAuthenticodeEnvironment:
-      "native_os_directory_minimal_powershell_initialization_block",
+      "native_os_directory_and_validated_user_profile_minimal_powershell_initialization_block",
     dockerDesktopLauncherConsumers: Object.freeze([]),
     dockerRepairHelperSystemDrive:
       "native_system_windows_directory_local_drive",

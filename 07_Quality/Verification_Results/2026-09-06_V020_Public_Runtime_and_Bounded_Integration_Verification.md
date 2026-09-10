@@ -103,5 +103,11 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 | Windows実Process Gate | 8件中8件成功 | Docker隔離、取消、Process tree終了、stdout／stderr上限およびcleanupを通常ユーザーProcessで確認 |
 | 静的検査 | 型、Lint、Format、Capability Graph、Runtime TraceおよびProject Runtime設計追跡が成功 | 固定候補の署名前確認 |
 | Repository全体Checker | 426文書、Error 0、Warning 0 | 文書更新前の結果。更新後に再確認する |
+| 旧署名候補の正式4経路E2E | 4経路中4経路成功 | 固定改訂版`392bd1ee`の結果。同候補のRecovery Matrixで後述の不具合を検出したため、新候補のRelease根拠へ流用しない |
+| 旧署名候補のRecovery Matrix | 停止 | 中立化したRuntime子Process内だけDocker CLIのAuthenticode検査が`docker_cli_untrusted`となった。Provider Effect、Canonical Repository変更および未回収Docker資源は発生していない |
+| 多段Authenticode結合試験 | 1件中1件成功 | 親環境を継承しない中立化Runtime子Processから、検証済みUser Profileを持つ専用PowerShell環境を構成し、実Docker CLIのDocker Inc署名まで確認 |
+| 是正後の制限Process全回帰 | 1,985件中1,980件成功、5件明示skip、失敗0 | 単体・結合・総合・契約回帰。実環境専用試験は未実行を成功へ補完していない |
 
 この差分はRuntimeの失敗を隠す期待値緩和ではない。実ソースから導出されたWindows実Process Gateが7件から8件へ増えたのに、閉集合を検査する利用側だけが旧件数を保持した。実在する3ファイル、prefix出現数、展開case数、packageの実行入口および通常ユーザーProcessの実結果を同じ8件へ接続した。
+
+固定改訂版`392bd1ee32a12ec3a46551c297bf2018bc3e80d1`は正式4経路E2Eを4/4で完走したが、続くRecovery Matrixが`docker_cli_untrusted`を子結果として返し、最外周では`cleanup_child_contract_invalid`として停止した。v0.19.0に存在した中立化子Processへ、v0.20.0で新設したDocker CLI Publisher TrustのPowerShell初期化条件を伝播できていなかったことが原因である。PowerShell専用環境はambientなUser Profileを継承せず、Native OS観測で検証した現在主体の`USERPROFILE`だけを追加する。中立化した親ProcessからAuthenticode cmdletを初期化する契約試験と、同じ境界から実Docker CLIのPublisher Trustを確認する結合試験を追加した。是正後の制限Process全回帰は1,985件中、明示skip 5件を除く1,980件が成功し、失敗は0件だった。Runtime実行Identityが変わるため、旧署名と4/4結果を新候補へ流用せず、再署名後に正式4経路E2EとRecovery Matrixを再実行する。

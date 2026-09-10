@@ -1,15 +1,63 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
 import { randomBytes } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../src/security/docker-desktop-repair-native-helper.ts";
 import { createDockerRestartMachine } from "../../src/security/docker-restart-machine.ts";
 import { observePlatformAccessReleaseArtifactCandidate } from "../../src/security/platform-access-release.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
 import { observeSystemWindowsDirectory } from "../../src/security/windows-directory-bootstrap.ts";
-import { createWindowsNativeHelperEnvironment } from "../../src/core/windows-child-environment.ts";
+import {
+  createInteractiveConsoleReaderEnvironment,
+  createWindowsNativeHelperEnvironment,
+} from "../../src/core/windows-child-environment.ts";
+
+test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できる", {
+  skip:
+    process.platform !== "win32" ||
+    process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
+  timeout: 30_000,
+}, () => {
+  const parentEnvironment = createInteractiveConsoleReaderEnvironment();
+  assert.ok(parentEnvironment);
+  const profile = fs.realpathSync.native(os.userInfo().homedir);
+  const temporary = fs.realpathSync.native(
+    path.join(profile, "AppData", "Local", "Temp"),
+  );
+  const moduleUrl = pathToFileURL(
+    path.resolve("src", "security", "docker-cli-trust.ts"),
+  ).href;
+  const source = [
+    `import { observeTrustedDockerCli } from ${JSON.stringify(moduleUrl)};`,
+    "try{const observed=observeTrustedDockerCli();process.stdout.write(JSON.stringify({status:'completed',trustBasis:observed.trustBasis,publisherOrganization:observed.publisherOrganization,bytesPositive:observed.bytes>0,sha256Length:observed.sha256.length}));}catch(error){process.stdout.write(JSON.stringify({status:'blocked',reason:error instanceof Error?error.message:String(error)}));process.exitCode=2;}",
+  ].join("");
+  const result = childProcess.spawnSync(
+    process.execPath,
+    ["--input-type=module", "--eval", source],
+    {
+      cwd: path.resolve("."),
+      env: { ...parentEnvironment, TEMP: temporary, TMP: temporary },
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 20_000,
+    },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.equal(result.signal, null);
+  assert.equal(result.stderr, "");
+  assert.deepEqual(JSON.parse(result.stdout), {
+    status: "completed",
+    trustBasis: "windows_authenticode_valid_docker_inc_publisher",
+    publisherOrganization: "Docker Inc",
+    bytesPositive: true,
+    sha256Length: 64,
+  });
+});
 
 test("Windows environment observation completes with three runtime lock workers", {
   skip: process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
