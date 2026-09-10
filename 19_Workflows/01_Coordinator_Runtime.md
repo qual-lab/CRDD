@@ -2,7 +2,7 @@
 
 Status: Candidate (v0.20.0, Released Baseline: v0.19.0)
 Owner: Qual-Lab
-Last Updated: 2026-09-06
+Last Updated: 2026-09-11
 
 ## 目的・対象・実行前条件
 
@@ -20,7 +20,7 @@ Last Updated: 2026-09-06
 
 ## 毎回の起動方法を組み立てない
 
-通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientを接続する場合は別の公開入口`template/tools/crdd-mcp.ts`を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
+通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" task --request-stdin --json
@@ -166,7 +166,7 @@ v0.19.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 最終E2E記録: `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md`、`07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.json`
 - 公開入口と履歴: `README.md`、`CHANGELOG.md`、`90_Release/Changes/README.md`、`99_Roadmap/01_Product_Roadmap.md`
 - 品質・手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
-- Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/coordinator/02_Threat_Model.md`、`06_Architecture/coordinator/03_Project_Runtime_Design.md`
+- Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/project-runtime/01_Architecture.md`
 - Release対象CHG: `90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md`、`90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md`、`90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md`、`90_Release/Changes/CHG-000060_CRDD_Brand_Icon_Adoption.md`
 - v0.19.0のCandidateからStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 
@@ -179,7 +179,7 @@ v0.20.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 最終E2E結果: `07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.md`、`07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.json`
 - 品質と手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
 - v0.20の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
-- v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/coordinator/02_Threat_Model.md`、`06_Architecture/coordinator/03_Project_Runtime_Design.md`、`06_Architecture/execution-intelligence/01_Architecture.md`、`06_Architecture/mcp/01_Architecture.md`、`06_Architecture/project-runtime/01_Architecture.md`
+- v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/coordinator/02_Threat_Model.md`、`06_Architecture/execution-intelligence/01_Architecture.md`、`06_Architecture/mcp/01_Architecture.md`、`06_Architecture/platform-access/01_Architecture.md`、`06_Architecture/project-runtime/01_Architecture.md`
 - Release対象CHG: `90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md`、`90_Release/Changes/CHG-000062_Execution_Intelligence.md`、`90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md`、`90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md`
 - 公開案内と残件: `README.md`、`CHANGELOG.md`、`90_Release/Changes/README.md`、`99_Roadmap/01_Product_Roadmap.md`
 

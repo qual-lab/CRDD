@@ -1,8 +1,8 @@
 {
   "schema": "crdd-coordinator/project-runtime-design-traceability",
   "schemaRevision": 1,
-  "architectureDocument": "06_Architecture/coordinator/01_Architecture.md",
-  "designDocument": "06_Architecture/coordinator/03_Project_Runtime_Design.md",
+  "architectureDocument": "06_Architecture/project-runtime/01_Architecture.md",
+  "designDocument": "06_Architecture/project-runtime/02_Detailed_Design.md",
   "verificationDocument": "07_Quality/03_Verification_Design.md",
   "interfaces": [
     {"id":"IF-PROJECT-CORE","owner":"project_runtime_core","status":"partial","implementationStage":"durable_foundation_through_integration"},

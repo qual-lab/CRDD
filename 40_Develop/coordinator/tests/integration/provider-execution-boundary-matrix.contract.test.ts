@@ -6,7 +6,7 @@ import test from "node:test";
 import { planClaudeIsolatedTask } from "../../src/security/claude-execution-plan.ts";
 import { planCodexIsolatedTask } from "../../src/security/codex-execution-plan.ts";
 
-const ROOT = path.resolve(import.meta.dirname, "../..");
+const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 
 const PLAN_CASES = Object.freeze([
   Object.freeze({ provider: "codex", role: "executor" }),
@@ -163,7 +163,10 @@ test("Provider境界の正常・拒否・異常・回収caseを実在試験へ�
     LIFECYCLE_CASES.length,
   );
   for (const item of LIFECYCLE_CASES) {
-    const source = fs.readFileSync(path.join(ROOT, item.file), "utf8");
+    const source = fs.readFileSync(
+      path.join(repositoryRoot, item.file),
+      "utf8",
+    );
     assert.match(source, new RegExp(`test\\(\\"${item.title}`));
   }
 });
@@ -174,7 +177,7 @@ test("実Provider結合はCodex／ClaudeをExecutorとReviewerの双方で一回
     { route: "reverse", executor: "codex", reviewer: "claude" },
   ]);
   const source = fs.readFileSync(
-    path.join(ROOT, "scripts/verify-signed-reviewer-boundary.ts"),
+    path.join(repositoryRoot, "scripts/verify-signed-reviewer-boundary.ts"),
     "utf8",
   );
   assert.match(source, /"forward"/u);

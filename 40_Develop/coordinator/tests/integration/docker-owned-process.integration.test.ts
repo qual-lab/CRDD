@@ -22,7 +22,7 @@ import {
 } from "../fixtures/docker-owned-process-test-support.ts";
 
 const windowsOnly = { skip: process.platform !== "win32", timeout: 20_000 };
-const codexImageDigest =
+const CODEX_IMAGE_DIGEST =
   "sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c";
 const codexSeccompProfile = fileURLToPath(
   new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
@@ -380,7 +380,7 @@ test("Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み
       "--mount",
       `type=bind,src=${providerHome},dst=/provider-home`,
       `--entrypoint=/opt/crdd/providers/codex/0.149.1/codex`,
-      codexImageDigest,
+      CODEX_IMAGE_DIGEST,
       "sandbox",
       "--permission-profile",
       "crdd-executor",

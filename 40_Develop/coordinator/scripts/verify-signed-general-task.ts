@@ -481,7 +481,7 @@ function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
       file.sha256 === createHash("sha256").update(bytes).digest("hex")
     );
   };
-  const metadataValid =
+  const isMetadataValid =
     evidence?.contentReported === false &&
     typeof evidence.totalBytes === "number" &&
     Number.isSafeInteger(evidence.totalBytes) &&
@@ -498,7 +498,7 @@ function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
   const reviewerProjectedTargetClassification =
     evidence === null
       ? null
-      : !metadataValid
+      : !isMetadataValid
         ? ("metadata_invalid" as const)
         : file.sha256 === expectedSha256 && matches(EXPECTED_CONTENT)
           ? ("exact" as const)
@@ -513,14 +513,14 @@ function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
                   : matches(`${EXPECTED_CONTENT.trimEnd()}\\n`)
                     ? ("literal_lf_escape" as const)
                     : ("other_bytes" as const);
-  const reviewerProjectedTargetExact =
+  const isReviewerProjectedTargetExact =
     reviewerProjectedTargetClassification === null
       ? null
       : reviewerProjectedTargetClassification === "exact";
   return Object.freeze({
     reviewerDecision,
     reviewerFindingCount,
-    reviewerProjectedTargetExact,
+    reviewerProjectedTargetExact: isReviewerProjectedTargetExact,
     reviewerProjectedTargetClassification,
     remediationPerformed:
       typeof result?.remediationPerformed === "boolean"

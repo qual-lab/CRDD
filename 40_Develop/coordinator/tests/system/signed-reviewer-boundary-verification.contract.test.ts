@@ -36,18 +36,18 @@ function completed(route: "forward" | "reverse") {
 }
 
 test("実Codex／Claude Reviewer境界を4経路E2E前の二経路結合として固定する", async () => {
-  const observed: string[] = [];
+  const observedRoutes: string[] = [];
   const result = await runSignedReviewerBoundaryVerification(
     process.cwd(),
     (async (_root: string, _dependencies: unknown, route: unknown) => {
       assert.ok(route === "forward" || route === "reverse");
-      observed.push(route);
+      observedRoutes.push(route);
       return completed(route);
     }) as never,
   );
   assert.equal(result.status, "completed");
   assert.equal(result.reason, "signed_reviewer_boundary_integration_completed");
-  assert.deepEqual(observed, ["forward", "reverse"]);
+  assert.deepEqual(observedRoutes, ["forward", "reverse"]);
   assert.equal(result.completedRouteCount, 2);
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);

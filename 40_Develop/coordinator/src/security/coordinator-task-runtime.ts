@@ -708,7 +708,7 @@ function projectReviewerResultDiagnostics(value: unknown) {
     diagnostics.value.length !== findingCount
   )
     return null;
-  const projected = diagnostics.value.map((item) => {
+  const projectedDiagnostics = diagnostics.value.map((item) => {
     const record = snapshotPlainRecord(item, REVIEWER_FINDING_DIAGNOSTIC_KEYS);
     if (
       !record ||
@@ -727,11 +727,11 @@ function projectReviewerResultDiagnostics(value: unknown) {
       messageSha256: record.messageSha256,
     });
   });
-  if (projected.some((item) => item === null)) return null;
+  if (projectedDiagnostics.some((item) => item === null)) return null;
   return Object.freeze({
     decision,
     findingCount: findingCount as number,
-    findingDiagnostics: Object.freeze(projected),
+    findingDiagnostics: Object.freeze(projectedDiagnostics),
   });
 }
 

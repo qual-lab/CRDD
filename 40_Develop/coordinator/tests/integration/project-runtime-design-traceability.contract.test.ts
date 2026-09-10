@@ -26,7 +26,7 @@ function currentTrace(): Record<string, unknown> {
     fs.readFileSync(
       path.join(
         repositoryRoot,
-        "40_Develop/coordinator/runtime/project-runtime-design-traceability.json",
+        "07_Quality/06_Project_Runtime_Design_Traceability.json",
       ),
       "utf8",
     ),

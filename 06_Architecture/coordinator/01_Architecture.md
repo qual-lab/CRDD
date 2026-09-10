@@ -488,7 +488,7 @@ ProviderとDockerの外部境界は、一般Architectureの[外部境界の診�
 - 実端末の表示、一回入力、取消、結果保存
 - cleanup後のContainer、network、Mount、lock、候補一時領域およびRecovery残存
 
-設計要素から実装symbol、試験、観測方法および終了後条件への対応は`runtime/coordinator-runtime-traceability.json`で機械確認する。機械試験は独立レビュー、Architecture／Security、Gap／Impact、DocumentおよびConformance監査を代替しない。
+設計要素から実装symbol、試験、観測方法および終了後条件への対応は[Coordinatorの機械可読な検証対応](../../07_Quality/05_Coordinator_Runtime_Traceability.json)で確認する。この投影は実行時構成ではなく、機械試験は独立レビュー、Architecture／Security、Gap／Impact、DocumentおよびConformance監査を代替しない。
 
 ### 13.1 機械Traceへ結合する設計ID
 
@@ -621,172 +621,35 @@ ProviderとDockerの外部境界は、一般Architectureの[外部境界の診�
 
 修復履歴のFilesystem形状と、呼出し単位の回復可能な公開成立は分ける。`STATE-REPAIR-HISTORY-TARGET-ONLY`はFilesystem上のtarget-only形状であり、その観測だけから現在の呼出しがPlatform固有の確定確認まで完了したとは扱わない。現在の呼出しがPlatform固有の確定確認、targetのexact byte、準備fileの明示的な不存在を再確認した場合だけ`STATE-REPAIR-HISTORY-PUBLISHED`へ進む。外来準備file、競合targetまたは観測不能は遷移させず、対応する`ATTEMPT-*`分類として元の形状を保持する。異byte競合の敗者は局所試行の拒否であり、最終共有状態は勝者の公開結果として別に観測する。
 
-<a id="project-runtime-reference-architecture"></a>
+<a id="project-runtime-integration"></a>
 
-## 14. Project Runtime参照アーキテクチャ
+## 14. Project Runtimeとの接続
 
-v0.19は既存Task Runtimeを複数Task対応へ直接膨張させず、その上位にProject Runtimeを置く。Interface、永続Record、資源・Lock、Effect順序、失敗注入点および実装・検証対応は[Project Runtime詳細設計](03_Project_Runtime_Design.md)を参照する。
-
-```text
-MCP／CLI
-  → Objective Intake
-    → Project Context／Milestone
-      → Objective Planner
-        → Task Graph／Scheduler
-          → Single Task Runtime × N
-        → Integration Verification
-      → Project State／Replanning／Human Escalation
-```
-
-Parent CoordinatorはProject Context、Objective Planning、Task Graph、Scheduling、Project State、ReplanningおよびIntegrationを所有する。Single Task Runtimeは、Repository Revisionへ結合した一つのTask、Executor／Reviewer、Candidate、RecoveryおよびAccepted Resultの既存契約を保持する。子Taskは新しいTaskの作成、Authority拡張、他TaskのCandidate採用またはMilestone Acceptanceを自己決定しない。
-
-SchedulerはTask Graph上のDependencyだけでなく、許可Path、共有資源、仕様・判断前提、Lock、Provider利用枠およびIntegration Boundaryを実行可能性へ含める。最大同時実行数5は資源上限であり目標値ではない。開始、完了、失敗、取消、依存先停止またはParent喪失のたびに実行可能集合を再計算し、古いReady判定をそのまま使用しない。
-
-Project StateはRuntime所有の現在状態であり、Roadmap、CHGまたはProvider出力を状態Storeにしない。各TaskのOperation／Candidate／Recovery IdentityとProject／Milestone／Objectiveの関係を保持し、取消・回復・期限切れ後に別TaskのIdentityへ読み替えない。Project Runtimeのcleanupは、全子Taskの終了と所有資源の観測後にだけ成立する。
-
-最初のMCP縦断経路は、`crdd.run_objective`でObjective Intakeから既存Single Task Runtimeを一回実行して結果を返す範囲に限定する。同じ認証済み主体・Project／Milestone・request identityの再送はOperationを増やさず、最新Project State、現在の判断要求または終端結果を返す。人間判断は`crdd.submit_decision`だけから現在の判断要求へ接続し、decision ID、Project／Milestone、世代、改訂版、選択肢、選択ユーザーのOS principal、および判断発行時にRuntimeが作った一回限り・期限付き継続CapabilityをRuntimeが再確認する。Capabilityのraw値はClientへ一度だけ返し、RuntimeはRepository外のOS管理・Runtime保護Rootへ、対象と主体へ結合したhash、期限、消費状態だけを保存する。Platform AdapterがRoot identity、選択ユーザー、固定Volume、非reparse chain、Owner／Protectionおよびatomic updateを確認できない場合はEffect 0にする。Root間の原子性は仮定せず、保護Recordへapplication IDとexpected／new Project世代を`prepared`として耐久化し、Decision／MilestoneをProject Stateへ一括適用してreadbackした後、保護Recordを`finalized`へ進める。Project Stateだけが不明で保護Rootを更新できる場合は、別の検証済みRecovery Storeへ回復意図を先に耐久化して保護RecordをRecoveryへ進める。保護Root自体が不明なら同Rootの遷移を主張せず、別Recovery Storeだけへexactな回復意図を残す。そのStoreも不明なら手動回復・Effect不明・Process再利用禁止とする。再起動時は回復意図、保護Root、Project StateのID・世代・dispositionをfreshに結合し、継続Recordを収束させてから回復意図をsettleする。Queueは`finalized`とProject Stateの一致を確認した後に別の短時間更新で一度だけLeaseする。無効入力は正規Capabilityを失効させない。応答喪失では同じ`run_objective`へ明示的な置換意図と置換request identityを渡し、旧hash失効後だけ新しい1件を発行する。MCP固有Project Model、Repository直接操作、MCP ClientからのAuthority継承、内部Task／Scheduler／再計画／統合の直接操作または複数Repository探索を追加しない。`crdd.get_project_state`はv0.20以降の保留候補であり、v0.19の公開面に含めない。
-
-保護Root更新の応答・readback喪失は、更新種別とfreshな観測結果を組にして回復する。初回作成後のexactな`absent`＋raw未返却＋Project未適用、および期限更新後のexactな`expired`＋Project未適用は継続遷移なしで回復意図をsettleできる。freshな`issued`はRecovery Authorityで`invalidated`、freshな`prepared`は`recovery_required`へ進め、matching new／verified old-unappliedの既存照合へ接続する。必要な継続Record更新をreadbackする前に独立Recovery Intentをsettleしない。
-
-### 14.1 状態の責務分離
-
-Project Runtimeは、Task、Objective、Milestoneの状態を一つの`status`へ畳み込まない。Taskは実行と資源回収、Objectiveは複数Taskの意味統合、Milestoneは人間が与えた受入条件に対する全体結果を表す。
-
-| 対象 | 状態 | 意味 |
-|---|---|---|
-| Task | `planned` | Graphに存在するが実行可能性をまだ確定していない |
-| Task | `waiting_dependency` | 先行Taskまたは人間判断の結果を待つ |
-| Task | `ready` | 現在世代でDependency、Authority、競合および容量を確認済み。ただし開始直前に再確認する |
-| Task | `starting` | SchedulerがTask attemptを耐久記録し、Single Task Runtimeへ開始を委譲中 |
-| Task | `running` | Single Task RuntimeのOperationが開始済み |
-| Task | `cleanup_pending` | Provider処理は終了したが、Process、Docker、Candidateその他の資源回収が未確定 |
-| Task | `completed` | Task結果とcleanupを確認済み。Objective受入はまだ意味しない |
-| Task | `failed` | 当該attemptが失敗し、計画維持、部分再計画または人間判断の分類を待つ |
-| Task | `cancelled` | 取消と終了・cleanupを確認済み |
-| Task | `recovery_required` | 現在の呼出しは終了できるが、Task Operationは終端していない |
-| Task | `superseded` | 部分再計画により後継Taskへ置換され、新規実行対象ではない |
-| Objective | `planned`／`executing` | Task Graphを計画済み／実行中 |
-| Objective | `integration_pending` | 必要Taskは終了したが、Objectiveとしての整合確認前 |
-| Objective | `accepted` | Objective固有の受入条件と統合を確認済み |
-| Objective | `blocked`／`cancelled` | 継続条件がない、または取消済み。Milestone全体の結論とは分ける |
-| Milestone | `planned`／`executing`／`integrating` | 計画済み、実行中、または全Objectiveの統合確認中 |
-| Milestone | `human_decision_required` | 自動処置できない判断を、根拠と影響付きで人間へ返した |
-| Milestone | `recovery_required` | 所有資源またはTask Operationが未終端で、通常実行を再開できない |
-| Milestone | `accepted`／`cancelled` | 全受入成立、または取消と全資源回収を確認済み |
-
-`failed`はTask attemptの結果であり、Milestoneの最終結果ではない。`completed`はTaskの実行完了、`accepted`はObjectiveまたはMilestoneの意味上の受入である。`recovery_required`は呼出し終端になり得るがOperation終端ではない。Project Stateの世代、Task attempt IDまたは観測が不明な場合は、近い正常状態へ補正しない。
-
-### 14.2 遷移と再評価
-
-Project Runtimeは、次の処置を一つの状態更新として混ぜない。
-
-1. 入力とProject Bindingを検証し、Milestone Scope、受入条件、Authority上限および実行予算を固定する。
-2. ObjectiveとTask Graphを作り、cycle、欠落Dependency、許可Pathおよび共有前提を検証する。
-3. 短時間のProject State更新で、現在世代に対するTask attemptと`starting`を耐久化する。
-4. Project StateのLockを解放してからSingle Task Runtimeを呼び出す。
-5. Task結果を受け取った後、Task attempt ID、Project世代、Operation／Candidate／Recovery Identityを再確認して状態へ反映する。
-6. Taskの終了ごとに実行可能集合を再計算する。古い`ready`、空き枠、Provider状態または競合判定を再利用しない。
-7. 必要Taskが終了したObjectiveだけを`integration_pending`へ進め、受入条件を独立に確認する。
-8. 全Objectiveの受入後もMilestone全体のCross-task整合を確認し、その後だけ`accepted`へ進める。
-
-Task失敗は、保持した計画で続行可能、承認Scope内の部分再計画、人間判断が必要、回復が必要、のいずれかへ分類する。部分再計画は置換前Taskを`superseded`として残し、後継Taskと理由を新しい世代へ接続する。既存Task IDの意味を書き換えない。Parent喪失後は新しいTaskを開始せず、所有Taskと回復Recordを照合してから、再開、判断移送または回復へ進む。
-
-### 14.3 資源と所有者
-
-| 資源 | 所有者 | 解放・終端条件 |
-|---|---|---|
-| Project Operation lease | Parent Coordinator | Parent終了後の所有喪失を観測し、全Taskを照合して引継ぎまたは終了 |
-| Project Stateと世代 | Project Runtime State Store | Milestone終端と保持Policy成立。更新はexpected generation一致時だけ |
-| Scheduler capacity slot | Scheduler | 対応TaskのProcess不存在とcleanupを確認後。cleanup不明では空きと推定しない |
-| Task attempt binding | Parent Coordinator | exact Task／attempt／Single Task Operationの終端確認後 |
-| Task固有資源 | Single Task Runtime | v0.18のCandidate、Mount Grant、Provider Home、Docker、Process、Recovery契約に従う |
-| Conflict reservation | Scheduler | 変更Path、共有資源および意味前提への影響が解消済みと確認後 |
-| Integration workspace | Integration owner | 統合結果の採用・破棄とcleanupを確認後。正本Repositoryへの採用とは分離 |
-| Cancellation controller | Parent Coordinator | 全対象Taskへの通知後ではなく、終了とcleanup観測後 |
-| Recovery evidence | 発行したRuntime | exact Recovery Identityで完了を確認後。別Taskや別Projectへ付け替えない |
-
-同時実行数は`starting`、`running`および実行資源が残る`cleanup_pending`の合計を最大5とする。`recovery_required`はProcess不存在を確認できるまで容量を占有し、確認後もConflict reservationを回復完了まで保持できる。これにより、数値上の空き枠を理由に同じPath、Provider Homeまたは共有資源へ二重Effectを発行しない。
-
-### 14.4 Lock順序と待機禁止
-
-Project Runtimeの上位順序は、`Project Operation lease → Project State lock → 短時間の世代更新`とする。Single Task Runtime固有のHost、Runtime State、Provider Home、Candidate Storeその他のLockは、Project State lockを解放した後に既存順序で取得する。Project State lockを保持したまま、Provider、Docker、MCP response、子Process、Human DecisionまたはIntegrationの長時間処理を待たない。
-
-外部処理後の状態反映ではProject State lockを再取得し、expected generation、Task attempt ID、Parent owner generationおよび結果Identityを再検証する。不一致なら結果を別Taskへ適用せず、観測済みのSingle Task側cleanup／Recovery情報を保持してProject側を`recovery_required`または`human_decision_required`へ閉じる。Lock取得失敗、解放不明または世代不明をRetryだけで正常化しない。
-
-### 14.5 対話作業とスケジュール実行の競合
-
-Project Operation leaseだけでは、Runtime外で進む対話編集を完全には観測できない。そこでProject Runtimeは、Repository Bindingごとに耐久Operation Queueと正本採用Leaseを持ち、対話起点を既定の優先Lane、スケジュール起点を待機可能Laneとして扱う。Queue recordは`.crdd`配下の機械可読状態であり、MDは人間向け投影に限定する。
-
-スケジュール起点は、別の許可済み入口が作成したObjectiveを搬送する起点分類に限る。Project Runtime自身が時刻またはRepository EventからObjective、Scope、Authorityまたは優先順位を生成する構造にはしない。
-
-Operation Queueは`queued → leased → running → integration_pending → completed`を正常系とし、`waiting_foreground`、`replan_required`、`human_decision_required`、`recovery_required`、`cancelled`を分ける。Queue leaseはOS排他、owner generationおよびProcess生存観測で所有者を確定し、時刻またはfile存在だけで奪取しない。対話Operationの到着は未開始のスケジュールOperationを`waiting_foreground`へ移せるが、実行中OperationのAuthority、Effect、cleanupまたはRecovery義務を消さない。
-
-各Operationは固定Revisionから隔離Workspaceを持つため、候補作成は安全な範囲で並行できる。正本採用はRepository単位の採用Leaseで直列化し、取得後に現在Revision、dirty state、変更Path、共有判断および候補の基準Revisionを再検証する。競合がなければ採用し、承認Scope内で解消可能なら再計画し、意味変更またはAuthority拡張が必要なら人間へ返す。Runtime外の直接編集を排他できるとは主張せず、開始前と採用直前の再観測で検出する。
-
-### 14.6 AuthorityとEffectの縮小
-
-人間が開始時に与えるMilestone Authorityは、Project Identity、Repository Revision、目的、受入条件、許可する読取り／変更範囲、Provider送信境界、費用・回数・時間、最大同時実行数、再計画上限および取消条件へ結合する。Parent Coordinatorは各Taskへこの閉集合の部分集合だけを派生できる。
-
-Task、Reviewer、MCP Client、Provider出力またはRepository内文書は、Authority拡張、Scope変更、Risk受容、追加購入、API key fallback、別Repository BindingまたはMilestone Acceptanceを生成しない。承認済みScope内でTaskを選び直すだけなら人間へ反復確認しない。Scope、受入条件、決定権限、重大Riskまたは費用上限を変える必要がある場合だけ、現在結果、選択肢、影響および推奨を一つの判断単位として返す。
-
-### 14.7 MCPの薄い縦断経路
-
-最初のMCP経路は`objective intake → Project Binding検証 → Task exact 1件の計画 → 既存Single Task Runtime → 構造化結果 → Project State`だけを通す。MCP AdapterはTransport decode、request identity、取消通知および結果encodeを所有し、Project Model、Scheduler、Repository操作またはAuthority判断を所有しない。
-
-初期Adapterは[Model Context Protocol 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28)のstateless per-request方式を固定し、Protocol version、client capabilitiesおよび任意のclient infoを各Requestの`_meta`で検査する。`server/discover`、`tools/list`および`tools/call`の薄い閉集合だけを公開し、旧Handshakeのsession状態をProject Stateへ持ち込まない。後方互換が必要な場合もTransport Adapterでversion negotiationを行い、Project CoreのAuthority、Identityまたは状態遷移を変えない。client infoは自己申告の互換・表示情報であり、Project Bindingや実行Authorityの根拠にしない。
-
-MCP接続切断はTask取消の依頼になり得るが、終了確認ではない。実行中取消の検証では、handle返却、選定通知またはController起動をProvider Process開始の代用にしない。Runtime所有ProcessがOSの起動成功と有効なPID／標準入出力の所有を確認し、対象Objective、Task Role、Providerおよび一意なOperation IDを持つ開始通知の書込み完了まで観測した後だけ取消要求を発行する。同期または非同期の起動失敗は開始通知0で停止し、通知の失敗または観測不能は取得済みProcessを終了して成功を返さない。E2Eは選定と開始を一列の閉じた順序として照合し、全実行間でOperation IDを再利用しない。同じ対象に属する終了、cleanup、回復義務と正本Effectを相関する。切断後もParent CoordinatorがTask cleanupを完了し、結果を再取得可能なProject Stateへ保存する。request重複は同じOperationを二重発行せず、同じidempotency identityに対する現在状態を返す。入力不正、Project Binding不明またはAuthority不足ではSingle Task Runtimeを呼び出さずEffect 0で停止する。
-
-MCP AdapterはOS固有のConsole、Path、Process起動またはFilesystem IdentityをProject Coreへ持ち込まない。stdio／HTTP等の搬送方式とWindows／Linux／macOSのProcess・Filesystem方式を直交する境界として扱い、同じMCP requestを同じProject Runtime意味へ投影する。対応Platformごとにframing、UTF-8 byte、切断、取消、重複requestおよび終了後cleanupを実入口で確認するまで、その組合せを対応済みと表示しない。
-
-### 14.8 正常・準正常・異常の設計基準
-
-| 分類 | 代表経路 | 必要な終了観測 |
-|---|---|---|
-| 正常 | 独立Taskを1～5件実行し、Dependency順に後続を開始、Objective統合、Milestone受入 | 全Task cleanup、Conflict reservation解放、Integration成立、Project世代一致 |
-| 準正常 | 5件超の待ち行列、1～4件だけの安全な並行、局所失敗後の部分再計画、同一request再送、取消済みTaskを除いた継続 | 上限順守、置換関係、重複Effect 0、取消Task終端、未実行TaskのAuthority非発行 |
-| 人間判断 | Scope拡張、受入変更、共有判断の競合、重大Riskまたは費用上限超過 | 実行停止範囲、保持資源、選択肢と影響、再開条件を取得可能 |
-| 異常 | cycle、欠落Dependency、6件目の同時開始、古い世代、結果Identity不一致、Parent喪失、cleanup不明、Recovery失敗 | 新規Effect 0または安全な停止、exact Recovery情報保持、成功非返却、別Taskへの結果混入0 |
-
-設計上のPassはTask数や状態ラベルではなく、この表の終了観測とObjective／Milestone受入の成立で判定する。
-
-<a id="project-runtime-platform-boundary"></a>
-
-### 14.9 Project RuntimeのPlatform境界
-
-Project Runtime Coreは、Project／Milestone／Objective／Task、Authority縮小、Task Graph、Scheduler判断、再計画、Integrationおよび受入意味を所有し、OS固有のPath構文、User Identity、Filesystem保護、Kernel Lock、Process tree、Console、Container HostまたはRecovery mechanismを所有しない。
+CoordinatorはProject Runtimeが要求する実行Portを実装し、Provider選定、単一Task実行、候補生成、Review、Recovery情報およびcleanup結果を返す。Project、Milestone、Objective、Task Graph、統合、受入およびProject状態の意味は[Project Runtimeアーキテクチャ](../project-runtime/01_Architecture.md)が所有する。
 
 ```text
-Project Runtime Core
-  → Platform Contract
-      → Windows Adapter（v0.19の実装対象）
-      → Linux Adapter（後続判断。v0.19では未実装）
-      → macOS Adapter（後続判断。v0.19では未実装）
+Project Runtime
+  │ Execution Request
+  ▼
+Coordinator Adapter
+  │ Provider Selection / Task Execution / Recovery
+  ▼
+Coordinator
+  │
+  ├─ Codex Provider
+  ├─ Claude Provider
+  └─ Platform Access
 ```
 
-Platform Contractは、実在する次の保証境界から抽出する。
+| 境界 | Project Runtime | Coordinator |
+|---|---|---|
+| Taskの意味 | ObjectiveとTask Graphから実行要求を作る | 閉じた実行要求を処理する |
+| Provider | Provider能力をPortとして要求する | Providerを選定し、実行する |
+| 候補 | Task結果をProject状態と統合へ接続する | CandidateとReview結果を返す |
+| Recovery | Project／Taskとの相関を保持する | 実行資源のexact Recovery情報を返す |
+| 完成 | Objective／Milestoneの受入を判定する | Task結果とcleanupを報告する |
 
-| 境界 | Coreが要求する保証 | Windowsの現在方式 | Linuxの将来候補例 | macOSの将来候補例 |
-|---|---|---|---|---|
-| Principal／Provider Home | 選択ユーザー、固定Home Identity、所有・書込み主体、non-linkを検証 | Token、SID、Known Folder、DACL、reparse観測 | UID／GID、mode／ACL、local filesystem、symlink拒否 | UID／GID、POSIX ACL、Application Support等の明示Root、symlink拒否 |
-| Filesystem／Repository | Root、Revision、Path、Identity、原子的更新、隔離を検証 | Windows handle／file identity、固定Root、atomic replace | directory fd、inode／device、境界付きPath解決、atomic rename | directory fd、inode／device、`openat`／`fstatat`等の境界付き解決、atomic rename |
-| Lock／Lease | OS排他、owner generation、生存観測、時刻だけでない奪取 | named pipe／Windows kernel object、Process観測 | file descriptor lock、process identity、必要に応じたservice manager連携 | `flock`／`fcntl`等のKernel lock、process identity、必要に応じたlaunch service連携 |
-| Process／取消 | argv、環境、Process tree、signal、終了、owner lossを観測 | Windows Process／Job／Console境界 | process group、signal、pidfd／cgroup等の観測 | process group、signal、process／event観測 |
-| Container Host | 固定image、Network、mount、Process、cleanupを確認 | Docker Desktop Linux EngineとWindows Host接続 | Linux Docker Engineまたは同等の固定Container Runtime | 明示管理したVM／Container Runtimeと固定Host接続 |
-| Runtime Root／Recovery | OS管理Root、権限、資源Identity、回復後不存在を確認 | Local App Data等の固定RootとWindows native観測 | XDG／system service等の明示RootとLinux native観測 | Application Support／Launch service等の明示RootとmacOS native観測 |
-
-Linux／macOSの列は設計拘束ではなく、将来の専門探索候補である。同じAPI名または実装方式を要求せず、同じ保証を要求する。各Adapterを追加する変更で、対象OSの脅威、権限、配布、更新、cleanup、Recoveryおよび実測方法を確定する。
-
-v0.19の責務分離では次を満たす。
-
-- 新しいProject Runtime CoreはWindows固有module、`process.platform`分岐またはOS Path実値を直接参照しない。
-- 既存Single Task RuntimeのWindows固有処理は、意味変更を伴わない単位からPlatform Adapterの背後へ移し、移行前後の同じ契約試験で保証を照合する。
-- Platform AdapterはAuthorityを生成せず、Runtime Coreが与えた閉じたrequestを観測・限定操作へ変換する。
-- 未実装PlatformをWindowsへfallbackせず、Platform Identity不明、Adapter不在または保証未成立ではEffect 0で停止する。
-- Linux／macOS対応を理由にWindowsのSID／DACL、AppContainer、named pipe、Docker Desktop Recovery等の成立条件を弱めない。反対にWindows方式を他OSへ名前だけ移植しない。
-
-この境界の完成はLinux／macOS対応の完成を意味しない。各Platform対応は別の成果物、Build、署名Identity、検証母集団およびRelease判断を必要とする。
-
+CoordinatorはProject状態を再定義せず、Project RuntimeはProvider、OS、Containerまたは候補Storeの実装へ依存しない。意味契約は[Project Runtime詳細設計](../project-runtime/02_Detailed_Design.md)、両者の実装・試験接続は[機械可読な設計対応](../../07_Quality/06_Project_Runtime_Design_Traceability.json)と契約試験で照合する。
 ## 15. 非目標
 
 - Provider同士の直接spawn

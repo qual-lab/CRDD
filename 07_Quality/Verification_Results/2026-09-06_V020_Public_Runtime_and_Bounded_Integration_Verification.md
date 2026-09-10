@@ -32,41 +32,30 @@
 | 実行知単体・結合試験 | 40件中40件成功 | 組込みRecorderの生成／Store境界、plain data境界、単一Snapshotからの決定論的Event ID、部分観測、Store、安全な整数集約、統合評価、物理削除APIの不存在 |
 | 公開Runtimeと限定分散のFocused試験 | 12件中12件成功 | 実状態からMCP結果、2 Task同時実行、Attempt保存、統合受入 |
 | 試験台帳契約 | 16件中16件成功 | 実在試験、利用側閉包、PT／LT非発火、実行Profile |
-| 実行知変更の変更影響型回帰 | 選択4ファイル、84件中84件成功 | 実行知UT／IT、CoordinatorのTask実行と限定分散全体試験、両package静的検査 |
 | Source所有と命名の回帰 | 9件中9件成功 | TypeScript全実体と型検査Projectの完全一致、Rust許可Root、命名、廃止Path |
-| Repository全体の変更影響型回帰 | 選択155項目、全5段階成功 | 全所有componentの静的検査、UT、IT、Windows実Process Gate、ST |
-| Windows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
 | Coordinator静的検査 | 成功 | Runtime／Project設計対応、兄弟Component package metadataを含むRuntime Execution Identity、型、Lint、Format |
-| 正式署名の利用側閉包 | 重点126件中126件成功 | 配布全体の正規観測と、必須成果物・実行入口・Recovery Matrix入口の欠落を秘密鍵読取りおよび入力Promptより前に拒否すること。実行能力の取得・再搬送・呼出し・実行対象と内部Lifecycle利用を実ソースから導出し、正規の呼出し集合と双方向に照合すること。semicolonなし宣言、loader再取得、別名・namespace・dynamic・require・再export、関数値化、直接Worker／`fork`／Node自身からのlocal TypeScript起動、未知の外部実行対象、兄弟leafからの内部Lifecycle利用、公開観測・Capability・同梱版・固定開発版・署名経路の取り残しを拒否し、type-only import／re-exportは実行能力として数えないこと |
-| 追加是正後のCoordinator制限Process回帰 | 1,743件中1,743件成功 | Windows実Process Gateを除く単体・結合・総合・契約回帰 |
-| 追加是正後のWindows実Process Gate | 7件中7件成功 | 取消、Process tree終了、stdout／stderr上限、子Process close |
-| 追加是正後のRepository全体Checker | Error 0、Warning 0 | Markdown 425件、Local link 3,011件、履歴参照24件、Anchor 1,005件 |
+| 最終制限Process回帰 | 1,985件中1,980件成功、5件明示skip、失敗0 | 単体・結合・総合・契約回帰。実環境専用試験は未実行を成功へ補完していない |
+| 最終Windows実Process Gate | 8件中8件成功 | Docker隔離、取消、Process tree終了、stdout／stderr上限およびcleanup |
+| 正式署名 | 成功 | Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
+| 正式4経路E2E | 4経路中4経路成功 | forward、reverse、same-codex、same-claude。cleanup成立、再試行0、回復義務0 |
+| 署名済みRecovery Matrix | 7シナリオ完了 | timeout、出力上限、無効出力、非0終了、取消、cleanup観測不能後の回復、親Process消失後のfresh回復 |
+| 最終独立監査 | Critical／Major／Moderate／Minor 0件 | 実行結果を含む固定改訂版を対象にPass |
 
 Source所有の回帰は固定件数をIdentityとして使わず、`40_Develop/**`と`template/tools/**`のTypeScript実体を、各型検査Projectが所有する実Path集合と完全一致させた。この確認により、未所属だったCoordinator公開sourceと`template/tools`のLauncherを型検査へ接続し、Launcherの同期結果とMCP非同期契約の差も修正した。
 
-Windows実Process Gateは専用のProcess制御が成立する実行環境で7件を完走した。同じ試験をその能力がない制限環境から実行した結果は全7件が終了観測不能となったため、製品回帰の根拠には採用していない。実行許可の宣言だけを、実行環境の能力成立と同一視しない。
+Windows実Process Gateは専用のProcess制御が成立する実行環境で8件を完走した。制限環境の結果を実Process成立の根拠へ流用せず、実行許可の宣言と実行環境の能力成立を区別した。
 
-全回帰は`node 40_Develop/checker/regression-runner.ts --base main --windows-process-control-authorized`で実行した。通常の静的確認、UTおよびITを制限Processで実行した後、Windows実Process Gateだけを専用実行Profileで実行し、最後にSTへ進んだ。PT／LT、実Providerおよび署名は選択・実行していない。
+### 構造是正の要約
 
-正式署名の最初の秘密入力前検査は`release_manifest_package_observation_failed`で停止した。原因は、Runtime依存閉包のProducerと通常の検証・起動利用側は責務分離後の配布全体へ移行していた一方、正式署名のConsumerだけが分離前のCoordinator単体観測を呼んでいたことだった。この試行では秘密鍵またはpassphraseを読み取らず、署名、Manifest生成および外部Effectは発生していない。固定改訂版`e8012024`で署名Consumerを正規の配布全体観測へ接続した。
+| 観測した不成立 | 構造是正 | 最終確認 |
+|---|---|---|
+| 正式署名だけが旧Coordinator単体観測を利用 | 署名を配布全体の正規観測へ接続 | 秘密入力前の配布閉包検査と正式署名 |
+| Canonical Pathを固定Manifest利用側が再解釈 | Path解決とHash取得を配布物観測へ集約 | 正しい配布物の署名と4経路E2E |
+| 必須入口とProcess能力の宣言・利用・結果伝播が閉じていない | 実sourceから導出する限定グラフと独立Expected集合を完全一致 | Focused反証、制限Process、Windows実Process、正式E2E |
+| 旧固定候補の中立化子ProcessでDocker署名検査環境が未伝播 | 検証済みUser Profileを持つ専用PowerShell環境を構成 | 多段Authenticode結合試験、再署名、Recovery Matrix |
+| 実Process Gate追加後に期待件数が旧7件 | 実在試験、台帳、runnerおよび期待値を8件へ同期 | 件数契約2件、Windows実Process 8件 |
 
-続く署名前監査では、配布物観測が配布Root相対Pathを返すのに、固定Manifest利用側だけが旧package相対Pathを検索していたため、正しい配布でも`platform_provisioner_interactive_console_reader_missing`へ停止することを検出した。固定改訂版`2bcc1dad8ae953f477db5ee3948d9188f1b295f0`で、必須成果物のPath解決を配布物観測へ集約し、利用側によるPathの再解釈を除去した。
-
-同固定版の独立再レビューでは、4つの必須実行入口を開発利用側だけがnullableな一覧として所有し、配布物観測と固定Manifest利用側が欠落を必須成果物の不成立として一括拒否していない伝播未完を検出した。固定改訂版`971370b13a83c81c557722079eee7ca0f8e34650`で、配布Root相対Pathを持つ単一Registry、同一Snapshotからの非nullableな解決、および解決済み成果物だけを受け取る利用側へ統一した。
-
-その再レビューでは、子Process入口の自動導出が特定の`new URL()`表記だけを対象とし、宣言と実利用の全数対応を証明できないことを検出した。固定改訂版`df1c576c0f0f5636bc0ee72ed77e22340a28cc70`では、local TypeScript子Process入口を専用descriptorへ集約したが、descriptor自身が可変な`URL`を公開し、利用集合もresolver名の出現から求めていたため、正規wrapperの実呼出しと実行時targetの同一性を証明できなかった。
-
-固定改訂版`da3c6eb69f8f2a7172ff8ebc5b8ebe2de77880e7`では、Registryを専用module内部の不変なprimitive値へ閉じ、利用側には役割と引数だけを受け取るWorker／spawn wrapperを公開した。一段具体化した独立再レビューでは、`child_process`の再export・関数値化や呼出し方の再構成、Node自身から起動するtargetの判定不能形、および本番関数へ残ったProcess／Worker生成factoryによって、この境界を迂回できることを検出した。
-
-固定改訂版`5ae51ff8f4acdb56c73f00cc09abdcf8c3c7892b`では、実行能力を持つ`node:child_process`の値importを正規名・非aliasのnamed importへ限定し、sourceとprimitiveの許可関係、およびimport bindingの全利用を字句解析した。しかし独立再レビューにより、未使用の値import、loader取得の再構成、Node自己起動targetのbracket／optional表記、および本番leafから分離したLifecycle helperの公開範囲に未完が確認された。
-
-固定改訂版`f92b782ae542f96305f426f33c944cd2af615827`への二つの独立再レビューでは、namespace／default／再exportやbracket表記によるloader再取得、Authority証明と実行呼出しの結合不足、`dependencies.startProcess`を含むwrapper／Lifecycle利用側の取り残し、公開経路の構造的な識別不足、および正当な`export type *`の過剰拒否を検出した。
-
-固定改訂版`98146b3b70295bc122784871233d0bd7cf58c423`では、重点126件、制限Process 1,743件、Windows実Process 7件、静的検査およびRepository全体Checker（Error 0、Warning 0）は成功した。しかし、同固定版への二つの独立再レビューは、file単位のtoken／prefix照合を配布全体の利用グラフとして扱っているため、Expected sourceの欠落、全引数と値の由来、Authority guardの支配、生成handleの所有、正規観測結果からManifest／Identity／Capability／公開結果までの伝播を証明しないと判定した。結果はCritical 0、Major 3、Moderate 3で一致し、片方は加えて正当な`node:module` inline type-only import／re-exportの過剰拒否をMinor 1とした。現行の正規実装に誤った子Process起動を確認した結果ではないが、許可外変更を正規変更として受理できるため署名前Gateには不適格である。
-
-是正固定版`f77b6e3fd88504cb6cb51bbdec8470eeaa79ef93`（Tree `0c1b653ee9c20380f3a30183a796801207670da2`）では、実配布対象と検証Tool対象の全sourceを宣言集合とは独立に列挙し、20の外部Process呼出しをRuntime 14件とTool 6件へ重複・無所属なしで分けた。各呼出しはsource、所有関数、実行primitive、完全な引数式、結果bindingおよび監査対象flowへ結合し、source欠落、未知の実行source、引数・option変更、結果差替え、死んだ分岐、遅延した所有、decoy呼出しを拒否する。公開経路はobserver resultからcandidate guard、Manifest／Identity、Capabilityまたは公開結果までを利用側ごとに固定し、署名では秘密入力より前、native／promotion／recoveryではAuthorityまたはEffectより前の判定を要求する。正当なinline type-only import／re-exportは実行能力として扱わない。
-
-限定グラフによる保護経路是正後の自己確認では、制限Process 1,752件、Windows実Process Gate 7件、`npm run check`およびRepository全体Checker 426文書が成功し、CheckerはError 0、Warning 0だった。実Provider、正式署名および正式E2Eは実施していない。次は同じ固定候補を署名してpristine positive／mutation negative E2Eを確認し、その実行結果を含む改訂版へ独立再レビューと最終監査を行う。これらが完了するまで、利用側閉包の正式成立、Runtime実行Authorityまたはv0.20.0公開を主張しない。
+詳細な変更経緯と固定版ごとの指摘は[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)が所有する。本検証結果では最終候補の条件、結果および未評価範囲を正本とする。
 
 ## 限定分散の観測
 
@@ -86,10 +75,13 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 
 ## 未評価範囲と次のGate
 
-- 旧固定改訂版`11b7e99c7448aed7067c61a2d50282ad944db349`と検証記録Commit`f2a1ce691620e19781e921ee98581b6419310330`への二つの独立再レビューは、当時の対象にCritical 0、Major 0、Moderate 0、Minor 0を返した。その後の署名前検査と監査で上記の利用側未完を検出したため、この結果を現在の固定改訂版へ流用しない。現在の固定改訂版と本記録を対象とする独立再レビューが必要である。
-- OS／Consoleから実行中Applicationを持つ公開MCP ProcessへのSignal配送と、その配送後の取消・join。Node.js Signal event受領後の構成試験を、この実行環境境界の成立へ読み替えない。
-- 実行能力とLifecycleの利用集合は、本番実行集合に存在するmodule宣言、識別子利用および正規の直接呼出しを静的に導出した集合であり、一般的な到達可能性解析ではない。動的コード、任意のproperty名再構成、`execArgv`／`NODE_OPTIONS`によるpreload、TypeScript実行集合外または外部Processからの起動を完全に検出する主張はしない。
-- 人間によるRelease判断。完了するまでRelease完了と表示しない。
+| 未評価または未完了 | 現在の扱い |
+|---|---|
+| OS／Consoleから実行中Applicationを持つ公開MCP ProcessへのSignal配送と、その後の取消・join | Node.js Signal event受領後の構成試験から成立を推定しない |
+| 動的コード、任意のproperty名再構成、preload、TypeScript実行集合外または外部Processからの起動 | 限定グラフの保証外。一般的な到達可能性解析を主張しない |
+| 実Provider間の速度、Token、費用、人間時間、後工程品質 | 未観測。決定論的・正式E2E結果から効用を推定しない |
+| UAT、PT／LT、Remote Runtime、Linux／macOS | 未実施または対象外 |
+| 人間によるRelease判断 | 唯一残るRelease Gate。完了までRelease済みと表示しない |
 
 実Provider、PT／LTまたは長時間試験は、人間が対象、上限および目的を明示しない限り自動実行しない。未観測値を0へ補正せず、現在のRelease判断へ使用しない。
 

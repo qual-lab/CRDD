@@ -3850,7 +3850,7 @@ test("実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も�
   });
   let isEngineReady = false;
   let wasLaunched = false;
-  let failNativeObservationOnce = true;
+  let shouldFailNativeObservationOnce = true;
   let shutdownCalls = 0;
   let nativeCalls = 0;
   let wslCalls = 0;
@@ -3866,12 +3866,12 @@ test("実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も�
         (entry) => entry.action === "native_termination",
       );
       if (
-        failNativeObservationOnce &&
+        shouldFailNativeObservationOnce &&
         !previousNative &&
         nextNative?.phase === "settled" &&
         nextNative.issued === false
       ) {
-        failNativeObservationOnce = false;
+        shouldFailNativeObservationOnce = false;
         return null;
       }
       return persistDockerDesktopRepairStage(

@@ -2528,13 +2528,13 @@ async function executeRepair(
       const shutdownWasConfirmed =
         settledShutdown?.issued === true &&
         settledShutdown.confirmation === "confirmed";
-      const shutdownWasObservedNotNeeded =
+      const wasShutdownObservedNotNeeded =
         settledShutdown?.issued === false &&
         settledShutdown.confirmation === "not_issued";
       if (
         settledShutdown &&
         !shutdownWasConfirmed &&
-        !shutdownWasObservedNotNeeded
+        !wasShutdownObservedNotNeeded
       ) {
         reason = "docker_desktop_official_shutdown_unconfirmed";
         return { status, reason, ledger, operation };
@@ -2555,7 +2555,7 @@ async function executeRepair(
         reason = effectBoundaryFailureReason(shutdownBoundary);
         return { status, reason, ledger, operation };
       }
-      if (shutdownWasObservedNotNeeded) {
+      if (wasShutdownObservedNotNeeded) {
         const shutdownPrecondition = await observeHostEffectPrecondition(
           dependencies,
           boundary,

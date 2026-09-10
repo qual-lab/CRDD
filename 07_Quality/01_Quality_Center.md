@@ -6,7 +6,19 @@
 
 ## 結論
 
-v0.20.0 Candidateは、試験体系と自動回帰、実行知、Runtime責務分離、限定分散実行と統合結果、読み取り専用Project State、およびlocalhost限定MCP HTTPを対象とする。CHG-000061、CHG-000062およびCHG-000064は決定論的回帰、Windows実Process確認および独立一括監査を完了した。CHG-000063は、配布全体の利用グラフ、完全な引数式と値の由来、Authority・handle所有、および正規観測結果から公開・署名・昇格・回復結果までの伝播を限定グラフへ統合した。旧固定版`392bd1ee`のRecovery Matrixで検出した中立化Runtime子ProcessのPowerShell初期化条件を是正し、最終固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`をRelease sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067`として再署名した。同一候補の正式4経路E2Eは4/4で、cleanup成立、Process再起動不要、Canonical Repository変更なし、Recovery IDなしだった。Recovery Matrixは7シナリオを完走し、cleanup成立、手動回復不要だった。旧署名と旧4/4結果は流用していない。実行結果を含む最終独立監査はCritical／Major／Moderate／Minor 0件でPassした。残るGateは人間によるRelease判断である。branch、本候補表示または監査完了だけではv0.20.0の公開、採用、準拠またはRuntime実行Authorityを成立させない。
+| 項目 | 現在状態 |
+|---|---|
+| 対象 | 試験体系と自動回帰、実行知、Runtime責務分離、限定分散実行と統合結果、読み取り専用Project State、localhost限定MCP HTTP |
+| 最終固定改訂版 | `f76b73af81c43e25f28037caa72d71a898a2f9fb` |
+| 正式署名 | Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
+| 正式4経路E2E | 4/4。cleanup成立、Process再起動不要、Canonical Repository変更なし、Recovery IDなし |
+| Recovery Matrix | 7シナリオ完走。cleanup成立、手動回復不要 |
+| 最終独立監査 | Critical／Major／Moderate／Minor 0件でPass |
+| Runtime技術Gate | 旧固定候補では完了。検証専用投影を実行時Directoryから除外した新Identityは再署名・正式E2E待ち |
+| 文書Gate | 全427文書の処置閉包は完了。固定履歴を含む拡張母集団の独立再監査待ち |
+| v0.20全体の残るGate | 全427文書の独立再監査、新Runtime実行Identityの再署名・影響E2E、その後の人間によるRelease判断 |
+
+旧固定版`392bd1ee`のRecovery Matrixで検出した中立化Runtime子ProcessのPowerShell初期化条件は是正した。旧署名と旧4/4結果は最終根拠へ流用していない。branch、本候補表示または監査完了だけでは、v0.20.0の公開、採用、準拠またはRuntime実行Authorityを成立させない。
 
 v0.19.0の公開基準は、Source A `7346a5580926d71d253ebebaa6538e41bfbdea05`、manifest-only carrier B `5929cb27a9aed9ebabf79e07e3f710f4046597ef`、Runtime実行Identity `79e8cb3a3d11b1433e088d09d8c4b875b7de9ca2193f5e57ddc272d3225064d5`およびRelease sequence `2026090504`へ固定した。署名済みRecovery Matrix、4経路4/4、公開MCPの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recoveryとfresh再入場が完了し、最終独立監査はCritical／Major／Minor 0件だった。branch、作業中Commitまたは本書だけで公開基準を作らず、公開状態と最終Commitは公式tagから確認する。
 
@@ -18,7 +30,7 @@ v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シ�
 |---|---|---|
 | v0.20 試験体系と自動回帰 | Ready for Release Handoff | 固定改訂版`ae8efe1`で試験カタログ、変更影響型runner、段階実行、Windows実Process GateおよびPT／LTのEffect 0を確認した。決定論的回帰と独立最終レビューを完了し、Critical／Major／Moderate／Minorは0件。[検証結果](Verification_Results/2026-09-05_Test_Levels_and_Automated_Regression_Verification.md)を参照。UAT、任意のPT／LT、実Provider、公式署名およびLinux／macOSは未実施または対象外であり、本状態から成立を推定しない |
 | v0.20 実行知 | Ready for Release Handoff | 固定改訂版`3aea329`で決定論的回帰と独立再レビューを完了し、Critical／Major／Moderate／Minorは0件。`40_Develop`配下のREADMEは0件で、利用・開発手順をWorkflowへ移管し、再作成をCheckerで拒否する。[検証結果](Verification_Results/2026-09-05_Execution_Intelligence_Verification.md)を参照。実Provider、Linux／macOS、共有Store、性能・長時間試験、品質受入、運用・事業成果は未評価または未接続であり、本状態から成立を推定しない |
-| v0.20 Runtime責務分離 | Release Decision Pending | 保護対象の公開・署名・昇格・回復経路を限定グラフで閉じ、正規入力からGuard、Authority、Effectおよび結果までの値由来を利用側ごとに照合する。最終固定改訂版`f76b73af`の正式4経路E2Eは4/4、Recovery Matrixは7シナリオを完走した。実行結果を含む最終独立監査はCritical／Major／Moderate／Minor 0件。[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)を参照。残るGateは人間によるRelease判断 |
+| v0.20 Runtime責務分離 | Release Decision Pending | 保護対象の公開・署名・昇格・回復経路を限定グラフで閉じ、正規入力からGuard、Authority、Effectおよび結果までの値由来を利用側ごとに照合する。最終固定改訂版`f76b73af`の正式4経路E2Eは4/4、Recovery Matrixは7シナリオを完走した。実行結果を含む技術独立監査はCritical／Major／Moderate／Minor 0件。[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)を参照。文書GateもCritical／Major／Moderate／Minor 0件でPassし、残るGateは人間によるRelease判断 |
 | v0.19 Project Runtime | Release Gate成立 | 署名済みRecovery Matrix、4経路4/4、認証済み公開MCP Clientからの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recovery、耐久Recovery段階、fresh再入場および最終資源不存在を確認した。[最終署名E2E](Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md)と[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md#8-現在状態と次のgate)を参照。最終独立監査はCritical／Major／Minor 0件。Linux／macOS実環境、突然の電源断、任意規模・長時間負荷、由来不明退避物の清掃Authorityは未評価または後続対象 |
 | v0.18.1 Coordinator採用入口 | 公開済み。現行署名Identityの採用形態E2E、4経路4/4、固定Recovery Matrix 7シナリオ完了。検証済みDocker Desktop再起動後のTask Recovery公開引数経路は到達不能 | [現行Identityと検証結果](Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)、公式tag `v0.18.1`／Commit `14872bd19c3569a4c06752545a6057b2b4aaf3ab`。過去の4/4・7シナリオは有効だが、限定的な公開Recovery不具合と区別する。現行Sourceの入口是正は、到達可能な新しい署名固定版まで公開Baselineへ適用されない |
 | 移行前の正式署名E2E | 固定版に限り完了 | [0c3e6d2の結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)。4経路4/4、復旧7/7、cleanup確認済み |

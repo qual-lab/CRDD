@@ -267,12 +267,12 @@ test("recorded restart recovery resolves the immutable operation principal after
     previousRecordSha256: null,
     phase: "stop_intent",
   };
-  const inventory = [
+  const inventoryEntries = [
     "submission-create_subscription_auth_probe.json",
     "engine-restart-00.json",
     ...Array.from(
       { length: 5 },
-      (_, index) =>
+      (_entry, index) =>
         `engine-continuation-${String(index).padStart(2, "0")}.json`,
     ),
     "engine-handoff-00.json",
@@ -307,7 +307,7 @@ test("recorded restart recovery resolves the immutable operation principal after
       status: "completed",
       dockerRecoveryIds: [token],
     }),
-    inventoryOperationDirectory: () => inventory,
+    inventoryOperationDirectory: () => inventoryEntries,
     readExactJson: (name: string) => ({
       hash: name.endsWith("submission-create_subscription_auth_probe.json")
         ? h

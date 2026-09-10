@@ -2,11 +2,10 @@
 
 状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-06
+最終更新日: 2026-09-11
 
 Related:
 - [Runtime責務分離](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)
-- [v0.19 Project Runtime詳細設計](../coordinator/03_Project_Runtime_Design.md)
 - [MCP Transport](../mcp/01_Architecture.md)
 - [実行知](../execution-intelligence/01_Architecture.md)
 - [Project状態参照とローカルMCP HTTP](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
@@ -113,9 +112,11 @@ external consumer → index
 
 この規則は直接importだけでなく推移的依存へ適用する。静的検査はpackage dependency graphを入口から走査し、filenameの文字列一致だけで判定しない。
 
+<a id="detailed-design-contract"></a>
+
 ## 6. 状態、Authority、資源
 
-v0.19のTask、Objective、Milestone、QueueおよびDecision状態と遷移を意味変更せず継承する。正本は移行完了まで[v0.19 Project Runtime詳細設計](../coordinator/03_Project_Runtime_Design.md)と機械可読な設計対応である。v0.20の物理移動を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。Project Stateを所有するProcess世代はCoreが乱数や時刻から生成せず、Hostが有効な`ownerGeneration`として明示入力する。Coreは欠落または不正な世代を状態生成前に拒否する。
+Task、Objective、Milestone、QueueおよびDecisionの状態と遷移は本書が上位の意味を、[詳細設計](02_Detailed_Design.md)がexactなID、不変条件、Lock、Authority、Effectおよび失敗注入点を所有する。[機械可読な設計対応](../../07_Quality/06_Project_Runtime_Design_Traceability.json)は設計正本ではなく、設計とCoordinator実装・試験の対応切れを検出する検証用投影である。物理配置の変更を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。Project Stateを所有するProcess世代はCoreが乱数や時刻から生成せず、Hostが有効な`ownerGeneration`として明示入力する。Coreは欠落または不正な世代を状態生成前に拒否する。
 
 Project RuntimeはAuthorityを生成しない。人間または上位Runtimeから受け取ったProject／Milestone AuthorityをTask単位へ縮小し、Task要求と`authorityBindingId`へ結合してExecution Portへ渡す。Runtime packageの実行許可CapabilityはExecution Authorization Portから外部Effect直前に取得し、Task Authority、Task内容または許可Pathの根拠として扱わない。Transport metadata、Provider出力、Project State、実行知EventまたはAdapterの存在からAuthorityを導出しない。
 
@@ -123,7 +124,7 @@ Applicationは長時間待機中に短時間Lockを保持しない。Port呼出�
 
 ### ブロック状態遷移
 
-詳細な個別状態名は[Project Runtime詳細設計](../coordinator/03_Project_Runtime_Design.md)が所有する。次表はPackageをまたぐ結合ブロックのLifecycleを示し、個別状態の第二正本にはしない。
+詳細な個別状態名と遷移IDは、[詳細設計](02_Detailed_Design.md)から解決する。次表はPackageをまたぐ結合ブロックのLifecycleを示し、個別状態の第二正本にはしない。
 
 | ブロック状態 | 契機／事前条件 | Portとの結合 | 次状態 | 終了後条件 |
 |---|---|---|---|---|
@@ -134,6 +135,23 @@ Applicationは長時間待機中に短時間Lockを保持しない。Port呼出�
 | 統合準備 | 必要Task結果と候補が相関 | Candidate／State | Accepted Result／停止 | 個別Task成功を統合受入へしない |
 | Recovery | exact義務とfresh owner観測 | Task Recovery／Platform Observation | 再入場／手動処置 | Identityを置換せず、旧世代を再利用しない |
 | 状態投影 | 読取り専用要求 | read-only State | observed／absent／unknown | Effect 0、unknownをabsentへ畳まない |
+
+<a id="platform-boundary"></a>
+
+### Platform境界
+
+Project Runtime CoreはOS固有のPath、principal、Filesystem保護、Lock、Process、Console、ContainerまたはRecovery機構を所有せず、Portとして必要な保証を要求する。Platform AdapterはAuthorityを生成せず、Coreが与えた閉じた要求だけを観測または限定操作へ変換する。
+
+| 境界 | Coreが要求する保証 | Adapterの責務 |
+|---|---|---|
+| Principal／Provider Home | 選択ユーザー、固定Home Identity、所有・書込み主体、non-link | 対象OSのidentityと保護を実観測する |
+| Filesystem／Repository | Root、Revision、Path、Identity、原子的更新、隔離 | 境界付きPath解決とreadbackを行う |
+| Lock／Lease | OS排他、owner generation、生存観測 | 時刻やfile存在だけで奪取しない |
+| Process／取消 | argv、環境、Process tree、終了、owner loss | 要求発行と終了観測を区別する |
+| Container Host | 固定image、Network、mount、Process、cleanup | Host接続と終了後不存在を観測する |
+| Runtime Root／Recovery | OS管理Root、権限、資源Identity、回復後不存在 | exact Recovery Identityの再入場とsettle後を保証する |
+
+対応Platformが必要保証を満たさない場合、別OSのAdapterへfallbackせずEffect 0で停止する。OSのAPI名や実装方式は共通化せず、必要保証と失敗時の意味だけを共通契約にする。
 
 ## 7. 公開アプリケーション契約
 

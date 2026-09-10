@@ -137,6 +137,6 @@ Providerの終了、Promiseの完了または取消要求の受理はcleanup完�
 - timeout、cancel、Provider失敗、owner loss、cleanup不明、Recovery競合を注入し、終了後資源を確認する。
 - 外部送信許可の再利用と失効条件、model fallbackおよび同一Provider例外を検証する。
 - 削除したcommand、module、Native成果物およびmanifest fieldがhelp、parser、配布物、文書から再出現しないことを契約試験で固定する。
-- Project Runtimeでは[詳細設計](03_Project_Runtime_Design.md)の状態、資源、Lock、Authority、Effectおよび失敗注入点を、正常・準正常・異常の`PR-*`検証へ接続する。古い世代、重複request、容量競合、Queue owner喪失、Parent喪失、Transport切断、Integration conflict、採用直前Revision差およびPlatform不在を含める。
+- Project Runtimeでは[現在のアーキテクチャ](../project-runtime/01_Architecture.md)と[詳細設計](../project-runtime/02_Detailed_Design.md)が示す状態、資源、Lock、Authority、Effectおよび失敗注入点を、[機械可読な設計対応](../../07_Quality/06_Project_Runtime_Design_Traceability.json)によって正常・準正常・異常の`PR-*`検証へ接続する。古い世代、重複request、容量競合、Queue owner喪失、Parent喪失、Transport切断、Integration conflict、採用直前Revision差およびPlatform不在を含める。
 
 機械試験は独立したArchitecture／Security Review、文書監査、不足／影響監査および準拠監査を代替しない。

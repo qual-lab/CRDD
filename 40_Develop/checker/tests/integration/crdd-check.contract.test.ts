@@ -19,6 +19,57 @@ const checker = path.join(repositoryRoot, "template", "tools", "crdd-check.ts");
 const faultInjector = pathToFileURL(
   path.join(checkerRoot, "fault-injector.ts"),
 ).href;
+
+test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する", () => {
+  const phaseTemplates = [
+    "template/01_Discovery/01_Product_Discovery.md",
+    "template/02_UX/01_User_Experience.md",
+    "template/03_IA/01_Information_Architecture.md",
+    "template/04_UI/01_User_Interface.md",
+    "template/05_SPEC/01_Behavior_Specification.md",
+    "template/06_Architecture/01_Architecture.md",
+  ];
+  const tableHeader = "| 項目 | 記載内容 |";
+
+  for (const relativePath of phaseTemplates) {
+    const content = fs.readFileSync(
+      path.join(repositoryRoot, relativePath),
+      "utf8",
+    );
+    assert.ok(content.includes("文章形式を要求しない"), relativePath);
+    assert.ok(content.includes("## 対象範囲と現在状態"), relativePath);
+    assert.ok(content.includes("## 判断"), relativePath);
+    assert.ok(
+      content.split(tableHeader).length - 1 >= 2,
+      `${relativePath}: structured state and handoff tables are required`,
+    );
+  }
+
+  const documentation = fs.readFileSync(
+    path.join(repositoryRoot, "03_Documentation.md"),
+    "utf8",
+  );
+  const structuredFirst = documentation
+    .split('<a id="104-structured-first"></a>')[1]
+    ?.split(/^<a id=/mu)[0];
+  assert.ok(structuredFirst, "structured_first_section_missing");
+  for (const lifecycle of [
+    "Discovery",
+    "UX",
+    "IA",
+    "UI",
+    "UI／振る舞い仕様の対応",
+    "SPEC",
+    "Architecture",
+    "Implementation",
+    "Verification",
+    "Quality",
+    "Communication",
+  ]) {
+    assert.ok(structuredFirst.includes(lifecycle), lifecycle);
+  }
+});
+
 type CheckerFinding = Readonly<{
   severity: string;
   code: string;
@@ -3315,7 +3366,8 @@ function releasedNavigationFixture() {
     "40_Develop/checker/",
     "40_Develop/checker/tests/integration/",
   );
-  const oldText = `# 変更トレース: Released\n\n変更ID: CHG-000003\n\n当時の判断は維持。現在の案内: ${before}\nもう一つの案内: ${before}\n`;
+  const historicalBefore = "[当時の設計](../../06_Architecture/old-design.md)";
+  const oldText = `# 変更トレース: Released\n\n変更ID: CHG-000003\n\n当時の判断は維持。現在の案内: ${before}\nもう一つの案内: ${before}\n歴史的述語: ${historicalBefore}\n`;
   const viaText = oldText.replaceAll(before, via);
   const expectedText = oldText.replaceAll(before, after);
   write(path.join(root, sourcePath), oldText);
@@ -3323,6 +3375,7 @@ function releasedNavigationFixture() {
     path.join(root, "tools/checker/example.ts"),
     "export const VALUE = 1;\n",
   );
+  write(path.join(root, "06_Architecture/old-design.md"), "# 当時の設計\n");
   commit();
   git("tag", "v0.2.0");
   const fixedCommit = git("rev-parse", "HEAD");
@@ -3391,11 +3444,13 @@ function releasedNavigationFixture() {
     oldText,
     viaText,
     expectedText,
+    historicalBefore,
     record,
     correctionRecord,
     recordPath,
     save,
     commit,
+    git,
   };
 }
 
@@ -3461,6 +3516,74 @@ test("公開済み案内の一般補正は公開tagの原文Identity差を拒否
       (finding) => finding.code === "invalid-released-navigation-correction",
     ),
     JSON.stringify(result.report.findings),
+  );
+});
+
+test("公開済み案内の歴史的述語は検証済みtag上のexact pathだけを受理する", () => {
+  const state = releasedNavigationFixture();
+  const exactReference =
+    "Git tag `v0.2.0` のexact path `06_Architecture/old-design.md`";
+  state.correctionRecord.replacements.push({
+    before: state.historicalBefore,
+    via: state.historicalBefore,
+    after: exactReference,
+    count: 1,
+  });
+  write(
+    path.join(state.root, state.sourcePath),
+    state.expectedText.replaceAll(state.historicalBefore, exactReference),
+  );
+  state.save();
+  const accepted = runChecker(state.root);
+  assert.ok(
+    !accepted.report.findings.some(
+      (finding) => finding.code === "invalid-released-navigation-correction",
+    ),
+    JSON.stringify(accepted.report.findings),
+  );
+
+  state.correctionRecord.replacements[1].after =
+    "Git tag `HEAD` のexact path `06_Architecture/old-design.md`";
+  state.save();
+  const movingReference = runChecker(state.root);
+  assert.equal(movingReference.status, 1);
+  assert.ok(
+    movingReference.report.findings.some(
+      (finding) => finding.code === "invalid-released-navigation-correction",
+    ),
+  );
+
+  state.correctionRecord.replacements[1].after =
+    "Git tag `v0.2.0` のexact path `missing.md`";
+  state.save();
+  const missingObject = runChecker(state.root);
+  assert.equal(missingObject.status, 1);
+  assert.ok(
+    missingObject.report.findings.some(
+      (finding) => finding.code === "invalid-released-navigation-correction",
+    ),
+  );
+
+  state.correctionRecord.replacements[1].after = `Git tag \`v0.2.0\` のexact path \`${state.sourcePath}\``;
+  state.save();
+  const unrelatedObject = runChecker(state.root);
+  assert.equal(unrelatedObject.status, 1);
+  assert.ok(
+    unrelatedObject.report.findings.some(
+      (finding) => finding.code === "invalid-released-navigation-correction",
+    ),
+  );
+
+  state.correctionRecord.replacements[1].after = exactReference;
+  state.save();
+  state.git("tag", "-d", "v0.2.0");
+  state.git("branch", "v0.2.0", "HEAD");
+  const branchOnly = runChecker(state.root);
+  assert.equal(branchOnly.status, 1);
+  assert.ok(
+    branchOnly.report.findings.some(
+      (finding) => finding.code === "invalid-released-navigation-correction",
+    ),
   );
 });
 

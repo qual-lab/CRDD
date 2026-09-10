@@ -41,7 +41,7 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 | 旧配置への実行依存が残らないか | packageで型・全試験・開発E2Eを実行。分割したPath文字列、CLI、manifest、固定Task、改行設定も確認 | 単純な文字列置換だけの完了申告 |
 | Taskの結果と実資源の終了が一致するか | [実子Process結合試験](../40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts)で正常、exit失敗、取消、close観測不明、Host cleanup拒否を同じTaskへ接続 | この試験専用adapterを正式署名CLI・Docker・認証・実Providerの証明とすること |
 | 回収より先に成功を返さないか | 子Process close、所有Filesystem、Capability、Recovery ID、listenerの終了後状態を観測。不明時は通常完了を拒否 | Promise完了だけによる回収確認 |
-| 設計の状態・資源・試験の対応が残るか | [機械可読対応](../40_Develop/coordinator/runtime/coordinator-runtime-traceability.json)と検査スクリプトで実装・試験参照を確認 | 構造的な参照一致だけによる意味網羅の主張 |
+| 設計の状態・資源・試験の対応が残るか | [Coordinatorの機械可読対応](05_Coordinator_Runtime_Traceability.json)と検査スクリプトで実装・試験参照を確認 | 構造的な参照一致だけによる意味網羅の主張 |
 | 過去の根拠を改変・誤読していないか | 既存固定Evidenceのbyteを保持し、当時版と現在の後継を区別する。通常リンクと履歴参照をそれぞれ検査 | 旧版の成功を現版のPassへ流用すること |
 | 仕様と操作手順が一致するか | 手順の入力、事前条件、停止、取消、結果と仕様を独立照合。公開コマンドの負例と実際の入力搬送を試験 | CLIがあることだけで通常利用可能と説明すること |
 
@@ -191,7 +191,7 @@ PT／LTは、対象、時間、反復、費用・Credit、Provider呼出し、�
 
 ## Project Runtimeの検証設計
 
-Project Runtimeの詳細なInterface、永続Record、状態、資源、Lock、Authority、Effectおよび失敗注入点は[Project Runtime詳細設計](../06_Architecture/coordinator/03_Project_Runtime_Design.md)が所有し、[機械可読な設計対応](../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)が各遷移から検証項目までの参照閉包を固定する。本書はその各検証項目の目的、入力、期待結果および合否を所有する。
+Project Runtimeの現在の責務、状態の意味および完成境界は[Project Runtimeアーキテクチャ](../06_Architecture/project-runtime/01_Architecture.md)が所有する。[機械可読な設計対応](06_Project_Runtime_Design_Traceability.json)は詳細な状態、資源、Lock、Authority、Effect、失敗注入点および各遷移から検証項目までの参照閉包を固定し、本書は各検証項目の目的、入力、期待結果および合否を所有する。この投影は検証設計の入力であり、Coordinatorの実行時構成ではない。
 
 v0.19は、個別Task試験の合計ではなく、Project／Milestone入力から統合受入までの意味経路を検証する。設計、実装、試験の対応は、Project階層、Task状態、遷移、所有資源、Scheduler判断、再計画、判断移送および統合受入を対象にする。
 

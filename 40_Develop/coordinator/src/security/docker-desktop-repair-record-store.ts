@@ -995,13 +995,13 @@ function validKnownProcessPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
   const native = effectEntry(ledger, "native_termination");
   const wsl = effectEntry(ledger, "wsl_termination");
   if (!shutdown) return !native && !wsl;
-  const shutdownKnown =
+  const isShutdownKnown =
     isSettledConfirmed(ledger, "official_shutdown") ||
     isSettledNotIssued(ledger, "official_shutdown");
-  if (native && !shutdownKnown) return false;
+  if (native && !isShutdownKnown) return false;
   if (
     wsl &&
-    (!shutdownKnown ||
+    (!isShutdownKnown ||
       !native ||
       native.phase === "intent_recorded" ||
       native.confirmation === "unknown")

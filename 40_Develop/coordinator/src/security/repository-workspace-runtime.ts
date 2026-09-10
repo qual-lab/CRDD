@@ -594,10 +594,10 @@ export function projectRuntimeOwnedCandidateReadContent(
         reason: "candidate_read_projection_identity_mismatch" as const,
       });
 
-    const selected = currentInventory.filter((entry) =>
+    const selectedEntries = currentInventory.filter((entry) =>
       isAllowed(entry.relativePath, readPaths),
     );
-    if (selected.length > MAXIMUM_REVIEW_PROJECTION_FILES)
+    if (selectedEntries.length > MAXIMUM_REVIEW_PROJECTION_FILES)
       return Object.freeze({
         status: "blocked" as const,
         reason: "candidate_read_projection_budget_exceeded" as const,
@@ -605,7 +605,7 @@ export function projectRuntimeOwnedCandidateReadContent(
 
     let totalBytes = 0;
     const files: Readonly<Record<string, unknown>>[] = [];
-    for (const entry of selected) {
+    for (const entry of selectedEntries) {
       totalBytes += entry.byteLength;
       if (totalBytes > MAXIMUM_REVIEW_PROJECTION_BYTES)
         return Object.freeze({
@@ -648,7 +648,7 @@ export function projectRuntimeOwnedCandidateReadContent(
     for (const readPath of readPaths) {
       if (
         !readPath.endsWith("/") &&
-        !selected.some((entry) => entry.relativePath === readPath)
+        !selectedEntries.some((entry) => entry.relativePath === readPath)
       ) {
         files.push(Object.freeze({ path: readPath, state: "absent" }));
       }

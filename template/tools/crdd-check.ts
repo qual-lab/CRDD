@@ -691,7 +691,7 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
     const tagCommit = gitCorrectionText([
       "rev-parse",
       "--verify",
-      `${sourceRelease}^{commit}`,
+      `refs/tags/${sourceRelease}^{commit}`,
     ]);
     const tagCommitId = (tagCommit.stdout ?? "").trim();
     const ancestor = /^[0-9a-f]{40}$/u.test(tagCommitId)
@@ -748,8 +748,11 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
       const beforeText = typeof before === "string" ? before : "";
       const afterText = typeof after === "string" ? after : "";
       const linkPattern = /^\[([^\]\r\n]+)\]\((\.\.\/\.\.\/[^)\r\n]+)\)$/u;
+      const exactTagPathPattern =
+        /^Git tag `([^`\r\n]+)` のexact path `([^`\r\n]+)`$/u;
       const beforeMatch = beforeText.match(linkPattern);
       const afterMatch = afterText.match(linkPattern);
+      const exactTagPathMatch = afterText.match(exactTagPathPattern);
       const viaMatch = typeof via === "string" ? via.match(linkPattern) : null;
       const afterTarget = afterMatch
         ? path.resolve(path.dirname(sourcePath), afterMatch[2])
@@ -758,6 +761,7 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
         beforeMatch !== null &&
         beforeMatch[1] === `\`${beforeMatch[2].slice(6)}\``;
       const isLabelPreserved =
+        exactTagPathMatch !== null ||
         beforeMatch?.[1] === afterMatch?.[1] ||
         (isBeforeLabelTargetDerived &&
           afterMatch !== null &&
@@ -770,11 +774,38 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
         viaMatch[1] === `\`${viaMatch[2].slice(6)}\``;
       const isViaLabelPreserved =
         via === undefined || isViaLabelSame || isViaLabelTargetDerived;
+      const exactTagTarget = exactTagPathMatch?.[2] ?? "";
+      const beforeTargetPath = beforeMatch
+        ? path.resolve(
+            path.dirname(sourcePath),
+            beforeMatch[2].split("#", 1)[0],
+          )
+        : "";
+      const beforeTargetRelative = beforeTargetPath
+        ? path.relative(root, beforeTargetPath).replaceAll("\\", "/")
+        : "";
+      const exactTagObject = exactTagPathMatch
+        ? gitCorrectionText([
+            "cat-file",
+            "-e",
+            `${tagCommitId}:${exactTagTarget}`,
+          ])
+        : null;
+      const isExactTagTargetValid =
+        exactTagPathMatch !== null &&
+        exactTagPathMatch[1] === sourceRelease &&
+        exactTagTarget === beforeTargetRelative &&
+        /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[^\0\r\n]+\.md$/u.test(
+          exactTagTarget,
+        ) &&
+        exactTagObject?.error === undefined &&
+        exactTagObject?.status === 0 &&
+        (exactTagObject?.stderr ?? "").trim() === "";
       if (
         (keys !== ["after", "before", "count"].join("\0") &&
           keys !== ["after", "before", "count", "via"].join("\0")) ||
         !beforeMatch ||
-        !afterMatch ||
+        (!afterMatch && !isExactTagTargetValid) ||
         !isLabelPreserved ||
         !isViaLabelPreserved ||
         !Number.isSafeInteger(count) ||
@@ -783,9 +814,10 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
         count > 64 ||
         seenBefore.has(beforeText) ||
         expectedText.split(beforeText).length - 1 !== count ||
-        !isWithin(root, afterTarget) ||
-        lstatIfPresent(afterTarget)?.isFile() !== true ||
-        pathContainsSymbolicLink(afterTarget)
+        (afterMatch !== null &&
+          (!isWithin(root, afterTarget) ||
+            lstatIfPresent(afterTarget)?.isFile() !== true ||
+            pathContainsSymbolicLink(afterTarget)))
       ) {
         isReplacementSetValid = false;
         break;

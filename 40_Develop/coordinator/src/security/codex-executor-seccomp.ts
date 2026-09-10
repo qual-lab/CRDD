@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const EXECUTOR_SECCOMP_PROFILE_PATH = fileURLToPath(
+const executorSeccompProfilePath = fileURLToPath(
   new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
 );
 
@@ -16,20 +16,20 @@ export function resolveFixedCodexExecutorSeccompProfile(
   expectedBytes: number,
 ) {
   try {
-    const before = fs.lstatSync(EXECUTOR_SECCOMP_PROFILE_PATH, {
+    const before = fs.lstatSync(executorSeccompProfilePath, {
       bigint: true,
     });
     if (
       !before.isFile() ||
       before.isSymbolicLink() ||
       before.size !== BigInt(expectedBytes) ||
-      fs.realpathSync.native(EXECUTOR_SECCOMP_PROFILE_PATH) !==
-        EXECUTOR_SECCOMP_PROFILE_PATH
+      fs.realpathSync.native(executorSeccompProfilePath) !==
+        executorSeccompProfilePath
     ) {
       return null;
     }
-    const bytes = fs.readFileSync(EXECUTOR_SECCOMP_PROFILE_PATH);
-    const after = fs.lstatSync(EXECUTOR_SECCOMP_PROFILE_PATH, {
+    const bytes = fs.readFileSync(executorSeccompProfilePath);
+    const after = fs.lstatSync(executorSeccompProfilePath, {
       bigint: true,
     });
     if (
@@ -41,7 +41,7 @@ export function resolveFixedCodexExecutorSeccompProfile(
     ) {
       return null;
     }
-    return EXECUTOR_SECCOMP_PROFILE_PATH;
+    return executorSeccompProfilePath;
   } catch {
     return null;
   }

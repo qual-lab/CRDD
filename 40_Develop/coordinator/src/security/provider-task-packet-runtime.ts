@@ -217,12 +217,12 @@ function normalizedReviewerReadProjection(value: unknown) {
     files.push(Object.freeze({ ...file }));
   }
   if (observedBytes !== record.totalBytes) return null;
-  const canonical = Object.freeze(files);
+  const canonicalFiles = Object.freeze(files);
   const expectedHash = createHash("sha256")
     .update("crdd-candidate-read-projection-v1\0")
     .update(record.candidatePatchHash)
     .update("\0")
-    .update(JSON.stringify(canonical))
+    .update(JSON.stringify(canonicalFiles))
     .digest("hex");
   if (expectedHash !== record.projectionHash) return null;
   return Object.freeze({
@@ -230,7 +230,7 @@ function normalizedReviewerReadProjection(value: unknown) {
     candidateContentManifestHash: record.candidateContentManifestHash,
     projectionHash: record.projectionHash,
     totalBytes: record.totalBytes,
-    files: canonical,
+    files: canonicalFiles,
   }) as ReviewerReadProjection;
 }
 

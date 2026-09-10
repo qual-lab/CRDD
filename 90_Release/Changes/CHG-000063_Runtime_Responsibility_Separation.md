@@ -9,6 +9,18 @@
 
 ## 1. 結論と現在状態
 
+| 項目 | 現在状態 |
+|---|---|
+| 責務分離 | Project Runtime、Coordinator、MCP、実行知、Platform Accessへ分離済み |
+| 固定改訂版 | `f76b73af81c43e25f28037caa72d71a898a2f9fb` |
+| 正式署名 | Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
+| 正式E2E | 4経路中4経路成功 |
+| Recovery | 7シナリオ完走、cleanup成立、手動回復不要 |
+| 独立監査 | Critical／Major／Moderate／Minor 0件 |
+| 残るGate | 人間によるRelease判断 |
+
+以下の変更経緯は、固定候補ごとの観測、原因および構造是正を保持するTimelineである。各段階に記録した「未完了」は当時の状態であり、現在状態は上表と[最終検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)が所有する。
+
 v0.19で成立したProject Runtime、MCP stdioおよびCoordinatorは、意味上の責務を分けていた一方、実装と公開入口の多くをCoordinator package内部へ集約している。この状態では、Coordinator固有のProvider実行、Windows／Docker、Project lifecycle、MCP Transportおよび公開契約の変更が同じpackage境界へ伝播し、後続の限定分散実行、Project State投影およびMCP Streamable HTTPで変更理由と回帰範囲を分離しにくい。
 
 本変更はProject RuntimeをProject-level execution lifecycleのApplication Core、Coordinatorを実行編成、MCPをTransport、実行知を観測・分析、Platform AccessをOS／Platform境界として分ける。物理移動を完成とせず、公開契約、依存方向、実装Adapter、利用側および自動回帰が同時に成立した場合だけ分離完了とする。
@@ -70,6 +82,23 @@ v0.20の実Docker結合試験で、検証付き再起動が正常な停止・起
 | 障害修復後も元のexact Task回復義務を保持する | v0.19の修復記録、Recovery IDおよびTask Recovery試験 | 障害修復記録とTask Recoveryの再起動Fence | 修復終了記録、現在Engine、対象資源のfreshな不存在、元Recovery IDによる再入場 | 既存契約あり。現行Trust境界による修復完走後の再確認が必要 |
 | 復旧処理の途中結果を再発行せず、物理残存を無断削除しない | v0.19の耐久修復Recordと回復試験 | 障害修復Record、再起動Record、Runtime State | 各Effect前Intent、結果不明時の停止、保持物のexact Identity、終了後cleanup | 保持。5回の盲目的再試行は採用しない |
 
+### v0.20で得た共通学習の還元
+
+| 学習 | 共通化した処置 | 正本・機械確認への接続 |
+|---|---|---|
+| 主機能の移行だけでは署名、Release、Recovery等の副次成立条件を保持できない | 変更した意味からProducer、全Consumer、派生物、署名、公開、回復まで閉じる | [保守](../../19_Maintenance.md)、利用側閉包の契約試験 |
+| CanonicalなPath、Identity、Stateを利用側で再構成すると意味が分岐する | Canonical Producerが解決済み値を渡し、Consumerの再解釈を禁止する | [アーキテクチャ](../../27_Architecture.md)、限定グラフの反証試験 |
+| 宣言一覧だけでは登録漏れを検出できない | 実source・公開入口・Release経路から導出した集合と宣言集合を双方向照合する | Checker、Capability Graph、Runtime Trace |
+| 外部境界の単発成功だけでは終了、取消、回復、再入場を保証できない | 外部境界をブロック化し、隣接1～2ブロックと完全Lifecycleを段階的に結合試験する | [品質保証](../../16_Quality_Assurance.md)、試験カタログ |
+| 外部CLIやOS APIを推測で扱うと高価な再試行になる | 要求、受理、Effect、完了、観測、耐久確定を分け、診断可能な観測を設計時に置く | [アーキテクチャ](../../27_Architecture.md)、実境界結合試験 |
+| 大規模Refactorは前版の副次Capabilityを失い得る | 前版Capability、過去Evidence、置換Owner、利用側、実境界検証を着手前に対応付ける | [保守](../../19_Maintenance.md)、基準版Capability表 |
+| テスト追加後の件数や期待値も利用側である | 実在試験、台帳、runner、期待値を同じ変更単位で同期する | [試験体系CHG](CHG-000061_Test_Levels_and_Automated_Regression.md)、Checker契約試験 |
+| 環境のVersion／Hash変化だけを危険とすると正当な更新を拒否する | 環境は柔軟に扱い、発行者、必要Capability、Operation中の同一性を確認できない場合に停止する | Docker CLI Trust契約、実署名観測試験 |
+| 状態機械や部品関係を文章だけで追うと遷移・接続漏れを見逃す | ブロック図、状態遷移図、Sequence図、Class図、DFDの意味記法と視覚的表現を設計へ要求する | [アーキテクチャ](../../27_Architecture.md)、設計対応検査 |
+| 承認済み目標を内部工程ごとに再確認するとHuman Active Timeが増える | 範囲変更や新Authorityがない限り、一つの目標として自走し、秘密入力・不可逆判断だけを人間へ戻す | [エージェント](../../10_Agent.md)、`template/AGENTS.md` |
+
+共通規範への昇格は、今回のRuntime固有手順をそのまま一般化するものではない。上表の意味契約だけを正本へ置き、Docker固有の実装・試験結果・固定Identityは本CHGと検証結果に保持する。
+
 削除・置換対象の判断では、Git tag `v0.19.0`、当時の変更トレース、検証結果および公開契約を確認する。上表が新しい根拠で閉じる前に、旧修復を不要、検証付き再起動へ置換済み、または回帰不要と扱わない。一方、同じCapabilityが現行Trust境界と実Lifecycleで成立した後は、版固定された旧Policyや重複実装を互換目的で残さない。
 
 ## 2. 人間が決定した範囲
@@ -93,10 +122,11 @@ v0.20の実Docker結合試験で、検証付き再起動が正常な停止・起
 
 ## 4. 設計と依存方向
 
-- [Project Runtimeアーキテクチャ](../../06_Architecture/project-runtime/01_Architecture.md): Application Core、公開契約、Port、状態、依存規則および移行順序。
+- [Project Runtimeアーキテクチャ](../../06_Architecture/project-runtime/01_Architecture.md): Application Core、公開契約、Port、上位状態、依存規則および移行順序。
+- [Project Runtime詳細設計](../../06_Architecture/project-runtime/02_Detailed_Design.md): exactな状態遷移、資源、Lock、Authority、Effect、不変条件および失敗注入点。
 - [MCP Transportアーキテクチャ](../../06_Architecture/mcp/01_Architecture.md): MCP Protocol、stdio Transport、将来HTTPとの共通境界およびAuthority非生成。
 - [Coordinator参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md): v0.19の実行編成、Provider、SecurityおよびRecoveryの既存保証。
-- [Project Runtime詳細設計](../../06_Architecture/coordinator/03_Project_Runtime_Design.md): v0.19固定版の状態、資源、Lock、Authority、EffectおよびRecovery契約。移行中も意味の基準として保持する。
+- [機械可読なProject Runtime設計対応](../../07_Quality/06_Project_Runtime_Design_Traceability.json): 現行設計とCoordinator実装・検証項目を結ぶ検証用投影。設計の第二正本にはしない。
 
 許可する上位依存方向は次とする。
 
@@ -164,7 +194,7 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 
 ## 9. 公開済み文書の現行案内補正
 
-責務分離で試験の所有Componentとファイル名が変わったため、v0.19.0で公開したCHG-000057の現在の試験案内だけを現行Pathへ補正する。公開時の本文、判断、結果および主張は変更しない。Checkerは公開tag上の原文Hash、置換前・途中・置換後の完全一致、置換数および現行参照先の実在を検証し、それ以外の本文差を拒否する。
+責務分離で試験、Architectureおよび検証投影の所有Componentが変わったため、v0.19.0で公開したCHG-000057の現在案内5件を現行Pathへ補正し、当時の設計件数を支える歴史的述語1件を同じ公開tag上のexact pathへ接続する。公開時の本文、判断、結果および主張は変更しない。Checkerは公開tag上の原文Hash、置換前・途中・置換後の完全一致、置換数、現行参照先の実在、および歴史的参照が元の参照先と同じtag objectであることを検証し、それ以外の本文差を拒否する。
 
 <!-- crdd-released-navigation-correction: 1 -->
 ```json
@@ -176,13 +206,38 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
   "replacements": [
     {
       "before": "[Project状態契約試験](../../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)",
+      "via": "[Project状態契約試験](../../40_Develop/project-runtime/tests/unit/project-runtime-state.contract.test.ts)",
       "after": "[Project状態契約試験](../../40_Develop/project-runtime/tests/unit/project-runtime-state.contract.test.ts)",
       "count": 1
     },
     {
       "before": "[MCP Adapter契約試験](../../40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts)",
-      "via": "[MCP Adapter契約試験](../../40_Develop/coordinator/tests/unit/mcp-project-runtime-adapter.contract.test.ts)",
+      "via": "[MCP Adapter契約試験](../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts)",
       "after": "[MCP Adapter契約試験](../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts)",
+      "count": 1
+    },
+    {
+      "before": "[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-reference-architecture)",
+      "via": "[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-reference-architecture)",
+      "after": "[参照アーキテクチャ](../../06_Architecture/project-runtime/01_Architecture.md)",
+      "count": 1
+    },
+    {
+      "before": "[Project Runtime詳細設計](../../06_Architecture/coordinator/03_Project_Runtime_Design.md)",
+      "via": "[Project Runtime詳細設計](../../06_Architecture/coordinator/03_Project_Runtime_Design.md)",
+      "after": "Git tag `v0.19.0` のexact path `06_Architecture/coordinator/03_Project_Runtime_Design.md`",
+      "count": 1
+    },
+    {
+      "before": "[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-platform-boundary)",
+      "via": "[参照アーキテクチャ](../../06_Architecture/coordinator/01_Architecture.md#project-runtime-platform-boundary)",
+      "after": "[参照アーキテクチャ](../../06_Architecture/project-runtime/01_Architecture.md)",
+      "count": 1
+    },
+    {
+      "before": "[機械可読な設計対応](../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)",
+      "via": "[機械可読な設計対応](../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)",
+      "after": "[機械可読な設計対応](../../07_Quality/06_Project_Runtime_Design_Traceability.json)",
       "count": 1
     }
   ]

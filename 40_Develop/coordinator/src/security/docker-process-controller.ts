@@ -1116,8 +1116,8 @@ async function executePlan(
   let normalizedResult: unknown | null = null;
   let isSubscriptionAuthConfirmed = false;
   let recoveryFinalizationCapability: object | null = null;
-  let providerContainerCreatedObserved = false;
-  let providerProcessCompletionObserved = false;
+  let wasProviderContainerCreationObserved = false;
+  let wasProviderProcessCompletionObserved = false;
   let providerExitStatusClass: ReturnType<
     typeof providerProcessExitStatusClass
   > = "not_observed";
@@ -1220,9 +1220,9 @@ async function executePlan(
         plan.provider,
       );
       if (command.purpose === "create_provider" && classified.ok)
-        providerContainerCreatedObserved = true;
+        wasProviderContainerCreationObserved = true;
       if (isProvider) {
-        providerProcessCompletionObserved = execution !== null;
+        wasProviderProcessCompletionObserved = execution !== null;
         providerExitStatusClass = providerProcessExitStatusClass(execution);
       }
       if (!classified.ok) {
@@ -1402,9 +1402,9 @@ async function executePlan(
       taskRole: plan.taskRole,
       provider: plan.provider,
       operationId: plan.operationId,
-      providerContainerCreatedObserved,
+      providerContainerCreatedObserved: wasProviderContainerCreationObserved,
       providerProcessStartedObserved: providerRequestStarted,
-      providerProcessCompletionObserved,
+      providerProcessCompletionObserved: wasProviderProcessCompletionObserved,
       providerProcessExitStatusClass: providerExitStatusClass,
       processTreeTerminationObserved: processTreeTerminationConfirmed,
       containersAbsentObserved: cleanup.containersAbsent,

@@ -65,11 +65,11 @@ function exactCompletedRoute(result: RuntimeRecord, route: string) {
 function blockedResult(
   results: readonly RuntimeRecord[],
   failedRouteProfile: SignedGeneralTaskRouteProfile | null,
-  effectStateUnknown = false,
+  isEffectStateUnknown = false,
 ) {
   const last = results.at(-1);
-  const unknown =
-    effectStateUnknown ||
+  const isFinalEffectStateUnknown =
+    isEffectStateUnknown ||
     (last !== undefined && last.effectStateUnknown !== false);
   return Object.freeze({
     contract: SIGNED_REVIEWER_BOUNDARY_VERIFICATION_CONTRACT,
@@ -84,36 +84,44 @@ function blockedResult(
     ),
     failedRouteProfile,
     results: Object.freeze([...results]),
-    cleanupConfirmed: !unknown && last?.cleanupConfirmed === true,
-    manualRecoveryRequired: unknown || last?.manualRecoveryRequired !== false,
+    cleanupConfirmed:
+      !isFinalEffectStateUnknown && last?.cleanupConfirmed === true,
+    manualRecoveryRequired:
+      isFinalEffectStateUnknown || last?.manualRecoveryRequired !== false,
     processRestartRequired:
       isRuntimeProcessPoisoned() || last?.processRestartRequired === true,
-    effectStateUnknown: unknown,
-    canonicalRepositoryChanged: unknown
+    effectStateUnknown: isFinalEffectStateUnknown,
+    canonicalRepositoryChanged: isFinalEffectStateUnknown
       ? null
       : last?.canonicalRepositoryChanged === true,
-    rawProviderOutputReported: unknown ? null : false,
-    hostPathReported: unknown ? null : false,
-    credentialReported: unknown ? null : false,
-    hostRecoveryId: unknown ? null : (last?.hostRecoveryId ?? null),
-    hostRecoveryIds: unknown
+    rawProviderOutputReported: isFinalEffectStateUnknown ? null : false,
+    hostPathReported: isFinalEffectStateUnknown ? null : false,
+    credentialReported: isFinalEffectStateUnknown ? null : false,
+    hostRecoveryId: isFinalEffectStateUnknown
+      ? null
+      : (last?.hostRecoveryId ?? null),
+    hostRecoveryIds: isFinalEffectStateUnknown
       ? Object.freeze([])
       : (last?.hostRecoveryIds ?? Object.freeze([])),
-    dockerRecoveryId: unknown ? null : (last?.dockerRecoveryId ?? null),
-    dockerRecoveryIds: unknown
+    dockerRecoveryId: isFinalEffectStateUnknown
+      ? null
+      : (last?.dockerRecoveryId ?? null),
+    dockerRecoveryIds: isFinalEffectStateUnknown
       ? Object.freeze([])
       : (last?.dockerRecoveryIds ?? Object.freeze([])),
-    candidateRecoveryId: unknown ? null : (last?.candidateRecoveryId ?? null),
-    candidateRecoveryIds: unknown
+    candidateRecoveryId: isFinalEffectStateUnknown
+      ? null
+      : (last?.candidateRecoveryId ?? null),
+    candidateRecoveryIds: isFinalEffectStateUnknown
       ? Object.freeze([])
       : (last?.candidateRecoveryIds ?? Object.freeze([])),
-    candidateStoreRecoveryId: unknown
+    candidateStoreRecoveryId: isFinalEffectStateUnknown
       ? null
       : (last?.candidateStoreRecoveryId ?? null),
-    candidateStoreRecoveryIds: unknown
+    candidateStoreRecoveryIds: isFinalEffectStateUnknown
       ? Object.freeze([])
       : (last?.candidateStoreRecoveryIds ?? Object.freeze([])),
-    recoveryIdentityAmbiguous: unknown,
+    recoveryIdentityAmbiguous: isFinalEffectStateUnknown,
   });
 }
 

@@ -2,12 +2,12 @@
 
 状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-06
+最終更新日: 2026-09-11
 
 Related:
 - [Runtime責務分離](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)
 - [Project Runtime](../project-runtime/01_Architecture.md)
-- [v0.19 Project Runtime詳細設計](../coordinator/03_Project_Runtime_Design.md)
+- [MCP Serverの利用手順](../../19_Workflows/04_MCP_Server.md)
 - [Project状態参照とローカルMCP HTTP](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
 
 ## 1. 目的と責務
