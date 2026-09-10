@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 18;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 19;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -246,7 +246,7 @@ function taskHash(
   remediationFindings: TaskPacket["remediationFindings"],
 ) {
   return createHash("sha256")
-    .update("crdd-provider-task-packet-v7\0")
+    .update("crdd-provider-task-packet-v8\0")
     .update(
       JSON.stringify({
         operationId,
@@ -268,6 +268,7 @@ function promptFor(packet: TaskPacket) {
     packet.taskRole === "executor"
       ? [
           "Work only inside /work. Modify only the allowed paths. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems.",
+          "The bounded workspace intentionally has no Git metadata. Do not invoke Git or assume that an apply_patch command is installed. Use the filesystem and shell tools available in the Runtime; Python 3 and POSIX text tools are the supported deterministic choices for text inspection and editing. Check each command result and the resulting file before reporting changedPaths.",
           "Executor result invariant: changedPaths is the complete set of paths that differ from the base revision after this attempt. During remediation it includes candidate changes already present before this attempt, not only paths written during the remediation turn.",
         ].join(" ")
       : [

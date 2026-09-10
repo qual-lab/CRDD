@@ -472,6 +472,8 @@ ProviderとDockerの外部境界は、一般Architectureの[外部境界の診�
 
 実行構成は設定済みの値、実行結果は外部境界で観測済みの値として表示し、両者を同じ成立事実へ畳まない。診断sinkの失敗、遅延または不在はAuthority、Sandbox、外部Effect、cleanupおよび本処理の結果を変更しない。診断だけからWorkspaceのbyte変化を推定せず、候補Filesystemの独立観測を正本とする。
 
+外部Agentへ渡すTask Packetは、通常の対話環境から推測できない実行Capabilityを明示する。隔離WorkspaceにGit Metadataがないこと、利用できない編集Command、および検証済みの決定論的な編集手段を実装と同じ変更で接続する。Agentに試行錯誤でTool Inventoryを推定させず、設定したCapabilityと実際のImage内Toolを結合試験で照合する。
+
 <a id="11-変更と検証"></a>
 
 ## 13. 検証接続

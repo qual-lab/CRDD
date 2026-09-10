@@ -371,8 +371,12 @@ function providerBoundaryConfiguration(
     sandboxModeConfigured,
     workspaceMountModeConfigured: plan.workspaceMountMode,
     rootFilesystemReadOnlyConfigured: argv.includes("--read-only"),
-    nonRootUserConfigured: argumentAfter(argv, "--user") === "65534:65534",
-    workdirConfigured: argv.includes("--workdir=/work"),
+    nonRootUserConfigured:
+      argumentAfter(argv, "--user") === "65534:65534" ||
+      argv.includes("--user=65534:65534"),
+    workdirConfigured:
+      argumentAfter(argv, "--workdir") === "/work" ||
+      argv.includes("--workdir=/work"),
   });
 }
 

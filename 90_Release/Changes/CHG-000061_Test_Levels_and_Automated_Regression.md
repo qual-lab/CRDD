@@ -221,6 +221,18 @@ Task入力を正確に復元してもCodex Executorだけが変更0件だった�
 
 この学びは検証手順だけでなくArchitectureの不足でもあった。外部境界は、入力・構成、要求・受理、開始・完了、Effect・結果搬送および終了後状態を、機密を複製せず相関できる診断契約を実装と同時に持つ。Codex診断はCommand終了codeを`0`、`1`、`126`、`127`、その他の非0および欠落へ閉じて集計する。Docker Process境界は、実際に消費した起動構成から承認方式、Sandbox、Workspace mount、read-only root、非root userおよびworkdirを設定値として示し、Container作成、Provider Process開始・完了、終了code区分およびcleanupを実観測値として同じOperationへ相関する。Command本文、Path、生出力およびCredentialは保持せず、診断表示の失敗はAuthorityまたは本処理結果を変更しない。これにより、次の一回でCommand／Tool互換、Codex固有実行環境、承認・SandboxおよびContainer／Workspace境界の候補をさらに分離できるようにする。
 
+固定候補`46dc79e5`の実測とProviderを使わない同一Image反証により、次を確認した。
+
+| 観測対象 | 結果 | 判断 |
+| --- | --- | --- |
+| Codex外側Process | Container作成、Process開始・終了0、回収が成立 | Docker起動・結果搬送を主原因から除外 |
+| Codex内側Command | 2件とも終了1、File変更開始0 | 内部Command選択またはTool Capability不整合へ縮約 |
+| 承認 | `approve_for_me`設定、拒否0 | 単純な承認拒否を主原因から除外 |
+| 同一Imageの局所反証 | UID 65534、`/work`、read-only root、bind mountで読取り・置換・再読取りが成立 | 基本Filesystem権限とmountを主原因から除外 |
+| Image Tool Inventory | Python 3／POSIX text Toolあり、Git／`apply_patch` Commandなし | Task Packetの実行Capability説明不足を是正対象とする |
+
+Task Packetへ、Git Metadataが存在しないこと、Gitと未提供の`apply_patch` Commandを使わないこと、検証済みのPython 3またはPOSIX text Toolを使ってCommand結果と変更後Fileを確認することを追加する。これはProvider固有の攻略文ではなく、隔離された外部実行境界が提供するCapabilityをConsumerへ伝播するArchitecture契約である。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。

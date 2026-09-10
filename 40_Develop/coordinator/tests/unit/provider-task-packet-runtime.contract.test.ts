@@ -149,6 +149,16 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
     assert.match(consumed?.prompt ?? "", /Readable paths:/u);
     assert.match(
       consumed?.prompt ?? "",
+      /bounded workspace intentionally has no Git metadata/u,
+    );
+    assert.match(consumed?.prompt ?? "", /Do not invoke Git/u);
+    assert.match(consumed?.prompt ?? "", /Python 3 and POSIX text tools/u);
+    assert.match(
+      consumed?.prompt ?? "",
+      /Check each command result and the resulting file/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
       /changedPaths is the complete set of paths that differ from the base revision/u,
     );
     assert.match(
@@ -774,7 +784,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 18);
+  assert.equal(contract.contractRevision, 19);
   assert.equal(
     contract.repositoryFileBytesEmbeddedInPrompt,
     "reviewer_only_explicit_read_projection_bound_to_candidate_identity",
