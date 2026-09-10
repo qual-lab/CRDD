@@ -77,10 +77,14 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
   assert.equal(executor.workspaceMountMode, "read_write");
   assert.equal(
     executor.explicitSandboxOption,
-    "approve_for_me_executor_workspace_write_reviewer_read_only",
+    "external_docker_executor_reviewer_read_only",
   );
-  assert.equal(executor.approvalMode, "automatic_review_workspace_write");
-  assert.equal(executor.argv.includes("--approve-for-me"), true);
+  assert.equal(executor.approvalMode, "externally_sandboxed_noninteractive");
+  assert.equal(
+    executor.argv.includes("--dangerously-bypass-approvals-and-sandbox"),
+    true,
+  );
+  assert.equal(executor.argv.includes("--approve-for-me"), false);
   assert.equal(executor.argv.includes("--sandbox"), false);
   assert.equal(executor.argv.includes('approval_policy="never"'), false);
   assert.equal(executor.argv.includes("--json"), true);
@@ -89,7 +93,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
   assert.equal(reviewer.workspaceMountMode, "read_only");
   assert.equal(
     reviewer.explicitSandboxOption,
-    "approve_for_me_executor_workspace_write_reviewer_read_only",
+    "external_docker_executor_reviewer_read_only",
   );
   assert.equal(reviewer.approvalMode, "never_read_only");
   assert.equal(reviewer.argv.includes("--approve-for-me"), false);
@@ -278,7 +282,7 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
   );
 });
 
-test("固定Codex imageは公式署名済みbwrapを隣接配置して内部Sandboxを維持する", () => {
+test("固定Codex imageはread-only probe用bwrapを保持しExecutorは外側Dockerへ隔離を一意化する", () => {
   const contract = describeCodexExecutionPlanContract();
   assert.deepEqual(
     {
@@ -317,5 +321,16 @@ test("固定Codex imageは公式署名済みbwrapを隣接配置して内部Sand
     true,
   );
   assert.equal(dockerfile.includes("dangerously-bypass"), false);
+  const executor = planCodexIsolatedTask({
+    provider: "codex",
+    mode: "isolated_task",
+    effort: "low",
+    taskRole: "executor",
+  });
+  if (executor.status !== "candidate") assert.fail(executor.reason);
+  assert.equal(
+    executor.argv.includes("--dangerously-bypass-approvals-and-sandbox"),
+    true,
+  );
   assert.equal(dockerfile.includes("codex-code-mode-host"), false);
 });

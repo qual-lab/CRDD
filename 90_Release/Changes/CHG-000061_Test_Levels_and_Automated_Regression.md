@@ -235,6 +235,10 @@ Task Packetへ、Git Metadataが存在しないこと、Gitと未提供の`apply
 
 このTask Packetを含む固定候補`80375631`でも、Codex Executorは初回・是正を通じて3件のCommandを開始し、全て終了code 1、File変更Event 0件、申告変更0件、実候補変更0件となった。非root user、read-write mount、read-only root、workdir、外側Process完了およびcleanupは実観測で成立し、Claude Executor／Codex Reviewer経路も成立した。したがって、利用可能Toolの説明不足だけを原因とする仮説を否定し、次の実測前にJSON LinesからCommand本文と生出力を公開せず、使用Tool系統と既知の失敗理由だけを閉じた分類へ追加する。同じ外形の実測を再反復せず、次の一回がCommand選択、Path、権限、Sandboxまたは構文の候補を分割できることを実行条件とする。
 
+固定候補`9852bc79`の一回の実測では、Codex Executorが使用したCommandはPOSIX text系であり、3件全てがSandbox分類で終了1となった。Git、`apply_patch`、Python、権限、read-only Filesystem、Path不存在、Command不存在および構文の分類は0だった。Providerを呼ばない同一Docker制約のbubblewrap Probeは、非特権user namespaceを作成できない固定理由で再現した。Docker Engine 29.7.2ではContainer限定の`kernel.unprivileged_userns_clone`変更も許可されない。したがって、Task内容やProvider判断ではなく、外側Docker隔離の内部へ固定Codexのbubblewrapを重ねた実行構成が直接原因である。
+
+Codex CLI自身が外部Sandbox環境専用として提供する非対話入口へExecutorを切り替え、隔離のAuthorityを外側Dockerへ一意化する。非root user、read-only root、Capability全削除、限定Workspace mount、Network proxy、Provider Home保護、Process tree終了およびContainer／Network不存在は維持する。危険名のoptionが存在することだけで許可せず、実際のDocker起動構成と終了後状態を同じOperation診断へ接続し、固定Binaryの実Workspace変更を結合試験で確認する。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。

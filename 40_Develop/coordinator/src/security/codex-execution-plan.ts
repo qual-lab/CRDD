@@ -172,7 +172,9 @@ export function planCodexIsolatedTask(candidate: unknown) {
     argv: Object.freeze([
       "exec",
       "--ephemeral",
-      ...(taskRole === "executor" ? ["--approve-for-me"] : []),
+      ...(taskRole === "executor"
+        ? ["--dangerously-bypass-approvals-and-sandbox"]
+        : []),
       "--ignore-user-config",
       "--ignore-rules",
       "--strict-config",
@@ -231,11 +233,10 @@ export function planCodexIsolatedTask(candidate: unknown) {
     providerHomeMountRequired: true,
     workspaceMountRequired: true,
     workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
-    explicitSandboxOption:
-      "approve_for_me_executor_workspace_write_reviewer_read_only",
+    explicitSandboxOption: "external_docker_executor_reviewer_read_only",
     approvalMode:
       taskRole === "executor"
-        ? "automatic_review_workspace_write"
+        ? "externally_sandboxed_noninteractive"
         : "never_read_only",
     rootFilesystemReadOnly: true,
     taskPromptTransport: "stdin_only" as const,

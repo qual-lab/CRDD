@@ -178,11 +178,13 @@ type ProviderBoundaryDiagnosticNotice =
       provider: "codex" | "claude";
       operationId: string;
       approvalModeConfigured:
+        | "external_sandbox_bypass"
         | "approve_for_me"
         | "never"
         | "not_applicable"
         | "other";
       sandboxModeConfigured:
+        | "external_docker"
         | "read_only"
         | "implicit"
         | "not_applicable"
@@ -348,20 +350,24 @@ function providerBoundaryConfiguration(
   const approvalModeConfigured =
     plan.provider !== "codex"
       ? "not_applicable"
-      : argv.includes("--approve-for-me")
-        ? "approve_for_me"
-        : argv.some((value) => value === 'approval_policy="never"')
-          ? "never"
-          : "other";
+      : argv.includes("--dangerously-bypass-approvals-and-sandbox")
+        ? "external_sandbox_bypass"
+        : argv.includes("--approve-for-me")
+          ? "approve_for_me"
+          : argv.some((value) => value === 'approval_policy="never"')
+            ? "never"
+            : "other";
   const sandbox = argumentAfter(argv, "--sandbox");
   const sandboxModeConfigured =
     plan.provider !== "codex"
       ? "not_applicable"
-      : sandbox === "read-only"
-        ? "read_only"
-        : sandbox === undefined
-          ? "implicit"
-          : "other";
+      : argv.includes("--dangerously-bypass-approvals-and-sandbox")
+        ? "external_docker"
+        : sandbox === "read-only"
+          ? "read_only"
+          : sandbox === undefined
+            ? "implicit"
+            : "other";
   return Object.freeze({
     event: "coordinator_provider_boundary_configured" as const,
     taskRole: plan.taskRole,
