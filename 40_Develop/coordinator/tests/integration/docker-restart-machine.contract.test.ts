@@ -321,6 +321,22 @@ test("Engine observation distinguishes known unavailability from unknown failure
     })).state,
     "known_unavailable",
   );
+  for (const stdout of ["null", "null\n", "null\r\n"]) {
+    assert.equal(
+      observeDockerRestartEngineResult({ ...unavailable, stdout }, () => ({
+        state: "absent",
+        cleanup: "confirmed",
+      })).state,
+      "known_unavailable",
+    );
+  }
+  assert.equal(
+    observeDockerRestartEngineResult({ ...unavailable, stdout: "{}" }, () => ({
+      state: "absent",
+      cleanup: "confirmed",
+    })).state,
+    "unknown",
+  );
   assert.equal(
     observeDockerRestartEngineResult(unavailable, () => ({
       state: "present",

@@ -253,6 +253,8 @@ Sandbox契約の初回固定候補は、Docker Effectの許可Command再構成�
 
 是正では、新しい開発用Trustを生成せず、測定開始時に検証済みの同じProcess内CapabilityをDocker回復の観測、検証済みDocker再起動、再起動後の再入場および事後Inventoryへ一貫して渡す。通常Releaseでは従来どおり署名済みRuntimeの観測だけを使用し、開発Contextを渡した場合は、固定Package、Repository Revision、Native Release、期限およびTask集合の再検証に成功した場合だけ同じRuntime State Rootへ到達する。Focused回帰に加え、失敗を発生させたexact Recovery Identityについて、Docker資源不存在、耐久記録の完了および終了後Inventoryを固定開発候補から実確認する。
 
+Docker CLI 29.7.2はEngine停止時、非ゼロ終了と接続失敗に加えて、Server用のformat結果として標準出力へ`null`を返す。旧CLIの空出力だけを受理する観測では、Named Pipeが明示的に不在でも停止を`unknown`へ畳んで再開できなかった。VersionやHashを固定する代わりに、非ゼロ終了、Signal／起動Errorなし、空または限定した`null`出力、およびEngine Pipeの明示的不在を共同条件として`known_unavailable`を判定する。任意の非空出力やPipe観測不能は引き続き`unknown`とする。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。

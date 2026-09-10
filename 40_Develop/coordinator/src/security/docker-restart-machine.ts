@@ -294,7 +294,7 @@ export function observeDockerRestartEngineResult(
     result.status === null ||
     result.status === 0 ||
     typeof result.stdout !== "string" ||
-    (result.stdout !== "" && result.stdout !== "\n" && result.stdout !== "\r\n")
+    !["", "\n", "\r\n", "null", "null\n", "null\r\n"].includes(result.stdout)
   )
     return Object.freeze({ state: "unknown", cleanup: "confirmed" });
   const pipe = observeEnginePipe();
