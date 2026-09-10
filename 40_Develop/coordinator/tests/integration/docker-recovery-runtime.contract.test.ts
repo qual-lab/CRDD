@@ -6635,7 +6635,7 @@ test("production共有Docker回復はreceipt前照会の失敗・signal・stderr
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 25,
+    contractRevision: 26,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",

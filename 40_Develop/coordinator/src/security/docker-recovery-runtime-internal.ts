@@ -93,7 +93,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 25;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 26;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const COMPLETED_DOCKER_RECOVERY_RECEIPT =
@@ -5161,15 +5161,19 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
 function recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
   token: unknown,
   root: VerifiedRuntimeStateRoot,
+  developmentContext?: unknown,
 ) {
   return recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     token,
     root,
-    observeRuntimeStateRootFromWindows,
+    () => observeRuntimeStateRootFromWindows(developmentContext),
   );
 }
 
-function recoverRuntimeOwnedDockerTaskInternal(token: unknown) {
+function recoverRuntimeOwnedDockerTaskInternal(
+  token: unknown,
+  developmentContext?: unknown,
+) {
   const parsed = parseDockerTaskRecoveryId(token);
   if (!parsed)
     return Object.freeze({
@@ -5180,6 +5184,7 @@ function recoverRuntimeOwnedDockerTaskInternal(token: unknown) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
     false,
     new Date().toISOString(),
+    developmentContext,
   );
   const root = consumeRuntimeOwnedRuntimeStateRootCapability(
     observation.rootCapability,
@@ -5190,7 +5195,11 @@ function recoverRuntimeOwnedDockerTaskInternal(token: unknown) {
       reason: "docker_task_runtime_state_unavailable",
       recoveryId: parsed.token,
     });
-  return recoverRuntimeOwnedDockerTaskFromVerifiedRoot(parsed.token, root);
+  return recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
+    parsed.token,
+    root,
+    developmentContext,
+  );
 }
 
 export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
@@ -5945,13 +5954,19 @@ export function classifyRuntimeOwnedDockerRecoveryEvidence(
     : ("not_preserved" as const);
 }
 
-export function recoverRuntimeOwnedDockerTask(token: unknown) {
+export function recoverRuntimeOwnedDockerTask(
+  token: unknown,
+  developmentContext?: unknown,
+) {
   const parsed = parseDockerTaskRecoveryId(token);
   try {
-    const result = recoverRuntimeOwnedDockerTaskInternal(token);
+    const result = recoverRuntimeOwnedDockerTaskInternal(
+      token,
+      developmentContext,
+    );
     const inventory =
       result.status === "blocked" && parsed
-        ? inspectRuntimeOwnedDockerTaskRecoveryState()
+        ? inspectRuntimeOwnedDockerTaskRecoveryState(developmentContext)
         : null;
     const evidenceState = classifyRuntimeOwnedDockerRecoveryEvidence(
       inventory,
