@@ -313,6 +313,32 @@ function structuredValue(
       completedCommandExecutions.filter(
         (item) => !Number.isSafeInteger(item.exit_code),
       ).length;
+    const commandText = (item: Record<string, unknown>) =>
+      typeof item.command === "string" ? item.command.toLowerCase() : "";
+    const commandOutputText = (item: Record<string, unknown>) =>
+      typeof item.aggregated_output === "string"
+        ? item.aggregated_output.toLowerCase()
+        : typeof item.output === "string"
+          ? item.output.toLowerCase()
+          : "";
+    const countCommandFamily = (pattern: RegExp) =>
+      completedCommandExecutions.filter((item) =>
+        pattern.test(commandText(item)),
+      ).length;
+    const failedCommandExecutions = completedCommandExecutions.filter(
+      (item) => item.status === "failed",
+    );
+    const countFailureClass = (pattern: RegExp) =>
+      failedCommandExecutions.filter((item) =>
+        pattern.test(commandOutputText(item)),
+      ).length;
+    const classifiedFailures = new Set(
+      failedCommandExecutions.filter((item) =>
+        /permission denied|operation not permitted|read-only file system|no such file or directory|not found|syntax error|sandbox|bwrap|landlock/.test(
+          commandOutputText(item),
+        ),
+      ),
+    );
     codexExecutionObservation = Object.freeze({
       transport: "fixed_cli_jsonl_v0_149_1",
       turnCompleted: true,
@@ -332,6 +358,33 @@ function structuredValue(
       commandExecutionExitCode127Count: countCommandExitCode(127),
       commandExecutionOtherNonzeroExitCodeCount,
       commandExecutionMissingExitCodeCount,
+      commandFamilyPythonCount: countCommandFamily(
+        /(^|[\s;&|])python(?:3)?(?:[\s;&|]|$)/,
+      ),
+      commandFamilyPosixTextCount: countCommandFamily(
+        /(^|[\s;&|])(cat|sed|grep|perl|awk)(?:[\s;&|]|$)/,
+      ),
+      commandFamilyGitCount: countCommandFamily(/(^|[\s;&|])git(?:[\s;&|]|$)/),
+      commandFamilyApplyPatchCount: countCommandFamily(
+        /(^|[\s;&|])apply_patch(?:[\s;&|]|$)/,
+      ),
+      commandFailurePermissionCount: countFailureClass(
+        /permission denied|operation not permitted/,
+      ),
+      commandFailureReadOnlyFilesystemCount: countFailureClass(
+        /read-only file system/,
+      ),
+      commandFailureMissingPathCount: countFailureClass(
+        /no such file or directory/,
+      ),
+      commandFailureCommandNotFoundCount: countFailureClass(
+        /command not found|: not found/,
+      ),
+      commandFailureSyntaxCount: countFailureClass(/syntax error/),
+      commandFailureSandboxCount: countFailureClass(/sandbox|bwrap|landlock/),
+      commandFailureUnclassifiedCount: failedCommandExecutions.filter(
+        (item) => !classifiedFailures.has(item),
+      ).length,
       fileChangeStartedCount: countItems("file_change"),
       fileChangeCompletedCount: countItems("file_change", "completed"),
       fileChangeFailedCount: countItems("file_change", "failed"),

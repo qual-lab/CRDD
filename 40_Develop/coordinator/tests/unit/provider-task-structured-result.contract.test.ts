@@ -169,6 +169,17 @@ test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投�
     commandExecutionExitCode127Count: 0,
     commandExecutionOtherNonzeroExitCodeCount: 0,
     commandExecutionMissingExitCodeCount: 0,
+    commandFamilyPythonCount: 0,
+    commandFamilyPosixTextCount: 0,
+    commandFamilyGitCount: 0,
+    commandFamilyApplyPatchCount: 0,
+    commandFailurePermissionCount: 0,
+    commandFailureReadOnlyFilesystemCount: 0,
+    commandFailureMissingPathCount: 0,
+    commandFailureCommandNotFoundCount: 0,
+    commandFailureSyntaxCount: 0,
+    commandFailureSandboxCount: 0,
+    commandFailureUnclassifiedCount: 0,
     fileChangeStartedCount: 1,
     fileChangeCompletedCount: 0,
     fileChangeFailedCount: 0,
@@ -226,6 +237,17 @@ test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計�
     commandExecutionExitCode127Count: 1,
     commandExecutionOtherNonzeroExitCodeCount: 1,
     commandExecutionMissingExitCodeCount: 1,
+    commandFamilyPythonCount: 0,
+    commandFamilyPosixTextCount: 0,
+    commandFamilyGitCount: 0,
+    commandFamilyApplyPatchCount: 0,
+    commandFailurePermissionCount: 0,
+    commandFailureReadOnlyFilesystemCount: 0,
+    commandFailureMissingPathCount: 0,
+    commandFailureCommandNotFoundCount: 0,
+    commandFailureSyntaxCount: 0,
+    commandFailureSandboxCount: 0,
+    commandFailureUnclassifiedCount: 5,
     fileChangeStartedCount: 0,
     fileChangeCompletedCount: 0,
     fileChangeFailedCount: 0,
@@ -235,6 +257,70 @@ test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計�
     pathReported: false,
     providerTextReported: false,
   });
+});
+
+test("Codex JSONLは生Commandと出力を公開せずTool系統と失敗理由だけを分類する", () => {
+  const commands = [
+    {
+      id: "python",
+      command: "python3 -c '<untrusted>'",
+      aggregated_output: "Permission denied: <secret path>",
+    },
+    {
+      id: "text",
+      command: "sed -i '<untrusted>' <secret path>",
+      aggregated_output: "Read-only file system",
+    },
+    {
+      id: "git",
+      command: "git status",
+      aggregated_output: "git: command not found",
+    },
+    {
+      id: "patch",
+      command: "apply_patch < <secret path>",
+      aggregated_output: "apply_patch: not found",
+    },
+  ].flatMap((item) => [
+    JSON.stringify({
+      type: "item.started",
+      item: { id: item.id, type: "command_execution", status: "in_progress" },
+    }),
+    JSON.stringify({
+      type: "item.completed",
+      item: {
+        ...item,
+        type: "command_execution",
+        status: "failed",
+        exit_code: 1,
+      },
+    }),
+  ]);
+  const raw = [
+    JSON.stringify({ type: "thread.started", thread_id: "thread" }),
+    JSON.stringify({ type: "turn.started" }),
+    ...commands,
+    JSON.stringify({
+      type: "item.completed",
+      item: { id: "message", type: "agent_message", text: EXECUTOR },
+    }),
+    JSON.stringify({ type: "turn.completed" }),
+  ].join("\n");
+
+  const result = normalizeFixtureTaskResult("codex", "executor", "low", raw);
+  const observation = result.normalizedResult?.providerExecutionObservation;
+  assert.equal(observation?.commandFamilyPythonCount, 1);
+  assert.equal(observation?.commandFamilyPosixTextCount, 1);
+  assert.equal(observation?.commandFamilyGitCount, 1);
+  assert.equal(observation?.commandFamilyApplyPatchCount, 1);
+  assert.equal(observation?.commandFailurePermissionCount, 1);
+  assert.equal(observation?.commandFailureReadOnlyFilesystemCount, 1);
+  assert.equal(observation?.commandFailureCommandNotFoundCount, 2);
+  assert.equal(observation?.commandFailureUnclassifiedCount, 0);
+  assert.equal(observation?.commandReported, false);
+  assert.equal(observation?.pathReported, false);
+  assert.equal(observation?.providerTextReported, false);
+  assert.equal(JSON.stringify(observation).includes("<secret path>"), false);
 });
 
 test("Reviewer decisionとfinding件数の矛盾、余分field、path traversalを拒否する", () => {

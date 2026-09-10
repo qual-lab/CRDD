@@ -233,6 +233,8 @@ Task入力を正確に復元してもCodex Executorだけが変更0件だった�
 
 Task Packetへ、Git Metadataが存在しないこと、Gitと未提供の`apply_patch` Commandを使わないこと、検証済みのPython 3またはPOSIX text Toolを使ってCommand結果と変更後Fileを確認することを追加する。これはProvider固有の攻略文ではなく、隔離された外部実行境界が提供するCapabilityをConsumerへ伝播するArchitecture契約である。
 
+このTask Packetを含む固定候補`80375631`でも、Codex Executorは初回・是正を通じて3件のCommandを開始し、全て終了code 1、File変更Event 0件、申告変更0件、実候補変更0件となった。非root user、read-write mount、read-only root、workdir、外側Process完了およびcleanupは実観測で成立し、Claude Executor／Codex Reviewer経路も成立した。したがって、利用可能Toolの説明不足だけを原因とする仮説を否定し、次の実測前にJSON LinesからCommand本文と生出力を公開せず、使用Tool系統と既知の失敗理由だけを閉じた分類へ追加する。同じ外形の実測を再反復せず、次の一回がCommand選択、Path、権限、Sandboxまたは構文の候補を分割できることを実行条件とする。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。
