@@ -494,3 +494,16 @@ Engine観測を三値へ戻す際、旧`queryDocker`を`queryDockerEngine`と`qu
 
 修正版の署名候補から再入場すると、旧候補が作った正しい`not_issued`記録をRuntime Identity差により通常Inventoryが拒否した。旧RuntimeのHost操作を新Runtimeで続行することは許可せず、署名済み由来と引継ぎReceiptを確認したうえで、全Host Effectがsettledな`not_issued`である旧OperationだけをEffect 0で証拠保持終了する。現在境界、現在`run` Identityおよび旧stale不存在はfresh観測するが、現在Dockerの故障や復旧は同時に推定しない。現在状態の修復は新しい修復IDで再評価する。
 | 実環境対応 | 注入試験を実際に観測した`absent`状態へ固定し、署名候補から同じ履歴IDを閉じる | 既定fixtureの成功を実再入場成功へ昇格しない |
+
+### Codex Executorの決定論的な書込み境界（2026-09-10）
+
+限定実測ではClaude Executorが同じ候補Workspaceを変更できた一方、Codex Executorと同じExecutorによる一回の是正は、Process成功と構造化成功結果を返しながら変更Path 0件だった。Claude Reviewerは基準内容と変更0件を正しく観測して不成立を返した。選定更新、復元TaskのExecutor制約、Task PacketおよびReviewer投影のFocused試験も成立したため、最初の意味差はCodex Executor境界へ限定した。
+
+| 境界 | 誤った前提 | 現在の処置 |
+| --- | --- | --- |
+| 承認Mode | `--approve-for-me`を無人実行の常時許可として扱った | 同OptionはWorkspace-write境界の要求を自動Reviewへ送るModeであり、許可を保証しないためExecutorでは使用しない |
+| 内部Sandbox | v0.19の`approval_policy="never"`だけでは実効Sandboxが引数上不明確だった | Executorは`approval_policy="never"`と`--sandbox workspace-write`、Reviewerは同Policyと`--sandbox read-only`を明示する |
+| 外側の実行境界 | 内部承認を除くことで書込み範囲が拡大し得る | Dockerのread-only root、候補Workspaceだけのread-write mount、Network禁止、Role別権限、Allowed Path検証および不適合候補破棄を維持する |
+| 検証順 | 4経路全体の再実行では原因情報が薄い | CLI計画、Adapter、選定更新、復元および投影をProviderなしで確認後、同じ固定TaskのCodex Executor 1件だけを実境界で反証する |
+
+この変更はCodexの書込み成功をまだ証明しない。Providerなしの集中試験40件は成功した。固定候補によるCodex Executorの実Workspace変更、候補捕捉および後続Reviewer成立を次のGateとして保持する。

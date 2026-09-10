@@ -260,7 +260,7 @@ ExecutorはCanonical Repositoryを直接変更せず、隔離候補だけを生�
 
 Provider実行とReviewer判定は、最終4経路E2Eで初めて結合してはならない。固定候補では、CodexとClaudeをExecutorおよびReviewerの双方で一回ずつ使用し、Role別Tool／Approval、stdin搬送、隔離Workspaceの実変更、変更Path申告、候補捕捉、署名済み実行Identity、候補内容投影、構造化判定、必要な一回是正、Provider終了、候補処置、資源不存在および安全な結果記録までを明示実行の二経路結合試験として先に確認する。起動失敗、非ゼロ終了、timeout、取消、不正結果、申告差、投影失敗およびcleanup不明は、同じ実Process／Docker境界へ決定論的に注入して反証する。通常回帰は外部Provider Effectを発行しない。実Reviewerが拒否した場合は、生の応答や自由文を公開せず、判定、Finding件数、severity／path／category／criterion、message Hash、投影Hash、対象fileのbyte長／Hashおよび是正有無だけを保持し、投影不一致とProvider判断を切り分けられる状態にする。
 
-CLI optionは個別の存在だけでなく、同時指定する全optionの組合せと実Workspace変更を固定Binaryの実境界で反証する。Codex Executorは固定CLIが提供する`--approve-for-me`へ無人実行の自動ReviewとWorkspace書込みSandbox選択を委ね、Runtime所有のRole別Filesystem権限ProfileでもWorkspaceだけを書込み可能にする。Reviewerは`approval_policy="never"`と`--sandbox read-only`を明示し、Shell／Filesystem Toolを無効化する。固定CLIが拒否する`--approve-for-me`と`--sandbox`の同時指定は行わない。Dockerのread-only root、Capability drop、Network proxyおよびProvider Home保護は維持する。
+CLI optionは個別の存在だけでなく、同時指定する全optionの組合せと実Workspace変更を固定Binaryの実境界で反証する。Codex Executorは`approval_policy="never"`と`--sandbox workspace-write`を明示し、Runtime所有のRole別Filesystem権限ProfileでもWorkspaceだけを書込み可能にする。これにより、Taskごとに追加の自動Approval判断を挟まず、外側のDocker隔離、対象Pathを限定した候補検証および不適合候補の破棄を実行境界とする。Reviewerは`approval_policy="never"`と`--sandbox read-only`を明示し、Shell／Filesystem Toolを無効化する。Dockerのread-only root、Capability drop、Network proxyおよびProvider Home保護は維持する。`--approve-for-me`は書込みを常に許可するOptionではなく自動Reviewへ回すModeであるため、決定論的な無人Executor契約には使用しない。
 
 <a id="7-cleanup依存順"></a>
 <a id="22-docker-desktop最終復旧時の起動環境"></a>
