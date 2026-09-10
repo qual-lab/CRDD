@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
+import os from "node:os";
+import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   createDockerProcessEnvironment,
   startOwnedProcess,
@@ -18,6 +22,11 @@ import {
 } from "../fixtures/docker-owned-process-test-support.ts";
 
 const windowsOnly = { skip: process.platform !== "win32", timeout: 20_000 };
+const codexImageDigest =
+  "sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c";
+const codexSeccompProfile = fileURLToPath(
+  new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
+);
 
 function createSyntheticChild() {
   return Object.assign(new EventEmitter(), {
@@ -299,6 +308,124 @@ test(
     }
   },
 );
+
+test("Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み可能にする", {
+  skip: process.platform !== "win32",
+  timeout: 60_000,
+}, (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-codex-sandbox-"));
+  const workspace = path.join(root, "workspace");
+  const providerHome = path.join(root, "provider-home");
+  const temporaryDirectory = path.join(root, "tmp");
+  fs.mkdirSync(workspace);
+  fs.mkdirSync(providerHome);
+  fs.mkdirSync(temporaryDirectory);
+  fs.writeFileSync(
+    path.join(workspace, "probe.py"),
+    [
+      "from pathlib import Path",
+      'Path("/work/workspace-result.txt").write_text("WORKSPACE_WRITE_OK\\n", encoding="utf-8")',
+      "try:",
+      '    Path("/provider-home/sentinel.txt").read_text(encoding="utf-8")',
+      "except Exception:",
+      '    Path("/work/provider-home-read-result.txt").write_text("DENIED\\n", encoding="utf-8")',
+      "else:",
+      '    Path("/work/provider-home-read-result.txt").write_text("READABLE\\n", encoding="utf-8")',
+      "try:",
+      '    Path("/provider-home/sentinel.txt").write_text("CHANGED\\n", encoding="utf-8")',
+      "except Exception:",
+      '    Path("/work/provider-home-write-result.txt").write_text("DENIED\\n", encoding="utf-8")',
+      "else:",
+      '    Path("/work/provider-home-write-result.txt").write_text("WRITABLE\\n", encoding="utf-8")',
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(providerHome, "sentinel.txt"),
+    "PROVIDER_HOME_SENTINEL\n",
+    "utf8",
+  );
+  const containerName = `crdd-codex-sandbox-${path
+    .basename(root)
+    .slice(-12)
+    .toLowerCase()}`;
+  t.after(() => {
+    childProcess.spawnSync("docker", ["rm", "--force", containerName], {
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    fs.rmSync(root, { force: true, recursive: true });
+  });
+
+  const result = childProcess.spawnSync(
+    "docker",
+    [
+      "run",
+      "--name",
+      containerName,
+      "--rm",
+      "--pull=never",
+      "--network=none",
+      "--read-only",
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges",
+      `--security-opt=seccomp=${codexSeccompProfile}`,
+      "--user=65534:65534",
+      "--workdir=/work",
+      "--mount",
+      `type=bind,src=${temporaryDirectory},dst=/tmp`,
+      "--mount",
+      `type=bind,src=${workspace},dst=/work`,
+      "--mount",
+      `type=bind,src=${providerHome},dst=/provider-home`,
+      `--entrypoint=/opt/crdd/providers/codex/0.149.1/codex`,
+      codexImageDigest,
+      "sandbox",
+      "--permission-profile",
+      "crdd-executor",
+      "--include-managed-config",
+      "--config",
+      'default_permissions="crdd-executor"',
+      "--config",
+      'permissions.crdd-executor.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="write"},"/opt/crdd/providers/codex/0.149.1/codex"="read"}',
+      "--config",
+      "permissions.crdd-executor.network.enabled=false",
+      "--cd",
+      "/work",
+      "python3",
+      "/work/probe.py",
+    ],
+    {
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    fs.readFileSync(path.join(workspace, "workspace-result.txt"), "utf8"),
+    "WORKSPACE_WRITE_OK\n",
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(workspace, "provider-home-read-result.txt"),
+      "utf8",
+    ),
+    "DENIED\n",
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(workspace, "provider-home-write-result.txt"),
+      "utf8",
+    ),
+    "DENIED\n",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(providerHome, "sentinel.txt"), "utf8"),
+    "PROVIDER_HOME_SENTINEL\n",
+  );
+});
 
 test(
   "Windows Process Gate: 本番共通process: 待機期限は取消ではなく、重複取消後に実子孫とcloseを確認",

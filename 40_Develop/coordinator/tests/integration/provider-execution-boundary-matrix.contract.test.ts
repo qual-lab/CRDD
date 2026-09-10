@@ -133,21 +133,16 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
       assert.equal(plan.providerHomeCommandReadAllowed, false);
       assert.equal(
         plan.explicitSandboxOption,
-        "external_docker_executor_reviewer_read_only",
+        "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
       );
-      assert.equal(argv.includes("--approve-for-me"), false);
-      assert.equal(
-        argv.includes("--dangerously-bypass-approvals-and-sandbox"),
-        item.role === "executor",
-      );
+      assert.equal(argv.includes("--approve-for-me"), item.role === "executor");
       assert.equal(argv.includes("--sandbox"), item.role === "reviewer");
       assert.equal(
         argv.includes('approval_policy="never"'),
         item.role === "reviewer",
       );
       assert.equal(
-        argv.includes("--dangerously-bypass-approvals-and-sandbox") &&
-          argv.includes("--sandbox"),
+        argv.includes("--approve-for-me") && argv.includes("--sandbox"),
         false,
       );
     } else {

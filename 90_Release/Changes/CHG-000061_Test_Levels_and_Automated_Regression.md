@@ -239,6 +239,8 @@ Task Packetへ、Git Metadataが存在しないこと、Gitと未提供の`apply
 
 Codex CLI自身が外部Sandbox環境専用として提供する非対話入口へExecutorを切り替え、隔離のAuthorityを外側Dockerへ一意化する。非root user、read-only root、Capability全削除、限定Workspace mount、Network proxy、Provider Home保護、Process tree終了およびContainer／Network不存在は維持する。危険名のoptionが存在することだけで許可せず、実際のDocker起動構成と終了後状態を同じOperation診断へ接続し、固定Binaryの実Workspace変更を結合試験で確認する。
 
+固定候補`b8a5954f`ではCodex Executorの実変更が成立したが、署名前監査で、Sandbox無効化によりmodel生成Commandが同じContainer内のread-write Provider Homeへ到達できることを検出した。外側Dockerだけを隔離所有者にする設計は撤回する。Providerを使わない段階的反証では、Moby既定seccompへ`clone`、`clone3`、`mount`、`pivot_root`、`unshare`、`umount2`だけを追加すると、Capability追加なしで固定Codexのbubblewrapが成立した。Executorは`--approve-for-me`とこの固定profileを使い、Reviewerのread-only境界は維持する。profileはRuntime実行Identityへ含め、Path、byte長またはSHA-256が一致しなければProvider Effect 0で停止する。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。

@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 14;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 15;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -43,6 +43,14 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
   bwrapSigstoreIdentity:
     "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
   bwrapSigstoreIssuer: "https://token.actions.githubusercontent.com",
+  executorSeccompProfilePath:
+    "40_Develop/coordinator/runtime/codex-executor-seccomp.json",
+  executorSeccompProfileSha256:
+    "110a766800d1bfaa6f52475434b729708f314eee20481cf9d79ebdc94bc9c7fb",
+  executorSeccompProfileBytes: 16_704,
+  executorSeccompBaselineCommit: "c3065211177705ada59a9ccf8b5c182f286f8c97",
+  executorSeccompBaselineSha256:
+    "536529b665dd0972c37bfb569f5d4ac8a53592e7b00752bc39ff063ca9864c74",
   fixedImageDigest:
     "sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c",
   fixedImageBytes: 145_299_281,
@@ -172,9 +180,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
     argv: Object.freeze([
       "exec",
       "--ephemeral",
-      ...(taskRole === "executor"
-        ? ["--dangerously-bypass-approvals-and-sandbox"]
-        : []),
+      ...(taskRole === "executor" ? ["--approve-for-me"] : []),
       "--ignore-user-config",
       "--ignore-rules",
       "--strict-config",
@@ -233,10 +239,11 @@ export function planCodexIsolatedTask(candidate: unknown) {
     providerHomeMountRequired: true,
     workspaceMountRequired: true,
     workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
-    explicitSandboxOption: "external_docker_executor_reviewer_read_only",
+    explicitSandboxOption:
+      "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
     approvalMode:
       taskRole === "executor"
-        ? "externally_sandboxed_noninteractive"
+        ? "automatic_review_workspace_write"
         : "never_read_only",
     rootFilesystemReadOnly: true,
     taskPromptTransport: "stdin_only" as const,
@@ -282,6 +289,8 @@ export function describeCodexExecutionPlanContract() {
       fixedImageBuiltFromExactBundledBwrap: true,
       fixedImageBundledBwrapProbePassed: true,
       fixedImageBundledBwrapSelectedUnderNoNetworkProbe: true,
+      executorSeccompProfileDigestMatched: true,
+      executorSeccompProfileAllowsOnlyRequiredSandboxSyscalls: true,
       fixedImageNoNetworkVersionProbePassed: true,
       fixedImageNonRootSchemaReadPassed: true,
       subscriptionBooleanRequestPassed: true,
@@ -316,7 +325,7 @@ export function describeCodexExecutionPlanContract() {
       roles: Object.freeze(["executor", "reviewer"]),
       structuredEventTransport: "fixed_cli_jsonl_v0_149_1",
       explicitSandboxOption:
-        "approve_for_me_executor_workspace_write_reviewer_read_only",
+        "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
       permissionProfile: "root_deny_minimal_read_workspace_role_access",
       providerHomeCommandReadAllowed: false,
       commandNetworkAccessAllowed: false,

@@ -77,14 +77,10 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
   assert.equal(executor.workspaceMountMode, "read_write");
   assert.equal(
     executor.explicitSandboxOption,
-    "external_docker_executor_reviewer_read_only",
+    "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
   );
-  assert.equal(executor.approvalMode, "externally_sandboxed_noninteractive");
-  assert.equal(
-    executor.argv.includes("--dangerously-bypass-approvals-and-sandbox"),
-    true,
-  );
-  assert.equal(executor.argv.includes("--approve-for-me"), false);
+  assert.equal(executor.approvalMode, "automatic_review_workspace_write");
+  assert.equal(executor.argv.includes("--approve-for-me"), true);
   assert.equal(executor.argv.includes("--sandbox"), false);
   assert.equal(executor.argv.includes('approval_policy="never"'), false);
   assert.equal(executor.argv.includes("--json"), true);
@@ -93,7 +89,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
   assert.equal(reviewer.workspaceMountMode, "read_only");
   assert.equal(
     reviewer.explicitSandboxOption,
-    "external_docker_executor_reviewer_read_only",
+    "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
   );
   assert.equal(reviewer.approvalMode, "never_read_only");
   assert.equal(reviewer.argv.includes("--approve-for-me"), false);
@@ -219,7 +215,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
 
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
-  assert.equal(contract.contractRevision, 14);
+  assert.equal(contract.contractRevision, 15);
   assert.equal(
     contract.distributionVerification.sigstoreBlobSignatureVerified,
     true,
@@ -242,6 +238,18 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
     true,
   );
   assert.equal(
+    contract.distributionVerification.executorSeccompProfileDigestMatched,
+    true,
+  );
+  assert.equal(
+    contract.distributionIdentity.executorSeccompProfileSha256,
+    "110a766800d1bfaa6f52475434b729708f314eee20481cf9d79ebdc94bc9c7fb",
+  );
+  assert.equal(
+    contract.distributionIdentity.executorSeccompBaselineCommit,
+    "c3065211177705ada59a9ccf8b5c182f286f8c97",
+  );
+  assert.equal(
     contract.authentication,
     "existing_chatgpt_subscription_oauth_only",
   );
@@ -257,7 +265,7 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
   );
   assert.equal(
     contract.isolatedTask.explicitSandboxOption,
-    "approve_for_me_executor_workspace_write_reviewer_read_only",
+    "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
   );
   assert.equal(
     contract.outboundProxyPolicy,
@@ -282,7 +290,7 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
   );
 });
 
-test("固定Codex imageはread-only probe用bwrapを保持しExecutorは外側Dockerへ隔離を一意化する", () => {
+test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定する", () => {
   const contract = describeCodexExecutionPlanContract();
   assert.deepEqual(
     {
@@ -330,7 +338,7 @@ test("固定Codex imageはread-only probe用bwrapを保持しExecutorは外側Do
   if (executor.status !== "candidate") assert.fail(executor.reason);
   assert.equal(
     executor.argv.includes("--dangerously-bypass-approvals-and-sandbox"),
-    true,
+    false,
   );
   assert.equal(dockerfile.includes("codex-code-mode-host"), false);
 });

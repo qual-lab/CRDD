@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   cancelRuntimeOwnedCodexDockerCandidate,
@@ -47,6 +48,7 @@ function createFixture(
     Parameters<typeof createIsolatedCodexDockerRuntimeAdapterCandidate>[0]
   > = {},
   isTaskMode = false,
+  taskRole: "executor" | "reviewer" = "executor",
 ) {
   const profileId = isTaskMode ? "PROFILE-100003" : "PROFILE-100001";
   const managementCapability = Object.freeze({});
@@ -116,13 +118,24 @@ function createFixture(
     consumeModelSelection: (selection: unknown, management: unknown) => {
       assert.equal(selection, selectionUseCapability);
       assert.equal(management, managementCapability);
-      return isTaskMode ? taskModelSelection : MODEL_SELECTION;
+      return isTaskMode
+        ? Object.freeze({
+            ...taskModelSelection,
+            profileId,
+            effort: taskRole === "executor" ? "low" : "medium",
+            basis: Object.freeze({
+              ...taskModelSelection.basis,
+              role:
+                taskRole === "executor" ? "executor" : "independent_reviewer",
+            }),
+          })
+        : MODEL_SELECTION;
     },
     consumeTaskPacket: () =>
       Object.freeze({
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
-        taskRole: "executor" as const,
+        taskRole,
         taskPacketHash: "a".repeat(64),
         prompt: "Implement the bounded local candidate.",
         promptTransport: "provider_stdin_only" as const,
@@ -295,8 +308,63 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
   assert.equal(argv.includes(plan.providerInput), false);
   assert.equal(argv.includes("--interactive"), true);
   assert.equal(
+    argv.includes(
+      "--security-opt=seccomp=" +
+        fileURLToPath(
+          new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
+        ),
+    ),
+    true,
+  );
+  assert.equal(
     argv.some(
       (value) => value.includes("dst=/work") && !value.includes("readonly"),
+    ),
+    true,
+  );
+});
+
+test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らない", () => {
+  const fixture = createFixture(
+    {
+      consumeTaskPacket: () =>
+        Object.freeze({
+          operationId: "OP-123456",
+          taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+          taskRole: "reviewer" as const,
+          taskPacketHash: "a".repeat(64),
+          prompt: "Review the bounded local candidate.",
+          promptTransport: "provider_stdin_only" as const,
+        }),
+    },
+    true,
+    "reviewer",
+  );
+  const prepared = fixture.adapter.prepareTask(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+    Object.freeze({}),
+  );
+  assert.equal(prepared.status, "prepared");
+  const plan = fixture.adapter.consumeForProcessController(
+    prepared.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.ok(plan);
+  const provider = plan.commands.find(
+    (candidate) => candidate.purpose === "create_provider",
+  );
+  assert.ok(provider);
+  assert.equal(plan.workspaceMountMode, "read_only");
+  assert.equal(
+    provider.argv.some((value) => value.startsWith("--security-opt=seccomp=")),
+    false,
+  );
+  assert.equal(
+    provider.argv.some(
+      (value) => value.includes("dst=/work") && value.endsWith(",readonly"),
     ),
     true,
   );
@@ -319,6 +387,27 @@ test("期限切れprepared planはProvider EffectなしでMount leaseを回収�
     null,
   );
   assert.equal(fixture.getCompletionCount(), 1);
+});
+
+test("Executor seccomp profileを検証できなければProvider planを発行しない", () => {
+  const fixture = createFixture(
+    {
+      verifyExecutorSeccompProfile: () => null,
+    },
+    true,
+  );
+  const prepared = fixture.adapter.prepareTask(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+    Object.freeze({}),
+  );
+  assert.equal(prepared.status, "blocked");
+  assert.equal(prepared.reason, "codex_docker_runtime_plan_invalid");
+  assert.equal(prepared.providerRequestIssued, false);
+  assert.equal(fixture.getCompletionCount(), 1);
+  assert.equal(fixture.getRevocationCount(), 0);
 });
 
 test("Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収する", () => {
@@ -537,7 +626,7 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
 
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeCodexDockerRuntimeAdapterContract();
-  assert.equal(contract.contractRevision, 6);
+  assert.equal(contract.contractRevision, 7);
   assert.equal(
     contract.providerHomeCrossProcessLease,
     "docker_global_provider_home_identity_container_name_fail_closed",

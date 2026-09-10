@@ -1,5 +1,7 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import fs from "node:fs";
 import { performance } from "node:perf_hooks";
+import { fileURLToPath } from "node:url";
 
 import {
   planCodexIsolatedTask,
@@ -25,7 +27,7 @@ import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-ru
 
 export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/codex-docker-runtime-adapter";
-export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 6;
+export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 7;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -33,6 +35,9 @@ const TMP_DESTINATION = "/tmp";
 const WORKSPACE_DESTINATION = "/work";
 const PROXY_PORT = 8080;
 const MAXIMUM_IDENTIFIER_LENGTH = 63;
+const EXECUTOR_SECCOMP_PROFILE_PATH = fileURLToPath(
+  new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
+);
 const FORBIDDEN_ENVIRONMENT_NAMES = new Set([
   "OPENAI_API_KEY",
   "CODEX_API_KEY",
@@ -156,6 +161,10 @@ type RuntimeState = Readonly<{
   wallNow: () => number;
   monotonicNow: () => number;
   randomBytes: (size: number) => Buffer;
+  verifyExecutorSeccompProfile?: (
+    expectedSha256: string,
+    expectedBytes: number,
+  ) => string | null;
   consumeModelSelection: (
     useCapability: unknown,
     managementCapability: unknown,
@@ -201,6 +210,7 @@ const productionState = createRuntimeState({
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
   randomBytes,
+  verifyExecutorSeccompProfile,
   consumeModelSelection: consumeRuntimeOwnedDelegationSelectionGrant,
   consumeTaskPacket: consumeRuntimeOwnedProviderTaskPacket,
   issueProviderAuthority: issueRuntimeOwnedProviderAuthority,
@@ -285,6 +295,42 @@ function normalizeExactModelId(model: string) {
   return /^[a-z0-9][a-z0-9._-]{0,127}$/.test(model) ? model : null;
 }
 
+function verifyExecutorSeccompProfile(
+  expectedSha256: string,
+  expectedBytes: number,
+) {
+  try {
+    const before = fs.lstatSync(EXECUTOR_SECCOMP_PROFILE_PATH, {
+      bigint: true,
+    });
+    if (
+      !before.isFile() ||
+      before.isSymbolicLink() ||
+      before.size !== BigInt(expectedBytes) ||
+      fs.realpathSync.native(EXECUTOR_SECCOMP_PROFILE_PATH) !==
+        EXECUTOR_SECCOMP_PROFILE_PATH
+    ) {
+      return null;
+    }
+    const bytes = fs.readFileSync(EXECUTOR_SECCOMP_PROFILE_PATH);
+    const after = fs.lstatSync(EXECUTOR_SECCOMP_PROFILE_PATH, {
+      bigint: true,
+    });
+    if (
+      before.dev !== after.dev ||
+      before.ino !== after.ino ||
+      before.size !== after.size ||
+      before.mtimeNs !== after.mtimeNs ||
+      createHash("sha256").update(bytes).digest("hex") !== expectedSha256
+    ) {
+      return null;
+    }
+    return EXECUTOR_SECCOMP_PROFILE_PATH;
+  } catch {
+    return null;
+  }
+}
+
 function buildPlan(
   state: RuntimeState,
   binding: OperationBinding,
@@ -352,6 +398,13 @@ function buildPlan(
     return null;
   }
   const fixedEnvironmentEntries = buildExactFixedEnvironment(codex.environment);
+  const executorSeccompProfile =
+    taskPacket?.taskRole === "executor"
+      ? (state.verifyExecutorSeccompProfile ?? verifyExecutorSeccompProfile)(
+          codex.distributionBinding.identity.executorSeccompProfileSha256,
+          codex.distributionBinding.identity.executorSeccompProfileBytes,
+        )
+      : null;
   const providerHomeMount = createSafeMount(
     providerHomeSourcePath,
     PROVIDER_HOME_DESTINATION,
@@ -364,6 +417,7 @@ function buildPlan(
   const proxyToken = createRandomHex(state, 32);
   if (
     !fixedEnvironmentEntries ||
+    (taskPacket?.taskRole === "executor" && !executorSeccompProfile) ||
     !providerHomeMount ||
     !tmpMount ||
     (taskPacket !== null && !workspaceMount) ||
@@ -498,6 +552,9 @@ function buildPlan(
       ownershipLabel,
       "--cap-drop=ALL",
       "--security-opt=no-new-privileges",
+      ...(executorSeccompProfile
+        ? [`--security-opt=seccomp=${executorSeccompProfile}`]
+        : []),
       "--pids-limit=64",
       "--user=65534:65534",
       "--workdir=/work",
