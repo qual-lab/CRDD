@@ -8,6 +8,7 @@ import {
   describeCodexDockerRuntimeAdapterContract,
   prepareRuntimeOwnedCodexDockerCandidate,
 } from "../../src/security/codex-docker-runtime-adapter.ts";
+import { createIsolatedDockerEffectRuntimeCandidate } from "../../src/security/docker-effect-runtime.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/security/delegation-selection-grant-runtime.ts";
 
 const MODEL_SELECTION = Object.freeze({
@@ -178,6 +179,74 @@ function createFixture(
     },
   };
 }
+
+test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ意味で受理する", () => {
+  const fixture = createFixture({}, true, "executor");
+  const prepared = fixture.adapter.prepareTask(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+    Object.freeze({}),
+  );
+  assert.equal(prepared.status, "prepared");
+  const plan = fixture.adapter.consumeForProcessController(
+    prepared.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.ok(plan);
+  const firstCommand = plan.commands[0];
+  assert.ok(firstCommand);
+
+  let closed = false;
+  const effect = createIsolatedDockerEffectRuntimeCandidate({
+    platform: "win32",
+    borrowPaths: () =>
+      Object.freeze({
+        tmp: "C:\\crdd\\operation\\tmp",
+        management: "C:\\crdd\\operation\\management",
+      }),
+    readCli: () =>
+      Object.freeze({
+        executablePath:
+          "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+        rootIdentity: "root",
+        executableIdentity: "executable",
+        bytes: 1,
+        sha256: "A".repeat(64),
+        publisherOrganization: "Docker Inc",
+        trustBasis: "windows_authenticode_valid_docker_inc_publisher" as const,
+      }),
+    verifyCli: () => undefined,
+    createConfig: () =>
+      Object.freeze({ directory: "config", identity: "config" }),
+    verifyConfig: () => undefined,
+    configEntries: () => Object.freeze([]),
+    removeConfig: () => undefined,
+    startProcess: () =>
+      Object.freeze({
+        started: async () => true,
+        wait: async () => {
+          closed = true;
+          return Object.freeze({
+            status: 0,
+            signal: null,
+            stdout: "",
+            stderr: "",
+            outputExceeded: false,
+          });
+        },
+        terminateAndWait: async () => {
+          closed = true;
+          return true;
+        },
+        closed: () => closed,
+      }),
+  });
+  assert.doesNotThrow(() =>
+    effect.startCommand(firstCommand, plan, fixture.managementCapability),
+  );
+});
 
 test("説明可能な低推論選定を固定Docker command planへ一度だけ結合する", () => {
   const fixture = createFixture();

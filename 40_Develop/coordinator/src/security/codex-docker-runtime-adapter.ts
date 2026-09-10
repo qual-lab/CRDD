@@ -1,12 +1,11 @@
-import { createHash, randomBytes } from "node:crypto";
-import fs from "node:fs";
+import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
-import { fileURLToPath } from "node:url";
 
 import {
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
 } from "./codex-execution-plan.ts";
+import { resolveFixedCodexExecutorSeccompProfile } from "./codex-executor-seccomp.ts";
 import { consumeRuntimeOwnedDelegationSelectionGrant } from "./delegation-selection-grant-runtime.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import {
@@ -35,9 +34,6 @@ const TMP_DESTINATION = "/tmp";
 const WORKSPACE_DESTINATION = "/work";
 const PROXY_PORT = 8080;
 const MAXIMUM_IDENTIFIER_LENGTH = 63;
-const EXECUTOR_SECCOMP_PROFILE_PATH = fileURLToPath(
-  new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
-);
 const FORBIDDEN_ENVIRONMENT_NAMES = new Set([
   "OPENAI_API_KEY",
   "CODEX_API_KEY",
@@ -210,7 +206,7 @@ const productionState = createRuntimeState({
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
   randomBytes,
-  verifyExecutorSeccompProfile,
+  verifyExecutorSeccompProfile: resolveFixedCodexExecutorSeccompProfile,
   consumeModelSelection: consumeRuntimeOwnedDelegationSelectionGrant,
   consumeTaskPacket: consumeRuntimeOwnedProviderTaskPacket,
   issueProviderAuthority: issueRuntimeOwnedProviderAuthority,
@@ -295,42 +291,6 @@ function normalizeExactModelId(model: string) {
   return /^[a-z0-9][a-z0-9._-]{0,127}$/.test(model) ? model : null;
 }
 
-function verifyExecutorSeccompProfile(
-  expectedSha256: string,
-  expectedBytes: number,
-) {
-  try {
-    const before = fs.lstatSync(EXECUTOR_SECCOMP_PROFILE_PATH, {
-      bigint: true,
-    });
-    if (
-      !before.isFile() ||
-      before.isSymbolicLink() ||
-      before.size !== BigInt(expectedBytes) ||
-      fs.realpathSync.native(EXECUTOR_SECCOMP_PROFILE_PATH) !==
-        EXECUTOR_SECCOMP_PROFILE_PATH
-    ) {
-      return null;
-    }
-    const bytes = fs.readFileSync(EXECUTOR_SECCOMP_PROFILE_PATH);
-    const after = fs.lstatSync(EXECUTOR_SECCOMP_PROFILE_PATH, {
-      bigint: true,
-    });
-    if (
-      before.dev !== after.dev ||
-      before.ino !== after.ino ||
-      before.size !== after.size ||
-      before.mtimeNs !== after.mtimeNs ||
-      createHash("sha256").update(bytes).digest("hex") !== expectedSha256
-    ) {
-      return null;
-    }
-    return EXECUTOR_SECCOMP_PROFILE_PATH;
-  } catch {
-    return null;
-  }
-}
-
 function buildPlan(
   state: RuntimeState,
   binding: OperationBinding,
@@ -400,7 +360,10 @@ function buildPlan(
   const fixedEnvironmentEntries = buildExactFixedEnvironment(codex.environment);
   const executorSeccompProfile =
     taskPacket?.taskRole === "executor"
-      ? (state.verifyExecutorSeccompProfile ?? verifyExecutorSeccompProfile)(
+      ? (
+          state.verifyExecutorSeccompProfile ??
+          resolveFixedCodexExecutorSeccompProfile
+        )(
           codex.distributionBinding.identity.executorSeccompProfileSha256,
           codex.distributionBinding.identity.executorSeccompProfileBytes,
         )

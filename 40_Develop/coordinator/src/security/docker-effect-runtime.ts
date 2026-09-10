@@ -16,6 +16,7 @@ import {
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
 } from "./codex-execution-plan.ts";
+import { resolveFixedCodexExecutorSeccompProfile } from "./codex-executor-seccomp.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
 import { inspectRuntimeOwnedDockerResourceReceipts } from "./docker-recovery-runtime.ts";
@@ -29,7 +30,7 @@ import {
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 8;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 9;
 
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 const DOCKER_CONFIG_DIRECTORY = "docker-cli-config";
@@ -251,6 +252,30 @@ function expectedCommands(
           plan.workspaceMountMode === "read_only" ? ",readonly" : ""
         }`
       : null;
+  const providerIdentity = providerPlan.distributionBinding.identity;
+  const codexSeccompIdentity =
+    "executorSeccompProfileSha256" in providerIdentity &&
+    "executorSeccompProfileBytes" in providerIdentity
+      ? providerIdentity
+      : null;
+  const codexExecutorSeccompProfile =
+    plan.provider === "codex" &&
+    plan.operationMode === "isolated_task" &&
+    plan.taskRole === "executor" &&
+    codexSeccompIdentity
+      ? resolveFixedCodexExecutorSeccompProfile(
+          codexSeccompIdentity.executorSeccompProfileSha256,
+          codexSeccompIdentity.executorSeccompProfileBytes,
+        )
+      : null;
+  if (
+    plan.provider === "codex" &&
+    plan.operationMode === "isolated_task" &&
+    plan.taskRole === "executor" &&
+    !codexExecutorSeccompProfile
+  ) {
+    return null;
+  }
   const commands = [
     [
       "create",
@@ -333,6 +358,9 @@ function expectedCommands(
       plan.ownershipLabel,
       "--cap-drop=ALL",
       "--security-opt=no-new-privileges",
+      ...(codexExecutorSeccompProfile
+        ? [`--security-opt=seccomp=${codexExecutorSeccompProfile}`]
+        : []),
       "--pids-limit=64",
       "--user=65534:65534",
       "--workdir=/work",

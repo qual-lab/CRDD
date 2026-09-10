@@ -776,7 +776,7 @@ test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除し
 
 test("Docker Effect contractは発行者Trustと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();
-  assert.equal(contract.contractRevision, 8);
+  assert.equal(contract.contractRevision, 9);
   assert.equal(contract.dockerCli.exactVersionRequired, false);
   assert.equal(contract.dockerCli.exactHashRequiredAcrossOperations, false);
   assert.equal(

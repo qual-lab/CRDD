@@ -241,6 +241,12 @@ Codex CLI自身が外部Sandbox環境専用として提供する非対話入口�
 
 固定候補`b8a5954f`ではCodex Executorの実変更が成立したが、署名前監査で、Sandbox無効化によりmodel生成Commandが同じContainer内のread-write Provider Homeへ到達できることを検出した。外側Dockerだけを隔離所有者にする設計は撤回する。Providerを使わない段階的反証では、Moby既定seccompへ`clone`、`clone3`、`mount`、`pivot_root`、`unshare`、`umount2`だけを追加すると、Capability追加なしで固定Codexのbubblewrapが成立した。Executorは`--approve-for-me`とこの固定profileを使い、Reviewerのread-only境界は維持する。profileはRuntime実行Identityへ含め、Path、byte長またはSHA-256が一致しなければProvider Effect 0で停止する。
 
+### 7.7 Sandbox契約の利用側閉包
+
+固定profileを追加した最初の候補では、Adapterが生成するCodex Executor Commandだけが更新され、Docker Effect側の許可Command再構成が旧option列のまま残った。単体試験と直接Docker試験は成功したが、実Provider結合ではDocker起動前にPlanが拒否され、Cleanup不明へ畳まれた。
+
+是正では、固定profileのPath、byte長およびHashを検証するResolverを一つの所有者へ分離し、AdapterとDocker Effectの両Consumerが同じ正規結果を使用するようにした。Codex Executorの正規Commandを実際のDocker Effect検証へ渡す契約試験を追加し、Producer単独の成功ではなく、副次的な安全Consumerを含む受理までを回帰条件とした。責務・Canonical Contract・保護optionを変更する場合は、主機能だけでなく、再検証、署名、回復、診断およびRelease入口を含む全Consumerへ同じ意味が伝播したことを、代表例ではなくConsumerごとの契約試験と最終入口の縦断で確認する。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。
