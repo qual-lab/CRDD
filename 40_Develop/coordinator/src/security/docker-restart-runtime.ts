@@ -14,6 +14,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
   recoveryId: unknown,
   signal: AbortSignal,
   originReleaseRoot?: unknown,
+  developmentContext?: unknown,
 ) {
   if (signal.aborted)
     return Object.freeze({
@@ -26,6 +27,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
   const preparation = prepareRuntimeOwnedDockerRestart(
     recoveryId,
     originReleaseRoot,
+    developmentContext,
   );
   if (preparation.status !== "prepared")
     return Object.freeze({

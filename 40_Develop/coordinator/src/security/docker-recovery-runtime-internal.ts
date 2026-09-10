@@ -93,7 +93,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 26;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 27;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const COMPLETED_DOCKER_RECOVERY_RECEIPT =
@@ -5393,6 +5393,7 @@ function restartPathIdentity(target: string) {
 export function prepareRuntimeOwnedDockerRestart(
   token: unknown,
   originReleaseRoot?: unknown,
+  developmentContext?: unknown,
 ) {
   const parsed = parseDockerTaskRecoveryId(token);
   const locks: Array<
@@ -5400,19 +5401,33 @@ export function prepareRuntimeOwnedDockerRestart(
   > = [];
   try {
     if (!parsed) throw new Error("docker_restart_id_invalid");
+    const development =
+      developmentContext !== undefined &&
+      developmentContext !== null &&
+      typeof developmentContext === "object"
+        ? borrowRuntimeOwnedDevelopmentNativeObservation(
+            developmentContext,
+            false,
+          )
+        : null;
+    if (developmentContext !== undefined && !development)
+      throw new Error("docker_restart_development_authority_invalid");
     const verification =
+      development?.verification ??
       verifyBundledCoordinatorPackageFromFixedManifestCandidate({
         evaluationTime: new Date().toISOString(),
       });
     if (
       verification.status !== "candidate" ||
-      verification.runtimeOwnedReleaseTrustConfirmed !== true ||
-      verification.runtimeExecutionIdentityRuntimeOwned !== true ||
-      verification.crddDistributionConfirmed !== true ||
+      (!development &&
+        (!("runtimeOwnedReleaseTrustConfirmed" in verification) ||
+          verification.runtimeOwnedReleaseTrustConfirmed !== true ||
+          verification.runtimeExecutionIdentityRuntimeOwned !== true ||
+          verification.crddDistributionConfirmed !== true)) ||
       typeof verification.runtimeExecutionIdentitySha256 !== "string"
     )
       throw new Error("docker_restart_release_unverified");
-    const root = observeRuntimeStateRootFromWindows();
+    const root = observeRuntimeStateRootFromWindows(developmentContext);
     if (!root) throw new Error("docker_restart_root_unverified");
     const rootIdentity = restartPathIdentity(root.rootPath);
     const host = discoverRecoveryHostBinding(root.rootPath, parsed);
@@ -5809,23 +5824,38 @@ export function releaseRuntimeOwnedDockerRestartPreparation(
 /** A settled protected chain is evidence, never a caller-supplied authority. */
 export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
   token: unknown,
+  developmentContext?: unknown,
 ) {
   const parsed = parseDockerTaskRecoveryId(token);
   try {
     if (!parsed) throw new Error("docker_task_recovery_id_invalid");
+    const development =
+      developmentContext !== undefined &&
+      developmentContext !== null &&
+      typeof developmentContext === "object"
+        ? borrowRuntimeOwnedDevelopmentNativeObservation(
+            developmentContext,
+            false,
+          )
+        : null;
+    if (developmentContext !== undefined && !development)
+      throw new Error("docker_task_recovery_restart_authority_invalid");
     const verification =
+      development?.verification ??
       verifyBundledCoordinatorPackageFromFixedManifestCandidate({
         evaluationTime: new Date().toISOString(),
       });
     if (
       verification.status !== "candidate" ||
       typeof verification.runtimeExecutionIdentitySha256 !== "string" ||
-      verification.runtimeOwnedReleaseTrustConfirmed !== true ||
-      verification.runtimeExecutionIdentityRuntimeOwned !== true ||
-      verification.crddDistributionConfirmed !== true
+      (!development &&
+        (!("runtimeOwnedReleaseTrustConfirmed" in verification) ||
+          verification.runtimeOwnedReleaseTrustConfirmed !== true ||
+          verification.runtimeExecutionIdentityRuntimeOwned !== true ||
+          verification.crddDistributionConfirmed !== true))
     )
       throw new Error("docker_task_recovery_restart_authority_invalid");
-    const root = observeRuntimeStateRootFromWindows();
+    const root = observeRuntimeStateRootFromWindows(developmentContext);
     if (!root) throw new Error("docker_task_recovery_restart_root_unverified");
     const inventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
     if (
@@ -5919,7 +5949,7 @@ export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
     return recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       parsed.token,
       root,
-      () => observeRuntimeStateRootFromWindows(),
+      () => observeRuntimeStateRootFromWindows(developmentContext),
       null,
       Object.freeze({
         recoveryId: parsed.token,
