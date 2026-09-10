@@ -1,14 +1,14 @@
 # v0.20公開Runtimeと限定分散の固定候補検証結果
 
-状態: 配布全体の構造是正を自己確認済み。正式署名・公開縦断E2E待ち
+状態: 正式署名、4経路E2E、Recovery Matrixおよび最終独立監査完了。Release判断待ち
 担当責任者: Qual-Lab
-最終更新日: 2026-09-07
+最終更新日: 2026-09-11
 
 ## 対象
 
 - 対象変更: [CHG-000062](../../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[CHG-000063](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
-- 固定改訂版: `98146b3b70295bc122784871233d0bd7cf58c423`
-- 固定Tree: `1a2d46e74fbe8061567396f60dbde280aef72f23`
+- 固定改訂版: `f76b73af81c43e25f28037caa72d71a898a2f9fb`
+- 固定Tree: `928a76442276f56023662954e98464b1f6fefa97`
 - 対象範囲: Runtime責務分離、Project Stateの読み取り専用投影、MCP stdio／localhost HTTP、実行知の組込みAPI、限定分散の統合結果評価
 
 ## 結論
@@ -17,7 +17,7 @@
 
 競合しない2 Taskは上限2で同時実行され、Project Runtimeから2件のAttempt Eventとして不変Storeへ保存された。予定Task、再読取りした実Attemptおよび統合後の受入結果は同じ評価Identityへ接続され、個別Task成功とは別に統合受入が成立した。
 
-本結果は、ローカルの決定論的な技術縦断が成立したことを示す。実Provider間の速度、Token、費用、人間の実作業時間、後工程品質、PT／LT、正式署名またはRemote Runtimeは未評価であり、改善済みまたはRelease可能とは表示しない。
+本結果は、ローカルの決定論的な技術縦断に加え、固定改訂版の正式署名、Codex／Claudeを使う4経路E2Eおよび署名済みRecovery Matrixが成立したことを示す。実行結果を含む最終独立監査はCritical／Major／Moderate／Minor 0件でPassした。実Provider間の速度、Token、費用、人間の実作業時間、後工程品質、PT／LTおよびRemote Runtimeは未評価である。人間によるRelease判断が終わるまでRelease完了とは表示しない。
 
 初期固定候補への独立レビューで、外部入力のplain data境界、集約の安全な整数演算、実行知の物理清掃Authority、HTTP終了時の資源回収、MCP ProtocolとAdapterの物理境界、およびRuntime Execution Identityの依存閉包に未成立が見つかった。これらを個別の例外処理ではなく、入力・永続化・利用側閉包の三責務へまとめて是正した。実行知から物理削除APIを除去し、MCP ProtocolをAdapter／Transportから分離し、HTTP終了を受信途中のRequest、実行中HandlerおよびSocketのjoinへ接続した。外部入力はAccessor、Proxy、Symbol、非列挙field、疎配列および余分fieldを実行せず拒否し、集約は安全な整数範囲を越える値を結果へ補正しない。
 
@@ -89,7 +89,7 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 - 旧固定改訂版`11b7e99c7448aed7067c61a2d50282ad944db349`と検証記録Commit`f2a1ce691620e19781e921ee98581b6419310330`への二つの独立再レビューは、当時の対象にCritical 0、Major 0、Moderate 0、Minor 0を返した。その後の署名前検査と監査で上記の利用側未完を検出したため、この結果を現在の固定改訂版へ流用しない。現在の固定改訂版と本記録を対象とする独立再レビューが必要である。
 - OS／Consoleから実行中Applicationを持つ公開MCP ProcessへのSignal配送と、その配送後の取消・join。Node.js Signal event受領後の構成試験を、この実行環境境界の成立へ読み替えない。
 - 実行能力とLifecycleの利用集合は、本番実行集合に存在するmodule宣言、識別子利用および正規の直接呼出しを静的に導出した集合であり、一般的な到達可能性解析ではない。動的コード、任意のproperty名再構成、`execArgv`／`NODE_OPTIONS`によるpreload、TypeScript実行集合外または外部Processからの起動を完全に検出する主張はしない。
-- 正式候補固定後の署名および対象E2E。成功するまでRelease完了と表示しない。
+- 人間によるRelease判断。完了するまでRelease完了と表示しない。
 
 実Provider、PT／LTまたは長時間試験は、人間が対象、上限および目的を明示しない限り自動実行しない。未観測値を0へ補正せず、現在のRelease判断へ使用しない。
 
@@ -107,7 +107,12 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 | 旧署名候補のRecovery Matrix | 停止 | 中立化したRuntime子Process内だけDocker CLIのAuthenticode検査が`docker_cli_untrusted`となった。Provider Effect、Canonical Repository変更および未回収Docker資源は発生していない |
 | 多段Authenticode結合試験 | 1件中1件成功 | 親環境を継承しない中立化Runtime子Processから、検証済みUser Profileを持つ専用PowerShell環境を構成し、実Docker CLIのDocker Inc署名まで確認 |
 | 是正後の制限Process全回帰 | 1,985件中1,980件成功、5件明示skip、失敗0 | 単体・結合・総合・契約回帰。実環境専用試験は未実行を成功へ補完していない |
+| 最終固定候補の正式署名 | 成功 | Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067`、配布内容Root `41a09d4463bfdf3e2111b40cad1914355861fd14e1522146310111a01134b6b9` |
+| 最終固定候補の正式4経路E2E | 4経路中4経路成功 | forward、reverse、same-codex、same-claude。全経路で固定Commit／Tree／Runtime実行Identity一致、cleanup成立、再試行0、回復義務0。記録ID `5bc48169-5ad6-4b9a-9d8f-339db5aa4fcc` |
+| 最終固定候補のRecovery Matrix | 7シナリオ完了 | timeout、出力上限、無効出力、非0終了、取消、cleanup観測不能後の回復、親Process消失後のfresh回復。top-level cleanup成立、手動回復不要。記録ID `f81b13ae-f650-44c9-9e32-539987da6615` |
 
 この差分はRuntimeの失敗を隠す期待値緩和ではない。実ソースから導出されたWindows実Process Gateが7件から8件へ増えたのに、閉集合を検査する利用側だけが旧件数を保持した。実在する3ファイル、prefix出現数、展開case数、packageの実行入口および通常ユーザーProcessの実結果を同じ8件へ接続した。
 
-固定改訂版`392bd1ee32a12ec3a46551c297bf2018bc3e80d1`は正式4経路E2Eを4/4で完走したが、続くRecovery Matrixが`docker_cli_untrusted`を子結果として返し、最外周では`cleanup_child_contract_invalid`として停止した。v0.19.0に存在した中立化子Processへ、v0.20.0で新設したDocker CLI Publisher TrustのPowerShell初期化条件を伝播できていなかったことが原因である。PowerShell専用環境はambientなUser Profileを継承せず、Native OS観測で検証した現在主体の`USERPROFILE`だけを追加する。中立化した親ProcessからAuthenticode cmdletを初期化する契約試験と、同じ境界から実Docker CLIのPublisher Trustを確認する結合試験を追加した。是正後の制限Process全回帰は1,985件中、明示skip 5件を除く1,980件が成功し、失敗は0件だった。Runtime実行Identityが変わるため、旧署名と4/4結果を新候補へ流用せず、再署名後に正式4経路E2EとRecovery Matrixを再実行する。
+固定改訂版`392bd1ee32a12ec3a46551c297bf2018bc3e80d1`は正式4経路E2Eを4/4で完走したが、続くRecovery Matrixが`docker_cli_untrusted`を子結果として返し、最外周では`cleanup_child_contract_invalid`として停止した。v0.19.0に存在した中立化子Processへ、v0.20.0で新設したDocker CLI Publisher TrustのPowerShell初期化条件を伝播できていなかったことが原因である。PowerShell専用環境はambientなUser Profileを継承せず、Native OS観測で検証した現在主体の`USERPROFILE`だけを追加する。中立化した親ProcessからAuthenticode cmdletを初期化する契約試験と、同じ境界から実Docker CLIのPublisher Trustを確認する結合試験を追加した。是正後の制限Process全回帰は1,985件中、明示skip 5件を除く1,980件が成功し、失敗は0件だった。
+
+是正後の固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`は新しいRuntime実行Identityとして再署名した。正式4経路E2Eは4/4で、cleanup成立、Process再起動不要、Canonical Repository変更なし、Recovery IDなしだった。同じ署名候補のRecovery Matrixは7シナリオを完走し、cleanup成立、手動回復不要だった。旧署名または旧4/4結果は流用していない。

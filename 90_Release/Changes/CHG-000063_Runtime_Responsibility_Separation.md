@@ -1,11 +1,11 @@
 # 変更トレース: Runtime責務分離
 
 変更ID: `CHG-000063`
-状態: `Formal E2E Pending`
+状態: `Release Decision Pending`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `refactoring`
-最終更新日: 2026-09-09
+最終更新日: 2026-09-11
 
 ## 1. 結論と現在状態
 
@@ -203,7 +203,9 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 
 この不具合はProvider Effect前にfail-closedで停止したため、Canonical Repositoryの変更またはProvider送信は発生していない。Runtime実行Identityを構成するsourceが変わるため、是正後の正式候補は旧署名を流用せず再署名する。
 
-正式4経路E2Eの完走後、同じ署名候補のRecovery Matrixでは、最小化したRuntime子ProcessからDocker CLIのAuthenticode検査を多段起動した場合だけ`docker_cli_untrusted`となる利用側未接続を検出した。v0.19.0にはDocker CLI Publisher Trust自体がなく、v0.20.0で追加した成立条件を直接起動だけで確認し、Recovery Matrixの中立化子Processまで伝播できていなかった。PowerShell専用環境へ、親環境から継承せずNative OS観測で検証した`USERPROFILE`を追加し、同じ中立化親ProcessからAuthenticode cmdletの初期化まで行う結合試験を追加する。単にRecovery Matrixへambient環境を渡す変更は行わない。
+正式4経路E2Eの完走後、同じ署名候補のRecovery Matrixでは、最小化したRuntime子ProcessからDocker CLIのAuthenticode検査を多段起動した場合だけ`docker_cli_untrusted`となる利用側未接続を検出した。v0.19.0にはDocker CLI Publisher Trust自体がなく、v0.20.0で追加した成立条件を直接起動だけで確認し、Recovery Matrixの中立化子Processまで伝播できていなかった。PowerShell専用環境へ、親環境から継承せずNative OS観測で検証した`USERPROFILE`を追加し、同じ中立化親ProcessからAuthenticode cmdletの初期化まで行う結合試験を追加した。単にRecovery Matrixへambient環境を渡す変更は行っていない。
+
+固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`はRelease sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067`として再署名した。同一候補の正式4経路E2Eは4/4で、cleanup成立、Process再起動不要、Canonical Repository変更なし、Recovery IDなしだった。Recovery Matrixは7シナリオを完走し、cleanup成立、手動回復不要だった。記録IDは4経路が`5bc48169-5ad6-4b9a-9d8f-339db5aa4fcc`、Recovery Matrixが`f81b13ae-f650-44c9-9e32-539987da6615`である。実行結果を含む最終独立監査はCritical／Major／Moderate／Minor 0件でPassした。残るGateは人間によるRelease判断である。
 
 ## 11. 正常なDockerへ戻った後のTask復旧
 
