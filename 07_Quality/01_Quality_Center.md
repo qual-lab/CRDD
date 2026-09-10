@@ -2,11 +2,11 @@
 
 状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-07
+最終更新日: 2026-09-11
 
 ## 結論
 
-v0.20.0 Candidateは、試験体系と自動回帰、実行知、Runtime責務分離、限定分散実行と統合結果、読み取り専用Project State、およびlocalhost限定MCP HTTPを対象とする。CHG-000061、CHG-000062およびCHG-000064は決定論的回帰、Windows実Process確認および独立一括監査を完了した。CHG-000063は、配布全体の利用グラフ、完全な引数式と値の由来、Authority・handle所有、および正規観測結果から公開・署名・昇格・回復結果までの伝播を限定グラフへ統合した。自己確認は制限Process 1,752件、Windows実Process Gate 7件、静的検査およびRepository全体Checker 426文書（Error 0、Warning 0）で成功した。次は固定候補を正式署名して公開縦断E2Eを完走し、その結果を含む改訂版へ独立再レビューと最終監査を行う。branch、本候補表示または署名前の検証だけではv0.20.0の公開、採用、準拠またはRuntime実行Authorityを成立させない。
+v0.20.0 Candidateは、試験体系と自動回帰、実行知、Runtime責務分離、限定分散実行と統合結果、読み取り専用Project State、およびlocalhost限定MCP HTTPを対象とする。CHG-000061、CHG-000062およびCHG-000064は決定論的回帰、Windows実Process確認および独立一括監査を完了した。CHG-000063は、配布全体の利用グラフ、完全な引数式と値の由来、Authority・handle所有、および正規観測結果から公開・署名・昇格・回復結果までの伝播を限定グラフへ統合した。最新の固定候補では、限定実Provider 2経路、Windows実Process Gate 8件、静的検査およびRepository全体Checker 426文書（Error 0、Warning 0）が成功した。制限Process全回帰は1,983件中、実環境限定の明示skip 4件を除く1,978件が成功し、残る1件は新設したCodex隔離Gateを旧7件の閉集合へ反映していない期待値同期漏れだった。閉集合を8件へ是正した対象契約2件とWindows実Process 8件は成功した。次は新しい固定候補を正式署名して公開縦断E2Eを完走し、その結果を含む改訂版へ独立再レビューと最終監査を行う。branch、本候補表示または署名前の検証だけではv0.20.0の公開、採用、準拠またはRuntime実行Authorityを成立させない。
 
 v0.19.0の公開基準は、Source A `7346a5580926d71d253ebebaa6538e41bfbdea05`、manifest-only carrier B `5929cb27a9aed9ebabf79e07e3f710f4046597ef`、Runtime実行Identity `79e8cb3a3d11b1433e088d09d8c4b875b7de9ca2193f5e57ddc272d3225064d5`およびRelease sequence `2026090504`へ固定した。署名済みRecovery Matrix、4経路4/4、公開MCPの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recoveryとfresh再入場が完了し、最終独立監査はCritical／Major／Minor 0件だった。branch、作業中Commitまたは本書だけで公開基準を作らず、公開状態と最終Commitは公式tagから確認する。
 
@@ -18,7 +18,7 @@ v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シ�
 |---|---|---|
 | v0.20 試験体系と自動回帰 | Ready for Release Handoff | 固定改訂版`ae8efe1`で試験カタログ、変更影響型runner、段階実行、Windows実Process GateおよびPT／LTのEffect 0を確認した。決定論的回帰と独立最終レビューを完了し、Critical／Major／Moderate／Minorは0件。[検証結果](Verification_Results/2026-09-05_Test_Levels_and_Automated_Regression_Verification.md)を参照。UAT、任意のPT／LT、実Provider、公式署名およびLinux／macOSは未実施または対象外であり、本状態から成立を推定しない |
 | v0.20 実行知 | Ready for Release Handoff | 固定改訂版`3aea329`で決定論的回帰と独立再レビューを完了し、Critical／Major／Moderate／Minorは0件。`40_Develop`配下のREADMEは0件で、利用・開発手順をWorkflowへ移管し、再作成をCheckerで拒否する。[検証結果](Verification_Results/2026-09-05_Execution_Intelligence_Verification.md)を参照。実Provider、Linux／macOS、共有Store、性能・長時間試験、品質受入、運用・事業成果は未評価または未接続であり、本状態から成立を推定しない |
-| v0.20 Runtime責務分離 | Formal E2E Pending | 保護対象の公開・署名・昇格・回復経路を限定グラフで閉じ、正規入力からGuard、Authority、Effectおよび結果までの値由来を利用側ごとに照合する。制限Process 1,752件、Windows実Process Gate 7件、静的検査およびRepository全体Checker 426文書（Error 0、Warning 0）は成功した。[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)を参照。正式署名、公開縦断E2E、実行結果を含む独立再レビューおよび最終監査は未完了 |
+| v0.20 Runtime責務分離 | Formal E2E Pending | 保護対象の公開・署名・昇格・回復経路を限定グラフで閉じ、正規入力からGuard、Authority、Effectおよび結果までの値由来を利用側ごとに照合する。限定実Provider 2経路、Windows実Process Gate 8件、静的検査およびRepository全体Checker 426文書（Error 0、Warning 0）は成功した。制限Process全回帰で検出したWindows Gate件数の期待値同期漏れは、閉集合を8件へ更新した対象契約で解消した。[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)を参照。正式署名、公開縦断E2E、実行結果を含む独立再レビューおよび最終監査は未完了 |
 | v0.19 Project Runtime | Release Gate成立 | 署名済みRecovery Matrix、4経路4/4、認証済み公開MCP Clientからの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recovery、耐久Recovery段階、fresh再入場および最終資源不存在を確認した。[最終署名E2E](Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md)と[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md#8-現在状態と次のgate)を参照。最終独立監査はCritical／Major／Minor 0件。Linux／macOS実環境、突然の電源断、任意規模・長時間負荷、由来不明退避物の清掃Authorityは未評価または後続対象 |
 | v0.18.1 Coordinator採用入口 | 公開済み。現行署名Identityの採用形態E2E、4経路4/4、固定Recovery Matrix 7シナリオ完了。検証済みDocker Desktop再起動後のTask Recovery公開引数経路は到達不能 | [現行Identityと検証結果](Verification_Results/2026-09-01_Coordinator_v0181_Runtime_Identity.md)、公式tag `v0.18.1`／Commit `14872bd19c3569a4c06752545a6057b2b4aaf3ab`。過去の4/4・7シナリオは有効だが、限定的な公開Recovery不具合と区別する。現行Sourceの入口是正は、到達可能な新しい署名固定版まで公開Baselineへ適用されない |
 | 移行前の正式署名E2E | 固定版に限り完了 | [0c3e6d2の結果](../90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)。4経路4/4、復旧7/7、cleanup確認済み |

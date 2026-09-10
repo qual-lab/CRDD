@@ -92,3 +92,16 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で7�
 - 正式候補固定後の署名および対象E2E。成功するまでRelease完了と表示しない。
 
 実Provider、PT／LTまたは長時間試験は、人間が対象、上限および目的を明示しない限り自動実行しない。未観測値を0へ補正せず、現在のRelease判断へ使用しない。
+
+## 署名前の実境界確認と試験母集団同期
+
+| 確認 | 結果 | 解釈 |
+|---|---|---|
+| 限定実Provider境界 | Codex実装／Claude確認、Claude実装／Codex確認の2経路が成功 | 正式4経路E2Eの代替ではない |
+| 制限Process全回帰 | 1,983件中1,978件成功、4件明示skip、1件失敗 | 失敗はWindows実Process Gateの所有数だけを旧7件とした期待値同期漏れ |
+| 件数契約の限定再確認 | 2件中2件成功 | Codex Executor Sandboxを含む8件の閉集合へ更新 |
+| Windows実Process Gate | 8件中8件成功 | Docker隔離、取消、Process tree終了、stdout／stderr上限およびcleanupを通常ユーザーProcessで確認 |
+| 静的検査 | 型、Lint、Format、Capability Graph、Runtime TraceおよびProject Runtime設計追跡が成功 | 固定候補の署名前確認 |
+| Repository全体Checker | 426文書、Error 0、Warning 0 | 文書更新前の結果。更新後に再確認する |
+
+この差分はRuntimeの失敗を隠す期待値緩和ではない。実ソースから導出されたWindows実Process Gateが7件から8件へ増えたのに、閉集合を検査する利用側だけが旧件数を保持した。実在する3ファイル、prefix出現数、展開case数、packageの実行入口および通常ユーザーProcessの実結果を同じ8件へ接続した。

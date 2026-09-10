@@ -494,3 +494,5 @@ Engine観測を三値へ戻す際、旧`queryDocker`を`queryDockerEngine`と`qu
 
 修正版の署名候補から再入場すると、旧候補が作った正しい`not_issued`記録をRuntime Identity差により通常Inventoryが拒否した。旧RuntimeのHost操作を新Runtimeで続行することは許可せず、署名済み由来と引継ぎReceiptを確認したうえで、全Host Effectがsettledな`not_issued`である旧OperationだけをEffect 0で証拠保持終了する。現在境界、現在`run` Identityおよび旧stale不存在はfresh観測するが、現在Dockerの故障や復旧は同時に推定しない。現在状態の修復は新しい修復IDで再評価する。
 | 実環境対応 | 注入試験を実際に観測した`absent`状態へ固定し、署名候補から同じ履歴IDを閉じる | 既定fixtureの成功を実再入場成功へ昇格しない |
+
+署名前の全回帰では、Codex Executor Sandboxの実境界試験を追加済みである一方、Windows実Process Gateの閉集合を検査する利用側だけが旧7件を保持していたため、1件が失敗した。実在するGateは8件であり、件数を緩和するのではなく、対象3ファイル、prefix出現数、展開case数、package実行入口および通常ユーザーProcessの実結果を同じ8件へ同期した。対象件数契約2件と実Windows Process Gate 8件は成功した。限定実Provider 2経路もcleanup済みで成功しているが、正式署名と4経路E2Eの代替にはしない。

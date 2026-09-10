@@ -12,8 +12,8 @@ const gateFiles = [
   },
   {
     file: "docker-owned-process.integration.test.ts",
-    prefixOccurrences: 2,
-    expandedCases: 3,
+    prefixOccurrences: 3,
+    expandedCases: 4,
     expansion: /for \(const mode of \["stdout-limit", "stderr-limit"\]\)/,
   },
   {
@@ -39,7 +39,7 @@ function discoverGateFiles(
   );
 }
 
-test("制限Process用試験と実Windows Process Gateは同じ7件の閉集合を所有する", () => {
+test("制限Process用試験と実Windows Process Gateは同じ8件の閉集合を所有する", () => {
   const scripts = packageJson.scripts ?? {};
   assert.match(
     scripts["test:restricted-process"] ?? "",
@@ -78,7 +78,7 @@ test("制限Process用試験と実Windows Process Gateは同じ7件の閉集合�
     gateCount += expandedCases;
     assert.match(scripts["test:windows-process"] ?? "", new RegExp(file));
   }
-  assert.equal(gateCount, 7);
+  assert.equal(gateCount, 8);
 });
 
 test("未分類のWindows Process Gateを別試験ファイルへ追加すると閉集合が不一致になる", () => {
