@@ -1307,6 +1307,12 @@ function fixture(
                         commandExecutionCompletedCount: 1,
                         commandExecutionFailedCount: 0,
                         commandExecutionDeclinedCount: 0,
+                        commandExecutionExitCode0Count: 1,
+                        commandExecutionExitCode1Count: 0,
+                        commandExecutionExitCode126Count: 0,
+                        commandExecutionExitCode127Count: 0,
+                        commandExecutionOtherNonzeroExitCodeCount: 0,
+                        commandExecutionMissingExitCodeCount: 0,
                         fileChangeStartedCount: 1,
                         fileChangeCompletedCount: 1,
                         fileChangeFailedCount: 0,
@@ -2776,6 +2782,12 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
       commandExecutionCompletedCount: 1,
       commandExecutionFailedCount: 0,
       commandExecutionDeclinedCount: 0,
+      commandExecutionExitCode0Count: 1,
+      commandExecutionExitCode1Count: 0,
+      commandExecutionExitCode126Count: 0,
+      commandExecutionExitCode127Count: 0,
+      commandExecutionOtherNonzeroExitCodeCount: 0,
+      commandExecutionMissingExitCodeCount: 0,
       fileChangeStartedCount: 1,
       fileChangeCompletedCount: 1,
       fileChangeFailedCount: 0,
@@ -3976,7 +3988,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 34);
+  assert.equal(contract.contractRevision, 35);
   assert.equal(
     contract.providerTurnObservations,
     "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",

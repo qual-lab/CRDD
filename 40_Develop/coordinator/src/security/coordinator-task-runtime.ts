@@ -110,7 +110,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 34;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 35;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -152,6 +152,12 @@ const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
   "commandExecutionCompletedCount",
   "commandExecutionFailedCount",
   "commandExecutionDeclinedCount",
+  "commandExecutionExitCode0Count",
+  "commandExecutionExitCode1Count",
+  "commandExecutionExitCode126Count",
+  "commandExecutionExitCode127Count",
+  "commandExecutionOtherNonzeroExitCodeCount",
+  "commandExecutionMissingExitCodeCount",
   "fileChangeStartedCount",
   "fileChangeCompletedCount",
   "fileChangeFailedCount",
@@ -744,6 +750,12 @@ function projectExecutorResultDiagnostics(value: unknown) {
       "commandExecutionCompletedCount",
       "commandExecutionFailedCount",
       "commandExecutionDeclinedCount",
+      "commandExecutionExitCode0Count",
+      "commandExecutionExitCode1Count",
+      "commandExecutionExitCode126Count",
+      "commandExecutionExitCode127Count",
+      "commandExecutionOtherNonzeroExitCodeCount",
+      "commandExecutionMissingExitCodeCount",
       "fileChangeStartedCount",
       "fileChangeCompletedCount",
       "fileChangeFailedCount",

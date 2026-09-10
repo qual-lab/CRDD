@@ -8,7 +8,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 17;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 18;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -290,6 +290,29 @@ function structuredValue(
           (status === undefined || item.status === status)
         );
       }).length;
+    const completedCommandExecutions = itemEvents
+      .filter(
+        (event) =>
+          event.type === "item.completed" &&
+          (event.item as Record<string, unknown>).type === "command_execution",
+      )
+      .map((event) => event.item as Record<string, unknown>);
+    const countCommandExitCode = (exitCode: number) =>
+      completedCommandExecutions.filter((item) => item.exit_code === exitCode)
+        .length;
+    const commandExecutionOtherNonzeroExitCodeCount =
+      completedCommandExecutions.filter(
+        (item) =>
+          Number.isSafeInteger(item.exit_code) &&
+          (item.exit_code as number) !== 0 &&
+          (item.exit_code as number) !== 1 &&
+          (item.exit_code as number) !== 126 &&
+          (item.exit_code as number) !== 127,
+      ).length;
+    const commandExecutionMissingExitCodeCount =
+      completedCommandExecutions.filter(
+        (item) => !Number.isSafeInteger(item.exit_code),
+      ).length;
     codexExecutionObservation = Object.freeze({
       transport: "fixed_cli_jsonl_v0_149_1",
       turnCompleted: true,
@@ -303,6 +326,12 @@ function structuredValue(
         "command_execution",
         "declined",
       ),
+      commandExecutionExitCode0Count: countCommandExitCode(0),
+      commandExecutionExitCode1Count: countCommandExitCode(1),
+      commandExecutionExitCode126Count: countCommandExitCode(126),
+      commandExecutionExitCode127Count: countCommandExitCode(127),
+      commandExecutionOtherNonzeroExitCodeCount,
+      commandExecutionMissingExitCodeCount,
       fileChangeStartedCount: countItems("file_change"),
       fileChangeCompletedCount: countItems("file_change", "completed"),
       fileChangeFailedCount: countItems("file_change", "failed"),

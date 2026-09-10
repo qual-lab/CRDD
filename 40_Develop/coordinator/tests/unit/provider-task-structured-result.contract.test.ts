@@ -133,7 +133,12 @@ test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投�
     }),
     JSON.stringify({
       type: "item.completed",
-      item: { id: "item-1", type: "command_execution", status: "completed" },
+      item: {
+        id: "item-1",
+        type: "command_execution",
+        status: "completed",
+        exit_code: 0,
+      },
     }),
     JSON.stringify({
       type: "item.started",
@@ -158,10 +163,73 @@ test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投�
     commandExecutionCompletedCount: 1,
     commandExecutionFailedCount: 0,
     commandExecutionDeclinedCount: 0,
+    commandExecutionExitCode0Count: 1,
+    commandExecutionExitCode1Count: 0,
+    commandExecutionExitCode126Count: 0,
+    commandExecutionExitCode127Count: 0,
+    commandExecutionOtherNonzeroExitCodeCount: 0,
+    commandExecutionMissingExitCodeCount: 0,
     fileChangeStartedCount: 1,
     fileChangeCompletedCount: 0,
     fileChangeFailedCount: 0,
     fileChangeDeclinedCount: 1,
+    rawEventReported: false,
+    commandReported: false,
+    pathReported: false,
+    providerTextReported: false,
+  });
+});
+
+test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計する", () => {
+  const commands = [0, 1, 126, 127, 42, null].flatMap((exitCode, index) => [
+    JSON.stringify({
+      type: "item.started",
+      item: {
+        id: `command-${index}`,
+        type: "command_execution",
+        status: "in_progress",
+      },
+    }),
+    JSON.stringify({
+      type: "item.completed",
+      item: {
+        id: `command-${index}`,
+        type: "command_execution",
+        status: exitCode === 0 ? "completed" : "failed",
+        ...(exitCode === null ? {} : { exit_code: exitCode }),
+      },
+    }),
+  ]);
+  const raw = [
+    JSON.stringify({ type: "thread.started", thread_id: "thread" }),
+    JSON.stringify({ type: "turn.started" }),
+    ...commands,
+    JSON.stringify({
+      type: "item.completed",
+      item: { id: "message", type: "agent_message", text: EXECUTOR },
+    }),
+    JSON.stringify({ type: "turn.completed" }),
+  ].join("\n");
+
+  const result = normalizeFixtureTaskResult("codex", "executor", "low", raw);
+  assert.equal(result.status, "confirmed");
+  assert.deepEqual(result.normalizedResult?.providerExecutionObservation, {
+    transport: "fixed_cli_jsonl_v0_149_1",
+    turnCompleted: true,
+    commandExecutionStartedCount: 6,
+    commandExecutionCompletedCount: 1,
+    commandExecutionFailedCount: 5,
+    commandExecutionDeclinedCount: 0,
+    commandExecutionExitCode0Count: 1,
+    commandExecutionExitCode1Count: 1,
+    commandExecutionExitCode126Count: 1,
+    commandExecutionExitCode127Count: 1,
+    commandExecutionOtherNonzeroExitCodeCount: 1,
+    commandExecutionMissingExitCodeCount: 1,
+    fileChangeStartedCount: 0,
+    fileChangeCompletedCount: 0,
+    fileChangeFailedCount: 0,
+    fileChangeDeclinedCount: 0,
     rawEventReported: false,
     commandReported: false,
     pathReported: false,
@@ -647,7 +715,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 17);
+  assert.equal(contract.contractRevision, 18);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeResultAcceptanceMaximumTurns, 16);

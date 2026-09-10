@@ -10,8 +10,8 @@ import { createDevelopmentMeasurementConstraints } from "../../src/security/deve
 import type { OwnedCommandHandle } from "../../src/security/docker-owned-process.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
-  createRuntimeOwnedLifecycleNoticeReporter,
   createIsolatedDockerProcessControllerCandidate,
+  createRuntimeOwnedLifecycleNoticeReporter,
   describeDockerProcessControllerContract,
   projectDockerProcessControllerCompletionResult,
   projectDockerProcessControllerStartResult,
@@ -549,6 +549,137 @@ test("Provider実ProcessのOS起動確認後だけRuntime所有の開始観測�
       operationId: "OP-123456",
     },
   ]);
+});
+
+test("Provider境界診断は実行構成とProcess・cleanup観測を本文なしで分離する", async () => {
+  const notices: unknown[] = [];
+  const purposes = [
+    "create_subscription_auth_probe",
+    "start_subscription_auth_probe_attached",
+    "create_internal_network",
+    "create_egress_network",
+    "create_proxy",
+    "connect_proxy_egress",
+    "create_provider",
+    "start_proxy",
+    "start_provider_attached",
+  ];
+  const fixture = createFixture(
+    {
+      consumeProviderAuthority: () =>
+        Object.freeze({
+          operationId: "OP-123456",
+          provider: "codex",
+          profileId: "PROFILE-123456",
+          providerHomeMountGrantRef: "PHMGRANT-123456",
+          runtimeAuthorityIssued: true as const,
+          providerEffectAllowed: true as const,
+        }),
+      startCommand: (command: { purpose: string }) => ({
+        started: async () => true,
+        wait: async () => ({
+          status: command.purpose === "start_provider_attached" ? 127 : 0,
+          signal: null,
+          stdout:
+            command.purpose === "start_subscription_auth_probe_attached"
+              ? "Logged in using ChatGPT"
+              : command.purpose.startsWith("create_")
+                ? "docker-id"
+                : "",
+          stderr: "",
+          outputExceeded: false,
+        }),
+        terminateAndWait: async () => true,
+      }),
+      reportProviderBoundaryDiagnostic: async (notice: unknown) => {
+        notices.push(notice);
+        return true;
+      },
+    },
+    {
+      provider: "codex",
+      subscriptionOffering: "chatgpt_subscription_oauth",
+      ...providerStartObservationTaskPlan,
+      taskRole: "executor",
+      workspaceMountMode: "read_write",
+      commands: Object.freeze(
+        purposes.map((purpose) =>
+          Object.freeze({
+            purpose,
+            argv: Object.freeze(
+              purpose === "create_provider"
+                ? [
+                    "create",
+                    "--read-only",
+                    "--user",
+                    "65534:65534",
+                    "--workdir=/work",
+                    "image",
+                    "exec",
+                    "--approve-for-me",
+                  ]
+                : [purpose],
+            ),
+          }),
+        ),
+      ),
+    },
+  );
+
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  const result = await started.completion;
+  assert.ok(result);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "provider_process_exit_nonzero");
+  assert.deepEqual(notices, [
+    {
+      event: "coordinator_provider_boundary_configured",
+      taskRole: "executor",
+      provider: "codex",
+      operationId: "OP-123456",
+      approvalModeConfigured: "approve_for_me",
+      sandboxModeConfigured: "implicit",
+      workspaceMountModeConfigured: "read_write",
+      rootFilesystemReadOnlyConfigured: true,
+      nonRootUserConfigured: true,
+      workdirConfigured: true,
+    },
+    {
+      event: "coordinator_provider_boundary_settled",
+      taskRole: "executor",
+      provider: "codex",
+      operationId: "OP-123456",
+      providerContainerCreatedObserved: true,
+      providerProcessStartedObserved: true,
+      providerProcessCompletionObserved: true,
+      providerProcessExitStatusClass: "one_two_seven",
+      processTreeTerminationObserved: true,
+      containersAbsentObserved: true,
+      networksAbsentObserved: true,
+      cleanupConfirmed: true,
+    },
+  ]);
+});
+
+test("Provider境界診断の失敗はAuthority・Effect・完了結果を変更しない", async () => {
+  const fixture = createFixture({
+    reportProviderBoundaryDiagnostic: async () => {
+      throw new Error("diagnostic_sink_unavailable");
+    },
+  });
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  const result = await started.completion;
+  assert.ok(result);
+  assert.equal(result.status, "completed");
+  assert.equal(result.reason, "provider_operation_completed");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(fixture.getCommandCount(), 9);
 });
 
 test("Provider commandの同期起動失敗を実Process開始として公開しない", async () => {
@@ -2603,7 +2734,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 27);
+  assert.equal(contract.contractRevision, 28);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);

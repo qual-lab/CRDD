@@ -461,6 +461,17 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 機械結果と人間表示を分離する。文字化け、二回Enter、入力reader失敗、ウィンドウ自動閉鎖または結果未保存はUX不具合であり、Security上のfail closedだけを理由に受容しない。
 
+### Provider外部境界の診断接続
+
+ProviderとDockerの外部境界は、一般Architectureの[外部境界の診断可能性](../../27_Architecture.md#外部境界の診断可能性)を次の二系列で実装する。
+
+| 系列 | Coordinatorが保持する閉じた観測 | 保持しない内容 |
+| --- | --- | --- |
+| 実行構成 | 承認方式、Sandbox、Workspace mount mode、read-only root、非root user、workdir | 起動Command本文、Host Path、Credential |
+| 実行結果 | 同じOperation ID、Container作成、Provider Process開始・完了、終了code区分、Command／File変更Event件数、cleanup | Provider生Event、生出力、Event内Path、候補本文 |
+
+実行構成は設定済みの値、実行結果は外部境界で観測済みの値として表示し、両者を同じ成立事実へ畳まない。診断sinkの失敗、遅延または不在はAuthority、Sandbox、外部Effect、cleanupおよび本処理の結果を変更しない。診断だけからWorkspaceのbyte変化を推定せず、候補Filesystemの独立観測を正本とする。
+
 <a id="11-変更と検証"></a>
 
 ## 13. 検証接続

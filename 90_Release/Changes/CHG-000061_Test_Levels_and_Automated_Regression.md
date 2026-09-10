@@ -217,6 +217,10 @@ Task入力を正確に復元してもCodex Executorだけが変更0件だった�
 
 次の固定候補は、Codex `0.149.1`のJSON Lines実行Eventから、Command実行とFile変更の開始・完了・失敗・拒否件数およびTurn完了だけを安全な診断として保持する。独立Reviewer不承認時にも、Executor申告Path、実候補Pathおよびこの診断を同じ結果へ接続する。生Event、Command、Event内PathおよびProvider本文は保持・公開せず、候補Filesystemの観測を正本のまま維持する。これにより、Tool未使用、Tool拒否・失敗、File変更完了後の捕捉不整合、またはProvider申告不整合を一回の実測で区別してから次の構造是正を決める。
 
+診断付き固定候補`ebfdcb3f`の実測により、Codex ExecutorはCommand実行を2回開始して2回とも失敗し、File変更Event 0件、申告変更0件、実候補変更0件だったことを確認した。Claude Executor／Codex Reviewer経路は同じ測定で成立した。これにより、Reviewer入力、候補捕捉だけ、Provider未起動または単純な承認拒否を主原因候補から下げ、Codex固有のCommand実行、権限、Container内環境およびWorkspace Mountへ調査境界を縮約した。ここへ至るまで原因を区別できない実Provider実測と設定置換を反復し、Creditと経過時間を消費したため、同じ外形の失敗を再現した時点で、次の一回が仮説集合を分割できる安全な診断を先に追加する規則を品質保証へ還元した。
+
+この学びは検証手順だけでなくArchitectureの不足でもあった。外部境界は、入力・構成、要求・受理、開始・完了、Effect・結果搬送および終了後状態を、機密を複製せず相関できる診断契約を実装と同時に持つ。Codex診断はCommand終了codeを`0`、`1`、`126`、`127`、その他の非0および欠落へ閉じて集計する。Docker Process境界は、実際に消費した起動構成から承認方式、Sandbox、Workspace mount、read-only root、非root userおよびworkdirを設定値として示し、Container作成、Provider Process開始・完了、終了code区分およびcleanupを実観測値として同じOperationへ相関する。Command本文、Path、生出力およびCredentialは保持せず、診断表示の失敗はAuthorityまたは本処理結果を変更しない。これにより、次の一回でCommand／Tool互換、Codex固有実行環境、承認・SandboxおよびContainer／Workspace境界の候補をさらに分離できるようにする。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。
