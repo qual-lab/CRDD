@@ -8,7 +8,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 16;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 17;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -233,12 +233,92 @@ function structuredValue(
   resultAcceptanceMaximumTurns: number,
   raw: string,
 ) {
-  const parsed = parseUnambiguousJsonDocument(raw);
+  let parsed = parseUnambiguousJsonDocument(raw);
+  let codexExecutionObservation: Readonly<Record<string, unknown>> | null =
+    null;
+  if (provider === "codex" && parsed === null) {
+    const events = raw
+      .split(/\r?\n/u)
+      .filter((line) => line.length > 0)
+      .map((line) => parseUnambiguousJsonDocument(line));
+    if (
+      events.length === 0 ||
+      events.length > 4_096 ||
+      events.some((event) => !isRecord(event))
+    )
+      return Object.freeze({
+        value: null,
+        reason: "provider_task_result_json_invalid" as const,
+      });
+    const records = events as Record<string, unknown>[];
+    const itemEvents = records.filter(
+      (event) =>
+        (event.type === "item.started" || event.type === "item.completed") &&
+        isRecord(event.item),
+    );
+    const finalMessages = itemEvents.filter(
+      (event) =>
+        event.type === "item.completed" &&
+        (event.item as Record<string, unknown>).type === "agent_message" &&
+        typeof (event.item as Record<string, unknown>).text === "string",
+    );
+    const turnCompletedCount = records.filter(
+      (event) => event.type === "turn.completed",
+    ).length;
+    const turnFailedCount = records.filter(
+      (event) => event.type === "turn.failed" || event.type === "error",
+    ).length;
+    const finalText = (
+      finalMessages.at(-1)?.item as Record<string, unknown> | undefined
+    )?.text;
+    if (
+      turnCompletedCount !== 1 ||
+      turnFailedCount !== 0 ||
+      typeof finalText !== "string"
+    )
+      return Object.freeze({
+        value: null,
+        reason: "provider_task_result_json_invalid" as const,
+      });
+    parsed = parseUnambiguousJsonDocument(finalText);
+    const countItems = (itemType: string, status?: string) =>
+      itemEvents.filter((event) => {
+        const item = event.item as Record<string, unknown>;
+        return (
+          item.type === itemType &&
+          event.type === (status ? "item.completed" : "item.started") &&
+          (status === undefined || item.status === status)
+        );
+      }).length;
+    codexExecutionObservation = Object.freeze({
+      transport: "fixed_cli_jsonl_v0_149_1",
+      turnCompleted: true,
+      commandExecutionStartedCount: countItems("command_execution"),
+      commandExecutionCompletedCount: countItems(
+        "command_execution",
+        "completed",
+      ),
+      commandExecutionFailedCount: countItems("command_execution", "failed"),
+      commandExecutionDeclinedCount: countItems(
+        "command_execution",
+        "declined",
+      ),
+      fileChangeStartedCount: countItems("file_change"),
+      fileChangeCompletedCount: countItems("file_change", "completed"),
+      fileChangeFailedCount: countItems("file_change", "failed"),
+      fileChangeDeclinedCount: countItems("file_change", "declined"),
+      rawEventReported: false,
+      commandReported: false,
+      pathReported: false,
+      providerTextReported: false,
+    });
+  }
   if (provider === "codex")
     return Object.freeze({
       value: parsed,
       reason: null,
       providerReportedTurns: null,
+      codexExecutionObservation,
     });
   if (!isRecord(parsed))
     return Object.freeze({
@@ -384,6 +464,14 @@ export function normalizeProviderTaskStructuredResult(
         taskRole,
         normalizedResult: Object.freeze({
           ...result.normalizedResult,
+          ...(provider === "codex" &&
+          "codexExecutionObservation" in extracted &&
+          extracted.codexExecutionObservation
+            ? {
+                providerExecutionObservation:
+                  extracted.codexExecutionObservation,
+              }
+            : {}),
           ...(provider === "claude" &&
           turnBudget?.status === "candidate" &&
           typeof extracted.providerReportedTurns === "number"

@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 13;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 14;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -217,6 +217,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
       "--skip-git-repo-check",
       "--cd",
       "/work",
+      "--json",
       "--output-schema",
       taskRole === "executor" ? EXECUTOR_SCHEMA_PATH : REVIEWER_SCHEMA_PATH,
       "--color",
@@ -238,6 +239,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
         : "never_read_only",
     rootFilesystemReadOnly: true,
     taskPromptTransport: "stdin_only" as const,
+    structuredEventTransport: "fixed_cli_jsonl_v0_149_1" as const,
     taskPromptInArgvAllowed: false,
     reviewerFilesystemOrShellToolAllowed: false,
     reviewerInput: "runtime_owned_immutable_candidate_content_projection_only",
@@ -311,6 +313,7 @@ export function describeCodexExecutionPlanContract() {
     outboundProxyPolicy: "official_cli_respect_system_proxy_required",
     isolatedTask: Object.freeze({
       roles: Object.freeze(["executor", "reviewer"]),
+      structuredEventTransport: "fixed_cli_jsonl_v0_149_1",
       explicitSandboxOption:
         "approve_for_me_executor_workspace_write_reviewer_read_only",
       permissionProfile: "root_deny_minimal_read_workspace_role_access",

@@ -123,6 +123,52 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
   assert.equal(claudeResult.credentialAbsenceVerified, false);
 });
 
+test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投影する", () => {
+  const raw = [
+    JSON.stringify({ type: "thread.started", thread_id: "thread" }),
+    JSON.stringify({ type: "turn.started" }),
+    JSON.stringify({
+      type: "item.started",
+      item: { id: "item-1", type: "command_execution", status: "in_progress" },
+    }),
+    JSON.stringify({
+      type: "item.completed",
+      item: { id: "item-1", type: "command_execution", status: "completed" },
+    }),
+    JSON.stringify({
+      type: "item.started",
+      item: { id: "item-2", type: "file_change", status: "in_progress" },
+    }),
+    JSON.stringify({
+      type: "item.completed",
+      item: { id: "item-2", type: "file_change", status: "declined" },
+    }),
+    JSON.stringify({
+      type: "item.completed",
+      item: { id: "item-3", type: "agent_message", text: EXECUTOR },
+    }),
+    JSON.stringify({ type: "turn.completed" }),
+  ].join("\n");
+  const result = normalizeFixtureTaskResult("codex", "executor", "low", raw);
+  assert.equal(result.status, "confirmed");
+  assert.deepEqual(result.normalizedResult?.providerExecutionObservation, {
+    transport: "fixed_cli_jsonl_v0_149_1",
+    turnCompleted: true,
+    commandExecutionStartedCount: 1,
+    commandExecutionCompletedCount: 1,
+    commandExecutionFailedCount: 0,
+    commandExecutionDeclinedCount: 0,
+    fileChangeStartedCount: 1,
+    fileChangeCompletedCount: 0,
+    fileChangeFailedCount: 0,
+    fileChangeDeclinedCount: 1,
+    rawEventReported: false,
+    commandReported: false,
+    pathReported: false,
+    providerTextReported: false,
+  });
+});
+
 test("Reviewer decisionとfinding件数の矛盾、余分field、path traversalを拒否する", () => {
   for (const value of [
     {
@@ -601,7 +647,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 16);
+  assert.equal(contract.contractRevision, 17);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeResultAcceptanceMaximumTurns, 16);

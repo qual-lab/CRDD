@@ -12,8 +12,8 @@ import {
   classifyCoordinatorTaskTerminalLifecycleState,
   createIsolatedCoordinatorTaskOperationCreationCandidate,
   createIsolatedCoordinatorTaskRuntimeCandidate,
-  projectDevelopmentTaskResultAfterOuterCleanup,
   describeCoordinatorTaskRuntimeContract,
+  projectDevelopmentTaskResultAfterOuterCleanup,
   startRuntimeOwnedCoordinatorTask,
 } from "../../src/security/coordinator-task-runtime.ts";
 import { selectDelegationRouteCandidate } from "../../src/security/delegation-route-selection.ts";
@@ -577,6 +577,7 @@ function fixture(
     lifecycleObserverThrows?: boolean;
     timingObserver?: (state: string) => void;
     providerTurnObservation?: boolean | "invalid" | "invalid_maximum";
+    providerExecutionObservation?: boolean | "invalid";
     terminalObserver?: (state: string) => void;
     inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
     createOperationOverride?: () => Readonly<{
@@ -1291,6 +1292,29 @@ function fixture(
                             ? 17
                             : 16,
                         requestedTurnTargetExceeded: true,
+                      }),
+                    }
+                  : {}),
+                ...(options.providerExecutionObservation && role === "executor"
+                  ? {
+                      providerExecutionObservation: Object.freeze({
+                        transport:
+                          options.providerExecutionObservation === "invalid"
+                            ? "unknown"
+                            : "fixed_cli_jsonl_v0_149_1",
+                        turnCompleted: true,
+                        commandExecutionStartedCount: 1,
+                        commandExecutionCompletedCount: 1,
+                        commandExecutionFailedCount: 0,
+                        commandExecutionDeclinedCount: 0,
+                        fileChangeStartedCount: 1,
+                        fileChangeCompletedCount: 1,
+                        fileChangeFailedCount: 0,
+                        fileChangeDeclinedCount: 0,
+                        rawEventReported: false,
+                        commandReported: false,
+                        pathReported: false,
+                        providerTextReported: false,
                       }),
                     }
                   : {}),
@@ -2717,8 +2741,11 @@ test("全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返
   assert.equal(result.dockerRecoveryId, null);
 });
 
-test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格しない", async () => {
-  const harness = fixture({ reviewerDecision: "changes_requested" });
+test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格せずExecutor診断を安全に返す", async () => {
+  const harness = fixture({
+    reviewerDecision: "changes_requested",
+    providerExecutionObservation: true,
+  });
   const result = await harness.runtime.start(
     request(),
     "C:\\repository",
@@ -2738,6 +2765,27 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
   assert.equal(result.executorProvider, "claude");
   assert.equal(result.reviewerProvider, "codex");
   assert.equal(result.remediationPerformed, true);
+  assert.deepEqual(result.executorResult, {
+    status: "completed",
+    changedPaths: ["fixture.txt"],
+    verificationCount: 1,
+    providerExecutionObservation: {
+      transport: "fixed_cli_jsonl_v0_149_1",
+      turnCompleted: true,
+      commandExecutionStartedCount: 1,
+      commandExecutionCompletedCount: 1,
+      commandExecutionFailedCount: 0,
+      commandExecutionDeclinedCount: 0,
+      fileChangeStartedCount: 1,
+      fileChangeCompletedCount: 1,
+      fileChangeFailedCount: 0,
+      fileChangeDeclinedCount: 0,
+      rawEventReported: false,
+      commandReported: false,
+      pathReported: false,
+      providerTextReported: false,
+    },
+  });
   assert.deepEqual(result.reviewerResult, {
     decision: "changes_requested",
     findingCount: 1,
@@ -3928,7 +3976,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 33);
+  assert.equal(contract.contractRevision, 34);
   assert.equal(
     contract.providerTurnObservations,
     "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",

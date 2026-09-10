@@ -110,7 +110,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 33;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 34;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -144,6 +144,22 @@ const REVIEWER_FINDING_DIAGNOSTIC_KEYS = new Set([
   "category",
   "criterionNumber",
   "messageSha256",
+]);
+const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
+  "transport",
+  "turnCompleted",
+  "commandExecutionStartedCount",
+  "commandExecutionCompletedCount",
+  "commandExecutionFailedCount",
+  "commandExecutionDeclinedCount",
+  "fileChangeStartedCount",
+  "fileChangeCompletedCount",
+  "fileChangeFailedCount",
+  "fileChangeDeclinedCount",
+  "rawEventReported",
+  "commandReported",
+  "pathReported",
+  "providerTextReported",
 ]);
 const REVIEWER_PROJECTION_KEYS = new Set([
   "status",
@@ -699,6 +715,61 @@ function projectReviewerResultDiagnostics(value: unknown) {
     decision,
     findingCount: findingCount as number,
     findingDiagnostics: Object.freeze(projected),
+  });
+}
+
+function projectExecutorResultDiagnostics(value: unknown) {
+  const status = ownPlainDataValue(value, "status");
+  const changedPaths = snapshotPlainArray<unknown>(
+    ownPlainDataValue(value, "changedPaths"),
+    1_000,
+  );
+  const verificationCount = ownPlainDataValue(value, "verificationCount");
+  const observation = snapshotPlainRecord(
+    ownPlainDataValue(value, "providerExecutionObservation"),
+    PROVIDER_EXECUTION_OBSERVATION_KEYS,
+  );
+  if (
+    status !== "completed" ||
+    changedPaths.status !== "ok" ||
+    !changedPaths.value.every((path) => typeof path === "string") ||
+    !Number.isSafeInteger(verificationCount) ||
+    (verificationCount as number) < 0
+  )
+    return null;
+  let providerExecutionObservation = null;
+  if (observation) {
+    const countKeys = [
+      "commandExecutionStartedCount",
+      "commandExecutionCompletedCount",
+      "commandExecutionFailedCount",
+      "commandExecutionDeclinedCount",
+      "fileChangeStartedCount",
+      "fileChangeCompletedCount",
+      "fileChangeFailedCount",
+      "fileChangeDeclinedCount",
+    ] as const;
+    if (
+      observation.transport !== "fixed_cli_jsonl_v0_149_1" ||
+      observation.turnCompleted !== true ||
+      !countKeys.every(
+        (key) =>
+          Number.isSafeInteger(observation[key]) &&
+          (observation[key] as number) >= 0,
+      ) ||
+      observation.rawEventReported !== false ||
+      observation.commandReported !== false ||
+      observation.pathReported !== false ||
+      observation.providerTextReported !== false
+    )
+      return null;
+    providerExecutionObservation = Object.freeze({ ...observation });
+  }
+  return Object.freeze({
+    status,
+    changedPaths: Object.freeze([...changedPaths.value] as string[]),
+    verificationCount: verificationCount as number,
+    ...(providerExecutionObservation ? { providerExecutionObservation } : {}),
   });
 }
 
@@ -2088,6 +2159,8 @@ async function runCoordinatorTaskCore(
       reviewerResult?.decision !== "approved" ||
       reviewerResult.findingCount !== 0
     ) {
+      const executorDiagnostics =
+        projectExecutorResultDiagnostics(executorResult);
       const reviewerDiagnostics =
         projectReviewerResultDiagnostics(reviewerResult);
       const reviewerProjectionEvidence = projectReviewerProjectionEvidence(
@@ -2108,6 +2181,7 @@ async function runCoordinatorTaskCore(
           allowedPathsHash: verified.allowedPathsHash,
           changedPaths: verified.changedPaths,
         }),
+        executorResult: executorDiagnostics,
         reviewerResult: reviewerDiagnostics,
         reviewerProjectionEvidence,
       });
@@ -2167,16 +2241,7 @@ async function runCoordinatorTaskCore(
       candidateId: null,
       candidateRecoveryId,
       candidateStoreRecoveryId: null,
-      executorResult: Object.freeze({
-        status: executorResult.status,
-        changedPaths: Object.freeze([
-          ...((executorResult.changedPaths as readonly string[]) ?? []),
-        ]),
-        verificationCount:
-          typeof executorResult.verificationCount === "number"
-            ? executorResult.verificationCount
-            : 0,
-      }),
+      executorResult: projectExecutorResultDiagnostics(executorResult),
       reviewerResult: Object.freeze({
         decision: reviewerResult.decision,
         findingCount:

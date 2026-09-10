@@ -262,6 +262,8 @@ Provider実行とReviewer判定は、最終4経路E2Eで初めて結合しては
 
 CLI optionは個別の存在だけでなく、同時指定する全optionの組合せと実Workspace変更を固定Binaryの実境界で反証する。Codex Executorは固定CLIが提供する`--approve-for-me`へ無人実行の自動ReviewとWorkspace書込みSandbox選択を委ね、Runtime所有のRole別Filesystem権限ProfileでもWorkspaceだけを書込み可能にする。Reviewerは`approval_policy="never"`と`--sandbox read-only`を明示し、Shell／Filesystem Toolを無効化する。固定CLIが拒否する`--approve-for-me`と`--sandbox`の同時指定は行わない。Dockerのread-only root、Capability drop、Network proxyおよびProvider Home保護は維持する。
 
+固定Codex CLIの正常終了と構造化結果だけでは、書込みToolを試さなかった状態、拒否された状態、完了した状態および候補捕捉の失敗を区別できない。固定CLI `0.149.1`ではJSON Linesの実行Eventを内部搬送に使用し、Command実行とFile変更について開始・完了・失敗・拒否の件数、およびTurn完了だけを非Authority診断へ投影する。Command本文、対象Path、生EventおよびProvider本文は公開しない。この診断は候補Filesystemの実差分を置換せず、Provider申告、実行Eventおよび候補捕捉のどこで不一致が始まったかを切り分けるためだけに用いる。CLI版またはEvent契約が変わる場合は、同じTransportとして推定せず再検証する。
+
 <a id="7-cleanup依存順"></a>
 <a id="22-docker-desktop最終復旧時の起動環境"></a>
 

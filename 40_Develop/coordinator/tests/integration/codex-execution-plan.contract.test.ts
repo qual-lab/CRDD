@@ -83,6 +83,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
   assert.equal(executor.argv.includes("--approve-for-me"), true);
   assert.equal(executor.argv.includes("--sandbox"), false);
   assert.equal(executor.argv.includes('approval_policy="never"'), false);
+  assert.equal(executor.argv.includes("--json"), true);
   assert.equal(reviewer.status, "candidate");
   assert.equal(reviewer.exactModel, "gpt-5.5");
   assert.equal(reviewer.workspaceMountMode, "read_only");
@@ -214,7 +215,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
 
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
-  assert.equal(contract.contractRevision, 13);
+  assert.equal(contract.contractRevision, 14);
   assert.equal(
     contract.distributionVerification.sigstoreBlobSignatureVerified,
     true,
@@ -246,6 +247,10 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
   assert.equal(contract.preferredModelFamily, "sol");
   assert.equal(contract.readOnlyProbeExactModel, "gpt-5.6-sol");
   assert.equal(contract.isolatedTaskExactModel, "gpt-5.5");
+  assert.equal(
+    contract.isolatedTask.structuredEventTransport,
+    "fixed_cli_jsonl_v0_149_1",
+  );
   assert.equal(
     contract.isolatedTask.explicitSandboxOption,
     "approve_for_me_executor_workspace_write_reviewer_read_only",

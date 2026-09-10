@@ -213,6 +213,10 @@ Task入力を正確に復元してもCodex Executorだけが変更0件だった�
 
 この組合せでもCodex Executorは変更0件だった。固定CLI `0.149.1`が提供する無人実行用`--approve-for-me`は、明示的な`--sandbox`と同時指定できず、自身が自動ReviewとWorkspace書込みSandboxを選択する。過去は不十分なTask条件としか組み合わせていなかったため、復元済みTask入力との組合せを最後の固定CLI内候補として反証する。これでも実変更が成立しなければ、引数の局所調整を終了し、固定CLIと現在のService／Tool契約の互換性を配布更新として扱う。
 
+復元済みTask入力と`--approve-for-me`を組み合わせた固定開発版でも、Codex Executorは初回・是正とも変更0件、Claude Executor経路は成功という同じ結果になった。さらに`approval_policy="never"`と明示的な`workspace-write`へ切り替えた比較でも結果は変わらなかったため、承認optionを原因とする仮説は否定し、変更を元へ戻した。以後はoptionを推測で入れ替えない。
+
+次の固定候補は、Codex `0.149.1`のJSON Lines実行Eventから、Command実行とFile変更の開始・完了・失敗・拒否件数およびTurn完了だけを安全な診断として保持する。独立Reviewer不承認時にも、Executor申告Path、実候補Pathおよびこの診断を同じ結果へ接続する。生Event、Command、Event内PathおよびProvider本文は保持・公開せず、候補Filesystemの観測を正本のまま維持する。これにより、Tool未使用、Tool拒否・失敗、File変更完了後の捕捉不整合、またはProvider申告不整合を一回の実測で区別してから次の構造是正を決める。
+
 ## 8. 完成条件
 
 - CRDD正本とTemplateから各試験レベル、適用条件、非適用条件および相互に代替できない保証を再構成できる。
