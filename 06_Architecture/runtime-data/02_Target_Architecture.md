@@ -133,12 +133,13 @@ Related:
 | Owner | 作成、利用、清掃を担当するComponentまたはProcess |
 | Purpose | 中間物が必要な処理と再生成元 |
 | Allowed content | 作成できるfile種別と最大範囲 |
+| Evidence promotion | 判断根拠として残す情報がある場合だけ`required`とし、正式な昇格先を持つ。Evidenceを生成しないOperationへ昇格を要求しない |
 | Terminal paths | 正常、失敗、取消、Timeout、親Process喪失 |
 | Promotion | 残す必要が生じた情報の正式な移動先 |
 | Cleanup trigger | 各終端経路と次回の安全な再入場 |
 | Completion evidence | 削除要求ではなく、対象不存在の観測 |
 
-`operation.json`のSchemaは実装設計で固定する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。
+`operation.json`のSchemaは実装設計で固定する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。作成時には、Process再起動後も同じDirectoryを推測探索せず再入場できるexact Recovery参照を返す。
 
 ### 4.3. Lifecycle
 
@@ -154,12 +155,12 @@ tmp/<operation-id>/を排他的に作成
 取消 ─┤                                 ├→ tmpを削除 → 不存在を観測 → 完了
 期限 ─┘                                 │
                                       │
-親Process喪失／清掃不明 ─→ Recoveryへexact PathとIdentityを記録
+親Process喪失／清掃不明 ─→ 作成時のexact Recovery参照で再入場
                                       ↓
                          次回安全入口で清掃・不存在確認
 ```
 
-清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、必要な意味だけを回復を所有するComponentの`recovery/`または`verification/`へ保存し、物理残存には削除義務を与える。
+清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、必要な意味だけを回復を所有するComponentの`recovery/`または`verification/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。再入場では`operation-id`、Ownerおよび作成時Identityの完全一致を要求し、旧Capabilityを再利用しない。
 
 ### 4.4. Recoveryの所有
 

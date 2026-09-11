@@ -58,7 +58,7 @@ Local Personal一般Taskは永続的なManaged／Hardened Runtime状態を前提
 
 ### 検証結果の保存
 
-4経路・復旧検証の通常CLIは、公開引数とNode版を確認後、検証済みの対象Repository直下`.crdd/verification-results/<UUID>/`へ`started.json`を保存してから既存の検証処理を実行する。終了時は`result.json`へ最終結果の限定要約を保存し、flush・read-back成立後だけ結果hashを持つ`complete.json`を追加する。共通起動入口からも同じ処理へ接続し、内部Recovery子Processとimportによる関数利用では保存しない。
+4経路・復旧検証の通常CLIは、公開引数とNode版を確認後、検証済みの対象Repository直下`.crdd/verification/<UUID>/`へ`started.json`を保存してから既存の検証処理を実行する。終了時は`result.json`へ最終結果の限定要約を保存し、flush・read-back成立後だけ結果hashを持つ`complete.json`を追加する。共通起動入口からも同じ処理へ接続し、内部Recovery子Processとimportによる関数利用では保存しない。
 
 保存対象は固定metadata、開始時Repository改訂版、既知の合否・停止理由・件数・回収状態・文法確認済み回復ID・検証済み結果が返した版識別子に限定する。自由文、入力、Task本文、Provider生出力、秘密値、host pathは保存しない。未知の理由は`unknown`、不正な値はnull等とし、不完全な配列／回復IDを完全な記録と表示しない。開始時HEADは実行配布版の証明ではない。
 
@@ -250,7 +250,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 #### 外部送信・入力投影・秘密の拒否
 
-- 現行の一般Task経路は、開始Commitに固定された`.crdd/external-send-policy.json` revision 2をRepositoryからの提案として読み、閉集合の情報分類、選択Local User専用Provider Home Session、Subscription OAuth family、目的、Candidate保存、およびProvider Terms／SettingsをRuntimeが検証できない範囲をPolicy Hashへ結合する。
+- 現行の一般Task経路は、開始Commitに固定された`.crdd/config/external-send-policy.json` revision 2をRepositoryからの提案として読み、閉集合の情報分類、選択Local User専用Provider Home Session、Subscription OAuth family、目的、Candidate保存、およびProvider Terms／SettingsをRuntimeが検証できない範囲をPolicy Hashへ結合する。
 - Repository内の`decisionAuthority`自己申告だけではAuthorityにならない。
 - v0.18.0実装候補は、全Policy Provider境界、Subscription経路、情報分類および目的を端末安全なcanonical JSONで初回表示し、選択ユーザー・保護Runtime State・exact Policy byteへ結合した単一Active同意として保存する。
 - 同じ失効していない境界の通常Taskでは対話承認を繰り返さないが、Objective、Acceptance Criteria、書込み／読取り範囲、Provider候補、Revision、Candidate保存条件および派生Review転送fieldは非永続Operation Previewと短命Grantへ毎回結合して検査する。

@@ -115,7 +115,8 @@ export function verifyRepositoryRootFromWorkingDirectory(
 ): ReturnType<typeof verifyRepositoryRoot> {
   if (typeof workingDirectory !== "string") return verifyRepositoryRoot(null);
   try {
-    let current = fs.realpathSync.native(path.resolve(workingDirectory));
+    let current = path.resolve(workingDirectory);
+    if (!inspectPathChain(current)) return verifyRepositoryRoot(null);
     const initial = fs.lstatSync(current);
     if (!initial.isDirectory() || initial.isSymbolicLink())
       return verifyRepositoryRoot(null);

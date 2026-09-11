@@ -37,7 +37,7 @@ Last Updated: 2026-09-11
 
 ### 検証画面を閉じた後の結果確認
 
-結果保存に対応した配布物の4経路／復旧検証では、対象Repositoryの`.crdd/verification-results/<UUID>/`を確認する。`started.json`、`result.json`、`complete.json`のID・種別・開始時刻が一致し、全てをJSONとして読み取れ、完了記録の`resultSha256`と結果fileのSHA-256が一致することを確認する。開始時Repository改訂版を実行配布版と取り違えず、終了記録が保持する検証結果の版情報と対象を照合する。完了記録なし、部分書込み、組合せ／hash不一致、未知値や不完全表示があれば、その範囲は未確認のまま残す。
+結果保存に対応した配布物の4経路／復旧検証では、対象Repositoryの`.crdd/verification/<UUID>/`を確認する。`started.json`、`result.json`、`complete.json`のID・種別・開始時刻が一致し、全てをJSONとして読み取れ、完了記録の`resultSha256`と結果fileのSHA-256が一致することを確認する。開始時Repository改訂版を実行配布版と取り違えず、終了記録が保持する検証結果の版情報と対象を照合する。完了記録なし、部分書込み、組合せ／hash不一致、未知値や不完全表示があれば、その範囲は未確認のまま残す。
 
 この記録には会話、確認コード、passphrase、Provider生出力は残らない。未知の停止理由は`unknown`となるため、完全な調査ログの代替ではない。自動的な再実行・回復・署名承認に使わない。不要になった記録は対象を確認した担当者が明示的に清掃するまで保持し、Runtimeは容量超過時にも古い記録を削除しない。Gitは非追跡とし、正式Evidenceへ採用する際は別途対象版と根拠を確認する。旧署名配布物にはこの保存機能を継ぎ足さない。
 
@@ -152,9 +152,9 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、署名Source A、manifest carrier B、最終Release Commit Cを分けて生成する。Cは署名後に確定する検証結果だけを取り込む文書Commitであり、Runtime実行集合を変更しない。
 
 1. Release候補Commit Aへ、Source、文書、試験および固定Pathの単一Native Runtime成果物`crdd-platform-access.exe`を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
-2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release-staging/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
+2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
 3. Commit A／Tree Aと`crdd-platform-access.exe`を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
-4. 生成したmanifestは編集可能なJSONとして扱わず、不透明なbyte列のまま、署名済みstaging内にある共通Launcher自身の`promote-release`でRepositoryの固定Pathへ昇格する。作業Checkout内の未署名Launcherへstaging Pathを引数で渡して代替してはならない。入口は、実行中のコードが現在のRepository直下`.crdd/release-staging/<候補ID>`にある署名対象の配布物自身であること、署名、Source AのCommit／Tree、閉じたRuntime実行集合、Policy、Native成果物、現在HEAD、配置先の明示的な不存在、昇格前後のbyte数とSHA-256を一つの実行で再確認する。作業Checkoutに存在するGit管理外の依存物や一時物はSource AのCommit／Tree同一性へ混入させず、実行集合の完全性は署名済みstagingから確認する。手動コピー、Editor、整形、JSONの再serialize、Shellのtext pipelineまたは末尾改行追加で代替しない。最終Pathへ段階writeせず、同一Filesystem上の排他的hard linkで完成済みfileだけを公開する。開始時sourceと公開後の二名が同じfile objectであることを確認し、staging側の名前はこの公開Effectでは削除しない。中断後は同じcommandがsourceのみ、同一file objectの二名、明示破棄後のdestinationのみを識別して再開する。別Identity、内容変化または観測不能では削除や上書きを行わず、Commitせずに人間へ移送する。成功結果が`retained_for_explicit_staging_discard`を返した場合は、Commit Bと検証が完了した後、Repository-local stagingの所有範囲を再確認する明示破棄で後片付けする。成功後にmanifestだけをCommitしてBを作り、`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
+4. 生成したmanifestは編集可能なJSONとして扱わず、不透明なbyte列のまま、署名済みstaging内にある共通Launcher自身の`promote-release`でRepositoryの固定Pathへ昇格する。作業Checkout内の未署名Launcherへstaging Pathを引数で渡して代替してはならない。入口は、実行中のコードが現在のRepository直下`.crdd/release/<候補ID>`にある署名対象の配布物自身であること、署名、Source AのCommit／Tree、閉じたRuntime実行集合、Policy、Native成果物、現在HEAD、配置先の明示的な不存在、昇格前後のbyte数とSHA-256を一つの実行で再確認する。作業Checkoutに存在するGit管理外の依存物や一時物はSource AのCommit／Tree同一性へ混入させず、実行集合の完全性は署名済みstagingから確認する。手動コピー、Editor、整形、JSONの再serialize、Shellのtext pipelineまたは末尾改行追加で代替しない。最終Pathへ段階writeせず、同一Filesystem上の排他的hard linkで完成済みfileだけを公開する。開始時sourceと公開後の二名が同じfile objectであることを確認し、staging側の名前はこの公開Effectでは削除しない。中断後は同じcommandがsourceのみ、同一file objectの二名、明示破棄後のdestinationのみを識別して再開する。別Identity、内容変化または観測不能では削除や上書きを行わず、Commitせずに人間へ移送する。成功結果が`retained_for_explicit_staging_discard`を返した場合は、Commit Bと検証が完了した後、Repository-local stagingの所有範囲を再確認する明示破棄で後片付けする。成功後にmanifestだけをCommitしてBを作り、`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
 5. Bの署名済みRuntimeに対する検証後、結果と現在状態を反映するCommit Cを作る。BからCに変更できるのは、Release候補固定時に宣言した文書の閉集合だけである。Releaseごとの閉集合はこの節でexact Pathとして列挙し、wildcard、Directory単位または「関連文書」等の開いた指定を使わない。manifest、Runtime実行集合、Policy、Native成果物または宣言外Pathが変わった場合はCとして受理せず、新しいSource Aへ戻る。
 6. Cで同梱manifestをbyte-for-byte再照合し、Package content rootとRuntime実行IdentityがBの検証時と一致することを確認する。AがBの親、BがCの祖先であり、AからBはmanifest一件だけ、BからCは上記閉集合だけであることも確認する。公式tagとReleaseはCommit Cへ付ける。CのCommit／Treeは署名対象文書へ自己参照させず、tagと結合した公式Release記録へ保存する。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示し、Bはそのmanifestを運ぶ祖先として保持する。RuntimeはCの内容からRuntime実行集合とmanifestを検証し、`crdd-platform-access.exe`を同じIdentityへ結合する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
 7. 一般Taskは配布A／B／Cとは別に、実行直前の作業対象RepositoryのExecution Commit／Treeを独立観測し、隔離Candidateのbase RevisionをそのExecution Revisionへ照合する。manifest内のA、manifest carrier Bまたは公式Release Cを、採用RepositoryのCandidate baseとして要求しない。Task終了後に同じExecution Revisionを再観測できない、またはCommit／Treeが変わった場合は、Candidateを回収して成功扱いにしない。CRDD自身を作業対象にする場合だけExecution Revisionが公式Release Cと一致し得る。
@@ -221,7 +221,7 @@ node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts cancel
 
 ### 自動試験と開発確認
 
-以下は検証済みリポジトリRootから実行する。試験前に、実行Processの`TEMP`と`TMP`をそのRoot直下の`.crdd/test-tmp`へ設定し、通常の実Directoryであることを確認する。未設定またはRootを確認できない状態では試験を開始しない。OS全体や永続ユーザー環境の値は変更しない。
+以下は検証済みリポジトリRootから実行する。試験Runnerが一時領域を必要とする場合は、Repository-localの`.crdd/tests/<execution-unit>/<run-id>/`を所有し、入力・出力・診断をRun単位で分離して全終端経路で清掃する。呼出し元が旧共通一時Directoryへ`TEMP`／`TMP`をまとめて上書きせず、OS全体や永続ユーザー環境の値も変更しない。
 
 ```shell
 npm test --prefix 40_Develop/coordinator

@@ -807,6 +807,37 @@ function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
   };
 }
 
+test("現行案内・SPEC・Workflowに残る旧Runtime Data Pathを拒否する", () => {
+  const root = fixture();
+  makeStructure(root);
+  fs.rmSync(path.join(root, "00_CRDD"), { recursive: true, force: true });
+  write(path.join(root, "01_Principles.md"), "Version: v0.21.0\n");
+  write(path.join(root, "template", "AGENTS.md"), "# CRDD template\n");
+  write(path.join(root, "README.md"), "Use `.crdd/dogfooding`.\n");
+  write(
+    path.join(root, "05_SPEC", "01_Behavior_Specification.md"),
+    "# SPEC\n\nUse `.crdd/verification-results`.\n",
+  );
+  write(
+    path.join(root, "19_Workflows", "01_Runtime.md"),
+    "# Runtime\n\nUse `.crdd/test-tmp` for temporary files.\n",
+  );
+  const result = runChecker(root);
+  for (const expectedPath of [
+    "README.md",
+    "05_SPEC/01_Behavior_Specification.md",
+    "19_Workflows/01_Runtime.md",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "retired_runtime_data_path" &&
+          finding.path === expectedPath,
+      ),
+      `${expectedPath}\n${result.stderr}\n${result.stdout}`,
+    );
+});
+
 test("文書Disposition InventoryはMarkdown母集団の欠落・余分・重複を拒否する", () => {
   for (const mutation of ["missing", "extra", "duplicate"] as const) {
     const root = dispositionFixtureRoot();

@@ -3718,6 +3718,9 @@ if (repositoryMode === "official") {
       /^40_Develop\/(?:coordinator|execution-intelligence|mcp|project-runtime|runtime-data|platform-access)\/(?:src|scripts|bin)\//u.test(
         item,
       ) ||
+      item === "README.md" ||
+      item.startsWith("05_SPEC/") ||
+      item.startsWith("19_Workflows/") ||
       item === "template/AGENTS.md" ||
       item.startsWith("template/tools/")
     );

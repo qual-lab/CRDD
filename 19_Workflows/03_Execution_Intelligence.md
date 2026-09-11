@@ -83,4 +83,4 @@ npm test
 | Store読取り不能 | Event 0件と推定せず、観測不能として扱う |
 | 利用側回帰が失敗 | 共通packageだけを合格にせず、公開入口とConsumerの契約差を是正する |
 
-一時試験物はRepository Root直下のGit管理外`.crdd/test-tmp`等、確認済みの用途限定領域へ置き、package Directory直下へ作らない。終了後は試験が所有するexactな対象だけを回収し、回収不明を成功へ丸めない。
+一時試験物はRepository Root直下のGit管理外`.crdd/tests/execution-intelligence/<run-id>/`等、確認済みの実行単位へ置き、package Directory直下へ作らない。終了後は試験が所有するexactな対象だけを回収し、回収不明を成功へ丸めない。

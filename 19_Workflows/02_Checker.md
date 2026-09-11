@@ -31,6 +31,8 @@
 
 Gitを使えずFilesystem探索へ移った場合は理由と除外を読む。リンク境界や固定履歴の不整合を、リンク先が存在するだけで無視しない。
 
+Repository全体の構造化文書台帳に含まれる現行文書を変更した場合は、`npm run documentation-disposition:update --prefix 40_Develop/checker`でGitが認識するMarkdown集合とBlob IDを再計算してから全体Checkerを実行する。この入口は現行文書のBlob IDだけを更新し、固定履歴の本文変更、台帳への追加・削除または分類変更を自動受理しない。
+
 ## 開発試験は別の操作
 
-`40_Develop/checker`の型・命名・契約試験は通常Checkerとは別で、一時fixtureと子Processを使う。試験時は検証したRepository-local `.crdd/test-tmp`を子Processの`TEMP`／`TMP`へ指定し、終了後を確認する。OS全体の環境変数を変更しない。詳細は[設計](../06_Architecture/checker/01_Architecture.md)と[コーディング規約](../06_Architecture/99_Coding_Standards.md)。
+`40_Develop/checker`の型・命名・契約試験は通常Checkerとは別で、一時fixtureと子Processを使う。一時物はRepository-local `.crdd/tests/checker/<run-id>/`等の実行単位で所有し、子Processへ渡す場合もそのRunだけへ限定して終了後の不存在を確認する。OS全体の環境変数を変更しない。詳細は[設計](../06_Architecture/checker/01_Architecture.md)と[コーディング規約](../06_Architecture/99_Coding_Standards.md)。

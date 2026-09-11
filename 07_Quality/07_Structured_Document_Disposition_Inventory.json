@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "3d31e635f6be10fb6e89de2014bfb4d2ff907709e5e962d71a93b2c84e8b2ba3",
+  "evaluatedDocumentationSetSha256": "260de52d427d38b2127457cfb000d03c45025350d3be64db6c94f1384ff292e4",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -127,7 +127,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "05_SPEC/01_Behavior_Specification.md",
-      "currentBlobOid": "749b2d0714678b636472f12f1fd71c7de8c906e8"
+      "currentBlobOid": "6b7de918189d2711d0f0c2968cba7fec56334be2"
     },
     {
       "path": "06_Architecture/01_Architecture.md",
@@ -235,7 +235,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "06_Architecture/runtime-data/02_Target_Architecture.md",
-      "currentBlobOid": "21e9a563c43af0aa146de10f81bb004bb4dc27c8"
+      "currentBlobOid": "2430d45c94aa8c6f8c3c8034f358317bafdd08c1"
     },
     {
       "path": "07_Quality/01_Quality_Center.md",
@@ -730,7 +730,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "19_Workflows/01_Coordinator_Runtime.md",
-      "currentBlobOid": "d2d947f90e29f3278d8feb9df08203df18999721"
+      "currentBlobOid": "a39ff0f04d9a2a4d98213ac8a374f7e48db43cb1"
     },
     {
       "path": "19_Workflows/02_Checker.md",
@@ -739,7 +739,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "19_Workflows/02_Checker.md",
-      "currentBlobOid": "cd1244f3bb59ed87c46a123de55cf086fd6a607d"
+      "currentBlobOid": "ef6601e35b365ccfe1e48c6f6001652ec181b855"
     },
     {
       "path": "19_Workflows/03_Execution_Intelligence.md",
@@ -748,7 +748,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "19_Workflows/03_Execution_Intelligence.md",
-      "currentBlobOid": "1685154463693efcea1574ee93bcc4d9c4595585"
+      "currentBlobOid": "c6daa58587b779b7cc2d6008099263edc20afb23"
     },
     {
       "path": "19_Workflows/04_MCP_Server.md",
@@ -1258,7 +1258,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "90_Release/Changes/CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md",
-      "currentBlobOid": "aaa03cdf9329ed598a18ec3f43d73a1461c394f2"
+      "currentBlobOid": "fc393533b7f70682b6ce95f41f54a05684ca9d39"
     },
     {
       "path": "90_Release/Changes/Evidence/CHG-000007_Adopter_Trial_Report.md",
@@ -5785,7 +5785,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "README.md",
-      "currentBlobOid": "ffac923136147168c3a473922120689979a407cd"
+      "currentBlobOid": "6cd43bae5d086759f6a4d83d9bccbd44166251f1"
     },
     {
       "path": "TRADEMARK.md",
