@@ -1058,18 +1058,18 @@ function writeV020GateFixture(root: string, state: V020GateFixtureState): void {
     );
     write(
       roadmapPath,
-      `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 正式E2E結果を反映した現在Treeの一括監査 |\n`,
+      `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 正式4経路4/4、Recovery Matrix 7/7。正式E2E結果を反映した現在Treeの一括監査 |\n`,
     );
     return;
   }
 
   write(
     changePath,
-    `# Runtime Responsibility\n\n状態: \`${state}\`\n\n前の署名候補\n\n${currentCandidate}\n\n最終一括監査: 成立\n\n残るGate: 人間によるRelease判断\n`,
+    `# Runtime Responsibility\n\n状態: \`${state}\`\n\n前の署名候補\n\n${currentCandidate}\n\n正式E2E: 4経路4/4\n\nRecovery Matrix: 7シナリオ完了\n\n最終一括監査: Critical 0、Major 0で成立\n\n残るGate: 人間によるRelease判断\n`,
   );
   write(
     qualityPath,
-    `# Quality Center\n\n${currentCandidate}\n\n前の署名候補\n\n最終一括監査: Critical 0で成立\n\nv0.20全体の残るGate: 人間によるRelease判断\n\n${qualityLink}\n`,
+    `# Quality Center\n\n${currentCandidate}\n\n前の署名候補\n\n現在候補の技術Gate: 正式4経路4/4とRecovery Matrix 7/7が成立\n\n最終一括監査: Critical 0、Major 0で成立\n\nv0.20全体の残るGate: 人間によるRelease判断\n\n${qualityLink}\n`,
   );
   write(
     verificationPath,
@@ -1077,7 +1077,7 @@ function writeV020GateFixture(root: string, state: V020GateFixtureState): void {
   );
   write(
     roadmapPath,
-    `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 人間によるRelease判断 |\n`,
+    `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 正式4経路4/4、Recovery Matrix 7/7。人間によるRelease判断 |\n`,
   );
 }
 
@@ -1181,6 +1181,76 @@ test("最終監査EvidenceなしにRelease判断待ちへ進めない", () => {
       "utf8",
     );
   }
+  assert.equal(hasV020GateFinding(root), true);
+});
+
+test("最終監査語句だけでは現在候補の署名Evidenceを代替できない", () => {
+  const root = dispositionFixtureRoot();
+  const changePath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000063_Runtime_Responsibility_Separation.md",
+  );
+  const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
+  const verificationPath = path.join(
+    root,
+    "07_Quality",
+    "Verification_Results",
+    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+  );
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  write(
+    changePath,
+    "# Change\n\n状態: `Release Decision Pending`\n\n前の署名候補\n\n最終一括監査: Critical 0、Major 0で成立\n\n残るGate: 人間によるRelease判断\n",
+  );
+  write(
+    qualityPath,
+    "# Quality\n\n現在候補\n\n前の署名候補\n\n最終一括監査: Critical 0、Major 0で成立\n\nv0.20全体の残るGate: 人間によるRelease判断\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
+  );
+  write(
+    verificationPath,
+    "# Verification\n\n前候補。Quality Centerを参照。\n\n## 文書全体是正後の最終固定候補\n\n最終一括監査: Critical 0、Major 0で成立\n",
+  );
+  write(
+    roadmapPath,
+    "# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | Release Decision Pending | 人間によるRelease判断 |\n",
+  );
+  assert.equal(hasV020GateFinding(root), true);
+});
+
+test("Critical 0でもMajorが残る最終監査結果を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  writeV020GateFixture(root, "Release Decision Pending");
+  const verificationPath = path.join(
+    root,
+    "07_Quality",
+    "Verification_Results",
+    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+  );
+  fs.writeFileSync(
+    verificationPath,
+    fs
+      .readFileSync(verificationPath, "utf8")
+      .replace("Critical 0、Major 0", "Critical 0、Major 1"),
+    "utf8",
+  );
+  assert.equal(hasV020GateFinding(root), true);
+});
+
+test("空の現在候補節へ前候補節の署名Evidenceを流用できない", () => {
+  const root = dispositionFixtureRoot();
+  writeV020GateFixture(root, "Final Audit Pending");
+  const verificationPath = path.join(
+    root,
+    "07_Quality",
+    "Verification_Results",
+    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+  );
+  write(
+    verificationPath,
+    "# Verification\n\n前候補。Quality Centerを参照。\n\n## 文書全体是正後の最終固定候補\n\n現在候補の説明だけ。\n\n## 前候補の詳細\n\n| Runtime Source | source |\n| Manifest carrier | carrier |\n| Release sequence | 1 |\n| Runtime実行Identity | identity |\n| 正式4経路E2E | 4/4 |\n| Recovery Matrix | 7/7 |\n",
+  );
   assert.equal(hasV020GateFinding(root), true);
 });
 

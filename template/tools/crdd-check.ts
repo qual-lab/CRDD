@@ -4202,16 +4202,91 @@ function checkV020ReleaseGateOwnership(): void {
   }
 
   const currentGateState = changeGateStates[0] as GateState;
+  type GateEvidenceContract = Readonly<{
+    file: string;
+    content: string;
+    marker: RegExp;
+    description: string;
+  }>;
+  const currentCandidateHeading = "## 文書全体是正後の最終固定候補";
+  const currentCandidateStart = verification.indexOf(currentCandidateHeading);
+  const currentCandidateRemainder =
+    currentCandidateStart < 0
+      ? ""
+      : verification.slice(
+          currentCandidateStart + currentCandidateHeading.length,
+        );
+  const nextPeerHeading = currentCandidateRemainder.search(/\n##\s/u);
+  const currentVerificationSection =
+    currentCandidateStart < 0
+      ? ""
+      : currentCandidateRemainder.slice(
+          0,
+          nextPeerHeading < 0 ? undefined : nextPeerHeading,
+        );
+  const currentSignedCandidateEvidenceContracts: readonly GateEvidenceContract[] =
+    [
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker:
+          /現在候補[^\n]*Runtime Source[^\n]*manifest carrier[^\n]*Release sequence/u,
+        description:
+          "Quality Center must identify the current signed candidate.",
+      },
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker:
+          /現在候補の技術Gate[^\n]*正式4経路4\/4とRecovery Matrix 7\/7が成立/u,
+        description: "Quality Center must record both current signed matrices.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker:
+          /現在候補[^\n]*Runtime Source[^\n]*manifest carrier[^\n]*Release sequence/u,
+        description:
+          "The Change Trace must identify the current signed candidate.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /正式E2E[^\n]*4経路4\/4/u,
+        description: "The Change Trace must record the current route result.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /Recovery Matrix[^\n]*7シナリオ完了/u,
+        description:
+          "The Change Trace must record the current recovery result.",
+      },
+      {
+        file: verificationPath,
+        content: verification,
+        marker: /## 文書全体是正後の最終固定候補/u,
+        description:
+          "Verification must separate the current candidate from previous evidence.",
+      },
+      {
+        file: verificationPath,
+        content: currentVerificationSection,
+        marker:
+          /Runtime Source[\s\S]*Manifest carrier[\s\S]*Release sequence[\s\S]*Runtime実行Identity[\s\S]*正式4経路E2E[^\n]*4\/4[\s\S]*Recovery Matrix[^\n]*(7\/7|7シナリオ完了)/u,
+        description:
+          "The current Verification section must bind identity and both signed results.",
+      },
+      {
+        file: roadmapPath,
+        content: roadmap,
+        marker:
+          /v0\.20 Runtime責務分離[^\n]*正式4経路4\/4[^\n]*Recovery Matrix 7\/7/u,
+        description: "The Roadmap must retain both current signed results.",
+      },
+    ];
   const stateContracts: Readonly<
-    Record<
-      GateState,
-      readonly Readonly<{
-        file: string;
-        content: string;
-        marker: RegExp;
-        description: string;
-      }>[]
-    >
+    Record<GateState, readonly GateEvidenceContract[]>
   > = {
     "Signed Verification Pending": [
       {
@@ -4250,63 +4325,13 @@ function checkV020ReleaseGateOwnership(): void {
       },
     ],
     "Final Audit Pending": [
-      {
-        file: qualityCenterPath,
-        content: qualityCenter,
-        marker:
-          /現在候補[^\n]*Runtime Source[^\n]*manifest carrier[^\n]*Release sequence/u,
-        description:
-          "Quality Center must identify the current signed candidate.",
-      },
-      {
-        file: qualityCenterPath,
-        content: qualityCenter,
-        marker:
-          /現在候補の技術Gate[^\n]*正式4経路4\/4とRecovery Matrix 7\/7が成立/u,
-        description: "Quality Center must record both current signed matrices.",
-      },
+      ...currentSignedCandidateEvidenceContracts,
       {
         file: qualityCenterPath,
         content: qualityCenter,
         marker:
           /v0\.20全体の残るGate[^\n]*最終Evidence反映後[^\n]*一括独立監査/u,
         description: "Quality Center must retain the final audit Gate.",
-      },
-      {
-        file: changePath,
-        content: change,
-        marker:
-          /現在候補[^\n]*Runtime Source[^\n]*manifest carrier[^\n]*Release sequence/u,
-        description:
-          "The Change Trace must identify the current signed candidate.",
-      },
-      {
-        file: changePath,
-        content: change,
-        marker: /正式E2E[^\n]*4経路4\/4/u,
-        description: "The Change Trace must record the current route result.",
-      },
-      {
-        file: changePath,
-        content: change,
-        marker: /Recovery Matrix[^\n]*7シナリオ完了/u,
-        description:
-          "The Change Trace must record the current recovery result.",
-      },
-      {
-        file: verificationPath,
-        content: verification,
-        marker: /## 文書全体是正後の最終固定候補/u,
-        description:
-          "Verification must separate the current candidate from previous evidence.",
-      },
-      {
-        file: verificationPath,
-        content: verification,
-        marker:
-          /Runtime Source[\s\S]*Manifest carrier[\s\S]*Release sequence[\s\S]*Runtime実行Identity[\s\S]*正式4経路E2E[\s\S]*Recovery Matrix/u,
-        description:
-          "Verification must bind current identity and both signed results.",
       },
       {
         file: roadmapPath,
@@ -4318,10 +4343,12 @@ function checkV020ReleaseGateOwnership(): void {
       },
     ],
     "Release Decision Pending": [
+      ...currentSignedCandidateEvidenceContracts,
       {
         file: qualityCenterPath,
         content: qualityCenter,
-        marker: /最終一括監査[^\n]*成立/u,
+        marker:
+          /最終一括監査[^\n]*Critical[^\n]*0[^\n]*Major[^\n]*0[^\n]*成立/u,
         description: "Quality Center must record the completed final audit.",
       },
       {
@@ -4334,7 +4361,8 @@ function checkV020ReleaseGateOwnership(): void {
       {
         file: changePath,
         content: change,
-        marker: /最終一括監査[^\n]*成立/u,
+        marker:
+          /最終一括監査[^\n]*Critical[^\n]*0[^\n]*Major[^\n]*0[^\n]*成立/u,
         description: "The Change Trace must record the completed final audit.",
       },
       {
@@ -4345,8 +4373,9 @@ function checkV020ReleaseGateOwnership(): void {
       },
       {
         file: verificationPath,
-        content: verification,
-        marker: /最終一括監査[^\n]*(Critical|重大)[^\n]*0/u,
+        content: currentVerificationSection,
+        marker:
+          /最終一括監査[^\n]*Critical[^\n]*0[^\n]*Major[^\n]*0[^\n]*成立/u,
         description: "Verification must identify the final audit result.",
       },
       {
