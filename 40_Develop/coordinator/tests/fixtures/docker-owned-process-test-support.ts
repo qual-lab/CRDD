@@ -32,10 +32,18 @@ export async function waitForCondition(condition: () => boolean) {
 }
 
 export function createOwnedProcessTreeFixture() {
+  const temporaryRoot = path.join(
+    repositoryRoot,
+    ".crdd",
+    "tests",
+    "docker-owned-process",
+  );
+  const temporaryRootAlreadyExisted = fs.existsSync(temporaryRoot);
+  fs.mkdirSync(temporaryRoot, { recursive: true });
   for (const target of [
     repositoryRoot,
     path.join(repositoryRoot, ".crdd"),
-    path.join(repositoryRoot, ".crdd", "tests", "docker-owned-process"),
+    temporaryRoot,
   ]) {
     const metadata = fs.lstatSync(target);
     assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
@@ -97,12 +105,16 @@ export function createOwnedProcessTreeFixture() {
           observedPids.every((pid) => !isProcessPresent(pid)),
         );
       }
+      const directoryMetadata = fs.lstatSync(directory);
       assert.ok(
-        fs.lstatSync(directory).isDirectory() &&
-          !fs.lstatSync(directory).isSymbolicLink(),
+        directoryMetadata.isDirectory() && !directoryMetadata.isSymbolicLink(),
       );
       fs.rmSync(directory, { recursive: true });
       assert.equal(fs.existsSync(directory), false);
+      if (!temporaryRootAlreadyExisted) {
+        fs.rmdirSync(temporaryRoot);
+        assert.equal(fs.existsSync(temporaryRoot), false);
+      }
     },
   };
 }
