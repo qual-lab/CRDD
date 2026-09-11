@@ -36,7 +36,14 @@ function fixture(t: TestContext) {
     assert.equal(fs.existsSync(root), false);
   });
   const git = path.join(root, ".git");
-  fs.mkdirSync(path.join(git, "info"), { recursive: true });
+  for (const directory of [
+    path.join(git, "info"),
+    path.join(git, "objects", "info"),
+    path.join(git, "objects", "pack"),
+    path.join(git, "refs", "heads"),
+    path.join(git, "refs", "tags"),
+  ])
+    fs.mkdirSync(directory, { recursive: true });
   fs.writeFileSync(
     path.join(git, "config"),
     "[core]\nrepositoryformatversion = 0\nbare = false\n",

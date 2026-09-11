@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
 
 import type {
   ProjectRuntimeDecisionRecoveryIntent,
@@ -154,27 +154,20 @@ function blocked() {
 export function createProjectRuntimeDecisionRecoveryStore(
   workingDirectory: string,
 ): ProjectRuntimeDecisionRecoveryStore {
-  const runtimePaths =
-    resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
-  if (!runtimePaths)
+  const runtimeArea = ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+    workingDirectory,
+    "project-runtime",
+  );
+  if (!runtimeArea)
     throw new Error("decision_recovery_repository_root_invalid");
-  const verifiedRuntimePaths = runtimePaths;
-  const projectRuntimeRoot = verifiedRuntimePaths.projectRuntime;
+  const projectRuntimeRoot = runtimeArea.directory;
   function guarded<T>(recoveryId: string, operation: (directory: string) => T) {
     const location = paths(projectRuntimeRoot, recoveryId);
-    if (
-      path.dirname(verifiedRuntimePaths.root) !==
-        verifiedRuntimePaths.repositoryRoot ||
-      path.dirname(projectRuntimeRoot) !== verifiedRuntimePaths.root
-    )
-      throw new Error("decision_recovery_store_boundary_invalid");
     const directories = [
-      verifiedRuntimePaths.root,
-      projectRuntimeRoot,
       path.join(projectRuntimeRoot, "recovery"),
       path.join(projectRuntimeRoot, "recovery", "decisions"),
     ];
-    let parent = verifiedRuntimePaths.repositoryRoot;
+    let parent = projectRuntimeRoot;
     for (const current of directories) {
       if (path.dirname(current) !== parent)
         throw new Error("decision_recovery_store_boundary_invalid");

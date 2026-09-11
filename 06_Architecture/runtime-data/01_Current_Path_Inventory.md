@@ -87,7 +87,7 @@
 | `test-tmp`、`tests`、`tmp`等の重複名 | 試験生成物を`tests/<execution-unit>/<run-id>/`、Operation中間物を`tmp/<operation-id>/`へ分離 | 実装・試験済み |
 | `project-runtime/adoption/`に耐久結果と作業Transactionが混在 | 確定結果を`results/`、未確定処理を`work/`へ分離 | 利用側移行済み |
 | `.crdd`直下fileの生成を防げない | 追跡可能な非秘密設定を`config/`へ移し、旧直下PathをCheckerで拒否 | 実装・試験済み |
-| `tmp/`の正式なOwnerと清掃契約がない | 状態・Owner世代、single-use Recovery、正式Evidence Receipt、全終端経路を契約化 | 16件の契約・結合試験で確認 |
+| `tmp/`の正式なOwnerと清掃契約がない | 状態・Owner世代、single-use Recovery、正式Evidence Receipt、全終端経路を契約化 | Runtime Dataの22件の契約・結合試験で確認 |
 | Release／E2E／Dogfoodingの候補・結果・展開物が重複 | `release/`、`verification/`、`tests/development-measurement/`へ責務分離 | 利用側移行済み |
 | 旧実行物と診断物が約2.93 GiB残存 | exact Pathの隔離・削除・現在不存在を確認。削除前item Inventory未保存の限界を耐久記録へ明示 | 現在の退役Path不存在のみ確認済み |
 | Retentionの長期自動化 | 経過時間だけでは削除せず、Owner、settlement、参照、Recovery義務から削除可能性を判定 | 後続実測で拡張 |

@@ -888,6 +888,39 @@ test("alias経由の未登録Runtime Data領域と分割Root語彙を拒否す�
     );
 });
 
+test("新規Toolと変数・Helper経由のRuntime Data Root利用も自動検出する", () => {
+  for (const sourceLineVariants of [
+    [
+      "const runtimePaths = resolveRepositoryRuntimeDataPaths(capability);",
+      "const area = runtimeArea;",
+      "const target = path.join(runtimePaths.root, area);",
+    ],
+    [
+      "const runtimePaths = resolveRepositoryRuntimeDataPaths(capability);",
+      "const target = joinArea(runtimePaths.root, runtimeArea);",
+    ],
+  ]) {
+    const root = fixture();
+    makeStructure(root);
+    fs.rmSync(path.join(root, "00_CRDD"), { recursive: true, force: true });
+    write(path.join(root, "01_Principles.md"), "Version: v0.21.0\n");
+    write(path.join(root, "template", "AGENTS.md"), "# CRDD template\n");
+    write(
+      path.join(root, "40_Develop", "future-tool", "src", "consumer.ts"),
+      `${sourceLineVariants.join("\n")}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "runtime_data_raw_root_value_consumed" &&
+          finding.path === "40_Develop/future-tool/src/consumer.ts",
+      ),
+      `${result.stderr}\n${result.stdout}`,
+    );
+  }
+});
+
 test("raw Resolver公開と保護署名ResolverのConsumer集合不一致を拒否する", () => {
   const root = fixture();
   makeStructure(root);

@@ -3,7 +3,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import {
-  resolveRepositoryRuntimeDataPaths,
+  ensureRepositoryRuntimeDataArea,
   verifyRepositoryRoot,
 } from "../../runtime-data/src/index.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
@@ -160,14 +160,16 @@ async function main() {
     throw new Error("measurement_arguments_invalid");
   const root = resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd());
   const verifiedRuntimeRoot = verifyRepositoryRoot(root);
-  const runtimePaths =
-    verifiedRuntimeRoot.status === "completed"
-      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
-      : null;
-  if (!runtimePaths) throw new Error("measurement_runtime_data_path_invalid");
-  const directory = path.join(runtimePaths.tests, "development-measurement");
+  if (verifiedRuntimeRoot.status !== "completed")
+    throw new Error("measurement_runtime_data_path_invalid");
+  const testsArea = ensureRepositoryRuntimeDataArea(
+    verifiedRuntimeRoot.capability,
+    "tests",
+  );
+  if (!testsArea) throw new Error("measurement_runtime_data_path_invalid");
+  const directory = path.join(testsArea.directory, "development-measurement");
   const identities = [];
-  for (const target of [runtimePaths.root, directory]) {
+  for (const target of [directory]) {
     const metadata = fs.lstatSync(target);
     if (
       !metadata.isDirectory() ||

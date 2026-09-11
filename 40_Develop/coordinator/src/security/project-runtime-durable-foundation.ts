@@ -16,7 +16,7 @@ import type {
   ProjectRuntimeState,
   ProjectTaskRecoveryObligation,
 } from "../../../project-runtime/src/index.ts";
-import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
 
 export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
   "crdd-coordinator/project-runtime-durable-foundation/v1" as const;
@@ -760,34 +760,16 @@ function ensureDirectory(parent: string, name: string) {
   return target;
 }
 
-function ensureExactDirectory(parent: string, target: string) {
-  if (path.dirname(target) !== parent)
-    throw new Error("project_runtime_storage_boundary_invalid");
-  try {
-    fs.mkdirSync(target, { mode: 0o700 });
-  } catch (error) {
-    if (
-      !(
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "EEXIST"
-      )
-    )
-      throw error;
-  }
-  assertDirectory(target);
-  return target;
-}
-
 function storageRoot(workingDirectory: string) {
-  const paths =
-    resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
-  if (!paths) throw new Error("project_runtime_repository_root_invalid");
-  const repositoryRoot = paths.repositoryRoot;
+  const area = ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+    workingDirectory,
+    "project-runtime",
+  );
+  if (!area) throw new Error("project_runtime_repository_root_invalid");
+  const repositoryRoot = area.repositoryRoot;
   assertDirectory(repositoryRoot);
-  const crdd = ensureExactDirectory(repositoryRoot, paths.root);
-  const runtime = ensureExactDirectory(crdd, paths.projectRuntime);
+  const runtime = area.directory;
+  assertDirectory(runtime);
   return Object.freeze({ repositoryRoot, runtime });
 }
 

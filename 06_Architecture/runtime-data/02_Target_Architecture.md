@@ -81,9 +81,10 @@ Related:
    │        └─ diagnostics/                   失敗時の診断情報
    │
    └─ tmp/                                 [T] Operation所有の短期一時物
-      └─ <operation-id>/
-         ├─ operation.json                    Identity、Owner Process、世代、直前世代、状態、用途、清掃契機
-         ├─ .lifecycle-lock/                   排他中だけ存在するOwner付きLock。解放済み残存は次の再入場で回収する
+      ├─ .operations/                         Workspace清掃から分離したLifecycle制御面
+      │  ├─ <operation-id>.json               Identity、Owner Process、世代、直前世代、状態、用途、清掃契機
+      │  └─ <operation-id>.lock/              排他中だけ存在するOwner付きLock。解放済み残存は次の再入場で回収する
+      └─ <operation-id>/                       削除可能なWorkspace
          └─ work/                             再生成可能な中間file
 ```
 
@@ -123,7 +124,7 @@ Related:
 
 ### 4.2. Operation所有契約
 
-`tmp/<operation-id>/`を作る処理は、作成前に次を確定する。
+`tmp/<operation-id>/`を作る処理は、作成前に次を確定する。IdentityはRuntime内部でEffect後に生成せず、呼出し側が作成開始前に確定し、初回Capability返却前のProcess喪失でも同じexact Recovery参照を再構成できるようにする。
 
 | 必須情報 | 意味 |
 |---|---|
@@ -137,23 +138,29 @@ Related:
 | Cleanup trigger | 各終端経路と次回の安全な再入場 |
 | Completion evidence | 削除要求ではなく、対象不存在の観測 |
 
-`operation.json`は状態とOwner世代を耐久化する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。作成時には、Process再起動後も同じDirectoryを推測探索せず再入場できるexact Recovery参照を返す。
+`.operations/<operation-id>.json`は状態とOwner世代をWorkspaceの外で耐久化する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。作成時には制御文書を`preparing`として排他的に公開してからWorkspaceを作り、Process再起動後もDirectoryを推測探索せず再入場できるexact Recovery参照を使う。既存Workspaceとの衝突時は所有権を推定せず、そのDirectoryを変更または削除しない。
 
 | 状態または境界 | 必須処置 |
 |---|---|
+| `preparing`かつOwner Process消失 | 呼出し前に確定したIdentityと世代が一致する場合だけWorkspaceを再構成し、新世代へ再入場する |
 | `active`かつOwner Process生存 | 二つ目の再入場をEffect 0で拒否する |
 | `active`かつOwner Process消失 | 同じIdentityの`recovery_required`へ耐久遷移してから再入場する |
 | `recovery_required` | exact Identityと現在世代または直前世代が一致する場合だけ新世代を発行する |
 | 新世代を公開後、Capability返却前にProcess消失 | 元参照と直前世代の結合から新世代を回復可能にする |
 | Lock解放要求後に物理削除失敗 | Lockを`released`へ耐久遷移し、次回取得者が安全に回収する |
 | 清掃失敗 | Capabilityを失効させる前に`recovery_required`を公開し、利用可能なexact Recovery参照を返す |
+| Workspaceの部分削除後に清掃失敗 | 外部の制御文書を保持し、再入場時にWorkspaceを再構成する。制御文書をWorkspaceより先に削除しない |
 
-`operation.json`の更新は、同じDirectory内の排他的な一時fileへ書込み、fileのflush、atomic renameおよびread-backを順に確認する。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、rename前後のProcess消失ではOwner Processの消失、現在世代および直前世代から安全な再入場へ収束させる。旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
+制御文書の更新は、`.operations/`内の排他的な一時fileへ書込み、fileのflush、atomic renameおよびread-backを順に確認する。初回公開は既存文書を置換しない排他的なlinkで行う。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、rename前後のProcess消失ではOwner Processの消失、現在世代および直前世代から安全な再入場へ収束させる。一度利用した旧Recovery参照、旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
 
 ### 4.3. Lifecycle
 
 ```text
 Operationを開始
+  ↓
+Identityを呼出し側で確定
+  ↓
+.operations/<operation-id>.jsonをpreparingで排他的に公開
   ↓
 tmp/<operation-id>/を排他的に作成
   ↓
@@ -166,7 +173,7 @@ tmp/<operation-id>/を排他的に作成
                                       │
 親Process喪失／清掃不明 ─→ 作成時のexact Recovery参照で再入場
                                       ↓
-                         次回安全入口で清掃・不存在確認
+                         Workspace再構成・清掃・不存在確認
 ```
 
 清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、必要な意味だけを回復を所有するComponentの`recovery/`または`verification/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。Evidence必須時は、`allowedContent`に含まれる`work/`内のexact source、正式な昇格先、両者のbyte Hash、Operation Identityおよび現Owner世代が一致するReceiptだけを受理する。昇格先の同じHashだけ、または別のsourceから偶然得た同じ名前だけでは清掃を許可しない。

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  resolveRepositoryRuntimeDataPaths,
+  ensureRepositoryRuntimeDataArea,
   verifyRepositoryRoot,
 } from "../../runtime-data/src/index.ts";
 
@@ -48,26 +48,6 @@ function stableDirectory(target: string) {
   return fs.realpathSync.native(target);
 }
 
-function createOrVerifyDirectory(target: string, parent: string) {
-  try {
-    fs.mkdirSync(target);
-  } catch (error) {
-    if (
-      !error ||
-      typeof error !== "object" ||
-      !("code" in error) ||
-      error.code !== "EEXIST"
-    ) {
-      throw error;
-    }
-  }
-  const actual = stableDirectory(target);
-  if (actual !== path.join(parent, path.basename(target))) {
-    throw new Error("release_candidate_directory_alias_rejected");
-  }
-  return actual;
-}
-
 export function prepareReleaseCandidate(input: PreparationInput) {
   let preparingRoot: string | null = null;
   try {
@@ -105,20 +85,15 @@ export function prepareReleaseCandidate(input: PreparationInput) {
     }
 
     const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
-    const runtimePaths =
-      verifiedRuntimeRoot.status === "completed"
-        ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
-        : null;
-    if (!runtimePaths)
+    if (verifiedRuntimeRoot.status !== "completed")
       return blocked("release_candidate_runtime_data_path_invalid");
-    const runtimeRoot = createOrVerifyDirectory(
-      runtimePaths.root,
-      repositoryRoot,
+    const releaseArea = ensureRepositoryRuntimeDataArea(
+      verifiedRuntimeRoot.capability,
+      "release",
     );
-    const stagingRoot = createOrVerifyDirectory(
-      runtimePaths.release,
-      runtimeRoot,
-    );
+    if (!releaseArea || releaseArea.repositoryRoot !== repositoryRoot)
+      return blocked("release_candidate_runtime_data_path_invalid");
+    const stagingRoot = releaseArea.directory;
     const candidateRoot = path.join(stagingRoot, input.candidateName);
     preparingRoot = path.join(stagingRoot, `${input.candidateName}.preparing`);
     if (fs.existsSync(candidateRoot) || fs.existsSync(preparingRoot)) {

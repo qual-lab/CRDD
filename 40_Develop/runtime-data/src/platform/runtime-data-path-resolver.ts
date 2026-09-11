@@ -28,6 +28,17 @@ const REPOSITORY_AREAS = Object.freeze([
 ] as const);
 
 export type RepositoryRuntimeArea = (typeof REPOSITORY_AREAS)[number];
+const AREA_PATH_KEYS = Object.freeze({
+  config: "config",
+  "project-runtime": "projectRuntime",
+  execution: "execution",
+  verification: "verification",
+  candidates: "candidates",
+  release: "release",
+  communication: "communication",
+  tests: "tests",
+  tmp: "temporary",
+} as const);
 
 /**
  * Resolves only canonical paths. The caller remains responsible for proving
@@ -102,7 +113,64 @@ export function resolveRepositoryRuntimeDataPaths(
 ) {
   const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
   if (repositoryRoot === null) return null;
-  return resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+  const resolved =
+    resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+  if (!resolved) return null;
+  const { root: internalRoot, ...publicPaths } = resolved;
+  if (path.dirname(internalRoot) !== resolved.repositoryRoot) return null;
+  return Object.freeze(publicPaths);
+}
+
+/** Runtime Data implementation-only path set; omitted from the public index. */
+export function resolveRepositoryRuntimeDataPathsForInternalUse(
+  capability: VerifiedRepositoryRoot,
+) {
+  const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
+  return repositoryRoot === null
+    ? null
+    : resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+}
+
+function ensureCanonicalDirectory(target: string): void {
+  try {
+    fs.mkdirSync(target, { mode: 0o700 });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
+  const metadata = fs.lstatSync(target);
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    fs.realpathSync.native(target) !== target
+  )
+    throw new Error("runtime_data_area_boundary_invalid");
+}
+
+/**
+ * Creates or verifies one declared repository-local area. Consumers receive
+ * the named area, never an untyped `.crdd` root from which new areas can be
+ * reconstructed.
+ */
+export function ensureRepositoryRuntimeDataArea(
+  capability: VerifiedRepositoryRoot,
+  area: RepositoryRuntimeArea,
+) {
+  const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
+  if (!paths || !REPOSITORY_AREAS.includes(area)) return null;
+  ensureCanonicalDirectory(paths.root);
+  const directory = paths[AREA_PATH_KEYS[area]];
+  ensureCanonicalDirectory(directory);
+  return Object.freeze({ repositoryRoot: paths.repositoryRoot, directory });
+}
+
+export function ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  workingDirectory: unknown,
+  area: RepositoryRuntimeArea,
+) {
+  const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
+  return verified.status === "completed"
+    ? ensureRepositoryRuntimeDataArea(verified.capability, area)
+    : null;
 }
 
 export function resolveRepositoryRuntimeDataPathsFromWorkingDirectory(

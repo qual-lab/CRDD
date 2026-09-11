@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
 import {
-  resolveRepositoryRuntimeDataPaths,
+  ensureRepositoryRuntimeDataArea,
   VERIFICATION_RELATIVE_PATH,
   verifyRepositoryRoot,
 } from "../../../runtime-data/src/index.ts";
@@ -278,31 +278,6 @@ function lastDirectory(directories: readonly DirectoryIdentity[]) {
   if (!directory) throw new Error("verification_record_directory_missing");
   return directory.target;
 }
-function appendDirectory(parents: readonly DirectoryIdentity[], name: string) {
-  recheck(parents);
-  const target = path.join(lastDirectory(parents), name);
-  try {
-    fs.mkdirSync(target);
-  } catch (error) {
-    if (
-      !error ||
-      typeof error !== "object" ||
-      !("code" in error) ||
-      error.code !== "EEXIST"
-    )
-      throw error;
-  }
-  recheck(parents);
-  return [...parents, observeDirectory(target)];
-}
-function appendCanonicalDirectory(
-  parents: readonly DirectoryIdentity[],
-  target: string,
-) {
-  if (path.dirname(target) !== lastDirectory(parents))
-    throw new Error("verification_record_directory_invalid");
-  return appendDirectory(parents, path.basename(target));
-}
 function writeNewRecord(
   directories: readonly DirectoryIdentity[],
   name: string,
@@ -370,22 +345,20 @@ export async function runRecordedVerification<T, E>(
     const root =
       resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
     const verifiedRuntimeRoot = verifyRepositoryRoot(root);
-    const runtimePaths =
-      verifiedRuntimeRoot.status === "completed"
-        ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
-        : null;
-    if (!runtimePaths)
+    if (verifiedRuntimeRoot.status !== "completed")
+      throw new Error("verification_record_runtime_path_invalid");
+    const verificationArea = ensureRepositoryRuntimeDataArea(
+      verifiedRuntimeRoot.capability,
+      "verification",
+    );
+    if (!verificationArea)
       throw new Error("verification_record_runtime_path_invalid");
     const revision = inspectRepositoryRevisionCandidate(root);
     if (!revision) throw new Error("verification_record_revision_unavailable");
-    directories = appendCanonicalDirectory(
-      [observeDirectory(root)],
-      runtimePaths.root,
-    );
-    directories = appendCanonicalDirectory(
-      directories,
-      runtimePaths.verification,
-    );
+    directories = [
+      observeDirectory(root),
+      observeDirectory(verificationArea.directory),
+    ];
     // Admission bound, not a cross-process atomic quota. Never delete old evidence.
     if (
       fs.readdirSync(lastDirectory(directories)).length >= MAX_EXISTING_ENTRIES

@@ -12,7 +12,7 @@ import {
   type VerifiedExecutionRepositoryRoot,
 } from "./verified-repository-root.ts";
 import {
-  resolveRepositoryRuntimeDataPaths,
+  ensureRepositoryRuntimeDataArea,
   type VerifiedRepositoryRoot,
 } from "../../../runtime-data/src/index.ts";
 
@@ -105,13 +105,13 @@ function storeLayout(
   const repositoryRoot = resolveVerifiedExecutionRepositoryRoot(rootCapability);
   if (repositoryRoot === null)
     throw new Error("execution_store_root_capability_invalid");
-  const paths = resolveRepositoryRuntimeDataPaths(
+  const area = ensureRepositoryRuntimeDataArea(
     rootCapability as VerifiedRepositoryRoot,
+    "execution",
   );
-  if (!paths || paths.repositoryRoot !== repositoryRoot)
+  if (!area || area.repositoryRoot !== repositoryRoot)
     throw new Error("execution_store_root_capability_invalid");
-  const crddDirectory = paths.root;
-  const executionDirectory = paths.execution;
+  const executionDirectory = area.directory;
   const operationDirectory =
     operationId === null ? null : path.join(executionDirectory, operationId);
   const eventsDirectory =
@@ -119,7 +119,6 @@ function storeLayout(
       ? null
       : path.join(operationDirectory, "events");
   for (const directory of [
-    crddDirectory,
     executionDirectory,
     operationDirectory,
     eventsDirectory,

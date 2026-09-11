@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  ensureRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
   verifyRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
@@ -17,7 +18,11 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
   assert.equal(verification.status, "completed");
   if (verification.status !== "completed") return;
   const paths = resolveRepositoryRuntimeDataPaths(verification.capability);
-  assert.equal(paths?.root, path.join(repositoryRoot, ".crdd"));
+  assert.equal(Object.hasOwn(paths ?? {}, "root"), false);
+  assert.equal(
+    path.dirname(paths?.config ?? ""),
+    path.join(repositoryRoot, ".crdd"),
+  );
   assert.equal(
     paths?.externalSendPolicy,
     path.join(repositoryRoot, ".crdd", "config", "external-send-policy.json"),
@@ -33,6 +38,20 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
     "tests",
     "tmp",
   ]);
+});
+
+test("Consumerはraw Rootではなく名前付き領域だけを作成・検証する", () => {
+  const verification = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(verification.status, "completed");
+  if (verification.status !== "completed") return;
+  const area = ensureRepositoryRuntimeDataArea(
+    verification.capability,
+    "tests",
+  );
+  assert.deepEqual(area, {
+    repositoryRoot,
+    directory: path.join(repositoryRoot, ".crdd", "tests"),
+  });
 });
 
 test("Repositoryの子DirectoryはRoot Capabilityとして拒否する", () => {
@@ -56,6 +75,10 @@ test("任意Directoryと非公開のraw Root入口からPath能力を取得で�
   );
   assert.equal(
     "resolveBundledRepositoryRuntimeDataPathsForProtectedSigning" in publicApi,
+    false,
+  );
+  assert.equal(
+    "resolveRepositoryRuntimeDataPathsForInternalUse" in publicApi,
     false,
   );
 });

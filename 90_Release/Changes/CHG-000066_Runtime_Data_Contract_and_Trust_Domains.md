@@ -11,7 +11,7 @@
 
 Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime状態、Evidenceおよび一時物の境界として再構成する。複数Repositoryを扱うCROS状態は、配布主体、ApplicationおよびTrust Domainごとに分離したOS管理Rootへ置く。
 
-現行Pathと物理残存の棚卸し、目標Architecture、共通Schema／Path Resolver、利用側移行、旧Path拒否、段階的結合試験およびCRDD公式Repository自身の物理清掃まで完了した。独立レビューで検出したRoot Capability迂回と`tmp`耐久回復の2件を構造是正し、固定候補の独立再レビューを残している。
+現行Pathと物理残存の棚卸し、目標Architecture、共通Schema／Path Resolver、利用側移行、旧Path拒否、段階的結合試験およびCRDD公式Repository自身の物理清掃まで完了した。独立レビューで検出したConsumer閉包と`tmp`耐久回復を構造是正し、更新した固定候補の独立再レビューを残している。
 
 | 項目 | 現在状態 |
 |---|---|
@@ -22,9 +22,9 @@ Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime
 | Repository Manifest／Trust Policy Schema | 実装・契約試験済み |
 | 共通Path Resolver | 実装・Windows／Linux論理Path試験済み |
 | Consumer移行・旧Path拒否 | 実装・本番Source、公開案内、SPEC、WorkflowのFocused Test済み |
-| `tmp/`所有・清掃契約 | 状態・Owner Process・現在／直前世代、single-use再入場、正式Evidence Receipt、全終端、清掃・Lock削除失敗を実装・試験済み |
+| `tmp/`所有・清掃契約 | 外部制御面、呼出し前Identity、`preparing`、Owner Process、現在／直前世代、single-use再入場、正式Evidence Receipt、全終端、部分清掃・Lock削除失敗を実装・試験済み |
 | 既存物理残存の清掃 | 現在の退役Path不存在を確認。削除前item単位Inventoryを欠くため、過去の移送完全性は未証明と明示 |
-| 全体Checker／選択回帰 | Checker 431文書でError 0。Runtime Data 20/20、署名契約15/15、Coordinator静的契約が成立。独立再レビュー待ち |
+| 全体Checker／選択回帰 | Runtime Data 22/22、Execution Intelligence 41/41、Project Runtime 60/60、Coordinator型・静的契約、Verification記録13/13が成立。Checker全331件で検出した命名1件を是正しfocused再確認済み。Repository全431文書はError 0。独立再レビュー後に全回帰を再実行する |
 
 ## 2. 契機と人間が決定した範囲
 
@@ -160,7 +160,7 @@ Component単位契約試験
 | Discovery | [Runtime／CROS Product Candidates](../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤) |
 | Roadmap | [v0.21未完了作業](../../99_Roadmap/01_Product_Roadmap.md#12-v0210--project運営信頼複数repository) |
 | 実装 | `40_Develop/runtime-data/`、Coordinator／Execution Intelligence利用側、Checker旧Path拒否 |
-| 検証結果 | Runtime Data 16/16、Execution Intelligence 41/41。Coordinator、Checker、署名、Project Runtimeおよび全体Checkerは構造是正後に再実行する |
+| 検証結果 | Runtime Data 22/22、Execution Intelligence 41/41、Project Runtime 60/60、Verification記録13/13、Repository全体Checker Error 0。固定Commitの独立再レビュー後に全回帰を再実行する |
 
 ## 9. Retentionと清掃の初期境界
 
@@ -173,7 +173,8 @@ Component単位契約試験
 | 指摘クラスタ | 原因 | 構造是正 | 反証 |
 |---|---|---|---|
 | Root CapabilityとConsumer Closure | raw文字列Root入口とCanonical Pathの利用側再構成が残り、手書き一覧だけでは署名等の希少Consumerを証明できなかった | 公開入口をRoot Capability必須へ限定し、署名だけは固定module位置から導出する非公開Resolverへ接続。実Sourceから保護Consumer集合、raw入口、未登録領域を導出してCheckerの宣言集合と照合 | 任意絶対Directory、公開indexからの内部Resolver取得、alias経由の未登録領域、予定外署名Consumerを拒否 |
-| `tmp`の耐久回復 | in-place書込み、清掃失敗後のactive状態、Capability返却前のProcess消失およびEvidence source未結合により、返したRecovery参照を利用できない経路があった | 同Directory一時fileのflush・atomic rename・read-back、Owner Processと直前世代、`released` Lock、清掃前の`recovery_required`公開、work sourceと昇格先の両Hash結合へ変更 | 清掃失敗、Lock削除失敗、新世代公開後のProcess loss、source欠落／不一致からexact再入場とEffect 0を確認 |
+| `tmp`の耐久回復 | in-place書込み、制御文書と削除対象Workspaceの同居、Effect後のIdentity生成、旧世代参照の再利用およびEvidence source未結合により、返したRecovery参照を利用できない経路があった | `.operations/`へ制御面を分離し、呼出し前Identity、`preparing`公開、Owner Processと直前世代、single-use世代、`released` Lock、清掃前の`recovery_required`公開、work sourceと昇格先の両Hash結合へ変更 | 初回Capability返却前のProcess loss、部分清掃失敗、Lock削除失敗、旧参照replay、source欠落／不一致からexact再入場とEffect 0を確認 |
+| 全Consumer自動検出 | Tool名の手書き列挙と代表的なliteral joinだけでは、新規Component、変数segmentおよびHelper経由のRoot再解釈を検出できなかった | `40_Develop/<component>/{src,scripts,bin}`を実Sourceから自動母集団化し、公開Resolverからraw `.crdd` Rootを除外。Consumerは名前付き領域の作成・検証APIだけを利用する | 未登録の新規Tool、変数segment、Helper経由のRoot利用をCheckerで拒否し、既存Consumerを名前付き領域へ移行 |
 
 ## 11. リリースと後続
 

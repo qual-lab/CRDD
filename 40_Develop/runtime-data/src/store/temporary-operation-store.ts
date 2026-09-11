@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { resolveRepositoryRuntimeDataPaths } from "../platform/runtime-data-path-resolver.ts";
+import { resolveRepositoryRuntimeDataPathsForInternalUse } from "../platform/runtime-data-path-resolver.ts";
 import type { VerifiedRepositoryRoot } from "../platform/repository-root-capability.ts";
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
@@ -31,7 +31,9 @@ export type TemporaryOperationRecoveryReference = Readonly<{
 }>;
 type OperationRecord = Readonly<{
   allowedContent: readonly string[];
+  controlRoot: string;
   directory: string;
+  documentPath: string;
   evidencePromotionRequired: boolean;
   generation: number;
   identity: string;
@@ -49,6 +51,7 @@ type PromotionRecord = Readonly<{
 type TemporaryOperationInput = Readonly<{
   operationId: string;
   owner: string;
+  identity: string;
   purpose: string;
   allowedContent: readonly string[];
   evidencePromotion: "required" | "not_required";
@@ -61,7 +64,7 @@ type TemporaryOperationDocument = Readonly<{
   generation: number;
   ownerProcessId: number;
   previousGeneration: number | null;
-  state: "active" | "recovery_required";
+  state: "preparing" | "active" | "recovery_required";
   purpose: string;
   allowedContent: readonly string[];
   terminalPaths: readonly string[];
@@ -99,6 +102,7 @@ function validInput(input: TemporaryOperationInput): boolean {
   return (
     ID.test(input.operationId) &&
     ID.test(input.owner) &&
+    ID.test(input.identity) &&
     typeof input.purpose === "string" &&
     input.purpose.length > 0 &&
     input.purpose.length <= 512 &&
@@ -159,7 +163,7 @@ function inspectDocument(value: unknown): TemporaryOperationDocument | null {
       (!Number.isSafeInteger(r.previousGeneration) ||
         Number(r.previousGeneration) < 1 ||
         Number(r.previousGeneration) >= Number(r.generation))) ||
-    !["active", "recovery_required"].includes(String(r.state)) ||
+    !["preparing", "active", "recovery_required"].includes(String(r.state)) ||
     typeof r.purpose !== "string" ||
     r.purpose.length < 1 ||
     r.purpose.length > 512 ||
@@ -178,20 +182,21 @@ function inspectDocument(value: unknown): TemporaryOperationDocument | null {
     return null;
   return r as TemporaryOperationDocument;
 }
-function readDocument(directory: string): TemporaryOperationDocument {
-  const target = path.join(directory, "operation.json");
-  const metadata = fs.lstatSync(target);
+function readDocument(documentPath: string): TemporaryOperationDocument {
+  const metadata = fs.lstatSync(documentPath);
   if (!metadata.isFile() || metadata.isSymbolicLink())
     throw new Error("temporary_operation_boundary_invalid");
-  const document = inspectDocument(JSON.parse(fs.readFileSync(target, "utf8")));
+  const document = inspectDocument(
+    JSON.parse(fs.readFileSync(documentPath, "utf8")),
+  );
   if (!document) throw new Error("temporary_operation_document_invalid");
   return document;
 }
 function writeDocument(
-  directory: string,
+  documentPath: string,
   document: TemporaryOperationDocument,
 ): void {
-  const target = path.join(directory, "operation.json");
+  const directory = path.dirname(documentPath);
   const temporary = path.join(directory, `.operation-${randomUUID()}.tmp`);
   const descriptor = fs.openSync(temporary, "wx", 0o600);
   try {
@@ -201,8 +206,8 @@ function writeDocument(
     fs.closeSync(descriptor);
   }
   try {
-    fs.renameSync(temporary, target);
-    const observed = readDocument(directory);
+    fs.renameSync(temporary, documentPath);
+    const observed = readDocument(documentPath);
     if (
       observed.identity !== document.identity ||
       observed.generation !== document.generation ||
@@ -215,6 +220,33 @@ function writeDocument(
     } catch {
       // A failed replacement remains a recovery obligation at the caller.
     }
+  }
+}
+
+function createDocument(
+  documentPath: string,
+  document: TemporaryOperationDocument,
+): void {
+  const directory = path.dirname(documentPath);
+  const temporary = path.join(directory, `.operation-${randomUUID()}.tmp`);
+  const descriptor = fs.openSync(temporary, "wx", 0o600);
+  try {
+    fs.writeFileSync(descriptor, `${JSON.stringify(document)}\n`, "utf8");
+    fs.fsyncSync(descriptor);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  try {
+    fs.linkSync(temporary, documentPath);
+    const observed = readDocument(documentPath);
+    if (
+      observed.identity !== document.identity ||
+      observed.generation !== document.generation ||
+      observed.state !== document.state
+    )
+      throw new Error("temporary_operation_document_publish_unconfirmed");
+  } finally {
+    if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
   }
 }
 
@@ -280,8 +312,8 @@ function publishLockDocument(
 function removeLockDirectory(directory: string): void {
   fs.rmSync(directory, { recursive: true });
 }
-function acquireLock(directory: string): LifecycleLock {
-  const lockDirectory = path.join(directory, ".lifecycle-lock");
+function acquireLock(controlRoot: string, operationId: string): LifecycleLock {
+  const lockDirectory = path.join(controlRoot, `${operationId}.lock`);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       fs.mkdirSync(lockDirectory, { mode: 0o700 });
@@ -343,7 +375,9 @@ function releaseLock(
   }
 }
 function issueCapability(
+  controlRoot: string,
   directory: string,
+  documentPath: string,
   document: TemporaryOperationDocument,
 ) {
   const capability = Object.freeze({
@@ -351,7 +385,9 @@ function issueCapability(
   });
   const record = Object.freeze({
     allowedContent: document.allowedContent,
+    controlRoot,
     directory,
+    documentPath,
     evidencePromotionRequired: document.evidencePromotion === "required",
     generation: document.generation,
     identity: document.identity,
@@ -362,32 +398,39 @@ function issueCapability(
   return { capability, record };
 }
 
-export function createTemporaryOperation(
+function createTemporaryOperationInternal(
   rootCapability: VerifiedRepositoryRoot,
   input: TemporaryOperationInput,
+  afterControlDocumentPublished: () => void,
 ) {
   let createdDirectory: string | null = null;
+  let documentPath: string | null = null;
+  let isDocumentPublished = false;
+  let workspaceOwnershipConfirmed = false;
   let pendingReference: TemporaryOperationRecoveryReference | null = null;
   try {
     if (!validInput(input))
       throw new Error("temporary_operation_input_invalid");
-    const paths = resolveRepositoryRuntimeDataPaths(rootCapability);
+    const paths =
+      resolveRepositoryRuntimeDataPathsForInternalUse(rootCapability);
     if (!paths) throw new Error("temporary_operation_root_invalid");
     ensureDirectory(paths.root);
     ensureDirectory(paths.temporary);
+    const controlRoot = path.join(paths.temporary, ".operations");
+    ensureDirectory(controlRoot);
     const directory = path.join(paths.temporary, input.operationId);
-    const identity = randomUUID();
-    fs.mkdirSync(directory, { mode: 0o700 });
-    createdDirectory = directory;
-    const document: TemporaryOperationDocument = Object.freeze({
+    documentPath = path.join(controlRoot, `${input.operationId}.json`);
+    if (fs.existsSync(directory))
+      throw new Error("temporary_operation_creation_failed");
+    const preparing: TemporaryOperationDocument = Object.freeze({
       schema: "crdd/runtime-data/temporary-operation/v3",
       operationId: input.operationId,
-      identity,
+      identity: input.identity,
       owner: input.owner,
       generation: 1,
       ownerProcessId: process.pid,
       previousGeneration: null,
-      state: "active",
+      state: "preparing",
       purpose: input.purpose,
       allowedContent: Object.freeze([...input.allowedContent]),
       terminalPaths: Object.freeze([
@@ -402,27 +445,34 @@ export function createTemporaryOperation(
     pendingReference = Object.freeze({
       operationId: input.operationId,
       owner: input.owner,
-      identity,
+      identity: input.identity,
       generation: 1,
     });
+    try {
+      createDocument(documentPath, preparing);
+      isDocumentPublished = true;
+    } catch (error) {
+      isDocumentPublished = fs.existsSync(documentPath);
+      throw error;
+    }
+    afterControlDocumentPublished();
+    fs.mkdirSync(directory, { mode: 0o700 });
+    createdDirectory = directory;
+    workspaceOwnershipConfirmed = true;
     if (
       !isSafeDirectory(directory) ||
       path.dirname(directory) !== paths.temporary
     )
       throw new Error("temporary_operation_boundary_invalid");
-    const descriptor = fs.openSync(
-      path.join(directory, "operation.json"),
-      "wx",
-      0o600,
-    );
-    try {
-      fs.writeFileSync(descriptor, `${JSON.stringify(document)}\n`, "utf8");
-      fs.fsyncSync(descriptor);
-    } finally {
-      fs.closeSync(descriptor);
-    }
     ensureDirectory(path.join(directory, "work"));
-    const issued = issueCapability(directory, document);
+    const active = Object.freeze({ ...preparing, state: "active" as const });
+    writeDocument(documentPath, active);
+    const issued = issueCapability(
+      controlRoot,
+      directory,
+      documentPath,
+      active,
+    );
     return Object.freeze({
       status: "completed" as const,
       reason: "temporary_operation_created" as const,
@@ -431,8 +481,36 @@ export function createTemporaryOperation(
       recoveryReference: recoveryReference(issued.record),
     });
   } catch (error) {
-    let cleanupConfirmed = createdDirectory === null;
-    if (createdDirectory !== null) {
+    let cleanupConfirmed = createdDirectory === null && !isDocumentPublished;
+    if (
+      isDocumentPublished &&
+      !workspaceOwnershipConfirmed &&
+      documentPath !== null
+    ) {
+      try {
+        fs.unlinkSync(documentPath);
+        cleanupConfirmed = !fs.existsSync(documentPath);
+        isDocumentPublished = !cleanupConfirmed;
+      } catch {
+        cleanupConfirmed = false;
+      }
+    }
+    if (
+      isDocumentPublished &&
+      workspaceOwnershipConfirmed &&
+      documentPath !== null &&
+      pendingReference
+    ) {
+      try {
+        const current = readDocument(documentPath);
+        writeDocument(
+          documentPath,
+          Object.freeze({ ...current, state: "recovery_required" }),
+        );
+      } catch {
+        // The exact caller-owned identity still identifies the failed creation.
+      }
+    } else if (createdDirectory !== null) {
       try {
         if (!isSafeDirectory(createdDirectory)) throw new Error();
         fs.rmSync(createdDirectory, { recursive: true });
@@ -452,10 +530,31 @@ export function createTemporaryOperation(
       capability: null,
       workDirectory: null,
       cleanupConfirmed,
-      recoveryRequired: !cleanupConfirmed,
-      recoveryReference: cleanupConfirmed ? null : pendingReference,
+      recoveryRequired: isDocumentPublished || !cleanupConfirmed,
+      recoveryReference:
+        isDocumentPublished || !cleanupConfirmed ? pendingReference : null,
     });
   }
+}
+
+export function createTemporaryOperation(
+  rootCapability: VerifiedRepositoryRoot,
+  input: TemporaryOperationInput,
+) {
+  return createTemporaryOperationInternal(rootCapability, input, () => {});
+}
+
+/** Direct-file verification seam; intentionally omitted from the public index. */
+export function createTemporaryOperationWithInterruptionForVerification(
+  rootCapability: VerifiedRepositoryRoot,
+  input: TemporaryOperationInput,
+  afterControlDocumentPublished: () => void,
+) {
+  return createTemporaryOperationInternal(
+    rootCapability,
+    input,
+    afterControlDocumentPublished,
+  );
 }
 
 export function resumeTemporaryOperation(
@@ -464,6 +563,7 @@ export function resumeTemporaryOperation(
 ) {
   let lock: LifecycleLock | null = null;
   let directory: string | null = null;
+  let documentPath: string | null = null;
   let pendingRecoveryDocument: TemporaryOperationDocument | null = null;
   try {
     if (
@@ -476,40 +576,77 @@ export function resumeTemporaryOperation(
       reference.generation < 1
     )
       throw new Error("temporary_operation_recovery_reference_invalid");
-    const paths = resolveRepositoryRuntimeDataPaths(rootCapability);
+    const paths =
+      resolveRepositoryRuntimeDataPathsForInternalUse(rootCapability);
     if (!paths) throw new Error("temporary_operation_root_invalid");
-    directory = path.join(paths.temporary, reference.operationId);
-    if (
-      path.dirname(directory) !== paths.temporary ||
-      !isSafeDirectory(directory) ||
-      !isSafeDirectory(path.join(directory, "work"))
-    )
+    const controlRoot = path.join(paths.temporary, ".operations");
+    if (!isSafeDirectory(controlRoot))
       throw new Error("temporary_operation_boundary_invalid");
-    lock = acquireLock(directory);
-    let document = readDocument(directory);
+    directory = path.join(paths.temporary, reference.operationId);
+    documentPath = path.join(controlRoot, `${reference.operationId}.json`);
+    if (path.dirname(directory) !== paths.temporary)
+      throw new Error("temporary_operation_boundary_invalid");
+    lock = acquireLock(controlRoot, reference.operationId);
+    let document = readDocument(documentPath);
     if (
       document.operationId !== reference.operationId ||
       document.owner !== reference.owner ||
-      document.identity !== reference.identity ||
-      (document.generation !== reference.generation &&
-        document.previousGeneration !== reference.generation)
+      document.identity !== reference.identity
     )
       throw new Error("temporary_operation_recovery_identity_mismatch");
-    if (document.state === "active") {
-      if (processIsAlive(document.ownerProcessId))
+    const isOwnerAlive = processIsAlive(document.ownerProcessId);
+    let isPreviousGenerationAccepted = false;
+    if (document.state === "preparing") {
+      if (isOwnerAlive)
         throw new Error("temporary_operation_recovery_not_required");
+      if (document.generation !== reference.generation)
+        throw new Error("temporary_operation_recovery_identity_mismatch");
+      if (!fs.existsSync(directory)) fs.mkdirSync(directory, { mode: 0o700 });
+      if (!isSafeDirectory(directory))
+        throw new Error("temporary_operation_boundary_invalid");
+      const work = path.join(directory, "work");
+      if (!fs.existsSync(work)) ensureDirectory(work);
+      if (!isSafeDirectory(work))
+        throw new Error("temporary_operation_boundary_invalid");
       document = Object.freeze({
         ...document,
         state: "recovery_required" as const,
       });
-      writeDocument(directory, document);
+      writeDocument(documentPath, document);
+    } else if (document.state === "active") {
+      const generationMatches =
+        document.generation === reference.generation ||
+        (!isOwnerAlive && document.previousGeneration === reference.generation);
+      if (!generationMatches)
+        throw new Error("temporary_operation_recovery_identity_mismatch");
+      if (isOwnerAlive)
+        throw new Error("temporary_operation_recovery_not_required");
+      isPreviousGenerationAccepted =
+        document.previousGeneration === reference.generation;
+      if (
+        !isSafeDirectory(directory) ||
+        !isSafeDirectory(path.join(directory, "work"))
+      )
+        throw new Error("temporary_operation_boundary_invalid");
+      document = Object.freeze({
+        ...document,
+        state: "recovery_required" as const,
+      });
+      writeDocument(documentPath, document);
     }
     if (
       document.state !== "recovery_required" ||
       (document.generation !== reference.generation &&
-        document.previousGeneration !== reference.generation)
+        !isPreviousGenerationAccepted)
     )
       throw new Error("temporary_operation_recovery_identity_mismatch");
+    if (!fs.existsSync(directory)) fs.mkdirSync(directory, { mode: 0o700 });
+    if (!isSafeDirectory(directory))
+      throw new Error("temporary_operation_boundary_invalid");
+    const work = path.join(directory, "work");
+    if (!fs.existsSync(work)) ensureDirectory(work);
+    if (!isSafeDirectory(work))
+      throw new Error("temporary_operation_boundary_invalid");
     const resumed: TemporaryOperationDocument = Object.freeze({
       ...document,
       state: "active",
@@ -517,12 +654,17 @@ export function resumeTemporaryOperation(
       ownerProcessId: process.pid,
       previousGeneration: document.generation,
     });
-    writeDocument(directory, resumed);
+    writeDocument(documentPath, resumed);
     pendingRecoveryDocument = resumed;
     if (!releaseLock(lock))
       throw new Error("temporary_operation_lock_cleanup_unconfirmed");
     lock = null;
-    const issued = issueCapability(directory, resumed);
+    const issued = issueCapability(
+      controlRoot,
+      directory,
+      documentPath,
+      resumed,
+    );
     pendingRecoveryDocument = null;
     return Object.freeze({
       status: "completed" as const,
@@ -534,13 +676,13 @@ export function resumeTemporaryOperation(
   } catch (error) {
     let recoveryReferenceValue: TemporaryOperationRecoveryReference | null =
       null;
-    if (directory !== null && pendingRecoveryDocument !== null) {
+    if (documentPath !== null && pendingRecoveryDocument !== null) {
       try {
         const recoverable = Object.freeze({
           ...pendingRecoveryDocument,
           state: "recovery_required" as const,
         });
-        writeDocument(directory, recoverable);
+        writeDocument(documentPath, recoverable);
         recoveryReferenceValue = Object.freeze({
           operationId: recoverable.operationId,
           owner: recoverable.owner,
@@ -583,7 +725,8 @@ export function verifyTemporaryOperationEvidencePromotion(
       !record.allowedContent.includes(input.artifactName)
     )
       throw new Error("temporary_operation_evidence_receipt_invalid");
-    const paths = resolveRepositoryRuntimeDataPaths(rootCapability);
+    const paths =
+      resolveRepositoryRuntimeDataPathsForInternalUse(rootCapability);
     if (!paths) throw new Error("temporary_operation_root_invalid");
     const target = path.join(
       paths.verification,
@@ -671,8 +814,8 @@ function settleTemporaryOperationWithRemoval(
   let lock: LifecycleLock | null = null;
   let durableRecoveryConfirmed = false;
   try {
-    lock = acquireLock(record.directory);
-    const document = readDocument(record.directory);
+    lock = acquireLock(record.controlRoot, record.operationId);
+    const document = readDocument(record.documentPath);
     if (
       document.state !== "active" ||
       document.identity !== record.identity ||
@@ -681,7 +824,7 @@ function settleTemporaryOperationWithRemoval(
       throw new Error("temporary_operation_capability_stale");
     if (outcome === "parent_lost") {
       writeDocument(
-        record.directory,
+        record.documentPath,
         Object.freeze({ ...document, state: "recovery_required" }),
       );
       durableRecoveryConfirmed = true;
@@ -729,7 +872,7 @@ function settleTemporaryOperationWithRemoval(
         throw new Error("temporary_operation_evidence_not_promoted");
     }
     writeDocument(
-      record.directory,
+      record.documentPath,
       Object.freeze({ ...document, state: "recovery_required" }),
     );
     durableRecoveryConfirmed = true;
@@ -739,7 +882,11 @@ function settleTemporaryOperationWithRemoval(
     if (!released)
       throw new Error("temporary_operation_lock_cleanup_unconfirmed");
     removeDirectory(record.directory);
-    const cleanupConfirmed = !fs.existsSync(record.directory);
+    if (fs.existsSync(record.directory))
+      throw new Error("temporary_operation_cleanup_unconfirmed");
+    fs.unlinkSync(record.documentPath);
+    const cleanupConfirmed =
+      !fs.existsSync(record.directory) && !fs.existsSync(record.documentPath);
     if (cleanupConfirmed) {
       if (promotionReceipt) promotionReceipts.delete(promotionReceipt);
     }

@@ -3715,9 +3715,7 @@ if (repositoryMode === "official") {
     const item = relative(file);
     if (item === "template/tools/crdd-check.ts") return false;
     return (
-      /^40_Develop\/(?:coordinator|execution-intelligence|mcp|project-runtime|runtime-data|platform-access)\/(?:src|scripts|bin)\//u.test(
-        item,
-      ) ||
+      /^40_Develop\/[^/]+\/(?:src|scripts|bin)\//u.test(item) ||
       item === "README.md" ||
       item.startsWith("05_SPEC/") ||
       item.startsWith("19_Workflows/") ||
@@ -3726,7 +3724,7 @@ if (repositoryMode === "official") {
     );
   });
   const productionRuntimeDataSourcePattern =
-    /^40_Develop\/(?:coordinator|execution-intelligence|mcp|project-runtime|runtime-data|platform-access)\/(?:src|scripts|bin)\//u;
+    /^40_Develop\/[^/]+\/(?:src|scripts|bin)\//u;
   const runtimeDataResolverPath =
     "40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts";
   const semanticCrddLiteralOwners = new Set([
@@ -3758,6 +3756,9 @@ if (repositoryMode === "official") {
         );
     const item = relative(file);
     const isProductionRuntimeDataOwner = item === runtimeDataResolverPath;
+    const isRawRuntimeDataRootOwner =
+      item.startsWith("40_Develop/runtime-data/src/") ||
+      item === "40_Develop/coordinator/scripts/sign-release-manifest.ts";
     const isDirectlyOrTriviallySplitRuntimeRoot =
       /path\.(?:join|resolve)\([^)]{0,240}?["']\.crdd["']/u.test(source) ||
       /["']\.["']\s*\+\s*["']crdd["']/u.test(source) ||
@@ -3783,6 +3784,18 @@ if (repositoryMode === "official") {
         "runtime_data_path_literal_unregistered",
         item,
         "本番Sourceが登録されていないRuntime Data Root語彙を所有しています。共通Resolverの名前付きPathを利用してください。",
+      );
+    if (
+      productionRuntimeDataSourcePattern.test(item) &&
+      !isRawRuntimeDataRootOwner &&
+      /resolveRepositoryRuntimeDataPaths/u.test(source) &&
+      /\.[\s]*root\b/u.test(source)
+    )
+      add(
+        "error",
+        "runtime_data_raw_root_value_consumed",
+        item,
+        "本番ConsumerがRuntime Data Root値を受け取り、名前付き領域の契約外で利用しています。ensureRepositoryRuntimeDataAreaを利用してください。",
       );
     if (productionRuntimeDataSourcePattern.test(item)) {
       const aliases = new Set<string>();
@@ -3814,16 +3827,18 @@ if (repositoryMode === "official") {
     (file) => relative(file) === runtimeDataResolverPath,
   );
   if (runtimeDataResolverAbsolutePath) {
-    const rawResolverSymbol =
-      "resolveRepositoryRuntimeDataPathsFromValidatedRoot";
+    const rawResolverSymbols = [
+      "resolveRepositoryRuntimeDataPathsFromValidatedRoot",
+      "resolveRepositoryRuntimeDataPathsForInternalUse",
+    ];
     const protectedSigningSymbol =
       "resolveBundledRepositoryRuntimeDataPathsForProtectedSigning";
     const rawConsumers = runtimeDataConsumers
       .filter(
         (file) =>
           productionRuntimeDataSourcePattern.test(relative(file)) &&
-          relative(file) !== runtimeDataResolverPath &&
-          read(file).includes(rawResolverSymbol),
+          !relative(file).startsWith("40_Develop/runtime-data/src/") &&
+          rawResolverSymbols.some((symbol) => read(file).includes(symbol)),
       )
       .map(relative)
       .sort();
@@ -3861,7 +3876,7 @@ if (repositoryMode === "official") {
     );
     if (
       publicIndex &&
-      [rawResolverSymbol, protectedSigningSymbol].some((symbol) =>
+      [...rawResolverSymbols, protectedSigningSymbol].some((symbol) =>
         read(publicIndex).includes(symbol),
       )
     )
