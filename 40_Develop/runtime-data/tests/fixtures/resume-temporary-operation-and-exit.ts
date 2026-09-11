@@ -18,6 +18,7 @@ const reference = JSON.parse(
 const resumed =
   mode === "before-return" ||
   mode === "after-lock-staging" ||
+  mode === "after-lock-linked" ||
   mode === "after-lock-staging-created"
     ? resumeTemporaryOperationWithInterruptionForVerification(
         root.capability,
@@ -27,7 +28,9 @@ const resumed =
           ? "after_lock_staging_created"
           : mode === "after-lock-staging"
             ? "after_lock_staging"
-            : "after_generation",
+            : mode === "after-lock-linked"
+              ? "after_lock_linked"
+              : "after_generation",
         () => process.exit(84),
       )
     : resumeTemporaryOperation(root.capability, reference, nextIdentity);

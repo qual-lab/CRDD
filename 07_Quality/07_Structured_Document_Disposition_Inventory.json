@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "9b7b77e4886a25ae675b4d6b2d4e2b618817330242f899657efc11cf4600ce41",
+  "evaluatedDocumentationSetSha256": "0f035894fc60f5afd56a28df6dca16136c14c7b7d946e3d31cd22021afbd3078",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -235,7 +235,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "06_Architecture/runtime-data/02_Target_Architecture.md",
-      "currentBlobOid": "8d9887679a3e6c1cf4e578993c10b079b26d5dac"
+      "currentBlobOid": "2d5a4f67cf3e2de0acfca0ad2fc928fc9cb747aa"
     },
     {
       "path": "07_Quality/01_Quality_Center.md",
@@ -1258,7 +1258,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "90_Release/Changes/CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md",
-      "currentBlobOid": "30371ea2662156cde14016905fafe62ebe393ab3"
+      "currentBlobOid": "3615e45060be144cff891d1e6ea23222017ba489"
     },
     {
       "path": "90_Release/Changes/Evidence/CHG-000007_Adopter_Trial_Report.md",

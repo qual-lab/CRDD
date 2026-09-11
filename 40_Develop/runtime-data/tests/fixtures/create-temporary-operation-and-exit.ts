@@ -22,6 +22,7 @@ const input = {
 const opened =
   mode === "after-control" ||
   mode === "after-staging" ||
+  mode === "after-staging-linked" ||
   mode === "after-staging-created"
     ? createTemporaryOperationWithInterruptionForVerification(
         root.capability,
@@ -30,7 +31,9 @@ const opened =
           ? "after_staging_created"
           : mode === "after-staging"
             ? "after_staging"
-            : "after_control",
+            : mode === "after-staging-linked"
+              ? "after_staging_linked"
+              : "after_control",
         () => process.exit(83),
       )
     : createTemporaryOperation(root.capability, input);

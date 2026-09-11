@@ -234,6 +234,7 @@ function createDocument(
   document: TemporaryOperationDocument,
   afterStagingDocumentCreated: () => void,
   afterStagingDocumentWritten: () => void,
+  afterCanonicalDocumentLinked: () => void,
 ): void {
   const directory = path.dirname(documentPath);
   const stagingDirectory = path.join(directory, ".staging");
@@ -255,6 +256,7 @@ function createDocument(
   afterStagingDocumentWritten();
   try {
     fs.linkSync(temporary, documentPath);
+    afterCanonicalDocumentLinked();
     const observed = readDocument(documentPath);
     if (
       observed.identity !== document.identity ||
@@ -265,6 +267,54 @@ function createDocument(
   } finally {
     if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
   }
+}
+
+function initialDocumentStagingPath(
+  documentPath: string,
+  reference: TemporaryOperationRecoveryReference,
+): string {
+  return path.join(
+    path.dirname(documentPath),
+    ".staging",
+    `${reference.operationId}.${reference.identity}.${reference.generation}.preparing.json`,
+  );
+}
+
+function removeConfirmedInitialDocumentStagingAlias(
+  documentPath: string,
+  reference: TemporaryOperationRecoveryReference,
+): void {
+  const stagingDocumentPath = initialDocumentStagingPath(
+    documentPath,
+    reference,
+  );
+  if (!fs.existsSync(stagingDocumentPath)) return;
+  if (!fs.existsSync(documentPath))
+    throw new Error("temporary_operation_staging_alias_unconfirmed");
+  const canonicalMetadata = fs.lstatSync(documentPath);
+  const stagingMetadata = fs.lstatSync(stagingDocumentPath);
+  if (
+    !canonicalMetadata.isFile() ||
+    canonicalMetadata.isSymbolicLink() ||
+    !stagingMetadata.isFile() ||
+    stagingMetadata.isSymbolicLink() ||
+    canonicalMetadata.dev !== stagingMetadata.dev ||
+    canonicalMetadata.ino !== stagingMetadata.ino ||
+    !fs.readFileSync(documentPath).equals(fs.readFileSync(stagingDocumentPath))
+  )
+    throw new Error("temporary_operation_staging_alias_unconfirmed");
+  const stagedDocument = readDocument(stagingDocumentPath);
+  if (
+    stagedDocument.operationId !== reference.operationId ||
+    stagedDocument.owner !== reference.owner ||
+    stagedDocument.identity !== reference.identity ||
+    stagedDocument.generation !== reference.generation ||
+    stagedDocument.state !== "preparing"
+  )
+    throw new Error("temporary_operation_staging_alias_unconfirmed");
+  fs.unlinkSync(stagingDocumentPath);
+  if (fs.existsSync(stagingDocumentPath))
+    throw new Error("temporary_operation_staging_alias_cleanup_unconfirmed");
 }
 
 function processIsAlive(processId: number) {
@@ -305,6 +355,7 @@ function publishLockDocument(
   document: LifecycleLockDocument,
   afterStagingLockCreated: () => void,
   afterStagingLockWritten: () => void,
+  afterCanonicalLockLinked: () => void,
 ): string {
   const stagingDirectory = path.join(controlRoot, ".staging");
   ensureDirectory(stagingDirectory);
@@ -333,6 +384,7 @@ function publishLockDocument(
   afterStagingLockWritten();
   try {
     fs.linkSync(temporary, target);
+    afterCanonicalLockLinked();
     const observed = readLockDocument(target);
     if (
       observed?.identity !== document.identity ||
@@ -385,6 +437,7 @@ function acquireLock(
   identity: string,
   afterStagingLockCreated: () => void = () => {},
   afterStagingLockWritten: () => void = () => {},
+  afterCanonicalLockLinked: () => void = () => {},
 ): LifecycleLock {
   const lockPath = path.join(controlRoot, `${operationId}.lock`);
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -400,6 +453,7 @@ function acquireLock(
         }),
         afterStagingLockCreated,
         afterStagingLockWritten,
+        afterCanonicalLockLinked,
       );
       return Object.freeze({ path: lockPath, identity });
     } catch (error) {
@@ -475,6 +529,7 @@ function createTemporaryOperationInternal(
   input: TemporaryOperationInput,
   afterStagingDocumentCreated: () => void,
   afterStagingDocumentWritten: () => void,
+  afterCanonicalDocumentLinked: () => void,
   afterControlDocumentPublished: () => void,
 ) {
   let createdDirectory: string | null = null;
@@ -528,6 +583,7 @@ function createTemporaryOperationInternal(
         preparing,
         afterStagingDocumentCreated,
         afterStagingDocumentWritten,
+        afterCanonicalDocumentLinked,
       );
       isDocumentPublished = true;
     } catch (error) {
@@ -626,6 +682,7 @@ export function createTemporaryOperation(
     () => {},
     () => {},
     () => {},
+    () => {},
   );
 }
 
@@ -633,7 +690,11 @@ export function createTemporaryOperation(
 export function createTemporaryOperationWithInterruptionForVerification(
   rootCapability: VerifiedRepositoryRoot,
   input: TemporaryOperationInput,
-  phase: "after_staging_created" | "after_staging" | "after_control",
+  phase:
+    | "after_staging_created"
+    | "after_staging"
+    | "after_staging_linked"
+    | "after_control",
   interrupt: () => void,
 ) {
   return createTemporaryOperationInternal(
@@ -641,6 +702,7 @@ export function createTemporaryOperationWithInterruptionForVerification(
     input,
     phase === "after_staging_created" ? interrupt : () => {},
     phase === "after_staging" ? interrupt : () => {},
+    phase === "after_staging_linked" ? interrupt : () => {},
     phase === "after_control" ? interrupt : () => {},
   );
 }
@@ -651,6 +713,7 @@ function resumeTemporaryOperationInternal(
   nextIdentity: string,
   afterStagingLockCreated: () => void,
   afterStagingLockWritten: () => void,
+  afterCanonicalLockLinked: () => void,
   afterNextGenerationPublished: () => void,
 ) {
   let lock: LifecycleLock | null = null;
@@ -681,10 +744,9 @@ function resumeTemporaryOperationInternal(
     if (path.dirname(directory) !== paths.temporary)
       throw new Error("temporary_operation_boundary_invalid");
     if (!fs.existsSync(documentPath)) {
-      const stagingDocumentPath = path.join(
-        controlRoot,
-        ".staging",
-        `${reference.operationId}.${reference.identity}.${reference.generation}.preparing.json`,
+      const stagingDocumentPath = initialDocumentStagingPath(
+        documentPath,
+        reference,
       );
       if (!fs.existsSync(stagingDocumentPath))
         throw new Error("temporary_operation_recovery_identity_mismatch");
@@ -708,6 +770,8 @@ function resumeTemporaryOperationInternal(
         throw new Error("temporary_operation_recovery_identity_mismatch");
       fs.linkSync(stagingDocumentPath, documentPath);
       fs.rmSync(stagingDocumentPath);
+    } else {
+      removeConfirmedInitialDocumentStagingAlias(documentPath, reference);
     }
     lock = acquireLock(
       controlRoot,
@@ -715,6 +779,7 @@ function resumeTemporaryOperationInternal(
       nextIdentity,
       afterStagingLockCreated,
       afterStagingLockWritten,
+      afterCanonicalLockLinked,
     );
     let document = readDocument(documentPath);
     if (
@@ -848,6 +913,7 @@ export function resumeTemporaryOperation(
     () => {},
     () => {},
     () => {},
+    () => {},
   );
 }
 
@@ -859,6 +925,7 @@ export function resumeTemporaryOperationWithInterruptionForVerification(
   phase:
     | "after_lock_staging_created"
     | "after_lock_staging"
+    | "after_lock_linked"
     | "after_generation",
   afterNextGenerationPublished: () => void,
 ) {
@@ -870,6 +937,7 @@ export function resumeTemporaryOperationWithInterruptionForVerification(
       ? afterNextGenerationPublished
       : () => {},
     phase === "after_lock_staging" ? afterNextGenerationPublished : () => {},
+    phase === "after_lock_linked" ? afterNextGenerationPublished : () => {},
     phase === "after_generation" ? afterNextGenerationPublished : () => {},
   );
 }
@@ -1049,9 +1117,19 @@ function settleTemporaryOperationWithRemoval(
     removeDirectory(record.directory);
     if (fs.existsSync(record.directory))
       throw new Error("temporary_operation_cleanup_unconfirmed");
+    removeConfirmedInitialDocumentStagingAlias(
+      record.documentPath,
+      recoveryReference(record),
+    );
     fs.unlinkSync(record.documentPath);
+    const stagingDocumentPath = initialDocumentStagingPath(
+      record.documentPath,
+      recoveryReference(record),
+    );
     const cleanupConfirmed =
-      !fs.existsSync(record.directory) && !fs.existsSync(record.documentPath);
+      !fs.existsSync(record.directory) &&
+      !fs.existsSync(record.documentPath) &&
+      !fs.existsSync(stagingDocumentPath);
     if (cleanupConfirmed) {
       if (promotionReceipt) promotionReceipts.delete(promotionReceipt);
     }

@@ -149,13 +149,26 @@ Related:
 | `recovery_required` | exact Identityと現在世代が一致し、次世代用のcaller-known Identityが現世代と異なる場合だけ新世代を発行する |
 | 新世代を公開後、Capability返却前にProcess消失 | 呼出し側が事前に確定した次世代Identityと`current generation + 1`から新しいexact参照を再構成する。旧世代参照は受理しない |
 | 初回制御文書またはLockのCanonical公開前にProcess消失 | caller-known Identityからexact stagingを解決し、完全な文書なら公開を継続し、不完全ならそのexact stagingだけを不存在へ収束する |
+| 初回制御文書のCanonical公開直後にProcess消失 | Canonicalとexact stagingが同じfile objectかつ同じ完全な`preparing`文書であることを確認した場合だけstaging側のlinkを削除する。不一致または観測不能なら変更せず停止する |
 | Lock解放要求後に物理削除失敗 | Lockを`released`へ耐久遷移し、次回取得者が安全に回収する |
 | 清掃失敗 | Capabilityを失効させる前に`recovery_required`を公開し、利用可能なexact Recovery参照を返す |
 | Workspaceの部分削除後に清掃失敗 | 外部の制御文書を保持し、再入場時にWorkspaceを再構成する。制御文書をWorkspaceより先に削除しない |
 
-制御文書とLockは、caller-known Identityから決定できる`.operations/.staging/`内のexact fileへ書込み、fileのflush、排他的linkまたはatomic renameおよびread-backを順に確認する。初回文書とLockのCanonical公開は既存対象を置換しない排他的linkで行い、Lock Directory作成後にOwnerが未公開になる窓を作らない。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、公開前後のProcess消失をそれぞれ反証する。一度利用した旧Recovery参照、旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
+制御文書とLockは、caller-known Identityから決定できる`.operations/.staging/`内のexact fileへ書込み、fileのflush、排他的linkまたはatomic renameおよびread-backを順に確認する。初回文書とLockのCanonical公開は既存対象を置換しない排他的linkで行い、Lock Directory作成後にOwnerが未公開になる窓を作らない。Canonical公開後に残った初回stagingは、Canonicalと同じfile objectかつ同じbyteであることを確認した場合だけ削除し、Operation settlementはWorkspace、Canonical文書およびそのexact stagingの不存在を共同で確認する。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、公開前、公開直後およびread-back後のProcess消失を反証する。一度利用した旧Recovery参照、旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
 
-### 4.3. Lifecycle
+### 4.3. Owner Process観測の既知制約
+
+| 項目 | 現在の境界 |
+|---|---|
+| 現在の観測 | 保存したPIDに対する生存確認。PIDが別Processへ再利用されたことは識別できない |
+| 安全側の影響 | PID再利用時は自動回復を開始せず、実際には失効したOperationがbusyとして残り得る |
+| 担当責任者 | Runtime Data／Platform Accessの保守担当 |
+| 再評価契機 | 長期保持するOperationまたはLockの導入前、自動回復の時間保証を設ける前、Linux／Remote Runtime実装時 |
+| 後続候補 | Process開始IdentityまたはHost boot IdentityをPIDと結合し、同一Processの生存を観測する |
+
+本制約から資源を削除したり別Processを失効Ownerとして扱ったりしない。現在版では可用性上の保留として保持し、Authorityまたはcleanup成立へ読み替えない。
+
+### 4.4. Lifecycle
 
 ```text
 Operationを開始
@@ -182,7 +195,7 @@ tmp/<operation-id>/を排他的に作成
 
 清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、必要な意味だけを回復を所有するComponentの`recovery/`または`verification/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。Evidence必須時は、`allowedContent`に含まれる`work/`内のexact source、正式な昇格先、両者のbyte Hash、Operation Identityおよび現Owner世代が一致するReceiptだけを受理する。昇格先の同じHashだけ、または別のsourceから偶然得た同じ名前だけでは清掃を許可しない。
 
-### 4.4. Recoveryの所有
+### 4.5. Recoveryの所有
 
 Recovery記録は、状態遷移、再入場および解消を所有するComponentの配下へ置く。同じRecovery義務をRepository直下の汎用`recovery/`とComponent配下へ複製しない。
 

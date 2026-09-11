@@ -356,6 +356,50 @@ test("Canonical公開前に終了した初回stagingは既知参照から回復�
     );
 });
 
+test("Canonical公開直後のProcess死は同一fileの初回staging aliasまで回収する", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const operationId = `runtime-data-test-linked-staging-${process.pid}`;
+  const identity = randomUUID();
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/create-temporary-operation-and-exit.ts"),
+      repositoryRoot,
+      operationId,
+      identity,
+      "after-staging-linked",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(child.status, 83, child.stderr);
+  const reference: TemporaryOperationRecoveryReference = Object.freeze({
+    operationId,
+    owner: "runtime-data-test",
+    identity,
+    generation: 1,
+  });
+  const paths = resolveRepositoryRuntimeDataPaths(root.capability);
+  assert.ok(paths);
+  if (!paths) return;
+  const stagingDocumentPath = path.join(
+    paths.temporary,
+    ".operations",
+    ".staging",
+    `${operationId}.${identity}.1.preparing.json`,
+  );
+  assert.equal(fs.existsSync(stagingDocumentPath), true);
+  const resumed = resumeWithNextIdentity(root.capability, reference);
+  assert.equal(resumed.status, "completed");
+  assert.equal(fs.existsSync(stagingDocumentPath), false);
+  if (resumed.status === "completed")
+    assert.equal(
+      settleTemporaryOperation(resumed.capability, "failed", null).status,
+      "completed",
+    );
+});
+
 test("初回staging書込み中のProcess死はexact stagingだけを不存在へ戻す", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
   assert.equal(root.status, "completed");
@@ -427,6 +471,48 @@ test("Lock公開前のProcess死はcaller-known Identityで再入場できる", 
       Buffer.from(JSON.stringify(lost.recoveryReference)).toString("base64url"),
       nextIdentity,
       "after-lock-staging",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(child.status, 84, child.stderr);
+  const resumed = resumeWithNextIdentity(
+    root.capability,
+    lost.recoveryReference,
+    nextIdentity,
+  );
+  assert.equal(resumed.status, "completed");
+  if (resumed.status === "completed")
+    assert.equal(
+      settleTemporaryOperation(resumed.capability, "failed", null).status,
+      "completed",
+    );
+});
+
+test("Lock公開直後のProcess死はCanonicalとstagingの両方を再入場で回収する", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const opened = createTemporaryOperation(root.capability, {
+    operationId: `runtime-data-test-lock-linked-${process.pid}`,
+    owner: "runtime-data-test",
+    identity: randomUUID(),
+    purpose: "linked lock process loss verification",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
+  assert.equal(opened.status, "completed");
+  if (opened.status !== "completed") return;
+  const lost = settleTemporaryOperation(opened.capability, "parent_lost", null);
+  assert.ok(lost.recoveryReference);
+  const nextIdentity = randomUUID();
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/resume-temporary-operation-and-exit.ts"),
+      repositoryRoot,
+      Buffer.from(JSON.stringify(lost.recoveryReference)).toString("base64url"),
+      nextIdentity,
+      "after-lock-linked",
     ],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );
