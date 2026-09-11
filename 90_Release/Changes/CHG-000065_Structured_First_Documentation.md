@@ -93,9 +93,9 @@ v0.20.0のリリース前に、CRDD Repository内の人間可読文書を全数�
 
 | 不整合 | 是正 | 意味保持 |
 |---|---|---|
-| Runtime責務分離のRoadmapだけが`Formal E2E Pending` | 正式4経路E2E、Recovery Matrix、最終監査完了とRelease判断待ちへ更新 | Quality Centerと最終検証結果に一致 |
+| Runtime責務分離のRoadmapだけが`Formal E2E Pending` | 初回是正時に、前の署名候補で成立した正式4経路E2E、Recovery Matrix、技術監査を反映 | 後続変更後の現在Gateへ流用せず、Quality Centerで前候補と現在候補を分離 |
 | 試験体系CHGが完成根拠を持ちながら`In Progress` | `Ready for Release Handoff`へ更新し、完成条件を表で明示 | 任意UAT／PT／LTの未実行を成功へ補完しない |
-| v0.20統合検証結果に途中候補の「次は署名・再監査」が残存 | 最終結果を主表へ集約し、途中経緯を構造是正の要約とCHG参照へ分離 | 途中の不成立、原因、旧結果を流用しない判断は保持 |
+| v0.20統合検証結果に途中候補の「次は署名・再監査」が残存 | 前候補の最終結果を検証結果へ集約し、現在候補のGateはQuality Centerへ分離 | 前候補の不成立経緯と実測値を保持し、現在候補の完了とは表示しない |
 | 工程ひな型が状態と引き渡しを文章・空箇条書きへ委ねる | DiscoveryからArchitecture、Quality、Communication、CHG、Roadmapの13ひな型を構造化 | 固定質問票にはせず、対象に応じた詳しさを維持 |
 | 構造化済みひな型の退行を検出できない | 主要6工程の現在状態・引き渡し表と全工程正本行をChecker契約試験へ接続 | 表の存在だけを意味品質の合格とは扱わない |
 | 旧Project Runtime設計と参照ArchitectureがCoordinator配下に残り、現在正本の二重化に見える | 旧文書と大規模な参照節を削除。現在の責務はProject Runtime正本、exactな設計対応は機械可読成果物、旧版はGit tagへ分離 | CoordinatorにはExecution Portとの現行接続だけを残し、版ごとの旧文書累積を避ける |
@@ -111,7 +111,8 @@ v0.20.0のリリース前に、CRDD Repository内の人間可読文書を全数�
 | 重点 | 全件の配置責務、Structured-first、重複、状態・Gateの整合、および履歴文書の意味保全 |
 | 固定履歴 | 過去tag上の原記録は不変。現行Treeの各文書は個別評価し、必要なら履歴保全付き構造是正を行う |
 | 機械確認 | Checker契約試験、型・Lint・Format、Repository全体Checker |
-| 結果 | 全428件の処置をInventoryへ固定し、固定履歴の直接書き換えではなく、目的別の構造化索引で現在と履歴を分離する。機械閉包と独立監査は未完了 |
-| 未完了 | 拡張母集団の独立文書監査、検証専用投影を除外したRuntime実行Identityの再署名、影響する正式E2E、その後の人間によるv0.20.0のRelease判断 |
+| 前候補 | `8536965`で全428件のInventoryと機械閉包を確認したが、独立監査で履歴圧縮、Roadmap正本分離、Inventory意味契約および時点表示に未完了を検出 |
+| 現在の適用 | 5件を一体是正し、新しい固定CommitでCheckerと独立文書再監査を行う。前候補の監査結果を流用しない |
+| 未完了 | 是正後の固定Commit、独立文書再監査、Checker独立レビュー、検証専用投影を除外したRuntime実行Identityの再署名、影響する正式E2E、その後の人間によるv0.20.0のRelease判断 |
 
 旧版詳細設計を現行Treeへ累積せず、現行詳細設計をProject Runtime配下で更新し、当時の歴史的述語だけを検証済みGit tag上の元Pathへ結ぶ構造とした。機械対応は設計正本ではなくCoordinator実装・試験との検証用投影であり、Runtime技術Gateとv0.20全体の文書Gateも分離した。拡張後の最終再監査は未実施であり、初回Passを流用しない。

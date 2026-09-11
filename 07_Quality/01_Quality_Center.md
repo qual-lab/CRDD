@@ -9,8 +9,9 @@
 | 項目 | 現在状態 |
 |---|---|
 | 対象 | 試験体系と自動回帰、実行知、Runtime責務分離、限定分散実行と統合結果、読み取り専用Project State、localhost限定MCP HTTP |
-| 現在候補 | 文書全体是正と検証専用投影の配置是正を含む作業Tree。固定Commit・Runtime実行Identityは未確定 |
-| 現在候補の文書Gate | 全428 MarkdownのDisposition Inventory生成、Checker閉包、独立文書監査待ち |
+| 文書監査の前候補 | `8536965`。全428 MarkdownのInventoryとChecker機械閉包は成立したが、独立監査でMajor 3件、Moderate 2件が残り、不採用 |
+| 現在候補 | 前候補で検出した履歴圧縮、Roadmap正本分離、Inventory意味契約および時点表示の一体是正を含む作業Tree。固定Commit未確定 |
+| 現在候補の文書Gate | 是正後の全428 Markdown Inventory、Checker、独立文書再監査待ち |
 | 現在候補の技術Gate | Checker独立レビュー、固定Commit、Runtime実行Identity観測、再署名、影響E2E待ち |
 | 前の署名候補 | `f76b73af81c43e25f28037caa72d71a898a2f9fb`。Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
 | 前候補の結果 | 正式4経路4/4、Recovery Matrix 7/7、技術独立監査0件。現在候補のGateへ流用しない |

@@ -3757,6 +3757,51 @@ const DOCUMENT_REASON_CODES = new Set([
   "prose_preserves_rationale",
   "published_bytes_preserved",
 ]);
+const currentDocumentDispositionReasons = new Map([
+  ["structured_remediation", "semantic_structure_improved"],
+  ["canonical_move_or_reference", "canonical_ownership_corrected"],
+  ["already_structured", "existing_structure_sufficient"],
+  ["prose_retained", "prose_preserves_rationale"],
+]);
+const FIXED_DOCUMENT_DISPOSITION = "fixed_original_with_structured_index";
+const FIXED_DOCUMENT_REASON = "published_bytes_preserved";
+
+function checkDocumentationDispositionRoutes(): void {
+  const changesRoute = path.join(root, "90_Release", "Changes", "README.md");
+  const qualityRoute = path.join(root, "07_Quality", "01_Quality_Center.md");
+  const checks = [
+    {
+      file: changesRoute,
+      requirements: [
+        /^## 目的から読む場所を選ぶ$/mu,
+        /\[[^\]]*現在状態[^\]]*\]\(\.\.\/\.\.\/07_Quality\/01_Quality_Center\.md(?:#[^)]+)?\)/u,
+        /過去本文の(?:正本|固定Identity)/u,
+        /git --no-replace-objects show/u,
+      ],
+    },
+    {
+      file: qualityRoute,
+      requirements: [
+        /現在候補/u,
+        /前(?:の署名)?候補/u,
+        /v0\.20全体の残るGate/u,
+        /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u,
+      ],
+    },
+  ];
+  for (const check of checks) {
+    if (!fs.existsSync(check.file)) continue;
+    const content = read(check.file);
+    if (check.requirements.some((requirement) => !requirement.test(content))) {
+      add(
+        "error",
+        "document-disposition-route-contract-incomplete",
+        relative(check.file),
+        "The current route is missing a required purpose, current-owner, fixed-history retrieval, candidate, gate, or verification-result connection.",
+      );
+    }
+  }
+}
 
 function gitBlobOid(bytes: Buffer): string {
   const header = Buffer.from(`blob ${bytes.length}\0`, "utf8");
@@ -3900,6 +3945,7 @@ function checkDocumentationDispositionInventory(): {
       "schemaRevision and populationSource do not match the v0.20 disposition contract.",
     );
   }
+  checkDocumentationDispositionRoutes();
 
   const historicalEntries = entries.filter(
     (entry) =>
@@ -3987,6 +4033,21 @@ function checkDocumentationDispositionInventory(): {
         "document-disposition-currentness-mismatch",
         entry.path,
         "The current/fixed-history classification does not match the v0.20 fixed population.",
+      );
+      continue;
+    }
+    const expectedReason =
+      entry.currentness === "fixed_history"
+        ? entry.disposition === FIXED_DOCUMENT_DISPOSITION
+          ? FIXED_DOCUMENT_REASON
+          : undefined
+        : currentDocumentDispositionReasons.get(entry.disposition);
+    if (expectedReason !== entry.reasonCode) {
+      add(
+        "error",
+        "document-disposition-semantic-combination-invalid",
+        entry.path,
+        "The currentness, disposition, and reasonCode combination is not part of the closed documentation disposition contract.",
       );
       continue;
     }

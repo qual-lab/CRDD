@@ -15,8 +15,9 @@
 | 責務分離の実装 | 完了。現行契約は各Architecture正本が所有する |
 | 前の署名候補 | `f76b73af81c43e25f28037caa72d71a898a2f9fb`。Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
 | 前候補のEvidence | 正式4経路4/4、Recovery Matrix 7/7、技術独立監査0件。現在候補へ流用しない |
-| 現在候補 | 検証投影の配置是正と文書全体是正を含む。新Runtime実行Identityの固定前 |
-| 現行Gate | [Quality Center](../../07_Quality/01_Quality_Center.md)が所有する。文書閉包・独立確認後に固定、再署名、影響E2E、人間のRelease判断を行う |
+| 文書監査の前候補 | `8536965`。独立監査でMajor 3件、Moderate 2件が残り、不採用 |
+| 現在候補 | 上記監査指摘の一体是正を含む作業Tree。新しい固定Commitと独立再監査待ち |
+| 現行Gate | [Quality Center](../../07_Quality/01_Quality_Center.md)が所有する。文書・Checker再確認、固定Commit、独立再監査後に再署名、影響E2E、人間のRelease判断を行う |
 
 本書は変更理由、責務・契約差、現在も有効な構造是正を所有する。固定候補の実行値は[検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)、現在のRelease Gateは[Quality Center](../../07_Quality/01_Quality_Center.md)を参照する。
 
@@ -24,51 +25,6 @@ v0.19で成立したProject Runtime、MCP stdioおよびCoordinatorは、意味�
 
 本変更はProject RuntimeをProject-level execution lifecycleのApplication Core、Coordinatorを実行編成、MCPをTransport、実行知を観測・分析、Platform AccessをOS／Platform境界として分ける。物理移動を完成とせず、公開契約、依存方向、実装Adapter、利用側および自動回帰が同時に成立した場合だけ分離完了とする。
 
-2026-09-05に最初の移行単位として、Project状態機械とPlatform Port契約を`40_Develop/project-runtime/`へ移し、続く移行単位でObjective要求と統合結果の公開契約、および一つのTask Attemptを要求するExecution Port契約を同packageへ移した。さらに、実行観測、候補統合、人間判断、Queue、StateおよびLeaseの意味型とPortをProject Runtimeの公開入口へ集約した。実行知、候補Store、Windows保護StoreおよびRepository-local永続化の実装はCoordinator側に保持し、Repository RootとBindingを構成時に閉じたState／Lease Adapterを追加した。Application移行では、再計画処理、Objective受付のPlan検証と公開結果生成、Task実行の状態調停、候補統合、人間判断、およびObjective受付後のQueue・回復・実行・最終投影の調停本体をProject Runtimeへ移した。これらはRepository Path、Node暗号および永続化関数を直接参照せず、Objective受付が構成したBinding済みPortだけを利用する。Coordinator側のObjective入口は、未信頼入力、認証主体、Repository BindingおよびPlanner結果を検証し、Host Adapterを一度構成する薄いAdapterへ縮小した。時刻・安定Identity生成、状態所有者のProcess世代、cleanup不明時のProcess再利用禁止およびRecovery Identity生成もHost側から注入し、Project Runtime CoreがOS／言語RuntimeのIdentity生成へ依存しない境界へ変更した。従来Task Authorityと誤称していた署名済みRuntime packageの一回限りCapabilityは、Task要求と`authorityBindingId`が担う意味上のTask Authorityから分離し、専用のExecution Authorization PortとCoordinator Adapterから発行・失効する契約改訂2へ変更した。構成RootとMCP Transportも独立した所有Pathへ移し、MCPがCoordinator内部moduleや人間判断契約文字列を複製しない依存へ切り替えた。各単位で単体試験、公開入口、Coordinator利用側、設計対応、試験台帳および変更影響型回帰選択を同時に切り替えている。上位の責務分離完了表示は、依存検査、公開入口の総合試験および独立レビューまで保留する。
-
-固定改訂版`ce7c4d3073099926b3302eb9aa8e2c03d18aa699`では、公開Runtimeが作成したProject Stateを同じPersistence Portから再読取りし、Project Runtimeの公開契約、MCP Adapterおよび閉じたMCP結果まで縦断した。MCP stdio／localhost HTTPの公開Launcher、HTTPの状態参照、取消・終了join、およびProject Runtimeからの逆依存0は、package試験と静的検査で成立した。残る完成条件は最終一括監査であり、実Provider、署名、Linux／macOSまたはRemote Runtimeの成立を本結果から推定しない。
-
-正式署名の秘密入力前検査では、署名処理だけが分離前のCoordinator単体Filesystem観測を使用し、Project Runtime、MCPおよび実行知を含む現在のRuntime依存閉包を観測できないことを検出した。固定改訂版`e8012024`で、署名時の内容Root計算を開発版、同梱版、別配布版および昇格後検証と同じ配布全体の依存閉包へ統一した。旧単体観測はcallerが選択したpackageの非Authority診断だけに残し、正式署名からは到達させない。署名経路が正規観測を使用する契約試験と、責務分離後の実配布構成を使う秘密鍵不一致試験を追加し、秘密値を読む前にこの閉包を検証できる状態へ変更した。
-
-その署名前監査では、配布物観測が返すPathは配布Root相対である一方、固定Manifestの利用側だけが旧Coordinator package相対Pathを再解釈し、正しい署名済み配布でも実行許可Capabilityを発行できないことを検出した。固定改訂版`2bcc1dad8ae953f477db5ee3948d9188f1b295f0`で、必須成果物のPath解決とHash取得を配布物観測へ集約し、開発版と固定Manifest利用側は解決済み成果物だけを使用する構造へ変更した。
-
-同固定版の独立再レビューでは、必須実行入口の集合が開発利用側のnullableな一覧に残り、配布物観測と固定Manifest利用側へ必須性が伝播していないことを検出した。固定改訂版`971370b13a83c81c557722079eee7ca0f8e34650`で、4つの必須実行入口を配布Root相対Pathの単一Registryへ集約し、配布物観測が同一Snapshotから全件を非nullableに解決できた場合だけ候補を返す構造へ変更した。開発版と固定Manifest利用側は解決済み成果物だけを使用し、独自のPath検索や欠落fallbackを持たない。
-
-続く再レビューでは、子Process入口の自動導出が特定の`new URL()`表記だけを認識し、宣言と実利用の全数対応を証明しないことを検出した。固定改訂版`df1c576c0f0f5636bc0ee72ed77e22340a28cc70`で、local TypeScript子Process入口を専用の不変descriptorへ集約し、本番sourceから導出した宣言集合、実利用集合および必須Registry集合の完全一致を要求する構造へ変更した。利用側は解決済みdescriptorを薄いWorker／spawn境界へ渡し、Canonical Pathを再解釈または再構成しない。変数、template literal、直接URL、直接Worker／子Process生成、未使用宣言、宣言欠落および各必須成果物の欠落を反証し、公開観測、秘密鍵読取り前の署名事前検査および非対話CLIまで縦断した。Focused 39件、制限Process 1,669件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功済みであり、独立再レビュー、正式署名および正式E2Eは後続Gateとして保持する。
-
-同固定版への監査合意後の確認では、descriptorが可変な`URL`を利用側へ公開し、利用集合もresolver名の出現から導出していたため、正規wrapperの実呼出しと実行時targetの同一性を証明できないことを確認した。固定改訂版`57ee29c0b02fc80a6ea763a5bc63619b8ad09416`では、Registryを専用module内部の不変primitiveへ閉じ、Worker／spawn wrapperは役割だけを受け取って起動種別を外部Effect前に検証し、targetを都度内部構成する。本番実行集合から正規名・非aliasのwrapper直接呼出しを静的に導出し、宣言、導出した利用、実行時Registryを役割・起動種別・Pathで完全一致させる。署名・Recovery経路を含め、別名import、再export、関数値化、namespace／dynamic import、直接Worker／spawn、`process.execPath`の再構成、連結URL、重複Pathおよび種別差を反証した。Focused 69件、制限Process 1,684件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功済みであり、独立再レビュー、正式署名および正式E2Eは後続Gateとして保持する。静的導出は一般的な到達可能性解析、動的コード、任意のproperty再構成、preloadまたは実行集合外のProcess起動を完全検出する主張をしない。
-
-その固定版を一段具体化した構造確認では、spawn wrapperがcaller提供のspawn factoryを受け取り、正規Pathと起動Effectの結合を利用側へ残していた。また、直接子Process起動の拒否は`process.execPath`の代表表現へ偏り、型専用importを正規利用として数え、Recovery Matrix入口の欠落が署名前検査の全数表へ含まれていなかった。固定改訂版`da3c6eb69f8f2a7172ff8ebc5b8ebe2de77880e7`では、spawn wrapper自身が非公開の不変Pathを所有し、役割と引数だけから呼出しごとに新しい引数列を構成する。callerは実行ファイル、targetまたはspawn factoryを渡せない。Workerは専用wrapperと登録済みbodyだけに限定し、`fork`、`process.argv0`、`process.argv[0]`、literal Node、別名・型専用・namespace・dynamic・require・再export、およびquery／fragment／percent encodingによる迂回を反証した。Recovery Matrix入口の欠落も秘密鍵読取りと入力Promptの前に拒否する。Focused 105件、制限Process 1,697件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功済みであり、独立再レビュー、正式署名および正式E2Eは後続Gateとして保持する。静的導出は一般的な到達可能性解析、動的コード、任意のproperty再構成、preloadまたは実行集合外のProcess起動を完全検出する主張をしない。
-
-同固定版の独立再レビューでは、`child_process`の再export、関数値化、`.call`／`.apply`／`.bind`／`Reflect.apply`、および判定不能なNode自身のtargetが利用側閉包を迂回でき、本番関数のProcess／Worker生成factoryが起動前提を呼出側へ再公開していることを検出した。固定改訂版`5ae51ff8f4acdb56c73f00cc09abdcf8c3c7892b`では、実行能力を持つ値import、source別primitiveおよびbindingの全利用を字句解析し、正規の直接呼出し以外を拒否する。type-only importは実行能力へ数えず、query、fragment、percent encodingまたはencoded separatorを正規Pathへ補正しない。本番leafが起動を所有し、lifecycle helperは生成済みhandleと最小状態だけを受け取る。factoryによる異常注入は試験専用harnessへ隔離した。Focused 136件、制限Process 1,714件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功済みであり、独立再レビュー、正式署名および正式E2Eは後続Gateとして保持する。静的導出は一般的な到達可能性解析、動的コード、任意のproperty再構成、preloadまたは実行集合外のProcess起動を完全検出する主張をしない。
-
-その固定版の独立再レビューでは、未使用の値importを実行能力取得として拒否できず、loader取得の再構成とNode自己起動targetのbracket／optional表記が分類を迂回できた。また、本番leafから生成処理を除いた後もhandle取得後のLifecycle helperが公開され、別の本番利用側が起動前提を通らず状態機械へ到達できた。固定改訂版`1e6aab7e8a5567f1f622feb285a866b7ee02bd0c`では、保護moduleのliteral specifierをtoken位置から検査し、値importを利用有無にかかわらず宣言時にsource別primitiveへ照合する。純粋な型import／型re-exportだけをEffectなしとして許可し、escaped／template specifier、`fork`およびloader再構成を拒否する。Node自己起動の既知表記をgenericな外部Process Authorityより先に分類し、dot、bracket、optionalおよび`at(0)`の表記差を閉じた。Process、Workerおよび対話入力Readerの生成後Lifecycleは専用内部moduleへ移し、本番では対応するleafだけが静的importできる。再export、dynamic／alias importおよび兄弟実装からの利用を拒否し、試験支援境界は同じ状態機械を使う。対話入力Readerは起動前提を一度固定し、handle所有後の取消登録直後に取消状態を再確認する。制限Process全回帰、Windows実Process 7件、静的検査およびRepository全体Checkerは成功済みであり、独立再レビュー、正式署名および正式E2Eは後続Gateとして保持する。静的導出は一般的な到達可能性解析、動的コード、任意のproperty再構成、preloadまたは実行集合外のProcess起動を完全検出する主張をしない。
-
-その固定版の二つの独立再レビューでは、semicolonなし宣言で値re-exportを型専用へ誤分類できること、`createRequire`等でloader能力を再取得できること、広いsource許可により未知の外部実行targetを追加できること、およびProcess wrapper／内部Lifecycleを別の利用側へ再搬送できることを検出した。固定改訂版`f92b782ae542f96305f426f33c944cd2af615827`では、静的import、再export、動的importおよび型／値bindingを一つの前方module宣言解釈から導出する。保護moduleのliteral出現は別の意味在庫として照合し、loader再取得と許可外の非literal動的importを拒否する。子Process呼出しはsource全体の許可ではなく、所有関数、primitive、実行対象式、引数式、Authority証明および期待件数を持つ正規呼出し集合へ結合する。Process wrapperと内部Lifecycleは宣言・export・import・全値利用、正規leaf、引数の由来、事前handle生成および既存終端cleanupへの後続処理を一組として検査し、兄弟import、再export、別名、関数値、propertyまたは追加依存注入を拒否する。代表違反は公開観測、固定開発版、同梱版、Capability非発行、署名preflightおよび非対話署名CLIまで縦断した。重点121件、制限Process 1,738件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功済みであり、独立再レビュー、正式署名および正式E2Eは後続Gateとして保持する。宣言集合は正本ではなく、実ソースから独立導出した集合との完全一致によって不足と余分の両方を拒否する。
-
-同固定版への二つの独立再レビューでは、loader取得のnamespace／default／再export／bracket表記、Authority証明と実行呼出しの結合、`dependencies.startProcess`を含むwrapper／Lifecycle利用側、公開利用側の構造的導出、および型専用star re-exportの分類に未完を検出した。固定改訂版`98146b3b70295bc122784871233d0bd7cf58c423`で重点126件、制限Process 1,743件、Windows実Process 7件、静的検査およびRepository全体Checkerは成功したが、再レビューはfile単位のtoken／prefix照合が配布全体の利用グラフ、完全な引数と値の由来、Authority guardの支配、handle所有、および公開結果への伝播を証明しないため不合格とした。是正固定版`f77b6e3fd88504cb6cb51bbdec8470eeaa79ef93`は、実配布対象と検証Tool対象を独立に全数列挙し、20呼出しをRuntime 14件とTool 6件へ重複・無所属なく分ける。各呼出しをsource、所有関数、実行primitive、完全な引数式、結果bindingおよび監査対象flowへ結合し、公開・署名利用側では正規観測結果から判定と結果までの同一flowを要求する。手書き一覧は証拠または正本とせず、Expected source欠落、Actualだけの能力source、引数・option変更、結果差替え、decoy、遅延所有も不整合とする。重点128件、制限Process 1,745件、Windows実Process 7件、静的検査およびRepository全体Checker（Error 0、Warning 0）は成功した。独立再レビュー、正式署名および正式E2Eは後続Gateとして保持する。
-
-統合経路では、Project Runtimeが要求する統合記録Portを追加し、Repository Root、`.crdd`配置、Hash生成および不変公開をCoordinatorの統合記録Adapterへ分離した。同一記録の再試行、Identity衝突およびPath逸脱の拒否をAdapter契約試験で固定した。その後、状態・Queue・LeaseをBinding済みPortへ切り替え、候補の検証、競合判断、受入状態遷移および公開結果生成を含む統合Application本体をProject Runtimeへ移した。Coordinatorには候補生成、Repository観測、採用および統合記録の環境依存Adapterだけを残した。
-
-人間判断経路では、判断Capabilityの秘密値生成とHashを専用Portへ分離し、Node暗号実装をCoordinator Adapterへ残した。判断ApplicationはBinding済みState Port、保護Store Port、回復Store Portおよび判断Capability Portだけを利用する形へ変更し、発行、適用、置換、無効化およびProcess loss後の回復をProject Runtimeへ移した。秘密値は保護Storeへ保存せず、Hashだけを記録する既存保証を維持する。
-
-Repository Pathの意味検証はHost filesystemへ問い合わせない純粋な共通処理へ集約した。公開Objective、Planner結果、Task状態および統合候補は、Windows drive、POSIX absolute、親移動、空segmentまたは現在Directory segmentを含むPathをRepository相対Pathとして受理しない。これによりProject Runtime Applicationから`node:path`依存を除去し、入口ごとのPath判定差を閉じた。
-
-Task実行集合のAuthority binding生成はCoordinatorからProject Runtimeへ移した。Project Runtimeは現在のProject、Milestone、Repository Revision、Objective、Taskおよびretry世代からBinding Identityを生成し、Hostが同fieldを持ち込む入力を拒否する。Coordinatorは各Taskの定義済み変更Pathと対応Objectiveの受入条件から実行要求を構成し、Objective全体の変更Pathを各Taskへ再拡張しない。Runtime packageの実行許可Capabilityは引き続き別のExecution Authorization Portが外部Effect直前に発行する。
-
-Objective受付後の実行調停は、Project状態、QueueおよびProject Operation Leaseへの全アクセスをBinding済みのState／Lease Portへ統一した後、Project Runtime Applicationへ移した。Application判断はCoordinatorの永続化関数を個別に選ばず、構成時に検証済みRepositoryへ結合された同じPersistence Port集合だけを受付からTask実行、回復再入場および最終投影まで利用する。
-
-同じ移行準備で、Queue、要求範囲および回復適用のIdentity生成と内容HashはClock／Identity Portへ、現在Process世代とRuntime Process Recovery Identityの検証はProcess Safety Portへ集約した。Objective ApplicationはNode暗号実装やCoordinatorのProcess安全状態を直接参照せず、Hostが注入した能力の結果だけを利用する。
-
-Task回復は専用Portへ分離した。Project Runtimeへ公開するのはProject、Milestone、Task、Attempt、Operation、回復種別およびRecovery Identityであり、Coordinator Adapterが検証済みRepositoryの作業DirectoryとBindingを閉じてDocker回復、受領Recordおよび検証資源の最終化へ接続する。診断Observerの失敗はAdapter内で隔離し、回復の成否へ昇格しない。
-
-その後の署名前監査では、本文Hashとtoken列の一致が保護経路のbinding、値由来、guard支配および公開結果への伝播を保証せず、同名decoy、別名import、wrapperまたは別結果への差替えを見逃し得ることを検出した。また、実行知のRepository Root能力が`.git`の存在確認へ簡略化され、Version Controlが認証したexact Rootという既存保証を失っていた。これらは追加改善ではなく、現在の署名・実行能力・保存境界の完成主張を成立させるための構造是正として扱う。
-
-是正では、署名経路をP検査、秘密入力、一回限りの不透明なP能力を消費する独立S検査、秘密鍵読取り、署名、配置、公開結果の唯一経路へ変更した。P入力はAccessor／Proxy、追加・欠落fieldを拒否して一度だけsnapshotし、Sは同じ固定入力から配布物を独立再観測する。署名とProject RuntimeからCoordinatorへの実行能力受渡しは、実sourceから導出する限定構文・binding・値由来グラフと独立Expectedグラフを完全一致させる。別名import、shadow、結果再構成、失効結果差替えおよびGuard前Effectを意図した検査段階で拒否する。実行知はGitの`--show-toplevel`観測を各Store操作で再実行し、偽の`.git`と能力発行後の境界消失・置換で`.crdd`を作らない回帰を追加した。一般TypeScript解析、未宣言の保護経路または任意Application全体のdataflow証明は本変更へ拡張しない。
-
-公開、署名、昇格および回復は、主機能の成功から成立を推定せず、各経路が必要とする入力由来、Identity、Authority、Effect前Guard、終端観測および公開結果を同じ限定グラフへ載せた。正規観測値を利用側が再構成する変更、署名値・Payload・昇格元Commit・回復Identityの差替えは、意図した検査段階とEffect 0までを反証する。自己確認は制限Process 1,752件、Windows実Process Gate 7件、静的検査およびRepository全体Checker 426文書（Error 0、Warning 0）で成功した。ここからは静的確認を反復せず、固定候補の正式署名と公開縦断E2Eを先に実行し、その実行結果を取り込んだ一つの改訂版へ独立再レビューと最終監査を行う。
-
-正式E2E直前のDocker Desktop更新では、通常TaskのDocker CLI信頼が過去の特定Version、Hashおよびbyte数へ結合され、正規のDocker Inc更新を危険な差替えと同一視していたことを確認した。通常実行の信頼を、固定公式配置、有効なDocker Inc Authenticode署名、Filesystem実体、Linux Engine能力、およびOperation中の同一Identity／Hashへ変更した。版またはHashが前回と異なることだけでは停止せず、真正性、必要CapabilityまたはOperation中の同一性を確認できない場合はDocker Effect前に停止する。特定VersionとArtifactを固定するDocker Desktop修復PolicyはHost状態を変更する限定修復だけに残し、通常Taskへ流用しない。Provider image Digest、署名済みRuntime／Native成果物、再現可能Build入力およびProtocol Revisionは、それぞれが所有する再現性、完全性またはbyte解釈の保証として維持した。開発E2EはProvider開始前の最終応答でもstdinを閉じるため、環境Gateの拒否を45分のtimeoutへ拡大しない。Docker Effect契約12件、配布依存閉包119件と是正した反証1件、実Provider E2E観測契約28件、固定改訂版`491ae717`の制限Process全回帰1,753件、Windows実Process Gate 7件、静的検査、Repository全体Checker、および更新後Docker 29.7.2の実署名観測は成功した。正式署名と公開縦断E2E、独立再レビューおよび最終監査は後続Gateとして保持する。
 
 ### 基準版Capabilityの移行照合
 
@@ -245,14 +201,15 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 
 ## 10. 改訂経過
 
-| 段階 | 変更の要点 | 現在の意味 |
-|---|---|---|
-| 責務分離 | Project Runtime、Coordinator、MCP、実行知、Platform Accessの所有範囲を分離 | 現在の契約は各Architecture正本が所有する |
-| 保護対象経路 | Process／Worker入口、値由来、署名依存、利用側集合を閉じた | 代表利用側だけでなく、package／署名／回復を同じ変更単位で確認する |
-| Docker lifecycle | v0.19の三値Engine観測、起動後再観測、exact回復Identity、追記型引継ぎを復帰 | 中間状態を現在のRelease Gateへ流用しない |
-| 外部境界の結合 | ブロック内部、隣接一段、意味伝播を伴う二段の結合試験をSystem Test前へ配置 | 再利用可能な規則はArchitectureとTest Catalogが所有する |
-| Provider診断 | 相関可能なphase診断を追加し、Codex隔離Executorのseccomp境界を是正 | 限定2経路成功は正式4経路E2Eの代替ではない |
-| 前の署名候補 | 固定改訂版`f76b73af`で正式4経路4/4、Recovery Matrix 7/7を確認 | 後続の実行Identity変更後は、前候補の固定Evidenceとしてのみ扱う |
+| 段階 | 観測 | 構造是正 | 現在の適用 | Evidence |
+|---|---|---|---|---|
+| 責務分離 | Coordinator packageへProject lifecycle、Transport、実行知、Platform境界が集約されていた | Project Runtime、Coordinator、MCP、実行知、Platform Accessへ所有範囲を分離 | 現行契約は各Architecture正本が所有する | [設計と依存方向](#4-設計と依存方向) |
+| 署名依存閉包 | 主機能の移行後も、署名だけが旧package境界と再解釈したPathを使用した | 配布全体の正規観測と解決済み成果物へ署名利用側を統一 | CanonicalなPath／Identityを利用側で再構成しない | [検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md) |
+| Process／Worker入口 | 宣言、実利用、起動target、Authorityおよび公開結果が別々に確認され、迂回を残した | 実sourceから導出する限定グラフと独立Expectedグラフを完全一致させた | package、署名、回復を含む全利用側を同じ変更単位で確認する | [有効な学び](#11-有効な学びと構造是正) |
+| Docker lifecycle | 新しい再起動処理がv0.19の三値観測、socket障害復帰、exact回復Identityを置換し切れていなかった | 正常再起動、障害修復、Task回復を分離し、追記型状態から再入場する | 中間状態や一部成功を全体完成へ流用しない | [基準版Capabilityの移行照合](#基準版capabilityの移行照合) |
+| 外部境界の結合 | 副次lifecycleを最終E2Eまで実測せず、切り分けが遅れた | ブロック内部、隣接一段、意味伝播を伴う二段の結合試験をSystem Test前へ配置 | ArchitectureとTest Catalogが再利用可能な規則を所有する | [検証方針](#7-検証方針) |
+| Provider境界 | 終了理由を相関できず、Codex隔離Executorのseccomp不整合を推測で追った | phase診断とProvider別実境界試験を追加し、必要なLinux syscallだけを許可 | 限定2経路成功を正式4経路E2Eの代替にしない | [検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md) |
+| 前の署名候補 | `f76b73af`で正式4経路とRecovery Matrixが成立した後、検証投影配置と文書を変更した | 前候補を固定Evidenceとして保持し、現在候補へ署名結果を流用しない | Quality Centerの現在Gateに従う | [Quality Center](../../07_Quality/01_Quality_Center.md) |
 
 ## 11. 有効な学びと構造是正
 
@@ -277,6 +234,7 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 区分 | 状態・参照 |
 |---|---|
 | 前の署名候補 | 固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`、Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067`。4経路4/4、Recovery Matrix 7/7、技術監査0件 |
-| 現在候補 | 検証専用投影の移動とRepository全体の文書是正により実行Identityが変わる。前候補の署名を現在Gateへ流用しない |
+| 文書監査の前候補 | `8536965`。独立監査でMajor 3件、Moderate 2件が残り、不採用 |
+| 現在候補 | 監査指摘の一体是正により新しい固定Commitが必要。前候補の監査・署名を現在Gateへ流用しない |
 | 現行Gate正本 | [Quality Center](../../07_Quality/01_Quality_Center.md) |
-| 残るGate | 文書Disposition閉包、独立文書監査、Checker独立レビュー、固定Commit、新Runtime実行Identityの再署名、影響E2E、人間のRelease判断 |
+| 残るGate | 文書・Checker再確認、固定Commit、独立文書再監査、Checker独立レビュー、新Runtime実行Identityの再署名、影響E2E、人間のRelease判断 |

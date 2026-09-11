@@ -609,10 +609,13 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
     ),
     "# Runtime Responsibility\n\n状態: `Signed Verification Pending`\n\n前の署名候補\n",
   );
-  write(path.join(root, "90_Release", "Changes", "README.md"), "# Changes\n");
+  write(
+    path.join(root, "90_Release", "Changes", "README.md"),
+    "# Changes\n\n| 項目 | 内容 |\n|---|---|\n| 現在状態の正本 | [品質の現在状態](../../07_Quality/01_Quality_Center.md) |\n| 過去本文の固定Identity | Git上の固定履歴 |\n\n## 目的から読む場所を選ぶ\n\n取得方法: `git --no-replace-objects show <ref>:<path>`\n",
+  );
   write(
     path.join(root, "07_Quality", "01_Quality_Center.md"),
-    "# Quality Center\n\n現在候補\n\n前の署名候補\n\nv0.20全体の残るGate\n",
+    "# Quality Center\n\n現在候補\n\n前の署名候補\n\nv0.20全体の残るGate\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
   );
   write(
     path.join(
@@ -847,6 +850,65 @@ test("Dispositionの有限enum外を拒否する", () => {
       (finding) => finding.code === "invalid-document-disposition-entry",
     ),
   );
+});
+
+test("Dispositionと理由の意味上不正な組合せを拒否する", () => {
+  const root = dispositionFixtureRoot(true);
+  writeDispositionFixture(root, (entries) => {
+    const current = entries.find((entry) => entry.path === "01_Principles.md");
+    const fixed = entries.find(
+      (entry) => entry.currentness === "fixed_history",
+    );
+    assert.ok(current);
+    assert.ok(fixed);
+    [current.disposition, fixed.disposition] = [
+      fixed.disposition,
+      current.disposition,
+    ];
+    [current.reasonCode, fixed.reasonCode] = [
+      fixed.reasonCode,
+      current.reasonCode,
+    ];
+  });
+  const result = runChecker(root);
+  assert.equal(
+    result.report.findings.filter(
+      (finding) =>
+        finding.code === "document-disposition-semantic-combination-invalid",
+    ).length,
+    2,
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Disposition案内の必須構造または正本Link欠落を拒否する", () => {
+  for (const target of ["changes", "quality"] as const) {
+    const root = dispositionFixtureRoot();
+    const file =
+      target === "changes"
+        ? path.join(root, "90_Release", "Changes", "README.md")
+        : path.join(root, "07_Quality", "01_Quality_Center.md");
+    const content = fs.readFileSync(file, "utf8");
+    fs.writeFileSync(
+      file,
+      target === "changes"
+        ? content.replace("## 目的から読む場所を選ぶ", "## 案内")
+        : content.replace(
+            "Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+            "missing.md",
+          ),
+      "utf8",
+    );
+    writeDispositionFixture(root);
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "document-disposition-route-contract-incomplete",
+      ),
+      `${target}\n${result.stderr}\n${result.stdout}`,
+    );
+  }
 });
 
 test("固定履歴のref種別・path・blob不一致と不正な現行Routeを拒否する", () => {

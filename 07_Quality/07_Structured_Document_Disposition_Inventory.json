@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "440172691362aed4b73f84db89b83343aa01b93946dd81fcd453c8d360979673",
+  "evaluatedDocumentationSetSha256": "953b4170a83dfaa22bfa433d20bd7ab1da8b2e340f257a74fa453bddf18a801b",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -226,7 +226,7 @@
       "disposition": "structured_remediation",
       "reasonCode": "semantic_structure_improved",
       "canonicalOwnerPath": "07_Quality/01_Quality_Center.md",
-      "currentBlobOid": "12bbe7d25468788dcb4b7fa9cd616cd35f54855a"
+      "currentBlobOid": "cf80a333418939b3efea9426076079f34f6f1023"
     },
     {
       "path": "07_Quality/02_Quality_Strategy.md",
@@ -1213,7 +1213,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md",
-      "currentBlobOid": "34c3c9223f8f9a9fb04bd02991339681a33e54bd"
+      "currentBlobOid": "36ff6aa23448e02ab920a086896b5058cb77a892"
     },
     {
       "path": "90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md",
@@ -1231,7 +1231,7 @@
       "disposition": "structured_remediation",
       "reasonCode": "semantic_structure_improved",
       "canonicalOwnerPath": "90_Release/Changes/CHG-000065_Structured_First_Documentation.md",
-      "currentBlobOid": "d203c14c6d0a296a0e1552c270a359301a82e1c6"
+      "currentBlobOid": "8024e3e97c3b2155c53bac837c5021f282cef605"
     },
     {
       "path": "90_Release/Changes/Evidence/CHG-000007_Adopter_Trial_Report.md",
@@ -5704,7 +5704,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "99_Roadmap/01_Product_Roadmap.md",
-      "currentBlobOid": "7a4030c2c4dca3b07a30aeb6e616902ff60fcf11"
+      "currentBlobOid": "fb91323dc767b0153fd9982db8b9a1004bfc07ab"
     },
     {
       "path": "AGENTS.md",
