@@ -22,8 +22,8 @@ Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime
 | Repository Manifest／Trust Policy Schema | 実装・契約試験済み |
 | 共通Path Resolver | 実装・Windows／Linux論理Path試験済み |
 | Consumer移行・旧Path拒否 | 実装・本番Source、公開案内、SPEC、WorkflowのFocused Test済み |
-| `tmp/`所有・清掃契約 | 実装・全終端経路、Evidence要否、Process再入場試験済み |
-| 既存物理残存の清掃 | 完了・退避後不存在を確認 |
+| `tmp/`所有・清掃契約 | 状態・Owner世代、single-use再入場、正式Evidence Receipt、全終端経路を実装・試験済み |
+| 既存物理残存の清掃 | 現在の退役Path不存在を確認。削除前item単位Inventoryを欠くため、過去の移送完全性は未証明と明示 |
 | 全体Checker／選択回帰 | Checker 431文書でError 0。変更影響計画を固定し、外部Providerを使わない対象確認を完了。独立レビュー待ち |
 
 ## 2. 契機と人間が決定した範囲
@@ -160,7 +160,7 @@ Component単位契約試験
 | Discovery | [Runtime／CROS Product Candidates](../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤) |
 | Roadmap | [v0.21未完了作業](../../99_Roadmap/01_Product_Roadmap.md#12-v0210--project運営信頼複数repository) |
 | 実装 | `40_Develop/runtime-data/`、Coordinator／Execution Intelligence利用側、Checker旧Path拒否 |
-| 検証結果 | Runtime Data 14/14、Execution Intelligence 41/41、Project Runtime対象97件中旧期待値2件を是正して対象再試験成功、Test Catalog 19/19、Coordinator関連結合201/201、署名契約15/15、回帰計画契約17/17、全体Checker 431文書・3,109 Link・Error 0 |
+| 検証結果 | Runtime Data 16/16、Execution Intelligence 41/41。Coordinator、Checker、署名、Project Runtimeおよび全体Checkerは構造是正後に再実行する |
 
 ## 9. Retentionと清掃の初期境界
 
@@ -172,5 +172,5 @@ Component単位契約試験
 
 - 対象リリース: `v0.21.0`
 - 収録リリース: 未収録
-- 次のGate: 全体Checker、選択回帰、独立レビュー
+- 次のGate: 構造是正後の全体Checker、選択回帰、独立再レビュー
 - 後続: Project Management Projection、Capability Registry、CROS、Remote MCPは本変更の構造化されたRootとIdentityを利用する

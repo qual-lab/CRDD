@@ -838,6 +838,30 @@ test("現行案内・SPEC・Workflowに残る旧Runtime Data Pathを拒否する
     );
 });
 
+test("本番Consumerによる直接または分割したRuntime Data Root構築を拒否する", () => {
+  for (const expression of [
+    'path.join(root, ".crdd", "unknown")',
+    'path.join(root, "." + "crdd", "release")',
+  ]) {
+    const root = fixture();
+    makeStructure(root);
+    fs.rmSync(path.join(root, "00_CRDD"), { recursive: true, force: true });
+    write(path.join(root, "01_Principles.md"), "Version: v0.21.0\n");
+    write(path.join(root, "template", "AGENTS.md"), "# CRDD template\n");
+    write(
+      path.join(root, "40_Develop", "coordinator", "src", "bypass.ts"),
+      `const target = ${expression};\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "runtime_data_path_resolver_bypassed",
+      ),
+      `${result.stderr}\n${result.stdout}`,
+    );
+  }
+});
+
 test("文書Disposition InventoryはMarkdown母集団の欠落・余分・重複を拒否する", () => {
   for (const mutation of ["missing", "extra", "duplicate"] as const) {
     const root = dispositionFixtureRoot();

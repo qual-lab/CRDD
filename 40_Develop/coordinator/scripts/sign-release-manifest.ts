@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
+import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import { inspectGitCommitTreeCandidate } from "../src/security/git-object-reader.ts";
 import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
@@ -35,8 +36,15 @@ import {
   verifyReleaseStagingManifestSession,
 } from "./release-staging-manifest.ts";
 
-const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
-const releaseStagingRoot = path.join(repositoryRoot, ".crdd", "release");
+const repositoryRoot = path.resolve(
+  fileURLToPath(new URL("../../../", import.meta.url)),
+);
+const runtimeDataPaths =
+  resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot) ??
+  (() => {
+    throw new Error("release_manifest_repository_root_invalid");
+  })();
+const releaseStagingRoot = runtimeDataPaths.release;
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
 const MAXIMUM_PASSPHRASE_BYTES = 1_024;
 const RELEASE_CANDIDATE_DIRECTORY = /^[a-z0-9][a-z0-9-]{0,127}$/u;
@@ -199,8 +207,7 @@ function repositoryLocalDistributionRoot(target: string) {
     const resolved = path.resolve(target);
     const metadata = fs.lstatSync(resolved);
     const real = fs.realpathSync.native(resolved);
-    const realRepositoryRoot = fs.realpathSync.native(repositoryRoot);
-    const localRoot = path.join(repositoryRoot, ".crdd");
+    const localRoot = runtimeDataPaths.root;
     const localRootMetadata = fs.lstatSync(localRoot);
     const stagingRootMetadata = fs.lstatSync(releaseStagingRoot);
     const realLocalRoot = fs.realpathSync.native(localRoot);
@@ -212,7 +219,7 @@ function repositoryLocalDistributionRoot(target: string) {
       real !== resolved ||
       !localRootMetadata.isDirectory() ||
       localRootMetadata.isSymbolicLink() ||
-      realLocalRoot !== path.join(realRepositoryRoot, ".crdd") ||
+      realLocalRoot !== runtimeDataPaths.root ||
       !stagingRootMetadata.isDirectory() ||
       stagingRootMetadata.isSymbolicLink() ||
       realStagingRoot !== path.join(realLocalRoot, "release") ||

@@ -225,17 +225,22 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(verifiedRoot.status, "completed");
   if (verifiedRoot.status !== "completed")
     throw new Error("execution_intelligence_root_not_verified");
-  const executionIntelligence = readExecutionIntelligence(verifiedRoot.root);
-  assert.equal(executionIntelligence.status, "completed");
-  if (executionIntelligence.status !== "completed")
+  const executionIntelligenceResult = readExecutionIntelligence(
+    verifiedRoot.root,
+  );
+  assert.equal(executionIntelligenceResult.status, "completed");
+  if (executionIntelligenceResult.status !== "completed")
     throw new Error("execution_intelligence_observation_failed");
-  assert.equal(executionIntelligence.events.length, 1);
+  assert.equal(executionIntelligenceResult.events.length, 1);
   assert.equal(
-    executionIntelligence.events[0]?.identity.projectId,
+    executionIntelligenceResult.events[0]?.identity.projectId,
     "project-public-runtime",
   );
-  assert.equal(executionIntelligence.events[0]?.outcome.status, "completed");
-  assert.deepEqual(executionIntelligence.events[0]?.execution.provider, {
+  assert.equal(
+    executionIntelligenceResult.events[0]?.outcome.status,
+    "completed",
+  );
+  assert.deepEqual(executionIntelligenceResult.events[0]?.execution.provider, {
     state: "observed",
     value: "codex",
     source: "single_task_verified_completion",

@@ -45,7 +45,8 @@ export type ExecutionIntelligencePublicationResult =
 
 type StoreLayout = Readonly<{
   executionDirectory: string;
-  eventsDirectory: string;
+  operationDirectory: string | null;
+  eventsDirectory: string | null;
 }>;
 
 type MutationLock = Readonly<{
@@ -99,6 +100,7 @@ function ensureDirectory(directory: string): void {
 function storeLayout(
   rootCapability: VerifiedExecutionRepositoryRoot,
   shouldCreate: boolean,
+  operationId: string | null = null,
 ): StoreLayout | null {
   const repositoryRoot = resolveVerifiedExecutionRepositoryRoot(rootCapability);
   if (repositoryRoot === null)
@@ -110,23 +112,35 @@ function storeLayout(
     throw new Error("execution_store_root_capability_invalid");
   const crddDirectory = paths.root;
   const executionDirectory = paths.execution;
-  const eventsDirectory = path.join(executionDirectory, "events");
+  const operationDirectory =
+    operationId === null ? null : path.join(executionDirectory, operationId);
+  const eventsDirectory =
+    operationDirectory === null
+      ? null
+      : path.join(operationDirectory, "events");
   for (const directory of [
     crddDirectory,
     executionDirectory,
+    operationDirectory,
     eventsDirectory,
-  ]) {
+  ].filter((value): value is string => value !== null)) {
     if (!fs.existsSync(directory)) {
       if (!shouldCreate) return null;
       ensureDirectory(directory);
     } else if (!safeDirectory(directory))
       throw new Error("execution_store_link_or_type_rejected");
   }
-  return Object.freeze({ executionDirectory, eventsDirectory });
+  return Object.freeze({
+    executionDirectory,
+    operationDirectory,
+    eventsDirectory,
+  });
 }
 
 function acquireMutationLock(layout: StoreLayout): MutationLock | null {
-  const directory = path.join(layout.executionDirectory, ".mutation-lock");
+  if (layout.operationDirectory === null)
+    throw new Error("execution_store_operation_directory_missing");
+  const directory = path.join(layout.operationDirectory, ".mutation-lock");
   for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
     try {
       fs.mkdirSync(directory, { mode: 0o700 });
@@ -246,8 +260,14 @@ export function writeExecutionIntelligenceEvent(
   let result: ExecutionIntelligencePublicationResult | null = null;
   let lockReleased = true;
   try {
-    const layout = storeLayout(rootCapability, true);
+    const layout = storeLayout(
+      rootCapability,
+      true,
+      event.identity.operationId,
+    );
     if (!layout) throw new Error("execution_store_directory_missing");
+    if (layout.eventsDirectory === null)
+      throw new Error("execution_store_events_directory_missing");
     lock = acquireMutationLock(layout);
     if (!lock)
       return blockedPublication(
@@ -351,31 +371,47 @@ export function writeExecutionIntelligenceEvent(
   );
 }
 
-function readFromDirectory(directory: string) {
-  const names = fs.readdirSync(directory).sort();
-  if (names.length > MAXIMUM_EVENTS)
-    throw new Error("execution_store_event_limit_exceeded");
-  let totalBytes = 0;
+function readFromExecutionDirectory(directory: string) {
   const events: ExecutionIntelligenceEvent[] = [];
   const hashes: Record<string, string> = {};
-  for (const name of names) {
-    if (!/^execution-[0-9a-f]{64}\.json$/u.test(name))
-      throw new Error("execution_store_filename_invalid");
-    const target = path.join(directory, name);
-    const status = fs.lstatSync(target);
-    if (!status.isFile() || status.isSymbolicLink())
-      throw new Error("execution_store_entry_type_invalid");
-    totalBytes += status.size;
-    if (totalBytes > MAXIMUM_TOTAL_BYTES)
-      throw new Error("execution_store_byte_limit_exceeded");
-    const bytes = fs.readFileSync(target);
-    const event = inspectExecutionIntelligenceEvent(
-      JSON.parse(bytes.toString("utf8")),
-    );
-    if (!event || `${event.eventId}.json` !== name)
-      throw new Error("execution_store_content_invalid");
-    events.push(event);
-    hashes[event.eventId] = sha256(bytes);
+  let totalBytes = 0;
+  for (const operationId of fs.readdirSync(directory).sort()) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(operationId))
+      throw new Error("execution_store_operation_directory_invalid");
+    const operationDirectory = path.join(directory, operationId);
+    if (!safeDirectory(operationDirectory))
+      throw new Error("execution_store_operation_directory_invalid");
+    const names = fs.readdirSync(operationDirectory).sort();
+    if (names.length !== 1 || names[0] !== "events")
+      throw new Error("execution_store_operation_shape_invalid");
+    const eventsDirectory = path.join(operationDirectory, "events");
+    if (!safeDirectory(eventsDirectory))
+      throw new Error("execution_store_event_directory_invalid");
+    for (const name of fs.readdirSync(eventsDirectory).sort()) {
+      if (!/^execution-[0-9a-f]{64}\.json$/u.test(name))
+        throw new Error("execution_store_filename_invalid");
+      const target = path.join(eventsDirectory, name);
+      const status = fs.lstatSync(target);
+      if (!status.isFile() || status.isSymbolicLink())
+        throw new Error("execution_store_entry_type_invalid");
+      totalBytes += status.size;
+      if (events.length >= MAXIMUM_EVENTS)
+        throw new Error("execution_store_event_limit_exceeded");
+      if (totalBytes > MAXIMUM_TOTAL_BYTES)
+        throw new Error("execution_store_byte_limit_exceeded");
+      const bytes = fs.readFileSync(target);
+      const event = inspectExecutionIntelligenceEvent(
+        JSON.parse(bytes.toString("utf8")),
+      );
+      if (
+        !event ||
+        `${event.eventId}.json` !== name ||
+        event.identity.operationId !== operationId
+      )
+        throw new Error("execution_store_content_invalid");
+      events.push(event);
+      hashes[event.eventId] = sha256(bytes);
+    }
   }
   const summary = summarizeExecutionIntelligence(events);
   if (!summary) throw new Error("execution_summary_invalid");
@@ -391,7 +427,7 @@ function readFromDirectory(directory: string) {
 export function readExecutionIntelligence(
   rootCapability: VerifiedExecutionRepositoryRoot,
 ):
-  | ReturnType<typeof readFromDirectory>
+  | ReturnType<typeof readFromExecutionDirectory>
   | Readonly<{ status: "blocked"; reason: string }> {
   try {
     const layout = storeLayout(rootCapability, false);
@@ -406,7 +442,7 @@ export function readExecutionIntelligence(
         summary: emptySummary,
       });
     }
-    return readFromDirectory(layout.eventsDirectory);
+    return readFromExecutionDirectory(layout.executionDirectory);
   } catch {
     return Object.freeze({
       status: "blocked" as const,

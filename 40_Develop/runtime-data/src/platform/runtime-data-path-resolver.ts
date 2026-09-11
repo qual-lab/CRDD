@@ -5,11 +5,13 @@ import {
   verifyRepositoryRootFromWorkingDirectory,
   type VerifiedRepositoryRoot,
 } from "./repository-root-capability.ts";
+import { CROS_DIRECTORY_ID } from "../core/runtime-data-contract.ts";
 
 export const REPOSITORY_MANIFEST_RELATIVE_PATH =
   ".crdd/config/repository-manifest.json" as const;
 export const EXTERNAL_SEND_POLICY_RELATIVE_PATH =
   ".crdd/config/external-send-policy.json" as const;
+export const VERIFICATION_RELATIVE_PATH = ".crdd/verification" as const;
 
 const REPOSITORY_AREAS = Object.freeze([
   "config",
@@ -25,11 +27,20 @@ const REPOSITORY_AREAS = Object.freeze([
 
 export type RepositoryRuntimeArea = (typeof REPOSITORY_AREAS)[number];
 
-export function resolveRepositoryRuntimeDataPaths(
-  capability: VerifiedRepositoryRoot,
+/**
+ * Resolves only canonical paths. The caller remains responsible for proving
+ * that `repositoryRoot` is the exact repository root before any effect.
+ * This separate entry point lets protected signing code retain its own
+ * no-external-Git root proof without reconstructing `.crdd` paths.
+ */
+export function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
+  repositoryRoot: string,
 ) {
-  const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
-  if (repositoryRoot === null) return null;
+  if (
+    !path.isAbsolute(repositoryRoot) ||
+    path.resolve(repositoryRoot) !== repositoryRoot
+  )
+    return null;
   const root = path.join(repositoryRoot, ".crdd");
   return Object.freeze({
     repositoryRoot,
@@ -47,6 +58,14 @@ export function resolveRepositoryRuntimeDataPaths(
     temporary: path.join(root, "tmp"),
     allowedTopLevelAreas: REPOSITORY_AREAS,
   });
+}
+
+export function resolveRepositoryRuntimeDataPaths(
+  capability: VerifiedRepositoryRoot,
+) {
+  const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
+  if (repositoryRoot === null) return null;
+  return resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
 }
 
 export function resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
@@ -70,12 +89,10 @@ type CrosRootInput = Readonly<{
   homeDirectory?: string;
 }>;
 
-const DIRECTORY_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
-
 export function resolveCrosRuntimeRoots(input: CrosRootInput) {
   if (
-    !DIRECTORY_ID.test(input.trustDomainId) ||
-    !DIRECTORY_ID.test(input.publisher) ||
+    !CROS_DIRECTORY_ID.test(input.trustDomainId) ||
+    !CROS_DIRECTORY_ID.test(input.publisher) ||
     input.application !== "cros"
   )
     return null;

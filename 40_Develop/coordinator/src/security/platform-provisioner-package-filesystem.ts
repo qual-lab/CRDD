@@ -1988,19 +1988,19 @@ const exactAuditedFunctionFlows = Object.freeze(
       "runtime",
       "scripts/sign-release-manifest.ts",
       "prepareReleaseManifestCandidate",
-      "d435a8bd72965a4d6b862ddea43bc5677f47167949547574a535a1b40dbf1fee",
+      "52bd24303463c4db8c0dbcd1f416a8c883c620ad4f0c05d4ef3ad47b4005583b",
     ],
     [
       "runtime",
       "scripts/sign-release-manifest.ts",
       "preflightReleaseManifest",
-      "d757f5d1f0d233d8853fd3153180a54ffed32b0467bcb5ee5b3022972f45bfaf",
+      "7ffb2f6feed9e261caf4ca6e5a61c99c3885f5d15a5ffd309250af8ada44c20b",
     ],
     [
       "runtime",
       "scripts/sign-release-manifest.ts",
       "signReleaseManifest",
-      "cb3755246ade4c1a7e8358e5973909c3720f8c145587b037ae0fcf639c75b7c6",
+      "bf4e97c6accd81902196c51b1fb7847a8eaae264d184e7c46fb56932a1deeb67",
     ],
     [
       "runtime",
@@ -2012,7 +2012,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-project-runtime-real-providers.ts",
       "main",
-      "8cc83063dc269b8663325c04bf28db4369ffe926baf7038d7060f32bbcfc6caa",
+      "6b49ea0d86a273db38c196fabe60bdd876522deef433d93de9452e2451e0595a",
     ],
   ].map(
     ([graph, source, functionName, bodySha256]) =>
@@ -2101,15 +2101,15 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/sign-release-manifest.ts\0prepareReleaseManifestCandidate",
-      "043dc60de9e69bb97db94a8c16200deeb1918f59f77a4827313c536376cc8541",
+      "1e88f4c1b799a3d3f93c635772fc654d963ef6231837e1246ec79fc3d240bb39",
     ],
     [
       "scripts/sign-release-manifest.ts\0preflightReleaseManifest",
-      "31f5effed8c7b876655a6c548c335eeb1275e674e3b9008c326616ce58f65937",
+      "b5a423a1d634901420ee5b6dca3e9f429166e63de9039a6a32d6dbadfd7810a7",
     ],
     [
       "scripts/sign-release-manifest.ts\0signReleaseManifest",
-      "5827d31d0a7be10358138cba862b6fbdaca73b97ac5255f37364eec384b48e5e",
+      "84a0c1ade0611b63497658744b3aeb7bcc6c904ea52caa1da4755592b3523868",
     ],
     [
       "scripts/sign-release-manifest.ts\0main",
@@ -2117,7 +2117,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "5f8ee02e629243e1a60a4e1c30bec62e4eda9190ba6d24a0d1410870631a0651",
+      "12eb6ca1b104caf96a980171f9379998faae1a6059c06d7d1939e777e914e316",
     ],
   ]),
 );
@@ -5231,6 +5231,11 @@ function assertPublicRuntimeObservationConsumerClosure(
     ],
     [
       "observeRuntimeDistribution",
+      "diagnoseRuntimeDistributionFilesystemForVerification",
+      ["distributionRoot"],
+    ],
+    [
+      "observeRuntimeDistribution",
       "inspectBundledCoordinatorPackageFilesystemCandidate",
       ["bundledDistributionRoot"],
     ],
@@ -6080,7 +6085,17 @@ function verifyLauncherEntryBindings(packageRoot: string) {
     throw new Error("platform_provisioner_launch_entry_invalid");
 }
 
-function collectRuntimeExecutionScriptPaths(packageRoot: string) {
+function isCoordinatorSiblingRuntimeTarget(target: string) {
+  return RUNTIME_SIBLING_COMPONENTS.some((component) => {
+    const coordinatorRelativePrefix = `../${component.sourcePrefix.slice("40_Develop/".length)}`;
+    return target.startsWith(coordinatorRelativePrefix);
+  });
+}
+
+function collectRuntimeExecutionScriptPaths(
+  packageRoot: string,
+  isSiblingRuntimeTargetAllowed = false,
+) {
   const shouldEnforceDeclaredGraph = fs.existsSync(
     path.join(
       packageRoot,
@@ -6103,7 +6118,14 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
       }
       const rootSegment = target.split("/")[0];
       if (rootSegment === "scripts") pendingItems.push(target);
-      else if (!rootSegment || !runtimeExecutionDirectories.has(rootSegment)) {
+      else if (
+        !rootSegment ||
+        (!runtimeExecutionDirectories.has(rootSegment) &&
+          !(
+            isSiblingRuntimeTargetAllowed &&
+            isCoordinatorSiblingRuntimeTarget(target)
+          ))
+      ) {
         throw new Error(
           "platform_provisioner_runtime_dependency_outside_execution_set",
         );
@@ -6147,7 +6169,14 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
     )) {
       const rootSegment = target.split("/")[0];
       if (rootSegment === "scripts") pendingItems.push(target);
-      else if (!rootSegment || !runtimeExecutionDirectories.has(rootSegment)) {
+      else if (
+        !rootSegment ||
+        (!runtimeExecutionDirectories.has(rootSegment) &&
+          !(
+            isSiblingRuntimeTargetAllowed &&
+            isCoordinatorSiblingRuntimeTarget(target)
+          ))
+      ) {
         throw new Error(
           "platform_provisioner_runtime_dependency_outside_execution_set",
         );
@@ -6185,8 +6214,12 @@ function verifyStaticRuntimeModuleBoundary(
 
 function packageEntries(
   root: Readonly<{ realPath: string; identity: EntityIdentity }>,
+  isSiblingRuntimeTargetAllowed = false,
 ) {
-  const scriptPaths = collectRuntimeExecutionScriptPaths(root.realPath);
+  const scriptPaths = collectRuntimeExecutionScriptPaths(
+    root.realPath,
+    isSiblingRuntimeTargetAllowed,
+  );
   const shouldEnforceDeclaredGraph = fs.existsSync(
     path.join(
       root.realPath,
@@ -6616,7 +6649,7 @@ function observeRuntimeDistribution(distributionRootPath: string) {
   const coordinatorRoot = directoryIdentity(
     path.join(developRoot.realPath, "coordinator"),
   );
-  const coordinatorInventory = packageEntries(coordinatorRoot);
+  const coordinatorInventory = packageEntries(coordinatorRoot, true);
   const coordinatorPaths = new Set(
     coordinatorInventory.files.map(
       (relative) => `40_Develop/coordinator/${relative}`,
@@ -6846,6 +6879,36 @@ export function inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate
     );
   } catch {
     return blocked("platform_provisioner_distribution_filesystem_invalid");
+  }
+}
+
+/** Closed diagnostic for contract tests; never returns paths or source bytes. */
+export function diagnoseRuntimeDistributionFilesystemForVerification(
+  distributionRoot: unknown,
+) {
+  try {
+    if (
+      typeof distributionRoot !== "string" ||
+      distributionRoot.length === 0 ||
+      !path.isAbsolute(distributionRoot) ||
+      path.normalize(distributionRoot) !== distributionRoot
+    )
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "platform_provisioner_distribution_root_invalid" as const,
+      });
+    observeRuntimeDistribution(distributionRoot);
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "platform_provisioner_distribution_observed" as const,
+    });
+  } catch (error) {
+    const reason =
+      error instanceof Error &&
+      /^platform_provisioner_[a-z_]+$/u.test(error.message)
+        ? error.message
+        : "platform_provisioner_distribution_filesystem_invalid";
+    return Object.freeze({ status: "blocked" as const, reason });
   }
 }
 

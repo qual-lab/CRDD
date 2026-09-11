@@ -421,9 +421,9 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
   const verified = verifyExecutionIntelligenceRepositoryRoot(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("root_not_verified");
-  const intelligence = readExecutionIntelligence(verified.root);
-  assert.equal(intelligence.status, "completed");
-  if (intelligence.status !== "completed")
+  const intelligenceResult = readExecutionIntelligence(verified.root);
+  assert.equal(intelligenceResult.status, "completed");
+  if (intelligenceResult.status !== "completed")
     throw new Error("execution_events_not_observed");
   const evaluation = evaluateBoundedIntegratedResult({
     contract: BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
@@ -431,7 +431,7 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
     projectId: request.projectId,
     milestoneId: request.milestoneId,
     expectedTaskIds: ["task-a", "task-b"],
-    taskAttemptEvents: intelligence.events,
+    taskAttemptEvents: intelligenceResult.events,
     integratedResult: observed(
       { result: "accepted", evidenceIds: ["evidence-milestone"] },
       "project_runtime_integration_result",

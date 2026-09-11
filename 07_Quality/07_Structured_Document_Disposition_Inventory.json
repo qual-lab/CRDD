@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "260de52d427d38b2127457cfb000d03c45025350d3be64db6c94f1384ff292e4",
+  "evaluatedDocumentationSetSha256": "5f4d1baebcc7c5602e053db877197dc25ad0be321a1b2152f596d9ccd0aa0894",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -181,7 +181,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "06_Architecture/execution-intelligence/01_Architecture.md",
-      "currentBlobOid": "1f0e7f4c1e55b9dd0933f8b478876f20fed76f07"
+      "currentBlobOid": "078076dc436663b401410d4903f9874105836edd"
     },
     {
       "path": "06_Architecture/mcp/01_Architecture.md",
@@ -226,7 +226,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "06_Architecture/runtime-data/01_Current_Path_Inventory.md",
-      "currentBlobOid": "16014872cab40c2de1219aa45bbbca81a1901e33"
+      "currentBlobOid": "9a2a01b8050dc4fb0b1f8926a6a240063c878349"
     },
     {
       "path": "06_Architecture/runtime-data/02_Target_Architecture.md",
@@ -235,7 +235,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "06_Architecture/runtime-data/02_Target_Architecture.md",
-      "currentBlobOid": "2430d45c94aa8c6f8c3c8034f358317bafdd08c1"
+      "currentBlobOid": "707f85e6ad7c4685b5c491e2b28941f834488e00"
     },
     {
       "path": "07_Quality/01_Quality_Center.md",
@@ -262,7 +262,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "07_Quality/03_Verification_Design.md",
-      "currentBlobOid": "85bd7e5a8ee0d87612ef606cb32ce03b0c8bf8cb"
+      "currentBlobOid": "53c99cf18631c1ea661830693d29f988efedd5e5"
     },
     {
       "path": "07_Quality/Verification_Results/2026-08-31_Coordinator_Closure_Verification.md",
@@ -1258,7 +1258,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "90_Release/Changes/CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md",
-      "currentBlobOid": "fc393533b7f70682b6ce95f41f54a05684ca9d39"
+      "currentBlobOid": "af96ef123a518fd05524f9474fd88ade44ca89cb"
     },
     {
       "path": "90_Release/Changes/Evidence/CHG-000007_Adopter_Trial_Report.md",

@@ -18,6 +18,7 @@ import {
   signReleaseManifest as consumeReleaseManifestPreflightAuthorization,
 } from "../../scripts/sign-release-manifest.ts";
 import {
+  diagnoseRuntimeDistributionFilesystemForVerification,
   inspectFixedDevelopmentCoordinatorPackageCandidate,
   inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate,
   verifyInstalledCoordinatorPackageCandidate,
@@ -500,7 +501,11 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
         inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
           distributionRoot,
         );
-      assert.equal(complete.status, "candidate", relativePath);
+      assert.equal(
+        complete.status,
+        "candidate",
+        `${relativePath}: ${JSON.stringify(complete)} ${JSON.stringify(diagnoseRuntimeDistributionFilesystemForVerification(distributionRoot))}`,
+      );
       fs.unlinkSync(path.join(distributionRoot, ...relativePath.split("/")));
       const incomplete =
         inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
@@ -634,7 +639,11 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
         inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
           distributionRoot,
         );
-      assert.equal(baseline.status, "candidate", scenario.name);
+      assert.equal(
+        baseline.status,
+        "candidate",
+        `${scenario.name}: ${JSON.stringify(baseline)} ${JSON.stringify(diagnoseRuntimeDistributionFilesystemForVerification(distributionRoot))}`,
+      );
       fs.appendFileSync(
         path.join(distributionRoot, ...scenario.relativePath.split("/")),
         scenario.source,

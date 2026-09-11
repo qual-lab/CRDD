@@ -2,6 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
+import {
+  resolveRepositoryRuntimeDataPathsFromValidatedRoot,
+  VERIFICATION_RELATIVE_PATH,
+} from "../../../runtime-data/src/index.ts";
 import { isDockerIsolationRecoveryIdCandidate } from "../security/docker-isolation.ts";
 import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
 import { inspectRepositoryRevisionCandidate } from "../security/repository-operation-runtime.ts";
@@ -290,6 +294,14 @@ function appendDirectory(parents: readonly DirectoryIdentity[], name: string) {
   recheck(parents);
   return [...parents, observeDirectory(target)];
 }
+function appendCanonicalDirectory(
+  parents: readonly DirectoryIdentity[],
+  target: string,
+) {
+  if (path.dirname(target) !== lastDirectory(parents))
+    throw new Error("verification_record_directory_invalid");
+  return appendDirectory(parents, path.basename(target));
+}
 function writeNewRecord(
   directories: readonly DirectoryIdentity[],
   name: string,
@@ -356,10 +368,20 @@ export async function runRecordedVerification<T, E>(
       throw new Error("verification_record_input_invalid");
     const root =
       resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+    const runtimePaths =
+      resolveRepositoryRuntimeDataPathsFromValidatedRoot(root);
+    if (!runtimePaths)
+      throw new Error("verification_record_runtime_path_invalid");
     const revision = inspectRepositoryRevisionCandidate(root);
     if (!revision) throw new Error("verification_record_revision_unavailable");
-    directories = appendDirectory([observeDirectory(root)], ".crdd");
-    directories = appendDirectory(directories, "verification");
+    directories = appendCanonicalDirectory(
+      [observeDirectory(root)],
+      runtimePaths.root,
+    );
+    directories = appendCanonicalDirectory(
+      directories,
+      runtimePaths.verification,
+    );
     // Admission bound, not a cross-process atomic quota. Never delete old evidence.
     if (
       fs.readdirSync(lastDirectory(directories)).length >= MAX_EXISTING_ENTRIES
@@ -447,5 +469,7 @@ export function displayVerificationRecording(
         : "最終結果を保存できませんでした。以下の実行結果を保持してください。保存失敗から実行結果や回復状態を推定しないでください。";
   process.stderr.write(`${message}\n`);
   if (outcome.recordId)
-    process.stderr.write(`記録: .crdd/verification/${outcome.recordId}/\n`);
+    process.stderr.write(
+      `記録: ${VERIFICATION_RELATIVE_PATH}/${outcome.recordId}/\n`,
+    );
 }

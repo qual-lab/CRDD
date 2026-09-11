@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
 
 import {
   loadPlatformProvisionerManifestEnvelopeForVerification,
@@ -49,11 +50,12 @@ export function resolveReleaseManifestPromotionTopologyForVerification(
       destinationRepositoryRoot
   )
     throw new Error("release_manifest_promotion_destination_root_invalid");
-  const releaseStagingRoot = path.join(
+  const runtimePaths = resolveRepositoryRuntimeDataPathsFromValidatedRoot(
     destinationRepositoryRoot,
-    ".crdd",
-    "release",
   );
+  if (!runtimePaths)
+    throw new Error("release_manifest_promotion_topology_invalid");
+  const releaseStagingRoot = runtimePaths.release;
   try {
     const parent = fs.realpathSync.native(path.dirname(distributionRoot));
     const metadata = fs.lstatSync(distributionRoot);

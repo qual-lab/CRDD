@@ -49,14 +49,14 @@ Related:
    │
    ├─ execution/                           [D] Execution Intelligence
    │  └─ <operation-id>/
-   │     ├─ summary.json                      実行結果、時間、Provider、品質の要約
-   │     ├─ events/                           Operation内の不変Event
-   │     └─ diagnostics/                      秘密を含めない原因切り分け情報
+   │     └─ events/                           Operation内の不変Event。要約はEventから投影する
    │
    ├─ verification/                        [D] 検証結果と根拠
    │  └─ <verification-id>/
-   │     ├─ result.json                       対象改訂版、判定、確認・未確認範囲
-   │     └─ artifacts/                        比較結果と必要な検証Artifact
+   │     ├─ started.json                      対象改訂版と開始時点
+   │     ├─ result.json                       判定、確認・未確認範囲
+   │     ├─ complete.json                     flush/read-backを含む完了記録
+   │     └─ artifacts/                        必要な検証Artifactがある場合だけ作る
    │
    ├─ candidates/                          [D/W] 未採用の成果物
    │  └─ <candidate-id>/
@@ -66,19 +66,16 @@ Related:
    │
    ├─ release/                             [D/W] Release候補と準備処理
    │  └─ <candidate-id>/
-   │     ├─ manifest/                         署名、Hash、配布対象の情報
-   │     ├─ evidence/                         Release Gateの検証結果
-   │     ├─ recovery/                         Release処理固有の回復義務
-   │     └─ work/                             再生成可能なstaging
+   │     └─ <distribution tree>                固定Commitから展開した配布Root。署名Manifestも配布内の正規位置に置く
    │
    ├─ communication/                       [D/W] Repository内Communication
    │  └─ <context-id>/
    │     ├─ state.json                        Meeting・Topic等の現在状態
    │     └─ candidates/                       昇格前のDecision・記事等の候補
    │
-   ├─ tests/                               [T/D] 試験Run単位の生成物
+   ├─ tests/                               [T/D] 試験実行単位の生成物
    │  └─ <execution-unit>/
-   │     └─ <run-id>/
+   │     └─ <run-id>/                        複数Runを保持する試験で必須。単一handoff入口はexecution-unit直下の固定入力を使用できる
    │        ├─ input/                         固定した試験入力
    │        ├─ output/                        試験出力
    │        └─ diagnostics/                   失敗時の診断情報
@@ -133,13 +130,13 @@ Related:
 | Owner | 作成、利用、清掃を担当するComponentまたはProcess |
 | Purpose | 中間物が必要な処理と再生成元 |
 | Allowed content | 作成できるfile種別と最大範囲 |
-| Evidence promotion | 判断根拠として残す情報がある場合だけ`required`とし、正式な昇格先を持つ。Evidenceを生成しないOperationへ昇格を要求しない |
+| Evidence promotion | 判断根拠として残す情報がある場合だけ`required`とする。`verification/<id>/artifacts/`に存在するbyteとHashを独立検証したReceiptをOperation Identity・Owner世代へ結合し、callerのboolean自己申告では削除を許可しない |
 | Terminal paths | 正常、失敗、取消、Timeout、親Process喪失 |
 | Promotion | 残す必要が生じた情報の正式な移動先 |
 | Cleanup trigger | 各終端経路と次回の安全な再入場 |
 | Completion evidence | 削除要求ではなく、対象不存在の観測 |
 
-`operation.json`のSchemaは実装設計で固定する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。作成時には、Process再起動後も同じDirectoryを推測探索せず再入場できるexact Recovery参照を返す。
+`operation.json`は状態とOwner世代を耐久化する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。作成時には、Process再起動後も同じDirectoryを推測探索せず再入場できるexact Recovery参照を返す。`active`中の再入場は拒否し、`parent_lost`後だけ同一参照を一度消費して世代を更新する。旧参照、旧Capability、並行する二つ目の再入場はEffect 0で拒否する。
 
 ### 4.3. Lifecycle
 
@@ -160,7 +157,7 @@ tmp/<operation-id>/を排他的に作成
                          次回安全入口で清掃・不存在確認
 ```
 
-清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、必要な意味だけを回復を所有するComponentの`recovery/`または`verification/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。再入場では`operation-id`、Ownerおよび作成時Identityの完全一致を要求し、旧Capabilityを再利用しない。
+清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、必要な意味だけを回復を所有するComponentの`recovery/`または`verification/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。Evidence必須時は、正式な昇格先、byte Hash、Operation Identityおよび現Owner世代が一致するReceiptだけを受理する。
 
 ### 4.4. Recoveryの所有
 

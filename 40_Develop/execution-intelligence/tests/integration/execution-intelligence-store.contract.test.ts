@@ -81,6 +81,14 @@ function event() {
   return eventForTask("task-a");
 }
 
+function operationDirectory(root: string) {
+  return path.join(root, ".crdd", "execution", "operation-a");
+}
+
+function eventDirectory(root: string) {
+  return path.join(operationDirectory(root), "events");
+}
+
 test("an embedded TypeScript application can record and read through one public recorder", (t) => {
   const root = fixture(t);
   const created = createExecutionIntelligenceRecorder(root);
@@ -95,11 +103,12 @@ test("an embedded TypeScript application can record and read through one public 
     quality: source.quality,
   });
   assert.equal(publication.status, "completed");
-  const observed = created.recorder.read();
-  assert.equal(observed.status, "completed");
-  if (observed.status !== "completed") throw new Error("events_not_observed");
-  assert.equal(observed.events.length, 1);
-  assert.equal(observed.events[0]?.eventId, source.eventId);
+  const observedResult = created.recorder.read();
+  assert.equal(observedResult.status, "completed");
+  if (observedResult.status !== "completed")
+    throw new Error("events_not_observed");
+  assert.equal(observedResult.events.length, 1);
+  assert.equal(observedResult.events[0]?.eventId, source.eventId);
 });
 
 test("Recorderはtop-level Accessorを実行せずStore Effect 0で拒否する", (t) => {
@@ -190,21 +199,14 @@ test("writes immutable events under repository-local .crdd and reads a summary",
     writeExecutionIntelligenceEvent(capability, created).status,
     "completed",
   );
-  const observed = readExecutionIntelligence(capability);
-  assert.equal(observed.status, "completed");
-  if (observed.status !== "completed") throw new Error("observation_failed");
-  assert.equal(observed.events.length, 1);
-  assert.equal(observed.summary.eventCount, 1);
+  const observedResult = readExecutionIntelligence(capability);
+  assert.equal(observedResult.status, "completed");
+  if (observedResult.status !== "completed")
+    throw new Error("observation_failed");
+  assert.equal(observedResult.events.length, 1);
+  assert.equal(observedResult.summary.eventCount, 1);
   assert.equal(
-    fs.existsSync(
-      path.join(
-        root,
-        ".crdd",
-        "execution",
-        "events",
-        `${created.eventId}.json`,
-      ),
-    ),
+    fs.existsSync(path.join(eventDirectory(root), `${created.eventId}.json`)),
     true,
   );
 });
@@ -258,7 +260,7 @@ test("fails closed when stored content is corrupt", (t) => {
     "completed",
   );
   fs.writeFileSync(
-    path.join(root, ".crdd", "execution", "events", `${created.eventId}.json`),
+    path.join(eventDirectory(root), `${created.eventId}.json`),
     "{}\n",
     "utf8",
   );
@@ -287,7 +289,7 @@ test("does not hide an unknown residual file from the store result", (t) => {
     "completed",
   );
   fs.writeFileSync(
-    path.join(root, ".crdd", "execution", "events", "unknown.pending"),
+    path.join(eventDirectory(root), "unknown.pending"),
     "residual\n",
     "utf8",
   );
@@ -302,27 +304,21 @@ test("物理保持削除を公開せず自己申告のEvidenceでEventを変更�
   const capability = verifiedRoot(root);
   const created = event();
   writeExecutionIntelligenceEvent(capability, created);
-  const observed = readExecutionIntelligence(capability);
-  assert.equal(observed.status, "completed");
-  if (observed.status !== "completed") throw new Error("observation_failed");
+  const observedResult = readExecutionIntelligence(capability);
+  assert.equal(observedResult.status, "completed");
+  if (observedResult.status !== "completed")
+    throw new Error("observation_failed");
   const before = fs.readFileSync(
-    path.join(root, ".crdd", "execution", "events", `${created.eventId}.json`),
+    path.join(eventDirectory(root), `${created.eventId}.json`),
   );
   const publicApi = await import("../../src/index.ts");
   assert.equal("applyExecutionIntelligenceRetention" in publicApi, false);
-  const after = readExecutionIntelligence(capability);
-  assert.equal(after.status, "completed");
-  if (after.status === "completed") assert.equal(after.events.length, 1);
+  const afterResult = readExecutionIntelligence(capability);
+  assert.equal(afterResult.status, "completed");
+  if (afterResult.status === "completed")
+    assert.equal(afterResult.events.length, 1);
   assert.deepEqual(
-    fs.readFileSync(
-      path.join(
-        root,
-        ".crdd",
-        "execution",
-        "events",
-        `${created.eventId}.json`,
-      ),
-    ),
+    fs.readFileSync(path.join(eventDirectory(root), `${created.eventId}.json`)),
     before,
   );
 });
@@ -417,20 +413,16 @@ test("並行Processの同一Eventは冪等で、異なる内容は上書きし�
   );
   assert.equal(statuses.filter((status) => status === "completed").length, 1);
   assert.equal(statuses.filter((status) => status === "blocked").length, 1);
-  const eventDirectory = path.join(
-    conflictRoot,
-    ".crdd",
-    "execution",
-    "events",
-  );
+  const conflictEventDirectory = eventDirectory(conflictRoot);
   assert.equal(
-    fs.readdirSync(eventDirectory).filter((name) => name.endsWith(".json"))
-      .length,
+    fs
+      .readdirSync(conflictEventDirectory)
+      .filter((name) => name.endsWith(".json")).length,
     1,
   );
   assert.equal(
     fs.existsSync(
-      path.join(conflictRoot, ".crdd", "execution", ".mutation-lock"),
+      path.join(operationDirectory(conflictRoot), ".mutation-lock"),
     ),
     false,
   );
@@ -584,7 +576,7 @@ for (const fault of ["open", "write", "flush", "publish", "readback"] as const)
     assert.equal(result.cleanupConfirmed, true);
     assert.deepEqual(result.residualArtifactIds, []);
     assert.equal(
-      fs.existsSync(path.join(root, ".crdd", "execution", ".mutation-lock")),
+      fs.existsSync(path.join(operationDirectory(root), ".mutation-lock")),
       false,
     );
   });
@@ -613,9 +605,8 @@ test("一時fileの回収不明はexactな残存Identityを返す", (t) => {
 test("所有不明の残存Lockを自動奪取しない", (t) => {
   const root = fixture(t);
   const capability = verifiedRoot(root);
-  const executionDirectory = path.join(root, ".crdd", "execution");
-  fs.mkdirSync(path.join(executionDirectory, "events"), { recursive: true });
-  const lockDirectory = path.join(executionDirectory, ".mutation-lock");
+  fs.mkdirSync(eventDirectory(root), { recursive: true });
+  const lockDirectory = path.join(operationDirectory(root), ".mutation-lock");
   fs.mkdirSync(lockDirectory);
   fs.writeFileSync(
     path.join(lockDirectory, "owner.json"),

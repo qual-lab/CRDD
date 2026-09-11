@@ -3736,6 +3736,27 @@ if (repositoryMode === "official") {
           relative(file),
           `旧Runtime Data Pathを利用しています: ${retired}`,
         );
+    const item = relative(file);
+    const isProductionRuntimeDataOwner =
+      item ===
+      "40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts";
+    const isDirectlyOrTriviallySplitRuntimeRoot =
+      /path\.(?:join|resolve)\([^)]{0,240}?["']\.crdd["']/u.test(source) ||
+      /["']\.["']\s*\+\s*["']crdd["']/u.test(source) ||
+      /["']\.["']\s*,\s*["']crdd["']/u.test(source);
+    if (
+      !isProductionRuntimeDataOwner &&
+      /^40_Develop\/(?:coordinator|execution-intelligence|mcp|project-runtime|runtime-data|platform-access)\/(?:src|scripts|bin)\//u.test(
+        item,
+      ) &&
+      isDirectlyOrTriviallySplitRuntimeRoot
+    )
+      add(
+        "error",
+        "runtime_data_path_resolver_bypassed",
+        item,
+        "本番Sourceが共通Runtime Data Path契約を経由せず.crddを構築または埋込みしています。",
+      );
   }
 }
 const allFileSet = new Set(allFiles);

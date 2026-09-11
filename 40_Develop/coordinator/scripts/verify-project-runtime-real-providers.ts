@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
 
 import {
   inspectBundledCoordinatorPackageFilesystemCandidate,
@@ -106,7 +107,11 @@ async function main() {
       BASE,
     );
 
-  const verificationRoot = path.join(repositoryRoot, ".crdd", "verification");
+  const runtimePaths =
+    resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+  if (!runtimePaths)
+    throw new Error("project_runtime_verification_path_invalid");
+  const verificationRoot = runtimePaths.verification;
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   stableDirectory(verificationRoot);
 
@@ -404,7 +409,11 @@ try {
     process.cwd(),
   );
   const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
-  const verificationRoot = path.join(repositoryRoot, ".crdd", "verification");
+  const runtimePaths =
+    resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+  if (!runtimePaths)
+    throw new Error("project_runtime_verification_path_invalid");
+  const verificationRoot = runtimePaths.verification;
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",

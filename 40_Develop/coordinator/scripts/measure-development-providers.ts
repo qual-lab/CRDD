@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
+import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/security/coordinator-task-runtime.ts";
@@ -155,14 +156,11 @@ async function main() {
   if (process.argv.length !== 2)
     throw new Error("measurement_arguments_invalid");
   const root = resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd());
-  const directory = path.join(
-    root,
-    ".crdd",
-    "tests",
-    "development-measurement",
-  );
+  const runtimePaths = resolveRepositoryRuntimeDataPathsFromValidatedRoot(root);
+  if (!runtimePaths) throw new Error("measurement_runtime_data_path_invalid");
+  const directory = path.join(runtimePaths.tests, "development-measurement");
   const identities = [];
-  for (const target of [path.join(root, ".crdd"), directory]) {
+  for (const target of [runtimePaths.root, directory]) {
     const metadata = fs.lstatSync(target);
     if (
       !metadata.isDirectory() ||

@@ -46,3 +46,47 @@ test("相対OS Rootと不正なTrust Domainは拒否する", () => {
     null,
   );
 });
+
+test("Trust Policyで受理するDirectory IdentityはCROS Pathでも同じく受理する", async () => {
+  const { inspectCrosTrustPolicy } = await import("../../src/index.ts");
+  for (const identity of ["company-a", "a", "a1-b2"]) {
+    const policy = inspectCrosTrustPolicy({
+      schema: "cros/trust-policy/v1",
+      trustDomainId: identity,
+      trustedRuntimePublishers: [identity],
+      repositoryAdmission: "explicit-binding-only",
+      maximumCapabilities: [],
+      transports: [],
+      allowUnsignedLocalDevelopment: false,
+    });
+    assert.ok(policy);
+    assert.ok(
+      resolveCrosRuntimeRoots({
+        platform: "linux",
+        trustDomainId: identity,
+        publisher: identity,
+        application: "cros",
+        homeDirectory: "/home/example",
+      }),
+    );
+  }
+  for (const identity of [
+    "org.example",
+    "org_example",
+    "Company-A",
+    "default",
+  ]) {
+    assert.equal(
+      inspectCrosTrustPolicy({
+        schema: "cros/trust-policy/v1",
+        trustDomainId: identity,
+        trustedRuntimePublishers: ["qual-lab"],
+        repositoryAdmission: "explicit-binding-only",
+        maximumCapabilities: [],
+        transports: [],
+        allowUnsignedLocalDevelopment: false,
+      }),
+      null,
+    );
+  }
+});

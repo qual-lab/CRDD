@@ -87,9 +87,9 @@
 | `test-tmp`、`tests`、`tmp`等の重複名 | 試験生成物を`tests/<execution-unit>/<run-id>/`、Operation中間物を`tmp/<operation-id>/`へ分離 | 実装・試験済み |
 | `project-runtime/adoption/`に耐久結果と作業Transactionが混在 | 確定結果を`results/`、未確定処理を`work/`へ分離 | 利用側移行済み |
 | `.crdd`直下fileの生成を防げない | 追跡可能な非秘密設定を`config/`へ移し、旧直下PathをCheckerで拒否 | 実装・試験済み |
-| `tmp/`の正式なOwnerと清掃契約がない | exact Operation Identity、全終端経路、Evidence昇格、親Process喪失時Recoveryを契約化 | 11件の契約・結合試験で確認 |
+| `tmp/`の正式なOwnerと清掃契約がない | 状態・Owner世代、single-use Recovery、正式Evidence Receipt、全終端経路を契約化 | 16件の契約・結合試験で確認 |
 | Release／E2E／Dogfoodingの候補・結果・展開物が重複 | `release/`、`verification/`、`tests/development-measurement/`へ責務分離 | 利用側移行済み |
-| 旧実行物と診断物が約2.93 GiB残存 | v0.20.0の正式EvidenceをGitへ保持し、exact Pathの隔離・削除・不存在確認を実行 | 清掃完了 |
+| 旧実行物と診断物が約2.93 GiB残存 | exact Pathの隔離・削除・現在不存在を確認。削除前item Inventory未保存の限界を耐久記録へ明示 | 現在の退役Path不存在のみ確認済み |
 | Retentionの長期自動化 | 経過時間だけでは削除せず、Owner、settlement、参照、Recovery義務から削除可能性を判定 | 後続実測で拡張 |
 | 別Repository Toolによる新規Top-level追加 | Manifest宣言とRuntime Data Architectureを正本にし、Tool固有都合だけの追加を拒否 | 規範・Checker接続済み |
 
@@ -118,10 +118,10 @@ Directory Taxonomy、`tmp/` Lifecycleと共通Path Resolverの設計
 | 項目 | 結果 |
 |---|---|
 | 移行前 | `.crdd`直下19 Directory、150 file、配下120,542 file、約2.93 GiB |
-| 可逆退避 | 旧直下168項目を`.crdd/tmp/runtime-data-migration-20260912/`へ同一Root内移動 |
+| 可逆退避 | 作業時の観測では旧直下168項目を`.crdd/tmp/runtime-data-migration-20260912/`へ同一Root内移動。item単位の不変Inventoryは保存されていない |
 | 保持根拠 | v0.20.0の正式な版、変更、検証およびRelease EvidenceはGit tagと正本へ確定済み |
 | 恒久清掃 | 退避対象だけをexact Pathで削除 |
-| 終了後観測 | 退避Directory不存在。`.crdd`直下は`config/`と空の`tmp/`だけ |
+| 終了後観測 | 退役Top-levelと退避Directoryは不存在。現行試験後の直下は`config/`、空の`release/`、`tests/`、`tmp/`、`verification/` |
 | 互換処理 | 旧Pathへの読取り・書込みfallbackなし |
 
-この結果は、基準版の物理残存を現行契約へ昇格しない。今後のRuntime Dataは共通Resolverが発行する現行Pathへだけ生成する。
+耐久記録は[Runtime Data Migration Result](../../07_Quality/Verification_Results/2026-09-12_V021_Runtime_Data_Migration_Result.json)に置く。この記録が再検証できるのは現在の退役Path不存在までであり、削除済み母集団のitem単位Identity、全参照の移送完全性および過去時点のRecovery 0は再構成できない。したがって、それらを遡及して証明済みとは扱わない。今後のMigrationは削除前Inventory、処置分類、参照閉包および事後観測を不変Resultへ保存してから物理削除する。

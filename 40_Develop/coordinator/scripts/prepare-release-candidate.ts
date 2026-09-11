@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
 
 import {
   inspectGitCommitTreeCandidate,
@@ -100,12 +101,16 @@ export function prepareReleaseCandidate(input: PreparationInput) {
       return blocked("release_candidate_revision_invalid");
     }
 
+    const runtimePaths =
+      resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+    if (!runtimePaths)
+      return blocked("release_candidate_runtime_data_path_invalid");
     const runtimeRoot = createOrVerifyDirectory(
-      path.join(repositoryRoot, ".crdd"),
+      runtimePaths.root,
       repositoryRoot,
     );
     const stagingRoot = createOrVerifyDirectory(
-      path.join(runtimeRoot, "release"),
+      runtimePaths.release,
       runtimeRoot,
     );
     const candidateRoot = path.join(stagingRoot, input.candidateName);

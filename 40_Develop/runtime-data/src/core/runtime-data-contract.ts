@@ -3,6 +3,7 @@ export const REPOSITORY_MANIFEST_SCHEMA =
 export const CROS_TRUST_POLICY_SCHEMA = "cros/trust-policy/v1" as const;
 
 const ID = /^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/u;
+export const CROS_DIRECTORY_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
 const CAPABILITY = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 
 export type RepositoryManifest = Readonly<{
@@ -122,13 +123,16 @@ export function inspectCrosTrustPolicy(value: unknown): CrosTrustPolicy | null {
     ]) ||
     record.schema !== CROS_TRUST_POLICY_SCHEMA ||
     typeof record.trustDomainId !== "string" ||
-    !ID.test(record.trustDomainId) ||
+    !CROS_DIRECTORY_ID.test(record.trustDomainId) ||
     record.trustDomainId === "default" ||
     record.repositoryAdmission !== "explicit-binding-only" ||
     typeof record.allowUnsignedLocalDevelopment !== "boolean"
   )
     return null;
-  const publishers = identifiers(record.trustedRuntimePublishers, ID);
+  const publishers = identifiers(
+    record.trustedRuntimePublishers,
+    CROS_DIRECTORY_ID,
+  );
   const maximumCapabilities = identifiers(
     record.maximumCapabilities,
     CAPABILITY,

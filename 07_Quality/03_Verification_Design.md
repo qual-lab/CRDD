@@ -298,7 +298,7 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 | EI-UT-N-02 | 単体 | 同じProject／Milestoneの予定Task全件、実Attempt、統合受入および効用測定 | 評価処理を完了し、Provider別件数を観測済みAttemptから集約する。Task成功を統合受入とは扱わない |
 | EI-UT-Q-02 | 単体 | 統合結果未観測または予定TaskのAttempt不足 | 欠測を0へ補正せず、欠落Taskと未観測統合を示して`incomplete`とする |
 | EI-UT-A-02 | 単体 | 別Project／Milestone、予定外Task、重複Eventまたは未知field | 対象を推測分割せず閉じた評価入力を拒否する |
-| EI-IT-N-01 | 結合 | Repository-local Storeへの初回記録と同一byte再送 | `.crdd/execution/events/`へ一つだけ不変保存し、再送は冪等となる |
+| EI-IT-N-01 | 結合 | Repository-local Storeへの初回記録と同一byte再送 | `.crdd/execution/<operation-id>/events/`へ一つだけ不変保存し、再送は冪等となる |
 | EI-IT-Q-01 | 結合 | 呼出側が架空Evidence IDと空の未解決参照一覧を提示 | 物理削除APIが存在せず、保存済みEvent byteが不変である |
 | EI-IT-A-01 | 結合 | 同一Event IDの異内容、破損、未解決参照、Hash不一致 | 自動修復・推測・一括削除をせずEffect 0で停止する |
 | EI-IT-N-02 | 結合 | 公開Runtime構成からProject Runtimeが一つのTask Attemptを実行 | Coordinator AdapterがObjectiveを含むexact仕事Identityと検証済みTask結果を共通Eventへ変換し、検証済みRepository RootのStoreから再読取りできる |
