@@ -4224,6 +4224,20 @@ function checkV020ReleaseGateOwnership(): void {
           0,
           nextPeerHeading < 0 ? undefined : nextPeerHeading,
         );
+  const hasSuccessfulFinalAudit = (content: string): boolean =>
+    content.split(/\r?\n/u).some((line) => {
+      if (!line.includes("最終一括監査") || !line.includes("成立")) {
+        return false;
+      }
+      const critical = /Critical[^0-9\n]*([0-9]+)/u.exec(line);
+      const major = /Major[^0-9\n]*([0-9]+)/u.exec(line);
+      return (
+        critical !== null &&
+        major !== null &&
+        Number.parseInt(critical[1], 10) === 0 &&
+        Number.parseInt(major[1], 10) === 0
+      );
+    });
   const currentSignedCandidateEvidenceContracts: readonly GateEvidenceContract[] =
     [
       {
@@ -4347,13 +4361,6 @@ function checkV020ReleaseGateOwnership(): void {
       {
         file: qualityCenterPath,
         content: qualityCenter,
-        marker:
-          /最終一括監査[^\n]*Critical[^\n]*0[^\n]*Major[^\n]*0[^\n]*成立/u,
-        description: "Quality Center must record the completed final audit.",
-      },
-      {
-        file: qualityCenterPath,
-        content: qualityCenter,
         marker: /v0\.20全体の残るGate[^\n]*人間によるRelease判断/u,
         description:
           "Quality Center must leave only the human Release decision.",
@@ -4361,22 +4368,8 @@ function checkV020ReleaseGateOwnership(): void {
       {
         file: changePath,
         content: change,
-        marker:
-          /最終一括監査[^\n]*Critical[^\n]*0[^\n]*Major[^\n]*0[^\n]*成立/u,
-        description: "The Change Trace must record the completed final audit.",
-      },
-      {
-        file: changePath,
-        content: change,
         marker: /残るGate[^\n]*人間によるRelease判断/u,
         description: "The Change Trace must leave the human Release decision.",
-      },
-      {
-        file: verificationPath,
-        content: currentVerificationSection,
-        marker:
-          /最終一括監査[^\n]*Critical[^\n]*0[^\n]*Major[^\n]*0[^\n]*成立/u,
-        description: "Verification must identify the final audit result.",
       },
       {
         file: roadmapPath,
@@ -4394,6 +4387,38 @@ function checkV020ReleaseGateOwnership(): void {
         relative(contract.file),
         contract.description,
       );
+    }
+  }
+  if (currentGateState === "Release Decision Pending") {
+    const finalAuditEvidenceSources = [
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        description:
+          "Quality Center must record an exact Critical 0 and Major 0 final audit.",
+      },
+      {
+        file: changePath,
+        content: change,
+        description:
+          "The Change Trace must record an exact Critical 0 and Major 0 final audit.",
+      },
+      {
+        file: verificationPath,
+        content: currentVerificationSection,
+        description:
+          "The current Verification section must record an exact Critical 0 and Major 0 final audit.",
+      },
+    ] as const;
+    for (const evidence of finalAuditEvidenceSources) {
+      if (!hasSuccessfulFinalAudit(evidence.content)) {
+        add(
+          "error",
+          "v020-release-gate-evidence-incomplete",
+          relative(evidence.file),
+          evidence.description,
+        );
+      }
     }
   }
   const staleClaims: readonly [string, string, RegExp][] = [
