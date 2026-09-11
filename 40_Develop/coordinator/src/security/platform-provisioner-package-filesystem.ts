@@ -1560,7 +1560,7 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ["["],
     ],
     [
-      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
+      "40_Develop/runtime-data/src/platform/repository-root-capability.ts",
       "observeExactRepositoryRoot",
       "execFileSync",
       ["git"],
@@ -1835,12 +1835,12 @@ const exactExternalProcessCalls = Object.freeze(
     ],
     [
       "runtime",
-      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
+      "40_Develop/runtime-data/src/platform/repository-root-capability.ts",
       "observeExactRepositoryRoot",
       "execFileSync",
       1,
       "5e0d844c15465eab569ee204969466e374ea4bfbca4f49da5f9826e9fd5b843a",
-      "2dd92e2d79454613468b1879a97bce06a43c3100f14a1c65b6afb3c01e369d7d",
+      "91b8b98aab343ade9d6b52e5e09172433df33f8e886de609b97bbe8171f014e3",
       "observed",
     ],
   ].map(
@@ -2012,7 +2012,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-project-runtime-real-providers.ts",
       "main",
-      "4d5a581c4d3731b94ec6e0ddb34672e3f014f69dc1715f0187f1a1755a611a23",
+      "8cc83063dc269b8663325c04bf28db4369ffe926baf7038d7060f32bbcfc6caa",
     ],
   ].map(
     ([graph, source, functionName, bodySha256]) =>
@@ -2117,7 +2117,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "b0cce4c45b1b6d4c89f6febba4ccc5daca391a249c5786dfc665661e7e5eaaa5",
+      "5f8ee02e629243e1a60a4e1c30bec62e4eda9190ba6d24a0d1410870631a0651",
     ],
   ]),
 );
@@ -2412,7 +2412,7 @@ const exactExecutableProvenance = Object.freeze(
     ...[
       "src/security/docker-owned-process.ts\0terminateAndWait",
       "scripts/verify-signed-recovery-matrix.ts\0verifyParentLossThenRecover",
-      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts\0observeExactRepositoryRoot",
+      "40_Develop/runtime-data/src/platform/repository-root-capability.ts\0observeExactRepositoryRoot",
     ].map(
       (identity) =>
         [
@@ -6396,6 +6396,11 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
     sourcePrefix: "40_Develop/execution-intelligence/src/",
     packagePath: "40_Develop/execution-intelligence/package.json",
     packageName: "@qual-lab/crdd-execution-intelligence",
+  }),
+  Object.freeze({
+    sourcePrefix: "40_Develop/runtime-data/src/",
+    packagePath: "40_Develop/runtime-data/package.json",
+    packageName: "@qual-lab/crdd-runtime-data",
   }),
 ]);
 const runtimeDistributionEntrypoints = Object.freeze(

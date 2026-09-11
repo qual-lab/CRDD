@@ -16,7 +16,7 @@ import type {
   ProjectRuntimeState,
   ProjectTaskRecoveryObligation,
 } from "../../../project-runtime/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
+import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
 
 export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
   "crdd-coordinator/project-runtime-durable-foundation/v1" as const;
@@ -761,12 +761,22 @@ function ensureDirectory(parent: string, name: string) {
 }
 
 function storageRoot(workingDirectory: string) {
-  const repositoryRoot =
-    resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+  const paths =
+    resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+  if (!paths) throw new Error("project_runtime_repository_root_invalid");
+  const repositoryRoot = paths.repositoryRoot;
   assertDirectory(repositoryRoot);
-  const crdd = ensureDirectory(repositoryRoot, ".crdd");
-  const runtime = ensureDirectory(crdd, "project-runtime");
+  const crdd = ensureDirectory(repositoryRoot, path.basename(paths.root));
+  const runtime = ensureDirectory(crdd, path.basename(paths.projectRuntime));
   return Object.freeze({ repositoryRoot, runtime });
+}
+
+function lockRoot(runtime: string) {
+  return ensureDirectory(ensureDirectory(runtime, "work"), "locks");
+}
+
+function leaseEvidenceRoot(runtime: string) {
+  return ensureDirectory(ensureDirectory(runtime, "recovery"), "leases");
 }
 
 function activeLeaseIsObserved(activeLease: ActiveLease) {
@@ -1071,7 +1081,7 @@ function withMutationLock<T>(
   identity: string,
   operation: () => StoreResult<T>,
 ) {
-  const locks = ensureDirectory(runtime, "locks");
+  const locks = lockRoot(runtime);
   const lock = path.join(locks, `${identity}.lock`);
   try {
     fs.mkdirSync(lock, { mode: 0o700 });
@@ -1111,7 +1121,7 @@ export function writeProjectRuntimeState(
     )
       return blocked("project_runtime_state_generation_mismatch");
     const { runtime } = storageRoot(workingDirectory);
-    const states = ensureDirectory(runtime, "states");
+    const states = ensureDirectory(runtime, "state");
     const project = ensureDirectory(states, state.projectId);
     return withMutationLock(runtime, `state-${state.projectId}`, () => {
       const existingItems = readEnvelopes(project, "generation-");
@@ -1150,7 +1160,7 @@ export function readProjectRuntimeState(
     if (!validId(repositoryBindingId) || !validId(projectId))
       return blocked("project_runtime_state_identity_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const project = path.join(runtime, "states", projectId);
+    const project = path.join(runtime, "state", projectId);
     const records = readEnvelopes(project, "generation-");
     if (records.length === 0)
       return completed("project_runtime_state_absent", null);
@@ -1206,7 +1216,7 @@ export function enqueueProjectOperation(
     )
       return blocked("project_runtime_queue_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const queue = ensureDirectory(runtime, "queue");
+    const queue = ensureDirectory(runtime, "queues");
     const entryDirectory = ensureDirectory(queue, input.queueId);
     return withMutationLock(runtime, "queue-mutation", () => {
       const observedItems = readEnvelopes(entryDirectory, "generation-");
@@ -1274,7 +1284,7 @@ export function readProjectOperationQueueState(
     if (!validId(repositoryBindingId) || !validId(queueId))
       return blocked("project_runtime_queue_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const entryDirectory = path.join(runtime, "queue", queueId);
+    const entryDirectory = path.join(runtime, "queues", queueId);
     const existingItems = validatedQueueHistory(
       readEnvelopes(entryDirectory, "generation-"),
       repositoryBindingId,
@@ -1310,7 +1320,7 @@ export function selectNextProjectOperation(
     if (!validId(repositoryBindingId))
       return blocked("project_runtime_queue_selection_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const queueRoot = path.join(runtime, "queue");
+    const queueRoot = path.join(runtime, "queues");
     if (!fs.existsSync(queueRoot))
       return completed("project_runtime_queue_empty", null);
     assertDirectory(queueRoot);
@@ -1516,7 +1526,7 @@ export function updateProjectOperationQueueState(
     )
       return blocked("project_runtime_queue_result_reference_invalid");
     const { repositoryRoot, runtime } = storageRoot(workingDirectory);
-    const entryDirectory = path.join(runtime, "queue", queueId);
+    const entryDirectory = path.join(runtime, "queues", queueId);
     return withMutationLock(runtime, "queue-mutation", () => {
       const existingItems = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
@@ -1645,7 +1655,7 @@ export function settleProjectOperationQueueRecovery(
     )
       return blocked("project_runtime_queue_recovery_settlement_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const entryDirectory = path.join(runtime, "queue", queueId);
+    const entryDirectory = path.join(runtime, "queues", queueId);
     return withMutationLock(runtime, "queue-mutation", () => {
       const historyEntries = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
@@ -1713,7 +1723,7 @@ export function acquireProjectRuntimeLease(
     if (![repositoryBindingId, projectId, queueId].every(validId))
       return blocked("project_runtime_lease_identity_invalid");
     const { repositoryRoot, runtime } = storageRoot(workingDirectory);
-    const locks = ensureDirectory(runtime, "locks");
+    const locks = lockRoot(runtime);
     const identity = leaseIdentity(
       repositoryBindingId,
       projectId,
@@ -1743,7 +1753,7 @@ export function acquireProjectRuntimeLease(
     if (fs.existsSync(lockOwnershipMarker))
       return blocked("project_runtime_lease_unavailable");
     const ownerGeneration = randomUUID();
-    const evidence = ensureDirectory(runtime, "leases");
+    const evidence = leaseEvidenceRoot(runtime);
     try {
       createLeaseAcquisitionMarker(
         locks,
@@ -2033,7 +2043,7 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
     if (!validId(repositoryBindingId))
       return blocked("project_runtime_lease_recovery_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const locks = ensureDirectory(runtime, "locks");
+    const locks = lockRoot(runtime);
     const identity = leaseIdentity(
       repositoryBindingId,
       "inspection",
@@ -2097,7 +2107,7 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
         true,
         recoveryId,
       );
-    const queueDirectory = path.join(runtime, "queue", first.queueId);
+    const queueDirectory = path.join(runtime, "queues", first.queueId);
     let historyEntries: readonly QueueEnvelope[] | null;
     try {
       historyEntries = validatedQueueHistory(
@@ -2160,7 +2170,7 @@ export function settleProjectOperationQueueLeaseRelease(
       return blocked("project_runtime_queue_release_settlement_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
     return withMutationLock(runtime, "queue-mutation", () => {
-      const entryDirectory = path.join(runtime, "queue", queueId);
+      const entryDirectory = path.join(runtime, "queues", queueId);
       const historyEntries = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
         repositoryBindingId,
@@ -2186,7 +2196,7 @@ export function settleProjectOperationQueueLeaseRelease(
         queueId,
         "project-operation",
       );
-      const locks = ensureDirectory(runtime, "locks");
+      const locks = lockRoot(runtime);
       if (
         fs.existsSync(path.join(locks, `${identity}.lock`)) ||
         fs.existsSync(path.join(locks, `${identity}.release-unknown`)) ||
@@ -2197,7 +2207,7 @@ export function settleProjectOperationQueueLeaseRelease(
           "project_runtime_queue_release_settlement_resource_present",
           true,
         );
-      const evidence = ensureDirectory(runtime, "leases");
+      const evidence = leaseEvidenceRoot(runtime);
       const leaseEvidence = readExactLeaseEvidence(evidence, {
         repositoryBindingId,
         projectId: current.projectId,
@@ -2263,7 +2273,7 @@ function reconcileUnboundLeaseAcquisition(
     requestedQueueId,
     kind,
   );
-  const locks = ensureDirectory(runtime, "locks");
+  const locks = lockRoot(runtime);
   const lock = path.join(locks, `${identity}.lock`);
   const releaseMarker = path.join(locks, `${identity}.release-unknown`);
   const acquisitionMarker = path.join(locks, `${identity}.acquire-pending`);
@@ -2504,7 +2514,7 @@ function reconcileUnboundLeaseAcquisition(
   if (fs.existsSync(lock))
     throw new Error("project_runtime_lease_lock_release_unknown");
 
-  const evidence = ensureDirectory(runtime, "leases");
+  const evidence = leaseEvidenceRoot(runtime);
   const base = `${identity}-${pending.ownerGeneration}`;
   const acquiredPath = path.join(evidence, `${base}.json`);
   const releasedPath = path.join(evidence, `${base}-released.json`);
@@ -2610,7 +2620,7 @@ export function reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
           "canonical",
           "canonical-adoption",
         );
-        const locks = ensureDirectory(runtime, "locks");
+        const locks = lockRoot(runtime);
         if (
           leaseAcquisitionFootprintAbsent(
             locks,
@@ -2669,7 +2679,7 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
       return blocked("project_runtime_lease_recovery_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
     return withMutationLock(runtime, "queue-mutation", () => {
-      const entryDirectory = path.join(runtime, "queue", queueId);
+      const entryDirectory = path.join(runtime, "queues", queueId);
       const historyEntries = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
         repositoryBindingId,
@@ -2686,7 +2696,7 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
         queueId,
         "project-operation",
       );
-      const locks = ensureDirectory(runtime, "locks");
+      const locks = lockRoot(runtime);
       const lock = path.join(locks, `${identity}.lock`);
       const recoveryMarker = path.join(locks, `${identity}.release-unknown`);
       const acquisitionMarker = path.join(locks, `${identity}.acquire-pending`);
@@ -2802,7 +2812,7 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
           "project_runtime_lease_recovery_evidence_mismatch",
           true,
         );
-      const evidence = ensureDirectory(runtime, "leases");
+      const evidence = leaseEvidenceRoot(runtime);
       const leaseEvidence = readExactLeaseEvidence(evidence, {
         repositoryBindingId,
         projectId,

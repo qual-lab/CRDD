@@ -35,13 +35,19 @@ export function createOwnedProcessTreeFixture() {
   for (const target of [
     repositoryRoot,
     path.join(repositoryRoot, ".crdd"),
-    path.join(repositoryRoot, ".crdd", "test-tmp"),
+    path.join(repositoryRoot, ".crdd", "tests", "docker-owned-process"),
   ]) {
     const metadata = fs.lstatSync(target);
     assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
   }
   const directory = fs.mkdtempSync(
-    path.join(repositoryRoot, ".crdd", "test-tmp", "owned-process-"),
+    path.join(
+      repositoryRoot,
+      ".crdd",
+      "tests",
+      "docker-owned-process",
+      "owned-process-",
+    ),
   );
   const readinessPath = path.join(directory, "ready.json");
   let handle: OwnedCommandHandle | null = null;

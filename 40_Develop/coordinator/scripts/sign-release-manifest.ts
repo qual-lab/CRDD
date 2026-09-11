@@ -36,11 +36,7 @@ import {
 } from "./release-staging-manifest.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
-const releaseStagingRoot = path.join(
-  repositoryRoot,
-  ".crdd",
-  "release-staging",
-);
+const releaseStagingRoot = path.join(repositoryRoot, ".crdd", "release");
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
 const MAXIMUM_PASSPHRASE_BYTES = 1_024;
 const RELEASE_CANDIDATE_DIRECTORY = /^[a-z0-9][a-z0-9-]{0,127}$/u;
@@ -219,7 +215,7 @@ function repositoryLocalDistributionRoot(target: string) {
       realLocalRoot !== path.join(realRepositoryRoot, ".crdd") ||
       !stagingRootMetadata.isDirectory() ||
       stagingRootMetadata.isSymbolicLink() ||
-      realStagingRoot !== path.join(realLocalRoot, "release-staging") ||
+      realStagingRoot !== path.join(realLocalRoot, "release") ||
       path.dirname(relativeCandidate) !== "." ||
       !RELEASE_CANDIDATE_DIRECTORY.test(relativeCandidate) ||
       fs.existsSync(path.join(real, ".git"))

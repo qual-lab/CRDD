@@ -11,6 +11,10 @@ import {
   resolveVerifiedExecutionRepositoryRoot,
   type VerifiedExecutionRepositoryRoot,
 } from "./verified-repository-root.ts";
+import {
+  resolveRepositoryRuntimeDataPaths,
+  type VerifiedRepositoryRoot,
+} from "../../../runtime-data/src/index.ts";
 
 const MAXIMUM_EVENTS = 10_000;
 const MAXIMUM_TOTAL_BYTES = 32 * 1024 * 1024;
@@ -99,8 +103,13 @@ function storeLayout(
   const repositoryRoot = resolveVerifiedExecutionRepositoryRoot(rootCapability);
   if (repositoryRoot === null)
     throw new Error("execution_store_root_capability_invalid");
-  const crddDirectory = path.join(repositoryRoot, ".crdd");
-  const executionDirectory = path.join(crddDirectory, "execution");
+  const paths = resolveRepositoryRuntimeDataPaths(
+    rootCapability as VerifiedRepositoryRoot,
+  );
+  if (!paths || paths.repositoryRoot !== repositoryRoot)
+    throw new Error("execution_store_root_capability_invalid");
+  const crddDirectory = paths.root;
+  const executionDirectory = paths.execution;
   const eventsDirectory = path.join(executionDirectory, "events");
   for (const directory of [
     crddDirectory,

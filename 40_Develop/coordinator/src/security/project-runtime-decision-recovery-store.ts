@@ -2,11 +2,12 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
+
 import type {
   ProjectRuntimeDecisionRecoveryIntent,
   ProjectRuntimeDecisionRecoveryStore,
 } from "../../../project-runtime/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 
 export const PROJECT_RUNTIME_DECISION_RECOVERY_STORE_CONTRACT =
   "crdd-coordinator/project-runtime-decision-recovery-store/v1" as const;
@@ -70,13 +71,12 @@ function validEnvelope(value: unknown): value is Envelope {
   );
 }
 
-function paths(repositoryRoot: string, recoveryId: string) {
+function paths(projectRuntimeRoot: string, recoveryId: string) {
   const identity = digest(recoveryId).slice(0, 40);
   const directory = path.join(
-    repositoryRoot,
-    ".crdd",
-    "project-runtime",
-    "decision-recovery",
+    projectRuntimeRoot,
+    "recovery",
+    "decisions",
     identity,
   );
   return Object.freeze({ directory });
@@ -154,13 +154,22 @@ function blocked() {
 export function createProjectRuntimeDecisionRecoveryStore(
   workingDirectory: string,
 ): ProjectRuntimeDecisionRecoveryStore {
-  const repositoryRoot =
-    resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+  const runtimePaths =
+    resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+  if (!runtimePaths)
+    throw new Error("decision_recovery_repository_root_invalid");
+  const repositoryRoot = runtimePaths.repositoryRoot;
+  const projectRuntimeRoot = runtimePaths.projectRuntime;
   function guarded<T>(recoveryId: string, operation: (directory: string) => T) {
-    const location = paths(repositoryRoot, recoveryId);
+    const location = paths(projectRuntimeRoot, recoveryId);
     fs.mkdirSync(path.dirname(location.directory), { recursive: true });
     let current = repositoryRoot;
-    for (const segment of [".crdd", "project-runtime", "decision-recovery"]) {
+    for (const segment of [
+      ".crdd",
+      "project-runtime",
+      "recovery",
+      "decisions",
+    ]) {
       current = path.join(current, segment);
       if (!fs.existsSync(current)) continue;
       const metadata = fs.lstatSync(current);

@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
+
 import {
   persistRuntimeOwnedCandidateBundle,
   publishRuntimeOwnedCandidateBundle,
@@ -203,7 +205,10 @@ function materializeBase(
   revision: string,
   paths: readonly string[],
 ) {
-  const parent = path.join(repositoryRoot, ".crdd", "project-runtime");
+  const runtimePaths =
+    resolveRepositoryRuntimeDataPathsFromWorkingDirectory(repositoryRoot);
+  if (!runtimePaths) return null;
+  const parent = path.join(runtimePaths.projectRuntime, "work");
   fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
   const workspace = fs.mkdtempSync(path.join(parent, "adoption-base-"));
   const layout = resolveRepositoryGitLayout(repositoryRoot);
@@ -237,10 +242,12 @@ function currentMatchesBase(
 }
 
 function applyBundle(repositoryRoot: string, bundle: Bundle) {
+  const runtimePaths =
+    resolveRepositoryRuntimeDataPathsFromWorkingDirectory(repositoryRoot);
+  if (!runtimePaths) return false;
   const transactionRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "project-runtime",
+    runtimePaths.projectRuntime,
+    "work",
     "adoption",
     randomUUID(),
   );

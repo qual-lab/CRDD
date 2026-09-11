@@ -363,7 +363,7 @@ test("Repository RootはexactなVCS worktreeだけを実行時能力にする", 
     assert.equal(fs.existsSync(path.join(fakeRoot, ".crdd")), false);
   }
   const forged = Object.freeze({
-    contract: "crdd/verified-execution-repository-root/v1" as const,
+    contract: "crdd/verified-repository-root/v1" as const,
   });
   assert.equal(
     writeExecutionIntelligenceEvent(forged, event()).status,

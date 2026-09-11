@@ -105,7 +105,7 @@ export function prepareReleaseCandidate(input: PreparationInput) {
       repositoryRoot,
     );
     const stagingRoot = createOrVerifyDirectory(
-      path.join(runtimeRoot, "release-staging"),
+      path.join(runtimeRoot, "release"),
       runtimeRoot,
     );
     const candidateRoot = path.join(stagingRoot, input.candidateName);

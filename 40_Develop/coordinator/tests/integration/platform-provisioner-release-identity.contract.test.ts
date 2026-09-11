@@ -29,7 +29,7 @@ function tree(entries: ReadonlyArray<readonly [string, string, Buffer]>) {
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-release-tree-"));
-  fs.mkdirSync(path.join(root, ".crdd"));
+  fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
   fs.mkdirSync(path.join(root, "90_Release"));
   fs.mkdirSync(
     path.join(root, "template", "tools", "coordinator", "windows-x64"),
@@ -44,7 +44,7 @@ function fixture() {
   fs.writeFileSync(path.join(root, ".git"), "gitdir: fixed-metadata\n");
   fs.writeFileSync(path.join(root, "alpha.txt"), alpha);
   fs.writeFileSync(
-    path.join(root, ".crdd", "external-send-policy.json"),
+    path.join(root, ".crdd", "config", "external-send-policy.json"),
     externalSendPolicy,
   );
   fs.writeFileSync(path.join(root, "nested", "beta.txt"), beta);
@@ -80,13 +80,14 @@ function fixture() {
     ["100644", "readme.txt", objectId("blob", release)],
   ]);
   const nestedTree = tree([["100644", "beta.txt", objectId("blob", beta)]]);
-  const crddMetadataTree = tree([
+  const crddConfigTree = tree([
     [
       "100644",
       "external-send-policy.json",
       objectId("blob", externalSendPolicy),
     ],
   ]);
+  const crddMetadataTree = tree([["40000", "config", crddConfigTree]]);
   const rootTree = tree([
     ["40000", ".crdd", crddMetadataTree],
     ["40000", "90_Release", releaseTree],

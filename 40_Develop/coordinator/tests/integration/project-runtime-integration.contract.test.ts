@@ -178,6 +178,7 @@ test("Task completion is integrated into Objective and Milestone acceptance", as
         root,
         ".crdd",
         "project-runtime",
+        "results",
         "integration",
         "project-a",
         "integrated-a.json",
@@ -325,6 +326,7 @@ test("canonical adoption preserves malformed acquisition evidence and exposes it
     root,
     ".crdd",
     "project-runtime",
+    "work",
     "locks",
     "canonical-adoption-binding-a-project-a.acquire-pending",
   );

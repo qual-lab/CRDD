@@ -40,6 +40,7 @@ test("integration records are immutable and an identical retry is idempotent", (
     root,
     ".crdd",
     "project-runtime",
+    "results",
     "integration",
     "project-a",
     "candidate-a.json",

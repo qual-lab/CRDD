@@ -238,10 +238,15 @@ test("未選択の未対応modeだけを除外し、exact・祖先選択と全�
     const fixture = temporaryFixture(t);
     const policyBytes = Buffer.from('{"policyId":"fixture"}\n');
     const policyId = writeObject(fixture.commonDirectory, "blob", policyBytes);
-    const policyTreeId = writeObject(
+    const configTreeId = writeObject(
       fixture.commonDirectory,
       "tree",
       treeEntry("100644", "external-send-policy.json", policyId),
+    );
+    const policyTreeId = writeObject(
+      fixture.commonDirectory,
+      "tree",
+      treeEntry("40000", "config", configTreeId),
     );
     const unsupportedObjectId =
       mode === "160000"
@@ -274,7 +279,7 @@ test("未選択の未対応modeだけを除外し、exact・祖先選択と全�
     const fixedFile = readGitCommitFileCandidate({
       commonDirectory: fixture.commonDirectory,
       revision: commitId,
-      relativePath: ".crdd/external-send-policy.json",
+      relativePath: ".crdd/config/external-send-policy.json",
     });
     assert.equal(fixedFile?.status, "read");
     assert.deepEqual(fixedFile?.bytes, policyBytes);

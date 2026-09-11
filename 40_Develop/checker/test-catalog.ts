@@ -38,6 +38,7 @@ export type TestCatalogEntry = Readonly<{
     | "execution-intelligence"
     | "mcp"
     | "project-runtime"
+    | "runtime-data"
     | "platform-access";
   path: string;
   level: TestLevel;
@@ -63,6 +64,7 @@ export type TestCatalog = Readonly<{
     "execution-intelligence": "node_test";
     mcp: "node_test";
     "project-runtime": "node_test";
+    "runtime-data": "node_test";
     "platform-access": "cargo_test";
   }>;
   integrationBlocks: readonly Readonly<{
@@ -102,6 +104,7 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "execution-intelligence",
   "mcp",
   "project-runtime",
+  "runtime-data",
   "platform-access",
 ]);
 const RUNNER_PROFILES = Object.freeze({
@@ -110,6 +113,7 @@ const RUNNER_PROFILES = Object.freeze({
   "execution-intelligence": "node_test",
   mcp: "node_test",
   "project-runtime": "node_test",
+  "runtime-data": "node_test",
   "platform-access": "cargo_test",
 });
 const validExecutionProfiles = new Set(executionProfiles);
@@ -203,6 +207,7 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "execution-intelligence",
     "mcp",
     "project-runtime",
+    "runtime-data",
   ].flatMap((owner) =>
     walkFiles(
       repositoryRoot,
@@ -229,7 +234,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:checker|coordinator|execution-intelligence|mcp|project-runtime)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:checker|coordinator|execution-intelligence|mcp|project-runtime|runtime-data)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -705,6 +710,7 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/mcp/")) return "mcp";
   if (changedPath.startsWith("40_Develop/project-runtime/"))
     return "project-runtime";
+  if (changedPath.startsWith("40_Develop/runtime-data/")) return "runtime-data";
   if (changedPath.startsWith("40_Develop/platform-access/"))
     return "platform-access";
   return null;

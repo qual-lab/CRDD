@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "1e51f3d527e80de3ab515e1c611a76e1f991e8bd1ee08650f46dd77d2ffbb52a",
+  "evaluatedDocumentationSetSha256": "a6b699641835cbdc74a86cc8fd46b88d252b7a080f74cbb8df42c264ecff9d88",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -46,7 +46,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "01_Discovery/02_Runtime_and_CROS_Product_Candidates.md",
-      "currentBlobOid": "9c212da246f95dea0754bbc81393f50d64a40c98"
+      "currentBlobOid": "a73e68bc38a17d85259c749c516ef51064ea36d1"
     },
     {
       "path": "01_Principles.md",
@@ -154,7 +154,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "06_Architecture/checker/01_Architecture.md",
-      "currentBlobOid": "1090097f6caf0f9f7c5798d1ba510da7fa3a9ef5"
+      "currentBlobOid": "b15650af7b975516b58d5af2ca59bf938fc1c3ef"
     },
     {
       "path": "06_Architecture/coordinator/01_Architecture.md",
@@ -163,7 +163,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "06_Architecture/coordinator/01_Architecture.md",
-      "currentBlobOid": "41d34d016e0e2a406b06cf0cf3778ee3ab58d07f"
+      "currentBlobOid": "f5821ba5a375e2b7ce1c5bf2166201b56c35bb65"
     },
     {
       "path": "06_Architecture/coordinator/02_Threat_Model.md",
@@ -220,6 +220,24 @@
       "currentBlobOid": "36d8ec266b8ee034e778205f79654a5939f1ec8e"
     },
     {
+      "path": "06_Architecture/runtime-data/01_Current_Path_Inventory.md",
+      "artifactRole": "architecture",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "06_Architecture/runtime-data/01_Current_Path_Inventory.md",
+      "currentBlobOid": "16014872cab40c2de1219aa45bbbca81a1901e33"
+    },
+    {
+      "path": "06_Architecture/runtime-data/02_Target_Architecture.md",
+      "artifactRole": "architecture",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "06_Architecture/runtime-data/02_Target_Architecture.md",
+      "currentBlobOid": "21e9a563c43af0aa146de10f81bb004bb4dc27c8"
+    },
+    {
       "path": "07_Quality/01_Quality_Center.md",
       "artifactRole": "quality",
       "currentness": "current",
@@ -244,7 +262,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "07_Quality/03_Verification_Design.md",
-      "currentBlobOid": "288a81021bef2cf352806a3620d378a21221c6a8"
+      "currentBlobOid": "85bd7e5a8ee0d87612ef606cb32ce03b0c8bf8cb"
     },
     {
       "path": "07_Quality/Verification_Results/2026-08-31_Coordinator_Closure_Verification.md",
@@ -1232,6 +1250,15 @@
       "reasonCode": "semantic_structure_improved",
       "canonicalOwnerPath": "90_Release/Changes/CHG-000065_Structured_First_Documentation.md",
       "currentBlobOid": "f735de2cd6664f8a9b6f0303240ad96cafbec6e4"
+    },
+    {
+      "path": "90_Release/Changes/CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md",
+      "artifactRole": "release_change",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "90_Release/Changes/CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md",
+      "currentBlobOid": "50a729bed465a206e465af7ce0367613c1d8dff0"
     },
     {
       "path": "90_Release/Changes/Evidence/CHG-000007_Adopter_Trial_Report.md",
@@ -5704,7 +5731,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "99_Roadmap/01_Product_Roadmap.md",
-      "currentBlobOid": "9b24c0ab804b9778ebbeb42fa67ef415c0a4cf79"
+      "currentBlobOid": "a7c3900fe97315ef7cf435085bea93bb90edccd7"
     },
     {
       "path": "AGENTS.md",
@@ -5839,7 +5866,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "template/07_Quality/01_Quality_Center.md",
-      "currentBlobOid": "6a5428cd81f5282969cbcb9e13bd39127bdacc51"
+      "currentBlobOid": "17681059f88d157865fb35ded5d4a4ef77d9f075"
     },
     {
       "path": "template/07_Quality/02_Quality_Strategy.md",
@@ -5848,7 +5875,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "template/07_Quality/02_Quality_Strategy.md",
-      "currentBlobOid": "f4b46edd2912ab3bf4a07f9e375ddfb36bb173ca"
+      "currentBlobOid": "822dbddc47793fd04a179bda45a511ac22804efc"
     },
     {
       "path": "template/07_Quality/03_Verification_Design.md",
@@ -5857,7 +5884,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "template/07_Quality/03_Verification_Design.md",
-      "currentBlobOid": "0f63e76bfa2a09b0b52f506b7127f153db152191"
+      "currentBlobOid": "0cd599630aeafbf08389f1993b4e0929e892a638"
     },
     {
       "path": "template/07_Quality/Verification_Results/Verification_Result_Template.md",
@@ -5866,7 +5893,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "template/07_Quality/Verification_Results/Verification_Result_Template.md",
-      "currentBlobOid": "c8544f1499a03a917b81fccc2600dbc9a734ff2c"
+      "currentBlobOid": "8671221eb4f7beade8f4142badc09b9d921711f0"
     },
     {
       "path": "template/80_Communication/01_Communication.md",
@@ -5902,7 +5929,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "template/AGENTS.md",
-      "currentBlobOid": "b42dd790315e84acf4d1d78c1159215167516752"
+      "currentBlobOid": "4ce96a3ab8ec52ae8347a9193bcf5257a5606b66"
     },
     {
       "path": "template/CLAUDE.md",

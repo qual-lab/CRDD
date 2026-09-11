@@ -77,7 +77,7 @@ test("unknown files fail closed without replacing the recovery history", (t) => 
   assert.equal((store.create(value) as { status: string }).status, "completed");
   const identity = fs
     .readdirSync(
-      path.join(root, ".crdd", "project-runtime", "decision-recovery"),
+      path.join(root, ".crdd", "project-runtime", "recovery", "decisions"),
     )
     .find((entry) => !entry.endsWith(".lock"));
   assert.ok(identity);
@@ -86,7 +86,8 @@ test("unknown files fail closed without replacing the recovery history", (t) => 
       root,
       ".crdd",
       "project-runtime",
-      "decision-recovery",
+      "recovery",
+      "decisions",
       identity,
       "unexpected",
     ),

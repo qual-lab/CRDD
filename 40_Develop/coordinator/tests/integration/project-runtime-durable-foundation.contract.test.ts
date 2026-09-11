@@ -48,11 +48,11 @@ function storedEnvelopeBytes(state: ProjectRuntimeState) {
 }
 
 function stateDirectory(root: string) {
-  return path.join(root, ".crdd", "project-runtime", "states", "project-a");
+  return path.join(root, ".crdd", "project-runtime", "state", "project-a");
 }
 
 function queueDirectory(root: string) {
-  return path.join(root, ".crdd", "project-runtime", "queue", "queue-a");
+  return path.join(root, ".crdd", "project-runtime", "queues", "queue-a");
 }
 
 function stateWithStoredBytes(
@@ -682,7 +682,13 @@ test("PR-D-A-01 preserves a recovery marker when lease release evidence fails", 
   );
   assert.equal(acquired.status, "completed");
   if (acquired.status !== "completed") throw new Error("lease_fixture_failed");
-  const leases = path.join(root, ".crdd", "project-runtime", "leases");
+  const leases = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "recovery",
+    "leases",
+  );
   fs.renameSync(leases, `${leases}.saved`);
   fs.writeFileSync(leases, "not-a-directory", "utf8");
   const released = acquired.value.release();
@@ -806,7 +812,7 @@ if (lease.status !== "completed") process.exit(20);`,
     { windowsHide: true },
   );
 
-  const locks = path.join(root, ".crdd", "project-runtime", "locks");
+  const locks = path.join(root, ".crdd", "project-runtime", "work", "locks");
   const marker = path.join(
     locks,
     "project-operation-binding-a.acquire-pending",
@@ -1032,6 +1038,7 @@ test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fai
     root,
     ".crdd",
     "project-runtime",
+    "work",
     "locks",
     "canonical-adoption-binding-a-project-a.acquire-pending",
   );
@@ -1085,6 +1092,7 @@ test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fai
         root,
         ".crdd",
         "project-runtime",
+        "work",
         "locks",
         "canonical-adoption-binding-a-project-a.lock",
       ),
@@ -1107,7 +1115,7 @@ test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fai
 
 test("PR-A-04 preserves a published acquisition when temporary cleanup is unknown", (t) => {
   const { root } = fixture(t);
-  const locks = path.join(root, ".crdd", "project-runtime", "locks");
+  const locks = path.join(root, ".crdd", "project-runtime", "work", "locks");
   const identity = "canonical-adoption-binding-a-project-a";
   const marker = path.join(locks, `${identity}.acquire-pending`);
   const lock = path.join(locks, `${identity}.lock`);
@@ -1206,7 +1214,7 @@ if (lease.status !== "completed") process.exit(20);`,
     ],
     { windowsHide: true },
   );
-  const locks = path.join(root, ".crdd", "project-runtime", "locks");
+  const locks = path.join(root, ".crdd", "project-runtime", "work", "locks");
   const acquisitionMarker = path.join(
     locks,
     "project-operation-binding-a.acquire-pending",
@@ -1262,7 +1270,7 @@ if (lease.status !== "completed") process.exit(20);`,
     ],
     { windowsHide: true },
   );
-  const locks = path.join(root, ".crdd", "project-runtime", "locks");
+  const locks = path.join(root, ".crdd", "project-runtime", "work", "locks");
   const ownershipMarker = path.join(
     locks,
     "canonical-adoption-binding-a-project-a.acquire-lock-owned",
@@ -1328,7 +1336,13 @@ test("PR-D-A-01 preserves malformed and partial acquisition state with an exact 
     if (initialized.status !== "completed")
       throw new Error("lease_fixture_failed");
     assert.equal(initialized.value.release().status, "completed");
-    const locks = path.join(scenarioRoot, ".crdd", "project-runtime", "locks");
+    const locks = path.join(
+      scenarioRoot,
+      ".crdd",
+      "project-runtime",
+      "work",
+      "locks",
+    );
     if (scenario === "malformed-marker")
       fs.writeFileSync(
         path.join(locks, "project-operation-binding-a.acquire-pending"),
@@ -1671,6 +1685,7 @@ test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownershi
     root,
     ".crdd",
     "project-runtime",
+    "recovery",
     "leases",
   );
   const releasedName = fs
@@ -1741,6 +1756,7 @@ test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
     root,
     ".crdd",
     "project-runtime",
+    "recovery",
     "leases",
   );
   const acquiredName = fs

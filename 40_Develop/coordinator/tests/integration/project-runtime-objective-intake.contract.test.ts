@@ -465,6 +465,7 @@ test("public Objective re-entry preserves ambiguous acquisition evidence and ret
       workingDirectory,
       ".crdd",
       "project-runtime",
+      "work",
       "locks",
     );
     fs.mkdirSync(locks, { recursive: true });
@@ -562,7 +563,7 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
         workingDirectory,
         ".crdd",
         "project-runtime",
-        "queue",
+        "queues",
         residualQueueId,
         "generation-1.json",
       );

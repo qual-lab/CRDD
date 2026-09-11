@@ -781,7 +781,7 @@ test("PR-A-04 releases the physical lease when a post-acquire Queue write become
     root,
     ".crdd",
     "project-runtime",
-    "queue",
+    "queues",
     "queue-a",
   );
   const residue = path.join(queueDirectory, "unexpected-record.json");
@@ -796,7 +796,7 @@ test("PR-A-04 releases the physical lease when a post-acquire Queue write become
   );
   assert.equal(outcome.status, "blocked");
   assert.equal(outcome.manualRecoveryRequired, true);
-  const locks = path.join(root, ".crdd", "project-runtime", "locks");
+  const locks = path.join(root, ".crdd", "project-runtime", "work", "locks");
   assert.deepEqual(
     fs
       .readdirSync(locks)

@@ -155,7 +155,12 @@ async function main() {
   if (process.argv.length !== 2)
     throw new Error("measurement_arguments_invalid");
   const root = resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd());
-  const directory = path.join(root, ".crdd", "dogfooding");
+  const directory = path.join(
+    root,
+    ".crdd",
+    "tests",
+    "development-measurement",
+  );
   const identities = [];
   for (const target of [path.join(root, ".crdd"), directory]) {
     const metadata = fs.lstatSync(target);

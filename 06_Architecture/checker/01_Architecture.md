@@ -101,7 +101,7 @@ Checker本体は一つの配布Sourceであり、以下のブロックはその�
 | stdout／stderr | 結果と引数エラーを出力 | 途中中断時に完全なJSONが残ること |
 | 試験fixture | private試験だけが一時Rootを作り、通常終了時に清掃する | 通常Checkerの読取り契約との同一視、強制終了後の清掃保証 |
 
-通常Checker本体は文書の生成・修正・削除を行わない。開発試験は別の資源所有者であり、`os.tmpdir()`の解決先を承認済みのRepository-local `.crdd/test-tmp`へ指定して実行する。通常のCheckerに、存在しないAuthority、候補Store、永続Recoveryを追加しない。
+通常Checker本体は文書の生成・修正・削除を行わない。開発試験は別の資源所有者であり、`os.tmpdir()`の解決先を承認済みのRepository-local `.crdd/tests/checker`へ指定して実行する。通常のCheckerに、存在しないAuthority、候補Store、永続Recoveryを追加しない。
 
 ### ブロック状態遷移
 

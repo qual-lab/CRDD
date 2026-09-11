@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { EXTERNAL_SEND_POLICY_RELATIVE_PATH } from "../../../runtime-data/src/index.ts";
+
 import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { readGitCommitFileCandidate } from "./git-object-reader.ts";
@@ -15,7 +17,7 @@ import {
 export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-policy-runtime";
 export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT_REVISION = 3;
-export const EXTERNAL_SEND_POLICY_FILE = ".crdd/external-send-policy.json";
+export const EXTERNAL_SEND_POLICY_FILE = EXTERNAL_SEND_POLICY_RELATIVE_PATH;
 
 const TOP_LEVEL_KEYS = new Set([
   "schema",

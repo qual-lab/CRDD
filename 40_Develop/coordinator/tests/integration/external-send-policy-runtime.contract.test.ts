@@ -80,7 +80,7 @@ function repository(
                 ),
               )
             : writeObject(git, "blob", Buffer.from(policyText));
-        const crddTree = writeObject(
+        const configTree = writeObject(
           git,
           "tree",
           Buffer.concat([
@@ -88,6 +88,14 @@ function repository(
               `${options.policyMode ?? "100644"} external-send-policy.json\0`,
             ),
             Buffer.from(policyObject, "hex"),
+          ]),
+        );
+        const crddTree = writeObject(
+          git,
+          "tree",
+          Buffer.concat([
+            Buffer.from("40000 config\0"),
+            Buffer.from(configTree, "hex"),
           ]),
         );
         const entries = [

@@ -2,7 +2,7 @@
 
 Status: Non-normative Open Work Registry
 Owner: Qual-Lab
-Last Updated: 2026-09-11
+Last Updated: 2026-09-12
 Related:
 - [CRDD標準自身の課題探索・要求形成](../01_Discovery/01_CRDD_Product_Discovery.md)
 - [Runtime／CROS Product Candidates](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md)
@@ -47,7 +47,7 @@ Related:
 | v0.21 OSS Runtimeの利用者所有Trust Policy | Adopted | Planned | [OSS Runtime Trust Policy候補](../01_Discovery/01_CRDD_Product_Discovery.md#oss-runtime-trust-policy-candidate) | CROS着手前にPolicy所有者、既定拒否、鍵更新・失効、移行および監査境界を固定する |
 | v0.21 自律Operationの意味契約とTrigger | Adopted | Planned | [自律Operationの責務境界](../05_Autonomous_Operation.md#autonomous-operation-responsibility) | 目的・Authority・Triggerの所有分離と、判断不足時のEffect 0を受入条件にする |
 | v0.21 Repository Tool／Capability Registry | Adopted | Planned | [Repository Capability構想](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#4-repository-toolcapability-registry) | 登録・公開・実行許可を分ける最小Registryと代表Toolの受入条件を設計する |
-| v0.21 CRDD／CROS構造化とWorkbench基盤 | Adopted | Planned | [構造化・Workbench構想](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crddcros構造化とworkbench基盤) | 全書込みPathを棚卸しし、Repository、Runtime Data、ToolおよびMCPの共通契約を先に固定する |
+| v0.21 `.crdd` Runtime Data ContractとCRDD／CROS構造化基盤 | Adopted | Implementation Complete — Review Pending | [CHG-000066](../90_Release/Changes/CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md)、[目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md)、[現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md) | Schema、共通Path Resolver、利用側移行、`tmp/`全終端契約、旧Path拒否、段階的結合試験およびCRDD公式Repositoryの物理清掃を完了した。Commit固定後の選択回帰と独立レビューで閉じる |
 | v0.21 AI Runtime Registry／モデルProfile外部構成 | Adopted | Planned | [AI Runtime外部構成](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#6-ai-runtime-registryモデルprofile外部構成) | 設定所有・上書き・Adapter追加境界と、登録・認証・実行許可の分離を固定する |
 | v0.21 Remote MCP接続 | Adopted | Planned | [CROS発展境界](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#7-cros発展境界)、[v0.20のローカルMCP](../01_Discovery/01_CRDD_Product_Discovery.md#v020-mcp-streamable-http) | 認証・認可・情報分類・切断／再送を含むRemote接続の完成条件を固定する |
 | v0.21 正式検証の安全なHeadless出力 | Adopted | Planned | [v0.20 Runtime責務分離](../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md) | 保存先Authorityと閉じた結果契約を設計し、CI／Remoteの代表経路で検証する |
@@ -105,8 +105,9 @@ v0.22  Linuxへ常設し、QueueとRemote Triggerで限定Operationを継続実�
 | 2026-09-05 | v0.20を、ローカル単一Projectの試験体系、実行知、Runtime責務分離、限定分散、状態投影、localhost MCPへ固定。Linux／Remoteは後続へ分離 | [v0.20未完了作業](#11-v0200--release引継ぎ) |
 | 2026-09-06 | Project運営、Topic、Meeting、Trust Policy、Capability Registry、Remote MCP、CROS、最小Organization Runtime、自律Operationをv0.21へ採用 | [v0.21未完了作業](#12-v0210--project運営信頼複数repository) |
 | 2026-09-07 | AI Runtime Registry／モデルProfile外部構成をv0.21へ追加 | [Runtime／CROS候補](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#6-ai-runtime-registryモデルprofile外部構成) |
-| 2026-09-11 | Workbenchを先行せず、Repository、`.crdd`、Tool、構造化結果、MCPの共通契約を先に整える基盤をv0.21へ追加 | [構造化とWorkbench基盤](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crddcros構造化とworkbench基盤) |
+| 2026-09-11 | Workbenchを先行せず、Repository、`.crdd`、Tool、構造化結果、MCPの共通契約を先に整える基盤をv0.21へ追加 | [Runtime Data・構造化・Workbench基盤](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤) |
 | 2026-09-11 | Linux／Remote Runtime、耐久Queue／Scheduler、Remote Trigger、実行評価をv0.22へ採用。macOSは実環境取得まで版未定 | [v0.22未完了作業](#13-v0220--linux常設化remote限定自律実行) |
+| 2026-09-12 | `.crdd`整理を構造化基盤の最初の作業として明示し、現行Producerと物理残存を分けて棚卸ししたうえで、Repository-local／CROSの分離、親子階層、`config/`および`tmp/`の限定用途を目標Architectureへ固定する | [現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md)、[目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md) |
 
 計画変更時は、変更理由、影響する利用側・完成条件、追加・除外・保留の処置および変更トレースを示し、過去の判断を遡及上書きしない。候補の利用者課題、価値、採用境界は[Runtime／CROS Product Candidates](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md)と各情報源が所有する。Roadmapは具体的なSchema、Path、契約または実装順序を定義しない。
 

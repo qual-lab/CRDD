@@ -1,8 +1,11 @@
 # Repository-local CRDD runtime state is untracked by default.
 /.crdd/*
 
-# This policy is repository configuration bound to the reviewed Git revision.
-!/.crdd/external-send-policy.json
+# These files are repository configuration bound to the reviewed Git revision.
+!/.crdd/config/
+/.crdd/config/*
+!/.crdd/config/repository-manifest.json
+!/.crdd/config/external-send-policy.json
 
 # Tool package dependencies are restored from their lockfiles.
 **/node_modules/

@@ -21,7 +21,12 @@ import { formatHostRecoveryToken } from "../../src/security/host-recovery-record
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const packageRoot = path.resolve(import.meta.dirname, "../..");
 function fixture(t: TestContext) {
-  const parent = path.join(repositoryRoot, ".crdd", "test-tmp");
+  const parent = path.join(
+    repositoryRoot,
+    ".crdd",
+    "tests",
+    "verification-result-record",
+  );
   fs.mkdirSync(parent, { recursive: true });
   assert.equal(fs.realpathSync.native(parent), parent);
   const root = fs.mkdtempSync(path.join(parent, "verification-record-"));
@@ -54,7 +59,7 @@ function fixture(t: TestContext) {
   return root;
 }
 function store(root: string) {
-  return path.join(root, ".crdd", "verification-results");
+  return path.join(root, ".crdd", "verification");
 }
 function resultPath(root: string, id: string | null) {
   assert.ok(id);

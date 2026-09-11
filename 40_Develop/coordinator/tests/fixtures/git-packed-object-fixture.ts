@@ -10,7 +10,12 @@ const GIT_EXECUTABLE = "C:\\Program Files\\Git\\cmd\\git.exe";
 
 export function createGitPackedObjectFixture(kind: "base" | "ofs" | "ref") {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
-  const temporaryRoot = path.join(repositoryRoot, ".crdd", "test-tmp");
+  const temporaryRoot = path.join(
+    repositoryRoot,
+    ".crdd",
+    "tests",
+    "git-packed-object",
+  );
   for (const directory of [
     repositoryRoot,
     path.join(repositoryRoot, ".crdd"),

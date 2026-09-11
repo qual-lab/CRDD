@@ -27,11 +27,7 @@ import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/p
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
-const releaseStagingRoot = path.join(
-  repositoryRoot,
-  ".crdd",
-  "release-staging",
-);
+const releaseStagingRoot = path.join(repositoryRoot, ".crdd", "release");
 
 type ContractTestManifestOptions = Parameters<
   typeof preflightReleaseManifest
@@ -177,6 +173,7 @@ function runtimeDistributionFixture(prefix: string) {
     "mcp",
     "project-runtime",
     "execution-intelligence",
+    "runtime-data",
   ] as const) {
     fs.cpSync(
       path.join(repositoryRoot, "40_Develop", component),
@@ -489,6 +486,8 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
     "template/tools/crdd-mcp.ts",
     "40_Develop/mcp/package.json",
     "40_Develop/project-runtime/src/index.ts",
+    "40_Develop/runtime-data/package.json",
+    "40_Develop/runtime-data/src/index.ts",
   ] as const;
   for (const relativePath of cases) {
     const distributionRoot = runtimeDistributionFixture("contract-closure");

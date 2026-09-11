@@ -201,7 +201,12 @@ test("trace確認CLIは実ファイル搬送・引数・読取り拒否を終了
   const environment = createWindowsHostOperationSupervisorEnvironment();
   assert.ok(environment);
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
-  const parent = path.join(repositoryRoot, ".crdd", "test-tmp");
+  const parent = path.join(
+    repositoryRoot,
+    ".crdd",
+    "tests",
+    "native-runtime-trace",
+  );
   fs.mkdirSync(parent, { recursive: true });
   assert.equal(fs.realpathSync.native(parent), parent);
   assert.equal(fs.lstatSync(parent).isSymbolicLink(), false);

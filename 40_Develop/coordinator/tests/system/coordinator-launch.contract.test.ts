@@ -202,7 +202,12 @@ test("実Processのredirectでは対話入口を対象import前に拒否し、�
 });
 
 test("実子で同一PID・引数・stdin byte・cwd・終了コードを保持し、import例外を成功にしない", () => {
-  const tempParent = path.join(repositoryRoot, ".crdd", "test-tmp");
+  const tempParent = path.join(
+    repositoryRoot,
+    ".crdd",
+    "tests",
+    "coordinator-launch",
+  );
   fs.mkdirSync(tempParent, { recursive: true });
   assert.equal(fs.realpathSync.native(tempParent), tempParent);
   const root = fs.mkdtempSync(path.join(tempParent, "launch-contract-"));

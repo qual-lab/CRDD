@@ -89,7 +89,7 @@ Tool exists
 
 具体的な設定Path、Schema、Root Manifestの要否は、実装要求と安全境界を確認してArchitectureで決める。
 
-## 5. CRDD／CROS構造化とWorkbench基盤
+## 5. `.crdd` Runtime Data ContractとCRDD／CROS構造化基盤
 
 Workbenchは新しい正本や独自Runtimeを持たず、構造化されたCRDD／CROSを人間向けに投影・操作する薄い作業台とする。
 
@@ -117,7 +117,7 @@ CRDD／CROS
 
 WorkbenchはSourceTreeや高度なGit操作を再実装しない。閲覧・比較・状態確認・定型操作を担い、調査・判断支援はAI、実行・統合・Runtime管理はCROS、Context・Knowledge・Decisionの正本はCRDDが所有する。
 
-`.crdd`の正式なDirectory Taxonomyは、着手時に全書込みPathのOwner、Purpose、Schema、Git管理、耐久性、Read／Write、保持、清掃およびRecoveryを棚卸ししてから決める。候補図や現在の一部運用を最終契約へ昇格しない。
+`.crdd`の正式なDirectory Taxonomyは、全書込みPathのOwner、Purpose、Schema、Git管理、耐久性、Read／Write、保持、清掃およびRecoveryを棚卸しして決める。現行の棚卸しは[Runtime Dataの現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md)、採用候補となる全体構造と`tmp/`の限定用途は[Runtime Dataの目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md)で追跡する。Architectureの候補を、Consumer移行と検証なしに現行Runtime契約へ昇格しない。
 
 ## 6. AI Runtime Registry／モデルProfile外部構成
 

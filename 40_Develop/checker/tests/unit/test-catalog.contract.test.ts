@@ -35,6 +35,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "mcp",
       "platform-access",
       "project-runtime",
+      "runtime-data",
     ],
   );
   for (const block of catalog.integrationBlocks) {

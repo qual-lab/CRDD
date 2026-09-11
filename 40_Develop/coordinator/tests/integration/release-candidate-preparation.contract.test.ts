@@ -55,25 +55,14 @@ test("固定Commitをshellなしで準備Directoryから完成候補へ公開す
     assert.equal(result.shellUsed, false);
     assert.equal(
       fs.readFileSync(
-        path.join(
-          value.root,
-          ".crdd",
-          "release-staging",
-          "candidate-01",
-          "README.md",
-        ),
+        path.join(value.root, ".crdd", "release", "candidate-01", "README.md"),
         "utf8",
       ),
       "candidate\n",
     );
     assert.equal(
       fs.existsSync(
-        path.join(
-          value.root,
-          ".crdd",
-          "release-staging",
-          "candidate-01.preparing",
-        ),
+        path.join(value.root, ".crdd", "release", "candidate-01.preparing"),
       ),
       false,
     );
@@ -106,9 +95,7 @@ test("既存候補と準備残存を上書きせず不正RevisionをEffect前に
     assert.equal(invalid.status, "blocked");
     assert.equal(invalid.reason, "release_candidate_revision_invalid");
     assert.equal(
-      fs.existsSync(
-        path.join(value.root, ".crdd", "release-staging", "candidate-03"),
-      ),
+      fs.existsSync(path.join(value.root, ".crdd", "release", "candidate-03")),
       false,
     );
   } finally {

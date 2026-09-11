@@ -2,13 +2,21 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import {
+  EXTERNAL_SEND_POLICY_RELATIVE_PATH,
+  REPOSITORY_MANIFEST_RELATIVE_PATH,
+} from "../../../runtime-data/src/index.ts";
+
 import { PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH } from "./platform-provisioner-manifest-loader.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "./platform-access-release.ts";
 import { isCanonicalCrddGitObjectId } from "./release-identity-grammar.ts";
 
 const MAXIMUM_DISTRIBUTION_FILES = 2_048;
 const MAXIMUM_DISTRIBUTION_BYTES = 64 * 1024 * 1024;
-const TRACKED_RUNTIME_SETTING_RELATIVE_PATH = ".crdd/external-send-policy.json";
+const TRACKED_RUNTIME_SETTING_RELATIVE_PATHS = new Set<string>([
+  EXTERNAL_SEND_POLICY_RELATIVE_PATH,
+  REPOSITORY_MANIFEST_RELATIVE_PATH,
+]);
 
 type HashAlgorithm = "sha1" | "sha256";
 
@@ -237,9 +245,13 @@ function observeDistributionTree(
         excludedRepositoryMetadata.add(relative);
         continue;
       }
+      if (relativeDirectory === ".crdd" && relative !== ".crdd/config") {
+        excludedRuntimeMetadata.add(relative);
+        continue;
+      }
       if (
-        relativeDirectory === ".crdd" &&
-        relative !== TRACKED_RUNTIME_SETTING_RELATIVE_PATH
+        relativeDirectory === ".crdd/config" &&
+        !TRACKED_RUNTIME_SETTING_RELATIVE_PATHS.has(relative)
       ) {
         excludedRuntimeMetadata.add(relative);
         continue;
@@ -285,7 +297,7 @@ function observeDistributionTree(
       if (relative === PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH) {
         includedSignedArtifacts.add(relative);
       }
-      if (relative === TRACKED_RUNTIME_SETTING_RELATIVE_PATH) {
+      if (TRACKED_RUNTIME_SETTING_RELATIVE_PATHS.has(relative)) {
         includedTrackedRuntimeSettings.add(relative);
       }
       fileCount += 1;
@@ -348,7 +360,7 @@ function observeDistributionTree(
     gitMetadataExcludedFromTree: excludedRepositoryMetadata.has(".git"),
     runtimeMetadataExcludedFromTree: excludedRuntimeMetadata.size > 0,
     trackedRuntimeSettingIncludedInTree: includedTrackedRuntimeSettings.has(
-      TRACKED_RUNTIME_SETTING_RELATIVE_PATH,
+      EXTERNAL_SEND_POLICY_RELATIVE_PATH,
     ),
   });
 }

@@ -359,7 +359,7 @@ export async function runRecordedVerification<T, E>(
     const revision = inspectRepositoryRevisionCandidate(root);
     if (!revision) throw new Error("verification_record_revision_unavailable");
     directories = appendDirectory([observeDirectory(root)], ".crdd");
-    directories = appendDirectory(directories, "verification-results");
+    directories = appendDirectory(directories, "verification");
     // Admission bound, not a cross-process atomic quota. Never delete old evidence.
     if (
       fs.readdirSync(lastDirectory(directories)).length >= MAX_EXISTING_ENTRIES
@@ -447,7 +447,5 @@ export function displayVerificationRecording(
         : "最終結果を保存できませんでした。以下の実行結果を保持してください。保存失敗から実行結果や回復状態を推定しないでください。";
   process.stderr.write(`${message}\n`);
   if (outcome.recordId)
-    process.stderr.write(
-      `記録: .crdd/verification-results/${outcome.recordId}/\n`,
-    );
+    process.stderr.write(`記録: .crdd/verification/${outcome.recordId}/\n`);
 }

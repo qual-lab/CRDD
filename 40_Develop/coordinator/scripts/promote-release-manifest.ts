@@ -52,7 +52,7 @@ export function resolveReleaseManifestPromotionTopologyForVerification(
   const releaseStagingRoot = path.join(
     destinationRepositoryRoot,
     ".crdd",
-    "release-staging",
+    "release",
   );
   try {
     const parent = fs.realpathSync.native(path.dirname(distributionRoot));

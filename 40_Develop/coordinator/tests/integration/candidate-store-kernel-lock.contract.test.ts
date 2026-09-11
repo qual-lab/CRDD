@@ -784,7 +784,10 @@ test("同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず
     .digest("hex");
   const invocation = `(${verifyDelayedLockWorkerInChild.toString()})(${JSON.stringify(moduleUrl)}, ${JSON.stringify(workerUrl)}, ${JSON.stringify(protectionHash)}).catch(error => { console.error(error); process.exitCode = 1; });`;
   const scratchRoot = fileURLToPath(
-    new URL("../../../../.crdd/test-tmp/", import.meta.url),
+    new URL(
+      "../../../../.crdd/tests/candidate-store-kernel-lock/",
+      import.meta.url,
+    ),
   );
   const child = spawn(process.execPath, ["--eval", invocation], {
     env: { TEMP: scratchRoot, TMP: scratchRoot },

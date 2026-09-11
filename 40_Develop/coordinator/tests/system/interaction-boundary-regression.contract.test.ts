@@ -2266,7 +2266,7 @@ test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", 
   };
   for (const command of [
     "node ./bin/launch.ts verify-recovery",
-    "node ./bin/launch.ts sign-release --distribution .crdd/release-staging",
+    "node ./bin/launch.ts sign-release --distribution .crdd/release",
   ]) {
     assert.equal(invokesProtectedEntrypoint(command), true, command);
   }

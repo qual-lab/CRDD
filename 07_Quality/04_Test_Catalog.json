@@ -20,9 +20,20 @@
     "execution-intelligence": "node_test",
     "mcp": "node_test",
     "project-runtime": "node_test",
+    "runtime-data": "node_test",
     "platform-access": "cargo_test"
   },
   "integrationBlocks": [
+    {
+      "id": "runtime-data:repository-storage",
+      "owner": "runtime-data",
+      "architectureAnchor": "06_Architecture/runtime-data/02_Target_Architecture.md#2-repository-local目標構成",
+      "responsibilities": ["repository_root_binding", "runtime_path_resolution", "temporary_operation_lifecycle"],
+      "externalBoundaries": ["git_worktree", "repository_filesystem", "os_managed_root"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["runtime-data:unit:contract", "runtime-data:unit:path-resolver", "runtime-data:integration:repository-paths", "runtime-data:integration:temporary-operation-lifecycle"],
+      "postconditions": ["repository_boundary_exact", "unregistered_path_not_issued", "temporary_artifact_absent_or_recovery_exact"]
+    },
     {
       "id": "checker:repository-verification",
       "owner": "checker",
@@ -196,6 +207,13 @@
   ],
   "integrationCorridors": [
     {
+      "id": "runtime-data:repository-to-consumers",
+      "architectureAnchor": "06_Architecture/runtime-data/02_Target_Architecture.md#2-repository-local目標構成",
+      "blockPath": ["runtime-data:repository-storage", "execution-intelligence:durable-store", "project-runtime:objective-task-lifecycle"],
+      "testIds": ["runtime-data:integration:repository-paths", "execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
+      "postconditions": ["repository_root_identity_preserved", "canonical_paths_not_reinterpreted", "consumer_storage_stays_repository_local"]
+    },
+    {
       "id": "checker:discovery-to-regression",
       "architectureAnchor": "06_Architecture/01_Architecture.md#検査と回帰実行",
       "blockPath": ["checker:repository-verification", "checker:regression-runner"],
@@ -319,9 +337,85 @@
       "testIds": [
         "coordinator:integration:project-runtime-composition-root"
       ]
+    },
+    {
+      "producerOwner": "runtime-data",
+      "producerPaths": [
+        "40_Develop/runtime-data/src"
+      ],
+      "consumerOwner": "execution-intelligence",
+      "consumerStatic": true,
+      "testIds": [
+        "execution-intelligence:integration:store"
+      ]
+    },
+    {
+      "producerOwner": "runtime-data",
+      "producerPaths": [
+        "40_Develop/runtime-data/src"
+      ],
+      "consumerOwner": "coordinator",
+      "consumerStatic": true,
+      "testIds": [
+        "coordinator:integration:external-send-policy-runtime",
+        "coordinator:integration:project-runtime-durable-foundation",
+        "coordinator:integration:sign-release-manifest"
+      ]
     }
   ],
   "tests": [
+    {
+      "id": "runtime-data:unit:contract",
+      "owner": "runtime-data",
+      "path": "40_Develop/runtime-data/tests/unit/runtime-data-contract.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["runtime-data", "manifest", "trust-policy"],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["unknown_field_rejected", "authority_not_inferred"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "runtime-data:unit:path-resolver",
+      "owner": "runtime-data",
+      "path": "40_Develop/runtime-data/tests/unit/runtime-data-path-resolver.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["runtime-data", "windows", "linux", "path"],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["logical_path_deterministic", "os_roots_not_mixed"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "runtime-data:integration:repository-paths",
+      "owner": "runtime-data",
+      "path": "40_Develop/runtime-data/tests/integration/repository-runtime-data-paths.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["runtime-data", "repository-root", "path"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["repository_root_exact", "top_level_allowlist_fixed"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "runtime-data:integration:temporary-operation-lifecycle",
+      "owner": "runtime-data",
+      "path": "40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["runtime-data", "temporary", "lifecycle", "cleanup", "recovery"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["all_terminal_paths_classified", "cleanup_nonexistence_observed", "parent_loss_recovery_exact"],
+      "mandatoryByDefault": true
+    },
     {
       "id": "mcp:integration:transport-lifecycle",
       "owner": "mcp",

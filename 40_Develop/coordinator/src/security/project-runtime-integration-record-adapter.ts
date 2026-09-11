@@ -2,12 +2,13 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
+
 import {
   PROJECT_RUNTIME_INTEGRATION_CONTRACT,
   type ProjectRuntimeIntegrationRecordPort,
   type ProjectRuntimePortResult,
 } from "../../../project-runtime/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 
 type IntegrationRecordBinding = Readonly<{
   workingDirectory: string;
@@ -42,9 +43,11 @@ function blocked(): ProjectRuntimePortResult<Readonly<{ written: true }>> {
 export function createProjectRuntimeIntegrationRecordAdapter(
   binding: IntegrationRecordBinding,
 ): ProjectRuntimeIntegrationRecordPort {
-  const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
+  const runtimePaths = resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
     binding.workingDirectory,
   );
+  if (!runtimePaths)
+    throw new Error("project_runtime_integration_repository_root_invalid");
   return Object.freeze({
     write: (record) => {
       try {
@@ -58,9 +61,8 @@ export function createProjectRuntimeIntegrationRecordAdapter(
         )
           return blocked();
         const directory = path.join(
-          repositoryRoot,
-          ".crdd",
-          "project-runtime",
+          runtimePaths.projectRuntime,
+          "results",
           record.kind,
           binding.projectId,
         );

@@ -517,7 +517,7 @@ test("production昇格入口はGit CLIやtext再serializeを使わず固定検�
 test("昇格入口は配置先Repository直下の署名候補自身だけを実行元にする", () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-topology-"));
   const destinationRoot = path.join(parent, "repository");
-  const stagingRoot = path.join(destinationRoot, ".crdd", "release-staging");
+  const stagingRoot = path.join(destinationRoot, ".crdd", "release");
   const candidateRoot = path.join(stagingRoot, "candidate-01");
   const siblingRoot = path.join(parent, "candidate-01");
   try {

@@ -3701,6 +3701,40 @@ if (discovery.baseline_submodule) {
   }
 }
 const allFiles = discovery.files;
+if (repositoryMode === "official") {
+  const retiredRuntimeDataPaths = [
+    ".crdd/external-send-policy.json",
+    ".crdd/release-staging",
+    ".crdd/verification-results",
+    ".crdd/dogfooding",
+    ".crdd/test-tmp",
+    ".crdd/test-fixtures",
+    ".crdd/native-fixture",
+  ];
+  const runtimeDataConsumers = allFiles.filter((file) => {
+    const item = relative(file);
+    if (item === "template/tools/crdd-check.ts") return false;
+    return (
+      /^40_Develop\/(?:coordinator|execution-intelligence|mcp|project-runtime|runtime-data|platform-access)\/(?:src|scripts|bin)\//u.test(
+        item,
+      ) ||
+      item === "template/AGENTS.md" ||
+      item.startsWith("template/tools/")
+    );
+  });
+  for (const file of runtimeDataConsumers) {
+    if (!/\.(?:ts|mjs|cjs|json|md)$/u.test(file)) continue;
+    const source = read(file).replaceAll("\\", "/");
+    for (const retired of retiredRuntimeDataPaths)
+      if (source.includes(retired))
+        add(
+          "error",
+          "retired_runtime_data_path",
+          relative(file),
+          `旧Runtime Data Pathを利用しています: ${retired}`,
+        );
+  }
+}
 const allFileSet = new Set(allFiles);
 const allMarkdownFiles = allFiles.filter((file) =>
   file.toLowerCase().endsWith(".md"),

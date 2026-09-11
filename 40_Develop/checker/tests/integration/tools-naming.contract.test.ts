@@ -76,6 +76,7 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "coordinator"),
   path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
   path.join(repositoryRoot, "40_Develop", "project-runtime"),
+  path.join(repositoryRoot, "40_Develop", "runtime-data"),
   path.join(repositoryRoot, "40_Develop", "mcp"),
   path.join(repositoryRoot, "template", "tools"),
 ]);
@@ -96,6 +97,7 @@ const projectConfigs = Object.freeze([
     "tsconfig.json",
   ),
   path.join(repositoryRoot, "40_Develop", "project-runtime", "tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "runtime-data", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "mcp", "tsconfig.json"),
 ]);
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -1948,7 +1950,12 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
 });
 
 test("型付き命名classifierは構文境界の正負例を同じ規則で判定する", () => {
-  const temporaryParent = path.join(repositoryRoot, ".crdd", "test-tmp");
+  const temporaryParent = path.join(
+    repositoryRoot,
+    ".crdd",
+    "tests",
+    "checker-naming",
+  );
   fs.mkdirSync(temporaryParent, { recursive: true });
   const temporaryRoot = fs.mkdtempSync(
     path.join(temporaryParent, "naming-fixture-"),
