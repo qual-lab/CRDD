@@ -341,6 +341,7 @@ try {
     process.exit(2);
   }
   if (
+    !process.argv.includes("--plan") &&
     selectedEntries.some(
       (entry) => entry.externalProviderEffect || entry.humanInput,
     )

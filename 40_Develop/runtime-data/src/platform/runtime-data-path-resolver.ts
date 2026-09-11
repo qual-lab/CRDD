@@ -79,7 +79,11 @@ export function resolveCrosRuntimeRoots(input: CrosRootInput) {
     input.application !== "cros"
   )
     return null;
-  const pathSegments = [input.publisher, input.application, input.trustDomainId];
+  const pathSegments = [
+    input.publisher,
+    input.application,
+    input.trustDomainId,
+  ];
   if (input.platform === "win32") {
     if (!input.localAppData || !path.win32.isAbsolute(input.localAppData))
       return null;

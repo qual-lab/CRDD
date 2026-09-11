@@ -126,6 +126,38 @@ test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
   assert.ok((plan.selected as unknown[]).length >= 4);
 });
 
+test("外部Provider試験を含む変更でもEffect 0の計画表示は停止しない", () => {
+  const changedPath =
+    "40_Develop/coordinator/src/security/external-send-policy-runtime.ts";
+  const planned = invokeRunner(["--changed", changedPath, "--plan"]);
+  assert.equal(planned.error, undefined);
+  assert.equal(planned.status, 0);
+  assert.equal(planned.stderr, "");
+  const plan = JSON.parse(planned.stdout) as {
+    selected?: string[];
+    effectIssued?: unknown;
+  };
+  assert.ok(
+    plan.selected?.includes(
+      "40_Develop/coordinator/tests/integration/signed-reviewer-real-boundary.integration.test.ts",
+    ),
+  );
+  assert.equal(plan.effectIssued, false);
+
+  const execution = invokeRunner([
+    "--changed",
+    changedPath,
+    "--windows-process-control-authorized",
+  ]);
+  assert.equal(execution.error, undefined);
+  assert.equal(execution.status, 2);
+  assert.deepEqual(JSON.parse(execution.stdout), {
+    status: "blocked",
+    reason: "interactive_or_provider_test_not_automatically_authorized",
+    effectIssued: false,
+  });
+});
+
 test("Windows実Process試験は専用実行Profileを計画へ明示する", () => {
   const result = invokeRunner([
     "--changed",

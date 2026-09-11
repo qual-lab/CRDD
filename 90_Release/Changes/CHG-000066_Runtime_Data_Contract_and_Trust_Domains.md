@@ -24,7 +24,7 @@ Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime
 | Consumer移行・旧Path拒否 | 実装・Focused Test済み |
 | `tmp/`所有・清掃契約 | 実装・全終端経路試験済み |
 | 既存物理残存の清掃 | 完了・退避後不存在を確認 |
-| 全体Checker／選択回帰 | Checker 431文書でError 0。選択回帰はCommit固定後に実行 |
+| 全体Checker／選択回帰 | Checker 431文書でError 0。変更影響計画を固定し、外部Providerを使わない対象確認を完了。独立レビュー待ち |
 
 ## 2. 契機と人間が決定した範囲
 
@@ -160,7 +160,7 @@ Component単位契約試験
 | Discovery | [Runtime／CROS Product Candidates](../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤) |
 | Roadmap | [v0.21未完了作業](../../99_Roadmap/01_Product_Roadmap.md#12-v0210--project運営信頼複数repository) |
 | 実装 | `40_Develop/runtime-data/`、Coordinator／Execution Intelligence利用側、Checker旧Path拒否 |
-| 検証結果 | Runtime Data 11/11、Execution Intelligence 41/41、Project Runtime対象97件中旧期待値2件を是正して対象再試験成功、Test Catalog 19/19、Coordinator関連結合201/201、全体Checker 431文書・3,109 Link・Error 0 |
+| 検証結果 | Runtime Data 11/11、Execution Intelligence 41/41、Project Runtime対象97件中旧期待値2件を是正して対象再試験成功、Test Catalog 19/19、Coordinator関連結合201/201、署名契約15/15、回帰計画契約17/17、全体Checker 431文書・3,109 Link・Error 0 |
 
 ## 9. Retentionと清掃の初期境界
 

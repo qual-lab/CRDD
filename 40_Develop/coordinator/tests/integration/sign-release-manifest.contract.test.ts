@@ -765,8 +765,8 @@ test("Release署名RootはRepository-localの単一candidate directoryだけを�
   const arbitraryLocal = path.join(
     repositoryRoot,
     ".crdd",
-    "e2e-distributions",
-    "contract-root",
+    "tests",
+    "sign-release-manifest-invalid",
   );
   const nested = path.join(candidate, "nested");
   try {
