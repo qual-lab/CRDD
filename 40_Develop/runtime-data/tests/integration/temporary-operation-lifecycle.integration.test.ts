@@ -18,6 +18,14 @@ import { settleTemporaryOperationWithRemovalForVerification } from "../../src/st
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
+function resumeWithNextIdentity(
+  capability: Parameters<typeof resumeTemporaryOperation>[0],
+  reference: TemporaryOperationRecoveryReference,
+  nextIdentity = randomUUID(),
+) {
+  return resumeTemporaryOperation(capability, reference, nextIdentity);
+}
+
 test("tmp Operationは正常・失敗・取消・Timeoutで不存在まで確認する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
   assert.equal(root.status, "completed");
@@ -74,14 +82,14 @@ test("親Process喪失はexact Recovery参照を返し物理残存を削除し�
     "temporary_operation_capability_invalid",
   );
   assert.ok(opened.recoveryReference);
-  const resumed = resumeTemporaryOperation(
+  const resumed = resumeWithNextIdentity(
     root.capability,
     opened.recoveryReference,
   );
   assert.equal(resumed.status, "completed");
   if (resumed.status !== "completed") return;
   assert.equal(
-    resumeTemporaryOperation(root.capability, opened.recoveryReference).reason,
+    resumeWithNextIdentity(root.capability, opened.recoveryReference).reason,
     "temporary_operation_recovery_identity_mismatch",
   );
   const cleaned = settleTemporaryOperation(resumed.capability, "failed", null);
@@ -105,7 +113,7 @@ test("再入場はexact Recovery Identity以外をEffect前に拒否する", () 
   if (opened.status !== "completed") return;
   assert.ok(opened.recoveryReference);
   assert.equal(
-    resumeTemporaryOperation(root.capability, {
+    resumeWithNextIdentity(root.capability, {
       ...opened.recoveryReference,
       identity: "different-identity",
     }).reason,
@@ -225,14 +233,14 @@ test("cleanup失敗は耐久状態へ遷移しexact参照で一度だけ再入�
   assert.equal(failed.status, "blocked");
   assert.equal(failed.recoveryRequired, true);
   assert.ok(failed.recoveryReference);
-  const resumed = resumeTemporaryOperation(
+  const resumed = resumeWithNextIdentity(
     root.capability,
     failed.recoveryReference,
   );
   assert.equal(resumed.status, "completed");
   if (resumed.status !== "completed") return;
   assert.equal(
-    resumeTemporaryOperation(root.capability, failed.recoveryReference).status,
+    resumeWithNextIdentity(root.capability, failed.recoveryReference).status,
     "blocked",
   );
   assert.equal(
@@ -269,7 +277,7 @@ test("Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収�
   assert.equal(failed.reason, "temporary_operation_lock_cleanup_unconfirmed");
   assert.equal(failed.recoveryRequired, true);
   assert.ok(failed.recoveryReference);
-  const resumed = resumeTemporaryOperation(
+  const resumed = resumeWithNextIdentity(
     root.capability,
     failed.recoveryReference,
   );
@@ -306,13 +314,268 @@ test("初回Capability返却前に終了したpreparing世代は既知参照か�
     identity,
     generation: 1,
   });
-  const resumed = resumeTemporaryOperation(root.capability, reference);
+  const resumed = resumeWithNextIdentity(root.capability, reference);
   assert.equal(resumed.status, "completed");
   if (resumed.status !== "completed") return;
   assert.equal(
     settleTemporaryOperation(resumed.capability, "failed", null).status,
     "completed",
   );
+});
+
+test("Canonical公開前に終了した初回stagingは既知参照から回復できる", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const operationId = `runtime-data-test-prepublish-${process.pid}`;
+  const identity = randomUUID();
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/create-temporary-operation-and-exit.ts"),
+      repositoryRoot,
+      operationId,
+      identity,
+      "after-staging",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(child.status, 83, child.stderr);
+  const reference: TemporaryOperationRecoveryReference = Object.freeze({
+    operationId,
+    owner: "runtime-data-test",
+    identity,
+    generation: 1,
+  });
+  const resumed = resumeWithNextIdentity(root.capability, reference);
+  assert.equal(resumed.status, "completed");
+  if (resumed.status === "completed")
+    assert.equal(
+      settleTemporaryOperation(resumed.capability, "failed", null).status,
+      "completed",
+    );
+});
+
+test("初回staging書込み中のProcess死はexact stagingだけを不存在へ戻す", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const operationId = `runtime-data-test-partial-staging-${process.pid}`;
+  const identity = randomUUID();
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/create-temporary-operation-and-exit.ts"),
+      repositoryRoot,
+      operationId,
+      identity,
+      "after-staging-created",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(child.status, 83, child.stderr);
+  const reference: TemporaryOperationRecoveryReference = Object.freeze({
+    operationId,
+    owner: "runtime-data-test",
+    identity,
+    generation: 1,
+  });
+  const cleaned = resumeWithNextIdentity(root.capability, reference);
+  assert.equal(
+    cleaned.reason,
+    "temporary_operation_prepublication_cleanup_confirmed",
+  );
+  assert.equal(cleaned.cleanupConfirmed, true);
+  const reopened = createTemporaryOperation(root.capability, {
+    operationId,
+    owner: "runtime-data-test",
+    identity: randomUUID(),
+    purpose: "replacement after partial staging cleanup",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
+  assert.equal(reopened.status, "completed");
+  if (reopened.status === "completed")
+    assert.equal(
+      settleTemporaryOperation(reopened.capability, "failed", null).status,
+      "completed",
+    );
+});
+
+test("Lock公開前のProcess死はcaller-known Identityで再入場できる", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const opened = createTemporaryOperation(root.capability, {
+    operationId: `runtime-data-test-lock-prepublish-${process.pid}`,
+    owner: "runtime-data-test",
+    identity: randomUUID(),
+    purpose: "lock prepublication process loss verification",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
+  assert.equal(opened.status, "completed");
+  if (opened.status !== "completed") return;
+  const lost = settleTemporaryOperation(opened.capability, "parent_lost", null);
+  assert.ok(lost.recoveryReference);
+  const nextIdentity = randomUUID();
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/resume-temporary-operation-and-exit.ts"),
+      repositoryRoot,
+      Buffer.from(JSON.stringify(lost.recoveryReference)).toString("base64url"),
+      nextIdentity,
+      "after-lock-staging",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(child.status, 84, child.stderr);
+  const resumed = resumeWithNextIdentity(
+    root.capability,
+    lost.recoveryReference,
+    nextIdentity,
+  );
+  assert.equal(resumed.status, "completed");
+  if (resumed.status === "completed")
+    assert.equal(
+      settleTemporaryOperation(resumed.capability, "failed", null).status,
+      "completed",
+    );
+});
+
+test("Lock staging書込み中のProcess死も同じ次世代Identityで回収する", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const opened = createTemporaryOperation(root.capability, {
+    operationId: `runtime-data-test-lock-partial-${process.pid}`,
+    owner: "runtime-data-test",
+    identity: randomUUID(),
+    purpose: "partial lock staging process loss verification",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
+  assert.equal(opened.status, "completed");
+  if (opened.status !== "completed") return;
+  const lost = settleTemporaryOperation(opened.capability, "parent_lost", null);
+  assert.ok(lost.recoveryReference);
+  const nextIdentity = randomUUID();
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/resume-temporary-operation-and-exit.ts"),
+      repositoryRoot,
+      Buffer.from(JSON.stringify(lost.recoveryReference)).toString("base64url"),
+      nextIdentity,
+      "after-lock-staging-created",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(child.status, 84, child.stderr);
+  const resumed = resumeWithNextIdentity(
+    root.capability,
+    lost.recoveryReference,
+    nextIdentity,
+  );
+  assert.equal(resumed.status, "completed");
+  if (resumed.status === "completed")
+    assert.equal(
+      settleTemporaryOperation(resumed.capability, "failed", null).status,
+      "completed",
+    );
+});
+
+test("返却済み新世代の実Process死後も使用済み旧参照を拒否する", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const opened = createTemporaryOperation(root.capability, {
+    operationId: `runtime-data-test-resume-crash-${process.pid}`,
+    owner: "runtime-data-test",
+    identity: randomUUID(),
+    purpose: "resumed process crash verification",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
+  assert.equal(opened.status, "completed");
+  if (opened.status !== "completed") return;
+  const lost = settleTemporaryOperation(opened.capability, "parent_lost", null);
+  assert.ok(lost.recoveryReference);
+  const nextIdentity = randomUUID();
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/resume-temporary-operation-and-exit.ts"),
+      repositoryRoot,
+      Buffer.from(JSON.stringify(lost.recoveryReference)).toString("base64url"),
+      nextIdentity,
+      "after-return",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(child.status, 0, child.stderr);
+  const nextReference = JSON.parse(
+    child.stdout.trim(),
+  ) as TemporaryOperationRecoveryReference;
+  assert.equal(
+    resumeWithNextIdentity(root.capability, lost.recoveryReference).reason,
+    "temporary_operation_recovery_identity_mismatch",
+  );
+  const resumed = resumeWithNextIdentity(root.capability, nextReference);
+  assert.equal(resumed.status, "completed");
+  if (resumed.status === "completed")
+    assert.equal(
+      settleTemporaryOperation(resumed.capability, "failed", null).status,
+      "completed",
+    );
+});
+
+test("新世代公開後・Capability返却前のProcess死でも次世代参照を再構成できる", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const opened = createTemporaryOperation(root.capability, {
+    operationId: `runtime-data-test-resume-prereturn-${process.pid}`,
+    owner: "runtime-data-test",
+    identity: randomUUID(),
+    purpose: "resume pre-return process loss verification",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
+  assert.equal(opened.status, "completed");
+  if (opened.status !== "completed") return;
+  const lost = settleTemporaryOperation(opened.capability, "parent_lost", null);
+  assert.ok(lost.recoveryReference);
+  const nextIdentity = randomUUID();
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/resume-temporary-operation-and-exit.ts"),
+      repositoryRoot,
+      Buffer.from(JSON.stringify(lost.recoveryReference)).toString("base64url"),
+      nextIdentity,
+      "before-return",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(child.status, 84, child.stderr);
+  const nextReference: TemporaryOperationRecoveryReference = Object.freeze({
+    ...lost.recoveryReference,
+    identity: nextIdentity,
+    generation: lost.recoveryReference.generation + 1,
+  });
+  assert.equal(
+    resumeWithNextIdentity(root.capability, lost.recoveryReference).reason,
+    "temporary_operation_recovery_identity_mismatch",
+  );
+  const resumed = resumeWithNextIdentity(root.capability, nextReference);
+  assert.equal(resumed.status, "completed");
+  if (resumed.status === "completed")
+    assert.equal(
+      settleTemporaryOperation(resumed.capability, "failed", null).status,
+      "completed",
+    );
 });
 
 test("使用済みの旧世代Recovery参照は後続の親喪失後も再利用できない", () => {
@@ -335,7 +598,7 @@ test("使用済みの旧世代Recovery参照は後続の親喪失後も再利用
     null,
   );
   assert.ok(firstLost.recoveryReference);
-  const resumed = resumeTemporaryOperation(
+  const resumed = resumeWithNextIdentity(
     root.capability,
     firstLost.recoveryReference,
   );
@@ -348,11 +611,10 @@ test("使用済みの旧世代Recovery参照は後続の親喪失後も再利用
   );
   assert.ok(secondLost.recoveryReference);
   assert.equal(
-    resumeTemporaryOperation(root.capability, firstLost.recoveryReference)
-      .reason,
+    resumeWithNextIdentity(root.capability, firstLost.recoveryReference).reason,
     "temporary_operation_recovery_identity_mismatch",
   );
-  const finalResume = resumeTemporaryOperation(
+  const finalResume = resumeWithNextIdentity(
     root.capability,
     secondLost.recoveryReference,
   );
@@ -379,7 +641,7 @@ test("active中の再入場・stale Capability・不正な終端値を拒否す�
   assert.equal(opened.status, "completed");
   if (opened.status !== "completed") return;
   assert.equal(
-    resumeTemporaryOperation(root.capability, opened.recoveryReference).reason,
+    resumeWithNextIdentity(root.capability, opened.recoveryReference).reason,
     "temporary_operation_recovery_not_required",
   );
   assert.equal(
@@ -389,7 +651,7 @@ test("active中の再入場・stale Capability・不正な終端値を拒否す�
   const lost = settleTemporaryOperation(opened.capability, "parent_lost", null);
   assert.equal(lost.status, "blocked");
   assert.ok(lost.recoveryReference);
-  const resumed = resumeTemporaryOperation(
+  const resumed = resumeWithNextIdentity(
     root.capability,
     lost.recoveryReference,
   );

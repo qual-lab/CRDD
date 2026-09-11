@@ -3798,6 +3798,55 @@ if (repositoryMode === "official") {
         "本番ConsumerがRuntime Data Root値を受け取り、名前付き領域の契約外で利用しています。ensureRepositoryRuntimeDataAreaを利用してください。",
       );
     if (productionRuntimeDataSourcePattern.test(item)) {
+      const pathSetVariables = new Set<string>();
+      const areaVariables = new Set<string>();
+      for (const match of source.matchAll(
+        /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?resolveRepositoryRuntimeDataPaths\s*\(/gu,
+      ))
+        if (match[1]) pathSetVariables.add(match[1]);
+      for (const match of source.matchAll(
+        /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?ensureRepositoryRuntimeDataArea\s*\(/gu,
+      ))
+        if (match[1]) areaVariables.add(match[1]);
+      const namedPathProperties =
+        "config|projectRuntime|execution|verification|candidates|release|communication|tests|temporary";
+      const isPathSetParentReinterpreted = [...pathSetVariables].some(
+        (variable) =>
+          new RegExp(
+            `path\\.dirname\\(\\s*${variable}\\.(?:${namedPathProperties})\\s*\\)`,
+            "u",
+          ).test(source),
+      );
+      const isAreaParentReinterpreted = [...areaVariables].some((variable) =>
+        new RegExp(
+          `path\\.dirname\\(\\s*${variable}\\.directory\\s*\\)`,
+          "u",
+        ).test(source),
+      );
+      if (isPathSetParentReinterpreted || isAreaParentReinterpreted)
+        add(
+          "error",
+          "runtime_data_named_path_parent_reinterpreted",
+          item,
+          "本番Consumerが名前付きRuntime Data Pathの親を逆算しています。公開された名前付き領域をそのまま利用してください。",
+        );
+    }
+    if (
+      productionRuntimeDataSourcePattern.test(item) &&
+      /(?:resolveRepositoryRuntimeDataPaths|ensureRepositoryRuntimeDataArea)/u.test(
+        source,
+      ) &&
+      /path\.dirname\(\s*[A-Za-z_$][\w$]*\.(?:config|projectRuntime|execution|verification|candidates|release|communication|tests|temporary|directory)\s*\)/u.test(
+        source,
+      )
+    )
+      add(
+        "error",
+        "runtime_data_named_area_parent_reinterpreted",
+        item,
+        "本番Consumerが名前付きRuntime Data領域の親Pathを逆算しています。公開Resolverが返す名前付き領域をそのまま利用してください。",
+      );
+    if (productionRuntimeDataSourcePattern.test(item)) {
       const aliases = new Set<string>();
       for (const match of source.matchAll(
         /const\s+([A-Za-z_$][\w$]*)\s*=\s*[A-Za-z_$][\w$]*\.root\s*;/gu,

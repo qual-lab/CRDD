@@ -891,13 +891,24 @@ test("alias経由の未登録Runtime Data領域と分割Root語彙を拒否す�
 test("新規Toolと変数・Helper経由のRuntime Data Root利用も自動検出する", () => {
   for (const sourceLineVariants of [
     [
+      'import path from "node:path";',
+      'import { resolveRepositoryRuntimeDataPaths } from "../../../runtime-data/src/index.ts";',
+      "declare const capability: Parameters<typeof resolveRepositoryRuntimeDataPaths>[0];",
       "const runtimePaths = resolveRepositoryRuntimeDataPaths(capability);",
-      "const area = runtimeArea;",
-      "const target = path.join(runtimePaths.root, area);",
+      'if (!runtimePaths) throw new Error("missing");',
+      "const runtimeRoot = path.dirname(runtimePaths.config);",
+      'const area = "future";',
+      "const target = path.join(runtimeRoot, area);",
     ],
     [
-      "const runtimePaths = resolveRepositoryRuntimeDataPaths(capability);",
-      "const target = joinArea(runtimePaths.root, runtimeArea);",
+      'import path from "node:path";',
+      'import { ensureRepositoryRuntimeDataArea } from "../../../runtime-data/src/index.ts";',
+      "declare const capability: Parameters<typeof ensureRepositoryRuntimeDataArea>[0];",
+      'const testsArea = ensureRepositoryRuntimeDataArea(capability, "tests");',
+      'if (!testsArea) throw new Error("missing");',
+      "const runtimeRoot = path.dirname(testsArea.directory);",
+      "function joinArea(root: string, area: string) { return path.join(root, area); }",
+      'const target = joinArea(runtimeRoot, "future");',
     ],
   ]) {
     const root = fixture();
@@ -913,7 +924,7 @@ test("新規Toolと変数・Helper経由のRuntime Data Root利用も自動検�
     assert.ok(
       result.report.findings.some(
         (finding) =>
-          finding.code === "runtime_data_raw_root_value_consumed" &&
+          finding.code === "runtime_data_named_path_parent_reinterpreted" &&
           finding.path === "40_Develop/future-tool/src/consumer.ts",
       ),
       `${result.stderr}\n${result.stdout}`,

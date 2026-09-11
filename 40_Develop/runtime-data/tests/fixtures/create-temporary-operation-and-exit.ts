@@ -20,10 +20,17 @@ const input = {
   evidencePromotion: "not_required",
 } as const;
 const opened =
-  mode === "after-control"
+  mode === "after-control" ||
+  mode === "after-staging" ||
+  mode === "after-staging-created"
     ? createTemporaryOperationWithInterruptionForVerification(
         root.capability,
         input,
+        mode === "after-staging-created"
+          ? "after_staging_created"
+          : mode === "after-staging"
+            ? "after_staging"
+            : "after_control",
         () => process.exit(83),
       )
     : createTemporaryOperation(root.capability, input);

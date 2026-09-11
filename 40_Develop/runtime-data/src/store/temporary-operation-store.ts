@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -71,7 +71,7 @@ type TemporaryOperationDocument = Readonly<{
   evidencePromotion: "required" | "not_required";
 }>;
 type LifecycleLock = Readonly<{
-  directory: string;
+  path: string;
   identity: string;
 }>;
 type LifecycleLockDocument = Readonly<{
@@ -197,7 +197,13 @@ function writeDocument(
   document: TemporaryOperationDocument,
 ): void {
   const directory = path.dirname(documentPath);
-  const temporary = path.join(directory, `.operation-${randomUUID()}.tmp`);
+  const stagingDirectory = path.join(directory, ".staging");
+  ensureDirectory(stagingDirectory);
+  const temporary = path.join(
+    stagingDirectory,
+    `${document.operationId}.${document.identity}.${document.generation}.${document.state}.json`,
+  );
+  if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
   const descriptor = fs.openSync(temporary, "wx", 0o600);
   try {
     fs.writeFileSync(descriptor, `${JSON.stringify(document)}\n`, "utf8");
@@ -226,16 +232,27 @@ function writeDocument(
 function createDocument(
   documentPath: string,
   document: TemporaryOperationDocument,
+  afterStagingDocumentCreated: () => void,
+  afterStagingDocumentWritten: () => void,
 ): void {
   const directory = path.dirname(documentPath);
-  const temporary = path.join(directory, `.operation-${randomUUID()}.tmp`);
+  const stagingDirectory = path.join(directory, ".staging");
+  ensureDirectory(stagingDirectory);
+  const temporary = path.join(
+    stagingDirectory,
+    `${document.operationId}.${document.identity}.${document.generation}.preparing.json`,
+  );
+  if (fs.existsSync(temporary))
+    throw new Error("temporary_operation_creation_in_progress");
   const descriptor = fs.openSync(temporary, "wx", 0o600);
   try {
+    afterStagingDocumentCreated();
     fs.writeFileSync(descriptor, `${JSON.stringify(document)}\n`, "utf8");
     fs.fsyncSync(descriptor);
   } finally {
     fs.closeSync(descriptor);
   }
+  afterStagingDocumentWritten();
   try {
     fs.linkSync(temporary, documentPath);
     const observed = readDocument(documentPath);
@@ -258,9 +275,8 @@ function processIsAlive(processId: number) {
     return (error as NodeJS.ErrnoException).code === "EPERM";
   }
 }
-function readLockDocument(directory: string): LifecycleLockDocument | null {
+function readLockDocument(target: string): LifecycleLockDocument | null {
   try {
-    const target = path.join(directory, "owner.json");
     const metadata = fs.lstatSync(target);
     if (!metadata.isFile() || metadata.isSymbolicLink()) return null;
     const value = JSON.parse(fs.readFileSync(target, "utf8")) as Record<
@@ -284,11 +300,65 @@ function readLockDocument(directory: string): LifecycleLockDocument | null {
   }
 }
 function publishLockDocument(
-  directory: string,
+  controlRoot: string,
+  operationId: string,
+  document: LifecycleLockDocument,
+  afterStagingLockCreated: () => void,
+  afterStagingLockWritten: () => void,
+): string {
+  const stagingDirectory = path.join(controlRoot, ".staging");
+  ensureDirectory(stagingDirectory);
+  const target = path.join(controlRoot, `${operationId}.lock`);
+  const temporary = path.join(
+    stagingDirectory,
+    `${operationId}.${document.identity}.lock.json`,
+  );
+  if (fs.existsSync(temporary)) {
+    const staged = readLockDocument(temporary);
+    if (!staged) fs.rmSync(temporary);
+    else {
+      if (processIsAlive(staged.ownerProcessId))
+        throw new Error("temporary_operation_lifecycle_busy");
+      fs.rmSync(temporary);
+    }
+  }
+  const descriptor = fs.openSync(temporary, "wx", 0o600);
+  try {
+    afterStagingLockCreated();
+    fs.writeFileSync(descriptor, `${JSON.stringify(document)}\n`, "utf8");
+    fs.fsyncSync(descriptor);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  afterStagingLockWritten();
+  try {
+    fs.linkSync(temporary, target);
+    const observed = readLockDocument(target);
+    if (
+      observed?.identity !== document.identity ||
+      observed.ownerProcessId !== document.ownerProcessId ||
+      observed.state !== document.state
+    )
+      throw new Error("temporary_operation_lock_publish_unconfirmed");
+  } finally {
+    if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
+  }
+  return target;
+}
+function removeLockFile(target: string): void {
+  fs.rmSync(target);
+}
+function updateLockDocument(
+  target: string,
   document: LifecycleLockDocument,
 ): void {
-  const target = path.join(directory, "owner.json");
-  const temporary = path.join(directory, `.owner-${randomUUID()}.tmp`);
+  const stagingDirectory = path.join(path.dirname(target), ".staging");
+  ensureDirectory(stagingDirectory);
+  const temporary = path.join(
+    stagingDirectory,
+    `${path.basename(target, ".lock")}.${document.identity}.${document.state}.lock.json`,
+  );
+  if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
   const descriptor = fs.openSync(temporary, "wx", 0o600);
   try {
     fs.writeFileSync(descriptor, `${JSON.stringify(document)}\n`, "utf8");
@@ -298,7 +368,7 @@ function publishLockDocument(
   }
   try {
     fs.renameSync(temporary, target);
-    const observed = readLockDocument(directory);
+    const observed = readLockDocument(target);
     if (
       observed?.identity !== document.identity ||
       observed.ownerProcessId !== document.ownerProcessId ||
@@ -309,41 +379,43 @@ function publishLockDocument(
     if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
   }
 }
-function removeLockDirectory(directory: string): void {
-  fs.rmSync(directory, { recursive: true });
-}
-function acquireLock(controlRoot: string, operationId: string): LifecycleLock {
-  const lockDirectory = path.join(controlRoot, `${operationId}.lock`);
+function acquireLock(
+  controlRoot: string,
+  operationId: string,
+  identity: string,
+  afterStagingLockCreated: () => void = () => {},
+  afterStagingLockWritten: () => void = () => {},
+): LifecycleLock {
+  const lockPath = path.join(controlRoot, `${operationId}.lock`);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      fs.mkdirSync(lockDirectory, { mode: 0o700 });
-      if (!isSafeDirectory(lockDirectory))
-        throw new Error("temporary_operation_boundary_invalid");
-      const identity = randomUUID();
       publishLockDocument(
-        lockDirectory,
+        controlRoot,
+        operationId,
         Object.freeze({
           schema: "crdd/runtime-data/lifecycle-lock/v1",
           identity,
           ownerProcessId: process.pid,
           state: "active",
         }),
+        afterStagingLockCreated,
+        afterStagingLockWritten,
       );
-      return Object.freeze({ directory: lockDirectory, identity });
+      return Object.freeze({ path: lockPath, identity });
     } catch (error) {
       if (
         error instanceof Error &&
         /^temporary_operation_(boundary|lock_publish)_/u.test(error.message)
       )
         throw error;
-      const previous = readLockDocument(lockDirectory);
+      const previous = readLockDocument(lockPath);
       if (
         !previous ||
         (previous.state === "active" && processIsAlive(previous.ownerProcessId))
       )
         throw new Error("temporary_operation_lifecycle_busy");
       try {
-        removeLockDirectory(lockDirectory);
+        removeLockFile(lockPath);
       } catch {
         throw new Error("temporary_operation_lock_cleanup_unconfirmed");
       }
@@ -353,10 +425,10 @@ function acquireLock(controlRoot: string, operationId: string): LifecycleLock {
 }
 function releaseLock(
   lock: LifecycleLock,
-  remove: (directory: string) => void = removeLockDirectory,
+  remove: (target: string) => void = removeLockFile,
 ): boolean {
   try {
-    const current = readLockDocument(lock.directory);
+    const current = readLockDocument(lock.path);
     if (
       !current ||
       current.identity !== lock.identity ||
@@ -364,12 +436,12 @@ function releaseLock(
       current.state !== "active"
     )
       return false;
-    publishLockDocument(
-      lock.directory,
+    updateLockDocument(
+      lock.path,
       Object.freeze({ ...current, state: "released" }),
     );
-    remove(lock.directory);
-    return !fs.existsSync(lock.directory);
+    remove(lock.path);
+    return !fs.existsSync(lock.path);
   } catch {
     return false;
   }
@@ -401,6 +473,8 @@ function issueCapability(
 function createTemporaryOperationInternal(
   rootCapability: VerifiedRepositoryRoot,
   input: TemporaryOperationInput,
+  afterStagingDocumentCreated: () => void,
+  afterStagingDocumentWritten: () => void,
   afterControlDocumentPublished: () => void,
 ) {
   let createdDirectory: string | null = null;
@@ -449,7 +523,12 @@ function createTemporaryOperationInternal(
       generation: 1,
     });
     try {
-      createDocument(documentPath, preparing);
+      createDocument(
+        documentPath,
+        preparing,
+        afterStagingDocumentCreated,
+        afterStagingDocumentWritten,
+      );
       isDocumentPublished = true;
     } catch (error) {
       isDocumentPublished = fs.existsSync(documentPath);
@@ -541,25 +620,38 @@ export function createTemporaryOperation(
   rootCapability: VerifiedRepositoryRoot,
   input: TemporaryOperationInput,
 ) {
-  return createTemporaryOperationInternal(rootCapability, input, () => {});
+  return createTemporaryOperationInternal(
+    rootCapability,
+    input,
+    () => {},
+    () => {},
+    () => {},
+  );
 }
 
 /** Direct-file verification seam; intentionally omitted from the public index. */
 export function createTemporaryOperationWithInterruptionForVerification(
   rootCapability: VerifiedRepositoryRoot,
   input: TemporaryOperationInput,
-  afterControlDocumentPublished: () => void,
+  phase: "after_staging_created" | "after_staging" | "after_control",
+  interrupt: () => void,
 ) {
   return createTemporaryOperationInternal(
     rootCapability,
     input,
-    afterControlDocumentPublished,
+    phase === "after_staging_created" ? interrupt : () => {},
+    phase === "after_staging" ? interrupt : () => {},
+    phase === "after_control" ? interrupt : () => {},
   );
 }
 
-export function resumeTemporaryOperation(
+function resumeTemporaryOperationInternal(
   rootCapability: VerifiedRepositoryRoot,
   reference: TemporaryOperationRecoveryReference,
+  nextIdentity: string,
+  afterStagingLockCreated: () => void,
+  afterStagingLockWritten: () => void,
+  afterNextGenerationPublished: () => void,
 ) {
   let lock: LifecycleLock | null = null;
   let directory: string | null = null;
@@ -572,6 +664,8 @@ export function resumeTemporaryOperation(
       !ID.test(reference.operationId) ||
       !ID.test(reference.owner) ||
       !ID.test(reference.identity) ||
+      !ID.test(nextIdentity) ||
+      nextIdentity === reference.identity ||
       !Number.isSafeInteger(reference.generation) ||
       reference.generation < 1
     )
@@ -586,7 +680,42 @@ export function resumeTemporaryOperation(
     documentPath = path.join(controlRoot, `${reference.operationId}.json`);
     if (path.dirname(directory) !== paths.temporary)
       throw new Error("temporary_operation_boundary_invalid");
-    lock = acquireLock(controlRoot, reference.operationId);
+    if (!fs.existsSync(documentPath)) {
+      const stagingDocumentPath = path.join(
+        controlRoot,
+        ".staging",
+        `${reference.operationId}.${reference.identity}.${reference.generation}.preparing.json`,
+      );
+      if (!fs.existsSync(stagingDocumentPath))
+        throw new Error("temporary_operation_recovery_identity_mismatch");
+      let stagedDocument: TemporaryOperationDocument | null = null;
+      try {
+        stagedDocument = readDocument(stagingDocumentPath);
+      } catch {
+        const metadata = fs.lstatSync(stagingDocumentPath);
+        if (!metadata.isFile() || metadata.isSymbolicLink())
+          throw new Error("temporary_operation_boundary_invalid");
+        fs.rmSync(stagingDocumentPath);
+        throw new Error("temporary_operation_prepublication_cleanup_confirmed");
+      }
+      if (
+        stagedDocument.operationId !== reference.operationId ||
+        stagedDocument.owner !== reference.owner ||
+        stagedDocument.identity !== reference.identity ||
+        stagedDocument.generation !== reference.generation ||
+        stagedDocument.state !== "preparing"
+      )
+        throw new Error("temporary_operation_recovery_identity_mismatch");
+      fs.linkSync(stagingDocumentPath, documentPath);
+      fs.rmSync(stagingDocumentPath);
+    }
+    lock = acquireLock(
+      controlRoot,
+      reference.operationId,
+      nextIdentity,
+      afterStagingLockCreated,
+      afterStagingLockWritten,
+    );
     let document = readDocument(documentPath);
     if (
       document.operationId !== reference.operationId ||
@@ -595,7 +724,6 @@ export function resumeTemporaryOperation(
     )
       throw new Error("temporary_operation_recovery_identity_mismatch");
     const isOwnerAlive = processIsAlive(document.ownerProcessId);
-    let isPreviousGenerationAccepted = false;
     if (document.state === "preparing") {
       if (isOwnerAlive)
         throw new Error("temporary_operation_recovery_not_required");
@@ -614,15 +742,10 @@ export function resumeTemporaryOperation(
       });
       writeDocument(documentPath, document);
     } else if (document.state === "active") {
-      const generationMatches =
-        document.generation === reference.generation ||
-        (!isOwnerAlive && document.previousGeneration === reference.generation);
-      if (!generationMatches)
+      if (document.generation !== reference.generation)
         throw new Error("temporary_operation_recovery_identity_mismatch");
       if (isOwnerAlive)
         throw new Error("temporary_operation_recovery_not_required");
-      isPreviousGenerationAccepted =
-        document.previousGeneration === reference.generation;
       if (
         !isSafeDirectory(directory) ||
         !isSafeDirectory(path.join(directory, "work"))
@@ -636,8 +759,7 @@ export function resumeTemporaryOperation(
     }
     if (
       document.state !== "recovery_required" ||
-      (document.generation !== reference.generation &&
-        !isPreviousGenerationAccepted)
+      document.generation !== reference.generation
     )
       throw new Error("temporary_operation_recovery_identity_mismatch");
     if (!fs.existsSync(directory)) fs.mkdirSync(directory, { mode: 0o700 });
@@ -649,6 +771,7 @@ export function resumeTemporaryOperation(
       throw new Error("temporary_operation_boundary_invalid");
     const resumed: TemporaryOperationDocument = Object.freeze({
       ...document,
+      identity: nextIdentity,
       state: "active",
       generation: document.generation + 1,
       ownerProcessId: process.pid,
@@ -656,6 +779,7 @@ export function resumeTemporaryOperation(
     });
     writeDocument(documentPath, resumed);
     pendingRecoveryDocument = resumed;
+    afterNextGenerationPublished();
     if (!releaseLock(lock))
       throw new Error("temporary_operation_lock_cleanup_unconfirmed");
     lock = null;
@@ -699,14 +823,55 @@ export function resumeTemporaryOperation(
       /^temporary_operation_[a-z_]+$/u.test(error.message)
         ? error.message
         : "temporary_operation_resume_failed";
+    const cleanupConfirmed =
+      reason === "temporary_operation_prepublication_cleanup_confirmed";
     return Object.freeze({
       status: "blocked" as const,
       reason,
       capability: null,
       workDirectory: null,
+      cleanupConfirmed,
       recoveryReference: recoveryReferenceValue,
     });
   }
+}
+
+export function resumeTemporaryOperation(
+  rootCapability: VerifiedRepositoryRoot,
+  reference: TemporaryOperationRecoveryReference,
+  nextIdentity: string,
+) {
+  return resumeTemporaryOperationInternal(
+    rootCapability,
+    reference,
+    nextIdentity,
+    () => {},
+    () => {},
+    () => {},
+  );
+}
+
+/** Direct-file verification seam; intentionally omitted from the public index. */
+export function resumeTemporaryOperationWithInterruptionForVerification(
+  rootCapability: VerifiedRepositoryRoot,
+  reference: TemporaryOperationRecoveryReference,
+  nextIdentity: string,
+  phase:
+    | "after_lock_staging_created"
+    | "after_lock_staging"
+    | "after_generation",
+  afterNextGenerationPublished: () => void,
+) {
+  return resumeTemporaryOperationInternal(
+    rootCapability,
+    reference,
+    nextIdentity,
+    phase === "after_lock_staging_created"
+      ? afterNextGenerationPublished
+      : () => {},
+    phase === "after_lock_staging" ? afterNextGenerationPublished : () => {},
+    phase === "after_generation" ? afterNextGenerationPublished : () => {},
+  );
 }
 
 export function verifyTemporaryOperationEvidencePromotion(
@@ -792,7 +957,7 @@ function settleTemporaryOperationWithRemoval(
   outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost",
   promotionReceipt: TemporaryEvidencePromotionReceipt | null,
   removeDirectory: (directory: string) => void,
-  removeLifecycleLock: (directory: string) => void = removeLockDirectory,
+  removeLifecycleLock: (target: string) => void = removeLockFile,
 ) {
   const record = operations.get(capability);
   if (!record)
@@ -814,7 +979,7 @@ function settleTemporaryOperationWithRemoval(
   let lock: LifecycleLock | null = null;
   let durableRecoveryConfirmed = false;
   try {
-    lock = acquireLock(record.controlRoot, record.operationId);
+    lock = acquireLock(record.controlRoot, record.operationId, record.identity);
     const document = readDocument(record.documentPath);
     if (
       document.state !== "active" ||
@@ -937,7 +1102,7 @@ export function settleTemporaryOperationWithRemovalForVerification(
   outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost",
   promotionReceipt: TemporaryEvidencePromotionReceipt | null,
   removeDirectory: (directory: string) => void,
-  removeLifecycleLock: (directory: string) => void = removeLockDirectory,
+  removeLifecycleLock: (target: string) => void = removeLockFile,
 ) {
   return settleTemporaryOperationWithRemoval(
     capability,

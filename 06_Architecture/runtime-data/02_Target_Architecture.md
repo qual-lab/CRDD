@@ -83,7 +83,8 @@ Related:
    └─ tmp/                                 [T] Operation所有の短期一時物
       ├─ .operations/                         Workspace清掃から分離したLifecycle制御面
       │  ├─ <operation-id>.json               Identity、Owner Process、世代、直前世代、状態、用途、清掃契機
-      │  └─ <operation-id>.lock/              排他中だけ存在するOwner付きLock。解放済み残存は次の再入場で回収する
+      │  ├─ <operation-id>.lock               完全なOwner文書を排他的linkで公開する短期Lock
+      │  └─ .staging/                         caller-known Identityへ結合した初回文書・Lock・状態更新の公開前領域
       └─ <operation-id>/                       削除可能なWorkspace
          └─ work/                             再生成可能な中間file
 ```
@@ -138,20 +139,21 @@ Related:
 | Cleanup trigger | 各終端経路と次回の安全な再入場 |
 | Completion evidence | 削除要求ではなく、対象不存在の観測 |
 
-`.operations/<operation-id>.json`は状態とOwner世代をWorkspaceの外で耐久化する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。作成時には制御文書を`preparing`として排他的に公開してからWorkspaceを作り、Process再起動後もDirectoryを推測探索せず再入場できるexact Recovery参照を使う。既存Workspaceとの衝突時は所有権を推定せず、そのDirectoryを変更または削除しない。
+`.operations/<operation-id>.json`は状態とOwner世代をWorkspaceの外で耐久化する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。最初のFilesystem Effectからcaller-known Identityへ結合した`.staging/`のexact Pathを用い、完全な`preparing`文書だけをCanonical文書へ排他的にlinkしてからWorkspaceを作る。Process再起動後はDirectoryを推測探索せず、初回公開前ならexact stagingを回復または安全に不存在へ収束し、公開後ならexact Recovery参照から再入場する。既存Workspaceとの衝突時は所有権を推定せず、そのDirectoryを変更または削除しない。
 
 | 状態または境界 | 必須処置 |
 |---|---|
 | `preparing`かつOwner Process消失 | 呼出し前に確定したIdentityと世代が一致する場合だけWorkspaceを再構成し、新世代へ再入場する |
 | `active`かつOwner Process生存 | 二つ目の再入場をEffect 0で拒否する |
 | `active`かつOwner Process消失 | 同じIdentityの`recovery_required`へ耐久遷移してから再入場する |
-| `recovery_required` | exact Identityと現在世代または直前世代が一致する場合だけ新世代を発行する |
-| 新世代を公開後、Capability返却前にProcess消失 | 元参照と直前世代の結合から新世代を回復可能にする |
+| `recovery_required` | exact Identityと現在世代が一致し、次世代用のcaller-known Identityが現世代と異なる場合だけ新世代を発行する |
+| 新世代を公開後、Capability返却前にProcess消失 | 呼出し側が事前に確定した次世代Identityと`current generation + 1`から新しいexact参照を再構成する。旧世代参照は受理しない |
+| 初回制御文書またはLockのCanonical公開前にProcess消失 | caller-known Identityからexact stagingを解決し、完全な文書なら公開を継続し、不完全ならそのexact stagingだけを不存在へ収束する |
 | Lock解放要求後に物理削除失敗 | Lockを`released`へ耐久遷移し、次回取得者が安全に回収する |
 | 清掃失敗 | Capabilityを失効させる前に`recovery_required`を公開し、利用可能なexact Recovery参照を返す |
 | Workspaceの部分削除後に清掃失敗 | 外部の制御文書を保持し、再入場時にWorkspaceを再構成する。制御文書をWorkspaceより先に削除しない |
 
-制御文書の更新は、`.operations/`内の排他的な一時fileへ書込み、fileのflush、atomic renameおよびread-backを順に確認する。初回公開は既存文書を置換しない排他的なlinkで行う。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、rename前後のProcess消失ではOwner Processの消失、現在世代および直前世代から安全な再入場へ収束させる。一度利用した旧Recovery参照、旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
+制御文書とLockは、caller-known Identityから決定できる`.operations/.staging/`内のexact fileへ書込み、fileのflush、排他的linkまたはatomic renameおよびread-backを順に確認する。初回文書とLockのCanonical公開は既存対象を置換しない排他的linkで行い、Lock Directory作成後にOwnerが未公開になる窓を作らない。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、公開前後のProcess消失をそれぞれ反証する。一度利用した旧Recovery参照、旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
 
 ### 4.3. Lifecycle
 
@@ -159,6 +161,8 @@ Related:
 Operationを開始
   ↓
 Identityを呼出し側で確定
+  ↓
+.operations/.staging/へIdentity結合済み文書をflush
   ↓
 .operations/<operation-id>.jsonをpreparingで排他的に公開
   ↓
@@ -171,7 +175,7 @@ tmp/<operation-id>/を排他的に作成
 取消 ─┤                                 ├→ tmpを削除 → 不存在を観測 → 完了
 期限 ─┘                                 │
                                       │
-親Process喪失／清掃不明 ─→ 作成時のexact Recovery参照で再入場
+親Process喪失／清掃不明 ─→ 次世代Identityを先に確定してexact参照で再入場
                                       ↓
                          Workspace再構成・清掃・不存在確認
 ```
@@ -271,7 +275,7 @@ Directory探索だけでProjectを登録せず、Repository Manifest、検証済
 
 ## 8. Path CapabilityとConsumer Closure
 
-Repository-local Pathは、検証済みRepository Root Capabilityから共通Resolverが返した名前付きPathをCanonical値として使用する。Consumerは`.crdd`、Top-level領域またはCanonical Pathを再構成・再解釈しない。
+Repository-local Pathは、検証済みRepository Root Capabilityから共通Resolverが返した名前付きPathをCanonical値として使用する。Consumerは`.crdd`、Top-level領域またはCanonical Pathを再構成・再解釈しない。名前付きPathへ`dirname`等を適用してRuntime Data Rootを逆算し、変数やHelper経由で未登録領域を作ることも同じ迂回として拒否する。
 
 | 入口 | 利用範囲 | 制約 |
 |---|---|---|
