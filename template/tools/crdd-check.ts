@@ -3705,6 +3705,436 @@ const allFileSet = new Set(allFiles);
 const allMarkdownFiles = allFiles.filter((file) =>
   file.toLowerCase().endsWith(".md"),
 );
+
+type DocumentationDispositionEntry = Readonly<{
+  path: string;
+  artifactRole: string;
+  currentness: "current" | "fixed_history";
+  disposition: string;
+  reasonCode: string;
+  canonicalOwnerPath?: string;
+  currentBlobOid?: string;
+  historicalIdentity?: Readonly<{
+    refKind: "tag" | "commit";
+    ref: string;
+    path: string;
+    blobOid: string;
+  }>;
+  currentTreeBlobOid?: string;
+  currentRoute?: string;
+}>;
+
+const DOCUMENT_DISPOSITION_ROLES = new Set([
+  "principle",
+  "discovery",
+  "ux",
+  "ia",
+  "ui",
+  "ui_spec",
+  "specification",
+  "architecture",
+  "development",
+  "quality",
+  "workflow",
+  "release_change",
+  "release_evidence",
+  "roadmap",
+  "repository_guidance",
+  "template",
+  "other",
+]);
+const DOCUMENT_DISPOSITIONS = new Set([
+  "structured_remediation",
+  "canonical_move_or_reference",
+  "already_structured",
+  "prose_retained",
+  "fixed_original_with_structured_index",
+]);
+const DOCUMENT_REASON_CODES = new Set([
+  "semantic_structure_improved",
+  "canonical_ownership_corrected",
+  "existing_structure_sufficient",
+  "prose_preserves_rationale",
+  "published_bytes_preserved",
+]);
+
+function gitBlobOid(bytes: Buffer): string {
+  const header = Buffer.from(`blob ${bytes.length}\0`, "utf8");
+  return createHash("sha1").update(header).update(bytes).digest("hex");
+}
+
+function documentationSetHash(
+  rows: readonly Readonly<{ path: string; blobOid: string }>[],
+): string {
+  const canonical = [...rows]
+    .sort((left, right) =>
+      left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
+    )
+    .map((row) => `${row.path}\0${row.blobOid}\n`)
+    .join("");
+  return createHash("sha256").update(canonical, "utf8").digest("hex");
+}
+
+function expectedV020Currentness(
+  relativePath: string,
+): "current" | "fixed_history" {
+  if (/^90_Release\/Changes\/Evidence\/.*\.md$/u.test(relativePath)) {
+    return "fixed_history";
+  }
+  if (
+    /^07_Quality\/Verification_Results\/.*\.md$/u.test(relativePath) &&
+    relativePath !==
+      "07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md"
+  ) {
+    return "fixed_history";
+  }
+  const publishedChange = relativePath.match(
+    /^90_Release\/Changes\/(CHG-[0-9]{6})_.*\.md$/u,
+  )?.[1];
+  if (publishedChange && publishedChange !== "CHG-000057") {
+    const number = Number.parseInt(publishedChange.slice(4), 10);
+    if (number <= 60 && number !== 16 && number !== 18 && number !== 19) {
+      return "fixed_history";
+    }
+  }
+  return "current";
+}
+
+function checkDocumentationDispositionInventory(): {
+  observed: number;
+  verified: number;
+} {
+  if (repositoryMode !== "official") return { observed: 0, verified: 0 };
+  const trigger = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000065_Structured_First_Documentation.md",
+  );
+  if (!fs.existsSync(trigger)) return { observed: 0, verified: 0 };
+
+  const inventoryPath = path.join(
+    root,
+    "07_Quality",
+    "07_Structured_Document_Disposition_Inventory.json",
+  );
+  if (!fs.existsSync(inventoryPath)) {
+    add(
+      "error",
+      "missing-document-disposition-inventory",
+      relative(inventoryPath),
+      "The repository-wide documentation change requires one complete disposition inventory.",
+    );
+    return { observed: 0, verified: 0 };
+  }
+
+  let value: unknown;
+  try {
+    value = JSON.parse(read(inventoryPath));
+  } catch {
+    add(
+      "error",
+      "invalid-document-disposition-inventory",
+      relative(inventoryPath),
+      "The disposition inventory must be valid JSON.",
+    );
+    return { observed: 0, verified: 0 };
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    add(
+      "error",
+      "invalid-document-disposition-inventory",
+      relative(inventoryPath),
+      "The disposition inventory root must be an object.",
+    );
+    return { observed: 0, verified: 0 };
+  }
+  const record = value as Record<string, unknown>;
+  const entries = Array.isArray(record.entries)
+    ? (record.entries as DocumentationDispositionEntry[])
+    : [];
+  const expectedPaths = allMarkdownFiles.map(relative).sort();
+  const actualPaths = entries
+    .map((entry) => entry?.path)
+    .filter((entry): entry is string => typeof entry === "string")
+    .sort();
+  const duplicatePaths = actualPaths.filter(
+    (entry, index) => index > 0 && entry === actualPaths[index - 1],
+  );
+  const expectedSet = new Set(expectedPaths);
+  const actualSet = new Set(actualPaths);
+  if (
+    duplicatePaths.length > 0 ||
+    expectedPaths.some((entry) => !actualSet.has(entry)) ||
+    actualPaths.some((entry) => !expectedSet.has(entry))
+  ) {
+    add(
+      "error",
+      "document-disposition-population-mismatch",
+      relative(inventoryPath),
+      `Expected ${expectedPaths.length} unique Markdown paths, observed ${actualSet.size}; duplicates=${duplicatePaths.length}.`,
+    );
+  }
+
+  const currentRows = expectedPaths.map((relativePath) => ({
+    path: relativePath,
+    blobOid: gitBlobOid(fs.readFileSync(path.join(root, relativePath))),
+  }));
+  const expectedHash = documentationSetHash(currentRows);
+  if (record.evaluatedDocumentationSetSha256 !== expectedHash) {
+    add(
+      "error",
+      "stale-document-disposition-inventory",
+      relative(inventoryPath),
+      "The evaluated Markdown path/blob set does not match the current worktree.",
+    );
+  }
+  if (
+    record.schemaRevision !== 1 ||
+    record.populationSource !== "git_worktree_markdown"
+  ) {
+    add(
+      "error",
+      "invalid-document-disposition-inventory-contract",
+      relative(inventoryPath),
+      "schemaRevision and populationSource do not match the v0.20 disposition contract.",
+    );
+  }
+
+  const historicalEntries = entries.filter(
+    (entry) =>
+      entry?.currentness === "fixed_history" && entry.historicalIdentity,
+  );
+  const historicalObjectResult =
+    historicalEntries.length > 0
+      ? spawnSync(
+          "git",
+          ["-C", root, "cat-file", "--batch-check=%(objectname)"],
+          {
+            encoding: "utf8",
+            windowsHide: true,
+            input: `${historicalEntries
+              .map(
+                (entry) =>
+                  `${entry.historicalIdentity?.ref}:${entry.historicalIdentity?.path}`,
+              )
+              .join("\n")}\n`,
+            maxBuffer: 4 * 1024 * 1024,
+          },
+        )
+      : null;
+  const historicalObjectOids = (historicalObjectResult?.stdout ?? "")
+    .split(/\r?\n/u)
+    .filter(Boolean);
+  const resolvedHistoricalObject = new Map(
+    historicalEntries.map((entry, index) => [
+      entry.path,
+      historicalObjectOids[index] ?? "",
+    ]),
+  );
+  const tags = new Set(
+    spawnSync("git", ["-C", root, "tag", "--list"], {
+      encoding: "utf8",
+      windowsHide: true,
+    })
+      .stdout.split(/\r?\n/u)
+      .filter(Boolean),
+  );
+  const commitRefs = [
+    ...new Set(
+      historicalEntries
+        .map((entry) => entry.historicalIdentity)
+        .filter((identity) => identity?.refKind === "commit")
+        .map((identity) => identity?.ref ?? ""),
+    ),
+  ];
+  const validCommitRefs = new Set(
+    commitRefs.filter((ref) => {
+      if (!/^[0-9a-f]{40}$/u.test(ref)) return false;
+      const result = spawnSync(
+        "git",
+        ["-C", root, "rev-parse", "--verify", `${ref}^{commit}`],
+        { encoding: "utf8", windowsHide: true },
+      );
+      return result.status === 0 && result.stdout.trim() === ref;
+    }),
+  );
+
+  let verified = 0;
+  for (const entry of entries) {
+    if (
+      !entry ||
+      typeof entry.path !== "string" ||
+      !DOCUMENT_DISPOSITION_ROLES.has(entry.artifactRole) ||
+      !DOCUMENT_DISPOSITIONS.has(entry.disposition) ||
+      !DOCUMENT_REASON_CODES.has(entry.reasonCode) ||
+      !["current", "fixed_history"].includes(entry.currentness)
+    ) {
+      add(
+        "error",
+        "invalid-document-disposition-entry",
+        relative(inventoryPath),
+        `Invalid enum or shape for ${String(entry?.path)}.`,
+      );
+      continue;
+    }
+    const absolute = path.join(root, entry.path);
+    if (!expectedSet.has(entry.path) || !fs.existsSync(absolute)) continue;
+    const currentOid = gitBlobOid(fs.readFileSync(absolute));
+    if (entry.currentness !== expectedV020Currentness(entry.path)) {
+      add(
+        "error",
+        "document-disposition-currentness-mismatch",
+        entry.path,
+        "The current/fixed-history classification does not match the v0.20 fixed population.",
+      );
+      continue;
+    }
+    if (entry.currentness === "current") {
+      if (
+        entry.canonicalOwnerPath !== entry.path ||
+        entry.currentBlobOid !== currentOid ||
+        entry.historicalIdentity !== undefined ||
+        entry.currentTreeBlobOid !== undefined ||
+        entry.currentRoute !== undefined
+      ) {
+        add(
+          "error",
+          "invalid-current-document-disposition",
+          entry.path,
+          "Current documents require canonicalOwnerPath/currentBlobOid and no historical fields.",
+        );
+        continue;
+      }
+    } else {
+      const identity = entry.historicalIdentity;
+      const route = entry.currentRoute;
+      const expectedRoute = entry.path.startsWith(
+        "07_Quality/Verification_Results/",
+      )
+        ? "07_Quality/01_Quality_Center.md"
+        : "90_Release/Changes/README.md";
+      if (
+        !identity ||
+        !["tag", "commit"].includes(identity.refKind) ||
+        identity.path !== entry.path ||
+        entry.currentTreeBlobOid !== currentOid ||
+        route !== expectedRoute ||
+        !fs.existsSync(path.join(root, route)) ||
+        entry.canonicalOwnerPath !== undefined ||
+        entry.currentBlobOid !== undefined
+      ) {
+        add(
+          "error",
+          "invalid-fixed-document-disposition",
+          entry.path,
+          "Fixed history requires an exact historical identity, current tree blob, and approved current route.",
+        );
+        continue;
+      }
+      const refTypeMatches =
+        identity.refKind === "tag"
+          ? tags.has(identity.ref)
+          : validCommitRefs.has(identity.ref);
+      if (!refTypeMatches) {
+        add(
+          "error",
+          "document-disposition-historical-ref-kind-mismatch",
+          entry.path,
+          "The declared historical ref kind does not match the exact Git ref.",
+        );
+        continue;
+      }
+      if (
+        historicalObjectResult?.status !== 0 ||
+        resolvedHistoricalObject.get(entry.path) !== identity.blobOid
+      ) {
+        add(
+          "error",
+          "document-disposition-historical-identity-mismatch",
+          entry.path,
+          "The historical ref/path/blob identity does not resolve exactly.",
+        );
+        continue;
+      }
+    }
+    verified += 1;
+  }
+  return { observed: entries.length, verified };
+}
+
+function checkV020ReleaseGateOwnership(): void {
+  if (repositoryMode !== "official") return;
+  const qualityCenterPath = path.join(
+    root,
+    "07_Quality",
+    "01_Quality_Center.md",
+  );
+  const changePath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000063_Runtime_Responsibility_Separation.md",
+  );
+  const verificationPath = path.join(
+    root,
+    "07_Quality",
+    "Verification_Results",
+    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+  );
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  if (
+    ![qualityCenterPath, changePath, verificationPath, roadmapPath].every(
+      fs.existsSync,
+    )
+  ) {
+    return;
+  }
+
+  const qualityCenter = read(qualityCenterPath);
+  const change = read(changePath);
+  const verification = read(verificationPath);
+  const roadmap = read(roadmapPath);
+  const requiredMarkers: readonly [string, string, string][] = [
+    [qualityCenterPath, qualityCenter, "現在候補"],
+    [qualityCenterPath, qualityCenter, "前の署名候補"],
+    [qualityCenterPath, qualityCenter, "v0.20全体の残るGate"],
+    [changePath, change, "状態: `Signed Verification Pending`"],
+    [changePath, change, "前の署名候補"],
+    [verificationPath, verification, "前候補"],
+    [verificationPath, verification, "Quality Center"],
+    [roadmapPath, roadmap, "Signed Verification Pending"],
+  ];
+  for (const [file, content, marker] of requiredMarkers) {
+    if (!content.includes(marker)) {
+      add(
+        "error",
+        "v020-release-gate-ownership-incomplete",
+        relative(file),
+        `The structured Release Gate marker is missing: ${marker}`,
+      );
+    }
+  }
+  const staleClaims: readonly [string, string, RegExp][] = [
+    [changePath, change, /状態:\s*`Release Decision Pending`/u],
+    [changePath, change, /唯一残るRelease Gate/u],
+    [verificationPath, verification, /残るGateは人間によるRelease判断/u],
+  ];
+  for (const [file, content, pattern] of staleClaims) {
+    if (pattern.test(content)) {
+      add(
+        "error",
+        "stale-v020-release-gate-claim",
+        relative(file),
+        "A previous-candidate Release Gate claim is presented as the current state.",
+      );
+    }
+  }
+}
+
+const documentationDispositionInventory =
+  checkDocumentationDispositionInventory();
+checkV020ReleaseGateOwnership();
 const linkRecords: LinkRecord[] = [];
 for (const source of allMarkdownFiles) {
   const text = withoutFencedCode(read(source));
@@ -5050,6 +5480,8 @@ const report = {
     files_discovered: allFiles.length,
     markdown_files_discovered: allMarkdownFiles.length,
     markdown_files_checked: markdownFiles.length,
+    document_dispositions_observed: documentationDispositionInventory.observed,
+    document_dispositions_verified: documentationDispositionInventory.verified,
     local_links_checked: checkedLocalLinks,
     historical_references_observed: historicalReferencesObserved,
     historical_references_identity_verified: historicalReferencesVerified,

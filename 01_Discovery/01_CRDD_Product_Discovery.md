@@ -15,6 +15,7 @@
 | §7.2のCoordinator Runtime 1.0 | v0.18.0で候補内容を採用・実装検証・公開済み（CHG-000015）。v0.18.1の配布契約と作業対象Revision結合の是正はCHG-000056で追跡する |
 | §8のMinimum AI-native Project Runtime | v0.19.0へ採用・設計中（CHG-000057） |
 | 第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補、§7.9の将来能力地平 | `Held / Unscheduled` |
+| v0.21以降のRuntime／CROS候補 | 利用者課題、価値、採用境界は[Runtime／CROS Product Candidates](02_Runtime_and_CROS_Product_Candidates.md)へ分離。版、状態、次のGateは[Roadmap](../99_Roadmap/01_Product_Roadmap.md)が所有する |
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本、影響および既存の未リリース変更意図を再確認し、同じ意図は既存CHGへ接続する。独立した変更意図が必要な場合だけ、[変更規則](../12_Change.md)に従って新しい`CHG-*`を発行する。
 

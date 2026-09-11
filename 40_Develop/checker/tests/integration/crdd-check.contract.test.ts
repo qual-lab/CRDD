@@ -575,6 +575,176 @@ function write(file: string, content = ""): void {
   fs.writeFileSync(file, content, "utf8");
 }
 
+type DispositionFixtureEntry = Record<string, unknown> & { path: string };
+
+function fixtureBlobOid(file: string): string {
+  const bytes = fs.readFileSync(file);
+  return createHash("sha1")
+    .update(Buffer.from(`blob ${bytes.length}\0`, "utf8"))
+    .update(bytes)
+    .digest("hex");
+}
+
+function dispositionFixtureRoot(hasFixedEvidence = false): string {
+  const root = fixture();
+  makeStructure(root);
+  fs.rmSync(path.join(root, "00_CRDD"), { recursive: true, force: true });
+  write(path.join(root, "01_Principles.md"), "# Principles\n");
+  fs.mkdirSync(path.join(root, "template"), { recursive: true });
+  write(
+    path.join(
+      root,
+      "90_Release",
+      "Changes",
+      "CHG-000065_Structured_First_Documentation.md",
+    ),
+    "# Change Trace\n",
+  );
+  write(
+    path.join(
+      root,
+      "90_Release",
+      "Changes",
+      "CHG-000063_Runtime_Responsibility_Separation.md",
+    ),
+    "# Runtime Responsibility\n\n状態: `Signed Verification Pending`\n\n前の署名候補\n",
+  );
+  write(path.join(root, "90_Release", "Changes", "README.md"), "# Changes\n");
+  write(
+    path.join(root, "07_Quality", "01_Quality_Center.md"),
+    "# Quality Center\n\n現在候補\n\n前の署名候補\n\nv0.20全体の残るGate\n",
+  );
+  write(
+    path.join(
+      root,
+      "07_Quality",
+      "Verification_Results",
+      "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+    ),
+    "# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n",
+  );
+  write(
+    path.join(root, "99_Roadmap", "01_Product_Roadmap.md"),
+    "# Roadmap\n\nSigned Verification Pending\n",
+  );
+  if (hasFixedEvidence) {
+    write(
+      path.join(root, "90_Release", "Changes", "Evidence", "fixed.md"),
+      "# Fixed Evidence\n",
+    );
+  }
+  initializeGit(root);
+  const committed = spawnSync(
+    "git",
+    [
+      "-C",
+      root,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=crdd-test@example.invalid",
+      "add",
+      ".",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(committed.status, 0, committed.stderr);
+  const commit = spawnSync(
+    "git",
+    [
+      "-C",
+      root,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=crdd-test@example.invalid",
+      "commit",
+      "--quiet",
+      "-m",
+      "fixture",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(commit.status, 0, commit.stderr);
+  const tag = spawnSync("git", ["-C", root, "tag", "v0.19.0"], {
+    encoding: "utf8",
+  });
+  assert.equal(tag.status, 0, tag.stderr);
+  writeDispositionFixture(root);
+  return root;
+}
+
+function writeDispositionFixture(
+  root: string,
+  mutate?: (entries: DispositionFixtureEntry[]) => void,
+  setHash?: string,
+): void {
+  const markdownPaths = spawnSync(
+    "git",
+    ["-C", root, "ls-files", "--", "*.md"],
+    { encoding: "utf8" },
+  )
+    .stdout.trim()
+    .split(/\r?\n/u)
+    .filter(Boolean)
+    .sort();
+  const entries: DispositionFixtureEntry[] = markdownPaths.map(
+    (relativePath) => {
+      const oid = fixtureBlobOid(path.join(root, relativePath));
+      if (relativePath.includes("/Evidence/")) {
+        return {
+          path: relativePath,
+          artifactRole: "release_evidence",
+          currentness: "fixed_history",
+          disposition: "fixed_original_with_structured_index",
+          reasonCode: "published_bytes_preserved",
+          historicalIdentity: {
+            refKind: "tag",
+            ref: "v0.19.0",
+            path: relativePath,
+            blobOid: oid,
+          },
+          currentTreeBlobOid: oid,
+          currentRoute: "90_Release/Changes/README.md",
+        };
+      }
+      return {
+        path: relativePath,
+        artifactRole: relativePath.startsWith("template/")
+          ? "template"
+          : "principle",
+        currentness: "current",
+        disposition: "already_structured",
+        reasonCode: "existing_structure_sufficient",
+        canonicalOwnerPath: relativePath,
+        currentBlobOid: oid,
+      };
+    },
+  );
+  mutate?.(entries);
+  const canonical = markdownPaths
+    .map((relativePath) => {
+      const oid = fixtureBlobOid(path.join(root, relativePath));
+      return `${relativePath}\0${oid}\n`;
+    })
+    .join("");
+  const value = {
+    schemaRevision: 1,
+    populationSource: "git_worktree_markdown",
+    evaluatedDocumentationSetSha256:
+      setHash ?? createHash("sha256").update(canonical).digest("hex"),
+    entries,
+  };
+  write(
+    path.join(
+      root,
+      "07_Quality",
+      "07_Structured_Document_Disposition_Inventory.json",
+    ),
+    `${JSON.stringify(value, null, 2)}\n`,
+  );
+}
+
 function initializeGit(root: string): void {
   const initialized = spawnSync("git", ["init", "--quiet", root], {
     encoding: "utf8",
@@ -633,6 +803,156 @@ function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
     report: parseCheckerReport(result.stdout),
   };
 }
+
+test("文書Disposition InventoryはMarkdown母集団の欠落・余分・重複を拒否する", () => {
+  for (const mutation of ["missing", "extra", "duplicate"] as const) {
+    const root = dispositionFixtureRoot();
+    writeDispositionFixture(root, (entries) => {
+      if (mutation === "missing") entries.pop();
+      if (mutation === "extra") {
+        entries.push({ ...entries[0], path: "missing.md" });
+      }
+      if (mutation === "duplicate") entries.push({ ...entries[0] });
+    });
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "document-disposition-population-mismatch",
+      ),
+      `${mutation}\n${result.stderr}\n${result.stdout}`,
+    );
+  }
+});
+
+test("文書変更後の古いDisposition集合Hashを拒否する", () => {
+  const root = dispositionFixtureRoot();
+  fs.appendFileSync(path.join(root, "01_Principles.md"), "\nupdate\n", "utf8");
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "stale-document-disposition-inventory",
+    ),
+  );
+});
+
+test("Dispositionの有限enum外を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  writeDispositionFixture(root, (entries) => {
+    entries[0].disposition = "reviewed_somehow";
+  });
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "invalid-document-disposition-entry",
+    ),
+  );
+});
+
+test("固定履歴のref種別・path・blob不一致と不正な現行Routeを拒否する", () => {
+  for (const mutation of ["identity", "ref_kind", "route"] as const) {
+    const root = dispositionFixtureRoot(true);
+    writeDispositionFixture(root, (entries) => {
+      const fixed = entries.find(
+        (entry) => entry.currentness === "fixed_history",
+      );
+      assert.ok(fixed);
+      if (mutation === "identity") {
+        fixed.historicalIdentity = {
+          ...(fixed.historicalIdentity as Record<string, unknown>),
+          blobOid: "0".repeat(40),
+        };
+      } else if (mutation === "ref_kind") {
+        fixed.historicalIdentity = {
+          ...(fixed.historicalIdentity as Record<string, unknown>),
+          refKind: "commit",
+        };
+      } else {
+        fixed.currentRoute = "07_Quality/01_Quality_Center.md";
+      }
+    });
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) =>
+        [
+          "document-disposition-historical-identity-mismatch",
+          "document-disposition-historical-ref-kind-mismatch",
+          "invalid-fixed-document-disposition",
+        ].includes(finding.code),
+      ),
+      mutation,
+    );
+  }
+});
+
+test("現行文書と固定履歴のcurrentness誤分類を拒否する", () => {
+  const currentAsFixed = dispositionFixtureRoot();
+  writeDispositionFixture(currentAsFixed, (entries) => {
+    const current = entries.find((entry) => entry.path === "01_Principles.md");
+    assert.ok(current);
+    const oid = current.currentBlobOid;
+    delete current.canonicalOwnerPath;
+    delete current.currentBlobOid;
+    current.currentness = "fixed_history";
+    current.disposition = "fixed_original_with_structured_index";
+    current.reasonCode = "published_bytes_preserved";
+    current.historicalIdentity = {
+      refKind: "tag",
+      ref: "v0.19.0",
+      path: current.path,
+      blobOid: oid,
+    };
+    current.currentTreeBlobOid = oid;
+    current.currentRoute = "90_Release/Changes/README.md";
+  });
+  assert.ok(
+    runChecker(currentAsFixed).report.findings.some(
+      (finding) => finding.code === "document-disposition-currentness-mismatch",
+    ),
+  );
+
+  const fixedAsCurrent = dispositionFixtureRoot(true);
+  writeDispositionFixture(fixedAsCurrent, (entries) => {
+    const fixed = entries.find(
+      (entry) => entry.currentness === "fixed_history",
+    );
+    assert.ok(fixed);
+    const oid = fixed.currentTreeBlobOid;
+    delete fixed.historicalIdentity;
+    delete fixed.currentTreeBlobOid;
+    delete fixed.currentRoute;
+    fixed.currentness = "current";
+    fixed.disposition = "already_structured";
+    fixed.reasonCode = "existing_structure_sufficient";
+    fixed.canonicalOwnerPath = fixed.path;
+    fixed.currentBlobOid = oid;
+  });
+  assert.ok(
+    runChecker(fixedAsCurrent).report.findings.some(
+      (finding) => finding.code === "document-disposition-currentness-mismatch",
+    ),
+  );
+});
+
+test("v0.20の前候補を現在のRelease Gateとして再提示する記述を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  fs.appendFileSync(
+    path.join(
+      root,
+      "90_Release",
+      "Changes",
+      "CHG-000063_Runtime_Responsibility_Separation.md",
+    ),
+    "\n状態: `Release Decision Pending`\n",
+    "utf8",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "stale-v020-release-gate-claim",
+    ),
+  );
+});
 
 function runWithEnv(
   root: string,

@@ -17,7 +17,9 @@
 
 競合しない2 Taskは上限2で同時実行され、Project Runtimeから2件のAttempt Eventとして不変Storeへ保存された。予定Task、再読取りした実Attemptおよび統合後の受入結果は同じ評価Identityへ接続され、個別Task成功とは別に統合受入が成立した。
 
-本結果は、ローカルの決定論的な技術縦断に加え、固定改訂版の正式署名、Codex／Claudeを使う4経路E2Eおよび署名済みRecovery Matrixが成立したことを示す。実行結果を含む最終独立監査はCritical／Major／Moderate／Minor 0件でPassした。実Provider間の速度、Token、費用、人間の実作業時間、後工程品質、PT／LTおよびRemote Runtimeは未評価である。人間によるRelease判断が終わるまでRelease完了とは表示しない。
+本結果は、固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`について、ローカルの決定論的な技術縦断、正式署名、Codex／Claudeを使う4経路E2E、署名済みRecovery Matrixおよび実行結果を含む独立監査が成立したことを示す。この固定候補の後に検証投影の配置と文書全体が変更されたため、本書は前候補の完了記録であり、現在候補のRelease Gateではない。現在のGateは[Quality Center](../01_Quality_Center.md)が所有する。
+
+実Provider間の速度、Token、費用、人間の実作業時間、後工程品質、PT／LTおよびRemote Runtimeは未評価である。
 
 初期固定候補への独立レビューで、外部入力のplain data境界、集約の安全な整数演算、実行知の物理清掃Authority、HTTP終了時の資源回収、MCP ProtocolとAdapterの物理境界、およびRuntime Execution Identityの依存閉包に未成立が見つかった。これらを個別の例外処理ではなく、入力・永続化・利用側閉包の三責務へまとめて是正した。実行知から物理削除APIを除去し、MCP ProtocolをAdapter／Transportから分離し、HTTP終了を受信途中のRequest、実行中HandlerおよびSocketのjoinへ接続した。外部入力はAccessor、Proxy、Symbol、非列挙field、疎配列および余分fieldを実行せず拒否し、集約は安全な整数範囲を越える値を結果へ補正しない。
 
@@ -81,7 +83,8 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で8�
 | 動的コード、任意のproperty名再構成、preload、TypeScript実行集合外または外部Processからの起動 | 限定グラフの保証外。一般的な到達可能性解析を主張しない |
 | 実Provider間の速度、Token、費用、人間時間、後工程品質 | 未観測。決定論的・正式E2E結果から効用を推定しない |
 | UAT、PT／LT、Remote Runtime、Linux／macOS | 未実施または対象外 |
-| 人間によるRelease判断 | 唯一残るRelease Gate。完了までRelease済みと表示しない |
+| 現在候補への適用 | 本結果の後にRuntime実行Identityが変わったため流用しない。現在候補は文書・Checker Gate、固定Commit、再署名および影響E2Eを別途必要とする |
+| 人間によるRelease判断 | 現在候補の前段Gateが成立した後に行う。前候補の結果だけからRelease済みと表示しない |
 
 実Provider、PT／LTまたは長時間試験は、人間が対象、上限および目的を明示しない限り自動実行しない。未観測値を0へ補正せず、現在のRelease判断へ使用しない。
 

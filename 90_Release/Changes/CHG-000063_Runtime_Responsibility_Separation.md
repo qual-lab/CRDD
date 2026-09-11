@@ -1,7 +1,7 @@
 # 変更トレース: Runtime責務分離
 
 変更ID: `CHG-000063`
-状態: `Release Decision Pending`
+状態: `Signed Verification Pending`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `refactoring`
@@ -12,14 +12,13 @@
 | 項目 | 現在状態 |
 |---|---|
 | 責務分離 | Project Runtime、Coordinator、MCP、実行知、Platform Accessへ分離済み |
-| 固定改訂版 | `f76b73af81c43e25f28037caa72d71a898a2f9fb` |
-| 正式署名 | Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
-| 正式E2E | 4経路中4経路成功 |
-| Recovery | 7シナリオ完走、cleanup成立、手動回復不要 |
-| 独立監査 | Critical／Major／Moderate／Minor 0件 |
-| 残るGate | 人間によるRelease判断 |
+| 責務分離の実装 | 完了。現行契約は各Architecture正本が所有する |
+| 前の署名候補 | `f76b73af81c43e25f28037caa72d71a898a2f9fb`。Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
+| 前候補のEvidence | 正式4経路4/4、Recovery Matrix 7/7、技術独立監査0件。現在候補へ流用しない |
+| 現在候補 | 検証投影の配置是正と文書全体是正を含む。新Runtime実行Identityの固定前 |
+| 現行Gate | [Quality Center](../../07_Quality/01_Quality_Center.md)が所有する。文書閉包・独立確認後に固定、再署名、影響E2E、人間のRelease判断を行う |
 
-以下の変更経緯は、固定候補ごとの観測、原因および構造是正を保持するTimelineである。各段階に記録した「未完了」は当時の状態であり、現在状態は上表と[最終検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)が所有する。
+本書は変更理由、責務・契約差、現在も有効な構造是正を所有する。固定候補の実行値は[検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)、現在のRelease Gateは[Quality Center](../../07_Quality/01_Quality_Center.md)を参照する。
 
 v0.19で成立したProject Runtime、MCP stdioおよびCoordinatorは、意味上の責務を分けていた一方、実装と公開入口の多くをCoordinator package内部へ集約している。この状態では、Coordinator固有のProvider実行、Windows／Docker、Project lifecycle、MCP Transportおよび公開契約の変更が同じpackage境界へ伝播し、後続の限定分散実行、Project State投影およびMCP Streamable HTTPで変更理由と回帰範囲を分離しにくい。
 
@@ -244,314 +243,40 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 }
 ```
 
-## 10. 正式E2Eで検出したDocker CLI署名検査環境
+## 10. 改訂経過
 
-| 項目 | 内容 |
-|---|---|
-| 検出地点 | v0.20.0正式候補の4経路E2E、forward経路の開始前Recovery |
-| 表示結果 | `docker_process_controller_recovery_conflict` |
-| 直接原因 | Docker CLI用の中立化環境をPowerShellのAuthenticode検査へ流用し、PowerShell初期化に必要なOS環境まで空にした |
-| 構造是正 | Authenticode検査専用の最小OS環境を子Process契約へ追加し、Docker CLI実行環境と分離する |
-| 保持する保護 | 固定公式Path、Docker Inc署名、Filesystem Identity、Operation内Hash固定、親環境非継承 |
-| 変更しない範囲 | Docker更新を特定Version／過去Hashへ固定しない。Recovery Authorityや残存記録を手動削除しない |
-| 再検証 | 専用環境の閉集合、実PowerShell起動、Docker CLI Trust、該当Recovery、正式4経路E2E |
-
-この不具合はProvider Effect前にfail-closedで停止したため、Canonical Repositoryの変更またはProvider送信は発生していない。Runtime実行Identityを構成するsourceが変わるため、是正後の正式候補は旧署名を流用せず再署名する。
-
-正式4経路E2Eの完走後、同じ署名候補のRecovery Matrixでは、最小化したRuntime子ProcessからDocker CLIのAuthenticode検査を多段起動した場合だけ`docker_cli_untrusted`となる利用側未接続を検出した。v0.19.0にはDocker CLI Publisher Trust自体がなく、v0.20.0で追加した成立条件を直接起動だけで確認し、Recovery Matrixの中立化子Processまで伝播できていなかった。PowerShell専用環境へ、親環境から継承せずNative OS観測で検証した`USERPROFILE`を追加し、同じ中立化親ProcessからAuthenticode cmdletの初期化まで行う結合試験を追加した。単にRecovery Matrixへambient環境を渡す変更は行っていない。
-
-固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`はRelease sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067`として再署名した。同一候補の正式4経路E2Eは4/4で、cleanup成立、Process再起動不要、Canonical Repository変更なし、Recovery IDなしだった。Recovery Matrixは7シナリオを完走し、cleanup成立、手動回復不要だった。記録IDは4経路が`5bc48169-5ad6-4b9a-9d8f-339db5aa4fcc`、Recovery Matrixが`f81b13ae-f650-44c9-9e32-539987da6615`である。実行結果を含む最終独立監査はCritical／Major／Moderate／Minor 0件でPassした。残るGateは人間によるRelease判断である。
-
-## 11. 正常なDockerへ戻った後のTask復旧
-
-状態: 着手前整合確認済み・部分実装。実機操作への接続・実機復旧・正式E2Eは未完了。
-
-| 項目 | 内容 |
-|---|---|
-| 観測 | 2026-09-07の認証確認用コンテナに作成要求記録があるが、応答記録がない。現在の対象名照会は成功し、対象は一覧に存在しない |
-| 停止理由 | `docker_task_recovery_create_outcome_unknown`。通常復旧は作成結果を確定できず、Taskより後の検証済み再起動証跡もない |
-| 原因 | 再起動の証明を障害修復記録へ結合している。障害修復は正常Engineを拒否し、run Directory退避後の新Directory Identityにも依存するため、正常復帰後の復旧経路が閉じていない |
-| 承認された是正 | 障害修復と、Task復旧に必要な検証付き再起動を分離する。正常なrun Directoryを退避・削除しない |
-| 保持する保証 | 現在の署名・主体・保護Root・対象Taskへの結合、停止の完了観測、再起動後のfreshな対象資源不存在、取消・不明時の回復義務保持 |
-| 対象外 | 空一覧だけによる義務消去、過去記録の書換え、任意のDocker資源削除、元Taskの自動再実行、正常環境を故障状態へ変える操作 |
-| 残る設計確認 | 実行中Taskとの排他、Docker全体への停止影響、既存Native操作の再利用範囲、停止完了と遅延createの関係、耐久記録と再入場、公開入口・署名経路への伝播 |
-
-実機回復では、未終了の旧Docker Desktop修復履歴が指す`run` Directoryと、Docker更新後に残った現在の`run` Directoryが別Identityになり、旧履歴を終了できずInventory全体を塞ぐ状態を確認した。旧EvidenceとEffect不明は保持し、旧stale位置の不存在、現在Engineの既知停止、Process境界、現在`run`のfresh Identityおよび既知socket lockが一致する場合に限り、Host Effect 0で旧履歴を世代交代終了できるようにする。現在の`run`は別Operationで修復し、世代交代を旧Effect不存在の証明へ読み替えない。
-
-着手前整合で、既存Native修復部品にもDocker 4.41.2の固定Policyが埋め込まれていることを確認した。通常CLIの更新追従だけでは停止・起動Consumerまで閉じていない。正常再起動の設計は[取消と回復](../../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)へ置き、Native操作対象のTrust検証を未完了の成立条件として保持する。旧修復記録v4へ正常再起動を混在させず、新記録を検証してからTask復旧へ接続する方針は読み取り専用の着手前整合確認でも一致した。これは独立した完成監査の合格ではない。
-
-正常Engine、既知障害、Engine観測不能、作成結果不明の対象なし、停止途中の失敗、再起動後の資源残存、取消、再入場を別々に検証する。検証付き再起動の成功と対象Taskの復旧完了は別結果とし、前者だけで後者を成立させない。完成後の独立監査は正式E2Eの結果と合わせて行う。
-
-| 実装・確認範囲 | 現在状態 |
-|---|---|
-| 再起動の順序判定 | `docker-restart-state.ts`を追加。意図記録、停止、起動、回収、終了の順序を分離し、不明・取消・記録失敗では進めない |
-| 判定の単体契約 | `docker-restart-state.contract.test.ts`の33件成功。型検査と対象2ファイルのBiome確認も成功 |
-| 実機の署名観測 | 更新済Dockerのdesktop_cli、launcher、frontend、backend、buildはAuthenticode有効。旧dev_envs実体は不存在 |
-| 再起動実行制御 | `docker-restart-execution.ts`を追加。操作前の意図記録、待機後の境界・取消再確認、未確定操作の再発行拒否、finallyでの回収を32件の注入型結合試験で確認。この確認時点では本番の記録・Native Adapterは未接続。後続接続は下記に記録 |
-| Nativeの検証方式 | `docker_authenticode.rs`で同一handleのWinVerifyTrustと検証済み署名者のDocker Inc組織名を確認。失効確認はキャッシュ限定、確認不能は拒否。未署名file拒否とインストール済み署名実体の検証成功を確認 |
-| Native再起動部品 | 旧修復経路と別の`--docker-desktop-restart-helper`を追加。現在の必須実体と存在する場合のdev_envsを署名検証し、同一操作中のsize・Hash・Identityを固定。`CRDDDS01`応答を用い、旧修復記録のPolicy Hashへ流用しない |
-| 障害修復のTrust移行 | 障害修復のHost Effect順序と耐久記録は維持し、Native Capability取得を検証付き再起動と同じ公式Path・Docker Inc署名・同一操作Identity固定へ統合した。Docker 4.41.2の版固定Policyは現在の修復Authorityに使用せず、旧記録の履歴検証と現行Effect Authorityを分離する |
-| 障害修復の停止責務 | 障害修復は専用`CRDDDR05`で公式停止`S`と残存Process終了`K`を順序付きで許可し、通常再起動`CRDDDS01`は`S`だけを許可する。旧`docker.exe -Shutdown`と版固定Policyは現行実行集合から削除した |
-| Native実機観測 | 更新済Dockerで検証・終了命令だけを送り、ready／検証／終了の応答を確認。停止・起動命令は未送信。通常ユーザー環境で成功し、制限環境の失敗を成功へ合算しない |
-| 部品回帰 | TypeScriptの状態・実行制御65件成功。Rustの通常試験20件とCLI試験1件成功、明示実機試験は別実行。cargo check／clippy／fmt成功 |
-| 公開復旧への接続 | 未完了。純粋な順序判定は証跡の認証、永続化、排他または実機操作の実装ではない |
-| 保護記録の利用側 | 再起動記録の連続prefix、Task・Root・submissionとの結合を検査し、完了連鎖を旧修復記録とは別の再起動根拠として扱う内部経路を追加。この確認時点では公開入口から未接続。後続接続は下記に記録 |
-| 関連回帰 | 状態判定・記録・注入型実行制御・既存Docker Recoveryを合わせた178件が成功。実停止・実再起動・正式E2Eの成功を意味しない |
-| WSL停止観測 | 登録一覧と稼働一覧の正常終了・完全出力を厳密に判定する部品を追加。実機の読み取り専用確認は両照会exit 0、登録32 bytes、稼働0 bytesで`stopped`。単独の時点観測は再起動完了の証跡へ流用しない |
-
-旧dev_envsの不存在を未知Processの許可へ一般化しない。任意構成の自動受入れではなく、必須の停止・起動対象と条件付き対象の閉集合、署名確認不能時の拒否、および操作中の実体固定をNative設計で明示する。
-
-### 状態遷移図を用いた設計照合からの学び
-
-状態: 利用者が学びの記録を指示済み。共通規範への具体的な反映と独立確認は未完了。図による欠陥予防効果や実機成立は未実証。
-
-| 区分 | 確認した内容 |
-|---|---|
-| 既存規則 | [アーキテクチャの状態遷移](../../27_Architecture.md#22-データ正本状態遷移)は、所有者、遷移条件、解放、判定不能、終了観測と実装・検証義務の対応を既に要求する。図だけでの完了も認めていない |
-| 今回の観測 | 実装確認と状態図の具体化で、Process終了とEngine停止、再起動終了とTask回復終了、非同期処理中の排他、途中記録と完了証跡の違いが明確になった。図だけで全件を新発見したという意味ではない |
-| 原因候補 | 状態の列挙に比べ、矢印を成立させる観測、待機中に保持する資源、利用側が必要とする終了条件の実装接続確認が不足した。規則の不存在ではなく適用・照合の不足が疑われる |
-| 還元方針 | 「図を作る」を重ねて要求するのでなく、既存規則を遷移ごとの照合へ具体化する。複数責務をまたぐ場合は俯瞰図と責務別の状態図を分ける |
-| 表現 | CRDD本体の今回の状態図は、利用者の指定によりMarkdownのテキスト図とする。採用先へ特定の描画方式を一律要求しない |
-
-共通規範へ反映する際の照合候補は次のとおり。単純な一意変換へ存在しない状態や資源を追加せず、状態・非同期処理・資源の成立性が判断へ影響する対象に適用する。
-
-| 照合単位 | 確認する内容 |
-|---|---|
-| 遷移の矢印 | 起点・到達点、契機、必要条件、その条件を証明する観測、判定する実装所有者 |
-| 待機区間 | Lock・Authority・資源の保持期間と所有者、待機後の再確認、取消・親喪失時の処置 |
-| 失敗の分岐 | 条件不成立・観測不能・記録失敗の行き先、残存資源、保持する回復参照、再実行の可否 |
-| 終了点 | 部品の完了と上位処理の完了を分離し、次の利用側が必要とする条件まで確認する |
-| 実装・試験への接続 | 各遷移と禁止遷移を実装箇所・観測手段・正常／異常試験へ対応付け、未接続・未観測を明示する |
-| 図の改訂 | 実装差分で状態・観測・資源・利用側が変わった場合に図と対応を再照合する。図があること自体を完成根拠にしない |
-
-担当は本変更の保守担当とし、本件の公開回復接続・実機E2E後の一括確認時に、既存アーキテクチャ規則、検証設計およびひな型への反映範囲を確定する。記録だけで現在の未接続保証を解消済みにせず、現在の是正と実機検証は継続する。
-
-内部ブロック図についても、利用者は最終のCRDD還元時に他の図と合わせた必須化条件の見直しを希望した。今回、主要6ツールの既存Architectureへ、実装の責務・子フォルダ・ファイル名群を単位とするテキスト図を追加した。ファイル単位の列挙や図に合わせた再配置は行わない。還元時は、状態遷移図との役割分担、図と実装・検証の整合確認、単純な対象への非適用条件を検討し、図の有無だけを完成判定にしない。現時点では共通規範の必須条件を変更していない。
-
-### 部分再起動記録を保持した是正候補
-
-状態: 承認済み是正をSourceへ接続。新署名・実機停止再開・正式E2Eは未完了。以下の候補表は着手時の検討を保持し、現在の限定再入場は[取消と回復の正本](../../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。候補表全体の実装完了を意味しない。
-
-| 今回接続した範囲 | 根拠・残る確認 |
-|---|---|
-| 公式停止 | Native `S`→署名固定pluginの`desktop stop --timeout 30`。旧repair `K`不変、restartの`K`は除去 |
-| 子Process寿命 | suspended生成→kill-on-close Job→再開、NUL限定継承、EOF取消、同一handle終了・Job回収。Native通常27件＋CLI1件とclippy成功。実Docker停止は未確認 |
-| 旧署名引継ぎ | `originReleaseRoot`から由来確認し、原記録不変でhandoff／continuationを追記。現在署名と旧由来を分離 |
-| 再入場 | 旧単一`stop_intent`の初回引継ぎは`currentPhase=null`から新継続停止意図と公式停止へ接続。現在Runtimeの`stop_intent`は再観測のみ、`stopped`は未発行起動、`ready`は確定へ。`start_intent`再発行は不可 |
-| 残るGate | 同一固定候補の全Consumer回帰、署名、実機E2E、最終独立監査。Source・局所試験からリリース成立を推定しない |
-
-| 現在の観測・不足 | 是正候補と保持条件 |
-|---|---|
-| 実機の再起動が`stop_intent`で停止した。WSL停止とDesktop Process生存が同時に観測された | Engine休止とDesktop全体停止を区別する。旧要求が未発行だったとは遡及推定しない |
-| 準備処理は既存`engine-restart-*`を一律拒否し、復旧側は完了5記録と現在Runtime Identityを要求する | 新署名だけでは再入場できない。旧記録の由来確認、現在Authority、部分状態照合を別契約として接続する |
-| 既存`desktop_cli`は`DockerCli.exe`であり、公式Desktop pluginとは別実体 | `resources/cli-plugins/docker-desktop.exe`の署名・exact実体を検証し、公式停止`desktop stop --timeout <上限>`へ接続する候補。Help確認は停止成功の証明ではない |
-| 旧修復の停止操作と正常再起動は別責務 | 旧Native `K`修復経路、run退避条件、旧修復記録の検証は変更しない。正常再起動ではrunを退避・削除しない |
-
-| 保存済み状態 | freshな観測と必要条件 | 候補の処置 |
+| 段階 | 変更の要点 | 現在の意味 |
 |---|---|---|
-| 記録なし | 現在署名・境界・排他・対象1件を確認 | 通常の新規準備へ進む |
-| `stop_intent` | 旧操作主体・CLI不存在、Desktop管理Process不存在、登録済みWSL停止をすべて確認 | 旧要求の成否を断定せず、現在の停止成立を追加記録。停止Effectを再発行しない |
-| 旧単一`stop_intent` | Desktop生存、旧主体・CLI不存在、他Task／他資源不存在、対象実体のTrustを確認 | 初回引継ぎ後、別の継続意図記録→公式停止→完了観測。継続記録が既に`stop_intent`なら再発行せず観測のみ |
-| `stopped` | 旧主体不存在と現在も停止中であることを確認 | 有効な引継ぎと現在Authorityの下で、未発行の起動意図を記録して進む候補 |
-| `start_intent` | 起動結果・世代・順序を確認できる | 起動を再発行せず観測から照合。不足なら同じ回復IDを保持して停止 |
-| `ready` | 起動後のEngine応答、対象資源不存在、回収と境界を再確認 | 未完了の確定処理だけを行う候補。再停止・再起動しない |
-| `settled` | 完了連鎖とfreshな対象不存在が成立 | 再起動せず、別操作のTask復旧へ接続する |
-| 任意状態 | 改変、分岐、観測不能、旧主体生存、Lock喪失、対象増加またはIdentity差 | 操作を追加発行せずexact回復IDと原記録を保持 |
+| 責務分離 | Project Runtime、Coordinator、MCP、実行知、Platform Accessの所有範囲を分離 | 現在の契約は各Architecture正本が所有する |
+| 保護対象経路 | Process／Worker入口、値由来、署名依存、利用側集合を閉じた | 代表利用側だけでなく、package／署名／回復を同じ変更単位で確認する |
+| Docker lifecycle | v0.19の三値Engine観測、起動後再観測、exact回復Identity、追記型引継ぎを復帰 | 中間状態を現在のRelease Gateへ流用しない |
+| 外部境界の結合 | ブロック内部、隣接一段、意味伝播を伴う二段の結合試験をSystem Test前へ配置 | 再利用可能な規則はArchitectureとTest Catalogが所有する |
+| Provider診断 | 相関可能なphase診断を追加し、Codex隔離Executorのseccomp境界を是正 | 限定2経路成功は正式4経路E2Eの代替ではない |
+| 前の署名候補 | 固定改訂版`f76b73af`で正式4経路4/4、Recovery Matrix 7/7を確認 | 後続の実行Identity変更後は、前候補の固定Evidenceとしてのみ扱う |
 
-記録は旧5段階連鎖を上書きせず、別の順序付き引継ぎ・照合記録を追加する候補とする。
+## 11. 有効な学びと構造是正
 
-| 記録契約 | 必須の結合・不足完成条件 |
-|---|---|
-| 由来と現在権限 | 旧署名配布物と旧記録Identityを照合。新署名は現在の操作権限だけに使用し、署名成立だけで互換性を推定しない。許容する旧契約Revisionを明示する |
-| 対象不変 | exact Recovery ID、Operation nonce、未確定submission Hash、安定ユーザー／Home、保護Root Identityを保持。新旧Runtime Identityと旧連鎖tip Hashを別fieldとして結ぶ |
-| 排他 | 現在のHost・Home・Runtime State Lockを非同期処理中も保持・再検証。旧helper／CLI／操作主体の不存在は別途観測し、Lock取得だけから推定しない |
-| 耐久化と再入場 | 排他的な追記、前記録Hash、上限、canonical byteを検証。書込み後の応答喪失は再読取りで分類し、削除・巻戻し・別Identityへの書換えで解消しない |
-| Effect重複防止 | 引継ぎ完了は停止／起動許可ではない。各新Effectの意図と観測結果を結合し、途中失敗後は保存状態を再分類。未確定Effectの無条件再発行を禁止する |
-| 完成結果 | 引継ぎ成立、停止成立、再起動成立、Task復旧成立を分離。部分記録や履歴採用から再起動Fenceを発行しない |
-
-既知の利用側と反証試験の予定対応は次のとおり。手書き一覧だけを全数性の根拠にせず、実装開始時にimport、公開入口、記録名利用、署名の依存集合から差分を導出する。
-
-| 利用側・変更単位 | 反証と予定確認先 |
-|---|---|
-| 記録型・連鎖検証 | 別署名、別Task／Root／submission、分岐・番号飛び・部分byte・上限超過を拒否：`unit/docker-restart-record.contract.test.ts` |
-| inventory・準備・追記・再入場 | 旧Identityの有効prefixを由来として保持し、現在Authorityへ流用しない。引継ぎ書込み後失敗、同時再入場、Lock喪失：`integration/docker-recovery-runtime.contract.test.ts`、`docker-recovery-lock-controller.integration.test.ts` |
-| 状態判定・実行制御 | 上表の各状態、取消・応答喪失・再読取りで停止／起動の発行回数と理由を確認：`unit/docker-restart-state.contract.test.ts`、`integration/docker-restart-execution.contract.test.ts` |
-| 公式plugin・Native・実機観測 | 未署名／差替え／旧CLI生存／停止timeout／WSL観測不能／Desktop残存を拒否。停止exit 0単独では不成立：`integration/docker-restart-machine.contract.test.ts`とNative対象試験。実停止は別の許可済み実機検証 |
-| composition・Task復旧・Fence・残存清掃 | 引継ぎ済み未完了を成功扱いせず、settled後もfresh対象不存在がなければ義務を保持。新記録名の読取り・残存分類を閉じる：`integration/docker-restart-runtime.contract.test.ts`、`docker-recovery-runtime.contract.test.ts`、`docker-recovery-journal.integration.test.ts` |
-| 公開facade・Help・Parser・Dispatcher・結果表示 | exact対象必須、任意forceなし、再起動とTask復旧は別結果、元Task再実行なし：`integration/cli-options.contract.test.ts`、`system/coordinator-docker-recovery-cli.integration.test.ts` |
-
-2026-09-08の署名候補`7b9eac79`による実機確認は、引継ぎ開始前に停止した。準備の再確認だけが生のDirectory一覧を使い、耐久書込みの確認ファイルを記録本体へ混入させていた。準備・再確認・再起動後Recoveryで検証済み記録一覧を使用するよう統一し、未知ファイルや不正な書込み確認の拒否は維持した。
-
-- 再確認の利用契約試験を追加し、確認ファイルの併存を許容しつつ一覧検証失敗を拒否することを確認した。
-- 実ファイルへ耐久記録を生成する既存Recovery試験と合わせて112件成功。型・静的検査も成功した。
-- この根拠は実機再起動、Task回復または正式E2Eの完了を意味しない。修正候補の署名と実機再確認は未完了。
-
-実環境結合試験による追加切り分け（2026-09-08）：`e19afd27`の署名後、停止観測中の親Process異常終了を検出した。Docker・Recoveryを除外しても、3個のNode Worker稼働中の`process.report.getReport()`だけでexit 1を再現した。使用Nodeはv24.19.0。診断本文は保存・出力せず、呼出し前後だけを観測した。Windows環境生成がこのAPIを呼ぶため、WSL呼出し付近に見えた失敗をDocker停止失敗と同一視しない。
-
-- 実Native反復観測・解放と実WSL観測を組み合わせる結合試験を追加した。明示実行する実環境試験であり、未実行を成功としない。
-- Dockerクライアント検出による停止観測の拒否と、親Process異常終了は別事象として追跡する。
-- 環境取得を固定Nativeの`GetSystemWindowsDirectoryW`へ変更した。通常ユーザーProcessで3個の実Lock Workerを保持した20回の取得と全Lock解放、実Native／WSLの結合観測は成功した。恒久試験を追加済み。全体回帰では新しいProcess入口の配布検証への伝播漏れを検出して是正中であり、署名・正式E2Eの完了とは扱わない。実環境境界ごとの結合試験を総合E2E前に置く共通規範への還元は、最終整理で行う。
-| 署名・公開Process経路・試験選択・Workflow | 新plugin／sourceが署名依存集合と実ソース由来の入口集合に含まれること、旧K経路不変を確認：`system/interaction-boundary-regression.contract.test.ts`、該当署名試験と回帰選択。手順は実装確定後に同期 |
-
-現在正本との照合では「旧証跡と現在Authorityの分離」「未確定Effect非再発行」「同じ回復IDの保持」と整合する。ただし既存の旧修復Session引継ぎ契約を、新しい部分再起動や別Runtimeへの実行継続へ自動拡張してはならない。旧操作主体の終了証明、新旧契約の互換条件、各保存状態からの正確な観測、追記途中失敗の収束、および公式停止対象のTrustは未完了の設計・検証義務として残る。
-
-### 修正版への再引継ぎ：着手前の具体化（2026-09-08）
-
-状態: 人間が回復境界に限定した是正の推進を承認。親担当と読み取り専用確認者で次の案を照合済み。実装完了・独立監査済みではない。
-
-既存の引継ぎ連鎖だけでは、継続記録の全要素を最新Runtimeと最新handoffへ結合する利用側を満たさない。単にIdentity比較を除去する修正は行わない。
-
-| 変更単位 | 具体案・維持条件 |
-|---|---|
-| 保存形式 | 5段階の単一状態列と既存ファイル名を維持。世代別フォルダや状態列の複製を追加しない |
-| 引継ぎ記録 | 新改訂のhandoffへ引継ぎ時の継続記録件数・末尾wrapper Hashを結合。旧改訂は既存永続記録の読取りに限り保持し、bytesを書換えない |
-| 列の検証 | 各wrapperのhandoffから発行Runtimeを解決。Runtime以外の全binding、状態順、元record bytesの前Hash、世代の切替位置を検証。通常の単一Runtime列検証は緩和しない |
-| 再入場 | 末尾状態を継承し、引継ぎを理由に`prepared`へ戻さない。引継ぎ自体を停止・起動許可にしない |
-| 不明状態 | `stop_intent`では停止観測だけを行う。`start_intent`の起動再発行は禁止を維持。全状態からの自動再開を完成主張に含めない |
-| 完了済み | `settled`は再起動driverへ戻さず、現在の対象資源観測を伴うTask回復へ接続 |
-| 書込み | 新handoffの単一耐久追記と再読取り。公開前・公開後応答喪失・確認ファイル片側・別bytes衝突を区別。上書き・削除・巻戻し禁止 |
-| 上限 | 既存8引継ぎ上限とRuntime Identity循環拒否を維持 |
-
-利用側の処置は、inventory、prepare、準備再検証、phase／handoff追記、settlement、restart-fence、Task回復、残存分類を一単位として行う。過去wrapperを最新handoffで再生成する再検証は、保存された元bytesの比較へ変更する。
-
-必須反証は、A→B→Cの再引継ぎ、同一phaseでの連続引継ぎ、旧bytes不変、停止再発行0、別binding／末尾／件数／欠落／循環の拒否、切替後の旧Runtime追記拒否、handoff公開直後の中断、公開各失敗時のEffect 0と同じ回復参照、混在世代列からTask回復までの縦断とする。署名の前に確認し、実機E2Eの代替にはしない。
-
-並行していた環境取得変更の全体回帰は終了コード1。Native観測の成功だけでは配布可能とせず、新しいProcess入口の宣言・実ソース照合を含む失敗の是正と再検証を先に閉じる。正式署名、旧記録への書込みおよびDocker操作は未実施。
-
-| 2026-09-08の追加確認 | 結果・限界 |
-|---|---|
-| Native入口の配布検証への伝播 | Process宣言、実引数、由来の確認、呼出し集合の件数を更新。配布契約＋観測試験は124件成功、明示実環境3件は当該実行ではskip。静的検査成功 |
-| 再引継ぎ記録の形式 | 改訂2に継続件数・末尾Hashを追加した閉じたcodecを実装。6件成功、型検査成功。旧連鎖検証は改訂2を拒否し、未接続の新形式から実行権限を発行しない |
-| 次の接続 | 世代切替位置を検証する列解決、準備・再検証・追記・回復利用側は未実装。codec成功を再引継ぎ完成として扱わない |
-
-### 作業候補の固定前確認（2026-09-08）
-
-上表の後、列解決と準備・保存・Task回復への接続を実装した。実機の旧回復記録への適用と正式E2Eは未完了であり、再引継ぎ完成とは扱わない。
-
-| 確認対象 | 結果・次の確認 |
-|---|---|
-| Process停止境界の回帰失敗 | 試験fixtureが全ファイルのopen/closeを差し替え、新規Native観測まで壊していた。差替えをコンソールdeviceと対応descriptorだけに限定し、他の実Filesystem操作を保持。期待値を変更せず関連6試験と型検査成功 |
-| 異なる署名鍵の拒否試験 | 現行観測処理は現在の配布集合を受理するが、HEADから展開する旧集合を拒否。作業候補の改訂版固定後に再実行し、鍵拒否とmanifest非生成の成立を確認する。現時点では未合格 |
-| ローカル清掃 | 不要な旧試験worktreeと一時ランチャーを清掃。未完了Taskの回復記録、現在の署名候補、必要な検証記録は保持。清掃を回復完了の代替にしない |
-
-### Docker更新後の停止観測是正（2026-09-08）
-
-署名候補による修復再入場は、履歴検証を通過した後に`docker_desktop_engine_state_unknown`でEffect 0停止した。読み取り実測では、Docker CLI 29.7.2がEngine停止時の`{{json .Server}}`へ`null`を出力して終了コード1を返し、対象named pipeは`ENOENT`だった。旧契約は空出力だけを停止候補としていたため、既知の停止状態を未分類にしていた。
-
-| 保持する保証 | 是正・確認 |
-|---|---|
-| Docker版を固定しない | AuthenticodeでDocker Inc発行物を確認し、同一操作中の実体・Hash固定を維持する |
-| 停止状態を出力だけで決めない | 非ゼロ終了、厳密な空出力またはJSON `null`、named pipeの明示的`ENOENT`がすべて成立した場合だけ`known_unavailable`とする。権限・資源不足、一般エラー、open後のclose失敗は`unknown`とする |
-| 想定外を安全側へ閉じる | 空白付き`null`、大文字、任意本文、pipe存在・権限拒否・観測不能は引き続き`unknown`とする |
-| 実Producer形状を回帰する | 実子ProcessのLF／CRLF／JSON `null`搬送とpipe判定を契約試験へ追加する。修復完了は新しい署名候補の実機Lifecycleで別途確認する |
-
-### 旧修復履歴と現在障害の循環解消（2026-09-08）
-
-正式4経路E2Eの開始前回復で、旧Release由来の未終了修復を現在Sessionへ引き継げた一方、現在のDocker Engineは`Docker/run`直下のsocket lockにより起動不能だった。従来は旧履歴を閉じるためにEngine readyを要求し、新修復を始めるために旧履歴終了を要求していたため、どちらにも進めない循環が生じた。この条件はv0.19.0にも存在したが、当時の成立実測はクリーンな単一修復経路であり、未終了履歴と後日の別socket障害の組合せを反証していなかった。
-
-| 契約 | 構造是正 |
-|---|---|
-| 旧Evidenceの保持 | 元Operation、Effect不明、引継ぎ連鎖および修復IDを変更せず、明示終了記録だけを追加する |
-| 復旧成功との分離 | Engine停止中の旧履歴終了は`manualRecoveryRequired=true`を維持し、再起動Fenceまたは復旧成功に使わない |
-| 新修復への引継ぎ | 現在境界、Process、exact `run` Identity、stale不存在および既知lockが揃う場合だけEffect 0で旧履歴を閉じ、新Operationを許可する |
-| 環境変化への追従 | 特定socket名を固定せず、有限かつ安定した`Docker/run`直下集合の既知lockを分類する。Windows AF_UNIX endpointがNode.jsのDirentでlink相当となり、個別`lstat`も拒否される実挙動を許容する |
-| Fail Closed | 列挙不能、64件超過、子Directory、未知error、集合またはDirectory Identity変化では旧履歴も新Host Effectも進めない。link相当を無条件許可せず、exact親Identity、非Directory、安定集合および既知access拒否を共同条件にする |
-
-集中契約試験では、特定名に依存しないlock検知、通常file、Windows AF_UNIXのlink相当項目、未知error、件数上限、子Directory、集合変化、Directory Identity変化、および旧履歴をEffect 0で閉じて新修復を許可する経路を追加し、Docker Desktop修復契約52件が成功した。実Dockerの旧履歴終了から新修復、Engine復帰、Task回復および正式4経路E2Eは後続の実機Gateとして保持する。
-
-### 外部境界の段階的結合への還元（2026-09-08）
-
-今回の長い修正Loopは、実Dockerへの基本接続だけでなく、Recovery、再起動、履歴引継ぎ、cleanupおよび再入場を含む付随lifecycleが、独立した結合単位として早期実測されていなかったことにも起因する。最終E2Eをこれらの最初の発見地点にしないため、CRDD共通のアーキテクチャと品質保証へ次を還元した。
-
-| 還元先 | 固定した内容 |
-|---|---|
-| アーキテクチャ | 外部境界を責務、状態、Authorityおよび資源のlifecycleで結合単位へ分ける。ブロック表、状態遷移表、その視覚投影である状態遷移図、ブロック間シーケンス図、クラス／型関係図およびDFDの適用条件・正本範囲・plain-text記法を分離する |
-| 結合試験 | 主要経路だけでなく、同じ結合単位が所有する失敗、取消、cleanup、Recoveryおよび再入場を、ブロック内部、隣接一段、意味伝播を伴う二段の順で実境界へ接続 |
-| 総合試験との境界 | 複数の独立単位を公開入口から利用者成果まで組み合わせる範囲はSTが所有し、ITへ全組合せを重複させない |
-| 回帰選択 | 結合単位の意味変更時は付随lifecycleのITと前版Capabilityの実境界Evidenceまで選択 |
-| 完成判定 | 責務表、状態遷移表、シーケンス、実装所有者および検証項目の未対応を固定候補前の不整合として扱う。試験Catalogは正本の意味を複製せず、参照と試験IDの対応を所有する |
-
-Docker固有の表だけで閉じず、Checker、Project Runtime、Coordinator、実行知、MCPおよびPlatform Accessの全Toolへ結合ブロックを展開した。人間向けの責務境界とブロック間の時間順は[Tool全体の結合ブロック](../../06_Architecture/01_Architecture.md#tool全体の結合ブロック)と[ブロック間シーケンス](../../06_Architecture/01_Architecture.md#ブロック間シーケンスの正本)、機械可読なOwner、Lifecycle profile、一段／二段の結合経路、実在ITおよび終了後条件は[試験カタログ](../../07_Quality/04_Test_Catalog.json) revision 9が所有する。Catalogは全Toolのブロック参加、実在するArchitecture見出し、最大二段の経路およびIT接続を拒否条件として検査する。
-
-MCPでは、stdioのparent EOFから進行要求取消・joinまでと、localhost HTTPのidle socket・listener shutdownを公開LauncherのSTから分離した実境界ITとして追加した。最初の実stdio結合では、要求処理を`await`している間に入力streamの読取りが停止し、親EOFを観測できない不具合を検出した。Transportの入力観測を意味処理から分離し、要求処理中もEOF／error／closeを観測して同じ取消Signalへ接続し、意味結果を受け取ってからTransport終了を返す構造へ是正した。stdio／HTTPのTransport lifecycleを含む16件は成功し、最終E2Eを最初の切断・join発見地点にしない境界を固定した。
-
-### 前版の再観測能力の復帰（2026-09-08）
-
-v0.19と同じ順序の限定実測によりDocker Engineは復帰したが、v0.20の耐久再起動記録が`start_intent`で停止し、公開回復入口は起動後の状態を再観測できなかった。原因はDocker Desktop固有障害ではなく、正常再起動を別部品へ分けた際に、前版が一つのLifecycleとして所有していた「起動後を観測して同じ回復処理へ戻る」能力を移行対象から落としたことである。
-
-| 成立条件 | 是正・根拠 |
-|---|---|
-| Effectを再発行しない | 保存済み`start_intent`では停止・起動を呼ばず、現在のEngine Readyだけをfreshに観測する |
-| 同じ回復Identityで収束する | Ready成立時だけ同じ連鎖へ`ready`を耐久追記し、helper回収後に`settled`へ進める |
-| 不明状態を成功へ補正しない | Ready不成立、観測例外、観測手段欠落、取消または境界不一致はEffect 0で停止し、回復義務を保持する |
-| 利用側まで閉じる | Coreの状態駆動だけでなく、Native machineを含む署名入口相当Compositionで、停止・起動Effect 0と`ready → settled`を確認する |
-| 実観測を型上の断定へ置換しない | Native実観測試験は`unknown`を明示分岐で拒否し、その後だけ確定状態として保持する |
-
-最初の再署名候補による実再入場では、Linux Engineが正常応答する一方、Docker Desktopが選択したbackendでは`docker-desktop` WSL Distributionが`stopped`であり、v0.20のRestart machineがReadyを拒否した。v0.19の修復処理はEngineを`ready / known_unavailable / unknown`で観測しており、WSLの稼働状態を起動成立へ要求していなかった。責務分離時にこの三値契約を真偽値へ縮小し、特定backendの実装詳細を上位の成立条件へ追加したことが回帰原因である。
-
-| 回帰是正 | 現在の契約 |
-|---|---|
-| Engine観測 | 信頼済みDocker CLIの完全なLinux Server応答を`ready`、CLI失敗かつEngine pipe不存在を`known_unavailable`、それ以外を`unknown`とする |
-| 起動成立 | Engineが`ready`であることを必須とし、WSL Distributionの`running`は要求しない |
-| 停止成立 | 管理ProcessとClientの不存在、Engineの`known_unavailable`およびWSLの`stopped`をすべて要求する |
-| 観測資源の回収 | Engine pipeのopen後にcloseが失敗した場合は回収不明をstickyに保持し、最終cleanupへ伝播する |
-| 反証 | Engine ReadyかつWSL stoppedのbackendを成功させ、Engineが残存する停止結果および観測不能を拒否する |
-
-`Engine ready / WSL stopped`の現在実環境を使った読取り専用結合試験は、Runtime Lockなし／ありの両方を含む4件すべてに成功した。これにより、backend差を安全条件の欠落へ変えず、実装詳細だけを過剰固定しない境界を実環境で確認した。
-
-集中した状態・記録・machine・Composition・回復Facade・公開CLIの結合回帰258件、静的検査、型検査、Lint、整形、Capability／Traceability検査、通常Windows Process Gate 7件および制限Process回帰1937件（成功1934、失敗0、明示実環境3件skip）が成功した。Repository全体Checkerはerror 0／warning 0である。これは新しいSource候補の回帰根拠であり、既存署名候補、未完了回復記録または正式4経路E2Eを完了済みへ変更しない。次は固定Commitの独立事前監査、再署名、同じ回復IDの実再入場および正式4経路E2Eを必要とする。
-
-### 保護対象Process利用側の閉包（2026-09-09）
-
-Engine観測を三値へ戻す際、旧`queryDocker`を`queryDockerEngine`と`queryContainersAbsent`へ分割した一方、署名・package検査が所有する保護対象Process呼出し集合には旧所有関数が残った。通常のmachine試験は新しい意味を検証できたが、固定packageのCanonical基線は無効となり、署名経路の反証試験が本来の変異理由より前に一括停止した。
-
-| 閉包対象 | 現在の処置 |
-|---|---|
-| 実呼出し | Docker Engine観測とContainer不存在観測を別の所有関数、引数式および結果bindingとして導出する |
-| 実行ファイルの由来 | 両呼出しとも同じ署名済みDocker CLI観測を要求し、利用側によるPath再構成を許可しない |
-| 宣言集合 | 旧所有関数を除去し、新しい2利用側、完全な引数式、本文Hashおよび意味グラフHashへ置換する |
-| 件数不変条件 | Runtime呼出し集合を17件から18件、全呼出し集合を23件から24件へ更新し、Actualとの完全一致を要求する |
-| 反証 | WSL一覧、Engine観測、Container不存在観測の3呼出しを閉集合として固定し、旧件数や旧所有関数を成功へ流用しない |
-
-署名・package経路の集中試験138件では137件が初回成功し、残る1件は旧呼出し件数を保持した試験期待値だった。新しい3呼出しの閉集合へ更新した対象試験は成功した。これは責務分割時に機能利用側だけでなく、署名、package、検証用の派生Consumerも同じ変更単位で移行する必要があることを示す。全制限Process回帰、通常Windows Process Gate、独立再レビュー、再署名、同じ回復IDの実再入場および正式4経路E2Eは後続Gateとして保持する。
-
-同固定候補の正式再入場では、検証付きDocker再起動の連鎖を`settled`まで確認できた後、Task回復が`docker_task_recovery_restart_submission_mismatch`でEffect 0停止した。実記録には未処理Submissionが1件だけ存在し、そのHashは再起動記録と一致していた。回復利用側が検証済みの記録一覧を得た後にDirectoryを生読みし直し、Submission本体に付随する`.crdd-commit.json`を二つ目のSubmissionとして数えたことが直接原因である。
-
-| 閉じる対象 | 構造是正 | 反証 |
+| 指摘クラスタ | 根本原因 | 保持する構造 |
 |---|---|---|
-| 現行の再起動記録からTask回復する入口 | 検証済み記録一覧を保持し、未処理Submission選択へそのまま渡す | Submission本体とcommit確認記録が併存しても本体1件だけを選ぶ |
-| 旧Docker Desktop修復記録からTask回復する入口 | 同じ正規一覧生成を使用し、生のDirectory一覧と独自の存在判定を廃止する | Receipt本体があれば処理済みとし、commit確認記録を本体へ昇格しない |
-| 回復記録の完全性 | 未知項目、孤立したcommit確認記録、不正な記録名および不正な内容は従来どおり正規一覧生成で拒否する | sidecarを無条件に無視する例外へ縮小しない |
+| PowerShellの署名検査初期化 | Docker CLI用の中立環境を別の利用側へ流用した | 署名検査に検証済みの最小OS環境を与え、ambient環境継承やDockerの過去Version／Hash固定を行わない |
+| 多段利用側の未確認 | 直接起動の成功から中立化子Process内の成立を推定した | 実際の多段Consumer境界を結合試験で確認する |
+| 正常再起動後のTask回復 | 障害修復、検証済み再起動、Task回復の結果を結合した | 3つの結果を分離し、一つの成功から次を推定しない |
+| 再起動状態の収束 | 要求、観測、確定を同一視した | 5段階の追記型状態列を保持し、不明Effectを再発行せず最後の耐久状態から再入場する |
+| Engine ready／WSL stopped | Backend詳細を上位の起動成立条件へ追加した | 起動はEngine ready、停止はWSL stoppedを含む。`ready / known_unavailable / unknown`を維持する |
+| 旧修復履歴との循環 | 旧履歴終了と新修復開始が互いを前提にした | 旧Effect不明を保存し、exactなfresh観測下だけEffect 0で世代交代終了し、新しいOperationを分ける |
+| Process利用側の移行 | 実呼出しだけ移行し、署名・package・宣言・期待値が残った | 呼出し、由来、宣言集合、件数、派生Consumer、試験を一つの意味変更として移行する |
+| Submission sidecar誤分類 | 検証後にDirectoryを生読取りして再解釈した | 検証済みCanonical inventoryを現在・旧Recovery Consumerへそのまま渡す |
+| 引継ぎ件数 | 5件で完走する状態列をParserだけ4件に制限した | 命名、履歴解決、Parserで同じ上限を共有し、Identity循環拒否を維持する |
+| 再ログオン後の主体 | 過去記録を現在Session Hashで再解釈した | 発行時の耐久Operation Principalを保持し、現在Session Authorityを署名済みRuntime、保護Root、Lock、追記型引継ぎで別に確認する |
+| 外部境界の遅い発見 | Docker／Providerの付随lifecycleを最終E2Eまで実測しなかった | 設計時に診断契約を持ち、内部・隣接・二段結合をSystem Test前に確認する |
 
-この是正はDocker環境または回復データの修復ではなく、同じCanonical inventoryを二つのTask回復Consumerへ伝播する利用側閉包である。集中試験の成功だけを実Task回復または正式4経路E2Eの完了とは扱わず、新しい固定候補で同じRecovery IDへの再入場を必要とする。
+詳細な失敗時系列、実行値、試験件数および固定候補の結果は[検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)が所有する。CHGは現在も有効な変更理由と構造差だけを保持する。
 
-続く固定候補では、既存の再起動連鎖自体は`settled`まで正しく解決できた一方、新しいRuntime Execution Identityへの引継ぎ生成が拒否された。再起動継続記録は`00`から`04`までの5件を許可する契約だが、引継ぎ記録Parserだけが`continuationCount`の上限を4としており、完走した実履歴だけを表現できなかった。
+## 12. Evidenceと残るGate
 
-| 是正対象 | 正しい状態 | 反証 |
-| --- | --- | --- |
-| 継続記録数 | 記録名、履歴解決および引継ぎParserが5件上限を共有する | `settled`まで5件ある履歴を新しい未訪問Runtimeへ引き継げる |
-| 循環防止 | 過去に訪問済みのRuntime Identityへの再引継ぎは従来どおり拒否する | 件数上限の是正をIdentity循環の許可へ拡張しない |
-| 実機Gate | 既存記録を編集せず、固定候補からappend-only引継ぎとTask回復を再実行する | 単体試験成功を実回復完了と扱わない |
-
-同候補を通常ユーザーProcessから再入場させると、署名、起点Runtime Identity、Runtime State Identity、保護、Submission Hashは一致したが、再ログオン後の`localUserBindingHash`だけが発行時の値と異なり、`docker_restart_origin_unverified`でEffect 0停止した。通常のDocker Task回復には発行時Sessionを上書きしないappend-onlyなSession引継ぎが既にある一方、v0.20で追加した再起動履歴の準備と完了利用側だけが、過去記録を現在SessionのHashで検証していた。
-
-| 是正対象 | 正しい状態 | 反証 |
-| --- | --- | --- |
-| 再起動履歴の所有主体 | 発行時の耐久Operation Principalを再起動記録と継続記録で保持し、現在SessionのHashへ書き換えない | 同じ安定ユーザーの再ログオン後も、起点Recordを発行時bindingで検証できる |
-| 現在SessionのAuthority | 現在の署名済みRuntime、保護済みRuntime Root、物理Lockおよび既存のappend-only Session引継ぎで別途確認する | 過去RecordのPrincipal保持だけから現在Sessionの変更権限を推定しない |
-| 利用側閉包 | 準備、Runtime Identity引継ぎ、継続記録解決および`settled`後のTask回復が同じ耐久Principalを使う | 準備だけ成功し、完了利用側が現在Session Hashで再解釈する状態を許さない |
-| 実機Gate | 保存済み記録を編集せず、新しい固定候補からSession引継ぎ、Runtime引継ぎおよびTask回復を縦断する | 注入型試験の成功を実回復完了へ昇格しない |
-
-旧Docker Desktop修復履歴を閉じる実再入場では、現在の`Docker/run`が旧Operationの世代から更新後の新世代へ置換され、Docker Processは明示的不在だった。初回是正は新世代を受理したものの、注入試験が既定の`verified` Process状態だけを使い、実環境の`absent`状態を全数対応に含めていなかったため、同じ停止理由を残した。
-
-| 是正対象 | 正しい状態 | 反証 |
-| --- | --- | --- |
-| 旧履歴と現在世代 | 旧Operation Identityは履歴に保持し、freshな二回の現在`run`観測と既知lockだけを新修復対象へ結合する | 世代差を旧Effect不存在や復旧成功へ読み替えない |
-| Process状態 | 存在が検証済み、または不存在が確認済みの両方を既知状態として扱う | `unknown`は履歴閉鎖にも新修復にも使わない |
-
-新世代の修復を開始すると、Engine停止、exact `run` Identity、stale不存在およびDocker Process不存在を確認できたにもかかわらず、公式停止を必須Effectとして扱って`docker_desktop_official_shutdown_unconfirmed`で停止した。これはDocker Desktop自体の失敗ではなく、存在時の停止経路しか持たない修復状態機械の欠落だった。公式停止とNative停止の双方へ`known_not_needed`を導入し、Process不存在をfresh観測できた場合はEffect 0の`not_issued` settlementを耐久化する。耐久記録からの再開でも同じ実状態を再観測し、Process再出現または観測不能なら後続Effectを停止する。実Store試験では、no-op settlement後の保存失敗を挟み、同じ修復IDで再入場して公式停止・Native停止を0回のままWSL停止以降へ進めることを確認する。
-
-修正版の署名候補から再入場すると、旧候補が作った正しい`not_issued`記録をRuntime Identity差により通常Inventoryが拒否した。旧RuntimeのHost操作を新Runtimeで続行することは許可せず、署名済み由来と引継ぎReceiptを確認したうえで、全Host Effectがsettledな`not_issued`である旧OperationだけをEffect 0で証拠保持終了する。現在境界、現在`run` Identityおよび旧stale不存在はfresh観測するが、現在Dockerの故障や復旧は同時に推定しない。現在状態の修復は新しい修復IDで再評価する。
-| 実環境対応 | 注入試験を実際に観測した`absent`状態へ固定し、署名候補から同じ履歴IDを閉じる | 既定fixtureの成功を実再入場成功へ昇格しない |
-
-署名前の全回帰では、Codex Executor Sandboxの実境界試験を追加済みである一方、Windows実Process Gateの閉集合を検査する利用側だけが旧7件を保持していたため、1件が失敗した。実在するGateは8件であり、件数を緩和するのではなく、対象3ファイル、prefix出現数、展開case数、package実行入口および通常ユーザーProcessの実結果を同じ8件へ同期した。対象件数契約2件と実Windows Process Gate 8件は成功した。限定実Provider 2経路もcleanup済みで成功しているが、正式署名と4経路E2Eの代替にはしない。
+| 区分 | 状態・参照 |
+|---|---|
+| 前の署名候補 | 固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`、Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067`。4経路4/4、Recovery Matrix 7/7、技術監査0件 |
+| 現在候補 | 検証専用投影の移動とRepository全体の文書是正により実行Identityが変わる。前候補の署名を現在Gateへ流用しない |
+| 現行Gate正本 | [Quality Center](../../07_Quality/01_Quality_Center.md) |
+| 残るGate | 文書Disposition閉包、独立文書監査、Checker独立レビュー、固定Commit、新Runtime実行Identityの再署名、影響E2E、人間のRelease判断 |
