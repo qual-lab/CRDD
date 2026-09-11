@@ -66,7 +66,7 @@ AIは経路を提案・更新できるが、表示した経路だけから保護
 
 外部イベント、非同期I/O、子Process、外部実行基盤または取消可能な処理を変更する場合は、`00_CRDD/10_Agent.md`に従い、境界、資源、Authority、Effectおよび失敗影響に比例した深さで、保留、完了、失敗、取消、遅延・重複通知、資源回収および待機後の利用側を着手前に照合する。AI入口、外部Runtime、子Process、外部送信、Authority／Capability、共有・永続Effectまたは取消後に残存し得る資源では完全なlifecycle契約を用いる。外部Effect等を伴わず同一process内に閉じる単純なローカル非同期処理へ、存在しないAuthority、回復状態または外部基盤の契約を作らず、通常の実装、エラー処理およびリスクに応じた試験を用いる。Promiseやコールバックの完了または単発モックだけから、実在する取消の完了、イベント監視／ハンドル残存0、Authority非発行またはEffect 0を推定しない。監査間で方針整合済みでも、是正の具体化が新しい状態、資源、境界または利用側を導入する場合は、変更後の解決経路で着手前整合確認と固定候補前の再照合をやり直す。独立レビューとの往復で一般化可能な原因を検出した場合は、`00_CRDD/19_Maintenance.md`に従い、既存正本、ひな型、Checkerまたは契約試験へのフィードバック要否を確認する。
 
-OS、言語Runtime、Process API、Filesystem、Container、Networkまたは外部CLIの意味が必要保証へ影響する変更では、`00_CRDD/27_Architecture.md`に従い、使用資源、必要保証、実環境が提供する意味、失敗・観測不能、設計契約および反証を実装前に接続する。要求発行、handle取得、受理、Effect成立、完了通知、観測および耐久的確定を同一視しない。不明点の小規模実測は、保証の重要性、意味上の不確実性および後工程での是正費用に見合う場合だけ行う。是正では変更ファイルでなく変更した意味から回帰面を導出し、独立レビューまたはE2Eを最初の影響分析にしない。
+OS、言語Runtime、Process API、Filesystem、Container、Networkまたは外部CLIの意味が必要保証へ影響する変更では、`00_CRDD/27_Architecture.md`に従い、使用資源、必要保証、実環境が提供する意味、失敗・観測不能、設計契約および反証を実装前に接続する。要求発行、handle取得、受理、Effect成立、完了通知、観測および耐久的確定を同一視しない。外部境界には、入力・構成、要求・受理、開始・完了、Effect・結果搬送および終了後状態を、機密を複製せず相関できる診断契約を設計時から含める。不明点の小規模実測は、保証の重要性、意味上の不確実性および後工程での是正費用に見合う場合だけ行う。是正では変更ファイルでなく変更した意味から回帰面を導出し、独立レビューまたはE2Eを最初の影響分析にしない。
 
 状態、遷移、資源、Lock、AuthorityまたはEffectを含む非自明な変更では、設計要素から実装上の所有者／発生点、正常・準正常・異常の検証項目、実際の観測手段および終了後条件までを固定候補前に照合する。状態名、成功結果、試験件数またはcoverage率から資源不存在、Authority失効、Effect 0またはcleanup成立を推定しない。不存在を安全条件にする場合は明示的な不存在と観測不能を区別し、後者を`false`または空値へ畳む観測を負の根拠にしない。Recovery Identityが確定した後は、残存可能性がある最初の失敗結果、耐久記録および再入場まで同じexact Identityを保持する。公開は認証・認可・情報分類上許可された利用側に限り、同じIdentityまたは同じ内部Identityへ結合した非Authorityの回復参照を返し、境界外へ対象の存在、IdentityまたはRecovery Authorityを開示しない。専用成果物は一律に要求せず、複雑な境界で別の実行者が未接続・未観測範囲を再構成できない場合だけ、機械可読な対応、契約試験その他の再実行可能な方法へ具体化する。
 
@@ -99,6 +99,7 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 - CRDD用語は初出時に「ローカル表示名（Canonical Term）」で示す。初出後の説明文、見出し、説明用の表ではローカル表示名を基本とし、英語名を不必要に繰り返さない。
 - 説明用の表と機械可読なスキーマを区別する。スキーマキー / 値、状態の実値、関係、コードは維持し、説明用表示名だけを英語項目名のように並べない。
 - 結論と要点を先に示し、並列事項、条件、選択肢、完了条件は箇条書きまたは表で分ける。
+- 状態、条件、責務、決定権限、関係、比較、履歴、Input／Outputおよび受入条件は、長い文章より表、箇条書き、Matrix、DiagramまたはFlowを先に検討する。一つの段落は一つの意味目的に限定し、構造化で条件、例外、規範強度または理由を失わない。詳細は`00_CRDD/03_Documentation.md`の「構造を先に選ぶ文書表現」に従う。
 - 専門用語だけで説明を完結させず、プロダクト、利用者、運用への影響を平易に説明する。
 - 既存の正式用語または平易な説明で足りる操作、状態、Riskまたは成果物へ、その場限りの名称を付けない。新しい名称が必要な場合は平易な意味を先に示し、既存用語との差、使用範囲および正本を明確にする。情報分類の`public`を公開投稿の意味へ読み替えない。
 - 人間可読成果物の名称、表示名、用語境界または専門的な説明を実質的に変更する場合は、初回編集前に`00_CRDD/03_Documentation.md`の用語・表現の確認項目を着手前整合確認へ含める。
@@ -152,7 +153,7 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 
 Coordinator Runtimeを使う場合も、Repository内容やexample Policyだけから外部送信Authorityを推定しない。`.crdd/external-send-policy.json`は、同梱の`.crdd/external-send-policy.example.json`を参考に、人間の決定権限者がRepository固有の情報分類、Provider Session境界、Subscription、Provider Terms／SettingsをRuntimeが検証できない範囲、Candidate保存可否、export可能時間および`candidatePhysicalDeletion`が示す物理削除時点を確認してCommit固定し、`enabled: true`へした場合だけ候補になる。期限到達時はexportを拒否するが、常駐serviceを持たないため物理削除は明示discardまたは次回の安全なRuntime／Candidate入口で行い、期限瞬間の削除を保証しない。exampleはfail closedの`enabled: false`であり、CRDD本体または別RepositoryのPolicyを流用しない。各Taskの端末安全な外部送信確認は別Authorityであり、Policyの存在だけでは送信しない。
 
-Coordinator Runtimeで通常の依頼を実行するときは、公式Release tagへ固定した完全な`00_CRDD` clone／submoduleから`40_Develop/coordinator/bin/launch.ts task --request-stdin --json`を使用する。Local Personalには永続的なRuntime有効化やPlatform Provisioningの利用者操作はない。利用可能な入口を調べる場合は`40_Develop/coordinator/bin/launch.ts automation capabilities --json`を使い、存在しない準備commandを推測しない。外部送信Policy、署名、Repository、Authority、Provider、CandidateおよびRecoveryの各Gateは省略しない。
+Coordinator Runtimeで通常の依頼を実行するときは、公式Release tagへ固定した完全な`00_CRDD` clone／submoduleから`node 00_CRDD/template/tools/crdd-coordinator.ts task --request-stdin --json`を使用する。Local Personalには永続的なRuntime有効化やPlatform Provisioningの利用者操作はない。利用可能な入口を調べる場合は`node 00_CRDD/template/tools/crdd-coordinator.ts automation capabilities --json`を使い、存在しない準備commandを推測しない。MCP Clientを接続する場合は`node 00_CRDD/template/tools/crdd-mcp.ts --stdio`またはlocalhost限定の`--http --port <port>`を使用し、Coordinatorのsubcommandとして起動しない。外部送信Policy、署名、Repository、Authority、Provider、CandidateおよびRecoveryの各Gateは省略しない。
 
 外部向け成果物では、外部向け投影と公開済み記録を分け、主張を現在有効な根拠へ接続する。公開後の反応を要求またはプロダクト上の事実へ直接昇格せず、測定、観察、仮説、学び候補、人間の判断を分ける。依存関係ではコンテキスト依存と成果物依存を分け、`00_CRDD/18_Context_Dependency.md`が定める独立管理利用側間の横断調整または重大リスクにより明示管理する依存について、現在採用している版、上書き、利用側、更新影響、復旧を確認する。通常・推移依存は既存のアーキテクチャやパッケージ管理を正本にでき、外部提供元とのAPI契約、別権限、独立リリース、または利用箇所数だけで完全な依存契約を発火させない。利用可能な新しい版をAIが自動採用せず、事前承認した対象・版範囲・検証・停止・復旧条件の外側は人間判断へ戻す。
 

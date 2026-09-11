@@ -5,17 +5,18 @@
  * Caller-supplied Root, observer, runner and fault/crash hooks are deliberately
  * absent from this module interface.
  */
+
+import type { ProjectDockerRecoveryAcknowledgement } from "../../../project-runtime/src/index.ts";
 import {
   consumeProjectSettledDockerRecoveryWithRuntimeBoundary,
   type ProjectSettledDockerRecovery,
 } from "./docker-project-recovery-settlement.ts";
-import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
-import type { ProjectDockerRecoveryAcknowledgement } from "./project-runtime-state.ts";
 import {
   acknowledgeRuntimeOwnedDockerRecoveryCompletion,
   finalizeRuntimeOwnedDockerRecoveryAcknowledgement,
 } from "./docker-recovery-runtime-internal.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
 
 export type { ProjectSettledDockerRecovery };
 
@@ -184,17 +185,16 @@ export function collectDockerRecoveryAcknowledgementAfterProjectRecord(
 }
 
 export {
-  DOCKER_RECOVERY_RUNTIME_CONTRACT,
-  DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION,
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerRecovery,
   createIsolatedDockerRecoveryRuntimeCandidate,
+  DOCKER_RECOVERY_RUNTIME_CONTRACT,
+  DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION,
   describeDockerRecoveryRuntimeContract,
   finalizeRuntimeOwnedDockerRecovery,
   inspectRuntimeOwnedDockerResourceReceipts,
   inspectRuntimeOwnedDockerTaskRecoveryState,
-  resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
   markRuntimeOwnedDockerResourceSubmission,
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerAbsence,
@@ -202,6 +202,8 @@ export {
   recordRuntimeOwnedDockerResourceReceipt,
   recordRuntimeOwnedNormalMountCompletion,
   recoverRuntimeOwnedDockerTask,
+  recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart,
   recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart,
+  resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
   verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./docker-recovery-runtime-internal.ts";

@@ -127,9 +127,16 @@ function fixtureReaderProcess() {
 }
 
 try {
-  fs.openSync = ((_path: string, flags: string) =>
-    flags === "r" ? 101 : 102) as typeof fs.openSync;
+  fs.openSync = ((...args: Parameters<typeof fs.openSync>) => {
+    if (args[0] === "\\\\.\\CONIN$") return 101;
+    if (args[0] === "\\\\.\\CONOUT$") return 102;
+    return originalOpen(...args);
+  }) as typeof fs.openSync;
   fs.closeSync = ((descriptor: number) => {
+    if (descriptor !== 101 && descriptor !== 102) {
+      originalClose(descriptor);
+      return;
+    }
     if (
       mode === "descriptor_close" ||
       mode === "sync_convenience_cleanup" ||

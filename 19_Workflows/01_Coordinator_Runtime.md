@@ -1,8 +1,8 @@
 # Coordinator Runtimeの利用・検証・発行手順
 
-Status: Stable
+Status: Candidate (v0.20.0, Released Baseline: v0.19.0)
 Owner: Qual-Lab
-Last Updated: 2026-09-01
+Last Updated: 2026-09-11
 
 ## 目的・対象・実行前条件
 
@@ -20,7 +20,7 @@ Last Updated: 2026-09-01
 
 ## 毎回の起動方法を組み立てない
 
-通常操作は、検証済みNodeから同じ配布物の`bin/launch.ts`を直接起動する。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般Taskは第一級の`task`入口を使う。利用可能な入口は`capabilities --json`から取得し、準備commandを推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
+通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" task --request-stdin --json
@@ -112,6 +112,22 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 対話境界を、PowerShellのtext pipeline、`ConvertTo-Json`、一時request file、長い`Start-Process ... -Command`または入れ子Shellへ再構成してはならない。Windows PowerShell 5.1とPowerShell 7ではprocess標準入力API、既定encodingおよび引数再構成が異なり、正しいTaskが実行前に壊れるためである。Release鍵生成／署名は既存のdirect TTY command、外部送信承認はRuntime所有のconsole challenge、OAuth bootstrapは公式Provider CLIと外部system browserをそれぞれ唯一の対話入口とする。対話端末を取得できない場合は別搬送へfallbackせず停止する。
 
 
+## 正常なDockerで作成結果不明のTaskを回復するとき
+
+この経路はv0.20候補で接続中であり、正式署名・実機E2E完了前の配布物では利用可能と扱わない。状態と必要な観測は[取消と回復の設計](../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
+
+| 順序 | 操作 | 完了の意味 |
+|---|---|---|
+| 1 | `doctor --restart-docker-for-recovery <docker-task-recovery-id> --json` | 同じ対象のための停止・起動・記録確定。Task回復完了ではない |
+| 2 | `doctor --recover-isolation <same-docker-task-recovery-id> --after-recorded-docker-restart --json` | 検証済み再起動記録と現在の対象資源を再確認し、Task固有の回復を行う |
+
+- Docker全体への停止影響を含む許可範囲を確認してから順序1を実行する。他Task、残存CLI、排他不成立または観測不能では停止し、対象を勝手に終了・削除しない。
+- 順序1の`restartCompleted`と`cleanupConfirmed`がともに成立した場合だけ順序2へ進む。旧障害修復の引数と混在させない。
+- 正常なrun Directoryを退避・削除しない。署名鍵入力や元Taskの再実行は、この操作に含まない。
+- 途中失敗では同じ回復IDと記録を保持する。初回操作を繰り返すことで未知のEffectを再発行せず、停止理由に従って再入場条件を確認する。
+- 別署名の部分記録は、実行担当が生成元の署名Rootを確認して限定引継ぎへ渡す。旧記録の手動修正・削除で再開しない。旧単一`stop_intent`からの初回引継ぎは別の継続停止意図へ進むが、現在Runtimeの`stop_intent`再入場は観測だけであり、同じ停止を再発行しない。
+- 正常停止は公式Desktop CLIを使い、強制停止・detach・旧障害修復へのfallbackはしない。子Processの取消・回収とDocker全体の停止確認は別々に判定する。
+
 ## Docker Desktopの旧復旧記録を扱うとき
 
 Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。現在の正常状態を確認後、既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。
@@ -150,11 +166,24 @@ v0.19.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 最終E2E記録: `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md`、`07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.json`
 - 公開入口と履歴: `README.md`、`CHANGELOG.md`、`90_Release/Changes/README.md`、`99_Roadmap/01_Product_Roadmap.md`
 - 品質・手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
-- Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/coordinator/02_Threat_Model.md`、`06_Architecture/coordinator/03_Project_Runtime_Design.md`
+- Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/project-runtime/01_Architecture.md`
 - Release対象CHG: `90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md`、`90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md`、`90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md`、`90_Release/Changes/CHG-000060_CRDD_Brand_Icon_Adoption.md`
 - v0.19.0のCandidateからStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 
 正本の機械的遷移は`Status: Candidate`を`Status: Stable`へ変え、`Released Baseline`行を削除し、Release日だけを更新する。Project Runtime固有文書はCandidate／未実装表示をStable／利用可能範囲の表示へ変える。CHGは`Released`と対象tagへ、Roadmapは完了項目の除去と残件だけの表示へ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更または新しい成果物はCommit Cへ含めない。
+
+### v0.20.0のCommit C許可Path
+
+v0.20.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease判断後、次のexact PathだけをCommit Cで変更できる。新規検証結果2件はProvider生出力、確認値、秘密、Host PathまたはRecovery Authorityを保存せず、閉じた結果と根拠Hashだけを記録する。
+
+- 最終E2E結果: `07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.md`、`07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.json`
+- 品質と手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
+- v0.20の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
+- v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/coordinator/02_Threat_Model.md`、`06_Architecture/execution-intelligence/01_Architecture.md`、`06_Architecture/mcp/01_Architecture.md`、`06_Architecture/platform-access/01_Architecture.md`、`06_Architecture/project-runtime/01_Architecture.md`
+- Release対象CHG: `90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md`、`90_Release/Changes/CHG-000062_Execution_Intelligence.md`、`90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md`、`90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md`
+- 公開案内と残件: `README.md`、`CHANGELOG.md`、`90_Release/Changes/README.md`、`99_Roadmap/01_Product_Roadmap.md`
+
+正本とTool表示の機械的遷移はCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.20完了項目を除去してv0.21以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。
 
 これにより、公式tagへ固定したcloneまたはsubmoduleは別archiveを取得せず通常Runtimeを利用できる。GitHub Releaseへ同じ内容の独自ZIPを追加しない。GitHubが自動生成するSource archiveもRuntime配布契約または検証対象にしない。
 

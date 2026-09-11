@@ -8,7 +8,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 15;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 18;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -195,6 +195,18 @@ function reviewerResult(value: Record<string, unknown>) {
     normalizedResult: Object.freeze({
       decision: value.decision as "approved" | "changes_requested",
       findingCount: findings.length,
+      findingDiagnostics: Object.freeze(
+        (findings as NonNullable<(typeof findings)[number]>[]).map(
+          ({ severity, path, category, criterionNumber, messageSha256 }) =>
+            Object.freeze({
+              severity,
+              path,
+              category,
+              criterionNumber,
+              messageSha256,
+            }),
+        ),
+      ),
       ...(remediationCapability ? { remediationCapability } : {}),
     }),
     reason: null,
@@ -221,12 +233,174 @@ function structuredValue(
   resultAcceptanceMaximumTurns: number,
   raw: string,
 ) {
-  const parsed = parseUnambiguousJsonDocument(raw);
+  let parsed = parseUnambiguousJsonDocument(raw);
+  let codexExecutionObservation: Readonly<Record<string, unknown>> | null =
+    null;
+  if (provider === "codex" && parsed === null) {
+    const events = raw
+      .split(/\r?\n/u)
+      .filter((line) => line.length > 0)
+      .map((line) => parseUnambiguousJsonDocument(line));
+    if (
+      events.length === 0 ||
+      events.length > 4_096 ||
+      events.some((event) => !isRecord(event))
+    )
+      return Object.freeze({
+        value: null,
+        reason: "provider_task_result_json_invalid" as const,
+      });
+    const records = events as Record<string, unknown>[];
+    const itemEvents = records.filter(
+      (event) =>
+        (event.type === "item.started" || event.type === "item.completed") &&
+        isRecord(event.item),
+    );
+    const finalMessages = itemEvents.filter(
+      (event) =>
+        event.type === "item.completed" &&
+        (event.item as Record<string, unknown>).type === "agent_message" &&
+        typeof (event.item as Record<string, unknown>).text === "string",
+    );
+    const turnCompletedCount = records.filter(
+      (event) => event.type === "turn.completed",
+    ).length;
+    const turnFailedCount = records.filter(
+      (event) => event.type === "turn.failed" || event.type === "error",
+    ).length;
+    const finalText = (
+      finalMessages.at(-1)?.item as Record<string, unknown> | undefined
+    )?.text;
+    if (
+      turnCompletedCount !== 1 ||
+      turnFailedCount !== 0 ||
+      typeof finalText !== "string"
+    )
+      return Object.freeze({
+        value: null,
+        reason: "provider_task_result_json_invalid" as const,
+      });
+    parsed = parseUnambiguousJsonDocument(finalText);
+    const countItems = (itemType: string, status?: string) =>
+      itemEvents.filter((event) => {
+        const item = event.item as Record<string, unknown>;
+        return (
+          item.type === itemType &&
+          event.type === (status ? "item.completed" : "item.started") &&
+          (status === undefined || item.status === status)
+        );
+      }).length;
+    const completedCommandExecutions = itemEvents
+      .filter(
+        (event) =>
+          event.type === "item.completed" &&
+          (event.item as Record<string, unknown>).type === "command_execution",
+      )
+      .map((event) => event.item as Record<string, unknown>);
+    const countCommandExitCode = (exitCode: number) =>
+      completedCommandExecutions.filter((item) => item.exit_code === exitCode)
+        .length;
+    const commandExecutionOtherNonzeroExitCodeCount =
+      completedCommandExecutions.filter(
+        (item) =>
+          Number.isSafeInteger(item.exit_code) &&
+          (item.exit_code as number) !== 0 &&
+          (item.exit_code as number) !== 1 &&
+          (item.exit_code as number) !== 126 &&
+          (item.exit_code as number) !== 127,
+      ).length;
+    const commandExecutionMissingExitCodeCount =
+      completedCommandExecutions.filter(
+        (item) => !Number.isSafeInteger(item.exit_code),
+      ).length;
+    const commandText = (item: Record<string, unknown>) =>
+      typeof item.command === "string" ? item.command.toLowerCase() : "";
+    const commandOutputText = (item: Record<string, unknown>) =>
+      typeof item.aggregated_output === "string"
+        ? item.aggregated_output.toLowerCase()
+        : typeof item.output === "string"
+          ? item.output.toLowerCase()
+          : "";
+    const countCommandFamily = (pattern: RegExp) =>
+      completedCommandExecutions.filter((item) =>
+        pattern.test(commandText(item)),
+      ).length;
+    const failedCommandExecutions = completedCommandExecutions.filter(
+      (item) => item.status === "failed",
+    );
+    const countFailureClass = (pattern: RegExp) =>
+      failedCommandExecutions.filter((item) =>
+        pattern.test(commandOutputText(item)),
+      ).length;
+    const classifiedFailures = new Set(
+      failedCommandExecutions.filter((item) =>
+        /permission denied|operation not permitted|read-only file system|no such file or directory|not found|syntax error|sandbox|bwrap|landlock/.test(
+          commandOutputText(item),
+        ),
+      ),
+    );
+    codexExecutionObservation = Object.freeze({
+      transport: "fixed_cli_jsonl_v0_149_1",
+      turnCompleted: true,
+      commandExecutionStartedCount: countItems("command_execution"),
+      commandExecutionCompletedCount: countItems(
+        "command_execution",
+        "completed",
+      ),
+      commandExecutionFailedCount: countItems("command_execution", "failed"),
+      commandExecutionDeclinedCount: countItems(
+        "command_execution",
+        "declined",
+      ),
+      commandExecutionExitCode0Count: countCommandExitCode(0),
+      commandExecutionExitCode1Count: countCommandExitCode(1),
+      commandExecutionExitCode126Count: countCommandExitCode(126),
+      commandExecutionExitCode127Count: countCommandExitCode(127),
+      commandExecutionOtherNonzeroExitCodeCount,
+      commandExecutionMissingExitCodeCount,
+      commandFamilyPythonCount: countCommandFamily(
+        /(^|[\s;&|])python(?:3)?(?:[\s;&|]|$)/,
+      ),
+      commandFamilyPosixTextCount: countCommandFamily(
+        /(^|[\s;&|])(cat|sed|grep|perl|awk)(?:[\s;&|]|$)/,
+      ),
+      commandFamilyGitCount: countCommandFamily(/(^|[\s;&|])git(?:[\s;&|]|$)/),
+      commandFamilyApplyPatchCount: countCommandFamily(
+        /(^|[\s;&|])apply_patch(?:[\s;&|]|$)/,
+      ),
+      commandFailurePermissionCount: countFailureClass(
+        /permission denied|operation not permitted/,
+      ),
+      commandFailureReadOnlyFilesystemCount: countFailureClass(
+        /read-only file system/,
+      ),
+      commandFailureMissingPathCount: countFailureClass(
+        /no such file or directory/,
+      ),
+      commandFailureCommandNotFoundCount: countFailureClass(
+        /command not found|: not found/,
+      ),
+      commandFailureSyntaxCount: countFailureClass(/syntax error/),
+      commandFailureSandboxCount: countFailureClass(/sandbox|bwrap|landlock/),
+      commandFailureUnclassifiedCount: failedCommandExecutions.filter(
+        (item) => !classifiedFailures.has(item),
+      ).length,
+      fileChangeStartedCount: countItems("file_change"),
+      fileChangeCompletedCount: countItems("file_change", "completed"),
+      fileChangeFailedCount: countItems("file_change", "failed"),
+      fileChangeDeclinedCount: countItems("file_change", "declined"),
+      rawEventReported: false,
+      commandReported: false,
+      pathReported: false,
+      providerTextReported: false,
+    });
+  }
   if (provider === "codex")
     return Object.freeze({
       value: parsed,
       reason: null,
       providerReportedTurns: null,
+      codexExecutionObservation,
     });
   if (!isRecord(parsed))
     return Object.freeze({
@@ -372,6 +546,14 @@ export function normalizeProviderTaskStructuredResult(
         taskRole,
         normalizedResult: Object.freeze({
           ...result.normalizedResult,
+          ...(provider === "codex" &&
+          "codexExecutionObservation" in extracted &&
+          extracted.codexExecutionObservation
+            ? {
+                providerExecutionObservation:
+                  extracted.codexExecutionObservation,
+              }
+            : {}),
           ...(provider === "claude" &&
           turnBudget?.status === "candidate" &&
           typeof extracted.providerReportedTurns === "number"

@@ -35,7 +35,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 27;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 28;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -171,6 +171,48 @@ type ProviderProcessStartedNotice = Readonly<{
   provider: "codex" | "claude";
   operationId: string;
 }>;
+type ProviderBoundaryDiagnosticNotice =
+  | Readonly<{
+      event: "coordinator_provider_boundary_configured";
+      taskRole: "executor" | "reviewer" | null;
+      provider: "codex" | "claude";
+      operationId: string;
+      approvalModeConfigured:
+        | "approve_for_me"
+        | "never"
+        | "not_applicable"
+        | "other";
+      sandboxModeConfigured:
+        | "read_only"
+        | "implicit"
+        | "not_applicable"
+        | "other";
+      workspaceMountModeConfigured: "read_write" | "read_only" | null;
+      rootFilesystemReadOnlyConfigured: boolean;
+      nonRootUserConfigured: boolean;
+      workdirConfigured: boolean;
+    }>
+  | Readonly<{
+      event: "coordinator_provider_boundary_settled";
+      taskRole: "executor" | "reviewer" | null;
+      provider: "codex" | "claude";
+      operationId: string;
+      providerContainerCreatedObserved: boolean;
+      providerProcessStartedObserved: boolean;
+      providerProcessCompletionObserved: boolean;
+      providerProcessExitStatusClass:
+        | "zero"
+        | "one"
+        | "one_two_six"
+        | "one_two_seven"
+        | "other_nonzero"
+        | "signal"
+        | "not_observed";
+      processTreeTerminationObserved: boolean;
+      containersAbsentObserved: boolean;
+      networksAbsentObserved: boolean;
+      cleanupConfirmed: boolean;
+    }>;
 type RuntimeDependencies = Readonly<{
   effectExecutorAvailable: boolean;
   verifyRevision: (managementCapability: unknown) => unknown;
@@ -224,6 +266,9 @@ type RuntimeDependencies = Readonly<{
   reportProviderProcessStarted?: (
     notice: ProviderProcessStartedNotice,
   ) => Promise<boolean>;
+  reportProviderBoundaryDiagnostic?: (
+    notice: ProviderBoundaryDiagnosticNotice,
+  ) => Promise<boolean>;
   consumeProviderAuthority: (
     useCapability: unknown,
     activeMountCapability: unknown,
@@ -252,18 +297,20 @@ type RuntimeState = Readonly<{
 type ExecutionResult = ReturnType<typeof createFinalResult>;
 
 export function createRuntimeOwnedLifecycleNoticeReporter(stream: Writable) {
-  return (notice: ProviderProcessStartedNotice): Promise<boolean> => {
+  return (
+    notice: ProviderProcessStartedNotice | ProviderBoundaryDiagnosticNotice,
+  ): Promise<boolean> => {
     if (!stream.writable || stream.destroyed) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => {
       let settled = false;
       const timer = setTimeout(() => settle(false), CANCELLATION_GRACE_MS);
-      const settle = (value: boolean) => {
+      const settle = (isValue: boolean) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
         stream.off("error", onFailure);
         stream.off("close", onFailure);
-        resolve(value);
+        resolve(isValue);
       };
       const onFailure = () => settle(false);
       stream.once("error", onFailure);
@@ -281,6 +328,81 @@ export function createRuntimeOwnedLifecycleNoticeReporter(stream: Writable) {
       }
     });
   };
+}
+
+function argumentAfter(argv: readonly string[], key: string) {
+  const index = argv.indexOf(key);
+  return index >= 0 ? argv[index + 1] : undefined;
+}
+
+function providerBoundaryConfiguration(
+  plan: PreparedPlan,
+): Extract<
+  ProviderBoundaryDiagnosticNotice,
+  { event: "coordinator_provider_boundary_configured" }
+> {
+  const createProvider = plan.commands.find(
+    (command) => command.purpose === "create_provider",
+  );
+  const argv = createProvider?.argv ?? [];
+  const approvalModeConfigured =
+    plan.provider !== "codex"
+      ? "not_applicable"
+      : argv.includes("--approve-for-me")
+        ? "approve_for_me"
+        : argv.some((value) => value === 'approval_policy="never"')
+          ? "never"
+          : "other";
+  const sandbox = argumentAfter(argv, "--sandbox");
+  const sandboxModeConfigured =
+    plan.provider !== "codex"
+      ? "not_applicable"
+      : sandbox === "read-only"
+        ? "read_only"
+        : sandbox === undefined
+          ? "implicit"
+          : "other";
+  return Object.freeze({
+    event: "coordinator_provider_boundary_configured" as const,
+    taskRole: plan.taskRole,
+    provider: plan.provider,
+    operationId: plan.operationId,
+    approvalModeConfigured,
+    sandboxModeConfigured,
+    workspaceMountModeConfigured: plan.workspaceMountMode,
+    rootFilesystemReadOnlyConfigured: argv.includes("--read-only"),
+    nonRootUserConfigured:
+      argumentAfter(argv, "--user") === "65534:65534" ||
+      argv.includes("--user=65534:65534"),
+    workdirConfigured:
+      argumentAfter(argv, "--workdir") === "/work" ||
+      argv.includes("--workdir=/work"),
+  });
+}
+
+function providerProcessExitStatusClass(execution: CommandExecution | null) {
+  if (!execution) return "not_observed" as const;
+  if (execution.signal !== null) return "signal" as const;
+  if (execution.status === 0) return "zero" as const;
+  if (execution.status === 1) return "one" as const;
+  if (execution.status === 126) return "one_two_six" as const;
+  if (execution.status === 127) return "one_two_seven" as const;
+  return execution.status === null
+    ? ("not_observed" as const)
+    : ("other_nonzero" as const);
+}
+
+function reportPassiveBoundaryDiagnostic(
+  state: RuntimeState,
+  notice: ProviderBoundaryDiagnosticNotice,
+) {
+  try {
+    const pending =
+      state.dependencies.reportProviderBoundaryDiagnostic?.(notice);
+    if (pending) void pending.catch(() => {});
+  } catch {
+    // Diagnostics cannot grant authority or change the operation result.
+  }
 }
 
 const BLOCKED_START_KEYS = Object.freeze([
@@ -994,6 +1116,13 @@ async function executePlan(
   let normalizedResult: unknown | null = null;
   let isSubscriptionAuthConfirmed = false;
   let recoveryFinalizationCapability: object | null = null;
+  let wasProviderContainerCreationObserved = false;
+  let wasProviderProcessCompletionObserved = false;
+  let providerExitStatusClass: ReturnType<
+    typeof providerProcessExitStatusClass
+  > = "not_observed";
+
+  reportPassiveBoundaryDiagnostic(state, providerBoundaryConfiguration(plan));
 
   try {
     for (const command of plan.commands) {
@@ -1045,9 +1174,9 @@ async function executePlan(
           break;
         }
         providerRequestStarted = true;
-        let startObserved = true;
+        let isStartObserved = true;
         try {
-          startObserved =
+          isStartObserved =
             !state.dependencies.reportProviderProcessStarted ||
             (await state.dependencies.reportProviderProcessStarted(
               Object.freeze({
@@ -1058,9 +1187,9 @@ async function executePlan(
               }),
             )) === true;
         } catch {
-          startObserved = false;
+          isStartObserved = false;
         }
-        if (!startObserved) {
+        if (!isStartObserved) {
           record.cancellationRequested = true;
           await handle.terminateAndWait(CANCELLATION_GRACE_MS);
           record.activeHandle = null;
@@ -1090,6 +1219,12 @@ async function executePlan(
         isProvider,
         plan.provider,
       );
+      if (command.purpose === "create_provider" && classified.ok)
+        wasProviderContainerCreationObserved = true;
+      if (isProvider) {
+        wasProviderProcessCompletionObserved = execution !== null;
+        providerExitStatusClass = providerProcessExitStatusClass(execution);
+      }
       if (!classified.ok) {
         requestedStatus = "blocked";
         reason = classified.reason;
@@ -1260,6 +1395,28 @@ async function executePlan(
     resultBytes = 0;
     normalizedResult = null;
   }
+  reportPassiveBoundaryDiagnostic(
+    state,
+    Object.freeze({
+      event: "coordinator_provider_boundary_settled" as const,
+      taskRole: plan.taskRole,
+      provider: plan.provider,
+      operationId: plan.operationId,
+      providerContainerCreatedObserved: wasProviderContainerCreationObserved,
+      providerProcessStartedObserved: providerRequestStarted,
+      providerProcessCompletionObserved: wasProviderProcessCompletionObserved,
+      providerProcessExitStatusClass: providerExitStatusClass,
+      processTreeTerminationObserved: processTreeTerminationConfirmed,
+      containersAbsentObserved: cleanup.containersAbsent,
+      networksAbsentObserved: cleanup.networksAbsent,
+      cleanupConfirmed:
+        processTreeTerminationConfirmed &&
+        cleanup.containersAbsent &&
+        cleanup.networksAbsent &&
+        mountLeaseReleased &&
+        recoveryCompleted,
+    }),
+  );
   return createFinalResult(requestedStatus, reason, plan, recovery.recoveryId, {
     providerRequestStarted,
     cancellationRequested: record.cancellationRequested,
@@ -1505,6 +1662,9 @@ const productionState: RuntimeState = Object.freeze({
     reportProviderProcessStarted: createRuntimeOwnedLifecycleNoticeReporter(
       process.stderr,
     ),
+    reportProviderBoundaryDiagnostic: createRuntimeOwnedLifecycleNoticeReporter(
+      process.stderr,
+    ),
     consumeProviderAuthority: consumeRuntimeOwnedProviderAuthority,
   }),
   controls: new WeakMap(),
@@ -1607,6 +1767,8 @@ export function describeDockerProcessControllerContract() {
       "exact_provider_boolean_or_role_task_result_published_after_cleanup_only",
     providerFailureClassification:
       "known_operational_nonzero_output_mapped_to_closed_public_reason_unknown_output_kept_generic",
+    providerBoundaryDiagnostics:
+      "configured_approval_sandbox_container_workspace_and_observed_process_cleanup_stages_without_raw_command_output_or_paths",
     providerTextPublication: "validated_then_discarded_not_reported",
     credentialAbsenceVerification: "not_claimed",
     taskPrompt: "runtime_owned_stdin_only_not_reported",

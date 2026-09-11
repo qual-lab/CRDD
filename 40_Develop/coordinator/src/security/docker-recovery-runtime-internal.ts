@@ -5,6 +5,7 @@ import path from "node:path";
 import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
 import {
   acquireRuntimeOwnedDockerRuntimeStateKernelLock,
+  acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedLogicalProviderHomeKernelLock,
 } from "./candidate-store-kernel-lock.ts";
 import {
@@ -15,7 +16,13 @@ import {
   borrowRuntimeOwnedDevelopmentNativeObservation,
   inspectRuntimeOwnedDevelopmentOperationContext,
 } from "./development-measurement-session.ts";
-import { observeRuntimeOwnedDockerDesktopRepairPolicy } from "./docker-desktop-repair-policy.ts";
+import {
+  DOCKER_CLI_EXECUTABLE,
+  type DockerCliTrustSnapshot,
+  observeTrustedDockerCli,
+  verifyTrustedDockerCliSnapshot,
+} from "./docker-cli-trust.ts";
+import { dockerDesktopCurrentArtifactTrustPolicySha256 } from "./docker-desktop-current-artifact-trust.ts";
 import {
   inspectDockerDesktopRepairHistoricalOperation,
   parseDockerDesktopRepairDirectoryName,
@@ -42,6 +49,21 @@ import {
 } from "./docker-recovery-journal.ts";
 import { createDockerRecoveryRuntimeStateLockController } from "./docker-recovery-lock-controller.ts";
 import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine.ts";
+import {
+  createDockerRestartContinuationRecord,
+  createDockerRestartMigratedPhase,
+  createDockerRestartMigrationRecord,
+  parseDockerRestartContinuationRecord,
+  resolveDockerRestartHistory,
+} from "./docker-restart-continuation-record.ts";
+import { parseDockerRestartHandoffRecord } from "./docker-restart-handoff-record.ts";
+import {
+  createDockerRestartRecord,
+  type DockerRestartBinding,
+  type DockerRestartPhase,
+  parseDockerRestartRecord,
+  validateDockerRestartRecordChain,
+} from "./docker-restart-record.ts";
 import { isExactDockerRuntimeStateMutationBoundary } from "./docker-runtime-state-binding.ts";
 import {
   acquireHostOperationRecoveryGenerationByIdentity,
@@ -62,6 +84,8 @@ import {
 } from "./host-recovery-record.ts";
 import { loadHistoricalReleaseManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
+import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "./platform-provisioner-release-trust.ts";
+import { verifyHistoricalPlatformProvisionerManifestCandidate } from "./platform-provisioner-trust-core.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
@@ -69,7 +93,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 25;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 27;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const COMPLETED_DOCKER_RECOVERY_RECEIPT =
@@ -89,12 +113,8 @@ const CREATE_PURPOSES = new Set([
   "create_proxy",
   "create_provider",
 ]);
-const DOCKER_EXECUTABLE =
-  "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
-const DOCKER_EXECUTABLE_BYTES = 41_631_088;
-const DOCKER_EXECUTABLE_SHA256 =
-  "C8EAA01D1E78CAECD65D730E670CBFE4DFCE006E1C6F18167C003587CB4BB610";
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
+let recoveryDockerCliSnapshot: DockerCliTrustSnapshot | null = null;
 
 type ProductionPlan = Readonly<{
   provider: "codex" | "claude";
@@ -168,11 +188,43 @@ type RuntimeStateBindingEvidence = Readonly<{
 const durableRecords = new WeakMap<object, DurableRecord>();
 const dockerHostCleanupCapabilities = new WeakMap<object, object>();
 const releasedLogicalHomeLeases = new WeakSet<object>();
-type VerifiedDockerEngineRestartFence = Readonly<{
-  recoveryId: string;
-  repairId: string;
-  repairRecordSha256: string;
-}>;
+type DockerRestartPreparation = Readonly<{
+  root: VerifiedRuntimeStateRoot;
+  directory: string;
+  rootIdentity: string;
+  directoryIdentity: string;
+  binding: DockerRestartBinding;
+  submissionName: string;
+  locks: readonly Readonly<{
+    assertLive: () => boolean;
+    release: () => boolean;
+  }>[];
+}> & {
+  closed: boolean;
+  persistenceFailed: boolean;
+  records: Buffer[];
+  originRecords: Buffer[];
+  handoffs: Buffer[];
+  continuationRecords: Buffer[];
+  pendingHandoff: Buffer | null;
+  continuation: boolean;
+};
+const dockerRestartPreparations = new WeakMap<
+  object,
+  DockerRestartPreparation
+>();
+type VerifiedDockerEngineRestartFence =
+  | Readonly<{
+      recoveryId: string;
+      repairId: string;
+      repairRecordSha256: string;
+    }>
+  | Readonly<{
+      recoveryId: string;
+      origin: "engine_restart";
+      restartRecordSha256: string;
+      pendingSubmissionSha256: string;
+    }>;
 
 function canonical(value: unknown) {
   return `${JSON.stringify(value)}\n`;
@@ -392,12 +444,12 @@ function inspectDockerTaskSessionHandoffs(
     names.length > MAX_DOCKER_TASK_SESSION_HANDOFFS
   )
     throw new Error("docker_task_session_handoff_invalid");
-  const ordered = names.map((entry) => entry.name).sort();
+  const orderedItems = names.map((entry) => entry.name).sort();
   let currentLocalUserBindingHash = durableBinding.localUserBindingHash;
   let tipSha256 = parsed.baseHash;
   const visited = new Set([currentLocalUserBindingHash]);
-  for (let index = 0; index < ordered.length; index += 1) {
-    const name = ordered[index];
+  for (let index = 0; index < orderedItems.length; index += 1) {
+    const name = orderedItems[index];
     const matched = DOCKER_TASK_SESSION_HANDOFF.exec(name ?? "");
     const record = readExactJson(path.join(rootPath, name ?? ""), name)
       .value as Record<string, unknown>;
@@ -444,7 +496,7 @@ function inspectDockerTaskSessionHandoffs(
   return Object.freeze({
     currentLocalUserBindingHash,
     tipSha256,
-    count: ordered.length,
+    count: orderedItems.length,
   });
 }
 
@@ -1686,7 +1738,7 @@ function exactRecordKeys(value: unknown, keys: readonly string[]) {
 }
 
 const OPERATION_RECORD_NAME =
-  /^(?:base|base-commit|host-(?:begin|complete|crash-absence|cleanup)-(?:intent|receipt)|host-precleanup-finalization-intent|submission-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|receipt-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|restart-fence-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|docker-absence(?:-crash)?|mount-(?:completion|crash-absence)|lease-release-receipt|normal-run-complete)\.json$/u;
+  /^(?:base|base-commit|engine-restart-0[0-4]|engine-handoff-0[0-7]|engine-continuation-0[0-4]|host-(?:begin|complete|crash-absence|cleanup)-(?:intent|receipt)|host-precleanup-finalization-intent|submission-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|receipt-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|restart-fence-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|docker-absence(?:-crash)?|mount-(?:completion|crash-absence)|lease-release-receipt|normal-run-complete)\.json$/u;
 
 function validateHostSnapshot(value: unknown, initialToken: string) {
   if (
@@ -1886,6 +1938,37 @@ function validateOperationRecord(
   nonce: string,
   baseHash: string,
 ) {
+  if (/^engine-handoff-0[0-7]\.json$/u.test(name)) {
+    const record = parseDockerRestartHandoffRecord(
+      Buffer.from(canonical(value)),
+    );
+    return (
+      record !== null &&
+      name === `engine-handoff-${String(record.sequence).padStart(2, "0")}.json`
+    );
+  }
+  if (/^engine-continuation-0[0-4]\.json$/u.test(name)) {
+    const record = parseDockerRestartContinuationRecord(
+      Buffer.from(canonical(value)),
+    )?.record;
+    return (
+      record !== undefined &&
+      record.recoveryId === recoveryId &&
+      record.operationNonce === nonce &&
+      name ===
+        `engine-continuation-${String(record.sequence).padStart(2, "0")}.json`
+    );
+  }
+  if (/^engine-restart-0[0-4]\.json$/u.test(name)) {
+    const restart = parseDockerRestartRecord(Buffer.from(canonical(value)));
+    return (
+      restart !== null &&
+      restart.recoveryId === recoveryId &&
+      restart.operationNonce === nonce &&
+      name ===
+        `engine-restart-${String(restart.sequence).padStart(2, "0")}.json`
+    );
+  }
   if (name === "base.json") return validateDockerRecoveryBase(value, nonce);
   if (name === "base-commit.json")
     return validateDockerRecoveryBaseCommit(value, nonce, baseHash, recoveryId);
@@ -1922,6 +2005,31 @@ function validateOperationRecord(
         String(record.source),
       );
     return commonMatches && (legacyMatches || currentMatches);
+  }
+  if (
+    /^restart-fence-/u.test(name) &&
+    (value as Record<string, unknown>)?.schema ===
+      "crdd-coordinator-docker-engine-restart-fence/v2"
+  ) {
+    const record = value as Record<string, unknown>;
+    return (
+      exactRecordKeys(record, [
+        "schema",
+        "purpose",
+        "recoveryId",
+        "origin",
+        "restartRecordSha256",
+        "pendingSubmissionSha256",
+        "exactResourceAbsent",
+      ]) &&
+      record.recoveryId === recoveryId &&
+      record.origin === "engine_restart" &&
+      HEX64.test(String(record.restartRecordSha256)) &&
+      HEX64.test(String(record.pendingSubmissionSha256)) &&
+      record.exactResourceAbsent === true &&
+      CREATE_PURPOSES.has(String(record.purpose)) &&
+      name === `restart-fence-${String(record.purpose)}.json`
+    );
   }
   if (/^restart-fence-/u.test(name))
     return (
@@ -2126,6 +2234,98 @@ function inventoryOperationDirectory(
     )
       throw new Error("docker_task_recovery_record_invalid");
   }
+  const restartNames = dataNames
+    .filter((name) => name.startsWith("engine-restart-"))
+    .sort();
+  const handoffNames = dataNames
+    .filter((name) => name.startsWith("engine-handoff-"))
+    .sort();
+  const continuationNames = dataNames
+    .filter((name) => name.startsWith("engine-continuation-"))
+    .sort();
+  if (handoffNames.length || continuationNames.length) {
+    const read = (name: string) =>
+      Buffer.from(
+        readExactJson(path.join(operationDirectory, name)).serialized,
+      );
+    const originRecords = restartNames.map(read);
+    const first =
+      originRecords[0] && parseDockerRestartRecord(originRecords[0]);
+    const handoffs = handoffNames.map(read);
+    const tip = handoffs.at(-1);
+    const handoff = tip && parseDockerRestartHandoffRecord(tip);
+    if (
+      !first ||
+      !handoff ||
+      !resolveDockerRestartHistory(
+        originRecords,
+        {
+          ...first,
+          runtimeExecutionIdentitySha256: handoff.toRuntimeIdentitySha256,
+        },
+        handoffs,
+        continuationNames.map(read),
+      )
+    )
+      throw new Error("docker_task_recovery_restart_chain_invalid");
+  }
+  for (const name of dataNames.filter((entry) =>
+    entry.startsWith("restart-fence-"),
+  )) {
+    const fence = readExactJson(path.join(operationDirectory, name))
+      .value as Record<string, unknown>;
+    if (fence.schema !== "crdd-coordinator-docker-engine-restart-fence/v2")
+      continue;
+    const finalName = continuationNames.at(-1) ?? restartNames.at(-1);
+    if (!finalName)
+      throw new Error("docker_task_recovery_restart_chain_invalid");
+    const finalRecord = readExactJson(path.join(operationDirectory, finalName));
+    const restart =
+      parseDockerRestartRecord(Buffer.from(finalRecord.serialized)) ??
+      parseDockerRestartContinuationRecord(Buffer.from(finalRecord.serialized))
+        ?.record;
+    if (
+      restart?.phase !== "settled" ||
+      finalRecord.hash !== fence.restartRecordSha256 ||
+      restart.pendingSubmissionSha256 !== fence.pendingSubmissionSha256 ||
+      readExactJson(
+        path.join(
+          operationDirectory,
+          `submission-${String(fence.purpose)}.json`,
+        ),
+      ).hash !== fence.pendingSubmissionSha256
+    )
+      throw new Error("docker_task_recovery_restart_chain_invalid");
+  }
+  if (restartNames.length > 0) {
+    const restartBytes = restartNames.map((name) =>
+      Buffer.from(
+        readExactJson(path.join(operationDirectory, name)).serialized,
+      ),
+    );
+    const firstBytes = restartBytes[0];
+    const first = firstBytes ? parseDockerRestartRecord(firstBytes) : null;
+    const base = readExactJson(path.join(operationDirectory, "base.json"))
+      .value as Record<string, unknown>;
+    const state = base.runtimeStateBinding as RuntimeStateBindingEvidence;
+    const submissions = dataNames.filter((name) =>
+      name.startsWith("submission-"),
+    );
+    if (
+      !first ||
+      !validateDockerRestartRecordChain(restartBytes, first) ||
+      first.stableLogicalHomeBindingHash !==
+        base.stableLogicalHomeBindingHash ||
+      first.runtimeStateIdentityHash !== state.runtimeStateIdentityHash ||
+      first.runtimeStateProtectionHash !== state.runtimeStateProtectionHash ||
+      !submissions.some(
+        (name) =>
+          readExactJson(path.join(operationDirectory, name)).hash ===
+          first.pendingSubmissionSha256,
+      )
+    )
+      throw new Error("docker_task_recovery_restart_chain_invalid");
+  }
   for (const phase of ["begin", "complete", "crash-absence"] as const) {
     const intentName = `host-${phase}-intent.json`;
     const receiptName = `host-${phase}-receipt.json`;
@@ -2159,6 +2359,21 @@ function inventoryOperationDirectory(
   )
     throw new Error("docker_task_recovery_base_invalid");
   return Object.freeze([...dataNames].sort());
+}
+
+/** Select unresolved submission data records from an already validated inventory. */
+export function selectPendingDockerSubmissionNamesFromInventory(
+  names: readonly string[],
+) {
+  const inventory = new Set(names);
+  return Object.freeze(
+    names.filter(
+      (name) =>
+        /^submission-.+\.json$/u.test(name) &&
+        !name.endsWith(".crdd-commit.json") &&
+        !inventory.has(name.replace(/^submission-/u, "receipt-")),
+    ),
+  );
 }
 
 function ensureHostCleanupReceipt(
@@ -2396,7 +2611,7 @@ function removeRecoveryOperationDirectory(
   baseHash: string,
   stableLogicalHomeBindingHash: string,
   runtimeStateBinding: RuntimeStateBindingEvidence,
-  persistCompletionReceipt = false,
+  shouldPersistCompletionReceipt = false,
 ) {
   inventoryOperationDirectory(operationDirectory, recoveryId, nonce, baseHash);
   const cleanupDirectory = path.join(
@@ -2456,7 +2671,7 @@ function removeRecoveryOperationDirectory(
     originalEntries: Object.freeze(originalEntries),
   });
   verifyRecoveryCleanupManifest(operationDirectory, recoveryId);
-  if (persistCompletionReceipt)
+  if (shouldPersistCompletionReceipt)
     ensureCompletedDockerRecoveryReceipt(
       path.dirname(operationDirectory),
       recoveryId,
@@ -2683,18 +2898,15 @@ function currentHostRecoveryTokenForInventory(
 }
 
 function verifyRecoveryDockerCli() {
-  const metadata = fs.lstatSync(DOCKER_EXECUTABLE);
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.size !== DOCKER_EXECUTABLE_BYTES ||
-    fs.realpathSync(DOCKER_EXECUTABLE) !== DOCKER_EXECUTABLE ||
-    createHash("sha256")
-      .update(fs.readFileSync(DOCKER_EXECUTABLE))
-      .digest("hex")
-      .toUpperCase() !== DOCKER_EXECUTABLE_SHA256
-  )
+  try {
+    if (recoveryDockerCliSnapshot === null) {
+      recoveryDockerCliSnapshot = observeTrustedDockerCli();
+    } else {
+      verifyTrustedDockerCliSnapshot(recoveryDockerCliSnapshot);
+    }
+  } catch {
     throw new Error("docker_task_recovery_cli_untrusted");
+  }
 }
 
 function recoveryConfigIdentity(configDirectory: string) {
@@ -2723,7 +2935,7 @@ function runRecoveryDocker(
   });
   if (!environment) throw new Error("docker_recovery_environment_unavailable");
   const result = spawnSync(
-    DOCKER_EXECUTABLE,
+    DOCKER_CLI_EXECUTABLE,
     ["--host", DOCKER_ENGINE, "--config", configDirectory, ...argv],
     {
       windowsHide: true,
@@ -3087,7 +3299,7 @@ function observeSubmittedDockerResourceAbsentWithRunner(
 ) {
   const nameFilter =
     kind === "container" ? `name=^/${expectedName}$` : `name=^${expectedName}$`;
-  const execute = (...filters: readonly string[]) =>
+  const executeRecoveryOperation = (...filters: readonly string[]) =>
     runDocker(
       kind === "container"
         ? [
@@ -3109,8 +3321,8 @@ function observeSubmittedDockerResourceAbsentWithRunner(
           ],
     );
   return [
-    execute(nameFilter),
-    execute(nameFilter, `label=${ownershipLabel}`),
+    executeRecoveryOperation(nameFilter),
+    executeRecoveryOperation(nameFilter, `label=${ownershipLabel}`),
   ].every(
     (result) =>
       result.status === 0 &&
@@ -3344,7 +3556,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           )
         : null;
       if (homeLock && stateLock) {
-        let replaySucceeded = false;
+        let isReplaySucceeded = false;
         let replayFailureReason = "docker_task_runtime_state_audit_failed";
         try {
           ensureDockerTaskSessionHandoff(
@@ -3364,7 +3576,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
               root.stableLogicalHomeBindingHash
           )
             throw new Error("docker_task_runtime_state_binding_changed");
-          replaySucceeded = true;
+          isReplaySucceeded = true;
         } catch (error) {
           replayFailureReason = safeRecoveryReason(
             error,
@@ -3387,7 +3599,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
             reason: releaseFailure,
             recoveryId: parsed.token,
           });
-        if (replaySucceeded)
+        if (isReplaySucceeded)
           return Object.freeze({
             status: "recovered" as const,
             reason: "docker_task_recovery_completion_replayed",
@@ -4641,17 +4853,39 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
             );
           if (!exactResourceAbsent || !restartFence)
             throw new Error("docker_task_recovery_create_outcome_unknown");
+          if (
+            "origin" in restartFence &&
+            readExactJson(
+              path.join(operationDirectory, `submission-${purpose}.json`),
+            ).hash !== restartFence.pendingSubmissionSha256
+          )
+            throw new Error(
+              "docker_task_recovery_restart_fence_submission_mismatch",
+            );
           writeDurableJson(
             operationDirectory,
             `restart-fence-${purpose}.json`,
-            Object.freeze({
-              schema: "crdd-coordinator-docker-engine-restart-fence/v1",
-              purpose,
-              recoveryId: parsed.token,
-              repairId: restartFence.repairId,
-              repairRecordSha256: restartFence.repairRecordSha256,
-              exactResourceAbsent: true,
-            }),
+            Object.freeze(
+              "origin" in restartFence
+                ? {
+                    schema: "crdd-coordinator-docker-engine-restart-fence/v2",
+                    purpose,
+                    recoveryId: parsed.token,
+                    origin: restartFence.origin,
+                    restartRecordSha256: restartFence.restartRecordSha256,
+                    pendingSubmissionSha256:
+                      restartFence.pendingSubmissionSha256,
+                    exactResourceAbsent: true,
+                  }
+                : {
+                    schema: "crdd-coordinator-docker-engine-restart-fence/v1",
+                    purpose,
+                    recoveryId: parsed.token,
+                    repairId: restartFence.repairId,
+                    repairRecordSha256: restartFence.repairRecordSha256,
+                    exactResourceAbsent: true,
+                  },
+            ),
           );
           continue;
         }
@@ -4927,15 +5161,19 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
 function recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
   token: unknown,
   root: VerifiedRuntimeStateRoot,
+  developmentContext?: unknown,
 ) {
   return recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     token,
     root,
-    observeRuntimeStateRootFromWindows,
+    () => observeRuntimeStateRootFromWindows(developmentContext),
   );
 }
 
-function recoverRuntimeOwnedDockerTaskInternal(token: unknown) {
+function recoverRuntimeOwnedDockerTaskInternal(
+  token: unknown,
+  developmentContext?: unknown,
+) {
   const parsed = parseDockerTaskRecoveryId(token);
   if (!parsed)
     return Object.freeze({
@@ -4946,6 +5184,7 @@ function recoverRuntimeOwnedDockerTaskInternal(token: unknown) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
     false,
     new Date().toISOString(),
+    developmentContext,
   );
   const root = consumeRuntimeOwnedRuntimeStateRootCapability(
     observation.rootCapability,
@@ -4956,7 +5195,11 @@ function recoverRuntimeOwnedDockerTaskInternal(token: unknown) {
       reason: "docker_task_runtime_state_unavailable",
       recoveryId: parsed.token,
     });
-  return recoverRuntimeOwnedDockerTaskFromVerifiedRoot(parsed.token, root);
+  return recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
+    parsed.token,
+    root,
+    developmentContext,
+  );
 }
 
 export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
@@ -5013,9 +5256,8 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
     const root = consumeRuntimeOwnedRuntimeStateRootCapability(
       observation.rootCapability,
     );
-    phase = "repair_policy";
-    const policy = observeRuntimeOwnedDockerDesktopRepairPolicy();
-    if (observation.status !== "candidate" || !root || !policy)
+    phase = "repair_trust";
+    if (observation.status !== "candidate" || !root)
       throw new Error("docker_task_recovery_restart_fence_boundary_invalid");
     let localAppData = root.rootPath;
     for (const expected of ["RuntimeState", "CRDD", "Qual-Lab"]) {
@@ -5039,7 +5281,7 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
         runtimeStateProtectionHash: root.runtimeStateProtectionHash,
         localUserBindingHash: root.localUserBindingHash,
         runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
-        dockerPolicySha256: policy.policySha256,
+        dockerPolicySha256: dockerDesktopCurrentArtifactTrustPolicySha256,
         crddManifestHash: verification.manifestHash,
         crddReleaseSequence: releaseSequence as number,
         runtimeExecutionIdentitySha256:
@@ -5078,20 +5320,14 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
       root.rootPath,
       `docker-task-${parsed.operationNonce}`,
     );
-    const pendingSubmissionNames = fs
-      .readdirSync(operationDirectory, { withFileTypes: true })
-      .filter(
-        (entry) =>
-          entry.isFile() &&
-          /^submission-.+\.json$/u.test(entry.name) &&
-          !fs.existsSync(
-            path.join(
-              operationDirectory,
-              entry.name.replace(/^submission-/u, "receipt-"),
-            ),
-          ),
-      )
-      .map((entry) => entry.name);
+    const operationInventory = inventoryOperationDirectory(
+      operationDirectory,
+      parsed.token,
+      parsed.operationNonce,
+      parsed.baseHash,
+    );
+    const pendingSubmissionNames =
+      selectPendingDockerSubmissionNamesFromInventory(operationInventory);
     if (pendingSubmissionNames.length === 0)
       throw new Error("docker_task_recovery_restart_fence_not_needed");
     phase = "ordering";
@@ -5142,6 +5378,598 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
   }
 }
 
+function restartPathIdentity(target: string) {
+  const value = fs.lstatSync(target, { bigint: true });
+  if (
+    !value.isDirectory() ||
+    value.isSymbolicLink() ||
+    fs.realpathSync(target) !== target
+  )
+    throw new Error("docker_restart_directory_unverified");
+  return `${value.dev}:${value.ino}:${value.birthtimeNs}`;
+}
+
+/** Owns the three existing kernel domains until explicit release; no Docker effect. */
+export function prepareRuntimeOwnedDockerRestart(
+  token: unknown,
+  originReleaseRoot?: unknown,
+  developmentContext?: unknown,
+) {
+  const parsed = parseDockerTaskRecoveryId(token);
+  const locks: Array<
+    Readonly<{ assertLive: () => boolean; release: () => boolean }>
+  > = [];
+  try {
+    if (!parsed) throw new Error("docker_restart_id_invalid");
+    const development =
+      developmentContext !== undefined &&
+      developmentContext !== null &&
+      typeof developmentContext === "object"
+        ? borrowRuntimeOwnedDevelopmentNativeObservation(
+            developmentContext,
+            false,
+          )
+        : null;
+    if (developmentContext !== undefined && !development)
+      throw new Error("docker_restart_development_authority_invalid");
+    const verification =
+      development?.verification ??
+      verifyBundledCoordinatorPackageFromFixedManifestCandidate({
+        evaluationTime: new Date().toISOString(),
+      });
+    if (
+      verification.status !== "candidate" ||
+      (!development &&
+        (!("runtimeOwnedReleaseTrustConfirmed" in verification) ||
+          verification.runtimeOwnedReleaseTrustConfirmed !== true ||
+          verification.runtimeExecutionIdentityRuntimeOwned !== true ||
+          verification.crddDistributionConfirmed !== true)) ||
+      typeof verification.runtimeExecutionIdentitySha256 !== "string"
+    )
+      throw new Error("docker_restart_release_unverified");
+    const root = observeRuntimeStateRootFromWindows(developmentContext);
+    if (!root) throw new Error("docker_restart_root_unverified");
+    const rootIdentity = restartPathIdentity(root.rootPath);
+    const host = discoverRecoveryHostBinding(root.rootPath, parsed);
+    const hostLock = acquireRuntimeOwnedHostOperationKernelLock(
+      path.basename(host.hostRoot),
+      host.hostNonce,
+    );
+    if (!hostLock) throw new Error("docker_restart_host_active_or_unknown");
+    locks.push(hostLock);
+    const homeLock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
+      parsed.stableLogicalHomeBindingHash,
+    );
+    if (!homeLock) throw new Error("docker_restart_home_active_or_unknown");
+    locks.push(homeLock);
+    const stateLock = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+      root.stableLogicalHomeBindingHash,
+    );
+    if (!stateLock) throw new Error("docker_restart_state_active_or_unknown");
+    locks.push(stateLock);
+    if (
+      restartPathIdentity(root.rootPath) !== rootIdentity ||
+      !locks.every((lock) => lock.assertLive())
+    )
+      throw new Error("docker_restart_boundary_changed");
+    const inventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
+    if (
+      inventory.status !== "completed" ||
+      inventory.dockerRecoveryIds.length !== 1 ||
+      inventory.dockerRecoveryIds[0] !== parsed.token ||
+      inventory.activeStableLogicalHomeBindingHashes.some(
+        (value) => value !== parsed.stableLogicalHomeBindingHash,
+      )
+    )
+      throw new Error("docker_restart_scope_conflict");
+    const durableBinding = discoverRecoveryRuntimeStateBinding(
+      root.rootPath,
+      parsed,
+    );
+    if (
+      !durableBinding ||
+      durableBinding.runtimeStateIdentityHash !==
+        root.runtimeStateIdentityHash ||
+      durableBinding.runtimeStateProtectionHash !==
+        root.runtimeStateProtectionHash ||
+      durableBinding.runtimeStateBindingHash !==
+        root.stableLogicalHomeBindingHash
+    )
+      throw new Error("docker_restart_root_binding_changed");
+    const directory = path.join(
+      root.rootPath,
+      `docker-task-${parsed.operationNonce}`,
+    );
+    const names = inventoryOperationDirectory(
+      directory,
+      parsed.token,
+      parsed.operationNonce,
+      parsed.baseHash,
+    );
+    if (names.some((name) => name.startsWith("restart-fence-")))
+      throw new Error("docker_restart_existing_attempt_requires_recovery");
+    const pendingNames = names.filter(
+      (name) =>
+        name.startsWith("submission-") &&
+        !names.includes(name.replace(/^submission-/u, "receipt-")),
+    );
+    const submissionName = pendingNames[0];
+    if (pendingNames.length !== 1 || !submissionName)
+      throw new Error("docker_restart_pending_scope_invalid");
+    const binding: DockerRestartBinding = Object.freeze({
+      recoveryId: parsed.token,
+      operationNonce: parsed.operationNonce,
+      runtimeExecutionIdentitySha256:
+        verification.runtimeExecutionIdentitySha256,
+      // The restart journal belongs to the durable operation principal. A
+      // same-user re-logon is proven separately by the append-only session
+      // handoff and must not rewrite the historical restart binding.
+      localUserBindingHash: durableBinding.localUserBindingHash,
+      runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+      runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+      stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
+      pendingSubmissionSha256: readExactJson(
+        path.join(directory, submissionName),
+      ).hash,
+    });
+    const readRecords = (prefix: string) =>
+      names
+        .filter((name) => name.startsWith(prefix))
+        .sort()
+        .map((name) =>
+          Buffer.from(readExactJson(path.join(directory, name)).serialized),
+        );
+    const originRecords = readRecords("engine-restart-");
+    const handoffs = readRecords("engine-handoff-");
+    const continuationRecords = readRecords("engine-continuation-");
+    let pendingHandoff: Buffer | null = null;
+    let records: Buffer[] = [];
+    const originFirst = originRecords[0]
+      ? parseDockerRestartRecord(originRecords[0])
+      : null;
+    const hasContinuation =
+      handoffs.length > 0 ||
+      (originFirst !== null &&
+        originFirst.runtimeExecutionIdentitySha256 !==
+          binding.runtimeExecutionIdentitySha256);
+    if (hasContinuation) {
+      const origin = parseDockerRestartRecord(originRecords[0] as Buffer);
+      if (
+        origin?.phase !== "stop_intent" ||
+        originRecords.length !== 1 ||
+        typeof originReleaseRoot !== "string" ||
+        !path.isAbsolute(originReleaseRoot)
+      )
+        throw new Error("docker_restart_origin_required");
+      const historical = verifyHistoricalPlatformProvisionerManifestCandidate(
+        loadHistoricalReleaseManifestEnvelopeForVerification(originReleaseRoot)
+          .envelope,
+        getPinnedPlatformProvisionerReleaseSignerSpkiDer(),
+      );
+      if (
+        historical?.historicalSignatureVerified !== true ||
+        !("runtimeExecutionIdentitySha256" in historical.payload) ||
+        historical.payload.runtimeExecutionIdentitySha256 !==
+          origin.runtimeExecutionIdentitySha256 ||
+        !validateDockerRestartRecordChain(originRecords, {
+          ...binding,
+          runtimeExecutionIdentitySha256: origin.runtimeExecutionIdentitySha256,
+        })
+      )
+        throw new Error("docker_restart_origin_unverified");
+      const lastRuntime = handoffs.length
+        ? parseDockerRestartHandoffRecord(handoffs.at(-1) as Buffer)
+            ?.toRuntimeIdentitySha256
+        : origin.runtimeExecutionIdentitySha256;
+      if (lastRuntime !== binding.runtimeExecutionIdentitySha256) {
+        pendingHandoff = createDockerRestartMigrationRecord(
+          originRecords,
+          binding,
+          handoffs,
+          continuationRecords,
+        );
+      }
+      const resolved = resolveDockerRestartHistory(
+        originRecords,
+        binding,
+        pendingHandoff ? [...handoffs, pendingHandoff] : handoffs,
+        continuationRecords,
+      );
+      if (!resolved) throw new Error("docker_restart_continuation_invalid");
+      records = [...resolved.rawRecords];
+    } else {
+      if (
+        handoffs.length ||
+        continuationRecords.length ||
+        originReleaseRoot !== undefined
+      )
+        throw new Error("docker_restart_handoff_invalid");
+      if (
+        originRecords.length &&
+        !validateDockerRestartRecordChain(originRecords, binding)
+      )
+        throw new Error("docker_restart_continuation_invalid");
+      records = originRecords;
+    }
+    // Historical provenance must be accepted before any protected-root write.
+    if (
+      restartPathIdentity(root.rootPath) !== rootIdentity ||
+      !locks.every((lock) => lock.assertLive())
+    )
+      throw new Error("docker_restart_boundary_changed");
+    ensureDockerTaskSessionHandoff(root, parsed.token, durableBinding);
+    const capability = Object.freeze({});
+    dockerRestartPreparations.set(capability, {
+      root,
+      rootIdentity,
+      directory,
+      directoryIdentity: restartPathIdentity(directory),
+      binding,
+      submissionName,
+      locks: Object.freeze(locks),
+      records,
+      originRecords,
+      handoffs,
+      continuationRecords,
+      pendingHandoff,
+      continuation: hasContinuation,
+      closed: false,
+      persistenceFailed: false,
+    });
+    return Object.freeze({
+      status: "prepared" as const,
+      capability,
+      platformAccessArtifact: verification.platformAccessArtifact,
+      recoveryId: parsed.token,
+      cleanupConfirmed: false,
+      currentPhase: records.length
+        ? (parseDockerRestartRecord(records.at(-1) as Buffer)?.phase ?? null)
+        : hasContinuation
+          ? ("stop_intent" as const)
+          : null,
+      continuationSeedRequired: hasContinuation && records.length === 0,
+      handoffPending: pendingHandoff !== null,
+      historicalStopIntent: hasContinuation,
+    });
+  } catch (error) {
+    let cleanupConfirmed = true;
+    for (const lock of [...locks].reverse()) {
+      try {
+        if (!lock.release()) cleanupConfirmed = false;
+      } catch {
+        cleanupConfirmed = false;
+      }
+    }
+    return Object.freeze({
+      status: "blocked" as const,
+      capability: null,
+      platformAccessArtifact: null,
+      recoveryId: parsed?.token ?? null,
+      cleanupConfirmed,
+      reason: cleanupConfirmed
+        ? error instanceof Error &&
+          /^docker_restart_[a-z_]+$/u.test(error.message)
+          ? error.message
+          : "docker_restart_preparation_failed"
+        : "docker_restart_lock_cleanup_unknown",
+    });
+  }
+}
+
+export function verifyRuntimeOwnedDockerRestartPreparation(
+  capability: unknown,
+): boolean {
+  if (!capability || typeof capability !== "object") return false;
+  const record = dockerRestartPreparations.get(capability);
+  if (!record || record.closed || record.persistenceFailed) return false;
+  try {
+    if (
+      !record.locks.every((lock) => lock.assertLive()) ||
+      restartPathIdentity(record.root.rootPath) !== record.rootIdentity ||
+      restartPathIdentity(record.directory) !== record.directoryIdentity ||
+      readExactJson(path.join(record.directory, record.submissionName)).hash !==
+        record.binding.pendingSubmissionSha256
+    )
+      return false;
+    const inventory = inspectDockerRecoveryRootSnapshot(record.root.rootPath);
+    const parsed = parseDockerTaskRecoveryId(record.binding.recoveryId);
+    if (!parsed) return false;
+    const names = inventoryOperationDirectory(
+      record.directory,
+      parsed.token,
+      parsed.operationNonce,
+      parsed.baseHash,
+    );
+    const publishedNames = names
+      .filter((name) =>
+        record.continuation
+          ? /^engine-continuation-0[0-4]\.json$/u.test(name)
+          : /^engine-restart-0[0-4]\.json$/u.test(name),
+      )
+      .sort();
+    if (record.continuation) {
+      for (const [prefix, expectedRecords] of [
+        ["engine-restart-", record.originRecords],
+        ["engine-handoff-", record.handoffs],
+      ] as const) {
+        const foundNames = names
+          .filter((name) => name.startsWith(prefix))
+          .sort();
+        if (
+          foundNames.length !== expectedRecords.length ||
+          foundNames.some(
+            (name, index) =>
+              readExactJson(path.join(record.directory, name)).serialized !==
+              expectedRecords[index]?.toString("utf8"),
+          )
+        )
+          return false;
+      }
+    }
+    if (
+      publishedNames.length !== record.records.length ||
+      publishedNames.some(
+        (name, index) =>
+          readExactJson(path.join(record.directory, name)).serialized !==
+          (record.continuation
+            ? record.continuationRecords[index]?.toString("utf8")
+            : record.records[index]?.toString("utf8")),
+      )
+    )
+      return false;
+    return (
+      inventory.status === "completed" &&
+      inventory.dockerRecoveryIds.length === 1 &&
+      inventory.dockerRecoveryIds[0] === record.binding.recoveryId
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function persistRuntimeOwnedDockerRestartPhase(
+  capability: unknown,
+  phase: DockerRestartPhase,
+): boolean {
+  if (!verifyRuntimeOwnedDockerRestartPreparation(capability)) return false;
+  const record = dockerRestartPreparations.get(capability as object);
+  if (!record || record.pendingHandoff) return false;
+  // A failed publication is consumed even if bytes were not observed afterward.
+  record.persistenceFailed = true;
+  try {
+    const bytes = (
+      record.continuation
+        ? createDockerRestartMigratedPhase
+        : createDockerRestartRecord
+    )(record.binding, phase, record.records.at(-1));
+    const parsed = parseDockerRestartRecord(bytes);
+    if (!parsed || parsed.sequence !== record.records.length) return false;
+    const name = `${record.continuation ? "engine-continuation" : "engine-restart"}-${String(parsed.sequence).padStart(2, "0")}.json`;
+    const persistedBytes = record.continuation
+      ? createDockerRestartContinuationRecord(
+          bytes,
+          createHash("sha256")
+            .update(record.handoffs.at(-1) as Buffer)
+            .digest("hex"),
+        )
+      : bytes;
+    const published = writeDurableJson(
+      record.directory,
+      name,
+      JSON.parse(persistedBytes.toString("utf8")),
+    );
+    if (published.serialized !== persistedBytes.toString("utf8")) return false;
+    record.records.push(bytes);
+    if (record.continuation) record.continuationRecords.push(persistedBytes);
+    record.persistenceFailed = false;
+    if (!verifyRuntimeOwnedDockerRestartPreparation(capability)) {
+      record.persistenceFailed = true;
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Composition-only historical adoption. Does not authorize any host effect. */
+export function commitRuntimeOwnedDockerRestartHandoff(
+  capability: unknown,
+): boolean {
+  if (!verifyRuntimeOwnedDockerRestartPreparation(capability)) return false;
+  const record = dockerRestartPreparations.get(capability as object);
+  if (!record?.pendingHandoff) return false;
+  record.persistenceFailed = true;
+  try {
+    const bytes = record.pendingHandoff;
+    const parsed = parseDockerRestartHandoffRecord(bytes);
+    if (!parsed || parsed.sequence !== record.handoffs.length) return false;
+    const published = writeDurableJson(
+      record.directory,
+      `engine-handoff-${String(parsed.sequence).padStart(2, "0")}.json`,
+      JSON.parse(bytes.toString("utf8")),
+    );
+    if (published.serialized !== bytes.toString("utf8")) return false;
+    record.handoffs.push(bytes);
+    record.pendingHandoff = null;
+    record.persistenceFailed = false;
+    if (!verifyRuntimeOwnedDockerRestartPreparation(capability)) {
+      record.persistenceFailed = true;
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function releaseRuntimeOwnedDockerRestartPreparation(
+  capability: unknown,
+): boolean {
+  if (!capability || typeof capability !== "object") return false;
+  const record = dockerRestartPreparations.get(capability);
+  if (!record || record.closed) return false;
+  record.closed = true;
+  let confirmed = true;
+  for (const lock of [...record.locks].reverse()) {
+    try {
+      if (!lock.release()) confirmed = false;
+    } catch {
+      confirmed = false;
+    }
+  }
+  return confirmed;
+}
+
+/** A settled protected chain is evidence, never a caller-supplied authority. */
+export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
+  token: unknown,
+  developmentContext?: unknown,
+) {
+  const parsed = parseDockerTaskRecoveryId(token);
+  try {
+    if (!parsed) throw new Error("docker_task_recovery_id_invalid");
+    const development =
+      developmentContext !== undefined &&
+      developmentContext !== null &&
+      typeof developmentContext === "object"
+        ? borrowRuntimeOwnedDevelopmentNativeObservation(
+            developmentContext,
+            false,
+          )
+        : null;
+    if (developmentContext !== undefined && !development)
+      throw new Error("docker_task_recovery_restart_authority_invalid");
+    const verification =
+      development?.verification ??
+      verifyBundledCoordinatorPackageFromFixedManifestCandidate({
+        evaluationTime: new Date().toISOString(),
+      });
+    if (
+      verification.status !== "candidate" ||
+      typeof verification.runtimeExecutionIdentitySha256 !== "string" ||
+      (!development &&
+        (!("runtimeOwnedReleaseTrustConfirmed" in verification) ||
+          verification.runtimeOwnedReleaseTrustConfirmed !== true ||
+          verification.runtimeExecutionIdentityRuntimeOwned !== true ||
+          verification.crddDistributionConfirmed !== true))
+    )
+      throw new Error("docker_task_recovery_restart_authority_invalid");
+    const root = observeRuntimeStateRootFromWindows(developmentContext);
+    if (!root) throw new Error("docker_task_recovery_restart_root_unverified");
+    const inventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
+    if (
+      inventory.status !== "completed" ||
+      inventory.dockerRecoveryIds.length !== 1 ||
+      inventory.dockerRecoveryIds[0] !== parsed.token
+    )
+      throw new Error("docker_task_recovery_restart_scope_conflict");
+    const directory = path.join(
+      root.rootPath,
+      `docker-task-${parsed.operationNonce}`,
+    );
+    const restartInventory = inventoryOperationDirectory(
+      directory,
+      parsed.token,
+      parsed.operationNonce,
+      parsed.baseHash,
+    );
+    const hasContinuation = restartInventory.some((name) =>
+      name.startsWith("engine-continuation-"),
+    );
+    const records = Array.from({ length: 5 }, (unusedValue, sequence) => {
+      void unusedValue;
+      return readExactJson(
+        path.join(
+          directory,
+          `${hasContinuation ? "engine-continuation" : "engine-restart"}-${String(sequence).padStart(2, "0")}.json`,
+        ),
+      );
+    });
+    const rawRecords = records.map((record) =>
+      hasContinuation
+        ? canonical(
+            parseDockerRestartContinuationRecord(Buffer.from(record.serialized))
+              ?.record,
+          )
+        : record.serialized,
+    );
+    const firstBytes = rawRecords[0];
+    const first = firstBytes
+      ? parseDockerRestartRecord(Buffer.from(firstBytes))
+      : null;
+    if (!first) throw new Error("docker_task_recovery_restart_chain_invalid");
+    const expectedBinding = {
+      ...first,
+      recoveryId: parsed.token,
+      operationNonce: parsed.operationNonce,
+      stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
+      runtimeExecutionIdentitySha256:
+        verification.runtimeExecutionIdentitySha256,
+      // Keep the immutable operation principal used by the restart history.
+      // The recovery path validates the current session through the protected
+      // Runtime root and its append-only session handoff.
+      localUserBindingHash: first.localUserBindingHash,
+      runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+      runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+    };
+    const readPrefix = (prefix: string) =>
+      restartInventory
+        .filter((name) => name.startsWith(prefix))
+        .sort()
+        .map((name) =>
+          Buffer.from(readExactJson(path.join(directory, name)).serialized),
+        );
+    if (
+      !(hasContinuation
+        ? resolveDockerRestartHistory(
+            readPrefix("engine-restart-"),
+            expectedBinding,
+            readPrefix("engine-handoff-"),
+            records.map((record) => Buffer.from(record.serialized)),
+          )
+        : validateDockerRestartRecordChain(
+            rawRecords.map((record) => Buffer.from(record)),
+            expectedBinding,
+          ))
+    )
+      throw new Error("docker_task_recovery_restart_chain_invalid");
+    const pendingNames =
+      selectPendingDockerSubmissionNamesFromInventory(restartInventory);
+    const pendingName = pendingNames[0];
+    const settled = records.at(-1);
+    if (
+      pendingNames.length !== 1 ||
+      !pendingName ||
+      !settled ||
+      readExactJson(path.join(directory, pendingName)).hash !==
+        first.pendingSubmissionSha256
+    )
+      throw new Error("docker_task_recovery_restart_submission_mismatch");
+    return recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      parsed.token,
+      root,
+      () => observeRuntimeStateRootFromWindows(developmentContext),
+      null,
+      Object.freeze({
+        recoveryId: parsed.token,
+        origin: "engine_restart" as const,
+        restartRecordSha256: settled.hash,
+        pendingSubmissionSha256: first.pendingSubmissionSha256,
+      }),
+    );
+  } catch (error) {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: safeRecoveryReason(
+        error,
+        "docker_task_recovery_restart_unverified",
+      ),
+      recoveryId: parsed?.token ?? null,
+    });
+  }
+}
+
 export function classifyRuntimeOwnedDockerRecoveryEvidence(
   inventory: unknown,
   recoveryId: string,
@@ -5156,13 +5984,19 @@ export function classifyRuntimeOwnedDockerRecoveryEvidence(
     : ("not_preserved" as const);
 }
 
-export function recoverRuntimeOwnedDockerTask(token: unknown) {
+export function recoverRuntimeOwnedDockerTask(
+  token: unknown,
+  developmentContext?: unknown,
+) {
   const parsed = parseDockerTaskRecoveryId(token);
   try {
-    const result = recoverRuntimeOwnedDockerTaskInternal(token);
+    const result = recoverRuntimeOwnedDockerTaskInternal(
+      token,
+      developmentContext,
+    );
     const inventory =
       result.status === "blocked" && parsed
-        ? inspectRuntimeOwnedDockerTaskRecoveryState()
+        ? inspectRuntimeOwnedDockerTaskRecoveryState(developmentContext)
         : null;
     const evidenceState = classifyRuntimeOwnedDockerRecoveryEvidence(
       inventory,
@@ -5261,10 +6095,10 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
       receiptContentHash: receipt.receiptContentHash,
       receiptContentIdentity: receipt.receiptContentIdentity,
     });
-    const existingAcknowledged = recoveryPathPresent(
+    const isExistingAcknowledged = recoveryPathPresent(
       path.join(root.rootPath, acknowledgedName),
     );
-    if (!existingAcknowledged) {
+    if (!isExistingAcknowledged) {
       const acknowledgementCount = fs
         .readdirSync(root.rootPath)
         .filter((name) =>

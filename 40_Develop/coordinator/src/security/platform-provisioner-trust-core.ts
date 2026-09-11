@@ -407,8 +407,8 @@ function normalizeHistoricalV2Manifest(raw: unknown) {
   });
 }
 
-function selectManifestDomain(_revision: number) {
-  return _revision === 2
+function selectManifestDomain(revision: number) {
+  return revision === 2
     ? HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN_V2
     : PLATFORM_PROVISIONER_MANIFEST_DOMAIN;
 }

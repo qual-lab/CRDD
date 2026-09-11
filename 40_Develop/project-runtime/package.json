@@ -1,0 +1,24 @@
+{
+  "name": "@qual-lab/crdd-project-runtime",
+  "version": "0.0.0-development",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "format:check": "biome format .",
+    "lint": "biome lint . --error-on-warnings",
+    "test": "node --test --test-concurrency=1 ./tests/unit/*.test.ts",
+    "typecheck": "tsc -p ./tsconfig.json"
+  },
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.6",
+    "@types/node": "22.18.0",
+    "typescript": "7.0.2"
+  }
+}

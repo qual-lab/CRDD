@@ -1,8 +1,8 @@
 # CRDD内部ツール・コーディング規約
 
-Status: Stable
+Status: Candidate (v0.20.0, Released Baseline: v0.19.0)
 Owner: Qual-Lab
-Last Updated: 2026-09-01
+Last Updated: 2026-09-06
 Scope: `40_Develop/**`と、CRDDが配布正本として所有し`40_Develop/**`から参照する`template/tools/**`の実装
 
 ## 1. 目的と正本
@@ -75,6 +75,7 @@ Platform Contract
 - 対応Platform／Transportごとに、Build成果物、署名またはTrust Identity、必要環境、成立保証、未対応機能および検証済み範囲を明示する。未実装Platformを別Platformへ自動fallbackしない。
 - Windows、LinuxおよびmacOSで方式が異なる場合、最小公分母へ保証を弱めず、各Adapterで同じCore要求を満たす。満たせない保証は対応済みと表示しない。
 - 将来のToolも、最初のOS固有API、Filesystem規則、Process制御、Container接続またはTransport固有状態を追加する時点で、Coreに属する意味とAdapterが所有する方式を設計・試験へ分ける。
+- 最初に機能を生成・利用したToolを、その機能の所有者と自動的に扱わない。別のRuntime、Transportまたは採用Repositoryから同じ意味を利用する独立した理由があり、変更理由、公開契約および試験境界を単独で説明できる場合は共通コンポーネントへ分け、元のToolには専用Adapterだけを置く。将来利用の想像だけで分けず、現在の利用側または採用済み計画から境界を説明できることを要する。
 
 Platform Adapterの追加は、新しいBuild、配布、Threat Model、移行、検証およびRelease判断を伴う独立した対応である。CoreがPlatform非依存であることだけから、そのPlatformで利用可能または安全と主張しない。
 
@@ -111,9 +112,11 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 - Rust crate rootの`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、Cargo build scriptの`build.rs`および`.gitignore`
 - Rust executable入口の`src/main.rs`
 - Git設定の`.gitignore`
-- packageまたは主要成果物の入口にある`README.md`
+- Repository、Release台帳または配布用ひな型など、`40_Develop`の外側で入口を所有する`README.md`
 
 上記以外の新しい予約名を推定しない。必要になった場合は、所有するecosystem、exact Pathおよび検出規則を本書へ追加してから使用する。
+
+`40_Develop`は実装、試験、packageおよび実行設定だけを所有し、配下に`README.md`を置いてはならない（MUST NOT）。実装の構造と公開面はArchitecture、反復可能な導入・開発・実行手順はWorkflow、検証義務と結果はQualityが所有する。packageの機械入口は`package.json`と公開`index`等で表し、説明を実装Directoryへ複製しない。
 
 ## 4. TypeScript識別子
 
@@ -227,6 +230,24 @@ cleanupの試験は、例外を捕捉したことまたは終了値を返した�
 
 一つの試験ファイルが複数kindを同時に所有する場合は、責務ごとに分割する。分割自体が検証リスクを増やす既存集合は、公開挙動と安全条件を包含する`contract`へ一度収束させ、後続の実質変更で分割する。
 
+CRDDが所有するToolの実行可能な試験は、主試験レベルをDirectory、試験種類をfilenameで表す。存在しない試験のために空Directoryを作らない。
+
+```text
+tests/
+├ unit/
+├ integration/
+├ system/
+├ acceptance/
+├ performance/
+├ longevity/
+├ fixtures/
+└ support/
+```
+
+`unit`、`integration`、`system`、`acceptance`、`performance`、`longevity`は[品質保証](../16_Quality_Assurance.md#17-test-levels-and-regression)のUT、IT、ST、UAT、PT、LTに対応する。`fixtures`と`support`は試験レベルではなく、runnerの実行対象にしない。回帰専用Directoryは作らず、回帰runnerが既存試験を選択する。E2E表示だけで配置を決めず、公開入口から利用者成果までなら`system`、限定したComponent連鎖なら`integration`に置く。
+
+Rust等の言語またはFrameworkの標準配置を維持する場合は、物理Directoryの移動を強制せず、試験カタログで同じ論理レベルを明示する。PTまたはLTのコードが存在しても通常runnerから自動実行せず、人間の明示指示と実行上限がなければEffect 0で停止する。
+
 ## 7. 機械識別子（machine identifier）
 
 | 対象 | 必須形式 |
@@ -244,7 +265,9 @@ cleanupの試験は、例外を捕捉したことまたは終了値を返した�
 - Biomeは表現できるTypeScript filenameとsource規則を検査する。
 - Rust sourceは固定toolchainの`rustfmt --check`、rustc、Clippy Warning拒否、`cargo test --locked`、locked buildおよび固定`llvm-tools-preview`によるcoverageで検査する。stable toolchainがbranch mappingを生成せず分母0を返す場合は率へ換算せず`Not Available`とし、region／function／line実測とセキュリティ判断上の検証義務を別の確認として記録する。coverage runnerは実Directoryとして検証したcrate直下の`target`へrun固有Directoryを作り、既存treeを削除または再利用しない。
 - CheckerとCoordinatorのprivate packageが所有する`lint`は、Repository rootのBiome設定を`--error-on-warnings`付きで実行し、Warningが1件以上ある場合は各packageの`check`を失敗させる。Infoはこの継続Gateの失敗条件ではなく、固定版ごとの検証結果として区別する。
-- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`40_Develop/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は固定TypeScript 7.0.2で`40_Develop/checker/tsconfig.json`、`40_Develop/coordinator/tsconfig.strict.json`および`40_Develop/coordinator/tsconfig.tests.json`から得たCRDD所有sourceとする。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。Checker試験runnerはpackage root以下の`.test.ts`をnested folderまで安全に再帰列挙し、正規化したrelative Pathのordinal順で実行する。root外解決、重複または大文字小文字だけが異なるPath、symbolic link／junction、未対応entryを拒否し、`node_modules`はexact名かつ実Directoryと確認できた場合だけ除外する。runner列挙集合と`40_Develop/checker/tsconfig.json`が所有するChecker試験集合を件数ではなくPathの完全一致で検査し、0件、欠落または余剰を成功扱いにしない。Rust sourceは`40_Develop/platform-access/src/**`と`40_Develop/platform-access/tests/**`の閉集合として別に数え、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
+- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`40_Develop/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は固定TypeScript 7.0.2で`40_Develop/checker/tsconfig.json`、`40_Develop/coordinator/tsconfig.strict.json`、`40_Develop/coordinator/tsconfig.tests.json`、`40_Develop/execution-intelligence/tsconfig.json`、`40_Develop/project-runtime/tsconfig.json`および`40_Develop/mcp/tsconfig.json`から得たCRDD所有sourceとする。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、固定件数を母集団Identityの代用にせず、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。各packageの再生成可能な依存Directoryである`node_modules`はRepository Rootの`.gitignore`で全階層を既定除外し、lockfileだけを追跡する。Checker試験runnerはpackage root以下の`.test.ts`をnested folderまで安全に再帰列挙し、正規化したrelative Pathのordinal順で実行する。root外解決、重複または大文字小文字だけが異なるPath、symbolic link／junction、未対応entryを拒否し、`node_modules`はexact名かつ実Directoryと確認できた場合だけ除外する。runner列挙集合と`40_Develop/checker/tsconfig.json`が所有するChecker試験集合を件数ではなくPathの完全一致で検査し、0件、欠落または余剰を成功扱いにしない。Rust sourceは`40_Develop/platform-access/src/**`と`40_Develop/platform-access/tests/**`の閉集合として別に扱い、固定件数ではなく許可Rootへの包含と空集合拒否を確認し、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
+- `template/tools/**`の実行入口は、その入口を実装する責務の型検査Projectへexactに一度だけ所属させる。Checker入口`template/tools/crdd-check.ts`は`40_Develop/checker/tsconfig.json`が所有する。Coordinator入口`template/tools/crdd-coordinator.ts`とMCP入口`template/tools/crdd-mcp.ts`は、配布対象を増やさない`40_Develop/checker/template-tools-tsconfig.json`が所有し、通常のChecker source projectへ混在させない。新しい入口を追加する場合は、実体の追加と同じ変更で所有Projectを明示し、未所属または複数Projectへの重複所属を許可しない。
+- Runtime実行Identityへ含めるDirectoryには、実行時に読み取る設定、Policy、Schema、Native成果物その他の実依存だけを置く。設計対応、試験台帳、Coverage、監査入力その他の検証専用投影は`07_Quality`へ置き、実行時Directoryへ混在させない。配布Toolであることだけを理由にCoordinatorのRuntime実行Identityへ含めず、公開入口または正式な署名・検証入口から到達する依存閉包で判定する。誤配置を是正して実行集合が変わる場合は、その一回のIdentity変更を検証し、以後の文書・検証投影更新がRuntime再署名を発火しないことを確認する。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。
 - Release署名または発行Authorityを持つToolでは、開発入口が公式鍵・passphrase・実署名Effectなしで反復可能なこと、正式署名入口が全非秘密条件を対話入力前に拒否すること、失敗時にmanifestまたはAuthorityを残さないこと、および一般利用者の経路が署名検証だけで成立することを契約試験へ接続する。
 - renameでは、正本、import、package script、設定、試験、文書、AI入口および現在の移設先を同じ変更で更新する。

@@ -694,7 +694,10 @@ export function inspectGitCommitTreeCandidate(candidate: unknown) {
   }
 }
 
-export function materializeGitCommitTreeCandidate(candidate: unknown) {
+function materializeGitCommitTreeCandidateUsingPolicy(
+  candidate: unknown,
+  shouldRejectRecognizedSecretMaterial: boolean,
+) {
   try {
     const candidateKeys =
       candidate && typeof candidate === "object"
@@ -756,6 +759,7 @@ export function materializeGitCommitTreeCandidate(candidate: unknown) {
       Buffer.from(left.relativePath).compare(Buffer.from(right.relativePath)),
     );
     if (
+      shouldRejectRecognizedSecretMaterial &&
       entries.some((entry) =>
         containsRecognizedSecretMaterial(entry.relativePath, entry.bytes),
       )
@@ -797,6 +801,14 @@ export function materializeGitCommitTreeCandidate(candidate: unknown) {
   } catch {
     return null;
   }
+}
+
+export function materializeGitCommitTreeCandidate(candidate: unknown) {
+  return materializeGitCommitTreeCandidateUsingPolicy(candidate, true);
+}
+
+export function materializeGitReleaseCandidateTree(candidate: unknown) {
+  return materializeGitCommitTreeCandidateUsingPolicy(candidate, false);
 }
 
 export function readGitCommitFileCandidate(candidate: unknown) {

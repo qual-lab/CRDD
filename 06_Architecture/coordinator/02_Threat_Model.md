@@ -1,8 +1,8 @@
 # Coordinator Runtimeの脅威モデル
 
-状態: Stable（v0.19.0）
+状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-02
+最終更新日: 2026-09-06
 
 ## 1. 目的と境界
 
@@ -86,9 +86,13 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 
 ## 5. 署名済み配布物
 
-Runtimeの信頼単位は、Coordinator本体、共通Launcherから到達する署名・4経路・Recovery実行コード、Security Policyおよび`crdd-platform-access.exe`から機械的に算出するRuntime実行Identityである。CRDD Git TreeはRelease Identityと出所を示すが、文書だけの変更でRuntime Authorityを失効させない。Launcherの入口表をIdentity算出のseedとして共用し、選択されたscriptの推移的な静的依存を含める。字句解析はコメントや文字列中の見せかけを依存として扱わず、構文として認識したimportだけを閉包へ加える。実在する`node:`組込みmoduleと閉包内relative target以外のmodule、非literalの動的import、入口表とliteral importの不一致、解析不能なsourceをProvider Effect前に拒否する。選択scriptの子Process／Worker起動APIはnamed importの閉集合と全binding利用を照合し、同じsourceまたは同じ閉包へ結合されたliteral targetと既知の固定終了経路だけを許可する。namespace／default／dynamic import、binding再代入、間接呼出し、可変argvまたは未説明の利用は依存閉包の迂回として拒否する。削除済みSupervisor field、旧revision、別名Path、欠落artifactまたは互換fallbackを受理しない。
+Runtimeの信頼単位は、Coordinator本体、共通Launcherから到達する署名・4経路・Recovery実行コード、到達した兄弟ComponentのNode module解釈を決めるpackage metadata、Security Policyおよび`crdd-platform-access.exe`から機械的に算出するRuntime実行Identityである。CRDD Git TreeはRelease Identityと出所を示すが、文書だけの変更でRuntime Authorityを失効させない。Launcherの入口表をIdentity算出のseedとして共用し、選択されたscriptの推移的な静的依存を含める。字句解析はコメントや文字列中の見せかけを依存として扱わず、構文として認識したimportだけを閉包へ加える。実在する`node:`組込みmoduleと閉包内relative target以外のmodule、非literalの動的import、入口表とliteral importの不一致、解析不能なsourceをProvider Effect前に拒否する。到達した兄弟Componentの`package.json`はexactなpackage名、版、`private: true`および`type: module`を満たし、そのbyteを閉包へ含める。選択scriptの子Process／Worker起動APIはnamed importの閉集合と全binding利用を照合し、同じsourceまたは同じ閉包へ結合されたliteral targetと既知の固定終了経路だけを許可する。namespace／default／dynamic import、binding再代入、間接呼出し、可変argvまたは未説明の利用は依存閉包の迂回として拒否する。削除済みSupervisor field、旧revision、別名Path、欠落artifactまたは互換fallbackを受理しない。
 
 Release秘密鍵はRelease署名時だけHuman-only入力として使用し、環境、File、logまたはRuntimeへ保存しない。通常利用者と開発E2Eは秘密鍵を必要とせず、固定済みの署名配布物を検証して使う。Authenticodeは追加Defenseであり、Ed25519 Release Identityを置換しない。
+
+署名処理では、秘密入力前のP検査が一回限りの不透明な能力を発行し、その能力を消費したS検査だけが秘密鍵読取りと署名へ到達できる。P検査の省略、別入力への差替え、能力の偽造・再利用、P観測値の署名への流用、S検査後の値再解釈、および署名・配置後の結果field差替えを脅威として扱う。保護経路の反証は単に最終結果が拒否されたことではなく、期待した検査段階と理由が最初の拒否であり、Capability未発行かつEffect 0であることを確認する。
+
+実行能力の利用側は、Project RuntimeのExecution Authorization Port、Coordinator Adapter、能力消費、最初のProvider Effect、取消、回復および公開結果までを同じ利用側閉包として検査する。Producerまたは代表利用側だけの更新を完成とせず、Actual利用側集合と独立したExpected集合を完全一致させる。CanonicalなCapability、Path、IdentityまたはStateを利用側で再構成、fallback、混合または別名化しない。
 
 ## 6. Provider Homeと外部送信
 
@@ -133,6 +137,6 @@ Providerの終了、Promiseの完了または取消要求の受理はcleanup完�
 - timeout、cancel、Provider失敗、owner loss、cleanup不明、Recovery競合を注入し、終了後資源を確認する。
 - 外部送信許可の再利用と失効条件、model fallbackおよび同一Provider例外を検証する。
 - 削除したcommand、module、Native成果物およびmanifest fieldがhelp、parser、配布物、文書から再出現しないことを契約試験で固定する。
-- Project Runtimeでは[詳細設計](03_Project_Runtime_Design.md)の状態、資源、Lock、Authority、Effectおよび失敗注入点を、正常・準正常・異常の`PR-*`検証へ接続する。古い世代、重複request、容量競合、Queue owner喪失、Parent喪失、Transport切断、Integration conflict、採用直前Revision差およびPlatform不在を含める。
+- Project Runtimeでは[現在のアーキテクチャ](../project-runtime/01_Architecture.md)と[詳細設計](../project-runtime/02_Detailed_Design.md)が示す状態、資源、Lock、Authority、Effectおよび失敗注入点を、[機械可読な設計対応](../../07_Quality/06_Project_Runtime_Design_Traceability.json)によって正常・準正常・異常の`PR-*`検証へ接続する。古い世代、重複request、容量競合、Queue owner喪失、Parent喪失、Transport切断、Integration conflict、採用直前Revision差およびPlatform不在を含める。
 
 機械試験は独立したArchitecture／Security Review、文書監査、不足／影響監査および準拠監査を代替しない。

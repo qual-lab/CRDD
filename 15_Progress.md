@@ -2,10 +2,11 @@
 
 # CRDD進捗管理（Progress）
 
-Version: v0.19.0
-Status: Stable
+Version: v0.20.0
+Status: Candidate
+Released Baseline: v0.19.0
 Owner: Qual-Lab
-Last Updated: 2026-09-05
+Last Updated: 2026-09-06
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -67,6 +68,18 @@ Quality Centerに表示する検証計画対実績や割合は、品質保証の
 比較では、対象作業、難易度、開始・終了条件、観測期間、分母、並行実行および品質条件を示す。必要に応じて、単一Agentによる直接実行、CRDD Contextを利用するがCoordinatorを使わない実行、CRDDとCoordinatorを利用する実行を区別し、Context自体の効果と実行組織化の効果を混同しない。すべての作業を重複実行する必要はないが、代表作業の選択理由と一般化限界を残す。
 
 品質は、速度、人間負荷、費用または処理量で相殺できる単なる加点項目にしない。後工程Finding、人間による追加修正、Recoveryおよび未成立を含む現在の品質状態を[`品質保証`](16_Quality_Assurance.md)から参照し、品質を維持または改善した範囲で効率を評価する。成功値は観測前に捏造せず、実OperationのProfileを蓄積した後に集約する。測定不能な時間、Provider利用量または人間Attentionを0として扱わず、取得不能、推定または代理指標を区別する。
+
+<a id="execution-intelligence-observation"></a>
+
+## 1.2. 実行知の観測と改善境界
+
+CRDDへ明示的に結合したAI実行を継続評価する場合は、LLM呼出しではなくProject、Milestone、Objective、TaskおよびAttemptを主Identityにする。Provider／Model、Role、入力戦略、時間、利用量、Retry、検証、人間介入、候補および結果は、この仕事Identityへ結合でき、対象の判断に必要で、実際に取得できた範囲だけを観測する。通常会話、内部推論全文、Raw Provider出力、秘密情報または明示BindingされていないAI Sessionを既定で収集しない。
+
+観測できた値、観測しなかった値、対象外の値を区別する。未観測を0、失敗、正常または平均値へ補正せず、値を持つ観測にはSourceを付ける。利用量では入力Token、出力Token、Cache読取り、Cache書込みおよび費用／Creditを個別に観測し、一部だけ取得できる場合に利用量全体を取得不能へ丸めない。金額またはCreditには単位を必須とし、異なる単位を暗黙合算しない。実行終了を成果物品質、人間受入、運用成果または事業成果へ昇格せず、各階層のEvidenceと観測期間を別々に持つ。
+
+高頻度の実行履歴はGit管理外の実行Storeへ置き、長期的に再利用するFinding、Decision、Experiment Resultまたは変更理由だけを人間判断と通常の変更契約を経て正本へ昇格する。集約、表示または改善候補は非Authorityであり、Project State、進捗、品質、採用、Provider選定、Runtime Ruleまたは正本を自動変更しない。
+
+保持と物理清掃では、耐久Evidenceと物理残存を分ける。時間、名前または件数だけで削除しない。物理削除を提供する場合は、呼出側の自己申告ではなく、権威的な生成元から得た昇格／集約ReceiptとReference Resolverにより、exact Identity、内容Hash、未解決参照の不存在および削除後の不存在を確認する。その仕組みが未成立なら清掃候補の提示までに留め、削除APIを公開しない。
 
 ---
 

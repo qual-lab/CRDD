@@ -22,7 +22,7 @@ Checkerが、採用先のリポジトリ規則で階層化されたMarkdownを�
 ## 想定する影響
 
 - Checker（当時）: `template/tools/crdd_check.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)
-- 回帰試験（当時）: `tools/crdd_check.test.ts`。現在の移設先は[`40_Develop/checker/crdd-check.contract.test.ts`](../../40_Develop/checker/crdd-check.contract.test.ts)
+- 回帰試験（当時）: `tools/crdd_check.test.ts`。現在の移設先は[`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)
 - 公開案内: `README.md`、`CHANGELOG.md`
 - 版表示: CRDD正本文書の公開版ヘッダー
 - 利用側: 配布Checkerを更新すると、Qual Suiteの配置誤検知を解消できる

@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
+import { runProjectRuntimePublicObjective } from "../src/composition/project-runtime-composition-root.ts";
 import {
   parseCandidateArguments,
   parseDoctorArguments,
@@ -11,9 +12,9 @@ import {
   renderSafeHumanCommandReport,
   type SafeCommandReport,
 } from "../src/core/command-report.ts";
-import { renderDoctorCommandFailure, runDoctor } from "../src/core/doctor.ts";
 import { dispatchDockerDesktopRepairDoctorCommand } from "../src/core/docker-desktop-repair-doctor-dispatch.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
+import { renderDoctorCommandFailure, runDoctor } from "../src/core/doctor.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import {
   bindTaskCliCancellationSignals,
@@ -26,29 +27,25 @@ import {
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "../src/security/candidate-bundle-store.ts";
 import { parseUnambiguousJsonDocument } from "../src/security/claude-structured-result.ts";
-import { runMcpProjectRuntimeStdio } from "../src/security/mcp-project-runtime-stdio.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 import {
-  runProjectRuntimePublicDecision,
-  runProjectRuntimePublicObjective,
-} from "../src/security/project-runtime-public-runtime.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../src/security/project-runtime-windows-decision-store.ts";
-import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
-import {
-  closeRuntimeOwnedWindowsDockerDesktopRepair,
   adoptRuntimeOwnedWindowsDockerDesktopRepair,
+  closeRuntimeOwnedWindowsDockerDesktopRepair,
   repairRuntimeOwnedWindowsDockerDesktopRuntime,
 } from "../src/security/docker-desktop-runtime-repair.ts";
+import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import {
   inspectRuntimeOwnedDockerTaskRecoveryState,
   recoverRuntimeOwnedDockerTask,
+  recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart,
   recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart,
 } from "../src/security/docker-recovery-runtime.ts";
+import { restartRuntimeOwnedDockerForRecovery } from "../src/security/docker-restart-runtime.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
 class UsageError extends Error {
@@ -91,12 +88,18 @@ function printHelp() {
     `  coordinator task --request-stdin [--json]  # verifies prerequisites per operation\n`,
   );
   process.stdout.write(`  coordinator capabilities --json\n`);
-  process.stdout.write(
-    `  coordinator mcp --stdio  # v0.19 development candidate\n`,
-  );
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
   process.stdout.write(
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
+  );
+  process.stdout.write(
+    `  coordinator doctor --restart-docker-for-recovery <docker-task-recovery-id> [--restart-origin-release-root <absolute-root>] [--json]\n`,
+  );
+  process.stdout.write(
+    `    --restart-origin-release-root supplies a task-origin distribution candidate for verification; the path itself grants no authority and is not --repair-release-root.\n`,
+  );
+  process.stdout.write(
+    `  coordinator doctor --recover-isolation <docker-task-recovery-id> --after-recorded-docker-restart [--json]\n`,
   );
   process.stdout.write(
     `  coordinator doctor --recover-isolation <docker-task-recovery-id> --after-docker-desktop-repair <repair-id> --repair-release-root <absolute-root> [--json]\n`,
@@ -137,7 +140,7 @@ function runCapabilitiesCommand(args: readonly string[]) {
   process.stdout.write(
     `${JSON.stringify({
       contract: "crdd-coordinator/capabilities",
-      contractRevision: 2,
+      contractRevision: 4,
       profile: "local_personal",
       commands: Object.freeze([
         Object.freeze({
@@ -151,15 +154,6 @@ function runCapabilitiesCommand(args: readonly string[]) {
           command: "project",
           availability: "development_candidate",
           invocation: "project --request-stdin --json",
-        }),
-        Object.freeze({
-          command: "mcp",
-          availability: "development_candidate",
-          invocation: "mcp --stdio",
-          operations: Object.freeze([
-            "crdd.run_objective",
-            "crdd.submit_decision",
-          ]),
         }),
       ]),
     })}\n`,
@@ -229,39 +223,6 @@ async function runProjectCommand(args: readonly string[]) {
   }
   process.stdout.write(
     `${JSON.stringify({ command: "project", ...result })}\n`,
-  );
-  process.exitCode = result.status === "completed" ? 0 : 2;
-}
-
-async function runMcpCommand(args: readonly string[]) {
-  if (args.length !== 1 || args[0] !== "--stdio") {
-    process.stderr.write("Usage: coordinator mcp --stdio\n");
-    process.exitCode = 64;
-    return;
-  }
-  const result = await runMcpProjectRuntimeStdio(
-    {
-      authenticateClient: () => {
-        const observed = openRuntimeOwnedWindowsProjectDecisionStore();
-        return observed.status === "completed"
-          ? Object.freeze({
-              status: "verified",
-              principalId: observed.principalId,
-            })
-          : Object.freeze({ status: "unknown" });
-      },
-      runObjective: (request, signal, authentication) =>
-        runProjectRuntimePublicObjective(
-          request,
-          signal,
-          process.cwd(),
-          authentication,
-        ),
-      submitDecision: async (request, authentication) =>
-        runProjectRuntimePublicDecision(request, process.cwd(), authentication),
-    },
-    process.stdin,
-    process.stdout,
   );
   process.exitCode = result.status === "completed" ? 0 : 2;
 }
@@ -536,8 +497,6 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
   await runTaskCommand(args);
 } else if (command === "project") {
   await runProjectCommand(args);
-} else if (command === "mcp") {
-  await runMcpCommand(args);
 } else if (command === "capabilities") {
   runCapabilitiesCommand(args);
 } else if (command === "candidate") {
@@ -590,7 +549,51 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
         adopt: adoptRuntimeOwnedWindowsDockerDesktopRepair,
       },
     );
-    if (dockerRepair) {
+    if (typeof options.restartDockerForRecoveryId === "string") {
+      const controller = new AbortController();
+      const binding = bindTaskCliCancellationSignals(async () =>
+        controller.abort(),
+      );
+      let restart: unknown;
+      let released: ReturnType<typeof binding.unbind>;
+      try {
+        restart =
+          binding.status === "bound"
+            ? await restartRuntimeOwnedDockerForRecovery(
+                options.restartDockerForRecoveryId,
+                controller.signal,
+                typeof options.restartOriginReleaseRoot === "string"
+                  ? options.restartOriginReleaseRoot
+                  : undefined,
+              )
+            : {
+                status: "blocked",
+                reason: "docker_restart_cancellation_binding_failed",
+                cleanupConfirmed: true,
+                restartCompleted: false,
+                taskRecoveryCompleted: false,
+              };
+      } finally {
+        released = binding.unbind();
+      }
+      const result = plainRecord(restart);
+      const report =
+        released.status === "released" && result
+          ? result
+          : {
+              status: "blocked",
+              reason: "docker_restart_cancellation_cleanup_unconfirmed",
+              cleanupConfirmed: false,
+              restartCompleted: false,
+              taskRecoveryCompleted: false,
+            };
+      const rendered = renderDockerRecoveryDoctorReport(
+        { ...report, contract: "crdd-coordinator/docker-restart-for-recovery" },
+        options.json,
+      );
+      process.stdout.write(rendered.stdout);
+      process.exitCode = rendered.exitCode;
+    } else if (dockerRepair) {
       process.stdout.write(dockerRepair.stdout);
       process.exitCode = dockerRepair.exitCode;
     } else {
@@ -599,14 +602,18 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
           ? recoveryId.startsWith("host.")
             ? recoverOwnedOperationDirectories(recoveryId)
             : recoveryId.startsWith("docker-task.")
-              ? typeof options.afterDockerDesktopRepairId === "string" &&
-                typeof options.repairReleaseRoot === "string"
-                ? recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
+              ? options.afterRecordedDockerRestart === true
+                ? recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
                     recoveryId,
-                    options.afterDockerDesktopRepairId,
-                    options.repairReleaseRoot,
                   )
-                : recoverRuntimeOwnedDockerTask(recoveryId)
+                : typeof options.afterDockerDesktopRepairId === "string" &&
+                    typeof options.repairReleaseRoot === "string"
+                  ? recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
+                      recoveryId,
+                      options.afterDockerDesktopRepairId,
+                      options.repairReleaseRoot,
+                    )
+                  : recoverRuntimeOwnedDockerTask(recoveryId)
               : recoverDockerIsolationProbe(recoveryId)
           : Object.freeze({
               ...runDoctor({

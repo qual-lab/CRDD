@@ -7,6 +7,9 @@ use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::PathBuf;
 use std::ptr::{null, null_mut};
+use std::time::Duration;
+use windows_sys::Win32::System::Console::{GetStdHandle, STD_INPUT_HANDLE};
+use windows_sys::Win32::System::Pipes::PeekNamedPipe;
 
 use windows_sys::Win32::Foundation::{
     CloseHandle, ERROR_ALREADY_EXISTS, ERROR_NO_MORE_FILES, FILETIME, GetLastError, HANDLE,
@@ -24,23 +27,21 @@ use windows_sys::Win32::Storage::FileSystem::{
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
-use windows_sys::Win32::System::SystemInformation::GetWindowsDirectoryW;
+use windows_sys::Win32::System::SystemInformation::GetSystemWindowsDirectoryW;
 use windows_sys::Win32::System::Threading::{
     CREATE_UNICODE_ENVIRONMENT, CreateMutexW, CreateProcessW, GetExitCodeProcess, GetProcessTimes,
     OpenProcess, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
     QueryFullProcessImageNameW, STARTUPINFOW, TerminateProcess, WaitForSingleObject,
 };
 
-const POLICY_BYTES: &[u8] =
-    include_bytes!("../../coordinator/policies/windows-docker-desktop-4.41.2.policy");
-const POLICY_MAGIC: &str = "CRDD_WINDOWS_DOCKER_DESKTOP_REPAIR_POLICY_V1";
-const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR04";
+const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR05";
 const RESPONSE_BYTES: usize = 41;
-const MAXIMUM_POLICY_BYTES: usize = 16_384;
 const MAXIMUM_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 const MAXIMUM_PROCESS_ENTRIES: usize = 4_096;
 const PROCESS_WAIT_MS: u32 = 10_000;
 const SYNCHRONIZE_ACCESS: u32 = 0x0010_0000;
+const RESTART_POLICY: &[u8] = b"CRDD_DOCKER_RESTART_TRUST_V1|official-fixed-paths|Docker Inc|cache-only|deny-write-delete|optional-dev-envs";
+const RESTART_RESPONSE_MAGIC: &[u8; 8] = b"CRDDDS01";
 
 struct OwnedHandle(HANDLE);
 
@@ -99,80 +100,6 @@ enum ProcessInventory {
     Absent,
     Verified(Vec<VerifiedProcess>),
     Unknown,
-}
-
-fn hex_nibble(value: u8) -> Option<u8> {
-    match value {
-        b'0'..=b'9' => Some(value - b'0'),
-        b'A'..=b'F' => Some(value - b'A' + 10),
-        _ => None,
-    }
-}
-
-fn parse_sha256(value: &str) -> Option<[u8; 32]> {
-    let bytes = value.as_bytes();
-    if bytes.len() != 64 {
-        return None;
-    }
-    let mut output = [0_u8; 32];
-    for index in 0..32 {
-        output[index] = (hex_nibble(bytes[index * 2])? << 4) | hex_nibble(bytes[index * 2 + 1])?;
-    }
-    Some(output)
-}
-
-fn parse_policy() -> Option<Vec<PolicyArtifact>> {
-    if POLICY_BYTES.is_empty()
-        || POLICY_BYTES.len() > MAXIMUM_POLICY_BYTES
-        || !POLICY_BYTES.ends_with(b"\n")
-        || POLICY_BYTES.contains(&b'\r')
-        || POLICY_BYTES.contains(&0)
-    {
-        return None;
-    }
-    let source = std::str::from_utf8(POLICY_BYTES).ok()?;
-    let mut lines = source.trim_end_matches('\n').split('\n');
-    if lines.next()? != POLICY_MAGIC
-        || lines.next()? != "version|4.41.2"
-        || lines.next()? != "engine|28.1.1"
-    {
-        return None;
-    }
-    let expected_roles = [
-        "docker_cli",
-        "desktop_cli",
-        "launcher",
-        "frontend",
-        "backend",
-        "build",
-        "dev_envs",
-    ];
-    let mut artifacts = Vec::with_capacity(expected_roles.len());
-    for expected_role in expected_roles {
-        let mut fields = lines.next()?.split('|');
-        let role = fields.next()?;
-        let path = fields.next()?;
-        let bytes = fields.next()?.parse::<u64>().ok()?;
-        let sha256 = parse_sha256(fields.next()?)?;
-        if fields.next().is_some()
-            || role != expected_role
-            || !path.starts_with("C:\\")
-            || path.contains('\0')
-            || !(1..=MAXIMUM_ARTIFACT_BYTES).contains(&bytes)
-        {
-            return None;
-        }
-        artifacts.push(PolicyArtifact {
-            role: role.to_owned(),
-            path: PathBuf::from(path),
-            bytes,
-            sha256,
-        });
-    }
-    if lines.next().is_some() {
-        return None;
-    }
-    Some(artifacts)
 }
 
 fn begin_sha256() -> Option<(OwnedAlgorithm, OwnedHash)> {
@@ -287,41 +214,6 @@ fn filetime_value(value: FILETIME) -> u64 {
     (u64::from(value.dwHighDateTime) << 32) | u64::from(value.dwLowDateTime)
 }
 
-fn lock_artifacts(policy: &[PolicyArtifact]) -> Option<Vec<LockedArtifact>> {
-    let mut result = Vec::with_capacity(policy.len());
-    for entry in policy {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .share_mode(FILE_SHARE_READ)
-            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
-            .open(&entry.path)
-            .ok()?;
-        let handle = file.as_raw_handle().cast::<c_void>();
-        let information = handle_information(handle)?;
-        let length =
-            (u64::from(information.nFileSizeHigh) << 32) | u64::from(information.nFileSizeLow);
-        if information.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
-            || length != entry.bytes
-            || !final_dos_path(handle)?
-                .to_string_lossy()
-                .eq_ignore_ascii_case(&entry.path.to_string_lossy())
-            || sha256_file(&mut file, entry.bytes)? != entry.sha256
-        {
-            return None;
-        }
-        let after = handle_information(handle)?;
-        if !same_file(&information, &after) {
-            return None;
-        }
-        result.push(LockedArtifact {
-            policy: entry.clone(),
-            file,
-            information,
-        });
-    }
-    Some(result)
-}
-
 fn verify_locked_artifacts(artifacts: &mut [LockedArtifact]) -> bool {
     artifacts.iter_mut().all(|artifact| {
         let handle = artifact.file.as_raw_handle().cast::<c_void>();
@@ -343,6 +235,93 @@ fn verify_locked_artifacts(artifacts: &mut [LockedArtifact]) -> bool {
                 .map(|value| same_file(&artifact.information, &value))
                 .unwrap_or(false)
     })
+}
+
+fn lock_current_artifacts() -> Option<Vec<LockedArtifact>> {
+    let entries = [
+        (
+            "docker_cli",
+            r"C:\Program Files\Docker\Docker\resources\bin\docker.exe",
+            false,
+        ),
+        (
+            "desktop_cli",
+            r"C:\Program Files\Docker\Docker\DockerCli.exe",
+            false,
+        ),
+        (
+            "desktop_plugin",
+            r"C:\Program Files\Docker\Docker\resources\cli-plugins\docker-desktop.exe",
+            false,
+        ),
+        (
+            "launcher",
+            r"C:\Program Files\Docker\Docker\Docker Desktop.exe",
+            false,
+        ),
+        (
+            "frontend",
+            r"C:\Program Files\Docker\Docker\frontend\Docker Desktop.exe",
+            false,
+        ),
+        (
+            "backend",
+            r"C:\Program Files\Docker\Docker\resources\com.docker.backend.exe",
+            false,
+        ),
+        (
+            "build",
+            r"C:\Program Files\Docker\Docker\resources\com.docker.build.exe",
+            false,
+        ),
+        (
+            "dev_envs",
+            r"C:\Program Files\Docker\Docker\resources\com.docker.dev-envs.exe",
+            true,
+        ),
+    ];
+    let mut artifacts = Vec::new();
+    for (role, source, optional) in entries {
+        let path = PathBuf::from(source);
+        let mut file = match OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(&path)
+        {
+            Ok(file) => file,
+            Err(error) if optional && error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => return None,
+        };
+        let handle = file.as_raw_handle().cast::<c_void>();
+        let information = handle_information(handle)?;
+        let bytes =
+            (u64::from(information.nFileSizeHigh) << 32) | u64::from(information.nFileSizeLow);
+        if information.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
+            || !(1..=MAXIMUM_ARTIFACT_BYTES).contains(&bytes)
+            || !final_dos_path(handle)?
+                .to_string_lossy()
+                .eq_ignore_ascii_case(source)
+            || !crate::docker_authenticode::verify_docker_publisher(&file)
+        {
+            return None;
+        }
+        let sha256 = sha256_file(&mut file, bytes)?;
+        if !same_file(&information, &handle_information(handle)?) {
+            return None;
+        }
+        artifacts.push(LockedArtifact {
+            policy: PolicyArtifact {
+                role: role.to_owned(),
+                path,
+                bytes,
+                sha256,
+            },
+            file,
+            information,
+        });
+    }
+    Some(artifacts)
 }
 
 fn mutex_name() -> Option<Vec<u16>> {
@@ -390,7 +369,29 @@ fn managed_process_artifacts<'a>(
     artifacts
         .iter()
         .filter(|artifact| {
-            !matches!(artifact.policy.role.as_str(), "docker_cli" | "desktop_cli")
+            !is_cli_role(artifact.policy.role.as_str())
+                && artifact
+                    .policy
+                    .path
+                    .file_name()
+                    .map(|value| value.to_string_lossy().eq_ignore_ascii_case(name))
+                    .unwrap_or(false)
+        })
+        .collect()
+}
+
+fn is_cli_role(role: &str) -> bool {
+    matches!(role, "docker_cli" | "desktop_cli" | "desktop_plugin")
+}
+
+fn cli_process_artifacts<'a>(
+    name: &str,
+    artifacts: &'a [LockedArtifact],
+) -> Vec<&'a LockedArtifact> {
+    artifacts
+        .iter()
+        .filter(|artifact| {
+            is_cli_role(&artifact.policy.role)
                 && artifact
                     .policy
                     .path
@@ -429,6 +430,10 @@ fn process_creation(handle: HANDLE) -> Option<u64> {
 }
 
 fn inventory_processes(artifacts: &[LockedArtifact]) -> ProcessInventory {
+    inventory_process_scope(artifacts, false)
+}
+
+fn inventory_process_scope(artifacts: &[LockedArtifact], cli_only: bool) -> ProcessInventory {
     // SAFETY: no process ID filter is used and the returned snapshot is owned below.
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
     if snapshot == INVALID_HANDLE_VALUE {
@@ -451,12 +456,25 @@ fn inventory_processes(artifacts: &[LockedArtifact]) -> ProcessInventory {
         let Some(name) = process_basename(&entry) else {
             return ProcessInventory::Unknown;
         };
-        let candidates = managed_process_artifacts(&name, artifacts);
+        let candidates = if cli_only {
+            cli_process_artifacts(&name, artifacts)
+        } else {
+            managed_process_artifacts(&name, artifacts)
+        };
+        // A removed optional executable must not hide a still-running old process.
+        if !cli_only
+            && candidates.is_empty()
+            && name.eq_ignore_ascii_case("com.docker.dev-envs.exe")
+        {
+            return ProcessInventory::Unknown;
+        }
         if !candidates.is_empty() {
-            // SAFETY: requested rights are bounded to identity observation, wait, and exact process termination.
+            // SAFETY: CLI scope requests observation only; legacy managed scope also permits exact termination.
             let handle = unsafe {
                 OpenProcess(
-                    PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | SYNCHRONIZE_ACCESS,
+                    PROCESS_QUERY_LIMITED_INFORMATION
+                        | SYNCHRONIZE_ACCESS
+                        | if cli_only { 0 } else { PROCESS_TERMINATE },
                     0,
                     entry.th32ProcessID,
                 )
@@ -590,7 +608,8 @@ fn launcher_context() -> Option<LauncherContext> {
     let mut windows = vec![0_u16; 32_768];
     // SAFETY: windows is a writable bounded UTF-16 buffer.
     let length =
-        usize::try_from(unsafe { GetWindowsDirectoryW(windows.as_mut_ptr(), 32_768) }).ok()?;
+        usize::try_from(unsafe { GetSystemWindowsDirectoryW(windows.as_mut_ptr(), 32_768) })
+            .ok()?;
     if length == 0 || length >= windows.len() {
         return None;
     }
@@ -766,18 +785,14 @@ fn write_response(writer: &mut impl Write, status: u8, policy_hash: &[u8; 32]) -
 }
 
 pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
-    let Some(policy_hash) = sha256_bytes(POLICY_BYTES) else {
+    let Some(policy_hash) = sha256_bytes(RESTART_POLICY) else {
         return 2;
     };
     let Some(_mutex) = acquire_mutex() else {
         let _ = write_response(writer, b'L', &policy_hash);
         return 2;
     };
-    let Some(policy) = parse_policy() else {
-        let _ = write_response(writer, b'U', &policy_hash);
-        return 2;
-    };
-    let Some(mut artifacts) = lock_artifacts(&policy) else {
+    let Some(mut artifacts) = lock_current_artifacts() else {
         let _ = write_response(writer, b'U', &policy_hash);
         return 2;
     };
@@ -804,6 +819,18 @@ pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
                 ProcessInventory::Verified(_) => b'V',
                 ProcessInventory::Unknown => b'U',
             },
+            b'S' => {
+                if stdin_cancelled() {
+                    b'N'
+                } else {
+                    let (status, cleanup_confirmed) = stop_desktop(&mut artifacts, stdin_cancelled);
+                    if !cleanup_confirmed {
+                        let _ = write_response(writer, status, &policy_hash);
+                        return 3;
+                    }
+                    status
+                }
+            }
             b'K' => terminate_processes(&artifacts),
             b'L' => launch_desktop(&mut artifacts),
             b'Q' => {
@@ -821,17 +848,252 @@ pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
     }
 }
 
+/// Separate trust contract for restart; legacy repair records keep their policy.
+fn stdin_cancelled() -> bool {
+    // SAFETY: borrowed standard handle, never closed here.
+    let input = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
+    pipe_cancelled(input)
+}
+
+fn pipe_cancelled(input: HANDLE) -> bool {
+    if input.is_null() || input == INVALID_HANDLE_VALUE {
+        return true;
+    }
+    let mut available = 0;
+    // SAFETY: read-only pipe state query. EOF/error or unsolicited input cancels the in-flight operation.
+    (unsafe { PeekNamedPipe(input, null_mut(), 0, null_mut(), &mut available, null_mut()) }) == 0
+        || available != 0
+}
+
+fn stop_desktop(
+    artifacts: &mut [LockedArtifact],
+    mut cancelled: impl FnMut() -> bool,
+) -> (u8, bool) {
+    if !verify_locked_artifacts(artifacts) {
+        return (b'N', true);
+    }
+    let Some(plugin) = exact_artifact("desktop_plugin", artifacts) else {
+        return (b'N', true);
+    };
+    let Some(mut context) = launcher_context() else {
+        return (b'N', true);
+    };
+    let command = format!(
+        "\"{}\" desktop stop --timeout 30",
+        plugin.policy.path.display()
+    );
+    if cancelled() {
+        return (b'N', true);
+    }
+    let child = match crate::windows_owned_child::OwnedChild::spawn(
+        &plugin.policy.path,
+        OsStr::new(&command),
+        &mut context.environment,
+        &context.current_directory,
+    ) {
+        Ok(child) => child,
+        Err(failure) => {
+            return (
+                if failure.process_created { b'P' } else { b'N' },
+                failure.cleanup_confirmed,
+            );
+        }
+    };
+    let result = child.wait(Duration::from_secs(35), cancelled);
+    if result.completion == crate::windows_owned_child::Completion::Exited(0)
+        && result.cleanup_confirmed
+    {
+        (b'T', true)
+    } else {
+        (b'P', result.cleanup_confirmed)
+    }
+}
+
+fn restart_command_is_allowed(command: u8) -> bool {
+    matches!(command, b'V' | b'B' | b'I' | b'S' | b'L' | b'Q')
+}
+
+pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> i32 {
+    let Some(policy_hash) = sha256_bytes(RESTART_POLICY) else {
+        return 2;
+    };
+    let respond = |writer: &mut W, status: u8| -> bool {
+        let mut frame = [0_u8; RESPONSE_BYTES];
+        frame[..8].copy_from_slice(RESTART_RESPONSE_MAGIC);
+        frame[8] = status;
+        frame[9..].copy_from_slice(&policy_hash);
+        writer.write_all(&frame).is_ok() && writer.flush().is_ok()
+    };
+    let Some(_mutex) = acquire_mutex() else {
+        let _ = respond(writer, b'L');
+        return 2;
+    };
+    let Some(mut artifacts) = lock_current_artifacts() else {
+        let _ = respond(writer, b'U');
+        return 2;
+    };
+    if !respond(writer, b'R') {
+        return 3;
+    }
+    loop {
+        let mut command = [0_u8; 1];
+        match reader.read_exact(&mut command) {
+            Ok(()) => (),
+            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return 0,
+            Err(_) => return 3,
+        }
+        if !restart_command_is_allowed(command[0]) {
+            return 2;
+        }
+        if command[0] == b'Q' {
+            return if respond(writer, b'C') { 0 } else { 3 };
+        }
+        if !verify_locked_artifacts(&mut artifacts) {
+            let _ = respond(writer, b'U');
+            return 2;
+        }
+        let status = match command[0] {
+            b'V' => b'V',
+            b'B' => match inventory_process_scope(&artifacts, true) {
+                ProcessInventory::Absent => b'A',
+                ProcessInventory::Verified(_) => b'V',
+                ProcessInventory::Unknown => b'U',
+            },
+            b'I' => match inventory_processes(&artifacts) {
+                ProcessInventory::Absent => b'A',
+                ProcessInventory::Verified(_) => b'V',
+                ProcessInventory::Unknown => b'U',
+            },
+            b'S' => {
+                if stdin_cancelled() {
+                    b'N'
+                } else {
+                    let (status, cleanup_confirmed) = stop_desktop(&mut artifacts, stdin_cancelled);
+                    if !cleanup_confirmed {
+                        // Never acknowledge a later Q as clean after unresolved child ownership.
+                        let _ = respond(writer, status);
+                        return 3;
+                    }
+                    status
+                }
+            }
+            b'L' => launch_desktop(&mut artifacts),
+            _ => return 2,
+        };
+        if !respond(writer, status) {
+            return 3;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn embedded_policy_is_strict_and_complete() {
-        let policy = parse_policy().unwrap();
-        assert_eq!(policy.len(), 7);
-        assert_eq!(policy[0].role, "docker_cli");
-        assert_eq!(policy[6].role, "dev_envs");
-        assert!(POLICY_BYTES.len() < MAXIMUM_POLICY_BYTES);
+    fn eof_during_owned_child_wait_cancels_and_joins_child() {
+        let mut read = null_mut();
+        let mut write = null_mut();
+        // SAFETY: two output handles, no inheritance and default bounded pipe.
+        assert_ne!(
+            unsafe {
+                windows_sys::Win32::System::Pipes::CreatePipe(&mut read, &mut write, null(), 0)
+            },
+            0
+        );
+        let read = OwnedHandle(read);
+        let mut write = Some(OwnedHandle(write));
+        assert!(!pipe_cancelled(read.0));
+        let exe = std::env::current_exe().unwrap();
+        let command = format!(
+            "\"{}\" --exact windows_owned_child::tests::sleep_child --ignored",
+            exe.display()
+        );
+        let child = crate::windows_owned_child::OwnedChild::spawn(
+            &exe,
+            OsStr::new(&command),
+            &mut [0, 0],
+            exe.parent().unwrap(),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        let result = child.wait(Duration::from_secs(3), || {
+            write.take();
+            pipe_cancelled(read.0)
+        });
+        assert_eq!(
+            result.completion,
+            crate::windows_owned_child::Completion::Cancelled
+        );
+        assert!(result.cleanup_confirmed);
+    }
+
+    #[test]
+    fn cli_inventory_scope_never_expands_managed_termination_roles() {
+        for role in ["docker_cli", "desktop_cli"] {
+            assert!(is_cli_role(role));
+        }
+        for role in [
+            "backend",
+            "desktop",
+            "service",
+            "dev_envs",
+            "",
+            "docker_cli_extra",
+        ] {
+            assert!(!is_cli_role(role));
+        }
+    }
+
+    #[test]
+    #[ignore = "Explicit installed Docker read-only CLI inventory probe"]
+    fn restart_cli_inventory_is_read_only_and_closed() {
+        let mut input = std::io::Cursor::new(b"BQ");
+        let mut output = Vec::new();
+        assert_eq!(run_restart(&mut input, &mut output), 0);
+        assert_eq!(output.len(), RESPONSE_BYTES * 3);
+        assert_eq!(output[8], b'R');
+        assert!(matches!(output[RESPONSE_BYTES + 8], b'A' | b'V' | b'U'));
+        println!(
+            "restart_cli_inventory_status={}",
+            char::from(output[RESPONSE_BYTES + 8])
+        );
+        assert_eq!(output[2 * RESPONSE_BYTES + 8], b'C');
+    }
+
+    #[test]
+    #[ignore = "Explicit installed Docker read-only restart trust probe"]
+    fn restart_trust_accepts_current_installation_without_process_effects() {
+        let mut input = std::io::Cursor::new(b"VQ");
+        let mut output = Vec::new();
+        assert_eq!(run_restart(&mut input, &mut output), 0);
+        assert_eq!(output.len(), RESPONSE_BYTES * 3);
+        for (frame, status) in output.chunks_exact(RESPONSE_BYTES).zip([b'R', b'V', b'C']) {
+            assert_eq!(&frame[..8], RESTART_RESPONSE_MAGIC);
+            assert_eq!(frame[8], status);
+            assert_eq!(&frame[9..], sha256_bytes(RESTART_POLICY).unwrap());
+        }
+    }
+
+    #[test]
+    #[ignore = "Explicit installed Docker read-only repair trust probe"]
+    fn repair_trust_accepts_current_installation_without_process_effects() {
+        let mut input = std::io::Cursor::new(b"VQ");
+        let mut output = Vec::new();
+        assert_eq!(run(&mut input, &mut output), 0);
+        assert_eq!(output.len(), RESPONSE_BYTES * 3);
+        for (frame, status) in output.chunks_exact(RESPONSE_BYTES).zip([b'R', b'V', b'C']) {
+            assert_eq!(&frame[..8], RESPONSE_MAGIC);
+            assert_eq!(frame[8], status);
+            assert_eq!(&frame[9..], sha256_bytes(RESTART_POLICY).unwrap());
+        }
+    }
+
+    #[test]
+    fn restart_protocol_rejects_force_termination_command() {
+        assert!(!restart_command_is_allowed(b'K'));
+        for command in [b'V', b'B', b'I', b'S', b'L', b'Q'] {
+            assert!(restart_command_is_allowed(command));
+        }
     }
 
     #[test]

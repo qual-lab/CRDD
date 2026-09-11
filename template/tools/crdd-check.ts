@@ -426,6 +426,7 @@ type ReleasedNavigationMigration = Readonly<{
   sourceSha256: string;
   replacements: readonly Readonly<{
     before: string;
+    via?: string;
     after: string;
     count: number;
   }>[];
@@ -440,12 +441,12 @@ function readReleasedNavigationMigrations(
     "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
   );
   if (!fs.existsSync(recordPath)) return result;
-  const reject = () => {
+  const reject = (detail = "record_contract") => {
     add(
       "error",
       "invalid-released-navigation-migration",
       relative(recordPath),
-      "Expected one bounded record of exact released-source hashes and current-navigation replacements.",
+      `Expected one bounded record of exact released-source hashes and current-navigation replacements: ${detail}.`,
     );
     return new Map<string, ReleasedNavigationMigration>();
   };
@@ -483,7 +484,7 @@ function readReleasedNavigationMigrations(
   if (
     !isObject(record) ||
     !hasKeys(record, ["schemaRevision", "sources"]) ||
-    record.schemaRevision !== 1 ||
+    record.schemaRevision !== 2 ||
     !Array.isArray(record.sources) ||
     record.sources.length < 1 ||
     record.sources.length > 32
@@ -505,41 +506,84 @@ function readReleasedNavigationMigrations(
       result.has(entry.sourcePath)
     )
       return reject();
-    const replacements: { before: string; after: string; count: number }[] = [];
+    const replacements: {
+      before: string;
+      via?: string;
+      after: string;
+      count: number;
+    }[] = [];
     for (const replacement of entry.replacements) {
       if (
         !isObject(replacement) ||
-        !hasKeys(replacement, ["before", "after", "count"]) ||
+        (!hasKeys(replacement, ["before", "after", "count"]) &&
+          !hasKeys(replacement, ["before", "via", "after", "count"])) ||
         typeof replacement.before !== "string" ||
+        (Object.hasOwn(replacement, "via") &&
+          typeof replacement.via !== "string") ||
         typeof replacement.after !== "string" ||
         !Number.isSafeInteger(replacement.count) ||
         typeof replacement.count !== "number" ||
         replacement.count < 1 ||
         replacement.count > 64
       )
-        return reject();
-      const match = replacement.before.match(
-        /^\[`tools\/checker\/([a-z0-9.-]+\.ts)`\]\(\.\.\/\.\.\/tools\/checker\/\1\)$/u,
+        return reject("replacement_shape");
+      const beforeMatch = replacement.before.match(
+        /^\[([^\]\r\n]+)\]\(\.\.\/\.\.\/(tools\/checker|40_Develop\/(checker|coordinator)\/tests)\/([a-z0-9.-]+\.ts)\)$/u,
       );
+      const afterMatch = replacement.after.match(
+        /^\[([^\]\r\n]+)\]\(\.\.\/\.\.\/(40_Develop\/(checker|coordinator)(?:\/tests\/(?:unit|integration|system))?)\/([a-z0-9.-]+\.ts)\)$/u,
+      );
+      const beforeOwner =
+        beforeMatch?.[2] === "tools/checker" ? "checker" : beforeMatch?.[3];
+      const beforeTarget = beforeMatch
+        ? `${beforeMatch[2]}/${beforeMatch[4]}`
+        : null;
+      const afterTarget = afterMatch
+        ? `${afterMatch[2]}/${afterMatch[4]}`
+        : null;
+      const isLabelPreserved =
+        beforeMatch?.[1] === afterMatch?.[1] ||
+        (beforeMatch?.[1] === `\`${beforeTarget}\`` &&
+          afterMatch?.[1] === `\`${afterTarget}\``);
+      const viaValue =
+        typeof replacement.via === "string" ? replacement.via : undefined;
+      const viaMatch =
+        viaValue !== undefined
+          ? viaValue.match(
+              /^\[([^\]\r\n]+)\]\(\.\.\/\.\.\/(40_Develop\/(checker|coordinator)(?:\/tests)?)\/([a-z0-9.-]+\.ts)\)$/u,
+            )
+          : null;
+      const viaTarget = viaMatch ? `${viaMatch[2]}/${viaMatch[4]}` : null;
+      const viaMatches =
+        viaValue === undefined ||
+        (viaMatch !== null &&
+          beforeOwner === viaMatch[3] &&
+          beforeMatch?.[4] === viaMatch[4] &&
+          (beforeMatch?.[1] === viaMatch[1] ||
+            (beforeMatch?.[1] === `\`${beforeTarget}\`` &&
+              viaMatch[1] === `\`${viaTarget}\``)));
       if (
-        !match ||
-        replacement.after !==
-          replacement.before.replaceAll(
-            "tools/checker/",
-            "40_Develop/checker/",
-          ) ||
+        !beforeMatch ||
+        !afterMatch ||
+        !isLabelPreserved ||
+        !viaMatches ||
+        beforeOwner !== afterMatch[3] ||
+        beforeMatch[4] !== afterMatch[4] ||
         replacements.some((item) => item.before === replacement.before)
       )
-        return reject();
-      const successor = path.join(root, "40_Develop/checker", match[1]);
+        return reject("replacement_mapping");
+      const successor = path.join(root, afterMatch[2], afterMatch[4]);
       if (
         !allFiles.includes(successor) ||
         !lstatIfPresent(successor)?.isFile() ||
         pathContainsSymbolicLink(successor)
       )
-        return reject();
+        return reject(
+          `successor_unavailable:${afterMatch[2]}/${afterMatch[4]}`,
+        );
       replacements.push({
         before: replacement.before,
+        ...(viaValue === undefined ? {} : { via: viaValue }),
         after: replacement.after,
         count: replacement.count,
       });
@@ -550,6 +594,273 @@ function readReleasedNavigationMigrations(
     });
   }
   return result;
+}
+
+function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
+  if (repositoryMode !== "official") return;
+  const gitCorrectionText = (gitArguments: readonly string[]) =>
+    spawnSync("git", ["-C", root, ...gitArguments], {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 5_000,
+      maxBuffer: 16 * 1_048_576,
+    });
+  const marker = "<!-- crdd-released-navigation-correction: 1 -->";
+  const recordFiles = allFiles.filter(
+    (file) =>
+      /^90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md$/u.test(
+        relative(file),
+      ) && read(file).includes(marker),
+  );
+  const reject = (recordPath: string, detail: string) =>
+    add(
+      "error",
+      "invalid-released-navigation-correction",
+      relative(recordPath),
+      detail,
+    );
+  for (const recordPath of recordFiles) {
+    if (
+      lstatIfPresent(recordPath)?.isFile() !== true ||
+      pathContainsSymbolicLink(recordPath)
+    ) {
+      reject(recordPath, "Correction record is not a regular file.");
+      continue;
+    }
+    const content = read(recordPath);
+    const blocks = [
+      ...content.matchAll(
+        /<!-- crdd-released-navigation-correction: 1 -->\s*```json\s*\n([\s\S]*?)\n```/gu,
+      ),
+    ];
+    if (
+      content.split(marker).length !== 2 ||
+      blocks.length !== 1 ||
+      blocks[0][1].length > 65_536
+    ) {
+      reject(recordPath, "Expected one bounded correction record.");
+      continue;
+    }
+    let raw: unknown;
+    try {
+      raw = JSON.parse(blocks[0][1]);
+    } catch {
+      reject(recordPath, "Correction record is not valid JSON.");
+      continue;
+    }
+    const value = raw as Record<string, unknown>;
+    if (
+      !raw ||
+      typeof raw !== "object" ||
+      Array.isArray(raw) ||
+      Object.keys(value).sort().join("\0") !==
+        [
+          "replacements",
+          "schemaRevision",
+          "sourcePath",
+          "sourceRelease",
+          "sourceSha256",
+        ]
+          .sort()
+          .join("\0") ||
+      value.schemaRevision !== 1 ||
+      typeof value.sourcePath !== "string" ||
+      !/^90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md$/u.test(
+        value.sourcePath,
+      ) ||
+      samePath(recordPath, path.join(root, value.sourcePath)) ||
+      typeof value.sourceRelease !== "string" ||
+      !/^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u.test(
+        value.sourceRelease,
+      ) ||
+      typeof value.sourceSha256 !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(value.sourceSha256) ||
+      !Array.isArray(value.replacements) ||
+      value.replacements.length < 1 ||
+      value.replacements.length > 16
+    ) {
+      reject(recordPath, "Correction record shape is invalid.");
+      continue;
+    }
+    const sourceRelativePath = value.sourcePath as string;
+    const sourceRelease = value.sourceRelease as string;
+    const sourceSha256 = value.sourceSha256 as string;
+    const replacements = value.replacements as unknown[];
+    const sourcePath = path.join(root, ...sourceRelativePath.split("/"));
+    const sourceStat = lstatIfPresent(sourcePath);
+    const tagCommit = gitCorrectionText([
+      "rev-parse",
+      "--verify",
+      `refs/tags/${sourceRelease}^{commit}`,
+    ]);
+    const tagCommitId = (tagCommit.stdout ?? "").trim();
+    const ancestor = /^[0-9a-f]{40}$/u.test(tagCommitId)
+      ? gitCorrectionText(["merge-base", "--is-ancestor", tagCommitId, "HEAD"])
+      : null;
+    const fixedObject = /^[0-9a-f]{40}$/u.test(tagCommitId)
+      ? spawnSync(
+          "git",
+          ["-C", root, "show", `${tagCommitId}:${sourceRelativePath}`],
+          {
+            encoding: null,
+            windowsHide: true,
+            timeout: 5_000,
+            maxBuffer: 16 * 1_048_576,
+          },
+        )
+      : null;
+    const fixedBytes = Buffer.isBuffer(fixedObject?.stdout)
+      ? fixedObject.stdout
+      : Buffer.alloc(0);
+    if (
+      sourceStat?.isFile() !== true ||
+      pathContainsSymbolicLink(sourcePath) ||
+      tagCommit.error ||
+      tagCommit.status !== 0 ||
+      (tagCommit.stderr ?? "").trim() ||
+      !ancestor ||
+      ancestor.error ||
+      ancestor.status !== 0 ||
+      (ancestor.stderr ?? "").trim() ||
+      fixedObject?.error ||
+      fixedObject?.status !== 0 ||
+      createHash("sha256").update(fixedBytes).digest("hex") !== sourceSha256
+    ) {
+      reject(recordPath, "Released source identity could not be verified.");
+      continue;
+    }
+    let expectedText = fixedBytes.toString("utf8");
+    let intermediateText = expectedText;
+    let isReplacementSetValid = true;
+    const seenBefore = new Set<string>();
+    for (const rawReplacement of replacements) {
+      const replacement = rawReplacement as Record<string, unknown>;
+      const keys =
+        rawReplacement &&
+        typeof rawReplacement === "object" &&
+        !Array.isArray(rawReplacement)
+          ? Object.keys(replacement).sort().join("\0")
+          : "";
+      const before = replacement.before;
+      const via = replacement.via;
+      const after = replacement.after;
+      const count = replacement.count;
+      const beforeText = typeof before === "string" ? before : "";
+      const afterText = typeof after === "string" ? after : "";
+      const linkPattern = /^\[([^\]\r\n]+)\]\((\.\.\/\.\.\/[^)\r\n]+)\)$/u;
+      const exactTagPathPattern =
+        /^Git tag `([^`\r\n]+)` のexact path `([^`\r\n]+)`$/u;
+      const beforeMatch = beforeText.match(linkPattern);
+      const afterMatch = afterText.match(linkPattern);
+      const exactTagPathMatch = afterText.match(exactTagPathPattern);
+      const viaMatch = typeof via === "string" ? via.match(linkPattern) : null;
+      const afterTarget = afterMatch
+        ? path.resolve(path.dirname(sourcePath), afterMatch[2])
+        : "";
+      const isBeforeLabelTargetDerived =
+        beforeMatch !== null &&
+        beforeMatch[1] === `\`${beforeMatch[2].slice(6)}\``;
+      const isLabelPreserved =
+        exactTagPathMatch !== null ||
+        beforeMatch?.[1] === afterMatch?.[1] ||
+        (isBeforeLabelTargetDerived &&
+          afterMatch !== null &&
+          afterMatch[1] === `\`${afterMatch[2].slice(6)}\``);
+      const isViaLabelSame =
+        viaMatch !== null && viaMatch[1] === beforeMatch?.[1];
+      const isViaLabelTargetDerived =
+        isBeforeLabelTargetDerived &&
+        viaMatch !== null &&
+        viaMatch[1] === `\`${viaMatch[2].slice(6)}\``;
+      const isViaLabelPreserved =
+        via === undefined || isViaLabelSame || isViaLabelTargetDerived;
+      const exactTagTarget = exactTagPathMatch?.[2] ?? "";
+      const beforeTargetPath = beforeMatch
+        ? path.resolve(
+            path.dirname(sourcePath),
+            beforeMatch[2].split("#", 1)[0],
+          )
+        : "";
+      const beforeTargetRelative = beforeTargetPath
+        ? path.relative(root, beforeTargetPath).replaceAll("\\", "/")
+        : "";
+      const exactTagObject = exactTagPathMatch
+        ? gitCorrectionText([
+            "cat-file",
+            "-e",
+            `${tagCommitId}:${exactTagTarget}`,
+          ])
+        : null;
+      const isExactTagTargetValid =
+        exactTagPathMatch !== null &&
+        exactTagPathMatch[1] === sourceRelease &&
+        exactTagTarget === beforeTargetRelative &&
+        /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[^\0\r\n]+\.md$/u.test(
+          exactTagTarget,
+        ) &&
+        exactTagObject?.error === undefined &&
+        exactTagObject?.status === 0 &&
+        (exactTagObject?.stderr ?? "").trim() === "";
+      if (
+        (keys !== ["after", "before", "count"].join("\0") &&
+          keys !== ["after", "before", "count", "via"].join("\0")) ||
+        !beforeMatch ||
+        (!afterMatch && !isExactTagTargetValid) ||
+        !isLabelPreserved ||
+        !isViaLabelPreserved ||
+        !Number.isSafeInteger(count) ||
+        typeof count !== "number" ||
+        count < 1 ||
+        count > 64 ||
+        seenBefore.has(beforeText) ||
+        expectedText.split(beforeText).length - 1 !== count ||
+        (afterMatch !== null &&
+          (!isWithin(root, afterTarget) ||
+            lstatIfPresent(afterTarget)?.isFile() !== true ||
+            pathContainsSymbolicLink(afterTarget)))
+      ) {
+        isReplacementSetValid = false;
+        break;
+      }
+      seenBefore.add(beforeText);
+      expectedText = expectedText.replaceAll(beforeText, afterText);
+      intermediateText = intermediateText.replaceAll(
+        beforeText,
+        typeof via === "string" ? via : afterText,
+      );
+    }
+    const currentHead = spawnSync(
+      "git",
+      ["-C", root, "show", `HEAD:${sourceRelativePath}`],
+      {
+        encoding: null,
+        windowsHide: true,
+        timeout: 5_000,
+        maxBuffer: 16 * 1_048_576,
+      },
+    );
+    const currentHeadBytes = Buffer.isBuffer(currentHead.stdout)
+      ? currentHead.stdout
+      : Buffer.alloc(0);
+    const currentWorktree = fs.readFileSync(sourcePath, "utf8");
+    const normalize = (text: string) => text.replaceAll("\r\n", "\n");
+    if (!isReplacementSetValid) {
+      reject(recordPath, "Released-link replacement mapping is invalid.");
+      continue;
+    }
+    if (
+      currentHead.error ||
+      currentHead.status !== 0 ||
+      ![fixedBytes.toString("utf8"), intermediateText, expectedText].includes(
+        currentHeadBytes.toString("utf8"),
+      ) ||
+      normalize(currentWorktree) !== normalize(expectedText)
+    )
+      reject(
+        recordPath,
+        "Current source differs from the exact released-link correction.",
+      );
+  }
 }
 
 function checkConsolidatedChangeTraceLedger(
@@ -1735,6 +2046,7 @@ function checkConsolidatedChangeTraceLedger(
           if (migration) {
             appliedNavigationSources.add(currentRelativePath);
             let expectedText = fixedBytes.toString("utf8");
+            let intermediateText = fixedBytes.toString("utf8");
             let hasExactReplacements =
               migration.sourceSha256 === fixedRow.sha256;
             for (const replacement of migration.replacements) {
@@ -1746,6 +2058,10 @@ function checkConsolidatedChangeTraceLedger(
               expectedText = expectedText.replaceAll(
                 replacement.before,
                 replacement.after,
+              );
+              intermediateText = intermediateText.replaceAll(
+                replacement.before,
+                replacement.via ?? replacement.after,
               );
             }
             if (
@@ -1768,6 +2084,7 @@ function checkConsolidatedChangeTraceLedger(
               !pathContainsSymbolicLink(currentFile) &&
               lstatIfPresent(currentFile)?.isFile() === true &&
               (currentBytes.equals(fixedBytes) ||
+                currentBytes.equals(Buffer.from(intermediateText, "utf8")) ||
                 currentBytes.equals(Buffer.from(expectedText, "utf8"))) &&
               normalizeLineEndings(worktreeText) ===
                 normalizeLineEndings(expectedText);
@@ -3388,6 +3705,739 @@ const allFileSet = new Set(allFiles);
 const allMarkdownFiles = allFiles.filter((file) =>
   file.toLowerCase().endsWith(".md"),
 );
+
+type DocumentationDispositionEntry = Readonly<{
+  path: string;
+  artifactRole: string;
+  currentness: "current" | "fixed_history";
+  disposition: string;
+  reasonCode: string;
+  canonicalOwnerPath?: string;
+  currentBlobOid?: string;
+  historicalIdentity?: Readonly<{
+    refKind: "tag" | "commit";
+    ref: string;
+    path: string;
+    blobOid: string;
+  }>;
+  currentTreeBlobOid?: string;
+  currentRoute?: string;
+}>;
+
+const DOCUMENT_DISPOSITION_ROLES = new Set([
+  "principle",
+  "discovery",
+  "ux",
+  "ia",
+  "ui",
+  "ui_spec",
+  "specification",
+  "architecture",
+  "development",
+  "quality",
+  "workflow",
+  "release_change",
+  "release_evidence",
+  "roadmap",
+  "repository_guidance",
+  "template",
+  "other",
+]);
+const DOCUMENT_DISPOSITIONS = new Set([
+  "structured_remediation",
+  "canonical_move_or_reference",
+  "already_structured",
+  "prose_retained",
+  "fixed_original_with_structured_index",
+]);
+const DOCUMENT_REASON_CODES = new Set([
+  "semantic_structure_improved",
+  "canonical_ownership_corrected",
+  "existing_structure_sufficient",
+  "prose_preserves_rationale",
+  "published_bytes_preserved",
+]);
+const currentDocumentDispositionReasons = new Map([
+  ["structured_remediation", "semantic_structure_improved"],
+  ["canonical_move_or_reference", "canonical_ownership_corrected"],
+  ["already_structured", "existing_structure_sufficient"],
+  ["prose_retained", "prose_preserves_rationale"],
+]);
+const FIXED_DOCUMENT_DISPOSITION = "fixed_original_with_structured_index";
+const FIXED_DOCUMENT_REASON = "published_bytes_preserved";
+
+function checkDocumentationDispositionRoutes(): void {
+  const changesRoute = path.join(root, "90_Release", "Changes", "README.md");
+  const qualityRoute = path.join(root, "07_Quality", "01_Quality_Center.md");
+  const checks = [
+    {
+      file: changesRoute,
+      requirements: [
+        /^## 目的から読む場所を選ぶ$/mu,
+        /\[[^\]]*現在状態[^\]]*\]\(\.\.\/\.\.\/07_Quality\/01_Quality_Center\.md(?:#[^)]+)?\)/u,
+        /過去本文の(?:正本|固定Identity)/u,
+        /git --no-replace-objects show/u,
+      ],
+    },
+    {
+      file: qualityRoute,
+      requirements: [
+        /現在候補/u,
+        /前(?:の署名)?候補/u,
+        /v0\.20全体の残るGate/u,
+        /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u,
+      ],
+    },
+  ];
+  for (const check of checks) {
+    if (!fs.existsSync(check.file)) continue;
+    const content = read(check.file);
+    if (check.requirements.some((requirement) => !requirement.test(content))) {
+      add(
+        "error",
+        "document-disposition-route-contract-incomplete",
+        relative(check.file),
+        "The current route is missing a required purpose, current-owner, fixed-history retrieval, candidate, gate, or verification-result connection.",
+      );
+    }
+  }
+}
+
+function gitBlobOid(bytes: Buffer): string {
+  const header = Buffer.from(`blob ${bytes.length}\0`, "utf8");
+  return createHash("sha1").update(header).update(bytes).digest("hex");
+}
+
+function documentationSetHash(
+  rows: readonly Readonly<{ path: string; blobOid: string }>[],
+): string {
+  const canonical = [...rows]
+    .sort((left, right) =>
+      left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
+    )
+    .map((row) => `${row.path}\0${row.blobOid}\n`)
+    .join("");
+  return createHash("sha256").update(canonical, "utf8").digest("hex");
+}
+
+function expectedV020Currentness(
+  relativePath: string,
+): "current" | "fixed_history" {
+  if (/^90_Release\/Changes\/Evidence\/.*\.md$/u.test(relativePath)) {
+    return "fixed_history";
+  }
+  if (
+    /^07_Quality\/Verification_Results\/.*\.md$/u.test(relativePath) &&
+    relativePath !==
+      "07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md"
+  ) {
+    return "fixed_history";
+  }
+  const publishedChange = relativePath.match(
+    /^90_Release\/Changes\/(CHG-[0-9]{6})_.*\.md$/u,
+  )?.[1];
+  if (publishedChange && publishedChange !== "CHG-000057") {
+    const number = Number.parseInt(publishedChange.slice(4), 10);
+    if (number <= 60 && number !== 16 && number !== 18 && number !== 19) {
+      return "fixed_history";
+    }
+  }
+  return "current";
+}
+
+function checkDocumentationDispositionInventory(): {
+  observed: number;
+  verified: number;
+} {
+  if (repositoryMode !== "official") return { observed: 0, verified: 0 };
+  const trigger = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000065_Structured_First_Documentation.md",
+  );
+  if (!fs.existsSync(trigger)) return { observed: 0, verified: 0 };
+
+  const inventoryPath = path.join(
+    root,
+    "07_Quality",
+    "07_Structured_Document_Disposition_Inventory.json",
+  );
+  if (!fs.existsSync(inventoryPath)) {
+    add(
+      "error",
+      "missing-document-disposition-inventory",
+      relative(inventoryPath),
+      "The repository-wide documentation change requires one complete disposition inventory.",
+    );
+    return { observed: 0, verified: 0 };
+  }
+
+  let value: unknown;
+  try {
+    value = JSON.parse(read(inventoryPath));
+  } catch {
+    add(
+      "error",
+      "invalid-document-disposition-inventory",
+      relative(inventoryPath),
+      "The disposition inventory must be valid JSON.",
+    );
+    return { observed: 0, verified: 0 };
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    add(
+      "error",
+      "invalid-document-disposition-inventory",
+      relative(inventoryPath),
+      "The disposition inventory root must be an object.",
+    );
+    return { observed: 0, verified: 0 };
+  }
+  const record = value as Record<string, unknown>;
+  const entries = Array.isArray(record.entries)
+    ? (record.entries as DocumentationDispositionEntry[])
+    : [];
+  const expectedPaths = allMarkdownFiles.map(relative).sort();
+  const actualPaths = entries
+    .map((entry) => entry?.path)
+    .filter((entry): entry is string => typeof entry === "string")
+    .sort();
+  const duplicatePaths = actualPaths.filter(
+    (entry, index) => index > 0 && entry === actualPaths[index - 1],
+  );
+  const expectedSet = new Set(expectedPaths);
+  const actualSet = new Set(actualPaths);
+  if (
+    duplicatePaths.length > 0 ||
+    expectedPaths.some((entry) => !actualSet.has(entry)) ||
+    actualPaths.some((entry) => !expectedSet.has(entry))
+  ) {
+    add(
+      "error",
+      "document-disposition-population-mismatch",
+      relative(inventoryPath),
+      `Expected ${expectedPaths.length} unique Markdown paths, observed ${actualSet.size}; duplicates=${duplicatePaths.length}.`,
+    );
+  }
+
+  const currentRows = expectedPaths.map((relativePath) => ({
+    path: relativePath,
+    blobOid: gitBlobOid(fs.readFileSync(path.join(root, relativePath))),
+  }));
+  const expectedHash = documentationSetHash(currentRows);
+  if (record.evaluatedDocumentationSetSha256 !== expectedHash) {
+    add(
+      "error",
+      "stale-document-disposition-inventory",
+      relative(inventoryPath),
+      "The evaluated Markdown path/blob set does not match the current worktree.",
+    );
+  }
+  if (
+    record.schemaRevision !== 1 ||
+    record.populationSource !== "git_worktree_markdown"
+  ) {
+    add(
+      "error",
+      "invalid-document-disposition-inventory-contract",
+      relative(inventoryPath),
+      "schemaRevision and populationSource do not match the v0.20 disposition contract.",
+    );
+  }
+  checkDocumentationDispositionRoutes();
+
+  const historicalEntries = entries.filter(
+    (entry) =>
+      entry?.currentness === "fixed_history" && entry.historicalIdentity,
+  );
+  const historicalObjectResult =
+    historicalEntries.length > 0
+      ? spawnSync(
+          "git",
+          ["-C", root, "cat-file", "--batch-check=%(objectname)"],
+          {
+            encoding: "utf8",
+            windowsHide: true,
+            input: `${historicalEntries
+              .map(
+                (entry) =>
+                  `${entry.historicalIdentity?.ref}:${entry.historicalIdentity?.path}`,
+              )
+              .join("\n")}\n`,
+            maxBuffer: 4 * 1024 * 1024,
+          },
+        )
+      : null;
+  const historicalObjectOids = (historicalObjectResult?.stdout ?? "")
+    .split(/\r?\n/u)
+    .filter(Boolean);
+  const resolvedHistoricalObject = new Map(
+    historicalEntries.map((entry, index) => [
+      entry.path,
+      historicalObjectOids[index] ?? "",
+    ]),
+  );
+  const tags = new Set(
+    spawnSync("git", ["-C", root, "tag", "--list"], {
+      encoding: "utf8",
+      windowsHide: true,
+    })
+      .stdout.split(/\r?\n/u)
+      .filter(Boolean),
+  );
+  const commitRefs = [
+    ...new Set(
+      historicalEntries
+        .map((entry) => entry.historicalIdentity)
+        .filter((identity) => identity?.refKind === "commit")
+        .map((identity) => identity?.ref ?? ""),
+    ),
+  ];
+  const validCommitRefs = new Set(
+    commitRefs.filter((ref) => {
+      if (!/^[0-9a-f]{40}$/u.test(ref)) return false;
+      const result = spawnSync(
+        "git",
+        ["-C", root, "rev-parse", "--verify", `${ref}^{commit}`],
+        { encoding: "utf8", windowsHide: true },
+      );
+      return result.status === 0 && result.stdout.trim() === ref;
+    }),
+  );
+
+  let verified = 0;
+  for (const entry of entries) {
+    if (
+      !entry ||
+      typeof entry.path !== "string" ||
+      !DOCUMENT_DISPOSITION_ROLES.has(entry.artifactRole) ||
+      !DOCUMENT_DISPOSITIONS.has(entry.disposition) ||
+      !DOCUMENT_REASON_CODES.has(entry.reasonCode) ||
+      !["current", "fixed_history"].includes(entry.currentness)
+    ) {
+      add(
+        "error",
+        "invalid-document-disposition-entry",
+        relative(inventoryPath),
+        `Invalid enum or shape for ${String(entry?.path)}.`,
+      );
+      continue;
+    }
+    const absolute = path.join(root, entry.path);
+    if (!expectedSet.has(entry.path) || !fs.existsSync(absolute)) continue;
+    const currentOid = gitBlobOid(fs.readFileSync(absolute));
+    if (entry.currentness !== expectedV020Currentness(entry.path)) {
+      add(
+        "error",
+        "document-disposition-currentness-mismatch",
+        entry.path,
+        "The current/fixed-history classification does not match the v0.20 fixed population.",
+      );
+      continue;
+    }
+    const expectedReason =
+      entry.currentness === "fixed_history"
+        ? entry.disposition === FIXED_DOCUMENT_DISPOSITION
+          ? FIXED_DOCUMENT_REASON
+          : undefined
+        : currentDocumentDispositionReasons.get(entry.disposition);
+    if (expectedReason !== entry.reasonCode) {
+      add(
+        "error",
+        "document-disposition-semantic-combination-invalid",
+        entry.path,
+        "The currentness, disposition, and reasonCode combination is not part of the closed documentation disposition contract.",
+      );
+      continue;
+    }
+    if (entry.currentness === "current") {
+      if (
+        entry.canonicalOwnerPath !== entry.path ||
+        entry.currentBlobOid !== currentOid ||
+        entry.historicalIdentity !== undefined ||
+        entry.currentTreeBlobOid !== undefined ||
+        entry.currentRoute !== undefined
+      ) {
+        add(
+          "error",
+          "invalid-current-document-disposition",
+          entry.path,
+          "Current documents require canonicalOwnerPath/currentBlobOid and no historical fields.",
+        );
+        continue;
+      }
+    } else {
+      const identity = entry.historicalIdentity;
+      const route = entry.currentRoute;
+      const expectedRoute = entry.path.startsWith(
+        "07_Quality/Verification_Results/",
+      )
+        ? "07_Quality/01_Quality_Center.md"
+        : "90_Release/Changes/README.md";
+      if (
+        !identity ||
+        !["tag", "commit"].includes(identity.refKind) ||
+        identity.path !== entry.path ||
+        entry.currentTreeBlobOid !== currentOid ||
+        route !== expectedRoute ||
+        !fs.existsSync(path.join(root, route)) ||
+        entry.canonicalOwnerPath !== undefined ||
+        entry.currentBlobOid !== undefined
+      ) {
+        add(
+          "error",
+          "invalid-fixed-document-disposition",
+          entry.path,
+          "Fixed history requires an exact historical identity, current tree blob, and approved current route.",
+        );
+        continue;
+      }
+      const refTypeMatches =
+        identity.refKind === "tag"
+          ? tags.has(identity.ref)
+          : validCommitRefs.has(identity.ref);
+      if (!refTypeMatches) {
+        add(
+          "error",
+          "document-disposition-historical-ref-kind-mismatch",
+          entry.path,
+          "The declared historical ref kind does not match the exact Git ref.",
+        );
+        continue;
+      }
+      if (
+        historicalObjectResult?.status !== 0 ||
+        resolvedHistoricalObject.get(entry.path) !== identity.blobOid
+      ) {
+        add(
+          "error",
+          "document-disposition-historical-identity-mismatch",
+          entry.path,
+          "The historical ref/path/blob identity does not resolve exactly.",
+        );
+        continue;
+      }
+    }
+    verified += 1;
+  }
+  return { observed: entries.length, verified };
+}
+
+function checkV020ReleaseGateOwnership(): void {
+  if (repositoryMode !== "official") return;
+  const qualityCenterPath = path.join(
+    root,
+    "07_Quality",
+    "01_Quality_Center.md",
+  );
+  const changePath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000063_Runtime_Responsibility_Separation.md",
+  );
+  const verificationPath = path.join(
+    root,
+    "07_Quality",
+    "Verification_Results",
+    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+  );
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  if (
+    ![qualityCenterPath, changePath, verificationPath, roadmapPath].every(
+      fs.existsSync,
+    )
+  ) {
+    return;
+  }
+
+  const qualityCenter = read(qualityCenterPath);
+  const change = read(changePath);
+  const verification = read(verificationPath);
+  const roadmap = read(roadmapPath);
+  const requiredMarkers: readonly [string, string, string][] = [
+    [qualityCenterPath, qualityCenter, "現在候補"],
+    [qualityCenterPath, qualityCenter, "前の署名候補"],
+    [qualityCenterPath, qualityCenter, "v0.20全体の残るGate"],
+    [changePath, change, "前の署名候補"],
+    [verificationPath, verification, "前候補"],
+    [verificationPath, verification, "Quality Center"],
+    [roadmapPath, roadmap, "v0.20 Runtime責務分離"],
+  ];
+  for (const [file, content, marker] of requiredMarkers) {
+    if (!content.includes(marker)) {
+      add(
+        "error",
+        "v020-release-gate-ownership-incomplete",
+        relative(file),
+        `The structured Release Gate marker is missing: ${marker}`,
+      );
+    }
+  }
+  const allowedGateStates = [
+    "Signed Verification Pending",
+    "Final Audit Pending",
+    "Release Decision Pending",
+  ] as const;
+  type GateState = (typeof allowedGateStates)[number];
+  const changeGateStates = allowedGateStates.filter((state) =>
+    change.includes(`状態: \`${state}\``),
+  );
+  const roadmapGateStates = allowedGateStates.filter((state) =>
+    roadmap.includes(`| v0.20 Runtime責務分離 | Adopted | ${state} |`),
+  );
+  if (
+    changeGateStates.length !== 1 ||
+    roadmapGateStates.length !== 1 ||
+    changeGateStates[0] !== roadmapGateStates[0]
+  ) {
+    add(
+      "error",
+      "v020-release-gate-ownership-incomplete",
+      relative(changePath),
+      "The Change Trace and Roadmap must declare one identical current v0.20 Release Gate state.",
+    );
+    return;
+  }
+
+  const currentGateState = changeGateStates[0] as GateState;
+  type GateEvidenceContract = Readonly<{
+    file: string;
+    content: string;
+    marker: RegExp;
+    description: string;
+  }>;
+  const currentCandidateHeading = "## 文書全体是正後の最終固定候補";
+  const currentCandidateStart = verification.indexOf(currentCandidateHeading);
+  const currentCandidateRemainder =
+    currentCandidateStart < 0
+      ? ""
+      : verification.slice(
+          currentCandidateStart + currentCandidateHeading.length,
+        );
+  const nextPeerHeading = currentCandidateRemainder.search(/\n##\s/u);
+  const currentVerificationSection =
+    currentCandidateStart < 0
+      ? ""
+      : currentCandidateRemainder.slice(
+          0,
+          nextPeerHeading < 0 ? undefined : nextPeerHeading,
+        );
+  const hasSuccessfulFinalAudit = (content: string): boolean =>
+    content.split(/\r?\n/u).some((line) => {
+      const result =
+        /^\s*(?:[-*]\s*)?最終一括監査[:：]\s*Critical\s+([0-9]+)、\s*Major\s+([0-9]+)で成立\s*$/u.exec(
+          line,
+        );
+      return (
+        result !== null &&
+        Number.parseInt(result[1], 10) === 0 &&
+        Number.parseInt(result[2], 10) === 0
+      );
+    });
+  const currentSignedCandidateEvidenceContracts: readonly GateEvidenceContract[] =
+    [
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker:
+          /現在候補[^\n]*Runtime Source[^\n]*manifest carrier[^\n]*Release sequence/u,
+        description:
+          "Quality Center must identify the current signed candidate.",
+      },
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker:
+          /現在候補の技術Gate[^\n]*正式4経路4\/4とRecovery Matrix 7\/7が成立/u,
+        description: "Quality Center must record both current signed matrices.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker:
+          /現在候補[^\n]*Runtime Source[^\n]*manifest carrier[^\n]*Release sequence/u,
+        description:
+          "The Change Trace must identify the current signed candidate.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /正式E2E[^\n]*4経路4\/4/u,
+        description: "The Change Trace must record the current route result.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /Recovery Matrix[^\n]*7シナリオ完了/u,
+        description:
+          "The Change Trace must record the current recovery result.",
+      },
+      {
+        file: verificationPath,
+        content: verification,
+        marker: /## 文書全体是正後の最終固定候補/u,
+        description:
+          "Verification must separate the current candidate from previous evidence.",
+      },
+      {
+        file: verificationPath,
+        content: currentVerificationSection,
+        marker:
+          /Runtime Source[\s\S]*Manifest carrier[\s\S]*Release sequence[\s\S]*Runtime実行Identity[\s\S]*正式4経路E2E[^\n]*4\/4[\s\S]*Recovery Matrix[^\n]*(7\/7|7シナリオ完了)/u,
+        description:
+          "The current Verification section must bind identity and both signed results.",
+      },
+      {
+        file: roadmapPath,
+        content: roadmap,
+        marker:
+          /v0\.20 Runtime責務分離[^\n]*正式4経路4\/4[^\n]*Recovery Matrix 7\/7/u,
+        description: "The Roadmap must retain both current signed results.",
+      },
+    ];
+  const stateContracts: Readonly<
+    Record<GateState, readonly GateEvidenceContract[]>
+  > = {
+    "Signed Verification Pending": [
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker: /現在候補の技術Gate[^\n]*(再署名|影響E2E)待ち/u,
+        description:
+          "Quality Center must retain the unsigned current technical Gate.",
+      },
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker: /v0\.20全体の残るGate[^\n]*(再署名|影響E2E)/u,
+        description:
+          "Quality Center must keep signing or E2E in the remaining Gate.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /現行Gate[^\n]*(再署名|影響E2E)/u,
+        description: "The Change Trace must retain the signing or E2E Gate.",
+      },
+      {
+        file: verificationPath,
+        content: verification,
+        marker: /現在候補[^\n]*(再署名|影響E2E)/u,
+        description:
+          "Verification must not promote previous-candidate evidence.",
+      },
+      {
+        file: roadmapPath,
+        content: roadmap,
+        marker: /v0\.20 Runtime責務分離[^\n]*(再署名|影響E2E)/u,
+        description:
+          "The Roadmap must retain the current signing or E2E action.",
+      },
+    ],
+    "Final Audit Pending": [
+      ...currentSignedCandidateEvidenceContracts,
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker:
+          /v0\.20全体の残るGate[^\n]*最終Evidence反映後[^\n]*一括独立監査/u,
+        description: "Quality Center must retain the final audit Gate.",
+      },
+      {
+        file: roadmapPath,
+        content: roadmap,
+        marker:
+          /v0\.20 Runtime責務分離[^\n]*正式E2E結果を反映した現在Treeの一括監査/u,
+        description:
+          "The Roadmap must retain the final current-tree audit action.",
+      },
+    ],
+    "Release Decision Pending": [
+      ...currentSignedCandidateEvidenceContracts,
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker: /v0\.20全体の残るGate[^\n]*人間によるRelease判断/u,
+        description:
+          "Quality Center must leave only the human Release decision.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /残るGate[^\n]*人間によるRelease判断/u,
+        description: "The Change Trace must leave the human Release decision.",
+      },
+      {
+        file: roadmapPath,
+        content: roadmap,
+        marker: /v0\.20 Runtime責務分離[^\n]*人間によるRelease判断/u,
+        description: "The Roadmap must identify the remaining human decision.",
+      },
+    ],
+  };
+  for (const contract of stateContracts[currentGateState]) {
+    if (!contract.marker.test(contract.content)) {
+      add(
+        "error",
+        "v020-release-gate-evidence-incomplete",
+        relative(contract.file),
+        contract.description,
+      );
+    }
+  }
+  if (currentGateState === "Release Decision Pending") {
+    const finalAuditEvidenceSources = [
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        description:
+          "Quality Center must record an exact Critical 0 and Major 0 final audit.",
+      },
+      {
+        file: changePath,
+        content: change,
+        description:
+          "The Change Trace must record an exact Critical 0 and Major 0 final audit.",
+      },
+      {
+        file: verificationPath,
+        content: currentVerificationSection,
+        description:
+          "The current Verification section must record an exact Critical 0 and Major 0 final audit.",
+      },
+    ] as const;
+    for (const evidence of finalAuditEvidenceSources) {
+      if (!hasSuccessfulFinalAudit(evidence.content)) {
+        add(
+          "error",
+          "v020-release-gate-evidence-incomplete",
+          relative(evidence.file),
+          evidence.description,
+        );
+      }
+    }
+  }
+  const staleClaims: readonly [string, string, RegExp][] = [
+    [changePath, change, /唯一残るRelease Gate/u],
+    [verificationPath, verification, /残るGateは人間によるRelease判断/u],
+  ];
+  for (const [file, content, pattern] of staleClaims) {
+    if (pattern.test(content)) {
+      add(
+        "error",
+        "stale-v020-release-gate-claim",
+        relative(file),
+        "A previous-candidate Release Gate claim is presented as the current state.",
+      );
+    }
+  }
+}
+
+const documentationDispositionInventory =
+  checkDocumentationDispositionInventory();
+checkV020ReleaseGateOwnership();
 const linkRecords: LinkRecord[] = [];
 for (const source of allMarkdownFiles) {
   const text = withoutFencedCode(read(source));
@@ -3465,6 +4515,7 @@ const anchorCache = new Map<string, Set<string>>();
 const consolidationLedgerCheck = checkConsolidatedChangeTraceLedger(allFiles);
 const toolLayoutHistoricalReferences =
   checkToolLayoutHistoricalReferences(allFiles);
+checkReleasedNavigationCorrections(allFiles);
 let checkedLocalLinks = 0;
 let checkedAnchors = 0;
 let historicalReferencesObserved = 0;
@@ -4732,6 +5783,8 @@ const report = {
     files_discovered: allFiles.length,
     markdown_files_discovered: allMarkdownFiles.length,
     markdown_files_checked: markdownFiles.length,
+    document_dispositions_observed: documentationDispositionInventory.observed,
+    document_dispositions_verified: documentationDispositionInventory.verified,
     local_links_checked: checkedLocalLinks,
     historical_references_observed: historicalReferencesObserved,
     historical_references_identity_verified: historicalReferencesVerified,

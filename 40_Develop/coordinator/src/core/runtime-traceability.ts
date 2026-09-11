@@ -88,7 +88,7 @@ const BINDING_KEYS = Object.freeze([
   "observedResources",
   "cases",
 ]);
-const ATTEMPT_BINDING_KEYS = Object.freeze([
+const attemptBindingKeys = Object.freeze([
   ...BINDING_KEYS,
   "attemptClassificationIds",
 ]);
@@ -497,7 +497,7 @@ export function inspectCoordinatorRuntimeTraceability(
     const bindingId = typeof binding.id === "string" ? binding.id : "unknown";
     if (
       !hasExactKeys(binding, BINDING_KEYS) &&
-      !hasExactKeys(binding, ATTEMPT_BINDING_KEYS)
+      !hasExactKeys(binding, attemptBindingKeys)
     )
       issues.push(`${bindingId}:verification_shape_invalid`);
     const kind = binding.kind;

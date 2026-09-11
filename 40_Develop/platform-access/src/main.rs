@@ -1,11 +1,21 @@
 mod protocol;
 
+#[cfg(windows)]
+mod windows_directory;
+
 #[allow(dead_code)]
 #[cfg(windows)]
 mod windows;
 
 #[cfg(windows)]
 mod docker_repair;
+
+#[cfg(windows)]
+mod docker_authenticode;
+
+#[allow(dead_code)]
+#[cfg(windows)]
+mod windows_owned_child;
 
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
@@ -124,9 +134,11 @@ fn valid_appcontainer_pipe_name(value: &str) -> bool {
 }
 
 enum InvocationMode {
+    WindowsDirectory,
     Standard,
     AppContainer(String),
     DockerDesktopRepair,
+    DockerDesktopRestart,
 }
 
 fn invocation_mode() -> Result<InvocationMode, ()> {
@@ -134,9 +146,23 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
     let Some(mode) = arguments.next() else {
         return Ok(InvocationMode::Standard);
     };
+    if mode == OsStr::new("--system-windows-directory") {
+        return if arguments.next().is_none() {
+            Ok(InvocationMode::WindowsDirectory)
+        } else {
+            Err(())
+        };
+    }
     if mode == OsStr::new("--docker-desktop-repair-helper") {
         return if arguments.next().is_none() {
             Ok(InvocationMode::DockerDesktopRepair)
+        } else {
+            Err(())
+        };
+    }
+    if mode == OsStr::new("--docker-desktop-restart-helper") {
+        return if arguments.next().is_none() {
+            Ok(InvocationMode::DockerDesktopRestart)
         } else {
             Err(())
         };
@@ -155,6 +181,16 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
 
 fn main() {
     let exit_code = match invocation_mode() {
+        Ok(InvocationMode::WindowsDirectory) => {
+            #[cfg(windows)]
+            {
+                windows_directory::run(&mut std::io::stdout())
+            }
+            #[cfg(not(windows))]
+            {
+                2
+            }
+        }
         Ok(InvocationMode::Standard) => {
             execute(&mut std::io::stdin(), &mut std::io::stdout(), false)
         }
@@ -171,6 +207,16 @@ fn main() {
             #[cfg(windows)]
             {
                 docker_repair::run(&mut std::io::stdin(), &mut std::io::stdout())
+            }
+            #[cfg(not(windows))]
+            {
+                2
+            }
+        }
+        Ok(InvocationMode::DockerDesktopRestart) => {
+            #[cfg(windows)]
+            {
+                docker_repair::run_restart(&mut std::io::stdin(), &mut std::io::stdout())
             }
             #[cfg(not(windows))]
             {

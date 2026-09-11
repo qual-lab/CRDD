@@ -80,6 +80,7 @@ import {
   captureRuntimeOwnedCandidateRevision,
   materializeRuntimeOwnedRepositoryWorkspace,
   persistRuntimeOwnedCandidateRevision,
+  projectRuntimeOwnedCandidateReadContent,
   verifyRuntimeOwnedCandidateRevision,
 } from "./repository-workspace-runtime.ts";
 
@@ -109,7 +110,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 28;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 35;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -136,6 +137,62 @@ const PROVIDER_TURN_OBSERVATION_KEYS = new Set([
   "providerReportedTurns",
   "resultAcceptanceMaximumTurns",
   "requestedTurnTargetExceeded",
+]);
+const REVIEWER_FINDING_DIAGNOSTIC_KEYS = new Set([
+  "severity",
+  "path",
+  "category",
+  "criterionNumber",
+  "messageSha256",
+]);
+const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
+  "transport",
+  "turnCompleted",
+  "commandExecutionStartedCount",
+  "commandExecutionCompletedCount",
+  "commandExecutionFailedCount",
+  "commandExecutionDeclinedCount",
+  "commandExecutionExitCode0Count",
+  "commandExecutionExitCode1Count",
+  "commandExecutionExitCode126Count",
+  "commandExecutionExitCode127Count",
+  "commandExecutionOtherNonzeroExitCodeCount",
+  "commandExecutionMissingExitCodeCount",
+  "commandFamilyPythonCount",
+  "commandFamilyPosixTextCount",
+  "commandFamilyGitCount",
+  "commandFamilyApplyPatchCount",
+  "commandFailurePermissionCount",
+  "commandFailureReadOnlyFilesystemCount",
+  "commandFailureMissingPathCount",
+  "commandFailureCommandNotFoundCount",
+  "commandFailureSyntaxCount",
+  "commandFailureSandboxCount",
+  "commandFailureUnclassifiedCount",
+  "fileChangeStartedCount",
+  "fileChangeCompletedCount",
+  "fileChangeFailedCount",
+  "fileChangeDeclinedCount",
+  "rawEventReported",
+  "commandReported",
+  "pathReported",
+  "providerTextReported",
+]);
+const REVIEWER_PROJECTION_KEYS = new Set([
+  "status",
+  "candidatePatchHash",
+  "candidateContentManifestHash",
+  "projectionHash",
+  "totalBytes",
+  "files",
+]);
+const REVIEWER_PROJECTION_FILE_KEYS = new Set([
+  "path",
+  "state",
+  "byteLength",
+  "sha256",
+  "encoding",
+  "content",
 ]);
 const INVALID_CONTROL_CANCELLATION_RESULT = Object.freeze({
   status: "blocked" as const,
@@ -273,7 +330,7 @@ type RuntimeDependencies = Readonly<{
     role: TaskRole,
   ) => Readonly<{
     commandRestriction: (purpose: string) => boolean;
-    settle: () => void;
+    settle: () => unknown;
   }> | null;
   observeLifecycleState?: (state: RuntimeLifecycleState) => void;
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
@@ -291,6 +348,14 @@ type RuntimeDependencies = Readonly<{
     repositoryRoot: string,
   ) => RuntimeRecord | null;
   materializeWorkspace: (
+    repositoryBindingCapability: object,
+    managementCapability: object,
+    mountCapability: object,
+    readPaths: readonly string[],
+  ) => RuntimeRecord | null;
+  projectReviewerReadContent?: (
+    workspaceCapability: object,
+    candidateCapability: object,
     repositoryBindingCapability: object,
     managementCapability: object,
     mountCapability: object,
@@ -624,6 +689,171 @@ function projectProviderTurnObservation(value: unknown) {
   });
 }
 
+function sha256Value(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
+}
+
+function projectReviewerResultDiagnostics(value: unknown) {
+  const decision = ownPlainDataValue(value, "decision");
+  const findingCount = ownPlainDataValue(value, "findingCount");
+  const diagnostics = snapshotPlainArray<unknown>(
+    ownPlainDataValue(value, "findingDiagnostics"),
+    64,
+  );
+  if (
+    (decision !== "approved" && decision !== "changes_requested") ||
+    !Number.isSafeInteger(findingCount) ||
+    (findingCount as number) < 0 ||
+    diagnostics.status !== "ok" ||
+    diagnostics.value.length !== findingCount
+  )
+    return null;
+  const projectedDiagnostics = diagnostics.value.map((item) => {
+    const record = snapshotPlainRecord(item, REVIEWER_FINDING_DIAGNOSTIC_KEYS);
+    if (
+      !record ||
+      typeof record.severity !== "string" ||
+      typeof record.path !== "string" ||
+      typeof record.category !== "string" ||
+      !Number.isSafeInteger(record.criterionNumber) ||
+      !sha256Value(record.messageSha256)
+    )
+      return null;
+    return Object.freeze({
+      severity: record.severity,
+      path: record.path,
+      category: record.category,
+      criterionNumber: record.criterionNumber,
+      messageSha256: record.messageSha256,
+    });
+  });
+  if (projectedDiagnostics.some((item) => item === null)) return null;
+  return Object.freeze({
+    decision,
+    findingCount: findingCount as number,
+    findingDiagnostics: Object.freeze(projectedDiagnostics),
+  });
+}
+
+function projectExecutorResultDiagnostics(value: unknown) {
+  const status = ownPlainDataValue(value, "status");
+  const changedPaths = snapshotPlainArray<unknown>(
+    ownPlainDataValue(value, "changedPaths"),
+    1_000,
+  );
+  const verificationCount = ownPlainDataValue(value, "verificationCount");
+  const observation = snapshotPlainRecord(
+    ownPlainDataValue(value, "providerExecutionObservation"),
+    PROVIDER_EXECUTION_OBSERVATION_KEYS,
+  );
+  if (
+    status !== "completed" ||
+    changedPaths.status !== "ok" ||
+    !changedPaths.value.every((path) => typeof path === "string") ||
+    !Number.isSafeInteger(verificationCount) ||
+    (verificationCount as number) < 0
+  )
+    return null;
+  let providerExecutionObservation = null;
+  if (observation) {
+    const countKeys = [
+      "commandExecutionStartedCount",
+      "commandExecutionCompletedCount",
+      "commandExecutionFailedCount",
+      "commandExecutionDeclinedCount",
+      "commandExecutionExitCode0Count",
+      "commandExecutionExitCode1Count",
+      "commandExecutionExitCode126Count",
+      "commandExecutionExitCode127Count",
+      "commandExecutionOtherNonzeroExitCodeCount",
+      "commandExecutionMissingExitCodeCount",
+      "commandFamilyPythonCount",
+      "commandFamilyPosixTextCount",
+      "commandFamilyGitCount",
+      "commandFamilyApplyPatchCount",
+      "commandFailurePermissionCount",
+      "commandFailureReadOnlyFilesystemCount",
+      "commandFailureMissingPathCount",
+      "commandFailureCommandNotFoundCount",
+      "commandFailureSyntaxCount",
+      "commandFailureSandboxCount",
+      "commandFailureUnclassifiedCount",
+      "fileChangeStartedCount",
+      "fileChangeCompletedCount",
+      "fileChangeFailedCount",
+      "fileChangeDeclinedCount",
+    ] as const;
+    if (
+      observation.transport !== "fixed_cli_jsonl_v0_149_1" ||
+      observation.turnCompleted !== true ||
+      !countKeys.every(
+        (key) =>
+          Number.isSafeInteger(observation[key]) &&
+          (observation[key] as number) >= 0,
+      ) ||
+      observation.rawEventReported !== false ||
+      observation.commandReported !== false ||
+      observation.pathReported !== false ||
+      observation.providerTextReported !== false
+    )
+      return null;
+    providerExecutionObservation = Object.freeze({ ...observation });
+  }
+  return Object.freeze({
+    status,
+    changedPaths: Object.freeze([...changedPaths.value] as string[]),
+    verificationCount: verificationCount as number,
+    ...(providerExecutionObservation ? { providerExecutionObservation } : {}),
+  });
+}
+
+function projectReviewerProjectionEvidence(value: unknown) {
+  const record = snapshotPlainRecord(value, REVIEWER_PROJECTION_KEYS);
+  const files = record
+    ? snapshotPlainArray<unknown>(record.files, 1_000)
+    : null;
+  if (
+    record?.status !== "projected" ||
+    !sha256Value(record.candidatePatchHash) ||
+    !sha256Value(record.candidateContentManifestHash) ||
+    !sha256Value(record.projectionHash) ||
+    !Number.isSafeInteger(record.totalBytes) ||
+    (record.totalBytes as number) < 0 ||
+    files?.status !== "ok"
+  )
+    return null;
+  const projectedFiles = files.value.map((item) => {
+    const file = snapshotPlainRecord(item, REVIEWER_PROJECTION_FILE_KEYS);
+    if (
+      !file ||
+      typeof file.path !== "string" ||
+      file.state !== "present" ||
+      !Number.isSafeInteger(file.byteLength) ||
+      (file.byteLength as number) < 0 ||
+      !sha256Value(file.sha256) ||
+      file.encoding !== "utf-8" ||
+      typeof file.content !== "string"
+    )
+      return null;
+    return Object.freeze({
+      path: file.path,
+      state: file.state,
+      byteLength: file.byteLength,
+      sha256: file.sha256,
+      encoding: file.encoding,
+    });
+  });
+  if (projectedFiles.some((item) => item === null)) return null;
+  return Object.freeze({
+    candidatePatchHash: record.candidatePatchHash,
+    candidateContentManifestHash: record.candidateContentManifestHash,
+    projectionHash: record.projectionHash,
+    totalBytes: record.totalBytes,
+    files: Object.freeze(projectedFiles),
+    contentReported: false,
+  });
+}
+
 function snapshotRuntimeRecord(value: unknown): RuntimeRecord | null {
   try {
     if (
@@ -907,13 +1137,55 @@ function selectionRequest(
   });
 }
 
-function packetRequest(request: RuntimeRecord) {
+function packetRequest(
+  request: RuntimeRecord,
+  reviewerReadProjection: RuntimeRecord | null,
+) {
+  return Object.freeze({
+    objective: request.objective,
+    acceptanceCriteria: request.acceptanceCriteria,
+    allowedPaths: request.allowedPaths,
+    readPaths: request.readPaths,
+    reviewerReadProjection,
+  });
+}
+
+function externalSendScopeRequest(request: RuntimeRecord) {
   return Object.freeze({
     objective: request.objective,
     acceptanceCriteria: request.acceptanceCriteria,
     allowedPaths: request.allowedPaths,
     readPaths: request.readPaths,
   });
+}
+
+function projectProviderPreparationFailure(reason: unknown) {
+  if (typeof reason !== "string")
+    return "coordinator_task_provider_prepare_failed";
+  if (reason.endsWith("_docker_runtime_model_selection_invalid"))
+    return "coordinator_task_provider_model_selection_invalid";
+  if (reason.endsWith("_docker_runtime_mount_authorization_invalid"))
+    return "coordinator_task_provider_mount_authorization_invalid";
+  if (reason.endsWith("_docker_runtime_task_packet_invalid"))
+    return "coordinator_task_provider_task_packet_invalid";
+  if (reason.endsWith("_docker_runtime_plan_invalid"))
+    return "coordinator_task_provider_plan_invalid";
+  if (reason.endsWith("_docker_runtime_authority_invalid"))
+    return "coordinator_task_provider_authority_invalid";
+  if (reason.endsWith("_docker_runtime_recovery_correlation_invalid"))
+    return "coordinator_task_provider_recovery_correlation_invalid";
+  return "coordinator_task_provider_prepare_failed";
+}
+
+function sameProviderSelection(left: RuntimeRecord, right: RuntimeRecord) {
+  return (
+    left.executorProvider === right.executorProvider &&
+    left.profileId === right.profileId &&
+    left.selectedModel === right.selectedModel &&
+    left.selectedEffort === right.selectedEffort &&
+    left.speedMode === right.speedMode &&
+    left.selectionNotice === right.selectionNotice
+  );
 }
 
 function samePaths(left: unknown, right: unknown) {
@@ -942,11 +1214,16 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
   if (dependencies.beginInvocation && !invocation)
     return blocked("coordinator_task_development_invocation_not_authorized");
   args[12] = invocation?.commandRestriction;
+  let result: Awaited<ReturnType<typeof executeStageBody>>;
+  let settlement: unknown;
   try {
-    return await executeStageBody(...args);
+    result = await executeStageBody(...args);
   } finally {
-    invocation?.settle();
+    settlement = invocation?.settle();
   }
+  return settlement === false
+    ? blocked("coordinator_task_development_invocation_settlement_invalid")
+    : result;
 }
 
 async function executeStageBody(
@@ -963,26 +1240,28 @@ async function executeStageBody(
   remediationCapability: object | null,
   control: ControlRecord,
   commandRestriction?: unknown,
+  reviewerReadProjection: RuntimeRecord | null = null,
 ) {
   if (control.cancellationRequested) {
     return blocked("coordinator_task_cancelled_before_stage_start");
   }
-  const selection = state.dependencies.issueSelection(
+  const selectionInput = selectionRequest(
+    request,
+    operation.operationId,
+    role === "executor" ? "executor" : "independent_reviewer",
+    subjectProvider,
+    role === "executor" &&
+      (request.requestedExecutorProvider === "codex" ||
+        request.requestedExecutorProvider === "claude")
+      ? request.requestedExecutorProvider
+      : role === "reviewer" && expectedProvider === subjectProvider
+        ? expectedProvider
+        : null,
+    role === "reviewer" ? expectedProvider !== subjectProvider : false,
+  );
+  let selection = state.dependencies.issueSelection(
     operation.managementCapability,
-    selectionRequest(
-      request,
-      operation.operationId,
-      role === "executor" ? "executor" : "independent_reviewer",
-      subjectProvider,
-      role === "executor" &&
-        (request.requestedExecutorProvider === "codex" ||
-          request.requestedExecutorProvider === "claude")
-        ? request.requestedExecutorProvider
-        : role === "reviewer" && expectedProvider === subjectProvider
-          ? expectedProvider
-          : null,
-      role === "reviewer" ? expectedProvider !== subjectProvider : false,
-    ),
+    selectionInput,
   );
   const provider =
     selection.executorProvider === "codex" ||
@@ -1029,32 +1308,6 @@ async function executeStageBody(
       revokeUnconsumed();
       return blocked("coordinator_task_selection_slate_mismatch");
     }
-    if (
-      !state.dependencies.reportSelectionNotice(
-        Object.freeze({
-          event: "coordinator_selection_before_provider_effect",
-          taskRole: role,
-          provider,
-          model: selection.selectedModel,
-          effort: selection.selectedEffort,
-          speedMode: selection.speedMode,
-          selectionReason: selection.selectionNotice,
-          inputBasis:
-            "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
-          callerDeclaredAttributes: Object.freeze([
-            "workClass",
-            "planState",
-            "risk",
-            "difficulty",
-            "decisionImpact",
-          ]),
-          highCostSelectionAllowed: false,
-        }),
-      )
-    ) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_selection_notice_unavailable");
-    }
     const first = state.dependencies.observeProviderHome(
       provider,
       evaluationTime,
@@ -1097,6 +1350,65 @@ async function executeStageBody(
       return blocked("coordinator_task_mount_grant_consume_failed");
     }
     mountControl = null;
+    const revokedSelection = state.dependencies.revokeSelection(
+      selectionControl,
+      operation.managementCapability,
+    );
+    selectionControl = null;
+    if (revokedSelection.status !== "revoked") {
+      return blocked(
+        "coordinator_task_provider_selection_refresh_revoke_failed",
+      );
+    }
+    const refreshedSelection = state.dependencies.issueSelection(
+      operation.managementCapability,
+      selectionInput,
+    );
+    const refreshedSelectionControl = objectCapability(
+      refreshedSelection.controlCapability,
+    );
+    const refreshedSelectionUse = objectCapability(
+      refreshedSelection.useCapability,
+    );
+    if (
+      refreshedSelection.status !== "issued" ||
+      !refreshedSelectionControl ||
+      !refreshedSelectionUse
+    ) {
+      return blocked("coordinator_task_provider_selection_refresh_failed");
+    }
+    selectionControl = refreshedSelectionControl;
+    if (!sameProviderSelection(selection, refreshedSelection)) {
+      revokeUnconsumed();
+      return blocked("coordinator_task_provider_selection_refresh_mismatch");
+    }
+    selection = refreshedSelection;
+    if (
+      !state.dependencies.reportSelectionNotice(
+        Object.freeze({
+          event: "coordinator_selection_before_provider_effect",
+          taskRole: role,
+          provider,
+          model: selection.selectedModel,
+          effort: selection.selectedEffort,
+          speedMode: selection.speedMode,
+          selectionReason: selection.selectionNotice,
+          inputBasis:
+            "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
+          callerDeclaredAttributes: Object.freeze([
+            "workClass",
+            "planState",
+            "risk",
+            "difficulty",
+            "decisionImpact",
+          ]),
+          highCostSelectionAllowed: false,
+        }),
+      )
+    ) {
+      revokeUnconsumed();
+      return blocked("coordinator_task_selection_notice_unavailable");
+    }
     const packet = state.dependencies.issueTaskPacket(
       operation.managementCapability,
       repositoryBindingCapability,
@@ -1105,7 +1417,10 @@ async function executeStageBody(
       taskAttempt,
       externalSendGrantCapability,
       remediationCapability,
-      packetRequest(request),
+      packetRequest(
+        request,
+        role === "reviewer" ? reviewerReadProjection : null,
+      ),
     );
     taskControl = objectCapability(packet?.controlCapability);
     const taskUse = objectCapability(packet?.useCapability);
@@ -1125,7 +1440,7 @@ async function executeStageBody(
       operation.managementCapability,
       operation.mountCapability,
       mountAuthorization,
-      selection.useCapability as object,
+      refreshedSelectionUse,
       taskUse,
       control.recoveryCorrelationId,
     );
@@ -1136,7 +1451,7 @@ async function executeStageBody(
       return blocked(
         prepared.reason === "claude_task_workload_split_required"
           ? "coordinator_task_workload_split_required"
-          : "coordinator_task_provider_prepare_failed",
+          : projectProviderPreparationFailure(prepared.reason),
       );
     }
     const rawProcess = state.dependencies.startProcess(
@@ -1561,7 +1876,7 @@ async function runCoordinatorTaskCore(
       operation.managementCapability,
       repositoryBinding,
       externalSendPolicyCapability,
-      packetRequest(request),
+      externalSendScopeRequest(request),
       slateProviders,
       control.cancellationController.signal,
     );
@@ -1714,6 +2029,24 @@ async function runCoordinatorTaskCore(
         blocked("coordinator_task_cancelled_before_independent_review"),
       );
     }
+    const reviewerReadProjection = state.dependencies.projectReviewerReadContent
+      ? state.dependencies.projectReviewerReadContent(
+          workspaceCapability,
+          candidateCapability,
+          repositoryBinding,
+          operation.managementCapability,
+          operation.mountCapability,
+          request.readPaths as readonly string[],
+        )
+      : null;
+    if (
+      state.dependencies.projectReviewerReadContent &&
+      reviewerReadProjection?.status !== "projected"
+    ) {
+      return candidateNotIssued(
+        blocked("coordinator_task_reviewer_read_projection_failed"),
+      );
+    }
     let reviewer = await executeStage(
       state,
       operation,
@@ -1727,6 +2060,8 @@ async function runCoordinatorTaskCore(
       slateReviewerProvider,
       null,
       control,
+      undefined,
+      reviewerReadProjection,
     );
     if (reviewer.status !== "completed") {
       shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
@@ -1734,6 +2069,7 @@ async function runCoordinatorTaskCore(
     }
     advanceLifecycleState(state, control, "STATE-REVIEWER-CLEAN");
     let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
+    let finalReviewerReadProjection = reviewerReadProjection;
     retainTurnObservation(reviewer, 0);
     let remediationPerformed = false;
     if (reviewerResult?.decision === "changes_requested") {
@@ -1796,6 +2132,25 @@ async function runCoordinatorTaskCore(
         control,
         "STATE-REMEDIATION-CANDIDATE-CAPTURED",
       );
+      const remediationReviewerReadProjection = state.dependencies
+        .projectReviewerReadContent
+        ? state.dependencies.projectReviewerReadContent(
+            workspaceCapability,
+            candidateCapability,
+            repositoryBinding,
+            operation.managementCapability,
+            operation.mountCapability,
+            request.readPaths as readonly string[],
+          )
+        : null;
+      if (
+        state.dependencies.projectReviewerReadContent &&
+        remediationReviewerReadProjection?.status !== "projected"
+      ) {
+        return candidateNotIssued(
+          blocked("coordinator_task_reviewer_read_projection_failed"),
+        );
+      }
       reviewer = await executeStage(
         state,
         operation,
@@ -1809,6 +2164,8 @@ async function runCoordinatorTaskCore(
         reviewer.provider as Provider,
         null,
         control,
+        undefined,
+        remediationReviewerReadProjection,
       );
       if (reviewer.status !== "completed") {
         shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
@@ -1816,6 +2173,7 @@ async function runCoordinatorTaskCore(
       }
       advanceLifecycleState(state, control, "STATE-REMEDIATION-REVIEWER-CLEAN");
       reviewerResult = reviewer.normalizedResult as RuntimeRecord;
+      finalReviewerReadProjection = remediationReviewerReadProjection;
       retainTurnObservation(reviewer, 1);
     }
     const verified = state.dependencies.verifyCandidate(
@@ -1824,15 +2182,42 @@ async function runCoordinatorTaskCore(
       operation.managementCapability,
       operation.mountCapability,
     );
+    if (verified?.status !== "verified") {
+      return Object.freeze({
+        ...blocked("coordinator_task_candidate_verification_failed"),
+        externalSendAuthorizationMode,
+        candidateDisposition: "not_issued" as const,
+      });
+    }
     if (
-      verified?.status !== "verified" ||
       reviewerResult?.decision !== "approved" ||
       reviewerResult.findingCount !== 0
     ) {
+      const executorDiagnostics =
+        projectExecutorResultDiagnostics(executorResult);
+      const reviewerDiagnostics =
+        projectReviewerResultDiagnostics(reviewerResult);
+      const reviewerProjectionEvidence = projectReviewerProjectionEvidence(
+        finalReviewerReadProjection,
+      );
       return Object.freeze({
         ...blocked("coordinator_task_independent_review_not_approved"),
         externalSendAuthorizationMode,
         candidateDisposition: "not_issued" as const,
+        executorProvider: executor.provider,
+        reviewerProvider: reviewer.provider,
+        remediationPerformed,
+        candidateRevision: Object.freeze({
+          baseCommit: verified.baseCommit,
+          baseTree: verified.baseTree,
+          patchHash: verified.patchHash,
+          contentManifestHash: verified.contentManifestHash,
+          allowedPathsHash: verified.allowedPathsHash,
+          changedPaths: verified.changedPaths,
+        }),
+        executorResult: executorDiagnostics,
+        reviewerResult: reviewerDiagnostics,
+        reviewerProjectionEvidence,
       });
     }
     const persisted = state.dependencies.persistCandidate(
@@ -1890,22 +2275,14 @@ async function runCoordinatorTaskCore(
       candidateId: null,
       candidateRecoveryId,
       candidateStoreRecoveryId: null,
-      executorResult: Object.freeze({
-        status: executorResult.status,
-        changedPaths: Object.freeze([
-          ...((executorResult.changedPaths as readonly string[]) ?? []),
-        ]),
-        verificationCount:
-          typeof executorResult.verificationCount === "number"
-            ? executorResult.verificationCount
-            : 0,
-      }),
+      executorResult: projectExecutorResultDiagnostics(executorResult),
       reviewerResult: Object.freeze({
         decision: reviewerResult.decision,
         findingCount:
           typeof reviewerResult.findingCount === "number"
             ? reviewerResult.findingCount
             : 0,
+        findingDiagnostics: Object.freeze([]),
       }),
       canonicalRepositoryChanged: false,
       rawOutputReported: false,
@@ -2123,6 +2500,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   isProcessPoisoned: isRuntimeProcessPoisoned,
   bindRepository: bindRuntimeOwnedRepositoryOperation,
   materializeWorkspace: materializeRuntimeOwnedRepositoryWorkspace,
+  projectReviewerReadContent: projectRuntimeOwnedCandidateReadContent,
   issueSelection: issueRuntimeOwnedDelegationSelectionGrant,
   preflightSlate: preflightRuntimeOwnedDelegationExecutionSlate,
   revokeSelection: revokeRuntimeOwnedDelegationSelectionGrant,
@@ -3094,6 +3472,8 @@ export function describeCoordinatorTaskRuntimeContract() {
         "low_risk_local_bounded_only_with_separate_grant_packet_process_and_read_only_candidate",
       highRiskSameProviderAllowed: false,
     }),
+    candidateReviewClassification:
+      "candidate_integrity_verification_failure_is_distinct_from_independent_reviewer_semantic_rejection",
     boundedRemediation:
       "maximum_one_same_executor_then_same_independent_reviewer",
     providerTurnObservations:

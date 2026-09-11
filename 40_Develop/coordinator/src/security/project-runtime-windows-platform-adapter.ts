@@ -10,7 +10,7 @@ import {
   PROJECT_RUNTIME_PLATFORM_CONTRACT_REVISION,
   type ProjectRuntimePlatformAdapter,
   type ProjectRuntimePlatformBoundary,
-} from "./project-runtime-platform-contract.ts";
+} from "../../../project-runtime/src/index.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "./provider-home-windows-adapter.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 import { compileWindowsRootObservationCandidate } from "./root-observation.ts";

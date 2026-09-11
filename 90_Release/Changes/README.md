@@ -1,19 +1,27 @@
-# 未リリース変更トレース統合台帳
+# 変更記録と固定履歴の案内
 
-この台帳は、v0.18.0未リリース候補44件を、利用者にとって独立した変更意図、人間による採否、外部への移行、リリース時の処置という観点で整理し、正本となる変更記録（Canonical CHG）7件へまとめた記録である。台帳の役割は、旧IDから統合先の変更記録と当時の本文をたどることに限られる。現在の意味と状態は各変更記録が持ち、本台帳や旧IDを現在状態の第二の正本としては扱わない。
+| 項目 | 本台帳が所有すること |
+|---|---|
+| 目的 | v0.18.0の未リリース候補44件を、独立した変更意図、採否、移行およびRelease時の処置によってCanonical CHG 7件へ統合した履歴を保持する |
+| 現在状態の正本 | 各Canonical CHG、[品質の現在状態](../../07_Quality/01_Quality_Center.md)、対応する現行工程成果物 |
+| 過去本文の正本 | 検証済みの公式tagまたは台帳に固定したCommit上のexact path |
+| 所有しないこと | 現在のCapability、Authority、Release状態または現行設計の再定義 |
 
-## まず読む場所
+## 目的から読む場所を選ぶ
 
-- v0.18.0で採用された変更を確認する場合は、次のCanonical CHG一覧から対象を読む。
-- v0.18.1のCoordinator採用入口の是正は、固定7件の統合台帳へ追加せず、[CHG-000056](CHG-000056_Coordinator_Adoption_Interface_Correction.md)と[品質の現在状態](../../07_Quality/01_Quality_Center.md)から確認する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子で確認する。
-- v0.19.0で公開したMinimum AI-native Project Runtimeは、公開済みIDを再利用せず[CHG-000057](CHG-000057_Minimum_AI_Native_Project_Runtime.md)で追跡する。これはv0.18.1の公開後に開始した独立変更であり、固定7件のv0.18統合台帳へ吸収しない。
-- v0.19.0の推論コンテキストと設計意図は、[CHG-000058](CHG-000058_Reasoning_Context_and_Design_Intent.md)で追跡する。Project Runtimeの実装Stepではなく、工程方法論として独立して採否・検証できるMeaningful Changeであるため、CHG-000057へ吸収しない。
-- v0.19.0のDogfoodingから得た保証コスト、変更経路および人間可読性の横断改善は、[CHG-000059](CHG-000059_Dogfooding_Assurance_Route_and_Readability.md)で追跡する。Project Runtime実装ではなく既存のChange、Quality Assurance、DocumentationおよびDocument Auditの責務を強化する独立したMeaningful Changeである。
-- v0.19.0のCRDD公式ブランドアイコン採用は、[CHG-000060](CHG-000060_CRDD_Brand_Icon_Adoption.md)で追跡する。Project Runtime、推論コンテキストまたは可読性改善とは独立した人間のブランド判断であり、既存CHGへ吸収しない。
-- 統合済みの旧CHG IDがどこへ移ったかを確認する場合は、[統合済み旧ID](#統合済み旧id)を読む。旧本文そのものが必要な場合だけ、各entryの固定Commitから`git show`で復元する。
-- SHA-256、固定byte、tag、旧Path等の機械検証情報は、通常利用者向け説明ではなく履歴Trustの検証入力である。現在のCapability、AuthorityまたはRelease状態をそこから推定しない。
+| 知りたいこと | 読む場所 | 注意 |
+|---|---|---|
+| v0.18.0で採用した変更 | [Canonical CHG一覧](#公開済みの変更を調べる) | 現在の状態は個別CHGと公式tagで確認する |
+| v0.18.1のCoordinator採用入口 | [CHG-000056](CHG-000056_Coordinator_Adoption_Interface_Correction.md) | 固定7件のv0.18統合集合には追加しない |
+| v0.19.0 Project Runtime | [CHG-000057](CHG-000057_Minimum_AI_Native_Project_Runtime.md) | v0.18.1後の独立変更 |
+| v0.19.0 推論コンテキスト／設計意図 | [CHG-000058](CHG-000058_Reasoning_Context_and_Design_Intent.md) | Project Runtimeと独立して採否・検証できる |
+| v0.19.0 Dogfooding由来の横断改善 | [CHG-000059](CHG-000059_Dogfooding_Assurance_Route_and_Readability.md) | Change、Quality Assurance、Documentation、Document Auditの改善 |
+| v0.19.0 ブランドアイコン | [CHG-000060](CHG-000060_CRDD_Brand_Icon_Adoption.md) | 他の変更意図と分離する |
+| v0.20.0 各変更 | [CHG-000061](CHG-000061_Test_Levels_and_Automated_Regression.md)、[CHG-000062](CHG-000062_Execution_Intelligence.md)、[CHG-000063](CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](CHG-000064_Project_State_and_Local_MCP_HTTP.md)、[CHG-000065](CHG-000065_Structured_First_Documentation.md) | 未リリースの独立変更であり、v0.18の固定統合集合へ追加しない |
+| 統合済みの旧CHG IDの移行先 | [統合済み旧ID](#統合済み旧id) | 旧本文が必要な場合だけ固定Commitから`git show`する |
+| SHA-256、固定byte、tag、旧Path | 後続の機械所有表 | 履歴Trustの検証入力であり、利用者向けの現在説明ではない |
 
-この順序は履歴情報を削らず、現在状態、過去判断、機械検証の詳細を段階的に表示するための入口である。
+固定履歴のbyte列は、当時の証拠として保全する。そのため、現行Treeでの読みやすさは、過去本文を書き換えるのではなく、本案内と現行正本への段階的な導線で保証する。
 
 <!-- crdd-change-trace-ledger-schema: 1 -->
 

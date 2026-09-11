@@ -5,6 +5,7 @@ import {
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
 } from "./codex-execution-plan.ts";
+import { resolveFixedCodexExecutorSeccompProfile } from "./codex-executor-seccomp.ts";
 import { consumeRuntimeOwnedDelegationSelectionGrant } from "./delegation-selection-grant-runtime.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import {
@@ -25,7 +26,7 @@ import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-ru
 
 export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/codex-docker-runtime-adapter";
-export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 6;
+export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 7;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -156,6 +157,10 @@ type RuntimeState = Readonly<{
   wallNow: () => number;
   monotonicNow: () => number;
   randomBytes: (size: number) => Buffer;
+  verifyExecutorSeccompProfile?: (
+    expectedSha256: string,
+    expectedBytes: number,
+  ) => string | null;
   consumeModelSelection: (
     useCapability: unknown,
     managementCapability: unknown,
@@ -201,6 +206,7 @@ const productionState = createRuntimeState({
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
   randomBytes,
+  verifyExecutorSeccompProfile: resolveFixedCodexExecutorSeccompProfile,
   consumeModelSelection: consumeRuntimeOwnedDelegationSelectionGrant,
   consumeTaskPacket: consumeRuntimeOwnedProviderTaskPacket,
   issueProviderAuthority: issueRuntimeOwnedProviderAuthority,
@@ -352,6 +358,16 @@ function buildPlan(
     return null;
   }
   const fixedEnvironmentEntries = buildExactFixedEnvironment(codex.environment);
+  const executorSeccompProfile =
+    taskPacket?.taskRole === "executor"
+      ? (
+          state.verifyExecutorSeccompProfile ??
+          resolveFixedCodexExecutorSeccompProfile
+        )(
+          codex.distributionBinding.identity.executorSeccompProfileSha256,
+          codex.distributionBinding.identity.executorSeccompProfileBytes,
+        )
+      : null;
   const providerHomeMount = createSafeMount(
     providerHomeSourcePath,
     PROVIDER_HOME_DESTINATION,
@@ -364,6 +380,7 @@ function buildPlan(
   const proxyToken = createRandomHex(state, 32);
   if (
     !fixedEnvironmentEntries ||
+    (taskPacket?.taskRole === "executor" && !executorSeccompProfile) ||
     !providerHomeMount ||
     !tmpMount ||
     (taskPacket !== null && !workspaceMount) ||
@@ -498,6 +515,9 @@ function buildPlan(
       ownershipLabel,
       "--cap-drop=ALL",
       "--security-opt=no-new-privileges",
+      ...(executorSeccompProfile
+        ? [`--security-opt=seccomp=${executorSeccompProfile}`]
+        : []),
       "--pids-limit=64",
       "--user=65534:65534",
       "--workdir=/work",

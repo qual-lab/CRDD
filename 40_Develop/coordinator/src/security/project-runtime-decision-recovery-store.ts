@@ -5,7 +5,7 @@ import path from "node:path";
 import type {
   ProjectRuntimeDecisionRecoveryIntent,
   ProjectRuntimeDecisionRecoveryStore,
-} from "./project-runtime-human-decision.ts";
+} from "../../../project-runtime/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 
 export const PROJECT_RUNTIME_DECISION_RECOVERY_STORE_CONTRACT =

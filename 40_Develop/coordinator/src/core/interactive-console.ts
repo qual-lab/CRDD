@@ -1,17 +1,16 @@
-import { spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
-import path from "node:path";
 import tty from "node:tty";
 import { fileURLToPath } from "node:url";
-
+import path from "node:path";
 import {
-  INTERACTIVE_CONSOLE_READER_CONTRACT,
-  INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
   INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
   readInteractiveConsoleLineFromStream,
 } from "./interactive-console-reader.ts";
+import { runInteractiveConsoleReaderLifecycle } from "./interactive-console-reader-lifecycle-internal.ts";
 import { createInteractiveConsoleReaderEnvironment } from "./windows-child-environment.ts";
 import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "./runtime-process-safety-state.ts";
+import { spawnRuntimeLocalTypeScriptChild } from "./runtime-local-typescript-child-entrypoints.ts";
 
 export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
@@ -19,10 +18,6 @@ export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
 export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 16;
 
-const readerEntrypoint = fileURLToPath(
-  new URL("./interactive-console-reader.ts", import.meta.url),
-);
-const READER_MAXIMUM_OUTPUT_BYTES = 512;
 const READER_CANCEL_GRACE_MS = 500;
 const READER_TIMEOUT_MS = 110_000;
 const READER_CLEANUP_SCHEDULING_MARGIN_MS = 5_000;
@@ -67,13 +62,6 @@ type WindowsTerminalStream = Readonly<{
   once: (event: "error", listener: () => void) => unknown;
   removeListener: (event: "error", listener: () => void) => unknown;
   write: (value: string, callback: (error?: Error | null) => void) => boolean;
-}>;
-
-type InteractiveConsoleReaderProcessAdapter = Readonly<{
-  isTty: (descriptor: number) => boolean;
-  spawn: typeof spawn;
-  setTimeout: typeof setTimeout;
-  clearTimeout: typeof clearTimeout;
 }>;
 
 const WINDOWS_INTERACTIVE_CONSOLE_DEVICES = Object.freeze({
@@ -379,275 +367,6 @@ function validateInteractiveConsoleHandles(handles: InteractiveConsoleHandles) {
   }
 }
 
-function parseReaderResult(source: Buffer) {
-  if (
-    source.byteLength === 0 ||
-    source.byteLength > READER_MAXIMUM_OUTPUT_BYTES
-  )
-    return null;
-  let value: unknown;
-  try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(source);
-    if (!text.endsWith("\n") || text.indexOf("\n") !== text.length - 1)
-      return null;
-    value = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  if (
-    keys.join("\0") !==
-      ["contract", "contractRevision", "line", "status"].sort().join("\0") ||
-    record.contract !== INTERACTIVE_CONSOLE_READER_CONTRACT ||
-    record.contractRevision !== INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION ||
-    !["completed", "blocked"].includes(String(record.status)) ||
-    (record.status === "completed"
-      ? typeof record.line !== "string" || !/^[0-9]{6}$/u.test(record.line)
-      : record.line !== null)
-  ) {
-    return null;
-  }
-  return Object.freeze({
-    status: record.status as "completed" | "blocked",
-    line: typeof record.line === "string" ? record.line : null,
-  });
-}
-
-export function readInteractiveConsoleLineOutcomeUsingAdapter(
-  inputDescriptor: number,
-  cancellationSignal: AbortSignal,
-  adapter: InteractiveConsoleReaderProcessAdapter,
-): Promise<InteractiveConsoleReadOutcome> {
-  if (
-    !Number.isSafeInteger(inputDescriptor) ||
-    inputDescriptor < 0 ||
-    cancellationSignal.aborted ||
-    !adapter.isTty(inputDescriptor)
-  ) {
-    return Promise.resolve(
-      Object.freeze({
-        status: cancellationSignal.aborted ? "cancelled" : "reader_failed",
-        line: null,
-      }),
-    );
-  }
-  return new Promise((resolve) => {
-    let child: ReturnType<typeof spawn>;
-    try {
-      const environment = createInteractiveConsoleReaderEnvironment();
-      if (!environment) {
-        resolve(Object.freeze({ status: "reader_failed", line: null }));
-        return;
-      }
-      child = adapter.spawn(process.execPath, [readerEntrypoint], {
-        shell: false,
-        detached: false,
-        windowsHide: false,
-        cwd: path.dirname(readerEntrypoint),
-        env: environment,
-        stdio: ["ignore", "pipe", "ignore", "ipc"],
-      });
-    } catch {
-      resolve(Object.freeze({ status: "reader_failed", line: null }));
-      return;
-    }
-    let settled = false;
-    let isInvalid = false;
-    let isChildClosed = false;
-    let childExitCode: number | null = null;
-    let isOutputClosed = false;
-    let outputBytes = 0;
-    const outputBuffers: Buffer[] = [];
-    let killTimer: NodeJS.Timeout | null = null;
-    let isCompletionObserved = false;
-    let isCompletionForceStopIssued = false;
-    let outcomeStatus: InteractiveConsoleReadOutcome["status"] =
-      "reader_failed";
-    const timeout = adapter.setTimeout(
-      () => requestStop("timeout"),
-      READER_TIMEOUT_MS,
-    );
-    const finish = () => {
-      if (settled || !isChildClosed || !isOutputClosed) return;
-      settled = true;
-      adapter.clearTimeout(timeout);
-      if (killTimer) adapter.clearTimeout(killTimer);
-      try {
-        child.removeListener("error", onFailure);
-      } catch {
-        isInvalid = true;
-        outcomeStatus = "cleanup_unknown";
-      }
-      try {
-        child.removeListener("close", onClose);
-      } catch {
-        isInvalid = true;
-        outcomeStatus = "cleanup_unknown";
-      }
-      if (child.stdout) {
-        try {
-          child.stdout.removeListener("data", onData);
-        } catch {
-          isInvalid = true;
-          outcomeStatus = "cleanup_unknown";
-        }
-        try {
-          child.stdout.removeListener("error", onFailure);
-        } catch {
-          isInvalid = true;
-          outcomeStatus = "cleanup_unknown";
-        }
-        try {
-          child.stdout.removeListener("close", onOutputClose);
-        } catch {
-          isInvalid = true;
-          outcomeStatus = "cleanup_unknown";
-        }
-      }
-      try {
-        cancellationSignal.removeEventListener("abort", onAbort);
-      } catch {
-        isInvalid = true;
-        outcomeStatus = "cleanup_unknown";
-      }
-      try {
-        if (child.connected) child.disconnect();
-      } catch {
-        isInvalid = true;
-        outcomeStatus = "cleanup_unknown";
-      }
-      const parsed =
-        !isInvalid && !cancellationSignal.aborted
-          ? parseReaderResult(Buffer.concat(outputBuffers, outputBytes))
-          : null;
-      const isCompletedResult =
-        parsed?.status === "completed" &&
-        (childExitCode === 0 ||
-          (isCompletionObserved && isCompletionForceStopIssued));
-      const isBlockedResult =
-        parsed?.status === "blocked" && childExitCode === 2;
-      resolve(
-        Object.freeze({
-          status: isCompletedResult
-            ? "completed"
-            : outcomeStatus === "cleanup_unknown"
-              ? "cleanup_unknown"
-              : cancellationSignal.aborted
-                ? "cancelled"
-                : isBlockedResult
-                  ? "reader_failed"
-                  : outcomeStatus,
-          line: isCompletedResult ? parsed.line : null,
-        }),
-      );
-    };
-    const forceStop = () => {
-      let isTerminationUnknown = false;
-      if (isCompletionObserved) isCompletionForceStopIssued = true;
-      try {
-        if (!child.kill("SIGKILL")) isTerminationUnknown = true;
-      } catch {
-        isTerminationUnknown = true;
-      }
-      if (isTerminationUnknown) {
-        isInvalid = true;
-        outcomeStatus = "cleanup_unknown";
-      }
-    };
-    const requestStop = (
-      reason: Exclude<
-        InteractiveConsoleReadOutcome["status"],
-        "completed" | "cleanup_unknown"
-      > = "reader_failed",
-    ) => {
-      isInvalid = true;
-      if (outcomeStatus !== "timeout" && reason !== "reader_failed")
-        outcomeStatus = reason;
-      try {
-        if (child.connected) {
-          child.send("cancel", () => {
-            // IPC completion can race the child's close event. Supplying the
-            // callback consumes a late EPIPE instead of letting it become an
-            // unhandled ChildProcess error after finish removes listeners.
-            // Termination and cleanup are still decided only from the observed
-            // child/stdout close events and the force-stop fallback below.
-          });
-        }
-      } catch {
-        // The exact child is force-terminated below.
-      }
-      if (!killTimer) {
-        killTimer = adapter.setTimeout(forceStop, READER_CANCEL_GRACE_MS);
-      }
-    };
-    const onAbort = () => requestStop("cancelled");
-    const onFailure = () => requestStop("reader_failed");
-    const onData = (chunk: Buffer | string) => {
-      if (!Buffer.isBuffer(chunk)) {
-        requestStop("reader_failed");
-        return;
-      }
-      outputBytes += chunk.byteLength;
-      if (outputBytes > READER_MAXIMUM_OUTPUT_BYTES) {
-        requestStop("reader_failed");
-        return;
-      }
-      outputBuffers.push(Buffer.from(chunk));
-      const parsed = parseReaderResult(
-        Buffer.concat(outputBuffers, outputBytes),
-      );
-      if (parsed?.status === "completed" && !isCompletionObserved) {
-        isCompletionObserved = true;
-        if (!killTimer) {
-          killTimer = adapter.setTimeout(forceStop, READER_CANCEL_GRACE_MS);
-        }
-      }
-    };
-    const onClose = (code: number | null) => {
-      isChildClosed = true;
-      childExitCode = code;
-      finish();
-    };
-    const onOutputClose = () => {
-      isOutputClosed = true;
-      finish();
-    };
-    try {
-      child.once("error", onFailure);
-      child.once("close", onClose);
-      if (!child.stdout) {
-        isOutputClosed = true;
-        requestStop("reader_failed");
-      } else {
-        child.stdout.on("data", onData);
-        child.stdout.once("error", onFailure);
-        child.stdout.once("close", onOutputClose);
-      }
-      cancellationSignal.addEventListener("abort", onAbort, {
-        once: true,
-      });
-      if (cancellationSignal.aborted) onAbort();
-    } catch {
-      requestStop("reader_failed");
-    }
-  });
-}
-
-export async function readInteractiveConsoleLineUsingAdapter(
-  inputDescriptor: number,
-  cancellationSignal: AbortSignal,
-  adapter: InteractiveConsoleReaderProcessAdapter,
-) {
-  const outcome = await readInteractiveConsoleLineOutcomeUsingAdapter(
-    inputDescriptor,
-    cancellationSignal,
-    adapter,
-  );
-  return outcome.status === "completed" ? outcome.line : null;
-}
-
 export function readInteractiveConsoleLine(
   inputDescriptor: number,
   cancellationSignal: AbortSignal,
@@ -662,15 +381,49 @@ export function readInteractiveConsoleLineOutcome(
   inputDescriptor: number,
   cancellationSignal: AbortSignal,
 ) {
-  return readInteractiveConsoleLineOutcomeUsingAdapter(
-    inputDescriptor,
+  if (
+    !Number.isSafeInteger(inputDescriptor) ||
+    inputDescriptor < 0 ||
+    cancellationSignal.aborted ||
+    !tty.isatty(inputDescriptor)
+  )
+    return Promise.resolve(
+      Object.freeze({
+        status: cancellationSignal.aborted ? "cancelled" : "reader_failed",
+        line: null,
+      }) as InteractiveConsoleReadOutcome,
+    );
+  const environment = createInteractiveConsoleReaderEnvironment();
+  if (!environment)
+    return Promise.resolve(
+      Object.freeze({
+        status: "reader_failed",
+        line: null,
+      }) as InteractiveConsoleReadOutcome,
+    );
+  let child: ChildProcess;
+  try {
+    child = spawnRuntimeLocalTypeScriptChild("interactive_console_reader", [], {
+      shell: false,
+      detached: false,
+      windowsHide: false,
+      cwd: path.dirname(fileURLToPath(import.meta.url)),
+      env: environment,
+      stdio: ["ignore", "pipe", "ignore", "ipc"],
+    });
+  } catch {
+    return Promise.resolve(
+      Object.freeze({
+        status: "reader_failed",
+        line: null,
+      }) as InteractiveConsoleReadOutcome,
+    );
+  }
+  return runInteractiveConsoleReaderLifecycle(
+    Object.freeze({ inputDescriptor }),
     cancellationSignal,
-    Object.freeze({
-      isTty: tty.isatty,
-      spawn,
-      setTimeout,
-      clearTimeout,
-    }),
+    child,
+    Object.freeze({ setTimeout, clearTimeout }),
   ).then((outcome) => {
     if (outcome.status === "cleanup_unknown")
       poisonRuntimeProcessAfterInteractiveCleanupUnknown();
@@ -779,7 +532,7 @@ export function describeInteractiveConsoleContract() {
       "single_use_verified_package_capability_and_fresh_content_root",
     readerArguments: "fixed_entrypoint_only_no_dynamic_arguments",
     readerEnvironment:
-      "windows_loaded_kernel32_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
+      "windows_native_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
     platformGuarantee:
       "windows_local_personal_only_posix_fixed_empty_candidate_not_promoted",
     readerTimeoutMs: READER_TIMEOUT_MS,

@@ -1,8 +1,8 @@
 # CRDD内部ツールの検証設計
 
-状態: Candidate（v0.19.0、Released Baseline: v0.18.1）
+状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-02
+最終更新日: 2026-09-06
 
 ## 対象と判定
 
@@ -37,11 +37,11 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 
 | 確認する不確実性 | 観測・検証方法 | 合格に含めないこと |
 |---|---|---|
-| 移動した実装や試験が検査から漏れていないか | [命名・所有集合試験](../40_Develop/checker/tools-naming.contract.test.ts)で3つのTypeScript projectと実ファイル集合、Rust sourceを照合。0件・欠落・余剰・linkを負例に含める | 新Rootを検査しないために違反0になった結果 |
+| 移動した実装や試験が検査から漏れていないか | [命名・所有集合試験](../40_Develop/checker/tests/integration/tools-naming.contract.test.ts)で3つのTypeScript projectと実ファイル集合、Rust sourceを照合。0件・欠落・余剰・linkを負例に含める | 新Rootを検査しないために違反0になった結果 |
 | 旧配置への実行依存が残らないか | packageで型・全試験・開発E2Eを実行。分割したPath文字列、CLI、manifest、固定Task、改行設定も確認 | 単純な文字列置換だけの完了申告 |
-| Taskの結果と実資源の終了が一致するか | [実子Process結合試験](../40_Develop/coordinator/tests/coordinator-task-process.integration.test.ts)で正常、exit失敗、取消、close観測不明、Host cleanup拒否を同じTaskへ接続 | この試験専用adapterを正式署名CLI・Docker・認証・実Providerの証明とすること |
+| Taskの結果と実資源の終了が一致するか | [実子Process結合試験](../40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts)で正常、exit失敗、取消、close観測不明、Host cleanup拒否を同じTaskへ接続 | この試験専用adapterを正式署名CLI・Docker・認証・実Providerの証明とすること |
 | 回収より先に成功を返さないか | 子Process close、所有Filesystem、Capability、Recovery ID、listenerの終了後状態を観測。不明時は通常完了を拒否 | Promise完了だけによる回収確認 |
-| 設計の状態・資源・試験の対応が残るか | [機械可読対応](../40_Develop/coordinator/runtime/coordinator-runtime-traceability.json)と検査スクリプトで実装・試験参照を確認 | 構造的な参照一致だけによる意味網羅の主張 |
+| 設計の状態・資源・試験の対応が残るか | [Coordinatorの機械可読対応](05_Coordinator_Runtime_Traceability.json)と検査スクリプトで実装・試験参照を確認 | 構造的な参照一致だけによる意味網羅の主張 |
 | 過去の根拠を改変・誤読していないか | 既存固定Evidenceのbyteを保持し、当時版と現在の後継を区別する。通常リンクと履歴参照をそれぞれ検査 | 旧版の成功を現版のPassへ流用すること |
 | 仕様と操作手順が一致するか | 手順の入力、事前条件、停止、取消、結果と仕様を独立照合。公開コマンドの負例と実際の入力搬送を試験 | CLIがあることだけで通常利用可能と説明すること |
 
@@ -59,26 +59,57 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 
 最新実行と独立確認が終わるまで、この対応表だけで各部品を完了にしない。
 
+### Tool結合ブロックと段階的な結合試験
+
+[Tool全体の結合ブロック](../06_Architecture/01_Architecture.md#tool全体の結合ブロック)を結合試験の選択単位とする。ブロックはSource配置ではなく、共同で成立させる状態、Authority、資源、外部境界および終了後条件から定義する。公開機能の主経路だけでなく、取消、cleanup、Recovery、再入場、耐久記録およびsettlementを省略しない。
+
+| 段階 | 確認する範囲 | 合格から主張できないこと |
+|---|---|---|
+| ブロック内結合 | 実producer、実Adapterまたは安全に同等な実境界、実consumerを一つのLifecycleで接続する | 隣接ブロック、公開Tool全体、複数Toolの成立 |
+| 隣接ブロック結合 | 上流結果を再構成せず下流へ渡し、Identity、状態、Authority、Effect、cleanupを共同で観測する | 公開入口の入力搬送、最終利用者結果、全Provider経路の成立 |
+| Tool内公開経路 | 公開CLI／API／TransportからToolの最終結果と終了後条件までを接続する | 他Toolを含むProject全体またはRelease成立 |
+| 総合試験 | 複数Toolと本番同等Process・環境を通してAccepted Resultまたは安全停止を観測する | ブロック内の未観測Lifecycleを推定すること |
+
+Lifecycle profileは次の意味で用いる。`pure_component`でも入力拒否と結果settlementを持つが、存在しない外部資源やRecoveryを作らない。`external_effect_operation`では全Lifecycleを確認し、単発mockまたは最終E2Eだけで代替しない。
+
+| profile | 必須の確認 |
+|---|---|
+| `pure_component` | 受付、正常処理、入力拒否、結果settlement、外部Effect 0 |
+| `read_only_boundary` | 境界取得、安定読取り、失敗／観測不能、取消、子資源cleanup、終了結果 |
+| `transport_session` | bind／接続、搬送、切断、取消、同時要求、shutdown、listener／session終了 |
+| `durable_operation` | intent、競合、write／flush／publish／readback、失敗残存、Recovery、再入場、settlement |
+| `external_effect_operation` | Authority取得、Effect前再確認、要求／受理／完了／観測、timeout／取消、全資源cleanup、Recovery、再入場、settlement |
+
+[試験カタログ](04_Test_Catalog.json) revision 9は、全Toolが一つ以上の結合ブロックを持ち、各ブロックが詳細Architecture、責務、外部境界、Lifecycle profile、実在する結合試験および終了後条件へ接続することを機械検査する。さらに、ブロック間シーケンスの正本と、一段または二段の段階的結合経路、経路を反証する結合試験および終了後条件を対応させる。ブロック変更時は、Architectureだけ、試験だけ、またはカタログだけを更新して完了としない。ブロックの試験が固定Fakeに限られる場合は、実境界の確認を別の結合試験または未確認義務として残し、最終E2Eまで発見を遅延させない。
+
+Provider実行境界はReviewerだけを先に実測して完了としない。CodexとClaudeの双方について、ExecutorとReviewerのRole別計画、stdin搬送、隔離Workspaceの読書き権限、実変更、変更Path申告、候補捕捉、内容投影、構造化結果、Provider終了、候補処置および資源不存在を一つの有限Matrixへ置く。正常な実Provider経路は各ProviderをExecutorとReviewerの双方で一回ずつ通す。起動失敗、非ゼロ終了、timeout、取消、不正結果、変更Path不一致、内容投影失敗、cleanup不明および一回是正は決定論的な実Process／Docker境界で反証し、不安定な実Provider応答を異常系fixtureとして利用しない。宣言したMatrixの各caseは実在試験へ全数対応させ、代表caseの成功、CLI helpまたはProvider完了申告だけから境界完成を推定しない。
+
+状態と分岐の件数だけをProvider実行境界の網羅性としない。短命なCapability、期限、timeout、Leaseまたは再確認を含む経路では、本番相当の暗号処理、Package観測、Provider Home観測、子Process準備その他の前処理時間と有効期間の関係を結合条件として持つ。固定Fakeが即時に完了する試験とは別に、期限直前、前処理が有効期間を超える場合、および再発行・失効後のEffect 0を決定論的な時間制御で反証する。実境界で停止した場合は、Provider開始前後、失効したCapabilityの種類およびcleanup結果を秘密や生出力なしで識別できる固定理由を返し、一般的な準備失敗へ畳まない。
+
+実ProviderによるReviewer判定は、Provider計画やResult Parserの単体試験、固定FakeのCoordinator結合試験、および正式4経路E2Eの間に置く独立した実境界結合で確認する。署名済み固定候補からCodex ReviewerとClaude Reviewerを各一回通し、候補内容投影、構造化判定、必要な一回是正、Provider終了、候補処置およびcleanupまでを観測する。通常回帰からは自動実行せず、外部送信許可とSubscription消費を明示した実行だけがProvider Effectを持つ。失敗時は生のProvider出力を残さず、対象投影のexact一致、判定、Finding件数・分類・message Hash、是正有無および終了後資源から、投影不備とProvider判断を切り分ける。
+
+段階的結合の順序は固定しない。下位の外部境界または副次lifecycleから原因を局所化する場合はボトムアップ、公開入口から未接続Consumerを探索する場合はトップダウンを用いる。ただし、いずれもブロック内部、隣接一段、意味伝播が必要な二段、総合試験／E2Eの順で根拠を区別し、二段以内の不成立を最終E2Eで初めて発見する計画にしない。
+
 <a id="tool-user-experience-verification"></a>
 
 ### 利用体験・操作・表示と仕様の接続
 
-[検証結果保存の契約試験](../40_Develop/coordinator/tests/verification-result-record.contract.test.ts)は、実FSと実子Processで正常保存、停止結果の保存、callback例外、開始／終了保存失敗、flush失敗、途中終了、同時run、不正Git境界、link／Directory置換、容量・配列・byte上限、秘密風の値・getter・proxy拒否を確認する。公開Recovery入口の未署名停止も保存へ接続する。これらは実Provider成功、電源断耐性、敵対的な同一ユーザーへの耐性を証明しない。
+[検証結果保存の契約試験](../40_Develop/coordinator/tests/system/verification-result-record.contract.test.ts)は、実FSと実子Processで正常保存、停止結果の保存、callback例外、開始／終了保存失敗、flush失敗、途中終了、同時run、不正Git境界、link／Directory置換、容量・配列・byte上限、秘密風の値・getter・proxy拒否を確認する。公開Recovery入口の未署名停止も保存へ接続する。これらは実Provider成功、電源断耐性、敵対的な同一ユーザーへの耐性を証明しない。
 
 Docker create応答喪失の回復では、空照会だけで収束しない負例を維持する。正例は、Task submissionより後に始まった署名済みDocker Desktop復旧履歴、Process世代を切る確認済みEffect、Engine ready、安全状態、Evidence保持、明示終了、対象名と所有labelの二軸不存在、およびTask側へ耐久化した再起動境界receiptをすべて要求する。旧manifestの履歴受理が現在のRuntime AuthorityまたはCapabilityを発行しないこと、順序・署名・Policy・保護Root・復旧record・不存在の改変や欠落でEffect 0となることも確認する。
 
-共通起動入口は[起動契約試験](../40_Develop/coordinator/tests/coordinator-launch.contract.test.ts)で、採用Repository向け一般Taskの第一級入口と固定引数、対話TTY成立／redirect拒否、署名stdin非TTY拒否、自動処理の明示選択、実CLIのhelp、起動Directory差、未加工argv・stdin byte・同一PID・終了コード、対象import前拒否とimport後例外を確認する。削除済みの永続有効化・無効化・準備commandがhelp、parserまたは実装へ再出現せず、`capabilities --json`が現行Profileを正確に返すことも確認する。stdout redirect時に内部の安全Gateが拒否する試験だけで、正常に起動できる品質を確認したとはしない。実端末の可視性・一回入力・終了後表示、および署名配布からの実E2Eは別に記録する。
+共通起動入口は[起動契約試験](../40_Develop/coordinator/tests/system/coordinator-launch.contract.test.ts)で、採用Repository向け一般Taskの第一級入口と固定引数、対話TTY成立／redirect拒否、署名stdin非TTY拒否、自動処理の明示選択、実CLIのhelp、起動Directory差、未加工argv・stdin byte・同一PID・終了コード、対象import前拒否とimport後例外を確認する。削除済みの永続有効化・無効化・準備commandがhelp、parserまたは実装へ再出現せず、`capabilities --json`が現行Profileを正確に返すことも確認する。stdout redirect時に内部の安全Gateが拒否する試験だけで、正常に起動できる品質を確認したとはしない。実端末の可視性・一回入力・終了後表示、および署名配布からの実E2Eは別に記録する。
 
 義務の所有者は[UX](../02_UX/01_User_Experience.md#4-制御信頼検証義務)、[IA](../03_IA/01_Information_Architecture.md#5-検証義務と未解決事項)、[UI](../04_UI/01_User_Interface.md#5-アクセシビリティ利用品質の義務)および[仕様](../05_SPEC/01_Behavior_Specification.md#user-interface-contract)。以下は確認方法であり、義務や合否条件を再定義しない。
 
 | 確認対象 | 正常・準正常・異常の確認方法 | 根拠と未確認範囲 |
 |---|---|---|
 | 目的から操作への導線 | 採用判断、通常依頼、Checker、復旧、開発署名を各利用者が取り違えず辿れるか確認 | 文書・専門レビューを行う。初見利用者による理解・所要時間は未測定 |
-| 初回同意と再利用 | 初回承認、既存境界再利用、変更、失効、拒否、時間切れ、読取不能を区別 | [同意契約試験](../40_Develop/coordinator/tests/external-send-consent-runtime.contract.test.ts)と公開入力経路。実端末での表示認識・一回Enterは別確認 |
-| 結果と安全状態の表示 | 実producer→公開結果→人間表示を接続し、候補あり／なし、複数ID、IDなし回収不明、再起動のみ、optional値欠落を確認 | [表示試験](../40_Develop/coordinator/tests/command-report.contract.test.ts)と[限定再確認](Verification_Results/2026-08-31_Tool_Layout_Verification.md#3部品の設計補完結果表示の追加確認)で欠落値を「未確認」とする是正を確認済み。実端末の可読性は別に残り、文字列の存在検査だけでは完了しない |
-| 取消と終了 | 正常終了、単一／重複signal、遅延完了、listener解除失敗を再現し終了後条件を観測 | [取消試験](../40_Develop/coordinator/tests/task-cli-cancellation.contract.test.ts)、[実Process結合](../40_Develop/coordinator/tests/coordinator-task-process.integration.test.ts)。実端末閉鎖や実Provider取消とは分ける |
-| 候補の処置 | 正常export／discard、期限、Revision差、重複処置、不明状態を検証 | [候補Store試験](../40_Develop/coordinator/tests/candidate-bundle-store.contract.test.ts)。候補生成を人間受入・採用の証明にしない |
-| Checker表示 | 全体／限定、指摘あり／なし、未確認、JSON配列／summary報告を照合 | [契約試験](../40_Develop/checker/crdd-check.contract.test.ts)。全体Checker実行結果と人間の理解を分ける |
+| 初回同意と再利用 | 初回承認、既存境界再利用、変更、失効、拒否、時間切れ、読取不能を区別 | [同意契約試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts)と公開入力経路。実端末での表示認識・一回Enterは別確認 |
+| 結果と安全状態の表示 | 実producer→公開結果→人間表示を接続し、候補あり／なし、複数ID、IDなし回収不明、再起動のみ、optional値欠落を確認 | [表示試験](../40_Develop/coordinator/tests/unit/command-report.contract.test.ts)と[限定再確認](Verification_Results/2026-08-31_Tool_Layout_Verification.md#3部品の設計補完結果表示の追加確認)で欠落値を「未確認」とする是正を確認済み。実端末の可読性は別に残り、文字列の存在検査だけでは完了しない |
+| 取消と終了 | 正常終了、単一／重複signal、遅延完了、listener解除失敗を再現し終了後条件を観測 | [取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts)、[実Process結合](../40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts)。実端末閉鎖や実Provider取消とは分ける |
+| 候補の処置 | 正常export／discard、期限、Revision差、重複処置、不明状態を検証 | [候補Store試験](../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)。候補生成を人間受入・採用の証明にしない |
+| Checker表示 | 全体／限定、指摘あり／なし、未確認、JSON配列／summary報告を照合 | [契約試験](../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)。全体Checker実行結果と人間の理解を分ける |
 | 実端末・アクセシビリティ | Windows Terminal／PowerShellの日本語、長いID、折返し、拡大、キーボード、一回Enter、拒否・時間切れ・取消・終了後表示を観測 | 人間承認済みの範囲は[UI§4](../04_UI/01_User_Interface.md#4-現行表示の参照と表現方針)。[PowerShellの限定確認](Verification_Results/2026-08-31_Tool_Layout_Verification.md#端末参照媒体と全体試験の再確認)と、実Task取消の到達・通常回収・事後回復を分ける。版ごとの結果と別端末・読み上げ等の未評価範囲は[品質の現在状態](01_Quality_Center.md)へ接続する。ソース例・静的HTML・固定Fakeで代替せず、外部規格への適合は未主張 |
 
 根拠を記録するときは対象改訂版、実際に使用した入口と環境、期待した認識・操作、実結果、資源／許可への影響を分ける。未測定時間や未確認回数を0へ補正しない。既知差の責任者・再確認契機は[UI未解決事項](../04_UI/01_User_Interface.md#open-issues)、現在品質は[Quality Center](01_Quality_Center.md)へ接続する。
@@ -89,7 +120,7 @@ Docker create応答喪失の回復では、空照会だけで収束しない負�
 
 ### 固定RevisionのGit object読取り
 
-Repository／Revisionと明示した読取り範囲を保持する[設計上の責務](../06_Architecture/coordinator/01_Architecture.md)を、[Git object読取りの結合試験](../40_Develop/coordinator/tests/git-object-reader.integration.test.ts)へ接続する。試験用Gitが生成したpackだけを置いた領域から公開読取り関数へ渡し、現在Repositoryの圧縮状況やloose objectへのfallbackに依存しない。
+Repository／Revisionと明示した読取り範囲を保持する[設計上の責務](../06_Architecture/coordinator/01_Architecture.md)を、[Git object読取りの結合試験](../40_Develop/coordinator/tests/integration/git-object-reader.integration.test.ts)へ接続する。試験用Gitが生成したpackだけを置いた領域から公開読取り関数へ渡し、現在Repositoryの圧縮状況やloose objectへのfallbackに依存しない。
 
 | 場面 | 観測する条件 |
 |---|---|
@@ -99,11 +130,23 @@ Repository／Revisionと明示した読取り範囲を保持する[設計上の�
 
 Git CLIは開発試験の生成・検査に限って使用し、本番readerの外部Git実行を追加しない。今回の生成環境はWindowsのGit 2.54.0であり、他OSでは未検証としてskipする。対象環境内で格納形式を生成できない場合は前提不成立として失敗させ、skipや別形式への暗黙置換で合格にしない。生成元・pack-only領域・workspace・Git用HOMEはRepository直下の試験領域へ限定し、生成途中の失敗を含め回収する。
 
-Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場合は、`test:restricted-process`で実Windows Process Gate以外の全母集団を確認し、`test:windows-process`を通常のローカルユーザーProcessで確認する。前者だけを全体合格とせず、後者は安定prefixと契約試験でexact 7件へ固定する。制限Processで同じ7件を一般失敗として反復した回数を品質の追加Evidenceにせず、両Gateの合計、各実行環境および終了観測を同じ固定候補へ結合する。通常の`test`は7件を含む完全母集団を維持する。
+Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場合は、`test:restricted-process`で実Windows Process Gate以外の全母集団を確認し、`test:windows-process`を通常のローカルユーザーProcessで確認する。前者だけを全体合格とせず、後者は安定prefixと契約試験でexact 8件へ固定する。試験カタログでは両方を所有する試験ファイルへ`restricted_process`と`windows_process_control`を明示し、変更影響型runnerは後者のAuthorityがない場合に試験Process開始前で停止する。制限Processで同じ8件を一般失敗として反復した回数を品質の追加Evidenceにせず、両Gateの合計、各実行環境および終了観測を同じ固定候補へ結合する。通常の`test`は8件を含む完全母集団を維持する。
+
+### 変更影響型回帰の信頼境界
+
+[試験カタログ](04_Test_Catalog.json) revision 9は、Rootと各登録項目のkey、列挙値、必須Boolean、非空かつ重複のない集合、およびRepository内の正規化相対Pathを閉じたSchemaとして検証する。欠落field、未知field、不明な列挙値、絶対Path、親Directory参照または区切り差を既定値へ畳まず、試験Process開始前に停止する。`externalProviderEffect`と`humanInput`の欠落を`false`と推定しない。結合ブロックについてはOwner全数、Architecture参照、Lifecycle profile、実在するITおよび終了後条件を照合し、結合経路についてはテキストシーケンス図への参照、二または三ブロックの経路、実在するITおよび終了後条件を照合する。
+
+回帰対象はfilenameの語句一致から選ばない。登録済み試験そのものだけが変更された場合はその試験を直接選択できるが、production code、support、fixtureまたは設定の変更では、対象Toolが所有するUT・IT・STを安全側の閉包として選択する。共有カタログ・共有設定または所有者を確定できない実行可能変更では全Toolを選択する。Markdown変更ではCheckerとRepository文書検査を静的段階へ含める。この保守的選択を意味依存グラフの完成と読み替えず、将来、機械的に検証できる依存関係が成立した範囲だけ狭める。
+
+Git変更集合は、比較基準Commitから`HEAD`、`HEAD`からindex、indexからworktree、および未追跡fileの和集合として、renameの旧Pathと新Pathを含めてNUL区切りで取得する。一部の観測失敗を空差分へ畳まずEffect 0で停止する。明示Path指定時も同じRepository内相対Path検査を適用する。
+
+実行段階は静的検査、UT、IT、STの順とし、前段が失敗した場合は後段を`not_run_due_to_prior_stage`として開始しない。Windows実Process GateはIT段階の専用実環境確認として、制限Process用ITの成功後かつST開始前に成立させる。外部Provider、人間入力または公式署名を要する登録試験は自動回帰で開始しない。
+
+PT／LTは、対象、時間、反復、費用・Credit、Provider呼出し、生成データ、cleanupおよび中止条件をRuntimeが実際に強制できる実行制御がまだないため、revision 3のrunnerでは人間の許可情報が完全でも計画表示だけとし、試験Processを一件も起動しない。通常試験とPT／LTが同時に選択された場合も全体を計画表示で停止し、通常試験だけを暗黙実行して一部成立を全体結果へ見せない。実行対応は別の設計・実装・検証で上限強制と終了後cleanupを成立させてから有効化する。
 
 ### Lockの未到達条件と公開結果
 
-[Lock契約試験](../40_Develop/coordinator/tests/candidate-store-kernel-lock.contract.test.ts)では、公開入力の拒否をfactory非呼出しまで確認し、Supervisorの各段階の送信例外と失敗通知listenerの例外を、既存の非同期喪失・回収確認／不明とは別条件として照合する。内部例外を捕捉したことだけでなく、権限非発行、単一finalizer、後続observerへの通知および公開結果を確認する。Windows測定で未到達の非Windows分岐、到達不能候補、未確認の競合は別評価とし、試験追加だけで全分岐を評価済みにしない。
+[Lock契約試験](../40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts)では、公開入力の拒否をfactory非呼出しまで確認し、Supervisorの各段階の送信例外と失敗通知listenerの例外を、既存の非同期喪失・回収確認／不明とは別条件として照合する。内部例外を捕捉したことだけでなく、権限非発行、単一finalizer、後続observerへの通知および公開結果を確認する。Windows測定で未到達の非Windows分岐、到達不能候補、未確認の競合は別評価とし、試験追加だけで全分岐を評価済みにしない。
 
 ### 読取りと権限再確認の境界
 
@@ -121,7 +164,7 @@ Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場
 
 ### Docker CLIの結果と終了観測
 
-[設計上の所有契約](../06_Architecture/coordinator/01_Architecture.md#docker-cliの結果と子プロセスの所有)を、[子プロセス結合試験](../40_Develop/coordinator/tests/docker-owned-process.integration.test.ts)と[Docker操作の契約試験](../40_Develop/coordinator/tests/docker-effect-runtime.contract.test.ts)へ接続する。
+[設計上の所有契約](../06_Architecture/coordinator/01_Architecture.md#docker-cliの結果と子プロセスの所有)を、[子プロセス結合試験](../40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts)と[Docker操作の契約試験](../40_Develop/coordinator/tests/integration/docker-effect-runtime.contract.test.ts)へ接続する。
 
 | 場面 | 観測する条件 |
 |---|---|
@@ -148,7 +191,7 @@ Codex等の制限ProcessでWindowsの子孫Process終了を発行できない場
 
 ## Project Runtimeの検証設計
 
-Project Runtimeの詳細なInterface、永続Record、状態、資源、Lock、Authority、Effectおよび失敗注入点は[Project Runtime詳細設計](../06_Architecture/coordinator/03_Project_Runtime_Design.md)が所有し、[機械可読な設計対応](../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)が各遷移から検証項目までの参照閉包を固定する。本書はその各検証項目の目的、入力、期待結果および合否を所有する。
+Project Runtimeの現在の責務、状態の意味および完成境界は[Project Runtimeアーキテクチャ](../06_Architecture/project-runtime/01_Architecture.md)が所有する。[機械可読な設計対応](06_Project_Runtime_Design_Traceability.json)は詳細な状態、資源、Lock、Authority、Effect、失敗注入点および各遷移から検証項目までの参照閉包を固定し、本書は各検証項目の目的、入力、期待結果および合否を所有する。この投影は検証設計の入力であり、Coordinatorの実行時構成ではない。
 
 v0.19は、個別Task試験の合計ではなく、Project／Milestone入力から統合受入までの意味経路を検証する。設計、実装、試験の対応は、Project階層、Task状態、遷移、所有資源、Scheduler判断、再計画、判断移送および統合受入を対象にする。
 
@@ -167,7 +210,7 @@ MCPの薄い縦断経路、単一Objectiveの複数Task、最大5並列、5未�
 
 固定開発版の実Provider E2Eでは、開発SessionのSource／Native／Repository Identity、期限、Task数、CLI呼出し上限を確認する一方、それ自体の重複した対話確認を要求しない。実際のProvider Effectは通常の初期外部送信許可を必ず通り、同じ永続境界では既存許可を再利用する。許可なし、境界変更、失効、取消または観測不能では、送信前の確認またはEffect 0へ閉じることを確認する。開発Sessionの成立、固定入力または試験用Capabilityから外部送信AuthorityやRelease Authorityが発行されないことも反証例で確認する。
 
-最終署名E2Eでは、MCP関数の同一Process呼出しを公開Processの成立根拠にしない。署名配布Rootの`coordinator mcp --stdio`を実子Processとして起動し、認証済みの意味結果、Codex／Claude実行経路、親stdinの終了、子Processのjoin、正本採用および終了後資源を同じrunで確認する。実Provider取消は、Provider選定を公開Processのstderr上の構造化eventで観測した後に親stdinを閉じ、意味結果の`cancelled`、cleanup、手動Recovery、正本不変および子Process終了を確認する。通常完了後のDocker回復状態がcleanであることはRecovery settlementの実行証明ではない。実Docker Recoveryを発生させてexactな義務のsettlementまで観測できない場合は、正常・取消の合格と分けて未評価を保持する。
+最終署名E2Eでは、MCP関数の同一Process呼出しを公開Processの成立根拠にしない。署名配布Rootの`template/tools/crdd-mcp.ts --stdio`を実子Processとして起動し、認証済みの意味結果、Codex／Claude実行経路、親stdinの終了、子Processのjoin、正本採用および終了後資源を同じrunで確認する。実Provider取消は、Provider選定を公開Processのstderr上の構造化eventで観測した後に親stdinを閉じ、意味結果の`cancelled`、cleanup、手動Recovery、正本不変および子Process終了を確認する。通常完了後のDocker回復状態がcleanであることはRecovery settlementの実行証明ではない。実Docker Recoveryを発生させてexactな義務のsettlementまで観測できない場合は、正常・取消の合格と分けて未評価を保持する。
 
 Providerのturn制限は、作業量から決めるCLI指定値と、Runtimeが結果を受理する絶対上限を別に確認する。CLI指定値以下、指定値を超えるが絶対上限以下、絶対上限超過、上限到達エラー、turn数不正をそれぞれ固定fixtureで検証する。CLI指定値を超えた成功応答を上限遵守とは記録せず、Runtime所有のtimeout、出力量およびProcess停止が実効的な強制境界であることを保持する。実Provider E2Eでは、Provider別の指定値超過を安全停止または採用結果と区別して観測し、単発成功からProviderの制限遵守を推定しない。
 
@@ -176,6 +219,8 @@ Docker create結果不明を検証済みDesktop再起動後に収束させる経
 再ログオンをまたぐ回復では、安定した選択ユーザーIdentityとログオンSession Identityを別の試験軸にする。同じ安定Identityかつ異なるSessionでは、通常の生存中Authorityを拒否し、明示的な順序付き引継ぎ後だけ現在SessionのfreshなLock・Root・Policy観測から回復を許可する。安定Identity、Root Identity／保護、Policy、Runtime実行IdentityまたはRecovery IDが異なる場合は、引継ぎ記録も変更Effectも発行しない。終了済み旧修復のEffect 0採用・終了、未終了段階ごとの安全な再開／観測収束／同一ID停止、Task Recoveryの同一ID再入場、再起動Fenceの非成立をそれぞれ確認する。
 
 Docker Desktop修復履歴のRuntime利用側は、履歴なしの初回adoption、現在Sessionでの冪等再入場、旧Sessionからのexact 1件のhandoff、および終了済み履歴のread-only再入場を、同じ実Store・実Filesystem fixtureで順序付きに確認する。分類は`不正 → 履歴なし → 終了済み → 現在Session → 旧Session`を固定し、Session結合booleanとIdentityの矛盾を拒否する。Store返値はOperation、origin、directory、stale対象、run identity、stage、sequence、前Record hashおよびledgerを不変fieldとして比較し、初回adoptionとhandoffで許可する履歴差分だけをallowlistとする。書込み済みRecordの返値検証失敗、helper取得・cleanup不明および境界変化ではHost Effect 0、同じIDの保持、既存byte・残存物・呼出回数の非改変を確認し、rollbackを期待しない。
+
+未終了の旧修復と現在の既知socket障害が同時に存在する結合試験では、引継ぎ、現在の停止・Process・`run` Identity・stale不存在・lockの分類、旧履歴のEffect 0終了、新修復の開始、信頼済みProcess停止、`run` Directory全体の退避、Docker起動、Engine ready、修復記録終了および終了後資源を一つのLifecycleとして確認する。lock観測は`dockerInference`以外の直下項目でも成立し、項目数超過、子Directory／link、列挙変化、Directory Identity変化、読取り可能な通常fileだけの場合は不成立とする。旧履歴終了だけを復旧成功または再起動Fenceへ流用しない。
 
 修復履歴のadoption、session handoffおよびclosureは同じ回復可能な公開処理を使用する。正常な初回公開に加え、準備fileだけ、公開targetと同一fileの準備残存、同じbyteだが別fileの準備残存、部分file、非通常file、未知名、競合する公開結果および観測不能を固定する。読取り専用inventoryが残存を削除せず非成功に保つことと、現在Authorityと期待byteを持つ対象限定persistだけが同一fileの残存を収束することを分けて確認する。公開成功はPlatform固有の確定確認、freshなtargetのexact byteおよび準備fileの明示的不在を共通の最終判定で確認した場合だけ成立する。POSIXではfileとDirectoryの`fsync`、Windowsでは同じ呼出し中のDirectory Identity不変と最終形状を確認する。WindowsではProcess crashまたは再ログオン後に安全に再分類できることを保証し、Directory metadataの電源断耐久性は主張しない。各故障ではDocker／Provider／既存修復へのEffect 0、元記録とRecovery IDの不変、別候補の非削除および外側Lock／helperの解放を確認し、解放不明を成功にしない。
 
@@ -208,22 +253,22 @@ Docker Desktop修復履歴のRuntime利用側は、履歴なしの初回adoption
 | PR-A-06 | 異常 | Queue owner喪失、stale file、Runtime外の直接編集または採用直前Revision変化 | 時刻やfile存在だけでLeaseを奪取せず、新規Effect／自動上書き0、再計画・判断・Recoveryを一意に分類 |
 | PR-A-07 | 異常 | Platform不明、Adapter不在または対象Platformの保証未成立 | 別PlatformへfallbackせずProject／Task／Provider Effect 0で停止し、未対応を成功へ補正しない |
 | PR-D-A-01 | 異常 | Recordのhash破損、hashを再計算した不完全Schema、filenameと世代の不一致・欠落・一時file残存、Lease解放記録の失敗 | 破損を初期値へ戻さず停止する。Lock解放前に回復Markerを耐久化し、解放証跡が確定しない間は同じLeaseを再取得させない。意味上有効な同一ユーザー改変をhashだけで検出できるとは主張しない |
-| PR-I-01 | 統合 | 全Task completedだがObjective確認前または成果物Conflictあり | [Project状態契約試験](../40_Develop/coordinator/tests/project-runtime-state.contract.test.ts)と[統合契約試験](../40_Develop/coordinator/tests/project-runtime-integration.contract.test.ts)でObjectiveを`integration_pending`に保ち、Conflictを判断要求へ移してMilestone成功へ補正しない |
-| PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | [統合契約試験](../40_Develop/coordinator/tests/project-runtime-integration.contract.test.ts)でTask候補、受入条件ごとのEvidence、明示採用Authorityおよびfresh Revisionを要求し、ObjectiveとMilestoneを世代更新で受け入れる。[全体結合試験](../40_Develop/coordinator/tests/project-runtime-full-flow.integration.test.ts)で公開Objective入口からAccepted Resultまでを確認する。[公開Runtime構成の結合試験](../40_Develop/coordinator/tests/project-runtime-public-runtime.integration.test.ts)で、Task実行と同じCandidate Store境界が統合へ渡り、別の未検証Storeへ暗黙に切り替わらないことを確認する |
+| PR-I-01 | 統合 | 全Task completedだがObjective確認前または成果物Conflictあり | [Project状態契約試験](../40_Develop/project-runtime/tests/unit/project-runtime-state.contract.test.ts)と[統合契約試験](../40_Develop/coordinator/tests/integration/project-runtime-integration.contract.test.ts)でObjectiveを`integration_pending`に保ち、Conflictを判断要求へ移してMilestone成功へ補正しない |
+| PR-I-02 | 統合 | 全Objective受入、Milestone条件成立 | [統合契約試験](../40_Develop/coordinator/tests/integration/project-runtime-integration.contract.test.ts)でTask候補、受入条件ごとのEvidence、明示採用Authorityおよびfresh Revisionを要求し、ObjectiveとMilestoneを世代更新で受け入れる。[全体結合試験](../40_Develop/coordinator/tests/integration/project-runtime-full-flow.integration.test.ts)で公開Objective入口からAccepted Resultまでを確認する。[公開Runtime構成の結合試験](../40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts)で、Task実行と同じCandidate Store境界が統合へ渡り、別の未検証Storeへ暗黙に切り替わらないことを確認する |
 
 単体試験はGraph検証、Task／Objective／Milestoneの状態分離、受入条件ごとのEvidence、世代比較、容量計算およびAuthority縮小を確認する。結合試験はProject State Store、Scheduler、Single Task Runtime、取消、RecoveryおよびIntegrationの接続を確認する。E2EはMCP／CLIの公開入口から同じ意味契約へ到達し、正常、準正常、異常の代表経路でProcess構成、入力搬送、終了後資源および人間表示まで観測する。モックのTask完了だけから実Process不存在、cleanup、Authority非発行またはEffect 0を推定しない。
 
 排他の結合確認では別Processを同じBarrierから同時に起動し、異なるProject／Queueでも同一Repository BindingのProject Operation Leaseをexactに一つだけ取得できることを確認する。v0.19は同じBinding内を一つずつ処理し、Project間並列は未提供とする。Task Authorityは予約後の各attempt直前に発行されること、7 Taskの2 waveで7個のfresh Authorityとなること、および開始前取消では発行0となることを確認する。
 
-[耐久基盤の契約試験](../40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts)は、`PR-D-N-01`、`PR-D-Q-01`、`PR-D-A-01`として、Project Stateの正常保存・再読取り・古い世代・破損または意味不正なRecord、Envelopeの余剰／欠落field・未知Record種別、filenameと世代の不一致・世代欠落・一時file／未知file残存、保存byte上限の境界、Queue全世代のProject／Queue identity結合・再送・identity衝突・拒否時の世代不変、実LeaseとQueue ownerの結合、所有中Queueの全離脱経路、同一Project内の正本採用排他、二重取得、正常解放後の再取得、および解放証跡失敗後の回復Markerと再取得拒否を確認する。別ProcessをQueue owner結合前に終了させる実Filesystem fixtureでは、Project Operationと正本採用の両Leaseについて取得中Markerが新規取得を止め、exactなowner不存在、Lock所有Marker、取得／解放／owner喪失証跡を照合して全Marker・Lock不存在と別Queueからの再取得へ収束することを確認する。Project OperationではQueue回復世代のreadbackまで取得中Markerを残し、その直後に停止した同形状態を再処理して世代を重複更新せずMarkerを除去する。取得中Markerをatomic renameした直後のreadback失敗も故障注入し、初回結果から同じ決定論的な回復IDを返し、残存Markerを自動削除せず、後続回復へ接続することを確認する。同じ境界で個別Pathの観測をアクセス拒否にし、`ENOENT`以外を不存在または巻戻し済みへ縮退しないことも確認する。解放Marker作成後・Queue owner結合前の停止、不完全な一時file、不正Markerおよび既存Lockも、完全巻戻しへ誤分類せず決定論的な回復IDを返す。不正または所有不明な資源は自動削除しない。Repository-localな実Filesystemと別Process終了fixtureによりowner喪失後の回収Coreも確認するが、Platform Adapterによる実OS owner不存在観測、公開入口Recovery、電源断、実際の正本採用Effectおよび保護された外部anchorによる改変検出は未評価である。この部分試験を`PR-A-04`～`PR-A-06`全体、耐久基盤全体またはProject Runtime全体の成立へ読み替えない。
+[耐久基盤の契約試験](../40_Develop/coordinator/tests/integration/project-runtime-durable-foundation.contract.test.ts)は、`PR-D-N-01`、`PR-D-Q-01`、`PR-D-A-01`として、Project Stateの正常保存・再読取り・古い世代・破損または意味不正なRecord、Envelopeの余剰／欠落field・未知Record種別、filenameと世代の不一致・世代欠落・一時file／未知file残存、保存byte上限の境界、Queue全世代のProject／Queue identity結合・再送・identity衝突・拒否時の世代不変、実LeaseとQueue ownerの結合、所有中Queueの全離脱経路、同一Project内の正本採用排他、二重取得、正常解放後の再取得、および解放証跡失敗後の回復Markerと再取得拒否を確認する。別ProcessをQueue owner結合前に終了させる実Filesystem fixtureでは、Project Operationと正本採用の両Leaseについて取得中Markerが新規取得を止め、exactなowner不存在、Lock所有Marker、取得／解放／owner喪失証跡を照合して全Marker・Lock不存在と別Queueからの再取得へ収束することを確認する。Project OperationではQueue回復世代のreadbackまで取得中Markerを残し、その直後に停止した同形状態を再処理して世代を重複更新せずMarkerを除去する。取得中Markerをatomic renameした直後のreadback失敗も故障注入し、初回結果から同じ決定論的な回復IDを返し、残存Markerを自動削除せず、後続回復へ接続することを確認する。同じ境界で個別Pathの観測をアクセス拒否にし、`ENOENT`以外を不存在または巻戻し済みへ縮退しないことも確認する。解放Marker作成後・Queue owner結合前の停止、不完全な一時file、不正Markerおよび既存Lockも、完全巻戻しへ誤分類せず決定論的な回復IDを返す。不正または所有不明な資源は自動削除しない。Repository-localな実Filesystemと別Process終了fixtureによりowner喪失後の回収Coreも確認するが、Platform Adapterによる実OS owner不存在観測、公開入口Recovery、電源断、実際の正本採用Effectおよび保護された外部anchorによる改変検出は未評価である。この部分試験を`PR-A-04`～`PR-A-06`全体、耐久基盤全体またはProject Runtime全体の成立へ読み替えない。
 
-[Project実行契約試験](../40_Develop/coordinator/tests/project-runtime-execution.contract.test.ts)は、耐久State／Queue／Leaseから既存Single Task AdapterへTask exact 1件を渡す正常経路、同一Queue再実行のEffect 0、独立Task 7件で同時実行最大5、Dependency、親子Pathと意味競合、契約／attempt／Operation／Authority binding／Revisionが一致しない結果、余剰・欠落field、保存不能なRecovery ID、結果field間の矛盾、Process再起動義務、cleanup不明、同期throwおよび開始前取消を確認する。加えて、Binding単位Lease取得後のfresh選択が変わった場合のclaim 0と、Task Authority発行とSingle Task開始の間に取消された未使用Capabilityの失効を確認する。Queue観測をEffect後に壊す故障注入では、共通終了処理が物理Leaseを解放し、exactな解放証跡から後続reconcileがQueue ownerを消せることを確認する。耐久基盤試験は別ProcessでLease取得後に終了させ、取得済みowner evidenceとQueue ownerを照合し、別Queue／別種別／不正filenameまたは内容の証跡を拒否し、Lock回収、exactな解放またはowner喪失証跡、Marker除去の後にだけQueue ownerを消すCore、終端Queueの解放settlement再開、owner生存または観測不明時の奪取0も確認する。これにより`PR-N-01`～`PR-N-03`、`PR-Q-01`、`PR-Q-04`、`PR-Q-05`、`PR-A-03`～`PR-A-05`の中核契約は部分成立した。ただし認証済みMCP Client、実Providerを伴う取消、親Process喪失、電源断および実Docker Recovery settlementの公開Process E2Eは未評価であり、該当項目全体またはProject Runtime全体の`Pass`へ読み替えない。
+[Project実行契約試験](../40_Develop/coordinator/tests/integration/project-runtime-execution.contract.test.ts)は、耐久State／Queue／Leaseから既存Single Task AdapterへTask exact 1件を渡す正常経路、同一Queue再実行のEffect 0、独立Task 7件で同時実行最大5、Dependency、親子Pathと意味競合、契約／attempt／Operation／Authority binding／Revisionが一致しない結果、余剰・欠落field、保存不能なRecovery ID、結果field間の矛盾、Process再起動義務、cleanup不明、同期throwおよび開始前取消を確認する。加えて、Binding単位Lease取得後のfresh選択が変わった場合のclaim 0と、Task Authority発行とSingle Task開始の間に取消された未使用Capabilityの失効を確認する。Queue観測をEffect後に壊す故障注入では、共通終了処理が物理Leaseを解放し、exactな解放証跡から後続reconcileがQueue ownerを消せることを確認する。耐久基盤試験は別ProcessでLease取得後に終了させ、取得済みowner evidenceとQueue ownerを照合し、別Queue／別種別／不正filenameまたは内容の証跡を拒否し、Lock回収、exactな解放またはowner喪失証跡、Marker除去の後にだけQueue ownerを消すCore、終端Queueの解放settlement再開、owner生存または観測不明時の奪取0も確認する。これにより`PR-N-01`～`PR-N-03`、`PR-Q-01`、`PR-Q-04`、`PR-Q-05`、`PR-A-03`～`PR-A-05`の中核契約は部分成立した。ただし認証済みMCP Client、実Providerを伴う取消、親Process喪失、電源断および実Docker Recovery settlementの公開Process E2Eは未評価であり、該当項目全体またはProject Runtime全体の`Pass`へ読み替えない。
 
-[Project Runtimeの意味経路試験](../40_Develop/coordinator/tests/project-runtime-full-flow.integration.test.ts)は、[公開Objective入口の契約試験](../40_Develop/coordinator/tests/project-runtime-objective-intake.contract.test.ts)、[Queue優先試験](../40_Develop/coordinator/tests/project-runtime-queue-priority.contract.test.ts)、[再計画・判断契約試験](../40_Develop/coordinator/tests/project-runtime-replanning-and-decision.contract.test.ts)および[統合契約試験](../40_Develop/coordinator/tests/project-runtime-integration.contract.test.ts)と合わせ、公開Objective入口から失敗、同一計画のfresh attemptまたは部分再計画、人間判断移送、Task候補、統合候補、Conflict停止、明示採用およびMilestone受入までを確認する。公開入力、Planner結果とTask実行集合の余剰field、getter、ProxyまたはScope拡張はProject Effect前に拒否する。追加の[Windows判断Store試験](../40_Develop/coordinator/tests/project-runtime-windows-decision-store.contract.test.ts)は不変CAS世代列と改変拒否、[判断Recovery Store試験](../40_Develop/coordinator/tests/project-runtime-decision-recovery-store.contract.test.ts)は独立Recovery Intentの耐久化とCAS settlement、[再計画・判断契約試験](../40_Develop/coordinator/tests/project-runtime-replanning-and-decision.contract.test.ts)は明示置換、Project終端を含む失効、prepared後の再照合を確認する。[MCP stdio試験](../40_Develop/coordinator/tests/mcp-project-runtime-stdio.integration.test.ts)はbounded入力と親EOF、[実Candidate統合試験](../40_Develop/coordinator/tests/project-runtime-candidate-integration-adapter.integration.test.ts)はCandidate Storeからの統合・明示採用、[公開Runtime構成の結合試験](../40_Develop/coordinator/tests/project-runtime-public-runtime.integration.test.ts)はTask生成から統合まで同じStore境界を使用することを確認する。固定開発版の実Provider E2Eでは、現在Sourceが実行制御を所有し、Candidate Storeだけを検証済み署名配布から注入する。これを現在SourceのRelease Authority成立へ読み替えず、別Storeへの暗黙切替、一般的なmock Candidateまたは未検証Storeで代替しない。Taskが安全に停止した場合は、Provider出力を保存せず、Provider、閉じた理由、cleanup、再起動・手動回復および候補／回復情報の有無だけを同じ実測結果へ保持する。ただし認証済みMCP Client、切断後の実cleanup、電源断、実Clientを含む全Recovery settlementは未評価であり、Project Runtime全体の`Pass`へ読み替えない。
+[Project Runtimeの意味経路試験](../40_Develop/coordinator/tests/integration/project-runtime-full-flow.integration.test.ts)は、[公開Objective入口の契約試験](../40_Develop/coordinator/tests/integration/project-runtime-objective-intake.contract.test.ts)、[Queue優先試験](../40_Develop/coordinator/tests/integration/project-runtime-queue-priority.contract.test.ts)、[再計画・判断契約試験](../40_Develop/coordinator/tests/integration/project-runtime-replanning-and-decision.contract.test.ts)および[統合契約試験](../40_Develop/coordinator/tests/integration/project-runtime-integration.contract.test.ts)と合わせ、公開Objective入口から失敗、同一計画のfresh attemptまたは部分再計画、人間判断移送、Task候補、統合候補、Conflict停止、明示採用およびMilestone受入までを確認する。公開入力、Planner結果とTask実行集合の余剰field、getter、ProxyまたはScope拡張はProject Effect前に拒否する。追加の[Windows判断Store試験](../40_Develop/coordinator/tests/integration/project-runtime-windows-decision-store.contract.test.ts)は不変CAS世代列と改変拒否、[判断Recovery Store試験](../40_Develop/coordinator/tests/integration/project-runtime-decision-recovery-store.contract.test.ts)は独立Recovery Intentの耐久化とCAS settlement、[再計画・判断契約試験](../40_Develop/coordinator/tests/integration/project-runtime-replanning-and-decision.contract.test.ts)は明示置換、Project終端を含む失効、prepared後の再照合を確認する。[MCP stdio Transport試験](../40_Develop/mcp/tests/system/stdio-transport.integration.test.ts)はbounded入力と親EOF、[実Candidate統合試験](../40_Develop/coordinator/tests/integration/project-runtime-candidate-integration-adapter.integration.test.ts)はCandidate Storeからの統合・明示採用、[公開Runtime構成の結合試験](../40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts)はTask生成から統合まで同じStore境界を使用することを確認する。固定開発版の実Provider E2Eでは、現在Sourceが実行制御を所有し、Candidate Storeだけを検証済み署名配布から注入する。これを現在SourceのRelease Authority成立へ読み替えず、別Storeへの暗黙切替、一般的なmock Candidateまたは未検証Storeで代替しない。Taskが安全に停止した場合は、Provider出力を保存せず、Provider、閉じた理由、cleanup、再起動・手動回復および候補／回復情報の有無だけを同じ実測結果へ保持する。ただし認証済みMCP Client、切断後の実cleanup、電源断、実Clientを含む全Recovery settlementは未評価であり、Project Runtime全体の`Pass`へ読み替えない。
 
 署名後の実回復E2Eは、通常・取消の後で回復状態がcleanであることだけを確認しない。署名済み公開MCP Processから実Provider開始を観測した後に親Process treeを停止し、同一Objectiveをfreshな公開MCP Processへ再送する。Runtimeが耐久状態へ書込み・readbackした`required → recovering → settled → acknowledged`、確認資源の有限終了、Queue settlementおよびfresh retryを、同じProject／Milestone／Queue／Task／Operation／Recovery Identityへ結合した順序付き診断として観測する。診断の書込み完了または有限の失敗収束を待ち、書込み要求だけを観測成立にしない。最終応答のMilestone受入、子Process join、正本不変およびDocker Runtime Stateのcleanがすべて成立した場合だけ`recoverySettlementExercised`を真にする。段階欠落、順序違反、Identity不一致、Process tree停止未確認、fresh再入場未完了またはcleanだけの観測は失敗とする。診断は非Authorityな検証投影であり、ClientからRecovery IDや回復権限を入力させない。
 
-Coordinator責務分離では、Project Runtime CoreからWindows固有moduleへの新規直接依存がないこと、Platform Adapter requestが閉集合であること、AdapterがAuthorityを生成しないこと、未実装PlatformがWindowsへfallbackしないことを契約試験で確認する。既存Windows処理をAdapterの背後へ移す場合は、移行前後でPrincipal／Provider Home、Filesystem、Lock、Process、ContainerおよびRecoveryの同じ保証と異常経路を再確認する。MCPはTransportとPlatformの組合せごとに入力搬送、切断、取消、重複requestおよびcleanupを確認する。Linux／macOSのBuild、配布およびE2Eはv0.19の合格条件へ含めず、対応済みとも表示しない。
+Coordinator責務分離では、Project Runtime CoreからWindows固有moduleへの新規直接依存がないこと、Platform Adapter requestが閉集合であること、AdapterがAuthorityを生成しないこと、未実装PlatformがWindowsへfallbackしないことを契約試験で確認する。Project状態機械、Platform Port契約、Objective要求および統合結果を独立packageへ移す各単位では、[Project Runtime単体試験](../40_Develop/project-runtime/tests/unit/)で閉じた入力、正常結果、Recovery付き停止、矛盾field、未知field、accessor、Proxy、Symbol key、非列挙propertyおよびArray prototype改変を確認する。変更影響型runnerは同じ変更からCoordinatorの直接利用側契約と両packageの静的検査を選択し、package単体合格を利用側成立へ読み替えない。既存Windows処理をAdapterの背後へ移す場合は、移行前後でPrincipal／Provider Home、Filesystem、Lock、Process、ContainerおよびRecoveryの同じ保証と異常経路を再確認する。MCPはTransportとPlatformの組合せごとに入力搬送、切断、取消、重複requestおよびcleanupを確認する。Linux／macOSのBuild、配布およびE2Eはv0.20の合格条件へ含めず、対応済みとも表示しない。
 
 機械可読な設計対応は、一つの状態遷移をexactに一つの`BIND-*`へ結ぶ。通常状態更新、取消、Recovery、Integrationおよび正本採用を一つのAuthority／Effect和集合へまとめた入力、取消遷移からSingle Task取消Effectが欠落した入力、通常遷移へRecovery Effectを混入した入力、Effect前IntentとEffect後Receiptの時間関係を逆転した入力を負例として拒否する。
 
@@ -233,7 +278,43 @@ Coordinator責務分離では、Project Runtime CoreからWindows固有moduleへ
 
 MCP投影は列挙値と件数型だけでなく、Milestone状態、Objective／Task件数、最大128件のObjective別Task状態集計、Work Progress、Quality、人間判断要否、Recovery要否およびNext Actionの相関をCoreと同じ純粋規則で検証する。集約件数だけが一致する一方でObjectiveへのTask割当が成立しない反証例を拒否し、Objective別集計の総和が全体集計と一致することを確認する。Project入力と同じObjective 128件、Task 1,024件の上限を公開結果でも強制し、Task 1,025件、最大安全整数、および複数Objectiveの合計超過を例外または件数比例の割当なしで拒否する。Recovery中の`recover`、判断中の`human_decision`、統合中の検証Action、受入済みの`complete`を崩す反証例も拒否する。一方、Dependency Graphを持たないTransportでは`schedule_task`と`wait_for_task`の一方を推測せず、両方をCoreが選び得る通常Actionとして受理する。
 
+Project Stateの読み取り専用公開は、Project Runtimeへ`readState`以外のState能力を渡さない単体試験、MCP Adapterの同一canonical結果試験、Coordinator公開AdapterのRepository／改訂版／主体Binding試験、および`template/tools/crdd-mcp.ts`からのstdio／HTTP Transport別総合試験を接続する。状態の`observed / absent / unknown`、保存状態と要求改訂版の不一致、投影内相関、認証不能およびStore Recovery要否を別ケースにし、`absent`を未開始・完了・成功へ、`unknown`を不存在・空値へ補正しない。状態参照からTask、Queue、判断Capability、AuthorityまたはFilesystem Effectが発行されないことを確認する。
+
+MCP Streamable HTTPは`2026-07-28`のPOST単位・Sessionなしの契約を対象とする。`127.0.0.1`以外へのbind、Bearer未設定／不一致、許可外Origin、Protocol／Method／Name headerと本文の不一致、Content-Type／Accept不足、不正UTF-8、重複JSON key、128 KiB超過、未知Method、response切断およびServer終了を固定する。拒否ケースではProject Runtime呼出し0、切断では当該要求への取消伝播、Server終了では進行要求のjoin後にTransport資源回収完了を観測する。公開Launcherが使用する同じSignal所有境界へ注入可能なsourceからeventを与える総合試験では、最初のeventから取消・join完了まで`SIGINT`／`SIGTERM` listenerが残ること、重複eventが同じ終了Promiseへ収束すること、終了失敗を成功へ変えず最後にlistenerが0件となることを確認する。公開Processの起動・HTTP到達・idle終了を実子Processで別に確認し、両Evidenceの合成をOS／Consoleから実行中ApplicationへのSignal配送成立へ読み替えない。HTTP connection、headerまたはtokenからProject Authorityを生成せず、token値を結果・log・Repositoryへ残さない。
+
 Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に加え、現在Runtime Rootのidentity・protection・local user・bindingの4 hashとReceiptを照合する。別Root、改変、Receiptと確認済みTombstoneの両方がない状態を成功へ畳まず、Tombstoneの作成・readback後だけReceiptを除去し、Project側の`acknowledged` readbackとTombstone除去まで終えた同じBindingの再入場だけを既処理として扱う。Runtime内部のReceipt identityはSHA-256ではなく、committed pairを指す非空・256文字以下の不透明なfile identityとして検証し、Project側の拡張確認情報から内部回収契約へ渡すfieldはexactな3項目へ再構成する。
+
+<a id="execution-intelligence-verification"></a>
+
+## 実行知の検証設計
+
+実行知は[実行知のアーキテクチャ](../06_Architecture/execution-intelligence/01_Architecture.md)に従い、共通Event、利用側Adapter、保存、集約、限定分散の統合結果評価、改善候補、および未成立Authorityによる清掃候補生成・物理削除が公開されないことを別々に確認する。
+
+| ID | 試験レベル | 入力・変化 | 期待する主な観測 |
+|---|---|---|---|
+| EI-UT-N-01 | 単体 | 正常終了したTask Attemptの共通入力 | 仕事Identity、Role、Provider、結果、所要時間をProvider／Runtime非依存の閉Eventへ変換できる |
+| EI-UT-Q-01 | 単体 | Provider等の一部指標を取得できない | 0へ補正せず観測件数と値の集約を分け、品質はTask終了時点で非該当となる |
+| EI-UT-A-01 | 単体 | 未知field、不正Event、Raw出力相当field、Identityと一致しないEvent ID | Eventと集約を拒否し、未知要素を黙って除外しない。canonicalな仕事Identity全体から決定的Event IDを再構成して一致を確認する |
+| EI-UT-N-02 | 単体 | 同じProject／Milestoneの予定Task全件、実Attempt、統合受入および効用測定 | 評価処理を完了し、Provider別件数を観測済みAttemptから集約する。Task成功を統合受入とは扱わない |
+| EI-UT-Q-02 | 単体 | 統合結果未観測または予定TaskのAttempt不足 | 欠測を0へ補正せず、欠落Taskと未観測統合を示して`incomplete`とする |
+| EI-UT-A-02 | 単体 | 別Project／Milestone、予定外Task、重複Eventまたは未知field | 対象を推測分割せず閉じた評価入力を拒否する |
+| EI-IT-N-01 | 結合 | Repository-local Storeへの初回記録と同一byte再送 | `.crdd/execution/events/`へ一つだけ不変保存し、再送は冪等となる |
+| EI-IT-Q-01 | 結合 | 呼出側が架空Evidence IDと空の未解決参照一覧を提示 | 物理削除APIが存在せず、保存済みEvent byteが不変である |
+| EI-IT-A-01 | 結合 | 同一Event IDの異内容、破損、未解決参照、Hash不一致 | 自動修復・推測・一括削除をせずEffect 0で停止する |
+| EI-IT-N-02 | 結合 | 公開Runtime構成からProject Runtimeが一つのTask Attemptを実行 | Coordinator AdapterがObjectiveを含むexact仕事Identityと検証済みTask結果を共通Eventへ変換し、検証済みRepository RootのStoreから再読取りできる |
+| EI-IT-A-02 | 結合 | Attempt、Operation、Authority Binding、Repository Revisionの各単独不一致 | 一致しないTask結果のstatus、reason、ProviderまたはcleanupをEventへ写さず、閉じた観測不能として記録する |
+| EI-IT-A-03 | 結合 | Event発行の未設定、拒否、例外または診断処理の例外 | 発行結果を成功へ丸めず、本番公開Runtimeを含む実構成で回復診断とは異なる閉じた非Authority診断へ区別し、元のTask結果、公開DTOおよびProject Stateを変更しない |
+| EI-IT-N-03 | 結合 | 通常Repository、linked worktree、submoduleのexact Root | Version Controlが返す自身のRootだけを保存能力にし、subdirectory、親、別Repositoryまたはlink経由を拒否する |
+| EI-IT-Q-02 | 結合 | 2 Processから同一byteの同一Eventを並行発行 | 上書きせず一つのEventへ冪等に収束し、Lockと一時fileが残らない |
+| EI-IT-A-04 | 結合 | 2 Processから同じEvent IDへ異なるbyteを並行発行 | 一方だけを不変保存し、他方をIdentity衝突として拒否する |
+| EI-IT-A-05 | 結合 | open、write、flush、publish、readback、Lock初期化・解放、一時file回収の各失敗 | Effect、cleanup、再試行、手動回復およびexact残存Artifactを区別し、成功へ丸めない |
+| EI-IT-A-06 | 結合 | top-levelまたは入れ子Accessorが検査時と永続化時に異なる値を返そうとする | Accessorを実行せず、一度だけ作ったcanonical snapshot以外をRecorder／Storeへ渡さない。Store作成前にEffect 0で拒否する |
+| EI-IT-N-04 | 結合 | 同じObjectiveの競合しない2 Taskを上限2で実行し、実Attempt Eventと統合結果を評価 | 2 Taskの同時実行を観測し、両Attemptを不変Storeから再読取りして統合受入と同じ評価Identityへ接続する。個別Task成功を統合受入へ読み替えず、未観測の時間、費用、人間作業および後工程品質を欠測のまま保持する |
+| EI-RT-C-01 | 回帰 | 実行知のSource、公開入口、Storeまたはtoolchainを変更 | 実行知自身のUT／ITに加え、登録したCoordinator利用側契約と静的検査を同じ計画へ選ぶ。試験levelを限定しても利用側静的検査は残し、指定外の利用側試験は実行しない。実行知の静的検査はCoordinatorのtoolchainへ依存しない |
+
+組込みRecorderは、Canonical Event生成とStore公開を別の失敗境界として検証する。top-levelまたはnested Accessor等による生成拒否ではAccessorを実行せず、Store呼出しと`.crdd/execution`作成を0にして`execution_event_invalid / no_effect / cleanupConfirmed`を返す。生成済みEventを受け取ったStoreが契約外例外を送出する反例では、それを入力不正またはEffect 0へ変換しない。Project Runtime利用側はこの例外を`effectState: unknown / cleanupConfirmed: false`として二次観測へ閉じ、Task結果やAuthorityを変更しない。試験用Writerの差替えはpackage内部の構成境界だけに限定し、公開package APIへ故障注入面を追加しない。
+
+実Provider、Token／費用、人間の実作業時間、品質受入、Viewer、運用成果および事業成果は、本変更の自動回帰では未評価である。値が取得できないことを試験失敗へせず、取得済みまたは完成済みとも表示しない。性能試験・長時間試験は本変更の通常Gateではなく、人間が対象と上限を明示しない限り実行しない。
 
 <a id="reasoning-context-verification"></a>
 

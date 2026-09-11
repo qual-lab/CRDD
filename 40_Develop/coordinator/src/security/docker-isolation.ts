@@ -5,6 +5,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
+import {
+  observeTrustedDockerCli,
+  verifyTrustedDockerCliSnapshot,
+  type DockerCliTrustSnapshot,
+} from "./docker-cli-trust.ts";
 
 import {
   adoptOwnedHostRecoveryRecordTransition,
@@ -60,26 +65,13 @@ type ContainerIdentity = Readonly<{
   probeId: string;
   source?: string;
 }>;
-type CliSnapshot = Readonly<{
-  root: string;
-  executable: string;
-  rootIdentity: FilesystemIdentity;
-  executableIdentity: FilesystemIdentity;
-  sha256: string;
-}>;
+type CliSnapshot = DockerCliTrustSnapshot;
 type AbsenceObservation = Readonly<{
   probeId: string;
   containerId: string;
   hostRecoveryId: string;
   rootName: string;
   cli: object;
-}>;
-type DockerCliPolicy = Readonly<{
-  installRoot: string;
-  executableName: string;
-  sha256: string;
-  trustBasis: string;
-  updateBehavior: string;
 }>;
 type DockerProbeFailureState = Readonly<{
   submissionStarted: boolean;
@@ -345,15 +337,6 @@ function normalizeDockerRecoveryRecord(value: unknown): DockerRecoveryRecord {
   });
 }
 
-export const DOCKER_CLI_POLICY = Object.freeze({
-  installRoot: "C:\\Program Files\\Docker\\Docker\\resources\\bin",
-  executableName: "docker.exe",
-  sha256: "C8EAA01D1E78CAECD65D730E670CBFE4DFCE006E1C6F18167C003587CB4BB610",
-  trustBasis:
-    "valid_authenticode_docker_inc_then_human_selected_runtime_policy",
-  updateBehavior: "block_until_reapproved",
-});
-
 const PROBE_SOURCE = `
 import json, os, pathlib, socket, sys
 result={"marker":"${PROBE_MARKER}","allowed_writes":{},"runtime_paths_absent":True,"credential_names_absent":True,"network_blocked":False,"home_isolated":False,"tmp_isolated":False}
@@ -460,17 +443,6 @@ function filesystemIdentity(
   });
 }
 
-function sameIdentity(
-  left: FilesystemIdentity,
-  right: FilesystemIdentity,
-): boolean {
-  return (
-    left.dev === right.dev &&
-    left.ino === right.ino &&
-    left.birthtimeNs === right.birthtimeNs
-  );
-}
-
 function serializableIdentity(
   target: string,
   expectedType: EntityType = "directory",
@@ -500,59 +472,17 @@ function identityMatchesRecord(
   }
 }
 
-function fileSha256(target: string): string {
-  return createHash("sha256")
-    .update(fs.readFileSync(target))
-    .digest("hex")
-    .toUpperCase();
-}
-
-export function evaluateDockerCliCandidateForFixture(
-  policy: Pick<DockerCliPolicy, "installRoot" | "executableName" | "sha256">,
-): boolean {
-  try {
-    const root = fs.realpathSync(policy.installRoot);
-    const executable = path.join(root, policy.executableName);
-    const realExecutable = fs.realpathSync(executable);
-    if (
-      path.dirname(realExecutable) !== root ||
-      path.basename(realExecutable) !== policy.executableName
-    )
-      return false;
-    filesystemIdentity(root, "directory");
-    filesystemIdentity(realExecutable, "file");
-    return fileSha256(realExecutable) === policy.sha256;
-  } catch {
-    return false;
-  }
-}
-
 function createTrustedDockerCliCapability(): Readonly<{
   kind: "trusted_docker_cli";
 }> {
   if (process.platform !== "win32")
     throw new Error("docker_backend_platform_unsupported");
-  if (!evaluateDockerCliCandidateForFixture(DOCKER_CLI_POLICY))
-    throw new Error("docker_cli_untrusted");
-  const root = fs.realpathSync(DOCKER_CLI_POLICY.installRoot);
-  const executable = path.join(root, DOCKER_CLI_POLICY.executableName);
-  const realExecutable = fs.realpathSync(executable);
-  if (
-    root !== DOCKER_CLI_POLICY.installRoot ||
-    path.dirname(realExecutable) !== root ||
-    path.basename(realExecutable) !== DOCKER_CLI_POLICY.executableName
-  ) {
+  let snapshot: DockerCliTrustSnapshot;
+  try {
+    snapshot = observeTrustedDockerCli();
+  } catch {
     throw new Error("docker_cli_untrusted");
   }
-  const snapshot = Object.freeze({
-    root,
-    executable: realExecutable,
-    rootIdentity: filesystemIdentity(root, "directory"),
-    executableIdentity: filesystemIdentity(realExecutable, "file"),
-    sha256: fileSha256(realExecutable),
-  });
-  if (snapshot.sha256 !== DOCKER_CLI_POLICY.sha256)
-    throw new Error("docker_cli_untrusted");
   const capability = Object.freeze({ kind: "trusted_docker_cli" });
   cliIdentities.set(capability, snapshot);
   return capability;
@@ -561,24 +491,11 @@ function createTrustedDockerCliCapability(): Readonly<{
 function verifyTrustedDockerCliCapability(capability: object): string {
   const snapshot = cliIdentities.get(capability);
   if (!snapshot) throw new Error("docker_cli_untrusted");
-  const realRoot = fs.realpathSync(snapshot.root);
-  const realExecutable = fs.realpathSync(snapshot.executable);
-  if (
-    realRoot !== snapshot.root ||
-    realExecutable !== snapshot.executable ||
-    path.dirname(realExecutable) !== realRoot ||
-    !sameIdentity(
-      filesystemIdentity(realRoot, "directory"),
-      snapshot.rootIdentity,
-    ) ||
-    !sameIdentity(
-      filesystemIdentity(realExecutable, "file"),
-      snapshot.executableIdentity,
-    ) ||
-    fileSha256(realExecutable) !== snapshot.sha256
-  )
+  try {
+    return verifyTrustedDockerCliSnapshot(snapshot);
+  } catch {
     throw new Error("docker_cli_untrusted");
-  return snapshot.executable;
+  }
 }
 
 function bindMount(source: string, destination: string): string {
@@ -2924,7 +2841,8 @@ export function recoverDockerIsolationProbe(token: unknown) {
 export const DOCKER_ISOLATION_PROFILE = Object.freeze({
   backend: "docker_desktop_linux",
   endpoint: "local_named_pipe",
-  dockerCliPinnedByHash: true,
+  dockerCliTrust:
+    "fixed_path_valid_windows_authenticode_docker_inc_and_operation_snapshot",
   imagePinnedByDigest: true,
   networkMode: "none",
   dynamicFakeProviderProcessImplemented: true,

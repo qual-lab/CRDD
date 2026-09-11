@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createRepairHistoryPublicationTestingAdapter } from "../helpers/docker-desktop-repair-history-publication-testing.ts";
+import { createRepairHistoryPublicationTestingAdapter } from "../support/helpers/docker-desktop-repair-history-publication-testing.ts";
 
 const [
   directory,
@@ -31,9 +31,9 @@ const adapter = createRepairHistoryPublicationTestingAdapter(directory, {
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
   },
 });
-const result = adapter.publish(
+const isResult = adapter.publish(
   path.basename(targetName),
   path.basename(preparationName),
   Buffer.from(contentBase64, "base64"),
 );
-process.stdout.write(`${JSON.stringify({ result })}\n`);
+process.stdout.write(`${JSON.stringify({ result: isResult })}\n`);

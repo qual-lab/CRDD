@@ -34,6 +34,8 @@ const HISTORY_FILES: readonly string[] = Object.freeze([
 const HISTORY_SCHEMA = "crdd-coordinator/docker-desktop-repair-history/v1";
 const HISTORY_ADOPTION_SCHEMA =
   "crdd-coordinator/docker-desktop-repair-history/v2";
+const HISTORY_POLICY_TRANSITION_SCHEMA =
+  "crdd-coordinator/docker-desktop-repair-history/v3";
 const HISTORY_HANDOFF_SCHEMA =
   "crdd-coordinator/docker-desktop-repair-session-handoff/v1";
 
@@ -170,7 +172,7 @@ function knownHistoryTargetNames() {
     ...HISTORY_FILES,
     ...Array.from(
       { length: MAXIMUM_HISTORY_HANDOFFS },
-      (_, sequence) =>
+      (_unused, sequence) =>
         `historical-handoff-${String(sequence).padStart(2, "0")}.json`,
     ),
   ];
@@ -356,16 +358,16 @@ function denseOwnDataArrayValues(
       return null;
     const indexKeys = Array.from(
       { length: lengthDescriptor.value },
-      (_, index) => String(index),
+      (_unused, index) => String(index),
     );
     if (!exactKeys(value, [...indexKeys, "length"])) return null;
-    const result: unknown[] = [];
+    const resultItems: unknown[] = [];
     for (const key of indexKeys) {
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
       if (!descriptor || !("value" in descriptor)) return null;
-      result.push(descriptor.value);
+      resultItems.push(descriptor.value);
     }
-    return result;
+    return resultItems;
   } catch {
     return null;
   }
@@ -875,8 +877,10 @@ function legalLedgerTransition(
     !previousNative &&
     !previousWsl &&
     previousShutdown?.phase === "settled" &&
-    previousShutdown.issued === true &&
-    previousShutdown.confirmation === "confirmed" &&
+    ((previousShutdown.issued === true &&
+      previousShutdown.confirmation === "confirmed") ||
+      (previousShutdown.issued === false &&
+        previousShutdown.confirmation === "not_issued")) &&
     nextNative?.phase === "settled" &&
     nextNative.issued === false &&
     nextNative.confirmation === "not_issued";
@@ -991,18 +995,13 @@ function validKnownProcessPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
   const native = effectEntry(ledger, "native_termination");
   const wsl = effectEntry(ledger, "wsl_termination");
   if (!shutdown) return !native && !wsl;
-  if (
-    native &&
-    (shutdown.phase !== "settled" ||
-      shutdown.issued !== true ||
-      shutdown.confirmation !== "confirmed")
-  )
-    return false;
+  const isShutdownKnown =
+    isSettledConfirmed(ledger, "official_shutdown") ||
+    isSettledNotIssued(ledger, "official_shutdown");
+  if (native && !isShutdownKnown) return false;
   if (
     wsl &&
-    (shutdown.phase !== "settled" ||
-      shutdown.issued !== true ||
-      shutdown.confirmation !== "confirmed" ||
+    (!isShutdownKnown ||
       !native ||
       native.phase === "intent_recorded" ||
       native.confirmation === "unknown")
@@ -1539,7 +1538,7 @@ function classifyCanonicalDockerDesktopRepairHistoricalOperationUnchecked(
   const id = operation.operationId;
   const staleName = `run.crdd-stale-${String(id)}`;
   const sequence = operation.sequence;
-  const operationCoreValid =
+  const isOperationCoreValid =
     operationId(id) &&
     operation.repairId === `docker-desktop-repair.${id}` &&
     hash64(operation.originLocalUserBindingHash) &&
@@ -1557,7 +1556,7 @@ function classifyCanonicalDockerDesktopRepairHistoricalOperationUnchecked(
     Number(sequence) < MAXIMUM_RECORDS &&
     hash64(operation.previousRecordSha256) &&
     validLedger(operation.ledger);
-  if (!operationCoreValid) return "invalid";
+  if (!isOperationCoreValid) return "invalid";
   if (!hasHistory)
     return expectedClosure === undefined ? "no_history" : "invalid";
   return (
@@ -1712,13 +1711,16 @@ function releaseNotAfterBoundary(
 function historicalBoundary(
   boundary: DockerDesktopRepairRecordBoundary,
   release: HistoricalReleaseIdentity,
+  dockerPolicySha256 = boundary.dockerPolicySha256,
 ): DockerDesktopRepairRecordBoundary {
-  // Only the signed release tuple changes. Host, selected user, root protection
-  // and policy MUST still match the current verified boundary in every record.
-  const { historicalV4: _ignored, ...current } = boundary;
+  // Host, selected user and root protection remain current. The signed release
+  // tuple and its recorded policy are historical facts; adoption separately
+  // binds all later actions to the current policy.
+  const { historicalV4: ignoredValue, ...current } = boundary;
   return release.runtimeExecutionIdentitySha256 === null
     ? Object.freeze({
         ...current,
+        dockerPolicySha256,
         crddManifestHash: release.manifestHash,
         crddReleaseSequence: release.releaseSequence,
         historicalV4: {
@@ -1728,10 +1730,32 @@ function historicalBoundary(
       })
     : Object.freeze({
         ...current,
+        dockerPolicySha256,
         crddManifestHash: release.manifestHash,
         crddReleaseSequence: release.releaseSequence,
         runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
       });
+}
+
+function originalDockerPolicySha256(
+  runtimeStateRoot: string,
+  directoryName: string,
+) {
+  try {
+    const bytes = stableBytes(
+      path.win32.join(
+        runtimeStateRoot,
+        directoryName,
+        "repair-00-prepared.json",
+      ),
+    );
+    const parsed = parseHistoryBytes(bytes);
+    return parsed && hash64(parsed.dockerPolicySha256)
+      ? String(parsed.dockerPolicySha256)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseHistoryBytes(
@@ -1987,15 +2011,15 @@ function readOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   directoryName: string,
   verifyHistory: DockerDesktopRepairHistoryVerifier,
-  allowPendingSessionHandoff = false,
-  allowKnownHistoryPreparation = false,
+  shouldAllowPendingSessionHandoff = false,
+  shouldAllowKnownHistoryPreparation = false,
 ): DockerDesktopRepairOperation | null {
   if (!parseDockerDesktopRepairDirectoryName(directoryName)) return null;
   const directory = path.win32.join(boundary.runtimeStateRoot, directoryName);
   const preparationStates = classifyHistoryPreparations(directory);
   if (
     preparationStates === null ||
-    (!allowKnownHistoryPreparation && preparationStates.length > 0)
+    (!shouldAllowKnownHistoryPreparation && preparationStates.length > 0)
   )
     return null;
   const adoptionPresent = historyFilePresent(directory, HISTORY_ADOPTION_FILE);
@@ -2007,14 +2031,14 @@ function readOperation(
       : readOriginalOperation(
           boundary,
           directoryName,
-          allowKnownHistoryPreparation,
+          shouldAllowKnownHistoryPreparation,
           "terminal",
         );
   const adoptionBytes = stableBytes(
     path.win32.join(directory, HISTORY_ADOPTION_FILE),
   );
   const adoption = parseHistoryBytes(adoptionBytes);
-  const adoptionV1 =
+  const isAdoptionV1 =
     adoption?.schema === HISTORY_SCHEMA &&
     exactKeys(adoption, [
       "schema",
@@ -2025,7 +2049,7 @@ function readOperation(
       "originManifest",
       "adoptingManifest",
     ]);
-  const adoptionV2 =
+  const isAdoptionV2 =
     adoption?.schema === HISTORY_ADOPTION_SCHEMA &&
     exactKeys(adoption, [
       "schema",
@@ -2042,10 +2066,28 @@ function readOperation(
       "originManifest",
       "adoptingManifest",
     ]);
+  const isAdoptionV3 =
+    adoption?.schema === HISTORY_POLICY_TRANSITION_SCHEMA &&
+    exactKeys(adoption, [
+      "schema",
+      "kind",
+      "repairId",
+      "originalRecordCount",
+      "originalTipSha256",
+      "originLocalUserBindingHash",
+      "adoptingLocalUserBindingHash",
+      "runtimeStateIdentityHash",
+      "runtimeStateProtectionHash",
+      "runtimeStateBindingHash",
+      "originDockerPolicySha256",
+      "dockerPolicySha256",
+      "originManifest",
+      "adoptingManifest",
+    ]);
   if (
     !adoptionBytes ||
     !adoption ||
-    (!adoptionV1 && !adoptionV2) ||
+    (!isAdoptionV1 && !isAdoptionV2 && !isAdoptionV3) ||
     adoption.kind !== "adoption" ||
     !hash64(adoption.originalTipSha256)
   )
@@ -2073,11 +2115,21 @@ function readOperation(
   const handoffNames = historyEntries.map((entry) => entry.name).sort();
   let handoffTipSha256 = adoptionSha256;
   let previousRelease = adopting;
-  let historySession = adoptionV2
-    ? String(adoption.adoptingLocalUserBindingHash)
-    : boundary.localUserBindingHash;
+  const recordedOriginPolicySha256 = originalDockerPolicySha256(
+    boundary.runtimeStateRoot,
+    directoryName,
+  );
+  const historyPolicySha256 =
+    isAdoptionV2 || isAdoptionV3
+      ? String(adoption.dockerPolicySha256)
+      : recordedOriginPolicySha256;
+  if (!historyPolicySha256) return null;
+  let historySession =
+    isAdoptionV2 || isAdoptionV3
+      ? String(adoption.adoptingLocalUserBindingHash)
+      : boundary.localUserBindingHash;
   const visitedSessions = new Set<string>();
-  if (adoptionV2) {
+  if (isAdoptionV2 || isAdoptionV3) {
     if (
       !hash64(adoption.originLocalUserBindingHash) ||
       !hash64(adoption.adoptingLocalUserBindingHash) ||
@@ -2085,7 +2137,8 @@ function readOperation(
       adoption.runtimeStateProtectionHash !==
         boundary.runtimeStateProtectionHash ||
       adoption.runtimeStateBindingHash !== boundary.runtimeStateBindingHash ||
-      adoption.dockerPolicySha256 !== boundary.dockerPolicySha256
+      !hash64(adoption.dockerPolicySha256) ||
+      (isAdoptionV3 && !hash64(adoption.originDockerPolicySha256))
     )
       return null;
     visitedSessions.add(String(adoption.originLocalUserBindingHash));
@@ -2127,7 +2180,7 @@ function readOperation(
       handoff.runtimeStateProtectionHash !==
         boundary.runtimeStateProtectionHash ||
       handoff.runtimeStateBindingHash !== boundary.runtimeStateBindingHash ||
-      handoff.dockerPolicySha256 !== boundary.dockerPolicySha256
+      handoff.dockerPolicySha256 !== historyPolicySha256
     )
       return null;
     const handoffRelease = verifyHistory(handoff.adoptingManifest);
@@ -2151,7 +2204,7 @@ function readOperation(
     const closure = parseHistoryBytes(
       stableBytes(path.win32.join(directory, HISTORY_CLOSURE_FILE)),
     );
-    const closureV1 =
+    const isClosureV1 =
       closure?.schema === HISTORY_SCHEMA &&
       exactKeys(closure, [
         "schema",
@@ -2162,7 +2215,7 @@ function readOperation(
         "staleState",
         "closingManifest",
       ]);
-    const closureV2 =
+    const isClosureV2 =
       closure?.schema === HISTORY_ADOPTION_SCHEMA &&
       exactKeys(closure, [
         "schema",
@@ -2177,7 +2230,7 @@ function readOperation(
       ]);
     if (
       !closure ||
-      (!closureV1 && !closureV2) ||
+      (!isClosureV1 && !isClosureV2) ||
       closure.kind !== "closure" ||
       closure.repairId !== adoption.repairId ||
       closure.adoptionSha256 !== adoptionSha256 ||
@@ -2186,7 +2239,7 @@ function readOperation(
     )
       return null;
     if (
-      closureV2 &&
+      isClosureV2 &&
       (closure.handoffTipSha256 !== handoffTipSha256 ||
         closure.closingLocalUserBindingHash !== historySession)
     )
@@ -2204,13 +2257,26 @@ function readOperation(
     liveRunIdentity = closure.liveRunIdentity;
     staleState = closure.staleState;
   }
+  // A terminal history is immutable evidence and cannot issue Host Effects, so
+  // it remains readable under the policy that governed it. An open operation
+  // must match the current policy before it can be resumed.
+  if (!closurePresent && historyPolicySha256 !== boundary.dockerPolicySha256)
+    return null;
   // Only a fully validated closure permits reading a prior login's chain.
   // No operation is returned until its original chain and receipt anchors match.
   const operation = readOriginalOperation(
-    historicalBoundary(boundary, origin),
+    historicalBoundary(
+      boundary,
+      origin,
+      isAdoptionV3
+        ? String(adoption.originDockerPolicySha256)
+        : historyPolicySha256,
+    ),
     directoryName,
     true,
-    adoptionV2 || closurePresent ? "closed_history" : "current",
+    isAdoptionV2 || isAdoptionV3 || closurePresent
+      ? "closed_history"
+      : "current",
   );
   if (
     !operation ||
@@ -2220,12 +2286,17 @@ function readOperation(
   )
     return null;
   if (
-    adoptionV2 &&
+    (isAdoptionV2 || isAdoptionV3) &&
     operation.originLocalUserBindingHash !== adoption.originLocalUserBindingHash
   )
     return null;
-  const currentSessionBound = historySession === boundary.localUserBindingHash;
-  if (!closurePresent && !currentSessionBound && !allowPendingSessionHandoff)
+  const isCurrentSessionBound =
+    historySession === boundary.localUserBindingHash;
+  if (
+    !closurePresent &&
+    !isCurrentSessionBound &&
+    !shouldAllowPendingSessionHandoff
+  )
     return null;
   // Original stage and ledger are never rewritten or upgraded to confirmed.
   return Object.freeze({
@@ -2237,7 +2308,7 @@ function readOperation(
       originLocalUserBindingHash:
         operation.originLocalUserBindingHash ?? boundary.localUserBindingHash,
       currentLocalUserBindingHash: historySession,
-      currentSessionBound,
+      currentSessionBound: isCurrentSessionBound,
       closed: closurePresent,
       liveRunIdentity,
       staleState,
@@ -2276,9 +2347,15 @@ export function inspectDockerDesktopRepairHistoricalOperation(
     )
       return readOperation(boundary, directoryName, verifyHistory, true);
     const origin = verifyHistory(originManifest);
-    return origin && releaseNotAfterBoundary(origin, boundary)
+    const originPolicySha256 = originalDockerPolicySha256(
+      boundary.runtimeStateRoot,
+      directoryName,
+    );
+    return origin &&
+      originPolicySha256 &&
+      releaseNotAfterBoundary(origin, boundary)
       ? readOriginalOperation(
-          historicalBoundary(boundary, origin),
+          historicalBoundary(boundary, origin, originPolicySha256),
           directoryName,
           false,
           "terminal",
@@ -2380,7 +2457,7 @@ export function persistDockerDesktopRepairHistoricalAdoption(
     // get a second opportunity to alter the bytes being written.
     const bytes = Buffer.from(
       `${JSON.stringify({
-        schema: HISTORY_ADOPTION_SCHEMA,
+        schema: HISTORY_POLICY_TRANSITION_SCHEMA,
         kind: "adoption",
         repairId: operation.repairId,
         originalRecordCount: operation.sequence + 1,
@@ -2390,6 +2467,10 @@ export function persistDockerDesktopRepairHistoricalAdoption(
         runtimeStateIdentityHash: boundary.runtimeStateIdentityHash,
         runtimeStateProtectionHash: boundary.runtimeStateProtectionHash,
         runtimeStateBindingHash: boundary.runtimeStateBindingHash,
+        originDockerPolicySha256: originalDockerPolicySha256(
+          boundary.runtimeStateRoot,
+          directoryName,
+        ),
         dockerPolicySha256: boundary.dockerPolicySha256,
         originManifest,
         adoptingManifest,
@@ -2401,6 +2482,7 @@ export function persistDockerDesktopRepairHistoricalAdoption(
     if (
       !value ||
       !hash64(value.originLocalUserBindingHash) ||
+      !hash64(value.originDockerPolicySha256) ||
       !adopting ||
       !releaseMatchesBoundary(adopting, boundary)
     )
@@ -2409,7 +2491,11 @@ export function persistDockerDesktopRepairHistoricalAdoption(
     const current =
       origin && releaseNotAfterBoundary(origin, boundary)
         ? readOriginalOperation(
-            historicalBoundary(boundary, origin),
+            historicalBoundary(
+              boundary,
+              origin,
+              String(value.originDockerPolicySha256),
+            ),
             directoryName,
             true,
             "terminal",
@@ -2615,7 +2701,10 @@ export function classifyDockerDesktopRepairResume(
     const native = effectEntry(ledger, "native_termination");
     const wsl = effectEntry(ledger, "wsl_termination");
     if (!shutdown) return result("next_host_action", "official_shutdown");
-    if (!isSettledConfirmed(ledger, "official_shutdown"))
+    if (
+      !isSettledConfirmed(ledger, "official_shutdown") &&
+      !isSettledNotIssued(ledger, "official_shutdown")
+    )
       return result("manual_block");
     if (!native) return result("next_host_action", "native_termination");
     if (

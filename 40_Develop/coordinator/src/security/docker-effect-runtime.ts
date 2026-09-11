@@ -16,19 +16,22 @@ import {
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
 } from "./codex-execution-plan.ts";
+import { resolveFixedCodexExecutorSeccompProfile } from "./codex-executor-seccomp.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
 import { inspectRuntimeOwnedDockerResourceReceipts } from "./docker-recovery-runtime.ts";
+import {
+  describeDockerCliTrustContract,
+  DOCKER_CLI_EXECUTABLE,
+  observeTrustedDockerCli,
+  verifyTrustedDockerCliSnapshot,
+  type DockerCliTrustSnapshot,
+} from "./docker-cli-trust.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 8;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 9;
 
-const DOCKER_ROOT = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
-const DOCKER_EXECUTABLE = `${DOCKER_ROOT}\\docker.exe`;
-const DOCKER_EXECUTABLE_BYTES = 41_631_088;
-const DOCKER_EXECUTABLE_SHA256 =
-  "C8EAA01D1E78CAECD65D730E670CBFE4DFCE006E1C6F18167C003587CB4BB610";
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 const DOCKER_CONFIG_DIRECTORY = "docker-cli-config";
 const SHORT_COMMAND_TIMEOUT_MS = 10_000;
@@ -74,11 +77,7 @@ type PreparedPlan = Readonly<{
   workspaceMountMode: "read_write" | "read_only" | null;
   commands: readonly Command[];
 }>;
-type CliSnapshot = Readonly<{
-  rootIdentity: string;
-  executableIdentity: string;
-  sha256: string;
-}>;
+type CliSnapshot = DockerCliTrustSnapshot;
 type ExecutionContext = {
   planIdentity: string;
   configDirectory: string;
@@ -123,33 +122,17 @@ function filesystemIdentity(target: string, expected: "file" | "directory") {
 }
 
 function readCliSnapshot(): CliSnapshot {
-  if (fs.realpathSync(DOCKER_ROOT) !== DOCKER_ROOT)
+  try {
+    return observeTrustedDockerCli();
+  } catch {
     throw new Error("docker_effect_cli_untrusted");
-  if (fs.realpathSync(DOCKER_EXECUTABLE) !== DOCKER_EXECUTABLE)
-    throw new Error("docker_effect_cli_untrusted");
-  const metadata = fs.lstatSync(DOCKER_EXECUTABLE);
-  if (metadata.size !== DOCKER_EXECUTABLE_BYTES)
-    throw new Error("docker_effect_cli_untrusted");
-  const sha256 = createHash("sha256")
-    .update(fs.readFileSync(DOCKER_EXECUTABLE))
-    .digest("hex")
-    .toUpperCase();
-  if (sha256 !== DOCKER_EXECUTABLE_SHA256)
-    throw new Error("docker_effect_cli_untrusted");
-  return Object.freeze({
-    rootIdentity: filesystemIdentity(DOCKER_ROOT, "directory"),
-    executableIdentity: filesystemIdentity(DOCKER_EXECUTABLE, "file"),
-    sha256,
-  });
+  }
 }
 
 function verifyCliSnapshot(snapshot: CliSnapshot) {
-  const current = readCliSnapshot();
-  if (
-    current.rootIdentity !== snapshot.rootIdentity ||
-    current.executableIdentity !== snapshot.executableIdentity ||
-    current.sha256 !== snapshot.sha256
-  ) {
+  try {
+    verifyTrustedDockerCliSnapshot(snapshot);
+  } catch {
     throw new Error("docker_effect_cli_replaced");
   }
 }
@@ -269,6 +252,30 @@ function expectedCommands(
           plan.workspaceMountMode === "read_only" ? ",readonly" : ""
         }`
       : null;
+  const providerIdentity = providerPlan.distributionBinding.identity;
+  const codexSeccompIdentity =
+    "executorSeccompProfileSha256" in providerIdentity &&
+    "executorSeccompProfileBytes" in providerIdentity
+      ? providerIdentity
+      : null;
+  const codexExecutorSeccompProfile =
+    plan.provider === "codex" &&
+    plan.operationMode === "isolated_task" &&
+    plan.taskRole === "executor" &&
+    codexSeccompIdentity
+      ? resolveFixedCodexExecutorSeccompProfile(
+          codexSeccompIdentity.executorSeccompProfileSha256,
+          codexSeccompIdentity.executorSeccompProfileBytes,
+        )
+      : null;
+  if (
+    plan.provider === "codex" &&
+    plan.operationMode === "isolated_task" &&
+    plan.taskRole === "executor" &&
+    !codexExecutorSeccompProfile
+  ) {
+    return null;
+  }
   const commands = [
     [
       "create",
@@ -351,6 +358,9 @@ function expectedCommands(
       plan.ownershipLabel,
       "--cap-drop=ALL",
       "--security-opt=no-new-privileges",
+      ...(codexExecutorSeccompProfile
+        ? [`--security-opt=seccomp=${codexExecutorSeccompProfile}`]
+        : []),
       "--pids-limit=64",
       "--user=65534:65534",
       "--workdir=/work",
@@ -539,7 +549,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
       throw new Error("docker_effect_command_not_owned");
     dependencies.verifyCli(context.cli);
     const handle = dependencies.startProcess(
-      DOCKER_EXECUTABLE,
+      DOCKER_CLI_EXECUTABLE,
       [
         "--host",
         DOCKER_ENGINE,
@@ -557,7 +567,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
   async function runShort(context: ExecutionContext, argv: readonly string[]) {
     dependencies.verifyCli(context.cli);
     const handle = dependencies.startProcess(
-      DOCKER_EXECUTABLE,
+      DOCKER_CLI_EXECUTABLE,
       ["--host", DOCKER_ENGINE, "--config", context.configDirectory, ...argv],
       createDockerProcessEnvironment(),
       null,
@@ -1189,10 +1199,7 @@ export function describeDockerEffectRuntimeContract() {
     contract: DOCKER_EFFECT_RUNTIME_CONTRACT,
     contractRevision: DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION,
     dockerCli: Object.freeze({
-      absolutePath: DOCKER_EXECUTABLE,
-      bytes: DOCKER_EXECUTABLE_BYTES,
-      sha256: DOCKER_EXECUTABLE_SHA256,
-      pathLookupAllowed: false,
+      ...describeDockerCliTrustContract(),
       shellAllowed: false,
     }),
     engine: DOCKER_ENGINE,

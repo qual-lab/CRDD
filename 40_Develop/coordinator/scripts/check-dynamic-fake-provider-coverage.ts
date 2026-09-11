@@ -27,13 +27,13 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
 ]);
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_TESTS = Object.freeze([
-  "40_Develop/coordinator/tests/doctor.contract.test.ts",
-  "40_Develop/coordinator/tests/dynamic-fake-provider-failure-verification.contract.test.ts",
-  "40_Develop/coordinator/tests/dynamic-fake-provider-cancellation-verification.contract.test.ts",
-  "40_Develop/coordinator/tests/provider-lifecycle.contract.test.ts",
-  "40_Develop/coordinator/tests/plain-data-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
-  "40_Develop/coordinator/tests/dynamic-fake-provider-coverage.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
+  "40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts",
+  "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/provider-lifecycle.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/dynamic-fake-provider-coverage.contract.test.ts",
 ]);
 
 const NODE_OPTIONS = Object.freeze([

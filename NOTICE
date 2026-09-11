@@ -8,3 +8,9 @@ of Qual-Lab where applicable.
 The Apache License, Version 2.0 does not grant permission to use these marks
 except for reasonable and customary use in describing the origin of the work.
 See TRADEMARK.md for the project trademark and brand-use policy.
+
+The Codex Executor seccomp profile is derived from the Moby default seccomp
+profile at commit c3065211177705ada59a9ccf8b5c182f286f8c97 and is used under
+the Apache License, Version 2.0. CRDD adds narrowly scoped allowances for
+clone, clone3, mount, pivot_root, unshare, and umount2 so the bundled Codex bubblewrap
+sandbox can operate inside the bounded Docker container.

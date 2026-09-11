@@ -21,18 +21,18 @@ const selectionNotice = (
   ],
   highCostSelectionAllowed: false,
 });
-const projection = (cancelled: boolean) => ({
+const projection = (isCancelled: boolean) => ({
   projectId: "project-a",
   milestoneId: "milestone-a",
   generation: 1,
-  milestoneState: cancelled ? "cancelled" : "accepted",
+  milestoneState: isCancelled ? "cancelled" : "accepted",
   objectiveCounts: {
     planned: 0,
     executing: 0,
     integration_pending: 0,
-    accepted: cancelled ? 0 : 1,
+    accepted: isCancelled ? 0 : 1,
     blocked: 0,
-    cancelled: cancelled ? 1 : 0,
+    cancelled: isCancelled ? 1 : 0,
   },
   taskCounts: {
     planned: 0,
@@ -41,16 +41,16 @@ const projection = (cancelled: boolean) => ({
     starting: 0,
     running: 0,
     cleanup_pending: 0,
-    completed: cancelled ? 0 : 1,
+    completed: isCancelled ? 0 : 1,
     failed: 0,
-    cancelled: cancelled ? 1 : 0,
+    cancelled: isCancelled ? 1 : 0,
     recovery_required: 0,
     superseded: 0,
   },
   objectiveTaskSummaries: [
     {
       objectiveId: "objective-a",
-      objectiveState: cancelled ? "cancelled" : "accepted",
+      objectiveState: isCancelled ? "cancelled" : "accepted",
       taskCounts: {
         planned: 0,
         waiting_dependency: 0,
@@ -58,19 +58,19 @@ const projection = (cancelled: boolean) => ({
         starting: 0,
         running: 0,
         cleanup_pending: 0,
-        completed: cancelled ? 0 : 1,
+        completed: isCancelled ? 0 : 1,
         failed: 0,
-        cancelled: cancelled ? 1 : 0,
+        cancelled: isCancelled ? 1 : 0,
         recovery_required: 0,
         superseded: 0,
       },
     },
   ],
-  workProgress: cancelled ? "in_progress" : "tasks_complete",
-  qualityState: cancelled ? "not_evaluated" : "accepted",
+  workProgress: isCancelled ? "in_progress" : "tasks_complete",
+  qualityState: isCancelled ? "not_evaluated" : "accepted",
   humanDecisionRequired: false,
   recoveryRequired: false,
-  nextAction: cancelled ? "wait_for_task" : "complete",
+  nextAction: isCancelled ? "wait_for_task" : "complete",
 });
 let received = "";
 process.stdin.setEncoding("utf8");
@@ -82,14 +82,14 @@ process.stdin.on("data", (chunk) => {
   else {
     const request = JSON.parse(received.split(/\r?\n/u)[0] ?? "");
     const id = mode === "wrong-id" ? "wrong" : request.id;
-    const cancelled = mode === "cancelled";
+    const isCancelled = mode === "cancelled";
     const responseLine = `${JSON.stringify({
       jsonrpc: "2.0",
       id,
       result: {
         structuredContent: {
-          status: cancelled ? "cancelled" : "completed",
-          reason: cancelled
+          status: isCancelled ? "cancelled" : "completed",
+          reason: isCancelled
             ? "project_runtime_operation_cancelled"
             : "project_runtime_milestone_accepted",
           contract: "crdd-coordinator/project-runtime-objective-intake/v1",
@@ -97,7 +97,7 @@ process.stdin.on("data", (chunk) => {
           projectId: "project-a",
           milestoneId: "milestone-a",
           queueId: "queue-a",
-          projection: projection(cancelled),
+          projection: projection(isCancelled),
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
           processRestartRequired: false,

@@ -15,6 +15,7 @@
 | §7.2のCoordinator Runtime 1.0 | v0.18.0で候補内容を採用・実装検証・公開済み（CHG-000015）。v0.18.1の配布契約と作業対象Revision結合の是正はCHG-000056で追跡する |
 | §8のMinimum AI-native Project Runtime | v0.19.0へ採用・設計中（CHG-000057） |
 | 第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補、§7.9の将来能力地平 | `Held / Unscheduled` |
+| v0.21以降のRuntime／CROS候補 | 利用者課題、価値、採用境界は[Runtime／CROS Product Candidates](02_Runtime_and_CROS_Product_Candidates.md)へ分離。版、状態、次のGateは[Roadmap](../99_Roadmap/01_Product_Roadmap.md)が所有する |
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本、影響および既存の未リリース変更意図を再確認し、同じ意図は既存CHGへ接続する。独立した変更意図が必要な場合だけ、[変更規則](../12_Change.md)に従って新しい`CHG-*`を発行する。
 
@@ -354,11 +355,23 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 
 維持責任者は親Coordinator、採否はQual-Labの人間の決定権限者とする。再評価契機は現行Runtimeの完成固定と実務自己適用の収束後、または新しい根拠が現在の完了・安全判断へ影響した時点とする。保留中は現在の検証と横断確認を維持するため処理時間と人間負荷が残り得る。安全上の問題が現在成立すると分かった場合は、将来候補のまま退避せず現行是正へ戻す。細部と再現根拠はCHG・Evidence、具体的なRuntime設計は[実行設計](../06_Architecture/coordinator/01_Architecture.md)が所有し、上位規則や専門機能を増殖させない。
 
+<a id="v020-runtime-responsibility-separation"></a>
+
+##### v0.20 Runtime責務分離
+
+2026-09-05、人間の決定権限者は、Project Runtime、公開アプリケーション契約、MCP TransportおよびProvider実行がCoordinator packageへ物理的に集中している状態を、v0.20の後続機能を追加する前に是正する作業意図を採用した。目的はFolder数や抽象層を増やすことではなく、Project RuntimeをProject-level execution lifecycleのApplication Core、Coordinatorを実行編成、MCPをTransport、Execution Intelligenceを観測・分析、Platform AccessをOS／Platform境界として分離し、依存方向を機械的に強制できるようにすることである。
+
+Project RuntimeはObjectiveをProject-level execution stateへ変換し、Task Graph、Queue、再計画、人間判断、統合および受入のlifecycleを管理する。Provider選択・Provider実行・OS機構・Transport sessionを所有せず、必要な実行能力はExecution Portとして要求する。CoordinatorはそのPortを実装するAdapterとなり、Project RuntimeからCoordinator実装を参照しない。MCP stdio／HTTPとCLIは、Project Runtimeが所有する同じ公開アプリケーション契約へ接続し、Project Authority、成功、正本変更またはRecovery Authorityを生成しない。
+
+初期配置は`40_Develop/project-runtime/`、`40_Develop/mcp/`、`40_Develop/coordinator/`、`40_Develop/execution-intelligence/`および`40_Develop/platform-access/`の責務単位を候補とする。公開アプリケーション契約は、独立したLifecycleまたは複数所有者による版管理の必要性が実証されるまでProject Runtimeの公開入口として所有し、先行して独立packageへしない。Architecture、Workflow、検証およびpackageの成果物も同じ責務へ分ける。
+
+完成には、Project RuntimeからCoordinator／Provider／MCP／OS固有実装への推移的依存0、CoordinatorによるExecution Port実装、MCP／CLIの公開契約だけを介した接続、内部Pathを参照する利用側0、およびv0.19のCLI／MCP stdio／Project lifecycleの意味回帰0を必要とする。Project RuntimeへRuntime Stateを集約することを、Project Management State、WBS、Topic、Risk、Forecast、Provider orchestrationまたはOS実装を所有させる根拠にしない。具体的な移動集合、package境界、互換性、Runtime実行Identityへの影響および完成条件は、着手時の変更トレースで固定する。
+
 <a id="bounded-distributed-execution-candidate"></a>
 
-##### 限定分散と統合結果の評価候補
+##### v0.20 限定分散と統合結果の評価
 
-2026-08-31の収束方針整理から、v0.19の能力像に向けた候補として、目的の分析、作業分解、依存関係、限定並列実行、再計画、統合後の検証を接続する。状態は`Held / Unscheduled`であり、v0.19への収載・設計・実装許可ではない。v0.18には現在の不確実性に基づく検証選択と収束判断を還元し、採用済みの是正・完了条件を次版へ移さない。
+2026-09-05、人間の決定権限者は、v0.19で成立したObjective Planning、Task Graph、最大5並列、再計画および統合を基礎に、目的の分析、作業分解、依存関係、限定並列実行、再計画、統合後の検証が実務上有効かを評価する作業意図をv0.20へ採用した。新しい並列基盤を一から作るのではなく、実装済みの範囲と未確認の利用者成果を分け、個別Taskの合格ではなく統合後に採用可能な結果へ到達したかを実行知へ接続する。
 
 最初の実証規模は2～4作業程度を候補とし、標準の必要件数や成功条件にはしない。分析・計画の専門性は役割・スキルへ、実行境界の強制はRuntimeへ置き、Coreへ専門機能を追加する前提にしない。次を同じ目的に対する一つの実証として評価する。
 
@@ -367,7 +380,7 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 - 個別レビュー承認を統合受入と同一視しない。統合した改訂版で作業間の仕様・前提・資源・成果物の整合と目的の受入条件を検証し、統合変更によって影響した個別結果を再評価する。
 - 統合後に採用可能な結果へ至る時間、人間の実作業時間、不要な反復、統合時の指摘・競合・手戻り、失敗・停止、Provider別利用量および後工程品質を比較する。並列起動数や個別合格数だけを成果にせず、改善率は実測から評価する。
 
-現在の影響が不明な問題は将来候補へ逃がさず、親が不足根拠を確認する。人間の常時監視を成立条件にせず、既存の許可・正本から処置を決められない目的変更、重要判断またはリスク受容だけを人間へ返す。大規模Worker Pool、自動Quota最適化、完全な意味競合推論、Cross-project schedulingは本候補の最低条件ではない。維持責任者・再評価契機・保留影響は上記の次版候補と共通とし、新しいロードマップや管理台帳を増やさない。
+現在の影響が不明な問題は将来候補へ逃がさず、親が不足根拠を確認する。人間の常時監視を成立条件にせず、既存の許可・正本から処置を決められない目的変更、重要判断またはリスク受容だけを人間へ返す。大規模Worker Pool、自動Quota最適化、完全な意味競合推論、Cross-project schedulingはv0.20の最低条件ではない。実証Task、比較条件、既存機能との差分および完成条件はv0.20の変更トレースで固定し、新しいロードマップや管理台帳を増やさない。
 
 #### 7.3.3. 人間可読文書の意味構造改善候補
 
@@ -452,6 +465,237 @@ Self-hosted LLMもProvider Adapter候補へ接続できるかを評価する。F
 「遅延しそうなプロジェクトはどれか」「人間判断待ちは何か」「どこへAI能力を追加すべきか」「経営会議で扱うTopicは何か」等の横断判断へ根拠を提供できるかを検証する。プロジェクト間の決定権限、情報分類、アクセス、費用および組織の決定権限は未設計であり、この候補から推定しない。
 
 候補構造は`MCP／API → Organization Runtime → Repository Router → Project Runtime → Coordinator`とし、Project単位でContext、Authority、Runtime State、Lock、Capability namespace、EvidenceおよびRecoveryを分離する。`repository_id`、`project_id`および`organization_id`の安定識別を評価するが、上位scopeから下位ProjectへのAuthority、CredentialまたはRecoveryを暗黙継承しない。複数RepositoryにまたがるEffectは、部分成功、取消、再開およびexact recoveryを設計するまで非対応とする。
+
+<a id="cros-collaborative-project-execution-model"></a>
+
+#### 協働プロジェクト実行モデル
+
+CROSは、複数Project、複数の専門家、人間、AIおよび異なる実行Platformを、一つの作業場所へ集中させず、Context、判断、引き渡しおよび全体把握で接続する。専門作業はLocal環境を基本とし、Roadmap Version、CHG、FeatureまたはObjectiveを変更境界として共有する。人間または委任された決定権限者が現在変更可能な範囲を宣言し、CROSはその境界を参加者、AIおよびRuntimeへ伝播する。
+
+「プロジェクト／ポートフォリオ管理機能（Project／Portfolio Management Function）」は特定部署の名称ではなく、単一または複数Projectの状態、依存、Risk、阻害事項、判断待ちおよびRelease状況を俯瞰する機能を指す。PM、PMO、Program／Portfolio責任者、Product責任者その他の実際の担い手は、採用組織の責務と決定権限に従う。
+
+```text
+                ┌──────────────────────────────────────┐
+                │ プロジェクト／ポートフォリオ管理機能 │
+                │                                      │
+                │ ・全Project／担当Projectの現在地     │
+                │ ・Risk／Blocker／判断待ち             │
+                │ ・依存関係／Release状況               │
+                └─────────────────┬────────────────────┘
+                                  │
+                           Qual／MCP／UI
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────┐
+│                            CROS                            │
+│                                                            │
+│ Multi Repo／Context／Projection／Attention／Decision       │
+│ Capability／Task Session／Execution Intelligence           │
+│                                                            │
+│       Read broadly／coordinate across／write narrowly      │
+└────────────────┬───────────────────────────┬───────────────┘
+                 │                           │
+        Project AのCRDD             Project BのCRDD
+                 │                           │
+        ┌────────┴────────┐                  ...
+        │                 │
+      Context        CHG／Version
+                          │
+                          ▼
+                 専門家によるLocal作業
+```
+
+| CROSが担うもの | Local Workが担うもの |
+|---|---|
+| Project／Portfolioの俯瞰、Context接続 | 専門成果物、CodeおよびDesignの制作 |
+| Risk、阻害事項、注意事項および判断待ち | Platform固有作業と実機／実Display確認 |
+| Task／変更依頼、Review／Findingおよび引き渡しの接続 | IDE、Figmaその他の専門Toolによる作業 |
+| Evidence集約とCHG／Version Integration状態の投影 | 専門家による評価と候補作成 |
+
+共有CROSの基本境界は、広く読み、横断的に調整し、書込みを狭く限定することである。専門家のLocal Working Copyや専門Toolを中央管理せず、CROSがProjectの正本、成果物所有者または専門判断を置き換えない。
+
+変更・統合の基本単位は、工程ごとの長寿命Branchではなく、Roadmap Version、CHG、FeatureまたはObjectiveとする。CROSは採用Projectへ特定のBranch名やGit運用を要求せず、Projectが採用した基準Branchと統合先をContextとして扱う。
+
+```text
+Projectの基準Revision
+        │ branch／isolated worktree
+        ▼
+Version／Feature Candidate
+        │
+        ├── CHG-101
+        ├── CHG-102
+        └── CHG-103
+        │
+        ▼  全CHGの成立と統合検証
+Projectが定めたIntegration Target
+```
+
+CHGごとに、現在Canonicalな変更を許可する工程範囲（Current Active Scope）を明示する。後工程はActive Scope外でもContext参照、Review、Finding、Constraint FeedbackおよびImpact確認を行えるが、Canonical成果物の変更、Implementation、IntegrationまたはAuthorityを伴う変更を先行させない。
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ CHG-101                                                  │
+│ Current Active Scope: UX → IA → UI                       │
+│                                                          │
+│ UX              IA              UI                       │
+│ ● Write         ● Write         ● Write                  │
+│    └───────────────┬───────────────┘                     │
+│                    ▼                                     │
+│              Current Candidate                           │
+│                    │                                     │
+│       ┌────────────┴────────────┐                        │
+│       ▼                         ▼                        │
+│ Architecture                 Engineer                    │
+│ ○ Read／Review              ○ Read／Review               │
+│ ○ Finding                  ○ Constraint Feedback        │
+│ × Canonical Change         × Implementation             │
+│       └──────────── Feedback ────────────┘               │
+│                    │                                     │
+│                    ▼                                     │
+│              UX／IA／UI Ownerが再調整                    │
+└──────────────────────────────────────────────────────────┘
+```
+
+Humanまたは適切なAuthorityが、現在候補と根拠から次の変更範囲を開放する。初期段階ではCROSによる自動開放を基本としない。後工程から前工程へのFeedbackは許可するが、Findingを理由に後工程の担当者が前工程のCanonical成果物を直接変更せず、原則として成果物所有者へ戻す。
+
+```text
+Architecture Finding
+        │
+        ▼
+┌─────────────────┐
+│ UI Candidate    │
+│ Rework Required │
+└────────┬────────┘
+         │
+         ▼
+       UI Owner
+         │
+    Candidate v2
+         │
+         ▼
+Architecture Review
+```
+
+```text
+Human／委任されたAuthority
+       │ 「UI Candidate Ready」
+       ▼
+UX       IA       UI       SPEC      ARCH      IMPL
+✓        ✓        ✓         ●          ●        Hold
+Accepted Accepted Accepted  Write      Write
+                                      ▲
+                              Review／Feedbackは先行可能
+```
+
+Implementation後の候補は、必要なPlatformへ検証入力として投影する。Platform環境は原則として同じ候補の検証Consumerであり、検証先で独立したCanonical変更を開始しない。Findingがあれば、候補の実装所有者へ戻す。
+
+```text
+                    CHG-101
+                       │
+                 Implementation
+                       │
+               Candidate Revision
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+      Linux環境     Windows環境    macOS環境
+      Build／Test   Build／Test    Build／Test
+          └────────────┼────────────┘
+                       ▼
+                    Evidence
+                 ┌─────┴─────┐
+                 ▼           ▼
+             Findingなし   Findingあり
+                 │           │
+                 ▼           └── 実装所有者へ戻す
+             Acceptance
+```
+
+統合は工程名の完了ではなく、CHG、FeatureまたはObjectiveがその受入条件を満たし、相互の変更を統合しても成立することを基準とする。個別Taskや個別CHGの成功を統合結果の成功へ読み替えない。
+
+```text
+Version／Feature Candidate
+│
+├ CHG-101  ✓ Accepted
+├ CHG-102  ✓ Accepted
+└ CHG-103  ✓ Accepted
+│
+▼
+Version Integration
+├ Cross-CHG Regression
+├ Integration／System Verification
+├ Release Verification
+└ 必要なHuman Acceptance
+│
+▼
+Projectが定めたIntegration Target
+```
+
+全体の候補Workflowは次の通りである。この図は固定工程順、全工程の常時発火、特定Branch構成または自動実行許可を意味しない。
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│          プロジェクト／ポートフォリオ管理機能           │
+│       Portfolio／Project／Attention／Decision View       │
+└────────────────────────┬────────────────────────────────┘
+                         │
+                    CROS／MCP
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│ Project                                                 │
+│ Roadmap Version: vNext                                  │
+│   ├ CHG-101                                             │
+│   ├ CHG-102                                             │
+│   └ CHG-103                                             │
+└────────────────────────┬────────────────────────────────┘
+                         │ CHG-101
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+         UX              IA             UI
+       [Write]         [Write]        [Write]
+          └──────────────┼──────────────┘
+                         ▼
+                     Candidate
+                 ┌───────┴────────┐
+                 ▼                ▼
+          Architecture         Engineer
+             [Review]          [Review]
+                 └──── Feedback ──┘
+                         ▼
+             Human／委任Authorityの判断
+             「次の範囲まで進めてよい」
+                         ▼
+                SPEC／Architecture
+                         ▼
+                  Implementation
+                         ▼
+                 Candidate Revision
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+            Linux      Windows     macOS
+             Test        Test       Test
+              └──────────┼──────────┘
+                         ▼
+                      Evidence
+                         ▼
+                    CHG Accepted
+                         ▼
+                 Version Integration
+                         ▼
+             ProjectのIntegration Target
+```
+
+CROSはActive Scopeの共有、Contextの横断参照、Artifact／Candidate State、Review／Finding、人間判断、引き渡し、Platform Verification、Evidenceおよび統合状態の接続を担う。将来、実行知の根拠から「この条件ならArchitectureまで並行開始可能」と提案できる可能性は評価するが、提案とHuman Decisionを分離し、完全自動Workflowを既定にしない。
+
+本モデルは次の原則を保持する。
+
+- Contextは共有するが、成果物所有者を曖昧にしない。
+- Reviewは工程境界を越えられるが、Canonicalな書込みは越境させない。
+- 統合は工程完了ではなく、変更単位の成立と統合済み結果に従う。
+- PlatformはProject階層ではなく、実行・検証条件として扱う。
+- Human Interventionは排除せず、判断、受入および専門評価等の意味ある地点へ集中させる。
+- CROSは作業を中央集権化するより、分散したHuman、AI、ToolおよびPlatformを同じContextと判断へ接続する。
 
 ### 7.8. 研究候補と保持条件
 
@@ -587,3 +831,136 @@ v0.20では実行知全体の完成を前提としない。最初の対象は、
 運用成果（Operational Outcome）／事業成果（Business Result）は、目的との関係、結果Source、観測期間、帰属不確実性、取得費用およびPrivacy／Securityが成立する適用先から段階的に接続する。外部Sourceの事業データをCRDDへ複製せず、安定参照と必要な評価結果だけを保持する。初期自己適用では、CRDD自身のProject Runtime、Communication Repositoryおよび外部AI APIを使う採用先候補から、Eventの十分性、人間時間の測定可能性、入力戦略比較、Provider差および結果接続の実用性を検証する。
 
 未決事項は、最小Event集合、同意・情報分類、保持Policy、Human Active Timeの測定方法、外部利用量の信頼境界、評価者の自己参照、実験の十分性、Viewerの形および事業結果接続の最初の適用先である。これらはv0.20設計開始時にEvidenceと利用側から具体化し、109項目相当の構想を一括Schemaや巨大Applicationへ先行固定しない。
+
+<a id="v020-mcp-streamable-http"></a>
+
+## 11. v0.20 MCP Streamable HTTP接続
+
+### 11.1. 採用した目的
+
+2026-09-05、人間の決定権限者は、v0.19で成立したMCP stdioの薄い協働接続面を、MCP Streamable HTTPからも利用できるようにする作業意図をv0.20へ採用した。目的は新しいProject Runtimeを別に作ることではなく、Transport固有処理を外部接続境界へ閉じ、stdioとHTTPが同じProject Runtimeの意味契約、結果契約、安全境界およびRecovery契約へ到達できるようにすることである。
+
+HTTP接続の存在からProject Authority、Repository操作権限、Human Authority、成功またはRecovery Authorityを生成しない。MCP ServerはRepositoryを直接操作せず、検証済みのProject／Repository Identity、選択利用者、Policyおよび要求操作をProject Runtimeで再検証する。公開結果は既存のcanonicalな結果投影から生成し、Transportごとに同じ意味を再定義しない。
+
+### 11.2. v0.20で具体化する境界
+
+設計開始時に、少なくとも次を既存のstdio経路と対比して具体化する。
+
+- 利用者Journey、Client、接続先、待受範囲および対応Platform。
+- 認証、Session、接続・切断、取消、timeout、再送・重複、順序およびreplay防止。
+- Repository Binding、情報分類、入力最小化、結果投影および監査可能な相関Identity。
+- Process、socket、stream、request、Sessionその他の資源所有、上限、終了条件、cleanupおよびRecovery。
+- 正常・準正常・異常経路、stdioとの意味同等性、公開入口からの結合試験／総合試験および回帰試験。
+
+具体的なFramework、待受port、配布方式および運用形態はArchitectureで選択する。v0.20の実装・検証範囲は同じHostの`localhost`接続に限定し、LAN、InternetまたはRemote Hostから到達可能なlistenを成立済みとしない。Linux／macOSへ同じ機構を要求せず、Transportの意味契約と安全保証をPlatform固有実装から分離する。
+
+### 11.3. 採用していない範囲
+
+本採用単独では、LAN／Internetへの公開、Remote Hostでの常設運用、複数Repository、Organization Runtime、Self-hosted Provider、追加Credentialの保管、API key課金、無人の外部EffectまたはProject Authorityの上位継承を意味しない。Linux対応とRemote構成は§12の保留候補とし、TransportのPlatform非依存設計だけを現在の完成条件へ残す。その他も個別の価値、Trust Boundary、運用責任および人間判断を必要とする別候補として保持する。
+
+v0.20での正確な実装範囲と完成条件は、Current State、利用側、脅威、対応Platformおよび既存MCP契約を再確認した変更トレースで固定する。MCP Streamable HTTPが起動したこと、接続できたこと、または一部Methodが応答したことだけから、協働接続面全体の完成を主張しない。
+
+<a id="v020-linux-remote-runtime"></a>
+
+## 12. Linux対応とRemote Runtimeの将来候補
+
+### 12.1. 現在の処置
+
+2026-09-05、人間の決定権限者は、Project RuntimeのLinux対応と、Linux Host上のRuntimeを別Clientから利用する限定Remote構成を一度v0.20作業意図へ採用した。その後、Runtime責務分離、限定分散実行、Project State投影およびMCP Streamable HTTPの初回実装と同時に、新しいPlatform実装とRemote Trust Boundaryまで扱うと完成条件と原因分離が過大になると判断し、v0.20の固定範囲から除外した。
+
+現在状態は`Held / Unscheduled`であり、特定の次版、期限、実装着手またはReleaseを予約しない。v0.20のローカルMCP Streamable HTTP、Project State投影および限定分散実行が完了し、分離後のProject Runtime lifecycleと公開契約が安定したことを再評価契機とする。v0.20ではCoreのPlatform非依存、Transport分離およびWindows固有処理のAdapter内への封じ込めを維持するが、それらをLinux対応済みまたはRemote運用可能の根拠にしない。
+
+### 12.2. 同じ保証と新しい境界
+
+Linux対応はWindowsのAPIやDocker Desktop固有方式を移植せず、Project Runtime Coreが要求するPrincipal／Provider Home、Filesystem／Repository、Lock／Lease、Process／取消、Container Host、Runtime Root／RecoveryおよびEvidenceの保証をLinuxの実環境で成立させる。要求発行、handle取得、受理、Effect成立、終了通知、観測および耐久的確定を区別し、Linux上の実Processと実Filesystemで正常・準正常・異常を検証する。
+
+Remote構成では、Remote Host、Network、認証、暗号化、接続先Identity、replay防止、Session／request相関、情報保持、監査、取消、切断後の処置、更新、停止、Recoveryおよび運用責任を新しいTrust Boundaryとして設計する。ClientやTransportからProject Authority、Credential、CapabilityまたはRecovery Authorityを暗黙継承しない。最初の対象は明示構成した単一Project／Repositoryとし、Repositoryの自動探索や複数Repository運営を完成条件にしない。
+
+### 12.3. 分離して保持する候補
+
+macOS対応はLinux対応の完了から推定せず、別の成果物、Build、署名Identity、検証母集団およびRelease判断を必要とする将来候補として保持する。Self-hosted ProviderもProvider Adapterの将来候補に留め、LinuxまたはRemote構成の成立条件へ混ぜない。Internet一般公開、Organization Runtime、Cross-project schedulingおよび無人の外部Effectもv0.20の本採用には含めない。
+
+具体的な対応Linux、配布・更新方法、Host配置、Client、Network範囲、認証方式、運用責任および本番同等E2Eは、専門探索と脅威確認を行った変更トレースで固定する。一部のLinux契約試験、HTTP応答またはRemote Process起動だけから、Linux対応またはRemote Runtime全体の完成を主張しない。
+
+<a id="v020-read-only-project-state-projection"></a>
+
+## 13. v0.20 Project Stateの読み取り専用投影
+
+### 13.1. 採用した目的
+
+2026-09-05、人間の決定権限者は、Project Runtimeが既に所有する状態とv0.20の実行知を、利用者が内部TaskやAgent Logを追わずに確認できる読み取り専用のProject State投影をv0.20へ採用した。目的は新しいProject Management正本を作ることではなく、MCP stdio／HTTPおよび将来の最小Viewerが、現在の進行、実行中Task、停止理由、人間判断待ち、Recovery義務および統合結果を同じcanonicalな意味から取得できることである。
+
+### 13.2. 投影の境界
+
+投影はProject Runtimeの現在状態と許可された実行知を参照する非Authorityの読み取り結果である。Projection、Client metadata、表示状態または取得回数から、Task、計画、判断、Authority、Recovery Authority、成功、受入または正本変更を生成しない。古い状態、未観測、取得不能、非該当および解消済み履歴を区別し、欠測を0、正常または現在の阻害へ補正しない。
+
+最小field、現行性とRevision、Project／Milestone／Objectiveとの相関、情報分類、取得主体、公開可能範囲およびstdio／HTTP間の意味同等性は、v0.20の変更トレースで具体化する。内部Path、Credential、Provider生出力、秘密のCapabilityまたは境界外のProject存在を公開しない。
+
+### 13.3. 採用していない範囲
+
+本採用は、手入力するWBS／進捗率、独立したProject Management Database、予測、Portfolio、Topic管理、会議管理またはProject状態からの自動実行を含まない。これらを扱うフルのProject Management Projectionは探索中の別候補に留め、読み取り専用投影の存在から採用を推定しない。
+
+一部fieldの取得や画面表示だけで完成を主張せず、実producerからcanonicalなProject State、公開投影、MCP stdio／HTTP consumerまでの縦断、状態の現行性、閉じたSchema、権限制御、unknown、取消、Recoveryおよび終了後観測を検証する。
+
+<a id="discovery-process-method-projection"></a>
+
+## 14. Discoveryの業務プロセス投影候補
+
+### 14.1. 候補として保持する目的
+
+業務変革を扱うDiscoveryでは、分析対象の境界、関係者、Input／Output、活動、判断、Authority、Handoff、例外、手戻り、処理時間、待機および滞留を、一貫した根拠へ接続して理解する必要がある。CRDD独自の業務分析記法を先に作らず、同じDiscovery ContextからSIPOC、BPMN／Swimlane、Value Stream等の既存手法へ目的別の表示を生成できる可能性を、未採用候補として保持する。
+
+候補の基本順序は、SIPOCによる対象境界、BPMN／Swimlaneによる現在の役割・活動・判断・受け渡し、Value Streamによる処理・待機・滞留、Pain PointとRoot Cause、Process・Authority・標準化・自動化・AIを含む解決候補の比較、To-Be、KPI／実測による学びへの還流である。この順序は全Discoveryへ成果物一式を要求する工程ではなく、対象業務と判断に必要なViewだけを選ぶ候補である。
+
+### 14.2. 正本と投影の境界
+
+SIPOC図、BPMN図またはValue Stream図そのものを第二の正本にしない。情報源から確認したReality、根拠、Actor、Activity、Decision、Authority、Handoff、Pain Point、Root Cause、Opportunity、As-Is／To-BeおよびMetricの意味をDiscoveryが必要な深さで保持し、図はその目的別投影として扱う。既存成果物で十分に表現できる場合は、新しいSchema、Directoryまたは必須Templateを作らない。
+
+AI Opportunityは解決候補の一つであり、AIを配置できる場所の探索を目的にしない。Process変更、Authority変更、標準化、自動化、System連携およびHuman／AI責任再設計と比較し、根拠より効果・因果・確実性を強めない。Businessは価値、戦略、優先順位、投資および事業KPI、Discoveryは現実の業務、課題、原因候補、OpportunityおよびAs-Is／To-Be、Product／Engineeringは要求、体験、設計、実装および検証を所有する。
+
+### 14.3. 採否の再評価条件
+
+現在状態は`Exploring / Unscheduled`であり、v0.20の採用済み6項目、実装着手または新しい準拠義務へ追加しない。代表的な業務変革で、既存Discovery成果物だけでは分析境界・責任・待機・原因・改善効果の接続を再構成しにくいEvidenceが得られた時点で、次を確認して採否を人間が決める。
+
+- 同じ意味情報から複数手法へ投影する実用価値と、手入力・維持費用。
+- As-IsからPain Point、Evidence、Root Cause、Opportunity、Decision、To-Be、Requirement、Implementation、ValidationおよびKPIまでの追跡可能性。
+- SIPOC、BPMN、SwimlaneおよびValue Streamとの互換性と、Mermaid等による簡易表示の十分性。
+- 時間、量、待機、手戻りおよびKPIの`unknown`と非該当を誤って0へ補正しない契約。
+- AI Opportunity抽出、MCP QueryまたはProcess差分比較を追加する場合の情報分類、Authority、誤推定および利用側。
+
+再評価までは、添付案の例示Schemaを正式Schemaとして採用せず、Communication Repository等からの自動抽出やAIによる自動Solution選択も許可しない。
+
+<a id="oss-runtime-trust-policy-candidate"></a>
+
+## 15. OSS Runtimeの利用者所有Trust Policy候補
+
+### 15.1. 候補として保持する目的
+
+CRDD RuntimeをOSSとしてfork、改変および組織内再配布できる状態と、Qual-Lab公式配布物の真正性を検証できる状態を両立するため、公式配布署名と実行許可を分離するTrust Modelを未採用候補として保持する。Qual-Lab署名が証明する範囲は「Qual-Labが当該ArtifactをBuild・配布したこと」とし、その署名だけを任意環境における唯一の実行資格にはしない。
+
+候補では、少なくとも次の意味を独立して評価する。
+
+- CRDD準拠性（CRDD Conformance）：Runtimeが対象CRDD Contractへ準拠しているか。
+- Artifact完全性（Artifact Integrity）：選択したArtifactが検証対象から改変されていないか。
+- 発行者Identityと信頼（Publisher Identity / Trust）：誰がBuild・署名し、その発行者を利用者が信頼するか。
+- 配置先の実行許可（Deployment Execution Authorization）：そのArtifactを対象環境で実行してよいと誰が決めたか。
+
+これらを`Qual-Lab署名済み`という一つの結果へ畳まない。Fork版は、CRDD準拠性とArtifact完全性を満たし、利用者または組織が許可した発行者の署名を持つ場合に成立し得る。未署名のLocal開発版を許す場合も、正式配布と誤認させず、配置先所有者が用途と範囲を明示的に許可した開発Policyへ限定する。
+
+### 15.2. Authorityと正本の境界
+
+信頼する発行者、許容する署名方式、未署名Local開発の可否および配置先での実行許可は、Qual-Labが一律に決めるのではなくDeployment Ownerが所有する。Qual-Labは公式Buildの由来と完全性を証明できるが、利用者環境のTrust PolicyやRisk受容を代理決定しない。Runtime Coreも、自身が公式版であること、利用者が発行者を信頼していること、または配置先の実行許可を、署名の存在だけから生成しない。
+
+Trust Policyを将来機械可読化する場合は、公式発行者、組織独自発行者および限定Local開発を区別し、既定値、Policy所有者、更新・失効、鍵Rotation、署名者変更、移行、監査記録およびfail-closed条件を設計する。本文の例示名やYAML風表現を現行Schema、設定Pathまたは実装許可として扱わない。
+
+### 15.3. 採否の再評価条件
+
+現在状態は`Exploring / Unscheduled`であり、v0.20の署名、Runtime Authority、配布物または採用済み6項目を変更しない。v1前、または公式版以外のBuildを実際に配布・実行する要求が生じた時点で、次を確認して採否とVersion境界を人間が決める。
+
+- 公式Build、Fork Build、組織BuildおよびLocal開発版の利用シナリオと脅威。
+- CRDD準拠性、Artifact完全性、発行者信頼および配置先実行許可を独立して検証・表示できる契約。
+- 利用者所有Policyが、秘密鍵、署名、鍵失効、供給網、RollbackおよびRecoveryへ与える影響。
+- 公式署名のないRuntimeを許す場合の既定拒否、用途限定、表示、監査および正式配布との混同防止。
+- CROS、複数Repository、Remote Runtimeおよび企業内配布へ拡張した場合のPolicy継承とAuthority分離。
+
+再評価までは、Qual-Lab署名を外すこと、任意の未署名Binaryを実行可能にすること、または例示Policyを既定設定として採用することを本候補から推定しない。

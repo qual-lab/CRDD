@@ -1,0 +1,12 @@
+{
+  "extends": "../coordinator/tsconfig.strict.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": [],
+  "files": [
+    "../../template/tools/crdd-coordinator.ts",
+    "../../template/tools/crdd-mcp.ts"
+  ]
+}

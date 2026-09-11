@@ -23,6 +23,40 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 ## 3. 検査の順序
 
+### 内部ブロック
+
+Checker本体は一つの配布Sourceであり、以下のブロックはその内部責務を示す。図に合わせて架空のpackageやフォルダへ分割したものではない。
+
+```text
+公式Repository入口 [40_Develop/checker/crdd-check.ts]
+  ↓ import（採用先は配布本体から直接開始）
+配布本体 [template/tools/crdd-check.ts]
+  ├ 引数・モード・Rootの受付
+  ↓
+  ファイル発見・読取り境界 ─→ Git／Filesystem（読取り）
+  ↓
+  Markdown・アンカー・参照索引
+  ↓
+  対象範囲選択＋公式歴史参照の照合
+  ↓
+  全体検査／対象文書検査
+  ↓
+  指摘・未確認・範囲の集計 → stdout／終了値
+
+開発試験入口 [test-runner.ts]
+  → 試験列挙 [test-discovery.ts]
+  → tests/（通常Checkerとは別の子Process・fixture lifecycle）
+```
+
+| 内部ブロック | Source群・関数群 | 役割 |
+|---|---|---|
+| 開発用接続部 | `40_Develop/checker/crdd-check.ts` | 配布本体へ接続し、検査実装を複製しない |
+| 発見・参照・範囲 | 配布本体の`discoverProjectFiles`、`anchorsFor*`、`resolveLocalTarget`と範囲選択部 | 確認する文書集合と参照先を構成する |
+| 規則照合・報告 | 配布本体の`check*`群と末尾の集計・出力部 | 機械的指摘と未確認範囲を返す |
+| 開発検証 | `40_Develop/checker/test-*`、`tests/` | 試験発見と契約検証。通常実行の構成部ではない |
+
+専門的な意味監査、外部URLへの照会、自動文書修正は接続していない。次の順序説明と境界表が、その制約を具体化する。
+
 ```text
 引数を読む（対象Root・出力形式・限定範囲）
   → 公式／採用先のモードとRepository境界を調べる
@@ -69,6 +103,18 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 通常Checker本体は文書の生成・修正・削除を行わない。開発試験は別の資源所有者であり、`os.tmpdir()`の解決先を承認済みのRepository-local `.crdd/test-tmp`へ指定して実行する。通常のCheckerに、存在しないAuthority、候補Store、永続Recoveryを追加しない。
 
+### ブロック状態遷移
+
+| 現在状態 | 契機／事前条件 | 処理と観測 | 次状態 | 終了後条件 |
+|---|---|---|---|---|
+| 未受付 | 正規化済みRootと引数 | Root、mode、範囲を検証 | 発見中／拒否 | 拒否時は子Process・書込み0 |
+| 発見中 | Gitまたは理由付きfallbackを開始 | 文書、参照、未確認境界を列挙 | 索引済み／失敗 | Git子Process終了、読取りだけ |
+| 索引済み | 対象集合確定 | 構造・参照・契約を照合 | 集計中 | Repository byte不変 |
+| 集計中 | 全検査終了 | 指摘・warning・未確認を分けて構成 | 報告済み | stdoutとexitが同じ結果を表す |
+| 試験実行中 | 開発runnerが試験を開始 | timeout／取消／終了を観測 | 完了／部分失敗 | 全子Process終了、fixture残存を分類 |
+
+通常検査と開発試験runnerを同じLifecycleへ畳まない。試験runnerのcleanupまたは子Process終了が不明な場合、通常Checkerが読取り専用であることを根拠に成功へ補正しない。
+
 ## 6. 結果の意味と利用側
 
 正常に報告を構築した場合、errorがあればexit 1、なければexit 0。warningや未確認があっても0になり得る。引数拒否はstderrとexit 2であり、未捕捉例外・外部からの終了とは分ける。`--help`は現行の引数ではない。
@@ -79,11 +125,11 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 | 確認する不確実性 | 正常・準正常・異常の代表 | 接続先 |
 |---|---|---|
-| Root・入力の意味 | 明示Root、省略、未知引数、値欠落 | [Checker契約試験](../../40_Develop/checker/crdd-check.contract.test.ts) |
+| Root・入力の意味 | 明示Root、省略、未知引数、値欠落 | [Checker契約試験](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts) |
 | 範囲の取り違え | 全体、限定、一段展開、全体検査の残存 | 同契約試験のscope／references項目 |
 | 発見と読取り | Git、fallback、読取失敗、link／Gitlink | 同契約試験の発見・境界・fault injection項目 |
 | 固定履歴の偽装 | 正しい台帳、原文変更、旧対象残存、後継欠落 | 同契約試験の歴史参照項目 |
 | 表示と終了 | テキスト、JSON配列、summary、0／1／2 | 同契約試験の出力・引数項目 |
-| 試験そのものの脱落 | nested試験、重複・未知entry、TypeScript所有集合との差 | [試験列挙](../../40_Develop/checker/test-discovery.ts)、[命名契約](../../40_Develop/checker/tools-naming.contract.test.ts) |
+| 試験そのものの脱落 | nested試験、重複・未知entry、TypeScript所有集合との差 | [試験列挙](../../40_Develop/checker/test-discovery.ts)、[命名契約](../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts) |
 
 この表は試験への接続であり、全件の最新実行結果ではない。結果は品質記録へ分離する。意味監査、初見利用者の理解、中断時の実子Process観測は、Checkerの指摘件数から証明しない。

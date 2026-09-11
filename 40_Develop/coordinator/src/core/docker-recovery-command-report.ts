@@ -25,6 +25,27 @@ export function renderDockerRecoveryDoctorReport(
   const reportValue = plainRecord(report);
   if (!reportValue || typeof reportValue.status !== "string")
     throw new Error("diagnostic_failed");
+  if (reportValue.contract === "crdd-coordinator/docker-restart-for-recovery") {
+    const isCompleted =
+      reportValue.status === "completed" &&
+      reportValue.restartCompleted === true &&
+      reportValue.cleanupConfirmed === true &&
+      reportValue.taskRecoveryCompleted === false;
+    return Object.freeze({
+      stdout: shouldOutputJson
+        ? `${JSON.stringify(report, null, 2)}\n`
+        : `${[
+            `Dockerの検証付き再起動: ${isCompleted ? "完了" : "停止"}`,
+            "Taskの復旧・再実行は行っていません。",
+            isCompleted
+              ? "次の操作: 同じ復旧IDを指定して --recover-isolation と --after-recorded-docker-restart を実行してください。"
+              : "次の操作: 保存された停止理由と残存記録を確認してください。再起動を繰り返さないでください。",
+            `理由: ${typeof reportValue.reason === "string" && /^[a-z0-9_]{1,128}$/u.test(reportValue.reason) ? reportValue.reason : "unconfirmed"}`,
+            `資源回収: ${reportValue.cleanupConfirmed === true ? "確認済み" : "未確認"}`,
+          ].join("\n")}\n`,
+      exitCode: isCompleted ? 0 : 2,
+    });
+  }
   if (shouldOutputJson) {
     const isRepairReport =
       reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair";

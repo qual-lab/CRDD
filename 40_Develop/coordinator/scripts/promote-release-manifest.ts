@@ -24,7 +24,7 @@ import {
 const executionDistributionRoot = fileURLToPath(
   new URL("../../../", import.meta.url),
 );
-const candidateName = /^[a-z0-9][a-z0-9-]{0,127}$/u;
+const CANDIDATE_NAME = /^[a-z0-9][a-z0-9-]{0,127}$/u;
 
 export function resolveReleaseManifestPromotionTopologyForVerification(
   distributionRootInput: unknown,
@@ -59,7 +59,7 @@ export function resolveReleaseManifestPromotionTopologyForVerification(
     const metadata = fs.lstatSync(distributionRoot);
     if (
       parent !== fs.realpathSync.native(releaseStagingRoot) ||
-      !candidateName.test(path.basename(distributionRoot)) ||
+      !CANDIDATE_NAME.test(path.basename(distributionRoot)) ||
       !metadata.isDirectory() ||
       metadata.isSymbolicLink() ||
       fs.realpathSync.native(distributionRoot) !== distributionRoot

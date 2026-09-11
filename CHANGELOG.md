@@ -9,6 +9,41 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0200-en"></a>
+
+### v0.20.0 Candidate — Unreleased
+
+This candidate separates the local Project Runtime into explicit application, execution-orchestration, transport, platform, and observation responsibilities. Project Runtime owns objective lifecycle and public application semantics; Coordinator implements execution orchestration through ports; MCP transports the public contract without owning it; Platform Access contains operating-system boundaries; and Execution Intelligence is an independent TypeScript component that can also be embedded by other AI-enabled applications.
+
+Testing is organized by unit, integration, system, user acceptance, performance, and long-running responsibilities. Regression is a change-impact selection over those levels rather than a separate test level. Deterministic test catalogs and runners detect missing registration and select affected consumers. Optional performance and long-running tests require explicit human authorization and do not block ordinary audit or release unless a current requirement or release gate explicitly requires their execution.
+
+The Runtime can execute two non-conflicting bounded tasks concurrently and evaluate the planned tasks, actual attempts, conflicts, retries, and one integrated accepted result under the same evaluation identity. Execution Intelligence records immutable bounded metadata, preserves missing observations instead of inventing values, and produces non-authoritative improvement candidates. It does not store prompts or reasoning text, authorize cleanup, or prove provider cost, latency, human-time, or quality improvements that were not measured.
+
+Project state is exposed as a read-only canonical result that distinguishes observed, absent, and unknown state without creating tasks, authority, progress, or source-of-truth changes. MCP stdio and a stateless Streamable HTTP adapter use the same public application contract. HTTP is restricted to IPv4 localhost and requires bearer authentication, origin and mirrored request checks, bounded UTF-8 input, disconnect cancellation, and shutdown joining. This candidate does not establish LAN or Internet exposure, Remote Runtime, Linux or macOS support, multi-repository operation, or autonomous operation start.
+
+v0.20.0 is composed of four independently traceable changes:
+
+| Change trace | Release meaning |
+|---|---|
+| [CHG-000061](90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md) | Define test-level responsibilities, optional PT/LT authority, test catalogs, and change-impact regression selection |
+| [CHG-000062](90_Release/Changes/CHG-000062_Execution_Intelligence.md) | Add the provider-independent Execution Intelligence component and bounded integrated-result evaluation |
+| [CHG-000063](90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md) | Separate Project Runtime, Coordinator, MCP, Platform Access, and observation responsibilities without compatibility stubs |
+| [CHG-000064](90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md) | Add read-only project-state projection and authenticated localhost MCP Streamable HTTP |
+
+Adoption impact: the combined candidate is `breaking` for adopters that update their CRDD baseline because CHG-000061 changes normative verification selection and CHG-000063 removes internal legacy import paths instead of maintaining dual canonical entries. The public clone/submodule launcher remains the supported distribution entry. Execution Intelligence, bounded parallel execution, state projection, and HTTP are opt-in capabilities.
+
+Migration note (v0.19.0 → v0.20.0):
+
+- `migration_required: true`
+- `change_classification: breaking`
+- Required for every baseline update: evaluate the new test-level and regression-selection rules for active work, preserve required existing gates, and update references that imported CRDD Runtime internals instead of supported public entries.
+- Required for Runtime adopters: update the CRDD clone or submodule as one distribution, verify the signed manifest and native artifact, and settle or recover every exact active operation before switching revisions.
+- Conditional: applications that embed Execution Intelligence configure a verified repository root and treat its records and improvement candidates as non-authoritative observations. MCP HTTP users keep the listener on localhost and provide the required authentication and request checks.
+- Not required: enable Execution Intelligence, parallel execution, Project State projection, or HTTP; run optional PT/LT without an applicable requirement; create compatibility stubs for removed internal paths; or expose MCP to a network.
+- Rollback / recovery: stop new work, settle exact task, queue, candidate, decision, and recovery obligations, preserve unknown observations, and restore the complete clone or submodule to the official `v0.19.0` tag. Do not combine v0.20 Runtime modules with a v0.19 manifest or native artifact.
+- Verification: deterministic regression, Windows real-process checks, public Runtime-to-MCP vertical checks, bounded parallel integration, cancellation and shutdown checks, and independent review are complete on the recorded candidate revisions. Formal signing and signed release E2E remain required before publication.
+- Known limitation: real-provider productivity, cost, provider usage, human active time, UAT, optional PT/LT, OS/console signal delivery to a running public process, Linux, macOS, Remote Runtime, multi-repository operation, and remote MCP are not established by this candidate.
+
 <a id="changelog-v0190-en"></a>
 
 ### v0.19.0 — 2026-09-05
@@ -896,6 +931,41 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0200-ja"></a>
+
+### v0.20.0 Candidate — 未公開
+
+この候補版は、ローカルProject RuntimeをApplication、実行編成、Transport、Platformおよび観測の責務へ分離する。Project RuntimeはObjective lifecycleと公開Applicationの意味を所有し、CoordinatorはPortを介して実行を編成し、MCPは公開契約を所有せず搬送し、Platform AccessはOS境界を、実行知は独立した観測コンポーネントを担う。実行知は、他のAI利用TypeScriptアプリケーションからも組み込める。
+
+試験を単体、結合、総合、受入、性能および長時間の責務へ整理した。回帰試験は独立した試験レベルではなく、変更影響に応じて各レベルの試験を選択・再実行する方式である。決定論的な試験カタログとRunnerは登録漏れを検出し、影響する利用側を選択する。任意の性能試験と長時間試験は人間の明示許可を必要とし、現在の要求またはRelease Gateが実測を必須にしない限り、通常監査やReleaseを停止しない。
+
+Runtimeは競合しない2件の限定Taskを並行実行し、予定Task、実Attempt、競合、再試行および一つの統合済み受入結果を同じ評価Identityで確認できる。実行知はbounded metadataを不変保存し、欠測を推定値で埋めず、非Authorityの改善候補を生成する。Promptや推論全文の保存、清掃の許可、未測定のProvider費用・速度・人間時間・品質改善の証明は行わない。
+
+Project Stateは、Task、Authority、進捗または正本変更を生成しない読み取り専用canonical結果として公開し、`observed`、`absent`、`unknown`を区別する。MCP stdioとstatelessなStreamable HTTP Adapterは同じ公開Application契約を使用する。HTTPはIPv4 localhostに限定し、Bearer認証、Originとmirror headerの照合、bounded UTF-8、切断取消および終了時joinを要求する。LAN／Internet公開、Remote Runtime、Linux／macOS、複数Repositoryまたは自律Operation開始は成立させない。
+
+v0.20.0は、独立して追跡できる次の4変更から構成する。
+
+| 変更トレース | リリース上の意味 |
+|---|---|
+| [CHG-000061](90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md) | 試験レベルの責務、任意PT／LTのAuthority、試験カタログおよび変更影響型回帰選択を定義する |
+| [CHG-000062](90_Release/Changes/CHG-000062_Execution_Intelligence.md) | Provider非依存の実行知コンポーネントと限定分散の統合結果評価を追加する |
+| [CHG-000063](90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md) | 互換stubを残さずProject Runtime、Coordinator、MCP、Platform Accessおよび観測責務を分離する |
+| [CHG-000064](90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md) | 読み取り専用Project State投影と認証済みlocalhost MCP Streamable HTTPを追加する |
+
+採用影響: CHG-000061が規範的な検証選択を変更し、CHG-000063が内部旧Pathを二重の正規入口として残さず削除するため、CRDD基準版を更新する採用者にとって全体分類は`breaking`である。clone／submoduleに同梱する公開Launcherは引き続き正式な配布入口である。実行知、限定並列実行、状態投影およびHTTPは任意能力である。
+
+移行注記（v0.19.0 → v0.20.0）:
+
+- `migration_required: true`
+- `change_classification: breaking`
+- すべての基準版更新で必須: 進行中作業へ新しい試験レベルと回帰選択規則を評価し、既存の必須Gateを保持し、CRDD Runtime内部ではなく正式な公開入口を参照するよう利用側を更新する。
+- Runtime採用者で必須: CRDD cloneまたはsubmoduleを一つの配布物として更新し、署名manifestとNative成果物を検証し、改訂版切替前に進行中Operationをexact Identityで完了または回復する。
+- 条件付き: 実行知を組み込むアプリケーションは検証済みRepository Rootを構成し、記録と改善候補を非Authorityの観測として扱う。MCP HTTP利用者はlocalhost制約と必要な認証・要求照合を維持する。
+- 不要: 実行知、並列実行、Project State投影またはHTTPの有効化、適用要求のない任意PT／LTの実行、削除済み内部Pathの互換stub、MCPのNetwork公開。
+- 切戻し／回復: 新しい仕事を停止し、Task、Queue、Candidate、判断およびRecovery義務をexact Identityで完了し、観測不能な根拠を保持して、cloneまたはsubmodule全体を公式`v0.19.0`tagへ戻す。v0.20のRuntime moduleとv0.19のmanifest／Native成果物を混在させない。
+- 検証: 記録済み候補改訂版で決定論的回帰、Windows実Process、公開RuntimeからMCPまでの意味縦断、限定並列統合、取消・終了、および独立レビューを完了した。公開前には正式署名と署名済みRelease E2Eを要する。
+- 既知の制限: 実Providerの生産性・費用・利用量・人間の能動時間、UAT、任意PT／LT、OS／Consoleから実行中公開ProcessへのSignal配送、Linux、macOS、Remote Runtime、複数RepositoryおよびRemote MCPは本候補から成立しない。
 
 <a id="changelog-v0190-ja"></a>
 

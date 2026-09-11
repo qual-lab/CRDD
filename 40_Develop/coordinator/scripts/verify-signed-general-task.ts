@@ -36,7 +36,7 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/securi
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 20;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 26;
 
 const TARGET_PATH =
   "40_Develop/coordinator/runtime/general-task-verification.txt";
@@ -119,6 +119,19 @@ export type SignedGeneralTaskVerificationResult = RuntimeRecord &
     executorProvider?: "codex" | "claude" | null;
     reviewerProvider?: "codex" | "claude" | null;
     reviewerIndependence?: string;
+    reviewerDecision?: "approved" | "changes_requested" | null;
+    reviewerFindingCount?: number | null;
+    reviewerProjectedTargetExact?: boolean | null;
+    reviewerProjectedTargetClassification?:
+      | "exact"
+      | "base_unchanged"
+      | "crlf"
+      | "missing_lf"
+      | "extra_lf"
+      | "literal_lf_escape"
+      | "metadata_invalid"
+      | "other_bytes"
+      | null;
   }>;
 export type SignedGeneralTaskRouteProfile =
   | "forward"
@@ -432,6 +445,88 @@ function safeReason(value: unknown, fallback: string) {
 
 function sha256(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
+}
+
+function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
+  const reviewerResult = plainRecord(result?.reviewerResult);
+  const evidence = plainRecord(result?.reviewerProjectionEvidence);
+  const files = evidence
+    ? snapshotPlainArray<unknown>(evidence.files, 1)
+    : null;
+  const file =
+    files?.status === "ok" && files.value.length === 1
+      ? plainRecord(files.value[0])
+      : null;
+  const expectedBytes = Buffer.from(EXPECTED_CONTENT, "utf8");
+  const expectedSha256 = createHash("sha256")
+    .update(expectedBytes)
+    .digest("hex");
+  const reviewerDecision =
+    reviewerResult?.decision === "approved" ||
+    reviewerResult?.decision === "changes_requested"
+      ? reviewerResult.decision
+      : null;
+  const reviewerFindingCount =
+    typeof reviewerResult?.findingCount === "number" &&
+    Number.isSafeInteger(reviewerResult.findingCount) &&
+    reviewerResult.findingCount >= 0 &&
+    reviewerResult.findingCount <= 64
+      ? reviewerResult.findingCount
+      : null;
+  const matches = (content: string) => {
+    const bytes = Buffer.from(content, "utf8");
+    return (
+      evidence?.totalBytes === bytes.byteLength &&
+      file?.byteLength === bytes.byteLength &&
+      file.sha256 === createHash("sha256").update(bytes).digest("hex")
+    );
+  };
+  const isMetadataValid =
+    evidence?.contentReported === false &&
+    typeof evidence.totalBytes === "number" &&
+    Number.isSafeInteger(evidence.totalBytes) &&
+    evidence.totalBytes >= 0 &&
+    files?.status === "ok" &&
+    files.value.length === 1 &&
+    file?.path === TARGET_PATH &&
+    file.state === "present" &&
+    typeof file.byteLength === "number" &&
+    Number.isSafeInteger(file.byteLength) &&
+    file.byteLength >= 0 &&
+    sha256(file.sha256) &&
+    file.encoding === "utf-8";
+  const reviewerProjectedTargetClassification =
+    evidence === null
+      ? null
+      : !isMetadataValid
+        ? ("metadata_invalid" as const)
+        : file.sha256 === expectedSha256 && matches(EXPECTED_CONTENT)
+          ? ("exact" as const)
+          : matches(BASE_CONTENT)
+            ? ("base_unchanged" as const)
+            : matches(EXPECTED_CONTENT.replace("\n", "\r\n"))
+              ? ("crlf" as const)
+              : matches(EXPECTED_CONTENT.trimEnd())
+                ? ("missing_lf" as const)
+                : matches(`${EXPECTED_CONTENT}\n`)
+                  ? ("extra_lf" as const)
+                  : matches(`${EXPECTED_CONTENT.trimEnd()}\\n`)
+                    ? ("literal_lf_escape" as const)
+                    : ("other_bytes" as const);
+  const isReviewerProjectedTargetExact =
+    reviewerProjectedTargetClassification === null
+      ? null
+      : reviewerProjectedTargetClassification === "exact";
+  return Object.freeze({
+    reviewerDecision,
+    reviewerFindingCount,
+    reviewerProjectedTargetExact: isReviewerProjectedTargetExact,
+    reviewerProjectedTargetClassification,
+    remediationPerformed:
+      typeof result?.remediationPerformed === "boolean"
+        ? result.remediationPerformed
+        : null,
+  });
 }
 
 function boundedRecoveryIds(
@@ -1248,6 +1343,7 @@ export async function runSignedGeneralTaskVerification(
           executionRevisionMismatch,
           route,
         );
+        const reviewerDiagnosis = reviewerDiagnosisProjection(taskResult);
         const mismatchReason = executionRevisionMismatch
           ? executionRevisionMismatch ===
             "execution_repository_revision_observation_unknown"
@@ -1265,6 +1361,7 @@ export async function runSignedGeneralTaskVerification(
               taskResult,
               Object.freeze({
                 resultContractMismatch,
+                ...reviewerDiagnosis,
                 ...executionStateProjection,
               }),
             )
@@ -1273,6 +1370,7 @@ export async function runSignedGeneralTaskVerification(
               taskResult,
               Object.freeze({
                 resultContractMismatch,
+                ...reviewerDiagnosis,
                 ...executionStateProjection,
               }),
             ) ??
@@ -1283,6 +1381,7 @@ export async function runSignedGeneralTaskVerification(
                 candidateDiscarded: false,
                 candidateDisposition: "recovery_required",
                 resultContractMismatch,
+                ...reviewerDiagnosis,
                 ...executionStateProjection,
               }),
             ));
@@ -1532,6 +1631,8 @@ export function describeSignedGeneralTaskVerificationContract() {
       "signed_distribution_source_and_manifest_only_distribution_commit_are_separate_from_work_repository_execution_revision_candidate_base_uses_execution_revision_observed_before_and_after_task",
     boundedRemediation:
       "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
+    taskFailureReasonProjection:
+      "known_task_failure_reason_preserved_candidate_integrity_failure_distinct_from_reviewer_semantic_rejection",
     resultMismatchDiagnostic:
       "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",
     candidateMismatchDiagnostic:

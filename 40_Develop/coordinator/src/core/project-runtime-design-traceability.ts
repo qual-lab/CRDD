@@ -267,29 +267,29 @@ export function inspectProjectRuntimeDesignTraceability(
   const humanDecisionRecord = records.entries.find(
     (item) => item.id === "REC-HUMAN-DECISION",
   );
-  const requiredDecisionMeaning = [
+  const requiredDecisionMeanings = [
     "decision_project_milestone_generation_revision",
     "selected_user_principal",
     "continuation_record_id",
     "decision_application_generation",
     "decision_lifecycle_state",
   ];
-  const decisionMeaning =
+  const decisionMeanings =
     humanDecisionRecord !== undefined &&
     strings(humanDecisionRecord.requiredMeaning)
       ? humanDecisionRecord.requiredMeaning
       : [];
   if (
     humanDecisionRecord === undefined ||
-    requiredDecisionMeaning.some(
-      (meaning) => !decisionMeaning.includes(meaning),
+    requiredDecisionMeanings.some(
+      (meaning) => !decisionMeanings.includes(meaning),
     )
   )
     issues.push("REC-HUMAN-DECISION:continuation_lifecycle_missing");
   const continuationRecord = records.entries.find(
     (item) => item.id === "REC-DECISION-CONTINUATION",
   );
-  const requiredContinuationMeaning = [
+  const requiredContinuationMeanings = [
     "continuation_hash",
     "selected_user_principal",
     "decision_project_milestone_generation_revision",
@@ -301,7 +301,7 @@ export function inspectProjectRuntimeDesignTraceability(
     "new_project_generation",
     "application_disposition_issued_prepared_finalized_recovery_invalidated_or_expired",
   ];
-  const continuationMeaning =
+  const continuationMeanings =
     continuationRecord !== undefined &&
     strings(continuationRecord.requiredMeaning)
       ? continuationRecord.requiredMeaning
@@ -309,15 +309,15 @@ export function inspectProjectRuntimeDesignTraceability(
   if (
     continuationRecord === undefined ||
     continuationRecord.durabilityRelation !== "before_effect_intent" ||
-    requiredContinuationMeaning.some(
-      (meaning) => !continuationMeaning.includes(meaning),
+    requiredContinuationMeanings.some(
+      (meaning) => !continuationMeanings.includes(meaning),
     )
   )
     issues.push("REC-DECISION-CONTINUATION:protected_lifecycle_missing");
   const recoveryIntentRecord = records.entries.find(
     (item) => item.id === "REC-DECISION-RECOVERY-INTENT",
   );
-  const requiredRecoveryIntentMeaning = [
+  const requiredRecoveryIntentMeanings = [
     "exact_continuation_record_identity",
     "last_confirmed_disposition",
     "decision_application_id",
@@ -327,7 +327,7 @@ export function inspectProjectRuntimeDesignTraceability(
     "recovery_identity",
     "recovery_disposition_required_or_settled",
   ];
-  const recoveryIntentMeaning =
+  const recoveryIntentMeanings =
     recoveryIntentRecord !== undefined &&
     strings(recoveryIntentRecord.requiredMeaning)
       ? recoveryIntentRecord.requiredMeaning
@@ -335,8 +335,8 @@ export function inspectProjectRuntimeDesignTraceability(
   if (
     recoveryIntentRecord === undefined ||
     recoveryIntentRecord.durabilityRelation !== "before_effect_intent" ||
-    requiredRecoveryIntentMeaning.some(
-      (meaning) => !recoveryIntentMeaning.includes(meaning),
+    requiredRecoveryIntentMeanings.some(
+      (meaning) => !recoveryIntentMeanings.includes(meaning),
     )
   )
     issues.push("REC-DECISION-RECOVERY-INTENT:lifecycle_missing");
@@ -374,7 +374,7 @@ export function inspectProjectRuntimeDesignTraceability(
     strings(continuationResource.securityBindings)
       ? continuationResource.securityBindings
       : [];
-  const requiredApplicationProtocol = [
+  const requiredApplicationProtocols = [
     "absent_to_issued_and_read_back_before_raw_client_return",
     "issued_to_prepared_before_project_effect",
     "project_state_applied_and_read_back_without_protected_applied_state",
@@ -386,7 +386,7 @@ export function inspectProjectRuntimeDesignTraceability(
     "separate_recovery_intent_settles_only_after_joined_fresh_observations",
     "finalized_fresh_observation_before_queue_lease",
   ];
-  const applicationProtocol =
+  const applicationProtocolItems =
     continuationResource !== undefined &&
     strings(continuationResource.applicationProtocol)
       ? continuationResource.applicationProtocol
@@ -402,9 +402,9 @@ export function inspectProjectRuntimeDesignTraceability(
     requiredSecurityBindings.some(
       (binding) => !securityBindings.includes(binding),
     ) ||
-    applicationProtocol.length !== requiredApplicationProtocol.length ||
-    requiredApplicationProtocol.some(
-      (step, index) => applicationProtocol[index] !== step,
+    applicationProtocolItems.length !== requiredApplicationProtocols.length ||
+    requiredApplicationProtocols.some(
+      (step, index) => applicationProtocolItems[index] !== step,
     )
   )
     issues.push("RES-DECISION-CONTINUATION:protection_contract_invalid");
@@ -442,7 +442,7 @@ export function inspectProjectRuntimeDesignTraceability(
 
   const lockOrders = new Set<number>();
   for (const item of locks.entries) {
-    const mayNest = references(
+    const nestingValues = references(
       item.mayNest,
       locks.ids,
       `${String(item.id)}:mayNest`,
@@ -453,7 +453,7 @@ export function inspectProjectRuntimeDesignTraceability(
       !Number.isInteger(item.order) ||
       Number(item.order) < 1 ||
       typeof item.heldAcrossExternalWait !== "boolean" ||
-      mayNest.includes(String(item.id))
+      nestingValues.includes(String(item.id))
     )
       issues.push(`${String(item.id)}:lock_shape_invalid`);
     if (typeof item.order === "number" && lockOrders.has(item.order))
@@ -672,9 +672,10 @@ export function inspectProjectRuntimeDesignTraceability(
       : [];
     const transition = transitionModels.get(transitionId);
     if (transition === undefined) continue;
-    const resumesFromRecovery = transition.from.includes("recovery_required");
+    const doesResumeFromRecovery =
+      transition.from.includes("recovery_required");
     const isCancellation = transition.to === "cancelled";
-    const isRecoverySettlement = resumesFromRecovery && !isCancellation;
+    const isRecoverySettlement = doesResumeFromRecovery && !isCancellation;
     const isContinuationRecoverySettlement =
       isRecoverySettlement &&
       transition.machineId === "SM-DECISION-CONTINUATION";
@@ -684,26 +685,26 @@ export function inspectProjectRuntimeDesignTraceability(
         ["SM-MILESTONE", "executing"],
         ["SM-QUEUE", "queued"],
       ]).get(transition.machineId);
-      const validContinuationTarget =
+      const isValidContinuationTarget =
         isContinuationRecoverySettlement &&
         ["finalized", "invalidated"].includes(transition.to) &&
         transition.invariantIds.includes("INV-DECISION-RECOVERY-SETTLEMENT") &&
         authorityIds.includes("AUTH-RECOVERY") &&
         effectIds.length === 1 &&
         effectIds[0] === "EFFECT-DECISION-CONTINUATION";
-      const validOrdinaryTarget =
+      const isValidOrdinaryTarget =
         !isContinuationRecoverySettlement &&
         expectedTarget !== undefined &&
         transition.to === expectedTarget &&
         transition.invariantIds.includes("INV-RECOVERY-SETTLED-BEFORE-RESUME");
-      if (!validContinuationTarget && !validOrdinaryTarget)
+      if (!isValidContinuationTarget && !isValidOrdinaryTarget)
         issues.push(`${transitionId}:recovery_resume_without_settlement`);
     }
-    const ownsOrdinaryRecoveryEffect =
+    const doesOwnOrdinaryRecoveryEffect =
       isRecoverySettlement &&
       !isContinuationRecoverySettlement &&
       transition.machineId === "SM-QUEUE";
-    if (effectIds.includes("EFFECT-RECOVERY") !== ownsOrdinaryRecoveryEffect)
+    if (effectIds.includes("EFFECT-RECOVERY") !== doesOwnOrdinaryRecoveryEffect)
       issues.push(
         `${String(binding.id)}:recovery_effect_applicability_invalid`,
       );
@@ -713,17 +714,17 @@ export function inspectProjectRuntimeDesignTraceability(
       !effectIds.includes("EFFECT-SINGLE-TASK")
     )
       issues.push(`${String(binding.id)}:cancellation_effect_missing`);
-    const resumesFromHumanDecision =
+    const doesResumeFromHumanDecision =
       transition.from.includes("human_decision_required") &&
       ["executing", "leased"].includes(transition.to);
-    if (resumesFromHumanDecision) {
-      const receiptMissing =
+    if (doesResumeFromHumanDecision) {
+      const isReceiptMissing =
         !transition.resourceIds.includes("RES-PENDING-DECISION") ||
         !transition.invariantIds.includes("INV-DECISION-RECEIPT-BEFORE-RESUME");
-      const authorityMissing =
+      const isAuthorityMissing =
         transition.machineId === "SM-MILESTONE" &&
         !authorityIds.includes("AUTH-HUMAN-DECISION");
-      if (receiptMissing || authorityMissing)
+      if (isReceiptMissing || isAuthorityMissing)
         issues.push(`${transitionId}:decision_resume_without_receipt`);
     }
     if (

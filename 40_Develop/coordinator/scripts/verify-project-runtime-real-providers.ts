@@ -57,14 +57,7 @@ function startPublicMcpProcess(
   return spawn(
     process.execPath,
     [
-      path.join(
-        distributionRoot,
-        "40_Develop",
-        "coordinator",
-        "bin",
-        "coordinator.ts",
-      ),
-      "mcp",
+      path.join(distributionRoot, "template", "tools", "crdd-mcp.ts"),
       "--stdio",
     ],
     {
@@ -76,18 +69,18 @@ function startPublicMcpProcess(
 }
 
 function objective(
-  common: JsonRecord,
+  commonFields: JsonRecord,
   runId: string,
   provider: "codex" | "claude",
-  adoptResult: boolean,
+  shouldAdoptResult: boolean,
 ) {
   return Object.freeze({
-    ...common,
+    ...commonFields,
     requestId: `project-runtime-public-${provider}-${runId}`,
     projectId: `crdd-project-runtime-public-${provider}-${runId}`,
     milestoneId: `public-provider-${provider}`,
     requestedExecutorProvider: provider,
-    adoptResult,
+    adoptResult: shouldAdoptResult,
   });
 }
 
@@ -170,7 +163,7 @@ async function main() {
   });
 
   const runId = randomUUID().replaceAll("-", "").slice(0, 16);
-  const common = Object.freeze({
+  const commonFields = Object.freeze({
     repositoryRevision: repository.commit,
     objective: `Replace ${MARKER} with the exact required single-line content.`,
     acceptanceCriteria: Object.freeze([
@@ -187,22 +180,22 @@ async function main() {
     originLane: "interactive",
   });
   const objectives = Object.freeze([
-    objective(common, runId, "codex", false),
-    objective(common, runId, "claude", true),
+    objective(commonFields, runId, "codex", false),
+    objective(commonFields, runId, "claude", true),
   ]);
 
   const normalRuns = [];
   for (const [index, request] of objectives.entries()) {
     const snapshotBefore = captureCanonicalRepositorySnapshot(repositoryRoot);
     const child = startPublicMcpProcess(distributionRoot, repositoryRoot);
-    let inputClosed = false;
+    let isInputClosed = false;
     const observationPromise = observePublicMcpProcess(child, {
       maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
       timeoutMs: PROCESS_TIMEOUT_MS,
       closeInputWhen: ({ stdout }) => {
         const shouldClose =
-          !inputClosed && stdout.split(/\r?\n/u).filter(Boolean).length >= 1;
-        if (shouldClose) inputClosed = true;
+          !isInputClosed && stdout.split(/\r?\n/u).filter(Boolean).length >= 1;
+        if (shouldClose) isInputClosed = true;
         return shouldClose;
       },
     });
@@ -237,7 +230,7 @@ async function main() {
   }
 
   const cancellationRequest = Object.freeze({
-    ...common,
+    ...commonFields,
     requestId: `project-runtime-public-cancel-${runId}`,
     projectId: `crdd-project-runtime-public-cancel-${runId}`,
     milestoneId: "public-provider-cancellation",
@@ -258,19 +251,20 @@ async function main() {
     distributionRoot,
     repositoryRoot,
   );
-  let cancellationRequestedAfterProcessStart = false;
+  let isCancellationRequestedAfterProcessStart = false;
   const cancellationSnapshotBefore =
     captureCanonicalRepositorySnapshot(repositoryRoot);
   const cancellationObservation = observePublicMcpProcess(cancellationChild, {
     maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
     timeoutMs: PROCESS_TIMEOUT_MS,
+    closeInputWhen: ({ stdout }) => stdout.split(/\r?\n/u).some(Boolean),
     onVerifiedRuntimeEvent: (event) => {
       const shouldClose =
-        !cancellationRequestedAfterProcessStart &&
+        !isCancellationRequestedAfterProcessStart &&
         event.event === "process_started" &&
         event.taskRole === "executor" &&
         event.provider === "claude";
-      if (shouldClose) cancellationRequestedAfterProcessStart = true;
+      if (shouldClose) isCancellationRequestedAfterProcessStart = true;
       return shouldClose ? "close_input" : "continue";
     },
   });
@@ -282,7 +276,7 @@ async function main() {
     captureCanonicalRepositorySnapshot(repositoryRoot);
 
   const recoveryRequest = Object.freeze({
-    ...common,
+    ...commonFields,
     requestId: `project-runtime-public-recovery-${runId}`,
     projectId: `crdd-project-runtime-public-recovery-${runId}`,
     milestoneId: "public-provider-parent-loss-recovery",
@@ -305,19 +299,21 @@ async function main() {
     distributionRoot,
     repositoryRoot,
   );
-  let parentTerminationRequestedAfterProcessStart = false;
+  let isParentTerminationRequestedAfterProcessStart = false;
   const parentLossObservationPromise = observePublicMcpProcess(
     parentLossChild,
     {
       maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
       timeoutMs: PROCESS_TIMEOUT_MS,
+      closeInputWhen: ({ stdout }) => stdout.split(/\r?\n/u).some(Boolean),
       onVerifiedRuntimeEvent: (event) => {
         const shouldTerminate =
-          !parentTerminationRequestedAfterProcessStart &&
+          !isParentTerminationRequestedAfterProcessStart &&
           event.event === "process_started" &&
           event.taskRole === "executor" &&
           event.provider === "claude";
-        if (shouldTerminate) parentTerminationRequestedAfterProcessStart = true;
+        if (shouldTerminate)
+          isParentTerminationRequestedAfterProcessStart = true;
         return shouldTerminate ? "terminate_process_tree" : "continue";
       },
     },
@@ -328,15 +324,15 @@ async function main() {
   const parentLossObservation = await parentLossObservationPromise;
 
   const reentryChild = startPublicMcpProcess(distributionRoot, repositoryRoot);
-  let reentryInputClosed = false;
+  let isReentryInputClosed = false;
   const reentryObservationPromise = observePublicMcpProcess(reentryChild, {
     maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
     timeoutMs: PROCESS_TIMEOUT_MS,
     closeInputWhen: ({ stdout }) => {
       const shouldClose =
-        !reentryInputClosed &&
+        !isReentryInputClosed &&
         stdout.split(/\r?\n/u).filter(Boolean).length >= 1;
-      if (shouldClose) reentryInputClosed = true;
+      if (shouldClose) isReentryInputClosed = true;
       return shouldClose;
     },
   });
@@ -357,7 +353,8 @@ async function main() {
     distributionIdentity,
     normalRuns: Object.freeze(normalRuns),
     cancellation: cancelled,
-    cancellationRequestedAfterProcessStart,
+    cancellationRequestedAfterProcessStart:
+      isCancellationRequestedAfterProcessStart,
     cancellationExpected: Object.freeze({
       responseId: "objective-cancellation",
       requestId: cancellationRequest.requestId,
@@ -369,7 +366,8 @@ async function main() {
     cancellationSnapshotAfter,
     recoverySettlement: Object.freeze({
       parentLoss: parentLossObservation,
-      parentTerminationRequestedAfterProcessStart,
+      parentTerminationRequestedAfterProcessStart:
+        isParentTerminationRequestedAfterProcessStart,
       reentry: reentryObservation,
       expected: Object.freeze({
         responseId: "objective-recovery-reentry",

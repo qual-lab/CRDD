@@ -11,11 +11,11 @@ import {
   readCommittedDockerRecoveryJson,
   writeCommittedDockerRecoveryJson,
 } from "./docker-recovery-journal.ts";
-import {
-  isProjectRuntimeDecisionRecord,
-  type ProjectRuntimeDecisionRecord,
-  type ProjectRuntimeDecisionStore,
-} from "./project-runtime-human-decision.ts";
+import type {
+  ProjectRuntimeDecisionRecord,
+  ProjectRuntimeDecisionStore,
+} from "../../../project-runtime/src/index.ts";
+import { isProjectRuntimeDecisionRecord } from "../../../project-runtime/src/index.ts";
 
 export const PROJECT_RUNTIME_WINDOWS_DECISION_STORE_CONTRACT =
   "crdd-coordinator/project-runtime-windows-decision-store/v1" as const;
@@ -70,9 +70,9 @@ function entryName(recordId: string, generation: number) {
   return `project-decision-${hash(recordId).slice(0, 40)}-${String(generation).padStart(8, "0")}.json`;
 }
 
-function inspectRoot(initialize: boolean, developmentContext?: object) {
+function inspectRoot(shouldInitialize: boolean, developmentContext?: object) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
-    initialize,
+    shouldInitialize,
     new Date().toISOString(),
     developmentContext,
   );
@@ -145,13 +145,13 @@ function withLock<T>(
   const lock = acquire(expectedRoot.stableLogicalHomeBindingHash);
   if (!lock) return null;
   let output: T | null = null;
-  let failed = false;
+  let isFailed = false;
   try {
     const rebound = reobserve();
-    if (!rebound || !sameRoot(expectedRoot, rebound)) failed = true;
+    if (!rebound || !sameRoot(expectedRoot, rebound)) isFailed = true;
     else output = operation(rebound);
   } catch {
-    failed = true;
+    isFailed = true;
   }
   let released = false;
   try {
@@ -159,7 +159,7 @@ function withLock<T>(
   } catch {
     released = false;
   }
-  return failed || !released ? null : output;
+  return isFailed || !released ? null : output;
 }
 
 function createStore(
@@ -255,8 +255,11 @@ export function openRuntimeOwnedWindowsProjectDecisionStore(
       principalId: string;
     }>
   | Readonly<{ status: "blocked"; store: null; principalId: null }> {
-  const initializeIfMissing = options.initializeIfMissing !== false;
-  const root = inspectRoot(initializeIfMissing, options.developmentContext);
+  const shouldInitializeIfMissing = options.initializeIfMissing !== false;
+  const root = inspectRoot(
+    shouldInitializeIfMissing,
+    options.developmentContext,
+  );
   if (!root)
     return Object.freeze({ status: "blocked", store: null, principalId: null });
   return Object.freeze({

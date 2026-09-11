@@ -141,7 +141,7 @@ Task2件・Controller2件は是正後に通常権限で5反復し、20/20成功�
 
 前節の是正をCommit `43086fd`へ記録・pushした後、productionは変更せず、同じTEST-01の不足へ試験を追加した。上記の「次は」「未実施」はそれぞれの確認時点の記述として保持し、以下を追加根拠とする。
 
-Gitの[結合試験](../../40_Develop/coordinator/tests/git-object-reader.integration.test.ts)と[生成fixture](../../40_Develop/coordinator/tests/fixtures/git-packed-object-fixture.ts)では、Windowsの固定実行ファイルにあるGit 2.54.0を用い、通常object、OFS_DELTA、REF_DELTAを生成した。対象blobの形式・参照先を検査し、packだけの領域から公開3関数でCommit／Tree、内容byte、hash、mode、指定Pathだけの復元を確認した。外側checksum2種と、内側の参照・offset・整数・base長・copy・結果長・object IDの7種を壊した拒否を合わせ、既存2件を含む14/14成功、失敗・取消・skip 0、6,094.4611msだった。Gitはfixture生成に限り、本番の外部Git非使用は変更していない。他OS、別Git版、全pack形式・全サイズの網羅は主張しない。
+Gitの[結合試験](../../40_Develop/coordinator/tests/integration/git-object-reader.integration.test.ts)と[生成fixture](../../40_Develop/coordinator/tests/fixtures/git-packed-object-fixture.ts)では、Windowsの固定実行ファイルにあるGit 2.54.0を用い、通常object、OFS_DELTA、REF_DELTAを生成した。対象blobの形式・参照先を検査し、packだけの領域から公開3関数でCommit／Tree、内容byte、hash、mode、指定Pathだけの復元を確認した。外側checksum2種と、内側の参照・offset・整数・base長・copy・結果長・object IDの7種を壊した拒否を合わせ、既存2件を含む14/14成功、失敗・取消・skip 0、6,094.4611msだった。Gitはfixture生成に限り、本番の外部Git非使用は変更していない。他OS、別Git版、全pack形式・全サイズの網羅は主張しない。
 
 Node.js `24.19.0`で同試験だけにcoverageを付け、`git-object-reader.ts`の到達は144／219分岐、約65.75%だった。全体試験の率との比較値ではない。先の未到達3関数へ到達し、内側の拒否も243行の実行回数2、249・289・296・443・495・128行のthrow側分岐回数2を観測した。集計LCOVであり、一つの試験へ一意に帰属する通知履歴とは扱わない。外側checksumを整合した変異と合わせて、公開関数が`null`を返したことだけに依存しない根拠とする。
 
@@ -150,7 +150,7 @@ Node.js `24.19.0`で同試験だけにcoverageを付け、`git-object-reader.ts`
 - Git結合試験SHA-256: `4a8f5401bc2782e9df9721af42258a0a07d5c2c0a992bc034d587f37951bdf71`
 - Git生成fixture SHA-256: `b540488e2133c716abd53347b74fa61ed3af7cf3cfa6f51becae98cfaae55e0e`
 
-[Lock契約試験](../../40_Develop/coordinator/tests/candidate-store-kernel-lock.contract.test.ts)は既存Supervisor factoryを使う3件を追加し、3/3成功、失敗・取消・skip 0、571.5483msだった。不正root／nonce／timingの17ケースでfactory呼出し0、上下限の正常2ケースを確認した。3段階のsend同期例外では操作失敗を返し、通知・失効・単一終了処理による回収確認が成立した。登録済みlistenerの例外でも後続listener、failureDetected／loss、失効が成立した。解除済みlistenerと終了後の通知も確認した。実Worker／OS競合の再現とは区別する。同ファイルSHA-256は`dc4152f1b50f5c3e4c2e61caf33839cd374891bd795f55b28a5829dc80134916`。
+[Lock契約試験](../../40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts)は既存Supervisor factoryを使う3件を追加し、3/3成功、失敗・取消・skip 0、571.5483msだった。不正root／nonce／timingの17ケースでfactory呼出し0、上下限の正常2ケースを確認した。3段階のsend同期例外では操作失敗を返し、通知・失効・単一終了処理による回収確認が成立した。登録済みlistenerの例外でも後続listener、failureDetected／loss、失効が成立した。解除済みlistenerと終了後の通知も確認した。実Worker／OS競合の再現とは区別する。同ファイルSHA-256は`dc4152f1b50f5c3e4c2e61caf33839cd374891bd795f55b28a5829dc80134916`。
 
 生成物はRepository直下の`.crdd/test-tmp`に限り、Git fixtureの生成途中失敗と通常終了で同じ所有Rootを回収する。追加確認後の`git-packed-*`残存なしを確認した。いずれも実Provider、署名鍵、Docker修復を使わず、型検査と整形確認も成功した。生ログは生成物としてGit管理せず、上記hashと試験sourceから再識別・再実行できるようにする。
 
@@ -194,10 +194,10 @@ Wegenerは読み取り専用で、Checker／Coordinator／platform-access／配�
 
 | 対象（Repository相対Path） | SHA-256 |
 |---|---|
-| `40_Develop/coordinator/tests/candidate-store-kernel-lock.contract.test.ts` | `4523c514d55650815ba7b6f614c93ac13baa23463192b467e7d73a9acf994aa8` |
+| `40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts` | `4523c514d55650815ba7b6f614c93ac13baa23463192b467e7d73a9acf994aa8` |
 | `40_Develop/coordinator/tests/fixtures/git-packed-object-fixture.ts` | `d3f4b9ea1d31293de1b1ea582d761c13c355d44221a08ad400e3b5e17f49197f` |
-| `40_Develop/coordinator/tests/coordinator-docker-recovery-cli.integration.test.ts` | `dd70fb4d640697ed10894d143bf535e60db438ca590b97377adeca58ef071236` |
-| `40_Develop/checker/tools-naming.contract.test.ts` | `ef12cf82bf274b4ace6a82a09d7f3a190332ad986fd4468453c1a12e86aa4449` |
+| `40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts` | `dd70fb4d640697ed10894d143bf535e60db438ca590b97377adeca58ef071236` |
+| `40_Develop/checker/tests/integration/tools-naming.contract.test.ts` | `ef12cf82bf274b4ace6a82a09d7f3a190332ad986fd4468453c1a12e86aa4449` |
 
 命名是正後、同じ基準`43086fd`に対する現差分でCoordinator全体を再実行し、1,535/1,535成功、失敗・取消・skip 0、111,592.9973ms、exit 0だった。Node.js `24.19.0`・通常のWindows権限、Repository直下の試験領域という実行条件は前回と同じで、対象source・試験は実行中に固定した。生TAPは`.crdd/test-tmp/closure-git-lock-naming-final.tap`、SHA-256 `b8335d3fcb64d94b50fd27ab61bd033a8cd07098572eab4a1131040d1ac9d018`。この再実行にcoverageは付けておらず、命名前の個別LCOVを新しい全体測定とは扱わない。
 
@@ -419,7 +419,7 @@ Windows上のNode.js `24.19.0`を絶対Pathで起動した。基準版に対す�
 
 実ヘッダー、README冒頭の版表示、移行注記の表示語を対象とする31回帰例を追加した。Checker契約ファイルは232/232、197,005.6147ms、命名・試験発見の全7件は7/7、37,520.1317msで、どちらも失敗・取消・skip 0、exit 0。2試験ファイルを別々に実行し、現在の全所有試験239件を確認した。型検査・Biome lint・formatも成功した。
 
-配布正本`template/tools/crdd-check.ts`のSHA-256は`cf39857e0f5b0a52e6bb3cf3c79965cc0fa0883de0d63fe379327805adf88492`、契約試験`40_Develop/checker/crdd-check.contract.test.ts`は`b4332bbe82ae701873ebb3707510eab033a76699e962a9dd3282043eb6a2860c`。生TAP `.crdd/test-tmp/checker-header-migration-final.tap`は`cfe79eefde6483a3b4526d721296613d99d4ac8e68e0c00b5f5b71bce2b01526`。規範上の移行義務、過去CHANGELOG、履歴Evidenceを変更せず、現在の正しい表示を検査できることと、真の不一致・不足を拒否することを分けて確認した。
+配布正本`template/tools/crdd-check.ts`のSHA-256は`cf39857e0f5b0a52e6bb3cf3c79965cc0fa0883de0d63fe379327805adf88492`、契約試験`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`は`b4332bbe82ae701873ebb3707510eab033a76699e962a9dd3282043eb6a2860c`。生TAP `.crdd/test-tmp/checker-header-migration-final.tap`は`cfe79eefde6483a3b4526d721296613d99d4ac8e68e0c00b5f5b71bce2b01526`。規範上の移行義務、過去CHANGELOG、履歴Evidenceを変更せず、現在の正しい表示を検査できることと、真の不一致・不足を拒否することを分けて確認した。
 
 ### 追加差分の独立確認と是正
 

@@ -33,7 +33,7 @@
 ## 確認できたことと限界
 
 - 新配置の実行計画、Provider adapter、Task、各署名検証runnerの契約試験を起動できた。
-- [実子Process結合試験](../../40_Develop/coordinator/tests/coordinator-task-process.integration.test.ts)では、実子Processと所有FilesystemをTaskへ接続し、正常・非0終了・取消・close観測不明・Host cleanup拒否を確認した。
+- [実子Process結合試験](../../40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts)では、実子Processと所有FilesystemをTaskへ接続し、正常・非0終了・取消・close観測不明・Host cleanup拒否を確認した。
 - 認証、Provider、Docker等の試験用adapterを実物の証明には扱わない。公式秘密鍵の入力、正式署名、実Providerへの送信、Docker修復は行っていない。
 - Checkerの追加中の歴史参照検証、移行全体のリンク確認、独立完成監査、正式配布E2Eはこの試験の対象外。全試験件数だけから設計上の網羅を推定しない。
 

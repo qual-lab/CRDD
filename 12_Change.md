@@ -2,10 +2,11 @@
 
 # CRDD変更トレース（Change Trace）
 
-Version: v0.19.0
-Status: Stable
+Version: v0.20.0
+Status: Candidate
+Released Baseline: v0.19.0
 Owner: Qual-Lab
-Last Updated: 2026-09-05
+Last Updated: 2026-09-06
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -254,6 +255,8 @@ CHGの分割単位は変更意図である。工程、担当、ファイル／�
 Checkerは通常linkの確認・解決件数と分けて、歴史参照の観測数、Identity検証数、旧Pathの物理再出現を示すactive数およびGit index再出現数を返す。正常時はactive数とGit index再出現数の両方が0であり、GitHub、IDEまたは一般Markdown readerで直接clickできるとは主張しない。台帳entry、Git object、Evidenceまたは参照pairのいずれかが不正、欠落、重複、旧ID再利用、固定原文Identity不一致、Git到達不能または検査中に変化した場合はFail Closedにする。現在状態の参照はCanonical CHGへ向け、旧Pathの物理file、stub、redirect、directory、symlinkまたはGit indexだけの表現を互換目的で残してはならない（MUST NOT）。これらの存在または不存在を判定できない場合もFail Closedにする。
 
 Released CHGは統合によって履歴を書き換えない。Released判定は現行headerの状態文字列だけに依存せず、公開tagまたは配布Releaseから当該CHG Pathへ到達できる場合は固定Release履歴として扱う。状態表示が古いことを理由に公開済みCHGを未リリース統合へ含めない。リリース後の不足または回帰は本節ではなく、新しいCHGを作る既存規則に従う。統合のために一般的な世代管理、互換aliasまたはMigration Engineを追加しない。
+
+責務分離またはファイル移動により、Released CHGに含まれる成果物への案内だけが解決不能になった場合は、公開時の記録を変更せず、後続CHGで追跡した限定的な案内補正を行ってよい。現在の成果物を説明する案内は実在する現行参照先へ、当時の数値・判断・設計等を支える案内は同じ公開tag上のexact pathへ接続する。補正は、公開tag上の原文Identity、置換前・途中・置換後の全文、置換数、および現行参照先の実在またはexact tag objectの実在を機械検証できる場合に限る。公開時の判断、結果、主張、状態、日付、Evidenceまたは説明本文は変更してはならず（MUST NOT）、補正対象を一般本文の編集へ拡張しない。原文Identity、変更範囲または参照対象を確認できない場合は補正せず、新しいCHGから公開時の記録と現在の成果物を別々に案内する。
 
 ---
 
