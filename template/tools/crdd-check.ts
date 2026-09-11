@@ -4160,11 +4160,10 @@ function checkV020ReleaseGateOwnership(): void {
     [qualityCenterPath, qualityCenter, "現在候補"],
     [qualityCenterPath, qualityCenter, "前の署名候補"],
     [qualityCenterPath, qualityCenter, "v0.20全体の残るGate"],
-    [changePath, change, "状態: `Signed Verification Pending`"],
     [changePath, change, "前の署名候補"],
     [verificationPath, verification, "前候補"],
     [verificationPath, verification, "Quality Center"],
-    [roadmapPath, roadmap, "Signed Verification Pending"],
+    [roadmapPath, roadmap, "v0.20 Runtime責務分離"],
   ];
   for (const [file, content, marker] of requiredMarkers) {
     if (!content.includes(marker)) {
@@ -4176,8 +4175,30 @@ function checkV020ReleaseGateOwnership(): void {
       );
     }
   }
+  const allowedGateStates = [
+    "Signed Verification Pending",
+    "Final Audit Pending",
+    "Release Decision Pending",
+  ] as const;
+  const changeGateStates = allowedGateStates.filter((state) =>
+    change.includes(`状態: \`${state}\``),
+  );
+  const roadmapGateStates = allowedGateStates.filter((state) =>
+    roadmap.includes(`| v0.20 Runtime責務分離 | Adopted | ${state} |`),
+  );
+  if (
+    changeGateStates.length !== 1 ||
+    roadmapGateStates.length !== 1 ||
+    changeGateStates[0] !== roadmapGateStates[0]
+  ) {
+    add(
+      "error",
+      "v020-release-gate-ownership-incomplete",
+      relative(changePath),
+      "The Change Trace and Roadmap must declare one identical current v0.20 Release Gate state.",
+    );
+  }
   const staleClaims: readonly [string, string, RegExp][] = [
-    [changePath, change, /状態:\s*`Release Decision Pending`/u],
     [changePath, change, /唯一残るRelease Gate/u],
     [verificationPath, verification, /残るGateは人間によるRelease判断/u],
   ];

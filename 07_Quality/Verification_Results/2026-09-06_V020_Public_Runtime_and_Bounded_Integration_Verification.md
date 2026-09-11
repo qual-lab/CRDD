@@ -17,7 +17,7 @@
 
 競合しない2 Taskは上限2で同時実行され、Project Runtimeから2件のAttempt Eventとして不変Storeへ保存された。予定Task、再読取りした実Attemptおよび統合後の受入結果は同じ評価Identityへ接続され、個別Task成功とは別に統合受入が成立した。
 
-本結果は、固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`について、ローカルの決定論的な技術縦断、正式署名、Codex／Claudeを使う4経路E2E、署名済みRecovery Matrixおよび実行結果を含む独立監査が成立したことを示す。この固定候補の後に検証投影の配置と文書全体が変更されたため、本書は前候補の完了記録であり、現在候補のRelease Gateではない。現在のGateは[Quality Center](../01_Quality_Center.md)が所有する。
+本結果は、v0.20.0の固定候補について、ローカルの決定論的な技術縦断、正式署名、Codex／Claudeを使う4経路E2Eおよび署名済みRecovery Matrixが成立したことを示す。前候補`f76b73af81c43e25f28037caa72d71a898a2f9fb`の結果と、文書全体の構造是正後に再固定した現在候補の結果を区別する。現在のGateは[Quality Center](../01_Quality_Center.md)が所有する。
 
 実Provider間の速度、Token、費用、人間の実作業時間、後工程品質、PT／LTおよびRemote Runtimeは未評価である。
 
@@ -83,8 +83,8 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で8�
 | 動的コード、任意のproperty名再構成、preload、TypeScript実行集合外または外部Processからの起動 | 限定グラフの保証外。一般的な到達可能性解析を主張しない |
 | 実Provider間の速度、Token、費用、人間時間、後工程品質 | 未観測。決定論的・正式E2E結果から効用を推定しない |
 | UAT、PT／LT、Remote Runtime、Linux／macOS | 未実施または対象外 |
-| 現在候補への適用 | 本結果の後にRuntime実行Identityが変わったため流用しない。現在候補は文書・Checker Gate、固定Commit、再署名および影響E2Eを別途必要とする |
-| 人間によるRelease判断 | 現在候補の前段Gateが成立した後に行う。前候補の結果だけからRelease済みと表示しない |
+| 現在候補への適用 | 下記「文書全体是正後の最終固定候補」で別のRuntime実行Identityを再署名し、正式4経路とRecovery Matrixを再実行した。前候補の結果は流用していない |
+| 人間によるRelease判断 | 最終Evidence反映後のCheckerと一括独立監査が成立した後に行う。正式E2E成功だけからRelease済みと表示しない |
 
 実Provider、PT／LTまたは長時間試験は、人間が対象、上限および目的を明示しない限り自動実行しない。未観測値を0へ補正せず、現在のRelease判断へ使用しない。
 
@@ -111,3 +111,24 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で8�
 固定改訂版`392bd1ee32a12ec3a46551c297bf2018bc3e80d1`は正式4経路E2Eを4/4で完走したが、続くRecovery Matrixが`docker_cli_untrusted`を子結果として返し、最外周では`cleanup_child_contract_invalid`として停止した。v0.19.0に存在した中立化子Processへ、v0.20.0で新設したDocker CLI Publisher TrustのPowerShell初期化条件を伝播できていなかったことが原因である。PowerShell専用環境はambientなUser Profileを継承せず、Native OS観測で検証した現在主体の`USERPROFILE`だけを追加する。中立化した親ProcessからAuthenticode cmdletを初期化する契約試験と、同じ境界から実Docker CLIのPublisher Trustを確認する結合試験を追加した。是正後の制限Process全回帰は1,985件中、明示skip 5件を除く1,980件が成功し、失敗は0件だった。
 
 是正後の固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`は新しいRuntime実行Identityとして再署名した。正式4経路E2Eは4/4で、cleanup成立、Process再起動不要、Canonical Repository変更なし、Recovery IDなしだった。同じ署名候補のRecovery Matrixは7シナリオを完走し、cleanup成立、手動回復不要だった。旧署名または旧4/4結果は流用していない。
+
+## 文書全体是正後の最終固定候補
+
+| 項目 | 固定値・結果 |
+|---|---|
+| Runtime Source | `2e4a467cc1364b88d6008604f649da8d840903e7`／Tree `dbb2e506719be4f82cf8539be6412f9f6062411b` |
+| Manifest carrier | `523202123c1ffa33fd39d1ede93357028585c4af`／Tree `cfb45e82d78e50253208549a09d8546fa259dd76` |
+| Release sequence | `2026091104` |
+| Runtime実行Identity | `7e82dbaee1bb2dd30f8baa4ebb52ac7e5ce5edf794c6ea977de37bf38c0ed137` |
+| 配布内容Root | `1481a92e49a4e199fddd2b8356a40cd5b55731873b74e50747994348ab3d6661` |
+| 署名Manifestのfile hash | `2d3a4310b11e6239da8e0529330d11b463cc69769b20b6e69769726f49183e4b` |
+| 正式4経路E2E | 4/4完了。forward、reverse、same-codex、same-claude。再試行0、全候補のexact content確認・破棄、cleanup成立、手動回復不要、Canonical Repository変更なし |
+| 4経路記録 | `.crdd/verification-results/b549b78e-84f2-434b-b2f4-7adcce238bd7/` |
+| Recovery Matrix | 7シナリオ完了。timeout、出力上限、無効出力、非0終了、取消、cleanup観測不能後のfresh回復、親Process消失後のfresh回復を確認。top-level cleanup成立、手動回復不要 |
+| Recovery記録 | `.crdd/verification-results/4fad4a80-a254-40cd-bf74-f07c58d96da3/` |
+
+### 逆経路の署名前後診断
+
+最初の現在候補ではreverse経路がProvider Effect前に`coordinator_task_provider_plan_invalid`で停止した。`codex-executor-seccomp.json`の実配布内容が16,703 bytes、SHA-256 `01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95`である一方、Codex Execution Planの宣言値だけが変更前の16,704 bytesと旧hashを保持していたため、実seccomp profileの取得がFail Closedになったことが原因である。
+
+宣言値を実配布内容へ同期し、実ファイルを使って宣言Identityからseccomp profileを解決できることを結合契約試験へ追加した。対象試験24件とCoordinatorの静的検査を完走してから再署名し、同じreverse経路を含む正式4経路4/4とRecovery Matrix 7/7を確認した。期待値緩和、署名結果の流用またはProvider側の迂回は行っていない。

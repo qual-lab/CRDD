@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "4c622e5e2fc9feeb70bd2968eb0ea78676107025beee150a185d01ac9486a64f",
+  "evaluatedDocumentationSetSha256": "3b09b195b9227443248cc95d18f0cbc978714e83c2bc43423f06cab8b1e0d2a2",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -226,7 +226,7 @@
       "disposition": "structured_remediation",
       "reasonCode": "semantic_structure_improved",
       "canonicalOwnerPath": "07_Quality/01_Quality_Center.md",
-      "currentBlobOid": "1ee470e2e9cd82f7f613f786e81d1b9f2d3d6d61"
+      "currentBlobOid": "723980a3c17e51fde292160b430a1911d69f1063"
     },
     {
       "path": "07_Quality/02_Quality_Strategy.md",
@@ -613,7 +613,7 @@
       "disposition": "structured_remediation",
       "reasonCode": "semantic_structure_improved",
       "canonicalOwnerPath": "07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-      "currentBlobOid": "8e8b250a2d6b4dea351159d4d909d796991cd514"
+      "currentBlobOid": "1fa215650464cd9cc5e868387855d18be1977d38"
     },
     {
       "path": "10_Agent.md",
@@ -1213,7 +1213,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md",
-      "currentBlobOid": "708bab5b98e553e8d4f5c42e3bf4b1a586879af6"
+      "currentBlobOid": "8e5043d4ce87778d33bcbed1233d1b1541d5a66c"
     },
     {
       "path": "90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md",
@@ -1231,7 +1231,7 @@
       "disposition": "structured_remediation",
       "reasonCode": "semantic_structure_improved",
       "canonicalOwnerPath": "90_Release/Changes/CHG-000065_Structured_First_Documentation.md",
-      "currentBlobOid": "62f260e23885e059523d12d584288bf82e0b9973"
+      "currentBlobOid": "7e623e50287987bce801fc7fd0268b11d7bb0317"
     },
     {
       "path": "90_Release/Changes/Evidence/CHG-000007_Adopter_Trial_Report.md",
@@ -5704,7 +5704,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "99_Roadmap/01_Product_Roadmap.md",
-      "currentBlobOid": "667b3f77a53432a3d4b285c7f1de520de2280bb1"
+      "currentBlobOid": "9814dca47a7b7332dcf8b93ae61dea947c826a1a"
     },
     {
       "path": "AGENTS.md",

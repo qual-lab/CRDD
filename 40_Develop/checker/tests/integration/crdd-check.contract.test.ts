@@ -996,7 +996,7 @@ test("現行文書と固定履歴のcurrentness誤分類を拒否する", () => 
   );
 });
 
-test("v0.20の前候補を現在のRelease Gateとして再提示する記述を拒否する", () => {
+test("v0.20のRelease Gate状態が複数提示された場合は拒否する", () => {
   const root = dispositionFixtureRoot();
   fs.appendFileSync(
     path.join(
@@ -1011,7 +1011,36 @@ test("v0.20の前候補を現在のRelease Gateとして再提示する記述を
   const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
-      (finding) => finding.code === "stale-v020-release-gate-claim",
+      (finding) => finding.code === "v020-release-gate-ownership-incomplete",
+    ),
+  );
+});
+
+test("v0.20のRelease Gateは署名後の監査待ちへ遷移できる", () => {
+  const root = dispositionFixtureRoot();
+  const changePath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000063_Runtime_Responsibility_Separation.md",
+  );
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  fs.writeFileSync(
+    changePath,
+    fs
+      .readFileSync(changePath, "utf8")
+      .replace("Signed Verification Pending", "Final Audit Pending"),
+    "utf8",
+  );
+  fs.writeFileSync(
+    roadmapPath,
+    "# Roadmap\n\n| 作業 | 判断状態 | 対応状態 |\n|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | Final Audit Pending |\n",
+    "utf8",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) => finding.code === "v020-release-gate-ownership-incomplete",
     ),
   );
 });
