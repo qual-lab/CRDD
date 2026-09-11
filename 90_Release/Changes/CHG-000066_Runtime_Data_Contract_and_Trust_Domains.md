@@ -11,7 +11,7 @@
 
 Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime状態、Evidenceおよび一時物の境界として再構成する。複数Repositoryを扱うCROS状態は、配布主体、ApplicationおよびTrust Domainごとに分離したOS管理Rootへ置く。
 
-現行Pathと物理残存の棚卸し、目標Architecture、共通Schema／Path Resolver、利用側移行、旧Path拒否、段階的結合試験およびCRDD公式Repository自身の物理清掃まで完了した。全体Checkerと選択回帰による固定候補前確認を残している。
+現行Pathと物理残存の棚卸し、目標Architecture、共通Schema／Path Resolver、利用側移行、旧Path拒否、段階的結合試験およびCRDD公式Repository自身の物理清掃まで完了した。独立レビューで検出したRoot Capability迂回と`tmp`耐久回復の2件を構造是正し、固定候補の独立再レビューを残している。
 
 | 項目 | 現在状態 |
 |---|---|
@@ -22,9 +22,9 @@ Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime
 | Repository Manifest／Trust Policy Schema | 実装・契約試験済み |
 | 共通Path Resolver | 実装・Windows／Linux論理Path試験済み |
 | Consumer移行・旧Path拒否 | 実装・本番Source、公開案内、SPEC、WorkflowのFocused Test済み |
-| `tmp/`所有・清掃契約 | 状態・Owner世代、single-use再入場、正式Evidence Receipt、全終端経路を実装・試験済み |
+| `tmp/`所有・清掃契約 | 状態・Owner Process・現在／直前世代、single-use再入場、正式Evidence Receipt、全終端、清掃・Lock削除失敗を実装・試験済み |
 | 既存物理残存の清掃 | 現在の退役Path不存在を確認。削除前item単位Inventoryを欠くため、過去の移送完全性は未証明と明示 |
-| 全体Checker／選択回帰 | Checker 431文書でError 0。変更影響計画を固定し、外部Providerを使わない対象確認を完了。独立レビュー待ち |
+| 全体Checker／選択回帰 | Checker 431文書でError 0。Runtime Data 20/20、署名契約15/15、Coordinator静的契約が成立。独立再レビュー待ち |
 
 ## 2. 契機と人間が決定した範囲
 
@@ -168,9 +168,16 @@ Component単位契約試験
 
 容量または件数上限へ到達しても、参照中の古い内容を自動で押し出さない。新規Effectを安全に停止し、清掃候補、保持理由および必要な人間処置を構造化結果で示す。具体的な既定容量は実装と代表運用量を確認して固定する。
 
-## 10. リリースと後続
+## 10. 独立レビューによる構造是正
+
+| 指摘クラスタ | 原因 | 構造是正 | 反証 |
+|---|---|---|---|
+| Root CapabilityとConsumer Closure | raw文字列Root入口とCanonical Pathの利用側再構成が残り、手書き一覧だけでは署名等の希少Consumerを証明できなかった | 公開入口をRoot Capability必須へ限定し、署名だけは固定module位置から導出する非公開Resolverへ接続。実Sourceから保護Consumer集合、raw入口、未登録領域を導出してCheckerの宣言集合と照合 | 任意絶対Directory、公開indexからの内部Resolver取得、alias経由の未登録領域、予定外署名Consumerを拒否 |
+| `tmp`の耐久回復 | in-place書込み、清掃失敗後のactive状態、Capability返却前のProcess消失およびEvidence source未結合により、返したRecovery参照を利用できない経路があった | 同Directory一時fileのflush・atomic rename・read-back、Owner Processと直前世代、`released` Lock、清掃前の`recovery_required`公開、work sourceと昇格先の両Hash結合へ変更 | 清掃失敗、Lock削除失敗、新世代公開後のProcess loss、source欠落／不一致からexact再入場とEffect 0を確認 |
+
+## 11. リリースと後続
 
 - 対象リリース: `v0.21.0`
 - 収録リリース: 未収録
-- 次のGate: 構造是正後の全体Checker、選択回帰、独立再レビュー
+- 次のGate: 固定候補の独立再レビュー、全回帰、署名および正式E2E
 - 後続: Project Management Projection、Capability Registry、CROS、Remote MCPは本変更の構造化されたRootとIdentityを利用する

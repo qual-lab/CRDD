@@ -3,8 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
 import {
-  resolveRepositoryRuntimeDataPathsFromValidatedRoot,
+  resolveRepositoryRuntimeDataPaths,
   VERIFICATION_RELATIVE_PATH,
+  verifyRepositoryRoot,
 } from "../../../runtime-data/src/index.ts";
 import { isDockerIsolationRecoveryIdCandidate } from "../security/docker-isolation.ts";
 import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
@@ -368,8 +369,11 @@ export async function runRecordedVerification<T, E>(
       throw new Error("verification_record_input_invalid");
     const root =
       resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+    const verifiedRuntimeRoot = verifyRepositoryRoot(root);
     const runtimePaths =
-      resolveRepositoryRuntimeDataPathsFromValidatedRoot(root);
+      verifiedRuntimeRoot.status === "completed"
+        ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+        : null;
     if (!runtimePaths)
       throw new Error("verification_record_runtime_path_invalid");
     const revision = inspectRepositoryRevisionCandidate(root);

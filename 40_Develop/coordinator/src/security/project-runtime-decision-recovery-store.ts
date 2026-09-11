@@ -158,23 +158,35 @@ export function createProjectRuntimeDecisionRecoveryStore(
     resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
   if (!runtimePaths)
     throw new Error("decision_recovery_repository_root_invalid");
-  const repositoryRoot = runtimePaths.repositoryRoot;
-  const projectRuntimeRoot = runtimePaths.projectRuntime;
+  const verifiedRuntimePaths = runtimePaths;
+  const projectRuntimeRoot = verifiedRuntimePaths.projectRuntime;
   function guarded<T>(recoveryId: string, operation: (directory: string) => T) {
     const location = paths(projectRuntimeRoot, recoveryId);
-    fs.mkdirSync(path.dirname(location.directory), { recursive: true });
-    let current = repositoryRoot;
-    for (const segment of [
-      ".crdd",
-      "project-runtime",
-      "recovery",
-      "decisions",
-    ]) {
-      current = path.join(current, segment);
-      if (!fs.existsSync(current)) continue;
+    if (
+      path.dirname(verifiedRuntimePaths.root) !==
+        verifiedRuntimePaths.repositoryRoot ||
+      path.dirname(projectRuntimeRoot) !== verifiedRuntimePaths.root
+    )
+      throw new Error("decision_recovery_store_boundary_invalid");
+    const directories = [
+      verifiedRuntimePaths.root,
+      projectRuntimeRoot,
+      path.join(projectRuntimeRoot, "recovery"),
+      path.join(projectRuntimeRoot, "recovery", "decisions"),
+    ];
+    let parent = verifiedRuntimePaths.repositoryRoot;
+    for (const current of directories) {
+      if (path.dirname(current) !== parent)
+        throw new Error("decision_recovery_store_boundary_invalid");
+      try {
+        fs.mkdirSync(current, { mode: 0o700 });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      }
       const metadata = fs.lstatSync(current);
       if (!metadata.isDirectory() || metadata.isSymbolicLink())
         throw new Error("decision_recovery_store_boundary_invalid");
+      parent = current;
     }
     return operation(location.directory);
   }

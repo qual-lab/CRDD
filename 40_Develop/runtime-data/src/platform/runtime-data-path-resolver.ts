@@ -1,4 +1,6 @@
+import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   resolveVerifiedRepositoryRoot,
@@ -33,7 +35,7 @@ export type RepositoryRuntimeArea = (typeof REPOSITORY_AREAS)[number];
  * This separate entry point lets protected signing code retain its own
  * no-external-Git root proof without reconstructing `.crdd` paths.
  */
-export function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
+function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
   repositoryRoot: string,
 ) {
   if (
@@ -58,6 +60,41 @@ export function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
     temporary: path.join(root, "tmp"),
     allowedTopLevelAreas: REPOSITORY_AREAS,
   });
+}
+
+/**
+ * Protected signing-only resolver. It derives the root from this package's
+ * own immutable module location and never accepts caller-controlled paths.
+ * It is intentionally omitted from the package's public index.
+ */
+export function resolveBundledRepositoryRuntimeDataPathsForProtectedSigning() {
+  try {
+    const repositoryRoot = path.resolve(
+      fileURLToPath(new URL("../../../../", import.meta.url)),
+    );
+    const relativeSegments = path
+      .relative(path.parse(repositoryRoot).root, repositoryRoot)
+      .split(path.sep)
+      .filter(Boolean);
+    let current = path.parse(repositoryRoot).root;
+    for (const segment of relativeSegments) {
+      current = path.join(current, segment);
+      if (fs.lstatSync(current).isSymbolicLink()) return null;
+    }
+    const metadata = fs.lstatSync(repositoryRoot);
+    const marker = fs.lstatSync(path.join(repositoryRoot, ".git"));
+    if (
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      fs.realpathSync.native(repositoryRoot) !== repositoryRoot ||
+      marker.isSymbolicLink() ||
+      (!marker.isDirectory() && !marker.isFile())
+    )
+      return null;
+    return resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+  } catch {
+    return null;
+  }
 }
 
 export function resolveRepositoryRuntimeDataPaths(

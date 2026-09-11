@@ -862,6 +862,87 @@ test("本番Consumerによる直接または分割したRuntime Data Root構築�
   }
 });
 
+test("alias経由の未登録Runtime Data領域と分割Root語彙を拒否する", () => {
+  const root = fixture();
+  makeStructure(root);
+  fs.rmSync(path.join(root, "00_CRDD"), { recursive: true, force: true });
+  write(path.join(root, "01_Principles.md"), "Version: v0.21.0\n");
+  write(path.join(root, "template", "AGENTS.md"), "# CRDD template\n");
+  write(
+    path.join(root, "40_Develop", "coordinator", "src", "alias-bypass.ts"),
+    [
+      "const dataRoot = runtimePaths.root;",
+      'const segment = "." + "crdd";',
+      'const unknown = path.join(dataRoot, "unknown");',
+      'const bypass = path.join(repositoryRoot, segment, "release");',
+    ].join("\n"),
+  );
+  const result = runChecker(root);
+  for (const code of [
+    "runtime_data_path_literal_unregistered",
+    "runtime_data_top_level_area_unregistered",
+  ])
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === code),
+      `${code}\n${result.stderr}\n${result.stdout}`,
+    );
+});
+
+test("raw Resolver公開と保護署名ResolverのConsumer集合不一致を拒否する", () => {
+  const root = fixture();
+  makeStructure(root);
+  fs.rmSync(path.join(root, "00_CRDD"), { recursive: true, force: true });
+  write(path.join(root, "01_Principles.md"), "Version: v0.21.0\n");
+  write(path.join(root, "template", "AGENTS.md"), "# CRDD template\n");
+  write(
+    path.join(
+      root,
+      "40_Develop",
+      "runtime-data",
+      "src",
+      "platform",
+      "runtime-data-path-resolver.ts",
+    ),
+    [
+      "function resolveRepositoryRuntimeDataPathsFromValidatedRoot() {}",
+      "export function resolveBundledRepositoryRuntimeDataPathsForProtectedSigning() {}",
+    ].join("\n"),
+  );
+  write(
+    path.join(root, "40_Develop", "runtime-data", "src", "index.ts"),
+    "export { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from './platform/runtime-data-path-resolver.ts';\n",
+  );
+  write(
+    path.join(
+      root,
+      "40_Develop",
+      "coordinator",
+      "scripts",
+      "sign-release-manifest.ts",
+    ),
+    "resolveBundledRepositoryRuntimeDataPathsForProtectedSigning();\n",
+  );
+  write(
+    path.join(
+      root,
+      "40_Develop",
+      "coordinator",
+      "scripts",
+      "unexpected-signing-consumer.ts",
+    ),
+    "resolveBundledRepositoryRuntimeDataPathsForProtectedSigning();\n",
+  );
+  const result = runChecker(root);
+  for (const code of [
+    "runtime_data_protected_signing_consumer_mismatch",
+    "runtime_data_internal_resolver_publicly_exported",
+  ])
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === code),
+      `${code}\n${result.stderr}\n${result.stdout}`,
+    );
+});
+
 test("文書Disposition InventoryはMarkdown母集団の欠落・余分・重複を拒否する", () => {
   for (const mutation of ["missing", "extra", "duplicate"] as const) {
     const root = dispositionFixtureRoot();

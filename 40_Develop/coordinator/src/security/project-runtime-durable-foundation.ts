@@ -760,14 +760,34 @@ function ensureDirectory(parent: string, name: string) {
   return target;
 }
 
+function ensureExactDirectory(parent: string, target: string) {
+  if (path.dirname(target) !== parent)
+    throw new Error("project_runtime_storage_boundary_invalid");
+  try {
+    fs.mkdirSync(target, { mode: 0o700 });
+  } catch (error) {
+    if (
+      !(
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "EEXIST"
+      )
+    )
+      throw error;
+  }
+  assertDirectory(target);
+  return target;
+}
+
 function storageRoot(workingDirectory: string) {
   const paths =
     resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
   if (!paths) throw new Error("project_runtime_repository_root_invalid");
   const repositoryRoot = paths.repositoryRoot;
   assertDirectory(repositoryRoot);
-  const crdd = ensureDirectory(repositoryRoot, path.basename(paths.root));
-  const runtime = ensureDirectory(crdd, path.basename(paths.projectRuntime));
+  const crdd = ensureExactDirectory(repositoryRoot, paths.root);
+  const runtime = ensureExactDirectory(crdd, paths.projectRuntime);
   return Object.freeze({ repositoryRoot, runtime });
 }
 

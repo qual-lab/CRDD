@@ -2,7 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
+import {
+  resolveRepositoryRuntimeDataPaths,
+  verifyRepositoryRoot,
+} from "../../runtime-data/src/index.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/security/coordinator-task-runtime.ts";
@@ -156,7 +159,11 @@ async function main() {
   if (process.argv.length !== 2)
     throw new Error("measurement_arguments_invalid");
   const root = resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd());
-  const runtimePaths = resolveRepositoryRuntimeDataPathsFromValidatedRoot(root);
+  const verifiedRuntimeRoot = verifyRepositoryRoot(root);
+  const runtimePaths =
+    verifiedRuntimeRoot.status === "completed"
+      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+      : null;
   if (!runtimePaths) throw new Error("measurement_runtime_data_path_invalid");
   const directory = path.join(runtimePaths.tests, "development-measurement");
   const identities = [];

@@ -4,7 +4,10 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
+import {
+  resolveRepositoryRuntimeDataPaths,
+  verifyRepositoryRoot,
+} from "../../runtime-data/src/index.ts";
 
 import {
   inspectBundledCoordinatorPackageFilesystemCandidate,
@@ -107,8 +110,11 @@ async function main() {
       BASE,
     );
 
+  const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
   const runtimePaths =
-    resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+    verifiedRuntimeRoot.status === "completed"
+      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+      : null;
   if (!runtimePaths)
     throw new Error("project_runtime_verification_path_invalid");
   const verificationRoot = runtimePaths.verification;
@@ -409,8 +415,11 @@ try {
     process.cwd(),
   );
   const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
+  const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
   const runtimePaths =
-    resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+    verifiedRuntimeRoot.status === "completed"
+      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+      : null;
   if (!runtimePaths)
     throw new Error("project_runtime_verification_path_invalid");
   const verificationRoot = runtimePaths.verification;

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
@@ -40,6 +41,23 @@ test("Repositoryの子DirectoryはRoot Capabilityとして拒否する", () => {
     reason: "repository_root_invalid",
     capability: null,
   });
+});
+
+test("任意Directoryと非公開のraw Root入口からPath能力を取得できない", async (t) => {
+  const arbitrary = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-runtime-root-"),
+  );
+  t.after(() => fs.rmSync(arbitrary, { recursive: true, force: true }));
+  assert.equal(verifyRepositoryRoot(arbitrary).status, "blocked");
+  const publicApi = await import("../../src/index.ts");
+  assert.equal(
+    "resolveRepositoryRuntimeDataPathsFromValidatedRoot" in publicApi,
+    false,
+  );
+  assert.equal(
+    "resolveBundledRepositoryRuntimeDataPathsForProtectedSigning" in publicApi,
+    false,
+  );
 });
 
 test("junction経由のWorking DirectoryはRepository Rootへ正規化せず拒否する", () => {

@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
+import {
+  resolveRepositoryRuntimeDataPaths,
+  verifyRepositoryRoot,
+} from "../../runtime-data/src/index.ts";
 
 import {
   loadPlatformProvisionerManifestEnvelopeForVerification,
@@ -50,9 +53,11 @@ export function resolveReleaseManifestPromotionTopologyForVerification(
       destinationRepositoryRoot
   )
     throw new Error("release_manifest_promotion_destination_root_invalid");
-  const runtimePaths = resolveRepositoryRuntimeDataPathsFromValidatedRoot(
-    destinationRepositoryRoot,
-  );
+  const verifiedRuntimeRoot = verifyRepositoryRoot(destinationRepositoryRoot);
+  const runtimePaths =
+    verifiedRuntimeRoot.status === "completed"
+      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+      : null;
   if (!runtimePaths)
     throw new Error("release_manifest_promotion_topology_invalid");
   const releaseStagingRoot = runtimePaths.release;

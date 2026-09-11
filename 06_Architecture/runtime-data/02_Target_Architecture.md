@@ -82,7 +82,8 @@ Related:
    │
    └─ tmp/                                 [T] Operation所有の短期一時物
       └─ <operation-id>/
-         ├─ operation.json                    所有者、用途、作成時刻、清掃契機
+         ├─ operation.json                    Identity、Owner Process、世代、直前世代、状態、用途、清掃契機
+         ├─ .lifecycle-lock/                   排他中だけ存在するOwner付きLock。解放済み残存は次の再入場で回収する
          └─ work/                             再生成可能な中間file
 ```
 
@@ -136,7 +137,18 @@ Related:
 | Cleanup trigger | 各終端経路と次回の安全な再入場 |
 | Completion evidence | 削除要求ではなく、対象不存在の観測 |
 
-`operation.json`は状態とOwner世代を耐久化する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。作成時には、Process再起動後も同じDirectoryを推測探索せず再入場できるexact Recovery参照を返す。`active`中の再入場は拒否し、`parent_lost`後だけ同一参照を一度消費して世代を更新する。旧参照、旧Capability、並行する二つ目の再入場はEffect 0で拒否する。
+`operation.json`は状態とOwner世代を耐久化する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。作成時には、Process再起動後も同じDirectoryを推測探索せず再入場できるexact Recovery参照を返す。
+
+| 状態または境界 | 必須処置 |
+|---|---|
+| `active`かつOwner Process生存 | 二つ目の再入場をEffect 0で拒否する |
+| `active`かつOwner Process消失 | 同じIdentityの`recovery_required`へ耐久遷移してから再入場する |
+| `recovery_required` | exact Identityと現在世代または直前世代が一致する場合だけ新世代を発行する |
+| 新世代を公開後、Capability返却前にProcess消失 | 元参照と直前世代の結合から新世代を回復可能にする |
+| Lock解放要求後に物理削除失敗 | Lockを`released`へ耐久遷移し、次回取得者が安全に回収する |
+| 清掃失敗 | Capabilityを失効させる前に`recovery_required`を公開し、利用可能なexact Recovery参照を返す |
+
+`operation.json`の更新は、同じDirectory内の排他的な一時fileへ書込み、fileのflush、atomic renameおよびread-backを順に確認する。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、rename前後のProcess消失ではOwner Processの消失、現在世代および直前世代から安全な再入場へ収束させる。旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
 
 ### 4.3. Lifecycle
 
@@ -157,7 +169,7 @@ tmp/<operation-id>/を排他的に作成
                          次回安全入口で清掃・不存在確認
 ```
 
-清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、必要な意味だけを回復を所有するComponentの`recovery/`または`verification/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。Evidence必須時は、正式な昇格先、byte Hash、Operation Identityおよび現Owner世代が一致するReceiptだけを受理する。
+清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、必要な意味だけを回復を所有するComponentの`recovery/`または`verification/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。Evidence必須時は、`allowedContent`に含まれる`work/`内のexact source、正式な昇格先、両者のbyte Hash、Operation Identityおよび現Owner世代が一致するReceiptだけを受理する。昇格先の同じHashだけ、または別のsourceから偶然得た同じ名前だけでは清掃を許可しない。
 
 ### 4.4. Recoveryの所有
 
@@ -250,7 +262,19 @@ Directory探索だけでProjectを登録せず、Repository Manifest、検証済
 
 旧Pathの互換書込みは残さない。切替前に全Producer、Consumer、派生物、RecoveryおよびRelease経路を閉じ、旧Path利用をCheckerまたは契約試験で拒否する。
 
-## 8. 完成条件
+## 8. Path CapabilityとConsumer Closure
+
+Repository-local Pathは、検証済みRepository Root Capabilityから共通Resolverが返した名前付きPathをCanonical値として使用する。Consumerは`.crdd`、Top-level領域またはCanonical Pathを再構成・再解釈しない。
+
+| 入口 | 利用範囲 | 制約 |
+|---|---|---|
+| 公開Resolver | 通常のRuntime Data Consumer | 検証済みRoot Capabilityを必須とし、raw文字列Rootを受理しない |
+| Working Directory入口 | Repository内から開始する既存Runtime Consumer | Git境界、symlink／junction、最寄りRootを検証してから公開Resolverへ接続する |
+| 保護署名Resolver | 署名入口だけ | package内の固定module位置からRootを導出し、外部Git Processを秘密入力前検査へ追加しない。公開indexからExportしない |
+
+Consumer集合は手書き一覧だけを正本としない。実Sourceからraw Resolver、保護署名Resolverおよび未登録Top-level領域の利用箇所を導出し、宣言した閉集合との差をCheckerで拒否する。既知Consumerごとの契約試験に加え、署名・Releaseを含む最終公開入口までの縦断反証を持つ。
+
+## 9. 完成条件
 
 - 全本番Producerが共通Path Resolverから目標領域を取得する。
 - `.crdd`直下fileと未登録Top-level Directoryの新規作成を機械的に拒否する。

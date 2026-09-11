@@ -2012,7 +2012,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-project-runtime-real-providers.ts",
       "main",
-      "6b49ea0d86a273db38c196fabe60bdd876522deef433d93de9452e2451e0595a",
+      "5f42ec998ea0143a97d29cd3087cf1e71bf085588aa9ef6f2ba29d6292976fd2",
     ],
   ].map(
     ([graph, source, functionName, bodySha256]) =>
@@ -2117,7 +2117,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "12eb6ca1b104caf96a980171f9379998faae1a6059c06d7d1939e777e914e316",
+      "da562cb0a334fda0a0ac9fa588bf66df3f1e60f8c6d5ba486a2869d892715e55",
     ],
   ]),
 );

@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
+import {
+  resolveRepositoryRuntimeDataPaths,
+  verifyRepositoryRoot,
+} from "../../runtime-data/src/index.ts";
 
 import {
   inspectGitCommitTreeCandidate,
@@ -101,8 +104,11 @@ export function prepareReleaseCandidate(input: PreparationInput) {
       return blocked("release_candidate_revision_invalid");
     }
 
+    const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
     const runtimePaths =
-      resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+      verifiedRuntimeRoot.status === "completed"
+        ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+        : null;
     if (!runtimePaths)
       return blocked("release_candidate_runtime_data_path_invalid");
     const runtimeRoot = createOrVerifyDirectory(

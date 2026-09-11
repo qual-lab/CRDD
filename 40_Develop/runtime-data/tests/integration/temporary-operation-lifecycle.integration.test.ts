@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -8,9 +9,11 @@ import {
   resolveRepositoryRuntimeDataPaths,
   resumeTemporaryOperation,
   settleTemporaryOperation,
+  type TemporaryOperationRecoveryReference,
   verifyTemporaryOperationEvidencePromotion,
   verifyRepositoryRoot,
 } from "../../src/index.ts";
+import { settleTemporaryOperationWithRemovalForVerification } from "../../src/store/temporary-operation-store.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -76,7 +79,7 @@ test("親Process喪失はexact Recovery参照を返し物理残存を削除し�
   if (resumed.status !== "completed") return;
   assert.equal(
     resumeTemporaryOperation(root.capability, opened.recoveryReference).reason,
-    "temporary_operation_recovery_identity_mismatch",
+    "temporary_operation_recovery_not_required",
   );
   const cleaned = settleTemporaryOperation(resumed.capability, "failed", null);
   assert.equal(cleaned.status, "completed");
@@ -151,6 +154,18 @@ test("Evidence未昇格ではtmpを削除しない", (t) => {
   fs.mkdirSync(artifactDirectory, { recursive: true });
   const artifact = path.join(artifactDirectory, "fixture");
   fs.writeFileSync(artifact, "promoted\n");
+  const unrelated = verifyTemporaryOperationEvidencePromotion(
+    root.capability,
+    opened.capability,
+    {
+      recordId: operationId,
+      artifactName: "fixture",
+      sha256:
+        "832d7e61059cd7375f9bec232c07f3d8deeab5687279bd589e3b9bf4ad758055",
+    },
+  );
+  assert.equal(unrelated.status, "blocked");
+  fs.writeFileSync(path.join(opened.workDirectory, "fixture"), "promoted\n");
   const promoted = verifyTemporaryOperationEvidencePromotion(
     root.capability,
     opened.capability,
@@ -162,12 +177,127 @@ test("Evidence未昇格ではtmpを削除しない", (t) => {
     },
   );
   assert.equal(promoted.status, "completed");
-  if (promoted.status === "completed")
+  if (promoted.status === "completed") {
+    fs.writeFileSync(artifact, "changed\n");
+    assert.equal(
+      settleTemporaryOperation(opened.capability, "completed", promoted.receipt)
+        .reason,
+      "temporary_operation_evidence_not_promoted",
+    );
+    fs.writeFileSync(artifact, "promoted\n");
     assert.equal(
       settleTemporaryOperation(opened.capability, "completed", promoted.receipt)
         .status,
       "completed",
     );
+  }
+});
+
+test("cleanup失敗は耐久状態へ遷移しexact参照で一度だけ再入場できる", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const operationId = `runtime-data-test-cleanup-recovery-${process.pid}`;
+  const opened = createTemporaryOperation(root.capability, {
+    operationId,
+    owner: "runtime-data-test",
+    purpose: "cleanup failure recovery verification",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
+  assert.equal(opened.status, "completed");
+  if (opened.status !== "completed") return;
+  const failed = settleTemporaryOperationWithRemovalForVerification(
+    opened.capability,
+    "failed",
+    null,
+    () => {
+      throw new Error("injected_remove_failure");
+    },
+  );
+  assert.equal(failed.status, "blocked");
+  assert.equal(failed.recoveryRequired, true);
+  assert.ok(failed.recoveryReference);
+  const resumed = resumeTemporaryOperation(
+    root.capability,
+    failed.recoveryReference,
+  );
+  assert.equal(resumed.status, "completed");
+  if (resumed.status !== "completed") return;
+  assert.equal(
+    resumeTemporaryOperation(root.capability, failed.recoveryReference).status,
+    "blocked",
+  );
+  assert.equal(
+    settleTemporaryOperation(resumed.capability, "failed", null).status,
+    "completed",
+  );
+});
+
+test("Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収する", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const operationId = `runtime-data-test-lock-recovery-${process.pid}`;
+  const opened = createTemporaryOperation(root.capability, {
+    operationId,
+    owner: "runtime-data-test",
+    purpose: "lock cleanup recovery verification",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
+  assert.equal(opened.status, "completed");
+  if (opened.status !== "completed") return;
+  const failed = settleTemporaryOperationWithRemovalForVerification(
+    opened.capability,
+    "failed",
+    null,
+    (directory) => fs.rmSync(directory, { recursive: true }),
+    () => {
+      throw new Error("injected_lock_remove_failure");
+    },
+  );
+  assert.equal(failed.status, "blocked");
+  assert.equal(failed.reason, "temporary_operation_lock_cleanup_unconfirmed");
+  assert.equal(failed.recoveryRequired, true);
+  assert.ok(failed.recoveryReference);
+  const resumed = resumeTemporaryOperation(
+    root.capability,
+    failed.recoveryReference,
+  );
+  assert.equal(resumed.status, "completed");
+  if (resumed.status !== "completed") return;
+  assert.equal(
+    settleTemporaryOperation(resumed.capability, "failed", null).status,
+    "completed",
+  );
+});
+
+test("能力返却前に終了したactive世代は元参照から回復できる", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const operationId = `runtime-data-test-process-loss-${process.pid}`;
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/create-temporary-operation-and-exit.ts"),
+      repositoryRoot,
+      operationId,
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(child.status, 0, child.stderr);
+  const reference = JSON.parse(
+    child.stdout,
+  ) as TemporaryOperationRecoveryReference;
+  const resumed = resumeTemporaryOperation(root.capability, reference);
+  assert.equal(resumed.status, "completed");
+  if (resumed.status !== "completed") return;
+  assert.equal(
+    settleTemporaryOperation(resumed.capability, "failed", null).status,
+    "completed",
+  );
 });
 
 test("active中の再入場・stale Capability・不正な終端値を拒否する", () => {

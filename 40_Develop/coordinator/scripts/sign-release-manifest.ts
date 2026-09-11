@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-import { resolveRepositoryRuntimeDataPathsFromValidatedRoot } from "../../runtime-data/src/index.ts";
+import { resolveBundledRepositoryRuntimeDataPathsForProtectedSigning } from "../../runtime-data/src/platform/runtime-data-path-resolver.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import { inspectGitCommitTreeCandidate } from "../src/security/git-object-reader.ts";
 import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
@@ -40,10 +40,12 @@ const repositoryRoot = path.resolve(
   fileURLToPath(new URL("../../../", import.meta.url)),
 );
 const runtimeDataPaths =
-  resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot) ??
+  resolveBundledRepositoryRuntimeDataPathsForProtectedSigning() ??
   (() => {
     throw new Error("release_manifest_repository_root_invalid");
   })();
+if (runtimeDataPaths.repositoryRoot !== repositoryRoot)
+  throw new Error("release_manifest_repository_root_invalid");
 const releaseStagingRoot = runtimeDataPaths.release;
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
 const MAXIMUM_PASSPHRASE_BYTES = 1_024;
