@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "6c4ebe6cfb3a2677af6bf0fd59463d7de82ab6d460acb58e4321ba781caed9b9",
+  "evaluatedDocumentationSetSha256": "4c622e5e2fc9feeb70bd2968eb0ea78676107025beee150a185d01ac9486a64f",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -226,7 +226,7 @@
       "disposition": "structured_remediation",
       "reasonCode": "semantic_structure_improved",
       "canonicalOwnerPath": "07_Quality/01_Quality_Center.md",
-      "currentBlobOid": "e20564e3026a726710917b00bb0d060e563c31ed"
+      "currentBlobOid": "1ee470e2e9cd82f7f613f786e81d1b9f2d3d6d61"
     },
     {
       "path": "07_Quality/02_Quality_Strategy.md",
