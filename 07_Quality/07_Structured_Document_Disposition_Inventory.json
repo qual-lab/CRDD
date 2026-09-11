@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "3b09b195b9227443248cc95d18f0cbc978714e83c2bc43423f06cab8b1e0d2a2",
+  "evaluatedDocumentationSetSha256": "37605be19fc9051bf5279faedab6ec9969b17e57529a7c43df56b2e31e9d1d89",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -5704,7 +5704,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "99_Roadmap/01_Product_Roadmap.md",
-      "currentBlobOid": "9814dca47a7b7332dcf8b93ae61dea947c826a1a"
+      "currentBlobOid": "9ccc46538b780b44928037828895781d8affcb79"
     },
     {
       "path": "AGENTS.md",

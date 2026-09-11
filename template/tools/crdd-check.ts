@@ -4180,6 +4180,7 @@ function checkV020ReleaseGateOwnership(): void {
     "Final Audit Pending",
     "Release Decision Pending",
   ] as const;
+  type GateState = (typeof allowedGateStates)[number];
   const changeGateStates = allowedGateStates.filter((state) =>
     change.includes(`状態: \`${state}\``),
   );
@@ -4197,6 +4198,174 @@ function checkV020ReleaseGateOwnership(): void {
       relative(changePath),
       "The Change Trace and Roadmap must declare one identical current v0.20 Release Gate state.",
     );
+    return;
+  }
+
+  const currentGateState = changeGateStates[0] as GateState;
+  const stateContracts: Readonly<
+    Record<
+      GateState,
+      readonly Readonly<{
+        file: string;
+        content: string;
+        marker: RegExp;
+        description: string;
+      }>[]
+    >
+  > = {
+    "Signed Verification Pending": [
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker: /現在候補の技術Gate[^\n]*(再署名|影響E2E)待ち/u,
+        description:
+          "Quality Center must retain the unsigned current technical Gate.",
+      },
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker: /v0\.20全体の残るGate[^\n]*(再署名|影響E2E)/u,
+        description:
+          "Quality Center must keep signing or E2E in the remaining Gate.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /現行Gate[^\n]*(再署名|影響E2E)/u,
+        description: "The Change Trace must retain the signing or E2E Gate.",
+      },
+      {
+        file: verificationPath,
+        content: verification,
+        marker: /現在候補[^\n]*(再署名|影響E2E)/u,
+        description:
+          "Verification must not promote previous-candidate evidence.",
+      },
+      {
+        file: roadmapPath,
+        content: roadmap,
+        marker: /v0\.20 Runtime責務分離[^\n]*(再署名|影響E2E)/u,
+        description:
+          "The Roadmap must retain the current signing or E2E action.",
+      },
+    ],
+    "Final Audit Pending": [
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker:
+          /現在候補[^\n]*Runtime Source[^\n]*manifest carrier[^\n]*Release sequence/u,
+        description:
+          "Quality Center must identify the current signed candidate.",
+      },
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker:
+          /現在候補の技術Gate[^\n]*正式4経路4\/4とRecovery Matrix 7\/7が成立/u,
+        description: "Quality Center must record both current signed matrices.",
+      },
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker:
+          /v0\.20全体の残るGate[^\n]*最終Evidence反映後[^\n]*一括独立監査/u,
+        description: "Quality Center must retain the final audit Gate.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker:
+          /現在候補[^\n]*Runtime Source[^\n]*manifest carrier[^\n]*Release sequence/u,
+        description:
+          "The Change Trace must identify the current signed candidate.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /正式E2E[^\n]*4経路4\/4/u,
+        description: "The Change Trace must record the current route result.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /Recovery Matrix[^\n]*7シナリオ完了/u,
+        description:
+          "The Change Trace must record the current recovery result.",
+      },
+      {
+        file: verificationPath,
+        content: verification,
+        marker: /## 文書全体是正後の最終固定候補/u,
+        description:
+          "Verification must separate the current candidate from previous evidence.",
+      },
+      {
+        file: verificationPath,
+        content: verification,
+        marker:
+          /Runtime Source[\s\S]*Manifest carrier[\s\S]*Release sequence[\s\S]*Runtime実行Identity[\s\S]*正式4経路E2E[\s\S]*Recovery Matrix/u,
+        description:
+          "Verification must bind current identity and both signed results.",
+      },
+      {
+        file: roadmapPath,
+        content: roadmap,
+        marker:
+          /v0\.20 Runtime責務分離[^\n]*正式E2E結果を反映した現在Treeの一括監査/u,
+        description:
+          "The Roadmap must retain the final current-tree audit action.",
+      },
+    ],
+    "Release Decision Pending": [
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker: /最終一括監査[^\n]*成立/u,
+        description: "Quality Center must record the completed final audit.",
+      },
+      {
+        file: qualityCenterPath,
+        content: qualityCenter,
+        marker: /v0\.20全体の残るGate[^\n]*人間によるRelease判断/u,
+        description:
+          "Quality Center must leave only the human Release decision.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /最終一括監査[^\n]*成立/u,
+        description: "The Change Trace must record the completed final audit.",
+      },
+      {
+        file: changePath,
+        content: change,
+        marker: /残るGate[^\n]*人間によるRelease判断/u,
+        description: "The Change Trace must leave the human Release decision.",
+      },
+      {
+        file: verificationPath,
+        content: verification,
+        marker: /最終一括監査[^\n]*(Critical|重大)[^\n]*0/u,
+        description: "Verification must identify the final audit result.",
+      },
+      {
+        file: roadmapPath,
+        content: roadmap,
+        marker: /v0\.20 Runtime責務分離[^\n]*人間によるRelease判断/u,
+        description: "The Roadmap must identify the remaining human decision.",
+      },
+    ],
+  };
+  for (const contract of stateContracts[currentGateState]) {
+    if (!contract.marker.test(contract.content)) {
+      add(
+        "error",
+        "v020-release-gate-evidence-incomplete",
+        relative(contract.file),
+        contract.description,
+      );
+    }
   }
   const staleClaims: readonly [string, string, RegExp][] = [
     [changePath, change, /唯一残るRelease Gate/u],

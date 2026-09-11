@@ -607,7 +607,7 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
       "Changes",
       "CHG-000063_Runtime_Responsibility_Separation.md",
     ),
-    "# Runtime Responsibility\n\n状態: `Signed Verification Pending`\n\n前の署名候補\n",
+    "# Runtime Responsibility\n\n状態: `Signed Verification Pending`\n\n前の署名候補\n\n現在候補\n\n現行Gate: 再署名と影響E2E待ち\n",
   );
   write(
     path.join(root, "90_Release", "Changes", "README.md"),
@@ -615,7 +615,7 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
   );
   write(
     path.join(root, "07_Quality", "01_Quality_Center.md"),
-    "# Quality Center\n\n現在候補\n\n前の署名候補\n\nv0.20全体の残るGate\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
+    "# Quality Center\n\n現在候補\n\n前の署名候補\n\n現在候補の技術Gate: 再署名待ち\n\nv0.20全体の残るGate: 再署名と影響E2E\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
   );
   write(
     path.join(
@@ -624,11 +624,11 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
       "Verification_Results",
       "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
     ),
-    "# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n",
+    "# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n\n現在候補は再署名と影響E2E待ち。\n",
   );
   write(
     path.join(root, "99_Roadmap", "01_Product_Roadmap.md"),
-    "# Roadmap\n\nSigned Verification Pending\n",
+    "# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | Signed Verification Pending | 再署名と影響E2E |\n",
   );
   if (hasFixedEvidence) {
     write(
@@ -996,27 +996,113 @@ test("現行文書と固定履歴のcurrentness誤分類を拒否する", () => 
   );
 });
 
-test("v0.20のRelease Gate状態が複数提示された場合は拒否する", () => {
-  const root = dispositionFixtureRoot();
-  fs.appendFileSync(
-    path.join(
-      root,
-      "90_Release",
-      "Changes",
-      "CHG-000063_Runtime_Responsibility_Separation.md",
-    ),
-    "\n状態: `Release Decision Pending`\n",
-    "utf8",
+type V020GateFixtureState =
+  | "Signed Verification Pending"
+  | "Final Audit Pending"
+  | "Release Decision Pending";
+
+function writeV020GateFixture(root: string, state: V020GateFixtureState): void {
+  const changePath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000063_Runtime_Responsibility_Separation.md",
   );
-  const result = runChecker(root);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "v020-release-gate-ownership-incomplete",
-    ),
+  const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
+  const verificationPath = path.join(
+    root,
+    "07_Quality",
+    "Verification_Results",
+    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
   );
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  const qualityLink =
+    "[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)";
+
+  if (state === "Signed Verification Pending") {
+    write(
+      changePath,
+      `# Runtime Responsibility\n\n状態: \`${state}\`\n\n前の署名候補\n\n現在候補\n\n現行Gate: 再署名と影響E2E待ち\n`,
+    );
+    write(
+      qualityPath,
+      `# Quality Center\n\n現在候補\n\n前の署名候補\n\n現在候補の技術Gate: 再署名待ち\n\nv0.20全体の残るGate: 再署名と影響E2E\n\n${qualityLink}\n`,
+    );
+    write(
+      verificationPath,
+      "# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n\n現在候補は再署名と影響E2E待ち。\n",
+    );
+    write(
+      roadmapPath,
+      `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 再署名と影響E2E |\n`,
+    );
+    return;
+  }
+
+  const currentCandidate =
+    "現在候補: Runtime Source `source`、manifest carrier `carrier`。Release sequence `1`";
+  const verificationIdentity =
+    "| Runtime Source | source |\n| Manifest carrier | carrier |\n| Release sequence | 1 |\n| Runtime実行Identity | identity |\n| 正式4経路E2E | 4/4 |\n| Recovery Matrix | 7/7 |";
+  if (state === "Final Audit Pending") {
+    write(
+      changePath,
+      `# Runtime Responsibility\n\n状態: \`${state}\`\n\n前の署名候補\n\n${currentCandidate}\n\n正式E2E: 4経路4/4\n\nRecovery Matrix: 7シナリオ完了\n\n残るGate: 最終Evidence反映後の一括独立監査\n`,
+    );
+    write(
+      qualityPath,
+      `# Quality Center\n\n${currentCandidate}\n\n前の署名候補\n\n現在候補の技術Gate: 正式4経路4/4とRecovery Matrix 7/7が成立\n\nv0.20全体の残るGate: 最終Evidence反映後の一括独立監査\n\n${qualityLink}\n`,
+    );
+    write(
+      verificationPath,
+      `# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n\n## 文書全体是正後の最終固定候補\n\n${verificationIdentity}\n`,
+    );
+    write(
+      roadmapPath,
+      `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 正式E2E結果を反映した現在Treeの一括監査 |\n`,
+    );
+    return;
+  }
+
+  write(
+    changePath,
+    `# Runtime Responsibility\n\n状態: \`${state}\`\n\n前の署名候補\n\n${currentCandidate}\n\n最終一括監査: 成立\n\n残るGate: 人間によるRelease判断\n`,
+  );
+  write(
+    qualityPath,
+    `# Quality Center\n\n${currentCandidate}\n\n前の署名候補\n\n最終一括監査: Critical 0で成立\n\nv0.20全体の残るGate: 人間によるRelease判断\n\n${qualityLink}\n`,
+  );
+  write(
+    verificationPath,
+    `# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n\n## 文書全体是正後の最終固定候補\n\n${verificationIdentity}\n\n最終一括監査: Critical 0、Major 0で成立\n`,
+  );
+  write(
+    roadmapPath,
+    `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 人間によるRelease判断 |\n`,
+  );
+}
+
+function hasV020GateFinding(root: string): boolean {
+  return runChecker(root).report.findings.some((finding) =>
+    [
+      "v020-release-gate-ownership-incomplete",
+      "v020-release-gate-evidence-incomplete",
+    ].includes(finding.code),
+  );
+}
+
+test("v0.20の各Release Gate状態は4文書の根拠が揃った場合だけ成立する", () => {
+  for (const state of [
+    "Signed Verification Pending",
+    "Final Audit Pending",
+    "Release Decision Pending",
+  ] as const) {
+    const root = dispositionFixtureRoot();
+    writeV020GateFixture(root, state);
+    assert.equal(hasV020GateFinding(root), false, state);
+  }
 });
 
-test("v0.20のRelease Gateは署名後の監査待ちへ遷移できる", () => {
+test("v0.20のRelease Gate状態が複数提示された場合は拒否する", () => {
   const root = dispositionFixtureRoot();
   const changePath = path.join(
     root,
@@ -1024,25 +1110,78 @@ test("v0.20のRelease Gateは署名後の監査待ちへ遷移できる", () => 
     "Changes",
     "CHG-000063_Runtime_Responsibility_Separation.md",
   );
-  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  fs.appendFileSync(changePath, "\n状態: `Release Decision Pending`\n", "utf8");
+  assert.equal(hasV020GateFinding(root), true);
+});
+
+test("CHGとRoadmapだけを署名後状態へ昇格できない", () => {
+  const root = dispositionFixtureRoot();
+  for (const relativePath of [
+    "90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md",
+    "99_Roadmap/01_Product_Roadmap.md",
+  ]) {
+    const target = path.join(root, relativePath);
+    fs.writeFileSync(
+      target,
+      fs
+        .readFileSync(target, "utf8")
+        .replaceAll("Signed Verification Pending", "Final Audit Pending"),
+      "utf8",
+    );
+  }
+  assert.equal(hasV020GateFinding(root), true);
+});
+
+test("Quality Centerが旧Gateのままなら最終監査待ちへ進めない", () => {
+  const root = dispositionFixtureRoot();
+  writeV020GateFixture(root, "Final Audit Pending");
+  const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
   fs.writeFileSync(
-    changePath,
+    qualityPath,
     fs
-      .readFileSync(changePath, "utf8")
-      .replace("Signed Verification Pending", "Final Audit Pending"),
+      .readFileSync(qualityPath, "utf8")
+      .replace(
+        "v0.20全体の残るGate: 最終Evidence反映後の一括独立監査",
+        "v0.20全体の残るGate: 再署名と影響E2E",
+      ),
     "utf8",
   );
-  fs.writeFileSync(
-    roadmapPath,
-    "# Roadmap\n\n| 作業 | 判断状態 | 対応状態 |\n|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | Final Audit Pending |\n",
-    "utf8",
+  assert.equal(hasV020GateFinding(root), true);
+});
+
+test("Verificationが前候補だけなら最終監査待ちへ進めない", () => {
+  const root = dispositionFixtureRoot();
+  writeV020GateFixture(root, "Final Audit Pending");
+  const verificationPath = path.join(
+    root,
+    "07_Quality",
+    "Verification_Results",
+    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
   );
-  const result = runChecker(root);
-  assert.ok(
-    !result.report.findings.some(
-      (finding) => finding.code === "v020-release-gate-ownership-incomplete",
-    ),
+  write(
+    verificationPath,
+    "# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n",
   );
+  assert.equal(hasV020GateFinding(root), true);
+});
+
+test("最終監査EvidenceなしにRelease判断待ちへ進めない", () => {
+  const root = dispositionFixtureRoot();
+  writeV020GateFixture(root, "Final Audit Pending");
+  for (const relativePath of [
+    "90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md",
+    "99_Roadmap/01_Product_Roadmap.md",
+  ]) {
+    const target = path.join(root, relativePath);
+    fs.writeFileSync(
+      target,
+      fs
+        .readFileSync(target, "utf8")
+        .replaceAll("Final Audit Pending", "Release Decision Pending"),
+      "utf8",
+    );
+  }
+  assert.equal(hasV020GateFinding(root), true);
 });
 
 function runWithEnv(
