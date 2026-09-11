@@ -46,8 +46,8 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
   executorSeccompProfilePath:
     "40_Develop/coordinator/runtime/codex-executor-seccomp.json",
   executorSeccompProfileSha256:
-    "110a766800d1bfaa6f52475434b729708f314eee20481cf9d79ebdc94bc9c7fb",
-  executorSeccompProfileBytes: 16_704,
+    "01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95",
+  executorSeccompProfileBytes: 16_703,
   executorSeccompBaselineCommit: "c3065211177705ada59a9ccf8b5c182f286f8c97",
   executorSeccompBaselineSha256:
     "536529b665dd0972c37bfb569f5d4ac8a53592e7b00752bc39ff063ca9864c74",

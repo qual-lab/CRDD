@@ -7,6 +7,7 @@ import {
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
 } from "../../src/security/codex-execution-plan.ts";
+import { resolveFixedCodexExecutorSeccompProfile } from "../../src/security/codex-executor-seccomp.ts";
 
 test("公式Codex artifactとSubscription限定のread-only計画を固定する", () => {
   const plan = planCodexReadOnlyProbe({
@@ -26,6 +27,19 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
   assert.equal(plan.argv.includes("features.respect_system_proxy=true"), true);
   assert.equal(plan.argv.includes("features.code_mode_host=false"), false);
   assert.equal(plan.repositoryMounted, false);
+});
+
+test("Executor計画が宣言するSeccomp identityは実配布資産と一致する", () => {
+  const contract = describeCodexExecutionPlanContract();
+  assert.equal(
+    resolveFixedCodexExecutorSeccompProfile(
+      contract.distributionIdentity.executorSeccompProfileSha256,
+      contract.distributionIdentity.executorSeccompProfileBytes,
+    ),
+    fs.realpathSync.native(
+      new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
+    ),
+  );
 });
 
 test("effort・Provider・shape差をEffect前に拒否する", () => {
@@ -243,7 +257,7 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
   );
   assert.equal(
     contract.distributionIdentity.executorSeccompProfileSha256,
-    "110a766800d1bfaa6f52475434b729708f314eee20481cf9d79ebdc94bc9c7fb",
+    "01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95",
   );
   assert.equal(
     contract.distributionIdentity.executorSeccompBaselineCommit,
