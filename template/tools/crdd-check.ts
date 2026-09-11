@@ -4226,16 +4226,14 @@ function checkV020ReleaseGateOwnership(): void {
         );
   const hasSuccessfulFinalAudit = (content: string): boolean =>
     content.split(/\r?\n/u).some((line) => {
-      if (!line.includes("最終一括監査") || !line.includes("成立")) {
-        return false;
-      }
-      const critical = /Critical[^0-9\n]*([0-9]+)/u.exec(line);
-      const major = /Major[^0-9\n]*([0-9]+)/u.exec(line);
+      const result =
+        /^\s*(?:[-*]\s*)?最終一括監査[:：]\s*Critical\s+([0-9]+)、\s*Major\s+([0-9]+)で成立\s*$/u.exec(
+          line,
+        );
       return (
-        critical !== null &&
-        major !== null &&
-        Number.parseInt(critical[1], 10) === 0 &&
-        Number.parseInt(major[1], 10) === 0
+        result !== null &&
+        Number.parseInt(result[1], 10) === 0 &&
+        Number.parseInt(result[2], 10) === 0
       );
     });
   const currentSignedCandidateEvidenceContracts: readonly GateEvidenceContract[] =

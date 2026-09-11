@@ -1262,6 +1262,30 @@ test("監査件数に0を含む二桁の値を成功と誤認しない", () => {
   }
 });
 
+test("否定された監査成立表現を成功と誤認しない", () => {
+  for (const invalidResult of [
+    "Critical 0、Major 0だが未成立",
+    "Critical 0、Major 0で不成立",
+  ]) {
+    const root = dispositionFixtureRoot();
+    writeV020GateFixture(root, "Release Decision Pending");
+    const verificationPath = path.join(
+      root,
+      "07_Quality",
+      "Verification_Results",
+      "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+    );
+    fs.writeFileSync(
+      verificationPath,
+      fs
+        .readFileSync(verificationPath, "utf8")
+        .replace("Critical 0、Major 0で成立", invalidResult),
+      "utf8",
+    );
+    assert.equal(hasV020GateFinding(root), true, invalidResult);
+  }
+});
+
 test("空の現在候補節へ前候補節の署名Evidenceを流用できない", () => {
   const root = dispositionFixtureRoot();
   writeV020GateFixture(root, "Final Audit Pending");
