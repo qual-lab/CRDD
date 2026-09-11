@@ -16,6 +16,8 @@ export function createGitPackedObjectFixture(kind: "base" | "ofs" | "ref") {
     "tests",
     "git-packed-object",
   );
+  const temporaryRootAlreadyExisted = fs.existsSync(temporaryRoot);
+  fs.mkdirSync(temporaryRoot, { recursive: true });
   for (const directory of [
     repositoryRoot,
     path.join(repositoryRoot, ".crdd"),
@@ -43,6 +45,10 @@ export function createGitPackedObjectFixture(kind: "base" | "ofs" | "ref") {
     assert.equal(path.dirname(root), temporaryRoot);
     fs.rmSync(root, { recursive: true });
     assert.equal(fs.existsSync(root), false);
+    if (!temporaryRootAlreadyExisted) {
+      fs.rmdirSync(temporaryRoot);
+      assert.equal(fs.existsSync(temporaryRoot), false);
+    }
   }
   try {
     const home = path.join(root, "home");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -521,6 +521,14 @@ test("昇格入口は配置先Repository直下の署名候補自身だけを実�
   const candidateRoot = path.join(stagingRoot, "candidate-01");
   const siblingRoot = path.join(parent, "candidate-01");
   try {
+    fs.mkdirSync(destinationRoot);
+    const initialized = spawnSync(
+      "C:\\Program Files\\Git\\cmd\\git.exe",
+      ["init", destinationRoot],
+      { encoding: "utf8", shell: false, windowsHide: true },
+    );
+    assert.equal(initialized.error, undefined);
+    assert.equal(initialized.status, 0, initialized.stderr);
     fs.mkdirSync(candidateRoot, { recursive: true });
     fs.mkdirSync(siblingRoot);
     fs.mkdirSync(
@@ -557,7 +565,7 @@ test("昇格入口は配置先Repository直下の署名候補自身だけを実�
           candidateRoot,
           path.join(destinationRoot, "node_modules"),
         ),
-      /release_manifest_promotion_execution_source_invalid/u,
+      /release_manifest_promotion_topology_invalid/u,
     );
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
@@ -565,8 +573,14 @@ test("昇格入口は配置先Repository直下の署名候補自身だけを実�
 });
 
 test("作業Checkout内の未署名Launcherからは昇格を開始しない", () => {
-  assert.throws(
-    () => promoteVerifiedReleaseManifest(),
-    /release_manifest_promotion_execution_source_invalid/u,
-  );
+  const previousWorkingDirectory = process.cwd();
+  try {
+    process.chdir(path.resolve(import.meta.dirname, "../../../.."));
+    assert.throws(
+      () => promoteVerifiedReleaseManifest(),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+  } finally {
+    process.chdir(previousWorkingDirectory);
+  }
 });
