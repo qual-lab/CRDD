@@ -112,7 +112,7 @@ v0.20.0のリリース前に、CRDD Repository内の人間可読文書を全数�
 | 固定履歴 | 過去tag上の原記録は不変。現行Treeの各文書は個別評価し、必要なら履歴保全付き構造是正を行う |
 | 機械確認 | Checker契約試験、型・Lint・Format、Repository全体Checker |
 | 前候補 | `8536965`で全428件のInventoryと機械閉包を確認したが、独立監査で履歴圧縮、Roadmap正本分離、Inventory意味契約および時点表示に未完了を検出 |
-| 現在の適用 | 5件を一体是正し、新しい固定CommitでCheckerと独立文書再監査を行う。前候補の監査結果を流用しない |
-| 未完了 | 是正後の固定Commit、独立文書再監査、Checker独立レビュー、検証専用投影を除外したRuntime実行Identityの再署名、影響する正式E2E、その後の人間によるv0.20.0のRelease判断 |
+| 現在の適用 | 5件を一体是正した固定監査候補。全428件のInventoryとRepository全体Checkerは成立し、前候補の監査結果を流用しない |
+| 未完了 | 独立文書再監査、Checker独立レビュー、検証専用投影を除外したRuntime実行Identityの再署名、影響する正式E2E、その後の人間によるv0.20.0のRelease判断 |
 
 旧版詳細設計を現行Treeへ累積せず、現行詳細設計をProject Runtime配下で更新し、当時の歴史的述語だけを検証済みGit tag上の元Pathへ結ぶ構造とした。機械対応は設計正本ではなくCoordinator実装・試験との検証用投影であり、Runtime技術Gateとv0.20全体の文書Gateも分離した。拡張後の最終再監査は未実施であり、初回Passを流用しない。

@@ -16,8 +16,8 @@
 | 前の署名候補 | `f76b73af81c43e25f28037caa72d71a898a2f9fb`。Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
 | 前候補のEvidence | 正式4経路4/4、Recovery Matrix 7/7、技術独立監査0件。現在候補へ流用しない |
 | 文書監査の前候補 | `8536965`。独立監査でMajor 3件、Moderate 2件が残り、不採用 |
-| 現在候補 | 上記監査指摘の一体是正を含む作業Tree。新しい固定Commitと独立再監査待ち |
-| 現行Gate | [Quality Center](../../07_Quality/01_Quality_Center.md)が所有する。文書・Checker再確認、固定Commit、独立再監査後に再署名、影響E2E、人間のRelease判断を行う |
+| 現在候補 | 上記監査指摘の一体是正を含む固定監査候補。exact Commitは監査入力が所有する |
+| 現行Gate | [Quality Center](../../07_Quality/01_Quality_Center.md)が所有する。独立文書再監査とChecker独立レビュー後に再署名、影響E2E、人間のRelease判断を行う |
 
 本書は変更理由、責務・契約差、現在も有効な構造是正を所有する。固定候補の実行値は[検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)、現在のRelease Gateは[Quality Center](../../07_Quality/01_Quality_Center.md)を参照する。
 
@@ -235,6 +235,6 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 |---|---|
 | 前の署名候補 | 固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`、Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067`。4経路4/4、Recovery Matrix 7/7、技術監査0件 |
 | 文書監査の前候補 | `8536965`。独立監査でMajor 3件、Moderate 2件が残り、不採用 |
-| 現在候補 | 監査指摘の一体是正により新しい固定Commitが必要。前候補の監査・署名を現在Gateへ流用しない |
+| 現在候補 | 監査指摘を一体是正した固定監査候補。exact Commitは監査入力が所有し、前候補の監査・署名を現在Gateへ流用しない |
 | 現行Gate正本 | [Quality Center](../../07_Quality/01_Quality_Center.md) |
-| 残るGate | 文書・Checker再確認、固定Commit、独立文書再監査、Checker独立レビュー、新Runtime実行Identityの再署名、影響E2E、人間のRelease判断 |
+| 残るGate | 独立文書再監査、Checker独立レビュー、新Runtime実行Identityの再署名、影響E2E、人間のRelease判断 |
