@@ -1,7 +1,7 @@
 # 変更トレース: 構造を先に選ぶ文書改善
 
 変更ID: `CHG-000065`
-状態: `Ready for Repository-wide Independent Audit`
+状態: `Release Decision Pending`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `quality`
@@ -114,6 +114,7 @@ v0.20.0のリリース前に、CRDD Repository内の人間可読文書を全数�
 | 前候補 | `8536965`で全428件のInventoryと機械閉包を確認したが、独立監査で履歴圧縮、Roadmap正本分離、Inventory意味契約および時点表示に未完了を検出 |
 | 現在の適用 | 5件を一体是正し、全428件のInventory、Repository全体Checkerおよび独立文書再監査が成立。前候補の監査結果は流用していない |
 | Runtime Gate | 検証専用投影を除外したRuntime実行IdentityをRelease sequence `2026091104`で再署名し、正式4経路4/4とRecovery Matrix 7/7が成立 |
-| 未完了 | 最終Evidence反映後のRepository全体Checkerと一括独立監査、その後の人間によるv0.20.0のRelease判断 |
+| 最終一括監査 | Critical／Major／Moderate／Minor 0件で成立 |
+| 未完了 | 人間によるv0.20.0のRelease判断 |
 
-旧版詳細設計を現行Treeへ累積せず、現行詳細設計をProject Runtime配下で更新し、当時の歴史的述語だけを検証済みGit tag上の元Pathへ結ぶ構造とした。機械対応は設計正本ではなくCoordinator実装・試験との検証用投影であり、Runtime技術Gateとv0.20全体の文書Gateも分離した。Evidence更新後の最終監査を残し、署名前のPassを最終Release判断へ流用しない。
+旧版詳細設計を現行Treeへ累積せず、現行詳細設計をProject Runtime配下で更新し、当時の歴史的述語だけを検証済みGit tag上の元Pathへ結ぶ構造とした。機械対応は設計正本ではなくCoordinator実装・試験との検証用投影であり、Runtime技術Gateとv0.20全体の文書Gateも分離した。Evidence更新後の最終監査まで完了し、署名前のPassを最終Release判断へ流用していない。

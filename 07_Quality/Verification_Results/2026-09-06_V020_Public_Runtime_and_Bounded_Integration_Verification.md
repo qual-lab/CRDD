@@ -127,6 +127,8 @@ Windows実Process Gateは専用のProcess制御が成立する実行環境で8�
 | Recovery Matrix | 7シナリオ完了。timeout、出力上限、無効出力、非0終了、取消、cleanup観測不能後のfresh回復、親Process消失後のfresh回復を確認。top-level cleanup成立、手動回復不要 |
 | Recovery記録 | `.crdd/verification-results/4fad4a80-a254-40cd-bf74-f07c58d96da3/` |
 
+最終一括監査: Critical 0、Major 0で成立
+
 ### 逆経路の署名前後診断
 
 最初の現在候補ではreverse経路がProvider Effect前に`coordinator_task_provider_plan_invalid`で停止した。`codex-executor-seccomp.json`の実配布内容が16,703 bytes、SHA-256 `01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95`である一方、Codex Execution Planの宣言値だけが変更前の16,704 bytesと旧hashを保持していたため、実seccomp profileの取得がFail Closedになったことが原因である。

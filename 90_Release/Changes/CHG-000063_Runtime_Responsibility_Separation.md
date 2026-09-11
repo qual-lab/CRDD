@@ -1,7 +1,7 @@
 # 変更トレース: Runtime責務分離
 
 変更ID: `CHG-000063`
-状態: `Final Audit Pending`
+状態: `Release Decision Pending`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
 変更分類: `refactoring`
@@ -17,7 +17,7 @@
 | 前候補のEvidence | 正式4経路4/4、Recovery Matrix 7/7、技術独立監査0件。現在候補へ流用しない |
 | 文書監査の前候補 | `8536965`。独立監査でMajor 3件、Moderate 2件が残り、不採用 |
 | 現在候補 | Runtime Source `2e4a467cc1364b88d6008604f649da8d840903e7`、manifest carrier `523202123c1ffa33fd39d1ede93357028585c4af`。Release sequence `2026091104` |
-| 現行Gate | [Quality Center](../../07_Quality/01_Quality_Center.md)が所有する。正式4経路4/4とRecovery Matrix 7/7は成立し、最終Evidence反映後の一括監査と人間のRelease判断を残す |
+| 現行Gate | [Quality Center](../../07_Quality/01_Quality_Center.md)が所有する。正式4経路4/4、Recovery Matrix 7/7および最終一括監査が成立し、人間のRelease判断だけを残す |
 
 本書は変更理由、責務・契約差、現在も有効な構造是正を所有する。固定候補の実行値は[検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)、現在のRelease Gateは[Quality Center](../../07_Quality/01_Quality_Center.md)を参照する。
 
@@ -239,4 +239,6 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 | 現行Gate正本 | [Quality Center](../../07_Quality/01_Quality_Center.md) |
 | 正式E2E | 4経路4/4、再試行0、cleanup成立、手動回復不要。記録ID `b549b78e-84f2-434b-b2f4-7adcce238bd7` |
 | Recovery Matrix | 7シナリオ完了、top-level cleanup成立、手動回復不要。記録ID `4fad4a80-a254-40cd-bf74-f07c58d96da3` |
-| 残るGate | 最終Evidence反映後のRepository全体Checkerと一括独立監査、人間のRelease判断 |
+| 残るGate | 人間によるRelease判断 |
+
+最終一括監査: Critical 0、Major 0で成立
