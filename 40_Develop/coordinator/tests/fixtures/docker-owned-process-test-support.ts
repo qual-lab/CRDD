@@ -7,6 +7,7 @@ import {
   startOwnedProcess,
   type OwnedCommandHandle,
 } from "../../src/security/docker-owned-process.ts";
+import { createRepositoryTestTemporaryDirectory } from "./repository-test-directory-fixture.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 export const ownedProcessWorker = fileURLToPath(
@@ -32,31 +33,12 @@ export async function waitForCondition(condition: () => boolean) {
 }
 
 export function createOwnedProcessTreeFixture() {
-  const temporaryRoot = path.join(
+  const temporaryDirectory = createRepositoryTestTemporaryDirectory(
     repositoryRoot,
-    ".crdd",
-    "tests",
     "docker-owned-process",
+    "owned-process-",
   );
-  const temporaryRootAlreadyExisted = fs.existsSync(temporaryRoot);
-  fs.mkdirSync(temporaryRoot, { recursive: true });
-  for (const target of [
-    repositoryRoot,
-    path.join(repositoryRoot, ".crdd"),
-    temporaryRoot,
-  ]) {
-    const metadata = fs.lstatSync(target);
-    assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
-  }
-  const directory = fs.mkdtempSync(
-    path.join(
-      repositoryRoot,
-      ".crdd",
-      "tests",
-      "docker-owned-process",
-      "owned-process-",
-    ),
-  );
+  const { directory } = temporaryDirectory;
   const readinessPath = path.join(directory, "ready.json");
   let handle: OwnedCommandHandle | null = null;
   let observedPids: number[] = [];
@@ -111,10 +93,7 @@ export function createOwnedProcessTreeFixture() {
       );
       fs.rmSync(directory, { recursive: true });
       assert.equal(fs.existsSync(directory), false);
-      if (!temporaryRootAlreadyExisted) {
-        fs.rmdirSync(temporaryRoot);
-        assert.equal(fs.existsSync(temporaryRoot), false);
-      }
+      temporaryDirectory.releaseNamespace();
     },
   };
 }

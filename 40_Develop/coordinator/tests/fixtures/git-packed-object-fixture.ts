@@ -5,32 +5,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { crc32, deflateSync, inflateSync } from "node:zlib";
 import { createDockerProcessEnvironment } from "../../src/security/docker-owned-process.ts";
+import { createRepositoryTestTemporaryDirectory } from "./repository-test-directory-fixture.ts";
 
 const GIT_EXECUTABLE = "C:\\Program Files\\Git\\cmd\\git.exe";
 
 export function createGitPackedObjectFixture(kind: "base" | "ofs" | "ref") {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
-  const temporaryRoot = path.join(
+  const temporaryDirectory = createRepositoryTestTemporaryDirectory(
     repositoryRoot,
-    ".crdd",
-    "tests",
     "git-packed-object",
+    "git-packed-",
   );
-  const temporaryRootAlreadyExisted = fs.existsSync(temporaryRoot);
-  fs.mkdirSync(temporaryRoot, { recursive: true });
-  for (const directory of [
-    repositoryRoot,
-    path.join(repositoryRoot, ".crdd"),
-    temporaryRoot,
-  ]) {
-    assert.ok(fs.lstatSync(directory).isDirectory());
-    assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
-    assert.equal(
-      fs.realpathSync.native(directory).toLowerCase(),
-      directory.toLowerCase(),
-    );
-  }
-  const root = fs.mkdtempSync(path.join(temporaryRoot, "git-packed-"));
+  const root = temporaryDirectory.directory;
   const identity = fs.lstatSync(root, { bigint: true });
   function dispose() {
     const current = fs.lstatSync(root, { bigint: true });
@@ -42,13 +28,9 @@ export function createGitPackedObjectFixture(kind: "base" | "ofs" | "ref") {
       fs.realpathSync.native(root).toLowerCase(),
       root.toLowerCase(),
     );
-    assert.equal(path.dirname(root), temporaryRoot);
     fs.rmSync(root, { recursive: true });
     assert.equal(fs.existsSync(root), false);
-    if (!temporaryRootAlreadyExisted) {
-      fs.rmdirSync(temporaryRoot);
-      assert.equal(fs.existsSync(temporaryRoot), false);
-    }
+    temporaryDirectory.releaseNamespace();
   }
   try {
     const home = path.join(root, "home");
