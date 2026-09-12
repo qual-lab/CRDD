@@ -1,9 +1,10 @@
 # 変更トレース: Project状態参照とローカルMCP HTTP
 
 変更ID: `CHG-000064`
-状態: `Ready for Release Handoff`
+状態: `Released`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
+リリース: `v0.20.0`（2026-09-11）
 変更分類: `feature`
 最終更新日: 2026-09-06
 

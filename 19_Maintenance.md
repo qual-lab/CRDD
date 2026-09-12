@@ -2,9 +2,8 @@
 
 # CRDD標準の保守（Maintenance）
 
-Version: v0.20.0
-Status: Candidate
-Released Baseline: v0.19.0
+Version: v0.20.1
+Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-07
 Related:
@@ -484,6 +483,8 @@ Candidate固定版の検証後、まず`Status: Candidate`と`Released Baseline`
 一般的な計画、Checker合格または監査合格だけからAIがStableへ昇格させてはならない。
 
 承認済みリリース計画と宣言済み遷移の範囲だけで、新しい最終Release候補改訂版を作成し固定する。
+
+最終候補を`Stable`へ遷移した後は、PR統合またはtag作成より前にRepository全体Checkerを再実行する。Checkerは手書きの許可Path一覧だけを利用側母集団とせず、現行Markdown入口から同じVersionのCandidate／Released Baseline残存を自動導出し、正本Version、README、CHANGELOG英日区分、対象CHG、Quality CenterおよびRoadmapの相関を検査する。宣言済み遷移の手順が存在すること、E2Eまたは監査が合格したこと、および人間がReleaseを承認したことだけから状態伝播完了を推定しない。
 
 この最終候補の`Status: Stable`は内容とリリースメタデータが確認可能な状態まで安定したことを示すが、`Released`、公開、準拠、main統合またはタグ作成を意味しない。
 

@@ -4015,15 +4015,6 @@ function checkDocumentationDispositionRoutes(): void {
         /git --no-replace-objects show/u,
       ],
     },
-    {
-      file: qualityRoute,
-      requirements: [
-        /現在候補/u,
-        /前(?:の署名)?候補/u,
-        /v0\.20全体の残るGate/u,
-        /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u,
-      ],
-    },
   ];
   for (const check of checks) {
     if (!fs.existsSync(check.file)) continue;
@@ -4034,6 +4025,34 @@ function checkDocumentationDispositionRoutes(): void {
         "document-disposition-route-contract-incomplete",
         relative(check.file),
         "The current route is missing a required purpose, current-owner, fixed-history retrieval, candidate, gate, or verification-result connection.",
+      );
+    }
+  }
+  if (fs.existsSync(qualityRoute)) {
+    const content = read(qualityRoute);
+    const verificationRoute =
+      /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u;
+    const candidateRoutes = [
+      /現在候補/u,
+      /前(?:の署名)?候補/u,
+      /v0\.20全体の残るGate/u,
+      verificationRoute,
+    ];
+    const releasedRoutes = [
+      /v0\.20\.0公開/u,
+      /v0\.20\.1修正/u,
+      /v0\.20\.0の技術Gate/u,
+      verificationRoute,
+    ];
+    if (
+      !candidateRoutes.every((requirement) => requirement.test(content)) &&
+      !releasedRoutes.every((requirement) => requirement.test(content))
+    ) {
+      add(
+        "error",
+        "document-disposition-route-contract-incomplete",
+        relative(qualityRoute),
+        "The Quality Center must expose either the active candidate route or the released v0.20 route with its verification-result connection.",
       );
     }
   }
@@ -4380,6 +4399,11 @@ function checkV020ReleaseGateOwnership(): void {
     "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
   );
   const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  const workflowPath = path.join(
+    root,
+    "19_Workflows",
+    "01_Coordinator_Runtime.md",
+  );
   if (
     ![qualityCenterPath, changePath, verificationPath, roadmapPath].every(
       fs.existsSync,
@@ -4392,6 +4416,69 @@ function checkV020ReleaseGateOwnership(): void {
   const change = read(changePath);
   const verification = read(verificationPath);
   const roadmap = read(roadmapPath);
+  const workflow = lstatIfPresent(workflowPath)?.isFile()
+    ? read(workflowPath)
+    : "";
+  const v020Released =
+    /^状態:\s*\x60Released\x60\s*$/mu.test(change) &&
+    /^リリース:\s*\x60v0\.20\.0\x60（\d{4}-\d{2}-\d{2}）\s*$/mu.test(change);
+  if (v020Released) {
+    const releasedContracts: readonly [string, string, RegExp, string][] = [
+      [
+        qualityCenterPath,
+        qualityCenter,
+        /v0\.20\.0公開[^\n]*公式tag \x60v0\.20\.0\x60へ収載済み/u,
+        "Quality Center must identify the published v0.20.0 tag.",
+      ],
+      [
+        qualityCenterPath,
+        qualityCenter,
+        /v0\.20\.0の技術Gate[^\n]*正式4経路4\/4とRecovery Matrix 7\/7が成立/u,
+        "Quality Center must retain the completed signed verification.",
+      ],
+      [
+        qualityCenterPath,
+        qualityCenter,
+        /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u,
+        "Quality Center must retain the v0.20 verification route.",
+      ],
+      [
+        changePath,
+        change,
+        /現行Gate[^\n]*完了[^\n]*公式tag \x60v0\.20\.0\x60へ収載済み/u,
+        "The Change Trace must close the v0.20 Release Gate.",
+      ],
+      [
+        verificationPath,
+        verification,
+        /Quality Center/u,
+        "Verification must retain its Quality Center connection.",
+      ],
+      [
+        roadmapPath,
+        roadmap,
+        /^(?=[^\n]*v0\.20\.0)(?=[^\n]*2026-09-11)[^\n]*$/mu,
+        "The Roadmap must retain the v0.20.0 publication history.",
+      ],
+      [
+        workflowPath,
+        workflow,
+        /この経路はv0\.20\.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した/u,
+        "The Coordinator workflow must describe the published v0.20.0 recovery route, not a candidate route.",
+      ],
+    ];
+    for (const [file, content, marker, description] of releasedContracts) {
+      if (!marker.test(content)) {
+        add(
+          "error",
+          "v020-release-gate-ownership-incomplete",
+          relative(file),
+          description,
+        );
+      }
+    }
+    return;
+  }
   const requiredMarkers: readonly [string, string, string][] = [
     [qualityCenterPath, qualityCenter, "現在候補"],
     [qualityCenterPath, qualityCenter, "前の署名候補"],
@@ -5007,6 +5094,161 @@ if (candidateDocuments.length > 0) {
           `Candidate Version and Released Baseline must differ: ${candidateReleasedBaseline}.`,
         );
       }
+    }
+  }
+}
+
+const stableDocuments = canonicalDocumentStates.filter(
+  ({ status }) => status === "Stable",
+);
+function currentRepositoryGitText(
+  gitArguments: readonly string[],
+): string | null {
+  const result = spawnSync("git", ["-C", root, ...gitArguments], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    windowsHide: true,
+  });
+  if (result.status !== 0 || typeof result.stdout !== "string") return null;
+  const value = result.stdout.trim();
+  return value.length > 0 ? value : null;
+}
+function candidateVersionFromHeader(header: string): string | null {
+  return (
+    header.match(/^Status: Candidate \((v[^,、)\s]+)/mu)?.[1] ??
+    header.match(/^状態: Candidate（(v[^,、）\s]+)/mu)?.[1] ??
+    header.match(/^Version: \*\*(v[^*\s]+) Candidate\*\*$/mu)?.[1] ??
+    null
+  );
+}
+if (
+  repositoryMode === "official" &&
+  scopeValues.length === 0 &&
+  canonicalDocumentStates.length > 1 &&
+  stableDocuments.length > 0 &&
+  new Set(stableDocuments.map(({ version }) => version)).size === 1 &&
+  stableDocuments.every(({ version }) => version !== null) &&
+  versions.size === 1
+) {
+  const stableVersion = [...versions][0];
+  if (stableVersion === undefined) {
+    throw new Error("stable_release_version_missing");
+  }
+  for (const document of canonicalDocumentStates) {
+    if (document.status === "Stable" && document.version === stableVersion) {
+      continue;
+    }
+    add(
+      "error",
+      "stable-release-canonical-status-mismatch",
+      relative(document.file),
+      `Every canonical document must be Version: ${stableVersion} and Status: Stable for the final release candidate.`,
+    );
+  }
+
+  const stableTagCommit = currentRepositoryGitText([
+    "rev-parse",
+    "--verify",
+    `refs/tags/${stableVersion}^{commit}`,
+  ]);
+  const currentHeadCommit = currentRepositoryGitText(["rev-parse", "HEAD"]);
+  const hasDifferentCandidateVersion = allMarkdownFiles.some((file) => {
+    const header = read(file).split(/\r?\n/u).slice(0, 16).join("\n");
+    const candidateVersion = candidateVersionFromHeader(header);
+    return candidateVersion !== null && candidateVersion !== stableVersion;
+  });
+  if (
+    !hasDifferentCandidateVersion &&
+    stableTagCommit !== null &&
+    currentHeadCommit !== null &&
+    stableTagCommit !== currentHeadCommit
+  ) {
+    add(
+      "error",
+      "stable-release-tag-identity-mismatch",
+      relative(path.join(root, ".git")),
+      `Official ${stableVersion} tag must resolve to the checked HEAD commit.`,
+    );
+  }
+  const readmePath = path.join(root, "README.md");
+  const readme = lstatIfPresent(readmePath)?.isFile() ? read(readmePath) : "";
+  if (!readme.includes(`Version: **${stableVersion}**`)) {
+    add(
+      "error",
+      "stable-release-readme-version-mismatch",
+      relative(readmePath),
+      `README must expose Version: **${stableVersion}**.`,
+    );
+  }
+  const readmeHeader = readme.split(/\r?\n/u).slice(0, 20).join("\n");
+  if (/\bCandidate\b|^Released Baseline:/mu.test(readmeHeader)) {
+    add(
+      "error",
+      "stable-release-readme-candidate-residue",
+      relative(readmePath),
+      "Stable release README must not retain Candidate or Released Baseline display.",
+    );
+  }
+
+  const changelogPath = path.join(root, "CHANGELOG.md");
+  const changelog = lstatIfPresent(changelogPath)?.isFile()
+    ? read(changelogPath)
+    : "";
+  const escapedStableVersion = stableVersion.replace(
+    /[.*+?^${}()|[\]\\]/gu,
+    "\\$&",
+  );
+  const releaseHeadingMatches = [
+    ...changelog.matchAll(
+      new RegExp(
+        `^### ${escapedStableVersion} — (\\d{4}-\\d{2}-\\d{2})$`,
+        "gmu",
+      ),
+    ),
+  ];
+  const releaseDates = new Set(
+    releaseHeadingMatches.map((match) => match[1]).filter(Boolean),
+  );
+  if (releaseHeadingMatches.length !== 2 || releaseDates.size !== 1) {
+    add(
+      "error",
+      "stable-release-changelog-bilingual-closure-mismatch",
+      relative(changelogPath),
+      `Expected exactly two dated ${stableVersion} release headings with one shared date; found ${releaseHeadingMatches.length} headings and ${releaseDates.size} dates.`,
+    );
+  }
+
+  for (const file of allMarkdownFiles) {
+    const header = read(file).split(/\r?\n/u).slice(0, 16).join("\n");
+    if (candidateVersionFromHeader(header) === stableVersion) {
+      add(
+        "error",
+        "stable-release-candidate-residue",
+        relative(file),
+        `Current Markdown entry point still exposes ${stableVersion} as Candidate.`,
+      );
+    }
+    if (!relative(file).startsWith("90_Release/Changes/")) continue;
+    if (!header.includes(`対象版: \`${stableVersion}\``)) continue;
+    const isReadyForRelease = /^状態: `Ready for Release Handoff`$/mu.test(
+      header,
+    );
+    const released = /^状態: `Released`$/mu.test(header);
+    if (!isReadyForRelease && !released) {
+      add(
+        "error",
+        "stable-release-change-trace-not-ready",
+        relative(file),
+        `Change trace for ${stableVersion} must be Ready for Release Handoff or Released before integration and tagging.`,
+      );
+    }
+    if (released && stableTagCommit === null) {
+      add(
+        "error",
+        "stable-release-change-trace-premature-release",
+        relative(file),
+        `Change trace for ${stableVersion} must not claim Released before the official tag exists.`,
+      );
     }
   }
 }

@@ -23,21 +23,9 @@ Related:
 
 ## 1. 現在の未完了作業
 
-2026-09-05、v0.19.0のCommunication／推論コンテキスト、Project Runtime、Dogfooding横断改善およびブランド素材を公開した。署名済みRecovery Matrix、4経路4/4、公開MCPの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recoveryとfresh再入場、および最終独立監査を完了した。完了項目は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去し、本書にはv0.20以降に再評価または実行する項目だけを残す。
+2026-09-11、v0.20.0の試験体系、実行知、Runtime責務分離、限定分散実行、Project State投影、localhost MCP HTTPおよび文書構造改善を公開した。完了項目は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去し、本書にはv0.21以降に再評価または実行する項目だけを残す。
 
-### 1.1. v0.20.0 — Release引継ぎ
-
-| 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
-|---|---|---|---|---|
-| v0.20 試験体系と自動回帰 | Adopted | Ready for Release Handoff | [CHG-000061](../90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md)、[検証結果](../07_Quality/Verification_Results/2026-09-05_Test_Levels_and_Automated_Regression_Verification.md) | UT／IT／ST／UAT／PT／LTの責務、レベル別Directory、試験カタログ、登録漏れ検査および変更影響型runnerをChecker／Coordinatorへ自己適用した。固定改訂版`ae8efe1`で決定論的回帰、Windows実Process Gateおよび独立最終レビューを完了し、指摘事項は0件。PT／LTは明示AuthorityなしでEffect 0となり、任意の未実行は通常監査またはReleaseを停止しない。未評価範囲は検証結果へ保持し、v0.20.0の統合・Release判断とは分離する |
-| v0.20 実行知（Execution Intelligence） | Adopted | Ready for Release Handoff | [CHG-000062](../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[初期固定候補の検証結果](../07_Quality/Verification_Results/2026-09-05_Execution_Intelligence_Verification.md)、[拡張後の検証結果](../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md) | Coordinatorから独立した共通コンポーネントとして、不変Store、欠測を保持する集約、非Authorityな改善候補、TypeScript向け組込みRecorderおよびAI API利用量のfield別観測を実装した。保持状態はRuntime外の清掃判断へ利用できるが、真正な耐久Evidence生成元と参照解決器が未成立のため、清掃候補生成と物理削除はv0.20公開範囲から除外した。初期独立レビューで見つかった入力、永続化および利用側閉包の未成立を構造是正し、全回帰を完走した。現在のexact固定改訂版は検証結果が所有し、本表へCommit hashを複製しない。実Providerの利用量、速度、費用、人間時間または品質改善は未成立とする |
-| v0.20 Runtime責務分離 | Adopted | Release Decision Pending | [CHG-000063](../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)、[Project Runtime設計](../06_Architecture/project-runtime/01_Architecture.md)、[MCP設計](../06_Architecture/mcp/01_Architecture.md)、[検証結果](../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md) | 責務分離と正式署名は完了し、現行候補の正式4経路4/4とRecovery Matrix 7/7が成立。現在Treeの最終一括監査もCritical／Major／Moderate／Minor 0件で成立し、人間によるRelease判断だけを残す |
-| v0.20 限定分散実行と統合結果の評価 | Adopted | Ready for Release Handoff | [CHG-000062](../90_Release/Changes/CHG-000062_Execution_Intelligence.md)、[検証結果](../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)、[Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#bounded-distributed-execution-candidate) | 競合しない2 Taskを上限2で同時実行し、予定Task、実Attempt Eventおよび統合後の受入結果を同じ評価Identityへ接続した。最大同時実行2、Attempt 2、Retry 0、Conflict 0および統合受入を確認したが、決定論的な技術実測であり、実Provider間の速度・費用・人間時間または品質改善は未評価である |
-| v0.20 Project Stateの読み取り専用投影 | Adopted | Ready for Release Handoff | [CHG-000064](../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)、[検証結果](../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)、[Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v020-read-only-project-state-projection) | Project RuntimeのState Portから`readState`だけを受け取る公開Applicationと、`observed / absent / unknown`を区別するcanonical結果を実装した。公開Runtimeが生成した受入済み状態をMCPの閉じた結果まで縦断し、Effect 0を確認した。Project Management正本や進捗推定は追加していない |
-| v0.20 ローカルMCP Streamable HTTP接続 | Adopted | Ready for Release Handoff | [CHG-000064](../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)、[検証結果](../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)、[Discoveryの採用境界](../01_Discovery/01_CRDD_Product_Discovery.md#v020-mcp-streamable-http) | `127.0.0.1`固定、Bearer認証、Origin確認、mirror header照合、bounded UTF-8、切断取消および終了時join付きのPOST単位Transportを実装した。stdio／HTTP公開Launcherと認証済み状態参照、Node.js Signal event受領後の終了lifecycleを総合試験で確認し、最終一括監査は指摘事項0件で合格した。OS／Consoleから実行中の公開ProcessへのSignal配送、LAN／Internet、Remote、複数RepositoryまたはOrganization Runtimeを意味しない |
-| v0.20 構造を先に選ぶ文書改善 | Adopted | Release Decision Pending | [CHG-000065](../90_Release/Changes/CHG-000065_Structured_First_Documentation.md)、[文書化](../03_Documentation.md#104-structured-first) | 全428文書のInventory、Repository全体Checker、署名前の独立文書再監査および正式E2E結果を反映した現在Treeの一括監査が成立。人間によるRelease判断だけを残す |
-
-### 1.2. v0.21.0 — Project運営・信頼・複数Repository
+### 1.1. v0.21.0 — Project運営・信頼・複数Repository
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
@@ -58,7 +46,7 @@ Related:
 | v0.21 工程別の図面処置と成果物構造 | Adopted | In Progress | [CHG-000068](../90_Release/Changes/CHG-000068_Phase_Diagram_and_Intent_Handoff.md)、[工程別の図面処置契約](../03_Documentation.md#phase-diagram-disposition-contract) | DiscoveryからVerificationまで、上位意図の保持／承認済み変更／未解決／下位義務を工程固有の図から反証できるよう、基本図、発火境界、プレーンテキスト記法、固定入口の処置一覧および出口Gateを定義する。図から明らかになった分岐・境界・状態を設計と検証義務へ接続し、未処置をCheckerと工程移行レビューで検出する |
 | v0.21 自律Operationの読み取り中心参照実証 | Adopted | Planned | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界) | 外部Effectを伴わない代表Operationを選び、判断価値と人間負荷を実測する |
 
-### 1.3. v0.22.0 — 常設CROS運用・耐久Operation
+### 1.2. v0.22.0 — 常設CROS運用・耐久Operation
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
@@ -67,7 +55,7 @@ Related:
 | v0.22 Remote Event受付と許可済みOperation継続 | Adopted | Planned | [自律Operation](../05_Autonomous_Operation.md)、[CROS発展境界](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#7-cros発展境界) | v0.21のTrigger意味契約を使い、時刻、Webhook、Git／CI Eventの代表Adapterから許可済みOperationを起動・停止・回復する本番同等E2Eを行う |
 | v0.22 常設・自律Operationの有用性／安全性評価 | Adopted | Planned | [実行知](../01_Discovery/01_CRDD_Product_Discovery.md#78-研究候補と保持条件)、[参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments) | 独立機能ではなくRelease Gateとして、価値、費用、人間負荷、誤作動、回復負担および停止条件を実行知から評価する |
 
-### 1.4. 版未定・再評価待ち
+### 1.3. 版未定・再評価待ち
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
@@ -103,16 +91,16 @@ v0.22  CROSをLinuxへ常設し、耐久QueueとRemote Eventで許可済みOpera
 
 | 日付 | 採用・変更した計画 | 現在の参照先 |
 |---|---|---|
-| 2026-09-05 | v0.20を、ローカル単一Projectの試験体系、実行知、Runtime責務分離、限定分散、状態投影、localhost MCPへ固定。Linux／Remoteは後続へ分離 | [v0.20未完了作業](#11-v0200--release引継ぎ) |
-| 2026-09-06 | Project運営、Topic、Meeting、Trust Policy、Capability Registry、Remote MCP、CROS、複数Projectの読み取り専用Portfolio投影、自律Operationをv0.21へ採用 | [v0.21未完了作業](#12-v0210--project運営信頼複数repository) |
+| 2026-09-05 | v0.20を、ローカル単一Projectの試験体系、実行知、Runtime責務分離、限定分散、状態投影、localhost MCPへ固定。Linux／Remoteは後続へ分離 | [v0.20.0公開記録](../CHANGELOG.md#v0200--2026-09-11) |
+| 2026-09-06 | Project運営、Topic、Meeting、Trust Policy、Capability Registry、Remote MCP、CROS、複数Projectの読み取り専用Portfolio投影、自律Operationをv0.21へ採用 | [v0.21未完了作業](#11-v0210--project運営信頼複数repository) |
 | 2026-09-07 | AI Runtime Registry／モデルProfile外部構成をv0.21へ追加 | [Runtime／CROS候補](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#6-ai-runtime-registryモデルprofile外部構成) |
 | 2026-09-11 | Workbenchを先行せず、Repository、`.crdd`、Tool、構造化結果、MCPの共通契約を先に整える基盤をv0.21へ追加 | [Runtime Data・構造化・Workbench基盤](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤) |
-| 2026-09-11 | Linux／Remote Runtime、耐久Queue／Scheduler、Remote Trigger、実行評価をv0.22へ採用。macOSは実環境取得まで版未定 | [現在のv0.22未完了作業](#13-v0220--常設cros運用耐久operation) |
+| 2026-09-11 | Linux／Remote Runtime、耐久Queue／Scheduler、Remote Trigger、実行評価をv0.22へ採用。macOSは実環境取得まで版未定 | [現在のv0.22未完了作業](#12-v0220--常設cros運用耐久operation) |
 | 2026-09-12 | `.crdd`整理を構造化基盤の最初の作業として明示し、現行Producerと物理残存を分けて棚卸ししたうえで、Repository-local／CROSの分離、親子階層、`config/`および`tmp/`の限定用途を目標Architectureへ固定する | [現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md)、[目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md) |
 | 2026-09-12 | 固定3 Role方式や永続認証Sessionを採用せず、Bearer TokenをRequestごとにConnection Credentialへ照合し、`workspace_ids[]`と`system_admin`を分離する。Chat AgentとCoding Agentは同じCRDD正本から解決したOperating Contextを使い、構造化Handoffで判断待ちと再開を接続する | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md) |
 | 2026-09-12 | v0.21へ採用し利用形態・完成条件・対象外を固定したCapabilityは、既知の使い捨て中間構造を正式化せず、現在宣言した利用形態を端から端まで閉じる。内部の段階実装は維持し、Roadmap候補や将来の一般的便利さだけでは実装しない | [実装完結性と最小責務](../19_Maintenance.md#宣言済みcapabilityの実装完結性と最小責務) |
 | 2026-09-12 | 長期能力地平との比較を単発の未完了Taskから外し、各VersionのRelease Readinessで到達、未到達、境界変化を評価する定期Gateへ移した。業務プロセス投影とOrganization Runtimeの候補名も、実際の対象が分かる名称へ変更した | [Release Readiness](../19_Maintenance.md#53-release-readiness)、[目的別投影候補](../01_Discovery/01_CRDD_Product_Discovery.md#discovery-process-method-projection) |
-| 2026-09-12 | CROS Workbenchの最小実装と業務プロセス分析の目的別投影をv0.21へ採用した。WorkbenchはProject／Portfolio、Source Coverage、Topic／Meeting／判断待ち、正本導線および既存定型操作までを対象とする。目的別投影は単発の図作成にせず、Discovery進展時の項目別／全体Viewの再評価、プレーンテキスト記法、現行性および非該当理由を工程規則とTemplateで保持する。v0.22はRemote MCPの再実装ではなく、Linux常設運用、耐久Operation、Remote Event Adapterおよび運用評価Gateへ再編した | [構造化基盤とWorkbench](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤)、[目的別投影](../01_Discovery/01_CRDD_Product_Discovery.md#discovery-process-method-projection)、[v0.22未完了作業](#13-v0220--常設cros運用耐久operation) |
+| 2026-09-12 | CROS Workbenchの最小実装と業務プロセス分析の目的別投影をv0.21へ採用した。WorkbenchはProject／Portfolio、Source Coverage、Topic／Meeting／判断待ち、正本導線および既存定型操作までを対象とする。目的別投影は単発の図作成にせず、Discovery進展時の項目別／全体Viewの再評価、プレーンテキスト記法、現行性および非該当理由を工程規則とTemplateで保持する。v0.22はRemote MCPの再実装ではなく、Linux常設運用、耐久Operation、Remote Event Adapterおよび運用評価Gateへ再編した | [構造化基盤とWorkbench](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤)、[目的別投影](../01_Discovery/01_CRDD_Product_Discovery.md#discovery-process-method-projection)、[v0.22未完了作業](#12-v0220--常設cros運用耐久operation) |
 
 計画変更時は、変更理由、影響する利用側・完成条件、追加・除外・保留の処置および変更トレースを示し、過去の判断を遡及上書きしない。候補の利用者課題、価値、採用境界は[Runtime／CROS Product Candidates](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md)と各情報源が所有する。Roadmapは具体的なSchema、Path、契約または実装順序を定義しない。
 

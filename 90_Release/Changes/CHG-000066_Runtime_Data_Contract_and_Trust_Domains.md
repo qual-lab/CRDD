@@ -33,7 +33,7 @@ Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime
 | 項目 | 内容 |
 |---|---|
 | 契機 | v0.18からv0.20の署名、E2E、診断、回復および手動作業が`.crdd`直下と重複Directoryへ累積し、用途・Owner・Lifecycleを追跡しにくくなった |
-| Roadmap | [v0.21 `.crdd` Runtime Data Contractと構造化基盤](../../99_Roadmap/01_Product_Roadmap.md#12-v0210--project運営信頼複数repository) |
+| Roadmap | [v0.21 `.crdd` Runtime Data Contractと構造化基盤](../../99_Roadmap/01_Product_Roadmap.md#11-v0210--project運営信頼複数repository) |
 | 着手判断 | 2026-09-12の利用者対話で、棚卸し、親子階層、Repository-local／CROS分離、Trust Domainおよび`tmp/`契約を確認した |
 | 基準版 | `v0.20.0` |
 
@@ -160,7 +160,7 @@ Component単位契約試験
 | 現行調査 | [Runtime Dataの現行Path棚卸し](../../06_Architecture/runtime-data/01_Current_Path_Inventory.md) |
 | 目標設計 | [Runtime Dataの目標Architecture](../../06_Architecture/runtime-data/02_Target_Architecture.md) |
 | Discovery | [Runtime／CROS Product Candidates](../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤) |
-| Roadmap | [v0.21未完了作業](../../99_Roadmap/01_Product_Roadmap.md#12-v0210--project運営信頼複数repository) |
+| Roadmap | [v0.21未完了作業](../../99_Roadmap/01_Product_Roadmap.md#11-v0210--project運営信頼複数repository) |
 | 実装 | `40_Develop/runtime-data/`、Coordinator／Execution Intelligence利用側、Checker旧Path拒否 |
 | 検証結果 | [固定候補の署名・回帰・正式E2E](#12-固定候補の完了evidence) |
 

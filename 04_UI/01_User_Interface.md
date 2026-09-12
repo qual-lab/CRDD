@@ -1,6 +1,6 @@
 # CRDD内部ツールの操作・表示
 
-状態: Candidate（v0.21.0、Released Baseline: v0.20.0）
+状態: Candidate（v0.21.0、Released Baseline: v0.20.1）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-06
 工程規則: [UI](../25_UI.md)、[UIと仕様の対応レビュー](../24_UI_Behavior_Specification.md)
