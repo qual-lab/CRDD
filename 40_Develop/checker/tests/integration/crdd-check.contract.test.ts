@@ -1428,7 +1428,7 @@ function dispositionUpdaterFixture() {
   };
   write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   assert.equal(git("add", "-A").status, 0);
-  const currentMarkdown = [
+  const currentMarkdowns = [
     targetPath,
     "99_Roadmap/Changes/CHG-000001/change.md",
     "99_Roadmap/Changes/CHG-000070/change.md",
@@ -1439,7 +1439,7 @@ function dispositionUpdaterFixture() {
       schemaRevision: 1,
       populationSource: "git_worktree_markdown",
       evaluatedDocumentationSetSha256: "0".repeat(64),
-      entries: currentMarkdown.map((item) => ({
+      entries: currentMarkdowns.map((item) => ({
         path: item,
         currentness: item === targetPath ? "fixed_history" : "current",
         ...(item === targetPath

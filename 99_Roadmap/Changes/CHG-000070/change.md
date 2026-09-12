@@ -125,4 +125,5 @@ Work Lifecycleは、管理対象の全Markdown更新へCHGを要求する仕組�
 | Evidence Owner全数分類 | 完了。移行元固定CommitのDispositionと旧配置契約から独立導出 |
 | 正本・Template・Checker変更 | 完了。旧Path再作成、案内欠落、移行集合差を機械拒否 |
 | 物理移行とConsumer Closure | 完了。408件を移行し、固定履歴392件はsource byteを完全保持 |
+| 移行前後のChecker継続性 | 完了。移行をステージした状態では旧Path、移行Commit後はCanonical Pathから同じ固定内容を検証し、両方が存在する状態と両方が存在しない状態を拒否する |
 | 独立レビュー／監査 | 完了。最終再レビューはCritical 0／Major 0／Moderate 0 |

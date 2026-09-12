@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "a5826fa713a69ffa7f0d2498c1147fcfb005c413ebd5f1bce03f761710d425dc",
+  "evaluatedDocumentationSetSha256": "d5a95828cdc70cea4532cead82b718d162fd90fd39896d16e79fce5951d4310d",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -5740,7 +5740,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000070/change.md",
-      "currentBlobOid": "ac535b4415bd625a646e80ed3cdb166d96e06e73"
+      "currentBlobOid": "3d0ef431ebcb9d30d95f4295091784a7dfbf1901"
     },
     {
       "path": "99_Roadmap/Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md",

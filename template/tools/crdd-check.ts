@@ -3067,7 +3067,7 @@ function checkConsolidatedChangeTraceLedger(
         env: gitEnvironment,
       },
     );
-    const headSource = spawnSync(
+    const headOriginalSource = spawnSync(
       "git",
       ["-C", root, "show", `${headStart}:${originalSourceRelative}`],
       {
@@ -3078,6 +3078,15 @@ function checkConsolidatedChangeTraceLedger(
         env: gitEnvironment,
       },
     );
+    const headCanonicalSource = sourceMigration
+      ? spawnSync("git", ["-C", root, "show", `${headStart}:${row.source}`], {
+          encoding: null,
+          windowsHide: true,
+          timeout: 5_000,
+          maxBuffer: 16 * 1_048_576,
+          env: gitEnvironment,
+        })
+      : null;
     let worktreeBytes = Buffer.alloc(0);
     let worktreeReadFailed = false;
     try {
@@ -3088,15 +3097,30 @@ function checkConsolidatedChangeTraceLedger(
     const baseBytes = Buffer.isBuffer(baseSource.stdout)
       ? baseSource.stdout
       : Buffer.alloc(0);
+    const isSuccessfulGitBlobRead = (
+      result: ReturnType<typeof spawnSync>,
+    ): boolean =>
+      !result.error &&
+      result.status === 0 &&
+      (Buffer.isBuffer(result.stderr)
+        ? result.stderr.toString("utf8")
+        : (result.stderr ?? "")
+      ).trim() === "";
+    const headOriginalSourceExists =
+      isSuccessfulGitBlobRead(headOriginalSource);
+    const headCanonicalSourceExists = headCanonicalSource
+      ? isSuccessfulGitBlobRead(headCanonicalSource)
+      : false;
+    const headSource =
+      headCanonicalSourceExists && headCanonicalSource
+        ? headCanonicalSource
+        : headOriginalSource;
     const headBytes = Buffer.isBuffer(headSource.stdout)
       ? headSource.stdout
       : Buffer.alloc(0);
     const baseError = Buffer.isBuffer(baseSource.stderr)
       ? baseSource.stderr.toString("utf8")
       : (baseSource.stderr ?? "");
-    const headError = Buffer.isBuffer(headSource.stderr)
-      ? headSource.stderr.toString("utf8")
-      : (headSource.stderr ?? "");
     const baseLinkCount = countExactHistoricalLinks(
       baseBytes,
       originalSourceAbsolute,
@@ -3111,9 +3135,9 @@ function checkConsolidatedChangeTraceLedger(
       baseSource.error ||
       baseSource.status !== 0 ||
       baseError.trim() ||
-      headSource.error ||
-      headSource.status !== 0 ||
-      headError.trim() ||
+      (sourceMigration
+        ? headOriginalSourceExists === headCanonicalSourceExists
+        : !headOriginalSourceExists) ||
       !baseBytes.equals(headBytes) ||
       worktreeReadFailed ||
       (sourceMigration
