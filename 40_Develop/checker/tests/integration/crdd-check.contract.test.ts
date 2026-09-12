@@ -4394,6 +4394,265 @@ function officialVirtualResolutionFixture(): string {
   return root;
 }
 
+type WorkLifecycleHistoricalReferenceFixture = Readonly<{
+  root: string;
+  canonicalEvidencePath: string;
+  originalEvidencePath: string;
+  evidenceBytes: Buffer;
+}>;
+
+function commitFixture(root: string, message: string): void {
+  const added = spawnSync("git", ["-C", root, "add", "-A"], {
+    encoding: "utf8",
+  });
+  assert.equal(added.status, 0, added.stderr);
+  const committed = spawnSync(
+    "git",
+    [
+      "-C",
+      root,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=crdd-test@example.invalid",
+      "commit",
+      "--quiet",
+      "-m",
+      message,
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(committed.status, 0, committed.stderr);
+}
+
+function rewriteWorkLifecycleLedger(source: string): string {
+  return source
+    .replaceAll(
+      "CHG-000015_Coordinator_Runtime_1_0.md",
+      "./Changes/CHG-000015/change.md",
+    )
+    .replaceAll(
+      "90_Release/Changes/Evidence/fixed.md",
+      "99_Roadmap/Changes/CHG-000015/Evidence/260912_fixed.md",
+    )
+    .replaceAll(
+      "(Evidence/fixed.md)",
+      "(./Changes/CHG-000015/Evidence/260912_fixed.md)",
+    );
+}
+
+function workLifecycleHistoricalReferenceFixture(): WorkLifecycleHistoricalReferenceFixture {
+  const root = officialVirtualResolutionFixture();
+  assert.equal(
+    spawnSync("git", ["-C", root, "tag", "v0.19.0"], {
+      encoding: "utf8",
+    }).status,
+    0,
+  );
+  writeDispositionFixture(root);
+  commitFixture(root, "work lifecycle migration source");
+
+  const sourceCommit = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).stdout.trim();
+  const sourceTree = spawnSync(
+    "git",
+    ["-C", root, "show", "-s", "--format=%T", sourceCommit],
+    { encoding: "utf8" },
+  ).stdout.trim();
+  const originalLedgerPath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "README.md",
+  );
+  const originalChangePath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000015_Coordinator_Runtime_1_0.md",
+  );
+  const originalEvidencePath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "Evidence",
+    "fixed.md",
+  );
+  const canonicalLedgerPath = path.join(root, "99_Roadmap", "02_Changes.md");
+  const canonicalChangePath = path.join(
+    root,
+    "99_Roadmap",
+    "Changes",
+    "CHG-000015",
+    "change.md",
+  );
+  const canonicalEvidencePath = path.join(
+    root,
+    "99_Roadmap",
+    "Changes",
+    "CHG-000015",
+    "Evidence",
+    "260912_fixed.md",
+  );
+  const sourceEntries = [
+    {
+      source: "90_Release/Changes/README.md",
+      target: "99_Roadmap/02_Changes.md",
+      sourceBytes: fs.readFileSync(originalLedgerPath),
+      targetBytes: Buffer.from(
+        rewriteWorkLifecycleLedger(fs.readFileSync(originalLedgerPath, "utf8")),
+        "utf8",
+      ),
+      currentnessAtMigration: "current",
+    },
+    {
+      source: "90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md",
+      target: "99_Roadmap/Changes/CHG-000015/change.md",
+      sourceBytes: fs.readFileSync(originalChangePath),
+      targetBytes: fs.readFileSync(originalChangePath),
+      currentnessAtMigration: "current",
+    },
+    {
+      source: "90_Release/Changes/Evidence/fixed.md",
+      target: "99_Roadmap/Changes/CHG-000015/Evidence/260912_fixed.md",
+      sourceBytes: fs.readFileSync(originalEvidencePath),
+      targetBytes: fs.readFileSync(originalEvidencePath),
+      currentnessAtMigration: "fixed_history",
+    },
+  ] as const;
+
+  write(canonicalLedgerPath, sourceEntries[0].targetBytes.toString("utf8"));
+  write(canonicalChangePath, sourceEntries[1].targetBytes.toString("utf8"));
+  fs.mkdirSync(path.dirname(canonicalEvidencePath), { recursive: true });
+  fs.writeFileSync(canonicalEvidencePath, sourceEntries[2].targetBytes);
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000070", "change.md"),
+    "# Work Lifecycle Migration\n\n変更ID: CHG-000070\n",
+  );
+  fs.rmSync(path.join(root, "90_Release"), { recursive: true, force: true });
+  write(
+    path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000070",
+      "Evidence",
+      "260912-2142_migration-map.json",
+    ),
+    `${JSON.stringify(
+      {
+        contract: "crdd/work-lifecycle-migration-map",
+        contractRevision: 1,
+        sourceCommit,
+        sourceTree,
+        transformationContract: "fixed-history-byte-preserving-v3",
+        status: "migrated",
+        changes: 1,
+        changeEvidence: 1,
+        verificationResults: 0,
+        releases: [],
+        totalMoves: sourceEntries.length,
+        entries: sourceEntries.map((entry) => ({
+          source: entry.source,
+          target: entry.target,
+          sourceSha256: createHash("sha256")
+            .update(entry.sourceBytes)
+            .digest("hex"),
+          sourceBytes: entry.sourceBytes.length,
+          targetSha256: createHash("sha256")
+            .update(entry.targetBytes)
+            .digest("hex"),
+          targetBytes: entry.targetBytes.length,
+          currentnessAtMigration: entry.currentnessAtMigration,
+        })),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  const staged = spawnSync("git", ["-C", root, "add", "-A"], {
+    encoding: "utf8",
+  });
+  assert.equal(staged.status, 0, staged.stderr);
+  return {
+    root,
+    canonicalEvidencePath,
+    originalEvidencePath,
+    evidenceBytes: sourceEntries[2].sourceBytes,
+  };
+}
+
+function historicalIdentityFindings(
+  result: CheckerRun,
+): readonly CheckerFinding[] {
+  return result.report.findings.filter(
+    (finding) => finding.code === "historical-reference-identity-mismatch",
+  );
+}
+
+test("Work Lifecycle履歴参照は移行前HEADとstaged canonical Pathの組合せを許容する", () => {
+  const state = workLifecycleHistoricalReferenceFixture();
+  const result = runChecker(state.root);
+  assert.deepEqual(historicalIdentityFindings(result), []);
+  assert.equal(
+    result.report.metrics.historical_references_identity_verified,
+    1,
+  );
+});
+
+test("Work Lifecycle履歴参照は移行後HEADのcanonical Pathだけで継続検証できる", () => {
+  const state = workLifecycleHistoricalReferenceFixture();
+  commitFixture(state.root, "commit work lifecycle migration");
+  const result = runChecker(state.root);
+  assert.deepEqual(historicalIdentityFindings(result), []);
+  assert.equal(
+    result.report.metrics.historical_references_identity_verified,
+    1,
+  );
+});
+
+test("Work Lifecycle履歴参照はHEADに旧Pathとcanonical Pathが併存すれば拒否する", () => {
+  const state = workLifecycleHistoricalReferenceFixture();
+  commitFixture(state.root, "commit work lifecycle migration");
+  fs.mkdirSync(path.dirname(state.originalEvidencePath), { recursive: true });
+  fs.writeFileSync(state.originalEvidencePath, state.evidenceBytes);
+  commitFixture(state.root, "restore duplicate historical source");
+  const result = runChecker(state.root);
+  assert.equal(
+    historicalIdentityFindings(result).length,
+    1,
+    JSON.stringify(result.report.findings),
+  );
+});
+
+test("Work Lifecycle履歴参照はHEADに旧Pathとcanonical Pathが共に無ければ拒否する", () => {
+  const state = workLifecycleHistoricalReferenceFixture();
+  commitFixture(state.root, "commit work lifecycle migration");
+  fs.rmSync(state.canonicalEvidencePath);
+  commitFixture(state.root, "remove canonical historical source");
+  fs.mkdirSync(path.dirname(state.canonicalEvidencePath), { recursive: true });
+  fs.writeFileSync(state.canonicalEvidencePath, state.evidenceBytes);
+  const result = runChecker(state.root);
+  assert.equal(
+    historicalIdentityFindings(result).length,
+    1,
+    JSON.stringify(result.report.findings),
+  );
+});
+
+test("Work Lifecycle履歴参照はcanonical Pathのbyte変更を拒否する", () => {
+  const state = workLifecycleHistoricalReferenceFixture();
+  commitFixture(state.root, "commit work lifecycle migration");
+  fs.appendFileSync(state.canonicalEvidencePath, "changed\n", "utf8");
+  const result = runChecker(state.root);
+  assert.equal(
+    historicalIdentityFindings(result).length,
+    1,
+    JSON.stringify(result.report.findings),
+  );
+});
+
 test("公式統合台帳は旧IDをCanonicalと固定原文へ一意に予約する", () => {
   const root = officialConsolidationLedgerFixture();
   const result = runChecker(root);
