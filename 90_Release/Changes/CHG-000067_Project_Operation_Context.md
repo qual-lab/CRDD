@@ -43,12 +43,12 @@ Project Operation Context
 - Meeting、TopicおよびCommunicationは使用サービスではなく目的と意味で分類する。
 - `20_Project`、`21_Commercial`、`22_Topics`および`23_Meetings`は、使用するRepositoryだけに置く任意領域とする。
 - CommercialはProjectとの分離境界だけをv0.21で固定し、会計・請求・税・通貨等の完全Schemaを作らない。
-- 情報アクセス差はRepository分離と既存Git／OS／Credential Providerの権限で表現し、CROSを独自IAM、Password Storeまたは暗号化製品にしない。
+- 情報アクセス差はRepository分離、既存Git／OSの権限およびShared CROS ServerのWorkspace Exposureで表現し、CROSを独自IAM、Password Storeまたは暗号化製品にしない。
 - Workbench等のUnlock操作は外部所有の認証処理への入口に限定し、同じOS Userが読める内容の表示ロックを強い情報境界とみなさない。
 - Source Repositoryを読めない利用者向けの縮約Projectionは、自動要約や複製ではなく、明示的に許可された公開成果物として扱う。
 - Project Operation Contextを一つの変更単位として設計し、実装と試験は責務単位で分ける。
-- CROS Coreへ`general／privileged／administrator`の固定Role階層を設けず、CROS管理SessionがCredentialごとの明示Workspace Grantを設定する。
-- System Administration Capability、Content Workspace Grant、情報分類、Task Roleおよび人間の決定権限を別軸に保つ。
+- CROS Coreへ`general／privileged／administrator`の固定Role階層を設けず、`system_admin: true`のConnection Credentialによる管理RequestがCredentialごとの`workspace_ids[]`を設定する。
+- `system_admin`、Content Access、情報分類、Task Roleおよび人間の決定権限を別軸に保つ。
 - Chat AgentとCoding Agentは同じCRDD正本から解決したAgent Operating Contextを参照し、会話全文のPrompt転記ではなく構造化Contextと判断要求でHandoffする。
 - MCP接続済みであることを、CRDD規則の認識、準拠、Repository AccessまたはEffect Authorityの根拠にしない。
 - v0.21へ採用済みのProject Operation／CROS Capabilityは、既知の次版全面Refactorを前提とする中間構造で正式化せず、現在宣言した利用形態を満たす最小責務を利用者入口から実境界・利用側まで閉じる。
@@ -91,14 +91,14 @@ Project ID
 | Quality | 単一Repository、複数Repository、分離Repository、Restricted Commercialおよび誤Bindingを検証する |
 | Template／Checker | 使用時の標準入口を配布し、未使用時の空Directoryを要求しない |
 | Repository Manifest／CROS | Context Responsibilityの複数宣言、重複所有の競合検出および領域単位のRepository解決を追加する |
-| Trust／Credential Adapter | RepositoryごとのPrincipal、Policyおよび外部認証結果を検証し、秘密値をCROS設定へ保存しない |
+| Shared Server接続境界 | RequestごとにBearer TokenをConnection Credentialへ照合し、`workspace_ids[]`、`system_admin`、失効およびRepository Policyを検証する。生TokenをRepository、`.crdd`またはlogへ保存しない |
 | Agent Operating Context／Handoff | Taskごとの適用規則、Context、Capability、Decision境界、判断要求および再開契約をRevision付きで投影する |
 
 ## 5. 目指さないこと
 
 - JIRA、Notion、会計SystemまたはGit Clientの再実装。
 - Workbench専用のProject正本、状態Storeまたは独自更新ロジック。
-- CROS独自のUser Directory、Role管理、共通Password照合、Credential Store、暗号化またはPassword Recovery。
+- CROS独自のUser Directory、Role管理、共通Password照合、汎用認証Provider、MFA、SSO、Refresh TokenまたはPassword Recovery。Token HashとWorkspace集合を持つ最小Credential Registryはこの対象外に含めない。
 - WBS、Risk、Issue、Forecastまたは進捗率を単一のCanonical Entityへ統合すること。
 - Commercialの見積、契約、原価、売上、粗利、請求、税または通貨の完全Schema。
 - Service名だけによるMeeting、TopicまたはCommunicationの自動分類。
@@ -116,8 +116,8 @@ Project ID
 - [ ] Commercial、Topics、Meetings、Communicationその他の責務領域を任意のRepository境界で同居または分離できる。
 - [ ] RepositoryのContext ResponsibilityとTool／Runtime Capabilityを混同せず、同一責務の競合Ownerを自動選択しない。
 - [ ] RelationからAuthority、Credential、Recoveryまたは外部送信許可を生成しない。
-- [ ] CROS管理SessionがCredentialごとのWorkspace Grantを設定でき、管理CapabilityからContent Accessを生成しない。
-- [ ] Credential発行、Grant設定、認証、Session生成、再検証および失効を別の状態・操作として扱える。
+- [ ] `system_admin: true`のCredentialだけがCredentialごとのWorkspace集合を設定でき、管理可否からContent Accessを生成しない。
+- [ ] Credential発行、Workspace集合設定、RequestごとのToken照合および失効を別の操作として扱える。
 - [ ] Repository分離による情報境界と、表示上のロック／再確認を区別する。
 - [ ] Repositoryごとの`available`、`credential_required`、`restricted`、`unavailable`および`unknown`を内容漏えいなしに投影できる。
 - [ ] 縮約Projectionの公開が、元Repositoryへのアクセス不能を迂回する自動複製にならない。

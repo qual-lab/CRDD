@@ -49,10 +49,10 @@ Related:
 | v0.21 Repository Tool／Capability Registry | Adopted | Planned | [Repository Capability構想](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#4-repository-toolcapability-registry) | 登録・公開・実行許可を分ける最小Registryと代表Toolの受入条件を設計する |
 | v0.21 `.crdd` Runtime Data ContractとCRDD／CROS構造化基盤 | Adopted | Completed | [CHG-000066と完了Evidence](../90_Release/Changes/CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md#12-固定候補の完了evidence)、[目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md)、[現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md) | Schema、名前付きPath領域、Consumer自動閉包、`tmp/`の外部制御面・全終端・single-use Recovery、旧Path拒否、段階的結合試験およびCRDD公式Repositoryの物理清掃を完了した。固定Commitの独立再レビュー、全回帰、署名、正式4経路E2EおよびRecovery Matrixが成立 |
 | v0.21 AI Runtime Registry／モデルProfile外部構成 | Adopted | Planned | [AI Runtime外部構成](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#6-ai-runtime-registryモデルprofile外部構成) | 設定所有・上書き・Adapter追加境界と、登録・認証・実行許可の分離を固定する |
-| v0.21 Remote MCP接続 | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md)、[v0.20のローカルMCP](../01_Discovery/01_CRDD_Product_Discovery.md#v020-mcp-streamable-http) | 認証Adapter、管理SessionによるCredential／Workspace Grant設定、情報分類、切断／再送を含むRemote接続の完成条件をSPECへ固定する |
+| v0.21 Remote MCP接続 | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md)、[v0.20のローカルMCP](../01_Discovery/01_CRDD_Product_Discovery.md#v020-mcp-streamable-http) | Bearer Token、Connection CredentialのWorkspace集合／`system_admin`／失効、情報分類、切断／再送を含むRemote接続の完成条件をSPECへ固定する |
 | v0.21 正式検証の安全なHeadless出力 | Adopted | Planned | [v0.20 Runtime責務分離](../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md) | 保存先Authorityと閉じた結果契約を設計し、CI／Remoteの代表経路で検証する |
-| v0.21 Context Operating System（CROS） | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md) | Personal／Shared Serverの共通Project Model、Workspace Exposure、Session Grant、Canonical Repository Resolver、管理／内容Authority分離、Agent Operating ContextおよびChat／Coding Agent間の構造化HandoffをSPECへ固定する |
-| v0.21 Organization Runtime（最小構成） | Adopted | Planned | [CROS発展境界](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#7-cros発展境界)、[長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md) | 読み取り専用Portfolio投影とProject単位の分離を代表構成で検証する |
+| v0.21 Context Operating System（CROS） | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md) | Personal／Shared Serverの共通Project Model、Workspace Exposure、Connection Credential、Canonical Repository Resolver、管理／内容Authority分離、Agent Operating ContextおよびChat／Coding Agent間の構造化HandoffをSPECへ固定する |
+| v0.21 複数Projectの読み取り専用Portfolio投影 | Adopted | Planned | [CROS発展境界](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#7-cros発展境界)、[長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md) | Projectごとの正本とAuthorityを分離したまま、横断Viewを代表構成で検証する |
 | v0.21 自律Operationの読み取り中心参照実証 | Adopted | Planned | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界) | 外部Effectを伴わない代表Operationを選び、判断価値と人間負荷を実測する |
 
 ### 1.3. v0.22.0 — Linux常設化・Remote・限定自律実行
@@ -69,24 +69,23 @@ Related:
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
 | macOS対応 | Held | Unscheduled | [将来能力地平](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 実機Macまたは正式なmacOS実行環境を利用可能になった時点で、価値、対象構成、完成条件および版を再評価する |
-| Discoveryの業務プロセス投影 | Exploring | Unscheduled | [業務プロセス投影候補](../01_Discovery/01_CRDD_Product_Discovery.md#discovery-process-method-projection) | 代表業務で既存成果物の表現力、再利用価値、記録費用および標準手法との互換性を確認して採否を決める |
+| 業務プロセス分析の目的別投影 | Exploring | Unscheduled | [目的別投影候補](../01_Discovery/01_CRDD_Product_Discovery.md#discovery-process-method-projection) | 代表業務で既存成果物からSIPOC、BPMN、SwimlaneまたはValue Stream等の目的別Viewを導出し、表現力、再利用価値、記録費用および標準手法との互換性を確認して採否を決める |
 | Self-hosted Provider | Held | Unscheduled | [将来能力地平](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 既存Adapter、Trust PolicyおよびCapability評価の実績後に、価値、安全性、費用および責任主体を再評価する |
 | 高度な実行・計画最適化 | Held | Unscheduled | [長期発展方針の研究候補](../01_Discovery/01_CRDD_Product_Discovery.md#78-研究候補と保持条件) | v0.21の参照実証とv0.22の実行評価から、人間判断と停止条件を保てる範囲を再評価する |
-| Organization Runtime完成形 | Held | Unscheduled | [長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針) | 最小構成のEvidence後に、組織横断の判断・配分・Effect Authorityを別途採否する |
-| CRDD長期発展の上位方向と能力地平の表示枠組み | Adopted | Unscheduled | [長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針)、[CRDD版の発展](../01_Discovery/01_CRDD_Product_Discovery.md#79-crdd版の発展version-evolutionと責務分離) | 公開版と自己適用のEvidenceから、責務境界を再評価する必要があるか確認する |
+| 複数Projectの横断調整・最適化 | Held | Unscheduled | [長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針) | v0.21の読み取り専用Portfolio投影と後続の実行Evidenceを基に、Project間の優先順位、Capacity、投資判断およびEffect Authorityを別能力として採否する |
 
-長期研究候補のうち、[v0.19へ採用したProject Runtime境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)は完了根拠へ移した。[有用性・照合費用の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)は、v0.21の参照実証、v0.22の実行評価または版未定の高度な最適化へ責務ごとに分けた。将来候補の存在は、版予約、実装許可またはRelease条件を意味しない。
+長期研究候補のうち、[v0.19へ採用したProject Runtime境界](../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)は完了根拠へ移した。[有用性・照合費用の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)は、v0.21の参照実証、v0.22の実行評価または版未定の高度な最適化へ責務ごとに分けた。将来候補の存在は、版予約、実装許可またはRelease条件を意味しない。長期能力地平との比較は未完了Taskではなく、各VersionのRelease Readinessで行う定期評価である。
 
 ## 2. 版ごとにできるようになること
 
 | 版 | 利用者ができるようになること | 成立させる基盤 | この版では行わないこと |
 |---|---|---|---|
 | v0.20.0 | 一つのローカルProjectで、分離されたProject RuntimeをMCP stdio／localhost HTTPから利用し、実行状態と実行効果を観測しながら、競合しない少数Taskを安全に並行実行して一つの受入結果へ統合できる | 試験レベル別の自動回帰、実行知、Runtime責務分離、限定分散実行、読み取り専用Project State、認証済みlocalhost HTTP | 複数Repository、常設Remote運用、一般Network公開、自律的なOperation開始、Project Management正本の新設 |
-| v0.21.0 | 複数ProjectのCRDD正本を中央へ移さず横断参照し、Projectの現在地・注意事項・会議から昇格した判断を目的別に把握できる。Repository固有Toolを明示Capabilityとして登録し、人間・AI・CLI・CI・MCP・薄いWorkbenchから同じ契約と構造化結果を利用できる。利用者または組織が信頼するRuntime発行者を選び、Coordinator本体を変更せず、登録済みAI Runtimeのモデル／Reasoning ProfileやTask Role割当を設定で更新できる。認証・認可されたRemote MCPを含む共通入口からTask Sessionへ接続し、Chat AgentとCoding Agentが同じCRDD正本から解決したOperating Contextと構造化Handoffで人間判断待ち・決定・再開を扱える。読み取り中心の参照Operationで自律実行の価値も試せる | Project Management Projection、Topic、Meeting／Context Promotion、Repository／`.crdd` Runtime Data Contract、Repository Capability Registry、共通TS API／CLI／構造化結果、AI Runtime Registry／Profile、利用者所有Trust Policy、Remote MCP、CROS、Agent Operating Context／Handoff、最小Organization Runtime、自律Operationの意味契約 | Workbench内の第二正本・独自業務ロジック、棚卸し前の`.crdd`構成固定、Directory自動探索によるTool公開、Caller由来の任意Shell、設定だけによる未知CLIの実行、認証情報の設定埋込み、費用だけによる自動モデル選択、固定Access Role階層、会話全文の自動同期、Project間の自動優先順位・Capacity配分、Organization横断Effect Authority、Linux常設運用、耐久Queue、Remote Triggerによる継続実行、Internet一般公開、未承認の外部Effect |
+| v0.21.0 | 複数ProjectのCRDD正本を中央へ移さず横断参照し、Projectの現在地・注意事項・会議から昇格した判断を目的別に把握できる。Repository固有Toolを明示Capabilityとして登録し、人間・AI・CLI・CI・MCP・薄いWorkbenchから同じ契約と構造化結果を利用できる。利用者または組織が信頼するRuntime発行者を選び、Coordinator本体を変更せず、登録済みAI Runtimeのモデル／Reasoning ProfileやTask Role割当を設定で更新できる。認証・認可されたRemote MCPを含む共通入口からTask Sessionへ接続し、Chat AgentとCoding Agentが同じCRDD正本から解決したOperating Contextと構造化Handoffで人間判断待ち・決定・再開を扱える。読み取り中心の参照Operationで自律実行の価値も試せる | Project Management Projection、Topic、Meeting／Context Promotion、Repository／`.crdd` Runtime Data Contract、Repository Capability Registry、共通TS API／CLI／構造化結果、AI Runtime Registry／Profile、利用者所有Trust Policy、Remote MCP、CROS、Agent Operating Context／Handoff、複数Projectの読み取り専用Portfolio投影、自律Operationの意味契約 | Workbench内の第二正本・独自業務ロジック、棚卸し前の`.crdd`構成固定、Directory自動探索によるTool公開、Caller由来の任意Shell、設定だけによる未知CLIの実行、認証情報の設定埋込み、費用だけによる自動モデル選択、固定Access Role階層、会話全文の自動同期、Project間の自動優先順位・Capacity配分、Organization横断Effect Authority、Linux常設運用、耐久Queue、Remote Triggerによる継続実行、Internet一般公開、未承認の外部Effect |
 | v0.22.0 | Linux Server上へRuntimeを常設し、認証済みのRemote入口から許可済みOperationをQueueへ受け付け、時刻・Event Trigger、切断、取消、再起動およびRecoveryを跨いで限定的に完遂できる。効果と人間負荷を実行知で評価できる | Linux Platform Adapter、Remote Trust Boundary、耐久Queue／Scheduler、Remote Trigger、限定自律Operation、実行評価 | Internet一般公開、Multi-tenant、無制限な自己目的生成、Organization全体の自動最適化 |
 | 将来版 | Self-hosted Provider、macOS、より高度なCapability Routing／再計画、Project間の投資・優先順位・Capacity最適化を、先行版のEvidenceに基づいて選択的に追加できる | Provider／Platform Adapter、Trust Policy、実行知、v0.21の複数Repository分離、v0.22の常設実行Evidence | 実環境の根拠がない対応表明、単一Scoreによる自動判断、人間または配置先所有者のAuthority代替 |
 
-公開済みv0.19.0以前の到達点と移行情報は[CHANGELOG](../CHANGELOG.md)を正本とし、本書へ複製しない。発展の中心は、機能数ではなく人間が扱う抽象度である。v0.20は分離・観測・限定並列化、v0.21は複数ProjectのContext把握と判断接続、v0.22は常設環境での限定的な継続実行を成立させる。将来のOrganization Runtime完成形は、複数Projectを読めることではなく、Project間の資源・優先順位・投資およびEffect Authorityを扱う能力として別に判断する。
+公開済みv0.19.0以前の到達点と移行情報は[CHANGELOG](../CHANGELOG.md)を正本とし、本書へ複製しない。発展の中心は、機能数ではなく人間が扱う抽象度である。v0.20は分離・観測・限定並列化、v0.21は複数ProjectのContext把握と判断接続、v0.22は常設環境での限定的な継続実行を成立させる。将来の複数Project横断調整・最適化は、複数Projectを読めることではなく、Project間の資源・優先順位・投資およびEffect Authorityを扱う能力として別に判断する。
 
 ```text
 v0.20  ローカルの単一Projectを、分離・観測・限定並列化する
@@ -103,13 +102,14 @@ v0.22  Linuxへ常設し、QueueとRemote Triggerで限定Operationを継続実�
 | 日付 | 採用・変更した計画 | 現在の参照先 |
 |---|---|---|
 | 2026-09-05 | v0.20を、ローカル単一Projectの試験体系、実行知、Runtime責務分離、限定分散、状態投影、localhost MCPへ固定。Linux／Remoteは後続へ分離 | [v0.20未完了作業](#11-v0200--release引継ぎ) |
-| 2026-09-06 | Project運営、Topic、Meeting、Trust Policy、Capability Registry、Remote MCP、CROS、最小Organization Runtime、自律Operationをv0.21へ採用 | [v0.21未完了作業](#12-v0210--project運営信頼複数repository) |
+| 2026-09-06 | Project運営、Topic、Meeting、Trust Policy、Capability Registry、Remote MCP、CROS、複数Projectの読み取り専用Portfolio投影、自律Operationをv0.21へ採用 | [v0.21未完了作業](#12-v0210--project運営信頼複数repository) |
 | 2026-09-07 | AI Runtime Registry／モデルProfile外部構成をv0.21へ追加 | [Runtime／CROS候補](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#6-ai-runtime-registryモデルprofile外部構成) |
 | 2026-09-11 | Workbenchを先行せず、Repository、`.crdd`、Tool、構造化結果、MCPの共通契約を先に整える基盤をv0.21へ追加 | [Runtime Data・構造化・Workbench基盤](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤) |
 | 2026-09-11 | Linux／Remote Runtime、耐久Queue／Scheduler、Remote Trigger、実行評価をv0.22へ採用。macOSは実環境取得まで版未定 | [v0.22未完了作業](#13-v0220--linux常設化remote限定自律実行) |
 | 2026-09-12 | `.crdd`整理を構造化基盤の最初の作業として明示し、現行Producerと物理残存を分けて棚卸ししたうえで、Repository-local／CROSの分離、親子階層、`config/`および`tmp/`の限定用途を目標Architectureへ固定する | [現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md)、[目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md) |
-| 2026-09-12 | 固定3 Role方式を採用せず、CROS管理SessionがCredentialへWorkspace Grantを設定する。Chat AgentとCoding Agentは同じCRDD正本から解決したOperating Contextを使い、構造化Handoffで判断待ちと再開を接続する | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md) |
+| 2026-09-12 | 固定3 Role方式や永続認証Sessionを採用せず、Bearer TokenをRequestごとにConnection Credentialへ照合し、`workspace_ids[]`と`system_admin`を分離する。Chat AgentとCoding Agentは同じCRDD正本から解決したOperating Contextを使い、構造化Handoffで判断待ちと再開を接続する | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md) |
 | 2026-09-12 | v0.21へ採用し利用形態・完成条件・対象外を固定したCapabilityは、既知の使い捨て中間構造を正式化せず、現在宣言した利用形態を端から端まで閉じる。内部の段階実装は維持し、Roadmap候補や将来の一般的便利さだけでは実装しない | [実装完結性と最小責務](../19_Maintenance.md#宣言済みcapabilityの実装完結性と最小責務) |
+| 2026-09-12 | 長期能力地平との比較を単発の未完了Taskから外し、各VersionのRelease Readinessで到達、未到達、境界変化を評価する定期Gateへ移した。業務プロセス投影とOrganization Runtimeの候補名も、実際の対象が分かる名称へ変更した | [Release Readiness](../19_Maintenance.md#53-release-readiness)、[目的別投影候補](../01_Discovery/01_CRDD_Product_Discovery.md#discovery-process-method-projection) |
 
 計画変更時は、変更理由、影響する利用側・完成条件、追加・除外・保留の処置および変更トレースを示し、過去の判断を遡及上書きしない。候補の利用者課題、価値、採用境界は[Runtime／CROS Product Candidates](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md)と各情報源が所有する。Roadmapは具体的なSchema、Path、契約または実装順序を定義しない。
 

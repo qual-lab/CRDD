@@ -163,7 +163,7 @@ Source Coverage
 
 Project表示は、利用可能なContextだけから作った結果を全Projectの完全な状況として見せない。Source Coverage、観測時点および`missing`、`credential_required`、`restricted`、`unavailable`、`conflicting`または`unknown`のうち、利用者が判断に必要で開示可能な状態を近接して示す。
 
-`Commercial 🔒`等の鍵表示は、対象の存在を開示でき、外部認証後に利用できる`credential_required`だけに使用する。恒常的な`restricted`へUnlock操作を表示せず、存在開示が許可されない対象の名前、件数または状態を表示しない。Unlock後もCROS内の共通Passwordや独自Role判定ではなく、外部Credential Providerから得た限定Capabilityで再取得する。
+`Commercial 🔒`等の鍵表示は、対象の存在を開示でき、別の有効なConnection Credentialで利用できる`credential_required`だけに使用する。恒常的な`restricted`へUnlock操作を表示せず、存在開示が許可されない対象の名前、件数または状態を表示しない。UnlockはServer内で権限を追加する操作ではなく、Client側で別Credentialを選び、次のRequestをそのCredentialで認証する操作として扱う。
 
 Meetingからの`Topicを更新`、`新規Topic化`、`Decision候補化`等は、対象正本への変更候補を作る操作として表示する。操作成功を正本更新済みまたは人間判断済みと表示せず、候補、確認、採用、再投影を区別する。
 

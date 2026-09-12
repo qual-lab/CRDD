@@ -118,11 +118,11 @@ Human／AI／MCP
 | Communication | Project／Artifact Relation | 外部への表現、伝達、公開および反応観測 |
 | Projection | Source Identity + Revision／Observed At | 現在View。正本、更新Authorityまたは独立状態Storeではない |
 
-同じProject IDを持つ別Repositoryの存在は、相互の読取り・書込み許可を意味しない。CROSまたは利用側はRepositoryごとにBinding、Principal、Policy、情報分類、Revisionおよび操作Authorityを再検証する。欠測、閲覧制限、競合または古い観測を正常な値へ畳まない。
+同じProject IDを持つ別Repositoryの存在は、相互の読取り・書込み許可を意味しない。CROSまたは利用側はRepositoryごとにBinding、現在のConnection Credentialに結合したWorkspace集合、Policy、情報分類、Revisionおよび操作Authorityを再検証する。PersonalではConnection Credentialを作らず、検証済みLocal BindingとLocal Userの実行境界を使用する。欠測、閲覧制限、競合または古い観測を正常な値へ畳まない。
 
 Project、Commercial、Topics、Meetings、Communicationまたは工程領域は、同じRepositoryへ任意に同居でき、領域単位で別Repositoryへ分離できる。Repository ManifestはTool／Runtime CapabilityとContext Responsibilityを別に宣言する。同じProject内で同じ責務を複数Repositoryが正本として主張し、分割規則もない場合は、Path順や登録順で選ばず`conflicting`として投影する。
 
-Repository分離を情報アクセス境界として使う場合、Git Hosting、Filesystem ACL、OS PrincipalまたはCredential ProviderがRepository単位の読取りを実際に強制する。Workbench／CROS内の表示ロックだけでは境界成立とみなさない。Repositoryの利用状態は`available`、`credential_required`、`restricted`、`unavailable`および`unknown`を区別し、許可外のArtifact ID、件数または要約を投影しない。
+Repository分離を情報アクセス境界として使う場合、Git Hosting、Filesystem ACL、OS UserまたはShared CROS ServerのWorkspace ExposureがRepository単位の読取りを実際に強制する。Workbench／CROS内の表示ロックだけでは境界成立とみなさない。Repositoryの利用状態は`available`、`credential_required`、`restricted`、`unavailable`および`unknown`を区別し、許可外のArtifact ID、件数または要約を投影しない。
 
 別Repositoryの正本を読めない利用者向けに情報を保存する場合は、単なるProjection Cacheではなく、情報分類、作成Authority、Source Revision、更新、保持および撤回を持つ公開成果物として扱う。CROSは権限不足を迂回する要約または複製を自動生成しない。
 
@@ -136,4 +136,4 @@ Teams、Slack、Meet、Zoom、Email等はConnectorまたは媒体であり、CRD
 | Handoff Request | Task Identity、Source Context、Evidence、未決事項、Decision Authority、Effect Boundary | Taskへ結合する耐久的な移送情報 |
 | Resume Decision | Handoff Request、Decision正本、決定主体、採用Revision | 所有正本へ記録されたDecisionを参照する再開入力 |
 
-Chat AgentとCoding Agentは製品IdentityやAccess RoleではなくTask上の責務である。Handoffは会話履歴の複製ではなく、昇格済みContextと未決事項を同じTask Identityへ接続する。Operating Context、Handoff RequestまたはResume Decisionから、Workspace Grant、System Administration Capability、外部送信許可またはRepository Effect Authorityを暗黙生成しない。詳細は[CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md#8-agent-operating-contextとhandoff)を正本とする。
+Chat AgentとCoding Agentは製品IdentityやAccess RoleではなくTask上の責務である。Handoffは会話履歴の複製ではなく、昇格済みContextと未決事項を同じTask Identityへ接続する。Operating Context、Handoff RequestまたはResume Decisionから、Connection CredentialのWorkspace集合、`system_admin`、外部送信許可またはRepository Effect Authorityを暗黙生成しない。詳細は[CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md#8-agent-operating-contextとhandoff)を正本とする。

@@ -106,7 +106,7 @@ Repository名またはDirectory名は人間向け表示であり、Project IDま
 
 ## 3. Repository分離とアクセス境界
 
-Repository分離は、Git Hosting、Filesystem ACL、OS Principal、Credential Provider等の外部所有境界がRepository単位の読取りを実際に拒否できる場合に、情報アクセス境界として使用できる。CROS内の表示制御だけで同じOS Userが読めるRepositoryを隠しても、機密性の境界にはならない。
+Repository分離は、Git Hosting、Filesystem ACL、OS UserまたはShared CROS ServerのWorkspace ExposureがRepository単位の読取りを実際に拒否できる場合に、情報アクセス境界として使用できる。CROS内の表示制御だけで同じOS Userが読めるRepositoryを隠しても、機密性の境界にはならない。
 
 ```text
                          Project ID: PRJ-001
@@ -119,25 +119,25 @@ Repository分離は、Git Hosting、Filesystem ACL、OS Principal、Credential P
                 │                                   │
        <<Git／OS Access Boundary>>         <<Git／OS Access Boundary>>
                 │                                   │
-        PM Principal: available             PM Principal: available
-        Dev Principal: restricted           Dev Principal: available
+        MGMT Credential: available          MGMT Credential: available
+        DEV Credential: restricted          DEV Credential: available
 ```
 
 | 状態 | 意味 | 内容の扱い |
 |---|---|---|
-| `available` | 検証済みBindingがあり、現在のPrincipalとPolicyで必要な読取りが許可された | 許可された範囲だけ投影する |
-| `credential_required` | 外部所有の認証／Credential Activationを行えば利用可能になり得るが、現在のCapabilityがない | 内容を読まず、認証入口の有無だけを許可範囲で示す |
-| `restricted` | Repositoryの存在またはRelationは許可範囲で確認できるが、現在のPrincipalには内容の読取り権限がない | 禁止されたfield、件数、Artifact IDまたは要約を返さない |
+| `available` | 検証済みBindingがあり、現在のConnection Credentialに結合したWorkspaceとPolicyで必要な読取りが許可された | 許可された範囲だけ投影する |
+| `credential_required` | 別の有効なConnection Credentialが対象Workspaceを利用できるが、現在のCredentialでは利用できない | 内容を読まず、Credential切替が可能であることだけを許可範囲で示す |
+| `restricted` | Repositoryの存在またはRelationは許可範囲で確認できるが、現在のConnection Credentialには内容の読取り権限がない | 禁止されたfield、件数、Artifact IDまたは要約を返さない |
 | `unavailable` | 登録済みだがBinding、Host、Networkまたは外部Serviceを現在利用できない | 認可拒否と混同せず、取得不能として保持する |
 | `unknown` | 存在、Binding、認証または観測結果を安全に確定できない | `restricted`や不存在へ推定せず、後続Effectを止める |
 
-Workbenchの`Unlock`表示は、Git Hosting、OS Credential Storeまたは認証Providerが所有する認証処理へのAdapterである。CROSは共通パスワードの照合、独自Credential Store、独自暗号化、Password RecoveryまたはRole Directoryを実装しない。認証Providerが発行したPrincipal／Sessionに限定された不透明なCredential参照またはCapabilityを受け取り、対象Repository、操作、期限および取消へ結合する。
+Workbenchの`Unlock`表示は、Client側で別の有効なConnection Credentialを選び、Shared CROS Serverへ再接続する操作である。CROSは共通Password、User Directory、Role Directory、MFA、SSOまたはPassword Recoveryを実装せず、Server側にはToken Hash、`workspace_ids[]`、`system_admin`および失効状態を持つ最小Credential Registryだけを置く。CredentialのWorkspace集合変更は次のRequestから有効とし、進行中TaskのAuthorityを遡及変更しない。
 
 既に同じLocal UserがRepository内容を読める状態では、Workbench上の再入力は誤操作防止または再確認には使えるが、情報アクセス制御とは表示しない。強い分離が必要な場合は、Repository Hosting権限、別OS Principal、Filesystem ACL、暗号化Volume等、対象環境が所有する境界を使用する。
 
 ### 3.1. 共通情報と縮約Projection
 
-別Repositoryへ正本本文を無条件に複製しない。現在のPrincipalがSource Repositoryを読める場合は、CROSが実行時にSource-aware Projectionを構成する。
+別Repositoryへ正本本文を無条件に複製しない。現在のConnection Credentialに結合したWorkspaceがSource Repositoryを読める場合は、CROSが実行時にSource-aware Projectionを構成する。Personalでは検証済みLocal Bindingの範囲を用いる。
 
 Source Repositoryを読めない利用者へ縮約情報を渡す場合、それは単なるCacheではなく、情報分類、公開対象、作成Authority、Source Revision、更新条件、保持および撤回を持つ別の公開成果物である。元Repositoryへのアクセス権がないことを理由に、CROSが自動で要約、匿名化または複製してはならない。
 
@@ -316,5 +316,5 @@ Project Operation CoreはFilesystem Path、MCP DTO、Workbench表示形式また
 | 各Top-levelの固定入口名 | 一領域一入口、空成果物禁止まで固定 | Documentation／Template設計 |
 | Commercialの内容Schema | 共通化しない | 代表利用とアクセス要件が得られた時 |
 | Projectionの公開field | 意味と欠測状態だけ固定 | SPECと代表View設計 |
-| 認証Adapter | CROS独自Password Gateは作らず、外部Credential ProviderへのPortだけを候補にする | MCP／Workbenchの認証設計 |
+| Remote接続認証 | CROS独自Password Gate、User Directoryまたは汎用認証Provider層を作らず、Shared ServerではBearer TokenをConnection Credentialへ照合する | MCP／CROSの認証設計 |
 | Workbench | Projection利用側に限定 | v0.21基盤成立後の別判断 |

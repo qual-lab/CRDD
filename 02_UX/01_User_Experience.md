@@ -125,7 +125,7 @@ Portfolio Projection
 | PM | 一つの論理Project | Milestone、Topic、Meeting、品質、Commercial可視性および判断待ちを確認 | Source、Repository状態または個別成果物を調べる必要がある |
 | Management | PortfolioとProject要約 | At Risk、Attention、主要判断、Milestone等を比較する | 対象Projectの要因と根拠を確認する必要がある |
 
-Developer、PMおよびManagementは体験と情報粒度を検討するための利用者像であり、CROSが所有する固定Roleまたは権限Groupではない。実際の可視範囲と操作可能範囲は、現在のPrincipal、RepositoryごとのPolicy、情報分類およびOperation Authorityから決まる。同じ利用者でもProjectやRepositoryにより異なる投影になり得る。
+Developer、PMおよびManagementは体験と情報粒度を検討するための利用者像であり、CROSが所有する固定Roleまたは権限Groupではない。実際の可視範囲と操作可能範囲は、Personalでは検証済みLocal Binding、Shared Serverでは現在のConnection Credentialに結合したWorkspace集合に加え、RepositoryごとのPolicy、情報分類およびOperation Authorityから決まる。同じ利用者でも接続先やRepositoryにより異なる投影になり得る。
 
 Developerが単一RepositoryからAIを利用する場合、AIは同じProject IDを持つ兄弟Repositoryを推測探索しない。そのRepository内の正本と許可された外部参照だけを使い、利用できないProject Contextを補完または推測しない。
 
@@ -138,7 +138,7 @@ Management向けPortfolioはProject正本を中央へ複製せず、許可され
 | Canonical状態 | 利用者への表示 | 許可する操作 |
 |---|---|---|
 | `available` | 利用可能なContextと観測時点 | 閲覧、許可範囲のCommand／Candidate作成 |
-| `credential_required`かつ存在開示可能 | `認証が必要`または鍵表示 | 外部認証Providerの入口を開く |
+| `credential_required`かつ存在開示可能 | `別の接続Credentialが必要`または鍵表示 | Client側で別の有効なConnection Credentialを選んで再接続する |
 | `restricted`かつ存在開示可能 | `現在の権限では利用できません` | 権限申請等の外部導線が明示されている場合だけ案内 |
 | 存在開示不可 | 対象名、件数、状態を表示しない | なし |
 | `unavailable` | 一時的に取得できないことと観測時点 | 安全な再取得または状態確認。権限不足とは表示しない |

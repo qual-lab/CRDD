@@ -904,7 +904,7 @@ macOS対応はLinux対応の完了から推定せず、別の成果物、Build�
 
 <a id="discovery-process-method-projection"></a>
 
-## 14. Discoveryの業務プロセス投影候補
+## 14. 業務プロセス分析の目的別投影候補
 
 ### 14.1. 候補として保持する目的
 

@@ -21,7 +21,7 @@ CRDD自身が提供するCoordinator Runtime、実行知（Execution Intelligenc
 | Windowsプラットフォームアクセス | TypeScriptだけで閉じないOS観測と限定native操作 | [native境界・資源・回復の設計](platform-access/01_Architecture.md)、[脅威モデル](coordinator/02_Threat_Model.md)。一般PolicyやCLI責務をRustへ移さない |
 | Checker | 文書・参照・契約の決定論的確認 | [検査範囲・配布・終了の設計](checker/01_Architecture.md)。private packageが配布正本を参照し、Checker合格を専門レビューや準拠承認にしない |
 | Project Operation Context | Project／Repository Identity、Topic／Meeting Lifecycle、各正本からのProject Management Projection | [Project Operation Contextのアーキテクチャ](project-operation/01_Architecture.md)。Projectionを正本または更新Storeにせず、RelationからAuthorityを生成しない |
-| CROS | Personal／Shared ServerのRepository Federation、Workspace Exposure、Session Grant、Source-aware Projection、Agent Operating Contextおよび構造化Handoff | [CROS Federationと利用境界](cros/01_Architecture.md)。Server CredentialやProject Relationを利用者Authorityへ昇格せず、System Administration、Content Access、Task RoleおよびEffect Authorityを分離する |
+| CROS | Personal／Shared ServerのRepository Federation、Workspace Exposure、Connection Credential、Source-aware Projection、Agent Operating Contextおよび構造化Handoff | [CROS Federationと利用境界](cros/01_Architecture.md)。Server CredentialやProject Relationを利用者Authorityへ昇格せず、`system_admin`、Content Access、Task RoleおよびEffect Authorityを分離する |
 | 実装規則 | 命名、実装境界、依存、検査母集団 | [コーディング規約](99_Coding_Standards.md)。公開Schemaや固定履歴を命名整理だけで変えない |
 | 品質保証 | 品質方針、検証設計、確定結果、現在状態 | [Quality Center](../07_Quality/01_Quality_Center.md)。テストコードと検証義務の正本を中央へ移さない |
 
