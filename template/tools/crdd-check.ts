@@ -4163,6 +4163,11 @@ function checkV020ReleaseGateOwnership(): void {
     "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
   );
   const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  const workflowPath = path.join(
+    root,
+    "19_Workflows",
+    "01_Coordinator_Runtime.md",
+  );
   if (
     ![qualityCenterPath, changePath, verificationPath, roadmapPath].every(
       fs.existsSync,
@@ -4175,6 +4180,9 @@ function checkV020ReleaseGateOwnership(): void {
   const change = read(changePath);
   const verification = read(verificationPath);
   const roadmap = read(roadmapPath);
+  const workflow = lstatIfPresent(workflowPath)?.isFile()
+    ? read(workflowPath)
+    : "";
   const v020Released =
     /^状態:\s*\x60Released\x60\s*$/mu.test(change) &&
     /^リリース:\s*\x60v0\.20\.0\x60（\d{4}-\d{2}-\d{2}）\s*$/mu.test(change);
@@ -4215,6 +4223,12 @@ function checkV020ReleaseGateOwnership(): void {
         roadmap,
         /^(?=[^\n]*v0\.20\.0)(?=[^\n]*2026-09-11)[^\n]*$/mu,
         "The Roadmap must retain the v0.20.0 publication history.",
+      ],
+      [
+        workflowPath,
+        workflow,
+        /この経路はv0\.20\.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した/u,
+        "The Coordinator workflow must describe the published v0.20.0 recovery route, not a candidate route.",
       ],
     ];
     for (const [file, content, marker, description] of releasedContracts) {
@@ -4851,10 +4865,23 @@ if (candidateDocuments.length > 0) {
 const stableDocuments = canonicalDocumentStates.filter(
   ({ status }) => status === "Stable",
 );
+function currentRepositoryGitText(
+  gitArguments: readonly string[],
+): string | null {
+  const result = spawnSync("git", ["-C", root, ...gitArguments], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    windowsHide: true,
+  });
+  if (result.status !== 0 || typeof result.stdout !== "string") return null;
+  const value = result.stdout.trim();
+  return value.length > 0 ? value : null;
+}
 if (
   repositoryMode === "official" &&
   scopeValues.length === 0 &&
-  stableDocuments.length > 1 &&
+  canonicalDocumentStates.length > 1 &&
+  stableDocuments.length > 0 &&
   new Set(stableDocuments.map(({ version }) => version)).size === 1 &&
   stableDocuments.every(({ version }) => version !== null) &&
   versions.size === 1
@@ -4862,6 +4889,36 @@ if (
   const stableVersion = [...versions][0];
   if (stableVersion === undefined) {
     throw new Error("stable_release_version_missing");
+  }
+  for (const document of canonicalDocumentStates) {
+    if (document.status === "Stable" && document.version === stableVersion) {
+      continue;
+    }
+    add(
+      "error",
+      "stable-release-canonical-status-mismatch",
+      relative(document.file),
+      `Every canonical document must be Version: ${stableVersion} and Status: Stable for the final release candidate.`,
+    );
+  }
+
+  const stableTagCommit = currentRepositoryGitText([
+    "rev-parse",
+    "--verify",
+    `refs/tags/${stableVersion}^{commit}`,
+  ]);
+  const currentHeadCommit = currentRepositoryGitText(["rev-parse", "HEAD"]);
+  if (
+    stableTagCommit !== null &&
+    currentHeadCommit !== null &&
+    stableTagCommit !== currentHeadCommit
+  ) {
+    add(
+      "error",
+      "stable-release-tag-identity-mismatch",
+      relative(path.join(root, ".git")),
+      `Official ${stableVersion} tag must resolve to the checked HEAD commit.`,
+    );
   }
   const readmePath = path.join(root, "README.md");
   const readme = lstatIfPresent(readmePath)?.isFile() ? read(readmePath) : "";
@@ -4929,20 +4986,24 @@ if (
     }
     if (!relative(file).startsWith("90_Release/Changes/")) continue;
     if (!header.includes(`対象版: \`${stableVersion}\``)) continue;
-    if (!/^状態: `Released`$/mu.test(header)) {
+    const isReadyForRelease = /^状態: `Ready for Release Handoff`$/mu.test(
+      header,
+    );
+    const released = /^状態: `Released`$/mu.test(header);
+    if (!isReadyForRelease && !released) {
       add(
         "error",
-        "stable-release-change-trace-not-released",
+        "stable-release-change-trace-not-ready",
         relative(file),
-        `Change trace for ${stableVersion} must be Released before integration and tagging.`,
+        `Change trace for ${stableVersion} must be Ready for Release Handoff or Released before integration and tagging.`,
       );
     }
-    if (!header.includes(`リリース: \`${stableVersion}\``)) {
+    if (released && stableTagCommit === null) {
       add(
         "error",
-        "stable-release-change-trace-release-missing",
+        "stable-release-change-trace-premature-release",
         relative(file),
-        `Change trace for ${stableVersion} must identify the release and date.`,
+        `Change trace for ${stableVersion} must not claim Released before the official tag exists.`,
       );
     }
   }

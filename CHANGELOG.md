@@ -13,6 +13,8 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ### v0.20.1 — 2026-09-12
 
+This section describes the final v0.20.1 release content. It becomes an official release record only when the official `v0.20.1` tag resolves to the commit containing these bytes.
+
 This release-metadata and repository-assurance patch corrects release-state propagation that was omitted when the already verified v0.20.0 candidate was merged and tagged on 2026-09-11. Canonical documents, tool architecture and workflow documents, the Quality Center, change traces, the roadmap, README, and both Changelog languages now identify the released baseline consistently. A release-finalization closure check also rejects a stable release candidate when any current Markdown entry point still exposes the same version as `Candidate`, when README disagrees with the canonical version, or when either Changelog language lacks the dated release heading.
 
 Runtime code, native artifacts, policies, schemas, and the closed Runtime Execution Set are unchanged. v0.20.1 therefore retains the v0.20.0 signed Runtime Execution Identity and does not re-sign or repeat provider E2E; this patch changes Release Identity and documentation only.
@@ -947,6 +949,8 @@ The following describes the historical v0.1.0 files and does not describe the cu
 <a id="changelog-v0201-ja"></a>
 
 ### v0.20.1 — 2026-09-12
+
+本節はv0.20.1の最終リリース内容を示す。本節を含むCommitを公式`v0.20.1` tagが参照した場合だけ、公開済み記録として成立する。
 
 本版は、公開状態とリポジトリ保証の修正版である。検証済みのv0.20.0候補を2026-09-11にmainへ統合してtagを作成した際、リリース状態の利用側伝播が行われなかった不具合を是正した。CRDD正本、ToolのArchitecture／Workflow、Quality Center、変更トレース、Roadmap、READMEおよびChangelogの英日両区分を、公開済み基準として一貫する表示へ揃えた。さらに、Stableな最終候補に同じ版の`Candidate`表示が残る場合、READMEが正本版と一致しない場合、またはChangelogの英日いずれかに日付付き公開見出しがない場合を拒否するリリース状態閉包検査を追加した。
 

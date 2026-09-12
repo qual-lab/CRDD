@@ -1118,6 +1118,11 @@ test("公開済みv0.20は未完了Gateを再要求せず公開根拠の閉包�
     "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
   );
   const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  const workflowPath = path.join(
+    root,
+    "19_Workflows",
+    "01_Coordinator_Runtime.md",
+  );
   write(
     changePath,
     "# Change\n\n状態: `Released`\nリリース: `v0.20.0`（2026-09-11）\n\n| 現行Gate | 完了。公式tag `v0.20.0`へ収載済み |\n",
@@ -1131,6 +1136,10 @@ test("公開済みv0.20は未完了Gateを再要求せず公開根拠の閉包�
     "# Verification\n\n前候補と公開候補を分離する。現在状態はQuality Centerを参照する。\n",
   );
   write(roadmapPath, "# Roadmap\n\n2026-09-11、v0.20.0を公開した。\n");
+  write(
+    workflowPath,
+    "# Coordinator Runtime\n\nこの経路はv0.20.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した。\n",
+  );
 
   const publishedResult = runChecker(root);
   assert.equal(
@@ -1148,6 +1157,21 @@ test("公開済みv0.20は未完了Gateを再要求せず公開根拠の閉包�
     hasV020GateFinding(root),
     true,
     JSON.stringify(missingPublishedEvidence.report.findings),
+  );
+
+  write(
+    qualityPath,
+    fs.readFileSync(qualityPath, "utf8").replace("公開記録", "v0.20.0公開"),
+  );
+  write(
+    workflowPath,
+    "# Coordinator Runtime\n\nこの経路はv0.20候補で接続中である。\n",
+  );
+  const staleWorkflow = runChecker(root);
+  assert.equal(
+    hasV020GateFinding(root),
+    true,
+    JSON.stringify(staleWorkflow.report.findings),
   );
 });
 
@@ -1932,6 +1956,101 @@ test("Stable最終候補のREADME版と英日Release見出しを相関検査す�
       (item) =>
         item.code === "stable-release-changelog-bilingual-closure-mismatch",
     ),
+  );
+});
+
+test("Stable最終候補では全CRDD正本の版と状態を閉包検査する", () => {
+  const root = stableReleaseClosureFixture();
+  write(
+    path.join(root, "02_Terminology.md"),
+    "# 正本\n\nVersion: v0.17.0\nStatus: Draft\nOwner: Team\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "stable-release-canonical-status-mismatch",
+    ),
+    JSON.stringify(result.report),
+  );
+});
+
+test("Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持する", () => {
+  const root = stableReleaseClosureFixture();
+  const changePath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000001_Release_State.md",
+  );
+  write(
+    changePath,
+    "# Change\n\n状態: `Released`\n対象版: `v0.17.0`\nリリース: `v0.17.0`（2026-09-12）\n",
+  );
+  const premature = runChecker(root);
+  assert.ok(
+    premature.report.findings.some(
+      (item) => item.code === "stable-release-change-trace-premature-release",
+    ),
+    JSON.stringify(premature.report),
+  );
+
+  write(
+    changePath,
+    "# Change\n\n状態: `Ready for Release Handoff`\n対象版: `v0.17.0`\n収載対象: `v0.17.0`\n",
+  );
+  const ready = runChecker(root);
+  assert.equal(
+    ready.report.findings.some((item) =>
+      [
+        "stable-release-change-trace-not-ready",
+        "stable-release-change-trace-premature-release",
+      ].includes(item.code),
+    ),
+    false,
+    JSON.stringify(ready.report),
+  );
+});
+
+test("既存の公式tagが現在HEAD以外を指すStable状態を拒否する", () => {
+  const root = stableReleaseClosureFixture();
+  initializeGit(root);
+  const commit = (message: string) => {
+    const added = spawnSync("git", ["-C", root, "add", "."], {
+      encoding: "utf8",
+    });
+    assert.equal(added.status, 0, added.stderr);
+    const committed = spawnSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=crdd-test@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        message,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.equal(committed.status, 0, committed.stderr);
+  };
+  commit("release candidate");
+  const tagged = spawnSync("git", ["-C", root, "tag", "v0.17.0"], {
+    encoding: "utf8",
+  });
+  assert.equal(tagged.status, 0, tagged.stderr);
+  write(path.join(root, "post-tag.md"), "# post tag change\n");
+  commit("post tag change");
+
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "stable-release-tag-identity-mismatch",
+    ),
+    JSON.stringify(result.report),
   );
 });
 

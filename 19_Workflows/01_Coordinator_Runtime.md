@@ -114,7 +114,7 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき
 
-この経路はv0.20候補で接続中であり、正式署名・実機E2E完了前の配布物では利用可能と扱わない。状態と必要な観測は[取消と回復の設計](../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
+この経路はv0.20.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した。利用時は署名済み配布物、同じexact Recovery Identity、現在のDocker状態および下表の段階的完了を再確認する。全Docker Desktop版、全OSおよび任意の破損状態を一般保証せず、観測不能または契約外の状態ではEffect 0で停止する。状態と必要な観測は[取消と回復の設計](../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
 
 | 順序 | 操作 | 完了の意味 |
 |---|---|---|
