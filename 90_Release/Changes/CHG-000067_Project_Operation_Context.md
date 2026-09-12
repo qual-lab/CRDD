@@ -51,6 +51,8 @@ Project Operation Context
 - System Administration Capability、Content Workspace Grant、情報分類、Task Roleおよび人間の決定権限を別軸に保つ。
 - Chat AgentとCoding Agentは同じCRDD正本から解決したAgent Operating Contextを参照し、会話全文のPrompt転記ではなく構造化Contextと判断要求でHandoffする。
 - MCP接続済みであることを、CRDD規則の認識、準拠、Repository AccessまたはEffect Authorityの根拠にしない。
+- v0.21へ採用済みのProject Operation／CROS Capabilityは、既知の次版全面Refactorを前提とする中間構造で正式化せず、現在宣言した利用形態を満たす最小責務を利用者入口から実境界・利用側まで閉じる。
+- 内部のSpike、垂直Sliceおよび段階的結合試験は維持し、部分成立を公開CapabilityまたはRelease可能と表示しない。
 
 ## 3. 既存契約からの発展
 
@@ -121,6 +123,8 @@ Project ID
 - [ ] 縮約Projectionの公開が、元Repositoryへのアクセス不能を迂回する自動複製にならない。
 - [ ] Chat AgentとCoding Agentが同じCRDD正本から解決したAgent Operating Contextを参照し、構造化Handoffで判断待ちと再開を追跡できる。
 - [ ] MCP接続、Agent RoleまたはHandoff受領から未保有Authorityを生成しない。
+- [ ] 現在宣言した利用形態ごとに、Meaning Contract、実装、利用側移行、契約試験、実境界検証、E2EおよびEvidenceが接続する。
+- [ ] 既知の次版全面置換を成立条件とする暫定Owner、Identity、Authorityまたは公開Contractを残さない。
 - [ ] ひな型、Checkerおよび試験が任意領域の使用／非使用を区別する。
 - [ ] 独立レビュー、Repository全体Checker、回帰および必要な実境界試験が成立する。
 

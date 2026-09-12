@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "77788fe4355e3435ddc3d8f5ea25a740c8868317323fb4a130f1a4fb4df89496",
+  "evaluatedDocumentationSetSha256": "d10353761d3207598cc0a38e375731e2233bad8722c7f58742c902aefc38a786",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -739,7 +739,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "19_Maintenance.md",
-      "currentBlobOid": "9660cf406f9025b7684a29dbfa57af927e708d53"
+      "currentBlobOid": "c40553ebabe2a0f693c18b8c40ff77f24a96f81d"
     },
     {
       "path": "19_Workflows/01_Coordinator_Runtime.md",
@@ -1285,7 +1285,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "90_Release/Changes/CHG-000067_Project_Operation_Context.md",
-      "currentBlobOid": "b7fa674be77703c9fb117d1067e89731e68bb5e9"
+      "currentBlobOid": "e5e4fb29b484a23f401800353c69bc073bfb63cd"
     },
     {
       "path": "90_Release/Changes/Evidence/CHG-000007_Adopter_Trial_Report.md",
@@ -5758,7 +5758,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "99_Roadmap/01_Product_Roadmap.md",
-      "currentBlobOid": "c45200a8e5ec10f85bb4db10d44cafc549efc3da"
+      "currentBlobOid": "54c80ae3d3b8f89ba201d21a7dda1c0a5176a924"
     },
     {
       "path": "AGENTS.md",
@@ -5767,7 +5767,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "AGENTS.md",
-      "currentBlobOid": "d95430306b6db3d49575e985e5dbc25660480454"
+      "currentBlobOid": "2cdc7269f16c800e92133f81c991039de98ca883"
     },
     {
       "path": "CHANGELOG.md",
