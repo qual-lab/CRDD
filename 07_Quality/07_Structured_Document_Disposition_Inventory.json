@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "d5a95828cdc70cea4532cead82b718d162fd90fd39896d16e79fce5951d4310d",
+  "evaluatedDocumentationSetSha256": "735305d5ed2e943f59e2ef745877e9d636ffe9b45083edb7516103f37cfb0838",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -523,7 +523,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "99_Roadmap/01_Roadmap.md",
-      "currentBlobOid": "25eeb25bd3f3f960066d85aaa5b7b43790d88ea7"
+      "currentBlobOid": "73517bc93ebbdaf24a215b24e236f4e8067dc621"
     },
     {
       "path": "99_Roadmap/02_Changes.md",
@@ -5716,13 +5716,22 @@
       "currentBlobOid": "c5c9d6b2edf009e87ef4c57b0964659669674a5f"
     },
     {
+      "path": "99_Roadmap/Changes/CHG-000068/Evidence/260913_group-a-independent-review.md",
+      "artifactRole": "release_change",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000068/Evidence/260913_group-a-independent-review.md",
+      "currentBlobOid": "012df59e6344a4e8b9a2c22073489409f3f21377"
+    },
+    {
       "path": "99_Roadmap/Changes/CHG-000068/change.md",
       "artifactRole": "release_change",
       "currentness": "current",
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000068/change.md",
-      "currentBlobOid": "5d97a012b3dba76e7c8bf31e9a4f1cbe135ecfb0"
+      "currentBlobOid": "a4181d04ec35503c10634646d2a30898c24d4932"
     },
     {
       "path": "99_Roadmap/Changes/CHG-000069/change.md",

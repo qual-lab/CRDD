@@ -1,11 +1,11 @@
 # 変更トレース: 工程別の図面処置と意図引き渡し
 
 変更ID: `CHG-000068`
-状態: `In Progress`
+状態: `Completed`
 担当責任者: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `quality`
-最終更新日: 2026-09-12
+最終更新日: 2026-09-13
 
 ## 1. 結論と現在状態
 
@@ -13,7 +13,7 @@ CRDDの各工程で、本来必要な図が作成されないまま意図、境�
 
 全工程へ同じ図種を強制せず、各工程が自身の判断に必要な基本図、発火条件、記法および出口条件を所有する。固定入口では各基本図を、現行図、参照、理由付き非該当または作成不能のいずれかへ必ず処置する。
 
-Discoveryの業務プロセスViewを起点に、DiscoveryからVerificationまでの工程固有Profile、発火／非発火、プレーンテキスト記法、正本境界および出口接続を具体化した。各固定入口Templateへ基本図の処置一覧を追加し、CRDD自身の現行成果物へ必要図、既存参照、理由付き非該当または作成不能を適用した。Checkerは宣言したTemplate構造と各基本図行の退行を検出する。現在は独立文書監査と不足／影響監査を残す。
+Discoveryの業務プロセスViewを起点に、DiscoveryからVerificationまでの工程固有Profile、発火／非発火、プレーンテキスト記法、正本境界および出口接続を具体化した。各固定入口Templateへ基本図の処置一覧を追加し、CRDD自身の現行成果物へ必要図、既存参照、理由付き非該当または作成不能を適用した。Checkerは宣言したTemplate構造と各基本図行の退行を検出する。独立レビューと不足／影響確認はCritical／Major／Moderate 0で完了した。
 
 ## 2. 保持する意図と目指さないこと
 
@@ -112,6 +112,17 @@ Discoveryの業務プロセスViewを起点に、DiscoveryからVerificationま�
 | Implementation | `40_Develop`へ説明用Markdownを増やさず、Architecture BlockからSource／Package／Build／Test／Runtime入口へ接続する規則を追加 | 実装変更時の工程移行レビュー |
 | Checker | Templateごとの必須図行を契約試験で確認し、旧Runtime Data Pathの検出対象を試験Consumerまで拡張 | 全体Checker、独立確認 |
 | Runtime Data清掃 | 現在のworktreeで`.crdd/test-tmp`と`.crdd/test-fixtures`が存在せず、`.crdd/tmp/.operations`にOperation Recordが残っていないことを確認。試験Fixtureは`.crdd/tests/<execution-unit>/<run-id>`を使用し、自身の実行単位を終了時に清掃する | 旧Path非再生成回帰と現在状態の観測。過去の個別清掃手順は耐久Evidenceがないため完了根拠へ使用しない |
+
+## 6.2. 独立確認結果
+
+| 確認対象 | 結果 | 根拠 |
+|---|---|---|
+| 工程別基本図とDiscovery目的別投影 | Pass | 7工程の現行入口と7つのTemplate、工程規則、発火境界、正本境界および自己適用を確認 |
+| Work Lifecycle履歴参照の移行前後 | Pass | 旧Pathのみ、新Pathのみ、併存、双方不存在、byte変更の5状態を直接反証 |
+| 指摘件数 | Critical 0、Major 0、Moderate 0 | 前回Moderateは専用Fixture追加によりClosed |
+| 機械確認 | Pass | 静的確認、Checker結合回帰311件、Repository全体Checker 440 Markdown／2,497 link／744 historical reference、error 0／warning 0 |
+
+詳細結果は[独立レビューEvidence](./Evidence/260913_group-a-independent-review.md)を参照する。
 
 ## 7. 変更禁止範囲
 
