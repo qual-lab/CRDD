@@ -5,7 +5,7 @@ Owner: Qual-Lab
 Last Updated: 2026-09-11
 Related:
 - [CRDD標準自身の課題探索・要求形成](01_CRDD_Product_Discovery.md)
-- [Product Roadmap](../99_Roadmap/01_Product_Roadmap.md)
+- [Product Roadmap](../99_Roadmap/01_Roadmap.md)
 - [自律Operation](../05_Autonomous_Operation.md)
 
 ---

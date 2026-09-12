@@ -6,18 +6,43 @@ import test, { type TestContext } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { generateReleaseKeyPair } from "../../scripts/generate-release-key.ts";
+import {
+  ensureRepositoryRuntimeDataArea,
+  verifyRepositoryRoot,
+} from "../../../runtime-data/src/index.ts";
 
 const TEST_PASSPHRASE = "test-only-passphrase-0123456789";
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 
 async function createReleaseKeyDistributionFixture(t: TestContext) {
-  const fixtureRoot = path.join(repositoryRoot, ".crdd", "test-fixtures");
-  fs.mkdirSync(fixtureRoot, { recursive: true });
-  assert.equal(fs.realpathSync.native(fixtureRoot), path.resolve(fixtureRoot));
-  const parent = fs.mkdtempSync(path.join(fixtureRoot, "release-key-"));
+  const verifiedRoot = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(verifiedRoot.status, "completed");
+  if (verifiedRoot.status !== "completed")
+    throw new Error("test_repository_root_invalid");
+  const testsArea = ensureRepositoryRuntimeDataArea(
+    verifiedRoot.capability,
+    "tests",
+  );
+  assert.ok(testsArea);
+  if (!testsArea) throw new Error("test_runtime_data_area_invalid");
+  const executionUnitRoot = path.join(
+    testsArea.directory,
+    "generate-release-key",
+  );
+  fs.mkdirSync(executionUnitRoot, { recursive: true });
+  assert.equal(
+    fs.realpathSync.native(executionUnitRoot),
+    path.resolve(executionUnitRoot),
+  );
+  const parent = fs.mkdtempSync(path.join(executionUnitRoot, "run-"));
   t.after(() => {
     fs.rmSync(parent, { recursive: true });
     assert.equal(fs.existsSync(parent), false);
+    try {
+      fs.rmdirSync(executionUnitRoot);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOTEMPTY") throw error;
+    }
   });
   const distributionRoot = path.join(parent, "distribution");
   const relativePaths = [

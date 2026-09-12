@@ -3,7 +3,7 @@
 状態: Candidate（v0.21.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
-関連変更: [CHG-000067](../../90_Release/Changes/CHG-000067_Project_Operation_Context.md)
+関連変更: [CHG-000067](../../99_Roadmap/Changes/CHG-000067/change.md)
 
 ## 1. 対象と結論
 

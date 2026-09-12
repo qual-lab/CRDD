@@ -45,6 +45,98 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
     );
   }
 
+  const phaseDiagramProfiles = new Map<string, readonly string[]>([
+    [
+      "template/01_Discovery/01_Product_Discovery.md",
+      [
+        "業務範囲／入出力（SIPOC）",
+        "Actor別Process（Swimlane）",
+        "Value Stream",
+        "As-Is／To-Be",
+      ],
+    ],
+    [
+      "template/02_UX/01_User_Experience.md",
+      ["利用者Journey", "重要場面・失敗／回復体験図", "Service Blueprint"],
+    ],
+    [
+      "template/03_IA/01_Information_Architecture.md",
+      [
+        "オブジェクト／関係図",
+        "情報階層図",
+        "Navigation図",
+        "可視性／状態概念図",
+      ],
+    ],
+    [
+      "template/04_UI/01_User_Interface.md",
+      [
+        "論理画面／領域構成図",
+        "画面／操作Flow",
+        "表示状態／Variant図",
+        "主要Component関係図",
+        "UI／SPEC対応図",
+      ],
+    ],
+    [
+      "template/05_SPEC/01_Behavior_Specification.md",
+      [
+        "Use Case／振る舞いFlow",
+        "状態遷移表／状態遷移図",
+        "Actor／System間Sequence図",
+        "Error／Effect分岐図",
+        "UI／SPEC対応図",
+      ],
+    ],
+    [
+      "template/06_Architecture/01_Architecture.md",
+      [
+        "全体／内部ブロック図",
+        "状態遷移表／状態遷移図",
+        "ブロック間シーケンス図",
+        "クラス／型関係図",
+        "データフロー図（DFD）",
+        "エンティティ関係図（ER図）",
+        "スキーマ責務図（Schema Responsibility Map）",
+      ],
+    ],
+    [
+      "template/07_Quality/03_Verification_Design.md",
+      [
+        "検証義務・試験Level／Boundary対応図",
+        "状態・分岐・Block別Coverage図",
+        "検証結果・判断接続図",
+      ],
+    ],
+  ]);
+  const dispositionHeader =
+    "| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |";
+  const dispositionValues = ["`作成`", "`既存参照`", "`非該当`", "`作成不能`"];
+  for (const [relativePath, diagrams] of phaseDiagramProfiles) {
+    const content = fs.readFileSync(
+      path.join(repositoryRoot, relativePath),
+      "utf8",
+    );
+    assert.ok(
+      content.includes("## 基本図の処置"),
+      `${relativePath}: diagram disposition missing`,
+    );
+    assert.ok(
+      content.includes(dispositionHeader),
+      `${relativePath}: complete disposition semantics missing`,
+    );
+    for (const disposition of dispositionValues)
+      assert.ok(
+        content.includes(disposition),
+        `${relativePath}: ${disposition}`,
+      );
+    for (const diagram of diagrams)
+      assert.ok(
+        content.includes(`| ${diagram} |`),
+        `${relativePath}: ${diagram}`,
+      );
+  }
+
   const architectureTemplate = fs.readFileSync(
     path.join(repositoryRoot, "template/06_Architecture/01_Architecture.md"),
     "utf8",
@@ -150,7 +242,7 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     "03_Verification_Design.md",
   ];
   const oldNames = names.map((name) => name.slice(3));
-  const expectedEntries = [...names, "Verification_Results/"];
+  const expectedEntries = names;
   const rule = fs
     .readFileSync(path.join(repositoryRoot, "16_Quality_Assurance.md"), "utf8")
     .split('<a id="42-fixed-quality-structure"></a>')[1]
@@ -182,7 +274,7 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     for (const entries of directories) {
       for (const name of names) assert.ok(entries.includes(name), name);
       for (const name of oldNames) assert.ok(!entries.includes(name), name);
-      assert.ok(entries.includes("Verification_Results"));
+      assert.ok(!entries.includes("Verification_Results"));
     }
     for (const name of names) assert.ok(entry.includes(name), name);
   };
@@ -195,11 +287,9 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     for (const name of names) {
       assert.ok(fs.lstatSync(path.join(root, name)).isFile(), name);
     }
-    assert.ok(
-      fs.lstatSync(path.join(root, "Verification_Results")).isDirectory(),
-    );
+    assert.ok(!fs.existsSync(path.join(root, "Verification_Results")));
   }
-  const completeEntries = [...names, "Verification_Results"];
+  const completeEntries = [...names];
   assert.throws(() =>
     check(
       rule.replace("01_Quality_Center.md", "Quality_Center.md"),
@@ -585,7 +675,6 @@ const requiredFolders = [
   "07_Quality",
   "19_Workflows",
   "40_Develop",
-  "90_Release",
   "99_Roadmap",
 ];
 
@@ -594,6 +683,42 @@ function fixture() {
   fixtures.push(root);
   return root;
 }
+
+test("工程基本図の必須列または閉じた処置語彙の欠落を拒否する", () => {
+  const sourcePath = path.join(
+    repositoryRoot,
+    "template/02_UX/01_User_Experience.md",
+  );
+  const original = fs.readFileSync(sourcePath, "utf8");
+  const mutations = [
+    original.replace("| 基本図 | 対象 | 目的 | 処置 |", "| 基本図 | 処置 |"),
+    original.replace(
+      "| 利用者Journey | | | | | | | | |",
+      "| 利用者Journey | | | 保留 | | | | | |",
+    ),
+    original.replace("| Service Blueprint | | | | | | | | |\n", ""),
+  ];
+  for (const mutated of mutations) {
+    const root = fixture();
+    fs.mkdirSync(path.join(root, "template", "02_UX"), { recursive: true });
+    fs.writeFileSync(path.join(root, "01_Principles.md"), "# Principles\n");
+    fs.writeFileSync(
+      path.join(root, "template", "02_UX", "01_User_Experience.md"),
+      mutated,
+      "utf8",
+    );
+    const result = runChecker(root);
+    assert.equal(result.report.repository_mode, "official");
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "phase_diagram_disposition_contract_invalid" &&
+          finding.path === "template/02_UX/01_User_Experience.md",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
 
 after(() => {
   for (const root of fixtures) {
@@ -657,7 +782,7 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
   );
   write(
     path.join(root, "07_Quality", "01_Quality_Center.md"),
-    "# Quality Center\n\n現在候補\n\n前の署名候補\n\n現在候補の技術Gate: 再署名待ち\n\nv0.20全体の残るGate: 再署名と影響E2E\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
+    "# Quality Center\n\n現在候補\n\n前の署名候補\n\n現在候補の技術Gate: 再署名待ち\n\nv0.20全体の残るGate: 再署名と影響E2E\n\n[検証結果](../99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md)\n",
   );
   write(
     path.join(
@@ -669,13 +794,21 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
     "# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n\n現在候補は再署名と影響E2E待ち。\n",
   );
   write(
-    path.join(root, "99_Roadmap", "01_Product_Roadmap.md"),
+    path.join(root, "99_Roadmap", "01_Roadmap.md"),
     "# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | Signed Verification Pending | 再署名と影響E2E |\n",
+  );
+  write(
+    path.join(root, "99_Roadmap", "02_Changes.md"),
+    "# Changes\n\n| 項目 | 内容 |\n|---|---|\n| 現在状態の正本 | [品質の現在状態](../07_Quality/01_Quality_Center.md) |\n| 過去本文の固定Identity | Git上の固定履歴 |\n\n## 目的から読む場所を選ぶ\n\n取得方法: `git --no-replace-objects show <ref>:<path>`\n",
   );
   if (hasFixedEvidence) {
     write(
       path.join(root, "90_Release", "Changes", "Evidence", "fixed.md"),
       "# Fixed Evidence\n",
+    );
+    write(
+      path.join(root, "90_Release", "Changes", "Evidence", "fixed.json"),
+      '{"observedPath":"90_Release/Changes/Evidence/fixed.md"}\n',
     );
   }
   initializeGit(root);
@@ -694,6 +827,11 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
     { encoding: "utf8" },
   );
   assert.equal(committed.status, 0, committed.stderr);
+  writeDispositionFixture(root);
+  const stagedInventory = spawnSync("git", ["-C", root, "add", "."], {
+    encoding: "utf8",
+  });
+  assert.equal(stagedInventory.status, 0, stagedInventory.stderr);
   const commit = spawnSync(
     "git",
     [
@@ -715,6 +853,144 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
     encoding: "utf8",
   });
   assert.equal(tag.status, 0, tag.stderr);
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000063", "change.md"),
+    `# Runtime Responsibility\n\n変更ID: CHG-000063\n\n${fs.readFileSync(
+      path.join(
+        root,
+        "90_Release",
+        "Changes",
+        "CHG-000063_Runtime_Responsibility_Separation.md",
+      ),
+      "utf8",
+    )}`,
+  );
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000065", "change.md"),
+    "# Structured-first Documentation\n\n変更ID: CHG-000065\n",
+  );
+  write(
+    path.join(
+      root,
+      "99_Roadmap",
+      "Releases",
+      "v0.20.0",
+      "Evidence",
+      "260906_v020-public-runtime-and-bounded-integration-verification.md",
+    ),
+    fs.readFileSync(
+      path.join(
+        root,
+        "07_Quality",
+        "Verification_Results",
+        "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+      ),
+      "utf8",
+    ),
+  );
+  if (hasFixedEvidence) {
+    write(
+      path.join(
+        root,
+        "99_Roadmap",
+        "Changes",
+        "CHG-000063",
+        "Evidence",
+        "260906_fixed.md",
+      ),
+      fs.readFileSync(
+        path.join(root, "90_Release", "Changes", "Evidence", "fixed.md"),
+        "utf8",
+      ),
+    );
+    fs.copyFileSync(
+      path.join(root, "90_Release", "Changes", "Evidence", "fixed.json"),
+      path.join(
+        root,
+        "99_Roadmap",
+        "Changes",
+        "CHG-000063",
+        "Evidence",
+        "260906_fixed.json",
+      ),
+    );
+  }
+  fs.rmSync(path.join(root, "90_Release"), { recursive: true, force: true });
+  fs.rmSync(path.join(root, "07_Quality", "Verification_Results"), {
+    recursive: true,
+    force: true,
+  });
+  const sourceCommit = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).stdout.trim();
+  const sourceTree = spawnSync(
+    "git",
+    ["-C", root, "show", "-s", "--format=%T", sourceCommit],
+    { encoding: "utf8" },
+  ).stdout.trim();
+  const migratedEvidence = [
+    {
+      source:
+        "07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+      target:
+        "99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md",
+    },
+    ...(hasFixedEvidence
+      ? [
+          {
+            source: "90_Release/Changes/Evidence/fixed.md",
+            target: "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.md",
+          },
+          {
+            source: "90_Release/Changes/Evidence/fixed.json",
+            target: "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.json",
+          },
+        ]
+      : []),
+  ].map(({ source, target }) => {
+    const targetBytes = fs.readFileSync(path.join(root, target));
+    return {
+      source,
+      target,
+      sourceSha256: createHash("sha256").update(targetBytes).digest("hex"),
+      sourceBytes: targetBytes.length,
+      targetSha256: createHash("sha256").update(targetBytes).digest("hex"),
+      targetBytes: targetBytes.length,
+      currentnessAtMigration: "fixed_history",
+    };
+  });
+  write(
+    path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000070",
+      "Evidence",
+      "260912-2142_migration-map.json",
+    ),
+    `${JSON.stringify(
+      {
+        contract: "crdd/work-lifecycle-migration-map",
+        contractRevision: 1,
+        sourceCommit,
+        sourceTree,
+        transformationContract: "fixed-history-byte-preserving-v3",
+        status: "migrated",
+        changes: 0,
+        changeEvidence: hasFixedEvidence ? 2 : 0,
+        verificationResults: 1,
+        releases: ["v0.20.0"],
+        totalMoves: migratedEvidence.length,
+        entries: migratedEvidence,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  const stagedCurrentLayout = spawnSync("git", ["-C", root, "add", "-A"], {
+    encoding: "utf8",
+  });
+  assert.equal(stagedCurrentLayout.status, 0, stagedCurrentLayout.stderr);
   writeDispositionFixture(root);
   return root;
 }
@@ -736,7 +1012,15 @@ function writeDispositionFixture(
   const entries: DispositionFixtureEntry[] = markdownPaths.map(
     (relativePath) => {
       const oid = fixtureBlobOid(path.join(root, relativePath));
-      if (relativePath.includes("/Evidence/")) {
+      if (
+        relativePath.includes("/Evidence/") ||
+        relativePath.includes("/Verification_Results/")
+      ) {
+        const historicalPath = relativePath.startsWith(
+          "99_Roadmap/Releases/v0.20.0/Evidence/",
+        )
+          ? "07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md"
+          : "90_Release/Changes/Evidence/fixed.md";
         return {
           path: relativePath,
           artifactRole: "release_evidence",
@@ -746,11 +1030,13 @@ function writeDispositionFixture(
           historicalIdentity: {
             refKind: "tag",
             ref: "v0.19.0",
-            path: relativePath,
+            path: historicalPath,
             blobOid: oid,
           },
           currentTreeBlobOid: oid,
-          currentRoute: "90_Release/Changes/README.md",
+          currentRoute: relativePath.startsWith("99_Roadmap/Releases/")
+            ? "99_Roadmap/03_Releases.md"
+            : "99_Roadmap/02_Changes.md",
         };
       }
       return {
@@ -864,11 +1150,23 @@ test("現行案内・SPEC・Workflowに残る旧Runtime Data Pathを拒否する
     path.join(root, "19_Workflows", "01_Runtime.md"),
     "# Runtime\n\nUse `.crdd/test-tmp` for temporary files.\n",
   );
+  write(
+    path.join(
+      root,
+      "40_Develop",
+      "coordinator",
+      "tests",
+      "integration",
+      "legacy-runtime-data-path.test.ts",
+    ),
+    'const fixtureRoot = ".crdd/test-fixtures";\n',
+  );
   const result = runChecker(root);
   for (const expectedPath of [
     "README.md",
     "05_SPEC/01_Behavior_Specification.md",
     "19_Workflows/01_Runtime.md",
+    "40_Develop/coordinator/tests/integration/legacy-runtime-data-path.test.ts",
   ])
     assert.ok(
       result.report.findings.some(
@@ -1029,6 +1327,369 @@ test("raw Resolver公開と保護署名ResolverのConsumer集合不一致を拒�
     );
 });
 
+function activateWorkLifecycleContract(root: string): void {
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000070", "change.md"),
+    "# Work Lifecycle\n\n変更ID: CHG-000070\n",
+  );
+}
+
+function dispositionUpdaterFixture() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-updater-"));
+  const sourcePath = "90_Release/Changes/Evidence/fixed.md";
+  const targetPath = "99_Roadmap/Changes/CHG-000001/Evidence/260912_fixed.md";
+  const inventoryPath = path.join(
+    root,
+    "07_Quality/07_Structured_Document_Disposition_Inventory.json",
+  );
+  const updaterPath = path.join(
+    root,
+    "40_Develop/checker/scripts/update-document-disposition-inventory.ts",
+  );
+  const fixedBytes = Buffer.from("# Fixed history\n", "utf8");
+  write(path.join(root, sourcePath), fixedBytes.toString("utf8"));
+  write(
+    inventoryPath,
+    `${JSON.stringify({
+      schemaRevision: 1,
+      populationSource: "git_worktree_markdown",
+      evaluatedDocumentationSetSha256: "0".repeat(64),
+      entries: [{ path: sourcePath, currentness: "fixed_history" }],
+    })}\n`,
+  );
+  fs.mkdirSync(path.dirname(updaterPath), { recursive: true });
+  fs.copyFileSync(
+    path.join(
+      repositoryRoot,
+      "40_Develop/checker/scripts/update-document-disposition-inventory.ts",
+    ),
+    updaterPath,
+  );
+  initializeGit(root);
+  const git = (...args: string[]) =>
+    spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
+  assert.equal(git("add", ".").status, 0);
+  assert.equal(
+    git(
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=crdd-test@example.invalid",
+      "commit",
+      "--quiet",
+      "-m",
+      "source",
+    ).status,
+    0,
+  );
+  const sourceCommit = git("rev-parse", "HEAD").stdout.trim();
+  const sourceTree = git(
+    "show",
+    "-s",
+    "--format=%T",
+    sourceCommit,
+  ).stdout.trim();
+  fs.rmSync(path.join(root, "90_Release"), { recursive: true });
+  write(path.join(root, targetPath), fixedBytes.toString("utf8"));
+  write(
+    path.join(root, "99_Roadmap/Changes/CHG-000001/change.md"),
+    "# Change\n",
+  );
+  write(
+    path.join(root, "99_Roadmap/Changes/CHG-000070/change.md"),
+    "# Migration\n",
+  );
+  const manifestPath = path.join(
+    root,
+    "99_Roadmap/Changes/CHG-000070/Evidence/260912-2142_migration-map.json",
+  );
+  const entry = {
+    source: sourcePath,
+    target: targetPath,
+    sourceSha256: createHash("sha256").update(fixedBytes).digest("hex"),
+    sourceBytes: fixedBytes.length,
+    targetSha256: createHash("sha256").update(fixedBytes).digest("hex"),
+    targetBytes: fixedBytes.length,
+    currentnessAtMigration: "fixed_history",
+  };
+  const manifest = {
+    contract: "crdd/work-lifecycle-migration-map",
+    contractRevision: 1,
+    sourceCommit,
+    sourceTree,
+    transformationContract: "fixed-history-byte-preserving-v3",
+    status: "migrated",
+    changes: 0,
+    changeEvidence: 1,
+    verificationResults: 0,
+    releases: [],
+    totalMoves: 1,
+    entries: [entry],
+  };
+  write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  assert.equal(git("add", "-A").status, 0);
+  const currentMarkdown = [
+    targetPath,
+    "99_Roadmap/Changes/CHG-000001/change.md",
+    "99_Roadmap/Changes/CHG-000070/change.md",
+  ];
+  write(
+    inventoryPath,
+    `${JSON.stringify({
+      schemaRevision: 1,
+      populationSource: "git_worktree_markdown",
+      evaluatedDocumentationSetSha256: "0".repeat(64),
+      entries: currentMarkdown.map((item) => ({
+        path: item,
+        currentness: item === targetPath ? "fixed_history" : "current",
+        ...(item === targetPath
+          ? {
+              historicalIdentity: {
+                refKind: "commit",
+                ref: sourceCommit,
+                path: sourcePath,
+                blobOid: createHash("sha1")
+                  .update(Buffer.from(`blob ${fixedBytes.length}\0`, "utf8"))
+                  .update(fixedBytes)
+                  .digest("hex"),
+              },
+            }
+          : {}),
+      })),
+    })}\n`,
+  );
+  return { root, inventoryPath, updaterPath, manifestPath, manifest, git };
+}
+
+for (const mutation of ["missing-entry", "non-ancestor"] as const) {
+  test(`Disposition更新は${mutation}の不完全な移行Manifestを書込み前に拒否する`, () => {
+    const state = dispositionUpdaterFixture();
+    if (mutation === "missing-entry") {
+      state.manifest.entries = [];
+      state.manifest.totalMoves = 0;
+      state.manifest.changeEvidence = 0;
+    } else {
+      state.manifest.sourceCommit = state
+        .git("commit-tree", state.manifest.sourceTree, "-m", "unrelated")
+        .stdout.trim();
+    }
+    write(state.manifestPath, `${JSON.stringify(state.manifest, null, 2)}\n`);
+    const before = fs.readFileSync(state.inventoryPath);
+    const result = spawnSync(process.execPath, [state.updaterPath], {
+      cwd: state.root,
+      encoding: "utf8",
+    });
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.deepEqual(fs.readFileSync(state.inventoryPath), before);
+  });
+}
+
+test("Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  activateWorkLifecycleContract(root);
+  write(
+    path.join(root, "07_Quality", "Verification_Results", "restored.md"),
+    "# Restored legacy evidence\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "legacy-work-lifecycle-path-present" &&
+        finding.path === "07_Quality/Verification_Results",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Work Lifecycle契約は全Change aggregateの案内欠落を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  activateWorkLifecycleContract(root);
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "change-navigation-population-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Work Lifecycle契約はRelease Evidenceの案内欠落を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  activateWorkLifecycleContract(root);
+  write(path.join(root, "99_Roadmap", "03_Releases.md"), "# Releases\n");
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "release-evidence-navigation-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Work Lifecycle移行Manifestは固定source identity差を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  activateWorkLifecycleContract(root);
+  const manifestPath = path.join(
+    root,
+    "99_Roadmap",
+    "Changes",
+    "CHG-000070",
+    "Evidence",
+    "260912-2142_migration-map.json",
+  );
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  manifest.sourceTree = "0".repeat(40);
+  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "work-lifecycle-migration-source-identity-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Work Lifecycle移行Manifestは固定履歴の自己申告変更を拒否する", () => {
+  const root = dispositionFixtureRoot(true);
+  activateWorkLifecycleContract(root);
+  const manifestPath = path.join(
+    root,
+    "99_Roadmap",
+    "Changes",
+    "CHG-000070",
+    "Evidence",
+    "260912-2142_migration-map.json",
+  );
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  manifest.entries.find((entry: { source: string }) =>
+    entry.source.endsWith("fixed.json"),
+  ).currentnessAtMigration = "current";
+  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "work-lifecycle-migration-currentness-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Work Lifecycle移行ManifestはRepository外または誤Ownerのtargetを拒否する", () => {
+  for (const target of ["../outside.md", "99_Roadmap/03_Releases.md"]) {
+    const root = dispositionFixtureRoot(true);
+    activateWorkLifecycleContract(root);
+    const manifestPath = path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000070",
+      "Evidence",
+      "260912-2142_migration-map.json",
+    );
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    manifest.entries.find((entry: { source: string }) =>
+      entry.source.endsWith("fixed.json"),
+    ).target = target;
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "work-lifecycle-migration-manifest-invalid",
+      ),
+      `${target}\n${result.stderr}\n${result.stdout}`,
+    );
+  }
+});
+
+test("Work Lifecycle移行Manifestは集計値の自己申告差を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  activateWorkLifecycleContract(root);
+  const manifestPath = path.join(
+    root,
+    "99_Roadmap",
+    "Changes",
+    "CHG-000070",
+    "Evidence",
+    "260912-2142_migration-map.json",
+  );
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  manifest.verificationResults += 1;
+  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "work-lifecycle-migration-summary-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Work Lifecycle移行Manifestは現在候補のancestorでないsourceを拒否する", () => {
+  const root = dispositionFixtureRoot();
+  activateWorkLifecycleContract(root);
+  const manifestPath = path.join(
+    root,
+    "99_Roadmap",
+    "Changes",
+    "CHG-000070",
+    "Evidence",
+    "260912-2142_migration-map.json",
+  );
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const unrelated = spawnSync(
+    "git",
+    ["-C", root, "commit-tree", manifest.sourceTree, "-m", "unrelated"],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "CRDD Test",
+        GIT_AUTHOR_EMAIL: "crdd-test@example.invalid",
+        GIT_COMMITTER_NAME: "CRDD Test",
+        GIT_COMMITTER_EMAIL: "crdd-test@example.invalid",
+      },
+    },
+  );
+  assert.equal(unrelated.status, 0, unrelated.stderr);
+  manifest.sourceCommit = unrelated.stdout.trim();
+  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "work-lifecycle-migration-source-not-ancestor",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Work Lifecycle移行Manifestは固定JSON Evidenceの1 byte変更を拒否する", () => {
+  const root = dispositionFixtureRoot(true);
+  activateWorkLifecycleContract(root);
+  fs.appendFileSync(
+    path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000063",
+      "Evidence",
+      "260906_fixed.json",
+    ),
+    " ",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "work-lifecycle-fixed-history-modified",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
 test("文書Disposition InventoryはMarkdown母集団の欠落・余分・重複を拒否する", () => {
   for (const mutation of ["missing", "extra", "duplicate"] as const) {
     const root = dispositionFixtureRoot();
@@ -1108,7 +1769,7 @@ test("Disposition案内の必須構造または正本Link欠落を拒否する",
     const root = dispositionFixtureRoot();
     const file =
       target === "changes"
-        ? path.join(root, "90_Release", "Changes", "README.md")
+        ? path.join(root, "99_Roadmap", "02_Changes.md")
         : path.join(root, "07_Quality", "01_Quality_Center.md");
     const content = fs.readFileSync(file, "utf8");
     fs.writeFileSync(
@@ -1116,7 +1777,7 @@ test("Disposition案内の必須構造または正本Link欠落を拒否する",
       target === "changes"
         ? content.replace("## 目的から読む場所を選ぶ", "## 案内")
         : content.replace(
-            "Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+            "../99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md",
             "missing.md",
           ),
       "utf8",
@@ -1187,7 +1848,7 @@ test("現行文書と固定履歴のcurrentness誤分類を拒否する", () => 
       blobOid: oid,
     };
     current.currentTreeBlobOid = oid;
-    current.currentRoute = "90_Release/Changes/README.md";
+    current.currentRoute = "99_Roadmap/02_Changes.md";
   });
   assert.ok(
     runChecker(currentAsFixed).report.findings.some(
@@ -1226,20 +1887,23 @@ type V020GateFixtureState =
 function writeV020GateFixture(root: string, state: V020GateFixtureState): void {
   const changePath = path.join(
     root,
-    "90_Release",
+    "99_Roadmap",
     "Changes",
-    "CHG-000063_Runtime_Responsibility_Separation.md",
+    "CHG-000063",
+    "change.md",
   );
   const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
   const verificationPath = path.join(
     root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+    "99_Roadmap",
+    "Releases",
+    "v0.20.0",
+    "Evidence",
+    "260906_v020-public-runtime-and-bounded-integration-verification.md",
   );
-  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Roadmap.md");
   const qualityLink =
-    "[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)";
+    "[検証結果](../99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md)";
 
   if (state === "Signed Verification Pending") {
     write(
@@ -1324,22 +1988,39 @@ test("v0.20の各Release Gate状態は4文書の根拠が揃った場合だけ�
   }
 });
 
+test("v0.20 Release Gateの必須入力欠落を無言で省略しない", () => {
+  const root = dispositionFixtureRoot();
+  fs.rmSync(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000063", "change.md"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "v020-release-gate-input-missing",
+    ),
+    JSON.stringify(result.report.findings),
+  );
+});
+
 test("公開済みv0.20は未完了Gateを再要求せず公開根拠の閉包を検証する", () => {
   const root = dispositionFixtureRoot();
   const changePath = path.join(
     root,
-    "90_Release",
+    "99_Roadmap",
     "Changes",
-    "CHG-000063_Runtime_Responsibility_Separation.md",
+    "CHG-000063",
+    "change.md",
   );
   const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
   const verificationPath = path.join(
     root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+    "99_Roadmap",
+    "Releases",
+    "v0.20.0",
+    "Evidence",
+    "260906_v020-public-runtime-and-bounded-integration-verification.md",
   );
-  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Roadmap.md");
   const workflowPath = path.join(
     root,
     "19_Workflows",
@@ -1351,7 +2032,7 @@ test("公開済みv0.20は未完了Gateを再要求せず公開根拠の閉包�
   );
   write(
     qualityPath,
-    "# Quality\n\n| v0.20.0の技術Gate | 正式4経路4/4とRecovery Matrix 7/7が成立 |\n| v0.20.0公開 | 2026-09-11、公式tag `v0.20.0`へ収載済み |\n| v0.20.1修正 | 公開状態の伝播漏れを文書だけで是正 |\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
+    "# Quality\n\n| v0.20.0の技術Gate | 正式4経路4/4とRecovery Matrix 7/7が成立 |\n| v0.20.0公開 | 2026-09-11、公式tag `v0.20.0`へ収載済み |\n| v0.20.1修正 | 公開状態の伝播漏れを文書だけで是正 |\n\n[検証結果](../99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md)\n",
   );
   write(
     verificationPath,
@@ -1401,9 +2082,10 @@ test("v0.20のRelease Gate状態が複数提示された場合は拒否する", 
   const root = dispositionFixtureRoot();
   const changePath = path.join(
     root,
-    "90_Release",
+    "99_Roadmap",
     "Changes",
-    "CHG-000063_Runtime_Responsibility_Separation.md",
+    "CHG-000063",
+    "change.md",
   );
   fs.appendFileSync(changePath, "\n状態: `Release Decision Pending`\n", "utf8");
   assert.equal(hasV020GateFinding(root), true);
@@ -1412,8 +2094,8 @@ test("v0.20のRelease Gate状態が複数提示された場合は拒否する", 
 test("CHGとRoadmapだけを署名後状態へ昇格できない", () => {
   const root = dispositionFixtureRoot();
   for (const relativePath of [
-    "90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md",
-    "99_Roadmap/01_Product_Roadmap.md",
+    "99_Roadmap/Changes/CHG-000063/change.md",
+    "99_Roadmap/01_Roadmap.md",
   ]) {
     const target = path.join(root, relativePath);
     fs.writeFileSync(
@@ -1449,9 +2131,11 @@ test("Verificationが前候補だけなら最終監査待ちへ進めない", ()
   writeV020GateFixture(root, "Final Audit Pending");
   const verificationPath = path.join(
     root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+    "99_Roadmap",
+    "Releases",
+    "v0.20.0",
+    "Evidence",
+    "260906_v020-public-runtime-and-bounded-integration-verification.md",
   );
   write(
     verificationPath,
@@ -1464,8 +2148,8 @@ test("最終監査EvidenceなしにRelease判断待ちへ進めない", () => {
   const root = dispositionFixtureRoot();
   writeV020GateFixture(root, "Final Audit Pending");
   for (const relativePath of [
-    "90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md",
-    "99_Roadmap/01_Product_Roadmap.md",
+    "99_Roadmap/Changes/CHG-000063/change.md",
+    "99_Roadmap/01_Roadmap.md",
   ]) {
     const target = path.join(root, relativePath);
     fs.writeFileSync(
@@ -1483,25 +2167,28 @@ test("最終監査語句だけでは現在候補の署名Evidenceを代替でき
   const root = dispositionFixtureRoot();
   const changePath = path.join(
     root,
-    "90_Release",
+    "99_Roadmap",
     "Changes",
-    "CHG-000063_Runtime_Responsibility_Separation.md",
+    "CHG-000063",
+    "change.md",
   );
   const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
   const verificationPath = path.join(
     root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+    "99_Roadmap",
+    "Releases",
+    "v0.20.0",
+    "Evidence",
+    "260906_v020-public-runtime-and-bounded-integration-verification.md",
   );
-  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Roadmap.md");
   write(
     changePath,
     "# Change\n\n状態: `Release Decision Pending`\n\n前の署名候補\n\n最終一括監査: Critical 0、Major 0で成立\n\n残るGate: 人間によるRelease判断\n",
   );
   write(
     qualityPath,
-    "# Quality\n\n現在候補\n\n前の署名候補\n\n最終一括監査: Critical 0、Major 0で成立\n\nv0.20全体の残るGate: 人間によるRelease判断\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
+    "# Quality\n\n現在候補\n\n前の署名候補\n\n最終一括監査: Critical 0、Major 0で成立\n\nv0.20全体の残るGate: 人間によるRelease判断\n\n[検証結果](../99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md)\n",
   );
   write(
     verificationPath,
@@ -1519,9 +2206,11 @@ test("Critical 0でもMajorが残る最終監査結果を拒否する", () => {
   writeV020GateFixture(root, "Release Decision Pending");
   const verificationPath = path.join(
     root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+    "99_Roadmap",
+    "Releases",
+    "v0.20.0",
+    "Evidence",
+    "260906_v020-public-runtime-and-bounded-integration-verification.md",
   );
   fs.writeFileSync(
     verificationPath,
@@ -1542,9 +2231,11 @@ test("監査件数に0を含む二桁の値を成功と誤認しない", () => {
     writeV020GateFixture(root, "Release Decision Pending");
     const verificationPath = path.join(
       root,
-      "07_Quality",
-      "Verification_Results",
-      "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+      "99_Roadmap",
+      "Releases",
+      "v0.20.0",
+      "Evidence",
+      "260906_v020-public-runtime-and-bounded-integration-verification.md",
     );
     fs.writeFileSync(
       verificationPath,
@@ -1566,9 +2257,11 @@ test("否定された監査成立表現を成功と誤認しない", () => {
     writeV020GateFixture(root, "Release Decision Pending");
     const verificationPath = path.join(
       root,
-      "07_Quality",
-      "Verification_Results",
-      "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+      "99_Roadmap",
+      "Releases",
+      "v0.20.0",
+      "Evidence",
+      "260906_v020-public-runtime-and-bounded-integration-verification.md",
     );
     fs.writeFileSync(
       verificationPath,
@@ -1586,9 +2279,11 @@ test("空の現在候補節へ前候補節の署名Evidenceを流用できない
   writeV020GateFixture(root, "Final Audit Pending");
   const verificationPath = path.join(
     root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+    "99_Roadmap",
+    "Releases",
+    "v0.20.0",
+    "Evidence",
+    "260906_v020-public-runtime-and-bounded-integration-verification.md",
   );
   write(
     verificationPath,
@@ -3274,7 +3969,9 @@ function toolLayoutHistoryFixture(hasOldAnchor = true) {
   const record = { schemaRevision: 1, evidenceCommit: commit, references };
   const ledgerPath = path.join(
     root,
-    "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
+    "90_Release",
+    "Changes",
+    "CHG-000017_Tools_Coding_Standards.md",
   );
   const save = () =>
     write(
@@ -3432,7 +4129,7 @@ const layoutHistoryFailures: readonly [
     "現行CHGへの例外拡張",
     (state) => {
       state.references[0].sourcePath =
-        "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md";
+        "99_Roadmap/Changes/CHG-000017/change.md";
     },
   ],
   [
@@ -3510,11 +4207,9 @@ test("配置移行は参照組が一致してもGit版に存在しないanchor�
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-tool-layout-historical-references" &&
-        finding.message ===
-          "Reference pair or historical anchor does not match.",
+      (finding) => finding.code === "invalid-tool-layout-historical-references",
     ),
+    JSON.stringify(result.report.findings),
   );
   assert.equal(
     result.report.metrics.historical_references_identity_verified,
@@ -4550,7 +5245,7 @@ function releasedNavigationFixture() {
   const fixedCommit = git("rev-parse", "HEAD");
   const fixedTree = git("show", "-s", "--format=%T", fixedCommit);
   const sourceSha256 = createHash("sha256").update(oldText).digest("hex");
-  const ledgerPath = path.join(root, "90_Release/Changes/README.md");
+  const ledgerPath = path.join(root, "90_Release", "Changes", "README.md");
   let ledgerText = fs.readFileSync(ledgerPath, "utf8");
   ledgerText = ledgerText
     .replace("- 公式公開tag固定集合: 0件", "- 公式公開tag固定集合: 1件")
@@ -4599,7 +5294,9 @@ function releasedNavigationFixture() {
   };
   const recordPath = path.join(
     root,
-    "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
+    "90_Release",
+    "Changes",
+    "CHG-000017_Tools_Coding_Standards.md",
   );
   const save = () =>
     write(

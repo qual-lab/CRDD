@@ -163,11 +163,11 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 v0.19.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease判断後、次のexact PathだけをCommit Cで変更できる。新規検証結果2件は、Provider生出力、確認値、秘密、Host PathまたはRecovery Authorityを保存せず、閉じた結果と根拠Hashだけを記録する。
 
-- 最終E2E記録: `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md`、`07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.json`
-- 公開入口と履歴: `README.md`、`CHANGELOG.md`、`90_Release/Changes/README.md`、`99_Roadmap/01_Product_Roadmap.md`
+- 最終E2E記録: `99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md`、`99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.json`
+- 公開入口と履歴: `README.md`、`CHANGELOG.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/01_Roadmap.md`
 - 品質・手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
 - Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/project-runtime/01_Architecture.md`
-- Release対象CHG: `90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md`、`90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md`、`90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md`、`90_Release/Changes/CHG-000060_CRDD_Brand_Icon_Adoption.md`
+- Release対象CHG: `99_Roadmap/Changes/CHG-000057/change.md`、`99_Roadmap/Changes/CHG-000058/change.md`、`99_Roadmap/Changes/CHG-000059/change.md`、`99_Roadmap/Changes/CHG-000060/change.md`
 - v0.19.0のCandidateからStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 
 正本の機械的遷移は`Status: Candidate`を`Status: Stable`へ変え、`Released Baseline`行を削除し、Release日だけを更新する。Project Runtime固有文書はCandidate／未実装表示をStable／利用可能範囲の表示へ変える。CHGは`Released`と対象tagへ、Roadmapは完了項目の除去と残件だけの表示へ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更または新しい成果物はCommit Cへ含めない。
@@ -180,8 +180,8 @@ v0.20.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 品質と手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
 - v0.20の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 - v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/coordinator/02_Threat_Model.md`、`06_Architecture/execution-intelligence/01_Architecture.md`、`06_Architecture/mcp/01_Architecture.md`、`06_Architecture/platform-access/01_Architecture.md`、`06_Architecture/project-runtime/01_Architecture.md`
-- Release対象CHG: `90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md`、`90_Release/Changes/CHG-000062_Execution_Intelligence.md`、`90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md`、`90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md`、`90_Release/Changes/CHG-000065_Structured_First_Documentation.md`
-- 公開案内と残件: `README.md`、`CHANGELOG.md`、`90_Release/Changes/README.md`、`99_Roadmap/01_Product_Roadmap.md`
+- Release対象CHG: `99_Roadmap/Changes/CHG-000061/change.md`、`99_Roadmap/Changes/CHG-000062/change.md`、`99_Roadmap/Changes/CHG-000063/change.md`、`99_Roadmap/Changes/CHG-000064/change.md`、`99_Roadmap/Changes/CHG-000065/change.md`
+- 公開案内と残件: `README.md`、`CHANGELOG.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/01_Roadmap.md`
 
 正本とTool表示の機械的遷移はCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.20完了項目を除去してv0.21以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。
 

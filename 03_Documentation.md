@@ -160,7 +160,6 @@ Git履歴は差分と時系列の根拠であり、判断理由そのものを�
 19_Workflows
 40_Develop
 80_Communication（外部コミュニケーションを扱う場合だけ作成）
-90_Release
 99_Roadmap
 ```
 
@@ -173,17 +172,16 @@ Git履歴は差分と時系列の根拠であり、判断理由そのものを�
 | `04_UI` | 表示面、操作、フィードバック、視覚表現、UI素材 | [UI](25_UI.md) |
 | `05_SPEC` | 条件、状態、システムの振る舞い、例外、受入条件 | [振る舞い仕様](26_Behavior_Specification.md) |
 | `06_Architecture` | 境界、データ、インターフェース、品質、セキュリティ、実装規則 | [アーキテクチャ](27_Architecture.md) |
-| `07_Quality` | 品質戦略、検証設計、検証結果の履歴、現在品質状態の統合表示 | [品質保証](16_Quality_Assurance.md)、[検証](29_Verification.md) |
+| `07_Quality` | 品質戦略、検証設計、Test Catalog、Traceability、現在品質状態の統合表示 | [品質保証](16_Quality_Assurance.md)、[検証](29_Verification.md) |
 | `08`〜`18` | 将来の工程横断成果物または共通運用領域のための予約。現在はフォルダを作らない | CRDD標準の該当する将来の正本文書 |
 | `19_Workflows` | リポジトリ固有の反復可能な作業手順、運用手順、手順間引き渡し | [作業手順](14_Workflow.md) |
 | `40_Develop` | コード、構成、開発者テスト等の実装成果物 | [実装](28_Implementation.md) |
 | `80_Communication` | 外部コミュニケーションの目的、受け手、主張と根拠、公開済み記録、測定と学び候補。この共通契約を使用する場合だけ作成する | [外部コミュニケーション](17_Communication.md) |
-| `90_Release` | `CHG-*` 変更トレース、リリース記録、CHANGELOG、配布物参照、リリース検証 | [変更](12_Change.md)、[リリース](13_Release.md)、プロジェクト固有のリリースの決定権限 |
-| `99_Roadmap` | 未完了の作業、課題、アイデア、変更候補、是正事項の存在、現在状態、参照先 | プロジェクト固有ロードマップの決定権限 |
+| `99_Roadmap` | `01_Roadmap.md`の未完了作業、`02_Changes.md`のChange Navigation、`03_Releases.md`のRelease Navigation、Change AggregateおよびChange／Release固有Evidence | [変更](12_Change.md)、[リリース](13_Release.md)、プロジェクト固有のロードマップ／リリース決定権限 |
 
 工程固有の成果物対応、ひな型、網羅範囲は上表の工程／処理の決定権限を正本とする。`04_UI`と`05_SPEC`の番号は探索順であり、直列工程や決定権限優先度を意味しない。UI契約と振る舞い仕様は並行・反復して対として接続するが、同じ項目の決定権限へ統合しない。
 
-`07_Quality`は、実装後だけに行う工程ではない。各工程が育てる検証義務、検証設計、検証結果、現在状態を横断して扱う。
+`07_Quality`は、実装後だけに行う工程ではない。各工程が育てる検証義務、検証設計、Test Catalog、Traceabilityおよび現在状態を横断して扱う。個別Evidenceは直接証明するChangeまたはReleaseが所有し、Quality Centerは参照して現在品質を投影する。
 
 `19_Workflows`はプロダクト工程の次段ではない。リポジトリ固有の反復可能な作業方法を、工程領域から分けて置く補助領域である。
 
@@ -221,11 +219,11 @@ Git履歴は差分と時系列の根拠であり、判断理由そのものを�
 
 根拠の配置は6.2、判断の配置は7.1を正本とする。リポジトリ構造へ中央根拠フォルダまたは中央判断フォルダを追加しない。
 
-`07_Quality`は品質情報を新しい中央正本へ集約する場所ではない。検証義務は各工程成果物、実装と開発者テストは`40_Develop`、根拠は6章の配置を正本とする。`07_Quality`は品質戦略、検証設計、確定済み検証結果と、それらから導く現在状態への固定入口を提供する。適用の深さによってファイル構成を変えず、記述、レビュー、根拠の深さを調整する。品質保証の現在状態、判断理由、未検証範囲、残存リスク、再現方法はリポジトリ内から理解できるようにし、外部ツールのリンクまたは実行IDだけへ依存しない。
+`07_Quality`は品質情報を新しい中央正本へ集約する場所ではない。検証義務は各工程成果物、実装と開発者テストは`40_Develop`、Change／Release固有Evidenceは`99_Roadmap`内の証明対象Aggregateを正本とする。`07_Quality`は品質戦略、検証設計、Test Catalog、Traceabilityと、それらから導く現在状態への固定入口を提供する。適用の深さによってファイル構成を変えず、記述、レビュー、根拠の深さを調整する。品質保証の現在状態、判断理由、未検証範囲、残存リスク、再現方法はリポジトリ内から理解できるようにし、外部ツールのリンクまたは実行IDだけへ依存しない。
 
 ## 3.2. 実装の配置
 
-`40_Develop`はCRDD管理用Markdownの保存先として使用しない。変更トレースは`90_Release/Changes/`、リポジトリ固有の反復作業手順は`19_Workflows`へ置く。実装計画は使用するプロジェクト固有ツールまたは作業手順から参照し、CRDD標準の恒久フォルダを追加しない。コード固有READMEを実装と同居させる場合も、コンテキストや判断理由の正本として暗黙に扱わない。
+`40_Develop`はCRDD管理用Markdownの保存先として使用しない。変更トレースは`99_Roadmap/Changes/<CHG-ID>/change.md`、リポジトリ固有の反復作業手順は`19_Workflows`へ置く。実装計画は使用するプロジェクト固有ツールまたは作業手順から参照し、CRDD標準の恒久フォルダを追加しない。コード固有READMEを実装と同居させる場合も、コンテキストや判断理由の正本として暗黙に扱わない。
 
 <a id="33-discovery-and-roadmap"></a>
 
@@ -247,7 +245,7 @@ CHG-*        = 確定した現在状態に対して何を変更するかを追�
 
 候補へプロジェクト固有の参照キーを付けてもよいが、それは成果物参照であり、CRDD標準の安定コンテキストIDではない。候補として保持しただけでは採用または計画化を意味しない。
 
-`99_Roadmap`は、プロダクトまたはプロジェクトに残っている未完了の作業、課題、アイデア、変更候補、是正事項を横断して確認できる[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)である。採用済みで着手を延期した作業だけを扱う場所ではない。登録簿は原則として単一の`99_Roadmap/01_Product_Roadmap.md`を主要表示とする。比較、調査、依存関係等の詳細が主要表示の可読性を損なう場合だけ、別の詳細ファイルへ分ける。
+`99_Roadmap`は、プロダクトまたはプロジェクトに残っている未完了の作業、課題、アイデア、変更候補、是正事項を横断して確認できる[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)である。採用済みで着手を延期した作業だけを扱う場所ではない。登録簿は原則として単一の`99_Roadmap/01_Roadmap.md`を主要表示とする。比較、調査、依存関係等の詳細が主要表示の可読性を損なう場合だけ、別の詳細ファイルへ分ける。
 
 ロードマップ詳細が再利用可能な概念、要求、設計、検証または変更履歴へ育った場合、その責務を持つルート正本、工程成果物、検証成果物またはCHGへ移す。対象バージョン、工程、実装段階、担当または個別の指摘事項だけを理由にロードマップを分割せず、完了した詳細を状態履歴として残さない。
 
@@ -390,7 +388,7 @@ AIが草案を作成しても、担当責任者を`AI Draft`へ置き換えな�
 良い例:
 02_UX/01_User_Experience.md
 19_Workflows/01_Document_Review.md
-90_Release/Changes/CHG-000042_Topic_Decision_Experience.md
+99_Roadmap/Changes/CHG-000042/change.md
 
 悪い例:
 memo.md
@@ -995,8 +993,10 @@ SPEC-000044 verified_by test-or-evidence-reference
 
 | 工程／成果物 | 正本 | 所有する情報 |
 |---|---|---|
-| Roadmap | `99_Roadmap` | 未完了項目、現在状態、次のGate、詳細正本への参照 |
-| `CHG-*` | `90_Release/Changes` | 変更前後の責務・契約差、指摘と構造是正、根拠、残るGate |
+| Roadmap | `99_Roadmap/01_Roadmap.md` | 未完了項目、現在状態、次のGate、詳細正本への参照 |
+| Change Navigation | `99_Roadmap/02_Changes.md` | Change Aggregateの一覧、現行Ownerおよび統合履歴への参照 |
+| Release Navigation | `99_Roadmap/03_Releases.md` | 現在の公開状態、対象VersionおよびRelease Evidenceへの参照 |
+| `CHG-*` | `99_Roadmap/Changes/<CHG-ID>/change.md` | 変更前後の責務・契約差、指摘と構造是正、根拠、残るGate |
 | 課題探索・要求形成（Discovery） | `21_Discovery.md`と`01_Discovery` | 起点、問題、情報源、根拠、不確実性、仮説、要求および判断 |
 | 利用者体験（UX） | `22_UX.md`と`02_UX` | 利用者、望ましい成果、体験原則、Journeyおよび受入可能な体験 |
 | 情報設計（IA） | `23_IA.md`と`03_IA` | 情報オブジェクト、関係、責務、Navigationおよび用語 |
@@ -1006,9 +1006,10 @@ SPEC-000044 verified_by test-or-evidence-reference
 | アーキテクチャ（Architecture） | `27_Architecture.md`と`06_Architecture` | Component、依存、Interface、Authority、Effect、Failureおよび品質特性 |
 | 実装（Implementation） | `28_Implementation.md`と`40_Develop` | 現在のSource、構成、実装上の所有者および開発者試験 |
 | 検証（Verification） | `29_Verification.md` | 検証・根拠戦略、独立確認、指摘事項、Release準備状況の推奨および学び |
-| 品質保証（Quality） | `16_Quality_Assurance.md`と`07_Quality` | 工程横断の検証義務、検証設計、確定済み結果および現在品質状態 |
+| 品質保証（Quality） | `16_Quality_Assurance.md`と`07_Quality` | 工程横断の検証義務、検証設計、Test Catalog、Traceabilityおよび現在品質状態 |
 | 外部コミュニケーション（Communication） | `17_Communication.md`と該当時の`80_Communication` | 目的、受け手、主張、根拠、媒体、公開状態、測定および学び候補 |
-| 検証結果 | `07_Quality/Verification_Results` | 対象改訂版、実行条件、確認結果および未確認範囲 |
+| Change固有Evidence | `99_Roadmap/Changes/<CHG-ID>/Evidence` | 対象改訂版、実行条件、観測結果、評価および未確認範囲 |
+| Release固有Evidence | `99_Roadmap/Releases/<version>/Evidence` | Release全体の回帰、E2E、署名、監査および準備状況の根拠 |
 | Git | Version Control履歴 | 実際の差分と時系列 |
 
 Roadmapへ設計詳細を複製せず、`CHG-*`を開発日誌にしない。DiscoveryからVerificationまでの全工程と、適用する外部CommunicationおよびQualityでは、各工程が所有する意味を、工程の責務に合う表、Matrix、Diagram、FlowまたはChecklistへ分ける。

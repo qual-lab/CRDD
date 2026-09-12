@@ -124,4 +124,4 @@ Directory Taxonomy、`tmp/` Lifecycleと共通Path Resolverの設計
 | 終了後観測 | 退役Top-levelと退避Directoryは不存在。現行試験後の直下は`config/`、空の`release/`、`tests/`、`tmp/`、`verification/` |
 | 互換処理 | 旧Pathへの読取り・書込みfallbackなし |
 
-耐久記録は[Runtime Data Migration Result](../../07_Quality/Verification_Results/2026-09-12_V021_Runtime_Data_Migration_Result.json)に置く。この記録が再検証できるのは現在の退役Path不存在までであり、削除済み母集団のitem単位Identity、全参照の移送完全性および過去時点のRecovery 0は再構成できない。したがって、それらを遡及して証明済みとは扱わない。今後のMigrationは削除前Inventory、処置分類、参照閉包および事後観測を不変Resultへ保存してから物理削除する。
+耐久記録は[Runtime Data Migration Result](../../99_Roadmap/Changes/CHG-000066/Evidence/260912_v021-runtime-data-migration-result.json)に置く。この記録が再検証できるのは現在の退役Path不存在までであり、削除済み母集団のitem単位Identity、全参照の移送完全性および過去時点のRecovery 0は再構成できない。したがって、それらを遡及して証明済みとは扱わない。今後のMigrationは削除前Inventory、処置分類、参照閉包および事後観測を不変Resultへ保存してから物理削除する。

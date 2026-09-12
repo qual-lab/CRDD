@@ -128,6 +128,26 @@ SPECは利用側または利用者から観測可能な契約を定義し、実�
 
 一つの正常パス、EARS文、システム状態図、API定義、既存コード、または対応UIの完成を、対象範囲全体の振る舞い仕様完了と表現してはならない。
 
+<a id="spec-diagram-profile"></a>
+
+## SPEC基本図の処置と記法
+
+固定入口では、Use Case／振る舞いFlow、状態遷移表／状態遷移図、Actor／System間Sequence図、Error／Effect分岐図およびUI／SPEC対応図を、`作成`、`既存参照`、`非該当`、`作成不能`のいずれかへ処置する。複数状態、Actor、時間順、外部Effect、取消、回復または結果分岐を持つ振る舞いでは該当図を発火する。一意な局所変換で状態、順序、Effectおよび利用側結果が変わらない場合は、根拠を示して非該当にできる。根拠不足は非該当へ畳まない。
+
+```text
+[A: Actor] --request--> [S: System]
+                           |
+                    {state: waiting}
+                           |
+          +--success------> [R: Result]
+          +--failure------> [E: Error／Recovery]
+          +--cancel-------> [C: Cancelled／Cleanup]
+```
+
+`[A:]`はActor、`[S:]`は振る舞い所有System、`{state:}`はCanonicalな状態、`request／success／failure／cancel`は契約上の遷移、`[R:]`は観測可能な結果、`[E:]`は失敗・回復、`[C:]`は取消と終了後条件を表す。Sequenceの矢印は要求発行、受理、Effect成立、観測およびsettlementを必要に応じて分ける。図は条件、Authority、状態値またはEffectを新設する正本ではなく、振る舞い表と受入条件の投影である。
+
+工程出口では、図の全分岐を正常、準正常、異常、取消、回復および利用側結果へ対応づける。UIを持つ対象ではUI／SPEC対応レビューを完了し、直接UIがない対象は公開結果または利用側契約との対応を示す。図で露出した分岐・状態・Effectは検証義務または理由付き非該当へ結ぶ。
+
 <a id="human-decisions"></a>
 
 ## 人間による判断（Human Decisions）

@@ -7,7 +7,7 @@
 ## Related
 
 - [Project Runtimeアーキテクチャ](01_Architecture.md)
-- [Project Runtime責務分離](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)
+- [Project Runtime責務分離](../../99_Roadmap/Changes/CHG-000063/change.md)
 - [検証設計](../../07_Quality/03_Verification_Design.md)
 
 <a id="historical-design-reference"></a>

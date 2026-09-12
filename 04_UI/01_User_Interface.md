@@ -5,6 +5,16 @@
 最終更新日: 2026-09-06
 工程規則: [UI](../25_UI.md)、[UIと仕様の対応レビュー](../24_UI_Behavior_Specification.md)
 
+## 基本図の処置
+
+| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
+|---|---|---|---|---|---|---|---|---|
+| 論理画面／領域構成図 | CROS Workbench候補 | Project概要、Source Coverage、操作領域の配置 | 作成 | [Project Operation／CROS Workbench](#9-v021-project-operationcros-workbench) | v0.21 Candidate | 概念図 | 具体的な画面構成は未確定 | Group BのUIで利用者検証可能な構成へ更新する |
+| 画面／操作Flow | Agent Handoff | 対話、構築、判断待ち、再開の操作順序 | 作成不能 | [Agent Handoffの表示](#91-agent-handoffの表示)は判断待ちの単一表示例であり、操作順序のFlowではない | v0.21 Candidate | 未作成 | 対話から構築、判断待ち、再開までの操作遷移 | Group BのUIで作成し、SPECと共同確認する |
+| 表示状態／Variant図 | Project Runtime結果 | 完了、停止、回復、判断待ちの表示差 | 作成不能 | [Project Runtimeの状態表示](#8-project-runtimeの状態表示)は表示原則であり、状態Variantの対応図ではない | v0.21 Candidate | 未作成 | 状態ごとの表示差、優先度、操作可能性 | Group BのUIで作成する |
+| 主要Component関係図 | CROS Workbench | 表示Componentと責務境界の関係 | 作成不能 | WorkbenchのComponent境界はGroup BのIA／UIで未確定 | v0.21 Candidate | 未作成 | Component、状態Owner、操作Port | Group BのUI出口で再評価する |
+| UI／SPEC対応図 | 現行Tool操作 | 表示・入力と振る舞い契約の対応 | 作成 | [UIと振る舞い仕様の対応](#6-uiと振る舞い仕様の対応) | v0.20.1 Baseline＋v0.21 Candidate | 現行 | Workbench部分は未対応 | Group BのUI／SPEC共同レビューで更新する |
+
 ## 1. 対象と読み方
 
 [利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。§9はv0.21のProject Operationと最小CROS Workbenchが満たす表示契約を扱う。固定GUI Framework、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
@@ -106,15 +116,15 @@ Process再起動の必要性: あり
 
 | 事項 | 根拠と影響 | 次の処置・再確認契機 |
 |---|---|---|
-| 表示の意味説明 | 日本語説明、未知値の固定表示、成功した候補操作と停止の分離は実装・限定再確認済み | [限定確認の結果](../07_Quality/Verification_Results/2026-08-31_Tool_Layout_Verification.md#3部品の設計補完結果表示の追加確認)と下記のPowerShellでの表示例の実測を参照。説明未登録の理由は機械結果を担当者が確認し、全理由の翻訳完了とはしない |
+| 表示の意味説明 | 日本語説明、未知値の固定表示、成功した候補操作と停止の分離は実装・限定再確認済み | [限定確認の結果](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#3部品の設計補完結果表示の追加確認)と下記のPowerShellでの表示例の実測を参照。説明未登録の理由は機械結果を担当者が確認し、全理由の翻訳完了とはしない |
 | 未取得値と候補操作の表示 | 三値表示、回復・再起動優先、停止時の候補操作抑止、全回復ID保持は実装・関連試験・限定再確認済み | 表示・取消投影・実子Process接続の28試験と上記の限定確認を根拠とする。表示例の実端末確認は下記へ接続し、すべての状態・環境を実測済みとはしない |
-| 入力・起動の実体験 | 時間切れ・入力待ち取消・空入力拒否、別runの123456読取り、654321不一致を観測。人間は表示例の折返し・拡大後も読めたと回答。案内は現在の操作だけに是正 | [実端末の初回結果](../07_Quality/Verification_Results/2026-08-31_Tool_Layout_Verification.md#実端末の初回結果)でrunごとの成否と限界を保持。今回のPowerShell環境の限定確認として完了。一括runの合格や通常Taskの取消へ読み替えない |
-| 実Taskの取消と回復 | 署名版48515ebで実端末Ctrl+C入力1回から通常回収まで観測。独立確認済み | [実測の順序と限界](../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)へ接続。旧4f10201等の結果は各版の履歴として保持。全取消タイミングの成立へ一般化しない |
-| CLI参照媒体の適用 | 人間が承認した端末参照で入力・表示の限定実測を取得し、UI／SPECの専門確認へ接続済み | [完成評価と追加確認](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)を参照。人間の内容採用・工程移行とは区別する |
+| 入力・起動の実体験 | 時間切れ・入力待ち取消・空入力拒否、別runの123456読取り、654321不一致を観測。人間は表示例の折返し・拡大後も読めたと回答。案内は現在の操作だけに是正 | [実端末の初回結果](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#実端末の初回結果)でrunごとの成否と限界を保持。今回のPowerShell環境の限定確認として完了。一括runの合格や通常Taskの取消へ読み替えない |
+| 実Taskの取消と回復 | 署名版48515ebで実端末Ctrl+C入力1回から通常回収まで観測。独立確認済み | [実測の順序と限界](../99_Roadmap/Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md#signed-e2e-48515eb)へ接続。旧4f10201等の結果は各版の履歴として保持。全取消タイミングの成立へ一般化しない |
+| CLI参照媒体の適用 | 人間が承認した端末参照で入力・表示の限定実測を取得し、UI／SPECの専門確認へ接続済み | [完成評価と追加確認](../99_Roadmap/Changes/CHG-000015/Evidence/260901_coordinator-completion-review.md#windows-terminal-verification)を参照。人間の内容採用・工程移行とは区別する |
 | 支援技術・環境 | PowerShell 5.1に加えWindows Terminal 1.24.11911.0でも4入力シナリオ、日本語・長いIDの折返し・拡大表示を限定確認 | 上記追加確認で初期幅120列を観測。変更後の列数・拡大率は未取得。読み上げと全環境の対応は未評価であり、対象変更時にQual-LabのRuntime保守が再評価 |
-| 詳細設計の読み解き | SPEC・実行設計・脅威モデルの責務分離と再構成、設計文書の改名、設計・実装・試験の横断整合を完成評価で確認 | [完成評価](../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)と[CHGの処置](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)で追跡。全読者の理解度を実測したとはしない |
+| 詳細設計の読み解き | SPEC・実行設計・脅威モデルの責務分離と再構成、設計文書の改名、設計・実装・試験の横断整合を完成評価で確認 | [完成評価](../99_Roadmap/Changes/CHG-000015/Evidence/260901_coordinator-completion-review.md#completion-assessment-147fb29)と[CHGの処置](../99_Roadmap/Changes/CHG-000017/change.md#tool-experience-design)で追跡。全読者の理解度を実測したとはしない |
 
-UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが候補内容・移行方針を採用し、PR #32でmainへ統合した。[公開準備と最終確認](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#release-preparation-20260901)は別に追跡する。表示の「読めた」という観測と、その後の採用判断を区別し、全アクセシビリティ対応やRelease完了を実証済みとしない。
+UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが候補内容・移行方針を採用し、PR #32でmainへ統合した。[公開準備と最終確認](../99_Roadmap/Changes/CHG-000014/change.md#release-preparation-20260901)は別に追跡する。表示の「読めた」という観測と、その後の採用判断を区別し、全アクセシビリティ対応やRelease完了を実証済みとしない。
 ## 8. Project Runtimeの状態表示
 
 本節はv0.19.0で公開したProject RuntimeのCLI／MCP表示契約を定義する。内部Task操作や任意Project検索は公開しない。

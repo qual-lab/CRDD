@@ -5,10 +5,10 @@
 最終更新日: 2026-09-11
 
 Related:
-- [Runtime責務分離](../../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)
+- [Runtime責務分離](../../99_Roadmap/Changes/CHG-000063/change.md)
 - [MCP Transport](../mcp/01_Architecture.md)
 - [実行知](../execution-intelligence/01_Architecture.md)
-- [Project状態参照とローカルMCP HTTP](../../90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md)
+- [Project状態参照とローカルMCP HTTP](../../99_Roadmap/Changes/CHG-000064/change.md)
 
 ## 1. 目的と責務
 

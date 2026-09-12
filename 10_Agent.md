@@ -62,7 +62,7 @@ agent_contract:
   invoked_by: Change Trace Owner
   purpose: IAとUXの意図をUI契約へ変換する
   scope:
-    change_trace: 90_Release/Changes/CHG-000004_Topic_Detail.md
+    change_trace: 99_Roadmap/Changes/CHG-000004/change.md
     feature: Important Topic Review
   input:
     revision: active

@@ -4,13 +4,23 @@ Status: Stable (v0.20.1)
 Owner: Qual-Lab
 Last Updated: 2026-09-06
 
+## 基本図の処置
+
+| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
+|---|---|---|---|---|---|---|---|---|
+| Use Case／振る舞いFlow | 公開Task | 入力、受理、実行、結果、取消の主分岐 | 作成不能 | [公開Taskの入力・結果・取消](#公開taskの入力結果取消)は入力例と規則であり、端から端のFlowではない | v0.21 Candidate | 未作成 | 入力から取消・結果までの順序と分岐 | Group BのSPECでWorkbench対象と合わせて作成する |
+| 状態遷移表／状態遷移図 | Task、候補、取消、回復 | 状態と許可される遷移の固定 | 作成不能 | 結果意味表と取消規則はあるが、状態と許可遷移を一つに固定する表または図ではない | v0.21 Candidate | 未作成 | 状態、遷移条件、禁止遷移、終端状態 | Group BのSPECで対象状態を確定して作成する |
+| Actor／System間Sequence図 | 一般Task | Actor、Runtime、Provider、Reviewerの順序 | 既存参照 | [Coordinator一般Taskの主シーケンス](../06_Architecture/coordinator/01_Architecture.md#3-一般taskの主シーケンス) | v0.20.1 Stable | 現行 | Workbench経路は未設計 | Group BのSPECで必要なSequenceを作成する |
+| Error／Effect分岐図 | 診断・回復 | Effect前停止と回復義務の分岐 | 作成不能 | [診断・回復の公開境界](#診断回復の公開境界)は条件説明であり、ErrorとEffectの分岐図ではない | v0.21 Candidate | 未作成 | Effect前後の失敗、結果、回復義務の分岐 | Group BのSPECで操作対象と合わせて作成する |
+| UI／SPEC対応図 | 現行Tool操作 | UI表示・操作と本仕様の対応 | 既存参照 | [UIと振る舞い仕様の対応](../04_UI/01_User_Interface.md#6-uiと振る舞い仕様の対応) | v0.20.1 Stable＋v0.21 Candidate | 現行 | Workbench部分は未対応 | Group Bの共同レビューで更新する |
+
 ## 対象と読み方
 
 本書はCRDD参照Runtimeの入力、利用条件、結果、停止・回復、および現在の実装範囲を所有する。上位の[エージェント組織](../04_Agent_Organization.md)や人間の決定権限を再定義しない。実行手順は[作業手順](../19_Workflows/01_Coordinator_Runtime.md)、成立方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証の現在状態は[品質確認](../07_Quality/01_Quality_Center.md)へ分離する。
 
-Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Project Runtimeはv0.19.0で公開し、v0.20.0で責務分離、限定並列実行、状態投影およびローカルMCP HTTPを追加した。現在状態は[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)、[v0.20変更](../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)および[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。
+Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Project Runtimeはv0.19.0で公開し、v0.20.0で責務分離、限定並列実行、状態投影およびローカルMCP HTTPを追加した。現在状態は[CHG-000057](../99_Roadmap/Changes/CHG-000057/change.md)、[v0.20変更](../99_Roadmap/Changes/CHG-000063/change.md)および[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。
 
-利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
+利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../99_Roadmap/Changes/CHG-000014/change.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
 
 ## 現在できること
 
@@ -22,7 +32,7 @@ Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Sta
 
 Coordinatorは依頼を安全な候補成果物へつなぐ実行ツール、[Checker](#checker-contract)は文書を変更せず整合を検査する独立ツール、[platform-access](#platform-access-contract)はCoordinatorから利用するWindows内部部品である。以下のRuntime利用条件を、Checker単独実行の条件へ適用しない。
 
-公開済みv0.18.1は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。現行Runtime実行Identityでは、fresh cloneと親Repository＋submoduleの一般Task、実Providerの4経路4/4、および失敗／timeout／cancel／親Process消失／cleanup不明を含むRecovery Matrixを実測した。字句解析、共通Launcher結合、子Process／Worker起動APIのimportと全利用箇所の照合、および説明不能な起動形のFail Closedも署名Identityへ含む。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。旧版での実務自己適用の有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。この未実証範囲は公開済みBaselineの利用制限であり、公開判断の残件ではない。
+公開済みv0.18.1は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。現行Runtime実行Identityでは、fresh cloneと親Repository＋submoduleの一般Task、実Providerの4経路4/4、および失敗／timeout／cancel／親Process消失／cleanup不明を含むRecovery Matrixを実測した。字句解析、共通Launcher結合、子Process／Worker起動APIのimportと全利用箇所の照合、および説明不能な起動形のFail Closedも署名Identityへ含む。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。旧版での実務自己適用の有用性は[現時点の評価](../99_Roadmap/Changes/CHG-000055/change.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。この未実証範囲は公開済みBaselineの利用制限であり、公開判断の残件ではない。
 
 過去の`f2243b46…f1aaa`および`33cca9b8…2473a`に対する実測は未公開候補の履歴である。独立確認で、前者は共通Launcherから到達する署名・4経路・Recovery Runnerの閉包不足、後者は依存抽出と選択scriptの子Process／Worker targetをFail Closedに閉じる不足を検出した。どちらもv0.18.1の最終Authority根拠へ流用しない。これらを是正したRuntime実行Identity `e290df01…d9d41`と公式`v0.18.1` tagが現在の公開基準である。
 
@@ -82,7 +92,7 @@ RuntimeがOperation状態、実効Authority、Repository Identity、Provider起�
 
 Runtime 1.0が許可する変更は、Operation専用の隔離workspace内のローカル差分だけである。Provider子プロセスへcommit、push、merge、tag、Releaseまたは一般外部Effectの能力を与えない。
 
-詳細な脅威、主体別権限および停止条件は[脅威モデル](../06_Architecture/coordinator/02_Threat_Model.md)を参照する。変更の判断と追跡は[`CHG-000015`](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)が所有する。
+詳細な脅威、主体別権限および停止条件は[脅威モデル](../06_Architecture/coordinator/02_Threat_Model.md)を参照する。変更の判断と追跡は[`CHG-000015`](../99_Roadmap/Changes/CHG-000015/change.md)が所有する。
 
 Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけに使う。Repository本文は許可された読取り投影からだけ渡し、Password、Private Key、Session Token、API Keyその他のSecret値をPromptまたは投影へ含めない。認識可能なSecretをRuntimeが拒否しても未知Secretの不存在までは証明しない。
 
@@ -386,7 +396,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 - 現在の機械固定では、4経路Runnerが要求入口Profile、実Executor／Reviewer、独立性、初回経路では有効な既存同意の再利用または新規同意、後続3経路では同意の完全一致再利用、Candidate破棄、全Recovery ID空、秘密・Host Path・生Provider出力の非報告およびcanonical Repository無変更を完全一致で検査する。
 - 入口Providerの実Process IdentityはRunner単独ではattestせず、要求Profileと実Executor／ReviewerのEvidenceを区別する。
-- v0.18.1の現行Runtime実行Identity `e290df01…d9d41`ではfresh clone／submodule一般Task、4経路4/4とRecovery Matrixを完了した。旧候補Identity `f2243b46…f1aaa`と`33cca9b8…2473a`は[未公開候補の署名済み履歴](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md#8-現在状態と残件)として保持し、最終Authority根拠へ流用しない。旧`48515eb`の実Task取消と旧`45ea2ac`の通常CLIによる実務1件は版の違いを保持する。実務有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)へ集約済みだが、比較優位は未実証である。
+- v0.18.1の現行Runtime実行Identity `e290df01…d9d41`ではfresh clone／submodule一般Task、4経路4/4とRecovery Matrixを完了した。旧候補Identity `f2243b46…f1aaa`と`33cca9b8…2473a`は[未公開候補の署名済み履歴](../99_Roadmap/Changes/CHG-000056/change.md#8-現在状態と残件)として保持し、最終Authority根拠へ流用しない。旧`48515eb`の実Task取消と旧`45ea2ac`の通常CLIによる実務1件は版の違いを保持する。実務有用性は[現時点の評価](../99_Roadmap/Changes/CHG-000055/change.md#26-実務評価と最終確認への引渡し)へ集約済みだが、比較優位は未実証である。
 - Runtime全体の監査指摘の是正・再確認と端末追加確認を完了し、人間が内容と移行方針を採用した。v0.19.0でmain統合・公開し、v0.20.0の責務分離後も正式4経路E2EとRecovery Matrixを再確認した。[品質の現在状態](../07_Quality/01_Quality_Center.md)で追跡する。
 
 - 4経路実測より前の経緯として、production回復／CLI matrixの実装と旧固定版の独立確認を終え、正式署名一般Task Runnerの対話搬送、実行Identity、Release grammar、複合Recoveryおよび取消境界の機械確認と独立再レビュー／再監査を経て、固定1 Pathの`Codex Front → Claude Code Executor → Codex Independent Reviewer`成功経路を完走した。

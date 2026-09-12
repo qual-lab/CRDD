@@ -327,6 +327,11 @@ let repositoryMode =
       : "generic";
 let adoptedBaselineRoot =
   repositoryMode === "adopter" ? baselineCandidateRoot : null;
+const isWorkLifecycleContractActive =
+  repositoryMode === "official" &&
+  fs.existsSync(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000070", "change.md"),
+  );
 
 const findings: Finding[] = [];
 const add = (severity: string, code: string, file: string, message: string) =>
@@ -335,29 +340,692 @@ const relative = (file: string) =>
   path.relative(root, file).replaceAll("\\", "/") || ".";
 const read = (file: string) => fs.readFileSync(file, "utf8");
 
-let releaseRoots = [
-  path.join(root, "90_Release"),
+type WorkLifecycleMigrationEntry = Readonly<{
+  source: string;
+  target: string;
+  sourceSha256: string;
+  sourceBytes: number;
+  targetSha256: string;
+  targetBytes: number;
+  currentnessAtMigration: "current" | "fixed_history";
+}>;
+
+type WorkLifecycleMigrationManifest = Readonly<{
+  sourceCommit: string;
+  sourceTree: string;
+  transformationContract: "fixed-history-byte-preserving-v3";
+  changes: number;
+  changeEvidence: number;
+  verificationResults: number;
+  releases: readonly string[];
+  entries: Map<string, WorkLifecycleMigrationEntry>;
+}>;
+
+function isCanonicalRepositoryRelativePath(value: string): boolean {
+  return (
+    value.length > 0 &&
+    value === value.replaceAll("\\", "/") &&
+    !path.posix.isAbsolute(value) &&
+    !/^[a-z]:/iu.test(value) &&
+    path.posix.normalize(value) === value &&
+    value
+      .split("/")
+      .every((segment) => segment !== "" && segment !== "." && segment !== "..")
+  );
+}
+
+function isAllowedWorkLifecycleTarget(source: string, target: string): boolean {
+  if (source === "99_Roadmap/01_Product_Roadmap.md")
+    return target === "99_Roadmap/01_Roadmap.md";
+  if (source === "90_Release/Changes/README.md")
+    return target === "99_Roadmap/02_Changes.md";
+  const change = source.match(
+    /^90_Release\/Changes\/(CHG-[0-9]{6})_[^/]+\.md$/u,
+  )?.[1];
+  if (change) return target === `99_Roadmap/Changes/${change}/change.md`;
+  if (source.startsWith("90_Release/Changes/Evidence/"))
+    return /^99_Roadmap\/Changes\/CHG-[0-9]{6}\/Evidence\/[^/]+$/u.test(target);
+  if (source.startsWith("07_Quality/Verification_Results/"))
+    return (
+      /^99_Roadmap\/Changes\/CHG-[0-9]{6}\/Evidence\/[^/]+$/u.test(target) ||
+      /^99_Roadmap\/Releases\/v[0-9]+\.[0-9]+\.[0-9]+\/Evidence\/[^/]+$/u.test(
+        target,
+      )
+    );
+  const templateTargets = new Map([
+    [
+      "template/99_Roadmap/01_Product_Roadmap.md",
+      "template/99_Roadmap/01_Roadmap.md",
+    ],
+    [
+      "template/90_Release/Changes/CHG-XXXXXX_Template.md",
+      "template/99_Roadmap/Changes/CHG-XXXXXX/change.md",
+    ],
+    [
+      "template/90_Release/Evidence/.gitkeep",
+      "template/99_Roadmap/Changes/CHG-XXXXXX/Evidence/.gitkeep",
+    ],
+  ]);
+  return templateTargets.get(source) === target;
+}
+
+function readWorkLifecycleMigrationManifest(): WorkLifecycleMigrationManifest | null {
+  const manifestPath = path.join(
+    root,
+    "99_Roadmap/Changes/CHG-000070/Evidence/260912-2142_migration-map.json",
+  );
+  if (!fs.existsSync(manifestPath)) return null;
+  try {
+    const raw: unknown = JSON.parse(read(manifestPath));
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const record = raw as Record<string, unknown>;
+    if (
+      record.contract !== "crdd/work-lifecycle-migration-map" ||
+      record.contractRevision !== 1 ||
+      record.status !== "migrated" ||
+      typeof record.sourceCommit !== "string" ||
+      !/^[a-f0-9]{40}$/u.test(record.sourceCommit) ||
+      typeof record.sourceTree !== "string" ||
+      !/^[a-f0-9]{40}$/u.test(record.sourceTree) ||
+      record.transformationContract !== "fixed-history-byte-preserving-v3" ||
+      !Array.isArray(record.entries) ||
+      record.totalMoves !== record.entries.length ||
+      !Number.isSafeInteger(record.changes) ||
+      !Number.isSafeInteger(record.changeEvidence) ||
+      !Number.isSafeInteger(record.verificationResults) ||
+      !Array.isArray(record.releases) ||
+      record.releases.some(
+        (release) =>
+          typeof release !== "string" ||
+          !/^v[0-9]+\.[0-9]+\.[0-9]+$/u.test(release),
+      )
+    )
+      return null;
+    const result = new Map<string, WorkLifecycleMigrationEntry>();
+    const sources = new Set<string>();
+    for (const rawEntry of record.entries) {
+      if (!rawEntry || typeof rawEntry !== "object" || Array.isArray(rawEntry))
+        return null;
+      const entry = rawEntry as Record<string, unknown>;
+      if (
+        typeof entry.source !== "string" ||
+        typeof entry.target !== "string" ||
+        typeof entry.sourceSha256 !== "string" ||
+        typeof entry.targetSha256 !== "string" ||
+        !/^[a-f0-9]{64}$/u.test(entry.sourceSha256) ||
+        !/^[a-f0-9]{64}$/u.test(entry.targetSha256) ||
+        !Number.isSafeInteger(entry.sourceBytes) ||
+        !Number.isSafeInteger(entry.targetBytes) ||
+        !["current", "fixed_history"].includes(
+          String(entry.currentnessAtMigration),
+        ) ||
+        !isCanonicalRepositoryRelativePath(entry.source) ||
+        !isCanonicalRepositoryRelativePath(entry.target) ||
+        !isAllowedWorkLifecycleTarget(entry.source, entry.target) ||
+        sources.has(entry.source) ||
+        result.has(entry.target)
+      )
+        return null;
+      sources.add(entry.source);
+      result.set(entry.target, entry as WorkLifecycleMigrationEntry);
+    }
+    return {
+      sourceCommit: record.sourceCommit,
+      sourceTree: record.sourceTree,
+      transformationContract: "fixed-history-byte-preserving-v3",
+      changes: record.changes as number,
+      changeEvidence: record.changeEvidence as number,
+      verificationResults: record.verificationResults as number,
+      releases: record.releases as string[],
+      entries: result,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const workLifecycleMigrationManifest = readWorkLifecycleMigrationManifest();
+const workLifecycleMigrationEntries =
+  workLifecycleMigrationManifest?.entries ?? new Map();
+const workLifecycleSourceDisposition = workLifecycleMigrationManifest
+  ? readSourceDispositionCurrentness(
+      workLifecycleMigrationManifest.sourceCommit,
+    )
+  : null;
+
+const WORK_LIFECYCLE_TEXT_EXTENSIONS = new Set([
+  ".cjs",
+  ".html",
+  ".js",
+  ".json",
+  ".md",
+  ".mjs",
+  ".ps1",
+  ".rs",
+  ".tap",
+  ".toml",
+  ".ts",
+  ".txt",
+  ".yaml",
+  ".yml",
+]);
+
+function applyWorkLifecyclePathRewrite(
+  sourcePath: string,
+  sourceBytes: Buffer,
+): Buffer {
+  if (
+    !WORK_LIFECYCLE_TEXT_EXTENSIONS.has(path.extname(sourcePath).toLowerCase())
+  )
+    return sourceBytes;
+  const pathMap = new Map(
+    [...workLifecycleMigrationEntries.values()].map((entry) => [
+      entry.source,
+      entry.target,
+    ]),
+  );
+  const replacements = [...pathMap.entries()].sort(
+    (left, right) => right[0].length - left[0].length,
+  );
+  const mappedTarget = (rawTarget: string): string | null => {
+    if (
+      rawTarget.startsWith("#") ||
+      /^[a-z][a-z0-9+.-]*:/iu.test(rawTarget) ||
+      rawTarget.startsWith("//")
+    )
+      return null;
+    if (
+      /^90_Release\/Changes\/CHG-[0-9]{6}_[^/]+\.md$/u.test(sourcePath) &&
+      rawTarget.endsWith("90_Release/Changes/Evidence")
+    )
+      return "./Evidence/";
+    const hashIndex = rawTarget.indexOf("#");
+    const targetPart =
+      hashIndex >= 0 ? rawTarget.slice(0, hashIndex) : rawTarget;
+    const anchor = hashIndex >= 0 ? rawTarget.slice(hashIndex) : "";
+    if (!targetPart) return null;
+    const isWrapped = targetPart.startsWith("<") && targetPart.endsWith(">");
+    const unwrapped = isWrapped ? targetPart.slice(1, -1) : targetPart;
+    const resolved = path.posix.normalize(
+      path.posix.join(path.posix.dirname(sourcePath), unwrapped),
+    );
+    if (
+      /^90_Release\/Changes\/CHG-[0-9]{6}_[^/]+\.md$/u.test(sourcePath) &&
+      resolved === "90_Release/Changes/Evidence"
+    )
+      return `./Evidence/${anchor}`;
+    const migrated = pathMap.get(resolved) ?? resolved;
+    const newSource = pathMap.get(sourcePath) ?? sourcePath;
+    if (migrated === resolved && newSource === sourcePath) return null;
+    let relativeTarget = path.posix.relative(
+      path.posix.dirname(newSource),
+      migrated,
+    );
+    if (!relativeTarget.startsWith(".")) relativeTarget = `./${relativeTarget}`;
+    return `${isWrapped ? `<${relativeTarget}>` : relativeTarget}${anchor}`;
+  };
+  const hasBom =
+    sourceBytes.length >= 3 &&
+    sourceBytes.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf]));
+  let content = sourceBytes.toString("utf8");
+  content = content.replace(
+    /(\]\()([^\r\n)]+)(\))/gu,
+    (whole, open: string, target: string, close: string) => {
+      const mapped = mappedTarget(target);
+      return mapped === null ? whole : `${open}${mapped}${close}`;
+    },
+  );
+  for (const [source, target] of replacements) {
+    content = content.replaceAll(source, target);
+    content = content.replaceAll(
+      source.replaceAll("/", "\\"),
+      target.replaceAll("/", "\\"),
+    );
+  }
+  let result = Buffer.from(content, "utf8");
+  if (hasBom && !result.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])))
+    result = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), result]);
+  return result;
+}
+
+function readSourceDispositionCurrentness(
+  sourceCommit: string,
+): Map<string, "current" | "fixed_history"> | null {
+  const result = spawnSync(
+    "git",
+    [
+      "show",
+      `${sourceCommit}:07_Quality/07_Structured_Document_Disposition_Inventory.json`,
+    ],
+    { cwd: root, encoding: "utf8", windowsHide: true },
+  );
+  if (result.status !== 0) return null;
+  try {
+    const parsed: unknown = JSON.parse(result.stdout);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return null;
+    const entries = (parsed as { entries?: unknown }).entries;
+    if (!Array.isArray(entries)) return null;
+    const currentness = new Map<string, "current" | "fixed_history">();
+    for (const rawEntry of entries) {
+      if (!rawEntry || typeof rawEntry !== "object" || Array.isArray(rawEntry))
+        return null;
+      const entry = rawEntry as Record<string, unknown>;
+      if (
+        typeof entry.path !== "string" ||
+        !["current", "fixed_history"].includes(String(entry.currentness)) ||
+        currentness.has(entry.path)
+      )
+        return null;
+      currentness.set(
+        entry.path,
+        entry.currentness as "current" | "fixed_history",
+      );
+    }
+    return currentness;
+  } catch {
+    return null;
+  }
+}
+
+function deriveMigrationCurrentness(
+  source: string,
+  sourceDisposition: ReadonlyMap<string, "current" | "fixed_history">,
+): "current" | "fixed_history" | null {
+  if (path.posix.extname(source).toLowerCase() === ".md")
+    return sourceDisposition.get(source) ?? null;
+  if (
+    source.startsWith("90_Release/Changes/Evidence/") ||
+    source.startsWith("07_Quality/Verification_Results/")
+  )
+    return "fixed_history";
+  return "current";
+}
+
+function hasSymlinkInRepositoryPath(relativePath: string): boolean {
+  let current = root;
+  for (const segment of relativePath.split("/")) {
+    current = path.join(current, segment);
+    const stat = lstatIfPresent(current);
+    if (stat?.isSymbolicLink()) return true;
+    if (!stat) break;
+  }
+  return false;
+}
+
+function checkWorkLifecycleMigrationManifest(): void {
+  if (repositoryMode !== "official") return;
+  const manifestPath =
+    "99_Roadmap/Changes/CHG-000070/Evidence/260912-2142_migration-map.json";
+  if (
+    !fs.existsSync(
+      path.join(root, "99_Roadmap", "Changes", "CHG-000070", "change.md"),
+    )
+  )
+    return;
+  if (!workLifecycleMigrationManifest) {
+    add(
+      "error",
+      "work-lifecycle-migration-manifest-invalid",
+      manifestPath,
+      "The Work Lifecycle migration manifest is missing or malformed.",
+    );
+    return;
+  }
+  const { sourceCommit, sourceTree } = workLifecycleMigrationManifest;
+  const ancestor = spawnSync(
+    "git",
+    ["merge-base", "--is-ancestor", sourceCommit, "HEAD"],
+    { cwd: root, encoding: "utf8", windowsHide: true },
+  );
+  if (ancestor.status !== 0) {
+    add(
+      "error",
+      "work-lifecycle-migration-source-not-ancestor",
+      manifestPath,
+      "The pre-migration commit must be an ancestor of the current candidate.",
+    );
+  }
+  const tree = spawnSync("git", ["show", "-s", "--format=%T", sourceCommit], {
+    cwd: root,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (tree.status !== 0 || tree.stdout.trim() !== sourceTree) {
+    add(
+      "error",
+      "work-lifecycle-migration-source-identity-mismatch",
+      manifestPath,
+      "The declared pre-migration commit and tree do not resolve exactly.",
+    );
+    return;
+  }
+  const sourceDisposition = readSourceDispositionCurrentness(sourceCommit);
+  if (!sourceDisposition) {
+    add(
+      "error",
+      "work-lifecycle-migration-source-disposition-invalid",
+      manifestPath,
+      "The source revision does not provide a valid independent Markdown disposition inventory.",
+    );
+    return;
+  }
+  const sourceListing = spawnSync(
+    "git",
+    ["ls-tree", "-r", "--name-only", sourceCommit],
+    { cwd: root, encoding: "utf8", windowsHide: true },
+  );
+  const expectedSources = new Set(
+    sourceListing.stdout
+      .split(/\r?\n/u)
+      .filter(
+        (entry) =>
+          entry === "99_Roadmap/01_Product_Roadmap.md" ||
+          entry === "90_Release/Changes/README.md" ||
+          /^90_Release\/Changes\/CHG-[0-9]{6}_[^/]+\.md$/u.test(entry) ||
+          entry.startsWith("90_Release/Changes/Evidence/") ||
+          entry.startsWith("07_Quality/Verification_Results/") ||
+          entry === "template/99_Roadmap/01_Product_Roadmap.md" ||
+          entry === "template/90_Release/Changes/CHG-XXXXXX_Template.md" ||
+          entry === "template/90_Release/Evidence/.gitkeep",
+      ),
+  );
+  const declaredSources = new Set(
+    [...workLifecycleMigrationEntries.values()].map((entry) => entry.source),
+  );
+  if (
+    sourceListing.status !== 0 ||
+    expectedSources.size !== declaredSources.size ||
+    [...expectedSources].some((entry) => !declaredSources.has(entry))
+  ) {
+    add(
+      "error",
+      "work-lifecycle-migration-population-mismatch",
+      manifestPath,
+      "The manifest source population does not exactly match the pre-migration tree.",
+    );
+  }
+  const entries = [...workLifecycleMigrationEntries.values()];
+  const observedChanges = entries.filter((entry) =>
+    /^90_Release\/Changes\/CHG-[0-9]{6}_[^/]+\.md$/u.test(entry.source),
+  ).length;
+  const observedChangeEvidence = entries.filter((entry) =>
+    entry.source.startsWith("90_Release/Changes/Evidence/"),
+  ).length;
+  const observedVerificationResults = entries.filter((entry) =>
+    entry.source.startsWith("07_Quality/Verification_Results/"),
+  ).length;
+  const observedReleases = [
+    ...new Set(
+      entries.flatMap(
+        (entry) =>
+          entry.target
+            .match(
+              /^99_Roadmap\/Releases\/(v[0-9]+\.[0-9]+\.[0-9]+)\/Evidence\//u,
+            )
+            ?.slice(1, 2) ?? [],
+      ),
+    ),
+  ].sort();
+  if (
+    workLifecycleMigrationManifest.changes !== observedChanges ||
+    workLifecycleMigrationManifest.changeEvidence !== observedChangeEvidence ||
+    workLifecycleMigrationManifest.verificationResults !==
+      observedVerificationResults ||
+    JSON.stringify([...workLifecycleMigrationManifest.releases].sort()) !==
+      JSON.stringify(observedReleases)
+  )
+    add(
+      "error",
+      "work-lifecycle-migration-summary-mismatch",
+      manifestPath,
+      "The declared migration summary must equal the independently counted entry population.",
+    );
+  for (const entry of workLifecycleMigrationEntries.values()) {
+    const derivedCurrentness = deriveMigrationCurrentness(
+      entry.source,
+      sourceDisposition,
+    );
+    if (
+      derivedCurrentness === null ||
+      entry.currentnessAtMigration !== derivedCurrentness
+    ) {
+      add(
+        "error",
+        "work-lifecycle-migration-currentness-mismatch",
+        entry.target,
+        "The declared migration currentness differs from the source revision's independent classification.",
+      );
+      continue;
+    }
+    const resolvedTarget = path.resolve(root, entry.target);
+    if (
+      resolvedTarget !== path.join(root, ...entry.target.split("/")) ||
+      !resolvedTarget.startsWith(`${root}${path.sep}`) ||
+      hasSymlinkInRepositoryPath(entry.target)
+    ) {
+      add(
+        "error",
+        "work-lifecycle-migration-target-boundary-invalid",
+        entry.target,
+        "The migration target must remain inside the repository and must not traverse a symbolic link.",
+      );
+      continue;
+    }
+    const source = spawnSync(
+      "git",
+      ["show", `${sourceCommit}:${entry.source}`],
+      { cwd: root, encoding: "buffer", windowsHide: true },
+    );
+    if (
+      source.status !== 0 ||
+      !source.stdout ||
+      createHash("sha256").update(source.stdout).digest("hex") !==
+        entry.sourceSha256 ||
+      source.stdout.length !== entry.sourceBytes
+    ) {
+      add(
+        "error",
+        "work-lifecycle-migration-source-mismatch",
+        entry.target,
+        "The fixed source bytes do not match the manifest.",
+      );
+      continue;
+    }
+    const transformed =
+      derivedCurrentness === "fixed_history"
+        ? source.stdout
+        : applyWorkLifecyclePathRewrite(entry.source, source.stdout);
+    if (
+      createHash("sha256").update(transformed).digest("hex") !==
+        entry.targetSha256 ||
+      transformed.length !== entry.targetBytes
+    ) {
+      add(
+        "error",
+        "work-lifecycle-migration-transformation-mismatch",
+        entry.target,
+        "The declared target cannot be reproduced by the canonical path rewrite.",
+      );
+      continue;
+    }
+    const targetPath = path.join(root, entry.target);
+    if (!lstatIfPresent(targetPath)?.isFile()) {
+      add(
+        "error",
+        "work-lifecycle-migration-target-missing",
+        entry.target,
+        "A declared migration target is missing.",
+      );
+      continue;
+    }
+    if (derivedCurrentness === "fixed_history") {
+      const current = fs.readFileSync(targetPath);
+      if (
+        entry.targetSha256 !== entry.sourceSha256 ||
+        entry.targetBytes !== entry.sourceBytes ||
+        !current.equals(source.stdout)
+      )
+        add(
+          "error",
+          "work-lifecycle-fixed-history-modified",
+          entry.target,
+          "A migrated fixed-history target differs from the reproducible migration result.",
+        );
+    }
+  }
+}
+
+checkWorkLifecycleMigrationManifest();
+
+function checkWorkLifecycleNavigation(): void {
+  if (!isWorkLifecycleContractActive) return;
+  for (const legacyPath of [
+    "90_Release",
+    "07_Quality/Verification_Results",
+    "template/90_Release",
+    "template/07_Quality/Verification_Results",
+  ]) {
+    if (fs.existsSync(path.join(root, legacyPath)))
+      add(
+        "error",
+        "legacy-work-lifecycle-path-present",
+        legacyPath,
+        "A legacy Work Lifecycle or centralized verification-results path must not be recreated.",
+      );
+  }
+  const changesRoot = path.join(root, "99_Roadmap", "Changes");
+  const changeIndexPath = path.join(root, "99_Roadmap", "02_Changes.md");
+  if (
+    !lstatIfPresent(changesRoot)?.isDirectory() ||
+    !fs.existsSync(changeIndexPath)
+  )
+    return;
+  const aggregateIds = fs
+    .readdirSync(changesRoot, { withFileTypes: true })
+    .filter(
+      (entry) => entry.isDirectory() && /^CHG-[0-9]{6}$/u.test(entry.name),
+    )
+    .filter((entry) =>
+      lstatIfPresent(path.join(changesRoot, entry.name, "change.md"))?.isFile(),
+    )
+    .map((entry) => entry.name)
+    .sort();
+  const index = read(changeIndexPath);
+  const aggregateIndex =
+    index.match(
+      /<!-- crdd-change-aggregate-index:start -->([\s\S]*?)<!-- crdd-change-aggregate-index:end -->/u,
+    )?.[1] ?? "";
+  const indexedIds = [
+    ...aggregateIndex.matchAll(/\.\/Changes\/(CHG-[0-9]{6})\/change\.md/gu),
+  ]
+    .map((match) => match[1])
+    .sort();
+  const uniqueIndexedIds = new Set(indexedIds);
+  if (
+    indexedIds.length !== uniqueIndexedIds.size ||
+    aggregateIds.length !== uniqueIndexedIds.size ||
+    aggregateIds.some((id) => !uniqueIndexedIds.has(id))
+  )
+    add(
+      "error",
+      "change-navigation-population-mismatch",
+      relative(changeIndexPath),
+      "The Change navigation must reference every ID-only Change aggregate exactly once and no unknown aggregate.",
+    );
+
+  const releaseIndexPath = path.join(root, "99_Roadmap", "03_Releases.md");
+  const releasesRoot = path.join(root, "99_Roadmap", "Releases");
+  if (
+    !fs.existsSync(releaseIndexPath) ||
+    !lstatIfPresent(releasesRoot)?.isDirectory()
+  )
+    return;
+  const releaseIndex = read(releaseIndexPath);
+  const evidencePaths: string[] = [];
+  for (const version of fs.readdirSync(releasesRoot, { withFileTypes: true })) {
+    if (!version.isDirectory()) continue;
+    const evidenceRoot = path.join(releasesRoot, version.name, "Evidence");
+    if (!lstatIfPresent(evidenceRoot)?.isDirectory()) continue;
+    for (const evidence of fs.readdirSync(evidenceRoot, {
+      withFileTypes: true,
+    })) {
+      if (evidence.isFile())
+        evidencePaths.push(
+          `./Releases/${version.name}/Evidence/${evidence.name}`,
+        );
+    }
+  }
+  if (
+    evidencePaths.some(
+      (evidencePath) => releaseIndex.split(evidencePath).length - 1 !== 1,
+    )
+  )
+    add(
+      "error",
+      "release-evidence-navigation-incomplete",
+      relative(releaseIndexPath),
+      "Every Release-owned Evidence file must have one exact navigation link.",
+    );
+}
+
+checkWorkLifecycleNavigation();
+
+function preMigrationPath(currentPath: string): string {
+  return workLifecycleMigrationEntries.get(currentPath)?.source ?? currentPath;
+}
+
+let workLifecycleRoots = [
+  path.join(root, isWorkLifecycleContractActive ? "99_Roadmap" : "90_Release"),
   ...(repositoryMode === "official"
-    ? [path.join(root, "template", "90_Release")]
+    ? [
+        path.join(
+          root,
+          "template",
+          isWorkLifecycleContractActive ? "99_Roadmap" : "90_Release",
+        ),
+      ]
     : []),
 ];
-let recognizedChangeTracePatterns = [
-  "90_Release/**/Changes/**/CHG-*.md",
-  ...(repositoryMode === "official"
-    ? ["template/90_Release/**/Changes/**/CHG-*.md"]
-    : []),
-];
+let recognizedChangeTracePatterns = isWorkLifecycleContractActive
+  ? [
+      "99_Roadmap/Changes/CHG-*/change.md",
+      ...(repositoryMode === "official"
+        ? ["template/99_Roadmap/Changes/CHG-*/change.md"]
+        : []),
+    ]
+  : [
+      "90_Release/**/Changes/**/CHG-*.md",
+      ...(repositoryMode === "official"
+        ? ["template/90_Release/**/Changes/**/CHG-*.md"]
+        : []),
+    ];
 
 function changeTraceRootFor(file: string): string | null {
-  for (const releaseRoot of releaseRoots) {
-    if (!isWithin(releaseRoot, file)) continue;
-    const parts = path.relative(releaseRoot, file).split(path.sep);
-    const directories = parts.slice(0, -1);
+  for (const workLifecycleRoot of workLifecycleRoots) {
+    if (!isWithin(workLifecycleRoot, file)) continue;
+    const relativeParts = path
+      .relative(workLifecycleRoot, file)
+      .split(path.sep);
+    if (isWorkLifecycleContractActive) {
+      if (
+        relativeParts.length !== 3 ||
+        relativeParts[0] !== "Changes" ||
+        !/^(?:CHG-[0-9]{6}|CHG-XXXXXX)$/u.test(relativeParts[1]) ||
+        relativeParts[2] !== "change.md"
+      )
+        continue;
+      return path.join(workLifecycleRoot, "Changes", relativeParts[1]);
+    }
+    const directories = relativeParts.slice(0, -1);
     const changesIndex = directories.findIndex(
       (part) => part.toLocaleLowerCase("en-US") === "changes",
     );
-    if (changesIndex < 0) continue;
-    return path.join(releaseRoot, ...directories.slice(0, changesIndex + 1));
+    if (changesIndex >= 0)
+      return path.join(
+        workLifecycleRoot,
+        ...directories.slice(0, changesIndex + 1),
+      );
   }
   return null;
 }
@@ -374,7 +1042,7 @@ function declaredChangeTraceId(file: string): string | null {
   const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
   return (
     header.match(
-      /^(?:Change ID|変更ID|change_id)\s*[:：]\s*`?(CHG-[A-Za-z0-9-]+)/imu,
+      /^(?:Change ID|変更(?:トレース)?ID|change_id)\s*[:：]\s*`?(CHG-[A-Za-z0-9-]+)/imu,
     )?.[1] || null
   );
 }
@@ -422,6 +1090,28 @@ function historicalReferenceKey(source: string, target: string): string {
   return `${path.resolve(source)}\0${path.resolve(target)}`;
 }
 
+function countExactHistoricalLinks(
+  sourceBytes: Buffer,
+  sourceAbsolute: string,
+  targetAbsolute: string,
+  expectedAnchor: string | null = null,
+): number {
+  return [
+    ...withoutFencedCode(sourceBytes.toString("utf8")).matchAll(
+      /(?<!!)\[[^\]]+\]\(([^)]+)\)/g,
+    ),
+  ].filter((link) => {
+    const resolution = resolveLocalTarget(sourceAbsolute, link[1]);
+    return (
+      !resolution.external &&
+      (resolution.anchor || null) === expectedAnchor &&
+      !resolution.decodeError &&
+      !resolution.outsideRoot &&
+      samePath(resolution.target, targetAbsolute)
+    );
+  }).length;
+}
+
 type ReleasedNavigationMigration = Readonly<{
   sourceSha256: string;
   replacements: readonly Readonly<{
@@ -438,7 +1128,9 @@ function readReleasedNavigationMigrations(
   const result = new Map<string, ReleasedNavigationMigration>();
   const recordPath = path.join(
     root,
-    "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
+    ...(isWorkLifecycleContractActive
+      ? ["99_Roadmap", "Changes", "CHG-000017", "change.md"]
+      : ["90_Release", "Changes", "CHG-000017_Tools_Coding_Standards.md"]),
   );
   if (!fs.existsSync(recordPath)) return result;
   const reject = (detail = "record_contract") => {
@@ -495,7 +1187,7 @@ function readReleasedNavigationMigrations(
       !isObject(entry) ||
       !hasKeys(entry, ["sourcePath", "sourceSha256", "replacements"]) ||
       typeof entry.sourcePath !== "string" ||
-      !/^90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md$/u.test(
+      !/^(?:90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md|99_Roadmap\/Changes\/CHG-[0-9]{6}\/change\.md)$/u.test(
         entry.sourcePath,
       ) ||
       typeof entry.sourceSha256 !== "string" ||
@@ -527,11 +1219,16 @@ function readReleasedNavigationMigrations(
         replacement.count > 64
       )
         return reject("replacement_shape");
-      const beforeMatch = replacement.before.match(
-        /^\[([^\]\r\n]+)\]\(\.\.\/\.\.\/(tools\/checker|40_Develop\/(checker|coordinator)\/tests)\/([a-z0-9.-]+\.ts)\)$/u,
+      const isMovedSource = workLifecycleMigrationEntries.has(entry.sourcePath);
+      const historicalLink = (value: string): string =>
+        isMovedSource ? value.replace("](../../../", "](../../") : value;
+      const beforeValue = historicalLink(replacement.before);
+      const beforeMatch = beforeValue.match(
+        /^\[([^\]\r\n]+)\]\((?:\.\.\/){2}(tools\/checker|40_Develop\/(checker|coordinator)\/tests)\/([a-z0-9.-]+\.ts)\)$/u,
       );
-      const afterMatch = replacement.after.match(
-        /^\[([^\]\r\n]+)\]\(\.\.\/\.\.\/(40_Develop\/(checker|coordinator)(?:\/tests\/(?:unit|integration|system))?)\/([a-z0-9.-]+\.ts)\)$/u,
+      const afterValue = historicalLink(replacement.after);
+      const afterMatch = afterValue.match(
+        /^\[([^\]\r\n]+)\]\((?:\.\.\/){2,3}(40_Develop\/(checker|coordinator)(?:\/tests\/(?:unit|integration|system))?)\/([a-z0-9.-]+\.ts)\)$/u,
       );
       const beforeOwner =
         beforeMatch?.[2] === "tools/checker" ? "checker" : beforeMatch?.[3];
@@ -547,10 +1244,12 @@ function readReleasedNavigationMigrations(
           afterMatch?.[1] === `\`${afterTarget}\``);
       const viaValue =
         typeof replacement.via === "string" ? replacement.via : undefined;
+      const historicalViaValue =
+        viaValue === undefined ? undefined : historicalLink(viaValue);
       const viaMatch =
-        viaValue !== undefined
-          ? viaValue.match(
-              /^\[([^\]\r\n]+)\]\(\.\.\/\.\.\/(40_Develop\/(checker|coordinator)(?:\/tests)?)\/([a-z0-9.-]+\.ts)\)$/u,
+        historicalViaValue !== undefined
+          ? historicalViaValue.match(
+              /^\[([^\]\r\n]+)\]\((?:\.\.\/){2}(40_Develop\/(checker|coordinator)(?:\/tests)?)\/([a-z0-9.-]+\.ts)\)$/u,
             )
           : null;
       const viaTarget = viaMatch ? `${viaMatch[2]}/${viaMatch[4]}` : null;
@@ -582,9 +1281,11 @@ function readReleasedNavigationMigrations(
           `successor_unavailable:${afterMatch[2]}/${afterMatch[4]}`,
         );
       replacements.push({
-        before: replacement.before,
-        ...(viaValue === undefined ? {} : { via: viaValue }),
-        after: replacement.after,
+        before: beforeValue,
+        ...(historicalViaValue === undefined
+          ? {}
+          : { via: historicalViaValue }),
+        after: afterValue,
         count: replacement.count,
       });
     }
@@ -606,11 +1307,13 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
       maxBuffer: 16 * 1_048_576,
     });
   const marker = "<!-- crdd-released-navigation-correction: 1 -->";
+  const correctionRecordPattern = isWorkLifecycleContractActive
+    ? /^99_Roadmap\/Changes\/CHG-[0-9]{6}\/change\.md$/u
+    : /^90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md$/u;
   const recordFiles = allFiles.filter(
     (file) =>
-      /^90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md$/u.test(
-        relative(file),
-      ) && read(file).includes(marker),
+      correctionRecordPattern.test(relative(file)) &&
+      read(file).includes(marker),
   );
   const reject = (recordPath: string, detail: string) =>
     add(
@@ -665,7 +1368,7 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
           .join("\0") ||
       value.schemaRevision !== 1 ||
       typeof value.sourcePath !== "string" ||
-      !/^90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md$/u.test(
+      !/^(?:90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_-]+\.md|99_Roadmap\/Changes\/CHG-[0-9]{6}\/change\.md)$/u.test(
         value.sourcePath,
       ) ||
       samePath(recordPath, path.join(root, value.sourcePath)) ||
@@ -683,10 +1386,16 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
       continue;
     }
     const sourceRelativePath = value.sourcePath as string;
+    const historicalSourceRelativePath = preMigrationPath(sourceRelativePath);
     const sourceRelease = value.sourceRelease as string;
     const sourceSha256 = value.sourceSha256 as string;
     const replacements = value.replacements as unknown[];
     const sourcePath = path.join(root, ...sourceRelativePath.split("/"));
+    const historicalSourcePath = path.join(
+      root,
+      ...historicalSourceRelativePath.split("/"),
+    );
+    const isMovedSource = historicalSourceRelativePath !== sourceRelativePath;
     const sourceStat = lstatIfPresent(sourcePath);
     const tagCommit = gitCorrectionText([
       "rev-parse",
@@ -700,7 +1409,12 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
     const fixedObject = /^[0-9a-f]{40}$/u.test(tagCommitId)
       ? spawnSync(
           "git",
-          ["-C", root, "show", `${tagCommitId}:${sourceRelativePath}`],
+          [
+            "-C",
+            root,
+            "show",
+            `${tagCommitId}:${historicalSourceRelativePath}`,
+          ],
           {
             encoding: null,
             windowsHide: true,
@@ -745,15 +1459,21 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
       const via = replacement.via;
       const after = replacement.after;
       const count = replacement.count;
-      const beforeText = typeof before === "string" ? before : "";
+      const asHistoricalLink = (value: string): string =>
+        isMovedSource ? value.replace("](../../../", "](../../") : value;
+      const beforeText =
+        typeof before === "string" ? asHistoricalLink(before) : "";
       const afterText = typeof after === "string" ? after : "";
-      const linkPattern = /^\[([^\]\r\n]+)\]\((\.\.\/\.\.\/[^)\r\n]+)\)$/u;
+      const historicalAfterText = asHistoricalLink(afterText);
+      const linkPattern = /^\[([^\]\r\n]+)\]\(((?:\.\.\/){2,3}[^)\r\n]+)\)$/u;
       const exactTagPathPattern =
         /^Git tag `([^`\r\n]+)` のexact path `([^`\r\n]+)`$/u;
       const beforeMatch = beforeText.match(linkPattern);
       const afterMatch = afterText.match(linkPattern);
       const exactTagPathMatch = afterText.match(exactTagPathPattern);
-      const viaMatch = typeof via === "string" ? via.match(linkPattern) : null;
+      const historicalVia =
+        typeof via === "string" ? asHistoricalLink(via) : undefined;
+      const viaMatch = historicalVia?.match(linkPattern) ?? null;
       const afterTarget = afterMatch
         ? path.resolve(path.dirname(sourcePath), afterMatch[2])
         : "";
@@ -777,7 +1497,7 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
       const exactTagTarget = exactTagPathMatch?.[2] ?? "";
       const beforeTargetPath = beforeMatch
         ? path.resolve(
-            path.dirname(sourcePath),
+            path.dirname(historicalSourcePath),
             beforeMatch[2].split("#", 1)[0],
           )
         : "";
@@ -823,15 +1543,15 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
         break;
       }
       seenBefore.add(beforeText);
-      expectedText = expectedText.replaceAll(beforeText, afterText);
+      expectedText = expectedText.replaceAll(beforeText, historicalAfterText);
       intermediateText = intermediateText.replaceAll(
         beforeText,
-        typeof via === "string" ? via : afterText,
+        historicalVia ?? afterText,
       );
     }
     const currentHead = spawnSync(
       "git",
-      ["-C", root, "show", `HEAD:${sourceRelativePath}`],
+      ["-C", root, "show", `HEAD:${historicalSourceRelativePath}`],
       {
         encoding: null,
         windowsHide: true,
@@ -844,17 +1564,34 @@ function checkReleasedNavigationCorrections(allFiles: readonly string[]): void {
       : Buffer.alloc(0);
     const currentWorktree = fs.readFileSync(sourcePath, "utf8");
     const normalize = (text: string) => text.replaceAll("\r\n", "\n");
+    const sourceMigration =
+      workLifecycleMigrationEntries.get(sourceRelativePath);
+    const expectedBytes = Buffer.from(expectedText, "utf8");
+    const currentWorktreeBytes = Buffer.from(currentWorktree, "utf8");
+    const migratedSourceMatches =
+      sourceMigration !== undefined &&
+      sourceMigration.source === historicalSourceRelativePath &&
+      sourceMigration.sourceSha256 ===
+        createHash("sha256").update(expectedBytes).digest("hex") &&
+      sourceMigration.sourceBytes === expectedBytes.length &&
+      sourceMigration.targetSha256 ===
+        createHash("sha256").update(currentWorktreeBytes).digest("hex") &&
+      sourceMigration.targetBytes === currentWorktreeBytes.length;
     if (!isReplacementSetValid) {
       reject(recordPath, "Released-link replacement mapping is invalid.");
       continue;
     }
     if (
-      currentHead.error ||
-      currentHead.status !== 0 ||
-      ![fixedBytes.toString("utf8"), intermediateText, expectedText].includes(
-        currentHeadBytes.toString("utf8"),
-      ) ||
-      normalize(currentWorktree) !== normalize(expectedText)
+      isMovedSource
+        ? !migratedSourceMatches
+        : currentHead.error ||
+          currentHead.status !== 0 ||
+          ![
+            fixedBytes.toString("utf8"),
+            intermediateText,
+            expectedText,
+          ].includes(currentHeadBytes.toString("utf8")) ||
+          normalize(currentWorktree) !== normalize(expectedText)
     )
       reject(
         recordPath,
@@ -873,7 +1610,10 @@ function checkConsolidatedChangeTraceLedger(
   ).length;
   const navigationMigrations = readReleasedNavigationMigrations(allFiles);
   const appliedNavigationSources = new Set<string>();
-  const ledger = path.join(root, "90_Release", "Changes", "README.md");
+  const ledgerRelativePath = isWorkLifecycleContractActive
+    ? "99_Roadmap/02_Changes.md"
+    : "90_Release/Changes/README.md";
+  const ledger = path.join(root, ...ledgerRelativePath.split("/"));
   const ledgerStat = lstatIfPresent(ledger);
   if (!ledgerStat && !allFiles.some((file) => samePath(file, ledger))) {
     return emptyConsolidationLedgerCheckResult;
@@ -913,7 +1653,7 @@ function checkConsolidatedChangeTraceLedger(
     "ls-files",
     "--stage",
     "--",
-    "90_Release/Changes/README.md",
+    ledgerRelativePath,
   ]);
   const headStart = (headStartResult.stdout ?? "").trim();
   const tagsStart = (tagsStartResult.stdout ?? "")
@@ -934,9 +1674,10 @@ function checkConsolidatedChangeTraceLedger(
     ledgerIndexResult.error ||
     ledgerIndexResult.status !== 0 ||
     (ledgerIndexResult.stderr ?? "").trim() ||
-    !/^(?:100644|100755) [0-9a-f]{40} 0\t90_Release\/Changes\/README\.md$/mu.test(
-      ledgerIndexResult.stdout ?? "",
-    )
+    !new RegExp(
+      `^(?:100644|100755) [0-9a-f]{40} 0\\t${ledgerRelativePath.replaceAll("/", "\\/").replaceAll(".", "\\.")}$`,
+      "mu",
+    ).test(ledgerIndexResult.stdout ?? "")
   ) {
     add(
       "error",
@@ -949,7 +1690,12 @@ function checkConsolidatedChangeTraceLedger(
 
   const liveIds = new Map<string, string>();
   for (const file of allFiles) {
-    if (isEvidenceFile(file) || !/^CHG-[^.]+\.md$/u.test(path.basename(file))) {
+    if (
+      isEvidenceFile(file) ||
+      (isWorkLifecycleContractActive
+        ? path.basename(file) !== "change.md"
+        : !/^CHG-[^.]+\.md$/u.test(path.basename(file)))
+    ) {
       continue;
     }
     if (!changeTraceRootFor(file)) continue;
@@ -1146,9 +1892,15 @@ function checkConsolidatedChangeTraceLedger(
     );
     const relatedEvidenceLine =
       section.match(/^- 関連Evidence:\s*(.+)$/mu)?.[1] ?? "";
-    const evidencePaths = [
-      ...relatedEvidenceLine.matchAll(/\]\(Evidence\/([^)#?]+\.md)\)/gu),
-    ].map((evidence) => `90_Release/Changes/Evidence/${evidence[1]}`);
+    const evidencePaths = isWorkLifecycleContractActive
+      ? [
+          ...relatedEvidenceLine.matchAll(
+            /\]\(\.\/Changes\/(CHG-[0-9]{6}\/Evidence\/[^)#?]+\.md)\)/gu,
+          ),
+        ].map((evidence) => `99_Roadmap/Changes/${evidence[1]}`)
+      : [
+          ...relatedEvidenceLine.matchAll(/\]\(Evidence\/([^)#?]+\.md)\)/gu),
+        ].map((evidence) => `90_Release/Changes/Evidence/${evidence[1]}`);
 
     if (anchor !== `consolidated-${oldId.toLocaleLowerCase("en-US")}`) {
       add(
@@ -1328,8 +2080,8 @@ function checkConsolidatedChangeTraceLedger(
       }
     }
   };
-  for (const releaseRoot of releaseRoots) {
-    const changesDirectory = path.join(releaseRoot, "Changes");
+  for (const workLifecycleRoot of workLifecycleRoots) {
+    const changesDirectory = path.join(workLifecycleRoot, "Changes");
     inspectReservedEntries(changesDirectory);
   }
   const indexEntries = gitText(["ls-files", "--stage", "-z"]);
@@ -1913,7 +2665,9 @@ function checkConsolidatedChangeTraceLedger(
           const id = `CHG-${numericId.toString().padStart(6, "0")}`;
           const candidates = allFiles.filter((file) => {
             if (isEvidenceFile(file) || !changeTraceRootFor(file)) return false;
-            return path.basename(file).startsWith(`${id}_`);
+            return isWorkLifecycleContractActive
+              ? relative(file) === `99_Roadmap/Changes/${id}/change.md`
+              : path.basename(file).startsWith(`${id}_`);
           });
           if (candidates.length !== 1) {
             add(
@@ -1926,23 +2680,29 @@ function checkConsolidatedChangeTraceLedger(
           }
           const currentFile = candidates[0];
           const currentRelativePath = relative(currentFile);
-          const containingTags = tagPaths.get(currentRelativePath) ?? [];
-          if (containingTags.length === 0) {
-            add(
-              "error",
-              "released-change-trace-not-tagged",
-              currentRelativePath,
-              `${id}: declared released but not reachable from any repository tag.`,
-            );
-            continue;
-          }
           const fixedRow = fixedReleasedRows.get(id);
-          if (!fixedRow || fixedRow.path !== currentRelativePath) {
+          if (
+            !fixedRow ||
+            !new RegExp(
+              `^90_Release/Changes/${id}_[A-Za-z0-9_]+\\.md$`,
+              "u",
+            ).test(fixedRow.path)
+          ) {
             add(
               "error",
               "missing-released-change-trace-fixed-identity",
               relative(ledger),
-              `${id}: exact current Path, byte count, and SHA-256 must be fixed in the released-history table.`,
+              `${id}: exact historical Path, byte count, and SHA-256 must be fixed in the released-history table.`,
+            );
+            continue;
+          }
+          const containingTags = tagPaths.get(fixedRow.path) ?? [];
+          if (containingTags.length === 0) {
+            add(
+              "error",
+              "released-change-trace-not-tagged",
+              fixedRow.path,
+              `${id}: fixed historical Path is not reachable from any repository tag.`,
             );
             continue;
           }
@@ -2004,7 +2764,7 @@ function checkConsolidatedChangeTraceLedger(
               `${id}: recorded Commit, Path, byte count, and SHA-256 do not resolve to one exact blob.`,
             );
           }
-          const currentObject = spawnSync(
+          const currentHeadObject = spawnSync(
             "git",
             ["-C", root, "show", `${headStart}:${currentRelativePath}`],
             {
@@ -2014,12 +2774,10 @@ function checkConsolidatedChangeTraceLedger(
               maxBuffer: 16 * 1_048_576,
             },
           );
-          const currentBytes = Buffer.isBuffer(currentObject.stdout)
-            ? currentObject.stdout
+          const currentHeadBytes = Buffer.isBuffer(currentHeadObject.stdout)
+            ? currentHeadObject.stdout
             : Buffer.alloc(0);
-          const currentStderr = Buffer.isBuffer(currentObject.stderr)
-            ? currentObject.stderr.toString("utf8")
-            : (currentObject.stderr ?? "");
+          const currentBytes = fs.readFileSync(currentFile);
           const currentSha256 = createHash("sha256")
             .update(currentBytes)
             .digest("hex");
@@ -2041,10 +2799,13 @@ function checkConsolidatedChangeTraceLedger(
               maxBuffer: 1_048_576,
             },
           );
-          const migration = navigationMigrations.get(currentRelativePath);
+          const navigationSourcePath = preMigrationPath(currentRelativePath);
+          const migration = navigationMigrations.get(navigationSourcePath);
+          const workLifecycleMigration =
+            workLifecycleMigrationEntries.get(currentRelativePath);
           let navigationMatches = false;
           if (migration) {
-            appliedNavigationSources.add(currentRelativePath);
+            appliedNavigationSources.add(navigationSourcePath);
             let expectedText = fixedBytes.toString("utf8");
             let intermediateText = fixedBytes.toString("utf8");
             let hasExactReplacements =
@@ -2079,26 +2840,43 @@ function checkConsolidatedChangeTraceLedger(
             const worktreeText = fs.readFileSync(currentFile, "utf8");
             const normalizeLineEndings = (value: string) =>
               value.replaceAll("\r\n", "\n");
+            const expectedBytes = Buffer.from(expectedText, "utf8");
+            const expectedSha256 = createHash("sha256")
+              .update(expectedBytes)
+              .digest("hex");
             navigationMatches =
               hasExactReplacements &&
               !pathContainsSymbolicLink(currentFile) &&
               lstatIfPresent(currentFile)?.isFile() === true &&
-              (currentBytes.equals(fixedBytes) ||
-                currentBytes.equals(Buffer.from(intermediateText, "utf8")) ||
-                currentBytes.equals(Buffer.from(expectedText, "utf8"))) &&
-              normalizeLineEndings(worktreeText) ===
-                normalizeLineEndings(expectedText);
+              (workLifecycleMigration
+                ? workLifecycleMigration.source === fixedRow.path &&
+                  workLifecycleMigration.sourceSha256 === expectedSha256 &&
+                  workLifecycleMigration.sourceBytes === expectedBytes.length &&
+                  workLifecycleMigration.targetSha256 === currentSha256 &&
+                  workLifecycleMigration.targetBytes === currentBytes.length
+                : currentHeadObject.status === 0 &&
+                  !currentHeadObject.error &&
+                  (currentHeadBytes.equals(fixedBytes) ||
+                    currentHeadBytes.equals(
+                      Buffer.from(intermediateText, "utf8"),
+                    ) ||
+                    currentHeadBytes.equals(expectedBytes)) &&
+                  normalizeLineEndings(worktreeText) ===
+                    normalizeLineEndings(expectedText));
           }
           if (
-            currentObject.error ||
-            currentObject.status !== 0 ||
-            currentStderr.trim() ||
-            (migration
+            migration
               ? !navigationMatches
-              : currentBytes.length !== fixedRow.bytes ||
-                currentSha256 !== fixedRow.sha256 ||
-                worktreeDifference.error ||
-                worktreeDifference.status !== 0)
+              : workLifecycleMigration
+                ? workLifecycleMigration.source !== fixedRow.path ||
+                  workLifecycleMigration.sourceSha256 !== fixedRow.sha256 ||
+                  workLifecycleMigration.sourceBytes !== fixedRow.bytes ||
+                  workLifecycleMigration.targetSha256 !== currentSha256 ||
+                  workLifecycleMigration.targetBytes !== currentBytes.length
+                : currentBytes.length !== fixedRow.bytes ||
+                  currentSha256 !== fixedRow.sha256 ||
+                  worktreeDifference.error ||
+                  worktreeDifference.status !== 0
           ) {
             add(
               "error",
@@ -2119,20 +2897,24 @@ function checkConsolidatedChangeTraceLedger(
     );
   }
 
+  const historicalReferenceRowPattern = isWorkLifecycleContractActive
+    ? /^\| `(99_Roadmap\/Changes\/CHG-[0-9]{6}\/Evidence\/[^`]+\.md)` \| `(90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_]+\.md)` \|$/gmu
+    : /^\| `(90_Release\/Changes\/Evidence\/[^`]+\.md)` \| `(90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_]+\.md)` \|$/gmu;
   const historicalReferenceMatches = [
-    ...text.matchAll(
-      /^\| `(90_Release\/Changes\/Evidence\/[^`]+\.md)` \| `(90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_]+\.md)` \|$/gmu,
-    ),
+    ...text.matchAll(historicalReferenceRowPattern),
   ];
   const historicalReferenceRows = historicalReferenceMatches.map((match) => ({
     source: match[1],
     target: match[2],
   }));
+  const historicalReferenceRowValidationPattern = isWorkLifecycleContractActive
+    ? /^\| `99_Roadmap\/Changes\/CHG-[0-9]{6}\/Evidence\/[^`]+\.md` \| `90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_]+\.md` \|$/u
+    : /^\| `90_Release\/Changes\/Evidence\/[^`]+\.md` \| `90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_]+\.md` \|$/u;
   validateMachineTable(
     "不変・非active歴史参照固定集合",
     "| Source Evidence | Target Old Path |",
     "|---|---|",
-    /^\| `90_Release\/Changes\/Evidence\/[^`]+\.md` \| `90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_]+\.md` \|$/u,
+    historicalReferenceRowValidationPattern,
     historicalReferenceMatches.length,
     "invalid-historical-reference-table-schema",
   );
@@ -2231,6 +3013,12 @@ function checkConsolidatedChangeTraceLedger(
     }).length;
   for (const row of historicalReferenceRows) {
     const sourceAbsolute = path.join(root, ...row.source.split("/"));
+    const originalSourceRelative = preMigrationPath(row.source);
+    const originalSourceAbsolute = path.join(
+      root,
+      ...originalSourceRelative.split("/"),
+    );
+    const sourceMigration = workLifecycleMigrationEntries.get(row.source);
     const targetAbsolute = path.join(root, ...row.target.split("/"));
     const targetEntry = entries.find(
       (entry) => entry.originalPath === row.target,
@@ -2265,7 +3053,12 @@ function checkConsolidatedChangeTraceLedger(
     }
     const baseSource = spawnSync(
       "git",
-      ["-C", root, "show", `${integrationBaseCommit}:${row.source}`],
+      [
+        "-C",
+        root,
+        "show",
+        `${integrationBaseCommit}:${originalSourceRelative}`,
+      ],
       {
         encoding: null,
         windowsHide: true,
@@ -2276,7 +3069,7 @@ function checkConsolidatedChangeTraceLedger(
     );
     const headSource = spawnSync(
       "git",
-      ["-C", root, "show", `${headStart}:${row.source}`],
+      ["-C", root, "show", `${headStart}:${originalSourceRelative}`],
       {
         encoding: null,
         windowsHide: true,
@@ -2306,12 +3099,12 @@ function checkConsolidatedChangeTraceLedger(
       : (headSource.stderr ?? "");
     const baseLinkCount = countExactHistoricalLinks(
       baseBytes,
-      sourceAbsolute,
+      originalSourceAbsolute,
       targetAbsolute,
     );
     const worktreeLinkCount = countExactHistoricalLinks(
       worktreeBytes,
-      sourceAbsolute,
+      sourceMigration ? originalSourceAbsolute : sourceAbsolute,
       targetAbsolute,
     );
     if (
@@ -2323,7 +3116,15 @@ function checkConsolidatedChangeTraceLedger(
       headError.trim() ||
       !baseBytes.equals(headBytes) ||
       worktreeReadFailed ||
-      !baseBytes.equals(worktreeBytes) ||
+      (sourceMigration
+        ? sourceMigration.source !== originalSourceRelative ||
+          sourceMigration.sourceSha256 !==
+            createHash("sha256").update(baseBytes).digest("hex") ||
+          sourceMigration.sourceBytes !== baseBytes.length ||
+          sourceMigration.targetSha256 !==
+            createHash("sha256").update(worktreeBytes).digest("hex") ||
+          sourceMigration.targetBytes !== worktreeBytes.length
+        : !baseBytes.equals(worktreeBytes)) ||
       baseLinkCount !== 1 ||
       worktreeLinkCount !== 1
     ) {
@@ -2386,9 +3187,9 @@ function checkConsolidatedChangeTraceLedger(
     visit(directory);
     return observedPaths.sort();
   };
-  const endingReservedPhysicalEntries = releaseRoots
-    .flatMap((releaseRoot) =>
-      collectReservedPhysicalEntries(path.join(releaseRoot, "Changes")),
+  const endingReservedPhysicalEntries = workLifecycleRoots
+    .flatMap((workLifecycleRoot) =>
+      collectReservedPhysicalEntries(path.join(workLifecycleRoot, "Changes")),
     )
     .sort();
   const didSourceChangeDuringCheck = [...historicalSourceStartStates].some(
@@ -3199,7 +4000,9 @@ function checkToolLayoutHistoricalReferences(
   if (repositoryMode !== "official") return empty;
   const ledgerPath = path.join(
     root,
-    "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
+    ...(isWorkLifecycleContractActive
+      ? ["99_Roadmap", "Changes", "CHG-000017", "change.md"]
+      : ["90_Release", "Changes", "CHG-000017_Tools_Coding_Standards.md"]),
   );
   if (!fs.existsSync(ledgerPath)) return empty;
   const fileSet = new Set(files.map((file) => path.resolve(file)));
@@ -3314,6 +4117,13 @@ function checkToolLayoutHistoricalReferences(
   const sourceSnapshots = new Map<string, string>();
   const successorSnapshots = new Map<string, fs.Stats>();
   for (const entry of record.references) {
+    const migratedSourceEntry =
+      typeof entry === "object" && entry !== null && "sourcePath" in entry
+        ? [...workLifecycleMigrationEntries.values()].find(
+            (migration) => migration.source === entry.sourcePath,
+          )
+        : undefined;
+    const effectiveSourcePath = migratedSourceEntry?.target ?? entry.sourcePath;
     if (
       !isObject(entry) ||
       !hasKeys(entry, [
@@ -3327,7 +4137,11 @@ function checkToolLayoutHistoricalReferences(
         "anchor",
       ]) ||
       !isRelativePath(entry.sourcePath) ||
-      !entry.sourcePath.startsWith("90_Release/Changes/Evidence/") ||
+      !(isWorkLifecycleContractActive
+        ? /^99_Roadmap\/Changes\/CHG-[0-9]{6}\/Evidence\//u.test(
+            effectiveSourcePath,
+          )
+        : entry.sourcePath.startsWith("90_Release/Changes/Evidence/")) ||
       !entry.sourcePath.endsWith(".md") ||
       !isRelativePath(entry.targetPath) ||
       !entry.targetPath.startsWith("tools/") ||
@@ -3347,7 +4161,9 @@ function checkToolLayoutHistoricalReferences(
     ) {
       return reject("Invalid reference entry.");
     }
-    const source = path.join(root, entry.sourcePath);
+    const source = path.join(root, effectiveSourcePath);
+    const originalSourcePath = migratedSourceEntry?.source ?? entry.sourcePath;
+    const sourceMigration = migratedSourceEntry;
     const target = path.join(root, entry.targetPath);
     const successor = path.join(root, entry.successorPath);
     const key = toolLayoutHistoricalKey(source, target, entry.anchor);
@@ -3364,7 +4180,7 @@ function checkToolLayoutHistoricalReferences(
     const sourceBytes = fs.readFileSync(source);
     const historicalSource = git([
       "show",
-      `${record.evidenceCommit}:${entry.sourcePath}`,
+      `${record.evidenceCommit}:${originalSourcePath}`,
     ]);
     const targetObject = git([
       "rev-parse",
@@ -3377,7 +4193,12 @@ function checkToolLayoutHistoricalReferences(
       `${entry.targetCommit}:${entry.targetPath}`,
     ]);
     if (
-      sha256(sourceBytes) !== entry.sourceSha256 ||
+      (sourceMigration
+        ? sourceMigration.source !== originalSourcePath ||
+          sourceMigration.sourceSha256 !== entry.sourceSha256 ||
+          sourceMigration.targetSha256 !== sha256(sourceBytes) ||
+          sourceMigration.targetBytes !== sourceBytes.length
+        : sha256(sourceBytes) !== entry.sourceSha256) ||
       historicalSource.status !== 0 ||
       sha256(historicalSource.stdout) !== entry.sourceSha256 ||
       targetObject.status !== 0 ||
@@ -3390,22 +4211,31 @@ function checkToolLayoutHistoricalReferences(
       return reject("Historical source or target identity does not match.");
     }
     if (
-      !linkRecords.some(
-        (link) =>
-          !link.external &&
-          samePath(link.source, source) &&
-          samePath(link.target, target) &&
-          (link.anchor || null) === entry.anchor &&
-          !link.decodeError &&
-          !link.outsideRoot,
-      ) ||
+      !(sourceMigration
+        ? countExactHistoricalLinks(
+            sourceBytes,
+            path.join(root, originalSourcePath),
+            target,
+            entry.anchor,
+          ) === 1
+        : linkRecords.some(
+            (link) =>
+              !link.external &&
+              samePath(link.source, source) &&
+              samePath(link.target, target) &&
+              (link.anchor || null) === entry.anchor &&
+              !link.decodeError &&
+              !link.outsideRoot,
+          )) ||
       (entry.anchor !== null &&
         (!entry.targetPath.endsWith(".md") ||
           !anchorsForText(historicalTarget.stdout.toString("utf8")).has(
             entry.anchor,
           )))
     ) {
-      return reject("Reference pair or historical anchor does not match.");
+      return reject(
+        `Reference pair or historical anchor does not match: ${entry.sourcePath} -> ${entry.targetPath}${entry.anchor ? `#${entry.anchor}` : ""}.`,
+      );
     }
     pairs.add(key);
     sources.add(source);
@@ -3414,7 +4244,10 @@ function checkToolLayoutHistoricalReferences(
       physicalTargets.add(path.resolve(target));
     if (indexedPaths.has(path.resolve(target)))
       indexedTargets.add(path.resolve(target));
-    sourceSnapshots.set(source, entry.sourceSha256);
+    sourceSnapshots.set(
+      source,
+      sourceMigration?.targetSha256 ?? entry.sourceSha256,
+    );
     successorSnapshots.set(successor, fs.lstatSync(successor));
   }
   for (const [source, expectedHash] of sourceSnapshots) {
@@ -3634,8 +4467,17 @@ const discovery = discoverProjectFiles();
 if (discovery.baseline_submodule && repositoryMode !== "adopter") {
   repositoryMode = "adopter";
   adoptedBaselineRoot = baselineCandidateRoot;
-  releaseRoots = [path.join(root, "90_Release")];
-  recognizedChangeTracePatterns = ["90_Release/**/Changes/**/CHG-*.md"];
+  workLifecycleRoots = [
+    path.join(
+      root,
+      isWorkLifecycleContractActive ? "99_Roadmap" : "90_Release",
+    ),
+  ];
+  recognizedChangeTracePatterns = [
+    isWorkLifecycleContractActive
+      ? "99_Roadmap/Changes/CHG-*/change.md"
+      : "90_Release/**/Changes/**/CHG-*.md",
+  ];
 }
 const gitlinkRoots = discovery.gitlinks;
 function gitlinkRootFor(target: string): string | null {
@@ -3714,8 +4556,13 @@ if (repositoryMode === "official") {
   const runtimeDataConsumers = allFiles.filter((file) => {
     const item = relative(file);
     if (item === "template/tools/crdd-check.ts") return false;
+    if (
+      item ===
+      "40_Develop/checker/tests/integration/crdd-check.contract.test.ts"
+    )
+      return false;
     return (
-      /^40_Develop\/[^/]+\/(?:src|scripts|bin)\//u.test(item) ||
+      /^40_Develop\/[^/]+\/(?:src|scripts|bin|tests)\//u.test(item) ||
       item === "README.md" ||
       item.startsWith("05_SPEC/") ||
       item.startsWith("19_Workflows/") ||
@@ -4003,14 +4850,14 @@ const FIXED_DOCUMENT_DISPOSITION = "fixed_original_with_structured_index";
 const FIXED_DOCUMENT_REASON = "published_bytes_preserved";
 
 function checkDocumentationDispositionRoutes(): void {
-  const changesRoute = path.join(root, "90_Release", "Changes", "README.md");
+  const changesRoute = path.join(root, "99_Roadmap", "02_Changes.md");
   const qualityRoute = path.join(root, "07_Quality", "01_Quality_Center.md");
   const checks = [
     {
       file: changesRoute,
       requirements: [
         /^## 目的から読む場所を選ぶ$/mu,
-        /\[[^\]]*現在状態[^\]]*\]\(\.\.\/\.\.\/07_Quality\/01_Quality_Center\.md(?:#[^)]+)?\)/u,
+        /\[[^\]]*現在状態[^\]]*\]\(\.\.\/07_Quality\/01_Quality_Center\.md(?:#[^)]+)?\)/u,
         /過去本文の(?:正本|固定Identity)/u,
         /git --no-replace-objects show/u,
       ],
@@ -4031,7 +4878,7 @@ function checkDocumentationDispositionRoutes(): void {
   if (fs.existsSync(qualityRoute)) {
     const content = read(qualityRoute);
     const verificationRoute =
-      /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u;
+      /\[[^\]]+\]\(\.\.\/99_Roadmap\/Releases\/v0\.20\.0\/Evidence\/260906_v020-public-runtime-and-bounded-integration-verification\.md(?:#[^)]+)?\)/u;
     const candidateRoutes = [
       /現在候補/u,
       /前(?:の署名)?候補/u,
@@ -4058,6 +4905,158 @@ function checkDocumentationDispositionRoutes(): void {
   }
 }
 
+const phaseDiagramDispositions = [
+  "`作成`",
+  "`既存参照`",
+  "`非該当`",
+  "`作成不能`",
+] as const;
+const phaseDiagramTemplateProfiles = new Map<string, readonly string[]>([
+  [
+    "template/01_Discovery/01_Product_Discovery.md",
+    [
+      "課題・根拠・機会の関係",
+      "業務範囲／入出力（SIPOC）",
+      "Actor別Process（Swimlane）",
+      "Value Stream",
+      "As-Is／To-Be",
+      "項目間全体像",
+    ],
+  ],
+  [
+    "template/02_UX/01_User_Experience.md",
+    ["利用者Journey", "重要場面・失敗／回復体験図", "Service Blueprint"],
+  ],
+  [
+    "template/03_IA/01_Information_Architecture.md",
+    [
+      "オブジェクト／関係図",
+      "情報階層図",
+      "Navigation図",
+      "可視性／状態概念図",
+    ],
+  ],
+  [
+    "template/04_UI/01_User_Interface.md",
+    [
+      "論理画面／領域構成図",
+      "画面／操作Flow",
+      "表示状態／Variant図",
+      "主要Component関係図",
+      "UI／SPEC対応図",
+    ],
+  ],
+  [
+    "template/05_SPEC/01_Behavior_Specification.md",
+    [
+      "Use Case／振る舞いFlow",
+      "状態遷移表／状態遷移図",
+      "Actor／System間Sequence図",
+      "Error／Effect分岐図",
+      "UI／SPEC対応図",
+    ],
+  ],
+  [
+    "template/06_Architecture/01_Architecture.md",
+    [
+      "全体／内部ブロック図",
+      "状態遷移表／状態遷移図",
+      "ブロック間シーケンス図",
+      "クラス／型関係図",
+      "データフロー図（DFD）",
+      "エンティティ関係図（ER図）",
+      "スキーマ責務図（Schema Responsibility Map）",
+    ],
+  ],
+  [
+    "template/07_Quality/03_Verification_Design.md",
+    [
+      "検証義務・試験Level／Boundary対応図",
+      "状態・分岐・Block別Coverage図",
+      "検証結果・判断接続図",
+    ],
+  ],
+]);
+
+function checkPhaseDiagramDispositionContracts(): void {
+  if (repositoryMode !== "official") return;
+  const expectedHeaders = [
+    "基本図",
+    "対象",
+    "目的",
+    "処置",
+    "現行図／一意な参照／理由",
+    "投影元改訂版",
+    "現在状態",
+    "未確認範囲",
+    "次の処置・再評価契機",
+  ];
+  const allowedDispositions = new Set([
+    "",
+    "作成",
+    "既存参照",
+    "非該当",
+    "作成不能",
+  ]);
+  const cells = (line: string): string[] =>
+    line
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim().replace(/^`|`$/gu, ""));
+  for (const [relativePath, diagrams] of phaseDiagramTemplateProfiles) {
+    const file =
+      allFiles.find((candidate) => relative(candidate) === relativePath) ??
+      path.join(root, ...relativePath.split("/"));
+    if (!fs.existsSync(file)) continue;
+    const content = read(file);
+    const missingItems: string[] = [];
+    const sectionStart = content.indexOf("## 基本図の処置");
+    if (sectionStart < 0) missingItems.push("section");
+    for (const disposition of phaseDiagramDispositions)
+      if (!content.includes(disposition)) missingItems.push(disposition);
+    const section = sectionStart < 0 ? "" : content.slice(sectionStart);
+    const lines = section.split(/\r?\n/u);
+    const headerIndex = lines.findIndex((line) =>
+      line.startsWith("| 基本図 |"),
+    );
+    const headerCells = headerIndex < 0 ? [] : cells(lines[headerIndex] ?? "");
+    if (
+      headerCells.length !== expectedHeaders.length ||
+      headerCells.some((value, index) => value !== expectedHeaders[index])
+    )
+      missingItems.push("header");
+    const rows = new Map<string, string[]>();
+    if (headerIndex >= 0) {
+      for (const line of lines.slice(headerIndex + 2)) {
+        if (!line.startsWith("|")) break;
+        const rowCells = cells(line);
+        if (rowCells[0]) rows.set(rowCells[0], rowCells);
+      }
+    }
+    for (const diagram of diagrams) {
+      const rowCells = rows.get(diagram);
+      if (!rowCells) {
+        missingItems.push(diagram);
+        continue;
+      }
+      if (rowCells.length !== expectedHeaders.length)
+        missingItems.push(`${diagram}:columns`);
+      const disposition = rowCells[3] ?? "";
+      if (!allowedDispositions.has(disposition))
+        missingItems.push(`${diagram}:disposition=${disposition}`);
+    }
+    if (missingItems.length > 0)
+      add(
+        "error",
+        "phase_diagram_disposition_contract_invalid",
+        relativePath,
+        `工程の基本図処置契約が不完全です: ${missingItems.join(", ")}`,
+      );
+  }
+}
+
+checkPhaseDiagramDispositionContracts();
+
 function gitBlobOid(bytes: Buffer): string {
   const header = Buffer.from(`blob ${bytes.length}\0`, "utf8");
   return createHash("sha1").update(header).update(bytes).digest("hex");
@@ -4078,18 +5077,17 @@ function documentationSetHash(
 function expectedV020Currentness(
   relativePath: string,
 ): "current" | "fixed_history" {
-  if (/^90_Release\/Changes\/Evidence\/.*\.md$/u.test(relativePath)) {
-    return "fixed_history";
-  }
-  if (
-    /^07_Quality\/Verification_Results\/.*\.md$/u.test(relativePath) &&
-    relativePath !==
-      "07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md"
-  ) {
-    return "fixed_history";
-  }
+  const migration = workLifecycleMigrationEntries.get(relativePath);
+  const migratedCurrentness =
+    migration && workLifecycleSourceDisposition
+      ? deriveMigrationCurrentness(
+          migration.source,
+          workLifecycleSourceDisposition,
+        )
+      : null;
+  if (migratedCurrentness) return migratedCurrentness;
   const publishedChange = relativePath.match(
-    /^90_Release\/Changes\/(CHG-[0-9]{6})_.*\.md$/u,
+    /^99_Roadmap\/Changes\/(CHG-[0-9]{6})\/change\.md$/u,
   )?.[1];
   if (publishedChange && publishedChange !== "CHG-000057") {
     const number = Number.parseInt(publishedChange.slice(4), 10);
@@ -4107,9 +5105,10 @@ function checkDocumentationDispositionInventory(): {
   if (repositoryMode !== "official") return { observed: 0, verified: 0 };
   const trigger = path.join(
     root,
-    "90_Release",
+    "99_Roadmap",
     "Changes",
-    "CHG-000065_Structured_First_Documentation.md",
+    "CHG-000065",
+    "change.md",
   );
   if (!fs.existsSync(trigger)) return { observed: 0, verified: 0 };
 
@@ -4325,16 +5324,25 @@ function checkDocumentationDispositionInventory(): {
     } else {
       const identity = entry.historicalIdentity;
       const route = entry.currentRoute;
-      const expectedRoute = entry.path.startsWith(
-        "07_Quality/Verification_Results/",
-      )
-        ? "07_Quality/01_Quality_Center.md"
-        : "90_Release/Changes/README.md";
+      const workLifecycleMigration = workLifecycleMigrationEntries.get(
+        entry.path,
+      );
+      const expectedRoute = entry.path.startsWith("99_Roadmap/Releases/")
+        ? "99_Roadmap/03_Releases.md"
+        : "99_Roadmap/02_Changes.md";
       if (
         !identity ||
         !["tag", "commit"].includes(identity.refKind) ||
-        identity.path !== entry.path ||
+        (identity.path !== entry.path &&
+          identity.path !== workLifecycleMigration?.source) ||
         entry.currentTreeBlobOid !== currentOid ||
+        (workLifecycleMigration !== undefined &&
+          (workLifecycleMigration.targetSha256 !==
+            createHash("sha256")
+              .update(fs.readFileSync(absolute))
+              .digest("hex") ||
+            workLifecycleMigration.targetBytes !==
+              fs.readFileSync(absolute).length)) ||
         route !== expectedRoute ||
         !fs.existsSync(path.join(root, route)) ||
         entry.canonicalOwnerPath !== undefined ||
@@ -4388,27 +5396,45 @@ function checkV020ReleaseGateOwnership(): void {
   );
   const changePath = path.join(
     root,
-    "90_Release",
+    "99_Roadmap",
     "Changes",
-    "CHG-000063_Runtime_Responsibility_Separation.md",
+    "CHG-000063",
+    "change.md",
   );
   const verificationPath = path.join(
     root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+    "99_Roadmap",
+    "Releases",
+    "v0.20.0",
+    "Evidence",
+    "260906_v020-public-runtime-and-bounded-integration-verification.md",
   );
-  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Roadmap.md");
   const workflowPath = path.join(
     root,
     "19_Workflows",
     "01_Coordinator_Runtime.md",
   );
+  if (!fs.existsSync(changePath) && !fs.existsSync(verificationPath)) return;
   if (
     ![qualityCenterPath, changePath, verificationPath, roadmapPath].every(
       fs.existsSync,
     )
   ) {
+    for (const requiredPath of [
+      qualityCenterPath,
+      changePath,
+      verificationPath,
+      roadmapPath,
+    ]) {
+      if (!fs.existsSync(requiredPath))
+        add(
+          "error",
+          "v020-release-gate-input-missing",
+          relative(requiredPath),
+          "A required v0.20 Release Gate input is missing; the gate cannot be skipped.",
+        );
+    }
     return;
   }
 
@@ -4439,7 +5465,7 @@ function checkV020ReleaseGateOwnership(): void {
       [
         qualityCenterPath,
         qualityCenter,
-        /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u,
+        /\[[^\]]+\]\(\.\.\/99_Roadmap\/Releases\/v0\.20\.0\/Evidence\/260906_v020-public-runtime-and-bounded-integration-verification\.md(?:#[^)]+)?\)/u,
         "Quality Center must retain the v0.20 verification route.",
       ],
       [
@@ -4848,6 +5874,19 @@ let historicalReferencesIndexed = 0;
 for (const record of linkRecords) {
   if (!checkedFiles.has(record.source) || record.external) continue;
   const { source, raw, target, anchor } = record;
+  const migratedSource = workLifecycleMigrationEntries.get(relative(source));
+  const migratedSourceCurrentness =
+    migratedSource && workLifecycleSourceDisposition
+      ? deriveMigrationCurrentness(
+          migratedSource.source,
+          workLifecycleSourceDisposition,
+        )
+      : null;
+  if (migratedSourceCurrentness === "fixed_history") {
+    historicalReferencesObserved += 1;
+    historicalReferencesVerified += 1;
+    continue;
+  }
   if (record.decodeError) {
     add("warning", "malformed-link-encoding", relative(source), raw);
     uncheckedItems.add(
@@ -5228,7 +6267,11 @@ if (
         `Current Markdown entry point still exposes ${stableVersion} as Candidate.`,
       );
     }
-    if (!relative(file).startsWith("90_Release/Changes/")) continue;
+    const isChangeTraceForStableRelease = isWorkLifecycleContractActive
+      ? /^99_Roadmap\/Changes\/CHG-[0-9]{6}\/change\.md$/u.test(relative(file))
+      : /^CHG-[^.]+\.md$/u.test(path.basename(file)) &&
+        Boolean(changeTraceRootFor(file));
+    if (!isChangeTraceForStableRelease) continue;
     if (!header.includes(`対象版: \`${stableVersion}\``)) continue;
     const isReadyForRelease = /^状態: `Ready for Release Handoff`$/mu.test(
       header,
@@ -5942,7 +6985,22 @@ for (const file of allFiles) {
       `${stableId}: use the ID inside the owning artifact, not as a filename.`,
     );
   }
-  if (/^CHG-[^.]+\.md$/u.test(path.basename(file))) {
+  if (
+    isWorkLifecycleContractActive &&
+    /^CHG-[^.]+\.md$/u.test(path.basename(file))
+  ) {
+    add(
+      "error",
+      "legacy-change-trace-layout",
+      relative(file),
+      "Flat CHG Markdown files are not canonical. Use 99_Roadmap/Changes/<CHG-ID>/change.md.",
+    );
+  }
+  if (
+    isWorkLifecycleContractActive
+      ? path.basename(file) === "change.md"
+      : /^CHG-[^.]+\.md$/u.test(path.basename(file))
+  ) {
     if (isEvidenceFile(file)) {
       if (hasChangeTraceDefinitionSignature(file)) {
         add(
@@ -5956,13 +7014,47 @@ for (const file of allFiles) {
       }
       continue;
     }
-    if (!changeTraceRootFor(file)) {
+    const aggregateRoot = changeTraceRootFor(file);
+    if (!aggregateRoot) {
       add(
         "error",
         "change-trace-placement",
         relative(file),
         `The checker cannot recognize this Change Trace path in repository mode ${repositoryMode}. ` +
           `Recognized inspection paths: ${recognizedChangeTracePatterns.join(", ")}.`,
+      );
+      continue;
+    }
+    const aggregateId = isWorkLifecycleContractActive
+      ? path.basename(aggregateRoot).match(/^CHG-(?:[0-9]{6}|XXXXXX)/u)?.[0]
+      : null;
+    const declaredId = isWorkLifecycleContractActive
+      ? declaredChangeTraceId(file)
+      : null;
+    if (
+      isWorkLifecycleContractActive &&
+      (!aggregateId || !declaredId || aggregateId !== declaredId)
+    ) {
+      add(
+        "error",
+        "change-trace-aggregate-identity-mismatch",
+        relative(file),
+        "The aggregate directory ID and the Change ID declared by change.md must match exactly.",
+      );
+    }
+  }
+  if (isEvidenceFile(file) && isWithin(path.join(root, "99_Roadmap"), file)) {
+    const evidenceName = path.basename(file);
+    if (
+      !/^\d{6}(?:-\d{4})?_[a-z0-9]+(?:-[a-z0-9]+)*(?:-\d{2})?\.(?:md|json|tap|txt|log)$/u.test(
+        evidenceName,
+      )
+    ) {
+      add(
+        "error",
+        "noncanonical-evidence-filename",
+        relative(file),
+        "Evidence filenames must use YYMMDD[-HHmm]_<type> with a collision suffix only when needed.",
       );
     }
   }
@@ -6014,7 +7106,6 @@ if (structureRoot) {
     "07_Quality",
     "19_Workflows",
     "40_Develop",
-    "90_Release",
     "99_Roadmap",
   ];
   for (const name of requiredFolders) {
@@ -6044,8 +7135,16 @@ if (structureRoot) {
       );
     }
   }
-  for (const name of ["07_Workflows", "08_Workflows", "08_Quality"]) {
-    if (lstatIfPresent(path.join(structureRoot, name))) {
+  for (const name of [
+    "07_Workflows",
+    "08_Workflows",
+    "08_Quality",
+    "90_Release",
+  ]) {
+    if (
+      lstatIfPresent(path.join(structureRoot, name)) &&
+      (name !== "90_Release" || isWorkLifecycleContractActive)
+    ) {
       add("error", "legacy-crdd-folder", relative(structureRoot), name);
     }
   }

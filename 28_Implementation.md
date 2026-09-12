@@ -120,6 +120,26 @@ Related:
 
 対象範囲にはコードだけでなく、構成、データ、移行、生成成果物、依存関係、テスト、利用側、環境を含める。変更していない層も、影響を受けるなら網羅範囲対象である。
 
+<a id="implementation-diagram-profile"></a>
+
+## 実装Block対応の処置と記法
+
+実装工程は説明用Markdownを`40_Develop`へ機械的に追加しない。Architectureの基本図とSource、Package、Build、設定および試験配置の対応を、Architecture固定入口または責務を持つ詳細設計から一意に辿れるようにする。複数Package、Build成果物、外部境界、旧Capabilityの置換または非自明なLifecycleを実装する場合は、Source／Package／Build Block対応と必要な実装Sequenceを`作成`または`既存参照`として処置する。一つの既存Block内で所有者・依存・Lifecycleが変わらない局所修正は、理由を示して非該当にできる。根拠不足は非該当へ畳まない。
+
+```text
+[A1: Architecture Block]
+      | realized by
+      v
+[S1: Source／Package Block] --> [B1: Build／Runtime Artifact]
+      | tested by                    | loaded by
+      v                              v
+[T1: UT／IT]                   [R1: Runtime Entry]
+```
+
+`[A:]`はArchitecture上の所有Block、`[S:]`はSourceまたはPackageのまとまり、`[B:]`はBuild成果物、`[T:]`は実在する試験、`[R:]`は公開または内部Runtime入口を表す。ファイルを一つずつ箱にせず、責務と変更理由が同じまとまりをBlockにする。図は実装Source、Package Manifest、Build設定またはArchitectureの代替正本ではない。
+
+工程出口では、新設・変更・削除した各BlockをArchitecture、利用側、Build、試験および実境界検証へ接続する。大規模Refactorまたは責務移動では基準版Capabilityの置換先を明示し、図で露出した旧入口、未接続Consumer、未試験境界または成果物不一致を解消するまで実装完了としない。
+
 <a id="human-decisions"></a>
 
 ## 人間による判断（Human Decisions）

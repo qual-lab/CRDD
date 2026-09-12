@@ -33,7 +33,7 @@ Related:
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、CRDDを適用するプロダクトにおけるリリースの最小契約と`90_Release`の配置責務を定義する。
+本書は、CRDDを適用するプロダクトにおけるリリースの最小契約と`99_Roadmap`内のRelease Navigation／Evidence配置責務を定義する。
 
 リリースは課題探索・要求形成から検証までと同じ設計工程ではない。検証がリリース準備状況を評価し、プロジェクト固有の人間のリリース決定権限が配布、有効化、延期、取消を判断する。本書はCI/CD、ブランチ戦略、デプロイ手順、承認組織を一律に規定しない。
 
@@ -52,15 +52,17 @@ CRDD自体のバージョン、CHANGELOG、タグ、移行は[保守](19_Mainten
 → リリース記録と学び
 ```
 
-リリース判断と`90_Release`の関係は次のとおりである。
+リリース判断とWork Lifecycleの関係は次のとおりである。
 
 ```text
 検証
     ↓ リリース準備状況の推奨
 プロジェクト固有のリリース決定権限
     ↓ 承認・配布・有効化
-90_Release（必要な場合のみ）
-    └ リリース記録・配布物参照・リリース検証
+99_Roadmap/03_Releases.md
+    └ 現在の公開状態とRelease Navigation
+99_Roadmap/Releases/<version>/Evidence/（必要な場合のみ）
+    └ Release全体の検証・署名・監査Evidence
 ```
 
 | 懸念 | 決定権限 |
@@ -77,24 +79,31 @@ CRDD自体のバージョン、CHANGELOG、タグ、移行は[保守](19_Mainten
 
 # 3. 配置
 
-必要な成果物だけを`90_Release`へ置く。
+必要な成果物だけを`99_Roadmap`のWork Lifecycleへ置く。
 
 ```text
-90_Release/
+99_Roadmap/
+├─ 01_Roadmap.md
+├─ 02_Changes.md
+├─ 03_Releases.md
 ├─ Changes/
-│  └─ CHG-000001_<SHORT_NAME>.md
-├─ Releases/
-│  └─ <バージョン>_Release.md
-├─ Evidence/
-└─ CHANGELOG.md
+│  └─ CHG-000001/
+│     ├─ change.md
+│     └─ Evidence/
+└─ Releases/
+   └─ <version>/
+      └─ Evidence/
+
+CHANGELOG.md
 ```
 
-- `Changes/`は変更トレースを置く。詳細は[変更トレース](12_Change.md)に従う。
-- `Releases/`は複数CHG、配布物、判断、結果を一つのリリースとして束ねる必要がある場合に使用する。
-- `Evidence/`は複数変更またはリリース全体で使用するリリース根拠を置く。
+- `02_Changes.md`はChange Aggregateの一覧と統合履歴へのNavigationを置く。
+- `03_Releases.md`は現在の公開状態とRelease EvidenceへのNavigationを置く。
+- `Changes/`は変更トレースとChange固有Evidenceを置く。詳細は[変更トレース](12_Change.md)に従う。
+- `Releases/<version>/Evidence/`は複数CHGを含むRelease全体の成立根拠を置く。
 - `CHANGELOG.md`は利用者へ公開するリリース単位の変更要約を置く場合に使用する。
 
-すべてのプロジェクトへ全フォルダやリリース記録の作成を要求しない。単一成果物で十分な場合は空の構造を増やさない。ただし、CHGを使用する場合の配置先は`90_Release/Changes/`とする。
+すべてのプロジェクトへ空のRelease Directoryを要求しない。ただし、CHGを使用する場合は`99_Roadmap/Changes/<CHG-ID>/change.md`、Release全体Evidenceを保存する場合は`99_Roadmap/Releases/<version>/Evidence/`を使用する。
 
 ---
 
@@ -161,6 +170,6 @@ CHANGELOGまたは同等のリリース情報が確認されている
 
 # 7. 最終原則
 
-`90_Release`は開発工程を複製する場所ではない。
+`99_Roadmap`のWork Lifecycle領域は開発工程を複製する場所ではない。
 
 変更、検証済み配布物、人間のリリース判断、利用者への通知、リリース結果を接続し、何がどのリリースへ入ったかを再構成できる最小の配布コンテキストである。

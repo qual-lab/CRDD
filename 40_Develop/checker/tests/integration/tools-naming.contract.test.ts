@@ -201,70 +201,22 @@ const RETIRED_REFERENCE_LITERALS = Object.freeze([
 ]);
 const historicalReferenceCounts = new Map<string, number>([
   [`README.md|${RETIRED_CHECKER_TS}`, 2],
-  [
-    `90_Release/Changes/CHG-000001_Human_Decision_Presentation.md|${RETIRED_CHECKER_TS}`,
-    3,
-  ],
-  [
-    `90_Release/Changes/CHG-000001_Human_Decision_Presentation.md|${RETIRED_CHECKER_TEST_TS}`,
-    2,
-  ],
-  [
-    `90_Release/Changes/CHG-000002_GitHub_Anchor_Checker_Correction.md|${RETIRED_CHECKER_TS}`,
-    3,
-  ],
-  [
-    `90_Release/Changes/CHG-000002_GitHub_Anchor_Checker_Correction.md|${RETIRED_CHECKER_TEST_TS}`,
-    3,
-  ],
-  [
-    `90_Release/Changes/CHG-000004_Checker_Hierarchical_Compatibility.md|${RETIRED_CHECKER_TS}`,
-    1,
-  ],
-  [
-    `90_Release/Changes/CHG-000004_Checker_Hierarchical_Compatibility.md|${RETIRED_CHECKER_TEST_TS}`,
-    1,
-  ],
-  [
-    `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md|${RETIRED_CHECKER_TS}`,
-    2,
-  ],
-  [
-    `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md|${RETIRED_CHECKER_TEST_TS}`,
-    2,
-  ],
-  [
-    `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md|${RETIRED_FAULT_INJECTOR}`,
-    2,
-  ],
-  [
-    `90_Release/Changes/CHG-000007_Multi_Location_Remediation.md|${RETIRED_CHECKER_TS}`,
-    1,
-  ],
-  [
-    `90_Release/Changes/CHG-000007_Multi_Location_Remediation.md|${RETIRED_CHECKER_TEST_TS}`,
-    1,
-  ],
-  [
-    `90_Release/Changes/CHG-000010_First_Pass_Convergence.md|${RETIRED_CHECKER_TS}`,
-    2,
-  ],
-  [
-    `90_Release/Changes/CHG-000010_First_Pass_Convergence.md|${RETIRED_CHECKER_TEST_TS}`,
-    2,
-  ],
-  [
-    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_CHECKER_TS}`,
-    4,
-  ],
-  [
-    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_CHECKER_TEST_TS}`,
-    1,
-  ],
-  [
-    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_THREAT_MODEL}`,
-    1,
-  ],
+  [`99_Roadmap/Changes/CHG-000001/change.md|${RETIRED_CHECKER_TS}`, 3],
+  [`99_Roadmap/Changes/CHG-000001/change.md|${RETIRED_CHECKER_TEST_TS}`, 2],
+  [`99_Roadmap/Changes/CHG-000002/change.md|${RETIRED_CHECKER_TS}`, 3],
+  [`99_Roadmap/Changes/CHG-000002/change.md|${RETIRED_CHECKER_TEST_TS}`, 3],
+  [`99_Roadmap/Changes/CHG-000004/change.md|${RETIRED_CHECKER_TS}`, 1],
+  [`99_Roadmap/Changes/CHG-000004/change.md|${RETIRED_CHECKER_TEST_TS}`, 1],
+  [`99_Roadmap/Changes/CHG-000005/change.md|${RETIRED_CHECKER_TS}`, 2],
+  [`99_Roadmap/Changes/CHG-000005/change.md|${RETIRED_CHECKER_TEST_TS}`, 2],
+  [`99_Roadmap/Changes/CHG-000005/change.md|${RETIRED_FAULT_INJECTOR}`, 2],
+  [`99_Roadmap/Changes/CHG-000007/change.md|${RETIRED_CHECKER_TS}`, 1],
+  [`99_Roadmap/Changes/CHG-000007/change.md|${RETIRED_CHECKER_TEST_TS}`, 1],
+  [`99_Roadmap/Changes/CHG-000010/change.md|${RETIRED_CHECKER_TS}`, 2],
+  [`99_Roadmap/Changes/CHG-000010/change.md|${RETIRED_CHECKER_TEST_TS}`, 2],
+  [`99_Roadmap/Changes/CHG-000017/change.md|${RETIRED_CHECKER_TS}`, 4],
+  [`99_Roadmap/Changes/CHG-000017/change.md|${RETIRED_CHECKER_TEST_TS}`, 1],
+  [`99_Roadmap/Changes/CHG-000017/change.md|${RETIRED_THREAT_MODEL}`, 1],
 ]);
 const REFERENCE_FILE_EXTENSIONS = new Set([
   ".json",

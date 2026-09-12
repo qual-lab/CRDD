@@ -5,6 +5,15 @@
 最終更新日: 2026-09-12
 工程規則: [情報アーキテクチャ](../23_IA.md)
 
+## 基本図の処置
+
+| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
+|---|---|---|---|---|---|---|---|---|
+| オブジェクト／関係図 | Project Operation Context | Project、Repository、Binding、Artifact、Projectionの関係 | 作成 | [v0.21 Project Operation Context](#7-v021-project-operation-context) | v0.21 Candidate | 現行候補 | Workbench表示Objectは未確定 | Group BのIAで表示対象と関係を具体化する |
+| 情報階層図 | Project Runtime | ProjectからTaskまでの判断階層 | 作成 | [Project Runtimeの情報階層](#6-project-runtimeの情報階層) | v0.20.1 Baseline | 現行 | 複数Repositoryの表示階層は未確定 | Group BのIAでProject Viewを追加する |
+| Navigation図 | 内部Toolの利用導線 | 主情報から詳細・回復へ移る順序 | 作成 | [情報の順序と導線](#3-情報の順序と導線) | v0.21 Candidate | 現行候補 | Workbenchの画面間Navigationは未設計 | Group BのIA出口で作成する |
+| 可視性／状態概念図 | Agent Operating Context | 利用可能、制限、欠測、Handoff時の可視性 | 作成 | [Agent Operating ContextとHandoff](#71-agent-operating-contextとhandoff) | v0.21 Candidate | 現行候補 | 実Workbenchの状態表示は未設計 | Group BのIAとUIで具体化する |
+
 ## 1. 対象と結論
 
 [利用体験](../02_UX/01_User_Experience.md)の導入、設定、依頼、待機、結果、復旧を、利用者が扱う対象と導線へ変換する。Runtime内部のクラスやファイル配置を利用者の情報分類にしない。§2～§5は既存ツール、§6はv0.19.0で公開したProject Runtimeの情報構造を扱う。

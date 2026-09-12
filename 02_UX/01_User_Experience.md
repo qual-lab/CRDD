@@ -5,6 +5,14 @@
 最終更新日: 2026-09-05
 工程規則: [UX](../22_UX.md)
 
+## 基本図の処置
+
+| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
+|---|---|---|---|---|---|---|---|---|
+| 利用者Journey | CRDD内部Tool利用者、Project参加者 | 導入から依頼、判断、回復までの体験順序 | 作成 | [Projectへ入る利用体験](#7-立場に応じてprojectへ入る利用体験) | v0.21 Candidate | 現行候補 | Workbenchの詳細Journeyは未作成 | Group BのUXで役割別Journeyを具体化する |
+| 重要場面・失敗／回復体験図 | 依頼、停止、回復 | 判断を誤ると安全性または継続性を失う場面の可視化 | 作成不能 | [制御・信頼・検証義務](#4-制御信頼検証義務)は義務一覧であり、場面・分岐・回復接点の図ではない | v0.21 Candidate | 未作成 | 場面、分岐、利用者とRuntimeの回復接点 | Group BのUXで根拠を確認して作成する |
+| Service Blueprint | Tool利用の端から端 | 利用者、フロントAI、Runtime、情報引継ぎの責務整合 | 作成 | [利用者体験の流れと提供責務](#2-利用者体験の流れと提供責務) | v0.20.1 Baseline＋v0.21 Candidate | 現行 | Workbench固有の接点は未反映 | Group BのUX出口で更新要否を再評価する |
+
 ## 1. 目的と対象
 
 利用者が内部の署名、資源管理、エージェント間の情報搬送を毎回操作せず、依頼、必要な判断、成果物の受入へ集中できることを目指す。安全に止まれるだけでなく、止まった理由と次に必要な行動が分かることも体験の成立条件とする。
@@ -75,14 +83,14 @@ platform-accessは独立した利用者画面を持たないが、利用者へ�
 
 導入、依頼、待機、結果、取消・復旧、Checker、開発・配布の責務を本文へ整理した。未取得情報の表示、意味説明、候補操作は実装と限定再確認を終え、今回のPowerShellでは入力・日本語表示・折返し・拡大を限定確認した。実Task取消は是正後の署名版4f10201で通常回収まで観測し、今回差分の限定独立確認済みである。過去の失敗・回復と再実測を区別し、説明未登録の理由、別の端末環境、支援技術は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)へ接続する。工程網羅状態は`Blocked`を維持し、文書整備の独立確認や限定実測を製品のUX全体の成立へ読み替えない。
 
-次工程の[情報構造](../03_IA/01_Information_Architecture.md)と[UI](../04_UI/01_User_Interface.md)は、この候補の照合先であって承認済み引渡しではない。既知差の所有者・再確認条件は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)、実施履歴とレビューは[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md#tool-experience-design)へ集約する。Qual-Labが内容・未確認範囲と独立レビューを確認して工程移行を判断する。
+次工程の[情報構造](../03_IA/01_Information_Architecture.md)と[UI](../04_UI/01_User_Interface.md)は、この候補の照合先であって承認済み引渡しではない。既知差の所有者・再確認条件は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)、実施履歴とレビューは[CHG-000017](../99_Roadmap/Changes/CHG-000017/change.md#tool-experience-design)へ集約する。Qual-Labが内容・未確認範囲と独立レビューを確認して工程移行を判断する。
 ## 6. Milestoneを委ねる利用体験
 
 本節はv0.19.0で公開したProject Runtimeの利用体験を定義する。公開範囲は、認証済みのCLI／MCP入口から一つのProjectとMilestoneを扱う現在の契約に限る。
 
 v0.19では、人間がTaskを一件ずつ分解・起動・監視する体験から、対象ProjectとMilestone、保持する意図、受入条件および判断権限を示し、Project Runtimeへ進行を委ねる体験へ拡張する。人間が内部Taskの切替や空いた実行枠ごとに承認を繰り返すことを正常経路にしない。
 
-この体験の認知意図（Cognitive Intent）は次である。現在状態は、[v0.18の実務自己適用で観測した人間による進行追跡・反復操作](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)を根拠にした設計仮説として、「内部TaskやAgent Logを追わないと、何が進み、何を判断すべきか分からない」と置く。全利用者について実証済みの事実とはしない。主な障壁は実行状態・品質・判断待ちの混在と内部情報の過多、目標状態は「Milestoneがどこまで成立し、次にRuntimeが何を行い、人間が今判断すべき事項があるかを理解できる」とする。必要な根拠／情報は、Objectiveの受入状態、Task内訳、Dependency、Critical Path、Blocker、Risk、Human Decision、Integration State、Quality StateおよびNext Actionである。意図する判断／行動は、判断不要なら作業をRuntimeへ委ね続け、必要な場合だけ提示された選択肢から判断することである。
+この体験の認知意図（Cognitive Intent）は次である。現在状態は、[v0.18の実務自己適用で観測した人間による進行追跡・反復操作](../99_Roadmap/Changes/CHG-000055/change.md#26-実務評価と最終確認への引渡し)を根拠にした設計仮説として、「内部TaskやAgent Logを追わないと、何が進み、何を判断すべきか分からない」と置く。全利用者について実証済みの事実とはしない。主な障壁は実行状態・品質・判断待ちの混在と内部情報の過多、目標状態は「Milestoneがどこまで成立し、次にRuntimeが何を行い、人間が今判断すべき事項があるかを理解できる」とする。必要な根拠／情報は、Objectiveの受入状態、Task内訳、Dependency、Critical Path、Blocker、Risk、Human Decision、Integration State、Quality StateおよびNext Actionである。意図する判断／行動は、判断不要なら作業をRuntimeへ委ね続け、必要な場合だけ提示された選択肢から判断することである。
 
 利用者は、現在のMilestone、Objective、完了／実行中／依存待ちのTask、Critical Path、Blocker、Risk、Human Decision、Qualityおよび次の行動を、Worker Logを読まずに理解できる必要がある。推定Progressや未観測の残時間を事実として表示せず、進捗と成立品質を分ける。
 

@@ -4,6 +4,14 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-09-06
 
+## 基本図の処置
+
+| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
+|---|---|---|---|---|---|---|---|---|
+| 検証義務・試験Level／Boundary対応図 | CRDD参照Tool群 | 検証義務をUT／IT／ST／RTと実境界へ割り当てる | 作成 | [Tool結合ブロックと段階的な結合試験](#tool結合ブロックと段階的な結合試験) | v0.20.1 Stable＋v0.21 Candidate | 現行 | Workbenchの検証義務は未定義 | Group BのVerification Designで追加する |
+| 状態・分岐・Block別Coverage図 | Runtime／ToolのLifecycle | 正常、準正常、異常、cleanup、Recoveryの網羅範囲を示す | 作成 | [Project Runtimeの検証設計](#project-runtimeの検証設計) | v0.20.1 Stable＋v0.21 Candidate | 現行 | Workbench状態・分岐は未設計 | Group Bの状態契約確定後に更新する |
+| 検証結果・判断接続図 | 検証結果とRelease／採用判断 | Evidence、未確認、判断権限の接続 | 作成不能 | [対象と判定](#対象と判定)は判定表であり、検証結果から判断までの接続図は未作成 | v0.21 Candidate | 未作成 | v0.21固定候補のEvidenceと判断接続 | Group BのVerification Designとv0.21固定候補で作成する |
+
 ## 対象と判定
 
 ### 署名配布物の期限契約
@@ -33,7 +41,7 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 
 親RepositoryでCRDDをsubmoduleとして利用する経路では、作業対象Commitから`.crdd/config/external-send-policy.json`を読む明示投影も結合確認する。対象外のgitlinkが同じTreeに存在しても明示fileをexact bytesで読めること、gitlink自身またはその配下を選択した場合は拒否すること、読取り投影なしの全体展開はgitlinkを拒否することを同じ契約試験で確認する。限定file読取りの成功から、submodule内容またはCommit全体の展開を許可済みと推定しない。
 
-対象は[仕様](../05_SPEC/01_Behavior_Specification.md)と[設計](../06_Architecture/01_Architecture.md)が所有する現行内部ツールである。今回の配置変更は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)、Runtimeの完成条件は[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)で追跡する。以下は検証義務の複製ではなく、その確認方法の対応表である。
+対象は[仕様](../05_SPEC/01_Behavior_Specification.md)と[設計](../06_Architecture/01_Architecture.md)が所有する現行内部ツールである。今回の配置変更は[CHG-000017](../99_Roadmap/Changes/CHG-000017/change.md)、Runtimeの完成条件は[CHG-000015](../99_Roadmap/Changes/CHG-000015/change.md)で追跡する。以下は検証義務の複製ではなく、その確認方法の対応表である。
 
 | 確認する不確実性 | 観測・検証方法 | 合格に含めないこと |
 |---|---|---|
@@ -106,11 +114,11 @@ Docker create応答喪失の回復では、空照会だけで収束しない負�
 |---|---|---|
 | 目的から操作への導線 | 採用判断、通常依頼、Checker、復旧、開発署名を各利用者が取り違えず辿れるか確認 | 文書・専門レビューを行う。初見利用者による理解・所要時間は未測定 |
 | 初回同意と再利用 | 初回承認、既存境界再利用、変更、失効、拒否、時間切れ、読取不能を区別 | [同意契約試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts)と公開入力経路。実端末での表示認識・一回Enterは別確認 |
-| 結果と安全状態の表示 | 実producer→公開結果→人間表示を接続し、候補あり／なし、複数ID、IDなし回収不明、再起動のみ、optional値欠落を確認 | [表示試験](../40_Develop/coordinator/tests/unit/command-report.contract.test.ts)と[限定再確認](Verification_Results/2026-08-31_Tool_Layout_Verification.md#3部品の設計補完結果表示の追加確認)で欠落値を「未確認」とする是正を確認済み。実端末の可読性は別に残り、文字列の存在検査だけでは完了しない |
+| 結果と安全状態の表示 | 実producer→公開結果→人間表示を接続し、候補あり／なし、複数ID、IDなし回収不明、再起動のみ、optional値欠落を確認 | [表示試験](../40_Develop/coordinator/tests/unit/command-report.contract.test.ts)と[限定再確認](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#3部品の設計補完結果表示の追加確認)で欠落値を「未確認」とする是正を確認済み。実端末の可読性は別に残り、文字列の存在検査だけでは完了しない |
 | 取消と終了 | 正常終了、単一／重複signal、遅延完了、listener解除失敗を再現し終了後条件を観測 | [取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts)、[実Process結合](../40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts)。実端末閉鎖や実Provider取消とは分ける |
 | 候補の処置 | 正常export／discard、期限、Revision差、重複処置、不明状態を検証 | [候補Store試験](../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)。候補生成を人間受入・採用の証明にしない |
 | Checker表示 | 全体／限定、指摘あり／なし、未確認、JSON配列／summary報告を照合 | [契約試験](../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)。全体Checker実行結果と人間の理解を分ける |
-| 実端末・アクセシビリティ | Windows Terminal／PowerShellの日本語、長いID、折返し、拡大、キーボード、一回Enter、拒否・時間切れ・取消・終了後表示を観測 | 人間承認済みの範囲は[UI§4](../04_UI/01_User_Interface.md#4-現行表示の参照と表現方針)。[PowerShellの限定確認](Verification_Results/2026-08-31_Tool_Layout_Verification.md#端末参照媒体と全体試験の再確認)と、実Task取消の到達・通常回収・事後回復を分ける。版ごとの結果と別端末・読み上げ等の未評価範囲は[品質の現在状態](01_Quality_Center.md)へ接続する。ソース例・静的HTML・固定Fakeで代替せず、外部規格への適合は未主張 |
+| 実端末・アクセシビリティ | Windows Terminal／PowerShellの日本語、長いID、折返し、拡大、キーボード、一回Enter、拒否・時間切れ・取消・終了後表示を観測 | 人間承認済みの範囲は[UI§4](../04_UI/01_User_Interface.md#4-現行表示の参照と表現方針)。[PowerShellの限定確認](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#端末参照媒体と全体試験の再確認)と、実Task取消の到達・通常回収・事後回復を分ける。版ごとの結果と別端末・読み上げ等の未評価範囲は[品質の現在状態](01_Quality_Center.md)へ接続する。ソース例・静的HTML・固定Fakeで代替せず、外部規格への適合は未主張 |
 
 根拠を記録するときは対象改訂版、実際に使用した入口と環境、期待した認識・操作、実結果、資源／許可への影響を分ける。未測定時間や未確認回数を0へ補正しない。既知差の責任者・再確認契機は[UI未解決事項](../04_UI/01_User_Interface.md#open-issues)、現在品質は[Quality Center](01_Quality_Center.md)へ接続する。
 
@@ -182,7 +190,7 @@ PT／LTは、対象、時間、反復、費用・Credit、Provider呼出し、�
 
 通常診断の同期Process境界は実行中cancelを処理できず、timeoutをcancelと読み替えない。固定Fake専用の非同期取消検証では、固定signalの受領、Fake Container内Process終了、Host側Docker CLI attach Processのclose、Container不存在およびHost cleanupを同じrunで確認する。異常経路のHost側Processは一つの所有境界で終了要求をexact 1回に制限し、close不明をContainer cleanupで代用しない。この検証を、通常診断、任意signal、実ProviderまたはOperationの取消Capabilityへ流用しない。
 
-分岐網羅率は試験件数・合否と分離し、追跡対象、ロード済み、同名の重複レコード、未ロード、Native等の対象外を示す。モック由来の重複を単純合算せず、全体率が求められない場合は判定可能な部分集合の分子・分母だけを示す。[完成監査後の追加検証](Verification_Results/2026-08-31_Coordinator_Closure_Verification.md)に測定版と限界を記録し、率だけで未観測の検証義務を解消しない。
+分岐網羅率は試験件数・合否と分離し、追跡対象、ロード済み、同名の重複レコード、未ロード、Native等の対象外を示す。モック由来の重複を単純合算せず、全体率が求められない場合は判定可能な部分集合の分子・分母だけを示す。[完成監査後の追加検証](../99_Roadmap/Changes/CHG-000015/Evidence/260831_coordinator-closure-verification.md)に測定版と限界を記録し、率だけで未観測の検証義務を解消しない。
 
 公開CLI・正式署名・実Providerの結合は別の検証項目である。移行前後の署名済み4経路・復旧、通常CLIの入力搬送・候補反映・破棄、実Providerによる是正、実Task取消は、それぞれ測定版と観測手段を特定して評価する。版ごとの結果と現在の適用可否は[品質の現在状態](01_Quality_Center.md)へ接続し、過去の失敗・事後回復と是正後の再実測を区別する。固定設計の合否条件へ後続の測定結果を書き戻さない。逆方向の実是正などの未証明範囲は、完成監査で要求と代替根拠を照合し、人間判断なしに完了条件から外さない。未実測という理由だけで一律の追加実測義務を作らず、判断を変える残余不確実性に応じて確認方法を選ぶ。
 

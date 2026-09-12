@@ -6,20 +6,31 @@
 対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用し同日v0.18.0 Candidateへ収載した第2段階の改善意図、2026-08-29にRuntime終盤E2Eの学びから具体化したSystem Journey Closure、将来Runtime Architecture候補、能力到達点の投影および根拠駆動の責務分離原則、2026-08-31の有用性実測に基づく次版検討候補
 現在状態: 項目別。採用済みの作業意図と未採用の能力候補を分ける。
 
+## 基本図の処置
+
+| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
+|---|---|---|---|---|---|---|---|---|
+| 課題・根拠・機会の関係 | CRDD全体と項目別候補 | 課題、根拠、原因候補、機会の接続 | 作成不能 | 候補ごとの記述はあるが、全候補を同じ関係図へ統合する根拠と粒度が未確定 | v0.21 Candidate | 候補別の文章・表は存在 | Workbench候補の関係図は未作成 | Group BのDiscoveryで候補単位に作成し、全体図の必要性を再評価する |
+| 業務範囲／入出力（SIPOC） | 本書全体 | 単一業務Processの境界と入出力 | 非該当 | 本書は複数版・複数候補のDiscovery正本であり、単一業務Processを対象にしない | v0.21 Candidate | 非該当 | 個別候補の業務境界は本行で評価していない | 業務変革を扱う候補のDiscovery入口で再評価する |
+| Actor別Process（Swimlane） | 本書全体 | Actor間の活動、判断、受渡し | 非該当 | 工程規則と保守Workflowを単一の業務Actor Processへ読み替えない | v0.21 Candidate | 非該当 | Workbench利用者のActor別Processは未作成 | Group BのDiscoveryで作成要否を再評価する |
+| Value Stream | 本書全体 | 処理、待機、滞留、手戻りの可視化 | 非該当 | 実測時間を持つ単一業務Processが本書全体の対象ではない | v0.21 Candidate | 非該当 | Workbench業務の処理・待機時間は未取得 | 実測可能な業務Processを対象にした時点で再評価する |
+| As-Is／To-Be | Workbench候補 | 現行作業と目標体験の差 | 作成不能 | [業務プロセス分析の目的別投影](#14-業務プロセス分析の目的別投影)は作成規則であり、具体図ではない | v0.21 Candidate | 規則のみ作成済み | WorkbenchのAs-Is／To-Beは未作成 | Group BのDiscoveryで根拠を確認して作成する |
+| 項目間全体像 | 現行Discovery候補集合 | 候補間の状態と依存の俯瞰 | 作成 | [対象状態表](#1-起点と人間の判断) | v0.21 Candidate | 現行 | Workbench内部の項目関係は未設計 | 候補追加・関係変更時に表を更新する |
+
 | 対象 | 状態・変更記録 |
 |---|---|
 | §1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善 | v0.18.0で採用・実装検証・公開済み（CHG-000055）。v0.18.1の採用入口是正はCHG-000056で追跡する |
-| §7.3.2の根拠駆動Runtimeリファクタリング | 採用したv0.18.0対象は実装検証・公開済み（[CHG-000055の実施結果](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#24-実務結果の照合と最終固定への引渡し)と[現在の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)）。総合的な性能優位は未実証 |
+| §7.3.2の根拠駆動Runtimeリファクタリング | 採用したv0.18.0対象は実装検証・公開済み（[CHG-000055の実施結果](../99_Roadmap/Changes/CHG-000055/change.md#24-実務結果の照合と最終固定への引渡し)と[現在の評価](../99_Roadmap/Changes/CHG-000055/change.md#26-実務評価と最終確認への引渡し)）。総合的な性能優位は未実証 |
 | §7.9の責務分離原則 | `Adopted / Planned` |
 | §7.1の上位方向 | `Adopted / Unscheduled` |
 | §7.2のCoordinator Runtime 1.0 | v0.18.0で候補内容を採用・実装検証・公開済み（CHG-000015）。v0.18.1の配布契約と作業対象Revision結合の是正はCHG-000056で追跡する |
 | §8のMinimum AI-native Project Runtime | v0.19.0へ採用・設計中（CHG-000057） |
 | 第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補、§7.9の将来能力地平 | `Held / Unscheduled` |
-| v0.21以降のRuntime／CROS候補 | 利用者課題、価値、採用境界は[Runtime／CROS Product Candidates](02_Runtime_and_CROS_Product_Candidates.md)へ分離。版、状態、次のGateは[Roadmap](../99_Roadmap/01_Product_Roadmap.md)が所有する |
+| v0.21以降のRuntime／CROS候補 | 利用者課題、価値、採用境界は[Runtime／CROS Product Candidates](02_Runtime_and_CROS_Product_Candidates.md)へ分離。版、状態、次のGateは[Roadmap](../99_Roadmap/01_Roadmap.md)が所有する |
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本、影響および既存の未リリース変更意図を再確認し、同じ意図は既存CHGへ接続する。独立した変更意図が必要な場合だけ、[変更規則](../12_Change.md)に従って新しい`CHG-*`を発行する。
 
-2026-09-01の候補内容・移行方針の採用後、PR #32でmainへ統合し、v0.18.0を公開した。[CHG-000056](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md)はv0.18.1の採用入口是正を追跡する。将来候補や別の採用先を追加承認したものではない。
+2026-09-01の候補内容・移行方針の採用後、PR #32でmainへ統合し、v0.18.0を公開した。[CHG-000056](../99_Roadmap/Changes/CHG-000056/change.md)はv0.18.1の採用入口是正を追跡する。将来候補や別の採用先を追加承認したものではない。
 
 §7.3.2の作業意図の採用と、同節の[次版検討候補](#runtime-utility-next-version-candidates)の状態は分ける。候補のうち§8へ明示収載した範囲だけがv0.19の実行対象であり、残りは`Held / Unscheduled`を維持する。
 
@@ -32,7 +43,7 @@ Qual-Labの人間の決定権限者は、Coordinator Runtime 1.0をDogfoodingし
 1. 課題探索・要求形成（Discovery）で、人間の暗黙Contextを発見し、反証し、再確認して収束させる対話Loopを強化する。
 2. UX、IA、UI、Graphic、SPEC、Architectureの各Agentを、同じ「賢いAI」ではなく工程固有の専門家として振る舞わせる。
 
-この時点の採用だけでは、実装着手、規範変更、特定版への収載、工程移行またはReleaseを意味しなかった。その後2026-08-28に、Qual-Labの人間の決定権限者は§7.3.1～§7.3.3を含む本強化をv0.18.0 Candidateへ収載すると判断した。判断経緯、現在の実行順序および具体的変更は[`CHG-000055` §9](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#9-v0180-candidateへの収載判断による再開)と同CHGの最新節が所有する。収載判断や自己適用の開始は、実装完了、規範採用、Stable化またはReleaseを意味しない。
+この時点の採用だけでは、実装着手、規範変更、特定版への収載、工程移行またはReleaseを意味しなかった。その後2026-08-28に、Qual-Labの人間の決定権限者は§7.3.1～§7.3.3を含む本強化をv0.18.0 Candidateへ収載すると判断した。判断経緯、現在の実行順序および具体的変更は[`CHG-000055` §9](../99_Roadmap/Changes/CHG-000055/change.md#9-v0180-candidateへの収載判断による再開)と同CHGの最新節が所有する。収載判断や自己適用の開始は、実装完了、規範採用、Stable化またはReleaseを意味しない。
 
 ## 2. 保持する意図
 
@@ -169,7 +180,7 @@ CRDDは、コンテキストリポジトリを中心としたAI開発方式か�
 
 到達目標は、エージェント組織を実Runtimeへ接続し、必要な専門性、能力および独立性に応じて作業を委譲できるAI開発チームを実行可能にすることである。
 
-主な能力候補は、エージェント／プロバイダー（Provider）経路選択、委譲／引き渡し、決定権限の強制、プロバイダー隔離、独立レビュー、結果統合、回復および人間判断への返却である。現在の具体的な完成条件は[`CHG-000015`](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)が所有し、本節から追加または変更しない。
+主な能力候補は、エージェント／プロバイダー（Provider）経路選択、委譲／引き渡し、決定権限の強制、プロバイダー隔離、独立レビュー、結果統合、回復および人間判断への返却である。現在の具体的な完成条件は[`CHG-000015`](../99_Roadmap/Changes/CHG-000015/change.md)が所有し、本節から追加または変更しない。
 
 Issue #30の整理、自律オペレーションの参照実証およびv0.18.0の最終化は同時期の保守／リリース作業になり得るが、第1段階の能力定義には含めない。
 
@@ -321,7 +332,7 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 - Source Commit、配布版、成果物ハッシュ、試験対象、Evidenceを一方向に追跡し、`tools`を手修正可能な第二ソースにしない。生成物の差分確認や再現検査は必要性に応じて具体化する。
 - 移行対象にはimport・CLI・CI・Checker・署名manifestの配布Root／相対Path・テンプレート・リンク／アンカーを含む。新配置からの実行と配布物の検証を行い、過去の固定Evidenceは書き換えない。
 
-2026-08-31、人間からの一括実施依頼と、案内だけを`tools`へ残さず作業手順へ分離する説明後の続行指示を受け、下記の工程別配置への移行を開始した。その後の試験・参照確認・独立レビューと内容採用を完了し、[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)へ移行処置と検証を集約した。完了した実行順の案内はロードマップから除去した。配布テンプレートの公開配置、署名済み旧配布物、過去の固定Evidenceは変更していない。
+2026-08-31、人間からの一括実施依頼と、案内だけを`tools`へ残さず作業手順へ分離する説明後の続行指示を受け、下記の工程別配置への移行を開始した。その後の試験・参照確認・独立レビューと内容採用を完了し、[CHG-000017](../99_Roadmap/Changes/CHG-000017/change.md)へ移行処置と検証を集約した。完了した実行順の案内はロードマップから除去した。配布テンプレートの公開配置、署名済み旧配布物、過去の固定Evidenceは変更していない。
 
 採用した責務分離と移行先は次のとおり。作業の続行を統合・Releaseの確定と扱わず、新配置からの実行と旧版との境界を検証する。
 
@@ -329,14 +340,14 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 |---|---|---|
 | 利用者体験、CLIの情報構造・表示、振る舞い | `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md` | 導入・通常利用・判断・失敗・復旧の実在する内容を記す。空の成果物を作らず、UIと仕様は項目の所有を分離して対応づける |
 | 状態・資源・回復・脅威モデル・実装規約 | `06_Architecture/01_Architecture.md`と必要なTool別詳細 | 旧配置の`architecture/README.md`、`threat-model.md`と`06_Architecture/99_Coding_Standards.md`の責務を移す。工程入口をリンク集だけにしない |
-| 品質戦略、検証設計、現在の品質状態、新しい結果 | `07_Quality/02_Quality_Strategy.md`、`03_Verification_Design.md`、`01_Quality_Center.md`、`Verification_Results/` | 既存の固定Evidenceは`90_Release/Changes/Evidence/`に保持し参照する。試験コードを品質記録へ移さない |
+| 品質戦略、検証設計、現在の品質状態 | `07_Quality/02_Quality_Strategy.md`、`03_Verification_Design.md`、`01_Quality_Center.md` | 検証結果は証明対象に応じてChangeまたはRelease Aggregateの`Evidence/`へ置く。試験コードを品質記録へ移さない |
 | Coordinator、Checkerの開発package、Rust実装 | `40_Develop/coordinator/`、`40_Develop/checker/`、`40_Develop/platform-access/` | source・tests・build定義を一意に所有。Checker開発packageは配布正本への接続を維持する |
 | 反復する構築・検証・署名・復旧・移行手順 | `19_Workflows/` | 具体的な入力・実行順・停止・結果の返却先を記す。要求、設計、実行結果を複製しない |
 | 配布Checker、Coordinator Runtime、一時物 | `template/tools/crdd-check.ts`、`template/tools/coordinator/`、Repository直下`.crdd/` | CRDDをcloneまたはsubmoduleで取得した利用者が同じ基準版のToolを利用できるよう、配布物を`template/tools`へ集約する。Runtime状態と一時物はignore-by-defaultを維持し、自動取得や別配布経路は追加しない |
 
 代替は、当時の`tools`配下へ実装を残す案、起動接続部だけを残す案、生成配布物をGitへ格納する案であった。前者は移行量が少ないが今回の工程別所有を満たさない。起動接続部は独立した実責務がある場合だけ有力であり、旧Path維持だけの互換shimは作らない。当初は生成物のGit格納を推奨しなかったが、その後、CRDD Repository自体をcloneまたはsubmoduleで取得する導入経路では基準版とRuntimeを分離しない方が導入と版整合に優れると判断した。このため、現在はMilestoneで固定した配布物だけを`template/tools/coordinator/`で追跡し、日常のbuild生成物やRuntime状態は追跡しない。
 
-公式Repositoryの旧`tools`を廃止し、開発コマンドと新しい署名配布内のソースPathを新配置へ揃える。旧Path互換を残さないため、単なる文書移動ではなく破壊的移行として扱う。import、package、命名検査とTypeScript所有集合、Rust build、manifestのソース結合、Docker assets、traceability、AI入口、現行リンクと手順を全数確認する。その後の配布判断により、native配布成果物は`90_Release`ではなく`template/tools/coordinator/windows-x64/`へ移し、manifestも`template/tools/coordinator/`で所有する。`40_Develop`はソース・build・試験、`90_Release`は変更・根拠・公開状態を所有する。秘密入力なしの開発検証を先に収束させ、mainへ統合後に固定した最終版だけを正式署名E2Eへ渡す。別Download、ZIPまたは自動取得の第二配布経路は追加しない。
+公式Repositoryの旧`tools`を廃止し、開発コマンドと新しい署名配布内のソースPathを新配置へ揃える。旧Path互換を残さないため、単なる文書移動ではなく破壊的移行として扱う。import、package、命名検査とTypeScript所有集合、Rust build、manifestのソース結合、Docker assets、traceability、AI入口、現行リンクと手順を全数確認する。その後の配布判断により、native配布成果物は`template/tools/coordinator/windows-x64/`へ移し、manifestも`template/tools/coordinator/`で所有する。`40_Develop`はソース・build・試験、`99_Roadmap`はWork Lifecycleの案内、Change／Release AggregateとEvidenceを所有する。秘密入力なしの開発検証を先に収束させ、mainへ統合後に固定した最終版だけを正式署名E2Eへ渡す。別Download、ZIPまたは自動取得の第二配布経路は追加しない。
 
 <a id="runtime-utility-next-version-candidates"></a>
 
@@ -344,7 +355,7 @@ Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`
 
 2026-08-31の人間の依頼により、中間有用性評価から次版に向けた検討材料を保持する。**候補保持であり、版番号・収載・設計・実装は未決**である。現行v0.18の必須完了条件、不具合是正、有用性Baseline取得または最終監査を次版へ移す判断ではない。
 
-[前回の実測](../90_Release/Changes/Evidence/CHG-000015_Development_Provider_Comparison_848877c.json)と[重複検証集約後の実測](../90_Release/Changes/Evidence/CHG-000015_Development_Provider_Comparison_799e368.json)では、同じ小Taskの両経路がレビュー1回・追加是正0回で完了した。一方、後者の所要時間は増加し、高速化は実証されていない。Reviewer承認を人間受入、横断品質または任意Taskへの適用可能性へ昇格しない。この差を出発点として、既存の[有用性評価](#runtime-utility-evaluation)と本節の責務分離候補へ次を接続する。
+[前回の実測](../99_Roadmap/Changes/CHG-000015/Evidence/260831-0038_development-provider-comparison-01.json)と[重複検証集約後の実測](../99_Roadmap/Changes/CHG-000015/Evidence/260831-0038_development-provider-comparison.json)では、同じ小Taskの両経路がレビュー1回・追加是正0回で完了した。一方、後者の所要時間は増加し、高速化は実証されていない。Reviewer承認を人間受入、横断品質または任意Taskへの適用可能性へ昇格しない。この差を出発点として、既存の[有用性評価](#runtime-utility-evaluation)と本節の責務分離候補へ次を接続する。
 
 | 検討対象 | 次に確認したいこと | 保持する条件 |
 |---|---|---|
@@ -720,8 +731,8 @@ PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠か
 | 表示 | 能力像 | 判断／対応状態 | 再評価契機 | この表示が意味しないこと |
 |---|---|---|---|---|
 | CRDD v0.18.0 — 公開済み基準 | CRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 内容採用・main統合・公開済み | CHG-000014の公開記録とCHG-000015の完成根拠 | v0.18.1の公式Release識別子または将来候補の採用 |
-| CRDD v0.18.0 — 自己適用で完了した改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性 | 採用した対象の実装検証・内容採用は完了（[CHG-000055](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md)） | 根拠を保持し、リリースへ引き渡す | 総合的な性能優位、Releaseまたはv0.19.0以降の研究候補の収載 |
-| CRDD v0.19.0 | MCPの薄い協働接続面、単一Project／Repository、Objective Planning、Task Graph、最大5並列、Progress、Replanning、Integration、および工程内ReasoningのContext化を自己適用する | `Adopted / In Progress`（[§8](#v019-minimum-project-runtime)、[§9](#v019-reasoning-context)、[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)、[CHG-000058](../90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md)） | Project Runtimeの工程設計・実装・E2E・Utility評価と、認知推論／選択推論の代表経路による自己適用および独立Closure | 複数Project／Repository、常設自律Runtime、専用PM System、Organization Runtime、全工程共通の固定Reasoning Schema |
+| CRDD v0.18.0 — 自己適用で完了した改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性 | 採用した対象の実装検証・内容採用は完了（[CHG-000055](../99_Roadmap/Changes/CHG-000055/change.md)） | 根拠を保持し、リリースへ引き渡す | 総合的な性能優位、Releaseまたはv0.19.0以降の研究候補の収載 |
+| CRDD v0.19.0 | MCPの薄い協働接続面、単一Project／Repository、Objective Planning、Task Graph、最大5並列、Progress、Replanning、Integration、および工程内ReasoningのContext化を自己適用する | `Adopted / In Progress`（[§8](#v019-minimum-project-runtime)、[§9](#v019-reasoning-context)、[CHG-000057](../99_Roadmap/Changes/CHG-000057/change.md)、[CHG-000058](../99_Roadmap/Changes/CHG-000058/change.md)） | Project Runtimeの工程設計・実装・E2E・Utility評価と、認知推論／選択推論の代表経路による自己適用および独立Closure | 複数Project／Repository、常設自律Runtime、専用PM System、Organization Runtime、全工程共通の固定Reasoning Schema |
 | CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループを、人間とAIの組織（Human × AI Organization）で成立させる | `Held / Unscheduled` | 協働接続面とエコシステム自己適用から、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |
 | CRDD v1.x（将来能力像） | 単一Projectの運営モデル（Operating Model）を保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、macOS、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |
 | CRDD v2.x（将来能力像） | 調整と最適化の観測範囲をProjectから複数Project／Organizationへ広げ、依存、優先順位、Capacity、Riskおよび投資判断へ根拠を提供する | `Held / Unscheduled` | 単一Project境界の成熟と、Organization Scopeの価値、情報、安全およびAuthority設計 | Project Authorityの上位継承、横断Effect、予算消費、優先順位変更、Provider起動または外部送信の自動認可 |

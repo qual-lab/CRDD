@@ -13,7 +13,7 @@ Related:
 - [11_Skill.md](11_Skill.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [18_Context_Dependency.md](18_Context_Dependency.md)
-- [99_Roadmap/01_Product_Roadmap.md](99_Roadmap/01_Product_Roadmap.md)
+- [99_Roadmap/01_Roadmap.md](./99_Roadmap/01_Roadmap.md)
 
 > 本書は自律Operationの目的と全体像を保持する非規範のArchitecture Candidateである。将来の規範化候補を評価できる正本資料だが、現在の規範要件ではない。候補の存在だけから、採用側の有効化、決定権限、Capability、準拠またはReleaseを成立させない。
 
@@ -98,7 +98,7 @@ Layer 1はCRDDが意味を所有する。Layer 2はCRDDとRuntimeの境界を定
 
 自律Operationは、人間を排除する構想ではない。AIが状況収集、差分把握、再評価候補、根拠整理を担い、人間が価値、方向、優先順位、重要判断、リスク受容へ集中できる状態を目指す。
 
-候補正本、実行実装、採用側の有効化、決定権限、準拠およびReleaseを分離する。同じbranchまたはCommitに含まれること、候補を表現できること、PoCや試験が成功したことから、Capabilityの有効化またはAuthority Grantを推定しない。採用する場合は、変更トレース、対象Version、移行、準拠影響、専門確認および人間判断を必要とする。統合前の候補資料と文書移管の来歴は[CHG-000014](90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md)で再構成できる。
+候補正本、実行実装、採用側の有効化、決定権限、準拠およびReleaseを分離する。同じbranchまたはCommitに含まれること、候補を表現できること、PoCや試験が成功したことから、Capabilityの有効化またはAuthority Grantを推定しない。採用する場合は、変更トレース、対象Version、移行、準拠影響、専門確認および人間判断を必要とする。統合前の候補資料と文書移管の来歴は[CHG-000014](./99_Roadmap/Changes/CHG-000014/change.md)で再構成できる。
 
 ---
 
@@ -271,7 +271,7 @@ AIがCRDD Coreを自己変更することとは分離する。Core変更は、�
 
 CRDDの基礎契約は「AIとプロダクトを作る」ための安定した土台を目指す。本候補は、その土台の上で「AIとプロダクトを継続的に育てる」運用を検証する。
 
-未完了の実証候補は[Product Roadmap](99_Roadmap/01_Product_Roadmap.md)に置く。
+未完了の実証候補は[Product Roadmap](./99_Roadmap/01_Roadmap.md)に置く。
 
 ---
 

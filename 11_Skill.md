@@ -358,7 +358,7 @@ skill_run:
   scale: Standard
   update_strategy: Revise
   scope:
-    change_trace: 90_Release/Changes/CHG-000004_Topic_Detail.md
+    change_trace: 99_Roadmap/Changes/CHG-000004/change.md
     feature: Important Topic Review
   input_revision:
     - artifact: 01_Discovery/00_Product_Origin.md

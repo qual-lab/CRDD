@@ -12,6 +12,18 @@ CRDD自身が提供するCoordinator Runtime、実行知（Execution Intelligenc
 
 配置変更後の機械検証と独立レビューの結果は[品質の現在状態](../07_Quality/01_Quality_Center.md)へ集約する。この移管を設計工程全体の完了、Runtimeの新しい実測、署名配布物の成立またはReleaseとみなさない。過去の固定実測は当時版への根拠として保持し、配置変更後の配布Identityと正式E2Eは別に確認する。
 
+## 基本図の処置
+
+| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
+|---|---|---|---|---|---|---|---|---|
+| 全体／内部ブロック図 | CRDD参照Tool群 | Tool間と各Tool内部の責務境界 | 作成 | [Tool全体の結合ブロック](#tool全体の結合ブロック) | v0.21 Candidate | 現行候補 | Workbench内部Blockは未確定 | Group BのArchitectureで追加し、既存図との接続を確認する |
+| 状態遷移表／状態遷移図 | Coordinator、Project Runtime、CROS候補 | 状態、Authority、資源、回復の遷移 | 既存参照 | [Coordinatorの状態と遷移](coordinator/01_Architecture.md#4-状態と遷移)、[Project Runtimeの状態・Authority・資源](project-runtime/01_Architecture.md#6-状態authority資源) | v0.20.1 Baseline＋v0.21 Candidate | 現行。CROSは設計候補 | Workbench状態は未確定 | Group BのArchitectureでWorkBench状態を追加する |
+| ブロック間シーケンス図 | Tool間の主要結合経路 | Identity、Authority、結果、cleanupの順序 | 作成 | [ブロック間シーケンスの正本](#ブロック間シーケンスの正本) | v0.20.1 Baseline＋v0.21 Candidate | 現行 | Workbench経路は未作成 | Group BのArchitectureで追加する |
+| クラス／型関係図 | CRDD参照Tool群 | 公開型、内部型、所有関係の可視化 | 作成不能 | 内部Block図は型関係図ではなく、Tool群横断の型所有関係は未作成 | v0.21 Candidate | 未作成 | 公開Application ContractとWorkbench型 | Group Bで型が確定した後に作成要否を再評価する |
+| データフロー図（DFD） | CROS候補 | RepositoryからProjection、MCP／WorkbenchまでのData Flow | 既存参照 | [CROSのデータフロー](cros/01_Architecture.md#10-データフロー) | v0.21 Candidate | CROS候補のみ作成済み | Tool群全体のDFDは未作成 | Group BのArchitectureでWorkbench範囲を更新し、全体DFDの必要性を再評価する |
+| エンティティ関係図（ER図） | Project Operation Context | Project、Repository、Binding、責務領域の多重度 | 作成不能 | [IdentityとRepository Relation](project-operation/01_Architecture.md#2-identityとrepository-relation)は概念関係図であり、ER図の多重度と関係制約を満たさない | v0.21 Candidate | 概念関係のみ作成済み | Entity多重度、必須／任意、所有境界 | Group BのArchitectureでProject Operation Schema確定後に作成する |
+| スキーマ責務図（Schema Responsibility Map） | Project Operation／CROS公開契約 | Canonical Schema、Owner、Producer、Consumer、変換境界 | 作成不能 | 責務表は存在するが、Schema単位のOwner・Producer・Consumer対応図は未作成 | v0.21 Candidate | 未作成 | Workbench公開契約と永続Schema | Group BのArchitectureでSchema確定後に作成する |
+
 ## 構成と責務
 
 | 対象 | 所有する責務 | 接続・制限 |
@@ -306,6 +318,6 @@ Provider実行の方式はWindows上のDocker Desktop Linux Engineと固定公�
 - 正常・準正常・異常の開発試験を新配置から実行する。固定Fake／契約試験と、実OS／Docker／Provider観測を混同しない。
 - 署名済み配布物を必要とする操作は、変更後の固定版と成果物を再検証する。旧版の署名を新配置へ流用せず、開発デバッグに公式鍵を要求しない。
 - 公開済みCHG・固定Evidenceは移動・改稿せず、その当時のPathと結果を保持する。
-- 未解決の実装・観測範囲は[詳細設計の変更と検証](coordinator/01_Architecture.md#11-変更と検証)と[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)、配置・命名移行は[CHG-000017](../90_Release/Changes/CHG-000017_Tools_Coding_Standards.md)で追跡する。
+- 未解決の実装・観測範囲は[詳細設計の変更と検証](coordinator/01_Architecture.md#11-変更と検証)と[CHG-000015](../99_Roadmap/Changes/CHG-000015/change.md#1-結論と現在状態)、配置・命名移行は[CHG-000017](../99_Roadmap/Changes/CHG-000017/change.md)で追跡する。
 
 担当はQual-LabのRuntime保守と親Coordinator。完成条件を満たさない範囲を将来候補へ送らず、変更後の固定版で独立Architecture／Security、Test／UX、Document／Gap／Impact／Conformanceの結果を統合して人間の採用・Release判断へ渡す。

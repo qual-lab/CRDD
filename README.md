@@ -47,7 +47,7 @@ Quality assurance is therefore not an activity that begins by running tests at t
 
 ### Coordinator Runtime and provider boundary
 
-For capabilities and limits, read the [behavior specification](05_SPEC/01_Behavior_Specification.md); for execution and recovery, use the [workflow](19_Workflows/01_Coordinator_Runtime.md). The [current quality status](07_Quality/01_Quality_Center.md) separates verified results from remaining work, and the [architecture](06_Architecture/01_Architecture.md) explains the implementation. An official release tag contains the signed manifest and exact native Runtime artifact under `template/tools/coordinator` in the same Git tree. This location is the tool distribution surface for adopting repositories; `40_Develop` owns source, builds, and tests, while `90_Release` owns changes, evidence, and release state. A clone or submodule fixed to that tag can therefore verify and run the Runtime without downloading a separate package. The signed manifest, Git identity, and exact native artifact hash are required; Authenticode is an optional additional publisher defense rather than a separate installation prerequisite. An unsigned development branch, a modified checkout, or an earlier signed candidate cannot establish the release identity. Ordinary users do not need the release signing key or its passphrase.
+For capabilities and limits, read the [behavior specification](05_SPEC/01_Behavior_Specification.md); for execution and recovery, use the [workflow](19_Workflows/01_Coordinator_Runtime.md). The [current quality status](07_Quality/01_Quality_Center.md) separates verified results from remaining work, and the [architecture](06_Architecture/01_Architecture.md) explains the implementation. An official release tag contains the signed manifest and exact native Runtime artifact under `template/tools/coordinator` in the same Git tree. This location is the tool distribution surface for adopting repositories; `40_Develop` owns source, builds, and tests, while `99_Roadmap` owns Work Lifecycle navigation and Change or Release aggregates with their evidence. A clone or submodule fixed to that tag can therefore verify and run the Runtime without downloading a separate package. The signed manifest, Git identity, and exact native artifact hash are required; Authenticode is an optional additional publisher defense rather than a separate installation prerequisite. An unsigned development branch, a modified checkout, or an earlier signed candidate cannot establish the release identity. Ordinary users do not need the release signing key or its passphrase.
 
 Release identity and Runtime execution identity are separate. Documentation, CHG, roadmap, and quality-record changes update the release context but do not require Runtime re-signing or provider E2E when the machine-derived closed Runtime dependency set, security policies, and native artifact are unchanged. A change to that execution set changes the Runtime identity and requires re-signing plus the affected verification. This separation does not add another user approval.
 
@@ -159,7 +159,7 @@ For example, a Codex scheduled task may explicitly start a read-only weekly revi
 - [Concept and vision](05_Autonomous_Operation.md)
 - [Responsibility boundaries](05_Autonomous_Operation.md#autonomous-operation-responsibility)
 - [Long-term evolution direction](01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針)
-- [Open work and reference experiments](99_Roadmap/01_Product_Roadmap.md)
+- [Open work and reference experiments](./99_Roadmap/01_Roadmap.md)
 - [Autonomous safety architecture](05_Autonomous_Operation.md#autonomous-operation-safety)
 - [Operation health and Human interface](05_Autonomous_Operation.md#operation-health-and-human-interface)
 - [Forward compatibility](05_Autonomous_Operation.md#forward-compatibility)
@@ -402,7 +402,7 @@ The checker is an efficiency aid, not a conformance authority. If Node.js or the
 - Use `07_Quality` for the Quality Center, quality strategy, verification design, and immutable verification-result history. Keep phase-owned obligations and evidence in their owning artifacts. Quality status, rationale, unverified scope, residual risk, and reproduction methods must remain understandable from the repository even when CI or test tools are used; an external link or run ID is not the QA record. Where unit testing applies, use `100%` branch coverage as the default target and explain every shortfall or exclusion with its scope, residual risk, alternative verification, owner, and reevaluation condition.
 - When external communication is part of the repository, use `80_Communication/01_Communication.md` as the single entry. Separate generated projections from published records, connect claims to evidence, and treat measured reactions as observations or learning candidates until a human adopts them. Repositories without this capability do not create the folder.
 - Distinguish semantic context dependencies from versioned artifact dependencies. Apply the full contract to context dependencies, artifact dependencies whose meaning, contract, adopted version, or update decision must be coordinated across independently managed consumers within the adopting organization, and artifact dependencies requiring explicit management for material risk. An upstream provider's API contract, separate authority, or independent release alone does not trigger the full contract. Ordinary and transitive implementation dependencies may remain in architecture or package-management authorities. Do not make a repository, submodule, or package layout mandatory.
-- Use `19_Workflows` for repository-specific repeatable procedures. Use `90_Release/Changes/CHG-*.md` for Change Traces. Use the rest of `90_Release` only when the project needs release records, distribution references, or release verification.
+- Use `19_Workflows` for repository-specific repeatable procedures. Use `99_Roadmap/Changes/<CHG-ID>/change.md` for Change Traces and `99_Roadmap/Releases/<version>/` for release records and release evidence.
 - Before independent review or an audit set, the parent AI agent runs `node tools/crdd-check.ts` or an equivalent deterministic check once for the fixed target revision and shares the result. The supplied implementation is optional and does not replace Document Audit, specialist-quality review, Conformance Audit, or Gap / Impact Audit.
 - Treat governance, security, privacy, accessibility, compatibility, capacity, and cost as responsibilities of the applicable upstream and downstream phases rather than as detached end-stage checks.
 - Published CRDD documents prioritize the reader's primary locale. Canonical English terms remain common aliases; Stable Context IDs, Agent IDs, filenames, schema keys and values, and code are not translated. BCP 14 keywords remain visible where normative strength must be unambiguous.
@@ -481,7 +481,7 @@ Human Coding-less DevelopmentはNo-codeではない。コードはAIが生成す
 
 ### Coordinator RuntimeとProvider境界
 
-できることと制限は[振る舞い仕様](05_SPEC/01_Behavior_Specification.md)、実行・復旧は[作業手順](19_Workflows/01_Coordinator_Runtime.md)から確認できる。[品質の現在状態](07_Quality/01_Quality_Center.md)では確認済みの結果と残件を分け、内部の仕組みは[アーキテクチャ](06_Architecture/01_Architecture.md)へ集約する。公式Release tagのGit Treeには、署名manifestと単一の固定Native Runtime成果物を`template/tools/coordinator`配下へ同梱する。ここは採用Repository向けToolの配布面であり、Source・build・試験は`40_Develop`、変更・Evidence・Release状態は`90_Release`が所有する。そのtagへ固定したcloneまたはsubmoduleは、別packageを取得せずに署名と実体の一致を検証してRuntimeを利用できる。署名manifest、Git Identityおよび単一Native artifactのHashを必須とし、Authenticodeは別install前提ではなく追加のpublisher防御として扱う。未署名の開発branch、改変されたcheckoutまたは旧署名候補は、公式ReleaseのIdentityにならない。通常利用者にRelease署名鍵やパスフレーズは不要である。
+できることと制限は[振る舞い仕様](05_SPEC/01_Behavior_Specification.md)、実行・復旧は[作業手順](19_Workflows/01_Coordinator_Runtime.md)から確認できる。[品質の現在状態](07_Quality/01_Quality_Center.md)では確認済みの結果と残件を分け、内部の仕組みは[アーキテクチャ](06_Architecture/01_Architecture.md)へ集約する。公式Release tagのGit Treeには、署名manifestと単一の固定Native Runtime成果物を`template/tools/coordinator`配下へ同梱する。ここは採用Repository向けToolの配布面であり、Source・build・試験は`40_Develop`、Work Lifecycleの案内とChange／Release AggregateおよびEvidenceは`99_Roadmap`が所有する。そのtagへ固定したcloneまたはsubmoduleは、別packageを取得せずに署名と実体の一致を検証してRuntimeを利用できる。署名manifest、Git Identityおよび単一Native artifactのHashを必須とし、Authenticodeは別install前提ではなく追加のpublisher防御として扱う。未署名の開発branch、改変されたcheckoutまたは旧署名候補は、公式ReleaseのIdentityにならない。通常利用者にRelease署名鍵やパスフレーズは不要である。
 
 Release IdentityとRuntime実行Identityは分離する。文書、CHG、Roadmapまたは品質記録だけを変更しても、機械的に導出する閉じたRuntime依存集合、Security PolicyおよびNative成果物が不変なら、Runtimeの再署名と実Provider E2Eは不要である。実行集合が変わればRuntime実行Identityも変わり、再署名と影響範囲の検証が必要になる。この分離によって利用者の承認操作は増えない。
 
@@ -595,7 +595,7 @@ Representable != Enabled != Accessible != Authorized != Promoted
 - [Conceptと全体像](05_Autonomous_Operation.md)
 - [責務境界](05_Autonomous_Operation.md#autonomous-operation-responsibility)
 - [長期発展方針](01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針)
-- [未完了作業と参照実証](99_Roadmap/01_Product_Roadmap.md)
+- [未完了作業と参照実証](./99_Roadmap/01_Roadmap.md)
 - [自律安全Architecture](05_Autonomous_Operation.md#autonomous-operation-safety)
 - [Operation HealthとHuman Interface](05_Autonomous_Operation.md#operation-health-and-human-interface)
 - [Forward Compatibility](05_Autonomous_Operation.md#forward-compatibility)
@@ -836,7 +836,7 @@ node 00_CRDD/template/tools/crdd-check.ts --root . --json --summary
 - `07_Quality`には品質戦略、検証設計、確定済み検証結果とQuality Centerを置く。検証義務や根拠を中央へ複製しない。CIやテスト実行ツールを使っても、品質状態、判断理由、未検証範囲、残存リスク、再現方法はリポジトリ内から理解できるようにし、外部リンクや実行IDだけを品質保証記録にしない。単体試験が適用される場合は分岐網羅率`100%`を既定目標とし、未達または除外ごとに対象、残るリスク、代替確認、担当責任者、再確認条件を明示する。
 - 外部コミュニケーションを扱う場合だけ`80_Communication/01_Communication.md`を単一入口として使う。生成可能な表現と公開済み記録を分け、主張を根拠へ接続し、外部反応は人間が採用するまで観察または学び候補として扱う。扱わないRepositoryにはフォルダを作らない。
 - 意味を参照するコンテキスト依存と、版付き成果物を使う成果物依存を区別する。完全な依存契約はコンテキスト依存、採用組織の独立管理利用側間で意味・契約・採用版・更新判断の横断調整を必要とする成果物依存、または重大リスクにより明示管理する成果物依存へ適用する。外部提供元とのAPI契約、別権限、独立リリースだけでは発火させない。通常・推移依存は既存のアーキテクチャやパッケージ管理を正本にでき、存在だけで個別CHGや都度の人間判断を要求しない。Repository、Submodule、パッケージのいずれかを共通方式として固定しない。
-- `19_Workflows`にはリポジトリ固有の反復可能な作業手順を置く。変更トレースは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、リリース記録、配布物参照、リリース検証が必要なプロジェクトでだけ使用する。
+- `19_Workflows`にはリポジトリ固有の反復可能な作業手順を置く。変更トレースは`99_Roadmap/Changes/<CHG-ID>/change.md`へ、リリース記録とリリースEvidenceは`99_Roadmap/Releases/<version>/`へ置く。
 - 独立レビューまたは監査集合の前に、親AIエージェントが固定した対象改訂版へ`node tools/crdd-check.ts`または同等の機械確認を一度実行し、結果を共有する。配布実装の利用は任意であり、文書監査、専門品質確認、準拠監査または不足／影響監査を代替しない。
 - ガバナンス、セキュリティ、プライバシー、アクセシビリティ、互換性、処理能力、コストは、終盤で独立して確認する項目ではなく、適用される上流・下流工程の責務として扱う。
 - CRDD正本文書は読者の主要ロケールを優先する。用語は初出時に日本語表示名と正式英語名を併記し、その後の説明文、見出し、説明用の表では日本語表示名を基本とする。正式英語名は共通の別名として保持し、安定コンテキストID、エージェントID、ファイル名、スキーマのキー／値、コードは翻訳しない。規範強度を曖昧にできない箇所では、BCP 14キーワードを併記する。

@@ -122,7 +122,20 @@ Related:
 - 期限対応、採用済みロードマップ項目、是正決定等の分類済み・採用済みの契機を、未採用候補へ戻して先送りしない
 - 採用したが延期する事項は`99_Roadmap`の登録簿へ置く。登録簿は延期した作業に限らず未完了事項全体を扱い、着手時に変更トレースを作成する
 
-変更トレースを作成した時点で、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)へ当該変更トレースの参照行を置き、対応状態を`In Progress`にする。登録簿は変更トレースの参照だけを持ち、契機、影響、実装、検証の内容を複製しない。変更トレースの正本は`90_Release/Changes/`である。この登録は手動転記を要求せず、[登録簿が扱う対象と登録義務](21_Discovery.md#62-registry-scope-and-registration)が定める発見・集計可能性を満たせばよい。
+## 2.1 契約変更と通常データ操作の境界
+
+CHGの発火は、成果物が置かれた大分類やファイル数ではなく、変更した意味で判定する。Communication、Topic、Meeting、Commercialその他の運用データを、成立済みの構造・Schema・Lifecycle・Authorityに従って追加、編集または削除するだけなら、個別CHGを作成してはならない（MUST NOT）。その操作に必要な承認、Git履歴、成果物固有の状態および通常のレビューは維持する。
+
+| 変更の意味 | CHG | 代表例 |
+|---|---|---|
+| 成立済み契約に従うデータ操作 | 不要 | 記事本文の更新、Topicの追加・終了、Meeting記録の追加、既存項目の訂正 |
+| 成果物種別の構造・Schema・必須項目・関係・Lifecycle変更 | 必要 | Topic状態遷移の追加、Meeting Metadata契約の変更 |
+| Tool／Runtime／自動処理／Authority／移行規則の変更 | 必要 | Communication公開Toolの挙動変更、Topic生成処理の変更 |
+| データ操作か契約変更か判定できない | 作成せず確認 | 正本と変更影響を確認し、最大範囲へ拡張しない |
+
+同じ操作にデータ変更と契約変更が含まれる場合、CHGは契約変更だけを追跡する。通常データの各項目をCHGへ複製せず、契約変更の検証に必要な代表例または参照だけを接続する。Directory名が`80_Communication`、`22_Topics`、`23_Meetings`等であることだけからCHG要否を決めない。
+
+変更トレースを作成した時点で、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)へ当該変更トレースの参照行を置き、対応状態を`In Progress`にする。登録簿は変更トレースの参照だけを持ち、契機、影響、実装、検証の内容を複製しない。変更トレースの正本は`99_Roadmap/Changes/<CHG-ID>/change.md`であり、一覧Navigationは`99_Roadmap/02_Changes.md`が持つ。この登録は手動転記を要求せず、[登録簿が扱う対象と登録義務](21_Discovery.md#62-registry-scope-and-registration)が定める発見・集計可能性を満たせばよい。
 
 ロードマップから開始するCHGでは、次を保持する。
 
@@ -146,26 +159,33 @@ CHGを閉じる時点で対応が完了していない事項が残る場合は�
 変更トレースは原則として次へ配置する。
 
 ```text
-90_Release/
+99_Roadmap/
+├─ 02_Changes.md
 ├─ Changes/
-│  ├─ CHG-000001_Consent_Execution_Control.md
-│  └─ CHG-000002_Topic_Read_State.md
-└─ Evidence/
+│  ├─ CHG-000001/
+│  │  ├─ change.md
+│  │  └─ Evidence/
+│  └─ CHG-000002/
+│     ├─ change.md
+│     └─ Evidence/
+└─ Releases/<version>/Evidence/
 ```
 
-ファイル名は次の形式を使用する。
+Directory名は次の形式を使用する。
 
 ```text
-CHG-<順序>_<SHORT_NAME>.md
+CHG-<6桁の順序>/
 ```
 
-`CHG-*`は変更トレースを一意に参照するための成果物IDであり、REQ、UX、IA、UI、SPECと同じ安定コンテキストIDではない。意味を持つコンテキストへ付与せず、一つの変更トレースへ一つだけ付与する。番号は再利用せず、名称変更やファイル移動でも維持する。
+`CHG-*`は変更トレースを一意に参照するための成果物IDであり、REQ、UX、IA、UI、SPECと同じ安定コンテキストIDではない。意味を持つコンテキストへ付与せず、一つの変更トレースへ一つだけ付与する。番号は再利用せず、名称変更やファイル移動でも維持する。人間可読な表題は`change.md`と`99_Roadmap/02_Changes.md`が所有し、Directory名へ重複させない。
 
-変更トレースに固有根拠がある場合は`90_Release/Changes/Evidence/`または変更固有の子フォルダへ置く。複数変更やリリース全体に関係する根拠は`90_Release/Evidence/`へ置く。ルート直下へ根拠フォルダを作らない。
+CHG本文は当該Directoryの`change.md`へ置く。変更トレースに固有のEvidenceは同じDirectoryの`Evidence/`へ置く。複数変更を含む一つのリリース全体を直接証明するEvidenceは`99_Roadmap/Releases/<version>/Evidence/`へ置く。`99_Roadmap/02_Changes.md`または`07_Quality`へ個別Evidenceを複製しない。
+
+新規Evidence名は`YYMMDD-HHmm_<type>.<ext>`を基本とする。観測日だけを確定できる場合は`YYMMDD_<type>.<ext>`、同じ時刻粒度と種別で衝突する場合だけ`-01`等を付ける。時刻を推測せず、正確な観測時刻、対象改訂版、状態その他の機械可読情報は必要に応じて本文Metadataへ置く。
 
 `Changes/`、`Evidence/`、`CHG-*`は配置・識別のための名前であり、本文言語を指定しない。CHG本文と、新たに作成する根拠の説明・要約は、[文書化のロケール規則](03_Documentation.md#481-locale-first-display)に従い、プロジェクトまたは対象成果物の主要ロケールで記述する。外部根拠の原文、ファイル名、成果物ID、スキーマ実値は翻訳しない。
 
-`19_Workflows`や`40_Develop`へCHG Markdownを置かない。
+`19_Workflows`、`40_Develop`または`07_Quality`へCHG Markdownを置かない。
 
 ---
 
@@ -242,7 +262,7 @@ CHGの分割単位は変更意図である。工程、担当、ファイル／�
 統合時は次を満たす。
 
 - Canonical CHGへ、契機、意図、確認した現在状態、判断、実装の発展、想定／実際影響、検証、監査是正、根拠、残存リスクおよび統合した全CHG IDを再構成する
-- [`90_Release/Changes/README.md`](90_Release/Changes/README.md)または対象Repositoryの同等な永続台帳へ、統合元ID、旧filename、統合前状態、Canonical CHG、統合理由、統合前全文を取得できるGit改訂版、原文Hashおよび関連Evidenceを記録する
+- [`99_Roadmap/02_Changes.md`](./99_Roadmap/02_Changes.md)または対象Repositoryの同等な永続台帳へ、統合元ID、旧filename、統合前状態、Canonical CHG、統合理由、統合前全文を取得できるGit改訂版、原文Hashおよび関連Evidenceを記録する
 - 旧CHG IDを再利用せず、存在しなかったものとして扱わない
 - 現在状態を利用するRoadmap、登録簿、README、正本、監査およびRelease参照をCanonical CHGへ更新する一方、過去の固定EvidenceとReleased履歴は当時のIDのまま保持する
 - 統合元ファイルを削除する場合も、永続台帳の旧IDからCanonical CHG、EvidenceおよびGit履歴へ到達でき、Release snapshot内で旧IDの処置と永久欠番を判定できるようにする
