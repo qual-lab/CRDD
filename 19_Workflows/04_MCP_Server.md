@@ -1,6 +1,6 @@
 # MCP Serverの利用手順
 
-状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
+状態: Stable（v0.20.1）
 担当責任者: Qual-Lab
 
 ## 目的と責務

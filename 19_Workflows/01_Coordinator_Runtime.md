@@ -1,6 +1,6 @@
 # Coordinator Runtimeの利用・検証・発行手順
 
-Status: Candidate (v0.20.0, Released Baseline: v0.19.0)
+Status: Stable (v0.20.1)
 Owner: Qual-Lab
 Last Updated: 2026-09-11
 
@@ -114,7 +114,7 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき
 
-この経路はv0.20候補で接続中であり、正式署名・実機E2E完了前の配布物では利用可能と扱わない。状態と必要な観測は[取消と回復の設計](../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
+この経路はv0.20.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した。利用時は署名済み配布物、同じexact Recovery Identity、現在のDocker状態および下表の段階的完了を再確認する。全Docker Desktop版、全OSおよび任意の破損状態を一般保証せず、観測不能または契約外の状態ではEffect 0で停止する。状態と必要な観測は[取消と回復の設計](../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
 
 | 順序 | 操作 | 完了の意味 |
 |---|---|---|
@@ -180,10 +180,28 @@ v0.20.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 品質と手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
 - v0.20の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 - v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/coordinator/02_Threat_Model.md`、`06_Architecture/execution-intelligence/01_Architecture.md`、`06_Architecture/mcp/01_Architecture.md`、`06_Architecture/platform-access/01_Architecture.md`、`06_Architecture/project-runtime/01_Architecture.md`
-- Release対象CHG: `90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md`、`90_Release/Changes/CHG-000062_Execution_Intelligence.md`、`90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md`、`90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md`
+- Release対象CHG: `90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md`、`90_Release/Changes/CHG-000062_Execution_Intelligence.md`、`90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md`、`90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md`、`90_Release/Changes/CHG-000065_Structured_First_Documentation.md`
 - 公開案内と残件: `README.md`、`CHANGELOG.md`、`90_Release/Changes/README.md`、`99_Roadmap/01_Product_Roadmap.md`
 
 正本とTool表示の機械的遷移はCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.20完了項目を除去してv0.21以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。
+
+### リリース状態の利用側閉包
+
+exact Path一覧は変更許可の上限であり、状態利用側の完全な台帳として扱わない。最終候補を`Stable`へ遷移した後は、Repository全体Checkerを同じ固定改訂版へ実行し、次を一つの相関したRelease状態として確認する。
+
+| 利用側 | 必須状態 |
+|---|---|
+| CRDD正本 | 同じVersionで全件`Stable`、`Released Baseline`なし |
+| 現行Markdown入口 | 同じVersionの`Candidate`表示なし |
+| README | 正本と同じVersion、Candidate／Released Baseline表示なし |
+| CHANGELOG | 英日両区分に同じVersionと同じ公開日の日付付き見出しがある |
+| 対象CHG | `Released`、対象tagおよび公開日へ接続する |
+| Quality Center | Release Gate完了と未評価範囲を区別する |
+| Roadmap | 公開済み項目を未完了作業として残さない |
+
+Checkerが残存表示または相関不一致を返す間は、PR統合、tag作成または公開へ進まない。実行順序の説明、手書き一覧、監査合格または人間のRelease判断だけから閉包成立を推定しない。
+
+v0.20.0ではこの機械的遷移を実行しないまま公式tagを作成した。v0.20.1は公開状態の表示と検査だけを是正し、v0.20.0のRuntime実行集合と署名済みIdentityを維持する。
 
 これにより、公式tagへ固定したcloneまたはsubmoduleは別archiveを取得せず通常Runtimeを利用できる。GitHub Releaseへ同じ内容の独自ZIPを追加しない。GitHubが自動生成するSource archiveもRuntime配布契約または検証対象にしない。
 

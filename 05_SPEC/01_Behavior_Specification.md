@@ -1,6 +1,6 @@
 # CRDD内部ツールの振る舞い仕様
 
-Status: Candidate (v0.20.0, Released Baseline: v0.19.0)
+Status: Stable (v0.20.1)
 Owner: Qual-Lab
 Last Updated: 2026-09-06
 
@@ -8,7 +8,7 @@ Last Updated: 2026-09-06
 
 本書はCRDD参照Runtimeの入力、利用条件、結果、停止・回復、および現在の実装範囲を所有する。上位の[エージェント組織](../04_Agent_Organization.md)や人間の決定権限を再定義しない。実行手順は[作業手順](../19_Workflows/01_Coordinator_Runtime.md)、成立方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証の現在状態は[品質確認](../07_Quality/01_Quality_Center.md)へ分離する。
 
-Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Project Runtime節はv0.19で公開を目指す開発候補であり、現在利用可能な公開Capabilityではない。候補の部分実装を公開済みと読み替えず、現在状態は[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)と[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。
+Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Project Runtimeはv0.19.0で公開し、v0.20.0で責務分離、限定並列実行、状態投影およびローカルMCP HTTPを追加した。現在状態は[CHG-000057](../90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md)、[v0.20変更](../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md)および[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。
 
 利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
 
@@ -387,11 +387,11 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 - 現在の機械固定では、4経路Runnerが要求入口Profile、実Executor／Reviewer、独立性、初回経路では有効な既存同意の再利用または新規同意、後続3経路では同意の完全一致再利用、Candidate破棄、全Recovery ID空、秘密・Host Path・生Provider出力の非報告およびcanonical Repository無変更を完全一致で検査する。
 - 入口Providerの実Process IdentityはRunner単独ではattestせず、要求Profileと実Executor／ReviewerのEvidenceを区別する。
 - v0.18.1の現行Runtime実行Identity `e290df01…d9d41`ではfresh clone／submodule一般Task、4経路4/4とRecovery Matrixを完了した。旧候補Identity `f2243b46…f1aaa`と`33cca9b8…2473a`は[未公開候補の署名済み履歴](../90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md#8-現在状態と残件)として保持し、最終Authority根拠へ流用しない。旧`48515eb`の実Task取消と旧`45ea2ac`の通常CLIによる実務1件は版の違いを保持する。実務有用性は[現時点の評価](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#26-実務評価と最終確認への引渡し)へ集約済みだが、比較優位は未実証である。
-- Runtime全体の監査指摘の是正・再確認と端末追加確認を完了し、人間が候補内容と移行方針を採用した。main統合およびReleaseは未完了であり、[品質の現在状態](../07_Quality/01_Quality_Center.md)で追跡する。
+- Runtime全体の監査指摘の是正・再確認と端末追加確認を完了し、人間が内容と移行方針を採用した。v0.19.0でmain統合・公開し、v0.20.0の責務分離後も正式4経路E2EとRecovery Matrixを再確認した。[品質の現在状態](../07_Quality/01_Quality_Center.md)で追跡する。
 
 - 4経路実測より前の経緯として、production回復／CLI matrixの実装と旧固定版の独立確認を終え、正式署名一般Task Runnerの対話搬送、実行Identity、Release grammar、複合Recoveryおよび取消境界の機械確認と独立再レビュー／再監査を経て、固定1 Pathの`Codex Front → Claude Code Executor → Codex Independent Reviewer`成功経路を完走した。
 - 当時の他経路未確認という状態は、後続の固定版`0c3e6d2`の4経路実測より前の履歴である。
-- 現在の未完了事項は[品質の現在状態](../07_Quality/01_Quality_Center.md)を参照する。
+- 公開済み範囲、未評価範囲および後続候補は[品質の現在状態](../07_Quality/01_Quality_Center.md)を参照する。
 - 完了した新配置の正式E2Eを、実Provider取消・是正の未証明範囲、Runtime全体の完成監査、統合およびReleaseの完了へ読み替えない。
 
 - 正式署名Route Matrixは有効な初期同意を強制失効させず、保存済み同意があれば初回経路から再利用し、存在しない場合だけ一度確認する。
