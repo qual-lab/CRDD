@@ -81,11 +81,14 @@ Project ID
 
 | 対象 | 変更内容 |
 |---|---|
-| Discovery | Project運営、Topic、Meeting、Commercial境界の採用条件を固定する |
+| Discovery | Project運営、Topic、Meeting、Commercial境界とWorkbenchが解決する利用者課題、対象者、代替および採用条件を固定する |
+| UX | Developer、PM、Managementごとの目的、Journey、欠測／Restricted時の理解と回復、およびRepository構造を過剰に意識させない体験原則を固定する |
 | IA | Entity、Identity、Relation、所有責任および情報導線を固定する |
 | Documentation | 任意Top-level領域、固定入口および非該当時の空成果物禁止を固定する |
 | Architecture | Projection、Resolver、Repository接続、読取り・更新PortおよびAuthority境界を設計する |
-| SPEC | Topic／Meeting／Projectionの入力、状態、結果、失敗およびEffectを定義する |
+| UI | Project／Portfolio、Source Coverage、Topic／Meeting／判断待ち、正本導線、Credential状態および定型操作の表示・Feedback・回復を固定する |
+| UI／SPEC対応 | UI上の各表示・操作・状態を、Topic／Meeting／Projection／CROS公開契約の入力、結果、失敗およびEffectへ全数対応させる |
+| SPEC | Topic／Meeting／Projection／Workbench操作の入力、状態、結果、失敗およびEffectを定義する |
 | Runtime Data | Project／Repository／Binding IdentityのSchemaと移行を追加する |
 | Implementation | 共通Core、Resolver、Projectionおよび必要な公開Interfaceを実装する |
 | Quality | 単一Repository、複数Repository、分離Repository、Restricted Commercialおよび誤Bindingを検証する |
@@ -94,6 +97,41 @@ Project ID
 | Shared Server接続境界 | RequestごとにBearer TokenをConnection Credentialへ照合し、`workspace_ids[]`、`system_admin`、失効およびRepository Policyを検証する。生TokenをRepository、`.crdd`またはlogへ保存しない |
 | Agent Operating Context／Handoff | Taskごとの適用規則、Context、Capability、Decision境界、判断要求および再開契約をRevision付きで投影する |
 | CROS Workbench | Project／Portfolio、Source Coverage、Topic／Meeting／判断待ちおよび正本導線を既存公開契約から表示し、少なくとも一つの定型操作を既存Command／Candidate入口へ渡す最小実装を行う |
+
+### 4.1. CROS Workbenchの工程Gate
+
+WorkbenchはUI要求または既存Architectureだけから実装へ着手しない。強化された工程別図面処置契約を使い、次の順で各工程の入口、基本図の処置、出口条件および次工程への義務を固定する。
+
+```text
+Discovery
+「誰の何を解決し、何を目指さないか」
+    ↓
+UX
+「立場ごとに何を理解・判断・回復できるか」
+    ↓
+IA
+「どの情報、関係、Identity、導線を見せるか」
+    ↓
+UI
+「どの画面・領域・状態・操作として認識させるか」
+    ↓
+UI／SPEC対応
+「表示と操作が、どのSystem契約へ対応するか」
+    ↓
+SPEC
+「入力、振る舞い、結果、失敗、Effectは何か」
+    ↓
+Architecture
+「どのOwner、Port、Store、Transport、Authorityで成立させるか」
+    ↓
+Implementation
+「固定済み契約をどう実装するか」
+    ↓
+Verification
+「利用者成果から外部境界まで何を反証したか」
+```
+
+後工程で上位の意図、情報責務、表示結果または操作意味の不足を検出した場合は、その場のAdapter、UI専用Storeまたは例外で補わず、所有する工程へ戻して以降の対応を再確認する。各工程の図を作成した事実だけで通過せず、現行図、参照、理由付き非該当または作成不能が処置され、次工程の義務と未解決事項が追跡できることを出口条件とする。
 
 ## 5. 目指さないこと
 
@@ -128,6 +166,7 @@ Project ID
 - [ ] Content Access、Capability固有のOperation Authorityおよび`system_admin`を分離する。
 - [ ] 最小Workbenchが実際のCROS／Project Operation公開契約からProject ViewとSource Coverageを表示し、既存Command／Candidate入口への定型操作を縦断できる。
 - [ ] Workbenchが第二正本、独自状態Store、直接Filesystem更新または独自Authority判定を持たない。
+- [ ] WorkbenchがDiscovery、UX、IA、UI、UI／SPEC対応、SPEC、Architecture、ImplementationおよびVerificationを順に通り、各工程の基本図処置、出口条件、未解決事項および次工程への義務を追跡できる。
 - [ ] 現在宣言した利用形態ごとに、Meaning Contract、実装、利用側移行、契約試験、実境界検証、E2EおよびEvidenceが接続する。
 - [ ] 既知の次版全面置換を成立条件とする暫定Owner、Identity、Authorityまたは公開Contractを残さない。
 - [ ] ひな型、Checkerおよび試験が任意領域の使用／非使用を区別する。

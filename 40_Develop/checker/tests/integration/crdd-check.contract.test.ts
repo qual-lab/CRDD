@@ -45,6 +45,48 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
     );
   }
 
+  const architectureTemplate = fs.readFileSync(
+    path.join(repositoryRoot, "template/06_Architecture/01_Architecture.md"),
+    "utf8",
+  );
+  assert.ok(
+    architectureTemplate.includes("## 基本図の処置"),
+    "architecture_diagram_disposition_missing",
+  );
+  for (const diagram of [
+    "全体／内部ブロック図",
+    "状態遷移表／状態遷移図",
+    "ブロック間シーケンス図",
+    "クラス／型関係図",
+    "データフロー図（DFD）",
+    "エンティティ関係図（ER図）",
+    "スキーマ責務図（Schema Responsibility Map）",
+  ]) {
+    assert.ok(
+      architectureTemplate.includes(`| ${diagram} |`),
+      `architecture_diagram_disposition_missing: ${diagram}`,
+    );
+  }
+
+  const architectureRule = fs.readFileSync(
+    path.join(repositoryRoot, "27_Architecture.md"),
+    "utf8",
+  );
+  for (const requiredRule of [
+    "**エンティティ関係図（ER図）**",
+    "[ER1: Entity名]",
+    "**スキーマ責務図（Schema Responsibility Map）**",
+    "[SR1: 責務領域名]",
+    "Canonical Owner",
+    "Must Not Own",
+    "単一Entity／Schema内でOwnerと利用側が一意な局所表現変更",
+  ]) {
+    assert.ok(
+      architectureRule.includes(requiredRule),
+      `schema_responsibility_rule_missing: ${requiredRule}`,
+    );
+  }
+
   const documentation = fs.readFileSync(
     path.join(repositoryRoot, "03_Documentation.md"),
     "utf8",

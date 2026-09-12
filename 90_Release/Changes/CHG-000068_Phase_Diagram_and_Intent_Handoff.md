@@ -72,7 +72,7 @@ Discoveryの業務プロセスViewを最初の具体化対象として、継続�
 | UI／SPEC対応 | 操作・表示・System結果の対応、状態差および不一致 | UIだけの操作、SPECだけの状態、Feedback・Error・Recoveryの片側欠落 |
 | UI | 論理画面／領域構成、画面・操作Flow、表示状態／Variant、主要Component関係 | 重要情報、代替操作、空・待機・失敗・権限差の表示漏れ |
 | SPEC | Use Case／振る舞いFlow、状態遷移、Actor／System間Sequence、Error／Effect分岐 | 条件、例外、状態、Authority、Effect、結果の意味漏れ |
-| Architecture | 全体／内部Block、状態遷移、Block間Sequence、Class／Type、DFD | Owner、Boundary、Lifecycle、Data Flow、Consumer、Recoveryの未接続 |
+| Architecture | 全体／内部Block、状態遷移、Block間Sequence、Class／Type、DFD、ER図、Schema Responsibility Map | Owner、Boundary、Lifecycle、Data Flow、Entity Relation、Canonical Schema Owner、共通／固有責務、Consumer、Recoveryの未接続 |
 | Implementation | Source／Package／Build BlockとArchitectureの対応、必要時の実装Sequence者向けLifecycle表示 | 実装所有者の漂流、設計にない経路、旧Capabilityの消失、試験対象漏れ |
 | Verification | 検証義務と試験Level／Boundaryの対応、状態・分岐・Block別Coverage、結果から判断への接続 | 代表成功例への偏り、結合段階、利用側、失敗／回復、未評価範囲の欠落 |
 
@@ -105,7 +105,7 @@ Discoveryの業務プロセスViewを最初の具体化対象として、継続�
 ## 7. 変更禁止範囲
 
 - 各工程の決定権限、専門品質または既存の状態語を変更しない。
-- Architectureの既存図記法とBlock／状態／Sequence／Class／DFD／結合試験の正本を別文書へ複製しない。
+- Architectureの既存図記法とBlock／状態／Sequence／Class／DFD／ER図／Schema Responsibility Map／結合試験の正本を別文書へ複製しない。
 - 図を作れない状態を`Not Applicable`へ畳まず、根拠不足と対象不存在を区別する。
 - Checkerの見出し検出を、図の内容、意図一致または工程合格の証明に使わない。
 - 上位図を下位工程へコピーして更新元を分岐させない。

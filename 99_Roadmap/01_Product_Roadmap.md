@@ -27,23 +27,57 @@ Related:
 
 ### 1.1. v0.21.0 — Project運営・信頼・複数Repository
 
+次のGroupは別々のRelease範囲ではなく、v0.21.0を一つの完成形へ収束させる依存順である。後続Groupの実装中に前段の意味契約を無断で作り直さず、変更が必要になった場合は影響するGroupと利用側を再評価する。
+
+```text
+Group A: 設計・構造化の共通Gate
+        ↓
+Group B: Project OperationとWorkbench利用契約
+        ↓
+Group C: CROSの信頼・Federation・公開接続
+        ↓
+Group D: 薄いSurface、Runtime設定、限定実証
+        ↓
+v0.21統合E2E／Release Gate
+```
+
+Workbenchは後付けのUIではない。Group BでUX、IA、表示、操作および必要な公開Application Contractを先に固定し、その要求をCROS、ProjectionおよびMCPのConsumerとして使う。Group Dの最小実装は、Group Cまでに成立した契約だけを利用し、Workbench専用の正本、状態Store、Authority判定またはFilesystem更新を持たない。
+
+#### Group A: 設計・構造化の共通Gate
+
+| 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
+|---|---|---|---|---|
+| v0.21 `.crdd` Runtime Data ContractとCRDD／CROS構造化基盤 | Adopted | Completed | [CHG-000066と完了Evidence](../90_Release/Changes/CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md#12-固定候補の完了evidence)、[目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md)、[現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md) | Schema、名前付きPath領域、Consumer自動閉包、`tmp/`の外部制御面・全終端・single-use Recovery、旧Path拒否、段階的結合試験およびCRDD公式Repositoryの物理清掃を完了した。固定Commitの独立再レビュー、全回帰、署名、正式4経路E2EおよびRecovery Matrixが成立 |
+| v0.21 業務プロセス分析の目的別投影 | Adopted | In Progress | [目的別投影](../01_Discovery/01_CRDD_Product_Discovery.md#discovery-process-method-projection) | Discovery固定入口へ基本図セクションを常設し、進展時に項目単位／全体単位で現行図または理由付き非該当を必ず更新する。プレーンテキスト記法、根拠改訂版および未確認範囲を標準Templateと代表例で検証する |
+| v0.21 工程別の図面処置と成果物構造 | Adopted | In Progress | [CHG-000068](../90_Release/Changes/CHG-000068_Phase_Diagram_and_Intent_Handoff.md)、[工程別の図面処置契約](../03_Documentation.md#phase-diagram-disposition-contract) | DiscoveryからVerificationまで、上位意図の保持／承認済み変更／未解決／下位義務を工程固有の図から反証できるよう、基本図、発火境界、プレーンテキスト記法、固定入口の処置一覧および出口Gateを定義する。ArchitectureではER図とSchema Responsibility Mapを加え、概念EntityのRelation／多重度と、複数Schema／Domain／ConsumerのCanonical Owner、共通／固有、参照、拡張および所有禁止を物理Schema変更前に確定する。図から明らかになった分岐・境界・状態・責務を設計と検証義務へ接続し、未処置をCheckerと工程移行レビューで検出する |
+
+#### Group B: Project OperationとWorkbench利用契約
+
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
 | v0.21 Project Management Projection | Adopted | Architecture In Progress | [CHG-000067](../90_Release/Changes/CHG-000067_Project_Operation_Context.md)、[Project Operation Context設計](../06_Architecture/project-operation/01_Architecture.md) | Project／Repository／Binding Identity、正本別Property、欠測表示および更新Authorityを一体設計する |
 | v0.21 Topic／Project Attention | Adopted | Architecture In Progress | [CHG-000067](../90_Release/Changes/CHG-000067_Project_Operation_Context.md)、[Topic Lifecycle](../06_Architecture/project-operation/01_Architecture.md#6-topicとmeetingのlifecycle) | Topicの発火、待機、昇格、終了および既存正本への接続を同じ変更単位で固定する |
 | v0.21 Meeting／Context Promotion | Adopted | Architecture In Progress | [CHG-000067](../90_Release/Changes/CHG-000067_Project_Operation_Context.md)、[責務境界](../06_Architecture/project-operation/01_Architecture.md#4-責務境界) | 時点付きContext形成、Source、関連Topic、昇格先および人間の判断境界を固定する |
-| v0.21 OSS Runtimeの利用者所有Trust Policy | Adopted | Planned | [OSS Runtime Trust Policy候補](../01_Discovery/01_CRDD_Product_Discovery.md#oss-runtime-trust-policy-candidate) | CROS着手前にPolicy所有者、既定拒否、鍵更新・失効、移行および監査境界を固定する |
-| v0.21 自律Operationの意味契約とTrigger | Adopted | Planned | [自律Operationの責務境界](../05_Autonomous_Operation.md#autonomous-operation-responsibility) | 目的・Authority・Triggerの所有分離と、判断不足時のEffect 0を受入条件にする |
-| v0.21 Repository Tool／Capability Registry | Adopted | Planned | [Repository Capability構想](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#4-repository-toolcapability-registry) | 登録・公開・実行許可を分ける最小Registryと代表Toolの受入条件を設計する |
-| v0.21 `.crdd` Runtime Data ContractとCRDD／CROS構造化基盤 | Adopted | Completed | [CHG-000066と完了Evidence](../90_Release/Changes/CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md#12-固定候補の完了evidence)、[目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md)、[現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md) | Schema、名前付きPath領域、Consumer自動閉包、`tmp/`の外部制御面・全終端・single-use Recovery、旧Path拒否、段階的結合試験およびCRDD公式Repositoryの物理清掃を完了した。固定Commitの独立再レビュー、全回帰、署名、正式4経路E2EおよびRecovery Matrixが成立 |
-| v0.21 AI Runtime Registry／モデルProfile外部構成 | Adopted | Planned | [AI Runtime外部構成](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#6-ai-runtime-registryモデルprofile外部構成) | 設定所有・上書き・Adapter追加境界と、登録・認証・実行許可の分離を固定する |
-| v0.21 Remote MCP接続 | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md)、[v0.20のローカルMCP](../01_Discovery/01_CRDD_Product_Discovery.md#v020-mcp-streamable-http) | Bearer Token、Connection CredentialのWorkspace集合／`system_admin`／失効、既存Constraint、切断／再送を含むRemote接続の完成条件をSPECへ固定する。独立した情報分類制度や汎用Policy Engineは作らない |
-| v0.21 正式検証の安全なHeadless出力 | Adopted | Planned | [v0.20 Runtime責務分離](../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md) | 保存先Authorityと閉じた結果契約を設計し、CI／Remoteの代表経路で検証する |
-| v0.21 Context Operating System（CROS） | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md) | Personal／Shared Serverの共通Project Model、Workspace Exposure、Connection Credential、Canonical Repository Resolver、管理／内容Authority分離、Agent Operating ContextおよびChat／Coding Agent間の構造化HandoffをSPECへ固定する |
-| v0.21 CROS Workbench（最小構成） | Adopted | Planned | [構造化基盤とWorkbench](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤)、[UI要求](../04_UI/01_User_Interface.md#9-v021-project-operationcros-workbench) | Project／Portfolio、Source Coverage、Topic／Meeting／判断待ちおよび正本導線を実際の公開契約から表示し、一つ以上の定型操作を既存Command／Candidate入口へ渡す最小実装とE2Eを完成させる |
 | v0.21 複数Projectの読み取り専用Portfolio投影 | Adopted | Planned | [CROS発展境界](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#7-cros発展境界)、[長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md) | Projectごとの正本とAuthorityを分離したまま、横断Viewを代表構成で検証する |
-| v0.21 業務プロセス分析の目的別投影 | Adopted | In Progress | [目的別投影](../01_Discovery/01_CRDD_Product_Discovery.md#discovery-process-method-projection) | Discovery固定入口へ基本図セクションを常設し、進展時に項目単位／全体単位で現行図または理由付き非該当を必ず更新する。プレーンテキスト記法、根拠改訂版および未確認範囲を標準Templateと代表例で検証する |
-| v0.21 工程別の図面処置と成果物構造 | Adopted | In Progress | [CHG-000068](../90_Release/Changes/CHG-000068_Phase_Diagram_and_Intent_Handoff.md)、[工程別の図面処置契約](../03_Documentation.md#phase-diagram-disposition-contract) | DiscoveryからVerificationまで、上位意図の保持／承認済み変更／未解決／下位義務を工程固有の図から反証できるよう、基本図、発火境界、プレーンテキスト記法、固定入口の処置一覧および出口Gateを定義する。図から明らかになった分岐・境界・状態を設計と検証義務へ接続し、未処置をCheckerと工程移行レビューで検出する |
+| v0.21 CROS Workbenchの利用体験・公開契約 | Adopted | Design In Progress | [Workbench工程Gate](../90_Release/Changes/CHG-000067_Project_Operation_Context.md#41-cros-workbenchの工程gate)、[構造化基盤とWorkbench](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤)、[UI要求](../04_UI/01_User_Interface.md#9-v021-project-operationcros-workbench) | Discovery、UX、IA、UI、UI／SPEC対応、SPEC、Architectureの順で入口・基本図処置・出口を通し、Project／Portfolio、Source Coverage、Topic／Meeting／判断待ち、正本導線および定型操作に必要な読取り・Command／Candidate契約をGroup Cの実装前に固定する |
+
+#### Group C: CROSの信頼・Federation・公開接続
+
+| 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
+|---|---|---|---|---|
+| v0.21 OSS Runtimeの利用者所有Trust Policy | Adopted | Planned | [OSS Runtime Trust Policy候補](../01_Discovery/01_CRDD_Product_Discovery.md#oss-runtime-trust-policy-candidate) | CROSの実装前にPolicy所有者、既定拒否、鍵更新・失効、移行および監査境界を固定する |
+| v0.21 Repository Tool／Capability Registry | Adopted | Planned | [Repository Capability構想](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#4-repository-toolcapability-registry) | 登録・公開・実行許可を分ける最小Registryと代表Toolの受入条件をCROSの実装前に設計する |
+| v0.21 Context Operating System（CROS） | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md) | Group Bの利用契約を入力に、Personal／Shared Serverの共通Project Model、Workspace Exposure、Connection Credential、Canonical Repository Resolver、管理／内容Authority分離、Agent Operating ContextおよびChat／Coding Agent間の構造化HandoffをSPECへ固定する |
+| v0.21 Remote MCP接続 | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md)、[v0.20のローカルMCP](../01_Discovery/01_CRDD_Product_Discovery.md#v020-mcp-streamable-http) | Workbenchを含む利用側が共用する公開Application Contractを所有せずTransportへ限定する。Bearer Token、Connection CredentialのWorkspace集合／`system_admin`／失効、既存Constraint、切断／再送を含むRemote接続の完成条件をSPECへ固定する。独立した情報分類制度や汎用Policy Engineは作らない |
+| v0.21 正式検証の安全なHeadless出力 | Adopted | Planned | [v0.20 Runtime責務分離](../90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md) | 保存先Authorityと閉じた結果契約を設計し、CI／Remoteの代表経路で検証する |
+
+#### Group D: 薄いSurface、Runtime設定、限定実証
+
+| 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
+|---|---|---|---|---|
+| v0.21 CROS Workbenchの最小実装 | Adopted | Planned | [Workbench工程Gate](../90_Release/Changes/CHG-000067_Project_Operation_Context.md#41-cros-workbenchの工程gate)、[UI要求](../04_UI/01_User_Interface.md#9-v021-project-operationcros-workbench) | Group BでArchitectureまで固定した利用契約とGroup Cの実公開契約だけを使い、Project／PortfolioとSource Coverageを表示し、一つ以上の定型操作を既存Command／Candidate入口へ渡す。Implementation後はVerification工程で契約試験、結合試験、利用者成果の総合試験および必要なE2Eを完成させる |
+| v0.21 AI Runtime Registry／モデルProfile外部構成 | Adopted | Planned | [AI Runtime外部構成](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#6-ai-runtime-registryモデルprofile外部構成) | 設定所有・上書き・Adapter追加境界と、登録・認証・実行許可の分離を固定する |
+| v0.21 自律Operationの意味契約とTrigger | Adopted | Planned | [自律Operationの責務境界](../05_Autonomous_Operation.md#autonomous-operation-responsibility) | 目的・Authority・Triggerの所有分離と、判断不足時のEffect 0を受入条件にする |
 | v0.21 自律Operationの読み取り中心参照実証 | Adopted | Planned | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界) | 外部Effectを伴わない代表Operationを選び、判断価値と人間負荷を実測する |
 
 ### 1.2. v0.22.0 — 常設CROS運用・耐久Operation

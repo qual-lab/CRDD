@@ -1013,7 +1013,7 @@ SPEC-000044 verified_by test-or-evidence-reference
 
 Roadmapへ設計詳細を複製せず、`CHG-*`を開発日誌にしない。DiscoveryからVerificationまでの全工程と、適用する外部CommunicationおよびQualityでは、各工程が所有する意味を、工程の責務に合う表、Matrix、Diagram、FlowまたはChecklistへ分ける。
 
-工程固有の図は、その工程の正本が定める意味記法と凡例に従う。Discovery内の業務プロセスに用いる項目別／全体View、SIPOC、Swimlane、Value StreamおよびAs-Is／To-Be比較は、[課題探索・要求形成のプレーンテキスト図規則](21_Discovery.md#37-progressive-process-views)を用いる。この記法を他工程の図へ共通適用せず、ArchitectureのBlock、状態遷移、Sequence、Class／TypeおよびDFDその他の工程固有記法と分ける。
+工程固有の図は、その工程の正本が定める意味記法と凡例に従う。Discovery内の業務プロセスに用いる項目別／全体View、SIPOC、Swimlane、Value StreamおよびAs-Is／To-Be比較は、[課題探索・要求形成のプレーンテキスト図規則](21_Discovery.md#37-progressive-process-views)を用いる。この記法を他工程の図へ共通適用せず、ArchitectureのBlock、状態遷移、Sequence、Class／Type、DFD、エンティティ関係図（ER図）およびスキーマ責務図（Schema Responsibility Map）その他の工程固有記法と分ける。
 
 <a id="phase-diagram-disposition-contract"></a>
 
@@ -1041,7 +1041,7 @@ Roadmapへ設計詳細を複製せず、`CHG-*`を開発日誌にしない。Dis
 
 図によって新しい状態、分岐、失敗、境界または利用側が明らかになった場合は、図の更新だけで閉じない。責務を持つ正本の設計契約、検証義務および検証設計へ反映し、反映できないものを未解決として引き渡す。これにより、設計漏れまたは試験不足を最終実装・E2Eまで遅延させない。
 
-図の種類と記法は工程ごとに定義する。たとえばDiscoveryの業務Process、UXのJourney／Service Blueprint、IAの情報関係／Navigation、UIの画面構造／操作Flow、SPECの振る舞い／状態、ArchitectureのBlock／Sequence／Class／DFDでは、目的と要素が異なる。同じ矢印や箱を使っても、工程正本の凡例なしに意味を流用しない。
+図の種類と記法は工程ごとに定義する。たとえばDiscoveryの業務Process、UXのJourney／Service Blueprint、IAの情報関係／Navigation、UIの画面構造／操作Flow、SPECの振る舞い／状態、ArchitectureのBlock／Sequence／Class／DFD／ER図／スキーマ責務図では、目的と要素が異なる。同じ矢印や箱を使っても、工程正本の凡例なしに意味を流用しない。
 
 構造化のために新しい正本、状態、IDまたは管理成果物を機械的に追加しない。表のセルへ長文を移すだけの変更、文章を断片化して前後関係を失う変更、同じ説明の複製、規範強度・条件・例外・履歴の欠落は改善と扱わない。
 
