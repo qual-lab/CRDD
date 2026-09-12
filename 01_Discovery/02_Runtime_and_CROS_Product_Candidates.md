@@ -33,12 +33,12 @@ CROSによる複数RepositoryのContext解決
 
 ## 2. Project Operation／Project Management Projection
 
-JIRA、Notion、Excel WBS等をCRDD内へ再実装せず、既存のRoadmap、Discovery、Decision、CHG、Work、Evidence、Git、試験、監査およびReleaseをProject運営に必要なViewへ投影する。
+Project Operation Contextは、Project、Commercial、Topic、Meetingおよび既存CRDD正本を、Project運営に必要なViewへ接続する候補である。JIRA、Notion、Excel WBS等をCRDD内へ再実装せず、Projectionを正本、更新StoreまたはWorkbench専用Databaseにしない。
 
 ```text
 CRDDの正本
   ↓
-Project Model
+Project Management Projection
   ├ WBS／Milestone／Dependency
   ├ Kanban／Progress／Blocker
   ├ Risk／Issue／Active Topic
@@ -49,12 +49,30 @@ Project Model
 | 観点 | 保持する境界 |
 |---|---|
 | 正本 | ViewごとにProject Stateを複製しない。操作は正本の変更候補を作り、Context照合とAuthorityを経て更新・再投影する |
+| Identity | Project ID、Repository ID、Repository Binding IDを分け、一つの論理Projectへ複数Repositoryを接続できるようにする |
 | 推定 | Task完了率、AI推定または単一表示だけでProject健全性、進捗、予測またはRelease可能性を確定しない |
 | WBS | Project WBSとChange WBSを同じ関係から異なる深さで表示し、WBS自体をCanonical Entityにしない |
 | Property | ID、状態、Owner、Priority、Milestone、Dependency、完了条件、進捗根拠を全成果物へ一律複製せず、所有正本を先に定める |
+| 欠測 | `missing`、`restricted`、`conflicting`および`stale`を空値、正常または0へ畳まない |
+| 操作 | Projectionを直接更新せず、対象正本が所有するCommandまたは変更候補へ戻す |
 | 未確定 | WBS、Risk、Issue、Dashboard専用の正本Directoryを先に作らない |
 
 採否判断では、既存文書から投影できる範囲、追加Propertyの正本、Dependencyによる順序導出、複数AIとの共用、外部PM Toolなしで不足する情報、およびViewから正本へ戻すAuthorityを代表ケースで検証する。
+
+### Project、CommercialおよびRepositoryの責務
+
+| 概念 | 候補責務 | 境界 |
+|---|---|---|
+| Project | 案件のSummary、Scope、Stakeholder、Organization、Governanceおよび大枠Schedule | 案件に関係するすべての正本を集約しない |
+| Commercial | Projectを成立させる商取引条件 | Projectと別責務・別Repositoryにできることだけを先に固定し、完全な会計Schemaを作らない |
+| Repository | Projectの一部を所有する論理Repository | Projectと同一Identityにせず、実在するclone／worktreeとも分ける。単一Roleへ固定せず複数の責務領域を所有できる |
+| Binding | Repositoryと検証済みRoot／worktreeの実行時結合 | 別RepositoryまたはProject全体のAuthorityを持たない |
+
+`20_Project`、`21_Commercial`、`22_Topics`および`23_Meetings`は、採用する場合の標準責務領域候補とする。使用しないRepositoryへ空成果物を要求せず、番号を直列工程として扱わない。
+
+Commercialは分離の代表例であり、Topics、Meetings、Communicationまたは工程領域も同じProject IDと異なるRepository IDで別Repositoryへ分離できる。Repositoryが所有するContext ResponsibilityはTool／Runtime Capabilityと分けて宣言し、同じ責務の競合Ownerを検索順で自動選択しない。
+
+Repository分離を情報アクセス境界にする場合は、Git Hosting、Filesystem ACL、OS PrincipalまたはCredential Providerが実際の読取り拒否を所有する。CROS内の共通Password Gateや表示ロックだけを機密性の根拠にせず、CROSは外部認証結果をRepository単位の限定Capabilityとして利用する。別Repositoryを読めない利用者へ縮約情報を渡す場合は、情報分類と作成Authorityを持つ公開成果物として別に判断し、権限不足を自動要約で迂回しない。
 
 ## 3. Topic／Project AttentionとMeeting
 
@@ -62,10 +80,12 @@ Project Model
 |---|---|---|
 | Topic | Conversation上のAttentionが移動しても失ってはいけない関心事を一時保持する | 既存単位へ一意に還元でき、複数Contextを束ねず継続追跡価値もなければ作らない。整理後はDiscovery、Decision、CHG、Roadmap、Work等へ分解・昇格または閉じる |
 | Risk／Issue | Topic内で将来事象と顕在化済み問題を区別し、必要な横断Viewへ投影する | 独立した第二正本を先に作らない |
-| Meeting | 時間境界を持つCommunication Activity | 生Transcriptを正本化せず、議論したTopic、確認したDecision、更新した正本、残った問い、Sourceを保持する |
+| Meeting | 時間境界を持つContext形成Activity | 生Transcriptを正本化せず、議論したTopic、確認したDecision、更新した正本、残った問い、Sourceを保持する |
 | Message Theme | Communication内の意味クラスタ | MeetingやProject Attentionと同一視しない |
 
-外部会話から抽出した候補は、既存Context照合と人間のAuthorityなしに正本へ昇格しない。具体的な配置は着手時に既存所有関係を再確認して決める。
+Meeting、TopicおよびCommunicationは使用サービスでなく目的で分類する。同じTeamsでも、内部Context形成はMeeting、継続論点はTopic、外部への案内はCommunicationになり得る。Connectorは入力Adapterであり、媒体名から意味またはAuthorityを生成しない。
+
+外部会話から抽出した候補は、既存Context照合と人間のAuthorityなしに正本へ昇格しない。現在の設計境界は[Project Operation Contextのアーキテクチャ](../06_Architecture/project-operation/01_Architecture.md)で具体化する。
 
 ## 4. Repository Tool／Capability Registry
 
@@ -171,6 +191,14 @@ CROS
 外部Interfaceは細粒度Storage操作ではなく、`project context`、`portfolio context`、`release context`等の利用目的を一回で満たす粒度を候補とする。明示値、決定論的算出値、推定値の出典を追跡可能にする。
 
 最小Organization Runtimeは、Portfolioの読み取り専用投影、対象Projectの選択・Routing、Project単位のContext・Authority・Runtime State・Recovery分離までを上限とする。未認証の一般Internet公開、Remote常設実行、Project間の自動最適化、Organization横断Effect Authorityは別の完成条件で扱う。
+
+PersonalとShared Serverは異なるProject Modelを作らず、利用可能なRepository集合の決定方法だけを分ける。Personalは検証済みLocal Binding、Shared ServerはServer Repository Pool、明示Workspace Exposureおよび認証済みSessionのWorkspace Grantを交差させる。Server Credentialが読めること、Filesystem上に存在することまたはProject Relationを、MCP利用者の閲覧Authorityへ昇格しない。
+
+`general < privileged < administrator`の固定Role階層は、管理権限とContent Accessを混同しやすいため初期Coreへ採用しない。認証AdapterはSessionへ利用可能なWorkspace集合を渡し、System Administration Capabilityは別軸にする。詳細候補は[CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md)で扱う。
+
+Workspace Grantは、対象Trust Domainで管理Capabilityを持つCROS管理Sessionが、接続Credentialの発行または更新時に明示Workspace集合として設定する。Credentialの認証結果からSessionへGrantを生成するが、管理Capability、情報分類、Task Roleまたは人間の決定権限をGrantへ混在させない。代表構成はClient／接続単位のCredentialとし、Team共用は取消・監査・漏えい範囲の別評価を必要とする。
+
+CROSは、対話を主に担うChat AgentとRepository上の構築を主に担うCoding Agentが、同じCRDD正本から解決したAgent Operating Contextを参照し、構造化Handoffで往復できる上位接続を候補とする。MCP接続済みであることをCRDD規則の認識と同一視せず、CRDD全文や会話全文を毎回転送しない。Taskに適用される規則、昇格済みContext、Objective、未決事項、Decision AuthorityおよびEffect境界をRevision付きで解決し、判断結果を所有正本へ記録して同じTask Identityへ戻す。
 
 ## 8. 採否時に確認する共通事項
 

@@ -1,12 +1,12 @@
 # CRDD参照Toolのアーキテクチャ
 
-Status: Candidate (v0.20.0, Released Baseline: v0.19.0)
+Status: Candidate (v0.21.0, Released Baseline: v0.20.0)
 Owner: Qual-Lab
 Last Updated: 2026-09-06
 
 ## 対象・判断・現在状態
 
-CRDD自身が提供するCoordinator Runtime、実行知（Execution Intelligence）、CheckerおよびWindowsプラットフォームアクセス部を対象とする。目的は、利用者向けの振る舞い、内部の成立方式、実装、検証、反復手順を分け、同じ情報の正本を一意にすることである。上位の[エージェント組織](../04_Agent_Organization.md)や[原則](../01_Principles.md)をTool固有の実装方式へ置き換えない。
+CRDD自身が提供するCoordinator Runtime、実行知（Execution Intelligence）、Checker、Windowsプラットフォームアクセス部、Project Operation ContextおよびCROS候補を対象とする。目的は、利用者向けの振る舞い、内部の成立方式、実装、検証、反復手順を分け、同じ情報の正本を一意にすることである。上位の[エージェント組織](../04_Agent_Organization.md)や[原則](../01_Principles.md)をTool固有の実装方式へ置き換えない。
 
 今回の配置是正では、実装・テスト・ビルドを`40_Develop`、内部設計を本工程、入力・結果を[振る舞い仕様](../05_SPEC/01_Behavior_Specification.md)、操作順序を[作業手順](../19_Workflows/01_Coordinator_Runtime.md)へ分離する。`tools`を第二ソースや手順索引として残さない。旧入口の互換shimは追加せず、採用側へ配布するChecker本体は`template/tools/crdd-check.ts`を単一の配布正本として維持する。
 
@@ -20,6 +20,8 @@ CRDD自身が提供するCoordinator Runtime、実行知（Execution Intelligenc
 | 実行知 | 仕事Identityへ結合した実行Event、欠測を保つ集約、非Authority改善候補、Repository-local保存と清掃 | [実行知のアーキテクチャ](execution-intelligence/01_Architecture.md)。Coordinator、MCP、Provider SDKまたはProject Stateを所有しない |
 | Windowsプラットフォームアクセス | TypeScriptだけで閉じないOS観測と限定native操作 | [native境界・資源・回復の設計](platform-access/01_Architecture.md)、[脅威モデル](coordinator/02_Threat_Model.md)。一般PolicyやCLI責務をRustへ移さない |
 | Checker | 文書・参照・契約の決定論的確認 | [検査範囲・配布・終了の設計](checker/01_Architecture.md)。private packageが配布正本を参照し、Checker合格を専門レビューや準拠承認にしない |
+| Project Operation Context | Project／Repository Identity、Topic／Meeting Lifecycle、各正本からのProject Management Projection | [Project Operation Contextのアーキテクチャ](project-operation/01_Architecture.md)。Projectionを正本または更新Storeにせず、RelationからAuthorityを生成しない |
+| CROS | Personal／Shared ServerのRepository Federation、Workspace Exposure、Session Grant、Source-aware Projection、Agent Operating Contextおよび構造化Handoff | [CROS Federationと利用境界](cros/01_Architecture.md)。Server CredentialやProject Relationを利用者Authorityへ昇格せず、System Administration、Content Access、Task RoleおよびEffect Authorityを分離する |
 | 実装規則 | 命名、実装境界、依存、検査母集団 | [コーディング規約](99_Coding_Standards.md)。公開Schemaや固定履歴を命名整理だけで変えない |
 | 品質保証 | 品質方針、検証設計、確定結果、現在状態 | [Quality Center](../07_Quality/01_Quality_Center.md)。テストコードと検証義務の正本を中央へ移さない |
 

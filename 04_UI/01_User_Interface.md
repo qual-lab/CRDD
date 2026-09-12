@@ -1,13 +1,13 @@
 # CRDD内部ツールの操作・表示
 
-状態: Candidate（v0.20.0、Released Baseline: v0.19.0）
+状態: Candidate（v0.21.0、Released Baseline: v0.20.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-06
 工程規則: [UI](../25_UI.md)、[UIと仕様の対応レビュー](../24_UI_Behavior_Specification.md)
 
 ## 1. 対象と読み方
 
-[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。新しいGUIやTUIを設計した文書ではない。
+[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。§9はv0.21のProject Operation／Workbench投影候補を扱う。固定GUIレイアウト、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
 
 以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[対話入力](../40_Develop/coordinator/src/core/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
 
@@ -134,3 +134,55 @@ MCPの判断応答では、人間向けの選択肢と影響を先に示し、�
 判断送信後の主表示は、Project State適用前を「未受理」、DecisionとMilestoneの適用後かつQueue未Leaseを「判断受理済み・安全に再開待ち」、QueueのLease後を「再開権を確保」とする。実Taskが`running`へ進んだ後だけ「実行再開」と表示する。中間状態では、判断内容が失われていないこととRuntimeが安全な再照合を継続することを示し、人間へ再送や内部回復操作を求めない。Queue未LeaseまたはLeaseだけが成立した段階でRunning表示、実行中の色または完了表現を使用しない。
 
 接続後の再表示は、同じ`crdd.run_objective` request identityの再送で行う。画面は「新しく開始した」か「既存Operationへ再接続した」かを区別し、再接続では重複Taskを起動していないことと現在状態を示す。判断用のopaqueな継続CapabilityはClient内部で搬送し、人間向け画面、コピー操作、ログまたはProvider出力へ表示しない。期限切れ・消費済み・別主体では判断Effectがなかったことと次の処置を示し、別主体や誤入力だけで正規Capabilityを失効させない。Capability応答喪失ではClientが同じObjective接続内で明示置換し、旧Capabilityの失効確認後に新しい1件だけを内部受領する。判断適用後の応答喪失では新規受理ではなく既存結果を表示する。
+
+## 9. v0.21 Project Operationの投影候補
+
+本節は、同じProject Operation契約を立場に応じた粒度で投影する要求を示す。画面構成の正本、Workbench実装完了またはCommercial Schemaの確定を意味しない。
+
+```text
+Project: PRJ-001
+────────────────────────────────
+Overview
+
+Topics          8 Open
+Meetings        4 This week
+Changes         5 Active
+Quality         1 Blocked
+Commercial      認証が必要
+
+Source Coverage
+├ Development Repository   available
+└ Management Repository    credential_required
+```
+
+| 表示層 | 主表示 | 詳細へ退避する情報 |
+|---|---|---|
+| Repository作業 | 現在RepositoryのContext、現在の変更、次の行動 | 兄弟Repository、Project Federation、内部Binding |
+| Project | Milestone、主要Topic、Meeting、品質、判断待ち、Source Coverage | Repository ID、Git Revision、取得診断 |
+| Portfolio | Projectごとの注意状態、主要判断、観測時点 | 個別Topic、Meeting、CHG、Repository詳細 |
+
+Project表示は、利用可能なContextだけから作った結果を全Projectの完全な状況として見せない。Source Coverage、観測時点および`missing`、`credential_required`、`restricted`、`unavailable`、`conflicting`または`unknown`のうち、利用者が判断に必要で開示可能な状態を近接して示す。
+
+`Commercial 🔒`等の鍵表示は、対象の存在を開示でき、外部認証後に利用できる`credential_required`だけに使用する。恒常的な`restricted`へUnlock操作を表示せず、存在開示が許可されない対象の名前、件数または状態を表示しない。Unlock後もCROS内の共通Passwordや独自Role判定ではなく、外部Credential Providerから得た限定Capabilityで再取得する。
+
+Meetingからの`Topicを更新`、`新規Topic化`、`Decision候補化`等は、対象正本への変更候補を作る操作として表示する。操作成功を正本更新済みまたは人間判断済みと表示せず、候補、確認、採用、再投影を区別する。
+
+### 9.1. Agent Handoffの表示
+
+```text
+Task: Repository変更
+状態: 判断待ち
+
+必要な判断
+  どの公開範囲を採用するか
+
+根拠
+  Topic／Decision候補／対象Revision
+
+再開条件
+  決定を正本へ記録し、ContextとAuthorityを再検証
+
+[対話で確認する]
+```
+
+Handoff表示では、現在のTask、停止理由、必要な判断、根拠、決定主体、許可済みEffectおよび再開条件を近接して示す。Chat Agent／Coding Agentの内部推論、会話全文、Credential、秘密値またはopaqueなCapabilityを表示しない。`対話で確認する`はChat Agentへ判断要求を渡す入口であり、判断済み、CRDD準拠済みまたはRepository Effect許可済みという表示にしない。

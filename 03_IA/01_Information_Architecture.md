@@ -1,8 +1,8 @@
 # CRDD内部ツールの情報構造
 
-状態: Stable（v0.19.0）
+状態: Candidate（v0.21.0、Released Baseline: v0.20.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-05
+最終更新日: 2026-09-12
 工程規則: [情報アーキテクチャ](../23_IA.md)
 
 ## 1. 対象と結論
@@ -88,3 +88,52 @@ MCPとCLIは同じObjective IntakeとProject State投影へ接続する。入口
 人間判断は、判断理由、影響、選択肢、推奨、保留時の扱いに加え、decision ID、対象Project／Milestone、発行世代・改訂版、現在性を一つの情報単位として持つ。利用者向け表示は機械IDや継続Capabilityを主役にしないが、`crdd.submit_decision`が古い判断、期限切れ、消費済み、別主体または別対象への誤適用を拒否できるよう、表示した判断単位、Client内部のCapability dispositionおよび送信値を追跡可能にする。判断適用は同じdecision application IDとProject State snapshotで関連付け、DecisionとMilestoneを同じProject世代へ一括適用する。Queueは両保存先の照合完了後に別途Leaseするため、Project State適用済み・Queue未Leaseの正当な中間状態を「判断受理済み・安全に再開待ち」として表現できるようにする。Queue未Leaseを実行中として表示せず、内部の部分Recordを相互に矛盾する現在値として並べない。
 
 v0.19の状態再取得は、同じ`crdd.run_objective` request identityに結合したProject Operation内だけで行う。初回開始、冪等再送、切断後再接続を同じ情報単位として扱い、再送時は最新Project State、pending decisionまたは終端結果へ解決する。任意Projectを一覧・検索する`crdd.get_project_state`とは分け、後者はv0.20以降の保留候補とする。
+
+## 7. v0.21 Project Operation Context
+
+v0.21は、実行中Project Stateとは別に、案件運営に必要な安定情報、継続論点、時点付き活動および各工程の現在状態を接続する。Project Management Projectionは既存正本を読む派生Viewであり、Project Runtime Stateまたは新しい正本へ統合しない。
+
+```text
+Project ID
+  ├─ Repository ID
+  │    └─ Repository Binding ID
+  └─ Repository ID
+       └─ Repository Binding ID
+
+各Repositoryの正本
+        ↓
+Project Management Projection
+        ↓
+Human／AI／MCP
+```
+
+| 対象 | Identity／Relation | 情報所有 |
+|---|---|---|
+| Project | Project ID | 案件の安定した目的、範囲、関係者、体制、Governance、大枠Schedule |
+| Repository | Project ID + Repository ID | Projectの一部を所有する論理Repository。単一Roleではなく複数のContext Responsibilityを持てる |
+| Binding | Repository ID + Binding ID | 検証済みRoot／worktreeとの実行時結合 |
+| Topic | Project ID + Topic ID、必要時にRepository／Artifact Relation | 継続論点、状態、昇格先、終了理由 |
+| Meeting | Project ID + Meeting ID、Topic／Source Relation | 時間境界、参加主体、確認内容、更新正本、残った問い |
+| Commercial | Project ID、独立Repositoryにできる | 商取引条件。v0.21では内容の完全Schemaを共通化しない |
+| Communication | Project／Artifact Relation | 外部への表現、伝達、公開および反応観測 |
+| Projection | Source Identity + Revision／Observed At | 現在View。正本、更新Authorityまたは独立状態Storeではない |
+
+同じProject IDを持つ別Repositoryの存在は、相互の読取り・書込み許可を意味しない。CROSまたは利用側はRepositoryごとにBinding、Principal、Policy、情報分類、Revisionおよび操作Authorityを再検証する。欠測、閲覧制限、競合または古い観測を正常な値へ畳まない。
+
+Project、Commercial、Topics、Meetings、Communicationまたは工程領域は、同じRepositoryへ任意に同居でき、領域単位で別Repositoryへ分離できる。Repository ManifestはTool／Runtime CapabilityとContext Responsibilityを別に宣言する。同じProject内で同じ責務を複数Repositoryが正本として主張し、分割規則もない場合は、Path順や登録順で選ばず`conflicting`として投影する。
+
+Repository分離を情報アクセス境界として使う場合、Git Hosting、Filesystem ACL、OS PrincipalまたはCredential ProviderがRepository単位の読取りを実際に強制する。Workbench／CROS内の表示ロックだけでは境界成立とみなさない。Repositoryの利用状態は`available`、`credential_required`、`restricted`、`unavailable`および`unknown`を区別し、許可外のArtifact ID、件数または要約を投影しない。
+
+別Repositoryの正本を読めない利用者向けに情報を保存する場合は、単なるProjection Cacheではなく、情報分類、作成Authority、Source Revision、更新、保持および撤回を持つ公開成果物として扱う。CROSは権限不足を迂回する要約または複製を自動生成しない。
+
+Teams、Slack、Meet、Zoom、Email等はConnectorまたは媒体であり、CRDD上の分類ではない。目的、受け手、時間境界および継続性によりMeeting、TopicまたはCommunicationへ解決し、情報不足時は候補のまま保持する。詳細な責務、LifecycleおよびProjection契約は[Project Operation Contextのアーキテクチャ](../06_Architecture/project-operation/01_Architecture.md)を正本とする。
+
+### 7.1. Agent Operating ContextとHandoff
+
+| 情報単位 | Relation | 正本／派生 |
+|---|---|---|
+| Agent Operating Context | Project、Repository、Task、Task Role、Rule Revision、Capability、Decision Boundary | CROSがCRDD正本から解決する派生投影 |
+| Handoff Request | Task Identity、Source Context、Evidence、未決事項、Decision Authority、Effect Boundary | Taskへ結合する耐久的な移送情報 |
+| Resume Decision | Handoff Request、Decision正本、決定主体、採用Revision | 所有正本へ記録されたDecisionを参照する再開入力 |
+
+Chat AgentとCoding Agentは製品IdentityやAccess RoleではなくTask上の責務である。Handoffは会話履歴の複製ではなく、昇格済みContextと未決事項を同じTask Identityへ接続する。Operating Context、Handoff RequestまたはResume Decisionから、Workspace Grant、System Administration Capability、外部送信許可またはRepository Effect Authorityを暗黙生成しない。詳細は[CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md#8-agent-operating-contextとhandoff)を正本とする。

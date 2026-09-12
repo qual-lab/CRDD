@@ -1,6 +1,6 @@
 # CRDD内部ツールの利用体験
 
-状態: Stable（v0.19.0）
+状態: Candidate（v0.21.0、Released Baseline: v0.20.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-05
 工程規則: [UX](../22_UX.md)
@@ -20,7 +20,7 @@
 | 標準を保守する人・CI | Checkerの指摘と未確認範囲を読み、対象文書を直せる | 機械検査を意味監査や準拠認定とみなさない |
 | Runtimeを開発・配布する人 | 開発反復と公式署名を分けて検証できる | 一般利用者へRelease秘密鍵を要求しない。native補助は内部部品 |
 
-§2～§5はCoordinator、Checker、および内部native補助の利用者への影響を扱う。§6はv0.19.0で公開したProject RuntimeのMCP／CLIに共通する意味体験を扱う。新GUI、TUI、複数Project運営、新しい外部ツール利用、配布方式の新設は対象に含めない。
+§2～§5はCoordinator、Checker、および内部native補助の利用者への影響を扱う。§6はv0.19.0で公開したProject RuntimeのMCP／CLIに共通する意味体験を扱う。§7はv0.21候補の複数Repository Project Operationを扱う。新しいGUI／TUIの実装、配布方式の新設またはWorkbench固有の業務ロジックは対象に含めない。
 
 ## 2. 利用者体験の流れと提供責務
 
@@ -97,3 +97,81 @@ MCPで判断を返す場合も、人間は内部TaskやLockを操作しない。
 対話中の作業とスケジュール実行が同じProjectへ到着した場合、利用者へ競合解消を丸投げせず、対話中の作業を優先してスケジュール作業を待機させる。安全に独立した読取りや隔離候補の作成は継続できるが、正本への採用は一つずつ行い、待機中、実行中、再計画待ちを区別して示す。待機Taskごとの再承認は要求せず、Scope変更、基準Revisionの意味変更または解決不能な競合だけを人間へ返す。
 
 この体験の成功は、並列数ではなく、採用可能な統合結果までの時間、人間の実作業時間、不要な確認と反復、統合時の競合および品質で評価する。MCP、CLIその他の入口は同じ意味と停止条件を投影し、Transportごとに別のProject Modelを持たない。
+
+## 7. 立場に応じてProjectへ入る利用体験
+
+v0.21候補では、利用者へCRDDの全DirectoryまたはRepository Federationを最初に理解させない。通常は自分が作業するRepositoryから開始し、Project全体または複数Projectの判断が必要な場合だけCROSの横断Projectionへ移る。
+
+```text
+Developer
+   │ 対象Repositoryで日常作業
+   ▼
+Local AI／CLI
+
+PM
+   │ Project全体を横断確認
+   ▼
+CROS／MCP ──→ Project Projection
+
+Management
+   │ 複数Projectの要点を確認
+   ▼
+Portfolio Projection
+```
+
+| 利用者 | 最初に見える単位 | 主な行動 | 詳細へ進む条件 |
+|---|---|---|---|
+| Developer | 現在のRepositoryと、そのRepositoryが所有するContext | 実装、Topic／Meeting確認、CHG、品質確認 | 別Repositoryの根拠またはProject全体判断が必要 |
+| PM | 一つの論理Project | Milestone、Topic、Meeting、品質、Commercial可視性および判断待ちを確認 | Source、Repository状態または個別成果物を調べる必要がある |
+| Management | PortfolioとProject要約 | At Risk、Attention、主要判断、Milestone等を比較する | 対象Projectの要因と根拠を確認する必要がある |
+
+Developer、PMおよびManagementは体験と情報粒度を検討するための利用者像であり、CROSが所有する固定Roleまたは権限Groupではない。実際の可視範囲と操作可能範囲は、現在のPrincipal、RepositoryごとのPolicy、情報分類およびOperation Authorityから決まる。同じ利用者でもProjectやRepositoryにより異なる投影になり得る。
+
+Developerが単一RepositoryからAIを利用する場合、AIは同じProject IDを持つ兄弟Repositoryを推測探索しない。そのRepository内の正本と許可された外部参照だけを使い、利用できないProject Contextを補完または推測しない。
+
+PMがCROSを利用する場合、複数Repositoryの物理構成を主表示にせず、一つのProjectとして現在状態を投影する。Repository、Binding、Git Revisionおよび取得経路は根拠または診断として段階的に表示し、欠測、競合、古い観測およびアクセス制限を完全なProject Viewへ畳まない。
+
+Management向けPortfolioはProject正本を中央へ複製せず、許可された読み取り専用Projectionを集約する。単一ScoreだけでProject健全性や優先順位を確定せず、重要な判断、品質、進捗、Commercial可視性および観測時点へ辿れるようにする。
+
+### 7.1. 利用不能ContextとUnlock
+
+| Canonical状態 | 利用者への表示 | 許可する操作 |
+|---|---|---|
+| `available` | 利用可能なContextと観測時点 | 閲覧、許可範囲のCommand／Candidate作成 |
+| `credential_required`かつ存在開示可能 | `認証が必要`または鍵表示 | 外部認証Providerの入口を開く |
+| `restricted`かつ存在開示可能 | `現在の権限では利用できません` | 権限申請等の外部導線が明示されている場合だけ案内 |
+| 存在開示不可 | 対象名、件数、状態を表示しない | なし |
+| `unavailable` | 一時的に取得できないことと観測時点 | 安全な再取得または状態確認。権限不足とは表示しない |
+| `unknown` | 完全な回答を構成できないこと | 推測せず、確認先または不足範囲を示す |
+
+`Unlock`は`credential_required`に対する外部認証入口の表示名である。CROSが共通Passwordを照合する操作ではなく、`restricted`や存在開示不可の対象へ表示しない。認証後も取得できたRepositoryとfieldだけを追加投影し、以前の不完全な回答を根拠なく完全扱いしない。
+
+### 7.2. Topic／Meetingの日常操作
+
+Meeting RecordからTopic更新、新規Topic、DecisionまたはContext更新の候補を作れる。ボタンや自然言語要求は候補化の入口であり、対象正本への採用Authorityではない。
+
+Topicの経緯表示は、関連Meeting、調査、Decision、CHGおよび現在状態を時間順に辿れるようにする。生Transcriptの全文、アクセス不能なMeetingまたは別Repositoryの内容を、経緯を埋めるために複製・推測しない。
+
+### 7.3. 対話と構築を往復する体験
+
+利用者をChat AgentとCoding Agentの情報転記係にしない。対話で合意した内容は昇格済みContext、Objective、Acceptanceおよび判断境界として引き渡し、構築中に不足が見つかった場合は、未決事項、根拠、必要な判断主体および再開条件を同じTaskへ戻す。
+
+```text
+Human／Customer
+      ↕ 対話・判断
+Chat Agent
+      ↕ 構造化Handoff
+    CROS
+      ↕ Operating Context／Resume
+Coding Agent
+      ↕
+Repository
+```
+
+| 場面 | 利用者へ示すもの | 利用者へ要求しないもの |
+|---|---|---|
+| 構築開始 | 承認済み目標、利用Context、適用規則、実行境界 | Chat全文のコピー、CRDD全文の選択 |
+| 判断待ち | 何が不足し、誰の何の判断で再開できるか | Agent内部ログの解読、Agent間の質問転記 |
+| 判断後の再開 | 同じTaskへDecisionが反映されたことと再評価結果 | Objectiveや経緯の再入力 |
+
+MCP接続済み、Agentが応答した、またはHandoffを受信しただけで、CRDDに従っている、必要Contextが揃った、もしくはEffectが許可されたと表示しない。詳細な意味契約は[CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md#8-agent-operating-contextとhandoff)を正本とする。

@@ -1,0 +1,141 @@
+# 変更トレース: Project Operation Context
+
+変更ID: `CHG-000067`
+状態: `In Progress`
+担当責任者: Qual-Lab
+対象版: `v0.21.0`
+変更分類: `feature`
+最終更新日: 2026-09-12
+
+## 1. 結論と現在状態
+
+Project Management Projection、Topic／Project AttentionおよびMeeting／Context Promotionを、一つのProject Operation Contextとして設計・実装する。Project、Commercial、Topic、MeetingおよびCommunicationは物理階層ではなく責務と安定Identityで接続し、同一Repositoryへの同居と別Repositoryへの分離を可能にする。
+
+```text
+Project Operation Context
+├ Identity
+├ Responsibility
+├ Lifecycle
+├ Relation
+├ Read-only Projection
+└ Optional Repository Structure
+```
+
+| 項目 | 現在状態 |
+|---|---|
+| Project／Repository／Binding Identity | 設計中 |
+| 責務・Authority・Relation | 設計中 |
+| Topic／Meeting Lifecycle | 設計中 |
+| Project Management Projection | 設計中 |
+| 任意Top-level構造 | 設計中 |
+| 仕様・ひな型・Checker・試験 | 未着手 |
+
+## 2. 契機と人間が決定した範囲
+
+2026-09-12の利用者対話で、次を決定した。
+
+- `Project ID`と`Repository ID`を分け、一つの論理Projectが複数Repositoryを持てるようにする。
+- `20_Project`は案件の安定情報だけを所有し、CHG、Quality、Roadmap、Git、実行状態、Topic、MeetingまたはCommercialを複製しない。
+- Project Management Projectionは読取り専用の派生Viewであり、正本または独立Project管理Databaseにしない。
+- Project、Commercial、Topics、MeetingsおよびCommunicationを別責務とし、安定IDとRelationで接続する。
+- Commercialだけを特別扱いせず、Project、Topics、Meetings、Communicationその他の大きな責務領域も、同一Repositoryへの同居と領域単位の別Repository分離を選べるようにする。
+- Repositoryを単一Roleへ固定せず、所有するContext Responsibilityの集合を宣言する。既存のTool／Runtime Capabilityとは別fieldで扱う。
+- Meeting、TopicおよびCommunicationは使用サービスではなく目的と意味で分類する。
+- `20_Project`、`21_Commercial`、`22_Topics`および`23_Meetings`は、使用するRepositoryだけに置く任意領域とする。
+- CommercialはProjectとの分離境界だけをv0.21で固定し、会計・請求・税・通貨等の完全Schemaを作らない。
+- 情報アクセス差はRepository分離と既存Git／OS／Credential Providerの権限で表現し、CROSを独自IAM、Password Storeまたは暗号化製品にしない。
+- Workbench等のUnlock操作は外部所有の認証処理への入口に限定し、同じOS Userが読める内容の表示ロックを強い情報境界とみなさない。
+- Source Repositoryを読めない利用者向けの縮約Projectionは、自動要約や複製ではなく、明示的に許可された公開成果物として扱う。
+- Project Operation Contextを一つの変更単位として設計し、実装と試験は責務単位で分ける。
+- CROS Coreへ`general／privileged／administrator`の固定Role階層を設けず、CROS管理SessionがCredentialごとの明示Workspace Grantを設定する。
+- System Administration Capability、Content Workspace Grant、情報分類、Task Roleおよび人間の決定権限を別軸に保つ。
+- Chat AgentとCoding Agentは同じCRDD正本から解決したAgent Operating Contextを参照し、会話全文のPrompt転記ではなく構造化Contextと判断要求でHandoffする。
+- MCP接続済みであることを、CRDD規則の認識、準拠、Repository AccessまたはEffect Authorityの根拠にしない。
+
+## 3. 既存契約からの発展
+
+v0.19は一つのProjectを一つの明示Binding済みRepositoryへ結合した。CHG-000066はRepository-local `.crdd`のManifestへProject IDを置き、同じProject IDの複数書込みBindingを安全側で拒否した。v0.21の複数Repository Projectでは、Repositoryの論理Identityと実在するclone／worktreeのBindingを分ける。
+
+```text
+v0.19／CHG-000066
+Project ID ──→ Repository Binding
+
+v0.21
+Project ID
+  └─ Repository ID
+       └─ Repository Binding ID
+```
+
+| 保持する保証 | 変更する意味 |
+|---|---|
+| Repository-local `.crdd`にはそのRepositoryの情報だけを置く | 同じProject IDを持つ複数の異なるRepository IDを許容する |
+| Directory探索だけでProject／Repositoryを登録しない | Repository ManifestにRepository IDを追加する |
+| 同じ論理Repositoryの複数書込みBindingを自動選択しない | 重複判定をProject ID単独からRepository IDとBindingへ移す |
+| Binding、Authority、Credential、RecoveryをProject間で暗黙継承しない | CROSはProject Relationを読み取っても個別RepositoryのAuthorityを再検証する |
+
+既存のProject IDをそのままRepository IDへ複製する移行を既定にしない。既存Repositoryの論理ProjectとRepository Identity、同じProjectへ属する他Repositoryの有無、およびBinding競合を確認できる移行入力を先に定める。
+
+## 4. 対象範囲
+
+| 対象 | 変更内容 |
+|---|---|
+| Discovery | Project運営、Topic、Meeting、Commercial境界の採用条件を固定する |
+| IA | Entity、Identity、Relation、所有責任および情報導線を固定する |
+| Documentation | 任意Top-level領域、固定入口および非該当時の空成果物禁止を固定する |
+| Architecture | Projection、Resolver、Repository接続、読取り・更新PortおよびAuthority境界を設計する |
+| SPEC | Topic／Meeting／Projectionの入力、状態、結果、失敗およびEffectを定義する |
+| Runtime Data | Project／Repository／Binding IdentityのSchemaと移行を追加する |
+| Implementation | 共通Core、Resolver、Projectionおよび必要な公開Interfaceを実装する |
+| Quality | 単一Repository、複数Repository、分離Repository、Restricted Commercialおよび誤Bindingを検証する |
+| Template／Checker | 使用時の標準入口を配布し、未使用時の空Directoryを要求しない |
+| Repository Manifest／CROS | Context Responsibilityの複数宣言、重複所有の競合検出および領域単位のRepository解決を追加する |
+| Trust／Credential Adapter | RepositoryごとのPrincipal、Policyおよび外部認証結果を検証し、秘密値をCROS設定へ保存しない |
+| Agent Operating Context／Handoff | Taskごとの適用規則、Context、Capability、Decision境界、判断要求および再開契約をRevision付きで投影する |
+
+## 5. 目指さないこと
+
+- JIRA、Notion、会計SystemまたはGit Clientの再実装。
+- Workbench専用のProject正本、状態Storeまたは独自更新ロジック。
+- CROS独自のUser Directory、Role管理、共通Password照合、Credential Store、暗号化またはPassword Recovery。
+- WBS、Risk、Issue、Forecastまたは進捗率を単一のCanonical Entityへ統合すること。
+- Commercialの見積、契約、原価、売上、粗利、請求、税または通貨の完全Schema。
+- Service名だけによるMeeting、TopicまたはCommunicationの自動分類。
+- Project Relationだけから別Repositoryへの読取り・書込みAuthorityを生成すること。
+- 使用しないRepositoryへの`20_Project`、`21_Commercial`、`22_Topics`または`23_Meetings`の作成。
+
+## 6. 完成条件
+
+- [ ] Project ID、Repository ID、Repository Binding IDの意味と移行が一意である。
+- [ ] Project、Commercial、Topic、Meeting、Communicationの所有情報と非所有情報が一意である。
+- [ ] TopicとMeetingの正常、準正常、異常、昇格、終了および再開条件を追跡できる。
+- [ ] Projectionが正本を複製せず、欠測、Restricted、ConflictingおよびStaleを正常値へ畳まない。
+- [ ] Projection上の操作が所有正本への候補または専用Commandへ解決され、Projectionを直接更新しない。
+- [ ] 同一Repository、同一Projectの複数Repository、およびCommercial／Communication分離Repositoryを扱える。
+- [ ] Commercial、Topics、Meetings、Communicationその他の責務領域を任意のRepository境界で同居または分離できる。
+- [ ] RepositoryのContext ResponsibilityとTool／Runtime Capabilityを混同せず、同一責務の競合Ownerを自動選択しない。
+- [ ] RelationからAuthority、Credential、Recoveryまたは外部送信許可を生成しない。
+- [ ] CROS管理SessionがCredentialごとのWorkspace Grantを設定でき、管理CapabilityからContent Accessを生成しない。
+- [ ] Credential発行、Grant設定、認証、Session生成、再検証および失効を別の状態・操作として扱える。
+- [ ] Repository分離による情報境界と、表示上のロック／再確認を区別する。
+- [ ] Repositoryごとの`available`、`credential_required`、`restricted`、`unavailable`および`unknown`を内容漏えいなしに投影できる。
+- [ ] 縮約Projectionの公開が、元Repositoryへのアクセス不能を迂回する自動複製にならない。
+- [ ] Chat AgentとCoding Agentが同じCRDD正本から解決したAgent Operating Contextを参照し、構造化Handoffで判断待ちと再開を追跡できる。
+- [ ] MCP接続、Agent RoleまたはHandoff受領から未保有Authorityを生成しない。
+- [ ] ひな型、Checkerおよび試験が任意領域の使用／非使用を区別する。
+- [ ] 独立レビュー、Repository全体Checker、回帰および必要な実境界試験が成立する。
+
+## 7. 正本と利用側
+
+| 種別 | 参照 |
+|---|---|
+| Discovery | [Runtime／CROS Product Candidates](../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#2-project-operationproject-management-projection) |
+| IA | [CRDD内部Toolの情報構造](../../03_IA/01_Information_Architecture.md) |
+| Architecture | [Project Operation Contextのアーキテクチャ](../../06_Architecture/project-operation/01_Architecture.md) |
+| CROS利用境界 | [CROS Federationと利用境界](../../06_Architecture/cros/01_Architecture.md) |
+| Runtime Data基準 | [Runtime Dataの目標Architecture](../../06_Architecture/runtime-data/02_Target_Architecture.md) |
+| Communication | [CRDD外部コミュニケーション](../../17_Communication.md) |
+| Roadmap | [v0.21未完了作業](../../99_Roadmap/01_Product_Roadmap.md#12-v0210--project運営信頼複数repository) |
+
+## 8. 次のGate
+
+Identity、責務、Lifecycle、Relation、ProjectionおよびRepository構造を設計正本へ固定し、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合する。その後にSPEC、ひな型、Checkerおよび実装へ進む。
