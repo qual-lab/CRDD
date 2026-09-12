@@ -1,7 +1,7 @@
 # 変更トレース: Runtime Data ContractとTrust Domain
 
 変更ID: `CHG-000066`
-状態: `Open`
+状態: `Ready for Release Handoff`
 担当責任者: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `feature`
@@ -11,20 +11,22 @@
 
 Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime状態、Evidenceおよび一時物の境界として再構成する。複数Repositoryを扱うCROS状態は、配布主体、ApplicationおよびTrust Domainごとに分離したOS管理Rootへ置く。
 
-現行Pathと物理残存の棚卸し、目標Architecture、共通Schema／Path Resolver、利用側移行、旧Path拒否、段階的結合試験およびCRDD公式Repository自身の物理清掃まで完了した。独立レビューで検出したConsumer閉包と`tmp`耐久回復を構造是正し、更新した固定候補の独立再レビューを残している。
+現行Pathと物理残存の棚卸し、目標Architecture、共通Schema／Path Resolver、利用側移行、旧Path拒否、段階的結合試験およびCRDD公式Repository自身の物理清掃まで完了した。独立レビューで検出したConsumer閉包と`tmp`耐久回復を構造是正し、固定Commit `672a3e76`の独立再レビュー、全回帰、署名、正式4経路E2EおよびRecovery Matrixまで成立した。
 
 | 項目 | 現在状態 |
 |---|---|
 | 現行Path棚卸し | 完了 |
-| 目標Directory Taxonomy | Candidate固定済み |
-| `tmp/`の限定用途 | Candidate固定済み |
+| 目標Directory Taxonomy | 実装・検証完了 |
+| `tmp/`の限定用途 | 実装・検証完了 |
 | Recovery所有 | Component所有へ固定 |
 | Repository Manifest／Trust Policy Schema | 実装・契約試験済み |
 | 共通Path Resolver | 実装・Windows／Linux論理Path試験済み |
 | Consumer移行・旧Path拒否 | 実装・本番Source、公開案内、SPEC、WorkflowのFocused Test済み |
 | `tmp/`所有・清掃契約 | 外部制御面、呼出し前Identity、公開前staging、Canonical公開直後の同一file alias回収、`preparing`、Owner Process、caller-known次世代Identity、single-use再入場、正式Evidence Receipt、全終端、部分清掃・Lock削除失敗を実装・試験済み |
 | 既存物理残存の清掃 | 現在の退役Path不存在を確認。削除前item単位Inventoryを欠くため、過去の移送完全性は未証明と明示 |
-| 全体Checker／選択回帰 | Runtime Data 30/30、名前付きPathの親逆算を行う型有効な新規Tool反証、Execution Intelligence 41/41、Project Runtime 60/60、Coordinator型・静的契約、Verification記録13/13が成立。独立再レビュー後に全回帰を再実行する |
+| 独立再レビュー | Critical／Major／Moderate／Minorすべて0で`Pass` |
+| 全体Checker／回帰 | Repository全体Checker Error 0／Warning 0。Runtime Data 30/30、Execution Intelligence 41/41、Project Runtime 60/60、Coordinator 1981成功／5明示Skip／失敗0、Windows実Process Gate 8/8、Git packed-object結合14/14が成立 |
+| 署名／正式E2E | Runtime Execution Identity署名、4経路4/4およびRecovery 7/7が成立。cleanup確認済み、手動Recovery不要、正本Repository変更なし |
 
 ## 2. 契機と人間が決定した範囲
 
@@ -160,7 +162,7 @@ Component単位契約試験
 | Discovery | [Runtime／CROS Product Candidates](../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#5-crdd-runtime-data-contractとcrddcros構造化基盤) |
 | Roadmap | [v0.21未完了作業](../../99_Roadmap/01_Product_Roadmap.md#12-v0210--project運営信頼複数repository) |
 | 実装 | `40_Develop/runtime-data/`、Coordinator／Execution Intelligence利用側、Checker旧Path拒否 |
-| 検証結果 | Runtime Data 30/30、Execution Intelligence 41/41、Project Runtime 60/60、Verification記録13/13、Repository全体Checker Error 0。固定Commitの独立再レビュー後に全回帰を再実行する |
+| 検証結果 | [固定候補の署名・回帰・正式E2E](#12-固定候補の完了evidence) |
 
 ## 9. Retentionと清掃の初期境界
 
@@ -174,13 +176,35 @@ Component単位契約試験
 |---|---|---|---|
 | Root CapabilityとConsumer Closure | raw文字列Root入口とCanonical Pathの利用側再構成が残り、手書き一覧だけでは署名等の希少Consumerを証明できなかった | 公開入口をRoot Capability必須へ限定し、署名だけは固定module位置から導出する非公開Resolverへ接続。実Sourceから保護Consumer集合、raw入口、未登録領域および名前付きPathの親逆算を導出してCheckerの宣言集合と照合 | 任意絶対Directory、公開indexからの内部Resolver取得、`dirname(namedPath)`から変数・Helper経由で行う未登録領域、予定外署名Consumerを拒否 |
 | `tmp`の耐久回復 | in-place書込み、制御文書と削除対象Workspaceの同居、Canonical公開前の匿名Effect、Effect後のIdentity生成、旧世代参照の再利用およびEvidence source未結合により、返したRecovery参照を利用できない経路があった | `.operations/`へ制御面を分離。初回文書・Lockをcaller-known Identityのstagingへflushして完全な文書だけを排他的linkし、Canonical公開直後に残った同一file aliasだけを検証して回収する。再入場前に異なる次世代Identityをcallerが固定し、旧世代参照を受理せず、`released` Lock、清掃前の`recovery_required`公開、work sourceと昇格先の両Hash結合を維持する | 初回staging書込み中／flush後／Canonical link直後／read-back後、Lockの同じ各境界、新世代公開後・返却前／新世代返却後の各Process loss、部分清掃、Lock削除失敗、旧参照replay、source欠落／不一致からexact再入場とEffect 0を確認 |
+| 全Consumer自動検出 | Tool名の手書き列挙と代表的なliteral joinだけでは、新規Component、変数segmentおよびHelper経由のRoot再解釈を検出できなかった | `40_Develop/<component>/{src,scripts,bin}`を実Sourceから自動母集団化し、公開Resolverからraw `.crdd` Rootを除外。Consumerは名前付き領域の作成・検証APIだけを利用する | 未登録の新規Tool、変数segment、Helper経由のRoot利用をCheckerで拒否し、既存Consumerを名前付き領域へ移行 |
 
 PIDだけによるOwner生存確認は、PID再利用を同一Processの生存と誤認し得る。現在版は資源を自動削除しない安全側の可用性制約として保持する。担当責任者はRuntime Data／Platform Accessの保守担当とし、長期Operation、自動回復時間保証、LinuxまたはRemote Runtimeの導入前に、Process開始IdentityまたはHost boot Identityとの結合を再評価する。
-| 全Consumer自動検出 | Tool名の手書き列挙と代表的なliteral joinだけでは、新規Component、変数segmentおよびHelper経由のRoot再解釈を検出できなかった | `40_Develop/<component>/{src,scripts,bin}`を実Sourceから自動母集団化し、公開Resolverからraw `.crdd` Rootを除外。Consumerは名前付き領域の作成・検証APIだけを利用する | 未登録の新規Tool、変数segment、Helper経由のRoot利用をCheckerで拒否し、既存Consumerを名前付き領域へ移行 |
 
 ## 11. リリースと後続
 
 - 対象リリース: `v0.21.0`
 - 収録リリース: 未収録
-- 次のGate: 固定候補の独立再レビュー、全回帰、署名および正式E2E
+- 本変更のGate: 完了
+- 次のGate: v0.21.0の他項目と統合したRelease Candidateの監査およびリリース判断
 - 後続: Project Management Projection、Capability Registry、CROS、Remote MCPは本変更の構造化されたRootとIdentityを利用する
+
+## 12. 固定候補の完了Evidence
+
+固定Commit `672a3e76`について、独立再レビュー、回帰、Runtime Execution Identity署名、正式4経路E2EおよびRecovery Matrixが成立した。
+
+| 項目 | 結果 |
+|---|---|
+| Source Commit／Tree | `672a3e76c8607ced6ab2abaaeaa09a0e848de3d0`／`ec0d55080c39da27b262218daae8e5d40d7e234f` |
+| Package Content Root | `788d55b2fb28dc8d4f6d1e1664ba3ec9c9b640a92430d8fadb224b3302fb1318` |
+| Runtime Execution Identity | `13f3833f190190f51d32ba53543f579d5e44d62d1fab8472f8787d320d66597d` |
+| 独立再レビュー | Critical／Major／Moderate／Minorすべて0、`Pass` |
+| 回帰 | Runtime Data 30/30、Execution Intelligence 41/41、Project Runtime 60/60、MCP 31/31、Coordinator 1981成功／5明示Skip／失敗0 |
+| 実境界 | Windows実Process Gate 8/8、Git packed-object結合14/14 |
+| Repository全体Checker | Markdown 431、Local Link 3111、Anchor 1047、Error 0、Warning 0 |
+| 4経路E2E | Record `0f6d3947-810a-4b78-ae65-22e2ce682e75`、forward／reverse／same-codex／same-claudeの4/4成功 |
+| Recovery Matrix | Record `e5da5210-b402-4a67-a7d2-b06868dc4690`、7/7成立 |
+| 終了後状態 | cleanup確認済み、手動Recovery不要、正本Repository変更なし |
+
+5件のSkipは実Providerまたは明示的な手動実行を必要とする試験であり、未報告の失敗ではない。正式Provider経路は署名済み4経路E2Eで確認した。Recovery Matrixでは期待した安全停止を成功へ読み替えず、異常結果と再入場結果をScenario契約どおり確認した。
+
+生の検証記録はRepository-local `.crdd/verification/`に保持し、Git配布対象にはしない。本節は公開可能な識別子、Hash、件数および判定だけを抽出した追跡用要約であり、Provider生出力、認証情報、Capabilityおよび署名鍵を含めない。Runtime Execution Identityが変化した場合は、本結果を新しいRuntime変更へ流用しない。
