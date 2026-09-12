@@ -48,7 +48,7 @@ Project Operation Context
 - Source Repositoryを読めない利用者向けの縮約Projectionは、自動要約や複製ではなく、明示的に許可された公開成果物として扱う。
 - Project Operation Contextを一つの変更単位として設計し、実装と試験は責務単位で分ける。
 - CROS Coreへ`general／privileged／administrator`の固定Role階層を設けず、`system_admin: true`のConnection Credentialによる管理RequestがCredentialごとの`workspace_ids[]`を設定する。
-- `system_admin`、Content Access、情報分類、Task Roleおよび人間の決定権限を別軸に保つ。
+- `system_admin`、Content Access、既存の開示制約、Task Roleおよび人間の決定権限を別軸に保つ。
 - Chat AgentとCoding Agentは同じCRDD正本から解決したAgent Operating Contextを参照し、会話全文のPrompt転記ではなく構造化Contextと判断要求でHandoffする。
 - MCP接続済みであることを、CRDD規則の認識、準拠、Repository AccessまたはEffect Authorityの根拠にしない。
 - v0.21へ採用済みのProject Operation／CROS Capabilityは、既知の次版全面Refactorを前提とする中間構造で正式化せず、現在宣言した利用形態を満たす最小責務を利用者入口から実境界・利用側まで閉じる。
@@ -93,6 +93,7 @@ Project ID
 | Repository Manifest／CROS | Context Responsibilityの複数宣言、重複所有の競合検出および領域単位のRepository解決を追加する |
 | Shared Server接続境界 | RequestごとにBearer TokenをConnection Credentialへ照合し、`workspace_ids[]`、`system_admin`、失効およびRepository Policyを検証する。生TokenをRepository、`.crdd`またはlogへ保存しない |
 | Agent Operating Context／Handoff | Taskごとの適用規則、Context、Capability、Decision境界、判断要求および再開契約をRevision付きで投影する |
+| CROS Workbench | Project／Portfolio、Source Coverage、Topic／Meeting／判断待ちおよび正本導線を既存公開契約から表示し、少なくとも一つの定型操作を既存Command／Candidate入口へ渡す最小実装を行う |
 
 ## 5. 目指さないこと
 
@@ -123,6 +124,10 @@ Project ID
 - [ ] 縮約Projectionの公開が、元Repositoryへのアクセス不能を迂回する自動複製にならない。
 - [ ] Chat AgentとCoding Agentが同じCRDD正本から解決したAgent Operating Contextを参照し、構造化Handoffで判断待ちと再開を追跡できる。
 - [ ] MCP接続、Agent RoleまたはHandoff受領から未保有Authorityを生成しない。
+- [ ] CROS Coreへ独立した情報分類制度、汎用Policy EngineまたはGlobal Operation Permission Registryを追加せず、既存Constraintは利用範囲を狭める方向にだけ適用する。
+- [ ] Content Access、Capability固有のOperation Authorityおよび`system_admin`を分離する。
+- [ ] 最小Workbenchが実際のCROS／Project Operation公開契約からProject ViewとSource Coverageを表示し、既存Command／Candidate入口への定型操作を縦断できる。
+- [ ] Workbenchが第二正本、独自状態Store、直接Filesystem更新または独自Authority判定を持たない。
 - [ ] 現在宣言した利用形態ごとに、Meaning Contract、実装、利用側移行、契約試験、実境界検証、E2EおよびEvidenceが接続する。
 - [ ] 既知の次版全面置換を成立条件とする暫定Owner、Identity、Authorityまたは公開Contractを残さない。
 - [ ] ひな型、Checkerおよび試験が任意領域の使用／非使用を区別する。

@@ -285,7 +285,7 @@ Infrastructure Adapters
 ├ Filesystem／Git
 ├ Runtime Data
 ├ MCP／HTTP
-└ Future Workbench
+└ CROS Workbench Adapter
 ```
 
 Project Operation CoreはFilesystem Path、MCP DTO、Workbench表示形式または特定Project管理Toolへ依存しない。CROS Repository RouterはRelation解決を担当できるが、正本更新やProject横断Authorityを所有しない。
@@ -306,6 +306,8 @@ Project Operation CoreはFilesystem Path、MCP DTO、Workbench表示形式また
 - Topic昇格後も元Topicの履歴と昇格先を追跡でき、第二正本を作らない。
 - Meeting Sourceのサービス名だけでは分類・昇格しない。
 - Projectionの表示または操作からAuthorityを生成せず、所有正本のCommandへ戻る。
+- 最小Workbenchが実際の公開契約からProject／Portfolio、Source Coverage、Topic／Meeting／判断待ちを表示し、欠測または制限を完全状態へ畳まない。
+- Workbenchの定型操作が既存Command／Candidate入口を使用し、画面内の直接更新や独自Authority判定を行わない。
 - 使用しない任意領域をCheckerが欠落として拒否しない。
 
 ## 11. 未確定事項
@@ -317,4 +319,4 @@ Project Operation CoreはFilesystem Path、MCP DTO、Workbench表示形式また
 | Commercialの内容Schema | 共通化しない | 代表利用とアクセス要件が得られた時 |
 | Projectionの公開field | 意味と欠測状態だけ固定 | SPECと代表View設計 |
 | Remote接続認証 | CROS独自Password Gate、User Directoryまたは汎用認証Provider層を作らず、Shared ServerではBearer TokenをConnection Credentialへ照合する | MCP／CROSの認証設計 |
-| Workbench | Projection利用側に限定 | v0.21基盤成立後の別判断 |
+| Workbenchの実装方式 | Projection利用側に限定し、v0.21で最小実装まで行う | UX／UI／SPECと対象Client環境の固定 |

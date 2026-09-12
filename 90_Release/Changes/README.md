@@ -18,6 +18,7 @@
 | v0.19.0 Dogfooding由来の横断改善 | [CHG-000059](CHG-000059_Dogfooding_Assurance_Route_and_Readability.md) | Change、Quality Assurance、Documentation、Document Auditの改善 |
 | v0.19.0 ブランドアイコン | [CHG-000060](CHG-000060_CRDD_Brand_Icon_Adoption.md) | 他の変更意図と分離する |
 | v0.20.0 各変更 | [CHG-000061](CHG-000061_Test_Levels_and_Automated_Regression.md)、[CHG-000062](CHG-000062_Execution_Intelligence.md)、[CHG-000063](CHG-000063_Runtime_Responsibility_Separation.md)、[CHG-000064](CHG-000064_Project_State_and_Local_MCP_HTTP.md)、[CHG-000065](CHG-000065_Structured_First_Documentation.md) | 未リリースの独立変更であり、v0.18の固定統合集合へ追加しない |
+| v0.21.0 各変更 | [CHG-000066](CHG-000066_Runtime_Data_Contract_and_Trust_Domains.md)、[CHG-000067](CHG-000067_Project_Operation_Context.md)、[CHG-000068](CHG-000068_Phase_Diagram_and_Intent_Handoff.md) | Runtime Data、Project Operation、工程間の意図引継ぎをそれぞれ独立して追跡する |
 | 統合済みの旧CHG IDの移行先 | [統合済み旧ID](#統合済み旧id) | 旧本文が必要な場合だけ固定Commitから`git show`する |
 | SHA-256、固定byte、tag、旧Path | 後続の機械所有表 | 履歴Trustの検証入力であり、利用者向けの現在説明ではない |
 

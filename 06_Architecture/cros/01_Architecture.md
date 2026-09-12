@@ -209,13 +209,13 @@ Bindingが検証済み
   AND Trust PolicyがRepository／Publisher／Revisionを許可
   AND WorkspaceがBindingを明示Exposure
   AND 現在のCredentialがWorkspace IDを保持
-  AND 情報分類・Repository制約を満たす
-  AND Operationに必要なAuthorityが別途成立
+  AND 既存Manifest／Trust／Binding契約の明示Constraintに違反しない
+  AND Operationを伴う場合は対象CapabilityのAuthorityが別途成立
 ```
 
-Repository ManifestはRepository ID、Project Relation、Context ResponsibilityおよびRepository自身が要求する制約を宣言できるが、Authorityの正本ではない。Manifestの変更だけでWorkspace Exposure、Connection CredentialのWorkspace集合またはServer Policyを緩和できない。将来、Repository側の最小情報分類をSchemaへ追加する場合も、Server側Policyと交差し、Repository宣言は許可を広げず制約を狭める方向にだけ作用させる。
+Repository ManifestはRepository ID、Project Relation、Context Responsibilityおよび既存契約が要求する制約を宣言できるが、Authorityの正本ではない。Manifestの変更だけでWorkspace Exposure、Connection CredentialのWorkspace集合またはServer Policyを緩和できない。CROS CoreへInformation Classification Registry、Classification Schema、Label継承、汎用Policy EngineまたはUser／Role対応表を追加しない。CRDD正本や配置先が既に所有する機密区分・開示制約が入力に含まれる場合、CROSはそれを生成・推定・拡張せず、利用範囲を狭める既存Constraintとしてだけ扱う。
 
-`required_access: privileged`のような固定Classは、情報分類と認証主体の対応が確定するまでSchemaへ追加しない。Project名、Repository名、Directory名またはContext Responsibilityから暗黙のClassを割り当てない。
+Content AccessとOperation Authorityは独立条件である。Read-only ProjectionはContent Accessだけを要求し、Repository内容を使用または変更するOperationはContent Accessと対象Tool／Runtime／Capabilityが所有する既存Authorityの両方を要求する。Server設定操作は`system_admin`を要求するが、Project内容のContent Accessを要求または生成しない。CROSはこれらを新しい汎用Authority Frameworkへ統合しない。
 
 ## 6. Canonicalな読取り経路
 
@@ -444,13 +444,15 @@ Secret value -x Repository／.crdd／Prompt／Projection
 - Chat AgentとCoding Agentが同じCRDD正本から解決した、Revision付きのAgent Operating Contextを取得できる。
 - 構造化HandoffがObjective、根拠、未決事項、Decision Authority、Effect境界および再開条件を保持し、Prompt転記を必須にしない。
 - MCP接続、Agent RoleまたはHandoff受領だけからCRDD準拠、Content Access、`system_admin`またはEffect Authorityを生成しない。
+- 独立したInformation Classification System、汎用Policy EngineまたはGlobal Operation Permission RegistryをCROS Coreへ追加しない。
+- Read-only Projection、Repository内容を使うOperationおよびServer管理の必要条件を混同せず、各Capabilityが所有する既存AuthorityをCROSが代替発行しない。
+- 最小WorkbenchがCROS／Project Operationの公開契約からProject／PortfolioとSource Coverageを表示し、既存Command／Candidate入口への定型操作を一つ以上縦断する。
 - 単一Repository、Personal複数Repository、Shared DEV Credential、Shared MGMT Credential、Admin-only Credential、Credential失効、Workspace集合変更およびPolicy改訂を結合試験で反証する。
 
 ## 14. 現在の未確定事項
 
 | 項目 | 現在の方針 | 確定Gate |
 |---|---|---|
-| Repository側の情報分類field | Manifest単独でAuthorityにせず、制約を狭める用途だけ候補 | Repository Manifest v0.21 Schema |
 | Workspace Registryの永続Schema | Trust Domain配下、Secret非格納、Server所有 | Runtime Data／CROS SPEC |
 | Credentialの任意field | `display_name`、`created_at`、`expires_at`を必須にしない | Remote MCP脅威モデル／SPEC |
 | Admin Credential紛失時の回復 | Bootstrap Entityを作らず、Host所有者の明示操作に限定する | Remote MCP脅威モデル／運用手順 |

@@ -111,7 +111,7 @@ Tool exists
 
 ## 5. `.crdd` Runtime Data ContractとCRDD／CROS構造化基盤
 
-Workbenchは新しい正本や独自Runtimeを持たず、構造化されたCRDD／CROSを人間向けに投影・操作する薄い作業台とする。
+Workbenchは新しい正本や独自Runtimeを持たず、構造化されたCRDD／CROSを人間向けに投影・操作する薄い作業台とする。v0.21では設計候補の保持だけで終えず、Projectを選択し、現在状態・Source Coverage・Topic／Meeting／判断待ちを確認し、正本または既存Toolの操作入口へ進める最小実装までを採用範囲とする。
 
 ```text
 CRDD／CROS
@@ -128,14 +128,14 @@ CRDD／CROS
         └─ CROS Workbench
 ```
 
-| 境界 | 候補方針 |
+| 境界 | v0.21の方針 |
 |---|---|
 | Repository | CHG、Topic、Roadmap、工程成果物、Decision、Verification、Release、昇格済みCommunicationから必要なIdentity、状態、関係、Lifecycle、Sourceを推測なしで取得できる範囲を探る |
 | `.crdd` | Root、Git管理／Runtime-only、耐久／一時、Owner、保持、清掃、Recoveryを分ける。正式構成は全書込みPathの棚卸し後に決める |
 | Tool | `TS API → CLI／MCP／UI`の依存方向と構造化結果を基本とし、UIだけの業務ロジックや別実装を作らない |
-| Workbench | Project、工程、Communication、実行知、Candidate、Git状態を表示・比較し、定型操作を既存Interfaceへ渡す |
+| Workbench | Project／Portfolio、Source Coverage、Topic／Meeting／判断待ち、実行状態および正本への導線を表示する。定型操作は既存TS API／CLI／MCPへ渡し、Workbench専用の更新処理を持たない |
 
-WorkbenchはSourceTreeや高度なGit操作を再実装しない。閲覧・比較・状態確認・定型操作を担い、調査・判断支援はAI、実行・統合・Runtime管理はCROS、Context・Knowledge・Decisionの正本はCRDDが所有する。
+WorkbenchはSourceTreeや高度なGit操作を再実装しない。閲覧・比較・状態確認・定型操作を担い、調査・判断支援はAI、実行・統合・Runtime管理はCROS、Context・Knowledge・Decisionの正本はCRDDが所有する。v0.21の最小実装は、実際のCROS／Project Operation公開契約から取得した構造化結果を表示し、欠測・制限・競合・観測時点を失わず、少なくとも一つの既存Command／Candidate入口を同じ契約で呼び出すところまでを縦断する。画面Framework、装飾、高度なGit操作、独自検索Indexおよび汎用Dashboard Builderは完成条件に含めない。
 
 `.crdd`の正式なDirectory Taxonomyは、全書込みPathのOwner、Purpose、Schema、Git管理、耐久性、Read／Write、保持、清掃およびRecoveryを棚卸しして決める。現行の棚卸しは[Runtime Dataの現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md)、採用候補となる全体構造と`tmp/`の限定用途は[Runtime Dataの目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md)で追跡する。Architectureの候補を、Consumer移行と検証なしに現行Runtime契約へ昇格しない。
 

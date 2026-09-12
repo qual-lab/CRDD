@@ -7,7 +7,7 @@
 
 ## 1. 対象と読み方
 
-[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。§9はv0.21のProject Operation／Workbench投影候補を扱う。固定GUIレイアウト、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
+[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。§9はv0.21のProject Operationと最小CROS Workbenchが満たす表示契約を扱う。固定GUI Framework、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
 
 以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[対話入力](../40_Develop/coordinator/src/core/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
 
@@ -135,9 +135,9 @@ MCPの判断応答では、人間向けの選択肢と影響を先に示し、�
 
 接続後の再表示は、同じ`crdd.run_objective` request identityの再送で行う。画面は「新しく開始した」か「既存Operationへ再接続した」かを区別し、再接続では重複Taskを起動していないことと現在状態を示す。判断用のopaqueな継続CapabilityはClient内部で搬送し、人間向け画面、コピー操作、ログまたはProvider出力へ表示しない。期限切れ・消費済み・別主体では判断Effectがなかったことと次の処置を示し、別主体や誤入力だけで正規Capabilityを失効させない。Capability応答喪失ではClientが同じObjective接続内で明示置換し、旧Capabilityの失効確認後に新しい1件だけを内部受領する。判断適用後の応答喪失では新規受理ではなく既存結果を表示する。
 
-## 9. v0.21 Project Operationの投影候補
+## 9. v0.21 Project Operation／CROS Workbench
 
-本節は、同じProject Operation契約を立場に応じた粒度で投影する要求を示す。画面構成の正本、Workbench実装完了またはCommercial Schemaの確定を意味しない。
+本節は、同じProject Operation契約を立場に応じた粒度で投影する要求を示す。v0.21ではこの要求を満たす最小Workbenchを実装するが、図の配置を固定Pixel Layout、特定GUI FrameworkまたはCommercial Schemaの確定とは扱わない。
 
 ```text
 Project: PRJ-001
@@ -166,6 +166,8 @@ Project表示は、利用可能なContextだけから作った結果を全Projec
 `Commercial 🔒`等の鍵表示は、対象の存在を開示でき、別の有効なConnection Credentialで利用できる`credential_required`だけに使用する。恒常的な`restricted`へUnlock操作を表示せず、存在開示が許可されない対象の名前、件数または状態を表示しない。UnlockはServer内で権限を追加する操作ではなく、Client側で別Credentialを選び、次のRequestをそのCredentialで認証する操作として扱う。
 
 Meetingからの`Topicを更新`、`新規Topic化`、`Decision候補化`等は、対象正本への変更候補を作る操作として表示する。操作成功を正本更新済みまたは人間判断済みと表示せず、候補、確認、採用、再投影を区別する。
+
+最小Workbenchの完成には、Project／Portfolioの選択、Project View、Source Coverage、Topic／Meeting／判断待ち、正本への導線、Credential切替状態、および既存公開契約を通した一つ以上の定型操作を含める。画面内だけの集計、直接Filesystem更新、独自Authority判定または独自状態Storeで同じ結果を再実装しない。
 
 ### 9.1. Agent Handoffの表示
 

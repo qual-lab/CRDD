@@ -904,13 +904,13 @@ macOS対応はLinux対応の完了から推定せず、別の成果物、Build�
 
 <a id="discovery-process-method-projection"></a>
 
-## 14. 業務プロセス分析の目的別投影候補
+## 14. 業務プロセス分析の目的別投影
 
-### 14.1. 候補として保持する目的
+### 14.1. v0.21に採用する目的
 
-業務変革を扱うDiscoveryでは、分析対象の境界、関係者、Input／Output、活動、判断、Authority、Handoff、例外、手戻り、処理時間、待機および滞留を、一貫した根拠へ接続して理解する必要がある。CRDD独自の業務分析記法を先に作らず、同じDiscovery ContextからSIPOC、BPMN／Swimlane、Value Stream等の既存手法へ目的別の表示を生成できる可能性を、未採用候補として保持する。
+業務変革を扱うDiscoveryでは、分析対象の境界、関係者、Input／Output、活動、判断、Authority、Handoff、例外、手戻り、処理時間、待機および滞留を、一貫した根拠へ接続して理解する必要がある。CRDD独自の業務分析手法を新設せず、同じDiscovery ContextからSIPOC、BPMN／Swimlane、Value Stream等と対応する目的別の表示を生成できる規則と既存文書構造をv0.21で整える。
 
-候補の基本順序は、SIPOCによる対象境界、BPMN／Swimlaneによる現在の役割・活動・判断・受け渡し、Value Streamによる処理・待機・滞留、Pain PointとRoot Cause、Process・Authority・標準化・自動化・AIを含む解決候補の比較、To-Be、KPI／実測による学びへの還流である。この順序は全Discoveryへ成果物一式を要求する工程ではなく、対象業務と判断に必要なViewだけを選ぶ候補である。
+基本順序は、SIPOCによる対象境界、BPMN／Swimlaneによる現在の役割・活動・判断・受け渡し、Value Streamによる処理・待機・滞留、Pain PointとRoot Cause、Process・Authority・標準化・自動化・AIを含む解決候補の比較、To-Be、KPI／実測による学びへの還流である。この順序は一度限りの図作成工程ではない。Discoveryの固定入口に基本図セクションを置き、項目または全体像が進展するたびに必要なViewを再評価して図を追加または更新する。図示できないViewも省略せず、理由と再評価契機を残す。
 
 ### 14.2. 正本と投影の境界
 
@@ -918,17 +918,18 @@ SIPOC図、BPMN図またはValue Stream図そのものを第二の正本にし�
 
 AI Opportunityは解決候補の一つであり、AIを配置できる場所の探索を目的にしない。Process変更、Authority変更、標準化、自動化、System連携およびHuman／AI責任再設計と比較し、根拠より効果・因果・確実性を強めない。Businessは価値、戦略、優先順位、投資および事業KPI、Discoveryは現実の業務、課題、原因候補、OpportunityおよびAs-Is／To-Be、Product／Engineeringは要求、体験、設計、実装および検証を所有する。
 
-### 14.3. 採否の再評価条件
+### 14.3. v0.21の採用境界と完成条件
 
-現在状態は`Exploring / Unscheduled`であり、v0.20の採用済み6項目、実装着手または新しい準拠義務へ追加しない。代表的な業務変革で、既存Discovery成果物だけでは分析境界・責任・待機・原因・改善効果の接続を再構成しにくいEvidenceが得られた時点で、次を確認して採否を人間が決める。
+現在状態は`Adopted / v0.21`である。新しい巨大な業務Process Databaseを作るのではなく、固定入口の基本図セクションから、既存Discovery正本に基づく目的別Viewまたは理由付きの非該当／作成不能を必ず確認できる規則までを完成範囲とする。進展時には項目単位／全体単位の必要性と現行性を再評価する。少なくとも次を確認する。
 
-- 同じ意味情報から複数手法へ投影する実用価値と、手入力・維持費用。
+- 同じ意味情報から複数手法へ投影する実用価値と、手入力・維持費用を代表例で確認できる。
 - As-IsからPain Point、Evidence、Root Cause、Opportunity、Decision、To-Be、Requirement、Implementation、ValidationおよびKPIまでの追跡可能性。
-- SIPOC、BPMN、SwimlaneおよびValue Streamとの互換性と、Mermaid等による簡易表示の十分性。
+- SIPOC、BPMN、SwimlaneおよびValue Streamとの意味対応を保ち、プレーンテキスト図の記法と凡例から人間とAIが同じ意味を読める。
+- 固定入口または参照先で、対象、図の目的、投影元の改訂版、`Current`／`Candidate`／`Stale`／`Superseded`、未確認範囲および次の処置を確認できる。
 - 時間、量、待機、手戻りおよびKPIの`unknown`と非該当を誤って0へ補正しない契約。
 - AI Opportunity抽出、MCP QueryまたはProcess差分比較を追加する場合の情報分類、Authority、誤推定および利用側。
 
-再評価までは、添付案の例示Schemaを正式Schemaとして採用せず、Communication Repository等からの自動抽出やAIによる自動Solution選択も許可しない。
+例示Schemaをそのまま全案件共通の正式Schemaとして採用しない。対象業務と判断に非該当のViewは空欄のまま残さず、その理由と再評価契機で閉じる。Communication Repository等からの自動抽出、観測不能値の補完またはAIによる自動Solution選択はv0.21の完成条件に含めない。
 
 <a id="oss-runtime-trust-policy-candidate"></a>
 

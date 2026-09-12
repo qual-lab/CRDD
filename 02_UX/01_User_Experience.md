@@ -20,7 +20,7 @@
 | 標準を保守する人・CI | Checkerの指摘と未確認範囲を読み、対象文書を直せる | 機械検査を意味監査や準拠認定とみなさない |
 | Runtimeを開発・配布する人 | 開発反復と公式署名を分けて検証できる | 一般利用者へRelease秘密鍵を要求しない。native補助は内部部品 |
 
-§2～§5はCoordinator、Checker、および内部native補助の利用者への影響を扱う。§6はv0.19.0で公開したProject RuntimeのMCP／CLIに共通する意味体験を扱う。§7はv0.21候補の複数Repository Project Operationを扱う。新しいGUI／TUIの実装、配布方式の新設またはWorkbench固有の業務ロジックは対象に含めない。
+§2～§5はCoordinator、Checker、および内部native補助の利用者への影響を扱う。§6はv0.19.0で公開したProject RuntimeのMCP／CLIに共通する意味体験を扱う。§7はv0.21の複数Repository Project Operationと最小CROS Workbenchを扱う。Workbench固有の業務ロジック、第二正本、高度なGit Clientまたは汎用Dashboardは対象に含めない。
 
 ## 2. 利用者体験の流れと提供責務
 
@@ -125,7 +125,7 @@ Portfolio Projection
 | PM | 一つの論理Project | Milestone、Topic、Meeting、品質、Commercial可視性および判断待ちを確認 | Source、Repository状態または個別成果物を調べる必要がある |
 | Management | PortfolioとProject要約 | At Risk、Attention、主要判断、Milestone等を比較する | 対象Projectの要因と根拠を確認する必要がある |
 
-Developer、PMおよびManagementは体験と情報粒度を検討するための利用者像であり、CROSが所有する固定Roleまたは権限Groupではない。実際の可視範囲と操作可能範囲は、Personalでは検証済みLocal Binding、Shared Serverでは現在のConnection Credentialに結合したWorkspace集合に加え、RepositoryごとのPolicy、情報分類およびOperation Authorityから決まる。同じ利用者でも接続先やRepositoryにより異なる投影になり得る。
+Developer、PMおよびManagementは体験と情報粒度を検討するための利用者像であり、CROSが所有する固定Roleまたは権限Groupではない。実際の可視範囲と操作可能範囲は、Personalでは検証済みLocal Binding、Shared Serverでは現在のConnection Credentialに結合したWorkspace集合に加え、Repositoryごとの既存Constraint、開示制約およびOperation Authorityから決まる。同じ利用者でも接続先やRepositoryにより異なる投影になり得る。
 
 Developerが単一RepositoryからAIを利用する場合、AIは同じProject IDを持つ兄弟Repositoryを推測探索しない。そのRepository内の正本と許可された外部参照だけを使い、利用できないProject Contextを補完または推測しない。
 
