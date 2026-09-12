@@ -3779,15 +3779,6 @@ function checkDocumentationDispositionRoutes(): void {
         /git --no-replace-objects show/u,
       ],
     },
-    {
-      file: qualityRoute,
-      requirements: [
-        /現在候補/u,
-        /前(?:の署名)?候補/u,
-        /v0\.20全体の残るGate/u,
-        /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u,
-      ],
-    },
   ];
   for (const check of checks) {
     if (!fs.existsSync(check.file)) continue;
@@ -3798,6 +3789,34 @@ function checkDocumentationDispositionRoutes(): void {
         "document-disposition-route-contract-incomplete",
         relative(check.file),
         "The current route is missing a required purpose, current-owner, fixed-history retrieval, candidate, gate, or verification-result connection.",
+      );
+    }
+  }
+  if (fs.existsSync(qualityRoute)) {
+    const content = read(qualityRoute);
+    const verificationRoute =
+      /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u;
+    const candidateRoutes = [
+      /現在候補/u,
+      /前(?:の署名)?候補/u,
+      /v0\.20全体の残るGate/u,
+      verificationRoute,
+    ];
+    const releasedRoutes = [
+      /v0\.20\.0公開/u,
+      /v0\.20\.1修正/u,
+      /v0\.20\.0の技術Gate/u,
+      verificationRoute,
+    ];
+    if (
+      !candidateRoutes.every((requirement) => requirement.test(content)) &&
+      !releasedRoutes.every((requirement) => requirement.test(content))
+    ) {
+      add(
+        "error",
+        "document-disposition-route-contract-incomplete",
+        relative(qualityRoute),
+        "The Quality Center must expose either the active candidate route or the released v0.20 route with its verification-result connection.",
       );
     }
   }
@@ -4156,6 +4175,60 @@ function checkV020ReleaseGateOwnership(): void {
   const change = read(changePath);
   const verification = read(verificationPath);
   const roadmap = read(roadmapPath);
+  const v020Released =
+    /^状態:\s*\x60Released\x60\s*$/mu.test(change) &&
+    /^リリース:\s*\x60v0\.20\.0\x60（\d{4}-\d{2}-\d{2}）\s*$/mu.test(change);
+  if (v020Released) {
+    const releasedContracts: readonly [string, string, RegExp, string][] = [
+      [
+        qualityCenterPath,
+        qualityCenter,
+        /v0\.20\.0公開[^\n]*公式tag \x60v0\.20\.0\x60へ収載済み/u,
+        "Quality Center must identify the published v0.20.0 tag.",
+      ],
+      [
+        qualityCenterPath,
+        qualityCenter,
+        /v0\.20\.0の技術Gate[^\n]*正式4経路4\/4とRecovery Matrix 7\/7が成立/u,
+        "Quality Center must retain the completed signed verification.",
+      ],
+      [
+        qualityCenterPath,
+        qualityCenter,
+        /\[[^\]]+\]\(Verification_Results\/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification\.md(?:#[^)]+)?\)/u,
+        "Quality Center must retain the v0.20 verification route.",
+      ],
+      [
+        changePath,
+        change,
+        /現行Gate[^\n]*完了[^\n]*公式tag \x60v0\.20\.0\x60へ収載済み/u,
+        "The Change Trace must close the v0.20 Release Gate.",
+      ],
+      [
+        verificationPath,
+        verification,
+        /Quality Center/u,
+        "Verification must retain its Quality Center connection.",
+      ],
+      [
+        roadmapPath,
+        roadmap,
+        /^(?=[^\n]*v0\.20\.0)(?=[^\n]*2026-09-11)[^\n]*$/mu,
+        "The Roadmap must retain the v0.20.0 publication history.",
+      ],
+    ];
+    for (const [file, content, marker, description] of releasedContracts) {
+      if (!marker.test(content)) {
+        add(
+          "error",
+          "v020-release-gate-ownership-incomplete",
+          relative(file),
+          description,
+        );
+      }
+    }
+    return;
+  }
   const requiredMarkers: readonly [string, string, string][] = [
     [qualityCenterPath, qualityCenter, "現在候補"],
     [qualityCenterPath, qualityCenter, "前の署名候補"],
@@ -4771,6 +4844,106 @@ if (candidateDocuments.length > 0) {
           `Candidate Version and Released Baseline must differ: ${candidateReleasedBaseline}.`,
         );
       }
+    }
+  }
+}
+
+const stableDocuments = canonicalDocumentStates.filter(
+  ({ status }) => status === "Stable",
+);
+if (
+  repositoryMode === "official" &&
+  scopeValues.length === 0 &&
+  stableDocuments.length > 1 &&
+  new Set(stableDocuments.map(({ version }) => version)).size === 1 &&
+  stableDocuments.every(({ version }) => version !== null) &&
+  versions.size === 1
+) {
+  const stableVersion = [...versions][0];
+  if (stableVersion === undefined) {
+    throw new Error("stable_release_version_missing");
+  }
+  const readmePath = path.join(root, "README.md");
+  const readme = lstatIfPresent(readmePath)?.isFile() ? read(readmePath) : "";
+  if (!readme.includes(`Version: **${stableVersion}**`)) {
+    add(
+      "error",
+      "stable-release-readme-version-mismatch",
+      relative(readmePath),
+      `README must expose Version: **${stableVersion}**.`,
+    );
+  }
+  const readmeHeader = readme.split(/\r?\n/u).slice(0, 20).join("\n");
+  if (/\bCandidate\b|^Released Baseline:/mu.test(readmeHeader)) {
+    add(
+      "error",
+      "stable-release-readme-candidate-residue",
+      relative(readmePath),
+      "Stable release README must not retain Candidate or Released Baseline display.",
+    );
+  }
+
+  const changelogPath = path.join(root, "CHANGELOG.md");
+  const changelog = lstatIfPresent(changelogPath)?.isFile()
+    ? read(changelogPath)
+    : "";
+  const escapedStableVersion = stableVersion.replace(
+    /[.*+?^${}()|[\]\\]/gu,
+    "\\$&",
+  );
+  const releaseHeadingMatches = [
+    ...changelog.matchAll(
+      new RegExp(
+        `^### ${escapedStableVersion} — (\\d{4}-\\d{2}-\\d{2})$`,
+        "gmu",
+      ),
+    ),
+  ];
+  const releaseDates = new Set(
+    releaseHeadingMatches.map((match) => match[1]).filter(Boolean),
+  );
+  if (releaseHeadingMatches.length !== 2 || releaseDates.size !== 1) {
+    add(
+      "error",
+      "stable-release-changelog-bilingual-closure-mismatch",
+      relative(changelogPath),
+      `Expected exactly two dated ${stableVersion} release headings with one shared date; found ${releaseHeadingMatches.length} headings and ${releaseDates.size} dates.`,
+    );
+  }
+
+  for (const file of allMarkdownFiles) {
+    const header = read(file).split(/\r?\n/u).slice(0, 16).join("\n");
+    if (
+      header.includes(stableVersion) &&
+      (/^Status: Candidate(?:\s|\()/mu.test(header) ||
+        /^状態: Candidate（/mu.test(header) ||
+        /^Version: \*\*v[^*\s]+ Candidate\*\*$/mu.test(header) ||
+        /^Released Baseline:/mu.test(header))
+    ) {
+      add(
+        "error",
+        "stable-release-candidate-residue",
+        relative(file),
+        `Current Markdown entry point still exposes ${stableVersion} as Candidate.`,
+      );
+    }
+    if (!relative(file).startsWith("90_Release/Changes/")) continue;
+    if (!header.includes(`対象版: \`${stableVersion}\``)) continue;
+    if (!/^状態: `Released`$/mu.test(header)) {
+      add(
+        "error",
+        "stable-release-change-trace-not-released",
+        relative(file),
+        `Change trace for ${stableVersion} must be Released before integration and tagging.`,
+      );
+    }
+    if (!header.includes(`リリース: \`${stableVersion}\``)) {
+      add(
+        "error",
+        "stable-release-change-trace-release-missing",
+        relative(file),
+        `Change trace for ${stableVersion} must identify the release and date.`,
+      );
     }
   }
 }

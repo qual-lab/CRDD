@@ -1,9 +1,10 @@
 # 変更トレース: Runtime責務分離
 
 変更ID: `CHG-000063`
-状態: `Release Decision Pending`
+状態: `Released`
 担当責任者: Qual-Lab
 対象版: `v0.20.0`
+リリース: `v0.20.0`（2026-09-11）
 変更分類: `refactoring`
 最終更新日: 2026-09-11
 
@@ -14,12 +15,12 @@
 | 責務分離 | Project Runtime、Coordinator、MCP、実行知、Platform Accessへ分離済み |
 | 責務分離の実装 | 完了。現行契約は各Architecture正本が所有する |
 | 前の署名候補 | `f76b73af81c43e25f28037caa72d71a898a2f9fb`。Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
-| 前候補のEvidence | 正式4経路4/4、Recovery Matrix 7/7、技術独立監査0件。現在候補へ流用しない |
+| 前候補のEvidence | 正式4経路4/4、Recovery Matrix 7/7、技術独立監査0件。公開版へ流用していない |
 | 文書監査の前候補 | `8536965`。独立監査でMajor 3件、Moderate 2件が残り、不採用 |
-| 現在候補 | Runtime Source `2e4a467cc1364b88d6008604f649da8d840903e7`、manifest carrier `523202123c1ffa33fd39d1ede93357028585c4af`。Release sequence `2026091104` |
-| 現行Gate | [Quality Center](../../07_Quality/01_Quality_Center.md)が所有する。正式4経路4/4、Recovery Matrix 7/7および最終一括監査が成立し、人間のRelease判断だけを残す |
+| 公開版 | Runtime Source `2e4a467cc1364b88d6008604f649da8d840903e7`、manifest carrier `523202123c1ffa33fd39d1ede93357028585c4af`。Release sequence `2026091104` |
+| 現行Gate | 完了。正式4経路4/4、Recovery Matrix 7/7および最終一括監査が成立し、公式tag `v0.20.0`へ収載済み |
 
-本書は変更理由、責務・契約差、現在も有効な構造是正を所有する。固定候補の実行値は[検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)、現在のRelease Gateは[Quality Center](../../07_Quality/01_Quality_Center.md)を参照する。
+本書は変更理由、責務・契約差、現在も有効な構造是正を所有する。公開版の実行値は[検証結果](../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)、現在の品質状態は[Quality Center](../../07_Quality/01_Quality_Center.md)を参照する。
 
 v0.19で成立したProject Runtime、MCP stdioおよびCoordinatorは、意味上の責務を分けていた一方、実装と公開入口の多くをCoordinator package内部へ集約している。この状態では、Coordinator固有のProvider実行、Windows／Docker、Project lifecycle、MCP Transportおよび公開契約の変更が同じpackage境界へ伝播し、後続の限定分散実行、Project State投影およびMCP Streamable HTTPで変更理由と回帰範囲を分離しにくい。
 
@@ -235,10 +236,10 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
 |---|---|
 | 前の署名候補 | 固定改訂版`f76b73af81c43e25f28037caa72d71a898a2f9fb`、Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067`。4経路4/4、Recovery Matrix 7/7、技術監査0件 |
 | 文書監査の前候補 | `8536965`。独立監査でMajor 3件、Moderate 2件が残り、不採用 |
-| 現在候補 | Runtime Source `2e4a467cc1364b88d6008604f649da8d840903e7`、manifest carrier `523202123c1ffa33fd39d1ede93357028585c4af`、Runtime実行Identity `7e82dbaee1bb2dd30f8baa4ebb52ac7e5ce5edf794c6ea977de37bf38c0ed137` |
-| 現行Gate正本 | [Quality Center](../../07_Quality/01_Quality_Center.md) |
+| 公開版 | Runtime Source `2e4a467cc1364b88d6008604f649da8d840903e7`、manifest carrier `523202123c1ffa33fd39d1ede93357028585c4af`、Runtime実行Identity `7e82dbaee1bb2dd30f8baa4ebb52ac7e5ce5edf794c6ea977de37bf38c0ed137` |
+| 現在の品質状態 | [Quality Center](../../07_Quality/01_Quality_Center.md) |
 | 正式E2E | 4経路4/4、再試行0、cleanup成立、手動回復不要。記録ID `b549b78e-84f2-434b-b2f4-7adcce238bd7` |
 | Recovery Matrix | 7シナリオ完了、top-level cleanup成立、手動回復不要。記録ID `4fad4a80-a254-40cd-bf74-f07c58d96da3` |
-| 残るGate | 人間によるRelease判断 |
+| 残るGate | なし。公式tag `v0.20.0`へ収載済み |
 
 最終一括監査: Critical 0、Major 0で成立

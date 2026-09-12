@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "npm run typecheck && npm run lint && npm run format:check",
+    "documentation-disposition:update": "node ./scripts/update-document-disposition-inventory.ts",
     "format": "biome format --write ../..",
     "format:check": "biome format ../..",
     "lint": "biome lint ../.. --error-on-warnings",

@@ -2,9 +2,8 @@
 
 # CRDD文書監査（Document Audit）
 
-Version: v0.20.0
-Status: Candidate
-Released Baseline: v0.19.0
+Version: v0.20.1
+Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.document.audit`
 Last Updated: 2026-09-07
@@ -74,6 +73,8 @@ Related:
 リリース判断前の監査では、[保守](19_Maintenance.md#51-release-version-and-revision)に従い、Candidate後のリリース準備とメタデータ変更が新しい改訂版を生むこと、Candidate固定版の確認結果を別Identityへ流用していないこと、設定されたリリース対象branchと統合権限、統合前source Commit／Tree、対象branchの統合前HEAD、統合後Commit／Tree、branch protection、必須CIおよび統合状態を確認する。
 
 最終Release候補の差分が人間の承認済みリリース計画と宣言済み機械的遷移の範囲だけであること、対象branch側の先行変更を含む公開基準からの全Release差分と対象CHGが母集団に含まれること、候補専用の`Released Baseline`が処置され、`Status: Stable`、README、CHANGELOG、移行注記、公開情報および予定タグ対象が統合後の確認済み最終Commit／Treeへ揃うことを確認する。
+
+同じVersionを表示する現行Markdown入口は、手書き一覧だけでなく実ファイルの先頭表示から導出する。Stable化後に`Candidate`または`Released Baseline`が一件でも残る、README版が正本版と異なる、CHANGELOGの英日Release見出しが同じ日付へ揃わない、対象CHGが公開状態へ接続されない、または完了項目がQuality Center／RoadmapでRelease待ちのままなら、文書状態遷移は未完了とする。
 
 CommitまたはTreeが変われば新Identityへの確認適用性を再評価し、宣言外差分、意味差、対象ずれまたは確認失敗があれば停止して人間判断へ戻す。
 

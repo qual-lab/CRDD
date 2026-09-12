@@ -23,6 +23,7 @@
     "./test-runner.ts",
     "./test-catalog.ts",
     "./regression-runner.ts",
+    "./scripts/update-document-disposition-inventory.ts",
     "./fault-injector.ts",
     "../../template/tools/crdd-check.ts"
   ]

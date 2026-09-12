@@ -1102,6 +1102,55 @@ test("v0.20の各Release Gate状態は4文書の根拠が揃った場合だけ�
   }
 });
 
+test("公開済みv0.20は未完了Gateを再要求せず公開根拠の閉包を検証する", () => {
+  const root = dispositionFixtureRoot();
+  const changePath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000063_Runtime_Responsibility_Separation.md",
+  );
+  const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
+  const verificationPath = path.join(
+    root,
+    "07_Quality",
+    "Verification_Results",
+    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+  );
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
+  write(
+    changePath,
+    "# Change\n\n状態: `Released`\nリリース: `v0.20.0`（2026-09-11）\n\n| 現行Gate | 完了。公式tag `v0.20.0`へ収載済み |\n",
+  );
+  write(
+    qualityPath,
+    "# Quality\n\n| v0.20.0の技術Gate | 正式4経路4/4とRecovery Matrix 7/7が成立 |\n| v0.20.0公開 | 2026-09-11、公式tag `v0.20.0`へ収載済み |\n| v0.20.1修正 | 公開状態の伝播漏れを文書だけで是正 |\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
+  );
+  write(
+    verificationPath,
+    "# Verification\n\n前候補と公開候補を分離する。現在状態はQuality Centerを参照する。\n",
+  );
+  write(roadmapPath, "# Roadmap\n\n2026-09-11、v0.20.0を公開した。\n");
+
+  const publishedResult = runChecker(root);
+  assert.equal(
+    hasV020GateFinding(root),
+    false,
+    JSON.stringify(publishedResult.report.findings),
+  );
+
+  write(
+    qualityPath,
+    fs.readFileSync(qualityPath, "utf8").replace("v0.20.0公開", "公開記録"),
+  );
+  const missingPublishedEvidence = runChecker(root);
+  assert.equal(
+    hasV020GateFinding(root),
+    true,
+    JSON.stringify(missingPublishedEvidence.report.findings),
+  );
+});
+
 test("v0.20のRelease Gate状態が複数提示された場合は拒否する", () => {
   const root = dispositionFixtureRoot();
   const changePath = path.join(
@@ -1821,6 +1870,67 @@ test("Candidate文書のReleased Baseline欠落を拒否する", () => {
   assert.ok(
     result.report.findings.some(
       (item) => item.code === "candidate-released-baseline-mismatch",
+    ),
+  );
+});
+
+function stableReleaseClosureFixture() {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  for (const name of ["01_Principles.md", "02_Terminology.md"]) {
+    write(
+      path.join(root, name),
+      `# 正本\n\nVersion: v0.17.0\nStatus: Stable\nOwner: Team\n`,
+    );
+  }
+  write(path.join(root, "README.md"), "Version: **v0.17.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.17.0 — 2026-09-12",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.17.0 — 2026-09-12",
+      "- `migration_required: false`",
+    ].join("\n"),
+  );
+  return root;
+}
+
+test("Stable最終候補に残った現行MarkdownのCandidate表示を拒否する", () => {
+  const root = stableReleaseClosureFixture();
+  write(
+    path.join(root, "06_Architecture", "01_Architecture.md"),
+    "# 設計\n\n状態: Candidate（v0.17.0、Released Baseline: v0.16.0）\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "stable-release-candidate-residue",
+    ),
+    JSON.stringify(result.report),
+  );
+});
+
+test("Stable最終候補のREADME版と英日Release見出しを相関検査する", () => {
+  const root = stableReleaseClosureFixture();
+  write(path.join(root, "README.md"), "Version: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    "## English\n### v0.17.0 — 2026-09-12\n- `migration_required: false`\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "stable-release-readme-version-mismatch",
+    ),
+    JSON.stringify(result.report),
+  );
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "stable-release-changelog-bilingual-closure-mismatch",
     ),
   );
 });
