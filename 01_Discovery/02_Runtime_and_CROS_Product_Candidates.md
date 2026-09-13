@@ -301,7 +301,7 @@ Cの採用はAを廃止する判断ではない。表の「構造上の評価」
 | 業務Process View | `Complete for Scope` | 対象・目的・根拠・状態・未確認範囲付きでSIPOC、Actor別Process、As-Is／To-Be、測定枠を作成。時間値は実測時に更新する |
 | Project Operation／Workbenchの第1次探索 | `Complete for Scope` | Project運営上の課題、代替および薄いWorkbenchの反証条件まで確認した |
 | Workbench／MCP共同利用体系 | `Complete for Scope` | 次節で現行実装、利用者入口、公開能力、Remote接続および再接続まで探索し、独立レビューPass |
-| Discovery全体 | `Complete for Scope` | 人間によるUX移行判断が残る |
+| Discovery全体 | `Complete for Scope` | Workbench／MCP共同探索の人間理解確認とUX移行は2026-09-13に完了 |
 
 <a id="v021-workbench-mcp-joint-discovery"></a>
 
@@ -320,6 +320,19 @@ Cの採用はAを廃止する判断ではない。表の「構造上の評価」
 | 同じ契約を共用できるか | MCPはProject Runtime公開契約へ搬送するTransportとして分離済み | Workbench／CROSに必要な新能力のOwnerと全Consumer Closure |
 
 この棚卸しは2026-09-13時点の[`project-runtime-protocol.ts`](../40_Develop/mcp/src/protocol/project-runtime-protocol.ts)、[公開MCP Launcher](../template/tools/crdd-mcp.ts)、[MCP Transport Architecture](../06_Architecture/mcp/01_Architecture.md)および[MCP Server Workflow](../19_Workflows/04_MCP_Server.md)を照合した。候補文書に存在する設計を、現行Capabilityへ数えない。
+
+#### 人間理解の確認
+
+2026-09-13、人間の決定権限者は、既存ContextをAIが再構成して文書化できたことと、人間の問題認識まで一致したことが同一視されていたというProcess上の不足を示した。同時に、次の理解を現在FeatureのDiscovery入力として明示したため、Discovery全体を作り直さず、この確認結果をUXへ渡す。
+
+| 確認対象 | 人間が明示した理解 | 後続への反映 |
+|---|---|---|
+| Workbenchの主課題 | CRDD／CROSの状態確認や定型操作のために、複数ToolまたはRepositoryを直接辿る負担を減らす | UXで確認・定型操作の体験を比較し、Git表示や個別機能をDiscoveryで固定しない |
+| Remote MCPの主目的 | Remote接続自体ではなく、複数Repositoryへ分散したProject Contextへ利用者が安全に到達する | UXでProject単位の利用と欠測・Access・応答喪失を扱い、Transport方式はArchitectureへ渡す |
+| Repository単独利用 | Developerの日常作業は単一Repository中心を維持し、CROS／Workbenchは主にProject横断・確認用途へ追加する | Local利用へServer、WorkspaceまたはFederation理解を要求しない |
+| 工程境界 | DiscoveryはWhy／Problem／Need／Goal、UXは利用者がどう仕事できるかを所有する | Flow、操作、Navigationおよび画面構成をDiscoveryへ逆流させない |
+
+この人間理解の確認は、要求候補の採用、Workbenchの比較価値成立またはUX工程移行レビューを代替しない。今後、AIが重要な課題、必要性、成果または対象外を新たに再構成した場合は、現在理解を人間へ返して差を確認する。
 
 #### 方向性の評価
 
@@ -589,7 +602,7 @@ TLS終端方式、Tunnel製品、Credential保存先およびProcess配布方式
 | Workbench／MCPの責務分離 | `Candidate` | IA、UI／SPECおよびArchitectureでConsumer Closureを固定する |
 | Remote MCPの意味境界 | `Candidate` | Threat、UX、SPEC、Architectureおよび実境界試験へ接続する |
 | Workbenchの価値 | `Unproven` | AI／MCP、静的Report、薄いWorkbenchを同一課題で比較する |
-| Discovery全体 | `Complete for Scope` | 独立レビューPass。人間がUX工程への移行を判断する |
+| Discovery全体 | `Complete for Scope` | 独立レビューPass。人間理解の確認とUX工程への移行は2026-09-13に完了。Workbenchの比較価値はVerificationまで未確認 |
 
 ### Project、CommercialおよびRepositoryの責務
 

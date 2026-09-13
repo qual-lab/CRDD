@@ -45,6 +45,18 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
     );
   }
 
+  const discoveryTemplate = fs.readFileSync(
+    path.join(repositoryRoot, "template/01_Discovery/01_Product_Discovery.md"),
+    "utf8",
+  );
+  for (const required of [
+    "## 人間理解の確認",
+    "| 発火判定と理由 |",
+    "| 人間の確認または修正 |",
+    "理解確認を要求・方針の採用判断へ読み替えない",
+  ])
+    assert.ok(discoveryTemplate.includes(required), required);
+
   const phaseDiagramProfiles = new Map<string, readonly string[]>([
     [
       "template/01_Discovery/01_Product_Discovery.md",
@@ -720,6 +732,33 @@ test("工程基本図の必須列または閉じた処置語彙の欠落を拒�
   }
 });
 
+test("Discoveryひな型から人間理解の確認契約を除去できない", () => {
+  const sourcePath = path.join(
+    repositoryRoot,
+    "template/01_Discovery/01_Product_Discovery.md",
+  );
+  const original = fs.readFileSync(sourcePath, "utf8");
+  const root = fixture();
+  fs.mkdirSync(path.join(root, "template", "01_Discovery"), {
+    recursive: true,
+  });
+  fs.writeFileSync(path.join(root, "01_Principles.md"), "# Principles\n");
+  fs.writeFileSync(
+    path.join(root, "template", "01_Discovery", "01_Product_Discovery.md"),
+    original.replace("## 人間理解の確認", "## 理解記録"),
+    "utf8",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "phase_diagram_disposition_contract_invalid" &&
+        finding.path === "template/01_Discovery/01_Product_Discovery.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
 after(() => {
   for (const root of fixtures) {
     fs.rmSync(root, { recursive: true, force: true });
@@ -1134,6 +1173,26 @@ function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
     report: parseCheckerReport(result.stdout),
   };
 }
+
+test("Canonical案内文書の名称移行後に旧表題を残さない", () => {
+  const root = dispositionFixtureRoot();
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Roadmap.md");
+  write(
+    roadmapPath,
+    fs
+      .readFileSync(roadmapPath, "utf8")
+      .replace("# Roadmap", "# CRDD Product Roadmap"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "canonical-document-title-mismatch" &&
+        finding.path === "99_Roadmap/01_Roadmap.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
 
 test("現行案内・SPEC・Workflowに残る旧Runtime Data Pathを拒否する", () => {
   const root = fixture();

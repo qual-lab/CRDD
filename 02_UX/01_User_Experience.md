@@ -1,17 +1,17 @@
 # CRDD内部ツールの利用体験
 
-状態: Candidate（v0.21.0、Released Baseline: v0.20.0）
+状態: Candidate（v0.21.0、Released Baseline: v0.20.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-05
+最終更新日: 2026-09-13
 工程規則: [UX](../22_UX.md)
 
 ## 基本図の処置
 
 | 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
 |---|---|---|---|---|---|---|---|---|
-| 利用者Journey | CRDD内部Tool利用者、Project参加者 | 導入から依頼、判断、回復までの体験順序 | 作成 | [Projectへ入る利用体験](#7-立場に応じてprojectへ入る利用体験) | v0.21 Candidate | 現行候補 | Workbenchの詳細Journeyは未作成 | Group BのUXで役割別Journeyを具体化する |
-| 重要場面・失敗／回復体験図 | 依頼、停止、回復 | 判断を誤ると安全性または継続性を失う場面の可視化 | 作成不能 | [制御・信頼・検証義務](#4-制御信頼検証義務)は義務一覧であり、場面・分岐・回復接点の図ではない | v0.21 Candidate | 未作成 | 場面、分岐、利用者とRuntimeの回復接点 | Group BのUXで根拠を確認して作成する |
-| Service Blueprint | Tool利用の端から端 | 利用者、フロントAI、Runtime、情報引継ぎの責務整合 | 作成 | [利用者体験の流れと提供責務](#2-利用者体験の流れと提供責務) | v0.20.1 Baseline＋v0.21 Candidate | 現行 | Workbench固有の接点は未反映 | Group BのUX出口で更新要否を再評価する |
+| 利用者Journey | CRDD内部Tool利用者、Project参加者 | 導入から依頼、判断、回復までの体験順序 | 作成 | [役割別Journey](#workbench-mcp-role-journeys) | v0.21 Candidate | 候補 | Workbench比較効果と外部利用者の行動 | 自己適用と利用者評価で更新する |
+| 重要場面・失敗／回復体験図 | Project ViewとSource Coverage | 不完全な投影から誤った判断へ進まず、根拠または回復接点へ戻る場面の可視化 | 作成 | [重要場面と失敗・回復](#workbench-mcp-critical-recovery) | v0.21 Candidate | 候補 | 実利用時の認知と操作 | Remote接続、Candidateおよび権限変化は同節の表と役割別Journeyで補い、UI／SPECと実境界検証へ接続する |
+| Service Blueprint | Workbench／MCP共同利用の端から端 | 利用者、Surface、公開契約、CROS、Sourceの責務整合 | 作成 | [Workbench／MCP共同Service Blueprint](#workbench-mcp-service-blueprint) | v0.21 Candidate | 候補 | 実装後の待機・支援・運用負担 | IA、UI／SPECおよびArchitectureへ引き渡す |
 
 ## 1. 目的と対象
 
@@ -28,7 +28,7 @@
 | 標準を保守する人・CI | Checkerの指摘と未確認範囲を読み、対象文書を直せる | 機械検査を意味監査や準拠認定とみなさない |
 | Runtimeを開発・配布する人 | 開発反復と公式署名を分けて検証できる | 一般利用者へRelease秘密鍵を要求しない。native補助は内部部品 |
 
-§2～§5はCoordinator、Checker、および内部native補助の利用者への影響を扱う。§6はv0.19.0で公開したProject RuntimeのMCP／CLIに共通する意味体験を扱う。§7はv0.21の複数Repository Project Operationと最小CROS Workbenchを扱う。Workbench固有の業務ロジック、第二正本、高度なGit Clientまたは汎用Dashboardは対象に含めない。
+§2～§5はCoordinator、Checker、および内部native補助の利用者への影響を扱う。§6はv0.19.0で公開したProject RuntimeのMCP／CLIに共通する意味体験を扱う。§7はProject Operation候補の利用体験と、v0.21共同UXを開始するための前提を扱う。§8～§14はv0.21のWorkbench／MCP共同UX成果を扱う。Workbench固有の業務ロジック、第二正本、高度なGit Clientまたは汎用Dashboardは対象に含めない。
 
 ## 2. 利用者体験の流れと提供責務
 
@@ -79,11 +79,13 @@ platform-accessは独立した利用者画面を持たないが、利用者へ�
 
 ## 5. 現在状態と引渡し
 
-本書は既存実装と人間の要求から再構成した候補であり、Discovery・UXの工程移行承認を遡及して作らない。新しい安定IDや要求を自己決定せず、今回の追跡には文書とアンカーを用いる。
+本書は既存実装と人間の要求から再構成した候補であり、過去の工程移行承認を遡及して作らない。2026-09-13、人間の決定権限者は独立レビューPass後の[Workbench／MCP共同Discovery](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-workbench-mcp-joint-discovery)を確認し、v0.21のUX工程への移行を承認した。新しい安定IDや要求を自己決定せず、今回の追跡には文書とアンカーを用いる。
 
-導入、依頼、待機、結果、取消・復旧、Checker、開発・配布の責務を本文へ整理した。未取得情報の表示、意味説明、候補操作は実装と限定再確認を終え、今回のPowerShellでは入力・日本語表示・折返し・拡大を限定確認した。実Task取消は是正後の署名版4f10201で通常回収まで観測し、今回差分の限定独立確認済みである。過去の失敗・回復と再実測を区別し、説明未登録の理由、別の端末環境、支援技術は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)へ接続する。工程網羅状態は`Blocked`を維持し、文書整備の独立確認や限定実測を製品のUX全体の成立へ読み替えない。
+既存Tool UXでは、導入、依頼、待機、結果、取消・復旧、Checker、開発・配布の責務を本文へ整理した。未取得情報の表示、意味説明、候補操作は実装と限定再確認を終え、PowerShellでは入力・日本語表示・折返し・拡大を限定確認した。実Task取消は是正後の署名版4f10201で通常回収まで観測し、今回差分の限定独立確認済みである。説明未登録の理由、別の端末環境、支援技術は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)へ接続し、既存Tool全体の工程網羅状態は`Blocked`を維持する。この状態は、§8～§14で扱うv0.21 Workbench／MCP共同UXの工程状態とは別に評価する。
 
-次工程の[情報構造](../03_IA/01_Information_Architecture.md)と[UI](../04_UI/01_User_Interface.md)は、この候補の照合先であって承認済み引渡しではない。既知差の所有者・再確認条件は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)、実施履歴とレビューは[CHG-000017](../99_Roadmap/Changes/CHG-000017/change.md#tool-experience-design)へ集約する。Qual-Labが内容・未確認範囲と独立レビューを確認して工程移行を判断する。
+v0.21 Workbench／MCP共同UXは、Discoveryから利用者成果、Journey、失敗・回復、提供責務、制御・適応および検証意図までを具体化した`In Review`である。既存Toolの限定実測を共同UXの成立根拠へ流用せず、共同UXの独立工程移行レビューと人間判断でIAへの引渡し可否を決める。
+
+次工程の[情報構造](../03_IA/01_Information_Architecture.md)と[UI](../04_UI/01_User_Interface.md)は、この候補の照合先であって承認済み引渡しではない。既知差の所有者・再確認条件は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)、v0.21のProject Operation／Workbenchは[CHG-000067](../99_Roadmap/Changes/CHG-000067/change.md)へ接続する。Qual-Labが本UXの内容、未確認範囲および独立レビューを確認してIA移行を判断する。
 ## 6. Milestoneを委ねる利用体験
 
 本節はv0.19.0で公開したProject Runtimeの利用体験を定義する。公開範囲は、認証済みのCLI／MCP入口から一つのProjectとMilestoneを扱う現在の契約に限る。
@@ -183,3 +185,297 @@ Repository
 | 判断後の再開 | 同じTaskへDecisionが反映されたことと再評価結果 | Objectiveや経緯の再入力 |
 
 MCP接続済み、Agentが応答した、またはHandoffを受信しただけで、CRDDに従っている、必要Contextが揃った、もしくはEffectが許可されたと表示しない。詳細な意味契約は[CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md#8-agent-operating-contextとhandoff)を正本とする。
+
+<a id="workbench-mcp-ux-outcomes"></a>
+
+## 8. Workbench／MCP共同利用のUX成果
+
+WorkbenchとMCPは同じ利用者へ同じ形を強制する入口ではない。利用者が置かれた状況に適した入口を選びながら、同じProject、Source、状態、判断境界および結果へ到達できることをUX成果とする。
+
+### 8.1. Discovery要求候補からUX成果への対応
+
+次の6件は、[Discoveryの要求候補](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-workbench-mcp-joint-discovery)を利用者成果へ変換した安定コンテキストである。各成果の改訂版は`@1`、状態は`Candidate`であり、UX工程移行の承認前に採用済みと扱わない。
+
+| UX成果 | Discovery要求候補 | 利用者成果 | Journey／Blueprint | 検証意図 | IAへの義務 |
+|---|---|---|---|---|---|
+| `UX-000001@1` Repository単独利用 | Repository単独作業はCROS／Workbenchなしでも成立する | Developerが現在Repositoryだけで日常作業を開始・完結でき、必要時だけ横断利用へ進める | [DeveloperのLocal Journey](#workbench-mcp-role-journeys)、Blueprintの「Contextを選ぶ」 | 横断機能未設定でも開始・完了できることを比較する | Local Sourceを既定にし、横断Sourceの不足と切替を別状態にする |
+| `UX-000002@1` 根拠付きProject View | Project ViewはPropertyごとのSource、改訂版／観測時点、欠測状態を保持する | 現在地と同時に、何が分かり何が不足・競合・古いかを理解して正本へ戻れる | Project Operator／PM Journey、[重要場面](#workbench-mcp-critical-recovery) | partial、stale、conflictingをcompleteへ畳む反例を拒否する | PropertyとSource／Revision／Observed At／Coverageを関連付ける |
+| `UX-000003@1` 薄いWorkbench | Workbenchは公開Application Contractだけを使う薄いSurfaceとする | Workbench、AI、CLIから同じ意味と結果へ到達し、Surface固有の状態を覚えなくてよい | [共同Service Blueprint](#workbench-mcp-service-blueprint) | UI専用正本、Filesystem直接更新、独自Authority判断がないことを確認する | 公開結果と表示・操作入口を分け、正本Ownerを保持する |
+| `UX-000004@1` 所有正本へ戻る候補操作 | Topic／Meeting操作は候補または所有正本のCommandへ戻す | 試案、比較、採用、正本反映を区別し、適切な決定権限者へ判断を戻せる | Blueprintの「判断・候補操作」、重要場面のCandidate | 投影の直接更新とMeetingからの自動採用を拒否する | Candidate、Decision、所有Command、反映結果を別の情報状態にする |
+| `UX-000005@1` 最小Portfolio比較 | Portfolioは読み取り専用かつSource-awareな最小投影に限る | Managementが許可されたProjectだけを比較し、注意事項から根拠と不足へ段階的に進める | ManagementのPortfolio Journey | 非開示Projectの存在を漏らさず、不完全性を識別できるか確認する | Project比較、観測時点、Coverage、根拠導線を分ける |
+| `UX-000006@1` Workbench比較価値 | WorkbenchがAI＋MCPまたは静的Reportより利用者成果を改善する | 同じ課題で判断対象、出典、欠測へより少ない再探索と迷いで到達できる | [代替利用の比較](#workbench-comparison-verification) | 同一条件で到達、根拠確認、欠測認識、迷い・再探索を比較する | 比較対象で共通利用できるProject／Source／課題の単位を保つ |
+
+### 8.2. 利用者・状況別の成果
+
+| 利用者・状況 | 現在の困りごと／失敗仮説 | 利用後に得たい状態 | 価値が成立しない条件 |
+|---|---|---|---|
+| Developerが一つのRepositoryで作業 | 横断機能のためにServer、Workspaceまたは他Repositoryを意識させられる | 現在Repositoryだけで日常作業を完結し、必要時だけProject全体へ進める | Local作業の開始手順、入力または認知負荷が増える |
+| Project Operatorが現在地を確認 | 状態、品質、判断待ち、根拠を複数文書とlogから再構成する | 欠測と観測時点を含むProject Viewから、今の判断と正本へ戻れる | 投影を信じるために結局すべてのlogを読み直す |
+| PMが複数Repositoryを横断 | Repositoryごとの状態を手で統合し、不足Sourceを見落とし得る | 一つの論理Projectとして確認しつつ、不足・制限・競合を識別できる | 不完全なViewを完全状態と誤認する、または物理構成の理解が前提になる |
+| Managementが複数Projectを比較 | 集計された結論から根拠、現行性、未確認範囲へ戻れない | 最小比較から注意事項と根拠Projectへ段階的に進める | 単一Scoreだけで健全性や優先順位を確定して見せる |
+| Chat／Coding Agentへ質問・依頼 | 全Context投入、会話転記、利用Source不明が起き得る | 必要なContextだけがRevision付きで搬送され、結果のSource表明を確認できる | AI内部の利用を証明済みと見せる、または不足Contextを推測する |
+| Remote ClientがShared CROSを利用 | 接続、Content Access、Effect Authorityおよび応答喪失を区別できない | 接続先、開示範囲、要求状態、次の安全な操作を理解できる | 接続成功を実行許可と誤認する、または再試行でEffectが重複する |
+| 非AIの外部Tool／自動化 | 人間向け画面またはAI出力を解析して定型処理する | 同じ構造化結果と相関Identityを直接利用できる | MCPを不要なLocal処理へ強制する、または任意Commandを公開する |
+
+### 8.3. 共通体験原則
+
+- **入口より意味を安定させる。** Workbench、AI＋MCP、CLI／TS APIで、同じ状態を成功、失敗または判断待ちへ別解釈しない。
+- **LocalをRemoteの都合で複雑にしない。** 一つのRepositoryで足りる作業にCROS Server、Credential切替またはFederation理解を要求しない。
+- **全体像と不完全性を同時に示す。** 要約を簡単にしても、欠測、制限、競合、古い観測を消さない。
+- **結論から正本へ戻れる。** Project／Portfolio ViewはSource、Revisionおよび所有成果物への導線を失わない。
+- **人間の判断点だけを前面に出す。** 内部Task、Lock、TransportまたはAgent間搬送を通常操作にしない。
+- **接続、閲覧、候補作成、採用、Effectを分ける。** 一つが成立しても次のAuthorityが成立したとは表示しない。
+- **再接続を新規実行にしない。** 応答喪失時は同じRequestの状態確認を先に示し、再実行を既定にしない。
+- **選べない選択肢を見せない。** 存在開示不可のSource、利用不能なCredentialまたは未登録Capabilityを推測表示しない。
+
+<a id="workbench-mcp-role-journeys"></a>
+
+## 9. 役割別Journey
+
+### 9.1. DeveloperのLocal Journey
+
+```text
+((S: 対象Repositoryで作業開始))
+  │
+  ▼
+[U: AI／CLIへ現在Repositoryの仕事を依頼]
+  │
+  ▼
+[T: Repository内Contextと現在状態を利用]
+  │
+  ├── Repository内で完結 ──> [U: 結果を確認] ──> ((E: 日常作業を継続))
+  │
+  └── 別Sourceが必要 ──────> [R: Project横断が必要な理由と不足範囲を提示]
+                                  │
+                                  └── 利用者が選択した場合だけCROSへ進む
+```
+
+Developerへ兄弟Repository、Management ContextまたはCROS設定を自動探索・要求しない。横断が必要な場合は、何が不足し、現在Repositoryだけでは何を判断できないかを説明してから入口を切り替える。
+
+### 9.2. Project Operator／PMのProject Journey
+
+```text
+((S: Projectの現在地を確認))
+  │
+  ▼
+[U: Projectを選ぶ／質問する]
+  │
+  ▼
+[T: 状態 + 判断待ち + Source Coverage + 観測時点]
+  │
+  ├── 十分 ──────> [U: 判断対象または次の作業を確認]
+  │                       │
+  │                       └──> [T: 正本／既存Command／Candidate入口]
+  │
+  ├── Source不足 ─> [R: unavailable／unknownと再取得条件]
+  │
+  ├── 別Credential ─> [R: 存在開示済みの場合だけ接続切替]
+  │
+  └── Conflict ───> [R: 競合Sourceを示し、自動統合しない]
+```
+
+Projectの要約を見せることより、利用者が「何を判断でき、何はまだ判断できないか」を理解できることを優先する。Repository Pathや内部IDは主表示にせず、根拠確認または診断時に段階的に示す。
+
+### 9.3. ManagementのPortfolio Journey
+
+```text
+((S: 複数Projectの注意事項を確認))
+  │
+  ▼
+[T: 許可されたProjectの最小比較 + 観測時点]
+  │
+  ▼
+{U: 詳細判断が必要?}
+  ├── No ──> ((E: 状況把握を完了))
+  └── Yes ─> [T: 対象Projectの要因・根拠・不足範囲へ進む]
+                  │
+                  └──> [U: Project Ownerへ判断または確認を返す]
+```
+
+PortfolioはProject間の自動優先順位、Capacity配分または投資判断を行わない。アクセスできないProjectの存在、件数または状態を比較表から推測できる形にしない。
+
+### 9.4. Remote利用と応答喪失のJourney
+
+```text
+((S: Shared CROSへ接続))
+  │
+  ▼
+[T: 接続先と現在利用できるWorkspaceを確認]
+  │
+  ▼
+[U: 限定要求を送る]
+  │
+  ├── 応答あり ─────> [T: 結果 + Source + Request状態]
+  │
+  └── 応答なし ─────> [R: 新規実行ではなく同じRequestの確認を案内]
+                              │
+                              ▼
+                    [S: 現在のCredentialとAccessを再検証]
+                              │
+                              ├── 開示可能 ─> [T: 既存結果またはunknown]
+                              └── 開示不可 ─> [T: 区別不能な拒否]
+```
+
+利用者へ「再試行してみてください」だけを返さない。要求が受理されたか、Effectが発生したか、結果だけ失われたかを区別できない場合は、その不確実性と安全な確認経路を示す。
+
+### 9.5. 非AI外部ToolのJourney
+
+```text
+((S: 定型の読取りまたは登録済みCapabilityを使う))
+  │
+  ▼
+[T: LocalではTS API／CLI、別HostではMCPを選ぶ]
+  │
+  ▼
+[S: 登録済みCapabilityと必要Authorityを照合]
+  │
+  ├── 利用可能 ──> [T: 構造化結果 + 相関Identity] ──> ((E: 呼出し元が処理を継続))
+  │
+  └── 拒否／不明 ─> [R: 理由、Effect状態、同じIdentityでの再取得条件]
+```
+
+外部Toolへ人間向け画面またはAI応答の解析を要求しない。Localで成立する処理へMCPを強制せず、Remoteでも任意Shellを公開しない。再入場時は新しい要求として推測せず、公開結果が示す相関Identityと現在のAuthorityを再照合する。
+
+<a id="workbench-mcp-critical-recovery"></a>
+
+## 10. 重要場面と失敗・回復
+
+```text
+[U: Projectの状況を知りたい]
+      │
+      ▼
+[T: Project Viewを受け取る]
+      │
+      ├── Coverage complete ──> [U: 根拠を確認して判断]
+      │
+      ├── partial／stale ─────> [R: 不足Sourceと観測時点を確認]
+      │
+      ├── conflicting ────────> [R: 競合を保持し、所有者へ確認]
+      │
+      └── credential_required ─> [R: 開示済みSourceだけ接続を切替]
+
+--------------------------- 可視境界 ---------------------------
+                              │
+                              ▼
+                [S: SourceとAccessをRequestごとに再確認]
+                              │
+                [S: Projectionを正本へ書き戻さない]
+                              │
+                [S: Candidateと採用Authorityを分離]
+```
+
+| 重要場面 | 利用者が理解すべきこと | 回復接点 | 避ける体験 |
+|---|---|---|---|
+| 初回Local利用 | 現在Repositoryだけで開始できる | 必要時だけ横断利用を提案 | 最初にServer構築やFederation設定を要求する |
+| Project Viewが部分的 | 何が取得でき、何が不足するか | Source再取得、正本確認、適切なCredentialへの接続 | 欠測を空・正常・0件へ畳む |
+| Sourceが競合 | どのSourceが競合し、誰が解決するか | 所有正本または判断主体へ戻る | AIがもっともらしい一つへ統合する |
+| 別Credentialが必要 | 対象の存在開示は許可済みで、現在接続だけが不足する | Client側のCredential切替と再接続 | 共通Password、RoleまたはUnlock表示からAuthorityを生成する |
+| 存在開示不可 | 利用者が知り得ない対象は結果へ現れない | なし | Repository名、件数、鍵表示から存在を漏らす |
+| Candidateを作成 | まだ正本へ採用されていない | 内容比較、人間判断、所有Command | クリックやAI提案だけで採用済みと表示する |
+| Remote応答喪失 | 要求・Effect・結果搬送のどこまで成立したか不明 | 同じRequestの状態確認 | 新規Requestとして自動再送する |
+| 古いViewを再表示 | Revisionと観測時点が古い | 明示更新または正本へ戻る | 前回値を現在値として無印表示する |
+
+<a id="workbench-mcp-service-blueprint"></a>
+
+## 11. Workbench／MCP共同Service Blueprint
+
+列は画面や機能ではなく、利用者が目的を達成する時間順のStepを表す。
+
+| 責務 | Contextを選ぶ | 接続・利用範囲を確認する | 現在地を理解する | 根拠を調べる | 判断・候補操作を行う | 失敗後に戻る |
+|---|---|---|---|---|---|---|
+| 利用者 | Repository、ProjectまたはPortfolioから目的に合う単位を選ぶ | 接続先と利用可能範囲を確認する | 状態、注意、判断待ち、不足を読む | Source、Revision、経緯へ進む | 判断、Candidate作成または既存Commandを選ぶ | 同じRequest、Sourceまたは判断対象へ戻る |
+| 利用者接点 | Local AI／CLI、Workbench、Remote AI | Local／Sharedの区別、開示可能なWorkspace | Project／Portfolio View、Source Coverage | 正本導線、時系列、競合Source | 判断要求、Candidate、構造化結果 | Stale、partial、unknown、再接続／再取得導線 |
+| Chat／Coding Agent | Taskに必要な単位を提案する | 未許可Contextを要求・推測しない | 搬送されたContextから回答し、不足を示す | Source表明を返すが内部使用証明とはしない | 人間Authorityを必要な判断へ戻す | 会話全文やObjectiveの再入力を要求しない |
+| Workbench | 選択肢を人間向けに投影する | Credential切替可能な既知範囲だけを示す | 同じ公開結果を視覚的に比較可能にする | 結論から正本へ案内する | 既存Application／Command／Candidate入口へ渡す | UI専用状態で成功へ補正しない |
+| MCP／Adapter | 要求を意味変更せず搬送する | 認証結果とRequestを結合する | 公開結果を閉じたSchemaで返す | 選択・搬送したSourceを相関する | 接続をEffect Authorityへしない | 同一Requestの再取得で現在Accessを再確認する |
+| Project Operation／CROS | Project、Repository、Sourceを解決する | Workspace、Exposure、既存Constraintを照合する | 欠測・制限・競合・古さを保持して投影する | 正本OwnerとRelationを解決する | Candidateと正本更新、判断と実行を分ける | 二重Effectを防ぎ、unknownをRecoveryへ接続する |
+| Repository／Runtime | 検証済みBindingと現在Revisionを提供する | 実際のAccess／Authorityを所有する | canonicalな状態と根拠を返す | 正本と履歴を保持する | 専用CommandだけがEffectを発行する | 終了状態、残存義務、再入場条件を返す |
+| 情報・引継ぎ | Project／Repository Identity | Credential、Workspace、Request Access Context | PropertyごとのSource、Revision、Observed At | Relation、Evidence、Current／Historical | Decision／Candidate／Operation Identity | 同じRequest Identity、現在Access、Recovery参照 |
+| 支援・共有／引継ぎ | 選択できないContextは理由と支援先を示す | 接続・開示の不足を次の担当へ安全に渡す | ViewのSource Coverageを共有する | 正本参照と競合を意味変更せず渡す | Candidateと未完了判断を採用済みに変えず渡す | 失敗地点、保持された情報、禁止操作、再入場条件を引き継ぐ |
+| 時間役割・代替投影 | 一時的な選択と耐久的なProject Identityを分ける | Session中のAccessと継続するRepository Exposureを分ける | 同じ対象のProject／Portfolio／Repository Viewを現在の観測へ結合する | CurrentとHistoricalを区別し、別Viewでも同じSourceへ戻す | 一時Candidateと耐久的な正本変更を分ける | 古い投影を現在値にせず、再取得で同じ対象へ戻す |
+
+## 12. 認知意図と体験表現意図
+
+### 12.1. 認知意図
+
+| 要素 | 内容 | 根拠・状態 |
+|---|---|---|
+| 利用者目標 | 今のProjectで何が起き、何を判断でき、次にどこへ進むかを理解する | Discoveryから継承 |
+| 現在状態 | 複数正本、Repository、実行状態および判断待ちを利用者またはAIが再構成している | CRDD自己適用の観測。一般利用者への頻度は未確認 |
+| 主な障壁 | 情報の分散、欠測の不可視化、内部状態の過多、接続とAuthorityの混同 | 根拠付き仮説 |
+| 必要な認知変化 | 「全体が分かった」ではなく「分かった範囲と、まだ判断できない範囲が分かった」へ変える | 候補 |
+| 必要な根拠／情報 | Source Identity、Revision、Observed At、Coverage、判断待ち、Current／Historical、次の安全な操作 | IAへの義務 |
+| 目標状態 | 利用者が内部TaskやRepository構造を覚えず、根拠と不完全性を確認して判断できる | 検証待ち |
+| 意図する行動 | 判断不要なら作業を継続し、必要時だけ正本、Credential切替、Candidate確認または人間判断へ進む | 検証待ち |
+
+Resolverが選択したContext、AIへ搬送したContext、AIが結果中で報告したSourceおよびモデル内部の使用を区別する。UX上も「AIが確認した」「AIが使用した」と断定せず、「この回答へ提供したSource」「AIが参照元として示したSource」と表示できる意味をIA／UIへ渡す。
+
+### 12.2. 体験表現意図
+
+| 場面 | 望む印象 | 避ける印象 | 下流への義務 |
+|---|---|---|---|
+| Project／Portfolioの概観 | 落ち着いて現在地を把握でき、根拠へ降りられる | すべて正常に見える装飾、断定的な自動Score | 状態とCoverageを同じ視覚優先度で認識可能にする |
+| 判断待ち | 自分が判断すべき理由と影響が分かる | 内部IDや技術エラーの羅列、急かす表現 | 事象、理由、影響、選択肢、推奨、保留時の扱いを一単位にする |
+| Restricted／Unavailable | 取得不能と権限不足を混同せず、開示可能な次操作が分かる | 鍵表示だけ、存在漏えい、推測による補完 | 状態ごとに異なる説明と操作可能性を保つ |
+| Candidate操作 | 試案と採用済み成果物を明確に区別できる | ボタンを押しただけで正本が変わったように見える | Candidate状態、比較、Authority、反映結果を段階表示する |
+| Remote応答喪失 | 何が不明で、重複させず何を確認するか分かる | 無反応、成功表示、無条件のRetry | Request Identityを保持した状態確認を第一導線にする |
+
+固定した色、Layout、UI Component、Frameworkまたはブランド表現は本工程で決めない。親しみやすさを理由に、危険、不明、Restrictedまたは未完了の強度を弱めない。
+
+### 12.3. 制御と適応の必要性
+
+具体的な値、保存方式または権限Roleは後続工程で決める。UXでは、誰が何をなぜ調整する必要があり、どの処置候補へ渡すかを固定する。
+
+| 調整対象 | 調整主体 | 必要な理由 | 処置候補 | 変更・撤回・リセット | 採用しない場合の影響 | 下流Owner |
+|---|---|---|---|---|---|---|
+| Local／横断入口の選択 | 利用者 | 日常作業へ不要なServer理解を持ち込まない | 利用者選択 | Taskまたは目的の変化時に切替可能 | Local作業の開始負荷、または必要Source不足 | IA／UI |
+| 表示するProject／Source範囲 | Organization／Repository Owner | 開示可能範囲と論理Projectの構成が環境で異なる | 組織方針 | Exposure変更・撤回後に再評価 | 存在漏えい、または必要Projectの欠測 | Architecture／SPEC |
+| Projectionの粒度と既定View | 利用者／Project Owner | Developer、PM、Managementで必要な比較単位が異なる | 利用者選択または組織方針 | 既定値を変更・リセット可能にする必要性を下流で評価 | 情報過多、根拠喪失、単一Scoreへの誤認 | IA／UI |
+| Remote接続と結果保持 | Runtime Owner | Network、Credential、応答喪失時の継続条件が異なる | Runtime構成 | 失効・再接続・同一Request再取得を可能にする必要 | 重複Effect、結果喪失、古いAccessの継続 | Architecture／SPEC |
+| Candidateから採用への進行 | 成果物の決定権限者 | 成果物種別ごとに所有Commandと判断主体が異なる | 固定規則 | 採用前は撤回・再生成でき、採用後は所有正本の変更契約へ戻す | 試案の自動採用、または判断不能な停滞 | IA／SPEC |
+| Workbench機能の拡張 | Product Owner | 比較価値が未実証で、Surface肥大化を避ける | 保留 | 比較検証後に採否を再評価 | 未実証機能の維持Cost、または必要操作の不足 | Verification／Roadmap |
+
+<a id="workbench-comparison-verification"></a>
+
+## 13. 代替利用と成功・失敗の確認
+
+Workbenchの採用済み範囲は最小実装を比較可能にすることであり、Workbenchが常に優位という結論ではない。同じ代表課題を次の入口で比較する。
+
+| 比較対象 | 利用者が行うこと | 保持する共通条件 |
+|---|---|---|
+| AI＋stdio／localhost MCP | 自然言語で現在地を質問し、必要なら正本を辿る | 同じProject、Source集合、現在Revision、判断課題 |
+| 静的Report | 生成済みのProject情報から判断対象と根拠を探す | 生成時点とStale条件を明示する |
+| 薄いLocal Workbench | Project Viewから不足、判断待ち、根拠、定型操作へ進む | 同じ公開Application結果を使う |
+| Remote MCP＋Shared CROS | 別Hostから同じ課題を実行し、応答喪失後に戻る | 現在Credential、Workspace、同一Request Identityを使う |
+
+| 観点 | 成立の兆候 | 失敗・反証 |
+|---|---|---|
+| 目標完了 | 必要な判断対象または正本へ到達できる | 表示・回答を得ても何を判断すべきか分からない |
+| 不完全性の理解 | 欠測、制限、競合、古さを正しく識別できる | partialをcomplete、unavailableをrestrictedと誤認する |
+| 根拠追跡 | SourceとRevisionへ戻れる | 出典のない要約または古いSourceを現在値として使う |
+| 認知・操作負荷 | 再探索、追加質問、記憶、転記、操作迷いが比較対象より減る | Workbench理解のためにCRDD内部構造を追加で覚える |
+| Authority理解 | 接続、閲覧、候補、採用、Effectの違いを誤認しない | UnlockやMCP接続を実行許可と扱う |
+| 回復 | 応答喪失後に二重Effectなく同じ要求へ戻れる | 新規実行、結果喪失または権限縮小後の情報漏えい |
+| Accessibility | Keyboard、拡大、折返し、支援技術でも状態と次操作を理解できる | 色、Hover、狭い表示または専門語だけに意味を依存する |
+| 維持Cost | UI専用正本、独自状態、重複契約を増やさない | Workbench更新のたびにProjectの意味を別実装する |
+
+時間だけを成功指標にせず、人間の実作業時間とAI／Tool処理時間を分ける。クリック数、画面表示、MCP応答、AIの自己評価または試験件数だけから理解成立を推定しない。外部PM／Management需要と一般化可能性は、自己適用だけでは確定しない。
+
+## 14. UXの網羅状態と次工程への義務
+
+| UX責務 | 状態 | 未確認範囲・次の処置 |
+|---|---|---|
+| 起点、対象者、解決策から独立した成果 | `Complete for Scope` | 外部利用者の頻度と優先度は実利用で再評価する |
+| Developer／Operator／PM／Management／Remote／外部Toolの利用状況 | `Complete for Scope` | 固定Roleや権限Groupへ変換しない |
+| Discovery要求候補とUX成果の全数対応 | `Complete for Scope` | `UX-000001@1`～`UX-000006@1`をIA、UI／SPECおよび検証へ伝播する |
+| 役割別Journey | `Complete for Scope` | IA／UI／SPECで情報・状態・操作へ具体化する |
+| 重要場面・失敗／回復 | `Complete for Scope` | Remote応答喪失、Credential失効、権限縮小を実境界で反証する |
+| Service Blueprint、支援・共有／引継ぎ、時間役割・代替投影 | `Complete for Scope` | 各Owner、Port、Transportの実装方式はArchitectureが所有する |
+| 制御・適応の必要性 | `Complete for Scope` | 固定規則、利用者選択、組織方針、Runtime構成、保留の候補をIA以降で評価する |
+| 認知意図・体験表現意図 | `Complete for Scope` | 利用者評価で理解と誤認を観測する |
+| Workbenchの比較価値 | `Unproven` | AI＋MCP、静的Report、Workbenchを同じ代表課題で比較する |
+| UX全体 | `In Review` | 独立工程移行レビューは2026-09-13にCritical／Major／Moderate／Minor 0でPass。人間が本内容と未確認範囲を確認し、IAへの移行を判断する |
+
+IAへは、Project／Repository／Sourceの段階的な見せ方、PropertyごとのSource／Revision／Observed At、Coverage、Current／Historical、判断待ち、Candidate、Credential切替可能性、Request状態および正本導線を渡す。UIとSPECへは、状態・重要度・次操作を色や位置だけへ依存させないこと、接続／閲覧／Candidate／採用／Effectを区別すること、応答喪失時に同一Request確認を第一導線とすることを渡す。
+
+未確認のWorkbench比較効果はIA設計を止めないが、UI機能拡張またはWorkbench優位の外部主張には使わない。Remote Transport方式、公開Capabilityの最終OwnerおよびSchemaはUXで決めず、後続工程で本UX成果を満たす代替を比較する。

@@ -1,8 +1,8 @@
-# CRDD Product Roadmap
+# CRDD Roadmap
 
 Status: Non-normative Open Work Registry
 Owner: Qual-Lab
-Last Updated: 2026-09-12
+Last Updated: 2026-09-13
 Related:
 - [CRDD標準自身の課題探索・要求形成](../01_Discovery/01_CRDD_Product_Discovery.md)
 - [Runtime／CROS Product Candidates](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md)

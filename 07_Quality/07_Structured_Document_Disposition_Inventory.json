@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "833ef84270797d631501f97244fedd3f24b2383990d5292de4f13a3fd0ca3eab",
+  "evaluatedDocumentationSetSha256": "34453dd4d10591edc248c70e37e92d63e3a8e82b21ffd0c7ec872a4f7b78f860",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -46,7 +46,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "01_Discovery/02_Runtime_and_CROS_Product_Candidates.md",
-      "currentBlobOid": "429fe104fb008a50186012d274fb854e772c8df2"
+      "currentBlobOid": "8889cc2d713901c6f68ee2c70784f9f54369e8a1"
     },
     {
       "path": "01_Principles.md",
@@ -73,7 +73,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "02_UX/01_User_Experience.md",
-      "currentBlobOid": "9faecec8531811863d8feae76294590fe90133eb"
+      "currentBlobOid": "742d62ad59e6c9bad08dcd568390d0db903d41c1"
     },
     {
       "path": "03_Documentation.md",
@@ -415,7 +415,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "21_Discovery.md",
-      "currentBlobOid": "b507dee03f9ac94603801b4c9ef177e5c8778e86"
+      "currentBlobOid": "e1799912190700bae3000a7d3684080c31daf0da"
     },
     {
       "path": "22_UX.md",
@@ -523,7 +523,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "99_Roadmap/01_Roadmap.md",
-      "currentBlobOid": "73517bc93ebbdaf24a215b24e236f4e8067dc621"
+      "currentBlobOid": "3d5ef08ef9ad20d3121fea089ae26ecd381dc706"
     },
     {
       "path": "99_Roadmap/02_Changes.md",
@@ -5713,7 +5713,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000067/change.md",
-      "currentBlobOid": "6293550943a0917cf555996d40d829595647c220"
+      "currentBlobOid": "44f0bb238a3dbb56c1101328eb67058d7867651f"
     },
     {
       "path": "99_Roadmap/Changes/CHG-000068/Evidence/260913_group-a-independent-review.md",
@@ -5749,7 +5749,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000070/change.md",
-      "currentBlobOid": "3d0ef431ebcb9d30d95f4295091784a7dfbf1901"
+      "currentBlobOid": "c857251717970ba30be6cbac5552051b96cb5c18"
     },
     {
       "path": "99_Roadmap/Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md",
@@ -5812,7 +5812,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "AGENTS.md",
-      "currentBlobOid": "2cdc7269f16c800e92133f81c991039de98ca883"
+      "currentBlobOid": "404c97286a9d1a81860324f978f5950efddf7a93"
     },
     {
       "path": "CHANGELOG.md",
@@ -5884,7 +5884,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "template/01_Discovery/01_Product_Discovery.md",
-      "currentBlobOid": "b06cc094569c94173e92226debc6f86a4e5fd756"
+      "currentBlobOid": "52f0f0dd9680bf0f7c8f9dbc0fe2f722b7c4f54d"
     },
     {
       "path": "template/02_UX/01_User_Experience.md",
@@ -6019,7 +6019,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "template/AGENTS.md",
-      "currentBlobOid": "ede0dc9eb82d2aa952ce0ce2855c850c60fdc0c1"
+      "currentBlobOid": "101819147e3ce4d8671438bd9d24562d5b4be34b"
     },
     {
       "path": "template/CLAUDE.md",

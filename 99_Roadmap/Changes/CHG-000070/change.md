@@ -126,4 +126,7 @@ Work Lifecycleは、管理対象の全Markdown更新へCHGを要求する仕組�
 | 正本・Template・Checker変更 | 完了。旧Path再作成、案内欠落、移行集合差を機械拒否 |
 | 物理移行とConsumer Closure | 完了。408件を移行し、固定履歴392件はsource byteを完全保持 |
 | 移行前後のChecker継続性 | 完了。移行をステージした状態では旧Path、移行Commit後はCanonical Pathから同じ固定内容を検証し、両方が存在する状態と両方が存在しない状態を拒否する |
+| Canonical名称の意味閉包 | 完了。`99_Roadmap/01_Roadmap.md`の表題を所有範囲と一致する`CRDD Roadmap`へ統一し、固定したCanonical案内文書のPath変更時に旧表題が残る状態をCheckerで拒否する |
 | 独立レビュー／監査 | 完了。最終再レビューはCritical 0／Major 0／Moderate 0 |
+
+名称移行ではPath、Linkおよび配置だけでなく、文書表題が移行後の責務を表すことまで利用側閉包へ含める。全MarkdownへFilenameと表題の機械的一致を要求せず、安定したCanonical案内文書について宣言したPathと表題の組を検証する。

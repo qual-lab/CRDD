@@ -5034,6 +5034,13 @@ function checkPhaseDiagramDispositionContracts(): void {
     if (!fs.existsSync(file)) continue;
     const content = read(file);
     const missingItems: string[] = [];
+    if (
+      relativePath === "template/01_Discovery/01_Product_Discovery.md" &&
+      (!content.includes("## 人間理解の確認") ||
+        !content.includes("| 発火判定と理由 |") ||
+        !content.includes("| 人間の確認または修正 |"))
+    )
+      missingItems.push("human-understanding-confirmation");
     const sectionStart = content.indexOf("## 基本図の処置");
     if (sectionStart < 0) missingItems.push("section");
     for (const disposition of phaseDiagramDispositions)
@@ -6087,6 +6094,29 @@ if (docsRoot) {
       releasedBaseline:
         content.match(/^Released Baseline:\s*(v[0-9]\S*)\s*$/m)?.[1] ?? null,
     });
+  }
+}
+if (repositoryMode === "official") {
+  const canonicalTitleContracts = new Map([
+    ["99_Roadmap/01_Roadmap.md", "# CRDD Roadmap"],
+  ]);
+  for (const [relativePath, expectedTitle] of canonicalTitleContracts) {
+    const file = path.join(root, relativePath);
+    if (!lstatIfPresent(file)?.isFile() || pathContainsSymbolicLink(file)) {
+      continue;
+    }
+    const actualTitle = read(file)
+      .replace(/^\uFEFF/u, "")
+      .split(/\r?\n/u)
+      .find((line) => /^#\s+\S/u.test(line));
+    if (actualTitle !== expectedTitle) {
+      add(
+        "error",
+        "canonical-document-title-mismatch",
+        relativePath,
+        `Expected canonical title ${JSON.stringify(expectedTitle)}; found ${JSON.stringify(actualTitle ?? "missing")}.`,
+      );
+    }
   }
 }
 const versions = new Set(versionedDocuments.map(([, version]) => version));
