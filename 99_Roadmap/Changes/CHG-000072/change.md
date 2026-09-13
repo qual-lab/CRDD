@@ -1,7 +1,7 @@
 # 成果物署名責務の分離
 
 変更ID: `CHG-000072`
-状態: `In Progress`
+状態: `Completed`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `architecture_refactor`
@@ -52,3 +52,7 @@ Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primit
 | Runtime依存宣言の重複 | Artifact Signingの重複登録を削除し、source、package path、package nameの一意性を契約化 | Coordinator依存宣言一意性試験Pass |
 
 最終独立再レビューはCritical／Major／Moderate 0の`Pass`と判定した。Artifact Signingの型、lint、formatおよびOwner試験5件、Coordinatorの型、lint、format、Capability GraphとTraceability、Checkerの型、Catalog契約および全体文書確認はPassした。固定Commit後の再実行では、署名契約試験自身の基準配布fixtureが新Componentを含まない利用側取り残しを検出した。期待値を変更せず、Artifact Signingを同fixtureの配布集合へ追加し、鍵生成と署名契約19件の全Passを確認した。
+
+## 6. 署名済み検証
+
+[署名済みE2E Evidence](Evidence/260913-2335_signed-e2e.md)により、固定Commitの署名、4経路E2E 4／4、Recovery Matrix、cleanupおよび手動回復義務なしを確認した。これにより本変更単位は完了した。v0.21.0全体の採用、統合またはRelease判断は本完了判定に含めない。
