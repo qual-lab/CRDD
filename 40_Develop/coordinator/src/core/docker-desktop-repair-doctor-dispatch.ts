@@ -1,9 +1,9 @@
-import { renderDockerRecoveryDoctorReport } from "./docker-recovery-command-report.ts";
 import {
   DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT,
   DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT_REVISION,
   type DockerDesktopRuntimeRepairReport,
 } from "../security/docker-desktop-runtime-repair.ts";
+import { renderDockerRecoveryDoctorReport } from "./docker-recovery-command-report.ts";
 
 export type DockerDesktopRepairDoctorCommand = Readonly<{
   json: boolean;

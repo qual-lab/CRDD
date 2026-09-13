@@ -4,23 +4,22 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { resolveRepositoryRuntimeDataPaths } from "../../runtime-data/src/index.ts";
 import {
-  resolveRepositoryRuntimeDataPaths,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../runtime-data/src/index.ts";
-
+} from "../../version-control/src/repository-location.ts";
+import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../src/security/docker-recovery-runtime.ts";
 import {
   inspectBundledCoordinatorPackageFilesystemCandidate,
   inspectVerifiedNativeDistributionCandidate,
 } from "../src/security/platform-provisioner-package-filesystem.ts";
-import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../src/security/docker-recovery-runtime.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 import {
   buildProjectRuntimeRealProviderReport,
   captureCanonicalRepositorySnapshot,
-  observePublicMcpProcess,
   type JsonRecord,
+  observePublicMcpProcess,
 } from "./project-runtime-real-provider-contract.ts";
 
 const MARKER =

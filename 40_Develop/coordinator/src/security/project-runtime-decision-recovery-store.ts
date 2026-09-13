@@ -1,13 +1,14 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
-
 import type {
   ProjectRuntimeDecisionRecoveryIntent,
   ProjectRuntimeDecisionRecoveryStore,
 } from "../../../project-runtime/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../runtime-data/src/index.ts";
 
 export const PROJECT_RUNTIME_DECISION_RECOVERY_STORE_CONTRACT =
   "crdd-coordinator/project-runtime-decision-recovery-store/v1" as const;
@@ -154,12 +155,13 @@ function blocked() {
 export function createProjectRuntimeDecisionRecoveryStore(
   workingDirectory: string,
 ): ProjectRuntimeDecisionRecoveryStore {
-  const runtimeArea = ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-    workingDirectory,
-    "project-runtime",
+  const runtimeArea = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      workingDirectory,
+      "project-runtime",
+    ),
+    "decision_recovery_repository_root_invalid",
   );
-  if (!runtimeArea)
-    throw new Error("decision_recovery_repository_root_invalid");
   const projectRuntimeRoot = runtimeArea.directory;
   function guarded<T>(recoveryId: string, operation: (directory: string) => T) {
     const location = paths(projectRuntimeRoot, recoveryId);

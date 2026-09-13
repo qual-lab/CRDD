@@ -1559,13 +1559,6 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ],
       ["["],
     ],
-    [
-      "40_Develop/runtime-data/src/platform/repository-root-capability.ts",
-      "observeExactRepositoryRoot",
-      "execFileSync",
-      ["git"],
-      ["[", "-C"],
-    ],
   ].map(
     ([
       source,
@@ -1832,16 +1825,6 @@ const exactExternalProcessCalls = Object.freeze(
       "7ba14539964956eac19a4e9c86ca2e9527028f43516b33a18285d707799d141f",
       "75fe97d4efe1f052b606a12290adddb94cb7fb12eb7c53e3165fcd2803fb3c88",
       "execution",
-    ],
-    [
-      "runtime",
-      "40_Develop/runtime-data/src/platform/repository-root-capability.ts",
-      "observeExactRepositoryRoot",
-      "execFileSync",
-      1,
-      "5e0d844c15465eab569ee204969466e374ea4bfbca4f49da5f9826e9fd5b843a",
-      "91b8b98aab343ade9d6b52e5e09172433df33f8e886de609b97bbe8171f014e3",
-      "observed",
     ],
   ].map(
     ([
@@ -2412,7 +2395,6 @@ const exactExecutableProvenance = Object.freeze(
     ...[
       "src/security/docker-owned-process.ts\0terminateAndWait",
       "scripts/verify-signed-recovery-matrix.ts\0verifyParentLossThenRecover",
-      "40_Develop/runtime-data/src/platform/repository-root-capability.ts\0observeExactRepositoryRoot",
     ].map(
       (identity) =>
         [
@@ -4372,7 +4354,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 18 : 6;
+  const expectedCount = graph === "runtime" ? 17 : 6;
   const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -4388,7 +4370,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCalls.length !== 24 ||
+    exactExternalProcessCalls.length !== 23 ||
     exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
     exactExternalProcessCalls.some(
       (callsite) =>
@@ -5426,8 +5408,12 @@ function assertReleaseSigningProtectedPath(source: string) {
     new Map<string, readonly string[]>([
       ["node:crypto", ["createPrivateKey", "createPublicKey", "sign"]],
       [
-        "../src/security/git-object-reader.ts",
-        ["inspectGitCommitTreeCandidate"],
+        "../../version-control/src/git/fixed-snapshot-adapter.ts",
+        ["inspectRepositoryFixedSnapshot"],
+      ],
+      [
+        "../../version-control/src/repository-location.ts",
+        ["verifyRepositoryRoot"],
       ],
       ["./generate-release-key.ts", ["readHiddenLine"]],
       [
@@ -5552,7 +5538,8 @@ function assertReleaseSigningProtectedPath(source: string) {
       "inspectPlatformProvisionerReleaseIdentityCandidate",
       new Set(["prepareReleaseManifestCandidate"]),
     ],
-    ["inspectGitCommitTreeCandidate", new Set(["verifyCommitTreeBinding"])],
+    ["inspectRepositoryFixedSnapshot", new Set(["verifyCommitTreeBinding"])],
+    ["verifyRepositoryRoot", new Set(["verifyCommitTreeBinding"])],
     [
       "getPlatformProvisionerPolicyIdentity",
       new Set(["prepareReleaseManifestCandidate"]),
@@ -5590,7 +5577,8 @@ function assertReleaseSigningProtectedPath(source: string) {
   const expectedProtectedImportUseCount = new Map<string, number>([
     ["inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate", 1],
     ["inspectPlatformProvisionerReleaseIdentityCandidate", 1],
-    ["inspectGitCommitTreeCandidate", 1],
+    ["inspectRepositoryFixedSnapshot", 1],
+    ["verifyRepositoryRoot", 1],
     ["getPlatformProvisionerPolicyIdentity", 1],
     ["calculateRuntimeExecutionIdentityCandidate", 1],
     ["compilePlatformProvisionerManifestPayloadCandidate", 1],
@@ -6435,6 +6423,11 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
     packagePath: "40_Develop/runtime-data/package.json",
     packageName: "@qual-lab/crdd-runtime-data",
   }),
+  Object.freeze({
+    sourcePrefix: "40_Develop/version-control/src/",
+    packagePath: "40_Develop/version-control/package.json",
+    packageName: "@qual-lab/crdd-version-control",
+  }),
 ]);
 const runtimeDistributionEntrypoints = Object.freeze(
   new Set(["template/tools/crdd-coordinator.ts", "template/tools/crdd-mcp.ts"]),
@@ -6904,10 +6897,15 @@ export function diagnoseRuntimeDistributionFilesystemForVerification(
     });
   } catch (error) {
     const reason =
-      error instanceof Error &&
-      /^platform_provisioner_[a-z_]+$/u.test(error.message)
-        ? error.message
-        : "platform_provisioner_distribution_filesystem_invalid";
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+        ? "platform_provisioner_required_artifact_missing"
+        : error instanceof Error &&
+            /^platform_provisioner_[a-z_]+$/u.test(error.message)
+          ? error.message
+          : "platform_provisioner_distribution_filesystem_invalid";
     return Object.freeze({ status: "blocked" as const, reason });
   }
 }

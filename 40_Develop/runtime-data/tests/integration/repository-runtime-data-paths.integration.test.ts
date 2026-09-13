@@ -6,10 +6,15 @@ import test from "node:test";
 
 import {
   ensureRepositoryRuntimeDataArea,
+  RepositoryRuntimeDataAreaBlockedError,
+  requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
+} from "../../src/index.ts";
+import { ensureRepositoryRuntimeDataAreaWithAdapter } from "../../src/platform/runtime-data-path-resolver.ts";
+import {
   verifyRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
-} from "../../src/index.ts";
+} from "../../../version-control/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -40,8 +45,25 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
   ]);
 });
 
-test("Consumerはraw Rootではなく名前付き領域だけを作成・検証する", () => {
-  const verification = verifyRepositoryRoot(repositoryRoot);
+test("Consumerはraw Rootではなく名前付き領域だけを作成・検証する", (t) => {
+  const isolatedRepository = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-runtime-data-area-"),
+  );
+  t.after(() =>
+    fs.rmSync(isolatedRepository, { recursive: true, force: true }),
+  );
+  fs.mkdirSync(path.join(isolatedRepository, ".git", "info"), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(isolatedRepository, ".git", "HEAD"),
+    "ref: refs/heads/main\n",
+  );
+  fs.writeFileSync(
+    path.join(isolatedRepository, ".git", "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
+  );
+  const verification = verifyRepositoryRoot(isolatedRepository);
   assert.equal(verification.status, "completed");
   if (verification.status !== "completed") return;
   const area = ensureRepositoryRuntimeDataArea(
@@ -49,9 +71,73 @@ test("Consumerはraw Rootではなく名前付き領域だけを作成・検証�
     "tests",
   );
   assert.deepEqual(area, {
-    repositoryRoot,
-    directory: path.join(repositoryRoot, ".crdd", "tests"),
+    status: "ready",
+    repositoryRoot: isolatedRepository,
+    directory: path.join(isolatedRepository, ".crdd", "tests"),
   });
+  assert.equal(
+    fs.readFileSync(
+      path.join(isolatedRepository, ".git", "info", "exclude"),
+      "utf8",
+    ),
+    ".crdd/\n",
+  );
+});
+
+test("IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らない", (t) => {
+  const isolatedRepository = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-runtime-data-ignore-unknown-"),
+  );
+  t.after(() =>
+    fs.rmSync(isolatedRepository, { recursive: true, force: true }),
+  );
+  fs.mkdirSync(path.join(isolatedRepository, ".git", "info"), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(isolatedRepository, ".git", "HEAD"),
+    "ref: refs/heads/main\n",
+  );
+  fs.writeFileSync(
+    path.join(isolatedRepository, ".git", "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
+  );
+  const verification = verifyRepositoryRoot(isolatedRepository);
+  assert.equal(verification.status, "completed");
+  if (verification.status !== "completed") return;
+  const result = ensureRepositoryRuntimeDataAreaWithAdapter(
+    verification.capability,
+    "tests",
+    () =>
+      Object.freeze({
+        status: "blocked" as const,
+        reason: "repository_local_ignore_update_blocked" as const,
+        effectIssued: true,
+        effectConfirmation: "unknown" as const,
+        cleanupConfirmed: true,
+      }),
+  );
+  assert.equal(result?.status, "blocked");
+  if (result?.status !== "blocked") return;
+  assert.equal(result.effectStateUnknown, true);
+  assert.equal(result.retryAllowed, false);
+  assert.match(result.recoveryReference ?? "", /^repository-local-ignore\./u);
+  assert.equal(fs.existsSync(path.join(isolatedRepository, ".crdd")), false);
+  assert.throws(
+    () =>
+      requireReadyRepositoryRuntimeDataArea(
+        result,
+        "runtime_data_area_invalid",
+      ),
+    (error) => {
+      assert.ok(error instanceof RepositoryRuntimeDataAreaBlockedError);
+      assert.equal(error.effectStateUnknown, true);
+      assert.equal(error.cleanupConfirmed, true);
+      assert.equal(error.retryAllowed, false);
+      assert.equal(error.recoveryReference, result.recoveryReference);
+      return true;
+    },
+  );
 });
 
 test("Repositoryの子DirectoryはRoot Capabilityとして拒否する", () => {

@@ -11,6 +11,7 @@ import {
   isProjectRuntimeObjectiveProjectionCorrelationValid,
   isProjectRuntimeProjectionSemanticallyValid,
   PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
+  PROJECT_RUNTIME_INTEGRATION_BASE_RESULT_FIELDS,
   PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS,
   PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
   PROJECT_RUNTIME_MAXIMUM_TASKS,
@@ -77,7 +78,11 @@ const OBJECTIVE_RESULT_KEYS = new Set([
   "recoveryObligations",
   "effectState",
 ]);
-const integrationResultWithDecisionKeys = new Set([
+const integrationBaseResultWithDecisionKeys = new Set([
+  ...PROJECT_RUNTIME_INTEGRATION_BASE_RESULT_FIELDS,
+  "decision",
+]);
+const integrationExtendedResultWithDecisionKeys = new Set([
   ...PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS,
   "decision",
 ]);
@@ -573,18 +578,16 @@ function objectiveSnapshot(
   }
   const directIntegration = inspectProjectRuntimeIntegrationResult(raw);
   if (directIntegration) return directIntegration;
-  const integratedWithDecision = snapshotPlainRecord(
-    raw,
-    integrationResultWithDecisionKeys,
-  );
+  const integratedWithDecision =
+    snapshotPlainRecord(raw, integrationBaseResultWithDecisionKeys) ??
+    snapshotPlainRecord(raw, integrationExtendedResultWithDecisionKeys);
   if (!integratedWithDecision) return null;
   const decision = decisionSnapshot(integratedWithDecision.decision);
   if (!decision) return null;
   const integrationInput = Object.fromEntries(
-    PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS.map((field) => [
-      field,
-      integratedWithDecision[field],
-    ]),
+    PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS.filter((field) =>
+      Object.hasOwn(integratedWithDecision, field),
+    ).map((field) => [field, integratedWithDecision[field]]),
   );
   const integration = inspectProjectRuntimeIntegrationResult(integrationInput);
   if (!integration) return null;

@@ -199,7 +199,7 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
     {
       "before": "[Discovery](../../../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)",
       "via": "[Discovery](../../../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)",
-      "after": "[Discovery](../../../01_Discovery/Explorations/EXP-000003_Project_Runtime/exploration.md)",
+      "after": "[Discovery](../../../01_Discovery/Explorations/EXP-000008_Project_Runtime/exploration.md)",
       "count": 1
     }
   ]

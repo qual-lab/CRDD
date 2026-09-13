@@ -1,11 +1,11 @@
 import {
+  classifyOwnedOperationDirectoryCreationFailure,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryId,
-  classifyOwnedOperationDirectoryCreationFailure,
   verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
 

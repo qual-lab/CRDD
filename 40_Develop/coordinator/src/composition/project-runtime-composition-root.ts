@@ -1,66 +1,87 @@
 import { createHash } from "node:crypto";
 import type { Writable } from "node:stream";
-
+import type { ProjectRuntimeExecutionPublicationObservation } from "../../../project-runtime/src/index.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../runtime-data/src/index.ts";
+import {
+  createProjectRuntimeObjectiveResult,
+  inspectProjectRuntimeDecisionRequest,
+  inspectProjectRuntimeObjectiveRequest,
+  inspectProjectRuntimeStateQuery,
+  integrateProjectRuntimeOperation,
+  issueProjectRuntimeHumanDecision,
+  PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+  PROJECT_RUNTIME_STATE_QUERY_CONTRACT,
+  type ProjectRuntimeCandidatePort,
+  type ProjectRuntimeObjectiveRequest,
+  projectProjectRuntimeState,
+  projectRuntimeDecisionRecordId,
+  queryProjectRuntimeState,
+  recoverProjectRuntimeHumanDecision,
+  replaceProjectRuntimeHumanDecision,
+  submitProjectRuntimeHumanDecision,
+} from "../../../project-runtime/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository-location.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../security/coordinator-task-runtime.ts";
-import {
-  issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
-  revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
-} from "../security/platform-provisioner-package-filesystem.ts";
 import {
   collectDockerRecoveryAcknowledgementAfterProjectRecord,
   consumeDockerRecoveryReceiptAfterProjectSettlement,
   recoverRuntimeOwnedDockerTask,
   resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
 } from "../security/docker-recovery-runtime.ts";
+import { recordProjectRuntimeExecutionEvent } from "../security/execution-intelligence-adapter.ts";
 import {
-  createProjectRuntimeObjectiveResult,
-  inspectProjectRuntimeDecisionRequest,
-  inspectProjectRuntimeObjectiveRequest,
-  inspectProjectRuntimeStateQuery,
-  PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
-  PROJECT_RUNTIME_STATE_QUERY_CONTRACT,
-  integrateProjectRuntimeOperation,
-  issueProjectRuntimeHumanDecision,
-  projectRuntimeDecisionRecordId,
-  recoverProjectRuntimeHumanDecision,
-  replaceProjectRuntimeHumanDecision,
-  queryProjectRuntimeState,
-  submitProjectRuntimeHumanDecision,
-  type ProjectRuntimeObjectiveRequest,
-} from "../../../project-runtime/src/index.ts";
-import { runProjectRuntimeObjective } from "../security/project-runtime-objective-intake.ts";
+  issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
+  revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
+} from "../security/platform-provisioner-package-filesystem.ts";
+import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../security/project-runtime-candidate-integration-adapter.ts";
+import { createProjectRuntimeDecisionCapabilityAdapter } from "../security/project-runtime-decision-capability-adapter.ts";
+import { createProjectRuntimeDecisionRecoveryStore } from "../security/project-runtime-decision-recovery-store.ts";
 import {
   createProjectRuntimePersistencePorts,
   readProjectRuntimeState,
 } from "../security/project-runtime-durable-foundation.ts";
-import {
-  projectProjectRuntimeState,
-  type ProjectRuntimeCandidatePort,
-} from "../../../project-runtime/src/index.ts";
-import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../security/project-runtime-candidate-integration-adapter.ts";
-import { createProjectRuntimeIntegrationRecordAdapter } from "../security/project-runtime-integration-record-adapter.ts";
-import { createProjectRuntimeDecisionRecoveryStore } from "../security/project-runtime-decision-recovery-store.ts";
-import { createProjectRuntimeDecisionCapabilityAdapter } from "../security/project-runtime-decision-capability-adapter.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../security/project-runtime-windows-decision-store.ts";
-import { runProjectRuntimeSingleTaskAttempt } from "../security/project-runtime-single-task-adapter.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../security/project-runtime-execution-authorization-adapter.ts";
-import type { ProjectRuntimeExecutionPublicationObservation } from "../../../project-runtime/src/index.ts";
+import { createProjectRuntimeIntegrationRecordAdapter } from "../security/project-runtime-integration-record-adapter.ts";
+import { runProjectRuntimeObjective } from "../security/project-runtime-objective-intake.ts";
+import { runProjectRuntimeSingleTaskAttempt } from "../security/project-runtime-single-task-adapter.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../security/project-runtime-windows-decision-store.ts";
 import {
-  observeProjectRuntimePlatformFamily,
   createProjectRuntimeWindowsPlatformAdapter,
+  observeProjectRuntimePlatformFamily,
 } from "../security/project-runtime-windows-platform-adapter.ts";
 import { inspectRepositoryIdentityCandidate } from "../security/repository-operation-runtime.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../security/repository-root-resolution.ts";
-import { recordProjectRuntimeExecutionEvent } from "../security/execution-intelligence-adapter.ts";
 
 export const PROJECT_RUNTIME_RECOVERY_LIFECYCLE_PREFIX =
   "[Project Runtime recovery] " as const;
 export const PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX =
   "[Project Runtime execution intelligence] " as const;
 const PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS = 5_000;
+
+export function projectRuntimeDataBoundaryBlocked(
+  error: RepositoryRuntimeDataAreaBlockedError,
+) {
+  return Object.freeze({
+    contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+    status: "blocked" as const,
+    reason: error.reason,
+    cleanupConfirmed: error.cleanupConfirmed,
+    manualRecoveryRequired: error.effectStateUnknown || !error.cleanupConfirmed,
+    effectState: error.effectStateUnknown
+      ? ("unknown" as const)
+      : error.effectIssued
+        ? ("settled" as const)
+        : ("no_effect" as const),
+    effectIssued: error.effectIssued,
+    effectStateUnknown: error.effectStateUnknown,
+    retryAllowed: error.retryAllowed,
+    recoveryIds: Object.freeze(
+      error.recoveryReference === null ? [] : [error.recoveryReference],
+    ),
+  });
+}
 
 export type ProjectRuntimeRecoveryDiagnosticOutcome =
   | "success"
@@ -601,13 +622,25 @@ export function runProjectRuntimePublicObjective(
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
 ) {
-  return executeProjectRuntimePublicObjective(
-    productionExecutionDependencies,
-    rawRequest,
-    cancellationSignal,
-    workingDirectory,
-    authenticationContext,
-  );
+  try {
+    return Promise.resolve(
+      executeProjectRuntimePublicObjective(
+        productionExecutionDependencies,
+        rawRequest,
+        cancellationSignal,
+        workingDirectory,
+        authenticationContext,
+      ),
+    ).catch((error: unknown) => {
+      if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+        return projectRuntimeDataBoundaryBlocked(error);
+      throw error;
+    });
+  } catch (error) {
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      return Promise.resolve(projectRuntimeDataBoundaryBlocked(error));
+    throw error;
+  }
 }
 
 /** Development-only composition. The supplied starter still needs its own admitted capability. */
@@ -772,12 +805,18 @@ export function runProjectRuntimePublicDecision(
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
 ) {
-  return executeProjectRuntimePublicDecision(
-    openRuntimeOwnedWindowsProjectDecisionStore,
-    rawRequest,
-    workingDirectory,
-    authenticationContext,
-  );
+  try {
+    return executeProjectRuntimePublicDecision(
+      openRuntimeOwnedWindowsProjectDecisionStore,
+      rawRequest,
+      workingDirectory,
+      authenticationContext,
+    );
+  } catch (error) {
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      return projectRuntimeDataBoundaryBlocked(error);
+    throw error;
+  }
 }
 
 /** Read-only state entry shared by local transports. No mutation port is exposed. */
@@ -855,10 +894,16 @@ export function runProjectRuntimePublicStateQuery(
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
 ) {
-  return executeProjectRuntimePublicStateQuery(
-    openRuntimeOwnedWindowsProjectDecisionStore,
-    rawRequest,
-    workingDirectory,
-    authenticationContext,
-  );
+  try {
+    return executeProjectRuntimePublicStateQuery(
+      openRuntimeOwnedWindowsProjectDecisionStore,
+      rawRequest,
+      workingDirectory,
+      authenticationContext,
+    );
+  } catch (error) {
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      return projectRuntimeDataBoundaryBlocked(error);
+    throw error;
+  }
 }

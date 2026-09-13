@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository-location.ts";
 import { runProjectRuntimePublicObjective } from "../src/composition/project-runtime-composition-root.ts";
 import {
   parseCandidateArguments,
@@ -46,7 +47,6 @@ import {
 import { restartRuntimeOwnedDockerForRecovery } from "../src/security/docker-restart-runtime.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
 class UsageError extends Error {
   readonly usage = true;

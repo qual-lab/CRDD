@@ -1,16 +1,15 @@
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
-
+import type {
+  ProjectRuntimeClockIdentityPort,
+  ProjectRuntimeProcessSafetyPort,
+} from "../../../project-runtime/src/index.ts";
 import {
   createRuntimeProcessRecoveryIdentity,
   getRuntimeProcessInstanceIdentity,
   inspectRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../core/runtime-process-safety-state.ts";
-import type {
-  ProjectRuntimeClockIdentityPort,
-  ProjectRuntimeProcessSafetyPort,
-} from "../../../project-runtime/src/index.ts";
 
 export type ProjectRuntimeExecutionHostAdapterOptions = Readonly<{
   now?: ProjectRuntimeClockIdentityPort["now"];

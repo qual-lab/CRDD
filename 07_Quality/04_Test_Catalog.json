@@ -1,6 +1,6 @@
 {
   "contract": "crdd/test-catalog",
-  "contractRevision": 9,
+  "contractRevision": 10,
   "levels": [
     "unit",
     "integration",
@@ -21,9 +21,40 @@
     "mcp": "node_test",
     "project-runtime": "node_test",
     "runtime-data": "node_test",
+    "version-control": "node_test",
     "platform-access": "cargo_test"
   },
   "integrationBlocks": [
+    {
+      "id": "version-control:repository-observation",
+      "owner": "version-control",
+      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#3-目的別port",
+      "responsibilities": ["repository_location", "local_change_set_observation"],
+      "externalBoundaries": ["repository_filesystem", "version_control_process"],
+      "lifecycleProfile": "read_only_boundary",
+      "testIds": ["version-control:integration:repository-location", "version-control:integration:local-change-set", "version-control:integration:consumer-closure"],
+      "postconditions": ["repository_boundary_exact", "partial_observation_not_published", "repository_content_unchanged"]
+    },
+    {
+      "id": "version-control:fixed-snapshot-candidate",
+      "owner": "version-control",
+      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#3-目的別port",
+      "responsibilities": ["fixed_snapshot_identity", "candidate_output_capability", "candidate_materialization"],
+      "externalBoundaries": ["git_object_store", "candidate_filesystem"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["version-control:integration:fixed-snapshot"],
+      "postconditions": ["fixed_snapshot_identity_preserved", "raw_output_path_rejected", "partial_candidate_absent_or_unknown_explicit"]
+    },
+    {
+      "id": "version-control:fixed-revision-and-ignore",
+      "owner": "version-control",
+      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#4-capabilityと再確認",
+      "responsibilities": ["fixed_revision_identity", "repository_local_ignore_registration"],
+      "externalBoundaries": ["git_revision_store", "repository_local_exclude"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["version-control:integration:fixed-revision-and-ignore"],
+      "postconditions": ["revision_identity_fixed", "ignore_update_read_back", "unknown_effect_not_reported_complete"]
+    },
     {
       "id": "runtime-data:repository-storage",
       "owner": "runtime-data",
@@ -207,6 +238,20 @@
   ],
   "integrationCorridors": [
     {
+      "id": "version-control:revision-to-release-candidate",
+      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#6-段階移行",
+      "blockPath": ["version-control:fixed-revision-and-ignore", "version-control:fixed-snapshot-candidate", "coordinator:release-signing"],
+      "testIds": ["version-control:integration:fixed-revision-and-ignore", "version-control:integration:fixed-snapshot", "coordinator:integration:sign-release-manifest"],
+      "postconditions": ["fixed_revision_identity_preserved", "candidate_output_capability_preserved", "signing_consumes_fixed_snapshot"]
+    },
+    {
+      "id": "version-control:observation-to-regression",
+      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#6-段階移行",
+      "blockPath": ["version-control:repository-observation", "checker:regression-runner"],
+      "testIds": ["version-control:integration:local-change-set", "checker:integration:regression-runner"],
+      "postconditions": ["canonical_change_set_preserved", "partial_observation_not_used", "selection_input_complete"]
+    },
+    {
       "id": "runtime-data:repository-to-consumers",
       "architectureAnchor": "06_Architecture/runtime-data/02_Target_Architecture.md#2-repository-local目標構成",
       "blockPath": ["runtime-data:repository-storage", "execution-intelligence:durable-store", "project-runtime:objective-task-lifecycle"],
@@ -365,6 +410,71 @@
   ],
   "tests": [
     {
+      "id": "version-control:integration:repository-location",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/repository-location.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["version-control", "repository-root", "worktree", "submodule"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["repository_boundary_exact", "invalid_nested_boundary_terminal"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "version-control:integration:local-change-set",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/local-change-set.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["version-control", "change-set", "regression"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["change_classes_distinct", "partial_observation_not_published"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "version-control:integration:consumer-closure",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["version-control", "consumer-closure"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["duplicate_owner_absent", "public_contract_git_neutral"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "version-control:integration:fixed-snapshot",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/fixed-snapshot.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["version-control", "fixed-snapshot", "candidate", "cleanup"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["snapshot_identity_preserved", "candidate_output_capability_required", "partial_candidate_absent_or_unknown_explicit"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "version-control:integration:fixed-revision-and-ignore",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/fixed-revision-and-ignore.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["version-control", "fixed-revision", "repository-local-ignore", "lifecycle"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["revision_identity_preserved", "ignore_content_identity_preserved", "unknown_effect_not_reported_complete"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "runtime-data:unit:contract",
       "owner": "runtime-data",
       "path": "40_Develop/runtime-data/tests/unit/runtime-data-contract.contract.test.ts",
@@ -401,6 +511,19 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["repository_root_exact", "top_level_allowlist_fixed"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "runtime-data:integration:consumer-closure",
+      "owner": "runtime-data",
+      "path": "40_Develop/runtime-data/tests/integration/runtime-data-consumer-closure.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["runtime-data", "consumer-closure", "repository-root", "signing"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["consumer_set_exact", "raw_root_not_reinterpreted", "internal_resolver_not_exported"],
       "mandatoryByDefault": true
     },
     {
@@ -447,6 +570,19 @@
         "boundary_result_observed",
         "owned_resources_settled_or_reported"
       ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:development-package-scripts",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/development-package-scripts.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["coordinator", "development-toolchain", "platform-access"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["lint_warning_rejected", "platform_access_commands_exact"],
       "mandatoryByDefault": true
     },
     {

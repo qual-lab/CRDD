@@ -1,11 +1,11 @@
 import {
   createTaskAttemptSettledEvent,
-  usageNotObserved,
-  verifyExecutionIntelligenceRepositoryRoot,
   type ExecutionIntelligenceEvent,
   type ExecutionIntelligencePublicationResult,
+  usageNotObserved,
+  verifyExecutionIntelligenceRepositoryRoot,
+  writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import { writeExecutionIntelligenceEvent } from "../../../execution-intelligence/src/index.ts";
 import type {
   ProjectRuntimeExecutionObservationPublication,
   ProjectRuntimeTaskAttemptObservation,

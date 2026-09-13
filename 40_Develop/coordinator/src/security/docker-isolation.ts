@@ -6,9 +6,9 @@ import os from "node:os";
 import path from "node:path";
 import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
 import {
+  type DockerCliTrustSnapshot,
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
-  type DockerCliTrustSnapshot,
 } from "./docker-cli-trust.ts";
 
 import {

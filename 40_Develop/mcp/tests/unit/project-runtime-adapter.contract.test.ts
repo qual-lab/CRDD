@@ -929,6 +929,36 @@ test("MCP Integration結果はCanonical recoveryIdsを保持し不正な集合�
       {
         ...base,
         status: "blocked",
+        reason: "repository_runtime_data_ignore_registration_blocked",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: true,
+        recoveryIds: [recoveryId],
+        effectIssued: true,
+        effectStateUnknown: true,
+        retryAllowed: false,
+      },
+      true,
+      false,
+    ],
+    [
+      {
+        ...base,
+        status: "blocked",
+        reason: "project_runtime_candidate_base_cleanup_unconfirmed",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        recoveryIds: [],
+        effectIssued: false,
+        effectStateUnknown: false,
+        retryAllowed: false,
+      },
+      true,
+      false,
+    ],
+    [
+      {
+        ...base,
+        status: "blocked",
         reason: "project_runtime_lease_acquisition_recovery_evidence_mismatch",
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
@@ -980,7 +1010,13 @@ test("MCP Integration結果はCanonical recoveryIdsを保持し不正な集合�
       dependencies({ runObjective: async () => raw }),
     );
     const result = response.result as {
-      structuredContent: { reason: string; recoveryIds?: readonly string[] };
+      structuredContent: {
+        reason: string;
+        recoveryIds?: readonly string[];
+        effectIssued?: boolean;
+        effectStateUnknown?: boolean;
+        retryAllowed?: boolean;
+      };
       isError: boolean;
     };
     if (isExpectedAdapterInvalid)
@@ -990,8 +1026,88 @@ test("MCP Integration結果はCanonical recoveryIdsを保持し不正な集合�
       );
     else {
       assert.deepEqual(result.structuredContent.recoveryIds, raw.recoveryIds);
+      if ("effectIssued" in raw) {
+        assert.equal(result.structuredContent.effectIssued, raw.effectIssued);
+        assert.equal(
+          result.structuredContent.effectStateUnknown,
+          raw.effectStateUnknown,
+        );
+        assert.equal(result.structuredContent.retryAllowed, raw.retryAllowed);
+      }
       assert.equal(result.isError, isExpectedError);
     }
+  }
+});
+
+test("MCPはdecision付きIntegration結果の基本形と境界拡張形をそのまま保持する", async () => {
+  const decisionResult = {
+    contract: "crdd-coordinator/project-runtime-human-decision/v1",
+    status: "completed",
+    reason: "decision_issued",
+    decisionId: "decision-a",
+    recordId: "record-a",
+    continuationCapability: "capability-a",
+    allowedOptions: ["resume", "cancel"],
+    expiresAtEpochMs: Date.now() + 60_000,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    effectState: "settled",
+  };
+  const integrationBase = {
+    contract: "crdd-coordinator/project-runtime-integration/v1",
+    status: "blocked",
+    reason: "integration_conflict",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId: "queue-a",
+    stateGeneration: 2,
+    candidateId: "candidate-a",
+    receiptId: null,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    recoveryIds: [],
+  };
+  for (const raw of [
+    { ...integrationBase, decision: decisionResult },
+    {
+      ...integrationBase,
+      reason: "project_runtime_candidate_base_cleanup_unconfirmed",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectIssued: false,
+      effectStateUnknown: false,
+      retryAllowed: false,
+      decision: decisionResult,
+    },
+    {
+      ...integrationBase,
+      reason: "repository_runtime_data_ignore_registration_blocked",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: true,
+      recoveryIds: [`runtime-process.${"1".repeat(40)}`],
+      effectIssued: true,
+      effectStateUnknown: true,
+      retryAllowed: false,
+      decision: decisionResult,
+    },
+  ]) {
+    const response = await handleMcpProjectRuntimeRequest(
+      request("tools/call", {
+        _meta: META,
+        name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+        arguments: objective(),
+      }),
+      dependencies({ runObjective: async () => raw }),
+    );
+    const result = response.result as {
+      structuredContent: Readonly<Record<string, unknown>>;
+    };
+    assert.equal(result.structuredContent.reason, raw.reason);
+    assert.deepEqual(result.structuredContent.decision, decisionResult);
+    assert.equal(
+      Object.hasOwn(result.structuredContent, "effectIssued"),
+      Object.hasOwn(raw, "effectIssued"),
+    );
   }
 });
 

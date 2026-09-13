@@ -2,13 +2,6 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  createDockerProcessEnvironment,
-  startOwnedProcess,
-  STDOUT_LIMIT_BYTES,
-  type OwnedCommandHandle,
-} from "./docker-owned-process.ts";
-
-import {
   planClaudeIsolatedTask,
   planClaudeReadOnlyProbe,
 } from "./claude-execution-plan.ts";
@@ -17,16 +10,22 @@ import {
   planCodexReadOnlyProbe,
 } from "./codex-execution-plan.ts";
 import { resolveFixedCodexExecutorSeccompProfile } from "./codex-executor-seccomp.ts";
-import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
-import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
-import { inspectRuntimeOwnedDockerResourceReceipts } from "./docker-recovery-runtime.ts";
 import {
-  describeDockerCliTrustContract,
   DOCKER_CLI_EXECUTABLE,
+  type DockerCliTrustSnapshot,
+  describeDockerCliTrustContract,
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
-  type DockerCliTrustSnapshot,
 } from "./docker-cli-trust.ts";
+import {
+  createDockerProcessEnvironment,
+  type OwnedCommandHandle,
+  STDOUT_LIMIT_BYTES,
+  startOwnedProcess,
+} from "./docker-owned-process.ts";
+import { inspectRuntimeOwnedDockerResourceReceipts } from "./docker-recovery-runtime.ts";
+import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
+import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";

@@ -1,16 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { ensureRepositoryRuntimeDataArea } from "../../runtime-data/src/index.ts";
 import {
-  ensureRepositoryRuntimeDataArea,
-  verifyRepositoryRoot,
-} from "../../runtime-data/src/index.ts";
-
-import {
-  inspectGitCommitTreeCandidate,
-  materializeGitReleaseCandidateTree,
-} from "../src/security/git-object-reader.ts";
-import { resolveRepositoryGitLayout } from "../src/security/repository-git-layout-internal.ts";
+  inspectFixedSnapshot,
+  materializeFixedSnapshotCandidate,
+  verifyCandidateOutputDirectory,
+} from "../../version-control/src/fixed-snapshot.ts";
+import { gitFixedSnapshotAdapter } from "../../version-control/src/git/fixed-snapshot-adapter.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
 
 export const RELEASE_CANDIDATE_PREPARATION_CONTRACT =
   "crdd-coordinator/release-candidate-preparation";
@@ -25,13 +23,30 @@ type PreparationInput = Readonly<{
   candidateName: string;
 }>;
 
-function blocked(reason: string, residuePresent = false) {
+function blocked(
+  reason: string,
+  residuePresent = false,
+  materialization: Readonly<{
+    effectIssued: boolean;
+    effectStateUnknown: boolean;
+    cleanupConfirmed: boolean;
+    retryAllowed: boolean;
+    recoveryReference: string | null;
+  }> = Object.freeze({
+    effectIssued: false,
+    effectStateUnknown: false,
+    cleanupConfirmed: true,
+    retryAllowed: false,
+    recoveryReference: null,
+  }),
+) {
   return Object.freeze({
     contract: RELEASE_CANDIDATE_PREPARATION_CONTRACT,
     contractRevision: RELEASE_CANDIDATE_PREPARATION_CONTRACT_REVISION,
     status: "blocked" as const,
     reason,
     residuePresent,
+    ...materialization,
     candidateCreated: false,
     externalGitCliUsed: false,
     shellUsed: false,
@@ -75,23 +90,34 @@ export function prepareReleaseCandidate(input: PreparationInput) {
     if (repositoryRoot !== path.resolve(input.repositoryRoot)) {
       return blocked("release_candidate_repository_alias_rejected");
     }
-    const layout = resolveRepositoryGitLayout(repositoryRoot);
-    const inspected = inspectGitCommitTreeCandidate({
-      commonDirectory: layout.commonDirectory.realPath,
-      revision: input.revision,
-    });
-    if (inspected?.status !== "candidate") {
-      return blocked("release_candidate_revision_invalid");
-    }
-
     const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
     if (verifiedRuntimeRoot.status !== "completed")
       return blocked("release_candidate_runtime_data_path_invalid");
+    const inspected = inspectFixedSnapshot(
+      verifiedRuntimeRoot.capability,
+      input.revision,
+      gitFixedSnapshotAdapter,
+    );
+    if (inspected?.status !== "observed") {
+      return blocked("release_candidate_revision_invalid");
+    }
+
     const releaseArea = ensureRepositoryRuntimeDataArea(
       verifiedRuntimeRoot.capability,
       "release",
     );
-    if (!releaseArea || releaseArea.repositoryRoot !== repositoryRoot)
+    if (releaseArea?.status === "blocked")
+      return blocked(releaseArea.reason, false, {
+        effectIssued: releaseArea.effectIssued,
+        effectStateUnknown: releaseArea.effectStateUnknown,
+        cleanupConfirmed: releaseArea.cleanupConfirmed,
+        retryAllowed: releaseArea.retryAllowed,
+        recoveryReference: releaseArea.recoveryReference,
+      });
+    if (
+      releaseArea?.status !== "ready" ||
+      releaseArea.repositoryRoot !== repositoryRoot
+    )
       return blocked("release_candidate_runtime_data_path_invalid");
     const stagingRoot = releaseArea.directory;
     const candidateRoot = path.join(stagingRoot, input.candidateName);
@@ -104,17 +130,43 @@ export function prepareReleaseCandidate(input: PreparationInput) {
     if (stableDirectory(preparingRoot) !== preparingRoot) {
       throw new Error("release_candidate_preparing_alias_rejected");
     }
-    const materialized = materializeGitReleaseCandidateTree({
-      commonDirectory: layout.commonDirectory.realPath,
-      revision: input.revision,
-      workspace: preparingRoot,
-    });
-    if (materialized?.status !== "materialized") {
+    const output = verifyCandidateOutputDirectory(
+      preparingRoot,
+      releaseArea,
+      releaseArea.directory,
+    );
+    if (output.status !== "completed")
+      return blocked("release_candidate_destination_invalid", true);
+    const materialized = materializeFixedSnapshotCandidate(
+      verifiedRuntimeRoot.capability,
+      input.revision,
+      releaseArea,
+      output.capability,
+      null,
+      null,
+      gitFixedSnapshotAdapter,
+    );
+    if (!materialized)
       return blocked("release_candidate_materialization_failed", true);
-    }
+    if (materialized.status === "blocked")
+      return blocked(
+        materialized.reason,
+        !materialized.cleanupConfirmed,
+        Object.freeze({
+          effectIssued: materialized.effectIssued,
+          effectStateUnknown: materialized.effectStateUnknown,
+          cleanupConfirmed: materialized.cleanupConfirmed,
+          retryAllowed:
+            !materialized.effectStateUnknown && materialized.cleanupConfirmed,
+          recoveryReference:
+            materialized.effectStateUnknown || !materialized.cleanupConfirmed
+              ? `release-candidate.${input.candidateName}`
+              : null,
+        }),
+      );
     if (
-      materialized.baseCommit !== inspected.commit ||
-      materialized.baseTree !== inspected.tree
+      materialized.baseRevisionIdentity !== inspected.revisionIdentity ||
+      materialized.baseSnapshotIdentity !== inspected.snapshotIdentity
     ) {
       return blocked("release_candidate_identity_mismatch", true);
     }
@@ -124,15 +176,15 @@ export function prepareReleaseCandidate(input: PreparationInput) {
     if (stableDirectory(candidateRoot) !== candidateRoot) {
       return blocked("release_candidate_publication_unconfirmed", true);
     }
-    const layoutAfter = resolveRepositoryGitLayout(repositoryRoot);
-    const inspectedAfter = inspectGitCommitTreeCandidate({
-      commonDirectory: layoutAfter.commonDirectory.realPath,
-      revision: input.revision,
-    });
+    const inspectedAfter = inspectFixedSnapshot(
+      verifiedRuntimeRoot.capability,
+      input.revision,
+      gitFixedSnapshotAdapter,
+    );
     if (
-      inspectedAfter?.status !== "candidate" ||
-      inspectedAfter.commit !== inspected.commit ||
-      inspectedAfter.tree !== inspected.tree
+      inspectedAfter?.status !== "observed" ||
+      inspectedAfter.revisionIdentity !== inspected.revisionIdentity ||
+      inspectedAfter.snapshotIdentity !== inspected.snapshotIdentity
     ) {
       return blocked(
         "release_candidate_source_changed_after_publication",
@@ -145,8 +197,8 @@ export function prepareReleaseCandidate(input: PreparationInput) {
       contractRevision: RELEASE_CANDIDATE_PREPARATION_CONTRACT_REVISION,
       status: "prepared" as const,
       reason: "release_candidate_prepared",
-      commit: inspected.commit,
-      tree: inspected.tree,
+      commit: inspected.revisionIdentity,
+      tree: inspected.snapshotIdentity,
       fileCount: materialized.fileCount,
       byteLength: materialized.byteLength,
       contentManifestHash: materialized.contentManifestHash,

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * CRDDの決定論的な文書・配置確認。
  *
@@ -7,9 +8,17 @@
  * 除去するための任意の補助実装である。
  */
 
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+
+import {
+  observeDeclaredNestedRepositoryPaths,
+  observeNestedRepository,
+  observeRepositoryEntries,
+  readFixedSnapshotText,
+  resolveRevisionIdentity,
+} from "./internal/version-control-runtime.ts";
 
 type Finding = Readonly<{
   severity: string;
@@ -84,7 +93,14 @@ type LinkResolution =
       decodeError: boolean;
       outsideRoot: false;
     }>;
-type LinkRecord = LinkResolution & Readonly<{ source: string; raw: string }>;
+type LinkRecord = LinkResolution &
+  Readonly<{
+    source: string;
+    raw: string;
+    fixedHistoricalReference: boolean;
+    historicalTargetExists: boolean;
+    historicalAnchorExists: boolean | null;
+  }>;
 
 function errorCode(error: unknown): string | null {
   if (error === null || typeof error !== "object") return null;
@@ -264,41 +280,15 @@ const fallbackGitmodules = fallbackDeclaredSubmodulePaths(gitmodules);
 const gitmodulesStat = lstatIfPresent(gitmodules);
 const isGitmodulesReadableFile =
   gitmodulesStat?.isFile() === true && !pathContainsSymbolicLink(gitmodules);
-const gitmodulesResult = isGitmodulesReadableFile
-  ? spawnSync(
-      "git",
-      [
-        "config",
-        "-z",
-        "--file",
-        gitmodules,
-        "--get-regexp",
-        "^submodule\\..*\\.path$",
-      ],
-      { encoding: "utf8" },
-    )
+const declaredNestedRepositories = isGitmodulesReadableFile
+  ? observeDeclaredNestedRepositoryPaths(gitmodules)
   : null;
-let gitConfiguredSubmodules: string[] = [];
-let isGitConfigOutputValid = gitmodulesResult?.status === 0;
-if (gitmodulesResult?.status === 0) {
-  for (const entry of gitmodulesResult.stdout.split("\0").filter(Boolean)) {
-    const separator = entry.indexOf("\n");
-    if (separator < 0) {
-      isGitConfigOutputValid = false;
-      gitConfiguredSubmodules = [];
-      break;
-    }
-    gitConfiguredSubmodules.push(entry.slice(separator + 1));
-  }
-}
 const isGitmodulesParsed =
   !gitmodulesStat ||
   (isGitmodulesReadableFile &&
-    (gitmodulesResult?.status === 1 || isGitConfigOutputValid));
+    declaredNestedRepositories?.status === "completed");
 const declaredSubmodules = isGitmodulesParsed
-  ? gitmodulesResult?.status === 0
-    ? gitConfiguredSubmodules
-    : []
+  ? (declaredNestedRepositories?.paths ?? [])
   : fallbackGitmodules.paths;
 const hasDeclaredBaselineSubmodule = declaredSubmodules.some(
   (item) => item.replaceAll("\\", "/") === "00_CRDD",
@@ -604,240 +594,169 @@ function walk(
 }
 
 function discoverProjectFiles(): Discovery {
-  const gitRootResult = spawnSync(
-    "git",
-    ["-C", root, "rev-parse", "--show-toplevel"],
-    { encoding: "utf8" },
-  );
-  let gitFailure: string | null = null;
-  if (errorCode(gitRootResult.error) === "ENOENT") {
-    gitFailure = "not-installed";
-  } else if (
-    gitRootResult.status !== 0 &&
-    /not a git repository/iu.test(gitRootResult.stderr || "")
-  ) {
-    gitFailure = "not-repository";
-  } else if (gitRootResult.status !== 0) {
-    gitFailure = "repository-check-failed";
-  }
-  if (gitRootResult.status === 0) {
-    const gitRoot = path.resolve(gitRootResult.stdout.trim());
-    const relativeRoot = path.relative(gitRoot, root) || ".";
-    const list = spawnSync(
-      "git",
-      [
-        "-C",
-        gitRoot,
-        "ls-files",
-        "--cached",
-        "--others",
-        "--exclude-standard",
-        "-z",
-        "--",
-        relativeRoot,
-      ],
-      { encoding: "utf8" },
+  const repositoryEntries = observeRepositoryEntries(root);
+  const gitFailure: string | null =
+    repositoryEntries.status === "unavailable"
+      ? repositoryEntries.reason === "version_control_not_installed"
+        ? "not-installed"
+        : repositoryEntries.reason === "repository_not_found"
+          ? "not-repository"
+          : repositoryEntries.reason ===
+                "repository_entries_observation_failed" ||
+              repositoryEntries.reason === "repository_entries_output_invalid"
+            ? "list-failed"
+            : "repository-check-failed"
+      : null;
+  if (repositoryEntries.status === "completed") {
+    const isStagedOutputValid =
+      repositoryEntries.nestedRepositoryObservationComplete;
+    const nestedEntries = repositoryEntries.entries.filter(
+      (entry) => entry.kind === "nested_repository",
     );
-    if (list.status === 0) {
-      const staged = spawnSync(
-        "git",
-        ["-C", gitRoot, "ls-files", "--stage", "-z", "--", relativeRoot],
-        { encoding: "utf8" },
-      );
-      let isStagedOutputValid = staged.status === 0;
-      const parsedGitlinkEntries: GitlinkEntry[] = [];
-      const conflictedGitlinkRoots = new Set<string>();
-      if (staged.status === 0) {
-        for (const entry of staged.stdout.split("\0").filter(Boolean)) {
-          const separator = entry.indexOf("\t");
-          const metadata =
-            separator < 0
-              ? null
-              : entry
-                  .slice(0, separator)
-                  .match(/^(\d{6}) ([0-9a-f]{40,64}) ([0-3])$/iu);
-          if (!metadata) {
-            isStagedOutputValid = false;
-            break;
-          }
-          const [, mode, oid, stageNumber] = metadata;
-          if (mode !== "160000") continue;
-          const target = path.resolve(gitRoot, entry.slice(separator + 1));
-          if (!isWithin(root, target)) continue;
-          if (stageNumber !== "0") {
-            conflictedGitlinkRoots.add(target);
-            continue;
-          }
-          parsedGitlinkEntries.push({
-            path: target,
-            oid: oid.toLowerCase(),
-          });
-        }
-      }
-      const gitlinkEntries = isStagedOutputValid
-        ? parsedGitlinkEntries.sort((a, b) => a.path.localeCompare(b.path))
-        : [];
-      const conflictedGitlinks = isStagedOutputValid
-        ? [...conflictedGitlinkRoots].sort()
-        : [];
-      const declaredGitlinkCandidates = declaredSubmodules
-        .map((item) => path.resolve(root, item))
-        .filter((item) => isWithin(root, item));
-      const gitlinks = [
-        ...new Set(
-          isStagedOutputValid
-            ? [
-                ...gitlinkEntries.map((entry) => entry.path),
-                ...conflictedGitlinks,
-              ]
-            : declaredGitlinkCandidates,
-        ),
-      ].sort();
-      const baselineGitlink =
-        gitlinkEntries.find((entry) =>
-          samePath(entry.path, baselineCandidateRoot),
-        ) ?? null;
-      const isBaselineGitlinkConflicted = conflictedGitlinks.some((entry) =>
-        samePath(entry, baselineCandidateRoot),
-      );
-      const isBaselineGitlinkIndexed =
-        isStagedOutputValid && !isBaselineGitlinkConflicted
-          ? Boolean(baselineGitlink)
-          : null;
-      const isBaselineSubmodule =
-        isBaselineDeclarationCandidate ||
-        isBaselineGitlinkIndexed === true ||
-        isBaselineGitlinkConflicted;
-      const isBaselineWorktreePresent = isBaselineSubmodule
-        ? isBaselineEntryDirectory &&
-          !pathContainsSymbolicLink(baselineCandidateRoot)
+    const gitlinkEntries: GitlinkEntry[] = nestedEntries
+      .filter((entry) => !entry.conflicted && entry.contentIdentity !== null)
+      .map((entry) => ({
+        path: path.resolve(root, entry.relativePath),
+        oid: entry.contentIdentity ?? "",
+      }));
+    const conflictedGitlinks = nestedEntries
+      .filter((entry) => entry.conflicted)
+      .map((entry) => path.resolve(root, entry.relativePath));
+    const declaredGitlinkCandidates = declaredSubmodules
+      .map((item) => path.resolve(root, item))
+      .filter((item) => isWithin(root, item));
+    const gitlinks = [
+      ...new Set(
+        isStagedOutputValid
+          ? [
+              ...gitlinkEntries.map((entry) => entry.path),
+              ...conflictedGitlinks,
+            ]
+          : declaredGitlinkCandidates,
+      ),
+    ].sort();
+    const baselineGitlink =
+      gitlinkEntries.find((entry) =>
+        samePath(entry.path, baselineCandidateRoot),
+      ) ?? null;
+    const isBaselineGitlinkConflicted = conflictedGitlinks.some((entry) =>
+      samePath(entry, baselineCandidateRoot),
+    );
+    const isBaselineGitlinkIndexed =
+      isStagedOutputValid && !isBaselineGitlinkConflicted
+        ? Boolean(baselineGitlink)
         : null;
-      const baselineTopLevel =
+    const isBaselineSubmodule =
+      isBaselineDeclarationCandidate ||
+      isBaselineGitlinkIndexed === true ||
+      isBaselineGitlinkConflicted;
+    const isBaselineWorktreePresent = isBaselineSubmodule
+      ? isBaselineEntryDirectory &&
+        !pathContainsSymbolicLink(baselineCandidateRoot)
+      : null;
+    const baselineObservation =
+      isBaselineWorktreePresent === true
+        ? observeNestedRepository(root, "00_CRDD")
+        : null;
+    const isBaselineOwnRepository =
+      baselineObservation?.exactRepository === true;
+    const isBaselineGitDirectoryAccessible =
+      isBaselineOwnRepository &&
+      baselineObservation?.metadataAccessible === true;
+    const baselineHeadOid = isBaselineOwnRepository
+      ? (baselineObservation?.revisionIdentity ?? null)
+      : null;
+    const isBaselineHeadReadable = baselineHeadOid !== null;
+    const baselineGitlinkOid = baselineGitlink?.oid?.toLowerCase() ?? null;
+    const isBaselineHeadMatchingGitlink =
+      isBaselineHeadReadable && baselineGitlinkOid
+        ? baselineHeadOid === baselineGitlinkOid
+        : null;
+    const isBaselineSubmoduleInitialized = !isBaselineSubmodule
+      ? null
+      : isBaselineGitlinkIndexed === true && isBaselineWorktreePresent === false
+        ? false
+        : isBaselineGitDirectoryAccessible && isBaselineHeadReadable
+          ? true
+          : null;
+    const baselineSubmoduleState = {
+      declared: isBaselineSubmodule ? isBaselineDeclared : null,
+      gitlink_indexed: isBaselineSubmodule ? isBaselineGitlinkIndexed : null,
+      gitlink_conflicted: isBaselineSubmodule
+        ? isBaselineGitlinkConflicted
+        : null,
+      gitlink_oid: isBaselineSubmodule ? baselineGitlinkOid : null,
+      worktree_present: isBaselineWorktreePresent,
+      gitdir_accessible:
         isBaselineWorktreePresent === true
-          ? spawnSync(
-              "git",
-              ["-C", baselineCandidateRoot, "rev-parse", "--show-toplevel"],
-              { encoding: "utf8" },
+          ? isBaselineGitDirectoryAccessible
+          : isBaselineWorktreePresent === false
+            ? false
+            : null,
+      head_readable:
+        isBaselineWorktreePresent === true
+          ? isBaselineHeadReadable
+          : isBaselineWorktreePresent === false
+            ? false
+            : null,
+      head_oid: baselineHeadOid,
+      head_matches_gitlink: isBaselineHeadMatchingGitlink,
+    };
+    const skippedSymbolicLinks: string[] = [];
+    const files = repositoryEntries.entries
+      .filter((entry) => entry.kind === "file")
+      .map((entry) => path.resolve(root, entry.relativePath))
+      .filter((item) => {
+        if (!isWithin(root, item)) return false;
+        if (pathContainsSymbolicLink(item)) {
+          skippedSymbolicLinks.push(relative(item));
+          return false;
+        }
+        return lstatIfPresent(item)?.isFile() ?? false;
+      })
+      .sort();
+    return {
+      files,
+      source: "git",
+      git_failure: null,
+      gitlink_detection: isStagedOutputValid
+        ? conflictedGitlinks.length > 0
+          ? "git-index-conflicted"
+          : "git-index"
+        : "unavailable",
+      gitlinks,
+      baseline_submodule: isBaselineSubmodule,
+      baseline_submodule_initialized: isBaselineSubmoduleInitialized,
+      baseline_submodule_state: baselineSubmoduleState,
+      exclusions: [
+        "Git-ignored files",
+        ...(skippedSymbolicLinks.length > 0
+          ? ["Symbolic links and junctions"]
+          : []),
+        ...(isBaselineSubmodule
+          ? ["Adopted CRDD baseline submodule contents"]
+          : []),
+        ...(gitlinks.length > 0 ? ["Gitlink submodule contents"] : []),
+      ],
+      unchecked: [
+        "Git-ignored files",
+        ...(isStagedOutputValid
+          ? gitlinks.map(
+              (item) => `Gitlink submodule boundary: ${relative(item)}`,
             )
-          : null;
-      const isBaselineOwnRepository =
-        baselineTopLevel?.status === 0 &&
-        samePath(baselineTopLevel.stdout.trim(), baselineCandidateRoot);
-      const baselineGitDirectory = isBaselineOwnRepository
-        ? spawnSync(
-            "git",
-            ["-C", baselineCandidateRoot, "rev-parse", "--absolute-git-dir"],
-            { encoding: "utf8" },
-          )
-        : null;
-      const baselineHead = isBaselineOwnRepository
-        ? spawnSync(
-            "git",
-            ["-C", baselineCandidateRoot, "rev-parse", "--verify", "HEAD"],
-            { encoding: "utf8" },
-          )
-        : null;
-      const isBaselineGitDirectoryAccessible =
-        isBaselineOwnRepository && baselineGitDirectory?.status === 0;
-      const isBaselineHeadReadable =
-        isBaselineOwnRepository &&
-        baselineHead?.status === 0 &&
-        /^[0-9a-f]{40,64}$/iu.test(baselineHead.stdout.trim());
-      const baselineHeadOid = isBaselineHeadReadable
-        ? baselineHead.stdout.trim().toLowerCase()
-        : null;
-      const baselineGitlinkOid = baselineGitlink?.oid?.toLowerCase() ?? null;
-      const isBaselineHeadMatchingGitlink =
-        isBaselineHeadReadable && baselineGitlinkOid
-          ? baselineHeadOid === baselineGitlinkOid
-          : null;
-      const isBaselineSubmoduleInitialized = !isBaselineSubmodule
-        ? null
-        : isBaselineGitlinkIndexed === true &&
-            isBaselineWorktreePresent === false
-          ? false
-          : isBaselineGitDirectoryAccessible && isBaselineHeadReadable
-            ? true
-            : null;
-      const baselineSubmoduleState = {
-        declared: isBaselineSubmodule ? isBaselineDeclared : null,
-        gitlink_indexed: isBaselineSubmodule ? isBaselineGitlinkIndexed : null,
-        gitlink_conflicted: isBaselineSubmodule
-          ? isBaselineGitlinkConflicted
-          : null,
-        gitlink_oid: isBaselineSubmodule ? baselineGitlinkOid : null,
-        worktree_present: isBaselineWorktreePresent,
-        gitdir_accessible:
-          isBaselineWorktreePresent === true
-            ? isBaselineGitDirectoryAccessible
-            : isBaselineWorktreePresent === false
-              ? false
-              : null,
-        head_readable:
-          isBaselineWorktreePresent === true
-            ? isBaselineHeadReadable
-            : isBaselineWorktreePresent === false
-              ? false
-              : null,
-        head_oid: baselineHeadOid,
-        head_matches_gitlink: isBaselineHeadMatchingGitlink,
-      };
-      const skippedSymbolicLinks: string[] = [];
-      const files = list.stdout
-        .split("\0")
-        .filter(Boolean)
-        .map((item) => path.resolve(gitRoot, item))
-        .filter((item) => {
-          if (!isWithin(root, item)) return false;
-          if (pathContainsSymbolicLink(item)) {
-            skippedSymbolicLinks.push(relative(item));
-            return false;
-          }
-          return lstatIfPresent(item)?.isFile() ?? false;
-        })
-        .sort();
-      return {
-        files,
-        source: "git",
-        git_failure: null,
-        gitlink_detection: isStagedOutputValid
-          ? conflictedGitlinks.length > 0
-            ? "git-index-conflicted"
-            : "git-index"
-          : "unavailable",
-        gitlinks,
-        baseline_submodule: isBaselineSubmodule,
-        baseline_submodule_initialized: isBaselineSubmoduleInitialized,
-        baseline_submodule_state: baselineSubmoduleState,
-        exclusions: [
-          "Git-ignored files",
-          ...(skippedSymbolicLinks.length > 0
-            ? ["Symbolic links and junctions"]
-            : []),
-          ...(isBaselineSubmodule
-            ? ["Adopted CRDD baseline submodule contents"]
-            : []),
-          ...(gitlinks.length > 0 ? ["Gitlink submodule contents"] : []),
-        ],
-        unchecked: [
-          "Git-ignored files",
-          ...(staged.status === 0
-            ? gitlinks.map(
-                (item) => `Gitlink submodule boundary: ${relative(item)}`,
-              )
-            : ["Gitlink detection unavailable: Git index modes were not read"]),
-          ...(isBaselineSubmodule
-            ? [
-                "Adopted CRDD baseline submodule contents, except baseline version headers and targets directly referenced by project documents",
-              ]
-            : []),
-          ...skippedSymbolicLinks.map(
-            (item) => `Symbolic link excluded: ${item}`,
-          ),
-        ],
-      };
-    }
-    gitFailure = "list-failed";
+          : [
+              "Gitlink detection unavailable: repository entry kinds were not read",
+            ]),
+        ...(isBaselineSubmodule
+          ? [
+              "Adopted CRDD baseline submodule contents, except baseline version headers and targets directly referenced by project documents",
+            ]
+          : []),
+        ...skippedSymbolicLinks.map(
+          (item) => `Symbolic link excluded: ${item}`,
+        ),
+      ],
+    };
   }
 
   const excludedNames = new Set<string>([
@@ -1325,6 +1244,197 @@ function resolveLocalTarget(source: string, raw: string): LinkResolution {
   };
 }
 
+type WorkLifecycleMigrationEntry = Readonly<{
+  source: string;
+  target: string;
+  sourceSha256: string;
+  targetSha256: string;
+  currentnessAtMigration: string;
+}>;
+
+function isCanonicalRepositoryRelativePath(value: string): boolean {
+  return (
+    value !== "" &&
+    value === value.replaceAll("\\", "/") &&
+    !value.startsWith("/") &&
+    !/^[A-Za-z]:/u.test(value) &&
+    value
+      .split("/")
+      .every((segment) => segment !== "" && segment !== "." && segment !== "..")
+  );
+}
+
+function loadFixedHistoryMigration(): Readonly<{
+  byCurrentPath: ReadonlyMap<string, WorkLifecycleMigrationEntry>;
+  byHistoricalPath: ReadonlyMap<string, WorkLifecycleMigrationEntry>;
+  sourceCommit: string | null;
+}> {
+  const empty = {
+    byCurrentPath: new Map<string, WorkLifecycleMigrationEntry>(),
+    byHistoricalPath: new Map<string, WorkLifecycleMigrationEntry>(),
+    sourceCommit: null,
+  };
+  if (repositoryMode !== "official") return empty;
+  const manifestPath = path.join(
+    root,
+    "99_Roadmap",
+    "Changes",
+    "CHG-000070",
+    "Evidence",
+    "260912-2142_migration-map.json",
+  );
+  if (!fs.existsSync(manifestPath)) return empty;
+  try {
+    const parsed = JSON.parse(read(manifestPath)) as {
+      contract?: unknown;
+      entries?: unknown;
+      sourceCommit?: unknown;
+    };
+    if (
+      parsed.contract !== "crdd/work-lifecycle-migration-map" ||
+      !Array.isArray(parsed.entries) ||
+      typeof parsed.sourceCommit !== "string" ||
+      !/^[0-9a-f]{40,64}$/iu.test(parsed.sourceCommit)
+    )
+      throw new Error("contract or entries is invalid");
+    const byCurrentPath = new Map<string, WorkLifecycleMigrationEntry>();
+    const byHistoricalPath = new Map<string, WorkLifecycleMigrationEntry>();
+    const sources = new Set<string>();
+    const targets = new Set<string>();
+    for (const value of parsed.entries) {
+      if (!value || typeof value !== "object")
+        throw new Error("entry is not an object");
+      const entry = value as Partial<WorkLifecycleMigrationEntry>;
+      if (
+        typeof entry.source !== "string" ||
+        typeof entry.target !== "string" ||
+        typeof entry.sourceSha256 !== "string" ||
+        typeof entry.targetSha256 !== "string" ||
+        typeof entry.currentnessAtMigration !== "string"
+      )
+        throw new Error("entry fields are invalid");
+      if (
+        !isCanonicalRepositoryRelativePath(entry.source) ||
+        !isCanonicalRepositoryRelativePath(entry.target)
+      )
+        throw new Error("entry path is not canonical repository-relative");
+      if (
+        !/^[0-9a-f]{64}$/iu.test(entry.sourceSha256) ||
+        !/^[0-9a-f]{64}$/iu.test(entry.targetSha256)
+      )
+        throw new Error("entry hash is invalid");
+      if (
+        !new Set(["current", "fixed_history"]).has(entry.currentnessAtMigration)
+      )
+        throw new Error("entry currentness is invalid");
+      if (sources.has(entry.source) || targets.has(entry.target))
+        throw new Error("entry source or target is duplicated");
+      sources.add(entry.source);
+      targets.add(entry.target);
+      if (entry.currentnessAtMigration !== "fixed_history") continue;
+      byCurrentPath.set(
+        entry.target.replaceAll("\\", "/"),
+        entry as WorkLifecycleMigrationEntry,
+      );
+      byHistoricalPath.set(
+        entry.source.replaceAll("\\", "/"),
+        entry as WorkLifecycleMigrationEntry,
+      );
+    }
+    return {
+      byCurrentPath,
+      byHistoricalPath,
+      sourceCommit: parsed.sourceCommit,
+    };
+  } catch (error) {
+    add(
+      "error",
+      "fixed-history-migration-map-invalid",
+      relative(manifestPath),
+      error instanceof Error ? error.message : String(error),
+    );
+    return empty;
+  }
+}
+
+const fixedHistoryMigration = loadFixedHistoryMigration();
+const historicalContentCache = new Map<string, string | null>();
+
+function historicalContent(relativePath: string): string | null {
+  if (!fixedHistoryMigration.sourceCommit) return null;
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (historicalContentCache.has(normalized))
+    return historicalContentCache.get(normalized) ?? null;
+  const content = readFixedSnapshotText(
+    root,
+    fixedHistoryMigration.sourceCommit,
+    normalized,
+  );
+  historicalContentCache.set(normalized, content);
+  return content;
+}
+
+function resolveLinkWithFixedHistory(source: string, raw: string): LinkRecord {
+  const currentSourcePath = relative(source);
+  const migration = fixedHistoryMigration.byCurrentPath.get(currentSourcePath);
+  if (!migration)
+    return {
+      source,
+      raw,
+      fixedHistoricalReference: false,
+      historicalTargetExists: false,
+      historicalAnchorExists: null,
+      ...resolveLocalTarget(source, raw),
+    };
+
+  const actualSha256 = createHash("sha256")
+    .update(fs.readFileSync(source))
+    .digest("hex");
+  if (actualSha256 !== migration.targetSha256)
+    add(
+      "error",
+      "fixed-history-content-mismatch",
+      currentSourcePath,
+      `Expected ${migration.targetSha256}; observed ${actualSha256}.`,
+    );
+
+  const historicalSource = path.resolve(root, migration.source);
+  const historical = resolveLocalTarget(historicalSource, raw);
+  if (historical.external)
+    return {
+      source,
+      raw,
+      fixedHistoricalReference: true,
+      historicalTargetExists: false,
+      historicalAnchorExists: null,
+      ...historical,
+    };
+  const historicalTargetPath = relative(historical.target);
+  const content = historical.outsideRoot
+    ? null
+    : historicalContent(historicalTargetPath);
+  const successor =
+    fixedHistoryMigration.byHistoricalPath.get(historicalTargetPath);
+  const target = successor
+    ? path.resolve(root, successor.target)
+    : historical.target;
+  return {
+    ...historical,
+    source,
+    raw,
+    fixedHistoricalReference: true,
+    target,
+    outsideRoot: !isWithin(root, target),
+    symbolicBoundary:
+      isWithin(root, target) && pathContainsSymbolicLink(target),
+    historicalTargetExists: content !== null,
+    historicalAnchorExists:
+      content === null || historical.anchor === ""
+        ? null
+        : anchorsForText(content).has(historical.anchor),
+  };
+}
+
 const discovery = discoverProjectFiles();
 if (discovery.baseline_submodule && repositoryMode !== "adopter") {
   repositoryMode = "adopter";
@@ -1565,7 +1675,7 @@ for (const source of allMarkdownFiles) {
   const text = withoutFencedCode(read(source));
   for (const match of text.matchAll(/(?<!!)\[[^\]]+\]\(([^)]+)\)/g)) {
     const raw = match[1];
-    linkRecords.push({ source, raw, ...resolveLocalTarget(source, raw) });
+    linkRecords.push(resolveLinkWithFixedHistory(source, raw));
   }
 }
 
@@ -1636,22 +1746,8 @@ const markdownFiles = allMarkdownFiles.filter((file) => checkedFiles.has(file));
 const anchorCache = new Map<string, Set<string>>();
 let checkedLocalLinks = 0;
 let checkedAnchors = 0;
-let hasFixedWorkLifecycleLinksSkipped = false;
-function isFixedWorkLifecycleRecord(file: string): boolean {
-  const relativePath = relative(file).split(path.sep).join("/");
-  return (
-    /^99_Roadmap\/Changes\/CHG-[^/]+\/change\.md$/.test(relativePath) ||
-    /^99_Roadmap\/(?:Changes\/CHG-[^/]+|Releases\/[^/]+)\/Evidence\//.test(
-      relativePath,
-    )
-  );
-}
 for (const record of linkRecords) {
   if (!checkedFiles.has(record.source) || record.external) continue;
-  if (isFixedWorkLifecycleRecord(record.source)) {
-    hasFixedWorkLifecycleLinksSkipped = true;
-    continue;
-  }
   const { source, raw, target, anchor } = record;
   if (record.decodeError) {
     add("warning", "malformed-link-encoding", relative(source), raw);
@@ -1670,6 +1766,20 @@ for (const record of linkRecords) {
   if (record.symbolicBoundary) {
     add("warning", "symbolic-link-target", relative(source), raw);
     uncheckedItems.add(`Symbolic link target from ${relative(source)}: ${raw}`);
+    continue;
+  }
+  if (record.fixedHistoricalReference) {
+    checkedLocalLinks += 1;
+    if (anchor && record.historicalTargetExists) {
+      checkedAnchors += 1;
+      if (record.historicalAnchorExists === false)
+        add(
+          "error",
+          "broken-anchor",
+          relative(source),
+          `${raw} -> historical #${anchor}`,
+        );
+    }
     continue;
   }
   const targetGitlink = gitlinkRootFor(target);
@@ -1715,11 +1825,6 @@ for (const record of linkRecords) {
       add("error", "broken-anchor", relative(source), `${raw} -> #${anchor}`);
     }
   }
-}
-if (hasFixedWorkLifecycleLinksSkipped) {
-  uncheckedItems.add(
-    "Links inside Change records and Work Lifecycle Evidence (independent audit scope)",
-  );
 }
 
 const requestedDocsRoot =
@@ -1894,18 +1999,6 @@ if (candidateDocuments.length > 0) {
 const stableDocuments = canonicalDocumentStates.filter(
   ({ status }) => status === "Stable",
 );
-function currentRepositoryGitText(
-  gitArguments: readonly string[],
-): string | null {
-  const result = spawnSync("git", ["-C", root, ...gitArguments], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-    windowsHide: true,
-  });
-  if (result.status !== 0 || typeof result.stdout !== "string") return null;
-  const value = result.stdout.trim();
-  return value.length > 0 ? value : null;
-}
 function candidateVersionFromHeader(header: string): string | null {
   return (
     header.match(/^Status: Candidate \((v[^,、)\s]+)/mu)?.[1] ??
@@ -1939,12 +2032,11 @@ if (
     );
   }
 
-  const stableTagCommit = currentRepositoryGitText([
-    "rev-parse",
-    "--verify",
+  const stableTagCommit = resolveRevisionIdentity(
+    root,
     `refs/tags/${stableVersion}^{commit}`,
-  ]);
-  const currentHeadCommit = currentRepositoryGitText(["rev-parse", "HEAD"]);
+  );
+  const currentHeadCommit = resolveRevisionIdentity(root, "HEAD");
   const hasDifferentCandidateVersion = allMarkdownFiles.some((file) => {
     const header = read(file).split(/\r?\n/u).slice(0, 16).join("\n");
     const candidateVersion = candidateVersionFromHeader(header);

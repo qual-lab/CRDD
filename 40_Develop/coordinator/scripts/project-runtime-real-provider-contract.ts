@@ -3,9 +3,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
-
-import { startOwnedWindowsProcessTreeTermination } from "../src/security/docker-owned-process.ts";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../mcp/src/index.ts";
+import { startOwnedWindowsProcessTreeTermination } from "../src/security/docker-owned-process.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
 
 export type JsonRecord = Readonly<Record<string, unknown>>;

@@ -5,11 +5,11 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-  describeRepositoryRootResolutionContract,
-  REPOSITORY_ROOT_RESOLUTION_CONTRACT,
-  REPOSITORY_ROOT_RESOLUTION_CONTRACT_REVISION,
+  describeRepositoryLocationContract,
+  REPOSITORY_LOCATION_CONTRACT,
+  REPOSITORY_LOCATION_CONTRACT_REVISION,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../src/security/repository-root-resolution.ts";
+} from "../../../version-control/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -33,7 +33,7 @@ test("repository root resolution does not walk past an invalid nested Git bounda
 
   assert.throws(
     () => resolveVerifiedRepositoryRootFromWorkingDirectory(nested),
-    /repository_git_boundary_invalid/u,
+    /repository_boundary_invalid/u,
   );
 });
 
@@ -53,14 +53,14 @@ test("repository root resolution fails closed when no Git boundary exists", () =
 });
 
 test("repository root resolution contract exposes no path", () => {
-  const contract = describeRepositoryRootResolutionContract();
-  assert.equal(contract.contract, REPOSITORY_ROOT_RESOLUTION_CONTRACT);
+  const contract = describeRepositoryLocationContract();
+  assert.equal(contract.contract, REPOSITORY_LOCATION_CONTRACT);
   assert.equal(
     contract.contractRevision,
-    REPOSITORY_ROOT_RESOLUTION_CONTRACT_REVISION,
+    REPOSITORY_LOCATION_CONTRACT_REVISION,
   );
-  assert.equal(contract.processWorkingDirectoryIsRepositoryAuthority, false);
-  assert.equal(contract.invalidNestedGitBoundaryTraversalAllowed, false);
-  assert.equal(contract.repositoryPathReported, false);
+  assert.equal(contract.workingDirectoryIsRepositoryAuthority, false);
+  assert.equal(contract.invalidNestedBoundaryTraversalAllowed, false);
+  assert.equal(contract.pathReported, false);
   assert.equal(JSON.stringify(contract).includes(repositoryRoot), false);
 });

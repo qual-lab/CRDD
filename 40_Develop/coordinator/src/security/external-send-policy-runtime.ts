@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 
 import { EXTERNAL_SEND_POLICY_RELATIVE_PATH } from "../../../runtime-data/src/index.ts";
+import { readFixedSnapshotFile } from "../../../version-control/src/fixed-snapshot.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 
 import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
-import { readGitCommitFileCandidate } from "./git-object-reader.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -276,11 +278,14 @@ export function resolveRuntimeOwnedExternalSendPolicy(
     ) {
       return null;
     }
-    const file = readGitCommitFileCandidate({
-      commonDirectory: source.commonDirectory,
-      revision: source.revision,
-      relativePath: EXTERNAL_SEND_POLICY_FILE,
-    });
+    const verified = verifyRepositoryRoot(source.repositoryRoot);
+    if (verified.status !== "completed") return null;
+    const file = readFixedSnapshotFile(
+      verified.capability,
+      source.revision,
+      EXTERNAL_SEND_POLICY_FILE,
+      gitFixedSnapshotAdapter,
+    );
     if (file?.mode !== "100644") return null;
     const decoded = new TextDecoder("utf-8", { fatal: true }).decode(
       file.bytes,

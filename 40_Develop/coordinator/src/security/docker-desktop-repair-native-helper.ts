@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { createWindowsDockerDesktopRepairHelperEnvironment } from "../core/windows-child-environment.ts";
 import {
-  dockerDesktopCurrentArtifactTrustPolicySha256,
   describeDockerDesktopCurrentArtifactTrustContract,
+  dockerDesktopCurrentArtifactTrustPolicySha256,
 } from "./docker-desktop-current-artifact-trust.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "./docker-desktop-repair-native-helper-lifecycle-internal.ts";
 import {

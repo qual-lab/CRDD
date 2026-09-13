@@ -6,7 +6,12 @@ import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
   type VerifiedRepositoryRoot,
-} from "./repository-root-capability.ts";
+} from "../../../version-control/src/repository-location.ts";
+import { gitRepositoryLocalIgnoreAdapter } from "../../../version-control/src/git/repository-local-ignore-adapter.ts";
+import {
+  registerRepositoryLocalIgnore,
+  type RepositoryLocalIgnoreAdapter,
+} from "../../../version-control/src/repository-local-ignore.ts";
 import { CROS_DIRECTORY_ID } from "../core/runtime-data-contract.ts";
 
 export const REPOSITORY_MANIFEST_RELATIVE_PATH =
@@ -155,12 +160,82 @@ export function ensureRepositoryRuntimeDataArea(
   capability: VerifiedRepositoryRoot,
   area: RepositoryRuntimeArea,
 ) {
+  return ensureRepositoryRuntimeDataAreaWithAdapter(
+    capability,
+    area,
+    gitRepositoryLocalIgnoreAdapter,
+  );
+}
+
+/** Internal test seam for exact Ignore lifecycle failure injection. */
+export function ensureRepositoryRuntimeDataAreaWithAdapter(
+  capability: VerifiedRepositoryRoot,
+  area: RepositoryRuntimeArea,
+  ignoreAdapter: RepositoryLocalIgnoreAdapter,
+) {
   const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
   if (!paths || !REPOSITORY_AREAS.includes(area)) return null;
+  const ignore = registerRepositoryLocalIgnore(
+    capability,
+    ".crdd/",
+    ignoreAdapter,
+  );
+  if (ignore.status !== "registered")
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "repository_runtime_data_ignore_registration_blocked" as const,
+      effectIssued: ignore.effectIssued,
+      effectStateUnknown: ignore.effectStateUnknown,
+      effectConfirmation: ignore.effectConfirmation,
+      cleanupConfirmed: ignore.cleanupConfirmed,
+      retryAllowed: ignore.retryAllowed,
+      recoveryReference: ignore.recoveryReference,
+      repositoryPathReported: false as const,
+    });
   ensureCanonicalDirectory(paths.root);
   const directory = paths[AREA_PATH_KEYS[area]];
   ensureCanonicalDirectory(directory);
-  return Object.freeze({ repositoryRoot: paths.repositoryRoot, directory });
+  return Object.freeze({
+    status: "ready" as const,
+    repositoryRoot: paths.repositoryRoot,
+    directory,
+  });
+}
+
+export class RepositoryRuntimeDataAreaBlockedError extends Error {
+  readonly reason: string;
+  readonly effectIssued: boolean;
+  readonly effectStateUnknown: boolean;
+  readonly cleanupConfirmed: boolean;
+  readonly retryAllowed: boolean;
+  readonly recoveryReference: string | null;
+  readonly repositoryPathReported = false as const;
+
+  constructor(
+    result: Exclude<
+      ReturnType<typeof ensureRepositoryRuntimeDataAreaWithAdapter>,
+      null | { status: "ready" }
+    >,
+  ) {
+    super(result.reason);
+    this.name = "RepositoryRuntimeDataAreaBlockedError";
+    this.reason = result.reason;
+    this.effectIssued = result.effectIssued;
+    this.effectStateUnknown = result.effectStateUnknown;
+    this.cleanupConfirmed = result.cleanupConfirmed;
+    this.retryAllowed = result.retryAllowed;
+    this.recoveryReference = result.recoveryReference;
+  }
+}
+
+export function requireReadyRepositoryRuntimeDataArea(
+  result: ReturnType<typeof ensureRepositoryRuntimeDataArea>,
+  invalidReason: string,
+) {
+  if (result?.status === "ready") return result;
+  if (result?.status === "blocked")
+    throw new RepositoryRuntimeDataAreaBlockedError(result);
+  throw new Error(invalidReason);
 }
 
 export function ensureRepositoryRuntimeDataAreaFromWorkingDirectory(

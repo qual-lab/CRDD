@@ -203,7 +203,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 - Path、秘密または未検証IDを案内せず、cleanup確認済みの一般失敗をmanual Recoveryへ昇格しない。
 - 認証、Filesystem、Credential Store、EgressまたはProcess lifecycleの確認が未実装・未評価である限り非ゼロ終了し、後続Operationを開始しない。
 
-- `doctor --json`はprivate `reportVersion: 11`だけを生成し、version 10以前のaliasまたはfallbackを持たない。
+- `doctor --json`はprivate `reportVersion: 12`だけを生成し、version 11以前のaliasまたはfallbackを持たない。
 - Repository内にproduction decoder／consumerはなく、contract testはproducer schemaのexact assertionであってRuntime consumerではない。
 - production reportは通常Taskに不要なRuntime Root、永続有効化、共有Authority RootまたはProvisioningの状態を生成・投影しない。
 - 診断結果はreadiness、blockerおよび副作用なしの観測だけを表し、診断自体をAuthority、CapabilityまたはEffectの発行に使用しない。
@@ -428,7 +428,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 Root外、symbolic link／junction、Gitlink等の境界を、参照先が存在することだけで確認済みにしない。Gitによる発見とFilesystem fallbackを区別し、fallbackの理由・未確認を保持する。現在の成果物から旧Pathへ向く参照を、過去に存在したことだけで有効扱いしない。
 
-通常検査はGeneric Checker CoreとCRDD Official Current Profileだけで構成する。前者は題材に依存しないRoot、Path、Link、Anchor、IDおよび宣言構造を、後者は現在の公式正本、template、版、状態およびDirectory契約を検査する。過去移行、特定Release、個別CHG、Change／Evidence内部の歴史参照、実装package内部の契約または意味品質を検査対象に含めない。
+通常検査はGeneric Checker CoreとCRDD Official Current Profileだけで構成する。前者は題材に依存しないRoot、Path、Link、Anchor、IDおよび宣言構造を検査する。後者は現在の公式正本、template、版、状態およびDirectory契約に加え、通常のChange／Evidenceリンクと、承認済み移行表による固定履歴参照の機械的な解決を検査する。固定原文Identity、過去Git object、移行表が当時の移行を正しく表すかという真正性、実装package内部の契約または意味品質は検査対象に含めない。
 
 指摘への対応は責務を持つ文書で行い、再検査する。専門的な意味、外部サイトの現存、CRDD準拠の採否は別途確認する。[操作手順](../19_Workflows/02_Checker.md)、[設計と試験対応](../06_Architecture/checker/01_Architecture.md)へ接続する。
 

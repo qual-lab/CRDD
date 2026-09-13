@@ -1,12 +1,5 @@
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
-
-import {
-  canonicalizeProvisioningJsonValueCandidate,
-  inspectProvisioningEd25519SpkiCandidate,
-  PROVISIONING_SIGNATURE_INPUT_LIMITS,
-  verifyProvisioningEd25519Base64urlCandidate,
-} from "./provisioning-signature-primitives.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -18,6 +11,12 @@ import {
   PLATFORM_ACCESS_RUST_TOOLCHAIN,
   PLATFORM_ACCESS_TARGET,
 } from "./platform-access-release.ts";
+import {
+  canonicalizeProvisioningJsonValueCandidate,
+  inspectProvisioningEd25519SpkiCandidate,
+  PROVISIONING_SIGNATURE_INPUT_LIMITS,
+  verifyProvisioningEd25519Base64urlCandidate,
+} from "./provisioning-signature-primitives.ts";
 import {
   isCanonicalCrddGitObjectId,
   isCanonicalCrddUtcTimestamp,

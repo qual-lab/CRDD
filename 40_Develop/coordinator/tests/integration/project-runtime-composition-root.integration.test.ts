@@ -16,14 +16,42 @@ import {
   createDevelopmentProjectRuntimePublicObjectiveCandidate,
   createProjectRuntimeExecutionIntelligenceDiagnosticReporter,
   createProjectRuntimeRecoveryDiagnosticReporter,
+  projectRuntimeDataBoundaryBlocked,
   PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX,
 } from "../../src/composition/project-runtime-composition-root.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../runtime-data/src/index.ts";
 import { recordProjectRuntimeExecutionEvent } from "../../src/security/execution-intelligence-adapter.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
 import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
+
+test("Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影する", () => {
+  const error = new RepositoryRuntimeDataAreaBlockedError({
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    effectIssued: true,
+    effectStateUnknown: true,
+    effectConfirmation: "unknown",
+    cleanupConfirmed: false,
+    retryAllowed: false,
+    recoveryReference: "repository-local-ignore.test-reference",
+    repositoryPathReported: false,
+  });
+  assert.deepEqual(projectRuntimeDataBoundaryBlocked(error), {
+    contract: "crdd-coordinator/project-runtime-public-runtime/v1",
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    effectState: "unknown",
+    effectIssued: true,
+    effectStateUnknown: true,
+    retryAllowed: false,
+    recoveryIds: ["repository-local-ignore.test-reference"],
+  });
+});
 
 test("development composition uses the explicitly supplied candidate integration boundary", async (t) => {
   const root = fs.mkdtempSync(
@@ -60,6 +88,7 @@ test("development composition uses the explicitly supplied candidate integration
   let taskStarts = 0;
   let shouldBlockExecutionPublication = false;
   let shouldThrowFromPublicationObserver = false;
+  let shouldBlockCandidateObservation = false;
   const publicationObservations: object[] = [];
   const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
     issueRuntimeExecutionAuthorization: () => Object.freeze({}),
@@ -153,12 +182,22 @@ test("development composition uses the explicitly supplied candidate integration
             cleanupConfirmed: true,
           }),
         observeCanonicalRepository: () =>
-          Object.freeze({
-            status: "observed" as const,
-            repositoryRevision: revision,
-            dirty: false,
-            observedPaths: Object.freeze([]),
-          }),
+          shouldBlockCandidateObservation
+            ? Object.freeze({
+                status: "blocked" as const,
+                reason: "project_runtime_candidate_base_cleanup_unconfirmed",
+                effectIssued: false,
+                effectStateUnknown: false,
+                cleanupConfirmed: false,
+                retryAllowed: false,
+                recoveryReference: null,
+              })
+            : Object.freeze({
+                status: "observed" as const,
+                repositoryRevision: revision,
+                dirty: false,
+                observedPaths: Object.freeze([]),
+              }),
         adoptCandidate: async () => {
           throw new Error("adoption_must_not_be_used");
         },
@@ -221,6 +260,38 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(result.effectState, "settled");
   assert.equal(integrationAdapterCalls, 1);
   assert.equal(taskStarts, 1);
+  shouldBlockCandidateObservation = true;
+  const cleanupBlocked = await runtime.run(
+    {
+      requestId: "request-candidate-cleanup-blocked",
+      projectId: "project-candidate-cleanup-blocked",
+      milestoneId: "milestone-candidate-cleanup-blocked",
+      repositoryRevision: revision,
+      objective: "Confirm cleanup failure projection.",
+      acceptanceCriteria: ["cleanup failure is preserved"],
+      allowedPaths: ["result.txt"],
+      readPaths: ["result.txt"],
+      maximumConcurrency: 1,
+      maximumReplans: 0,
+      originLane: "interactive",
+      requestedExecutorProvider: "codex",
+      adoptResult: true,
+    },
+    new AbortController().signal,
+    root,
+    Object.freeze({ principalId: "local-user-test-user" }),
+  );
+  assert.equal(
+    cleanupBlocked.reason,
+    "project_runtime_candidate_base_cleanup_unconfirmed",
+  );
+  const cleanupBlockedDetails = cleanupBlocked as Record<string, unknown>;
+  assert.equal(cleanupBlockedDetails.effectIssued, false);
+  assert.equal(cleanupBlockedDetails.effectStateUnknown, false);
+  assert.equal(cleanupBlocked.cleanupConfirmed, false);
+  assert.equal(cleanupBlockedDetails.retryAllowed, false);
+  assert.equal(cleanupBlocked.manualRecoveryRequired, true);
+  assert.deepEqual(cleanupBlocked.recoveryIds, []);
   const verifiedRoot = verifyExecutionIntelligenceRepositoryRoot(root);
   assert.equal(verifiedRoot.status, "completed");
   if (verifiedRoot.status !== "completed")
@@ -231,16 +302,16 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(executionIntelligenceResult.status, "completed");
   if (executionIntelligenceResult.status !== "completed")
     throw new Error("execution_intelligence_observation_failed");
-  assert.equal(executionIntelligenceResult.events.length, 1);
+  assert.equal(executionIntelligenceResult.events.length, 2);
+  const primaryExecutionEvent = executionIntelligenceResult.events.find(
+    (entry) => entry.identity.projectId === "project-public-runtime",
+  );
   assert.equal(
-    executionIntelligenceResult.events[0]?.identity.projectId,
+    primaryExecutionEvent?.identity.projectId,
     "project-public-runtime",
   );
-  assert.equal(
-    executionIntelligenceResult.events[0]?.outcome.status,
-    "completed",
-  );
-  assert.deepEqual(executionIntelligenceResult.events[0]?.execution.provider, {
+  assert.equal(primaryExecutionEvent?.outcome.status, "completed");
+  assert.deepEqual(primaryExecutionEvent?.execution.provider, {
     state: "observed",
     value: "codex",
     source: "single_task_verified_completion",
@@ -376,8 +447,8 @@ test("development composition uses the explicitly supplied candidate integration
   );
   assert.equal(replay.status, "completed", JSON.stringify(replay));
   assert.equal(replay.reason, "project_runtime_objective_already_accepted");
-  assert.equal(taskStarts, 1);
-  assert.equal(integrationAdapterCalls, 1);
+  assert.equal(taskStarts, 2);
+  assert.equal(integrationAdapterCalls, 2);
 
   shouldBlockExecutionPublication = true;
   const publicationBlocked = await runtime.run(
@@ -406,7 +477,7 @@ test("development composition uses the explicitly supplied candidate integration
     (publicationObservations.at(-1) as { status?: unknown }).status,
     "blocked",
   );
-  assert.equal(taskStarts, 2);
+  assert.equal(taskStarts, 3);
 
   shouldThrowFromPublicationObserver = true;
   const diagnosticFailed = await runtime.run(
@@ -431,7 +502,7 @@ test("development composition uses the explicitly supplied candidate integration
   );
   assert.equal(diagnosticFailed.status, "completed");
   assert.equal(diagnosticFailed.reason, "project_runtime_milestone_accepted");
-  assert.equal(taskStarts, 3);
+  assert.equal(taskStarts, 4);
 });
 
 class ControlledDiagnosticStream extends Writable {

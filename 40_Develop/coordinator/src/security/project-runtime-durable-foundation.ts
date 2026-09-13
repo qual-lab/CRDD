@@ -12,11 +12,14 @@ import type {
   ProjectRuntimeLeasePort,
   ProjectRuntimePersistencePorts,
   ProjectRuntimePortResult,
-  ProjectRuntimeStatePort,
   ProjectRuntimeState,
+  ProjectRuntimeStatePort,
   ProjectTaskRecoveryObligation,
 } from "../../../project-runtime/src/index.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../runtime-data/src/index.ts";
 
 export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
   "crdd-coordinator/project-runtime-durable-foundation/v1" as const;
@@ -761,11 +764,13 @@ function ensureDirectory(parent: string, name: string) {
 }
 
 function storageRoot(workingDirectory: string) {
-  const area = ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-    workingDirectory,
-    "project-runtime",
+  const area = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      workingDirectory,
+      "project-runtime",
+    ),
+    "project_runtime_repository_root_invalid",
   );
-  if (!area) throw new Error("project_runtime_repository_root_invalid");
   const repositoryRoot = area.repositoryRoot;
   assertDirectory(repositoryRoot);
   const runtime = area.directory;

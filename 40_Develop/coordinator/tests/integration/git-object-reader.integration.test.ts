@@ -3,7 +3,18 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-
+import {
+  inspectGitCommitTreeCandidate,
+  materializeGitCommitTreeCandidate as materializeVersionControlTree,
+  readGitCommitFileCandidate,
+} from "../../../version-control/src/git/object-reader.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+import {
+  materializeFixedSnapshotCandidate,
+  verifyCandidateOutputDirectory,
+} from "../../../version-control/src/fixed-snapshot.ts";
+import { resolveRepositoryGitLayout } from "../../../version-control/src/git/repository-layout.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
@@ -13,20 +24,22 @@ import {
   verifyOwnedOperationManagementMountBinding,
 } from "../../src/security/execution-environment.ts";
 import {
-  inspectGitCommitTreeCandidate,
-  materializeGitCommitTreeCandidate,
-  readGitCommitFileCandidate,
-} from "../../src/security/git-object-reader.ts";
-import { resolveRepositoryGitLayout } from "../../src/security/repository-git-layout-internal.ts";
-import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
   inspectRepositoryRevisionCandidate,
 } from "../../src/security/repository-operation-runtime.ts";
+import { containsRecognizedSecretMaterial } from "../../src/security/secret-material-policy.ts";
 import {
   createGitPackedObjectFixture,
   mutateGitPackedObjectFixture,
 } from "../fixtures/git-packed-object-fixture.ts";
+
+function materializeProtectedGitCommitTreeCandidate(candidate: unknown) {
+  return materializeVersionControlTree(
+    candidate,
+    containsRecognizedSecretMaterial,
+  );
+}
 
 for (const kind of ["base", "ofs", "ref"] as const) {
   test(`Git生成pack-only ${kind}は公開3APIで完全bytesを復元する`, {
@@ -69,7 +82,7 @@ for (const kind of ["base", "ofs", "ref"] as const) {
     }
     const workspace = path.join(fixture.root, "workspace");
     fs.mkdirSync(workspace);
-    const result = materializeGitCommitTreeCandidate({
+    const result = materializeProtectedGitCommitTreeCandidate({
       commonDirectory,
       revision,
       workspace,
@@ -133,7 +146,7 @@ for (const mutation of [
     const workspace = path.join(fixture.root, "workspace");
     fs.mkdirSync(workspace);
     assert.equal(
-      materializeGitCommitTreeCandidate({
+      materializeProtectedGitCommitTreeCandidate({
         commonDirectory,
         revision,
         workspace,
@@ -152,7 +165,7 @@ test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合
   assert.equal(repository?.status, "candidate");
   assert.equal(repository?.externalGitCliUsed, false);
   assert.equal(repository?.repositoryPathReported, false);
-  assert.equal(repository?.repositoryKind, layout.kind);
+  assert.equal(repository?.repositoryKind, "primary");
   const exact = inspectGitCommitTreeCandidate({
     commonDirectory: layout.commonDirectory.realPath,
     revision: repository?.commit,
@@ -188,14 +201,27 @@ test("現行CRDDのpacked objectから明示Read Projectionだけを隔離worksp
     managementCapability,
     mountCapability,
   );
-  const materialized = materializeGitCommitTreeCandidate({
-    commonDirectory: source.commonDirectory,
-    revision: source.revision,
-    workspace: binding.mounts.workspace,
-    readPaths: ["README.md"],
-  });
+  const verified = verifyRepositoryRoot(source.repositoryRoot);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") return;
+  const output = verifyCandidateOutputDirectory(
+    binding.mounts.workspace,
+    mountCapability,
+    binding.mounts.workspace,
+  );
+  assert.equal(output.status, "completed");
+  if (output.status !== "completed") return;
+  const materialized = materializeFixedSnapshotCandidate(
+    verified.capability,
+    source.revision,
+    mountCapability,
+    output.capability,
+    ["README.md"],
+    containsRecognizedSecretMaterial,
+    gitFixedSnapshotAdapter,
+  );
   assert.equal(materialized?.status, "materialized");
-  assert.equal(materialized?.baseCommit, repository.revision);
+  assert.equal(materialized?.baseRevisionIdentity, repository.revision);
   assert.equal(materialized?.fileCount, 1);
   assert.equal(
     fs

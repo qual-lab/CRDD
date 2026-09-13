@@ -4,13 +4,17 @@ import path from "node:path";
 import { types as utilTypes } from "node:util";
 import {
   ensureRepositoryRuntimeDataArea,
+  RepositoryRuntimeDataAreaBlockedError,
+  requireReadyRepositoryRuntimeDataArea,
   VERIFICATION_RELATIVE_PATH,
-  verifyRepositoryRoot,
 } from "../../../runtime-data/src/index.ts";
+import {
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/repository-location.ts";
 import { isDockerIsolationRecoveryIdCandidate } from "../security/docker-isolation.ts";
 import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
 import { inspectRepositoryRevisionCandidate } from "../security/repository-operation-runtime.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../security/repository-root-resolution.ts";
 import { isCanonicalSignedRunnerRecoveryId } from "../security/signed-runner-safety-observation.ts";
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
 
@@ -347,12 +351,13 @@ export async function runRecordedVerification<T, E>(
     const verifiedRuntimeRoot = verifyRepositoryRoot(root);
     if (verifiedRuntimeRoot.status !== "completed")
       throw new Error("verification_record_runtime_path_invalid");
-    const verificationArea = ensureRepositoryRuntimeDataArea(
-      verifiedRuntimeRoot.capability,
-      "verification",
+    const verificationArea = requireReadyRepositoryRuntimeDataArea(
+      ensureRepositoryRuntimeDataArea(
+        verifiedRuntimeRoot.capability,
+        "verification",
+      ),
+      "verification_record_runtime_path_invalid",
     );
-    if (!verificationArea)
-      throw new Error("verification_record_runtime_path_invalid");
     const revision = inspectRepositoryRevisionCandidate(root);
     if (!revision) throw new Error("verification_record_revision_unavailable");
     directories = [
@@ -380,13 +385,23 @@ export async function runRecordedVerification<T, E>(
       authorityConferred: false,
     });
     writeNewRecord(directories, "started.json", started);
-  } catch {
+  } catch (error) {
     return {
       result: null,
       recordId,
       executionOutcome: "not_started" as const,
       recordingOutcome: "start_failed" as const,
       exitCode: 2,
+      ...(error instanceof RepositoryRuntimeDataAreaBlockedError
+        ? {
+            reason: error.reason,
+            effectIssued: error.effectIssued,
+            cleanupConfirmed: error.cleanupConfirmed,
+            effectStateUnknown: error.effectStateUnknown,
+            retryAllowed: error.retryAllowed,
+            recoveryReference: error.recoveryReference,
+          }
+        : {}),
     };
   }
   let executionOutcome: "returned" | "threw" = "returned";

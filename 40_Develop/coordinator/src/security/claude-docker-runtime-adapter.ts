@@ -13,14 +13,14 @@ import {
   verifyOwnedOperationManagementMountBinding,
 } from "./execution-environment.ts";
 import {
+  issueRuntimeOwnedProviderAuthority,
+  revokeRuntimeOwnedProviderAuthority,
+} from "./provider-authority-runtime.ts";
+import {
   activateRuntimeOwnedProviderHomeMount,
   borrowRuntimeOwnedActiveProviderHomeMountSource,
   completeRuntimeOwnedProviderHomeMount,
 } from "./provider-home-mount-grant-runtime.ts";
-import {
-  issueRuntimeOwnedProviderAuthority,
-  revokeRuntimeOwnedProviderAuthority,
-} from "./provider-authority-runtime.ts";
 import { selectProviderModelCandidate } from "./provider-model-selection-runtime.ts";
 import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-runtime.ts";
 

@@ -13,8 +13,10 @@ import {
 } from "./verified-repository-root.ts";
 import {
   ensureRepositoryRuntimeDataArea,
-  type VerifiedRepositoryRoot,
+  RepositoryRuntimeDataAreaBlockedError,
+  requireReadyRepositoryRuntimeDataArea,
 } from "../../../runtime-data/src/index.ts";
+import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 
 const MAXIMUM_EVENTS = 10_000;
 const MAXIMUM_TOTAL_BYTES = 32 * 1024 * 1024;
@@ -28,19 +30,25 @@ export type ExecutionIntelligencePublicationResult =
       reason: "execution_event_recorded" | "execution_event_already_recorded";
       eventId: string;
       effectState: "settled";
+      effectIssued: true;
+      effectStateUnknown: false;
       cleanupConfirmed: true;
       retryAllowed: false;
       manualRecoveryRequired: false;
       residualArtifactIds: readonly [];
+      recoveryReference: null;
     }>
   | Readonly<{
       status: "blocked";
       reason: string;
       effectState: "no_effect" | "settled" | "unknown";
+      effectIssued: boolean;
+      effectStateUnknown: boolean;
       cleanupConfirmed: boolean;
       retryAllowed: boolean;
       manualRecoveryRequired: boolean;
       residualArtifactIds: readonly string[];
+      recoveryReference: string | null;
     }>;
 
 type StoreLayout = Readonly<{
@@ -54,6 +62,8 @@ type MutationLock = Readonly<{
   owner: string;
   identity: string;
 }>;
+
+type RuntimeDataAreaResolver = typeof ensureRepositoryRuntimeDataArea;
 
 class MutationBoundaryError extends Error {
   readonly residualArtifactIds: readonly string[];
@@ -101,15 +111,33 @@ function storeLayout(
   rootCapability: VerifiedExecutionRepositoryRoot,
   shouldCreate: boolean,
   operationId: string | null = null,
+  resolveArea: RuntimeDataAreaResolver = ensureRepositoryRuntimeDataArea,
 ): StoreLayout | null {
   const repositoryRoot = resolveVerifiedExecutionRepositoryRoot(rootCapability);
   if (repositoryRoot === null)
     throw new Error("execution_store_root_capability_invalid");
-  const area = ensureRepositoryRuntimeDataArea(
+  let observedArea = resolveArea(
     rootCapability as VerifiedRepositoryRoot,
     "execution",
   );
-  if (!area || area.repositoryRoot !== repositoryRoot)
+  for (
+    let attempt = 0;
+    observedArea?.status === "blocked" &&
+    observedArea.retryAllowed &&
+    attempt < LOCK_ATTEMPTS;
+    attempt += 1
+  ) {
+    Atomics.wait(waitArray, 0, 0, LOCK_RETRY_MS);
+    observedArea = resolveArea(
+      rootCapability as VerifiedRepositoryRoot,
+      "execution",
+    );
+  }
+  const area = requireReadyRepositoryRuntimeDataArea(
+    observedArea,
+    "execution_store_root_capability_invalid",
+  );
+  if (area.repositoryRoot !== repositoryRoot)
     throw new Error("execution_store_root_capability_invalid");
   const executionDirectory = area.directory;
   const operationDirectory =
@@ -208,15 +236,27 @@ function blockedPublication(
   cleanupConfirmed: boolean,
   residualArtifactIds: readonly string[],
   retryAllowed = false,
+  boundary: Readonly<{
+    effectIssued?: boolean;
+    effectStateUnknown?: boolean;
+    recoveryReference?: string | null;
+  }> = {},
 ): ExecutionIntelligencePublicationResult {
+  const effectStateUnknown =
+    boundary.effectStateUnknown ?? effectState === "unknown";
+  const recoveryReference = boundary.recoveryReference ?? null;
   return Object.freeze({
     status: "blocked" as const,
     reason,
     effectState,
+    effectIssued: boundary.effectIssued ?? effectState !== "no_effect",
+    effectStateUnknown,
     cleanupConfirmed,
     retryAllowed,
-    manualRecoveryRequired: !cleanupConfirmed,
+    manualRecoveryRequired:
+      effectStateUnknown || !cleanupConfirmed || recoveryReference !== null,
     residualArtifactIds: Object.freeze([...residualArtifactIds]),
+    recoveryReference,
   });
 }
 
@@ -232,10 +272,13 @@ function existingPublication(
         reason: "execution_event_already_recorded" as const,
         eventId,
         effectState: "settled" as const,
+        effectIssued: true as const,
+        effectStateUnknown: false as const,
         cleanupConfirmed: true as const,
         retryAllowed: false as const,
         manualRecoveryRequired: false as const,
         residualArtifactIds: Object.freeze([]) as readonly [],
+        recoveryReference: null,
       })
     : blockedPublication(
         "execution_event_identity_conflict",
@@ -245,9 +288,10 @@ function existingPublication(
       );
 }
 
-export function writeExecutionIntelligenceEvent(
+export function writeExecutionIntelligenceEventWithRuntimeDataArea(
   rootCapability: VerifiedExecutionRepositoryRoot,
   value: unknown,
+  resolveArea: RuntimeDataAreaResolver,
 ): ExecutionIntelligencePublicationResult {
   const event = inspectExecutionIntelligenceEvent(value);
   if (!event)
@@ -263,6 +307,7 @@ export function writeExecutionIntelligenceEvent(
       rootCapability,
       true,
       event.identity.operationId,
+      resolveArea,
     );
     if (!layout) throw new Error("execution_store_directory_missing");
     if (layout.eventsDirectory === null)
@@ -314,20 +359,36 @@ export function writeExecutionIntelligenceEvent(
         effectState = "unknown";
       }
     }
+    const runtimeDataFailure =
+      error instanceof RepositoryRuntimeDataAreaBlockedError ? error : null;
     const boundaryResiduals =
       error instanceof MutationBoundaryError
         ? error.residualArtifactIds
         : Object.freeze([]);
     result = blockedPublication(
-      error instanceof MutationBoundaryError
-        ? error.message
-        : "execution_event_store_unavailable",
-      effectState,
-      temporary === null && boundaryResiduals.length === 0,
+      runtimeDataFailure?.reason ??
+        (error instanceof MutationBoundaryError
+          ? error.message
+          : "execution_event_store_unavailable"),
+      runtimeDataFailure?.effectStateUnknown
+        ? "unknown"
+        : runtimeDataFailure?.effectIssued
+          ? "settled"
+          : effectState,
+      runtimeDataFailure?.cleanupConfirmed ??
+        (temporary === null && boundaryResiduals.length === 0),
       [
         ...(temporary === null ? [] : [path.basename(temporary)]),
         ...boundaryResiduals,
       ],
+      runtimeDataFailure?.retryAllowed ?? false,
+      runtimeDataFailure
+        ? {
+            effectIssued: runtimeDataFailure.effectIssued,
+            effectStateUnknown: runtimeDataFailure.effectStateUnknown,
+            recoveryReference: runtimeDataFailure.recoveryReference,
+          }
+        : {},
     );
   } finally {
     if (temporary !== null) {
@@ -367,6 +428,17 @@ export function writeExecutionIntelligenceEvent(
       false,
       ["execution-store-mutation-lock"],
     )
+  );
+}
+
+export function writeExecutionIntelligenceEvent(
+  rootCapability: VerifiedExecutionRepositoryRoot,
+  value: unknown,
+): ExecutionIntelligencePublicationResult {
+  return writeExecutionIntelligenceEventWithRuntimeDataArea(
+    rootCapability,
+    value,
+    ensureRepositoryRuntimeDataArea,
   );
 }
 
@@ -423,13 +495,14 @@ function readFromExecutionDirectory(directory: string) {
   });
 }
 
-export function readExecutionIntelligence(
+export function readExecutionIntelligenceWithRuntimeDataArea(
   rootCapability: VerifiedExecutionRepositoryRoot,
+  resolveArea: RuntimeDataAreaResolver,
 ):
   | ReturnType<typeof readFromExecutionDirectory>
-  | Readonly<{ status: "blocked"; reason: string }> {
+  | Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }> {
   try {
-    const layout = storeLayout(rootCapability, false);
+    const layout = storeLayout(rootCapability, false, null, resolveArea);
     if (layout === null) {
       const emptySummary = summarizeExecutionIntelligence([]);
       if (!emptySummary) throw new Error("execution_empty_summary_invalid");
@@ -442,10 +515,35 @@ export function readExecutionIntelligence(
       });
     }
     return readFromExecutionDirectory(layout.executionDirectory);
-  } catch {
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "execution_event_store_observation_failed" as const,
-    });
+  } catch (error) {
+    const runtimeDataFailure =
+      error instanceof RepositoryRuntimeDataAreaBlockedError ? error : null;
+    return blockedPublication(
+      runtimeDataFailure?.reason ?? "execution_event_store_observation_failed",
+      runtimeDataFailure?.effectStateUnknown
+        ? "unknown"
+        : runtimeDataFailure?.effectIssued
+          ? "settled"
+          : "no_effect",
+      runtimeDataFailure?.cleanupConfirmed ?? true,
+      [],
+      runtimeDataFailure?.retryAllowed ?? false,
+      runtimeDataFailure
+        ? {
+            effectIssued: runtimeDataFailure.effectIssued,
+            effectStateUnknown: runtimeDataFailure.effectStateUnknown,
+            recoveryReference: runtimeDataFailure.recoveryReference,
+          }
+        : {},
+    ) as Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }>;
   }
+}
+
+export function readExecutionIntelligence(
+  rootCapability: VerifiedExecutionRepositoryRoot,
+) {
+  return readExecutionIntelligenceWithRuntimeDataArea(
+    rootCapability,
+    ensureRepositoryRuntimeDataArea,
+  );
 }

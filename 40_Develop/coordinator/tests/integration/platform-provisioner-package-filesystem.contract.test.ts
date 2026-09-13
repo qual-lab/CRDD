@@ -227,6 +227,8 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     "40_Develop/execution-intelligence/src",
     "40_Develop/runtime-data/package.json",
     "40_Develop/runtime-data/src",
+    "40_Develop/version-control/package.json",
+    "40_Develop/version-control/src",
     "template/tools",
     "README.md",
   ]) {

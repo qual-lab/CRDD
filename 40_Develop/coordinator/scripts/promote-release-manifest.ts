@@ -1,10 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  resolveRepositoryRuntimeDataPaths,
-  verifyRepositoryRoot,
-} from "../../runtime-data/src/index.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../../runtime-data/src/index.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
 
 import {
   loadPlatformProvisionerManifestEnvelopeForVerification,

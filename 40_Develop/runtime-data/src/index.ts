@@ -1,11 +1,12 @@
 export * from "./core/runtime-data-contract.ts";
-export * from "./platform/repository-root-capability.ts";
 export {
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
   VERIFICATION_RELATIVE_PATH,
   ensureRepositoryRuntimeDataArea,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+  RepositoryRuntimeDataAreaBlockedError,
   resolveCrosRuntimeRoots,
   resolveRepositoryRuntimeDataPaths,
   resolveRepositoryRuntimeDataPathsFromWorkingDirectory,

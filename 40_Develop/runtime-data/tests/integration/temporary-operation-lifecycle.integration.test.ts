@@ -12,8 +12,8 @@ import {
   settleTemporaryOperation,
   type TemporaryOperationRecoveryReference,
   verifyTemporaryOperationEvidencePromotion,
-  verifyRepositoryRoot,
 } from "../../src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { settleTemporaryOperationWithRemovalForVerification } from "../../src/store/temporary-operation-store.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");

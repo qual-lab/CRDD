@@ -2,9 +2,15 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import {
+  materializeFixedSnapshotCandidate,
+  verifyCandidateOutputDirectory,
+} from "../../../version-control/src/fixed-snapshot.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
+
 import { persistRuntimeOwnedCandidateBundle } from "./candidate-bundle-store.ts";
 import { verifyOwnedOperationManagementMountBinding } from "./execution-environment.ts";
-import { materializeGitCommitTreeCandidate } from "./git-object-reader.ts";
 import {
   borrowRuntimeOwnedRepositorySource,
   verifyRuntimeOwnedRepositoryBindingCapability,
@@ -361,18 +367,47 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
     const readPaths =
       rawReadPaths === undefined ? null : allowedPaths(rawReadPaths);
     if (rawReadPaths !== undefined && !readPaths) return null;
-    const materialized = materializeGitCommitTreeCandidate({
-      commonDirectory: source.commonDirectory,
-      revision: source.revision,
-      workspace: binding.mounts.workspace,
-      ...(readPaths ? { readPaths } : {}),
-    });
+    const verified = verifyRepositoryRoot(source.repositoryRoot);
+    if (verified.status !== "completed") return null;
+    const output = verifyCandidateOutputDirectory(
+      binding.mounts.workspace,
+      mountCapability,
+      binding.mounts.workspace,
+    );
+    if (output.status !== "completed")
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "repository_workspace_candidate_output_invalid" as const,
+        effectIssued: false,
+        effectStateUnknown: false,
+        cleanupConfirmed: true,
+        recoveryReference: null,
+        pathReported: false,
+      });
+    const materialized = materializeFixedSnapshotCandidate(
+      verified.capability,
+      source.revision,
+      mountCapability,
+      output.capability,
+      readPaths,
+      containsRecognizedSecretMaterial,
+      gitFixedSnapshotAdapter,
+    );
     if (!materialized) return null;
     if (materialized.status === "blocked") {
       return Object.freeze({
         status: "blocked" as const,
         reason:
-          "repository_read_projection_recognized_secret_rejected" as const,
+          materialized.reason === "fixed_snapshot_content_policy_rejected"
+            ? ("repository_read_projection_recognized_secret_rejected" as const)
+            : materialized.reason,
+        effectIssued: materialized.effectIssued,
+        effectStateUnknown: materialized.effectStateUnknown,
+        cleanupConfirmed: materialized.cleanupConfirmed,
+        recoveryReference:
+          materialized.effectStateUnknown || !materialized.cleanupConfirmed
+            ? `repository-workspace.${binding.operationId}`
+            : null,
         pathReported: false,
       });
     }
@@ -389,8 +424,8 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
       mountCapability,
       repositoryBindingCapability,
       operationId: binding.operationId,
-      baseCommit: materialized.baseCommit,
-      baseTree: materialized.baseTree,
+      baseCommit: materialized.baseRevisionIdentity,
+      baseTree: materialized.baseSnapshotIdentity,
       baseManifestHash,
       baseEntries: entryMap(baseInventory),
     });

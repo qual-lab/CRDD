@@ -1,4 +1,9 @@
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import {
+  changedPaths,
+  gitLocalChangeSetAdapter,
+  observeLocalChangeSet,
+  verifyRepositoryRoot,
+} from "../version-control/src/index.ts";
 
 export const regressionStageOrder = [
   "static",
@@ -133,10 +138,6 @@ export function executeRegressionStages(
   return results;
 }
 
-type GitResult = Pick<SpawnSyncReturns<string>, "error" | "status" | "stdout">;
-
-export type GitRunner = (gitArguments: readonly string[]) => GitResult;
-
 export function normalizeExplicitChangedPaths(
   changedPaths: readonly string[],
 ): readonly string[] {
@@ -165,43 +166,14 @@ function pathIsAbsolute(value: string): boolean {
   return /^(?:[A-Za-z]:|\/)/u.test(value);
 }
 
-function parseNullSeparatedPaths(
-  result: GitResult,
-  observation: string,
-): string[] {
-  if (result.error !== undefined) throw result.error;
-  if (result.status !== 0)
-    throw new Error(`regression_runner_git_observation_failed:${observation}`);
-  return result.stdout.split("\0").filter(Boolean);
-}
-
-export function collectChangedPathsFromGit(
+export function collectChangedPaths(
   repositoryRoot: string,
   base: string,
-  runGit: GitRunner = (gitArguments) =>
-    spawnSync("git", gitArguments, {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-      windowsHide: true,
-    }),
 ): readonly string[] {
-  const observations = [
-    [
-      "base_to_head",
-      ["diff", "--name-only", "--no-renames", "-z", `${base}...HEAD`],
-    ],
-    [
-      "head_to_index",
-      ["diff", "--cached", "--name-only", "--no-renames", "-z", "HEAD"],
-    ],
-    ["index_to_worktree", ["diff", "--name-only", "--no-renames", "-z"]],
-    ["untracked", ["ls-files", "--others", "--exclude-standard", "-z"]],
-  ] as const;
-  const changedPaths = new Set<string>();
-  for (const [name, gitArguments] of observations)
-    for (const entry of parseNullSeparatedPaths(runGit(gitArguments), name))
-      changedPaths.add(entry.replaceAll("\\", "/"));
-  return [...changedPaths].sort((left, right) =>
-    left < right ? -1 : left > right ? 1 : 0,
+  const verified = verifyRepositoryRoot(repositoryRoot);
+  if (verified.status !== "completed")
+    throw new Error("regression_runner_repository_invalid");
+  return changedPaths(
+    observeLocalChangeSet(verified.capability, base, gitLocalChangeSetAdapter),
   );
 }

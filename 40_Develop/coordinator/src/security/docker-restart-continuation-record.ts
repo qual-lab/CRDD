@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 import { isSha256Hex } from "./docker-recovery-identity.ts";
+import { parseDockerRestartHandoffRecord } from "./docker-restart-handoff-record.ts";
 import {
+  createDockerRestartRecord,
   type DockerRestartBinding,
   type DockerRestartRecord,
   parseDockerRestartRecord,
   validateDockerRestartRecordChain,
-  createDockerRestartRecord,
 } from "./docker-restart-record.ts";
-import { parseDockerRestartHandoffRecord } from "./docker-restart-handoff-record.ts";
 
 type Continuation = Readonly<{
   contract: "crdd-coordinator/docker-restart-continuation";

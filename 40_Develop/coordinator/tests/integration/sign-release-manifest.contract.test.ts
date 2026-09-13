@@ -14,8 +14,8 @@ import {
   ReleaseStagingManifestError,
 } from "../../scripts/release-staging-manifest.ts";
 import {
-  preflightReleaseManifest,
   signReleaseManifest as consumeReleaseManifestPreflightAuthorization,
+  preflightReleaseManifest,
 } from "../../scripts/sign-release-manifest.ts";
 import {
   diagnoseRuntimeDistributionFilesystemForVerification,
@@ -175,6 +175,7 @@ function runtimeDistributionFixture(prefix: string) {
     "project-runtime",
     "execution-intelligence",
     "runtime-data",
+    "version-control",
   ] as const) {
     fs.cpSync(
       path.join(repositoryRoot, "40_Develop", component),
@@ -299,7 +300,7 @@ test("production署名sourceはTrust差替え、検証skipまたはtest hookを�
     /(?:execFile|spawn)Sync\(\s*["']git["']/u.test(signerSource),
     false,
   );
-  assert.match(signerSource, /inspectGitCommitTreeCandidate/u);
+  assert.match(signerSource, /inspectRepositoryFixedSnapshot/u);
   assert.match(
     signerSource,
     /inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate\(\s*distributionRoot,?\s*\)/u,

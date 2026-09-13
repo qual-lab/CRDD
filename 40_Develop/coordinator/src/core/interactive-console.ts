@@ -1,16 +1,16 @@
 import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import tty from "node:tty";
 import { fileURLToPath } from "node:url";
-import path from "node:path";
 import {
   INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
   readInteractiveConsoleLineFromStream,
 } from "./interactive-console-reader.ts";
 import { runInteractiveConsoleReaderLifecycle } from "./interactive-console-reader-lifecycle-internal.ts";
-import { createInteractiveConsoleReaderEnvironment } from "./windows-child-environment.ts";
-import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "./runtime-process-safety-state.ts";
 import { spawnRuntimeLocalTypeScriptChild } from "./runtime-local-typescript-child-entrypoints.ts";
+import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "./runtime-process-safety-state.ts";
+import { createInteractiveConsoleReaderEnvironment } from "./windows-child-environment.ts";
 
 export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 

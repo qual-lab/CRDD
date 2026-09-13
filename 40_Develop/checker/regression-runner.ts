@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildRegressionStagePlan,
-  collectChangedPathsFromGit,
+  collectChangedPaths,
   createRegressionStageExecutor,
   executeRegressionStages,
   normalizeExplicitChangedPaths,
@@ -114,7 +114,8 @@ function runNodeTests(
     | "execution-intelligence"
     | "mcp"
     | "project-runtime"
-    | "runtime-data",
+    | "runtime-data"
+    | "version-control",
   entries: readonly TestCatalogEntry[],
   options: Readonly<{
     testNamePattern?: string;
@@ -193,7 +194,12 @@ function runStaticStage(
     const status = runNpmScript("check", root);
     if (status !== 0) return status;
   }
-  for (const owner of ["mcp", "project-runtime", "runtime-data"] as const)
+  for (const owner of [
+    "mcp",
+    "project-runtime",
+    "runtime-data",
+    "version-control",
+  ] as const)
     if (owners.has(owner)) {
       const status = runNpmScript(
         "check",
@@ -230,6 +236,7 @@ function runLevelStage(
     "mcp",
     "project-runtime",
     "runtime-data",
+    "version-control",
   ] as const) {
     const ownerEntries = levelEntries.filter((entry) => entry.owner === owner);
     const status = runNodeTests(
@@ -300,12 +307,13 @@ try {
         "40_Develop/mcp/package.json",
         "40_Develop/project-runtime/package.json",
         "40_Develop/runtime-data/package.json",
+        "40_Develop/version-control/package.json",
         "40_Develop/platform-access/Cargo.toml",
       ]
     : explicitChangedPaths.length > 0
       ? explicitChangedPaths
       : base !== null
-        ? collectChangedPathsFromGit(repositoryRoot, base)
+        ? collectChangedPaths(repositoryRoot, base)
         : [];
   if (changedPaths.length === 0) {
     writeJson({

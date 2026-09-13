@@ -7,7 +7,7 @@ import test from "node:test";
 import {
   buildRegressionStagePlan,
   createRegressionStageExecutor,
-  collectChangedPathsFromGit,
+  collectChangedPaths,
   executeRegressionStages,
 } from "../../regression-execution.ts";
 
@@ -427,7 +427,7 @@ test("Git変更集合はcommit・index・worktree・未追跡とrename両側を�
     git("mv", "renamed-old.txt", "renamed-new.txt");
     fs.writeFileSync(path.join(root, "worktree.txt"), "worktree\n");
     fs.writeFileSync(path.join(root, "untracked.txt"), "untracked\n");
-    const changedPaths = collectChangedPathsFromGit(root, base);
+    const observedPaths = collectChangedPaths(root, base);
     for (const expected of [
       "committed.txt",
       "renamed-old.txt",
@@ -435,24 +435,8 @@ test("Git変更集合はcommit・index・worktree・未追跡とrename両側を�
       "worktree.txt",
       "untracked.txt",
     ])
-      assert.ok(changedPaths.includes(expected), expected);
+      assert.ok(observedPaths.includes(expected), expected);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
-});
-
-test("Git変更集合は一つの観測失敗を部分成功にしない", () => {
-  let call = 0;
-  assert.throws(
-    () =>
-      collectChangedPathsFromGit("C:/unused", "main", () => {
-        call += 1;
-        return {
-          error: undefined,
-          status: call === 3 ? 1 : 0,
-          stdout: call === 1 ? "first.ts\0" : "",
-        };
-      }),
-    /regression_runner_git_observation_failed:index_to_worktree/u,
-  );
 });

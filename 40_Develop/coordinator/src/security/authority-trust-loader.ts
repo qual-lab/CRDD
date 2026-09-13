@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 
 import { decodeCanonicalAuthorityRegistryBytes } from "./authority-grant-verifier.ts";
-import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.ts";
 
 export const AUTHORITY_TRUST_POLICY_CONTRACT =
   "crdd-coordinator/authority-trust-policy";

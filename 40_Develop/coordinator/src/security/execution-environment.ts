@@ -1,21 +1,21 @@
-import fs from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  loadHostRecoveryRecordByToken,
-  parseHostRecoveryToken,
-} from "./host-recovery-record.ts";
-import {
-  acquireRuntimeOwnedHostOperationKernelLock,
-  acquireRuntimeOwnedHostOperationSupervisorLock,
-} from "./candidate-store-kernel-lock.ts";
+import { reduceHostGenerationLossTransition } from "../core/host-generation-loss-transition.ts";
 import {
   beginRuntimeProcessEffectDrain,
   endRuntimeProcessEffectDrain,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../core/runtime-process-safety-state.ts";
-import { reduceHostGenerationLossTransition } from "../core/host-generation-loss-transition.ts";
+import {
+  acquireRuntimeOwnedHostOperationKernelLock,
+  acquireRuntimeOwnedHostOperationSupervisorLock,
+} from "./candidate-store-kernel-lock.ts";
+import {
+  loadHostRecoveryRecordByToken,
+  parseHostRecoveryToken,
+} from "./host-recovery-record.ts";
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",

@@ -36,6 +36,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "platform-access",
       "project-runtime",
       "runtime-data",
+      "version-control",
     ],
   );
   for (const block of catalog.integrationBlocks) {

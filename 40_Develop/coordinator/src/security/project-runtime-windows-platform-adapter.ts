@@ -1,18 +1,18 @@
 import {
+  PROJECT_RUNTIME_PLATFORM_CONTRACT,
+  PROJECT_RUNTIME_PLATFORM_CONTRACT_REVISION,
+  type ProjectRuntimePlatformAdapter,
+  type ProjectRuntimePlatformBoundary,
+} from "../../../project-runtime/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository-location.ts";
+import {
   createWindowsDockerCliEnvironment,
   createWindowsDockerDesktopRepairHelperEnvironment,
   createWindowsHostOperationSupervisorEnvironment,
   createWindowsNativeHelperEnvironment,
 } from "../core/windows-child-environment.ts";
 import { inspectRuntimeOwnedDockerTaskRecoveryState } from "./docker-recovery-runtime.ts";
-import {
-  PROJECT_RUNTIME_PLATFORM_CONTRACT,
-  PROJECT_RUNTIME_PLATFORM_CONTRACT_REVISION,
-  type ProjectRuntimePlatformAdapter,
-  type ProjectRuntimePlatformBoundary,
-} from "../../../project-runtime/src/index.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "./provider-home-windows-adapter.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
 import { compileWindowsRootObservationCandidate } from "./root-observation.ts";
 
 export const PROJECT_RUNTIME_WINDOWS_PLATFORM_FAMILY = "windows" as const;
@@ -63,7 +63,7 @@ const REPOSITORY_ROOT_BLOCKED_REASONS = new Set([
   "repository_root_observation_failed",
   "verified_repository_root_required",
   "repository_root_identity_mismatch",
-  "repository_git_boundary_invalid",
+  "repository_boundary_invalid",
 ]);
 
 const CHILD_ENVIRONMENT_PROFILES = new Set([

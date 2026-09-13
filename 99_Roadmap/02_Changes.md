@@ -46,6 +46,7 @@
 | `CHG-000068` | 工程別の図面処置と意図引き渡し | [本文](./Changes/CHG-000068/change.md) |
 | `CHG-000069` | v0.20.1 リリース状態伝播 | [本文](./Changes/CHG-000069/change.md) |
 | `CHG-000070` | Work LifecycleとEvidence所有の再編 | [本文](./Changes/CHG-000070/change.md) |
+| `CHG-000071` | Version Control PortとGit Adapter | [本文](./Changes/CHG-000071/change.md) |
 
 <!-- crdd-change-aggregate-index:end -->
 
@@ -61,7 +62,7 @@
 | v0.19.0 ブランドアイコン | [CHG-000060](./Changes/CHG-000060/change.md) | 他の変更意図と分離する |
 | v0.20.0 各変更 | [CHG-000061](./Changes/CHG-000061/change.md)、[CHG-000062](./Changes/CHG-000062/change.md)、[CHG-000063](./Changes/CHG-000063/change.md)、[CHG-000064](./Changes/CHG-000064/change.md)、[CHG-000065](./Changes/CHG-000065/change.md) | 2026-09-11公開。v0.18の固定統合集合へ追加しない |
 | v0.20.1 リリース状態伝播 | [CHG-000069](./Changes/CHG-000069/change.md) | v0.20.0の公開状態表示を是正し、Runtime実行集合を変更しない文書修正版 |
-| v0.21.0 各変更 | [CHG-000066](./Changes/CHG-000066/change.md)、[CHG-000067](./Changes/CHG-000067/change.md)、[CHG-000068](./Changes/CHG-000068/change.md)、[CHG-000070](./Changes/CHG-000070/change.md) | Runtime Data、Project Operation、工程間の意図引継ぎ、Work Lifecycle／Evidence所有をそれぞれ独立して追跡する |
+| v0.21.0 各変更 | [CHG-000066](./Changes/CHG-000066/change.md)、[CHG-000067](./Changes/CHG-000067/change.md)、[CHG-000068](./Changes/CHG-000068/change.md)、[CHG-000070](./Changes/CHG-000070/change.md)、[CHG-000071](./Changes/CHG-000071/change.md) | Runtime Data、Project Operation、工程間の意図引継ぎ、Work Lifecycle／Evidence所有、Version Control境界をそれぞれ独立して追跡する |
 | 統合済みの旧CHG IDの移行先 | [統合済み旧ID](#統合済み旧id) | 旧本文が必要な場合だけ固定Commitから`git show`する |
 | SHA-256、固定byte、tag、旧Path | 後続の機械所有表 | 履歴Trustの検証入力であり、利用者向けの現在説明ではない |
 

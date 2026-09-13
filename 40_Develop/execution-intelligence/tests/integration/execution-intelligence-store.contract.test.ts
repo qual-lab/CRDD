@@ -16,6 +16,10 @@ import {
   type VerifiedExecutionRepositoryRoot,
 } from "../../src/index.ts";
 import { createBoundExecutionIntelligenceRecorder } from "../../src/application/execution-intelligence-recorder.ts";
+import {
+  readExecutionIntelligenceWithRuntimeDataArea,
+  writeExecutionIntelligenceEventWithRuntimeDataArea,
+} from "../../src/store/execution-intelligence-store.ts";
 
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-execution-store-"));
@@ -88,6 +92,84 @@ function operationDirectory(root: string) {
 function eventDirectory(root: string) {
   return path.join(operationDirectory(root), "events");
 }
+
+test("Runtime Data Ignore失敗の意味を最終Publicationまで保持する", (t) => {
+  const root = fixture(t);
+  const publication = writeExecutionIntelligenceEventWithRuntimeDataArea(
+    verifiedRoot(root),
+    event(),
+    (() =>
+      Object.freeze({
+        status: "blocked" as const,
+        reason: "repository_runtime_data_ignore_registration_blocked" as const,
+        effectIssued: true,
+        effectStateUnknown: true,
+        effectConfirmation: "unknown" as const,
+        cleanupConfirmed: false,
+        retryAllowed: false,
+        recoveryReference: "repository-local-ignore.test-reference",
+        repositoryPathReported: false as const,
+      })) as never,
+  );
+  assert.deepEqual(publication, {
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    effectState: "unknown",
+    effectIssued: true,
+    effectStateUnknown: true,
+    cleanupConfirmed: false,
+    retryAllowed: false,
+    manualRecoveryRequired: true,
+    residualArtifactIds: [],
+    recoveryReference: "repository-local-ignore.test-reference",
+  });
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "execution")), false);
+});
+
+test("Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復を保持する", (t) => {
+  const root = fixture(t);
+  const recoveryReference = "repository-local-ignore.test-reference";
+  const blockedArea = (() =>
+    Object.freeze({
+      status: "blocked" as const,
+      reason: "repository_runtime_data_ignore_registration_blocked" as const,
+      effectIssued: true,
+      effectStateUnknown: true,
+      effectConfirmation: "unknown" as const,
+      cleanupConfirmed: true,
+      retryAllowed: false,
+      recoveryReference,
+      repositoryPathReported: false as const,
+    })) as never;
+  const expected = {
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    effectState: "unknown",
+    effectIssued: true,
+    effectStateUnknown: true,
+    cleanupConfirmed: true,
+    retryAllowed: false,
+    manualRecoveryRequired: true,
+    residualArtifactIds: [],
+    recoveryReference,
+  };
+  assert.deepEqual(
+    writeExecutionIntelligenceEventWithRuntimeDataArea(
+      verifiedRoot(root),
+      event(),
+      blockedArea,
+    ),
+    expected,
+  );
+  assert.deepEqual(
+    readExecutionIntelligenceWithRuntimeDataArea(
+      verifiedRoot(root),
+      blockedArea,
+    ),
+    expected,
+  );
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "execution")), false);
+});
 
 test("an embedded TypeScript application can record and read through one public recorder", (t) => {
   const root = fixture(t);
@@ -267,6 +349,14 @@ test("fails closed when stored content is corrupt", (t) => {
   assert.deepEqual(readExecutionIntelligence(capability), {
     status: "blocked",
     reason: "execution_event_store_observation_failed",
+    effectState: "no_effect",
+    effectIssued: false,
+    effectStateUnknown: false,
+    cleanupConfirmed: true,
+    retryAllowed: false,
+    manualRecoveryRequired: false,
+    residualArtifactIds: [],
+    recoveryReference: null,
   });
 });
 
@@ -296,6 +386,14 @@ test("does not hide an unknown residual file from the store result", (t) => {
   assert.deepEqual(readExecutionIntelligence(capability), {
     status: "blocked",
     reason: "execution_event_store_observation_failed",
+    effectState: "no_effect",
+    effectIssued: false,
+    effectStateUnknown: false,
+    cleanupConfirmed: true,
+    retryAllowed: false,
+    manualRecoveryRequired: false,
+    residualArtifactIds: [],
+    recoveryReference: null,
   });
 });
 
@@ -359,7 +457,7 @@ test("Repository RootはexactなVCS worktreeだけを実行時能力にする", 
     assert.equal(fs.existsSync(path.join(fakeRoot, ".crdd")), false);
   }
   const forged = Object.freeze({
-    contract: "crdd/verified-repository-root/v1" as const,
+    contract: "crdd-version-control/repository-location/v1" as const,
   });
   assert.equal(
     writeExecutionIntelligenceEvent(forged, event()).status,
@@ -396,11 +494,15 @@ test("並行Processの同一Eventは冪等で、異なる内容は上書きし�
     runWriter(sameRoot, "task_completed"),
     runWriter(sameRoot, "task_completed"),
   ]);
-  assert.ok(sameResults.every((entry) => entry.exitCode === 0));
+  assert.ok(
+    sameResults.every((entry) => entry.exitCode === 0),
+    JSON.stringify(sameResults),
+  );
   assert.ok(
     sameResults.every(
       (entry) => (entry.result as { status: string }).status === "completed",
     ),
+    JSON.stringify(sameResults),
   );
 
   const conflictRoot = fixture(t);
@@ -647,6 +749,10 @@ test("Lock所有者の初期化失敗は回収済みとして閉じる", (t) => 
 test("Lock所有者の初期化と回収が失敗した場合は残存Lockを返す", (t) => {
   const root = fixture(t);
   const capability = verifiedRoot(root);
+  assert.equal(
+    writeExecutionIntelligenceEvent(capability, eventForTask("setup")).status,
+    "completed",
+  );
   const originalFsync = fs.fsyncSync;
   const originalUnlink = fs.unlinkSync;
   fs.fsyncSync = (() => {

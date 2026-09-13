@@ -13,7 +13,7 @@ import {
   observeProjectRuntimePlatformFamily,
 } from "../../src/security/project-runtime-windows-platform-adapter.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/security/provider-home-windows-adapter.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../src/security/repository-root-resolution.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { compileWindowsRootObservationCandidate } from "../../src/security/root-observation.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");

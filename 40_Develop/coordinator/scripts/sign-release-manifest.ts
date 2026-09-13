@@ -9,15 +9,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import { resolveBundledRepositoryRuntimeDataPathsForProtectedSigning } from "../../runtime-data/src/platform/runtime-data-path-resolver.ts";
+import { inspectRepositoryFixedSnapshot } from "../../version-control/src/git/fixed-snapshot-adapter.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
-import { inspectGitCommitTreeCandidate } from "../src/security/git-object-reader.ts";
 import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { getPlatformProvisionerPolicyIdentity } from "../src/security/platform-provisioner-policy-identity.ts";
 import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/security/platform-provisioner-release-identity.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/security/platform-provisioner-release-trust.ts";
 import {
-  compilePlatformProvisionerManifestPayloadCandidate,
   calculateRuntimeExecutionIdentityCandidate,
+  compilePlatformProvisionerManifestPayloadCandidate,
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
@@ -28,7 +29,6 @@ import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
-import { resolveRepositoryGitLayout } from "../src/security/repository-git-layout-internal.ts";
 import { readHiddenLine } from "./generate-release-key.ts";
 import {
   beginReleaseStagingManifestSession,
@@ -249,15 +249,17 @@ function signingPassphrase(rawPassphrase: unknown) {
 }
 
 function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
-  const layout = resolveRepositoryGitLayout(repositoryRoot);
-  const identity = inspectGitCommitTreeCandidate({
-    commonDirectory: layout.commonDirectory.realPath,
-    revision: crddCommit,
-  });
+  const verified = verifyRepositoryRoot(repositoryRoot);
+  if (verified.status !== "completed")
+    throw new Error("release_manifest_repository_root_invalid");
+  const identity = inspectRepositoryFixedSnapshot(
+    verified.capability,
+    crddCommit,
+  );
   if (
-    identity?.status !== "candidate" ||
-    identity.commit !== crddCommit ||
-    identity.tree !== crddTree
+    identity?.status !== "observed" ||
+    identity.revisionIdentity !== crddCommit ||
+    identity.snapshotIdentity !== crddTree
   ) {
     throw new Error("release_manifest_commit_tree_mismatch");
   }

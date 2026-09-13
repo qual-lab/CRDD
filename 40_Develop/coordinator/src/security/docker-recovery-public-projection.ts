@@ -1,11 +1,11 @@
 import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "./plain-data-snapshot.ts";
-import {
   isSha256Hex,
   parseDockerTaskRecoveryId,
 } from "./docker-recovery-identity.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "./plain-data-snapshot.ts";
 
 const recoveryObservationKeys = new Set([
   "status",

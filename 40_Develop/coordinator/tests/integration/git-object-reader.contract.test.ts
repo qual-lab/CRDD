@@ -9,9 +9,17 @@ import { deflateSync } from "node:zlib";
 import {
   describeGitObjectReaderContract,
   inspectGitCommitTreeCandidate,
-  materializeGitCommitTreeCandidate,
+  materializeGitCommitTreeCandidate as materializeVersionControlTree,
   readGitCommitFileCandidate,
-} from "../../src/security/git-object-reader.ts";
+} from "../../../version-control/src/git/object-reader.ts";
+import { containsRecognizedSecretMaterial } from "../../src/security/secret-material-policy.ts";
+
+function materializeGitCommitTreeCandidate(candidate: unknown) {
+  return materializeVersionControlTree(
+    candidate,
+    containsRecognizedSecretMaterial,
+  );
+}
 
 function temporaryFixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-git-reader-"));

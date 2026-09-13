@@ -7,7 +7,7 @@
 
 ## 1. 変更の目的
 
-起点Discovery: [EXP-000026](../../../01_Discovery/Explorations/EXP-000026_Work_and_Evidence_Ownership/exploration.md)／`REQ-000033`
+起点Discovery: [EXP-000018](../../../01_Discovery/Explorations/EXP-000018_Work_and_Evidence_Ownership/exploration.md)／`REQ-000033`
 
 Roadmap、Change、ReleaseおよびEvidenceの配置を、ファイル種別ではなく「何の作業状態を示し、何の成立を証明するか」で再編する。人間が使う`Roadmap`というNavigation Anchorは維持し、個別Evidenceを`07_Quality`へ集約する構造は廃止する。
 
@@ -105,7 +105,7 @@ Work Lifecycleは、管理対象の全Markdown更新へCHGを要求する仕組�
 | 1 | 現行CHG、Change Evidence、Verification Result、Release Evidence候補を棚卸し | 全ファイルが一つの証明対象または判断待ちに分類される |
 | 2 | 正本規則、ひな型、Checkerの現行Path契約を固定 | 旧Pathを新規正本として許可しない反証を持つ |
 | 3 | Roadmap、CHG Aggregate、Evidenceを一括移行 | 固定履歴の本文byteを維持し、現在文書だけ許可したPath変換を行う |
-| 4 | Consumer Closure | 現行Checker、Workflow、Template、Tool、MCP／Runtimeの利用Pathを全数照合する。移行対応表とInventoryの真正性は独立監査で確認する |
+| 4 | Consumer Closure | 現行Checker、Workflow、Template、Tool、MCP／Runtimeの利用Pathを全数照合する。移行対応表と、固定改訂版から再構成した対象集合の真正性は独立監査で確認する |
 | 5 | 独立確認 | 文書Owner、履歴Identity、リンク、正本一意性、移行漏れがMajor 0になる |
 
 ## 8. 現在の棚卸し
@@ -140,9 +140,10 @@ Work Lifecycleは、管理対象の全Markdown更新へCHGを要求する仕組�
 | 責務 | 所有者 | 継続方法 |
 |---|---|---|
 | Root、Path、Link、Anchor、ID、宣言構造 | Generic Checker Core | 題材に依存しない小さな契約試験 |
-| CRDD公式Repositoryの現在の版、状態、正本、template、Directory | CRDD Official Current Profile | 現在のCanonical構成に対する反証試験 |
-| 過去移行のCommit、Blob、Hash、対応表 | 当該ChangeのEvidenceと独立監査 | 固定改訂版に対する一回の監査記録 |
+| CRDD公式Repositoryの現在の版、状態、正本、template、Directory、通常のChange／Evidenceリンク | CRDD Official Current Profile | 現在のCanonical構成に対する反証試験 |
+| 固定履歴参照の識別と承認済み移行表による機械的解決 | CRDD Official Current Profile | 固定本文Hash、移行表Schema、重複・Root外Path・不正Hashの反証試験 |
+| 固定原文Identity、過去Git object、移行表が当時の移行を表すかという真正性 | 当該ChangeのEvidenceと独立監査 | 固定改訂版に対する一回の監査記録 |
 | packageの公開API、内部依存、実行挙動 | 各packageの契約試験 | package所有の単体・結合・回帰試験 |
 | 文書の意味品質、可読性、正本Scope | 文書レビュー／監査 | 対象を固定した人間・AIの意味確認 |
 
-`07_Quality/07_Structured_Document_Disposition_Inventory.json`は、CHG-000065／CHG-000070で用いた対象集合の品質Evidenceであり、通常Checkerが追従更新する現在状態台帳ではない。現行文書の追加や移動のたびに、この固定InventoryをChecker入力として再生成しない。
+CHG-000065の全数文書監査で用いたPath／Blob集合は、公式tag `v0.20.0`、Markdown Path抽出条件、対象428件および監査結果から再構成する。文書ごとの処置・理由・正本OwnerはGit Treeだけから再構成できない判断なので、tag内の`07_Quality/07_Structured_Document_Disposition_Inventory.json`（blob `3968129b9210329ac818c321b40b1241fc5dbda6`）を当時の固定Evidenceとする。現行Treeへ複製せず、現在のInventoryとして更新しない。

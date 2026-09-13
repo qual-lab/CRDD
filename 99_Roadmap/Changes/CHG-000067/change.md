@@ -29,7 +29,7 @@ Project Operation Context
 | Project Management Projection | 設計中 |
 | 任意Top-level構造 | 設計中 |
 | Project Operation／Workbench Discovery | `Complete for Scope`。Workbench／MCP共同利用体系まで再探索し、独立レビューPass。2026-09-13にUX移行承認済み |
-| Workbench／MCP共同UX | `In Review`。Discoveryの6要求候補を6件のUX成果へ全数接続し、役割別Journey、重要場面・失敗／回復、Service Blueprint、認知意図、制御・適応、代替比較および次工程への義務を具体化。2026-09-13の独立工程移行レビューはCritical／Major／Moderate／Minor 0でPassし、人間のIA移行判断待ち |
+| Workbench／MCP共同UX | `Ready for IA Decision`。Discoveryの12要求を10件のUX成果へ全数接続し、人間が理解する順序で問題、利用者の物語、成果、Journey、重要場面、失敗・回復、Service Blueprint、認知意図、制御・適応、代替比較および次工程への義務を具体化した。2026-09-13の独立工程移行レビューはCritical／Major／Moderate 0でPassし、人間のIA移行判断待ち |
 | Discoveryの人間理解確認 | 完了。AIによる既存Context再構成と人間理解を分け、Workbench、Remote MCP、Repository単独利用および工程境界の人間提示内容をUX入力へ反映 |
 | 仕様・ひな型・Checker・試験 | 未着手 |
 
@@ -103,7 +103,7 @@ Project ID
 
 ### 4.0. Group B着手前整合確認
 
-事前の設計対話は採用済み範囲と有力な解決策仮説として用いるが、利用者課題またはWorkbenchの有効性を示す実測へ読み替えない。[Project状態理解の探索](../../../01_Discovery/Explorations/EXP-000007_Project_State_Understanding/exploration.md)では、CRDD自己適用で観測した停止・追加確認・補正・探索、そこから推定した認知負担、Repository構造の局所測定、人間判断および未検証のPM／Management仮説を分離した。[人間とAIの入口](../../../01_Discovery/Explorations/EXP-000010_Human_and_AI_Entry_Points/exploration.md)と[Remote Project Context](../../../01_Discovery/Explorations/EXP-000011_Remote_Project_Context/exploration.md)では、現行MCPの実装済み3操作と候補設計を分け、Actor別入口、公開Application Capability、Context最小化、Remote接続、切断／再取得およびWorkbenchの反証条件まで再探索する。
+事前の設計対話は採用済み範囲と有力な解決策仮説として用いるが、利用者課題またはWorkbenchの有効性を示す実測へ読み替えない。[Project状態理解の探索](../../../01_Discovery/Explorations/EXP-000007_Project_State_Understanding/exploration.md)では、CRDD自己適用で観測した停止・追加確認・補正・探索、そこから推定した認知負担、Repository構造の局所測定、人間判断および未検証のPM／Management仮説を分離した。[人間とAIの入口](../../../01_Discovery/Explorations/EXP-000021_Human_and_AI_Entry_Points/exploration.md)と[Remote Project Context](../../../01_Discovery/Explorations/EXP-000022_Remote_Project_Context/exploration.md)では、現行MCPの実装済み3操作と候補設計を分け、Actor別入口、公開Application Capability、Context最小化、Remote接続、切断／再取得およびWorkbenchの反証条件まで再探索する。
 
 | 確認項目 | 結果 |
 |---|---|
@@ -210,3 +210,18 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 | 非UIのProject Operation意味契約 | UXから生じた情報、状態、判断、Source Coverageおよび回復導線の義務を入力として、Identity、責務、Lifecycle、Relation、ProjectionおよびRepository構造の既存設計候補をIAで再照合する | Workbenchの表示・操作をArchitectureで補完せず、IA／UI／SPECの所有事項へ戻す |
 
 DiscoveryからUXへの移行は2026-09-13に承認済みである。UXの独立工程移行レビューとIA移行判断はこれと別Gateとして維持する。両経路がArchitectureで合流した後に、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合し、ひな型、Checkerおよび実装へ進む。
+
+## 9. 次の工程是正へ保持する入力
+
+2026-09-13、UX以降の工程間受渡しを、文書間の暗黙的な意味探索ではなく、上流で確定した意味単位と下流での処置を追跡できる構造へ改める案を受け付けた。これは現時点の採用済み設計ではなく、Version Control変更を閉じた後にUXから再評価する固定入力である。
+
+| 候補 | 保持する意図 | 再評価する点 |
+|---|---|---|
+| 工程間Context Transformation | 下流工程が上流の意味単位を分析対象として受け取り、自工程の意味単位へ変換する | 工程ごとの直接入力、戻り先、同一／新規判断の決定権限 |
+| IDとRelationによるTraceability | 意味本文はMarkdownに残し、由来、関係、処置、Coverageを機械追跡する | 新しい台帳を第二正本にしない最小構造と移行費用 |
+| 多対多のContext Graph | `REQ`、UX、IA、UI、SPEC、Architectureを固定1対1にしない | Canonical EntityのOwner、重複判定、競合時の人間判断 |
+| Quality Intentの段階的具体化 | 利用者期待を下流で突然発明せず、UX／IA／UIからSPEC、Architecture、検証へ渡す | 各工程が所有する粒度と既存検証義務との重複回避 |
+| 検証責務の上流Context接続 | Test名や件数でなく、どの要求・体験・情報・仕様・設計を検証したかを示す | 単体／結合／総合／受入の主対象、Evidence Owner、Quality Center投影 |
+| 構造Coverageと意味品質の分離 | Checkerは処置漏れを検出し、妥当性判断は工程レビューと検証が担う | 自動導出できる母集団、理由付き非該当、過剰な固定Schemaの回避 |
+
+再評価では、提示された章構成やDirectory案をそのまま採用しない。現在のDiscovery／UX成果物、工程正本、既存ID、検証義務およびWorkbench利用契約を入力に、利用者が自然に理解できる物語、必要最小限の構造、移行可能性を確認する。UXの再整理が必要ならIAへ進む前に同工程へ戻し、以降の対応関係を再固定する。

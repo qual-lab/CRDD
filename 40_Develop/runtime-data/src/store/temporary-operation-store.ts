@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveRepositoryRuntimeDataPathsForInternalUse } from "../platform/runtime-data-path-resolver.ts";
-import type { VerifiedRepositoryRoot } from "../platform/repository-root-capability.ts";
+import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;

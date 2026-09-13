@@ -31,7 +31,7 @@
 
 Gitを使えずFilesystem探索へ移った場合は理由と除外を読む。Root外、symbolic link／junction、Gitlinkまたは除外された対象を、リンク先が存在するだけで確認済みにしない。
 
-Change記録とWork Lifecycle Evidence内部の参照、過去の移行Evidence、固定Commit／BlobまたはRelease主張の真正性は、Checkerではなく対象を固定した独立監査で確認する。通常Checkerは現在のCanonical配置、禁止された旧Path、現行正本・案内・ひな型のリンクだけを検査する。
+通常のChange記録とWork Lifecycle Evidence内部のリンクはCheckerで検査する。本文を変更できない固定履歴の参照は、CRDD Official Current Profileが承認済み移行表を使って機械的に解決する。固定原文Identity、過去Git object、移行表およびRelease主張の真正性は、Checkerではなく対象を固定した独立監査で確認する。固定履歴の扱いを現行正本、案内、ひな型または改変可能なChange／Evidenceのリンク切れへ流用しない。
 
 ## 開発試験は別の操作
 

@@ -453,6 +453,21 @@ AIは候補比較、不足、影響、設計案を提示できるが、上位契
 
 ## 2.2. データ・正本・状態遷移
 
+### Gitと通常Operationの境界
+
+v0.21で採用したComponent境界、目的別Port、本番Consumerおよび段階移行は[Version Control境界](06_Architecture/version-control/01_Architecture.md)を正本とする。
+
+Gitは履歴、差分、配布、署名対象、submoduleおよび再現可能なCandidateの正本として利用できる。一方、通常の読取り、編集、Communication、Topic、Meeting、ProjectionまたはWorkbench操作は、対象が未Commitであることだけを理由に拒否してはならない。Dirty Worktreeは異常ではなく、必要に応じて観測・表示する現在状態である。
+
+| 対象 | Commit固定の扱い |
+|---|---|
+| Release、署名、Git Candidate、過去版再現 | 固定Commit／Treeが保証対象であるため必須にできる |
+| 差分確認、履歴表示、回帰選択 | Git機能を利用できるが、業務ObjectのIdentityをCommit SHAで代替しない |
+| 通常のRepository-local Data操作 | 未Commitでも成立させ、保存成功とCommit成功を分ける |
+| Communication／Topic／Meeting／Workbench | Git Logを業務Storeとして扱わず、構造化された現在データを直接利用する |
+
+Commit SHAは来歴や観測時点を補助する識別情報であり、Project、Repository、Workspace、Topic、Meetingその他の業務Identityの代替ではない。Clean WorktreeまたはCommit済み状態を事前条件にする場合は、その操作が要求する不変Snapshotとの関係、非発火例および未Commit作業への代替経路を示す。
+
 データごとに担当責任者、正式な情報源、書き込み側、読み取り側、分類、保持期間、削除、整合性、トランザクション境界を定義する。複数システムを統合する場合、一つのシステム全体を常に正本とせず、意味のある項目または集約単位単位で正本を決める。
 
 複製、キャッシュ、読み取りモデル、派生データ、AIによる推論を正本データと同一視しない。鮮度、古さ、競合、修正、再構築の扱いを定義する。

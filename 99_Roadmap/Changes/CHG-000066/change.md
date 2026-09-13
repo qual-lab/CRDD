@@ -159,7 +159,7 @@ Component単位契約試験
 |---|---|
 | 現行調査 | [Runtime Dataの現行Path棚卸し](../../../06_Architecture/runtime-data/01_Current_Path_Inventory.md) |
 | 目標設計 | [Runtime Dataの目標Architecture](../../../06_Architecture/runtime-data/02_Target_Architecture.md) |
-| Discovery | [`.crdd`の用途とLifecycleを分からなくしない](../../../01_Discovery/Explorations/EXP-000015_Runtime_Data_Ownership/exploration.md) |
+| Discovery | [`.crdd`の用途とLifecycleを分からなくしない](../../../01_Discovery/Explorations/EXP-000016_Runtime_Data_Ownership/exploration.md) |
 | Roadmap | [v0.21未完了作業](../../01_Roadmap.md#11-v0210--project運営信頼複数repository) |
 | 実装 | `40_Develop/runtime-data/`、Coordinator／Execution Intelligence利用側、Checker旧Path拒否 |
 | 検証結果 | [固定候補の署名・回帰・正式E2E](#12-固定候補の完了evidence) |
@@ -174,9 +174,9 @@ Component単位契約試験
 
 | 指摘クラスタ | 原因 | 構造是正 | 反証 |
 |---|---|---|---|
-| Root CapabilityとConsumer Closure | raw文字列Root入口とCanonical Pathの利用側再構成が残り、手書き一覧だけでは署名等の希少Consumerを証明できなかった | 公開入口をRoot Capability必須へ限定し、署名だけは固定module位置から導出する非公開Resolverへ接続。実Sourceから保護Consumer集合、raw入口、未登録領域および名前付きPathの親逆算を導出してCheckerの宣言集合と照合 | 任意絶対Directory、公開indexからの内部Resolver取得、`dirname(namedPath)`から変数・Helper経由で行う未登録領域、予定外署名Consumerを拒否 |
+| Root CapabilityとConsumer Closure | raw文字列Root入口とCanonical Pathの利用側再構成が残り、手書き一覧だけでは署名等の希少Consumerを証明できなかった | 公開入口をRoot Capability必須へ限定し、署名だけは固定module位置から導出する非公開Resolverへ接続。実Sourceから保護Consumer集合、raw入口、未登録領域および名前付きPathの親逆算を導出し、Runtime Data所有packageの契約試験で宣言集合と照合 | 任意絶対Directory、公開indexからの内部Resolver取得、`dirname(namedPath)`から変数・Helper経由で行う未登録領域、予定外署名Consumerを拒否 |
 | `tmp`の耐久回復 | in-place書込み、制御文書と削除対象Workspaceの同居、Canonical公開前の匿名Effect、Effect後のIdentity生成、旧世代参照の再利用およびEvidence source未結合により、返したRecovery参照を利用できない経路があった | `.operations/`へ制御面を分離。初回文書・Lockをcaller-known Identityのstagingへflushして完全な文書だけを排他的linkし、Canonical公開直後に残った同一file aliasだけを検証して回収する。再入場前に異なる次世代Identityをcallerが固定し、旧世代参照を受理せず、`released` Lock、清掃前の`recovery_required`公開、work sourceと昇格先の両Hash結合を維持する | 初回staging書込み中／flush後／Canonical link直後／read-back後、Lockの同じ各境界、新世代公開後・返却前／新世代返却後の各Process loss、部分清掃、Lock削除失敗、旧参照replay、source欠落／不一致からexact再入場とEffect 0を確認 |
-| 全Consumer自動検出 | Tool名の手書き列挙と代表的なliteral joinだけでは、新規Component、変数segmentおよびHelper経由のRoot再解釈を検出できなかった | `40_Develop/<component>/{src,scripts,bin}`を実Sourceから自動母集団化し、公開Resolverからraw `.crdd` Rootを除外。Consumerは名前付き領域の作成・検証APIだけを利用する | 未登録の新規Tool、変数segment、Helper経由のRoot利用をCheckerで拒否し、既存Consumerを名前付き領域へ移行 |
+| 全Consumer自動検出 | Tool名の手書き列挙と代表的なliteral joinだけでは、新規Component、変数segmentおよびHelper経由のRoot再解釈を検出できなかった | `40_Develop/<component>/{src,scripts,bin}`を実Sourceから自動母集団化し、公開Resolverからraw `.crdd` Rootを除外。Consumerは名前付き領域の作成・検証APIだけを利用する | 未登録の新規Tool、変数segment、Helper経由のRoot利用をRuntime Data所有packageの契約試験で拒否し、既存Consumerを名前付き領域へ移行 |
 
 PIDだけによるOwner生存確認は、PID再利用を同一Processの生存と誤認し得る。現在版は資源を自動削除しない安全側の可用性制約として保持する。担当責任者はRuntime Data／Platform Accessの保守担当とし、長期Operation、自動回復時間保証、LinuxまたはRemote Runtimeの導入前に、Process開始IdentityまたはHost boot Identityとの結合を再評価する。
 

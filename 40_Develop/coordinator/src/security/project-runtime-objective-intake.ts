@@ -3,18 +3,18 @@ import {
   describeProjectRuntimeObjectiveIntakeContract,
   inspectProjectRuntimeObjectivePlan,
   inspectProjectRuntimeObjectiveRequest,
-  runProjectRuntimeObjectiveApplication,
   type ProjectRuntimeExecutionDependencies,
   type ProjectRuntimeObjectiveRequest,
   type ProjectRuntimeState,
+  runProjectRuntimeObjectiveApplication,
 } from "../../../project-runtime/src/index.ts";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { createProjectRuntimePersistencePorts } from "./project-runtime-durable-foundation.ts";
 import { createProjectRuntimeExecutionHostPorts } from "./project-runtime-execution-host-adapter.ts";
 import {
   createProjectRuntimeTaskRecoveryAdapter,
   type ProjectRuntimeTaskRecoveryHostDependencies,
 } from "./project-runtime-task-recovery-adapter.ts";
-import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export {
   describeProjectRuntimeObjectiveIntakeContract,

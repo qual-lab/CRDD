@@ -2,9 +2,9 @@ import path from "node:path";
 
 import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
-import { describeProviderHomeObservationContract } from "./provider-home-observation.ts";
 import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
 import { describeProviderHomeMountGrantRuntimeContract } from "./provider-home-mount-grant-runtime.ts";
+import { describeProviderHomeObservationContract } from "./provider-home-observation.ts";
 import {
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,

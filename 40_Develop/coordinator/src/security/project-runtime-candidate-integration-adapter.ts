@@ -1,21 +1,28 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import type {
+  ProjectRuntimeCandidatePort,
+  ProjectRuntimeState,
+} from "../../../project-runtime/src/index.ts";
 
-import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
-
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
+} from "../../../runtime-data/src/index.ts";
+import {
+  materializeFixedSnapshotCandidate,
+  verifyCandidateOutputDirectory,
+} from "../../../version-control/src/fixed-snapshot.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import {
   persistRuntimeOwnedCandidateBundle,
   publishRuntimeOwnedCandidateBundle,
   readRuntimeOwnedCandidateBundle,
 } from "./candidate-bundle-store.ts";
-import { materializeGitCommitTreeCandidate } from "./git-object-reader.ts";
-import type {
-  ProjectRuntimeCandidatePort,
-  ProjectRuntimeState,
-} from "../../../project-runtime/src/index.ts";
-import { resolveRepositoryGitLayout } from "./repository-git-layout-internal.ts";
 import { inspectRepositoryIdentityCandidate } from "./repository-operation-runtime.ts";
+import { containsRecognizedSecretMaterial } from "./secret-material-policy.ts";
 
 export const PROJECT_RUNTIME_CANDIDATE_INTEGRATION_ADAPTER_CONTRACT =
   "crdd-coordinator/project-runtime-candidate-integration-adapter/v1" as const;
@@ -200,25 +207,120 @@ function stableFile(target: string) {
   }
 }
 
+function cleanupMaterializedBase(workspace: string): boolean {
+  try {
+    fs.rmSync(workspace, { recursive: true, force: true });
+    return !fs.existsSync(workspace);
+  } catch {
+    return false;
+  }
+}
+
+function candidateCleanupBlocked(
+  effectIssued: boolean,
+  effectStateUnknown: boolean,
+) {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason: "project_runtime_candidate_base_cleanup_unconfirmed",
+    effectIssued,
+    effectStateUnknown,
+    cleanupConfirmed: false,
+    retryAllowed: false,
+    recoveryReference: null,
+  });
+}
+
+type MaterializedBaseResult =
+  | Readonly<{ status: "materialized"; workspace: string }>
+  | Readonly<{
+      status: "blocked";
+      reason: string;
+      effectIssued: boolean;
+      effectStateUnknown: boolean;
+      cleanupConfirmed: boolean;
+      retryAllowed: boolean;
+      recoveryReference: string | null;
+    }>;
+
 function materializeBase(
   repositoryRoot: string,
   revision: string,
   paths: readonly string[],
-) {
-  const runtimePaths =
-    resolveRepositoryRuntimeDataPathsFromWorkingDirectory(repositoryRoot);
-  if (!runtimePaths) return null;
-  const parent = path.join(runtimePaths.projectRuntime, "work");
+  snapshotAdapter: typeof gitFixedSnapshotAdapter,
+  materializeSnapshot: typeof materializeFixedSnapshotCandidate,
+  cleanupWorkspace: (workspace: string) => boolean,
+): MaterializedBaseResult | null {
+  const verified = verifyRepositoryRoot(repositoryRoot);
+  if (verified.status !== "completed") return null;
+  const runtimeArea = ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+    repositoryRoot,
+    "project-runtime",
+  );
+  if (!runtimeArea) return null;
+  if (runtimeArea.status === "blocked")
+    return Object.freeze({
+      status: "blocked",
+      reason: runtimeArea.reason,
+      effectIssued: runtimeArea.effectIssued,
+      effectStateUnknown: runtimeArea.effectStateUnknown,
+      cleanupConfirmed: runtimeArea.cleanupConfirmed,
+      retryAllowed: runtimeArea.retryAllowed,
+      recoveryReference: runtimeArea.recoveryReference,
+    });
+  const parent = path.join(runtimeArea.directory, "work");
   fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
   const workspace = fs.mkdtempSync(path.join(parent, "adoption-base-"));
-  const layout = resolveRepositoryGitLayout(repositoryRoot);
-  const result = materializeGitCommitTreeCandidate({
-    commonDirectory: layout.commonDirectory.realPath,
-    revision,
+  const output = verifyCandidateOutputDirectory(
     workspace,
-    readPaths: paths,
+    verified.capability,
+    runtimeArea.directory,
+  );
+  if (output.status !== "completed") {
+    const cleanupConfirmed = cleanupWorkspace(workspace);
+    return Object.freeze({
+      status: "blocked",
+      reason: "candidate_output_invalid",
+      effectIssued: false,
+      effectStateUnknown: false,
+      cleanupConfirmed,
+      retryAllowed: cleanupConfirmed,
+      recoveryReference: null,
+    });
+  }
+  const result = materializeSnapshot(
+    verified.capability,
+    revision,
+    verified.capability,
+    output.capability,
+    paths,
+    containsRecognizedSecretMaterial,
+    snapshotAdapter,
+  );
+  if (result?.status === "materialized")
+    return Object.freeze({ status: "materialized", workspace });
+  if (result?.status === "blocked")
+    return Object.freeze({
+      status: "blocked",
+      reason: result.reason,
+      effectIssued: result.effectIssued,
+      effectStateUnknown: result.effectStateUnknown,
+      cleanupConfirmed: result.cleanupConfirmed,
+      retryAllowed: !result.effectStateUnknown && result.cleanupConfirmed,
+      recoveryReference: null,
+    });
+  const cleanupConfirmed = cleanupWorkspace(workspace);
+  return Object.freeze({
+    status: "blocked",
+    reason: cleanupConfirmed
+      ? "candidate_materialization_failed"
+      : "project_runtime_candidate_base_cleanup_unconfirmed",
+    effectIssued: false,
+    effectStateUnknown: false,
+    cleanupConfirmed,
+    retryAllowed: cleanupConfirmed,
+    recoveryReference: null,
   });
-  return result?.status === "materialized" ? workspace : null;
 }
 
 function currentMatchesBase(
@@ -241,10 +343,47 @@ function currentMatchesBase(
   return true;
 }
 
-function applyBundle(repositoryRoot: string, bundle: Bundle) {
+type CandidateApplicationResult =
+  | Readonly<{
+      status: "completed";
+      effectIssued: true;
+      effectStateUnknown: false;
+      cleanupConfirmed: true;
+      retryAllowed: false;
+    }>
+  | Readonly<{
+      status: "blocked";
+      reason: "project_runtime_candidate_adoption_rollback_unconfirmed";
+      effectIssued: boolean;
+      effectStateUnknown: boolean;
+      cleanupConfirmed: boolean;
+      retryAllowed: false;
+      recoveryReference: null;
+    }>;
+
+type CandidateApplicationFault = (
+  phase: "before_entry" | "before_rollback",
+  relativePath: string,
+) => void;
+
+function applyBundle(
+  repositoryRoot: string,
+  bundle: Bundle,
+  injectFault: CandidateApplicationFault = () => {},
+): CandidateApplicationResult {
   const runtimePaths =
     resolveRepositoryRuntimeDataPathsFromWorkingDirectory(repositoryRoot);
-  if (!runtimePaths) return false;
+  if (!runtimePaths)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason:
+        "project_runtime_candidate_adoption_rollback_unconfirmed" as const,
+      effectIssued: false,
+      effectStateUnknown: false,
+      cleanupConfirmed: true,
+      retryAllowed: false as const,
+      recoveryReference: null,
+    });
   const transactionRoot = path.join(
     runtimePaths.projectRuntime,
     "work",
@@ -259,6 +398,7 @@ function applyBundle(repositoryRoot: string, bundle: Bundle) {
     for (let index = 0; index < bundle.entries.length; index += 1) {
       const entry = bundle.entries[index];
       if (!entry) throw new Error("candidate_entry_missing");
+      injectFault("before_entry", entry.relativePath);
       const target = path.join(
         repositoryRoot,
         ...entry.relativePath.split("/"),
@@ -296,11 +436,21 @@ function applyBundle(repositoryRoot: string, bundle: Bundle) {
       }
     }
     fs.rmSync(transactionRoot, { recursive: true });
-    return true;
+    return Object.freeze({
+      status: "completed" as const,
+      effectIssued: true as const,
+      effectStateUnknown: false as const,
+      cleanupConfirmed: true as const,
+      retryAllowed: false as const,
+    });
   } catch {
     let isRecovered = true;
     for (const item of [...appliedItems].reverse()) {
       try {
+        injectFault(
+          "before_rollback",
+          path.relative(repositoryRoot, item.target),
+        );
         const current = stableFile(item.target);
         if (current !== false) fs.rmSync(item.target);
         if (item.backup) fs.renameSync(item.backup, item.target);
@@ -308,15 +458,34 @@ function applyBundle(repositoryRoot: string, bundle: Bundle) {
         isRecovered = false;
       }
     }
-    if (isRecovered)
-      fs.rmSync(transactionRoot, { recursive: true, force: true });
-    return false;
+    if (isRecovered) {
+      try {
+        fs.rmSync(transactionRoot, { recursive: true, force: true });
+        isRecovered = !fs.existsSync(transactionRoot);
+      } catch {
+        isRecovered = false;
+      }
+    }
+    return Object.freeze({
+      status: "blocked" as const,
+      reason:
+        "project_runtime_candidate_adoption_rollback_unconfirmed" as const,
+      effectIssued: appliedItems.length > 0,
+      effectStateUnknown: !isRecovered,
+      cleanupConfirmed: isRecovered,
+      retryAllowed: false as const,
+      recoveryReference: null,
+    });
   }
 }
 
 export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
   repositoryRoot: string,
   candidateStore: CandidateStore = productionCandidateStore,
+  snapshotAdapter: typeof gitFixedSnapshotAdapter = gitFixedSnapshotAdapter,
+  materializeSnapshot: typeof materializeFixedSnapshotCandidate = materializeFixedSnapshotCandidate,
+  cleanupWorkspace: (workspace: string) => boolean = cleanupMaterializedBase,
+  injectApplicationFault: CandidateApplicationFault = () => {},
 ): ProjectRuntimeCandidatePort {
   const integrated = new Map<string, Bundle>();
   let pendingObservationBundle: Bundle | null = null;
@@ -375,23 +544,31 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
         repositoryRoot,
         bundle.baseCommit,
         bundle.changedPaths,
+        snapshotAdapter,
+        materializeSnapshot,
+        cleanupWorkspace,
       );
       if (!base) return null;
+      if (base.status === "blocked") return base;
+      let result: unknown;
       try {
         const isClean = currentMatchesBase(
           repositoryRoot,
-          base,
+          base.workspace,
           bundle.entries,
         );
-        return Object.freeze({
+        result = Object.freeze({
           status: "observed",
           repositoryRevision: identity.commit,
           dirty: !isClean,
           observedPaths: Object.freeze(isClean ? [] : [...bundle.changedPaths]),
         });
-      } finally {
-        fs.rmSync(base, { recursive: true, force: true });
+      } catch {
+        result = null;
       }
+      return cleanupWorkspace(base.workspace)
+        ? result
+        : candidateCleanupBlocked(false, false);
     },
     async adoptCandidate(candidate) {
       const bundle =
@@ -411,23 +588,54 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
         repositoryRoot,
         bundle.baseCommit,
         bundle.changedPaths,
+        snapshotAdapter,
+        materializeSnapshot,
+        cleanupWorkspace,
       );
       if (!base) return null;
+      if (base.status === "blocked") return base;
+      let result: unknown = null;
+      let applicationFailure: Extract<
+        CandidateApplicationResult,
+        { status: "blocked" }
+      > | null = null;
       try {
-        if (!currentMatchesBase(repositoryRoot, base, bundle.entries))
-          return null;
-        if (!applyBundle(repositoryRoot, bundle)) return null;
-      } finally {
-        fs.rmSync(base, { recursive: true, force: true });
+        if (!currentMatchesBase(repositoryRoot, base.workspace, bundle.entries))
+          result = null;
+        else {
+          const application = applyBundle(
+            repositoryRoot,
+            bundle,
+            injectApplicationFault,
+          );
+          if (application.status === "blocked") {
+            applicationFailure = application;
+            result = application;
+          } else
+            result = Object.freeze({
+              status: "completed",
+              receiptId: `adoption-${digest(candidate.candidateId, bundle.patchHash).slice(0, 40)}`,
+              beforeRevision: bundle.baseCommit,
+              afterRevision: bundle.baseCommit,
+              changedPaths: bundle.changedPaths,
+              cleanupConfirmed: true,
+            });
+        }
+      } catch {
+        result = null;
       }
-      return Object.freeze({
-        status: "completed",
-        receiptId: `adoption-${digest(candidate.candidateId, bundle.patchHash).slice(0, 40)}`,
-        beforeRevision: bundle.baseCommit,
-        afterRevision: bundle.baseCommit,
-        changedPaths: bundle.changedPaths,
-        cleanupConfirmed: true,
-      });
+      const baseCleanupConfirmed = cleanupWorkspace(base.workspace);
+      if (applicationFailure)
+        return applicationFailure.effectStateUnknown || !baseCleanupConfirmed
+          ? Object.freeze({
+              ...applicationFailure,
+              cleanupConfirmed:
+                applicationFailure.cleanupConfirmed && baseCleanupConfirmed,
+            })
+          : null;
+      return baseCleanupConfirmed
+        ? result
+        : candidateCleanupBlocked(result !== null, false);
     },
   });
 }

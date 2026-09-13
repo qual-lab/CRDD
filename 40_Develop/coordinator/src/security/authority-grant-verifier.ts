@@ -1,14 +1,13 @@
 import { createHash } from "node:crypto";
-
-import {
-  PROVIDER_INPUT_LIMITS,
-  validateProviderIsolationProfile,
-} from "./provider-isolation-profile.ts";
-import { isProviderHomeMountGrantRef } from "./provider-home-mount-grant.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
+import { isProviderHomeMountGrantRef } from "./provider-home-mount-grant.ts";
+import {
+  PROVIDER_INPUT_LIMITS,
+  validateProviderIsolationProfile,
+} from "./provider-isolation-profile.ts";
 
 export const AUTHORITY_REGISTRY_CONTRACT =
   "crdd-coordinator/authority-registry";

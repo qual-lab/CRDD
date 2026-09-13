@@ -9,7 +9,7 @@
 
 ## 1. 結論と現在状態
 
-起点Discovery: [EXP-000025](../../../01_Discovery/Explorations/EXP-000025_Diagram_Guided_Handoff/exploration.md)／`REQ-000032`
+起点Discovery: [EXP-000017](../../../01_Discovery/Explorations/EXP-000017_Diagram_Guided_Handoff/exploration.md)／`REQ-000032`
 
 CRDDの各工程で、本来必要な図が作成されないまま意図、境界、状態、分岐または未解決事項が後工程へ渡り、実装・試験・E2Eで初めて不足が露出することを防ぐ。
 

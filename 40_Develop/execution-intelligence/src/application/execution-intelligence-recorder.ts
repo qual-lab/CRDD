@@ -30,10 +30,13 @@ function invalidEventPublication(): ExecutionIntelligencePublicationResult {
     status: "blocked" as const,
     reason: "execution_event_invalid",
     effectState: "no_effect" as const,
+    effectIssued: false,
+    effectStateUnknown: false,
     cleanupConfirmed: true,
     retryAllowed: false,
     manualRecoveryRequired: false,
     residualArtifactIds: Object.freeze([]),
+    recoveryReference: null,
   });
 }
 

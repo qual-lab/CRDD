@@ -83,6 +83,10 @@ test("production doctorは通常Taskに不要な永続準備状態を公開し�
   assert.equal(Object.hasOwn(report.egress, "activation"), false);
   assert.equal(REQUIRED_CHECK_IDS.includes("runtime.root"), false);
   assert.equal(report.diagnosticMode, "passive_preflight");
+  assert.equal(report.reportVersion, 12);
+  assert.equal(Object.hasOwn(report, "repositoryLocation"), true);
+  assert.equal(Object.hasOwn(report, "repositoryGitLayout"), false);
+  assert.equal(report.repositoryLocation.pathReported, false);
   assert.equal(report.fakeProviderLifecycle.fakeProviderExecuted, false);
 });
 

@@ -254,6 +254,35 @@ test("統合結果は正常完了とRecovery付き停止を区別する", () => 
   });
   assert.ok(blocked);
   assert.deepEqual(blocked.recoveryIds, [recoveryId]);
+  const cleanupBlocked = inspectProjectRuntimeIntegrationResult({
+    ...integrationResult(),
+    status: "blocked",
+    reason: "project_runtime_candidate_base_cleanup_unconfirmed",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    recoveryIds: [],
+    effectIssued: false,
+    effectStateUnknown: false,
+    retryAllowed: false,
+  });
+  assert.ok(cleanupBlocked);
+  assert.equal(cleanupBlocked.recoveryIds.length, 0);
+  assert.equal(cleanupBlocked.effectIssued, false);
+  const effectUnknown = inspectProjectRuntimeIntegrationResult({
+    ...integrationResult(),
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    cleanupConfirmed: true,
+    manualRecoveryRequired: true,
+    recoveryIds: [recoveryId],
+    effectIssued: true,
+    effectStateUnknown: true,
+    retryAllowed: false,
+  });
+  assert.ok(effectUnknown);
+  assert.deepEqual(effectUnknown.recoveryIds, [recoveryId]);
+  assert.equal(effectUnknown.cleanupConfirmed, true);
+  assert.equal(effectUnknown.effectStateUnknown, true);
 });
 
 test("統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否する", () => {
@@ -265,6 +294,41 @@ test("統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否�
     }),
     null,
   );
+  for (const invalidBoundary of [
+    {
+      effectIssued: false,
+      effectStateUnknown: true,
+      retryAllowed: false,
+      cleanupConfirmed: true,
+      manualRecoveryRequired: true,
+      recoveryIds: [recoveryId],
+    },
+    {
+      effectIssued: true,
+      effectStateUnknown: true,
+      retryAllowed: true,
+      cleanupConfirmed: true,
+      manualRecoveryRequired: true,
+      recoveryIds: [recoveryId],
+    },
+    {
+      effectIssued: true,
+      effectStateUnknown: true,
+      retryAllowed: false,
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      recoveryIds: [recoveryId],
+    },
+  ])
+    assert.equal(
+      inspectProjectRuntimeIntegrationResult({
+        ...integrationResult(),
+        status: "blocked",
+        reason: "integration_boundary_invalid",
+        ...invalidBoundary,
+      }),
+      null,
+    );
   assert.equal(
     inspectProjectRuntimeIntegrationResult({
       ...integrationResult(),

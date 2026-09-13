@@ -6,10 +6,8 @@ import test, { type TestContext } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { generateReleaseKeyPair } from "../../scripts/generate-release-key.ts";
-import {
-  ensureRepositoryRuntimeDataArea,
-  verifyRepositoryRoot,
-} from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../../runtime-data/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 const TEST_PASSPHRASE = "test-only-passphrase-0123456789";
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
@@ -24,7 +22,9 @@ async function createReleaseKeyDistributionFixture(t: TestContext) {
     "tests",
   );
   assert.ok(testsArea);
-  if (!testsArea) throw new Error("test_runtime_data_area_invalid");
+  assert.equal(testsArea?.status, "ready");
+  if (testsArea?.status !== "ready")
+    throw new Error("test_runtime_data_area_invalid");
   const executionUnitRoot = path.join(
     testsArea.directory,
     "generate-release-key",

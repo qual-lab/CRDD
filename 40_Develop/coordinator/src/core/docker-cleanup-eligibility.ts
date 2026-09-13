@@ -229,4 +229,5 @@ export function evaluateManagedDockerCleanupEligibility(input: unknown) {
     return Object.freeze({ eligible: false, reason: "raw_invalid" });
   }
 }
+
 import { types as utilTypes } from "node:util";

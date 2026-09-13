@@ -89,12 +89,12 @@ Checker本体は一つの配布Sourceであり、以下のブロックはその�
 
 外部URLへ通信して存在確認しない。ローカルリンクではRoot外への解決、symbolic link／junction等を確認済みにしない。Gitlinkは独立した境界として扱う。Gitが使えない場合のFilesystem探索は、Gitと同一の確認を保証する代替ではなく、失敗理由・除外・未確認付きの経路である。
 
-Checkerが検査する参照は、現在の正本・案内・ひな型から現在のCanonical Pathへ向く参照である。Change記録とWork Lifecycle Evidence内部の参照は、その固定改訂版を読む独立監査が扱う。過去Commit、tag、旧Path、固定Blobまたは移行Evidenceの真正性を通常Checkerへ持ち込まず、現行正本側のリンク切れを許容する例外にも使わない。
+Checkerは、現在の正本・案内・ひな型・Change・Work Lifecycle Evidenceの通常リンクを現在Pathに対して検査する。本文を変更できない固定履歴では、CRDD Official Current Profileが承認済み移行表から当時の参照基準を解決し、固定本文を通常リンク修正の対象にしない。固定原文Identity、過去Git object、移行表が当時の移行を正しく表すかという真正性は独立監査が扱う。固定履歴の扱いを、現行正本または改変可能なChange／Evidenceのリンク切れを許容する例外に使わない。
 
 | 層 | 対象 | 含めないもの |
 |---|---|---|
 | Generic Checker Core | Root、発見集合、Path境界、Link、Anchor、ID、宣言された汎用構造 | CRDD公式Repositoryの固有Version、CHG、実装package、過去移行 |
-| CRDD Official Current Profile | 現在の公式正本・template・版・状態・現行Directory契約 | 過去Releaseの文言、固定Commit／Blob、個別CHGの監査 |
+| CRDD Official Current Profile | 現在の公式正本・template・版・状態・現行Directory契約、通常のChange／Evidenceリンク、承認済み移行表による固定履歴参照の機械的解決 | 過去Releaseの意味評価、固定Commit／Blobと移行表の真正性、個別CHGの監査 |
 
 ## 5. 資源と終了
 

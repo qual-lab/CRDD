@@ -8,12 +8,12 @@ import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/core/node-runtime-version.ts";
+import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "../src/core/verification-result-record.ts";
 import { createInteractiveConsoleReaderEnvironment } from "../src/core/windows-child-environment.ts";
-import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";
 import {
   createDynamicFakeProviderRecoverableResidue,
   recoverDockerIsolationProbe,

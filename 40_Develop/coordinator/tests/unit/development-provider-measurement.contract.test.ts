@@ -1,11 +1,38 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createIsolatedDevelopmentProviderMeasurementCandidate } from "../../scripts/measure-development-providers.ts";
+import {
+  createIsolatedDevelopmentProviderMeasurementCandidate,
+  projectDevelopmentMeasurementEntryFailure,
+} from "../../scripts/measure-development-providers.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../runtime-data/src/index.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/security/coordinator-task-request.ts";
 
 type Dependencies = Parameters<
   typeof createIsolatedDevelopmentProviderMeasurementCandidate
 >[0];
+
+test("Development Measurement入口はRuntime Data停止理由を保持する", () => {
+  const error = new RepositoryRuntimeDataAreaBlockedError({
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    effectIssued: true,
+    effectStateUnknown: true,
+    effectConfirmation: "unknown",
+    cleanupConfirmed: false,
+    retryAllowed: false,
+    recoveryReference: "repository-local-ignore.test-reference",
+    repositoryPathReported: false,
+  });
+  assert.deepEqual(projectDevelopmentMeasurementEntryFailure(error), {
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    effectIssued: true,
+    effectStateUnknown: true,
+    cleanupConfirmed: false,
+    retryAllowed: false,
+    recoveryReference: "repository-local-ignore.test-reference",
+  });
+});
 function fixture(outcomes: readonly string[]) {
   const capability = Object.freeze({});
   const starts: string[] = [];

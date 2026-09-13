@@ -156,6 +156,40 @@ function inspectRepository(raw: unknown) {
     : null;
 }
 
+function inspectCandidatePortBlocked(raw: unknown) {
+  const value = snapshotPlainRecord(
+    raw,
+    new Set([
+      "status",
+      "reason",
+      "effectIssued",
+      "effectStateUnknown",
+      "cleanupConfirmed",
+      "retryAllowed",
+      "recoveryReference",
+    ] as const),
+  );
+  if (
+    value?.status !== "blocked" ||
+    typeof value.reason !== "string" ||
+    typeof value.effectIssued !== "boolean" ||
+    typeof value.effectStateUnknown !== "boolean" ||
+    typeof value.cleanupConfirmed !== "boolean" ||
+    typeof value.retryAllowed !== "boolean" ||
+    (value.recoveryReference !== null &&
+      typeof value.recoveryReference !== "string")
+  )
+    return null;
+  return Object.freeze({
+    reason: value.reason,
+    effectIssued: value.effectIssued,
+    effectStateUnknown: value.effectStateUnknown,
+    cleanupConfirmed: value.cleanupConfirmed,
+    retryAllowed: value.retryAllowed,
+    recoveryReference: value.recoveryReference as string | null,
+  });
+}
+
 function inspectReceipt(
   raw: unknown,
 ): ProjectRuntimeCandidateAdoptionReceipt | null {
@@ -206,6 +240,9 @@ function response(
     cleanupConfirmed?: boolean;
     manualRecoveryRequired?: boolean;
     recoveryIds?: readonly string[];
+    effectIssued?: boolean;
+    effectStateUnknown?: boolean;
+    retryAllowed?: boolean;
   }> = {},
 ) {
   return Object.freeze({
@@ -221,6 +258,13 @@ function response(
     cleanupConfirmed: options.cleanupConfirmed ?? true,
     manualRecoveryRequired: options.manualRecoveryRequired ?? false,
     recoveryIds: Object.freeze([...(options.recoveryIds ?? [])]),
+    ...(options.effectIssued === undefined
+      ? {}
+      : {
+          effectIssued: options.effectIssued,
+          effectStateUnknown: options.effectStateUnknown ?? false,
+          retryAllowed: options.retryAllowed ?? false,
+        }),
   });
 }
 
@@ -432,12 +476,29 @@ export async function integrateProjectRuntimeOperation(
       reason: string;
       cleanupConfirmed: boolean;
       manualRecoveryRequired: boolean;
+      recoveryReference?: string | null;
+      effectIssued?: boolean;
+      effectStateUnknown?: boolean;
+      retryAllowed?: boolean;
     }> | null = null;
     try {
-      const observed = inspectRepository(
-        dependencies.candidate.observeCanonicalRepository(),
-      );
-      if (
+      const rawObservation =
+        dependencies.candidate.observeCanonicalRepository();
+      const observationBlocked = inspectCandidatePortBlocked(rawObservation);
+      const observed = inspectRepository(rawObservation);
+      if (observationBlocked) {
+        adoptionFailure = Object.freeze({
+          reason: observationBlocked.reason,
+          cleanupConfirmed: observationBlocked.cleanupConfirmed,
+          effectIssued: observationBlocked.effectIssued,
+          effectStateUnknown: observationBlocked.effectStateUnknown,
+          retryAllowed: observationBlocked.retryAllowed,
+          manualRecoveryRequired:
+            observationBlocked.effectStateUnknown ||
+            !observationBlocked.cleanupConfirmed,
+          recoveryReference: observationBlocked.recoveryReference,
+        });
+      } else if (
         !observed ||
         observed.repositoryRevision !== candidate.baseRevision ||
         observed.dirty ||
@@ -458,8 +519,22 @@ export async function integrateProjectRuntimeOperation(
         } catch {
           rawReceipt = null;
         }
+        const adoptionBlocked = inspectCandidatePortBlocked(rawReceipt);
         receipt = inspectReceipt(rawReceipt);
-        if (
+        if (adoptionBlocked) {
+          adoptionFailure = Object.freeze({
+            reason: adoptionBlocked.reason,
+            cleanupConfirmed: adoptionBlocked.cleanupConfirmed,
+            effectIssued: adoptionBlocked.effectIssued,
+            effectStateUnknown: adoptionBlocked.effectStateUnknown,
+            retryAllowed: adoptionBlocked.retryAllowed,
+            manualRecoveryRequired:
+              adoptionBlocked.effectStateUnknown ||
+              !adoptionBlocked.cleanupConfirmed,
+            recoveryReference: adoptionBlocked.recoveryReference,
+          });
+          receipt = null;
+        } else if (
           !receipt ||
           receipt.beforeRevision !== candidate.baseRevision ||
           receipt.changedPaths.length !== candidate.changedPaths.length ||
@@ -504,6 +579,12 @@ export async function integrateProjectRuntimeOperation(
         candidateId: candidate.candidateId,
         cleanupConfirmed: adoptionFailure.cleanupConfirmed,
         manualRecoveryRequired: adoptionFailure.manualRecoveryRequired,
+        effectIssued: adoptionFailure.effectIssued ?? false,
+        effectStateUnknown: adoptionFailure.effectStateUnknown ?? false,
+        retryAllowed: adoptionFailure.retryAllowed ?? false,
+        ...(adoptionFailure.recoveryReference
+          ? { recoveryIds: Object.freeze([adoptionFailure.recoveryReference]) }
+          : {}),
       });
   }
 

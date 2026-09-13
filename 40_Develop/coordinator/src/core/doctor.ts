@@ -6,6 +6,10 @@ import { describeAuthorityGrantVerifierContract } from "../security/authority-gr
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.ts";
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.ts";
 import {
+  classifyOwnedCoordinatorOperationCreationFailure,
+  createRuntimeOwnedCoordinatorOperation,
+} from "../security/coordinator-operation-creation-internal.ts";
+import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe,
 } from "../security/docker-isolation.ts";
@@ -16,14 +20,10 @@ import {
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
 } from "../security/execution-environment.ts";
-import {
-  classifyOwnedCoordinatorOperationCreationFailure,
-  createRuntimeOwnedCoordinatorOperation,
-} from "../security/coordinator-operation-creation-internal.ts";
 import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
 import { describeProviderIsolationContract } from "../security/provider-isolation-profile.ts";
 import { describeProviderLifecycleContract } from "../security/provider-lifecycle.ts";
-import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.ts";
+import { describeRepositoryLocationContract } from "../../../version-control/src/repository-location.ts";
 import { inspectRepositoryRevisionCandidate } from "../security/repository-operation-runtime.ts";
 import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.ts";
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
@@ -572,7 +572,7 @@ export function runDoctor(options: unknown = {}) {
     const readiness = evaluateReadiness(checks);
 
     const report = {
-      reportVersion: 11,
+      reportVersion: 12,
       diagnosticMode: isIsolationActive
         ? "docker_fake_provider_probe"
         : "passive_preflight",
@@ -599,7 +599,7 @@ export function runDoctor(options: unknown = {}) {
         profile: isIsolationActive ? DOCKER_ISOLATION_PROFILE : null,
       },
       rootProtectionPolicy: describeRootProtectionPolicyContract(),
-      repositoryGitLayout: describeRepositoryGitLayoutContract(),
+      repositoryLocation: describeRepositoryLocationContract(),
       providerLifecycle: describeProviderLifecycleContract(),
       fakeProviderLifecycle: isolation.fakeProviderLifecycle,
       egress: {

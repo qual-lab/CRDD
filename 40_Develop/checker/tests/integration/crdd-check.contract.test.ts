@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
+import type { SpawnSyncReturns } from "node:child_process";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import type { SpawnSyncReturns } from "node:child_process";
-import { createHash } from "node:crypto";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
 
@@ -37,8 +37,17 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
       "utf8",
     );
     assert.ok(content.includes("文章形式を要求しない"), relativePath);
-    assert.ok(content.includes("## 対象範囲と現在状態"), relativePath);
-    assert.ok(content.includes("## 判断"), relativePath);
+    if (relativePath === "template/02_UX/01_User_Experience.md") {
+      assert.ok(content.includes("## 1. 何を良くしたいのか"), relativePath);
+      assert.ok(content.includes("### 1.1. 根拠、対象、対象外"), relativePath);
+      assert.ok(
+        content.includes("## 8. 判断、未解決事項、次工程への引き渡し"),
+        relativePath,
+      );
+    } else {
+      assert.ok(content.includes("## 対象範囲と現在状態"), relativePath);
+      assert.ok(content.includes("## 判断"), relativePath);
+    }
     assert.ok(
       content.split(tableHeader).length - 1 >= 2,
       `${relativePath}: structured state and handoff tables are required`,
@@ -363,22 +372,13 @@ test("checker packageのRepository検証はRepository rootを明示する", () =
   assert.equal(path.resolve(checkerRoot, "../.."), repositoryRoot);
 });
 
-test("両private packageのLintはWarningを検査失敗にする", () => {
-  for (const packageRoot of [
-    checkerRoot,
-    path.join(repositoryRoot, "40_Develop", "coordinator"),
-  ]) {
-    const packageJson: unknown = JSON.parse(
-      fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
-    );
-    const packageRecord = record(packageJson);
-    const scripts = packageRecord && record(packageRecord.scripts);
-    assert.equal(
-      scripts?.lint,
-      "biome lint ../.. --error-on-warnings",
-      packageRoot,
-    );
-  }
+test("Checker packageのLintはWarningを検査失敗にする", () => {
+  const packageJson: unknown = JSON.parse(
+    fs.readFileSync(path.join(checkerRoot, "package.json"), "utf8"),
+  );
+  const packageRecord = record(packageJson);
+  const scripts = packageRecord && record(packageRecord.scripts);
+  assert.equal(scripts?.lint, "biome lint ../.. --error-on-warnings");
 });
 
 test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査する", () => {
@@ -421,46 +421,6 @@ test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査�
   }
 });
 
-test("Rust platform accessの開発入口は固定Cargo commandだけを使う", () => {
-  const coordinatorRoot = path.join(
-    repositoryRoot,
-    "40_Develop",
-    "coordinator",
-  );
-  const packageJson: unknown = JSON.parse(
-    fs.readFileSync(path.join(coordinatorRoot, "package.json"), "utf8"),
-  );
-  const packageRecord = record(packageJson);
-  const scripts = packageRecord && record(packageRecord.scripts);
-  assert.deepEqual(
-    scripts &&
-      Object.fromEntries(
-        [
-          "platform-access:build",
-          "platform-access:coverage",
-          "platform-access:format:check",
-          "platform-access:lint",
-          "platform-access:test",
-          "platform-access:worker-build",
-          "platform-access:worker-lint",
-        ].map((name) => [name, scripts[name]]),
-      ),
-    {
-      "platform-access:build": "npm run platform-access:worker-build",
-      "platform-access:coverage":
-        "node ./scripts/check-platform-access-coverage.ts",
-      "platform-access:format:check":
-        "cargo fmt --manifest-path ../platform-access/Cargo.toml --check",
-      "platform-access:lint": "npm run platform-access:worker-lint",
-      "platform-access:test":
-        "cargo +1.94.1-x86_64-pc-windows-msvc test --manifest-path ../platform-access/Cargo.toml --frozen --all-features --target x86_64-pc-windows-msvc",
-      "platform-access:worker-build":
-        "cargo +1.94.1-x86_64-pc-windows-msvc build --manifest-path ../platform-access/Cargo.toml --frozen --release --target x86_64-pc-windows-msvc --bin crdd-platform-access",
-      "platform-access:worker-lint":
-        "cargo +1.94.1-x86_64-pc-windows-msvc clippy --manifest-path ../platform-access/Cargo.toml --frozen --target x86_64-pc-windows-msvc --bin crdd-platform-access -- -D warnings",
-    },
-  );
-});
 type CheckerRun = SpawnSyncReturns<string> & { report: CheckerReport };
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -781,16 +741,6 @@ function write(file: string, content = ""): void {
   fs.writeFileSync(file, content, "utf8");
 }
 
-type DispositionFixtureEntry = Record<string, unknown> & { path: string };
-
-function fixtureBlobOid(file: string): string {
-  const bytes = fs.readFileSync(file);
-  return createHash("sha1")
-    .update(Buffer.from(`blob ${bytes.length}\0`, "utf8"))
-    .update(bytes)
-    .digest("hex");
-}
-
 function dispositionFixtureRoot(hasFixedEvidence = false): string {
   const root = fixture();
   makeStructure(root);
@@ -843,7 +793,7 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
   if (hasFixedEvidence) {
     write(
       path.join(root, "90_Release", "Changes", "Evidence", "fixed.md"),
-      "# Fixed Evidence\n",
+      "# Fixed Evidence\n\n[当時の検証結果](../../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
     );
     write(
       path.join(root, "90_Release", "Changes", "Evidence", "fixed.json"),
@@ -866,11 +816,6 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
     { encoding: "utf8" },
   );
   assert.equal(committed.status, 0, committed.stderr);
-  writeDispositionFixture(root);
-  const stagedInventory = spawnSync("git", ["-C", root, "add", "."], {
-    encoding: "utf8",
-  });
-  assert.equal(stagedInventory.status, 0, stagedInventory.stderr);
   const commit = spawnSync(
     "git",
     [
@@ -1030,89 +975,7 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
     encoding: "utf8",
   });
   assert.equal(stagedCurrentLayout.status, 0, stagedCurrentLayout.stderr);
-  writeDispositionFixture(root);
   return root;
-}
-
-function writeDispositionFixture(
-  root: string,
-  mutate?: (entries: DispositionFixtureEntry[]) => void,
-  setHash?: string,
-): void {
-  const markdownPaths = spawnSync(
-    "git",
-    ["-C", root, "ls-files", "--", "*.md"],
-    { encoding: "utf8" },
-  )
-    .stdout.trim()
-    .split(/\r?\n/u)
-    .filter(Boolean)
-    .sort();
-  const entries: DispositionFixtureEntry[] = markdownPaths.map(
-    (relativePath) => {
-      const oid = fixtureBlobOid(path.join(root, relativePath));
-      if (
-        relativePath.includes("/Evidence/") ||
-        relativePath.includes("/Verification_Results/")
-      ) {
-        const historicalPath = relativePath.startsWith(
-          "99_Roadmap/Releases/v0.20.0/Evidence/",
-        )
-          ? "07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md"
-          : "90_Release/Changes/Evidence/fixed.md";
-        return {
-          path: relativePath,
-          artifactRole: "release_evidence",
-          currentness: "fixed_history",
-          disposition: "fixed_original_with_structured_index",
-          reasonCode: "published_bytes_preserved",
-          historicalIdentity: {
-            refKind: "tag",
-            ref: "v0.19.0",
-            path: historicalPath,
-            blobOid: oid,
-          },
-          currentTreeBlobOid: oid,
-          currentRoute: relativePath.startsWith("99_Roadmap/Releases/")
-            ? "99_Roadmap/03_Releases.md"
-            : "99_Roadmap/02_Changes.md",
-        };
-      }
-      return {
-        path: relativePath,
-        artifactRole: relativePath.startsWith("template/")
-          ? "template"
-          : "principle",
-        currentness: "current",
-        disposition: "already_structured",
-        reasonCode: "existing_structure_sufficient",
-        canonicalOwnerPath: relativePath,
-        currentBlobOid: oid,
-      };
-    },
-  );
-  mutate?.(entries);
-  const canonical = markdownPaths
-    .map((relativePath) => {
-      const oid = fixtureBlobOid(path.join(root, relativePath));
-      return `${relativePath}\0${oid}\n`;
-    })
-    .join("");
-  const value = {
-    schemaRevision: 1,
-    populationSource: "git_worktree_markdown",
-    evaluatedDocumentationSetSha256:
-      setHash ?? createHash("sha256").update(canonical).digest("hex"),
-    entries,
-  };
-  write(
-    path.join(
-      root,
-      "07_Quality",
-      "07_Structured_Document_Disposition_Inventory.json",
-    ),
-    `${JSON.stringify(value, null, 2)}\n`,
-  );
 }
 
 function initializeGit(root: string): void {
@@ -1234,7 +1097,7 @@ test("Work Lifecycle契約はRelease Evidenceの案内欠落を拒否する", ()
   );
 });
 
-test("Change記録とWork Lifecycle Evidenceの内部参照は通常Checkerの対象にしない", () => {
+test("Change記録とWork Lifecycle Evidenceの通常リンク切れを検出する", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "99_Roadmap", "Changes", "CHG-000070", "change.md"),
@@ -1252,22 +1115,101 @@ test("Change記録とWork Lifecycle Evidenceの内部参照は通常Checkerの�
     "# Evidence\n\n[固定時点の参照](../../../old-evidence.md)\n",
   );
   const result = runChecker(root);
+  for (const expectedPath of [
+    "99_Roadmap/Changes/CHG-000070/change.md",
+    "99_Roadmap/Changes/CHG-000070/Evidence/260913_audit.md",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "broken-link" && finding.path === expectedPath,
+      ),
+      `${expectedPath}\n${JSON.stringify(result.report.findings)}`,
+    );
+});
+
+test("固定履歴本文の旧リンクを移行表から解決し本文変更を要求しない", () => {
+  const root = dispositionFixtureRoot(true);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.some(
       (finding) =>
-        finding.code === "broken-link" &&
-        (finding.path === "99_Roadmap/Changes/CHG-000070/change.md" ||
-          finding.path ===
-            "99_Roadmap/Changes/CHG-000070/Evidence/260913_audit.md"),
+        finding.path ===
+          "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.md" &&
+        finding.code === "broken-link",
     ),
     false,
     JSON.stringify(result.report.findings),
   );
-  assert.ok(
-    result.report.unchecked.includes(
-      "Links inside Change records and Work Lifecycle Evidence (independent audit scope)",
+});
+
+test("固定履歴本文が移行表のHashから変化した場合は拒否する", () => {
+  const root = dispositionFixtureRoot(true);
+  fs.appendFileSync(
+    path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000063",
+      "Evidence",
+      "260906_fixed.md",
     ),
+    "改変\n",
   );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "fixed-history-content-mismatch" &&
+        finding.path ===
+          "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.md",
+    ),
+    JSON.stringify(result.report.findings),
+  );
+});
+
+test("移行表の重複・Root外Path・不正Hashを拒否する", () => {
+  const firstEntry = (manifest: {
+    entries: Array<Record<string, unknown>>;
+  }): Record<string, unknown> => {
+    const [entry] = manifest.entries;
+    assert.ok(entry);
+    return entry;
+  };
+  const mutations = [
+    (manifest: { entries: Array<Record<string, unknown>> }) => {
+      manifest.entries.push({ ...firstEntry(manifest) });
+    },
+    (manifest: { entries: Array<Record<string, unknown>> }) => {
+      firstEntry(manifest).source = "../outside.md";
+    },
+    (manifest: { entries: Array<Record<string, unknown>> }) => {
+      firstEntry(manifest).targetSha256 = "not-a-sha256";
+    },
+  ];
+  for (const mutate of mutations) {
+    const root = dispositionFixtureRoot();
+    const manifestPath = path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000070",
+      "Evidence",
+      "260912-2142_migration-map.json",
+    );
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+      entries: Array<Record<string, unknown>>;
+    };
+    mutate(manifest);
+    write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "fixed-history-migration-map-invalid",
+      ),
+      JSON.stringify(result.report.findings),
+    );
+  }
 });
 
 function runWithEnv(
@@ -3617,6 +3559,25 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   write(
     path.join(source, "template", "tools", "crdd-check.ts"),
     fs.readFileSync(checker, "utf8"),
+  );
+  write(
+    path.join(
+      source,
+      "template",
+      "tools",
+      "internal",
+      "version-control-runtime.ts",
+    ),
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template",
+        "tools",
+        "internal",
+        "version-control-runtime.ts",
+      ),
+      "utf8",
+    ),
   );
   assert.equal(
     spawnSync("git", ["init", "--quiet", source], { encoding: "utf8" }).status,

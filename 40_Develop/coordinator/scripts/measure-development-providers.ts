@@ -4,10 +4,14 @@ import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import {
   ensureRepositoryRuntimeDataArea,
-  verifyRepositoryRoot,
+  RepositoryRuntimeDataAreaBlockedError,
+  requireReadyRepositoryRuntimeDataArea,
 } from "../../runtime-data/src/index.ts";
+import {
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  verifyRepositoryRoot,
+} from "../../version-control/src/repository-location.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
-
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/security/coordinator-task-runtime.ts";
 import {
   cancelRuntimeOwnedDevelopmentMeasurementSession,
@@ -15,7 +19,6 @@ import {
   readRuntimeOwnedDevelopmentMeasurementTasks,
   requestRuntimeOwnedDevelopmentMeasurementSession,
 } from "../src/security/development-measurement-session.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
 type Dependencies = Readonly<{
   request: typeof requestRuntimeOwnedDevelopmentMeasurementSession;
@@ -154,6 +157,30 @@ export function createIsolatedDevelopmentProviderMeasurementCandidate(
   });
 }
 
+export function projectDevelopmentMeasurementEntryFailure(error: unknown) {
+  return Object.freeze(
+    error instanceof RepositoryRuntimeDataAreaBlockedError
+      ? {
+          status: "blocked" as const,
+          reason: error.reason,
+          effectIssued: error.effectIssued,
+          effectStateUnknown: error.effectStateUnknown,
+          cleanupConfirmed: error.cleanupConfirmed,
+          retryAllowed: error.retryAllowed,
+          recoveryReference: error.recoveryReference,
+        }
+      : {
+          status: "blocked" as const,
+          reason: "measurement_entry_failed_closed",
+          effectIssued: false,
+          effectStateUnknown: true,
+          cleanupConfirmed: false,
+          retryAllowed: false,
+          recoveryReference: null,
+        },
+  );
+}
+
 async function main() {
   assertSupportedCoordinatorNodeRuntime(process.versions.node);
   if (process.argv.length !== 2)
@@ -162,11 +189,10 @@ async function main() {
   const verifiedRuntimeRoot = verifyRepositoryRoot(root);
   if (verifiedRuntimeRoot.status !== "completed")
     throw new Error("measurement_runtime_data_path_invalid");
-  const testsArea = ensureRepositoryRuntimeDataArea(
-    verifiedRuntimeRoot.capability,
-    "tests",
+  const testsArea = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataArea(verifiedRuntimeRoot.capability, "tests"),
+    "measurement_runtime_data_path_invalid",
   );
-  if (!testsArea) throw new Error("measurement_runtime_data_path_invalid");
   const directory = path.join(testsArea.directory, "development-measurement");
   const identities = [];
   for (const target of [directory]) {
@@ -237,9 +263,9 @@ async function main() {
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   try {
     await main();
-  } catch {
+  } catch (error) {
     process.stdout.write(
-      `${JSON.stringify({ status: "blocked", reason: "measurement_entry_failed_closed" })}\n`,
+      `${JSON.stringify(projectDevelopmentMeasurementEntryFailure(error))}\n`,
     );
     process.exitCode = 2;
   }

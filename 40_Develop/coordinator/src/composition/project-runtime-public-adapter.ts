@@ -1,9 +1,9 @@
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../security/project-runtime-windows-decision-store.ts";
 import {
   runProjectRuntimePublicDecision,
   runProjectRuntimePublicObjective,
   runProjectRuntimePublicStateQuery,
 } from "./project-runtime-composition-root.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../security/project-runtime-windows-decision-store.ts";
 
 export {
   runProjectRuntimePublicDecision,

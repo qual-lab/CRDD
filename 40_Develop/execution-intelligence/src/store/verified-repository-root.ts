@@ -2,7 +2,7 @@ import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../version-control/src/repository-location.ts";
 
 export type VerifiedExecutionRepositoryRoot = VerifiedRepositoryRoot;
 

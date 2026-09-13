@@ -3,8 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   beginPlatformAccessArtifactSigningObservation,
-  verifyPlatformAccessArtifactSigningObservation,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+  verifyPlatformAccessArtifactSigningObservation,
 } from "./platform-access-release.ts";
 
 // Bootstrap trust binds the shipped helper, not a caller-observed executable.

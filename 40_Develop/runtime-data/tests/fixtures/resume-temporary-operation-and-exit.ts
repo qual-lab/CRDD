@@ -1,9 +1,9 @@
 import {
   resumeTemporaryOperation,
-  verifyRepositoryRoot,
   type TemporaryOperationRecoveryReference,
 } from "../../src/index.ts";
 import { resumeTemporaryOperationWithInterruptionForVerification } from "../../src/store/temporary-operation-store.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 const [repositoryRoot, encodedReference, nextIdentity, mode] =
   process.argv.slice(2);

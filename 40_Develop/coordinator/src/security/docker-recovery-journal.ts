@@ -3,9 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  classifyCleanupDirectoryState,
   classifyCommittedPairDeleteState,
   classifyCommittedPairMoveState,
-  classifyCleanupDirectoryState,
 } from "./docker-recovery-state-machine.ts";
 
 const MAX_RECORD_BYTES = 262_144;
