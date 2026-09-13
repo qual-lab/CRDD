@@ -1,7 +1,7 @@
 # Version Control PortとGit Adapter
 
 変更ID: `CHG-000071`
-状態: `Ready for Verification`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `architecture_refactor`
@@ -113,3 +113,9 @@ Consumer Closure試験は、利用箇所の全数一致に加えて、各Consume
 最終独立再レビューは、Candidate rollbackの構造化是正を含む固定候補についてCritical／Major／Moderate 0の`Pass`と判定した。残る作業は、CommitでSnapshotを固定し、署名契約と正式E2Eにより公開経路の同一性を確認することだけである。
 
 固定Commit `5d56eced`の署名候補作成は成功したが、一時PowerShellへ秘密鍵Pathと署名引数を都度埋める手順では、launcher配置ミスによって署名前に端末が終了した。署名契約の不成立ではなく再現可能な操作入口の不足として扱い、Git管理外`.env-crdd`から`CRDD_RELEASE_PRIVATE_KEY_PATH`だけを解決できるようにした。鍵参照、秘密入力および暗号署名はCHG-000072で共通の成果物署名Componentへ分離し、CoordinatorはRuntime Manifestの構築とRelease固有の配置だけを所有する。`.env-crdd`へ秘密鍵内容またはpassphraseを保存せず、明示`--private-key`入口も維持する。Pathの欠落、重複、相対指定、非通常fileまたはsymbolic linkはpassphrase入力前に拒否する。
+
+## 6. 署名済み検証
+
+[Version Control境界の署名済み検証](Evidence/260913-2335_signed-e2e.md)により、CHG-000071の基準Commitを含む固定Commit上で、Version Control Owner試験38件、署名済み4経路E2E 4／4およびRecovery Matrixの完走を確認した。全経路でcleanup済み、手動回復義務なし、Canonical Repository変更なしである。
+
+これによりVersion Control PortとGit Adapterの実装・検証は完了し、v0.21.0のRelease判断へ引き渡せる。v0.21.0全体の採用、統合またはRelease判断は本判定に含めない。

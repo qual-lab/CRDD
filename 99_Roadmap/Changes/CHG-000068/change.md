@@ -1,7 +1,7 @@
 # 変更トレース: 工程別の図面処置と意図引き渡し
 
 変更ID: `CHG-000068`
-状態: `Completed`
+状態: `Ready for Release Handoff`
 担当責任者: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `quality`

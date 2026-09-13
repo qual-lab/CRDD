@@ -1,7 +1,7 @@
 # CHG-000070 Work LifecycleとEvidence所有の再編
 
 変更ID: `CHG-000070`
-状態: Completed（v0.21.0）
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 基準版: v0.20.1
 

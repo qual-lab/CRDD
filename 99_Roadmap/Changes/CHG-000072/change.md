@@ -1,7 +1,7 @@
 # 成果物署名責務の分離
 
 変更ID: `CHG-000072`
-状態: `Completed`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `architecture_refactor`
@@ -55,4 +55,4 @@ Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primit
 
 ## 6. 署名済み検証
 
-[署名済みE2E Evidence](Evidence/260913-2335_signed-e2e.md)により、固定Commitの署名、4経路E2E 4／4、Recovery Matrix、cleanupおよび手動回復義務なしを確認した。これにより本変更単位は完了した。v0.21.0全体の採用、統合またはRelease判断は本完了判定に含めない。
+[署名済みE2E Evidence](Evidence/260913-2335_signed-e2e.md)により、固定Commitの署名、4経路E2E 4／4、Recovery Matrix、cleanupおよび手動回復義務なしを確認した。これにより本変更の実装・検証は完了し、v0.21.0のRelease判断へ引き渡せる。v0.21.0全体の採用、統合またはRelease判断は本判定に含めない。
