@@ -29,6 +29,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
   assert.deepEqual(
     [...new Set(catalog.integrationBlocks.map((entry) => entry.owner))].sort(),
     [
+      "artifact-signing",
       "checker",
       "coordinator",
       "execution-intelligence",

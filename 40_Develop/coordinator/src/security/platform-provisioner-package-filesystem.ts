@@ -4267,6 +4267,7 @@ const protectedPreBodyEffectSymbols = Object.freeze(
     "readHiddenLine",
     "readFileSync",
     "createPrivateKey",
+    "signEd25519Payload",
     "sign",
     "spawn",
     "spawnSync",
@@ -5406,7 +5407,15 @@ function assertReleaseSigningProtectedPath(source: string) {
   const tokens = tokenizeTypeScriptModuleSyntax(source);
   const protectedImports = Object.freeze(
     new Map<string, readonly string[]>([
-      ["node:crypto", ["createPrivateKey", "createPublicKey", "sign"]],
+      [
+        "../../artifact-signing/src/index.ts",
+        [
+          "preflightPrivateKeyReference",
+          "readHiddenLine",
+          "readPrivateKeyReferenceFromEnvironmentFile",
+          "signEd25519Payload",
+        ],
+      ],
       [
         "../../version-control/src/git/fixed-snapshot-adapter.ts",
         ["inspectRepositoryFixedSnapshot"],
@@ -5415,7 +5424,6 @@ function assertReleaseSigningProtectedPath(source: string) {
         "../../version-control/src/repository-location.ts",
         ["verifyRepositoryRoot"],
       ],
-      ["./generate-release-key.ts", ["readHiddenLine"]],
       [
         "./release-staging-manifest.ts",
         [
@@ -5493,18 +5501,6 @@ function assertReleaseSigningProtectedPath(source: string) {
     ?.localTokenIndex as number;
   const filesystemMethodsByOwner = new Map<string, ReadonlySet<string>>([
     [
-      "stableExternalFile",
-      new Set([
-        "lstatSync",
-        "realpathSync",
-        "constants",
-        "openSync",
-        "fstatSync",
-        "readSync",
-        "closeSync",
-      ]),
-    ],
-    [
       "repositoryLocalDistributionRoot",
       new Set(["lstatSync", "realpathSync", "existsSync"]),
     ],
@@ -5561,8 +5557,12 @@ function assertReleaseSigningProtectedPath(source: string) {
       new Set(["prepareReleaseManifestCandidate", "signReleaseManifest"]),
     ],
     ["readHiddenLine", new Set(["main"])],
-    ["createPrivateKey", new Set(["signReleaseManifest"])],
-    ["createPublicKey", new Set(["signReleaseManifest"])],
+    ["preflightPrivateKeyReference", new Set(["preflightReleaseManifest"])],
+    [
+      "readPrivateKeyReferenceFromEnvironmentFile",
+      new Set(["readReleasePrivateKeyPathFromEnvironmentFile"]),
+    ],
+    ["signEd25519Payload", new Set(["signReleaseManifest"])],
     [
       "getPinnedPlatformProvisionerReleaseSignerSpkiDer",
       new Set(["signReleaseManifest"]),
@@ -5571,7 +5571,6 @@ function assertReleaseSigningProtectedPath(source: string) {
       "canonicalizeProvisioningJsonValueCandidate",
       new Set(["signReleaseManifest"]),
     ],
-    ["sign", new Set(["signReleaseManifest"])],
     ["placeReleaseStagingManifestCandidate", new Set(["signReleaseManifest"])],
   ]);
   const expectedProtectedImportUseCount = new Map<string, number>([
@@ -5585,11 +5584,11 @@ function assertReleaseSigningProtectedPath(source: string) {
     ["beginReleaseStagingManifestSession", 1],
     ["verifyReleaseStagingManifestSession", 1],
     ["readHiddenLine", 1],
-    ["createPrivateKey", 1],
-    ["createPublicKey", 1],
+    ["preflightPrivateKeyReference", 1],
+    ["readPrivateKeyReferenceFromEnvironmentFile", 1],
+    ["signEd25519Payload", 1],
     ["getPinnedPlatformProvisionerReleaseSignerSpkiDer", 1],
     ["canonicalizeProvisioningJsonValueCandidate", 1],
-    ["sign", 1],
     ["placeReleaseStagingManifestCandidate", 1],
   ]);
   for (const [symbol, bindingIndex] of protectedBindings) {
@@ -5726,26 +5725,15 @@ function assertReleaseSigningProtectedPath(source: string) {
     "prepareReleaseManifestCandidate",
     ["const", "compiled", "="],
   );
-  const keyRead = directProtectedCall(
-    tokens,
-    "stableExternalFile",
-    "signReleaseManifest",
-    ["privateKeyBytes", "="],
-    [["options", ".", "privateKeyPath"], ["MAXIMUM_PRIVATE_KEY_BYTES"]],
+  const keyPreflight = uniqueOwnedCallIndex(
+    "preflightPrivateKeyReference",
+    "preflightReleaseManifest",
+    ["privateKeyAuthorization", "="],
   );
-  const passphrase = directProtectedCall(
-    tokens,
-    "signingPassphrase",
-    "signReleaseManifest",
-    ["const", "passphrase", "="],
-    [["rawPassphrase"]],
-  );
-  const signature = directProtectedCall(
-    tokens,
-    "sign",
+  const signature = uniqueOwnedCallIndex(
+    "signEd25519Payload",
     "signReleaseManifest",
     ["const", "signature", "="],
-    [["null"], ["compiled", ".", "message"], ["privateKey"]],
   );
   const pinnedSigner = directProtectedCall(
     tokens,
@@ -5777,10 +5765,9 @@ function assertReleaseSigningProtectedPath(source: string) {
       commitTree < stagingVerification &&
       policyIdentity < runtimeIdentity &&
       runtimeIdentity < compiledPayload &&
-      sPrepare < passphrase &&
-      passphrase < keyRead &&
-      keyRead < pinnedSigner &&
-      keyRead < signature &&
+      pPrepare < keyPreflight &&
+      sPrepare < pinnedSigner &&
+      pinnedSigner < signature &&
       signature < canonicalEnvelope &&
       canonicalEnvelope < placement &&
       signature < placement
@@ -5792,8 +5779,6 @@ function assertReleaseSigningProtectedPath(source: string) {
     ["preflightReleaseManifest", new Set([p])],
     ["signReleaseManifest", new Set([s])],
     ["prepareReleaseManifestCandidate", new Set([pPrepare, sPrepare])],
-    ["stableExternalFile", new Set([keyRead])],
-    ["signingPassphrase", new Set([passphrase])],
     ["verifyCommitTreeBinding", new Set([commitTree])],
     ["main", new Set([mainInvocation])],
   ]);
@@ -5912,7 +5897,7 @@ function assertReleaseSigningProtectedPath(source: string) {
     ],
     [
       "signature_to_envelope",
-      ["signature", ":", "signature", ".", "toString", "(", "base64url", ")"],
+      ["signature", ":", "signature", ".", "signature"],
     ],
   ] as const)
     requireSingleFieldEdge(signingRange, sequence, name);
@@ -6403,6 +6388,11 @@ function observePackage(packageRoot: string) {
 }
 
 const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
+  Object.freeze({
+    sourcePrefix: "40_Develop/artifact-signing/src/",
+    packagePath: "40_Develop/artifact-signing/package.json",
+    packageName: "@qual-lab/crdd-artifact-signing",
+  }),
   Object.freeze({
     sourcePrefix: "40_Develop/mcp/src/",
     packagePath: "40_Develop/mcp/package.json",

@@ -1,5 +1,7 @@
 # Repository-local CRDD runtime state is untracked by default.
 /.crdd/*
+/.env
+/.env-crdd
 
 # These files are repository configuration bound to the reviewed Git revision.
 !/.crdd/config/

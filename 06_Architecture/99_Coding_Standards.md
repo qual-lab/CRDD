@@ -172,7 +172,7 @@ Release署名または同等の発行Authorityを使用するToolでは、日常
 
 正式署名入口は、[リリース準備状態](../19_Maintenance.md#release-signing-verification-boundary)で固定した候補だけを対象とする。配布Root、Source Root、Commit／Tree、package・artifact Identity、引数、実行Runtime、既存manifestおよび署名前に判定できるFilesystem条件を、秘密入力より前にFail Closedで全て検査しなければならない（MUST）。秘密入力後も同じ対象Identityと改変不在を再確認し、事前検査を署名時の再検査へ流用しない。非秘密条件の不一致、入力誤りまたは署名失敗ではmanifest、Authorityまたは成功状態を発行せず、候補を修正する場合は正式署名を反復デバッグへ使わず開発入口へ戻す。
 
-公式Release秘密鍵またはpassphraseを`.env`、Repository-local `.crdd`、argv、環境変数、標準入力redirect、一時file、logまたは試験fixtureへ保存して反復入力を省略してはならない（MUST NOT）。将来、OS保護の鍵Handle、Hardware-backed鍵または署名Serviceを採用する場合も、値をToolへ公開せず、鍵用途、利用主体、候補Identity、回数、取消および監査を別の保護契約として確認する。採用Repositoryまたは一般利用者は公式Releaseの署名を検証する側であり、公式Release秘密鍵またはpassphraseの保有・入力を要求されない。
+公式Release秘密鍵の内容またはpassphraseを`.env`、`.env-crdd`、Repository-local `.crdd`、argv、環境変数、標準入力redirect、一時file、logまたは試験fixtureへ保存して反復入力を省略してはならない（MUST NOT）。Repository RootのGit管理外`.env-crdd`には、公式Release担当者が所有する秘密鍵fileの絶対Pathだけを`CRDD_RELEASE_PRIVATE_KEY_PATH`として置ける。この参照は鍵内容、passphraseまたは署名Authorityではなく、Signerは署名時だけ同fileを読み、対象fileの存在と型を秘密入力前に検査し、鍵内容をpassphrase入力後の署名時にだけ読む。将来、OS保護の鍵Handle、Hardware-backed鍵、Credential Storeまたは署名Serviceを採用する場合も、値をToolへ公開せず、鍵用途、利用主体、候補Identity、回数、取消および監査を別の保護契約として確認する。採用Repositoryまたは一般利用者は公式Releaseの署名を検証する側であり、公式Release秘密鍵またはpassphraseの保有・入力を要求されない。
 
 Source、fixture、CLIおよび子ProcessのPathは、Repositoryを意図的に現在Directoryへ結合する契約を除き、moduleまたは明示Rootから絶対化する。試験起動Directory、Shell、Node versionまたはsession環境の偶然に依存させない。Process境界を新設・変更する試験は、少なくとも引数の完全一致、Shell非使用、構造化入力byte、未対応Runtime、対話端末不成立、起動Directory差およびEffect前停止を、該当する範囲で確認する。
 

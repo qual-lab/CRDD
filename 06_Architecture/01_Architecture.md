@@ -30,6 +30,7 @@ CRDD自身が提供するCoordinator Runtime、実行知（Execution Intelligenc
 |---|---|---|
 | Coordinator | Repository／Revision、実行編成、Authority、隔離候補、結果・回収の調整 | [状態・資源・Lock・回復設計](coordinator/01_Architecture.md)。Providerの自己申告を実行許可にせず、MCP Transportを所有しない |
 | 実行知 | 仕事Identityへ結合した実行Event、欠測を保つ集約、非Authority改善候補、Repository-local保存と清掃 | [実行知のアーキテクチャ](execution-intelligence/01_Architecture.md)。Coordinator、MCP、Provider SDKまたはProject Stateを所有しない |
+| 成果物署名 | 鍵参照の事前固定、direct TTY秘密入力、任意byte列のEd25519署名、秘密byte消去 | [成果物署名](artifact-signing/01_Architecture.md)。Manifest Schema、Runtime Identity、Publisher Policyまたは配置を所有しない |
 | Windowsプラットフォームアクセス | TypeScriptだけで閉じないOS観測と限定native操作 | [native境界・資源・回復の設計](platform-access/01_Architecture.md)、[脅威モデル](coordinator/02_Threat_Model.md)。一般PolicyやCLI責務をRustへ移さない |
 | Checker | 文書・参照・契約の決定論的確認 | [検査範囲・配布・終了の設計](checker/01_Architecture.md)。private packageが配布正本を参照し、Checker合格を専門レビューや準拠承認にしない |
 | Project Operation Context | Project／Repository Identity、Topic／Meeting Lifecycle、各正本からのProject Management Projection | [Project Operation Contextのアーキテクチャ](project-operation/01_Architecture.md)。Projectionを正本または更新Storeにせず、RelationからAuthorityを生成しない |
@@ -76,7 +77,7 @@ Port／Adapterブロック
 | Coordinator | Provider実行 | 選定、外部送信許可、隔離Executor実行、候補固定 | timeout、取消、Process／Container cleanup、候補未発行 | [Coordinator](coordinator/01_Architecture.md#3-一般taskの主シーケンス) |
 | Coordinator | Reviewer判定 | 候補結合済み内容投影、独立Review、構造化判定、限定是正 | 投影失敗、Provider終了、指摘の安全な診断、最終判定settlement | [Coordinator](coordinator/01_Architecture.md#3-一般taskの主シーケンス) |
 | Coordinator | 候補公開 | 候補snapshot、Store、統合公開 | Lock、衝突、破棄、正本採用前Effect 0 | [Coordinator](coordinator/01_Architecture.md#10-provider実行と候補) |
-| Coordinator | Release署名 | 配布依存観測、署名、候補promotion | preflight、秘密入力、失敗staging、単一snapshot | [Coordinator](coordinator/01_Architecture.md#9-署名済み配布物) |
+| Coordinator／成果物署名 | Release署名 | Coordinatorによる配布依存・payload・Policy・配置、成果物署名による鍵参照・秘密入力・暗号署名 | preflight、秘密入力、鍵差替え拒否、失敗staging、単一snapshot | [Coordinator](coordinator/01_Architecture.md#9-署名済み配布物)、[成果物署名](artifact-signing/01_Architecture.md) |
 | Coordinator | Docker Task回復 | Docker Task実行、資源回収、Task Recovery | Container／Network／Volume不存在、exact Identity再入場 | [Coordinator](coordinator/01_Architecture.md#11-取消と回復) |
 | Coordinator | Docker Desktop修復 | 障害分類、修復Effect、履歴Recovery | 停止、run Directory退避、再起動、Engine再観測、旧義務settlement | [Coordinator](coordinator/01_Architecture.md#docker外部境界の結合単位) |
 | 実行知 | Event発行 | Event検証、非Authority発行、利用側観測 | 欠測保持、無効Event拒否、主処理結果の不変 | [実行知](execution-intelligence/01_Architecture.md#3-発行と失敗境界) |

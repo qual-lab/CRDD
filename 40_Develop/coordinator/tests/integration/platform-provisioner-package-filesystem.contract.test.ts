@@ -43,6 +43,32 @@ import { assertCanonicalCandidate } from "../support/test-support.ts";
 const developmentFixtureRoots = new Set<string>();
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
+test("Runtime sibling component宣言は各Identityを一度だけ所有する", () => {
+  const source = fs.readFileSync(
+    path.join(
+      coordinatorRoot,
+      "src/security/platform-provisioner-package-filesystem.ts",
+    ),
+    "utf8",
+  );
+  const declaration = source.match(
+    /const RUNTIME_SIBLING_COMPONENTS = Object\.freeze\(\[([\s\S]*?)\n\]\);/u,
+  )?.[1];
+  assert.ok(declaration);
+  for (const field of ["sourcePrefix", "packagePath", "packageName"] as const) {
+    const declaredValues: string[] = Array.from(
+      declaration.matchAll(new RegExp(`${field}: "([^"]+)"`, "gu")),
+      (match) => match[1] ?? "",
+    );
+    assert.ok(declaredValues.length > 0, `${field}: no declared values`);
+    assert.equal(
+      new Set(declaredValues).size,
+      declaredValues.length,
+      `${field}: duplicate value`,
+    );
+  }
+});
+
 test("restart machineのWSL対象とDocker観測引数は閉集合で保持する", () => {
   const sourcePath = "src/security/docker-restart-machine.ts";
   const source = fs.readFileSync(

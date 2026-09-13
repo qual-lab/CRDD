@@ -33,6 +33,7 @@ export const integrationLifecycleProfiles = [
 export type TestCatalogEntry = Readonly<{
   id: string;
   owner:
+    | "artifact-signing"
     | "checker"
     | "coordinator"
     | "execution-intelligence"
@@ -60,6 +61,7 @@ export type TestCatalog = Readonly<{
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
   runnerProfiles: Readonly<{
+    "artifact-signing": "node_test";
     checker: "node_test";
     coordinator: "node_test";
     "execution-intelligence": "node_test";
@@ -101,6 +103,7 @@ const RESOURCE_INTENSIVE_LEVELS = new Set<TestLevel>([
   "longevity",
 ]);
 const RUNNER_SUPPORTED_OWNERS = new Set([
+  "artifact-signing",
   "checker",
   "coordinator",
   "execution-intelligence",
@@ -111,6 +114,7 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "platform-access",
 ]);
 const RUNNER_PROFILES = Object.freeze({
+  "artifact-signing": "node_test",
   checker: "node_test",
   coordinator: "node_test",
   "execution-intelligence": "node_test",
@@ -206,6 +210,7 @@ function walkFiles(root: string, directory: string): string[] {
 
 export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   const nodeTests = [
+    "artifact-signing",
     "checker",
     "coordinator",
     "execution-intelligence",
@@ -239,7 +244,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:checker|coordinator|execution-intelligence|mcp|project-runtime|runtime-data|version-control)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:artifact-signing|checker|coordinator|execution-intelligence|mcp|project-runtime|runtime-data|version-control)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -708,6 +713,8 @@ export function inspectResourceIntensiveTestAuthority(
 }
 
 function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
+  if (changedPath.startsWith("40_Develop/artifact-signing/"))
+    return "artifact-signing";
   if (changedPath.startsWith("40_Develop/coordinator/")) return "coordinator";
   if (changedPath.startsWith("40_Develop/checker/")) return "checker";
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))

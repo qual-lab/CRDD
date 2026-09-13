@@ -15,6 +15,7 @@
     "longevity"
   ],
   "runnerProfiles": {
+    "artifact-signing": "node_test",
     "checker": "node_test",
     "coordinator": "node_test",
     "execution-intelligence": "node_test",
@@ -25,6 +26,16 @@
     "platform-access": "cargo_test"
   },
   "integrationBlocks": [
+    {
+      "id": "artifact-signing:key-to-signature",
+      "owner": "artifact-signing",
+      "architectureAnchor": "06_Architecture/artifact-signing/01_Architecture.md#3-鍵参照と署名の状態遷移",
+      "responsibilities": ["private_key_reference_preflight", "hidden_secret_input", "ed25519_payload_signing"],
+      "externalBoundaries": ["external_private_key_file", "interactive_terminal", "crypto_runtime"],
+      "lifecycleProfile": "external_effect_operation",
+      "testIds": ["artifact-signing:integration:private-key-signing", "coordinator:integration:sign-release-manifest"],
+      "postconditions": ["key_reference_reobserved", "authorization_single_use", "secret_bytes_zeroized", "manifest_semantics_not_owned"]
+    },
     {
       "id": "version-control:repository-observation",
       "owner": "version-control",
@@ -238,11 +249,18 @@
   ],
   "integrationCorridors": [
     {
-      "id": "version-control:revision-to-release-candidate",
+      "id": "version-control:revision-to-signing-input",
       "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#6-段階移行",
-      "blockPath": ["version-control:fixed-revision-and-ignore", "version-control:fixed-snapshot-candidate", "coordinator:release-signing"],
-      "testIds": ["version-control:integration:fixed-revision-and-ignore", "version-control:integration:fixed-snapshot", "coordinator:integration:sign-release-manifest"],
-      "postconditions": ["fixed_revision_identity_preserved", "candidate_output_capability_preserved", "signing_consumes_fixed_snapshot"]
+      "blockPath": ["version-control:fixed-revision-and-ignore", "version-control:fixed-snapshot-candidate", "artifact-signing:key-to-signature"],
+      "testIds": ["version-control:integration:fixed-revision-and-ignore", "version-control:integration:fixed-snapshot", "artifact-signing:integration:private-key-signing"],
+      "postconditions": ["fixed_revision_identity_preserved", "candidate_output_capability_preserved", "key_reference_preflight_preserved"]
+    },
+    {
+      "id": "artifact-signing:signature-to-release-candidate",
+      "architectureAnchor": "06_Architecture/artifact-signing/01_Architecture.md#1-なぜ独立させるのか",
+      "blockPath": ["artifact-signing:key-to-signature", "coordinator:release-signing"],
+      "testIds": ["artifact-signing:integration:private-key-signing", "coordinator:integration:sign-release-manifest"],
+      "postconditions": ["canonical_payload_not_reinterpreted", "publisher_policy_stays_with_consumer", "signature_bound_to_manifest_before_placement"]
     },
     {
       "id": "version-control:observation-to-regression",
@@ -472,6 +490,19 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["revision_identity_preserved", "ignore_content_identity_preserved", "unknown_effect_not_reported_complete"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "artifact-signing:integration:private-key-signing",
+      "owner": "artifact-signing",
+      "path": "40_Develop/artifact-signing/tests/integration/private-key-signing.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["artifact-signing", "private-key-reference", "secret-input", "ed25519"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["reference_preflight_before_secret", "replacement_rejected", "authorization_single_use", "signature_verifiable"],
       "mandatoryByDefault": true
     },
     {

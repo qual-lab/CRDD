@@ -149,6 +149,27 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 この節は公式配布担当者向けである。入力は凍結したCommit／Tree、その内容から作ったstaging、既存の暗号化秘密鍵と発行情報。期待結果は同じ配布内容へ結合した署名manifestの生成であり、Release公開そのものではない。配布Root・Treeの不一致ならstagingの作成元へ戻り、復号失敗なら秘密入力だけを確認する。失敗原因を区別せず秘密鍵を作り直したり、日常開発のたびに署名したりしない。
 
+### `.env`と`.env-crdd`の使い分け
+
+| File | 用途 | 署名処理での扱い |
+|---|---|---|
+| `.env` | 採用Repositoryの一般的なLocal開発設定。用途とOwnerは各Projectが決める | 公式Release署名は読まない。鍵参照、鍵内容、passphraseを置かない |
+| `.env.example` | 一般的なLocal開発設定のGit管理可能な記入例 | 実値や秘密を置かず、署名設定を定義しない |
+| `.env-crdd` | CRDD公式RepositoryのRelease担当者だけが使うLocal署名設定 | `CRDD_RELEASE_PRIVATE_KEY_PATH`という絶対Path参照を一件だけ置ける |
+| `.env-crdd.example` | 値を持たない記入例 | Git管理できる。実在Path、秘密またはpassphraseを置かない |
+
+`.env.example`は、一般的なLocal設定の名称、用途および安全な記入形式を示す文書用sampleである。CRDD標準Toolが暗黙に同fileを読込む契約ではない。利用するLauncherまたはWorkflowが要求する項目だけをGit管理外の`.env`へ写し、実際のtoken等をsampleへ戻さない。現在のsampleは、任意のCoordinator RootとLocal MCP HTTP起動時のBearer Tokenを例示する。
+
+`.env-crdd`の書式は次の一行を基本とする。引用符はPathに空白がある場合に使用できる。未知の項目はSignerへAuthorityを追加せず、`CRDD_RELEASE_PRIVATE_KEY_PATH`の重複、相対Path、改行またはNULを拒否する。
+
+```dotenv
+CRDD_RELEASE_PRIVATE_KEY_PATH=C:\absolute\path\to\crdd-release-v1-private.pem
+```
+
+`.env-crdd`はRepository Root直下にだけ置き、Git管理しない。これは鍵の所在を毎回入力しないための参照であって、署名許可または秘密Storeではない。鍵内容とpassphraseは保存せず、passphraseは正式署名ごとにdirect TTYから一度入力する。SignerはCLIの`--private-key`と`.env-crdd`のどちらを選んでも同じ鍵参照preflightを秘密入力前に行い、秘密入力後にFile Identityを再観測する。CLIが明示された場合は`.env-crdd`を読まない。
+
+鍵参照、秘密入力および暗号署名Primitiveの責務は[成果物署名](../06_Architecture/artifact-signing/01_Architecture.md)、Runtime Manifestの構築、固定Publisher Policy、P／S順序および配置は[Coordinator](../06_Architecture/coordinator/01_Architecture.md#9-署名済み配布物)が所有する。
+
 署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、署名Source A、manifest carrier B、最終Release Commit Cを分けて生成する。Cは署名後に確定する検証結果だけを取り込む文書Commitであり、Runtime実行集合を変更しない。
 
 1. Release候補Commit Aへ、Source、文書、試験および固定Pathの単一Native Runtime成果物`crdd-platform-access.exe`を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
@@ -206,7 +227,7 @@ v0.20.0ではこの機械的遷移を実行しないまま公式tagを作成し�
 これにより、公式tagへ固定したcloneまたはsubmoduleは別archiveを取得せず通常Runtimeを利用できる。GitHub Releaseへ同じ内容の独自ZIPを追加しない。GitHubが自動生成するSource archiveもRuntime配布契約または検証対象にしない。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\sign-release-manifest.ts" --distribution-root "<absolute-staging-root>" --private-key "<approved-absolute-private-key-file>" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --issued-at <canonical-utc> --expires-at <canonical-utc>
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\sign-release-manifest.ts" --distribution-root "<absolute-staging-root>" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --issued-at <canonical-utc> --expires-at <canonical-utc>
 Set-Location "<absolute-crdd-source-root>"
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-staging-root>\40_Develop\coordinator\bin\launch.ts" promote-release
 ```

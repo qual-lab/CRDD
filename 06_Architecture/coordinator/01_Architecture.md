@@ -208,6 +208,8 @@ Mount Authorizationは、Provider Home Path、token、session、Credential、一
 
 ## 9. 署名済み配布物
 
+鍵参照、direct TTYの秘密入力および任意byte列への暗号署名は[成果物署名Component](../artifact-signing/01_Architecture.md)が所有する。CoordinatorはRuntime依存集合、Manifest payload、固定Publisher Policy、P検査／S検査の順序、Envelopeおよびstaging配置だけを所有し、鍵PathのFilesystem検査や暗号Primitiveを再実装しない。
+
 CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採る。Release候補TreeにはSource、文書、試験および固定成果物`template/tools/coordinator/windows-x64/crdd-platform-access.exe`を含める。署名manifestは`template/tools/coordinator/coordinator-package-manifest.json`へ置く。
 
 配布には二つのIdentityを用いる。

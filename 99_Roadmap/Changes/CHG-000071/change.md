@@ -111,3 +111,5 @@ Consumer Closure試験は、利用箇所の全数一致に加えて、各Consume
 署名契約試験のうち、固定公開鍵不一致の最終1件は`git archive HEAD`から作る固定候補が未Commitの新Componentを含まないため、現在の作業Treeでは意図どおり固定Snapshot観測前に停止する。試験期待値は変更せず、独立レビュー後に変更をCommitして同じ試験を再実行する。最終署名と正式E2Eは、その固定Commitで一度だけ実施する。
 
 最終独立再レビューは、Candidate rollbackの構造化是正を含む固定候補についてCritical／Major／Moderate 0の`Pass`と判定した。残る作業は、CommitでSnapshotを固定し、署名契約と正式E2Eにより公開経路の同一性を確認することだけである。
+
+固定Commit `5d56eced`の署名候補作成は成功したが、一時PowerShellへ秘密鍵Pathと署名引数を都度埋める手順では、launcher配置ミスによって署名前に端末が終了した。署名契約の不成立ではなく再現可能な操作入口の不足として扱い、Git管理外`.env-crdd`から`CRDD_RELEASE_PRIVATE_KEY_PATH`だけを解決できるようにした。鍵参照、秘密入力および暗号署名はCHG-000072で共通の成果物署名Componentへ分離し、CoordinatorはRuntime Manifestの構築とRelease固有の配置だけを所有する。`.env-crdd`へ秘密鍵内容またはpassphraseを保存せず、明示`--private-key`入口も維持する。Pathの欠落、重複、相対指定、非通常fileまたはsymbolic linkはpassphrase入力前に拒否する。

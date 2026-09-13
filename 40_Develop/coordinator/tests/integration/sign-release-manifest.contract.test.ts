@@ -16,6 +16,8 @@ import {
 import {
   signReleaseManifest as consumeReleaseManifestPreflightAuthorization,
   preflightReleaseManifest,
+  readReleasePrivateKeyPathFromEnvironmentFile,
+  resolveReleasePrivateKeyPath,
 } from "../../scripts/sign-release-manifest.ts";
 import {
   diagnoseRuntimeDistributionFilesystemForVerification,
@@ -43,6 +45,69 @@ function signReleaseManifest(options: ContractTestManifestOptions) {
     passphrase,
   );
 }
+
+test("署名鍵PathだけをGit管理外envから一意に解決する", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-signing-env-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const keyPath = path.join(root, "release-private.pem");
+  const environmentPath = path.join(root, ".env");
+  fs.writeFileSync(keyPath, "path-resolution-fixture", "utf8");
+  fs.writeFileSync(
+    environmentPath,
+    `UNRELATED=value\nCRDD_RELEASE_PRIVATE_KEY_PATH="${keyPath}"\n`,
+    "utf8",
+  );
+  assert.equal(
+    readReleasePrivateKeyPathFromEnvironmentFile(environmentPath),
+    keyPath,
+  );
+
+  fs.writeFileSync(
+    environmentPath,
+    `CRDD_RELEASE_PRIVATE_KEY_PATH=${keyPath}\nCRDD_RELEASE_PRIVATE_KEY_PATH=${keyPath}\n`,
+    "utf8",
+  );
+  assert.throws(
+    () => readReleasePrivateKeyPathFromEnvironmentFile(environmentPath),
+    /release_manifest_private_key_environment_invalid/u,
+  );
+
+  fs.writeFileSync(
+    environmentPath,
+    "CRDD_RELEASE_PRIVATE_KEY_PATH=relative-key.pem\n",
+    "utf8",
+  );
+  assert.throws(
+    () => readReleasePrivateKeyPathFromEnvironmentFile(environmentPath),
+    /release_manifest_private_key_environment_invalid/u,
+  );
+
+  fs.writeFileSync(
+    environmentPath,
+    `${`CRDD_RELEASE_PRIVATE_KEY_PATH=${path.join(root, "missing.pem")}`}\n`,
+    "utf8",
+  );
+  assert.equal(
+    readReleasePrivateKeyPathFromEnvironmentFile(environmentPath),
+    path.join(root, "missing.pem"),
+  );
+});
+
+test("明示した鍵Pathはenvを読まず、両入口とも後続の共通preflightへ渡す", () => {
+  const explicit = path.resolve("external-release-private.pem");
+  assert.equal(
+    resolveReleasePrivateKeyPath(explicit, path.resolve("missing-.env-crdd")),
+    explicit,
+  );
+  assert.throws(
+    () =>
+      resolveReleasePrivateKeyPath(
+        undefined,
+        path.resolve("missing-.env-crdd"),
+      ),
+    /release_manifest_private_key_environment_invalid/u,
+  );
+});
 
 test("期限なしは明示指定だけを受け、CLIの排他違反とundefinedを秘密入力前に拒否する", () => {
   const options = {

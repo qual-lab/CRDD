@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readHiddenLine } from "../../artifact-signing/src/index.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -99,48 +100,6 @@ export function generateReleaseKeyPair(
   } finally {
     passphrase.fill(0);
   }
-}
-
-export async function readHiddenLine(prompt: string) {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error("release_key_interactive_terminal_required");
-  }
-  process.stdout.write(prompt);
-  process.stdin.setRawMode(true);
-  process.stdin.resume();
-  process.stdin.setEncoding("utf8");
-  return await new Promise<string>((resolve, reject) => {
-    let value = "";
-    const finish = (result: string | Error) => {
-      process.stdin.off("data", onData);
-      process.stdin.off("end", onEnd);
-      process.stdin.setRawMode(false);
-      process.stdin.pause();
-      if (result instanceof Error) reject(result);
-      else resolve(result);
-    };
-    const onEnd = () => finish(new Error("release_key_input_closed"));
-    const onData = (chunk: string) => {
-      for (const character of chunk) {
-        if (character === "\u0003") {
-          finish(new Error("release_key_cancelled"));
-          return;
-        }
-        if (character === "\r" || character === "\n") {
-          process.stdout.write("\n");
-          finish(value);
-          return;
-        }
-        if (character === "\u007f" || character === "\b") {
-          value = value.slice(0, -1);
-        } else if (character >= " ") {
-          value += character;
-        }
-      }
-    };
-    process.stdin.on("data", onData);
-    process.stdin.once("end", onEnd);
-  });
 }
 
 async function main() {

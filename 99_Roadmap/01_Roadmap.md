@@ -52,6 +52,7 @@ Workbenchは後付けのUIではない。Group BでUX、IA、表示、操作お�
 | v0.21 工程別の図面処置と成果物構造 | Adopted | Completed | [CHG-000068](Changes/CHG-000068/change.md)、[工程別の図面処置契約](../03_Documentation.md#phase-diagram-disposition-contract)、[独立レビュー](Changes/CHG-000068/Evidence/260913_group-a-independent-review.md) | DiscoveryからVerificationまでの基本図、発火境界、記法、処置一覧、出口Gate、設計・検証接続およびChecker退行検出を成立させ、Critical／Major／Moderate 0で完了した |
 | v0.21 Work LifecycleとEvidence所有の再編 | Adopted | Completed | [CHG-000070](Changes/CHG-000070/change.md) | `99_Roadmap`をRoadmap／Change／ReleaseのNavigation Rootへ再定義し、`01_Roadmap.md`を未完了登録簿、CHG DirectoryをChange Aggregate、Change／Release配下を直接Evidence Ownerとした。`07_Quality/Verification_Results`と`90_Release`は全数分類・固定履歴392件の本文byte保持・408件のConsumer Closure・独立再レビュー後に廃止し、Quality Centerを横断した現在品質の投影へ限定した |
 | v0.21 Version Control PortとGit Adapter | Adopted | Verification | [CHG-000071](Changes/CHG-000071/change.md)、[Version Control境界](../06_Architecture/version-control/01_Architecture.md) | 独立再レビューはCritical／Major／Moderate 0でPassした。目的別Port、Git Adapter、全既知Consumer、Repository-local Ignore、回帰選択およびDoctor投影を新境界へ統一し、固定Commit上の署名契約と正式署名E2Eで閉じる |
+| v0.21 成果物署名の責務分離 | Adopted | Implementation | [CHG-000072](Changes/CHG-000072/change.md)、[成果物署名](../06_Architecture/artifact-signing/01_Architecture.md) | 鍵参照、direct TTY秘密入力、暗号署名PrimitiveをRoot Componentへ分離し、CoordinatorにはRuntime Manifest固有のpayload、Policy、順序および配置だけを残す。新固定Commitの正式署名前にConsumer Closureを閉じる |
 
 #### Group B: Project OperationとWorkbench利用契約
 

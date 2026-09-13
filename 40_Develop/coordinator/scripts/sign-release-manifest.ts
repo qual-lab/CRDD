@@ -1,13 +1,14 @@
-import {
-  createHash,
-  createPrivateKey,
-  createPublicKey,
-  sign,
-} from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
+import {
+  preflightPrivateKeyReference,
+  readHiddenLine,
+  readPrivateKeyReferenceFromEnvironmentFile,
+  signEd25519Payload,
+  type PrivateKeyReferenceAuthorization,
+} from "../../artifact-signing/src/index.ts";
 import { resolveBundledRepositoryRuntimeDataPathsForProtectedSigning } from "../../runtime-data/src/platform/runtime-data-path-resolver.ts";
 import { inspectRepositoryFixedSnapshot } from "../../version-control/src/git/fixed-snapshot-adapter.ts";
 import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
@@ -29,7 +30,6 @@ import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
-import { readHiddenLine } from "./generate-release-key.ts";
 import {
   beginReleaseStagingManifestSession,
   placeReleaseStagingManifestCandidate,
@@ -48,7 +48,7 @@ if (runtimeDataPaths.repositoryRoot !== repositoryRoot)
   throw new Error("release_manifest_repository_root_invalid");
 const releaseStagingRoot = runtimeDataPaths.release;
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
-const MAXIMUM_PASSPHRASE_BYTES = 1_024;
+const RELEASE_PRIVATE_KEY_PATH_NAME = "CRDD_RELEASE_PRIVATE_KEY_PATH";
 const RELEASE_CANDIDATE_DIRECTORY = /^[a-z0-9][a-z0-9-]{0,127}$/u;
 const MANIFEST_PREFLIGHT_OPTION_KEYS = Object.freeze([
   "distributionRoot",
@@ -82,6 +82,7 @@ export type ReleaseManifestPreflightAuthorization = Readonly<{
 
 type AuthorizedReleaseManifestPreflight = Readonly<{
   options: ManifestPreflightOptions;
+  privateKeyAuthorization: PrivateKeyReferenceAuthorization;
   consumed: boolean;
 }>;
 
@@ -89,14 +90,6 @@ const authorizedReleaseManifestPreflights = new WeakMap<
   ReleaseManifestPreflightAuthorization,
   AuthorizedReleaseManifestPreflight
 >();
-
-function isContainedBy(parent: string, candidate: string) {
-  const relative = path.relative(parent, candidate);
-  return (
-    relative === "" ||
-    (!relative.startsWith("..") && !path.isAbsolute(relative))
-  );
-}
 
 function snapshotManifestPreflightOptions(
   value: unknown,
@@ -135,72 +128,6 @@ function snapshotManifestPreflightOptions(
   );
 }
 
-function stableExternalFile(target: string, maximumBytes: number) {
-  if (!path.isAbsolute(target) || target.includes("\0")) {
-    throw new Error("release_manifest_private_key_path_invalid");
-  }
-  const resolved = path.resolve(target);
-  const metadata = fs.lstatSync(resolved, { bigint: true });
-  const real = fs.realpathSync.native(resolved);
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    real !== resolved ||
-    metadata.size <= 0n ||
-    metadata.size > BigInt(maximumBytes) ||
-    isContainedBy(fs.realpathSync.native(repositoryRoot), resolved)
-  ) {
-    throw new Error("release_manifest_private_key_path_invalid");
-  }
-  const noFollow =
-    process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
-  const descriptor = fs.openSync(resolved, fs.constants.O_RDONLY | noFollow);
-  try {
-    const opened = fs.fstatSync(descriptor, { bigint: true });
-    if (
-      opened.dev !== metadata.dev ||
-      opened.ino !== metadata.ino ||
-      opened.birthtimeNs !== metadata.birthtimeNs ||
-      opened.size !== metadata.size
-    ) {
-      throw new Error("release_manifest_private_key_changed");
-    }
-    const bytes = Buffer.alloc(Number(opened.size));
-    let offset = 0;
-    while (offset < bytes.length) {
-      const count = fs.readSync(
-        descriptor,
-        bytes,
-        offset,
-        bytes.length - offset,
-        null,
-      );
-      if (count === 0) break;
-      offset += count;
-    }
-    const after = fs.fstatSync(descriptor, { bigint: true });
-    const pathAfter = fs.lstatSync(resolved, { bigint: true });
-    if (
-      offset !== bytes.length ||
-      after.dev !== opened.dev ||
-      after.ino !== opened.ino ||
-      after.birthtimeNs !== opened.birthtimeNs ||
-      after.size !== opened.size ||
-      after.mtimeNs !== opened.mtimeNs ||
-      pathAfter.dev !== opened.dev ||
-      pathAfter.ino !== opened.ino ||
-      pathAfter.birthtimeNs !== opened.birthtimeNs ||
-      pathAfter.size !== opened.size ||
-      fs.realpathSync.native(resolved) !== resolved
-    ) {
-      throw new Error("release_manifest_private_key_changed");
-    }
-    return bytes;
-  } finally {
-    fs.closeSync(descriptor);
-  }
-}
-
 function repositoryLocalDistributionRoot(target: string) {
   if (!path.isAbsolute(target) || target.includes("\0")) {
     throw new Error("release_manifest_distribution_root_invalid");
@@ -235,17 +162,6 @@ function repositoryLocalDistributionRoot(target: string) {
   } catch {
     throw new Error("release_manifest_distribution_root_invalid");
   }
-}
-
-function signingPassphrase(rawPassphrase: unknown) {
-  if (
-    typeof rawPassphrase !== "string" ||
-    rawPassphrase.length === 0 ||
-    Buffer.byteLength(rawPassphrase, "utf8") > MAXIMUM_PASSPHRASE_BYTES
-  ) {
-    throw new Error("release_manifest_passphrase_invalid");
-  }
-  return Buffer.from(rawPassphrase, "utf8");
 }
 
 function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
@@ -389,6 +305,16 @@ function prepareReleaseManifestCandidate(options: ManifestPreflightOptions) {
 export function preflightReleaseManifest(options: ManifestPreflightOptions) {
   const snapshot = snapshotManifestPreflightOptions(options);
   prepareReleaseManifestCandidate(snapshot);
+  let privateKeyAuthorization: PrivateKeyReferenceAuthorization;
+  try {
+    privateKeyAuthorization = preflightPrivateKeyReference({
+      privateKeyPath: snapshot.privateKeyPath,
+      prohibitedRoot: repositoryRoot,
+      maximumBytes: MAXIMUM_PRIVATE_KEY_BYTES,
+    });
+  } catch {
+    throw new Error("release_manifest_private_key_path_invalid");
+  }
   const authorization = Object.freeze({
     contract:
       "crdd-coordinator/release-manifest-preflight-authorization" as const,
@@ -396,7 +322,11 @@ export function preflightReleaseManifest(options: ManifestPreflightOptions) {
   });
   authorizedReleaseManifestPreflights.set(
     authorization,
-    Object.freeze({ options: snapshot, consumed: false }),
+    Object.freeze({
+      options: snapshot,
+      privateKeyAuthorization,
+      consumed: false,
+    }),
   );
   return Object.freeze({
     contract: "crdd-coordinator/release-manifest-preflight-result",
@@ -419,7 +349,11 @@ export function signReleaseManifest(
   }
   authorizedReleaseManifestPreflights.set(
     authorization,
-    Object.freeze({ options: authorized.options, consumed: true }),
+    Object.freeze({
+      options: authorized.options,
+      privateKeyAuthorization: authorized.privateKeyAuthorization,
+      consumed: true,
+    }),
   );
   const options = authorized.options;
   const { packageObservation, platformAccessObservation, compiled } =
@@ -427,36 +361,25 @@ export function signReleaseManifest(
 
   // The passphrase and private key are acquired only after the independent
   // signing-time observation has completed in full.
-  const passphrase = signingPassphrase(rawPassphrase);
-  let privateKeyBytes: Buffer | null = null;
   try {
-    privateKeyBytes = stableExternalFile(
-      options.privateKeyPath,
-      MAXIMUM_PRIVATE_KEY_BYTES,
-    );
-    const privateKey = createPrivateKey({
-      key: privateKeyBytes,
-      format: "pem",
-      passphrase,
-    });
-    const signerSpki = createPublicKey(privateKey).export({
-      type: "spki",
-      format: "der",
-    });
     const pinnedSpki = getPinnedPlatformProvisionerReleaseSignerSpkiDer();
-    if (!signerSpki.equals(pinnedSpki)) {
-      throw new Error("release_manifest_private_key_not_pinned");
-    }
-    const signature = sign(null, compiled.message, privateKey);
+    const signature = signEd25519Payload({
+      authorization: authorized.privateKeyAuthorization,
+      payload: compiled.message,
+      passphrase: rawPassphrase,
+      expectedPublicKeySpki: pinnedSpki,
+      prohibitedRoot: repositoryRoot,
+      maximumPrivateKeyBytes: MAXIMUM_PRIVATE_KEY_BYTES,
+    });
     const envelope = {
       contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
       contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
       payload: compiled.payload,
       signatures: [
         {
-          keyId: createHash("sha256").update(signerSpki).digest("hex"),
-          algorithm: "Ed25519",
-          signature: signature.toString("base64url"),
+          keyId: signature.keyId,
+          algorithm: signature.algorithm,
+          signature: signature.signature,
         },
       ],
     };
@@ -497,16 +420,30 @@ export function signReleaseManifest(
       repositoryReleaseCommitMustAddManifestOnly: true,
       repositoryReleaseCommitVerifiedBySigner: false,
     });
-  } finally {
-    passphrase.fill(0);
-    privateKeyBytes?.fill(0);
+  } catch (error) {
+    if (error instanceof Error) {
+      const mapping: Readonly<Record<string, string>> = {
+        artifact_signing_private_key_authorization_invalid:
+          "release_manifest_preflight_authorization_invalid",
+        artifact_signing_private_key_reference_invalid:
+          "release_manifest_private_key_path_invalid",
+        artifact_signing_private_key_changed:
+          "release_manifest_private_key_changed",
+        artifact_signing_private_key_not_expected:
+          "release_manifest_private_key_not_pinned",
+        artifact_signing_passphrase_invalid:
+          "release_manifest_passphrase_invalid",
+      };
+      const mapped = mapping[error.message];
+      if (mapped) throw new Error(mapped);
+    }
+    throw error;
   }
 }
 
 function parseArguments(args: readonly string[]) {
   const names = [
     "--distribution-root",
-    "--private-key",
     "--crdd-version",
     "--release-sequence",
     "--crdd-commit",
@@ -514,6 +451,7 @@ function parseArguments(args: readonly string[]) {
     "--issued-at",
     "--expires-at",
   ] as const;
+  const optionalNames = ["--private-key"] as const;
   const values = new Map<string, string>();
   let hasNoExpiry = false;
   for (let index = 0; index < args.length; ) {
@@ -525,7 +463,12 @@ function parseArguments(args: readonly string[]) {
       continue;
     }
     const value = args[index + 1];
-    if (!name || !value || !names.includes(name as (typeof names)[number])) {
+    if (
+      !name ||
+      !value ||
+      (!names.includes(name as (typeof names)[number]) &&
+        !optionalNames.includes(name as (typeof optionalNames)[number]))
+    ) {
       throw new Error("release_manifest_arguments_invalid");
     }
     if (values.has(name)) throw new Error("release_manifest_arguments_invalid");
@@ -534,7 +477,10 @@ function parseArguments(args: readonly string[]) {
   }
   if (
     hasNoExpiry === values.has("--expires-at") ||
-    values.size !== names.length - (hasNoExpiry ? 1 : 0)
+    values.size !==
+      names.length -
+        (hasNoExpiry ? 1 : 0) +
+        (values.has("--private-key") ? 1 : 0)
   ) {
     throw new Error("release_manifest_arguments_invalid");
   }
@@ -545,7 +491,10 @@ function parseArguments(args: readonly string[]) {
   };
   return Object.freeze({
     distributionRoot: read("--distribution-root"),
-    privateKeyPath: read("--private-key"),
+    privateKeyPath: resolveReleasePrivateKeyPath(
+      values.get("--private-key"),
+      path.join(repositoryRoot, ".env-crdd"),
+    ),
     crddVersion: read("--crdd-version"),
     releaseSequence: (() => {
       const value = Number(read("--release-sequence"));
@@ -559,6 +508,29 @@ function parseArguments(args: readonly string[]) {
     issuedAt: read("--issued-at"),
     expiresAt: hasNoExpiry ? null : read("--expires-at"),
   });
+}
+
+export function resolveReleasePrivateKeyPath(
+  explicitPrivateKeyPath: string | undefined,
+  environmentFile: string,
+) {
+  return (
+    explicitPrivateKeyPath ??
+    readReleasePrivateKeyPathFromEnvironmentFile(environmentFile)
+  );
+}
+
+export function readReleasePrivateKeyPathFromEnvironmentFile(
+  environmentFile: string,
+) {
+  try {
+    return readPrivateKeyReferenceFromEnvironmentFile(
+      environmentFile,
+      RELEASE_PRIVATE_KEY_PATH_NAME,
+    );
+  } catch {
+    throw new Error("release_manifest_private_key_environment_invalid");
+  }
 }
 
 async function main() {
