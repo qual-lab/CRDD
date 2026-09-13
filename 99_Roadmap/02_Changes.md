@@ -114,7 +114,7 @@
 
 公開tagへ到達するCHG、公開済みv0.17.0、過去CHANGELOGおよび固定Evidenceの判定・byte・filenameは変更していない。旧CHG本文はGit固定改訂版と原文SHA-256からbyte単位で再構成できる。Canonical集合は7件、統合済み旧IDは37件であり、互換stubは持たない。
 
-固定Evidenceに残る15件の旧Path表記は、標準Markdown上で解決済みのlinkではなく、**不変・非active歴史参照（Immutable Non-active Historical Reference）**である。GitHub、IDEおよび一般Markdown readerでは直接clickできない。現在状態はCanonical CHGを読み、旧本文が必要な場合だけ上記`git show`で復元する。Checkerは通常link件数へ含めず、統合直前Commit、HEAD、worktree、台帳entryおよび次のexact pairがすべて一致する場合だけ復元可能性を独立検証する。情報不足、不一致またはpairの過不足はFail Closedにする。
+固定Evidenceに残る15件の旧Path表記は、標準Markdown上で解決済みのlinkではなく、**不変・非active歴史参照（Immutable Non-active Historical Reference）**である。GitHub、IDEおよび一般Markdown readerでは直接clickできない。現在状態はCanonical CHGを読み、旧本文が必要な場合だけ上記`git show`で復元する。通常Checkerのlink件数には含めず、独立監査が統合直前Commit、HEAD、worktree、台帳entryおよび次のexact pairを固定改訂版で照合する。情報不足、不一致またはpairの過不足は監査結果を未成立とする。
 
 ## 公式公開tag固定集合
 

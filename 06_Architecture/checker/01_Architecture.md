@@ -37,7 +37,7 @@ Checker本体は一つの配布Sourceであり、以下のブロックはその�
   ↓
   Markdown・アンカー・参照索引
   ↓
-  対象範囲選択＋公式歴史参照の照合
+  対象範囲選択＋現行契約プロファイルの照合
   ↓
   全体検査／対象文書検査
   ↓
@@ -63,8 +63,8 @@ Checker本体は一つの配布Sourceであり、以下のブロックはその�
   → ファイルを発見する（Git、または理由付きFilesystem探索）
   → Markdown・アンカー・参照関係をメモリ上に索引化する
   → 対象集合を決める
-  → 公式台帳・固定歴史参照の同一性と有効性を専用条件で照合する
-  → その結果を用いてローカルリンクを検査する
+  → 現在のCRDD構造を使う場合だけ公式Current Profileを照合する
+  → ローカルリンクを検査する
   → 残りの全体検査と対象文書の検査を行う
   → 指摘・範囲・未確認を集計し、stdoutと終了値へ返す
 ```
@@ -85,11 +85,16 @@ Checker本体は一つの配布Sourceであり、以下のブロックはその�
 | 全体検査 | 限定時にも行う構造等の確認 | `global_checks` |
 | 除外・未確認 | Git無視、Gitlink境界、確認できない範囲等 | 除外情報と`unchecked`。指摘0へ吸収しない |
 
-## 4. 読取り境界と歴史参照
+## 4. 読取り境界
 
 外部URLへ通信して存在確認しない。ローカルリンクではRoot外への解決、symbolic link／junction等を確認済みにしない。Gitlinkは独立した境界として扱う。Gitが使えない場合のFilesystem探索は、Gitと同一の確認を保証する代替ではなく、失敗理由・除外・未確認付きの経路である。
 
-公開済みEvidenceの旧Pathは、現在のファイルへ無条件に付け替えない。公式台帳が指定した原文、Git固定内容、Hash、旧アンカー、後継、旧Pathの非active／非indexed等を照合した場合だけ歴史参照として確認する。未知のリンク切れを許す例外ではない。採用Repositoryへ公式履歴台帳を要求しない。
+Checkerが検査する参照は、現在の正本・案内・ひな型から現在のCanonical Pathへ向く参照である。Change記録とWork Lifecycle Evidence内部の参照は、その固定改訂版を読む独立監査が扱う。過去Commit、tag、旧Path、固定Blobまたは移行Evidenceの真正性を通常Checkerへ持ち込まず、現行正本側のリンク切れを許容する例外にも使わない。
+
+| 層 | 対象 | 含めないもの |
+|---|---|---|
+| Generic Checker Core | Root、発見集合、Path境界、Link、Anchor、ID、宣言された汎用構造 | CRDD公式Repositoryの固有Version、CHG、実装package、過去移行 |
+| CRDD Official Current Profile | 現在の公式正本・template・版・状態・現行Directory契約 | 過去Releaseの文言、固定Commit／Blob、個別CHGの監査 |
 
 ## 5. 資源と終了
 
@@ -115,6 +120,8 @@ Checker本体は一つの配布Sourceであり、以下のブロックはその�
 
 通常検査と開発試験runnerを同じLifecycleへ畳まない。試験runnerのcleanupまたは子Process終了が不明な場合、通常Checkerが読取り専用であることを根拠に成功へ補正しない。
 
+通常検査は現在の正本、参照、ID、構造および禁止された旧Pathを対象とする。過去の大規模移行を全source byteから再演する確認はCheckerの責務にせず、当該移行の独立監査で行う。Checkerの品質試験では、Repository境界、現行Path、ID、参照等の一般化した機械的不変条件だけを小さなfixtureで反証する。
+
 ## 6. 結果の意味と利用側
 
 正常に報告を構築した場合、errorがあればexit 1、なければexit 0。warningや未確認があっても0になり得る。引数拒否はstderrとexit 2であり、未捕捉例外・外部からの終了とは分ける。`--help`は現行の引数ではない。
@@ -128,7 +135,6 @@ Checker本体は一つの配布Sourceであり、以下のブロックはその�
 | Root・入力の意味 | 明示Root、省略、未知引数、値欠落 | [Checker契約試験](../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts) |
 | 範囲の取り違え | 全体、限定、一段展開、全体検査の残存 | 同契約試験のscope／references項目 |
 | 発見と読取り | Git、fallback、読取失敗、link／Gitlink | 同契約試験の発見・境界・fault injection項目 |
-| 固定履歴の偽装 | 正しい台帳、原文変更、旧対象残存、後継欠落 | 同契約試験の歴史参照項目 |
 | 表示と終了 | テキスト、JSON配列、summary、0／1／2 | 同契約試験の出力・引数項目 |
 | 試験そのものの脱落 | nested試験、重複・未知entry、TypeScript所有集合との差 | [試験列挙](../../40_Develop/checker/test-discovery.ts)、[命名契約](../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts) |
 

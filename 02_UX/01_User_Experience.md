@@ -17,7 +17,7 @@
 
 利用者が内部の署名、資源管理、エージェント間の情報搬送を毎回操作せず、依頼、必要な判断、成果物の受入へ集中できることを目指す。安全に止まれるだけでなく、止まった理由と次に必要な行動が分かることも体験の成立条件とする。
 
-情報源は[Tool開発構成の採用範囲](../01_Discovery/01_CRDD_Product_Discovery.md#tool-development-layout-candidate)と[有用性評価](../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-evaluation)。人間から報告された確認画面の不表示、二重Enter、タイムアウト、反復署名・承認、成功と回収の混同を失敗仮説として扱う。頻度や一般利用者全体への影響は、この保守対話だけから推定しない。
+情報源は[Runtime責務分離の探索](../01_Discovery/Explorations/EXP-000005_Runtime_Responsibility_Separation/exploration.md)と[実行知の探索](../01_Discovery/Explorations/EXP-000004_Execution_Intelligence/exploration.md)。人間から報告された確認画面の不表示、二重Enter、タイムアウト、反復署名・承認、成功と回収の混同を失敗仮説として扱う。頻度や一般利用者全体への影響は、この保守対話だけから推定しない。
 
 | 利用者と場面 | 必要な成果 | 対象と制約 |
 |---|---|---|
@@ -79,7 +79,7 @@ platform-accessは独立した利用者画面を持たないが、利用者へ�
 
 ## 5. 現在状態と引渡し
 
-本書は既存実装と人間の要求から再構成した候補であり、過去の工程移行承認を遡及して作らない。2026-09-13、人間の決定権限者は独立レビューPass後の[Workbench／MCP共同Discovery](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-workbench-mcp-joint-discovery)を確認し、v0.21のUX工程への移行を承認した。新しい安定IDや要求を自己決定せず、今回の追跡には文書とアンカーを用いる。
+本書は既存実装と人間の要求から再構成した候補であり、過去の工程移行承認を遡及して作らない。2026-09-13、人間の決定権限者は独立レビューPass後の[統合したDiscovery判断](../01_Discovery/01_Product_Discovery.md#current-discovery-decisions)を確認し、v0.21のUX工程への移行を承認した。新しい安定IDや要求を自己決定せず、今回の追跡には文書とアンカーを用いる。
 
 既存Tool UXでは、導入、依頼、待機、結果、取消・復旧、Checker、開発・配布の責務を本文へ整理した。未取得情報の表示、意味説明、候補操作は実装と限定再確認を終え、PowerShellでは入力・日本語表示・折返し・拡大を限定確認した。実Task取消は是正後の署名版4f10201で通常回収まで観測し、今回差分の限定独立確認済みである。説明未登録の理由、別の端末環境、支援技術は[UIの未解決事項](../04_UI/01_User_Interface.md#open-issues)へ接続し、既存Tool全体の工程網羅状態は`Blocked`を維持する。この状態は、§8～§14で扱うv0.21 Workbench／MCP共同UXの工程状態とは別に評価する。
 
@@ -194,16 +194,16 @@ WorkbenchとMCPは同じ利用者へ同じ形を強制する入口ではない�
 
 ### 8.1. Discovery要求候補からUX成果への対応
 
-次の6件は、[Discoveryの要求候補](../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-workbench-mcp-joint-discovery)を利用者成果へ変換した安定コンテキストである。各成果の改訂版は`@1`、状態は`Candidate`であり、UX工程移行の承認前に採用済みと扱わない。
+次の6件は、[DiscoveryからUXへ渡した内容](../01_Discovery/01_Product_Discovery.md#current-discovery-decisions)を利用者成果へ変換した安定コンテキストである。各成果の改訂版は`@1`、状態は`Candidate`であり、UX工程移行の承認前に採用済みと扱わない。
 
 | UX成果 | Discovery要求候補 | 利用者成果 | Journey／Blueprint | 検証意図 | IAへの義務 |
 |---|---|---|---|---|---|
-| `UX-000001@1` Repository単独利用 | Repository単独作業はCROS／Workbenchなしでも成立する | Developerが現在Repositoryだけで日常作業を開始・完結でき、必要時だけ横断利用へ進める | [DeveloperのLocal Journey](#workbench-mcp-role-journeys)、Blueprintの「Contextを選ぶ」 | 横断機能未設定でも開始・完了できることを比較する | Local Sourceを既定にし、横断Sourceの不足と切替を別状態にする |
-| `UX-000002@1` 根拠付きProject View | Project ViewはPropertyごとのSource、改訂版／観測時点、欠測状態を保持する | 現在地と同時に、何が分かり何が不足・競合・古いかを理解して正本へ戻れる | Project Operator／PM Journey、[重要場面](#workbench-mcp-critical-recovery) | partial、stale、conflictingをcompleteへ畳む反例を拒否する | PropertyとSource／Revision／Observed At／Coverageを関連付ける |
-| `UX-000003@1` 薄いWorkbench | Workbenchは公開Application Contractだけを使う薄いSurfaceとする | Workbench、AI、CLIから同じ意味と結果へ到達し、Surface固有の状態を覚えなくてよい | [共同Service Blueprint](#workbench-mcp-service-blueprint) | UI専用正本、Filesystem直接更新、独自Authority判断がないことを確認する | 公開結果と表示・操作入口を分け、正本Ownerを保持する |
-| `UX-000004@1` 所有正本へ戻る候補操作 | Topic／Meeting操作は候補または所有正本のCommandへ戻す | 試案、比較、採用、正本反映を区別し、適切な決定権限者へ判断を戻せる | Blueprintの「判断・候補操作」、重要場面のCandidate | 投影の直接更新とMeetingからの自動採用を拒否する | Candidate、Decision、所有Command、反映結果を別の情報状態にする |
-| `UX-000005@1` 最小Portfolio比較 | Portfolioは読み取り専用かつSource-awareな最小投影に限る | Managementが許可されたProjectだけを比較し、注意事項から根拠と不足へ段階的に進める | ManagementのPortfolio Journey | 非開示Projectの存在を漏らさず、不完全性を識別できるか確認する | Project比較、観測時点、Coverage、根拠導線を分ける |
-| `UX-000006@1` Workbench比較価値 | WorkbenchがAI＋MCPまたは静的Reportより利用者成果を改善する | 同じ課題で判断対象、出典、欠測へより少ない再探索と迷いで到達できる | [代替利用の比較](#workbench-comparison-verification) | 同一条件で到達、根拠確認、欠測認識、迷い・再探索を比較する | 比較対象で共通利用できるProject／Source／課題の単位を保つ |
+| `UX-000001@1` Repository単独利用 | `REQ-000008`: Repository単独作業はCROS／Workbenchなしでも成立する | Developerが現在Repositoryだけで日常作業を開始・完結でき、必要時だけ横断利用へ進める | [DeveloperのLocal Journey](#workbench-mcp-role-journeys)、Blueprintの「Contextを選ぶ」 | 横断機能未設定でも開始・完了できることを比較する | Local Sourceを既定にし、横断Sourceの不足と切替を別状態にする |
+| `UX-000002@1` 根拠付きProject View | `REQ-000007`: Project ViewはPropertyごとのSource、改訂版／観測時点、欠測状態を保持する | 現在地と同時に、何が分かり何が不足・競合・古いかを理解して正本へ戻れる | Project Operator／PM Journey、[重要場面](#workbench-mcp-critical-recovery) | partial、stale、conflictingをcompleteへ畳む反例を拒否する | PropertyとSource／Revision／Observed At／Coverageを関連付ける |
+| `UX-000003@1` 薄いWorkbench | `REQ-000010`: Workbenchは公開Application Contractだけを使う薄いSurfaceとする | Workbench、AI、CLIから同じ意味と結果へ到達し、Surface固有の状態を覚えなくてよい | [共同Service Blueprint](#workbench-mcp-service-blueprint) | UI専用正本、Filesystem直接更新、独自Authority判断がないことを確認する | 公開結果と表示・操作入口を分け、正本Ownerを保持する |
+| `UX-000004@1` 所有正本へ戻る候補操作 | `REQ-000012`: Topic／Meeting操作は候補または所有正本のCommandへ戻す | 試案、比較、採用、正本反映を区別し、適切な決定権限者へ判断を戻せる | Blueprintの「判断・候補操作」、重要場面のCandidate | 投影の直接更新とMeetingからの自動採用を拒否する | Candidate、Decision、所有Command、反映結果を別の情報状態にする |
+| `UX-000005@1` 最小Portfolio比較 | `REQ-000013`: Portfolioは読み取り専用かつSource-awareな最小投影に限る | Managementが許可されたProjectだけを比較し、注意事項から根拠と不足へ段階的に進める | ManagementのPortfolio Journey | 非開示Projectの存在を漏らさず、不完全性を識別できるか確認する | Project比較、観測時点、Coverage、根拠導線を分ける |
+| `UX-000006@1` Workbench比較価値 | `REQ-000007`／`REQ-000010`の有効性を比較する | 同じ課題で判断対象、出典、欠測へより少ない再探索と迷いで到達できる | [代替利用の比較](#workbench-comparison-verification) | 同一条件で到達、根拠確認、欠測認識、迷い・再探索を比較する | 比較対象で共通利用できるProject／Source／課題の単位を保つ |
 
 ### 8.2. 利用者・状況別の成果
 

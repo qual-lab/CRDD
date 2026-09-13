@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "34453dd4d10591edc248c70e37e92d63e3a8e82b21ffd0c7ec872a4f7b78f860",
+  "evaluatedDocumentationSetSha256": "9f8b372dd56a08e5d8ae9ee90043b75afa7a8dbae9efbb3143cfae1812c260ae",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -31,22 +31,274 @@
       "currentBlobOid": "d55782127d9af6281ca5890f2c5a976413361558"
     },
     {
-      "path": "01_Discovery/01_CRDD_Product_Discovery.md",
-      "artifactRole": "discovery",
+      "path": "01_Discovery/01_Product_Discovery.md",
+      "artifactRole": "other",
       "currentness": "current",
-      "disposition": "prose_retained",
-      "reasonCode": "prose_preserves_rationale",
-      "canonicalOwnerPath": "01_Discovery/01_CRDD_Product_Discovery.md",
-      "currentBlobOid": "9c30e451a6c8c3022fdf744b3b0fb9c5ffb92386"
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/01_Product_Discovery.md",
+      "currentBlobOid": "307dbd6cc7baf9ca60c1fac45ddac920d314ee2d"
     },
     {
-      "path": "01_Discovery/02_Runtime_and_CROS_Product_Candidates.md",
+      "path": "01_Discovery/02_Product_Candidates.md",
       "artifactRole": "discovery",
       "currentness": "current",
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
-      "canonicalOwnerPath": "01_Discovery/02_Runtime_and_CROS_Product_Candidates.md",
-      "currentBlobOid": "8889cc2d713901c6f68ee2c70784f9f54369e8a1"
+      "canonicalOwnerPath": "01_Discovery/02_Product_Candidates.md",
+      "currentBlobOid": "8b05520fc88fc8fb4ddea008a3d2600b8c985d91"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000001_Deterministic_Repository_Checks/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000001_Deterministic_Repository_Checks/exploration.md",
+      "currentBlobOid": "99018d0a004a4875e6aa51243a43ecfba49f93a9"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000002_Coordinated_AI_Execution/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000002_Coordinated_AI_Execution/exploration.md",
+      "currentBlobOid": "73399744402ba6fb23a29f0db589d5533fe13464"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000003_Project_Runtime/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000003_Project_Runtime/exploration.md",
+      "currentBlobOid": "7c036b06182d2f0608f0338348557516e65c1d84"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000004_Execution_Intelligence/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000004_Execution_Intelligence/exploration.md",
+      "currentBlobOid": "bff53cafa79b13892b61da4ede3568548a09f6fc"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000005_Runtime_Responsibility_Separation/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000005_Runtime_Responsibility_Separation/exploration.md",
+      "currentBlobOid": "52c2deb4244c140288309ff5abaa016a55260fa7"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000006_Local_MCP_HTTP_Access/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000006_Local_MCP_HTTP_Access/exploration.md",
+      "currentBlobOid": "51686abe2b21dbddcb1a7b4d9879dd45691d19db"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000007_Project_State_Understanding/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000007_Project_State_Understanding/exploration.md",
+      "currentBlobOid": "28cc4d8dbd7e35ecf66f7fe33b83d9bfe4f4c598"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000008_Repository_Local_Work/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000008_Repository_Local_Work/exploration.md",
+      "currentBlobOid": "64ae69789e659d46407758181e81fd70e988e9f4"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000009_Cross_Repository_Project_Context/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000009_Cross_Repository_Project_Context/exploration.md",
+      "currentBlobOid": "acf0b4ffe15f987100feb6d069f6949406a3d191"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000010_Human_and_AI_Entry_Points/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000010_Human_and_AI_Entry_Points/exploration.md",
+      "currentBlobOid": "0fe8c3fcd1257219c5ab226f81481150514398fe"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000011_Remote_Project_Context/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000011_Remote_Project_Context/exploration.md",
+      "currentBlobOid": "308ff649650c8a5efffbc5faf87b283979fc013a"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000012_Topic_and_Meeting_Continuity/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000012_Topic_and_Meeting_Continuity/exploration.md",
+      "currentBlobOid": "dbc9b42c362fa6ce8da2b6d994367754988ecfa3"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000013_Portfolio_Visibility/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000013_Portfolio_Visibility/exploration.md",
+      "currentBlobOid": "a7d5c5be6103f8a7bb2cd8356b9aae04f1aefd2b"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000014_Repository_Capability_Discovery/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000014_Repository_Capability_Discovery/exploration.md",
+      "currentBlobOid": "7b8f94d247826f6029166483437f9fca429ecdd4"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000015_Runtime_Data_Ownership/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000015_Runtime_Data_Ownership/exploration.md",
+      "currentBlobOid": "ce70a24667e2e1a11c5fb037d61dade583177c37"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000016_AI_Runtime_Changeability/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000016_AI_Runtime_Changeability/exploration.md",
+      "currentBlobOid": "d07c8749df73961d0f90ad5444570b3d077f9600"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000017_Cross_Project_Context_Exchange/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000017_Cross_Project_Context_Exchange/exploration.md",
+      "currentBlobOid": "eaf115ebcb935d739977a1bd6473b8ee169454f6"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000018_User_Owned_Runtime_Trust/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000018_User_Owned_Runtime_Trust/exploration.md",
+      "currentBlobOid": "f05e05a7e63183a66f5109c416ccaecbbeb2eecc"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000019_Audit_and_Decision_Convergence/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000019_Audit_and_Decision_Convergence/exploration.md",
+      "currentBlobOid": "26e692e5aca07d6671a3cf3f2d5f232a2ac8c610"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000020_External_Context_Boundaries/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000020_External_Context_Boundaries/exploration.md",
+      "currentBlobOid": "7737ee03c06e03fc0c2bffc9c8790dd4a8dc594a"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000021_Agent_Guidance_Ownership/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000021_Agent_Guidance_Ownership/exploration.md",
+      "currentBlobOid": "dd559cbaf940749cd9f9f6f37f9dc774c3a67ae0"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000022_Reasoning_Context/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000022_Reasoning_Context/exploration.md",
+      "currentBlobOid": "621298e5636ab946eb75450012f18d912ae8b24e"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000023_Assurance_and_Regression/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000023_Assurance_and_Regression/exploration.md",
+      "currentBlobOid": "a521c90fc096589116fe40b99a9756d3f45ef899"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000024_Human_Readable_Documentation/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000024_Human_Readable_Documentation/exploration.md",
+      "currentBlobOid": "e7aac5d81ddc89a55704273c547a7d518b3879a9"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000025_Diagram_Guided_Handoff/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000025_Diagram_Guided_Handoff/exploration.md",
+      "currentBlobOid": "e86114cea763ae093322db1d182f866d94ec2b00"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000026_Work_and_Evidence_Ownership/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000026_Work_and_Evidence_Ownership/exploration.md",
+      "currentBlobOid": "d8ee964b91a6e2ff5da709cca2b4dfe13e625cdf"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000027_Repository_Distributed_Tooling/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000027_Repository_Distributed_Tooling/exploration.md",
+      "currentBlobOid": "5bce1bd189d0d7f8668fe4dfe9298a94b95c3822"
+    },
+    {
+      "path": "01_Discovery/Explorations/EXP-000028_Recognizable_Official_Identity/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "01_Discovery/Explorations/EXP-000028_Recognizable_Official_Identity/exploration.md",
+      "currentBlobOid": "b91a0ec206958d917c36536dbe2c65c86aac0663"
     },
     {
       "path": "01_Principles.md",
@@ -73,7 +325,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "02_UX/01_User_Experience.md",
-      "currentBlobOid": "742d62ad59e6c9bad08dcd568390d0db903d41c1"
+      "currentBlobOid": "43463fe9ef3be4e15f1bb0b5e610c63468e074a1"
     },
     {
       "path": "03_Documentation.md",
@@ -82,7 +334,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "03_Documentation.md",
-      "currentBlobOid": "bf069ee21c00d63ad38094d8f629f6fec04929dc"
+      "currentBlobOid": "d003bbb30a7612714ca74378673c4e9259145106"
     },
     {
       "path": "03_IA/01_Information_Architecture.md",
@@ -127,7 +379,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "05_SPEC/01_Behavior_Specification.md",
-      "currentBlobOid": "084d2ce9a5871cb25aebb88e2fc2572bdde91cb3"
+      "currentBlobOid": "cf0d52f7a22fdaf14fd3e72a2487a5646c5ac3fd"
     },
     {
       "path": "06_Architecture/01_Architecture.md",
@@ -154,7 +406,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "06_Architecture/checker/01_Architecture.md",
-      "currentBlobOid": "b15650af7b975516b58d5af2ca59bf938fc1c3ef"
+      "currentBlobOid": "48b19d5947e9dc59048efeab6d5ffce16f4cae48"
     },
     {
       "path": "06_Architecture/coordinator/01_Architecture.md",
@@ -307,7 +559,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "12_Change.md",
-      "currentBlobOid": "95754164cfacf454df2d9b510b604784d7383eae"
+      "currentBlobOid": "ddd3ffa46c87e72fb3f1f2afb186b5a543f99ca3"
     },
     {
       "path": "13_Release.md",
@@ -388,7 +640,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "19_Workflows/02_Checker.md",
-      "currentBlobOid": "ef6601e35b365ccfe1e48c6f6001652ec181b855"
+      "currentBlobOid": "8276290b2c00d0cdde1d5544ea023734d5c88ec0"
     },
     {
       "path": "19_Workflows/03_Execution_Intelligence.md",
@@ -415,7 +667,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "21_Discovery.md",
-      "currentBlobOid": "e1799912190700bae3000a7d3684080c31daf0da"
+      "currentBlobOid": "9e63861d6999ab84bb9f6f365288e9a90b5e25ed"
     },
     {
       "path": "22_UX.md",
@@ -523,7 +775,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "99_Roadmap/01_Roadmap.md",
-      "currentBlobOid": "3d5ef08ef9ad20d3121fea089ae26ecd381dc706"
+      "currentBlobOid": "f38e596e7afc4b7f3d834a1eec65bdff15e39b7f"
     },
     {
       "path": "99_Roadmap/02_Changes.md",
@@ -5545,7 +5797,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000057/change.md",
-      "currentBlobOid": "087ab96b492b2139f3c9f08d3f556563f04936fa"
+      "currentBlobOid": "04e58cef479528ba46fb96b7746c92a79af2a5cd"
     },
     {
       "path": "99_Roadmap/Changes/CHG-000058/Evidence/260902_communication-closure-verification.md",
@@ -5677,7 +5929,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000063/change.md",
-      "currentBlobOid": "14d07a394bf75762b4b9197a3730d3d1974c8d8f"
+      "currentBlobOid": "6ecdfbe3490222732e7f25a226d89e645af45a2d"
     },
     {
       "path": "99_Roadmap/Changes/CHG-000064/change.md",
@@ -5704,7 +5956,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000066/change.md",
-      "currentBlobOid": "cb98dada03d440f9a924c3ccf3875648f42d2b23"
+      "currentBlobOid": "0c6010f23720ba7e96366754be91a17d7c25a6fd"
     },
     {
       "path": "99_Roadmap/Changes/CHG-000067/change.md",
@@ -5713,7 +5965,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000067/change.md",
-      "currentBlobOid": "44f0bb238a3dbb56c1101328eb67058d7867651f"
+      "currentBlobOid": "2ad419c52c7b2270ac56c80b34414ba5bf70daa4"
     },
     {
       "path": "99_Roadmap/Changes/CHG-000068/Evidence/260913_group-a-independent-review.md",
@@ -5731,7 +5983,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000068/change.md",
-      "currentBlobOid": "a4181d04ec35503c10634646d2a30898c24d4932"
+      "currentBlobOid": "2a1ae8c96ad3e006fc3ac5cf9394718ccd3a2b9a"
     },
     {
       "path": "99_Roadmap/Changes/CHG-000069/change.md",
@@ -5749,7 +6001,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000070/change.md",
-      "currentBlobOid": "c857251717970ba30be6cbac5552051b96cb5c18"
+      "currentBlobOid": "b6aa7c276b92442d15b507d24621fa3b5b60c1a1"
     },
     {
       "path": "99_Roadmap/Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md",
@@ -5857,7 +6109,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "README.md",
-      "currentBlobOid": "bfe7aa36ba7d696e64297f57f07902a2b676eea7"
+      "currentBlobOid": "29f1f78b8e0e8dd8f481bb3cb044083c72687c04"
     },
     {
       "path": "TRADEMARK.md",
@@ -5884,7 +6136,16 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "template/01_Discovery/01_Product_Discovery.md",
-      "currentBlobOid": "52f0f0dd9680bf0f7c8f9dbc0fe2f722b7c4f54d"
+      "currentBlobOid": "d06299c808076a04b15311aacc1e8735879d0059"
+    },
+    {
+      "path": "template/01_Discovery/Explorations/EXP-XXXXXX_Short_Name/exploration.md",
+      "artifactRole": "other",
+      "currentness": "current",
+      "disposition": "already_structured",
+      "reasonCode": "existing_structure_sufficient",
+      "canonicalOwnerPath": "template/01_Discovery/Explorations/EXP-XXXXXX_Short_Name/exploration.md",
+      "currentBlobOid": "cc1fe8f17ee4245646000680ec109833bbf06c04"
     },
     {
       "path": "template/02_UX/01_User_Experience.md",
@@ -6010,7 +6271,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "template/99_Roadmap/Changes/CHG-XXXXXX/change.md",
-      "currentBlobOid": "c563033b61e245ba77566ce193de7835f69f1694"
+      "currentBlobOid": "a6710a39e1e436462837b312239ba843f40f4e73"
     },
     {
       "path": "template/AGENTS.md",

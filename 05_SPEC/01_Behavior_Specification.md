@@ -426,7 +426,9 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 | 未知引数・値欠落 | stderrへ引数エラーを返してexit 2。現行の`--help`も未対応である |
 | 読取例外・中断・異常終了 | 完全な報告の取得を保証しない。出力途中や未取得を指摘0・完了へ補正しない |
 
-Root外、symbolic link／junction、Gitlink等の境界を、参照先が存在することだけで確認済みにしない。Gitによる発見とFilesystem fallbackを区別し、fallbackの理由・未確認を保持する。公式の固定歴史参照は専用台帳条件で検査し、一般のリンク切れを許容する例外にしない。
+Root外、symbolic link／junction、Gitlink等の境界を、参照先が存在することだけで確認済みにしない。Gitによる発見とFilesystem fallbackを区別し、fallbackの理由・未確認を保持する。現在の成果物から旧Pathへ向く参照を、過去に存在したことだけで有効扱いしない。
+
+通常検査はGeneric Checker CoreとCRDD Official Current Profileだけで構成する。前者は題材に依存しないRoot、Path、Link、Anchor、IDおよび宣言構造を、後者は現在の公式正本、template、版、状態およびDirectory契約を検査する。過去移行、特定Release、個別CHG、Change／Evidence内部の歴史参照、実装package内部の契約または意味品質を検査対象に含めない。
 
 指摘への対応は責務を持つ文書で行い、再検査する。専門的な意味、外部サイトの現存、CRDD準拠の採否は別途確認する。[操作手順](../19_Workflows/02_Checker.md)、[設計と試験対応](../06_Architecture/checker/01_Architecture.md)へ接続する。
 

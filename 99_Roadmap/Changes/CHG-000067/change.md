@@ -103,7 +103,7 @@ Project ID
 
 ### 4.0. Group B着手前整合確認
 
-事前の設計対話は採用済み範囲と有力な解決策仮説として用いるが、利用者課題またはWorkbenchの有効性を示す実測へ読み替えない。[第1次Discovery](../../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-project-operation-discovery)では、CRDD自己適用で観測した停止・追加確認・補正・探索、そこから推定した認知負担、Repository構造の局所測定、人間判断および未検証のPM／Management仮説を分離した。[Workbench／MCP共同Discovery](../../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-workbench-mcp-joint-discovery)では、現行MCPの実装済み3操作と候補設計を分け、Actor別入口、公開Application Capability、Context最小化、Remote接続、切断／再取得およびWorkbenchの反証条件まで再探索する。
+事前の設計対話は採用済み範囲と有力な解決策仮説として用いるが、利用者課題またはWorkbenchの有効性を示す実測へ読み替えない。[Project状態理解の探索](../../../01_Discovery/Explorations/EXP-000007_Project_State_Understanding/exploration.md)では、CRDD自己適用で観測した停止・追加確認・補正・探索、そこから推定した認知負担、Repository構造の局所測定、人間判断および未検証のPM／Management仮説を分離した。[人間とAIの入口](../../../01_Discovery/Explorations/EXP-000010_Human_and_AI_Entry_Points/exploration.md)と[Remote Project Context](../../../01_Discovery/Explorations/EXP-000011_Remote_Project_Context/exploration.md)では、現行MCPの実装済み3操作と候補設計を分け、Actor別入口、公開Application Capability、Context最小化、Remote接続、切断／再取得およびWorkbenchの反証条件まで再探索する。
 
 | 確認項目 | 結果 |
 |---|---|
@@ -194,7 +194,7 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 
 | 種別 | 参照 |
 |---|---|
-| Discovery | [v0.21 Project Operation／Workbench Discovery](../../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-project-operation-discovery)、[Workbench／MCP共同Discovery](../../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-workbench-mcp-joint-discovery) |
+| Discovery | [統合したDiscovery判断](../../../01_Discovery/01_Product_Discovery.md#current-discovery-decisions)、[個別探索](../../../01_Discovery/Explorations/) |
 | IA | [CRDD内部Toolの情報構造](../../../03_IA/01_Information_Architecture.md) |
 | Architecture | [Project Operation Contextのアーキテクチャ](../../../06_Architecture/project-operation/01_Architecture.md) |
 | CROS利用境界 | [CROS Federationと利用境界](../../../06_Architecture/cros/01_Architecture.md) |

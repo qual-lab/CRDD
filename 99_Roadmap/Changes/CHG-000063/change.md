@@ -195,6 +195,12 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
       "via": "[機械可読な設計対応](../../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)",
       "after": "[機械可読な設計対応](../../../07_Quality/06_Project_Runtime_Design_Traceability.json)",
       "count": 1
+    },
+    {
+      "before": "[Discovery](../../../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)",
+      "via": "[Discovery](../../../01_Discovery/01_CRDD_Product_Discovery.md#v019-minimum-project-runtime)",
+      "after": "[Discovery](../../../01_Discovery/Explorations/EXP-000003_Project_Runtime/exploration.md)",
+      "count": 1
     }
   ]
 }

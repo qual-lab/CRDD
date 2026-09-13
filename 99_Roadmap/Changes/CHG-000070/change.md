@@ -7,6 +7,8 @@
 
 ## 1. 変更の目的
 
+起点Discovery: [EXP-000026](../../../01_Discovery/Explorations/EXP-000026_Work_and_Evidence_Ownership/exploration.md)／`REQ-000033`
+
 Roadmap、Change、ReleaseおよびEvidenceの配置を、ファイル種別ではなく「何の作業状態を示し、何の成立を証明するか」で再編する。人間が使う`Roadmap`というNavigation Anchorは維持し、個別Evidenceを`07_Quality`へ集約する構造は廃止する。
 
 ## 2. 現在状態と問題
@@ -101,9 +103,9 @@ Work Lifecycleは、管理対象の全Markdown更新へCHGを要求する仕組�
 | 順序 | 処置 | 完了条件 |
 |---|---|---|
 | 1 | 現行CHG、Change Evidence、Verification Result、Release Evidence候補を棚卸し | 全ファイルが一つの証明対象または判断待ちに分類される |
-| 2 | 正本規則、ひな型、Checkerの新Path契約を固定 | 旧Pathを新規正本として許可しない反証を持つ |
+| 2 | 正本規則、ひな型、Checkerの現行Path契約を固定 | 旧Pathを新規正本として許可しない反証を持つ |
 | 3 | Roadmap、CHG Aggregate、Evidenceを一括移行 | 固定履歴の本文byteを維持し、現在文書だけ許可したPath変換を行う |
-| 4 | Consumer Closure | Checker、Inventory、Workflow、Template、Tool、MCP／Runtime固定Pathを全数照合する |
+| 4 | Consumer Closure | 現行Checker、Workflow、Template、Tool、MCP／Runtimeの利用Pathを全数照合する。移行対応表とInventoryの真正性は独立監査で確認する |
 | 5 | 独立確認 | 文書Owner、履歴Identity、リンク、正本一意性、移行漏れがMajor 0になる |
 
 ## 8. 現在の棚卸し
@@ -123,10 +125,24 @@ Work Lifecycleは、管理対象の全Markdown更新へCHGを要求する仕組�
 |---|---|
 | 目標責務と最終構造 | 採用済み |
 | Evidence Owner全数分類 | 完了。移行元固定CommitのDispositionと旧配置契約から独立導出 |
-| 正本・Template・Checker変更 | 完了。旧Path再作成、案内欠落、移行集合差を機械拒否 |
+| 正本・Template・Checker変更 | 完了。現行Profileが旧Path再作成、案内欠落および現在のCanonical配置退行を機械拒否 |
 | 物理移行とConsumer Closure | 完了。408件を移行し、固定履歴392件はsource byteを完全保持 |
-| 移行前後のChecker継続性 | 完了。移行をステージした状態では旧Path、移行Commit後はCanonical Pathから同じ固定内容を検証し、両方が存在する状態と両方が存在しない状態を拒否する |
+| 移行前後の証拠連続性 | 完了。移行時の固定監査でsource／target、Commit、Hashおよび配置を照合した。通常Checkerへ過去移行の再演責務は残さない |
 | Canonical名称の意味閉包 | 完了。`99_Roadmap/01_Roadmap.md`の表題を所有範囲と一致する`CRDD Roadmap`へ統一し、固定したCanonical案内文書のPath変更時に旧表題が残る状態をCheckerで拒否する |
 | 独立レビュー／監査 | 完了。最終再レビューはCritical 0／Major 0／Moderate 0 |
 
 名称移行ではPath、Linkおよび配置だけでなく、文書表題が移行後の責務を表すことまで利用側閉包へ含める。全MarkdownへFilenameと表題の機械的一致を要求せず、安定したCanonical案内文書について宣言したPathと表題の組を検証する。
+
+## 10. Checker責務の是正
+
+本移行のために追加した固定履歴、移行Manifest、個別CHG、特定Releaseおよびpackage内部の再演検査を通常Checkerへ恒久化しない。移行時の確認と、現在状態の継続検査は別の責務である。
+
+| 責務 | 所有者 | 継続方法 |
+|---|---|---|
+| Root、Path、Link、Anchor、ID、宣言構造 | Generic Checker Core | 題材に依存しない小さな契約試験 |
+| CRDD公式Repositoryの現在の版、状態、正本、template、Directory | CRDD Official Current Profile | 現在のCanonical構成に対する反証試験 |
+| 過去移行のCommit、Blob、Hash、対応表 | 当該ChangeのEvidenceと独立監査 | 固定改訂版に対する一回の監査記録 |
+| packageの公開API、内部依存、実行挙動 | 各packageの契約試験 | package所有の単体・結合・回帰試験 |
+| 文書の意味品質、可読性、正本Scope | 文書レビュー／監査 | 対象を固定した人間・AIの意味確認 |
+
+`07_Quality/07_Structured_Document_Disposition_Inventory.json`は、CHG-000065／CHG-000070で用いた対象集合の品質Evidenceであり、通常Checkerが追従更新する現在状態台帳ではない。現行文書の追加や移動のたびに、この固定InventoryをChecker入力として再生成しない。

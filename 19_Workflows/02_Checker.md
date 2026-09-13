@@ -29,9 +29,9 @@
 | 引数拒否・exit 2 | 引数を直す。`--help`は現行未対応 |
 | JSONが途中／例外／中断 | 完全な結果として採用しない。原因を確認して再実行 |
 
-Gitを使えずFilesystem探索へ移った場合は理由と除外を読む。リンク境界や固定履歴の不整合を、リンク先が存在するだけで無視しない。
+Gitを使えずFilesystem探索へ移った場合は理由と除外を読む。Root外、symbolic link／junction、Gitlinkまたは除外された対象を、リンク先が存在するだけで確認済みにしない。
 
-Repository全体の構造化文書台帳に含まれる現行文書を変更した場合は、`npm run documentation-disposition:update --prefix 40_Develop/checker`でGitが認識するMarkdown集合とBlob IDを再計算してから全体Checkerを実行する。この入口は現行文書のBlob IDだけを更新し、固定履歴の本文変更、台帳への追加・削除または分類変更を自動受理しない。
+Change記録とWork Lifecycle Evidence内部の参照、過去の移行Evidence、固定Commit／BlobまたはRelease主張の真正性は、Checkerではなく対象を固定した独立監査で確認する。通常Checkerは現在のCanonical配置、禁止された旧Path、現行正本・案内・ひな型のリンクだけを検査する。
 
 ## 開発試験は別の操作
 
