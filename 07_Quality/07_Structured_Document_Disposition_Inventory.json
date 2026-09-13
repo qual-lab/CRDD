@@ -1,7 +1,7 @@
 {
   "schemaRevision": 1,
   "populationSource": "git_worktree_markdown",
-  "evaluatedDocumentationSetSha256": "735305d5ed2e943f59e2ef745877e9d636ffe9b45083edb7516103f37cfb0838",
+  "evaluatedDocumentationSetSha256": "833ef84270797d631501f97244fedd3f24b2383990d5292de4f13a3fd0ca3eab",
   "entries": [
     {
       "path": ".github/copilot-instructions.md",
@@ -37,7 +37,7 @@
       "disposition": "prose_retained",
       "reasonCode": "prose_preserves_rationale",
       "canonicalOwnerPath": "01_Discovery/01_CRDD_Product_Discovery.md",
-      "currentBlobOid": "ea820a850d4d777a3ed2372290b070e423725113"
+      "currentBlobOid": "9c30e451a6c8c3022fdf744b3b0fb9c5ffb92386"
     },
     {
       "path": "01_Discovery/02_Runtime_and_CROS_Product_Candidates.md",
@@ -46,7 +46,7 @@
       "disposition": "canonical_move_or_reference",
       "reasonCode": "canonical_ownership_corrected",
       "canonicalOwnerPath": "01_Discovery/02_Runtime_and_CROS_Product_Candidates.md",
-      "currentBlobOid": "7e0859fcf138b580c28897c918a79ab4bcc2654b"
+      "currentBlobOid": "429fe104fb008a50186012d274fb854e772c8df2"
     },
     {
       "path": "01_Principles.md",
@@ -5713,7 +5713,7 @@
       "disposition": "already_structured",
       "reasonCode": "existing_structure_sufficient",
       "canonicalOwnerPath": "99_Roadmap/Changes/CHG-000067/change.md",
-      "currentBlobOid": "c5c9d6b2edf009e87ef4c57b0964659669674a5f"
+      "currentBlobOid": "6293550943a0917cf555996d40d829595647c220"
     },
     {
       "path": "99_Roadmap/Changes/CHG-000068/Evidence/260913_group-a-independent-review.md",

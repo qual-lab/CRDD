@@ -5,7 +5,7 @@
 担当責任者: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `feature`
-最終更新日: 2026-09-12
+最終更新日: 2026-09-13
 
 ## 1. 結論と現在状態
 
@@ -28,6 +28,7 @@ Project Operation Context
 | Topic／Meeting Lifecycle | 設計中 |
 | Project Management Projection | 設計中 |
 | 任意Top-level構造 | 設計中 |
+| Project Operation／Workbench Discovery | `Complete for Scope`。Workbench／MCP共同利用体系まで再探索し、独立レビューPass。UX移行判断待ち |
 | 仕様・ひな型・Checker・試験 | 未着手 |
 
 ## 2. 契機と人間が決定した範囲
@@ -97,6 +98,21 @@ Project ID
 | Shared Server接続境界 | RequestごとにBearer TokenをConnection Credentialへ照合し、`workspace_ids[]`、`system_admin`、失効およびRepository Policyを検証する。生TokenをRepository、`.crdd`またはlogへ保存しない |
 | Agent Operating Context／Handoff | Taskごとの適用規則、Context、Capability、Decision境界、判断要求および再開契約をRevision付きで投影する |
 | CROS Workbench | Project／Portfolio、Source Coverage、Topic／Meeting／判断待ちおよび正本導線を既存公開契約から表示し、少なくとも一つの定型操作を既存Command／Candidate入口へ渡す最小実装を行う |
+
+### 4.0. Group B着手前整合確認
+
+事前の設計対話は採用済み範囲と有力な解決策仮説として用いるが、利用者課題またはWorkbenchの有効性を示す実測へ読み替えない。[第1次Discovery](../../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-project-operation-discovery)では、CRDD自己適用で観測した停止・追加確認・補正・探索、そこから推定した認知負担、Repository構造の局所測定、人間判断および未検証のPM／Management仮説を分離した。[Workbench／MCP共同Discovery](../../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-workbench-mcp-joint-discovery)では、現行MCPの実装済み3操作と候補設計を分け、Actor別入口、公開Application Capability、Context最小化、Remote接続、切断／再取得およびWorkbenchの反証条件まで再探索する。
+
+| 確認項目 | 結果 |
+|---|---|
+| 変更分類 | Project Operationの意味契約、Workbench公開利用側およびRepository構造を含む`feature` |
+| 影響する正本 | Discovery、UX、IA、UI、SPEC、Architecture、Quality、Template／Checker |
+| 保持する意図 | Repository単独利用、正本の一意性、欠測の明示、既存Authority、薄いSurface |
+| 目指さないこと | Workbenchありきの要求形成、第二正本、独自IAM、完全なPM／Commercial製品 |
+| 代表代替 | AI／MCPのみ、静的Report、薄いWorkbench、独立Project管理Database、中央要約複製 |
+| 現在の選択 | 薄いWorkbenchを限定実装し、AI／MCPのみの経路を比較基準として維持する |
+| 反証 | 現在地理解、欠測認識、正本到達を改善しない、または専用状態・権限迂回が必要なら拡張しない |
+| 人間判断 | v0.21の限定実装範囲は決定済み。利用価値の成立はVerificationまで未確定 |
 
 ### 4.1. CROS Workbenchの工程Gate
 
@@ -176,7 +192,7 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 
 | 種別 | 参照 |
 |---|---|
-| Discovery | [Runtime／CROS Product Candidates](../../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#2-project-operationproject-management-projection) |
+| Discovery | [v0.21 Project Operation／Workbench Discovery](../../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-project-operation-discovery)、[Workbench／MCP共同Discovery](../../../01_Discovery/02_Runtime_and_CROS_Product_Candidates.md#v021-workbench-mcp-joint-discovery) |
 | IA | [CRDD内部Toolの情報構造](../../../03_IA/01_Information_Architecture.md) |
 | Architecture | [Project Operation Contextのアーキテクチャ](../../../06_Architecture/project-operation/01_Architecture.md) |
 | CROS利用境界 | [CROS Federationと利用境界](../../../06_Architecture/cros/01_Architecture.md) |
@@ -186,4 +202,9 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 
 ## 8. 次のGate
 
-Identity、責務、Lifecycle、Relation、ProjectionおよびRepository構造を設計正本へ固定し、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合する。その後にSPEC、ひな型、Checkerおよび実装へ進む。
+| 対象 | 次のGate | 迂回しない境界 |
+|---|---|---|
+| CROS Workbenchの利用者向け経路 | Discovery工程移行レビューで指摘を閉じ、同じ固定改訂版のPassを得る → 人間の決定権限者がDiscovery内容、レビュー結果およびUXへの移行を確認・承認する → UX入口へ引き渡す | UX、IA、並行するUI／SPECとその対応レビューを飛ばしてArchitectureまたは実装へ進まない |
+| 非UIのProject Operation意味契約 | Workbench Discoveryから生じた利用者成果と対象外を入力として、Identity、責務、Lifecycle、Relation、ProjectionおよびRepository構造の既存設計候補を再照合する | Workbenchの表示・操作をArchitectureで補完せず、UX／IA／UI／SPECの所有事項へ戻す |
+
+既に示されたGroup Bの着手判断は、Discoveryの調査・是正を継続する根拠であり、完成したDiscovery成果物の内容確認またはUX工程移行判断を代替しない。両経路がArchitectureで合流した後に、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合し、ひな型、Checkerおよび実装へ進む。

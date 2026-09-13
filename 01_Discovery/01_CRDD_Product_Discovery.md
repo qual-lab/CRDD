@@ -3,18 +3,19 @@
 工程規則: [`21_Discovery.md`](../21_Discovery.md)
 維持責任者: Qual-Lab
 項目の決定権限: Qual-Lab
-対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用し同日v0.18.0 Candidateへ収載した第2段階の改善意図、2026-08-29にRuntime終盤E2Eの学びから具体化したSystem Journey Closure、将来Runtime Architecture候補、能力到達点の投影および根拠駆動の責務分離原則、2026-08-31の有用性実測に基づく次版検討候補
+対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用し同日v0.18.0 Candidateへ収載した第2段階の改善意図、2026-08-29にRuntime終盤E2Eの学びから具体化したSystem Journey Closure、将来Runtime Architecture候補、能力到達点の投影および根拠駆動の責務分離原則、2026-08-31の有用性実測に基づく次版検討候補、2026-09-13に再探索したProject Operation／Workbench候補
 現在状態: 項目別。採用済みの作業意図と未採用の能力候補を分ける。
 
 ## 基本図の処置
 
 | 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
 |---|---|---|---|---|---|---|---|---|
-| 課題・根拠・機会の関係 | CRDD全体と項目別候補 | 課題、根拠、原因候補、機会の接続 | 作成不能 | 候補ごとの記述はあるが、全候補を同じ関係図へ統合する根拠と粒度が未確定 | v0.21 Candidate | 候補別の文章・表は存在 | Workbench候補の関係図は未作成 | Group BのDiscoveryで候補単位に作成し、全体図の必要性を再評価する |
-| 業務範囲／入出力（SIPOC） | 本書全体 | 単一業務Processの境界と入出力 | 非該当 | 本書は複数版・複数候補のDiscovery正本であり、単一業務Processを対象にしない | v0.21 Candidate | 非該当 | 個別候補の業務境界は本行で評価していない | 業務変革を扱う候補のDiscovery入口で再評価する |
-| Actor別Process（Swimlane） | 本書全体 | Actor間の活動、判断、受渡し | 非該当 | 工程規則と保守Workflowを単一の業務Actor Processへ読み替えない | v0.21 Candidate | 非該当 | Workbench利用者のActor別Processは未作成 | Group BのDiscoveryで作成要否を再評価する |
-| Value Stream | 本書全体 | 処理、待機、滞留、手戻りの可視化 | 非該当 | 実測時間を持つ単一業務Processが本書全体の対象ではない | v0.21 Candidate | 非該当 | Workbench業務の処理・待機時間は未取得 | 実測可能な業務Processを対象にした時点で再評価する |
-| As-Is／To-Be | Workbench候補 | 現行作業と目標体験の差 | 作成不能 | [業務プロセス分析の目的別投影](#14-業務プロセス分析の目的別投影)は作成規則であり、具体図ではない | v0.21 Candidate | 規則のみ作成済み | WorkbenchのAs-Is／To-Beは未作成 | Group BのDiscoveryで根拠を確認して作成する |
+| 課題・根拠・機会の関係 | Project Operation／Workbench／MCP候補 | 課題、根拠、原因候補、機会の接続 | 作成 | [Project Operation／Workbenchの課題・根拠・機会](02_Runtime_and_CROS_Product_Candidates.md#project-operation-problem-evidence-opportunity)と[Workbench／MCP共同Discovery](02_Runtime_and_CROS_Product_Candidates.md#v021-workbench-mcp-joint-discovery)。全候補を一図へ統合する根拠と粒度は未確定 | v0.21 Candidate | `Candidate` | 他候補との全体関係図、Workbench／MCPの利用者成果 | 候補間の意思決定または比較実測で再評価する |
+| 業務範囲／入出力（SIPOC） | Project Operation／Workbench／MCP候補 | 業務Processの境界と入出力 | 作成 | [Project Operationの業務範囲と入出力](02_Runtime_and_CROS_Product_Candidates.md#project-operation-sipoc)と[Workbench／MCP共同利用の業務範囲](02_Runtime_and_CROS_Product_Candidates.md#workbench-mcp-sipoc) | v0.21 Candidate | `Candidate` | 外部利用者による入力不足とRemote運用実績 | UXと実境界検証で更新する |
+| Actor別Process（Swimlane） | Project Operation／Workbench／MCP候補 | Actor間の活動、判断、受渡し | 作成 | [Project OperationのActor別現行作業](02_Runtime_and_CROS_Product_Candidates.md#project-operation-actor-process)と[Remote MCPのActor別候補Process](02_Runtime_and_CROS_Product_Candidates.md#workbench-mcp-actor-process) | v0.21 Candidate | `Current`／`Candidate` | 実利用時の役割差、認証失効、切断後再取得の実測 | UXと実境界検証で更新する |
+| Value Stream | Project Operation／Workbench候補 | 処理、待機、滞留、手戻りの可視化 | 作成 | [Project Operationの処理・待機・手戻りの測定枠](02_Runtime_and_CROS_Product_Candidates.md#project-operation-value-stream)。未測定値は`unknown`を維持する | v0.21 Candidate | `Current`の処理に対する測定枠 | 定量Baseline | Workbench比較実測時に値を追加する |
+| Value Stream | Remote MCP候補 | 接続、認証、Source取得、搬送、再取得の処理・待機・手戻り | 作成不能 | 実装前で実測可能なProcess、所要時間、再試行および待機のBaselineがない。Actor別候補Processを時間実績へ読み替えない | v0.21 Candidate | 未作成 | 各境界の処理時間、Network待機、再認証・再取得回数 | Remote代表実装の結合試験と自己適用後に作成する |
+| As-Is／To-Be | Project Operation／Workbench／MCP候補 | 現行作業と目標体験の差 | 作成 | [Project Operation／Workbench As-Is／To-Be](02_Runtime_and_CROS_Product_Candidates.md#project-operation-as-is-to-be)と[Workbench／MCP共同利用のAs-Is／To-Be](02_Runtime_and_CROS_Product_Candidates.md#workbench-mcp-as-is-to-be) | v0.21 Candidate | `Current`／`Candidate`比較 | 利用者成果とRemote接続の比較実測 | UXで体験へ具体化し、Verificationで反証する |
 | 項目間全体像 | 現行Discovery候補集合 | 候補間の状態と依存の俯瞰 | 作成 | [対象状態表](#1-起点と人間の判断) | v0.21 Candidate | 現行 | Workbench内部の項目関係は未設計 | 候補追加・関係変更時に表を更新する |
 
 | 対象 | 状態・変更記録 |
