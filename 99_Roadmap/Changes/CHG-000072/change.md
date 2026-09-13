@@ -51,4 +51,4 @@ Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primit
 | direct TTYのLifecycle | setup、入力、改行出力、取消、EOF、teardownを単一状態機械へ統合し、各cleanupを独立に最後まで試行してPromiseを一度だけ終了 | 非TTY、setup 5点、改行出力、取消、EOF、cleanup 4点を反証 |
 | Runtime依存宣言の重複 | Artifact Signingの重複登録を削除し、source、package path、package nameの一意性を契約化 | Coordinator依存宣言一意性試験Pass |
 
-最終独立再レビューはCritical／Major／Moderate 0の`Pass`と判定した。Artifact Signingの型、lint、formatおよびOwner試験5件、Coordinatorの型、lint、format、Capability GraphとTraceability、Checkerの型、Catalog契約および全体文書確認はPassした。署名契約試験の残る2件は、新Componentが未Commitのため`git archive HEAD`から作る固定Snapshotに含まれず、秘密入力前に拒否されるCommit待ちである。期待値は変更せず、新しい固定Commitで再実行する。
+最終独立再レビューはCritical／Major／Moderate 0の`Pass`と判定した。Artifact Signingの型、lint、formatおよびOwner試験5件、Coordinatorの型、lint、format、Capability GraphとTraceability、Checkerの型、Catalog契約および全体文書確認はPassした。固定Commit後の再実行では、署名契約試験自身の基準配布fixtureが新Componentを含まない利用側取り残しを検出した。期待値を変更せず、Artifact Signingを同fixtureの配布集合へ追加し、鍵生成と署名契約19件の全Passを確認した。

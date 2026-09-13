@@ -235,6 +235,7 @@ function uniqueReleaseCandidate(prefix: string) {
 function runtimeDistributionFixture(prefix: string) {
   const distributionRoot = uniqueReleaseCandidate(prefix);
   for (const component of [
+    "artifact-signing",
     "coordinator",
     "mcp",
     "project-runtime",
