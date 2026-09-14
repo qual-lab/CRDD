@@ -59,9 +59,9 @@ UXへ引き渡す
 
 ## 要求台帳
 
-要求本文は各探索記録が所有する。本表は、採用済み要求の状態と受信先を一箇所から確認するための台帳であり、要求を再定義しない。
+要求本文は各探索記録が所有する。本表は、採用済み要求の状態と特に関係する責務領域を一箇所から確認するための台帳であり、要求を再定義しない。`主な関係領域`は工程の通過可否を決める列ではない。採用済み要求はすべてUX以降の固定工程で処置し、新規成果へ変換、既存成果へ統合、理由付き非該当または情報不足による停止のいずれかを記録する。
 
-| 要求 | 要約 | 探索元 | Discovery判断 | 主な受信先 |
+| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |
 |---|---|---|---|---|
 | `REQ-000001` | 決定論的なRepository事前確認 | [EXP-000001](Explorations/EXP-000001_Deterministic_Repository_Checks/exploration.md) | 要求採用 | Quality、Maintenance |
 | `REQ-000002` | 複数AI実行の範囲・権限・回復 | [EXP-000004](Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md) | 要求採用 | Architecture、Development |

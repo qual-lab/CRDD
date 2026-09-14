@@ -29,9 +29,9 @@ Project Operation Context
 | Project Management Projection | 設計中 |
 | 任意Top-level構造 | 設計中 |
 | Project Operation／Workbench Discovery | `Complete for Scope`。Workbench／MCP共同利用体系まで再探索し、独立レビューPass。2026-09-13にUX移行承認済み |
-| Workbench／MCP共同UX | `Ready for IA Decision`。Discoveryの12要求を要求別分析へ分け、全体正本では10件のUX成果、利用者の物語、Journey、重要場面、失敗・回復、Service Blueprintおよび次工程への義務を統合した。構造変更後の同一改訂版を独立再レビューし、Critical／Major／Moderate／Minor 0を確認済み |
+| Workbench／MCP共同UX | `UX Synthesis Complete — Independent Review Pending`。Discoveryで採用した全36要求をExperience Change、ペルソナ、体験区間、Supporting Model処置、責任境界、品質期待、妥当性確認および下流義務まで分析し、既存10 UX-IDの意味を保持しながら68 UX成果へ分解・統合した。各要求分析にNew／Same判断を置き、同じIDの場合は同じ利用者成果である理由と要求固有の成立条件を記録した。各要求は該当する9種類の利用者Journeyへ直接接続し、Service Blueprintは複数主体の協調が体験成立条件となる要求だけに限定した |
 | Discoveryの人間理解確認 | 完了。AIによる既存Context再構成と人間理解を分け、Workbench、Remote MCP、Repository単独利用および工程境界の人間提示内容をUX入力へ反映 |
-| 仕様・ひな型・Checker・試験 | 未着手 |
+| UX規範・ひな型・Checker・試験 | 個別要求分析の構造、Visual Summary、New／Same理由および双方向Relationを更新済み。Repository全体CheckerとUX対象契約試験はPass。意味品質は独立レビュー待ち |
 
 ## 2. 契機と人間が決定した範囲
 
@@ -121,7 +121,12 @@ Project Operation Context
 - `01_Discovery/Explorations/EXP-000028_Recognizable_Official_Identity/exploration.md`（削除または旧Path）
 - [`01_Discovery/Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md`](<../../../01_Discovery/Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md>)
 - [`02_UX/01_User_Experience.md`](<../../../02_UX/01_User_Experience.md>)
+- [`02_UX/Requirements/REQ-000001/user_experience.md`](<../../../02_UX/Requirements/REQ-000001/user_experience.md>)
+- [`02_UX/Requirements/REQ-000002/user_experience.md`](<../../../02_UX/Requirements/REQ-000002/user_experience.md>)
 - [`02_UX/Requirements/REQ-000003/user_experience.md`](<../../../02_UX/Requirements/REQ-000003/user_experience.md>)
+- [`02_UX/Requirements/REQ-000004/user_experience.md`](<../../../02_UX/Requirements/REQ-000004/user_experience.md>)
+- [`02_UX/Requirements/REQ-000005/user_experience.md`](<../../../02_UX/Requirements/REQ-000005/user_experience.md>)
+- [`02_UX/Requirements/REQ-000006/user_experience.md`](<../../../02_UX/Requirements/REQ-000006/user_experience.md>)
 - [`02_UX/Requirements/REQ-000007/user_experience.md`](<../../../02_UX/Requirements/REQ-000007/user_experience.md>)
 - [`02_UX/Requirements/REQ-000008/user_experience.md`](<../../../02_UX/Requirements/REQ-000008/user_experience.md>)
 - [`02_UX/Requirements/REQ-000009/user_experience.md`](<../../../02_UX/Requirements/REQ-000009/user_experience.md>)
@@ -129,10 +134,29 @@ Project Operation Context
 - [`02_UX/Requirements/REQ-000011/user_experience.md`](<../../../02_UX/Requirements/REQ-000011/user_experience.md>)
 - [`02_UX/Requirements/REQ-000012/user_experience.md`](<../../../02_UX/Requirements/REQ-000012/user_experience.md>)
 - [`02_UX/Requirements/REQ-000013/user_experience.md`](<../../../02_UX/Requirements/REQ-000013/user_experience.md>)
+- [`02_UX/Requirements/REQ-000014/user_experience.md`](<../../../02_UX/Requirements/REQ-000014/user_experience.md>)
+- [`02_UX/Requirements/REQ-000015/user_experience.md`](<../../../02_UX/Requirements/REQ-000015/user_experience.md>)
+- [`02_UX/Requirements/REQ-000016/user_experience.md`](<../../../02_UX/Requirements/REQ-000016/user_experience.md>)
 - [`02_UX/Requirements/REQ-000017/user_experience.md`](<../../../02_UX/Requirements/REQ-000017/user_experience.md>)
+- [`02_UX/Requirements/REQ-000018/user_experience.md`](<../../../02_UX/Requirements/REQ-000018/user_experience.md>)
+- [`02_UX/Requirements/REQ-000019/user_experience.md`](<../../../02_UX/Requirements/REQ-000019/user_experience.md>)
 - [`02_UX/Requirements/REQ-000020/user_experience.md`](<../../../02_UX/Requirements/REQ-000020/user_experience.md>)
 - [`02_UX/Requirements/REQ-000021/user_experience.md`](<../../../02_UX/Requirements/REQ-000021/user_experience.md>)
+- [`02_UX/Requirements/REQ-000022/user_experience.md`](<../../../02_UX/Requirements/REQ-000022/user_experience.md>)
+- [`02_UX/Requirements/REQ-000023/user_experience.md`](<../../../02_UX/Requirements/REQ-000023/user_experience.md>)
 - [`02_UX/Requirements/REQ-000024/user_experience.md`](<../../../02_UX/Requirements/REQ-000024/user_experience.md>)
+- [`02_UX/Requirements/REQ-000025/user_experience.md`](<../../../02_UX/Requirements/REQ-000025/user_experience.md>)
+- [`02_UX/Requirements/REQ-000026/user_experience.md`](<../../../02_UX/Requirements/REQ-000026/user_experience.md>)
+- [`02_UX/Requirements/REQ-000027/user_experience.md`](<../../../02_UX/Requirements/REQ-000027/user_experience.md>)
+- [`02_UX/Requirements/REQ-000028/user_experience.md`](<../../../02_UX/Requirements/REQ-000028/user_experience.md>)
+- [`02_UX/Requirements/REQ-000029/user_experience.md`](<../../../02_UX/Requirements/REQ-000029/user_experience.md>)
+- [`02_UX/Requirements/REQ-000030/user_experience.md`](<../../../02_UX/Requirements/REQ-000030/user_experience.md>)
+- [`02_UX/Requirements/REQ-000031/user_experience.md`](<../../../02_UX/Requirements/REQ-000031/user_experience.md>)
+- [`02_UX/Requirements/REQ-000032/user_experience.md`](<../../../02_UX/Requirements/REQ-000032/user_experience.md>)
+- [`02_UX/Requirements/REQ-000033/user_experience.md`](<../../../02_UX/Requirements/REQ-000033/user_experience.md>)
+- [`02_UX/Requirements/REQ-000034/user_experience.md`](<../../../02_UX/Requirements/REQ-000034/user_experience.md>)
+- [`02_UX/Requirements/REQ-000035/user_experience.md`](<../../../02_UX/Requirements/REQ-000035/user_experience.md>)
+- [`02_UX/Requirements/REQ-000036/user_experience.md`](<../../../02_UX/Requirements/REQ-000036/user_experience.md>)
 - [`03_Documentation.md`](<../../../03_Documentation.md>)
 - [`03_IA/01_Information_Architecture.md`](<../../../03_IA/01_Information_Architecture.md>)
 - [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
@@ -451,10 +475,10 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 
 | 対象 | 次のGate | 迂回しない境界 |
 |---|---|---|
-| CROS Workbenchの利用者向け経路 | 要求別分析と全体正本の責務、12要求から10件のUX成果への全数接続、人間が理解する読み順を新しい固定改訂版で独立再レビューする → 指摘を閉じた同じ改訂版のPass後、人間の決定権限者がIAへの移行を確認・承認する | 2026-09-13の構造変更前レビューを新しい改訂版へ流用せず、IA、並行するUI／SPECとその対応レビューを飛ばしてArchitectureまたは実装へ進まない |
+| CROS Workbenchの利用者向け経路 | 全36要求から統合した68 UX成果、New／Same理由、Journey、Blueprint、品質期待および検証義務を同じ改訂版で独立レビューする → Pass後、人間の決定権限者がIAへの移行を確認・承認する | 既存10 UX-IDに対する過去レビューを新しい母集団へ流用せず、IA、並行するUI／SPECとその対応レビューを飛ばしてArchitectureまたは実装へ進まない |
 | 非UIのProject Operation意味契約 | UXから生じた情報、状態、判断、Source Coverageおよび回復導線の義務を入力として、Identity、責務、Lifecycle、Relation、ProjectionおよびRepository構造の既存設計候補をIAで再照合する | Workbenchの表示・操作をArchitectureで補完せず、IA／UI／SPECの所有事項へ戻す |
 
-DiscoveryからUXへの移行は2026-09-13に承認済みである。構造変更後のUX独立再レビューとIA移行判断はこれと別Gateとして維持する。両経路がArchitectureで合流した後に、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合し、ひな型、Checkerおよび実装へ進む。
+DiscoveryからUXへの移行は2026-09-13に承認済みである。全36要求の分析と68 UX成果への横断統合は完了したが、統合後文書の独立再レビューおよびIA移行判断は別Gateとして維持する。両経路がArchitectureで合流した後に、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合し、ひな型、Checkerおよび実装へ進む。
 
 ## 9. 次の工程是正へ保持する入力
 

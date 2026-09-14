@@ -521,20 +521,25 @@ function checkUxRequirementAnalysis(): void {
       relative(templatePath),
       "The official distribution must include the UX requirement-analysis template.",
     );
-  const adoptedUxRequirements = new Set(
+  const adoptedRequirements = new Set(
     read(discoveryPath)
       .split(/\r?\n/u)
       .filter(
         (line) =>
-          /^\| `REQ-[0-9]{6}` \|/u.test(line) &&
-          line.includes("| 要求採用 |") &&
-          /\|[^|]*UX[^|]*\|?$/u.test(line),
+          /^\| `REQ-[0-9]{6}` \|/u.test(line) && line.includes("| 要求採用 |"),
       )
       .map((line) => line.match(/REQ-[0-9]{6}/u)?.[0])
       .filter((value): value is string => Boolean(value)),
   );
   const actualRequirements = new Set<string>();
   const uxIndex = read(uxIndexPath);
+  const canonicalUxIds = new Set(
+    uxIndex
+      .split(/\r?\n/u)
+      .map((line) => line.match(/^\| `(?<id>UX-[0-9]{6}@[0-9]+)`/u)?.groups?.id)
+      .filter((value): value is string => Boolean(value)),
+  );
+  const relatedUxIds = new Set<string>();
   for (const entry of fs.readdirSync(requirementsRoot, {
     withFileTypes: true,
   })) {
@@ -549,14 +554,25 @@ function checkUxRequirementAnalysis(): void {
     const analysis = read(analysisPath);
     const requiredParts = [
       `要求: \`${entry.name}\``,
-      "## 1. なぜこの要求を体験として扱うのか",
-      "## 2. 利用者に起きる変化",
-      "## 3. UXへの処置",
-      "## 4. 重要場面、失敗、品質期待",
-      "## 5. 下流への引き渡し",
+      "## 1. 要求から起こしたい利用者変化",
+      "## 2. REQの一次分析",
+      "## 3. 利用者の想定とペルソナ",
+      "| 主な利用者 | 利用場面 | 目標・困りごと | 根拠・確信度 |",
+      "## 4. 体験区間とSupporting Model",
+      "| Supporting Model | 処置 | 理由・参照先 |",
+      "## 5. UX成果への統合",
+      "| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |",
+      "## 6. サービス提供上の責任境界",
+      "## 7. 重要場面、失敗、品質期待",
+      "| 重要場面 | 避ける失敗 | 品質期待 |",
+      "## 8. 妥当性確認と未確認事項",
+      "## 9. 下流への引き渡し",
     ];
+    const hasExperienceChange =
+      /```text\r?\nBefore\r?\n[\s\S]+?\r?\nAfter\r?\n/u.test(analysis);
     if (
       requiredParts.some((part) => !analysis.includes(part)) ||
+      !hasExperienceChange ||
       uxIndex.split(`Requirements/${entry.name}/user_experience.md`).length -
         1 !==
         1
@@ -565,18 +581,53 @@ function checkUxRequirementAnalysis(): void {
         "error",
         "ux-requirement-analysis-contract-invalid",
         relative(analysisPath),
-        "Each UX requirement analysis must declare its REQ, preserve the human-reading sequence, and have one registry link.",
+        "Each UX requirement analysis must declare its REQ, lead with Experience Change, cover persona, supporting models, responsibilities, quality, validation, and handoff, and have one registry link.",
+      );
+    const relationRows = analysis
+      .split(/\r?\n/u)
+      .filter((line) =>
+        /^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}@[0-9]+` \|/u.test(line),
+      );
+    for (const line of relationRows) {
+      const match = line.match(/`(?:New|Same) → (?<id>UX-[0-9]{6}@[0-9]+)`/u);
+      if (match?.groups?.id) relatedUxIds.add(match.groups.id);
+    }
+    if (
+      relationRows.length === 0 ||
+      relationRows.some(
+        (line) =>
+          !/^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}@[0-9]+` \| .{20,} \|$/u.test(
+            line,
+          ),
+      )
+    )
+      add(
+        "error",
+        "ux-requirement-analysis-relation-invalid",
+        relative(analysisPath),
+        "Each UX requirement analysis must connect every candidate to a canonical UX outcome and explain New or Same with requirement-specific reasoning.",
       );
   }
   if (
-    adoptedUxRequirements.size !== actualRequirements.size ||
-    [...adoptedUxRequirements].some((id) => !actualRequirements.has(id))
+    adoptedRequirements.size !== actualRequirements.size ||
+    [...adoptedRequirements].some((id) => !actualRequirements.has(id))
   )
     add(
       "error",
       "ux-requirement-analysis-coverage-mismatch",
       relative(uxIndexPath),
-      "Every adopted Discovery requirement routed to UX must have exactly one requirement analysis directory.",
+      "Every adopted Discovery requirement must have exactly one UX requirement-analysis directory, regardless of its primary related domains.",
+    );
+  if (
+    canonicalUxIds.size === 0 ||
+    [...canonicalUxIds].some((id) => !relatedUxIds.has(id)) ||
+    [...relatedUxIds].some((id) => !canonicalUxIds.has(id))
+  )
+    add(
+      "error",
+      "ux-outcome-relation-closure-mismatch",
+      relative(uxIndexPath),
+      "Canonical UX outcomes and requirement-analysis New/Same relations must form a closed, bidirectional set.",
     );
 }
 

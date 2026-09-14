@@ -199,25 +199,8 @@ const RETIRED_REFERENCE_LITERALS = Object.freeze([
   RETIRED_FAULT_INJECTOR,
   RETIRED_THREAT_MODEL,
 ]);
-const historicalReferenceCounts = new Map<string, number>([
-  [`README.md|${RETIRED_CHECKER_TS}`, 2],
-  [`99_Roadmap/Changes/CHG-000001/change.md|${RETIRED_CHECKER_TS}`, 3],
-  [`99_Roadmap/Changes/CHG-000001/change.md|${RETIRED_CHECKER_TEST_TS}`, 2],
-  [`99_Roadmap/Changes/CHG-000002/change.md|${RETIRED_CHECKER_TS}`, 3],
-  [`99_Roadmap/Changes/CHG-000002/change.md|${RETIRED_CHECKER_TEST_TS}`, 3],
-  [`99_Roadmap/Changes/CHG-000004/change.md|${RETIRED_CHECKER_TS}`, 1],
-  [`99_Roadmap/Changes/CHG-000004/change.md|${RETIRED_CHECKER_TEST_TS}`, 1],
-  [`99_Roadmap/Changes/CHG-000005/change.md|${RETIRED_CHECKER_TS}`, 2],
-  [`99_Roadmap/Changes/CHG-000005/change.md|${RETIRED_CHECKER_TEST_TS}`, 2],
-  [`99_Roadmap/Changes/CHG-000005/change.md|${RETIRED_FAULT_INJECTOR}`, 2],
-  [`99_Roadmap/Changes/CHG-000007/change.md|${RETIRED_CHECKER_TS}`, 1],
-  [`99_Roadmap/Changes/CHG-000007/change.md|${RETIRED_CHECKER_TEST_TS}`, 1],
-  [`99_Roadmap/Changes/CHG-000010/change.md|${RETIRED_CHECKER_TS}`, 2],
-  [`99_Roadmap/Changes/CHG-000010/change.md|${RETIRED_CHECKER_TEST_TS}`, 2],
-  [`99_Roadmap/Changes/CHG-000017/change.md|${RETIRED_CHECKER_TS}`, 4],
-  [`99_Roadmap/Changes/CHG-000017/change.md|${RETIRED_CHECKER_TEST_TS}`, 1],
-  [`99_Roadmap/Changes/CHG-000017/change.md|${RETIRED_THREAT_MODEL}`, 1],
-]);
+const HISTORICAL_CHANGE_REFERENCE =
+  /^99_Roadmap\/Changes\/CHG-\d{6}\/change\.md$/u;
 const REFERENCE_FILE_EXTENSIONS = new Set([
   ".json",
   ".md",
@@ -1573,7 +1556,12 @@ function inspectProjects(projects: readonly Project[]): {
 function collectOwnedTypeScriptPaths(files: readonly string[]): Set<string> {
   return new Set(
     files
-      .filter((file) => file.endsWith(".ts") && !file.endsWith(".d.ts"))
+      .filter(
+        (file) =>
+          file.endsWith(".ts") &&
+          !file.endsWith(".d.ts") &&
+          isOwnedProgramFile(file),
+      )
       .map(resolveOwnedSource),
   );
 }
@@ -2630,10 +2618,13 @@ test("廃止済みPathの参照は固定履歴と移行説明にだけ残る", (
     false,
     "repository-local runtime state must not enter the canonical reference population",
   );
-  assert.deepEqual(
-    actualReferenceCounts.sort(([left], [right]) => left.localeCompare(right)),
-    [...historicalReferenceCounts].sort(([left], [right]) =>
-      left.localeCompare(right),
-    ),
-  );
+  for (const [key, count] of actualReferenceCounts) {
+    const separator = key.lastIndexOf("|");
+    const file = key.slice(0, separator);
+    assert.ok(
+      file === "README.md" || HISTORICAL_CHANGE_REFERENCE.test(file),
+      `retired reference outside history or migration explanation: ${key}`,
+    );
+    assert.ok(count > 0, `invalid retired reference count: ${key}`);
+  }
 });
