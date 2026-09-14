@@ -583,7 +583,6 @@ function checkUxRequirementAnalysis(): void {
     }),
   );
   const analysisRelationPairs = new Set<string>();
-  const uxDefinitionSemanticOwners = new Map<string, string>();
   const canonicalJourneyPairs = new Set<string>();
   if (lstatIfPresent(experienceMapPath)?.isFile()) {
     for (const line of read(experienceMapPath).split(/\r?\n/u)) {
@@ -700,6 +699,26 @@ function checkUxRequirementAnalysis(): void {
     const notApplicableRows = analysis
       .split(/\r?\n/u)
       .filter((line) => /^\| [^|]+ \| `Not Applicable` \|/u.test(line));
+    const sameRelationIds = relationRows.flatMap((line) => {
+      const match = line.match(/`Same → (?<id>UX-[0-9]{6})`/u);
+      return match?.groups?.id ? [match.groups.id] : [];
+    });
+    const hasCompleteSameComparison = sameRelationIds.every((uxId) => {
+      const block = analysis.match(
+        new RegExp(
+          `^#### [^\\r\\n]+\\r?\\n\\r?\\n比較対象: \`${uxId}\`\\r?\\n(?<body>[\\s\\S]*?)(?=^#### |^## |(?![\\s\\S]))`,
+          "mu",
+        ),
+      )?.groups?.body;
+      if (!block?.includes("統合理由:")) return false;
+      return ["担い手", "利用のきっかけ", "得られる結果", "避ける失敗"].every(
+        (axis) =>
+          new RegExp(
+            `^\\| ${axis} \\| [^|]+ \\| [^|]+ \\| [^|]+ \\|$`,
+            "mu",
+          ).test(block),
+      );
+    });
     for (const line of relationRows) {
       const match = line.match(/`(?:New|Same) → (?<id>UX-[0-9]{6})`/u);
       if (match?.groups?.id)
@@ -738,14 +757,15 @@ function checkUxRequirementAnalysis(): void {
       relationRows.length + notApplicableRows.length === 0 ||
       relationRows.some(
         (line) =>
-          !/^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \| .{20,} \| .+ \|$/u.test(
+          !/^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \| [^|]+ \| [^|]+ \|$/u.test(
             line,
           ),
       ) ||
       notApplicableRows.some(
         (line) =>
-          !/^\| [^|]+ \| `Not Applicable` \| .{20,} \| .+ \|$/u.test(line),
+          !/^\| [^|]+ \| `Not Applicable` \| [^|]+ \| [^|]+ \|$/u.test(line),
       ) ||
+      !hasCompleteSameComparison ||
       analysis.includes(
         "失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが",
       )
@@ -775,7 +795,6 @@ function checkUxRequirementAnalysis(): void {
       "Every adopted Discovery requirement must have exactly one UX requirement-analysis directory, regardless of its primary related domains.",
     );
   const discoveryDefinitionIds = new Set<string>();
-  const discoveryDefinitionSectionOwners = new Map<string, string>();
   if (lstatIfPresent(discoveryDefinitionsRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(discoveryDefinitionsRoot, {
       withFileTypes: true,
@@ -799,21 +818,10 @@ function checkUxRequirementAnalysis(): void {
         "## 工程引渡し",
         "## 関係",
       ];
-      const sectionBodies = requiredDefinitionSections
-        .slice(0, -1)
-        .map((heading) => {
-          const start = definition.indexOf(heading);
-          if (start < 0) return "";
-          const bodyStart = start + heading.length;
-          const next = definition.indexOf("\n## ", bodyStart);
-          return definition
-            .slice(bodyStart, next < 0 ? definition.length : next)
-            .replace(/\s+/gu, " ")
-            .trim();
-        });
-      const hasPlaceholder = /（[^）]+）|REQ-XXXXXX|EXP-XXXXXX/u.test(
-        definition,
-      );
+      const hasPlaceholder =
+        /REQ-XXXXXX|EXP-XXXXXX|UX-XXXXXX|TODO|TBD|（要求名）|（探索名）/u.test(
+          definition,
+        );
       const sourceRelation = definition.match(
         /元の探索記録: \[(EXP-[0-9]{6})\]\(\.\.\/\.\.\/Analysis\/(EXP-[0-9]{6})\/exploration\.md\)/u,
       );
@@ -824,7 +832,6 @@ function checkUxRequirementAnalysis(): void {
         requiredDefinitionSections.some(
           (heading) => !definition.includes(heading),
         ) ||
-        sectionBodies.some((body) => body.length < 40) ||
         hasPlaceholder ||
         !sourceRelation ||
         sourceRelation[1] !== sourceRelation[2]
@@ -835,20 +842,6 @@ function checkUxRequirementAnalysis(): void {
           relative(definitionPath),
           "Each adopted Discovery requirement must have a self-contained canonical definition.",
         );
-      for (const [index, body] of sectionBodies.entries()) {
-        if (!body) continue;
-        const key = `${requiredDefinitionSections[index]}\n${body}`;
-        const previousOwner = discoveryDefinitionSectionOwners.get(key);
-        if (previousOwner)
-          add(
-            "error",
-            "discovery-requirement-definition-boilerplate-duplicate",
-            relative(definitionPath),
-            `Requirement-specific Definition content duplicates ${previousOwner}; a shared stock paragraph cannot establish downstream-ready meaning.`,
-          );
-        else
-          discoveryDefinitionSectionOwners.set(key, relative(definitionPath));
-      }
     }
   }
   if (
@@ -862,7 +855,6 @@ function checkUxRequirementAnalysis(): void {
       "Every adopted Discovery requirement must have exactly one canonical requirement definition.",
     );
   const uxDefinitionIds = new Set<string>();
-  const semanticSections = ["## 利用者・状況・目的", "## 重要な体験と品質期待"];
   if (lstatIfPresent(uxDefinitionsRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(uxDefinitionsRoot, {
       withFileTypes: true,
@@ -890,27 +882,6 @@ function checkUxRequirementAnalysis(): void {
           relative(definitionPath),
           "Each canonical UX outcome must have a self-contained definition.",
         );
-      for (const heading of semanticSections) {
-        const start = definition.indexOf(heading);
-        if (start < 0) continue;
-        const bodyStart = start + heading.length;
-        const next = definition.indexOf("\n## ", bodyStart);
-        const body = definition
-          .slice(bodyStart, next < 0 ? definition.length : next)
-          .replace(/\s+/gu, " ")
-          .trim();
-        if (!body) continue;
-        const key = `${heading}\n${body}`;
-        const previousOwner = uxDefinitionSemanticOwners.get(key);
-        if (previousOwner)
-          add(
-            "error",
-            "ux-definition-semantic-boilerplate-duplicate",
-            relative(definitionPath),
-            `UX-specific ${heading} duplicates ${previousOwner}; separate outcomes require outcome-specific context and critical experience.`,
-          );
-        else uxDefinitionSemanticOwners.set(key, relative(definitionPath));
-      }
     }
   }
   if (

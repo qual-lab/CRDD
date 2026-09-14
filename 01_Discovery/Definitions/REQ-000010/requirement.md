@@ -2,12 +2,12 @@
 
 成果物種別: Discovery定義
 要求ID: `REQ-000010`
-探索での判断: 要求採用
+Discoveryでの判断: 要求採用
 判断する人: Qual-Lab
 
 ## 要求
 
-Workbench、MCP、CLIおよびTS APIは同じ公開Application 契約を利用し、入口固有の正本、状態、権限判断または更新処理を作ってはならない。
+Workbench、MCP、CLIおよびTS APIは同じ公開アプリケーション契約（Application Contract）を利用し、入口固有の正本、状態、権限判断または更新処理を作ってはならない。
 
 ## 対象と利用状況
 
@@ -23,7 +23,7 @@ Workbench、MCP、CLIおよびTS APIは同じ公開Application 契約を利用�
 
 ## 採用理由と比較
 
-Workbench専用Logicは第二正本を作り、全入口MCP統一は手元利用をServer依存にするため、同じApplication 契約の接続部群を採る。
+Workbench専用Logicは第二正本を作り、全入口MCP統一は手元利用をServer依存にするため、同じアプリケーション契約（Application Contract）の接続部群を採る。
 
 ## 成立条件
 
@@ -34,11 +34,11 @@ Workbench専用Logicは第二正本を作り、全入口MCP統一は手元利用
 ## 制約
 
 - 非AIの定型処理へAI推論を強制しない
-- 公開Application 契約へ内部Eventや管理都合を無制限に入れない
+- 公開アプリケーション契約（Application Contract）へ内部Eventや管理都合を無制限に入れない
 
 ## 検証意図
 
-同じ正常、拒否、部分結果、取消を複数入口から実行し、構造結果と正本外部への変更を比較する。
+同じ正常、拒否、部分結果、取消を複数入口から実行し、構造結果と正本外部作用（Effect）を比較する。
 
 ## 工程引渡し
 

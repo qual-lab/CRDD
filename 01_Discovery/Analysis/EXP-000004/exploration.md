@@ -56,7 +56,7 @@ AIの選び方だけが問題だったのではない。外部AIへ仕事を渡�
 
 ## 現在地と次への引き渡し
 
-Coordinatorは現在もAI実行の編成を担う。ただしプロジェクト 実行基盤、MCP、実行知、Platform 利用権限は別の責務へ分けた。Coordinatorへ新機能を追加する前に、本当に実行編成が所有すべきかを確認する。
+Coordinatorは現在もAI実行の編成を担う。ただしProject Runtime、MCP、実行知、Platform Accessは別の責務へ分けた。Coordinatorへ新機能を追加する前に、本当に実行編成が所有すべきかを確認する。
 
 ## 採用した要求
 

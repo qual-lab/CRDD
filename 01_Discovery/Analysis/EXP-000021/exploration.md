@@ -3,9 +3,9 @@
 成果物種別: Discovery分析
 探索ID: `EXP-000021`
 状態: 要求採用
-主な情報源: 現行MCP、プロジェクト 実行基盤、Workbench構想
+主な情報源: 現行MCP、Project Runtime、Workbench構想
 判断する人: Qual-Lab
-記録の性質: Workbench／MCP構想、現行プロジェクト 実行基盤およびUX対話から再構成
+記録の性質: Workbench／MCP構想、現行Project RuntimeおよびUX対話から再構成
 時系列根拠: 2026-09-13に固定したv0.21構想群で、リポジトリ横断統合を利用する入口の依存順とした。
 
 ## きっかけ
@@ -20,13 +20,13 @@
 
 ## 置いた仮説
 
-プロジェクト 実行基盤が公開する一つのApplication 契約を先に決め、Workbench、MCP、CLIをその利用者にする。
+Project Runtimeが公開する一つのアプリケーション契約（Application Contract）を先に決め、Workbench、MCP、CLIをその利用者にする。
 
 <a id="workbench-mcp-as-is-to-be"></a>
 
 ```text
 Workbench ─ TS API ───────────┐
-AI ─────── MCP ───────────────┼→ 同じプロジェクト 実行基盤の公開契約
+AI ─────── MCP ───────────────┼→ 同じProject Runtimeの公開契約
 CLI／外部ツール ─ CLI／TS API ──┘
 ```
 
@@ -36,7 +36,7 @@ CLI／外部ツール ─ CLI／TS API ──┘
 |---|---|---|---|
 | Workbench内へ専用LogicとStoreを作る | UI開発は独立できる | 第二の正本と更新権限が生まれる | 不採用 |
 | すべての入口をMCP経由に統一する | Protocolは一つになる | 手元 UIやLibraryまでServer運用へ依存する | 不採用 |
-| 同じApplication 契約をTS API、CLI、MCPから使う | 利用形態を選べ、意味を一つに保てる | 公開契約の所有範囲を狭く保つ必要がある | 採用 |
+| 同じアプリケーション契約（Application Contract）をTS API、CLI、MCPから使う | 利用形態を選べ、意味を一つに保てる | 公開契約の所有範囲を狭く保つ必要がある | 採用 |
 
 同じ型名を使うだけでは成立しない。入力検証、決定権限、結果、不足、取消、正本更新先まで一致することが反証条件となる。
 
@@ -59,8 +59,8 @@ WorkbenchとMCPは別の入口として持ち、仕事の意味だけを共有�
 
 | 入力元 | 入力 | 処理 | 出力 | 利用者 |
 |---|---|---|---|---|
-| リポジトリ、プロジェクト 実行基盤、CROS | プロジェクトと限定された要求 | 入口で検証し、同じ公開契約へ渡す | 出典・改訂版・不足を含む結果 | Workbench、AI、CLI、外部ツール |
+| リポジトリ、Project Runtime、CROS | プロジェクトと限定された要求 | 入口で検証し、同じ公開契約へ渡す | 出典・改訂版・不足を含む結果 | Workbench、AI、CLI、外部ツール |
 
 ## 採用した要求
 
-`REQ-000010`: Workbench、MCP、CLIおよびTS APIは同じ公開Application 契約を利用し、入口固有の正本、状態、権限判断または更新処理を作ってはならない。
+`REQ-000010`: Workbench、MCP、CLIおよびTS APIは同じ公開アプリケーション契約（Application Contract）を利用し、入口固有の正本、状態、権限判断または更新処理を作ってはならない。

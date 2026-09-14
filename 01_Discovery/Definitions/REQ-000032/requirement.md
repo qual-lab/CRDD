@@ -2,7 +2,7 @@
 
 成果物種別: Discovery定義
 要求ID: `REQ-000032`
-探索での判断: 要求採用
+Discoveryでの判断: 要求採用
 判断する人: Qual-Lab
 
 ## 要求

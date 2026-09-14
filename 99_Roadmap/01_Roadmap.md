@@ -4,7 +4,7 @@ Status: Non-normative Open Work Registry
 Owner: Qual-Lab
 Last Updated: 2026-09-13
 Related:
-- [CRDD標準自身の課題探索・要求形成](../01_Discovery/01_Product_Discovery.md)
+- [CRDD標準自身のDiscovery](../01_Discovery/01_Product_Discovery.md)
 - [Product候補登録](../01_Discovery/02_Product_Candidates.md)
 - [05_Autonomous_Operation.md](../05_Autonomous_Operation.md)
 - [21_Discovery.md](../21_Discovery.md)

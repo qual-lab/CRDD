@@ -121,6 +121,11 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
     "## 4. 利用者成果への統合",
     "要求とUXは多対多を許容する",
     "| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |",
+    "### Same判断の比較",
+    "| 担い手 |",
+    "| 利用のきっかけ |",
+    "| 得られる結果 |",
+    "| 避ける失敗 |",
     "## 5. 重要な体験",
     "重要場面",
     "失敗",
@@ -132,6 +137,8 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
     "### この要求での責任境界",
     "### 補足する品質",
     "## 6. 下流への引き渡し",
+    "### 妥当性確認と未確認事項",
+    "### 工程別の引き渡し",
     "Discoveryへ戻す条件",
   ])
     assert.ok(
@@ -1094,7 +1101,7 @@ test("UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追�
   }
 });
 
-test("独立した利用者体験定義は、同じ目的と重要体験の定型コピーを共有できない", () => {
+test("CheckerはUX定義の意味重複を機械的な不正と断定しない", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
   write(
@@ -1114,7 +1121,7 @@ test("独立した利用者体験定義は、同じ目的と重要体験の定�
     );
   const result = runChecker(root);
   assert.ok(
-    result.report.findings.some(
+    !result.report.findings.some(
       (finding) =>
         finding.code === "ux-definition-semantic-boilerplate-duplicate",
     ),
@@ -1122,7 +1129,7 @@ test("独立した利用者体験定義は、同じ目的と重要体験の定�
   );
 });
 
-test("見出しだけ揃えた共通定型のDiscovery Definitionを要求固有の意味とみなさない", () => {
+test("CheckerはDiscovery定義の意味重複を機械的な不正と断定しない", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
   write(
@@ -1137,7 +1144,7 @@ test("見出しだけ揃えた共通定型のDiscovery Definitionを要求固有
     );
   const result = runChecker(root);
   assert.ok(
-    result.report.findings.some(
+    !result.report.findings.some(
       (finding) =>
         finding.code ===
         "discovery-requirement-definition-boilerplate-duplicate",
@@ -1171,7 +1178,7 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
   );
 });
 
-test("UXのSame判断は固定ラベル列挙なしでも要求固有の十分な理由を受け付ける", () => {
+test("UXのSame判断は4軸比較を揃えた構造を受け付ける", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "01_Discovery", "01_Product_Discovery.md"),
@@ -1183,7 +1190,7 @@ test("UXのSame判断は固定ラベル列挙なしでも要求固有の十分�
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 利用者が得る最終成果は既存UXと共通し、追加条件は独立したOutcomeではない。 | 要求固有の条件を補う。 |\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 4軸比較を参照。 | 要求固有の条件を補う。 |\n\n### Same判断の比較\n\n#### 同じ成果\n\n比較対象: `UX-000001`\n\n| 比較軸 | 既存UX | 現在の要求 | 差と統合判断 |\n|---|---|---|---|\n| 担い手 | 運用者 | 運用者 | 同じ担い手 |\n| 利用のきっかけ | 状態確認時 | 状態確認時 | 同じ場面 |\n| 得られる結果 | 判断できる | 判断できる | 同じ成果 |\n| 避ける失敗 | 誤認する | 誤認する | 同じ失敗 |\n\n統合理由: 4軸に独立した差がない。\n",
   );
   const result = runChecker(root);
   assert.ok(

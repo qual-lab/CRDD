@@ -43,14 +43,14 @@ CRDD作成者・保守者
         │
         ├─ ★ 重要場面: 公式用途へ採用する直前
         ├─ ⚠ 失敗:  見た目だけで権利や信頼保証を推定する
-        └─ ✓ 守る品質:  Provenance・Rights・Usageを追跡する
+        └─ ✓ 守る品質:  由来・権利・用途を追跡する
         ↓
 公式識別へ安心して収載・派生利用できる
 ```
 
 ## 必要な情報
 
-Asset、Provenance、Rights、Usageを結ぶ
+素材、由来、権利、用途を結ぶ
 
 ## 制約
 
@@ -66,10 +66,9 @@ Asset、Provenance、Rights、Usageを結ぶ
 
 ## 下流への引き渡し
 
-Communicationは識別用途と表示を、リリースは権利・原本・派生物の追跡を具体化する。
+Communicationは識別用途と表示を、Releaseは権利・原本・派生物の追跡を具体化する。
 
 ## 関係
 
 - 元の要求分析: [REQ-000035](../../Analysis/REQ-000035/ux_analysis.md)
 - 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
-

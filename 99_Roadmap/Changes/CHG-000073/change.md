@@ -344,6 +344,15 @@
 | `探索記録`、`要求定義`等の成果物種別だけでは所有工程を判別できない | Folder位置を読めば工程が分かる前提で、工程と成果物の役割を別々に表していた | `Discovery分析`、`Discovery定義`、`UX分析`、`UX定義`のように、正式工程名と役割を一つの表示へ揃える | 既存成果物、ひな型、Checkerおよび契約試験で旧表示を拒否し、新表示を全数確認する |
 | Checkerが旧英語ラベルを完成条件にする | 表層語を工程構造の識別子として固定した | 日本語の構造ラベルを検査し、内容の分かりやすさは独立レビューへ残す | 旧ラベルだけの成果物を反例にし、新ラベルの完全な成果物を受理する |
 
+固定Commit `e41e4af5`の独立レビューでは、Critical 0の一方で、3レビューを合わせてMajor 5、Moderate 7が残った。件数は重複を含むため、次の4クラスタへ統合して是正する。
+
+| 指摘クラスタ | 原因 | 正しい状態 | 構造是正 |
+|---|---|---|---|
+| `Same`判断の根拠が比較不能 | 一部の関係が長い説明または短い結論だけで、既存UXと現在要求の差を同じ軸で確認できなかった | 22件すべてで担い手、利用のきっかけ、得られる結果、避ける失敗を両側と差に分ける | 15分析文書の22関係へ4軸比較を追加し、Checkerは構造だけ、意味の同一性は独立レビューが確認する |
+| DiscoveryからUXを再構築する意味が不足 | 一部の探索・要求で、誰がどの状況で何に困るか、委譲時に人間が何を渡すか、閲覧者に何が起きるかが薄かった | UXを伏せても利用者、状況、問題、望ましい変化、制約を再構成できる | 7探索の問題背景、`REQ-000003`の委譲境界、`REQ-000031`／`000032`の閲覧者を要求側へ補う |
+| 平易化が正式契約を壊した | 一括置換が工程名、状態実値、技術境界およびEffectの意味まで和訳・縮小した | 人間向け説明は平易にしつつ、正式工程名、状態実値、安定技術名と安全境界を保持する | テンプレートの正式状態・工程名を復元し、Effect、Project Runtime、Application Core等は平易な説明を初出へ添える |
+| Checkerが意味判断を代行した | 文字数、一般括弧、本文の完全一致を内容品質の証明に使った | Checkerは構造、ID、Path、関係、網羅範囲だけを決定論的に検査し、意味は独立レビューで反証する | 文字数と意味重複判定を削除し、限定Placeholderと`Same`4軸の存在だけを検査する |
+
 再レビューの合格条件は、文面の自然さやリンク数ではない。主要な利用者、発生状況、問題、望ましい変化、独立したOutcome候補、重要な失敗および品質期待がDefinitionだけから再導出でき、現在のUXとの差を情報欠落または正当な再分析として説明できることである。
 
 ## 6. 完了条件
@@ -365,7 +374,7 @@
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／31 |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 284／284 Pass。Discovery／UXの工程不明な成果物種別、空の共通Evidence Root、任意位置のEXP直接入力、異なるREQ Definitionの追加、Canonical UX Definition間のGoal／重要体験の定型複製、共通定型Discovery Definitionの再導入と、全CRDD所有TypeScript packageの静的検査先行を反証済み |
+| Checker契約試験 | 284／284 Pass。Discovery／UXの工程不明な成果物種別、空の共通Evidence Root、任意位置のEXP直接入力、異なるREQ Definitionの追加、`Same`比較軸の欠落と、全CRDD所有TypeScript packageの静的検査先行を反証済み。定義本文の意味重複はCheckerで断定せず独立レビューへ分離 |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | 固定Commit `d53875d8`でCritical 0／Major 0／Moderate 0。36 Discovery Definitionから36 UX Analysis、31 Canonical UX、Relation、Journey、品質期待、横断Personaへの意味伝播と正式入力境界を確認 |
