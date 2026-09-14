@@ -191,7 +191,7 @@ Discoveryで採用した36要求は、2026-09-14の独立レビューで見つ�
 | Discovery要求 | 36件すべてに個別UX分析がある |
 | UX成果候補 | 31件。技術語を外しても独立した利用者成果として成立するかを再判定し、独立再レビューで欠落していた閲覧者成果を追加した |
 | Product横断成果物 | Persona、Experience Map、Service Blueprint、体験品質期待へ責務分離済み |
-| 独立レビュー | 固定Commit `d47c5e40`の再レビューで、前回のMajor 4、Moderate 2は解消。残ったMajor 1、Moderate 1の別名／参照形式Linkによる正式入力迂回と、閲覧者Personaの横断合成を一体是正中 |
+| 独立レビュー | 固定Commit `e010e5c6`の再レビューで閲覧者Personaは解消し、意味伝播にも新規指摘なし。残ったMajor 1のshortcut reference／脚注による正式入力迂回を、CommonMark Link記法の閉集合として是正中 |
 | IA移行 | 不可。Checker・契約試験と新しい固定候補の独立再レビューPassが必要 |
 
 IAへは、確定したUX成果とPersona、Source／Coverage／Freshness等の情報需要、重要場面および品質期待を渡す。UIへは利用者が状態、不足、判断待ちおよび根拠を誤認しない表現意図を渡す。SPECへは失敗・回復・応答・完了の体験品質を検証可能な条件へする義務を渡す。API、Process、Port、Adapter、Credential構造または状態列挙はUXで確定せず、下流が本UXを満たす代替を比較する。

@@ -1643,6 +1643,12 @@ function markdownLinkTargets(text: string): string[] {
     const target = definitions.get(label);
     if (target) targets.push(target);
   }
+  for (const match of content.matchAll(/(?<!!)\[([^\]\n]+)\](?!\[|\()/gu)) {
+    const matchEnd = (match.index ?? 0) + match[0].length;
+    if (content[matchEnd] === ":") continue;
+    const target = definitions.get(normalizeReferenceLabel(match[1]));
+    if (target) targets.push(target);
+  }
   return targets;
 }
 

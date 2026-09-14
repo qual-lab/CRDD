@@ -332,6 +332,8 @@
 | UX AnalysisのEXP参照を、別名表示または参照形式Linkで検査から迂回できる | 表示名ではなく、Markdown Linkから解決したRepository相対PathでDiscovery Definition／Analysisを分類する | 別名inline、anchor付き、reference-style、別REQ Definitionを拒否し、同じREQ Definition 1件だけを受理 |
 | `UX-000031`の閲覧者が横断Personaへ未統合 | `02_Personas.md`へCRDD閲覧者のGoal、Pain、利用Context、判断責任、根拠・確信度を追加し、個別分析とDefinitionを接続 | 閲覧者と保守者を再統合せず、各成果のJourney、Outcome、Failureを独立して確認 |
 
+固定Commit `e010e5c6`の再レビューではPersona側が解消し、意味伝播にも新しいCritical／Major／Moderateはなかった。一方、Link記法の閉集合にshortcut referenceと脚注が不足していたため、同じ正式入力境界のMajor 1件として追加是正した。Link抽出はinline、full、collapsed、shortcut reference、脚注を解決後Pathへ統一し、Source Analysisと別REQ Definitionの両方で記法別反例を持つ。
+
 再レビューの合格条件は、文面の自然さやリンク数ではない。主要な利用者、発生状況、問題、望ましい変化、独立したOutcome候補、重要な失敗および品質期待がDefinitionだけから再導出でき、現在のUXとの差を情報欠落または正当な再分析として説明できることである。
 
 ## 6. 完了条件
@@ -357,4 +359,4 @@
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 
-現在、人間による追加判断は必要ない。固定Commit `d47c5e40`では前回のMajor 4件・Moderate 2件が意味上解消し、残るMajor 1件・Moderate 1件をLink解決後Pathによる正式入力検査と閲覧者Personaの利用側閉包として是正した。静的検査、全体Checker、Checker契約試験を通した新しい固定候補で再レビューする。
+現在、人間による追加判断は必要ない。固定Commit `e010e5c6`では閲覧者Personaの利用側閉包が解消し、残ったCommonMarkのshortcut reference／脚注による正式入力迂回を同じLink解決境界で是正した。静的検査、全体Checker、Checker契約試験を通した新しい固定候補で再レビューする。
