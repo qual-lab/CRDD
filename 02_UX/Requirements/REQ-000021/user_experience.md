@@ -78,7 +78,7 @@ REQ-000021
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 失敗後の再試行・回復を選ぶ | `Same → UX-000004` | 利用者が得る最終成果は「失敗後に状態確認、再試行、回復および清掃を取り違えず、二重Effectを避けて次の行動を選べる」で既存UX-000004と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Request Identityと現在Accessを再確認することが、この要求固有の成立条件になる |
+| 失敗後の再試行・回復を選ぶ | `Same → UX-000004` | 既存UXのFailure: 失敗後に状態確認・再試行・回復・清掃を取り違え、二重Effectを起こす<br>現在REQのFailure: Timeoutを未実行とみなし、同じRequestを確認せず新規Effectを開始する<br>Failure差: 現在REQは応答喪失という具体的な失敗契機を追加するが、誤った再試行選択による二重Effectは同じである<br>同一Outcomeへ統合できる理由: Request再取得は同じ回復選択成果の成立条件であり、別Outcomeではない | Request Identityと現在Accessを再確認することが、この要求固有の成立条件になる |
 | 切断後も同じRequestへ戻る | `New → UX-000021` | 本要求が「応答喪失後に新規実行せず、現在のAccessで同じRequestの状態・結果・回復義務へ戻れる」という独立した利用者成果を最初に定義する。 | Request Identityと現在Accessを再確認することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
@@ -105,21 +105,21 @@ Request Identityと現在Accessを再確認する
 
 ```text
 Project Operator／PM
-        │ Request Identity
+        │ [接点] Requestを開始
         ▼
-Remote Runtime
-        │ Durable Stateへ記録
+提供System
+        │ 状態・結果・回復義務を同じIdentityで保持
+        │ ── 切断／Timeout ──
         ▼
-実行処理
-        │ 切断・Timeout
+Project Operator／PM
+        │ [接点] 同じRequestへ再接続
         ▼
-Remote Runtime
-        │ 同じIdentityの状態・結果・回復義務
-        ▼
-再接続したProject Operator／PM
+提供System
+        └─ 現在Accessで状態・結果または回復先を返す
+        └─ 失敗時: Timeoutを未実行とみなし新規Effectを起こす場合は成功へ進めず、判断または回復を担う主体へ戻す
 ```
 
-この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -131,9 +131,9 @@ Remote Runtime
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（Remote要求を行う人） | 切断後に同じRequestへ戻るために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | Request Identityと現在Accessを再確認するための状態、根拠および選択肢を示す | Timeoutを未実行とみなし新規Effectを起こす状態を成功・完了として表示しない |
-| 運用・確認者 | 「同一Identityの照会を再実行より先に示す」ことと、二重実行せず状態・結果・回復義務を取得できる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| Project Operator／PM | 既存Requestを指定して再接続し、次の処置を判断する | Timeoutだけで未実行と決めて新規Effectを起こさない |
+| 提供System | 同じIdentityの状態・結果・回復義務を保持し現在Accessで返す | 古いSession権限や不明な結果を成功へ畳まない |
+| 運用・確認者 | 切断前後のIdentity、Effect、再取得を反証する | 再接続成功だけから二重Effect不存在を推定しない |
 
 ### 補足する品質
 

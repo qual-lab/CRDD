@@ -78,7 +78,7 @@ REQ-000009
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 利用者が得る最終成果は「物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる」で既存UX-000009と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Identityと検証済みRootを確認することが、この要求固有の成立条件になる |
+| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 既存UXのFailure: 欠測・制限・競合・古さを完全なProject現在値として信じる<br>現在REQのFailure: 同名または近いPathを同じRepositoryと誤認し、誤ったSourceからProject状態を読む<br>Failure差: 現在REQは誤ったSource選択を原因として追加するが、誤ったProject現在地を理解する失敗へ収束する<br>同一Outcomeへ統合できる理由: Identity確認は根拠付きProject理解を成立させる情報条件であり、別成果ではない | Identityと検証済みRootを確認することが、この要求固有の成立条件になる |
 | Project・Repository・Rootを区別して対象を選ぶ | `New → UX-000011` | 本要求が「論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる」という独立した利用者成果を最初に定義する。 | Identityと検証済みRootを確認することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
@@ -105,18 +105,19 @@ Identityと検証済みRootを確認する
 
 ```text
 Project Operator／PM
-        │ 対象候補を選択
+        │ [接点] 参照・実行・回復の対象候補を選ぶ
         ▼
-Identity Resolver
-        │ Project ID・Repository ID・Rootを照合
+提供System
+        │ Project・Repository・Rootの結合を検証
         ▼
-Effect Boundary
-        │ exactな作用対象または安全な拒否
+[接点] exactな対象または理由付き拒否
+        │
         ▼
 Project Operator／PM
+        └─ 失敗時: 対象を選び直しEffectを起こさない
 ```
 
-この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -128,9 +129,9 @@ Project Operator／PM
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（Project Operator／Runtime利用者） | Project・Repository・Rootを区別して対象を確認するために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | Identityと検証済みRootを確認するための状態、根拠および選択肢を示す | 同名や近いPathを同じ対象と誤認する状態を成功・完了として表示しない |
-| 運用・確認者 | 「各Identityと物理Rootの結合を明示する」ことと、論理Projectを一つに見ながら誤った場所へ作用しない状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| Project Operator／PM | 目的に合う対象候補を選び、確認結果から実行可否を判断する | 名前やPathの類似だけで同一対象と決めない |
+| 提供System | Identityと検証済みRootを照合し、exactな対象または拒否理由を返す | 曖昧な対象へEffectを発行しない |
+| 運用・確認者 | 誤結合・Root外・観測不能の反例を確認する | 読取り可能性を実行権限へ読み替えない |
 
 ### 補足する品質
 

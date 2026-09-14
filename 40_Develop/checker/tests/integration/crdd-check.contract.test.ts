@@ -853,7 +853,7 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
   );
 });
 
-test("UXのSame判断はFailure比較の仮文言を受け入れない", () => {
+test("UXのSame判断は両側のFailure比較構造を必要とする", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "01_Discovery", "01_Product_Discovery.md"),
@@ -871,7 +871,7 @@ test("UXのSame判断はFailure比較の仮文言を受け入れない", () => {
       "REQ-000001",
       "user_experience.md",
     ),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 利用者とOutcomeは同じで、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが同じ成果である。 | 要求固有の条件を補う。 |\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 利用者が得る最終成果は既存UXと共通し、追加条件は独立したOutcomeではない。 | 要求固有の条件を補う。 |\n",
   );
   const result = runChecker(root);
   assert.ok(

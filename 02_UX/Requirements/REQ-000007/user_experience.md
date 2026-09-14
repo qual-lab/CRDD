@@ -103,21 +103,19 @@ Project状況を確認する時
 
 ```text
 Project Operator／PM
-        │ Projectの現在地を照会
+        │ [接点] Projectの現在地を照会
         ▼
-Project Projection
-        │ Source・Revision・Observed Atを要求
+提供System
+        │ 正本Ownerから状態・根拠・観測時点を取得
         ▼
-各Canonical Source
-        │ 取得済み／欠測／制限／競合
-        ▼
-Project Projection
-        │ 根拠と不完全性を保ったView
+[接点] 根拠と不完全性を保ったProject View
+        │
         ▼
 Project Operator／PM
+        └─ 失敗時: 欠測・制限・競合を確認して保留する
 ```
 
-この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -129,9 +127,9 @@ Project Operator／PM
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（Project Operator／PM） | Projectの現在地を根拠と不完全性付きで理解するために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | 状態・Source・Coverageをまとめて確認するための状態、根拠および選択肢を示す | 欠測や古い値を完全な現在値と誤認する状態を成功・完了として表示しない |
-| 運用・確認者 | 「根拠、不完全性、観測時点を同時に示す」ことと、不足・競合・古さを踏まえて次の判断を選べる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| Project Operator／PM | 現在地と不足を確認し、次の判断またはSource確認を選ぶ | 欠測を推測で補うことを要求されない |
+| 正本Owner | 担当する状態と根拠を現行性付きで提供する | 他Ownerの状態を代替して確定しない |
+| 提供System | 取得範囲と不完全性を保ったViewを返す | PartialをCompleteとして表示しない |
 
 ### 補足する品質
 

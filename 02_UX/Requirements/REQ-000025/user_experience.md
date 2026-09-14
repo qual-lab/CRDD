@@ -75,7 +75,7 @@ REQ-000025
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 利用環境の信頼方針でRuntimeを選ぶ | `Same → UX-000020` | 利用者が得る最終成果は「準拠、改ざん有無、Publisher、公式表示および実行許可を区別し、自分の環境の方針で公式版・Fork・組織版を選べる」で既存UX-000020と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Artifact Integrityと利用者所有Trust Policyを照合することが、この要求固有の成立条件になる |
+| 利用環境の信頼方針でRuntimeを選ぶ | `Same → UX-000020` | 既存UXのFailure: 準拠・Integrity・Publisher・実行許可を一つのTrust表示へ畳み、環境所有者が選べない<br>現在REQのFailure: Qual-Lab署名だけを唯一の実行資格とし、Forkや組織Buildを方針に従って評価できない<br>Failure差: 現在REQはPolicy所有者と許可規則を具体化するが、自分の環境の信頼方針でRuntimeを選べない失敗は同じである<br>同一Outcomeへ統合できる理由: Trust Policyは同じRuntime選択成果を実行時に成立させる決定条件である | Artifact Integrityと利用者所有Trust Policyを照合することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -97,9 +97,26 @@ OSS Forkや組織Buildも方針に従って利用できる
 
 ### Service Blueprintの処置
 
-処置: `非該当`
+処置: `作成`
 
-「信頼するPublisherとLocal例外を自分で定める」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
+```text
+Runtime Publisher
+        │ Publisher・Integrity情報を提示
+        ▼
+Deployment Owner
+        │ [接点] 信頼条件とLocal例外を設定
+        ▼
+提供System
+        │ Artifactを現在Policyへ照合
+        ▼
+[接点] 実行許可・拒否・再承認要否
+        │
+        ▼
+Deployment Owner
+        └─ 失敗時: Qual-Lab署名だけを唯一の実行資格にする場合は成功へ進めず、判断または回復を担う主体へ戻す
+```
+
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -111,9 +128,9 @@ OSS Forkや組織Buildも方針に従って利用できる
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（Deployment Owner） | 信頼するPublisherとLocal例外を自分で定めるために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | Artifact Integrityと利用者所有Trust Policyを照合するための状態、根拠および選択肢を示す | Qual-Lab署名だけを唯一の実行資格にする状態を成功・完了として表示しない |
-| 運用・確認者 | 「Publisher Trustと実行許可を利用環境が所有する」ことと、OSS Forkや組織Buildも方針に従って利用できる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| Runtime Publisher | 自身が発行したArtifactと保証範囲を示す | 利用者環境の信頼判断を代行しない |
+| Deployment Owner | 信頼するPublisherと限定例外を所有する | SecretやPolicyをRepositoryへ平文保存しない |
+| 提供System | 現在Policyに従って実行候補を評価する | Qual-Lab署名だけを唯一の実行資格にしない |
 
 ### 補足する品質
 

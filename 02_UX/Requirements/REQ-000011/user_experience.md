@@ -102,22 +102,23 @@ Credentialから現在のWorkspace Grantを確認する
 処置: `作成`
 
 ```text
-Project Operator／PM
-        │ Credentialで接続
-        ▼
-CROS Server
-        │ Session Workspace Grant
-        ▼
-Workspace
-        │ Exposure済みRepositoryだけを解決
-        ▼
-利用可能Context
-        │ locked／missingを推測せず表示
+CROS管理者
+        │ Workspaceと接続CredentialのGrantを設定
         ▼
 Project Operator／PM
+        │ [接点] Credentialで接続・再接続
+        ▼
+提供System
+        │ 現在Grantで利用可能Contextだけを投影
+        ▼
+[接点] 利用可能範囲と利用不能理由
+        │
+        ▼
+Project Operator／PM
+        └─ 失敗時: 利用不能なRepositoryの存在や内容を推測表示する場合は成功へ進めず、判断または回復を担う主体へ戻す
 ```
 
-この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -129,9 +130,9 @@ Project Operator／PM
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（Remote CROS利用者） | 許可されたWorkspaceだけへ接続するために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | Credentialから現在のWorkspace Grantを確認するための状態、根拠および選択肢を示す | 利用不能なRepositoryの存在や内容を推測表示する状態を成功・完了として表示しない |
-| 運用・確認者 | 「現在Grantだけを開示し不足を補完しない」ことと、場所が変わっても開示範囲を理解して安全に使える状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| CROS管理者 | CredentialへWorkspace Grantを設定・失効する | Content閲覧権限をSystem管理能力から推定しない |
+| Project Operator／PM | 現在許可された範囲を理解して利用する | 利用不能Repositoryの存在や内容を推測しない |
+| 提供System | 接続ごとに現在Grantを確認し、許可範囲だけを返す | 古いSession Authorityを再利用しない |
 
 ### 補足する品質
 

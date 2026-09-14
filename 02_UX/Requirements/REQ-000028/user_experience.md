@@ -75,7 +75,7 @@ REQ-000028
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 利用者が得る最終成果は「必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる」で既存UX-000019と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Agent Operating ContextとTask Identityを渡すことが、この要求固有の成立条件になる |
+| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 既存UXのFailure: Contextの出所・現行性・Task相関を失い、結果を同じ仕事へ戻せない<br>現在REQのFailure: ChatとCodingの入口ごとに第二正本を作るか、会話全文を転記して不足をAIが補完する<br>Failure差: 入口間の引継ぎが追加されるが、正しいContextと結果を同じ仕事へ往復できない失敗は同じである<br>同一Outcomeへ統合できる理由: Agent Operating Contextは同じContext往復成果を入口間で成立させるInformation条件である | Agent Operating ContextとTask Identityを渡すことが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -100,22 +100,22 @@ Agent Operating ContextとTask Identityを渡す
 処置: `作成`
 
 ```text
-Chat Agent
-        │ 仕事の意図とCanonical参照
-        ▼
-Context Projection
-        │ 選択した正本・不足・判断境界
+Human／Chat Agent
+        │ [接点] 仕事の意図とCanonical参照を渡す
         ▼
 Coding Agent
-        │ 変更候補・検証結果
+        │ 同じ正本と判断境界で変更候補を作る
         ▼
-Candidate／Review Boundary
-        │ 採否判断
+[接点] 変更候補・検証結果・未確認範囲
+        │
         ▼
 Human／Chat Agent
+   ├─ 採用・追加調査
+   └─ 別作業として再委任
+        └─ 失敗時: 入口文書が第二正本になり不足をAIが補完する場合は成功へ進めず、判断または回復を担う主体へ戻す
 ```
 
-この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -127,9 +127,9 @@ Human／Chat Agent
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（Chat Agent／Coding Agentを使う人） | 入口が違っても同じCRDD正本と判断境界を使うために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | Agent Operating ContextとTask Identityを渡すための状態、根拠および選択肢を示す | 入口文書が第二正本になり不足をAIが補完する状態を成功・完了として表示しない |
-| 運用・確認者 | 「同じCanonical Sourceと明示した不足を使う」ことと、会話全文の転記なしで対話と構築を往復できる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| Human／Chat Agent | 仕事の意図・参照正本・判断境界を選び結果を判断する | 会話全文を第二正本として渡さない |
+| Coding Agent | 指定された正本から変更候補と検証結果を返す | 参照不能な不足を推測で補完しない |
+| 提供System | 入口間でTask Identityと選択Contextを保持する | 別Taskの結果を現在の仕事へ混入しない |
 
 ### 補足する品質
 

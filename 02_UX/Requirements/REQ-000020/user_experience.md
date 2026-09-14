@@ -78,8 +78,8 @@ REQ-000020
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 利用者が得る最終成果は「物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる」で既存UX-000009と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
-| Project・Repository・Rootを区別して対象を選ぶ | `Same → UX-000011` | 利用者が得る最終成果は「論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる」で既存UX-000011と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
+| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 既存UXのFailure: 欠測・制限・競合・古さを完全なProject現在値として信じる<br>現在REQのFailure: 読めないRepositoryを推測補完し、Federated Projectを完全な状態として表示する<br>Failure差: 複数Repository化で欠測原因が増えるが、不完全な現在地を完全と誤認する失敗は同じである<br>同一Outcomeへ統合できる理由: FederationのCoverageは同じProject理解成果に必要なInformation／Quality条件である | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
+| Project・Repository・Rootを区別して対象を選ぶ | `Same → UX-000011` | 既存UXのFailure: 論理Projectと作用対象Repository／Rootを混同し、別の場所へ参照・実行・回復を行う<br>現在REQのFailure: 複数Repositoryを束ねたViewから、どのRepositoryがSourceまたは作用対象か見失う<br>Failure差: Federation時の選択場面が加わるが、Projectと物理対象を取り違える失敗は同じである<br>同一Outcomeへ統合できる理由: Repository Bindingは同じ対象選択成果を横断構成で成立させる条件である | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -105,21 +105,22 @@ Federated Projectを開く時
 
 ```text
 Project Operator／PM
-        │ 論理Projectを照会
+        │ [接点] 論理Projectを照会
         ▼
-CROS Federation
-        │ Repository Bindingごとに取得
+Repositoryごとの正本Owner
+        │ 読取り可能な状態・根拠を提供
         ▼
-複数Repository
-        │ available／missing／restricted／conflicting
+提供System
+        │ 欠測・制限・競合を保って統合
         ▼
-Project Projection
-        │ 不完全性を保った統合View
+[接点] Coverage付きProject View
+        │
         ▼
 Project Operator／PM
+        └─ 失敗時: 読めないSourceを推測補完し完全表示する場合は成功へ進めず、判断または回復を担う主体へ戻す
 ```
 
-この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -131,9 +132,9 @@ Project Operator／PM
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（Project Operator／CROS利用者） | 複数Repositoryを不完全性付きで一つのProjectとして見るために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | 各RepositoryのIdentity・Source状態・Coverageを解決するための状態、根拠および選択肢を示す | 読めないSourceを推測補完し完全表示する状態を成功・完了として表示しない |
-| 運用・確認者 | 「partial・restricted・stale・conflictingを保持する」ことと、欠測・制限・競合を保ったまま横断判断できる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| Project Operator／PM | Coverageを確認して横断判断または掘り下げを選ぶ | 読めない情報を推測で補わない |
+| Repositoryごとの正本Owner | 担当Contextと現在の開示可否を提供する | 他Repositoryの状態を複製して正本化しない |
+| 提供System | 利用可能なSourceだけを統合し不完全性を保持する | 非開示Sourceの存在や内容を漏らさない |
 
 ### 補足する品質
 

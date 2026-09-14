@@ -643,7 +643,9 @@ function checkUxRequirementAnalysis(): void {
     const isBlueprintDispositionInvalid =
       !blueprintDisposition ||
       (blueprintDisposition === "作成" &&
-        !/```text\r?\n[\s\S]+?\r?\n```/u.test(blueprintSection ?? "")) ||
+        (!/```text\r?\n[\s\S]+?\r?\n```/u.test(blueprintSection ?? "") ||
+          !/\[接点\]/u.test(blueprintSection ?? "") ||
+          !/失敗時:/u.test(blueprintSection ?? ""))) ||
       (blueprintDisposition === "非該当" &&
         !/再評価/u.test(blueprintSection ?? ""));
     if (
@@ -653,6 +655,16 @@ function checkUxRequirementAnalysis(): void {
           !/^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \| .{20,} \| .+ \|$/u.test(
             line,
           ),
+      ) ||
+      relationRows.some(
+        (line) =>
+          line.includes("`Same →") &&
+          ![
+            "既存UXのFailure:",
+            "現在REQのFailure:",
+            "Failure差:",
+            "同一Outcomeへ統合できる理由:",
+          ].every((label) => line.includes(label)),
       ) ||
       notApplicableRows.some(
         (line) =>

@@ -97,9 +97,26 @@ Repositoryが公開するCapabilityを確認する
 
 ### Service Blueprintの処置
 
-処置: `非該当`
+処置: `作成`
 
-「現在Repositoryで利用可能なCapabilityを知る」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
+```text
+Repository／Tool Owner
+        │ 利用可能Capabilityと入口を登録
+        ▼
+Developer
+        │ [接点] 現在Repositoryで使える仕事を探す
+        ▼
+提供System
+        │ 利用可能性・Effect権限・入口を区別
+        ▼
+[接点] 目的に合うTool候補または利用不能理由
+        │
+        ▼
+Developer
+        └─ 失敗時: 存在するファイルを利用可能Capabilityと誤認する場合は成功へ進めず、判断または回復を担う主体へ戻す
+```
+
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -111,9 +128,9 @@ Repositoryが公開するCapabilityを確認する
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（RepositoryでToolを使う人） | 現在Repositoryで利用可能なCapabilityを知るために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | Repositoryが公開するCapabilityを確認するための状態、根拠および選択肢を示す | 存在するファイルを利用可能Capabilityと誤認する状態を成功・完了として表示しない |
-| 運用・確認者 | 「能力・入口・制約・現在状態を明示する」ことと、名前やPathを推測せず適切な入口を選べる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| Repository／Tool Owner | Repositoryに対応するCapabilityと正式入口を宣言する | 存在するFileだけを利用可能Capabilityと表示しない |
+| Developer | 目的と必要Effectに合うToolを選ぶ | Toolの表示を実行Authorityとみなさない |
+| 提供System | 登録済みCapabilityと現在の利用可能性を返す | 未登録Toolを推測で起動しない |
 
 ### 補足する品質
 

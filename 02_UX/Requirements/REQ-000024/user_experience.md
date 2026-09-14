@@ -80,10 +80,10 @@ REQ-000024
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 失敗後の再試行・回復を選ぶ | `Same → UX-000004` | 利用者が得る最終成果は「失敗後に状態確認、再試行、回復および清掃を取り違えず、二重Effectを避けて次の行動を選べる」で既存UX-000004と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
-| Project・Repository・Rootを区別して対象を選ぶ | `Same → UX-000011` | 利用者が得る最終成果は「論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる」で既存UX-000011と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
-| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 利用者が得る最終成果は「必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる」で既存UX-000019と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
-| 切断後も同じRequestへ戻る | `Same → UX-000021` | 利用者が得る最終成果は「応答喪失後に新規実行せず、現在のAccessで同じRequestの状態・結果・回復義務へ戻れる」で既存UX-000021と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
+| 失敗後の再試行・回復を選ぶ | `Same → UX-000004` | 既存UXのFailure: 失敗後に状態確認・再試行・回復を取り違え、二重Effectを起こす<br>現在REQのFailure: 結果帰還の失敗を実行失敗とみなし、生成済み結果を確認せずTaskを再実行する<br>Failure差: 現在REQは結果搬送失敗を契機として追加するが、誤再試行による二重Effectは同じである<br>同一Outcomeへ統合できる理由: 帰還状態は同じ回復選択成果に必要な判断情報である | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
+| Project・Repository・Rootを区別して対象を選ぶ | `Same → UX-000011` | 既存UXのFailure: Project・Repository・Rootを混同し、別対象へ参照またはEffectを行う<br>現在REQのFailure: 別Project・別Revision・別Taskの結果を同じ帰還先へ混入する<br>Failure差: 現在REQは結果の帰還先を対象選択へ加えるが、Identityの違う対象を同一視する失敗は同じである<br>同一Outcomeへ統合できる理由: TaskとSource bindingは同じ対象選択成果のInformation条件である | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
+| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 既存UXのFailure: Contextの出所またはTask相関を失い、結果を元の仕事へ安全に戻せない<br>現在REQのFailure: Result・Evidence・未確認範囲の一部が欠けるか、別Taskの結果を自動採用する<br>Failure差: 現在REQは帰還結果の完全性を詳しくするが、同じ仕事へ根拠付き結果を戻せない失敗は同じである<br>同一Outcomeへ統合できる理由: 結果完全性は同じContext往復成果のQuality／Validation条件である | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
+| 切断後も同じRequestへ戻る | `Same → UX-000021` | 既存UXのFailure: 応答喪失後に新規実行し、同じRequestの状態・結果・回復義務へ戻れない<br>現在REQのFailure: 結果搬送が途切れた時、帰還済みか不明なTaskを新しいRequestとして扱う<br>Failure差: 切断位置は異なるが、同じRequest Identityへ戻らず重複または結果喪失を起こす失敗は同じである<br>同一Outcomeへ統合できる理由: 結果帰還状態の照合は同じ再接続成果を成立させる条件である | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -108,22 +108,23 @@ Evidenceと未確認範囲を保って採否を判断できる
 処置: `作成`
 
 ```text
+仕事を委ねた人
+        │ [接点] Taskと期待する帰還先を確認
+        ▼
 Agent／Runtime
-        │ Task Identity・結果・Evidence
+        │ 結果・Evidence・未確認範囲を同じTaskへ返す
         ▼
-Integration Boundary
-        │ Revision・完全性・未確認範囲を照合
+[接点] 採用前の候補結果
+        │
         ▼
-候補結果
-        │ 採用可能範囲と不足
-        ▼
-Project Operator／PM
-        │ 採用・却下・再作業
-        ▼
-Canonical Context
+Project Operator／正本Owner
+   ├─ 採用
+   ├─ 却下
+   └─ 再作業
+        └─ 失敗時: 生成済み結果の所在と再取得先を保持
 ```
 
-この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -135,9 +136,9 @@ Canonical Context
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（仕事を委ねた人） | 境界を越えた結果を同じTaskへ受け取るために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | Task Identity・Result・Evidence・帰還状態を照合するための状態、根拠および選択肢を示す | 別TaskやRevisionの結果を混入し自動採用する状態を成功・完了として表示しない |
-| 運用・確認者 | 「相関Identityと完全性を保持する」ことと、Evidenceと未確認範囲を保って採否を判断できる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| 仕事を委ねた人 | Taskと帰還先を確認し、戻った結果の採否を判断する | 別TaskやRevisionの結果を同一視しない |
+| Agent／Runtime | Result・Evidence・未確認範囲・帰還状態を同じTaskへ返す | Agent完了を成果物採用として表示しない |
+| Project Operator／正本Owner | 候補を採用・却下・再作業へ振り分ける | 所有しない正本へ結果を自動反映しない |
 
 ### 補足する品質
 

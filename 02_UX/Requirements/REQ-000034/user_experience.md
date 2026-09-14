@@ -76,8 +76,8 @@ REQ-000034
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Repository単独で日常作業を続ける | `Same → UX-000010` | 利用者が得る最終成果は「横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在Repositoryで日常作業を開始・継続できる」で既存UX-000010と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
-| 仕事に必要な標準Toolを迷わず選ぶ | `Same → UX-000016` | 利用者が得る最終成果は「現在Repositoryと目的に対応する標準Toolを見つけ、利用可能性・Effect権限・開発実行・公式実行を区別して選べる」で既存UX-000016と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
+| Repository単独で日常作業を続ける | `Same → UX-000010` | 既存UXのFailure: 横断機能・Commit済み状態・特定履歴実装を前提にし、現在Repositoryで日常作業を始められない<br>現在REQのFailure: Repositoryに対応する固定Toolを選べず、外部の任意ToolまたはCandidateへ依存する<br>Failure差: 現在REQはTool起動条件を追加するが、Repository単独の日常作業が外部条件で止まる失敗は同じである<br>同一Outcomeへ統合できる理由: Repository Bindingは同じLocal作業成果のCapability発見条件である | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
+| 仕事に必要な標準Toolを迷わず選ぶ | `Same → UX-000016` | 既存UXのFailure: Toolの存在・利用可能性・Effect権限・実行Modeを混同し、仕事に合う入口を選べない<br>現在REQのFailure: 開発候補または外部Toolを署名済み公式Runtimeと誤認して起動する<br>Failure差: 現在REQは配布物と実行Modeの識別を具体化するが、適切なToolを選べない失敗は同じである<br>同一Outcomeへ統合できる理由: 固定Commitと署名状態は同じTool選択成果に必要なInformation／Authority条件である | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -99,9 +99,26 @@ Repository Bindingと実行Modeを確認する
 
 ### Service Blueprintの処置
 
-処置: `非該当`
+処置: `作成`
 
-「Repositoryに対応する標準Toolを迷わず使う」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
+```text
+CRDD／Tool Publisher
+        │ Repositoryに対応する固定配布物を提供
+        ▼
+Developer
+        │ [接点] 開発実行か署名済み実行かを選ぶ
+        ▼
+提供System
+        │ Repository Bindingと実行Identityを確認
+        ▼
+[接点] 正しいTool起動または理由付き拒否
+        │
+        ▼
+Developer
+        └─ 失敗時: 外部の任意ToolやCandidateを正式版と誤認する場合は成功へ進めず、判断または回復を担う主体へ戻す
+```
+
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -113,9 +130,9 @@ Repository Bindingと実行Modeを確認する
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（CRDD採用Repositoryの利用者） | Repositoryに対応する標準Toolを迷わず使うために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | Repository Bindingと実行Modeを確認するための状態、根拠および選択肢を示す | 外部の任意ToolやCandidateを正式版と誤認する状態を成功・完了として表示しない |
-| 運用・確認者 | 「入口・配布Identity・Authorityを明示する」ことと、未Commit作業と署名済み実行を区別して反復できる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| CRDD／Tool Publisher | 対応Repositoryと配布物のIdentityを提示する | 外部の任意Toolを公式配布物として扱わない |
+| Developer | 反復用開発実行と公式Runtimeを目的に応じて選ぶ | Candidateを正式版と誤認しない |
+| 提供System | Repository Bindingと実行Modeを確認して起動する | 手動のVersion推測だけで実行対象を選ばない |
 
 ### 補足する品質
 

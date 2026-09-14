@@ -82,7 +82,7 @@ REQ-XXXXXX
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| | （New／Same／Not Applicable） | （Actor、Goal、Trigger、Outcome、Experienceの比較） | |
+| | （New／Same／Not Applicable） | Newは独立Outcomeの初出理由。Sameは`既存UXのFailure:`、`現在REQのFailure:`、`Failure差:`、`同一Outcomeへ統合できる理由:`を具体的に記載する | |
 
 REQとUXは多対多を許容する。Same判定はREQ Identityや技術上の近さではなく、利用者成果の同一性を基準にする。各候補を「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」の一文で確認し、内部実装・技術用語を外すと成果が消えるものはUX-IDにしない。Capability、Information、Quality、Validationまたは下流の実現要素として、対応するUXの成立条件へ残す。
 
@@ -110,7 +110,7 @@ REQとUXは多対多を許容する。Same判定はREQ Identityや技術上の�
 
 ```text
 （実在する利用者または責任主体）
-        │ （入力・依頼・判断）
+        │ [接点] （利用者が観測する入力・依頼・判断）
         ▼
 （表面接点または提供主体）
         │ （処理・受け渡し）
@@ -119,6 +119,7 @@ REQとUXは多対多を許容する。Same判定はREQ Identityや技術上の�
         │ （結果・失敗・回復時の返却）
         ▼
 （次に判断する主体）
+        └─ 失敗時: （何を成功へ進めず、誰へ何を戻すか）
 ```
 
 （REQ固有の主体、接点、舞台裏責務、判断および失敗・回復時の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。）

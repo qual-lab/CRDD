@@ -75,7 +75,7 @@ REQ-000036
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Repository単独で日常作業を続ける | `Same → UX-000010` | 利用者が得る最終成果は「横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在Repositoryで日常作業を開始・継続できる」で既存UX-000010と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 通常操作とVersion Control Capabilityを分けることが、この要求固有の成立条件になる |
+| Repository単独で日常作業を続ける | `Same → UX-000010` | 既存UXのFailure: Commit済み状態または特定の履歴実装を前提にし、通常の読取り・編集を継続できない<br>現在REQのFailure: 未CommitであることやVersion Control Adapterの故障だけで無関係な日常作業まで停止する<br>Failure差: 現在REQはVersion Control境界を原因として特定するが、現在Repositoryで日常作業を続けられない失敗は同じである<br>同一Outcomeへ統合できる理由: 差し替え可能な履歴境界は同じLocal作業成果を守るArchitecture条件である | 通常操作とVersion Control Capabilityを分けることが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -99,7 +99,7 @@ Repositoryを読み書きし履歴機能を使う時
 
 処置: `非該当`
 
-「日常作業をCommit SHAや特定Git実装から切り離す」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
+このREQが変えるのは、Developerの通常作業をVersion Controlの状態や実装から切り離すことであり、利用者が観測する新しいHandoffを追加することではない。通常作業と履歴Capabilityの責任差はJourneyと責任境界で保持でき、別主体への時間差のある責任移送や回復受け渡しは成果の成立条件にならないため非該当とする。Version Control操作そのものを別Serviceへ委任し、その失敗・回復が利用者体験を左右する場合は再評価する。
 
 ### 横断Synthesisへの接続
 

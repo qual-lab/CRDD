@@ -76,8 +76,8 @@ REQ-000023
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 内部変更後も成立済み能力を安全に使う | `Same → UX-000007` | 利用者が得る最終成果は「責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる」で既存UX-000007と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
-| 故障した境界と影響範囲を理解する | `Same → UX-000008` | 利用者が得る最終成果は「接続・認証・実行・結果搬送またはProvider境界のどこで止まり、何が利用可能かを理解できる」で既存UX-000008と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
+| 内部変更後も成立済み能力を安全に使う | `Same → UX-000007` | 既存UXのFailure: 内部責務やAdapterの変更後に公開Capabilityが退行する<br>現在REQのFailure: Provider固有Lifecycleを共通挙動と仮定し、差し替え後に開始・取消・回復が壊れる<br>Failure差: 現在REQはProvider Adapterの差を原因として具体化するが、内部変更後に成立済み能力を失う失敗は同じである<br>同一Outcomeへ統合できる理由: Provider lifecycle適合は同じ成果を守るArchitecture／Validation条件である | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
+| 故障した境界と影響範囲を理解する | `Same → UX-000008` | 既存UXのFailure: 故障した入口・実行・結果搬送の境界が分からず、影響を全体へ広げる<br>現在REQのFailure: Providerの設定不能・開始失敗・取消不能・回復待ちを同じ失敗として扱う<br>Failure差: Provider固有状態が加わるが、故障点と利用可能範囲を理解できない失敗は同じである<br>同一Outcomeへ統合できる理由: Lifecycle状態の外在化は同じ故障理解成果の診断条件である | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -102,22 +102,23 @@ Provider差を隠さず共通Runtimeから安全に利用できる
 処置: `作成`
 
 ```text
-Project Runtime
-        │ Provider非依存Request
+Runtime導入・運用者
+        │ [接点] Provider候補と必要な処理を選ぶ
         ▼
-Provider Adapter
-        │ Provider固有の開始・取消
+提供System
+        │ Provider固有の利用可否・開始・取消・回復差を確認
         ▼
 Provider
-        │ event・結果・残存状態
+        │ 実行状態・結果・残存状態を返す
         ▼
-Provider Adapter
-        │ 共通状態と差分を外在化
+[接点] 共通状態とProvider固有差
+        │
         ▼
-Project Runtime
+Runtime導入・運用者
+        └─ 失敗時: 設定可能を実行可能とみなし同じ取消挙動を仮定する場合は成功へ進めず、判断または回復を担う主体へ戻す
 ```
 
-この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
 
 ### 横断Synthesisへの接続
 
@@ -129,9 +130,9 @@ Project Runtime
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
-| 利用者（Runtime保守者・運用者） | Provider固有LifecycleをAdapter越しに正確に扱うために、提示された状態と根拠から次の行動を判断する | 不足情報や内部状態を推測で補うことを要求されない |
-| 提供System／AI | 現在CapabilityとLifecycle Semanticsを確認するための状態、根拠および選択肢を示す | 設定可能を実行可能とみなし同じ取消挙動を仮定する状態を成功・完了として表示しない |
-| 運用・確認者 | 「開始・完了・取消・回復差を外在化する」ことと、Provider差を隠さず共通Runtimeから安全に利用できる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
+| Runtime導入・運用者 | Provider差と現在状態を理解して開始・取消・回復を選ぶ | 設定可能を実行可能とみなさない |
+| 提供System | Provider固有Lifecycleを失わず共通の判断材料として返す | 異なる取消・回復を同一挙動と仮定しない |
+| Provider | 実際の受理・開始・完了・残存状態を通知する | 要求受理をEffect完了として報告しない |
 
 ### 補足する品質
 
