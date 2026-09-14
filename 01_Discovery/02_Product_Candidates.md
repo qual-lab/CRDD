@@ -1,10 +1,10 @@
-# Product候補登録
+# 将来候補一覧
 
 状態: 候補登録
 維持責任者: Qual-Lab
 対象改訂版: 2026-09-13
 関連:
-- [統合された課題探索・要求形成](01_Product_Discovery.md)
+- [統合されたDiscovery](01_Product_Discovery.md)
 - [Roadmap](../99_Roadmap/01_Roadmap.md)
 
 ---
@@ -23,18 +23,18 @@
 要求／次工程／Roadmap
 ```
 
-活動中の探索は[現在の探索地図](01_Product_Discovery.md#current-discovery-map)、版と次のGateは[Roadmap](../99_Roadmap/01_Roadmap.md)を参照する。採用済み内容を本書へ戻して候補扱いしない。
+活動中の探索は[現在の探索地図](01_Product_Discovery.md#current-discovery-map)、版と次の完了条件は[Roadmap](../99_Roadmap/01_Roadmap.md)を参照する。採用済み内容を本書へ戻して候補扱いしない。
 
 ## 2. 保持中の候補
 
 | 候補 | 情報源・保持理由 | 現在分かっていないこと | 再評価契機 |
 |---|---|---|---|
-| Self-hosted／API Provider | AI Runtime Registryが既存CLI Adapter以外へ広がる可能性を保持する | Trust、費用、認証、取消、結果契約および運用責任 | v0.21のRegistry／Adapter実績後 |
-| 動的Plugin探索・Remote Plugin配布 | Repository Capabilityを将来拡張できる可能性を保持する | Publisher Trust、配布、更新、任意Code実行境界 | 固定Registryで拡張不足が実測された時 |
-| Hosted Multi-tenant Workbench | 複数組織が同じServiceを利用する将来形を保持する | Tenant分離、法務、運用主体、課金および事故対応 | Shared CROSの実運用後 |
-| 複数Project間の自動調整・最適化 | Portfolio観測からProject間の支援へ発展する可能性を保持する | Effect Authority、優先順位の決定権限、Capacity、投資判断 | 読取り専用Portfolioと実行評価のEvidence取得後 |
-| 汎用Project管理Database | 外部PM Toolなしで不足する情報が将来判明する可能性を保持する | 既存正本から投影できない情報と、独立Ownerが本当に必要か | Project Operation自己適用で不足が反復した時 |
-| 高度なWBS／Risk／Forecast投影 | 最小Project／Portfolio Viewを超える運営情報の可能性を保持する | 必要なProperty、正本Owner、推定の許容範囲 | PM／Management利用の観測後 |
+| Self-hosted／API AI提供元 | AI実行基盤の登録一覧が既存CLI 接続部以外へ広がる可能性を保持する | 信頼、費用、認証、取消、結果契約および運用責任 | v0.21の登録一覧／接続部実績後 |
+| 動的Plugin探索・リモート Plugin配布 | リポジトリ 機能を将来拡張できる可能性を保持する | 発行元への信頼、配布、更新、任意Code実行境界 | 固定登録一覧で拡張不足が実測された時 |
+| 複数組織向けの共有Workbench | 複数組織が同じサービスを利用する将来形を保持する | 組織間の分離、法務、運用主体、課金および事故対応 | 共有CROSの実運用後 |
+| 複数プロジェクト間の自動調整・最適化 | 複数プロジェクトの一覧観測からプロジェクト間の支援へ発展する可能性を保持する | 外部変更の決定権限、優先順位の決定権限、Capacity、投資判断 | 読取り専用複数プロジェクトの一覧と実行評価の根拠取得後 |
+| 汎用プロジェクト管理Database | 外部PM ツールなしで不足する情報が将来判明する可能性を保持する | 既存正本から投影できない情報と、独立責任者が本当に必要か | プロジェクト 処理自己適用で不足が反復した時 |
+| 高度なWBS／リスク／Forecast投影 | 最小プロジェクト／複数プロジェクトの一覧 表示を超える運営情報の可能性を保持する | 必要な項目、正本責任者、推定の許容範囲 | PM／経営・管理層利用の観測後 |
 
 ## 3. 登録しないもの
 

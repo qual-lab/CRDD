@@ -1,8 +1,8 @@
-# UX-000017 Runtime Dataを安全に保持・清掃する
+# UX-000017 実行時データを安全に保持・清掃する
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-000017`
-状態: Canonical
+状態: 現行正本
 維持責任者: Qual-Lab
 
 ## 利用者成果
@@ -10,23 +10,23 @@ UX ID: `UX-000017`
 保存場所の内部構造を推測せず、保持すべき状態と一時物を区別して安全に作業を継続・終了できる
 
 ```text
-Runtime導入・運用者
-        │ Runtime Dataを作成または清掃する時
+実行環境の導入・運用者
+        │ 実行時データを作成または清掃する時
         ▼
-Runtime Dataの所有場所とLifecycleを理解する
+実行時データの所有場所と一連の状態変化を理解する
         │
         ▼
-残存・清掃・回復を別Repositoryへ波及させず扱える
+残存・清掃・回復を別リポジトリへ波及させず扱える
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「Runtime導入・運用者」 |
-| Trigger／Situation | Runtime Dataを作成または清掃する時 |
-| Goal | Runtime Dataの所有場所とLifecycleを理解する |
-| Outcome | 残存・清掃・回復を別Repositoryへ波及させず扱える |
+| 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「実行環境の導入・運用者」 |
+| 利用のきっかけ／場面 | 実行時データを作成または清掃する時 |
+| 目的 | 実行時データの所有場所と一連の状態変化を理解する |
+| 得られる結果 | 残存・清掃・回復を別リポジトリへ波及させず扱える |
 
 ## 成立条件
 
@@ -37,39 +37,39 @@ Runtime Dataの所有場所とLifecycleを理解する
 ## 重要な体験と品質期待
 
 ```text
-Runtime Dataを作成または清掃する時
+実行時データを作成または清掃する時
         ↓
-Runtime Dataの所有場所とLifecycleを理解する
+実行時データの所有場所と一連の状態変化を理解する
         │
-        ├─ ★ Critical: 永続化または削除の直前
-        ├─ ⚠ Failure:  subdirectoryや別Rootへ同名データを作る
-        └─ ✓ Quality:  用途別領域とcleanup条件を明示する
+        ├─ ★ 重要場面: 永続化または削除の直前
+        ├─ ⚠ 失敗:  subdirectoryや別基点フォルダへ同名データを作る
+        └─ ✓ 守る品質:  用途別領域とcleanup条件を明示する
         ↓
-残存・清掃・回復を別Repositoryへ波及させず扱える
+残存・清掃・回復を別リポジトリへ波及させず扱える
 ```
 
 ## 必要な情報
 
-Data Owner、Root、Durability、Retention、Cleanupを関連付ける
+データの責任者、基点フォルダ、Durability、保持期間、清掃を関連付ける
 
 ## 制約
 
-- 画面、Transport、内部Componentまたは特定の実装方式をUX成果そのものにしない。
+- 画面、通信方式、内部構成要素または特定の実装方式をUX成果そのものにしない。
 - 下流工程は利用者成果を弱めず、情報構造、操作、振る舞いおよび実現方式へ具体化する。
-- 想定した利用者、状況またはGoalが誤っていると判明した場合は、Source AnalysisとDiscoveryへ戻す。
+- 想定した利用者、状況または目的が誤っていると判明した場合は、元の要求分析とDiscoveryへ戻す。
 
 ## 検証意図
 
-用途不明の書込み、名前や時間だけの削除および別Repositoryへの波及を反証する
+用途不明の書込み、名前や時間だけの削除および別リポジトリへの波及を反証する
 
-具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-IAはRoot、用途、Owner、Lifecycleを分け、ArchitectureとMaintenanceはPath契約と清掃を定める。
+IAは基点フォルダ、用途、責任者、一連の状態変化を分け、ArchitectureとMaintenanceはパス契約と清掃を定める。
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000015](../../Analysis/REQ-000015/ux_analysis.md)、[REQ-000022](../../Analysis/REQ-000022/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-000015](../../Analysis/REQ-000015/ux_analysis.md)、[REQ-000022](../../Analysis/REQ-000022/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 

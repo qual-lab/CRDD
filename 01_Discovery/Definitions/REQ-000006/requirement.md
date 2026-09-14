@@ -1,53 +1,53 @@
-# REQ-000006 Local MCP Transport間の意味統一
+# REQ-000006 ローカルMCP 通信方式間の意味統一
 
-成果物種別: Discovery Definition
+成果物種別: Discovery定義
 要求ID: `REQ-000006`
-Discovery判断: 要求採用
+探索での判断: 要求採用
 判断する人: Qual-Lab
 
 ## 要求
 
-Localのstdio MCPとlocalhost HTTPはProject Runtimeの同じ公開Application Contractを利用し、Transport固有の状態、権限判断または結果意味を持ってはならない。
+手元のstdio MCPとlocalhost HTTPはプロジェクト 実行基盤の同じ公開Application 契約を利用し、通信方式固有の状態、権限判断または結果意味を持ってはならない。
 
 ## 対象と利用状況
 
-Desktop AI ClientとLocal Appが、stdio MCPまたはlocalhost HTTPから同じProject操作を使う場面。
+Desktop AI 利用側と手元 Appが、stdio MCPまたはlocalhost HTTPから同じプロジェクト操作を使う場面。
 
 ## 解く問題と望ましい変化
 
 ```text
-現在: Transportごとに状態、権限判断、失敗分類を持つと、同じObjectiveが入口により異なる意味と結果になる。
+現在: 通信方式ごとに状態、権限判断、失敗分類を持つと、同じ目的が入口により異なる意味と結果になる。
     ↓
-望ましい変化: 接続方式が違っても同じ公開Application Contract、Authority、結果、不足、取消、終了後状態を利用できる。
+望ましい変化: 接続方式が違っても同じ公開Application 契約、決定権限、結果、不足、取消、終了後状態を利用できる。
 ```
 
 ## 採用理由と比較
 
-HTTP専用APIは意味を二重化し、全入口のMCP強制はLocal LibraryまでServerへ依存するため、薄いTransport Adapterを採る。
+HTTP専用APIは意味を二重化し、全入口のMCP強制は手元 LibraryまでServerへ依存するため、薄い通信方式 接続部を採る。
 
 ## 成立条件
 
-- stdioとlocalhost HTTPが同じ入力を同じApplication Contractへ渡す
+- stdioとlocalhost HTTPが同じ入力を同じApplication 契約へ渡す
 - 正常、入力不正、判断待ち、回復要求、取消を同じ結果意味で返す
-- Transport終了後にRuntime状態やEffectが入口差で分岐しない
+- 通信方式終了後に実行基盤状態や外部への変更が入口差で分岐しない
 
 ## 制約
 
-- v0.20のLocal契約からRemote公開や汎用認証を推定しない
-- MCPはProject状態または更新Authorityを所有しない
+- v0.20の手元契約からリモート公開や汎用認証を推定しない
+- MCPはプロジェクト状態または更新決定権限を所有しない
 
 ## 検証意図
 
-同一Requestを両Transportで実行し、成功、拒否、取消、回復結果とRuntime側Effectを比較する。
+同一依頼を両通信方式で実行し、成功、拒否、取消、回復結果と実行基盤側外部への変更を比較する。
 
 ## 工程引渡し
 
 | 引渡し先 | 失ってはならない意味 | 下流で決めること |
 |---|---|---|
-| UX | Local利用者、複数入口を選ぶ状況、入口差を意識せず同じ仕事を行う変化、Transport固有表示だけをUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
-| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
+| UX | 手元利用者、複数入口を選ぶ状況、入口差を意識せず同じ仕事を行う変化、通信方式固有表示だけをUXへ渡す。 | 目的、独立した利用者成果、重要場面、失敗、体験品質 |
+| IA以降 | 本要求の識別情報、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
-- Source Analysis: [EXP-000015](../../Analysis/EXP-000015/exploration.md)
-- Formal downstream input: UXは本Definitionだけを正式入力として分析する。Source Analysisを直接補助入力にせず、意味が不足する場合はDiscoveryへ差し戻す。
+- 元の探索記録: [EXP-000015](../../Analysis/EXP-000015/exploration.md)
+- 下流工程への正式入力: UXはこの要求定義だけを正式入力として分析する。元の探索記録を直接の補助入力にせず、意味が不足する場合はDiscoveryへ差し戻す。

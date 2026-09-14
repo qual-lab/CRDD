@@ -50,11 +50,11 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
       );
       assert.ok(content.includes("|"), `${relativePath}: structured mapping`);
       assert.ok(
-        content.includes("## 1. Product Experience Intent"),
+        content.includes("## 1. 製品全体で目指す利用体験"),
         relativePath,
       );
       assert.ok(content.includes("## 2. UX成果台帳"), relativePath);
-      assert.ok(content.includes("## 3. REQとUX成果のCoverage"), relativePath);
+      assert.ok(content.includes("## 3. 要求とUX成果の網羅状況"), relativePath);
       assert.ok(content.includes("## 5. 詳細成果物への案内"), relativePath);
     } else {
       assert.ok(content.includes("文章形式を要求しない"), relativePath);
@@ -75,6 +75,32 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
   ])
     assert.ok(discoveryTemplate.includes(required), required);
 
+  const phaseOwnedArtifactTypes = new Map<string, string>([
+    [
+      "template/01_Discovery/Analysis/EXP-XXXXXX/exploration.md",
+      "成果物種別: Discovery分析",
+    ],
+    [
+      "template/01_Discovery/Definitions/REQ-XXXXXX/requirement.md",
+      "成果物種別: Discovery定義",
+    ],
+    ["template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md", "成果物種別: UX分析"],
+    [
+      "template/02_UX/Definitions/UX-XXXXXX/experience.md",
+      "成果物種別: UX定義",
+    ],
+  ]);
+  for (const [relativePath, expectedType] of phaseOwnedArtifactTypes) {
+    const content = fs.readFileSync(
+      path.join(repositoryRoot, relativePath),
+      "utf8",
+    );
+    assert.ok(
+      content.includes(expectedType),
+      `${relativePath}: ${expectedType}`,
+    );
+  }
+
   const uxRequirementTemplatePath =
     "template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md";
   const uxRequirementTemplate = fs.readFileSync(
@@ -82,28 +108,28 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
     "utf8",
   );
   for (const required of [
-    "## 1. REQの一次分析",
+    "## 1. 要求の一次分析",
     "解決したい問題",
-    "UXとして必要",
+    "人の体験として扱う",
     "## 2. 利用者・目標・成果",
-    "Primary Persona",
-    "Goal",
-    "Outcome",
+    "主な想定利用者",
+    "目的",
+    "得られる結果",
     "## 3. 利用者に起きる変化",
-    "Before",
-    "After",
-    "## 4. UX成果への統合",
-    "REQとUXは多対多を許容する",
-    "| UX成果 | 処置 | 判断理由 | この要求が補う内容 |",
+    "変更前",
+    "変更後",
+    "## 4. 利用者成果への統合",
+    "要求とUXは多対多を許容する",
+    "| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |",
     "## 5. 重要な体験",
-    "Critical",
-    "Failure",
-    "Quality",
-    "### このREQのJourney",
-    "### Service Blueprintの処置",
+    "重要場面",
+    "失敗",
+    "守る品質",
+    "### この要求での利用の流れ",
+    "### サービス提供の流れの処置",
     "処置: `作成`／`非該当`",
-    "### 横断Synthesisへの接続",
-    "### このREQでの責任境界",
+    "### 製品全体の整理への接続",
+    "### この要求での責任境界",
     "### 補足する品質",
     "## 6. 下流への引き渡し",
     "Discoveryへ戻す条件",
@@ -118,14 +144,14 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
       "template/01_Discovery/01_Product_Discovery.md",
       [
         "業務範囲／入出力（SIPOC）",
-        "Actor別Process（Swimlane）",
-        "Value Stream",
-        "As-Is／To-Be",
+        "担い手別の仕事の流れ（Swimlane）",
+        "価値が届くまでの流れ",
+        "現状／変更後",
       ],
     ],
     [
       "template/02_UX/01_User_Experience.md",
-      ["利用者Journey", "重要場面・失敗／回復体験図", "Service Blueprint"],
+      ["利用の流れ", "重要場面・失敗／回復体験図", "サービス提供の流れ"],
     ],
     [
       "template/03_IA/01_Information_Architecture.md",
@@ -265,7 +291,7 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
     "Architecture",
     "Implementation",
     "Verification",
-    "Quality",
+    "品質保証（Quality）",
     "Communication",
   ]) {
     assert.ok(structuredFirst.includes(lifecycle), lifecycle);
@@ -767,11 +793,8 @@ test("工程基本図の必須列または閉じた処置語彙の欠落を拒�
   const original = fs.readFileSync(sourcePath, "utf8");
   const mutations = [
     original.replace("| 基本図 | 対象 | 目的 | 処置 |", "| 基本図 | 処置 |"),
-    original.replace(
-      /(\| 利用者Journey \|[^\n]*\| )`既存参照`( \|)/,
-      "$1保留$2",
-    ),
-    original.replace(/^\| Service Blueprint \|.*\r?\n/m, ""),
+    original.replace(/(\| 利用の流れ \|[^\n]*\| )`既存参照`( \|)/, "$1保留$2"),
+    original.replace(/^\| サービス提供の流れ \|.*\r?\n/m, ""),
   ];
   for (const mutated of mutations) {
     const root = fixture();
@@ -870,6 +893,27 @@ test("Discoveryひな型へ空の共通Evidence Rootを再導入できない", (
   );
 });
 
+test("Discovery分析は工程と役割を識別できる成果物種別を宣言する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "Analysis", "EXP-000001", "exploration.md"),
+    "# 探索\n\n成果物種別: 探索記録\n\n探索ID: `EXP-000001`\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "discovery-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
 test("UXひな型へ空の共通Evidence Rootを再導入できない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -902,7 +946,7 @@ test("UXを主な関係領域に持たない採用要求もUX分析から省略�
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000003", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000003`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| Milestone | `New → UX-000001` | 利用者が目的を委ねられる独立成果である。 | 受入条件による委任を補う。 |\n",
+    "# Analysis\n\n要求: `REQ-000003`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| Milestone | `New → UX-000001` | 利用者が目的を委ねられる独立成果である。 | 受入条件による委任を補う。 |\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1050,7 +1094,7 @@ test("UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追�
   }
 });
 
-test("独立したUX Definitionは同じGoalと重要体験の定型コピーを共有できない", () => {
+test("独立した利用者体験定義は、同じ目的と重要体験の定型コピーを共有できない", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
   write(
@@ -1059,14 +1103,14 @@ test("独立したUX Definitionは同じGoalと重要体験の定型コピーを
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000002` B | `REQ-000001` |\n",
+    "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000002` B | `REQ-000001` |\n",
   );
   const sharedDefinitionBody =
-    "\n## 利用者成果\n\n独立成果。\n\n## 利用者・状況・Goal\n\n| 項目 | 内容 |\n|---|---|\n| Primary Persona／Context | 利用者 |\n| Trigger／Situation | 開始時 |\n| Goal | 状態を理解する |\n| Outcome | 次へ進める |\n\n## 成立条件\n\n- 成立する。\n\n## 重要な体験と品質期待\n\n```text\n開始 → 理解 → 次へ\n```\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- Source REQ Analysis: REQ-000001\n";
+    "\n## 利用者成果\n\n独立成果。\n\n## 利用者・状況・目的\n\n| 項目 | 内容 |\n|---|---|\n| 主な想定利用者／利用状況 | 利用者 |\n| 利用のきっかけ／場面 | 開始時 |\n| 目的 | 状態を理解する |\n| 得られる結果 | 次へ進める |\n\n## 成立条件\n\n- 成立する。\n\n## 重要な体験と品質期待\n\n```text\n開始 → 理解 → 次へ\n```\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- Source REQ Analysis: REQ-000001\n";
   for (const id of ["UX-000001", "UX-000002"])
     write(
       path.join(root, "02_UX", "Definitions", id, "experience.md"),
-      `# ${id}\n\n成果物種別: UX Definition\nUX ID: \`${id}\`\n${sharedDefinitionBody}`,
+      `# ${id}\n\n成果物種別: UX定義\nUX ID: \`${id}\`\n${sharedDefinitionBody}`,
     );
   const result = runChecker(root);
   assert.ok(
@@ -1110,11 +1154,11 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 同じ成果 | `REQ-000001` |\n",
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 同じ成果 | `REQ-000001` |\n",
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 同じ。 | 補完。 |\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 同じ。 | 補完。 |\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1135,11 +1179,11 @@ test("UXのSame判断は固定ラベル列挙なしでも要求固有の十分�
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 同じ成果 | `REQ-000001` |\n",
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 同じ成果 | `REQ-000001` |\n",
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 利用者が得る最終成果は既存UXと共通し、追加条件は独立したOutcomeではない。 | 要求固有の条件を補う。 |\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 利用者が得る最終成果は既存UXと共通し、追加条件は独立したOutcomeではない。 | 要求固有の条件を補う。 |\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1156,7 +1200,7 @@ test("UX統合の理由付きNot ApplicableをRelation不正にしない", () =>
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| UX成果なし | `Not Applicable` | 利用者のGoalまたはOutcomeを変更せず、既存体験の成立条件にも追加差分がない。 | Canonical UX成果へ追加する内容はない。 |\n\n### Service Blueprintの処置\n\n処置: `非該当`\n\n複数主体間のHandoffは体験成立条件ではないため作成せず、条件が変わった時に再評価する。\n\n### 横断Synthesisへの接続\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| UX成果なし | `Not Applicable` | 利用者のGoalまたはOutcomeを変更せず、既存体験の成立条件にも追加差分がない。 | Canonical UX成果へ追加する内容はない。 |\n\n### サービス提供の流れの処置\n\n処置: `非該当`\n\n複数主体間のHandoffは体験成立条件ではないため作成せず、条件が変わった時に再評価する。\n\n### 製品全体の整理への接続\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1169,7 +1213,7 @@ test("UX統合の理由付きNot ApplicableをRelation不正にしない", () =>
   );
 });
 
-test("Service Blueprintの作成と非該当を処置なしで済ませない", () => {
+test("サービス提供の流れの作成と非該当を処置なしで済ませない", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "01_Discovery", "01_Product_Discovery.md"),
@@ -1177,11 +1221,11 @@ test("Service Blueprintの作成と非該当を処置なしで済ませない", 
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### Service Blueprintの処置\n\n共同Service Blueprintを参照する。\n\n### 横断Synthesisへの接続\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### サービス提供の流れの処置\n\n共同サービス提供の流れを参照する。\n\n### 製品全体の整理への接続\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1195,7 +1239,7 @@ test("Service Blueprintの作成と非該当を処置なしで済ませない", 
   );
 });
 
-test("作成するService Blueprintは主体・時間関係・完了情報・失敗時の判断を閉じる", () => {
+test("作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じる", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "01_Discovery", "01_Product_Discovery.md"),
@@ -1203,11 +1247,11 @@ test("作成するService Blueprintは主体・時間関係・完了情報・失
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### Service Blueprintの処置\n\n処置: `作成`\n\n```text\n利用者 [接点] 結果\n  └─ 失敗時: 担当者へ戻す\n```\n\n### 横断Synthesisへの接続\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### サービス提供の流れの処置\n\n処置: `作成`\n\n```text\n利用者 [接点] 結果\n  └─ 失敗時: 担当者へ戻す\n```\n\n### 製品全体の整理への接続\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1221,7 +1265,7 @@ test("作成するService Blueprintは主体・時間関係・完了情報・失
   );
 });
 
-test("作成するService Blueprintは完了時に返る情報を省略できない", () => {
+test("作成するサービス提供の流れは完了時に返る情報を省略できない", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "01_Discovery", "01_Product_Discovery.md"),
@@ -1229,11 +1273,11 @@ test("作成するService Blueprintは完了時に返る情報を省略できな
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### Service Blueprintの処置\n\n処置: `作成`\n\n```text\n[U: 利用者]\n  ▼\n[T: 入力]\n  ├─ 時間差: 同期確認\n  └─ 失敗時: 判断不能範囲を返す\n       ▼\n[R: 判断者]\n  └─ 次の行動: 入力を直す\n--- 可視境界 ---\n[S: 提供System]\n```\n\n### 横断Synthesisへの接続\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### サービス提供の流れの処置\n\n処置: `作成`\n\n```text\n【利用者・責任者】利用者\n  ▼\n【利用者接点】入力\n  ├─ 時間差: 同期確認\n  └─ 失敗時: 判断不能範囲を返す\n       ▼\n【回復・判断する人】判断者\n  └─ 次の行動: 入力を直す\n--- 可視境界 ---\n【提供側】提供システム\n```\n\n### 製品全体の整理への接続\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1255,11 +1299,11 @@ test("UX台帳と要求分析のRelationが閉じていない状態を拒否す�
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000002` 台帳だけの成果 | `REQ-000001` |\n",
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000002` 台帳だけの成果 | `REQ-000001` |\n",
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 分析だけの成果 | `New → UX-000001` | 利用者の成果と失敗条件が独立しているため新規成果として確定する。 | 要求固有の条件を補う。 |\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 分析だけの成果 | `New → UX-000001` | 利用者の成果と失敗条件が独立しているため新規成果として確定する。 | 要求固有の条件を補う。 |\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1280,7 +1324,7 @@ test("UX台帳と要求分析はID集合でなくREQとUXの組で閉じる", ()
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n[REQ-000002](Analysis/REQ-000002/ux_analysis.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000002` B | `REQ-000002` |\n",
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n[REQ-000002](Analysis/REQ-000002/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000002` B | `REQ-000002` |\n",
   );
   for (const [req, ux] of [
     ["REQ-000001", "UX-000002"],
@@ -1288,7 +1332,7 @@ test("UX台帳と要求分析はID集合でなくREQとUXの組で閉じる", ()
   ])
     write(
       path.join(root, "02_UX", "Analysis", req, "ux_analysis.md"),
-      `# Analysis\n\n要求: \`${req}\`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| Outcome | \`New → ${ux}\` | 独立して変更し確認する利用者成果として扱う。 | この要求の利用場面を補う。 |\n`,
+      `# Analysis\n\n要求: \`${req}\`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 得られる結果 | \`New → ${ux}\` | 独立して変更し確認する利用者成果として扱う。 | この要求の利用場面を補う。 |\n`,
     );
   const result = runChecker(root);
   assert.ok(
@@ -1303,7 +1347,7 @@ test("Canonical UX台帳の同一ID二重定義を拒否する", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000001` B | `REQ-000002` |\n",
+    "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000001` B | `REQ-000002` |\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1324,15 +1368,15 @@ test("Experience Mapと要求分析のJourney割当不一致を拒否する", ()
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
   );
   write(
     path.join(root, "02_UX", "03_Experience_Map.md"),
-    "# Map\n\n| Journey | Primary Persona | 起点 | 望むOutcome | 関係する主なREQ |\n|---|---|---|---|---|\n| Projectの現在地を判断する | PM | 起点 | 成果 | `REQ-000001` |\n",
+    "# Map\n\n| Journey | 主な想定利用者 | 起点 | 望むOutcome | 関係する主なREQ |\n|---|---|---|---|---|\n| Projectの現在地を判断する | PM | 起点 | 成果 | `REQ-000001` |\n",
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| A | `New → UX-000001` | 独立して確認する利用者成果として扱う。 | この要求の利用場面を補う。 |\n\n- Journeyの横断統合先: [Runtimeを導入する](../../03_Experience_Map.md#runtimeを導入する)\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| A | `New → UX-000001` | 独立して確認する利用者成果として扱う。 | この要求の利用場面を補う。 |\n\n- 利用の流れの統合先: [Runtimeを導入する](../../03_Experience_Map.md#runtimeを導入する)\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -1370,7 +1414,7 @@ function discoveryDefinition(
   explorationId: string,
   marker: string,
 ): string {
-  return `# ${requirementId} 要求\n\n成果物種別: Discovery Definition\n要求ID: \`${requirementId}\`\n\n## 要求\n\n${marker}として利用者が望む結果を得られる要求である。\n\n## 対象と利用状況\n\n${marker}の対象者が、判断に必要な情報を確認する具体的な状況を扱う。\n\n## 解く問題と望ましい変化\n\n${marker}により現在の問題を識別し、再現可能な望ましい状態へ変える。\n\n## 採用理由と比較\n\n${marker}では代替案との違いと、採用した理由および残る弱点を比較する。\n\n## 成立条件\n\n- ${marker}の正常結果を確認できる\n- ${marker}の不完全状態を正常へ丸めない\n- ${marker}を破る反証を拒否できる\n\n## 制約\n\n- ${marker}の決定権限を下流へ移さない\n- ${marker}の対象外を完成扱いしない\n\n## 検証意図\n\n${marker}の正常、境界、失敗を実際の観測結果で区別できることを確認する。\n\n## 工程引渡し\n\n| 引渡し先 | 失ってはならない意味 | 下流で決めること |\n|---|---|---|\n| UX | ${marker}の利用者、状況、問題、変化 | GoalとOutcome |\n| IA以降 | ${marker}の状態と制約 | 工程固有設計 |\n\n## 関係\n\n- Source Analysis: [${explorationId}](../../Analysis/${explorationId}/exploration.md)\n`;
+  return `# ${requirementId} 要求\n\n成果物種別: Discovery定義\n要求ID: \`${requirementId}\`\n\n## 要求\n\n${marker}として利用者が望む結果を得られる要求である。\n\n## 対象と利用状況\n\n${marker}の対象者が、判断に必要な情報を確認する具体的な状況を扱う。\n\n## 解く問題と望ましい変化\n\n${marker}により現在の問題を識別し、再現可能な望ましい状態へ変える。\n\n## 採用理由と比較\n\n${marker}では代替案との違いと、採用した理由および残る弱点を比較する。\n\n## 成立条件\n\n- ${marker}の正常結果を確認できる\n- ${marker}の不完全状態を正常へ丸めない\n- ${marker}を破る反証を拒否できる\n\n## 制約\n\n- ${marker}の決定権限を下流へ移さない\n- ${marker}の対象外を完成扱いしない\n\n## 検証意図\n\n${marker}の正常、境界、失敗を実際の観測結果で区別できることを確認する。\n\n## 工程引渡し\n\n| 引渡し先 | 失ってはならない意味 | 下流で決めること |\n|---|---|---|\n| UX | ${marker}の利用者、状況、問題、変化 | 目的と得られる結果 |\n| IA以降 | ${marker}の状態と制約 | 工程固有設計 |\n\n## 関係\n\n- 元の探索記録: [${explorationId}](../../Analysis/${explorationId}/exploration.md)\n`;
 }
 
 function dispositionFixtureRoot(hasFixedEvidence = false): string {
@@ -3295,7 +3339,7 @@ test("安定コンテキストIDへ手動改訂番号を結合した表記を拒
   makeStructure(root);
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n| UX成果 |\n|---|\n| UX-000001@2 |\n",
+    "# UX\n\n| 利用者成果 |\n|---|\n| UX-000001@2 |\n",
   );
   const result = runChecker(root);
   assert.equal(result.status, 1);

@@ -496,6 +496,7 @@ function checkUxRequirementAnalysis(): void {
     "01_Discovery",
     "Definitions",
   );
+  const discoveryAnalysisRoot = path.join(root, "01_Discovery", "Analysis");
   const requirementsRoot = path.join(root, "02_UX", "Analysis");
   const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
   const experienceMapPath = path.join(root, "02_UX", "03_Experience_Map.md");
@@ -512,6 +513,30 @@ function checkUxRequirementAnalysis(): void {
       "The official UX profile must retain the requirement-analysis root.",
     );
     return;
+  }
+  if (lstatIfPresent(discoveryAnalysisRoot)?.isDirectory()) {
+    for (const entry of fs.readdirSync(discoveryAnalysisRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^EXP-[0-9]{6}$/u.test(entry.name)) continue;
+      const analysisPath = path.join(
+        discoveryAnalysisRoot,
+        entry.name,
+        "exploration.md",
+      );
+      if (!lstatIfPresent(analysisPath)?.isFile()) continue;
+      const analysis = read(analysisPath);
+      if (
+        !analysis.includes("成果物種別: Discovery分析") ||
+        !analysis.includes(`探索ID: \`${entry.name}\``)
+      )
+        add(
+          "error",
+          "discovery-analysis-contract-invalid",
+          relative(analysisPath),
+          "Each Discovery analysis must declare its phase-owned artifact type and matching exploration ID.",
+        );
+    }
   }
   const templatePath = path.join(
     root,
@@ -628,25 +653,26 @@ function checkUxRequirementAnalysis(): void {
         "Each UX requirement analysis must use only its matching Discovery Definition as the formal input; an incomplete Definition must return to Discovery instead of being supplemented from Source Analysis.",
       );
     const requiredParts = [
+      "成果物種別: UX分析",
       `分析対象: [${entry.name} `,
-      "## 1. REQの一次分析",
+      "## 1. 要求の一次分析",
       "| 解決する問題 |",
-      "| UX Need |",
+      "| 利用者に必要なこと |",
       "## 2. 利用者・目標・成果",
-      "| Primary Persona |",
-      "| Goal |",
-      "| Outcome |",
+      "| 主な想定利用者 |",
+      "| 目的 |",
+      "| 得られる結果 |",
       "## 3. 利用者に起きる変化",
-      "## 4. UX成果への統合",
-      "| UX成果 | 処置 | 判断理由 | この要求が補う内容 |",
+      "## 4. 利用者成果への統合",
+      "| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |",
       "## 5. 重要な体験",
-      "### このREQのJourney",
-      "### Service Blueprintの処置",
+      "### この要求での利用の流れ",
+      "### サービス提供の流れの処置",
       "処置:",
-      "### 横断Synthesisへの接続",
-      "- Journeyの横断統合先:",
-      "- Service Blueprintの横断統合先:",
-      "### このREQでの責任境界",
+      "### 製品全体の整理への接続",
+      "- 利用の流れの統合先:",
+      "- サービス提供の流れの統合先:",
+      "### この要求での責任境界",
       "### 補足する品質",
       "## 6. 下流への引き渡し",
       "### 妥当性確認と未確認事項",
@@ -654,7 +680,7 @@ function checkUxRequirementAnalysis(): void {
       "Discoveryへ戻す条件",
     ];
     const hasExperienceChange =
-      /```text\r?\nBefore\r?\n[\s\S]+?\r?\nAfter\r?\n/u.test(analysis);
+      /```text\r?\n変更前\r?\n[\s\S]+?\r?\n変更後\r?\n/u.test(analysis);
     if (
       requiredParts.some((part) => !analysis.includes(part)) ||
       !hasExperienceChange ||
@@ -681,14 +707,14 @@ function checkUxRequirementAnalysis(): void {
     }
     const journeyLine = analysis
       .split(/\r?\n/u)
-      .find((line) => line.startsWith("- Journeyの横断統合先:"));
+      .find((line) => line.startsWith("- 利用の流れの統合先:"));
     for (const match of journeyLine?.matchAll(
       /\[([^\]]+)\]\([^)]*03_Experience_Map\.md#[^)]+\)/gu,
     ) ?? [])
       analysisJourneyPairs.add(`${entry.name}|${match[1]}`);
     const blueprintSection = analysis
-      .split("### Service Blueprintの処置")[1]
-      ?.split("### 横断Synthesisへの接続")[0];
+      .split("### サービス提供の流れの処置")[1]
+      ?.split("### 製品全体の整理への接続")[0];
     const blueprintDisposition =
       blueprintSection?.match(/^処置: `(作成|非該当)`$/mu)?.[1];
     const isBlueprintDispositionInvalid =
@@ -696,10 +722,10 @@ function checkUxRequirementAnalysis(): void {
       (blueprintDisposition === "作成" &&
         (!/```text\r?\n[\s\S]+?\r?\n```/u.test(blueprintSection ?? "") ||
           ![
-            "[U:",
-            "[T:",
-            "[S:",
-            "[R:",
+            "【利用者・責任者】",
+            "【利用者接点】",
+            "【提供側】",
+            "【回復・判断する人】",
             "可視境界",
             "時間差:",
             "完了時:",
@@ -789,11 +815,11 @@ function checkUxRequirementAnalysis(): void {
         definition,
       );
       const sourceRelation = definition.match(
-        /Source Analysis: \[(EXP-[0-9]{6})\]\(\.\.\/\.\.\/Analysis\/(EXP-[0-9]{6})\/exploration\.md\)/u,
+        /元の探索記録: \[(EXP-[0-9]{6})\]\(\.\.\/\.\.\/Analysis\/(EXP-[0-9]{6})\/exploration\.md\)/u,
       );
       if (
         !definition.includes(`要求ID: \`${entry.name}\``) ||
-        !definition.includes("成果物種別: Discovery Definition") ||
+        !definition.includes("成果物種別: Discovery定義") ||
         !definition.includes("## 要求") ||
         requiredDefinitionSections.some(
           (heading) => !definition.includes(heading),
@@ -836,7 +862,7 @@ function checkUxRequirementAnalysis(): void {
       "Every adopted Discovery requirement must have exactly one canonical requirement definition.",
     );
   const uxDefinitionIds = new Set<string>();
-  const semanticSections = ["## 利用者・状況・Goal", "## 重要な体験と品質期待"];
+  const semanticSections = ["## 利用者・状況・目的", "## 重要な体験と品質期待"];
   if (lstatIfPresent(uxDefinitionsRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(uxDefinitionsRoot, {
       withFileTypes: true,
@@ -852,7 +878,7 @@ function checkUxRequirementAnalysis(): void {
       const definition = read(definitionPath);
       if (
         !definition.includes(`UX ID: \`${entry.name}\``) ||
-        !definition.includes("成果物種別: UX Definition") ||
+        !definition.includes("成果物種別: UX定義") ||
         !definition.includes("## 利用者成果") ||
         !definition.includes("## 成立条件") ||
         !definition.includes("## 検証意図") ||
@@ -2081,15 +2107,15 @@ const phaseDiagramTemplateProfiles = new Map<string, readonly string[]>([
     [
       "課題・根拠・機会の関係",
       "業務範囲／入出力（SIPOC）",
-      "Actor別Process（Swimlane）",
-      "Value Stream",
-      "As-Is／To-Be",
+      "担い手別の仕事の流れ（Swimlane）",
+      "価値が届くまでの流れ",
+      "現状／変更後",
       "項目間全体像",
     ],
   ],
   [
     "template/02_UX/01_User_Experience.md",
-    ["利用者Journey", "重要場面・失敗／回復体験図", "Service Blueprint"],
+    ["利用の流れ", "重要場面・失敗／回復体験図", "サービス提供の流れ"],
   ],
   [
     "template/03_IA/01_Information_Architecture.md",

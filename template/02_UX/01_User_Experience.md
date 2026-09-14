@@ -1,53 +1,53 @@
-# User Experience
+# 利用者体験
 
 工程規則: `00_CRDD/22_UX.md`
-状態: （UX分析中／Complete for Scope／Blocked）
+状態: （UX分析中／完全な結果 for 対象範囲／Blocked）
 維持責任者: （記入）
 判断する人: （記入）
 
-本書はUX工程の固定入口である。Product全体の体験意図、Canonical UX成果、REQとのCoverage、詳細成果物へのNavigationを所有する。Persona、横断Experience Map、Service Blueprintprintおよび品質期待の詳細を複製しない。
+本書はUX工程の固定入口である。製品全体で目指す体験、現在有効なUX成果、要求の網羅状況、詳細成果物への案内を所有する。想定利用者、利用体験の全体像、サービス提供の流れおよび品質期待の詳細を複製しない。
 
 ```text
-DiscoveryのREQ-*
+課題探索で採用した要求（REQ-*）
       ↓ 個別分析
-Analysis/<REQ-ID>/ux_analysis.md
-      ↓ Same／Newを横断判断
-Definitions/<UX-ID>/experience.md
+要求別の利用体験分析（Analysis/<REQ-ID>/ux_analysis.md）
+      ↓ 既存UXへ統合するか新しいUXにするかを判断
+現在有効な利用者成果（Definitions/<UX-ID>/experience.md）
       ↓
-Persona・Experience Map・Service Blueprint・品質期待
+想定利用者・利用体験の全体像・サービス提供の流れ・品質期待
       ↓
-IA／UI／SPEC／Verification
+情報設計／画面設計／仕様／検証
 ```
 
-## 1. Product Experience Intent
+## 1. 製品全体で目指す利用体験
 
 誰の何を、なぜ良くするのか、利用者に起きる中心的な変化、守る体験原則および目指さないことを短く示す。
 
 ## 2. UX成果台帳
 
-| UX成果 | 利用者成果 | 入力REQ | 主な体験区間 | 現在状態 |
+| 利用者成果 | 利用者成果 | 入力REQ | 主な体験区間 | 現在状態 |
 |---|---|---|---|---|
 | [UX-XXXXXX](Definitions/UX-XXXXXX/experience.md) | | `REQ-XXXXXX` | | |
 
-## 3. REQとUX成果のCoverage
+## 3. 要求とUX成果の網羅状況
 
-採用された全要求について、個別分析とCanonical UXへの処置を示す。要求を一対一のUXへ固定しない。
+採用された全要求について、個別分析と現在有効なUX成果への処置を示す。要求を一対一のUXへ固定しない。
 
-| REQ | 個別分析 | UX成果／処置 | 未確認範囲 |
+| 要求 | 個別分析 | UX成果／処置 | 未確認範囲 |
 |---|---|---|---|
 | `REQ-XXXXXX` | [分析](Analysis/REQ-XXXXXX/ux_analysis.md) | | |
 
 ## 4. UX全体の関係
 
-Canonical UX成果が、どのPersona、体験区間、重要場面および品質期待へ接続するかを人間向けの図で示す。Relationの厳密な正本は前節の台帳と各詳細成果物が所有する。
+現在有効なUX成果が、どの想定利用者、体験区間、重要場面および品質期待へ接続するかを人間向けの図で示す。厳密な関係の正本は前節の台帳と各詳細成果物が所有する。
 
 ```text
-Persona
+想定利用者
    ↓
-Experience Map ──→ UX-*
+利用体験の全体像 ──→ UX-*
    │                 │
    ▼                 ▼
-Service Blueprint  品質期待
+サービス提供の流れ  品質期待
    └────────┬────────┘
             ▼
       下流への引き渡し
@@ -57,10 +57,10 @@ Service Blueprint  品質期待
 
 | 読みたいこと | 所有成果物 |
 |---|---|
-| 誰が、どんな状況で使うか | [Personas](02_Personas.md) |
-| 利用者の仕事が全体でどう流れるか | [Experience Map](03_Experience_Map.md) |
-| その体験を誰・何がどう支えるか | [Service Blueprint](04_Service_Blueprint.md) |
-| 体験として何を守るか | [Quality Expectations](05_Quality_Expectations.md) |
+| 誰が、どんな状況で使うか | [想定利用者](02_Personas.md) |
+| 利用者の仕事が全体でどう流れるか | [利用体験の全体像](03_Experience_Map.md) |
+| その体験を誰・何がどう支えるか | [サービス提供の流れ](04_Service_Blueprint.md) |
+| 体験として何を守るか | [体験品質として守ること](05_Quality_Expectations.md) |
 | 各要求をどうUXへ変換したか | `Analysis/<REQ-ID>/ux_analysis.md` |
 
 ## 基本図の処置
@@ -69,9 +69,9 @@ Service Blueprint  品質期待
 
 | 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
 |---|---|---|---|---|---|---|---|---|
-| 利用者Journey | Product全体／主要Persona | 時間をまたぐ利用者の仕事と判断 | `既存参照` | [Experience Map](03_Experience_Map.md) | | | | |
-| 重要場面・失敗／回復体験図 | Product全体／UX-* | 誤認・損失・回復と品質期待の発生点 | | [Quality Expectations](05_Quality_Expectations.md) | | | | |
-| Service Blueprint | Product全体／主要Journey | 利用者接点と提供側責務の接続 | | [Service Blueprint](04_Service_Blueprint.md) | | | | |
+| 利用の流れ | 製品全体／主な想定利用者 | 時間をまたぐ利用者の仕事と判断 | `既存参照` | [利用体験の全体像](03_Experience_Map.md) | | | | |
+| 重要場面・失敗／回復体験図 | 製品全体／UX-* | 誤認・損失・回復と品質期待の発生点 | | [体験品質として守ること](05_Quality_Expectations.md) | | | | |
+| サービス提供の流れ | 製品全体／主な利用の流れ | 利用者接点と提供側責務の接続 | | [サービス提供の流れ](04_Service_Blueprint.md) | | | | |
 
 ## 6. 現在状態と次工程への引き渡し
 

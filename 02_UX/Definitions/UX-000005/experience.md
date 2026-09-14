@@ -1,75 +1,75 @@
-# UX-000005 目的と受入条件でMilestoneを委ねる
+# UX-000005 目的と受入条件で節目を委ねる
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-000005`
-状態: Canonical
+状態: 現行正本
 維持責任者: Qual-Lab
 
 ## 利用者成果
 
-内部Taskを逐次操作せず、目的・受入条件・統合状態からMilestoneの完成と必要な判断を理解できる
+内部タスクを逐次操作せず、目的・受入条件・統合状態から節目の完成と必要な判断を理解できる
 
 ```text
-Project Operator／PM
-        │ Projectの成果をまとめて任せる時
+プロジェクト運営者／PM
+        │ プロジェクトの成果をまとめて任せる時
         ▼
-Objectiveと受入条件でMilestoneを委ねる
+目的と受入条件で節目を委ねる
         │
         ▼
-内部Taskを追わず統合済みの完成を判断できる
+内部タスクを追わず統合済みの完成を判断できる
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「Project Operator／PM」 |
-| Trigger／Situation | Projectの成果をまとめて任せる時 |
-| Goal | Objectiveと受入条件でMilestoneを委ねる |
-| Outcome | 内部Taskを追わず統合済みの完成を判断できる |
+| 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「プロジェクト運営者／PM」 |
+| 利用のきっかけ／場面 | プロジェクトの成果をまとめて任せる時 |
+| 目的 | 目的と受入条件で節目を委ねる |
+| 得られる結果 | 内部タスクを追わず統合済みの完成を判断できる |
 
 ## 成立条件
 
-- 内部Taskを逐次操作せず、目的・受入条件・統合状態からMilestoneの完成と必要な判断を理解できる
-- 重要場面「Task成功とMilestone完成を区別する」で、避ける失敗を利用者が正常状態や完了として誤認しない。
+- 内部タスクを逐次操作せず、目的・受入条件・統合状態から節目の完成と必要な判断を理解できる
+- 重要場面「タスク成功と節目完成を区別する」で、避ける失敗を利用者が正常状態や完了として誤認しない。
 - 入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。
 
 ## 重要な体験と品質期待
 
 ```text
-Projectの成果をまとめて任せる時
+プロジェクトの成果をまとめて任せる時
         ↓
-Objectiveと受入条件でMilestoneを委ねる
+目的と受入条件で節目を委ねる
         │
-        ├─ ★ Critical: Task成功とMilestone完成を区別する
-        ├─ ⚠ Failure:  Task件数を完成と誤認する
-        └─ ✓ Quality:  統合・品質・判断待ちを分けて示す
+        ├─ ★ 重要場面: タスク成功と節目完成を区別する
+        ├─ ⚠ 失敗:  タスク件数を完成と誤認する
+        └─ ✓ 守る品質:  統合・品質・判断待ちを分けて示す
         ↓
-内部Taskを追わず統合済みの完成を判断できる
+内部タスクを追わず統合済みの完成を判断できる
 ```
 
 ## 必要な情報
 
-Objective、Acceptance、Milestone、Task、Integration、Qualityを関連付ける
+目的、受入条件、節目、タスク、統合状態、品質を関連付ける
 
 ## 制約
 
-- 画面、Transport、内部Componentまたは特定の実装方式をUX成果そのものにしない。
+- 画面、通信方式、内部構成要素または特定の実装方式をUX成果そのものにしない。
 - 下流工程は利用者成果を弱めず、情報構造、操作、振る舞いおよび実現方式へ具体化する。
-- 想定した利用者、状況またはGoalが誤っていると判明した場合は、Source AnalysisとDiscoveryへ戻す。
+- 想定した利用者、状況または目的が誤っていると判明した場合は、元の要求分析とDiscoveryへ戻す。
 
 ## 検証意図
 
-Task数や部分成功を完成へ畳む表示を反証する
+タスク数や部分成功を完成へ畳む表示を反証する
 
-具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-IAはObjective、Milestone、Task、Integration、QualityおよびDecisionの関係を分ける。SPECとArchitectureは各状態の成立条件と再開契約を具体化し、総合試験はTask数でなく一連の委任体験を確認する。
+IAは目的、節目、タスク、統合状態、品質および判断の関係を分ける。SPECとArchitectureは各状態の成立条件と再開契約を具体化し、総合試験はタスク数でなく一連の委任体験を確認する。
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000003](../../Analysis/REQ-000003/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-000003](../../Analysis/REQ-000003/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 

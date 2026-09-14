@@ -1,8 +1,8 @@
 # REQ-000028 AI入口と共通正本の分離
 
-成果物種別: Discovery Definition
+成果物種別: Discovery定義
 要求ID: `REQ-000028`
-Discovery判断: 要求採用
+探索での判断: 要求採用
 判断する人: Qual-Lab
 
 ## 要求
@@ -11,14 +11,14 @@ AI固有の入口は利用する正本と実行境界を案内する接続部に
 
 ## 対象と利用状況
 
-Codex、Claude、Copilot等のAIが、CRDD Repositoryで作業を開始し、対象に必要な規則と正本を選ぶ場面。
+Codex、Claude、Copilot等のAIが、CRDD リポジトリで作業を開始し、対象に必要な規則と正本を選ぶ場面。
 
 ## 解く問題と望ましい変化
 
 ```text
-現在: AI固有入口へ規範を複製すると更新時期と判断境界が分岐し、一つの巨大Promptでは無関係Contextが増える。
+現在: AI固有入口へ規範を複製すると更新時期と判断境界が分岐し、一つの巨大Promptでは無関係情報が増える。
     ↓
-望ましい変化: AI固有入口は接続部に留まり、同じ共通Operating Contractと工程正本を対象に応じて選択できる。
+望ましい変化: AI固有入口は接続部に留まり、同じ共通Operating 契約と工程正本を対象に応じて選択できる。
 ```
 
 ## 採用理由と比較
@@ -44,10 +44,10 @@ Codex、Claude、Copilot等のAIが、CRDD Repositoryで作業を開始し、対
 
 | 引渡し先 | 失ってはならない意味 | 下流で決めること |
 |---|---|---|
-| UX | AI利用者、異なるAgentを選ぶ状況、入口差にかかわらず同じCRDD判断へ届く変化をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
-| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
+| UX | AI利用者、異なるAgentを選ぶ状況、入口差にかかわらず同じCRDD判断へ届く変化をUXへ渡す。 | 目的、独立した利用者成果、重要場面、失敗、体験品質 |
+| IA以降 | 本要求の識別情報、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
-- Source Analysis: [EXP-000006](../../Analysis/EXP-000006/exploration.md)
-- Formal downstream input: UXは本Definitionだけを正式入力として分析する。Source Analysisを直接補助入力にせず、意味が不足する場合はDiscoveryへ差し戻す。
+- 元の探索記録: [EXP-000006](../../Analysis/EXP-000006/exploration.md)
+- 下流工程への正式入力: UXはこの要求定義だけを正式入力として分析する。元の探索記録を直接の補助入力にせず、意味が不足する場合はDiscoveryへ差し戻す。

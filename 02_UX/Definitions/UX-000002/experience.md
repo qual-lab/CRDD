@@ -1,8 +1,8 @@
 # UX-000002 委任範囲と権限を理解して任せる
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-000002`
-状態: Canonical
+状態: 現行正本
 維持責任者: Qual-Lab
 
 ## 利用者成果
@@ -10,7 +10,7 @@ UX ID: `UX-000002`
 実行前に誰へ何をどこまで任せるかを理解し、暗黙の範囲拡張なく仕事を委ねられる
 
 ```text
-Project Operator／PM
+プロジェクト運営者／PM
         │ 複数AIへ仕事を委ねる時
         ▼
 複数AIへ任せる範囲と権限を理解する
@@ -19,19 +19,19 @@ Project Operator／PM
 停止や失敗後も主導権を失わず結果を受け取れる
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「Project Operator／PM」 |
-| Trigger／Situation | 複数AIへ仕事を委ねる時 |
-| Goal | 複数AIへ任せる範囲と権限を理解する |
-| Outcome | 停止や失敗後も主導権を失わず結果を受け取れる |
+| 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「プロジェクト運営者／PM」 |
+| 利用のきっかけ／場面 | 複数AIへ仕事を委ねる時 |
+| 目的 | 複数AIへ任せる範囲と権限を理解する |
+| 得られる結果 | 停止や失敗後も主導権を失わず結果を受け取れる |
 
 ## 成立条件
 
 - 実行前に誰へ何をどこまで任せるかを理解し、暗黙の範囲拡張なく仕事を委ねられる
-- 重要場面「外部Effect前の委任境界」で、避ける失敗を利用者が正常状態や完了として誤認しない。
+- 重要場面「外部への変更の前の委任境界」で、避ける失敗を利用者が正常状態や完了として誤認しない。
 - 入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。
 
 ## 重要な体験と品質期待
@@ -41,35 +41,35 @@ Project Operator／PM
         ↓
 複数AIへ任せる範囲と権限を理解する
         │
-        ├─ ★ Critical: 外部Effect前の委任境界
-        ├─ ⚠ Failure:  暗黙の範囲拡張や回復不能
-        └─ ✓ Quality:  委任状態・停止理由・回復先を行動可能に示す
+        ├─ ★ 重要場面: 外部への変更の前の委任境界
+        ├─ ⚠ 失敗:  暗黙の範囲拡張や回復不能
+        └─ ✓ 守る品質:  委任状態・停止理由・回復先を行動可能に示す
         ↓
 停止や失敗後も主導権を失わず結果を受け取れる
 ```
 
 ## 必要な情報
 
-Objective、Scope、Actor、Authorityを分ける
+目的、対象範囲、担い手、決定権限を分ける
 
 ## 制約
 
-- 画面、Transport、内部Componentまたは特定の実装方式をUX成果そのものにしない。
+- 画面、通信方式、内部構成要素または特定の実装方式をUX成果そのものにしない。
 - 下流工程は利用者成果を弱めず、情報構造、操作、振る舞いおよび実現方式へ具体化する。
-- 想定した利用者、状況またはGoalが誤っていると判明した場合は、Source AnalysisとDiscoveryへ戻す。
+- 想定した利用者、状況または目的が誤っていると判明した場合は、元の要求分析とDiscoveryへ戻す。
 
 ## 検証意図
 
-Scope拡張、未承認Authorityおよび不明な実行主体を反証する
+対象範囲の拡張、未承認決定権限および不明な実行主体を反証する
 
-具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-IAはTask、Actor、Authority、Result、Recoveryの関係を分け、SPECとArchitectureはLifecycle全体の成立条件を定める。
+IAはタスク、担い手、決定権限、結果、回復の関係を分け、SPECとArchitectureは一連の状態変化全体の成立条件を定める。
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000002](../../Analysis/REQ-000002/ux_analysis.md)、[REQ-000003](../../Analysis/REQ-000003/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-000002](../../Analysis/REQ-000002/ux_analysis.md)、[REQ-000003](../../Analysis/REQ-000003/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 

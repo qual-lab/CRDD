@@ -1,7 +1,7 @@
 # 工程成果物Repository Pattern
 
 変更ID: `CHG-000073`
-状態: `Ready for Release Handoff`
+状態: `Implementation In Progress`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `repository_structure_change`
@@ -334,6 +334,16 @@
 
 固定Commit `e010e5c6`の再レビューではPersona側が解消し、意味伝播にも新しいCritical／Major／Moderateはなかった。一方、Link記法の閉集合にshortcut referenceと脚注が不足していたため、同じ正式入力境界のMajor 1件として追加是正した。Link抽出はinline、full、collapsed、shortcut reference、脚注を解決後Pathへ統一し、Source Analysisと別REQ Definitionの両方で記法別反例を持つ。
 
+その後の人間確認では、意味と構造が揃っていても、Discovery／UXの見出し、表および図へ`Goal`、`Outcome`、`Persona`、`Journey`、`Service Blueprint`、`Coverage`等が繰り返され、非エンジニア／非デザイナーが本文だけから大意をつかみにくいことが分かった。用語集への登録と人間向けの分かりやすさを別に扱い、次を同じ変更範囲で是正する。
+
+| 取り残し | 原因 | 正しい状態 | 確認方法 |
+|---|---|---|---|
+| 正式用語が人間向け表示へそのまま流入する | 用語集掲載語や正式表示名を可読性の根拠にできた | 用語集なしでも、非専門家が誰の何が問題で何を変えるかを説明できる | Discovery／UXを非専門家の読者像で独立レビューする |
+| ひな型が英語の見出し・表・図ラベルを要求する | 工程契約と表示契約を分けていなかった | 人間向け表示は常用的な日本語、ID・技術名称・状態実値は原文を維持する | ひな型と実成果物の同じ表示項目を照合する |
+| 工程名まで説明語と同じように和訳する | 正式な工程名と、人間向けの説明語を区別していなかった | `Discovery`、`UX`、`IA`、`UI`、`SPEC`、`Architecture`、`Development`、`Verification`、`Release`は正式名を維持し、必要な場合だけ初出へ短い日本語説明を添える | 現行成果物、ひな型、Checkerの要求文字列から旧和訳を検索し、正式名へ統一する |
+| `探索記録`、`要求定義`等の成果物種別だけでは所有工程を判別できない | Folder位置を読めば工程が分かる前提で、工程と成果物の役割を別々に表していた | `Discovery分析`、`Discovery定義`、`UX分析`、`UX定義`のように、正式工程名と役割を一つの表示へ揃える | 既存成果物、ひな型、Checkerおよび契約試験で旧表示を拒否し、新表示を全数確認する |
+| Checkerが旧英語ラベルを完成条件にする | 表層語を工程構造の識別子として固定した | 日本語の構造ラベルを検査し、内容の分かりやすさは独立レビューへ残す | 旧ラベルだけの成果物を反例にし、新ラベルの完全な成果物を受理する |
+
 再レビューの合格条件は、文面の自然さやリンク数ではない。主要な利用者、発生状況、問題、望ましい変化、独立したOutcome候補、重要な失敗および品質期待がDefinitionだけから再導出でき、現在のUXとの差を情報欠落または正当な再分析として説明できることである。
 
 ## 6. 完了条件
@@ -355,9 +365,9 @@
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／31 |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 283／283 Pass。Discovery／UXの空の共通Evidence Root、任意位置のEXP直接入力、異なるREQ Definitionの追加、Canonical UX Definition間のGoal／重要体験の定型複製、共通定型Discovery Definitionの再導入と、全CRDD所有TypeScript packageの静的検査先行を反証済み |
+| Checker契約試験 | 284／284 Pass。Discovery／UXの工程不明な成果物種別、空の共通Evidence Root、任意位置のEXP直接入力、異なるREQ Definitionの追加、Canonical UX Definition間のGoal／重要体験の定型複製、共通定型Discovery Definitionの再導入と、全CRDD所有TypeScript packageの静的検査先行を反証済み |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | 固定Commit `d53875d8`でCritical 0／Major 0／Moderate 0。36 Discovery Definitionから36 UX Analysis、31 Canonical UX、Relation、Journey、品質期待、横断Personaへの意味伝播と正式入力境界を確認 |
 
-現在、人間による追加判断は必要ない。固定Commit `d53875d8`の独立再レビューはCritical／Major／Moderate 0でPassした。Discovery／UXの工程成果物Repository PatternはRelease引渡し可能であり、IA以降の物理再編は各工程を見直す変更で判断する。
+固定Commit `d53875d8`までの工程間意味伝播はCritical／Major／Moderate 0でPassしている。ただし、人間向け表示契約の是正を開始したため、現在の固定候補はRelease引渡し前へ戻した。規則、ひな型、Checker、既存Discovery／UX成果物を同じ表示契約へ揃え、全回帰と非専門家読者を想定した独立再レビューが完了するまでIAへ移行しない。現在、人間による追加判断は必要ない。

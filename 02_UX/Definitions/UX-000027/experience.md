@@ -1,8 +1,8 @@
 # UX-000027 物語と構造から文書の意味を理解する
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-000027`
-状態: Canonical
+状態: 現行正本
 維持責任者: Qual-Lab
 
 ## 利用者成果
@@ -19,14 +19,14 @@ CRDD作成者・保守者
 情報量を失わず短時間で意味と次の行動を理解できる
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「CRDD作成者・保守者」 |
-| Trigger／Situation | 工程成果物を初めて読む時 |
-| Goal | 課題と判断の物語から構造化詳細へ進む |
-| Outcome | 情報量を失わず短時間で意味と次の行動を理解できる |
+| 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「CRDD作成者・保守者」 |
+| 利用のきっかけ／場面 | 工程成果物を初めて読む時 |
+| 目的 | 課題と判断の物語から構造化詳細へ進む |
+| 得られる結果 | 情報量を失わず短時間で意味と次の行動を理解できる |
 
 ## 成立条件
 
@@ -41,35 +41,35 @@ CRDD作成者・保守者
         ↓
 課題と判断の物語から構造化詳細へ進む
         │
-        ├─ ★ Critical: 判断理由と条件を結び付ける場面
-        ├─ ⚠ Failure:  Checklist順と専門語だけで文書を埋める
-        └─ ✓ Quality:  StoryとStructured Contextを両立する
+        ├─ ★ 重要場面: 判断理由と条件を結び付ける場面
+        ├─ ⚠ 失敗:  確認項目順と専門語だけで文書を埋める
+        └─ ✓ 守る品質:  物語と構造化した情報を両立する
         ↓
 情報量を失わず短時間で意味と次の行動を理解できる
 ```
 
 ## 必要な情報
 
-Narrative、Structured Detail、Decision、Evidenceを結ぶ
+物語、構造化した詳細、判断、根拠を結ぶ
 
 ## 制約
 
-- 画面、Transport、内部Componentまたは特定の実装方式をUX成果そのものにしない。
+- 画面、通信方式、内部構成要素または特定の実装方式をUX成果そのものにしない。
 - 下流工程は利用者成果を弱めず、情報構造、操作、振る舞いおよび実現方式へ具体化する。
-- 想定した利用者、状況またはGoalが誤っていると判明した場合は、Source AnalysisとDiscoveryへ戻す。
+- 想定した利用者、状況または目的が誤っていると判明した場合は、元の要求分析とDiscoveryへ戻す。
 
 ## 検証意図
 
-Checklist順、専門語だけの説明および情報削減による見せかけの可読性を反証する
+確認項目順、専門語だけの説明および情報削減による見せかけの可読性を反証する
 
-具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-DocumentationはNarrative-firstとStructured-firstを両立し、各工程は読者理解と機械追跡を確認する。
+文書化規則は物語を先に示す構成と構造化を優先する構成を両立し、各工程は読者理解と機械追跡を確認する。
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000031](../../Analysis/REQ-000031/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-000031](../../Analysis/REQ-000031/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 

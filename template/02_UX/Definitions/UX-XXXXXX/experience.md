@@ -1,32 +1,32 @@
 # UX-XXXXXX 利用者成果名
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-XXXXXX`
-状態: （Canonical／Superseded）
+状態: （正式な／Superseded）
 維持責任者: （記入）
 
 ## 利用者成果
 
-（利用者が特定の状況でSystemと関わることにより得る、独立して意味のあるOutcome。）
+（利用者が特定の状況でシステムと関わることにより得る、独立して意味のある結果。）
 
 ```text
-Primary Persona
-        │ Trigger / Situation
+主な想定利用者
+        │ 利用のきっかけ／場面
         ▼
-Goal
+目的
         │
         ▼
-Outcome
+得られる結果
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | |
-| Trigger／Situation | |
-| Goal | |
-| Outcome | |
+| 主な想定利用者／利用状況 | |
+| 利用のきっかけ／場面 | |
+| 目的 | |
+| 得られる結果 | |
 
 ## 成立条件
 
@@ -36,15 +36,15 @@ Outcome
 ## 重要な体験と品質期待
 
 ```text
-Trigger
+利用のきっかけ
    ↓
-Goal
+目的
    │
-   ├─ ★ Critical:
-   ├─ ⚠ Failure:
-   └─ ✓ Quality:
+   ├─ ★ 重要場面:
+   ├─ ⚠ 失敗:
+   └─ ✓ 守る品質:
    ↓
-Outcome
+得られる結果
 ```
 
 ## 必要な情報
@@ -61,9 +61,9 @@ Outcome
 
 ## 下流への引き渡し
 
-（IA、UI、SPEC、Architecture、Qualityが失わず具体化する意味。）
+（情報設計、画面設計、仕様、アーキテクチャ、品質保証の各工程が、意味を失わず具体化する内容。）
 
 ## 関係
 
-- Source REQ Analysis: [REQ-XXXXXX](../../Analysis/REQ-XXXXXX/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-XXXXXX](../../Analysis/REQ-XXXXXX/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)

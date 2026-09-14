@@ -1,53 +1,53 @@
-# REQ-000015 Runtime Data Rootの所有と用途
+# REQ-000015 実行時データの基点フォルダの所有と用途
 
-成果物種別: Discovery Definition
+成果物種別: Discovery定義
 要求ID: `REQ-000015`
-Discovery判断: 要求採用
+探索での判断: 要求採用
 判断する人: Qual-Lab
 
 ## 要求
 
-Repository-local `.crdd`とOS管理のCROS Runtime Rootは所有範囲を分け、用途、Owner、耐久性およびGit管理可否をPath契約から一意に確認できなければならない。
+リポジトリ-local `.crdd`とOS管理のCROS 実行環境の基点フォルダは所有範囲を分け、用途、責任者、耐久性およびGit管理可否をパス契約から一意に確認できなければならない。
 
 ## 対象と利用状況
 
-Repository-local RuntimeとCROS Serverが、設定、状態、実行履歴、回復、候補、一時物を保存する場面。
+リポジトリ-local 実行基盤とCROS Serverが、設定、状態、実行履歴、回復、候補、一時物を保存する場面。
 
 ## 解く問題と望ましい変化
 
 ```text
-現在: `.crdd`直下やTool別Pathへ由来不明の物が増えると、Owner、耐久性、Git管理、回復要否を後から判断できない。
+現在: `.crdd`直下やツール別パスへ由来不明の物が増えると、責任者、耐久性、Git管理、回復要否を後から判断できない。
     ↓
-望ましい変化: Repository情報と横断Runtime情報を別Rootに置き、用途、Owner、耐久性、Git管理可否をPath契約から一意に確認できる。
+望ましい変化: リポジトリ情報と横断実行基盤情報を別基点フォルダに置き、用途、責任者、耐久性、Git管理可否をパス契約から一意に確認できる。
 ```
 
 ## 採用理由と比較
 
-Tool別Top-levelは増殖し、Project IDでの深掘りはRepository自身のIdentityを重複するため、所有範囲と用途による浅い分類を採る。
+ツール別Top-levelは増殖し、プロジェクト IDでの深掘りはリポジトリ自身の識別情報を重複するため、所有範囲と用途による浅い分類を採る。
 
 ## 成立条件
 
-- Repository-local `.crdd`を検証済みRepository Root直下だけに作る
-- Repository設定、耐久状態、回復情報、再生成可能tmpを区別する
-- CROS横断情報をRepository-local Rootへ混在させない
+- リポジトリ-local `.crdd`を検証済みリポジトリの基点フォルダ直下だけに作る
+- リポジトリ設定、耐久状態、回復情報、再生成可能tmpを区別する
+- CROS横断情報をリポジトリ-local 基点フォルダへ混在させない
 
 ## 制約
 
-- 秘密またはRuntime-only情報をGit管理対象へしない
+- 秘密または実行基盤-only情報をGit管理対象へしない
 - Directory名だけで現在性、参照中または削除可否を推定しない
 
 ## 検証意図
 
-subdirectory起動、複数Repository、追跡設定、一時物、回復残存を作り、書込みRootと分類を観測する。
+subdirectory起動、複数リポジトリ、追跡設定、一時物、回復残存を作り、書込み基点フォルダと分類を観測する。
 
 ## 工程引渡し
 
 | 引渡し先 | 失ってはならない意味 | 下流で決めること |
 |---|---|---|
-| UX | Runtime利用者・保守者、保存物を確認する状況、何がどこに属するか迷わない変化をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
-| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
+| UX | 実行基盤利用者・保守者、保存物を確認する状況、何がどこに属するか迷わない変化をUXへ渡す。 | 目的、独立した利用者成果、重要場面、失敗、体験品質 |
+| IA以降 | 本要求の識別情報、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
-- Source Analysis: [EXP-000016](../../Analysis/EXP-000016/exploration.md)
-- Formal downstream input: UXは本Definitionだけを正式入力として分析する。Source Analysisを直接補助入力にせず、意味が不足する場合はDiscoveryへ差し戻す。
+- 元の探索記録: [EXP-000016](../../Analysis/EXP-000016/exploration.md)
+- 下流工程への正式入力: UXはこの要求定義だけを正式入力として分析する。元の探索記録を直接の補助入力にせず、意味が不足する場合はDiscoveryへ差し戻す。

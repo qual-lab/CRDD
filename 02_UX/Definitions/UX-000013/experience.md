@@ -1,75 +1,75 @@
-# UX-000013 許可されたWorkspaceだけをRemote利用する
+# UX-000013 許可された作業領域だけをリモート利用する
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-000013`
-状態: Canonical
+状態: 現行正本
 維持責任者: Qual-Lab
 
 ## 利用者成果
 
-接続元やCredentialが変わっても、現在許可されたWorkspaceだけを利用し、利用不能理由と管理能力を内容閲覧から区別できる
+接続元や接続資格情報が変わっても、現在許可された作業領域だけを利用し、利用不能理由と管理能力を内容閲覧から区別できる
 
 ```text
-Project Operator／PM
-        │ Remote Sessionを開始・再接続する時
+プロジェクト運営者／PM
+        │ リモート 接続単位を開始・再接続する時
         ▼
-許可されたWorkspaceだけへ接続する
+許可された作業領域だけへ接続する
         │
         ▼
 場所が変わっても開示範囲を理解して安全に使える
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「Project Operator／PM」 |
-| Trigger／Situation | Remote Sessionを開始・再接続する時 |
-| Goal | 許可されたWorkspaceだけへ接続する |
-| Outcome | 場所が変わっても開示範囲を理解して安全に使える |
+| 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「プロジェクト運営者／PM」 |
+| 利用のきっかけ／場面 | リモート 接続単位を開始・再接続する時 |
+| 目的 | 許可された作業領域だけへ接続する |
+| 得られる結果 | 場所が変わっても開示範囲を理解して安全に使える |
 
 ## 成立条件
 
-- 接続元やCredentialが変わっても、現在許可されたWorkspaceだけを利用し、利用不能理由と管理能力を内容閲覧から区別できる
-- 重要場面「利用可能Contextを表示する時」で、避ける失敗を利用者が正常状態や完了として誤認しない。
+- 接続元や接続資格情報が変わっても、現在許可された作業領域だけを利用し、利用不能理由と管理能力を内容閲覧から区別できる
+- 重要場面「利用可能情報を表示する時」で、避ける失敗を利用者が正常状態や完了として誤認しない。
 - 入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。
 
 ## 重要な体験と品質期待
 
 ```text
-Remote Sessionを開始・再接続する時
+リモート 接続単位を開始・再接続する時
         ↓
-許可されたWorkspaceだけへ接続する
+許可された作業領域だけへ接続する
         │
-        ├─ ★ Critical: 利用可能Contextを表示する時
-        ├─ ⚠ Failure:  利用不能なRepositoryの存在や内容を推測表示する
-        └─ ✓ Quality:  現在Grantだけを開示し不足を補完しない
+        ├─ ★ 重要場面: 利用可能情報を表示する時
+        ├─ ⚠ 失敗:  利用不能なリポジトリの存在や内容を推測表示する
+        └─ ✓ 守る品質:  現在Grantだけを開示し不足を補完しない
         ↓
 場所が変わっても開示範囲を理解して安全に使える
 ```
 
 ## 必要な情報
 
-Credential、Session、Workspace Grant、System Capability、Disclosureを分ける
+接続資格情報、接続単位、作業領域 Grant、システム管理能力、開示範囲を分ける
 
 ## 制約
 
-- 画面、Transport、内部Componentまたは特定の実装方式をUX成果そのものにしない。
+- 画面、通信方式、内部構成要素または特定の実装方式をUX成果そのものにしない。
 - 下流工程は利用者成果を弱めず、情報構造、操作、振る舞いおよび実現方式へ具体化する。
-- 想定した利用者、状況またはGoalが誤っていると判明した場合は、Source AnalysisとDiscoveryへ戻す。
+- 想定した利用者、状況または目的が誤っていると判明した場合は、元の要求分析とDiscoveryへ戻す。
 
 ## 検証意図
 
 存在漏えい、一律Unlock、古いGrantおよび管理能力からの閲覧権限推定を反証する
 
-具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-IAはCredential、Session、Workspace、ExposureおよびSource可用性を区別する。Threat／SPEC／Architectureは開示可否とEffect Authorityを別契約として具体化する。
+IAは接続資格情報、接続単位、作業領域、Exposureおよび情報源可用性を区別する。Threat／SPEC／Architectureは開示可否と外部変更の決定権限を別契約として具体化する。
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000011](../../Analysis/REQ-000011/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-000011](../../Analysis/REQ-000011/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 

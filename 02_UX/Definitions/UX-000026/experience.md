@@ -1,8 +1,8 @@
 # UX-000026 試験層と現在の保証範囲を理解して選ぶ
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-000026`
-状態: Canonical
+状態: 現行正本
 維持責任者: Qual-Lab
 
 ## 利用者成果
@@ -19,14 +19,14 @@ CRDD作成者・保守者
 最終E2E前に外部境界の問題を局所化できる
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「CRDD作成者・保守者」 |
-| Trigger／Situation | 変更の検証計画を作る時 |
-| Goal | 試験層ごとの保証と未確認範囲を理解する |
-| Outcome | 最終E2E前に外部境界の問題を局所化できる |
+| 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「CRDD作成者・保守者」 |
+| 利用のきっかけ／場面 | 変更の検証計画を作る時 |
+| 目的 | 試験層ごとの保証と未確認範囲を理解する |
+| 得られる結果 | 最終E2E前に外部境界の問題を局所化できる |
 
 ## 成立条件
 
@@ -41,35 +41,35 @@ CRDD作成者・保守者
         ↓
 試験層ごとの保証と未確認範囲を理解する
         │
-        ├─ ★ Critical: 外部境界を結合する各段階
-        ├─ ⚠ Failure:  単発成功や試験件数からLifecycle全体を保証する
-        └─ ✓ Quality:  開始から清掃まで段階的に反証する
+        ├─ ★ 重要場面: 外部境界を結合する各段階
+        ├─ ⚠ 失敗:  単発成功や試験件数から一連の状態変化全体を保証する
+        └─ ✓ 守る品質:  開始から清掃まで段階的に反証する
         ↓
 最終E2E前に外部境界の問題を局所化できる
 ```
 
 ## 必要な情報
 
-Test Layer、Scope、Lifecycle Evidence、Authority、Not Executed Stateを結ぶ
+Test Layer、対象範囲、一連の状態変化 根拠、決定権限、Not Executed Stateを結ぶ
 
 ## 制約
 
-- 画面、Transport、内部Componentまたは特定の実装方式をUX成果そのものにしない。
+- 画面、通信方式、内部構成要素または特定の実装方式をUX成果そのものにしない。
 - 下流工程は利用者成果を弱めず、情報構造、操作、振る舞いおよび実現方式へ具体化する。
-- 想定した利用者、状況またはGoalが誤っていると判明した場合は、Source AnalysisとDiscoveryへ戻す。
+- 想定した利用者、状況または目的が誤っていると判明した場合は、元の要求分析とDiscoveryへ戻す。
 
 ## 検証意図
 
-一部Passからの全体品質推定、単発成功だけのLifecycle保証および未指示の高負荷実行を反証する
+一部Passからの全体品質推定、単発成功だけの一連の状態変化保証および未指示の高負荷実行を反証する
 
-具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-Qualityは試験層と再実行選択を、ArchitectureはBlockとLifecycleを、VerificationはEvidence状態を具体化する。
+品質は試験層と再実行選択を、ArchitectureはBlockと一連の状態変化を、Verificationは根拠状態を具体化する。
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000030](../../Analysis/REQ-000030/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-000030](../../Analysis/REQ-000030/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 

@@ -1,37 +1,37 @@
-# UX-000011 Project・Repository・Rootを区別して対象を選ぶ
+# UX-000011 プロジェクト・リポジトリ・基点フォルダを区別して対象を選ぶ
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-000011`
-状態: Canonical
+状態: 現行正本
 維持責任者: Qual-Lab
 
 ## 利用者成果
 
-論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる
+論理プロジェクトを一つに見ながら、参照・実行・回復の対象リポジトリと基点フォルダを取り違えずに選べる
 
 ```text
-Project Operator／PM
+プロジェクト運営者／PM
         │ 参照または操作対象を選ぶ時
         ▼
-Project・Repository・Rootを区別して対象を確認する
+プロジェクト・リポジトリ・基点フォルダを区別して対象を確認する
         │
         ▼
-論理Projectを一つに見ながら誤った場所へ作用しない
+論理プロジェクトを一つに見ながら誤った場所へ作用しない
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「Project Operator／PM」 |
-| Trigger／Situation | 参照または操作対象を選ぶ時 |
-| Goal | Project・Repository・Rootを区別して対象を確認する |
-| Outcome | 論理Projectを一つに見ながら誤った場所へ作用しない |
+| 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「プロジェクト運営者／PM」 |
+| 利用のきっかけ／場面 | 参照または操作対象を選ぶ時 |
+| 目的 | プロジェクト・リポジトリ・基点フォルダを区別して対象を確認する |
+| 得られる結果 | 論理プロジェクトを一つに見ながら誤った場所へ作用しない |
 
 ## 成立条件
 
-- 論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる
-- 重要場面「Effect対象を確定する直前」で、避ける失敗を利用者が正常状態や完了として誤認しない。
+- 論理プロジェクトを一つに見ながら、参照・実行・回復の対象リポジトリと基点フォルダを取り違えずに選べる
+- 重要場面「外部への変更対象を確定する直前」で、避ける失敗を利用者が正常状態や完了として誤認しない。
 - 入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。
 
 ## 重要な体験と品質期待
@@ -39,37 +39,37 @@ Project・Repository・Rootを区別して対象を確認する
 ```text
 参照または操作対象を選ぶ時
         ↓
-Project・Repository・Rootを区別して対象を確認する
+プロジェクト・リポジトリ・基点フォルダを区別して対象を確認する
         │
-        ├─ ★ Critical: Effect対象を確定する直前
-        ├─ ⚠ Failure:  同名や近いPathを同じ対象と誤認する
-        └─ ✓ Quality:  各Identityと物理Rootの結合を明示する
+        ├─ ★ 重要場面: 外部への変更対象を確定する直前
+        ├─ ⚠ 失敗:  同名や近いパスを同じ対象と誤認する
+        └─ ✓ 守る品質:  各識別情報と物理基点フォルダの結合を明示する
         ↓
-論理Projectを一つに見ながら誤った場所へ作用しない
+論理プロジェクトを一つに見ながら誤った場所へ作用しない
 ```
 
 ## 必要な情報
 
-Project、Repository、Root、Bindingを分ける
+プロジェクト、リポジトリ、基点フォルダ、Bindingを分ける
 
 ## 制約
 
-- 画面、Transport、内部Componentまたは特定の実装方式をUX成果そのものにしない。
+- 画面、通信方式、内部構成要素または特定の実装方式をUX成果そのものにしない。
 - 下流工程は利用者成果を弱めず、情報構造、操作、振る舞いおよび実現方式へ具体化する。
-- 想定した利用者、状況またはGoalが誤っていると判明した場合は、Source AnalysisとDiscoveryへ戻す。
+- 想定した利用者、状況または目的が誤っていると判明した場合は、元の要求分析とDiscoveryへ戻す。
 
 ## 検証意図
 
-名前やPathの類似だけから対象Identityを推定する操作を反証する
+名前やパスの類似だけから対象識別情報を推定する操作を反証する
 
-具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-IAはProject、Repository、RootおよびBindingを別Entityとして関連付ける。UIは通常表示とSource詳細を分け、Architectureは検証済みIdentityを公開結果まで保持する。
+IAはプロジェクト、リポジトリ、基点フォルダおよびBindingを別Entityとして関連付ける。UIは通常表示と情報源詳細を分け、Architectureは検証済み識別情報を公開結果まで保持する。
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000009](../../Analysis/REQ-000009/ux_analysis.md)、[REQ-000020](../../Analysis/REQ-000020/ux_analysis.md)、[REQ-000024](../../Analysis/REQ-000024/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-000009](../../Analysis/REQ-000009/ux_analysis.md)、[REQ-000020](../../Analysis/REQ-000020/ux_analysis.md)、[REQ-000024](../../Analysis/REQ-000024/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 

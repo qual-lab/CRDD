@@ -1,8 +1,8 @@
 # UX-000023 監査・是正・判断を一つの改訂版で閉じる
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-000023`
-状態: Canonical
+状態: 現行正本
 維持責任者: Qual-Lab
 
 ## 利用者成果
@@ -11,7 +11,7 @@ UX ID: `UX-000023`
 
 ```text
 CRDD作成者・保守者
-        │ 複数Findingを是正する時
+        │ 複数指摘を是正する時
         ▼
 監査合意から是正・反証までを一つの改訂版で閉じる
         │
@@ -19,14 +19,14 @@ CRDD作成者・保守者
 小出しの指摘と局所PatchのLoopを減らせる
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「CRDD作成者・保守者」 |
-| Trigger／Situation | 複数Findingを是正する時 |
-| Goal | 監査合意から是正・反証までを一つの改訂版で閉じる |
-| Outcome | 小出しの指摘と局所PatchのLoopを減らせる |
+| 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「CRDD作成者・保守者」 |
+| 利用のきっかけ／場面 | 複数指摘を是正する時 |
+| 目的 | 監査合意から是正・反証までを一つの改訂版で閉じる |
+| 得られる結果 | 小出しの指摘と局所PatchのLoopを減らせる |
 
 ## 成立条件
 
@@ -37,39 +37,39 @@ CRDD作成者・保守者
 ## 重要な体験と品質期待
 
 ```text
-複数Findingを是正する時
+複数指摘を是正する時
         ↓
 監査合意から是正・反証までを一つの改訂版で閉じる
         │
-        ├─ ★ Critical: 再レビューへ固定候補を渡す直前
-        ├─ ⚠ Failure:  一部是正や監査回数を完成と誤認する
-        └─ ✓ Quality:  合意事項と試験を全数対応させる
+        ├─ ★ 重要場面: 再レビューへ固定候補を渡す直前
+        ├─ ⚠ 失敗:  一部是正や監査回数を完成と誤認する
+        └─ ✓ 守る品質:  合意事項と試験を全数対応させる
         ↓
 小出しの指摘と局所PatchのLoopを減らせる
 ```
 
 ## 必要な情報
 
-Finding、Remediation、Verification、Decision Request、Current Revisionを結ぶ
+指摘、是正、Verification、判断要求、現在の改訂版を結ぶ
 
 ## 制約
 
-- 画面、Transport、内部Componentまたは特定の実装方式をUX成果そのものにしない。
+- 画面、通信方式、内部構成要素または特定の実装方式をUX成果そのものにしない。
 - 下流工程は利用者成果を弱めず、情報構造、操作、振る舞いおよび実現方式へ具体化する。
-- 想定した利用者、状況またはGoalが誤っていると判明した場合は、Source AnalysisとDiscoveryへ戻す。
+- 想定した利用者、状況または目的が誤っていると判明した場合は、元の要求分析とDiscoveryへ戻す。
 
 ## 検証意図
 
 指摘の小出し適用、解消済み判断の再要求および一部是正の完成表示を反証する
 
-具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-IAはFinding、Decision、Remediation、Evidenceを分け、WorkflowとVerificationは収束Gateを具体化する。
+IAは指摘、判断、是正、根拠を分け、WorkflowとVerificationは収束完了条件を具体化する。
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000026](../../Analysis/REQ-000026/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-000026](../../Analysis/REQ-000026/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 

@@ -1,8 +1,8 @@
 # UX-000006 実行事実を根拠付きで振り返る
 
-成果物種別: UX Definition
+成果物種別: UX定義
 UX ID: `UX-000006`
-状態: Canonical
+状態: 現行正本
 維持責任者: Qual-Lab
 
 ## 利用者成果
@@ -10,7 +10,7 @@ UX ID: `UX-000006`
 実行主体が異なっても、観測事実・未観測・評価・改善候補を出所と時点付きで区別して振り返れる
 
 ```text
-Runtime導入・運用者
+実行環境の導入・運用者
         │ 実行結果を振り返る時
         ▼
 実行事実を出所と観測時点付きで比較する
@@ -19,14 +19,14 @@ Runtime導入・運用者
 推測と事実を混ぜず改善候補を判断できる
 ```
 
-## 利用者・状況・Goal
+## 利用者・状況・目的
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「Runtime導入・運用者」 |
-| Trigger／Situation | 実行結果を振り返る時 |
-| Goal | 実行事実を出所と観測時点付きで比較する |
-| Outcome | 推測と事実を混ぜず改善候補を判断できる |
+| 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「実行環境の導入・運用者」 |
+| 利用のきっかけ／場面 | 実行結果を振り返る時 |
+| 目的 | 実行事実を出所と観測時点付きで比較する |
+| 得られる結果 | 推測と事実を混ぜず改善候補を判断できる |
 
 ## 成立条件
 
@@ -41,35 +41,35 @@ Runtime導入・運用者
         ↓
 実行事実を出所と観測時点付きで比較する
         │
-        ├─ ★ Critical: 未観測値を含む実行事実の取得
-        ├─ ⚠ Failure:  未観測を0や正常へ畳む
-        └─ ✓ Quality:  出所・時点・観測状態を保持する
+        ├─ ★ 重要場面: 未観測値を含む実行事実の取得
+        ├─ ⚠ 失敗:  未観測を0や正常へ畳む
+        └─ ✓ 守る品質:  出所・時点・観測状態を保持する
         ↓
 推測と事実を混ぜず改善候補を判断できる
 ```
 
 ## 必要な情報
 
-Execution、Observation State、Source、Assessment、Candidateを分ける
+Execution、Observation State、情報源、Assessment、候補を分ける
 
 ## 制約
 
-- 画面、Transport、内部Componentまたは特定の実装方式をUX成果そのものにしない。
+- 画面、通信方式、内部構成要素または特定の実装方式をUX成果そのものにしない。
 - 下流工程は利用者成果を弱めず、情報構造、操作、振る舞いおよび実現方式へ具体化する。
-- 想定した利用者、状況またはGoalが誤っていると判明した場合は、Source AnalysisとDiscoveryへ戻す。
+- 想定した利用者、状況または目的が誤っていると判明した場合は、元の要求分析とDiscoveryへ戻す。
 
 ## 検証意図
 
 空値の正常化、評価の事実化および出所のない比較を反証する
 
-具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-IAはExecution、Observation、Assessmentを分け、Verificationは複数Runtime間で意味が保存されることを確認する。
+IAはExecution、Observation、Assessmentを分け、Verificationは複数実行基盤間で意味が保存されることを確認する。
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000004](../../Analysis/REQ-000004/ux_analysis.md)
-- Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
+- 元の要求分析: [REQ-000004](../../Analysis/REQ-000004/ux_analysis.md)
+- 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 
