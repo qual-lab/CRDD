@@ -124,7 +124,26 @@ MCP接続済み、Agentが応答した、またはHandoffを受信しただけ�
 
 WorkbenchとMCPは同じ利用者へ同じ形を強制する入口ではない。利用者が置かれた状況に適した入口を選びながら、同じProject、Source、状態、判断境界および結果へ到達できることをUX成果とする。
 
-### 3.1. Discovery要求候補からUX成果への対応
+### 3.1. REQごとのUX分析
+
+Discoveryで採用した要求を一つずつ分析し、利用者成果、重要場面、品質期待および下流義務へ変換する。DirectoryはUX成果の保管場所ではなく、各`REQ-*`をUX観点で処置したことを示す分析単位である。一つの要求から複数UXが生まれてよく、複数要求が同じUXへ収束してよい。
+
+| 要求 | 個別分析 | 現在のUX処置 |
+|---|---|---|
+| `REQ-000003` | [Objectiveから統合までのProject Lifecycle](Requirements/REQ-000003/user_experience.md) | `UX-000009@1`へ変換 |
+| `REQ-000007` | [出典と不完全性を保つProject View](Requirements/REQ-000007/user_experience.md) | `UX-000002@1`、`UX-000006@1`へ接続 |
+| `REQ-000008` | [CROSなしで成立するRepository作業](Requirements/REQ-000008/user_experience.md) | `UX-000001@1`へ変換 |
+| `REQ-000009` | [Project・Repository・Root Identity分離](Requirements/REQ-000009/user_experience.md) | `UX-000002@1`へ統合 |
+| `REQ-000010` | [Workbench・MCP・CLIの公開契約共有](Requirements/REQ-000010/user_experience.md) | `UX-000003@1`、`UX-000006@1`へ接続 |
+| `REQ-000011` | [Remote接続のWorkspace限定](Requirements/REQ-000011/user_experience.md) | `UX-000007@1`へ変換 |
+| `REQ-000012` | [Meetingから候補を経た正本更新](Requirements/REQ-000012/user_experience.md) | `UX-000004@1`へ変換 |
+| `REQ-000013` | [根拠と不完全性を保つPortfolio](Requirements/REQ-000013/user_experience.md) | `UX-000005@1`へ変換 |
+| `REQ-000017` | [出所付きContext Packageの解決](Requirements/REQ-000017/user_experience.md) | `UX-000010@1`の入力側へ接続 |
+| `REQ-000020` | [欠測・競合を保つRepository Federation](Requirements/REQ-000020/user_experience.md) | `UX-000002@1`へ統合 |
+| `REQ-000021` | [Remote要求結果の同一Identity再取得](Requirements/REQ-000021/user_experience.md) | `UX-000008@1`へ変換 |
+| `REQ-000024` | [境界を越えるTask結果の帰還](Requirements/REQ-000024/user_experience.md) | `UX-000010@1`の出力側へ接続 |
+
+### 3.2. Discovery要求からUX成果への統合対応
 
 次の10件は、[DiscoveryからUXへ渡した内容](../01_Discovery/01_Product_Discovery.md#current-discovery-decisions)を利用者成果へ変換した安定コンテキストである。各成果の改訂版は`@1`、状態は`Candidate`であり、UX工程移行の承認前に採用済みと扱わない。
 
@@ -141,7 +160,7 @@ WorkbenchとMCPは同じ利用者へ同じ形を強制する入口ではない�
 | `UX-000009@1` Milestoneを委ねる | `REQ-000003`: Objectiveから統合までのProject Lifecycle | 人間が内部Taskを逐次操作せず、Milestoneの成立状態と必要な判断だけを理解して進行を委ねられる | [Milestoneを委ねる利用体験](#milestone-delegation-experience)、Project Operator／PM Journey | Task数や進捗率ではなく、受入・統合・品質・判断状態を区別できるか確認する | Objective、Milestone、Task、Integration、Quality、Decisionを関連付ける |
 | `UX-000010@1` 出所付きContextと結果の往復 | `REQ-000017`／`REQ-000024`: 出所付きContext Packageの解決と境界を越えるTask結果の帰還 | Chat AgentとCoding Agentの間を人間が転記せず、使ったContextと生成結果を同じTaskへ戻せる | 対話と構築を往復する体験、非AI外部Tool Journey | 全Context投入、出所喪失、別Taskへの結果混入を拒否する | Context Package、Source、Task、Result、Handoff、Decisionを関連付ける |
 
-### 3.2. 利用者・状況別の成果
+### 3.3. 利用者・状況別の成果
 
 | 利用者・状況 | 現在の困りごと／失敗仮説 | 利用後に得たい状態 | 価値が成立しない条件 |
 |---|---|---|---|
@@ -153,7 +172,7 @@ WorkbenchとMCPは同じ利用者へ同じ形を強制する入口ではない�
 | Remote ClientがShared CROSを利用 | 接続、Content Access、Effect Authorityおよび応答喪失を区別できない | 接続先、開示範囲、要求状態、次の安全な操作を理解できる | 接続成功を実行許可と誤認する、または再試行でEffectが重複する |
 | 非AIの外部Tool／自動化 | 人間向け画面またはAI出力を解析して定型処理する | 同じ構造化結果と相関Identityを直接利用できる | MCPを不要なLocal処理へ強制する、または任意Commandを公開する |
 
-### 3.3. 共通体験原則
+### 3.4. 共通体験原則
 
 - **入口より意味を安定させる。** Workbench、AI＋MCP、CLI／TS APIで、同じ状態を成功、失敗または判断待ちへ別解釈しない。
 - **LocalをRemoteの都合で複雑にしない。** 一つのRepositoryで足りる作業にCROS Server、Credential切替またはFederation理解を要求しない。

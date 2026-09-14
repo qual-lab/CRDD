@@ -29,7 +29,7 @@ Project Operation Context
 | Project Management Projection | 設計中 |
 | 任意Top-level構造 | 設計中 |
 | Project Operation／Workbench Discovery | `Complete for Scope`。Workbench／MCP共同利用体系まで再探索し、独立レビューPass。2026-09-13にUX移行承認済み |
-| Workbench／MCP共同UX | `Ready for IA Decision`。Discoveryの12要求を10件のUX成果へ全数接続し、人間が理解する順序で問題、利用者の物語、成果、Journey、重要場面、失敗・回復、Service Blueprint、認知意図、制御・適応、代替比較および次工程への義務を具体化した。2026-09-13の独立工程移行レビューはCritical／Major／Moderate 0でPassし、人間のIA移行判断待ち |
+| Workbench／MCP共同UX | `Ready for IA Decision`。Discoveryの12要求を要求別分析へ分け、全体正本では10件のUX成果、利用者の物語、Journey、重要場面、失敗・回復、Service Blueprintおよび次工程への義務を統合した。構造変更後の同一改訂版を独立再レビューし、Critical／Major／Moderate／Minor 0を確認済み |
 | Discoveryの人間理解確認 | 完了。AIによる既存Context再構成と人間理解を分け、Workbench、Remote MCP、Repository単独利用および工程境界の人間提示内容をUX入力へ反映 |
 | 仕様・ひな型・Checker・試験 | 未着手 |
 
@@ -451,10 +451,10 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 
 | 対象 | 次のGate | 迂回しない境界 |
 |---|---|---|
-| CROS Workbenchの利用者向け経路 | UX工程移行レビューで役割別成果、Journey、重要場面、失敗／回復、Service Blueprintおよび検証意図の指摘を閉じ、同じ固定改訂版のPassを得る → 人間の決定権限者がUX内容、レビュー結果およびIAへの移行を確認・承認する | IA、並行するUI／SPECとその対応レビューを飛ばしてArchitectureまたは実装へ進まない |
+| CROS Workbenchの利用者向け経路 | 要求別分析と全体正本の責務、12要求から10件のUX成果への全数接続、人間が理解する読み順を新しい固定改訂版で独立再レビューする → 指摘を閉じた同じ改訂版のPass後、人間の決定権限者がIAへの移行を確認・承認する | 2026-09-13の構造変更前レビューを新しい改訂版へ流用せず、IA、並行するUI／SPECとその対応レビューを飛ばしてArchitectureまたは実装へ進まない |
 | 非UIのProject Operation意味契約 | UXから生じた情報、状態、判断、Source Coverageおよび回復導線の義務を入力として、Identity、責務、Lifecycle、Relation、ProjectionおよびRepository構造の既存設計候補をIAで再照合する | Workbenchの表示・操作をArchitectureで補完せず、IA／UI／SPECの所有事項へ戻す |
 
-DiscoveryからUXへの移行は2026-09-13に承認済みである。UXの独立工程移行レビューとIA移行判断はこれと別Gateとして維持する。両経路がArchitectureで合流した後に、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合し、ひな型、Checkerおよび実装へ進む。
+DiscoveryからUXへの移行は2026-09-13に承認済みである。構造変更後のUX独立再レビューとIA移行判断はこれと別Gateとして維持する。両経路がArchitectureで合流した後に、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合し、ひな型、Checkerおよび実装へ進む。
 
 ## 9. 次の工程是正へ保持する入力
 

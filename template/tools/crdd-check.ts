@@ -483,6 +483,105 @@ function checkWorkLifecycleNavigation(): void {
 
 checkWorkLifecycleNavigation();
 
+function checkUxRequirementAnalysis(): void {
+  if (repositoryMode !== "official") return;
+  const discoveryPath = path.join(
+    root,
+    "01_Discovery",
+    "01_Product_Discovery.md",
+  );
+  const uxIndexPath = path.join(root, "02_UX", "01_User_Experience.md");
+  const requirementsRoot = path.join(root, "02_UX", "Requirements");
+  if (
+    !lstatIfPresent(discoveryPath)?.isFile() ||
+    !lstatIfPresent(uxIndexPath)?.isFile()
+  )
+    return;
+  if (!lstatIfPresent(requirementsRoot)?.isDirectory()) {
+    add(
+      "error",
+      "ux-requirement-analysis-root-missing",
+      relative(requirementsRoot),
+      "The official UX profile must retain the requirement-analysis root.",
+    );
+    return;
+  }
+  const templatePath = path.join(
+    root,
+    "template",
+    "02_UX",
+    "Requirements",
+    "REQ-XXXXXX",
+    "user_experience.md",
+  );
+  if (!lstatIfPresent(templatePath)?.isFile())
+    add(
+      "error",
+      "ux-requirement-analysis-template-missing",
+      relative(templatePath),
+      "The official distribution must include the UX requirement-analysis template.",
+    );
+  const adoptedUxRequirements = new Set(
+    read(discoveryPath)
+      .split(/\r?\n/u)
+      .filter(
+        (line) =>
+          /^\| `REQ-[0-9]{6}` \|/u.test(line) &&
+          line.includes("| 要求採用 |") &&
+          /\|[^|]*UX[^|]*\|?$/u.test(line),
+      )
+      .map((line) => line.match(/REQ-[0-9]{6}/u)?.[0])
+      .filter((value): value is string => Boolean(value)),
+  );
+  const actualRequirements = new Set<string>();
+  const uxIndex = read(uxIndexPath);
+  for (const entry of fs.readdirSync(requirementsRoot, {
+    withFileTypes: true,
+  })) {
+    if (!entry.isDirectory() || !/^REQ-[0-9]{6}$/u.test(entry.name)) continue;
+    const analysisPath = path.join(
+      requirementsRoot,
+      entry.name,
+      "user_experience.md",
+    );
+    if (!lstatIfPresent(analysisPath)?.isFile()) continue;
+    actualRequirements.add(entry.name);
+    const analysis = read(analysisPath);
+    const requiredParts = [
+      `要求: \`${entry.name}\``,
+      "## 1. なぜこの要求を体験として扱うのか",
+      "## 2. 利用者に起きる変化",
+      "## 3. UXへの処置",
+      "## 4. 重要場面、失敗、品質期待",
+      "## 5. 下流への引き渡し",
+    ];
+    if (
+      requiredParts.some((part) => !analysis.includes(part)) ||
+      uxIndex.split(`Requirements/${entry.name}/user_experience.md`).length -
+        1 !==
+        1
+    )
+      add(
+        "error",
+        "ux-requirement-analysis-contract-invalid",
+        relative(analysisPath),
+        "Each UX requirement analysis must declare its REQ, preserve the human-reading sequence, and have one registry link.",
+      );
+  }
+  if (
+    adoptedUxRequirements.size !== actualRequirements.size ||
+    [...adoptedUxRequirements].some((id) => !actualRequirements.has(id))
+  )
+    add(
+      "error",
+      "ux-requirement-analysis-coverage-mismatch",
+      relative(uxIndexPath),
+      "Every adopted Discovery requirement routed to UX must have exactly one requirement analysis directory.",
+    );
+}
+
+checkUxRequirementAnalysis();
+
 let workLifecycleRoots = [
   path.join(root, "99_Roadmap"),
   ...(repositoryMode === "official"

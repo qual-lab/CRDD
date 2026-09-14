@@ -66,6 +66,24 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
   ])
     assert.ok(discoveryTemplate.includes(required), required);
 
+  const uxRequirementTemplatePath =
+    "template/02_UX/Requirements/REQ-XXXXXX/user_experience.md";
+  const uxRequirementTemplate = fs.readFileSync(
+    path.join(repositoryRoot, uxRequirementTemplatePath),
+    "utf8",
+  );
+  for (const required of [
+    "## 1. なぜこの要求を体験として扱うのか",
+    "## 2. 利用者に起きる変化",
+    "## 3. UXへの処置",
+    "## 4. 重要場面、失敗、品質期待",
+    "## 5. 下流への引き渡し",
+  ])
+    assert.ok(
+      uxRequirementTemplate.includes(required),
+      `${uxRequirementTemplatePath}: ${required}`,
+    );
+
   const phaseDiagramProfiles = new Map<string, readonly string[]>([
     [
       "template/01_Discovery/01_Product_Discovery.md",
@@ -714,6 +732,31 @@ test("Discoveryひな型から人間理解の確認契約を除去できない",
       (finding) =>
         finding.code === "phase_diagram_disposition_contract_invalid" &&
         finding.path === "template/01_Discovery/01_Product_Discovery.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX要求分析Directoryの全欠落を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "01_Discovery"), { recursive: true });
+  fs.mkdirSync(path.join(root, "02_UX"), { recursive: true });
+  fs.writeFileSync(path.join(root, "01_Principles.md"), "# Principles\n");
+  fs.writeFileSync(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n",
+  );
+  fs.writeFileSync(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  fs.rmSync(path.join(root, "02_UX", "Requirements"), {
+    recursive: true,
+    force: true,
+  });
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-root-missing" &&
+        finding.path === "02_UX/Requirements",
     ),
     `${result.stdout}\n${result.stderr}`,
   );
