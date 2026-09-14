@@ -76,8 +76,8 @@ REQ-000034
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Repository単独で日常作業を続ける | `Same → UX-000010` | 既存UXのFailure: 横断機能・Commit済み状態・特定履歴実装を前提にし、現在Repositoryで日常作業を始められない<br>現在REQのFailure: Repositoryに対応する固定Toolを選べず、外部の任意ToolまたはCandidateへ依存する<br>Failure差: 現在REQはTool起動条件を追加するが、Repository単独の日常作業が外部条件で止まる失敗は同じである<br>同一Outcomeへ統合できる理由: Repository Bindingは同じLocal作業成果のCapability発見条件である | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
-| 仕事に必要な標準Toolを迷わず選ぶ | `Same → UX-000016` | 既存UXのFailure: Toolの存在・利用可能性・Effect権限・実行Modeを混同し、仕事に合う入口を選べない<br>現在REQのFailure: 開発候補または外部Toolを署名済み公式Runtimeと誤認して起動する<br>Failure差: 現在REQは配布物と実行Modeの識別を具体化するが、適切なToolを選べない失敗は同じである<br>同一Outcomeへ統合できる理由: 固定Commitと署名状態は同じTool選択成果に必要なInformation／Authority条件である | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
+| Repository単独で日常作業を続ける | `Same → UX-000010` | 既存UXのActor: Developer<br>現在REQのActor: Developer<br>Actor差: 既存UXと現在REQはいずれも「Developer」であり、Actorの差はない<br>既存UXのTrigger: Repositoryで作業を始める時<br>現在REQのTrigger: Toolを導入または起動する時<br>Trigger差: 既存UXの「Repositoryで作業を始める時」に対して現在REQは「Toolを導入または起動する時」を具体化するが、同じ「Repository単独で日常作業を続ける」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在Repositoryで日常作業を開始・継続できる<br>現在REQのOutcome: 未Commit作業と署名済み実行を区別して反復できる<br>Outcome差: 既存UXの「横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在Repositoryで日常作業を開始・継続できる」に対して現在REQは「未Commit作業と署名済み実行を区別して反復できる」と要求固有に表すが、後者は同じ「Repository単独で日常作業を続ける」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 横断機能・Commit済み状態・特定履歴実装を前提にし、現在Repositoryで日常作業を始められない<br>現在REQのFailure: Repositoryに対応する固定Toolを選べず、外部の任意ToolまたはCandidateへ依存する<br>Failure差: 現在REQはTool起動条件を追加するが、Repository単独の日常作業が外部条件で止まる失敗は同じである<br>同一Outcomeへ統合できる理由: Repository Bindingは同じLocal作業成果のCapability発見条件である | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
+| 仕事に必要な標準Toolを迷わず選ぶ | `Same → UX-000016` | 既存UXのActor: Developer<br>現在REQのActor: Developer<br>Actor差: 既存UXと現在REQはいずれも「Developer」であり、Actorの差はない<br>既存UXのTrigger: Toolで処理を始める時<br>現在REQのTrigger: Toolを導入または起動する時<br>Trigger差: 既存UXの「Toolで処理を始める時」に対して現在REQは「Toolを導入または起動する時」を具体化するが、同じ「仕事に必要な標準Toolを迷わず選ぶ」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 現在Repositoryと目的に対応する標準Toolを見つけ、利用可能性・Effect権限・開発実行・公式実行を区別して選べる<br>現在REQのOutcome: 未Commit作業と署名済み実行を区別して反復できる<br>Outcome差: 既存UXの「現在Repositoryと目的に対応する標準Toolを見つけ、利用可能性・Effect権限・開発実行・公式実行を区別して選べる」に対して現在REQは「未Commit作業と署名済み実行を区別して反復できる」と要求固有に表すが、後者は同じ「仕事に必要な標準Toolを迷わず選ぶ」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: Toolの存在・利用可能性・Effect権限・実行Modeを混同し、仕事に合う入口を選べない<br>現在REQのFailure: 開発候補または外部Toolを署名済み公式Runtimeと誤認して起動する<br>Failure差: 現在REQは配布物と実行Modeの識別を具体化するが、適切なToolを選べない失敗は同じである<br>同一Outcomeへ統合できる理由: 固定Commitと署名状態は同じTool選択成果に必要なInformation／Authority条件である | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -102,20 +102,24 @@ Repository Bindingと実行Modeを確認する
 処置: `作成`
 
 ```text
-CRDD／Tool Publisher
-        │ Repositoryに対応する固定配布物を提供
+[U: Developer]
+        │ 利用者行動: 反復用開発実行と公式Runtimeを目的に応じて選ぶ
         ▼
-Developer
-        │ [接点] 開発実行か署名済み実行かを選ぶ
-        ▼
-提供System
-        │ Repository Bindingと実行Identityを確認
-        ▼
-[接点] 正しいTool起動または理由付き拒否
+[T: Toolを導入または起動する時]
         │
-        ▼
-Developer
-        └─ 失敗時: 外部の任意ToolやCandidateを正式版と誤認する場合は成功へ進めず、判断または回復を担う主体へ戻す
+        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
+        └─ 失敗時: 外部の任意ToolやCandidateを正式版と誤認するという停止理由、成立済み範囲、保持状態および再開条件
+                     │
+                     ▼
+             [R: CRDD／Tool Publisher]
+                     │ 返却内容を確認
+                     └─ 次の行動: 反復用開発実行と公式Runtimeを目的に応じて選ぶ
+
+---------------- 可視境界 ----------------
+                     │ 処理・確認には時間差があり得る
+                     ▼
+[S: 提供System]
+        └─ 提供責務: Repository Bindingと実行Modeを確認して起動する
 ```
 
 この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。

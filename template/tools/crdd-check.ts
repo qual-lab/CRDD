@@ -644,8 +644,15 @@ function checkUxRequirementAnalysis(): void {
       !blueprintDisposition ||
       (blueprintDisposition === "作成" &&
         (!/```text\r?\n[\s\S]+?\r?\n```/u.test(blueprintSection ?? "") ||
-          !/\[接点\]/u.test(blueprintSection ?? "") ||
-          !/失敗時:/u.test(blueprintSection ?? ""))) ||
+          ![
+            "[U:",
+            "[T:",
+            "[S:",
+            "[R:",
+            "可視境界",
+            "失敗時:",
+            "次の行動:",
+          ].every((label) => blueprintSection?.includes(label)))) ||
       (blueprintDisposition === "非該当" &&
         !/再評価/u.test(blueprintSection ?? ""));
     if (
@@ -660,6 +667,15 @@ function checkUxRequirementAnalysis(): void {
         (line) =>
           line.includes("`Same →") &&
           ![
+            "既存UXのActor:",
+            "現在REQのActor:",
+            "Actor差:",
+            "既存UXのTrigger:",
+            "現在REQのTrigger:",
+            "Trigger差:",
+            "既存UXのOutcome:",
+            "現在REQのOutcome:",
+            "Outcome差:",
             "既存UXのFailure:",
             "現在REQのFailure:",
             "Failure差:",

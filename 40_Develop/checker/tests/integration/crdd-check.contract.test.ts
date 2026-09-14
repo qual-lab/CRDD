@@ -853,7 +853,7 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
   );
 });
 
-test("UXのSame判断は両側のFailure比較構造を必要とする", () => {
+test("UXのSame判断はActor・Trigger・Outcome・Failureの両側比較を必要とする", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "01_Discovery", "01_Product_Discovery.md"),
@@ -926,6 +926,38 @@ test("Service Blueprintの作成と非該当を処置なしで済ませない", 
       "user_experience.md",
     ),
     "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### Service Blueprintの処置\n\n共同Service Blueprintを参照する。\n\n### 横断Synthesisへの接続\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-blueprint-disposition-invalid" &&
+        finding.path === "02_UX/Requirements/REQ-000001/user_experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("作成するService Blueprintは利用者・接点・提供責務・回復接点を閉じる", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(
+      root,
+      "02_UX",
+      "Requirements",
+      "REQ-000001",
+      "user_experience.md",
+    ),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### Service Blueprintの処置\n\n処置: `作成`\n\n```text\n利用者 [接点] 結果\n  └─ 失敗時: 担当者へ戻す\n```\n\n### 横断Synthesisへの接続\n",
   );
   const result = runChecker(root);
   assert.ok(

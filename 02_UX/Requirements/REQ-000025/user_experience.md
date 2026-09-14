@@ -75,7 +75,7 @@ REQ-000025
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 利用環境の信頼方針でRuntimeを選ぶ | `Same → UX-000020` | 既存UXのFailure: 準拠・Integrity・Publisher・実行許可を一つのTrust表示へ畳み、環境所有者が選べない<br>現在REQのFailure: Qual-Lab署名だけを唯一の実行資格とし、Forkや組織Buildを方針に従って評価できない<br>Failure差: 現在REQはPolicy所有者と許可規則を具体化するが、自分の環境の信頼方針でRuntimeを選べない失敗は同じである<br>同一Outcomeへ統合できる理由: Trust Policyは同じRuntime選択成果を実行時に成立させる決定条件である | Artifact Integrityと利用者所有Trust Policyを照合することが、この要求固有の成立条件になる |
+| 利用環境の信頼方針でRuntimeを選ぶ | `Same → UX-000020` | 既存UXのActor: Runtime導入・運用者<br>現在REQのActor: Runtime導入・運用者<br>Actor差: 既存UXと現在REQはいずれも「Runtime導入・運用者」であり、Actorの差はない<br>既存UXのTrigger: Runtimeを導入または更新する時<br>現在REQのTrigger: Runtime Artifactを実行候補にする時<br>Trigger差: 既存UXの「Runtimeを導入または更新する時」に対して現在REQは「Runtime Artifactを実行候補にする時」を具体化するが、同じ「利用環境の信頼方針でRuntimeを選ぶ」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 準拠、改ざん有無、Publisher、公式表示および実行許可を区別し、自分の環境の方針で公式版・Fork・組織版を選べる<br>現在REQのOutcome: OSS Forkや組織Buildも方針に従って利用できる<br>Outcome差: 既存UXの「準拠、改ざん有無、Publisher、公式表示および実行許可を区別し、自分の環境の方針で公式版・Fork・組織版を選べる」に対して現在REQは「OSS Forkや組織Buildも方針に従って利用できる」と要求固有に表すが、後者は同じ「利用環境の信頼方針でRuntimeを選ぶ」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 準拠・Integrity・Publisher・実行許可を一つのTrust表示へ畳み、環境所有者が選べない<br>現在REQのFailure: Qual-Lab署名だけを唯一の実行資格とし、Forkや組織Buildを方針に従って評価できない<br>Failure差: 現在REQはPolicy所有者と許可規則を具体化するが、自分の環境の信頼方針でRuntimeを選べない失敗は同じである<br>同一Outcomeへ統合できる理由: Trust Policyは同じRuntime選択成果を実行時に成立させる決定条件である | Artifact Integrityと利用者所有Trust Policyを照合することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -100,20 +100,24 @@ OSS Forkや組織Buildも方針に従って利用できる
 処置: `作成`
 
 ```text
-Runtime Publisher
-        │ Publisher・Integrity情報を提示
+[U: Runtime導入・運用者]
+        │ 利用者行動: 信頼するPublisherとLocal例外を自分で定める
         ▼
-Deployment Owner
-        │ [接点] 信頼条件とLocal例外を設定
-        ▼
-提供System
-        │ Artifactを現在Policyへ照合
-        ▼
-[接点] 実行許可・拒否・再承認要否
+[T: Runtime Artifactを実行候補にする時]
         │
-        ▼
-Deployment Owner
-        └─ 失敗時: Qual-Lab署名だけを唯一の実行資格にする場合は成功へ進めず、判断または回復を担う主体へ戻す
+        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
+        └─ 失敗時: Qual-Lab署名だけを唯一の実行資格にするという停止理由、成立済み範囲、保持状態および再開条件
+                     │
+                     ▼
+             [R: Deployment Owner]
+                     │ 返却内容を確認
+                     └─ 次の行動: 信頼するPublisherとLocal例外を自分で定める
+
+---------------- 可視境界 ----------------
+                     │ 処理・確認には時間差があり得る
+                     ▼
+[S: 提供System]
+        └─ 提供責務: 現在Policyに従って実行候補を評価する
 ```
 
 この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。

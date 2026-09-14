@@ -100,20 +100,24 @@ Repositoryが公開するCapabilityを確認する
 処置: `作成`
 
 ```text
-Repository／Tool Owner
-        │ 利用可能Capabilityと入口を登録
+[U: Developer]
+        │ 利用者行動: 目的と必要Effectに合うToolを選ぶ
         ▼
-Developer
-        │ [接点] 現在Repositoryで使える仕事を探す
-        ▼
-提供System
-        │ 利用可能性・Effect権限・入口を区別
-        ▼
-[接点] 目的に合うTool候補または利用不能理由
+[T: Toolで処理を始める時]
         │
-        ▼
-Developer
-        └─ 失敗時: 存在するファイルを利用可能Capabilityと誤認する場合は成功へ進めず、判断または回復を担う主体へ戻す
+        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
+        └─ 失敗時: 存在するファイルを利用可能Capabilityと誤認するという停止理由、成立済み範囲、保持状態および再開条件
+                     │
+                     ▼
+             [R: Repository／Tool Owner]
+                     │ 返却内容を確認
+                     └─ 次の行動: 目的と必要Effectに合うToolを選ぶ
+
+---------------- 可視境界 ----------------
+                     │ 処理・確認には時間差があり得る
+                     ▼
+[S: 提供System]
+        └─ 提供責務: 登録済みCapabilityと現在の利用可能性を返す
 ```
 
 この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。

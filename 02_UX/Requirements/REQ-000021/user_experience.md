@@ -78,7 +78,7 @@ REQ-000021
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 失敗後の再試行・回復を選ぶ | `Same → UX-000004` | 既存UXのFailure: 失敗後に状態確認・再試行・回復・清掃を取り違え、二重Effectを起こす<br>現在REQのFailure: Timeoutを未実行とみなし、同じRequestを確認せず新規Effectを開始する<br>Failure差: 現在REQは応答喪失という具体的な失敗契機を追加するが、誤った再試行選択による二重Effectは同じである<br>同一Outcomeへ統合できる理由: Request再取得は同じ回復選択成果の成立条件であり、別Outcomeではない | Request Identityと現在Accessを再確認することが、この要求固有の成立条件になる |
+| 失敗後の再試行・回復を選ぶ | `Same → UX-000004` | 既存UXのActor: Project Operator／PM<br>現在REQのActor: Project Operator／PM<br>Actor差: 既存UXと現在REQはいずれも「Project Operator／PM」であり、Actorの差はない<br>既存UXのTrigger: 複数AIへ仕事を委ねる時<br>現在REQのTrigger: 応答喪失後に再接続する時<br>Trigger差: 既存UXの「複数AIへ仕事を委ねる時」に対して現在REQは「応答喪失後に再接続する時」を具体化するが、同じ「失敗後の再試行・回復を選ぶ」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 失敗後に状態確認、再試行、回復および清掃を取り違えず、二重Effectを避けて次の行動を選べる<br>現在REQのOutcome: 二重実行せず状態・結果・回復義務を取得できる<br>Outcome差: 既存UXの「失敗後に状態確認、再試行、回復および清掃を取り違えず、二重Effectを避けて次の行動を選べる」に対して現在REQは「二重実行せず状態・結果・回復義務を取得できる」と要求固有に表すが、後者は同じ「失敗後の再試行・回復を選ぶ」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 失敗後に状態確認・再試行・回復・清掃を取り違え、二重Effectを起こす<br>現在REQのFailure: Timeoutを未実行とみなし、同じRequestを確認せず新規Effectを開始する<br>Failure差: 現在REQは応答喪失という具体的な失敗契機を追加するが、誤った再試行選択による二重Effectは同じである<br>同一Outcomeへ統合できる理由: Request再取得は同じ回復選択成果の成立条件であり、別Outcomeではない | Request Identityと現在Accessを再確認することが、この要求固有の成立条件になる |
 | 切断後も同じRequestへ戻る | `New → UX-000021` | 本要求が「応答喪失後に新規実行せず、現在のAccessで同じRequestの状態・結果・回復義務へ戻れる」という独立した利用者成果を最初に定義する。 | Request Identityと現在Accessを再確認することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
@@ -104,19 +104,24 @@ Request Identityと現在Accessを再確認する
 処置: `作成`
 
 ```text
-Project Operator／PM
-        │ [接点] Requestを開始
+[U: Project Operator／PM]
+        │ 利用者行動: 既存Requestを指定して再接続し、次の処置を判断する
         ▼
-提供System
-        │ 状態・結果・回復義務を同じIdentityで保持
-        │ ── 切断／Timeout ──
-        ▼
-Project Operator／PM
-        │ [接点] 同じRequestへ再接続
-        ▼
-提供System
-        └─ 現在Accessで状態・結果または回復先を返す
-        └─ 失敗時: Timeoutを未実行とみなし新規Effectを起こす場合は成功へ進めず、判断または回復を担う主体へ戻す
+[T: 応答喪失後に再接続する時]
+        │
+        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
+        └─ 失敗時: Timeoutを未実行とみなし新規Effectを起こすという停止理由、成立済み範囲、保持状態および再開条件
+                     │
+                     ▼
+             [R: 運用・確認者]
+                     │ 返却内容を確認
+                     └─ 次の行動: 既存Requestを指定して再接続し、次の処置を判断する
+
+---------------- 可視境界 ----------------
+                     │ 処理・確認には時間差があり得る
+                     ▼
+[S: 提供System]
+        └─ 提供責務: 同じIdentityの状態・結果・回復義務を保持し現在Accessで返す
 ```
 
 この図は、利用者行動、利用者が観測する接点、提供責務および失敗時の引き渡しを示す。内部Componentの構造やProtocolは下流工程で具体化する。
