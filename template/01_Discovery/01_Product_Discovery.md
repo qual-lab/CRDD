@@ -10,29 +10,29 @@
 ```text
 生の声・観察・違和感
         ↓
-個別の探索記録 EXP-*
+個別の探索分析 EXP-*
   問題 → 仮説 → 比較 → 判断
         ↓ 人間が採用
-REQ-* と検証義務
+REQ-* の要求定義
         ↓
 UXその他の次工程
 ```
 
-`EXP-*`ごとの物語、要求本文、判断理由、対象範囲、制約および検証義務は、それを所有する`exploration.md`へ置く。本書はそれらを再説明せず、現在有効な関係と引き渡しを統合する。版別Scope、実装順、実装・検証・Release状態はRoadmap、CHG、QualityまたはReleaseが所有する。
+`EXP-*`ごとの物語と判断理由は`Analysis/EXP-*/exploration.md`、採用した要求の本文、成立条件、制約および検証意図は`Definitions/REQ-*/requirement.md`へ置く。本書はそれらを再説明せず、現在有効な関係と引き渡しを統合する。版別Scope、実装順、実装・検証・Release状態はRoadmap、CHG、QualityまたはReleaseが所有する。
 
 ## 探索台帳
 
 | 探索 | 出発点となった問題 | Discovery判断 |
 |---|---|---|
-| [EXP-XXXXXX 短い案内名](Explorations/EXP-XXXXXX_Short_Name/exploration.md) | （何に困って探索を始めたか） | （探索中／要求採用／保留／棄却） |
+| [EXP-XXXXXX 短い案内名](Analysis/EXP-XXXXXX/exploration.md) | （何に困って探索を始めたか） | （探索中／要求採用／保留／棄却） |
 
 ## 要求台帳
 
-要求本文は各探索記録が所有する。本表は採用要求の所在と関係領域を示す台帳であり、要求を再定義しない。採用済み要求はすべて後工程で処置し、関係領域の記載を工程省略の根拠にしない。
+要求本文は各要求定義が所有する。本表は採用要求の所在と関係領域を示す台帳であり、要求を再定義しない。採用済み要求はすべて後工程で処置し、関係領域の記載を工程省略の根拠にしない。
 
 | 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |
 |---|---|---|---|---|
-| `REQ-XXXXXX` | （一文の要約） | [EXP-XXXXXX](Explorations/EXP-XXXXXX_Short_Name/exploration.md) | 要求採用 | （主な領域） |
+| [REQ-XXXXXX](Definitions/REQ-XXXXXX/requirement.md) | （一文の要約） | [EXP-XXXXXX](Analysis/EXP-XXXXXX/exploration.md) | 要求採用 | （主な領域） |
 
 ## 探索同士の関係
 

@@ -8,7 +8,7 @@
 
 ## 1. 変更の目的
 
-起点Discovery: [EXP-000014](../../../01_Discovery/Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md)／`REQ-000036`
+起点Discovery: [EXP-000014](../../../01_Discovery/Analysis/EXP-000014/exploration.md)／`REQ-000036`
 
 Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primitiveを、成果物の意味に依存しないRoot Componentへ分離する。Runtime Manifest固有の観測、Policy、payload、順序および配置はCoordinatorに維持する。
 
@@ -30,7 +30,7 @@ Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primit
 - [`.env-crdd.example`](<../../../.env-crdd.example>)
 - [`.env.example`](<../../../.env.example>)
 - [`.gitignore`](<../../../.gitignore>)
-- [`01_Discovery/Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md`](<../../../01_Discovery/Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md>)
+- [`01_Discovery/Analysis/EXP-000014/exploration.md`](<../../../01_Discovery/Analysis/EXP-000014/exploration.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
 - [`06_Architecture/artifact-signing/01_Architecture.md`](<../../../06_Architecture/artifact-signing/01_Architecture.md>)

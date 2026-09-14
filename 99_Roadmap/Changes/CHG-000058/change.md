@@ -11,7 +11,7 @@
 - リリースレベル: `MINOR`
 - リリース: `v0.19.0`（2026-09-05）
 
-正本: [CRDD自身のDiscovery](../../../01_Discovery/Explorations/EXP-000009_Reasoning_Context/exploration.md)、[スキル](../../../11_Skill.md#23-expert-exploration-and-convergence-contract)、[課題探索・要求形成](../../../21_Discovery.md#34-decision-changing-evidence)、[UX](../../../22_UX.md#transformation-contract)、[IA](../../../23_IA.md#transformation-contract)、[UI](../../../25_UI.md#transformation-contract)、[外部コミュニケーション](../../../17_Communication.md#3-外部コミュニケーションのコンテキスト)、[検証](../../../29_Verification.md#27-プロダクトコンテキストと体験の検証)
+正本: [CRDD自身のDiscovery](../../../01_Discovery/Analysis/EXP-000009/exploration.md)、[スキル](../../../11_Skill.md#23-expert-exploration-and-convergence-contract)、[課題探索・要求形成](../../../21_Discovery.md#34-decision-changing-evidence)、[UX](../../../22_UX.md#transformation-contract)、[IA](../../../23_IA.md#transformation-contract)、[UI](../../../25_UI.md#transformation-contract)、[外部コミュニケーション](../../../17_Communication.md#3-外部コミュニケーションのコンテキスト)、[検証](../../../29_Verification.md#27-プロダクトコンテキストと体験の検証)
 
 ## 1. Triggerと人間の判断
 

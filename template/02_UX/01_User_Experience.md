@@ -10,9 +10,9 @@
 ```text
 DiscoveryのREQ-*
       ↓ 個別分析
-Requirements/<REQ-ID>/user_experience.md
+Analysis/<REQ-ID>/ux_analysis.md
       ↓ Same／Newを横断判断
-Canonical UX成果
+Definitions/<UX-ID>/experience.md
       ↓
 Persona・Experience Map・Service Blueprint・品質期待
       ↓
@@ -27,7 +27,7 @@ IA／UI／SPEC／Verification
 
 | UX成果 | 利用者成果 | 入力REQ | 主な体験区間 | 現在状態 |
 |---|---|---|---|---|
-| `UX-XXXXXX` | | `REQ-XXXXXX` | | |
+| [UX-XXXXXX](Definitions/UX-XXXXXX/experience.md) | | `REQ-XXXXXX` | | |
 
 ## 3. REQとUX成果のCoverage
 
@@ -35,7 +35,7 @@ IA／UI／SPEC／Verification
 
 | REQ | 個別分析 | UX成果／処置 | 未確認範囲 |
 |---|---|---|---|
-| `REQ-XXXXXX` | [分析](Requirements/REQ-XXXXXX/user_experience.md) | | |
+| `REQ-XXXXXX` | [分析](Analysis/REQ-XXXXXX/ux_analysis.md) | | |
 
 ## 4. UX全体の関係
 
@@ -61,7 +61,7 @@ Service Blueprint  品質期待
 | 利用者の仕事が全体でどう流れるか | [Experience Map](03_Experience_Map.md) |
 | その体験を誰・何がどう支えるか | [Service Blueprint](04_Service_Blueprint.md) |
 | 体験として何を守るか | [Quality Expectations](05_Quality_Expectations.md) |
-| 各要求をどうUXへ変換したか | `Requirements/<REQ-ID>/user_experience.md` |
+| 各要求をどうUXへ変換したか | `Analysis/<REQ-ID>/ux_analysis.md` |
 
 ## 基本図の処置
 

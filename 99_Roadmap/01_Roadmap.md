@@ -45,7 +45,13 @@ Workbenchは後付けのUIではない。Group BでUX、IA、表示、操作お�
 
 #### Group A: 設計・構造化の共通Gate
 
-Group Aの全変更単位は完了し、未完了作業の一覧から除いた。完了根拠は[CHG-000066](Changes/CHG-000066/change.md)、[CHG-000068](Changes/CHG-000068/change.md)、[CHG-000070](Changes/CHG-000070/change.md)、[CHG-000071](Changes/CHG-000071/change.md)および[CHG-000072](Changes/CHG-000072/change.md)が所有する。Group Bは、完成済みの構造化・図面・Evidence・Version Control・署名境界を入力として開始できる。
+Group Aは、完成済みのRuntime Data、図面、Evidence、Version Controlおよび署名境界に加え、Group BのDiscovery／UX Dogfoodingで判明した工程成果物の受渡し構造を閉じるため再開した。工程Patternの移行と独立確認が終わるまで、Group BのIAへ進まない。
+
+| 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
+|---|---|---|---|---|
+| v0.21 工程成果物Repository Pattern | Adopted | Implementation In Progress | [工程成果物のRepository Pattern](../03_Documentation.md#phase-repository-pattern)、`CHG-000073` | Discovery／UXを`Analysis`と`Definitions`へ移行し、工程入口、Checker、利用側およびQualityへの引き渡しを閉じる。IA以降の物理再編は各工程見直し時に判断する |
+
+既に完了したGroup Aの根拠は[CHG-000066](Changes/CHG-000066/change.md)、[CHG-000068](Changes/CHG-000068/change.md)、[CHG-000070](Changes/CHG-000070/change.md)、[CHG-000071](Changes/CHG-000071/change.md)および[CHG-000072](Changes/CHG-000072/change.md)が所有する。
 
 #### Group B: Project OperationとWorkbench利用契約
 
@@ -54,17 +60,17 @@ Group Aの全変更単位は完了し、未完了作業の一覧から除いた�
 | v0.21 Project Management Projection | Adopted | Architecture In Progress | [CHG-000067](Changes/CHG-000067/change.md)、[Project Operation Context設計](../06_Architecture/project-operation/01_Architecture.md) | Project／Repository／Binding Identity、正本別Property、欠測表示および更新Authorityを一体設計する |
 | v0.21 Topic／Project Attention | Adopted | Architecture In Progress | [CHG-000067](Changes/CHG-000067/change.md)、[Topic Lifecycle](../06_Architecture/project-operation/01_Architecture.md#6-topicとmeetingのlifecycle) | Topicの発火、待機、昇格、終了および既存正本への接続を同じ変更単位で固定する |
 | v0.21 Meeting／Context Promotion | Adopted | Architecture In Progress | [CHG-000067](Changes/CHG-000067/change.md)、[責務境界](../06_Architecture/project-operation/01_Architecture.md#4-責務境界) | 時点付きContext形成、Source、関連Topic、昇格先および人間の判断境界を固定する |
-| v0.21 複数Projectの読み取り専用Portfolio投影 | Adopted | Planned | [Portfolio理解の探索](../01_Discovery/Explorations/EXP-000024_Portfolio_Visibility/exploration.md)、[Project横断Context](../01_Discovery/Explorations/EXP-000027_Cross_Project_Context_Exchange/exploration.md) | Projectごとの正本とAuthorityを分離したまま、横断Viewを代表構成で検証する |
+| v0.21 複数Projectの読み取り専用Portfolio投影 | Adopted | Planned | [Portfolio理解の探索](../01_Discovery/Analysis/EXP-000024/exploration.md)、[Project横断Context](../01_Discovery/Analysis/EXP-000027/exploration.md) | Projectごとの正本とAuthorityを分離したまま、横断Viewを代表構成で検証する |
 | v0.21 CROS Workbenchの利用体験・公開契約 | Adopted | Design In Progress | [Workbench工程Gate](Changes/CHG-000067/change.md#41-cros-workbenchの工程gate)、[統合したDiscovery判断](../01_Discovery/01_Product_Discovery.md#current-discovery-decisions)、[UI要求](../04_UI/01_User_Interface.md#9-v021-project-operationcros-workbench) | Discovery、UX、IA、並行するUI／SPEC、UI／SPEC対応レビュー、Architectureの正規経路で入口・基本図処置・出口を通し、Project／Portfolio、Source Coverage、Topic／Meeting／判断待ち、正本導線および定型操作に必要な読取り・Command／Candidate契約をGroup Cの実装前に固定する |
 
 #### Group C: CROSの信頼・Federation・公開接続
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| v0.21 OSS Runtimeの利用者所有Trust Policy | Adopted | Planned | [利用者所有Trustの探索](../01_Discovery/Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md) | CROSの実装前にPolicy所有者、既定拒否、鍵更新・失効、移行および監査境界を固定する |
-| v0.21 Repository Tool／Capability Registry | Adopted | Planned | [Repository Capabilityの探索](../01_Discovery/Explorations/EXP-000025_Repository_Capability_Discovery/exploration.md) | 登録・公開・実行許可を分ける最小Registryと代表Toolの受入条件をCROSの実装前に設計する |
+| v0.21 OSS Runtimeの利用者所有Trust Policy | Adopted | Planned | [利用者所有Trustの探索](../01_Discovery/Analysis/EXP-000028/exploration.md) | CROSの実装前にPolicy所有者、既定拒否、鍵更新・失効、移行および監査境界を固定する |
+| v0.21 Repository Tool／Capability Registry | Adopted | Planned | [Repository Capabilityの探索](../01_Discovery/Analysis/EXP-000025/exploration.md) | 登録・公開・実行許可を分ける最小Registryと代表Toolの受入条件をCROSの実装前に設計する |
 | v0.21 Context Operating System（CROS） | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md) | Group Bの利用契約を入力に、Personal／Shared Serverの共通Project Model、Workspace Exposure、Connection Credential、Canonical Repository Resolver、管理／内容Authority分離、Agent Operating ContextおよびChat／Coding Agent間の構造化HandoffをSPECへ固定する |
-| v0.21 Remote MCP接続 | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md)、[Local MCP／HTTPの探索](../01_Discovery/Explorations/EXP-000015_Local_MCP_HTTP_Access/exploration.md) | Workbenchを含む利用側が共用する公開Application Contractを所有せずTransportへ限定する。Bearer Token、Connection CredentialのWorkspace集合／`system_admin`／失効、既存Constraint、切断／再送を含むRemote接続の完成条件をSPECへ固定する。独立した情報分類制度や汎用Policy Engineは作らない |
+| v0.21 Remote MCP接続 | Adopted | Architecture In Progress | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md)、[Local MCP／HTTPの探索](../01_Discovery/Analysis/EXP-000015/exploration.md) | Workbenchを含む利用側が共用する公開Application Contractを所有せずTransportへ限定する。Bearer Token、Connection CredentialのWorkspace集合／`system_admin`／失効、既存Constraint、切断／再送を含むRemote接続の完成条件をSPECへ固定する。独立した情報分類制度や汎用Policy Engineは作らない |
 | v0.21 正式検証の安全なHeadless出力 | Adopted | Planned | [v0.20 Runtime責務分離](Changes/CHG-000063/change.md) | 保存先Authorityと閉じた結果契約を設計し、CI／Remoteの代表経路で検証する |
 
 #### Group D: 薄いSurface、Runtime設定、限定実証
@@ -72,7 +78,7 @@ Group Aの全変更単位は完了し、未完了作業の一覧から除いた�
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
 | v0.21 CROS Workbenchの最小実装 | Adopted | Planned | [Workbench工程Gate](Changes/CHG-000067/change.md#41-cros-workbenchの工程gate)、[UI要求](../04_UI/01_User_Interface.md#9-v021-project-operationcros-workbench) | Group BでArchitectureまで固定した利用契約とGroup Cの実公開契約だけを使い、Project／PortfolioとSource Coverageを表示し、一つ以上の定型操作を既存Command／Candidate入口へ渡す。Implementation後はVerification工程で契約試験、結合試験、利用者成果の総合試験および必要なE2Eを完成させる |
-| v0.21 AI Runtime Registry／モデルProfile外部構成 | Adopted | Planned | [AI Runtime変更容易性の探索](../01_Discovery/Explorations/EXP-000026_AI_Runtime_Changeability/exploration.md) | 設定所有・上書き・Adapter追加境界と、登録・認証・実行許可の分離を固定する |
+| v0.21 AI Runtime Registry／モデルProfile外部構成 | Adopted | Planned | [AI Runtime変更容易性の探索](../01_Discovery/Analysis/EXP-000026/exploration.md) | 設定所有・上書き・Adapter追加境界と、登録・認証・実行許可の分離を固定する |
 | v0.21 自律Operationの意味契約とTrigger | Adopted | Planned | [自律Operationの責務境界](../05_Autonomous_Operation.md#autonomous-operation-responsibility) | 目的・Authority・Triggerの所有分離と、判断不足時のEffect 0を受入条件にする |
 | v0.21 自律Operationの読み取り中心参照実証 | Adopted | Planned | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界) | 外部Effectを伴わない代表Operationを選び、判断価値と人間負荷を実測する |
 
@@ -80,10 +86,10 @@ Group Aの全変更単位は完了し、未完了作業の一覧から除いた�
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| v0.22 Linux配布と常設CROS Server運用 | Adopted | Planned | [Remote Contextの探索](../01_Discovery/Explorations/EXP-000022_Remote_Project_Context/exploration.md) | v0.21のRemote MCP意味契約を作り直さず、Linux配布、Service起動・停止、設定、更新、Health、障害回復および本番同等E2Eを固定する |
+| v0.22 Linux配布と常設CROS Server運用 | Adopted | Planned | [Remote Contextの探索](../01_Discovery/Analysis/EXP-000022/exploration.md) | v0.21のRemote MCP意味契約を作り直さず、Linux配布、Service起動・停止、設定、更新、Health、障害回復および本番同等E2Eを固定する |
 | v0.22 耐久Operation Queueと再開Scheduler | Adopted | Planned | [Operation健全性と人間接続](../05_Autonomous_Operation.md#operation-health-and-human-interface)、[Product候補登録](../01_Discovery/02_Product_Candidates.md) | v0.21のTask SessionとRuntime Dataを入力に、再起動・切断を跨ぐ保存、Lease、排他、重複抑止、取消およびexact再入場を固定する |
-| v0.22 Remote Event受付と許可済みOperation継続 | Adopted | Planned | [自律Operation](../05_Autonomous_Operation.md)、[Project横断Contextの探索](../01_Discovery/Explorations/EXP-000027_Cross_Project_Context_Exchange/exploration.md) | v0.21のTrigger意味契約を使い、時刻、Webhook、Git／CI Eventの代表Adapterから許可済みOperationを起動・停止・回復する本番同等E2Eを行う |
-| v0.22 常設・自律Operationの有用性／安全性評価 | Adopted | Planned | [実行知の探索](../01_Discovery/Explorations/EXP-000013_Execution_Intelligence/exploration.md)、[参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments) | 独立機能ではなくRelease Gateとして、価値、費用、人間負荷、誤作動、回復負担および停止条件を実行知から評価する |
+| v0.22 Remote Event受付と許可済みOperation継続 | Adopted | Planned | [自律Operation](../05_Autonomous_Operation.md)、[Project横断Contextの探索](../01_Discovery/Analysis/EXP-000027/exploration.md) | v0.21のTrigger意味契約を使い、時刻、Webhook、Git／CI Eventの代表Adapterから許可済みOperationを起動・停止・回復する本番同等E2Eを行う |
+| v0.22 常設・自律Operationの有用性／安全性評価 | Adopted | Planned | [実行知の探索](../01_Discovery/Analysis/EXP-000013/exploration.md)、[参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments) | 独立機能ではなくRelease Gateとして、価値、費用、人間負荷、誤作動、回復負担および停止条件を実行知から評価する |
 
 ### 1.3. 版未定・再評価待ち
 
@@ -94,7 +100,7 @@ Group Aの全変更単位は完了し、未完了作業の一覧から除いた�
 | 高度な実行・計画最適化 | Held | Unscheduled | [Product候補登録](../01_Discovery/02_Product_Candidates.md) | v0.21の参照実証とv0.22の実行評価から、人間判断と停止条件を保てる範囲を再評価する |
 | 複数Projectの横断調整・最適化 | Held | Unscheduled | [Product候補登録](../01_Discovery/02_Product_Candidates.md) | v0.21の読み取り専用Portfolio投影と後続の実行Evidenceを基に、Project間の優先順位、Capacity、投資判断およびEffect Authorityを別能力として採否する |
 
-長期研究候補のうち、[v0.19へ採用したProject Runtime境界](../01_Discovery/Explorations/EXP-000008_Project_Runtime/exploration.md)は完了根拠へ移した。有用性・照合費用の改善候補は、v0.21の参照実証、v0.22の実行評価または版未定の高度な最適化へ責務ごとに分けた。将来候補の存在は、版予約、実装許可またはRelease条件を意味しない。長期能力地平との比較は未完了Taskではなく、各VersionのRelease Readinessで行う定期評価である。
+長期研究候補のうち、[v0.19へ採用したProject Runtime境界](../01_Discovery/Analysis/EXP-000008/exploration.md)は完了根拠へ移した。有用性・照合費用の改善候補は、v0.21の参照実証、v0.22の実行評価または版未定の高度な最適化へ責務ごとに分けた。将来候補の存在は、版予約、実装許可またはRelease条件を意味しない。長期能力地平との比較は未完了Taskではなく、各VersionのRelease Readinessで行う定期評価である。
 
 ## 2. 版ごとにできるようになること
 
@@ -123,20 +129,20 @@ v0.22  CROSをLinuxへ常設し、耐久QueueとRemote Eventで許可済みOpera
 |---|---|---|
 | 2026-09-05 | v0.20を、ローカル単一Projectの試験体系、実行知、Runtime責務分離、限定分散、状態投影、localhost MCPへ固定。Linux／Remoteは後続へ分離 | [v0.20.0公開記録](../CHANGELOG.md#v0200--2026-09-11) |
 | 2026-09-06 | Project運営、Topic、Meeting、Trust Policy、Capability Registry、Remote MCP、CROS、複数Projectの読み取り専用Portfolio投影、自律Operationをv0.21へ採用 | [v0.21未完了作業](#11-v0210--project運営信頼複数repository) |
-| 2026-09-07 | AI Runtime Registry／モデルProfile外部構成をv0.21へ追加 | [AI Runtime変更容易性の探索](../01_Discovery/Explorations/EXP-000026_AI_Runtime_Changeability/exploration.md) |
-| 2026-09-11 | Workbenchを先行せず、Repository、`.crdd`、Tool、構造化結果、MCPの共通契約を先に整える基盤をv0.21へ追加 | [Runtime Data Ownershipの探索](../01_Discovery/Explorations/EXP-000016_Runtime_Data_Ownership/exploration.md) |
+| 2026-09-07 | AI Runtime Registry／モデルProfile外部構成をv0.21へ追加 | [AI Runtime変更容易性の探索](../01_Discovery/Analysis/EXP-000026/exploration.md) |
+| 2026-09-11 | Workbenchを先行せず、Repository、`.crdd`、Tool、構造化結果、MCPの共通契約を先に整える基盤をv0.21へ追加 | [Runtime Data Ownershipの探索](../01_Discovery/Analysis/EXP-000016/exploration.md) |
 | 2026-09-11 | Linux／Remote Runtime、耐久Queue／Scheduler、Remote Trigger、実行評価をv0.22へ採用。macOSは実環境取得まで版未定 | [現在のv0.22未完了作業](#12-v0220--常設cros運用耐久operation) |
 | 2026-09-12 | `.crdd`整理を構造化基盤の最初の作業として明示し、現行Producerと物理残存を分けて棚卸ししたうえで、Repository-local／CROSの分離、親子階層、`config/`および`tmp/`の限定用途を目標Architectureへ固定する | [現行Path棚卸し](../06_Architecture/runtime-data/01_Current_Path_Inventory.md)、[目標Architecture](../06_Architecture/runtime-data/02_Target_Architecture.md) |
 | 2026-09-12 | 固定3 Role方式や永続認証Sessionを採用せず、Bearer TokenをRequestごとにConnection Credentialへ照合し、`workspace_ids[]`と`system_admin`を分離する。Chat AgentとCoding Agentは同じCRDD正本から解決したOperating Contextを使い、構造化Handoffで判断待ちと再開を接続する | [CROS Federationと利用境界](../06_Architecture/cros/01_Architecture.md) |
 | 2026-09-12 | v0.21へ採用し利用形態・完成条件・対象外を固定したCapabilityは、既知の使い捨て中間構造を正式化せず、現在宣言した利用形態を端から端まで閉じる。内部の段階実装は維持し、Roadmap候補や将来の一般的便利さだけでは実装しない | [実装完結性と最小責務](../19_Maintenance.md#宣言済みcapabilityの実装完結性と最小責務) |
 | 2026-09-12 | 長期能力地平との比較を単発の未完了Taskから外し、各VersionのRelease Readinessで到達、未到達、境界変化を評価する定期Gateへ移した。業務プロセス投影とOrganization Runtimeの候補名も、実際の対象が分かる名称へ変更した | [Release Readiness](../19_Maintenance.md#53-release-readiness)、[目的別投影の規則](../21_Discovery.md#37-progressive-process-views) |
-| 2026-09-12 | CROS Workbenchの最小実装と業務プロセス分析の目的別投影をv0.21へ採用した。WorkbenchはProject／Portfolio、Source Coverage、Topic／Meeting／判断待ち、正本導線および既存定型操作までを対象とする。目的別投影は単発の図作成にせず、Discovery進展時の項目別／全体Viewの再評価、プレーンテキスト記法、現行性および非該当理由を工程規則とTemplateで保持する。v0.22はRemote MCPの再実装ではなく、Linux常設運用、耐久Operation、Remote Event Adapterおよび運用評価Gateへ再編した | [Runtime Data Ownershipの探索](../01_Discovery/Explorations/EXP-000016_Runtime_Data_Ownership/exploration.md)、[目的別投影の規則](../21_Discovery.md#37-progressive-process-views)、[v0.22未完了作業](#12-v0220--常設cros運用耐久operation) |
+| 2026-09-12 | CROS Workbenchの最小実装と業務プロセス分析の目的別投影をv0.21へ採用した。WorkbenchはProject／Portfolio、Source Coverage、Topic／Meeting／判断待ち、正本導線および既存定型操作までを対象とする。目的別投影は単発の図作成にせず、Discovery進展時の項目別／全体Viewの再評価、プレーンテキスト記法、現行性および非該当理由を工程規則とTemplateで保持する。v0.22はRemote MCPの再実装ではなく、Linux常設運用、耐久Operation、Remote Event Adapterおよび運用評価Gateへ再編した | [Runtime Data Ownershipの探索](../01_Discovery/Analysis/EXP-000016/exploration.md)、[目的別投影の規則](../21_Discovery.md#37-progressive-process-views)、[v0.22未完了作業](#12-v0220--常設cros運用耐久operation) |
 
-計画変更時は、変更理由、影響する利用側・完成条件、追加・除外・保留の処置および変更トレースを示し、過去の判断を遡及上書きしない。活動中の課題、仮説、価値および採用境界は[個別探索](../01_Discovery/Explorations)と[統合Discovery](../01_Discovery/01_Product_Discovery.md)、未成熟な候補は[Product候補登録](../01_Discovery/02_Product_Candidates.md)が所有する。Roadmapは具体的なSchema、Path、契約または実装順序を定義しない。
+計画変更時は、変更理由、影響する利用側・完成条件、追加・除外・保留の処置および変更トレースを示し、過去の判断を遡及上書きしない。活動中の課題、仮説、価値および採用境界は[個別探索分析](../01_Discovery/Analysis)と[統合Discovery](../01_Discovery/01_Product_Discovery.md)、未成熟な候補は[Product候補登録](../01_Discovery/02_Product_Candidates.md)が所有する。Roadmapは具体的なSchema、Path、契約または実装順序を定義しない。
 
 ## 4. 境界
 
-[限定分散と統合結果の評価](../01_Discovery/Explorations/EXP-000008_Project_Runtime/exploration.md)は、v0.19で成立したProject Runtime機能の実務評価としてv0.20へ再編した。実装済み機能を未実装として作り直さず、実証で確認する差分だけを変更トレースへ固定する。
+[限定分散と統合結果の評価](../01_Discovery/Analysis/EXP-000008/exploration.md)は、v0.19で成立したProject Runtime機能の実務評価としてv0.20へ再編した。実装済み機能を未実装として作り直さず、実証で確認する差分だけを変更トレースへ固定する。
 
 - `Adopted`は作業意図の採用であり、実装完了、統合、リスク受容またはReleaseを意味しない。`Exploring`は候補の保持であり、着手、優先順位または実行許可を意味しない。CHG、保守契約または承認済み是正が実行根拠となる実行・参照項目には判断状態を適用せず、`—（非適用）`と表示して対応状態と実行根拠だけを保持する。
 - `In Progress`、`Planned`および`Unscheduled`は作業の対応状態であり、判断状態と混同しない。

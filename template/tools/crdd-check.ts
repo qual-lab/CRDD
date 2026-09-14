@@ -491,7 +491,13 @@ function checkUxRequirementAnalysis(): void {
     "01_Product_Discovery.md",
   );
   const uxIndexPath = path.join(root, "02_UX", "01_User_Experience.md");
-  const requirementsRoot = path.join(root, "02_UX", "Requirements");
+  const discoveryDefinitionsRoot = path.join(
+    root,
+    "01_Discovery",
+    "Definitions",
+  );
+  const requirementsRoot = path.join(root, "02_UX", "Analysis");
+  const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
   const experienceMapPath = path.join(root, "02_UX", "03_Experience_Map.md");
   if (
     !lstatIfPresent(discoveryPath)?.isFile() ||
@@ -511,9 +517,9 @@ function checkUxRequirementAnalysis(): void {
     root,
     "template",
     "02_UX",
-    "Requirements",
+    "Analysis",
     "REQ-XXXXXX",
-    "user_experience.md",
+    "ux_analysis.md",
   );
   if (!lstatIfPresent(templatePath)?.isFile())
     add(
@@ -527,7 +533,8 @@ function checkUxRequirementAnalysis(): void {
       .split(/\r?\n/u)
       .filter(
         (line) =>
-          /^\| `REQ-[0-9]{6}` \|/u.test(line) && line.includes("| 要求採用 |"),
+          /^\| (?:`|\[)REQ-[0-9]{6}/u.test(line) &&
+          line.includes("| 要求採用 |"),
       )
       .map((line) => line.match(/REQ-[0-9]{6}/u)?.[0])
       .filter((value): value is string => Boolean(value)),
@@ -537,12 +544,12 @@ function checkUxRequirementAnalysis(): void {
   const canonicalUxIds = new Set(
     uxIndex
       .split(/\r?\n/u)
-      .map((line) => line.match(/^\| `(?<id>UX-[0-9]{6})`/u)?.groups?.id)
+      .map((line) => line.match(/^\| (?:`|\[)(?<id>UX-[0-9]{6})/u)?.groups?.id)
       .filter((value): value is string => Boolean(value)),
   );
   const canonicalRelationPairs = new Set(
     uxIndex.split(/\r?\n/u).flatMap((line) => {
-      const uxId = line.match(/^\| `(?<id>UX-[0-9]{6})`/u)?.groups?.id;
+      const uxId = line.match(/^\| (?:`|\[)(?<id>UX-[0-9]{6})/u)?.groups?.id;
       if (!uxId) return [];
       const requirementCell = line.split("|")[2] ?? "";
       return [...requirementCell.matchAll(/REQ-[0-9]{6}/gu)].map(
@@ -569,7 +576,7 @@ function checkUxRequirementAnalysis(): void {
     const analysisPath = path.join(
       requirementsRoot,
       entry.name,
-      "user_experience.md",
+      "ux_analysis.md",
     );
     if (!lstatIfPresent(analysisPath)?.isFile()) continue;
     actualRequirements.add(entry.name);
@@ -605,9 +612,7 @@ function checkUxRequirementAnalysis(): void {
     if (
       requiredParts.some((part) => !analysis.includes(part)) ||
       !hasExperienceChange ||
-      uxIndex.split(`Requirements/${entry.name}/user_experience.md`).length -
-        1 !==
-        1
+      uxIndex.split(`Analysis/${entry.name}/ux_analysis.md`).length - 1 !== 1
     )
       add(
         "error",
@@ -716,6 +721,100 @@ function checkUxRequirementAnalysis(): void {
       relative(uxIndexPath),
       "Every adopted Discovery requirement must have exactly one UX requirement-analysis directory, regardless of its primary related domains.",
     );
+  const discoveryDefinitionIds = new Set<string>();
+  if (lstatIfPresent(discoveryDefinitionsRoot)?.isDirectory()) {
+    for (const entry of fs.readdirSync(discoveryDefinitionsRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^REQ-[0-9]{6}$/u.test(entry.name)) continue;
+      const definitionPath = path.join(
+        discoveryDefinitionsRoot,
+        entry.name,
+        "requirement.md",
+      );
+      if (!lstatIfPresent(definitionPath)?.isFile()) continue;
+      discoveryDefinitionIds.add(entry.name);
+      const definition = read(definitionPath);
+      if (
+        !definition.includes(`要求ID: \`${entry.name}\``) ||
+        !definition.includes("成果物種別: Discovery Definition") ||
+        !definition.includes("## 要求") ||
+        !definition.includes("## 成立条件") ||
+        !definition.includes("## 検証意図") ||
+        !definition.includes("## 関係")
+      )
+        add(
+          "error",
+          "discovery-requirement-definition-contract-invalid",
+          relative(definitionPath),
+          "Each adopted Discovery requirement must have a self-contained canonical definition.",
+        );
+    }
+  }
+  if (
+    adoptedRequirements.size !== discoveryDefinitionIds.size ||
+    [...adoptedRequirements].some((id) => !discoveryDefinitionIds.has(id))
+  )
+    add(
+      "error",
+      "discovery-requirement-definition-coverage-mismatch",
+      relative(discoveryPath),
+      "Every adopted Discovery requirement must have exactly one canonical requirement definition.",
+    );
+  const uxDefinitionIds = new Set<string>();
+  if (lstatIfPresent(uxDefinitionsRoot)?.isDirectory()) {
+    for (const entry of fs.readdirSync(uxDefinitionsRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^UX-[0-9]{6}$/u.test(entry.name)) continue;
+      const definitionPath = path.join(
+        uxDefinitionsRoot,
+        entry.name,
+        "experience.md",
+      );
+      if (!lstatIfPresent(definitionPath)?.isFile()) continue;
+      uxDefinitionIds.add(entry.name);
+      const definition = read(definitionPath);
+      if (
+        !definition.includes(`UX ID: \`${entry.name}\``) ||
+        !definition.includes("成果物種別: UX Definition") ||
+        !definition.includes("## 利用者成果") ||
+        !definition.includes("## 成立条件") ||
+        !definition.includes("## 検証意図") ||
+        !definition.includes("## 関係")
+      )
+        add(
+          "error",
+          "ux-definition-contract-invalid",
+          relative(definitionPath),
+          "Each canonical UX outcome must have a self-contained definition.",
+        );
+    }
+  }
+  if (
+    canonicalUxIds.size !== uxDefinitionIds.size ||
+    [...canonicalUxIds].some((id) => !uxDefinitionIds.has(id))
+  )
+    add(
+      "error",
+      "ux-definition-coverage-mismatch",
+      relative(uxIndexPath),
+      "Every canonical UX outcome must have exactly one UX definition.",
+    );
+  const legacyRoots = [
+    path.join(root, "01_Discovery", "Explorations"),
+    path.join(root, "02_UX", "Requirements"),
+    path.join(root, "template", "01_Discovery", "Evidence"),
+    path.join(root, "template", "02_UX", "Evidence"),
+  ];
+  for (const legacyRoot of legacyRoots)
+    if (lstatIfPresent(legacyRoot))
+      add(
+        "error",
+        "phase-repository-legacy-root-present",
+        relative(legacyRoot),
+        "The current phase repository pattern must not retain a legacy or empty common root.",
+      );
   if (
     canonicalUxIds.size === 0 ||
     [...canonicalRelationPairs].some(

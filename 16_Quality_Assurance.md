@@ -824,6 +824,42 @@ CRDDは確認量の最大化を品質保証とはしない。現在残る不確�
 
 各工程は、自身が所有する品質条件に対する検証観点を追加・更新する。実装は開発者テストと観測手段を具体化し、検証は独立検証を実行可能な状態へ確定する。作成担当の違いを理由に、別々の競合する検証設計を作らない。
 
+### 品質工程のRepository Pattern
+
+品質工程へ[工程成果物のRepository Pattern](03_Documentation.md#phase-repository-pattern)を適用する場合、`Analysis/`は何を・なぜ・どのRiskとTest Levelで検証するかを所有し、`Definitions/`は再利用可能な検証設計として、どう検証するかを所有する。Quality Centerは両者、試験実装およびEvidenceから現在状態を横断投影し、第二の正本を作らない。
+
+```text
+上流工程のDefinitions
+        │ 成立条件・品質・検証意図
+        ▼
+Quality Analysis
+  何を／なぜ／どのRisk・Test Levelで確認するか
+        ▼
+Quality Definitions
+  Scenario／Precondition／Expected／Evidence要件
+        ├──────────────┐
+        ▼              ▼
+  Automated Test     Manual／Hybrid
+   40_Develop          人間による実行
+        └───────┬──────┘
+                ▼
+         CHG／Release Evidence
+                ▼
+          Quality Center
+```
+
+| 所有者 | 所有する情報 |
+|---|---|
+| Quality Analysis | 対象、理由、Risk、Failure、Test Level、Manual／Automated／Hybrid分類、Coverage Gap |
+| Quality Definition | Goal、Scenario、Precondition、操作・観測、Expected Result、実行形態、Evidence要件 |
+| `40_Develop` | 自動検証の実装と自然なCode／Test asset Identity |
+| CHG／Release Evidence | 対象改訂版で実際に実行した結果 |
+| Quality Center | Coverage、Freshness、Pass／Fail／Blocked、未確認範囲へのNavigation |
+
+Quality Definitionは特定CHGに閉じず、複数の変更・改訂版から再利用できる検証項目書とする。実行結果を同じDefinitionへ書き込まず、項目書と成績を分離する。Test Caseへ意味の薄いGlobal IDを一律発行せず、必要ならCanonical Definitionと文書内Local Itemの組で識別する。
+
+`07_Quality`の具体的なDirectory、既存成果物の移行、Acceptance／System／Integration等の分類およびQuality Centerの再編は、品質工程を見直す時点で現在の利用側とEvidenceを改めて調査して決める。この規則だけを根拠に空の`Analysis/`／`Definitions/`を先行作成しない。
+
 単体試験の対象となる実装では、分岐網羅率（Branch Coverage）`100%`を品質戦略上の既定目標とする。これは、到達可能な判断分岐を確認対象から無意識に落とさないための目標であり、数値だけで品質成立またはリリース可否を決定する合格条件ではない。
 
 分岐網羅率は、少なくとも対象改訂版、測定対象、測定ツールと設定、分母、到達した分岐数、割合、除外した分岐を取得可能にする。行網羅率、命令網羅率、条件網羅率等を併用する場合は、分岐網羅率と混同しない。

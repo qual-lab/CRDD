@@ -39,79 +39,79 @@ Discoveryで採用した36要求は、2026-09-14の独立レビューで見つ�
 
 | 要求 | 個別分析 | 現在のUX処置 |
 |---|---|---|
-| `REQ-000001` | [決定論的なRepository事前確認](Requirements/REQ-000001/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000002` | [複数AI実行の範囲・権限・回復](Requirements/REQ-000002/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000003` | [Objectiveから統合までのProject Lifecycle](Requirements/REQ-000003/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000004` | [実行事実の再利用可能な記録](Requirements/REQ-000004/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000005` | [Runtime責務と依存方向の分離](Requirements/REQ-000005/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000006` | [Local MCP Transport間の意味統一](Requirements/REQ-000006/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000007` | [出典と不完全性を保つProject View](Requirements/REQ-000007/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000008` | [CROSなしで成立するRepository作業](Requirements/REQ-000008/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000009` | [Project・Repository・Root Identity分離](Requirements/REQ-000009/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000010` | [Workbench・MCP・CLIの公開契約共有](Requirements/REQ-000010/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000011` | [Remote接続のWorkspace限定](Requirements/REQ-000011/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000012` | [Meetingから候補を経た正本更新](Requirements/REQ-000012/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000013` | [根拠と不完全性を保つPortfolio](Requirements/REQ-000013/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000014` | [Repository Tool能力の明示Registry](Requirements/REQ-000014/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000015` | [Runtime Data Rootの所有と用途](Requirements/REQ-000015/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000016` | [AIモデルProfileの検証可能な外部構成](Requirements/REQ-000016/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000017` | [出所付きContext Packageの解決](Requirements/REQ-000017/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000018` | [Runtime Trust要素の分離](Requirements/REQ-000018/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000019` | [契約移行時のConsumer閉包](Requirements/REQ-000019/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000020` | [欠測・競合を保つRepository Federation](Requirements/REQ-000020/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000021` | [Remote要求結果の同一Identity再取得](Requirements/REQ-000021/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000022` | [Runtime Dataの保持・清掃・回復](Requirements/REQ-000022/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000023` | [異なるAI Runtime LifecycleのAdapter分離](Requirements/REQ-000023/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000024` | [境界を越えるTask結果の帰還](Requirements/REQ-000024/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000025` | [Deployment Ownerが所有するTrust Policy](Requirements/REQ-000025/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000026` | [判断・監査・是正の収束可能な閉包](Requirements/REQ-000026/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000027` | [外部Contextの送信・昇格境界](Requirements/REQ-000027/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000028` | [AI入口と共通正本の分離](Requirements/REQ-000028/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000029` | [推論Contextの履歴・現行性・選択](Requirements/REQ-000029/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000030` | [段階的実境界試験と回帰選択](Requirements/REQ-000030/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000031` | [人の理解順と構造を両立する成果物](Requirements/REQ-000031/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000032` | [工程固有の基本図と意図引き渡し](Requirements/REQ-000032/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000033` | [Work LifecycleとEvidence所有の分離](Requirements/REQ-000033/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000034` | [Repository固定Commitから使える標準Tool](Requirements/REQ-000034/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000035` | [公式視覚素材の権利・用途・追跡](Requirements/REQ-000035/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000036` | [差し替え可能なVersion Control境界](Requirements/REQ-000036/user_experience.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000001` | [決定論的なRepository事前確認](Analysis/REQ-000001/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000002` | [複数AI実行の範囲・権限・回復](Analysis/REQ-000002/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000003` | [Objectiveから統合までのProject Lifecycle](Analysis/REQ-000003/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000004` | [実行事実の再利用可能な記録](Analysis/REQ-000004/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000005` | [Runtime責務と依存方向の分離](Analysis/REQ-000005/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000006` | [Local MCP Transport間の意味統一](Analysis/REQ-000006/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000007` | [出典と不完全性を保つProject View](Analysis/REQ-000007/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000008` | [CROSなしで成立するRepository作業](Analysis/REQ-000008/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000009` | [Project・Repository・Root Identity分離](Analysis/REQ-000009/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000010` | [Workbench・MCP・CLIの公開契約共有](Analysis/REQ-000010/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000011` | [Remote接続のWorkspace限定](Analysis/REQ-000011/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000012` | [Meetingから候補を経た正本更新](Analysis/REQ-000012/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000013` | [根拠と不完全性を保つPortfolio](Analysis/REQ-000013/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000014` | [Repository Tool能力の明示Registry](Analysis/REQ-000014/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000015` | [Runtime Data Rootの所有と用途](Analysis/REQ-000015/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000016` | [AIモデルProfileの検証可能な外部構成](Analysis/REQ-000016/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000017` | [出所付きContext Packageの解決](Analysis/REQ-000017/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000018` | [Runtime Trust要素の分離](Analysis/REQ-000018/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000019` | [契約移行時のConsumer閉包](Analysis/REQ-000019/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000020` | [欠測・競合を保つRepository Federation](Analysis/REQ-000020/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000021` | [Remote要求結果の同一Identity再取得](Analysis/REQ-000021/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000022` | [Runtime Dataの保持・清掃・回復](Analysis/REQ-000022/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000023` | [異なるAI Runtime LifecycleのAdapter分離](Analysis/REQ-000023/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000024` | [境界を越えるTask結果の帰還](Analysis/REQ-000024/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000025` | [Deployment Ownerが所有するTrust Policy](Analysis/REQ-000025/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000026` | [判断・監査・是正の収束可能な閉包](Analysis/REQ-000026/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000027` | [外部Contextの送信・昇格境界](Analysis/REQ-000027/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000028` | [AI入口と共通正本の分離](Analysis/REQ-000028/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000029` | [推論Contextの履歴・現行性・選択](Analysis/REQ-000029/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000030` | [段階的実境界試験と回帰選択](Analysis/REQ-000030/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000031` | [人の理解順と構造を両立する成果物](Analysis/REQ-000031/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000032` | [工程固有の基本図と意図引き渡し](Analysis/REQ-000032/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000033` | [Work LifecycleとEvidence所有の分離](Analysis/REQ-000033/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000034` | [Repository固定Commitから使える標準Tool](Analysis/REQ-000034/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000035` | [公式視覚素材の権利・用途・追跡](Analysis/REQ-000035/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000036` | [差し替え可能なVersion Control境界](Analysis/REQ-000036/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
 
 ### 2.2. Discovery要求からUX成果への統合対応
 
-全36要求について、利用者Goal、Outcome、重要場面、失敗条件および品質期待を要求ごとに再分析した。30件のUX成果候補とのNew／Same関係も、利用者が得る最終状態と主な失敗条件を基準に各`user_experience.md`へ理由付きで記録した。要求とUXは多対多であり、新しい固定候補への独立再レビューで候補の統合・分割・名称およびRelationの妥当性を再確認する。
+全36要求について、利用者Goal、Outcome、重要場面、失敗条件および品質期待を要求ごとに再分析した。30件のUX成果候補とのNew／Same関係も、利用者が得る最終状態と主な失敗条件を基準に各`Analysis/REQ-*/ux_analysis.md`へ理由付きで記録した。要求とUXは多対多であり、Canonicalな現在定義は各`Definitions/UX-*/experience.md`が所有する。新しい固定候補への独立再レビューで候補の統合・分割・名称およびRelationの妥当性を再確認する。
 
 | UX成果 | Discovery要求候補 | 利用者成果 | Journey／Blueprint | 検証意図 | IAへの義務 |
 |---|---|---|---|---|---|
-| `UX-000001` 意味レビューへ集中できる事前確認 | `REQ-000001` | 同じ対象と条件なら機械的不備と修正箇所を先に理解し、意味レビューへ集中できる | 標準変更Journey | 結果の決定性、対象箇所、理由および意味判断との境界を確認する | 対象、検査条件、Finding、Location、Responsibilityを関連付ける |
-| `UX-000002` 委任範囲と権限を理解して任せる | `REQ-000002`／`REQ-000003` | 実行前に誰へ何をどこまで任せるかを理解し、暗黙の範囲拡張なく仕事を委ねられる | Milestone委任Journey | Scope拡張、未承認Authorityおよび不明な実行主体を反証する | Objective、Scope、Actor、Authorityを分ける |
-| `UX-000003` 委任中の状態と判断要否を理解する | `REQ-000002`／`REQ-000003` | 内部logを読まず、実行中・待機・停止と現在必要な判断を理解できる | Project／Runtime Journey | 無反応、偽の進捗、Provider差の誤表示および停止中の実行表示を反証する | Task State、Provider State、Decision、Next Actionを関連付ける |
-| `UX-000004` 失敗後の再試行・回復を選ぶ | `REQ-000002`／`REQ-000003`／`REQ-000021`／`REQ-000024` | 失敗後に状態確認、再試行、回復および清掃を取り違えず、二重Effectを避けて次の行動を選べる | Runtime／Remote回復Journey | 無条件Retry、古いAuthority、Provider差の隠蔽および二重Effectを反証する | Failure、Effect State、Recovery、Retryを分ける |
-| `UX-000005` 目的と受入条件でMilestoneを委ねる | `REQ-000003` | 内部Taskを逐次操作せず、目的・受入条件・統合状態からMilestoneの完成と必要な判断を理解できる | Milestone委任Journey | Task数や部分成功を完成へ畳む表示を反証する | Objective、Acceptance、Milestone、Task、Integration、Qualityを関連付ける |
-| `UX-000006` 実行事実を根拠付きで振り返る | `REQ-000004` | 実行主体が異なっても、観測事実・未観測・評価・改善候補を出所と時点付きで区別して振り返れる | Runtime運用Journey | 空値の正常化、評価の事実化および出所のない比較を反証する | Execution、Observation State、Source、Assessment、Candidateを分ける |
-| `UX-000007` 内部変更後も成立済み能力を安全に使う | `REQ-000005`／`REQ-000019`／`REQ-000023` | 責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる | 標準変更Journey | 主経路だけの移行、旧契約残存および根拠のない旧処理削除を反証する | Previous Capability、Public Contract、Consumer、Replacement、Evidenceを結ぶ |
-| `UX-000008` 故障した境界と影響範囲を理解する | `REQ-000005`／`REQ-000006`／`REQ-000023` | 接続・認証・実行・結果搬送またはProvider境界のどこで止まり、何が利用可能かを理解できる | Runtime／Remote Journey | 一律の失敗表示、無関係な能力停止および全体成功表示を反証する | Failure Origin、Boundary、Affected Capability、Deliveryを関連付ける |
-| `UX-000009` Projectの現在地を根拠と不完全性付きで理解する | `REQ-000007`／`REQ-000009`／`REQ-000020` | 物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる | Project／Portfolio Journey | partial、stale、restricted、conflictingおよび未観測値の誤認を反証する | Project、Property、Source、Revision、Observed At、Coverageを関連付ける |
-| `UX-000010` Repository単独で日常作業を続ける | `REQ-000008`／`REQ-000034`／`REQ-000036` | 横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在Repositoryで日常作業を開始・継続できる | Developer Local Journey | CROS未設定、未CommitまたはVersion Control Adapter障害による無関係な作業停止を反証する | Local Context、Routine Operation、Version Control Capabilityを分ける |
-| `UX-000011` Project・Repository・Rootを区別して対象を選ぶ | `REQ-000009`／`REQ-000020`／`REQ-000024` | 論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる | Project Journey | 名前やPathの類似だけから対象Identityを推定する操作を反証する | Project、Repository、Root、Bindingを分ける |
-| `UX-000012` 入口を変えても同じ仕事を続ける | `REQ-000006`／`REQ-000010` | Workbench、MCP、CLIまたはAIの入口を変えても、同じ入力・権限・状態・結果を用いて仕事を続けられる | 共同Service Blueprint | 入口固有の第二正本、業務状態、Authority判断または結果差を反証する | Application Result、Public Contract、Transport Projectionを分ける |
-| `UX-000013` 許可されたWorkspaceだけをRemote利用する | `REQ-000011` | 接続元やCredentialが変わっても、現在許可されたWorkspaceだけを利用し、利用不能理由と管理能力を内容閲覧から区別できる | Remote利用Journey | 存在漏えい、一律Unlock、古いGrantおよび管理能力からの閲覧権限推定を反証する | Credential、Session、Workspace Grant、System Capability、Disclosureを分ける |
-| `UX-000014` Meeting内容を候補化し採否を判断する | `REQ-000012` | 会話・観察・仮説・候補・決定を区別し、既存Topicとの関係を根拠付きで判断して所有正本へ戻せる | Topic／Meeting Journey | 会話の自動採用と文字列一致だけの統合・分割を反証する | Meeting Item、Candidate、Topic Relation、Decision、Ownerを結ぶ |
-| `UX-000015` 複数Projectを根拠付きで比較する | `REQ-000013` | 許可されたProjectの重要差を比較し、Coverageと根拠を保ったまま必要なProjectだけを掘り下げられる | Management Portfolio Journey | 非開示Projectの存在漏えい、単一Score断定およびCoverage差の消去を反証する | Project Summary、Coverage、Observed At、Disclosureを分ける |
-| `UX-000016` 仕事に必要な標準Toolを迷わず選ぶ | `REQ-000014`／`REQ-000034` | 現在Repositoryと目的に対応する標準Toolを見つけ、利用可能性・Effect権限・開発実行・公式実行を区別して選べる | Local／Runtime導入Journey | 未登録能力の推測表示、一覧からのAuthority発行および開発候補の正式配布表示を反証する | Capability、Availability、Authority、Execution Mode、Repository Bindingを分ける |
-| `UX-000017` Runtime Dataを安全に保持・清掃する | `REQ-000015`／`REQ-000022` | 保存場所の内部構造を推測せず、保持すべき状態と一時物を区別して安全に作業を継続・終了できる | Runtime運用Journey | 用途不明の書込み、名前や時間だけの削除および別Repositoryへの波及を反証する | Data Owner、Root、Durability、Retention、Cleanupを関連付ける |
-| `UX-000018` AIモデル構成を安全に更新・選択する | `REQ-000016` | 新しいモデルへ追随するとき、コード改修を待たず検証済み構成を更新し、実効選択と再選定理由を理解できる | Runtime導入・運用Journey | 未知設定の黙示代替、非対応モデルの実行可能表示および無説明選択を反証する | Model Profile、Availability、Selection、Reason、Fallback Conditionを結ぶ |
-| `UX-000019` 必要なContextを渡し結果を同じ仕事へ戻す | `REQ-000017`／`REQ-000024`／`REQ-000027`／`REQ-000028` | 必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる | 対話と構築の往復Journey | 全量投入、Secret混入、Context捏造、別Task結果混入およびAgent完了の自動採用を反証する | Context Package、Source、Task、Result、Evidence、Handoff、Decisionを関連付ける |
-| `UX-000020` 利用環境の信頼方針でRuntimeを選ぶ | `REQ-000018`／`REQ-000025` | 準拠、改ざん有無、Publisher、公式表示および実行許可を区別し、自分の環境の方針で公式版・Fork・組織版を選べる | Runtime導入Journey | 一つの署名やブランド表示への全保証集約とQual-Lab署名だけの実行資格化を反証する | Conformance、Integrity、Publisher、Policy、Deploymentを分ける |
-| `UX-000021` 切断後も同じRequestへ戻る | `REQ-000021`／`REQ-000024` | 応答喪失後に新規実行せず、現在のAccessで同じRequestの状態・結果・回復義務へ戻れる | Remote再接続Journey | 再接続時の二重Effect、古いSession Authorityおよび別Requestへの誤結合を反証する | Request Identity、Session、Current Access、Result、Recoveryを結ぶ |
-| `UX-000022` 残存資源を安全に回復・清掃する | `REQ-000022` | 失敗後に残存の由来・影響・再入場先を理解し、必要な回復を行って不存在まで確認できる | Runtime回復Journey | 清掃要求だけの完了表示、別Operationの巻込みおよび不明状態での削除を反証する | Residue、Recovery Identity、Disposition、Absence Evidenceを結ぶ |
-| `UX-000023` 監査・是正・判断を一つの改訂版で閉じる | `REQ-000026` | 合意した条件、適用先、反証、未処置および現在必要な人間判断を一つの改訂版で理解して収束できる | 標準変更Journey | 指摘の小出し適用、解消済み判断の再要求および一部是正の完成表示を反証する | Finding、Remediation、Verification、Decision Request、Current Revisionを結ぶ |
-| `UX-000024` 外部送信範囲と同意を理解して送る | `REQ-000027` | 外部Effect前に送信先・目的・操作・情報分類・許可範囲を理解し、結果を候補として扱える | 外部Context Journey | 接続済み・過去同意からの包括許可、不要情報送信および結果の自動採用を反証する | Destination、Purpose、Classification、Consent、Candidateを結ぶ |
-| `UX-000025` 過去の推論Contextと現在値を区別する | `REQ-000029` | 当時の仮説・判断・学びと現在有効なIntentを区別し、必要なContextを選べる | 文書・Context Journey | 遡及上書き、古いHypothesisの現在値化および履歴全量の無選択投入を反証する | Historical Context、Current Intent、Selection Basisを分ける |
-| `UX-000026` 試験層と現在の保証範囲を理解して選ぶ | `REQ-000030` | 各試験層が確認したこと・未確認範囲・時間や費用を理解し、必要な検証と高負荷試験の実行有無を選べる | 検証Journey | 一部Passからの全体品質推定、単発成功だけのLifecycle保証および未指示の高負荷実行を反証する | Test Layer、Scope、Lifecycle Evidence、Authority、Not Executed Stateを結ぶ |
-| `UX-000027` 物語と構造から文書の意味を理解する | `REQ-000031` | 課題と判断の物語を理解してから、表・図で条件と関係を確認し、次の行動へ進める | 文書Journey | Checklist順、専門語だけの説明および情報削減による見せかけの可読性を反証する | Narrative、Structured Detail、Decision、Evidenceを結ぶ |
-| `UX-000028` 工程固有の図から意図を引き継ぐ | `REQ-000032` | 工程固有の図から全体像・関係・状態差・未接続を理解し、後工程で意図を再発明せずに引き継げる | 文書・工程移行Journey | 図の黙示省略、機械的で読めない記法および図と試験の断絶を反証する | Diagram Element、Source Meaning、Handoff Obligationを結ぶ |
-| `UX-000029` Work・Change・Evidence・Qualityを迷わず辿る | `REQ-000033` | 未完了、変更理由、全影響Path、成立根拠および現在品質を役割の違いとともに辿れる | 標準変更Journey | Owner混同、代表Pathだけの表示、Evidenceの遡及上書きおよびGit差分への丸投げを反証する | Work、Change、Affected Path、Evidence、Observed Revision、Qualityを分ける |
-| `UX-000030` 公式素材を権利と用途を確認して使う | `REQ-000035` | 公式素材の出所・原本・派生物・利用条件を確認し、許可された用途で安心して収載・再利用できる | Communication／導入Journey | 見た目からのTrust保証推定、権利不明素材の収載および用途外再配布を反証する | Asset、Provenance、Rights、Usageを結ぶ |
+| [UX-000001](Definitions/UX-000001/experience.md) 意味レビューへ集中できる事前確認 | `REQ-000001` | 同じ対象と条件なら機械的不備と修正箇所を先に理解し、意味レビューへ集中できる | 標準変更Journey | 結果の決定性、対象箇所、理由および意味判断との境界を確認する | 対象、検査条件、Finding、Location、Responsibilityを関連付ける |
+| [UX-000002](Definitions/UX-000002/experience.md) 委任範囲と権限を理解して任せる | `REQ-000002`／`REQ-000003` | 実行前に誰へ何をどこまで任せるかを理解し、暗黙の範囲拡張なく仕事を委ねられる | Milestone委任Journey | Scope拡張、未承認Authorityおよび不明な実行主体を反証する | Objective、Scope、Actor、Authorityを分ける |
+| [UX-000003](Definitions/UX-000003/experience.md) 委任中の状態と判断要否を理解する | `REQ-000002`／`REQ-000003` | 内部logを読まず、実行中・待機・停止と現在必要な判断を理解できる | Project／Runtime Journey | 無反応、偽の進捗、Provider差の誤表示および停止中の実行表示を反証する | Task State、Provider State、Decision、Next Actionを関連付ける |
+| [UX-000004](Definitions/UX-000004/experience.md) 失敗後の再試行・回復を選ぶ | `REQ-000002`／`REQ-000003`／`REQ-000021`／`REQ-000024` | 失敗後に状態確認、再試行、回復および清掃を取り違えず、二重Effectを避けて次の行動を選べる | Runtime／Remote回復Journey | 無条件Retry、古いAuthority、Provider差の隠蔽および二重Effectを反証する | Failure、Effect State、Recovery、Retryを分ける |
+| [UX-000005](Definitions/UX-000005/experience.md) 目的と受入条件でMilestoneを委ねる | `REQ-000003` | 内部Taskを逐次操作せず、目的・受入条件・統合状態からMilestoneの完成と必要な判断を理解できる | Milestone委任Journey | Task数や部分成功を完成へ畳む表示を反証する | Objective、Acceptance、Milestone、Task、Integration、Qualityを関連付ける |
+| [UX-000006](Definitions/UX-000006/experience.md) 実行事実を根拠付きで振り返る | `REQ-000004` | 実行主体が異なっても、観測事実・未観測・評価・改善候補を出所と時点付きで区別して振り返れる | Runtime運用Journey | 空値の正常化、評価の事実化および出所のない比較を反証する | Execution、Observation State、Source、Assessment、Candidateを分ける |
+| [UX-000007](Definitions/UX-000007/experience.md) 内部変更後も成立済み能力を安全に使う | `REQ-000005`／`REQ-000019`／`REQ-000023` | 責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる | 標準変更Journey | 主経路だけの移行、旧契約残存および根拠のない旧処理削除を反証する | Previous Capability、Public Contract、Consumer、Replacement、Evidenceを結ぶ |
+| [UX-000008](Definitions/UX-000008/experience.md) 故障した境界と影響範囲を理解する | `REQ-000005`／`REQ-000006`／`REQ-000023` | 接続・認証・実行・結果搬送またはProvider境界のどこで止まり、何が利用可能かを理解できる | Runtime／Remote Journey | 一律の失敗表示、無関係な能力停止および全体成功表示を反証する | Failure Origin、Boundary、Affected Capability、Deliveryを関連付ける |
+| [UX-000009](Definitions/UX-000009/experience.md) Projectの現在地を根拠と不完全性付きで理解する | `REQ-000007`／`REQ-000009`／`REQ-000020` | 物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる | Project／Portfolio Journey | partial、stale、restricted、conflictingおよび未観測値の誤認を反証する | Project、Property、Source、Revision、Observed At、Coverageを関連付ける |
+| [UX-000010](Definitions/UX-000010/experience.md) Repository単独で日常作業を続ける | `REQ-000008`／`REQ-000034`／`REQ-000036` | 横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在Repositoryで日常作業を開始・継続できる | Developer Local Journey | CROS未設定、未CommitまたはVersion Control Adapter障害による無関係な作業停止を反証する | Local Context、Routine Operation、Version Control Capabilityを分ける |
+| [UX-000011](Definitions/UX-000011/experience.md) Project・Repository・Rootを区別して対象を選ぶ | `REQ-000009`／`REQ-000020`／`REQ-000024` | 論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる | Project Journey | 名前やPathの類似だけから対象Identityを推定する操作を反証する | Project、Repository、Root、Bindingを分ける |
+| [UX-000012](Definitions/UX-000012/experience.md) 入口を変えても同じ仕事を続ける | `REQ-000006`／`REQ-000010` | Workbench、MCP、CLIまたはAIの入口を変えても、同じ入力・権限・状態・結果を用いて仕事を続けられる | 共同Service Blueprint | 入口固有の第二正本、業務状態、Authority判断または結果差を反証する | Application Result、Public Contract、Transport Projectionを分ける |
+| [UX-000013](Definitions/UX-000013/experience.md) 許可されたWorkspaceだけをRemote利用する | `REQ-000011` | 接続元やCredentialが変わっても、現在許可されたWorkspaceだけを利用し、利用不能理由と管理能力を内容閲覧から区別できる | Remote利用Journey | 存在漏えい、一律Unlock、古いGrantおよび管理能力からの閲覧権限推定を反証する | Credential、Session、Workspace Grant、System Capability、Disclosureを分ける |
+| [UX-000014](Definitions/UX-000014/experience.md) Meeting内容を候補化し採否を判断する | `REQ-000012` | 会話・観察・仮説・候補・決定を区別し、既存Topicとの関係を根拠付きで判断して所有正本へ戻せる | Topic／Meeting Journey | 会話の自動採用と文字列一致だけの統合・分割を反証する | Meeting Item、Candidate、Topic Relation、Decision、Ownerを結ぶ |
+| [UX-000015](Definitions/UX-000015/experience.md) 複数Projectを根拠付きで比較する | `REQ-000013` | 許可されたProjectの重要差を比較し、Coverageと根拠を保ったまま必要なProjectだけを掘り下げられる | Management Portfolio Journey | 非開示Projectの存在漏えい、単一Score断定およびCoverage差の消去を反証する | Project Summary、Coverage、Observed At、Disclosureを分ける |
+| [UX-000016](Definitions/UX-000016/experience.md) 仕事に必要な標準Toolを迷わず選ぶ | `REQ-000014`／`REQ-000034` | 現在Repositoryと目的に対応する標準Toolを見つけ、利用可能性・Effect権限・開発実行・公式実行を区別して選べる | Local／Runtime導入Journey | 未登録能力の推測表示、一覧からのAuthority発行および開発候補の正式配布表示を反証する | Capability、Availability、Authority、Execution Mode、Repository Bindingを分ける |
+| [UX-000017](Definitions/UX-000017/experience.md) Runtime Dataを安全に保持・清掃する | `REQ-000015`／`REQ-000022` | 保存場所の内部構造を推測せず、保持すべき状態と一時物を区別して安全に作業を継続・終了できる | Runtime運用Journey | 用途不明の書込み、名前や時間だけの削除および別Repositoryへの波及を反証する | Data Owner、Root、Durability、Retention、Cleanupを関連付ける |
+| [UX-000018](Definitions/UX-000018/experience.md) AIモデル構成を安全に更新・選択する | `REQ-000016` | 新しいモデルへ追随するとき、コード改修を待たず検証済み構成を更新し、実効選択と再選定理由を理解できる | Runtime導入・運用Journey | 未知設定の黙示代替、非対応モデルの実行可能表示および無説明選択を反証する | Model Profile、Availability、Selection、Reason、Fallback Conditionを結ぶ |
+| [UX-000019](Definitions/UX-000019/experience.md) 必要なContextを渡し結果を同じ仕事へ戻す | `REQ-000017`／`REQ-000024`／`REQ-000027`／`REQ-000028` | 必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる | 対話と構築の往復Journey | 全量投入、Secret混入、Context捏造、別Task結果混入およびAgent完了の自動採用を反証する | Context Package、Source、Task、Result、Evidence、Handoff、Decisionを関連付ける |
+| [UX-000020](Definitions/UX-000020/experience.md) 利用環境の信頼方針でRuntimeを選ぶ | `REQ-000018`／`REQ-000025` | 準拠、改ざん有無、Publisher、公式表示および実行許可を区別し、自分の環境の方針で公式版・Fork・組織版を選べる | Runtime導入Journey | 一つの署名やブランド表示への全保証集約とQual-Lab署名だけの実行資格化を反証する | Conformance、Integrity、Publisher、Policy、Deploymentを分ける |
+| [UX-000021](Definitions/UX-000021/experience.md) 切断後も同じRequestへ戻る | `REQ-000021`／`REQ-000024` | 応答喪失後に新規実行せず、現在のAccessで同じRequestの状態・結果・回復義務へ戻れる | Remote再接続Journey | 再接続時の二重Effect、古いSession Authorityおよび別Requestへの誤結合を反証する | Request Identity、Session、Current Access、Result、Recoveryを結ぶ |
+| [UX-000022](Definitions/UX-000022/experience.md) 残存資源を安全に回復・清掃する | `REQ-000022` | 失敗後に残存の由来・影響・再入場先を理解し、必要な回復を行って不存在まで確認できる | Runtime回復Journey | 清掃要求だけの完了表示、別Operationの巻込みおよび不明状態での削除を反証する | Residue、Recovery Identity、Disposition、Absence Evidenceを結ぶ |
+| [UX-000023](Definitions/UX-000023/experience.md) 監査・是正・判断を一つの改訂版で閉じる | `REQ-000026` | 合意した条件、適用先、反証、未処置および現在必要な人間判断を一つの改訂版で理解して収束できる | 標準変更Journey | 指摘の小出し適用、解消済み判断の再要求および一部是正の完成表示を反証する | Finding、Remediation、Verification、Decision Request、Current Revisionを結ぶ |
+| [UX-000024](Definitions/UX-000024/experience.md) 外部送信範囲と同意を理解して送る | `REQ-000027` | 外部Effect前に送信先・目的・操作・情報分類・許可範囲を理解し、結果を候補として扱える | 外部Context Journey | 接続済み・過去同意からの包括許可、不要情報送信および結果の自動採用を反証する | Destination、Purpose、Classification、Consent、Candidateを結ぶ |
+| [UX-000025](Definitions/UX-000025/experience.md) 過去の推論Contextと現在値を区別する | `REQ-000029` | 当時の仮説・判断・学びと現在有効なIntentを区別し、必要なContextを選べる | 文書・Context Journey | 遡及上書き、古いHypothesisの現在値化および履歴全量の無選択投入を反証する | Historical Context、Current Intent、Selection Basisを分ける |
+| [UX-000026](Definitions/UX-000026/experience.md) 試験層と現在の保証範囲を理解して選ぶ | `REQ-000030` | 各試験層が確認したこと・未確認範囲・時間や費用を理解し、必要な検証と高負荷試験の実行有無を選べる | 検証Journey | 一部Passからの全体品質推定、単発成功だけのLifecycle保証および未指示の高負荷実行を反証する | Test Layer、Scope、Lifecycle Evidence、Authority、Not Executed Stateを結ぶ |
+| [UX-000027](Definitions/UX-000027/experience.md) 物語と構造から文書の意味を理解する | `REQ-000031` | 課題と判断の物語を理解してから、表・図で条件と関係を確認し、次の行動へ進める | 文書Journey | Checklist順、専門語だけの説明および情報削減による見せかけの可読性を反証する | Narrative、Structured Detail、Decision、Evidenceを結ぶ |
+| [UX-000028](Definitions/UX-000028/experience.md) 工程固有の図から意図を引き継ぐ | `REQ-000032` | 工程固有の図から全体像・関係・状態差・未接続を理解し、後工程で意図を再発明せずに引き継げる | 文書・工程移行Journey | 図の黙示省略、機械的で読めない記法および図と試験の断絶を反証する | Diagram Element、Source Meaning、Handoff Obligationを結ぶ |
+| [UX-000029](Definitions/UX-000029/experience.md) Work・Change・Evidence・Qualityを迷わず辿る | `REQ-000033` | 未完了、変更理由、全影響Path、成立根拠および現在品質を役割の違いとともに辿れる | 標準変更Journey | Owner混同、代表Pathだけの表示、Evidenceの遡及上書きおよびGit差分への丸投げを反証する | Work、Change、Affected Path、Evidence、Observed Revision、Qualityを分ける |
+| [UX-000030](Definitions/UX-000030/experience.md) 公式素材を権利と用途を確認して使う | `REQ-000035` | 公式素材の出所・原本・派生物・利用条件を確認し、許可された用途で安心して収載・再利用できる | Communication／導入Journey | 見た目からのTrust保証推定、権利不明素材の収載および用途外再配布を反証する | Asset、Provenance、Rights、Usageを結ぶ |
 
 ### 2.3. UX成果の横断構造
 
@@ -172,7 +172,8 @@ Discoveryで採用した36要求は、2026-09-14の独立レビューで見つ�
 | 利用者の仕事と判断が全体でどう流れるか | [Experience Map](03_Experience_Map.md) |
 | その体験を誰・何がどう支えるか | [Service Blueprint](04_Service_Blueprint.md) |
 | 体験として守る品質と重要場面 | [体験品質期待](05_Quality_Expectations.md) |
-| 各要求をどうUXへ変換したか | [要求別UX分析](Requirements/) |
+| 各要求をどうUXへ変換したか | [要求別UX分析](Analysis/) |
+| 各UX成果の現在定義 | [UX成果定義](Definitions/) |
 
 ## 基本図の処置
 

@@ -279,6 +279,54 @@ CRDDが通常要求するのは責務網羅範囲であり、文書を増やす�
 
 利用者との会話、会議記録、観察、外部反応またはAgentの途中出力は成果物の情報源になり得るが、既定の成果物本文ではない。口語、一人称、感情表現、推測または会話上の省略をそのまま正本、変更トレース、レビュー結果または外部成果物へ移さず、必要な来歴と情報源への追跡可能性を保ちながら、確認できた事実、判断、判断理由、制約、仮説および未確定事項へ変換する。発話者の意図または決定権限を確認できない内容を、編集上自然に見えるという理由で判断や要求へ昇格しない。原文保存を一律に要求せず、原文自体が根拠として必要で、[コンテキストリポジトリの情報最小化と保持](01_Principles.md#1-crdd-and-context-repository)に反しない場合だけ、変換した意味と原文引用を区別して保持する。外部へ送る場合は、同文書の[外部情報境界](01_Principles.md#external-information-boundary)も適用する。
 
+<a id="phase-repository-pattern"></a>
+
+### 工程成果物のRepository Pattern
+
+Discovery以降の主要工程は、前工程以前のContextを自工程の専門観点で分析する`Analysis/`と、分析結果として確定した自工程のCanonical Entityを定義する`Definitions/`を分ける。工程ルートの`01_*`は工程全体の入口、台帳、Coverage、現在状態およびNavigationを投影し、その他のルート文書は個別成果物を横断した合成を所有する。
+
+```text
+前工程のCanonical Entity
+        │
+        ▼
+┌────────────────┐
+│ Analysis       │ なぜこの結論へ至ったか
+│ 問題・仮説・比較│ CandidateとSame／New
+└───────┬────────┘
+        ▼
+┌────────────────┐
+│ Definitions    │ 結局、何が確定したか
+│ Canonical Entity│ 成立条件・関係・検証意図
+└───────┬────────┘
+        ▼
+次工程のAnalysis Unit
+
+工程ルート
+├ 01_*          工程Center／Registry／Coverage／Navigation
+├ 02_* ...      Cross-cutting Synthesis
+├ Analysis/     判断・探索・変換の過程
+└ Definitions/  自工程で確定したCanonical Entity
+```
+
+| 成果物 | 所有する情報 | 所有しない情報 |
+|---|---|---|
+| `Analysis/` | Input Context、問題、観察、仮説、代替、Candidate、Same／New、判断理由、不確実性、未決事項 | Canonical Entityの現在定義、下流の設計、実行結果 |
+| `Definitions/` | Identity、意味、目的、成立条件、関係、制約、品質、下流入力、検証意図、Source Analysis | 詳細な探索過程、Test Case、実行結果、変更履歴 |
+| `01_*` | 工程入口、Registry、Coverage、Current State、Navigation | 個別Definition本文、分析過程、Evidence本文 |
+| 横断合成 | 個別Analysis／Definitionを比較して得たPersona、Journey、全体Model等 | 個別Analysis／Definitionの代替、第二のCanonical Definition |
+
+Analysis ArtifactとDefinitionは1対1に固定しない。一つの分析から複数Definitionが生まれても、複数Analysisが一つのDefinitionへ統合されてもよい。Folder階層は分析単位とCanonical Entityの所在を表し、多対多の意味関係は各成果物と工程台帳のRelationで明示する。Folder名だけから関係を推定しない。
+
+子FolderのMarkdownは、その分析単位またはCanonical Entityを単独で理解できる自己完結性を持たせる。ルート文書は個別本文を複製せず、全体像、Coverage、関係および到達先を投影する。自己完結とは共通規則や全履歴の複製ではなく、対象固有の意味、理由、条件、制約、関係および引き渡しを参照だけへ追い出さないことである。
+
+次工程は通常、前工程の`Definitions/`を分析単位として受け取る。理由や比較の再確認が必要な時だけSource Analysisへ戻る。Definitionは少なくともIdentity、意味、Source Relation、成立条件、関連制約、下流への引き渡しおよび検証意図が揃い、次工程が上流分析をやり直さず開始できる場合に`Definition Ready`となる。文書の存在、ID発行または台帳行だけをReadyとみなさない。
+
+CRDDの安定Context IDは長く参照するCanonicalな意味へ発行する。File、Module、Function、Test file、Commit、Evidence等の自然なIdentityを持つ対象へ、工程Patternを揃える目的だけで意味の薄いIDを追加しない。DevelopmentはCodeの自然なIdentity、Verification ItemはDefinition内のLocal IdentityまたはTest asset名、Evidenceは実行対象と観測Revisionを使用する。
+
+Evidenceは「その時、実際にどうだったか」を所有し、`Definitions/`へ実行結果を書き込まない。再利用可能なVerification DesignはQualityが、Automated Test実装は`40_Develop`が、実行結果はCHGまたはReleaseのEvidenceが所有する。工程FolderにEvidenceが必要な場合は、所有するAnalysisまたはDefinitionの子へ必要時だけ置き、空の共通`Evidence/`を先に作らない。
+
+IA以降へ本Patternを適用する際は、当該工程の正本、既存成果物、下流利用側および品質設計を改めて調査する。Directory名だけを先に変更したり、空の`Analysis/`／`Definitions/`を作ったり、既存のルート文書を内容確認なしで投影扱いへ変更したりしない。
+
 成果物の現在状態が採用、レビューまたは公開判断へ影響する場合は、題材候補、構成案、本文作成中、本文Draft、レビュー済みDraft、公開候補、公開済み等の意味を区別するか、同等に現在の到達点を説明する。単一の`Draft`、ファイルの存在、文章量または一部の高い完成度で、構成だけの候補、未評価の本文、レビュー済み成果物および公開候補を丸めない。すべての成果物へ固定状態Schemaを要求せず、状態の違いが次の操作、決定権限またはリスクを変える対象だけに適用する。
 
 ```text

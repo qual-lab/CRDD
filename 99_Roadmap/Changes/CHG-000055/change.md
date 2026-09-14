@@ -14,7 +14,7 @@
 
 現在の読み始め: [実務評価](#26-実務評価と最終確認への引渡し)、[完成評価・追加確認](../CHG-000015/Evidence/260901_coordinator-completion-review.md#windows-terminal-verification)、[人間による候補内容・移行方針の採用](../CHG-000014/change.md#candidate-adoption-20260901)を参照する。v0.18へ採用済みの工程・文書改善は完了し、PRへの引渡し段階である。総合的な有用性の優位は未実証、将来能力は研究候補のまま。以下の各節は当時の経緯であり、最終採用前・停止・確認待ちを現在の判定へ流用しない。Runtimeの実測と残件は[CHG-000015](../CHG-000015/change.md#1-結論と現在状態)が所有する。
 
-2026-08-31、Tool開発構成を標準工程フォルダへ整理する後続意図を、既存の根拠駆動リファクタリングへ追加した。[構成・配布・利用者観点の比較候補](../../../01_Discovery/Explorations/EXP-000005_Repository_Distributed_Tooling/exploration.md)はDiscoveryが所有する。この追加を記録した時点では移動・配布方式の採用は行っていなかったが、その後の工程別配置移行と検証を完了したため、対応順序の完了案内はRoadmapから除去した。経緯と現在の処置は[CHG-000017](../CHG-000017/change.md#9-内部ツールの工程別配置への移行)へ集約する。
+2026-08-31、Tool開発構成を標準工程フォルダへ整理する後続意図を、既存の根拠駆動リファクタリングへ追加した。[構成・配布・利用者観点の比較候補](../../../01_Discovery/Analysis/EXP-000005/exploration.md)はDiscoveryが所有する。この追加を記録した時点では移動・配布方式の採用は行っていなかったが、その後の工程別配置移行と検証を完了したため、対応順序の完了案内はRoadmapから除去した。経緯と現在の処置は[CHG-000017](../CHG-000017/change.md#9-内部ツールの工程別配置への移行)へ集約する。
 
 ## 1. 人間の判断と目的
 
@@ -632,7 +632,7 @@ Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](../CHG-000015/chang
 
 ## 6. Coordinator Runtime自己適用から追加した改善候補
 
-2026-08-28、Qual-Labの人間の決定権限者は、Coordinator Runtime 1.0の収束過程で得た学びを、既存の第2段階へ追加することを採用した。追加対象は次の三つであり、詳細な意味と保持条件は[`CRDD標準自身の課題探索・要求形成`](../../../01_Discovery/Explorations/EXP-000010_Assurance_and_Regression/exploration.md)が所有する。
+2026-08-28、Qual-Labの人間の決定権限者は、Coordinator Runtime 1.0の収束過程で得た学びを、既存の第2段階へ追加することを採用した。追加対象は次の三つであり、詳細な意味と保持条件は[`CRDD標準自身の課題探索・要求形成`](../../../01_Discovery/Analysis/EXP-000010/exploration.md)が所有する。
 
 - 振る舞い仕様、アーキテクチャ、検証設計、実装および検証を接続し、正常・準正常・異常・回復を状態、遷移、資源、観測および失敗注入点へ対応させる。
 - Runtime 1.0完成後、反復Findingと実測Evidenceからオペレーション・ライフサイクル、資源ライフサイクル／台帳、外部接続、Repository選択・接続、PlatformおよびProviderの安定した責務境界だけを抽出する。
@@ -670,7 +670,7 @@ Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](../CHG-000015/chang
 
 ## 9. v0.18.0 Candidateへの収載判断による再開
 
-2026-08-28、Qual-Labの人間の決定権限者は、§6で採用した三つの改善意図、すなわち[`CRDD標準自身の課題探索・要求形成`](../../../01_Discovery/Explorations/EXP-000010_Assurance_and_Regression/exploration.md)の§7.3.1～§7.3.3を、すべてv0.18.0 Candidateへ収載すると判断した。§7～§8で確認した「版未割当」は当時の有効な判断履歴として保持するが、現在の対象版判断は本節が置き換える。
+2026-08-28、Qual-Labの人間の決定権限者は、§6で採用した三つの改善意図、すなわち[`CRDD標準自身の課題探索・要求形成`](../../../01_Discovery/Analysis/EXP-000010/exploration.md)の§7.3.1～§7.3.3を、すべてv0.18.0 Candidateへ収載すると判断した。§7～§8で確認した「版未割当」は当時の有効な判断履歴として保持するが、現在の対象版判断は本節が置き換える。
 
 収載対象は、上流工程エージェント／課題探索対話ループと工程接続・意味網羅検証の強化、Coordinator Reference Runtimeの根拠駆動リファクタリング、既存・過去CHGを含む人間可読文書の意味構造改善である。第2段階に残る未採用の実行観測候補、MCP、Remote Runtime、Linux、Self-hosted Provider、Project／Organization Runtimeおよびv0.19.0以降の能力地平は`Held / Unscheduled`のままであり、本判断から収載または実装許可を得ない。
 
@@ -715,7 +715,7 @@ README、CHANGELOG、[`16_Quality_Assurance.md`](../../../16_Quality_Assurance.m
 
 ## 12. Runtime終盤E2Eから具体化した工程強化母集団
 
-2026-08-29、Qual-Labの人間の決定権限者は、Coordinator Runtime終盤の正式署名E2Eで反復したComponent間の意味不一致を、§6と§9で収載済みの工程接続・意味網羅検証へ追加してDogfoodingすることを判断した。新しい第四の改善意図や独立Roadmapは作らず、[`CRDD標準自身の課題探索・要求形成` §7.3.1](../../../01_Discovery/Explorations/EXP-000010_Assurance_and_Regression/exploration.md)へ次の母集団を統合した。
+2026-08-29、Qual-Labの人間の決定権限者は、Coordinator Runtime終盤の正式署名E2Eで反復したComponent間の意味不一致を、§6と§9で収載済みの工程接続・意味網羅検証へ追加してDogfoodingすることを判断した。新しい第四の改善意図や独立Roadmapは作らず、[`CRDD標準自身の課題探索・要求形成` §7.3.1](../../../01_Discovery/Analysis/EXP-000010/exploration.md)へ次の母集団を統合した。
 
 - Human／TriggerからAuthority、Execution、Review、Remediation、Verification、cleanupおよびResult PublicationまでのSystem Journey Closure
 - 重要State／ArtifactのSingle Truth／Single Owner、実Producer、Transport、Production Consumerおよび再所有禁止境界
@@ -730,7 +730,7 @@ README、CHANGELOG、[`16_Quality_Assurance.md`](../../../16_Quality_Assurance.m
 
 ## 13. 文書UX改善母集団の具体化
 
-2026-08-29、Qual-Labの人間の決定権限者は、§6と§9で収載済みの人間可読文書の意味構造改善について、Runtime完成後のDogfoodingで評価する母集団を具体化した。新しい改善意図、Roadmap項目、文書Templateまたは監査種別は追加せず、[`CRDD標準自身の課題探索・要求形成` §7.3.3](../../../01_Discovery/Explorations/EXP-000011_Human_Readable_Documentation/exploration.md)へ次を統合した。
+2026-08-29、Qual-Labの人間の決定権限者は、§6と§9で収載済みの人間可読文書の意味構造改善について、Runtime完成後のDogfoodingで評価する母集団を具体化した。新しい改善意図、Roadmap項目、文書Templateまたは監査種別は追加せず、[`CRDD標準自身の課題探索・要求形成` §7.3.3](../../../01_Discovery/Analysis/EXP-000011/exploration.md)へ次を統合した。
 
 - 人間、AIおよび機械可読性を両立し、概要から根拠／履歴まで同じ正本を必要な深さで読める段階的開示
 - 結論と現在状態の先出し、一文一義、平易な説明、箇条書き／表の意味に応じた利用
@@ -745,7 +745,7 @@ README、CHANGELOG、[`16_Quality_Assurance.md`](../../../16_Quality_Assurance.m
 
 ## 14. Human Decision Journey改善母集団の具体化
 
-2026-08-29、Qual-Labの人間の決定権限者は、§12で具体化したシステムJourney閉包を、人間の判断要求から回答後の工程再開までへ適用してDogfoodingすることを判断した。新しい第四の改善意図、固定Interaction SchemaまたはRoadmap項目は作らず、[`CRDD標準自身の課題探索・要求形成` §7.3.1](../../../01_Discovery/Explorations/EXP-000010_Assurance_and_Regression/exploration.md)へ次を統合した。
+2026-08-29、Qual-Labの人間の決定権限者は、§12で具体化したシステムJourney閉包を、人間の判断要求から回答後の工程再開までへ適用してDogfoodingすることを判断した。新しい第四の改善意図、固定Interaction SchemaまたはRoadmap項目は作らず、[`CRDD標準自身の課題探索・要求形成` §7.3.1](../../../01_Discovery/Analysis/EXP-000010/exploration.md)へ次を統合した。
 
 - 既存Rule、AuthorityおよびContextからAIが一意に処理できる事項を除外し、人間の決定権限が必要な地点だけで停止する
 - 承認、選択、確認、情報提供、判断またはリスク受容等、今回求める操作の種類を実質と一致させる
@@ -783,7 +783,7 @@ Runtime sourceまたは配布Identityへ影響しない変更では正式署名�
 
 2026-08-30、Qual-Labの人間の決定権限者は、Coordinator RuntimeのDogfoodingを安全な複数Provider連携の成立確認だけで完了させず、品質を維持または向上しながら、人間のAttention、採用可能な結果までの時間、単一Providerへの集中および不要なAI間反復を減らせるか実測する方針を採用した。これは新しい変更意図またはRoadmap項目ではなく、§7.3で採用済みの実行観測を価値判断へ接続する具体化である。
 
-CRDD全体に適用できる境界は[`進捗と運用上の有用性評価の分離`](../../../15_Progress.md#operational-utility-boundary)へ、Coordinator Dogfoodingの評価軸、Operation Profile、三条件比較、Task難易度、集約条件および将来MCP比較は[`CRDD標準自身の課題探索・要求形成`](../../../01_Discovery/Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md)へ反映した。
+CRDD全体に適用できる境界は[`進捗と運用上の有用性評価の分離`](../../../15_Progress.md#operational-utility-boundary)へ、Coordinator Dogfoodingの評価軸、Operation Profile、三条件比較、Task難易度、集約条件および将来MCP比較は[`CRDD標準自身の課題探索・要求形成`](../../../01_Discovery/Analysis/EXP-000004/exploration.md)へ反映した。
 
 Dogfoodingでは、Task開始から採用可能な結果までの経過時間、人間の実作業時間、AI処理量、Review／Remediation／Retry／Recovery、Provider別利用、後工程Findingおよび一定期間の処理量を別々に観測する。利用枠分散やAgent起動数だけを成功とせず、品質を効率指標で相殺しない。未観測値を0へ補正せず、十分なOperationが集まる前に改善率または総合点を捏造しない。
 
@@ -856,13 +856,13 @@ Coordinator全試験は今回は失敗4件を残した。試験の`TEMP`／`TMP`
 
 ### Provider比較を含む少数回の実測計画
 
-同日、ユーザーは調査用の少数回のSubscription利用を許可し、CodexとClaude Codeの比較も含めるよう指示した。既存の[有用性評価](../../../01_Discovery/Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md)へ、同一Taskの実行者と独立確認者を入れ替えた2経路比較を追加した。初回は各1 Task、通常4回、既存是正・再レビュー込み最大8回のProvider呼出しを計画上の上限とし、追加再試行しない。Task、Revision、投影、受入条件を揃え、モデル・推論・上限・実行順序を記録し、経路全体の有用性とモデル単体性能を区別する。1組の結果から成功率や優劣を一般化しない。
+同日、ユーザーは調査用の少数回のSubscription利用を許可し、CodexとClaude Codeの比較も含めるよう指示した。既存の[有用性評価](../../../01_Discovery/Analysis/EXP-000004/exploration.md)へ、同一Taskの実行者と独立確認者を入れ替えた2経路比較を追加した。初回は各1 Task、通常4回、既存是正・再レビュー込み最大8回のProvider呼出しを計画上の上限とし、追加再試行しない。Task、Revision、投影、受入条件を揃え、モデル・推論・上限・実行順序を記録し、経路全体の有用性とモデル単体性能を区別する。1組の結果から成功率や優劣を一般化しない。
 
 確認時点の更新Sourceは`999f66c`だが、実Provider用の配布物は改善前の`a619545`だけである。既存の開発E2E入口は実Providerを使わない。したがって、この比較は未実行であり、今回の記録ではProvider呼出しとクレジット消費は0回。親Coordinatorが更新版の実測入口の不足をCHG-000015の継続課題として扱い、既存の署名・Authority条件を維持して開始条件を整理する。開発用の実Provider入口が必要なら、そのTrust、回数制限、停止・cleanupおよび正式Releaseとの分離を別途設計し、単に検証を迂回する入口は作らない。比較計画はその保護境界変更の承認を兼ねない。既存Roadmapの有用性評価参照から追跡し、新CHG・新Roadmap項目は追加しない。最後の独立レビューでは比較条件、品質評価、標本限界と実測根拠を確認する。
 
 ### 実測結果から次版へ残す検討材料
 
-2026-08-31、人間は作業を続けながら中間有用性評価を次版への布石として残すよう依頼した。既存の[根拠駆動リファクタリング候補](../../../01_Discovery/Explorations/EXP-000013_Execution_Intelligence/exploration.md)へ、照合の呼出し元別計測、検証の共有単位、意味のあるTask分解と横断品質、人間負荷を含む比較評価を接続した。Roadmapは既存項目から候補の存在・状態・再評価契機を示すだけとし、新しいMD・CHG・固定Schemaは作らない。候補保持の記録を本CHGが、実装と実測根拠をCHG-000015が所有する。
+2026-08-31、人間は作業を続けながら中間有用性評価を次版への布石として残すよう依頼した。既存の[根拠駆動リファクタリング候補](../../../01_Discovery/Analysis/EXP-000013/exploration.md)へ、照合の呼出し元別計測、検証の共有単位、意味のあるTask分解と横断品質、人間負荷を含む比較評価を接続した。Roadmapは既存項目から候補の存在・状態・再評価契機を示すだけとし、新しいMD・CHG・固定Schemaは作らない。候補保持の記録を本CHGが、実装と実測根拠をCHG-000015が所有する。
 
 比較はその後CHG-000015の固定開発版で実行済みとなったが、全体的な性能改善・有用性は未確定である。[最新実測](../CHG-000015/Evidence/260831-0038_development-provider-comparison.json)では両経路のレビュー承認・回収が成立した一方、所要時間は前回より増えた。レビュー1回・追加是正0回を「レビューなし」、Reviewer承認を人間受入、局所成功を全体品質へ読み替えない。次版候補は`Held / Unscheduled`、版番号・収載・具体設計は未決とし、現行v0.18の必須残件を延期しない。現在の安全判断に影響する新根拠は現行是正へ戻す。
 
@@ -1104,7 +1104,7 @@ Coordinator全機械試験も1,397件合格、失敗・取消・skip 0（125,176
 |---|---|
 | 採用可能な結果までの総時間、人間の実作業時間 | [45ea2acの実務1件](./Evidence/260831-2227_utility.md)で実行開始から親の照合・反映・検証まで205.705秒を取得。指示準備・承認待ち・後続監査・人間の最終採用を含む総時間と、人間の実作業時間は未測定。呼出し時間や入力0回で代替しない |
 | AI処理量、turn／token／quota、利用枠分散 | 最新実務は実行・レビュー各1回、是正・再試行0、Runtime呼出し110.577秒。公開Task結果からturn／token／quota・純推論時間は取得できなかった。呼出し回数・状態時間と実使用量を区別し、追加Credentialや規約外観測を導入しない |
-| 直接実行との比較、処理量、後工程品質、初見理解 | 未測定。現在は一般的優位を主張できない。親Coordinatorが実務収束後、判断を変える代表比較・読者確認だけを[既存の有用性評価](../../../01_Discovery/Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md)へ接続する |
+| 直接実行との比較、処理量、後工程品質、初見理解 | 未測定。現在は一般的優位を主張できない。親Coordinatorが実務収束後、判断を変える代表比較・読者確認だけを[既存の有用性評価](../../../01_Discovery/Analysis/EXP-000004/exploration.md)へ接続する |
 | 工程・文書の現在品質 | §24～§25の対象母集団、親の訂正、条件・例外の意味保存、履歴非変更を最新固定版の独立確認へ渡す。可読性をリンク検査や文字数だけで合格にしない |
 
 未測定値を0や改善済みへ補正しない。上記の測定不足による制限は総合有用性を主張できないことであり、安全性・実行成立の不足を将来へ送る理由ではない。現在の必須条件への影響が新たに分かった場合は、将来候補より先に現行是正へ戻す。

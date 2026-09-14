@@ -9,14 +9,14 @@
 ```text
 個別の課題と仮説
     ↓
-Explorations
+Analysis/EXP-*
     ↓ 人間が採用
-REQ-* と検証義務
+Definitions/REQ-*
     ↓
 UXへ引き渡す
 ```
 
-`EXP-*`は課題と仮説の来歴を識別する。`REQ-*`はDiscoveryで人間が採用した要求を識別する。過去のCapabilityに付けた本書の`EXP-*`と`REQ-*`は、2026-09-13のDiscovery再編で既存CHG、Evidence、公開記録および実装から再構成・採番したものであり、当時から同じIDが存在したとは扱わない。UXは要求を利用者成果と体験へ具体化するが、新しい`REQ-*`を独自に発行しない。UXで新しい必要性が見つかった場合はDiscoveryへ戻す。
+`EXP-*`は課題と仮説の来歴を識別し、`Analysis/`が探索過程を所有する。`REQ-*`はDiscoveryで人間が採用した要求を識別し、`Definitions/`が現在の要求定義を所有する。過去のCapabilityに付けた本書の`EXP-*`と`REQ-*`は、2026-09-13のDiscovery再編で既存CHG、Evidence、公開記録および実装から再構成・採番したものであり、当時から同じIDが存在したとは扱わない。UXは要求を利用者成果と体験へ具体化するが、新しい`REQ-*`を独自に発行しない。UXで新しい必要性が見つかった場合はDiscoveryへ戻す。
 
 <a id="current-discovery-map"></a>
 
@@ -24,34 +24,34 @@ UXへ引き渡す
 
 | 探索 | 出発点となった問題 | Discovery判断 |
 |---|---|---|
-| [EXP-000001 機械で見つけられる不備を先に落とす](Explorations/EXP-000001_Deterministic_Repository_Checks/exploration.md) | 繰り返し可能な構造確認と、人にしかできない判断が分かれていなかった | 要求採用 |
-| [EXP-000002 判断と監査を収束させる](Explorations/EXP-000002_Audit_and_Decision_Convergence/exploration.md) | 監査、修正、再監査と人間判断が同じ問題を小刻みに往復した | 要求採用 |
-| [EXP-000003 外部Contextを勝手に昇格させない](Explorations/EXP-000003_External_Context_Boundaries/exploration.md) | 外部送信、外部情報、公開反応、依存更新の権限と事実が混ざった | 要求採用 |
-| [EXP-000004 複数AIの実行責任を失わない](Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md) | AIへの委譲で範囲、権限、結果、清掃、回復の所有者がいなかった | 要求採用 |
-| [EXP-000005 導入したCommitのToolをその場で使う](Explorations/EXP-000005_Repository_Distributed_Tooling/exploration.md) | submoduleと別配布Runtimeの版合わせが利用者責任になった | 要求採用 |
-| [EXP-000006 AI入口を別々の標準にしない](Explorations/EXP-000006_Agent_Guidance_Ownership/exploration.md) | AI別指示の複製で正本と行動が分岐した | 要求採用 |
-| [EXP-000007 Projectの現在地を毎回組み立て直さない](Explorations/EXP-000007_Project_State_Understanding/exploration.md) | 状態、品質、判断、根拠を毎回探してまとめ直している | 要求採用 |
-| [EXP-000008 Projectの仕事として進める](Explorations/EXP-000008_Project_Runtime/exploration.md) | Task成功とObjective／Milestone達成を結ぶLifecycleがなかった | 要求採用 |
-| [EXP-000009 判断理由を外在化する](Explorations/EXP-000009_Reasoning_Context/exploration.md) | 成果物だけでは捨てた案、制約、仮説の現行性を辿れなかった | 要求採用 |
-| [EXP-000010 最終E2Eまで実境界不具合を残さない](Explorations/EXP-000010_Assurance_and_Regression/exploration.md) | 検証量は多いのに実境界の失敗発見と切り分けが遅かった | 要求採用 |
-| [EXP-000011 人が理解できる文書へ戻す](Explorations/EXP-000011_Human_Readable_Documentation/exploration.md) | Checklist準拠が読者の理解順より前に出た | 要求採用 |
-| [EXP-000012 公式Identityを視覚的に見分ける](Explorations/EXP-000012_Recognizable_Official_Identity/exploration.md) | 公式入口を識別する素材と権利・保証境界がなかった | 要求採用 |
-| [EXP-000013 実行を次の改善へつなぐ](Explorations/EXP-000013_Execution_Intelligence/exploration.md) | 実行経路の時間、結果、利用量を共通に比較できなかった | 要求採用 |
-| [EXP-000014 Coordinatorへ集まりすぎた責務を分ける](Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md) | Project、Transport、観測、OS境界の所有者が曖昧だった | 要求採用 |
-| [EXP-000015 同じRuntimeを複数入口から使う](Explorations/EXP-000015_Local_MCP_HTTP_Access/exploration.md) | TransportごとにProjectの意味が分かれ得た | 要求採用 |
-| [EXP-000016 `.crdd`に残ったものの意味を迷わない](Explorations/EXP-000016_Runtime_Data_Ownership/exploration.md) | Owner、保持、清掃、回復がPathと結び付いていなかった | 要求採用 |
-| [EXP-000017 図で意図を引き渡す](Explorations/EXP-000017_Diagram_Guided_Handoff/exploration.md) | 状態、境界、分岐、試験義務が後工程まで見えなかった | 要求採用 |
-| [EXP-000018 WorkとEvidenceのOwnerを分ける](Explorations/EXP-000018_Work_and_Evidence_Ownership/exploration.md) | 公開状態の伝播漏れとEvidence配置の分散が起きた | 要求採用 |
-| [EXP-000019 単一Repositoryの作業を守る](Explorations/EXP-000019_Repository_Local_Work/exploration.md) | 横断機能が普段の開発まで複雑にし得る | 要求採用 |
-| [EXP-000020 複数Repositoryを一つのProjectとして見る](Explorations/EXP-000020_Cross_Repository_Project_Context/exploration.md) | ProjectとRepositoryを同一視すると分離と欠測を扱えない | 要求採用 |
-| [EXP-000021 人とAIの入口を同じ仕事へつなぐ](Explorations/EXP-000021_Human_and_AI_Entry_Points/exploration.md) | 入口ごとに意味と更新処理が分かれ得る | 要求採用 |
-| [EXP-000022 別HostからProject Contextへ届く](Explorations/EXP-000022_Remote_Project_Context/exploration.md) | Remote接続だけでは利用範囲と再取得を守れない | 要求採用 |
-| [EXP-000023 会議後も論点を置き去りにしない](Explorations/EXP-000023_Topic_and_Meeting_Continuity/exploration.md) | Meeting、継続Topic、正式判断が混ざる | 要求採用 |
-| [EXP-000024 複数Projectを根拠付きで見比べる](Explorations/EXP-000024_Portfolio_Visibility/exploration.md) | 要約で欠測、制限、根拠を失い得る | 要求採用 |
-| [EXP-000025 RepositoryのTool能力を推測させない](Explorations/EXP-000025_Repository_Capability_Discovery/exploration.md) | Toolの存在、公開、利用可能性、実行許可が混ざる | 要求採用 |
-| [EXP-000026 AIモデル更新でCoreを書き換えない](Explorations/EXP-000026_AI_Runtime_Changeability/exploration.md) | モデル情報とAdapter／CoreのLifecycleが結合している | 要求採用 |
-| [EXP-000027 Projectを越えてContextを受け渡す](Explorations/EXP-000027_Cross_Project_Context_Exchange/exploration.md) | 横断時に出所、許可、結果の帰り先を失い得る | 要求採用 |
-| [EXP-000028 公式署名と利用者のTrust判断を分ける](Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md) | 公式配布の証明と、forkを信頼する判断が混ざる | 要求採用 |
+| [EXP-000001 機械で見つけられる不備を先に落とす](Analysis/EXP-000001/exploration.md) | 繰り返し可能な構造確認と、人にしかできない判断が分かれていなかった | 要求採用 |
+| [EXP-000002 判断と監査を収束させる](Analysis/EXP-000002/exploration.md) | 監査、修正、再監査と人間判断が同じ問題を小刻みに往復した | 要求採用 |
+| [EXP-000003 外部Contextを勝手に昇格させない](Analysis/EXP-000003/exploration.md) | 外部送信、外部情報、公開反応、依存更新の権限と事実が混ざった | 要求採用 |
+| [EXP-000004 複数AIの実行責任を失わない](Analysis/EXP-000004/exploration.md) | AIへの委譲で範囲、権限、結果、清掃、回復の所有者がいなかった | 要求採用 |
+| [EXP-000005 導入したCommitのToolをその場で使う](Analysis/EXP-000005/exploration.md) | submoduleと別配布Runtimeの版合わせが利用者責任になった | 要求採用 |
+| [EXP-000006 AI入口を別々の標準にしない](Analysis/EXP-000006/exploration.md) | AI別指示の複製で正本と行動が分岐した | 要求採用 |
+| [EXP-000007 Projectの現在地を毎回組み立て直さない](Analysis/EXP-000007/exploration.md) | 状態、品質、判断、根拠を毎回探してまとめ直している | 要求採用 |
+| [EXP-000008 Projectの仕事として進める](Analysis/EXP-000008/exploration.md) | Task成功とObjective／Milestone達成を結ぶLifecycleがなかった | 要求採用 |
+| [EXP-000009 判断理由を外在化する](Analysis/EXP-000009/exploration.md) | 成果物だけでは捨てた案、制約、仮説の現行性を辿れなかった | 要求採用 |
+| [EXP-000010 最終E2Eまで実境界不具合を残さない](Analysis/EXP-000010/exploration.md) | 検証量は多いのに実境界の失敗発見と切り分けが遅かった | 要求採用 |
+| [EXP-000011 人が理解できる文書へ戻す](Analysis/EXP-000011/exploration.md) | Checklist準拠が読者の理解順より前に出た | 要求採用 |
+| [EXP-000012 公式Identityを視覚的に見分ける](Analysis/EXP-000012/exploration.md) | 公式入口を識別する素材と権利・保証境界がなかった | 要求採用 |
+| [EXP-000013 実行を次の改善へつなぐ](Analysis/EXP-000013/exploration.md) | 実行経路の時間、結果、利用量を共通に比較できなかった | 要求採用 |
+| [EXP-000014 Coordinatorへ集まりすぎた責務を分ける](Analysis/EXP-000014/exploration.md) | Project、Transport、観測、OS境界の所有者が曖昧だった | 要求採用 |
+| [EXP-000015 同じRuntimeを複数入口から使う](Analysis/EXP-000015/exploration.md) | TransportごとにProjectの意味が分かれ得た | 要求採用 |
+| [EXP-000016 `.crdd`に残ったものの意味を迷わない](Analysis/EXP-000016/exploration.md) | Owner、保持、清掃、回復がPathと結び付いていなかった | 要求採用 |
+| [EXP-000017 図で意図を引き渡す](Analysis/EXP-000017/exploration.md) | 状態、境界、分岐、試験義務が後工程まで見えなかった | 要求採用 |
+| [EXP-000018 WorkとEvidenceのOwnerを分ける](Analysis/EXP-000018/exploration.md) | 公開状態の伝播漏れとEvidence配置の分散が起きた | 要求採用 |
+| [EXP-000019 単一Repositoryの作業を守る](Analysis/EXP-000019/exploration.md) | 横断機能が普段の開発まで複雑にし得る | 要求採用 |
+| [EXP-000020 複数Repositoryを一つのProjectとして見る](Analysis/EXP-000020/exploration.md) | ProjectとRepositoryを同一視すると分離と欠測を扱えない | 要求採用 |
+| [EXP-000021 人とAIの入口を同じ仕事へつなぐ](Analysis/EXP-000021/exploration.md) | 入口ごとに意味と更新処理が分かれ得る | 要求採用 |
+| [EXP-000022 別HostからProject Contextへ届く](Analysis/EXP-000022/exploration.md) | Remote接続だけでは利用範囲と再取得を守れない | 要求採用 |
+| [EXP-000023 会議後も論点を置き去りにしない](Analysis/EXP-000023/exploration.md) | Meeting、継続Topic、正式判断が混ざる | 要求採用 |
+| [EXP-000024 複数Projectを根拠付きで見比べる](Analysis/EXP-000024/exploration.md) | 要約で欠測、制限、根拠を失い得る | 要求採用 |
+| [EXP-000025 RepositoryのTool能力を推測させない](Analysis/EXP-000025/exploration.md) | Toolの存在、公開、利用可能性、実行許可が混ざる | 要求採用 |
+| [EXP-000026 AIモデル更新でCoreを書き換えない](Analysis/EXP-000026/exploration.md) | モデル情報とAdapter／CoreのLifecycleが結合している | 要求採用 |
+| [EXP-000027 Projectを越えてContextを受け渡す](Analysis/EXP-000027/exploration.md) | 横断時に出所、許可、結果の帰り先を失い得る | 要求採用 |
+| [EXP-000028 公式署名と利用者のTrust判断を分ける](Analysis/EXP-000028/exploration.md) | 公式配布の証明と、forkを信頼する判断が混ざる | 要求採用 |
 
 本台帳は探索の版別Scopeや実装順を分類しない。まだ探索を始めない長期候補は[Product候補登録](02_Product_Candidates.md)、版と作業状態は[Roadmap](../99_Roadmap/01_Roadmap.md)が所有する。
 
@@ -59,46 +59,46 @@ UXへ引き渡す
 
 ## 要求台帳
 
-要求本文は各探索記録が所有する。本表は、採用済み要求の状態と特に関係する責務領域を一箇所から確認するための台帳であり、要求を再定義しない。`主な関係領域`は工程の通過可否を決める列ではない。採用済み要求はすべてUX以降の固定工程で処置し、新規成果へ変換、既存成果へ統合、理由付き非該当または情報不足による停止のいずれかを記録する。
+要求本文は各`Definitions/REQ-*/requirement.md`が所有する。本表は、採用済み要求の所在、状態および特に関係する責務領域を一箇所から確認するための台帳であり、要求を再定義しない。`主な関係領域`は工程の通過可否を決める列ではない。採用済み要求はすべてUX以降の固定工程で処置し、新規成果へ変換、既存成果へ統合、理由付き非該当または情報不足による停止のいずれかを記録する。
 
 | 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |
 |---|---|---|---|---|
-| `REQ-000001` | 決定論的なRepository事前確認 | [EXP-000001](Explorations/EXP-000001_Deterministic_Repository_Checks/exploration.md) | 要求採用 | Quality、Maintenance |
-| `REQ-000002` | 複数AI実行の範囲・権限・回復 | [EXP-000004](Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md) | 要求採用 | Architecture、Development |
-| `REQ-000003` | Objectiveから統合までのProject Lifecycle | [EXP-000008](Explorations/EXP-000008_Project_Runtime/exploration.md) | 要求採用 | UX、Architecture |
-| `REQ-000004` | 実行事実の再利用可能な記録 | [EXP-000013](Explorations/EXP-000013_Execution_Intelligence/exploration.md) | 要求採用 | Architecture、Verification |
-| `REQ-000005` | Runtime責務と依存方向の分離 | [EXP-000014](Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md) | 要求採用 | Architecture、Development |
-| `REQ-000006` | Local MCP Transport間の意味統一 | [EXP-000015](Explorations/EXP-000015_Local_MCP_HTTP_Access/exploration.md) | 要求採用 | Architecture、Verification |
-| `REQ-000007` | 出典と不完全性を保つProject View | [EXP-000007](Explorations/EXP-000007_Project_State_Understanding/exploration.md) | 要求採用 | UX、IA、Verification |
-| `REQ-000008` | CROSなしで成立するRepository作業 | [EXP-000019](Explorations/EXP-000019_Repository_Local_Work/exploration.md) | 要求採用 | UX、Architecture、RT |
-| `REQ-000009` | Project・Repository・Root Identity分離 | [EXP-000020](Explorations/EXP-000020_Cross_Repository_Project_Context/exploration.md) | 要求採用 | UX、IA、Architecture |
-| `REQ-000010` | Workbench・MCP・CLIの公開契約共有 | [EXP-000021](Explorations/EXP-000021_Human_and_AI_Entry_Points/exploration.md) | 要求採用 | UX、UI／SPEC、Architecture |
-| `REQ-000011` | Remote接続のWorkspace限定 | [EXP-000022](Explorations/EXP-000022_Remote_Project_Context/exploration.md) | 要求採用 | UX、Threat、SPEC、Architecture |
-| `REQ-000012` | Meetingから候補を経た正本更新 | [EXP-000023](Explorations/EXP-000023_Topic_and_Meeting_Continuity/exploration.md) | 要求採用 | UX、IA、Communication |
-| `REQ-000013` | 根拠と不完全性を保つPortfolio | [EXP-000024](Explorations/EXP-000024_Portfolio_Visibility/exploration.md) | 要求採用 | UX、IA、Verification |
-| `REQ-000014` | Repository Tool能力の明示Registry | [EXP-000025](Explorations/EXP-000025_Repository_Capability_Discovery/exploration.md) | 要求採用 | Architecture、Verification |
-| `REQ-000015` | Runtime Data Rootの所有と用途 | [EXP-000016](Explorations/EXP-000016_Runtime_Data_Ownership/exploration.md) | 要求採用 | Architecture、Maintenance |
-| `REQ-000016` | AIモデルProfileの検証可能な外部構成 | [EXP-000026](Explorations/EXP-000026_AI_Runtime_Changeability/exploration.md) | 要求採用 | Architecture、Verification |
-| `REQ-000017` | 出所付きContext Packageの解決 | [EXP-000027](Explorations/EXP-000027_Cross_Project_Context_Exchange/exploration.md) | 要求採用 | UX、IA、Architecture |
-| `REQ-000018` | Runtime Trust要素の分離 | [EXP-000028](Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md) | 要求採用 | Architecture、Verification |
-| `REQ-000019` | 契約移行時のConsumer閉包 | [EXP-000014](Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md) | 要求採用 | Maintenance、Architecture、Verification |
-| `REQ-000020` | 欠測・競合を保つRepository Federation | [EXP-000020](Explorations/EXP-000020_Cross_Repository_Project_Context/exploration.md) | 要求採用 | UX、IA、Architecture |
-| `REQ-000021` | Remote要求結果の同一Identity再取得 | [EXP-000022](Explorations/EXP-000022_Remote_Project_Context/exploration.md) | 要求採用 | UX、SPEC、Architecture、Verification |
-| `REQ-000022` | Runtime Dataの保持・清掃・回復 | [EXP-000016](Explorations/EXP-000016_Runtime_Data_Ownership/exploration.md) | 要求採用 | Architecture、Maintenance、Verification |
-| `REQ-000023` | 異なるAI Runtime LifecycleのAdapter分離 | [EXP-000026](Explorations/EXP-000026_AI_Runtime_Changeability/exploration.md) | 要求採用 | Architecture、Verification |
-| `REQ-000024` | 境界を越えるTask結果の帰還 | [EXP-000027](Explorations/EXP-000027_Cross_Project_Context_Exchange/exploration.md) | 要求採用 | UX、SPEC、Architecture |
-| `REQ-000025` | Deployment Ownerが所有するTrust Policy | [EXP-000028](Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md) | 要求採用 | Architecture、Verification |
-| `REQ-000026` | 判断・監査・是正の収束可能な閉包 | [EXP-000002](Explorations/EXP-000002_Audit_and_Decision_Convergence/exploration.md) | 要求採用 | Agent、Maintenance、Audit |
-| `REQ-000027` | 外部Contextの送信・昇格境界 | [EXP-000003](Explorations/EXP-000003_External_Context_Boundaries/exploration.md) | 要求採用 | Principles、Communication、Dependency |
-| `REQ-000028` | AI入口と共通正本の分離 | [EXP-000006](Explorations/EXP-000006_Agent_Guidance_Ownership/exploration.md) | 要求採用 | Agent、Documentation |
-| `REQ-000029` | 推論Contextの履歴・現行性・選択 | [EXP-000009](Explorations/EXP-000009_Reasoning_Context/exploration.md) | 要求採用 | Discovery、全工程、AI Context |
-| `REQ-000030` | 段階的実境界試験と回帰選択 | [EXP-000010](Explorations/EXP-000010_Assurance_and_Regression/exploration.md) | 要求採用 | Verification、Quality、Architecture |
-| `REQ-000031` | 人の理解順と構造を両立する成果物 | [EXP-000011](Explorations/EXP-000011_Human_Readable_Documentation/exploration.md) | 要求採用 | Documentation、全工程 |
-| `REQ-000032` | 工程固有の基本図と意図引き渡し | [EXP-000017](Explorations/EXP-000017_Diagram_Guided_Handoff/exploration.md) | 要求採用 | 全工程、Checker、Verification |
-| `REQ-000033` | Work LifecycleとEvidence所有の分離 | [EXP-000018](Explorations/EXP-000018_Work_and_Evidence_Ownership/exploration.md) | 要求採用 | Roadmap、Change、Release、Quality |
-| `REQ-000034` | Repository固定Commitから使える標準Tool | [EXP-000005](Explorations/EXP-000005_Repository_Distributed_Tooling/exploration.md) | 要求採用 | Tool、Template、Release |
-| `REQ-000035` | 公式視覚素材の権利・用途・追跡 | [EXP-000012](Explorations/EXP-000012_Recognizable_Official_Identity/exploration.md) | 要求採用 | Communication、Release |
-| `REQ-000036` | 差し替え可能なVersion Control境界 | [EXP-000014](Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md) | 要求採用 | Architecture、全Tool |
+| [REQ-000001](Definitions/REQ-000001/requirement.md) | 決定論的なRepository事前確認 | [EXP-000001](Analysis/EXP-000001/exploration.md) | 要求採用 | Quality、Maintenance |
+| [REQ-000002](Definitions/REQ-000002/requirement.md) | 複数AI実行の範囲・権限・回復 | [EXP-000004](Analysis/EXP-000004/exploration.md) | 要求採用 | Architecture、Development |
+| [REQ-000003](Definitions/REQ-000003/requirement.md) | Objectiveから統合までのProject Lifecycle | [EXP-000008](Analysis/EXP-000008/exploration.md) | 要求採用 | UX、Architecture |
+| [REQ-000004](Definitions/REQ-000004/requirement.md) | 実行事実の再利用可能な記録 | [EXP-000013](Analysis/EXP-000013/exploration.md) | 要求採用 | Architecture、Verification |
+| [REQ-000005](Definitions/REQ-000005/requirement.md) | Runtime責務と依存方向の分離 | [EXP-000014](Analysis/EXP-000014/exploration.md) | 要求採用 | Architecture、Development |
+| [REQ-000006](Definitions/REQ-000006/requirement.md) | Local MCP Transport間の意味統一 | [EXP-000015](Analysis/EXP-000015/exploration.md) | 要求採用 | Architecture、Verification |
+| [REQ-000007](Definitions/REQ-000007/requirement.md) | 出典と不完全性を保つProject View | [EXP-000007](Analysis/EXP-000007/exploration.md) | 要求採用 | UX、IA、Verification |
+| [REQ-000008](Definitions/REQ-000008/requirement.md) | CROSなしで成立するRepository作業 | [EXP-000019](Analysis/EXP-000019/exploration.md) | 要求採用 | UX、Architecture、RT |
+| [REQ-000009](Definitions/REQ-000009/requirement.md) | Project・Repository・Root Identity分離 | [EXP-000020](Analysis/EXP-000020/exploration.md) | 要求採用 | UX、IA、Architecture |
+| [REQ-000010](Definitions/REQ-000010/requirement.md) | Workbench・MCP・CLIの公開契約共有 | [EXP-000021](Analysis/EXP-000021/exploration.md) | 要求採用 | UX、UI／SPEC、Architecture |
+| [REQ-000011](Definitions/REQ-000011/requirement.md) | Remote接続のWorkspace限定 | [EXP-000022](Analysis/EXP-000022/exploration.md) | 要求採用 | UX、Threat、SPEC、Architecture |
+| [REQ-000012](Definitions/REQ-000012/requirement.md) | Meetingから候補を経た正本更新 | [EXP-000023](Analysis/EXP-000023/exploration.md) | 要求採用 | UX、IA、Communication |
+| [REQ-000013](Definitions/REQ-000013/requirement.md) | 根拠と不完全性を保つPortfolio | [EXP-000024](Analysis/EXP-000024/exploration.md) | 要求採用 | UX、IA、Verification |
+| [REQ-000014](Definitions/REQ-000014/requirement.md) | Repository Tool能力の明示Registry | [EXP-000025](Analysis/EXP-000025/exploration.md) | 要求採用 | Architecture、Verification |
+| [REQ-000015](Definitions/REQ-000015/requirement.md) | Runtime Data Rootの所有と用途 | [EXP-000016](Analysis/EXP-000016/exploration.md) | 要求採用 | Architecture、Maintenance |
+| [REQ-000016](Definitions/REQ-000016/requirement.md) | AIモデルProfileの検証可能な外部構成 | [EXP-000026](Analysis/EXP-000026/exploration.md) | 要求採用 | Architecture、Verification |
+| [REQ-000017](Definitions/REQ-000017/requirement.md) | 出所付きContext Packageの解決 | [EXP-000027](Analysis/EXP-000027/exploration.md) | 要求採用 | UX、IA、Architecture |
+| [REQ-000018](Definitions/REQ-000018/requirement.md) | Runtime Trust要素の分離 | [EXP-000028](Analysis/EXP-000028/exploration.md) | 要求採用 | Architecture、Verification |
+| [REQ-000019](Definitions/REQ-000019/requirement.md) | 契約移行時のConsumer閉包 | [EXP-000014](Analysis/EXP-000014/exploration.md) | 要求採用 | Maintenance、Architecture、Verification |
+| [REQ-000020](Definitions/REQ-000020/requirement.md) | 欠測・競合を保つRepository Federation | [EXP-000020](Analysis/EXP-000020/exploration.md) | 要求採用 | UX、IA、Architecture |
+| [REQ-000021](Definitions/REQ-000021/requirement.md) | Remote要求結果の同一Identity再取得 | [EXP-000022](Analysis/EXP-000022/exploration.md) | 要求採用 | UX、SPEC、Architecture、Verification |
+| [REQ-000022](Definitions/REQ-000022/requirement.md) | Runtime Dataの保持・清掃・回復 | [EXP-000016](Analysis/EXP-000016/exploration.md) | 要求採用 | Architecture、Maintenance、Verification |
+| [REQ-000023](Definitions/REQ-000023/requirement.md) | 異なるAI Runtime LifecycleのAdapter分離 | [EXP-000026](Analysis/EXP-000026/exploration.md) | 要求採用 | Architecture、Verification |
+| [REQ-000024](Definitions/REQ-000024/requirement.md) | 境界を越えるTask結果の帰還 | [EXP-000027](Analysis/EXP-000027/exploration.md) | 要求採用 | UX、SPEC、Architecture |
+| [REQ-000025](Definitions/REQ-000025/requirement.md) | Deployment Ownerが所有するTrust Policy | [EXP-000028](Analysis/EXP-000028/exploration.md) | 要求採用 | Architecture、Verification |
+| [REQ-000026](Definitions/REQ-000026/requirement.md) | 判断・監査・是正の収束可能な閉包 | [EXP-000002](Analysis/EXP-000002/exploration.md) | 要求採用 | Agent、Maintenance、Audit |
+| [REQ-000027](Definitions/REQ-000027/requirement.md) | 外部Contextの送信・昇格境界 | [EXP-000003](Analysis/EXP-000003/exploration.md) | 要求採用 | Principles、Communication、Dependency |
+| [REQ-000028](Definitions/REQ-000028/requirement.md) | AI入口と共通正本の分離 | [EXP-000006](Analysis/EXP-000006/exploration.md) | 要求採用 | Agent、Documentation |
+| [REQ-000029](Definitions/REQ-000029/requirement.md) | 推論Contextの履歴・現行性・選択 | [EXP-000009](Analysis/EXP-000009/exploration.md) | 要求採用 | Discovery、全工程、AI Context |
+| [REQ-000030](Definitions/REQ-000030/requirement.md) | 段階的実境界試験と回帰選択 | [EXP-000010](Analysis/EXP-000010/exploration.md) | 要求採用 | Verification、Quality、Architecture |
+| [REQ-000031](Definitions/REQ-000031/requirement.md) | 人の理解順と構造を両立する成果物 | [EXP-000011](Analysis/EXP-000011/exploration.md) | 要求採用 | Documentation、全工程 |
+| [REQ-000032](Definitions/REQ-000032/requirement.md) | 工程固有の基本図と意図引き渡し | [EXP-000017](Analysis/EXP-000017/exploration.md) | 要求採用 | 全工程、Checker、Verification |
+| [REQ-000033](Definitions/REQ-000033/requirement.md) | Work LifecycleとEvidence所有の分離 | [EXP-000018](Analysis/EXP-000018/exploration.md) | 要求採用 | Roadmap、Change、Release、Quality |
+| [REQ-000034](Definitions/REQ-000034/requirement.md) | Repository固定Commitから使える標準Tool | [EXP-000005](Analysis/EXP-000005/exploration.md) | 要求採用 | Tool、Template、Release |
+| [REQ-000035](Definitions/REQ-000035/requirement.md) | 公式視覚素材の権利・用途・追跡 | [EXP-000012](Analysis/EXP-000012/exploration.md) | 要求採用 | Communication、Release |
+| [REQ-000036](Definitions/REQ-000036/requirement.md) | 差し替え可能なVersion Control境界 | [EXP-000014](Analysis/EXP-000014/exploration.md) | 要求採用 | Architecture、全Tool |
 
 <a id="current-discovery-relations"></a>
 
