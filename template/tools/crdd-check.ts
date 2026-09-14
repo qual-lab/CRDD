@@ -594,21 +594,30 @@ function checkUxRequirementAnalysis(): void {
     const definition = lstatIfPresent(discoveryDefinitionPath)?.isFile()
       ? read(discoveryDefinitionPath)
       : "";
-    const discoveryDefinitionLinks = [
-      ...analysis.matchAll(
-        /\]\(\.\.\/\.\.\/\.\.\/01_Discovery\/Definitions\/(REQ-[0-9]{6})\/requirement\.md\)/gu,
+    const analysisTargets = markdownLinkTargets(analysis)
+      .map((raw) => resolveLocalTarget(analysisPath, raw))
+      .filter(
+        (resolved): resolved is LinkResolution & { target: string } =>
+          !resolved.external && resolved.target !== null,
+      );
+    const discoveryDefinitionLinks = analysisTargets.filter((resolved) =>
+      /^01_Discovery\/Definitions\/REQ-[0-9]{6}\/requirement\.md$/u.test(
+        relative(resolved.target).replaceAll("\\", "/"),
       ),
-    ];
-    const sourceAnalysisLinks = [
-      ...analysis.matchAll(
-        /\[[^\]]*EXP-[0-9]{6}[^\]]*\]\([^\n)]*01_Discovery\/Analysis\/EXP-[0-9]{6}\/exploration\.md(?:#[^\n)]*)?\)/gu,
+    );
+    const sourceAnalysisLinks = analysisTargets.filter((resolved) =>
+      /^01_Discovery\/Analysis\/EXP-[0-9]{6}\/exploration\.md$/u.test(
+        relative(resolved.target).replaceAll("\\", "/"),
       ),
-    ];
+    );
     if (
       !definition ||
       !expectedDefinitionLink.test(analysis) ||
       discoveryDefinitionLinks.length !== 1 ||
-      discoveryDefinitionLinks[0][1] !== entry.name ||
+      !samePath(
+        discoveryDefinitionLinks[0]?.target ?? "",
+        discoveryDefinitionPath,
+      ) ||
       sourceAnalysisLinks.length > 0 ||
       /^判断根拠:|^探索元:/mu.test(analysis)
     )
@@ -1618,6 +1627,29 @@ function withoutFencedCode(text: string): string {
     .join("\n");
 }
 
+function markdownLinkTargets(text: string): string[] {
+  const content = withoutFencedCode(text);
+  const definitions = new Map<string, string>();
+  for (const match of content.matchAll(
+    /^\s{0,3}\[([^\]]+)\]:\s*(<[^>]+>|\S+)(?:\s+(?:["'(].*)?)?$/gmu,
+  )) {
+    definitions.set(normalizeReferenceLabel(match[1]), match[2]);
+  }
+  const targets = [...content.matchAll(/(?<!!)\[[^\]]+\]\(([^)\n]+)\)/gu)].map(
+    (match) => match[1],
+  );
+  for (const match of content.matchAll(/(?<!!)\[([^\]]+)\]\[([^\]]*)\]/gu)) {
+    const label = normalizeReferenceLabel(match[2] || match[1]);
+    const target = definitions.get(label);
+    if (target) targets.push(target);
+  }
+  return targets;
+}
+
+function normalizeReferenceLabel(value: string): string {
+  return value.trim().replace(/\s+/gu, " ").toLowerCase();
+}
+
 function markdownTableCells(line: string): string[] | null {
   const value = line.trim();
   if (!value.includes("|")) return null;
@@ -2192,9 +2224,7 @@ checkPhaseDiagramDispositionContracts();
 
 const linkRecords: LinkRecord[] = [];
 for (const source of allMarkdownFiles) {
-  const text = withoutFencedCode(read(source));
-  for (const match of text.matchAll(/(?<!!)\[[^\]]+\]\(([^)]+)\)/g)) {
-    const raw = match[1];
+  for (const raw of markdownLinkTargets(read(source))) {
     linkRecords.push(resolveLinkWithFixedHistory(source, raw));
   }
 }

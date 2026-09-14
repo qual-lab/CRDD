@@ -23,7 +23,7 @@ CRDDの文書・Tool・公開案内を閲覧する人
 
 | 項目 | 内容 |
 |---|---|
-| Primary Persona／Context | CRDDの文書・Tool・公開案内を閲覧する人 |
+| Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「CRDD閲覧者」 |
 | Trigger／Situation | 公式らしい入口や視覚素材を見つけた時 |
 | Goal | 識別表示と保証の根拠を分けて確認する |
 | Outcome | 見た目だけを信頼根拠にせず適切な入口を選べる |

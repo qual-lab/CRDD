@@ -975,34 +975,41 @@ test("UX分析は別REQのDefinitionを正式入力にできない", () => {
   );
 });
 
-test("UX分析は任意位置のSource Analysis参照でDefinitionを補完できない", () => {
-  const root = dispositionFixtureRoot();
-  write(
-    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
-    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
-  );
-  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
-  write(
-    path.join(
-      root,
-      "01_Discovery",
-      "Definitions",
-      "REQ-000001",
-      "requirement.md",
-    ),
-    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
-  );
-  write(
-    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n## 補足\n\n不足する意味は[過去の探索 EXP-000001](../../../01_Discovery/Analysis/EXP-000001/exploration.md)から補う。\n",
-  );
-  const result = runChecker(root);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "ux-requirement-formal-input-invalid",
-    ),
-    `${result.stdout}\n${result.stderr}`,
-  );
+test("UX分析は表示名・anchor・参照形式を変えたSource Analysis参照でDefinitionを補完できない", () => {
+  const variants = [
+    "不足する意味は[過去の探索](../../../01_Discovery/Analysis/EXP-000001/exploration.md)から補う。",
+    "不足する意味は[過去の探索](../../../01_Discovery/Analysis/EXP-000001/exploration.md#仮説)から補う。",
+    "不足する意味は[過去の探索][src]から補う。\n\n[src]: ../../../01_Discovery/Analysis/EXP-000001/exploration.md",
+  ];
+  for (const supplementalLink of variants) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    write(
+      path.join(
+        root,
+        "01_Discovery",
+        "Definitions",
+        "REQ-000001",
+        "requirement.md",
+      ),
+      discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+    );
+    write(
+      path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+      `# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n## 補足\n\n${supplementalLink}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ux-requirement-formal-input-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
 });
 
 test("UX分析は正しいHeaderに別REQ Definition参照を追加できない", () => {

@@ -123,6 +123,7 @@
 - [`01_Discovery/Definitions/REQ-000035/requirement.md`](<../../../01_Discovery/Definitions/REQ-000035/requirement.md>)
 - [`01_Discovery/Definitions/REQ-000036/requirement.md`](<../../../01_Discovery/Definitions/REQ-000036/requirement.md>)
 - [`02_UX/01_User_Experience.md`](<../../../02_UX/01_User_Experience.md>)
+- [`02_UX/02_Personas.md`](<../../../02_UX/02_Personas.md>)
 - [`02_UX/03_Experience_Map.md`](<../../../02_UX/03_Experience_Map.md>)
 - `02_UX/Requirements/REQ-000001/user_experience.md`（削除または旧Path）
 - [`02_UX/Analysis/REQ-000001/ux_analysis.md`](<../../../02_UX/Analysis/REQ-000001/ux_analysis.md>)
@@ -324,6 +325,13 @@
 | 独立したUX成果が同じGoal／重要体験を共有した | 各UX Definitionが固有の利用者、状況、Goal、Outcome、重要場面、失敗を持つ | `UX-000003`／`000004`、`000007`／`000008`を再分析し、定型複製をChecker反例化 |
 | UXの正式入力境界をLink位置や見出し語だけで迂回できた | 同じREQのDefinition 1件だけを正式入力とし、EXPや別REQを補助入力にしない | 全Linkを機械検査し、意味同等性はDefinitionだけを渡す独立レビューで確認 |
 
+固定Commit `d47c5e40`の再レビューでは、前表の意味欠落と定型複製は解消した。残ったMajor 1件・Moderate 1件は、新しい正式入力検査の記法別反証と、追加した閲覧者成果の横断Persona利用側が閉じていないことだった。
+
+| 残った取り残し | 是正 | 反証・確認 |
+|---|---|---|
+| UX AnalysisのEXP参照を、別名表示または参照形式Linkで検査から迂回できる | 表示名ではなく、Markdown Linkから解決したRepository相対PathでDiscovery Definition／Analysisを分類する | 別名inline、anchor付き、reference-style、別REQ Definitionを拒否し、同じREQ Definition 1件だけを受理 |
+| `UX-000031`の閲覧者が横断Personaへ未統合 | `02_Personas.md`へCRDD閲覧者のGoal、Pain、利用Context、判断責任、根拠・確信度を追加し、個別分析とDefinitionを接続 | 閲覧者と保守者を再統合せず、各成果のJourney、Outcome、Failureを独立して確認 |
+
 再レビューの合格条件は、文面の自然さやリンク数ではない。主要な利用者、発生状況、問題、望ましい変化、独立したOutcome候補、重要な失敗および品質期待がDefinitionだけから再導出でき、現在のUXとの差を情報欠落または正当な再分析として説明できることである。
 
 ## 6. 完了条件
@@ -349,4 +357,4 @@
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 
-現在、人間による追加判断は必要ない。固定Commit `c45192b8`の独立再レビューで判明したMajor 4件・Moderate 2件を、正式入力境界、要求別の意味伝播、Canonical UXの固有性および利用側検査の一体是正として対応中である。静的検査、全体Checker、Checker契約試験を通した新しい固定候補で再レビューする。
+現在、人間による追加判断は必要ない。固定Commit `d47c5e40`では前回のMajor 4件・Moderate 2件が意味上解消し、残るMajor 1件・Moderate 1件をLink解決後Pathによる正式入力検査と閲覧者Personaの利用側閉包として是正した。静的検査、全体Checker、Checker契約試験を通した新しい固定候補で再レビューする。
