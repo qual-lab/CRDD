@@ -75,7 +75,7 @@ REQ-000028
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 既存UXのActor: 外部Contextの所有者<br>現在REQのActor: Developer<br>Actor差: 既存UXの「外部Contextの所有者」に対して現在REQは「Developer」だが、両者とも「必要なContextを渡し結果を同じ仕事へ戻す」を利用・確認する当事者であり、役割差だけでは別Outcomeにならない<br>既存UXのTrigger: 別AgentやToolへ仕事を渡す時<br>現在REQのTrigger: ChatからCodingまたは逆へ引き継ぐ時<br>Trigger差: 既存UXの「別AgentやToolへ仕事を渡す時」に対して現在REQは「ChatからCodingまたは逆へ引き継ぐ時」を具体化するが、同じ「必要なContextを渡し結果を同じ仕事へ戻す」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる<br>現在REQのOutcome: 会話全文の転記なしで対話と構築を往復できる<br>Outcome差: 既存UXの「必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる」に対して現在REQは「会話全文の転記なしで対話と構築を往復できる」と要求固有に表すが、後者は同じ「必要なContextを渡し結果を同じ仕事へ戻す」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: Contextの出所・現行性・Task相関を失い、結果を同じ仕事へ戻せない<br>現在REQのFailure: ChatとCodingの入口ごとに第二正本を作るか、会話全文を転記して不足をAIが補完する<br>Failure差: 入口間の引継ぎが追加されるが、正しいContextと結果を同じ仕事へ往復できない失敗は同じである<br>同一Outcomeへ統合できる理由: Agent Operating Contextは同じContext往復成果を入口間で成立させるInformation条件である | Agent Operating ContextとTask Identityを渡すことが、この要求固有の成立条件になる |
+| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 既存UXのActor: 外部Contextの所有者<br>現在REQのActor: Developer<br>Actor差: 既存UXの「外部Contextの所有者」に対して現在REQは「Developer」だが、両者とも「必要なContextを渡し結果を同じ仕事へ戻す」を利用・確認する当事者であり、役割差だけでは別Outcomeにならない<br>既存UXのTrigger: 別AgentやToolへ仕事を渡す時<br>現在REQのTrigger: ChatからCodingまたは逆へ引き継ぐ時<br>Trigger差: 既存UXの「別AgentやToolへ仕事を渡す時」に対して現在REQは「ChatからCodingまたは逆へ引き継ぐ時」を具体化するが、同じ「必要なContextを渡し結果を同じ仕事へ戻す」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる<br>現在REQのOutcome: ChatとCodingの入口間で会話全文を複製せず、正本・判断境界・Task Identityを渡して同じ仕事へ結果を戻せる<br>Outcome差: 現在REQは「必要なContextを渡し結果を同じ仕事へ戻す」をこの要求の場面で成立させるOutcomeを具体化しており、REQ全体のPrimary Outcomeや別のUX成果へ置き換えていない<br>既存UXのFailure: Contextの出所・現行性・Task相関を失い、結果を同じ仕事へ戻せない<br>現在REQのFailure: ChatとCodingの入口ごとに第二正本を作るか、会話全文を転記して不足をAIが補完する<br>Failure差: 入口間の引継ぎが追加されるが、正しいContextと結果を同じ仕事へ往復できない失敗は同じである<br>同一Outcomeへ統合できる理由: Agent Operating Contextは同じContext往復成果を入口間で成立させるInformation条件である | Agent Operating ContextとTask Identityを渡すことが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -100,21 +100,22 @@ Agent Operating ContextとTask Identityを渡す
 処置: `作成`
 
 ```text
-[U: Developer]
+[U: Chat Agent／Coding Agentを使う人（Developer）]
         │ 利用者行動: 入口が違っても同じCRDD正本と判断境界を使う
         ▼
 [T: ChatからCodingまたは逆へ引き継ぐ時]
         │
-        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
-        └─ 失敗時: 入口文書が第二正本になり不足をAIが補完するという停止理由、成立済み範囲、保持状態および再開条件
+        ├─ 時間差: ChatとCodingの作業は別Sessionで進み、明示Handoff時に接続する
+        ├─ 完了時: 参照正本、Task Identity、判断境界、帰還結果、未確認範囲
+        └─ 失敗時: 不足Contextまたは別Task結果をChat Agent／Coding Agentを使う人へ返す
                      │
                      ▼
              [R: 提供System]
-                     │ 返却内容を確認
-                     └─ 次の行動: 入口が違っても同じCRDD正本と判断境界を使う
+                     │ 返却された事実と判断不能範囲を確認
+                     └─ 次の行動: Contextを補うか、同じ仕事として継続・採否判断する
 
 ---------------- 可視境界 ----------------
-                     │ 処理・確認には時間差があり得る
+                     │ 時間関係: ChatとCodingの作業は別Sessionで進み、明示Handoff時に接続する
                      ▼
 [S: Coding Agent]
         └─ 提供責務: 指定された正本から変更候補と検証結果を返す

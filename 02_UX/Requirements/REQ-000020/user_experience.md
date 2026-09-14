@@ -78,8 +78,8 @@ REQ-000020
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 既存UXのActor: Project Operator／PM<br>現在REQのActor: Project Operator／PM<br>Actor差: 既存UXと現在REQはいずれも「Project Operator／PM」であり、Actorの差はない<br>既存UXのTrigger: Project状況を確認する時<br>現在REQのTrigger: Federated Projectを開く時<br>Trigger差: 既存UXの「Project状況を確認する時」に対して現在REQは「Federated Projectを開く時」を具体化するが、同じ「Projectの現在地を根拠と不完全性付きで理解する」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる<br>現在REQのOutcome: 欠測・制限・競合を保ったまま横断判断できる<br>Outcome差: 既存UXの「物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる」に対して現在REQは「欠測・制限・競合を保ったまま横断判断できる」と要求固有に表すが、後者は同じ「Projectの現在地を根拠と不完全性付きで理解する」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 欠測・制限・競合・古さを完全なProject現在値として信じる<br>現在REQのFailure: 読めないRepositoryを推測補完し、Federated Projectを完全な状態として表示する<br>Failure差: 複数Repository化で欠測原因が増えるが、不完全な現在地を完全と誤認する失敗は同じである<br>同一Outcomeへ統合できる理由: FederationのCoverageは同じProject理解成果に必要なInformation／Quality条件である | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
-| Project・Repository・Rootを区別して対象を選ぶ | `Same → UX-000011` | 既存UXのActor: Project Operator／PM<br>現在REQのActor: Project Operator／PM<br>Actor差: 既存UXと現在REQはいずれも「Project Operator／PM」であり、Actorの差はない<br>既存UXのTrigger: 参照または操作対象を選ぶ時<br>現在REQのTrigger: Federated Projectを開く時<br>Trigger差: 既存UXの「参照または操作対象を選ぶ時」に対して現在REQは「Federated Projectを開く時」を具体化するが、同じ「Project・Repository・Rootを区別して対象を選ぶ」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる<br>現在REQのOutcome: 欠測・制限・競合を保ったまま横断判断できる<br>Outcome差: 既存UXの「論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる」に対して現在REQは「欠測・制限・競合を保ったまま横断判断できる」と要求固有に表すが、後者は同じ「Project・Repository・Rootを区別して対象を選ぶ」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 論理Projectと作用対象Repository／Rootを混同し、別の場所へ参照・実行・回復を行う<br>現在REQのFailure: 複数Repositoryを束ねたViewから、どのRepositoryがSourceまたは作用対象か見失う<br>Failure差: Federation時の選択場面が加わるが、Projectと物理対象を取り違える失敗は同じである<br>同一Outcomeへ統合できる理由: Repository Bindingは同じ対象選択成果を横断構成で成立させる条件である | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
+| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 既存UXのActor: Project Operator／PM<br>現在REQのActor: Project Operator／PM<br>Actor差: 既存UXと現在REQはいずれも「Project Operator／PM」であり、Actorの差はない<br>既存UXのTrigger: Project状況を確認する時<br>現在REQのTrigger: Federated Projectを開く時<br>Trigger差: 既存UXの「Project状況を確認する時」に対して現在REQは「Federated Projectを開く時」を具体化するが、同じ「Projectの現在地を根拠と不完全性付きで理解する」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる<br>現在REQのOutcome: Federationの欠測・制限・競合を完全な状態へ畳まず、Sourceへ戻りながらProjectの現在地を理解できる<br>Outcome差: 現在REQは「Projectの現在地を根拠と不完全性付きで理解する」をこの要求の場面で成立させるOutcomeを具体化しており、REQ全体のPrimary Outcomeや別のUX成果へ置き換えていない<br>既存UXのFailure: 欠測・制限・競合・古さを完全なProject現在値として信じる<br>現在REQのFailure: 読めないRepositoryを推測補完し、Federated Projectを完全な状態として表示する<br>Failure差: 複数Repository化で欠測原因が増えるが、不完全な現在地を完全と誤認する失敗は同じである<br>同一Outcomeへ統合できる理由: FederationのCoverageは同じProject理解成果に必要なInformation／Quality条件である | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
+| Project・Repository・Rootを区別して対象を選ぶ | `Same → UX-000011` | 既存UXのActor: Project Operator／PM<br>現在REQのActor: Project Operator／PM<br>Actor差: 既存UXと現在REQはいずれも「Project Operator／PM」であり、Actorの差はない<br>既存UXのTrigger: 参照または操作対象を選ぶ時<br>現在REQのTrigger: Federated Projectを開く時<br>Trigger差: 既存UXの「参照または操作対象を選ぶ時」に対して現在REQは「Federated Projectを開く時」を具体化するが、同じ「Project・Repository・Rootを区別して対象を選ぶ」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる<br>現在REQのOutcome: Federated Viewから参照・実行・回復の対象Repository／Rootを特定し、別対象へ作用せず選べる<br>Outcome差: 現在REQは「Project・Repository・Rootを区別して対象を選ぶ」をこの要求の場面で成立させるOutcomeを具体化しており、REQ全体のPrimary Outcomeや別のUX成果へ置き換えていない<br>既存UXのFailure: 論理Projectと作用対象Repository／Rootを混同し、別の場所へ参照・実行・回復を行う<br>現在REQのFailure: 複数Repositoryを束ねたViewから、どのRepositoryがSourceまたは作用対象か見失う<br>Failure差: Federation時の選択場面が加わるが、Projectと物理対象を取り違える失敗は同じである<br>同一Outcomeへ統合できる理由: Repository Bindingは同じ対象選択成果を横断構成で成立させる条件である | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -109,16 +109,17 @@ Federated Projectを開く時
         ▼
 [T: Federated Projectを開く時]
         │
-        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
-        └─ 失敗時: 読めないSourceを推測補完し完全表示するという停止理由、成立済み範囲、保持状態および再開条件
+        ├─ 時間差: Repositoryごとの観測後にFederationを合成するため、Source間に時点差がある
+        ├─ 完了時: Repository別Source状態、Coverage、欠測・制限・競合
+        └─ 失敗時: 読めないRepositoryと競合Propertyを各正本Ownerへ返す
                      │
                      ▼
              [R: Repositoryごとの正本Owner]
-                     │ 返却内容を確認
-                     └─ 次の行動: Coverageを確認して横断判断または掘り下げを選ぶ
+                     │ 返却された事実と判断不能範囲を確認
+                     └─ 次の行動: 部分Viewで判断するか、Source解決を依頼する
 
 ---------------- 可視境界 ----------------
-                     │ 処理・確認には時間差があり得る
+                     │ 時間関係: Repositoryごとの観測後にFederationを合成するため、Source間に時点差がある
                      ▼
 [S: 提供System]
         └─ 提供責務: 利用可能なSourceだけを統合し不完全性を保持する

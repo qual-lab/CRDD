@@ -650,6 +650,8 @@ function checkUxRequirementAnalysis(): void {
             "[S:",
             "[R:",
             "可視境界",
+            "時間差:",
+            "完了時:",
             "失敗時:",
             "次の行動:",
           ].every((label) => blueprintSection?.includes(label)))) ||

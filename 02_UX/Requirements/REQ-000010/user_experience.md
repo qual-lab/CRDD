@@ -77,7 +77,7 @@ REQ-000010
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 入口を変えても同じ仕事を続ける | `Same → UX-000012` | 既存UXのActor: Developer<br>現在REQのActor: Project Operator／PM<br>Actor差: 既存UXの「Developer」に対して現在REQは「Project Operator／PM」だが、両者とも「入口を変えても同じ仕事を続ける」を利用・確認する当事者であり、役割差だけでは別Outcomeにならない<br>既存UXのTrigger: 利用する接続方式を選ぶ時<br>現在REQのTrigger: 利用場面に合う入口を選ぶ時<br>Trigger差: 既存UXの「利用する接続方式を選ぶ時」に対して現在REQは「利用場面に合う入口を選ぶ時」を具体化するが、同じ「入口を変えても同じ仕事を続ける」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: Workbench、MCP、CLIまたはAIの入口を変えても、同じ入力・権限・状態・結果を用いて仕事を続けられる<br>現在REQのOutcome: Surface固有の状態や意味を覚えず使い分けられる<br>Outcome差: 既存UXの「Workbench、MCP、CLIまたはAIの入口を変えても、同じ入力・権限・状態・結果を用いて仕事を続けられる」に対して現在REQは「Surface固有の状態や意味を覚えず使い分けられる」と要求固有に表すが、後者は同じ「入口を変えても同じ仕事を続ける」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: Workbench・MCP・CLIで状態や結果の意味が変わり、入口ごとに仕事を読み替える<br>現在REQのFailure: 入口ごとに別の業務ロジックまたは結果契約が動き、同じProject操作を継続できない<br>Failure差: 現在REQは公開契約共有という成立手段を具体化するが、入口変更で仕事が途切れる失敗は同じである<br>同一Outcomeへ統合できる理由: 公開契約共有は同じ仕事を継続するためのCapability条件であり、別Outcomeではない | 共通の公開Application Contractへ要求することが、この要求固有の成立条件になる |
+| 入口を変えても同じ仕事を続ける | `Same → UX-000012` | 既存UXのActor: Developer<br>現在REQのActor: Project Operator／PM<br>Actor差: 既存UXの「Developer」に対して現在REQは「Project Operator／PM」だが、両者とも「入口を変えても同じ仕事を続ける」を利用・確認する当事者であり、役割差だけでは別Outcomeにならない<br>既存UXのTrigger: 利用する接続方式を選ぶ時<br>現在REQのTrigger: 利用場面に合う入口を選ぶ時<br>Trigger差: 既存UXの「利用する接続方式を選ぶ時」に対して現在REQは「利用場面に合う入口を選ぶ時」を具体化するが、同じ「入口を変えても同じ仕事を続ける」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: Workbench、MCP、CLIまたはAIの入口を変えても、同じ入力・権限・状態・結果を用いて仕事を続けられる<br>現在REQのOutcome: Workbench・MCP・CLIの入口を変えても、同じ入力・権限・状態・結果でProject操作を続けられる<br>Outcome差: 現在REQは「入口を変えても同じ仕事を続ける」をこの要求の場面で成立させるOutcomeを具体化しており、REQ全体のPrimary Outcomeや別のUX成果へ置き換えていない<br>既存UXのFailure: Workbench・MCP・CLIで状態や結果の意味が変わり、入口ごとに仕事を読み替える<br>現在REQのFailure: 入口ごとに別の業務ロジックまたは結果契約が動き、同じProject操作を継続できない<br>Failure差: 現在REQは公開契約共有という成立手段を具体化するが、入口変更で仕事が途切れる失敗は同じである<br>同一Outcomeへ統合できる理由: 公開契約共有は同じ仕事を継続するためのCapability条件であり、別Outcomeではない | 共通の公開Application Contractへ要求することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -102,21 +102,22 @@ Surface固有の状態や意味を覚えず使い分けられる
 処置: `作成`
 
 ```text
-[U: Project Operator／PM]
+[U: Projectを操作する人（Project Operator／PM）]
         │ 利用者行動: 入口が違っても同じProject操作を行う
         ▼
 [T: 利用場面に合う入口を選ぶ時]
         │
-        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
-        └─ 失敗時: 入口ごとに別の業務ロジックが動くという停止理由、成立済み範囲、保持状態および再開条件
+        ├─ 時間差: 入口ごとの要求・応答内で同値性を確認し、独立した回復Lifecycleは持たない
+        ├─ 完了時: 同じ入力・権限・状態・結果とSurface固有表現
+        └─ 失敗時: 意味が一致しない入口と差分項目を運用・確認者へ返す
                      │
                      ▼
              [R: 運用・確認者]
-                     │ 返却内容を確認
-                     └─ 次の行動: 入口が違っても同じProject操作を行う
+                     │ 返却された事実と判断不能範囲を確認
+                     └─ 次の行動: 別入口で同じ仕事を続けるか、不一致を修正対象にする
 
 ---------------- 可視境界 ----------------
-                     │ 処理・確認には時間差があり得る
+                     │ 時間関係: 入口ごとの要求・応答内で同値性を確認し、独立した回復Lifecycleは持たない
                      ▼
 [S: 提供System]
         └─ 提供責務: 入口間で入力・Authority・状態・結果の意味を保つ

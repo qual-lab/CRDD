@@ -76,8 +76,8 @@ REQ-000023
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 内部変更後も成立済み能力を安全に使う | `Same → UX-000007` | 既存UXのActor: Runtime導入・運用者<br>現在REQのActor: Runtime導入・運用者<br>Actor差: 既存UXと現在REQはいずれも「Runtime導入・運用者」であり、Actorの差はない<br>既存UXのTrigger: Runtime Componentを置換する時<br>現在REQのTrigger: Providerを選択・取消・回復する時<br>Trigger差: 既存UXの「Runtime Componentを置換する時」に対して現在REQは「Providerを選択・取消・回復する時」を具体化するが、同じ「内部変更後も成立済み能力を安全に使う」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる<br>現在REQのOutcome: Provider差を隠さず共通Runtimeから安全に利用できる<br>Outcome差: 既存UXの「責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる」に対して現在REQは「Provider差を隠さず共通Runtimeから安全に利用できる」と要求固有に表すが、後者は同じ「内部変更後も成立済み能力を安全に使う」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 内部責務やAdapterの変更後に公開Capabilityが退行する<br>現在REQのFailure: Provider固有Lifecycleを共通挙動と仮定し、差し替え後に開始・取消・回復が壊れる<br>Failure差: 現在REQはProvider Adapterの差を原因として具体化するが、内部変更後に成立済み能力を失う失敗は同じである<br>同一Outcomeへ統合できる理由: Provider lifecycle適合は同じ成果を守るArchitecture／Validation条件である | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
-| 故障した境界と影響範囲を理解する | `Same → UX-000008` | 既存UXのActor: Runtime導入・運用者<br>現在REQのActor: Runtime導入・運用者<br>Actor差: 既存UXと現在REQはいずれも「Runtime導入・運用者」であり、Actorの差はない<br>既存UXのTrigger: Runtime Componentを置換する時<br>現在REQのTrigger: Providerを選択・取消・回復する時<br>Trigger差: 既存UXの「Runtime Componentを置換する時」に対して現在REQは「Providerを選択・取消・回復する時」を具体化するが、同じ「故障した境界と影響範囲を理解する」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 接続・認証・実行・結果搬送またはProvider境界のどこで止まり、何が利用可能かを理解できる<br>現在REQのOutcome: Provider差を隠さず共通Runtimeから安全に利用できる<br>Outcome差: 既存UXの「接続・認証・実行・結果搬送またはProvider境界のどこで止まり、何が利用可能かを理解できる」に対して現在REQは「Provider差を隠さず共通Runtimeから安全に利用できる」と要求固有に表すが、後者は同じ「故障した境界と影響範囲を理解する」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 故障した入口・実行・結果搬送の境界が分からず、影響を全体へ広げる<br>現在REQのFailure: Providerの設定不能・開始失敗・取消不能・回復待ちを同じ失敗として扱う<br>Failure差: Provider固有状態が加わるが、故障点と利用可能範囲を理解できない失敗は同じである<br>同一Outcomeへ統合できる理由: Lifecycle状態の外在化は同じ故障理解成果の診断条件である | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
+| 内部変更後も成立済み能力を安全に使う | `Same → UX-000007` | 既存UXのActor: Runtime導入・運用者<br>現在REQのActor: Runtime導入・運用者<br>Actor差: 既存UXと現在REQはいずれも「Runtime導入・運用者」であり、Actorの差はない<br>既存UXのTrigger: Runtime Componentを置換する時<br>現在REQのTrigger: Providerを選択・取消・回復する時<br>Trigger差: 既存UXの「Runtime Componentを置換する時」に対して現在REQは「Providerを選択・取消・回復する時」を具体化するが、同じ「内部変更後も成立済み能力を安全に使う」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる<br>現在REQのOutcome: Provider Adapterの置換後も、Provider固有Lifecycleを保った開始・取消・回復能力を安全に使える<br>Outcome差: 現在REQは「内部変更後も成立済み能力を安全に使う」をこの要求の場面で成立させるOutcomeを具体化しており、REQ全体のPrimary Outcomeや別のUX成果へ置き換えていない<br>既存UXのFailure: 内部責務やAdapterの変更後に公開Capabilityが退行する<br>現在REQのFailure: Provider固有Lifecycleを共通挙動と仮定し、差し替え後に開始・取消・回復が壊れる<br>Failure差: 現在REQはProvider Adapterの差を原因として具体化するが、内部変更後に成立済み能力を失う失敗は同じである<br>同一Outcomeへ統合できる理由: Provider lifecycle適合は同じ成果を守るArchitecture／Validation条件である | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
+| 故障した境界と影響範囲を理解する | `Same → UX-000008` | 既存UXのActor: Runtime導入・運用者<br>現在REQのActor: Runtime導入・運用者<br>Actor差: 既存UXと現在REQはいずれも「Runtime導入・運用者」であり、Actorの差はない<br>既存UXのTrigger: Runtime Componentを置換する時<br>現在REQのTrigger: Providerを選択・取消・回復する時<br>Trigger差: 既存UXの「Runtime Componentを置換する時」に対して現在REQは「Providerを選択・取消・回復する時」を具体化するが、同じ「故障した境界と影響範囲を理解する」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 接続・認証・実行・結果搬送またはProvider境界のどこで止まり、何が利用可能かを理解できる<br>現在REQのOutcome: Providerの設定不能・開始失敗・取消不能・回復待ちを区別し、故障点と残る利用可能範囲を理解できる<br>Outcome差: 現在REQは「故障した境界と影響範囲を理解する」をこの要求の場面で成立させるOutcomeを具体化しており、REQ全体のPrimary Outcomeや別のUX成果へ置き換えていない<br>既存UXのFailure: 故障した入口・実行・結果搬送の境界が分からず、影響を全体へ広げる<br>現在REQのFailure: Providerの設定不能・開始失敗・取消不能・回復待ちを同じ失敗として扱う<br>Failure差: Provider固有状態が加わるが、故障点と利用可能範囲を理解できない失敗は同じである<br>同一Outcomeへ統合できる理由: Lifecycle状態の外在化は同じ故障理解成果の診断条件である | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -107,16 +107,17 @@ Provider差を隠さず共通Runtimeから安全に利用できる
         ▼
 [T: Providerを選択・取消・回復する時]
         │
-        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
-        └─ 失敗時: 設定可能を実行可能とみなし同じ取消挙動を仮定するという停止理由、成立済み範囲、保持状態および再開条件
+        ├─ 時間差: Providerごとに開始・取消・終了・回復の通知時点が異なる
+        ├─ 完了時: Provider固有状態、発生済みEffect、取消結果、回復要否
+        └─ 失敗時: 観測不能なLifecycle状態をProvider境界からRuntime導入・運用者へ返す
                      │
                      ▼
              [R: Provider]
-                     │ 返却内容を確認
-                     └─ 次の行動: Provider差と現在状態を理解して開始・取消・回復を選ぶ
+                     │ 返却された事実と判断不能範囲を確認
+                     └─ 次の行動: 待機、取消継続、状態確認、回復または別Providerを選ぶ
 
 ---------------- 可視境界 ----------------
-                     │ 処理・確認には時間差があり得る
+                     │ 時間関係: Providerごとに開始・取消・終了・回復の通知時点が異なる
                      ▼
 [S: 提供System]
         └─ 提供責務: Provider固有Lifecycleを失わず共通の判断材料として返す

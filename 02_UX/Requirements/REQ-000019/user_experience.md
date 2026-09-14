@@ -75,7 +75,7 @@ REQ-000019
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 内部変更後も成立済み能力を安全に使う | `Same → UX-000007` | 既存UXのActor: Runtime導入・運用者<br>現在REQのActor: CRDD作成者・保守者<br>Actor差: 既存UXの「Runtime導入・運用者」に対して現在REQは「CRDD作成者・保守者」だが、両者とも「内部変更後も成立済み能力を安全に使う」を利用・確認する当事者であり、役割差だけでは別Outcomeにならない<br>既存UXのTrigger: Runtime Componentを置換する時<br>現在REQのTrigger: Canonical ContractやOwnerを変更する時<br>Trigger差: 既存UXの「Runtime Componentを置換する時」に対して現在REQは「Canonical ContractやOwnerを変更する時」を具体化するが、同じ「内部変更後も成立済み能力を安全に使う」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる<br>現在REQのOutcome: 稀な署名・Release・Recovery経路の取り残しを防ぐ<br>Outcome差: 既存UXの「責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる」に対して現在REQは「稀な署名・Release・Recovery経路の取り残しを防ぐ」と要求固有に表すが、後者は同じ「内部変更後も成立済み能力を安全に使う」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 内部責務の移動後に公開入口や成立済み能力が壊れ、利用者が変更影響を予測できない<br>現在REQのFailure: 主経路だけを更新し署名・Release・Recovery等のConsumerが旧契約に残る<br>Failure差: 現在REQは取り残しの原因をConsumer集合へ具体化するが、内部変更後に能力を失う失敗は同じである<br>同一Outcomeへ統合できる理由: Consumer閉包は既存成果を保証するArchitecture／Validation条件であり、独立した利用者Goalではない | Producer・Consumer・派生物・公開経路を照合することが、この要求固有の成立条件になる |
+| 内部変更後も成立済み能力を安全に使う | `Same → UX-000007` | 既存UXのActor: Runtime導入・運用者<br>現在REQのActor: CRDD作成者・保守者<br>Actor差: 既存UXの「Runtime導入・運用者」に対して現在REQは「CRDD作成者・保守者」だが、両者とも「内部変更後も成立済み能力を安全に使う」を利用・確認する当事者であり、役割差だけでは別Outcomeにならない<br>既存UXのTrigger: Runtime Componentを置換する時<br>現在REQのTrigger: Canonical ContractやOwnerを変更する時<br>Trigger差: 既存UXの「Runtime Componentを置換する時」に対して現在REQは「Canonical ContractやOwnerを変更する時」を具体化するが、同じ「内部変更後も成立済み能力を安全に使う」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる<br>現在REQのOutcome: 契約移行後に署名・Release・Recoveryを含む全Consumerが接続された能力を安全に利用・公開できる<br>Outcome差: 現在REQは「内部変更後も成立済み能力を安全に使う」をこの要求の場面で成立させるOutcomeを具体化しており、REQ全体のPrimary Outcomeや別のUX成果へ置き換えていない<br>既存UXのFailure: 内部責務の移動後に公開入口や成立済み能力が壊れ、利用者が変更影響を予測できない<br>現在REQのFailure: 主経路だけを更新し署名・Release・Recovery等のConsumerが旧契約に残る<br>Failure差: 現在REQは取り残しの原因をConsumer集合へ具体化するが、内部変更後に能力を失う失敗は同じである<br>同一Outcomeへ統合できる理由: Consumer閉包は既存成果を保証するArchitecture／Validation条件であり、独立した利用者Goalではない | Producer・Consumer・派生物・公開経路を照合することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
@@ -105,16 +105,17 @@ Producer・Consumer・派生物・公開経路を照合する
         ▼
 [T: Canonical ContractやOwnerを変更する時]
         │
-        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
-        └─ 失敗時: 代表Consumerだけ更新して完了扱いするという停止理由、成立済み範囲、保持状態および再開条件
+        ├─ 時間差: 契約変更後にConsumer導出と独立確認を行い、閉包まで時間差がある
+        ├─ 完了時: Producer、全Consumer、派生物、公開・署名・Release経路の接続状態
+        └─ 失敗時: 未接続Consumerと旧契約残存を独立確認者から変更担当へ返す
                      │
                      ▼
              [R: 独立確認者]
-                     │ 返却内容を確認
-                     └─ 次の行動: 変更した意味と維持する利用側を明示する
+                     │ 返却された事実と判断不能範囲を確認
+                     └─ 次の行動: 不足Consumerを移行するか、意図した廃止として判断を得る
 
 ---------------- 可視境界 ----------------
-                     │ 処理・確認には時間差があり得る
+                     │ 時間関係: 契約変更後にConsumer導出と独立確認を行い、閉包まで時間差がある
                      ▼
 [S: 提供System]
         └─ 提供責務: 宣言と実Sourceから利用側集合と差分を提示する

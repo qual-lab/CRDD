@@ -76,7 +76,7 @@ REQ-000027
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 既存UXのActor: 外部Contextの所有者<br>現在REQのActor: 外部Contextの所有者<br>Actor差: 既存UXと現在REQはいずれも「外部Contextの所有者」であり、Actorの差はない<br>既存UXのTrigger: 別AgentやToolへ仕事を渡す時<br>現在REQのTrigger: 外部AI・Tool・RepositoryへContextを送る時<br>Trigger差: 既存UXの「別AgentやToolへ仕事を渡す時」に対して現在REQは「外部AI・Tool・RepositoryへContextを送る時」を具体化するが、同じ「必要なContextを渡し結果を同じ仕事へ戻す」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる<br>現在REQのOutcome: 不要情報を漏らさず人間判断を保って外部連携できる<br>Outcome差: 既存UXの「必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる」に対して現在REQは「不要情報を漏らさず人間判断を保って外部連携できる」と要求固有に表すが、後者は同じ「必要なContextを渡し結果を同じ仕事へ戻す」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 必要Contextの出所・現行性・許可またはTask相関を失い、結果を元の仕事へ戻せない<br>現在REQのFailure: 送信先へ過剰なContextを渡すか、帰還結果を出所不明のまま正本へ採用する<br>Failure差: 現在REQは外部送信と昇格のAuthority差を加えるが、安全なContext往復が成立しない失敗は同じである<br>同一Outcomeへ統合できる理由: 送信許可と候補境界は同じ往復成果のAuthority／Quality条件である | 送信先・目的・分類・最小情報を確認することが、この要求固有の成立条件になる |
+| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 既存UXのActor: 外部Contextの所有者<br>現在REQのActor: 外部Contextの所有者<br>Actor差: 既存UXと現在REQはいずれも「外部Contextの所有者」であり、Actorの差はない<br>既存UXのTrigger: 別AgentやToolへ仕事を渡す時<br>現在REQのTrigger: 外部AI・Tool・RepositoryへContextを送る時<br>Trigger差: 既存UXの「別AgentやToolへ仕事を渡す時」に対して現在REQは「外部AI・Tool・RepositoryへContextを送る時」を具体化するが、同じ「必要なContextを渡し結果を同じ仕事へ戻す」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる<br>現在REQのOutcome: 許可した最小Contextを外部へ渡し、帰還結果を同じTaskの候補として出所付きで戻せる<br>Outcome差: 現在REQは「必要なContextを渡し結果を同じ仕事へ戻す」をこの要求の場面で成立させるOutcomeを具体化しており、REQ全体のPrimary Outcomeや別のUX成果へ置き換えていない<br>既存UXのFailure: 必要Contextの出所・現行性・許可またはTask相関を失い、結果を元の仕事へ戻せない<br>現在REQのFailure: 送信先へ過剰なContextを渡すか、帰還結果を出所不明のまま正本へ採用する<br>Failure差: 現在REQは外部送信と昇格のAuthority差を加えるが、安全なContext往復が成立しない失敗は同じである<br>同一Outcomeへ統合できる理由: 送信許可と候補境界は同じ往復成果のAuthority／Quality条件である | 送信先・目的・分類・最小情報を確認することが、この要求固有の成立条件になる |
 | 外部送信範囲と同意を理解して送る | `New → UX-000024` | 本要求が「外部Effect前に送信先・目的・操作・情報分類・許可範囲を理解し、結果を候補として扱える」という独立した利用者成果を最初に定義する。 | 送信先・目的・分類・最小情報を確認することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
@@ -107,16 +107,17 @@ Same／Newは技術用語の近さや件数目標では決めない。「利用�
         ▼
 [T: 外部AI・Tool・RepositoryへContextを送る時]
         │
-        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
-        └─ 失敗時: 接続済みを包括許可とし結果を自動採用するという停止理由、成立済み範囲、保持状態および再開条件
+        ├─ 時間差: 同意、外部送信、結果帰還、人間採否は別のAuthority時点を持つ
+        ├─ 完了時: 送信先、目的、分類、最小情報、同意範囲、帰還結果
+        └─ 失敗時: 範囲外情報または未確認結果を外部Context所有者へ返す
                      │
                      ▼
              [R: 外部AI／Tool／Repository]
-                     │ 返却内容を確認
-                     └─ 次の行動: 送信範囲に同意し、帰還結果の採否を判断する
+                     │ 返却された事実と判断不能範囲を確認
+                     └─ 次の行動: 送信内容を縮小するか、帰還結果を採用・却下する
 
 ---------------- 可視境界 ----------------
-                     │ 処理・確認には時間差があり得る
+                     │ 時間関係: 同意、外部送信、結果帰還、人間採否は別のAuthority時点を持つ
                      ▼
 [S: 提供System／AI]
         └─ 提供責務: 許可された最小情報だけを送り候補として戻す

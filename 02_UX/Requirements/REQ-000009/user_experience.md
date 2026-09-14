@@ -78,7 +78,7 @@ REQ-000009
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 既存UXのActor: Project Operator／PM<br>現在REQのActor: Project Operator／PM<br>Actor差: 既存UXと現在REQはいずれも「Project Operator／PM」であり、Actorの差はない<br>既存UXのTrigger: Project状況を確認する時<br>現在REQのTrigger: 参照または操作対象を選ぶ時<br>Trigger差: 既存UXの「Project状況を確認する時」に対して現在REQは「参照または操作対象を選ぶ時」を具体化するが、同じ「Projectの現在地を根拠と不完全性付きで理解する」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる<br>現在REQのOutcome: 論理Projectを一つに見ながら誤った場所へ作用しない<br>Outcome差: 既存UXの「物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる」に対して現在REQは「論理Projectを一つに見ながら誤った場所へ作用しない」と要求固有に表すが、後者は同じ「Projectの現在地を根拠と不完全性付きで理解する」が成立した時の局所的な現れであり、別に採用・置換・検証するOutcomeではない<br>既存UXのFailure: 欠測・制限・競合・古さを完全なProject現在値として信じる<br>現在REQのFailure: 同名または近いPathを同じRepositoryと誤認し、誤ったSourceからProject状態を読む<br>Failure差: 現在REQは誤ったSource選択を原因として追加するが、誤ったProject現在地を理解する失敗へ収束する<br>同一Outcomeへ統合できる理由: Identity確認は根拠付きProject理解を成立させる情報条件であり、別成果ではない | Identityと検証済みRootを確認することが、この要求固有の成立条件になる |
+| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 既存UXのActor: Project Operator／PM<br>現在REQのActor: Project Operator／PM<br>Actor差: 既存UXと現在REQはいずれも「Project Operator／PM」であり、Actorの差はない<br>既存UXのTrigger: Project状況を確認する時<br>現在REQのTrigger: 参照または操作対象を選ぶ時<br>Trigger差: 既存UXの「Project状況を確認する時」に対して現在REQは「参照または操作対象を選ぶ時」を具体化するが、同じ「Projectの現在地を根拠と不完全性付きで理解する」が必要になる開始条件の差であり、独立した成果境界ではない<br>既存UXのOutcome: 物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる<br>現在REQのOutcome: 検証済みRepository／RootをSourceとして選び、別の場所の状態をProjectの現在値と誤認せず理解できる<br>Outcome差: 現在REQは「Projectの現在地を根拠と不完全性付きで理解する」をこの要求の場面で成立させるOutcomeを具体化しており、REQ全体のPrimary Outcomeや別のUX成果へ置き換えていない<br>既存UXのFailure: 欠測・制限・競合・古さを完全なProject現在値として信じる<br>現在REQのFailure: 同名または近いPathを同じRepositoryと誤認し、誤ったSourceからProject状態を読む<br>Failure差: 現在REQは誤ったSource選択を原因として追加するが、誤ったProject現在地を理解する失敗へ収束する<br>同一Outcomeへ統合できる理由: Identity確認は根拠付きProject理解を成立させる情報条件であり、別成果ではない | Identityと検証済みRootを確認することが、この要求固有の成立条件になる |
 | Project・Repository・Rootを区別して対象を選ぶ | `New → UX-000011` | 本要求が「論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる」という独立した利用者成果を最初に定義する。 | Identityと検証済みRootを確認することが、この要求固有の成立条件になる |
 
 Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
@@ -109,16 +109,17 @@ Identityと検証済みRootを確認する
         ▼
 [T: 参照または操作対象を選ぶ時]
         │
-        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
-        └─ 失敗時: 同名や近いPathを同じ対象と誤認するという停止理由、成立済み範囲、保持状態および再開条件
+        ├─ 時間差: Identity確認は参照・Effect前に完了し、曖昧ならその場で停止する
+        ├─ 完了時: Project・Repository・RootのIdentityとBinding
+        └─ 失敗時: 一致しないIdentityと未検証Rootを運用・確認者へ返す
                      │
                      ▼
              [R: 運用・確認者]
-                     │ 返却内容を確認
-                     └─ 次の行動: 目的に合う対象候補を選び、確認結果から実行可否を判断する
+                     │ 返却された事実と判断不能範囲を確認
+                     └─ 次の行動: 対象を選び直すか、Binding確認を依頼する
 
 ---------------- 可視境界 ----------------
-                     │ 処理・確認には時間差があり得る
+                     │ 時間関係: Identity確認は参照・Effect前に完了し、曖昧ならその場で停止する
                      ▼
 [S: 提供System]
         └─ 提供責務: Identityと検証済みRootを照合し、exactな対象または拒否理由を返す

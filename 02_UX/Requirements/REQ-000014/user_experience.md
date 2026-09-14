@@ -105,16 +105,17 @@ Repositoryが公開するCapabilityを確認する
         ▼
 [T: Toolで処理を始める時]
         │
-        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
-        └─ 失敗時: 存在するファイルを利用可能Capabilityと誤認するという停止理由、成立済み範囲、保持状態および再開条件
+        ├─ 時間差: Capability登録後の利用可能性確認はTool起動時に行う
+        ├─ 完了時: 登録Capability、現在の利用可能性、必要Effect権限、実行Mode
+        └─ 失敗時: 未登録または利用不能なCapabilityと理由をRepository／Tool Ownerへ返す
                      │
                      ▼
              [R: Repository／Tool Owner]
-                     │ 返却内容を確認
-                     └─ 次の行動: 目的と必要Effectに合うToolを選ぶ
+                     │ 返却された事実と判断不能範囲を確認
+                     └─ 次の行動: 別Toolを選ぶか、Registry更新を依頼する
 
 ---------------- 可視境界 ----------------
-                     │ 処理・確認には時間差があり得る
+                     │ 時間関係: Capability登録後の利用可能性確認はTool起動時に行う
                      ▼
 [S: 提供System]
         └─ 提供責務: 登録済みCapabilityと現在の利用可能性を返す

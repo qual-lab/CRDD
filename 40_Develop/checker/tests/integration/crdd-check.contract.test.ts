@@ -939,7 +939,7 @@ test("Service Blueprintの作成と非該当を処置なしで済ませない", 
   );
 });
 
-test("作成するService Blueprintは利用者・接点・提供責務・回復接点を閉じる", () => {
+test("作成するService Blueprintは主体・時間関係・完了情報・失敗時の判断を閉じる", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "01_Discovery", "01_Product_Discovery.md"),
@@ -958,6 +958,38 @@ test("作成するService Blueprintは利用者・接点・提供責務・回復
       "user_experience.md",
     ),
     "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### Service Blueprintの処置\n\n処置: `作成`\n\n```text\n利用者 [接点] 結果\n  └─ 失敗時: 担当者へ戻す\n```\n\n### 横断Synthesisへの接続\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-blueprint-disposition-invalid" &&
+        finding.path === "02_UX/Requirements/REQ-000001/user_experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("作成するService Blueprintは完了時に返る情報を省略できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(
+      root,
+      "02_UX",
+      "Requirements",
+      "REQ-000001",
+      "user_experience.md",
+    ),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### Service Blueprintの処置\n\n処置: `作成`\n\n```text\n[U: 利用者]\n  ▼\n[T: 入力]\n  ├─ 時間差: 同期確認\n  └─ 失敗時: 判断不能範囲を返す\n       ▼\n[R: 判断者]\n  └─ 次の行動: 入力を直す\n--- 可視境界 ---\n[S: 提供System]\n```\n\n### 横断Synthesisへの接続\n",
   );
   const result = runChecker(root);
   assert.ok(

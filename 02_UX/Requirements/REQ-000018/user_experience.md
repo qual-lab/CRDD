@@ -100,21 +100,22 @@ Runtimeを導入または更新する時
 処置: `作成`
 
 ```text
-[U: Runtime導入・運用者]
+[U: Deployment Owner（Runtime導入・運用者）]
         │ 利用者行動: Runtime Trustの各要素を別々に評価する
         ▼
 [T: Runtimeを導入または更新する時]
         │
-        ├─ 処理・確認後: 結果、根拠、未成立範囲を受け取る
-        └─ 失敗時: 一つの署名表示を全保証と誤認するという停止理由、成立済み範囲、保持状態および再開条件
+        ├─ 時間差: Publisherの提示後、Deployment Ownerが導入時に各Trust要素を評価する
+        ├─ 完了時: 準拠、Integrity、Publisher、公式表示、実行許可
+        └─ 失敗時: 不足または不一致のTrust要素をDeployment Ownerへ返す
                      │
                      ▼
-             [R: Deployment Owner]
-                     │ 返却内容を確認
-                     └─ 次の行動: Runtime Trustの各要素を別々に評価する
+             [R: Deployment Owner（Trust判断役割へ切替）]
+                     │ 返却された事実と判断不能範囲を確認
+                     └─ 次の行動: Trust Policyに従って採用、拒否または追加確認する
 
 ---------------- 可視境界 ----------------
-                     │ 処理・確認には時間差があり得る
+                     │ 時間関係: Publisherの提示後、Deployment Ownerが導入時に各Trust要素を評価する
                      ▼
 [S: 提供System]
         └─ 提供責務: Policyに従って許可・拒否と根拠を返す

@@ -29,9 +29,9 @@ Project Operation Context
 | Project Management Projection | 設計中 |
 | 任意Top-level構造 | 設計中 |
 | Project Operation／Workbench Discovery | `Complete for Scope`。Workbench／MCP共同利用体系まで再探索し、独立レビューPass。2026-09-13にUX移行承認済み |
-| Workbench／MCP共同UX | `Remediation Verification`。固定Commit `374b710d`の独立再レビューは、30 UX、68候補の移行および36要求Coverageを妥当とした一方、Major 2、Moderate 1としてSame判断のActor／Trigger／Outcome比較不足、Service BlueprintのCanonical記法・具体的Handoff不足およびCHG全数表との不一致を検出した。Same 23件をActor／Trigger／Outcome／Failureの両側比較へ拡張し、作成34件を`[U:] [T:] [S:] [R:]`、可視境界、要求固有の返却情報・次行動へ統一した。CHG全数表は個別分析を正として再生成した。Repository全体CheckerはError 0／Warning 0、Checkerの全273試験、型検査、LintおよびFormat検査は成功した。次の固定候補への独立再レビューがPassするまでIA移行可能とは表示しない |
+| Workbench／MCP共同UX | `Remediation Verification`。固定Commit `c857ada8`の独立再レビューは、30 UX、68候補の移行および36要求Coverageを妥当とした一方、Major 2、Moderate 1としてSame 23件の現在REQ OutcomeがREQ全体のOutcomeを反復していること、作成34件のService Blueprintが一律の非同期・回復Lifecycleを仮定していること、および9要求のActor対応が曖昧なことを検出した。30 UXと移行対応は固定し、Same候補ごとのOutcome、要求固有の時間関係・完了情報・失敗時返却・次行動、およびActor／役割を再分析した。CHG全数表は個別分析を正として再投影した。Repository全体CheckerはError 0／Warning 0、Checkerの全274試験、型検査、LintおよびFormat検査は成功した。次の固定候補への独立再レビューがPassするまでIA移行可能とは表示しない |
 | Discoveryの人間理解確認 | 完了。AIによる既存Context再構成と人間理解を分け、Workbench、Remote MCP、Repository単独利用および工程境界の人間提示内容をUX入力へ反映 |
-| UX規範・ひな型・Checker・試験 | Visual-firstの6章を維持し、各要求別分析へREQ固有のJourney、Service Blueprint、責任境界および品質を自己完結して残す。02〜05への参照は横断Synthesisへの接続であり、個別分析を代替しない。同一文書内の図・表・文章による意味反復だけを削減した。Checkerは見出しの存在だけで意味品質を代替せず、REQ↔UXとREQ↔Journeyのpairwise closure、Canonical UX定義重複、SameのActor／Trigger／Outcome／Failure比較構造、および作成BlueprintのCanonical記号・可視境界・失敗時返却・次行動を決定論的に検査する。比較の妥当性と図の意味品質は独立UXレビューで反証する。Repository全体Checker、Checker契約試験、型・Lint・Format確認後に独立再レビューへ戻す |
+| UX規範・ひな型・Checker・試験 | Visual-firstの6章を維持し、各要求別分析へREQ固有のJourney、Service Blueprint、責任境界および品質を自己完結して残す。02〜05への参照は横断Synthesisへの接続であり、個別分析を代替しない。同一文書内の図・表・文章による意味反復だけを削減した。Service Blueprintは時間関係、完了情報、失敗時返却および次行動を要求固有に示し、実在しない待機、永続状態、再開または回復を形式のために作らない。CheckerはREQ↔UXとREQ↔Journeyのpairwise closure、Canonical UX定義重複、SameのActor／Trigger／Outcome／Failure比較構造、および作成BlueprintのCanonical記号・可視境界・失敗時返却・次行動を決定論的に検査する。比較と図の意味品質は独立UXレビューで反証する |
 | 安定コンテキストIDの訂正・置換 | `REQ / UX / IA / UI / SPEC`共通で、`@n`の手動改訂番号を廃止した。意味不変の訂正は同じID、意味の置換は新IDと`supersedes`を用い、過去内容はCHG、Git、Release tagおよび固定Evidenceから追跡する。Checkerは手動改訂番号の再導入を拒否する |
 
 ## 2. 契機と人間が決定した範囲
@@ -347,44 +347,44 @@ Project Operation Context
 
 利用者行動、利用者から観測可能な接点、提供責務、時間差および失敗・回復時のHandoffを36要求で再評価した。個別分析を正として、次表は同じ主体、接点、返却情報および次の行動を投影する。
 
-| 要求 | 処置 | 利用者 `[U:]` | 観測接点 `[T:]` | 提供責務 `[S:]` | 回復接点 `[R:]` | 失敗時の返却と次の行動 |
-|---|---|---|---|---|---|---|
-| `REQ-000001` | 作成 | CRDD作成者・保守者 | 成果物をレビューへ渡す前 | 機械Checker | 意味レビュー担当 | 検査範囲や理由が分からないという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 同じ対象と条件を固定し機械的不備を是正する |
-| `REQ-000002` | 作成 | Project Operator／PM | 複数AIへ仕事を委ねる時 | 提供System／AI | 人間の決定権限者 | 暗黙の範囲拡張や回復不能という停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 目的・範囲・停止条件を提示し、返された状態から次の行動を判断する |
-| `REQ-000003` | 作成 | Project Operator／PM | Projectの成果をまとめて任せる時 | 提供System／AI | 品質確認者 | Task件数を完成と誤認するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: Objective・受入条件・判断点を渡し、Milestoneの採否を判断する |
-| `REQ-000004` | 作成 | Runtime導入・運用者 | 実行結果を振り返る時 | Runtime／Tool | 評価担当／AI | 未観測を0や正常へ畳むという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 事実と評価を区別して比較し改善要否を判断する |
-| `REQ-000005` | 作成 | Runtime導入・運用者 | Runtime Componentを置換する時 | 実装担当 | 独立確認者 | 内部Path変更で公開入口が壊れるという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 責務分離後も成立済みCapabilityを使う |
-| `REQ-000006` | 作成 | Developer | 利用する接続方式を選ぶ時 | 提供System | 運用・確認者 | 接続方式ごとに状態や結果が変わるという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 利用環境に合う接続方式を選び、同じ意図の仕事を依頼する |
-| `REQ-000007` | 作成 | Project Operator／PM | Project状況を確認する時 | 提供System | 正本Owner | 欠測や古い値を完全な現在値と誤認するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 現在地と不足を確認し、次の判断またはSource確認を選ぶ |
-| `REQ-000008` | 非該当 | — | — | — | — | このREQの中心は、一人のDeveloperが現在Repositoryで作業を開始し、必要な時だけ横断利用を選ぶことにある。利用者行動と接点は個別Journeyで完結し、別主体への責任移送、時間差のある応答、失敗後に別Ownerへ戻す処置は新しい成立条件にならないため非該当とする。CROSへの移行で別主体の許可・Handoff・回復が成果を左右するようになった場合は再評価する。 |
-| `REQ-000009` | 作成 | Project Operator／PM | 参照または操作対象を選ぶ時 | 提供System | 運用・確認者 | 同名や近いPathを同じ対象と誤認するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 目的に合う対象候補を選び、確認結果から実行可否を判断する |
-| `REQ-000010` | 作成 | Project Operator／PM | 利用場面に合う入口を選ぶ時 | 提供System | 運用・確認者 | 入口ごとに別の業務ロジックが動くという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 入口が違っても同じProject操作を行う |
-| `REQ-000011` | 作成 | Project Operator／PM | Remote Sessionを開始・再接続する時 | 提供System | CROS管理者 | 利用不能なRepositoryの存在や内容を推測表示するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 現在許可された範囲を理解して利用する |
-| `REQ-000012` | 作成 | Project Operator／PM | Meeting後に決定・Topic・Actionを整理する時 | 提供System／AI | Project Operator／正本Owner | 会議記録が自動的に正本へ昇格するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 会議の内容を候補として整理し正本へつなぐ |
-| `REQ-000013` | 作成 | Management | Portfolioの優先度を判断する時 | 提供System | 各Projectの正本Owner | 単一Scoreや欠測した集計で健全性を断定するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: Coverage差を踏まえて優先判断と掘り下げ先を選ぶ |
-| `REQ-000014` | 作成 | Developer | Toolで処理を始める時 | 提供System | Repository／Tool Owner | 存在するファイルを利用可能Capabilityと誤認するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 目的と必要Effectに合うToolを選ぶ |
-| `REQ-000015` | 作成 | Runtime導入・運用者 | Runtime Dataを作成または清掃する時 | Runtime／Tool | 提供System | subdirectoryや別Rootへ同名データを作るという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 保持すべき状態と一時物を理解して処置する |
-| `REQ-000016` | 作成 | Runtime導入・運用者 | 利用モデルやProvider条件を変更する時 | 提供System | Model構成Owner | 未知または非対応のモデルを実行可能と表示するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 利用目的に合うProfileを構成し選択結果を確認する |
-| `REQ-000017` | 作成 | 外部Contextの所有者 | 別AgentやToolへ仕事を渡す時 | 提供System／AI | 外部Agent／Tool | 全量投入・Secret混入・古い仮説の現在値化という停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 送信目的と範囲を確認し、帰還結果の採否を判断する |
-| `REQ-000018` | 作成 | Runtime導入・運用者 | Runtimeを導入または更新する時 | 提供System | Deployment Owner | 一つの署名表示を全保証と誤認するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: Runtime Trustの各要素を別々に評価する |
-| `REQ-000019` | 作成 | CRDD作成者・保守者 | Canonical ContractやOwnerを変更する時 | 提供System | 独立確認者 | 代表Consumerだけ更新して完了扱いするという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 変更した意味と維持する利用側を明示する |
-| `REQ-000020` | 作成 | Project Operator／PM | Federated Projectを開く時 | 提供System | Repositoryごとの正本Owner | 読めないSourceを推測補完し完全表示するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: Coverageを確認して横断判断または掘り下げを選ぶ |
-| `REQ-000021` | 作成 | Project Operator／PM | 応答喪失後に再接続する時 | 提供System | 運用・確認者 | Timeoutを未実行とみなし新規Effectを起こすという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 既存Requestを指定して再接続し、次の処置を判断する |
-| `REQ-000022` | 作成 | Runtime導入・運用者 | 失敗後または保守時に残存を見つけた時 | 提供System | 人間の決定権限者 | 名前や経過時間だけで由来不明物を削除するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 残存の由来と影響を確認し処置を依頼する |
-| `REQ-000023` | 作成 | Runtime導入・運用者 | Providerを選択・取消・回復する時 | 提供System | Provider | 設定可能を実行可能とみなし同じ取消挙動を仮定するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: Provider差と現在状態を理解して開始・取消・回復を選ぶ |
-| `REQ-000024` | 作成 | Project Operator／PM | AgentやRuntimeから結果が戻る時 | Agent／Runtime | Project Operator／正本Owner | 別TaskやRevisionの結果を混入し自動採用するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 境界を越えた結果を同じTaskへ受け取る |
-| `REQ-000025` | 作成 | Runtime導入・運用者 | Runtime Artifactを実行候補にする時 | 提供System | Deployment Owner | Qual-Lab署名だけを唯一の実行資格にするという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 信頼するPublisherとLocal例外を自分で定める |
-| `REQ-000026` | 作成 | CRDD作成者・保守者 | 複数Findingを是正する時 | 独立監査者 | 人間の決定権限者 | 一部是正や監査回数を完成と誤認するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 全Findingと編集・試験を対応付けて一つの候補へ反映する |
-| `REQ-000027` | 作成 | 外部Contextの所有者 | 外部AI・Tool・RepositoryへContextを送る時 | 提供System／AI | 外部AI／Tool／Repository | 接続済みを包括許可とし結果を自動採用するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 送信範囲に同意し、帰還結果の採否を判断する |
-| `REQ-000028` | 作成 | Developer | ChatからCodingまたは逆へ引き継ぐ時 | Coding Agent | 提供System | 入口文書が第二正本になり不足をAIが補完するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 入口が違っても同じCRDD正本と判断境界を使う |
-| `REQ-000029` | 作成 | CRDD作成者・保守者 | 過去判断を再利用または更新する時 | 過去の判断・仮説の作成者 | 人間の決定権限者 | 履歴を上書きし競合する理由を勝手に統合するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 履歴と現在値を区別して再利用候補を提示する |
-| `REQ-000030` | 作成 | CRDD作成者・保守者 | 変更の検証計画を作る時 | 品質確認者 | 人間の決定権限者 | 単発成功や試験件数からLifecycle全体を保証するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 変更意味と確認したい保証を示す |
-| `REQ-000031` | 作成 | CRDD作成者・保守者 | 工程成果物を初めて読む時 | 成果物作成者 | レビュー担当 | Checklist順と専門語だけで文書を埋めるという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 課題と判断の物語から構造化詳細へ進む |
-| `REQ-000032` | 作成 | CRDD作成者・保守者 | 工程の入口・出口で成果物を渡す時 | 上流工程の成果物Owner | 品質確認者 | 必要な図を黙って省略しAIごとに記法が変わるという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 工程固有の図から状態・関係・未接続を理解する |
-| `REQ-000033` | 作成 | CRDD作成者・保守者 | 変更の現在地や根拠を調べる時 | 提供System | 各成果物Owner | 同じ説明を複製し代表ファイルだけで済ませるという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 目的に応じて未完了・変更理由・根拠・品質を辿る |
-| `REQ-000034` | 作成 | Developer | Toolを導入または起動する時 | 提供System | CRDD／Tool Publisher | 外部の任意ToolやCandidateを正式版と誤認するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 反復用開発実行と公式Runtimeを目的に応じて選ぶ |
-| `REQ-000035` | 作成 | CRDD作成者・保守者 | ブランド素材を追加または利用する時 | 素材作成者／権利確認者 | 人間の決定権限者 | 見た目だけで権利やTrust保証を推定するという停止理由、成立済み範囲、保持状態および再開条件<br>次の行動: 公式用途とライセンス条件を照合して候補化する |
-| `REQ-000036` | 非該当 | — | — | — | — | このREQが変えるのは、Developerの通常作業をVersion Controlの状態や実装から切り離すことであり、利用者が観測する新しいHandoffを追加することではない。通常作業と履歴Capabilityの責任差はJourneyと責任境界で保持でき、別主体への時間差のある責任移送や回復受け渡しは成果の成立条件にならないため非該当とする。Version Control操作そのものを別Serviceへ委任し、その失敗・回復が利用者体験を左右する場合は再評価する。 |
+| 要求 | 処置 | 利用者 `[U:]` | 観測接点 `[T:]` | 提供責務 `[S:]` | 回復・判断接点 `[R:]` | 時間関係 | 完了時の情報 | 失敗時の返却と次の行動 |
+|---|---|---|---|---|---|---|---|---|
+| `REQ-000001` | 作成 | CRDD作成者・保守者 | 成果物をレビューへ渡す前 | 機械Checker | 意味レビュー担当 | 機械検査は同じ入力へ即時に返り、意味レビューは不備是正後に始まる | 検査対象、違反規則、対象箇所 | 未判定の規則と修正箇所を意味レビュー担当へ返す<br>次の行動: 機械的不備を直すか、意味判断としてレビューへ送る |
+| `REQ-000002` | 作成 | Project Operator／PM | 複数AIへ仕事を委ねる時 | 提供System／AI | 人間の決定権限者 | 複数AIの実行・取消・回復は非同期で、判断待ちを挟み得る | 実行主体、委任範囲、現在状態、判断要否 | 停止したTask、発生済みEffect、残る回復義務を人間の決定権限者へ返す<br>次の行動: 状態確認、取消、再試行、回復または追加判断を選ぶ |
+| `REQ-000003` | 作成 | Project Operator／PM | Projectの成果をまとめて任せる時 | 提供System／AI | 品質確認者 | Task群の実行後に統合と品質確認が続き、Milestone判断まで時間差がある | 統合結果、受入条件の充足、未充足条件 | 部分成功、未充足条件、保持された成果を品質確認者へ返す<br>次の行動: 追加Task、再統合、回復またはMilestone採否を選ぶ |
+| `REQ-000004` | 作成 | Runtime導入・運用者 | 実行結果を振り返る時 | Runtime／Tool | 評価担当／AI | 実行観測の確定後に評価が行われ、未観測値は後から補完しない | 観測事実、観測時点、出所、未観測項目 | 欠測した観測と評価不能範囲を評価担当へ返す<br>次の行動: 追加観測の要否を決め、事実と評価を分けて改善判断する |
+| `REQ-000005` | 作成 | Runtime保守者・利用者（Runtime導入・運用者） | Runtime Componentを置換する時 | 実装担当 | 独立確認者 | 実装完了後に独立確認が行われ、前版能力との比較まで時間差がある | 置換Owner、利用側一覧、維持・変更・廃止した能力 | 未接続Consumerと不足Evidenceを独立確認者から変更担当へ返す<br>次の行動: 移行を補完するか、廃止判断を人間へ戻す |
+| `REQ-000006` | 作成 | Developer | 利用する接続方式を選ぶ時 | 提供System | 運用・確認者 | 各Transportの要求と応答は一回の利用内で比較し、長期の回復状態は持たない | 接続・処理・結果搬送の各成否と同じ意味の結果 | 意味差が生じたTransportと影響する操作だけを運用・確認者へ返す<br>次の行動: 正常な入口を選ぶか、不一致を修正対象として止める |
+| `REQ-000007` | 作成 | Project Operator／PM | Project状況を確認する時 | 提供System | 正本Owner | 複数Sourceの観測時点が異なるため、投影時に鮮度差が生じる | Project状態、Source、観測時点、欠測・制限・競合 | 不足または競合するSourceと判断不能なPropertyを正本Ownerへ返す<br>次の行動: 利用可能範囲で判断するか、Source更新を依頼する |
+| `REQ-000008` | 非該当 | — | — | — | — | — | — | このREQの中心は、一人のDeveloperが現在Repositoryで作業を開始し、必要な時だけ横断利用を選ぶことにある。利用者行動と接点は個別Journeyで完結し、別主体への責任移送、時間差のある応答、失敗後に別Ownerへ戻す処置は新しい成立条件にならないため非該当とする。CROSへの移行で別主体の許可・Handoff・回復が成果を左右するようになった場合は再評価する。 |
+| `REQ-000009` | 作成 | Project Operator／PM | 参照または操作対象を選ぶ時 | 提供System | 運用・確認者 | Identity確認は参照・Effect前に完了し、曖昧ならその場で停止する | Project・Repository・RootのIdentityとBinding | 一致しないIdentityと未検証Rootを運用・確認者へ返す<br>次の行動: 対象を選び直すか、Binding確認を依頼する |
+| `REQ-000010` | 作成 | Projectを操作する人（Project Operator／PM） | 利用場面に合う入口を選ぶ時 | 提供System | 運用・確認者 | 入口ごとの要求・応答内で同値性を確認し、独立した回復Lifecycleは持たない | 同じ入力・権限・状態・結果とSurface固有表現 | 意味が一致しない入口と差分項目を運用・確認者へ返す<br>次の行動: 別入口で同じ仕事を続けるか、不一致を修正対象にする |
+| `REQ-000011` | 作成 | Project Operator／PM | Remote Sessionを開始・再接続する時 | 提供System | CROS管理者 | Credential発行とSession接続は別時点で行われ、Grant変更は次の認証へ反映される | 現在SessionのWorkspace Grantと利用不能理由 | 不足・失効したGrantをContentを開示せずCROS管理者へ返す<br>次の行動: 別Credentialを使うか、Grant変更を管理者へ依頼する |
+| `REQ-000012` | 作成 | 会議参加者（Project Operator／PMを含む） | Meeting後に決定・Topic・Actionを整理する時 | 提供System／AI | Project Operator／正本Owner（候補採否の判断役割） | Meeting終了、候補生成、人間の採否、正本更新は別の判断時点を持つ | 発言の出所、候補種別、既存Topicとの関係、採否待ち | 根拠不足または競合する候補をProject Operator／正本Ownerへ返す<br>次の行動: 候補を採用、修正、統合、分割または却下する |
+| `REQ-000013` | 作成 | Management | Portfolioの優先度を判断する時 | 提供System | 各Projectの正本Owner | Projectごとの観測時点が異なり、Portfolio比較まで更新差が生じる | Project別Coverage、観測時点、重要差、開示不能範囲 | 比較不能なProjectと不足Sourceを各Projectの正本Ownerへ返す<br>次の行動: 比較範囲を狭めるか、対象Projectを掘り下げる |
+| `REQ-000014` | 作成 | Developer | Toolで処理を始める時 | 提供System | Repository／Tool Owner | Capability登録後の利用可能性確認はTool起動時に行う | 登録Capability、現在の利用可能性、必要Effect権限、実行Mode | 未登録または利用不能なCapabilityと理由をRepository／Tool Ownerへ返す<br>次の行動: 別Toolを選ぶか、Registry更新を依頼する |
+| `REQ-000015` | 作成 | Runtime導入・運用者 | Runtime Dataを作成または清掃する時 | Runtime／Tool | 提供System | 書込み前にRootを確認し、終了・清掃時に残存を再観測する | Data Owner、用途、Durability、cleanup条件、終了後の存在状態 | 由来不明または観測不能なDataをRuntime導入・運用者へ返す<br>次の行動: 保持、再観測、回復または安全な清掃を選ぶ |
+| `REQ-000016` | 作成 | Runtime導入・運用者 | 利用モデルやProvider条件を変更する時 | 提供System | Model構成Owner | 構成更新後にProvider能力を検証し、その後の選択へ反映する | Profile、検証結果、実効モデル、選択理由、再選定条件 | 未知・非対応の構成項目をModel構成Ownerへ返す<br>次の行動: Profileを修正するか、検証済み代替を選ぶ |
+| `REQ-000017` | 作成 | 外部Contextの所有者 | 別AgentやToolへ仕事を渡す時 | 提供System／AI | 外部Agent／Tool | Context準備、外部実行、結果帰還は別時点で成立する | 送信Contextの出所・現行性・許可と帰還結果の相関 | 不足Context、拒否された情報、未確認の結果を外部Context所有者へ返す<br>次の行動: 送信範囲を修正するか、結果を候補として採否判断する |
+| `REQ-000018` | 作成 | Deployment Owner（Runtime導入・運用者） | Runtimeを導入または更新する時 | 提供System | Deployment Owner（Trust判断役割へ切替） | Publisherの提示後、Deployment Ownerが導入時に各Trust要素を評価する | 準拠、Integrity、Publisher、公式表示、実行許可 | 不足または不一致のTrust要素をDeployment Ownerへ返す<br>次の行動: Trust Policyに従って採用、拒否または追加確認する |
+| `REQ-000019` | 作成 | CRDD作成者・保守者 | Canonical ContractやOwnerを変更する時 | 提供System | 独立確認者 | 契約変更後にConsumer導出と独立確認を行い、閉包まで時間差がある | Producer、全Consumer、派生物、公開・署名・Release経路の接続状態 | 未接続Consumerと旧契約残存を独立確認者から変更担当へ返す<br>次の行動: 不足Consumerを移行するか、意図した廃止として判断を得る |
+| `REQ-000020` | 作成 | Project Operator／PM | Federated Projectを開く時 | 提供System | Repositoryごとの正本Owner | Repositoryごとの観測後にFederationを合成するため、Source間に時点差がある | Repository別Source状態、Coverage、欠測・制限・競合 | 読めないRepositoryと競合Propertyを各正本Ownerへ返す<br>次の行動: 部分Viewで判断するか、Source解決を依頼する |
+| `REQ-000021` | 作成 | Project Operator／PM | 応答喪失後に再接続する時 | 提供System | 運用・確認者 | 応答喪失から再接続まで時間差があり、元Requestは継続し得る | 同じRequestの状態、結果、Effect状態、回復義務 | Request不一致または状態不明を運用・確認者へ返す<br>次の行動: 状態再観測、結果取得、回復または明示的な新規実行を選ぶ |
+| `REQ-000022` | 作成 | Runtime導入・運用者 | 失敗後または保守時に残存を見つけた時 | 提供System | 人間の決定権限者 | 失敗発生、残存観測、人間判断、清掃後の不存在確認は別時点になる | 残存の由来、参照、回復義務、削除条件、不存在Evidence | 削除可否を断定できない残存と影響を人間の決定権限者へ返す<br>次の行動: 保持、追加調査、回復または削除を選ぶ |
+| `REQ-000023` | 作成 | Runtime導入・運用者 | Providerを選択・取消・回復する時 | 提供System | Provider | Providerごとに開始・取消・終了・回復の通知時点が異なる | Provider固有状態、発生済みEffect、取消結果、回復要否 | 観測不能なLifecycle状態をProvider境界からRuntime導入・運用者へ返す<br>次の行動: 待機、取消継続、状態確認、回復または別Providerを選ぶ |
+| `REQ-000024` | 作成 | 仕事を委ねた人（Project Operator／PM） | AgentやRuntimeから結果が戻る時 | Agent／Runtime | Project Operator／正本Owner（結果採否の判断役割） | 外部実行完了と結果帰還は別時点で成立し、搬送だけが途切れ得る | Task Identity、Result、Evidence、未確認範囲、帰還状態 | 不完全または相関不能な帰還結果を仕事を委ねた人へ返す<br>次の行動: 同じTaskの結果再取得、追加確認、回復または採否判断を選ぶ |
+| `REQ-000025` | 作成 | Deployment Owner（Runtime導入・運用者） | Runtime Artifactを実行候補にする時 | 提供System | Deployment Owner（Trust Policy適用の判断役割へ切替） | Artifact公開後、Deployment Ownerが導入時に自身のPolicyを適用する | Publisher、Integrity、準拠結果、適用Policy、実行可否 | Policy不一致と不足する検証をDeployment Ownerへ返す<br>次の行動: Artifactを採用、拒否または追加検証する |
+| `REQ-000026` | 作成 | CRDD作成者・保守者 | 複数Findingを是正する時 | 独立監査者 | 人間の決定権限者 | 監査、統合方針、是正、再レビューは同じ固定改訂版を介して順に行う | 全Finding、原因、修正案、変更禁止範囲、反証、残る判断 | 未解消Findingと現在必要な判断だけを人間の決定権限者へ返す<br>次の行動: 追加是正、リスク判断、保留または工程移行を選ぶ |
+| `REQ-000027` | 作成 | 外部Contextの所有者 | 外部AI・Tool・RepositoryへContextを送る時 | 提供System／AI | 外部AI／Tool／Repository | 同意、外部送信、結果帰還、人間採否は別のAuthority時点を持つ | 送信先、目的、分類、最小情報、同意範囲、帰還結果 | 範囲外情報または未確認結果を外部Context所有者へ返す<br>次の行動: 送信内容を縮小するか、帰還結果を採用・却下する |
+| `REQ-000028` | 作成 | Chat Agent／Coding Agentを使う人（Developer） | ChatからCodingまたは逆へ引き継ぐ時 | Coding Agent | 提供System | ChatとCodingの作業は別Sessionで進み、明示Handoff時に接続する | 参照正本、Task Identity、判断境界、帰還結果、未確認範囲 | 不足Contextまたは別Task結果をChat Agent／Coding Agentを使う人へ返す<br>次の行動: Contextを補うか、同じ仕事として継続・採否判断する |
+| `REQ-000029` | 作成 | CRDD作成者・保守者 | 過去判断を再利用または更新する時 | 過去の判断・仮説の作成者 | 人間の決定権限者 | 過去記録の作成時点と現在の再利用判断には時間差がある | 当時の仮説・根拠・確信度・観測時点と現在Intent | 競合または現行性不明のContextを人間の決定権限者へ返す<br>次の行動: 過去値として参照するか、新しい判断で置換する |
+| `REQ-000030` | 作成 | CRDD作成者・保守者 | 変更の検証計画を作る時 | 品質確認者 | 人間の決定権限者 | 各試験層は段階的に実行され、上位試験前に下位境界の結果を得る | 試験層、確認済み保証、未確認範囲、費用、実行Authority | 未確認の外部境界と高負荷試験の実行判断を人間の決定権限者へ返す<br>次の行動: 不足試験を追加するか、未実行を明示して次Gateを判断する |
+| `REQ-000031` | 作成 | CRDD成果物を読む人・書く人（CRDD作成者・保守者） | 工程成果物を初めて読む時 | 成果物作成者 | レビュー担当 | 文書作成と人間レビューは別だが、読解中の非同期回復状態は持たない | 課題と判断の物語、構造化詳細、未確認事項、次の行動 | 理解できない用語・順序・欠落Contextをレビュー担当から成果物作成者へ返す<br>次の行動: 物語または構造を直し、再レビューする |
+| `REQ-000032` | 作成 | 設計・実装・検証を引き継ぐ人（CRDD作成者・保守者） | 工程の入口・出口で成果物を渡す時 | 上流工程の成果物Owner | 品質確認者 | 上流工程の確定後に下流が受け取り、欠落時は工程間で差し戻す | 工程固有図、入力意味、未接続、下流義務、非該当理由 | 図と正本の不一致または未接続義務を品質確認者から上流Ownerへ返す<br>次の行動: 上流成果物を補完するか、下流で扱う義務を明示する |
+| `REQ-000033` | 作成 | CRDD作成者・保守者 | 変更の現在地や根拠を調べる時 | 提供System | 各成果物Owner | 各Ownerの成果物更新後にChange Viewが再投影される | Work、Change、全影響Path、Evidence、現在品質への参照 | 所有先不明または参照切れの情報を該当成果物Ownerへ返す<br>次の行動: 正本を修正するか、現在状態と未完了を明示する |
+| `REQ-000034` | 作成 | Developer | Toolを導入または起動する時 | 提供System | CRDD／Tool Publisher | Tool配布後、対象Repositoryで起動時にIdentityと実行Modeを確認する | Repository Binding、Tool Identity、候補・公式状態、Effect権限 | 不一致の配布物または実行ModeをCRDD／Tool Publisherへ返す<br>次の行動: 正しいToolを選ぶか、配布物の確認を依頼する |
+| `REQ-000035` | 作成 | CRDD作成者・保守者 | ブランド素材を追加または利用する時 | 素材作成者／権利確認者 | 人間の決定権限者 | 素材生成・権利確認・Repository収載は別の判断時点を持つ | 原本、生成経緯、権利確認、用途、再配布許可 | 権利または用途が未確認の素材を人間の決定権限者へ返す<br>次の行動: 追加確認、用途制限、却下または収載を選ぶ |
+| `REQ-000036` | 非該当 | — | — | — | — | — | — | このREQが変えるのは、Developerの通常作業をVersion Controlの状態や実装から切り離すことであり、利用者が観測する新しいHandoffを追加することではない。通常作業と履歴Capabilityの責任差はJourneyと責任境界で保持でき、別主体への時間差のある責任移送や回復受け渡しは成果の成立条件にならないため非該当とする。Version Control操作そのものを別Serviceへ委任し、その失敗・回復が利用者体験を左右する場合は再評価する。 |
 
 ### UX-ID Canonical再編
 
