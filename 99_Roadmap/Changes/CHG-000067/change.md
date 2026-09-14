@@ -29,9 +29,10 @@ Project Operation Context
 | Project Management Projection | 設計中 |
 | 任意Top-level構造 | 設計中 |
 | Project Operation／Workbench Discovery | `Complete for Scope`。Workbench／MCP共同利用体系まで再探索し、独立レビューPass。2026-09-13にUX移行承認済み |
-| Workbench／MCP共同UX | `Semantic Re-synthesis In Progress`。独立レビューで、36要求の章充足とは別に、利用者Goal、Journey、Blueprint、New／Same判断および下流境界の意味再統合が必要と判定された。UX Center、Product横断Persona、Experience Map、Service Blueprint、Quality Expectationsおよび6章の個別要求分析構造へ再編し、個別要求の意味再分析後に68 UX成果の採否とRelationを再固定する。IA移行可能とはまだ表示しない |
+| Workbench／MCP共同UX | `Independent Re-review Pending`。独立レビューで見つかった不備を受け、36要求をVisual-firstの6章構成で再分析し、利用者Goal、Journey／Blueprint、New／Same理由、責任境界、重要場面および品質期待を要求別に再接続した。68 UX成果は候補集合として維持し、新しい固定候補への独立再レビューがPassするまでCanonical確定またはIA移行可能とは表示しない |
 | Discoveryの人間理解確認 | 完了。AIによる既存Context再構成と人間理解を分け、Workbench、Remote MCP、Repository単独利用および工程境界の人間提示内容をUX入力へ反映 |
-| UX規範・ひな型・Checker・試験 | Visual-firstの三層、6章の分析順、Product横断成果物の責務分離、テンプレートと実成果物の整合原則を更新中。Repository全体CheckerはPass。Checker契約試験と個別要求36件の意味再分析を終えた後、新しい固定改訂版を独立レビューへ戻す |
+| UX規範・ひな型・Checker・試験 | Visual-firstの三層、6章の分析順、Product横断成果物の責務分離、テンプレートと実成果物の整合原則を反映した。Checkerを6章契約へ更新し、個別要求36件の意味再分析を完了した。Repository全体Checker、Checker契約試験、型・Lint・Format確認を再実行した後、新しい固定候補を独立レビューへ戻す |
+| 安定コンテキストIDの訂正・置換 | `REQ / UX / IA / UI / SPEC`共通で、`@n`の手動改訂番号を廃止した。意味不変の訂正は同じID、意味の置換は新IDと`supersedes`を用い、過去内容はCHG、Git、Release tagおよび固定Evidenceから追跡する。Checkerは手動改訂番号の再導入を拒否する |
 
 ## 2. 契機と人間が決定した範囲
 
@@ -161,6 +162,7 @@ Project Operation Context
 - [`02_UX/Requirements/REQ-000034/user_experience.md`](<../../../02_UX/Requirements/REQ-000034/user_experience.md>)
 - [`02_UX/Requirements/REQ-000035/user_experience.md`](<../../../02_UX/Requirements/REQ-000035/user_experience.md>)
 - [`02_UX/Requirements/REQ-000036/user_experience.md`](<../../../02_UX/Requirements/REQ-000036/user_experience.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
 - [`03_Documentation.md`](<../../../03_Documentation.md>)
 - [`03_IA/01_Information_Architecture.md`](<../../../03_IA/01_Information_Architecture.md>)
 - [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
@@ -176,12 +178,17 @@ Project Operation Context
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
 - `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
+- [`11_Skill.md`](<../../../11_Skill.md>)
 - [`12_Change.md`](<../../../12_Change.md>)
 - [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
 - [`19_Maintenance.md`](<../../../19_Maintenance.md>)
 - [`19_Workflows/02_Checker.md`](<../../../19_Workflows/02_Checker.md>)
 - [`21_Discovery.md`](<../../../21_Discovery.md>)
 - [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
 - [`27_Architecture.md`](<../../../27_Architecture.md>)
 - [`40_Develop/checker/package.json`](<../../../40_Develop/checker/package.json>)
 - [`40_Develop/checker/regression-execution.ts`](<../../../40_Develop/checker/regression-execution.ts>)

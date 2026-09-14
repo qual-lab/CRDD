@@ -2818,6 +2818,22 @@ test("安定コンテキストIDを含むファイル名を拒否する", () => 
   );
 });
 
+test("安定コンテキストIDへ手動改訂番号を結合した表記を拒否する", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| UX成果 |\n|---|\n| UX-000001@2 |\n",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "stable-id-manual-revision",
+    ),
+  );
+});
+
 test("範囲指定でも全体不変条件を確認し、部分確認を明示する", () => {
   const root = fixture();
   makeStructure(root);

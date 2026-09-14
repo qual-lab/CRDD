@@ -710,9 +710,11 @@ handoff:
   to_skill: skill.ia.structure
   scope:
     feature: Important Topic Review
-  source_revision:
+  source_context:
     - id: UX-000004
-      revision: 3
+  source_revision:
+    type: git_commit
+    value: <fixed-commit-sha>
   coverage_state: Partial — Human Authorized
   coverage_summary:
     complete:
@@ -730,7 +732,7 @@ handoff:
     assessment: satisfied_for_stated_scope
   independent_review:
     role: agent.phase_transition.review
-    target_revision: UX-000004@3
+    target_revision: <fixed-commit-sha>
     specialist_coverage:
       required:
         - id: primary_user_outcome
@@ -742,13 +744,13 @@ handoff:
           reviewer: <independent reviewer>
           capability_basis: 対象REQ、利用者根拠、UX成果を照合する評価方法と、その方法を対象へ適用した所見
           criteria: 22_UX.md「基礎」「成功と学び」と工程監査チェックリスト
-          evidence: UX-000004@3
+          evidence: <artifact-reference-at-fixed-commit>
           result: Pass
         - perspective: primary_journey_validity
           reviewer: <independent reviewer>
           capability_basis: 主要ジャーニーの目標、困りごと、重要場面、成功条件を照合する評価方法と、その方法を対象へ適用した所見
           criteria: 22_UX.md「利用者体験の流れ」と工程監査チェックリスト
-          evidence: UX-000004@3
+          evidence: <artifact-reference-at-fixed-commit>
           result: Pass
       unreviewed: []
     result: Pass

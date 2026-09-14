@@ -536,7 +536,7 @@ function checkUxRequirementAnalysis(): void {
   const canonicalUxIds = new Set(
     uxIndex
       .split(/\r?\n/u)
-      .map((line) => line.match(/^\| `(?<id>UX-[0-9]{6}@[0-9]+)`/u)?.groups?.id)
+      .map((line) => line.match(/^\| `(?<id>UX-[0-9]{6})`/u)?.groups?.id)
       .filter((value): value is string => Boolean(value)),
   );
   const relatedUxIds = new Set<string>();
@@ -554,19 +554,26 @@ function checkUxRequirementAnalysis(): void {
     const analysis = read(analysisPath);
     const requiredParts = [
       `要求: \`${entry.name}\``,
-      "## 1. 要求から起こしたい利用者変化",
-      "## 2. REQの一次分析",
-      "## 3. 利用者の想定とペルソナ",
-      "| 主な利用者 | 利用場面 | 目標・困りごと | 根拠・確信度 |",
-      "## 4. 体験区間とSupporting Model",
-      "| Supporting Model | 処置 | 理由・参照先 |",
-      "## 5. UX成果への統合",
+      "## 1. REQの一次分析",
+      "| 解決する問題 |",
+      "| UX Need |",
+      "## 2. 利用者・目標・成果",
+      "| Primary Persona |",
+      "| Goal |",
+      "| Outcome |",
+      "## 3. 利用者に起きる変化",
+      "## 4. UX成果への統合",
       "| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |",
-      "## 6. サービス提供上の責任境界",
-      "## 7. 重要場面、失敗、品質期待",
+      "## 5. 重要な体験",
+      "### JourneyとSupporting Model",
+      "| Supporting Model | 処置 | 理由・参照先 |",
+      "### 責任境界",
+      "### 重要場面・失敗・品質期待の対応",
       "| 重要場面 | 避ける失敗 | 品質期待 |",
-      "## 8. 妥当性確認と未確認事項",
-      "## 9. 下流への引き渡し",
+      "## 6. 下流への引き渡し",
+      "### 妥当性確認と未確認事項",
+      "### 工程別の引き渡し",
+      "Discoveryへ戻す条件",
     ];
     const hasExperienceChange =
       /```text\r?\nBefore\r?\n[\s\S]+?\r?\nAfter\r?\n/u.test(analysis);
@@ -581,24 +588,22 @@ function checkUxRequirementAnalysis(): void {
         "error",
         "ux-requirement-analysis-contract-invalid",
         relative(analysisPath),
-        "Each UX requirement analysis must declare its REQ, lead with Experience Change, cover persona, supporting models, responsibilities, quality, validation, and handoff, and have one registry link.",
+        "Each UX requirement analysis must declare its REQ and preserve the six-stage visual-first analysis contract from problem and user outcome through synthesis, critical experience, validation, and downstream handoff, with one registry link.",
       );
     const relationRows = analysis
       .split(/\r?\n/u)
       .filter((line) =>
-        /^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}@[0-9]+` \|/u.test(line),
+        /^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \|/u.test(line),
       );
     for (const line of relationRows) {
-      const match = line.match(/`(?:New|Same) → (?<id>UX-[0-9]{6}@[0-9]+)`/u);
+      const match = line.match(/`(?:New|Same) → (?<id>UX-[0-9]{6})`/u);
       if (match?.groups?.id) relatedUxIds.add(match.groups.id);
     }
     if (
       relationRows.length === 0 ||
       relationRows.some(
         (line) =>
-          !/^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}@[0-9]+` \| .{20,} \|$/u.test(
-            line,
-          ),
+          !/^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \| .{20,} \|$/u.test(line),
       )
     )
       add(
@@ -2724,6 +2729,8 @@ for (const file of markdownFiles) {
 }
 
 const STABLE_ID_PATTERN = /\b(?:REQ|UX|IA|UI|SPEC)-\d{6}\b/gu;
+const MANUAL_STABLE_ID_REVISION_PATTERN =
+  /\b(?:REQ|UX|IA|UI|SPEC)-\d{6}@\d+\b/gu;
 const stableIdOccurrences = new Map();
 const stableIdDefinitions = new Map();
 for (const file of allMarkdownFiles) {
@@ -2740,6 +2747,16 @@ for (const file of allMarkdownFiles) {
     continue;
   }
   const meaningfulText = withoutFencedCode(text);
+  for (const match of meaningfulText.matchAll(
+    MANUAL_STABLE_ID_REVISION_PATTERN,
+  )) {
+    add(
+      "error",
+      "stable-id-manual-revision",
+      relative(file),
+      `${match[0]}: keep the stable ID unchanged and identify the content state with an artifact revision, Change Trace, or superseding ID.`,
+    );
+  }
   const definitionLines = meaningfulText.split(/\r?\n/u);
   for (let lineIndex = 0; lineIndex < definitionLines.length; lineIndex += 1) {
     const line = definitionLines[lineIndex];
@@ -3389,6 +3406,7 @@ const report = {
     "legacy and reserved folders",
     "central root folders",
     "stable ID filename prohibition",
+    "manual stable ID revision prohibition",
     "explicit stable ID definition uniqueness",
     "Change Trace inspection-path recognition (not canonical placement validation)",
     "branch coverage arithmetic where numeric values are present",

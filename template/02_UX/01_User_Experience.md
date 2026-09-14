@@ -27,7 +27,7 @@ IA／UI／SPEC／Verification
 
 | UX成果 | 利用者成果 | 入力REQ | 主な体験区間 | 現在状態 |
 |---|---|---|---|---|
-| `UX-XXXXXX@1` | | `REQ-XXXXXX` | | |
+| `UX-XXXXXX` | | `REQ-XXXXXX` | | |
 
 ## 3. REQとUX成果のCoverage
 
