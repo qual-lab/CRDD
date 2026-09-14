@@ -1,8 +1,6 @@
 # 同じProject Runtimeを、複数の入口から使う
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000015`
-
 探索ID: `EXP-000015`
 状態: 要求採用
 主な情報源: v0.20.0、CHG-000064

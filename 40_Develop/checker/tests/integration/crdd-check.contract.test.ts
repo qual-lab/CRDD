@@ -467,6 +467,21 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
       packageRoot,
     );
   }
+  const agentContract = fs.readFileSync(
+    path.join(repositoryRoot, "AGENTS.md"),
+    "utf8",
+  );
+  const checkIndex = agentContract.indexOf("最初に`npm run check`を成功させ");
+  const restrictedIndex = agentContract.indexOf(
+    "`npm run test:restricted-process`",
+  );
+  const windowsIndex = agentContract.indexOf("`npm run test:windows-process`");
+  assert.ok(checkIndex >= 0, "AGENTS must require static checks first");
+  assert.ok(
+    restrictedIndex > checkIndex,
+    "restricted tests must follow checks",
+  );
+  assert.ok(windowsIndex > restrictedIndex, "Windows tests must follow checks");
 });
 
 test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査する", () => {
@@ -900,6 +915,90 @@ test("UXを主な関係領域に持たない採用要求もUX分析から省略�
   );
 });
 
+test("UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にする", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n探索元: [EXP-000001](../../../01_Discovery/Analysis/EXP-000001/exploration.md)\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX分析は別REQのDefinitionを正式入力にできない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000002 別要求](../../../01_Discovery/Definitions/REQ-000002/requirement.md)\n判断根拠: [EXP-000001 探索](../../../01_Discovery/Analysis/EXP-000001/exploration.md)\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("見出しだけ揃えた共通定型のDiscovery Definitionを要求固有の意味とみなさない", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n| `REQ-000002` | B | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  for (const id of ["REQ-000001", "REQ-000002"])
+    write(
+      path.join(root, "01_Discovery", "Definitions", id, "requirement.md"),
+      discoveryDefinition(id, "EXP-000001", "全要求で同じ定型説明"),
+    );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+        "discovery-requirement-definition-boilerplate-duplicate",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
 test("UXのSame判断は要求固有の理由を必要とする", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -1161,6 +1260,14 @@ function makeStructure(root: string): void {
 function write(file: string, content = ""): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, content, "utf8");
+}
+
+function discoveryDefinition(
+  requirementId: string,
+  explorationId: string,
+  marker: string,
+): string {
+  return `# ${requirementId} 要求\n\n成果物種別: Discovery Definition\n要求ID: \`${requirementId}\`\n\n## 要求\n\n${marker}として利用者が望む結果を得られる要求である。\n\n## 対象と利用状況\n\n${marker}の対象者が、判断に必要な情報を確認する具体的な状況を扱う。\n\n## 解く問題と望ましい変化\n\n${marker}により現在の問題を識別し、再現可能な望ましい状態へ変える。\n\n## 採用理由と比較\n\n${marker}では代替案との違いと、採用した理由および残る弱点を比較する。\n\n## 成立条件\n\n- ${marker}の正常結果を確認できる\n- ${marker}の不完全状態を正常へ丸めない\n- ${marker}を破る反証を拒否できる\n\n## 制約\n\n- ${marker}の決定権限を下流へ移さない\n- ${marker}の対象外を完成扱いしない\n\n## 検証意図\n\n${marker}の正常、境界、失敗を実際の観測結果で区別できることを確認する。\n\n## 工程引渡し\n\n| 引渡し先 | 失ってはならない意味 | 下流で決めること |\n|---|---|---|\n| UX | ${marker}の利用者、状況、問題、変化 | GoalとOutcome |\n| IA以降 | ${marker}の状態と制約 | 工程固有設計 |\n\n## 関係\n\n- Source Analysis: [${explorationId}](../../Analysis/${explorationId}/exploration.md)\n`;
 }
 
 function dispositionFixtureRoot(hasFixedEvidence = false): string {

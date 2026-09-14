@@ -9,28 +9,45 @@ Discovery判断: 要求採用
 
 複数Repositoryを一つのProjectとして解決する場合、各Repositoryの出典、責務、利用可否、欠測および競合を保ち、探索順や複製された本文から正本を推定してはならない。
 
-## 目的と判断理由
+## 対象と利用状況
 
-この要求は、[EXP-000020の探索](../../Analysis/EXP-000020/exploration.md)で確認した問題と解決仮説を、後工程が直接利用できるCanonical Requirementとして固定する。詳しい観察、代替案、反証および判断の経緯は探索記録を参照する。
+CROSが複数Repositoryを一つの論理Projectとして読み、利用可能なContextを投影する場面。
+
+## 解く問題と望ましい変化
+
+```text
+現在: 本文複製や探索順による選択では、責務が競合した時や一部Repositoryが読めない時に誤った完全視を作る。
+    ↓
+望ましい変化: Repositoryごとの出典、責務、利用可否、欠測、競合を保ったままProjectを解決できる。
+```
+
+## 採用理由と比較
+
+基準Repositoryへの集約と複製を避け、明示Identity／責務Bindingを許可範囲内でFederationする。
 
 ## 成立条件
 
-- 要求本文が示す肯定条件を、関係する利用者・運用・System境界で確認できる。
-- 要求本文が禁じる推定、混同、無断変更または不完全な成立表示を、代表的な反証例で拒否できる。
-- 後工程が探索記録を再解釈せず、本文、制約および検証意図から分析を開始できる。
+- 一Repositoryと複数RepositoryのProjectを同じ結果契約で投影する
+- 読めないRepositoryを不存在または正常と扱わず、開示可能な不足だけを示す
+- 同一責務の複数Sourceは探索順で選ばずConflictとして返す
 
 ## 制約
 
-- この要求を特定の画面、ファイル、実装方式または現在のComponent配置へ固定しない。
-- 実装、検証およびReleaseの状態をDiscovery判断へ混ぜない。
-- 新しい必要性や意味変更は、Discoveryへ戻して採用判断を行う。
+- Repositoryのアクセス境界をCROS要約で迂回しない
+- 別Repository本文を同期用に複製しない
 
 ## 検証意図
 
-正常例だけでなく、要求本文が避ける誤認、権限逸脱、不完全な接続または利用側漏れを反証する。具体的なTest Level、Scenarioおよび期待結果はQualityで設計する。
+完全、部分アクセス、欠測、重複責務、競合Revisionを組み合わせ、投影と非開示を観測する。
+
+## 工程引渡し
+
+| 引渡し先 | 失ってはならない意味 | 下流で決めること |
+|---|---|---|
+| UX | Project利用者、分散Context確認の状況、Repository分割を意識せず不足だけ理解する変化をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
+| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
 - Source Analysis: [EXP-000020](../../Analysis/EXP-000020/exploration.md)
-- Downstream: UXは本Definitionを分析単位として受け取り、利用者成果へのNew／Same／Not Applicableを判断する。
-
+- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。

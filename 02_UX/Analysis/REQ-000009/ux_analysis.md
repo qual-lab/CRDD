@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000009` Project・Repository・Root Identity分離
-探索元: [Repository横断Project Context](../../../01_Discovery/Analysis/EXP-000020/exploration.md)
+分析対象: [REQ-000009 Project・Repository・Root Identity分離](../../../01_Discovery/Definitions/REQ-000009/requirement.md)
 
 ## 1. REQの一次分析
 

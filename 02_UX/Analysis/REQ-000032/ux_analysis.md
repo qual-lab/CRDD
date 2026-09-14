@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000032` 工程固有の基本図と意図引き渡し
-探索元: [EXP-000017](../../../01_Discovery/Analysis/EXP-000017/exploration.md)
+分析対象: [REQ-000032 工程固有の基本図と意図引き渡し](../../../01_Discovery/Definitions/REQ-000032/requirement.md)
 
 ## 1. REQの一次分析
 

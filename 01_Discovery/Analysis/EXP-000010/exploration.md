@@ -1,8 +1,6 @@
 # 最後のE2Eで初めて壊れたと分かる流れを減らす
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000010`
-
 探索ID: `EXP-000010`
 状態: 要求採用
 主な情報源: CHG-000059、CHG-000061、v0.18〜v0.20の署名・Docker・Provider検証

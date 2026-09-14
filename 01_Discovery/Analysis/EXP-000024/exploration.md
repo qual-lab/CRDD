@@ -1,8 +1,6 @@
 # 複数Projectを、根拠を失わずに見比べる
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000024`
-
 探索ID: `EXP-000024`
 状態: 要求採用
 主な情報源: PM／Management向け利用仮説

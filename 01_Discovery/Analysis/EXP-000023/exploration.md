@@ -1,8 +1,6 @@
 # 会議が終わっても、論点を置き去りにしない
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000023`
-
 探索ID: `EXP-000023`
 状態: 要求採用
 主な情報源: Communication運用、Topic／Meeting構想

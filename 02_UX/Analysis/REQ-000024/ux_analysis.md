@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000024` 境界を越えるTask結果の帰還
-探索元: [Project間Context交換](../../../01_Discovery/Analysis/EXP-000027/exploration.md)
+分析対象: [REQ-000024 境界を越えるTask結果の帰還](../../../01_Discovery/Definitions/REQ-000024/requirement.md)
 
 ## 1. REQの一次分析
 

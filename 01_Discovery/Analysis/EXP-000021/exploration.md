@@ -1,8 +1,6 @@
 # 人が見る入口と、AIが使う入口を同じ仕事へつなぐ
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000021`
-
 探索ID: `EXP-000021`
 状態: 要求採用
 主な情報源: 現行MCP、Project Runtime、Workbench構想

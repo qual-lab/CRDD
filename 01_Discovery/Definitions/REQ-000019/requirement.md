@@ -9,28 +9,45 @@ Discovery判断: 要求採用
 
 Canonical Contractまたは責務の所有者を移す場合、Producerだけでなく、公開入口、派生物、署名、RecoveryおよびReleaseを含む全Consumerを新しい所有境界へ移行し、旧境界の残存を検出できなければならない。
 
-## 目的と判断理由
+## 対象と利用状況
 
-この要求は、[EXP-000014の探索](../../Analysis/EXP-000014/exploration.md)で確認した問題と解決仮説を、後工程が直接利用できるCanonical Requirementとして固定する。詳しい観察、代替案、反証および判断の経緯は探索記録を参照する。
+Canonical Contractまたは責務を移す保守者が、主要機能だけでなく署名、回復、配布等の副次Consumerまで移行する場面。
+
+## 解く問題と望ましい変化
+
+```text
+現在: Producerと代表Consumerだけを直すと、稀な公開・Release経路が旧Pathや旧意味を再解釈し、完成後に破綻する。
+    ↓
+望ましい変化: 実Sourceから導出した全Consumer、派生物、公開入口、署名、Recovery、Releaseが新Ownerへ閉じ、旧境界残存を検出できる。
+```
+
+## 採用理由と比較
+
+手書き台帳だけでは記載漏れが盲点になるため、宣言集合と実Sourceから導出した集合を照合する。
 
 ## 成立条件
 
-- 要求本文が示す肯定条件を、関係する利用者・運用・System境界で確認できる。
-- 要求本文が禁じる推定、混同、無断変更または不完全な成立表示を、代表的な反証例で拒否できる。
-- 後工程が探索記録を再解釈せず、本文、制約および検証意図から分析を開始できる。
+- 変更した意味のProducer、Consumer、派生物、公開・署名・回復・Release経路を列挙する
+- 各ConsumerがCanonicalなPath、Identity、Stateを再解釈せず利用する
+- 旧API、旧Path語彙、宣言漏れ、実装未接続を固定候補前に検出する
 
 ## 制約
 
-- この要求を特定の画面、ファイル、実装方式または現在のComponent配置へ固定しない。
-- 実装、検証およびReleaseの状態をDiscovery判断へ混ぜない。
-- 新しい必要性や意味変更は、Discoveryへ戻して採用判断を行う。
+- 代表Consumer一件の成功でClosureを主張しない
+- Consumer Registryだけを完全性の正本にしない
 
 ## 検証意図
 
-正常例だけでなく、要求本文が避ける誤認、権限逸脱、不完全な接続または利用側漏れを反証する。具体的なTest Level、Scenarioおよび期待結果はQualityで設計する。
+Consumer一件を意図的に旧境界へ残す、宣言だけ追加する、Canonical値を再解釈する反例でChecker、契約試験、縦断試験を観測する。
+
+## 工程引渡し
+
+| 引渡し先 | 失ってはならない意味 | 下流で決めること |
+|---|---|---|
+| UX | 保守者と利用者、責務移動後の利用状況、成立済み能力を安心して使い続ける変化と未移行表示をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
+| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
 - Source Analysis: [EXP-000014](../../Analysis/EXP-000014/exploration.md)
-- Downstream: UXは本Definitionを分析単位として受け取り、利用者成果へのNew／Same／Not Applicableを判断する。
-
+- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。

@@ -9,28 +9,45 @@ Discovery判断: 要求採用
 
 Repositoryが提供するTool能力は安定したRegistryで定義し、登録、外部公開、Hostでの利用可能性およびOperationの実行許可を分けて判定できなければならない。
 
-## 目的と判断理由
+## 対象と利用状況
 
-この要求は、[EXP-000025の探索](../../Analysis/EXP-000025/exploration.md)で確認した問題と解決仮説を、後工程が直接利用できるCanonical Requirementとして固定する。詳しい観察、代替案、反証および判断の経緯は探索記録を参照する。
+人、MCP、Coordinator、Scheduler、CIが、Repositoryで提供されるBuild、Test、Preview等のToolを見つけて使う場面。
+
+## 解く問題と望ましい変化
+
+```text
+現在: ファイル名やExecutableの存在だけでは、入力、Working Directory、Effect、取消、清掃、現在の利用可否と実行許可を判断できない。
+    ↓
+望ましい変化: 安定した能力定義からToolを発見し、登録、外部公開、Host可用性、Operation許可を別々に理解して実行できる。
+```
+
+## 採用理由と比較
+
+Launcher命名だけでは契約を表せず、Directory自動発見は任意Codeを正規能力へするため、明示Registryと既存実装の結合を採る。
 
 ## 成立条件
 
-- 要求本文が示す肯定条件を、関係する利用者・運用・System境界で確認できる。
-- 要求本文が禁じる推定、混同、無断変更または不完全な成立表示を、代表的な反証例で拒否できる。
-- 後工程が探索記録を再解釈せず、本文、制約および検証意図から分析を開始できる。
+- ToolごとにIdentity、入力、結果、Effect、取消、清掃条件をRegistryから確認できる
+- 登録済み、公開済み、Host利用可能、Operation許可済みを別状態で返す
+- Human CLI、MCP、Coordinatorが同じ能力定義と実装を利用する
 
 ## 制約
 
-- この要求を特定の画面、ファイル、実装方式または現在のComponent配置へ固定しない。
-- 実装、検証およびReleaseの状態をDiscovery判断へ混ぜない。
-- 新しい必要性や意味変更は、Discoveryへ戻して採用判断を行う。
+- 任意Shellや未登録ExecutableをCapabilityとして実行しない
+- Registry正本を`.crdd`またはCROS側の一覧へ移さない
 
 ## 検証意図
 
-正常例だけでなく、要求本文が避ける誤認、権限逸脱、不完全な接続または利用側漏れを反証する。具体的なTest Level、Scenarioおよび期待結果はQualityで設計する。
+代表Toolを複数入口から実行し、不登録、非公開、Host不可、不許可、取消、清掃を観測する。
+
+## 工程引渡し
+
+| 引渡し先 | 失ってはならない意味 | 下流で決めること |
+|---|---|---|
+| UX | Tool利用者、仕事に必要な能力を探す状況、Path推測なしで可否と結果を理解する変化をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
+| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
 - Source Analysis: [EXP-000025](../../Analysis/EXP-000025/exploration.md)
-- Downstream: UXは本Definitionを分析単位として受け取り、利用者成果へのNew／Same／Not Applicableを判断する。
-
+- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。

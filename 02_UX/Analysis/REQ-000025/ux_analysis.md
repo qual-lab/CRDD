@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000025` Deployment Ownerが所有するTrust Policy
-探索元: [EXP-000028](../../../01_Discovery/Analysis/EXP-000028/exploration.md)
+分析対象: [REQ-000025 Deployment Ownerが所有するTrust Policy](../../../01_Discovery/Definitions/REQ-000025/requirement.md)
 
 ## 1. REQの一次分析
 

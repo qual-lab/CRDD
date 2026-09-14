@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000010` Workbench・MCP・CLIの公開契約共有
-探索元: [人とAIの入口](../../../01_Discovery/Analysis/EXP-000021/exploration.md)
+分析対象: [REQ-000010 Workbench・MCP・CLIの公開契約共有](../../../01_Discovery/Definitions/REQ-000010/requirement.md)
 
 ## 1. REQの一次分析
 

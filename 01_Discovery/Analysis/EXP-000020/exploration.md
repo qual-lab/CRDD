@@ -1,8 +1,6 @@
 # 複数のRepositoryを、一つのProjectとして見る
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000020`
-
 探索ID: `EXP-000020`
 状態: 要求採用
 主な情報源: Project、Commercial、Topics、Meetingsの分離構想

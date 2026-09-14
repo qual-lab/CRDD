@@ -9,28 +9,45 @@ Discovery判断: 要求採用
 
 Remote要求の応答を失った場合、Timeoutを取消完了または未実行と推定せず、同じRequest Identityで状態と完了結果を安全に再取得できなければならない。
 
-## 目的と判断理由
+## 対象と利用状況
 
-この要求は、[EXP-000022の探索](../../Analysis/EXP-000022/exploration.md)で確認した問題と解決仮説を、後工程が直接利用できるCanonical Requirementとして固定する。詳しい観察、代替案、反証および判断の経緯は探索記録を参照する。
+Remote ClientがRequest送信後にTimeoutや切断を経験し、処理状態と結果を確認し直す場面。
+
+## 解く問題と望ましい変化
+
+```text
+現在: 応答喪失を未実行、取消完了または失敗と推定して再実行すると、共有Effectを重複させる。
+    ↓
+望ましい変化: 同じRequest Identityで未実行、実行中、完了、失敗、回復要求と完了結果を安全に再取得できる。
+```
+
+## 採用理由と比較
+
+Timeout時の自動再実行を避け、Server側の耐久状態を同じIdentityで照会する方式を採る。
 
 ## 成立条件
 
-- 要求本文が示す肯定条件を、関係する利用者・運用・System境界で確認できる。
-- 要求本文が禁じる推定、混同、無断変更または不完全な成立表示を、代表的な反証例で拒否できる。
-- 後工程が探索記録を再解釈せず、本文、制約および検証意図から分析を開始できる。
+- Request受理時に再取得可能な安定Identityを返す
+- 応答喪失後も同じIdentityから現在状態と確定結果を取得する
+- 再照会が元Effectを再発行せず、権限と情報開示を再検証する
 
 ## 制約
 
-- この要求を特定の画面、ファイル、実装方式または現在のComponent配置へ固定しない。
-- 実装、検証およびReleaseの状態をDiscovery判断へ混ぜない。
-- 新しい必要性や意味変更は、Discoveryへ戻して採用判断を行う。
+- Timeoutを取消完了、Effect 0または未実行の証拠にしない
+- Recovery Authorityを未認可Clientへ開示しない
 
 ## 検証意図
 
-正常例だけでなく、要求本文が避ける誤認、権限逸脱、不完全な接続または利用側漏れを反証する。具体的なTest Level、Scenarioおよび期待結果はQualityで設計する。
+要求前切断、受理後切断、Effect後応答喪失、再照会、別Credential照会を行い、重複Effectと情報開示を観測する。
+
+## 工程引渡し
+
+| 引渡し先 | 失ってはならない意味 | 下流で決めること |
+|---|---|---|
+| UX | Remote利用者、応答を失う状況、やり直さず同じ仕事の現在地へ戻る変化と状態表示をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
+| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
 - Source Analysis: [EXP-000022](../../Analysis/EXP-000022/exploration.md)
-- Downstream: UXは本Definitionを分析単位として受け取り、利用者成果へのNew／Same／Not Applicableを判断する。
-
+- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。

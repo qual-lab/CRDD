@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000035` 公式視覚素材の権利・用途・追跡
-探索元: [EXP-000012](../../../01_Discovery/Analysis/EXP-000012/exploration.md)
+分析対象: [REQ-000035 公式視覚素材の権利・用途・追跡](../../../01_Discovery/Definitions/REQ-000035/requirement.md)
 
 ## 1. REQの一次分析
 

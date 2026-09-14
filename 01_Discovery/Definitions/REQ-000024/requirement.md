@@ -9,28 +9,45 @@ Discovery判断: 要求採用
 
 ProjectまたはAgentの境界を越えて仕事を渡す場合、Task Identity、許可範囲、結果の出所および帰還先を維持し、実行結果を元のTaskと所有正本へ戻せなければならない。
 
-## 目的と判断理由
+## 対象と利用状況
 
-この要求は、[EXP-000027の探索](../../Analysis/EXP-000027/exploration.md)で確認した問題と解決仮説を、後工程が直接利用できるCanonical Requirementとして固定する。詳しい観察、代替案、反証および判断の経緯は探索記録を参照する。
+ProjectまたはAgent境界を越えて限定Taskを委ね、成果を元のProject判断や正本へ戻す場面。
+
+## 解く問題と望ましい変化
+
+```text
+現在: Contextを渡せてもTask Identity、許可範囲、結果の出所、帰還先が失われると、成果の採否と反映先を決められない。
+    ↓
+望ましい変化: 境界を越えても元Taskとの相関を保ち、結果と根拠を許可された所有正本へ帰還できる。
+```
+
+## 採用理由と比較
+
+Agent間の会話転送や中央成果Storeを避け、Task Identityと帰還先をContext Packageと実行Sessionへ結合する。
 
 ## 成立条件
 
-- 要求本文が示す肯定条件を、関係する利用者・運用・System境界で確認できる。
-- 要求本文が禁じる推定、混同、無断変更または不完全な成立表示を、代表的な反証例で拒否できる。
-- 後工程が探索記録を再解釈せず、本文、制約および検証意図から分析を開始できる。
+- 委譲前にTask Identity、対象Repository、許可範囲、期待結果、帰還先を固定する
+- 実行結果にProducer、対象Revision、変更、Evidenceを結び付ける
+- 帰還時にAuthorityを再確認し、元Taskまたは所有正本以外へ反映しない
 
 ## 制約
 
-- この要求を特定の画面、ファイル、実装方式または現在のComponent配置へ固定しない。
-- 実装、検証およびReleaseの状態をDiscovery判断へ混ぜない。
-- 新しい必要性や意味変更は、Discoveryへ戻して採用判断を行う。
+- 結果受領を自動採用または正本更新とみなさない
+- Project間の自動最適化を初期範囲に含めない
 
 ## 検証意図
 
-正常例だけでなく、要求本文が避ける誤認、権限逸脱、不完全な接続または利用側漏れを反証する。具体的なTest Level、Scenarioおよび期待結果はQualityで設計する。
+正常帰還、結果拒否、帰還先消失、Revision競合、部分結果、再送を行い、相関とEffectを観測する。
+
+## 工程引渡し
+
+| 引渡し先 | 失ってはならない意味 | 下流で決めること |
+|---|---|---|
+| UX | 依頼者・Agent、横断委譲の状況、成果の由来と戻り先を理解して判断できる変化をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
+| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
 - Source Analysis: [EXP-000027](../../Analysis/EXP-000027/exploration.md)
-- Downstream: UXは本Definitionを分析単位として受け取り、利用者成果へのNew／Same／Not Applicableを判断する。
-
+- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。

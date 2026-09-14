@@ -9,28 +9,45 @@ Discovery判断: 要求採用
 
 Project管理、AI実行編成、Transport、実行観測およびPlatform境界は、それぞれの所有責務と依存方向を分け、内部配置だけを理由に別責務を所有してはならない。
 
-## 目的と判断理由
+## 対象と利用状況
 
-この要求は、[EXP-000014の探索](../../Analysis/EXP-000014/exploration.md)で確認した問題と解決仮説を、後工程が直接利用できるCanonical Requirementとして固定する。詳しい観察、代替案、反証および判断の経緯は探索記録を参照する。
+Project Runtime、Coordinator、MCP、実行観測、Platform境界を保守・利用する人が、一つの責務変更を行う場面。
+
+## 解く問題と望ましい変化
+
+```text
+現在: 近接しているという理由で別責務がCoordinatorへ集まり、変更理由、依存方向、利用側回帰範囲が分からない。
+    ↓
+望ましい変化: 各Componentが自分の意味責務と公開入口を持ち、Project RuntimeはPortを通して実行能力を利用できる。
+```
+
+## 採用理由と比較
+
+子Folderだけでは内部依存が残り、全面Service化では未実証の配布単位が増えるため、意味責務と依存方向を先に分ける。
 
 ## 成立条件
 
-- 要求本文が示す肯定条件を、関係する利用者・運用・System境界で確認できる。
-- 要求本文が禁じる推定、混同、無断変更または不完全な成立表示を、代表的な反証例で拒否できる。
-- 後工程が探索記録を再解釈せず、本文、制約および検証意図から分析を開始できる。
+- Project管理、実行編成、Transport、観測、Platform境界のOwnerを一意に説明できる
+- Project RuntimeからCoordinator実装詳細への依存をPortで反転する
+- 各Componentの公開入口以外を利用側が参照せず、単独利用時の契約を確認できる
 
 ## 制約
 
-- この要求を特定の画面、ファイル、実装方式または現在のComponent配置へ固定しない。
-- 実装、検証およびReleaseの状態をDiscovery判断へ混ぜない。
-- 新しい必要性や意味変更は、Discoveryへ戻して採用判断を行う。
+- 公開契約を何でも入る巨大packageへしない
+- 似た処理だけを理由に共通Primitiveを増やさない
 
 ## 検証意図
 
-正常例だけでなく、要求本文が避ける誤認、権限逸脱、不完全な接続または利用側漏れを反証する。具体的なTest Level、Scenarioおよび期待結果はQualityで設計する。
+依存Graph、公開import、package単独試験、代表利用側を確認し、内部Path参照や逆向き依存を反証する。
+
+## 工程引渡し
+
+| 引渡し先 | 失ってはならない意味 | 下流で決めること |
+|---|---|---|
+| UX | 保守者と利用者、責務変更または利用の状況、影響範囲を理解して安全に使い続ける変化をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
+| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
 - Source Analysis: [EXP-000014](../../Analysis/EXP-000014/exploration.md)
-- Downstream: UXは本Definitionを分析単位として受け取り、利用者成果へのNew／Same／Not Applicableを判断する。
-
+- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。

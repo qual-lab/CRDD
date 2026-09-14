@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000015` Runtime Data Rootの所有と用途
-探索元: [EXP-000016](../../../01_Discovery/Analysis/EXP-000016/exploration.md)
+分析対象: [REQ-000015 Runtime Data Rootの所有と用途](../../../01_Discovery/Definitions/REQ-000015/requirement.md)
 
 ## 1. REQの一次分析
 

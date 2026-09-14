@@ -226,6 +226,7 @@
 - [`02_UX/Definitions/UX-000029/experience.md`](<../../../02_UX/Definitions/UX-000029/experience.md>)
 - [`02_UX/Definitions/UX-000030/experience.md`](<../../../02_UX/Definitions/UX-000030/experience.md>)
 - [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
 - [`06_Architecture/artifact-signing/01_Architecture.md`](<../../../06_Architecture/artifact-signing/01_Architecture.md>)
 - [`06_Architecture/version-control/01_Architecture.md`](<../../../06_Architecture/version-control/01_Architecture.md>)
@@ -299,7 +300,20 @@
 
 `template/01_Discovery/Evidence/`や`template/02_UX/Evidence/`のような空の共通箱は配布しない。Evidenceがない分析・Definitionへ空Folderを作らず、別OwnerのEvidenceを複製しない。
 
-## 5. 完了条件
+## 5. 独立レビューと構造是正
+
+初回独立レビューは、物理配置と台帳が揃っていても、36件のDiscovery Definitionが共通定型文中心で、Definitionだけから現在のUXを再導出できないことを検出した。この状態を文書不備ではなく、工程引渡し契約の未成立として扱う。
+
+| 指摘 | 原因 | 構造是正 | 確認方法 |
+|---|---|---|---|
+| Discovery Definitionから現在のUXを再生成できない | 要求本文以外が共通定型化され、対象、状況、因果、比較、反証が欠落 | Templateと36 Definitionを、対象・利用状況、問題と変化、採用理由、成立条件、制約、検証意図、工程引渡しへ再構成 | UX成果物を伏せ、Definitionだけを別の確認者へ渡して再分析する |
+| UXがDefinitionを正式入力としていない | UX AnalysisがEXPを直接参照し、Definition不足を補完できた | UXは同じREQのDefinitionだけを`分析対象`として持ち、不足時はDiscoveryへ差し戻す | EXP直接参照、別REQ参照、Definition欠落をCheckerの反例で拒否する |
+| 共通定型文でもCheckerを通る | 見出しの存在だけをDefinition Readyと扱った | 要求固有Section、形成元Relation、同一Sectionの重複禁止を現行Profileへ追加 | 見出しだけ揃えた2 Definitionを反例にする |
+| 分割試験が静的検査を迂回できる | Package scriptだけを直し、運用入口の順序が旧契約のままだった | `AGENTS.md`で同じ固定Commitの静的検査成功を分割試験の前提にする | Package契約試験で順序を固定する |
+
+再レビューの合格条件は、文面の自然さやリンク数ではない。主要な利用者、発生状況、問題、望ましい変化、独立したOutcome候補、重要な失敗および品質期待がDefinitionだけから再導出でき、現在のUXとの差を情報欠落または正当な再分析として説明できることである。
+
+## 6. 完了条件
 
 | Gate | 完了条件 |
 |---|---|
@@ -311,15 +325,15 @@
 | Regression | 全体Checker、Checker契約試験、旧Root／共通Evidence再導入の反証がPassする |
 | Independent Review | 文書、準拠、Gap／ImpactのCritical／Major／Moderateが0になる |
 
-## 6. 現在の検証
+## 7. 現在の検証
 
 | 確認 | 結果 |
 |---|---|
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／30 |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 277／277 Pass。Discovery／UXの空の共通Evidence Root再導入と、全CRDD所有TypeScript packageの静的検査先行を反証済み |
+| Checker契約試験 | 280／280 Pass。Discovery／UXの空の共通Evidence Root、EXP直接入力、異なるREQ Definition、共通定型Definitionの再導入と、全CRDD所有TypeScript packageの静的検査先行を反証済み |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 
-現在、人間による追加判断は必要ない。独立レビュー前に影響ファイル一覧、Checker追加試験、全リンクおよび工程間Relationを固定する。
+現在、人間による追加判断は必要ない。初回独立レビューのCritical 1件・Major 2件を一つの工程引渡し閉包として是正し、静的検査、全体Checkerおよび280件の回帰を固定した。次はDefinitionだけからのUX再導出を含む独立再レビューを行う。

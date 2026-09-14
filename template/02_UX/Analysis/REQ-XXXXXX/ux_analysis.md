@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX分析中
-要求: `REQ-XXXXXX` （要求名）
-探索元: （該当するExplorationへの参照）
+分析対象: [REQ-XXXXXX 要求名](../../../01_Discovery/Definitions/REQ-XXXXXX/requirement.md)
 
 本書は要求を機能へ言い換える文書ではない。誰の何が問題かを確認し、利用者のGoalとOutcome、利用前後の変化、Canonical UXへの統合、重要場面と下流義務を順に導く。図を人間が理解する主表現にし、ID、Relation、Coverageおよび処置は表で厳密に残す。
 

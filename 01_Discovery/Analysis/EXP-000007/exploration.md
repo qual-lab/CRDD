@@ -1,8 +1,6 @@
 # 「今どうなっているか」を毎回組み立て直さない
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000007`
-
 探索ID: `EXP-000007`
 状態: 要求採用
 主な情報源: CRDDの自己適用、CHG-000055、v0.20のProject State

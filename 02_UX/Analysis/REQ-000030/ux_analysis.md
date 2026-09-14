@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000030` 段階的実境界試験と回帰選択
-探索元: [EXP-000010](../../../01_Discovery/Analysis/EXP-000010/exploration.md)
+分析対象: [REQ-000030 段階的実境界試験と回帰選択](../../../01_Discovery/Definitions/REQ-000030/requirement.md)
 
 ## 1. REQの一次分析
 

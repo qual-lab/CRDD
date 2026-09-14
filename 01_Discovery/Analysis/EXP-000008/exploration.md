@@ -1,8 +1,6 @@
 # 一つのTaskではなく、Projectの仕事として進める
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000008`
-
 探索ID: `EXP-000008`
 状態: 要求採用
 主な情報源: v0.19.0、CHG-000057

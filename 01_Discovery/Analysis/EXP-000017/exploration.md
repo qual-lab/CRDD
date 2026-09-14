@@ -1,8 +1,6 @@
 # 後工程で初めて見える設計漏れを、図で前に出す
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000017`
-
 探索ID: `EXP-000017`
 状態: 要求採用
 主な情報源: CHG-000068、v0.20のRuntime／Docker是正

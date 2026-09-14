@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000021` Remote要求結果の同一Identity再取得
-探索元: [Remote Project Context](../../../01_Discovery/Analysis/EXP-000022/exploration.md)
+分析対象: [REQ-000021 Remote要求結果の同一Identity再取得](../../../01_Discovery/Definitions/REQ-000021/requirement.md)
 
 ## 1. REQの一次分析
 

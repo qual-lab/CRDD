@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000008` CROSなしで成立するRepository作業
-探索元: [Repository単独作業](../../../01_Discovery/Analysis/EXP-000019/exploration.md)
+分析対象: [REQ-000008 CROSなしで成立するRepository作業](../../../01_Discovery/Definitions/REQ-000008/requirement.md)
 
 ## 1. REQの一次分析
 

@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000001` 決定論的なRepository事前確認
-探索元: [EXP-000001](../../../01_Discovery/Analysis/EXP-000001/exploration.md)
+分析対象: [REQ-000001 決定論的なRepository事前確認](../../../01_Discovery/Definitions/REQ-000001/requirement.md)
 
 ## 1. REQの一次分析
 

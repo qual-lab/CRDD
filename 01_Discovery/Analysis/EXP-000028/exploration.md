@@ -1,8 +1,6 @@
 # 公式署名と、利用者が実行を許す判断を分ける
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000028`
-
 探索ID: `EXP-000028`
 状態: 要求採用
 主な情報源: CRDDのOSS配布、Runtime Execution Identityの運用

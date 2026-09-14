@@ -1,8 +1,6 @@
 # Coordinatorへ集まりすぎた責務を分ける
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000014`
-
 探索ID: `EXP-000014`
 状態: 要求採用
 主な情報源: v0.20.0、CHG-000063

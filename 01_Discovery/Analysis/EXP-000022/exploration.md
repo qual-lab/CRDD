@@ -1,8 +1,6 @@
 # 別の端末から、安全にProject Contextへ届く
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000022`
-
 探索ID: `EXP-000022`
 状態: 要求採用
 主な情報源: Remote MCP、Personal／Shared CROS構想

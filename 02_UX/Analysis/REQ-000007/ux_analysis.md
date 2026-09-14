@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000007` 出典と不完全性を保つProject View
-探索元: [Project状態理解](../../../01_Discovery/Analysis/EXP-000007/exploration.md)
+分析対象: [REQ-000007 出典と不完全性を保つProject View](../../../01_Discovery/Definitions/REQ-000007/requirement.md)
 
 ## 1. REQの一次分析
 

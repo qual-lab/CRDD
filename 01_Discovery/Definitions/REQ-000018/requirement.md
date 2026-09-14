@@ -9,28 +9,45 @@ Discovery判断: 要求採用
 
 RuntimeのCRDD準拠、Artifact Integrity、Publisher IdentityおよびQual-Lab公式配布の表示は別々に判定でき、一つの署名結果から他の成立を推定してはならない。
 
-## 目的と判断理由
+## 対象と利用状況
 
-この要求は、[EXP-000028の探索](../../Analysis/EXP-000028/exploration.md)で確認した問題と解決仮説を、後工程が直接利用できるCanonical Requirementとして固定する。詳しい観察、代替案、反証および判断の経緯は探索記録を参照する。
+公式Build、組織Fork、Local未署名Buildを導入するDeployment Ownerが、Runtimeを利用できるか判断する場面。
+
+## 解く問題と望ましい変化
+
+```text
+現在: Publisher署名を準拠、安全性、公式性、実行許可のすべてとして扱うと、Forkを不当に拒否するか未知Buildを過信する。
+    ↓
+望ましい変化: CRDD準拠、Artifact Integrity、Publisher Identity、Qual-Lab公式表示を別々に確認し、利用者Policyで判断できる。
+```
+
+## 採用理由と比較
+
+Qual-Lab署名のみの資格化はOSS改変性を失い、署名廃止は改ざんと出所を失うため、Trust要素を分離する。
 
 ## 成立条件
 
-- 要求本文が示す肯定条件を、関係する利用者・運用・System境界で確認できる。
-- 要求本文が禁じる推定、混同、無断変更または不完全な成立表示を、代表的な反証例で拒否できる。
-- 後工程が探索記録を再解釈せず、本文、制約および検証意図から分析を開始できる。
+- 準拠、Integrity、Publisher、公式表示を独立結果として返す
+- 一要素のPassから他要素または実行許可を推定しない
+- 公式、組織、Local開発Artifactへ同じ判定モデルを適用する
 
 ## 制約
 
-- この要求を特定の画面、ファイル、実装方式または現在のComponent配置へ固定しない。
-- 実装、検証およびReleaseの状態をDiscovery判断へ混ぜない。
-- 新しい必要性や意味変更は、Discoveryへ戻して採用判断を行う。
+- Qual-Lab署名の有無だけでForkの実行可否を固定しない
+- 未署名Local Buildを本番信頼済みArtifactへ自動昇格しない
 
 ## 検証意図
 
-正常例だけでなく、要求本文が避ける誤認、権限逸脱、不完全な接続または利用側漏れを反証する。具体的なTest Level、Scenarioおよび期待結果はQualityで設計する。
+公式署名、組織署名、改ざん、未署名、準拠不成立を組み合わせ、各結果と最終Policy判断を観測する。
+
+## 工程引渡し
+
+| 引渡し先 | 失ってはならない意味 | 下流で決めること |
+|---|---|---|
+| UX | Deployment Owner、Runtime導入判断の状況、何を信頼しているか分けて理解する変化をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
+| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
 - Source Analysis: [EXP-000028](../../Analysis/EXP-000028/exploration.md)
-- Downstream: UXは本Definitionを分析単位として受け取り、利用者成果へのNew／Same／Not Applicableを判断する。
-
+- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。

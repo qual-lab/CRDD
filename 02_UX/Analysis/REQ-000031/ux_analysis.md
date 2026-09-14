@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000031` 人の理解順と構造を両立する成果物
-探索元: [EXP-000011](../../../01_Discovery/Analysis/EXP-000011/exploration.md)
+分析対象: [REQ-000031 人の理解順と構造を両立する成果物](../../../01_Discovery/Definitions/REQ-000031/requirement.md)
 
 ## 1. REQの一次分析
 

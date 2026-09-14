@@ -581,8 +581,31 @@ function checkUxRequirementAnalysis(): void {
     if (!lstatIfPresent(analysisPath)?.isFile()) continue;
     actualRequirements.add(entry.name);
     const analysis = read(analysisPath);
+    const discoveryDefinitionPath = path.join(
+      discoveryDefinitionsRoot,
+      entry.name,
+      "requirement.md",
+    );
+    const expectedDefinitionLink = new RegExp(
+      `^分析対象: \\[${entry.name} [^\\]]+\\]\\(\\.\\.\\/\\.\\.\\/\\.\\.\\/01_Discovery/Definitions/${entry.name}/requirement\\.md\\)$`,
+      "mu",
+    );
+    const definition = lstatIfPresent(discoveryDefinitionPath)?.isFile()
+      ? read(discoveryDefinitionPath)
+      : "";
+    if (
+      !definition ||
+      !expectedDefinitionLink.test(analysis) ||
+      /^判断根拠:|^探索元:/mu.test(analysis)
+    )
+      add(
+        "error",
+        "ux-requirement-formal-input-invalid",
+        relative(analysisPath),
+        "Each UX requirement analysis must use only its matching Discovery Definition as the formal input; an incomplete Definition must return to Discovery instead of being supplemented from Source Analysis.",
+      );
     const requiredParts = [
-      `要求: \`${entry.name}\``,
+      `分析対象: [${entry.name} `,
       "## 1. REQの一次分析",
       "| 解決する問題 |",
       "| UX Need |",
@@ -722,6 +745,7 @@ function checkUxRequirementAnalysis(): void {
       "Every adopted Discovery requirement must have exactly one UX requirement-analysis directory, regardless of its primary related domains.",
     );
   const discoveryDefinitionIds = new Set<string>();
+  const discoveryDefinitionSectionOwners = new Map<string, string>();
   if (lstatIfPresent(discoveryDefinitionsRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(discoveryDefinitionsRoot, {
       withFileTypes: true,
@@ -735,13 +759,45 @@ function checkUxRequirementAnalysis(): void {
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       discoveryDefinitionIds.add(entry.name);
       const definition = read(definitionPath);
+      const requiredDefinitionSections = [
+        "## 対象と利用状況",
+        "## 解く問題と望ましい変化",
+        "## 採用理由と比較",
+        "## 成立条件",
+        "## 制約",
+        "## 検証意図",
+        "## 工程引渡し",
+        "## 関係",
+      ];
+      const sectionBodies = requiredDefinitionSections
+        .slice(0, -1)
+        .map((heading) => {
+          const start = definition.indexOf(heading);
+          if (start < 0) return "";
+          const bodyStart = start + heading.length;
+          const next = definition.indexOf("\n## ", bodyStart);
+          return definition
+            .slice(bodyStart, next < 0 ? definition.length : next)
+            .replace(/\s+/gu, " ")
+            .trim();
+        });
+      const hasPlaceholder = /（[^）]+）|REQ-XXXXXX|EXP-XXXXXX/u.test(
+        definition,
+      );
+      const sourceRelation = definition.match(
+        /Source Analysis: \[(EXP-[0-9]{6})\]\(\.\.\/\.\.\/Analysis\/(EXP-[0-9]{6})\/exploration\.md\)/u,
+      );
       if (
         !definition.includes(`要求ID: \`${entry.name}\``) ||
         !definition.includes("成果物種別: Discovery Definition") ||
         !definition.includes("## 要求") ||
-        !definition.includes("## 成立条件") ||
-        !definition.includes("## 検証意図") ||
-        !definition.includes("## 関係")
+        requiredDefinitionSections.some(
+          (heading) => !definition.includes(heading),
+        ) ||
+        sectionBodies.some((body) => body.length < 40) ||
+        hasPlaceholder ||
+        !sourceRelation ||
+        sourceRelation[1] !== sourceRelation[2]
       )
         add(
           "error",
@@ -749,6 +805,20 @@ function checkUxRequirementAnalysis(): void {
           relative(definitionPath),
           "Each adopted Discovery requirement must have a self-contained canonical definition.",
         );
+      for (const [index, body] of sectionBodies.entries()) {
+        if (!body) continue;
+        const key = `${requiredDefinitionSections[index]}\n${body}`;
+        const previousOwner = discoveryDefinitionSectionOwners.get(key);
+        if (previousOwner)
+          add(
+            "error",
+            "discovery-requirement-definition-boilerplate-duplicate",
+            relative(definitionPath),
+            `Requirement-specific Definition content duplicates ${previousOwner}; a shared stock paragraph cannot establish downstream-ready meaning.`,
+          );
+        else
+          discoveryDefinitionSectionOwners.set(key, relative(definitionPath));
+      }
     }
   }
   if (

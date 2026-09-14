@@ -1,8 +1,6 @@
 # Repositoryで使えるToolを、利用側に推測させない
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000025`
-
 探索ID: `EXP-000025`
 状態: 要求採用
 主な情報源: CRDD標準Tool、MCP／Coordinator／CIからの共用構想

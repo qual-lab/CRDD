@@ -3,8 +3,7 @@
 成果物種別: UX Analysis
 
 状態: UX再統合済み・独立再レビュー待ち
-要求: `REQ-000003` Objectiveから統合までのProject Lifecycle
-探索元: [Project Runtime](../../../01_Discovery/Analysis/EXP-000008/exploration.md)
+分析対象: [REQ-000003 Objectiveから統合までのProject Lifecycle](../../../01_Discovery/Definitions/REQ-000003/requirement.md)
 
 ## 1. REQの一次分析
 

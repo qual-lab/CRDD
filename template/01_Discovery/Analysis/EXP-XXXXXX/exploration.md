@@ -1,7 +1,6 @@
 # 一つの課題をたどる探索記録
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-XXXXXX`
 
 探索ID: `EXP-XXXXXX`
 状態: （探索中／要求採用／保留／棄却。実装・検証・Release状態は書かない）

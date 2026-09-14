@@ -9,28 +9,45 @@ Discovery判断: 要求採用
 
 CROSは、許可された正本から仕事に必要な最小Contextを出典、改訂版、利用範囲および欠測付きで組み立て、中央の第二正本を作らずAgentへ提供できなければならない。
 
-## 目的と判断理由
+## 対象と利用状況
 
-この要求は、[EXP-000027の探索](../../Analysis/EXP-000027/exploration.md)で確認した問題と解決仮説を、後工程が直接利用できるCanonical Requirementとして固定する。詳しい観察、代替案、反証および判断の経緯は探索記録を参照する。
+Chat AgentやCROSが、複数Project／Repositoryから限定Taskに必要なContextを選び、Agentへ渡す場面。
+
+## 解く問題と望ましい変化
+
+```text
+現在: 全Contextの中央複製や会話全文転送では、出所、改訂版、利用許可、欠測が失われ、第二正本と情報過多を作る。
+    ↓
+望ましい変化: 仕事に必要な最小Contextを出典、改訂版、利用範囲、欠測付きでPackage化し、Agentが根拠へ戻れる。
+```
+
+## 採用理由と比較
+
+中央Index複製と全文転送を避け、Taskごとに許可された正本から解決するContext Packageを採る。
 
 ## 成立条件
 
-- 要求本文が示す肯定条件を、関係する利用者・運用・System境界で確認できる。
-- 要求本文が禁じる推定、混同、無断変更または不完全な成立表示を、代表的な反証例で拒否できる。
-- 後工程が探索記録を再解釈せず、本文、制約および検証意図から分析を開始できる。
+- Context要素ごとにSource、Revision、利用範囲を保持する
+- 許可されない、取得不能、競合する情報を推測で補完しない
+- PackageはTask目的に必要な最小範囲で、中央の永続正本にならない
 
 ## 制約
 
-- この要求を特定の画面、ファイル、実装方式または現在のComponent配置へ固定しない。
-- 実装、検証およびReleaseの状態をDiscovery判断へ混ぜない。
-- 新しい必要性や意味変更は、Discoveryへ戻して採用判断を行う。
+- Secretや会話全文を無条件にAgentへ渡さない
+- Serverが読める情報を接続利用者も読めるとみなさない
 
 ## 検証意図
 
-正常例だけでなく、要求本文が避ける誤認、権限逸脱、不完全な接続または利用側漏れを反証する。具体的なTest Level、Scenarioおよび期待結果はQualityで設計する。
+単一Project、複数Repository、複数Project、部分アクセス、競合を与え、Package内容と欠測、根拠到達を観測する。
+
+## 工程引渡し
+
+| 引渡し先 | 失ってはならない意味 | 下流で決めること |
+|---|---|---|
+| UX | 依頼者・Agent、横断Contextを使う状況、必要情報だけを出所付きで理解する変化と不足表示をUXへ渡す。 | Goal、独立Outcome、重要場面、失敗、体験品質 |
+| IA以降 | 本要求のIdentity、状態、関係、制約、反証条件 | 各工程固有の情報構造、操作、振る舞い、検証 |
 
 ## 関係
 
 - Source Analysis: [EXP-000027](../../Analysis/EXP-000027/exploration.md)
-- Downstream: UXは本Definitionを分析単位として受け取り、利用者成果へのNew／Same／Not Applicableを判断する。
-
+- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。

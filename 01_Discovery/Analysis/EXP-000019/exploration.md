@@ -1,8 +1,6 @@
 # 横断機能を使わなくても、普段の開発を続けられる
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000019`
-
 探索ID: `EXP-000019`
 状態: 要求採用
 主な情報源: CRDD採用Repositoryの現在の使い方

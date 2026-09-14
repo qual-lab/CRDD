@@ -692,6 +692,8 @@ AS-IS (Current)               TO-BE (Candidate)
 
 `01_Discovery/01_Product_Discovery.md`を課題探索・要求形成工程の固定入口とする。個別の探索過程は`Analysis/EXP-XXXXXX/exploration.md`、昇格した要求の現在定義は`Definitions/REQ-XXXXXX/requirement.md`が所有し、入口の各台帳から一意に辿れるようにする。AnalysisとDefinitionを1対1に固定せず、適用の深さでは構造を増殖させずに記述、レビュー、根拠の深さを調整する。
 
+要求Definitionは、要求本文だけをSource Analysisから抜き出した索引ではない。対象と利用状況、解く問題と望ましい変化、採用理由と比較、成立条件、制約、反証可能な検証意図および工程引渡しを要求固有の粒度で保持する。UXその他の下流成果物を見て結論を逆算せず、Source Analysisから再構成する。下流工程はDefinitionだけを正式入力とし、意味が不足する場合は探索記録を直接読んで補完せずDiscoveryへ差し戻す。
+
 ```text
 REQ-* / 要求の記述
 起点: 情報源 / 根拠 / 課題 / 必要性または望ましい成果

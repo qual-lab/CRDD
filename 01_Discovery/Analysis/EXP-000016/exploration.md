@@ -1,8 +1,6 @@
 # `.crdd`に残ったものの意味を、後から迷わない
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000016`
-
 探索ID: `EXP-000016`
 状態: 要求採用
 主な情報源: `.crdd`のPath棚卸し、CHG-000066

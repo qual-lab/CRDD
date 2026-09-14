@@ -1,8 +1,6 @@
 # 新しいAIモデルが出るたびに、Coreを書き換えない
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000026`
-
 探索ID: `EXP-000026`
 状態: 要求採用
 主な情報源: Provider modelの更新、Coordinatorの運用

@@ -1,8 +1,6 @@
 # Projectを越えても、Contextの出所と帰り先を失わない
 
 成果物種別: Discovery Analysis
-分析ID: `EXP-000027`
-
 探索ID: `EXP-000027`
 状態: 要求採用
 主な情報源: CRDD／CROS長期構想、Personal／Shared Server構想
