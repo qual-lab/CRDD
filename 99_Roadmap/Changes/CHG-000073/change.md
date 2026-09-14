@@ -1,7 +1,7 @@
 # 工程成果物Repository Pattern
 
 変更ID: `CHG-000073`
-状態: `Ready for Release Handoff`
+状態: `Implementation In Progress`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `repository_structure_change`
@@ -22,6 +22,9 @@
 | UX出力 | UXの現在定義がRoot台帳と複数REQ分析へ分散 | `Definitions/UX-ID/ux_definition.md`がCanonical UX成果を自己完結して所有 |
 | IA分析 | 既存文書と実装から情報構造を後追いで説明 | 31件のUX定義を一件ずつ`Analysis/UX-ID/ia_analysis.md`で分析し、現行文書・実装の棚卸結果と別経路で照合 |
 | IA出力 | 単一Root文書へ情報対象、関係、導線、状態、下流義務が混在 | 21件の`Definitions/IA-ID/ia_definition.md`を定義候補とし、Root文書は台帳と横断図だけを投影。実行基盤の故障範囲と、過去判断・現在意図は既存定義へ畳まず独立させる |
+| UI分析 | 単一文書がUX、IA、現行実装および過去の操作契約を混在して説明 | 31件の`Analysis/UX-ID/ui_analysis.md`が利用者成果・操作・Feedbackを、21件の`Analysis/IA-ID/ui_analysis.md`が情報・状態・関係・可視性・導線を別々に全数分析する。相手側の不足を暗黙に補完せず、UI定義で初めて統合する |
+| UI出力 | 現行操作、将来Workbench候補、表示品質、UI／SPEC対応が単一Root文書に混在 | 19件の`Definitions/UI-ID/ui_definition.md`へ独立した利用者Interface契約を統合し、Root文書は台帳・Coverage・Navigation、横断文書は表示面・状態・視覚方針・SPEC引渡し、現行実装は別参照へ分ける |
+| UI／SPEC入力境界 | 下流工程がREQを直接読み、UX／IAの不足を暗黙に補完し得る | UIとSPECはUX＋IAを共通の正式入力として別々に分析する。REQはUXより上流の追跡情報に限定し、不足時はUXまたはIAを再開する |
 | 工程Root | 個別本文と工程全体像が混在し得る | `01_*`は入口・台帳・Coverage・Current State・Navigation、その他Root文書は横断合成 |
 | Evidence | 工程共通の空Folderをひな型へ先置き | 必要な所有対象のID直下だけに作成。実行結果はCHG／Release Evidenceが所有 |
 
@@ -370,6 +373,95 @@
 - [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
 - [`99_Roadmap/Changes/CHG-000073/change.md`](<../../../99_Roadmap/Changes/CHG-000073/change.md>)
 
+- [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`99_Roadmap/Changes/CHG-000017/change.md`](<../../../99_Roadmap/Changes/CHG-000017/change.md>)
+- [`template/04_UI/01_User_Interface.md`](<../../../template/04_UI/01_User_Interface.md>)
+- [`template/05_SPEC/01_Behavior_Specification.md`](<../../../template/05_SPEC/01_Behavior_Specification.md>)
+- [`04_UI/02_Surface_and_Region_Model.md`](<../../../04_UI/02_Surface_and_Region_Model.md>)
+- [`04_UI/03_Interaction_and_State_Model.md`](<../../../04_UI/03_Interaction_and_State_Model.md>)
+- [`04_UI/04_Visual_and_Accessibility_Direction.md`](<../../../04_UI/04_Visual_and_Accessibility_Direction.md>)
+- [`04_UI/05_UI_SPEC_Handoff.md`](<../../../04_UI/05_UI_SPEC_Handoff.md>)
+- [`04_UI/06_Current_Interface_Reference.md`](<../../../04_UI/06_Current_Interface_Reference.md>)
+- [`04_UI/Analysis/IA-000001/ui_analysis.md`](<../../../04_UI/Analysis/IA-000001/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000002/ui_analysis.md`](<../../../04_UI/Analysis/IA-000002/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000003/ui_analysis.md`](<../../../04_UI/Analysis/IA-000003/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000004/ui_analysis.md`](<../../../04_UI/Analysis/IA-000004/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000005/ui_analysis.md`](<../../../04_UI/Analysis/IA-000005/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000006/ui_analysis.md`](<../../../04_UI/Analysis/IA-000006/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000007/ui_analysis.md`](<../../../04_UI/Analysis/IA-000007/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000008/ui_analysis.md`](<../../../04_UI/Analysis/IA-000008/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000009/ui_analysis.md`](<../../../04_UI/Analysis/IA-000009/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000010/ui_analysis.md`](<../../../04_UI/Analysis/IA-000010/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000011/ui_analysis.md`](<../../../04_UI/Analysis/IA-000011/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000012/ui_analysis.md`](<../../../04_UI/Analysis/IA-000012/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000013/ui_analysis.md`](<../../../04_UI/Analysis/IA-000013/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000014/ui_analysis.md`](<../../../04_UI/Analysis/IA-000014/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000015/ui_analysis.md`](<../../../04_UI/Analysis/IA-000015/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000016/ui_analysis.md`](<../../../04_UI/Analysis/IA-000016/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000017/ui_analysis.md`](<../../../04_UI/Analysis/IA-000017/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000018/ui_analysis.md`](<../../../04_UI/Analysis/IA-000018/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000019/ui_analysis.md`](<../../../04_UI/Analysis/IA-000019/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000020/ui_analysis.md`](<../../../04_UI/Analysis/IA-000020/ui_analysis.md>)
+- [`04_UI/Analysis/IA-000021/ui_analysis.md`](<../../../04_UI/Analysis/IA-000021/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000001/ui_analysis.md`](<../../../04_UI/Analysis/UX-000001/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000002/ui_analysis.md`](<../../../04_UI/Analysis/UX-000002/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000003/ui_analysis.md`](<../../../04_UI/Analysis/UX-000003/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000004/ui_analysis.md`](<../../../04_UI/Analysis/UX-000004/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000005/ui_analysis.md`](<../../../04_UI/Analysis/UX-000005/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000006/ui_analysis.md`](<../../../04_UI/Analysis/UX-000006/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000007/ui_analysis.md`](<../../../04_UI/Analysis/UX-000007/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000008/ui_analysis.md`](<../../../04_UI/Analysis/UX-000008/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000009/ui_analysis.md`](<../../../04_UI/Analysis/UX-000009/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000010/ui_analysis.md`](<../../../04_UI/Analysis/UX-000010/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000011/ui_analysis.md`](<../../../04_UI/Analysis/UX-000011/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000012/ui_analysis.md`](<../../../04_UI/Analysis/UX-000012/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000013/ui_analysis.md`](<../../../04_UI/Analysis/UX-000013/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000014/ui_analysis.md`](<../../../04_UI/Analysis/UX-000014/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000015/ui_analysis.md`](<../../../04_UI/Analysis/UX-000015/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000016/ui_analysis.md`](<../../../04_UI/Analysis/UX-000016/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000017/ui_analysis.md`](<../../../04_UI/Analysis/UX-000017/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000018/ui_analysis.md`](<../../../04_UI/Analysis/UX-000018/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000019/ui_analysis.md`](<../../../04_UI/Analysis/UX-000019/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000020/ui_analysis.md`](<../../../04_UI/Analysis/UX-000020/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000021/ui_analysis.md`](<../../../04_UI/Analysis/UX-000021/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000022/ui_analysis.md`](<../../../04_UI/Analysis/UX-000022/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000023/ui_analysis.md`](<../../../04_UI/Analysis/UX-000023/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000024/ui_analysis.md`](<../../../04_UI/Analysis/UX-000024/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000025/ui_analysis.md`](<../../../04_UI/Analysis/UX-000025/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000026/ui_analysis.md`](<../../../04_UI/Analysis/UX-000026/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000027/ui_analysis.md`](<../../../04_UI/Analysis/UX-000027/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000028/ui_analysis.md`](<../../../04_UI/Analysis/UX-000028/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000029/ui_analysis.md`](<../../../04_UI/Analysis/UX-000029/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000030/ui_analysis.md`](<../../../04_UI/Analysis/UX-000030/ui_analysis.md>)
+- [`04_UI/Analysis/UX-000031/ui_analysis.md`](<../../../04_UI/Analysis/UX-000031/ui_analysis.md>)
+- [`04_UI/Definitions/UI-000001/ui_definition.md`](<../../../04_UI/Definitions/UI-000001/ui_definition.md>)
+- [`04_UI/Definitions/UI-000002/ui_definition.md`](<../../../04_UI/Definitions/UI-000002/ui_definition.md>)
+- [`04_UI/Definitions/UI-000003/ui_definition.md`](<../../../04_UI/Definitions/UI-000003/ui_definition.md>)
+- [`04_UI/Definitions/UI-000004/ui_definition.md`](<../../../04_UI/Definitions/UI-000004/ui_definition.md>)
+- [`04_UI/Definitions/UI-000005/ui_definition.md`](<../../../04_UI/Definitions/UI-000005/ui_definition.md>)
+- [`04_UI/Definitions/UI-000006/ui_definition.md`](<../../../04_UI/Definitions/UI-000006/ui_definition.md>)
+- [`04_UI/Definitions/UI-000007/ui_definition.md`](<../../../04_UI/Definitions/UI-000007/ui_definition.md>)
+- [`04_UI/Definitions/UI-000008/ui_definition.md`](<../../../04_UI/Definitions/UI-000008/ui_definition.md>)
+- [`04_UI/Definitions/UI-000009/ui_definition.md`](<../../../04_UI/Definitions/UI-000009/ui_definition.md>)
+- [`04_UI/Definitions/UI-000010/ui_definition.md`](<../../../04_UI/Definitions/UI-000010/ui_definition.md>)
+- [`04_UI/Definitions/UI-000011/ui_definition.md`](<../../../04_UI/Definitions/UI-000011/ui_definition.md>)
+- [`04_UI/Definitions/UI-000012/ui_definition.md`](<../../../04_UI/Definitions/UI-000012/ui_definition.md>)
+- [`04_UI/Definitions/UI-000013/ui_definition.md`](<../../../04_UI/Definitions/UI-000013/ui_definition.md>)
+- [`04_UI/Definitions/UI-000014/ui_definition.md`](<../../../04_UI/Definitions/UI-000014/ui_definition.md>)
+- [`04_UI/Definitions/UI-000015/ui_definition.md`](<../../../04_UI/Definitions/UI-000015/ui_definition.md>)
+- [`04_UI/Definitions/UI-000016/ui_definition.md`](<../../../04_UI/Definitions/UI-000016/ui_definition.md>)
+- [`04_UI/Definitions/UI-000017/ui_definition.md`](<../../../04_UI/Definitions/UI-000017/ui_definition.md>)
+- [`04_UI/Definitions/UI-000018/ui_definition.md`](<../../../04_UI/Definitions/UI-000018/ui_definition.md>)
+- [`04_UI/Definitions/UI-000019/ui_definition.md`](<../../../04_UI/Definitions/UI-000019/ui_definition.md>)
+- [`template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md`](<../../../template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md>)
+- [`template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md`](<../../../template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md>)
+- [`template/04_UI/Definitions/UI-XXXXXX/ui_definition.md`](<../../../template/04_UI/Definitions/UI-XXXXXX/ui_definition.md>)
+
 </details>
 
 ## 3. 保持する意図と変更禁止範囲
@@ -523,13 +615,31 @@ fingerprint `84ba5ef934944e4c16d2f42b7ef0cbb124515f5dac6f7dfb9d4026df22589071`�
 
 同じ固定候補の構造レビューでは、閉じた非表示領域の反証はPassしたが、未閉鎖HTMLコメントを文末まで非表示として扱えず、コメント内のフェンス記号とフェンス内のコメント記号が互いの状態を誤変更し得ることを検出した。IA専用の二段置換を、表示中／コードフェンス内／HTMLコメント内を一回で区別する状態走査へ置き換える。未閉鎖コメントだけに置いた三つの正規構造を拒否し、コメント内の未閉鎖フェンスまたはフェンス内の未閉鎖コメントの後にある正式構造を保持する正負例を追加する。
 
+### UI独立レビューの構造是正
+
+初回UI独立レビューは、31件のUX観点分析、21件のIA観点分析、19件のUI定義という配置と関係閉包だけでは、個別UIの意味が十分に再構成されたとは言えないことを検出した。指摘を次の三クラスタへまとめ、全件を同じ固定候補で是正する。
+
+| 指摘 | 原因 | 構造是正 |
+|---|---|---|
+| 静的な文書・素材を含むUX観点分析へ同じ実行Lifecycleが投影された | ひな型の状態例を個別UXの意味より先に適用した | 利用開始、成果成立、成果不成立、判断不能を基本とし、待機、取消、回復、権限差は入力UXが必要とする場合だけ追加する |
+| UI定義がUX成果とIA構造を個別に列挙するだけで、両者の対応が曖昧だった | UI ID単位の集約を、UXとIAの意味統合とみなした | 実際の`UX × IA`関係ごとに、利用者成果、必要な情報、区別する状態、導線、Feedbackを対応付ける。信頼判断は準拠、完全性、配布者、利用者方針、品質主張を別軸にする |
+| 横断状態文書が全UIへ実行状態を強制するように読めた | 共通Variantと個別UIへの適用条件を分けていなかった | 19 UIの適用範囲表を先に置き、取消・回復を含む完全Lifecycleは該当UIだけに適用する |
+| 移動済み現行UI参照、現在の件数、試験数が追随していなかった | 責務移動後の派生文書と記録への参照閉包が不足した | 固定Evidence本文とHashは変更せず、旧参照と現在の`04_UI/06_Current_Interface_Reference.md`の対応をこのCHGで明示する。CHGの件数と試験結果は現行候補へ同期する |
+| Checker試験名が意味再構築まで保証するように読めた | 構造検査と独立した意味レビューの責務を区別していなかった | Checkerの保証を構造・正式入力・関係閉包へ限定し、意味の再構築可能性は独立レビューで確認する |
+
+固定Evidence `CHG-000015/Evidence/260901_coordinator-completion-review.md`の旧`04_UI/01_User_Interface.md#4-現行表示の参照と表現方針`参照は、現在の[現行Interface参照 §4](../../../04_UI/06_Current_Interface_Reference.md#4-現行表示の参照と表現方針)へ移動した。固定Evidence本文は当時のHashを保つため変更しない。
+
+是正後の再レビューでは初回指摘をすべて解消したが、19 UI定義の`両観点の統合判断`と`SPECへの引き渡し`が同じ意味を全文複製し、横断引き渡し文書も共通状態を全UIへ要求するように読めるModerate 1件が残った。統合判断をUI意味の唯一の正本とし、後者を`UI／SPEC対応レビューへ渡す項目`へ変更した。ここにはUX／IA ID、UIで観測可能にすべき操作・Feedback、SPEC側で未確定の入力・成功・停止・結果だけを置き、統合済みの利用者成果・情報・状態・導線は再掲しない。横断文書もUIごとの適用範囲で選ばれた状態だけを渡す契約へ修正した。UI ID、名称、UX／IA関係、状態適用判断および固定Evidenceは変更していない。
+
+再々レビューは、19 UI定義の旧引き渡し節がすべて廃止され、`両観点の統合判断`が唯一のUI意味正本であること、37件のUX×IA関係が統合判断と対応レビュー入力で完全一致すること、横断文書が個別UIの適用範囲を優先することを確認した。結果はCritical 0／Major 0／Moderate 0／Minor 0でPassしたため、52分析を分析済み、19定義をCanonicalへ昇格し、UI工程をSPECへ引き渡す。
+
 ## 6. 完了条件
 
 | Gate | 完了条件 |
 |---|---|
-| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／31 Definitions、IA 31 Analysis／21 DefinitionsがCanonical配置にある |
+| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／31 Definitions、IA 31 Analysis／21 Definitions、UIはUX観点31 Analysis／IA観点21 Analysis／19 DefinitionsがCanonical配置にある |
 | Self-contained | 子成果物が対象固有の意味、成立条件、関係および下流入力を単独で説明できる |
-| Downstream Reproducibility | `Definitions/REQ-*`を下流入力として、現在のUX分析、Canonical UX、関係、重要な失敗および品質期待を情報劣化なく再構成できる |
+| Downstream Reproducibility | `Definitions/REQ-*`からUXを、UX定義からIAを、UX＋IA定義からUIとSPECを情報劣化なく再構成できる。UI／SPECはREQの直接参照で不足を隠さない |
 | Projection | Discovery／UX Rootから全Analysis・DefinitionとCoverageを一意に辿れる |
 | Consumer Closure | 正本文書、ひな型、Checker、CHG、RoadmapおよびArchitecture参照が新Pathへ移行する |
 | Regression | 全体Checker、Checker契約試験、旧Root／共通Evidence再導入の反証がPassする |
@@ -542,11 +652,13 @@ fingerprint `84ba5ef934944e4c16d2f42b7ef0cbb124515f5dac6f7dfb9d4026df22589071`�
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／31 |
 | IA Analysis／Definition | 31／21。初回独立レビューの意味欠落を受け、入力UXごとの7軸を保持する構造へ是正中 |
+| UI Analysis／Definition | UX観点31／IA観点21／Definition 19。定型Lifecycle、意味統合不足、横断状態の過剰適用、重複引き渡しを是正し、分析済み／CanonicalとしてSPECへ引き渡し可能 |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 307／307 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。正式入力Headerは可視本文のHeader自身へ結合し、通常文、コメント、code fenceおよびエスケープされた例示は正式入力へ昇格しない。意味妥当性は独立レビューへ分離 |
+| Checker契約試験 | 313／313 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIではUX観点とIA観点の全数、正式入力、台帳・分析・定義の関係閉包を検査する。意味の再構築可能性は独立レビューへ分離 |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
 | IA独立レビュー | 最終固定候補fingerprint `b03240ccc0a09f5461ee236cc48c4ca8165291bcc3e92aea24b1dd3f5f01cede`を意味伝播と構造閉包の2者が再レビューし、ともにCritical 0／Major 0／Moderate 0／Minor 0でPass |
+| UI独立レビュー | 31 UX観点分析、21 IA観点分析、19 UI定義、37 UX×IA関係と横断文書を再々レビューし、Critical 0／Major 0／Moderate 0／Minor 0でPass |
 
 固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後の人間向け表示契約と`Same`関係の具体化で新しい引き渡し不備が露出した。最終候補は18件の`Same`関係、`Same`を受ける13 DefinitionとUX-000008を合わせた14 Definitionの追加条件区画、UX-000008の正式な要求所有者、正式入力Headerと対象Pathの結合、およびescaped spanを保持した一回復号まで是正した。Discovery／UXの工程間引き渡しは3者、IAの意味伝播と構造閉包は2者の独立再レビューでPassした。31件のIA分析と21件のIA定義を現在有効な下流入力として引き渡せる。現在、人間による追加判断は必要ない。

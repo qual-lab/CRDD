@@ -1,0 +1,113 @@
+# UI-000010 Tool・AIモデル構成の選択
+
+成果物種別: UI定義
+UI ID: `UI-000010`
+状態: Canonical
+維持責任者: Qual-Lab
+
+## 利用者成果
+
+仕事に合うToolとAIモデルを根拠付きで選び、安全に変更できる。
+
+## UX観点の入力
+
+| UX分析 | このUIで保持する利用者成果 |
+|---|---|
+| [UX-000016](../../Analysis/UX-000016/ui_analysis.md) | 現在リポジトリと目的に対応する標準ツールを見つけ、利用可能性・外部作用（Effect）の権限・開発実行・公式実行を区別して選べる |
+| [UX-000018](../../Analysis/UX-000018/ui_analysis.md) | 新しいモデルへ追随するとき、コード改修を待たず検証済み構成を更新し、実効選択と再選定理由を理解できる |
+
+## IA観点の入力
+
+| IA分析 | このUIで保持する情報構造 |
+|---|---|
+| [IA-000011](../../Analysis/IA-000011/ui_analysis.md) | Repositoryの仕事に必要な標準Toolを、版と根拠を取り違えず選ぶ。 |
+| [IA-000013](../../Analysis/IA-000013/ui_analysis.md) | コード改修なしに検証済み構成を更新し、実効選択と理由を理解する。 |
+
+## 両観点の統合判断
+
+| UX分析 | 利用者が得たい結果 | 対応するIA分析 | UIで成立させる対応 |
+|---|---|---|---|
+| [UX-000016](../../Analysis/UX-000016/ui_analysis.md) | 現在リポジトリと目的に対応する標準ツールを見つけ、利用可能性・外部作用の権限・開発実行・公式実行を区別して選べる | [IA-000011](../../Analysis/IA-000011/ui_analysis.md) | 利用能力（Capability）、利用可否、実行権限（Authority）、Repository 改訂版（Revision）、配布物（Distribution）、配布目録（Manifest）、実行環境との結合（Runtime Binding）を見分ける。状態は「利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked）」。導線は「仕事→必要能力→登録Tool→配布根拠→起動」 |
+| [UX-000018](../../Analysis/UX-000018/ui_analysis.md) | 新モデルへ追随してもコード改修を繰り返さずに済む | [IA-000013](../../Analysis/IA-000013/ui_analysis.md) | AIモデル（Model）、構成（Configuration）、作業上の役割（Task Role）、利用可否（Availability）、選択結果（Selection）、Reason、再選定条件（Fallback Condition）を見分ける。状態は「有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected）」。導線は「設定→検証→利用可能候補→選択→理由・再選定条件」 |
+
+UIはUX側の目的だけでも、IA側の対象一覧だけでも成立しない。各行の利用者成果を、対応する情報・状態・関係・導線で判断可能にした時だけ、このUIの意味が成立する。
+
+## 表示面と情報の優先順位
+
+```text
+Tool・AIモデル構成の選択
+        ↓
+利用能力（Capability）／利用可否（Availability）／実行権限（Authority）／配布物（Distribution）／配布目録（Manifest）／実行環境との結合（Runtime Binding）／AIモデル（Model）／構成（Configuration）／作業上の役割（Task Role）／選択結果（Selection）／再選定条件（Fallback Condition）
+        ↓
+現在状態・不足・制限
+        ↓
+仕事→必要能力→登録Tool→配布根拠→起動／設定→検証→利用可能候補→選択→理由・再選定条件
+```
+
+| IA分析 | 独立して見分ける対象 | 利用者にとっての意味 | 識別・関係 |
+|---|---|---|---|
+| IA-000011 | 利用能力（Capability） | Toolが提供する仕事上の能力 | 利用能力（Capability） ID |
+| IA-000011 | 利用可否（Availability） | 現在利用可能か | 利用能力（Capability）＋環境 |
+| IA-000011 | 実行権限（Authority） | 実行時に許される作用 | 主体・対象・時点 |
+| IA-000011 | 配布物（Distribution） | 配布単位 | 配布内容の基点（Content Root） |
+| IA-000011 | 配布目録（Manifest） | 配布内容と根拠 | 配布目録のハッシュ（Manifest Hash） |
+| IA-000011 | 実行環境との結合（Runtime Binding） | 配布と実行環境の結合 | 結合識別子（Binding Identity） |
+| IA-000013 | AIモデル（Model） | 利用候補のAIモデル | Provider＋Model ID |
+| IA-000013 | 構成（Configuration） | 許可候補と制約 | 構成の改訂版（Config Revision） |
+| IA-000013 | 作業上の役割（Task Role） | 実行・確認等の必要役割 | Taskへ結合 |
+| IA-000013 | 利用可否（Availability） | 現在利用可能か | Model＋Environment |
+| IA-000013 | 選択結果（Selection） | 今回の実効選択 | Task＋Model |
+| IA-000013 | 再選定条件（Fallback Condition） | 再選定する条件 | 選択結果（Selection）へ結合 |
+
+同じ画面や応答へ置く場合も、上表の独立軸を一つの成功・信頼・完了へ畳まない。重要な不足、制限、判断要否は詳細へ隠さない。
+
+## 操作とFeedback
+
+主要な操作・判断: 選ぶ／構成を検証する／更新する。
+
+| UX分析 | 利用者が行う判断・行動 | 重要な場面 | 必要なFeedback | 避ける失敗 |
+|---|---|---|---|---|
+| UX-000016 | 固定Commitに対応するツール／実行基盤と利用可能性を知る | 発見したツール／実行基盤を起動する直前 | Commit・配布集合・Manifest・実行基盤の対応を検証する | 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する |
+| UX-000018 | AIモデル選択を検証可能な構成として更新する | AI提供元で実行する前のモデル確定 | 構成変更を検証し実効選択を観測可能にする | 未知または非対応のモデルを実行可能と表示する |
+
+UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IAの状態・導線と対応付けて表示する。
+
+## 状態と表示差
+
+| UX／IAの対応 | 区別する状態 | 状態から進む導線 |
+|---|---|---|
+| UX-000016／IA-000011 | 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked） | 仕事→必要能力→登録Tool→配布根拠→起動 |
+| UX-000018／IA-000013 | 有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected） | 設定→検証→利用可能候補→選択→理由・再選定条件 |
+
+上表にない処理中、取消、回復その他の状態を一律に追加しない。値なし、未観測、古い値、競合、開示制限または結果不明は、該当するIA定義が要求する場合にだけ別状態として示す。
+
+## 視覚表現とアクセシビリティ
+
+- 「利用能力（Capability）、利用可否（Availability）、実行権限（Authority）、配布物（Distribution）、配布目録（Manifest）、実行環境との結合（Runtime Binding）、AIモデル（Model）、構成（Configuration）、作業上の役割（Task Role）、選択結果（Selection）、再選定条件（Fallback Condition）」を、色だけでなく表示名、状態語、順序でも見分けられるようにする。
+- 結論、重大な不足、主要操作、根拠、詳細の順を視覚順と読上げ順で一致させる。
+- CLI、MCP、Workbenchで同じ意味の状態と次の導線を対応付ける。
+- キーボード操作と文字表示だけでも、上表の判断・根拠・戻り先へ到達できるようにする。
+
+## 制約
+
+- UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。
+- 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。
+- 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。
+
+## UI／SPEC対応レビューへ渡す項目
+
+両観点の統合内容は前節の正本を参照し、ここへ全文を再掲しない。次表は、SPECが同じUX／IAを別々に分析した後で確定すべき未決事項だけを渡す。
+
+| UX | IA | UIで観測可能にすべき操作・Feedback | SPEC側で未確定の振る舞い |
+|---|---|---|---|
+| UX-000016 | IA-000011 | 固定Commitに対応するツール／実行基盤と利用可能性を知る。Commit・配布集合・Manifest・実行基盤の対応を検証する | IA-000011 が示す状態・関係を入力条件、成功・停止条件へ接続し、「版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する」を防ぐ観測可能な結果を確定する |
+| UX-000018 | IA-000013 | AIモデル選択を検証可能な構成として更新する。構成変更を検証し実効選択を観測可能にする | IA-000013 が示す状態・関係を入力条件、成功・停止条件へ接続し、「未知または非対応のモデルを実行可能と表示する」を防ぐ観測可能な結果を確定する |
+
+SPECはこの表の結論を転記せず、UX観点とIA観点を別々に分析する。UIの操作に対応する発火条件・結果がない、またはSPECの結果を利用者が認識できない場合は対応レビューを通過しない。
+
+## 情報源
+
+- [UX-000016のUI分析](../../Analysis/UX-000016/ui_analysis.md)
+- [UX-000018のUI分析](../../Analysis/UX-000018/ui_analysis.md)
+- [IA-000011のUI分析](../../Analysis/IA-000011/ui_analysis.md)
+- [IA-000013のUI分析](../../Analysis/IA-000013/ui_analysis.md)

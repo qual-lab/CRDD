@@ -108,7 +108,7 @@ Docker create応答喪失の回復では、空照会だけで収束しない負�
 
 共通起動入口は[起動契約試験](../40_Develop/coordinator/tests/system/coordinator-launch.contract.test.ts)で、採用Repository向け一般Taskの第一級入口と固定引数、対話TTY成立／redirect拒否、署名stdin非TTY拒否、自動処理の明示選択、実CLIのhelp、起動Directory差、未加工argv・stdin byte・同一PID・終了コード、対象import前拒否とimport後例外を確認する。削除済みの永続有効化・無効化・準備commandがhelp、parserまたは実装へ再出現せず、`capabilities --json`が現行Profileを正確に返すことも確認する。stdout redirect時に内部の安全Gateが拒否する試験だけで、正常に起動できる品質を確認したとはしない。実端末の可視性・一回入力・終了後表示、および署名配布からの実E2Eは別に記録する。
 
-義務の所有者は[UX](../02_UX/05_Quality_Expectations.md#2-品質期待台帳)、[IA](../03_IA/01_Information_Architecture.md#6-現在状態と次工程)、[UI](../04_UI/01_User_Interface.md#5-アクセシビリティ利用品質の義務)および[仕様](../05_SPEC/01_Behavior_Specification.md#user-interface-contract)。以下は確認方法であり、義務や合否条件を再定義しない。
+義務の所有者は[UX](../02_UX/05_Quality_Expectations.md#2-品質期待台帳)、[IA](../03_IA/01_Information_Architecture.md#6-現在状態と次工程)、[UI](../04_UI/06_Current_Interface_Reference.md#5-アクセシビリティ利用品質の義務)および[仕様](../05_SPEC/01_Behavior_Specification.md#user-interface-contract)。以下は確認方法であり、義務や合否条件を再定義しない。
 
 | 確認対象 | 正常・準正常・異常の確認方法 | 根拠と未確認範囲 |
 |---|---|---|
@@ -118,9 +118,9 @@ Docker create応答喪失の回復では、空照会だけで収束しない負�
 | 取消と終了 | 正常終了、単一／重複signal、遅延完了、listener解除失敗を再現し終了後条件を観測 | [取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts)、[実Process結合](../40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts)。実端末閉鎖や実Provider取消とは分ける |
 | 候補の処置 | 正常export／discard、期限、Revision差、重複処置、不明状態を検証 | [候補Store試験](../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)。候補生成を人間受入・採用の証明にしない |
 | Checker表示 | 全体／限定、指摘あり／なし、未確認、JSON配列／summary報告を照合 | [契約試験](../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)。全体Checker実行結果と人間の理解を分ける |
-| 実端末・アクセシビリティ | Windows Terminal／PowerShellの日本語、長いID、折返し、拡大、キーボード、一回Enter、拒否・時間切れ・取消・終了後表示を観測 | 人間承認済みの範囲は[UI§4](../04_UI/01_User_Interface.md#4-現行表示の参照と表現方針)。[PowerShellの限定確認](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#端末参照媒体と全体試験の再確認)と、実Task取消の到達・通常回収・事後回復を分ける。版ごとの結果と別端末・読み上げ等の未評価範囲は[品質の現在状態](01_Quality_Center.md)へ接続する。ソース例・静的HTML・固定Fakeで代替せず、外部規格への適合は未主張 |
+| 実端末・アクセシビリティ | Windows Terminal／PowerShellの日本語、長いID、折返し、拡大、キーボード、一回Enter、拒否・時間切れ・取消・終了後表示を観測 | 人間承認済みの範囲は[UI§4](../04_UI/06_Current_Interface_Reference.md#4-現行表示の参照と表現方針)。[PowerShellの限定確認](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#端末参照媒体と全体試験の再確認)と、実Task取消の到達・通常回収・事後回復を分ける。版ごとの結果と別端末・読み上げ等の未評価範囲は[品質の現在状態](01_Quality_Center.md)へ接続する。ソース例・静的HTML・固定Fakeで代替せず、外部規格への適合は未主張 |
 
-根拠を記録するときは対象改訂版、実際に使用した入口と環境、期待した認識・操作、実結果、資源／許可への影響を分ける。未測定時間や未確認回数を0へ補正しない。既知差の責任者・再確認契機は[UI未解決事項](../04_UI/01_User_Interface.md#open-issues)、現在品質は[Quality Center](01_Quality_Center.md)へ接続する。
+根拠を記録するときは対象改訂版、実際に使用した入口と環境、期待した認識・操作、実結果、資源／許可への影響を分ける。未測定時間や未確認回数を0へ補正しない。既知差の責任者・再確認契機は[UI未解決事項](../04_UI/06_Current_Interface_Reference.md#open-issues)、現在品質は[Quality Center](01_Quality_Center.md)へ接続する。
 
 実行手順は[Coordinator作業手順](../19_Workflows/01_Coordinator_Runtime.md)を参照する。実行時は対象改訂版または固定差分、Node版、起動Directory、試験コマンド、結果件数、除外、ログの再識別情報を結果へ残す。現在の品質状態から履歴結果へ辿れるようにし、作業ログそのものをGitへ大量に取り込まない。
 

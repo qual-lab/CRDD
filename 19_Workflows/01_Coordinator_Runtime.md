@@ -245,7 +245,7 @@ Set-Location "<absolute-crdd-source-root>"
 
 ### 端末の表示・入力を確認する
 
-[UIの確認範囲](../04_UI/01_User_Interface.md#4-現行表示の参照と表現方針)に従い、既に開いているWindows Terminal／PowerShellで、検証したリポジトリRootから次を実行する。これは秘密入力・署名・外部送信・実行許可を伴わない参照であり、製品Taskの成功を証明するものではない。
+[UIの確認範囲](../04_UI/06_Current_Interface_Reference.md#4-現行表示の参照と表現方針)に従い、既に開いているWindows Terminal／PowerShellで、検証したリポジトリRootから次を実行する。これは秘密入力・署名・外部送信・実行許可を伴わない参照であり、製品Taskの成功を証明するものではない。
 
 ```shell
 node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts match

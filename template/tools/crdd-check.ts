@@ -1261,6 +1261,330 @@ function checkIaReconstruction(): void {
 
 checkIaReconstruction();
 
+function checkUiReconstruction(): void {
+  if (repositoryMode !== "official") return;
+  const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
+  const iaDefinitionsRoot = path.join(root, "03_IA", "Definitions");
+  const uiIndexPath = path.join(root, "04_UI", "01_User_Interface.md");
+  const uiAnalysisRoot = path.join(root, "04_UI", "Analysis");
+  const uiDefinitionsRoot = path.join(root, "04_UI", "Definitions");
+  if (!lstatIfPresent(uiIndexPath)?.isFile()) return;
+
+  const requiredTemplates = [
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "Analysis",
+      "UX-XXXXXX",
+      "ui_analysis.md",
+    ),
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "Analysis",
+      "IA-XXXXXX",
+      "ui_analysis.md",
+    ),
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "Definitions",
+      "UI-XXXXXX",
+      "ui_definition.md",
+    ),
+  ];
+  for (const templatePath of requiredTemplates)
+    if (!lstatIfPresent(templatePath)?.isFile())
+      add(
+        "error",
+        "ui-reconstruction-template-missing",
+        relative(templatePath),
+        "The official UI profile must include separate UX-view and IA-view analysis templates plus the integrated UI definition template.",
+      );
+
+  const exactSecondLevelSection = (sourceText: string, heading: string) => {
+    const escaped = heading.replace(/[.*+?^$()|[\]{}\\]/gu, "\\$&");
+    const headings = [
+      ...sourceText.matchAll(new RegExp(`^## ${escaped}\\s*$`, "gmu")),
+    ];
+    if (headings.length !== 1) return null;
+    const sectionStart = (headings[0].index ?? 0) + headings[0][0].length;
+    const remaining = sourceText.slice(sectionStart);
+    const nextHeading = remaining.search(/^## /mu);
+    return nextHeading < 0 ? remaining : remaining.slice(0, nextHeading);
+  };
+
+  const canonicalIds = (
+    definitionsRoot: string,
+    prefix: "UX" | "IA",
+    file: string,
+  ) => {
+    const ids = new Set<string>();
+    if (!lstatIfPresent(definitionsRoot)?.isDirectory()) return ids;
+    for (const entry of fs.readdirSync(definitionsRoot, {
+      withFileTypes: true,
+    }))
+      if (
+        entry.isDirectory() &&
+        new RegExp(`^${prefix}-[0-9]{6}$`, "u").test(entry.name) &&
+        lstatIfPresent(path.join(definitionsRoot, entry.name, file))?.isFile()
+      )
+        ids.add(entry.name);
+    return ids;
+  };
+  const uxIds = canonicalIds(uxDefinitionsRoot, "UX", "ux_definition.md");
+  const iaIds = canonicalIds(iaDefinitionsRoot, "IA", "ia_definition.md");
+
+  const registryUiIds = new Set<string>();
+  const registryUxUiKeys: string[] = [];
+  const registryIaUiKeys: string[] = [];
+  const registryUxUi = new Set<string>();
+  const registryIaUi = new Set<string>();
+  const uiIndex = visibleMarkdownStructure(read(uiIndexPath));
+  for (const line of uiIndex.split(/\r?\n/u)) {
+    const row = line.match(
+      /^\| \[(UI-[0-9]{6})\]\(Definitions\/\1\/ui_definition\.md\) \| [^|]+ \| (?<uxCell>[^|]+) \| (?<iaCell>[^|]+) \|$/u,
+    );
+    if (!row?.groups?.uxCell || !row.groups.iaCell) continue;
+    const uiId = row[1];
+    registryUiIds.add(uiId);
+    const rowUxIds = [...row.groups.uxCell.matchAll(/UX-[0-9]{6}/gu)].map(
+      (match) => match[0],
+    );
+    const rowIaIds = [...row.groups.iaCell.matchAll(/IA-[0-9]{6}/gu)].map(
+      (match) => match[0],
+    );
+    if (rowUxIds.length === 0 || rowIaIds.length === 0)
+      add(
+        "error",
+        "ui-registry-row-invalid",
+        relative(uiIndexPath),
+        "Each UI registry row must identify at least one UX-view and IA-view input.",
+      );
+    for (const uxId of rowUxIds) {
+      const key = `${uxId}|${uiId}`;
+      registryUxUiKeys.push(key);
+      registryUxUi.add(key);
+    }
+    for (const iaId of rowIaIds) {
+      const key = `${iaId}|${uiId}`;
+      registryIaUiKeys.push(key);
+      registryIaUi.add(key);
+    }
+  }
+
+  const analysisUxIds = new Set<string>();
+  const analysisIaIds = new Set<string>();
+  const analysisUxUiKeys: string[] = [];
+  const analysisIaUiKeys: string[] = [];
+  const analysisUxUi = new Set<string>();
+  const analysisIaUi = new Set<string>();
+  if (lstatIfPresent(uiAnalysisRoot)?.isDirectory())
+    for (const entry of fs.readdirSync(uiAnalysisRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^(UX|IA)-[0-9]{6}$/u.test(entry.name))
+        continue;
+      const analysisPath = path.join(
+        uiAnalysisRoot,
+        entry.name,
+        "ui_analysis.md",
+      );
+      if (!lstatIfPresent(analysisPath)?.isFile()) continue;
+      const analysis = visibleMarkdownStructure(read(analysisPath));
+      const inputSection = exactSecondLevelSection(analysis, "1. 正式入力");
+      const dispositionSection = exactSecondLevelSection(analysis, "5. UI処置");
+      const isUxView = entry.name.startsWith("UX-");
+      const sourcePattern = isUxView
+        ? /UX定義: \[(UX-[0-9]{6})[^\]]*\]\(\.\.\/\.\.\/\.\.\/02_UX\/Definitions\/(UX-[0-9]{6})\/ux_definition\.md\)/u
+        : /IA定義: \[(IA-[0-9]{6})[^\]]*\]\(\.\.\/\.\.\/\.\.\/03_IA\/Definitions\/(IA-[0-9]{6})\/ia_definition\.md\)/u;
+      const sourceInput = inputSection?.match(sourcePattern);
+      const oppositeInputPattern = isUxView
+        ? /03_IA\/Definitions|IA-[0-9]{6}/u
+        : /02_UX\/Definitions|UX-[0-9]{6}/u;
+      const viewPairs = isUxView ? analysisUxUi : analysisIaUi;
+      const viewPairKeys = isUxView ? analysisUxUiKeys : analysisIaUiKeys;
+      for (const match of dispositionSection?.matchAll(
+        /\[(UI-[0-9]{6})[^\]]*\]\(\.\.\/\.\.\/Definitions\/\1\/ui_definition\.md\)/gu,
+      ) ?? []) {
+        const key = `${entry.name}|${match[1]}`;
+        viewPairKeys.push(key);
+        viewPairs.add(key);
+      }
+      if (isUxView) analysisUxIds.add(entry.name);
+      else analysisIaIds.add(entry.name);
+      const requiredViewSections = isUxView
+        ? [
+            "## 2. UIへ引き継ぐ利用者成果",
+            "## 3. 必要な認識・操作・Feedback",
+            "## 4. 状況による体験差",
+            "## 6. IA観点との統合時に確認すること",
+          ]
+        : [
+            "## 2. UIへ引き継ぐ情報構造",
+            "## 3. 表示の優先順位とNavigation",
+            "## 4. 表示差と開示境界",
+            "## 6. UX観点との統合時に確認すること",
+          ];
+      if (
+        !analysis.includes(
+          isUxView
+            ? "成果物種別: UI分析（UX観点）"
+            : "成果物種別: UI分析（IA観点）",
+        ) ||
+        !analysis.includes(`分析単位: \u0060${entry.name}\u0060`) ||
+        !inputSection ||
+        !sourceInput ||
+        sourceInput[1] !== entry.name ||
+        sourceInput[2] !== entry.name ||
+        oppositeInputPattern.test(inputSection) ||
+        /01_Discovery|REQ-[0-9]{6}/u.test(inputSection) ||
+        !requiredViewSections.every((heading) => analysis.includes(heading)) ||
+        !dispositionSection ||
+        ![...viewPairs].some((key) => key.startsWith(`${entry.name}|`))
+      )
+        add(
+          "error",
+          isUxView
+            ? "ui-ux-analysis-contract-invalid"
+            : "ui-ia-analysis-contract-invalid",
+          relative(analysisPath),
+          "Each UI input must be analyzed independently from exactly its own UX or IA definition and must identify at least one UI disposition.",
+        );
+    }
+
+  if (
+    uxIds.size !== analysisUxIds.size ||
+    [...uxIds].some((id) => !analysisUxIds.has(id)) ||
+    [...analysisUxIds].some((id) => !uxIds.has(id))
+  )
+    add(
+      "error",
+      "ui-ux-analysis-coverage-mismatch",
+      relative(uiIndexPath),
+      "Every canonical UX definition must have exactly one UX-view UI analysis.",
+    );
+  if (
+    iaIds.size !== analysisIaIds.size ||
+    [...iaIds].some((id) => !analysisIaIds.has(id)) ||
+    [...analysisIaIds].some((id) => !iaIds.has(id))
+  )
+    add(
+      "error",
+      "ui-ia-analysis-coverage-mismatch",
+      relative(uiIndexPath),
+      "Every canonical IA definition must have exactly one IA-view UI analysis.",
+    );
+
+  const actualUiIds = new Set<string>();
+  const definitionUxUiKeys: string[] = [];
+  const definitionIaUiKeys: string[] = [];
+  const definitionUxUi = new Set<string>();
+  const definitionIaUi = new Set<string>();
+  if (lstatIfPresent(uiDefinitionsRoot)?.isDirectory())
+    for (const entry of fs.readdirSync(uiDefinitionsRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^UI-[0-9]{6}$/u.test(entry.name)) continue;
+      const definitionPath = path.join(
+        uiDefinitionsRoot,
+        entry.name,
+        "ui_definition.md",
+      );
+      if (!lstatIfPresent(definitionPath)?.isFile()) continue;
+      actualUiIds.add(entry.name);
+      const definition = visibleMarkdownStructure(read(definitionPath));
+      const uxSection = exactSecondLevelSection(definition, "UX観点の入力");
+      const iaSection = exactSecondLevelSection(definition, "IA観点の入力");
+      for (const match of uxSection?.matchAll(
+        /\[(UX-[0-9]{6})\]\(\.\.\/\.\.\/Analysis\/\1\/ui_analysis\.md\)/gu,
+      ) ?? []) {
+        const key = `${match[1]}|${entry.name}`;
+        definitionUxUiKeys.push(key);
+        definitionUxUi.add(key);
+      }
+      for (const match of iaSection?.matchAll(
+        /\[(IA-[0-9]{6})\]\(\.\.\/\.\.\/Analysis\/\1\/ui_analysis\.md\)/gu,
+      ) ?? []) {
+        const key = `${match[1]}|${entry.name}`;
+        definitionIaUiKeys.push(key);
+        definitionIaUi.add(key);
+      }
+      if (
+        !definition.includes("成果物種別: UI定義") ||
+        !definition.includes(`UI ID: \u0060${entry.name}\u0060`) ||
+        !definition.includes("## 利用者成果") ||
+        !uxSection ||
+        !iaSection ||
+        !definition.includes("## 両観点の統合判断") ||
+        !definition.includes("## 表示面と情報の優先順位") ||
+        !definition.includes("## 操作とFeedback") ||
+        !definition.includes("## 状態と表示差") ||
+        !definition.includes("## 視覚表現とアクセシビリティ") ||
+        !definition.includes("## 制約") ||
+        !definition.includes("## UI／SPEC対応レビューへ渡す項目") ||
+        ![...definitionUxUi].some((key) => key.endsWith(`|${entry.name}`)) ||
+        ![...definitionIaUi].some((key) => key.endsWith(`|${entry.name}`))
+      )
+        add(
+          "error",
+          "ui-definition-contract-invalid",
+          relative(definitionPath),
+          "Each canonical UI definition must integrate at least one UX-view analysis and one IA-view analysis.",
+        );
+    }
+
+  if (
+    registryUiIds.size !== actualUiIds.size ||
+    [...registryUiIds].some((id) => !actualUiIds.has(id)) ||
+    [...actualUiIds].some((id) => !registryUiIds.has(id))
+  )
+    add(
+      "error",
+      "ui-definition-index-coverage-mismatch",
+      relative(uiIndexPath),
+      "The UI registry and canonical UI definition directories must be an exact set.",
+    );
+
+  if (
+    registryUxUiKeys.length !== registryUxUi.size ||
+    registryIaUiKeys.length !== registryIaUi.size ||
+    analysisUxUiKeys.length !== analysisUxUi.size ||
+    analysisIaUiKeys.length !== analysisIaUi.size ||
+    definitionUxUiKeys.length !== definitionUxUi.size ||
+    definitionIaUiKeys.length !== definitionIaUi.size ||
+    [...registryUxUi].some(
+      (key) => !analysisUxUi.has(key) || !definitionUxUi.has(key),
+    ) ||
+    [...analysisUxUi].some(
+      (key) => !registryUxUi.has(key) || !definitionUxUi.has(key),
+    ) ||
+    [...definitionUxUi].some(
+      (key) => !registryUxUi.has(key) || !analysisUxUi.has(key),
+    ) ||
+    [...registryIaUi].some(
+      (key) => !analysisIaUi.has(key) || !definitionIaUi.has(key),
+    ) ||
+    [...analysisIaUi].some(
+      (key) => !registryIaUi.has(key) || !definitionIaUi.has(key),
+    ) ||
+    [...definitionIaUi].some(
+      (key) => !registryIaUi.has(key) || !analysisIaUi.has(key),
+    )
+  )
+    add(
+      "error",
+      "ui-analysis-definition-closure-mismatch",
+      relative(uiIndexPath),
+      "The UI registry, separate UX-view and IA-view analyses, and integrated UI definitions must form exact duplicate-free (UX, UI) and (IA, UI) relation sets.",
+    );
+}
+
+checkUiReconstruction();
+
 let workLifecycleRoots = [
   path.join(root, "99_Roadmap"),
   ...(repositoryMode === "official"

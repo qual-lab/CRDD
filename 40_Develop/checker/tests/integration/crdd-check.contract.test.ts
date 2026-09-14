@@ -2206,6 +2206,139 @@ test("Experience Mapと要求分析のJourney割当不一致を拒否する", ()
   );
 });
 
+test("UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じる", () => {
+  const root = uiReconstructionFixtureRoot();
+  const valid = runChecker(root);
+  assert.ok(
+    !valid.report.findings.some((finding) => finding.code.startsWith("ui-")),
+    `${valid.stdout}\n${valid.stderr}`,
+  );
+
+  fs.rmSync(path.join(root, "04_UI", "Analysis", "UX-000001"), {
+    recursive: true,
+    force: true,
+  });
+  const missing = runChecker(root);
+  assert.ok(
+    missing.report.findings.some(
+      (finding) => finding.code === "ui-ux-analysis-coverage-mismatch",
+    ),
+    `${missing.stdout}\n${missing.stderr}`,
+  );
+});
+
+test("UX観点のUI分析はIAまたはREQを正式入力へ追加できない", () => {
+  const root = uiReconstructionFixtureRoot();
+  const analysisPath = path.join(
+    root,
+    "04_UI",
+    "Analysis",
+    "UX-000001",
+    "ui_analysis.md",
+  );
+  write(
+    analysisPath,
+    fs
+      .readFileSync(analysisPath, "utf8")
+      .replace("- UX定義:", "- 要求: REQ-000001\n- UX定義:"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-ux-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("IA観点のUI分析はUXまたはREQを正式入力へ追加できない", () => {
+  const root = uiReconstructionFixtureRoot();
+  const analysisPath = path.join(
+    root,
+    "04_UI",
+    "Analysis",
+    "IA-000001",
+    "ui_analysis.md",
+  );
+  write(
+    analysisPath,
+    fs
+      .readFileSync(analysisPath, "utf8")
+      .replace(
+        "- IA定義:",
+        "- 要求: REQ-000001\n- UX定義: UX-000001\n- IA定義:",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-ia-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("IA観点のUI分析が欠けると全数再構築を満たさない", () => {
+  const root = uiReconstructionFixtureRoot();
+  fs.rmSync(path.join(root, "04_UI", "Analysis", "IA-000001"), {
+    recursive: true,
+    force: true,
+  });
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-ia-analysis-coverage-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UI定義はUX観点とIA観点の両方を統合する", () => {
+  const root = uiReconstructionFixtureRoot();
+  const definitionPath = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    definitionPath,
+    fs
+      .readFileSync(definitionPath, "utf8")
+      .replace("## IA観点の入力", "## IA入力（誤った見出し）"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UI台帳・分析・定義のUXとIA対応は完全一致する", () => {
+  const root = uiReconstructionFixtureRoot();
+  const definitionPath = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    definitionPath,
+    fs.readFileSync(definitionPath, "utf8").replace("IA-000001", "IA-000002"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
 after(() => {
   for (const root of fixtures) {
     fs.rmSync(root, { recursive: true, force: true });
@@ -2286,6 +2419,72 @@ function iaReconstructionFixtureRoot(): string {
       "ia_definition.md",
     ),
     "# IA定義ひな型\n",
+  );
+  return root;
+}
+
+function uxViewUiAnalysis(uxId: string, uiId: string): string {
+  return `# ${uxId}のUI分析\n\n成果物種別: UI分析（UX観点）\n分析単位: \`${uxId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- UX定義: [${uxId} 試験用](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n\n## 2. UIへ引き継ぐ利用者成果\n\n利用者が対象を理解する。\n\n## 3. 必要な認識・操作・Feedback\n\n対象、操作、Feedbackを示す。\n\n## 4. 状況による体験差\n\nこのUXに必要な状況だけを区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した利用者成果として扱う。\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n`;
+}
+
+function iaViewUiAnalysis(iaId: string, uiId: string): string {
+  return `# ${iaId}のUI分析\n\n成果物種別: UI分析（IA観点）\n分析単位: \`${iaId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- IA定義: [${iaId} 試験用](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n## 2. UIへ引き継ぐ情報構造\n\n対象、状態、関係を示す。\n\n## 3. 表示の優先順位とNavigation\n\n対象、状態、根拠の順に示す。\n\n## 4. 表示差と開示境界\n\n通常、停止、結果不明を区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した情報構造として扱う。\n\n## 6. UX観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n`;
+}
+
+function uiDefinition(uiId: string, uxId: string, iaId: string): string {
+  return `# ${uiId} 試験用Interface\n\n成果物種別: UI定義\nUI ID: \`${uiId}\`\n状態: Candidate\n\n## 利用者成果\n\n対象を理解できる。\n\n## UX観点の入力\n\n| UX分析 | このUIで保持する利用者成果 |\n|---|---|\n| [${uxId}](../../Analysis/${uxId}/ui_analysis.md) | 対象を理解する |\n\n## IA観点の入力\n\n| IA分析 | このUIで保持する情報構造 |\n|---|---|\n| [${iaId}](../../Analysis/${iaId}/ui_analysis.md) | 対象と状態を見分ける |\n\n## 両観点の統合判断\n\n利用者成果を情報構造によって判断可能にする。\n\n## 表示面と情報の優先順位\n\n対象、状態、根拠、行動の順に示す。\n\n## 操作とFeedback\n\n主要操作と結果を示す。\n\n## 状態と表示差\n\n通常と停止を区別する。\n\n## 視覚表現とアクセシビリティ\n\n色以外でも区別する。\n\n## 制約\n\n正本を複製しない。\n\n## UI／SPEC対応レビューへ渡す項目\n\n同じUXとIAについて、UIの観測点とSPEC側の未確定事項を渡す。\n\n## 情報源\n\n- [${uxId}のUI分析](../../Analysis/${uxId}/ui_analysis.md)\n- [${iaId}のUI分析](../../Analysis/${iaId}/ui_analysis.md)\n`;
+}
+
+function uiReconstructionFixtureRoot(): string {
+  const root = iaReconstructionFixtureRoot();
+  write(
+    path.join(root, "04_UI", "01_User_Interface.md"),
+    "# UI\n\n| UI | 利用者が使うInterface契約 | 主な入力UX | 主な入力IA |\n|---|---|---|---|\n| [UI-000001](Definitions/UI-000001/ui_definition.md) | 試験用 | UX-000001 | IA-000001 |\n",
+  );
+  write(
+    path.join(root, "04_UI", "Analysis", "UX-000001", "ui_analysis.md"),
+    uxViewUiAnalysis("UX-000001", "UI-000001"),
+  );
+  write(
+    path.join(root, "04_UI", "Analysis", "IA-000001", "ui_analysis.md"),
+    iaViewUiAnalysis("IA-000001", "UI-000001"),
+  );
+  write(
+    path.join(root, "04_UI", "Definitions", "UI-000001", "ui_definition.md"),
+    uiDefinition("UI-000001", "UX-000001", "IA-000001"),
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "Analysis",
+      "IA-XXXXXX",
+      "ui_analysis.md",
+    ),
+    "# UI分析ひな型（IA観点）\n",
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "Analysis",
+      "UX-XXXXXX",
+      "ui_analysis.md",
+    ),
+    "# UI分析ひな型（UX観点）\n",
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "Definitions",
+      "UI-XXXXXX",
+      "ui_definition.md",
+    ),
+    "# UI定義ひな型\n",
   );
   return root;
 }

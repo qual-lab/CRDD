@@ -1,0 +1,200 @@
+# 現行CLI・MCP・Workbench候補の操作・表示参照
+
+状態: Candidate（v0.21.0、Released Baseline: v0.20.1）
+担当責任者: Qual-Lab
+最終更新日: 2026-09-06
+工程規則: [UI](../25_UI.md)、[UIと仕様の対応レビュー](../24_UI_Behavior_Specification.md)
+
+## 基本図の処置
+
+| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
+|---|---|---|---|---|---|---|---|---|
+| 論理画面／領域構成図 | CROS Workbench候補 | Project概要、Source Coverage、操作領域の配置 | 作成 | [Project Operation／CROS Workbench](#9-v021-project-operationcros-workbench) | v0.21 Candidate | 概念図 | 具体的な画面構成は未確定 | Group BのUIで利用者検証可能な構成へ更新する |
+| 画面／操作Flow | Agent Handoff | 対話、構築、判断待ち、再開の操作順序 | 作成不能 | [Agent Handoffの表示](#91-agent-handoffの表示)は判断待ちの単一表示例であり、操作順序のFlowではない | v0.21 Candidate | 未作成 | 対話から構築、判断待ち、再開までの操作遷移 | Group BのUIで作成し、SPECと共同確認する |
+| 表示状態／Variant図 | Project Runtime結果 | 完了、停止、回復、判断待ちの表示差 | 作成不能 | [Project Runtimeの状態表示](#8-project-runtimeの状態表示)は表示原則であり、状態Variantの対応図ではない | v0.21 Candidate | 未作成 | 状態ごとの表示差、優先度、操作可能性 | Group BのUIで作成する |
+| 主要Component関係図 | CROS Workbench | 表示Componentと責務境界の関係 | 作成不能 | WorkbenchのComponent境界はGroup BのIA／UIで未確定 | v0.21 Candidate | 未作成 | Component、状態Owner、操作Port | Group BのUI出口で再評価する |
+| UI／SPEC対応図 | 現行Tool操作 | 表示・入力と振る舞い契約の対応 | 作成 | [UIと振る舞い仕様の対応](#6-uiと振る舞い仕様の対応) | v0.20.1 Baseline＋v0.21 Candidate | 現行 | Workbench部分は未対応 | Group BのUI／SPEC共同レビューで更新する |
+
+## 1. 対象と読み方
+
+[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。§9はv0.21のProject Operationと最小CROS Workbenchが満たす表示契約を扱う。固定GUI Framework、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
+
+以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[対話入力](../40_Develop/coordinator/src/core/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
+
+## 2. 操作接点と表示構造
+
+| 接点 | 入力・操作 | 表示と次の行動 | 現在の限界 |
+|---|---|---|---|
+| 案内・診断 | `help`、`doctor`、検証対象とオプション | 準備不足、利用可能性、理由を読み、対応する手順へ戻る | コマンドの列挙には未接続候補も含む。構文があるだけで実行可能としない |
+| 初期外部送信設定 | 初回に表示された対象・境界を読み、確認値を入力または拒否 | 許可した境界と現在の依頼を区別。再利用時は同じ入力を要求しない | 端末を取得できない、時間切れ、読取り失敗は停止。確認値をログや保存済み値から自動入力しない |
+| 一般依頼 | `task --request-stdin`へ構造化入力。人間の対話入力とは別経路 | 選定した実行者・確認者と理由、最終結果。JSONでは機械キーを保持 | 人間表示は固定した日本語説明を使い、説明未登録の理由は推測せず機械結果の確認へ案内。入力待ちと処理待ちは実端末確認が必要 |
+| 候補の確認・処置 | `candidate export`／`candidate discard`とexact ID | 候補ID、期限、処置結果を確認。採用は別判断 | exportを正本への反映、`completed`を人間受入と表示しない |
+| 取消 | 実行中のCLIへ`SIGINT`／`SIGTERM`。通常端末ではCtrl+Cが候補 | 取消要求の後も終了・回収結果を待つ | キーの受渡しは端末依存。ウィンドウを閉じたことを取消完了としない |
+| 回復・再起動 | exact回復IDと専用入口。再起動要求は別項目 | 通常再実行禁止、残存・ID、操作可能者、次の手順 | IDがない不明状態は担当者へ引渡す。汎用的な「再試行」ボタン相当の案内はしない |
+| Checker | 対象と`--json`／`--summary`／限定範囲 | 指摘、件数、対象、未確認範囲を確認して所有文書を修正 | 通常JSONは指摘配列、summaryは集計報告。指摘0だけで全範囲確認済みとしない |
+| 開発・配布担当 | 開発検証、固定候補の署名・正式実測 | 開発結果と配布成立を分離。署名失敗時はその段階を示す | Release鍵入力は公式配布担当のみ。通常Taskや一般利用者の準備へ混ぜない |
+
+内部native補助は独立した利用者画面を持たず、観測・停止をRuntimeへ返す部品である。その失敗が診断・停止・回復表示へ届くことを対象に含め、内部バイナリを直接操作する手順は追加しない。
+
+## 3. 状態の認識と操作条件
+
+[公開Coordinator入口](../template/tools/crdd-coordinator.ts)は、同じ配布物の[内部共通起動入口](../40_Develop/coordinator/bin/launch.ts)へ接続する。端末表示が必要な操作で出力が転送されている場合、実処理へ接続する前に「画面へ表示できる端末から直接起動してください」と表示する。この停止は同意拒否、Provider失敗、資源回収不明とは別である。引数や例外stackを説明へ転記しない。対象入口への接続後に予期しない例外が発生した場合は、実行状態・回収未確認を表示し、成功やEffect 0を推定しない。ウィンドウを勝手に作る、閉じる、確認コードを記録する処理は追加しない。
+
+4経路・復旧検証では「最終結果を保存しました」とRepository相対の記録Directoryをstderrへ表示し、構造化結果のstdoutは維持する。開始保存失敗は検証未開始、終了保存失敗は元の実行結果を保持すべき状態として説明する。画面を閉じたことをユーザーの失敗とせず、保存済み要約を確認する。開始記録だけなら結果未確認とし、自動再実行を案内しない。
+
+| 状態 | 利用者が認識すべきこと | 操作と禁止する誤解 |
+|---|---|---|
+| 未開始・入力不正 | 何が不足しているか、実行開始したか | 入力を是正。空の結果を成功としない |
+| 同意待ち | 今、人間の入力が必要であることと期限 | 内容を確認し承認または拒否。期限後の入力を次回許可に使わない |
+| 実行中・確認中 | 誰が何を担当しているか | 待つ、または取消。経過時間を残時間・進捗率へ変換しない |
+| 取消要求済み | 取消完了とは限らないこと | 回収結果まで待つ。重複要求を新しい処理にしない |
+| 完了・候補あり | 検証済み候補、期限、未採用であること | 確認・export・discard。commitや公開済みとしない |
+| 停止・回収確認済み | 作業の不成立と資源回収の成立は別であること | 理由に応じて是正。自動再試行の許可へ読み替えない |
+| 回収不明 | 残存を否定できず、通常実行を止める必要 | exact情報を保持し専用復旧へ。ID欠落を残存0としない |
+| 再起動必要 | 同一Runtime Processを再利用できないこと | 再起動の後も残る回復義務は別途処置 |
+| 期限切れ・境界変更 | 古い同意や候補を再利用できないこと | 現在の境界を再確認。不明なら操作しない |
+
+通常結果、回収状態、Process再利用可否は直交する。正常・準正常・異常の全組合せを表示例の数だけで網羅したとは扱わず、実producerのvariantと公開投影を[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)で照合する。
+
+## 4. 現行表示の参照と表現方針
+
+次は`renderSafeHumanCommandReport`へ取消制御失敗、回収確認済み、再起動必要の公開値を与えた場合の出力例である。ファイル操作発行は未取得とする。表示試験の対象であり、実Provider・実端末の実測ではない。
+
+```text
+Coordinator：依頼の実行 — 停止
+取消の制御に不整合がありました。資源回収とProcess再起動の情報を確認してください。
+診断コード: coordinator_task_cancellation_protocol_failed_cleanup_confirmed
+ファイル操作の発行: 未確認
+資源回収: 確認済み
+手動回復の必要性: なし
+Process再起動の必要性: あり
+次の操作: 現在のProcessを再利用せず、Coordinator Runtimeを再起動してください。回復義務は再起動だけでは解消しません。
+```
+
+未取得のbooleanは「なし」へ補正しない。結果の完了、回収、再起動、回復IDを別々に表示し、再起動・回復案内を候補操作より先に置く。停止・回収不明・再起動必要のTaskでは、候補IDを保持しても即時export／discardを案内しない。期限の不正値も表示例外にせず未確認とする。未登録の操作・状態・理由をそのまま端末へ出さず、固定した説明へ閉じる。機械向けJSONの意味や実行許可は変更しない。
+
+現行CLIの文字サイズ、配色、折返し、ウィンドウ形状は端末が管理する。本書では製品固有のテーマ、装飾画像、モーションを新設しない。状態は色だけに依存させず、結果→理由→次行動→追跡情報の意味上の優先順位を維持する。秘密や生Provider出力を、分かりやすさのために表示へ戻してはならない。
+
+行単位の対話CLIには、[デザインシステム参照実装](../25_UI.md#design-system-reference)の端末向け媒体を適用する。2026-08-31の人間判断により、HTMLを別に作るのでなく、現行writer／readerを使う再実行可能な端末表示・操作例で確認する。これは媒体選択であり、UI責務を`Not Applicable`にする判断ではない。ソース例や文字列試験を実端末の見た目・操作確認、支援技術確認の代替完了とは扱わない。
+
+今回の確認対象は、Windows Terminal／PowerShellでの日本語表示、キーボード入力、一回のEnter、長いIDの折返し、文字拡大、拒否・時間切れ・取消・終了後表示とする。OS・端末・Shell・Nodeの実行版、実際に使用した起動経路、確認した項目と未確認項目を結果へ記録する。これは上記の人間判断に基づく限定的な利用品質確認であり、外部アクセシビリティ規格の適合表明ではない。読み上げは未評価として明示し、支援技術を利用できるとの主張は行わない。必要性や対象環境が変わった場合はQual-LabのRuntime保守が範囲を再評価する。
+
+入力の参照は[端末確認プログラム](../40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts)と[実行方法](../19_Workflows/01_Coordinator_Runtime.md#terminal-interaction-check)から再現する。[契約試験](../40_Develop/coordinator/tests/system/terminal-interaction-probe.contract.test.ts)は入力一致・不一致・時間切れ・取消・回収不明を区別する。参照が使うのは現行の端末writer／readerだけで、実行許可やProviderへの送信は行わない。この確認だけでは初期同意の全文表示、Task取消、回復操作、長い実結果の表示を確認したことにはならず、各公開入口の検証を別に保持する。
+
+## 5. アクセシビリティ・利用品質の義務
+
+- 対話開始を認識でき、キーボードで確認・拒否できる。正しい入力の確定に余分なEnterを要求しない。
+- 文字化け、折返し、長いID、低コントラストで重要条件や次操作が読めなくならない。
+- 入力待ちの端末が見えないまま時間切れにならないことを確認する。時間切れや読取り失敗では許可を発行しない。
+- 秘密入力は秘匿し、非秘密入力と混ぜない。秘密を入力保持・ログによって復元可能にしない。
+- 実行結果が読める前にウィンドウが閉じないことを公開起動経路ごとに確認する。ホスト端末の所有とRuntimeの所有を分ける。
+- 対象とするアクセシビリティプロファイルに従い、読み上げ順序、拡大・折返し、色非依存、対話／非対話の環境差のうち適用する観点を確認する。今回承認された範囲と未評価環境は§4に示す。WCAG等の適合は本書で宣言せず、未評価の読み上げ対応を利用可能と扱わない。
+
+<a id="ui-spec-mapping"></a>
+
+## 6. UIと振る舞い仕様の対応
+
+操作単位ごとに認識・入力・表示と実行契約を照合する。第三の仕様正本や新しい対応IDは作らない。以下の実装・試験参照は存在と接続の根拠であり、各義務が最新実測で合格したという宣言ではない。
+
+| 操作単位 | UIが所有する確認 | SPECが所有する条件・結果 | 実装・試験の接続 |
+|---|---|---|---|
+| 診断・導入判断 | 通常利用可能と構文候補を識別 | [診断・回復](../05_SPEC/01_Behavior_Specification.md#診断回復の公開境界) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[診断試験](../40_Develop/coordinator/tests/unit/doctor.contract.test.ts) |
+| 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/security/external-send-consent-runtime.ts)、[同意試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts) |
+| Task入力・選定・待機 | 不正入力と処理中を分離、担当と理由 | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[引数試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts) |
+| 候補の公開・export・discard | 候補ID、期限、未採用、次操作 | [利用者接点の境界](../05_SPEC/01_Behavior_Specification.md#user-interface-contract) | [候補Store試験](../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)、[表示試験](../40_Develop/coordinator/tests/unit/command-report.contract.test.ts) |
+| 取消・遅延終了 | 要求と完了を区別し最終結果まで待つ | [公開Task](../05_SPEC/01_Behavior_Specification.md#公開taskの入力結果取消) | [取消接続](../40_Develop/coordinator/src/core/task-cli-cancellation.ts)、[取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts) |
+| 回復・Process再起動 | 複数ID、IDなし不明、再起動を欠落させない | [利用者接点の境界](../05_SPEC/01_Behavior_Specification.md#user-interface-contract) | [結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[回復CLI結合試験](../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts) |
+| Checker実行 | 指摘・範囲・未確認を読み分ける。引数エラーでは手順へ戻る | [Checker契約](../05_SPEC/01_Behavior_Specification.md#checker-contract) | [配布本体](../template/tools/crdd-check.ts)、[契約試験](../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)、[操作手順](../19_Workflows/02_Checker.md) |
+| Windows内部部品の結果 | binary応答ではなく、上位の診断・回収・再起動表示として影響を理解する | [内部部品契約](../05_SPEC/01_Behavior_Specification.md#platform-access-contract) | [nativeとAdapterの分担・試験](../06_Architecture/platform-access/01_Architecture.md#6-呼出し元との分担)。部品単体の成功を利用者のTask完了にしない |
+| 開発検証・公式署名 | 入力する人・目的・失敗段階を識別 | [実行基盤](../05_SPEC/01_Behavior_Specification.md#runtime-10の実行基盤)と[発行手順](../19_Workflows/01_Coordinator_Runtime.md) | 開発検証結果と正式署名結果を[品質状態](../07_Quality/01_Quality_Center.md)で分離 |
+
+<a id="open-issues"></a>
+
+## 7. 既知差・未確認事項と完了判定
+
+以下の呼び名は本節内の追跡用であり、新しいCRDD安定コンテキストIDではない。担当責任者はすべてQual-LabのRuntime保守。文書へ記録しただけでは解消としない。
+
+| 事項 | 根拠と影響 | 次の処置・再確認契機 |
+|---|---|---|
+| 表示の意味説明 | 日本語説明、未知値の固定表示、成功した候補操作と停止の分離は実装・限定再確認済み | [限定確認の結果](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#3部品の設計補完結果表示の追加確認)と下記のPowerShellでの表示例の実測を参照。説明未登録の理由は機械結果を担当者が確認し、全理由の翻訳完了とはしない |
+| 未取得値と候補操作の表示 | 三値表示、回復・再起動優先、停止時の候補操作抑止、全回復ID保持は実装・関連試験・限定再確認済み | 表示・取消投影・実子Process接続の28試験と上記の限定確認を根拠とする。表示例の実端末確認は下記へ接続し、すべての状態・環境を実測済みとはしない |
+| 入力・起動の実体験 | 時間切れ・入力待ち取消・空入力拒否、別runの123456読取り、654321不一致を観測。人間は表示例の折返し・拡大後も読めたと回答。案内は現在の操作だけに是正 | [実端末の初回結果](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#実端末の初回結果)でrunごとの成否と限界を保持。今回のPowerShell環境の限定確認として完了。一括runの合格や通常Taskの取消へ読み替えない |
+| 実Taskの取消と回復 | 署名版48515ebで実端末Ctrl+C入力1回から通常回収まで観測。独立確認済み | [実測の順序と限界](../99_Roadmap/Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md#signed-e2e-48515eb)へ接続。旧4f10201等の結果は各版の履歴として保持。全取消タイミングの成立へ一般化しない |
+| CLI参照媒体の適用 | 人間が承認した端末参照で入力・表示の限定実測を取得し、UI／SPECの専門確認へ接続済み | [完成評価と追加確認](../99_Roadmap/Changes/CHG-000015/Evidence/260901_coordinator-completion-review.md#windows-terminal-verification)を参照。人間の内容採用・工程移行とは区別する |
+| 支援技術・環境 | PowerShell 5.1に加えWindows Terminal 1.24.11911.0でも4入力シナリオ、日本語・長いIDの折返し・拡大表示を限定確認 | 上記追加確認で初期幅120列を観測。変更後の列数・拡大率は未取得。読み上げと全環境の対応は未評価であり、対象変更時にQual-LabのRuntime保守が再評価 |
+| 詳細設計の読み解き | SPEC・実行設計・脅威モデルの責務分離と再構成、設計文書の改名、設計・実装・試験の横断整合を完成評価で確認 | [完成評価](../99_Roadmap/Changes/CHG-000015/Evidence/260901_coordinator-completion-review.md#completion-assessment-147fb29)と[CHGの処置](../99_Roadmap/Changes/CHG-000017/change.md#tool-experience-design)で追跡。全読者の理解度を実測したとはしない |
+
+UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが候補内容・移行方針を採用し、PR #32でmainへ統合した。[公開準備と最終確認](../99_Roadmap/Changes/CHG-000014/change.md#release-preparation-20260901)は別に追跡する。表示の「読めた」という観測と、その後の採用判断を区別し、全アクセシビリティ対応やRelease完了を実証済みとしない。
+## 8. Project Runtimeの状態表示
+
+本節はv0.19.0で公開したProject RuntimeのCLI／MCP表示契約を定義する。内部Task操作や任意Project検索は公開しない。
+
+v0.19の主要表示は、内部WorkerのLogではなくMilestoneの現在状態とする。最初にProject、Milestone、完了Objective数、Current Objective、Task内訳、Critical Path、Blocker、Risk、Human Decision、QualityおよびNext Actionを示す。機械ID、Provider出力、回復詳細は必要な場合に段階的に表示するが、重大な停止・回収不明・人間判断を詳細へ隠さない。
+
+注意の優先順位は、`現在必要な人間判断／重大な停止`、`Milestoneの受入・Quality・Integration`、`現在のObjectiveとNext Action`、`Task内訳とDependency`、`内部Operation詳細`の順を基本とする。これは固定レイアウトではなく、UXの認知意図とIAの可視性をUIへ具体化する優先関係である。数値や色だけに依存せず、状態名、影響および次にできる操作を近接して示す。
+
+進捗と品質は別の領域で示す。例えば`4 / 10 Objectives Completed`と`Integration Pending`を同時に表示でき、前者からRelease可能性を推定させない。Running、Ready、Waiting Dependency、Blocked、Completedを色だけで区別せず、表示名と件数を併記する。
+
+対話作業との競合でスケジュール実行を待機させた場合は、`対話作業を優先して待機中`、固定した基準Revision、再開条件およびScope変更の有無を平易に示す。内部Lock名やQueue recordだけを表示して利用者へ原因推測を求めない。安全な自動再開なら追加承認を求めず、再計画または人間判断が必要な場合だけ影響と選択肢を示す。
+
+人間判断が0件なら、その状態を短く示してRuntimeが次のObjectiveへ進める。判断が必要な場合は、何が起きたか、Planを維持できない理由、影響、選択肢、推奨および保留時の扱いを先に示し、Findingや内部識別子の羅列を主表示にしない。CLIとMCP応答は同じ意味状態を共有し、画面ごとに成功・停止の判定を変えない。
+
+MCPの判断応答では、人間向けの選択肢と影響を先に示し、送信に必要なdecision ID、Project／Milestone、世代、改訂版を同じ判断単位に結び付ける。古い判断を送信した場合は「入力失敗」だけで終えず、現在有効な判断が変わったこと、Projectへの変更がなかったこと、次に確認する判断要求を示す。内部Task、Scheduler、Lock、Recovery操作は人間向けMCP操作として表示しない。
+
+判断送信後の主表示は、Project State適用前を「未受理」、DecisionとMilestoneの適用後かつQueue未Leaseを「判断受理済み・安全に再開待ち」、QueueのLease後を「再開権を確保」とする。実Taskが`running`へ進んだ後だけ「実行再開」と表示する。中間状態では、判断内容が失われていないこととRuntimeが安全な再照合を継続することを示し、人間へ再送や内部回復操作を求めない。Queue未LeaseまたはLeaseだけが成立した段階でRunning表示、実行中の色または完了表現を使用しない。
+
+接続後の再表示は、同じ`crdd.run_objective` request identityの再送で行う。画面は「新しく開始した」か「既存Operationへ再接続した」かを区別し、再接続では重複Taskを起動していないことと現在状態を示す。判断用のopaqueな継続CapabilityはClient内部で搬送し、人間向け画面、コピー操作、ログまたはProvider出力へ表示しない。期限切れ・消費済み・別主体では判断Effectがなかったことと次の処置を示し、別主体や誤入力だけで正規Capabilityを失効させない。Capability応答喪失ではClientが同じObjective接続内で明示置換し、旧Capabilityの失効確認後に新しい1件だけを内部受領する。判断適用後の応答喪失では新規受理ではなく既存結果を表示する。
+
+## 9. v0.21 Project Operation／CROS Workbench
+
+本節は、同じProject Operation契約を立場に応じた粒度で投影する要求を示す。v0.21ではこの要求を満たす最小Workbenchを実装するが、図の配置を固定Pixel Layout、特定GUI FrameworkまたはCommercial Schemaの確定とは扱わない。
+
+```text
+Project: PRJ-001
+────────────────────────────────
+Overview
+
+Topics          8 Open
+Meetings        4 This week
+Changes         5 Active
+Quality         1 Blocked
+Commercial      認証が必要
+
+Source Coverage
+├ Development Repository   available
+└ Management Repository    credential_required
+```
+
+| 表示層 | 主表示 | 詳細へ退避する情報 |
+|---|---|---|
+| Repository作業 | 現在RepositoryのContext、現在の変更、次の行動 | 兄弟Repository、Project Federation、内部Binding |
+| Project | Milestone、主要Topic、Meeting、品質、判断待ち、Source Coverage | Repository ID、Git Revision、取得診断 |
+| Portfolio | Projectごとの注意状態、主要判断、観測時点 | 個別Topic、Meeting、CHG、Repository詳細 |
+
+Project表示は、利用可能なContextだけから作った結果を全Projectの完全な状況として見せない。Source Coverage、観測時点および`missing`、`credential_required`、`restricted`、`unavailable`、`conflicting`または`unknown`のうち、利用者が判断に必要で開示可能な状態を近接して示す。
+
+`Commercial 🔒`等の鍵表示は、対象の存在を開示でき、別の有効なConnection Credentialで利用できる`credential_required`だけに使用する。恒常的な`restricted`へUnlock操作を表示せず、存在開示が許可されない対象の名前、件数または状態を表示しない。UnlockはServer内で権限を追加する操作ではなく、Client側で別Credentialを選び、次のRequestをそのCredentialで認証する操作として扱う。
+
+Meetingからの`Topicを更新`、`新規Topic化`、`Decision候補化`等は、対象正本への変更候補を作る操作として表示する。操作成功を正本更新済みまたは人間判断済みと表示せず、候補、確認、採用、再投影を区別する。
+
+最小Workbenchの完成には、Project／Portfolioの選択、Project View、Source Coverage、Topic／Meeting／判断待ち、正本への導線、Credential切替状態、および既存公開契約を通した一つ以上の定型操作を含める。画面内だけの集計、直接Filesystem更新、独自Authority判定または独自状態Storeで同じ結果を再実装しない。
+
+### 9.1. Agent Handoffの表示
+
+```text
+Task: Repository変更
+状態: 判断待ち
+
+必要な判断
+  どの公開範囲を採用するか
+
+根拠
+  Topic／Decision候補／対象Revision
+
+再開条件
+  決定を正本へ記録し、ContextとAuthorityを再検証
+
+[対話で確認する]
+```
+
+Handoff表示では、現在のTask、停止理由、必要な判断、根拠、決定主体、許可済みEffectおよび再開条件を近接して示す。Chat Agent／Coding Agentの内部推論、会話全文、Credential、秘密値またはopaqueなCapabilityを表示しない。`対話で確認する`はChat Agentへ判断要求を渡す入口であり、判断済み、CRDD準拠済みまたはRepository Effect許可済みという表示にしない。

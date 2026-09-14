@@ -12,7 +12,7 @@ Last Updated: 2026-09-06
 | 状態遷移表／状態遷移図 | Task、候補、取消、回復 | 状態と許可される遷移の固定 | 作成不能 | 結果意味表と取消規則はあるが、状態と許可遷移を一つに固定する表または図ではない | v0.21 Candidate | 未作成 | 状態、遷移条件、禁止遷移、終端状態 | Group BのSPECで対象状態を確定して作成する |
 | Actor／System間Sequence図 | 一般Task | Actor、Runtime、Provider、Reviewerの順序 | 既存参照 | [Coordinator一般Taskの主シーケンス](../06_Architecture/coordinator/01_Architecture.md#3-一般taskの主シーケンス) | v0.20.1 Stable | 現行 | Workbench経路は未設計 | Group BのSPECで必要なSequenceを作成する |
 | Error／Effect分岐図 | 診断・回復 | Effect前停止と回復義務の分岐 | 作成不能 | [診断・回復の公開境界](#診断回復の公開境界)は条件説明であり、ErrorとEffectの分岐図ではない | v0.21 Candidate | 未作成 | Effect前後の失敗、結果、回復義務の分岐 | Group BのSPECで操作対象と合わせて作成する |
-| UI／SPEC対応図 | 現行Tool操作 | UI表示・操作と本仕様の対応 | 既存参照 | [UIと振る舞い仕様の対応](../04_UI/01_User_Interface.md#6-uiと振る舞い仕様の対応) | v0.20.1 Stable＋v0.21 Candidate | 現行 | Workbench部分は未対応 | Group Bの共同レビューで更新する |
+| UI／SPEC対応図 | 現行Tool操作 | UI表示・操作と本仕様の対応 | 既存参照 | [UIと振る舞い仕様の対応](../04_UI/06_Current_Interface_Reference.md#6-uiと振る舞い仕様の対応) | v0.20.1 Stable＋v0.21 Candidate | 現行 | Workbench部分は未対応 | Group Bの共同レビューで更新する |
 
 ## 対象と読み方
 
@@ -20,7 +20,7 @@ Last Updated: 2026-09-06
 
 Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Project Runtimeはv0.19.0で公開し、v0.20.0で責務分離、限定並列実行、状態投影およびローカルMCP HTTPを追加した。現在状態は[CHG-000057](../99_Roadmap/Changes/CHG-000057/change.md)、[v0.20変更](../99_Roadmap/Changes/CHG-000063/change.md)および[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。
 
-利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/01_User_Interface.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../99_Roadmap/Changes/CHG-000014/change.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
+利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/06_Current_Interface_Reference.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../99_Roadmap/Changes/CHG-000014/change.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
 
 ## 現在できること
 
@@ -456,7 +456,7 @@ Local Personalで接続済みのHome／State観測と、未接続の保護済み
 | 操作・結果 | 現行契約と保持条件 | 不明・失敗時 |
 |---|---|---|
 | Task入力 | `--request-stdin`の構造化入力を対話入力と分離。目的・受入条件・読取り／変更範囲を検査 | 入力不正を実行へ渡さず停止。詳細は下記の公開Task契約 |
-| Task結果 | 作業結果、候補、回収、回復ID、Process再起動を別の情報として返す | 人間表示は未取得を未確認とし、否定観測へ補正しない。回収不明・停止・再起動必要なら即時候補操作を案内しない。実端末等の[未確認範囲](../04_UI/01_User_Interface.md#open-issues)は残る |
+| Task結果 | 作業結果、候補、回収、回復ID、Process再起動を別の情報として返す | 人間表示は未取得を未確認とし、否定観測へ補正しない。回収不明・停止・再起動必要なら即時候補操作を案内しない。実端末等の[未確認範囲](../04_UI/06_Current_Interface_Reference.md#open-issues)は残る |
 | 候補の処置 | exact Candidate IDと対象Revision・期限を検証してexport／discard。exportは正本への採用ではない | 期限切れ、Identity差、不明状態で別候補へ置換しない |
 | 取消・回復 | 取消要求と終了観測を分離。回復IDは発行元のexact値だけを利用 | IDなしでも不明は不明。Process再起動と資源回復は互いの代替ではない |
 | Checker | 配布本体を公式Repositoryの入口から呼び出す。通常`--json`は指摘配列、`--json --summary`は対象・件数・未確認を含む報告。エラーありはexit 1、エラーなしはexit 0 | 警告、未確認、限定範囲、実行不能を0件によって消さない。機械検査は意味上の準拠・専門品質を認定しない |

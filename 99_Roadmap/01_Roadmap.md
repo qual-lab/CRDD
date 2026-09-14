@@ -61,7 +61,7 @@ Group Aは、完成済みのRuntime Data、図面、Evidence、Version Control�
 | v0.21 Topic／Project Attention | Adopted | Architecture In Progress | [CHG-000067](Changes/CHG-000067/change.md)、[Topic Lifecycle](../06_Architecture/project-operation/01_Architecture.md#6-topicとmeetingのlifecycle) | Topicの発火、待機、昇格、終了および既存正本への接続を同じ変更単位で固定する |
 | v0.21 Meeting／Context Promotion | Adopted | Architecture In Progress | [CHG-000067](Changes/CHG-000067/change.md)、[責務境界](../06_Architecture/project-operation/01_Architecture.md#4-責務境界) | 時点付きContext形成、Source、関連Topic、昇格先および人間の判断境界を固定する |
 | v0.21 複数Projectの読み取り専用Portfolio投影 | Adopted | Planned | [Portfolio理解の探索](../01_Discovery/Analysis/EXP-000024/exploration.md)、[Project横断Context](../01_Discovery/Analysis/EXP-000027/exploration.md) | Projectごとの正本とAuthorityを分離したまま、横断Viewを代表構成で検証する |
-| v0.21 CROS Workbenchの利用体験・公開契約 | Adopted | Design In Progress | [Workbench工程Gate](Changes/CHG-000067/change.md#41-cros-workbenchの工程gate)、[統合したDiscovery判断](../01_Discovery/01_Product_Discovery.md#current-discovery-decisions)、[UI要求](../04_UI/01_User_Interface.md#9-v021-project-operationcros-workbench) | Discovery、UX、IA、並行するUI／SPEC、UI／SPEC対応レビュー、Architectureの正規経路で入口・基本図処置・出口を通し、Project／Portfolio、Source Coverage、Topic／Meeting／判断待ち、正本導線および定型操作に必要な読取り・Command／Candidate契約をGroup Cの実装前に固定する |
+| v0.21 CROS Workbenchの利用体験・公開契約 | Adopted | Design In Progress | [Workbench工程Gate](Changes/CHG-000067/change.md#41-cros-workbenchの工程gate)、[統合したDiscovery判断](../01_Discovery/01_Product_Discovery.md#current-discovery-decisions)、[UI要求](../04_UI/06_Current_Interface_Reference.md#9-v021-project-operationcros-workbench) | Discovery、UX、IA、並行するUI／SPEC、UI／SPEC対応レビュー、Architectureの正規経路で入口・基本図処置・出口を通し、Project／Portfolio、Source Coverage、Topic／Meeting／判断待ち、正本導線および定型操作に必要な読取り・Command／Candidate契約をGroup Cの実装前に固定する |
 
 #### Group C: CROSの信頼・Federation・公開接続
 
@@ -77,7 +77,7 @@ Group Aは、完成済みのRuntime Data、図面、Evidence、Version Control�
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| v0.21 CROS Workbenchの最小実装 | Adopted | Planned | [Workbench工程Gate](Changes/CHG-000067/change.md#41-cros-workbenchの工程gate)、[UI要求](../04_UI/01_User_Interface.md#9-v021-project-operationcros-workbench) | Group BでArchitectureまで固定した利用契約とGroup Cの実公開契約だけを使い、Project／PortfolioとSource Coverageを表示し、一つ以上の定型操作を既存Command／Candidate入口へ渡す。Implementation後はVerification工程で契約試験、結合試験、利用者成果の総合試験および必要なE2Eを完成させる |
+| v0.21 CROS Workbenchの最小実装 | Adopted | Planned | [Workbench工程Gate](Changes/CHG-000067/change.md#41-cros-workbenchの工程gate)、[UI要求](../04_UI/06_Current_Interface_Reference.md#9-v021-project-operationcros-workbench) | Group BでArchitectureまで固定した利用契約とGroup Cの実公開契約だけを使い、Project／PortfolioとSource Coverageを表示し、一つ以上の定型操作を既存Command／Candidate入口へ渡す。Implementation後はVerification工程で契約試験、結合試験、利用者成果の総合試験および必要なE2Eを完成させる |
 | v0.21 AI Runtime Registry／モデルProfile外部構成 | Adopted | Planned | [AI Runtime変更容易性の探索](../01_Discovery/Analysis/EXP-000026/exploration.md) | 設定所有・上書き・Adapter追加境界と、登録・認証・実行許可の分離を固定する |
 | v0.21 自律Operationの意味契約とTrigger | Adopted | Planned | [自律Operationの責務境界](../05_Autonomous_Operation.md#autonomous-operation-responsibility) | 目的・Authority・Triggerの所有分離と、判断不足時のEffect 0を受入条件にする |
 | v0.21 自律Operationの読み取り中心参照実証 | Adopted | Planned | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界) | 外部Effectを伴わない代表Operationを選び、判断価値と人間負荷を実測する |
