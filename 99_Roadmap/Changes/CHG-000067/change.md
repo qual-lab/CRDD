@@ -29,7 +29,7 @@ Project Operation Context
 | Project Management Projection | 設計中 |
 | 任意Top-level構造 | 設計中 |
 | Project Operation／Workbench Discovery | `Complete for Scope`。Workbench／MCP共同利用体系まで再探索し、独立レビューPass。2026-09-13にUX移行承認済み |
-| Workbench／MCP共同UX | `Remediation Verification`。固定Commit `ddc18c11`の独立再レビューは、Same 23件の候補固有Outcome、要求固有Lifecycle、30 UX、68候補移行および36要求Coverageを解消確認した。残るMajor 1は、9要求で`[R:]`が失敗情報の返却先でなく返却元を示していた方向不一致である。`[R:]`を実際に情報を受けて次行動を選ぶ主体へ直し、返却元は失敗時の記述に保持して、CHG全数表を同期した。再確認がPassするまでIA移行可能とは表示しない |
+| Workbench／MCP共同UX | `Complete for Scope`。固定Commit `f9e7c5ed`の限定再レビューはPassした。現行UX 30件、旧68候補の一意な移行68件、36要求Coverage、Same 23件の候補固有比較、Service Blueprint作成34件／非該当2件、および全数表との一致を確認し、Major／Moderate Findingは残っていない。UX工程を閉じ、IA移行判断へ進める |
 | Discoveryの人間理解確認 | 完了。AIによる既存Context再構成と人間理解を分け、Workbench、Remote MCP、Repository単独利用および工程境界の人間提示内容をUX入力へ反映 |
 | UX規範・ひな型・Checker・試験 | Visual-firstの6章を維持し、各要求別分析へREQ固有のJourney、Service Blueprint、責任境界および品質を自己完結して残す。02〜05への参照は横断Synthesisへの接続であり、個別分析を代替しない。同一文書内の図・表・文章による意味反復だけを削減した。Service Blueprintは時間関係、完了情報、失敗時返却および次行動を要求固有に示し、実在しない待機、永続状態、再開または回復を形式のために作らない。CheckerはREQ↔UXとREQ↔Journeyのpairwise closure、Canonical UX定義重複、SameのActor／Trigger／Outcome／Failure比較構造、および作成BlueprintのCanonical記号・可視境界・失敗時返却・次行動を決定論的に検査する。比較と図の意味品質は独立UXレビューで反証する |
 | 安定コンテキストIDの訂正・置換 | `REQ / UX / IA / UI / SPEC`共通で、`@n`の手動改訂番号を廃止した。意味不変の訂正は同じID、意味の置換は新IDと`supersedes`を用い、過去内容はCHG、Git、Release tagおよび固定Evidenceから追跡する。Checkerは手動改訂番号の再導入を拒否する |
@@ -612,7 +612,7 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 | CROS Workbenchの利用者向け経路 | 全36要求から統合した30 UX成果、New／Same理由、Journey、Blueprint、品質期待および検証義務を同じ改訂版で独立レビューする → Pass後、人間の決定権限者がIAへの移行を確認・承認する | 既存10 UX-IDに対する過去レビューを新しい母集団へ流用せず、IA、並行するUI／SPECとその対応レビューを飛ばしてArchitectureまたは実装へ進まない |
 | 非UIのProject Operation意味契約 | UXから生じた情報、状態、判断、Source Coverageおよび回復導線の義務を入力として、Identity、責務、Lifecycle、Relation、ProjectionおよびRepository構造の既存設計候補をIAで再照合する | Workbenchの表示・操作をArchitectureで補完せず、IA／UI／SPECの所有事項へ戻す |
 
-DiscoveryからUXへの移行は2026-09-13に承認済みである。全36要求の分析と30 UX成果への横断統合は完了したが、統合後文書の独立再レビューおよびIA移行判断は別Gateとして維持する。両経路がArchitectureで合流した後に、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合し、ひな型、Checkerおよび実装へ進む。
+DiscoveryからUXへの移行は2026-09-13に承認済みである。全36要求の分析と30 UX成果への横断統合、および統合後文書の独立再レビューは完了した。IA移行判断は別Gateとして維持する。両経路がArchitectureで合流した後に、既存Project Runtime／Runtime Data／Communicationとの契約差を全数照合し、ひな型、Checkerおよび実装へ進む。
 
 ## 9. 次の工程是正へ保持する入力
 
