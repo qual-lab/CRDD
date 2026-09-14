@@ -10,9 +10,9 @@
 リリースレベル: `MINOR`（候補）
 `migration_required`: `true`（方針採用済み）
 
-正本規則: [変更](../../12_Change.md)
+正本規則: [変更](../../../12_Change.md)
 
-現在の採用・移行方針とPRまでの許可は[共通の人間判断](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)を参照する。以下の判断待ち・検証待ちは当時の履歴として保持し、現在の未処置はmain統合とリリースである。
+現在の採用・移行方針とPRまでの許可は[共通の人間判断](../CHG-000014/change.md#candidate-adoption-20260901)を参照する。以下の判断待ち・検証待ちは当時の履歴として保持し、現在の未処置はmain統合とリリースである。
 
 ## 1. 契機と問題
 
@@ -24,9 +24,168 @@
 
 Qual-Labは、本変更をv0.18.0の追加契約候補として検証することを決定した。対象バージョンの選択はRelease判断ではなく、移行確定、CHANGELOG反映、main統合、タグおよびリリースは、固定後の独立確認を経て別途判断する。
 
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`.github/copilot-instructions.md`](<../../../.github/copilot-instructions.md>)
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- `01_Discovery/01_CRDD_Product_Discovery.md`（削除または旧Path）
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`04_Agent_Organization.md`](<../../../04_Agent_Organization.md>)
+- [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
+- [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
+- [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
+- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
+- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
+- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
+- [`07_Quality/02_Quality_Strategy.md`](<../../../07_Quality/02_Quality_Strategy.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- `07_Quality/Verification_Results/2026-08-31_Tool_Layout_Verification.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md`（削除または旧Path）
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- `40_Develop/checker/crdd-check.contract.test.ts`（削除または旧Path）
+- [`40_Develop/coordinator/scripts/sign-release-manifest.ts`](<../../../40_Develop/coordinator/scripts/sign-release-manifest.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-general-task.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-general-task.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-route-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-route-matrix.ts>)
+- [`40_Develop/coordinator/src/core/verification-result-record.ts`](<../../../40_Develop/coordinator/src/core/verification-result-record.ts>)
+- [`40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts`](<../../../40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts>)
+- [`40_Develop/coordinator/src/security/development-measurement-session.ts`](<../../../40_Develop/coordinator/src/security/development-measurement-session.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts>)
+- [`40_Develop/coordinator/src/security/local-personal-authority-runtime.ts`](<../../../40_Develop/coordinator/src/security/local-personal-authority-runtime.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-gate.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-gate.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts>)
+- [`40_Develop/coordinator/src/security/provider-home-windows-adapter.ts`](<../../../40_Develop/coordinator/src/security/provider-home-windows-adapter.ts>)
+- `40_Develop/coordinator/tests/development-measurement-session.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/development-native-observation.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-desktop-repair-record-store.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-desktop-runtime-repair.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/fixtures/release-manifest-validity-vectors.txt`（削除または旧Path）
+- [`40_Develop/coordinator/tests/fixtures/signed-general-poison-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/signed-general-poison-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/signed-route-poison-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/signed-route-poison-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/windows-native-helper-environment-unavailable.ts`](<../../../40_Develop/coordinator/tests/fixtures/windows-native-helper-environment-unavailable.ts>)
+- `40_Develop/coordinator/tests/local-personal-authority-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-package-gate.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-trust-core.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/sign-release-manifest.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-general-task-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-route-matrix-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/platform-access/src/bin/coordinator.rs`（削除または旧Path）
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000012_Current_Decision_Set.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000013_Communication_Market_and_Adoption_Exploration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000014_V1_Architecture_Candidate_Integration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000016_Internal_TypeScript_Migration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000018_Biome_Advisory_Closure.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000019_Rust_Platform_Access_Core.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000020_Platform_Access_Release_Binding.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000021_Protected_Active_Pointer.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000022_Provider_Lifecycle_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000023_Dynamic_Fake_Provider_Lifecycle.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000024_Dynamic_Fake_Provider_Failure_Verification.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000025_Dynamic_Fake_Provider_Cancellation_Verification.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000026_Provider_Home_Protection_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000027_Coordinator_Test_And_Package_Inventory_Stability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000029_Provider_Home_Mount_Grant_Lifecycle_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000030_Provider_Home_Mount_Grant_Runtime_Store.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000031_Runtime_Owned_Operation_Context_Capability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000032_Current_Process_Principal_Observation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000033_Pre_Active_Provisioning_One_Shot_Contract.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000034_Native_Direct_Provision_Supervisor_Entrypoint.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000036_AppContainer_Provision_Worker_Candidate.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000037_Claude_No_Network_Version_Probe.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000038_Claude_Subscription_OAuth_Vertical_Slice.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000039_Runtime_Owned_Provider_Home_Observation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000040_Runtime_Owned_Provider_Home_Mount_Grant.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000041_Explainable_Model_Selection_And_Claude_Docker_Adapter.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000042_Provider_Neutral_Delegation_Selection_Grant.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000043_Docker_Process_Controller.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000044_Runtime_Provider_Authority_Capability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000045_README_AI_Development_Team_Vision.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000046_Runtime_Provider_Eligibility_Observation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000047_Runtime_Provider_Model_Profile_Resolution.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000048_Runtime_Docker_Recovery_Connection.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000049_Runtime_Docker_Effect_Executor.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000050_Local_Personal_Authority_and_Bounded_Eligibility.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000051_Runtime_Repository_Revision_Binding.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000052_Coordinator_Claude_Probe_Runtime_Facade.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000053_Codex_Subscription_Runtime_Adapter.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000054_Agent_Organization_Document_Architecture.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md`（削除または旧Path）
+- `90_Release/Changes/README.md`（削除または旧Path）
+- `99_Roadmap/01_CRDD_v0_18_Concept.md`（削除または旧Path）
+- `99_Roadmap/01_CRDD_v1_Concept.md`（削除または旧Path）
+- `99_Roadmap/01_Product_Roadmap.md`（削除または旧Path）
+- `99_Roadmap/02_CRDD_v0_18_Responsibility_Boundary.md`（削除または旧Path）
+- `99_Roadmap/02_CRDD_v1_Responsibility_Boundary.md`（削除または旧Path）
+- `99_Roadmap/03_CRDD_v0_18_PoC_Plan.md`（削除または旧Path）
+- `99_Roadmap/03_CRDD_v1_PoC_Plan.md`（削除または旧Path）
+- `99_Roadmap/04_CRDD_v0_18_Autonomous_Safety_Architecture.md`（削除または旧Path）
+- `99_Roadmap/04_CRDD_v1_Autonomous_Safety_Architecture.md`（削除または旧Path）
+- `99_Roadmap/05_CRDD_v0_18_Operation_Health_and_Human_Interface.md`（削除または旧Path）
+- `99_Roadmap/05_CRDD_v1_Operation_Health_and_Human_Interface.md`（削除または旧Path）
+- `99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md`（削除または旧Path）
+- `99_Roadmap/06_CRDD_v1_Forward_Compatibility.md`（削除または旧Path）
+- `99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md`（削除または旧Path）
+- `99_Roadmap/07_CRDD_v1_Agent_and_Provider_Orchestration.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000012/change.md`](<../../../99_Roadmap/Changes/CHG-000012/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/.github/copilot-instructions.md`](<../../../template/.github/copilot-instructions.md>)
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+- `template/tools/coordinator/coordinator-package-manifest.json`（削除または旧Path）
+- `template/tools/crdd_check.mjs`（削除または旧Path）
+- [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
+- `tools/checker/crdd-check.contract.test.ts`（削除または旧Path）
+- `tools/checker/tools-naming.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/README.md`（削除または旧Path）
+- `tools/coordinator/threat-model.md`（削除または旧Path）
+- `tools/crdd_check.test.mjs`（削除または旧Path）
+
+</details>
+
 ## 3. 変更内容
 
-1. [用語](../../02_Terminology.md)へ現在の判断集合の表示名と境界を登録し、[スキル](../../11_Skill.md)を判断支援契約の意味正本として表示時点の派生集合を定義する。
+1. [用語](../../../02_Terminology.md)へ現在の判断集合の表示名と境界を登録し、[スキル](../../../11_Skill.md)を判断支援契約の意味正本として表示時点の派生集合を定義する。
 2. 判断要求は、現在の対象改訂版から再構成し、監査・レビューでは現在の固定改訂版を使う。
 3. 解消済み事項、AIが一意に修正できる事項、報告のみの事項を人間の判断要求から除外する。
 4. 将来は判断が必要でも現在の作業を阻害せず安全に独立保留できる事項は、担当責任者、再評価契機、保留影響および元根拠へ接続して現在の判断集合から除外する。条件不明または現在必要な重大リスクは除外しない。

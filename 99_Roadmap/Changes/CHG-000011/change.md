@@ -7,7 +7,7 @@
 対象リリース: v0.17.0
 変更分類: breaking
 移行要否: true
-正本規則: [12_Change.md](../../12_Change.md)
+正本規則: [12_Change.md](../../../12_Change.md)
 
 ## 1. 契機と変更意図
 
@@ -49,6 +49,55 @@ Qual-Labの人間の決定権限者は、次の境界でv0.17.0候補の実装�
 - 情報分類、最小権限、セキュリティ不変条件、実行時強制、検証、監査、失効、封じ込め、回復を対象リスクに応じて接続し、エージェントの自己申告だけで成立扱いにしない。
 - 新しい工程、固定成果物、スキーマ、安定コンテキストID、監査または承認段階を増やさない。
 - リリース対象はv0.17.0候補とし、最終採用とリリースは固定後の検証・独立確認後に判断する。
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000011_Expert_Exploration_and_Convergence.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000011_Checker_Run_0a5d232.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000011_Checker_Run_a902d97.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000011_Checker_Run_d0e8dc8.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000011_Test_Run_0a5d232.tap`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000011_Test_Run_a902d97.tap`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000011_Test_Run_d0e8dc8.tap`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000011_Verification_Run_Record_0a5d232.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000011_Verification_Run_Record_a902d97.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000011_Verification_Run_Record_d0e8dc8.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000011/change.md`](<../../../99_Roadmap/Changes/CHG-000011/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+
+</details>
 
 ## 3. 変更する責務
 
@@ -153,7 +202,7 @@ Qual-Labの人間の決定権限者は、次の境界でv0.17.0候補の実装�
 
 ## 6. 移行
 
-- 既存基準版からの採用は[移行完了の条件](../../19_Maintenance.md#621-migration-completeness)を満たす。
+- 既存基準版からの採用は[移行完了の条件](../../../19_Maintenance.md#621-migration-completeness)を満たす。
 - Core準拠表明はC-11、PL準拠表明はPL-19を評価する。
 - 接続母集団、情報分類、許可した処理境界、境界外接続、エージェント／ツール権限、外部入力の指示権限、供給網、実行時強制、検証、監査、失効および回復を採用先で評価する。接続なしもC-11を非適用にせず、母集団0と再評価契機を確認する。
 - 有効化後に新設、変更または採用する専門判断と、進行中・再開した工程作業へ適用する。

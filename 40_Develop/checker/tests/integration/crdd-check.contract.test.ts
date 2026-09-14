@@ -839,7 +839,7 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
   assert.equal(tag.status, 0, tag.stderr);
   write(
     path.join(root, "99_Roadmap", "Changes", "CHG-000063", "change.md"),
-    `# Runtime Responsibility\n\n変更ID: CHG-000063\n\n${fs.readFileSync(
+    `# Runtime Responsibility\n\n変更ID: CHG-000063\n\n### 影響ファイル\n\n<details>\n<summary>全ファイルを表示</summary>\n\n- [\`99_Roadmap/Changes/CHG-000063/change.md\`](./change.md)\n\n</details>\n\n${fs.readFileSync(
       path.join(
         root,
         "90_Release",
@@ -851,7 +851,7 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
   );
   write(
     path.join(root, "99_Roadmap", "Changes", "CHG-000065", "change.md"),
-    "# Structured-first Documentation\n\n変更ID: CHG-000065\n",
+    "# Structured-first Documentation\n\n変更ID: CHG-000065\n\n### 影響ファイル\n\n<details>\n<summary>全ファイルを表示</summary>\n\n- [`99_Roadmap/Changes/CHG-000065/change.md`](./change.md)\n\n</details>\n",
   );
   write(
     path.join(
@@ -1080,6 +1080,61 @@ test("Work Lifecycle契約は全Change aggregateの案内欠落を拒否する",
   assert.ok(
     result.report.findings.some(
       (finding) => finding.code === "change-navigation-population-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Change契約は影響ファイルの全数表示区画を要求する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000065", "change.md"),
+    "# Change\n\n変更ID: CHG-000065\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "change-impact-files-section-mismatch" &&
+        finding.path === "99_Roadmap/Changes/CHG-000065/change.md",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("Change契約は代表ファイルだけを示す旧表示を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000065", "change.md"),
+    "# Change\n\n変更ID: CHG-000065\n\n### 影響ファイル\n\n<details>\n<summary>代表ファイルを表示</summary>\n\n- [`change.md`](./change.md)\n\n</details>\n\n### 主な反映ファイル\n",
+  );
+  const result = runChecker(root);
+  for (const expectedCode of [
+    "change-impact-files-contract-invalid",
+    "legacy-change-impact-heading",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === expectedCode &&
+          finding.path === "99_Roadmap/Changes/CHG-000065/change.md",
+      ),
+      `${expectedCode}\n${result.stderr}\n${result.stdout}`,
+    );
+});
+
+test("Change契約は影響ファイルへ重複分類の親子階層を作らない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000065", "change.md"),
+    "# Change\n\n変更ID: CHG-000065\n\n### 影響ファイル\n\n<details>\n<summary>全ファイルを表示</summary>\n\n- 構造変更A\n  - [`change.md`](./change.md)\n\n</details>\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "change-impact-files-contract-invalid" &&
+        finding.path === "99_Roadmap/Changes/CHG-000065/change.md",
     ),
     `${result.stderr}\n${result.stdout}`,
   );

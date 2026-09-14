@@ -8,9 +8,9 @@
 対象リリース: v0.18.0
 変更分類: breaking（内容採用済み）
 移行要否: true（方針採用済み）
-正本規則: [12_Change.md](../../12_Change.md)
+正本規則: [12_Change.md](../../../12_Change.md)
 
-現在の採用・移行方針とPRまでの許可は[共通の人間判断](CHG-000014_V018_Architecture_Candidate_Integration.md#candidate-adoption-20260901)を参照する。以下の検証・判断の経緯は履歴として保持する。Issue #30の詳細候補は採用対象へ追加せず、未完了追跡を維持する。
+現在の採用・移行方針とPRまでの許可は[共通の人間判断](../CHG-000014/change.md#candidate-adoption-20260901)を参照する。以下の検証・判断の経緯は履歴として保持する。Issue #30の詳細候補は採用対象へ追加せず、未完了追跡を維持する。
 
 再採番来歴: source branch `codex/feature/v1-communication-market-discovery`のCommit `04350294ff4031af09893edf21c136cbadbb01be`では、未統合候補として`CHG-000012_Communication_Market_and_Adoption_Exploration.md`を使用していた。同じ基準Commitから分岐したCurrent Decision Set候補が`CHG-000012`を使用していたため、人間の決定権限者は統合時の有効IDをCurrent Decision Set=`CHG-000012`、Communication=`CHG-000013`と決定した。旧候補Commitと旧ファイル名は来歴参照であり、現在有効なCommunication変更IDまたは別名として使用しない。
 
@@ -18,7 +18,7 @@
 
 外部コミュニケーションの実運用で、AIは受け手、主張、媒体、計測を整理できても、対象者が解決策を探し始める契機、現在の代替行動、採用上の関係者、信用障壁および根拠取得の順序を十分に探索せず、媒体、広告費または根拠のない観測量へ早期収束し得ることが分かった。
 
-既存の[課題探索・要求形成](../../21_Discovery.md)は利用者と課題、代替手段、市場・競争、支払意思、回避策、非利用者および判断を変える根拠を既に所有する。本変更は同じ市場探索をCommunicationへ複製せず、受け手、訴求、獲得経路、媒体、広告または市場反応を新設・変更し、かつ採用形成を目的とするときにDiscoveryの専門レンズを確実に発火させる。併せて、代理指標から対象者属性を推定する限界、人間対象調査の選定偏りと一般化限界、異なる転換行動と探索的／確認的測定の境界を明確にする。
+既存の[課題探索・要求形成](../../../21_Discovery.md)は利用者と課題、代替手段、市場・競争、支払意思、回避策、非利用者および判断を変える根拠を既に所有する。本変更は同じ市場探索をCommunicationへ複製せず、受け手、訴求、獲得経路、媒体、広告または市場反応を新設・変更し、かつ採用形成を目的とするときにDiscoveryの専門レンズを確実に発火させる。併せて、代理指標から対象者属性を推定する限界、人間対象調査の選定偏りと一般化限界、異なる転換行動と探索的／確認的測定の境界を明確にする。
 
 READMEには、旧Architecture featureのCommit `296aa37621a9e308f0c668d5a9df04159d42198b`で改善した目的別入口と「CRDDがしないこと」を、Architecture固有構想を含めず規範変更候補へ反映した。このCommitは参照した不変な情報源であり、旧branchの現在先端を継続依存または自動同期元にしない。
 
@@ -35,6 +35,121 @@ Qual-Labの人間の決定権限者は、統合候補を基点に次を実装し
 - Discoveryが市場、対象セグメント、採用行動および機会の正本を持ち、Communicationが受け手、メッセージ、媒体、成果物、導線、公開後測定を持つ責務境界へ揃える。
 - 固定ファネルを設けず、外部行動を促す場合の提供準備、反応から原因を短絡しない還流、人間対象調査と説得の最低安全境界を今回の軽量契約へ含める。
 - 詳細なセグメント優先順位、調査・説得倫理、ダークパターン分類、商業性、個別調査手法および採用後価値実現モデルは、採用を意味しない後続候補として[Issue #30](https://github.com/qual-lab/CRDD/issues/30)へ接続する。担当責任者はQual-Labとし、本変更の内容収束後または判断を変え得る実運用根拠の発生時に責務別へ分類する。
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- `01_Discovery/01_CRDD_Product_Discovery.md`（削除または旧Path）
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`04_Agent_Organization.md`](<../../../04_Agent_Organization.md>)
+- [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
+- [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
+- [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
+- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
+- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
+- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
+- [`07_Quality/02_Quality_Strategy.md`](<../../../07_Quality/02_Quality_Strategy.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- `07_Quality/Verification_Results/2026-08-31_Tool_Layout_Verification.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md`（削除または旧Path）
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- `40_Develop/checker/crdd-check.contract.test.ts`（削除または旧Path）
+- [`40_Develop/coordinator/scripts/sign-release-manifest.ts`](<../../../40_Develop/coordinator/scripts/sign-release-manifest.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-general-task.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-general-task.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-route-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-route-matrix.ts>)
+- [`40_Develop/coordinator/src/core/verification-result-record.ts`](<../../../40_Develop/coordinator/src/core/verification-result-record.ts>)
+- [`40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts`](<../../../40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts>)
+- [`40_Develop/coordinator/src/security/development-measurement-session.ts`](<../../../40_Develop/coordinator/src/security/development-measurement-session.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts>)
+- [`40_Develop/coordinator/src/security/local-personal-authority-runtime.ts`](<../../../40_Develop/coordinator/src/security/local-personal-authority-runtime.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-gate.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-gate.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts>)
+- [`40_Develop/coordinator/src/security/provider-home-windows-adapter.ts`](<../../../40_Develop/coordinator/src/security/provider-home-windows-adapter.ts>)
+- `40_Develop/coordinator/tests/development-measurement-session.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/development-native-observation.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-desktop-repair-record-store.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-desktop-runtime-repair.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/fixtures/release-manifest-validity-vectors.txt`（削除または旧Path）
+- [`40_Develop/coordinator/tests/fixtures/signed-general-poison-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/signed-general-poison-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/signed-route-poison-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/signed-route-poison-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/windows-native-helper-environment-unavailable.ts`](<../../../40_Develop/coordinator/tests/fixtures/windows-native-helper-environment-unavailable.ts>)
+- `40_Develop/coordinator/tests/local-personal-authority-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-package-gate.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-trust-core.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/sign-release-manifest.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-general-task-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-route-matrix-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/platform-access/src/bin/coordinator.rs`（削除または旧Path）
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000012_Current_Decision_Set.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000013_Communication_Market_and_Adoption_Exploration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000014_V1_Architecture_Candidate_Integration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000054_Agent_Organization_Document_Architecture.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md`（削除または旧Path）
+- `90_Release/Changes/README.md`（削除または旧Path）
+- `99_Roadmap/01_CRDD_v0_18_Concept.md`（削除または旧Path）
+- `99_Roadmap/01_CRDD_v1_Concept.md`（削除または旧Path）
+- `99_Roadmap/01_Product_Roadmap.md`（削除または旧Path）
+- `99_Roadmap/02_CRDD_v0_18_Responsibility_Boundary.md`（削除または旧Path）
+- `99_Roadmap/02_CRDD_v1_Responsibility_Boundary.md`（削除または旧Path）
+- `99_Roadmap/03_CRDD_v0_18_PoC_Plan.md`（削除または旧Path）
+- `99_Roadmap/03_CRDD_v1_PoC_Plan.md`（削除または旧Path）
+- `99_Roadmap/04_CRDD_v0_18_Autonomous_Safety_Architecture.md`（削除または旧Path）
+- `99_Roadmap/04_CRDD_v1_Autonomous_Safety_Architecture.md`（削除または旧Path）
+- `99_Roadmap/05_CRDD_v0_18_Operation_Health_and_Human_Interface.md`（削除または旧Path）
+- `99_Roadmap/05_CRDD_v1_Operation_Health_and_Human_Interface.md`（削除または旧Path）
+- `99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md`（削除または旧Path）
+- `99_Roadmap/06_CRDD_v1_Forward_Compatibility.md`（削除または旧Path）
+- `99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md`（削除または旧Path）
+- `99_Roadmap/07_CRDD_v1_Agent_and_Provider_Orchestration.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000013/change.md`](<../../../99_Roadmap/Changes/CHG-000013/change.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/80_Communication/01_Communication.md`](<../../../template/80_Communication/01_Communication.md>)
+- `template/tools/coordinator/coordinator-package-manifest.json`（削除または旧Path）
+- `template/tools/crdd_check.mjs`（削除または旧Path）
+- [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
+- `tools/crdd_check.test.mjs`（削除または旧Path）
+
+</details>
 
 ## 3. 変更する責務
 

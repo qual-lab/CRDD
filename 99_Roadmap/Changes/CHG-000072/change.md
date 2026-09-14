@@ -12,7 +12,7 @@
 
 Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primitiveを、成果物の意味に依存しないRoot Componentへ分離する。Runtime Manifest固有の観測、Policy、payload、順序および配置はCoordinatorに維持する。
 
-## 2. 責務変更
+## 2. 現在状態と責務変更
 
 | 対象 | 変更前 | 変更後 |
 |---|---|---|
@@ -21,6 +21,48 @@ Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primit
 | 暗号署名 | Coordinatorが鍵読取り、復号、公開鍵導出、署名を所有 | Artifact Signingが任意byte列への署名を所有 |
 | Manifest | Coordinatorが構築・署名・配置を一体所有 | Coordinatorは意味固有のpayload、Policy、P／S順序、envelope、配置を所有 |
 | 配布Identity | Coordinator Sourceだけを中心に閉包 | 到達したArtifact Signing Sourceとpackage metadataを含む |
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`.env-crdd.example`](<../../../.env-crdd.example>)
+- [`.env.example`](<../../../.env.example>)
+- [`.gitignore`](<../../../.gitignore>)
+- [`01_Discovery/Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md`](<../../../01_Discovery/Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md>)
+- [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
+- [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
+- [`06_Architecture/artifact-signing/01_Architecture.md`](<../../../06_Architecture/artifact-signing/01_Architecture.md>)
+- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
+- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
+- [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
+- [`40_Develop/artifact-signing/package-lock.json`](<../../../40_Develop/artifact-signing/package-lock.json>)
+- [`40_Develop/artifact-signing/package.json`](<../../../40_Develop/artifact-signing/package.json>)
+- [`40_Develop/artifact-signing/src/index.ts`](<../../../40_Develop/artifact-signing/src/index.ts>)
+- [`40_Develop/artifact-signing/src/private-key-signing.ts`](<../../../40_Develop/artifact-signing/src/private-key-signing.ts>)
+- [`40_Develop/artifact-signing/src/terminal-secret-input.ts`](<../../../40_Develop/artifact-signing/src/terminal-secret-input.ts>)
+- [`40_Develop/artifact-signing/tests/integration/private-key-signing.integration.test.ts`](<../../../40_Develop/artifact-signing/tests/integration/private-key-signing.integration.test.ts>)
+- [`40_Develop/artifact-signing/tsconfig.json`](<../../../40_Develop/artifact-signing/tsconfig.json>)
+- [`40_Develop/checker/test-catalog.ts`](<../../../40_Develop/checker/test-catalog.ts>)
+- [`40_Develop/checker/tests/unit/test-catalog.contract.test.ts`](<../../../40_Develop/checker/tests/unit/test-catalog.contract.test.ts>)
+- [`40_Develop/coordinator/scripts/generate-release-key.ts`](<../../../40_Develop/coordinator/scripts/generate-release-key.ts>)
+- [`40_Develop/coordinator/scripts/sign-release-manifest.ts`](<../../../40_Develop/coordinator/scripts/sign-release-manifest.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [`40_Develop/coordinator/tests/integration/generate-release-key.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/generate-release-key.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts>)
+- [`99_Roadmap/01_Roadmap.md`](<../../../99_Roadmap/01_Roadmap.md>)
+- [`99_Roadmap/02_Changes.md`](<../../../99_Roadmap/02_Changes.md>)
+- [`99_Roadmap/Changes/CHG-000068/change.md`](<../../../99_Roadmap/Changes/CHG-000068/change.md>)
+- [`99_Roadmap/Changes/CHG-000070/change.md`](<../../../99_Roadmap/Changes/CHG-000070/change.md>)
+- [`99_Roadmap/Changes/CHG-000071/change.md`](<../../../99_Roadmap/Changes/CHG-000071/change.md>)
+- [`99_Roadmap/Changes/CHG-000071/Evidence/260913-2335_signed-e2e.md`](<../../../99_Roadmap/Changes/CHG-000071/Evidence/260913-2335_signed-e2e.md>)
+- [`99_Roadmap/Changes/CHG-000072/change.md`](<../../../99_Roadmap/Changes/CHG-000072/change.md>)
+- [`99_Roadmap/Changes/CHG-000072/Evidence/260913-2335_signed-e2e.md`](<../../../99_Roadmap/Changes/CHG-000072/Evidence/260913-2335_signed-e2e.md>)
+
+</details>
 
 ## 3. 変更禁止範囲
 

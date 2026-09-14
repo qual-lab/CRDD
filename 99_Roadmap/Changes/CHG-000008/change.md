@@ -7,7 +7,7 @@
 対象リリース: v0.14.0
 変更分類: breaking
 移行要否: true
-正本規則: [12_Change.md](../../12_Change.md)
+正本規則: [12_Change.md](../../../12_Change.md)
 
 ## 1. 変更理由
 
@@ -43,6 +43,44 @@ Qual-Labの人間の決定権限者は、次をv0.14.0候補として採用し�
 - 新しい監査、承認段階、プロファイル、フォルダまたは安定コンテキストID
 - 外部QA／テスト管理ツールへの依存
 - 完了済みの履歴指摘事項または根拠の一括書き換え
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000008_Convergent_Remediation_and_Evidence_Identity.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000008/change.md`](<../../../99_Roadmap/Changes/CHG-000008/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+
+</details>
 
 ## 3. 変更対象と責務
 

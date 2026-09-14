@@ -26,6 +26,103 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 - HTTPはlocalhostに限定し、Linux／Remote Runtime、複数Repositoryおよび外部公開を本変更へ含めない。
 - 性能試験、長時間試験および実Provider試験は、人間の明示指示なしに実行しない。
 
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- `01_Discovery/01_CRDD_Product_Discovery.md`（削除または旧Path）
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`04_Agent_Organization.md`](<../../../04_Agent_Organization.md>)
+- [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
+- [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
+- [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
+- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
+- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/mcp/01_Architecture.md`](<../../../06_Architecture/mcp/01_Architecture.md>)
+- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
+- [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
+- `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md`（削除または旧Path）
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
+- [`19_Workflows/04_MCP_Server.md`](<../../../19_Workflows/04_MCP_Server.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- [`40_Develop/checker/package.json`](<../../../40_Develop/checker/package.json>)
+- `40_Develop/checker/scripts/update-document-disposition-inventory.ts`（削除または旧Path）
+- [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](<../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts>)
+- [`40_Develop/checker/tsconfig.json`](<../../../40_Develop/checker/tsconfig.json>)
+- [`40_Develop/coordinator/bin/coordinator.ts`](<../../../40_Develop/coordinator/bin/coordinator.ts>)
+- [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](<../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts>)
+- [`40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts`](<../../../40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts>)
+- [`40_Develop/coordinator/src/index.ts`](<../../../40_Develop/coordinator/src/index.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [`40_Develop/coordinator/tests/integration/cli-options.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts`](<../../../40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts>)
+- [`40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts`](<../../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts>)
+- [`40_Develop/execution-intelligence/src/core/execution-intelligence.ts`](<../../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts>)
+- [`40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts>)
+- [`40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts>)
+- [`40_Develop/mcp/src/adapters/project-runtime-adapter.ts`](<../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts>)
+- [`40_Develop/mcp/src/index.ts`](<../../../40_Develop/mcp/src/index.ts>)
+- [`40_Develop/mcp/src/transports/process-signal-shutdown.ts`](<../../../40_Develop/mcp/src/transports/process-signal-shutdown.ts>)
+- [`40_Develop/mcp/src/transports/stdio-transport.ts`](<../../../40_Develop/mcp/src/transports/stdio-transport.ts>)
+- [`40_Develop/mcp/src/transports/streamable-http-transport.ts`](<../../../40_Develop/mcp/src/transports/streamable-http-transport.ts>)
+- [`40_Develop/mcp/tests/system/stdio-transport.integration.test.ts`](<../../../40_Develop/mcp/tests/system/stdio-transport.integration.test.ts>)
+- [`40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts`](<../../../40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts>)
+- [`40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts`](<../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts>)
+- [`40_Develop/project-runtime/src/application/project-runtime-state-query.ts`](<../../../40_Develop/project-runtime/src/application/project-runtime-state-query.ts>)
+- [`40_Develop/project-runtime/src/index.ts`](<../../../40_Develop/project-runtime/src/index.ts>)
+- [`40_Develop/project-runtime/src/public-contract/project-state-query.ts`](<../../../40_Develop/project-runtime/src/public-contract/project-state-query.ts>)
+- [`40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts`](<../../../40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts>)
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000062_Execution_Intelligence.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000065_Structured_First_Documentation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000069_V0201_Release_State_Propagation.md`（削除または旧Path）
+- `90_Release/Changes/README.md`（削除または旧Path）
+- `99_Roadmap/01_Product_Roadmap.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000064/change.md`](<../../../99_Roadmap/Changes/CHG-000064/change.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+- [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
+- [`template/tools/crdd-coordinator.ts`](<../../../template/tools/crdd-coordinator.ts>)
+- [`template/tools/crdd-mcp.ts`](<../../../template/tools/crdd-mcp.ts>)
+
+</details>
+
 ## 3. 目指さないこと
 
 - WBS、Topic、Risk、Forecast、手入力進捗率またはProject Management正本を作ること。

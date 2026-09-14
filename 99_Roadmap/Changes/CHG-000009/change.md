@@ -7,7 +7,7 @@
 対象リリース: v0.15.0
 変更分類: breaking
 移行要否: true
-正本規則: [12_Change.md](../../12_Change.md)
+正本規則: [12_Change.md](../../../12_Change.md)
 
 ## 1. 契機と変更意図
 
@@ -31,6 +31,48 @@ Qual-Labの人間の決定権限者は、次の設計境界で変更を開始す
 - 独立Repository、同一Repository、Submodule、パッケージ等を固定解にせず、依存対象と運用条件から選ぶ
 - 固定YAML、専用ID、新しい準拠プロファイル、特定AI／CMS／デザインツールを必須にしない
 - 影響評価で既存の準拠表明範囲と採用手順が変わることを確認し、対象バージョンを`v0.15.0`、変更分類を`breaking`、移行要否を`true`とする
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000009_Communication_and_Context_Dependency.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000009/change.md`](<../../../99_Roadmap/Changes/CHG-000009/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/80_Communication/01_Communication.md`](<../../../template/80_Communication/01_Communication.md>)
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+- [`template/CLAUDE.md`](<../../../template/CLAUDE.md>)
+
+</details>
 
 ## 3. 想定する影響
 

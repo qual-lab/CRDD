@@ -47,6 +47,27 @@ Changes、Evidence、CHG-*という英語識別子は本文言語を指定しな
 ## 主な変更意図
 
 
+## 現在状態と構造変更
+
+| 項目 | 変更前 | 変更後 |
+|---|---|---|
+| | | |
+
+詳細設計を所有する正本がある場合は、ここで参照する。
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`template/99_Roadmap/Changes/CHG-XXXXXX/change.md`](./change.md)
+- `deleted/path/to/file`（削除）
+- `old/path/to/file` → [`template/99_Roadmap/Changes/CHG-XXXXXX/change.md`](./change.md)
+
+</details>
+
+一覧には、そのCHGに帰属する全ファイルをRepository相対Pathで平坦に列挙する。`文書`、`実装`、`Adapter`等の分類や、上表と重複する親見出しを追加しない。Gitは各byte差分を所有し、CHGは複数Commitをまたぐ影響Pathの全体を所有する。
+
 ## 想定する影響
 
 - コンテキスト:

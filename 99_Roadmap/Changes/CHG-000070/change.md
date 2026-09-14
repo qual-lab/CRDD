@@ -20,6 +20,255 @@ Roadmap、Change、ReleaseおよびEvidenceの配置を、ファイル種別で�
 | Release | `90_Release`がChange置場を兼ねる | ChangeとReleaseが別Entityである一方、Work Lifecycle上の接続が見えにくい |
 | Verification Result | `07_Quality/Verification_Results`とChange Evidenceへ分散 | EvidenceのOwnerが「Quality成果物か」で決まり、証明対象から離れる |
 | Quality Center | 個別Evidenceを横断参照する | 現在品質の投影とEvidence倉庫の責務が混在する |
+| CHGの影響範囲 | 変更意図と主要参照は読めるが、当該CHGで変更した全Pathを即時に取得できない | 構造変更を表で示し、その直後に全影響ファイルを折り畳み可能な一覧として置く |
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- `01_Discovery/01_CRDD_Product_Discovery.md`（削除または旧Path）
+- [`01_Discovery/01_Product_Discovery.md`](<../../../01_Discovery/01_Product_Discovery.md>)
+- [`01_Discovery/02_Product_Candidates.md`](<../../../01_Discovery/02_Product_Candidates.md>)
+- `01_Discovery/02_Runtime_and_CROS_Product_Candidates.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000001_Deterministic_Repository_Checks/exploration.md`](<../../../01_Discovery/Explorations/EXP-000001_Deterministic_Repository_Checks/exploration.md>)
+- [`01_Discovery/Explorations/EXP-000002_Audit_and_Decision_Convergence/exploration.md`](<../../../01_Discovery/Explorations/EXP-000002_Audit_and_Decision_Convergence/exploration.md>)
+- `01_Discovery/Explorations/EXP-000002_Coordinated_AI_Execution/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000003_External_Context_Boundaries/exploration.md`](<../../../01_Discovery/Explorations/EXP-000003_External_Context_Boundaries/exploration.md>)
+- `01_Discovery/Explorations/EXP-000003_Project_Runtime/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md`](<../../../01_Discovery/Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md>)
+- `01_Discovery/Explorations/EXP-000004_Execution_Intelligence/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000005_Repository_Distributed_Tooling/exploration.md`](<../../../01_Discovery/Explorations/EXP-000005_Repository_Distributed_Tooling/exploration.md>)
+- `01_Discovery/Explorations/EXP-000005_Runtime_Responsibility_Separation/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000006_Agent_Guidance_Ownership/exploration.md`](<../../../01_Discovery/Explorations/EXP-000006_Agent_Guidance_Ownership/exploration.md>)
+- `01_Discovery/Explorations/EXP-000006_Local_MCP_HTTP_Access/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000007_Project_State_Understanding/exploration.md`](<../../../01_Discovery/Explorations/EXP-000007_Project_State_Understanding/exploration.md>)
+- [`01_Discovery/Explorations/EXP-000008_Project_Runtime/exploration.md`](<../../../01_Discovery/Explorations/EXP-000008_Project_Runtime/exploration.md>)
+- `01_Discovery/Explorations/EXP-000008_Repository_Local_Work/exploration.md`（削除または旧Path）
+- `01_Discovery/Explorations/EXP-000009_Cross_Repository_Project_Context/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000009_Reasoning_Context/exploration.md`](<../../../01_Discovery/Explorations/EXP-000009_Reasoning_Context/exploration.md>)
+- [`01_Discovery/Explorations/EXP-000010_Assurance_and_Regression/exploration.md`](<../../../01_Discovery/Explorations/EXP-000010_Assurance_and_Regression/exploration.md>)
+- `01_Discovery/Explorations/EXP-000010_Human_and_AI_Entry_Points/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000011_Human_Readable_Documentation/exploration.md`](<../../../01_Discovery/Explorations/EXP-000011_Human_Readable_Documentation/exploration.md>)
+- `01_Discovery/Explorations/EXP-000011_Remote_Project_Context/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000012_Recognizable_Official_Identity/exploration.md`](<../../../01_Discovery/Explorations/EXP-000012_Recognizable_Official_Identity/exploration.md>)
+- `01_Discovery/Explorations/EXP-000012_Topic_and_Meeting_Continuity/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000013_Execution_Intelligence/exploration.md`](<../../../01_Discovery/Explorations/EXP-000013_Execution_Intelligence/exploration.md>)
+- `01_Discovery/Explorations/EXP-000013_Portfolio_Visibility/exploration.md`（削除または旧Path）
+- `01_Discovery/Explorations/EXP-000014_Repository_Capability_Discovery/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md`](<../../../01_Discovery/Explorations/EXP-000014_Runtime_Responsibility_Separation/exploration.md>)
+- [`01_Discovery/Explorations/EXP-000015_Local_MCP_HTTP_Access/exploration.md`](<../../../01_Discovery/Explorations/EXP-000015_Local_MCP_HTTP_Access/exploration.md>)
+- `01_Discovery/Explorations/EXP-000015_Runtime_Data_Ownership/exploration.md`（削除または旧Path）
+- `01_Discovery/Explorations/EXP-000016_AI_Runtime_Changeability/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000016_Runtime_Data_Ownership/exploration.md`](<../../../01_Discovery/Explorations/EXP-000016_Runtime_Data_Ownership/exploration.md>)
+- `01_Discovery/Explorations/EXP-000017_Cross_Project_Context_Exchange/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000017_Diagram_Guided_Handoff/exploration.md`](<../../../01_Discovery/Explorations/EXP-000017_Diagram_Guided_Handoff/exploration.md>)
+- `01_Discovery/Explorations/EXP-000018_User_Owned_Runtime_Trust/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000018_Work_and_Evidence_Ownership/exploration.md`](<../../../01_Discovery/Explorations/EXP-000018_Work_and_Evidence_Ownership/exploration.md>)
+- `01_Discovery/Explorations/EXP-000019_Audit_and_Decision_Convergence/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000019_Repository_Local_Work/exploration.md`](<../../../01_Discovery/Explorations/EXP-000019_Repository_Local_Work/exploration.md>)
+- [`01_Discovery/Explorations/EXP-000020_Cross_Repository_Project_Context/exploration.md`](<../../../01_Discovery/Explorations/EXP-000020_Cross_Repository_Project_Context/exploration.md>)
+- `01_Discovery/Explorations/EXP-000020_External_Context_Boundaries/exploration.md`（削除または旧Path）
+- `01_Discovery/Explorations/EXP-000021_Agent_Guidance_Ownership/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000021_Human_and_AI_Entry_Points/exploration.md`](<../../../01_Discovery/Explorations/EXP-000021_Human_and_AI_Entry_Points/exploration.md>)
+- `01_Discovery/Explorations/EXP-000022_Reasoning_Context/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000022_Remote_Project_Context/exploration.md`](<../../../01_Discovery/Explorations/EXP-000022_Remote_Project_Context/exploration.md>)
+- `01_Discovery/Explorations/EXP-000023_Assurance_and_Regression/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000023_Topic_and_Meeting_Continuity/exploration.md`](<../../../01_Discovery/Explorations/EXP-000023_Topic_and_Meeting_Continuity/exploration.md>)
+- `01_Discovery/Explorations/EXP-000024_Human_Readable_Documentation/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000024_Portfolio_Visibility/exploration.md`](<../../../01_Discovery/Explorations/EXP-000024_Portfolio_Visibility/exploration.md>)
+- `01_Discovery/Explorations/EXP-000025_Diagram_Guided_Handoff/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000025_Repository_Capability_Discovery/exploration.md`](<../../../01_Discovery/Explorations/EXP-000025_Repository_Capability_Discovery/exploration.md>)
+- [`01_Discovery/Explorations/EXP-000026_AI_Runtime_Changeability/exploration.md`](<../../../01_Discovery/Explorations/EXP-000026_AI_Runtime_Changeability/exploration.md>)
+- `01_Discovery/Explorations/EXP-000026_Work_and_Evidence_Ownership/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000027_Cross_Project_Context_Exchange/exploration.md`](<../../../01_Discovery/Explorations/EXP-000027_Cross_Project_Context_Exchange/exploration.md>)
+- `01_Discovery/Explorations/EXP-000027_Repository_Distributed_Tooling/exploration.md`（削除または旧Path）
+- `01_Discovery/Explorations/EXP-000028_Recognizable_Official_Identity/exploration.md`（削除または旧Path）
+- [`01_Discovery/Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md`](<../../../01_Discovery/Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md>)
+- [`02_UX/01_User_Experience.md`](<../../../02_UX/01_User_Experience.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
+- [`06_Architecture/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
+- [`06_Architecture/version-control/01_Architecture.md`](<../../../06_Architecture/version-control/01_Architecture.md>)
+- [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
+- `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`19_Workflows/02_Checker.md`](<../../../19_Workflows/02_Checker.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`40_Develop/checker/package.json`](<../../../40_Develop/checker/package.json>)
+- [`40_Develop/checker/regression-execution.ts`](<../../../40_Develop/checker/regression-execution.ts>)
+- [`40_Develop/checker/regression-runner.ts`](<../../../40_Develop/checker/regression-runner.ts>)
+- `40_Develop/checker/scripts/update-document-disposition-inventory.ts`（削除または旧Path）
+- [`40_Develop/checker/test-catalog.ts`](<../../../40_Develop/checker/test-catalog.ts>)
+- [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](<../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts>)
+- [`40_Develop/checker/tests/integration/regression-runner.contract.test.ts`](<../../../40_Develop/checker/tests/integration/regression-runner.contract.test.ts>)
+- [`40_Develop/checker/tests/unit/test-catalog.contract.test.ts`](<../../../40_Develop/checker/tests/unit/test-catalog.contract.test.ts>)
+- [`40_Develop/checker/tsconfig.json`](<../../../40_Develop/checker/tsconfig.json>)
+- [`40_Develop/coordinator/bin/coordinator.ts`](<../../../40_Develop/coordinator/bin/coordinator.ts>)
+- [`40_Develop/coordinator/scripts/measure-development-providers.ts`](<../../../40_Develop/coordinator/scripts/measure-development-providers.ts>)
+- [`40_Develop/coordinator/scripts/prepare-release-candidate.ts`](<../../../40_Develop/coordinator/scripts/prepare-release-candidate.ts>)
+- [`40_Develop/coordinator/scripts/project-runtime-real-provider-contract.ts`](<../../../40_Develop/coordinator/scripts/project-runtime-real-provider-contract.ts>)
+- [`40_Develop/coordinator/scripts/promote-release-manifest.ts`](<../../../40_Develop/coordinator/scripts/promote-release-manifest.ts>)
+- [`40_Develop/coordinator/scripts/sign-release-manifest.ts`](<../../../40_Develop/coordinator/scripts/sign-release-manifest.ts>)
+- [`40_Develop/coordinator/scripts/verify-project-runtime-real-providers.ts`](<../../../40_Develop/coordinator/scripts/verify-project-runtime-real-providers.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-general-task.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-general-task.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-reviewer-boundary.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-reviewer-boundary.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-route-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-route-matrix.ts>)
+- [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](<../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts>)
+- [`40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts`](<../../../40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts>)
+- [`40_Develop/coordinator/src/core/docker-cleanup-eligibility.ts`](<../../../40_Develop/coordinator/src/core/docker-cleanup-eligibility.ts>)
+- [`40_Develop/coordinator/src/core/docker-desktop-repair-doctor-dispatch.ts`](<../../../40_Develop/coordinator/src/core/docker-desktop-repair-doctor-dispatch.ts>)
+- [`40_Develop/coordinator/src/core/doctor.ts`](<../../../40_Develop/coordinator/src/core/doctor.ts>)
+- [`40_Develop/coordinator/src/core/interactive-console.ts`](<../../../40_Develop/coordinator/src/core/interactive-console.ts>)
+- [`40_Develop/coordinator/src/core/runtime-local-typescript-child-entrypoints.ts`](<../../../40_Develop/coordinator/src/core/runtime-local-typescript-child-entrypoints.ts>)
+- [`40_Develop/coordinator/src/core/verification-result-record.ts`](<../../../40_Develop/coordinator/src/core/verification-result-record.ts>)
+- [`40_Develop/coordinator/src/security/authority-file-bundle.ts`](<../../../40_Develop/coordinator/src/security/authority-file-bundle.ts>)
+- [`40_Develop/coordinator/src/security/authority-grant-verifier.ts`](<../../../40_Develop/coordinator/src/security/authority-grant-verifier.ts>)
+- [`40_Develop/coordinator/src/security/authority-prelaunch-verifier.ts`](<../../../40_Develop/coordinator/src/security/authority-prelaunch-verifier.ts>)
+- [`40_Develop/coordinator/src/security/authority-trust-loader.ts`](<../../../40_Develop/coordinator/src/security/authority-trust-loader.ts>)
+- [`40_Develop/coordinator/src/security/claude-docker-runtime-adapter.ts`](<../../../40_Develop/coordinator/src/security/claude-docker-runtime-adapter.ts>)
+- [`40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts`](<../../../40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts>)
+- [`40_Develop/coordinator/src/security/coordinator-operation-creation-internal.ts`](<../../../40_Develop/coordinator/src/security/coordinator-operation-creation-internal.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts>)
+- [`40_Develop/coordinator/src/security/docker-effect-runtime.ts`](<../../../40_Develop/coordinator/src/security/docker-effect-runtime.ts>)
+- [`40_Develop/coordinator/src/security/docker-isolation.ts`](<../../../40_Develop/coordinator/src/security/docker-isolation.ts>)
+- [`40_Develop/coordinator/src/security/docker-project-recovery-settlement.ts`](<../../../40_Develop/coordinator/src/security/docker-project-recovery-settlement.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-journal.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-journal.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-public-projection.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-public-projection.ts>)
+- [`40_Develop/coordinator/src/security/docker-restart-continuation-record.ts`](<../../../40_Develop/coordinator/src/security/docker-restart-continuation-record.ts>)
+- [`40_Develop/coordinator/src/security/execution-environment.ts`](<../../../40_Develop/coordinator/src/security/execution-environment.ts>)
+- [`40_Develop/coordinator/src/security/execution-intelligence-adapter.ts`](<../../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts>)
+- [`40_Develop/coordinator/src/security/external-send-policy-runtime.ts`](<../../../40_Develop/coordinator/src/security/external-send-policy-runtime.ts>)
+- [`40_Develop/coordinator/src/security/platform-key-storage-policy.ts`](<../../../40_Develop/coordinator/src/security/platform-key-storage-policy.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-release-identity.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-release-identity.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-candidate-integration-adapter.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-candidate-integration-adapter.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-decision-recovery-store.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-decision-recovery-store.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-execution-host-adapter.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-execution-host-adapter.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-integration-record-adapter.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-integration-record-adapter.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-objective-intake.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-objective-intake.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-windows-decision-store.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-windows-decision-store.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts>)
+- [`40_Develop/coordinator/src/security/provider-home.ts`](<../../../40_Develop/coordinator/src/security/provider-home.ts>)
+- `40_Develop/coordinator/src/security/repository-git-layout.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/repository-operation-runtime.ts`](<../../../40_Develop/coordinator/src/security/repository-operation-runtime.ts>)
+- `40_Develop/coordinator/src/security/repository-root-resolution.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/repository-workspace-runtime.ts`](<../../../40_Develop/coordinator/src/security/repository-workspace-runtime.ts>)
+- [`40_Develop/coordinator/src/security/windows-directory-bootstrap.ts`](<../../../40_Develop/coordinator/src/security/windows-directory-bootstrap.ts>)
+- [`40_Develop/coordinator/tests/integration/development-package-scripts.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/development-package-scripts.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/generate-release-key.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/generate-release-key.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/git-object-reader.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/git-object-reader.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/git-object-reader.integration.test.ts`](<../../../40_Develop/coordinator/tests/integration/git-object-reader.integration.test.ts>)
+- [`40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/project-runtime-candidate-integration-adapter.integration.test.ts`](<../../../40_Develop/coordinator/tests/integration/project-runtime-candidate-integration-adapter.integration.test.ts>)
+- [`40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts`](<../../../40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts>)
+- [`40_Develop/coordinator/tests/integration/repository-git-layout.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/repository-git-layout.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/repository-root-resolution.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/repository-root-resolution.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts>)
+- [`40_Develop/coordinator/tests/unit/development-provider-measurement.contract.test.ts`](<../../../40_Develop/coordinator/tests/unit/development-provider-measurement.contract.test.ts>)
+- [`40_Develop/coordinator/tests/unit/doctor.contract.test.ts`](<../../../40_Develop/coordinator/tests/unit/doctor.contract.test.ts>)
+- [`40_Develop/coordinator/tests/unit/project-runtime-windows-platform-adapter.contract.test.ts`](<../../../40_Develop/coordinator/tests/unit/project-runtime-windows-platform-adapter.contract.test.ts>)
+- [`40_Develop/coordinator/tsconfig.strict.json`](<../../../40_Develop/coordinator/tsconfig.strict.json>)
+- [`40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts`](<../../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts>)
+- [`40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts`](<../../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts>)
+- [`40_Develop/execution-intelligence/src/store/verified-repository-root.ts`](<../../../40_Develop/execution-intelligence/src/store/verified-repository-root.ts>)
+- [`40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts>)
+- [`40_Develop/mcp/src/adapters/project-runtime-adapter.ts`](<../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts>)
+- [`40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts`](<../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts>)
+- [`40_Develop/project-runtime/src/application/project-runtime-integration.ts`](<../../../40_Develop/project-runtime/src/application/project-runtime-integration.ts>)
+- [`40_Develop/project-runtime/src/public-contract/integration-result.ts`](<../../../40_Develop/project-runtime/src/public-contract/integration-result.ts>)
+- [`40_Develop/project-runtime/tests/unit/public-contract.contract.test.ts`](<../../../40_Develop/project-runtime/tests/unit/public-contract.contract.test.ts>)
+- [`40_Develop/runtime-data/src/index.ts`](<../../../40_Develop/runtime-data/src/index.ts>)
+- `40_Develop/runtime-data/src/platform/repository-root-capability.ts`（削除または旧Path）
+- [`40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts`](<../../../40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts>)
+- [`40_Develop/runtime-data/src/store/temporary-operation-store.ts`](<../../../40_Develop/runtime-data/src/store/temporary-operation-store.ts>)
+- [`40_Develop/runtime-data/tests/fixtures/create-temporary-operation-and-exit.ts`](<../../../40_Develop/runtime-data/tests/fixtures/create-temporary-operation-and-exit.ts>)
+- [`40_Develop/runtime-data/tests/fixtures/resume-temporary-operation-and-exit.ts`](<../../../40_Develop/runtime-data/tests/fixtures/resume-temporary-operation-and-exit.ts>)
+- [`40_Develop/runtime-data/tests/integration/repository-runtime-data-paths.integration.test.ts`](<../../../40_Develop/runtime-data/tests/integration/repository-runtime-data-paths.integration.test.ts>)
+- [`40_Develop/runtime-data/tests/integration/runtime-data-consumer-closure.integration.test.ts`](<../../../40_Develop/runtime-data/tests/integration/runtime-data-consumer-closure.integration.test.ts>)
+- [`40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts`](<../../../40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts>)
+- [`40_Develop/version-control/package-lock.json`](<../../../40_Develop/version-control/package-lock.json>)
+- [`40_Develop/version-control/package.json`](<../../../40_Develop/version-control/package.json>)
+- [`40_Develop/version-control/scripts/generate-checker-runtime.ts`](<../../../40_Develop/version-control/scripts/generate-checker-runtime.ts>)
+- [`40_Develop/version-control/src/distribution/checker-version-control-runtime.ts`](<../../../40_Develop/version-control/src/distribution/checker-version-control-runtime.ts>)
+- [`40_Develop/version-control/src/fixed-revision.ts`](<../../../40_Develop/version-control/src/fixed-revision.ts>)
+- [`40_Develop/version-control/src/fixed-snapshot.ts`](<../../../40_Develop/version-control/src/fixed-snapshot.ts>)
+- [`40_Develop/version-control/src/git/fixed-revision-adapter.ts`](<../../../40_Develop/version-control/src/git/fixed-revision-adapter.ts>)
+- [`40_Develop/version-control/src/git/fixed-snapshot-adapter.ts`](<../../../40_Develop/version-control/src/git/fixed-snapshot-adapter.ts>)
+- [`40_Develop/version-control/src/git/local-change-set-adapter.ts`](<../../../40_Develop/version-control/src/git/local-change-set-adapter.ts>)
+- [`40_Develop/version-control/src/git/object-reader.ts`](<../../../40_Develop/version-control/src/git/object-reader.ts>)
+- [`40_Develop/version-control/src/git/repository-layout-adapter.ts`](<../../../40_Develop/version-control/src/git/repository-layout-adapter.ts>)
+- [`40_Develop/version-control/src/git/repository-layout.ts`](<../../../40_Develop/version-control/src/git/repository-layout.ts>)
+- [`40_Develop/version-control/src/git/repository-local-ignore-adapter.ts`](<../../../40_Develop/version-control/src/git/repository-local-ignore-adapter.ts>)
+- [`40_Develop/version-control/src/index.ts`](<../../../40_Develop/version-control/src/index.ts>)
+- [`40_Develop/version-control/src/local-change-set.ts`](<../../../40_Develop/version-control/src/local-change-set.ts>)
+- [`40_Develop/version-control/src/repository-local-ignore.ts`](<../../../40_Develop/version-control/src/repository-local-ignore.ts>)
+- [`40_Develop/version-control/src/repository-location.ts`](<../../../40_Develop/version-control/src/repository-location.ts>)
+- [`40_Develop/version-control/src/repository-revision.ts`](<../../../40_Develop/version-control/src/repository-revision.ts>)
+- [`40_Develop/version-control/tests/fixtures/repository-ignore-writer.ts`](<../../../40_Develop/version-control/tests/fixtures/repository-ignore-writer.ts>)
+- [`40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts`](<../../../40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts>)
+- [`40_Develop/version-control/tests/integration/fixed-revision-and-ignore.integration.test.ts`](<../../../40_Develop/version-control/tests/integration/fixed-revision-and-ignore.integration.test.ts>)
+- [`40_Develop/version-control/tests/integration/fixed-snapshot.integration.test.ts`](<../../../40_Develop/version-control/tests/integration/fixed-snapshot.integration.test.ts>)
+- [`40_Develop/version-control/tests/integration/local-change-set.integration.test.ts`](<../../../40_Develop/version-control/tests/integration/local-change-set.integration.test.ts>)
+- [`40_Develop/version-control/tests/integration/repository-location.integration.test.ts`](<../../../40_Develop/version-control/tests/integration/repository-location.integration.test.ts>)
+- [`40_Develop/version-control/tsconfig.json`](<../../../40_Develop/version-control/tsconfig.json>)
+- [`99_Roadmap/01_Roadmap.md`](<../../../99_Roadmap/01_Roadmap.md>)
+- [`99_Roadmap/02_Changes.md`](<../../../99_Roadmap/02_Changes.md>)
+- [`99_Roadmap/Changes/CHG-000001/change.md`](<../../../99_Roadmap/Changes/CHG-000001/change.md>)
+- [`99_Roadmap/Changes/CHG-000002/change.md`](<../../../99_Roadmap/Changes/CHG-000002/change.md>)
+- [`99_Roadmap/Changes/CHG-000003/change.md`](<../../../99_Roadmap/Changes/CHG-000003/change.md>)
+- [`99_Roadmap/Changes/CHG-000004/change.md`](<../../../99_Roadmap/Changes/CHG-000004/change.md>)
+- [`99_Roadmap/Changes/CHG-000005/change.md`](<../../../99_Roadmap/Changes/CHG-000005/change.md>)
+- [`99_Roadmap/Changes/CHG-000006/change.md`](<../../../99_Roadmap/Changes/CHG-000006/change.md>)
+- [`99_Roadmap/Changes/CHG-000007/change.md`](<../../../99_Roadmap/Changes/CHG-000007/change.md>)
+- [`99_Roadmap/Changes/CHG-000008/change.md`](<../../../99_Roadmap/Changes/CHG-000008/change.md>)
+- [`99_Roadmap/Changes/CHG-000009/change.md`](<../../../99_Roadmap/Changes/CHG-000009/change.md>)
+- [`99_Roadmap/Changes/CHG-000010/change.md`](<../../../99_Roadmap/Changes/CHG-000010/change.md>)
+- [`99_Roadmap/Changes/CHG-000011/change.md`](<../../../99_Roadmap/Changes/CHG-000011/change.md>)
+- [`99_Roadmap/Changes/CHG-000012/change.md`](<../../../99_Roadmap/Changes/CHG-000012/change.md>)
+- [`99_Roadmap/Changes/CHG-000013/change.md`](<../../../99_Roadmap/Changes/CHG-000013/change.md>)
+- [`99_Roadmap/Changes/CHG-000014/change.md`](<../../../99_Roadmap/Changes/CHG-000014/change.md>)
+- [`99_Roadmap/Changes/CHG-000015/change.md`](<../../../99_Roadmap/Changes/CHG-000015/change.md>)
+- [`99_Roadmap/Changes/CHG-000017/change.md`](<../../../99_Roadmap/Changes/CHG-000017/change.md>)
+- [`99_Roadmap/Changes/CHG-000054/change.md`](<../../../99_Roadmap/Changes/CHG-000054/change.md>)
+- [`99_Roadmap/Changes/CHG-000055/change.md`](<../../../99_Roadmap/Changes/CHG-000055/change.md>)
+- [`99_Roadmap/Changes/CHG-000056/change.md`](<../../../99_Roadmap/Changes/CHG-000056/change.md>)
+- [`99_Roadmap/Changes/CHG-000057/change.md`](<../../../99_Roadmap/Changes/CHG-000057/change.md>)
+- [`99_Roadmap/Changes/CHG-000058/change.md`](<../../../99_Roadmap/Changes/CHG-000058/change.md>)
+- [`99_Roadmap/Changes/CHG-000059/change.md`](<../../../99_Roadmap/Changes/CHG-000059/change.md>)
+- [`99_Roadmap/Changes/CHG-000060/change.md`](<../../../99_Roadmap/Changes/CHG-000060/change.md>)
+- [`99_Roadmap/Changes/CHG-000061/change.md`](<../../../99_Roadmap/Changes/CHG-000061/change.md>)
+- [`99_Roadmap/Changes/CHG-000062/change.md`](<../../../99_Roadmap/Changes/CHG-000062/change.md>)
+- [`99_Roadmap/Changes/CHG-000063/change.md`](<../../../99_Roadmap/Changes/CHG-000063/change.md>)
+- [`99_Roadmap/Changes/CHG-000064/change.md`](<../../../99_Roadmap/Changes/CHG-000064/change.md>)
+- [`99_Roadmap/Changes/CHG-000065/change.md`](<../../../99_Roadmap/Changes/CHG-000065/change.md>)
+- [`99_Roadmap/Changes/CHG-000066/change.md`](<../../../99_Roadmap/Changes/CHG-000066/change.md>)
+- [`99_Roadmap/Changes/CHG-000067/change.md`](<../../../99_Roadmap/Changes/CHG-000067/change.md>)
+- [`99_Roadmap/Changes/CHG-000068/change.md`](<../../../99_Roadmap/Changes/CHG-000068/change.md>)
+- [`99_Roadmap/Changes/CHG-000069/change.md`](<../../../99_Roadmap/Changes/CHG-000069/change.md>)
+- [`99_Roadmap/Changes/CHG-000070/change.md`](<../../../99_Roadmap/Changes/CHG-000070/change.md>)
+- [`99_Roadmap/Changes/CHG-000071/change.md`](<../../../99_Roadmap/Changes/CHG-000071/change.md>)
+- [`99_Roadmap/Changes/CHG-000071/Evidence/260913-2335_signed-e2e.md`](<../../../99_Roadmap/Changes/CHG-000071/Evidence/260913-2335_signed-e2e.md>)
+- [`99_Roadmap/Changes/CHG-000072/change.md`](<../../../99_Roadmap/Changes/CHG-000072/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/01_Discovery/01_Product_Discovery.md`](<../../../template/01_Discovery/01_Product_Discovery.md>)
+- [`template/01_Discovery/Explorations/EXP-XXXXXX_Short_Name/exploration.md`](<../../../template/01_Discovery/Explorations/EXP-XXXXXX_Short_Name/exploration.md>)
+- [`template/02_UX/01_User_Experience.md`](<../../../template/02_UX/01_User_Experience.md>)
+- [`template/99_Roadmap/Changes/CHG-XXXXXX/change.md`](<../../../template/99_Roadmap/Changes/CHG-XXXXXX/change.md>)
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+- [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
+- [`template/tools/internal/version-control-runtime.ts`](<../../../template/tools/internal/version-control-runtime.ts>)
+
+</details>
 
 ## 3. 採用する責務
 
@@ -78,8 +327,9 @@ Filenameの時刻基準はCRDD公式RepositoryではJSTとし、正式時刻を�
 
 ## 6. 変更禁止範囲
 
-- `fixed_history`に分類された過去CHGとEvidenceは、配置だけを変更し、本文を1 byteも書き換えない。旧Pathも当時の観測値または歴史参照として保持する。
-- `current`に分類された文書だけ、移行元の固定Dispositionと閉じた変換契約に基づくCanonical Path更新を許可する。現在導線は一覧または現在文書が提供する。
+- 過去CHG本文は、現在のCanonical Change契約へ移行するために構造と案内を更新できる。過去の判断、結果、観測値またはリリース状態を現在の値で遡及上書きしない。
+- byte列自体がEvidence Identityである固定Evidenceは変更しない。CHGの可読性・追跡性を改善することと、観測原文の改変を分ける。
+- 影響ファイル一覧へ、同じCommitに混在した別CHGまたは無関係な機械整形を含めない。過去の帰属を一意に確定できない場合は推測せず、その限界を明示する。
 - CHG本文と履歴を別Artifactへ分割しない。
 - Quality Centerを個別Evidenceの第二正本にしない。
 - Evidenceを日付、拡張子または`Verification`という語だけでOwnerへ分類しない。
@@ -104,7 +354,7 @@ Work Lifecycleは、管理対象の全Markdown更新へCHGを要求する仕組�
 |---|---|---|
 | 1 | 現行CHG、Change Evidence、Verification Result、Release Evidence候補を棚卸し | 全ファイルが一つの証明対象または判断待ちに分類される |
 | 2 | 正本規則、ひな型、Checkerの現行Path契約を固定 | 旧Pathを新規正本として許可しない反証を持つ |
-| 3 | Roadmap、CHG Aggregate、Evidenceを一括移行 | 固定履歴の本文byteを維持し、現在文書だけ許可したPath変換を行う |
+| 3 | Roadmap、CHG Aggregate、Evidenceを一括移行 | CHGはCanonical契約へ統一し、固定Evidenceの本文byteを維持したままPath変換を行う |
 | 4 | Consumer Closure | 現行Checker、Workflow、Template、Tool、MCP／Runtimeの利用Pathを全数照合する。移行対応表と、固定改訂版から再構成した対象集合の真正性は独立監査で確認する |
 | 5 | 独立確認 | 文書Owner、履歴Identity、リンク、正本一意性、移行漏れがMajor 0になる |
 
@@ -112,7 +362,7 @@ Work Lifecycleは、管理対象の全Markdown更新へCHGを要求する仕組�
 
 | 母集団 | 現在数 | 初期分類 |
 |---|---:|---|
-| CHG本文 | 33 | 各CHG Aggregateへ移行 |
+| CHG本文 | 35 | 各CHG Aggregateへ移行し、影響ファイル契約へ統一 |
 | `90_Release/Changes/Evidence` | 343 | filenameのCHG IDだけで確定せず、CHG本文・統合台帳のOwner接続と照合 |
 | `07_Quality/Verification_Results` | 28 | Change固有またはRelease全体へ分類 |
 | 旧Path参照を持つ追跡File | 116 | Contract単位で自動導出し、移行後0件を確認 |
@@ -129,7 +379,8 @@ Work Lifecycleは、管理対象の全Markdown更新へCHGを要求する仕組�
 | 物理移行とConsumer Closure | 完了。408件を移行し、固定履歴392件はsource byteを完全保持 |
 | 移行前後の証拠連続性 | 完了。移行時の固定監査でsource／target、Commit、Hashおよび配置を照合した。通常Checkerへ過去移行の再演責務は残さない |
 | Canonical名称の意味閉包 | 完了。`99_Roadmap/01_Roadmap.md`の表題を所有範囲と一致する`CRDD Roadmap`へ統一し、固定したCanonical案内文書のPath変更時に旧表題が残る状態をCheckerで拒否する |
-| 独立レビュー／監査 | 完了。最終再レビューはCritical 0／Major 0／Moderate 0 |
+| CHG影響ファイル契約 | 是正完了。全35件を同一の折り畳み可能な平坦Path一覧へ統一し、Git履歴、直接参照および現在差分から確認できる全Pathを収載した。構造上の意味は直前の変更表が所有し、一覧内で分類を重複させない |
+| 独立レビュー／監査 | `Pass`。是正後の同一改訂版でCritical 0／Major 0／Moderate 0／Minor 0を確認。全CHGの影響Path閉包、平坦一覧の正本境界、UX要求分析Directory全欠落の反証、および変更後状態表示を確認済み |
 
 名称移行ではPath、Linkおよび配置だけでなく、文書表題が移行後の責務を表すことまで利用側閉包へ含める。全MarkdownへFilenameと表題の機械的一致を要求せず、安定したCanonical案内文書について宣言したPathと表題の組を検証する。
 

@@ -24,6 +24,73 @@ v0.20.1は、この公開状態の利用側伝播漏れを正し、Stableな最�
 | 変更トレース | CHGの公開状態がRelease判断待ちのまま残った | v0.20.0対象CHGを公式tagと公開日へ接続する |
 | Roadmap | 完了したv0.20作業が未完了登録簿に残った | 完了根拠へ移し、v0.21以降だけを残す |
 
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`04_Agent_Organization.md`](<../../../04_Agent_Organization.md>)
+- [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
+- [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
+- [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
+- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
+- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/mcp/01_Architecture.md`](<../../../06_Architecture/mcp/01_Architecture.md>)
+- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
+- [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
+- [`19_Workflows/04_MCP_Server.md`](<../../../19_Workflows/04_MCP_Server.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- [`40_Develop/checker/package.json`](<../../../40_Develop/checker/package.json>)
+- `40_Develop/checker/scripts/update-document-disposition-inventory.ts`（削除または旧Path）
+- [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](<../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts>)
+- [`40_Develop/checker/tsconfig.json`](<../../../40_Develop/checker/tsconfig.json>)
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000062_Execution_Intelligence.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000065_Structured_First_Documentation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000069_V0201_Release_State_Propagation.md`（削除または旧Path）
+- `90_Release/Changes/README.md`（削除または旧Path）
+- `99_Roadmap/01_Product_Roadmap.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000069/change.md`](<../../../99_Roadmap/Changes/CHG-000069/change.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
+
+</details>
+
 ## 3. 完成条件
 
 - 全CRDD正本が`Version: v0.20.1`かつ`Status: Stable`である。

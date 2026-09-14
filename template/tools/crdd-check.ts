@@ -356,6 +356,73 @@ function checkWorkLifecycleNavigation(): void {
     )
     .map((entry) => entry.name)
     .sort();
+  for (const aggregateId of aggregateIds) {
+    const changePath = path.join(changesRoot, aggregateId, "change.md");
+    const change = read(changePath);
+    const impactHeadings = change.match(/^### 影響ファイル$/gmu) ?? [];
+    if (impactHeadings.length !== 1) {
+      add(
+        "error",
+        "change-impact-files-section-mismatch",
+        relative(changePath),
+        "Every canonical Change must contain exactly one '### 影響ファイル' section.",
+      );
+      continue;
+    }
+    const impactBlock = change.match(
+      /^### 影響ファイル\r?\n\r?\n<details>\r?\n<summary>全ファイルを表示<\/summary>\r?\n([\s\S]*?)\r?\n<\/details>$/mu,
+    )?.[1];
+    const impactLines = impactBlock
+      ?.split(/\r?\n/u)
+      .filter((line) => line.trim().length > 0);
+    const impactLinePattern =
+      /^- (?:\[[^\]]+\]\([^)]+\)|`[^`]+`（(?:削除|削除または旧Path)）|`[^`]+` → \[[^\]]+\]\([^)]+\))$/u;
+    if (
+      !impactLines ||
+      impactLines.length === 0 ||
+      impactLines.some((line) => !impactLinePattern.test(line))
+    ) {
+      add(
+        "error",
+        "change-impact-files-contract-invalid",
+        relative(changePath),
+        "The impact-file section must use the canonical disclosure label and contain only flat affected-path, deletion, or move entries.",
+      );
+    }
+    if (/^### 主な反映ファイル$/mu.test(change)) {
+      add(
+        "error",
+        "legacy-change-impact-heading",
+        relative(changePath),
+        "The legacy representative-file heading must not remain in a canonical Change.",
+      );
+    }
+  }
+  if (repositoryMode === "official") {
+    const changeTemplatePath = path.join(
+      root,
+      "template",
+      "99_Roadmap",
+      "Changes",
+      "CHG-XXXXXX",
+      "change.md",
+    );
+    if (lstatIfPresent(changeTemplatePath)?.isFile()) {
+      const changeTemplate = read(changeTemplatePath);
+      if (
+        !/^### 影響ファイル$/mu.test(changeTemplate) ||
+        !/^<summary>全ファイルを表示<\/summary>$/mu.test(changeTemplate) ||
+        /^### 主な反映ファイル$/mu.test(changeTemplate)
+      ) {
+        add(
+          "error",
+          "change-impact-files-template-mismatch",
+          relative(changeTemplatePath),
+          "The official Change template must expose the canonical exhaustive impact-file section.",
+        );
+      }
+    }
+  }
   const index = read(changeIndexPath);
   const aggregateIndex =
     index.match(
@@ -1331,7 +1398,11 @@ function loadFixedHistoryMigration(): Readonly<{
         throw new Error("entry source or target is duplicated");
       sources.add(entry.source);
       targets.add(entry.target);
-      if (entry.currentnessAtMigration !== "fixed_history") continue;
+      if (
+        entry.currentnessAtMigration !== "fixed_history" ||
+        !entry.target.replaceAll("\\", "/").includes("/Evidence/")
+      )
+        continue;
       byCurrentPath.set(
         entry.target.replaceAll("\\", "/"),
         entry as WorkLifecycleMigrationEntry,

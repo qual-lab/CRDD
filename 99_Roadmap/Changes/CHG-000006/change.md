@@ -5,7 +5,7 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-07-31
 
-正本規則: [変更](../../12_Change.md)
+正本規則: [変更](../../../12_Change.md)
 
 ## 契機 / 起点
 
@@ -61,14 +61,14 @@ CRDDの運用で、完成後の独立レビューや監査が同じ対象を複�
 
 ## 変更対象
 
-- [概要](../../00_Overview.md): 変更経路案内へ着手前確認を追加
-- [用語](../../02_Terminology.md): 着手前整合確認を補助概念として登録し、近い概念との境界を追加
-- [文書化](../../03_Documentation.md): 用語・表現を編集前に確認する条件と観点を追加
-- [エージェント](../../10_Agent.md): 着手前整合確認の一般契約を追加
-- [スキル](../../11_Skill.md): 変換前の接続を追加
-- [保守](../../19_Maintenance.md): CRDD標準変更のライフサイクルと実行契約へ接続
-- [準拠監査](../../52_Conformance_Audit.md): `AD-02`の必須行動と根拠を更新
-- [不足／影響監査](../../53_Gap_Impact_Audit.md): 正式監査との境界を追加
+- [概要](../../../00_Overview.md): 変更経路案内へ着手前確認を追加
+- [用語](../../../02_Terminology.md): 着手前整合確認を補助概念として登録し、近い概念との境界を追加
+- [文書化](../../../03_Documentation.md): 用語・表現を編集前に確認する条件と観点を追加
+- [エージェント](../../../10_Agent.md): 着手前整合確認の一般契約を追加
+- [スキル](../../../11_Skill.md): 変換前の接続を追加
+- [保守](../../../19_Maintenance.md): CRDD標準変更のライフサイクルと実行契約へ接続
+- [準拠監査](../../../52_Conformance_Audit.md): `AD-02`の必須行動と根拠を更新
+- [不足／影響監査](../../../53_Gap_Impact_Audit.md): 正式監査との境界を追加
 - Root／Templateの`AGENTS.md`と`CLAUDE.md`: 実行トリガーと正本参照を追加
 
 更新不要:
@@ -140,3 +140,43 @@ CRDDの運用で、完成後の独立レビューや監査が同じ対象を複�
 - 統合: [PR #6](https://github.com/qual-lab/CRDD/pull/6)
 - 公開識別子: `v0.12.0`タグ
 - 人間の決定権限者が`v0.12.0`としてのリリース作業を承認済み
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000006_Pre_Execution_Alignment_Check.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000006/change.md`](<../../../99_Roadmap/Changes/CHG-000006/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`CLAUDE.md`](<../../../CLAUDE.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+- [`template/CLAUDE.md`](<../../../template/CLAUDE.md>)
+
+</details>

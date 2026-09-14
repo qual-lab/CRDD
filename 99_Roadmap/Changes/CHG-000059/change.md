@@ -11,7 +11,7 @@
 - リリースレベル: `MINOR`
 - リリース: `v0.19.0`（2026-09-05）
 
-正本: [変更トレース](../../12_Change.md)、[品質保証](../../16_Quality_Assurance.md)、[文書化](../../03_Documentation.md)、[エージェント](../../10_Agent.md)、[外部コミュニケーション](../../17_Communication.md)、[アーキテクチャ](../../27_Architecture.md)、[文書監査](../../51_Document_Audit.md)
+正本: [変更トレース](../../../12_Change.md)、[品質保証](../../../16_Quality_Assurance.md)、[文書化](../../../03_Documentation.md)、[エージェント](../../../10_Agent.md)、[外部コミュニケーション](../../../17_Communication.md)、[アーキテクチャ](../../../27_Architecture.md)、[文書監査](../../../51_Document_Audit.md)
 
 ## 1. 契機と変更意図
 
@@ -36,12 +36,127 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 - 既存CHGを機械的に遡及更新しない。
 - Provider Task、Project Runtimeの利用機能または既存のRuntime Authorityを拡張しない。Release manifestのA→B昇格は、署名済みbyteを壊さず運ぶための限定Filesystem Effectとして実装・検証する。
 
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`02_UX/01_User_Experience.md`](<../../../02_UX/01_User_Experience.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`03_IA/01_Information_Architecture.md`](<../../../03_IA/01_Information_Architecture.md>)
+- [`04_Agent_Organization.md`](<../../../04_Agent_Organization.md>)
+- [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
+- [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
+- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
+- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- `06_Architecture/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
+- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- `07_Quality/Verification_Results/2026-09-02_Dogfooding_Assurance_Route_Readability_Verification.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.json`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Source_A_Pre_Sign_Audit.md`（削除または旧Path）
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- [`40_Develop/coordinator/bin/coordinator.ts`](<../../../40_Develop/coordinator/bin/coordinator.ts>)
+- [`40_Develop/coordinator/bin/launch.ts`](<../../../40_Develop/coordinator/bin/launch.ts>)
+- `40_Develop/coordinator/runtime/project-runtime-design-traceability.json`（削除または旧Path）
+- [`40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts`](<../../../40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts>)
+- [`40_Develop/coordinator/scripts/promote-release-manifest.ts`](<../../../40_Develop/coordinator/scripts/promote-release-manifest.ts>)
+- [`40_Develop/coordinator/scripts/release-manifest-promotion.ts`](<../../../40_Develop/coordinator/scripts/release-manifest-promotion.ts>)
+- [`40_Develop/coordinator/src/core/coordinator-launch.ts`](<../../../40_Develop/coordinator/src/core/coordinator-launch.ts>)
+- [`40_Develop/coordinator/src/core/project-runtime-design-traceability.ts`](<../../../40_Develop/coordinator/src/core/project-runtime-design-traceability.ts>)
+- [`40_Develop/coordinator/src/security/claude-docker-runtime-adapter.ts`](<../../../40_Develop/coordinator/src/security/claude-docker-runtime-adapter.ts>)
+- [`40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts`](<../../../40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts>)
+- [`40_Develop/coordinator/src/security/coordinator-task-runtime.ts`](<../../../40_Develop/coordinator/src/security/coordinator-task-runtime.ts>)
+- [`40_Develop/coordinator/src/security/docker-process-controller.ts`](<../../../40_Develop/coordinator/src/security/docker-process-controller.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-runtime-internal.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-runtime-internal.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-runtime.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-runtime.ts>)
+- `40_Develop/coordinator/src/security/mcp-project-runtime-adapter.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/mcp-project-runtime-stdio.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts>)
+- `40_Develop/coordinator/src/security/project-runtime-execution.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/project-runtime-objective-intake.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-objective-intake.ts>)
+- `40_Develop/coordinator/src/security/project-runtime-platform-contract.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/project-runtime-public-runtime.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts>)
+- `40_Develop/coordinator/src/security/project-runtime-state.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts>)
+- `40_Develop/coordinator/tests/coordinator-launch.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-recovery-runtime.contract.test.ts`（削除または旧Path）
+- [`40_Develop/coordinator/tests/fixtures/project-runtime-lease-race-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/project-runtime-lease-race-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/release-manifest-promotion-racer.ts`](<../../../40_Develop/coordinator/tests/fixtures/release-manifest-promotion-racer.ts>)
+- `40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/mcp-project-runtime-stdio.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-access-ts-coverage.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-execution.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-full-flow.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-integration.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-objective-intake.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-platform-contract.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-platform-independence.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-public-runtime.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-queue-priority.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-single-task-adapter.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-state.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-windows-platform-adapter.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/release-manifest-promotion.contract.test.ts`（削除または旧Path）
+- [`40_Develop/coordinator/tsconfig.strict.json`](<../../../40_Develop/coordinator/tsconfig.strict.json>)
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000060_CRDD_Brand_Icon_Adoption.md`（削除または旧Path）
+- `90_Release/Changes/README.md`（削除または旧Path）
+- `99_Roadmap/01_Product_Roadmap.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000059/change.md`](<../../../99_Roadmap/Changes/CHG-000059/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/80_Communication/01_Communication.md`](<../../../template/80_Communication/01_Communication.md>)
+- `template/90_Release/Changes/CHG-XXXXXX_Template.md`（削除または旧Path）
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+- `template/tools/coordinator/coordinator-package-manifest.json`（削除または旧Path）
+
+</details>
+
 ## 3. 変更経路の計画
 
-- 計画した主な経路: [変更トレース](../../12_Change.md) → [エージェント](../../10_Agent.md)／[概要](../../00_Overview.md) → [品質保証](../../16_Quality_Assurance.md)／[進捗管理](../../15_Progress.md) → [文書化](../../03_Documentation.md)／[文書監査](../../51_Document_Audit.md) → [準拠監査](../../52_Conformance_Audit.md)／[不足・影響監査](../../53_Gap_Impact_Audit.md) → 利用側ひな型・Project Runtimeの有用性評価
+- 計画した主な経路: [変更トレース](../../../12_Change.md) → [エージェント](../../../10_Agent.md)／[概要](../../../00_Overview.md) → [品質保証](../../../16_Quality_Assurance.md)／[進捗管理](../../../15_Progress.md) → [文書化](../../../03_Documentation.md)／[文書監査](../../../51_Document_Audit.md) → [準拠監査](../../../52_Conformance_Audit.md)／[不足・影響監査](../../../53_Gap_Impact_Audit.md) → 利用側ひな型・Project Runtimeの有用性評価
 - 選択理由: 変更経路は変更トレース、保証コストは品質保証、可読性は文書化と文書監査がそれぞれ正本責務を持ち、AI入口、ひな型、準拠およびProject Runtime評価へ直接伝播するため。
 - 予定する検証: 全体Checker、品質保証・変更工程の専門レビュー、文書監査、準拠監査、不足／影響監査。
-- 重要な非選択経路: [セキュリティ原則](../../01_Principles.md)に基づくセキュリティレビューと[RuntimeのE2E検証](../../07_Quality/03_Verification_Design.md)は、実装、Authority、Effect、Recovery、Providerまたは外部送信境界を変更しないため非選択。新しい可読性専用監査は、既存の[文書監査](../../51_Document_Audit.md)と責務が重複するため非選択。
+- 重要な非選択経路: [セキュリティ原則](../../../01_Principles.md)に基づくセキュリティレビューと[RuntimeのE2E検証](../../../07_Quality/03_Verification_Design.md)は、実装、Authority、Effect、Recovery、Providerまたは外部送信境界を変更しないため非選択。新しい可読性専用監査は、既存の[文書監査](../../../51_Document_Audit.md)と責務が重複するため非選択。
+
 
 ## 4. 適用境界と代表例
 
@@ -110,9 +225,9 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 
 機械Checkerはリンク・アンカー・構造の成立に有効だったが、文章の過密さ、英日差分および正しい内容の誤配置は検出しなかった。文書監査は可読性と所有先の不整合、準拠／不足・影響監査は英語CHANGELOGと利用側・変更トレースへの伝播不足、専門レビューはSecurity／Runtime契約の意味保持を確認する役割として有効だった。
 
-3つの固定改訂版を3系統で確認し、2回是正した。固定改訂版`008c583`では、当時の対象についてCheckerがMarkdown 396件、local link 2,778件、anchor 949件、Error 0、Warning 0で終了し、全独立確認が`Pass`、残る指摘事項0となった。指摘、共通原因、未測定値および非該当範囲は[検証結果](../../07_Quality/Verification_Results/2026-09-02_Dogfooding_Assurance_Route_Readability_Verification.md)に記録する。この結果は、後続で追加した意味変換、状態表示、上位完成、相関不変条件および三値観測の確認結果には流用しない。
+3つの固定改訂版を3系統で確認し、2回是正した。固定改訂版`008c583`では、当時の対象についてCheckerがMarkdown 396件、local link 2,778件、anchor 949件、Error 0、Warning 0で終了し、全独立確認が`Pass`、残る指摘事項0となった。指摘、共通原因、未測定値および非該当範囲は[検証結果](./Evidence/260902_dogfooding-assurance-route-readability-verification.md)に記録する。この結果は、後続で追加した意味変換、状態表示、上位完成、相関不変条件および三値観測の確認結果には流用しない。
 
-その後の利用側Feedbackでは、文書の読みやすさだけでなく、情報源から成果物への意味変換と状態表示に共通原因があることを確認した。追加差分は`03_Documentation.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`51_Document_Audit.md`、公式／利用側の`AGENTS.md`およびCommunicationひな型へ反映した。`008c583`の確認結果をこの追加差分へ流用せず、Project Runtimeの後続一般化と合わせた新しい[Source A署名前監査](../../07_Quality/Verification_Results/2026-09-03_Project_Runtime_Source_A_Pre_Sign_Audit.md)を実行した。初回固定改訂版で検出したRelease closure契約と公開文書への伝播のMajor 2件を是正し、`1f3f49b`の限定再確認はCritical／Major／Minor 0件でPassした。この結果は署名前の論理候補の成立であり、署名、実Provider／実Docker E2EまたはRelease完了へ読み替えない。
+その後の利用側Feedbackでは、文書の読みやすさだけでなく、情報源から成果物への意味変換と状態表示に共通原因があることを確認した。追加差分は`03_Documentation.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`51_Document_Audit.md`、公式／利用側の`AGENTS.md`およびCommunicationひな型へ反映した。`008c583`の確認結果をこの追加差分へ流用せず、Project Runtimeの後続一般化と合わせた新しい[Source A署名前監査](../CHG-000057/Evidence/260903_project-runtime-source-a-pre-sign-audit.md)を実行した。初回固定改訂版で検出したRelease closure契約と公開文書への伝播のMajor 2件を是正し、`1f3f49b`の限定再確認はCritical／Major／Minor 0件でPassした。この結果は署名前の論理候補の成立であり、署名、実Provider／実Docker E2EまたはRelease完了へ読み替えない。
 
 Project Runtimeの責務分離候補に対する独立レビューでは、一部のPlatform操作と単体試験の成立を境界全体の完成へ過大表示し得ること、および個別fieldが許容値でも成功表示とcleanup／Recovery義務が矛盾し得ることを検出した。共通原因は、設計から試験への接続一般ではなく、上位Capabilityの完成に必要な保証を漏れなく列挙して判定する規則と、複数fieldの相関不変条件が明示不足だったことである。Tool固有の状態名や実装方式は共通規範へ持ち込まず、`27_Architecture.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`51_Document_Audit.md`および公式／利用側の`AGENTS.md`へ一般化した。
 

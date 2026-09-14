@@ -10,21 +10,21 @@
 リリースレベル: `MINOR`候補
 `migration_required`: `true`
 
-正本規則: [変更](../../12_Change.md)
-概念正本: [エージェント組織](../../04_Agent_Organization.md)
-Architecture正本: [エージェント組織の実行アーキテクチャ](../../04_Agent_Organization.md#12-execution-architecture)
-実装案内: [Runtimeの振る舞い仕様](../../05_SPEC/01_Behavior_Specification.md)
-Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接続](../../06_Architecture/coordinator/01_Architecture.md)
-脅威境界: [Threat Model](../../06_Architecture/coordinator/02_Threat_Model.md)
-統合台帳: [未リリース変更トレース統合台帳](README.md)
+正本規則: [変更](../../../12_Change.md)
+概念正本: [エージェント組織](../../../04_Agent_Organization.md)
+Architecture正本: [エージェント組織の実行アーキテクチャ](../../../04_Agent_Organization.md#12-execution-architecture)
+実装案内: [Runtimeの振る舞い仕様](../../../05_SPEC/01_Behavior_Specification.md)
+Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接続](../../../06_Architecture/coordinator/01_Architecture.md)
+脅威境界: [Threat Model](../../../06_Architecture/coordinator/02_Threat_Model.md)
+統合台帳: [未リリース変更トレース統合台帳](../../02_Changes.md)
 
 ## 1. 結論と現在状態
 
-署名固定版`48515eb`の[4経路4/4・復旧7シナリオ・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)と[完成評価・端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)を終え、内容採用後にPR #32でmainへ統合し、v0.18.0を公開した。本節以下の公開準備記録は当時の判断と発展を保持する。現在のv0.18.1候補は[CHG-000056](CHG-000056_Coordinator_Adoption_Interface_Correction.md)が所有し、旧版の試験・署名をその成功には流用しない。
+署名固定版`48515eb`の[4経路4/4・復旧7シナリオ・実Task取消](../../Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md#signed-e2e-48515eb)と[完成評価・端末追加確認](./Evidence/260901_coordinator-completion-review.md#windows-terminal-verification)を終え、内容採用後にPR #32でmainへ統合し、v0.18.0を公開した。本節以下の公開準備記録は当時の判断と発展を保持する。現在のv0.18.1候補は[CHG-000056](../CHG-000056/change.md)が所有し、旧版の試験・署名をその成功には流用しない。
 
 ### 正式配布manifestの期限なし指定（2026-09-01）
 
-v0.18.0公開準備時点では、利用者は公開版が署名有効期限だけを理由に起動停止しないことを要求した。旧7日間は検証候補の設定であり、提案した1年間の期限は不採用となった。遠未来の日時を期限なしの代用にせず、manifestとenvelopeのrevision 3で必須キー`expiresAt: null`を期限なしとして署名する。revision 3のUTC文字列は期限付き、旧revision 2はUTC文字列の期限付きだけを保持する。新旧の署名domainを分離し、envelopeとpayloadのrevision一致、発行前拒否、署名鍵・Git Tree・当時の2つのNative成果物・sequenceの結合を維持する、と判断した。現在のv0.18.1候補は[CHG-000056](CHG-000056_Coordinator_Adoption_Interface_Correction.md)が所有するrevision 5、閉じたRuntime実行集合、単一`crdd-platform-access.exe`および旧revision拒否を正本とし、本段落を現行契約として使用しない。
+v0.18.0公開準備時点では、利用者は公開版が署名有効期限だけを理由に起動停止しないことを要求した。旧7日間は検証候補の設定であり、提案した1年間の期限は不採用となった。遠未来の日時を期限なしの代用にせず、manifestとenvelopeのrevision 3で必須キー`expiresAt: null`を期限なしとして署名する。revision 3のUTC文字列は期限付き、旧revision 2はUTC文字列の期限付きだけを保持する。新旧の署名domainを分離し、envelopeとpayloadのrevision一致、発行前拒否、署名鍵・Git Tree・当時の2つのNative成果物・sequenceの結合を維持する、と判断した。現在のv0.18.1候補は[CHG-000056](../CHG-000056/change.md)が所有するrevision 5、閉じたRuntime実行集合、単一`crdd-platform-access.exe`および旧revision拒否を正本とし、本段落を現行契約として使用しない。
 
 対象はTypeScript署名Coreと現在／履歴検証、署名CLI・事前検査、Rust Supervisorの同一契約、配布物のloader／package Gate、設計・仕様・手順・検証設計と公開案内。新CLIでは`--no-expiry`と`--expires-at <UTC>`のどちらか一つだけを指定し、不明・欠落・重複・両方指定は秘密読取り前に拒否する。nullへの改変、旧署名の新revision流用、開始前、期限ちょうど、未知revision、不正SchemaをTypeScriptとRustで反証する。Grant、初期同意、候補、準備記録の期限は変更しない。
 
@@ -44,7 +44,7 @@ v0.18.0公開準備時点のLocal Personal v1では、必須配布Trustを固定
 
 2026-08-31、E2E用の一時wrapperがstdoutをfileへredirectし、外部PowerShell上でも同意表示前に停止した。Runtimeは端末不成立を正しく拒否したが、実行担当者が既存の直接起動契約を崩した。終了コードの二次AssertionErrorと元の停止理由を区別する。
 
-ユーザー承認に基づき、同じ変更内で[共通起動入口](../../19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)を追加する。用途別の端末条件を対象import前に検査し、同一Processで既存入口へ未加工引数を渡す。子Process wrapper、stdio／環境／cwdの再構成、秘密値の記録、追加の承認や署名は増やさない。起動の早期拒否と正常接続を別々に試験し、安全Gateの拒否だけを利用品質の成立としない。
+ユーザー承認に基づき、同じ変更内で[共通起動入口](../../../19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)を追加する。用途別の端末条件を対象import前に検査し、同一Processで既存入口へ未加工引数を渡す。子Process wrapper、stdio／環境／cwdの再構成、秘密値の記録、追加の承認や署名は増やさない。起動の早期拒否と正常接続を別々に試験し、安全Gateの拒否だけを利用品質の成立としない。
 
 検証母集団は、人向け／自動処理／署名／4経路／復旧の各入口、正常・不正用途・不正引数・端末欠如・Node版、実子でのPID／argv／stdin byte／cwd／終了コード、import前拒否／import後状態不明。設計・UI／SPEC・手順・検証設計へ接続する。新規入口を含む配布の正式署名E2E、実利用全体の改善率、全体完成監査は別に残す。既存の署名配布物には継ぎ足さない。
 
@@ -64,15 +64,15 @@ v0.18.0公開準備時点のLocal Personal v1では、必須配布Trustを固定
 
 本変更の利用者価値は、Front Agentから直接Providerを相互spawnさせず、Coordinatorを唯一の仲介者としてCodexとClaude Codeへ実行・独立レビューを委譲し、検証済みのローカルCandidateを人間へ返せる`Coordinator Runtime 1.0`を一体として成立させることである。
 
-**移行前の署名固定版`0c3e6d2`でも4経路4/4・復旧7/7を完了した。** Docker停止から復旧し、再試行・是正0、既存同意再利用、全候補完全一致・破棄、cleanup確認済み、手動回復不要、正本Repository変更なしを確認した。[当時の実測結果と限界](Evidence/CHG-000015_Signed_E2E_0c3e6d2.md)は履歴として保持し、新配置の現在根拠は上記`45ea2ac`とする。以前の`89545e3`で逆方向が停止した[結果](Evidence/CHG-000015_Signed_E2E_89545e3.md)も過去経緯として保持する。
+**移行前の署名固定版`0c3e6d2`でも4経路4/4・復旧7/7を完了した。** Docker停止から復旧し、再試行・是正0、既存同意再利用、全候補完全一致・破棄、cleanup確認済み、手動回復不要、正本Repository変更なしを確認した。[当時の実測結果と限界](./Evidence/260831-1517_signed-e2e.md)は履歴として保持し、新配置の現在根拠は上記`45ea2ac`とする。以前の`89545e3`で逆方向が停止した[結果](./Evidence/260831-1139_signed-e2e.md)も過去経緯として保持する。
 
 停止理由の内訳を生出力なしで識別できるよう、結果形式、turn数、費用メタデータ、Reviewer本文の搬送不適合を固定理由へ分離した。受理条件や上限を緩和する修正ではない。以下の段階的な実測経緯と、上記の最新正式検証、残る最終一括監査を区別する。
 
-固定開発版`56af5a1`による[逆方向・順方向の追加実測](Evidence/CHG-000015_Development_Routes_56af5a1.md)では、順方向の一般Taskが完了し、逆方向はClaudeレビュー段階で上限関連の理由により停止した。実測後の設計照合で、Reviewerへ数値検証を重複要求する固定Taskの指示を既存の責務分離へ戻し、CLIの上限停止／成功結果の回数不整合を区別した。上限、モデル、権限、Runnerのbyte完全一致条件は変更していない。
+固定開発版`56af5a1`による[逆方向・順方向の追加実測](./Evidence/260831-1242_development-routes.md)では、順方向の一般Taskが完了し、逆方向はClaudeレビュー段階で上限関連の理由により停止した。実測後の設計照合で、Reviewerへ数値検証を重複要求する固定Taskの指示を既存の責務分離へ戻し、CLIの上限停止／成功結果の回数不整合を区別した。上限、モデル、権限、Runnerのbyte完全一致条件は変更していない。
 
-修正版`c6dbabd`の[双方向再実測](Evidence/CHG-000015_Development_Routes_c6dbabd.md)は2/2完了。指摘・是正・Task再試行0、呼出し計4回、両候補の破棄とcleanup確認済み、手動回復不要、正本Repository変更なし。逆方向約7分16秒、順方向約6分26秒で、性能改善は未証明。これは固定開発版の一般Task測定であり、正式Runnerのbyte完全一致・最新4経路・完成監査を代替しない。各経路1回の成功から前回の直接原因や再発率を確定しない。
+修正版`c6dbabd`の[双方向再実測](./Evidence/260831-1316_development-routes.md)は2/2完了。指摘・是正・Task再試行0、呼出し計4回、両候補の破棄とcleanup確認済み、手動回復不要、正本Repository変更なし。逆方向約7分16秒、順方向約6分26秒で、性能改善は未証明。これは固定開発版の一般Task測定であり、正式Runnerのbyte完全一致・最新4経路・完成監査を代替しない。各経路1回の成功から前回の直接原因や再発率を確定しない。
 
-旧固定版`a619545`では[署名済み4経路と復旧E2E](Evidence/CHG-000015_Signed_E2E_a619545.md)が4/4、7/7で完了している。再試行・是正0、既存同意再利用、候補完全一致・破棄、cleanup確認済み、未解決Recovery 0、正本Repository変更なしを確認した。ただし、旧版の成功を最新実装の完成根拠には流用しない。Frontはいずれも指定Profileであり、実アプリのIdentity認証ではない。
+旧固定版`a619545`では[署名済み4経路と復旧E2E](./Evidence/260830-1023_signed-e2e.md)が4/4、7/7で完了している。再試行・是正0、既存同意再利用、候補完全一致・破棄、cleanup確認済み、未解決Recovery 0、正本Repository変更なしを確認した。ただし、旧版の成功を最新実装の完成根拠には流用しない。Frontはいずれも指定Profileであり、実アプリのIdentity認証ではない。
 
 その後の固定開発版`c95eb91`では、[既存Subscriptionによる2Task比較](#development-comparison-c95eb91)が両方完了した。計測を追加した`848877c`でも[時間内訳の実測と改善要否の分析](#development-comparison-848877c)を完了し、各経路約6分、指摘・是正・Task再試行0、呼出し計4回、今回の候補破棄とcleanup成立を確認した。Release鍵の入力・再署名は不要だった。これらは開発版の限定実測であり、上記の署名済み4経路検証とは別の根拠である。実体照合の反復を改善候補としたが、削減実装、有用性全体の評価および最新実装の完成監査は未完了である。
 
@@ -86,7 +86,7 @@ v0.18.0公開準備時点のLocal Personal v1では、必須配布Trustを固定
 
 固定版`9037dd1`の実復旧では、停止判定を通過し、公式shutdown、WSL停止、`run`退避まで確認したが、起動段階で配布Identity不一致となり停止した。launch intentは未確定、手動回復必要、退避物と記録は保持中である。同時刻に配布Root内へ`.docker`が生成され、sourceでは空Homeと作業Directory継承を確認した。生成元Processの直接観測はなく、直接原因の確定や回復成功は主張しない。
 
-同じ変更内の是正として、[Docker専用起動環境](../../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)をOS由来のProfile、App Dataおよび明示cwdへ固定した。実子Processによる環境搬送・cwd・終了、非適合cwdの非発行、生成後Identity不明の保持を追加検証した。さらに旧署名版へ結合された記録について、既存ID・署名由来・hash chainを保持する限定的な引継ぎを実装した。元のv4記録は変更せず、引継ぎと明示終了の固定名receiptを同じ保護Directoryへ追加する。過去の署名は由来だけを証明し、現在の実行版の署名・配布・期限・選択ユーザー・Policy検証は緩和しない。引継ぎ済み記録の全stageは観測専用とし、過去のHost操作を再発行しない。
+同じ変更内の是正として、[Docker専用起動環境](../../../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)をOS由来のProfile、App Dataおよび明示cwdへ固定した。実子Processによる環境搬送・cwd・終了、非適合cwdの非発行、生成後Identity不明の保持を追加検証した。さらに旧署名版へ結合された記録について、既存ID・署名由来・hash chainを保持する限定的な引継ぎを実装した。元のv4記録は変更せず、引継ぎと明示終了の固定名receiptを同じ保護Directoryへ追加する。過去の署名は由来だけを証明し、現在の実行版の署名・配布・期限・選択ユーザー・Policy検証は緩和しない。引継ぎ済み記録の全stageは観測専用とし、過去のHost操作を再発行しない。
 
 開発試験では、実Ed25519署名と実記録Storeの接続、原記録の不変、ID維持、同じreceiptの再開、署名・tuple・Root・Policy・末尾hashの不一致、部分記録、全9stageからのHost再実行0、退避物保持／不存在、明示close、取消・状態不明・保存不明・helper cleanup不明・解放後の版差、CLI入力とJSON／人間表示／exitを確認する。実機では署名固定版`b468ddc`で旧11記録を保持した引継ぎreceiptの追加まで確認した。元記録は変更せず、Docker停止により現在状態の確認は`docker_desktop_repair_historical_current_state_unconfirmed`で停止した。この時点では、Qual-Labが担当する現在Dockerの回復と同じIDでの明示終了、最新正式E2E、独立完成監査が未完了だった。観測不能な起動履歴を理由に同じ操作を再実行せず、現在Dockerが停止していれば、その起動を別の明示操作として判断する。後続の回復結果を以下に記録する。
 
@@ -108,20 +108,20 @@ v0.18.0公開準備時点のLocal Personal v1では、必須配布Trustを固定
 
 ### 完成監査後の限定是正
 
-[署名版48515ebの再実測](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)では、追加境界試験と限定是正を固定した後の4経路・復旧・実Task取消後の通常回収を確認した。4f10201までの実測と、その後のコード・試験の限定独立確認は当時の範囲で保持する。旧版の失敗を後続成功へ書き換えず、結果記録の限定確認は完了とし、全体完成評価、統合、Releaseとは区別する。
+[署名版48515ebの再実測](../../Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md#signed-e2e-48515eb)では、追加境界試験と限定是正を固定した後の4経路・復旧・実Task取消後の通常回収を確認した。4f10201までの実測と、その後のコード・試験の限定独立確認は当時の範囲で保持する。旧版の失敗を後続成功へ書き換えず、結果記録の限定確認は完了とし、全体完成評価、統合、Releaseとは区別する。
 
-後続の未到達評価では、既存124ファイルを検証義務と根拠へ対応させ、Lock取得timeout、安定読取り、権限再確認、候補上限、検証結果の読戻し等を追加確認した。trace CLIの入力失敗時は未処理例外を固定理由・終了コードへ収束させ、機密Pathを出力しない。同じ未リリース変更で扱い、[完成確認記録](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md)へ故障仮説、試験結果、観測限界、独立確認と正式実測の残件を集約する。
+後続の未到達評価では、既存124ファイルを検証義務と根拠へ対応させ、Lock取得timeout、安定読取り、権限再確認、候補上限、検証結果の読戻し等を追加確認した。trace CLIの入力失敗時は未処理例外を固定理由・終了コードへ収束させ、機密Pathを出力しない。同じ未リリース変更で扱い、[完成確認記録](./Evidence/260901_coordinator-completion-review.md)へ故障仮説、試験結果、観測限界、独立確認と正式実測の残件を集約する。
 
 固定Tree `687699edb71143621e0090f15d7d9c70488b71ca`についてArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを一括確認した。新しい権限拡大や秘密漏洩の具体的欠陥は検出されなかったが、取消の本番共有処理への結合不足、実Provider是正の残余不確実性、現在の分岐網羅率記録、および現在状態の伝播漏れを残した。全結果を統合し、3担当へ是正方針を再提示して整合した。監査を終えたことだけでRuntimeを完成にしていない。
 
 - 現在状態の文書5件は`3495bcd1`で同期し、Document／Gap担当の限定再確認で解消・追加指摘0。その後の水平照合でArchitecture冒頭にも同種の現在表示を検出し、同じ是正へ含めた。初回列挙漏れを別意図のCHGへ分けない。
-- 過去に実失敗した是正経路は、[署名版45ea2acの公開Taskによる1往復](Evidence/CHG-000015_Remediation_45ea2ac.md)で、Claude実行→Codex指摘→Claude是正→Codex承認、候補のbyte一致・破棄・回収確認まで成立した。欠陥を仕込んだ限定1件であり、是正成功率や逆方向の実測へ一般化しない。
+- 過去に実失敗した是正経路は、[署名版45ea2acの公開Taskによる1往復](./Evidence/260831-2249_remediation.md)で、Claude実行→Codex指摘→Claude是正→Codex承認、候補のbyte一致・破棄・回収確認まで成立した。欠陥を仕込んだ限定1件であり、是正成功率や逆方向の実測へ一般化しない。
 - 取消は、実Process所有処理がDocker実行部品の内部に閉じ、試験が別の終了処理を注入していた。既存の処理を内部共有部品へ抽出し、本番と実子Process試験を同じ処理へ接続する。新しいCLI、実行許可、任意Workerの本番注入口は追加しない。OS通知・実Docker・Provider固有の未観測部分を保持する。
-- 網羅率は全試験合格と別に測定し、重複計測・未ロード・native未計測を分離する。率だけで未検証義務を閉じない。結果と残件は[品質の現在状態](../../07_Quality/01_Quality_Center.md)へ接続する。
+- 網羅率は全試験合格と別に測定し、重複計測・未ロード・native未計測を分離する。率だけで未検証義務を閉じない。結果と残件は[品質の現在状態](../../../07_Quality/01_Quality_Center.md)へ接続する。
 
-Process所有処理の抽出後は、新しい開発版として検証・再確認する。45ea2acの正式署名実測を変更後の正式配布成功へ流用せず、各編集で再署名もしない。担当責任者はQual-Lab。後続の[公開Task取消実測](../../07_Quality/Verification_Results/2026-08-31_Coordinator_Closure_Verification.md#public-task-cancellation-observation)ではCtrl+Cが到達したが通常回収が失敗し、正規Recoveryで回収した。CREATE結果の受領情報と取消の競合を同じ変更内で是正し、是正後の独立再確認・実取消再測定、統合・Release判断へ接続する。コード上の欠陥と実測失敗の原因を完全同定したとは扱わない。
+Process所有処理の抽出後は、新しい開発版として検証・再確認する。45ea2acの正式署名実測を変更後の正式配布成功へ流用せず、各編集で再署名もしない。担当責任者はQual-Lab。後続の[公開Task取消実測](./Evidence/260831_coordinator-closure-verification.md#public-task-cancellation-observation)ではCtrl+Cが到達したが通常回収が失敗し、正規Recoveryで回収した。CREATE結果の受領情報と取消の競合を同じ変更内で是正し、是正後の独立再確認・実取消再測定、統合・Release判断へ接続する。コード上の欠陥と実測失敗の原因を完全同定したとは扱わない。
 
-全体試験でGitローカル除外設定の間欠失敗を検出し、同じRuntime変更内で書込みの境界を再照合した。Windowsの自己書込み時刻確定とclose前後の完全比較が衝突する経路、最初のmodeからの変更を取り逃す経路を決定論的試験で確認して是正した。自己生成lockの初期実体・権限・Path、期待sizeと内容を保持し、close後だけ時刻snapshotを確定する。一般のIdentity検証、Root・既存excludeの初期snapshot、rename直前の厳密確認は維持する。[追加検証](../../07_Quality/Verification_Results/2026-08-31_Coordinator_Closure_Verification.md)に初回失敗、反証試験、取消の追加結合、網羅率と未確認範囲を残す。元の間欠失敗がすべて同原因だったとは断定しない。
+全体試験でGitローカル除外設定の間欠失敗を検出し、同じRuntime変更内で書込みの境界を再照合した。Windowsの自己書込み時刻確定とclose前後の完全比較が衝突する経路、最初のmodeからの変更を取り逃す経路を決定論的試験で確認して是正した。自己生成lockの初期実体・権限・Path、期待sizeと内容を保持し、close後だけ時刻snapshotを確定する。一般のIdentity検証、Root・既存excludeの初期snapshot、rename直前の厳密確認は維持する。[追加検証](./Evidence/260831_coordinator-closure-verification.md)に初回失敗、反証試験、取消の追加結合、網羅率と未確認範囲を残す。元の間欠失敗がすべて同原因だったとは断定しない。
 
 ### 1.1 経路別の現在状態
 
@@ -136,9 +136,9 @@ cross-providerを既定とし、同一ProviderまたはFront-onlyは、移譲不
 
 ### 1.2 Releaseまでの主要残件
 
-2026-09-01、固定版`98ccc9d`の全体独立確認3系統を終了し、[未到達分岐・公開表示・案内と移行の5件](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md)を是正・再確認中である。既存の署名実測は保持し、追加試験と未到達分岐の評価を完了条件へ接続する。試験合格数だけで本節の残件を解消しない。
+2026-09-01、固定版`98ccc9d`の全体独立確認3系統を終了し、[未到達分岐・公開表示・案内と移行の5件](./Evidence/260901_coordinator-completion-review.md)を是正・再確認中である。既存の署名実測は保持し、追加試験と未到達分岐の評価を完了条件へ接続する。試験合格数だけで本節の残件を解消しない。
 
-1. [署名版48515ebの4経路・復旧・実Task取消](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md#signed-e2e-48515eb)と記録の限定確認結果を、既存の是正再確認とともに完成評価へ渡す。[旧45ea2acの実務1件](Evidence/CHG-000055_Utility_45ea2ac.md)は版と適用限界を分けて完成監査へ接続する。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務の完成速度、人間負荷、Provider分散および総合有用性とは区別する。
+1. [署名版48515ebの4経路・復旧・実Task取消](../../Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md#signed-e2e-48515eb)と記録の限定確認結果を、既存の是正再確認とともに完成評価へ渡す。[旧45ea2acの実務1件](../CHG-000055/Evidence/260831-2227_utility.md)は版と適用限界を分けて完成監査へ接続する。後続でRuntimeへ影響する変更が入る場合は影響に応じて再検証する。実務の完成速度、人間負荷、Provider分散および総合有用性とは区別する。
 2. 公開Task入口の実OS／Filesystem／Process結合について、今回観測した取消・通常回収と、未確認のタイミング／環境を照合する。旧boolean probe専用facadeの除去や安全な公開reason分類は実施済みで、再実装しない。固定Fixture、実子Process、今回の署名付き公開Taskの証明範囲を分離し、実Provider全体の保証へ読み替えない。
 3. 最新改訂版でArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを完了する。
 4. 実測Evidence、README、Roadmap、CHANGELOG、IssueおよびRelease範囲を現在状態へ同期し、人間の統合・Release判断へ渡す。
@@ -159,6 +159,1081 @@ Qual-Labの人間の決定権限者は、次を一つのRelease価値として�
 - Dogfooding用release staging、Git worktreeおよび試験一時物が親Directory、兄弟RepositoryとOS一時Directoryへ分散した事象を、Filesystem Effect境界の欠陥として同じ未リリース変更内で是正する。現在のリポジトリ外への書込みは既定拒否とし、用途限定Rootの事前許可または表示されたexact Rootへの人間承認なしに実行しない。Repository-local `.crdd`とOS管理Runtime Rootを責務別に分け、Operation一時物は一つのRuntime-owned Rootへ集約し、cleanup不明を成功にしない。開始Commitへ固定する外部送信PolicyはRoot直下の単独fileから`.crdd/external-send-policy.json`へ移し、旧Pathとの暗黙fallbackや二重正本を残さない。既存残留物は所有Identityと削除対象を確定し、人間承認前に推測削除しない。
 
 本判断はProvider login、外部送信、Repository変更、Candidate受入、統合、Releaseまたは費用執行を事前承認しない。それらは各OperationとRelease Gateで別に判定する。
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- `.crdd-external-send-policy.json`（削除または旧Path）
+- `.crdd/external-send-policy.json`（削除または旧Path）
+- [`.gitattributes`](<../../../.gitattributes>)
+- [`.github/pull_request_template.md`](<../../../.github/pull_request_template.md>)
+- [`.gitignore`](<../../../.gitignore>)
+- [`.node-version`](<../../../.node-version>)
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- `01_Discovery/01_CRDD_Product_Discovery.md`（削除または旧Path）
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`02_UX/01_User_Experience.md`](<../../../02_UX/01_User_Experience.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`03_IA/01_Information_Architecture.md`](<../../../03_IA/01_Information_Architecture.md>)
+- [`04_Agent_Organization.md`](<../../../04_Agent_Organization.md>)
+- [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
+- [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
+- [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
+- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
+- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
+- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
+- [`07_Quality/02_Quality_Strategy.md`](<../../../07_Quality/02_Quality_Strategy.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- `07_Quality/Verification_Results/2026-08-31_Coordinator_Closure_Verification.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-08-31_Tool_Layout_Development_E2E.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-08-31_Tool_Layout_Verification.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-01_Coordinator_Coverage.json`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-01_Coordinator_Signed_E2E.md`（削除または旧Path）
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
+- [`19_Workflows/02_Checker.md`](<../../../19_Workflows/02_Checker.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- [`40_Develop/checker/.gitignore`](<../../../40_Develop/checker/.gitignore>)
+- `40_Develop/checker/crdd-check.contract.test.ts`（削除または旧Path）
+- [`40_Develop/checker/crdd-check.ts`](<../../../40_Develop/checker/crdd-check.ts>)
+- [`40_Develop/checker/fault-injector.ts`](<../../../40_Develop/checker/fault-injector.ts>)
+- [`40_Develop/checker/package-lock.json`](<../../../40_Develop/checker/package-lock.json>)
+- [`40_Develop/checker/package.json`](<../../../40_Develop/checker/package.json>)
+- [`40_Develop/checker/test-discovery.ts`](<../../../40_Develop/checker/test-discovery.ts>)
+- [`40_Develop/checker/test-runner.ts`](<../../../40_Develop/checker/test-runner.ts>)
+- `40_Develop/checker/tools-naming.contract.test.ts`（削除または旧Path）
+- [`40_Develop/checker/tsconfig.json`](<../../../40_Develop/checker/tsconfig.json>)
+- [`40_Develop/coordinator/.gitignore`](<../../../40_Develop/coordinator/.gitignore>)
+- [`40_Develop/coordinator/bin/coordinator.ts`](<../../../40_Develop/coordinator/bin/coordinator.ts>)
+- [`40_Develop/coordinator/bin/launch.ts`](<../../../40_Develop/coordinator/bin/launch.ts>)
+- [`40_Develop/coordinator/package-lock.json`](<../../../40_Develop/coordinator/package-lock.json>)
+- [`40_Develop/coordinator/package.json`](<../../../40_Develop/coordinator/package.json>)
+- `40_Develop/coordinator/policies/windows-docker-desktop-4.41.2.policy`（削除または旧Path）
+- [`40_Develop/coordinator/runtime/claude-managed-settings.json`](<../../../40_Develop/coordinator/runtime/claude-managed-settings.json>)
+- [`40_Develop/coordinator/runtime/claude-provider.Dockerfile`](<../../../40_Develop/coordinator/runtime/claude-provider.Dockerfile>)
+- [`40_Develop/coordinator/runtime/claude-task-settings.json`](<../../../40_Develop/coordinator/runtime/claude-task-settings.json>)
+- [`40_Develop/coordinator/runtime/codex-executor-result-schema.json`](<../../../40_Develop/coordinator/runtime/codex-executor-result-schema.json>)
+- [`40_Develop/coordinator/runtime/codex-provider.Dockerfile`](<../../../40_Develop/coordinator/runtime/codex-provider.Dockerfile>)
+- [`40_Develop/coordinator/runtime/codex-result-schema.json`](<../../../40_Develop/coordinator/runtime/codex-result-schema.json>)
+- [`40_Develop/coordinator/runtime/codex-reviewer-result-schema.json`](<../../../40_Develop/coordinator/runtime/codex-reviewer-result-schema.json>)
+- `40_Develop/coordinator/runtime/coordinator-runtime-traceability.json`（削除または旧Path）
+- [`40_Develop/coordinator/runtime/general-task-verification.txt`](<../../../40_Develop/coordinator/runtime/general-task-verification.txt>)
+- [`40_Develop/coordinator/runtime/provider-egress-proxy.Dockerfile`](<../../../40_Develop/coordinator/runtime/provider-egress-proxy.Dockerfile>)
+- [`40_Develop/coordinator/runtime/provider-egress-proxy.py`](<../../../40_Develop/coordinator/runtime/provider-egress-proxy.py>)
+- `40_Develop/coordinator/scripts/build-native-bootstrap.ts`（削除または旧Path）
+- [`40_Develop/coordinator/scripts/check-dynamic-fake-provider-coverage.ts`](<../../../40_Develop/coordinator/scripts/check-dynamic-fake-provider-coverage.ts>)
+- `40_Develop/coordinator/scripts/check-native-bootstrap-pe.ts`（削除または旧Path）
+- [`40_Develop/coordinator/scripts/check-native-runtime-trace.ts`](<../../../40_Develop/coordinator/scripts/check-native-runtime-trace.ts>)
+- [`40_Develop/coordinator/scripts/check-platform-access-coverage.ts`](<../../../40_Develop/coordinator/scripts/check-platform-access-coverage.ts>)
+- [`40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts`](<../../../40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts>)
+- [`40_Develop/coordinator/scripts/check-provider-authority-coverage.ts`](<../../../40_Develop/coordinator/scripts/check-provider-authority-coverage.ts>)
+- [`40_Develop/coordinator/scripts/check-provider-home-coverage.ts`](<../../../40_Develop/coordinator/scripts/check-provider-home-coverage.ts>)
+- [`40_Develop/coordinator/scripts/check-runtime-traceability.ts`](<../../../40_Develop/coordinator/scripts/check-runtime-traceability.ts>)
+- [`40_Develop/coordinator/scripts/generate-release-key.ts`](<../../../40_Develop/coordinator/scripts/generate-release-key.ts>)
+- [`40_Develop/coordinator/scripts/measure-development-providers.ts`](<../../../40_Develop/coordinator/scripts/measure-development-providers.ts>)
+- [`40_Develop/coordinator/scripts/platform-access-coverage-path.ts`](<../../../40_Develop/coordinator/scripts/platform-access-coverage-path.ts>)
+- [`40_Develop/coordinator/scripts/release-staging-manifest.ts`](<../../../40_Develop/coordinator/scripts/release-staging-manifest.ts>)
+- [`40_Develop/coordinator/scripts/revoke-external-send-consent.ts`](<../../../40_Develop/coordinator/scripts/revoke-external-send-consent.ts>)
+- [`40_Develop/coordinator/scripts/sign-release-manifest.ts`](<../../../40_Develop/coordinator/scripts/sign-release-manifest.ts>)
+- [`40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts`](<../../../40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts>)
+- [`40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts`](<../../../40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-general-task.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-general-task.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-route-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-route-matrix.ts>)
+- [`40_Develop/coordinator/src/core/cli-options.ts`](<../../../40_Develop/coordinator/src/core/cli-options.ts>)
+- [`40_Develop/coordinator/src/core/command-report.ts`](<../../../40_Develop/coordinator/src/core/command-report.ts>)
+- [`40_Develop/coordinator/src/core/coordinator-launch.ts`](<../../../40_Develop/coordinator/src/core/coordinator-launch.ts>)
+- [`40_Develop/coordinator/src/core/development-execution-timing.ts`](<../../../40_Develop/coordinator/src/core/development-execution-timing.ts>)
+- [`40_Develop/coordinator/src/core/docker-cleanup-eligibility.ts`](<../../../40_Develop/coordinator/src/core/docker-cleanup-eligibility.ts>)
+- [`40_Develop/coordinator/src/core/docker-desktop-repair-doctor-dispatch.ts`](<../../../40_Develop/coordinator/src/core/docker-desktop-repair-doctor-dispatch.ts>)
+- [`40_Develop/coordinator/src/core/docker-recovery-command-report.ts`](<../../../40_Develop/coordinator/src/core/docker-recovery-command-report.ts>)
+- [`40_Develop/coordinator/src/core/doctor.ts`](<../../../40_Develop/coordinator/src/core/doctor.ts>)
+- [`40_Develop/coordinator/src/core/host-generation-loss-transition.ts`](<../../../40_Develop/coordinator/src/core/host-generation-loss-transition.ts>)
+- [`40_Develop/coordinator/src/core/interactive-console-reader.ts`](<../../../40_Develop/coordinator/src/core/interactive-console-reader.ts>)
+- [`40_Develop/coordinator/src/core/interactive-console.ts`](<../../../40_Develop/coordinator/src/core/interactive-console.ts>)
+- [`40_Develop/coordinator/src/core/node-runtime-version.ts`](<../../../40_Develop/coordinator/src/core/node-runtime-version.ts>)
+- [`40_Develop/coordinator/src/core/runtime-process-safety-state.ts`](<../../../40_Develop/coordinator/src/core/runtime-process-safety-state.ts>)
+- [`40_Develop/coordinator/src/core/runtime-traceability.ts`](<../../../40_Develop/coordinator/src/core/runtime-traceability.ts>)
+- [`40_Develop/coordinator/src/core/task-cli-cancellation.ts`](<../../../40_Develop/coordinator/src/core/task-cli-cancellation.ts>)
+- [`40_Develop/coordinator/src/core/verification-result-record.ts`](<../../../40_Develop/coordinator/src/core/verification-result-record.ts>)
+- [`40_Develop/coordinator/src/core/windows-child-environment.ts`](<../../../40_Develop/coordinator/src/core/windows-child-environment.ts>)
+- [`40_Develop/coordinator/src/security/authority-file-bundle.ts`](<../../../40_Develop/coordinator/src/security/authority-file-bundle.ts>)
+- [`40_Develop/coordinator/src/security/authority-grant-verifier.ts`](<../../../40_Develop/coordinator/src/security/authority-grant-verifier.ts>)
+- [`40_Develop/coordinator/src/security/authority-prelaunch-verifier.ts`](<../../../40_Develop/coordinator/src/security/authority-prelaunch-verifier.ts>)
+- `40_Develop/coordinator/src/security/authority-root-locator.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/authority-root-path-lexical.ts`](<../../../40_Develop/coordinator/src/security/authority-root-path-lexical.ts>)
+- `40_Develop/coordinator/src/security/authority-root-profile.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/authority-trust-loader.ts`](<../../../40_Develop/coordinator/src/security/authority-trust-loader.ts>)
+- [`40_Develop/coordinator/src/security/bounded-file-snapshot.ts`](<../../../40_Develop/coordinator/src/security/bounded-file-snapshot.ts>)
+- [`40_Develop/coordinator/src/security/candidate-bundle-store.ts`](<../../../40_Develop/coordinator/src/security/candidate-bundle-store.ts>)
+- [`40_Develop/coordinator/src/security/candidate-store-kernel-lock.ts`](<../../../40_Develop/coordinator/src/security/candidate-store-kernel-lock.ts>)
+- [`40_Develop/coordinator/src/security/candidate-store-lock-worker.ts`](<../../../40_Develop/coordinator/src/security/candidate-store-lock-worker.ts>)
+- [`40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts`](<../../../40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts>)
+- [`40_Develop/coordinator/src/security/claude-docker-runtime-adapter.ts`](<../../../40_Develop/coordinator/src/security/claude-docker-runtime-adapter.ts>)
+- [`40_Develop/coordinator/src/security/claude-execution-plan.ts`](<../../../40_Develop/coordinator/src/security/claude-execution-plan.ts>)
+- [`40_Develop/coordinator/src/security/claude-structured-result.ts`](<../../../40_Develop/coordinator/src/security/claude-structured-result.ts>)
+- [`40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts`](<../../../40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts>)
+- [`40_Develop/coordinator/src/security/codex-execution-plan.ts`](<../../../40_Develop/coordinator/src/security/codex-execution-plan.ts>)
+- [`40_Develop/coordinator/src/security/codex-structured-result.ts`](<../../../40_Develop/coordinator/src/security/codex-structured-result.ts>)
+- [`40_Develop/coordinator/src/security/coordinator-operation-creation-internal.ts`](<../../../40_Develop/coordinator/src/security/coordinator-operation-creation-internal.ts>)
+- [`40_Develop/coordinator/src/security/coordinator-task-request.ts`](<../../../40_Develop/coordinator/src/security/coordinator-task-request.ts>)
+- [`40_Develop/coordinator/src/security/coordinator-task-runtime.ts`](<../../../40_Develop/coordinator/src/security/coordinator-task-runtime.ts>)
+- [`40_Develop/coordinator/src/security/delegation-route-selection.ts`](<../../../40_Develop/coordinator/src/security/delegation-route-selection.ts>)
+- [`40_Develop/coordinator/src/security/delegation-selection-grant-runtime.ts`](<../../../40_Develop/coordinator/src/security/delegation-selection-grant-runtime.ts>)
+- [`40_Develop/coordinator/src/security/development-measurement-constraints.ts`](<../../../40_Develop/coordinator/src/security/development-measurement-constraints.ts>)
+- [`40_Develop/coordinator/src/security/development-measurement-session.ts`](<../../../40_Develop/coordinator/src/security/development-measurement-session.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts>)
+- `40_Develop/coordinator/src/security/docker-desktop-repair-policy.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts>)
+- [`40_Develop/coordinator/src/security/docker-effect-runtime.ts`](<../../../40_Develop/coordinator/src/security/docker-effect-runtime.ts>)
+- [`40_Develop/coordinator/src/security/docker-host-transition-state.ts`](<../../../40_Develop/coordinator/src/security/docker-host-transition-state.ts>)
+- [`40_Develop/coordinator/src/security/docker-isolation.ts`](<../../../40_Develop/coordinator/src/security/docker-isolation.ts>)
+- [`40_Develop/coordinator/src/security/docker-owned-process.ts`](<../../../40_Develop/coordinator/src/security/docker-owned-process.ts>)
+- [`40_Develop/coordinator/src/security/docker-process-controller.ts`](<../../../40_Develop/coordinator/src/security/docker-process-controller.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-identity.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-identity.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-journal.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-journal.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-lock-controller.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-lock-controller.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-public-projection.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-public-projection.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-runtime-internal.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-runtime-internal.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-runtime.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-runtime.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-state-machine.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-state-machine.ts>)
+- [`40_Develop/coordinator/src/security/docker-runtime-state-binding.ts`](<../../../40_Develop/coordinator/src/security/docker-runtime-state-binding.ts>)
+- [`40_Develop/coordinator/src/security/egress-proxy-policy.ts`](<../../../40_Develop/coordinator/src/security/egress-proxy-policy.ts>)
+- `40_Develop/coordinator/src/security/enrollment-certificate-renewal.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/execution-environment.ts`](<../../../40_Develop/coordinator/src/security/execution-environment.ts>)
+- [`40_Develop/coordinator/src/security/external-send-consent-record.ts`](<../../../40_Develop/coordinator/src/security/external-send-consent-record.ts>)
+- [`40_Develop/coordinator/src/security/external-send-consent-runtime.ts`](<../../../40_Develop/coordinator/src/security/external-send-consent-runtime.ts>)
+- [`40_Develop/coordinator/src/security/external-send-grant-runtime.ts`](<../../../40_Develop/coordinator/src/security/external-send-grant-runtime.ts>)
+- [`40_Develop/coordinator/src/security/external-send-policy-runtime.ts`](<../../../40_Develop/coordinator/src/security/external-send-policy-runtime.ts>)
+- `40_Develop/coordinator/src/security/git-local-exclude.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/git-object-reader.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/host-operation-lock-supervisor.ts`](<../../../40_Develop/coordinator/src/security/host-operation-lock-supervisor.ts>)
+- [`40_Develop/coordinator/src/security/host-recovery-record.ts`](<../../../40_Develop/coordinator/src/security/host-recovery-record.ts>)
+- `40_Develop/coordinator/src/security/initial-enrollment-pure-core.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/initial-enrollment-runtime-state.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/local-personal-authority-runtime.ts`](<../../../40_Develop/coordinator/src/security/local-personal-authority-runtime.ts>)
+- `40_Develop/coordinator/src/security/native-bootstrap-pe-inspector.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/native-provision-supervisor-release.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/native-runtime-trace.ts`](<../../../40_Develop/coordinator/src/security/native-runtime-trace.ts>)
+- `40_Develop/coordinator/src/security/offline-enrollment-bundle-pure-core.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/plain-data-snapshot.ts`](<../../../40_Develop/coordinator/src/security/plain-data-snapshot.ts>)
+- [`40_Develop/coordinator/src/security/platform-access-adapter.ts`](<../../../40_Develop/coordinator/src/security/platform-access-adapter.ts>)
+- [`40_Develop/coordinator/src/security/platform-access-release.ts`](<../../../40_Develop/coordinator/src/security/platform-access-release.ts>)
+- [`40_Develop/coordinator/src/security/platform-key-storage-policy.ts`](<../../../40_Develop/coordinator/src/security/platform-key-storage-policy.ts>)
+- `40_Develop/coordinator/src/security/platform-provisioner-active-pointer-store.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/platform-provisioner-active-pointer.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/platform-provisioner-effect.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/platform-provisioner-install-layout.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/platform-provisioner-manifest-loader.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-manifest-loader.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-gate.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-gate.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-policy-identity.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-policy-identity.ts>)
+- `40_Develop/coordinator/src/security/platform-provisioner-pre-active-one-shot.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/platform-provisioner-release-identity.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-release-identity.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-release-trust.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-release-trust.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts>)
+- `40_Develop/coordinator/src/security/platform-provisioner-windows-dacl.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/provider-authority-runtime.ts`](<../../../40_Develop/coordinator/src/security/provider-authority-runtime.ts>)
+- [`40_Develop/coordinator/src/security/provider-billing-policy.ts`](<../../../40_Develop/coordinator/src/security/provider-billing-policy.ts>)
+- [`40_Develop/coordinator/src/security/provider-eligibility-runtime.ts`](<../../../40_Develop/coordinator/src/security/provider-eligibility-runtime.ts>)
+- [`40_Develop/coordinator/src/security/provider-home-mount-grant-runtime.ts`](<../../../40_Develop/coordinator/src/security/provider-home-mount-grant-runtime.ts>)
+- [`40_Develop/coordinator/src/security/provider-home-mount-grant.ts`](<../../../40_Develop/coordinator/src/security/provider-home-mount-grant.ts>)
+- [`40_Develop/coordinator/src/security/provider-home-observation.ts`](<../../../40_Develop/coordinator/src/security/provider-home-observation.ts>)
+- [`40_Develop/coordinator/src/security/provider-home-windows-adapter.ts`](<../../../40_Develop/coordinator/src/security/provider-home-windows-adapter.ts>)
+- [`40_Develop/coordinator/src/security/provider-home.ts`](<../../../40_Develop/coordinator/src/security/provider-home.ts>)
+- [`40_Develop/coordinator/src/security/provider-isolation-profile.ts`](<../../../40_Develop/coordinator/src/security/provider-isolation-profile.ts>)
+- [`40_Develop/coordinator/src/security/provider-lifecycle.ts`](<../../../40_Develop/coordinator/src/security/provider-lifecycle.ts>)
+- [`40_Develop/coordinator/src/security/provider-model-profile-runtime.ts`](<../../../40_Develop/coordinator/src/security/provider-model-profile-runtime.ts>)
+- [`40_Develop/coordinator/src/security/provider-model-selection-runtime.ts`](<../../../40_Develop/coordinator/src/security/provider-model-selection-runtime.ts>)
+- [`40_Develop/coordinator/src/security/provider-task-packet-runtime.ts`](<../../../40_Develop/coordinator/src/security/provider-task-packet-runtime.ts>)
+- [`40_Develop/coordinator/src/security/provider-task-structured-result.ts`](<../../../40_Develop/coordinator/src/security/provider-task-structured-result.ts>)
+- `40_Develop/coordinator/src/security/provisioning-ca-pure-core.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/provisioning-record-enrollment-binding.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/provisioning-record-pure-core.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/provisioning-record-store.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/provisioning-signature-primitives.ts`](<../../../40_Develop/coordinator/src/security/provisioning-signature-primitives.ts>)
+- `40_Develop/coordinator/src/security/provisioning-trust-artifact-store.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/provisioning-trust-floor-store.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/provisioning-trust-floor.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/release-identity-grammar.ts`](<../../../40_Develop/coordinator/src/security/release-identity-grammar.ts>)
+- `40_Develop/coordinator/src/security/repository-git-layout-internal.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/repository-git-layout.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/repository-operation-runtime.ts`](<../../../40_Develop/coordinator/src/security/repository-operation-runtime.ts>)
+- `40_Develop/coordinator/src/security/repository-root-resolution.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/repository-workspace-runtime.ts`](<../../../40_Develop/coordinator/src/security/repository-workspace-runtime.ts>)
+- [`40_Develop/coordinator/src/security/root-observation.ts`](<../../../40_Develop/coordinator/src/security/root-observation.ts>)
+- [`40_Develop/coordinator/src/security/root-protection-policy.ts`](<../../../40_Develop/coordinator/src/security/root-protection-policy.ts>)
+- `40_Develop/coordinator/src/security/runtime-activation-identity.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/runtime-activation-locator-binding-contract.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/runtime-activation-locator-binding.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/runtime-activation-record.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/runtime-activation-transition.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/runtime-root-path-identity.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/runtime-root-profile.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/secret-material-policy.ts`](<../../../40_Develop/coordinator/src/security/secret-material-policy.ts>)
+- [`40_Develop/coordinator/src/security/signed-runner-safety-observation.ts`](<../../../40_Develop/coordinator/src/security/signed-runner-safety-observation.ts>)
+- `40_Develop/coordinator/tests/authority-file-bundle.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/authority-grant-verifier.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/authority-prelaunch-verifier.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/authority-root-locator.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/authority-root-path-lexical.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/authority-root-profile.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/authority-trust-loader.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/bounded-file-snapshot.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/candidate-bundle-store.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/candidate-store-kernel-lock.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/candidate-store-windows-adapter.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/claude-docker-runtime-adapter.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/claude-execution-plan.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/claude-structured-result.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/cli-options.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/codex-docker-runtime-adapter.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/codex-execution-plan.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/codex-structured-result.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/command-report.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/coordinator-claude-delegation.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/coordinator-docker-recovery-cli.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/coordinator-launch.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/coordinator-operation-creation-internal.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/coordinator-task-process.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/coordinator-task-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/delegation-route-selection.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/delegation-selection-grant-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/development-execution-timing.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/development-measurement-constraints.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/development-measurement-session.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/development-native-observation.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/development-provider-measurement.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-cleanup-eligibility.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-desktop-repair-policy.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-desktop-repair-record-store.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-desktop-runtime-repair.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-effect-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-host-transition-state.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-owned-process.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-process-controller.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-recovery-journal.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-recovery-lock-controller.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-recovery-public-projection.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-recovery-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-recovery-state-machine.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-runtime-state-binding.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/doctor.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/dynamic-fake-provider-cancellation-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/dynamic-fake-provider-coverage.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/dynamic-fake-provider-failure-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/egress-proxy-policy.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/enrollment-certificate-renewal.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/external-send-consent-docker-recovery.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/external-send-consent-revocation.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/external-send-consent-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/external-send-grant-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/external-send-policy-runtime.contract.test.ts`（削除または旧Path）
+- [`40_Develop/coordinator/tests/fixtures/candidate-store-lock-owner.ts`](<../../../40_Develop/coordinator/tests/fixtures/candidate-store-lock-owner.ts>)
+- [`40_Develop/coordinator/tests/fixtures/coordinator-launch-terminal-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/coordinator-launch-terminal-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/docker-auth-probe-inspect-none.json`](<../../../40_Develop/coordinator/tests/fixtures/docker-auth-probe-inspect-none.json>)
+- [`40_Develop/coordinator/tests/fixtures/docker-owned-process-test-support.ts`](<../../../40_Develop/coordinator/tests/fixtures/docker-owned-process-test-support.ts>)
+- [`40_Develop/coordinator/tests/fixtures/docker-owned-process-worker.ts`](<../../../40_Develop/coordinator/tests/fixtures/docker-owned-process-worker.ts>)
+- [`40_Develop/coordinator/tests/fixtures/docker-recovery-lock-owner.ts`](<../../../40_Develop/coordinator/tests/fixtures/docker-recovery-lock-owner.ts>)
+- [`40_Develop/coordinator/tests/fixtures/interactive-console-lock-liveness.ts`](<../../../40_Develop/coordinator/tests/fixtures/interactive-console-lock-liveness.ts>)
+- [`40_Develop/coordinator/tests/fixtures/interactive-console-owned-reader-process.ts`](<../../../40_Develop/coordinator/tests/fixtures/interactive-console-owned-reader-process.ts>)
+- [`40_Develop/coordinator/tests/fixtures/interactive-console-parent.ts`](<../../../40_Develop/coordinator/tests/fixtures/interactive-console-parent.ts>)
+- [`40_Develop/coordinator/tests/fixtures/recovery-cleanup-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/recovery-cleanup-probe.ts>)
+- `40_Develop/coordinator/tests/fixtures/release-manifest-validity-vectors.txt`（削除または旧Path）
+- [`40_Develop/coordinator/tests/fixtures/runtime-process-poison-boundary.ts`](<../../../40_Develop/coordinator/tests/fixtures/runtime-process-poison-boundary.ts>)
+- [`40_Develop/coordinator/tests/fixtures/signed-general-poison-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/signed-general-poison-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/signed-route-poison-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/signed-route-poison-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/task-cli-cancellation-strict-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/task-cli-cancellation-strict-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/task-controller-cancellation-fixture.ts`](<../../../40_Develop/coordinator/tests/fixtures/task-controller-cancellation-fixture.ts>)
+- [`40_Develop/coordinator/tests/fixtures/windows-native-helper-environment-unavailable.ts`](<../../../40_Develop/coordinator/tests/fixtures/windows-native-helper-environment-unavailable.ts>)
+- [`40_Develop/coordinator/tests/fixtures/windows-native-helper-profile-fault.ts`](<../../../40_Develop/coordinator/tests/fixtures/windows-native-helper-profile-fault.ts>)
+- `40_Develop/coordinator/tests/generate-release-key.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/git-local-exclude.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/git-object-reader.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/git-object-reader.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/host-generation-loss-transition.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/initial-enrollment-pure-core.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/initial-enrollment-runtime-state.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/interaction-boundary-regression.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/local-personal-authority-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/native-bootstrap-build.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/native-bootstrap-pe-fixture.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/native-bootstrap-pe-inspector.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/native-bootstrap-pe-runner.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/native-provision-supervisor-release.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/native-runtime-trace.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/node-runtime-version.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/offline-enrollment-bundle-pure-core.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/plain-data-snapshot.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-access-adapter.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-access-coverage.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-access-release.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-access-ts-coverage.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-key-storage-policy.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-active-pointer-store.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-active-pointer.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-effect.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-install-layout.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-package-gate.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-policy-identity.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-pre-active-one-shot.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-release-identity.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-release-trust.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-trust-core.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-windows-dacl.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-authority-coverage.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-authority-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-billing-policy.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-eligibility-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-home-coverage.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-home-mount-grant-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-home-mount-grant.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-home-observation.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-home.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-isolation-profile.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-lifecycle.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-model-profile-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-model-selection-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-task-packet-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provider-task-structured-result.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provisioning-ca-pure-core.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provisioning-record-enrollment-binding.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provisioning-record-pure-core.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provisioning-record-store.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provisioning-signature-primitives.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provisioning-trust-artifact-store.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provisioning-trust-floor-store.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/provisioning-trust-floor.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/release-identity-grammar.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/repository-git-layout.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/repository-operation-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/repository-root-resolution.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/repository-workspace-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/root-observation.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/root-protection-policy.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/runtime-activation-locator-binding.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/runtime-activation-record.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/runtime-activation-transition.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/runtime-process-safety-state.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/runtime-root-path-identity.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/runtime-root-profile.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/runtime-trace-case.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/runtime-trace-case.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/runtime-traceability.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/secret-material-policy.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/sign-release-manifest.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-general-task-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-recovery-matrix-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-route-matrix-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-runner-safety-observation.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/task-cli-cancellation.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/test-support.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/verification-result-record.contract.test.ts`（削除または旧Path）
+- [`40_Develop/coordinator/tsconfig.strict.json`](<../../../40_Develop/coordinator/tsconfig.strict.json>)
+- [`40_Develop/coordinator/tsconfig.tests.json`](<../../../40_Develop/coordinator/tsconfig.tests.json>)
+- [`40_Develop/platform-access/.gitignore`](<../../../40_Develop/platform-access/.gitignore>)
+- [`40_Develop/platform-access/build.rs`](<../../../40_Develop/platform-access/build.rs>)
+- [`40_Develop/platform-access/Cargo.lock`](<../../../40_Develop/platform-access/Cargo.lock>)
+- [`40_Develop/platform-access/Cargo.toml`](<../../../40_Develop/platform-access/Cargo.toml>)
+- [`40_Develop/platform-access/rust-toolchain.toml`](<../../../40_Develop/platform-access/rust-toolchain.toml>)
+- `40_Develop/platform-access/src/bin/coordinator.rs`（削除または旧Path）
+- [`40_Develop/platform-access/src/docker_repair.rs`](<../../../40_Develop/platform-access/src/docker_repair.rs>)
+- [`40_Develop/platform-access/src/main.rs`](<../../../40_Develop/platform-access/src/main.rs>)
+- `40_Develop/platform-access/src/native_bootstrap_core.rs`（削除または旧Path）
+- [`40_Develop/platform-access/src/protocol.rs`](<../../../40_Develop/platform-access/src/protocol.rs>)
+- [`40_Develop/platform-access/src/windows.rs`](<../../../40_Develop/platform-access/src/windows.rs>)
+- [`40_Develop/platform-access/tests/cli.rs`](<../../../40_Develop/platform-access/tests/cli.rs>)
+- `40_Develop/platform-access/tests/native_bootstrap_core.rs`（削除または旧Path）
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000001_Human_Decision_Presentation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000002_GitHub_Anchor_Checker_Correction.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000004_Checker_Hierarchical_Compatibility.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000007_Multi_Location_Remediation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000010_First_Pass_Convergence.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000012_Current_Decision_Set.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000013_Communication_Market_and_Adoption_Exploration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000016_Internal_TypeScript_Migration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000018_Biome_Advisory_Closure.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000019_Rust_Platform_Access_Core.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000020_Platform_Access_Release_Binding.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000021_Protected_Active_Pointer.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000022_Provider_Lifecycle_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000023_Dynamic_Fake_Provider_Lifecycle.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000024_Dynamic_Fake_Provider_Failure_Verification.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000025_Dynamic_Fake_Provider_Cancellation_Verification.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000026_Provider_Home_Protection_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000027_Coordinator_Test_And_Package_Inventory_Stability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000029_Provider_Home_Mount_Grant_Lifecycle_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000030_Provider_Home_Mount_Grant_Runtime_Store.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000031_Runtime_Owned_Operation_Context_Capability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000032_Current_Process_Principal_Observation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000033_Pre_Active_Provisioning_One_Shot_Contract.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000034_Native_Direct_Provision_Supervisor_Entrypoint.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000036_AppContainer_Provision_Worker_Candidate.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000037_Claude_No_Network_Version_Probe.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000038_Claude_Subscription_OAuth_Vertical_Slice.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000039_Runtime_Owned_Provider_Home_Observation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000040_Runtime_Owned_Provider_Home_Mount_Grant.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000041_Explainable_Model_Selection_And_Claude_Docker_Adapter.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000042_Provider_Neutral_Delegation_Selection_Grant.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000043_Docker_Process_Controller.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000044_Runtime_Provider_Authority_Capability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000045_README_AI_Development_Team_Vision.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000046_Runtime_Provider_Eligibility_Observation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000047_Runtime_Provider_Model_Profile_Resolution.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000048_Runtime_Docker_Recovery_Connection.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000049_Runtime_Docker_Effect_Executor.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000050_Local_Personal_Authority_and_Bounded_Eligibility.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000051_Runtime_Repository_Revision_Binding.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000052_Coordinator_Claude_Probe_Runtime_Facade.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000053_Codex_Subscription_Runtime_Adapter.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000054_Agent_Organization_Document_Architecture.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_014546c.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_0734703.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_0c709c2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_15fdcb2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_2d79391.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_2f0b634.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_36be2f3.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_4905e90.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_4ad65cc.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_4bcc17c.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_4ed69ba.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_597d0de.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_5d1d337.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_61c9404.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_63ec7fd.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_6b041e1.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_710b274.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_7839da4.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_8555422.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_8b979d5.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_9824b4d.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_a639d87.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_ad991c4.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_b0856c9.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_c21b99a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_c326b7a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_c4af67a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_c9a7a21.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_ce526e2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_cedecc3.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_d03be5b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_d1e32cb.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_dfa1e5b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_e4f7069.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_eb58fb0.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_f39958b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_f4b839a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Agent_Security_Review_fdab769.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Closure_Coverage_48664a2.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_014546c.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_0734703.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_0c709c2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_15fdcb2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_2d79391.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_2f0b634.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_36be2f3.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_4905e90.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_4ad65cc.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_4bcc17c.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_4ed69ba.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_597d0de.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_5d1d337.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_61c9404.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_63ec7fd.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_6b041e1.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_710b274.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_7839da4.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_8555422.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_8b979d5.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_9824b4d.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_a639d87.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_ad991c4.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_b0856c9.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_c21b99a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_c326b7a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_c4af67a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_c9a7a21.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_ce526e2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_cedecc3.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_d03be5b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_d1e32cb.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_dfa1e5b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_e4f7069.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_eb58fb0.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_f39958b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_f4b839a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Current_Review_Record_fdab769.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Design_Source_Trace_Review_04b39fd.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Development_Provider_Comparison_799e368.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Development_Provider_Comparison_848877c.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Development_Provider_Comparison_c95eb91.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Development_Routes_56af5a1.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Development_Routes_c6dbabd.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Docker_Absence_Capability_5f9aff0.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Docker_Cleanup_Recovery_ef46cac.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Docker_Isolation_Probe_06f1314.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_014546c.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_0734703.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_0c709c2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_15fdcb2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_2d79391.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_2f0b634.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_36be2f3.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_4905e90.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_4ad65cc.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_4bcc17c.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_4ed69ba.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_597d0de.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_5d1d337.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_61c9404.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_63ec7fd.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_6b041e1.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_710b274.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_7839da4.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_8555422.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_8b979d5.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_9824b4d.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_a639d87.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_ad991c4.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_b0856c9.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_c21b99a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_c326b7a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_c4af67a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_c9a7a21.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_ce526e2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_cedecc3.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_d03be5b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_d1e32cb.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_dfa1e5b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_e4f7069.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_eb58fb0.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_f39958b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_f4b839a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Document_Audit_fdab769.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_014546c.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_0734703.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_0c709c2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_15fdcb2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_2d79391.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_2f0b634.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_36be2f3.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_4905e90.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_4ad65cc.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_4bcc17c.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_4ed69ba.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_597d0de.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_5d1d337.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_61c9404.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_63ec7fd.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_6b041e1.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_710b274.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_7839da4.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_8555422.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_8b979d5.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_9824b4d.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_a639d87.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_ad991c4.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_b0856c9.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_c21b99a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_c326b7a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_c4af67a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_c9a7a21.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_ce526e2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_cedecc3.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_d03be5b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_d1e32cb.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_dfa1e5b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_e4f7069.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_eb58fb0.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_f39958b.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_f4b839a.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Gap_Conformance_Audit_fdab769.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Readme_Dogfooding_00db0fc.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Readme_Dogfooding_00db0fc.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Recovery_Authority_8149267.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Recovery_Lifecycle_efce510.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Remediation_45ea2ac.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Remediation_45ea2ac.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_E2E_0c3e6d2.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_E2E_45ea2ac.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_E2E_45ea2ac.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_E2E_89545e3.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_E2E_a619545.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_Manifest_0c3e6d2.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_Manifest_a619545.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_Recovery_Matrix_0c3e6d2.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_Recovery_Matrix_a619545.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_Route_Matrix_0c3e6d2.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_Route_Matrix_a619545.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_Route_Selection_0c3e6d2.txt`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000015_Signed_Route_Selection_a619545.txt`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000055_Decision_Application_588f04f.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000055_Dogfooding_8d3d62c.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000055_Dogfooding_8d3d62c.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000055_Engineering_Application_588f04f.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000055_Focused_Dogfooding_588f04f.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000055_Focused_Dogfooding_588f04f.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000055_Readability_Application_588f04f.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000055_Utility_45ea2ac.json`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000055_Utility_45ea2ac.md`（削除または旧Path）
+- `90_Release/Changes/README.md`（削除または旧Path）
+- `90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe`（削除または旧Path）
+- `90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe`（削除または旧Path）
+- `99_Roadmap/01_Product_Roadmap.md`（削除または旧Path）
+- `99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000015/change.md`](<../../../99_Roadmap/Changes/CHG-000015/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`biome.json`](<../../../biome.json>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`CONTRIBUTING.md`](<../../../CONTRIBUTING.md>)
+- [`README.md`](<../../../README.md>)
+- `template/.crdd-external-send-policy.example.json`（削除または旧Path）
+- `template/.crdd/external-send-policy.example.json`（削除または旧Path）
+- [`template/01_Discovery/01_Product_Discovery.md`](<../../../template/01_Discovery/01_Product_Discovery.md>)
+- [`template/02_UX/01_User_Experience.md`](<../../../template/02_UX/01_User_Experience.md>)
+- [`template/03_IA/01_Information_Architecture.md`](<../../../template/03_IA/01_Information_Architecture.md>)
+- [`template/04_UI/01_User_Interface.md`](<../../../template/04_UI/01_User_Interface.md>)
+- [`template/05_SPEC/01_Behavior_Specification.md`](<../../../template/05_SPEC/01_Behavior_Specification.md>)
+- [`template/06_Architecture/01_Architecture.md`](<../../../template/06_Architecture/01_Architecture.md>)
+- [`template/07_Quality/01_Quality_Center.md`](<../../../template/07_Quality/01_Quality_Center.md>)
+- [`template/07_Quality/02_Quality_Strategy.md`](<../../../template/07_Quality/02_Quality_Strategy.md>)
+- [`template/07_Quality/03_Verification_Design.md`](<../../../template/07_Quality/03_Verification_Design.md>)
+- `template/07_Quality/Verification_Design.md`（削除または旧Path）
+- `template/07_Quality/Verification_Results/Verification_Result_Template.md`（削除または旧Path）
+- `template/90_Release/Changes/CHG-XXXXXX_Template.md`（削除または旧Path）
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+- `template/tools/coordinator/coordinator-package-manifest.json`（削除または旧Path）
+- `template/tools/coordinator/windows-x64/coordinator.exe`（削除または旧Path）
+- [`template/tools/coordinator/windows-x64/crdd-platform-access.exe`](<../../../template/tools/coordinator/windows-x64/crdd-platform-access.exe>)
+- `template/tools/crdd_check.ts`（削除または旧Path）
+- [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
+- `tools/checker/crdd-check.contract.test.ts`（削除または旧Path）
+- `tools/checker/crdd-check.ts`（削除または旧Path）
+- `tools/checker/fault-injector.ts`（削除または旧Path）
+- `tools/checker/package.json`（削除または旧Path）
+- `tools/checker/tools-naming.contract.test.ts`（削除または旧Path）
+- `tools/checker/tsconfig.json`（削除または旧Path）
+- `tools/coding-standards.md`（削除または旧Path）
+- `tools/coordinator/.gitignore`（削除または旧Path）
+- `tools/coordinator/architecture/README.md`（削除または旧Path）
+- `tools/coordinator/bin/coordinator.mjs`（削除または旧Path）
+- `tools/coordinator/bin/coordinator.ts`（削除または旧Path）
+- `tools/coordinator/package-lock.json`（削除または旧Path）
+- `tools/coordinator/package.json`（削除または旧Path）
+- `tools/coordinator/policies/windows-docker-desktop-4.41.2.policy`（削除または旧Path）
+- `tools/coordinator/README.md`（削除または旧Path）
+- `tools/coordinator/runtime/codex-executor-result-schema.json`（削除または旧Path）
+- `tools/coordinator/runtime/codex-provider.Dockerfile`（削除または旧Path）
+- `tools/coordinator/runtime/codex-reviewer-result-schema.json`（削除または旧Path）
+- `tools/coordinator/runtime/coordinator-runtime-traceability.json`（削除または旧Path）
+- `tools/coordinator/runtime/general-task-verification.txt`（削除または旧Path）
+- `tools/coordinator/scripts/check-runtime-traceability.ts`（削除または旧Path）
+- `tools/coordinator/scripts/generate-release-key.ts`（削除または旧Path）
+- `tools/coordinator/scripts/measure-development-providers.ts`（削除または旧Path）
+- `tools/coordinator/scripts/revoke-external-send-consent.ts`（削除または旧Path）
+- `tools/coordinator/scripts/sign-release-manifest.ts`（削除または旧Path）
+- `tools/coordinator/scripts/verify-signed-general-task.ts`（削除または旧Path）
+- `tools/coordinator/scripts/verify-signed-recovery-matrix.ts`（削除または旧Path）
+- `tools/coordinator/scripts/verify-signed-route-matrix.ts`（削除または旧Path）
+- `tools/coordinator/src/core/cli-options.mjs`（削除または旧Path）
+- `tools/coordinator/src/core/cli-options.ts`（削除または旧Path）
+- `tools/coordinator/src/core/command-report.ts`（削除または旧Path）
+- `tools/coordinator/src/core/development-execution-timing.ts`（削除または旧Path）
+- `tools/coordinator/src/core/docker-desktop-repair-doctor-dispatch.ts`（削除または旧Path）
+- `tools/coordinator/src/core/docker-recovery-command-report.ts`（削除または旧Path）
+- `tools/coordinator/src/core/doctor.mjs`（削除または旧Path）
+- `tools/coordinator/src/core/doctor.ts`（削除または旧Path）
+- `tools/coordinator/src/core/interactive-console-reader.ts`（削除または旧Path）
+- `tools/coordinator/src/core/interactive-console.ts`（削除または旧Path）
+- `tools/coordinator/src/core/node-runtime-version.ts`（削除または旧Path）
+- `tools/coordinator/src/core/runtime-process-safety-state.ts`（削除または旧Path）
+- `tools/coordinator/src/core/runtime-traceability.ts`（削除または旧Path）
+- `tools/coordinator/src/core/windows-child-environment.ts`（削除または旧Path）
+- `tools/coordinator/src/security/authority-file-bundle.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/authority-grant-verifier.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/authority-grant-verifier.ts`（削除または旧Path）
+- `tools/coordinator/src/security/authority-prelaunch-verifier.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/authority-root-locator.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/authority-root-locator.ts`（削除または旧Path）
+- `tools/coordinator/src/security/authority-root-path-lexical.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/authority-root-profile.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/authority-root-profile.ts`（削除または旧Path）
+- `tools/coordinator/src/security/authority-trust-loader.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/candidate-bundle-store.ts`（削除または旧Path）
+- `tools/coordinator/src/security/candidate-store-kernel-lock.ts`（削除または旧Path）
+- `tools/coordinator/src/security/candidate-store-lock-worker.ts`（削除または旧Path）
+- `tools/coordinator/src/security/candidate-store-windows-adapter.ts`（削除または旧Path）
+- `tools/coordinator/src/security/claude-docker-runtime-adapter.ts`（削除または旧Path）
+- `tools/coordinator/src/security/claude-execution-plan.ts`（削除または旧Path）
+- `tools/coordinator/src/security/codex-docker-runtime-adapter.ts`（削除または旧Path）
+- `tools/coordinator/src/security/codex-execution-plan.ts`（削除または旧Path）
+- `tools/coordinator/src/security/coordinator-operation-creation-internal.ts`（削除または旧Path）
+- `tools/coordinator/src/security/coordinator-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/coordinator-task-request.ts`（削除または旧Path）
+- `tools/coordinator/src/security/coordinator-task-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/delegation-route-selection.ts`（削除または旧Path）
+- `tools/coordinator/src/security/delegation-selection-grant-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/development-measurement-constraints.ts`（削除または旧Path）
+- `tools/coordinator/src/security/development-measurement-session.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-desktop-repair-native-helper.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-desktop-repair-policy.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-desktop-repair-record-store.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-desktop-runtime-repair.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-effect-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-host-transition-state.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-isolation.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/docker-isolation.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-process-controller.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-recovery-identity.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-recovery-journal.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-recovery-lock-controller.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-recovery-public-projection.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-recovery-runtime-internal.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-recovery-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-recovery-state-machine.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-runtime-state-binding.ts`（削除または旧Path）
+- `tools/coordinator/src/security/egress-proxy-policy.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/egress-proxy-policy.ts`（削除または旧Path）
+- `tools/coordinator/src/security/enrollment-certificate-renewal.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/enrollment-certificate-renewal.ts`（削除または旧Path）
+- `tools/coordinator/src/security/execution-environment.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/execution-environment.ts`（削除または旧Path）
+- `tools/coordinator/src/security/external-send-consent-record.ts`（削除または旧Path）
+- `tools/coordinator/src/security/external-send-consent-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/external-send-grant-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/external-send-policy-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/git-local-exclude.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/git-local-exclude.ts`（削除または旧Path）
+- `tools/coordinator/src/security/git-object-reader.ts`（削除または旧Path）
+- `tools/coordinator/src/security/host-operation-lock-supervisor.ts`（削除または旧Path）
+- `tools/coordinator/src/security/host-recovery-record.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/host-recovery-record.ts`（削除または旧Path）
+- `tools/coordinator/src/security/initial-enrollment-pure-core.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/initial-enrollment-pure-core.ts`（削除または旧Path）
+- `tools/coordinator/src/security/initial-enrollment-runtime-state.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/initial-enrollment-runtime-state.ts`（削除または旧Path）
+- `tools/coordinator/src/security/local-personal-authority-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/offline-enrollment-bundle-pure-core.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/offline-enrollment-bundle-pure-core.ts`（削除または旧Path）
+- `tools/coordinator/src/security/plain-data-snapshot.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/plain-data-snapshot.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-key-storage-policy.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/platform-key-storage-policy.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-active-pointer.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-active-release-reader.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-active-release-store.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-active-release.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-dual-gate.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-effect.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-install-layout.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-manifest-loader.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-package-filesystem.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-package-gate.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-package-gate.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-policy-identity.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-release-floor-store.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-release-floor.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-release-identity.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-release-trust.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-state-transaction.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-trust-core.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-trust-core.ts`（削除または旧Path）
+- `tools/coordinator/src/security/platform-provisioner-windows-dacl.ts`（削除または旧Path）
+- `tools/coordinator/src/security/posix-root-mode-precheck-internal.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/provider-authority-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provider-eligibility-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provider-home-mount-grant-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provider-home-mount-grant.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provider-home-observation.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provider-home-windows-adapter.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provider-isolation-profile.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/provider-model-profile-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provider-task-packet-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provider-task-structured-result.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-ca-pure-core.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-ca-pure-core.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-record-enrollment-binding.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-record-enrollment-binding.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-record-pure-core.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-record-pure-core.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-record-store.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-signature-primitives.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-signature-primitives.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-trust-artifact-store.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-trust-floor-store.ts`（削除または旧Path）
+- `tools/coordinator/src/security/provisioning-trust-floor.ts`（削除または旧Path）
+- `tools/coordinator/src/security/release-identity-grammar.ts`（削除または旧Path）
+- `tools/coordinator/src/security/repository-git-layout-internal.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/repository-git-layout-internal.ts`（削除または旧Path）
+- `tools/coordinator/src/security/repository-git-layout.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/repository-git-layout.ts`（削除または旧Path）
+- `tools/coordinator/src/security/repository-operation-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/repository-root-resolution.ts`（削除または旧Path）
+- `tools/coordinator/src/security/repository-workspace-runtime.ts`（削除または旧Path）
+- `tools/coordinator/src/security/root-observation.ts`（削除または旧Path）
+- `tools/coordinator/src/security/root-protection-policy.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/root-protection-policy.ts`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-activation-identity.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-activation-locator-binding-contract.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-activation-locator-binding.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-activation-locator-binding.ts`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-activation-record.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-activation-record.ts`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-activation-transition.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-activation-transition.ts`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-root-path-identity.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-root-path-identity.ts`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-root-profile.mjs`（削除または旧Path）
+- `tools/coordinator/src/security/runtime-root-profile.ts`（削除または旧Path）
+- `tools/coordinator/src/security/secret-material-policy.ts`（削除または旧Path）
+- `tools/coordinator/src/security/windows-common-application-data.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-file-bundle.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-file-bundle.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/authority-file-bundle.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-grant-verifier.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-grant-verifier.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/authority-grant-verifier.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-prelaunch-verifier.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-prelaunch-verifier.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/authority-prelaunch-verifier.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-root-locator.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-root-locator.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/authority-root-locator.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-root-profile.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-root-profile.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/authority-root-profile.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-trust-loader.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/authority-trust-loader.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/authority-trust-loader.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/candidate-bundle-store.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/candidate-store-kernel-lock.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/candidate-store-windows-adapter.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/claude-docker-runtime-adapter.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/claude-execution-plan.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/cli-options.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/cli-options.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/cli-options.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/codex-docker-runtime-adapter.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/codex-execution-plan.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/command-report.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/coordinator-claude-delegation.integration.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/coordinator-docker-recovery-cli.integration.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/coordinator-operation-creation-internal.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/coordinator-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/coordinator-task-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/delegation-route-selection.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/delegation-selection-grant-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/development-execution-timing.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/development-measurement-constraints.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/development-measurement-session.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/development-native-observation.integration.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/development-provider-measurement.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-desktop-repair-policy.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-desktop-repair-record-store.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-desktop-runtime-repair.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-effect-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-host-transition-state.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-process-controller.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-recovery-journal.integration.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-recovery-lock-controller.integration.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-recovery-public-projection.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-recovery-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-recovery-state-machine.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/docker-runtime-state-binding.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/doctor.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/doctor.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/doctor.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/dynamic-fake-provider-coverage.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/egress-proxy-policy.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/egress-proxy-policy.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/egress-proxy-policy.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/enrollment-certificate-renewal.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/enrollment-certificate-renewal.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/enrollment-certificate-renewal.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/external-send-consent-docker-recovery.integration.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/external-send-consent-revocation.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/external-send-consent-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/external-send-grant-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/external-send-policy-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/candidate-store-lock-owner.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/docker-auth-probe-inspect-none.json`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/docker-recovery-lock-owner.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/interactive-console-lock-liveness.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/interactive-console-owned-reader-process.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/interactive-console-parent.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/recovery-cleanup-probe.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/runtime-process-poison-boundary.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/signed-general-poison-probe.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/signed-route-poison-probe.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/windows-native-helper-environment-unavailable.ts`（削除または旧Path）
+- `tools/coordinator/tests/fixtures/windows-native-helper-profile-fault.ts`（削除または旧Path）
+- `tools/coordinator/tests/generate-release-key.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/git-local-exclude.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/git-local-exclude.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/git-local-exclude.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/git-object-reader.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/git-object-reader.integration.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/initial-enrollment-pure-core.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/initial-enrollment-pure-core.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/initial-enrollment-pure-core.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/initial-enrollment-runtime-state.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/initial-enrollment-runtime-state.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/initial-enrollment-runtime-state.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/interaction-boundary-regression.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/local-personal-authority-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/node-runtime-version.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/offline-enrollment-bundle-pure-core.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/offline-enrollment-bundle-pure-core.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/offline-enrollment-bundle-pure-core.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/plain-data-snapshot.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/plain-data-snapshot.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/plain-data-snapshot.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-key-storage-policy.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-key-storage-policy.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/platform-key-storage-policy.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-active-release-reader.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-active-release-store.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-active-release.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-dual-gate.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-effect.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-install-layout.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-package-gate.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-package-gate.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-package-gate.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-policy-identity.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-release-floor-store.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-release-floor.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-release-identity.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-release-trust.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-state-transaction.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-trust-core.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-trust-core.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-trust-core.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/platform-provisioner-windows-dacl.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/posix-root-mode-precheck-internal.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/provider-authority-coverage.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-eligibility-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-home-mount-grant-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-home-mount-grant.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-home-observation.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-home.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-isolation-profile.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-isolation-profile.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/provider-isolation-profile.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-model-profile-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-task-packet-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provider-task-structured-result.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-ca-pure-core.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-ca-pure-core.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-ca-pure-core.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-record-enrollment-binding.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-record-enrollment-binding.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-record-enrollment-binding.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-record-pure-core.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-record-pure-core.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-record-pure-core.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-record-store.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-signature-primitives.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-signature-primitives.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-signature-primitives.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-trust-artifact-store.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-trust-floor-store.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/provisioning-trust-floor.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/release-identity-grammar.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/repository-git-layout.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/repository-git-layout.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/repository-git-layout.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/repository-operation-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/repository-root-resolution.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/repository-workspace-runtime.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/root-observation.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/root-protection-policy.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/root-protection-policy.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/root-protection-policy.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-activation-locator-binding.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-activation-locator-binding.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/runtime-activation-locator-binding.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-activation-record.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-activation-record.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/runtime-activation-record.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-activation-transition.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-activation-transition.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/runtime-activation-transition.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-process-safety-state.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-root-path-identity.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-root-path-identity.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/runtime-root-path-identity.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-root-profile.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-root-profile.test.mjs`（削除または旧Path）
+- `tools/coordinator/tests/runtime-root-profile.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-trace-case.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-trace-case.ts`（削除または旧Path）
+- `tools/coordinator/tests/runtime-traceability.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/secret-material-policy.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/sign-release-manifest.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/signed-general-task-verification.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/signed-recovery-matrix-verification.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/signed-route-matrix-verification.contract.test.ts`（削除または旧Path）
+- `tools/coordinator/tests/test-support.ts`（削除または旧Path）
+- `tools/coordinator/THREAT_MODEL.md`（削除または旧Path）
+- `tools/coordinator/threat-model.md`（削除または旧Path）
+- `tools/coordinator/tsconfig.strict.json`（削除または旧Path）
+- `tools/coordinator/tsconfig.tests.json`（削除または旧Path）
+- `tools/coordinator/tsconfig.typecheck.json`（削除または旧Path）
+- `tools/crdd_check_fault_injector.ts`（削除または旧Path）
+- `tools/crdd_check.test.ts`（削除または旧Path）
+- `tools/crdd_check.ts`（削除または旧Path）
+- `tools/platform-access/Cargo.toml`（削除または旧Path）
+- `tools/platform-access/src/docker_repair.rs`（削除または旧Path）
+- `tools/platform-access/src/main.rs`（削除または旧Path）
+- `tools/platform-access/src/protocol.rs`（削除または旧Path）
+- `tools/platform-access/src/windows.rs`（削除または旧Path）
+- `tools/platform-access/tests/cli.rs`（削除または旧Path）
+- `tools/tsconfig.checker.json`（削除または旧Path）
+
+</details>
 
 ## 3. 所有境界
 
@@ -285,7 +1360,7 @@ Docker Desktop 4.41.2は、旧runtime socketを単体削除できずEngineを起
 
 同じHost復旧を通常Operationへ混入させず再現可能にするため、Windows専用の明示`doctor --repair-docker-desktop-runtime`候補を追加した。初回候補の独立監査は、random lock identity、Engineの二値化、PID再利用競合、package更新競合、部分Effectの誤投影、再開不能な記録および人間表示の不正確さを検出した。是正候補は、発火をEngine既知停止の二重観測と固定`dockerInference` socketの既知アクセス不能へ限定し、署名済みCRDD配布物、native selected-user／Known Folder照合済みLocal App Data、保護Runtime State、単一の署名対象Policyに固定したDocker Desktop 4.41.2／Engine 28.1.1成果物、および選択User単位のWindows global mutexを要求する。署名済みnative helperは成果物の更新排他handleを保持し、公式shutdown後に残るProcessを同じkernel process handleで照合・停止・待機する。PIDやProcess名だけをAuthorityにせず、WSLは`docker-desktop`だけをterminateする。
 
-Filesystem Effectは、保護Runtime State内のrev4追記型段階記録、旧版記録の明示引継ぎ・終了に用いる固定名の`historical-adoption.json`／`historical-closure.json`の排他的追加、および`Docker\run`を同じ親Directoryの一意な`run.crdd-stale-*`へrenameする処置に限定する。履歴receiptの境界は[専用Architecture](../../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。Directory、socketまたは記録を削除せず、Identityを前後照合する。Engine再応答、固定成果物、Process集合およびhelper解放まで確認できた場合は`recovered_pending_close`とし、人間がopaque IDを`doctor --close-docker-desktop-runtime-repair`へ明示した場合だけ、全境界を再確認して削除せず`closed_retained`を追記する。未完了記録は次回の明示doctorで再開し、改ざん、第三状態、Identity差またはcleanup不明では新規repairを止める。通常Taskからの自動fallback、`wsl --shutdown`、CRDD RuntimeStateの他内容、Provider Home、container、image、volumeまたは別WSL distributionの削除を許可しない。契約試験は正常・非発火・三値観測・境界・各段階失敗・helper cleanup不明・再開・明示close・記録改ざんを対象とするが、再度Hostを破損させる実測は行っていない。この候補は別の`0xC0000409`、Docker Task Recovery、残存0、DogfoodingまたはRuntime完成を成立させない。
+Filesystem Effectは、保護Runtime State内のrev4追記型段階記録、旧版記録の明示引継ぎ・終了に用いる固定名の`historical-adoption.json`／`historical-closure.json`の排他的追加、および`Docker\run`を同じ親Directoryの一意な`run.crdd-stale-*`へrenameする処置に限定する。履歴receiptの境界は[専用Architecture](../../../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。Directory、socketまたは記録を削除せず、Identityを前後照合する。Engine再応答、固定成果物、Process集合およびhelper解放まで確認できた場合は`recovered_pending_close`とし、人間がopaque IDを`doctor --close-docker-desktop-runtime-repair`へ明示した場合だけ、全境界を再確認して削除せず`closed_retained`を追記する。未完了記録は次回の明示doctorで再開し、改ざん、第三状態、Identity差またはcleanup不明では新規repairを止める。通常Taskからの自動fallback、`wsl --shutdown`、CRDD RuntimeStateの他内容、Provider Home、container、image、volumeまたは別WSL distributionの削除を許可しない。契約試験は正常・非発火・三値観測・境界・各段階失敗・helper cleanup不明・再開・明示close・記録改ざんを対象とするが、再度Hostを破損させる実測は行っていない。この候補は別の`0xC0000409`、Docker Task Recovery、残存0、DogfoodingまたはRuntime完成を成立させない。
 
 後続監査是正では記録をrev4とし、shutdown、native termination、WSL termination、renameおよびlauncherを、同じactionの耐久`intent_recorded`と`settled`へ分離した。intent確定後にpackage／Policy／helper／取消境界を再確認し、未settled intentを再発行しない。現在状態を過去の発行証明へ流用せず、operation固有staleのexact Identityから帰属を証明できるrenameだけを観測済みEffectとして再開する。record writeは自己参照を避けた専用Filesystem Evidence Effectとし、fresh hash-chain読取り後だけconfirmedへ精緻化する。reader／writer共通validatorはaction閉集合、phase、順序、stage相関およびaggregateを検査し、通常15件と再開余裕9件の上限24件を固定する。既知の発行事実を後退させず、後続Effectが不明なら以前の成功で隠さず全体確認を`unknown`にする。CRDD manifest Hash／Release Sequence／Tree／package content rootへの再開結合、旧rev2／rev3の非移行停止、Engine／Process三値、run／stale四状態とexact Identityの段階行列、new live run Identity、および過去Effect不明・staleなしの専用pending／terminalを追加した。Nodeの非同期launcher起動は廃止し、native helper protocol rev4が生成前非発行、生成後確認済み、生成後確認不明を分離する。durable terminalはEvidence dispositionだけを表し、helper protocol成否とchild `close`、stdin／stdout／stderrおよびprocess handleのbounded cleanup確認を分離する。cleanup確認済みでもprotocol不成立は成功または新規repair許可へ昇格しない。契約試験は取消、helper喪失、package世代差、intent／settlement、rename後record前のat-most-once再開、Process不明／run置換、rev4 Store round-trip、旧rev拒否、reader非互換writer拒否、terminal再表示、遅延exit／stdio回収、protocol失敗cleanup、公開CLIのusage／blocked表示およびnative同一CreateProcess primitiveの実child観測を含む。実破損Hostでの復旧、`0xC0000409`、Docker Task Recovery、Dogfooding、Runtime完成およびReleaseはこの候補の成功根拠に含めない。保証対象は直接Effectに使う固定executable集合とEngine応答版であり、未列挙DLL、resource、loader依存、installation全体または供給経路のAttestationは主張せず、人間が確認した公式Docker配布物と正常なupdaterをT1–T2のTCBに含める。
 
@@ -333,7 +1408,7 @@ Filesystem Effectは、保護Runtime State内のrev4追記型段階記録、旧�
 | Selection／Authority | `000041`、`000042`、`000044`、`000046`、`000047`、`000050` | explainable selection、Eligibility、Model Profile、Local Personal Authority |
 | Repository／Provider Adapter | `000051`、`000052`、`000053` | Repository／Revision binding、Claude facade、Codex Subscription Adapter |
 
-旧ID、旧filename、統合前状態、原文の固定Commit／Tree／SHA-256、統合理由およびEvidenceは[統合台帳](README.md)を正本とする。旧全文は固定Git改訂版から取得できる。旧CHGの`Verified`、個別監査Passまたは実測成功を、本CHG全体の完成・Releaseへ昇格しない。
+旧ID、旧filename、統合前状態、原文の固定Commit／Tree／SHA-256、統合理由およびEvidenceは[統合台帳](../../02_Changes.md)を正本とする。旧全文は固定Git改訂版から取得できる。旧CHGの`Verified`、個別監査Passまたは実測成功を、本CHG全体の完成・Releaseへ昇格しない。
 
 ## 12. Evidenceと検証境界
 
@@ -382,7 +1457,7 @@ Runtime 1.0をReleaseしない場合は、v0.17.xの方法論利用とRuntime非
 
 ### 13.2 設計―実装―検証Traceの監査是正
 
-Coordinator Reference Architectureと機械可読Traceの初回・第二固定候補に対する独立監査は、宣言したcase IDと実scenarioの完全結合、terminal状態母集団、Effect差分、物理観測境界およびFilesystem不存在判定の不足を検出した。同じ未リリース変更内で、Task Runtimeへ制御権を持たない単調lifecycle observerを置き、Canonical 41 caseを実開始状態、終了状態、遷移差分、結果および資源後条件の完全一致へ接続した。`ENOENT`以外を不存在とせず、Host active binding削除済み・exact pointer残存をfresh Processで残存0へ回復し、観測不能時はEvidence保持へ閉じる。Docker Recovery開始理由は内部情報を出さない固定分類へ分けた。これらは新固定改訂版の再監査前であり、Runtime完成またはRelease根拠へまだ昇格しない。詳細は[`Evidence/CHG-000015_Design_Source_Trace_Review_04b39fd.md`](Evidence/CHG-000015_Design_Source_Trace_Review_04b39fd.md)を参照する。
+Coordinator Reference Architectureと機械可読Traceの初回・第二固定候補に対する独立監査は、宣言したcase IDと実scenarioの完全結合、terminal状態母集団、Effect差分、物理観測境界およびFilesystem不存在判定の不足を検出した。同じ未リリース変更内で、Task Runtimeへ制御権を持たない単調lifecycle observerを置き、Canonical 41 caseを実開始状態、終了状態、遷移差分、結果および資源後条件の完全一致へ接続した。`ENOENT`以外を不存在とせず、Host active binding削除済み・exact pointer残存をfresh Processで残存0へ回復し、観測不能時はEvidence保持へ閉じる。Docker Recovery開始理由は内部情報を出さない固定分類へ分けた。これらは新固定改訂版の再監査前であり、Runtime完成またはRelease根拠へまだ昇格しない。詳細は[`Evidence/CHG-000015_Design_Source_Trace_Review_04b39fd.md`](./Evidence/260828-1043_design-source-trace-review.md)を参照する。
 
 後続監査では、production Docker inventoryの`status=completed`をcleanと誤読するConsumer、Operation取得EffectをAdmissionへ隠す状態欠落、成功時だけTask controlを失効する最終化、および状態名からConsole／Control不存在を作るfixture ledgerを検出した。同一未リリース変更内で、producerとTask／Controllerが共有するexact Projector、`STATE-OPERATION-ACQUIRING`、例外時も保守的な構造化Resultとcontrol失効を保証するfinal settlement、および公開取消receipt／Console cleanup結果から作る資源観測へ是正する。単一・複数・観測不能・malformed inventory、Operation取得cleanup確認済み／不明、final projection例外およびfresh Process失敗時のexact試験資源回収を検証し、新固定版の独立再監査前にResolvedとしない。
 
@@ -485,11 +1560,11 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 ## 15. Release処置
 
-2026-08-30の[実務自己適用3件](Evidence/CHG-000055_Dogfooding_8d3d62c.md)では、初期同意を再利用してCodex ExecutorからClaude Reviewerまで進んだが、採用可能候補は得られなかった。cleanup確認済み・手動回復不要であり、同じ失敗を無制限に再試行していない。実行前の承認引継ぎ不足、Reviewerの作業量と上限、選定理由の由来表示を同じ未リリース意図の改善候補として追跡する。
+2026-08-30の[実務自己適用3件](../CHG-000055/Evidence/260830-1152_dogfooding.md)では、初期同意を再利用してCodex ExecutorからClaude Reviewerまで進んだが、採用可能候補は得られなかった。cleanup確認済み・手動回復不要であり、同じ失敗を無制限に再試行していない。実行前の承認引継ぎ不足、Reviewerの作業量と上限、選定理由の由来表示を同じ未リリース意図の改善候補として追跡する。
 
 局所再現で確認したClaude Executorの実行上限と結果受理上限の不整合は、既存の役割・推論別定義を実行計画・argv・説明・結果検証で共有して是正した。既存上限を引き上げず、結果契約revision 11と境界試験へ接続した。実務3件の失敗原因や修正版の実Provider成立を証明したとはしない。Runtime source変更後の最終署名E2E・独立監査は未完了であり、旧署名根拠を修正版の完成判定へ流用しない。
 
-続く[小さい実務単位での自己適用](Evidence/CHG-000055_Focused_Dogfooding_588f04f.md)では、評価3件と台帳の実編集1件が同じ署名済み固定Runtimeで完了した。追加承認・鍵入力なし、全候補のexport／discard完了を確認した。親の追加確認で、参照元Architectureが契約投影の試験と署名済み復旧の実行入口を曖昧に扱う一文を検出し、具体的な試験名・入口・観測対象を分けた。元候補の断定も訂正し、Runtime内の指摘0件を内容完全性へ昇格していない。今回のsource実装変更はなく、この文書是正と前回の上限是正は最終独立監査前である。
+続く[小さい実務単位での自己適用](../CHG-000055/Evidence/260830-1239_focused-dogfooding.md)では、評価3件と台帳の実編集1件が同じ署名済み固定Runtimeで完了した。追加承認・鍵入力なし、全候補のexport／discard完了を確認した。親の追加確認で、参照元Architectureが契約投影の試験と署名済み復旧の実行入口を曖昧に扱う一文を検出し、具体的な試験名・入口・観測対象を分けた。元候補の断定も訂正し、Runtime内の指摘0件を内容完全性へ昇格していない。今回のsource実装変更はなく、この文書是正と前回の上限是正は最終独立監査前である。
 
 この段落を記録したv0.18.0公開前時点では本変更は未リリースであり、内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさなかった。v0.18.0はその後公開済みである。現在のv0.18.1候補はCHG-000056の採用入口是正として別に追跡する。
 
@@ -499,11 +1574,11 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 続けてCoordinator全試験を終了コード0で完了し、全Repository Checkerは363文書・2,208リンク・679アンカーでError 0／Warning 0、設計対応検査は9資源・20状態・21遷移・10不変条件・10検証bindingで受理された。試験件数や機械検査の合格を、上流実務全件の完了または最終監査Passへ置き換えない。
 
-2026-08-30、[上流実務の表示案](Evidence/CHG-000055_Consent_Interaction_Application_746c5d2.md)を一般Taskの許可後表示へ接続した。既存許可の再利用を追加入力なしの一回の状況表示で伝え、初回確認と区別する。表示は固定文・許可方式・選定したProviderだけとし、本文、Path、Credential、Capabilityを公開しない。許可方式の欠落を再利用へ推定していた三つの結果投影は、許可直後に一度検証した閉集合値の伝播へ統一した。不明値、表示失敗・例外、表示中の取消ではWorkspace・Provider起動前に停止し、既存cleanupを使う。送信先、情報分類、初回対話、永続同意の範囲・期限、外部送信Authorityは変更していない。
+2026-08-30、[上流実務の表示案](../CHG-000055/Evidence/260830-1556_consent-interaction-application.md)を一般Taskの許可後表示へ接続した。既存許可の再利用を追加入力なしの一回の状況表示で伝え、初回確認と区別する。表示は固定文・許可方式・選定したProviderだけとし、本文、Path、Credential、Capabilityを公開しない。許可方式の欠落を再利用へ推定していた三つの結果投影は、許可直後に一度検証した閉集合値の伝播へ統一した。不明値、表示失敗・例外、表示中の取消ではWorkspace・Provider起動前に停止し、既存cleanupを使う。送信先、情報分類、初回対話、永続同意の範囲・期限、外部送信Authorityは変更していない。
 
 関連するTask／送信許可の契約試験146件、両型検査、変更sourceのLint／format、設計対応検査を確認した。後続の全体試験とChecker結果はCHG-000055へ接続する。これらは開発試験であり、人間が表示を読んだ証明、実利用時の負荷削減、更新Sourceの正式署名E2Eまたは独立監査Passではない。担当は親Coordinatorとし、残る実務収束後に更新版の表示・初回／再利用経路を最終固定E2Eと一括監査へ含める。今回、公式鍵入力と再署名は行わない。
 
-2026-08-30、実務Reviewerのturn上限停止を受け、基準Commit `57ccb71`から推論強度と作業量を分離した。Windows Job Objectの上限変更ではない。検証済みTask Packetを消費したRuntimeが読取り・変更範囲、受入条件、是正指摘の件数を導出し、[実行Architectureの有限見積り](../../06_Architecture/coordinator/01_Architecture.md#task-turn-budget)に従ってClaudeの実行上限を決める。最大16を超える見積りは分割要求として停止する。Provider Authority発行・起動は行わず、有効化済みMountは既存cleanupへ返す。推論を上げることで作業枠を増やす旧結合は廃止し、結果検証とDocker argv再構成も同じ作業量へ接続した。同じ上限になる作業量の差替えも実行計画Identityで拒否する。
+2026-08-30、実務Reviewerのturn上限停止を受け、基準Commit `57ccb71`から推論強度と作業量を分離した。Windows Job Objectの上限変更ではない。検証済みTask Packetを消費したRuntimeが読取り・変更範囲、受入条件、是正指摘の件数を導出し、[実行Architectureの有限見積り](../../../06_Architecture/coordinator/01_Architecture.md#task-turn-budget)に従ってClaudeの実行上限を決める。最大16を超える見積りは分割要求として停止する。Provider Authority発行・起動は行わず、有効化済みMountは既存cleanupへ返す。推論を上げることで作業枠を増やす旧結合は廃止し、結果検証とDocker argv再構成も同じ作業量へ接続した。同じ上限になる作業量の差替えも実行計画Identityで拒否する。
 
 この見積りはDirectory内の実ファイル数や完了予測ではない。既存のSubscription限定、権限、外部送信、timeout、cleanup、CodexおよびBoolean Probeの契約は維持する。実務の上限停止が解消したという主張は、更新版を用いた後続実測まで保留する。親Coordinatorが実務収束時に係数、上限停止率、完成時間、利用量を再評価し、最終固定E2Eと独立監査へ接続する。今回の開発反復では公式鍵、再署名または実Provider送信を行わない。検証結果はCHG-000055の後続記録へ接続する。
 
@@ -523,7 +1598,7 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 2026-08-30、人間の決定権限者は、未リリースSourceの不具合と正式発行元署名ではなく固定候補選択を信頼するリスクの説明を受け、この限定実測契約の追加を承認した。Subscriptionの少数回利用を再承認するものではなく、通常利用の署名要件を解除する承認でもない。担当は親Coordinator。承認した範囲内で、正本、全利用側、検証を同じCHGで実装する。
 
-基準`30442cc`から、[限定実測のArchitecture](../../06_Architecture/coordinator/01_Architecture.md#development-provider-measurement)とI/Oなしの制約を追加した。相互の2Taskを各一回、Taskごと4／総8 CLI呼出し、最大1時間、予約と起動直前消費の分離、不可逆な取消・失効、枠非返却を扱う。Taskの実行順序や資源台帳は複製しない。終了記録は既存処理の帳尻を記録するだけで、cleanupの実行許可・成功証明ではない。入力したIdentityや時計の真偽は接続側が確認する責務として残し、制約moduleは実行Authorityを発行しない。
+基準`30442cc`から、[限定実測のArchitecture](../../../06_Architecture/coordinator/01_Architecture.md#development-provider-measurement)とI/Oなしの制約を追加した。相互の2Taskを各一回、Taskごと4／総8 CLI呼出し、最大1時間、予約と起動直前消費の分離、不可逆な取消・失効、枠非返却を扱う。Taskの実行順序や資源台帳は複製しない。終了記録は既存処理の帳尻を記録するだけで、cleanupの実行許可・成功証明ではない。入力したIdentityや時計の真偽は接続側が確認する責務として残し、制約moduleは実行Authorityを発行しない。
 
 残件は、固定候補と人間承認の実体検証、検証済みnative配布への明示結合、全利用側への伝播、起動直前と結果公開時の再検証、既存資源のcleanup／Recoveryとの結合である。全利用側が接続されるまでは実Provider比較を実行しない。通常署名入口、Docker修復、Release鍵、永続同意およびProvider起動処理は今回変更していない。最終固定版のArchitecture／Security、Test／UX、Document／Gap／Impact確認は接続後のE2Eと実務収束後に行い、制約単体の合格を完成監査へ代替しない。
 
@@ -588,7 +1663,7 @@ Checker自身の全試験も173件合格、失敗・取消・skip 0となった�
 - 実行は、固定開発配布内の`tools/coordinator/scripts/measure-development-providers.ts`を検証済みNode絶対Pathから起動した。設定はRepository直下の`.crdd/dogfooding/development-measurement-request.json`。二つのTaskは同じ保存境界規則を日本語の3項目へ要約し、検証用text一つだけを変更する。読取り・変更投影と完全なTask指示は下記JSONに保存した。
 - 初回の開始確認は入力期限超過で`providerEffectIssued: false`のまま終了した。同じ固定入力・元の期限を保持して再起動し、人間の入力後に二つのTaskを実行した。実Taskを再試行したものではない。実行結果の保存時刻は2026-08-31 00:31:49 JST。正確なTask別開始時刻・終了時刻は記録しておらず、経過時間だけを観測した。
 - 許可上限8回に対してProvider CLI呼出しは計4回、2Taskとも終了記録済み。最後の`stopReason: cancelled`は比較入口の`finally`によるsession失効であり、Task取消や失敗ではない。CLI内のturn数・API request数・token・quota消費量とは区別する。
-- [入力投影・完全な公開結果・追加の読取り計測](Evidence/CHG-000015_Development_Provider_Comparison_c95eb91.json)のSHA-256は`a957bed5fc9a75278289b60d3875747e27b3d811cbf412fa2182bd4c5c781203`。原結果JSONのSHA-256は`edacef2d9d32c5638ff331bcb7cdb0301d99608cabe7f9d3bc4e8cc1d6a41ae5`。原入力・原結果はignored `.crdd/dogfooding`に保持し、Providerの生出力・秘密値はEvidenceへ保存しない。Consoleの選定表示は独立した原ログとして保存しておらず、公開結果中の選定理由を保持した。
+- [入力投影・完全な公開結果・追加の読取り計測](./Evidence/260831-0038_development-provider-comparison-02.json)のSHA-256は`a957bed5fc9a75278289b60d3875747e27b3d811cbf412fa2182bd4c5c781203`。原結果JSONのSHA-256は`edacef2d9d32c5638ff331bcb7cdb0301d99608cabe7f9d3bc4e8cc1d6a41ae5`。原入力・原結果はignored `.crdd/dogfooding`に保持し、Providerの生出力・秘密値はEvidenceへ保存しない。Consoleの選定表示は独立した原ログとして保存しておらず、公開結果中の選定理由を保持した。
 
 両経路各一回のため、2.4秒の差をProviderの優劣と判定しない。固定Linux環境の互換性選定によりCodexの実効モデルはGPT-5.5であり、Sol自体の比較ではない。両TaskでClaudeの作業回数上限による停止は起きなかったが、実turn数は未観測であるため上限問題一般の解消証明ではない。候補本文は検証後に破棄しており、公開結果の独立Reviewer承認を記録する一方、このEvidenceだけから内容を再レビューすることはできない。機密値不存在の完全証明、人間受入時間、Runtime全体の品質改善率も主張しない。
 
@@ -602,7 +1677,7 @@ Checker自身の全試験も173件合格、失敗・取消・skip 0となった�
 |---|---|---|
 | 実行時間の内訳と進行表示 | Runtime保守。次の実務比較を行う前 | 既存Taskの準備、実装、レビュー、結果検証、cleanupと配布照合について、秘密・Task本文を含まない時間と回数を観測可能にする。停止理由・結果公開・取消を変えず、計測有無で安全判定が変わらないことを試験する。実測前にキャッシュや検査省略を採用しない |
 | 開始確認の期限超過 | Runtime保守。次の対話入口UX確認時 | 今回一回発生。入力できる状態と待機期限を人間が把握できる表示・起動順を確認する。承認自動入力、期限の無断延長、許可の再生成で回避しない |
-| 実務自己適用・有用性評価 | 親Coordinator。上記の計測不足を処置した後 | 既存の[有用性評価](../../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-evaluation)へ結果を接続し、採用可能な成果、人間負荷、不要な往復、Provider利用集中を評価する。今回の2Task成功だけで全件完了にしない |
+| 実務自己適用・有用性評価 | 親Coordinator。上記の計測不足を処置した後 | 既存の[有用性評価](../../../01_Discovery/Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md)へ結果を接続し、採用可能な成果、人間負荷、不要な往復、Provider利用集中を評価する。今回の2Task成功だけで全件完了にしない |
 
 新しいCHG、追加の実Provider再試行、Release鍵入力、Docker修復または無関係な候補清掃は行っていない。正式な独立レビュー・監査は既定どおり実務収束後の最新固定版へまとめる。今回の記録更新自体に追加の人間判断は必要ない。
 
@@ -651,7 +1726,7 @@ Task合計は737.368秒（約12分17秒）。セッションの実体照合は34
 - 配布作成は`git -c core.autocrlf=false archive --format=tar --output=<Repository-local archive> 848877c2ff818a99d1c455bfee751fd8c5135902`とし、Repository直下`.crdd/e2e-distributions`の専用Rootへ展開した。最初のarchiveでは改行変換により757ファイルがBlobと不一致となり、Provider開始前に拒否された。Git設定全体は変更せず、archive commandだけで変換を止めて再観測を通した。これはRuntime検査の緩和ではなく配布生成条件の是正である。
 - 最初の確認待ちはtimeout、`providerEffectIssued: false`で終了。次の開始試行は同じ版・2Taskを再観測し、最大1時間の新しい開始期限を設定した。失効済みCapabilityの再利用、実Task再試行または許可上限の補充はしていない。貼付Consoleには確認コード一致の表示があり、人間は「さっき入れたコードかもしれない」と説明した。入力主体・時刻の独立証明はなく、保存結果から推定しない。追加送信の初期同意は両Taskとも再利用された。
 - 保存結果の時刻は2026-08-31 01:17:32 JST、Consoleの`MEASUREMENT_EXIT=0`、保存JSONの`status=completed`。正確なTask別開始・終了時刻は未記録。今回の候補は破棄済みのため本文の再レビューはできない。
-- [入力・完全な公開結果・比較計算・制限](Evidence/CHG-000015_Development_Provider_Comparison_848877c.json)のSHA-256は`0d7f630f30a90889cb475f8060b3e463a296c625c6cf133ad84a9372d1e9fde2`。原結果SHA-256は`65733445da8ab4e6dd9e8162f4b5f66af48908e586ff643b8834033f87191e73`、入力SHA-256は`b4d5e6e114462e8f1da3d61c3f98ec101711fdbac34e9dd598dd30296760e153`。原結果・入力はignored `.crdd/dogfooding`に保持し、Provider生出力・CredentialはEvidenceへ含めない。過去Evidenceは変更しない。
+- [入力・完全な公開結果・比較計算・制限](./Evidence/260831-0038_development-provider-comparison-01.json)のSHA-256は`0d7f630f30a90889cb475f8060b3e463a296c625c6cf133ad84a9372d1e9fde2`。原結果SHA-256は`65733445da8ab4e6dd9e8162f4b5f66af48908e586ff643b8834033f87191e73`、入力SHA-256は`b4d5e6e114462e8f1da3d61c3f98ec101711fdbac34e9dd598dd30296760e153`。原結果・入力はignored `.crdd/dogfooding`に保持し、Provider生出力・CredentialはEvidenceへ含めない。過去Evidenceは変更しない。
 
 #### 実体照合の発生箇所と改善判断
 
@@ -676,7 +1751,7 @@ TTL／Task全期間のキャッシュ、変更時刻だけの判定、署名・H
 | 重複native検証の所有者集約の設計 | Runtime保守。次の性能改善着手前 | 全利用側と正常・拒否・待機中の差替え・取消・期限・cleanupを照合。古い観測・別Root・別Operation・二重使用を拒否する自動試験を先に定め、独立確認後に採用判断。保留中は現在の安全判定を維持するが時間負担は残る |
 | 計測表示の誤読防止 | Runtime保守。次の計測契約更新時 | Task側Identityの0を未計測と区別し、必要なら呼出し元の閉集合別に観測。既存値を書換えて今回実測の内訳を後付けしない |
 | 準備・入力案内のUX | 親Coordinator／Runtime保守。次の実測入口準備時 | archiveの改行条件を固定し、完了結果確認前に再入力を案内しない。入力timeoutは実Provider失敗・課金消費と区別する |
-| 有用性全体の評価 | 親Coordinator。実務自己適用の継続時 | [有用性評価](../../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-evaluation)に沿って人間負荷・採用可能な成果・品質・利用分散を評価。今回の記録だけで全体完了にしない |
+| 有用性全体の評価 | 親Coordinator。実務自己適用の継続時 | [有用性評価](../../../01_Discovery/Explorations/EXP-000004_Coordinated_AI_Execution/exploration.md)に沿って人間負荷・採用可能な成果・品質・利用分散を評価。今回の記録だけで全体完了にしない |
 
 今回の記録・分析に追加の人間判断は必要ない。Runtimeの削減実装、再実測、追加Provider送信、Docker修復、署名またはReleaseは行っていない。
 
@@ -684,7 +1759,7 @@ TTL／Task全期間のキャッシュ、変更時刻だけの判定、署名・H
 
 前節の第一候補について、人間の一括実行承認を受け、既存CHG内の性能是正として実装する。対象は限定開発実測のsessionと二つのWindows Adapterだけである。通常署名CLI、native配布自体、外部送信許可、期限、呼出し上限、永続形式、Release判断は変更しない。着手前は親の全利用側照合と読み取り専用の独立確認を行い、検証削減の範囲と保持条件を確認した。これは完成後の監査ではなく、正式な独立レビュー・監査は実務収束後の一括確認へ接続する。
 
-採用した設計は[開発実測のArchitecture](../../06_Architecture/coordinator/01_Architecture.md#development-provider-measurement)を正本とする。新しい本番観測の検証結果を同じIdentity objectへ私有に結合し、Adapterの即時利用へ渡す。各借用の実体・許可確認、子Process前後のartifact検査、終了後の新規再観測を保持し、Adapterだけが重ねていた全体native検証1回を除く。許可範囲digestへ検証結果を混入させない。TTL／Task全期間cache、変更時刻だけの判定、署名・Hash検査の省略は不採用とした。OSの並行改変を完全排除する新しい保証や、検証結果を後続Taskへ持ち越すCapabilityは追加しない。
+採用した設計は[開発実測のArchitecture](../../../06_Architecture/coordinator/01_Architecture.md#development-provider-measurement)を正本とする。新しい本番観測の検証結果を同じIdentity objectへ私有に結合し、Adapterの即時利用へ渡す。各借用の実体・許可確認、子Process前後のartifact検査、終了後の新規再観測を保持し、Adapterだけが重ねていた全体native検証1回を除く。許可範囲digestへ検証結果を混入させない。TTL／Task全期間cache、変更時刻だけの判定、署名・Hash検査の省略は不採用とした。OSの並行改変を完全排除する新しい保証や、検証結果を後続Taskへ持ち越すCapabilityは追加しない。
 
 6利用形態×14条件の本番session→Adapter結合試験84件と、既存session契約試験19件、計103件が合格した。取消・期限切れ後の所有cleanup読取りは成立し、初期化と新規処理は拒否する。差替え・観測失敗・環境不成立・不正contextでは権限を返さず、起動後不一致は回収不明を維持する。試験はOS／Process観測を代替しているため、これだけで実測の成功・所要時間改善を主張しない。
 
@@ -715,17 +1790,17 @@ Task合計は前回737.368秒から995.644秒（約16分36秒）へ増加した�
 
 #### 根拠と後続対応
 
-- [公開入力・結果・比較計算・読取り専用比較](Evidence/CHG-000015_Development_Provider_Comparison_799e368.json)のSHA-256は`05cc20e065540455450b266819c09b0128badf43010c6c01fc4a570bb3cd53cb`。原結果SHA-256は`25eeb7b9d9960eb1f43559459b73ee4ac18ccd5bcd740cc4355ccd094ce9928f`、入力SHA-256は`b7dac94da97a8d5b693a0fab0e239f3c85dd981249c2d427e7ff31450b2bc213`。過去Evidenceは変更しない。
+- [公開入力・結果・比較計算・読取り専用比較](./Evidence/260831-0038_development-provider-comparison.json)のSHA-256は`05cc20e065540455450b266819c09b0128badf43010c6c01fc4a570bb3cd53cb`。原結果SHA-256は`25eeb7b9d9960eb1f43559459b73ee4ac18ccd5bcd740cc4355ccd094ce9928f`、入力SHA-256は`b7dac94da97a8d5b693a0fab0e239f3c85dd981249c2d427e7ff31450b2bc213`。過去Evidenceは変更しない。
 - 開発package SHA-256は`e1909f08e7256c3e01467d0eabb85320e1c1308f0514abcd24621f455b5d2330`。前回と同じ署名済みnative `a619545`を再利用し、Node.js 24.19.0で実行した。保存JSONは2026-08-31 02:11:51.915 JSTに完了結果を保持し、その後Node終了を確認した。正確なProcess終了コードは取得していない。
 - 開発版固定前の全Runtime試験1,395件、命名契約7件、型検査2系統、変更sourceのBiomeが合格済み。全体試験ログSHA-256は`5c5cbe0363bcf265eba03d96d9490ff7ff2145527e5a5bcab840a7f426887352`。今回の記録追加は実装を変更しないため、結果の原本照合・算術確認と全体Checkerを実行する。
-- 次版の検討材料は[Discoveryの既存候補](../../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-next-version-candidates)とCHG-000055から追跡する。呼出し元別計測と共有単位の設計は未採用であり、遅延を理由にTTL cacheや検証省略を追加しない。
+- 次版の検討材料は[Discoveryの既存候補](../../../01_Discovery/Explorations/EXP-000013_Execution_Intelligence/exploration.md)とCHG-000055から追跡する。呼出し元別計測と共有単位の設計は未採用であり、遅延を理由にTTL cacheや検証省略を追加しない。
 - 担当は親Coordinator／Runtime保守。次の実務自己適用では所要時間と人間負荷を含む有用性を評価し、現行必須条件を維持する。実務収束後の独立レビュー・完成監査、最終Release判断は未完了。今回の性能評価を成功扱いにせず、現在の完了・安全判断を変える根拠が出た場合は将来候補より先に現行是正へ戻す。
 
 ## Docker修復の終了履歴と再ログオンの是正（2026-08-31）
 
 固定候補`ee26ff1`の正式復旧試験はDocker Engine停止により未完了。その後、承認された専用修復入口は`docker_desktop_repair_inventory_unknown`で停止し、Process／Filesystem処置を発行しなかった。既存の終了履歴について、署名3件、安定したユーザー識別、保護Root、Policy、退避物の実体は一致し、ログオン単位のHashだけが不一致であることを読取り診断で確認した。
 
-終了履歴の読取りに現在ログオン一致まで要求していた実装を、[設計](../../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従って是正する。通常の終了記録と明示引継ぎ・終了済み記録を対象とし、未終了記録の権限は引き継がない。元の履歴・署名配布物・OS状態は書き換えず、新規操作には現在境界を使う。新しいCHGへ分離せず、本変更の復旧契約の是正として扱う。
+終了履歴の読取りに現在ログオン一致まで要求していた実装を、[設計](../../../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従って是正する。通常の終了記録と明示引継ぎ・終了済み記録を対象とし、未終了記録の権限は引き継がない。元の履歴・署名配布物・OS状態は書き換えず、新規操作には現在境界を使う。新しいCHGへ分離せず、本変更の復旧契約の是正として扱う。
 
 修正前に再ログオン後の肯定試験が失敗することを再現し、修正後はStoreとRuntimeの関連試験82件が成功した。実機の同じ終了履歴に対する読取り比較も、旧処理`unknown`、修正処理`verified`・終了操作1件となった。この確認はDocker復旧の実行、正式署名E2E、独立完成監査またはRelease完了ではない。残件は同じ完成Gateへ接続し、開発中の鍵入力は要求しない。
 
@@ -769,4 +1844,4 @@ Task合計は前回737.368秒から995.644秒（約16分36秒）へ増加した�
 
 正式署名Route Matrixの親Process終了で、Docker create送信後・ID受領前の耐久Recovery IDが一件残る実状態を得た。初回是正候補のDocker Recovery Runtime contract revision 15はexact nameと同じname＋ownership labelの空照会を未作成Evidenceとして自動収束したが、独立Architecture／Security、Test／UXおよびDocument／Gap監査は、親消失後もDocker CLIまたはdaemon requestが遅延完了し得るため、空snapshotはsettlement barrierにならないと判定した。revision 16は空観測を`manualRecoveryRequired`へ戻したが、発見したowned IDを耐久化する前の削除と、Recovery ID形式からのEvidence保持推定が残った。revision 17では、receipt欠落＋空照会ではOperation領域、active pointer、Provider Home lease、Recovery IDおよびEvidenceを保持して停止する。同じ単一owned IDが観測できた場合は全構成を削除前に照合し、ID、purpose、Recovery IDおよび取得経路をreconciled receiptへ耐久確定してから既存ID指定Recoveryへ移る。Evidence状態はfresh inventoryに基づく`preserved`、`not_preserved`、`unknown`へ分離し、`not_preserved`では再利用可能なIDがないこととRuntime operatorへの移送を案内する。proxyはcreate直後のinternal-onlyとreceipt後のinternal＋egressだけを許容する。自動収束用Brokerまたはdaemon-side fenceはRuntime 1.0へ追加せず、現在のThreat Boundaryを拡張しない。修正後の全機械確認、正式署名Recovery／Route Matrixおよび独立再監査が終わるまで完成扱いにしない。
 
-実務自己適用の初回は、[README是正と有用性観測](Evidence/CHG-000015_Readme_Dogfooding_00db0fc.md)として実行した。初回は作業回数上限で停止したが、編集箇所・確認手順を具体化した2回目は同じモデル・推論・上限で独立レビューまで完了し、候補を追加編集なしで反映・破棄した。計画具体性、操作量と推論の分離、安全な実行統計、親の再承認負荷および現在状態の重複表示を改善候補として同記録へ残す。限定した文書Task1件の結果であり、Runtime全体の有用性評価や最終監査を完了扱いにしない。
+実務自己適用の初回は、[README是正と有用性観測](./Evidence/260830-1122_readme-dogfooding.md)として実行した。初回は作業回数上限で停止したが、編集箇所・確認手順を具体化した2回目は同じモデル・推論・上限で独立レビューまで完了し、候補を追加編集なしで反映・破棄した。計画具体性、操作量と推論の分離、安全な実行統計、親の再承認負荷および現在状態の重複表示を改善候補として同記録へ残す。限定した文書Task1件の結果であり、Runtime全体の有用性評価や最終監査を完了扱いにしない。

@@ -11,7 +11,7 @@
 - リリースレベル: `MINOR`
 - リリース: `v0.19.0`（2026-09-05）
 
-正本: [CRDD自身のDiscovery](../../01_Discovery/01_CRDD_Product_Discovery.md#v019-reasoning-context)、[スキル](../../11_Skill.md#23-expert-exploration-and-convergence-contract)、[課題探索・要求形成](../../21_Discovery.md#34-decision-changing-evidence)、[UX](../../22_UX.md#transformation-contract)、[IA](../../23_IA.md#transformation-contract)、[UI](../../25_UI.md#transformation-contract)、[外部コミュニケーション](../../17_Communication.md#3-外部コミュニケーションのコンテキスト)、[検証](../../29_Verification.md#27-プロダクトコンテキストと体験の検証)
+正本: [CRDD自身のDiscovery](../../../01_Discovery/Explorations/EXP-000009_Reasoning_Context/exploration.md)、[スキル](../../../11_Skill.md#23-expert-exploration-and-convergence-contract)、[課題探索・要求形成](../../../21_Discovery.md#34-decision-changing-evidence)、[UX](../../../22_UX.md#transformation-contract)、[IA](../../../23_IA.md#transformation-contract)、[UI](../../../25_UI.md#transformation-contract)、[外部コミュニケーション](../../../17_Communication.md#3-外部コミュニケーションのコンテキスト)、[検証](../../../29_Verification.md#27-プロダクトコンテキストと体験の検証)
 
 ## 1. Triggerと人間の判断
 
@@ -23,6 +23,97 @@
 - Discoveryは事実、解釈、仮説、確信度を分けるが、複数の機会候補から対象・位置づけ・解決方向を選ぶ理由の接続が弱かった。
 - UX、IA、UIおよびCommunicationは認知、情報優先度、視覚表現の責務を持つが、現在状態から判断可能な状態へ至る意図と必要な根拠／情報の連鎖は明示されていなかった。
 - 検証は認知負荷、情報優先度および視覚品質を扱うが、認知意図を仮説として観測結果へ戻す経路は明示されていなかった。
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- `01_Discovery/01_CRDD_Product_Discovery.md`（削除または旧Path）
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`02_UX/01_User_Experience.md`](<../../../02_UX/01_User_Experience.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`03_IA/01_Information_Architecture.md`](<../../../03_IA/01_Information_Architecture.md>)
+- [`04_Agent_Organization.md`](<../../../04_Agent_Organization.md>)
+- [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
+- [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
+- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- `06_Architecture/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
+- [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- `07_Quality/Verification_Results/2026-09-02_Communication_Closure_Verification.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.json`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md`（削除または旧Path）
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- [`40_Develop/coordinator/bin/coordinator.ts`](<../../../40_Develop/coordinator/bin/coordinator.ts>)
+- `40_Develop/coordinator/runtime/project-runtime-design-traceability.json`（削除または旧Path）
+- [`40_Develop/coordinator/src/core/project-runtime-design-traceability.ts`](<../../../40_Develop/coordinator/src/core/project-runtime-design-traceability.ts>)
+- [`40_Develop/coordinator/src/security/claude-docker-runtime-adapter.ts`](<../../../40_Develop/coordinator/src/security/claude-docker-runtime-adapter.ts>)
+- [`40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts`](<../../../40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts>)
+- [`40_Develop/coordinator/src/security/coordinator-task-runtime.ts`](<../../../40_Develop/coordinator/src/security/coordinator-task-runtime.ts>)
+- [`40_Develop/coordinator/src/security/docker-process-controller.ts`](<../../../40_Develop/coordinator/src/security/docker-process-controller.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-runtime-internal.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-runtime-internal.ts>)
+- [`40_Develop/coordinator/src/security/docker-recovery-runtime.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-runtime.ts>)
+- `40_Develop/coordinator/src/security/mcp-project-runtime-adapter.ts`（削除または旧Path）
+- `40_Develop/coordinator/src/security/mcp-project-runtime-stdio.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [`40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts>)
+- `40_Develop/coordinator/src/security/project-runtime-execution.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/project-runtime-objective-intake.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-objective-intake.ts>)
+- `40_Develop/coordinator/src/security/project-runtime-public-runtime.ts`（削除または旧Path）
+- [`40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-single-task-adapter.ts>)
+- `40_Develop/coordinator/src/security/project-runtime-state.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-recovery-runtime.contract.test.ts`（削除または旧Path）
+- [`40_Develop/coordinator/tests/fixtures/project-runtime-lease-race-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/project-runtime-lease-race-probe.ts>)
+- `40_Develop/coordinator/tests/mcp-project-runtime-adapter.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/mcp-project-runtime-stdio.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-durable-foundation.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-execution.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-full-flow.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-integration.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-objective-intake.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-public-runtime.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-queue-priority.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/project-runtime-state.contract.test.ts`（削除または旧Path）
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000060_CRDD_Brand_Icon_Adoption.md`（削除または旧Path）
+- `90_Release/Changes/README.md`（削除または旧Path）
+- `99_Roadmap/01_Product_Roadmap.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000058/change.md`](<../../../99_Roadmap/Changes/CHG-000058/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/80_Communication/01_Communication.md`](<../../../template/80_Communication/01_Communication.md>)
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+
+</details>
 
 ## 3. Change Intent
 
@@ -43,6 +134,7 @@
 - クリック、転換、完了、AI／VLM評価等の単一指標から、意図した理解や因果関係を成立済みと推定しない。
 - Architecture、Quality、Operationその他の推論パターンを、代表2経路の根拠なしにv0.19の必須Scopeへ追加しない。
 - 新しいReasoning Database、工程または第二正本を作らない。
+
 
 ## 6. 検証義務
 
@@ -96,6 +188,6 @@ Communication固定候補では、正本だけに存在していた認知意図�
 
 ## 10. Communication Closure
 
-固定改訂版`3d446c4793f30e44c3c02be34bc5567f89813d07`では、全体Checkerが394文書、2,749リンク、946アンカーを確認し、Error 0、Warning 0、終了Code 0だった。Communication／Reasoning専門レビュー、文書監査、Conformance／Gap・Impact確認は、初回指摘の是正後にすべてPass、残Finding 0となった。[対象、是正、結果および限界](../../07_Quality/Verification_Results/2026-09-02_Communication_Closure_Verification.md)を参照する。
+固定改訂版`3d446c4793f30e44c3c02be34bc5567f89813d07`では、全体Checkerが394文書、2,749リンク、946アンカーを確認し、Error 0、Warning 0、終了Code 0だった。Communication／Reasoning専門レビュー、文書監査、Conformance／Gap・Impact確認は、初回指摘の是正後にすべてPass、残Finding 0となった。[対象、是正、結果および限界](./Evidence/260902_communication-closure-verification.md)を参照する。
 
 これによりCommunicationのv0.19固定候補はClosure条件を満たし、Issue #30の外部記録とクローズも完了した。人間の決定権限者は本変更をv0.19.0へ収載し、公開することを承認した。実Communication成果物での追加有用性評価は、公開済み規範の成立条件ではなく後続の学習対象である。

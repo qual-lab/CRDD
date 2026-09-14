@@ -10,7 +10,7 @@
 リリースレベル: `MINOR`（候補、最終確認前）
 `migration_required`: `true`（移行方針採用済み。Architecture Candidateの同居だけからは発火しない）
 
-正本規則: [変更](../../12_Change.md)
+正本規則: [変更](../../../12_Change.md)
 
 現在の統合結果と公開準備は[§12](#release-preparation-20260901)を参照する。以下の「未承認」「未統合」は各記録時点の履歴であり、その後の人間判断を取り消すものではない。
 
@@ -31,6 +31,174 @@ Qual-Labの人間の決定権限者は、Current Decision Set候補とCommunicat
 | 旧v2 Architecture | `cd9795d885f3500ab2ef43a25c37c3737fd01e21` | 旧v1 Architecture Candidateを経て、7文書を非規範v0.18.0 Architecture Candidateへ再基準化 |
 
 旧系列のCommitとmerge履歴は来歴として保持するが、旧branchを継続同期元、自動上書き元、採用基準またはReleased baselineとして扱わない。今後の変更は、公開基準、規範変更候補、Architecture Candidate間の意味差を新しい変更として評価する。
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`00_Overview.md`](<../../../00_Overview.md>)
+- `01_Discovery/01_CRDD_Product_Discovery.md`（削除または旧Path）
+- [`01_Principles.md`](<../../../01_Principles.md>)
+- [`02_Terminology.md`](<../../../02_Terminology.md>)
+- [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`04_Agent_Organization.md`](<../../../04_Agent_Organization.md>)
+- [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
+- [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
+- [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
+- [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
+- [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
+- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
+- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
+- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- `06_Autonomous_Operation_Responsibility.md`（削除または旧Path）
+- `07_Autonomous_Operation_Safety.md`（削除または旧Path）
+- [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
+- [`07_Quality/02_Quality_Strategy.md`](<../../../07_Quality/02_Quality_Strategy.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- `07_Quality/Verification_Results/2026-08-31_Tool_Layout_Verification.md`（削除または旧Path）
+- `07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md`（削除または旧Path）
+- `08_Operation_Health_and_Human_Interface.md`（削除または旧Path）
+- `09_Forward_Compatibility.md`（削除または旧Path）
+- [`10_Agent.md`](<../../../10_Agent.md>)
+- [`11_Skill.md`](<../../../11_Skill.md>)
+- [`12_Change.md`](<../../../12_Change.md>)
+- [`13_Release.md`](<../../../13_Release.md>)
+- [`14_Workflow.md`](<../../../14_Workflow.md>)
+- [`15_Progress.md`](<../../../15_Progress.md>)
+- [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`17_Communication.md`](<../../../17_Communication.md>)
+- [`18_Context_Dependency.md`](<../../../18_Context_Dependency.md>)
+- [`19_Maintenance.md`](<../../../19_Maintenance.md>)
+- [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
+- [`21_Discovery.md`](<../../../21_Discovery.md>)
+- [`22_UX.md`](<../../../22_UX.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- [`24_UI_Behavior_Specification.md`](<../../../24_UI_Behavior_Specification.md>)
+- [`25_UI.md`](<../../../25_UI.md>)
+- [`26_Behavior_Specification.md`](<../../../26_Behavior_Specification.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`28_Implementation.md`](<../../../28_Implementation.md>)
+- [`29_Verification.md`](<../../../29_Verification.md>)
+- `40_Develop/checker/crdd-check.contract.test.ts`（削除または旧Path）
+- [`40_Develop/coordinator/scripts/sign-release-manifest.ts`](<../../../40_Develop/coordinator/scripts/sign-release-manifest.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-general-task.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-general-task.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts>)
+- [`40_Develop/coordinator/scripts/verify-signed-route-matrix.ts`](<../../../40_Develop/coordinator/scripts/verify-signed-route-matrix.ts>)
+- [`40_Develop/coordinator/src/core/verification-result-record.ts`](<../../../40_Develop/coordinator/src/core/verification-result-record.ts>)
+- [`40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts`](<../../../40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts>)
+- [`40_Develop/coordinator/src/security/development-measurement-session.ts`](<../../../40_Develop/coordinator/src/security/development-measurement-session.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts>)
+- [`40_Develop/coordinator/src/security/local-personal-authority-runtime.ts`](<../../../40_Develop/coordinator/src/security/local-personal-authority-runtime.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-gate.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-gate.ts>)
+- [`40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts>)
+- [`40_Develop/coordinator/src/security/provider-home-windows-adapter.ts`](<../../../40_Develop/coordinator/src/security/provider-home-windows-adapter.ts>)
+- `40_Develop/coordinator/tests/development-measurement-session.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/development-native-observation.integration.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-desktop-repair-record-store.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/docker-desktop-runtime-repair.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/fixtures/release-manifest-validity-vectors.txt`（削除または旧Path）
+- [`40_Develop/coordinator/tests/fixtures/signed-general-poison-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/signed-general-poison-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/signed-route-poison-probe.ts`](<../../../40_Develop/coordinator/tests/fixtures/signed-route-poison-probe.ts>)
+- [`40_Develop/coordinator/tests/fixtures/windows-native-helper-environment-unavailable.ts`](<../../../40_Develop/coordinator/tests/fixtures/windows-native-helper-environment-unavailable.ts>)
+- `40_Develop/coordinator/tests/local-personal-authority-runtime.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-package-gate.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/platform-provisioner-trust-core.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/sign-release-manifest.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-general-task-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/coordinator/tests/signed-route-matrix-verification.contract.test.ts`（削除または旧Path）
+- `40_Develop/platform-access/src/bin/coordinator.rs`（削除または旧Path）
+- [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
+- [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
+- [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
+- `90_Release/Changes/CHG-000012_Current_Decision_Set.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000013_Communication_Market_and_Adoption_Exploration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000014_V1_Architecture_Candidate_Integration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000016_Internal_TypeScript_Migration.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000018_Biome_Advisory_Closure.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000019_Rust_Platform_Access_Core.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000020_Platform_Access_Release_Binding.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000021_Protected_Active_Pointer.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000022_Provider_Lifecycle_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000023_Dynamic_Fake_Provider_Lifecycle.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000024_Dynamic_Fake_Provider_Failure_Verification.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000025_Dynamic_Fake_Provider_Cancellation_Verification.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000026_Provider_Home_Protection_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000027_Coordinator_Test_And_Package_Inventory_Stability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000029_Provider_Home_Mount_Grant_Lifecycle_Foundation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000030_Provider_Home_Mount_Grant_Runtime_Store.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000031_Runtime_Owned_Operation_Context_Capability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000032_Current_Process_Principal_Observation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000033_Pre_Active_Provisioning_One_Shot_Contract.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000034_Native_Direct_Provision_Supervisor_Entrypoint.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000036_AppContainer_Provision_Worker_Candidate.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000037_Claude_No_Network_Version_Probe.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000038_Claude_Subscription_OAuth_Vertical_Slice.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000039_Runtime_Owned_Provider_Home_Observation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000040_Runtime_Owned_Provider_Home_Mount_Grant.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000041_Explainable_Model_Selection_And_Claude_Docker_Adapter.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000042_Provider_Neutral_Delegation_Selection_Grant.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000043_Docker_Process_Controller.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000044_Runtime_Provider_Authority_Capability.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000045_README_AI_Development_Team_Vision.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000046_Runtime_Provider_Eligibility_Observation.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000047_Runtime_Provider_Model_Profile_Resolution.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000048_Runtime_Docker_Recovery_Connection.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000049_Runtime_Docker_Effect_Executor.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000050_Local_Personal_Authority_and_Bounded_Eligibility.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000051_Runtime_Repository_Revision_Binding.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000052_Coordinator_Claude_Probe_Runtime_Facade.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000053_Codex_Subscription_Runtime_Adapter.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000054_Agent_Organization_Document_Architecture.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md`（削除または旧Path）
+- `90_Release/Changes/CHG-000056_Coordinator_Adoption_Interface_Correction.md`（削除または旧Path）
+- `90_Release/Changes/Evidence/CHG-000014_Current_Review_Record_850b485.md`（削除または旧Path）
+- `90_Release/Changes/README.md`（削除または旧Path）
+- `99_Roadmap/01_CRDD_v0_18_Concept.md`（削除または旧Path）
+- `99_Roadmap/01_CRDD_v1_Concept.md`（削除または旧Path）
+- `99_Roadmap/01_Product_Roadmap.md`（削除または旧Path）
+- `99_Roadmap/02_CRDD_v0_18_Responsibility_Boundary.md`（削除または旧Path）
+- `99_Roadmap/02_CRDD_v1_Responsibility_Boundary.md`（削除または旧Path）
+- `99_Roadmap/03_CRDD_v0_18_PoC_Plan.md`（削除または旧Path）
+- `99_Roadmap/03_CRDD_v1_PoC_Plan.md`（削除または旧Path）
+- `99_Roadmap/04_CRDD_v0_18_Autonomous_Safety_Architecture.md`（削除または旧Path）
+- `99_Roadmap/04_CRDD_v1_Autonomous_Safety_Architecture.md`（削除または旧Path）
+- `99_Roadmap/05_CRDD_v0_18_Operation_Health_and_Human_Interface.md`（削除または旧Path）
+- `99_Roadmap/05_CRDD_v1_Operation_Health_and_Human_Interface.md`（削除または旧Path）
+- `99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md`（削除または旧Path）
+- `99_Roadmap/06_CRDD_v1_Forward_Compatibility.md`（削除または旧Path）
+- `99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md`（削除または旧Path）
+- `99_Roadmap/07_CRDD_v1_Agent_and_Provider_Orchestration.md`（削除または旧Path）
+- `99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md`（削除または旧Path）
+- [`99_Roadmap/Changes/CHG-000014/change.md`](<../../../99_Roadmap/Changes/CHG-000014/change.md>)
+- [`AGENTS.md`](<../../../AGENTS.md>)
+- [`CHANGELOG.md`](<../../../CHANGELOG.md>)
+- [`README.md`](<../../../README.md>)
+- `template/99_Roadmap/01_Product_Roadmap.md`（削除または旧Path）
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
+- `template/tools/coordinator/coordinator-package-manifest.json`（削除または旧Path）
+- `template/tools/crdd_check.mjs`（削除または旧Path）
+- [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
+- `tools/checker/crdd-check.contract.test.ts`（削除または旧Path）
+- `tools/checker/test-discovery.ts`（削除または旧Path）
+- `tools/checker/test-runner.ts`（削除または旧Path）
+- `tools/checker/tools-naming.contract.test.ts`（削除または旧Path）
+- `tools/checker/tsconfig.json`（削除または旧Path）
+- `tools/coding-standards.md`（削除または旧Path）
+- `tools/coordinator/README.md`（削除または旧Path）
+- `tools/coordinator/threat-model.md`（削除または旧Path）
+- `tools/crdd_check.test.mjs`（削除または旧Path）
+
+</details>
 
 ## 3. CHG IDの一意化
 
@@ -62,11 +230,11 @@ Communicationの旧IDと旧ファイル名はsource Commitを解釈する来歴�
 | `04_CRDD_v2_Autonomous_Safety_Architecture.md` | `04_CRDD_v1_Autonomous_Safety_Architecture.md` | `05_Autonomous_Operation.md` |
 | `05_CRDD_v2_Operation_Health_and_Human_Interface.md` | `05_CRDD_v1_Operation_Health_and_Human_Interface.md` | `05_Autonomous_Operation.md` |
 | `06_CRDD_v2_Forward_Compatibility.md` | `06_CRDD_v1_Forward_Compatibility.md` | `05_Autonomous_Operation.md` |
-| `07_CRDD_v2_Agent_and_Provider_Orchestration.md` | `07_CRDD_v1_Agent_and_Provider_Orchestration.md` | [`04_Agent_Organization.md`の非規範実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture) |
+| `07_CRDD_v2_Agent_and_Provider_Orchestration.md` | `07_CRDD_v1_Agent_and_Provider_Orchestration.md` | [`04_Agent_Organization.md`の非規範実行Architecture候補](../../../04_Agent_Organization.md#12-execution-architecture) |
 
 renameだけでなく、旧系列分離、同期方向、旧v1／v2候補との来歴、Target、相互リンクおよびREADME英日を、公開済みv0.17.0、v0.18.0規範変更候補、非規範v0.18.0 Architecture Candidateの境界へ再基準化した。
 
-2026-08-25の文書責務是正では、Roadmapに育った恒久Architectureをルート候補正本へ移し、未完了作業だけを単一の`99_Roadmap/01_Product_Roadmap.md`へ残した。概念、責務、安全、Operation HealthおよびForward Compatibilityは`05_Autonomous_Operation.md`、Agent／Provider Orchestrationは[`04_Agent_Organization.md`の非規範実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture)へ統合した。旧PoC計画の未完了候補はProduct Roadmapへ縮約し、完了状態の保管や第二の正本となる旧Roadmap詳細は削除した。旧名称と固定改訂版は本CHGおよびGit履歴から再構成し、現在の参照先として使用しない。
+2026-08-25の文書責務是正では、Roadmapに育った恒久Architectureをルート候補正本へ移し、未完了作業だけを単一の`99_Roadmap/01_Product_Roadmap.md`へ残した。概念、責務、安全、Operation HealthおよびForward Compatibilityは`05_Autonomous_Operation.md`、Agent／Provider Orchestrationは[`04_Agent_Organization.md`の非規範実行Architecture候補](../../../04_Agent_Organization.md#12-execution-architecture)へ統合した。旧PoC計画の未完了候補はProduct Roadmapへ縮約し、完了状態の保管や第二の正本となる旧Roadmap詳細は削除した。旧名称と固定改訂版は本CHGおよびGit履歴から再構成し、現在の参照先として使用しない。
 
 <a id="51-未終了変更トレースの移管スナップショット"></a>
 
@@ -95,18 +263,18 @@ renameだけでなく、旧系列分離、同期方向、旧v1／v2候補との�
 
 | 旧節 | 処置 | 現在の所有先／理由 |
 |---|---|---|
-| 1. Core Architectureと最初のActivation | ルート候補正本へ移管 | [仕様とActivationの分離](../../05_Autonomous_Operation.md#41-仕様とactivationの分離)。Profileは成熟度や品質等級でなく、Trigger、接続、CapabilityおよびAuthorityの有効化範囲である意味を保持 |
-| 2. 最小Reference Implementation | ルート候補正本とRoadmapへ分担 | [自律Operationの中心仮説](../../05_Autonomous_Operation.md#1-中心仮説)が固定Workflow化しない実証意図を、Product Roadmapの「自律Operationの参照実証」が未完了の選定を保持。専用Server等を作らないという当時の実装案は恒久要件にしない |
-| 3. 週次プロダクトレビュー | ルート候補正本へ移管 | [参照Operation実証](../../05_Autonomous_Operation.md#reference-operation-experiments) |
-| 4. Communication結果レビュー | ルート候補正本へ移管 | 同じ[参照Operation実証](../../05_Autonomous_Operation.md#reference-operation-experiments)。Audience、Claim、Evidence、方向および公開Authorityの維持を固有条件として保持 |
-| 5. Roadmap再評価 | ルート候補正本へ移管 | 同じ[参照Operation実証](../../05_Autonomous_Operation.md#reference-operation-experiments)。登録時判断、前提変化、再評価乱発防止および採用短絡禁止を保持 |
-| 6. Repository Event | ルート候補正本へ移管 | 同じ[参照Operation実証](../../05_Autonomous_Operation.md#reference-operation-experiments)。Eventと意味変更、根拠付きNo-impactおよび再帰抑止を分離 |
-| 7.1～7.5. 探索／推論／Authority／出力／運用 | ルート候補正本へ移管 | [共通評価軸](../../05_Autonomous_Operation.md#112-共通評価軸)と既存のOperation Health測定へ統合 |
-| 7.6. Forward Compatibility fixtures | ルート候補正本へ移管 | [将来互換性の確認候補](../../05_Autonomous_Operation.md#6-将来互換性の確認候補) |
-| 7.7. Agent／Provider Routing fixtures | ルート候補正本へ移管 | [非規範の実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture)と[安全境界の合成Fixture](../../05_Autonomous_Operation.md#14-pocで確認する境界)へ分担 |
-| 7.8. Coordinator Result Integration fixtures | ルート候補正本へ移管 | [Coordinatorによる結果統合](../../05_Autonomous_Operation.md#44-coordinatorによる結果統合)と[安全境界の合成Fixture](../../05_Autonomous_Operation.md#14-pocで確認する境界)へ分担 |
-| 8. 避けるべき失敗 | 既存候補正本へ統合 | Workflow固定、Trigger乱発、Proposal Spam、コンテキスト過剰共有、Core肥大化および自律性の自己拡張は、[エージェント組織のNon-goals](../../04_Agent_Organization.md#13-agent-organization-non-goals)、[自律Operationで新設しないもの](../../05_Autonomous_Operation.md#6-新設しないもの)、[安全不変条件](../../05_Autonomous_Operation.md#13-安全不変条件候補)および[Operation Health](../../05_Autonomous_Operation.md#7-operation-health)へ包含。重複本文は保持しない |
-| 9. Activation Profile 0～5／Continuous Product Evolution | ルート候補正本へ移管 | [仕様とActivationの分離](../../05_Autonomous_Operation.md#41-仕様とactivationの分離)へ各段階の意味と自動昇格禁止を保持 |
+| 1. Core Architectureと最初のActivation | ルート候補正本へ移管 | [仕様とActivationの分離](../../../05_Autonomous_Operation.md#41-仕様とactivationの分離)。Profileは成熟度や品質等級でなく、Trigger、接続、CapabilityおよびAuthorityの有効化範囲である意味を保持 |
+| 2. 最小Reference Implementation | ルート候補正本とRoadmapへ分担 | [自律Operationの中心仮説](../../../05_Autonomous_Operation.md#1-中心仮説)が固定Workflow化しない実証意図を、Product Roadmapの「自律Operationの参照実証」が未完了の選定を保持。専用Server等を作らないという当時の実装案は恒久要件にしない |
+| 3. 週次プロダクトレビュー | ルート候補正本へ移管 | [参照Operation実証](../../../05_Autonomous_Operation.md#reference-operation-experiments) |
+| 4. Communication結果レビュー | ルート候補正本へ移管 | 同じ[参照Operation実証](../../../05_Autonomous_Operation.md#reference-operation-experiments)。Audience、Claim、Evidence、方向および公開Authorityの維持を固有条件として保持 |
+| 5. Roadmap再評価 | ルート候補正本へ移管 | 同じ[参照Operation実証](../../../05_Autonomous_Operation.md#reference-operation-experiments)。登録時判断、前提変化、再評価乱発防止および採用短絡禁止を保持 |
+| 6. Repository Event | ルート候補正本へ移管 | 同じ[参照Operation実証](../../../05_Autonomous_Operation.md#reference-operation-experiments)。Eventと意味変更、根拠付きNo-impactおよび再帰抑止を分離 |
+| 7.1～7.5. 探索／推論／Authority／出力／運用 | ルート候補正本へ移管 | [共通評価軸](../../../05_Autonomous_Operation.md#112-共通評価軸)と既存のOperation Health測定へ統合 |
+| 7.6. Forward Compatibility fixtures | ルート候補正本へ移管 | [将来互換性の確認候補](../../../05_Autonomous_Operation.md#6-将来互換性の確認候補) |
+| 7.7. Agent／Provider Routing fixtures | ルート候補正本へ移管 | [非規範の実行Architecture候補](../../../04_Agent_Organization.md#12-execution-architecture)と[安全境界の合成Fixture](../../../05_Autonomous_Operation.md#14-pocで確認する境界)へ分担 |
+| 7.8. Coordinator Result Integration fixtures | ルート候補正本へ移管 | [Coordinatorによる結果統合](../../../05_Autonomous_Operation.md#44-coordinatorによる結果統合)と[安全境界の合成Fixture](../../../05_Autonomous_Operation.md#14-pocで確認する境界)へ分担 |
+| 8. 避けるべき失敗 | 既存候補正本へ統合 | Workflow固定、Trigger乱発、Proposal Spam、コンテキスト過剰共有、Core肥大化および自律性の自己拡張は、[エージェント組織のNon-goals](../../../04_Agent_Organization.md#13-agent-organization-non-goals)、[自律Operationで新設しないもの](../../../05_Autonomous_Operation.md#6-新設しないもの)、[安全不変条件](../../../05_Autonomous_Operation.md#13-安全不変条件候補)および[Operation Health](../../../05_Autonomous_Operation.md#7-operation-health)へ包含。重複本文は保持しない |
+| 9. Activation Profile 0～5／Continuous Product Evolution | ルート候補正本へ移管 | [仕様とActivationの分離](../../../05_Autonomous_Operation.md#41-仕様とactivationの分離)へ各段階の意味と自動昇格禁止を保持 |
 | 10. 次の具体的処置 | 未完了だけRoadmapへ縮約 | Product Roadmapの「自律Operationの参照実証」。固定Prompt化せず、合成Fixture、判断価値、誤起動、見逃し、費用、人間負荷を評価する。完了済みまたは正本化済みの手順は削除 |
 
 この移管では、旧PoCの四実験、評価軸、安全Fixture、将来互換Fixture、Routing／Result Integration FixtureおよびActivation段階の意味を保持した。旧ファイル名、旧番号、当時の固定実装案または進捗状態だけを恒久正本として残さない。
@@ -266,19 +434,19 @@ v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。�
 
 ## 9. 追加されたv0.18.0収載境界
 
-2026-08-28、Qual-Labの人間の決定権限者は、[`CHG-000055` §9](CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#9-v0180-candidateへの収載判断による再開)が所有する三つの改善意図をv0.18.0 Candidateへ収載すると判断した。§5.1の未終了変更トレース移管スナップショットは作成時点の履歴として変更せず、現在の統合境界へ次を追加する。
+2026-08-28、Qual-Labの人間の決定権限者は、[`CHG-000055` §9](../CHG-000055/change.md#9-v0180-candidateへの収載判断による再開)が所有する三つの改善意図をv0.18.0 Candidateへ収載すると判断した。§5.1の未終了変更トレース移管スナップショットは作成時点の履歴として変更せず、現在の統合境界へ次を追加する。
 
 - 上流工程エージェント／課題探索対話ループと工程接続・意味網羅検証の強化
 - Coordinator Reference Runtimeの根拠駆動リファクタリング
 - 既存・過去CHGを含む人間可読文書の意味構造改善
 
-これらは[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)のCoordinator Runtime 1.0完成固定後に、現行正本と影響を再確認した変更単位へ具体化する。改善がRuntimeへ影響する場合はCHG-000055 §9の戻り辺に従ってCHG-000015を再開し、改善後の最終Runtime Identityで完成根拠を再固定する。Runtime非影響の場合は依存閉包と理由付き非該当を記録する。収載判断だけでは実装着手、実装完了、規範採用、Stable化、統合またはReleaseを意味しない。v0.18.0 Release Readinessは、最終Runtime Identityの完成固定と三つの改善の完成固定・必要監査、または対象を外す人間の明示判断が揃うまで成立しない。
+これらは[`CHG-000015`](../CHG-000015/change.md)のCoordinator Runtime 1.0完成固定後に、現行正本と影響を再確認した変更単位へ具体化する。改善がRuntimeへ影響する場合はCHG-000055 §9の戻り辺に従ってCHG-000015を再開し、改善後の最終Runtime Identityで完成根拠を再固定する。Runtime非影響の場合は依存閉包と理由付き非該当を記録する。収載判断だけでは実装着手、実装完了、規範採用、Stable化、統合またはReleaseを意味しない。v0.18.0 Release Readinessは、最終Runtime Identityの完成固定と三つの改善の完成固定・必要監査、または対象を外す人間の明示判断が揃うまで成立しない。
 
 本追加により§5までの過去固定改訂版と監査結果は履歴として保持するが、現在のv0.18.0 Candidate全体の合否へ流用しない。新固定改訂版に対する全体Checker、必要な独立レビュー／監査、CHANGELOG、移行内容およびRelease範囲の再確認を要する。
 
 ## 10. 承認済み目標への継続（2026-08-31）
 
-利用者は、対話で始めた作業を内部ステップごとの承認待ちへ分断せず、承認済み目標へ推進することをCRDD共通規範として明示した。既存の判断支援・決定権限境界を補強し、[エージェント契約](../../10_Agent.md#authorized-goal-continuation)を単一正本とした。エージェント組織と公式／採用先AI入口は短い案内から参照する。Coordinator固有機能、新しい自律性段階または新CHGは作らない。
+利用者は、対話で始めた作業を内部ステップごとの承認待ちへ分断せず、承認済み目標へ推進することをCRDD共通規範として明示した。既存の判断支援・決定権限境界を補強し、[エージェント契約](../../../10_Agent.md#authorized-goal-continuation)を単一正本とした。エージェント組織と公式／採用先AI入口は短い案内から参照する。Coordinator固有機能、新しい自律性段階または新CHGは作らない。
 
 単体試験失敗の範囲内是正や子からの既承認範囲の質問は継続対象とし、調査だけの依頼、候補のロードマップ掲載、未知の許可、工程移行の判断、別課金経路、上限超過、取消は継続許可へ変換しない。必要な監査と完成条件は保持する。確認は文書・参照整合と代表例の独立確認へ接続し、機械的な文言一致だけで実際の自走性を証明したとは扱わない。実務で不要な再確認と必要な停止の両方を観測し、既存の有用性評価へ接続する。
 
@@ -292,17 +460,17 @@ v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。�
 
 | 採用した変更意図 | 分類・移行 | 完成根拠 |
 |---|---|---|
-| [CHG-000012](CHG-000012_Current_Decision_Set.md)：現在の判断集合 | normative・必要 | 現在の判断要求、利用側・ひな型・監査への伝播 |
-| [CHG-000013](CHG-000013_Communication_Market_and_Adoption_Exploration.md)：市場・採用探索 | breaking・必要 | 発火条件、探索の責務、人間対象調査と説得の境界 |
+| [CHG-000012](../CHG-000012/change.md)：現在の判断集合 | normative・必要 | 現在の判断要求、利用側・ひな型・監査への伝播 |
+| [CHG-000013](../CHG-000013/change.md)：市場・採用探索 | breaking・必要 | 発火条件、探索の責務、人間対象調査と説得の境界 |
 | 本CHG：候補の統合と承認済み目標への継続 | 統合差分はbreaking・必要 | 7意図の収載、候補と有効基準の分離、継続と権限の境界 |
-| [CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md)：Runtime 1.0 | normative・必要 | 4経路、復旧7シナリオ、実Task取消、実装・安全性の完成確認 |
-| [CHG-000017](CHG-000017_Tools_Coding_Standards.md)：内部ツール規約・配置 | breaking・必要 | 命名、3部品の工程別配置、UX／UI／SPEC、対象端末の追加確認 |
-| [CHG-000054](CHG-000054_Agent_Organization_Document_Architecture.md)：エージェント組織 | normative・必要 | 概念・実装の責務分離、準拠基準と利用側の確認 |
-| [CHG-000055](CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md)：工程・文書の自己適用改善 | normative・必要 | 工程接続、検証・収束、根拠駆動リファクタリング、本文可読性と限定実務評価 |
+| [CHG-000015](../CHG-000015/change.md)：Runtime 1.0 | normative・必要 | 4経路、復旧7シナリオ、実Task取消、実装・安全性の完成確認 |
+| [CHG-000017](../CHG-000017/change.md)：内部ツール規約・配置 | breaking・必要 | 命名、3部品の工程別配置、UX／UI／SPEC、対象端末の追加確認 |
+| [CHG-000054](../CHG-000054/change.md)：エージェント組織 | normative・必要 | 概念・実装の責務分離、準拠基準と利用側の確認 |
+| [CHG-000055](../CHG-000055/change.md)：工程・文書の自己適用改善 | normative・必要 | 工程接続、検証・収束、根拠駆動リファクタリング、本文可読性と限定実務評価 |
 
-各根拠は[3系統の完成評価](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#completion-assessment-147fb29)と[端末追加確認](../../07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md#windows-terminal-verification)へ接続する。現行対象の必須実装・検証事項は完了し、候補内容を採用した。工程移行はこの内容採用に含めて扱うが、未測定の総合的な性能優位、全環境、読み上げ、将来能力を採用・実証済みにしない。
+各根拠は[3系統の完成評価](../CHG-000015/Evidence/260901_coordinator-completion-review.md#completion-assessment-147fb29)と[端末追加確認](../CHG-000015/Evidence/260901_coordinator-completion-review.md#windows-terminal-verification)へ接続する。現行対象の必須実装・検証事項は完了し、候補内容を採用した。工程移行はこの内容採用に含めて扱うが、未測定の総合的な性能優位、全環境、読み上げ、将来能力を採用・実証済みにしない。
 
-移行は[CHANGELOG](../../CHANGELOG.md#changelog-v0180-en)の英日注記を採用する。適用対象の既存資産を棚卸しし、移行・置換・据置・対象外を決め、独立確認と人間による有効化まで旧基準を維持する。Runtimeの一律導入、対象外の空文書作成、完了済み履歴の一括書換えは要求しない。今回の方針採用は、各採用先の移行完了や準拠表明ではない。
+移行は[CHANGELOG](../../../CHANGELOG.md#changelog-v0180-en)の英日注記を採用する。適用対象の既存資産を棚卸しし、移行・置換・据置・対象外を決め、独立確認と人間による有効化まで旧基準を維持する。Runtimeの一律導入、対象外の空文書作成、完了済み履歴の一括書換えは要求しない。今回の方針採用は、各採用先の移行完了や準拠表明ではない。
 
 ロードマップでは、Runtime完成、利用者入口、上流・工程接続、根拠駆動リファクタリング、内部ツール命名、人間可読性の完了6項目とツール配置の完了案内を除去する。理由と根拠は上記CHGと品質記録に残す。長期方向の再評価、未採用研究、自律Operation、有用性の次版候補、Issue #30は継続して追跡する。Issue #30は詳細候補の採否・理由付き終了が未成立であり、今回の採用で閉じない。
 
@@ -325,6 +493,6 @@ PR #32で統合した7CHGは未公開である。その後、人間が正式配�
 - 現在のCHG、品質案内、工程案内とRoadmapを統合済み・公開準備へ同期する。過去固定Evidence、実測値、署名、公開済みv0.17.0履歴は変更しない。
 - 最終Git Treeを改行変換なしで配布用領域へ展開し、固定Worker・Supervisorと新しい署名manifestを結合する。旧48515ebの署名を新しいIdentityへ転用しない。秘密鍵、Runtime状態、認証Home、ログを配布へ含めない。
 
-期限なし指定は[CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md#1-結論と現在状態)に従い、revision 3の明示的なnull値として実装する。期限付き旧版の検証、発行日時、署名と実体の一致、操作権限および各操作の期限は維持する。期限なしを永久サポートまたは無条件の起動許可としない。
+期限なし指定は[CHG-000015](../CHG-000015/change.md#1-結論と現在状態)に従い、revision 3の明示的なnull値として実装する。期限付き旧版の検証、発行日時、署名と実体の一致、操作権限および各操作の期限は維持する。期限なしを永久サポートまたは無条件の起動許可としない。
 
 公開準備ブランチで仕様・実装・文書・E2E・必要監査を閉じ、未確認の内容修正をmain統合後の仕上げとして残さない。全体Checker、文書・不足影響・準拠影響の独立確認に加え、期限契約を実装するTypeScriptとNative部品のアーキテクチャ・安全性確認を行う。統合後は最終Commit／Treeと配布物の一致を再確認し、正式署名・配布確認と人間の最終リリース判断へ接続して、同じIdentityへタグと公開を行う。統合後に実質修正が必要と判明した場合は理由を明示した修正PRで扱う。まだ公開済みとは記録しない。採用先の移行・有効化、将来研究、Issue #30の終了を今回の公開許可から推定しない。
