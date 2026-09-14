@@ -2,7 +2,7 @@
 
 成果物種別: UX定義
 UX ID: `UX-000029`
-状態: 現行正本
+状態: Canonical
 維持責任者: Qual-Lab
 
 ## 利用者成果
@@ -62,14 +62,13 @@ Work、Change、変更対象ファイル、根拠、観測した改訂版、品�
 
 責任者の混同、代表パスだけの表示、根拠の遡及上書きおよびGit差分への丸投げを反証する
 
-具体的な試験段階、試験場面、期待結果は品質保証工程で設計し、この体験定義には実行結果を書き込まない。
+具体的な試験段階、試験場面、期待結果は検証（Verification）工程で設計し、この体験定義には実行結果を書き込まない。
 
 ## 下流への引き渡し
 
-IAは作業の一連の流れのNavigationとEntity関係を分け、リリース・品質・Checkerは各責任者境界を維持する。
+IAは作業の一連の流れのNavigationとEntity関係を分け、Release・Quality Assurance・Checkerは各責任者境界を維持する。
 
 ## 関係
 
 - 元の要求分析: [REQ-000033](../../Analysis/REQ-000033/ux_analysis.md)
 - 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
-

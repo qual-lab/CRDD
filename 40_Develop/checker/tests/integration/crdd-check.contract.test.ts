@@ -1026,6 +1026,71 @@ test("UX分析は別REQのDefinitionを正式入力にできない", () => {
   );
 });
 
+test("UX分析の正式入力Headerは可視本文のHeader自身へ結合する", () => {
+  const invalidVariants = [
+    "<!-- 分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md) -->\n\n参考: [同じ要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)",
+    "```text\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n```\n\n参考: [同じ要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)",
+    "~~~text\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n~~~\n\n参考: [同じ要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)",
+  ];
+  for (const body of invalidVariants) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    write(
+      path.join(
+        root,
+        "01_Discovery",
+        "Definitions",
+        "REQ-000001",
+        "requirement.md",
+      ),
+      discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+    );
+    write(
+      path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+      `# Analysis\n\n${body}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ux-requirement-formal-input-invalid",
+      ),
+      `${body}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n<!-- 分析対象: [REQ-000001 重複例](../../../01_Discovery/Definitions/REQ-000001/requirement.md) -->\n\n```text\n分析対象: [REQ-000001 重複例](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n```\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
 test("UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できない", () => {
   const variants = [
     "不足する意味は[過去の探索](../../../01_Discovery/Analysis/EXP-000001/exploration.md)から補う。",
@@ -1034,6 +1099,50 @@ test("UX分析は全CommonMark参照形式のSource Analysis参照でDefinition�
     "不足する意味は[過去の探索][]から補う。\n\n[過去の探索]: ../../../01_Discovery/Analysis/EXP-000001/exploration.md",
     "不足する意味は[過去の探索]から補う。\n\n[過去の探索]: ../../../01_Discovery/Analysis/EXP-000001/exploration.md",
     "不足する意味は[^根拠]から補う。\n\n[^根拠]: ../../../01_Discovery/Analysis/EXP-000001/exploration.md",
+    '不足する意味は<a href="../../../01_Discovery/Analysis/EXP-000001/exploration.md">過去の探索</a>から補う。',
+    "不足する意味は`../../../01_Discovery/Analysis/EXP-000001/exploration.md`から補う。",
+    "不足する意味は ../../../01_Discovery/Analysis/EXP-000001/exploration.md から補う。",
+    "不足する意味は ./../../../01_Discovery/Analysis/EXP-000001/exploration.md から補う。",
+    "不足する意味は 01_Discovery/Analysis/EXP-000001/exploration.md から補う。",
+    '<a href="../../../../outside/requirement.md">ルート外入力</a>',
+    "<a href=../../../01_Discovery/Analysis/EXP-000001/exploration.md>過去の探索</a>",
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration%ZZ.md">不正符号化入力</a>',
+    "不足する意味は 01_Discovery/Analysis/EXP-INVALID/exploration.md から補う。",
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration%252emd">二重符号化入力</a>',
+    '<a href="..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md">entity化した探索入力</a>',
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&#46;md">数値entity化した探索入力</a>',
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&#999999999999;md">範囲外entity入力</a>',
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&#xD800;md">surrogate entity入力</a>',
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&solmd">不完全entity入力</a>',
+    "[entity化inline](..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md)",
+    "[未知entity inline](../../../01&bogus;_Discovery/Analysis/EXP-000001/exploration.md)",
+    "[未知entity full][src]\n\n[src]: ../../../01_Discovery&bogus;/Analysis/EXP-000001/exploration.md",
+    "[未知entity collapsed][]\n\n[未知entity collapsed]: ../../../01_Discovery/&bogus;Analysis/EXP-000001/exploration.md",
+    "[未知entity shortcut]\n\n[未知entity shortcut]: ../../../01_Discovery/Analysis&bogus;/EXP-000001/exploration.md",
+    "[^未知entity]\n\n[^未知entity]: ../../../01_Discovery/Analysis/EXP-000001/exploration&bogus;.md",
+    "[複合未知entity inline](../../../01&u;Discovery&v;Analysis&sol;EXP-000001&sol;exploration&period;md)",
+    "[複合未知entity full][multi]\n\n[multi]: ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md",
+    "[複合未知entity collapsed][]\n\n[複合未知entity collapsed]: ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md",
+    "[複合未知entity shortcut]\n\n[複合未知entity shortcut]: ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md",
+    "[^複合未知entity]\n\n[^複合未知entity]: ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md",
+    '<a href="../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md">複合未知entity HTML</a>',
+    "<a href=../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md>複合未知entity非引用HTML</a>",
+    "不足する意味は ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md\\&literal; から補う。",
+    "不足する意味は \\&literal;../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration&x;.md\\&literal; から補う。",
+    "不足する意味は \\&sol;note:../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は \\&sol;,..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md から補う。",
+    "不足する意味は \\&bsol;note:../../../01&u;Discovery&v;Definitions&w;REQ-000002/requirement.md から補う。",
+    "不足する意味は \\&sol;&#58;../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は \\&bsol;&colon;../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は ..&sol;..&sol;..&sol;&#48;&#49;&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md から補う。",
+    "不足する意味は ..&sol;..&sol;..&sol;&#x30;&#x31;&lowbar;Discovery&sol;Definitions&sol;REQ-000002&sol;requirement&period;md から補う。",
+    "不足する意味は ..&sol;..&sol;..&sol;0&#49;&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md から補う。",
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&bogus;.md>閉じていないHTML入力',
+    "<a href=../../../01_Discovery/Analysis/EXP-000001/exploration&bogus;.md>未知entity非引用HTML</a>",
+    "不足する意味は ..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md から補う。",
+    "不足する意味は ../../../01_Discovery/Analysis/EXP-000001/exploration%252e&sol;md から補う。",
   ];
   for (const supplementalLink of variants) {
     const root = dispositionFixtureRoot();
@@ -1061,9 +1170,106 @@ test("UX分析は全CommonMark参照形式のSource Analysis参照でDefinition�
       result.report.findings.some(
         (finding) => finding.code === "ux-requirement-formal-input-invalid",
       ),
-      `${result.stdout}\n${result.stderr}`,
+      `${supplementalLink}\n${result.stdout}\n${result.stderr}`,
     );
   }
+});
+
+test("UX分析の例示内にある探索Pathは正式入力へ昇格しない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n<!-- ../../../01_Discovery/Analysis/EXP-000001/exploration.md -->\n\n```text\n../../../01_Discovery/Analysis/EXP-000001/exploration.md\n```\n\n~~~text\n01_Discovery/Analysis/EXP-000001/exploration.md\n~~~\n\n\\[例示](../../../01_Discovery/Analysis/EXP-000001/exploration.md)\n\n\\../../../01_Discovery/Analysis/EXP-000001/exploration.md\n\n\\..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md\n\n..\\&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md\n\n..\\&sol;&#47;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX分析の通常本文にあるentity付き一般語をPathと誤認しない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\nDiscovery&amp;UX、Analysis&Design、Analysis&copy;、REQ-000001&REQ-000002は通常の説明であり、Pathではない。\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX分析は絶対PathのSource Analysis参照でDefinitionを補完できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  const sourceAnalysisPath = path.join(
+    root,
+    "01_Discovery",
+    "Analysis",
+    "EXP-000001",
+    "exploration.md",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    `# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n補助入力: ${sourceAnalysisPath}\n`,
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
 });
 
 test("UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できない", () => {
@@ -1071,6 +1277,8 @@ test("UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追�
     "補助入力: [別要求](../../../01_Discovery/Definitions/REQ-000002/requirement.md)",
     "補助入力: [別要求]\n\n[別要求]: ../../../01_Discovery/Definitions/REQ-000002/requirement.md",
     "補助入力: [^別要求]\n\n[^別要求]: ../../../01_Discovery/Definitions/REQ-000002/requirement.md",
+    '補助入力: <a href="../../../01_Discovery/Definitions/REQ-000002/requirement.md">別要求</a>',
+    "補助入力: `../../../01_Discovery/Definitions/REQ-000002/requirement.md`",
   ];
   for (const supplementalLink of variants) {
     const root = dispositionFixtureRoot();
@@ -1124,6 +1332,60 @@ test("CheckerはUX定義の意味重複を機械的な不正と断定しない",
     !result.report.findings.some(
       (finding) =>
         finding.code === "ux-definition-semantic-boilerplate-duplicate",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Definitions", "UX-000001", "experience.md"),
+    "# UX-000001\n\n成果物種別: UX定義\nUX ID: `UX-000001`\n状態: 現行正本\n\n## 利用者成果\n\n成果。\n\n## 成立条件\n\n- 成立する。\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- 元の要求分析: REQ-000001\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# UX分析\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX定義は状態Headerの重複を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Definitions", "UX-000001", "experience.md"),
+    "# UX-000001\n\n成果物種別: UX定義\nUX ID: `UX-000001`\n状態: Canonical\n状態: 現行正本\n\n## 利用者成果\n\n成果。\n\n## 成立条件\n\n- 成立する。\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- 元の要求分析: REQ-000001\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# UX分析\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-definition-contract-invalid",
     ),
     `${result.stdout}\n${result.stderr}`,
   );
@@ -1190,13 +1452,90 @@ test("UXのSame判断は4軸比較を揃えた構造を受け付ける", () => {
   );
   write(
     path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 4軸比較を参照。 | 要求固有の条件を補う。 |\n\n### Same判断の比較\n\n#### 同じ成果\n\n比較対象: `UX-000001`\n\n| 比較軸 | 既存UX | 現在の要求 | 差と統合判断 |\n|---|---|---|---|\n| 担い手 | 運用者 | 運用者 | 同じ担い手 |\n| 利用のきっかけ | 状態確認時 | 状態確認時 | 同じ場面 |\n| 得られる結果 | 判断できる | 判断できる | 同じ成果 |\n| 避ける失敗 | 誤認する | 誤認する | 同じ失敗 |\n\n統合理由: 4軸に独立した差がない。\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n```text\nREQ-000001\n   └─ Same → UX-000001 同じ成果\n```\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 4軸比較を参照。 | 要求固有の条件を補う。 |\n\n### Same判断の比較\n\n#### 同じ成果\n\n比較対象: `UX-000001`\n\n| 比較軸 | 既存UX | 現在の要求 | 差と統合判断 |\n|---|---|---|---|\n| 担い手 | 運用者 | 運用者 | 同じ担い手 |\n| 利用のきっかけ | 状態確認時 | 状態確認時 | 同じ場面 |\n| 得られる結果 | 判断できる | 判断できる | 同じ成果 |\n| 避ける失敗 | 誤認する | 誤認する | 同じ失敗 |\n\n統合理由: 4軸に独立した差がない。\n",
   );
   const result = runChecker(root);
   assert.ok(
     !result.report.findings.some(
       (finding) =>
         finding.code === "ux-requirement-analysis-relation-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX統合図と正式関係表のNewとSameは完全一致する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n## 4. 利用者成果への統合\n\n```text\nREQ-000001\n   ├─ Same → UX-000001 同じ成果\n   └─ New  → UX-000002 残存した成果\n```\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 4軸比較を参照。 | 条件を補う。 |\n\n#### 同じ成果\n\n比較対象: `UX-000001`\n\n| 比較軸 | 既存UX | 現在の要求 | 差と統合判断 |\n|---|---|---|---|\n| 担い手 | 運用者 | 運用者 | 同じ |\n| 利用のきっかけ | 開始時 | 開始時 | 同じ |\n| 得られる結果 | 判断できる | 判断できる | 同じ |\n| 避ける失敗 | 誤認 | 誤認 | 同じ |\n\n統合理由: 同じ成果である。\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-relation-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX分析の責任境界表は正式な三列見出しを一件だけ持つ", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n### この要求での責任境界\n\n| 担い手 | 運用者 | 越えてはならない境界 |\n|---|---|---|\n| 運用者 | 判断する | 推測しない |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-responsibility-header-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX分析は責任境界節または責任表を重複できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n### この要求での責任境界\n\n| 担い手 | この要求で担うこと | 越えてはならない境界 |\n|---|---|---|\n| 運用者 | 判断する | 推測しない |\n\n| Actor | Responsibility | Boundary |\n|---|---|---|\n| System | 提供する | 越えない |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-responsibility-header-invalid" &&
         finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
     ),
     `${result.stdout}\n${result.stderr}`,

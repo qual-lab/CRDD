@@ -61,7 +61,7 @@ UX ID: `UX-XXXXXX`
 
 ## 下流への引き渡し
 
-（IA、UI、SPEC、Architecture、Quality Assuranceの各工程が、意味を失わず具体化する内容。）
+（IA、UI、SPEC、Architecture、Verificationの各工程が、意味を失わず具体化する内容。）
 
 ## 関係
 

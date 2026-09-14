@@ -618,11 +618,17 @@ function checkUxRequirementAnalysis(): void {
     const definition = lstatIfPresent(discoveryDefinitionPath)?.isFile()
       ? read(discoveryDefinitionPath)
       : "";
-    const analysisTargets = markdownLinkTargets(analysis)
-      .map((raw) => resolveLocalTarget(analysisPath, raw))
+    const structuralAnalysis = withoutFencedCode(analysis).replace(
+      /<!--[\s\S]*?-->/gu,
+      "",
+    );
+    const formalInputHeaders =
+      structuralAnalysis.match(/^分析対象:.*$/gmu) ?? [];
+    const formalInputTargets = uxFormalInputTargets(analysis);
+    const analysisTargets = formalInputTargets
+      .map(({ target }) => resolveLocalTarget(analysisPath, target))
       .filter(
-        (resolved): resolved is LinkResolution & { target: string } =>
-          !resolved.external && resolved.target !== null,
+        (resolved): resolved is LocalLinkResolution => !resolved.external,
       );
     const discoveryDefinitionLinks = analysisTargets.filter((resolved) =>
       /^01_Discovery\/Definitions\/REQ-[0-9]{6}\/requirement\.md$/u.test(
@@ -634,15 +640,35 @@ function checkUxRequirementAnalysis(): void {
         relative(resolved.target).replaceAll("\\", "/"),
       ),
     );
+    const invalidDiscoveryInputLinks = analysisTargets.filter((resolved) => {
+      const normalized = relative(resolved.target).replaceAll("\\", "/");
+      return (
+        /(?:^|\/)01_Discovery\/(?:Analysis|Definitions)\//u.test(
+          resolved.targetText.replaceAll("\\", "/"),
+        ) &&
+        !/^01_Discovery\/(?:Analysis\/EXP-[0-9]{6}\/exploration\.md|Definitions\/REQ-[0-9]{6}\/requirement\.md)$/u.test(
+          normalized,
+        )
+      );
+    });
     if (
       !definition ||
-      !expectedDefinitionLink.test(analysis) ||
+      formalInputHeaders.length !== 1 ||
+      !expectedDefinitionLink.test(structuralAnalysis) ||
       discoveryDefinitionLinks.length !== 1 ||
       !samePath(
         discoveryDefinitionLinks[0]?.target ?? "",
         discoveryDefinitionPath,
       ) ||
       sourceAnalysisLinks.length > 0 ||
+      invalidDiscoveryInputLinks.length > 0 ||
+      formalInputTargets.some((target) => target.invalidEntity) ||
+      analysisTargets.some(
+        (resolved) =>
+          resolved.decodeError ||
+          resolved.outsideRoot ||
+          resolved.symbolicBoundary,
+      ) ||
       /^判断根拠:|^探索元:/mu.test(analysis)
     )
       add(
@@ -672,6 +698,7 @@ function checkUxRequirementAnalysis(): void {
       "- 利用の流れの統合先:",
       "- サービス提供の流れの統合先:",
       "### この要求での責任境界",
+      "| 担い手 | この要求で担うこと | 越えてはならない境界 |",
       "### 補足する品質",
       "## 6. 下流への引き渡し",
       "### 妥当性確認と未確認事項",
@@ -696,6 +723,48 @@ function checkUxRequirementAnalysis(): void {
       .filter((line) =>
         /^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \|/u.test(line),
       );
+    const relationDiagramSection = analysis
+      .split("## 4. 利用者成果への統合")[1]
+      ?.split("| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |")[0];
+    const relationDiagramEntries = [
+      ...(relationDiagramSection?.matchAll(
+        /(?:├|└)─ (?<mode>New|Same)\s+→ (?<id>UX-[0-9]{6})\b/gu,
+      ) ?? []),
+    ].flatMap((match) =>
+      match.groups?.mode && match.groups.id
+        ? [`${match.groups.mode}|${match.groups.id}`]
+        : [],
+    );
+    const relationTableEntries = relationRows.flatMap((line) => {
+      const match = line.match(/`(?<mode>New|Same) → (?<id>UX-[0-9]{6})`/u);
+      return match?.groups?.mode && match.groups.id
+        ? [`${match.groups.mode}|${match.groups.id}`]
+        : [];
+    });
+    const doesRelationDiagramMatchTable =
+      relationDiagramEntries.length === relationTableEntries.length &&
+      [...relationDiagramEntries]
+        .sort()
+        .every(
+          (value, index) => value === [...relationTableEntries].sort()[index],
+        );
+    const responsibilitySectionMatches = [
+      ...analysis.matchAll(/^### この要求での責任境界\s*$/gmu),
+    ];
+    const responsibilitySection = analysis
+      .split(/^### この要求での責任境界\s*$/mu)[1]
+      ?.split(/^### |^## /mu)[0];
+    const responsibilityHeaders = (responsibilitySection ?? "")
+      .split(/\r?\n/u)
+      .filter((line, index, lines) => {
+        const next = lines[index + 1] ?? "";
+        return /^\|.*\|$/u.test(line) && /^\|(?:\s*:?-+:?\s*\|)+$/u.test(next);
+      });
+    const hasExactResponsibilityHeader =
+      responsibilitySectionMatches.length === 1 &&
+      responsibilityHeaders.length === 1 &&
+      responsibilityHeaders[0] ===
+        "| 担い手 | この要求で担うこと | 越えてはならない境界 |";
     const notApplicableRows = analysis
       .split(/\r?\n/u)
       .filter((line) => /^\| [^|]+ \| `Not Applicable` \|/u.test(line));
@@ -766,15 +835,20 @@ function checkUxRequirementAnalysis(): void {
           !/^\| [^|]+ \| `Not Applicable` \| [^|]+ \| [^|]+ \|$/u.test(line),
       ) ||
       !hasCompleteSameComparison ||
-      analysis.includes(
-        "失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが",
-      )
+      !doesRelationDiagramMatchTable
     )
       add(
         "error",
         "ux-requirement-analysis-relation-invalid",
         relative(analysisPath),
         "Each UX requirement analysis must connect every candidate to a canonical UX outcome and explain New or Same with requirement-specific reasoning.",
+      );
+    if (!hasExactResponsibilityHeader)
+      add(
+        "error",
+        "ux-requirement-analysis-responsibility-header-invalid",
+        relative(analysisPath),
+        "Each UX requirement analysis must declare exactly one responsibility boundary table with the canonical three-column header.",
       );
     if (isBlueprintDispositionInvalid)
       add(
@@ -868,9 +942,12 @@ function checkUxRequirementAnalysis(): void {
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       uxDefinitionIds.add(entry.name);
       const definition = read(definitionPath);
+      const stateHeaders = definition.match(/^状態:.*$/gmu) ?? [];
       if (
         !definition.includes(`UX ID: \`${entry.name}\``) ||
         !definition.includes("成果物種別: UX定義") ||
+        stateHeaders.length !== 1 ||
+        !/^状態: (Canonical|Superseded)$/u.test(stateHeaders[0] ?? "") ||
         !definition.includes("## 利用者成果") ||
         !definition.includes("## 成立条件") ||
         !definition.includes("## 検証意図") ||
@@ -1611,15 +1688,33 @@ function anchorsForText(content: string): Set<string> {
 }
 
 function withoutFencedCode(text: string): string {
-  let isFenced = false;
+  let fence:
+    | Readonly<{
+        marker: "`" | "~";
+        length: number;
+      }>
+    | undefined;
   return text
     .split(/\r?\n/u)
     .map((line) => {
-      if (/^\s*```/u.test(line)) {
-        isFenced = !isFenced;
+      if (fence) {
+        const closing = line.match(/^\s{0,3}(?<marker>`+|~+)\s*$/u);
+        if (
+          closing?.groups?.marker?.startsWith(fence.marker) &&
+          closing.groups.marker.length >= fence.length
+        )
+          fence = undefined;
         return "";
       }
-      return isFenced ? "" : line;
+      const opening = line.match(/^\s{0,3}(?<marker>`{3,}|~{3,})/u);
+      if (opening?.groups?.marker) {
+        fence = {
+          marker: opening.groups.marker[0] as "`" | "~",
+          length: opening.groups.marker.length,
+        };
+        return "";
+      }
+      return line;
     })
     .join("\n");
 }
@@ -1647,6 +1742,171 @@ function markdownLinkTargets(text: string): string[] {
     if (target) targets.push(target);
   }
   return targets;
+}
+
+type FormalInputTarget = Readonly<{
+  target: string;
+  invalidEntity: boolean;
+}>;
+
+function uxFormalInputTargets(text: string): FormalInputTarget[] {
+  const content = withoutFencedCode(text)
+    .replace(/<!--[\s\S]*?-->/gu, "")
+    .replace(/\\\[[^\]\n]+\](?:\([^\n)]*\)|\[[^\]\n]*\])?/gu, "")
+    .replace(
+      /\\(?=(?:\.\.[\\/])+01_Discovery[\\/])(?:\.\.[\\/])+01_Discovery[\\/](?:Analysis|Definitions)[\\/][^\s"'<>`()#]+(?:#[^\s"'<>`()#]+)?/gu,
+      "",
+    );
+  const targets = new Map<string, FormalInputTarget>();
+  const addCandidate = (
+    candidate: string,
+    isDiscoveryShapeRequired = false,
+    predecoded?: Readonly<{ value: string; invalid: boolean }>,
+  ): void => {
+    const decoded = predecoded ?? decodeHtmlEntitiesOnce(candidate);
+    const isPathRelevant = isDiscoveryPathCandidate(candidate, decoded.value);
+    if (isDiscoveryShapeRequired && !isPathRelevant) return;
+    const current = targets.get(decoded.value);
+    targets.set(decoded.value, {
+      target: decoded.value,
+      invalidEntity: Boolean(
+        current?.invalidEntity || (decoded.invalid && isPathRelevant),
+      ),
+    });
+  };
+  for (const candidate of markdownLinkTargets(content)) addCandidate(candidate);
+  for (const match of content.matchAll(
+    /<a\s+[^>]*\bhref\s*=\s*(?:"(?<double>[^"]*)"|'(?<single>[^']*)'|(?<unquoted>[^\s"'=<>]+))[^>]*>/giu,
+  ))
+    for (const candidate of [
+      match.groups?.double,
+      match.groups?.single,
+      match.groups?.unquoted,
+    ]) {
+      if (!candidate) continue;
+      addCandidate(candidate);
+    }
+  for (const match of content.matchAll(
+    /(?<![\\/\p{L}\p{N}_])(?<target>(?:(?:[A-Za-z]:[\\/]|\/)(?:[^\s"'<>`]+[\\/])*|(?:\.[\\/])?(?:\.\.[\\/])+|(?:\.[\\/]))?01_Discovery[\\/](?:Analysis|Definitions)[\\/][^\s"'<>`()#]+(?:#[^\s"'<>`()#]+)?)/gu,
+  ))
+    if (match.groups?.target)
+      addCandidate(
+        /^01_Discovery[\\/]/u.test(match.groups.target)
+          ? path.join(root, match.groups.target)
+          : match.groups.target,
+      );
+  for (const token of content.match(/[^\s"'<>`()]+/gu) ?? []) {
+    const candidate = rawEntityPathCandidate(token);
+    if (candidate) addCandidate(candidate.value, true, candidate);
+  }
+  return [...targets.values()];
+}
+
+function rawEntityPathCandidate(
+  token: string,
+): Readonly<{ value: string; invalid: boolean }> | null {
+  const escapedPathMarker = "\u{e001}";
+  const escapedNonPathMarker = "\u{e002}";
+  let masked = token.replace(
+    /\\&(?<name>#[xX]?[0-9A-Fa-f]*|[A-Za-z][A-Za-z0-9]*);?/gu,
+    (_match, ...args: unknown[]) => {
+      const groups = args.at(-1) as Readonly<{ name?: string }> | undefined;
+      return /^(?:sol|bsol)$/iu.test(groups?.name ?? "")
+        ? escapedPathMarker
+        : escapedNonPathMarker;
+    },
+  );
+  if (/^\\(?=[./\\0])/u.test(masked))
+    masked = `${escapedPathMarker}${masked.slice(1)}`;
+  const decoded = decodeHtmlEntitiesOnce(masked);
+
+  for (const rootMatch of decoded.value.matchAll(/0(?:1|&)/gu)) {
+    const rootIndex = rootMatch.index ?? 0;
+    const precedingMarker = decoded.value.lastIndexOf(
+      escapedPathMarker,
+      rootIndex,
+    );
+    if (precedingMarker >= 0) {
+      const between = decoded.value.slice(precedingMarker + 1, rootIndex);
+      if (!/[^A-Za-z0-9._/\\-]/u.test(between)) continue;
+    }
+    const candidate = decoded.value.slice(rootIndex);
+    if (
+      decoded.invalid ||
+      /[\u{e001}\u{e002}]/u.test(candidate) ||
+      candidate !== token.slice(rootIndex)
+    )
+      return { value: candidate, invalid: decoded.invalid };
+  }
+  return null;
+}
+
+function isDiscoveryPathCandidate(raw: string, decoded: string): boolean {
+  const entityLike = /&(?:#[xX]?[0-9A-Fa-f]*|[A-Za-z][A-Za-z0-9]*);?/gu;
+  const entityMarker = "\u{e000}";
+  const candidates = [raw, decoded];
+  const directPathSkeleton =
+    /(?:^|[\\/])01_Discovery[\\/](?:Analysis|Definitions)[\\/](?:REQ|EXP)-[0-9]/iu;
+  const possibleEntityPathSkeleton =
+    /(?:^|[\\/\u{e000}])0\u{e000}*1\u{e000}*(?:_|\u{e000})\u{e000}*D\u{e000}*i\u{e000}*s\u{e000}*c\u{e000}*o\u{e000}*v\u{e000}*e\u{e000}*r\u{e000}*y[\\/\u{e000}]+(?:A\u{e000}*n\u{e000}*a\u{e000}*l\u{e000}*y\u{e000}*s\u{e000}*i\u{e000}*s|D\u{e000}*e\u{e000}*f\u{e000}*i\u{e000}*n\u{e000}*i\u{e000}*t\u{e000}*i\u{e000}*o\u{e000}*n\u{e000}*s)[\\/\u{e000}]+(?:R\u{e000}*E\u{e000}*Q|E\u{e000}*X\u{e000}*P)\u{e000}*-\u{e000}*[0-9]/iu;
+  return candidates.some(
+    (candidate) =>
+      directPathSkeleton.test(candidate) ||
+      possibleEntityPathSkeleton.test(
+        candidate.replace(entityLike, entityMarker),
+      ),
+  );
+}
+
+function decodeHtmlEntitiesOnce(
+  value: string,
+): Readonly<{ value: string; invalid: boolean }> {
+  let isInvalid = false;
+  const decoded = value.replace(
+    /&(?:#(?<decimal>[0-9]+)|#x(?<hex>[0-9A-Fa-f]+)|(?<named>[A-Za-z][A-Za-z0-9]*));/gu,
+    (match, ...args: unknown[]) => {
+      const groups = args.at(-1) as
+        | Readonly<{
+            decimal?: string;
+            hex?: string;
+            named?: string;
+          }>
+        | undefined;
+      const numeric = groups?.decimal ?? groups?.hex;
+      if (numeric) {
+        const point = Number.parseInt(numeric, groups?.decimal ? 10 : 16);
+        if (
+          !Number.isSafeInteger(point) ||
+          point < 0 ||
+          point > 0x10ffff ||
+          (point >= 0xd800 && point <= 0xdfff)
+        ) {
+          isInvalid = true;
+          return match;
+        }
+        return String.fromCodePoint(point);
+      }
+      const named = {
+        amp: "&",
+        quot: '"',
+        apos: "'",
+        lt: "<",
+        gt: ">",
+        sol: "/",
+        bsol: "\\",
+        lowbar: "_",
+        period: ".",
+      }[groups?.named ?? ""];
+      if (named === undefined) {
+        isInvalid = true;
+        return match;
+      }
+      return named;
+    },
+  );
+  if (/&(?:#[xX]?[0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]*);?/u.test(decoded))
+    isInvalid = true;
+  return { value: decoded, invalid: isInvalid };
 }
 
 function normalizeReferenceLabel(value: string): string {
