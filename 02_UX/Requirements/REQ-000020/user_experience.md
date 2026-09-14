@@ -1,6 +1,6 @@
 # REQ-000020の利用者体験分析
 
-状態: UX意味再分析済み・独立レビュー待ち
+状態: UX再統合済み・独立再レビュー待ち
 要求: `REQ-000020` 欠測・競合を保つRepository Federation
 探索元: [Repository横断Project Context](../../../01_Discovery/Explorations/EXP-000020_Cross_Repository_Project_Context/exploration.md)
 
@@ -45,7 +45,7 @@ Project Operator／CROS利用者
 | Goal | 複数Repositoryを不完全性付きで一つのProjectとして見る |
 | Outcome | 欠測・制限・競合を保ったまま横断判断できる |
 | REQ固有の差 | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
-| 根拠・確信度 | 探索元の課題と採用要求から導いた設計上の想定。個人属性、利用頻度および許容負担は未実測。 |
+| 根拠・確信度 | 探索元の課題と採用要求から導いた仮説。Project Operator／PMが「複数Repositoryを不完全性付きで一つのProjectとして見る」を判断する場面で、各RepositoryのIdentity・Source状態・Coverageを解決することが実際に成果へ影響するかは未確認。 |
 
 ## 3. 利用者に起きる変化
 
@@ -69,18 +69,27 @@ After
 
 ## 4. UX成果への統合
 
-全36要求を横断比較し、この要求から生じる成果候補をCanonical UX成果へ接続した。同じIDへ接続する場合も、要求固有の成立条件を失わない。
+```text
+REQ-000020
+   │
+   ├─ Same → UX-000002 根拠付きProject View
+   ├─ Same → UX-000026 Sourceと現行性への到達
+   ├─ Same → UX-000027 欠測・制限・競合の理解
+   └─ Same → UX-000029 Project・Repository・Rootの対象確認
+```
 
-| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |
-|---|---|---|
-| 根拠付きProject View | `Same → UX-000002` | `REQ-000007`と同じ「根拠付きProject View」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「欠測・競合を保つRepository Federation」はその成立条件を別の責務境界から補う。 |
-| 未観測値の保持 | `Same → UX-000019` | `REQ-000004`と同じ「未観測値の保持」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「欠測・競合を保つRepository Federation」はその成立条件を別の責務境界から補う。 |
-| Sourceと現行性への到達 | `Same → UX-000026` | `REQ-000007`と同じ「Sourceと現行性への到達」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「欠測・競合を保つRepository Federation」はその成立条件を別の責務境界から補う。 |
-| 欠測・制限・競合の理解 | `Same → UX-000027` | `REQ-000007`と同じ「欠測・制限・競合の理解」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「欠測・競合を保つRepository Federation」はその成立条件を別の責務境界から補う。 |
-| Project・Repository・Rootの対象確認 | `Same → UX-000029` | `REQ-000009`と同じ「Project・Repository・Rootの対象確認」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「欠測・競合を保つRepository Federation」はその成立条件を別の責務境界から補う。 |
-| Context不足・競合時の非捏造 | `Same → UX-000043` | `REQ-000017`と同じ「Context不足・競合時の非捏造」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「欠測・競合を保つRepository Federation」はその成立条件を別の責務境界から補う。 |
+| UX成果 | 処置 | 判断理由 | この要求が補う内容 |
+|---|---|---|---|
+| 根拠付きProject View | `Same → UX-000002` | 利用者はともにProject Operator／PM。起点は「Projectの現在地を根拠と不完全性付きで理解する」と「複数Repositoryを不完全性付きで一つのProjectとして見る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「物理Repositoryを意識せず現在地を理解しながら、何が分かり何が不足・競合・古いかを確認して正本へ戻れる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+| Sourceと現行性への到達 | `Same → UX-000026` | 利用者はともにProject Operator／PM。起点は「Projectの現在地を根拠と不完全性付きで理解する」と「複数Repositoryを不完全性付きで一つのProjectとして見る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「要約からSource、Revision、観測時点へ戻れる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+| 欠測・制限・競合の理解 | `Same → UX-000027` | 利用者はともにProject Operator／PM。起点は「Projectの現在地を根拠と不完全性付きで理解する」と「複数Repositoryを不完全性付きで一つのProjectとして見る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「分かった範囲と判断できない範囲を同時に理解できる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+| Project・Repository・Rootの対象確認 | `Same → UX-000029` | 利用者はともにProject Operator／PM。起点は「Project・Repository・Rootを区別して対象を確認する」と「複数Repositoryを不完全性付きで一つのProjectとして見る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「論理Projectを一つに見ながら、操作対象のRepositoryとRootを取り違えない」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+
+Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
 
 ## 5. 重要な体験
+
+### このREQのJourney
 
 ```text
 Federated Projectを開く時
@@ -94,18 +103,36 @@ Federated Projectを開く時
 欠測・制限・競合を保ったまま横断判断できる
 ```
 
-### JourneyとSupporting Model
+### このREQのService Blueprint
 
-要求固有の区間は上のFlowが所有し、長い時間軸や複数主体との関係は次の既存成果物へ接続する。統合図をこの文書へ複製しない。
+```text
+利用者: Project Operator／PM
+        │ Federated Projectを開く時
+        ▼
+提供System／AI
+        ├─ 支援: 複数Repositoryを不完全性付きで一つのProjectとして見る
+        ├─ ★ 判断点: 複数Sourceを統合する場面
+        ├─ ⚠ 防止: 読めないSourceを推測補完し完全表示する
+        └─ ✓ 保証: partial・restricted・stale・conflictingを保持する
+        │
+        ▼
+利用者
+        └─ 欠測・制限・競合を保ったまま横断判断できる
+                │
+                ▼
+運用・確認者
+        └─ 品質とOutcomeを反例で確認する
+```
 
-| Supporting Model | 処置 | 理由・参照先 |
-|---|---|---|
-| Experience Change | `作成` | 本文冒頭で、この要求が変える利用前後の仕事・認知・判断を示した。 |
-| Experience Flow／Journey | `既存参照` | 本要求が関わる時間軸は[Project Operator／PMのProject Journey](../../03_Experience_Map.md#projectの現在地を判断する)を参照し、要求固有の区間は上表で示す。 |
-| Service Blueprint | `既存参照` | 複数主体の協調が体験成立条件になるため、[共同Service Blueprint](../../04_Service_Blueprint.md#1-共同service-blueprint)を参照し、本要求固有の責任境界を次節で示す。 |
-| User／Task Flow／Storyboard | `非該当` | 具体的な操作、画面遷移または利用環境の描写はIA／UIで具体化し、この要求分析では先取りしない。 |
+この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
-### 責任境界
+### 横断Synthesisへの接続
+
+- Journeyの横断統合先: [Projectの現在地を判断する](../../03_Experience_Map.md#projectの現在地を判断する)
+- Service Blueprintの横断統合先: [共同Service Blueprint](../../04_Service_Blueprint.md#1-共同service-blueprint)
+- 横断成果物はこの個別分析から共通パターンを合成する。このREQのJourney、責任境界または品質の代替にはしない。
+
+### このREQでの責任境界
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
@@ -113,20 +140,13 @@ Federated Projectを開く時
 | 提供System／AI | 各RepositoryのIdentity・Source状態・Coverageを解決するための状態、根拠および選択肢を示す | 読めないSourceを推測補完し完全表示する状態を成功・完了として表示しない |
 | 運用・確認者 | 「partial・restricted・stale・conflictingを保持する」ことと、欠測・制限・競合を保ったまま横断判断できる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
 
-### 重要場面・失敗・品質期待の対応
+### 補足する品質
 
-| 重要場面 | 避ける失敗 | 品質期待 |
-|---|---|---|
-| 複数Sourceを統合する場面 | 読めないSourceを推測補完し完全表示する | partial・restricted・stale・conflictingを保持する |
+- 結果または状態を最初に受け取る時: Sourceごとの取得状態と観測時点を保持する。（避ける失敗: Repositoryごとの状態を手で合成し、不足を見落とす）
+- 結果を判断または引き継ぐ時: `missing`と`restricted`と`unavailable`を混同しない。（避ける失敗: 必要条件を満たしていないのに完了・正常と理解する）
+- 結果を判断または引き継ぐ時: 競合値をAIが勝手に一つへ統合しない。（避ける失敗: 必要条件を満たしていないのに完了・正常と理解する）
+- 失敗・不足から次の行動を選ぶ時: Partialでも分かる範囲と判断できない範囲を示す。（避ける失敗: 成立不能の理由や回復先が分からないまま作業が止まる）
 
-要求から得た追加の品質期待は次のとおりである。主Flowの品質を置き換えず、下流で具体化する観測点として保持する。
-
-| 重要場面 | 避ける失敗 | 品質期待 |
-|---|---|---|
-| 結果または状態を最初に受け取る時 | Repositoryごとの状態を手で合成し、不足を見落とす | Sourceごとの取得状態と観測時点を保持する。 |
-| 結果を判断または引き継ぐ時 | 必要条件を満たしていないのに完了・正常と理解する | `missing`と`restricted`と`unavailable`を混同しない。 |
-| 結果を判断または引き継ぐ時 | 必要条件を満たしていないのに完了・正常と理解する | 競合値をAIが勝手に一つへ統合しない。 |
-| 失敗・不足から次の行動を選ぶ時 | 成立不能の理由や回復先が分からないまま作業が止まる | Partialでも分かる範囲と判断できない範囲を示す。 |
 
 ## 6. 下流への引き渡し
 
@@ -143,12 +163,12 @@ Federated Projectを開く時
 
 | 確認する仮説 | 観測方法 | 現在未確認の範囲 |
 |---|---|---|
-| 一つのProject Viewで、取得済み・欠測・競合を同時に確認する／Sourceごとの値と統合不能理由を理解することで、Repositoryごとの状態を手で合成し、不足を見落とすという負担または誤認を減らせる。 | 代表シナリオの利用者確認、UX専門Review、および品質期待を破る反例による下流検証 | 役割ごとの利用頻度、許容待ち時間・操作負担、用語理解および支援技術差 |
+| 一つのProject Viewで、取得済み・欠測・競合を同時に確認する／Sourceごとの値と統合不能理由を理解することで、Repositoryごとの状態を手で合成し、不足を見落とすという負担または誤認を減らせる。 | 代表シナリオの利用者確認、UX専門Review、および品質期待を破る反例による下流検証 | Project Operator／PMが「複数Repositoryを不完全性付きで一つのProjectとして見る」を行う際の判断基準、許容負担、利用環境および失敗後の選択 |
 
 ### 工程別の引き渡し
 
 | 引き渡し先 | 具体化する義務 |
 |---|---|
-| IA以降 | IAはProperty単位のProvenanceとCoverageを持つ。SPECは統合決定表とFreshness条件を定め、ArchitectureはSource Adapterの失敗をProject全体成功へ隠さない。 |
+| 下流工程 | IAはProperty単位のProvenanceとCoverageを持つ。SPECは統合決定表とFreshness条件を定め、ArchitectureはSource Adapterの失敗をProject全体成功へ隠さない。 |
 
 Discoveryへ戻す条件は、想定した利用者、問題または「複数Repositoryを不完全性付きで一つのProjectとして見る」という必要性が誤っていると分かった場合である。下流は実現方式を具体化してよいが、「欠測・制限・競合を保ったまま横断判断できる」という成果を無断で弱めない。

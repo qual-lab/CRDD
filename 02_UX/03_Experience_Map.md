@@ -33,14 +33,14 @@ Runtime運用者         配布物・現在状態 ─→ 信頼条件＋停止�
 
 | Journey | Primary Persona | 起点 | 望むOutcome | 関係する主なREQ |
 |---|---|---|---|---|
-| Repositoryで日常作業を進める | Developer | 対象Repositoryで仕事を始める | 横断機能を強制されず、必要時だけCROSへ進める | `REQ-000008`、`REQ-000014`、`REQ-000034` |
-| Projectの現在地を判断する | Project Operator／PM | Project全体を確認する必要がある | 状態、欠測、競合、根拠、判断待ちを理解して次へ進める | `REQ-000003`、`REQ-000007`、`REQ-000009`、`REQ-000020` |
+| Repositoryで日常作業を進める | Developer | 対象Repositoryで仕事を始める | 横断機能を強制されず、必要時だけCROSへ進める | `REQ-000006`、`REQ-000008`、`REQ-000010`、`REQ-000014`、`REQ-000034`、`REQ-000036` |
+| Projectの現在地を判断する | Project Operator／PM | Project全体を確認する必要がある | 状態、欠測、競合、根拠、判断待ちを理解して次へ進める | `REQ-000003`、`REQ-000007`、`REQ-000009`、`REQ-000012`、`REQ-000020` |
 | 複数Projectを比較する | Management | Portfolio上の注意対象を見つける | 許可範囲とCoverageを失わず、Projectの根拠へ戻れる | `REQ-000013` |
-| 対話と構築を往復する | 依頼者、Chat Agent、Coding Agent | 合意した仕事を構築へ渡す | 会話全文を転記せず、同じTaskへ判断と結果が戻る | `REQ-000002`、`REQ-000017`、`REQ-000024`、`REQ-000028` |
+| 対話と構築を往復する | 依頼者、Chat Agent、Coding Agent | 合意した仕事を構築へ渡す | 会話全文を転記せず、同じTaskへ判断と結果が戻る | `REQ-000002`、`REQ-000017`、`REQ-000028`、`REQ-000029` |
 | RemoteでContextと結果へ戻る | Remote利用者 | 別HostからProjectへ接続する | 現在のWorkspace範囲だけを使い、応答喪失後も同じRequestへ戻れる | `REQ-000011`、`REQ-000021` |
-| Runtimeを導入・更新・回復する | Runtime導入・運用者 | 配布物を利用または停止後に再開する | Trust要素、現在状態、残存、再試行、回復を取り違えない | `REQ-000015`、`REQ-000018`、`REQ-000022`、`REQ-000025` |
+| Runtimeを導入・更新・回復する | Runtime導入・運用者 | 配布物を利用または停止後に再開する | Trust要素、現在状態、残存、再試行、回復を取り違えない | `REQ-000004`、`REQ-000005`、`REQ-000015`、`REQ-000016`、`REQ-000018`、`REQ-000022`、`REQ-000023`、`REQ-000025`、`REQ-000034` |
 | 外部Contextを送受信する | 外部Contextの所有者 | 外部利用の候補が生じる | 許可範囲だけを送り、同じTaskへ出所付き結果を戻す | `REQ-000017`、`REQ-000024`、`REQ-000027` |
-| 標準を変更・検証・公開する | CRDD作成者・保守者 | 課題または変更を受け取る | 意図、Consumer、検証、Evidence、公開状態を閉じる | `REQ-000001`、`REQ-000019`、`REQ-000026`、`REQ-000030`～`REQ-000033` |
+| 標準を変更・検証・公開する | CRDD作成者・保守者 | 課題または変更を受け取る | 意図、Consumer、検証、Evidence、公開状態を閉じる | `REQ-000001`、`REQ-000019`、`REQ-000026`、`REQ-000030`、`REQ-000031`、`REQ-000032`、`REQ-000033`、`REQ-000035` |
 
 ### Repositoryで日常作業を進める
 

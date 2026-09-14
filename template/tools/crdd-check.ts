@@ -492,6 +492,7 @@ function checkUxRequirementAnalysis(): void {
   );
   const uxIndexPath = path.join(root, "02_UX", "01_User_Experience.md");
   const requirementsRoot = path.join(root, "02_UX", "Requirements");
+  const experienceMapPath = path.join(root, "02_UX", "03_Experience_Map.md");
   if (
     !lstatIfPresent(discoveryPath)?.isFile() ||
     !lstatIfPresent(uxIndexPath)?.isFile()
@@ -539,7 +540,28 @@ function checkUxRequirementAnalysis(): void {
       .map((line) => line.match(/^\| `(?<id>UX-[0-9]{6})`/u)?.groups?.id)
       .filter((value): value is string => Boolean(value)),
   );
-  const relatedUxIds = new Set<string>();
+  const canonicalRelationPairs = new Set(
+    uxIndex.split(/\r?\n/u).flatMap((line) => {
+      const uxId = line.match(/^\| `(?<id>UX-[0-9]{6})`/u)?.groups?.id;
+      if (!uxId) return [];
+      const requirementCell = line.split("|")[2] ?? "";
+      return [...requirementCell.matchAll(/REQ-[0-9]{6}/gu)].map(
+        (match) => `${match[0]}|${uxId}`,
+      );
+    }),
+  );
+  const analysisRelationPairs = new Set<string>();
+  const canonicalJourneyPairs = new Set<string>();
+  if (lstatIfPresent(experienceMapPath)?.isFile()) {
+    for (const line of read(experienceMapPath).split(/\r?\n/u)) {
+      const cells = line.split("|").map((cell) => cell.trim());
+      if (cells.length < 7 || cells[1] === "Journey" || /^-+$/u.test(cells[1]))
+        continue;
+      for (const match of cells[5].matchAll(/REQ-[0-9]{6}/gu))
+        canonicalJourneyPairs.add(`${match[0]}|${cells[1]}`);
+    }
+  }
+  const analysisJourneyPairs = new Set<string>();
   for (const entry of fs.readdirSync(requirementsRoot, {
     withFileTypes: true,
   })) {
@@ -563,13 +585,15 @@ function checkUxRequirementAnalysis(): void {
       "| Outcome |",
       "## 3. 利用者に起きる変化",
       "## 4. UX成果への統合",
-      "| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |",
+      "| UX成果 | 処置 | 判断理由 | この要求が補う内容 |",
       "## 5. 重要な体験",
-      "### JourneyとSupporting Model",
-      "| Supporting Model | 処置 | 理由・参照先 |",
-      "### 責任境界",
-      "### 重要場面・失敗・品質期待の対応",
-      "| 重要場面 | 避ける失敗 | 品質期待 |",
+      "### このREQのJourney",
+      "### このREQのService Blueprint",
+      "### 横断Synthesisへの接続",
+      "- Journeyの横断統合先:",
+      "- Service Blueprintの横断統合先:",
+      "### このREQでの責任境界",
+      "### 補足する品質",
       "## 6. 下流への引き渡し",
       "### 妥当性確認と未確認事項",
       "### 工程別の引き渡し",
@@ -597,13 +621,23 @@ function checkUxRequirementAnalysis(): void {
       );
     for (const line of relationRows) {
       const match = line.match(/`(?:New|Same) → (?<id>UX-[0-9]{6})`/u);
-      if (match?.groups?.id) relatedUxIds.add(match.groups.id);
+      if (match?.groups?.id)
+        analysisRelationPairs.add(`${entry.name}|${match.groups.id}`);
     }
+    const journeyLine = analysis
+      .split(/\r?\n/u)
+      .find((line) => line.startsWith("- Journeyの横断統合先:"));
+    for (const match of journeyLine?.matchAll(
+      /\[([^\]]+)\]\([^)]*03_Experience_Map\.md#[^)]+\)/gu,
+    ) ?? [])
+      analysisJourneyPairs.add(`${entry.name}|${match[1]}`);
     if (
       relationRows.length === 0 ||
       relationRows.some(
         (line) =>
-          !/^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \| .{20,} \|$/u.test(line),
+          !/^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \| .{20,} \| .+ \|$/u.test(
+            line,
+          ),
       )
     )
       add(
@@ -625,14 +659,29 @@ function checkUxRequirementAnalysis(): void {
     );
   if (
     canonicalUxIds.size === 0 ||
-    [...canonicalUxIds].some((id) => !relatedUxIds.has(id)) ||
-    [...relatedUxIds].some((id) => !canonicalUxIds.has(id))
+    [...canonicalRelationPairs].some(
+      (pair) => !analysisRelationPairs.has(pair),
+    ) ||
+    [...analysisRelationPairs].some((pair) => !canonicalRelationPairs.has(pair))
   )
     add(
       "error",
       "ux-outcome-relation-closure-mismatch",
       relative(uxIndexPath),
-      "Canonical UX outcomes and requirement-analysis New/Same relations must form a closed, bidirectional set.",
+      "Canonical UX outcomes and requirement-analysis New/Same relations must form an exact, bidirectional (REQ, UX) pair set.",
+    );
+  if (
+    canonicalJourneyPairs.size === 0 ||
+    [...canonicalJourneyPairs].some(
+      (pair) => !analysisJourneyPairs.has(pair),
+    ) ||
+    [...analysisJourneyPairs].some((pair) => !canonicalJourneyPairs.has(pair))
+  )
+    add(
+      "error",
+      "ux-journey-relation-closure-mismatch",
+      relative(experienceMapPath),
+      "The Experience Map and requirement analyses must form an exact, bidirectional (REQ, Journey) pair set.",
     );
 }
 
@@ -2768,6 +2817,21 @@ for (const file of allMarkdownFiles) {
     const definitions = stableIdDefinitions.get(match[1]) ?? [];
     definitions.push(`${relative(file)}:${lineIndex + 1}`);
     stableIdDefinitions.set(match[1], definitions);
+  }
+  if (relative(file) === "02_UX/01_User_Experience.md") {
+    for (
+      let lineIndex = 0;
+      lineIndex < definitionLines.length;
+      lineIndex += 1
+    ) {
+      const match = definitionLines[lineIndex].match(
+        /^\| `(UX-[0-9]{6})`\s+[^|]+\|/u,
+      );
+      if (!match) continue;
+      const definitions = stableIdDefinitions.get(match[1]) ?? [];
+      definitions.push(`${relative(file)}:${lineIndex + 1}`);
+      stableIdDefinitions.set(match[1], definitions);
+    }
   }
 }
 for (const [stableId, definitions] of stableIdDefinitions) {

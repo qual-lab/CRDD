@@ -1,6 +1,6 @@
 # REQ-000009の利用者体験分析
 
-状態: UX意味再分析済み・独立レビュー待ち
+状態: UX再統合済み・独立再レビュー待ち
 要求: `REQ-000009` Project・Repository・Root Identity分離
 探索元: [Repository横断Project Context](../../../01_Discovery/Explorations/EXP-000020_Cross_Repository_Project_Context/exploration.md)
 
@@ -45,7 +45,7 @@ Project・Repository・Rootを区別して対象を確認する
 | Goal | Project・Repository・Rootを区別して対象を確認する |
 | Outcome | 論理Projectを一つに見ながら誤った場所へ作用しない |
 | REQ固有の差 | Identityと検証済みRootを確認することが、この要求固有の成立条件になる |
-| 根拠・確信度 | 探索元の課題と採用要求から導いた設計上の想定。個人属性、利用頻度および許容負担は未実測。 |
+| 根拠・確信度 | 探索元の課題と採用要求から導いた仮説。Project Operator／PMが「Project・Repository・Rootを区別して対象を確認する」を判断する場面で、Identityと検証済みRootを確認することが実際に成果へ影響するかは未確認。 |
 
 ## 3. 利用者に起きる変化
 
@@ -69,14 +69,23 @@ After
 
 ## 4. UX成果への統合
 
-全36要求を横断比較し、この要求から生じる成果候補をCanonical UX成果へ接続した。同じIDへ接続する場合も、要求固有の成立条件を失わない。
+```text
+REQ-000009
+   │
+   ├─ Same → UX-000002 根拠付きProject View
+   └─ New  → UX-000029 Project・Repository・Rootの対象確認
+```
 
-| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |
-|---|---|---|
-| 根拠付きProject View | `Same → UX-000002` | `REQ-000007`と同じ「根拠付きProject View」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「Project・Repository・Root Identity分離」はその成立条件を別の責務境界から補う。 |
-| Project・Repository・Rootの対象確認 | `New → UX-000029` | 「論理Projectを一つに見ながら、操作対象のRepositoryとRootを取り違えない」を独立して変更・検証する成果である。REQ-000009では「Project・Repository・Rootを区別して対象を確認する」をGoalとし、Effect対象を確定する直前に同名や近いPathを同じ対象と誤認することを防ぐため、既存成果への条件追加ではなくNewとして追跡する。 |
+| UX成果 | 処置 | 判断理由 | この要求が補う内容 |
+|---|---|---|---|
+| 根拠付きProject View | `Same → UX-000002` | 利用者はともにProject Operator／PM。起点は「Projectの現在地を根拠と不完全性付きで理解する」と「Project・Repository・Rootを区別して対象を確認する」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「物理Repositoryを意識せず現在地を理解しながら、何が分かり何が不足・競合・古いかを確認して正本へ戻れる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+| Project・Repository・Rootの対象確認 | `New → UX-000029` | 既存成果へ統合すると「論理Projectを一つに見ながら、操作対象のRepositoryとRootを取り違えない」を独立して変更・確認できなくなる。 | 「Project・Repository・Rootを区別して対象を確認する」から「論理Projectを一つに見ながら誤った場所へ作用しない」へ進むための固有条件を示す。 |
+
+Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
 
 ## 5. 重要な体験
+
+### このREQのJourney
 
 ```text
 参照または操作対象を選ぶ時
@@ -90,18 +99,36 @@ Identityと検証済みRootを確認する
 論理Projectを一つに見ながら誤った場所へ作用しない
 ```
 
-### JourneyとSupporting Model
+### このREQのService Blueprint
 
-要求固有の区間は上のFlowが所有し、長い時間軸や複数主体との関係は次の既存成果物へ接続する。統合図をこの文書へ複製しない。
+```text
+利用者: Project Operator／PM
+        │ 参照または操作対象を選ぶ時
+        ▼
+提供System／AI
+        ├─ 支援: Project・Repository・Rootを区別して対象を確認する
+        ├─ ★ 判断点: Effect対象を確定する直前
+        ├─ ⚠ 防止: 同名や近いPathを同じ対象と誤認する
+        └─ ✓ 保証: 各Identityと物理Rootの結合を明示する
+        │
+        ▼
+利用者
+        └─ 論理Projectを一つに見ながら誤った場所へ作用しない
+                │
+                ▼
+運用・確認者
+        └─ 品質とOutcomeを反例で確認する
+```
 
-| Supporting Model | 処置 | 理由・参照先 |
-|---|---|---|
-| Experience Change | `作成` | 本文冒頭で、この要求が変える利用前後の仕事・認知・判断を示した。 |
-| Experience Flow／Journey | `既存参照` | 本要求が関わる時間軸は[Project Operator／PMのProject Journey](../../03_Experience_Map.md#projectの現在地を判断する)を参照し、要求固有の区間は上表で示す。 |
-| Service Blueprint | `既存参照` | 複数主体の協調が体験成立条件になるため、[共同Service Blueprint](../../04_Service_Blueprint.md#1-共同service-blueprint)を参照し、本要求固有の責任境界を次節で示す。 |
-| User／Task Flow／Storyboard | `非該当` | 具体的な操作、画面遷移または利用環境の描写はIA／UIで具体化し、この要求分析では先取りしない。 |
+この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
-### 責任境界
+### 横断Synthesisへの接続
+
+- Journeyの横断統合先: [Projectの現在地を判断する](../../03_Experience_Map.md#projectの現在地を判断する)
+- Service Blueprintの横断統合先: [共同Service Blueprint](../../04_Service_Blueprint.md#1-共同service-blueprint)
+- 横断成果物はこの個別分析から共通パターンを合成する。このREQのJourney、責任境界または品質の代替にはしない。
+
+### このREQでの責任境界
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
@@ -109,20 +136,13 @@ Identityと検証済みRootを確認する
 | 提供System／AI | Identityと検証済みRootを確認するための状態、根拠および選択肢を示す | 同名や近いPathを同じ対象と誤認する状態を成功・完了として表示しない |
 | 運用・確認者 | 「各Identityと物理Rootの結合を明示する」ことと、論理Projectを一つに見ながら誤った場所へ作用しない状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
 
-### 重要場面・失敗・品質期待の対応
+### 補足する品質
 
-| 重要場面 | 避ける失敗 | 品質期待 |
-|---|---|---|
-| Effect対象を確定する直前 | 同名や近いPathを同じ対象と誤認する | 各Identityと物理Rootの結合を明示する |
+- 結果または状態を最初に受け取る時: 同じProject IDを持つRepositoryを一つのViewで理解できる。（避ける失敗: Repository名や配置から論理Projectを推測する）
+- 結果を判断または引き継ぐ時: 名前の一致だけでRepositoryやRootを同一とみなさない。（避ける失敗: 必要条件を満たしていないのに完了・正常と理解する）
+- 結果を判断または引き継ぐ時: 変更操作前には対象RepositoryとAuthorityを確認できる。（避ける失敗: 必要条件を満たしていないのに完了・正常と理解する）
+- 失敗・不足から次の行動を選ぶ時: 利用できないRepositoryの内容を推測で補完しない。（避ける失敗: 成立不能の理由や回復先が分からないまま作業が止まる）
 
-要求から得た追加の品質期待は次のとおりである。主Flowの品質を置き換えず、下流で具体化する観測点として保持する。
-
-| 重要場面 | 避ける失敗 | 品質期待 |
-|---|---|---|
-| 結果または状態を最初に受け取る時 | Repository名や配置から論理Projectを推測する | 同じProject IDを持つRepositoryを一つのViewで理解できる。 |
-| 結果を判断または引き継ぐ時 | 必要条件を満たしていないのに完了・正常と理解する | 名前の一致だけでRepositoryやRootを同一とみなさない。 |
-| 結果を判断または引き継ぐ時 | 必要条件を満たしていないのに完了・正常と理解する | 変更操作前には対象RepositoryとAuthorityを確認できる。 |
-| 失敗・不足から次の行動を選ぶ時 | 成立不能の理由や回復先が分からないまま作業が止まる | 利用できないRepositoryの内容を推測で補完しない。 |
 
 ## 6. 下流への引き渡し
 
@@ -139,12 +159,12 @@ Identityと検証済みRootを確認する
 
 | 確認する仮説 | 観測方法 | 現在未確認の範囲 |
 |---|---|---|
-| 一つのProjectとして見ながら、必要時に各Sourceへ辿る／Project、Repository、検証済みRootを区別して確認できることで、Repository名や配置から論理Projectを推測するという負担または誤認を減らせる。 | 代表シナリオの利用者確認、UX専門Review、および品質期待を破る反例による下流検証 | 役割ごとの利用頻度、許容待ち時間・操作負担、用語理解および支援技術差 |
+| 一つのProjectとして見ながら、必要時に各Sourceへ辿る／Project、Repository、検証済みRootを区別して確認できることで、Repository名や配置から論理Projectを推測するという負担または誤認を減らせる。 | 代表シナリオの利用者確認、UX専門Review、および品質期待を破る反例による下流検証 | Project Operator／PMが「Project・Repository・Rootを区別して対象を確認する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 |
 
 ### 工程別の引き渡し
 
 | 引き渡し先 | 具体化する義務 |
 |---|---|
-| IA以降 | IAはProject、Repository、RootおよびBindingを別Entityとして関連付ける。UIは通常表示とSource詳細を分け、Architectureは検証済みIdentityを公開結果まで保持する。 |
+| 下流工程 | IAはProject、Repository、RootおよびBindingを別Entityとして関連付ける。UIは通常表示とSource詳細を分け、Architectureは検証済みIdentityを公開結果まで保持する。 |
 
 Discoveryへ戻す条件は、想定した利用者、問題または「Project・Repository・Rootを区別して対象を確認する」という必要性が誤っていると分かった場合である。下流は実現方式を具体化してよいが、「論理Projectを一つに見ながら誤った場所へ作用しない」という成果を無断で弱めない。

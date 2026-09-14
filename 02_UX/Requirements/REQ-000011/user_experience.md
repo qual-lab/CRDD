@@ -1,6 +1,6 @@
 # REQ-000011の利用者体験分析
 
-状態: UX意味再分析済み・独立レビュー待ち
+状態: UX再統合済み・独立再レビュー待ち
 要求: `REQ-000011` Remote接続のWorkspace限定
 探索元: [Remote Project Context](../../../01_Discovery/Explorations/EXP-000022_Remote_Project_Context/exploration.md)
 
@@ -45,7 +45,7 @@ Remote CROS利用者
 | Goal | 許可されたWorkspaceだけへ接続する |
 | Outcome | 場所が変わっても開示範囲を理解して安全に使える |
 | REQ固有の差 | Credentialから現在のWorkspace Grantを確認することが、この要求固有の成立条件になる |
-| 根拠・確信度 | 探索元の課題と採用要求から導いた設計上の想定。個人属性、利用頻度および許容負担は未実測。 |
+| 根拠・確信度 | 探索元の課題と採用要求から導いた仮説。Project Operator／PMが「許可されたWorkspaceだけへ接続する」を判断する場面で、Credentialから現在のWorkspace Grantを確認することが実際に成果へ影響するかは未確認。 |
 
 ## 3. 利用者に起きる変化
 
@@ -69,16 +69,25 @@ Remote接続では、接続できたことと閲覧できる範囲を同一視�
 
 ## 4. UX成果への統合
 
-全36要求を横断比較し、この要求から生じる成果候補をCanonical UX成果へ接続した。同じIDへ接続する場合も、要求固有の成立条件を失わない。
+```text
+REQ-000011
+   │
+   ├─ New  → UX-000007 Workspace限定Remote利用
+   ├─ New  → UX-000031 Credential不足と利用不能の区別
+   └─ New  → UX-000032 System管理能力とContent閲覧の分離
+```
 
-| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |
-|---|---|---|
-| Workspace限定Remote利用 | `New → UX-000007` | 「接続元が変わっても、現在Credentialに許可されたWorkspaceだけを利用でき、利用不能範囲を推測で補わない」を独立して変更・検証する成果である。REQ-000011では「許可されたWorkspaceだけへ接続する」をGoalとし、利用可能Contextを表示する時に利用不能なRepositoryの存在や内容を推測表示することを防ぐため、既存成果への条件追加ではなくNewとして追跡する。 |
-| 接続失敗と処理失敗の区別 | `Same → UX-000025` | `REQ-000006`と同じ「接続失敗と処理失敗の区別」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「Remote接続のWorkspace限定」はその成立条件を別の責務境界から補う。 |
-| Credential不足と利用不能の区別 | `New → UX-000031` | 「別Credentialが必要、権限不足、一時障害、存在非開示を区別できる」を独立して変更・検証する成果である。REQ-000011では「許可されたWorkspaceだけへ接続する」をGoalとし、利用可能Contextを表示する時に利用不能なRepositoryの存在や内容を推測表示することを防ぐため、既存成果への条件追加ではなくNewとして追跡する。 |
-| System管理能力とContent閲覧の分離 | `New → UX-000032` | 「管理操作ができても未許可Contentを読めないことを理解できる」を独立して変更・検証する成果である。REQ-000011では「許可されたWorkspaceだけへ接続する」をGoalとし、利用可能Contextを表示する時に利用不能なRepositoryの存在や内容を推測表示することを防ぐため、既存成果への条件追加ではなくNewとして追跡する。 |
+| UX成果 | 処置 | 判断理由 | この要求が補う内容 |
+|---|---|---|---|
+| Workspace限定Remote利用 | `New → UX-000007` | 既存成果へ統合すると「接続元が変わっても、現在Credentialに許可されたWorkspaceだけを利用でき、利用不能範囲を推測で補わない」を独立して変更・確認できなくなる。 | 「許可されたWorkspaceだけへ接続する」から「場所が変わっても開示範囲を理解して安全に使える」へ進むための固有条件を示す。 |
+| Credential不足と利用不能の区別 | `New → UX-000031` | 既存成果へ統合すると「別Credentialが必要、権限不足、一時障害、存在非開示を区別できる」を独立して変更・確認できなくなる。 | 「許可されたWorkspaceだけへ接続する」から「場所が変わっても開示範囲を理解して安全に使える」へ進むための固有条件を示す。 |
+| System管理能力とContent閲覧の分離 | `New → UX-000032` | 既存成果へ統合すると「管理操作ができても未許可Contentを読めないことを理解できる」を独立して変更・確認できなくなる。 | 「許可されたWorkspaceだけへ接続する」から「場所が変わっても開示範囲を理解して安全に使える」へ進むための固有条件を示す。 |
+
+Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
 
 ## 5. 重要な体験
+
+### このREQのJourney
 
 ```text
 Remote Sessionを開始・再接続する時
@@ -92,18 +101,36 @@ Credentialから現在のWorkspace Grantを確認する
 場所が変わっても開示範囲を理解して安全に使える
 ```
 
-### JourneyとSupporting Model
+### このREQのService Blueprint
 
-要求固有の区間は上のFlowが所有し、長い時間軸や複数主体との関係は次の既存成果物へ接続する。統合図をこの文書へ複製しない。
+```text
+利用者: Project Operator／PM
+        │ Remote Sessionを開始・再接続する時
+        ▼
+提供System／AI
+        ├─ 支援: 許可されたWorkspaceだけへ接続する
+        ├─ ★ 判断点: 利用可能Contextを表示する時
+        ├─ ⚠ 防止: 利用不能なRepositoryの存在や内容を推測表示する
+        └─ ✓ 保証: 現在Grantだけを開示し不足を補完しない
+        │
+        ▼
+利用者
+        └─ 場所が変わっても開示範囲を理解して安全に使える
+                │
+                ▼
+運用・確認者
+        └─ 品質とOutcomeを反例で確認する
+```
 
-| Supporting Model | 処置 | 理由・参照先 |
-|---|---|---|
-| Experience Change | `作成` | 本文冒頭で、この要求が変える利用前後の仕事・認知・判断を示した。 |
-| Experience Flow／Journey | `既存参照` | 本要求が関わる時間軸は[Remote利用と応答喪失のJourney](../../03_Experience_Map.md#remoteでcontextと結果へ戻る)を参照し、要求固有の区間は上表で示す。 |
-| Service Blueprint | `既存参照` | 複数主体の協調が体験成立条件になるため、[共同Service Blueprint](../../04_Service_Blueprint.md#1-共同service-blueprint)を参照し、本要求固有の責任境界を次節で示す。 |
-| User／Task Flow／Storyboard | `非該当` | 具体的な操作、画面遷移または利用環境の描写はIA／UIで具体化し、この要求分析では先取りしない。 |
+この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
-### 責任境界
+### 横断Synthesisへの接続
+
+- Journeyの横断統合先: [RemoteでContextと結果へ戻る](../../03_Experience_Map.md#remoteでcontextと結果へ戻る)
+- Service Blueprintの横断統合先: [共同Service Blueprint](../../04_Service_Blueprint.md#1-共同service-blueprint)
+- 横断成果物はこの個別分析から共通パターンを合成する。このREQのJourney、責任境界または品質の代替にはしない。
+
+### このREQでの責任境界
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
@@ -111,20 +138,13 @@ Credentialから現在のWorkspace Grantを確認する
 | 提供System／AI | Credentialから現在のWorkspace Grantを確認するための状態、根拠および選択肢を示す | 利用不能なRepositoryの存在や内容を推測表示する状態を成功・完了として表示しない |
 | 運用・確認者 | 「現在Grantだけを開示し不足を補完しない」ことと、場所が変わっても開示範囲を理解して安全に使える状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
 
-### 重要場面・失敗・品質期待の対応
+### 補足する品質
 
-| 重要場面 | 避ける失敗 | 品質期待 |
-|---|---|---|
-| 利用可能Contextを表示する時 | 利用不能なRepositoryの存在や内容を推測表示する | 現在Grantだけを開示し不足を補完しない |
+- 結果または状態を最初に受け取る時: 認証後もGrant外のRepository名、件数、状態を漏らさない。（避ける失敗: Serverへ接続できれば全Projectを扱えると思う）
+- 結果を判断または引き継ぐ時: Credential切替や失効後は投影を再評価する。（避ける失敗: 必要条件を満たしていないのに完了・正常と理解する）
+- 結果を判断または引き継ぐ時: `Unlock`は別Credentialが必要で存在開示可能な場合だけ示す。（避ける失敗: 必要条件を満たしていないのに完了・正常と理解する）
+- 失敗・不足から次の行動を選ぶ時: System管理能力とContent閲覧範囲を混同しない。（避ける失敗: 成立不能の理由や回復先が分からないまま作業が止まる）
 
-要求から得た追加の品質期待は次のとおりである。主Flowの品質を置き換えず、下流で具体化する観測点として保持する。
-
-| 重要場面 | 避ける失敗 | 品質期待 |
-|---|---|---|
-| 結果または状態を最初に受け取る時 | Serverへ接続できれば全Projectを扱えると思う | 認証後もGrant外のRepository名、件数、状態を漏らさない。 |
-| 結果を判断または引き継ぐ時 | 必要条件を満たしていないのに完了・正常と理解する | Credential切替や失効後は投影を再評価する。 |
-| 結果を判断または引き継ぐ時 | 必要条件を満たしていないのに完了・正常と理解する | `Unlock`は別Credentialが必要で存在開示可能な場合だけ示す。 |
-| 失敗・不足から次の行動を選ぶ時 | 成立不能の理由や回復先が分からないまま作業が止まる | System管理能力とContent閲覧範囲を混同しない。 |
 
 ## 6. 下流への引き渡し
 
@@ -141,12 +161,12 @@ Credentialから現在のWorkspace Grantを確認する
 
 | 確認する仮説 | 観測方法 | 現在未確認の範囲 |
 |---|---|---|
-| 現在SessionへGrantされたWorkspaceだけが利用できると分かる／credential_required、restricted、unavailableを区別することで、Serverへ接続できれば全Projectを扱えると思うという負担または誤認を減らせる。 | 代表シナリオの利用者確認、UX専門Review、および品質期待を破る反例による下流検証 | 役割ごとの利用頻度、許容待ち時間・操作負担、用語理解および支援技術差 |
+| 現在SessionへGrantされたWorkspaceだけが利用できると分かる／credential_required、restricted、unavailableを区別することで、Serverへ接続できれば全Projectを扱えると思うという負担または誤認を減らせる。 | 代表シナリオの利用者確認、UX専門Review、および品質期待を破る反例による下流検証 | Project Operator／PMが「許可されたWorkspaceだけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 |
 
 ### 工程別の引き渡し
 
 | 引き渡し先 | 具体化する義務 |
 |---|---|
-| IA以降 | IAはCredential、Session、Workspace、ExposureおよびSource可用性を区別する。Threat／SPEC／Architectureは開示可否とEffect Authorityを別契約として具体化する。 |
+| 下流工程 | IAはCredential、Session、Workspace、ExposureおよびSource可用性を区別する。Threat／SPEC／Architectureは開示可否とEffect Authorityを別契約として具体化する。 |
 
 Discoveryへ戻す条件は、想定した利用者、問題または「許可されたWorkspaceだけへ接続する」という必要性が誤っていると分かった場合である。下流は実現方式を具体化してよいが、「場所が変わっても開示範囲を理解して安全に使える」という成果を無断で弱めない。

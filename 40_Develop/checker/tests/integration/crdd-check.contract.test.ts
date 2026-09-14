@@ -94,12 +94,16 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
     "After",
     "## 4. UX成果への統合",
     "REQとUXは多対多を許容する",
-    "| UX成果候補 | 処置・接続先 | 判断理由 | この要求が補う内容 |",
+    "| UX成果 | 処置 | 判断理由 | この要求が補う内容 |",
     "## 5. 重要な体験",
     "Critical",
     "Failure",
     "Quality",
-    "| Supporting Model | 処置 | 理由・参照先 |",
+    "### このREQのJourney",
+    "### このREQのService Blueprint",
+    "### 横断Synthesisへの接続",
+    "### このREQでの責任境界",
+    "### 補足する品質",
     "## 6. 下流への引き渡し",
     "Discoveryへ戻す条件",
   ])
@@ -804,7 +808,7 @@ test("UXを主な関係領域に持たない採用要求もUX分析から省略�
       "REQ-000003",
       "user_experience.md",
     ),
-    "# Analysis\n\n要求: `REQ-000003`\n\n## 1. なぜこの要求を体験として扱うのか\n\n## 2. 利用者に起きる変化\n\n## 3. UX成果への統合\n\n| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |\n|---|---|---|\n| Milestone | `New → UX-000001@1` | 利用者が目的を委ねられる成果として確定する十分な理由を記録する。 |\n\n## 4. 重要場面、失敗、品質期待\n\n## 5. 下流への引き渡し\n",
+    "# Analysis\n\n要求: `REQ-000003`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| Milestone | `New → UX-000001` | 利用者が目的を委ねられる独立成果である。 | 受入条件による委任を補う。 |\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -825,7 +829,7 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n\n| UX成果 | 要求 |\n|---|---|\n| `UX-000001@1` 同じ成果 | `REQ-000001` |\n",
+    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 同じ成果 | `REQ-000001` |\n",
   );
   write(
     path.join(
@@ -835,7 +839,7 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
       "REQ-000001",
       "user_experience.md",
     ),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 1. なぜこの要求を体験として扱うのか\n\n## 2. 利用者に起きる変化\n\n## 3. UX成果への統合\n\n| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |\n|---|---|---|\n| 同じ成果 | `Same → UX-000001@1` | 同じ。 |\n\n## 4. 重要場面、失敗、品質期待\n\n## 5. 下流への引き渡し\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 同じ。 | 補完。 |\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -856,7 +860,7 @@ test("UX台帳と要求分析のRelationが閉じていない状態を拒否す�
   );
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
-    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n\n| UX成果 | 要求 |\n|---|---|\n| `UX-000002@1` 台帳だけの成果 | `REQ-000001` |\n",
+    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000002` 台帳だけの成果 | `REQ-000001` |\n",
   );
   write(
     path.join(
@@ -866,7 +870,7 @@ test("UX台帳と要求分析のRelationが閉じていない状態を拒否す�
       "REQ-000001",
       "user_experience.md",
     ),
-    "# Analysis\n\n要求: `REQ-000001`\n\n## 1. なぜこの要求を体験として扱うのか\n\n## 2. 利用者に起きる変化\n\n## 3. UX成果への統合\n\n| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |\n|---|---|---|\n| 分析だけの成果 | `New → UX-000001@1` | 利用者の成果と失敗条件が独立しているため新規成果として確定する。 |\n\n## 4. 重要場面、失敗、品質期待\n\n## 5. 下流への引き渡し\n",
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 分析だけの成果 | `New → UX-000001` | 利用者の成果と失敗条件が独立しているため新規成果として確定する。 | 要求固有の条件を補う。 |\n",
   );
   const result = runChecker(root);
   assert.ok(
@@ -874,6 +878,83 @@ test("UX台帳と要求分析のRelationが閉じていない状態を拒否す�
       (finding) =>
         finding.code === "ux-outcome-relation-closure-mismatch" &&
         finding.path === "02_UX/01_User_Experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX台帳と要求分析はID集合でなくREQとUXの組で閉じる", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n| `REQ-000002` | B | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n[REQ-000002](Requirements/REQ-000002/user_experience.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000002` B | `REQ-000002` |\n",
+  );
+  for (const [req, ux] of [
+    ["REQ-000001", "UX-000002"],
+    ["REQ-000002", "UX-000001"],
+  ])
+    write(
+      path.join(root, "02_UX", "Requirements", req, "user_experience.md"),
+      `# Analysis\n\n要求: \`${req}\`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| Outcome | \`New → ${ux}\` | 独立して変更し確認する利用者成果として扱う。 | この要求の利用場面を補う。 |\n`,
+    );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-outcome-relation-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("Canonical UX台帳の同一ID二重定義を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000001` B | `REQ-000002` |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "duplicate-stable-id-definition" &&
+        finding.path.includes("02_UX/01_User_Experience.md"),
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("Experience Mapと要求分析のJourney割当不一致を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "03_Experience_Map.md"),
+    "# Map\n\n| Journey | Primary Persona | 起点 | 望むOutcome | 関係する主なREQ |\n|---|---|---|---|---|\n| Projectの現在地を判断する | PM | 起点 | 成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(
+      root,
+      "02_UX",
+      "Requirements",
+      "REQ-000001",
+      "user_experience.md",
+    ),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| A | `New → UX-000001` | 独立して確認する利用者成果として扱う。 | この要求の利用場面を補う。 |\n\n- Journeyの横断統合先: [Runtimeを導入する](../../03_Experience_Map.md#runtimeを導入する)\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-journey-relation-closure-mismatch",
     ),
     `${result.stdout}\n${result.stderr}`,
   );

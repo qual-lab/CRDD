@@ -29,9 +29,9 @@ Project Operation Context
 | Project Management Projection | 設計中 |
 | 任意Top-level構造 | 設計中 |
 | Project Operation／Workbench Discovery | `Complete for Scope`。Workbench／MCP共同利用体系まで再探索し、独立レビューPass。2026-09-13にUX移行承認済み |
-| Workbench／MCP共同UX | `Independent Re-review Pending`。独立レビューで見つかった不備を受け、36要求をVisual-firstの6章構成で再分析し、利用者Goal、Journey／Blueprint、New／Same理由、責任境界、重要場面および品質期待を要求別に再接続した。68 UX成果は候補集合として維持し、新しい固定候補への独立再レビューがPassするまでCanonical確定またはIA移行可能とは表示しない |
+| Workbench／MCP共同UX | `Remediation in Progress`。固定Commit `edcbd30f`の独立レビュー（Major 4、Moderate 3）を受け、個別REQを一次の自己完結したUX分析、02〜05を横断Synthesis、01を全体俯瞰・Relation台帳として再整理した。REQ↔UXとREQ↔Journeyを組単位で閉じ、Same判断を利用者・起点・Outcome・Failureの比較へ改める。新しい固定候補への独立再レビューがPassするまでIA移行可能とは表示しない |
 | Discoveryの人間理解確認 | 完了。AIによる既存Context再構成と人間理解を分け、Workbench、Remote MCP、Repository単独利用および工程境界の人間提示内容をUX入力へ反映 |
-| UX規範・ひな型・Checker・試験 | Visual-firstの三層、6章の分析順、Product横断成果物の責務分離、テンプレートと実成果物の整合原則を反映した。Checkerを6章契約へ更新し、個別要求36件の意味再分析を完了した。Repository全体Checker、Checker契約試験、型・Lint・Format確認を再実行した後、新しい固定候補を独立レビューへ戻す |
+| UX規範・ひな型・Checker・試験 | Visual-firstの6章を維持し、各要求別分析へREQ固有のJourney、Service Blueprint、責任境界および品質を自己完結して残す。02〜05への参照は横断Synthesisへの接続であり、個別分析を代替しない。同一文書内の図・表・文章による意味反復だけを削減した。Checkerは見出しの存在だけで意味品質を代替せず、REQ↔UXとREQ↔Journeyのpairwise closure、Canonical UX定義重複および現行4列表を決定論的に検査する。Repository全体Checker、Checker契約試験、型・Lint・Format確認後に独立再レビューへ戻す |
 | 安定コンテキストIDの訂正・置換 | `REQ / UX / IA / UI / SPEC`共通で、`@n`の手動改訂番号を廃止した。意味不変の訂正は同じID、意味の置換は新IDと`supersedes`を用い、過去内容はCHG、Git、Release tagおよび固定Evidenceから追跡する。Checkerは手動改訂番号の再導入を拒否する |
 
 ## 2. 契機と人間が決定した範囲

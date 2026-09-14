@@ -78,13 +78,15 @@ REQ-XXXXXX
                       （成果名） [New／Same]
 ```
 
-| UX成果候補 | 処置・接続先 | 判断理由 | この要求が補う内容 |
+| UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
 | | （New／Same／Not Applicable） | （Actor、Goal、Trigger、Outcome、Experienceの比較） | |
 
 REQとUXは多対多を許容する。Same判定はREQ Identityや技術上の近さではなく、利用者成果の同一性を基準にする。
 
 ## 5. 重要な体験
+
+### このREQのJourney
 
 ```text
 （体験の起点）
@@ -98,13 +100,47 @@ REQとUXは多対多を許容する。Same判定はREQ Identityや技術上の�
 （Outcomeまたは回復後の次の行動）
 ```
 
-| Supporting Model | 処置 | 理由・参照先 |
-|---|---|---|
-| Experience Flow／Journey | （作成／既存参照／非該当／作成不能） | |
-| Service Blueprint | | |
-| User／Task Flow／Storyboard | | |
+### このREQのService Blueprint
 
-重要場面、失敗・回復、品質期待および人間／System・AI／運用の責任境界を、Flow上の発生地点から理解できるようにする。数値、状態値、API、Componentまたは実現方式は下流へ先送りする。
+```text
+利用者: （このREQのPrimary Persona）
+        │ （利用場面）
+        ▼
+提供System／AI
+        ├─ 支援: （Goalへ進むために示すもの）
+        ├─ ★ 判断点: （重要場面）
+        ├─ ⚠ 防止: （避ける失敗）
+        └─ ✓ 保証: （守る体験品質）
+        │
+        ▼
+利用者
+        └─ （Outcome）
+                │
+                ▼
+運用・確認者
+        └─ 品質とOutcomeを反例で確認する
+```
+
+（このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。）
+
+### 横断Synthesisへの接続
+
+- Journeyの横断統合先: （`03_Experience_Map.md`の該当Journey）
+- Service Blueprintの横断統合先: （`04_Service_Blueprint.md`の該当区間）
+- 横断成果物はこの個別分析から共通パターンを合成する。このREQのJourney、責任境界または品質の代替にはしない。
+
+### このREQでの責任境界
+
+| 担い手 | この要求で担うこと | 越えてはならない境界 |
+|---|---|---|
+| 利用者 | | |
+| 提供System／AI | | |
+| 運用・確認者 | | |
+
+### 補足する品質
+
+- Primary Diagramに示したCore Qualityを再掲せず、このREQ固有の追加品質、制約または例外だけを示す。
+- 横断成果物への接続だけで、個別の重要場面、FailureまたはQualityを置き換えない。
 
 ## 6. 下流への引き渡し
 

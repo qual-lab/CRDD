@@ -1,6 +1,6 @@
 # REQ-000034の利用者体験分析
 
-状態: UX意味再分析済み・独立レビュー待ち
+状態: UX再統合済み・独立再レビュー待ち
 要求: `REQ-000034` Repository固定Commitから使える標準Tool
 探索元: [EXP-000005](../../../01_Discovery/Explorations/EXP-000005_Repository_Distributed_Tooling/exploration.md)
 
@@ -45,7 +45,7 @@ Repositoryに対応する標準Toolを迷わず使う
 | Goal | Repositoryに対応する標準Toolを迷わず使う |
 | Outcome | 未Commit作業と署名済み実行を区別して反復できる |
 | REQ固有の差 | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
-| 根拠・確信度 | 探索元の課題と採用要求から導いた設計上の想定。個人属性、利用頻度および許容負担は未実測。 |
+| 根拠・確信度 | 探索元の課題と採用要求から導いた仮説。Developerが「Repositoryに対応する標準Toolを迷わず使う」を判断する場面で、Repository Bindingと実行Modeを確認することが実際に成果へ影響するかは未確認。 |
 
 ## 3. 利用者に起きる変化
 
@@ -67,16 +67,27 @@ Repository固定Commitから使える標準Toolは、単に内部方式を成立
 
 ## 4. UX成果への統合
 
-全36要求を横断比較し、この要求から生じる成果候補をCanonical UX成果へ接続した。同じIDへ接続する場合も、要求固有の成立条件を失わない。
+```text
+REQ-000034
+   │
+   ├─ Same → UX-000001 Repository単独利用
+   ├─ New  → UX-000065 Repositoryに対応するTool利用
+   ├─ New  → UX-000066 開発実行と署名済み実行の区別
+   └─ Same → UX-000068 Version Control非依存の日常作業
+```
 
-| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |
-|---|---|---|
-| Repository単独利用 | `Same → UX-000001` | `REQ-000008`と同じ「Repository単独利用」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「Repository固定Commitから使える標準Tool」はその成立条件を別の責務境界から補う。 |
-| Repositoryに対応するTool利用 | `New → UX-000065` | 「現在Repositoryと対応する標準Toolを手動Version照合なしで使える」を独立して変更・検証する成果である。REQ-000034では「Repositoryに対応する標準Toolを迷わず使う」をGoalとし、開発実行か正式実行か選ぶ場面に外部の任意ToolやCandidateを正式版と誤認することを防ぐため、既存成果への条件追加ではなくNewとして追跡する。 |
-| 開発実行と署名済み実行の区別 | `New → UX-000066` | 「反復用の開発実行と公式Runtime Authorityを混同せず選べる」を独立して変更・検証する成果である。REQ-000034では「Repositoryに対応する標準Toolを迷わず使う」をGoalとし、開発実行か正式実行か選ぶ場面に外部の任意ToolやCandidateを正式版と誤認することを防ぐため、既存成果への条件追加ではなくNewとして追跡する。 |
-| Version Control非依存の日常作業 | `Same → UX-000068` | `REQ-000008`と同じ「Version Control非依存の日常作業」を目指す。利用者が得る最終状態と主な失敗条件が同じであり、本要求「Repository固定Commitから使える標準Tool」はその成立条件を別の責務境界から補う。 |
+| UX成果 | 処置 | 判断理由 | この要求が補う内容 |
+|---|---|---|---|
+| Repository単独利用 | `Same → UX-000001` | 利用者はともにDeveloper。起点は「現在Repositoryだけで日常作業を完結する」と「Repositoryに対応する標準Toolを迷わず使う」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「Developerが現在Repositoryだけで日常作業を開始・完結でき、必要時だけ横断利用へ進める」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+| Repositoryに対応するTool利用 | `New → UX-000065` | 既存成果へ統合すると「現在Repositoryと対応する標準Toolを手動Version照合なしで使える」を独立して変更・確認できなくなる。 | 「Repositoryに対応する標準Toolを迷わず使う」から「未Commit作業と署名済み実行を区別して反復できる」へ進むための固有条件を示す。 |
+| 開発実行と署名済み実行の区別 | `New → UX-000066` | 既存成果へ統合すると「反復用の開発実行と公式Runtime Authorityを混同せず選べる」を独立して変更・確認できなくなる。 | 「Repositoryに対応する標準Toolを迷わず使う」から「未Commit作業と署名済み実行を区別して反復できる」へ進むための固有条件を示す。 |
+| Version Control非依存の日常作業 | `Same → UX-000068` | 利用者はともにDeveloper。起点は「日常作業をCommit SHAや特定Git実装から切り離す」と「Repositoryに対応する標準Toolを迷わず使う」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「未Commit状態や差し替え可能な履歴実装でも、通常の読取り・編集を続けられる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+
+Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
 
 ## 5. 重要な体験
+
+### このREQのJourney
 
 ```text
 Toolを導入または起動する時
@@ -90,18 +101,36 @@ Repository Bindingと実行Modeを確認する
 未Commit作業と署名済み実行を区別して反復できる
 ```
 
-### JourneyとSupporting Model
+### このREQのService Blueprint
 
-要求固有の区間は上のFlowが所有し、長い時間軸や複数主体との関係は次の既存成果物へ接続する。統合図をこの文書へ複製しない。
+```text
+利用者: Developer
+        │ Toolを導入または起動する時
+        ▼
+提供System／AI
+        ├─ 支援: Repositoryに対応する標準Toolを迷わず使う
+        ├─ ★ 判断点: 開発実行か正式実行か選ぶ場面
+        ├─ ⚠ 防止: 外部の任意ToolやCandidateを正式版と誤認する
+        └─ ✓ 保証: 入口・配布Identity・Authorityを明示する
+        │
+        ▼
+利用者
+        └─ 未Commit作業と署名済み実行を区別して反復できる
+                │
+                ▼
+運用・確認者
+        └─ 品質とOutcomeを反例で確認する
+```
 
-| Supporting Model | 処置 | 理由・参照先 |
-|---|---|---|
-| Experience Change | `作成` | 本文冒頭で、この要求が変える利用前後の仕事・認知・判断を示した。 |
-| Experience Flow／Journey | `既存参照` | 本要求が関わる時間軸は[Runtimeを導入・更新・回復するJourney](../../03_Experience_Map.md#runtimeを導入更新回復する)を参照し、要求固有の区間は上表で示す。 |
-| Service Blueprint | `非該当` | 本要求では複数主体の協調そのものを新しい体験成立条件にせず、必要な責任境界は次節で示す。 |
-| User／Task Flow／Storyboard | `非該当` | 具体的な操作、画面遷移または利用環境の描写はIA／UIで具体化し、この要求分析では先取りしない。 |
+この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
-### 責任境界
+### 横断Synthesisへの接続
+
+- Journeyの横断統合先: [Repositoryで日常作業を進める](../../03_Experience_Map.md#repositoryで日常作業を進める)／[Runtimeを導入・更新・回復する](../../03_Experience_Map.md#runtimeを導入更新回復する)
+- Service Blueprintの横断統合先: [共同Service Blueprint](../../04_Service_Blueprint.md#1-共同service-blueprint)
+- 横断成果物はこの個別分析から共通パターンを合成する。このREQのJourney、責任境界または品質の代替にはしない。
+
+### このREQでの責任境界
 
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
@@ -109,19 +138,12 @@ Repository Bindingと実行Modeを確認する
 | 提供System／AI | Repository Bindingと実行Modeを確認するための状態、根拠および選択肢を示す | 外部の任意ToolやCandidateを正式版と誤認する状態を成功・完了として表示しない |
 | 運用・確認者 | 「入口・配布Identity・Authorityを明示する」ことと、未Commit作業と署名済み実行を区別して反復できる状態へ到達できることを反証する | 未確認範囲や人間の判断を便宜的に上書きしない |
 
-### 重要場面・失敗・品質期待の対応
+### 補足する品質
 
-| 重要場面 | 避ける失敗 | 品質期待 |
-|---|---|---|
-| 開発実行か正式実行か選ぶ場面 | 外部の任意ToolやCandidateを正式版と誤認する | 入口・配布Identity・Authorityを明示する |
+- 結果または状態を最初に受け取る時: 未Commit作業を通常操作から排除しない。（避ける失敗: 別配布ToolとのVersion対応を手で調べ、誤った組合せで実行する）
+- 結果を判断または引き継ぐ時: Repository外の任意Toolを暗黙採用しない。（避ける失敗: 必要条件を満たしていないのに完了・正常と理解する）
+- 失敗・不足から次の行動を選ぶ時: 署名済み実行と開発実行の違いを示す。（避ける失敗: 成立不能の理由や回復先が分からないまま作業が止まる）
 
-要求から得た追加の品質期待は次のとおりである。主Flowの品質を置き換えず、下流で具体化する観測点として保持する。
-
-| 重要場面 | 避ける失敗 | 品質期待 |
-|---|---|---|
-| 結果または状態を最初に受け取る時 | 別配布ToolとのVersion対応を手で調べ、誤った組合せで実行する | 未Commit作業を通常操作から排除しない。 |
-| 結果を判断または引き継ぐ時 | 必要条件を満たしていないのに完了・正常と理解する | Repository外の任意Toolを暗黙採用しない。 |
-| 失敗・不足から次の行動を選ぶ時 | 成立不能の理由や回復先が分からないまま作業が止まる | 署名済み実行と開発実行の違いを示す。 |
 
 ## 6. 下流への引き渡し
 
@@ -138,12 +160,12 @@ Repository Bindingと実行Modeを確認する
 
 | 確認する仮説 | 観測方法 | 現在未確認の範囲 |
 |---|---|---|
-| 現在Repositoryへ結び付いた標準Tool入口を選び、対応関係を手動照合せず利用できることで、別配布ToolとのVersion対応を手で調べ、誤った組合せで実行するという負担または誤認を減らせる。 | 代表シナリオの利用者確認、UX専門Review、および品質期待を破る反例による下流検証 | 役割ごとの利用頻度、許容待ち時間・操作負担、用語理解および支援技術差 |
+| 現在Repositoryへ結び付いた標準Tool入口を選び、対応関係を手動照合せず利用できることで、別配布ToolとのVersion対応を手で調べ、誤った組合せで実行するという負担または誤認を減らせる。 | 代表シナリオの利用者確認、UX専門Review、および品質期待を破る反例による下流検証 | Developerが「Repositoryに対応する標準Toolを迷わず使う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 |
 
 ### 工程別の引き渡し
 
 | 引き渡し先 | 具体化する義務 |
 |---|---|
-| IA以降 | ArchitectureはRepository固定Tool入口を、ReleaseとVerificationは配布Identityと利用経路を具体化する。 |
+| 下流工程 | ArchitectureはRepository固定Tool入口を、ReleaseとVerificationは配布Identityと利用経路を具体化する。 |
 
 Discoveryへ戻す条件は、想定した利用者、問題または「Repositoryに対応する標準Toolを迷わず使う」という必要性が誤っていると分かった場合である。下流は実現方式を具体化してよいが、「未Commit作業と署名済み実行を区別して反復できる」という成果を無断で弱めない。
