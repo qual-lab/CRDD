@@ -49,7 +49,7 @@ Group Aは、完成済みのRuntime Data、図面、Evidence、Version Control�
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| v0.21 工程成果物Repository Pattern | Adopted | Implementation In Progress | [工程成果物のRepository Pattern](../03_Documentation.md#phase-repository-pattern)、`CHG-000073` | Discovery／UXを`Analysis`と`Definitions`へ移行し、工程入口、Checker、利用側およびQualityへの引き渡しを閉じる。IA以降の物理再編は各工程見直し時に判断する |
+| v0.21 工程成果物Repository Pattern | Adopted | Completed | [工程成果物のRepository Pattern](../03_Documentation.md#phase-repository-pattern)、[CHG-000073](Changes/CHG-000073/change.md) | Discovery／UXの移行と独立再レビューが完了。IA以降の物理再編は各工程見直し時に判断する |
 
 既に完了したGroup Aの根拠は[CHG-000066](Changes/CHG-000066/change.md)、[CHG-000068](Changes/CHG-000068/change.md)、[CHG-000070](Changes/CHG-000070/change.md)、[CHG-000071](Changes/CHG-000071/change.md)および[CHG-000072](Changes/CHG-000072/change.md)が所有する。
 
