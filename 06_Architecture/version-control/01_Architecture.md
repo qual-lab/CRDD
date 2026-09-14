@@ -3,7 +3,7 @@
 状態: Architecture Ready（v0.21.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-13
-要求: [`REQ-000036`](../../01_Discovery/Analysis/EXP-000014/exploration.md)
+要求: [`REQ-000036`](../../01_Discovery/Definitions/REQ-000036/requirement.md)
 変更: [`CHG-000071`](../../99_Roadmap/Changes/CHG-000071/change.md)
 
 ## 1. なぜ独立させるのか

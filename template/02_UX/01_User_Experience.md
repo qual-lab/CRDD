@@ -12,7 +12,7 @@ Discoveryで採用した要求（REQ-*）
       ↓ 個別分析
 要求別の利用体験分析（Analysis/<REQ-ID>/ux_analysis.md）
       ↓ 既存UXへ統合するか新しいUXにするかを判断
-現在有効な利用者成果（Definitions/<UX-ID>/experience.md）
+現在有効な利用者成果（Definitions/<UX-ID>/ux_definition.md）
       ↓
 想定利用者・利用体験の全体像・サービス提供の流れ・品質期待
       ↓
@@ -27,7 +27,7 @@ IA／UI／SPEC／Verification
 
 | 利用者成果 | 利用者成果 | 入力REQ | 主な体験区間 | 現在状態 |
 |---|---|---|---|---|
-| [UX-XXXXXX](Definitions/UX-XXXXXX/experience.md) | | `REQ-XXXXXX` | | |
+| [UX-XXXXXX](Definitions/UX-XXXXXX/ux_definition.md) | | `REQ-XXXXXX` | | |
 
 ## 3. 要求とUX成果の網羅状況
 

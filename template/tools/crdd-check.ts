@@ -937,7 +937,7 @@ function checkUxRequirementAnalysis(): void {
       const definitionPath = path.join(
         uxDefinitionsRoot,
         entry.name,
-        "experience.md",
+        "ux_definition.md",
       );
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       uxDefinitionIds.add(entry.name);
@@ -1014,6 +1014,252 @@ function checkUxRequirementAnalysis(): void {
 }
 
 checkUxRequirementAnalysis();
+
+function checkIaReconstruction(): void {
+  if (repositoryMode !== "official") return;
+  const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
+  const iaIndexPath = path.join(
+    root,
+    "03_IA",
+    "01_Information_Architecture.md",
+  );
+  const iaAnalysisRoot = path.join(root, "03_IA", "Analysis");
+  const iaDefinitionsRoot = path.join(root, "03_IA", "Definitions");
+  if (!lstatIfPresent(iaIndexPath)?.isFile()) return;
+
+  const requiredTemplates = [
+    path.join(
+      root,
+      "template",
+      "03_IA",
+      "Analysis",
+      "UX-XXXXXX",
+      "ia_analysis.md",
+    ),
+    path.join(
+      root,
+      "template",
+      "03_IA",
+      "Definitions",
+      "IA-XXXXXX",
+      "ia_definition.md",
+    ),
+  ];
+  for (const templatePath of requiredTemplates)
+    if (!lstatIfPresent(templatePath)?.isFile())
+      add(
+        "error",
+        "ia-reconstruction-template-missing",
+        relative(templatePath),
+        "The official IA profile must include paired analysis and definition templates.",
+      );
+
+  const uxIds = new Set<string>();
+  if (lstatIfPresent(uxDefinitionsRoot)?.isDirectory())
+    for (const entry of fs.readdirSync(uxDefinitionsRoot, {
+      withFileTypes: true,
+    }))
+      if (
+        entry.isDirectory() &&
+        /^UX-[0-9]{6}$/u.test(entry.name) &&
+        lstatIfPresent(
+          path.join(uxDefinitionsRoot, entry.name, "ux_definition.md"),
+        )?.isFile()
+      )
+        uxIds.add(entry.name);
+
+  const iaIndex = visibleMarkdownStructure(read(iaIndexPath));
+  const registryPairs = new Set<string>();
+  const registryPairKeys: string[] = [];
+  const indexedIaIds = new Set<string>();
+  let isIaRegistryRowInvalid = false;
+  for (const line of iaIndex.split(/\r?\n/u)) {
+    const row = line.match(
+      /^\| \[(IA-[0-9]{6})\]\(Definitions\/\1\/ia_definition\.md\) \| [^|]+ \| (?<uxCell>[^|]+) \|$/u,
+    );
+    if (!row?.groups?.uxCell) continue;
+    const iaId = row[1];
+    const inputUxIds = [...row.groups.uxCell.matchAll(/UX-[0-9]{6}/gu)].map(
+      (match) => match[0],
+    );
+    if (
+      inputUxIds.length === 0 ||
+      new Set(inputUxIds).size !== inputUxIds.length
+    )
+      isIaRegistryRowInvalid = true;
+    indexedIaIds.add(iaId);
+    for (const uxId of inputUxIds) {
+      const pair = `${uxId}|${iaId}`;
+      registryPairKeys.push(pair);
+      registryPairs.add(pair);
+    }
+  }
+  const exactSecondLevelSection = (source: string, heading: string) => {
+    const escaped = heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    const headings = [
+      ...source.matchAll(new RegExp(`^## ${escaped}\\s*$`, "gmu")),
+    ];
+    if (headings.length !== 1) return null;
+    const start = (headings[0].index ?? 0) + headings[0][0].length;
+    const remaining = source.slice(start);
+    const nextHeading = remaining.search(/^## /mu);
+    return nextHeading < 0 ? remaining : remaining.slice(0, nextHeading);
+  };
+  const analysisPairs = new Set<string>();
+  const analysisPairKeys: string[] = [];
+  const actualAnalysisIds = new Set<string>();
+  if (lstatIfPresent(iaAnalysisRoot)?.isDirectory()) {
+    for (const entry of fs.readdirSync(iaAnalysisRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^UX-[0-9]{6}$/u.test(entry.name)) continue;
+      const analysisPath = path.join(
+        iaAnalysisRoot,
+        entry.name,
+        "ia_analysis.md",
+      );
+      if (!lstatIfPresent(analysisPath)?.isFile()) continue;
+      actualAnalysisIds.add(entry.name);
+      const analysis = visibleMarkdownStructure(read(analysisPath));
+      const source = analysis.match(
+        /分析対象: \[(UX-[0-9]{6})\]\(\.\.\/\.\.\/\.\.\/02_UX\/Definitions\/(UX-[0-9]{6})\/ux_definition\.md\)/u,
+      );
+      const receivedMeaningSection = exactSecondLevelSection(
+        analysis,
+        "1. UXから受け取る意味",
+      );
+      const dispositionSection = exactSecondLevelSection(analysis, "5. IA処置");
+      for (const match of dispositionSection?.matchAll(
+        /\[(IA-[0-9]{6})\]\(\.\.\/\.\.\/Definitions\/\1\/ia_definition\.md\)/gu,
+      ) ?? []) {
+        const pair = `${entry.name}|${match[1]}`;
+        analysisPairKeys.push(pair);
+        analysisPairs.add(pair);
+      }
+      if (
+        !analysis.includes("成果物種別: IA分析") ||
+        !source ||
+        source[1] !== entry.name ||
+        source[2] !== entry.name ||
+        !receivedMeaningSection ||
+        ![
+          "利用者",
+          "場面",
+          "目的",
+          "得たい結果",
+          "重要場面",
+          "避ける失敗",
+          "守る品質",
+        ].every((axis) =>
+          new RegExp(`^\\| ${axis} \\| [^|]+ \\|$`, "mu").test(
+            receivedMeaningSection,
+          ),
+        ) ||
+        !analysis.includes("## 2. 情報候補と関係") ||
+        !analysis.includes("| 候補 | 利用者にとっての意味 | 識別・関係 |") ||
+        !analysis.includes("## 3. 状態・可視性・導線・責任") ||
+        !analysis.includes("| 状態 |") ||
+        !analysis.includes("| 可視性 |") ||
+        !analysis.includes("| 導線 |") ||
+        !analysis.includes("| 責任 |") ||
+        !analysis.includes("## 4. 現行文書・実装との照合") ||
+        !dispositionSection ||
+        ![...analysisPairs].some((pair) => pair.startsWith(`${entry.name}|`))
+      )
+        add(
+          "error",
+          "ia-analysis-contract-invalid",
+          relative(analysisPath),
+          "Each UX definition must have one self-contained IA analysis with at least one canonical IA disposition.",
+        );
+    }
+  }
+  if (
+    uxIds.size !== actualAnalysisIds.size ||
+    [...uxIds].some((id) => !actualAnalysisIds.has(id))
+  )
+    add(
+      "error",
+      "ia-analysis-coverage-mismatch",
+      relative(iaIndexPath),
+      "Every canonical UX definition must have exactly one IA analysis.",
+    );
+
+  const actualIaIds = new Set<string>();
+  const definitionPairs = new Set<string>();
+  const definitionPairKeys: string[] = [];
+  if (lstatIfPresent(iaDefinitionsRoot)?.isDirectory()) {
+    for (const entry of fs.readdirSync(iaDefinitionsRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^IA-[0-9]{6}$/u.test(entry.name)) continue;
+      const definitionPath = path.join(
+        iaDefinitionsRoot,
+        entry.name,
+        "ia_definition.md",
+      );
+      if (!lstatIfPresent(definitionPath)?.isFile()) continue;
+      actualIaIds.add(entry.name);
+      const definition = visibleMarkdownStructure(read(definitionPath));
+      const sourceSection = exactSecondLevelSection(definition, "情報源");
+      for (const match of sourceSection?.matchAll(
+        /\[(UX-[0-9]{6})のIA分析\]\(\.\.\/\.\.\/Analysis\/(UX-[0-9]{6})\/ia_analysis\.md\)/gu,
+      ) ?? [])
+        if (match[1] === match[2]) {
+          const pair = `${match[1]}|${entry.name}`;
+          definitionPairKeys.push(pair);
+          definitionPairs.add(pair);
+        }
+      if (
+        !definition.includes("成果物種別: IA定義") ||
+        !definition.includes(`IA ID: \`${entry.name}\``) ||
+        !definition.includes("## 意味と利用者成果") ||
+        !definition.includes("## 対象・識別・関係") ||
+        !definition.includes("## 状態と可視性") ||
+        !definition.includes("## 導線と責任") ||
+        !definition.includes("## 制約") ||
+        !definition.includes("## 下流への引き渡し") ||
+        !sourceSection ||
+        ![...definitionPairs].some((pair) => pair.endsWith(`|${entry.name}`))
+      )
+        add(
+          "error",
+          "ia-definition-contract-invalid",
+          relative(definitionPath),
+          "Each canonical IA unit must be self-contained and cite at least one source IA analysis.",
+        );
+    }
+  }
+  if (
+    isIaRegistryRowInvalid ||
+    indexedIaIds.size !== actualIaIds.size ||
+    [...indexedIaIds].some((id) => !actualIaIds.has(id)) ||
+    [...actualIaIds].some((id) => !indexedIaIds.has(id))
+  )
+    add(
+      "error",
+      "ia-definition-index-coverage-mismatch",
+      relative(iaIndexPath),
+      "The IA registry and canonical definition directories must be an exact set.",
+    );
+  if (
+    registryPairKeys.length !== registryPairs.size ||
+    analysisPairKeys.length !== analysisPairs.size ||
+    definitionPairKeys.length !== definitionPairs.size ||
+    [...registryPairs].some((pair) => !analysisPairs.has(pair)) ||
+    [...analysisPairs].some((pair) => !registryPairs.has(pair)) ||
+    [...analysisPairs].some((pair) => !definitionPairs.has(pair)) ||
+    [...definitionPairs].some((pair) => !analysisPairs.has(pair))
+  )
+    add(
+      "error",
+      "ia-analysis-definition-closure-mismatch",
+      relative(iaIndexPath),
+      "The IA registry, analysis dispositions, and definition source relations must form the same exact, duplicate-free (UX, IA) pair set in their canonical sections.",
+    );
+}
+
+checkIaReconstruction();
 
 let workLifecycleRoots = [
   path.join(root, "99_Roadmap"),
@@ -1715,6 +1961,69 @@ function withoutFencedCode(text: string): string {
         return "";
       }
       return line;
+    })
+    .join("\n");
+}
+
+function visibleMarkdownStructure(text: string): string {
+  let fence:
+    | Readonly<{
+        marker: "`" | "~";
+        length: number;
+      }>
+    | undefined;
+  let isInHtmlComment = false;
+
+  return text
+    .split(/\r?\n/u)
+    .map((line) => {
+      if (fence) {
+        const closing = line.match(/^\s{0,3}(?<marker>`+|~+)\s*$/u);
+        if (
+          closing?.groups?.marker?.startsWith(fence.marker) &&
+          closing.groups.marker.length >= fence.length
+        )
+          fence = undefined;
+        return "";
+      }
+
+      let visible = "";
+      let cursor = 0;
+      while (cursor < line.length) {
+        if (isInHtmlComment) {
+          const commentEnd = line.indexOf("-->", cursor);
+          if (commentEnd < 0) {
+            visible += " ".repeat(line.length - cursor);
+            cursor = line.length;
+            continue;
+          }
+          visible += " ".repeat(commentEnd + 3 - cursor);
+          cursor = commentEnd + 3;
+          isInHtmlComment = false;
+          continue;
+        }
+
+        const commentStart = line.indexOf("<!--", cursor);
+        if (commentStart < 0) {
+          visible += line.slice(cursor);
+          cursor = line.length;
+          continue;
+        }
+        visible += line.slice(cursor, commentStart);
+        visible += " ".repeat(4);
+        cursor = commentStart + 4;
+        isInHtmlComment = true;
+      }
+
+      const opening = visible.match(/^\s{0,3}(?<marker>`{3,}|~{3,})/u);
+      if (opening?.groups?.marker) {
+        fence = {
+          marker: opening.groups.marker[0] as "`" | "~",
+          length: opening.groups.marker.length,
+        };
+        return "";
+      }
+      return visible;
     })
     .join("\n");
 }
@@ -2438,7 +2747,8 @@ function checkPhaseDiagramDispositionContracts(): void {
         !content.includes("| 人間の確認または修正 |"))
     )
       missingItems.push("human-understanding-confirmation");
-    const sectionStart = content.indexOf("## 基本図の処置");
+    const sectionHeading = /^## (?:[0-9]+\.\s+)?基本図の処置$/mu.exec(content);
+    const sectionStart = sectionHeading?.index ?? -1;
     if (sectionStart < 0) missingItems.push("section");
     for (const disposition of phaseDiagramDispositions)
       if (!content.includes(disposition)) missingItems.push(disposition);
@@ -3009,6 +3319,39 @@ function parseMarkdownStructure(lines: readonly string[]) {
   }
   return { entries, fences };
 }
+
+function checkDiscoveryIdentityLinkOwnership(): void {
+  for (const file of allMarkdownFiles) {
+    const relativePath = relative(file);
+    if (
+      relativePath.startsWith("99_Roadmap/Changes/") ||
+      relativePath.includes("/Evidence/")
+    )
+      continue;
+    const markdown = parseMarkdownStructure(
+      read(file)
+        .replace(/^\uFEFF/u, "")
+        .split(/\r?\n/u),
+    );
+    for (const entry of markdown.entries) {
+      if (!entry.outside) continue;
+      for (const match of entry.text.matchAll(
+        /\[`?(REQ-[0-9]{6})`?\]\(([^)]+)\)/gu,
+      )) {
+        const target = match[2].replaceAll("\\", "/");
+        if (!target.includes("01_Discovery/Analysis/EXP-")) continue;
+        add(
+          "error",
+          "discovery-identity-link-owner-mismatch",
+          relativePath,
+          `${match[1]} must link to its Discovery definition, not an EXP analysis.`,
+        );
+      }
+    }
+  }
+}
+
+checkDiscoveryIdentityLinkOwnership();
 
 function parseReadmeVersion(content: string): string | null {
   const markdown = parseMarkdownStructure(

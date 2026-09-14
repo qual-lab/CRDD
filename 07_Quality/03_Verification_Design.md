@@ -108,7 +108,7 @@ Docker create応答喪失の回復では、空照会だけで収束しない負�
 
 共通起動入口は[起動契約試験](../40_Develop/coordinator/tests/system/coordinator-launch.contract.test.ts)で、採用Repository向け一般Taskの第一級入口と固定引数、対話TTY成立／redirect拒否、署名stdin非TTY拒否、自動処理の明示選択、実CLIのhelp、起動Directory差、未加工argv・stdin byte・同一PID・終了コード、対象import前拒否とimport後例外を確認する。削除済みの永続有効化・無効化・準備commandがhelp、parserまたは実装へ再出現せず、`capabilities --json`が現行Profileを正確に返すことも確認する。stdout redirect時に内部の安全Gateが拒否する試験だけで、正常に起動できる品質を確認したとはしない。実端末の可視性・一回入力・終了後表示、および署名配布からの実E2Eは別に記録する。
 
-義務の所有者は[UX](../02_UX/05_Quality_Expectations.md#2-品質期待台帳)、[IA](../03_IA/01_Information_Architecture.md#5-検証義務と未解決事項)、[UI](../04_UI/01_User_Interface.md#5-アクセシビリティ利用品質の義務)および[仕様](../05_SPEC/01_Behavior_Specification.md#user-interface-contract)。以下は確認方法であり、義務や合否条件を再定義しない。
+義務の所有者は[UX](../02_UX/05_Quality_Expectations.md#2-品質期待台帳)、[IA](../03_IA/01_Information_Architecture.md#6-現在状態と次工程)、[UI](../04_UI/01_User_Interface.md#5-アクセシビリティ利用品質の義務)および[仕様](../05_SPEC/01_Behavior_Specification.md#user-interface-contract)。以下は確認方法であり、義務や合否条件を再定義しない。
 
 | 確認対象 | 正常・準正常・異常の確認方法 | 根拠と未確認範囲 |
 |---|---|---|

@@ -1,7 +1,7 @@
 # 工程成果物Repository Pattern
 
 変更ID: `CHG-000073`
-状態: `Implementation In Progress`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `repository_structure_change`
@@ -19,7 +19,9 @@
 | Discovery分析 | `Explorations/EXP-ID_Short_Name/exploration.md` | `Analysis/EXP-ID/exploration.md`。Folder名は安定IDだけ、案内名はH1と台帳が所有 |
 | Discovery出力 | 要求本文と判断理由が探索記録・Root台帳へ分散 | `Definitions/REQ-ID/requirement.md`がCanonical Requirementを自己完結して所有 |
 | UX分析 | `Requirements/REQ-ID/user_experience.md` | `Analysis/REQ-ID/ux_analysis.md`が要求別の一次分析を自己完結して所有 |
-| UX出力 | UXの現在定義がRoot台帳と複数REQ分析へ分散 | `Definitions/UX-ID/experience.md`がCanonical UX成果を自己完結して所有 |
+| UX出力 | UXの現在定義がRoot台帳と複数REQ分析へ分散 | `Definitions/UX-ID/ux_definition.md`がCanonical UX成果を自己完結して所有 |
+| IA分析 | 既存文書と実装から情報構造を後追いで説明 | 31件のUX定義を一件ずつ`Analysis/UX-ID/ia_analysis.md`で分析し、現行文書・実装の棚卸結果と別経路で照合 |
+| IA出力 | 単一Root文書へ情報対象、関係、導線、状態、下流義務が混在 | 21件の`Definitions/IA-ID/ia_definition.md`を定義候補とし、Root文書は台帳と横断図だけを投影。実行基盤の故障範囲と、過去判断・現在意図は既存定義へ畳まず独立させる |
 | 工程Root | 個別本文と工程全体像が混在し得る | `01_*`は入口・台帳・Coverage・Current State・Navigation、その他Root文書は横断合成 |
 | Evidence | 工程共通の空Folderをひな型へ先置き | 必要な所有対象のID直下だけに作成。実行結果はCHG／Release Evidenceが所有 |
 
@@ -197,37 +199,37 @@
 - [`02_UX/Analysis/REQ-000035/ux_analysis.md`](<../../../02_UX/Analysis/REQ-000035/ux_analysis.md>)
 - `02_UX/Requirements/REQ-000036/user_experience.md`（削除または旧Path）
 - [`02_UX/Analysis/REQ-000036/ux_analysis.md`](<../../../02_UX/Analysis/REQ-000036/ux_analysis.md>)
-- [`02_UX/Definitions/UX-000001/experience.md`](<../../../02_UX/Definitions/UX-000001/experience.md>)
-- [`02_UX/Definitions/UX-000002/experience.md`](<../../../02_UX/Definitions/UX-000002/experience.md>)
-- [`02_UX/Definitions/UX-000003/experience.md`](<../../../02_UX/Definitions/UX-000003/experience.md>)
-- [`02_UX/Definitions/UX-000004/experience.md`](<../../../02_UX/Definitions/UX-000004/experience.md>)
-- [`02_UX/Definitions/UX-000005/experience.md`](<../../../02_UX/Definitions/UX-000005/experience.md>)
-- [`02_UX/Definitions/UX-000006/experience.md`](<../../../02_UX/Definitions/UX-000006/experience.md>)
-- [`02_UX/Definitions/UX-000007/experience.md`](<../../../02_UX/Definitions/UX-000007/experience.md>)
-- [`02_UX/Definitions/UX-000008/experience.md`](<../../../02_UX/Definitions/UX-000008/experience.md>)
-- [`02_UX/Definitions/UX-000009/experience.md`](<../../../02_UX/Definitions/UX-000009/experience.md>)
-- [`02_UX/Definitions/UX-000010/experience.md`](<../../../02_UX/Definitions/UX-000010/experience.md>)
-- [`02_UX/Definitions/UX-000011/experience.md`](<../../../02_UX/Definitions/UX-000011/experience.md>)
-- [`02_UX/Definitions/UX-000012/experience.md`](<../../../02_UX/Definitions/UX-000012/experience.md>)
-- [`02_UX/Definitions/UX-000013/experience.md`](<../../../02_UX/Definitions/UX-000013/experience.md>)
-- [`02_UX/Definitions/UX-000014/experience.md`](<../../../02_UX/Definitions/UX-000014/experience.md>)
-- [`02_UX/Definitions/UX-000015/experience.md`](<../../../02_UX/Definitions/UX-000015/experience.md>)
-- [`02_UX/Definitions/UX-000016/experience.md`](<../../../02_UX/Definitions/UX-000016/experience.md>)
-- [`02_UX/Definitions/UX-000017/experience.md`](<../../../02_UX/Definitions/UX-000017/experience.md>)
-- [`02_UX/Definitions/UX-000018/experience.md`](<../../../02_UX/Definitions/UX-000018/experience.md>)
-- [`02_UX/Definitions/UX-000019/experience.md`](<../../../02_UX/Definitions/UX-000019/experience.md>)
-- [`02_UX/Definitions/UX-000020/experience.md`](<../../../02_UX/Definitions/UX-000020/experience.md>)
-- [`02_UX/Definitions/UX-000021/experience.md`](<../../../02_UX/Definitions/UX-000021/experience.md>)
-- [`02_UX/Definitions/UX-000022/experience.md`](<../../../02_UX/Definitions/UX-000022/experience.md>)
-- [`02_UX/Definitions/UX-000023/experience.md`](<../../../02_UX/Definitions/UX-000023/experience.md>)
-- [`02_UX/Definitions/UX-000024/experience.md`](<../../../02_UX/Definitions/UX-000024/experience.md>)
-- [`02_UX/Definitions/UX-000025/experience.md`](<../../../02_UX/Definitions/UX-000025/experience.md>)
-- [`02_UX/Definitions/UX-000026/experience.md`](<../../../02_UX/Definitions/UX-000026/experience.md>)
-- [`02_UX/Definitions/UX-000027/experience.md`](<../../../02_UX/Definitions/UX-000027/experience.md>)
-- [`02_UX/Definitions/UX-000028/experience.md`](<../../../02_UX/Definitions/UX-000028/experience.md>)
-- [`02_UX/Definitions/UX-000029/experience.md`](<../../../02_UX/Definitions/UX-000029/experience.md>)
-- [`02_UX/Definitions/UX-000030/experience.md`](<../../../02_UX/Definitions/UX-000030/experience.md>)
-- [`02_UX/Definitions/UX-000031/experience.md`](<../../../02_UX/Definitions/UX-000031/experience.md>)
+- [`02_UX/Definitions/UX-000001/ux_definition.md`](<../../../02_UX/Definitions/UX-000001/ux_definition.md>)
+- [`02_UX/Definitions/UX-000002/ux_definition.md`](<../../../02_UX/Definitions/UX-000002/ux_definition.md>)
+- [`02_UX/Definitions/UX-000003/ux_definition.md`](<../../../02_UX/Definitions/UX-000003/ux_definition.md>)
+- [`02_UX/Definitions/UX-000004/ux_definition.md`](<../../../02_UX/Definitions/UX-000004/ux_definition.md>)
+- [`02_UX/Definitions/UX-000005/ux_definition.md`](<../../../02_UX/Definitions/UX-000005/ux_definition.md>)
+- [`02_UX/Definitions/UX-000006/ux_definition.md`](<../../../02_UX/Definitions/UX-000006/ux_definition.md>)
+- [`02_UX/Definitions/UX-000007/ux_definition.md`](<../../../02_UX/Definitions/UX-000007/ux_definition.md>)
+- [`02_UX/Definitions/UX-000008/ux_definition.md`](<../../../02_UX/Definitions/UX-000008/ux_definition.md>)
+- [`02_UX/Definitions/UX-000009/ux_definition.md`](<../../../02_UX/Definitions/UX-000009/ux_definition.md>)
+- [`02_UX/Definitions/UX-000010/ux_definition.md`](<../../../02_UX/Definitions/UX-000010/ux_definition.md>)
+- [`02_UX/Definitions/UX-000011/ux_definition.md`](<../../../02_UX/Definitions/UX-000011/ux_definition.md>)
+- [`02_UX/Definitions/UX-000012/ux_definition.md`](<../../../02_UX/Definitions/UX-000012/ux_definition.md>)
+- [`02_UX/Definitions/UX-000013/ux_definition.md`](<../../../02_UX/Definitions/UX-000013/ux_definition.md>)
+- [`02_UX/Definitions/UX-000014/ux_definition.md`](<../../../02_UX/Definitions/UX-000014/ux_definition.md>)
+- [`02_UX/Definitions/UX-000015/ux_definition.md`](<../../../02_UX/Definitions/UX-000015/ux_definition.md>)
+- [`02_UX/Definitions/UX-000016/ux_definition.md`](<../../../02_UX/Definitions/UX-000016/ux_definition.md>)
+- [`02_UX/Definitions/UX-000017/ux_definition.md`](<../../../02_UX/Definitions/UX-000017/ux_definition.md>)
+- [`02_UX/Definitions/UX-000018/ux_definition.md`](<../../../02_UX/Definitions/UX-000018/ux_definition.md>)
+- [`02_UX/Definitions/UX-000019/ux_definition.md`](<../../../02_UX/Definitions/UX-000019/ux_definition.md>)
+- [`02_UX/Definitions/UX-000020/ux_definition.md`](<../../../02_UX/Definitions/UX-000020/ux_definition.md>)
+- [`02_UX/Definitions/UX-000021/ux_definition.md`](<../../../02_UX/Definitions/UX-000021/ux_definition.md>)
+- [`02_UX/Definitions/UX-000022/ux_definition.md`](<../../../02_UX/Definitions/UX-000022/ux_definition.md>)
+- [`02_UX/Definitions/UX-000023/ux_definition.md`](<../../../02_UX/Definitions/UX-000023/ux_definition.md>)
+- [`02_UX/Definitions/UX-000024/ux_definition.md`](<../../../02_UX/Definitions/UX-000024/ux_definition.md>)
+- [`02_UX/Definitions/UX-000025/ux_definition.md`](<../../../02_UX/Definitions/UX-000025/ux_definition.md>)
+- [`02_UX/Definitions/UX-000026/ux_definition.md`](<../../../02_UX/Definitions/UX-000026/ux_definition.md>)
+- [`02_UX/Definitions/UX-000027/ux_definition.md`](<../../../02_UX/Definitions/UX-000027/ux_definition.md>)
+- [`02_UX/Definitions/UX-000028/ux_definition.md`](<../../../02_UX/Definitions/UX-000028/ux_definition.md>)
+- [`02_UX/Definitions/UX-000029/ux_definition.md`](<../../../02_UX/Definitions/UX-000029/ux_definition.md>)
+- [`02_UX/Definitions/UX-000030/ux_definition.md`](<../../../02_UX/Definitions/UX-000030/ux_definition.md>)
+- [`02_UX/Definitions/UX-000031/ux_definition.md`](<../../../02_UX/Definitions/UX-000031/ux_definition.md>)
 - [`03_Documentation.md`](<../../../03_Documentation.md>)
 - [`AGENTS.md`](<../../../AGENTS.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
@@ -269,8 +271,102 @@
 - [`template/02_UX/01_User_Experience.md`](<../../../template/02_UX/01_User_Experience.md>)
 - `template/02_UX/Requirements/REQ-XXXXXX/user_experience.md`（削除または旧Path）
 - [`template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md`](<../../../template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md>)
-- [`template/02_UX/Definitions/UX-XXXXXX/experience.md`](<../../../template/02_UX/Definitions/UX-XXXXXX/experience.md>)
+- [`template/02_UX/Definitions/UX-XXXXXX/ux_definition.md`](<../../../template/02_UX/Definitions/UX-XXXXXX/ux_definition.md>)
 - `template/02_UX/Evidence/.gitkeep`（削除または旧Path）
+- `02_UX/Definitions/UX-000001/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000002/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000003/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000004/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000005/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000006/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000007/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000008/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000009/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000010/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000011/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000012/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000013/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000014/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000015/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000016/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000017/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000018/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000019/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000020/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000021/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000022/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000023/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000024/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000025/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000026/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000027/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000028/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000029/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000030/experience.md`（削除または旧Path）
+- `02_UX/Definitions/UX-000031/experience.md`（削除または旧Path）
+- [`03_IA/01_Information_Architecture.md`](<../../../03_IA/01_Information_Architecture.md>)
+- [`03_IA/02_Object_and_Relation_Model.md`](<../../../03_IA/02_Object_and_Relation_Model.md>)
+- [`03_IA/03_Information_Structure_and_Navigation.md`](<../../../03_IA/03_Information_Structure_and_Navigation.md>)
+- [`03_IA/04_State_Visibility_and_Responsibility.md`](<../../../03_IA/04_State_Visibility_and_Responsibility.md>)
+- [`03_IA/Analysis/UX-000001/ia_analysis.md`](<../../../03_IA/Analysis/UX-000001/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000002/ia_analysis.md`](<../../../03_IA/Analysis/UX-000002/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000003/ia_analysis.md`](<../../../03_IA/Analysis/UX-000003/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000004/ia_analysis.md`](<../../../03_IA/Analysis/UX-000004/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000005/ia_analysis.md`](<../../../03_IA/Analysis/UX-000005/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000006/ia_analysis.md`](<../../../03_IA/Analysis/UX-000006/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000007/ia_analysis.md`](<../../../03_IA/Analysis/UX-000007/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000008/ia_analysis.md`](<../../../03_IA/Analysis/UX-000008/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000009/ia_analysis.md`](<../../../03_IA/Analysis/UX-000009/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000010/ia_analysis.md`](<../../../03_IA/Analysis/UX-000010/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000011/ia_analysis.md`](<../../../03_IA/Analysis/UX-000011/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000012/ia_analysis.md`](<../../../03_IA/Analysis/UX-000012/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000013/ia_analysis.md`](<../../../03_IA/Analysis/UX-000013/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000014/ia_analysis.md`](<../../../03_IA/Analysis/UX-000014/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000015/ia_analysis.md`](<../../../03_IA/Analysis/UX-000015/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000016/ia_analysis.md`](<../../../03_IA/Analysis/UX-000016/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000017/ia_analysis.md`](<../../../03_IA/Analysis/UX-000017/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000018/ia_analysis.md`](<../../../03_IA/Analysis/UX-000018/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000019/ia_analysis.md`](<../../../03_IA/Analysis/UX-000019/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000020/ia_analysis.md`](<../../../03_IA/Analysis/UX-000020/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000021/ia_analysis.md`](<../../../03_IA/Analysis/UX-000021/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000022/ia_analysis.md`](<../../../03_IA/Analysis/UX-000022/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000023/ia_analysis.md`](<../../../03_IA/Analysis/UX-000023/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000024/ia_analysis.md`](<../../../03_IA/Analysis/UX-000024/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000025/ia_analysis.md`](<../../../03_IA/Analysis/UX-000025/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000026/ia_analysis.md`](<../../../03_IA/Analysis/UX-000026/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000027/ia_analysis.md`](<../../../03_IA/Analysis/UX-000027/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000028/ia_analysis.md`](<../../../03_IA/Analysis/UX-000028/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000029/ia_analysis.md`](<../../../03_IA/Analysis/UX-000029/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000030/ia_analysis.md`](<../../../03_IA/Analysis/UX-000030/ia_analysis.md>)
+- [`03_IA/Analysis/UX-000031/ia_analysis.md`](<../../../03_IA/Analysis/UX-000031/ia_analysis.md>)
+- [`03_IA/Definitions/IA-000001/ia_definition.md`](<../../../03_IA/Definitions/IA-000001/ia_definition.md>)
+- [`03_IA/Definitions/IA-000002/ia_definition.md`](<../../../03_IA/Definitions/IA-000002/ia_definition.md>)
+- [`03_IA/Definitions/IA-000003/ia_definition.md`](<../../../03_IA/Definitions/IA-000003/ia_definition.md>)
+- [`03_IA/Definitions/IA-000004/ia_definition.md`](<../../../03_IA/Definitions/IA-000004/ia_definition.md>)
+- [`03_IA/Definitions/IA-000005/ia_definition.md`](<../../../03_IA/Definitions/IA-000005/ia_definition.md>)
+- [`03_IA/Definitions/IA-000006/ia_definition.md`](<../../../03_IA/Definitions/IA-000006/ia_definition.md>)
+- [`03_IA/Definitions/IA-000007/ia_definition.md`](<../../../03_IA/Definitions/IA-000007/ia_definition.md>)
+- [`03_IA/Definitions/IA-000008/ia_definition.md`](<../../../03_IA/Definitions/IA-000008/ia_definition.md>)
+- [`03_IA/Definitions/IA-000009/ia_definition.md`](<../../../03_IA/Definitions/IA-000009/ia_definition.md>)
+- [`03_IA/Definitions/IA-000010/ia_definition.md`](<../../../03_IA/Definitions/IA-000010/ia_definition.md>)
+- [`03_IA/Definitions/IA-000011/ia_definition.md`](<../../../03_IA/Definitions/IA-000011/ia_definition.md>)
+- [`03_IA/Definitions/IA-000012/ia_definition.md`](<../../../03_IA/Definitions/IA-000012/ia_definition.md>)
+- [`03_IA/Definitions/IA-000013/ia_definition.md`](<../../../03_IA/Definitions/IA-000013/ia_definition.md>)
+- [`03_IA/Definitions/IA-000014/ia_definition.md`](<../../../03_IA/Definitions/IA-000014/ia_definition.md>)
+- [`03_IA/Definitions/IA-000015/ia_definition.md`](<../../../03_IA/Definitions/IA-000015/ia_definition.md>)
+- [`03_IA/Definitions/IA-000016/ia_definition.md`](<../../../03_IA/Definitions/IA-000016/ia_definition.md>)
+- [`03_IA/Definitions/IA-000017/ia_definition.md`](<../../../03_IA/Definitions/IA-000017/ia_definition.md>)
+- [`03_IA/Definitions/IA-000018/ia_definition.md`](<../../../03_IA/Definitions/IA-000018/ia_definition.md>)
+- [`03_IA/Definitions/IA-000019/ia_definition.md`](<../../../03_IA/Definitions/IA-000019/ia_definition.md>)
+- [`03_IA/Definitions/IA-000020/ia_definition.md`](<../../../03_IA/Definitions/IA-000020/ia_definition.md>)
+- [`03_IA/Definitions/IA-000021/ia_definition.md`](<../../../03_IA/Definitions/IA-000021/ia_definition.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- [`23_IA.md`](<../../../23_IA.md>)
+- `template/02_UX/Definitions/UX-XXXXXX/experience.md`（削除または旧Path）
+- [`template/03_IA/01_Information_Architecture.md`](<../../../template/03_IA/01_Information_Architecture.md>)
+- [`template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md`](<../../../template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md>)
+- [`template/03_IA/Definitions/IA-XXXXXX/ia_definition.md`](<../../../template/03_IA/Definitions/IA-XXXXXX/ia_definition.md>)
+- `template/03_IA/Evidence/.gitkeep`（削除または旧Path）
 - [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
 - [`99_Roadmap/Changes/CHG-000073/change.md`](<../../../99_Roadmap/Changes/CHG-000073/change.md>)
 
@@ -387,19 +483,51 @@ fingerprint `2bfd0a6a8b64b1681d195abf0489e4ec4963a964`の3レビューでは、�
 | 一部の`Same`比較が要求全体または拡張後Definitionを比較元にした | 最初の`New`要求分析にあるUX固有成果と、その正式入力であるDiscovery定義から4軸を固定する。不整合がある初版UX定義を不足軸の補完に使わない | 該当する比較の担い手、利用のきっかけ、得られる結果、避ける失敗を上流から再導出し、残る18件を非循環の根拠契約へ統一 |
 | `UX-000008`の最初の要求所有者が誤っていた | AI実行環境ごとの故障境界と利用可能範囲は`REQ-000023`が最初に定義し、`REQ-000005`からは導出しない | `REQ-000005→UX-000008`を解除し、`REQ-000023→UX-000008`を`New`へ変更。要求分析、台帳、Definitionを同時更新 |
 | 後続要求の追加条件が定型文または空だった | 中心成果を変えず、各後続要求が追加した場面、条件、失敗、検証意図を要求別に特定する | `Same`を受ける13 Definitionへ要求固有の追加条件を記載し、owner修正後に後続`Same`がないUX-000008を加えた計14 Definitionで状態を明示 |
+
+### IA独立レビューの構造是正
+
+| 指摘 | 原因 | 構造是正 |
+|---|---|---|
+| 31分析から19定義へ統合する際に、入力UX固有の対象・状態・導線が消失 | 分析成果物がひな型の7軸より縮小され、定義側に入力別の意味保持箇所がなかった | 31分析を対象・識別・関係・状態・可視性・導線・責任へ統一し、各定義に入力UX別の利用場面・対象・状態・導線を保持する |
+| 実行基盤の故障範囲と、過去判断・現在意図が別責務へ混在 | 既存ID数の維持を優先し、独立した利用者判断かを再評価していなかった | 人間判断により`IA-000020`と`IA-000021`へ分割する |
+| 定義で状態語や対象が初出し、分析から再現できない | 実装照合とIA判断の由来を分析へ残していなかった | 状態は入力分析にある利用者区分を正とし、実装上の状態実値は下流で対応付ける。IA固有の識別・関係は分析で理由を残す |
+| 31分析・19定義の責任記述が定型文で、対象固有の利用場面が分からない | 構造準拠を自己完結性より優先した | UX定義から利用者、場面、目的、結果、重要場面、失敗、品質を各分析へ保持し、定義側も入力別に責任と判断を示す |
+| ひな型、現行分析、Checker fixtureが別契約 | Checker試験が実ひな型を利用せず縮小fixtureを正としていた | 現行31分析とCheckerをひな型へ統一し、実ひな型を埋めた正例と縮小構造の負例を追加する |
+| `REQ-000036`表示がDiscovery分析へ接続 | REQとEXPの所有境界をPath移行時に閉じていなかった | 現行Architecture 2件をDiscovery定義へ接続し、非固定文書の偽装参照をCheckerで拒否する |
 | UX-000002／000003／000009で副次的な行動が消えた | 中心成果とは分けたまま、入力、待機、取消、回復、再試行、次判断のための情報を成立条件と下流引渡しへ保持する | 3 Definitionへ副次行動を復元し、新しい独立UXへ分割しない |
 | 正式入力HeaderとPath候補が別々に成立し得た | コメントとcode fenceを除いた可視本文で、唯一の`分析対象:` Header自身が同じREQ Definitionを指す場合だけ正式入力とする | コメント／両fence内だけのHeaderと本文別位置Linkを拒否し、可視Headerと例示内重複は受理する反例を追加 |
 | Markdown／HTML／本文Pathで復号処理が分かれ、通常文やエスケープ例をPathと誤認し得た | すべての実候補を一回だけ同じ復号器へ通し、不正entityを連続したDiscovery Path骨格がある場合だけ上位判定へ伝える | inline、full、collapsed、shortcut、footnote、HTML quoted／unquoted、本文Path、二重符号化、良性本文、literal／entity escapeの反例を同じ契約試験へ追加 |
+
+fingerprint `595de7b4596403db7ddbdda4fa41ea4c21ab2aa8ca0cb314ea33596471c1da01`のIA再レビューでは、31分析、21定義、35関係の意味伝播と2件の分割は妥当と確認された。一方、実成果物が一致していてもCheckerがRoot台帳を含む三者の関係閉包を強制していないMajor 1件と、候補表示、ひな型再生成性、表現不一致のModerate 3件、英語実装語のMinor 1件が残った。意味本文と関係を変更せず、次の構造是正としてまとめた。
+
+| 再レビューで残った問題 | 正しい状態 | 是正・反証 |
+|---|---|---|
+| Root台帳、分析の処置節、定義の情報源節を別々に読めた | 三つの正規区画から抽出した`(UX, IA)`関係が重複なしで完全一致する | 台帳だけのUX差替え、正規節外へのLink移動、同じ関係行または対象節の重複を拒否する |
+| レビュー候補を現在有効な正本と表示した | 独立レビュー完了までは定義候補、採用後だけ意味の正本と表示する | Root図・説明・ひな型を候補と採用後の状態へ分ける。定義自体はレビュー前にCanonicalへ昇格しない |
+| IA分析ひな型が7軸を自由文へ縮小できた | 利用者、場面、目的、得たい結果、重要場面、失敗、品質をひな型から再生成できる | 7軸表をひな型とfixtureへ移し、軸の欠落を反例にする |
+| `UX-000013`の場面と英語実装語が文書内で不一致または未説明 | 正式入力、分析、定義が同じ平易な表現を持ち、正式語は日本語説明と併記する | 「リモート接続を開始・再接続する時」へ統一し、状態値と実装語を日本語表示付きにする |
 
 fingerprint `44bffff8c93cab099272bc1648749cf9682603e7`の3レビューでは、Discovery／UXの意味伝播と関係は維持できていたが、エスケープ済み区切りを含む一つの文字列全体を除外すると、その後に独立して始まる有効なDiscovery参照まで見逃せることを検出した。Checkerは文字列全体を早期除外せず、参照開始候補ごとにエスケープ済み区切りとの連続性を判定する。区切りをエスケープした同じPathの例示は入力へ昇格させず、カンマやコロンの後に独立して始まる有効な参照は検査する正負反例を追加した。Discovery／UX本文、ID、関係およびIA以降は変更していない。
 
 次の固定候補では、参照開始と境界を復号前の文字列で別々に探すと、数値entityで表した`01`やコロンを見逃せることを検出した。escaped spanだけを識別子へ置き換えた後、同じ一回復号結果から参照開始とPath連続性を判定し、その結果を再復号せず正式入力検査へ渡す形に統一した。decimal／hexadecimalのroot、numeric／unknown entityの境界、numeric slashで継続する同一Path、および従来の非発火例を同じ試験で反証する。
 
+fingerprint `2feaa8ed3deabd412432364f8b85873d2231dfe90ccaa51bddf1a2a557516a45`のIA再レビューでは、31分析、21定義、35関係の閉包と、前回指摘された意味伝播・候補表示・ひな型再生成性の是正を確認できた。一方で、回復の行動と未解消の義務が一つの対象へ畳まれていたこと、コードフェンスやHTMLコメント内の偽構造を関係として数え得たこと、および同じ正式語の日本語表示と実装語の説明に残りがあることを検出した。次の三点を同じIA候補の構造是正として扱った。
+
+| 再レビューで残った問題 | 固定した境界 | 是正・反証 |
+|---|---|---|
+| 回復処置と回復義務が同じ対象・状態として見えた | 回復義務は終了後確認まで残る責任、回復処置はその義務を解消するための行動とする | `IA-000003`と入力UX 3件で、義務発生→処置中→処置済み・終了後未確認→義務解消の状態変化、対象、関係、下流引き渡しを分離 |
+| 非表示MarkdownがIA関係の成立根拠になり得た | Root台帳、分析の`IA処置`、定義の`情報源`は表示されるMarkdownだけから抽出する | バッククォート／チルダのコードフェンスとHTMLコメントだけに置いた構造を拒否し、正式構造と非表示重複が共存する正例を追加 |
+| 同じ正式語の日本語表示と実装語の説明が揺れた | 一つのIA定義内では正式語に一つの日本語表示を対応させ、内部名は平易な役割説明と併記する | 正式契約、能力維持の根拠、接続中の作業単位、作業領域、選択結果、準拠、現在有効な意図を統一し、接続部・実行観測・実行時データ等の説明を追加 |
+
+fingerprint `84ba5ef934944e4c16d2f42b7ef0cbb124515f5dac6f7dfb9d4026df22589071`の再レビューでは、回復処置と回復義務の分離、および非表示Markdownによる関係偽装の是正はPassした。21定義の全数再走査により、対象表と関係図を別々に平易化した5定義で同じ正式語の日本語表示がまだ一致せず、9分析で内部実装名の役割説明が不足していることを検出した。対象表の表示名を一次キーとして関係図を統一し、現行構造欄の内部名は意味を変えず「平易な役割（正式名）」で示す。ID、35関係およびIA統合境界は変更しない。
+
+同じ固定候補の構造レビューでは、閉じた非表示領域の反証はPassしたが、未閉鎖HTMLコメントを文末まで非表示として扱えず、コメント内のフェンス記号とフェンス内のコメント記号が互いの状態を誤変更し得ることを検出した。IA専用の二段置換を、表示中／コードフェンス内／HTMLコメント内を一回で区別する状態走査へ置き換える。未閉鎖コメントだけに置いた三つの正規構造を拒否し、コメント内の未閉鎖フェンスまたはフェンス内の未閉鎖コメントの後にある正式構造を保持する正負例を追加する。
+
 ## 6. 完了条件
 
 | Gate | 完了条件 |
 |---|---|
-| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／31 DefinitionsがCanonical配置にある |
+| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／31 Definitions、IA 31 Analysis／21 DefinitionsがCanonical配置にある |
 | Self-contained | 子成果物が対象固有の意味、成立条件、関係および下流入力を単独で説明できる |
 | Downstream Reproducibility | `Definitions/REQ-*`を下流入力として、現在のUX分析、Canonical UX、関係、重要な失敗および品質期待を情報劣化なく再構成できる |
 | Projection | Discovery／UX Rootから全Analysis・DefinitionとCoverageを一意に辿れる |
@@ -413,10 +541,12 @@ fingerprint `44bffff8c93cab099272bc1648749cf9682603e7`の3レビューでは、D
 |---|---|
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／31 |
+| IA Analysis／Definition | 31／21。初回独立レビューの意味欠落を受け、入力UXごとの7軸を保持する構造へ是正中 |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 293／293 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。正式入力Headerは可視本文のHeader自身へ結合し、通常文、コメント、code fenceおよびエスケープされた例示は正式入力へ昇格しない。意味妥当性は独立レビューへ分離 |
+| Checker契約試験 | 307／307 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。正式入力Headerは可視本文のHeader自身へ結合し、通常文、コメント、code fenceおよびエスケープされた例示は正式入力へ昇格しない。意味妥当性は独立レビューへ分離 |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
+| IA独立レビュー | 最終固定候補fingerprint `b03240ccc0a09f5461ee236cc48c4ca8165291bcc3e92aea24b1dd3f5f01cede`を意味伝播と構造閉包の2者が再レビューし、ともにCritical 0／Major 0／Moderate 0／Minor 0でPass |
 
-固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後の人間向け表示契約と`Same`関係の具体化で新しい引き渡し不備が露出した。最終候補は18件の`Same`関係、`Same`を受ける13 DefinitionとUX-000008を合わせた14 Definitionの追加条件区画、UX-000008の正式な要求所有者、正式入力Headerと対象Pathの結合、およびescaped spanを保持した一回復号まで是正した。全293件の回帰と3者の独立再レビューがPassし、Discovery／UXの工程間引き渡しはIAへ移行できる状態になった。現在、人間による追加判断は必要ない。
+固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後の人間向け表示契約と`Same`関係の具体化で新しい引き渡し不備が露出した。最終候補は18件の`Same`関係、`Same`を受ける13 DefinitionとUX-000008を合わせた14 Definitionの追加条件区画、UX-000008の正式な要求所有者、正式入力Headerと対象Pathの結合、およびescaped spanを保持した一回復号まで是正した。Discovery／UXの工程間引き渡しは3者、IAの意味伝播と構造閉包は2者の独立再レビューでPassした。31件のIA分析と21件のIA定義を現在有効な下流入力として引き渡せる。現在、人間による追加判断は必要ない。

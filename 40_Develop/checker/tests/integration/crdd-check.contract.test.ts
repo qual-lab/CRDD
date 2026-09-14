@@ -56,6 +56,18 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
       assert.ok(content.includes("## 2. UX成果台帳"), relativePath);
       assert.ok(content.includes("## 3. 要求とUX成果の網羅状況"), relativePath);
       assert.ok(content.includes("## 5. 詳細成果物への案内"), relativePath);
+    } else if (
+      relativePath === "template/03_IA/01_Information_Architecture.md"
+    ) {
+      assert.ok(
+        content.includes("```text"),
+        `${relativePath}: visual structure`,
+      );
+      assert.ok(content.includes("|"), `${relativePath}: structured mapping`);
+      assert.ok(content.includes("## 1. 何を分かりやすくするか"), relativePath);
+      assert.ok(content.includes("## 2. 入力と網羅状況"), relativePath);
+      assert.ok(content.includes("## 3. IA定義台帳"), relativePath);
+      assert.ok(content.includes("## 5. 基本図の処置"), relativePath);
     } else {
       assert.ok(content.includes("文章形式を要求しない"), relativePath);
       assert.ok(content.includes("## 対象範囲と現在状態"), relativePath);
@@ -86,8 +98,13 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
     ],
     ["template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md", "成果物種別: UX分析"],
     [
-      "template/02_UX/Definitions/UX-XXXXXX/experience.md",
+      "template/02_UX/Definitions/UX-XXXXXX/ux_definition.md",
       "成果物種別: UX定義",
+    ],
+    ["template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md", "成果物種別: IA分析"],
+    [
+      "template/03_IA/Definitions/IA-XXXXXX/ia_definition.md",
+      "成果物種別: IA定義",
     ],
   ]);
   for (const [relativePath, expectedType] of phaseOwnedArtifactTypes) {
@@ -219,7 +236,7 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
       "utf8",
     );
     assert.ok(
-      content.includes("## 基本図の処置"),
+      /^## (?:[0-9]+\.\s+)?基本図の処置$/mu.test(content),
       `${relativePath}: diagram disposition missing`,
     );
     assert.ok(
@@ -852,6 +869,462 @@ test("Discoveryひな型から人間理解の確認契約を除去できない",
   );
 });
 
+test("IA分析は全UX定義を一件ずつ覆う", () => {
+  const root = iaReconstructionFixtureRoot();
+  fs.rmSync(path.join(root, "03_IA", "Analysis", "UX-000001"), {
+    recursive: true,
+    force: true,
+  });
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-coverage-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("IA分析は同じUX定義を正式入力にする", () => {
+  const root = iaReconstructionFixtureRoot();
+  const analysisPath = path.join(
+    root,
+    "03_IA",
+    "Analysis",
+    "UX-000001",
+    "ia_analysis.md",
+  );
+  const analysis = fs.readFileSync(analysisPath, "utf8");
+  write(
+    analysisPath,
+    analysis.replaceAll(
+      "UX-000001/ux_definition.md",
+      "UX-000002/ux_definition.md",
+    ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("IA分析の実ひな型を埋めた成果物を受理する", () => {
+  const root = iaReconstructionFixtureRoot();
+  const template = fs.readFileSync(
+    path.join(
+      repositoryRoot,
+      "template",
+      "03_IA",
+      "Analysis",
+      "UX-XXXXXX",
+      "ia_analysis.md",
+    ),
+    "utf8",
+  );
+  const filled = template
+    .replaceAll("UX-XXXXXX", "UX-000001")
+    .replace("[分析名]", "試験用")
+    .replace("[このUXの利用者]", "試験利用者")
+    .replace("[このUXが必要になる場面]", "判断する時")
+    .replace("[利用者が達成したいこと]", "対象を理解する")
+    .replace("[利用者に起きる変化]", "次の行動を選べる")
+    .replace("[誤認や判断が生じる重要な時点]", "判断する直前")
+    .replace("[このUXで防ぐ失敗]", "不明を正常と誤認する")
+    .replace("[利用者成果を守る品質]", "根拠を失わない")
+    .replace(
+      "[New／Same、接続するIA-ID、判断理由、未確認事項を記す。]",
+      "[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。",
+    );
+  write(
+    path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+    filled,
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("IA分析の縮小見出しと三列契約の欠落を拒否する", () => {
+  for (const mutate of [
+    (value: string) =>
+      value.replace("## 3. 状態・可視性・導線・責任", "## 3. 可視性と責任"),
+    (value: string) =>
+      value.replace(
+        "| 候補 | 利用者にとっての意味 | 識別・関係 |",
+        "| 候補 | 分析結果 |",
+      ),
+    (value: string) => value.replace(/^\| 守る品質 \|.*\r?\n/mu, ""),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const analysisPath = path.join(
+      root,
+      "03_IA",
+      "Analysis",
+      "UX-000001",
+      "ia_analysis.md",
+    );
+    write(analysisPath, mutate(fs.readFileSync(analysisPath, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-analysis-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("REQ表示をDiscovery分析へ偽装接続できない", () => {
+  const root = iaReconstructionFixtureRoot();
+  write(
+    path.join(root, "06_Architecture", "sample.md"),
+    "# Sample\n\n要求: [`REQ-000001`](../01_Discovery/Analysis/EXP-000001/exploration.md)\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "discovery-identity-link-owner-mismatch" &&
+        finding.path === "06_Architecture/sample.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("IA台帳とIA定義Directoryは同じ集合を持つ", () => {
+  const root = iaReconstructionFixtureRoot();
+  const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
+  write(indexPath, "# IA\n");
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-definition-index-coverage-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("IA分析の処置とIA定義の情報源はUXとIAの組で閉じる", () => {
+  const root = iaReconstructionFixtureRoot();
+  const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
+  write(
+    indexPath,
+    `${fs.readFileSync(indexPath, "utf8")}| [IA-000002](Definitions/IA-000002/ia_definition.md) | 追加情報 | UX-000001 |\n`,
+  );
+  write(
+    path.join(root, "03_IA", "Definitions", "IA-000002", "ia_definition.md"),
+    iaDefinition("IA-000002", "UX-000001"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("IA台帳の入力UXも分析処置と定義情報源へ完全一致する", () => {
+  const root = iaReconstructionFixtureRoot();
+  const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
+  write(
+    indexPath,
+    fs
+      .readFileSync(indexPath, "utf8")
+      .replace("| UX-000001 |", "| UX-000002 |"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("IA関係は分析処置節と定義情報源節の外へ移せない", () => {
+  for (const target of ["analysis", "definition"] as const) {
+    const root = iaReconstructionFixtureRoot();
+    const filePath =
+      target === "analysis"
+        ? path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md")
+        : path.join(
+            root,
+            "03_IA",
+            "Definitions",
+            "IA-000001",
+            "ia_definition.md",
+          );
+    const source = fs.readFileSync(filePath, "utf8");
+    const moved =
+      target === "analysis"
+        ? source.replace(
+            "## 5. IA処置\n\n[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。",
+            "[IA-000001](../../Definitions/IA-000001/ia_definition.md)\n\n## 5. IA処置\n\n処置先を本文外へ移した。",
+          )
+        : source.replace(
+            "## 情報源\n\n- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)",
+            "- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)\n\n## 情報源\n\n情報源を本文外へ移した。",
+          );
+    write(filePath, moved);
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-analysis-definition-closure-mismatch",
+      ),
+      `${target}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("IA関係の重複行または対象節の重複を拒否する", () => {
+  for (const mutate of [
+    (root: string) => {
+      const indexPath = path.join(
+        root,
+        "03_IA",
+        "01_Information_Architecture.md",
+      );
+      const source = fs.readFileSync(indexPath, "utf8");
+      const row = source
+        .split(/\r?\n/u)
+        .find((line) => line.startsWith("| [IA-000001]"));
+      write(indexPath, `${source}${row}\n`);
+    },
+    (root: string) => {
+      const analysisPath = path.join(
+        root,
+        "03_IA",
+        "Analysis",
+        "UX-000001",
+        "ia_analysis.md",
+      );
+      write(
+        analysisPath,
+        `${fs.readFileSync(analysisPath, "utf8")}\n## 5. IA処置\n\n[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。\n`,
+      );
+    },
+    (root: string) => {
+      const definitionPath = path.join(
+        root,
+        "03_IA",
+        "Definitions",
+        "IA-000001",
+        "ia_definition.md",
+      );
+      write(
+        definitionPath,
+        `${fs.readFileSync(definitionPath, "utf8")}\n## 情報源\n\n- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)\n`,
+      );
+    },
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    mutate(root);
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-analysis-definition-closure-mismatch",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否する", () => {
+  const cases: Array<{
+    file: (root: string) => string;
+    canonical: string;
+    replacement: string;
+    hide: (value: string) => string;
+  }> = [
+    {
+      file: (root) =>
+        path.join(root, "03_IA", "01_Information_Architecture.md"),
+      canonical:
+        "| [IA-000001](Definitions/IA-000001/ia_definition.md) | 試験用情報 | UX-000001 |",
+      replacement: "台帳関係は表示されない例だけに置く。",
+      hide: (value) => `\n\`\`\`text\n${value}\n\`\`\`\n`,
+    },
+    {
+      file: (root) =>
+        path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+      canonical:
+        "## 5. IA処置\n\n[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。",
+      replacement: "## 5. 処置記録\n\n正式な処置節はない。",
+      hide: (value) => `\n~~~text\n${value}\n~~~\n`,
+    },
+    {
+      file: (root) =>
+        path.join(
+          root,
+          "03_IA",
+          "Definitions",
+          "IA-000001",
+          "ia_definition.md",
+        ),
+      canonical:
+        "## 情報源\n\n- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)",
+      replacement: "## 参考記録\n\n正式な情報源節はない。",
+      hide: (value) => `\n<!--\n${value}\n-->\n`,
+    },
+  ];
+
+  for (const item of cases) {
+    const root = iaReconstructionFixtureRoot();
+    const filePath = item.file(root);
+    const source = fs.readFileSync(filePath, "utf8");
+    write(
+      filePath,
+      source.replace(item.canonical, item.replacement) +
+        item.hide(item.canonical),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) =>
+        [
+          "ia-definition-index-coverage-mismatch",
+          "ia-analysis-contract-invalid",
+          "ia-definition-contract-invalid",
+          "ia-analysis-definition-closure-mismatch",
+        ].includes(finding.code),
+      ),
+      `${filePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("表示されるIA構造が正しければ非表示の偽構造を関係として数えない", () => {
+  const root = iaReconstructionFixtureRoot();
+  const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
+  const analysisPath = path.join(
+    root,
+    "03_IA",
+    "Analysis",
+    "UX-000001",
+    "ia_analysis.md",
+  );
+  const definitionPath = path.join(
+    root,
+    "03_IA",
+    "Definitions",
+    "IA-000001",
+    "ia_definition.md",
+  );
+  write(
+    indexPath,
+    `${fs.readFileSync(indexPath, "utf8")}\n\`\`\`text\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 重複 | UX-000001 |\n\`\`\`\n`,
+  );
+  write(
+    analysisPath,
+    `${fs.readFileSync(analysisPath, "utf8")}\n~~~text\n## 5. IA処置\n\n[IA-000002](../../Definitions/IA-000002/ia_definition.md)へ接続する。\n~~~\n`,
+  );
+  write(
+    definitionPath,
+    `${fs.readFileSync(definitionPath, "utf8")}\n<!--\n## 情報源\n\n- [UX-000002のIA分析](../../Analysis/UX-000002/ia_analysis.md)\n-->\n`,
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some((finding) =>
+      [
+        "ia-definition-index-coverage-mismatch",
+        "ia-analysis-contract-invalid",
+        "ia-definition-contract-invalid",
+        "ia-analysis-definition-closure-mismatch",
+      ].includes(finding.code),
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしない", () => {
+  const cases = [
+    {
+      file: (root: string) =>
+        path.join(root, "03_IA", "01_Information_Architecture.md"),
+      canonical:
+        "| [IA-000001](Definitions/IA-000001/ia_definition.md) | 試験用情報 | UX-000001 |",
+      replacement: "台帳関係は未閉鎖コメント内だけに置く。",
+    },
+    {
+      file: (root: string) =>
+        path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+      canonical:
+        "## 5. IA処置\n\n[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。",
+      replacement: "## 5. 処置記録\n\n正式な処置節はない。",
+    },
+    {
+      file: (root: string) =>
+        path.join(
+          root,
+          "03_IA",
+          "Definitions",
+          "IA-000001",
+          "ia_definition.md",
+        ),
+      canonical:
+        "## 情報源\n\n- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)",
+      replacement: "## 参考記録\n\n正式な情報源節はない。",
+    },
+  ];
+
+  for (const item of cases) {
+    const root = iaReconstructionFixtureRoot();
+    const filePath = item.file(root);
+    const source = fs.readFileSync(filePath, "utf8");
+    write(
+      filePath,
+      `${source.replace(item.canonical, item.replacement)}\n<!--\n${item.canonical}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) =>
+        [
+          "ia-definition-index-coverage-mismatch",
+          "ia-analysis-contract-invalid",
+          "ia-definition-contract-invalid",
+          "ia-analysis-definition-closure-mismatch",
+        ].includes(finding.code),
+      ),
+      `${filePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("コメントとコードフェンスの入れ子は後続の正式IA構造を隠さない", () => {
+  for (const prefix of [
+    "<!--\n```text\n~~~text\n-->\n",
+    "```text\n<!--\n~~~text\n```\n",
+    "~~~text\n<!--\n```text\n~~~\n",
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    for (const filePath of [
+      path.join(root, "03_IA", "01_Information_Architecture.md"),
+      path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+      path.join(root, "03_IA", "Definitions", "IA-000001", "ia_definition.md"),
+    ])
+      write(filePath, prefix + fs.readFileSync(filePath, "utf8"));
+
+    const result = runChecker(root);
+    assert.ok(
+      !result.report.findings.some((finding) =>
+        [
+          "ia-definition-index-coverage-mismatch",
+          "ia-analysis-contract-invalid",
+          "ia-definition-contract-invalid",
+          "ia-analysis-definition-closure-mismatch",
+        ].includes(finding.code),
+      ),
+      `${prefix}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
 test("UX要求分析Directoryの全欠落を拒否する", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "01_Discovery"), { recursive: true });
@@ -1324,7 +1797,7 @@ test("CheckerはUX定義の意味重複を機械的な不正と断定しない",
     "\n## 利用者成果\n\n独立成果。\n\n## 利用者・状況・目的\n\n| 項目 | 内容 |\n|---|---|\n| 主な想定利用者／利用状況 | 利用者 |\n| 利用のきっかけ／場面 | 開始時 |\n| 目的 | 状態を理解する |\n| 得られる結果 | 次へ進める |\n\n## 成立条件\n\n- 成立する。\n\n## 重要な体験と品質期待\n\n```text\n開始 → 理解 → 次へ\n```\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- Source REQ Analysis: REQ-000001\n";
   for (const id of ["UX-000001", "UX-000002"])
     write(
-      path.join(root, "02_UX", "Definitions", id, "experience.md"),
+      path.join(root, "02_UX", "Definitions", id, "ux_definition.md"),
       `# ${id}\n\n成果物種別: UX定義\nUX ID: \`${id}\`\n${sharedDefinitionBody}`,
     );
   const result = runChecker(root);
@@ -1348,7 +1821,7 @@ test("UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否す�
     "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
   );
   write(
-    path.join(root, "02_UX", "Definitions", "UX-000001", "experience.md"),
+    path.join(root, "02_UX", "Definitions", "UX-000001", "ux_definition.md"),
     "# UX-000001\n\n成果物種別: UX定義\nUX ID: `UX-000001`\n状態: 現行正本\n\n## 利用者成果\n\n成果。\n\n## 成立条件\n\n- 成立する。\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- 元の要求分析: REQ-000001\n",
   );
   write(
@@ -1375,7 +1848,7 @@ test("UX定義は状態Headerの重複を拒否する", () => {
     "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
   );
   write(
-    path.join(root, "02_UX", "Definitions", "UX-000001", "experience.md"),
+    path.join(root, "02_UX", "Definitions", "UX-000001", "ux_definition.md"),
     "# UX-000001\n\n成果物種別: UX定義\nUX ID: `UX-000001`\n状態: Canonical\n状態: 現行正本\n\n## 利用者成果\n\n成果。\n\n## 成立条件\n\n- 成立する。\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- 元の要求分析: REQ-000001\n",
   );
   write(
@@ -1761,6 +2234,60 @@ function discoveryDefinition(
   marker: string,
 ): string {
   return `# ${requirementId} 要求\n\n成果物種別: Discovery定義\n要求ID: \`${requirementId}\`\n\n## 要求\n\n${marker}として利用者が望む結果を得られる要求である。\n\n## 対象と利用状況\n\n${marker}の対象者が、判断に必要な情報を確認する具体的な状況を扱う。\n\n## 解く問題と望ましい変化\n\n${marker}により現在の問題を識別し、再現可能な望ましい状態へ変える。\n\n## 採用理由と比較\n\n${marker}では代替案との違いと、採用した理由および残る弱点を比較する。\n\n## 成立条件\n\n- ${marker}の正常結果を確認できる\n- ${marker}の不完全状態を正常へ丸めない\n- ${marker}を破る反証を拒否できる\n\n## 制約\n\n- ${marker}の決定権限を下流へ移さない\n- ${marker}の対象外を完成扱いしない\n\n## 検証意図\n\n${marker}の正常、境界、失敗を実際の観測結果で区別できることを確認する。\n\n## 工程引渡し\n\n| 引渡し先 | 失ってはならない意味 | 下流で決めること |\n|---|---|---|\n| UX | ${marker}の利用者、状況、問題、変化 | 目的と得られる結果 |\n| IA以降 | ${marker}の状態と制約 | 工程固有設計 |\n\n## 関係\n\n- 元の探索記録: [${explorationId}](../../Analysis/${explorationId}/exploration.md)\n`;
+}
+
+function iaAnalysis(uxId: string, iaId: string): string {
+  return `# IA分析: 試験用\n\n成果物種別: IA分析\n分析対象: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n\n## 1. UXから受け取る意味\n\n| 観点 | この分析で受け取る内容 |\n|---|---|\n| 利用者 | 試験利用者 |\n| 場面 | 判断する時 |\n| 目的 | 対象を理解する |\n| 得たい結果 | 次の行動を選べる |\n| 重要場面 | 判断する直前 |\n| 避ける失敗 | 不明を正常と誤認する |\n| 守る品質 | 根拠を失わない |\n\n## 2. 情報候補と関係\n\n| 候補 | 利用者にとっての意味 | 識別・関係 |\n|---|---|---|\n| 対象 | 判断対象 | 根拠へ結ぶ |\n\n## 3. 状態・可視性・導線・責任\n\n| 観点 | 分析結果 |\n|---|---|\n| 状態 | 未確認と確認済みを分ける |\n| 可視性 | 判断時に示す |\n| 導線 | 対象から根拠へ進む |\n| 責任 | 利用者とSystemを分ける |\n\n## 4. 現行文書・実装との照合\n\n現行実装は根拠として照合する。\n\n## 5. IA処置\n\n[${iaId}](../../Definitions/${iaId}/ia_definition.md)へ接続する。\n`;
+}
+
+function iaDefinition(iaId: string, uxId: string): string {
+  return `# ${iaId} 試験用情報\n\n成果物種別: IA定義\nIA ID: \`${iaId}\`\n\n## 意味と利用者成果\n\n利用者が情報を見分けられる。\n\n## 対象・識別・関係\n\n対象と関係を定義する。\n\n## 状態と可視性\n\n状態を区別する。\n\n## 導線と責任\n\n根拠へ進める。\n\n## 制約\n\n実装を先取りしない。\n\n## 下流への引き渡し\n\n意味を下流へ渡す。\n\n## 情報源\n\n- [${uxId}のIA分析](../../Analysis/${uxId}/ia_analysis.md)\n`;
+}
+
+function iaReconstructionFixtureRoot(): string {
+  const root = fixture();
+  makeStructure(root);
+  fs.rmSync(path.join(root, "00_CRDD"), { recursive: true, force: true });
+  write(path.join(root, "01_Principles.md"), "# Principles\n");
+  write(
+    path.join(root, "02_UX", "Definitions", "UX-000001", "ux_definition.md"),
+    "# UX-000001 試験用利用者成果\n",
+  );
+  write(
+    path.join(root, "03_IA", "01_Information_Architecture.md"),
+    "# IA\n\n| IA | 利用者が見分ける情報 | 主な入力UX |\n|---|---|---|\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 試験用情報 | UX-000001 |\n",
+  );
+  write(
+    path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+    iaAnalysis("UX-000001", "IA-000001"),
+  );
+  write(
+    path.join(root, "03_IA", "Definitions", "IA-000001", "ia_definition.md"),
+    iaDefinition("IA-000001", "UX-000001"),
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "03_IA",
+      "Analysis",
+      "UX-XXXXXX",
+      "ia_analysis.md",
+    ),
+    "# IA分析ひな型\n",
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "03_IA",
+      "Definitions",
+      "IA-XXXXXX",
+      "ia_definition.md",
+    ),
+    "# IA定義ひな型\n",
+  );
+  return root;
 }
 
 function dispositionFixtureRoot(hasFixedEvidence = false): string {

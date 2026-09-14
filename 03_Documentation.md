@@ -317,12 +317,15 @@ Discovery以降の主要工程は、前工程以前のContextを自工程の専�
 
 人間可読な成果物の`成果物種別`は、所有工程と役割を単独で識別できる`[正式工程名]分析`または`[正式工程名]定義`とする。`探索記録`、`要求定義`等の工程を特定できない名称へ丸めず、工程名を日本語の別名へ置き換えない。現在適用済みの表示は次のとおりである。
 
-| 所有工程 | `Analysis/` | `Definitions/` |
+| 所有工程 | `Analysis/`の成果物種別／ファイル名 | `Definitions/`の成果物種別／ファイル名 |
 |---|---|---|
-| Discovery | `Discovery分析` | `Discovery定義` |
-| UX | `UX分析` | `UX定義` |
+| Discovery | `Discovery分析`／`exploration.md` | `Discovery定義`／`requirement.md` |
+| UX | `UX分析`／`ux_analysis.md` | `UX定義`／`ux_definition.md` |
+| IA | `IA分析`／`ia_analysis.md` | `IA定義`／`ia_definition.md` |
+| UI | `UI分析`／`ui_analysis.md` | `UI定義`／`ui_definition.md` |
+| Architecture | `Architecture分析`／`arch_analysis.md` | `Architecture定義`／`arch_definition.md` |
 
-IA以降へRepository Patternを適用するときも、同じ命名規則を用いる。工程固有の役割をさらに区別する必要がある場合は、成果物種別を場当たり的に増やさず、その工程の正本で下位分類を定義する。
+UX以降のファイル名は`[工程の短い識別子]_[analysis|definition].md`で対にする。Discoveryは探索過程の`EXP-*`と採用要求の`REQ-*`が別の成果物種別であるため、役割を直接読める`exploration.md`と`requirement.md`を用いる。Architectureの`arch`はファイル名だけの略称であり、本文の正式工程名や成果物種別を短縮しない。工程固有の役割をさらに区別する必要がある場合は、成果物種別を場当たり的に増やさず、その工程の正本で下位分類を定義する。
 
 Analysis ArtifactとDefinitionは1対1に固定しない。一つの分析から複数Definitionが生まれても、複数Analysisが一つのDefinitionへ統合されてもよい。Folder階層は分析単位とCanonical Entityの所在を表し、多対多の意味関係は各成果物と工程台帳のRelationで明示する。Folder名だけから関係を推定しない。
 
