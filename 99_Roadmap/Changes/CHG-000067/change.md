@@ -5,7 +5,7 @@
 担当責任者: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `feature`
-最終更新日: 2026-09-13
+最終更新日: 2026-09-14
 
 ## 1. 結論と現在状態
 
@@ -29,9 +29,9 @@ Project Operation Context
 | Project Management Projection | 設計中 |
 | 任意Top-level構造 | 設計中 |
 | Project Operation／Workbench Discovery | `Complete for Scope`。Workbench／MCP共同利用体系まで再探索し、独立レビューPass。2026-09-13にUX移行承認済み |
-| Workbench／MCP共同UX | `UX Synthesis Complete — Independent Review Pending`。Discoveryで採用した全36要求をExperience Change、ペルソナ、体験区間、Supporting Model処置、責任境界、品質期待、妥当性確認および下流義務まで分析し、既存10 UX-IDの意味を保持しながら68 UX成果へ分解・統合した。各要求分析にNew／Same判断を置き、同じIDの場合は同じ利用者成果である理由と要求固有の成立条件を記録した。各要求は該当する9種類の利用者Journeyへ直接接続し、Service Blueprintは複数主体の協調が体験成立条件となる要求だけに限定した |
+| Workbench／MCP共同UX | `Semantic Re-synthesis In Progress`。独立レビューで、36要求の章充足とは別に、利用者Goal、Journey、Blueprint、New／Same判断および下流境界の意味再統合が必要と判定された。UX Center、Product横断Persona、Experience Map、Service Blueprint、Quality Expectationsおよび6章の個別要求分析構造へ再編し、個別要求の意味再分析後に68 UX成果の採否とRelationを再固定する。IA移行可能とはまだ表示しない |
 | Discoveryの人間理解確認 | 完了。AIによる既存Context再構成と人間理解を分け、Workbench、Remote MCP、Repository単独利用および工程境界の人間提示内容をUX入力へ反映 |
-| UX規範・ひな型・Checker・試験 | 個別要求分析の構造、Visual Summary、New／Same理由および双方向Relationを更新済み。Repository全体CheckerとUX対象契約試験はPass。意味品質は独立レビュー待ち |
+| UX規範・ひな型・Checker・試験 | Visual-firstの三層、6章の分析順、Product横断成果物の責務分離、テンプレートと実成果物の整合原則を更新中。Repository全体CheckerはPass。Checker契約試験と個別要求36件の意味再分析を終えた後、新しい固定改訂版を独立レビューへ戻す |
 
 ## 2. 契機と人間が決定した範囲
 
@@ -121,6 +121,10 @@ Project Operation Context
 - `01_Discovery/Explorations/EXP-000028_Recognizable_Official_Identity/exploration.md`（削除または旧Path）
 - [`01_Discovery/Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md`](<../../../01_Discovery/Explorations/EXP-000028_User_Owned_Runtime_Trust/exploration.md>)
 - [`02_UX/01_User_Experience.md`](<../../../02_UX/01_User_Experience.md>)
+- [`02_UX/02_Personas.md`](<../../../02_UX/02_Personas.md>)
+- [`02_UX/03_Experience_Map.md`](<../../../02_UX/03_Experience_Map.md>)
+- [`02_UX/04_Service_Blueprint.md`](<../../../02_UX/04_Service_Blueprint.md>)
+- [`02_UX/05_Quality_Expectations.md`](<../../../02_UX/05_Quality_Expectations.md>)
 - [`02_UX/Requirements/REQ-000001/user_experience.md`](<../../../02_UX/Requirements/REQ-000001/user_experience.md>)
 - [`02_UX/Requirements/REQ-000002/user_experience.md`](<../../../02_UX/Requirements/REQ-000002/user_experience.md>)
 - [`02_UX/Requirements/REQ-000003/user_experience.md`](<../../../02_UX/Requirements/REQ-000003/user_experience.md>)
@@ -169,6 +173,7 @@ Project Operation Context
 - [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
 - [`06_Architecture/runtime-data/02_Target_Architecture.md`](<../../../06_Architecture/runtime-data/02_Target_Architecture.md>)
 - [`06_Architecture/version-control/01_Architecture.md`](<../../../06_Architecture/version-control/01_Architecture.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
 - `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
 - [`12_Change.md`](<../../../12_Change.md>)
@@ -317,8 +322,13 @@ Project Operation Context
 - [`template/01_Discovery/01_Product_Discovery.md`](<../../../template/01_Discovery/01_Product_Discovery.md>)
 - [`template/01_Discovery/Explorations/EXP-XXXXXX_Short_Name/exploration.md`](<../../../template/01_Discovery/Explorations/EXP-XXXXXX_Short_Name/exploration.md>)
 - [`template/02_UX/01_User_Experience.md`](<../../../template/02_UX/01_User_Experience.md>)
+- [`template/02_UX/02_Personas.md`](<../../../template/02_UX/02_Personas.md>)
+- [`template/02_UX/03_Experience_Map.md`](<../../../template/02_UX/03_Experience_Map.md>)
+- [`template/02_UX/04_Service_Blueprint.md`](<../../../template/02_UX/04_Service_Blueprint.md>)
+- [`template/02_UX/05_Quality_Expectations.md`](<../../../template/02_UX/05_Quality_Expectations.md>)
 - [`template/02_UX/Requirements/REQ-XXXXXX/user_experience.md`](<../../../template/02_UX/Requirements/REQ-XXXXXX/user_experience.md>)
 - [`template/06_Architecture/01_Architecture.md`](<../../../template/06_Architecture/01_Architecture.md>)
+- [`template/99_Roadmap/01_Roadmap.md`](<../../../template/99_Roadmap/01_Roadmap.md>)
 - [`template/99_Roadmap/Changes/CHG-XXXXXX/change.md`](<../../../template/99_Roadmap/Changes/CHG-XXXXXX/change.md>)
 - [`template/AGENTS.md`](<../../../template/AGENTS.md>)
 - [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)

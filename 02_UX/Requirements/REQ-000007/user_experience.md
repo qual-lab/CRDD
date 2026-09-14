@@ -50,8 +50,8 @@ Projectの要約が短くても、どのSourceをいつ読んだ結果か分か�
 | Supporting Model | 処置 | 理由・参照先 |
 |---|---|---|
 | Experience Change | `作成` | 本文冒頭で、この要求が変える利用前後の仕事・認知・判断を示した。 |
-| Experience Flow／Journey | `既存参照` | 本要求が関わる時間軸は[Project Operator／PMのProject Journey](../../01_User_Experience.md#ux-journey-project-operation)を参照し、要求固有の区間は上表で示す。 |
-| Service Blueprint | `既存参照` | 複数主体の協調が体験成立条件になるため、[共同Service Blueprint](../../01_User_Experience.md#workbench-mcp-service-blueprint)を参照し、本要求固有の責任境界を次節で示す。 |
+| Experience Flow／Journey | `既存参照` | 本要求が関わる時間軸は[Project Operator／PMのProject Journey](../../03_Experience_Map.md#projectの現在地を判断する)を参照し、要求固有の区間は上表で示す。 |
+| Service Blueprint | `既存参照` | 複数主体の協調が体験成立条件になるため、[共同Service Blueprint](../../04_Service_Blueprint.md#1-共同service-blueprint)を参照し、本要求固有の責任境界を次節で示す。 |
 | User／Task Flow／Storyboard | `非該当` | 具体的な操作、画面遷移または利用環境の描写はIA／UIで具体化し、この要求分析では先取りしない。 |
 
 ## 5. UX成果への統合

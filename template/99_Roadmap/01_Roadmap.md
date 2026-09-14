@@ -1,4 +1,4 @@
-# プロダクトロードマップ（Product Roadmap）
+# ロードマップ（Roadmap）
 
 決定権限: `00_CRDD/21_Discovery.md` 節 6, `01_Discovery` と `99_Roadmap`
 

@@ -48,7 +48,7 @@ After
 | Supporting Model | 処置 | 理由・参照先 |
 |---|---|---|
 | Experience Change | `作成` | 本文冒頭で、この要求が変える利用前後の仕事・認知・判断を示した。 |
-| Experience Flow／Journey | `既存参照` | 本要求が関わる時間軸は[CRDD標準を変更・公開するJourney](../../01_User_Experience.md#ux-journey-standard-maintenance)を参照し、要求固有の区間は上表で示す。 |
+| Experience Flow／Journey | `既存参照` | 本要求が関わる時間軸は[CRDD標準を変更・公開するJourney](../../03_Experience_Map.md#標準を変更検証公開する)を参照し、要求固有の区間は上表で示す。 |
 | Service Blueprint | `非該当` | 本要求では複数主体の協調そのものを新しい体験成立条件にせず、必要な責任境界は次節で示す。 |
 | User／Task Flow／Storyboard | `非該当` | 具体的な操作、画面遷移または利用環境の描写はIA／UIで具体化し、この要求分析では先取りしない。 |
 

@@ -20,7 +20,7 @@ const faultInjector = pathToFileURL(
   path.join(checkerRoot, "fault-injector.ts"),
 ).href;
 
-test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する", () => {
+test("主要工程ひな型は工程責務と構造表現を維持する", () => {
   const phaseTemplates = [
     "template/01_Discovery/01_Product_Discovery.md",
     "template/02_UX/01_User_Experience.md",
@@ -29,29 +29,38 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
     "template/05_SPEC/01_Behavior_Specification.md",
     "template/06_Architecture/01_Architecture.md",
   ];
-  const tableHeader = "| 項目 | 記載内容 |";
-
   for (const relativePath of phaseTemplates) {
     const content = fs.readFileSync(
       path.join(repositoryRoot, relativePath),
       "utf8",
     );
-    assert.ok(content.includes("文章形式を要求しない"), relativePath);
-    if (relativePath === "template/02_UX/01_User_Experience.md") {
-      assert.ok(content.includes("## 1. 何を良くしたいのか"), relativePath);
-      assert.ok(content.includes("### 1.1. 根拠、対象、対象外"), relativePath);
+    if (relativePath === "template/01_Discovery/01_Product_Discovery.md") {
       assert.ok(
-        content.includes("## 8. 判断、未解決事項、次工程への引き渡し"),
+        content.includes("```text"),
+        `${relativePath}: visual structure`,
+      );
+      assert.ok(content.includes("|"), `${relativePath}: structured mapping`);
+      assert.ok(content.includes("## 探索台帳"), relativePath);
+      assert.ok(content.includes("## 要求台帳"), relativePath);
+      assert.ok(content.includes("## 次工程への入口と戻り方"), relativePath);
+    } else if (relativePath === "template/02_UX/01_User_Experience.md") {
+      assert.ok(
+        content.includes("```text"),
+        `${relativePath}: visual structure`,
+      );
+      assert.ok(content.includes("|"), `${relativePath}: structured mapping`);
+      assert.ok(
+        content.includes("## 1. Product Experience Intent"),
         relativePath,
       );
+      assert.ok(content.includes("## 2. UX成果台帳"), relativePath);
+      assert.ok(content.includes("## 3. REQとUX成果のCoverage"), relativePath);
+      assert.ok(content.includes("## 5. 詳細成果物への案内"), relativePath);
     } else {
+      assert.ok(content.includes("文章形式を要求しない"), relativePath);
       assert.ok(content.includes("## 対象範囲と現在状態"), relativePath);
       assert.ok(content.includes("## 判断"), relativePath);
     }
-    assert.ok(
-      content.split(tableHeader).length - 1 >= 2,
-      `${relativePath}: structured state and handoff tables are required`,
-    );
   }
 
   const discoveryTemplate = fs.readFileSync(
@@ -62,7 +71,7 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
     "## 人間理解の確認",
     "| 発火判定と理由 |",
     "| 人間の確認または修正 |",
-    "理解確認を要求・方針の採用判断へ読み替えない",
+    "理解確認を要求採用の判断へ読み替えず",
   ])
     assert.ok(discoveryTemplate.includes(required), required);
 
@@ -73,19 +82,26 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
     "utf8",
   );
   for (const required of [
-    "## 1. 要求から起こしたい利用者変化",
+    "## 1. REQの一次分析",
+    "解決したい問題",
+    "UXとして必要",
+    "## 2. 利用者・目標・成果",
+    "Primary Persona",
+    "Goal",
+    "Outcome",
+    "## 3. 利用者に起きる変化",
     "Before",
     "After",
-    "## 2. REQの一次分析",
-    "## 3. 利用者の想定とペルソナ",
-    "## 4. 体験区間とSupporting Model",
+    "## 4. UX成果への統合",
+    "REQとUXは多対多を許容する",
+    "| UX成果候補 | 処置・接続先 | 判断理由 | この要求が補う内容 |",
+    "## 5. 重要な体験",
+    "Critical",
+    "Failure",
+    "Quality",
     "| Supporting Model | 処置 | 理由・参照先 |",
-    "## 5. UX成果への統合",
-    "| UX成果候補 | 処置・接続先 | 判断理由とこの要求が補う内容 |",
-    "## 6. サービス提供上の責任境界",
-    "## 7. 重要場面、失敗、品質期待",
-    "## 8. 妥当性確認と未確認事項",
-    "## 9. 下流への引き渡し",
+    "## 6. 下流への引き渡し",
+    "Discoveryへ戻す条件",
   ])
     assert.ok(
       uxRequirementTemplate.includes(required),
@@ -691,10 +707,10 @@ test("工程基本図の必須列または閉じた処置語彙の欠落を拒�
   const mutations = [
     original.replace("| 基本図 | 対象 | 目的 | 処置 |", "| 基本図 | 処置 |"),
     original.replace(
-      "| 利用者Journey | | | | | | | | |",
-      "| 利用者Journey | | | 保留 | | | | | |",
+      /(\| 利用者Journey \|[^\n]*\| )`既存参照`( \|)/,
+      "$1保留$2",
     ),
-    original.replace("| Service Blueprint | | | | | | | | |\n", ""),
+    original.replace(/^\| Service Blueprint \|.*\r?\n/m, ""),
   ];
   for (const mutated of mutations) {
     const root = fixture();

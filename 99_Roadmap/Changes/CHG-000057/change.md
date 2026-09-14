@@ -11,7 +11,7 @@
 - リリースレベル: `MINOR`
 - リリース: `v0.19.0`（2026-09-05）
 
-正本: [Discovery](../../../01_Discovery/Explorations/EXP-000008_Project_Runtime/exploration.md)、[UX](../../../02_UX/01_User_Experience.md#6-milestoneを委ねる利用体験)、[IA](../../../03_IA/01_Information_Architecture.md#6-project-runtimeの情報階層)、[UI](../../../04_UI/01_User_Interface.md#8-project-runtimeの状態表示)、[振る舞い仕様](../../../05_SPEC/01_Behavior_Specification.md#project-runtime-contract)、[参照アーキテクチャ](../../../06_Architecture/project-runtime/01_Architecture.md)、[検証設計](../../../07_Quality/03_Verification_Design.md#project-runtime-verification)
+正本: [Discovery](../../../01_Discovery/Explorations/EXP-000008_Project_Runtime/exploration.md)、[UX](../../../02_UX/04_Service_Blueprint.md#4-milestone委任)、[IA](../../../03_IA/01_Information_Architecture.md#6-project-runtimeの情報階層)、[UI](../../../04_UI/01_User_Interface.md#8-project-runtimeの状態表示)、[振る舞い仕様](../../../05_SPEC/01_Behavior_Specification.md#project-runtime-contract)、[参照アーキテクチャ](../../../06_Architecture/project-runtime/01_Architecture.md)、[検証設計](../../../07_Quality/03_Verification_Design.md#project-runtime-verification)
 
 ## 1. Triggerと人間の判断
 
