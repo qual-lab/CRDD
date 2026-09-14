@@ -7,10 +7,11 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "check": "npm run format:check && npm run typecheck && npm run lint",
     "format:check": "biome format .",
     "lint": "biome lint . --error-on-warnings",
-    "test": "node --test --test-concurrency=1 ./tests/unit/*.test.ts ./tests/integration/*.test.ts ./tests/system/*.test.ts",
+    "test": "npm run check && npm run test:run",
+    "test:run": "node --test --test-concurrency=1 ./tests/unit/*.test.ts ./tests/integration/*.test.ts ./tests/system/*.test.ts",
     "typecheck": "tsc -p ./tsconfig.json"
   },
   "engines": {

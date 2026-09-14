@@ -49,6 +49,8 @@ Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ
 
 開発時の静的LintとFormatterは、Repository rootの`biome.json`を正本とするBiome 2.5.6へ固定する。BiomeはdevDependencyに限定し、Runtime成果物または実行時依存へ含めない。Lint、Formatter確認、TypeScript型検査およびRuntime testは別の確認軸として実行し、一つの成功を他の成功へ流用しない。既存Scriptへ一括自動修正を適用せず、移行または是正する単位ごとに整形と意味回帰を確認する。
 
+CRDD所有のTypeScript packageは、全回帰用の公開`test` scriptから、Formatter確認、TypeScript型検査、Warningを失敗とするLint、package固有の静的契約検査、試験本体の順に到達できなければならない。試験本体は内部`test:run`へ分離し、通常の`npm test`から静的段階を迂回させない。Formatter確認が失敗した場合は試験を開始せず、意図的に`format`を適用して差分を確認した後、Formatter確認から再実行する。検証入口が未承認のSource書換えを自動実行してはならない。原因を限定する個別試験は、同じ固定改訂版で静的段階が成功した後にだけ直接実行でき、個別試験だけを全回帰完了へ読み替えない。
+
 ### 2.2. Platformと外部接続の境界
 
 CRDD公式Repositoryで新しいToolまたはRuntimeを設計する場合、業務・Project・Authority・状態遷移等のCore契約を、OS固有処理およびCLI／MCP／HTTP等のTransport固有処理から分離する。現在一つのOSまたはTransportだけを実装する場合も、Coreの意味へWindows Path、SID、DACL、POSIX mode、UID／GID、signal、Console、service manager、Container HostまたはTransport sessionを直接持ち込まない。

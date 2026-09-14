@@ -36,3 +36,11 @@ Gitを使えずFilesystem探索へ移った場合は理由と除外を読む。R
 ## 開発試験は別の操作
 
 `40_Develop/checker`の型・命名・契約試験は通常Checkerとは別で、一時fixtureと子Processを使う。一時物はRepository-local `.crdd/tests/checker/<run-id>/`等の実行単位で所有し、子Processへ渡す場合もそのRunだけへ限定して終了後の不存在を確認する。OS全体の環境変数を変更しない。詳細は[設計](../06_Architecture/checker/01_Architecture.md)と[コーディング規約](../06_Architecture/99_Coding_Standards.md)。
+
+通常の全回帰は次の単一入口を使う。
+
+```powershell
+npm test --prefix 40_Develop/checker
+```
+
+この入口は`format:check`、`typecheck`、`lint`、Repository全体Checker、Checker試験本体の順にFail Fastで実行する。前段が失敗した場合、後段の試験本体は開始しない。`format:check`が失敗した場合だけ、差分を確認して`npm run format --prefix 40_Develop/checker`を明示実行し、同じ全回帰入口を最初から再実行する。原因確認のため`test:run`を直接使う場合は、同じ固定改訂版で静的段階が成功済みであることを前提とし、その結果だけを全回帰完了としない。

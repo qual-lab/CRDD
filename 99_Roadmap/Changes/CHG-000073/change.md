@@ -226,12 +226,23 @@
 - [`02_UX/Definitions/UX-000029/experience.md`](<../../../02_UX/Definitions/UX-000029/experience.md>)
 - [`02_UX/Definitions/UX-000030/experience.md`](<../../../02_UX/Definitions/UX-000030/experience.md>)
 - [`03_Documentation.md`](<../../../03_Documentation.md>)
+- [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
 - [`06_Architecture/artifact-signing/01_Architecture.md`](<../../../06_Architecture/artifact-signing/01_Architecture.md>)
 - [`06_Architecture/version-control/01_Architecture.md`](<../../../06_Architecture/version-control/01_Architecture.md>)
 - [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
+- [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
+- [`19_Workflows/02_Checker.md`](<../../../19_Workflows/02_Checker.md>)
 - [`21_Discovery.md`](<../../../21_Discovery.md>)
 - [`22_UX.md`](<../../../22_UX.md>)
+- [`40_Develop/artifact-signing/package.json`](<../../../40_Develop/artifact-signing/package.json>)
+- [`40_Develop/checker/package.json`](<../../../40_Develop/checker/package.json>)
 - [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](<../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts>)
+- [`40_Develop/coordinator/package.json`](<../../../40_Develop/coordinator/package.json>)
+- [`40_Develop/execution-intelligence/package.json`](<../../../40_Develop/execution-intelligence/package.json>)
+- [`40_Develop/mcp/package.json`](<../../../40_Develop/mcp/package.json>)
+- [`40_Develop/project-runtime/package.json`](<../../../40_Develop/project-runtime/package.json>)
+- [`40_Develop/runtime-data/package.json`](<../../../40_Develop/runtime-data/package.json>)
+- [`40_Develop/version-control/package.json`](<../../../40_Develop/version-control/package.json>)
 - [`99_Roadmap/01_Roadmap.md`](<../../../99_Roadmap/01_Roadmap.md>)
 - [`99_Roadmap/02_Changes.md`](<../../../99_Roadmap/02_Changes.md>)
 - [`99_Roadmap/Changes/CHG-000015/change.md`](<../../../99_Roadmap/Changes/CHG-000015/change.md>)
@@ -294,6 +305,7 @@
 |---|---|
 | Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／30 DefinitionsがCanonical配置にある |
 | Self-contained | 子成果物が対象固有の意味、成立条件、関係および下流入力を単独で説明できる |
+| Downstream Reproducibility | `Definitions/REQ-*`を下流入力として、現在のUX分析、Canonical UX、関係、重要な失敗および品質期待を情報劣化なく再構成できる |
 | Projection | Discovery／UX Rootから全Analysis・DefinitionとCoverageを一意に辿れる |
 | Consumer Closure | 正本文書、ひな型、Checker、CHG、RoadmapおよびArchitecture参照が新Pathへ移行する |
 | Regression | 全体Checker、Checker契約試験、旧Root／共通Evidence再導入の反証がPassする |
@@ -306,6 +318,8 @@
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／30 |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 276／276 Pass。Discovery／UXの空の共通Evidence Root再導入を反証済み |
+| Checker契約試験 | 277／277 Pass。Discovery／UXの空の共通Evidence Root再導入と、全CRDD所有TypeScript packageの静的検査先行を反証済み |
+| 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
+| 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 
 現在、人間による追加判断は必要ない。独立レビュー前に影響ファイル一覧、Checker追加試験、全リンクおよび工程間Relationを固定する。

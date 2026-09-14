@@ -277,11 +277,9 @@ LintとFormatterの版、設定および依存境界は[内部ツール・コー
 Checkerの実装配置と配布境界は[内部ツール・コーディング規約](../06_Architecture/99_Coding_Standards.md)に従う。Checker packageの開発確認は次を使用する。
 
 ```shell
-npm run check --prefix 40_Develop/checker
 npm run test --prefix 40_Develop/checker
-npm run --silent verify:repository --prefix 40_Develop/checker
 ```
 
-`check`は型、Lint、Formatter、`test`はChecker回帰試験、`verify:repository`はpackage rootから`../..`を明示してCRDD公式Repository全体を確認するprivateな保守入口である。採用Repositoryの実行方法、外部package配布、CRDD準拠条件またはRelease手順ではない。
+Checkerの`test`はFormatter確認、型検査、Lint、package rootから`../..`を明示するCRDD公式Repository全体Checker、Checker回帰試験本体をこの順に実行する。個別の`check`、`verify:repository`、`test:run`は原因を限定する内部入口であり、単独結果を全回帰完了としない。採用Repositoryの実行方法、外部package配布、CRDD準拠条件またはRelease手順ではない。
 
 Rust packageを移設した後は、旧配置から持ち越した`target`を検証の根拠に使わない。コンパイル時に埋め込まれた絶対Pathが残り、コードを変更していなくても試験用binaryを起動できない場合がある。検証したcrate Rootの`target`配下に新しい実行専用Directoryを選び、そのProcessの`CARGO_TARGET_DIR`へ設定して、固定toolchain・`--frozen --offline`で再ビルドと試験を行う。既存キャッシュや署名配布物の削除は必要ない。生成物はGit非追跡のまま保持し、同じPathの古い試験結果を新配置の合格へ流用しない。

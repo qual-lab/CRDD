@@ -428,6 +428,47 @@ test("Checker packageのLintはWarningを検査失敗にする", () => {
   assert.equal(scripts?.lint, "biome lint ../.. --error-on-warnings");
 });
 
+test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始する", () => {
+  const packageRoots = [
+    "artifact-signing",
+    "checker",
+    "coordinator",
+    "execution-intelligence",
+    "mcp",
+    "project-runtime",
+    "runtime-data",
+    "version-control",
+  ];
+  for (const packageRoot of packageRoots) {
+    const packageJson: unknown = JSON.parse(
+      fs.readFileSync(
+        path.join(repositoryRoot, "40_Develop", packageRoot, "package.json"),
+        "utf8",
+      ),
+    );
+    const packageRecord = record(packageJson);
+    const scripts = packageRecord && record(packageRecord.scripts);
+    assert.ok(scripts, packageRoot);
+    const check = scripts.check;
+    const regression = scripts.test;
+    const testRun = scripts["test:run"];
+    assert.ok(typeof check === "string", packageRoot);
+    assert.deepEqual(
+      check.split(" && ").slice(0, 3),
+      ["npm run format:check", "npm run typecheck", "npm run lint"],
+      packageRoot,
+    );
+    assert.ok(typeof testRun === "string", packageRoot);
+    assert.equal(
+      regression,
+      packageRoot === "checker"
+        ? "npm run check && npm run verify:repository && npm run test:run"
+        : "npm run check && npm run test:run",
+      packageRoot,
+    );
+  }
+});
+
 test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査する", () => {
   const root = fixture();
   write(
