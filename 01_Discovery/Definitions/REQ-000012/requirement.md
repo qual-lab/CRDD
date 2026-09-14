@@ -50,4 +50,4 @@ Meetingからの自動更新はAuthorityを飛ばし、媒体別分類は意味�
 ## 関係
 
 - Source Analysis: [EXP-000023](../../Analysis/EXP-000023/exploration.md)
-- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。
+- Formal downstream input: UXは本Definitionだけを正式入力として分析する。Source Analysisを直接補助入力にせず、意味が不足する場合はDiscoveryへ差し戻す。

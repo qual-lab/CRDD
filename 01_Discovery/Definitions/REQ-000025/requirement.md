@@ -50,4 +50,4 @@ Publisher署名の証明と利用環境の実行許可を分離し、利用者�
 ## 関係
 
 - Source Analysis: [EXP-000028](../../Analysis/EXP-000028/exploration.md)
-- Formal downstream input: UXは本Definitionを一次入力として分析し、判断理由の再確認が必要な場合だけSource Analysisへ戻る。
+- Formal downstream input: UXは本Definitionだけを正式入力として分析する。Source Analysisを直接補助入力にせず、意味が不足する場合はDiscoveryへ差し戻す。

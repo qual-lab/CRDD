@@ -123,6 +123,7 @@
 - [`01_Discovery/Definitions/REQ-000035/requirement.md`](<../../../01_Discovery/Definitions/REQ-000035/requirement.md>)
 - [`01_Discovery/Definitions/REQ-000036/requirement.md`](<../../../01_Discovery/Definitions/REQ-000036/requirement.md>)
 - [`02_UX/01_User_Experience.md`](<../../../02_UX/01_User_Experience.md>)
+- [`02_UX/03_Experience_Map.md`](<../../../02_UX/03_Experience_Map.md>)
 - `02_UX/Requirements/REQ-000001/user_experience.md`（削除または旧Path）
 - [`02_UX/Analysis/REQ-000001/ux_analysis.md`](<../../../02_UX/Analysis/REQ-000001/ux_analysis.md>)
 - `02_UX/Requirements/REQ-000002/user_experience.md`（削除または旧Path）
@@ -225,6 +226,7 @@
 - [`02_UX/Definitions/UX-000028/experience.md`](<../../../02_UX/Definitions/UX-000028/experience.md>)
 - [`02_UX/Definitions/UX-000029/experience.md`](<../../../02_UX/Definitions/UX-000029/experience.md>)
 - [`02_UX/Definitions/UX-000030/experience.md`](<../../../02_UX/Definitions/UX-000030/experience.md>)
+- [`02_UX/Definitions/UX-000031/experience.md`](<../../../02_UX/Definitions/UX-000031/experience.md>)
 - [`03_Documentation.md`](<../../../03_Documentation.md>)
 - [`AGENTS.md`](<../../../AGENTS.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
@@ -275,7 +277,7 @@
 
 ## 3. 保持する意図と変更禁止範囲
 
-- Discoveryの28探索、36要求、UXの36要求分析、30 Canonical UX成果および既存の多対多Relationを失わない。
+- Discoveryの28探索、36要求、UXの36要求分析、31 Canonical UX成果および既存の多対多Relationを失わない。
 - 子FolderのMarkdownは対象固有の意味、理由、条件、制約、関係、品質および引き渡しを参照だけへ追い出さない。
 - Root文書は個別本文の第二の正本にならず、個別成果物はRoot文書を読まなければ意味が成立しないForeign Key集にしない。
 - AnalysisとDefinitionを1対1に固定しない。
@@ -311,13 +313,24 @@
 | 共通定型文でもCheckerを通る | 見出しの存在だけをDefinition Readyと扱った | 要求固有Section、形成元Relation、同一Sectionの重複禁止を現行Profileへ追加 | 見出しだけ揃えた2 Definitionを反例にする |
 | 分割試験が静的検査を迂回できる | Package scriptだけを直し、運用入口の順序が旧契約のままだった | `AGENTS.md`で同じ固定Commitの静的検査成功を分割試験の前提にする | Package契約試験で順序を固定する |
 
+固定Commit `c45192b8`の独立再レビューはCritical 0、Major 4、Moderate 2だった。初回指摘の構造だけを満たしても、Definitionが所有する意味をUXへ忠実に変換できていない組と、別成果として分けたUXへ同じ体験定型を複製した箇所が残ったため、次を一つの工程引渡し閉包として是正する。
+
+| 再レビューで判明した意味欠落 | 正しい状態 | 是正 |
+|---|---|---|
+| `REQ-000028`がAI入口間の共通規則・正本・判断境界ではなく、Agent間引継ぎへ置換された | 入口が異なっても同じCanonical Contextと決定境界へ到達する | `UX-000012`へ統合し、Workbench／MCP／CLI／AI入口の差を入口制約へ限定 |
+| `REQ-000034`が固定Commit・配布物・Manifest・Runtimeの対応ではなく、未Commit変更とEffect authorityへ置換された | 利用者が手作業でReleaseを照合せず、同じ固定改訂版の組を利用できる | `UX-000016`へ統合し、不一致・欠落・改ざんを失敗として保持 |
+| `REQ-000035`の閲覧者成果が保守者の素材権利確認へ畳まれた | 閲覧者と保守者の独立した成果を両方保持する | `UX-000031`を追加し、公式表示と署名・準拠・品質保証を混同しない成果を分離 |
+| `REQ-000027`がAI／Tool送信だけへ狭まり、検索、公開Communication、管理対象依存、外部反応の昇格境界を失った | 外部利用の送信・持帰り・昇格を一つの利用者成果として扱う | `UX-000024`と要求別分析へ失われた対象と禁止する自動昇格を復元 |
+| 独立したUX成果が同じGoal／重要体験を共有した | 各UX Definitionが固有の利用者、状況、Goal、Outcome、重要場面、失敗を持つ | `UX-000003`／`000004`、`000007`／`000008`を再分析し、定型複製をChecker反例化 |
+| UXの正式入力境界をLink位置や見出し語だけで迂回できた | 同じREQのDefinition 1件だけを正式入力とし、EXPや別REQを補助入力にしない | 全Linkを機械検査し、意味同等性はDefinitionだけを渡す独立レビューで確認 |
+
 再レビューの合格条件は、文面の自然さやリンク数ではない。主要な利用者、発生状況、問題、望ましい変化、独立したOutcome候補、重要な失敗および品質期待がDefinitionだけから再導出でき、現在のUXとの差を情報欠落または正当な再分析として説明できることである。
 
 ## 6. 完了条件
 
 | Gate | 完了条件 |
 |---|---|
-| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／30 DefinitionsがCanonical配置にある |
+| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／31 DefinitionsがCanonical配置にある |
 | Self-contained | 子成果物が対象固有の意味、成立条件、関係および下流入力を単独で説明できる |
 | Downstream Reproducibility | `Definitions/REQ-*`を下流入力として、現在のUX分析、Canonical UX、関係、重要な失敗および品質期待を情報劣化なく再構成できる |
 | Projection | Discovery／UX Rootから全Analysis・DefinitionとCoverageを一意に辿れる |
@@ -330,10 +343,10 @@
 | 確認 | 結果 |
 |---|---|
 | Discovery Analysis／Definition | 28／36 |
-| UX Analysis／Definition | 36／30 |
+| UX Analysis／Definition | 36／31 |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 280／280 Pass。Discovery／UXの空の共通Evidence Root、EXP直接入力、異なるREQ Definition、共通定型Definitionの再導入と、全CRDD所有TypeScript packageの静的検査先行を反証済み |
+| Checker契約試験 | 283／283 Pass。Discovery／UXの空の共通Evidence Root、任意位置のEXP直接入力、異なるREQ Definitionの追加、Canonical UX Definition間のGoal／重要体験の定型複製、共通定型Discovery Definitionの再導入と、全CRDD所有TypeScript packageの静的検査先行を反証済み |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 
-現在、人間による追加判断は必要ない。初回独立レビューのCritical 1件・Major 2件を一つの工程引渡し閉包として是正し、静的検査、全体Checkerおよび280件の回帰を固定した。次はDefinitionだけからのUX再導出を含む独立再レビューを行う。
+現在、人間による追加判断は必要ない。固定Commit `c45192b8`の独立再レビューで判明したMajor 4件・Moderate 2件を、正式入力境界、要求別の意味伝播、Canonical UXの固有性および利用側検査の一体是正として対応中である。静的検査、全体Checker、Checker契約試験を通した新しい固定候補で再レビューする。

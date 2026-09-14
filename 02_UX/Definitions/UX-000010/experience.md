@@ -70,6 +70,5 @@ IAはLocal Sourceを既定とし、横断Sourceを別状態にする。Architect
 
 ## 関係
 
-- Source REQ Analysis: [REQ-000008](../../Analysis/REQ-000008/ux_analysis.md)、[REQ-000034](../../Analysis/REQ-000034/ux_analysis.md)、[REQ-000036](../../Analysis/REQ-000036/ux_analysis.md)
+- Source REQ Analysis: [REQ-000008](../../Analysis/REQ-000008/ux_analysis.md)、[REQ-000036](../../Analysis/REQ-000036/ux_analysis.md)
 - Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
-

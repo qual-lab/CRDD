@@ -975,6 +975,92 @@ test("UX分析は別REQのDefinitionを正式入力にできない", () => {
   );
 });
 
+test("UX分析は任意位置のSource Analysis参照でDefinitionを補完できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n## 補足\n\n不足する意味は[過去の探索 EXP-000001](../../../01_Discovery/Analysis/EXP-000001/exploration.md)から補う。\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX分析は正しいHeaderに別REQ Definition参照を追加できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n| `REQ-000002` | B | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  for (const [id, marker] of [
+    ["REQ-000001", "固有A"],
+    ["REQ-000002", "固有B"],
+  ])
+    write(
+      path.join(root, "01_Discovery", "Definitions", id, "requirement.md"),
+      discoveryDefinition(id, "EXP-000001", marker),
+    );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n補助入力: [REQ-000002 別要求](../../../01_Discovery/Definitions/REQ-000002/requirement.md)\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("独立したUX Definitionは同じGoalと重要体験の定型コピーを共有できない", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000002` B | `REQ-000001` |\n",
+  );
+  const sharedDefinitionBody =
+    "\n## 利用者成果\n\n独立成果。\n\n## 利用者・状況・Goal\n\n| 項目 | 内容 |\n|---|---|\n| Primary Persona／Context | 利用者 |\n| Trigger／Situation | 開始時 |\n| Goal | 状態を理解する |\n| Outcome | 次へ進める |\n\n## 成立条件\n\n- 成立する。\n\n## 重要な体験と品質期待\n\n```text\n開始 → 理解 → 次へ\n```\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- Source REQ Analysis: REQ-000001\n";
+  for (const id of ["UX-000001", "UX-000002"])
+    write(
+      path.join(root, "02_UX", "Definitions", id, "experience.md"),
+      `# ${id}\n\n成果物種別: UX Definition\nUX ID: \`${id}\`\n${sharedDefinitionBody}`,
+    );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-definition-semantic-boilerplate-duplicate",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
 test("見出しだけ揃えた共通定型のDiscovery Definitionを要求固有の意味とみなさない", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
@@ -1024,7 +1110,7 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
   );
 });
 
-test("UXのSame判断はActor・Trigger・Outcome・Failureの両側比較を必要とする", () => {
+test("UXのSame判断は固定ラベル列挙なしでも要求固有の十分な理由を受け付ける", () => {
   const root = dispositionFixtureRoot();
   write(
     path.join(root, "01_Discovery", "01_Product_Discovery.md"),
@@ -1040,7 +1126,7 @@ test("UXのSame判断はActor・Trigger・Outcome・Failureの両側比較を必
   );
   const result = runChecker(root);
   assert.ok(
-    result.report.findings.some(
+    !result.report.findings.some(
       (finding) =>
         finding.code === "ux-requirement-analysis-relation-invalid" &&
         finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",

@@ -11,12 +11,12 @@ UX ID: `UX-000008`
 
 ```text
 Runtime導入・運用者
-        │ Runtime Componentを置換する時
+        │ 外部接続またはRuntime実行が止まった時
         ▼
-責務分離後も成立済みCapabilityを使う
+故障した境界と影響する能力を特定する
         │
         ▼
-内部変更の影響範囲を限定して更新できる
+使える能力を保ち正しい診断・回復先を選べる
 ```
 
 ## 利用者・状況・Goal
@@ -24,28 +24,28 @@ Runtime導入・運用者
 | 項目 | 内容 |
 |---|---|
 | Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「Runtime導入・運用者」 |
-| Trigger／Situation | Runtime Componentを置換する時 |
-| Goal | 責務分離後も成立済みCapabilityを使う |
-| Outcome | 内部変更の影響範囲を限定して更新できる |
+| Trigger／Situation | 外部接続またはRuntime実行が止まった時 |
+| Goal | 故障した境界と影響する能力を特定する |
+| Outcome | 使える能力を保ち正しい診断・回復先を選べる |
 
 ## 成立条件
 
 - 接続・認証・実行・結果搬送またはProvider境界のどこで止まり、何が利用可能かを理解できる
-- 重要場面「利用者向けCapabilityの継続」で、避ける失敗を利用者が正常状態や完了として誤認しない。
+- 重要場面「一つの失敗を全体障害と判断する直前」で、避ける失敗を利用者が正常状態や完了として誤認しない。
 - 入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。
 
 ## 重要な体験と品質期待
 
 ```text
-Runtime Componentを置換する時
+外部接続またはRuntime実行が止まった時
         ↓
-責務分離後も成立済みCapabilityを使う
+故障した境界と影響する能力を特定する
         │
-        ├─ ★ Critical: 利用者向けCapabilityの継続
-        ├─ ⚠ Failure:  内部Path変更で公開入口が壊れる
-        └─ ✓ Quality:  公開結果と成立済み能力を維持する
+        ├─ ★ Critical: 一つの失敗を全体障害と判断する直前
+        ├─ ⚠ Failure:  一律の失敗表示で無関係な能力まで停止する
+        └─ ✓ Quality:  Failure Origin・影響範囲・利用可能性を分ける
         ↓
-内部変更の影響範囲を限定して更新できる
+使える能力を保ち正しい診断・回復先を選べる
 ```
 
 ## 必要な情報
@@ -72,4 +72,3 @@ Architectureは責務と依存方向を、Verificationは各公開Capabilityの�
 
 - Source REQ Analysis: [REQ-000005](../../Analysis/REQ-000005/ux_analysis.md)、[REQ-000006](../../Analysis/REQ-000006/ux_analysis.md)、[REQ-000023](../../Analysis/REQ-000023/ux_analysis.md)
 - Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
-

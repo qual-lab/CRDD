@@ -7,16 +7,16 @@ UX ID: `UX-000016`
 
 ## 利用者成果
 
-現在Repositoryと目的に対応する標準Toolを見つけ、利用可能性・Effect権限・開発実行・公式実行を区別して選べる
+現在Repositoryの固定Commitと目的に対応する標準Tool／Runtimeを見つけ、別Releaseを手動照合せず安全に選べる
 
 ```text
 Developer
         │ Toolで処理を始める時
         ▼
-現在Repositoryで利用可能なCapabilityを知る
+固定Commitに対応するTool／Runtimeと利用可能性を知る
         │
         ▼
-名前やPathを推測せず適切な入口を選べる
+名前・Path・Versionを推測せず適切な入口を選べる
 ```
 
 ## 利用者・状況・Goal
@@ -25,13 +25,13 @@ Developer
 |---|---|
 | Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「Developer」 |
 | Trigger／Situation | Toolで処理を始める時 |
-| Goal | 現在Repositoryで利用可能なCapabilityを知る |
-| Outcome | 名前やPathを推測せず適切な入口を選べる |
+| Goal | 固定Commitに対応するTool／Runtimeと利用可能性を知る |
+| Outcome | 名前・Path・Versionを推測せず適切な入口を選べる |
 
 ## 成立条件
 
-- 現在Repositoryと目的に対応する標準Toolを見つけ、利用可能性・Effect権限・開発実行・公式実行を区別して選べる
-- 重要場面「実行入口を選択する場面」で、避ける失敗を利用者が正常状態や完了として誤認しない。
+- 現在Repositoryの固定Commitと目的に対応する標準Tool／Runtimeを見つけ、別Releaseを手動照合せず安全に選べる
+- 重要場面「発見したTool／Runtimeを起動する直前」で、避ける失敗を利用者が正常状態や完了として誤認しない。
 - 入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。
 
 ## 重要な体験と品質期待
@@ -39,18 +39,18 @@ Developer
 ```text
 Toolで処理を始める時
         ↓
-現在Repositoryで利用可能なCapabilityを知る
+固定Commitに対応するTool／Runtimeと利用可能性を知る
         │
-        ├─ ★ Critical: 実行入口を選択する場面
-        ├─ ⚠ Failure:  存在するファイルを利用可能Capabilityと誤認する
-        └─ ✓ Quality:  能力・入口・制約・現在状態を明示する
+        ├─ ★ Critical: 発見したTool／Runtimeを起動する直前
+        ├─ ⚠ Failure:  版不一致・欠落Runtime・改ざんManifestを対応版と誤認する
+        └─ ✓ Quality:  Commit・配布集合・Manifest・Runtimeの対応を検証する
         ↓
-名前やPathを推測せず適切な入口を選べる
+名前・Path・Versionを推測せず適切な入口を選べる
 ```
 
 ## 必要な情報
 
-Capability、Availability、Authority、Execution Mode、Repository Bindingを分ける
+Capability、Availability、Authority、Repository Commit、Distribution、Manifest、Runtime Bindingを分ける
 
 ## 制約
 
@@ -60,7 +60,7 @@ Capability、Availability、Authority、Execution Mode、Repository Bindingを�
 
 ## 検証意図
 
-未登録能力の推測表示、一覧からのAuthority発行および開発候補の正式配布表示を反証する
+fresh clone、submodule、版不一致、欠落Runtime、改ざんManifest、未登録能力の推測表示および一覧からのAuthority発行を反証する
 
 具体的なTest Level、Scenarioおよび期待結果はQualityで設計し、このDefinitionには実行結果を書き込まない。
 
@@ -72,4 +72,3 @@ IAはCapability、Availability、Authorityを分け、UI／MCPとVerificationは
 
 - Source REQ Analysis: [REQ-000014](../../Analysis/REQ-000014/ux_analysis.md)、[REQ-000034](../../Analysis/REQ-000034/ux_analysis.md)
 - Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
-

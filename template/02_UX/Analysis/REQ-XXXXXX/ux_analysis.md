@@ -7,6 +7,8 @@
 
 本書は要求を機能へ言い換える文書ではない。誰の何が問題かを確認し、利用者のGoalとOutcome、利用前後の変化、Canonical UXへの統合、重要場面と下流義務を順に導く。図を人間が理解する主表現にし、ID、Relation、Coverageおよび処置は表で厳密に残す。
 
+正式入力は上記の同じREQに対応するDiscovery Definitionだけとする。別REQまたは`01_Discovery/Analysis/EXP-*`から不足意味を補完せず、Definitionだけでは分析できない場合はDiscoveryへ戻してDefinitionを是正する。Source Analysisのリンクや内容を本書へ再掲しない。DefinitionとUX本文の意味同等性は機械検査だけで証明せず、Definition-onlyの独立レビューで反証する。
+
 ## 1. REQの一次分析
 
 ```text

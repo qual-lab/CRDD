@@ -11,12 +11,12 @@ UX ID: `UX-000003`
 
 ```text
 Project Operator／PM
-        │ 複数AIへ仕事を委ねる時
+        │ 委任した仕事の応答を待つ時
         ▼
-複数AIへ任せる範囲と権限を理解する
+現在の実行状態と必要な判断を確認する
         │
         ▼
-停止や失敗後も主導権を失わず結果を受け取れる
+待つ・入力する・取消す・回復するを選べる
 ```
 
 ## 利用者・状況・Goal
@@ -24,28 +24,28 @@ Project Operator／PM
 | 項目 | 内容 |
 |---|---|
 | Primary Persona／Context | [Product横断の利用者像](../../02_Personas.md)の「Project Operator／PM」 |
-| Trigger／Situation | 複数AIへ仕事を委ねる時 |
-| Goal | 複数AIへ任せる範囲と権限を理解する |
-| Outcome | 停止や失敗後も主導権を失わず結果を受け取れる |
+| Trigger／Situation | 委任した仕事の応答を待つ時 |
+| Goal | 現在の実行状態と必要な判断を確認する |
+| Outcome | 待つ・入力する・取消す・回復するを選べる |
 
 ## 成立条件
 
 - 内部logを読まず、実行中・待機・停止と現在必要な判断を理解できる
-- 重要場面「外部Effect前の委任境界」で、避ける失敗を利用者が正常状態や完了として誤認しない。
+- 重要場面「応答がなく待機か停止かを判断する場面」で、避ける失敗を利用者が正常状態や完了として誤認しない。
 - 入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。
 
 ## 重要な体験と品質期待
 
 ```text
-複数AIへ仕事を委ねる時
+委任した仕事の応答を待つ時
         ↓
-複数AIへ任せる範囲と権限を理解する
+現在の実行状態と必要な判断を確認する
         │
-        ├─ ★ Critical: 外部Effect前の委任境界
-        ├─ ⚠ Failure:  暗黙の範囲拡張や回復不能
-        └─ ✓ Quality:  委任状態・停止理由・回復先を行動可能に示す
+        ├─ ★ Critical: 応答がなく待機か停止かを判断する場面
+        ├─ ⚠ Failure:  古い観測や一律表示を進捗・完了と誤認する
+        └─ ✓ Quality:  観測時点・停止理由・必要な判断を行動可能に示す
         ↓
-停止や失敗後も主導権を失わず結果を受け取れる
+待つ・入力する・取消す・回復するを選べる
 ```
 
 ## 必要な情報
@@ -72,4 +72,3 @@ IAはTask、Actor、Authority、Result、Recoveryの関係を分け、SPECとArc
 
 - Source REQ Analysis: [REQ-000002](../../Analysis/REQ-000002/ux_analysis.md)、[REQ-000003](../../Analysis/REQ-000003/ux_analysis.md)
 - Cross-cutting Synthesis: [Personas](../../02_Personas.md)、[Experience Map](../../03_Experience_Map.md)、[Service Blueprint](../../04_Service_Blueprint.md)、[Quality Expectations](../../05_Quality_Expectations.md)
-
