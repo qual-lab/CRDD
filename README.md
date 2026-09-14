@@ -51,7 +51,7 @@ For capabilities and limits, read the [behavior specification](05_SPEC/01_Behavi
 
 Release identity and Runtime execution identity are separate. Documentation, CHG, roadmap, and quality-record changes update the release context but do not require Runtime re-signing or provider E2E when the machine-derived closed Runtime dependency set, security policies, and native artifact are unchanged. A change to that execution set changes the Runtime identity and requires re-signing plus the affected verification. This separation does not add another user approval.
 
-The release manifest can explicitly specify no expiry, so a verified distribution need not stop merely because time has elapsed. Signature, artifact identity, issue date, authorization, and compatibility checks still apply; this is not perpetual support. Initial consent and operation-specific expiry are separate and unchanged. See the [distribution validity contract](05_SPEC/01_Behavior_Specification.md#正式配布物の有効期間).
+The release manifest can explicitly specify no expiry, so a verified distribution need not stop merely because time has elapsed. Signature, artifact identity, issue date, authorization, and compatibility checks still apply; this is not perpetual support. Initial consent and operation-specific expiry are separate and unchanged. See the [distribution validity contract](05_SPEC/07_Current_Behavior_Reference.md#正式配布物の有効期間).
 
 The Coordinator Runtime delegates work through the official Codex and Claude Code CLIs using their own Subscription OAuth sessions. CRDD does not extract those sessions for another API, and the standard profile does not automatically fall back to API keys, metered APIs, credit purchases, or paid plan changes.
 
@@ -487,7 +487,7 @@ Release IdentityとRuntime実行Identityは分離する。文書、CHG、Roadmap
 
 通常の依頼は、完全なCRDD clone／submoduleに含まれる共通起動入口の`task --request-stdin --json`から実行する。Local Personalは各操作で署名済み配布物、Repository、選択ユーザー、Provider Home、AuthorityおよびRecoveryを検証するため、永続的なRuntime有効化やPlatform Provisioningを持たない。現在利用できる入口は`capabilities --json`で機械的に確認できる。適用先AI向けのexactな選択規則と実行例は[作業手順](19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)に示す。
 
-配布manifestには期限なしを明示でき、検証済み配布物が時間の経過だけで使えなくなることを避ける。署名、実体の一致、発行日時、権限および互換性の確認は維持し、永久サポートを意味しない。初期同意と各操作の期限は別契約のまま変えない。詳細は[正式配布物の有効期間](05_SPEC/01_Behavior_Specification.md#正式配布物の有効期間)を参照する。
+配布manifestには期限なしを明示でき、検証済み配布物が時間の経過だけで使えなくなることを避ける。署名、実体の一致、発行日時、権限および互換性の確認は維持し、永久サポートを意味しない。初期同意と各操作の期限は別契約のまま変えない。詳細は[正式配布物の有効期間](05_SPEC/07_Current_Behavior_Reference.md#正式配布物の有効期間)を参照する。
 
 Coordinator Runtimeは、公式のCodex／Claude Code CLIと、それぞれ自身のSubscription OAuth Sessionを使って仕事を委譲する。CRDDがSessionを抽出して別APIへ転用することはなく、標準ProfileはAPI key、従量API、Credit購入または有料Plan変更へ自動fallbackしない。
 

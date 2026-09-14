@@ -8,7 +8,7 @@
 
 Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、宣言した契約の整合を決定論的に調べる。文書を編集するツールではなく、AIの専門判断やCRDD準拠を認定するツールでもない。検査結果を読んだ人またはAIが、責務を持つ文書を修正する。
 
-利用契約は[振る舞い仕様](../../05_SPEC/01_Behavior_Specification.md#checker-contract)、操作は[Checkerの手順](../../19_Workflows/02_Checker.md)、全体の品質状態は[品質の現在状態](../../07_Quality/01_Quality_Center.md)を参照する。
+利用契約は[振る舞い仕様](../../05_SPEC/07_Current_Behavior_Reference.md#checker-contract)、操作は[Checkerの手順](../../19_Workflows/02_Checker.md)、全体の品質状態は[品質の現在状態](../../07_Quality/01_Quality_Center.md)を参照する。
 
 ## 2. 配布本体と開発用入口
 

@@ -48,6 +48,8 @@ UI契約
 
 本書は第三の工程、第三の項目の決定権限、またはUIとSPECを統合した新しい安定コンテキストを作らない。本書の対応レビュー契約は規範であり、規範強度と運用規模は[文書化](03_Documentation.md#48-normative-language)に従う。UI工程の入口、網羅範囲、完了条件、ゲート、監査は[UI](25_UI.md#phase-process-contract)、振る舞い仕様工程は[振る舞い仕様](26_Behavior_Specification.md#phase-process-contract)を正本とする。
 
+UIとSPECは、同じUX定義とIA定義をそれぞれ別観点で全数分析する。UIは認識・操作・Feedbackへ、SPECは契機・条件・状態・結果へ統合する。片側の分析または定義を、もう片側の正式入力の代替にしない。両定義ができた後、`pairs_with`の多対多関係で対応レビューする。
+
 ---
 
 # 2. UI・振る舞い仕様の対応レビュー契約

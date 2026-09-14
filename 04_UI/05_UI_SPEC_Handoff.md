@@ -1,6 +1,6 @@
 # UIとSPECの引き渡し
 
-状態: UI側確定。SPEC再構築後に対応関係を確定する
+状態: UI／SPEC対応レビューPass。SPECへ引き渡し済み
 
 ## 1. 共通の正式入力
 
@@ -50,3 +50,5 @@ SPECはこれらを再定義せず、同じUX／IAから観測可能な条件、
 - 片側だけの状態、Authority、Effect、欠測または例外を残さない。
 - 上流の不足をUI／SPECの推測で埋めていない。
 - `pairs_with`を全UI／SPEC定義の双方から辿れる。
+
+26件のSPEC定義と27件のUI／SPEC関係を独立レビューし、Critical 0／Major 0／Moderate 0／Minor 0でPassした。上流にない保存方式や別UXの回復意味をSPECへ補完せず、UIとSPECが同じUX／IA入力を保持することを確認した。

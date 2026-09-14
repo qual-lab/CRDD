@@ -1053,6 +1053,17 @@ function checkIaReconstruction(): void {
         relative(templatePath),
         "The official IA profile must include paired analysis and definition templates.",
       );
+  for (const sharedEvidenceRoot of [
+    path.join(root, "05_SPEC", "Evidence"),
+    path.join(root, "template", "05_SPEC", "Evidence"),
+  ])
+    if (lstatIfPresent(sharedEvidenceRoot)?.isDirectory())
+      add(
+        "error",
+        "spec-shared-evidence-root-forbidden",
+        relative(sharedEvidenceRoot),
+        "SPEC-specific evidence belongs under its SPEC ID; cross-SPEC execution evidence belongs to Change or Release.",
+      );
 
   const uxIds = new Set<string>();
   if (lstatIfPresent(uxDefinitionsRoot)?.isDirectory())
@@ -1584,6 +1595,404 @@ function checkUiReconstruction(): void {
 }
 
 checkUiReconstruction();
+
+function checkSpecReconstruction(): void {
+  if (repositoryMode !== "official") return;
+  const sectionBody = (source: string, heading: string): string => {
+    const escaped = heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    return (
+      source.match(
+        new RegExp(`^${escaped}\\s*$([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, "mu"),
+      )?.[1] ?? ""
+    );
+  };
+  const hasDuplicate = (values: string[]): boolean =>
+    new Set(values).size !== values.length;
+  const specIndexPath = path.join(
+    root,
+    "05_SPEC",
+    "01_Behavior_Specification.md",
+  );
+  if (!lstatIfPresent(specIndexPath)?.isFile()) return;
+  const specAnalysisRoot = path.join(root, "05_SPEC", "Analysis");
+  const specDefinitionsRoot = path.join(root, "05_SPEC", "Definitions");
+  const requiredTemplates = [
+    path.join(
+      root,
+      "template",
+      "05_SPEC",
+      "Analysis",
+      "UX-XXXXXX",
+      "spec_analysis.md",
+    ),
+    path.join(
+      root,
+      "template",
+      "05_SPEC",
+      "Analysis",
+      "IA-XXXXXX",
+      "spec_analysis.md",
+    ),
+    path.join(
+      root,
+      "template",
+      "05_SPEC",
+      "Definitions",
+      "SPEC-XXXXXX",
+      "spec_definition.md",
+    ),
+  ];
+  for (const templatePath of requiredTemplates)
+    if (!lstatIfPresent(templatePath)?.isFile())
+      add(
+        "error",
+        "spec-reconstruction-template-missing",
+        relative(templatePath),
+        "The official SPEC profile must include separate UX-view and IA-view analyses plus the integrated SPEC definition template.",
+      );
+
+  const definitionIds = (base: string, prefix: "UX" | "IA", file: string) => {
+    const result = new Set<string>();
+    if (!lstatIfPresent(base)?.isDirectory()) return result;
+    for (const entry of fs.readdirSync(base, { withFileTypes: true }))
+      if (
+        entry.isDirectory() &&
+        new RegExp(`^${prefix}-[0-9]{6}$`, "u").test(entry.name) &&
+        lstatIfPresent(path.join(base, entry.name, file))?.isFile()
+      )
+        result.add(entry.name);
+    return result;
+  };
+  const uxIds = definitionIds(
+    path.join(root, "02_UX", "Definitions"),
+    "UX",
+    "ux_definition.md",
+  );
+  const iaIds = definitionIds(
+    path.join(root, "03_IA", "Definitions"),
+    "IA",
+    "ia_definition.md",
+  );
+  const analyzedUx = new Set<string>();
+  const analyzedIa = new Set<string>();
+  const analysisRelationOccurrences: string[] = [];
+
+  if (lstatIfPresent(specAnalysisRoot)?.isDirectory())
+    for (const entry of fs.readdirSync(specAnalysisRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^(UX|IA)-[0-9]{6}$/u.test(entry.name))
+        continue;
+      const analysisPath = path.join(
+        specAnalysisRoot,
+        entry.name,
+        "spec_analysis.md",
+      );
+      if (!lstatIfPresent(analysisPath)?.isFile()) continue;
+      const source = visibleMarkdownStructure(read(analysisPath));
+      const isUx = entry.name.startsWith("UX-");
+      if (isUx) analyzedUx.add(entry.name);
+      else analyzedIa.add(entry.name);
+      const expectedInput = isUx
+        ? `../../../02_UX/Definitions/${entry.name}/ux_definition.md`
+        : `../../../03_IA/Definitions/${entry.name}/ia_definition.md`;
+      const requiredHeadings = isUx
+        ? [
+            "## 2. 振る舞いへ引き継ぐ利用者成果",
+            "## 3. 観測可能にする契機・結果・失敗",
+            "## 4. 受入条件と適用範囲",
+            "## 5. SPEC処置",
+            "## 6. IA観点との統合時に確認すること",
+          ]
+        : [
+            "## 2. 利用場面ごとに保持する意味",
+            "## 3. 対象・識別・関係",
+            "## 4. 状態・可視性・時間的意味",
+            "## 5. 導線・責任・失敗時の保持",
+            "## 6. SPEC処置",
+            "## 7. UX観点との統合時に確認すること",
+          ];
+      const inputSection =
+        source.match(/^## 1\. 正式入力\s*$([\s\S]*?)(?=^## )/mu)?.[1] ?? "";
+      const dispositionSection = sectionBody(
+        source,
+        isUx ? "## 5. SPEC処置" : "## 6. SPEC処置",
+      );
+      const currentRelations: string[] = [];
+      for (const match of dispositionSection.matchAll(
+        /\[(SPEC-[0-9]{6})[^\]]*\]\(\.\.\/\.\.\/Definitions\/\1\/spec_definition\.md\)/gu,
+      ))
+        currentRelations.push(`${entry.name}|${match[1]}`);
+      analysisRelationOccurrences.push(...currentRelations);
+      if (
+        !source.includes(
+          isUx
+            ? "成果物種別: SPEC分析（UX観点）"
+            : "成果物種別: SPEC分析（IA観点）",
+        ) ||
+        !source.includes(`分析単位: \u0060${entry.name}\u0060`) ||
+        !inputSection.includes(expectedInput) ||
+        (isUx
+          ? /03_IA\/Definitions|IA-[0-9]{6}|REQ-[0-9]{6}/u
+          : /02_UX\/Definitions|UX-[0-9]{6}|REQ-[0-9]{6}/u
+        ).test(inputSection) ||
+        !requiredHeadings.every((heading) => source.includes(heading)) ||
+        currentRelations.length === 0 ||
+        hasDuplicate(currentRelations)
+      )
+        add(
+          "error",
+          isUx
+            ? "spec-ux-analysis-contract-invalid"
+            : "spec-ia-analysis-contract-invalid",
+          relative(analysisPath),
+          "Each SPEC input must be analyzed independently from exactly its own UX or IA definition and must identify at least one SPEC disposition.",
+        );
+    }
+
+  if (
+    uxIds.size !== analyzedUx.size ||
+    [...uxIds].some((id) => !analyzedUx.has(id)) ||
+    [...analyzedUx].some((id) => !uxIds.has(id))
+  )
+    add(
+      "error",
+      "spec-ux-analysis-coverage-mismatch",
+      relative(specIndexPath),
+      "Every canonical UX definition must have exactly one UX-view SPEC analysis.",
+    );
+
+  const analysisRelations = new Set(analysisRelationOccurrences);
+  if (hasDuplicate(analysisRelationOccurrences))
+    add(
+      "error",
+      "spec-analysis-relation-duplicate",
+      relative(specAnalysisRoot),
+      "A SPEC disposition relation must appear exactly once in its canonical analysis section.",
+    );
+  if (
+    iaIds.size !== analyzedIa.size ||
+    [...iaIds].some((id) => !analyzedIa.has(id)) ||
+    [...analyzedIa].some((id) => !iaIds.has(id))
+  )
+    add(
+      "error",
+      "spec-ia-analysis-coverage-mismatch",
+      relative(specIndexPath),
+      "Every canonical IA definition must have exactly one IA-view SPEC analysis.",
+    );
+
+  const registryIds = new Set<string>();
+  const registryIdOccurrences: string[] = [];
+  const registryRelations = new Set<string>();
+  const registryRelationOccurrences: string[] = [];
+  const registryUiPairs = new Set<string>();
+  const registryUiPairOccurrences: string[] = [];
+  const index = visibleMarkdownStructure(read(specIndexPath));
+  for (const line of index.split(/\r?\n/u)) {
+    const row = line.match(
+      /^\| \[(SPEC-[0-9]{6})\]\(Definitions\/\1\/spec_definition\.md\) \| [^|]+ \| (?<ux>[^|]+) \| (?<ia>[^|]+) \| (?<ui>[^|]+) \|$/u,
+    );
+    if (!row?.groups) continue;
+    const specId = row[1];
+    registryIdOccurrences.push(specId);
+    registryIds.add(specId);
+    for (const id of row.groups.ux.match(/UX-[0-9]{6}/gu) ?? []) {
+      const relation = `${id}|${specId}`;
+      registryRelationOccurrences.push(relation);
+      registryRelations.add(relation);
+    }
+    for (const id of row.groups.ia.match(/IA-[0-9]{6}/gu) ?? []) {
+      const relation = `${id}|${specId}`;
+      registryRelationOccurrences.push(relation);
+      registryRelations.add(relation);
+    }
+    for (const id of row.groups.ui.match(/UI-[0-9]{6}/gu) ?? []) {
+      const relation = `${id}|${specId}`;
+      registryUiPairOccurrences.push(relation);
+      registryUiPairs.add(relation);
+    }
+  }
+
+  if (
+    hasDuplicate(registryIdOccurrences) ||
+    hasDuplicate(registryRelationOccurrences) ||
+    hasDuplicate(registryUiPairOccurrences)
+  )
+    add(
+      "error",
+      "spec-registry-relation-duplicate",
+      relative(specIndexPath),
+      "SPEC registry IDs and UX/IA/UI relations must each appear exactly once.",
+    );
+
+  const actualIds = new Set<string>();
+  const definitionRelations = new Set<string>();
+  const definitionRelationOccurrences: string[] = [];
+  const definitionUiPairs = new Set<string>();
+  const definitionUiPairOccurrences: string[] = [];
+  if (lstatIfPresent(specDefinitionsRoot)?.isDirectory())
+    for (const entry of fs.readdirSync(specDefinitionsRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^SPEC-[0-9]{6}$/u.test(entry.name))
+        continue;
+      const definitionPath = path.join(
+        specDefinitionsRoot,
+        entry.name,
+        "spec_definition.md",
+      );
+      if (!lstatIfPresent(definitionPath)?.isFile()) continue;
+      actualIds.add(entry.name);
+      const source = visibleMarkdownStructure(read(definitionPath));
+      const uxInputSection = sectionBody(source, "## UX観点の入力");
+      const iaInputSection = sectionBody(source, "## IA観点の入力");
+      for (const match of `${uxInputSection}\n${iaInputSection}`.matchAll(
+        /\[(UX|IA)-([0-9]{6})\]\(\.\.\/\.\.\/Analysis\/\1-\2\/spec_analysis\.md\)/gu,
+      )) {
+        const relation = `${match[1]}-${match[2]}|${entry.name}`;
+        definitionRelationOccurrences.push(relation);
+        definitionRelations.add(relation);
+      }
+      const uiSection = sectionBody(source, "## 対応するUI");
+      const uiPairLine =
+        uiSection.match(/^- pairs_with:\s*(.+)$/mu)?.[1]?.trim() ?? "";
+      for (const match of uiPairLine.matchAll(
+        /\[(UI-[0-9]{6})\]\(\.\.\/\.\.\/\.\.\/04_UI\/Definitions\/\1\/ui_definition\.md\)/gu,
+      )) {
+        const relation = `${match[1]}|${entry.name}`;
+        definitionUiPairOccurrences.push(relation);
+        definitionUiPairs.add(relation);
+      }
+      const isNoDirectUi = uiPairLine === "Not Applicable";
+      const hasMixedUiDisposition =
+        uiPairLine.includes("Not Applicable") && !isNoDirectUi;
+      const isNoDirectUiComplete =
+        isNoDirectUi &&
+        /^- 理由:\s*\S+/mu.test(uiSection) &&
+        /^- 運用Feedback:\s*\S+/mu.test(uiSection) &&
+        /^- 人間確認:\s*\S+/mu.test(uiSection);
+      const requiredTokens = [
+        "成果物種別: SPEC定義",
+        `SPEC ID: \u0060${entry.name}\u0060`,
+        "## 振る舞いの目的",
+        "## UX観点の入力",
+        "## IA観点の入力",
+        "## 両観点の統合判断",
+        "## 契機・事前条件・Authority",
+        "## 振る舞い・状態・結果",
+        "## 失敗・回復・副作用",
+        "## 受入条件と検証義務",
+        "## 対応するUI",
+        "## 制約",
+      ];
+      if (
+        !requiredTokens.every((token) => source.includes(token)) ||
+        (!isNoDirectUi &&
+          definitionUiPairOccurrences.filter((pair) =>
+            pair.endsWith(`|${entry.name}`),
+          ).length === 0) ||
+        (isNoDirectUi && !isNoDirectUiComplete) ||
+        (isNoDirectUi && /\[UI-[0-9]{6}\]/u.test(uiPairLine)) ||
+        hasMixedUiDisposition
+      )
+        add(
+          "error",
+          "spec-definition-contract-invalid",
+          relative(definitionPath),
+          "Each SPEC definition must integrate UX-view and IA-view inputs into an observable behavior contract.",
+        );
+    }
+
+  if (
+    hasDuplicate(definitionRelationOccurrences) ||
+    hasDuplicate(definitionUiPairOccurrences)
+  )
+    add(
+      "error",
+      "spec-definition-relation-duplicate",
+      relative(specDefinitionsRoot),
+      "SPEC input and pairs_with relations must each appear exactly once in their canonical sections.",
+    );
+
+  if (
+    registryIds.size !== actualIds.size ||
+    [...registryIds].some((id) => !actualIds.has(id)) ||
+    [...actualIds].some((id) => !registryIds.has(id))
+  )
+    add(
+      "error",
+      "spec-definition-index-coverage-mismatch",
+      relative(specIndexPath),
+      "The SPEC registry and definition directories must be an exact set.",
+    );
+  if (
+    [...registryRelations].some(
+      (r) => !analysisRelations.has(r) || !definitionRelations.has(r),
+    ) ||
+    [...analysisRelations].some(
+      (r) => !registryRelations.has(r) || !definitionRelations.has(r),
+    ) ||
+    [...definitionRelations].some(
+      (r) => !registryRelations.has(r) || !analysisRelations.has(r),
+    )
+  )
+    add(
+      "error",
+      "spec-analysis-definition-closure-mismatch",
+      relative(specIndexPath),
+      "The SPEC registry, separate analyses, and definitions must form the same UX/IA-to-SPEC relation set.",
+    );
+
+  const uiPairs = new Set<string>();
+  const uiPairOccurrences: string[] = [];
+  const uiDefinitionsRoot = path.join(root, "04_UI", "Definitions");
+  if (lstatIfPresent(uiDefinitionsRoot)?.isDirectory())
+    for (const entry of fs.readdirSync(uiDefinitionsRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^UI-[0-9]{6}$/u.test(entry.name)) continue;
+      const file = path.join(uiDefinitionsRoot, entry.name, "ui_definition.md");
+      if (!lstatIfPresent(file)?.isFile()) continue;
+      const source = visibleMarkdownStructure(read(file));
+      const pairSection = sectionBody(source, "## 対応するSPEC");
+      const pairLine =
+        pairSection.match(/^- pairs_with:\s*(.+)$/mu)?.[1]?.trim() ?? "";
+      for (const match of pairLine.matchAll(
+        /\[(SPEC-[0-9]{6})\]\(\.\.\/\.\.\/\.\.\/05_SPEC\/Definitions\/\1\/spec_definition\.md\)/gu,
+      )) {
+        const relation = `${entry.name}|${match[1]}`;
+        uiPairOccurrences.push(relation);
+        uiPairs.add(relation);
+      }
+    }
+  if (hasDuplicate(uiPairOccurrences))
+    add(
+      "error",
+      "ui-spec-pair-duplicate",
+      relative(uiDefinitionsRoot),
+      "Each UI-to-SPEC pairs_with relation must appear exactly once in its canonical section.",
+    );
+  if (
+    [...registryUiPairs].some(
+      (r) => !definitionUiPairs.has(r) || !uiPairs.has(r),
+    ) ||
+    [...definitionUiPairs].some(
+      (r) => !registryUiPairs.has(r) || !uiPairs.has(r),
+    ) ||
+    [...uiPairs].some(
+      (r) => !registryUiPairs.has(r) || !definitionUiPairs.has(r),
+    )
+  )
+    add(
+      "error",
+      "ui-spec-pair-closure-mismatch",
+      relative(specIndexPath),
+      "UI and SPEC definitions plus the SPEC registry must expose the same duplicate-free pairs_with relation set.",
+    );
+}
+
+checkSpecReconstruction();
 
 let workLifecycleRoots = [
   path.join(root, "99_Roadmap"),

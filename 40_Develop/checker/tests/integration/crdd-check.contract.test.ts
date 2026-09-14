@@ -68,6 +68,18 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
       assert.ok(content.includes("## 2. 入力と網羅状況"), relativePath);
       assert.ok(content.includes("## 3. IA定義台帳"), relativePath);
       assert.ok(content.includes("## 5. 基本図の処置"), relativePath);
+    } else if (
+      relativePath === "template/05_SPEC/01_Behavior_Specification.md"
+    ) {
+      assert.ok(
+        content.includes("```text"),
+        `${relativePath}: visual structure`,
+      );
+      assert.ok(content.includes("|"), `${relativePath}: structured mapping`);
+      assert.ok(content.includes("## 1. SPEC工程で解くこと"), relativePath);
+      assert.ok(content.includes("## 2. 入力と網羅状況"), relativePath);
+      assert.ok(content.includes("## 3. SPEC定義台帳"), relativePath);
+      assert.ok(content.includes("## 5. 基本図の処置"), relativePath);
     } else {
       assert.ok(content.includes("文章形式を要求しない"), relativePath);
       assert.ok(content.includes("## 対象範囲と現在状態"), relativePath);
@@ -2339,6 +2351,257 @@ test("UI台帳・分析・定義のUXとIA対応は完全一致する", () => {
   );
 });
 
+test("SPEC分析はUX観点とIA観点を分けて全入力を閉じる", () => {
+  const root = specReconstructionFixtureRoot();
+  const valid = runChecker(root);
+  assert.ok(
+    !valid.report.findings.some((finding) => finding.code.startsWith("spec-")),
+    `${valid.stdout}\n${valid.stderr}`,
+  );
+  fs.rmSync(path.join(root, "05_SPEC", "Analysis", "UX-000001"), {
+    recursive: true,
+    force: true,
+  });
+  const missing = runChecker(root);
+  assert.ok(
+    missing.report.findings.some(
+      (finding) => finding.code === "spec-ux-analysis-coverage-mismatch",
+    ),
+    `${missing.stdout}\n${missing.stderr}`,
+  );
+});
+
+test("UX観点のSPEC分析はIAまたはREQを正式入力へ追加できない", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Analysis",
+    "UX-000001",
+    "spec_analysis.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "- UX定義:",
+        "- 要求: REQ-000001\n- IA定義: IA-000001\n- UX定義:",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-ux-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("SPEC台帳・分析・定義の入力関係は完全一致する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replaceAll("IA-000001", "IA-000002"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UIとSPECのpairs_with関係は双方と台帳で完全一致する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replace("SPEC-000001", "SPEC-000002"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-spec-pair-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("SPEC処置の重複関係を拒否する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Analysis",
+    "UX-000001",
+    "spec_analysis.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |",
+        "| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | Same | 重複 |",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-analysis-relation-duplicate",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("対応UI節外のリンクをpairs_withとして数えない", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replace("- pairs_with:", "- 参考UI:"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("直接UIなしは理由・運用Feedback・人間確認を必須にする", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)",
+        "- pairs_with: Not Applicable",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("理由付きの直接UIなし契約を受理する", () => {
+  const root = specReconstructionFixtureRoot();
+  const definition = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    definition,
+    fs
+      .readFileSync(definition, "utf8")
+      .replace(
+        "- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)",
+        "- pairs_with: Not Applicable\n- 理由: 背景処理である\n- 運用Feedback: 構造化結果で確認する\n- 人間確認: 試験責任者が確認済み",
+      ),
+  );
+  const index = path.join(root, "05_SPEC", "01_Behavior_Specification.md");
+  write(
+    index,
+    fs
+      .readFileSync(index, "utf8")
+      .replace("| UI-000001 |", "| Not Applicable |"),
+  );
+  const ui = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    ui,
+    fs
+      .readFileSync(ui, "utf8")
+      .replace(
+        "- pairs_with: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)",
+        "- 直接SPECなし: この試験では背景処理として扱う",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some((finding) => finding.code.startsWith("spec-")),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("直接UIありとなしの同時宣言を拒否する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace("- pairs_with:", "- pairs_with: Not Applicable、"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("SPEC工程直下の共通Evidence箱を拒否する", () => {
+  const root = specReconstructionFixtureRoot();
+  write(path.join(root, "05_SPEC", "Evidence", ".gitkeep"));
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-shared-evidence-root-forbidden",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
 after(() => {
   for (const root of fixtures) {
     fs.rmSync(root, { recursive: true, force: true });
@@ -2485,6 +2748,85 @@ function uiReconstructionFixtureRoot(): string {
       "ui_definition.md",
     ),
     "# UI定義ひな型\n",
+  );
+  return root;
+}
+
+function specReconstructionFixtureRoot(): string {
+  const root = uiReconstructionFixtureRoot();
+  const uxAnalysis = `# UX-000001のSPEC分析\n\n成果物種別: SPEC分析（UX観点）\n分析単位: \`UX-000001\`\n\n## 1. 正式入力\n\n- UX定義: [UX-000001 試験用](../../../02_UX/Definitions/UX-000001/ux_definition.md)\n\n## 2. 振る舞いへ引き継ぐ利用者成果\n\n成果を示す。\n\n## 3. 観測可能にする契機・結果・失敗\n\n結果を示す。\n\n## 4. 受入条件と適用範囲\n\n適用範囲を示す。\n\n## 5. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と統合する。\n`;
+  const iaAnalysis = `# IA-000001のSPEC分析\n\n成果物種別: SPEC分析（IA観点）\n分析単位: \`IA-000001\`\n\n## 1. 正式入力\n\n- IA定義: [IA-000001 試験用](../../../03_IA/Definitions/IA-000001/ia_definition.md)\n\n## 2. 利用場面ごとに保持する意味\n\n利用場面を示す。\n\n## 3. 対象・識別・関係\n\n情報を示す。\n\n## 4. 状態・可視性・時間的意味\n\n状態を示す。\n\n## 5. 導線・責任・失敗時の保持\n\n保持を示す。\n\n## 6. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 7. UX観点との統合時に確認すること\n\n利用者成果と統合する。\n`;
+  const definition = `# SPEC-000001 試験用\n\n成果物種別: SPEC定義\nSPEC ID: \`SPEC-000001\`\n\n## 振る舞いの目的\n\n目的。\n\n## UX観点の入力\n\n[UX-000001](../../Analysis/UX-000001/spec_analysis.md)\n\n## IA観点の入力\n\n[IA-000001](../../Analysis/IA-000001/spec_analysis.md)\n\n## 両観点の統合判断\n\n統合する。\n\n## 契機・事前条件・Authority\n\n条件。\n\n## 振る舞い・状態・結果\n\n結果。\n\n## 失敗・回復・副作用\n\n失敗。\n\n## 受入条件と検証義務\n\n受入。\n\n## 対応するUI\n\n- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 制約\n\n制約。\n`;
+  write(
+    path.join(root, "05_SPEC", "01_Behavior_Specification.md"),
+    "# SPEC\n\n| SPEC | 観測可能な振る舞い契約 | 主な入力UX | 主な入力IA | 対応UI |\n|---|---|---|---|---|\n| [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | 試験用 | UX-000001 | IA-000001 | UI-000001 |\n",
+  );
+  write(
+    path.join(root, "05_SPEC", "Analysis", "UX-000001", "spec_analysis.md"),
+    uxAnalysis,
+  );
+  write(
+    path.join(root, "05_SPEC", "Analysis", "IA-000001", "spec_analysis.md"),
+    iaAnalysis,
+  );
+  write(
+    path.join(
+      root,
+      "05_SPEC",
+      "Definitions",
+      "SPEC-000001",
+      "spec_definition.md",
+    ),
+    definition,
+  );
+  const uiFile = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    uiFile,
+    fs
+      .readFileSync(uiFile, "utf8")
+      .replace(
+        "## 情報源",
+        "## 対応するSPEC\n\n- pairs_with: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)\n\n## 情報源",
+      ),
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "05_SPEC",
+      "Analysis",
+      "UX-XXXXXX",
+      "spec_analysis.md",
+    ),
+    "# UX SPEC analysis\n",
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "05_SPEC",
+      "Analysis",
+      "IA-XXXXXX",
+      "spec_analysis.md",
+    ),
+    "# IA SPEC analysis\n",
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "05_SPEC",
+      "Definitions",
+      "SPEC-XXXXXX",
+      "spec_definition.md",
+    ),
+    "# SPEC definition\n",
   );
   return root;
 }

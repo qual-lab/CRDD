@@ -98,6 +98,12 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 SPECはこの表の結論を転記せず、UX観点とIA観点を別々に分析する。UIの操作に対応する発火条件・結果がない、またはSPECの結果を利用者が認識できない場合は対応レビューを通過しない。
 
+## 対応するSPEC
+
+- pairs_with: [SPEC-000023](../../../05_SPEC/Definitions/SPEC-000023/spec_definition.md)
+
+UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果をこの節で再定義しない。
+
 ## 情報源
 
 - [UX-000027のUI分析](../../Analysis/UX-000027/ui_analysis.md)

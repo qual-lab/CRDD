@@ -24,6 +24,8 @@
 | IA出力 | 単一Root文書へ情報対象、関係、導線、状態、下流義務が混在 | 21件の`Definitions/IA-ID/ia_definition.md`を定義候補とし、Root文書は台帳と横断図だけを投影。実行基盤の故障範囲と、過去判断・現在意図は既存定義へ畳まず独立させる |
 | UI分析 | 単一文書がUX、IA、現行実装および過去の操作契約を混在して説明 | 31件の`Analysis/UX-ID/ui_analysis.md`が利用者成果・操作・Feedbackを、21件の`Analysis/IA-ID/ui_analysis.md`が情報・状態・関係・可視性・導線を別々に全数分析する。相手側の不足を暗黙に補完せず、UI定義で初めて統合する |
 | UI出力 | 現行操作、将来Workbench候補、表示品質、UI／SPEC対応が単一Root文書に混在 | 19件の`Definitions/UI-ID/ui_definition.md`へ独立した利用者Interface契約を統合し、Root文書は台帳・Coverage・Navigation、横断文書は表示面・状態・視覚方針・SPEC引渡し、現行実装は別参照へ分ける |
+| SPEC分析 | 単一文書がUX成果、IA構造、現行実装、UI対応および振る舞い詳細を混在して説明 | 31件の`Analysis/UX-ID/spec_analysis.md`と21件の`Analysis/IA-ID/spec_analysis.md`で正式入力を別々に分析し、REQ・相手観点・現行実装から不足を補完しない |
+| SPEC出力 | 巨大な単一Root文書が現在有効な振る舞い、旧経緯、横断図および現行実装参照を所有 | 26件の`Definitions/SPEC-ID/spec_definition.md`へ独立した観測可能な振る舞い契約を統合し、Root文書は台帳・Coverage・横断図、現行実装との照合は`07_Current_Behavior_Reference.md`へ分ける。実行事実は上流から導ける取得契約へ統合し、上流にない永続記録方式を追加しない。外部送信、結果帰還、候補昇格、再接続は、Authority・副作用・入力UXが異なるため分割する |
 | UI／SPEC入力境界 | 下流工程がREQを直接読み、UX／IAの不足を暗黙に補完し得る | UIとSPECはUX＋IAを共通の正式入力として別々に分析する。REQはUXより上流の追跡情報に限定し、不足時はUXまたはIAを再開する |
 | 工程Root | 個別本文と工程全体像が混在し得る | `01_*`は入口・台帳・Coverage・Current State・Navigation、その他Root文書は横断合成 |
 | Evidence | 工程共通の空Folderをひな型へ先置き | 必要な所有対象のID直下だけに作成。実行結果はCHG／Release Evidenceが所有 |
@@ -462,6 +464,97 @@
 - [`template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md`](<../../../template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md>)
 - [`template/04_UI/Definitions/UI-XXXXXX/ui_definition.md`](<../../../template/04_UI/Definitions/UI-XXXXXX/ui_definition.md>)
 
+- [`05_SPEC/02_Use_Case_and_Behavior_Flow.md`](<../../../05_SPEC/02_Use_Case_and_Behavior_Flow.md>)
+- [`05_SPEC/03_State_Transition_Model.md`](<../../../05_SPEC/03_State_Transition_Model.md>)
+- [`05_SPEC/04_Actor_System_Sequence.md`](<../../../05_SPEC/04_Actor_System_Sequence.md>)
+- [`05_SPEC/05_Error_Effect_and_Recovery.md`](<../../../05_SPEC/05_Error_Effect_and_Recovery.md>)
+- [`05_SPEC/06_UI_SPEC_Correspondence.md`](<../../../05_SPEC/06_UI_SPEC_Correspondence.md>)
+- [`05_SPEC/07_Current_Behavior_Reference.md`](<../../../05_SPEC/07_Current_Behavior_Reference.md>)
+- [`05_SPEC/Analysis/IA-000001/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000001/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000002/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000002/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000003/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000003/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000004/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000004/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000005/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000005/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000006/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000006/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000007/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000007/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000008/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000008/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000009/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000009/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000010/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000010/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000011/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000011/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000012/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000012/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000013/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000013/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000014/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000014/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000015/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000015/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000016/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000016/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000017/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000017/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000018/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000018/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000019/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000019/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000020/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000020/spec_analysis.md>)
+- [`05_SPEC/Analysis/IA-000021/spec_analysis.md`](<../../../05_SPEC/Analysis/IA-000021/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000001/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000001/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000002/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000002/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000003/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000003/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000004/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000004/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000005/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000005/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000006/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000006/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000007/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000007/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000008/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000008/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000009/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000009/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000010/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000010/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000011/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000011/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000012/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000012/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000013/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000013/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000014/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000014/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000015/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000015/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000016/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000016/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000017/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000017/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000018/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000018/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000019/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000019/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000020/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000020/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000021/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000021/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000022/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000022/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000023/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000023/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000024/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000024/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000025/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000025/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000026/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000026/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000027/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000027/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000028/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000028/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000029/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000029/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000030/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000030/spec_analysis.md>)
+- [`05_SPEC/Analysis/UX-000031/spec_analysis.md`](<../../../05_SPEC/Analysis/UX-000031/spec_analysis.md>)
+- [`05_SPEC/Definitions/SPEC-000001/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000002/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000002/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000003/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000003/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000004/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000004/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000005/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000005/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000006/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000006/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000007/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000007/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000008/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000008/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000009/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000009/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000010/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000010/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000011/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000011/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000012/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000013/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000013/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000014/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000014/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000015/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000015/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000016/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000016/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000017/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000017/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000018/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000018/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000019/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000019/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000020/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000020/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000021/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000021/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000022/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000022/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000023/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000023/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000024/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000024/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000026/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000026/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000027/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000027/spec_definition.md>)
+- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
+- [`README.md`](<../../../README.md>)
+- [`template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md`](<../../../template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md>)
+- [`template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md`](<../../../template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md>)
+- [`template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md`](<../../../template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md>)
+- `template/05_SPEC/Evidence/.gitkeep`（削除または旧Path）
+
 </details>
 
 ## 3. 保持する意図と変更禁止範囲
@@ -651,14 +744,16 @@ fingerprint `84ba5ef934944e4c16d2f42b7ef0cbb124515f5dac6f7dfb9d4026df22589071`�
 |---|---|
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／31 |
-| IA Analysis／Definition | 31／21。初回独立レビューの意味欠落を受け、入力UXごとの7軸を保持する構造へ是正中 |
+| IA Analysis／Definition | 31／21。入力UXごとの利用場面、対象、識別、関係、状態、可視性、導線、責任を保持し、独立レビューCritical 0／Major 0／Moderate 0／Minor 0でPass |
 | UI Analysis／Definition | UX観点31／IA観点21／Definition 19。定型Lifecycle、意味統合不足、横断状態の過剰適用、重複引き渡しを是正し、分析済み／CanonicalとしてSPECへ引き渡し可能 |
+| SPEC Analysis／Definition | UX観点31／IA観点21／Definition 26を分析済み／Canonicalへ昇格した。19 UIの複製ではなく、委任受理と状態観測、回復と清掃、Project投影とPortfolio比較等を独立した振る舞い単位へ分け、27件のUI／SPEC対応を多対多で定義した。Checkerは正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止まで反証する |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 313／313 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIではUX観点とIA観点の全数、正式入力、台帳・分析・定義の関係閉包を検査する。意味の再構築可能性は独立レビューへ分離 |
+| Checker契約試験 | 323／323 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。意味の再構築可能性は独立レビューへ分離 |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
 | IA独立レビュー | 最終固定候補fingerprint `b03240ccc0a09f5461ee236cc48c4ca8165291bcc3e92aea24b1dd3f5f01cede`を意味伝播と構造閉包の2者が再レビューし、ともにCritical 0／Major 0／Moderate 0／Minor 0でPass |
 | UI独立レビュー | 31 UX観点分析、21 IA観点分析、19 UI定義、37 UX×IA関係と横断文書を再々レビューし、Critical 0／Major 0／Moderate 0／Minor 0でPass |
+| SPEC独立レビュー | 上流にない永続記録方式を除きSPEC-000008を読取りへ統合し、送信・結果帰還・候補昇格・再接続を入力UXとAuthority別に分離した。26 SPECの具体的な境界条件と27 UI／SPEC関係を再レビューし、Critical 0／Major 0／Moderate 0／Minor 0でPass |
 
-固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後の人間向け表示契約と`Same`関係の具体化で新しい引き渡し不備が露出した。最終候補は18件の`Same`関係、`Same`を受ける13 DefinitionとUX-000008を合わせた14 Definitionの追加条件区画、UX-000008の正式な要求所有者、正式入力Headerと対象Pathの結合、およびescaped spanを保持した一回復号まで是正した。Discovery／UXの工程間引き渡しは3者、IAの意味伝播と構造閉包は2者の独立再レビューでPassした。31件のIA分析と21件のIA定義を現在有効な下流入力として引き渡せる。現在、人間による追加判断は必要ない。
+固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後の人間向け表示契約と`Same`関係の具体化で新しい引き渡し不備が露出した。最終候補は18件の`Same`関係、`Same`を受ける13 DefinitionとUX-000008を合わせた14 Definitionの追加条件区画、UX-000008の正式な要求所有者、正式入力Headerと対象Pathの結合、およびescaped spanを保持した一回復号まで是正した。Discovery／UXの工程間引き渡しは3者、IAの意味伝播と構造閉包は2者、UIとSPECは各工程の独立再レビューでPassした。31件のUX定義と21件のIA定義から、19件のUI定義と26件のSPEC定義を情報劣化なく再構築し、27件のUI／SPEC関係を閉じた。現在、人間による追加判断は必要ない。
