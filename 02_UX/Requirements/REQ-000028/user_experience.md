@@ -110,7 +110,7 @@ Agent Operating ContextとTask Identityを渡す
         └─ 失敗時: 不足Contextまたは別Task結果をChat Agent／Coding Agentを使う人へ返す
                      │
                      ▼
-             [R: 提供System]
+             [R: Chat Agent／Coding Agentを使う人（Developer）]
                      │ 返却された事実と判断不能範囲を確認
                      └─ 次の行動: Contextを補うか、同じ仕事として継続・採否判断する
 

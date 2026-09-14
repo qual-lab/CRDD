@@ -112,7 +112,7 @@ Provider差を隠さず共通Runtimeから安全に利用できる
         └─ 失敗時: 観測不能なLifecycle状態をProvider境界からRuntime導入・運用者へ返す
                      │
                      ▼
-             [R: Provider]
+             [R: Runtime導入・運用者]
                      │ 返却された事実と判断不能範囲を確認
                      └─ 次の行動: 待機、取消継続、状態確認、回復または別Providerを選ぶ
 
