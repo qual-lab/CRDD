@@ -70,16 +70,14 @@ Deployment Ownerが所有するTrust Policyは、単に内部方式を成立さ�
 ```text
 REQ-000025
    │
-   ├─ Same → UX-000045 Runtime Trust要素の個別理解
-   └─ Same → UX-000046 Deployment Owner所有のTrust Policy
+   └─ Same → UX-000020 利用環境の信頼方針でRuntimeを選ぶ
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Runtime Trust要素の個別理解 | `Same → UX-000045` | 利用者はともにRuntime導入・運用者。起点は「Runtime Trustの各要素を別々に評価する」と「信頼するPublisherとLocal例外を自分で定める」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「準拠、Integrity、Publisher、実行許可、公式表示を別々に判断できる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| Deployment Owner所有のTrust Policy | `Same → UX-000046` | 利用者はともにRuntime導入・運用者。起点は「Runtime Trustの各要素を別々に評価する」と「信頼するPublisherとLocal例外を自分で定める」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「公式版、Fork、組織版、Local開発版の信頼条件を環境所有者が選べる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+| 利用環境の信頼方針でRuntimeを選ぶ | `Same → UX-000020` | 利用者が得る最終成果は「準拠、改ざん有無、Publisher、公式表示および実行許可を区別し、自分の環境の方針で公式版・Fork・組織版を選べる」で既存UX-000020と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Artifact Integrityと利用者所有Trust Policyを照合することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -97,28 +95,11 @@ Artifact Integrityと利用者所有Trust Policyを照合する
 OSS Forkや組織Buildも方針に従って利用できる
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
 
-```text
-利用者: Runtime導入・運用者
-        │ Runtime Artifactを実行候補にする時
-        ▼
-提供System／AI
-        ├─ 支援: 信頼するPublisherとLocal例外を自分で定める
-        ├─ ★ 判断点: Runtime Authorityを与える直前
-        ├─ ⚠ 防止: Qual-Lab署名だけを唯一の実行資格にする
-        └─ ✓ 保証: Publisher Trustと実行許可を利用環境が所有する
-        │
-        ▼
-利用者
-        └─ OSS Forkや組織Buildも方針に従って利用できる
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
-```
+処置: `非該当`
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+「信頼するPublisherとLocal例外を自分で定める」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
 
 ### 横断Synthesisへの接続
 

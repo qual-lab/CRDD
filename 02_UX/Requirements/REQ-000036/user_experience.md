@@ -70,14 +70,14 @@ Version 差し替え可能なVersion Control境界は、単に内部方式を成
 ```text
 REQ-000036
    │
-   └─ New  → UX-000068 Version Control非依存の日常作業
+   └─ Same → UX-000010 Repository単独で日常作業を続ける
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Version Control非依存の日常作業 | `New → UX-000068` | 既存成果へ統合すると「Version Control非依存の日常作業」を独立して変更・確認できなくなる。 | 「日常作業をCommit SHAや特定Git実装から切り離す」から「未Commit状態でも作業し将来Version Controlを差し替えられる」へ進むための固有条件を示す。 |
+| Repository単独で日常作業を続ける | `Same → UX-000010` | 利用者が得る最終成果は「横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在Repositoryで日常作業を開始・継続できる」で既存UX-000010と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 通常操作とVersion Control Capabilityを分けることが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -95,28 +95,11 @@ Repositoryを読み書きし履歴機能を使う時
 未Commit状態でも作業し将来Version Controlを差し替えられる
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
 
-```text
-利用者: Developer
-        │ Repositoryを読み書きし履歴機能を使う時
-        ▼
-提供System／AI
-        ├─ 支援: 日常作業をCommit SHAや特定Git実装から切り離す
-        ├─ ★ 判断点: 履歴Identityが本当に必要な場面
-        ├─ ⚠ 防止: Commitされていないだけで通常作業が成立しない
-        └─ ✓ 保証: 外部境界Adapter越しに必要時だけ履歴を使う
-        │
-        ▼
-利用者
-        └─ 未Commit状態でも作業し将来Version Controlを差し替えられる
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
-```
+処置: `非該当`
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+「日常作業をCommit SHAや特定Git実装から切り離す」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
 
 ### 横断Synthesisへの接続
 

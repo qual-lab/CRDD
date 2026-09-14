@@ -70,16 +70,14 @@ Runtime Data Rootの所有と用途は、単に内部方式を成立させる要
 ```text
 REQ-000015
    │
-   ├─ New  → UX-000038 Runtime Data配置の理解
-   └─ New  → UX-000039 Durable・TemporaryのLifecycle理解
+   └─ New  → UX-000017 Runtime Dataを安全に保持・清掃する
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Runtime Data配置の理解 | `New → UX-000038` | 既存成果へ統合すると「何がどのRootへ何の目的で保存されるか理解できる」を独立して変更・確認できなくなる。 | 「Runtime Dataの所有場所とLifecycleを理解する」から「残存・清掃・回復を別Repositoryへ波及させず扱える」へ進むための固有条件を示す。 |
-| Durable・TemporaryのLifecycle理解 | `New → UX-000039` | 既存成果へ統合すると「保持すべき記録と再生成可能な一時物を区別し、清掃条件を理解できる」を独立して変更・確認できなくなる。 | 「Runtime Dataの所有場所とLifecycleを理解する」から「残存・清掃・回復を別Repositoryへ波及させず扱える」へ進むための固有条件を示す。 |
+| Runtime Dataを安全に保持・清掃する | `New → UX-000017` | 本要求が「保存場所の内部構造を推測せず、保持すべき状態と一時物を区別して安全に作業を継続・終了できる」という独立した利用者成果を最初に定義する。 | 検証済みRoot・Owner・保持条件を確認することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -97,28 +95,11 @@ Runtime Dataを作成または清掃する時
 残存・清掃・回復を別Repositoryへ波及させず扱える
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
 
-```text
-利用者: Runtime導入・運用者
-        │ Runtime Dataを作成または清掃する時
-        ▼
-提供System／AI
-        ├─ 支援: Runtime Dataの所有場所とLifecycleを理解する
-        ├─ ★ 判断点: 永続化または削除の直前
-        ├─ ⚠ 防止: subdirectoryや別Rootへ同名データを作る
-        └─ ✓ 保証: 用途別領域とcleanup条件を明示する
-        │
-        ▼
-利用者
-        └─ 残存・清掃・回復を別Repositoryへ波及させず扱える
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
-```
+処置: `非該当`
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+「Runtime Dataの所有場所とLifecycleを理解する」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
 
 ### 横断Synthesisへの接続
 

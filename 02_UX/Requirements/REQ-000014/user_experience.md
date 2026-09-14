@@ -70,16 +70,14 @@ Repository Tool能力の明示Registryは、単に内部方式を成立させる
 ```text
 REQ-000014
    │
-   ├─ New  → UX-000036 Repository Tool能力の発見
-   └─ New  → UX-000037 能力表示とEffect権限の区別
+   └─ New  → UX-000016 仕事に必要な標準Toolを迷わず選ぶ
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Repository Tool能力の発見 | `New → UX-000036` | 既存成果へ統合すると「現在Repositoryで利用できる標準Toolと入口を確認できる」を独立して変更・確認できなくなる。 | 「現在Repositoryで利用可能なCapabilityを知る」から「名前やPathを推測せず適切な入口を選べる」へ進むための固有条件を示す。 |
-| 能力表示とEffect権限の区別 | `New → UX-000037` | 既存成果へ統合すると「Toolが見えることと、その操作を実行できることを取り違えない」を独立して変更・確認できなくなる。 | 「現在Repositoryで利用可能なCapabilityを知る」から「名前やPathを推測せず適切な入口を選べる」へ進むための固有条件を示す。 |
+| 仕事に必要な標準Toolを迷わず選ぶ | `New → UX-000016` | 本要求が「現在Repositoryと目的に対応する標準Toolを見つけ、利用可能性・Effect権限・開発実行・公式実行を区別して選べる」という独立した利用者成果を最初に定義する。 | Repositoryが公開するCapabilityを確認することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -97,28 +95,11 @@ Repositoryが公開するCapabilityを確認する
 名前やPathを推測せず適切な入口を選べる
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
 
-```text
-利用者: Developer
-        │ Toolで処理を始める時
-        ▼
-提供System／AI
-        ├─ 支援: 現在Repositoryで利用可能なCapabilityを知る
-        ├─ ★ 判断点: 実行入口を選択する場面
-        ├─ ⚠ 防止: 存在するファイルを利用可能Capabilityと誤認する
-        └─ ✓ 保証: 能力・入口・制約・現在状態を明示する
-        │
-        ▼
-利用者
-        └─ 名前やPathを推測せず適切な入口を選べる
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
-```
+処置: `非該当`
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+「現在Repositoryで利用可能なCapabilityを知る」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
 
 ### 横断Synthesisへの接続
 

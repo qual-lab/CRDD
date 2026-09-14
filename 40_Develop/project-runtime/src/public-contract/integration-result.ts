@@ -21,7 +21,7 @@ export const PROJECT_RUNTIME_INTEGRATION_BASE_RESULT_FIELDS = Object.freeze([
   "manualRecoveryRequired",
   "recoveryIds",
 ] as const);
-export const PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS = Object.freeze([
+export const projectRuntimeIntegrationResultFields = Object.freeze([
   ...PROJECT_RUNTIME_INTEGRATION_BASE_RESULT_FIELDS,
   "effectIssued",
   "effectStateUnknown",
@@ -52,10 +52,7 @@ export function inspectProjectRuntimeIntegrationResult(raw: unknown): Readonly<
       raw,
       new Set(PROJECT_RUNTIME_INTEGRATION_BASE_RESULT_FIELDS),
     ) ??
-    snapshotPlainRecord(
-      raw,
-      new Set(PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS),
-    );
+    snapshotPlainRecord(raw, new Set(projectRuntimeIntegrationResultFields));
   if (!record) return null;
   const recoveryIdsSnapshot = snapshotPlainArray(record.recoveryIds, 128);
   if (recoveryIdsSnapshot.status !== "ok") return null;

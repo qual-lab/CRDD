@@ -72,18 +72,14 @@ Remote接続では、接続できたことと閲覧できる範囲を同一視�
 ```text
 REQ-000011
    │
-   ├─ New  → UX-000007 Workspace限定Remote利用
-   ├─ New  → UX-000031 Credential不足と利用不能の区別
-   └─ New  → UX-000032 System管理能力とContent閲覧の分離
+   └─ New  → UX-000013 許可されたWorkspaceだけをRemote利用する
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Workspace限定Remote利用 | `New → UX-000007` | 既存成果へ統合すると「接続元が変わっても、現在Credentialに許可されたWorkspaceだけを利用でき、利用不能範囲を推測で補わない」を独立して変更・確認できなくなる。 | 「許可されたWorkspaceだけへ接続する」から「場所が変わっても開示範囲を理解して安全に使える」へ進むための固有条件を示す。 |
-| Credential不足と利用不能の区別 | `New → UX-000031` | 既存成果へ統合すると「別Credentialが必要、権限不足、一時障害、存在非開示を区別できる」を独立して変更・確認できなくなる。 | 「許可されたWorkspaceだけへ接続する」から「場所が変わっても開示範囲を理解して安全に使える」へ進むための固有条件を示す。 |
-| System管理能力とContent閲覧の分離 | `New → UX-000032` | 既存成果へ統合すると「管理操作ができても未許可Contentを読めないことを理解できる」を独立して変更・確認できなくなる。 | 「許可されたWorkspaceだけへ接続する」から「場所が変わっても開示範囲を理解して安全に使える」へ進むための固有条件を示す。 |
+| 許可されたWorkspaceだけをRemote利用する | `New → UX-000013` | 本要求が「接続元やCredentialが変わっても、現在許可されたWorkspaceだけを利用し、利用不能理由と管理能力を内容閲覧から区別できる」という独立した利用者成果を最初に定義する。 | Credentialから現在のWorkspace Grantを確認することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -101,28 +97,27 @@ Credentialから現在のWorkspace Grantを確認する
 場所が変わっても開示範囲を理解して安全に使える
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
+
+処置: `作成`
 
 ```text
-利用者: Project Operator／PM
-        │ Remote Sessionを開始・再接続する時
+Project Operator／PM
+        │ Credentialで接続
         ▼
-提供System／AI
-        ├─ 支援: 許可されたWorkspaceだけへ接続する
-        ├─ ★ 判断点: 利用可能Contextを表示する時
-        ├─ ⚠ 防止: 利用不能なRepositoryの存在や内容を推測表示する
-        └─ ✓ 保証: 現在Grantだけを開示し不足を補完しない
-        │
+CROS Server
+        │ Session Workspace Grant
         ▼
-利用者
-        └─ 場所が変わっても開示範囲を理解して安全に使える
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
+Workspace
+        │ Exposure済みRepositoryだけを解決
+        ▼
+利用可能Context
+        │ locked／missingを推測せず表示
+        ▼
+Project Operator／PM
 ```
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
 ### 横断Synthesisへの接続
 

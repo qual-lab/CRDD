@@ -588,7 +588,8 @@ function checkUxRequirementAnalysis(): void {
       "| UX成果 | 処置 | 判断理由 | この要求が補う内容 |",
       "## 5. 重要な体験",
       "### このREQのJourney",
-      "### このREQのService Blueprint",
+      "### Service Blueprintの処置",
+      "処置:",
       "### 横断Synthesisへの接続",
       "- Journeyの横断統合先:",
       "- Service Blueprintの横断統合先:",
@@ -619,6 +620,9 @@ function checkUxRequirementAnalysis(): void {
       .filter((line) =>
         /^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \|/u.test(line),
       );
+    const notApplicableRows = analysis
+      .split(/\r?\n/u)
+      .filter((line) => /^\| [^|]+ \| `Not Applicable` \|/u.test(line));
     for (const line of relationRows) {
       const match = line.match(/`(?:New|Same) → (?<id>UX-[0-9]{6})`/u);
       if (match?.groups?.id)
@@ -631,13 +635,31 @@ function checkUxRequirementAnalysis(): void {
       /\[([^\]]+)\]\([^)]*03_Experience_Map\.md#[^)]+\)/gu,
     ) ?? [])
       analysisJourneyPairs.add(`${entry.name}|${match[1]}`);
+    const blueprintSection = analysis
+      .split("### Service Blueprintの処置")[1]
+      ?.split("### 横断Synthesisへの接続")[0];
+    const blueprintDisposition =
+      blueprintSection?.match(/^処置: `(作成|非該当)`$/mu)?.[1];
+    const isBlueprintDispositionInvalid =
+      !blueprintDisposition ||
+      (blueprintDisposition === "作成" &&
+        !/```text\r?\n[\s\S]+?\r?\n```/u.test(blueprintSection ?? "")) ||
+      (blueprintDisposition === "非該当" &&
+        !/再評価/u.test(blueprintSection ?? ""));
     if (
-      relationRows.length === 0 ||
+      relationRows.length + notApplicableRows.length === 0 ||
       relationRows.some(
         (line) =>
           !/^\| [^|]+ \| `(New|Same) → UX-[0-9]{6}` \| .{20,} \| .+ \|$/u.test(
             line,
           ),
+      ) ||
+      notApplicableRows.some(
+        (line) =>
+          !/^\| [^|]+ \| `Not Applicable` \| .{20,} \| .+ \|$/u.test(line),
+      ) ||
+      analysis.includes(
+        "失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが",
       )
     )
       add(
@@ -645,6 +667,13 @@ function checkUxRequirementAnalysis(): void {
         "ux-requirement-analysis-relation-invalid",
         relative(analysisPath),
         "Each UX requirement analysis must connect every candidate to a canonical UX outcome and explain New or Same with requirement-specific reasoning.",
+      );
+    if (isBlueprintDispositionInvalid)
+      add(
+        "error",
+        "ux-requirement-analysis-blueprint-disposition-invalid",
+        relative(analysisPath),
+        "Each UX requirement analysis must create a requirement-specific Service Blueprint when handoffs shape the experience, or state a reason and reevaluation condition when it is not applicable.",
       );
   }
   if (

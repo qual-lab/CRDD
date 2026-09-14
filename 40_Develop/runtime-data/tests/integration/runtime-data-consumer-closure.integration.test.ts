@@ -18,7 +18,7 @@ const PROTECTED_SIGNING_SYMBOL =
 const expectedProtectedSigningConsumers = [
   "40_Develop/coordinator/scripts/sign-release-manifest.ts",
 ];
-const EXPECTED_AREA_CONSUMERS = [
+const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
   "40_Develop/coordinator/scripts/prepare-release-candidate.ts",
   "40_Develop/coordinator/src/core/verification-result-record.ts",
@@ -35,7 +35,7 @@ const PROJECT_RUNTIME_STORE_CONSUMERS = new Set([
 ]);
 const EXECUTION_INTELLIGENCE_CONSUMER =
   "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts";
-const BLOCKED_MEANING_FIELDS = [
+const blockedMeaningFields = [
   "effectIssued",
   "effectStateUnknown",
   "cleanupConfirmed",
@@ -58,7 +58,7 @@ const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "tests",
   "tmp",
 ]);
-const RETIRED_TOP_LEVEL_AREAS = [
+const retiredTopLevelAreas = [
   "dogfooding",
   "native-fixture",
   "release-staging",
@@ -171,7 +171,7 @@ function violations(sources: SourceSet): string[] {
     )
       findings.push(`internal-resolver:${item}`);
 
-    for (const area of RETIRED_TOP_LEVEL_AREAS)
+    for (const area of retiredTopLevelAreas)
       if (source.includes(`.crdd/${area}`))
         findings.push(`retired-area:${area}:${item}`);
 
@@ -217,11 +217,11 @@ function violations(sources: SourceSet): string[] {
     )
     .map(([item]) => item)
     .sort();
-  if (actualAreaConsumers.join("\n") !== EXPECTED_AREA_CONSUMERS.join("\n"))
+  if (actualAreaConsumers.join("\n") !== expectedAreaConsumers.join("\n"))
     findings.push(`runtime-area-consumers:${actualAreaConsumers.join(",")}`);
   for (const item of actualAreaConsumers) {
     const source = sources.get(item) ?? "";
-    const preservesBlockedResult = PROJECT_RUNTIME_STORE_CONSUMERS.has(item)
+    const doesPreserveBlockedResult = PROJECT_RUNTIME_STORE_CONSUMERS.has(item)
       ? source.includes("requireReadyRepositoryRuntimeDataArea")
       : item === EXECUTION_INTELLIGENCE_CONSUMER
         ? source.includes("readExecutionIntelligenceWithRuntimeDataArea") &&
@@ -229,9 +229,9 @@ function violations(sources: SourceSet): string[] {
           source.includes(
             "effectStateUnknown || !cleanupConfirmed || recoveryReference !== null",
           ) &&
-          BLOCKED_MEANING_FIELDS.every((field) => source.includes(field))
-        : BLOCKED_MEANING_FIELDS.every((field) => source.includes(field));
-    if (!preservesBlockedResult)
+          blockedMeaningFields.every((field) => source.includes(field))
+        : blockedMeaningFields.every((field) => source.includes(field));
+    if (!doesPreserveBlockedResult)
       findings.push(`runtime-area-blocked-result:${item}`);
   }
   const projectRuntimeBoundary =
@@ -245,7 +245,7 @@ function violations(sources: SourceSet): string[] {
         : "createProjectRuntimePersistencePorts";
       return projectRuntimeBoundary.includes(symbol);
     }) ||
-    !BLOCKED_MEANING_FIELDS.every((field) =>
+    !blockedMeaningFields.every((field) =>
       projectRuntimeBoundary.includes(
         field === "recoveryReference" ? "recoveryIds" : field,
       ),

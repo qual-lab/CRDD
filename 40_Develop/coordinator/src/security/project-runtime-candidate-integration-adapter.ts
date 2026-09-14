@@ -218,13 +218,13 @@ function cleanupMaterializedBase(workspace: string): boolean {
 
 function candidateCleanupBlocked(
   effectIssued: boolean,
-  effectStateUnknown: boolean,
+  isEffectStateUnknown: boolean,
 ) {
   return Object.freeze({
     status: "blocked" as const,
     reason: "project_runtime_candidate_base_cleanup_unconfirmed",
     effectIssued,
-    effectStateUnknown,
+    effectStateUnknown: isEffectStateUnknown,
     cleanupConfirmed: false,
     retryAllowed: false,
     recoveryReference: null,

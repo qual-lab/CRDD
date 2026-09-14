@@ -70,18 +70,14 @@ Work LifecycleとEvidence所有の分離は、単に内部方式を成立させ�
 ```text
 REQ-000033
    │
-   ├─ New  → UX-000062 Work・Change・Evidence・Qualityの役割別Navigation
-   ├─ New  → UX-000063 CHGからの全影響Path確認
-   └─ New  → UX-000064 過去Evidenceの不変な参照
+   └─ New  → UX-000029 Work・Change・Evidence・Qualityを迷わず辿る
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Work・Change・Evidence・Qualityの役割別Navigation | `New → UX-000062` | 既存成果へ統合すると「未完了、変更理由、成立根拠、現在品質を迷わず辿れる」を独立して変更・確認できなくなる。 | 「Work・Change・Evidence・Qualityを役割別に辿る」から「変更理由と全影響Pathを重複なく確認できる」へ進むための固有条件を示す。 |
-| CHGからの全影響Path確認 | `New → UX-000063` | 既存成果へ統合すると「一つの変更が実際に触れた全ファイルを変更理由とともに確認できる」を独立して変更・確認できなくなる。 | 「Work・Change・Evidence・Qualityを役割別に辿る」から「変更理由と全影響Pathを重複なく確認できる」へ進むための固有条件を示す。 |
-| 過去Evidenceの不変な参照 | `New → UX-000064` | 既存成果へ統合すると「過去の観測結果を当時の対象Revisionのまま確認できる」を独立して変更・確認できなくなる。 | 「Work・Change・Evidence・Qualityを役割別に辿る」から「変更理由と全影響Pathを重複なく確認できる」へ進むための固有条件を示す。 |
+| Work・Change・Evidence・Qualityを迷わず辿る | `New → UX-000029` | 本要求が「未完了、変更理由、全影響Path、成立根拠および現在品質を役割の違いとともに辿れる」という独立した利用者成果を最初に定義する。 | 各Ownerから状態・差分・Evidenceを接続することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -99,28 +95,11 @@ Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcom
 変更理由と全影響Pathを重複なく確認できる
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
 
-```text
-利用者: CRDD作成者・保守者
-        │ 変更の現在地や根拠を調べる時
-        ▼
-提供System／AI
-        ├─ 支援: Work・Change・Evidence・Qualityを役割別に辿る
-        ├─ ★ 判断点: 変更の影響漏れを確認する場面
-        ├─ ⚠ 防止: 同じ説明を複製し代表ファイルだけで済ませる
-        └─ ✓ 保証: 正本を分け全影響ファイルを列挙する
-        │
-        ▼
-利用者
-        └─ 変更理由と全影響Pathを重複なく確認できる
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
-```
+処置: `非該当`
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+「Work・Change・Evidence・Qualityを役割別に辿る」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
 
 ### 横断Synthesisへの接続
 

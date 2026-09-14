@@ -70,14 +70,14 @@ AI入口と共通正本の分離は、単に内部方式を成立させる要求
 ```text
 REQ-000028
    │
-   └─ New  → UX-000055 AI入口から同じ正本への到達
+   └─ Same → UX-000019 必要なContextを渡し結果を同じ仕事へ戻す
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| AI入口から同じ正本への到達 | `New → UX-000055` | 既存成果へ統合すると「Chat AgentとCoding Agentが同じCRDD正本と判断境界を使う」を独立して変更・確認できなくなる。 | 「入口が違っても同じCRDD正本と判断境界を使う」から「会話全文の転記なしで対話と構築を往復できる」へ進むための固有条件を示す。 |
+| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 利用者が得る最終成果は「必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる」で既存UX-000019と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Agent Operating ContextとTask Identityを渡すことが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -95,28 +95,27 @@ Agent Operating ContextとTask Identityを渡す
 会話全文の転記なしで対話と構築を往復できる
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
+
+処置: `作成`
 
 ```text
-利用者: Developer
-        │ ChatからCodingまたは逆へ引き継ぐ時
+Chat Agent
+        │ 仕事の意図とCanonical参照
         ▼
-提供System／AI
-        ├─ 支援: 入口が違っても同じCRDD正本と判断境界を使う
-        ├─ ★ 判断点: 別Agentが仕事を再構成する場面
-        ├─ ⚠ 防止: 入口文書が第二正本になり不足をAIが補完する
-        └─ ✓ 保証: 同じCanonical Sourceと明示した不足を使う
-        │
+Context Projection
+        │ 選択した正本・不足・判断境界
         ▼
-利用者
-        └─ 会話全文の転記なしで対話と構築を往復できる
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
+Coding Agent
+        │ 変更候補・検証結果
+        ▼
+Candidate／Review Boundary
+        │ 採否判断
+        ▼
+Human／Chat Agent
 ```
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
 ### 横断Synthesisへの接続
 

@@ -72,20 +72,20 @@ Coding Agentが結果を作っても、元の対話やProject判断へ戻らな�
 ```text
 REQ-000024
    │
-   ├─ Same → UX-000008 同一要求への再接続
-   ├─ Same → UX-000015 再試行と回復の選択
-   ├─ Same → UX-000029 Project・Repository・Rootの対象確認
-   └─ New  → UX-000051 Task結果の相関と完全性
+   ├─ Same → UX-000004 失敗後の再試行・回復を選ぶ
+   ├─ Same → UX-000011 Project・Repository・Rootを区別して対象を選ぶ
+   ├─ Same → UX-000019 必要なContextを渡し結果を同じ仕事へ戻す
+   └─ Same → UX-000021 切断後も同じRequestへ戻る
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 同一要求への再接続 | `Same → UX-000008` | 利用者はともにProject Operator／PM。起点は「切断後に同じRequestへ戻る」と「境界を越えた結果を同じTaskへ受け取る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「応答喪失後に新規実行せず、同じ要求の状態・結果・回復義務へ戻れる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| 再試行と回復の選択 | `Same → UX-000015` | 利用者はともにProject Operator／PM。起点は「複数AIへ任せる範囲と権限を理解する」と「境界を越えた結果を同じTaskへ受け取る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「失敗後に新規実行、状態確認、回復、清掃を取り違えない」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| Project・Repository・Rootの対象確認 | `Same → UX-000029` | 利用者はともにProject Operator／PM。起点は「Project・Repository・Rootを区別して対象を確認する」と「境界を越えた結果を同じTaskへ受け取る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「論理Projectを一つに見ながら、操作対象のRepositoryとRootを取り違えない」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| Task結果の相関と完全性 | `New → UX-000051` | 既存成果へ統合すると「Result、Evidence、未確認、Risk、帰還状態を同じTaskとして確認できる」を独立して変更・確認できなくなる。 | 「境界を越えた結果を同じTaskへ受け取る」から「Evidenceと未確認範囲を保って採否を判断できる」へ進むための固有条件を示す。 |
+| 失敗後の再試行・回復を選ぶ | `Same → UX-000004` | 利用者が得る最終成果は「失敗後に状態確認、再試行、回復および清掃を取り違えず、二重Effectを避けて次の行動を選べる」で既存UX-000004と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
+| Project・Repository・Rootを区別して対象を選ぶ | `Same → UX-000011` | 利用者が得る最終成果は「論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる」で既存UX-000011と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
+| 必要なContextを渡し結果を同じ仕事へ戻す | `Same → UX-000019` | 利用者が得る最終成果は「必要最小限のContextを出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じTaskへ戻せる」で既存UX-000019と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
+| 切断後も同じRequestへ戻る | `Same → UX-000021` | 利用者が得る最終成果は「応答喪失後に新規実行せず、現在のAccessで同じRequestの状態・結果・回復義務へ戻れる」で既存UX-000021と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Task Identity・Result・Evidence・帰還状態を照合することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -103,28 +103,27 @@ Task Identity・Result・Evidence・帰還状態を照合する
 Evidenceと未確認範囲を保って採否を判断できる
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
+
+処置: `作成`
 
 ```text
-利用者: Project Operator／PM
-        │ AgentやRuntimeから結果が戻る時
+Agent／Runtime
+        │ Task Identity・結果・Evidence
         ▼
-提供System／AI
-        ├─ 支援: 境界を越えた結果を同じTaskへ受け取る
-        ├─ ★ 判断点: 結果を候補として受け入れる場面
-        ├─ ⚠ 防止: 別TaskやRevisionの結果を混入し自動採用する
-        └─ ✓ 保証: 相関Identityと完全性を保持する
-        │
+Integration Boundary
+        │ Revision・完全性・未確認範囲を照合
         ▼
-利用者
-        └─ Evidenceと未確認範囲を保って採否を判断できる
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
+候補結果
+        │ 採用可能範囲と不足
+        ▼
+Project Operator／PM
+        │ 採用・却下・再作業
+        ▼
+Canonical Context
 ```
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
 ### 横断Synthesisへの接続
 

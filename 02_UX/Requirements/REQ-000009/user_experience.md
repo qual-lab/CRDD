@@ -72,16 +72,16 @@ After
 ```text
 REQ-000009
    │
-   ├─ Same → UX-000002 根拠付きProject View
-   └─ New  → UX-000029 Project・Repository・Rootの対象確認
+   ├─ Same → UX-000009 Projectの現在地を根拠と不完全性付きで理解する
+   └─ New  → UX-000011 Project・Repository・Rootを区別して対象を選ぶ
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 根拠付きProject View | `Same → UX-000002` | 利用者はともにProject Operator／PM。起点は「Projectの現在地を根拠と不完全性付きで理解する」と「Project・Repository・Rootを区別して対象を確認する」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「物理Repositoryを意識せず現在地を理解しながら、何が分かり何が不足・競合・古いかを確認して正本へ戻れる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| Project・Repository・Rootの対象確認 | `New → UX-000029` | 既存成果へ統合すると「論理Projectを一つに見ながら、操作対象のRepositoryとRootを取り違えない」を独立して変更・確認できなくなる。 | 「Project・Repository・Rootを区別して対象を確認する」から「論理Projectを一つに見ながら誤った場所へ作用しない」へ進むための固有条件を示す。 |
+| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 利用者が得る最終成果は「物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる」で既存UX-000009と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Identityと検証済みRootを確認することが、この要求固有の成立条件になる |
+| Project・Repository・Rootを区別して対象を選ぶ | `New → UX-000011` | 本要求が「論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる」という独立した利用者成果を最初に定義する。 | Identityと検証済みRootを確認することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -99,28 +99,24 @@ Identityと検証済みRootを確認する
 論理Projectを一つに見ながら誤った場所へ作用しない
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
+
+処置: `作成`
 
 ```text
-利用者: Project Operator／PM
-        │ 参照または操作対象を選ぶ時
+Project Operator／PM
+        │ 対象候補を選択
         ▼
-提供System／AI
-        ├─ 支援: Project・Repository・Rootを区別して対象を確認する
-        ├─ ★ 判断点: Effect対象を確定する直前
-        ├─ ⚠ 防止: 同名や近いPathを同じ対象と誤認する
-        └─ ✓ 保証: 各Identityと物理Rootの結合を明示する
-        │
+Identity Resolver
+        │ Project ID・Repository ID・Rootを照合
         ▼
-利用者
-        └─ 論理Projectを一つに見ながら誤った場所へ作用しない
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
+Effect Boundary
+        │ exactな作用対象または安全な拒否
+        ▼
+Project Operator／PM
 ```
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
 ### 横断Synthesisへの接続
 

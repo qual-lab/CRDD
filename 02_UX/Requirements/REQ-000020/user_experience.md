@@ -72,20 +72,16 @@ After
 ```text
 REQ-000020
    │
-   ├─ Same → UX-000002 根拠付きProject View
-   ├─ Same → UX-000026 Sourceと現行性への到達
-   ├─ Same → UX-000027 欠測・制限・競合の理解
-   └─ Same → UX-000029 Project・Repository・Rootの対象確認
+   ├─ Same → UX-000009 Projectの現在地を根拠と不完全性付きで理解する
+   └─ Same → UX-000011 Project・Repository・Rootを区別して対象を選ぶ
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 根拠付きProject View | `Same → UX-000002` | 利用者はともにProject Operator／PM。起点は「Projectの現在地を根拠と不完全性付きで理解する」と「複数Repositoryを不完全性付きで一つのProjectとして見る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「物理Repositoryを意識せず現在地を理解しながら、何が分かり何が不足・競合・古いかを確認して正本へ戻れる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| Sourceと現行性への到達 | `Same → UX-000026` | 利用者はともにProject Operator／PM。起点は「Projectの現在地を根拠と不完全性付きで理解する」と「複数Repositoryを不完全性付きで一つのProjectとして見る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「要約からSource、Revision、観測時点へ戻れる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| 欠測・制限・競合の理解 | `Same → UX-000027` | 利用者はともにProject Operator／PM。起点は「Projectの現在地を根拠と不完全性付きで理解する」と「複数Repositoryを不完全性付きで一つのProjectとして見る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「分かった範囲と判断できない範囲を同時に理解できる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| Project・Repository・Rootの対象確認 | `Same → UX-000029` | 利用者はともにProject Operator／PM。起点は「Project・Repository・Rootを区別して対象を確認する」と「複数Repositoryを不完全性付きで一つのProjectとして見る」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「論理Projectを一つに見ながら、操作対象のRepositoryとRootを取り違えない」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+| Projectの現在地を根拠と不完全性付きで理解する | `Same → UX-000009` | 利用者が得る最終成果は「物理構成を意識せずProjectの現在地を理解し、欠測・制限・競合・古さとSourceへ戻れる」で既存UX-000009と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
+| Project・Repository・Rootを区別して対象を選ぶ | `Same → UX-000011` | 利用者が得る最終成果は「論理Projectを一つに見ながら、参照・実行・回復の対象RepositoryとRootを取り違えずに選べる」で既存UX-000011と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 各RepositoryのIdentity・Source状態・Coverageを解決することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -103,28 +99,27 @@ Federated Projectを開く時
 欠測・制限・競合を保ったまま横断判断できる
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
+
+処置: `作成`
 
 ```text
-利用者: Project Operator／PM
-        │ Federated Projectを開く時
+Project Operator／PM
+        │ 論理Projectを照会
         ▼
-提供System／AI
-        ├─ 支援: 複数Repositoryを不完全性付きで一つのProjectとして見る
-        ├─ ★ 判断点: 複数Sourceを統合する場面
-        ├─ ⚠ 防止: 読めないSourceを推測補完し完全表示する
-        └─ ✓ 保証: partial・restricted・stale・conflictingを保持する
-        │
+CROS Federation
+        │ Repository Bindingごとに取得
         ▼
-利用者
-        └─ 欠測・制限・競合を保ったまま横断判断できる
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
+複数Repository
+        │ available／missing／restricted／conflicting
+        ▼
+Project Projection
+        │ 不完全性を保った統合View
+        ▼
+Project Operator／PM
 ```
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
 ### 横断Synthesisへの接続
 

@@ -100,7 +100,8 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
     "Failure",
     "Quality",
     "### このREQのJourney",
-    "### このREQのService Blueprint",
+    "### Service Blueprintの処置",
+    "処置: `作成`／`非該当`",
     "### 横断Synthesisへの接続",
     "### このREQでの責任境界",
     "### 補足する品質",
@@ -846,6 +847,92 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
     result.report.findings.some(
       (finding) =>
         finding.code === "ux-requirement-analysis-relation-invalid" &&
+        finding.path === "02_UX/Requirements/REQ-000001/user_experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UXのSame判断はFailure比較の仮文言を受け入れない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 同じ成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(
+      root,
+      "02_UX",
+      "Requirements",
+      "REQ-000001",
+      "user_experience.md",
+    ),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 利用者とOutcomeは同じで、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが同じ成果である。 | 要求固有の条件を補う。 |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-relation-invalid" &&
+        finding.path === "02_UX/Requirements/REQ-000001/user_experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UX統合の理由付きNot ApplicableをRelation不正にしない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(
+      root,
+      "02_UX",
+      "Requirements",
+      "REQ-000001",
+      "user_experience.md",
+    ),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| UX成果なし | `Not Applicable` | 利用者のGoalまたはOutcomeを変更せず、既存体験の成立条件にも追加差分がない。 | Canonical UX成果へ追加する内容はない。 |\n\n### Service Blueprintの処置\n\n処置: `非該当`\n\n複数主体間のHandoffは体験成立条件ではないため作成せず、条件が変わった時に再評価する。\n\n### 横断Synthesisへの接続\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-relation-invalid" &&
+        finding.path === "02_UX/Requirements/REQ-000001/user_experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("Service Blueprintの作成と非該当を処置なしで済ませない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Requirements/REQ-000001/user_experience.md)\n\n| UX成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(
+      root,
+      "02_UX",
+      "Requirements",
+      "REQ-000001",
+      "user_experience.md",
+    ),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. UX成果への統合\n\n| UX成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### Service Blueprintの処置\n\n共同Service Blueprintを参照する。\n\n### 横断Synthesisへの接続\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-blueprint-disposition-invalid" &&
         finding.path === "02_UX/Requirements/REQ-000001/user_experience.md",
     ),
     `${result.stdout}\n${result.stderr}`,

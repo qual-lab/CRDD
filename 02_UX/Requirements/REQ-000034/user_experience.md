@@ -70,20 +70,16 @@ Repository固定Commitから使える標準Toolは、単に内部方式を成立
 ```text
 REQ-000034
    │
-   ├─ Same → UX-000001 Repository単独利用
-   ├─ New  → UX-000065 Repositoryに対応するTool利用
-   ├─ New  → UX-000066 開発実行と署名済み実行の区別
-   └─ Same → UX-000068 Version Control非依存の日常作業
+   ├─ Same → UX-000010 Repository単独で日常作業を続ける
+   └─ Same → UX-000016 仕事に必要な標準Toolを迷わず選ぶ
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| Repository単独利用 | `Same → UX-000001` | 利用者はともにDeveloper。起点は「現在Repositoryだけで日常作業を完結する」と「Repositoryに対応する標準Toolを迷わず使う」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「Developerが現在Repositoryだけで日常作業を開始・完結でき、必要時だけ横断利用へ進める」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| Repositoryに対応するTool利用 | `New → UX-000065` | 既存成果へ統合すると「現在Repositoryと対応する標準Toolを手動Version照合なしで使える」を独立して変更・確認できなくなる。 | 「Repositoryに対応する標準Toolを迷わず使う」から「未Commit作業と署名済み実行を区別して反復できる」へ進むための固有条件を示す。 |
-| 開発実行と署名済み実行の区別 | `New → UX-000066` | 既存成果へ統合すると「反復用の開発実行と公式Runtime Authorityを混同せず選べる」を独立して変更・確認できなくなる。 | 「Repositoryに対応する標準Toolを迷わず使う」から「未Commit作業と署名済み実行を区別して反復できる」へ進むための固有条件を示す。 |
-| Version Control非依存の日常作業 | `Same → UX-000068` | 利用者はともにDeveloper。起点は「日常作業をCommit SHAや特定Git実装から切り離す」と「Repositoryに対応する標準Toolを迷わず使う」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「未Commit状態や差し替え可能な履歴実装でも、通常の読取り・編集を続けられる」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
+| Repository単独で日常作業を続ける | `Same → UX-000010` | 利用者が得る最終成果は「横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在Repositoryで日常作業を開始・継続できる」で既存UX-000010と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
+| 仕事に必要な標準Toolを迷わず選ぶ | `Same → UX-000016` | 利用者が得る最終成果は「現在Repositoryと目的に対応する標準Toolを見つけ、利用可能性・Effect権限・開発実行・公式実行を区別して選べる」で既存UX-000016と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | Repository Bindingと実行Modeを確認することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -101,28 +97,11 @@ Repository Bindingと実行Modeを確認する
 未Commit作業と署名済み実行を区別して反復できる
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
 
-```text
-利用者: Developer
-        │ Toolを導入または起動する時
-        ▼
-提供System／AI
-        ├─ 支援: Repositoryに対応する標準Toolを迷わず使う
-        ├─ ★ 判断点: 開発実行か正式実行か選ぶ場面
-        ├─ ⚠ 防止: 外部の任意ToolやCandidateを正式版と誤認する
-        └─ ✓ 保証: 入口・配布Identity・Authorityを明示する
-        │
-        ▼
-利用者
-        └─ 未Commit作業と署名済み実行を区別して反復できる
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
-```
+処置: `非該当`
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+「Repositoryに対応する標準Toolを迷わず使う」は、このREQでは複数主体間の時間差やHandoffを新しい体験成立条件にしない。Journeyと次表の責任境界で必要な分析を保持し、主体間の受け渡しが成果を左右する条件へ変わった時に再評価する。
 
 ### 横断Synthesisへの接続
 

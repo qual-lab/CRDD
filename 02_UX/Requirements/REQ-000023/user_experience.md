@@ -70,18 +70,16 @@ After
 ```text
 REQ-000023
    │
-   ├─ Same → UX-000021 内部変更後の公開体験維持
-   ├─ Same → UX-000022 故障範囲の理解
-   └─ New  → UX-000050 Provider固有Lifecycleの正確な表示
+   ├─ Same → UX-000007 内部変更後も成立済み能力を安全に使う
+   └─ Same → UX-000008 故障した境界と影響範囲を理解する
 ```
 
 | UX成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 内部変更後の公開体験維持 | `Same → UX-000021` | 利用者はともにRuntime導入・運用者。起点は「責務分離後も成立済みCapabilityを使う」と「Provider固有LifecycleをAdapter越しに正確に扱う」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「責務分離やAdapter差し替え後も同じ公開Capabilityを使える」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| 故障範囲の理解 | `Same → UX-000022` | 利用者はともにRuntime導入・運用者。起点は「責務分離後も成立済みCapabilityを使う」と「Provider固有LifecycleをAdapter越しに正確に扱う」、失敗は「成果を失う失敗」と「成果を失う失敗」で異なるが、得る成果は「一部の入口・Adapter・外部境界の故障を全体故障と誤認しない」で共通する。 | 本要求側の起点とFailureを、同じ成果の追加成立条件として補う。 |
-| Provider固有Lifecycleの正確な表示 | `New → UX-000050` | 既存成果へ統合すると「Providerごとの利用可能性、停止、取消、回復差を理解できる」を独立して変更・確認できなくなる。 | 「Provider固有LifecycleをAdapter越しに正確に扱う」から「Provider差を隠さず共通Runtimeから安全に利用できる」へ進むための固有条件を示す。 |
+| 内部変更後も成立済み能力を安全に使う | `Same → UX-000007` | 利用者が得る最終成果は「責務・契約・Adapterの変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる」で既存UX-000007と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
+| 故障した境界と影響範囲を理解する | `Same → UX-000008` | 利用者が得る最終成果は「接続・認証・実行・結果搬送またはProvider境界のどこで止まり、何が利用可能かを理解できる」で既存UX-000008と共通する。本要求が追加する条件は独立したGoal／Outcomeではないため、別IDへ分割しない。 | 現在CapabilityとLifecycle Semanticsを確認することが、この要求固有の成立条件になる |
 
-Same／Newは技術用語の近さでは決めない。利用者、Goal、Outcome、重要場面およびFailureが同じかを比較し、この要求だけが補う条件を分けて記録する。
+Same／Newは技術用語の近さや件数目標では決めない。「利用者は、どの状況で、何をするためにSystemと関わり、何ができるようになるか」が同じかを比較する。Capability、Information、Quality、Validationまたは下流の実現要素は、独立UXへ分割せず対応する成果の成立条件として保持する。
 
 ## 5. 重要な体験
 
@@ -99,28 +97,27 @@ Providerを選択・取消・回復する時
 Provider差を隠さず共通Runtimeから安全に利用できる
 ```
 
-### このREQのService Blueprint
+### Service Blueprintの処置
+
+処置: `作成`
 
 ```text
-利用者: Runtime導入・運用者
-        │ Providerを選択・取消・回復する時
+Project Runtime
+        │ Provider非依存Request
         ▼
-提供System／AI
-        ├─ 支援: Provider固有LifecycleをAdapter越しに正確に扱う
-        ├─ ★ 判断点: Provider Effectと完了観測の境界
-        ├─ ⚠ 防止: 設定可能を実行可能とみなし同じ取消挙動を仮定する
-        └─ ✓ 保証: 開始・完了・取消・回復差を外在化する
-        │
+Provider Adapter
+        │ Provider固有の開始・取消
         ▼
-利用者
-        └─ Provider差を隠さず共通Runtimeから安全に利用できる
-                │
-                ▼
-運用・確認者
-        └─ 品質とOutcomeを反例で確認する
+Provider
+        │ event・結果・残存状態
+        ▼
+Provider Adapter
+        │ 共通状態と差分を外在化
+        ▼
+Project Runtime
 ```
 
-この図は、このREQで利用者、提供System／AI、運用・確認者の間に生じる受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
+この図は、このREQで体験成立条件となる主体間の受け渡しを示す。詳細な責任と越えてはならない境界は次表で固定する。
 
 ### 横断Synthesisへの接続
 

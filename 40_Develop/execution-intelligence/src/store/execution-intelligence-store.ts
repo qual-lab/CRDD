@@ -242,7 +242,7 @@ function blockedPublication(
     recoveryReference?: string | null;
   }> = {},
 ): ExecutionIntelligencePublicationResult {
-  const effectStateUnknown =
+  const isEffectStateUnknown =
     boundary.effectStateUnknown ?? effectState === "unknown";
   const recoveryReference = boundary.recoveryReference ?? null;
   return Object.freeze({
@@ -250,11 +250,11 @@ function blockedPublication(
     reason,
     effectState,
     effectIssued: boundary.effectIssued ?? effectState !== "no_effect",
-    effectStateUnknown,
+    effectStateUnknown: isEffectStateUnknown,
     cleanupConfirmed,
     retryAllowed,
     manualRecoveryRequired:
-      effectStateUnknown || !cleanupConfirmed || recoveryReference !== null,
+      isEffectStateUnknown || !cleanupConfirmed || recoveryReference !== null,
     residualArtifactIds: Object.freeze([...residualArtifactIds]),
     recoveryReference,
   });
