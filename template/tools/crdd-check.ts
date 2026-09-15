@@ -2429,7 +2429,7 @@ function checkArchitectureReconstruction(): void {
   const detailCoveredDefinitions = new Set<string>();
   const registeredDetailAreas = new Set<string>();
   const actualDetailAreas = new Set<string>();
-  const architectureReady = /Status:\s*Architecture Ready\b/u.test(index);
+  const isArchitectureReady = /Status:\s*Architecture Ready\b/u.test(index);
   if (!lstatIfPresent(detailMapPath)?.isFile())
     add(
       "error",
@@ -2504,14 +2504,14 @@ function checkArchitectureReconstruction(): void {
       const source = visibleMarkdownStructure(read(detailPath));
       const relationSection = sectionBody(source, "## 基本設計との関係");
       let areaRelationCount = 0;
-      let invalidRelation = false;
+      let hasInvalidRelation = false;
       const areaRelationIds = new Set<string>();
       for (const match of relationSection.matchAll(
         /\]\(\.\.\/\.\.\/Definitions\/(ARCH-[0-9]{6})\/architecture_definition\.md\)/gu,
       )) {
         detailDocumentRelations.add(`${entry.name}|${match[1]}`);
         areaRelationCount += 1;
-        if (areaRelationIds.has(match[1])) invalidRelation = true;
+        if (areaRelationIds.has(match[1])) hasInvalidRelation = true;
         areaRelationIds.add(match[1]);
       }
       for (const line of relationSection.split(/\r?\n/u)) {
@@ -2525,7 +2525,7 @@ function checkArchitectureReconstruction(): void {
           !cells[1] ||
           !["Covered", "Partial", "Missing"].includes(cells[2] ?? "")
         )
-          invalidRelation = true;
+          hasInvalidRelation = true;
         const relationId = cells[0]?.match(/ARCH-[0-9]{6}/u)?.[0];
         if (relationId && cells[2] === "Covered")
           detailCoveredDefinitions.add(relationId);
@@ -2563,21 +2563,23 @@ function checkArchitectureReconstruction(): void {
       const concernNames = concernRows
         .slice(1)
         .map((line) => line.split("|").slice(1, -1)[0]?.trim() ?? "");
-      const invalidApplicability = applicabilityRows.slice(1).some((line) => {
-        const cells = line
-          .split("|")
-          .slice(1, -1)
-          .map((cell) => cell.trim());
-        return (
-          cells.length !== 4 ||
-          !["Required", "N/A"].includes(cells[1] ?? "") ||
-          !cells[2] ||
-          !cells[3] ||
-          (cells[1] === "Required" &&
-            !/\]\([^)]*(?:\.md)?#[^)]+\)/u.test(cells[3]))
-        );
-      });
-      const invalidConcern = concernRows.slice(1).some((line) => {
+      const hasInvalidApplicability = applicabilityRows
+        .slice(1)
+        .some((line) => {
+          const cells = line
+            .split("|")
+            .slice(1, -1)
+            .map((cell) => cell.trim());
+          return (
+            cells.length !== 4 ||
+            !["Required", "N/A"].includes(cells[1] ?? "") ||
+            !cells[2] ||
+            !cells[3] ||
+            (cells[1] === "Required" &&
+              !/\]\([^)]*(?:\.md)?#[^)]+\)/u.test(cells[3]))
+          );
+        });
+      const hasInvalidConcern = concernRows.slice(1).some((line) => {
         const cells = line
           .split("|")
           .slice(1, -1)
@@ -2589,7 +2591,7 @@ function checkArchitectureReconstruction(): void {
           !cells[3]
         );
       });
-      const invalidQualityHandoff =
+      const hasInvalidQualityHandoff =
         !qualityHandoff.includes(
           "| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |",
         ) ||
@@ -2604,18 +2606,18 @@ function checkArchitectureReconstruction(): void {
               .map((cell) => cell.trim());
             return cells.length === 7 && cells.every(Boolean);
           });
-      const incompleteApplicability =
+      const hasIncompleteApplicability =
         applicabilityNames.length !== expectedApplicability.size ||
         new Set(applicabilityNames).size !== expectedApplicability.size ||
         [...expectedApplicability].some(
           (name) => !applicabilityNames.includes(name),
         );
-      const incompleteConcerns =
+      const hasIncompleteConcerns =
         concernNames.length !== expectedConcerns.size ||
         new Set(concernNames).size !== expectedConcerns.size ||
         [...expectedConcerns].some((name) => !concernNames.includes(name));
-      const unresolvedWhenReady =
-        architectureReady &&
+      const hasUnresolvedWhenReady =
+        isArchitectureReady &&
         (relationSection.includes("| Missing |") ||
           concernRows
             .slice(1)
@@ -2632,13 +2634,13 @@ function checkArchitectureReconstruction(): void {
           "| Concern | Result | Rationale | Evidence／Related ID |",
         ) ||
         areaRelationCount === 0 ||
-        invalidRelation ||
-        incompleteApplicability ||
-        incompleteConcerns ||
-        invalidApplicability ||
-        invalidConcern ||
-        invalidQualityHandoff ||
-        unresolvedWhenReady
+        hasInvalidRelation ||
+        hasIncompleteApplicability ||
+        hasIncompleteConcerns ||
+        hasInvalidApplicability ||
+        hasInvalidConcern ||
+        hasInvalidQualityHandoff ||
+        hasUnresolvedWhenReady
       )
         add(
           "error",
@@ -2687,7 +2689,7 @@ function checkArchitectureReconstruction(): void {
       "The detail map and area documents must expose the same many-to-many ARCH-ID relation set, covering every definition.",
     );
   if (
-    architectureReady &&
+    isArchitectureReady &&
     [...actualDefinitions].some((id) => !detailCoveredDefinitions.has(id))
   )
     add(

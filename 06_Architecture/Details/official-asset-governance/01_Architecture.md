@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: official-asset-governance
-状態: Candidate（v0.21.0）
+状態: Canonical
 維持責任者: Qual-Lab
 
 ## 基本設計との関係
@@ -91,4 +91,3 @@ candidate
 - 確認記録はRepository収載、Release公開、派生利用のAuthorityではない。
 - `restricted`と`withdrawn`を`approved`へ丸めない。
 - 取下げ後は新規利用を停止し、既公開物への処置を人間判断へ戻す。
-

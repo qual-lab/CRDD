@@ -912,9 +912,9 @@ Architecture定義の再構築後、Qualityが必要とする検証単位、境�
 | IA Analysis／Definition | 31／21。入力UXごとの利用場面、対象、識別、関係、状態、可視性、導線、責任を保持し、独立レビューCritical 0／Major 0／Moderate 0／Minor 0でPass |
 | UI Analysis／Definition | UX観点31／IA観点21／Definition 19。定型Lifecycle、意味統合不足、横断状態の過剰適用、重複引き渡しを是正し、分析済み／CanonicalとしてSPECへ引き渡し可能 |
 | SPEC Analysis／Definition | UX観点31／IA観点21／Definition 28。取消と判断返却を状態照会へ畳まず、SPEC-000028／000029として追加した。29件のUI／SPEC対応を多対多で定義し、独立再レビューCritical／Major／Moderate／Minor 0でPass |
-| Architecture Analysis／Definition／Details | UI観点19／SPEC観点28／Definition 17をCanonicalとして再構築し、個別定義と5横断モデルの独立再レビューはCritical／Major／Moderate／Minor 0でPass。17 ARCH-IDを15詳細設計領域へ多対多で接続し、Applicability、Engineering Concern、領域固有のQuality引渡し、Reality Audit境界を追加した。詳細設計の初回独立レビューは責務誤配置と形式的な一律評価を検出し、現在是正中 |
+| Architecture Analysis／Definition／Details | UI観点19／SPEC観点28／Definition 17をCanonicalとして再構築し、個別定義、5横断モデルおよび15詳細設計領域を独立再レビューした。Writer責務の逆輸入、責務Owner不足、形式的な一律評価、Quality引渡し不足とReality Audit境界を是正し、最終結果はCritical／Major／Moderate／Minor 0でPass。Architecture ReadyとしてQualityへ引き渡す |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 333／333 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、47分析と17定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、横断節と5成果物、Component責務表と17定義の完全一致を検査する。意味の再構築可能性は独立レビューへ分離 |
+| Checker契約試験 | 334／334 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、47分析と17定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、横断節と5成果物、Component責務表と17定義、15詳細領域のforward／reverse／個別Relation集合、各ARCH-IDのCovered owner、Applicability、Engineering ConcernおよびQuality引渡しを検査する。意味の再構築可能性は独立レビューへ分離 |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
@@ -922,5 +922,6 @@ Architecture定義の再構築後、Qualityが必要とする検証単位、境�
 | UI独立レビュー | 31 UX観点分析、21 IA観点分析、19 UI定義、37 UX×IA関係と横断文書を再々レビューし、Critical 0／Major 0／Moderate 0／Minor 0でPass |
 | SPEC独立レビュー | 26 SPEC／27 UI・SPEC関係の以前の候補はPass済み。その後、Architectureレビューで取消と判断返却の契約不足を検出し、28 SPEC／29関係へ更新した。固定候補`05c4cbc95c315cd65851598be69da563b1416397`を再レビューし、Critical／Major／Moderate／Minor 0でPass |
 | Architecture独立レビュー | 固定候補`05c4cbc95c315cd65851598be69da563b1416397`について、UI-000002の4操作、取消・判断返却のSibling block、読取りProjectionと基準版書込み能力の分離、19 UI／28 SPEC／17 Definitionの閉包を確認し、Critical／Major／Moderate／Minor 0でPass |
+| Architecture詳細設計の独立レビュー | 15領域の責務とQuality引渡しを全数確認した。Execution IntelligenceのCanonical詳細を読取り専用へ限定し、基準版Writer／Storeを非CanonicalなReality Auditへ分離した。契約移行にはCovered ownerを置き、全ARCH-IDが少なくとも一つのCovered詳細領域を持つことを機械反証した。最終再レビューCritical／Major／Moderate／Minor 0でPass |
 
 固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後のArchitecture再構築でUI操作に対するSPEC不足を検出した。31件のUX定義と21件のIA定義から、19件のUI定義と28件のSPEC定義を再構築し、29件のUI／SPEC関係へ更新した。取消と判断返却はArchitectureで補わず、それぞれ独立したAuthority、Effect、失敗およびlifecycleを持つSPECとして正式入力へ戻した。更新候補は独立再レビューでPassし、現在、人間による追加判断は必要ない。

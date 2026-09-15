@@ -1,7 +1,7 @@
 # Architecture詳細設計の対応表
 
 成果物種別: Architecture詳細設計の統合投影
-状態: Candidate
+状態: Canonical
 維持責任者: Qual-Lab
 
 ## 1. 目的
@@ -24,21 +24,21 @@ Quality／Development
 
 | 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |
 |---|---|---|---|
-| [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Candidate |
-| [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Candidate |
-| [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 実行編成、Provider境界、モデル選定、信頼済み実行、外部情報搬送 | Candidate |
-| [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Candidate |
-| [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 複数Repositoryの利用範囲、Context投影、候補搬送、時間的出所 | Candidate |
-| [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016 | 既存実行記録の読取りProjectionと時間的出所。Event発行・保存はARCH-000007の責務外 | Candidate |
-| [mcp](Details/mcp/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | 公開Transport、Project投影、Workspace範囲、外部情報境界 | Candidate |
-| [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | ARCH-000017 | 公式素材の出所、権利、用途、判断、収載状態 | Candidate |
-| [platform-access](Details/platform-access/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000011 | OS／Process／Container境界、実在するEffectと資源Lifecycle | Candidate |
-| [project-operation](Details/project-operation/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000016 | Project運営情報、Meeting候補、現在と履歴の投影 | Candidate |
-| [project-runtime](Details/project-runtime/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000012 | Project実行、状態投影、実行事実読取り、公開Application Contract | Candidate |
-| [quality-change-control](Details/quality-change-control/01_Architecture.md) | ARCH-000003 | 固定改訂版に対する変更・監査・試験結果と品質状態の統合 | Candidate |
-| [runtime-data](Details/runtime-data/01_Architecture.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Repository-local／OS管理領域の配置、保持、Identity、清掃 | Candidate |
-| [runtime-trust](Details/runtime-trust/01_Architecture.md) | ARCH-000014 | 準拠、完全性、Publisher、品質と利用者所有Trust Policyの独立評価 | Candidate |
-| [version-control](Details/version-control/01_Architecture.md) | ARCH-000002、ARCH-000009、ARCH-000014、ARCH-000016 | Repository Root、履歴境界、Binding、完全性入力、差替可能なPort | Candidate |
+| [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Canonical |
+| [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
+| [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 実行編成、Provider境界、モデル選定、信頼済み実行、外部情報搬送 | Canonical |
+| [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
+| [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 複数Repositoryの利用範囲、Context投影、候補搬送、時間的出所 | Canonical |
+| [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016 | 既存実行記録の読取りProjectionと時間的出所。Event発行・保存はARCH-000007の責務外 | Canonical |
+| [mcp](Details/mcp/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | 公開Transport、Project投影、Workspace範囲、外部情報境界 | Canonical |
+| [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | ARCH-000017 | 公式素材の出所、権利、用途、判断、収載状態 | Canonical |
+| [platform-access](Details/platform-access/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000011 | OS／Process／Container境界、実在するEffectと資源Lifecycle | Canonical |
+| [project-operation](Details/project-operation/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000016 | Project運営情報、Meeting候補、現在と履歴の投影 | Canonical |
+| [project-runtime](Details/project-runtime/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000012 | Project実行、状態投影、実行事実読取り、公開Application Contract | Canonical |
+| [quality-change-control](Details/quality-change-control/01_Architecture.md) | ARCH-000003 | 固定改訂版に対する変更・監査・試験結果と品質状態の統合 | Canonical |
+| [runtime-data](Details/runtime-data/01_Architecture.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Repository-local／OS管理領域の配置、保持、Identity、清掃 | Canonical |
+| [runtime-trust](Details/runtime-trust/01_Architecture.md) | ARCH-000014 | 準拠、完全性、Publisher、品質と利用者所有Trust Policyの独立評価 | Canonical |
+| [version-control](Details/version-control/01_Architecture.md) | ARCH-000002、ARCH-000009、ARCH-000014、ARCH-000016 | Repository Root、履歴境界、Binding、完全性入力、差替可能なPort | Canonical |
 
 ## 3. Architecture定義の閉包
 
@@ -70,4 +70,4 @@ QualityはARCH-IDだけでなく、対応する詳細設計領域のComponent、
 
 ## 5. Reality Audit境界
 
-`Details/`はCanonicalな詳細設計を所有する。現行Source、既存試験、過去Architectureまたは物理Directoryは、詳細設計を導く正式入力ではない。Canonical詳細設計を固定した後、各領域の「現行実装との照合」で`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+`Details/*/01_Architecture.md`だけがCanonicalな詳細設計を所有する。`*_Reality_Audit.md`は、基準版Capability、現行Source、既存試験、過去Architectureまたは物理Directoryとの後段照合であり、ARCH-IDを具体化するCanonical詳細設計ではない。Canonical詳細設計を固定した後、Reality Auditで実装を`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。

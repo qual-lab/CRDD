@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: runtime-trust
-状態: Candidate（v0.21.0）
+状態: Canonical
 維持責任者: Qual-Lab
 
 ## 基本設計との関係
@@ -96,4 +96,3 @@ Artifactを一回観測
 | Organization build | 利用組織 | 組織Publisherを許可可能 |
 | Fork build | 任意Publisher | 準拠・完全性・Policyで評価 |
 | Local development | unsigned | 明示したLocal用途だけ許可可能 |
-

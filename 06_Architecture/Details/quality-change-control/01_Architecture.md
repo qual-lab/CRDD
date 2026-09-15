@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: quality-change-control
-状態: Candidate（v0.21.0）
+状態: Canonical
 維持責任者: Qual-Lab
 
 ## 基本設計との関係
@@ -83,4 +83,3 @@ under_review
 - 是正で対象revisionが変わった場合、修正前の確認結果を新候補へ流用しない。
 - Checker成功、試験件数、監査担当の割当だけから`verified`を生成しない。
 - 人間判断が必要な場合は、現在候補から未決事項を再計算して返す。
-

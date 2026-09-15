@@ -4,18 +4,18 @@
 対象領域: execution-intelligence
 状態: 基準版Capabilityの照合対象
 
-## 基本設計との関係
+## 照合対象の基本設計
 
-| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+| Architecture定義 | 照合する基準版Capability | 位置づけ |
 |---|---|---|
-| [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | Query／Store Readerだけで、既存実行記録を読取り専用Projectionへ変換する。Event発行・Writer・保存方式は本Relationに含めない。 | Covered |
-| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Eventの観測時点、Source Revisionと評価候補の時間的出所を保持する。 | Covered |
+| [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | Query／Store Readerによる既存実行記録の読取り | Canonical詳細との後段照合。Event発行・Writer・保存方式は正式責務外 |
+| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Eventの観測時点、Source Revisionと評価候補の時間的出所 | Canonical詳細との後段照合 |
 
-Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+本表はARCH-IDとのCanonical Relationや`Covered`状態を宣言しない。Writer／Storeはv0.20.1の成立済みCapabilityとして保持し、v0.21の読取り専用責務へ逆輸入しない。
 
-## 詳細成果物の適用判断
+## 基準版Capabilityの確認観点
 
-| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+| 確認観点 | 対象 | 理由 | 参照節／成果物 |
 |---|---|---|---|
 | Component Model | Required | Publisher、Writer、Reader、Aggregatorを分け、ARCH-000007はReader側だけに接続する。 | [§1](#1-目的と責務) |
 | Interface Model | Required | EventとQuery結果の閉Schemaを分ける。 | [§2](#2-最小event) |
@@ -27,21 +27,21 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Observability | Required | 欠測、観測済み、評価候補と出所を返す。 | [§7](#7-検証と完成境界) |
 | Security Boundary | Required | 検証済みRepository Rootと改変検知境界を保つ。 | [§4](#4-保存と改変検知) |
 
-`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+この表はCanonical詳細成果物の適用判断ではない。基準版Capabilityを失わずReality Auditする観点を示す。
 
-## Engineering Concern評価
+## 基準版Capabilityの既存保証
 
-| Concern | Result | Rationale | Evidence／Related ID |
+| Concern | 既存設計 | Rationale | Evidence／Related ID |
 |---|---|---|---|
-| Concurrency | PASS | 並行Writerはimmutable publishと衝突時再読取りで処理する。 | [§4](#4-保存と改変検知) |
-| Timing | PASS | 発生時点、観測時点、評価時点を分ける。 | [§5](#5-集約改善候補正本昇格) |
-| Resource Lifecycle | PASS | 一時File、lock、Event byteの所有と清掃候補を分ける。 | [§6](#6-保持と清掃候補) |
-| External Boundary | PASS | Repository Root、Filesystem、利用側packageを公開入口で分離する。 | [§7](#7-検証と完成境界) |
-| Failure／Recovery | PASS | 観測失敗を主処理失敗へ昇格せず、欠測として保持する。 | [§3](#3-発行と失敗境界) |
+| Concurrency | 照合対象 | 並行Writerはimmutable publishと衝突時再読取りで処理する。 | [§4](#4-保存と改変検知) |
+| Timing | 照合対象 | 発生時点、観測時点、評価時点を分ける。 | [§5](#5-集約改善候補正本昇格) |
+| Resource Lifecycle | 照合対象 | 一時File、lock、Event byteの所有と清掃候補を分ける。 | [§6](#6-保持と清掃候補) |
+| External Boundary | 照合対象 | Repository Root、Filesystem、利用側packageを公開入口で分離する。 | [§7](#7-検証と完成境界) |
+| Failure／Recovery | 照合対象 | 観測失敗を主処理失敗へ昇格せず、欠測として保持する。 | [§3](#3-発行と失敗境界) |
 
-`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+この結果はv0.21のCanonical詳細設計に対する`PASS`ではない。Reality Auditで再確認する既存設計とEvidenceを示す。
 
-## Qualityへの引渡し
+## Qualityへの参考Evidence
 
 | 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|
@@ -50,7 +50,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## 現行実装との照合
 
-現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+現行Sourceと既存試験はCanonical詳細設計の正式入力ではない。本Reality Auditは、Canonical設計候補を固定した後、成立済み能力を失わないよう現行実装を`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類するための比較資料である。
 
 担当責任者: Qual-Lab
 最終更新日: 2026-09-06

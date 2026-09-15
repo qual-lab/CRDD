@@ -189,7 +189,7 @@
     {
       "id": "execution-intelligence:event-publication",
       "owner": "execution-intelligence",
-      "architectureAnchor": "06_Architecture/Details/execution-intelligence/01_Architecture.md#3-発行と失敗境界",
+      "architectureAnchor": "06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md#3-発行と失敗境界",
       "responsibilities": ["event_validation", "non_authority_publication", "consumer_observation"],
       "externalBoundaries": ["runtime_event_producer", "execution_intelligence_public_api", "consumer_adapter"],
       "lifecycleProfile": "pure_component",
@@ -199,7 +199,7 @@
     {
       "id": "execution-intelligence:durable-store",
       "owner": "execution-intelligence",
-      "architectureAnchor": "06_Architecture/Details/execution-intelligence/01_Architecture.md#4-保存と改変検知",
+      "architectureAnchor": "06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md#4-保存と改変検知",
       "responsibilities": ["repository_root_binding", "immutable_event_publish", "retention_cleanup_classification"],
       "externalBoundaries": ["repository_filesystem", "process_lock", "execution_intelligence_consumer"],
       "lifecycleProfile": "durable_operation",
@@ -313,7 +313,7 @@
     },
     {
       "id": "runtime:attempt-to-durable-observation",
-      "architectureAnchor": "06_Architecture/Details/execution-intelligence/01_Architecture.md#3-発行と失敗境界",
+      "architectureAnchor": "06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md#3-発行と失敗境界",
       "blockPath": ["project-runtime:objective-task-lifecycle", "execution-intelligence:event-publication", "execution-intelligence:durable-store"],
       "testIds": ["coordinator:integration:project-runtime-execution", "execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
       "postconditions": ["task_result_unchanged_by_observation", "event_identity_preserved", "store_failure_not_hidden"]

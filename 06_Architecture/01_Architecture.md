@@ -1,6 +1,6 @@
 # CRDD参照Toolのアーキテクチャ
 
-Status: Candidate (v0.21.0, Released Baseline: v0.20.1)
+Status: Architecture Ready (v0.21.0, Released Baseline: v0.20.1)
 Owner: Qual-Lab
 Last Updated: 2026-09-15
 
@@ -8,7 +8,7 @@ Last Updated: 2026-09-15
 
 本書はArchitecture工程の固定入口である。CanonicalなUI／SPECから導いた17件の責務定義と、それらをQualityが検証設計へ使える形に統合した横断モデルを案内する。個別定義の内容を再定義せず、対象、網羅状態、主要判断、未解決事項および次工程への引渡しを所有する。
 
-個別責務定義と横断モデルからなる基本設計は独立レビューを完了した。Architecture工程全体は、基本設計を実装可能な詳細設計へ具体化し、Qualityへの引渡しを閉じるまで`Architecture Ready`とは表示しない。
+個別責務定義、横断モデルおよび15領域の詳細設計は独立レビューを完了した。Architecture工程はQualityが検証単位を再構成できる状態まで閉じ、現行実装との一致はQuality工程でReality Auditとして判定する。
 
 ## 2. 工程入力と再構築方法
 
@@ -74,8 +74,9 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 
 | 成果物 | 所有する内容 | 状態 |
 |---|---|---|
-| [詳細設計の対応表](07_Detail_Architecture_Map.md) | 17件のARCH-IDと詳細設計領域の多対多Relation、領域閉包、Qualityへの引渡し | Candidate |
-| [`Details/`](Details/) | Component、Interface、Data／State Flow、Sequence、Failure／Recovery、配置、観測およびEngineering Concern | Candidate |
+| [詳細設計の対応表](07_Detail_Architecture_Map.md) | 17件のARCH-IDと詳細設計領域の多対多Relation、領域閉包、Qualityへの引渡し | Canonical |
+| [`Details/*/01_Architecture.md`](Details/) | 15領域のComponent、Interface、Data／State Flow、Sequence、Failure／Recovery、配置、観測およびEngineering Concern | Canonical |
+| `Details/*/*_Reality_Audit.md` | 基準版Capability、現行実装および既存試験との後段照合。Canonical詳細設計ではない | 照合資料 |
 
 ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentityではない。一つのARCH-IDを複数領域が具体化でき、一つの領域が複数ARCH-IDを実現できる。詳細設計は基本設計のコピーではなく、「何を成立させるか」を「どの構造・境界・Flowで成立させるか」へ具体化する。
 
@@ -100,13 +101,13 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 | UI／SPEC全数分析 | 完了 | 19 UI、28 SPEC、未分析0 |
 | 個別責務定義 | 完了 | 17定義、台帳と完全一致 |
 | 5横断モデル | 完了 | 本書の横断モデル台帳。最終独立レビューCritical／Major／Moderate／Minor 0 |
-| Qualityへの検証観点 | 詳細設計候補まで作成 | 15詳細領域が検証対象、反証する失敗、観測、終了後条件、未確認範囲を提示。独立レビューで妥当性を確認中 |
+| Qualityへの検証観点 | 完了 | 15詳細領域が検証対象、反証する失敗、観測、終了後条件、未確認範囲を提示。独立レビューで妥当性を確認済み |
 | Reality Audit境界 | 定義済み | [配置／実行モデル](06_Deployment_and_Execution_Model.md#5-reality-auditへの引渡し) |
 | 基本設計の独立レビュー | 完了 | 個別定義と横断モデルを別々に再レビューし、いずれもPass |
-| 詳細設計 | 進行中 | [詳細設計の対応表](07_Detail_Architecture_Map.md)を基準に、領域ごとのRelation、必要成果物、Engineering Concernを具体化する |
-| 詳細設計の独立レビュー | 是正中 | 初回レビューで責務誤配置と形式的な一律評価を検出。所有責務と領域固有の引渡しへ是正後、再レビューする |
+| 詳細設計 | 完了 | [詳細設計の対応表](07_Detail_Architecture_Map.md)を基準に、15領域のRelation、必要成果物、Engineering Concernを具体化した |
+| 詳細設計の独立レビュー | 完了 | Writer責務の逆輸入、責務Owner不足、形式的な一律評価およびReality Audit境界を是正し、最終再レビューCritical／Major／Moderate／Minor 0でPass |
 
-基本設計は閉じ、詳細設計は進行中であるため、現在の工程状態は`Candidate`である。詳細設計とその独立レビューを完了した後に本表とStatusを更新し、Quality Analysisへ移行する。
+基本設計と詳細設計を閉じ、Qualityが検証対象、故障点、観測および終了後条件を再構成できるため、現在の工程状態は`Architecture Ready`である。次はCanonical設計と現行実装・既存試験を照合するReality Audit、およびQuality Analysisへ移行する。
 
 ## 6. 保持する意図と対象外
 

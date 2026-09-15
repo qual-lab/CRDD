@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: coordinator
-状態: Candidate（v0.21.0）
+状態: Canonical
 
 ## 基本設計との関係
 
