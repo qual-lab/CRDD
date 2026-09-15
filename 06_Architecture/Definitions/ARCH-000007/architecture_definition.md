@@ -78,7 +78,7 @@ Architecture ID: `ARCH-000007`
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1の実行記録読取りProjection読取り | Execution Intelligence Query／Store Reader | 実行記録読取りProjection | 保持・読取りへ限定 | [execution-intelligence:integration:store](../../../07_Quality/04_Test_Catalog.json) | 外部アプリTS APIの読取り接続は未実装 |
+| v0.20.1の実行記録読取りProjection読取り | Execution Intelligence Query／Store Reader | 実行記録読取りProjection | 保持・読取りへ限定 | [execution-intelligence:integration:store](../../../07_Quality/Registry/test-catalog.json) | 外部アプリTS APIの読取り接続は未実装 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

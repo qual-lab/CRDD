@@ -17,7 +17,7 @@ const checkerRoot = path.resolve(
 );
 const repositoryRoot = path.resolve(checkerRoot, "../..");
 const loadedCatalog = loadTestCatalog(
-  path.join(repositoryRoot, "07_Quality", "04_Test_Catalog.json"),
+  path.join(repositoryRoot, "07_Quality", "Registry/test-catalog.json"),
 );
 const catalog = loadedCatalog as TestCatalog;
 
@@ -332,7 +332,7 @@ test("共有設定とowner不明の実行変更は全ownerへ閉じる", () => {
     ["unit", "integration", "system"].includes(entry.level),
   ).length;
   for (const changedPath of [
-    "07_Quality/04_Test_Catalog.json",
+    "07_Quality/Registry/test-catalog.json",
     "biome.json",
     "custom-runtime-config.json",
   ])

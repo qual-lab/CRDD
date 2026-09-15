@@ -78,7 +78,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1のRepository Root検証 | Version Control／Coordinator Root Resolver | Version Control PortとRepository Binding Resolver | 保持・Adapter化 | [version-control:integration:repository-location](../../../07_Quality/04_Test_Catalog.json) | Git以外のAdapter実証は未実施 |
+| v0.20.1のRepository Root検証 | Version Control／Coordinator Root Resolver | Version Control PortとRepository Binding Resolver | 保持・Adapter化 | [version-control:integration:repository-location](../../../07_Quality/Registry/test-catalog.json) | Git以外のAdapter実証は未実施 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

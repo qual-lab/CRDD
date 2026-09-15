@@ -125,7 +125,7 @@ Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime
 - [`06_Architecture/Details/runtime-data/01_Architecture.md`](<../../../06_Architecture/Details/runtime-data/01_Architecture.md>)
 - [`06_Architecture/Details/version-control/01_Architecture.md`](<../../../06_Architecture/Details/version-control/01_Architecture.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
-- [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
+- [`07_Quality/Registry/test-catalog.json`](<../../../07_Quality/Registry/test-catalog.json>)
 - `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
 - `07_Quality/Verification_Results/2026-09-12_V021_Runtime_Data_Migration_Result.json`（削除または旧Path）
 - [`12_Change.md`](<../../../12_Change.md>)

@@ -2744,31 +2744,65 @@ function checkQualityReconstruction(): void {
   if (repositoryMode !== "official") return;
 
   const qualityRoot = path.join(root, "07_Quality");
-  const analysisPath = path.join(
-    qualityRoot,
-    "Analysis",
-    "canonical-definition-mapping",
-    "quality_analysis.md",
+  const analysisRoot = path.join(qualityRoot, "Analysis");
+  const phaseAnalysisSpecs = ["REQ", "UX", "IA", "UI", "SPEC", "ARCH"] as const;
+  const phaseAnalysisPaths = phaseAnalysisSpecs.map((prefix) =>
+    path.join(analysisRoot, prefix, "quality_analysis.md"),
   );
+  const analysisPath = path.join(qualityRoot, "04_Quality_Integration.md");
   const architectureIndexPath = path.join(
     root,
     "06_Architecture",
     "01_Architecture.md",
   );
   if (!lstatIfPresent(architectureIndexPath)?.isFile()) return;
-  if (!lstatIfPresent(analysisPath)?.isFile()) {
+  if (
+    !lstatIfPresent(analysisPath)?.isFile() ||
+    phaseAnalysisPaths.some((phasePath) => !lstatIfPresent(phasePath)?.isFile())
+  ) {
     add(
       "error",
       "quality-canonical-mapping-missing",
-      relative(analysisPath),
-      "The official repository must keep one canonical Quality mapping that explicitly processes every current REQ, UX, IA, UI, SPEC, and ARCH definition.",
+      relative(analysisRoot),
+      "The official repository must keep one origin-based Quality analysis for REQ, UX, IA, UI, SPEC, and ARCH plus one Quality Integration result.",
     );
     return;
   }
 
   const templateQualityRoot = path.join(root, "template", "07_Quality");
-  for (const qualityStructureRoot of [qualityRoot, templateQualityRoot]) {
-    for (const directoryName of ["Analysis", "Definitions"]) {
+  const requiredQualityFiles = [
+    "01_Quality_Center.md",
+    "02_Quality_Strategy.md",
+    "03_Verification_Design.md",
+    "04_Quality_Integration.md",
+    "05_Current_Implementation_Reality_Audit.md",
+  ] as const;
+  const requiredTemplateQualityFiles = [
+    ...requiredQualityFiles,
+    "99_Verification_Result_Format.md",
+  ] as const;
+  for (const [qualityStructureRoot, requiredFiles] of [
+    [qualityRoot, requiredQualityFiles],
+    [templateQualityRoot, requiredTemplateQualityFiles],
+  ] as const) {
+    for (const fileName of requiredFiles) {
+      const filePath = path.join(qualityStructureRoot, fileName);
+      if (
+        !lstatIfPresent(filePath)?.isFile() ||
+        pathContainsSymbolicLink(filePath)
+      )
+        add(
+          "error",
+          "quality-current-profile-file-missing",
+          relative(filePath),
+          "The CRDD official current profile must keep the complete numbered Quality root file set and the template-only 99 verification-result helper.",
+        );
+    }
+    const requiredDirectories =
+      qualityStructureRoot === qualityRoot
+        ? ["Analysis", "Definitions", "Registry"]
+        : ["Analysis", "Definitions"];
+    for (const directoryName of requiredDirectories) {
       const directoryPath = path.join(qualityStructureRoot, directoryName);
       const stat = lstatIfPresent(directoryPath);
       if (!stat?.isDirectory() || pathContainsSymbolicLink(directoryPath))
@@ -2776,24 +2810,68 @@ function checkQualityReconstruction(): void {
           "error",
           "quality-repository-structure-invalid",
           relative(directoryPath),
-          "Quality Analysis and Definitions must be real directories under the canonical Quality root.",
+          "Quality Analysis, Definitions, and the official machine-consumer Registry must remain in their current-profile directories.",
         );
     }
   }
+  for (const registryFileName of [
+    "test-catalog.json",
+    "coordinator-runtime-traceability.json",
+    "project-runtime-design-traceability.json",
+  ]) {
+    const registryFilePath = path.join(
+      qualityRoot,
+      "Registry",
+      registryFileName,
+    );
+    if (
+      !lstatIfPresent(registryFilePath)?.isFile() ||
+      pathContainsSymbolicLink(registryFilePath)
+    )
+      add(
+        "error",
+        "quality-current-profile-registry-missing",
+        relative(registryFilePath),
+        "The CRDD official repository currently has machine consumers for all three Quality Registry contracts.",
+      );
+  }
+  for (const legacyRelativePath of [
+    "07_Quality/04_Test_Catalog.json",
+    "07_Quality/05_Coordinator_Runtime_Traceability.json",
+    "07_Quality/06_Project_Runtime_Design_Traceability.json",
+    "07_Quality/Analysis/canonical-definition-mapping",
+    "07_Quality/Analysis/current-implementation-reality",
+    "template/07_Quality/04_Verification_Result_Format.md",
+    "template/07_Quality/Analysis/_Template",
+    "template/07_Quality/Definitions/_Template",
+    "template/07_Quality/Evidence",
+  ]) {
+    const legacyPath = path.join(root, legacyRelativePath);
+    if (lstatIfPresent(legacyPath))
+      add(
+        "error",
+        "quality-legacy-layout-reintroduced",
+        relative(legacyPath),
+        "The CRDD official current profile must not reintroduce a superseded Quality path or shared Evidence container.",
+      );
+  }
 
+  const phaseAnalyses = phaseAnalysisPaths.map((phasePath) => read(phasePath));
   const analysis = read(analysisPath);
-  const mappingSection = analysis.match(
-    /^## 3\. 全件Mapping\s*$([\s\S]*?)(?=^##\s)/mu,
-  )?.[1];
-  if (!mappingSection) {
+  const mappingSections = phaseAnalyses.map(
+    (phaseAnalysis) =>
+      phaseAnalysis.match(/^## 2\. 全件処置\s*$([\s\S]*?)(?=^##\s)/mu)?.[1],
+  );
+  if (mappingSections.some((section) => !section)) {
     add(
       "error",
       "quality-canonical-mapping-section-missing",
-      relative(analysisPath),
-      "The canonical Quality analysis must expose its source relations in the '全件Mapping' section instead of satisfying coverage through IDs mentioned elsewhere.",
+      relative(analysisRoot),
+      "Every phase Quality analysis must expose its canonical sources in the '全件処置' section instead of satisfying coverage through IDs mentioned elsewhere.",
     );
     return;
   }
+  const mappingSection = mappingSections.join("\n");
 
   const canonicalDefinitionSpecs = [
     ["01_Discovery", "REQ", "requirement.md"],
@@ -2839,19 +2917,35 @@ function checkQualityReconstruction(): void {
   );
   const summarySourceGoalRelations = new Set<string>();
   const summarySourceGoalRelationEntries: string[] = [];
+  const summarySourceLevels = new Map<string, Set<string>>();
   const goalLabelToSlug = new Map<string, string>();
   for (const line of mappingRows) {
     const sourceId = line.match(
       /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\(/u,
     )?.[1];
     if (!sourceId) continue;
+    const mappingCells = line
+      .slice(1, line.lastIndexOf("|"))
+      .split("|")
+      .map((cell) => cell.trim());
+    const requestedLevels = new Set(
+      Array.from(
+        mappingCells[4]?.matchAll(/UT|IT|ST|UAT/gu) ?? [],
+        (match) => match[0],
+      ),
+    );
     for (const goal of line.matchAll(
-      /\[([^\]]+)\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/verification\.md\)/gu,
+      /\[([^\]]+)\]\(\.\.\/\.\.\/Definitions\/(QA-[0-9]{6})\/quality_definition\.md\)/gu,
     )) {
       goalLabelToSlug.set(goal[1], goal[2]);
       const relation = `${sourceId}|${goal[2]}`;
       summarySourceGoalRelationEntries.push(relation);
       summarySourceGoalRelations.add(relation);
+      const sourceLevels =
+        summarySourceLevels.get(sourceId) ?? new Set<string>();
+      for (const requestedLevel of requestedLevels)
+        sourceLevels.add(requestedLevel);
+      summarySourceLevels.set(sourceId, sourceLevels);
     }
   }
   if (
@@ -2883,22 +2977,37 @@ function checkQualityReconstruction(): void {
       "The summary mapping must not repeat the same Source ID to verification-goal relation through a different row description.",
     );
 
-  const sourceRelationSection = analysis.match(
-    /^### 4\.0\. Source固有条件と検証項目の関係\s*$([\s\S]*?)(?=^###\s|^##\s)/mu,
-  )?.[1];
+  const sourceRelationSections = phaseAnalyses.map(
+    (phaseAnalysis) =>
+      phaseAnalysis.match(
+        /^## 3\. 検証目標への統合\s*$([\s\S]*?)(?=^##\s)/mu,
+      )?.[1],
+  );
+  if (sourceRelationSections.some((section) => !section))
+    add(
+      "error",
+      "quality-source-local-relation-section-missing",
+      relative(analysisRoot),
+      "Every phase Quality analysis must expose Source ID, QA-ID, preserved condition, test level, and Local Item relations in its canonical integration section.",
+    );
+  const sourceRelationSection = sourceRelationSections.join("\n");
   const analysisSourceRelations = new Set<string>();
   const analysisSourceGoalRelations = new Set<string>();
   const analysisSourceRelationEntries: string[] = [];
   const analysisSourceGoalRelationEntries: string[] = [];
   const analysisSourceConditions = new Map<string, string>();
+  const analysisSourceGoalLevels = new Map<string, Set<string>>();
   const normalizeQualityCondition = (value: string): string =>
     value.trim().replace(/\s+/gu, " ");
   for (const line of (sourceRelationSection ?? "").split(/\r?\n/u)) {
     const relation = line.match(
-      /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*\[[^\]]+\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/verification\.md\)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
+      /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*\[[^\]]+\]\(\.\.\/\.\.\/Definitions\/(QA-[0-9]{6})\/quality_definition\.md\)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
     );
     if (!relation) continue;
-    const [, sourceId, goalSlug, condition, localCell] = relation;
+    const [, sourceId, goalSlug, condition, levelCell, localCell] = relation;
+    const requestedLevels = new Set(
+      Array.from(levelCell.matchAll(/UT|IT|ST|UAT/gu), (match) => match[0]),
+    );
     const localIds = Array.from(
       localCell.matchAll(/`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu),
       (match) => match[1],
@@ -2910,7 +3019,12 @@ function checkQualityReconstruction(): void {
       sourceGoalRelation,
       normalizeQualityCondition(condition),
     );
-    if (condition.trim().length === 0 || localIds.length === 0)
+    analysisSourceGoalLevels.set(sourceGoalRelation, requestedLevels);
+    if (
+      condition.trim().length === 0 ||
+      requestedLevels.size === 0 ||
+      localIds.length === 0
+    )
       add(
         "error",
         "quality-source-local-relation-incomplete",
@@ -2960,9 +3074,15 @@ function checkQualityReconstruction(): void {
   const linkedDefinitionPaths = new Set(
     Array.from(
       mappingSection.matchAll(
-        /\]\((\.\.\/\.\.\/Definitions\/[a-z0-9-]+\/verification\.md)\)/gu,
+        /\]\(\.\.\/\.\.\/Definitions\/(QA-[0-9]{6})\/quality_definition\.md\)/gu,
       ),
-      (match) => path.resolve(path.dirname(analysisPath), match[1]),
+      (match) =>
+        path.join(
+          qualityRoot,
+          "Definitions",
+          match[1],
+          "quality_definition.md",
+        ),
     ),
   );
   if (linkedDefinitionPaths.size === 0)
@@ -2990,13 +3110,13 @@ function checkQualityReconstruction(): void {
           .filter(
             (entry) =>
               entry.isDirectory() &&
-              /^[a-z0-9-]+$/u.test(entry.name) &&
+              /^QA-[0-9]{6}$/u.test(entry.name) &&
               lstatIfPresent(
-                path.join(definitionsRoot, entry.name, "verification.md"),
+                path.join(definitionsRoot, entry.name, "quality_definition.md"),
               )?.isFile(),
           )
           .map((entry) =>
-            path.join(definitionsRoot, entry.name, "verification.md"),
+            path.join(definitionsRoot, entry.name, "quality_definition.md"),
           )
       : [],
   );
@@ -3017,7 +3137,7 @@ function checkQualityReconstruction(): void {
     );
 
   const crossModelSection = analysis.match(
-    /^### 4\.1\. Architecture横断モデルの処置\s*$([\s\S]*?)(?=^###\s|^##\s)/mu,
+    /^## 2\. Architecture横断モデルの処置\s*$([\s\S]*?)(?=^##\s)/mu,
   )?.[1];
   const expectedCrossModelPaths = new Set(
     [
@@ -3031,7 +3151,7 @@ function checkQualityReconstruction(): void {
   const linkedCrossModelPaths = new Set(
     Array.from(
       (crossModelSection ?? "").matchAll(
-        /\]\((\.\.\/\.\.\/\.\.\/06_Architecture\/[A-Za-z0-9_]+\.md)\)/gu,
+        /\]\((\.\.\/06_Architecture\/[A-Za-z0-9_]+\.md)\)/gu,
       ),
       (match) => path.resolve(path.dirname(analysisPath), match[1]),
     ),
@@ -3103,7 +3223,7 @@ function checkQualityReconstruction(): void {
     );
 
   const detailSection = analysis.match(
-    /^### 4\.2\. Architecture詳細設計領域の処置\s*$([\s\S]*?)(?=^###\s|^##\s|(?![\s\S]))/mu,
+    /^## 3\. Architecture詳細設計領域の処置\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
   )?.[1];
   const detailRoot = path.join(root, "06_Architecture", "Details");
   const physicalDetailPaths = new Set(
@@ -3125,7 +3245,7 @@ function checkQualityReconstruction(): void {
   const linkedDetailPaths = new Set(
     Array.from(
       (detailSection ?? "").matchAll(
-        /\]\((\.\.\/\.\.\/\.\.\/06_Architecture\/Details\/[a-z0-9-]+\/01_Architecture\.md)\)/gu,
+        /\]\((\.\.\/06_Architecture\/Details\/[a-z0-9-]+\/01_Architecture\.md)\)/gu,
       ),
       (match) => path.resolve(path.dirname(analysisPath), match[1]),
     ),
@@ -3138,7 +3258,7 @@ function checkQualityReconstruction(): void {
     )?.[1];
     if (!detailSlug) continue;
     for (const goal of line.matchAll(
-      /\[[^\]]+\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/verification\.md\)/gu,
+      /\[[^\]]+\]\(Definitions\/(QA-[0-9]{6})\/quality_definition\.md\)/gu,
     )) {
       const relation = `${detailSlug}|${goal[1]}`;
       analysisDetailGoalRelationEntries.push(relation);
@@ -3182,13 +3302,28 @@ function checkQualityReconstruction(): void {
   const definitionSourceRelations = new Set<string>();
   const definitionSourceRelationEntries: string[] = [];
   const definitionSourceConditions = new Map<string, string>();
+  const definitionSourceGoalLevels = new Map<string, Set<string>>();
   const definitionDetailGoalRelations = new Set<string>();
   const definitionDetailGoalRelationEntries: string[] = [];
   const definitionGoalLocalRelations = new Set<string>();
   const definitionGoalLocalRelationEntries: string[] = [];
+  const localItemLevels = new Map<string, string>();
   for (const definitionPath of physicalDefinitionPaths) {
     const definition = read(definitionPath);
     const goalSlug = path.basename(path.dirname(definitionPath));
+    const declaredQualityId = definition.match(
+      /^Quality ID:\s*`(QA-[0-9]{6})`\s*$/mu,
+    )?.[1];
+    if (
+      declaredQualityId !== goalSlug ||
+      !new RegExp(`^# ${goalSlug}\\s+\\S`, "mu").test(definition)
+    )
+      add(
+        "error",
+        "quality-definition-identity-mismatch",
+        relative(definitionPath),
+        "Each Quality definition directory, H1, and Quality ID field must expose the same QA-XXXXXX canonical identity.",
+      );
     const coverageSection = definition.match(
       /^## 1\. 情報源と網羅条件\s*$([\s\S]*?)(?=^##\s)/mu,
     )?.[1];
@@ -3201,15 +3336,22 @@ function checkQualityReconstruction(): void {
       );
     for (const line of (coverageSection ?? "").split(/\r?\n/u)) {
       const relation = line.match(
-        /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
+        /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
       );
       if (!relation) continue;
-      const [, sourceId, condition, localCell] = relation;
+      const [, sourceId, condition, levelCell, localCell] = relation;
+      const requestedLevels = new Set(
+        Array.from(levelCell.matchAll(/UT|IT|ST|UAT/gu), (match) => match[0]),
+      );
       const localIds = Array.from(
         localCell.matchAll(/`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu),
         (match) => match[1],
       );
-      if (condition.trim().length === 0 || localIds.length === 0)
+      if (
+        condition.trim().length === 0 ||
+        requestedLevels.size === 0 ||
+        localIds.length === 0
+      )
         add(
           "error",
           "quality-definition-source-local-relation-incomplete",
@@ -3219,6 +3361,10 @@ function checkQualityReconstruction(): void {
       definitionSourceConditions.set(
         `${sourceId}|${goalSlug}`,
         normalizeQualityCondition(condition),
+      );
+      definitionSourceGoalLevels.set(
+        `${sourceId}|${goalSlug}`,
+        requestedLevels,
       );
       for (const localId of localIds) {
         const relation = `${sourceId}|${goalSlug}|${localId}`;
@@ -3249,6 +3395,10 @@ function checkQualityReconstruction(): void {
     const expectedItemColumns = [
       "Local ID",
       "分類",
+      "試験段階",
+      "試験種別",
+      "対象／境界",
+      "外部境界の段階",
       "事前状態／入力",
       "操作／刺激",
       "観測と期待結果",
@@ -3258,6 +3408,10 @@ function checkQualityReconstruction(): void {
     const itemTableLines = (itemSection ?? "")
       .split(/\r?\n/u)
       .filter((line) => /^\|.*\|\s*$/u.test(line));
+    const localItemLevelStages: Array<{
+      level: string;
+      externalBoundaryStage: string;
+    }> = [];
     const itemHeaderCells = itemTableLines[0]
       ?.slice(1, itemTableLines[0].lastIndexOf("|"))
       .split("|")
@@ -3271,7 +3425,7 @@ function checkQualityReconstruction(): void {
         "error",
         "quality-verification-item-schema-invalid",
         relative(definitionPath),
-        "The verification-item table must use the exact seven canonical axes: Local ID, classification, precondition/input, operation/stimulus, observation/expected result, postcondition, and execution mode.",
+        "The verification-item table must use the exact eleven canonical axes, including test level, test type, target/boundary, and staged external-boundary reach.",
       );
     for (const itemLine of itemTableLines.slice(2)) {
       if (!/^\|\s*`[A-Z][A-Z0-9]*-[0-9]{2,}`\s*\|/u.test(itemLine)) continue;
@@ -3279,6 +3433,15 @@ function checkQualityReconstruction(): void {
         .slice(1, itemLine.lastIndexOf("|"))
         .split("|")
         .map((cell) => cell.trim());
+      if (cells.length === expectedItemColumns.length)
+        localItemLevelStages.push({
+          level: cells[2],
+          externalBoundaryStage: cells[5],
+        });
+      if (cells.length === expectedItemColumns.length) {
+        const localId = cells[0].match(/^`([A-Z][A-Z0-9]*-[0-9]{2,})`$/u)?.[1];
+        if (localId) localItemLevels.set(localId, cells[2]);
+      }
       if (
         cells.length !== expectedItemColumns.length ||
         cells.some((cell) => cell.length === 0)
@@ -3287,17 +3450,180 @@ function checkQualityReconstruction(): void {
           "error",
           "quality-verification-item-axis-missing",
           relative(definitionPath),
-          "Every verification item must populate all seven canonical axes so the intended failure and completion boundary can be reconstructed.",
+          "Every verification item must populate all eleven canonical axes so the intended level, boundary, failure, and completion condition can be reconstructed.",
         );
       if (
         cells.length === expectedItemColumns.length &&
-        !["Automated", "Manual", "Hybrid"].includes(cells[6])
+        !["UT", "IT", "ST", "UAT"].includes(cells[2])
+      )
+        add(
+          "error",
+          "quality-verification-item-test-level-invalid",
+          relative(definitionPath),
+          "Verification-item test level must be exactly UT, IT, ST, or UAT; create separate Local Items when independently observable levels are required.",
+        );
+      if (
+        cells.length === expectedItemColumns.length &&
+        ![
+          "N/A",
+          "Direct Boundary",
+          "Adjacent 1 Block",
+          "Related 2 Blocks",
+          "System/E2E",
+          "User Acceptance",
+        ].includes(cells[5])
+      )
+        add(
+          "error",
+          "quality-verification-item-external-boundary-stage-invalid",
+          relative(definitionPath),
+          "Verification-item external-boundary stage must use the canonical staged-integration values.",
+        );
+      if (
+        cells.length === expectedItemColumns.length &&
+        !["Automated", "Manual", "Hybrid"].includes(cells[10])
       )
         add(
           "error",
           "quality-verification-item-execution-mode-invalid",
           relative(definitionPath),
           "Verification-item execution mode must be exactly Automated, Manual, or Hybrid; test level and reviewer role belong to their own contracts.",
+        );
+    }
+    const applicabilitySection = definition.match(
+      /^## [0-9]+\. 試験段階と外部境界の適用\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
+    )?.[1];
+    const applicabilityRows = new Map<
+      string,
+      { applicability: string; externalBoundaryReach: string }
+    >();
+    for (const line of (applicabilitySection ?? "").split(/\r?\n/u)) {
+      const row = line.match(
+        /^\|\s*(UT|IT|ST|UAT)\s*\|\s*(Required|Conditional|N\/A)\s*\|\s*([^|]+)\|\s*(N\/A|Direct Boundary|Adjacent 1 Block|Related 2 Blocks|System\/E2E|User Acceptance)\s*\|\s*([^|]+)\|\s*$/u,
+      );
+      if (!row) continue;
+      applicabilityRows.set(row[1], {
+        applicability: row[2],
+        externalBoundaryReach: row[4],
+      });
+    }
+    if (
+      applicabilityRows.size !== 4 ||
+      ["UT", "IT", "ST", "UAT"].some((level) => !applicabilityRows.has(level))
+    )
+      add(
+        "error",
+        "quality-test-level-applicability-incomplete",
+        relative(definitionPath),
+        "Each verification definition must explicitly decide UT, IT, ST, and UAT applicability with scope, staged external-boundary reach, and rationale.",
+      );
+    const requiredLevelDisplay = new Map([
+      ["UT", "Unit"],
+      ["IT", "Integration"],
+      ["ST", "System"],
+      ["UAT", "User Acceptance"],
+    ]);
+    const primaryLevelText =
+      definition.match(/^主な試験段階:\s*(.+?)\s*$/mu)?.[1];
+    const expectedPrimaryLevels = ["UT", "IT", "ST", "UAT"]
+      .filter(
+        (level) => applicabilityRows.get(level)?.applicability === "Required",
+      )
+      .map((level) => requiredLevelDisplay.get(level));
+    if (
+      !primaryLevelText ||
+      primaryLevelText
+        .split("／")
+        .map((level) => level.trim())
+        .join("／") !== expectedPrimaryLevels.join("／")
+    )
+      add(
+        "error",
+        "quality-primary-test-level-summary-mismatch",
+        relative(definitionPath),
+        "The human-readable primary-test-level summary must exactly equal the ordered set of Required UT, IT, ST, and UAT applicability rows.",
+      );
+
+    const additionalTypeSection = definition.match(
+      /^## 追加試験種別の適用\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
+    )?.[1];
+    const additionalTypeRows = new Map<
+      string,
+      { applicability: string; authorization: string }
+    >();
+    for (const line of (additionalTypeSection ?? "").split(/\r?\n/u)) {
+      const row = line.match(
+        /^\|\s*(RT|PT|LT)\s*\|\s*(Required|Conditional|N\/A)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
+      );
+      if (!row) continue;
+      additionalTypeRows.set(row[1], {
+        applicability: row[2],
+        authorization: row[4].trim(),
+      });
+    }
+    if (
+      additionalTypeRows.size !== 3 ||
+      ["RT", "PT", "LT"].some((type) => !additionalTypeRows.has(type))
+    )
+      add(
+        "error",
+        "quality-additional-test-type-applicability-incomplete",
+        relative(definitionPath),
+        "Each Quality definition must explicitly decide RT, PT, and LT applicability and explain non-applicability.",
+      );
+    for (const type of ["PT", "LT"]) {
+      const row = additionalTypeRows.get(type);
+      if (
+        row &&
+        ((row.applicability === "N/A" && row.authorization !== "N/A") ||
+          (row.applicability !== "N/A" &&
+            row.authorization !== "Human Explicit Authorization"))
+      )
+        add(
+          "error",
+          "quality-expensive-test-authorization-invalid",
+          relative(definitionPath),
+          "PT and LT must require Human Explicit Authorization when applicable and must use N/A authorization when non-applicable.",
+        );
+    }
+    const externalBoundaryStageOrder = new Map([
+      ["N/A", 0],
+      ["Direct Boundary", 1],
+      ["Adjacent 1 Block", 2],
+      ["Related 2 Blocks", 3],
+      ["System/E2E", 4],
+      ["User Acceptance", 5],
+    ]);
+    for (const level of ["UT", "IT", "ST", "UAT"]) {
+      const applicability = applicabilityRows.get(level);
+      if (!applicability) continue;
+      const localItems = localItemLevelStages.filter(
+        (item) => item.level === level,
+      );
+      const declaredReach = externalBoundaryStageOrder.get(
+        applicability.externalBoundaryReach,
+      );
+      const hasItemBeyondDeclaredReach = localItems.some((item) => {
+        const itemReach = externalBoundaryStageOrder.get(
+          item.externalBoundaryStage,
+        );
+        return (
+          declaredReach !== undefined &&
+          itemReach !== undefined &&
+          itemReach > declaredReach
+        );
+      });
+      if (
+        (applicability.applicability === "Required" &&
+          localItems.length === 0) ||
+        (applicability.applicability === "N/A" && localItems.length > 0) ||
+        hasItemBeyondDeclaredReach
+      )
+        add(
+          "error",
+          "quality-test-level-applicability-conflict",
+          relative(definitionPath),
+          "Test-level applicability must agree with its Local Items: Required has an item, N/A has none, and no item exceeds the declared external-boundary reach.",
         );
     }
     const localIds = Array.from(
@@ -3387,6 +3713,61 @@ function checkQualityReconstruction(): void {
       relative(analysisPath),
       "The Quality analysis and verification definitions must expose the same duplicate-free Source ID, goal, and Local Item relation set.",
     );
+  for (const [
+    sourceGoalRelation,
+    requestedLevels,
+  ] of analysisSourceGoalLevels) {
+    const relatedLocalIds = Array.from(analysisSourceRelations)
+      .filter((relation) => relation.startsWith(`${sourceGoalRelation}|`))
+      .map((relation) => relation.slice(sourceGoalRelation.length + 1));
+    const relatedLevels = new Set(
+      relatedLocalIds.flatMap((localId) => {
+        const level = localItemLevels.get(localId);
+        return level ? [level] : [];
+      }),
+    );
+    for (const requestedLevel of requestedLevels)
+      if (!relatedLevels.has(requestedLevel))
+        add(
+          "error",
+          "quality-source-test-level-coverage-mismatch",
+          relative(analysisPath),
+          "Every test level requested by a canonical Source-to-goal mapping must be represented by a related Local Item of that same level.",
+        );
+  }
+  for (const [sourceId, requestedLevels] of summarySourceLevels) {
+    const decomposedLevels = new Set<string>();
+    for (const [sourceGoalRelation, levels] of analysisSourceGoalLevels)
+      if (sourceGoalRelation.startsWith(`${sourceId}|`))
+        for (const level of levels) decomposedLevels.add(level);
+    if (
+      requestedLevels.size !== decomposedLevels.size ||
+      [...requestedLevels].some((level) => !decomposedLevels.has(level))
+    )
+      add(
+        "error",
+        "quality-source-test-level-decomposition-mismatch",
+        relative(analysisPath),
+        "Each canonical Source summary level set must equal the union of its Source-to-goal level sets.",
+      );
+  }
+  if (
+    analysisSourceGoalLevels.size !== definitionSourceGoalLevels.size ||
+    [...analysisSourceGoalLevels].some(([relation, levels]) => {
+      const definitionLevels = definitionSourceGoalLevels.get(relation);
+      return (
+        !definitionLevels ||
+        levels.size !== definitionLevels.size ||
+        [...levels].some((level) => !definitionLevels.has(level))
+      );
+    })
+  )
+    add(
+      "error",
+      "quality-definition-source-test-level-closure-mismatch",
+      relative(analysisPath),
+      "The Quality analysis and verification definitions must expose the same Source-to-goal test-level sets.",
+    );
   if (
     analysisSourceConditions.size !== definitionSourceConditions.size ||
     [...analysisSourceConditions].some(
@@ -3406,14 +3787,14 @@ function checkQualityReconstruction(): void {
     );
 
   const localItemSection = analysis.match(
-    /^### 4\.3\. 検証項目の閉包\s*$([\s\S]*?)(?=^###\s|^##\s|(?![\s\S]))/mu,
+    /^## 4\. 検証項目の閉包\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
   )?.[1];
   const listedLocalIds = new Set<string>();
   const listedGoalLocalRelations = new Set<string>();
   const listedGoalLocalRelationEntries: string[] = [];
   for (const line of (localItemSection ?? "").split(/\r?\n/u)) {
     const goalSlug = line.match(
-      /^\|\s*\[[^\]]+\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/verification\.md\)\s*\|/u,
+      /^\|\s*\[[^\]]+\]\(Definitions\/([A-Z0-9-]+)\/quality_definition\.md\)\s*\|/u,
     )?.[1];
     if (!goalSlug) continue;
     for (const localMatch of line.matchAll(/`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu)) {

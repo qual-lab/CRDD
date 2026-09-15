@@ -156,9 +156,9 @@ v0.20の実Docker結合試験で、検証付き再起動が正常な停止・起
 - [`06_Architecture/Details/version-control/01_Architecture.md`](<../../../06_Architecture/Details/version-control/01_Architecture.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
-- [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
-- [`07_Quality/05_Coordinator_Runtime_Traceability.json`](<../../../07_Quality/05_Coordinator_Runtime_Traceability.json>)
-- [`07_Quality/06_Project_Runtime_Design_Traceability.json`](<../../../07_Quality/06_Project_Runtime_Design_Traceability.json>)
+- [`07_Quality/Registry/test-catalog.json`](<../../../07_Quality/Registry/test-catalog.json>)
+- [`07_Quality/Registry/coordinator-runtime-traceability.json`](<../../../07_Quality/Registry/coordinator-runtime-traceability.json>)
+- [`07_Quality/Registry/project-runtime-design-traceability.json`](<../../../07_Quality/Registry/project-runtime-design-traceability.json>)
 - `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
 - `07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md`（削除または旧Path）
 - [`10_Agent.md`](<../../../10_Agent.md>)
@@ -515,7 +515,7 @@ v0.20の実Docker結合試験で、検証付き再起動が正常な停止・起
 - [Project Runtime詳細設計](../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md): exactな状態遷移、資源、Lock、Authority、Effect、不変条件および失敗注入点。
 - [MCP Transportアーキテクチャ](../../../06_Architecture/Details/mcp/01_Architecture.md): MCP Protocol、stdio Transport、将来HTTPとの共通境界およびAuthority非生成。
 - [Coordinator参照アーキテクチャ](../../../06_Architecture/Details/coordinator/01_Architecture.md): v0.19の実行編成、Provider、SecurityおよびRecoveryの既存保証。
-- [機械可読なProject Runtime設計対応](../../../07_Quality/06_Project_Runtime_Design_Traceability.json): 現行設計とCoordinator実装・検証項目を結ぶ検証用投影。設計の第二正本にはしない。
+- [機械可読なProject Runtime設計対応](../../../07_Quality/Registry/project-runtime-design-traceability.json): 現行設計とCoordinator実装・検証項目を結ぶ検証用投影。設計の第二正本にはしない。
 
 許可する上位依存方向は次とする。
 
@@ -626,7 +626,7 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
     {
       "before": "[機械可読な設計対応](../../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)",
       "via": "[機械可読な設計対応](../../../40_Develop/coordinator/runtime/project-runtime-design-traceability.json)",
-      "after": "[機械可読な設計対応](../../../07_Quality/06_Project_Runtime_Design_Traceability.json)",
+      "after": "[機械可読な設計対応](../../../07_Quality/Registry/project-runtime-design-traceability.json)",
       "count": 1
     },
     {

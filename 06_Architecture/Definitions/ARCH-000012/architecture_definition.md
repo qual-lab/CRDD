@@ -78,7 +78,7 @@ Architecture ID: `ARCH-000012`
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1のMCP stdio／localhost HTTP | MCP stdio／Streamable HTTP Adapter | MCP／CLI Transport Adapter | 保持・拡張 | [mcp:system:stdio](../../../07_Quality/04_Test_Catalog.json)、[mcp:system:streamable-http](../../../07_Quality/04_Test_Catalog.json) | Workbench／Remote MCPは未実装 |
+| v0.20.1のMCP stdio／localhost HTTP | MCP stdio／Streamable HTTP Adapter | MCP／CLI Transport Adapter | 保持・拡張 | [mcp:system:stdio](../../../07_Quality/Registry/test-catalog.json)、[mcp:system:streamable-http](../../../07_Quality/Registry/test-catalog.json) | Workbench／Remote MCPは未実装 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

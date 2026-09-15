@@ -29,7 +29,7 @@
 | UI／SPEC入力境界 | 下流工程がREQを直接読み、UX／IAの不足を暗黙に補完し得る | UIとSPECはUX＋IAを共通の正式入力として別々に分析する。REQはUXより上流の追跡情報に限定し、不足時はUXまたはIAを再開する |
 | Architecture分析 | 現行部品設計と実装を先に読み、上流の利用者Interfaceや振る舞いを後追いで説明し得る | 20件のUI定義と29件のSPEC定義を正式入力として別々に全数分析する。REQ、UX、IA、現行Architectureおよび実装から不足を補完しない |
 | Architecture出力 | Rootの全体設計とTool別設計が増築され、UI／SPECから各責務へ至る判断が追えない | 同じ上位責務境界に属する入力を18件の`Definitions/ARCH-ID/architecture_definition.md`へ基本設計として統合する。読取りProjectionは`ARCH-000007`、Canonical記録と不変公開は`ARCH-000018`として分離する。State Owner、Authority、Effect、失敗領域またはlifecycleが異なる入力はSibling blockとして保つ。5横断モデルの後、`Details/`で実装可能な詳細設計へ具体化し、多対多対応表、Applicability、Engineering Concern、Quality引渡し、Reality Audit境界を保持する |
-| Quality分析・定義 | 巨大な検証設計文書と既存試験一覧から、検証すべき意味を逆算しやすい | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157 Canonical IDをQuality Analysis Mappingで一行以上処置する。個別処置をID別MDと同一視せず、検証義務を`Same／New／Merge`で13検証目標へ統合する。`Source ID → 検証目標 → Local Item`と`Architecture詳細設計領域 → 検証目標`をMapping・Definition間で完全一致させる。試験Levelは検証義務と観測境界から判断し、既存実装・試験との対応は後続のReality Auditとして分離する |
+| Quality分析・定義 | 巨大な検証設計文書と既存試験一覧から、検証すべき意味を逆算しやすい | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157 Canonical IDをQuality Analysis Mappingで一行以上処置する。個別処置をID別MDと同一視せず、検証義務を`Same／New／Merge`で13検証目標へ統合する。`Source ID → 検証目標 → 試験段階 → Local Item`と`Architecture詳細設計領域 → 検証目標`をMapping・Definition間で完全一致させる。複数目標を持つSourceの試験段階は各目標へ一律適用せず、目標別段階の和集合として保持する。検証目標を試験段階別に物理分割せず、各定義内でUT／IT／ST／UATの適用と、外部境界の直接・隣接1 block・関連2 blocks・System／E2E・利用者受入への段階到達を判断する。既存実装・試験との対応は後続のReality Auditとして分離する |
 | 工程Root | 個別本文と工程全体像が混在し得る | `01_*`は入口・台帳・Coverage・Current State・Navigation、その他Root文書は横断合成 |
 | Evidence | 工程共通の空Folderをひな型へ先置き | 必要な所有対象のID直下だけに作成。実行結果はCHG／Release Evidenceが所有 |
 
@@ -644,7 +644,7 @@
 - [`06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`](<../../../06_Architecture/05_Failure_Recovery_and_Resilience_Model.md>)
 - [`06_Architecture/06_Deployment_and_Execution_Model.md`](<../../../06_Architecture/06_Deployment_and_Execution_Model.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
-- [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
+- [`07_Quality/Registry/test-catalog.json`](<../../../07_Quality/Registry/test-catalog.json>)
 - [`27_Architecture.md`](<../../../27_Architecture.md>)
 - [`template/06_Architecture/01_Architecture.md`](<../../../template/06_Architecture/01_Architecture.md>)
 - [`template/06_Architecture/02_Component_and_Responsibility_Model.md`](<../../../template/06_Architecture/02_Component_and_Responsibility_Model.md>)
@@ -676,27 +676,82 @@
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/02_Quality_Strategy.md`](<../../../07_Quality/02_Quality_Strategy.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
-- [`07_Quality/Analysis/canonical-definition-mapping/quality_analysis.md`](<../../../07_Quality/Analysis/canonical-definition-mapping/quality_analysis.md>)
-- [`07_Quality/Analysis/current-implementation-reality/quality_analysis.md`](<../../../07_Quality/Analysis/current-implementation-reality/quality_analysis.md>)
-- [`07_Quality/Definitions/artifact-integrity-and-trust/verification.md`](<../../../07_Quality/Definitions/artifact-integrity-and-trust/verification.md>)
-- [`07_Quality/Definitions/artifact-understanding-and-handoff/verification.md`](<../../../07_Quality/Definitions/artifact-understanding-and-handoff/verification.md>)
-- [`07_Quality/Definitions/candidate-promotion/verification.md`](<../../../07_Quality/Definitions/candidate-promotion/verification.md>)
-- [`07_Quality/Definitions/change-and-quality-state/verification.md`](<../../../07_Quality/Definitions/change-and-quality-state/verification.md>)
-- [`07_Quality/Definitions/execution-record-publication/verification.md`](<../../../07_Quality/Definitions/execution-record-publication/verification.md>)
-- [`07_Quality/Definitions/external-runtime-boundary/verification.md`](<../../../07_Quality/Definitions/external-runtime-boundary/verification.md>)
-- [`07_Quality/Definitions/external-send-and-transport/verification.md`](<../../../07_Quality/Definitions/external-send-and-transport/verification.md>)
-- [`07_Quality/Definitions/official-asset-governance/verification.md`](<../../../07_Quality/Definitions/official-asset-governance/verification.md>)
-- [`07_Quality/Definitions/project-runtime-lifecycle/verification.md`](<../../../07_Quality/Definitions/project-runtime-lifecycle/verification.md>)
-- [`07_Quality/Definitions/projection-and-provenance/verification.md`](<../../../07_Quality/Definitions/projection-and-provenance/verification.md>)
-- [`07_Quality/Definitions/repository-and-contract-migration/verification.md`](<../../../07_Quality/Definitions/repository-and-contract-migration/verification.md>)
-- [`07_Quality/Definitions/repository-and-federation/verification.md`](<../../../07_Quality/Definitions/repository-and-federation/verification.md>)
-- [`07_Quality/Definitions/runtime-data-lifecycle/verification.md`](<../../../07_Quality/Definitions/runtime-data-lifecycle/verification.md>)
-- [`template/07_Quality/Analysis/_Template/quality_analysis.md`](<../../../template/07_Quality/Analysis/_Template/quality_analysis.md>)
-- [`template/07_Quality/Definitions/_Template/verification.md`](<../../../template/07_Quality/Definitions/_Template/verification.md>)
+- [`07_Quality/04_Quality_Integration.md`](<../../../07_Quality/04_Quality_Integration.md>)
+- [`07_Quality/05_Current_Implementation_Reality_Audit.md`](<../../../07_Quality/05_Current_Implementation_Reality_Audit.md>)
+- [`07_Quality/Definitions/QA-000010/quality_definition.md`](<../../../07_Quality/Definitions/QA-000010/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000013/quality_definition.md`](<../../../07_Quality/Definitions/QA-000013/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000005/quality_definition.md`](<../../../07_Quality/Definitions/QA-000005/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000002/quality_definition.md`](<../../../07_Quality/Definitions/QA-000002/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000012/quality_definition.md`](<../../../07_Quality/Definitions/QA-000012/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000006/quality_definition.md`](<../../../07_Quality/Definitions/QA-000006/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000009/quality_definition.md`](<../../../07_Quality/Definitions/QA-000009/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000011/quality_definition.md`](<../../../07_Quality/Definitions/QA-000011/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000003/quality_definition.md`](<../../../07_Quality/Definitions/QA-000003/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000004/quality_definition.md`](<../../../07_Quality/Definitions/QA-000004/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000001/quality_definition.md`](<../../../07_Quality/Definitions/QA-000001/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000007/quality_definition.md`](<../../../07_Quality/Definitions/QA-000007/quality_definition.md>)
+- [`07_Quality/Definitions/QA-000008/quality_definition.md`](<../../../07_Quality/Definitions/QA-000008/quality_definition.md>)
+- [`template/07_Quality/Analysis/PHASE/quality_analysis.md`](<../../../template/07_Quality/Analysis/PHASE/quality_analysis.md>)
+- [`template/07_Quality/Definitions/QA-XXXXXX/quality_definition.md`](<../../../template/07_Quality/Definitions/QA-XXXXXX/quality_definition.md>)
 - [`16_Quality_Assurance.md`](<../../../16_Quality_Assurance.md>)
 - [`template/AGENTS.md`](<../../../template/AGENTS.md>)
 - [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
 - [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](<../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts>)
+
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/Details/project-runtime/02_Detailed_Design.md`](<../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md>)
+- `07_Quality/Analysis/current-implementation-reality/quality_analysis.md`（削除または旧Path）
+- [`07_Quality/Analysis/ARCH/quality_analysis.md`](<../../../07_Quality/Analysis/ARCH/quality_analysis.md>)
+- [`07_Quality/Analysis/IA/quality_analysis.md`](<../../../07_Quality/Analysis/IA/quality_analysis.md>)
+- [`07_Quality/Analysis/REQ/quality_analysis.md`](<../../../07_Quality/Analysis/REQ/quality_analysis.md>)
+- [`07_Quality/Analysis/SPEC/quality_analysis.md`](<../../../07_Quality/Analysis/SPEC/quality_analysis.md>)
+- [`07_Quality/Analysis/UI/quality_analysis.md`](<../../../07_Quality/Analysis/UI/quality_analysis.md>)
+- [`07_Quality/Analysis/UX/quality_analysis.md`](<../../../07_Quality/Analysis/UX/quality_analysis.md>)
+- `07_Quality/Analysis/canonical-definition-mapping/quality_analysis.md`（削除または旧Path）
+- `07_Quality/Definitions/repository-and-contract-migration/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/change-and-quality-state/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/project-runtime-lifecycle/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/projection-and-provenance/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/candidate-promotion/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/external-runtime-boundary/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/repository-and-federation/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/runtime-data-lifecycle/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/external-send-and-transport/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/artifact-integrity-and-trust/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/official-asset-governance/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/artifact-understanding-and-handoff/verification.md`（削除または旧Path）
+- `07_Quality/Definitions/execution-record-publication/verification.md`（削除または旧Path）
+- `07_Quality/05_Coordinator_Runtime_Traceability.json`（削除または旧Path）
+- [`07_Quality/Registry/coordinator-runtime-traceability.json`](<../../../07_Quality/Registry/coordinator-runtime-traceability.json>)
+- `07_Quality/06_Project_Runtime_Design_Traceability.json`（削除または旧Path）
+- [`07_Quality/Registry/project-runtime-design-traceability.json`](<../../../07_Quality/Registry/project-runtime-design-traceability.json>)
+- `07_Quality/04_Test_Catalog.json`（削除または旧Path）
+- [`19_Workflows/03_Execution_Intelligence.md`](<../../../19_Workflows/03_Execution_Intelligence.md>)
+- [`19_Workflows/04_MCP_Server.md`](<../../../19_Workflows/04_MCP_Server.md>)
+- [`40_Develop/checker/regression-runner.ts`](<../../../40_Develop/checker/regression-runner.ts>)
+- [`40_Develop/checker/test-catalog.ts`](<../../../40_Develop/checker/test-catalog.ts>)
+- [`40_Develop/checker/tests/unit/test-catalog.contract.test.ts`](<../../../40_Develop/checker/tests/unit/test-catalog.contract.test.ts>)
+- [`40_Develop/coordinator/scripts/check-project-runtime-design-traceability.ts`](<../../../40_Develop/coordinator/scripts/check-project-runtime-design-traceability.ts>)
+- [`40_Develop/coordinator/scripts/check-runtime-traceability.ts`](<../../../40_Develop/coordinator/scripts/check-runtime-traceability.ts>)
+- [`40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts>)
+- [`40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts>)
+- [`40_Develop/coordinator/tests/support/runtime-trace-case.ts`](<../../../40_Develop/coordinator/tests/support/runtime-trace-case.ts>)
+- [`99_Roadmap/Changes/CHG-000001/change.md`](<../CHG-000001/change.md>)
+- [`99_Roadmap/Changes/CHG-000002/change.md`](<../CHG-000002/change.md>)
+- [`99_Roadmap/Changes/CHG-000004/change.md`](<../CHG-000004/change.md>)
+- [`99_Roadmap/Changes/CHG-000005/change.md`](<../CHG-000005/change.md>)
+- [`99_Roadmap/Changes/CHG-000007/change.md`](<../CHG-000007/change.md>)
+- [`99_Roadmap/Changes/CHG-000010/change.md`](<../CHG-000010/change.md>)
+- [`99_Roadmap/Changes/CHG-000061/change.md`](<../CHG-000061/change.md>)
+- [`99_Roadmap/Changes/CHG-000062/change.md`](<../CHG-000062/change.md>)
+- [`99_Roadmap/Changes/CHG-000064/change.md`](<../CHG-000064/change.md>)
+- [`template/07_Quality/03_Verification_Design.md`](<../../../template/07_Quality/03_Verification_Design.md>)
+- [`template/07_Quality/04_Quality_Integration.md`](<../../../template/07_Quality/04_Quality_Integration.md>)
+- [`template/07_Quality/05_Current_Implementation_Reality_Audit.md`](<../../../template/07_Quality/05_Current_Implementation_Reality_Audit.md>)
+- `template/07_Quality/04_Verification_Result_Format.md`（削除または旧Path）
+- [`template/07_Quality/99_Verification_Result_Format.md`](<../../../template/07_Quality/99_Verification_Result_Format.md>)
+- `template/07_Quality/Analysis/_Template/quality_analysis.md`（削除または旧Path）
+- `template/07_Quality/Definitions/_Template/verification.md`（削除または旧Path）
 
 </details>
 
@@ -953,7 +1008,7 @@ Architecture定義の再構築後、Qualityが必要とする検証単位、境�
 | SPEC Analysis／Definition | UX観点32／IA観点22／Definition 29。取消と判断返却を状態照会へ畳まず、SPEC-000028／000029として追加した。Quality分析で判明した実行記録の作成側契約不足は`SPEC-000030`として読取り契約から分離し、独立再レビューで意味伝播を確認した |
 | Architecture Analysis／Definition／Details | UI観点20／SPEC観点29／Definition 18。読取りProjectionを`ARCH-000007`、Canonical記録・並行Writer・不変公開・Effect不明時の回復を`ARCH-000018`へ分離し、execution-intelligence詳細設計へ接続した。既レビュー済み17定義の結果を新候補へ流用せず、更新した18定義を独立再レビューしてArchitecture Readyを再確定した |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 335／335 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、49分析と18定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、横断節と5成果物、Component責務表と18定義、15詳細領域のforward／reverse／個別Relation集合、各ARCH-IDのCovered owner、Applicability、Engineering ConcernおよびQuality引渡しを検査する。Qualityでは157 Canonical ID、13検証目標、Source固有条件から検証目標への190関係、詳細設計から検証目標への38関係、5横断モデル、目標ごとのLocal Item、条件文の同一性および検証項目の7軸を検査し、目標間入替・条件だけの変更・終了後条件／実行形態欠落を反証する。意味の再構築可能性は独立レビューへ分離 |
+| Checker契約試験 | 再検証中。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証する。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、49分析と18定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、横断節と5成果物、Component責務表と18定義、15詳細領域のforward／reverse／個別Relation集合、各ARCH-IDのCovered owner、Applicability、Engineering ConcernおよびQuality引渡しを検査する。Qualityでは157 Canonical ID、13検証目標、Source IDから検証目標への190関係、Source ID・検証目標・Local Itemの572関係、詳細設計から検証目標への38関係、5横断モデル、目標ごとのLocal Item、UT／IT／ST／UAT適用表、RT／PT／LT適用表および検証項目の11軸を検査する。試験段階・外部境界到達範囲の不正値、Source行が要求する段階のLocal Item欠落、別段階だけへの差替え、Required／N/AとLocal Itemの矛盾、段階上限超過、終了後条件／実行形態欠落を反証する。意味の再構築可能性は独立レビューへ分離 |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
@@ -962,6 +1017,6 @@ Architecture定義の再構築後、Qualityが必要とする検証単位、境�
 | SPEC独立レビュー | 26 SPEC／27 UI・SPEC関係の以前の候補はPass済み。その後、Architectureレビューで取消と判断返却の契約不足を検出し、28 SPEC／29関係へ更新した。固定候補`05c4cbc95c315cd65851598be69da563b1416397`を再レビューし、Critical／Major／Moderate／Minor 0でPass |
 | Architecture独立レビュー | 固定候補`05c4cbc95c315cd65851598be69da563b1416397`について、UI-000002の4操作、取消・判断返却のSibling block、読取りProjectionと基準版書込み能力の分離、19 UI／28 SPEC／17 Definitionの閉包を確認し、Critical／Major／Moderate／Minor 0でPass |
 | Architecture詳細設計の独立レビュー | 15領域の責務とQuality引渡しを全数確認した。Execution IntelligenceのCanonical詳細を読取り専用へ限定し、基準版Writer／Storeを非CanonicalなReality Auditへ分離した。契約移行にはCovered ownerを置き、全ARCH-IDが少なくとも一つのCovered詳細領域を持つことを機械反証した。最終再レビューCritical／Major／Moderate／Minor 0でPass |
-| Quality全件分析 | 157件のCanonical IDを13検証目標へ接続した。独立レビューで、目標名への接続だけではSource固有条件がLocal Itemへ届かず、実行記録の作成責務と成果物理解の検証が不足すると判明した。上流GapをUX-000032／IA-000022／UI-000020／SPEC-000030／ARCH-000018へ戻し、`Source ID → 検証目標 → Local Item`190関係と`詳細設計領域 → 検証目標`38関係をMapping・Definitionへ同じ集合で固定した。全60 Local Itemの7軸を項目固有条件へ直し、独立再レビューCritical 0／Major 0／Moderate 0／Minor 0でPassした |
+| Quality全件分析 | 157件のCanonical IDを13検証目標へ接続した。独立レビューで、目標名への接続だけではSource固有条件がLocal Itemへ届かず、実行記録の作成責務と成果物理解の検証が不足すると判明した。上流GapをUX-000032／IA-000022／UI-000020／SPEC-000030／ARCH-000018へ戻し、`Source ID → 検証目標`190関係、`Source ID → 検証目標 → Local Item`572関係と`詳細設計領域 → 検証目標`38関係をMapping・Definitionへ同じ集合で固定した。全81 Local Itemを11軸へ拡張し、検証目標ごとにUT／IT／ST／UATおよびRT／PT／LTの適用と外部境界の段階到達を固定した。独立レビューが見つけた、上流Mappingで必須の段階をDefinition側で任意化する不整合を、AIT-05／06、CQS-05／06、ERP-07、EST-06、PPR-07で是正した。さらに複数目標を持つSourceの段階を各目標へ一律適用していた曖昧さを解消し、`Source ID + 検証目標`ごとの試験段階、対応Local Item、Source全体行との和集合をCheckerで相互検査する。Quality Owner分離、Template、Current Profileおよび影響ファイル一覧を是正し、独立再レビュー中 |
 
-固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後のArchitecture／Quality再構築で、取消・判断返却に加えて実行記録の作成側契約不足を検出した。いずれも下流で推測せず、UX／IAから導ける正式入力へ戻し、読取りと書込みのAuthority、Effect、失敗およびlifecycleを分離した。更新候補は決定論的Checker、Checker契約試験335件および独立再レビューCritical 0／Major 0／Moderate 0／Minor 0を通過した。ArchitectureはReady、Quality設計はCanonicalであり、次は既存実装・既存試験とのReality Auditへ進む。現在、人間による追加判断は必要ない。
+固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後のArchitecture／Quality再構築で、取消・判断返却に加えて実行記録の作成側契約不足を検出した。いずれも下流で推測せず、UX／IAから導ける正式入力へ戻し、読取りと書込みのAuthority、Effect、失敗およびlifecycleを分離した。ArchitectureはReadyである。Quality設計は現在の固定候補を独立再レビュー中であり、Pass後にだけCanonical化してReality Auditへ進む。現在、人間による追加判断は必要ない。

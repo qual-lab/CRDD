@@ -78,7 +78,7 @@ temporary／durable／recovery_required／cleanup／unknownを用途別に分け
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1の.crdd利用とRecovery Store | 各Tool Writer／Runtime Data path resolver | Runtime Data Contract | 保持・再編 | [runtime-data:integration:repository-paths](../../../07_Quality/04_Test_Catalog.json)、[runtime-data:integration:temporary-operation-lifecycle](../../../07_Quality/04_Test_Catalog.json) | 全Writer移行は未完了 |
+| v0.20.1の.crdd利用とRecovery Store | 各Tool Writer／Runtime Data path resolver | Runtime Data Contract | 保持・再編 | [runtime-data:integration:repository-paths](../../../07_Quality/Registry/test-catalog.json)、[runtime-data:integration:temporary-operation-lifecycle](../../../07_Quality/Registry/test-catalog.json) | 全Writer移行は未完了 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

@@ -59,9 +59,9 @@ CRDDの既存品質保証は、検証義務、検証項目、正常・準正常�
 - [`06_Architecture/Details/project-runtime/02_Detailed_Design.md`](<../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
-- [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
-- [`07_Quality/05_Coordinator_Runtime_Traceability.json`](<../../../07_Quality/05_Coordinator_Runtime_Traceability.json>)
-- [`07_Quality/06_Project_Runtime_Design_Traceability.json`](<../../../07_Quality/06_Project_Runtime_Design_Traceability.json>)
+- [`07_Quality/Registry/test-catalog.json`](<../../../07_Quality/Registry/test-catalog.json>)
+- [`07_Quality/Registry/coordinator-runtime-traceability.json`](<../../../07_Quality/Registry/coordinator-runtime-traceability.json>)
+- [`07_Quality/Registry/project-runtime-design-traceability.json`](<../../../07_Quality/Registry/project-runtime-design-traceability.json>)
 - `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
 - `07_Quality/Verification_Results/2026-08-31_Tool_Layout_Development_E2E.md`（削除または旧Path）
 - `07_Quality/Verification_Results/2026-09-01_Coordinator_Completion_Review.md`（削除または旧Path）

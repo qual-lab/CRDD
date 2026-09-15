@@ -78,7 +78,7 @@ Architecture ID: `ARCH-000008`
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1のProvider境界診断 | Coordinator／Platform Access診断 | Platform Access診断Port | 保持・分離 | [coordinator:integration:provider-execution-boundary-matrix](../../../07_Quality/04_Test_Catalog.json) | Provider非依存Port名は未確定 |
+| v0.20.1のProvider境界診断 | Coordinator／Platform Access診断 | Platform Access診断Port | 保持・分離 | [coordinator:integration:provider-execution-boundary-matrix](../../../07_Quality/Registry/test-catalog.json) | Provider非依存Port名は未確定 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

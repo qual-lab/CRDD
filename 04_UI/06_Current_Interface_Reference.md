@@ -54,7 +54,7 @@
 | 再起動必要 | 同一Runtime Processを再利用できないこと | 再起動の後も残る回復義務は別途処置 |
 | 期限切れ・境界変更 | 古い同意や候補を再利用できないこと | 現在の境界を再確認。不明なら操作しない |
 
-通常結果、回収状態、Process再利用可否は直交する。正常・準正常・異常の全組合せを表示例の数だけで網羅したとは扱わず、実producerのvariantと公開投影を[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)で照合する。
+通常結果、回収状態、Process再利用可否は直交する。正常・準正常・異常の全組合せを表示例の数だけで網羅したとは扱わず、実producerのvariantと公開投影を[成果物の理解と工程引継ぎ](../07_Quality/Definitions/QA-000013/quality_definition.md)および[現行実装との照合](../07_Quality/05_Current_Implementation_Reality_Audit.md)で照合する。
 
 ## 4. 現行表示の参照と表現方針
 

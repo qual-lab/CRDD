@@ -20,7 +20,7 @@
 
 本書はProject Runtimeの現在有効なInterface、永続Record、資源、Lock、Authority、Effect、状態遷移、不変条件および失敗注入点を所有する。版ごとの旧設計文書は現行Treeへ累積せず、当時の内容は対応するGit tagで保持する。
 
-[上位アーキテクチャ](01_Architecture.md)は責務、依存方向、公開PortおよびPlatform境界を所有する。[機械可読な設計対応](../../../07_Quality/06_Project_Runtime_Design_Traceability.json)は本書を再定義せず、本書とCoordinator実装・試験の対応切れを検出する検証用投影である。
+[上位アーキテクチャ](01_Architecture.md)は責務、依存方向、公開PortおよびPlatform境界を所有する。[機械可読な設計対応](../../../07_Quality/Registry/project-runtime-design-traceability.json)は本書を再定義せず、本書とCoordinator実装・試験の対応切れを検出する検証用投影である。
 
 <a id="detailed-design-contract"></a>
 ## 2. Interface

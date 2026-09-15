@@ -10,9 +10,9 @@
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
-| Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157件をMapping済み | [全Canonical定義のQuality分析](Analysis/canonical-definition-mapping/quality_analysis.md) |
+| Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157件をMapping済み | [Quality Integration](04_Quality_Integration.md) |
 | Quality Analysis | 157件を全件Mappingし、5横断モデル・15詳細設計領域・13検証定義・Local Item集合を接続済み | 構造閉包はChecker、意味伝播とScenario十分性は独立再レビューで確認済み |
-| Quality Definitions | 13定義、Local Item 60件をCanonical化 | 各項目固有の事前状態／入力、操作／刺激、観測、終了後条件、実行形態を固定済み |
+| Quality Definitions | 13定義、Local Item 81件をレビュー中 | 全定義でUT／IT／ST／UATの適用と外部境界の到達範囲を判定し、各項目固有の試験段階、試験種別、対象／境界、事前状態／入力、操作／刺激、観測、終了後条件、実行形態を固定した。独立再レビューPass後にCanonical化する |
 | 既存実装・既存試験との照合 | 未着手 | Canonical Mappingと検証定義の固定後、Local Item単位でSource／Test／Evidenceを照合する |
 | 実行結果 | Checker静的確認、Repository全体Checker、Checker契約試験335件はPass | Quality設計固定後に必要な回帰を選び、結果はChangeまたはReleaseのEvidenceへ置く |
 | 上流全体のQuality再構築 | Mappingと構造Checkerを作成済み | 個別MDは量産せず、全件処置の確実性をMappingとCheckerで保証する |
@@ -57,7 +57,7 @@ v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シ�
 | 3部品の設計補完と結果表示 | 関連開発E2E 289/289、Checker 207/207成功、限定再確認完了 | [追加確認](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#3部品の設計補完結果表示の追加確認)。native・表示・Checker本文の限定再確認で指摘解消。旧配置移行のPassを今回差分へ自動流用していない |
 | 最新Runtime全体の独立完成監査 | 3系統の評価終了。試験／利用体験に残った端末条件も追加確認・独立確認で解消 | [完成評価と追加確認](../99_Roadmap/Changes/CHG-000015/Evidence/260901_coordinator-completion-review.md#windows-terminal-verification)。1,585／208／286試験と署名48515ebの実測を検証義務・変更範囲へ接続。追加実装不足なし。人間の採用・統合・リリース判断は代替しない |
 | UX・IA・UIと仕様の接続 | 専門確認、PowerShellとWindows Terminalの限定操作・表示確認、候補内容採用を完了 | [UIと仕様の対応](../04_UI/06_Current_Interface_Reference.md#ui-spec-mapping)を完成評価で照合。WT-SCOPE-01は追加確認で解消。読み上げと全環境への一般化は未評価のまま保持する |
-| 共通起動入口と限定結果保存 | 実装済み、契約・結合試験での確認対象 | 毎回の起動方法を組み立てず同じ配布物の共通入口から起動し、検証画面を閉じた後は保存された開始・結果・完了記録の一致を確認する。[実行手順](../19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)と[検証設計](03_Verification_Design.md#tool-user-experience-verification)を参照。passphrase・確認コード・Provider生出力は保存せず、開始記録だけが残る範囲は結果未確認のまま扱う。この確認だけで正式署名E2E成功や電源断耐性を主張しない |
+| 共通起動入口と限定結果保存 | 実装済み、契約・結合試験での確認対象 | 毎回の起動方法を組み立てず同じ配布物の共通入口から起動し、検証画面を閉じた後は保存された開始・結果・完了記録の一致を確認する。[実行手順](../19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)、[外部Runtime境界](Definitions/QA-000006/quality_definition.md)および[現行実装との照合](05_Current_Implementation_Reality_Audit.md)を参照。passphrase・確認コード・Provider生出力は保存せず、開始記録だけが残る範囲は結果未確認のまま扱う。この確認だけで正式署名E2E成功や電源断耐性を主張しない |
 | v0.18.0移行後の正式署名・実Provider E2E | 固定版48515ebで4経路4/4・復旧7シナリオ・実Task取消完了 | [当時版の結果](../99_Roadmap/Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md#signed-e2e-48515eb)。4経路は再試行・是正往復なし。取消は子CLIのexit 2と測定の`verified`を分離し、通常回収・候補未発行・対象資源不存在を確認。v0.18.1や全Provider・全取消時点の保証ではない |
 | v0.18.0公開準備時の追加差分（履歴） | 当時の開発確認と独立確認を完了。文書・Checkerの2指摘も独立再確認で解消した | [当時の開発結果と独立確認](../99_Roadmap/Changes/CHG-000015/Evidence/260901_coordinator-completion-review.md#release-preparation-verification)。Coordinator 1,588/1,588、開発E2E286/286、Checker全所有267/267、Native35成功・2 ignored。初回の制限付き実行失敗と再実行条件を分離した。v0.18.1は本表冒頭と[CHG-000056](../99_Roadmap/Changes/CHG-000056/change.md)を参照する |
 | v0.18.0統合・リリース | PR #32統合・公開済み | 過去の公開状態として保持する。後継の公開基準は本表冒頭のv0.18.1とする |

@@ -736,7 +736,7 @@ function isDocumentationPath(changedPath: string): boolean {
 
 function isSharedRuntimePath(changedPath: string): boolean {
   return (
-    changedPath === "07_Quality/04_Test_Catalog.json" ||
+    changedPath === "07_Quality/Registry/test-catalog.json" ||
     changedPath === "biome.json" ||
     changedPath === ".node-version" ||
     changedPath === ".nvmrc"

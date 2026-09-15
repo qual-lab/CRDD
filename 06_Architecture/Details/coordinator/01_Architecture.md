@@ -544,7 +544,7 @@ ProviderとDockerの外部境界は、一般Architectureの[外部境界の診�
 - 実端末の表示、一回入力、取消、結果保存
 - cleanup後のContainer、network、Mount、lock、候補一時領域およびRecovery残存
 
-設計要素から実装symbol、試験、観測方法および終了後条件への対応は[Coordinatorの機械可読な検証対応](../../../07_Quality/05_Coordinator_Runtime_Traceability.json)で確認する。この投影は実行時構成ではなく、機械試験は独立レビュー、Architecture／Security、Gap／Impact、DocumentおよびConformance監査を代替しない。
+設計要素から実装symbol、試験、観測方法および終了後条件への対応は[Coordinatorの機械可読な検証対応](../../../07_Quality/Registry/coordinator-runtime-traceability.json)で確認する。この投影は実行時構成ではなく、機械試験は独立レビュー、Architecture／Security、Gap／Impact、DocumentおよびConformance監査を代替しない。
 
 ### 13.1 機械Traceへ結合する設計ID
 
@@ -705,7 +705,7 @@ Coordinator
 | Recovery | Project／Taskとの相関を保持する | 実行資源のexact Recovery情報を返す |
 | 完成 | Objective／Milestoneの受入を判定する | Task結果とcleanupを報告する |
 
-CoordinatorはProject状態を再定義せず、Project RuntimeはProvider、OS、Containerまたは候補Storeの実装へ依存しない。意味契約は[Project Runtime詳細設計](../project-runtime/02_Detailed_Design.md)、両者の実装・試験接続は[機械可読な設計対応](../../../07_Quality/06_Project_Runtime_Design_Traceability.json)と契約試験で照合する。
+CoordinatorはProject状態を再定義せず、Project RuntimeはProvider、OS、Containerまたは候補Storeの実装へ依存しない。意味契約は[Project Runtime詳細設計](../project-runtime/02_Detailed_Design.md)、両者の実装・試験接続は[機械可読な設計対応](../../../07_Quality/Registry/project-runtime-design-traceability.json)と契約試験で照合する。
 ## 15. 非目標
 
 - Provider同士の直接spawn

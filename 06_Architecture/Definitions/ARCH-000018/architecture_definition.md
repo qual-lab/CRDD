@@ -80,7 +80,7 @@ Writerは読取りProjectionの内部表現へ依存させず、両者はCanonic
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1 Event Publisher／Recorder／Store Writer | Execution Intelligence | 実行事実記録Port／Writer／Store | Canonical責務として再接続 | [execution-intelligence試験](../../../07_Quality/04_Test_Catalog.json) | 外部TypeScriptアプリと複数作成側の実境界確認が必要 |
+| v0.20.1 Event Publisher／Recorder／Store Writer | Execution Intelligence | 実行事実記録Port／Writer／Store | Canonical責務として再接続 | [execution-intelligence試験](../../../07_Quality/Registry/test-catalog.json) | 外部TypeScriptアプリと複数作成側の実境界確認が必要 |
 
 ## 10. 実装と検証への引き渡し
 

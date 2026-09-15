@@ -89,7 +89,7 @@ Architecture ID: `ARCH-000001`
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1のCheckerと文書検査 | Checker／CRDD現行Profile（06_Architecture/checker） | Checker CoreとCRDD現行Profile | 保持・再編 | [checker:integration:crdd-check](../../../07_Quality/04_Test_Catalog.json) | 新工程の構造契約をProfileへ追加 |
+| v0.20.1のCheckerと文書検査 | Checker／CRDD現行Profile（06_Architecture/checker） | Checker CoreとCRDD現行Profile | 保持・再編 | [checker:integration:crdd-check](../../../07_Quality/Registry/test-catalog.json) | 新工程の構造契約をProfileへ追加 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

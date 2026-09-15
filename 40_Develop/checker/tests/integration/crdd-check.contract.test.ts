@@ -382,10 +382,12 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     "01_Quality_Center.md",
     "02_Quality_Strategy.md",
     "03_Verification_Design.md",
+    "04_Quality_Integration.md",
+    "05_Current_Implementation_Reality_Audit.md",
   ];
   const directoryNames = ["Analysis", "Definitions"];
   const oldNames = names.map((name) => name.slice(3));
-  const expectedEntries = [...names, "Analysis/", "Definitions/"];
+  const expectedEntries = [...names, "Analysis/", "Definitions/", "Registry/"];
   const rule = fs
     .readFileSync(path.join(repositoryRoot, "16_Quality_Assurance.md"), "utf8")
     .split('<a id="42-fixed-quality-structure"></a>')[1]
@@ -3567,18 +3569,41 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
       .replace("Status: Candidate", "Status: Architecture Ready"),
   );
   for (const relativeDirectory of [
-    "07_Quality/Analysis/canonical-definition-mapping",
-    "07_Quality/Definitions/sample-goal",
-    "template/07_Quality/Analysis/_Template",
-    "template/07_Quality/Definitions/_Template",
+    "07_Quality/Definitions/QA-000001",
+    "07_Quality/Registry",
+    "template/07_Quality/Analysis/PHASE",
+    "template/07_Quality/Definitions/QA-XXXXXX",
   ])
     fs.mkdirSync(path.join(root, relativeDirectory), { recursive: true });
+  const requiredQualityFiles = [
+    "01_Quality_Center.md",
+    "02_Quality_Strategy.md",
+    "03_Verification_Design.md",
+    "04_Quality_Integration.md",
+    "05_Current_Implementation_Reality_Audit.md",
+  ];
+  const requiredTemplateQualityFiles = [
+    ...requiredQualityFiles,
+    "99_Verification_Result_Format.md",
+  ];
+  for (const fileName of requiredQualityFiles)
+    if (fileName !== "04_Quality_Integration.md")
+      write(path.join(root, "07_Quality", fileName), `# ${fileName}\n`);
+  for (const fileName of requiredTemplateQualityFiles)
+    write(
+      path.join(root, "template", "07_Quality", fileName),
+      `# ${fileName}\n`,
+    );
+  for (const fileName of [
+    "test-catalog.json",
+    "coordinator-runtime-traceability.json",
+    "project-runtime-design-traceability.json",
+  ])
+    write(path.join(root, "07_Quality", "Registry", fileName), "{}\n");
   const mappingPath = path.join(
     root,
     "07_Quality",
-    "Analysis",
-    "canonical-definition-mapping",
-    "quality_analysis.md",
+    "04_Quality_Integration.md",
   );
   const mapping = `# Quality Analysis
 
@@ -3586,23 +3611,23 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
 
 | Source ID | 検証すべき意味 | 検証義務 | 検証目標 | Level | Type | 処置状態 |
 |---|---|---|---|---|---|---|
-| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 体験 | 保証 | [sample](../../Definitions/sample-goal/verification.md) | ST／UAT | Experience | Mapped |
-| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | 情報 | 保証 | [sample](../../Definitions/sample-goal/verification.md) | IT／ST | Information | Mapped |
-| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | UI | 保証 | [sample](../../Definitions/sample-goal/verification.md) | IT／ST | Interface | Mapped |
-| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | 振る舞い | 保証 | [sample](../../Definitions/sample-goal/verification.md) | UT／IT | Behavior | Mapped |
-| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 構造 | 保証 | [sample](../../Definitions/sample-goal/verification.md) | IT／ST | Architecture | Mapped |
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 体験 | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | ST／UAT | Experience | Mapped |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | 情報 | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | IT／ST | Information | Mapped |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | UI | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | IT／ST | Interface | Mapped |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | 振る舞い | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | UT／IT | Behavior | Mapped |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 構造 | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | IT／ST | Architecture | Mapped |
 
 ## 4. 統合
 
 ### 4.0. Source固有条件と検証項目の関係
 
-| Source ID | 検証目標 | 保持する固有条件 | 対応Local Item |
-|---|---|---|---|
-| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 体験を保証する | \`SAMPLE-01\` |
-| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 情報を保証する | \`SAMPLE-01\` |
-| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | UIを保証する | \`SAMPLE-01\` |
-| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 振る舞いを保証する | \`SAMPLE-01\` |
-| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 構造を保証する | \`SAMPLE-01\` |
+| Source ID | 検証目標 | 保持する固有条件 | 試験段階 | 対応Local Item |
+|---|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 体験を保証する | ST／UAT | \`SAMPLE-10\`、\`SAMPLE-11\` |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | UIを保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 振る舞いを保証する | UT／IT | \`SAMPLE-12\`、\`SAMPLE-01\` |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 構造を保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
 
 ### 4.1. Architecture横断モデルの処置
 
@@ -3614,33 +3639,126 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
 
 | 詳細設計領域 | 接続する検証目標 | 成立条件 |
 |---|---|---|
-| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | [sample](../../Definitions/sample-goal/verification.md) | 境界を確認する |
+| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 境界を確認する |
 
 ### 4.3. 検証項目の閉包
 
 | 検証目標 | Local Item集合 | 入力Coverage | Architecture入力 |
 |---|---|---|---|
-| [sample](../../Definitions/sample-goal/verification.md) | \`SAMPLE-01\` | §3の全入力 | §4.1と§4.2 |
+| [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-01\`、\`SAMPLE-10\`、\`SAMPLE-11\`、\`SAMPLE-12\` | §3の全入力 | §4.1と§4.2 |
 `;
-  write(mappingPath, mapping);
+  const writeQualityMapping = function writeQualityMappingFixture(
+    mappingValue: string,
+  ) {
+    const summaryBlock =
+      mappingValue.match(
+        /^## 3\. 全件Mapping\s*$([\s\S]*?)(?=^## 4\.)/mu,
+      )?.[1] ?? "";
+    const summaryRows = summaryBlock
+      .split(/\r?\n/u)
+      .filter((line: string) =>
+        /^\|\s*\[(?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6}\]\(/u.test(line),
+      );
+    const relationBlock =
+      mappingValue.match(
+        /^### 4\.0\. Source固有条件と検証項目の関係\s*$([\s\S]*?)(?=^### 4\.1\.)/mu,
+      )?.[1] ?? "";
+    const relationRows = relationBlock
+      .split(/\r?\n/u)
+      .filter((line: string) =>
+        /^\|\s*\[(?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6}\]\(/u.test(line),
+      );
+    for (const prefix of ["REQ", "UX", "IA", "UI", "SPEC", "ARCH"]) {
+      const phasePath = path.join(
+        root,
+        "07_Quality",
+        "Analysis",
+        prefix,
+        "quality_analysis.md",
+      );
+      const phaseSummaries = summaryRows.filter((line: string) =>
+        line.startsWith(`| [${prefix}-`),
+      );
+      const phaseRelations = relationRows.filter((line: string) =>
+        line.startsWith(`| [${prefix}-`),
+      );
+      write(
+        phasePath,
+        [
+          `# ${prefix} Quality Analysis`,
+          "",
+          "## 2. 全件処置",
+          "",
+          "| Source ID | 成功の意味 | 検証義務 | 統合先の検証目標 | 試験段階 | 試験種別 | 処置状態 |",
+          "|---|---|---|---|---|---|---|",
+          ...phaseSummaries,
+          "",
+          "## 3. 検証目標への統合",
+          "",
+          "| Source ID | 検証目標 | 保持する固有条件 | 試験段階 | 対応Local Item |",
+          "|---|---|---|---|---|",
+          ...phaseRelations,
+          "",
+          "## 4. 未解決事項",
+          "",
+          "なし",
+          "",
+        ].join("\n"),
+      );
+    }
+    const cross =
+      mappingValue.match(
+        /^### 4\.1\. Architecture横断モデルの処置\s*$([\s\S]*?)(?=^### 4\.2\.)/mu,
+      )?.[1] ?? "";
+    const detail =
+      mappingValue.match(
+        /^### 4\.2\. Architecture詳細設計領域の処置\s*$([\s\S]*?)(?=^### 4\.3\.)/mu,
+      )?.[1] ?? "";
+    const local =
+      mappingValue.match(
+        /^### 4\.3\. 検証項目の閉包\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
+      )?.[1] ?? "";
+    const integration = [
+      "# Quality Integration",
+      "",
+      "## 1. 統合の責務",
+      "",
+      "## 2. Architecture横断モデルの処置",
+      cross,
+      "## 3. Architecture詳細設計領域の処置",
+      detail,
+      "## 4. 検証項目の閉包",
+      local,
+    ]
+      .join("\n")
+      .replaceAll("../../../06_Architecture/", "../06_Architecture/")
+      .replaceAll("../../Definitions/", "Definitions/");
+    write(mappingPath, integration);
+  };
+
+  writeQualityMapping(mapping);
   const definitionPath = path.join(
     root,
     "07_Quality",
     "Definitions",
-    "sample-goal",
-    "verification.md",
+    "QA-000001",
+    "quality_definition.md",
   );
-  const definition = `# Verification
+  const definition = `# QA-000001 Verification
+
+成果物種別: Quality定義
+Quality ID: \`QA-000001\`
+主な試験段階: Unit／Integration／System／User Acceptance
 
 ## 1. 情報源と網羅条件
 
-| Source ID | 保持する固有条件 | 対応Local Item |
-|---|---|---|
-| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 体験を保証する | \`SAMPLE-01\` |
-| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | 情報を保証する | \`SAMPLE-01\` |
-| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | UIを保証する | \`SAMPLE-01\` |
-| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | 振る舞いを保証する | \`SAMPLE-01\` |
-| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 構造を保証する | \`SAMPLE-01\` |
+| Source ID | 保持する固有条件 | 試験段階 | 対応Local Item |
+|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 体験を保証する | ST／UAT | \`SAMPLE-10\`、\`SAMPLE-11\` |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | 情報を保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | UIを保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | 振る舞いを保証する | UT／IT | \`SAMPLE-12\`、\`SAMPLE-01\` |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 構造を保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
 
 ### Architecture詳細設計入力
 
@@ -3648,11 +3766,31 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
 |---|---|
 | [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 境界を確認する |
 
-## 2. 検証項目
+## 2. 試験段階と外部境界の適用
 
-| Local ID | 分類 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
-|---|---|---|---|---|---|---|
-| \`SAMPLE-01\` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |
+| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |
+|---|---|---|---|---|
+| UT | Required | 最小責務 | N/A | 局所判定を確認する |
+| IT | Required | 境界 | Direct Boundary | 直接境界を確認する |
+| ST | Required | System | System/E2E | 上位経路を確認する |
+| UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |
+
+## 3. 検証項目
+
+| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| \`SAMPLE-01\` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |
+| \`SAMPLE-10\` | 正常 | ST | Scenario | Entry→System | System/E2E | 有効な経路 | 実行する | 完成結果を確認する | 未解消状態なし | Automated |
+| \`SAMPLE-11\` | 利用者判断 | UAT | Acceptance | Result→User | User Acceptance | 完成結果 | 判断する | 意味を理解できる | 未解消状態なし | Manual |
+| \`SAMPLE-12\` | 境界 | UT | Contract | Core | N/A | 入力値 | 判定する | 局所結果を確認する | 外部Effect 0 | Automated |
+## 追加試験種別の適用
+
+| 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |
+|---|---|---|---|---|
+| RT | Required | 変更影響で既存項目を選ぶ | Changeの通常検証範囲 | 未選択範囲を明示する |
+| PT | N/A | 性能条件なし | N/A | 未実行をPassにしない |
+| LT | N/A | 長時間条件なし | N/A | 未実行をPassにしない |
+
 `;
   write(definitionPath, definition);
 
@@ -3664,10 +3802,126 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(
-    mappingPath,
+  for (const [relativePath, expectedCode] of [
+    [
+      "07_Quality/05_Current_Implementation_Reality_Audit.md",
+      "quality-current-profile-file-missing",
+    ],
+    [
+      "template/07_Quality/99_Verification_Result_Format.md",
+      "quality-current-profile-file-missing",
+    ],
+    [
+      "07_Quality/Registry/test-catalog.json",
+      "quality-current-profile-registry-missing",
+    ],
+  ] as const) {
+    const targetPath = path.join(root, relativePath);
+    const original = fs.readFileSync(targetPath, "utf8");
+    fs.rmSync(targetPath);
+    result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === expectedCode),
+      `${relativePath}\n${result.stderr}\n${result.stdout}`,
+    );
+    write(targetPath, original);
+  }
+  const legacyQualityPath = path.join(
+    root,
+    "07_Quality",
+    "04_Test_Catalog.json",
+  );
+  write(legacyQualityPath, "{}\n");
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-legacy-layout-reintroduced",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  fs.rmSync(legacyQualityPath);
+
+  writeQualityMapping(
     mapping.replace(
-      /^\| \[UX-000001\].*\| \[sample\].*\| 体験を保証する \| `SAMPLE-01` \|\r?\n/mu,
+      "[sample](../../Definitions/QA-000001/quality_definition.md) | ST／UAT | Experience",
+      "[sample](../../Definitions/QA-000001/quality_definition.md) | ST | Experience",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-test-level-decomposition-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
+      "| 体験を保証する | ST | `SAMPLE-10`、`SAMPLE-11` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+        "quality-definition-source-test-level-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
+      "| 体験を保証する | ST／UAT | `SAMPLE-10` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-test-level-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
+      "| 体験を保証する | ST／UAT | `SAMPLE-11` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-test-level-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
+      "| 体験を保証する | ST／UAT | `SAMPLE-01`、`SAMPLE-12` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-test-level-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      /^\| \[UX-000001\].*\| \[sample\].*\| 体験を保証する \| ST／UAT \| `SAMPLE-10`、`SAMPLE-11` \|\r?\n/mu,
       "",
     ),
   );
@@ -3680,11 +3934,10 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(
-    mappingPath,
+  writeQualityMapping(
     mapping.replace(
-      "| 体験を保証する | `SAMPLE-01` |",
-      "| 別表現の体験を保証する | `SAMPLE-01` |\n| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 体験を保証する | `SAMPLE-01` |",
+      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
+      "| 別表現の体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |\n| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
     ),
   );
   result = runChecker(root);
@@ -3695,11 +3948,10 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(
-    mappingPath,
+  writeQualityMapping(
     mapping.replace(
-      "| 体験を保証する | `SAMPLE-01` |",
-      "| 体験を保証する | `SAMPLE-99` |",
+      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
+      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-99` |",
     ),
   );
   result = runChecker(root);
@@ -3711,13 +3963,12 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(mappingPath, mapping);
+  writeQualityMapping(mapping);
   write(definitionPath, definition);
-  write(
-    mappingPath,
+  writeQualityMapping(
     mapping.replace(
-      "体験を保証する | `SAMPLE-01`",
-      "体験の別条件 | `SAMPLE-01`",
+      "体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11`",
+      "体験の別条件 | ST／UAT | `SAMPLE-10`、`SAMPLE-11`",
     ),
   );
   result = runChecker(root);
@@ -3728,12 +3979,12 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(mappingPath, mapping);
+  writeQualityMapping(mapping);
   write(
     definitionPath,
     definition.replace(
-      "体験を保証する | `SAMPLE-01`",
-      "体験の別条件 | `SAMPLE-01`",
+      "体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11`",
+      "体験の別条件 | ST／UAT | `SAMPLE-10`、`SAMPLE-11`",
     ),
   );
   result = runChecker(root);
@@ -3744,12 +3995,12 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(mappingPath, mapping);
+  writeQualityMapping(mapping);
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | | Automated |",
     ),
   );
   result = runChecker(root);
@@ -3760,12 +4011,12 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(mappingPath, mapping);
+  writeQualityMapping(mapping);
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | |",
     ),
   );
   result = runChecker(root);
@@ -3776,12 +4027,12 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(mappingPath, mapping);
+  writeQualityMapping(mapping);
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated／ST |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated／ST |",
     ),
   );
   result = runChecker(root);
@@ -3793,20 +4044,174 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | Component | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-verification-item-test-level-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Full Stack | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+        "quality-verification-item-external-boundary-stage-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |\n",
+      "",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-test-level-applicability-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| IT | Required | 境界 | Direct Boundary | 直接境界を確認する |",
+      "| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-test-level-applicability-conflict",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| IT | Required | 境界 | Direct Boundary | 直接境界を確認する |",
+      "| IT | Required | 境界 | N/A | 直接境界を確認する |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-test-level-applicability-conflict",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "主な試験段階: Unit／Integration／System／User Acceptance",
+      "主な試験段階: Unit／Integration／System",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-primary-test-level-summary-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(definitionPath, definition.replace(/^\| LT \|.*\r?\n/mu, ""));
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+        "quality-additional-test-type-applicability-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| PT | N/A | 性能条件なし | N/A | 未実行をPassにしない |",
+      "| PT | Conditional | 性能条件がある場合 | Changeの通常検証範囲 | 未実行をPassにしない |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-expensive-test-authorization-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace("Quality ID: `QA-000001`", "Quality ID: `QA-999999`"),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-definition-identity-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(definitionPath, definition);
+  fs.rmSync(
+    path.join(root, "07_Quality", "Analysis", "REQ", "quality_analysis.md"),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-canonical-mapping-missing",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  writeQualityMapping(mapping);
+
   const secondDefinitionPath = path.join(
     root,
     "07_Quality",
     "Definitions",
-    "sample-goal-two",
-    "verification.md",
+    "QA-000002",
+    "quality_definition.md",
   );
-  const secondDefinition = `# Verification Two
+  const secondDefinition = `# QA-000002 Verification Two
+
+成果物種別: Quality定義
+Quality ID: \`QA-000002\`
+主な試験段階: System／User Acceptance
 
 ## 1. 情報源と網羅条件
 
-| Source ID | 保持する固有条件 | 対応Local Item |
-|---|---|---|
-| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 第二の体験条件を保証する | \`SAMPLE-02\` |
+| Source ID | 保持する固有条件 | 試験段階 | 対応Local Item |
+|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 第二の体験条件を保証する | ST／UAT | \`SAMPLE-02\`、\`SAMPLE-03\` |
 
 ### Architecture詳細設計入力
 
@@ -3814,35 +4219,53 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
 |---|---|
 | [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 第二の境界を確認する |
 
-## 2. 検証項目
+## 2. 試験段階と外部境界の適用
 
-| Local ID | 分類 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
-|---|---|---|---|---|---|---|
-| \`SAMPLE-02\` | 正常 | 第二の入力 | 入力する | 第二の結果を確認する | 未解消状態なし | Automated |
+| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |
+|---|---|---|---|---|
+| UT | Conditional | 最小責務 | N/A | 局所判定を独立実装する場合に確認する |
+| IT | Conditional | 境界 | Adjacent 1 Block | 隣接境界を実装する場合に確認する |
+| ST | Required | System | System/E2E | 上位経路を確認する |
+| UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |
+
+## 3. 検証項目
+
+| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| \`SAMPLE-02\` | 正常 | ST | Scenario | Entry→Consumer | System/E2E | 第二の入力 | 入力する | 第二の結果を確認する | 未解消状態なし | Automated |
+| \`SAMPLE-03\` | 利用者判断 | UAT | Acceptance | Result→User | User Acceptance | 第二の結果 | 判断する | 意味を理解できる | 未解消状態なし | Manual |
+## 追加試験種別の適用
+
+| 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |
+|---|---|---|---|---|
+| RT | Required | 変更影響で既存項目を選ぶ | Changeの通常検証範囲 | 未選択範囲を明示する |
+| PT | N/A | 性能条件なし | N/A | 未実行をPassにしない |
+| LT | N/A | 長時間条件なし | N/A | 未実行をPassにしない |
+
 `;
   write(secondDefinitionPath, secondDefinition);
   const mappingTwoGoals = mapping
     .replace(
-      "[sample](../../Definitions/sample-goal/verification.md) | ST／UAT",
-      "[sample](../../Definitions/sample-goal/verification.md)、[sample two](../../Definitions/sample-goal-two/verification.md) | ST／UAT",
+      "[sample](../../Definitions/QA-000001/quality_definition.md) | ST／UAT",
+      "[sample](../../Definitions/QA-000001/quality_definition.md)、[sample two](../../Definitions/QA-000002/quality_definition.md) | ST／UAT",
     )
     .replace(
-      "| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 情報を保証する | `SAMPLE-01` |",
-      "| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample two](../../Definitions/sample-goal-two/verification.md) | 第二の体験条件を保証する | `SAMPLE-02` |\n| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 情報を保証する | `SAMPLE-01` |",
+      "| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | `SAMPLE-01`、`SAMPLE-10` |",
+      "| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample two](../../Definitions/QA-000002/quality_definition.md) | 第二の体験条件を保証する | ST／UAT | `SAMPLE-02`、`SAMPLE-03` |\n| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | `SAMPLE-01`、`SAMPLE-10` |",
     )
     .replace(
       "| sample | Required | Required | Required | Required | N/A: 配置差なし |",
       "| sample | Required | Required | Required | Required | N/A: 配置差なし |\n| sample two | Required | Required | Required | Required | N/A: 配置差なし |",
     )
     .replace(
-      "[sample](../../Definitions/sample-goal/verification.md) | 境界を確認する",
-      "[sample](../../Definitions/sample-goal/verification.md)、[sample two](../../Definitions/sample-goal-two/verification.md) | 境界を確認する",
+      "[sample](../../Definitions/QA-000001/quality_definition.md) | 境界を確認する",
+      "[sample](../../Definitions/QA-000001/quality_definition.md)、[sample two](../../Definitions/QA-000002/quality_definition.md) | 境界を確認する",
     )
     .replace(
-      "| [sample](../../Definitions/sample-goal/verification.md) | `SAMPLE-01` | §3の全入力 | §4.1と§4.2 |",
-      "| [sample](../../Definitions/sample-goal/verification.md) | `SAMPLE-01` | §3の全入力 | §4.1と§4.2 |\n| [sample two](../../Definitions/sample-goal-two/verification.md) | `SAMPLE-02` | §3の全入力 | §4.1と§4.2 |",
+      "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-01`、`SAMPLE-10`、`SAMPLE-11`、`SAMPLE-12` | §3の全入力 | §4.1と§4.2 |",
+      "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-01`、`SAMPLE-10`、`SAMPLE-11`、`SAMPLE-12` | §3の全入力 | §4.1と§4.2 |\n| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-02`、`SAMPLE-03` | §3の全入力 | §4.1と§4.2 |",
     );
-  write(mappingPath, mappingTwoGoals);
+  writeQualityMapping(mappingTwoGoals);
   write(definitionPath, definition);
   result = runChecker(root);
   assert.ok(
@@ -3852,16 +4275,15 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(
-    mappingPath,
+  writeQualityMapping(
     mappingTwoGoals
       .replace(
-        "| [sample](../../Definitions/sample-goal/verification.md) | `SAMPLE-01` | §3の全入力 | §4.1と§4.2 |",
-        "| [sample](../../Definitions/sample-goal/verification.md) | `SAMPLE-02` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-01`、`SAMPLE-10`、`SAMPLE-11`、`SAMPLE-12` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-02`、`SAMPLE-10`、`SAMPLE-11`、`SAMPLE-12` | §3の全入力 | §4.1と§4.2 |",
       )
       .replace(
-        "| [sample two](../../Definitions/sample-goal-two/verification.md) | `SAMPLE-02` | §3の全入力 | §4.1と§4.2 |",
-        "| [sample two](../../Definitions/sample-goal-two/verification.md) | `SAMPLE-01` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-02`、`SAMPLE-03` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-01`、`SAMPLE-03` | §3の全入力 | §4.1と§4.2 |",
       ),
   );
   result = runChecker(root);
@@ -3874,7 +4296,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
   );
   fs.rmSync(path.dirname(secondDefinitionPath), { recursive: true });
 
-  write(mappingPath, mapping.replace("N/A: 配置差なし", "N/A"));
+  writeQualityMapping(mapping.replace("N/A: 配置差なし", "N/A"));
   result = runChecker(root);
   assert.ok(
     result.report.findings.some(
@@ -3883,7 +4305,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(mappingPath, mapping);
+  writeQualityMapping(mapping);
   write(
     definitionPath,
     definition.replace(
@@ -3900,11 +4322,10 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(mappingPath, mapping);
+  writeQualityMapping(mapping);
   write(definitionPath, definition);
 
-  write(
-    mappingPath,
+  writeQualityMapping(
     mapping
       .replace(/^\| \[UX-000001\].*\r?\n/mu, "")
       .replace("## 4. 統合", "REQ-999999\n\n## 4. 統合"),
@@ -3920,8 +4341,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
 
   const firstMappingRow = mapping.match(/^\| \[UX-000001\].*$/mu)?.[0];
   assert.ok(firstMappingRow);
-  write(
-    mappingPath,
+  writeQualityMapping(
     mapping.replace(firstMappingRow, `${firstMappingRow}\n${firstMappingRow}`),
   );
   result = runChecker(root);
@@ -3932,7 +4352,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(mappingPath, mapping);
+  writeQualityMapping(mapping);
   fs.rmSync(definitionPath);
   result = runChecker(root);
   assert.ok(
@@ -3943,8 +4363,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
   );
 
   write(definitionPath, definition);
-  write(
-    mappingPath,
+  writeQualityMapping(
     mapping.replace(
       "../../../06_Architecture/02_Component_and_Responsibility_Model.md",
       "../../../06_Architecture/03_Boundary_and_Interface_Model.md",
@@ -3959,8 +4378,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(
-    mappingPath,
+  writeQualityMapping(
     mapping.replace(
       "../../../06_Architecture/Details/sample/01_Architecture.md",
       "../../../06_Architecture/Details/unknown/01_Architecture.md",
@@ -3975,16 +4393,16 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     `${result.stderr}\n${result.stdout}`,
   );
 
-  write(mappingPath, mapping);
+  writeQualityMapping(mapping);
   write(
     path.join(
       root,
       "07_Quality",
       "Definitions",
-      "orphan-goal",
-      "verification.md",
+      "QA-999999",
+      "quality_definition.md",
     ),
-    "# Orphan\n\n## 1. 検証項目\n\n| Local ID | 分類 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|\n| `ORPHAN-01` | 正常 | 入力あり | 入力する | 結果を確認する | 未解消状態なし | Automated |\n",
+    "# Orphan\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n## 2. 検証項目\n\n| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|\n| `ORPHAN-01` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を確認する | 未解消状態なし | Automated |\n",
   );
   result = runChecker(root);
   assert.ok(
@@ -4000,8 +4418,8 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
         root,
         "07_Quality",
         "Definitions",
-        "orphan-goal",
-        "verification.md",
+        "QA-999999",
+        "quality_definition.md",
       ),
     ),
     {
@@ -4010,7 +4428,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
   );
   write(
     definitionPath,
-    "# Verification\n\n## 1. 検証項目\n\n| Local ID | 分類 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|\n| `SAMPLE-01` | 正常 | 入力あり | 入力する | 結果を確認する | 未解消状態なし | Automated |\n| `SAMPLE-01` | 異常 | 壊れた入力 | 壊す | 拒否する | Effect 0 | Automated |\n",
+    "# Verification\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n## 2. 検証項目\n\n| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|\n| `SAMPLE-01` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を確認する | 未解消状態なし | Automated |\n| `SAMPLE-01` | 異常 | UT | Functional | 局所責務 | N/A | 壊れた入力 | 壊す | 拒否する | Effect 0 | Automated |\n",
   );
   result = runChecker(root);
   assert.ok(
@@ -4998,6 +5416,12 @@ for (const labelStyle of ["旧表現", "新表現"]) {
             );
           }
         }
+        assert.ok(
+          fs
+            .lstatSync(path.join(repositoryRoot, "07_Quality", "Registry"))
+            .isDirectory(),
+          "Registry",
+        );
       });
     }
   }

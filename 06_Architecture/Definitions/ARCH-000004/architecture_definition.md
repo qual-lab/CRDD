@@ -128,7 +128,7 @@ Architecture ID: `ARCH-000004`
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1のProject Runtime、Coordinator、取消、判断再開、Recovery | Project Runtime／Coordinator | Project Runtime | 保持・責務分離 | [project-runtime:unit:objective-intake](../../../07_Quality/04_Test_Catalog.json)、[project-runtime:unit:state-query](../../../07_Quality/04_Test_Catalog.json)、[coordinator:integration:project-runtime-full-flow](../../../07_Quality/04_Test_Catalog.json) | 取消／判断再開の実装Evidence対応とWorkbench／CROS入口との接続は詳細設計で再確認する |
+| v0.20.1のProject Runtime、Coordinator、取消、判断再開、Recovery | Project Runtime／Coordinator | Project Runtime | 保持・責務分離 | [project-runtime:unit:objective-intake](../../../07_Quality/Registry/test-catalog.json)、[project-runtime:unit:state-query](../../../07_Quality/Registry/test-catalog.json)、[coordinator:integration:project-runtime-full-flow](../../../07_Quality/Registry/test-catalog.json) | 取消／判断再開の実装Evidence対応とWorkbench／CROS入口との接続は詳細設計で再確認する |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

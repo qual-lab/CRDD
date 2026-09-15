@@ -85,7 +85,7 @@ Toolのavailable／unavailable／unverified／blockedと、モデル構成のval
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| Tool入口はv0.20.1、外部モデル構成は基準版なし | Coordinator Tool入口／Provider model profile | Capability RegistryとModel Configuration Resolver | 一部保持・一部新規 | [coordinator:unit:provider-model-profile-runtime](../../../07_Quality/04_Test_Catalog.json) | Capability Registryと外部構成Schemaは未実装 |
+| Tool入口はv0.20.1、外部モデル構成は基準版なし | Coordinator Tool入口／Provider model profile | Capability RegistryとModel Configuration Resolver | 一部保持・一部新規 | [coordinator:unit:provider-model-profile-runtime](../../../07_Quality/Registry/test-catalog.json) | Capability Registryと外部構成Schemaは未実装 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

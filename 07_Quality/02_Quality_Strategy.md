@@ -1,7 +1,7 @@
 # CRDD内部ツールの品質方針
 
 成果物種別: Quality横断方針
-状態: v0.21.0 Reconstruction In Progress
+状態: v0.21.0 Canonical
 担当責任者: Qual-Lab
 公開済み基準: v0.20.1
 
@@ -55,11 +55,12 @@ QualityはREQ、UX、IA、UI、SPECおよびArchitectureを横断して、それ
 
 1. Canonical Definitionと成立条件の母集団を固定する。
 2. Quality AnalysisでRisk、失敗、試験段階、実行形態を決める。
-3. Quality DefinitionでScenario、事前条件、操作・観測、期待結果、終了後条件を固定する。
-4. 型、Formatter、Lintを通してから、原因層の試験と直接境界ITを実行する。
-5. 関連1〜2 blockまで段階的に結合し、そこで初めて増える不確実性を確認する。
-6. 必要な公開CapabilityだけST／E2Eで確認する。
-7. Evidenceを固定し、独立確認後に現在の品質状態を更新する。
+3. Quality DefinitionでUT／IT／ST／UATの適用を全段階について判定し、外部境界がある場合は直接境界、隣接1 block、関連2 blocks、System／E2E、利用者受入のどこまで確認するかを固定する。
+4. 各Local Itemで対象／境界、外部境界の段階、事前状態／入力、操作／刺激、観測と期待結果、終了後条件および実行形態を固定する。
+5. 型、Formatter、Lintを通してから、原因層の試験と直接境界ITを実行する。
+6. 関連1〜2 blockまで段階的に結合し、そこで初めて増える不確実性を確認する。
+7. 必要な公開CapabilityだけST／E2Eで確認する。
+8. Evidenceを固定し、独立確認後に現在の品質状態を更新する。
 
 ## 5. 根拠と完了の境界
 

@@ -78,7 +78,7 @@ verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1の署名済みRuntime Identity | Artifact Signing／Coordinator release trust | Runtime Trust Evaluator | 保持・Trust分離候補 | [artifact-signing:integration:private-key-signing](../../../07_Quality/04_Test_Catalog.json)、[coordinator:integration:sign-release-manifest](../../../07_Quality/04_Test_Catalog.json) | 利用者所有Trust Policyは未実装 |
+| v0.20.1の署名済みRuntime Identity | Artifact Signing／Coordinator release trust | Runtime Trust Evaluator | 保持・Trust分離候補 | [artifact-signing:integration:private-key-signing](../../../07_Quality/Registry/test-catalog.json)、[coordinator:integration:sign-release-manifest](../../../07_Quality/Registry/test-catalog.json) | 利用者所有Trust Policyは未実装 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

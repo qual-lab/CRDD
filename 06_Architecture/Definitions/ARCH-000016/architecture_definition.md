@@ -78,7 +78,7 @@ Architecture ID: `ARCH-000016`
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1の履歴／現在正本分離 | Documentation／Change Trace | Context Provenance Resolver | 保持・一般化 | [checker:integration:crdd-check](../../../07_Quality/04_Test_Catalog.json) | CROS Context Packageへの実装は未接続 |
+| v0.20.1の履歴／現在正本分離 | Documentation／Change Trace | Context Provenance Resolver | 保持・一般化 | [checker:integration:crdd-check](../../../07_Quality/Registry/test-catalog.json) | CROS Context Packageへの実装は未接続 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

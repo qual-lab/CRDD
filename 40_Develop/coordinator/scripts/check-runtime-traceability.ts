@@ -6,7 +6,7 @@ import { inspectCoordinatorRuntimeTraceability } from "../src/core/runtime-trace
 const MAXIMUM_TEXT_BYTES = 8 * 1024 * 1024;
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "../../..");
-const TRACE_PATH = "07_Quality/05_Coordinator_Runtime_Traceability.json";
+const TRACE_PATH = "07_Quality/Registry/coordinator-runtime-traceability.json";
 
 function readRegularRepositoryText(
   repositoryRelativePath: string,

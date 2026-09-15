@@ -36,7 +36,7 @@ Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primit
 - [`06_Architecture/Details/artifact-signing/01_Architecture.md`](<../../../06_Architecture/Details/artifact-signing/01_Architecture.md>)
 - [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
 - [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
-- [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
+- [`07_Quality/Registry/test-catalog.json`](<../../../07_Quality/Registry/test-catalog.json>)
 - [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
 - [`40_Develop/artifact-signing/package-lock.json`](<../../../40_Develop/artifact-signing/package-lock.json>)
 - [`40_Develop/artifact-signing/package.json`](<../../../40_Develop/artifact-signing/package.json>)

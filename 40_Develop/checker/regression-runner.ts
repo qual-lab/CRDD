@@ -25,7 +25,7 @@ const repositoryRoot = path.resolve(checkerRoot, "../..");
 const catalogPath = path.join(
   repositoryRoot,
   "07_Quality",
-  "04_Test_Catalog.json",
+  "Registry/test-catalog.json",
 );
 const PLATFORM_TOOLCHAIN = "+1.94.1-x86_64-pc-windows-msvc";
 const PLATFORM_TARGET = "x86_64-pc-windows-msvc";

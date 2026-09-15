@@ -461,7 +461,7 @@ Local Personalで接続済みのHome／State観測と、未接続の保護済み
 | 取消・回復 | 取消要求と終了観測を分離。回復IDは発行元のexact値だけを利用 | IDなしでも不明は不明。Process再起動と資源回復は互いの代替ではない |
 | Checker | 配布本体を公式Repositoryの入口から呼び出す。通常`--json`は指摘配列、`--json --summary`は対象・件数・未確認を含む報告。エラーありはexit 1、エラーなしはexit 0 | 警告、未確認、限定範囲、実行不能を0件によって消さない。機械検査は意味上の準拠・専門品質を認定しない |
 
-上表は既存公開契約を利用者操作へ接続した概要であり、Runtime内部のAuthorityや成功条件を変更しない。UIと仕様の対応確認は両工程の完了を代替せず、[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)に未確認範囲を残す。
+上表は既存公開契約を利用者操作へ接続した概要であり、Runtime内部のAuthorityや成功条件を変更しない。UIと仕様の対応確認は両工程の完了を代替せず、[成果物の理解と工程引継ぎ](../07_Quality/Definitions/QA-000013/quality_definition.md)と[現行実装との照合](../07_Quality/05_Current_Implementation_Reality_Audit.md)に未確認範囲を残す。
 <a id="project-runtime-contract"></a>
 
 ## Project Runtime契約
