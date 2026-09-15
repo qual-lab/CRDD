@@ -996,11 +996,19 @@ Quality設計の一区切り後、工程成果物を上から一工程ずつ読�
 | Discovery状態の境界 | 7件に残っていた下流の成立状態や現行実装・運用の断定を、Discoveryが所有する採用判断、利用者成果、反証条件および戻り先へ戻した |
 | 36要求の再構築可能性 | 全件が、対象、利用状況、問題、望ましい変化、比較、成立条件、制約、検証意図およびUX引き渡しを単独で保持している。2件に混入していた下流の表示語を、元の探索から導ける利用状況と次行動へ戻した |
 | 補足的な分析 | 各工程のひな型に補足欄を持てる共通規則を追加した。必須情報の退避や雑記にはせず、繰り返す補足は標準項目への昇格候補とする。Discoveryの2ひな型へ先行適用した |
-| 作成者の自己確認 | 完成本文へ説明のための説明を増やさないよう、Discoveryひな型の編集コメントとして実装した。合否は独立レビューが実本文から意味を再構成して確認する |
+| 作成者の自己確認 | Discovery Root、探索記録、要求定義の末尾へ、成果物ごとの責務に合わせた可視の`## Checklist`を置く。`[x]`は必要な処置を本文へ残した状態、`OPEN`／`FAIL`／`N/A`は理由付きの正式結果、`[ ]`はひな型だけで許される未評価状態とした。Checklistは自己確認の記録であり、Checkerや独立レビューの代替にしない |
 
 UX以降のひな型と実成果物は、Discoveryのレビューを閉じてから工程順に扱う。この節の確認を、UX以降の一括変換または実コードとのReality Audit開始の根拠にはしない。
 
-Discovery固定候補`4e398ccef6c876d007c52bc54904506568be8f6f`を独立レビューし、Critical 0、Major 0、Moderate 0、Minor 0でPassした。全28探索の物語と必要意味、全36要求のDefinition単独での再構築可能性、遡及記録の忠実性、Discoveryと下流状態の分離、補足欄の標準化経路を確認した。未確認範囲はUX以降の工程成果物、現行実装とのReality Auditおよび実行検証であり、DiscoveryのPassからそれらの完了を推定しない。
+Discovery固定候補`4e398ccef6c876d007c52bc54904506568be8f6f`は、物語と必要意味、Definition単独での再構築可能性、遡及記録の忠実性、Discoveryと下流状態の分離、補足欄の標準化経路について一度Passした。その後、作成者の自己確認を非表示の編集指示ではなくCanonical成果物へ残る正式結果にする方針を採用したため、このPassは可視Checklist変更後の候補へ流用しない。新候補では、全28探索、全36要求、Rootおよび3ひな型のChecklist、機械検査の責務境界を再レビューする。
+
+可視Checklist変更後の初回再レビューは、全1,032項目を一律`[x]`にしたことで、図示の処置や未確認事項の評価が本文と矛盾する自己評価を検出した。また、ひな型が未評価と`OPEN`を混同し得る説明であり、Checkerが末尾配置と成果物種別固有の項目集合を確認していなかった。次の三点を同じDiscovery変更として是正した。
+
+| 指摘 | 原因 | 是正 |
+|---|---|---|
+| 本文根拠のない`[x]` | 成果物ごとの評価をせず、共通Checklistを一括適用した | 65成果物の1,024項目を本文へ再照合した。再レビューで、次工程に残した検証事項を未確認事項なしと評価した8件を検出して`[x]`へ是正し、最終的に913件を`[x]`、非該当111件を理由付き`N/A`とした。Root 8件と合わせて`[x]`921件、`N/A`111件、未評価・未完了・不適合は0件 |
+| ひな型の状態説明が曖昧 | 未評価を`OPEN`へ対応させるように読めた | `[ ]`はひな型だけの未評価、`OPEN`は評価済みだが必要処置が未完了、`FAIL`は不適合、`N/A`は非該当として3ひな型へ同じ定義を表示 |
+| Checkerが任意の単一項目を受理 | 可視性と評価形式だけを検査し、末尾・成果物種別固有の構造を検査していなかった | Root／EXP／REQの項目集合と順序を検査し、最後の必須項目以降を可視空白だけに限定した。通常段落、H3、引用、表による後続本文を拒否する。ひな型では説明と項目の間を含むChecklist以降のH1〜H6も拒否し、項目を別Sectionへ移せない。本文と評価の意味的一致は独立レビューへ残した |
 
 ## 6. 完了条件
 
@@ -1025,8 +1033,11 @@ Discovery固定候補`4e398ccef6c876d007c52bc54904506568be8f6f`を独立レビ�
 | SPEC Analysis／Definition | UX観点32／IA観点22／Definition 29。取消と判断返却を状態照会へ畳まず、SPEC-000028／000029として追加した。Quality分析で判明した実行記録の作成側契約不足は`SPEC-000030`として読取り契約から分離し、独立再レビューで意味伝播を確認した |
 | Architecture Analysis／Definition／Details | UI観点20／SPEC観点29／Definition 18。読取りProjectionを`ARCH-000007`、Canonical記録・並行Writer・不変公開・Effect不明時の回復を`ARCH-000018`へ分離し、execution-intelligence詳細設計へ接続した。既レビュー済み17定義の結果を新候補へ流用せず、更新した18定義を独立再レビューしてArchitecture Readyを再確定した |
 | 全体Checker | `errors: 0`、`warnings: 0` |
+| Discovery Checklist | Root 1件、探索28件、要求36件の全成果物に可視Checklistがあり、`[x]`921件、理由付き`N/A`111件、`OPEN`／`FAIL`／未評価の`[ ]`は0件。ひな型3件は可視Checklistと未評価の`[ ]`を持つ |
+| Discovery Checklist契約試験 | 非表示だけのChecklist、完成成果物の`[ ]`、理由形式のない結果、Checklist後の本文、別成果物用Checklist、単一汎用項目、およびひな型の項目を後続Sectionへ移す構造を拒否し、理由付き`OPEN`／`FAIL`／`N/A`を受理するFocused試験4／4 Pass |
+| Discovery Checklist独立レビュー | 固定候補fingerprint `69f65c1a01d9deeba0b5dc25a082b5b18c141e589fb6cdb81248cee5bc5730c4`、73ファイル、UX混入0件を読取り専用で確認した。全1,032項目の評価、8探索の未確認事項、3ひな型の5状態、CommonMark ATX／Setext見出しによる分断防止、完成成果物の末尾契約およびChecker責務分離を確認し、Critical／Major／Moderate／Minor 0でPass |
 | Checker契約試験 | 再検証中。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証する。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、49分析と18定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、横断節と5成果物、Component責務表と18定義、15詳細領域のforward／reverse／個別Relation集合、各ARCH-IDのCovered owner、Applicability、Engineering ConcernおよびQuality引渡しを検査する。Qualityでは157 Canonical ID、13検証目標、Source IDから検証目標への190関係、Source ID・検証目標・Local Itemの572関係、詳細設計から検証目標への38関係、5横断モデル、目標ごとのLocal Item、UT／IT／ST／UAT適用表、RT／PT／LT適用表および検証項目の11軸を検査する。試験段階・外部境界到達範囲の不正値、Source行が要求する段階のLocal Item欠落、別段階だけへの差替え、Required／N/AとLocal Itemの矛盾、段階上限超過、終了後条件／実行形態欠落を反証する。意味の再構築可能性は独立レビューへ分離 |
-| 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
+| 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走。339／339 Pass |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
 | IA独立レビュー | 最終固定候補fingerprint `b03240ccc0a09f5461ee236cc48c4ca8165291bcc3e92aea24b1dd3f5f01cede`を意味伝播と構造閉包の2者が再レビューし、ともにCritical 0／Major 0／Moderate 0／Minor 0でPass |

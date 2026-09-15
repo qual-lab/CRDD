@@ -483,6 +483,137 @@ function checkWorkLifecycleNavigation(): void {
 
 checkWorkLifecycleNavigation();
 
+const discoveryRootChecklistItemTexts = [
+  "すべての探索記録と採用要求を台帳から一意に辿れる。",
+  "採用済みの判断、探索中の候補、保留、棄却および未確認事項を区別した。",
+  "複数探索の関係、競合または合流候補を、個別記録の第二の正本を作らず示した。",
+  "Version別の作業予定や未完了TaskをDiscoveryの判断として複製していない。",
+  "基本図を現行図、既存参照、理由付き非該当または作成不能として処置した。",
+  "UXその他へ渡す現在の判断、保持条件およびDiscoveryへ戻す条件が分かる。",
+  "人間理解の確認が必要な探索について、理解確認と要求採用を区別した。",
+  "補足情報や台帳が個別探索・要求定義の第二の正本になっていない。",
+];
+
+const discoveryExplorationChecklistItemTexts = [
+  "情報源と、情報源から確認できる範囲を示した。",
+  "確認できた事実と、そこから導いた解釈・仮説を区別した。",
+  "解決策ではなく、本質的な問題を説明した。",
+  "技術名称を除いても、誰が何に困っているか理解できる。",
+  "影響を受ける人または判断する人を特定した。",
+  "どのような変化を期待するか説明した。",
+  "原因と解決に関する仮説を、事実として扱っていない。",
+  "未確認事項と不確実性を明示した。",
+  "人間による確認または判断が必要かを評価した。",
+  "情報不足をAIの推測だけで補っていない。",
+  "失敗、リスク、制約および対象外を評価した。",
+  "採用、不採用、保留を区別した。",
+  "次工程が保持すべき問題、変化および条件を示した。",
+  "情報不足時にDiscoveryへ戻す条件を示した。",
+  "因果、比較または時系列を図示する必要性を判定し、作成または理由付きN/Aとして処置した。",
+  "補足分析へ必須情報を退避していない。",
+];
+
+const discoveryRequirementChecklistItemTexts = [
+  "要求だけを読んでも、必要な変化を理解できる。",
+  "探索元と採用判断を一意に辿れる。",
+  "対象、利用状況、問題および望ましい変化を説明した。",
+  "特定の画面、実装または技術方式へ不要に固定していない。",
+  "要求として採用した理由と主要な代替を示した。",
+  "正常時の成立条件を判定可能な形で示した。",
+  "不完全・異常・境界時にも守る条件を示した。",
+  "成立主張を破る反証条件を示した。",
+  "失敗、リスクおよび制約を評価した。",
+  "対象外を明示した。",
+  "未確認事項と人間確認の必要性を評価した。",
+  "情報不足をAIの推測だけで補っていない。",
+  "検証意図を、具体的な試験項目を先取りせず説明した。",
+  "UXが探索記録を直接読まず、この定義だけから分析を開始できる。",
+  "下流工程の結論をDiscoveryへ逆輸入していない。",
+  "補足分析へ必須情報を退避していない。",
+];
+
+function checklistItemText(line: string): string | null {
+  const checked = /^- \[x\] (?<text>\S.*)$/u.exec(line);
+  if (checked?.groups?.text) return checked.groups.text;
+  const result = /^- (?:N\/A|OPEN|FAIL): \S.*? — (?<text>\S.*)$/u.exec(line);
+  return result?.groups?.text ?? null;
+}
+
+function completedVisibleChecklistError(
+  markdown: string,
+  expectedItems: readonly string[],
+): string | null {
+  const visible = visibleMarkdownStructure(markdown);
+  const sections = [...visible.matchAll(/^## Checklist\s*$/gmu)];
+  if (sections.length !== 1) return "missing_or_duplicate";
+  const start = sections[0]?.index ?? -1;
+  const body = visible.slice(start).replace(/^## Checklist\s*$\r?\n?/mu, "");
+  const bodyLines = body.split(/\r?\n/u).map((line) => line.trim());
+  if (bodyLines.some((line) => line.length > 0 && !line.startsWith("- ")))
+    return "content_after_or_between_items";
+  const lines = bodyLines.filter((line) => line.startsWith("- "));
+  if (lines.length === 0) return "empty";
+  if (lines.some((line) => /^- \[ \]/u.test(line))) return "unevaluated";
+  if (
+    lines.some(
+      (line) =>
+        !/^- \[x\] \S/u.test(line) && !/^- (?:N\/A|OPEN|FAIL): \S/u.test(line),
+    )
+  )
+    return "invalid_result";
+  const actualItems = lines.map(checklistItemText);
+  if (
+    actualItems.some((item) => item === null) ||
+    actualItems.length !== expectedItems.length ||
+    actualItems.some((item, index) => item !== expectedItems[index])
+  )
+    return "item_set_mismatch";
+  return null;
+}
+
+function templateVisibleChecklistError(
+  markdown: string,
+  expectedItems: readonly string[],
+): string | null {
+  const visible = visibleMarkdownStructure(markdown);
+  const sections = [...visible.matchAll(/^## Checklist\s*$/gmu)];
+  if (sections.length !== 1) return "missing_or_duplicate";
+  const start = sections[0]?.index ?? -1;
+  const body = visible.slice(start).replace(/^## Checklist\s*$\r?\n?/mu, "");
+  if (!/^- \[ \] \S/mu.test(body)) return "unevaluated_item_missing";
+  for (const token of ["[x]", "[ ]", "OPEN", "FAIL", "N/A"]) {
+    if (!body.includes(token)) return "result_guidance_missing";
+  }
+  const bodyLines = body.split(/\r?\n/u).map((line) => line.trim());
+  const firstItemIndex = bodyLines.findIndex((line) =>
+    line.startsWith("- [ ] "),
+  );
+  if (
+    bodyLines
+      .slice(0, firstItemIndex)
+      .some(
+        (line) => /^#{1,6}(?:\s|$)/u.test(line) || /^(?:=+|-+)\s*$/u.test(line),
+      )
+  )
+    return "nested_or_following_heading";
+  if (
+    bodyLines
+      .slice(firstItemIndex)
+      .some((line) => line.length > 0 && !line.startsWith("- [ ] "))
+  )
+    return "content_after_or_between_items";
+  const actualItems = bodyLines
+    .filter((line) => line.startsWith("- [ ] "))
+    .map((line) => line.slice("- [ ] ".length));
+  if (
+    actualItems.length !== expectedItems.length ||
+    actualItems.some((item, index) => item !== expectedItems[index])
+  )
+    return "item_set_mismatch";
+  if (!body.includes("理由")) return "result_guidance_missing";
+  return null;
+}
+
 function checkUxRequirementAnalysis(): void {
   if (repositoryMode !== "official") return;
   const discoveryPath = path.join(
@@ -514,6 +645,17 @@ function checkUxRequirementAnalysis(): void {
     );
     return;
   }
+  const discoveryRootChecklistError = completedVisibleChecklistError(
+    read(discoveryPath),
+    discoveryRootChecklistItemTexts,
+  );
+  if (discoveryRootChecklistError)
+    add(
+      "error",
+      "discovery-checklist-contract-invalid",
+      relative(discoveryPath),
+      `The canonical Discovery entry must contain one visible, fully evaluated artifact-specific Checklist (${discoveryRootChecklistError}).`,
+    );
   if (lstatIfPresent(discoveryAnalysisRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(discoveryAnalysisRoot, {
       withFileTypes: true,
@@ -536,7 +678,59 @@ function checkUxRequirementAnalysis(): void {
           relative(analysisPath),
           "Each Discovery analysis must declare its phase-owned artifact type and matching exploration ID.",
         );
+      const checklistError = completedVisibleChecklistError(
+        analysis,
+        discoveryExplorationChecklistItemTexts,
+      );
+      if (checklistError)
+        add(
+          "error",
+          "discovery-checklist-contract-invalid",
+          relative(analysisPath),
+          `Each canonical Discovery analysis must contain one visible, fully evaluated artifact-specific Checklist (${checklistError}).`,
+        );
     }
+  }
+  for (const [discoveryTemplatePath, checklistItems] of [
+    [
+      path.join(root, "template", "01_Discovery", "01_Product_Discovery.md"),
+      discoveryRootChecklistItemTexts,
+    ],
+    [
+      path.join(
+        root,
+        "template",
+        "01_Discovery",
+        "Analysis",
+        "EXP-XXXXXX",
+        "exploration.md",
+      ),
+      discoveryExplorationChecklistItemTexts,
+    ],
+    [
+      path.join(
+        root,
+        "template",
+        "01_Discovery",
+        "Definitions",
+        "REQ-XXXXXX",
+        "requirement.md",
+      ),
+      discoveryRequirementChecklistItemTexts,
+    ],
+  ] as const) {
+    if (!lstatIfPresent(discoveryTemplatePath)?.isFile()) continue;
+    const checklistError = templateVisibleChecklistError(
+      read(discoveryTemplatePath),
+      checklistItems,
+    );
+    if (checklistError)
+      add(
+        "error",
+        "discovery-checklist-template-invalid",
+        relative(discoveryTemplatePath),
+        `Each Discovery template must expose one visible artifact-specific Checklist with unevaluated items and result guidance (${checklistError}).`,
+      );
   }
   const templatePath = path.join(
     root,
@@ -887,9 +1081,7 @@ function checkUxRequirementAnalysis(): void {
         "## 解く問題と望ましい変化",
         "## 採用理由と比較",
         "## 成立条件",
-        "## 制約",
         "## 検証意図",
-        "## 工程引渡し",
         "## 関係",
       ];
       const hasPlaceholder =
@@ -906,6 +1098,8 @@ function checkUxRequirementAnalysis(): void {
         requiredDefinitionSections.some(
           (heading) => !definition.includes(heading),
         ) ||
+        !/## (?:制約|失敗・リスク・制約)/u.test(definition) ||
+        !/## (?:工程引渡し|UXへの引き渡し)/u.test(definition) ||
         hasPlaceholder ||
         !sourceRelation ||
         sourceRelation[1] !== sourceRelation[2]
@@ -915,6 +1109,17 @@ function checkUxRequirementAnalysis(): void {
           "discovery-requirement-definition-contract-invalid",
           relative(definitionPath),
           "Each adopted Discovery requirement must have a self-contained canonical definition.",
+        );
+      const checklistError = completedVisibleChecklistError(
+        definition,
+        discoveryRequirementChecklistItemTexts,
+      );
+      if (checklistError)
+        add(
+          "error",
+          "discovery-checklist-contract-invalid",
+          relative(definitionPath),
+          `Each canonical Discovery requirement must contain one visible, fully evaluated artifact-specific Checklist (${checklistError}).`,
         );
     }
   }

@@ -43,6 +43,8 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
       assert.ok(content.includes("## 探索台帳"), relativePath);
       assert.ok(content.includes("## 要求台帳"), relativePath);
       assert.ok(content.includes("## 次工程への入口と戻り方"), relativePath);
+      assert.ok(content.includes("## Checklist"), relativePath);
+      assert.ok(content.includes("- [ ] "), relativePath);
     } else if (relativePath === "template/02_UX/01_User_Experience.md") {
       assert.ok(
         content.includes("```text"),
@@ -1424,6 +1426,160 @@ test("Discovery分析は工程と役割を識別できる成果物種別を宣�
     ),
     `${result.stdout}\n${result.stderr}`,
   );
+});
+
+test("Discovery正本は可視で評価済みのChecklistを必要とする", () => {
+  for (const checklist of [
+    "<!--\n## Checklist\n\n- [x] 本文を確認した。\n-->",
+    "## Checklist\n\n- [ ] 本文を確認した。",
+    "## Checklist\n\n- 確認した。",
+  ]) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    const analysisPath = path.join(
+      root,
+      "01_Discovery",
+      "Analysis",
+      "EXP-000001",
+      "exploration.md",
+    );
+    write(
+      analysisPath,
+      `# 探索\n\n成果物種別: Discovery分析\n探索ID: \`EXP-000001\`\n\n${checklist}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "discovery-checklist-contract-invalid" &&
+          finding.path === "01_Discovery/Analysis/EXP-000001/exploration.md",
+      ),
+      `${checklist}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付ける", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(
+      discoveryRootChecklistTestItems,
+      new Map([
+        [1, ["OPEN", "人間確認を待っている"]],
+        [2, ["FAIL", "関係の根拠が不足している"]],
+        [4, ["N/A", "基本図の対象が存在しない"]],
+      ]),
+    )}\n`,
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "discovery-checklist-contract-invalid" &&
+        finding.path === "01_Discovery/01_Product_Discovery.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("Discovery Checklistは末尾と成果物種別固有の項目集合を必要とする", () => {
+  const invalidChecklists = [
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\n## 補足\n\nChecklist後の本文。`,
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\nChecklist後の通常段落。`,
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\n### 小見出し\n\n補足。`,
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\n> Checklist後の引用。`,
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\n| 項目 | 値 |\n|---|---|\n| 補足 | 不可 |`,
+    evaluatedChecklist(discoveryRootChecklistTestItems),
+    "## Checklist\n\n- [x] 要求定義を確認した。",
+  ];
+  for (const checklist of invalidChecklists) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    const analysisPath = path.join(
+      root,
+      "01_Discovery",
+      "Analysis",
+      "EXP-000001",
+      "exploration.md",
+    );
+    write(
+      analysisPath,
+      `# 探索\n\n成果物種別: Discovery分析\n探索ID: \`EXP-000001\`\n\n${checklist}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "discovery-checklist-contract-invalid" &&
+          finding.path === "01_Discovery/Analysis/EXP-000001/exploration.md",
+      ),
+      `${checklist}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("Discoveryひな型のChecklist項目を後続Sectionへ移せない", () => {
+  for (const heading of [
+    "## 補足",
+    "### 小見出し",
+    "   ## 字下げした補足",
+    "  ### 字下げした小見出し",
+    "補足\n---",
+  ]) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    const templatePath = path.join(
+      root,
+      "template",
+      "01_Discovery",
+      "Analysis",
+      "EXP-XXXXXX",
+      "exploration.md",
+    );
+    const template = fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template",
+        "01_Discovery",
+        "Analysis",
+        "EXP-XXXXXX",
+        "exploration.md",
+      ),
+      "utf8",
+    );
+    write(
+      templatePath,
+      template.replace("\n- [ ] 情報源", `\n${heading}\n\n- [ ] 情報源`),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "discovery-checklist-template-invalid" &&
+          finding.path ===
+            "template/01_Discovery/Analysis/EXP-XXXXXX/exploration.md",
+      ),
+      `${heading}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
 });
 
 test("UXひな型へ空の共通Evidence Rootを再導入できない", () => {
@@ -3269,12 +3425,74 @@ function write(file: string, content = ""): void {
   fs.writeFileSync(file, content, "utf8");
 }
 
+const discoveryRootChecklistTestItems = [
+  "すべての探索記録と採用要求を台帳から一意に辿れる。",
+  "採用済みの判断、探索中の候補、保留、棄却および未確認事項を区別した。",
+  "複数探索の関係、競合または合流候補を、個別記録の第二の正本を作らず示した。",
+  "Version別の作業予定や未完了TaskをDiscoveryの判断として複製していない。",
+  "基本図を現行図、既存参照、理由付き非該当または作成不能として処置した。",
+  "UXその他へ渡す現在の判断、保持条件およびDiscoveryへ戻す条件が分かる。",
+  "人間理解の確認が必要な探索について、理解確認と要求採用を区別した。",
+  "補足情報や台帳が個別探索・要求定義の第二の正本になっていない。",
+];
+
+const discoveryExplorationChecklistTestItems = [
+  "情報源と、情報源から確認できる範囲を示した。",
+  "確認できた事実と、そこから導いた解釈・仮説を区別した。",
+  "解決策ではなく、本質的な問題を説明した。",
+  "技術名称を除いても、誰が何に困っているか理解できる。",
+  "影響を受ける人または判断する人を特定した。",
+  "どのような変化を期待するか説明した。",
+  "原因と解決に関する仮説を、事実として扱っていない。",
+  "未確認事項と不確実性を明示した。",
+  "人間による確認または判断が必要かを評価した。",
+  "情報不足をAIの推測だけで補っていない。",
+  "失敗、リスク、制約および対象外を評価した。",
+  "採用、不採用、保留を区別した。",
+  "次工程が保持すべき問題、変化および条件を示した。",
+  "情報不足時にDiscoveryへ戻す条件を示した。",
+  "因果、比較または時系列を図示する必要性を判定し、作成または理由付きN/Aとして処置した。",
+  "補足分析へ必須情報を退避していない。",
+];
+
+const discoveryRequirementChecklistTestItems = [
+  "要求だけを読んでも、必要な変化を理解できる。",
+  "探索元と採用判断を一意に辿れる。",
+  "対象、利用状況、問題および望ましい変化を説明した。",
+  "特定の画面、実装または技術方式へ不要に固定していない。",
+  "要求として採用した理由と主要な代替を示した。",
+  "正常時の成立条件を判定可能な形で示した。",
+  "不完全・異常・境界時にも守る条件を示した。",
+  "成立主張を破る反証条件を示した。",
+  "失敗、リスクおよび制約を評価した。",
+  "対象外を明示した。",
+  "未確認事項と人間確認の必要性を評価した。",
+  "情報不足をAIの推測だけで補っていない。",
+  "検証意図を、具体的な試験項目を先取りせず説明した。",
+  "UXが探索記録を直接読まず、この定義だけから分析を開始できる。",
+  "下流工程の結論をDiscoveryへ逆輸入していない。",
+  "補足分析へ必須情報を退避していない。",
+];
+
+function evaluatedChecklist(
+  items: readonly string[],
+  overrides: ReadonlyMap<number, readonly [string, string]> = new Map(),
+): string {
+  const lines = items.map((item, index) => {
+    const override = overrides.get(index);
+    return override
+      ? `- ${override[0]}: ${override[1]} — ${item}`
+      : `- [x] ${item}`;
+  });
+  return `## Checklist\n\n${lines.join("\n")}`;
+}
+
 function discoveryDefinition(
   requirementId: string,
   explorationId: string,
   marker: string,
 ): string {
-  return `# ${requirementId} 要求\n\n成果物種別: Discovery定義\n要求ID: \`${requirementId}\`\n\n## 要求\n\n${marker}として利用者が望む結果を得られる要求である。\n\n## 対象と利用状況\n\n${marker}の対象者が、判断に必要な情報を確認する具体的な状況を扱う。\n\n## 解く問題と望ましい変化\n\n${marker}により現在の問題を識別し、再現可能な望ましい状態へ変える。\n\n## 採用理由と比較\n\n${marker}では代替案との違いと、採用した理由および残る弱点を比較する。\n\n## 成立条件\n\n- ${marker}の正常結果を確認できる\n- ${marker}の不完全状態を正常へ丸めない\n- ${marker}を破る反証を拒否できる\n\n## 制約\n\n- ${marker}の決定権限を下流へ移さない\n- ${marker}の対象外を完成扱いしない\n\n## 検証意図\n\n${marker}の正常、境界、失敗を実際の観測結果で区別できることを確認する。\n\n## 工程引渡し\n\n| 引渡し先 | 失ってはならない意味 | 下流で決めること |\n|---|---|---|\n| UX | ${marker}の利用者、状況、問題、変化 | 目的と得られる結果 |\n| IA以降 | ${marker}の状態と制約 | 工程固有設計 |\n\n## 関係\n\n- 元の探索記録: [${explorationId}](../../Analysis/${explorationId}/exploration.md)\n`;
+  return `# ${requirementId} 要求\n\n成果物種別: Discovery定義\n要求ID: \`${requirementId}\`\n\n## 要求\n\n${marker}として利用者が望む結果を得られる要求である。\n\n## 対象と利用状況\n\n${marker}の対象者が、判断に必要な情報を確認する具体的な状況を扱う。\n\n## 解く問題と望ましい変化\n\n${marker}により現在の問題を識別し、再現可能な望ましい状態へ変える。\n\n## 採用理由と比較\n\n${marker}では代替案との違いと、採用した理由および残る弱点を比較する。\n\n## 成立条件\n\n- ${marker}の正常結果を確認できる\n- ${marker}の不完全状態を正常へ丸めない\n- ${marker}を破る反証を拒否できる\n\n## 制約\n\n- ${marker}の決定権限を下流へ移さない\n- ${marker}の対象外を完成扱いしない\n\n## 検証意図\n\n${marker}の正常、境界、失敗を実際の観測結果で区別できることを確認する。\n\n## 工程引渡し\n\n| 引渡し先 | 失ってはならない意味 | 下流で決めること |\n|---|---|---|\n| UX | ${marker}の利用者、状況、問題、変化 | 目的と得られる結果 |\n| IA以降 | ${marker}の状態と制約 | 工程固有設計 |\n\n## 関係\n\n- 元の探索記録: [${explorationId}](../../Analysis/${explorationId}/exploration.md)\n\n${evaluatedChecklist(discoveryRequirementChecklistTestItems)}\n`;
 }
 
 function iaAnalysis(uxId: string, iaId: string): string {
