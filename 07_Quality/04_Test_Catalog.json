@@ -69,7 +69,7 @@
     {
       "id": "runtime-data:repository-storage",
       "owner": "runtime-data",
-      "architectureAnchor": "06_Architecture/Details/runtime-data/02_Target_Architecture.md#2-repository-local目標構成",
+      "architectureAnchor": "06_Architecture/Details/runtime-data/01_Architecture.md#2-repository-local目標構成",
       "responsibilities": ["repository_root_binding", "runtime_path_resolution", "temporary_operation_lifecycle"],
       "externalBoundaries": ["git_worktree", "repository_filesystem", "os_managed_root"],
       "lifecycleProfile": "durable_operation",
@@ -271,7 +271,7 @@
     },
     {
       "id": "runtime-data:repository-to-consumers",
-      "architectureAnchor": "06_Architecture/Details/runtime-data/02_Target_Architecture.md#2-repository-local目標構成",
+      "architectureAnchor": "06_Architecture/Details/runtime-data/01_Architecture.md#2-repository-local目標構成",
       "blockPath": ["runtime-data:repository-storage", "execution-intelligence:durable-store", "project-runtime:objective-task-lifecycle"],
       "testIds": ["runtime-data:integration:repository-paths", "execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
       "postconditions": ["repository_root_identity_preserved", "canonical_paths_not_reinterpreted", "consumer_storage_stays_repository_local"]

@@ -1,6 +1,58 @@
 # Project Operation Contextのアーキテクチャ
 
+成果物種別: Architecture詳細設計
+詳細設計領域: project-operation
 状態: Candidate（v0.21.0）
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project／Portfolioの運営状態を複数正本から根拠付きRead Modelへ統合する。 | Covered |
+| [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Meeting、Topic、Decision候補と所有正本への昇格関係をRepository上で具体化する。 | Covered |
+| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | 発生時点、採用時点、観測時点、現行性を分け、過去を現在値へ上書きしない。 | Covered |
+
+Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | Project Operation Core、Resolver、Projection、Command Routerを分ける。 | [§9](#9-component境界) |
+| Interface Model | Required | Project、Commercial、Topic、Meeting、Communicationの正本責務を分ける。 | [§4](#4-責務境界) |
+| Data Flow | Required | 複数正本から根拠付きRead Modelを作る流れを示す。 | [§7](#7-project-management-projection) |
+| State Model | Required | Topic、Meeting、候補、採用先と履歴の状態を分ける。 | [§6](#6-topicとmeetingのlifecycle) |
+| Sequence | Required | Meetingから候補、判断、正本への昇格順序を固定する。 | [§6](#6-topicとmeetingのlifecycle) |
+| Failure／Recovery | Required | 競合、欠測、制限、古いProjectionを正常へ畳まない。 | [§10](#10-実装前の検証義務) |
+| Deployment | Required | ContextごとのRepository同居・分離が情報境界に影響する。 | [§8](#8-任意repository構造) |
+| Observability | Required | 各表示値からSource、Revision、観測時点へ戻れるようにする。 | [§7](#7-project-management-projection) |
+| Security Boundary | Required | Repository分離と利用可能性を保ち、非公開内容の存在を漏らさない。 | [§3](#3-repository分離とアクセス境界) |
+
+`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | 正本更新はIdentityと基準改訂版を確認し、競合を無言で上書きしない。 | [正本節](#6-topicとmeetingのlifecycle) |
+| Timing | PASS | Meeting発生、候補生成、採用、投影観測の時点を分ける。 | [正本節](#7-project-management-projection) |
+| Resource Lifecycle | PASS | CandidateとProjectionのOwner、保持、採否、再生成、清掃条件を分ける。 | [§12](#12-identityprojectioncandidate契約) |
+| External Boundary | PASS | 分離RepositoryとCROSを境界とし、アクセス不能Contextを推測しない。 | [正本節](#3-repository分離とアクセス境界) |
+| Failure／Recovery | PASS | Repository IDをopaque identityとして扱い、Projectionの欠測・競合fieldを保持する。 | [§12](#12-identityprojectioncandidate契約) |
+
+`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+
+## Qualityへの引渡し
+
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| Topic／Meeting lifecycle | IDと基準Revision | 候補から明示採用 | 二重正本、競合更新、媒体名誤分類 | status、source、relation | 採否後の候補処置 | 物理保存形式はDevelopmentで選択 |
+| Project Projection | 複数正本 | 根拠・欠測付きread model | restricted漏えい、staleのcurrent化 | source coverageとobserved_at | 正本Effect 0 | 表示構成はUI実装で選択 |
+
+## 現行実装との照合
+
+現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
 関連変更: [CHG-000067](../../../99_Roadmap/Changes/CHG-000067/change.md)
@@ -310,13 +362,41 @@ Project Operation CoreはFilesystem Path、MCP DTO、Workbench表示形式また
 - Workbenchの定型操作が既存Command／Candidate入口を使用し、画面内の直接更新や独自Authority判定を行わない。
 - 使用しない任意領域をCheckerが欠落として拒否しない。
 
-## 11. 未確定事項
+## 11. 対象外と後段選択
 
-| 項目 | 現在の扱い | 確定契機 |
+| 項目 | 固定した意味 | 対象外／後段選択 |
 |---|---|---|
-| Repository IDの具体形式 | Project IDと別の安定Identityを要求する | Runtime Data Schemaと移行設計 |
-| 各Top-levelの固定入口名 | 一領域一入口、空成果物禁止まで固定 | Documentation／Template設計 |
-| Commercialの内容Schema | 共通化しない | 代表利用とアクセス要件が得られた時 |
-| Projectionの公開field | 意味と欠測状態だけ固定 | SPECと代表View設計 |
-| Remote接続認証 | CROS独自Password Gate、User Directoryまたは汎用認証Provider層を作らず、Shared ServerではBearer TokenをConnection Credentialへ照合する | MCP／CROSの認証設計 |
-| Workbenchの実装方式 | Projection利用側に限定し、v0.21で最小実装まで行う | UX／UI／SPECと対象Client環境の固定 |
+| 各Top-level入口 | 一領域一入口、使用しない領域の空成果物禁止 | 具体名はDocumentation／Templateで固定 |
+| Commercial Schema | Projectと別責務、Project ID relation、Repository分離可能 | 見積・契約・会計の共通Schemaは対象外 |
+| Remote認証 | CROSのRequest Access Contextだけを利用する | 認証実装はCROS／MCP詳細が所有 |
+| Workbench | Projection利用側で正本・Authorityを所有しない | Framework、画面配置はUI／Developmentで選択 |
+
+## 12. Identity／Projection／Candidate契約
+
+### 12.1 Repository Identity
+
+`repository_id`はRepository Manifestが所有する安定したopaque stringである。Project ID、Filesystem Path、Remote URL、Repository名、Git revisionをIdentityとして再利用しない。CROS Trust Domain内で一意であり、値の見た目からProject relation、役割、権限または配置を推定しない。具体的な文字表現はSchema実装で選べるが、変更時は新Identityとして明示移行する。
+
+### 12.2 Project Management Projection
+
+| Field群 | 必須の意味 |
+|---|---|
+| Identity | `project_id`、投影identity、対象範囲 |
+| Source | source identity、source revision、`observed_at` |
+| Coverage | `complete`／`partial`／`missing`／`restricted`／`conflicting`／`stale`／`unknown` |
+| Current State | milestone、active／waiting／blocked、decision／recovery／integration。観測できたものだけ |
+| Relation | Topic、Meeting、CHG、Quality、Roadmap等への参照。本文を複製しない |
+| Action | 所有正本のCommand／Candidate入口。Projection直接更新ではない |
+
+一つの総合Scoreや空値で、進捗、品質、判断、Recovery、制限をまとめない。開示できないSourceは内容・件数・Identityを返さず、利用側が推測できる補助情報も付けない。
+
+### 12.3 Candidate lifecycle
+
+```text
+created ──→ under_review
+              ├─ adopted  ──→ owner source relationを固定
+              ├─ rejected ──→ 理由とsource relationを保持
+              └─ expired  ──→ 再利用不可。再分析時は新候補
+```
+
+Candidateは`candidate_id`、source identity／revision、target owner、作成時点、状態、採否理由を持つ。本文または一時生成物はRuntime Dataの保持規則で清掃できるが、採否と正本へのrelationを再構成するための最小記録は保持する。Projectionは再生成可能であり正本化しない。清掃はOwner、参照、Recovery義務を確認した後にだけ行う。

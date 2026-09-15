@@ -1,6 +1,59 @@
 # MCP Transportアーキテクチャ
 
-状態: Stable（v0.20.1）
+成果物種別: Architecture詳細設計
+詳細設計領域: mcp
+状態: Candidate（v0.21.0）
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project／Portfolio ProjectionをMCP DTOへ写し、欠測・制限・根拠を失わず返す。 | Partial |
+| [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | stdioとHTTPを同じPublic Application Contractへ接続し、Transport間の意味同一性を保つ。 | Covered |
+| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 認証済みRequest Access ContextだけをApplicationへ渡し、Workspace範囲をTransportで拡張しない。 | Partial |
+| [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部情報の入力・結果をMCP wireへ運ぶが、送信許可や候補採用Authorityは所有しない。 | Partial |
+
+Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | stdio、HTTP、Schema Adapter、LauncherをTransport責務へ限定する。 | [§2](#2-package境界) |
+| Interface Model | Required | 公開DTOとProject Runtime契約の変換を一方向にする。 | [§4](#4-authorityと情報境界) |
+| Data Flow | Required | Client入力からApplication結果までTransportが意味を所有しない流れを示す。 | [§3](#3-依存と所有権) |
+| State Model | Required | 接続、Request、取消、切断、Server終了を分ける。 | [§5](#5-transport-lifecycle) |
+| Sequence | Required | 認証、変換、Application実行、結果搬送、終了joinの順序を固定する。 | [§5](#5-transport-lifecycle) |
+| Failure／Recovery | Required | framing、認証、切断、Application失敗を理由別に返す。 | [§6](#6-正常準正常異常) |
+| Deployment | Required | stdio Processとlocalhost HTTP Serverの配置差を示す。 | [§2](#2-package境界) |
+| Observability | Required | wire、Request、Application、shutdownを相関して観測する。 | [§7](#7-検証と完成境界) |
+| Security Boundary | Required | 認証、Origin、情報分類をTransport接続だけから生成しない。 | [§4](#4-authorityと情報境界) |
+
+`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | RequestごとのApplication実行を独立させ、Server終了時に取消してjoinする。 | [正本節](#5-transport-lifecycle) |
+| Timing | PASS | 接続、Request、取消、Server終了の待機を別に観測する。 | [正本節](#5-transport-lifecycle) |
+| Resource Lifecycle | PASS | stream、listener、Application実行を接続／Request Ownerへ結ぶ。 | [正本節](#5-transport-lifecycle) |
+| External Boundary | PASS | stdio byte、localhost HTTP、Origin、認証を独立境界として扱う。 | [正本節](#51-localhost-streamable-http) |
+| Failure／Recovery | PASS | 切断、取消、framing不正、Application失敗を理由別に返す。 | [正本節](#6-正常準正常異常) |
+
+`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+
+## Qualityへの引渡し
+
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| stdio Transport | JSON-RPC byte stream | framingを保った応答 | UTF-8分割、EOF、取消競合 | wire bytesとexit | listener／request 0 | なし |
+| localhost HTTP | 認証済みHTTP request | stdioと同じApplication意味 | Origin、token、payload、shutdown | HTTP statusとcontract result | server／listener／request 0 | 実OS signalは未評価 |
+
+## 現行実装との照合
+
+現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+
 担当責任者: Qual-Lab
 最終更新日: 2026-09-11
 

@@ -1,6 +1,59 @@
 # Project Runtimeアーキテクチャ
 
-状態: Stable（v0.20.1）
+成果物種別: Architecture詳細設計
+詳細設計領域: project-runtime
+状態: Candidate（v0.21.0）
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | ObjectiveをTaskへ変換し、実行、判断待ち、取消、RecoveryのProject-level lifecycleを所有する。 | Covered |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Task、Queue、Decision、Recoveryの現在状態を根拠付きProject Stateへ投影する。 | Partial |
+| [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | Execution IntelligenceのReader Portを呼び、読取り専用の実行事実・評価候補を返す。 | Partial |
+| [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | Transport非依存のPublic Application Contractを所有し、MCP等へ同じ意味を提供する。 | Covered |
+
+Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | Core、Application、Port、公開契約の依存方向を分ける。 | [§3](#3-内部層) |
+| Interface Model | Required | Coordinator、State Store、実行事実SourceをPortで隔離する。 | [§4](#4-port) |
+| Data Flow | Required | ObjectiveからTask状態と公開結果までの意味伝播を示す。 | [§7](#7-公開アプリケーション契約) |
+| State Model | Required | Task、Decision、Lease、RecoveryとEffect状態を分ける。 | [§6](#6-状態authority資源) |
+| Sequence | Required | 要求、状態更新、Execution Port、結果投影の順序を固定する。 | [§7](#7-公開アプリケーション契約) |
+| Failure／Recovery | Required | Effect不明、判断待ち、取消競合、回復待ちを保持する。 | [§6](#6-状態authority資源) |
+| Deployment | Required | 独立package境界とHostが注入するAdapterを示す。 | [§2](#2-package境界) |
+| Observability | Required | 公開入口から状態、理由、Recovery Identityを観測できるようにする。 | [§10](#10-完成境界) |
+| Security Boundary | Required | CoreがHost AuthorityやProvider Credentialを生成しない。 | [§6](#6-状態authority資源) |
+
+`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | Project、Queue、Task、DecisionのLock順序とownerGenerationを固定する。 | [正本節](#6-状態authority資源) |
+| Timing | PASS | 観測時点、lease期限、取消待機、再接続を分ける。 | [正本節](#6-状態authority資源) |
+| Resource Lifecycle | PASS | Task、Attempt、Lease、Queue、Decision、Recovery義務のOwnerを定義する。 | [正本節](#6-状態authority資源) |
+| External Boundary | PASS | Execution Port、State Store、実行事実SourceをPort化する。 | [正本節](#4-port) |
+| Failure／Recovery | PASS | Effectなし／済み／不明、判断待ち、取消競合、回復待ちを分ける。 | [正本節](#6-状態authority資源) |
+
+`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+
+## Qualityへの引渡し
+
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| Task lifecycle | ObjectiveとTask identity | 許可された状態遷移 | 競合、親喪失、取消、Effect不明 | state、owner、recovery ID | lease／resource 0または義務 | なし |
+| Public Application | 公開DTOとPort | Transport間で同じ意味 | Schemaずれ、内部Path依存 | exact result contract | 内部Effectは所有Portだけ | なし |
+
+## 現行実装との照合
+
+現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+
 担当責任者: Qual-Lab
 最終更新日: 2026-09-11
 
@@ -86,7 +139,7 @@ CoreはI/Oを発行しない。ApplicationはPortの閉じた結果だけを解�
 | Candidate Port | Task候補の読取り、統合候補の構成、明示採用とrollback | Coordinator Candidate Adapter |
 | Decision Port | 一回限りCapabilityの発行、prepare、finalize、失効およびRecovery | Platform Decision Adapter |
 | Platform Observation Port | Repository Root、principal、owner、Process、cleanup、Recoveryの必要観測 | Platform Adapter |
-| Execution Observation Port | Task Attempt終了の非Authority Eventを記録する | 実行知Adapter |
+| Execution Intelligence Query Port | 許可された実行記録を読取り、observed／not_observed／unknown、時間的出所、事実と非Authority評価候補を分けて返す | 実行知Reader Adapter |
 | Clock／Identity Port | 契約が必要とする現在時刻、決定論的IDおよび内容Hashを返す。言語Runtimeの時刻・暗号実装をApplicationへ露出しない | Host Adapter |
 | Process Safety Port | 現在のProcess世代、cleanup不明時のProcess再利用禁止、exact Recovery Identityの生成および検証を要求する | Host Adapter |
 | Task Recovery Port | Owner lossとの相関解決、Task回復、Docker回復受領、検証資源の最終化および非Authority診断を、Repository実装情報を含まないexact Identityで要求する | Coordinator Recovery Adapter |

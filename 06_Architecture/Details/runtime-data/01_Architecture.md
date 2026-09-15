@@ -1,10 +1,63 @@
 # `.crdd` Runtime Dataの目標Architecture
 
+成果物種別: Architecture詳細設計
+詳細設計領域: runtime-data
 状態: Candidate（v0.21.0）
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | Repository Manifest、Repository IDと検証済みRootに結合するRepository-local data配置を定義する。 | Partial |
+| [ARCH-000011](../../Definitions/ARCH-000011/architecture_definition.md) | durable、candidate、temporary、recoveryの配置・保持・清掃・再入場を定義する。 | Covered |
+| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | CROSのTrust Domain／instance dataをRepository-local `.crdd`から物理分離する。 | Partial |
+| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Runtime dataへSource revision、観測時点、保持期限と現在性を残す。 | Partial |
+
+Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | config、state、execution、recovery、candidate、tmpのOwnerを分ける。 | [§3](#3-各領域の意味) |
+| Interface Model | Required | 検証済みRoot Capabilityと全ConsumerのPath利用を固定する。 | [§8](#8-path-capabilityとconsumer-closure) |
+| Data Flow | Required | Repository-localとOS管理Rootへの配置を追跡する。 | [§2](#2-repository-local目標構成) |
+| State Model | Required | durable、candidate、temporary、参照中、清掃可能を分ける。 | [§4.4](#44-lifecycle) |
+| Sequence | Required | 作成時にOwnerと清掃条件を記録し、観測後だけ削除する。 | [§4.4](#44-lifecycle) |
+| Failure／Recovery | Required | 観測不能、参照中、由来不明を削除せず回復義務へ結ぶ。 | [§4.5](#45-recoveryの所有) |
+| Deployment | Required | Repository-local `.crdd`とOS管理CROS Rootを物理分離する。 | [§6](#6-crosとの物理分離) |
+| Observability | Required | Owner、参照、保持期限、清掃結果と終了後不存在を確認する。 | [§9](#9-完成条件) |
+| Security Boundary | Required | Repository identity、Secret非格納、Root越境禁止を固定する。 | [§5](#5-configとrepository-identity) |
+
+`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | Writer領域とpublish単位を分け、同Path更新は排他またはimmutable publishにする。 | [正本節](#42-operation所有契約) |
+| Timing | PASS | 経過時間だけで削除せずOwner、参照、Recovery義務を再確認する。 | [正本節](#44-lifecycle) |
+| Resource Lifecycle | PASS | durable、candidate、temporaryを分け、Owner、cleanup条件、再入場Identityを記録する。 | [正本節](#3-各領域の意味) |
+| External Boundary | PASS | Repository Root、OS Runtime Root、Version Control Portを境界化する。 | [正本節](#6-crosとの物理分離) |
+| Failure／Recovery | PASS | 観測不能または参照中の残存は削除せず義務として保持する。 | [正本節](#45-recoveryの所有) |
+
+`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+
+## Qualityへの引渡し
+
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| Repository-local data | 検証済みRootと用途分類 | 正しい子領域へ保存 | subdirectory `.crdd`、直下乱立 | path capabilityとowner | tmp消去または義務 | 現行Path移行はReality Audit |
+| CROS runtime root | trust domainとinstance | Repository dataと物理分離 | domain混在、secret混入 | binding、owner、retention | 参照閉包後に清掃 | Linux配置はv0.22 |
+
+## 現行実装との照合
+
+現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
 Related:
-- [現行Path棚卸し](01_Current_Path_Inventory.md)
+- [現行Path棚卸し](02_Current_Path_Reality_Audit.md)
 - [文書化](../../../03_Documentation.md#repository-local-working-storage)
 - [Coding Standards](../../99_Coding_Standards.md)
 

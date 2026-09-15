@@ -824,16 +824,40 @@ UIテーマ、共通UI部品、外部視覚成果物を使用しない対象範�
 | Failure／Recovery／Resilience Model | 故障領域、部分故障、取消、Retry、Recovery、cleanup、終了条件 | 故障注入・回復・残存検証 |
 | Deployment／Execution Model | Process、Runtime、配置、実行単位、並行性、Resource | 実行環境・Timing・Resource検証 |
 
-横断モデルは個別定義を置き換える第二の定義集ではない。個別定義間の関係、共同成立条件およびQualityへの引渡しを所有し、個別契約の全文を複製しない。現行Source、Directory構成、既存試験または基準版実装は、Canonicalな横断モデルを導く正式入力にしない。これらはArchitecture Ready後のReality Auditで、設計との一致、成立済み能力の保持および実装不足を確認する照合対象とする。
+横断モデルは個別定義を置き換える第二の定義集ではない。個別定義間の関係、共同成立条件およびQualityへの引渡しを所有し、個別契約の全文を複製しない。
+
+Architecture工程は`Analysis → Definitions → Details`の三層で構成する。Architecture定義（ARCH-ID）は何をArchitectureとして成立させるかを示す基本設計であり、詳細設計領域はそれをどの構造、境界、Flow、Componentで成立させるかを示す。ARCH-IDと詳細設計領域を同じIdentityにせず、多対多Relationで接続しなければならない。
+
+```text
+UI／SPEC
+   ↓
+Analysis
+   ↓
+Definitions／ARCH-ID（基本設計）
+   ↓
+Details／設計領域（詳細設計）
+   ↓
+Quality／Development
+```
+
+各詳細設計領域は、関連するARCH-ID、領域固有の責務、必要な詳細成果物、Engineering Concern、Qualityへの引渡しおよび現行実装との照合を自己完結して示す。Component、Interface、Data Flow、State、Sequence、Failure／Recovery、Deployment、ObservabilityおよびSecurity Boundaryを全数適用判定し、不要な成果物を形式的に作らない。`Required`は実在する節または成果物へ接続し、`N/A`にはArchitecture上の理由を必須とする。未検討、一般的な説明または存在しない節名を`N/A`や根拠へ使わない。
+
+Engineering Concernは少なくともConcurrency、Timing、Resource Lifecycle、External BoundaryおよびFailure／Recoveryを`PASS`、`N/A`、`OPEN`または`FAIL`で評価する。結果だけのチェックボックスにせず、判断理由とEvidenceまたはRelated IDを保持する。`PASS`は設計上の処置と観測方法を説明できる場合だけ使用し、`OPEN`または`FAIL`を全体Passへ畳まない。
+
+Qualityへの引渡しは定型文だけで終えず、領域固有の検証単位ごとに、対象、正常条件、反証する失敗、観測、終了後条件および未確認範囲を示す。Architecture定義から詳細領域への対応表、詳細領域からArchitecture定義への対応、および各領域文書のRelationは同じ多対多集合でなければならない。`Covered`は担当断面の設計が本文で具体化されている場合だけ使用し、補助的な一部処置は`Partial`、設計不足は`Missing`として扱う。
+
+現行Source、Directory構成、既存試験または基準版実装は、Canonicalな横断モデルまたは詳細設計を導く正式入力にしない。これらはCanonical詳細設計を固定した後のReality Auditで、設計との一致、成立済み能力の保持および実装不足を`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する照合対象とする。
 
 Architecture Readyを表示するには、次をすべて満たさなければならない。
 
 - CanonicalなUI定義とSPEC定義を別々に全数分析し、個別Architecture定義へ統合している。
 - 全個別定義が5つの横断モデルへ含まれ、未接続の責務を残していない。
 - Component、境界、Data／State、故障／回復、配置／実行の各観点を、作成、既存参照、非該当または作成不能へ理由付きで処置している。
+- 全ARCH-IDが一つ以上の詳細設計領域へ明示的に接続され、各領域側にも同じRelationがある。
+- 各詳細設計領域で必要な詳細成果物とEngineering Concernを評価し、`N/A`に理由があり、必須の`OPEN`または`FAIL`を残していない。
 - QualityがUT／IT／STその他の検証方法を選べるよう、検証対象、反証すべき失敗、必要な実境界および終了後条件を示している。
 - 未確定の物理実装を論理設計へ混ぜず、確認先と後段のReality Audit条件を残している。
-- 固定改訂版に対するArchitecture独立レビューが完了し、未処置の必須指摘がない。
+- 基本設計と詳細設計を含む固定改訂版に対するArchitecture独立レビューが完了し、未処置の必須指摘がない。
 
 ```text
 対象範囲 / 網羅範囲要約 / 未解決不足

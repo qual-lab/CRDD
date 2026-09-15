@@ -1,141 +1,136 @@
-# 実行知のアーキテクチャ
+# 実行記録の読取りと評価候補の詳細設計
 
-状態: Stable（v0.20.1）
-担当責任者: Qual-Lab
-最終更新日: 2026-09-06
+成果物種別: Architecture詳細設計
+詳細設計領域: execution-intelligence
+状態: Candidate（v0.21.0）
+維持責任者: Qual-Lab
 
-## 1. 目的と責務
+## 基本設計との関係
 
-実行知（Execution Intelligence）は、CRDDへ明示的に結合した仕事について、実行時に観測できた事実をProject、Milestone、Objective、TaskおよびAttemptへ接続し、改善判断に使える形で保持する。Coordinator専用品ではなく、AI APIを利用するTypeScriptアプリケーションや別Runtimeから組み込めるProvider非依存ライブラリを第一の利用境界とする。LLM監視製品、会話履歴、推論全文、Project Stateの第二正本または自動最適化機構は作らない。
-
-[進捗管理](../../../15_Progress.md#execution-intelligence-observation)がCRDD共通の意味と評価境界を所有する。本書は実行知そのもののEvent、保存、集約、保持、利用側Adapterおよび完成境界を所有する。実装は独立した[公開入口](../../../40_Develop/execution-intelligence/src/index.ts)、[共通Eventと集約](../../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts)、[Repository-local Store](../../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts)へ分離する。Coordinatorは[専用Adapter](../../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts)から接続し、共通SchemaへSingle Task Runtime固有の意味を持ち込まない。
-
-```text
-Coordinator / MCP / HTTP / 外部AI APIを使う採用Repository
-  ↓ 利用側Adapter
-Execution Intelligenceの共通Event契約
-  ├ 集約
-  ├ 非Authority改善候補
-  └ Repository-local Store
-```
-
-最初のProducerがCoordinatorであることを、実行知の所有権とは扱わない。別Runtimeまたは採用Repositoryは、明示的な仕事Identityと実際に観測したmetadataを同じ公開入口へ渡せる。共通コンポーネントはProvider SDK、Coordinator状態、MCP Protocol、HTTP session、認証方式または外部送信Authorityを所有しない。
-
-TypeScriptアプリケーションは`@qual-lab/crdd-execution-intelligence`の公開入口からRepositoryへ結合したRecorderを一度生成し、`recordTaskAttempt`、`recordEvent`および`read`だけを利用できる。Recorderは検証済みRepository Root能力を内部に保持し、呼出側へFilesystem Path能力を渡さない。`recordTaskAttempt`は、Effect前のCanonical Event生成と、その後のStore公開を別の境界として扱う。入力生成の拒否だけを`execution_event_invalid / no_effect / cleanupConfirmed`へ分類し、生成後にStoreが返す故障段階別結果を変更しない。Store境界から契約外例外が出た場合も入力不正へ偽装せず、利用側はEffect不明・cleanup未確認として閉じる。Eventだけを扱う利用側は生成・検査・集約APIを単独利用でき、Repository-local保存を必須にしない。package数に合わせたProcess Launcherは追加せず、非TypeScriptまたはProcess外の利用要求が成立した場合だけ、情報分類・認証・backpressure・再送を持つ独立取込Adapterを別に設計する。
-
-### 内部ブロックと依存
-
-下図は公開入口の内側を責務で分けたものであり、処理全体を常に直列実行する意味ではない。Eventだけの利用は保存経路を通らない。
-
-```text
-利用側Adapter（Coordinator／採用アプリケーション）
-  ↓ 明示した仕事Identityと観測metadata
-公開入口 src/index.ts
-  ├→ Recorder [application/]
-  │     ├→ Event生成・検査 [core/]
-  │     └→ Repository検証・不変保存／読取り [store/]
-  │                    └→ Event検査 [core/]
-  └→ Event生成・検査／集約／統合結果評価 [core/]
-                       └→ plain-data snapshot [internal/]
-
-store/ → GitによるRoot確認・Filesystem → .crdd/execution/<operation-id>/events/
-core/  → 非Authorityな集約・改善候補（自動実行へは接続しない）
-```
-
-### ブロック状態遷移
-
-| 現在状態 | 契機／事前条件 | 処理と観測 | 次状態 | 終了後条件 |
-|---|---|---|---|---|
-| 未観測 | 仕事Identity付きEvent候補 | plain-data化、Schema、Identityを検証 | 正規Event／拒否 | 拒否時はStore Effect 0 |
-| 正規Event | 検証済みRepository Root | Process間排他と一時fileを取得 | 公開準備／失敗残存 | Lockと一時fileの所有者が一意 |
-| 公開準備 | flush済みbyte | immutable publishとreadback | 保存済み／不明 | 上書き0、衝突時は既存byteを再観測 |
-| 保存済み | 集約要求 | 欠測を保持して集約 | 集約済み | Event byte不変、Authority発行0 |
-| 失敗残存 | exact Artifactを観測 | 再試行／清掃候補を分類 | 再入場／保持 | 物理削除せず、残存と不明を区別 |
-
-RecorderがEventを作れたこととStoreが耐久公開したことを同一状態にしない。改善候補、保持期限または清掃候補は、Project状態、採用判断、実行許可または削除Authorityへ昇格しない。
-
-| 内部ブロック | Source群 | 所有する処理 |
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| 公開入口 | `src/index.ts` | 利用側に公開するAPIの選択。内部Pathへの直接依存を不要にする |
-| Recorder | `src/application/` | Repository結合、Event生成と保存の接続、結果の返却 |
-| Event・評価 | `src/core/` | 閉Schema、欠測、集約、統合結果評価、非Authority改善候補 |
-| 保存境界 | `src/store/` | Git Root検証、不変公開、排他、読戻し、失敗残存 |
-| 入力snapshot | `src/internal/` | Accessor／Proxyを評価せずplain dataを検査・固定する |
+| [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | 利用可能な実行記録を読取り、欠測を保った事実と非Authorityな評価候補を返す。 | Covered |
+| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Source Revision、観測時点および評価候補の時間的出所を、現在値と履歴を混同せず解決する。 | Covered |
 
-Provider SDKの自動計測、独立した取込サーバー、ViewerおよびEvent物理削除は、この内部構成へ接続済みとは扱わない。各境界の条件と未接続範囲は以下の節が所有する。
+## 詳細成果物の適用判断
 
-## 2. 最小Event
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | Query、Reader、Aggregator、Projectionの読取り責務を分ける。 | [§1](#1-component-model) |
+| Interface Model | Required | 実行記録Sourceと利用側の間に読取り専用Portを置く。 | [§2](#2-interface-model) |
+| Data Flow | Required | 記録から事実・欠測・評価候補へ至る変換を追跡する。 | [§3](#3-data-flow) |
+| State Model | Required | observed、not_observed、unknownと時間的出所を区別する。 | [§4](#4-state-model) |
+| Sequence | Required | 読取り、検査、集約、投影の順序を固定する。 | [§5](#5-sequence) |
+| Failure／Recovery | Required | Source欠落、破損、相関不一致、観測不能を扱う。 | [§6](#6-failurerecovery) |
+| Deployment | N/A | 読取りProjectionは特定Process配置を所有しない。 | [§7](#7-deployment) |
+| Observability | Required | 読取り結果と欠測理由を相関可能にする。 | [§8](#8-observability) |
+| Security Boundary | Required | 読取り権限を変更・採用・実行Authorityへ昇格させない。 | [§9](#9-security-boundary) |
 
-v0.20の最小Eventは、一つのTask Attemptが終了した観測である。
+## Engineering Concern評価
 
-| 区分 | 必須内容 | 境界 |
-|---|---|---|
-| 仕事Identity | Project、Milestone、Objective、Task、Attempt、Operation | LLM requestを主Identityにしない |
-| 発生 | Event ID、種別、観測時刻 | 同じAttempt／OperationのEvent IDは決定論的である |
-| 実行 | Role、Provider、Model、入力戦略参照、所要時間、利用量、人間の実作業時間 | 取得不能値を0へ補正しない。入力／出力Token、Cache読取り／書込み、費用／Creditを個別に観測する |
-| 結果 | status、reason、Effect、cleanup、手動回復、Process再起動 | Task結果を再解釈しない |
-| 品質 | 受入または拒否とEvidence参照 | Task終了時点では非該当とし、実行成功を受入へ昇格しない |
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | 一つの読取りSnapshot内で異なる観測時点を混在させず、Source更新は所有しない。 | [§4](#4-state-model) |
+| Timing | PASS | 観測時点とSource Revisionを結果へ保持し、古い値を現在値として返さない。 | [§4](#4-state-model) |
+| Resource Lifecycle | N/A | 書込み、Lock、動的外部資源または長期保持Handleを所有しない。 | [§1](#1-component-model) |
+| External Boundary | PASS | Source取得不能と記録不存在を別状態で返す。 | [§6](#6-failurerecovery) |
+| Failure／Recovery | PASS | 読取り不能時は状態を推測せず、再取得可能な参照と理由だけを返す。 | [§6](#6-failurerecovery) |
 
-観測値は`observed`、`not_observed`、`not_applicable`のいずれかで表す。`observed`は値とSource、その他は理由を必須とする。利用量は一括した観測にせず、入力Token、出力Token、Cache読取りToken、Cache書込みTokenおよび費用／Creditの各fieldへ同じ三状態を適用する。費用／Creditは非負の量と単位を組にし、単位が異なる値を集約側で暗黙変換しない。未知field、Raw Provider出力、Prompt、Response、Credential、Capabilityおよび内部推論はEvent Schemaへ入れない。
+## Qualityへの引渡し
 
-RoleとProviderは特定のCoordinatorまたはProvider名へ固定せず、安定した識別子として検証する。各Adapterは実効値を観測できた場合だけ`observed`を構成する。現行Coordinator Adapterは、Single Task結果から検証済みの実効Executor Providerを取得できる場合だけ記録する。Model、Token、費用および人間時間はまだ返さないため未観測とする。要求されたProviderを実効Providerとして代用しない。入力戦略はProject Runtimeが実際に構成したSingle Task Request契約への参照、時間はAttempt委譲の前後で観測した値だけを記録する。
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| 実行記録の読取り | Query／Reader | 許可されたSourceのexact記録だけを返す | 別Task混入、破損黙殺、欠測補完 | Source ID、Task ID、Revision、読取り結果 | 書込みEffect 0、Handle 0 | 外部Source別の実在性 |
+| 状態投影 | Aggregator／Projection | observed／not_observed／unknownを区別する | unknownを空値や正常へ畳む | 状態、reason、observed at | 入力記録不変、Authority発行0 | 利用側表示の理解可能性 |
+| 時間的出所 | Revision／Observed At | 現在値と履歴を区別できる | 古い記録を現行として表示 | source revision、observed at | 履歴変更0 | Clock差の実境界 |
+| 評価候補 | 事実と評価候補 | 両者を別結果として返す | 候補を事実・採用判断へ昇格 | fact、candidate、basis | 採用Effect 0 | 人間判断後の下流処置 |
 
-## 3. 発行と失敗境界
+## 現行実装との照合
+
+v0.20.1にはEvent生成、Recorder、Store Writerおよび不変保存の成立済みCapabilityがある。これらは失わず、[現行実装のReality Audit](02_Current_Implementation_Reality_Audit.md)で比較する。ただし、UI／SPECから導出したARCH-000007／016の正式責務ではなく、本書のRelation、適用判断またはQuality引渡しの成立根拠にしない。
+
+## 1. Component Model
 
 ```text
-Project RuntimeがTask Attemptを予約
-  ↓
-Single Task Runtimeへ委譲
-  ↓
-Attempt、Operation、Authority Binding、Repository Revisionを確定
-  ↓
-結果を同じexact Identityで検証
-  ↓
-Task Attempt終了Eventを構成
-  ↓
-Repository-local Storeへ記録
-  ↓
-Project Stateのsettlementを継続
+許可された実行記録Source
+          ↓
+        Query
+          ↓
+        Reader
+          ↓
+  検査・相関・Aggregation
+          ↓
+ Read-only Projection
+   ├─ 観測事実
+   ├─ 欠測／不明
+   └─ 非Authority評価候補
 ```
 
-Event発行は非Authorityの観測であり、Task Authority、採用、回復、Project Stateまたは正本変更を生成しない。仕事Identityは結果取得後に組み直さず、Task結果の検証とEvent生成へ同じsnapshotを使用する。Event IDはそのcanonicalな仕事Identity全体から決定論的に導出し、外部から与えられたIDまたは文法だけ合うIDを受理しない。公開入力、入れ子IdentityおよびEvent検査の各段階でAccessor／Proxyを実行せず、検査時と保存時に異なる値を読めるlive objectをStoreへ渡さない。一項目でも一致しない結果からstatus、reason、Providerまたはcleanupを転記せず、観測不能として閉じる。
+各Componentは入力Sourceを変更しない。ProjectionはTask状態、Project状態、実行許可または評価採用を所有しない。
 
-Event Storeの失敗をTask成功へ見せかけず、同時に測定不能だけを理由に本来のTask結果を失敗へ変更しない。発行結果は同期的に観測し、未設定、拒否、例外および成功を区別する。本番の公開Runtimeは、失敗結果を回復診断と異なる閉じた非Authority診断へ接続する。公開DTO、Task結果またはAuthorityへ診断を追加せず、診断処理自身の失敗もTask結果を変更しない。分析側はEvent不存在を実行0件と推定せず、観測対象とStoreの利用可能性を別に確認する。
+## 2. Interface Model
 
-CRDD採用Repositoryや別Runtimeは公開入口`@qual-lab/crdd-execution-intelligence`へ薄いAdapterを接続できる。AdapterはProvider SDKまたはRuntimeの結果から実際に観測したmetadataだけをEventへ写し、Work Identity、情報分類、同意および外部EffectのAuthorityを自身の境界で確認する。公開入口はProvider SDKを透過監視せず、通常会話やPrompt／Responseを自動収集しない。
+読取りPortは、許可されたSource識別、対象Task、取得条件とSnapshot条件を受け取る。結果は、観測状態、事実、評価候補、Source Revision、観測時点および欠測理由を返す。Filesystem Pathや内部Store表現を公開契約へ漏らさない。
 
-公開入口は観測済み、未観測および非該当を作る補助関数を提供するが、Provider固有Resultを自動解釈しない。AI API呼出しの開始・完了・失敗、実効Provider／Model、利用量および時間のどれを観測できたかは利用側Adapterが決める。API呼出し要求、HTTP応答受信、stream終了、利用量Receipt取得および業務上の受入を同一視しない。
+## 3. Data Flow
 
-## 4. 保存と改変検知
+```text
+Source bytes
+   ↓ schema・identity検査
+Canonical execution record
+   ↓ task・revision・time相関
+Observed facts + missing/unknown
+   ↓ 評価候補を別fieldへ導出
+Read-only result
+```
 
-保存先は検証済みRepository Root直下のGit管理外`.crdd/execution/<operation-id>/events/`である。Operation IDを親Directoryとして、同じOperationに属するEventだけをその`events/`へ置く。Mutation Lockも同じOperation Directoryが所有する。Tool配下、親Directory、兄弟Repositoryまたは任意の一時Directoryへ同名Rootを作らない。保存APIは任意のPath文字列を受け取らず、固定した`git -C <candidate> rev-parse --show-toplevel`の結果が候補の実Pathと完全一致し、Directory種別、link不使用および`.git`境界を確認した実行時能力だけを受け取る。`.git`という名前のfileまたはDirectoryが存在するだけではVersion Control Rootとみなさない。この能力は公開型と同じ構造の値を作るだけでは成立せず、各読取り・書込み操作の入口で同じ観測をやり直す。能力発行後に`.git`が消失、置換または偽装された場合は`.crdd`を作らずEffect 0で停止する。通常Repository、linked worktreeおよびsubmoduleは、それぞれのexact Rootだけを許可する。
+要求値、観測値および評価値を相互に代用しない。Sourceが返さない値は未観測として保持する。
 
-Eventは一つずつ不変JSONへ保存する。Process間の変更はStore専用Lockで直列化し、所有不明または残存Lockを時刻だけで奪取しない。同じEvent IDと同じbyteの再送は冪等、同じEvent IDと異なる内容はIdentity衝突として拒否する。一時fileを排他的に作成して書込みとflushを行い、既存targetを置換しない公開操作の後にexact byteを再読取りする。open、write、flush、publish、readback、一時file回収、Lock初期化およびLock解放の失敗では、EventのEffect、cleanup、再試行可否、手動回復要否およびexactな残存Artifactを分けて返す。Effect不明、cleanup未確認またはRecovery参照ありのいずれかなら手動回復を必要とし、cleanup済みだけをEffect解決の根拠にしない。この相関は書込みと読取りの両方でRuntime Data境界から最終結果まで保持する。読み取りはEvent件数10,000件、合計32 MiBを上限とし、未知file、Schema不正、filenameとEvent IDの不一致または破損を黙って除外せず、Store全体を観測不能として停止する。
+## 4. State Model
 
-Event内容の署名、共有Database、全Eventのグローバル順序およびRaw情報保持は現行範囲外である。現在の不変file方式は、同一Filesystem上の複数Process writerについて、同じEvent IDの上書きを禁止し、同一byteを冪等、異内容を衝突として扱う。Process停止やOS障害をまたぐ耐久性は、実環境で証明していない範囲まで主張しない。
+| 状態 | 意味 | 禁止する短絡 |
+|---|---|---|
+| `observed` | 許可されたSourceから対象記録を検査できた | 現在有効・採用済みとみなさない |
+| `not_observed` | Sourceは読めたが対象記録がない | 正常値や0へ補完しない |
+| `unknown` | Sourceまたは相関を検査できない | `not_observed`へ畳まない |
 
-## 5. 集約、改善候補、正本昇格
+一つの結果は単一Snapshot条件を持つ。異なるRevisionや観測時点の結果を、同じ現在状態へ暗黙統合しない。
 
-集約は実行結果、観測できた所要時間および各指標の観測件数を別々に返す。未観測値を分母へ混ぜず、観測件数0の合計は`null`とする。実行効率、成果物品質、人間受入、運用成果および事業成果を一つのScoreへ畳まない。
+## 5. Sequence
 
-改善候補は`proposal`、`authorityConferred: false`、`automaticChangeAllowed: false`を必須とする。現在は非完了Attemptの調査とProvider Identity観測の改善だけを候補化する。Provider順位、Runtime Rule変更、Prompt変更、正本更新または外部Effectは自動発行しない。
+```text
+取得条件を検査
+      ↓
+Sourceを読取る
+      ↓
+Schema／Identity／Revisionを検査
+      ↓
+事実・欠測・評価候補を分離
+      ↓
+根拠付きProjectionを返す
+```
 
-限定分散実行の評価では、対象Project／Milestone、予定Task集合、Task Attempt EventおよびProject Runtimeが観測した統合結果を同じ評価Identityへ結合する。全Taskの成功を統合受入へ読み替えず、統合結果と予定TaskのAttemptがともに観測できた場合だけ評価を完了する。別Project、別Milestone、予定外Task、重複Eventまたは未知fieldは混在したまま集約しない。Provider別件数は実効Providerを観測できたAttemptだけから算出し、欠測を推定配分しない。
+各段階で書込みEffect、Task更新、候補採用またはAuthority発行を行わない。
 
-完成時間、人間の実作業時間、Review Loop、是正、再試行、統合競合および統合後Findingは、実測できた値とSourceを持つ観測だけを使う。未観測値は0へ補正しない。評価は非Authorityであり、統合受入、再実行、Provider変更、追加課金または正本更新を生成しない。
+## 6. Failure／Recovery
 
-Git管理外のEventをCRDD正本へ昇格する場合は、元Eventの集約、判断、比較条件および限界を確認し、通常の変更契約を用いる。Event fileをそのままGitへ移さない。
+- Source不存在とSource観測不能を分ける。
+- 記録破損、Schema不一致、Identity不一致またはRevision競合を黙って除外しない。
+- 部分的に読めた結果を完全な履歴として返さない。
+- 再取得可能な場合は、秘密情報を含まないSource参照、Snapshot条件と失敗理由を返す。
+- 回復処置そのものは所有せず、再取得後も同じ対象Identityを用いる。
 
-## 6. 保持と清掃候補
+## 7. Deployment
 
-v0.20はEventの保持状態を読み取れるため、Runtime外で非Authorityな清掃候補を検討する入力にはできるが、清掃候補の生成APIや物理削除APIを公開しない。呼出側が提示するEvidence IDや空の未解決参照一覧は、耐久Evidenceの存在または参照不存在の証明ではないためである。真正な昇格・集約Receiptの生成元と、全参照を権威的に解決する仕組みが揃うまではEvent byteを変更しない。
+本責務はTypeScript API、CLI、MCPまたはWorkbenchから利用できる読取り契約であり、特定Process配置を前提にしない。共有Serverでの配置・認証はCROS／Transport側が所有する。
 
-物理削除は将来候補としてQual-Labが所有し、耐久的な昇格／集約Receipt Producerと権威的なReference Resolverが成立した時点で再評価する。保留中はStore容量が自動回収されないため、利用者はRepository-local `.crdd`の容量を観測し、必要な場合はRuntime外の明示運用として扱う。書込み途中の一時file、Mutation Lock、失敗時rollbackおよび残存Artifactの回収はStore操作自身のcleanupであり、この保留対象には含めない。
+## 8. Observability
 
-## 7. 検証と完成境界
+診断結果には、対象Task、Source種別、Source Revision、観測時点、観測状態、欠測理由および評価根拠を含める。Raw provider出力、資格情報または許可されていないPathを診断目的で複製しない。
 
-共通コンポーネントの単体試験は閉Schema、Accessor／Proxy拒否、Provider非依存性、欠測、checked集約、限定分散の統合結果評価および非Authorityな改善候補を確認する。同コンポーネントの結合試験はexact Repository Root、通常Repository／worktree／submodule、link拒否、不変保存、並行Writer、再送、Identity衝突、各永続化段階の失敗、残存資源、および清掃候補生成・物理削除APIが存在せずEvent byteが不変であることを確認する。Coordinator側の結合試験はexact Task Identity、発行診断および公開RuntimeからAdapterを経た実Event発行を確認する。
+## 9. Security Boundary
 
-共通コンポーネントのSource、公開入口、保存契約またはtoolchainが変わった場合は、試験台帳に登録した利用側契約と利用側の静的検査も同じ自動回帰計画へ含める。利用側の静的検査は、実行する試験levelを限定した場合も除外しない。利用側契約試験自体は指定levelへ従い、指定外の試験まで実行しない。実行知の静的検査は自身のpackageと固定lockfileが所有するtoolchainで実行し、Coordinatorの開発依存へfallbackしない。利用側は共通コンポーネントの内部Pathではなく公開入口だけを使用する。登録外の新しいProducer Pathは、既知の利用側契約全件へ安全側に閉じる。実Provider、Token／費用取得、人間時間、品質受入、共有Store、Viewer UI、運用成果および事業成果は未接続であり、本変更の完成から推定しない。
-
-v0.20の本変更が成立するのは、共通Event、Git管理外Store、欠測を保持する集約、非Authorityな改善候補、Project Runtime発行、および清掃候補生成・物理削除が公開されていないことが、決定論的な試験と独立レビューを通過した場合である。
+- Sourceを読めることを、Source変更、Task実行、評価採用または回復Authorityとして扱わない。
+- 開示不可Sourceの存在やIdentityを境界外へ漏らさない。
+- 評価候補は非Authorityであり、明示した決定権限者の判断を代替しない。
+- CanonicalなTask Identity、Revisionおよび観測時点を利用側で再解釈しない。

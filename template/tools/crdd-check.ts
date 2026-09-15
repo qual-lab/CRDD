@@ -2416,6 +2416,286 @@ function checkArchitectureReconstruction(): void {
         "The Component responsibility table must link every Architecture definition exactly once, without unknown or duplicate definitions.",
       );
   }
+
+  const detailMapPath = path.join(
+    root,
+    "06_Architecture",
+    "07_Detail_Architecture_Map.md",
+  );
+  const detailRoot = path.join(root, "06_Architecture", "Details");
+  const detailMapRelations = new Set<string>();
+  const detailMapClosureRelations = new Set<string>();
+  const detailDocumentRelations = new Set<string>();
+  const detailCoveredDefinitions = new Set<string>();
+  const registeredDetailAreas = new Set<string>();
+  const actualDetailAreas = new Set<string>();
+  const architectureReady = /Status:\s*Architecture Ready\b/u.test(index);
+  if (!lstatIfPresent(detailMapPath)?.isFile())
+    add(
+      "error",
+      "architecture-detail-map-missing",
+      relative(detailMapPath),
+      "Architecture must map every ARCH-ID to one or more detailed design areas before Architecture Ready.",
+    );
+  else {
+    const source = visibleMarkdownStructure(read(detailMapPath));
+    const areaSection = sectionBody(source, "## 2. 詳細設計領域");
+    const closureSection = sectionBody(source, "## 3. Architecture定義の閉包");
+    for (const line of areaSection.split(/\r?\n/u)) {
+      const area = line.match(
+        /\]\(Details\/([a-z0-9-]+)\/01_Architecture\.md\)/u,
+      )?.[1];
+      if (!area) continue;
+      registeredDetailAreas.add(area);
+      for (const id of line.matchAll(/ARCH-[0-9]{6}/gu))
+        detailMapRelations.add(`${area}|${id[0]}`);
+    }
+    const closureIds = new Set(
+      [...closureSection.matchAll(/\| (ARCH-[0-9]{6}) \|/gu)].map(
+        (match) => match[1],
+      ),
+    );
+    for (const line of closureSection.split(/\r?\n/u)) {
+      const cells = line
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => cell.trim());
+      const id = cells[0]?.match(/^ARCH-[0-9]{6}$/u)?.[0];
+      if (!id || !cells[2]) continue;
+      for (const area of cells[2].split("、").map((item) => item.trim()))
+        if (/^[a-z0-9-]+$/u.test(area))
+          detailMapClosureRelations.add(`${area}|${id}`);
+    }
+    if (
+      !areaSection.includes(
+        "| 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |",
+      ) ||
+      !closureSection.includes(
+        "| Architecture定義 | 基本設計 | 接続する詳細設計領域 |",
+      ) ||
+      closureIds.size !== actualDefinitions.size ||
+      [...actualDefinitions].some((id) => !closureIds.has(id))
+    )
+      add(
+        "error",
+        "architecture-detail-map-contract-invalid",
+        relative(detailMapPath),
+        "The detail map must expose the area registry and close every canonical ARCH-ID exactly once in its definition closure table.",
+      );
+  }
+  if (lstatIfPresent(detailRoot)?.isDirectory())
+    for (const entry of fs.readdirSync(detailRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !/^[a-z0-9-]+$/u.test(entry.name)) continue;
+      actualDetailAreas.add(entry.name);
+      const detailPath = path.join(
+        detailRoot,
+        entry.name,
+        "01_Architecture.md",
+      );
+      if (!lstatIfPresent(detailPath)?.isFile()) {
+        add(
+          "error",
+          "architecture-detail-document-missing",
+          relative(detailPath),
+          "Every detailed design area must have one self-contained 01_Architecture.md.",
+        );
+        continue;
+      }
+      const source = visibleMarkdownStructure(read(detailPath));
+      const relationSection = sectionBody(source, "## 基本設計との関係");
+      let areaRelationCount = 0;
+      let invalidRelation = false;
+      const areaRelationIds = new Set<string>();
+      for (const match of relationSection.matchAll(
+        /\]\(\.\.\/\.\.\/Definitions\/(ARCH-[0-9]{6})\/architecture_definition\.md\)/gu,
+      )) {
+        detailDocumentRelations.add(`${entry.name}|${match[1]}`);
+        areaRelationCount += 1;
+        if (areaRelationIds.has(match[1])) invalidRelation = true;
+        areaRelationIds.add(match[1]);
+      }
+      for (const line of relationSection.split(/\r?\n/u)) {
+        if (!/^\| \[ARCH-[0-9]{6}\]/u.test(line)) continue;
+        const cells = line
+          .split("|")
+          .slice(1, -1)
+          .map((cell) => cell.trim());
+        if (
+          cells.length !== 3 ||
+          !cells[1] ||
+          !["Covered", "Partial", "Missing"].includes(cells[2] ?? "")
+        )
+          invalidRelation = true;
+        const relationId = cells[0]?.match(/ARCH-[0-9]{6}/u)?.[0];
+        if (relationId && cells[2] === "Covered")
+          detailCoveredDefinitions.add(relationId);
+      }
+      const applicability = sectionBody(source, "## 詳細成果物の適用判断");
+      const concerns = sectionBody(source, "## Engineering Concern評価");
+      const qualityHandoff = sectionBody(source, "## Qualityへの引渡し");
+      const applicabilityRows = applicability
+        .split(/\r?\n/u)
+        .filter((line) => /^\| [^|-]/u.test(line));
+      const concernRows = concerns
+        .split(/\r?\n/u)
+        .filter((line) => /^\| [^|-]/u.test(line));
+      const expectedApplicability = new Set([
+        "Component Model",
+        "Interface Model",
+        "Data Flow",
+        "State Model",
+        "Sequence",
+        "Failure／Recovery",
+        "Deployment",
+        "Observability",
+        "Security Boundary",
+      ]);
+      const expectedConcerns = new Set([
+        "Concurrency",
+        "Timing",
+        "Resource Lifecycle",
+        "External Boundary",
+        "Failure／Recovery",
+      ]);
+      const applicabilityNames = applicabilityRows
+        .slice(1)
+        .map((line) => line.split("|").slice(1, -1)[0]?.trim() ?? "");
+      const concernNames = concernRows
+        .slice(1)
+        .map((line) => line.split("|").slice(1, -1)[0]?.trim() ?? "");
+      const invalidApplicability = applicabilityRows.slice(1).some((line) => {
+        const cells = line
+          .split("|")
+          .slice(1, -1)
+          .map((cell) => cell.trim());
+        return (
+          cells.length !== 4 ||
+          !["Required", "N/A"].includes(cells[1] ?? "") ||
+          !cells[2] ||
+          !cells[3] ||
+          (cells[1] === "Required" &&
+            !/\]\([^)]*(?:\.md)?#[^)]+\)/u.test(cells[3]))
+        );
+      });
+      const invalidConcern = concernRows.slice(1).some((line) => {
+        const cells = line
+          .split("|")
+          .slice(1, -1)
+          .map((cell) => cell.trim());
+        return (
+          cells.length !== 4 ||
+          !["PASS", "N/A", "OPEN", "FAIL"].includes(cells[1] ?? "") ||
+          !cells[2] ||
+          !cells[3]
+        );
+      });
+      const invalidQualityHandoff =
+        !qualityHandoff.includes(
+          "| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |",
+        ) ||
+        !qualityHandoff
+          .split(/\r?\n/u)
+          .filter((line) => /^\| [^|-]/u.test(line))
+          .slice(1)
+          .some((line) => {
+            const cells = line
+              .split("|")
+              .slice(1, -1)
+              .map((cell) => cell.trim());
+            return cells.length === 7 && cells.every(Boolean);
+          });
+      const incompleteApplicability =
+        applicabilityNames.length !== expectedApplicability.size ||
+        new Set(applicabilityNames).size !== expectedApplicability.size ||
+        [...expectedApplicability].some(
+          (name) => !applicabilityNames.includes(name),
+        );
+      const incompleteConcerns =
+        concernNames.length !== expectedConcerns.size ||
+        new Set(concernNames).size !== expectedConcerns.size ||
+        [...expectedConcerns].some((name) => !concernNames.includes(name));
+      const unresolvedWhenReady =
+        architectureReady &&
+        (relationSection.includes("| Missing |") ||
+          concernRows
+            .slice(1)
+            .some((line) => /\| (?:OPEN|FAIL) \|/u.test(line)));
+      if (
+        !source.includes("成果物種別: Architecture詳細設計") ||
+        !source.includes(`詳細設計領域: ${entry.name}`) ||
+        !source.includes("## Qualityへの引渡し") ||
+        !source.includes("## 現行実装との照合") ||
+        !applicability.includes(
+          "| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |",
+        ) ||
+        !concerns.includes(
+          "| Concern | Result | Rationale | Evidence／Related ID |",
+        ) ||
+        areaRelationCount === 0 ||
+        invalidRelation ||
+        incompleteApplicability ||
+        incompleteConcerns ||
+        invalidApplicability ||
+        invalidConcern ||
+        invalidQualityHandoff ||
+        unresolvedWhenReady
+      )
+        add(
+          "error",
+          "architecture-detail-contract-invalid",
+          relative(detailPath),
+          "Each detailed design area must expose unique relation states, all nine applicability decisions, all five concern decisions, a structured Quality handoff, and no unresolved item when Architecture Ready.",
+        );
+    }
+  if (
+    registeredDetailAreas.size !== actualDetailAreas.size ||
+    [...registeredDetailAreas].some((area) => !actualDetailAreas.has(area)) ||
+    [...actualDetailAreas].some((area) => !registeredDetailAreas.has(area))
+  )
+    add(
+      "error",
+      "architecture-detail-area-coverage-mismatch",
+      relative(detailMapPath),
+      "The detailed design registry and Details directories must be an exact set.",
+    );
+  if (
+    detailMapRelations.size !== detailDocumentRelations.size ||
+    [...detailMapRelations].some(
+      (relation) => !detailDocumentRelations.has(relation),
+    ) ||
+    [...detailDocumentRelations].some(
+      (relation) => !detailMapRelations.has(relation),
+    ) ||
+    detailMapRelations.size !== detailMapClosureRelations.size ||
+    [...detailMapRelations].some(
+      (relation) => !detailMapClosureRelations.has(relation),
+    ) ||
+    [...detailMapClosureRelations].some(
+      (relation) => !detailMapRelations.has(relation),
+    ) ||
+    [...actualDefinitions].some(
+      (id) =>
+        ![...detailMapRelations].some((relation) =>
+          relation.endsWith(`|${id}`),
+        ),
+    )
+  )
+    add(
+      "error",
+      "architecture-detail-relation-closure-mismatch",
+      relative(detailMapPath),
+      "The detail map and area documents must expose the same many-to-many ARCH-ID relation set, covering every definition.",
+    );
+  if (
+    architectureReady &&
+    [...actualDefinitions].some((id) => !detailCoveredDefinitions.has(id))
+  )
+    add(
+      "error",
+      "architecture-detail-covered-owner-missing",
+      relative(detailMapPath),
+      "Every canonical ARCH-ID must have at least one Covered detailed-design owner before Architecture Ready; Partial relations may only support that owner.",
+    );
   if (
     registryRelationEntries.length !== registryRelations.size ||
     definitionRelationEntries.length !== definitionRelations.size

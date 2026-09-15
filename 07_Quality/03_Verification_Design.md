@@ -16,7 +16,7 @@
 
 ### v0.21 Architecture横断モデルからの入力
 
-この表は新しいCanonical ArchitectureからQuality Analysisへ渡す入力候補である。既存試験との対応付けはArchitecture Ready後のReality Auditで行い、現在の試験カタログをCanonical設計の根拠へ読み替えない。
+この表は新しいCanonical ArchitectureからQuality Analysisへ渡す入力候補である。基本設計に加え、ARCH-IDを実装可能な構造へ具体化した詳細設計も共同入力とする。既存試験との対応付けはCanonical詳細設計を固定した後のReality Auditで行い、現在の試験カタログをCanonical設計の根拠へ読み替えない。
 
 | Architecture入力 | Qualityが導出する主な検証対象 | 現在状態 | 次の処置 |
 |---|---|---|---|
@@ -25,8 +25,9 @@
 | [Runtime／Data Flowモデル](../06_Architecture/04_Runtime_and_Data_Flow_Model.md) | Data分類、状態遷移、相関、欠測、整合性 | 未分析 | 状態／Consistency／情報流の反証へ分解 |
 | [故障／回復／耐障害モデル](../06_Architecture/05_Failure_Recovery_and_Resilience_Model.md) | 部分故障、取消、cleanup、Recovery、再入場、終了後条件 | 未分析 | Fault／Recovery候補へ分解 |
 | [配置／実行モデル](../06_Architecture/06_Deployment_and_Execution_Model.md) | Process、Runtime、並行性、Timing、Resource、段階的結合 | 未分析 | 実境界IT／ST候補へ分解 |
+| [Architecture詳細設計の対応表](../06_Architecture/07_Detail_Architecture_Map.md) | ARCH-IDと15詳細設計領域のRelation、Applicability、Engineering Concern | 未分析 | 領域ごとの検証対象、故障点、観測、終了後条件へ分解 |
 
-17件のArchitecture定義と5横断モデルを共同入力とし、横断モデルだけから個別責務の検証義務を推定しない。
+17件のArchitecture定義、5横断モデルおよび15詳細設計領域を共同入力とする。横断モデルだけから個別責務を、詳細設計だけから利用者・振る舞い上の保証を推定しない。詳細設計の`PASS`は実装・試験の合格ではなく設計上の処置済みを表すため、QualityはReality Auditと検証結果を別に判定する。
 
 ### 署名配布物の期限契約
 

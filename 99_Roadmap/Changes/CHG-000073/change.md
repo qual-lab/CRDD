@@ -28,7 +28,7 @@
 | SPEC出力 | 巨大な単一Root文書が現在有効な振る舞い、旧経緯、横断図および現行実装参照を所有 | 28件の`Definitions/SPEC-ID/spec_definition.md`へ独立した観測可能な振る舞い契約を統合し、Root文書は台帳・Coverage・横断図、現行実装との照合は`07_Current_Behavior_Reference.md`へ分ける。実行事実は上流から導ける取得契約へ統合し、上流にない永続記録方式を追加しない。外部送信、結果帰還、候補昇格、再接続、取消、判断返却は、Authority・副作用・入力UXが異なるため分割する |
 | UI／SPEC入力境界 | 下流工程がREQを直接読み、UX／IAの不足を暗黙に補完し得る | UIとSPECはUX＋IAを共通の正式入力として別々に分析する。REQはUXより上流の追跡情報に限定し、不足時はUXまたはIAを再開する |
 | Architecture分析 | 現行部品設計と実装を先に読み、上流の利用者Interfaceや振る舞いを後追いで説明し得る | 19件のUI定義と28件のSPEC定義を正式入力として別々に全数分析する。REQ、UX、IA、現行Architectureおよび実装から不足を補完しない |
-| Architecture出力 | Rootの全体設計とTool別設計が増築され、UI／SPECから各責務へ至る判断が追えない | 同じ上位責務境界に属する入力を17件の`Definitions/<responsibility>/architecture_definition.md`へ統合する。ただしState Owner、Authority、Effect、失敗領域またはlifecycleが異なる入力はSibling blockと独立状態機械として保持する。Rootは台帳、全体図、横断状態、結合Sequence、型、DFD、ER、Schema責務を投影し、既存Tool設計は成立済み能力との照合対象にする |
+| Architecture出力 | Rootの全体設計とTool別設計が増築され、UI／SPECから各責務へ至る判断が追えない | 同じ上位責務境界に属する入力を17件の`Definitions/ARCH-ID/architecture_definition.md`へ基本設計として統合する。State Owner、Authority、Effect、失敗領域またはlifecycleが異なる入力はSibling blockとして保つ。5横断モデルの後、`Details/`で実装可能な詳細設計へ具体化し、多対多対応表、Applicability、Engineering Concern、Quality引渡し、Reality Audit境界を保持する |
 | 工程Root | 個別本文と工程全体像が混在し得る | `01_*`は入口・台帳・Coverage・Current State・Navigation、その他Root文書は横断合成 |
 | Evidence | 工程共通の空Folderをひな型へ先置き | 必要な所有対象のID直下だけに作成。実行結果はCHG／Release Evidenceが所有 |
 
@@ -641,6 +641,23 @@
 - [`template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md`](<../../../template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md>)
 - [`template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md`](<../../../template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md>)
 - [`template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md`](<../../../template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md>)
+- [`06_Architecture/07_Detail_Architecture_Map.md`](<../../../06_Architecture/07_Detail_Architecture_Map.md>)
+- [`06_Architecture/Details/contract-migration/01_Architecture.md`](<../../../06_Architecture/Details/contract-migration/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/cros/01_Architecture.md`](<../../../06_Architecture/Details/cros/01_Architecture.md>)
+- [`06_Architecture/Details/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/Details/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md`](<../../../06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md>)
+- [`06_Architecture/Details/mcp/01_Architecture.md`](<../../../06_Architecture/Details/mcp/01_Architecture.md>)
+- [`06_Architecture/Details/official-asset-governance/01_Architecture.md`](<../../../06_Architecture/Details/official-asset-governance/01_Architecture.md>)
+- [`06_Architecture/Details/platform-access/01_Architecture.md`](<../../../06_Architecture/Details/platform-access/01_Architecture.md>)
+- [`06_Architecture/Details/project-operation/01_Architecture.md`](<../../../06_Architecture/Details/project-operation/01_Architecture.md>)
+- [`06_Architecture/Details/project-runtime/01_Architecture.md`](<../../../06_Architecture/Details/project-runtime/01_Architecture.md>)
+- [`06_Architecture/Details/quality-change-control/01_Architecture.md`](<../../../06_Architecture/Details/quality-change-control/01_Architecture.md>)
+- [`06_Architecture/Details/runtime-data/01_Architecture.md`](<../../../06_Architecture/Details/runtime-data/01_Architecture.md>)
+- [`06_Architecture/Details/runtime-data/02_Current_Path_Reality_Audit.md`](<../../../06_Architecture/Details/runtime-data/02_Current_Path_Reality_Audit.md>)
+- [`06_Architecture/Details/runtime-trust/01_Architecture.md`](<../../../06_Architecture/Details/runtime-trust/01_Architecture.md>)
+- [`template/06_Architecture/07_Detail_Architecture_Map.md`](<../../../template/06_Architecture/07_Detail_Architecture_Map.md>)
+- [`template/06_Architecture/Details/area/01_Architecture.md`](<../../../template/06_Architecture/Details/area/01_Architecture.md>)
 
 </details>
 
@@ -845,6 +862,15 @@ Architecture定義の再構築後、Qualityが必要とする検証単位、境�
 | 既存Test CatalogをCanonical候補の根拠へ誤接続 | Reality AuditとQualityへの新規入力を同じ参照で表した | 既存corridorはv0.20.1詳細設計へ戻し、5横断モデルは未分析のQuality入力として別表化 | Catalog 19件とRepository link検査 |
 | 横断モデルのCheckerが見出し存在しか確認しない | ファイル単位の存在を責務閉包とみなした | 横断節、5成果物の必須構造、Component責務表と17定義の完全一致を検査 | 節全欠落、定義欠落・未知・重複、列欠落、空見出しだけの負例 |
 
+基本設計のレビューPass後、Architecture工程を`Analysis → Definitions → Details`の三層へ具体化した。17件の基本設計へ`ARCH-000001`から`ARCH-000017`を採番し、既存の個別Architecture領域を`Details/`へ移した。物理移動だけで正本化せず、次の閉包を追加した。
+
+| 詳細設計の論点 | 固定した状態 | 機械反証 |
+|---|---|---|
+| ARCH-IDと詳細領域の混同 | ARCH-IDは基本設計、詳細領域は実装可能な構造。多対多Relationで接続 | 17 ARCH-ID、詳細設計対応表、15領域文書のRelation集合を完全一致 |
+| 不要な詳細成果物の量産 | Component、Interface、Data／State、Sequence、Failure、Deployment、Observability、Securityを`Required`／`N/A`で判断し、N/Aへ理由を要求 | 判定値、理由、参照先の欠落を拒否 |
+| Checklistだけの完了 | Concurrency、Timing、Resource、External Boundary、Failure／RecoveryへResult、Rationale、Evidenceを要求 | 不明なResult、空理由、空Evidenceを拒否 |
+| 既存Sourceからの逆算 | Canonical詳細設計を固定してからReality Auditで照合 | Detailsは現行実装との照合を独立節として持つ |
+
 初回独立レビューは、45件の分析を作成しただけでは入力固有の状態・操作・副作用が共通表現へ失われ、7つの大分類には別の状態Ownerやlifecycleが同居していたことを検出した。これは表現改善ではなく、UI／SPECからArchitectureへの意味伝播不成立として扱った。
 
 | 指摘クラスタ | 根本原因 | 構造是正 | 確認方法 |
@@ -869,7 +895,7 @@ Architecture定義の再構築後、Qualityが必要とする検証単位、境�
 
 | Gate | 完了条件 |
 |---|---|
-| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／31 Definitions、IA 31 Analysis／21 Definitions、UIはUX観点31 Analysis／IA観点21 Analysis／19 Definitions、SPECはUX観点31 Analysis／IA観点21 Analysis／28 Definitions、ArchitectureはUI観点19 Analysis／SPEC観点28 Analysis／17 DefinitionsがCanonical配置にある |
+| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／31 Definitions、IA 31 Analysis／21 Definitions、UIはUX観点31 Analysis／IA観点21 Analysis／19 Definitions、SPECはUX観点31 Analysis／IA観点21 Analysis／28 Definitions、ArchitectureはUI観点19 Analysis／SPEC観点28 Analysis／17 Definitions／5横断モデル／15 DetailsがCanonical配置にある |
 | Self-contained | 子成果物が対象固有の意味、成立条件、関係および下流入力を単独で説明できる |
 | Downstream Reproducibility | `Definitions/REQ-*`からUXを、UX定義からIAを、UX＋IA定義からUIとSPECを、UI＋SPEC定義からArchitectureを情報劣化なく再構成できる。各工程は正式入力より上流を直接参照して不足を隠さない |
 | Projection | Discovery／UX Rootから全Analysis・DefinitionとCoverageを一意に辿れる |
@@ -886,7 +912,7 @@ Architecture定義の再構築後、Qualityが必要とする検証単位、境�
 | IA Analysis／Definition | 31／21。入力UXごとの利用場面、対象、識別、関係、状態、可視性、導線、責任を保持し、独立レビューCritical 0／Major 0／Moderate 0／Minor 0でPass |
 | UI Analysis／Definition | UX観点31／IA観点21／Definition 19。定型Lifecycle、意味統合不足、横断状態の過剰適用、重複引き渡しを是正し、分析済み／CanonicalとしてSPECへ引き渡し可能 |
 | SPEC Analysis／Definition | UX観点31／IA観点21／Definition 28。取消と判断返却を状態照会へ畳まず、SPEC-000028／000029として追加した。29件のUI／SPEC対応を多対多で定義し、独立再レビューCritical／Major／Moderate／Minor 0でPass |
-| Architecture Analysis／Definition | UI観点19／SPEC観点28／Definition 17をCanonicalとして再構築した。個別定義の独立再レビューはCritical／Major／Moderate／Minor 0でPass済み。Qualityへの引渡し用に5横断モデルを追加し、Rootを入口・台帳・Ready判定へ再編した。横断モデルの指摘を一括是正し、最終再レビューもCritical／Major／Moderate／Minor 0でPass。基本設計を閉じ、詳細設計へ移行する |
+| Architecture Analysis／Definition／Details | UI観点19／SPEC観点28／Definition 17をCanonicalとして再構築し、個別定義と5横断モデルの独立再レビューはCritical／Major／Moderate／Minor 0でPass。17 ARCH-IDを15詳細設計領域へ多対多で接続し、Applicability、Engineering Concern、領域固有のQuality引渡し、Reality Audit境界を追加した。詳細設計の初回独立レビューは責務誤配置と形式的な一律評価を検出し、現在是正中 |
 | 全体Checker | `errors: 0`、`warnings: 0` |
 | Checker契約試験 | 333／333 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、47分析と17定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、横断節と5成果物、Component責務表と17定義の完全一致を検査する。意味の再構築可能性は独立レビューへ分離 |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |

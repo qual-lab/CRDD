@@ -1,6 +1,60 @@
 # Version Control境界
 
-状態: Architecture Ready（v0.21.0）
+成果物種別: Architecture詳細設計
+詳細設計領域: version-control
+状態: Candidate（v0.21.0）
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000002](../../Definitions/ARCH-000002/architecture_definition.md) | 契約移行時に旧／新Consumerを検索できるSnapshotと差分Portを提供する。 | Partial |
+| [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | 起点Pathから正確なRepository Root／worktree種別を検証してBinding入力を返す。 | Covered |
+| [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | Runtime Artifactの完全性評価へ単一Snapshotとrevisionを提供する。Trust判断は所有しない。 | Partial |
+| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | 履歴、Working Tree、観測時点を分け、Git commitを現在状態の必須条件にしない。 | Partial |
+
+Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | Root、Snapshot、History、Diff、Integrityを目的別Portへ分ける。 | [§3](#3-目的別port) |
+| Interface Model | Required | Git固有表現をCore契約へ漏らさない。 | [§3](#3-目的別port) |
+| Data Flow | Required | 起点Pathから検証済みRootと単一Snapshotを発行する流れを示す。 | [§4](#4-capabilityと再確認) |
+| State Model | Required | 未検証、検証済み、変化検出、観測不能を分ける。 | [§4](#4-capabilityと再確認) |
+| Sequence | Required | Consumer移行をPort導入、並行照合、旧経路禁止の順で行う。 | [§6](#6-段階移行) |
+| Failure／Recovery | Required | Root不明、競合、途中変更時にCapabilityを発行しない。 | [§7](#7-検証) |
+| Deployment | Required | Repository、worktree、submoduleと本番Consumerの配置差を扱う。 | [§5](#5-現在の本番consumer棚卸し) |
+| Observability | Required | Root kind、revision、dirty state、観測時点、失敗理由を返す。 | [§7](#7-検証) |
+| Security Boundary | Required | 読めるPathを自動的に許可済みRepositoryへ昇格しない。 | [§2](#2-責務境界) |
+
+`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | 一回の判断を一つのSnapshotへ結び、途中変化を混在させない。 | [正本節](#4-capabilityと再確認) |
+| Timing | PASS | 観測時点とRevisionを結果へ付け、古い観測を再利用しない。 | [正本節](#4-capabilityと再確認) |
+| Resource Lifecycle | PASS | subprocess、snapshot、一時出力をOperation所有にする。 | [正本節](#7-検証) |
+| External Boundary | PASS | GitをAdapterとして扱い、commit済みをCoreの成立条件にしない。 | [正本節](#3-目的別port) |
+| Failure／Recovery | PASS | Root不明、worktree、submodule、fake `.git`、観測不能を区別する。 | [正本節](#7-検証) |
+
+`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+
+## Qualityへの引渡し
+
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| Root capability | 起点Path | exact Repository Root | fake .git、nested、submodule、link | root kindとreason | process／handle 0 | Windows/Linux実境界 |
+| Snapshot port | working tree／revision | 単一snapshotの結果 | 観測間変更、commit前情報欠落 | snapshot identityとobserved_at | 一時出力0 | 代替VCS Adapter未実装 |
+| Contract migration closure | 旧／新Owner、Producer、全Consumer、派生物、公開入口、署名・Release | 単一Snapshot上で移行集合が完全一致 | Consumer取り残し、別Snapshot混入、Canonical Path／Identity／State再解釈 | snapshot identity、集合差分、旧参照 | 全Consumer移行前の旧処理削除0 | 意味妥当性と移行採用は独立レビュー |
+
+## 現行実装との照合
+
+現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+
 担当責任者: Qual-Lab
 最終更新日: 2026-09-13
 要求: [`REQ-000036`](../../../01_Discovery/Definitions/REQ-000036/requirement.md)

@@ -1,6 +1,58 @@
 # Checkerの設計
 
-状態: Stable（v0.18.1）
+成果物種別: Architecture詳細設計
+詳細設計領域: checker
+状態: Candidate（v0.21.0）
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000001](../../Definitions/ARCH-000001/architecture_definition.md) | Generic Checker CoreとCRDD現行Profileを分け、構造・ID・Path・Relationの決定論的検査を具体化する。 | Covered |
+| [ARCH-000002](../../Definitions/ARCH-000002/architecture_definition.md) | 契約移行で宣言集合と自動導出集合を比較する機械検査だけを担当する。変更の意味判断は所有しない。 | Partial |
+
+Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | Core、Profile、CLI、package入口の責務を分ける。 | [§2](#2-配布本体と開発用入口) |
+| Interface Model | Required | 入力Root、Finding、終了codeと利用側の意味を固定する。 | [§6](#6-結果の意味と利用側) |
+| Data Flow | Required | 探索、読取り、検査、集約、結果の流れを示す。 | [§3](#3-検査の順序) |
+| State Model | Required | 未開始、検査中、完了、実行不能と資源解放を区別する。 | [§5](#5-資源と終了) |
+| Sequence | Required | 構造確認後に意味別Profileを適用する順序が再現性に影響する。 | [§3](#3-検査の順序) |
+| Failure／Recovery | Required | FindingとChecker実行不能を分ける。 | [§6](#6-結果の意味と利用側) |
+| Deployment | Required | 配布本体とRepository開発入口の同一性を保つ。 | [§2](#2-配布本体と開発用入口) |
+| Observability | Required | 検査範囲、未検査範囲、所要時間、Findingを返す。 | [§6](#6-結果の意味と利用側) |
+| Security Boundary | Required | 検証済みRootだけを読み、link越境を確認済みにしない。 | [§4](#4-読取り境界) |
+
+`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | RunごとにRoot、結果、一時領域を分離し、共有可変状態を持たない。 | [§5](#5-資源と終了) |
+| Timing | N/A | 所要時間の合格上限は持たず、実測時間を結果に記録する。 | [§6](#6-結果の意味と利用側) |
+| Resource Lifecycle | PASS | 読取りhandle、子Process、一時領域をRun所有として終了時に回収する。 | [§5](#5-資源と終了) |
+| External Boundary | PASS | Filesystem、Version Control Port、package入口の失敗を適合へ丸めない。 | [§4](#4-読取り境界) |
+| Failure／Recovery | PASS | Findingと実行不能を区別し、未検査範囲をPassへ含めない。 | [§6](#6-結果の意味と利用側) |
+
+`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+
+## Qualityへの引渡し
+
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| Generic Core | 可視Markdown／Path／ID | 同一入力で同一Finding | 非表示構造、link越境、重複ID | Finding codeとpath | handle・一時物0 | 意味妥当性は独立レビュー |
+| 配布入口 | package入口とRepository入口 | 同じCore／Profileを実行 | 旧実装、内部Path直参照 | 実行source identity | 同じ終了code | なし |
+| 宣言集合と導出集合 | Consumer／派生物／公開・Release経路の構造 | 両集合が完全一致 | 欠落、未知、重複、正規節外、旧Path／API残存 | Finding code、Path、集合差分 | 構造差分0 | 意味妥当性と移行採用は独立レビュー |
+
+## 現行実装との照合
+
+現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+
 担当責任者: Qual-Lab
 最終更新日: 2026-08-31
 

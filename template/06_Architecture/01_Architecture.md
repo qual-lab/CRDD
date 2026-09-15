@@ -6,7 +6,7 @@
 
 本書は`06_Architecture`の固定入口であり、リンクだけの索引ではない。工程全体の対象範囲、網羅状態、主要な結論と判断、検証義務、未解決事項、次工程への義務を本文から直接理解できるようにする。案件規模に合わせてファイルを増減するのではなく、対象範囲とリスクに応じて各節の詳しさを調整する。図、技術規則または外部成果物を分ける場合も、本書から決定権限、改訂版、現在状態へ到達できるようにし、詳細内容を複製しない。
 
-個別分析と責務定義が揃った後、Qualityが検証単位を導けるよう、`02`から`06`の横断モデルを作成する。横断モデルは個別定義の代替ではなく、定義間の関係、共同成立条件およびQualityへの引渡しを所有する。現行Sourceと既存試験は正式入力にせず、Architecture Ready後のReality Auditで照合する。
+個別分析と責務定義が揃った後、Qualityが検証単位を導けるよう、`02`から`06`の横断モデルを作成する。続いてARCH-IDを`07_Detail_Architecture_Map.md`で一つ以上の詳細設計領域へ接続し、`Details/`で実装可能な粒度へ具体化する。横断モデルと詳細設計は個別定義の代替ではない。現行Sourceと既存試験は正式入力にせず、Canonical詳細設計を固定した後のReality Auditで照合する。
 
 正式入力はCanonicalなUI定義とSPEC定義である。`Analysis/UI-*/architecture_analysis.md`と`Analysis/SPEC-*/architecture_analysis.md`で両系列を別々に全数分析し、責務単位の`Definitions/<responsibility>/architecture_definition.md`へ統合する。REQ、UX、IA、現行Architectureおよび実装で入力不足を補わない。上流は由来確認、現行構造は成立済み能力との照合にだけ使用する。
 
@@ -56,7 +56,14 @@
 
 | Architecture定義 | 所有する責務 | 主な入力UI | 主な入力SPEC | 現行構造との照合 |
 |---|---|---|---|---|
-| [責務名](Definitions/ARCH-XXXXXX/architecture_definition.md) | | | | |
+| [ARCH-XXXXXX 責務名](Definitions/ARCH-XXXXXX/architecture_definition.md) | | | | |
+
+## Architecture詳細設計
+
+| 成果物 | 所有する内容 | 状態 |
+|---|---|---|
+| [詳細設計の対応表](07_Detail_Architecture_Map.md) | ARCH-IDと詳細設計領域のRelation、領域閉包、Qualityへの引渡し | Candidate |
+| [`Details/`](Details/) | 実装可能な構造、境界、Flow、Failure、Resource、配置および観測 | Candidate |
 
 ## システム境界と責務
 

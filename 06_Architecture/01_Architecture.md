@@ -23,6 +23,9 @@ SPEC定義 28件 → SPEC観点のArchitecture分析 28件 ─┘
                                                    Architecture横断モデル
                                                               │
                                                               ▼
+                                                   Details（詳細設計）
+                                                              │
+                                                              ▼
                                                      Qualityへの引渡し
 ```
 
@@ -67,6 +70,15 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 
 横断モデルは個別定義の代替ではない。個別責務間の関係、共同成立条件およびQualityが検証単位へ変換するための情報を所有する。
 
+## Architecture詳細設計
+
+| 成果物 | 所有する内容 | 状態 |
+|---|---|---|
+| [詳細設計の対応表](07_Detail_Architecture_Map.md) | 17件のARCH-IDと詳細設計領域の多対多Relation、領域閉包、Qualityへの引渡し | Candidate |
+| [`Details/`](Details/) | Component、Interface、Data／State Flow、Sequence、Failure／Recovery、配置、観測およびEngineering Concern | Candidate |
+
+ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentityではない。一つのARCH-IDを複数領域が具体化でき、一つの領域が複数ARCH-IDを実現できる。詳細設計は基本設計のコピーではなく、「何を成立させるか」を「どの構造・境界・Flowで成立させるか」へ具体化する。
+
 ## 基本図の処置
 
 | 基本図 | 正本 | 処置 | 未確認範囲 |
@@ -88,13 +100,13 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | UI／SPEC全数分析 | 完了 | 19 UI、28 SPEC、未分析0 |
 | 個別責務定義 | 完了 | 17定義、台帳と完全一致 |
 | 5横断モデル | 完了 | 本書の横断モデル台帳。最終独立レビューCritical／Major／Moderate／Minor 0 |
-| Qualityへの検証観点 | 基本設計分は完了 | 各横断モデルの「Qualityへの引渡し」。詳細設計からの引渡しは未着手 |
+| Qualityへの検証観点 | 詳細設計候補まで作成 | 15詳細領域が検証対象、反証する失敗、観測、終了後条件、未確認範囲を提示。独立レビューで妥当性を確認中 |
 | Reality Audit境界 | 定義済み | [配置／実行モデル](06_Deployment_and_Execution_Model.md#5-reality-auditへの引渡し) |
 | 基本設計の独立レビュー | 完了 | 個別定義と横断モデルを別々に再レビューし、いずれもPass |
-| 詳細設計 | 未着手 | Architecture定義とのRelation、必要成果物、Engineering Concernを具体化する |
-| 詳細設計の独立レビュー | 未実施 | 詳細設計固定候補の完成後に行う |
+| 詳細設計 | 進行中 | [詳細設計の対応表](07_Detail_Architecture_Map.md)を基準に、領域ごとのRelation、必要成果物、Engineering Concernを具体化する |
+| 詳細設計の独立レビュー | 是正中 | 初回レビューで責務誤配置と形式的な一律評価を検出。所有責務と領域固有の引渡しへ是正後、再レビューする |
 
-基本設計は閉じたが詳細設計が未着手であるため、現在の工程状態は`Candidate`である。詳細設計とその独立レビューを完了した後に本表とStatusを更新し、Quality Analysisへ移行する。
+基本設計は閉じ、詳細設計は進行中であるため、現在の工程状態は`Candidate`である。詳細設計とその独立レビューを完了した後に本表とStatusを更新し、Quality Analysisへ移行する。
 
 ## 6. 保持する意図と対象外
 
@@ -107,4 +119,4 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 
 ## 7. 次工程への引渡し
 
-Qualityは個別ARCH定義と5つの横断モデルの両方を入力にする。UT／IT／ST等の名称を先に割り当てず、責務、境界、状態、故障、実行条件から検証単位を導く。Source、既存試験および基準版実装との照合はCanonical側が完成した後のReality Auditとして別に行う。
+Qualityは個別ARCH定義、5つの横断モデルおよび対応する詳細設計領域を入力にする。UT／IT／ST等の名称を先に割り当てず、責務、境界、状態、故障、実行条件から検証単位を導く。Source、既存試験および基準版実装との照合はCanonical詳細設計が完成した後のReality Auditとして別に行う。

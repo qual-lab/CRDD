@@ -1,6 +1,58 @@
 # Windowsネイティブ部品の設計
 
-状態: Stable（v0.20.1。検証付き再起動の正式実機検証は未完了）
+成果物種別: Architecture詳細設計
+詳細設計領域: platform-access
+状態: Candidate（v0.21.0）
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Process／Job／Containerの開始、取消、終了とcleanupをExecution Adapterへ提供する。 | Partial |
+| [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | OS、Process API、Dockerの要求・受理・Effect・観測を分けた診断結果を返す。 | Covered |
+| [ARCH-000011](../../Definitions/ARCH-000011/architecture_definition.md) | OS管理Runtime path、native resource、stale socketと修復記録のlifecycleを実装する。 | Partial |
+
+Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | Process、Job、Console、Docker修復のネイティブ操作を分ける。 | [§3](#3-操作ごとの境界) |
+| Interface Model | Required | 呼出し元とNative helperの入力・結果・Authorityを分ける。 | [§6](#6-呼出し元との分担) |
+| Data Flow | Required | exact IdentityとNative結果の往復を追跡する。 | [§3](#3-操作ごとの境界) |
+| State Model | Required | 要求、受理、開始、完了、観測不能、回復待ちを分ける。 | [§5](#5-状態資源回復) |
+| Sequence | Required | Capability取得後だけEffectを発行し、終了観測まで保持する。 | [§3](#3-操作ごとの境界) |
+| Failure／Recovery | Required | 部分Effectと不明状態を同じRecovery Identityへ結ぶ。 | [§5](#5-状態資源回復) |
+| Deployment | Required | Windows binary、Node利用側、Docker Desktopの境界を固定する。 | [§2](#2-成果物と依存) |
+| Observability | Required | OS結果、Process終了、Engine ready、残存資源を実境界で観測する。 | [§7](#7-検証への接続) |
+| Security Boundary | Required | 検証済みbinaryと用途限定Capabilityだけを実Effectへ接続する。 | [§4](#4-バイナリ境界) |
+
+`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | 同じProcess／repair Identityへの操作を直列化する。 | [正本節](#5-状態資源回復) |
+| Timing | PASS | 要求、Engine ready、終了、Socket再生成を別の有界観測にする。 | [正本節](#5-状態資源回復) |
+| Resource Lifecycle | PASS | handle、Job、Socket、stale directory、repair記録をexact Identityへ結ぶ。 | [正本節](#5-状態資源回復) |
+| External Boundary | PASS | Windows APIとDocker Desktopで要求受理を完了とみなさない。 | [正本節](#3-操作ごとの境界) |
+| Failure／Recovery | PASS | 観測不能時はEffect不明と回復義務を保持する。 | [正本節](#5-状態資源回復) |
+
+`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+
+## Qualityへの引渡し
+
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| Process境界 | exact process identity | 開始・終了を実観測 | handleだけ、PID再利用、取消競合 | native resultとphase | handle／job 0 | Windows実境界 |
+| Docker修復 | repair identityとruntime paths | Engine ready後だけ完了 | stale socket、再起動不明 | repair stateとengine probe | stale残存0または義務 | Docker Desktop実境界 |
+
+## 現行実装との照合
+
+現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+
 担当責任者: Qual-Lab
 最終更新日: 2026-09-07
 

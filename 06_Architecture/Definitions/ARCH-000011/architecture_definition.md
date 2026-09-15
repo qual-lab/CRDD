@@ -93,5 +93,5 @@ temporary／durable／recovery_required／cleanup／unknownを用途別に分け
 
 正式入力は第2・3節のArchitecture分析だけである。次は成立済み能力とGapを照合するためにだけ参照する。
 
-- [現行照合先](../../Details/runtime-data/01_Current_Path_Inventory.md)
-- [現行照合先](../../Details/runtime-data/02_Target_Architecture.md)
+- [現行照合先](../../Details/runtime-data/02_Current_Path_Reality_Audit.md)
+- [現行照合先](../../Details/runtime-data/01_Architecture.md)

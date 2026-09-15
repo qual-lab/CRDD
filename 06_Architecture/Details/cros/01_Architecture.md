@@ -1,11 +1,68 @@
 # CROS Federationと利用境界のアーキテクチャ
 
+成果物種別: Architecture詳細設計
+詳細設計領域: cros
 状態: Candidate（v0.21.0）
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | 利用可能Repository集合からProject／Portfolio Projectionを組み立て、欠測とSource Coverageを保持する。 | Covered |
+| [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Meeting由来の候補をSource relation付きで所有先へ搬送し、採否Authorityを生成しない。 | Covered |
+| [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | Project ID、Repository ID、Binding IDを分け、検証済みRootだけをFederationへ渡す。 | Covered |
+| [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | Repositoryが公開するCapability／Model構成を現在のWorkspace範囲で解決する。 | Partial |
+| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | Credential、Workspace Grant、Repository Exposureを分け、Requestごとの利用可能集合を確定する。 | Covered |
+| [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | Agent間Handoffで外部情報、未決事項、Effect境界と再開条件を構造化して搬送する。 | Covered |
+| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Source Revision、観測時点、現在有効な規則をProjectionとHandoffへ保持する。 | Covered |
+
+Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | Credential、Workspace、Binding、FederationとProjectionのOwnerを分ける。 | [§2](#2-identityと責務) |
+| Interface Model | Required | 必ず認可済みRepository Resolverを通る読取り契約を固定する。 | [§6](#6-canonicalな読取り経路) |
+| Data Flow | Required | CredentialからProjectionまでの情報とAuthorityの流れを追跡する。 | [§10](#10-データフロー) |
+| State Model | Required | 登録、Binding、Exposure、利用可能性、解除を別状態にする。 | [§9](#9-登録exposure解除) |
+| Sequence | Required | Context解決、引渡し、判断、同一Taskへの再開順序が成立条件になる。 | [§8](#8-agent-operating-contextとhandoff) |
+| Failure／Recovery | Required | 部分取得、失効、競合、再開不能を安全な結果へ分ける。 | [§12](#12-失敗と安全な結果) |
+| Deployment | Required | PersonalとShared ServerでRepository集合の決定境界が異なる。 | [§3](#3-personalとshared-serverの共通モデル) |
+| Observability | Required | Source Coverage、欠測、制限、競合、観測時点を返す。 | [§12](#12-失敗と安全な結果) |
+| Security Boundary | Required | Workspace Grant、Repository Exposure、System管理可否を相互昇格させない。 | [§5](#5-repository利用可否) |
+
+`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | Registry更新はrevision付き排他と不変publishを使い、Requestは開始時snapshotへ固定する。 | [§15](#15-registryとrequest-snapshot) |
+| Timing | PASS | Requestごとに現在Credentialと観測時点を評価し、旧値を再利用しない。 | [正本節](#7-connection-credentialとrequest-access-context) |
+| Resource Lifecycle | PASS | Credential、Request Context、Workspace snapshotと管理回復の終了条件を分ける。 | [§16](#16-credentialと管理回復) |
+| External Boundary | PASS | v0.21 Shared Profileを信頼済み運用者向けの一Process／複数Trust Domain論理分離に限定する。 | [§17](#17-shared-host配置境界) |
+| Failure／Recovery | PASS | 競合更新、Credential紛失、Registry破損を別経路で停止・回復する。 | [§15](#15-registryとrequest-snapshot)、[§16](#16-credentialと管理回復) |
+
+`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+
+## Qualityへの引渡し
+
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| 認証・Workspace境界 | Bearer CredentialとWorkspace集合 | 許可されたBindingだけ解決 | 失効、Exposure外、Admin-only | Access Contextと非開示結果 | Request後Secret 0 | 敵対的multi-tenantのHost分離は対象外 |
+| Federation | 複数Repository Source | 根拠・欠測付きProjection | 競合Binding、部分取得不能 | Source Coverageとobserved_at | 正本変更0 | 物理保存形式はDevelopmentで選択 |
+| Handoff | 構造化Task Context | 同じIdentityとRevisionで再開 | 未確認Context補完、Authority昇格 | handoff stateとreason | 未許可Effect 0 | transport schemaはSPEC待ち |
+
+## 現行実装との照合
+
+現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
 関連:
 - [Project Operation Context](../project-operation/01_Architecture.md)
-- [Runtime Dataの目標Architecture](../runtime-data/02_Target_Architecture.md)
+- [Runtime Dataの目標Architecture](../runtime-data/01_Architecture.md)
 - [MCP Architecture](../mcp/01_Architecture.md)
 - [v0.21 Roadmap](../../../99_Roadmap/01_Roadmap.md#11-v0210--project運営信頼複数repository)
 
@@ -449,14 +506,64 @@ Secret value -x Repository／.crdd／Prompt／Projection
 - 最小WorkbenchがCROS／Project Operationの公開契約からProject／PortfolioとSource Coverageを表示し、既存Command／Candidate入口への定型操作を一つ以上縦断する。
 - 単一Repository、Personal複数Repository、Shared DEV Credential、Shared MGMT Credential、Admin-only Credential、Credential失効、Workspace集合変更およびPolicy改訂を結合試験で反証する。
 
-## 14. 現在の未確定事項
+## 14. 後段で選択する物理詳細
 
-| 項目 | 現在の方針 | 確定Gate |
+次は意味契約を変更しない実装選択、または現在Scope外である。未確定だから安全条件を推測してよいという意味ではない。
+
+| 項目 | 固定した意味 | 後段で選べる範囲 |
 |---|---|---|
-| Workspace Registryの永続Schema | Trust Domain配下、Secret非格納、Server所有 | Runtime Data／CROS SPEC |
-| Credentialの任意field | `display_name`、`created_at`、`expires_at`を必須にしない | Remote MCP脅威モデル／SPEC |
-| Admin Credential紛失時の回復 | Bootstrap Entityを作らず、Host所有者の明示操作に限定する | Remote MCP脅威モデル／運用手順 |
-| Operating Context Schema | 正本Revision、適用根拠、CapabilityおよびDecision境界を持つ派生投影 | CROS／MCP SPEC |
-| Handoff transport | 意味契約を先に固定し、MCP Tool名やAgent製品名へ結合しない | CROS／MCP SPEC |
-| Shared Hostの強い分離 | WorkspaceだけでHost Shellを防げない | 配置ProfileとPlatform Threat Model |
-| Linuxのsystem-wide配置 | v0.22で実環境確認 | Linux／Remote Runtime設計 |
+| Registry保存形式 | §15のfield、revision、排他、不変publishを保持する | JSON、DB等の物理形式 |
+| Credential任意field | `credential_id`、Verifier、Workspace集合、管理可否、失効は必須 | 表示名、作成時点、有効期限 |
+| Operating Context wire | 正本Revision、適用根拠、Capability、Decision境界を保持する | MCP Tool名、JSON field配置 |
+| Handoff transport | §8.2の意味契約を保持する | 利用するTransportとAgent製品 |
+| Linux system-wide配置 | v0.21では保証しない | v0.22のLinux実環境で決定 |
+
+## 15. RegistryとRequest snapshot
+
+| Registry | 必須field | Owner |
+|---|---|---|
+| Trust Domain | `trust_domain_id`、publisher／repository policy参照、`revision` | Server operator |
+| Workspace | `workspace_id`、`trust_domain_id`、`binding_ids[]`、`revision` | Server operator |
+| Binding | `binding_id`、`repository_id`、検証済みRoot capability参照、`revision` | Binding Resolver |
+| Credential | `credential_id`、token verifier、`workspace_ids[]`、`system_admin`、`revoked`、`revision` | Credential Registry |
+
+```text
+管理更新
+  ↓ current revisionを指定して排他取得
+候補Registryを完全検証
+  ├ revision競合 ──→ Effect 0／再読取り
+  └ valid ─────────→ immutable publish
+                         ↓
+Request開始 ──→ 一つのRegistry revision集合へ固定
+                         ↓
+Request終了 ──→ snapshot解放
+```
+
+異なるRegistry revisionを一Requestへ混在させない。更新後の設定は次Requestから使い、実行中Operationは開始時に取得したAuthorityと固有の取消／Recovery契約へ従う。
+
+## 16. Credentialと管理回復
+
+| 対象 | 終了条件 |
+|---|---|
+| Connection Credential | 明示失効または設定済み期限。生Tokenは発行時以外保存・再表示しない |
+| Request Access Context | Request完了・取消・切断時に破棄し、次Requestへ流用しない |
+| Workspace snapshot | Request終了時に解放し、更新後の新Requestは新revisionを取得する |
+| 管理回復Operation | 新Credential発行と選択した旧Credential失効を同じRegistry revisionで確定し、秘密値を破棄する |
+
+Admin Credential紛失時はRemote入口を使わない。Host所有者がCROS Serverを停止し、OS上の管理CapabilityでCredential Registryを読取り、失効対象の`credential_id`を選び、`workspace_ids: []`の新しいAdmin Credentialを一度だけ発行する。旧Credentialを特定できない場合は既存Admin Credentialを全失効するかを人間が明示判断する。回復はContent Grantを付与せず、Bootstrap専用Identityや恒久的な裏口を作らない。
+
+Registry破損、Root未検証または排他取得不能では新Credentialを発行しない。最後に確認できたrevision、未失効Credential集合、Effect有無を記録し、人間判断へ戻す。
+
+## 17. Shared Host配置境界
+
+v0.21のShared Profileは、同一運用主体が管理する一つのCROS Server Processが複数Trust Domainを論理的にrouteする構成を対象とする。各Trust Domainは別Runtime Root、別Registry、別Repository Poolを持ち、Requestは認証後に一つのTrust Domainへ固定する。
+
+```text
+[CROS Server Process]
+   ├─ [Trust Domain A Root] ── Workspace／Credential／Repository Pool A
+   └─ [Trust Domain B Root] ── Workspace／Credential／Repository Pool B
+
+Request A ── authenticated domain A ──x── Domain B Root
+```
+
+Workspace GrantはHost Shell、OS Accountまたは敵対的tenant間の強制隔離ではない。互いに信頼しないtenantを同じHost／Processへ収容する構成、Container／VMによる強分離、Linux system-wide配置はv0.21の保証外とし、必要な場合はProcessとOS Accountを分ける。対象外をWorkspaceだけで安全と表示しない。

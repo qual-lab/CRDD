@@ -1,6 +1,60 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
-状態: Stable（v0.20.1）
+成果物種別: Architecture詳細設計
+詳細設計領域: coordinator
+状態: Candidate（v0.21.0）
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Project RuntimeのExecution PortをProvider・Process・Container実行へ接続し、Task／Attempt lifecycleを保持する。 | Covered |
+| [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Provider、Process、Docker、結果搬送の各phaseを診断可能にし、推測せず故障境界を返す。 | Covered |
+| [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | 外部構成から利用可能Provider／Modelを解決し、選定根拠と再選定条件を実行前に固定する。 | Covered |
+| [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | Runtime Trust Evaluatorの判断を実行Gateで消費する。署名やPublisher一要素から信頼判断を生成しない。 | Partial |
+| [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部送信同意、Provider Effect、結果帰還、Review、Candidate dispositionを別Authorityとして処理する。 | Covered |
+
+Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | Runtime Core、Provider Adapter、Process Controller、Recoveryを分ける。 | [§2](#2-現行profileと公開入口) |
+| Interface Model | Required | 実行要求、外部送信Authority、候補結果の境界を固定する。 | [§7](#7-authorityと外部送信) |
+| Data Flow | Required | Task PacketからProvider結果、Review、候補帰還までを追跡する。 | [§3](#3-一般taskの主シーケンス) |
+| State Model | Required | Task、Attempt、Process、Container、Review、Recovery状態を分ける。 | [§4](#4-状態と遷移) |
+| Sequence | Required | 選定、許可、Provider Effect、結果搬送、cleanupの順序を固定する。 | [§3](#3-一般taskの主シーケンス) |
+| Failure／Recovery | Required | 取消、親喪失、Docker停止、Effect不明から同じIdentityへ再入場する。 | [§11](#11-取消と回復) |
+| Deployment | Required | 署名済み配布、Provider Home、Container、Host helperの配置を示す。 | [§2](#2-現行profileと公開入口) |
+| Observability | Required | Provider境界の各phaseと終了後資源を相関して診断する。 | [§13](#13-検証接続) |
+| Security Boundary | Required | Provider Credential、外部送信同意、Runtime Capabilityを分離する。 | [§7](#7-authorityと外部送信) |
+
+`N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | Task、Attempt、Queue、ProcessのLock順序と世代を固定する。 | [正本節](#6-lock順序) |
+| Timing | PASS | Provider待機、取消、Process終了、cleanupを別の有界待機として観測する。 | [正本節](#11-取消と回復) |
+| Resource Lifecycle | PASS | 子Process、stream、Container、候補、一時領域をTask／Attemptへ結ぶ。 | [正本節](#5-資源所有) |
+| External Boundary | PASS | Codex、Claude、Docker、OS Process、Filesystemへ診断可能なAdapterで接続する。 | [正本節](#13-検証接続) |
+| Failure／Recovery | PASS | 要求、受理、開始、結果、終了、cleanupを別状態にする。 | [正本節](#11-取消と回復) |
+
+`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+
+## Qualityへの引渡し
+
+| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|
+| Provider実行境界 | Task／AttemptとProvider計画 | 結果または理由別停止 | 承認不足、sandbox拒否、CLI exit | phase診断とexit | Process／stream／Container回収 | 実Providerは結合試験 |
+| 取消・回復 | exact Recovery ID | 同じIdentityで再入場 | Effect不明の再発行、別Task混入 | 状態・資源・Recovery ID | 不存在または義務保持 | なし |
+
+## 現行実装との照合
+
+現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
+
 担当責任者: Qual-Lab
 最終更新日: 2026-09-06
 

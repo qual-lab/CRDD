@@ -15,7 +15,7 @@
 | 所有・寿命・回復が不明な領域を明示する | 不要と推定して移動・削除する |
 | 次の設計で解消すべき不整合を固定する | Runtimeの振る舞い、署名、E2Eを変更する |
 
-基準規則は[Repository-local作業領域](../../../03_Documentation.md#repository-local-working-storage)と[実装上のRepository境界](../../99_Coding_Standards.md)である。現行規則では`.crdd`直下の通常fileは`external-send-policy.json`だけを許し、それ以外は用途を表す子Directoryへ置く。v0.21の目標構成では、同Policyも`config/`へ移し、直下fileを0件にする。目標と移行境界は[Runtime Dataの目標Architecture](02_Target_Architecture.md)を正本候補とする。
+基準規則は[Repository-local作業領域](../../../03_Documentation.md#repository-local-working-storage)と[実装上のRepository境界](../../99_Coding_Standards.md)である。現行規則では`.crdd`直下の通常fileは`external-send-policy.json`だけを許し、それ以外は用途を表す子Directoryへ置く。v0.21の目標構成では、同Policyも`config/`へ移し、直下fileを0件にする。目標と移行境界は[Runtime Dataの目標Architecture](01_Architecture.md)を正本候補とする。
 
 ## 2. 調査方法と現在の範囲
 
@@ -29,7 +29,7 @@
 
 ## 3. 基準版から導出した旧書込みPath
 
-次表は`v0.20.0`を基準に移行対象を固定した記録であり、v0.21の現行Pathではない。v0.21の現行Pathと所有関係は[Runtime Dataの目標Architecture](02_Target_Architecture.md)を正本とする。
+次表は`v0.20.0`を基準に移行対象を固定した記録であり、v0.21の現行Pathではない。v0.21の現行Pathと所有関係は[Runtime Dataの目標Architecture](01_Architecture.md)を正本とする。
 
 | 論理Path | Owner／主なProducer | 主なReader | 用途・Schema | Git | 寿命 | 清掃・Recovery | 根拠 |
 |---|---|---|---|---|---|---|---|
