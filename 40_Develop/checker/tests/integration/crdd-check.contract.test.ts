@@ -2476,6 +2476,141 @@ test("Architecture分析はUIとSPECを分けて全入力を閉じる", () => {
   );
 });
 
+test("Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡す", () => {
+  let root = architectureReconstructionFixtureRoot();
+  const valid = runChecker(root);
+  assert.ok(
+    !valid.report.findings.some((finding) =>
+      finding.code.startsWith("architecture-cross-model-"),
+    ),
+    `${valid.stdout}\n${valid.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  fs.rmSync(
+    path.join(
+      root,
+      "06_Architecture",
+      "05_Failure_Recovery_and_Resilience_Model.md",
+    ),
+  );
+  const missing = runChecker(root);
+  assert.ok(
+    missing.report.findings.some(
+      (finding) => finding.code === "architecture-cross-model-missing",
+    ),
+    `${missing.stdout}\n${missing.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const indexPath = path.join(root, "06_Architecture", "01_Architecture.md");
+  write(
+    indexPath,
+    fs
+      .readFileSync(indexPath, "utf8")
+      .replace(/\n## Architecture横断モデル[\s\S]*$/u, ""),
+  );
+  const missingSection = runChecker(root);
+  assert.ok(
+    missingSection.report.findings.some(
+      (finding) => finding.code === "architecture-cross-model-section-missing",
+    ),
+    `${missingSection.stdout}\n${missingSection.stderr}`,
+  );
+
+  const componentMutations = [
+    [
+      "Definitions/sample/architecture_definition.md",
+      "Definitions/missing/architecture_definition.md",
+    ],
+    ["Definitions/sample/architecture_definition.md", ""],
+    [
+      "[定義名](Definitions/sample/architecture_definition.md)",
+      "[定義名](Definitions/sample/architecture_definition.md)<br>[重複](Definitions/sample/architecture_definition.md)",
+    ],
+    [
+      "| Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと | 主要Port |",
+      "| Component | 含むArchitecture定義 | 状態Owner | 所有すること | 主要Port |",
+    ],
+  ] as const;
+  for (const [before, after] of componentMutations) {
+    root = architectureReconstructionFixtureRoot();
+    const componentPath = path.join(
+      root,
+      "06_Architecture",
+      "02_Component_and_Responsibility_Model.md",
+    );
+    write(
+      componentPath,
+      fs.readFileSync(componentPath, "utf8").replace(before, after),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code ===
+            "architecture-component-definition-coverage-mismatch" ||
+          finding.code === "architecture-cross-model-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+
+  for (const [file, marker] of [
+    [
+      "02_Component_and_Responsibility_Model.md",
+      "| Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと | 主要Port |",
+    ],
+    [
+      "03_Boundary_and_Interface_Model.md",
+      "| 境界 | 呼出し側 | 受け側 | 越えるもの | 越えないもの | 不明時 |",
+    ],
+    [
+      "04_Runtime_and_Data_Flow_Model.md",
+      "| 対象 | 必須の相関 | 禁止する畳み込み |",
+    ],
+    [
+      "05_Failure_Recovery_and_Resilience_Model.md",
+      "| 故障領域 | 対象Component | 守る対象 | 即時処置 | 回復／終了条件 |",
+    ],
+    [
+      "06_Deployment_and_Execution_Model.md",
+      "| 論理単位 | 主なResource | 並行性の境界 | 終了条件 |",
+    ],
+  ] as const) {
+    root = architectureReconstructionFixtureRoot();
+    const modelPath = path.join(root, "06_Architecture", file);
+    const source = fs.readFileSync(modelPath, "utf8");
+    write(modelPath, `${source.replace(marker, "")}\n## 別の節\n\n${marker}\n`);
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "architecture-cross-model-contract-invalid",
+      ),
+      `${file}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+
+  root = architectureReconstructionFixtureRoot();
+  const flowPath = path.join(
+    root,
+    "06_Architecture",
+    "04_Runtime_and_Data_Flow_Model.md",
+  );
+  write(
+    flowPath,
+    "# Model\n\n## 2. 主要データフロー\n\n## 3. 横断状態遷移\n\n## 4. 概念Entity関係\n\n## 6. Qualityへの引渡し\n",
+  );
+  const empty = runChecker(root);
+  assert.ok(
+    empty.report.findings.some(
+      (finding) => finding.code === "architecture-cross-model-contract-invalid",
+    ),
+    `${empty.stdout}\n${empty.stderr}`,
+  );
+});
+
 test("UI観点のArchitecture分析はSPECや上流工程を正式入力にできない", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(
@@ -3072,7 +3207,7 @@ function architectureReconstructionFixtureRoot(): string {
   const definition = `# 試験責務のArchitecture定義\n\n成果物種別: Architecture定義\n\n## 1. 責務と境界\n\n利用者へ根拠付き状態を返し、表示と状態更新を分離する。\n\n| 観点 | 契約 |\n|---|---|\n| 状態Owner | 試験Core |\n| 所有する責務 | 状態の読取りと根拠付き結果 |\n| 所有しない責務 | UI表示と外部Effect |\n| 主な外部境界 | 状態Sourceと利用側 |\n\n## 2. UI観点の入力\n\n[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)\n\n## 3. SPEC観点の入力\n\n[SPEC-000001](../../Analysis/SPEC-000001/architecture_analysis.md)\n\n## 4. 両観点の統合判断\n\n| 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |\n|---|---|---|---|---|---|---|\n| UI-000001 | UI | 試験Core | Authorityを発行しない | 表示だけ | 不完全性を隠さない | 確認→判断 |\n| SPEC-000001 | SPEC | 試験Core | 閲覧Authority | 読取りだけ | 欠測を補完しない | 要求→読取り→結果 |\n\n## 5. 構造と依存方向\n\n\`\`\`text\n[利用側] -> [試験Core] -> [状態Source]\n\`\`\`\n\n## 6. データ・状態・Interface\n\n| 入力 | State Owner | Authority | Effect／非該当 |\n|---|---|---|---|\n| UI-000001 | 試験Core | なし | 表示だけ |\n| SPEC-000001 | 試験Core | 閲覧 | 読取りだけ |\n\n## 7. 失敗・回復・観測\n\n欠測と観測不能を分け、入力固有の失敗理由を返す。\n\n## 8. 品質・保護・運用\n\n| 入力 | 保護する失敗境界 | 検証可能性 |\n|---|---|---|\n| UI-000001 | 不完全性の隠蔽 | 状態差を確認 |\n| SPEC-000001 | 欠測の補完 | Effect 0を確認 |\n\n## 9. 互換性・移行・成立済み能力\n\n| 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |\n|---|---|---|---|---|---|\n| 基準版なし | なし | 試験Core | 新規 | 未作成 | 実装待ち |\n\n## 10. 実装と検証への引き渡し\n\n入力ごとのAuthority、Effect、失敗理由および終了状態を理由別に反証する。\n\n## 11. 情報源と現行照合\n\n正式入力は第2節と第3節の分析であり、現行実装は能力比較だけに使う。\n`;
   write(
     path.join(root, "06_Architecture", "01_Architecture.md"),
-    "# Architecture\n\n## Architecture定義台帳\n\n| Architecture定義 | 責務 | UI入力 | SPEC入力 |\n|---|---|---|---|\n| [試験責務](Definitions/sample/architecture_definition.md) | 試験 | UI-000001 | SPEC-000001 |\n",
+    "# Architecture\n\n## Architecture定義台帳\n\n| Architecture定義 | 責務 | UI入力 | SPEC入力 |\n|---|---|---|---|\n| [試験責務](Definitions/sample/architecture_definition.md) | 試験 | UI-000001 | SPEC-000001 |\n\n## Architecture横断モデル\n\n| 成果物 |\n|---|\n| [Component](02_Component_and_Responsibility_Model.md) |\n| [Boundary](03_Boundary_and_Interface_Model.md) |\n| [Flow](04_Runtime_and_Data_Flow_Model.md) |\n| [Failure](05_Failure_Recovery_and_Resilience_Model.md) |\n| [Deployment](06_Deployment_and_Execution_Model.md) |\n",
   );
   write(
     path.join(
@@ -3104,6 +3239,21 @@ function architectureReconstructionFixtureRoot(): string {
     ),
     definition,
   );
+  for (const model of [
+    "02_Component_and_Responsibility_Model.md",
+    "03_Boundary_and_Interface_Model.md",
+    "04_Runtime_and_Data_Flow_Model.md",
+    "05_Failure_Recovery_and_Resilience_Model.md",
+    "06_Deployment_and_Execution_Model.md",
+  ]) {
+    const source = fs
+      .readFileSync(
+        path.join(repositoryRoot, "template", "06_Architecture", model),
+        "utf8",
+      )
+      .replaceAll("Definitions/responsibility/", "Definitions/sample/");
+    write(path.join(root, "06_Architecture", model), source);
+  }
   for (const relativePath of [
     "template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md",
     "template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md",

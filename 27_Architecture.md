@@ -814,6 +814,27 @@ UIテーマ、共通UI部品、外部視覚成果物を使用しない対象範�
 
 `06_Architecture/01_Architecture.md`をアーキテクチャ工程の固定入口とする。対象範囲について、次を入口内または入口から辿れる正本成果物で参照可能にする。適用の深さでは入口や基本のファイル分割を変えず、記述、レビュー、根拠の深さを調整する。図、技術規則または外部成果物を分ける場合も、入口から決定権限、改訂版、網羅状態、未解決事項へ到達できるようにする。
 
+個別のArchitecture分析と責務定義が揃っただけでは、Quality工程へ移行しない。Qualityが検証単位、結合境界、状態、資源、故障および実行条件を再構成できるよう、個別定義から次の横断モデルを作成する。ファイル数を増減して意味を隠さず、標準構成では固定入口に加えて5つの横断成果物へ分ける。
+
+| 横断成果物 | 所有する内容 | Qualityへ渡す主な観点 |
+|---|---|---|
+| Component／Responsibility Model | Component、責務、状態Owner、所有禁止、主要Port | 単体・Component検証 |
+| Boundary／Interface Model | Component間、外部System、Platform、Trust境界と交換契約 | 結合・契約・外部境界検証 |
+| Runtime／Data Flow Model | Data、State、Identity、Authorityの流れと整合条件 | 状態・整合性・情報流検証 |
+| Failure／Recovery／Resilience Model | 故障領域、部分故障、取消、Retry、Recovery、cleanup、終了条件 | 故障注入・回復・残存検証 |
+| Deployment／Execution Model | Process、Runtime、配置、実行単位、並行性、Resource | 実行環境・Timing・Resource検証 |
+
+横断モデルは個別定義を置き換える第二の定義集ではない。個別定義間の関係、共同成立条件およびQualityへの引渡しを所有し、個別契約の全文を複製しない。現行Source、Directory構成、既存試験または基準版実装は、Canonicalな横断モデルを導く正式入力にしない。これらはArchitecture Ready後のReality Auditで、設計との一致、成立済み能力の保持および実装不足を確認する照合対象とする。
+
+Architecture Readyを表示するには、次をすべて満たさなければならない。
+
+- CanonicalなUI定義とSPEC定義を別々に全数分析し、個別Architecture定義へ統合している。
+- 全個別定義が5つの横断モデルへ含まれ、未接続の責務を残していない。
+- Component、境界、Data／State、故障／回復、配置／実行の各観点を、作成、既存参照、非該当または作成不能へ理由付きで処置している。
+- QualityがUT／IT／STその他の検証方法を選べるよう、検証対象、反証すべき失敗、必要な実境界および終了後条件を示している。
+- 未確定の物理実装を論理設計へ混ぜず、確認先と後段のReality Audit条件を残している。
+- 固定改訂版に対するArchitecture独立レビューが完了し、未処置の必須指摘がない。
+
 ```text
 対象範囲 / 網羅範囲要約 / 未解決不足
 情報源となるUI / SPEC / 品質要件 / 制約

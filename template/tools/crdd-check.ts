@@ -2137,6 +2137,150 @@ function checkArchitectureReconstruction(): void {
     );
 
   const index = visibleMarkdownStructure(read(architectureIndexPath));
+  const crossModelSection = sectionBody(index, "## Architecture横断モデル");
+  const crossModels: ReadonlyArray<{
+    file: string;
+    headings: readonly string[];
+    sectionStructures: ReadonlyArray<readonly [string, readonly string[]]>;
+  }> = [
+    {
+      file: "02_Component_and_Responsibility_Model.md",
+      headings: [
+        "## 2. 全体ブロック図",
+        "## 3. Component責務表",
+        "## 5. QAへ渡す検証単位",
+      ],
+      sectionStructures: [
+        ["## 2. 全体ブロック図", ["```text"]],
+        [
+          "## 3. Component責務表",
+          [
+            "| Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと |",
+          ],
+        ],
+      ],
+    },
+    {
+      file: "03_Boundary_and_Interface_Model.md",
+      headings: [
+        "## 2. 境界表",
+        "## 3. 型とPortの関係",
+        "## 4. 主要なブロック間シーケンス",
+        "## 6. Qualityへの引渡し",
+      ],
+      sectionStructures: [
+        [
+          "## 2. 境界表",
+          ["| 境界 | 呼出し側 | 受け側 | 越えるもの | 越えないもの | 不明時 |"],
+        ],
+        ["## 3. 型とPortの関係", ["```text"]],
+        [
+          "## 5. Schema責務",
+          ["| 情報 | Canonical Owner | Writer | Reader | 所有禁止 |"],
+        ],
+      ],
+    },
+    {
+      file: "04_Runtime_and_Data_Flow_Model.md",
+      headings: [
+        "## 2. 主要データフロー",
+        "## 3. 横断状態遷移",
+        "## 4. 概念Entity関係",
+        "## 6. Qualityへの引渡し",
+      ],
+      sectionStructures: [
+        ["## 2. 主要データフロー", ["<<E", "(P", "[(D"]],
+        [
+          "## 3. 横断状態遷移",
+          [
+            "[S",
+            "| 現在状態 | 契機 | 事前条件 | 処置 | Effect | 次状態 | 失敗時 | cleanup・Recovery | 終了後観測 |",
+          ],
+        ],
+        ["## 4. 概念Entity関係", ["[ER"]],
+        ["## 5. 整合条件", ["| 対象 | 必須の相関 | 禁止する畳み込み |"]],
+      ],
+    },
+    {
+      file: "05_Failure_Recovery_and_Resilience_Model.md",
+      headings: [
+        "## 2. 故障と回復の全体図",
+        "## 3. Failure Matrix",
+        "## 4. 回復の不変条件",
+        "## 6. Qualityへの引渡し",
+      ],
+      sectionStructures: [
+        ["## 2. 故障と回復の全体図", ["```text"]],
+        [
+          "## 3. Failure Matrix",
+          [
+            "| 故障領域 | 対象Component | 守る対象 | 即時処置 | 回復／終了条件 |",
+          ],
+        ],
+      ],
+    },
+    {
+      file: "06_Deployment_and_Execution_Model.md",
+      headings: [
+        "## 2. 論理配置図",
+        "## 3. 実行単位とResource",
+        "## 4. 段階的な結合単位",
+        "## 5. Reality Auditへの引渡し",
+        "## 6. Qualityへの引渡し",
+      ],
+      sectionStructures: [
+        ["## 2. 論理配置図", ["```text"]],
+        [
+          "## 3. 実行単位とResource",
+          ["| 論理単位 | 主なResource | 並行性の境界 | 終了条件 |"],
+        ],
+        ["## 4. 段階的な結合単位", ["| 段階 | 主な目的 | 対象境界 |"]],
+        [
+          "## 5. Reality Auditへの引渡し",
+          ["| 照合対象 | 確認すること | 参照先 |"],
+        ],
+      ],
+    },
+  ];
+  if (crossModelSection.trim().length === 0)
+    add(
+      "error",
+      "architecture-cross-model-section-missing",
+      relative(architectureIndexPath),
+      "The official Architecture reconstruction must register all cross-cutting models before Architecture Ready.",
+    );
+  else {
+    for (const model of crossModels) {
+      const modelPath = path.join(root, "06_Architecture", model.file);
+      if (!lstatIfPresent(modelPath)?.isFile()) {
+        add(
+          "error",
+          "architecture-cross-model-missing",
+          relative(modelPath),
+          "Every declared Architecture cross-cutting model must exist before Architecture Ready.",
+        );
+        continue;
+      }
+      const rawModelSource = visibleMarkdownIncludingFencedCode(
+        read(modelPath),
+      );
+      const modelSource = visibleMarkdownStructure(rawModelSource);
+      if (
+        !crossModelSection.includes(`](${model.file})`) ||
+        !model.headings.every((heading) => modelSource.includes(heading)) ||
+        !model.sectionStructures.every(([heading, structures]) => {
+          const body = sectionBody(rawModelSource, heading);
+          return structures.every((structure) => body.includes(structure));
+        })
+      )
+        add(
+          "error",
+          "architecture-cross-model-contract-invalid",
+          relative(modelPath),
+          "Architecture cross-cutting models must be registered and expose their required responsibility, boundary, flow, failure, deployment, and Quality handoff structures.",
+        );
+    }
+  }
   const registrySection = sectionBody(index, "## Architecture定義台帳");
   const registryDefinitions = new Set<string>();
   const registryDefinitionEntries: string[] = [];
@@ -2239,6 +2383,37 @@ function checkArchitectureReconstruction(): void {
       relative(architectureIndexPath),
       "The Architecture registry and responsibility definition directories must be an exact set.",
     );
+
+  const componentModelPath = path.join(
+    root,
+    "06_Architecture",
+    "02_Component_and_Responsibility_Model.md",
+  );
+  if (lstatIfPresent(componentModelPath)?.isFile()) {
+    const componentSource = visibleMarkdownStructure(read(componentModelPath));
+    const componentSection = sectionBody(
+      componentSource,
+      "## 3. Component責務表",
+    );
+    const componentDefinitionEntries = [
+      ...componentSection.matchAll(
+        /\]\(Definitions\/([a-z0-9-]+)\/architecture_definition\.md\)/gu,
+      ),
+    ].map((match) => match[1]);
+    const componentDefinitions = new Set(componentDefinitionEntries);
+    if (
+      componentDefinitionEntries.length !== componentDefinitions.size ||
+      componentDefinitions.size !== actualDefinitions.size ||
+      [...componentDefinitions].some((id) => !actualDefinitions.has(id)) ||
+      [...actualDefinitions].some((id) => !componentDefinitions.has(id))
+    )
+      add(
+        "error",
+        "architecture-component-definition-coverage-mismatch",
+        relative(componentModelPath),
+        "The Component responsibility table must link every Architecture definition exactly once, without unknown or duplicate definitions.",
+      );
+  }
   if (
     registryRelationEntries.length !== registryRelations.size ||
     definitionRelationEntries.length !== definitionRelations.size
@@ -3043,6 +3218,66 @@ function visibleMarkdownStructure(text: string): string {
         };
         return "";
       }
+      return visible;
+    })
+    .join("\n");
+}
+
+function visibleMarkdownIncludingFencedCode(text: string): string {
+  let fence:
+    | Readonly<{
+        marker: "`" | "~";
+        length: number;
+      }>
+    | undefined;
+  let isInHtmlComment = false;
+
+  return text
+    .split(/\r?\n/u)
+    .map((line) => {
+      if (fence) {
+        const closing = line.match(/^\s{0,3}(?<marker>`+|~+)\s*$/u);
+        if (
+          closing?.groups?.marker?.startsWith(fence.marker) &&
+          closing.groups.marker.length >= fence.length
+        )
+          fence = undefined;
+        return line;
+      }
+
+      let visible = "";
+      let cursor = 0;
+      while (cursor < line.length) {
+        if (isInHtmlComment) {
+          const commentEnd = line.indexOf("-->", cursor);
+          if (commentEnd < 0) {
+            visible += " ".repeat(line.length - cursor);
+            cursor = line.length;
+            continue;
+          }
+          visible += " ".repeat(commentEnd + 3 - cursor);
+          cursor = commentEnd + 3;
+          isInHtmlComment = false;
+          continue;
+        }
+        const commentStart = line.indexOf("<!--", cursor);
+        if (commentStart < 0) {
+          visible += line.slice(cursor);
+          cursor = line.length;
+          continue;
+        }
+        visible += line.slice(cursor, commentStart);
+        visible += " ".repeat(4);
+        cursor = commentStart + 4;
+        isInHtmlComment = true;
+      }
+
+      const opening = visible.match(/^\s{0,3}(?<marker>`{3,}|~{3,})/u);
+      if (opening?.groups?.marker)
+        fence = {
+          marker: opening.groups.marker[0] as "`" | "~",
+          length: opening.groups.marker.length,
+        };
       return visible;
     })
     .join("\n");

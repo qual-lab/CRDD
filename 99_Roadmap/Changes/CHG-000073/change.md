@@ -624,8 +624,20 @@
 - [`06_Architecture/Definitions/temporal-provenance/architecture_definition.md`](<../../../06_Architecture/Definitions/temporal-provenance/architecture_definition.md>)
 - [`06_Architecture/Definitions/official-asset-rights/architecture_definition.md`](<../../../06_Architecture/Definitions/official-asset-rights/architecture_definition.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
+- [`06_Architecture/02_Component_and_Responsibility_Model.md`](<../../../06_Architecture/02_Component_and_Responsibility_Model.md>)
+- [`06_Architecture/03_Boundary_and_Interface_Model.md`](<../../../06_Architecture/03_Boundary_and_Interface_Model.md>)
+- [`06_Architecture/04_Runtime_and_Data_Flow_Model.md`](<../../../06_Architecture/04_Runtime_and_Data_Flow_Model.md>)
+- [`06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`](<../../../06_Architecture/05_Failure_Recovery_and_Resilience_Model.md>)
+- [`06_Architecture/06_Deployment_and_Execution_Model.md`](<../../../06_Architecture/06_Deployment_and_Execution_Model.md>)
+- [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
+- [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
 - [`27_Architecture.md`](<../../../27_Architecture.md>)
 - [`template/06_Architecture/01_Architecture.md`](<../../../template/06_Architecture/01_Architecture.md>)
+- [`template/06_Architecture/02_Component_and_Responsibility_Model.md`](<../../../template/06_Architecture/02_Component_and_Responsibility_Model.md>)
+- [`template/06_Architecture/03_Boundary_and_Interface_Model.md`](<../../../template/06_Architecture/03_Boundary_and_Interface_Model.md>)
+- [`template/06_Architecture/04_Runtime_and_Data_Flow_Model.md`](<../../../template/06_Architecture/04_Runtime_and_Data_Flow_Model.md>)
+- [`template/06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`](<../../../template/06_Architecture/05_Failure_Recovery_and_Resilience_Model.md>)
+- [`template/06_Architecture/06_Deployment_and_Execution_Model.md`](<../../../template/06_Architecture/06_Deployment_and_Execution_Model.md>)
 - [`template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md`](<../../../template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md>)
 - [`template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md`](<../../../template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md>)
 - [`template/06_Architecture/Definitions/responsibility/architecture_definition.md`](<../../../template/06_Architecture/Definitions/responsibility/architecture_definition.md>)
@@ -812,6 +824,27 @@ fingerprint `84ba5ef934944e4c16d2f42b7ef0cbb124515f5dac6f7dfb9d4026df22589071`�
 | 機械反証 | 正式入力への別工程混入、分析欠落、Root台帳・分析・定義の関係不一致をCheckerで拒否する |
 | 図による引継ぎ | Rootへ全体図、横断状態表、Sequence、型／Port、DFD、ER、Schema責務を置き、各定義へ責務別ブロック・状態を置いた |
 
+Architecture定義の再構築後、Qualityが必要とする検証単位、境界、状態・Resource、故障および実行条件をRoot一冊から再構成しにくいことを検出した。個別定義の追加では解消せず、Rootを入口・台帳・Ready判定へ絞り、次の横断モデルを固定構成として追加した。
+
+| 横断モデル | 構造是正 | Qualityへの引渡し |
+|---|---|---|
+| Component／責務 | 17定義を状態Owner、所有／非所有、Portで統合 | UT／Component候補 |
+| 境界／Interface | Component、外部System、Platform、Trust境界とSequenceを統合 | IT／契約／外部境界候補 |
+| Runtime／Data Flow | Data、State、Identity、Authority、ERを統合 | 状態／整合性／情報流候補 |
+| 故障／回復／耐障害 | 部分故障、取消、Retry、Recovery、cleanup、終了条件を統合 | 故障注入／回復／残存候補 |
+| 配置／実行 | 論理実行単位、Resource、並行性、段階的結合を統合 | 実行環境／Timing／Resource候補 |
+
+現行Source、Directory構成、既存試験およびv0.20.1実装はCanonical Architectureの正式入力から外し、Architecture Ready後のReality Audit対象へ分離した。これにより、既存実装からComponentを逆算せず、成立済み能力との照合も失わない。
+
+横断モデルの初回独立レビューは、個別定義が正しくても、統合図・既存試験・機械検査への伝播が未完了であることを検出した。4点を同じArchitecture Closureとして是正した。
+
+| 指摘 | 原因 | 構造是正 | 反証 |
+|---|---|---|---|
+| 読取り専用の実行事実取得へ旧Publisher／Writerが再混入 | 基準版能力と新しいCanonical責務を横断図で混同した | 既存Sourceを現在責務の外側に置き、読取りProjectionだけをCanonical Flowとした | Schema責務とDFDの双方で生成・保存を非所有化 |
+| DFD・状態遷移・ERの意味を一意に再構成できない | 見た目だけの図を正式記法へ変換していなかった | DFDのActor／Process／Store／分類、状態ID・Guard・処置、ERの関係ID・方向・多重度を明示 | Checkerが必須構造と図記号の欠落を拒否 |
+| 既存Test CatalogをCanonical候補の根拠へ誤接続 | Reality AuditとQualityへの新規入力を同じ参照で表した | 既存corridorはv0.20.1詳細設計へ戻し、5横断モデルは未分析のQuality入力として別表化 | Catalog 19件とRepository link検査 |
+| 横断モデルのCheckerが見出し存在しか確認しない | ファイル単位の存在を責務閉包とみなした | 横断節、5成果物の必須構造、Component責務表と17定義の完全一致を検査 | 節全欠落、定義欠落・未知・重複、列欠落、空見出しだけの負例 |
+
 初回独立レビューは、45件の分析を作成しただけでは入力固有の状態・操作・副作用が共通表現へ失われ、7つの大分類には別の状態Ownerやlifecycleが同居していたことを検出した。これは表現改善ではなく、UI／SPECからArchitectureへの意味伝播不成立として扱った。
 
 | 指摘クラスタ | 根本原因 | 構造是正 | 確認方法 |
@@ -853,9 +886,9 @@ fingerprint `84ba5ef934944e4c16d2f42b7ef0cbb124515f5dac6f7dfb9d4026df22589071`�
 | IA Analysis／Definition | 31／21。入力UXごとの利用場面、対象、識別、関係、状態、可視性、導線、責任を保持し、独立レビューCritical 0／Major 0／Moderate 0／Minor 0でPass |
 | UI Analysis／Definition | UX観点31／IA観点21／Definition 19。定型Lifecycle、意味統合不足、横断状態の過剰適用、重複引き渡しを是正し、分析済み／CanonicalとしてSPECへ引き渡し可能 |
 | SPEC Analysis／Definition | UX観点31／IA観点21／Definition 28。取消と判断返却を状態照会へ畳まず、SPEC-000028／000029として追加した。29件のUI／SPEC対応を多対多で定義し、独立再レビューCritical／Major／Moderate／Minor 0でPass |
-| Architecture Analysis／Definition | UI観点19／SPEC観点28／Definition 17をCanonicalとして再構築した。UIとSPECだけを正式入力にし、現行Architectureと実装は成立済み能力との照合先へ分離した。第3回レビューのRoot書込み混在と操作契約不足を上流SPECから是正し、独立再レビューCritical／Major／Moderate／Minor 0でPass |
+| Architecture Analysis／Definition | UI観点19／SPEC観点28／Definition 17をCanonicalとして再構築した。個別定義の独立再レビューはCritical／Major／Moderate／Minor 0でPass済み。Qualityへの引渡し用に5横断モデルを追加し、Rootを入口・台帳・Ready判定へ再編した。横断モデルの指摘を一括是正し、最終再レビューもCritical／Major／Moderate／Minor 0でPass。基本設計を閉じ、詳細設計へ移行する |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 332／332 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、45分析と17定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、旧責務Path不在を検査する。意味の再構築可能性は独立レビューへ分離 |
+| Checker契約試験 | 333／333 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、47分析と17定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、横断節と5成果物、Component責務表と17定義の完全一致を検査する。意味の再構築可能性は独立レビューへ分離 |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |

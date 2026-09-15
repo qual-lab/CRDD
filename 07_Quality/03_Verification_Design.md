@@ -14,6 +14,20 @@
 
 ## 対象と判定
 
+### v0.21 Architecture横断モデルからの入力
+
+この表は新しいCanonical ArchitectureからQuality Analysisへ渡す入力候補である。既存試験との対応付けはArchitecture Ready後のReality Auditで行い、現在の試験カタログをCanonical設計の根拠へ読み替えない。
+
+| Architecture入力 | Qualityが導出する主な検証対象 | 現在状態 | 次の処置 |
+|---|---|---|---|
+| [Component／責務モデル](../06_Architecture/02_Component_and_Responsibility_Model.md) | Component内部契約、状態Owner、所有禁止、Port責務 | 未分析 | Architecture独立レビューPass後にUT／Component候補へ分解 |
+| [境界／Interfaceモデル](../06_Architecture/03_Boundary_and_Interface_Model.md) | Component間、Transport、Repository、外部System、Platformの交換契約 | 未分析 | 境界ごとのContract／IT候補へ分解 |
+| [Runtime／Data Flowモデル](../06_Architecture/04_Runtime_and_Data_Flow_Model.md) | Data分類、状態遷移、相関、欠測、整合性 | 未分析 | 状態／Consistency／情報流の反証へ分解 |
+| [故障／回復／耐障害モデル](../06_Architecture/05_Failure_Recovery_and_Resilience_Model.md) | 部分故障、取消、cleanup、Recovery、再入場、終了後条件 | 未分析 | Fault／Recovery候補へ分解 |
+| [配置／実行モデル](../06_Architecture/06_Deployment_and_Execution_Model.md) | Process、Runtime、並行性、Timing、Resource、段階的結合 | 未分析 | 実境界IT／ST候補へ分解 |
+
+17件のArchitecture定義と5横断モデルを共同入力とし、横断モデルだけから個別責務の検証義務を推定しない。
+
 ### 署名配布物の期限契約
 
 TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gateを一つの確認範囲とする。署名鍵は試験用を使い、開発検証に公式鍵やProvider送信を要求しない。
@@ -69,7 +83,7 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 
 ### Tool結合ブロックと段階的な結合試験
 
-[Tool全体の結合ブロック](../06_Architecture/01_Architecture.md#tool全体の結合ブロック)を結合試験の選択単位とする。ブロックはSource配置ではなく、共同で成立させる状態、Authority、資源、外部境界および終了後条件から定義する。公開機能の主経路だけでなく、取消、cleanup、Recovery、再入場、耐久記録およびsettlementを省略しない。
+[段階的な結合単位](../06_Architecture/06_Deployment_and_Execution_Model.md#4-段階的な結合単位)を結合試験の選択単位とする。ブロックはSource配置ではなく、共同で成立させる状態、Authority、資源、外部境界および終了後条件から定義する。公開機能の主経路だけでなく、取消、cleanup、Recovery、再入場、耐久記録およびsettlementを省略しない。
 
 | 段階 | 確認する範囲 | 合格から主張できないこと |
 |---|---|---|

@@ -278,63 +278,63 @@
     },
     {
       "id": "checker:discovery-to-regression",
-      "architectureAnchor": "06_Architecture/01_Architecture.md#検査と回帰実行",
+      "architectureAnchor": "06_Architecture/checker/01_Architecture.md#7-設計から試験への接続",
       "blockPath": ["checker:repository-verification", "checker:regression-runner"],
       "testIds": ["checker:integration:crdd-check", "checker:integration:regression-runner"],
       "postconditions": ["discovered_scope_matches_execution_plan", "all_child_processes_settled", "partial_run_not_reported_complete"]
     },
     {
       "id": "runtime:objective-to-candidate",
-      "architectureAnchor": "06_Architecture/01_Architecture.md#task実行と公開",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#14-project-runtimeとの接続",
       "blockPath": ["project-runtime:objective-task-lifecycle", "coordinator:provider-task-lifecycle", "coordinator:candidate-publication"],
       "testIds": ["coordinator:integration:project-runtime-full-flow", "coordinator:integration:project-runtime-execution", "coordinator:integration:project-runtime-candidate-integration-adapter"],
       "postconditions": ["authority_narrowing_preserved", "attempt_identity_preserved", "candidate_not_published_before_settlement"]
     },
     {
       "id": "coordinator:provider-to-reviewed-candidate",
-      "architectureAnchor": "06_Architecture/01_Architecture.md#provider実行とreviewer判定",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#10-provider実行と候補",
       "blockPath": ["coordinator:provider-task-lifecycle", "coordinator:reviewer-decision-lifecycle", "coordinator:candidate-publication"],
       "testIds": ["coordinator:integration:coordinator-task-runtime", "coordinator:integration:signed-reviewer-real-boundary", "coordinator:system:signed-reviewer-boundary-verification", "coordinator:system:signed-general-task-verification"],
       "postconditions": ["projection_and_candidate_identity_correlated", "reviewer_and_executor_processes_absent", "candidate_not_published_before_final_approval"]
     },
     {
       "id": "runtime:candidate-to-mcp-result",
-      "architectureAnchor": "06_Architecture/01_Architecture.md#task実行と公開",
+      "architectureAnchor": "06_Architecture/mcp/01_Architecture.md#3-依存と所有権",
       "blockPath": ["coordinator:candidate-publication", "project-runtime:integration-projection", "mcp:public-contract-adapter"],
       "testIds": ["coordinator:integration:project-runtime-candidate-integration-adapter", "coordinator:integration:project-runtime-integration", "mcp:integration:transport-lifecycle"],
       "postconditions": ["canonical_result_not_reinterpreted", "recovery_references_preserved", "unaccepted_candidate_not_exposed"]
     },
     {
       "id": "mcp:contract-to-transport",
-      "architectureAnchor": "06_Architecture/01_Architecture.md#task実行と公開",
+      "architectureAnchor": "06_Architecture/mcp/01_Architecture.md#5-transport-lifecycle",
       "blockPath": ["mcp:public-contract-adapter", "mcp:transport-session"],
       "testIds": ["mcp:integration:transport-lifecycle", "mcp:system:stdio", "mcp:system:streamable-http"],
       "postconditions": ["request_identity_preserved", "disconnect_cancellation_joined", "transport_resources_absent"]
     },
     {
       "id": "runtime:attempt-to-durable-observation",
-      "architectureAnchor": "06_Architecture/01_Architecture.md#実行観測の耐久化",
+      "architectureAnchor": "06_Architecture/execution-intelligence/01_Architecture.md#3-発行と失敗境界",
       "blockPath": ["project-runtime:objective-task-lifecycle", "execution-intelligence:event-publication", "execution-intelligence:durable-store"],
       "testIds": ["coordinator:integration:project-runtime-execution", "execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
       "postconditions": ["task_result_unchanged_by_observation", "event_identity_preserved", "store_failure_not_hidden"]
     },
     {
       "id": "runtime:decision-to-docker-recovery",
-      "architectureAnchor": "06_Architecture/01_Architecture.md#docker回復と再入場",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#11-取消と回復",
       "blockPath": ["project-runtime:decision-recovery", "coordinator:docker-task-recovery", "coordinator:docker-desktop-repair"],
       "testIds": ["coordinator:integration:project-runtime-decision-recovery-store", "coordinator:integration:docker-recovery-runtime", "coordinator:integration:docker-desktop-runtime-repair"],
       "postconditions": ["exact_recovery_identity_preserved", "unknown_effect_not_reissued", "reentry_requires_fresh_observation"]
     },
     {
       "id": "platform:observation-to-desktop-repair",
-      "architectureAnchor": "06_Architecture/01_Architecture.md#docker回復と再入場",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#11-取消と回復",
       "blockPath": ["platform-access:observation-protocol", "platform-access:owned-process-effect", "coordinator:docker-desktop-repair"],
       "testIds": ["platform-access:integration:cli", "coordinator:integration:docker-desktop-native-helper", "coordinator:integration:docker-restart-execution"],
       "postconditions": ["native_identity_preserved", "child_process_cleanup_observed", "helper_result_not_equal_host_recovery"]
     },
     {
       "id": "release:candidate-to-signed-runtime",
-      "architectureAnchor": "06_Architecture/01_Architecture.md#release候補と署名",
+      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#9-署名済み配布物",
       "blockPath": ["coordinator:candidate-publication", "coordinator:release-signing", "platform-access:observation-protocol"],
       "testIds": ["coordinator:integration:release-candidate-preparation", "coordinator:integration:sign-release-manifest", "coordinator:integration:platform-access-release"],
       "postconditions": ["fixed_candidate_identity_preserved", "signing_uses_single_snapshot", "bundled_native_artifact_verified"]
