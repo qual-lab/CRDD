@@ -1994,6 +1994,293 @@ function checkSpecReconstruction(): void {
 
 checkSpecReconstruction();
 
+function checkArchitectureReconstruction(): void {
+  if (repositoryMode !== "official") return;
+  const architectureIndexPath = path.join(
+    root,
+    "06_Architecture",
+    "01_Architecture.md",
+  );
+  if (!lstatIfPresent(architectureIndexPath)?.isFile()) return;
+
+  const sectionBody = (source: string, heading: string): string => {
+    const escaped = heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    return (
+      source.match(
+        new RegExp(`^${escaped}\\s*$([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, "mu"),
+      )?.[1] ?? ""
+    );
+  };
+  const definitionIds = (
+    phase: "04_UI" | "05_SPEC",
+    prefix: "UI" | "SPEC",
+    file: string,
+  ): Set<string> => {
+    const result = new Set<string>();
+    const base = path.join(root, phase, "Definitions");
+    if (!lstatIfPresent(base)?.isDirectory()) return result;
+    for (const entry of fs.readdirSync(base, { withFileTypes: true }))
+      if (
+        entry.isDirectory() &&
+        new RegExp(`^${prefix}-[0-9]{6}$`, "u").test(entry.name) &&
+        lstatIfPresent(path.join(base, entry.name, file))?.isFile()
+      )
+        result.add(entry.name);
+    return result;
+  };
+  const uiIds = definitionIds("04_UI", "UI", "ui_definition.md");
+  const specIds = definitionIds("05_SPEC", "SPEC", "spec_definition.md");
+  const analysisRoot = path.join(root, "06_Architecture", "Analysis");
+  const analysisRelations = new Set<string>();
+  const analyzedUi = new Set<string>();
+  const analyzedSpec = new Set<string>();
+  const actualAnalysisIds = new Set<string>();
+
+  if (lstatIfPresent(analysisRoot)?.isDirectory())
+    for (const entry of fs.readdirSync(analysisRoot, { withFileTypes: true }))
+      if (
+        entry.isDirectory() &&
+        /^(?:UI|SPEC)-[0-9]{6}$/u.test(entry.name) &&
+        lstatIfPresent(
+          path.join(analysisRoot, entry.name, "architecture_analysis.md"),
+        )?.isFile()
+      )
+        actualAnalysisIds.add(entry.name);
+
+  for (const [kind, ids] of [
+    ["UI", uiIds],
+    ["SPEC", specIds],
+  ] as const)
+    for (const id of ids) {
+      const analysisPath = path.join(
+        analysisRoot,
+        id,
+        "architecture_analysis.md",
+      );
+      if (!lstatIfPresent(analysisPath)?.isFile()) {
+        add(
+          "error",
+          "architecture-analysis-missing",
+          relative(analysisPath),
+          `Every canonical ${kind} definition must have exactly one Architecture analysis.`,
+        );
+        continue;
+      }
+      const source = visibleMarkdownStructure(read(analysisPath));
+      const inputSection = sectionBody(source, "## 1. 正式入力");
+      const expectedInput =
+        kind === "UI"
+          ? `../../../04_UI/Definitions/${id}/ui_definition.md`
+          : `../../../05_SPEC/Definitions/${id}/spec_definition.md`;
+      const forbiddenInput =
+        kind === "UI"
+          ? /01_Discovery|02_UX|03_IA|05_SPEC|40_Develop/u
+          : /01_Discovery|02_UX|03_IA|04_UI|40_Develop/u;
+      const requiredHeadings =
+        kind === "UI"
+          ? [
+              "## 2. Architectureへ引き継ぐUI契約",
+              "## 3. Architecture観点の分析",
+              "## 4. Architecture処置",
+              "## 5. SPEC観点との統合時に確認すること",
+            ]
+          : [
+              "## 2. Architectureへ引き継ぐSPEC契約",
+              "## 3. Architecture観点の分析",
+              "## 4. Architecture処置",
+              "## 5. UI観点との統合時に確認すること",
+            ];
+      const disposition = sectionBody(source, "## 4. Architecture処置");
+      const relations = [
+        ...disposition.matchAll(
+          /\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/architecture_definition\.md\)/gu,
+        ),
+      ].map((match) => `${id}|${match[1]}`);
+      if (kind === "UI") analyzedUi.add(id);
+      else analyzedSpec.add(id);
+      for (const relation of relations) analysisRelations.add(relation);
+      if (
+        !source.includes(`成果物種別: Architecture分析（${kind}観点）`) ||
+        !source.includes(`分析単位: \u0060${id}\u0060`) ||
+        !inputSection.includes(expectedInput) ||
+        forbiddenInput.test(inputSection) ||
+        !requiredHeadings.every((heading) => source.includes(heading)) ||
+        relations.length === 0 ||
+        new Set(relations).size !== relations.length
+      )
+        add(
+          "error",
+          "architecture-analysis-contract-invalid",
+          relative(analysisPath),
+          "Each Architecture analysis must use exactly its own UI or SPEC definition as formal input and identify one or more duplicate-free responsibility definitions.",
+        );
+    }
+
+  if (analyzedUi.size !== uiIds.size || analyzedSpec.size !== specIds.size)
+    add(
+      "error",
+      "architecture-analysis-coverage-mismatch",
+      relative(architectureIndexPath),
+      "Architecture must analyze every canonical UI and SPEC definition exactly once.",
+    );
+  const expectedAnalysisIds = new Set([...uiIds, ...specIds]);
+  if (
+    actualAnalysisIds.size !== expectedAnalysisIds.size ||
+    [...actualAnalysisIds].some((id) => !expectedAnalysisIds.has(id)) ||
+    [...expectedAnalysisIds].some((id) => !actualAnalysisIds.has(id))
+  )
+    add(
+      "error",
+      "architecture-analysis-directory-coverage-mismatch",
+      relative(analysisRoot),
+      "Architecture analysis directories and canonical UI/SPEC definitions must be an exact set.",
+    );
+
+  const index = visibleMarkdownStructure(read(architectureIndexPath));
+  const registrySection = sectionBody(index, "## Architecture定義台帳");
+  const registryDefinitions = new Set<string>();
+  const registryDefinitionEntries: string[] = [];
+  const registryRelationEntries: string[] = [];
+  for (const line of registrySection.split(/\r?\n/u)) {
+    const definition = line.match(
+      /\]\(Definitions\/([a-z0-9-]+)\/architecture_definition\.md\)/u,
+    )?.[1];
+    if (!definition) continue;
+    registryDefinitionEntries.push(definition);
+    registryDefinitions.add(definition);
+    for (const input of line.matchAll(/(?:UI|SPEC)-[0-9]{6}/gu))
+      registryRelationEntries.push(`${input[0]}|${definition}`);
+  }
+  const registryRelations = new Set(registryRelationEntries);
+
+  const definitionRoot = path.join(root, "06_Architecture", "Definitions");
+  const actualDefinitions = new Set<string>();
+  const definitionRelations = new Set<string>();
+  const definitionRelationEntries: string[] = [];
+  if (lstatIfPresent(definitionRoot)?.isDirectory())
+    for (const entry of fs.readdirSync(definitionRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^[a-z0-9-]+$/u.test(entry.name)) continue;
+      const definitionPath = path.join(
+        definitionRoot,
+        entry.name,
+        "architecture_definition.md",
+      );
+      if (!lstatIfPresent(definitionPath)?.isFile()) continue;
+      actualDefinitions.add(entry.name);
+      const source = visibleMarkdownStructure(read(definitionPath));
+      const uiSection = sectionBody(source, "## 2. UI観点の入力");
+      const specSection = sectionBody(source, "## 3. SPEC観点の入力");
+      const relations = [
+        ...`${uiSection}\n${specSection}`.matchAll(
+          /\[((?:UI|SPEC)-[0-9]{6})\]\(\.\.\/\.\.\/Analysis\/\1\/architecture_analysis\.md\)/gu,
+        ),
+      ].map((match) => `${match[1]}|${entry.name}`);
+      for (const relation of relations) {
+        definitionRelationEntries.push(relation);
+        definitionRelations.add(relation);
+      }
+      const requiredHeadings = [
+        "## 1. 責務と境界",
+        "## 2. UI観点の入力",
+        "## 3. SPEC観点の入力",
+        "## 4. 両観点の統合判断",
+        "## 5. 構造と依存方向",
+        "## 6. データ・状態・Interface",
+        "## 7. 失敗・回復・観測",
+        "## 8. 品質・保護・運用",
+        "## 9. 互換性・移行・成立済み能力",
+        "## 10. 実装と検証への引き渡し",
+        "## 11. 情報源と現行照合",
+      ];
+      const requiredStructures = [
+        "| 状態Owner |",
+        "| 所有する責務 |",
+        "| 所有しない責務 |",
+        "| 主な外部境界 |",
+        "| 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |",
+        "| 入力 | State Owner | Authority | Effect／非該当 |",
+        "| 入力 | 保護する失敗境界 | 検証可能性 |",
+        "| 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |",
+      ];
+      const hasPlaceholderOnlySection = requiredHeadings.some((heading) => {
+        const body = sectionBody(source, heading).trim();
+        const firstParagraph = body.split(/\n\s*\n/u)[0]?.trim() ?? "";
+        return /^(?:責務|統合|構造|状態|失敗|品質|移行|引渡し|照合)[。.]?$/u.test(
+          firstParagraph,
+        );
+      });
+      if (
+        !source.includes("成果物種別: Architecture定義") ||
+        !requiredHeadings.every((heading) => source.includes(heading)) ||
+        !requiredStructures.every((fragment) => source.includes(fragment)) ||
+        hasPlaceholderOnlySection ||
+        !/UI-[0-9]{6}/u.test(uiSection) ||
+        !/SPEC-[0-9]{6}/u.test(specSection)
+      )
+        add(
+          "error",
+          "architecture-definition-contract-invalid",
+          relative(definitionPath),
+          "Each Architecture definition must integrate at least one UI analysis and one SPEC analysis into a self-contained responsibility definition.",
+        );
+    }
+
+  if (
+    registryDefinitionEntries.length !== registryDefinitions.size ||
+    registryDefinitions.size !== actualDefinitions.size ||
+    [...registryDefinitions].some((id) => !actualDefinitions.has(id)) ||
+    [...actualDefinitions].some((id) => !registryDefinitions.has(id))
+  )
+    add(
+      "error",
+      "architecture-definition-index-coverage-mismatch",
+      relative(architectureIndexPath),
+      "The Architecture registry and responsibility definition directories must be an exact set.",
+    );
+  if (
+    registryRelationEntries.length !== registryRelations.size ||
+    definitionRelationEntries.length !== definitionRelations.size
+  )
+    add(
+      "error",
+      "architecture-relation-duplicate",
+      relative(architectureIndexPath),
+      "Architecture registry and responsibility definitions must not repeat the same input-to-responsibility relation.",
+    );
+  if (
+    analysisRelations.size !== definitionRelations.size ||
+    [...analysisRelations].some(
+      (relation) => !definitionRelations.has(relation),
+    ) ||
+    [...definitionRelations].some(
+      (relation) => !analysisRelations.has(relation),
+    )
+  )
+    add(
+      "error",
+      "architecture-analysis-definition-closure-mismatch",
+      relative(architectureIndexPath),
+      "UI/SPEC analyses and Architecture definitions must expose the same duplicate-free input-to-responsibility relation set.",
+    );
+  if (
+    registryRelations.size !== analysisRelations.size ||
+    [...registryRelations].some(
+      (relation) => !analysisRelations.has(relation),
+    ) ||
+    [...analysisRelations].some((relation) => !registryRelations.has(relation))
+  )
+    add(
+      "error",
+      "architecture-registry-relation-closure-mismatch",
+      relative(architectureIndexPath),
+      "The Architecture registry must expose the same UI/SPEC-to-responsibility relation set as the analyses and definitions.",
+    );
+}
+
+checkArchitectureReconstruction();
+
 let workLifecycleRoots = [
   path.join(root, "99_Roadmap"),
   ...(repositoryMode === "official"

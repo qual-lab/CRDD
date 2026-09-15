@@ -86,6 +86,7 @@ UIは上位状態と根拠の優先度を、SPECは受入・取消・再開条�
 | [SPEC-000002](../../Definitions/SPEC-000002/spec_definition.md) | New | この情報構造を入力・状態・結果・開示条件へ変換する |
 | [SPEC-000003](../../Definitions/SPEC-000003/spec_definition.md) | New | この情報構造を入力・状態・結果・開示条件へ変換する |
 | [SPEC-000006](../../Definitions/SPEC-000006/spec_definition.md) | New | この情報構造を入力・状態・結果・開示条件へ変換する |
+| [SPEC-000029](../../Definitions/SPEC-000029/spec_definition.md) | New | 判断対象、決定権限、現在世代および同じTaskへの再開関係を独立した振る舞いへ変換する |
 
 ## 7. UX観点との統合時に確認すること
 

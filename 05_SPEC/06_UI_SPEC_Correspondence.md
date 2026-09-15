@@ -31,6 +31,8 @@
 | [UI-000019](../04_UI/Definitions/UI-000019/ui_definition.md) | [SPEC-000024](Definitions/SPEC-000024/spec_definition.md) | 操作・Feedbackと契機・結果・失敗を対応レビューする |
 | [UI-000016](../04_UI/Definitions/UI-000016/ui_definition.md) | [SPEC-000026](Definitions/SPEC-000026/spec_definition.md) | 操作・Feedbackと契機・結果・失敗を対応レビューする |
 | [UI-000016](../04_UI/Definitions/UI-000016/ui_definition.md) | [SPEC-000027](Definitions/SPEC-000027/spec_definition.md) | 操作・Feedbackと契機・結果・失敗を対応レビューする |
+| [UI-000002](../04_UI/Definitions/UI-000002/ui_definition.md) | [SPEC-000028](Definitions/SPEC-000028/spec_definition.md) | 取消要求、終了観測、競合および回復義務を対応レビューする |
+| [UI-000002](../04_UI/Definitions/UI-000002/ui_definition.md) | [SPEC-000029](Definitions/SPEC-000029/spec_definition.md) | 判断返却、対象判断点、重複防止および再開条件を対応レビューする |
 
 ## 2. 完了条件
 

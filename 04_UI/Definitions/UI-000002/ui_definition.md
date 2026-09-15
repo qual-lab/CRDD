@@ -112,7 +112,14 @@ SPECはこの表の結論を転記せず、UX観点とIA観点を別々に分析
 
 ## 対応するSPEC
 
-- pairs_with: [SPEC-000002](../../../05_SPEC/Definitions/SPEC-000002/spec_definition.md)、[SPEC-000003](../../../05_SPEC/Definitions/SPEC-000003/spec_definition.md)
+- pairs_with: [SPEC-000002](../../../05_SPEC/Definitions/SPEC-000002/spec_definition.md)、[SPEC-000003](../../../05_SPEC/Definitions/SPEC-000003/spec_definition.md)、[SPEC-000028](../../../05_SPEC/Definitions/SPEC-000028/spec_definition.md)、[SPEC-000029](../../../05_SPEC/Definitions/SPEC-000029/spec_definition.md)
+
+| UI操作 | 対応する振る舞い契約 |
+|---|---|
+| 委任する | SPEC-000002 |
+| 状態と判断要否を見る | SPEC-000003 |
+| 取消す | SPEC-000028 |
+| 判断または追加入力を返す | SPEC-000029 |
 
 UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果をこの節で再定義しない。
 

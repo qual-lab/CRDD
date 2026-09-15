@@ -112,6 +112,7 @@ SPECとArchitectureは回復義務の発生、回復処置、終了後確認、�
 | [SPEC-000005](../../Definitions/SPEC-000005/spec_definition.md) | New | この情報構造を入力・状態・結果・開示条件へ変換する |
 | [SPEC-000016](../../Definitions/SPEC-000016/spec_definition.md) | New | この情報構造を入力・状態・結果・開示条件へ変換する |
 | [SPEC-000017](../../Definitions/SPEC-000017/spec_definition.md) | New | この情報構造を入力・状態・結果・開示条件へ変換する |
+| [SPEC-000028](../../Definitions/SPEC-000028/spec_definition.md) | New | 取消要求、外部作用の終了観測および未確定時の回復義務を独立した振る舞いへ変換する |
 
 ## 7. UX観点との統合時に確認すること
 

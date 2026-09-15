@@ -1,8 +1,8 @@
 # CRDD参照Toolのアーキテクチャ
 
-Status: Candidate (v0.21.0, Released Baseline: v0.20.1)
+Status: Canonical (v0.21.0, Released Baseline: v0.20.1)
 Owner: Qual-Lab
-Last Updated: 2026-09-06
+Last Updated: 2026-09-15
 
 ## 対象・判断・現在状態
 
@@ -12,24 +12,103 @@ CRDD自身が提供するCoordinator Runtime、実行知（Execution Intelligenc
 
 配置変更後の機械検証と独立レビューの結果は[品質の現在状態](../07_Quality/01_Quality_Center.md)へ集約する。この移管を設計工程全体の完了、Runtimeの新しい実測、署名配布物の成立またはReleaseとみなさない。過去の固定実測は当時版への根拠として保持し、配置変更後の配布Identityと正式E2Eは別に確認する。
 
+## 工程入力と再構築方法
+
+Architectureの正式入力は、Canonicalな19件のUI定義と28件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を17のArchitecture定義へ統合した。ただし、状態の所有者、Authority、Effect、失敗領域またはlifecycleが異なる入力はSibling blockと独立した状態機械として保持し、相互流用しない。同じUIまたはSPECが独立した複数責務へ影響する場合は、多対多関係を保持する。
+
+```text
+UI定義 19件 ──→ UI観点のArchitecture分析 19件 ──┐
+                                                     ├─→ Architecture定義 17件
+SPEC定義 28件 → SPEC観点のArchitecture分析 28件 ─┘
+                                                              │
+                                                              ▼
+                                                   現行設計・実装との照合
+```
+
+REQ、UXおよびIAは由来確認に限って参照する。現行Architectureと実装は成立済み能力との照合対象であり、正式入力にない意味を補う根拠にはしない。UIまたはSPECだけでは設計できない場合はArchitectureで推測せず、該当工程へ戻す。
+
+| 入力種別 | 対象数 | 分析済み | 未分析 | 状態 |
+|---|---:|---:|---:|---|
+| UI定義 | 19 | 19 | 0 | 全数分析済み |
+| SPEC定義 | 28 | 28 | 0 | 全数分析済み |
+
+## Architecture定義台帳
+
+| Architecture定義 | 所有する責務 | 入力UI | 入力SPEC | 状態Owner |
+|---|---|---|---|---|
+| [機械検査と文書検査](Definitions/checker-and-document-validation/architecture_definition.md) | 決定論的なRepository検査、文書構造検査、意味レビューへの案内 | UI-000001、UI-000018 | SPEC-000001、SPEC-000023 | Checker CoreとCRDD現行Profile |
+| [契約移行と利用側閉包](Definitions/contract-migration-closure/architecture_definition.md) | 責務移動時の旧Owner、新Owner、Producer、全Consumer、派生物、署名・Release経路の閉包 | UI-000014 | SPEC-000019 | 変更影響分析とConsumer Closure契約 |
+| [変更・監査・試験・品質の閉包](Definitions/quality-change-closure/architecture_definition.md) | 同じ改訂版に対する指摘、是正、試験Evidence、未確認範囲、現在Gateの統合 | UI-000015 | SPEC-000020 | Quality Centerと変更追跡 |
+| [Project実行](Definitions/project-execution/architecture_definition.md) | Objective／Task受付、Project-level状態、判断待ち、取消、Recovery義務、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Project Runtime |
+| [Project・Portfolio状態投影](Definitions/project-state-projection/architecture_definition.md) | Project／Milestone／Objective／Task状態と複数Project比較の読取り投影 | UI-000004 | SPEC-000006、SPEC-000007 | Project Management Projection |
+| [Meeting候補と正本への引渡し](Definitions/meeting-candidate-promotion/architecture_definition.md) | Meeting ItemからTopic／Decision候補を作り、出所と採否を追跡するLifecycle | UI-000009 | SPEC-000013 | Project Operation Context |
+| [実行事実と評価候補の取得](Definitions/execution-fact-retrieval/architecture_definition.md) | 利用可能な実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 | UI-000005 | SPEC-000008 | 実行記録読取りProjection |
+| [実行境界の診断](Definitions/execution-boundary-diagnosis/architecture_definition.md) | 外部境界ごとの到達、受理、開始、結果搬送、終了状態の観測 | UI-000005 | SPEC-000009 | Platform Access診断Port |
+| [Repository境界とBinding](Definitions/repository-binding/architecture_definition.md) | 開始PathからのRepository Root検証、Repository／Project Identity、実行対象Binding | UI-000006 | SPEC-000010 | Version Control PortとRepository Binding Resolver |
+| [Tool CapabilityとAIモデル構成](Definitions/capability-and-model-configuration/architecture_definition.md) | Repositoryに適合するTool能力の発見、AIモデル構成の検証・選択理由 | UI-000010 | SPEC-000014、SPEC-000015 | Capability RegistryとModel Configuration Resolver |
+| [Runtime Dataの配置・保持・清掃](Definitions/runtime-data-lifecycle/architecture_definition.md) | Repository-local .crddとOS管理Runtime Rootの用途、Owner、耐久性、保持、清掃 | UI-000011 | SPEC-000016 | Runtime Data Contract |
+| [公開Transportの意味同一性](Definitions/transport-parity/architecture_definition.md) | decode／encode、接続Lifecycle、公開Application Contractへの搬送 | UI-000007 | SPEC-000011 | MCP／CLI Transport Adapter |
+| [Workspace利用範囲とRepository Federation](Definitions/workspace-access-federation/architecture_definition.md) | CredentialからのSession Grant、Workspace、Repository Exposure、Source-aware Federation | UI-000008 | SPEC-000012 | CROS Session／Workspace Resolver |
+| [Runtime Artifactの信頼評価](Definitions/runtime-artifact-trust/architecture_definition.md) | CRDD準拠、Artifact完全性、Publisher、利用者Trust Policy、公式識別の独立評価 | UI-000013 | SPEC-000018 | Runtime Trust Evaluator |
+| [外部送信・結果帰還・候補採用](Definitions/external-information-lifecycle/architecture_definition.md) | 目的限定の送信同意、最小化送信、同じ依頼への結果帰還、候補隔離、採否 | UI-000016 | SPEC-000021、SPEC-000026、SPEC-000027 | External Information Boundary |
+| [過去情報と現在有効な意図](Definitions/temporal-provenance/architecture_definition.md) | 情報の出所、発生時点、対象改訂版、current／historical／superseded／unknownの解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
+| [公式素材の権利・用途確認](Definitions/official-asset-rights/architecture_definition.md) | 素材の出所、権利確認、許可用途、対象版、決定権限者の記録 | UI-000019 | SPEC-000024 | 公式Repositoryの素材収載判断 |
+
+### 全体構成
+
+```text
+<<利用者／Chat Agent／Coding Agent>>
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+ [公開Transport] [Workspace利用範囲] [Tool・モデル構成]
+        │           │           │
+        └──────┬────┴────┬──────┘
+               ▼         ▼
+         [Project実行] [Project状態投影]
+               │         │
+        ┌──────┼─────────┼──────────┐
+        ▼      ▼         ▼          ▼
+ [実行事実取得] [実行境界診断] [Meeting候補] [Repository Binding]
+        │      │         │          │
+        └──────┴─────────┴────┬─────┘
+                              ▼
+                    [Runtime Data Lifecycle]
+
+ 独立した保護・変更責務
+ ├─ [Runtime Artifact Trust]
+ ├─ [外部情報Lifecycle]
+ ├─ [過去情報と現在意図]
+ ├─ [公式素材の権利]
+ ├─ [契約移行と利用側閉包]
+ ├─ [変更・監査・試験・品質の閉包]
+ └─ [機械検査と文書検査]
+```
+
+矢印は許可された呼出しまたは情報の流れを示す。横断責務は業務処理の上位Controllerではなく、各責務が公開した契約、状態および根拠を、固有のAuthorityを増やさず確認する。
+
 ## 基本図の処置
 
 | 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
 |---|---|---|---|---|---|---|---|---|
-| 全体／内部ブロック図 | CRDD参照Tool群 | Tool間と各Tool内部の責務境界 | 作成 | [Tool全体の結合ブロック](#tool全体の結合ブロック) | v0.21 Candidate | 現行候補 | Workbench内部Blockは未確定 | Group BのArchitectureで追加し、既存図との接続を確認する |
-| 状態遷移表／状態遷移図 | Coordinator、Project Runtime、CROS候補 | 状態、Authority、資源、回復の遷移 | 既存参照 | [Coordinatorの状態と遷移](coordinator/01_Architecture.md#4-状態と遷移)、[Project Runtimeの状態・Authority・資源](project-runtime/01_Architecture.md#6-状態authority資源) | v0.20.1 Baseline＋v0.21 Candidate | 現行。CROSは設計候補 | Workbench状態は未確定 | Group BのArchitectureでWorkBench状態を追加する |
-| ブロック間シーケンス図 | Tool間の主要結合経路 | Identity、Authority、結果、cleanupの順序 | 作成 | [ブロック間シーケンスの正本](#ブロック間シーケンスの正本) | v0.20.1 Baseline＋v0.21 Candidate | 現行 | Workbench経路は未作成 | Group BのArchitectureで追加する |
-| クラス／型関係図 | CRDD参照Tool群 | 公開型、内部型、所有関係の可視化 | 作成不能 | 内部Block図は型関係図ではなく、Tool群横断の型所有関係は未作成 | v0.21 Candidate | 未作成 | 公開Application ContractとWorkbench型 | Group Bで型が確定した後に作成要否を再評価する |
-| データフロー図（DFD） | CROS候補 | RepositoryからProjection、MCP／WorkbenchまでのData Flow | 既存参照 | [CROSのデータフロー](cros/01_Architecture.md#10-データフロー) | v0.21 Candidate | CROS候補のみ作成済み | Tool群全体のDFDは未作成 | Group BのArchitectureでWorkbench範囲を更新し、全体DFDの必要性を再評価する |
-| エンティティ関係図（ER図） | Project Operation Context | Project、Repository、Binding、責務領域の多重度 | 作成不能 | [IdentityとRepository Relation](project-operation/01_Architecture.md#2-identityとrepository-relation)は概念関係図であり、ER図の多重度と関係制約を満たさない | v0.21 Candidate | 概念関係のみ作成済み | Entity多重度、必須／任意、所有境界 | Group BのArchitectureでProject Operation Schema確定後に作成する |
-| スキーマ責務図（Schema Responsibility Map） | Project Operation／CROS公開契約 | Canonical Schema、Owner、Producer、Consumer、変換境界 | 作成不能 | 責務表は存在するが、Schema単位のOwner・Producer・Consumer対応図は未作成 | v0.21 Candidate | 未作成 | Workbench公開契約と永続Schema | Group BのArchitectureでSchema確定後に作成する |
+| 全体／内部ブロック図 | CRDD参照Tool群 | Tool間と各Tool内部の責務境界 | 作成 | [全体構成](#全体構成)、[Tool全体の結合ブロック](#tool全体の結合ブロック) | v0.21 Candidate | 作成済み | 実装との全数対応 | Architecture独立レビューで確認する |
+| 状態遷移表／状態遷移図 | 17のArchitecture責務 | 状態、Authority、資源、回復の遷移 | 作成 | [横断状態表](#横断状態表)および各[Architecture定義](#architecture定義台帳) | v0.21 Candidate | 作成済み | 部品固有の実状態値との対応 | 詳細設計・実装照合で確認する |
+| ブロック間シーケンス図 | Tool間の主要結合経路 | Identity、Authority、結果、cleanupの順序 | 作成 | [ブロック間シーケンスの正本](#ブロック間シーケンスの正本) | v0.21 Candidate | 作成済み | Workbench実装後の物理Process | 実装時に論理Sequenceとの一致を確認する |
+| クラス／型関係図 | 公開Contract、Core、Port、Adapter | 交換境界と依存方向 | 作成 | [型とPortの関係](#型とportの関係) | v0.21 Candidate | 論理型を作成済み | 物理型名は未確定 | 実装時に対応表を追加する |
+| データフロー図（DFD） | Repository、Runtime、外部境界 | 情報分類と保存・公開境界 | 作成 | [主要データフロー](#主要データフロー) | v0.21 Candidate | 作成済み | Workbenchの物理通信方式 | Transport選択時に再評価する |
+| エンティティ関係図（ER図） | Project Operation Context | Project、Repository、Workspace、Taskの多重度 | 作成 | [主要Entity関係](#主要entity関係) | v0.21 Candidate | 概念Entityを作成済み | 物理Schema | 永続化設計時に具体化する |
+| スキーマ責務図（Schema Responsibility Map） | 公開契約、状態、観測、候補、投影 | Canonical Owner、Writer、Reader | 作成 | [Schema責務](#schema責務) | v0.21 Candidate | 作成済み | 物理field | 実装前のContract Reviewで具体化する |
 
-## 構成と責務
+## v0.20.1成立済み能力との比較
+
+ここから「現行候補で固定する依存方向」までは、公開済み基準版に既に存在するTool能力を、正式入力から導いた現在設計と比較するための照合情報である。実行Eventの生成・永続化、署名、Docker回復などの成立済み能力を、現在のUI／SPECから新しく導いた責務として扱わない。
+
+### 構成と責務
 
 | 対象 | 所有する責務 | 接続・制限 |
 |---|---|---|
 | Coordinator | Repository／Revision、実行編成、Authority、隔離候補、結果・回収の調整 | [状態・資源・Lock・回復設計](coordinator/01_Architecture.md)。Providerの自己申告を実行許可にせず、MCP Transportを所有しない |
-| 実行知 | 仕事Identityへ結合した実行Event、欠測を保つ集約、非Authority改善候補、Repository-local保存と清掃 | [実行知のアーキテクチャ](execution-intelligence/01_Architecture.md)。Coordinator、MCP、Provider SDKまたはProject Stateを所有しない |
+| 実行知（基準版能力） | 仕事Identityへ結合した実行Event、欠測を保つ集約、非Authority改善候補、Repository-local保存と清掃 | [実行知のアーキテクチャ](execution-intelligence/01_Architecture.md)。現在のCanonicalな読取り責務は記録生成・保存を所有せず、この行は基準版Capability比較に限る |
 | 成果物署名 | 鍵参照の事前固定、direct TTY秘密入力、任意byte列のEd25519署名、秘密byte消去 | [成果物署名](artifact-signing/01_Architecture.md)。Manifest Schema、Runtime Identity、Publisher Policyまたは配置を所有しない |
 | Windowsプラットフォームアクセス | TypeScriptだけで閉じないOS観測と限定native操作 | [native境界・資源・回復の設計](platform-access/01_Architecture.md)、[脅威モデル](coordinator/02_Threat_Model.md)。一般PolicyやCLI責務をRustへ移さない |
 | Checker | 文書・参照・契約の決定論的確認 | [検査範囲・配布・終了の設計](checker/01_Architecture.md)。private packageが配布正本を参照し、Checker合格を専門レビューや準拠承認にしない |
@@ -240,16 +319,16 @@ Project Runtime    Docker Task回復    Platform観測／所有Process    Docker
 
 署名入口は単一snapshotを使用し、Consumer側でPathまたはRuntime Identityを再解釈しない。preflight完了前に秘密入力を要求せず、署名または配置の不成立をpromotionへ進めない。
 
-### v0.20で固定する依存方向
+### 現行候補で固定する依存方向
 
-次の図はv0.20で目指す全体構成と依存方向を示す。図は責務境界の正本であり、各要素の実装済み・計画中という到達状態は、個別設計と対応するCHGで判定する。MCP Streamable HTTP、読み取り専用Project State投影および限定分散実行は、図に含まれていても単体の存在だけで完成とは扱わない。
+次の図はv0.20.1で成立済みの実行構成を、v0.21候補の責務境界へ照合した依存方向を示す。図は物理file一覧ではなく、現行実装が新しいArchitecture定義のどこへ接続するかを確認するために使う。図に存在することだけで実装済みまたは完成とは扱わない。
 
 ```text
 利用者／外部Actor
         │
         ├──────── CLI
         ├──────── MCP stdio
-        └──────── MCP Streamable HTTP（v0.20実装中）
+        └──────── MCP Streamable HTTP
                          │
                   Transport Adapter
              decode／encode／接続lifecycle／取消通知
@@ -298,11 +377,132 @@ Project Runtime    Docker Task回復    Platform観測／所有Process    Docker
 
 MCP stdio、MCP Streamable HTTPおよびCLIは、Transport固有のdecode、encode、接続lifecycleおよび取消通知だけを担うAdapterとする。MCPを公開意味契約の所有者にせず、Transport非依存の公開アプリケーション契約をProject Runtimeの手前に置く。公開アプリケーション契約が所有できるのは、外部ActorがProject Runtimeへ渡す意図、結果、継続に必要な非Authority参照およびそれらの意味相関に限る。内部Event、実行知のTelemetry、Provider契約、管理操作またはProject正本を取り込まない。
 
-Launcherはpackageの数に合わせて作らず、利用者が独立して開始・終了する公開アプリケーションにだけ置く。v0.20ではChecker、Coordinator、MCP Serverの3入口を`template/tools/`に固定する。Project Runtimeと実行知は公開API、Platform AccessはCoordinatorが所有するnative workerとして接続し、単独Processとして利用する要件が確定するまでLauncherを追加しない。単一の巨大な総合Launcherにも集約せず、検査、外部接続および実行編成で異なるAuthority、lifecycle、失敗影響を保つ。
+Launcherはpackageの数に合わせて作らず、利用者が独立して開始・終了する公開アプリケーションにだけ置く。v0.20.1の基準版ではChecker、Coordinator、MCP Serverの3入口を`template/tools/`に固定した。Project Runtimeと実行知は公開API、Platform AccessはCoordinatorが所有するnative workerとして接続し、単独Processとして利用する要件が確定するまでLauncherを追加しない。単一の巨大な総合Launcherにも集約せず、検査、外部接続および実行編成で異なるAuthority、lifecycle、失敗影響を保つ。
 
 Project Runtimeは必要な実行能力をExecution Portとして定義し、Coordinator固有型へ依存しない。Coordinator AdapterがそのPortを実装し、Provider選定、隔離、実行、独立Review、候補および回収を編成する。物理Directoryまたはpackageの分離は、この依存方向とAuthority所有を契約試験で固定した後に行う。ファイル移動だけを責務分離と扱わない。
 
 読み取り専用のProject State投影は、現在状態、実行中／待機、停止理由、人間判断待ち、回復義務および現在のQueue／実行状態に限る。WBS、Risk／Issue、Topic、予測および入力済み進捗を、最小投影の成立から暗黙に追加しない。
+
+## UI／SPECから導く現在のCanonical Architecture
+
+以下は19件のUI定義と28件のSPEC定義を正式入力として導いた現在の責務、状態、Portおよびデータ関係である。基準版Toolに存在する能力でも、正式入力にない生成・永続化方式はここへ補完しない。
+
+### 横断状態表
+
+この表は責務をまたぐ主要な状態移送だけを所有する。実行、読取り投影、分類、清掃および再接続を分け、読取りや分類からRecovery IdentityまたはEffect Authorityを生成しない。
+
+| 経路 | 現在状態 | 契機 | Authority／Effect | 次状態 | 失敗時・終了後 |
+|---|---|---|---|---|---|
+| 実行 | 未受付 | Objectiveを委任する | 委任Authorityを検証。受付だけではProvider Effectなし | 受付済み | 不成立はEffect 0 |
+| 実行 | 受付済み | 実行開始を要求する | 実行AuthorityでProvider Effectを発行 | 実行中 | Attempt Identityと開始有無を保持 |
+| 実行 | 実行中 | 結果または失敗を観測する | 新しいAuthorityを発行しない | 結果候補／Recovery必要 | Effect不明を保持し、必要時だけexact Recovery Identityを発行 |
+| 判断返却 | 判断待ち | exactな判断点へ判断または追加入力を返す | 判断点に結合した人間の決定権限で一回記録。同じTaskへ再開可能通知 | 判断記録済み／再開可能／blocked | 古い世代、別判断点、重複、競合ではEffect 0。新規Task／Attemptを作らない |
+| 取消 | 実行中／判断待ち | exactなTask／Attemptの取消を要求する | 対象限定の取消権限で一回発行。新規Provider実行なし | 取消要求済み／取消完了／完了結果／回復必要 | 要求受理を終了とみなさず、終了と資源回収を観測する |
+| 読取り投影 | 未観測 | Project／実行記録を照会する | 閲覧Authorityのみ。正本・記録Effectなし | 完全／部分／制限／古い／競合／不明 | Recovery非該当。Source・時点・Coverageを返す |
+| 分類 | 既存失敗あり | 再試行／回復可否を判定する | 分類自体はEffect 0 | retryable／recovery_required／manual_decision | 判定不能を自動再試行へ丸めない |
+| 清掃 | 清掃候補 | exact資源とCapabilityを確認する | cleanup Capabilityだけで削除Effect | cleaned／recovery_required | 終了後不存在を観測する |
+| 再接続 | 既存結果あり | 同じRequestへ戻る | 閲覧・再接続Authorityのみ。新規実行Authorityなし | result_available／still_running／unavailable | 結果不明時に新規実行しない |
+| 外部送信 | authorized | 最小化情報を送る | 送信Authorityで外部送信Effect | sent／effect_unknown | 結果採用Authorityは発行しない |
+| 外部結果受領 | sent | 同じRequestの結果を受ける | 受領・相関のみ。送信／正本Effectなし | candidate | 別Requestを混ぜない |
+| 候補採用 | candidate | 人間が採否を決める | 採用Authorityでのみ正本更新Effect | adopted／rejected／pending | 送信同意を採用へ流用しない |
+
+### 型とPortの関係
+
+```text
+interface PublicApplicationContract {
+  submit(request): StructuredResult
+  observe(reference): StructuredResult
+}
+
+interface ExecutionPort {
+  execute(task, authority): AttemptResult
+}
+
+interface RepositoryPort {
+  resolve(binding): RepositoryObservation
+}
+
+interface ExecutionRecordSourcePort {
+  read(query): ExecutionRecordObservation
+}
+
+interface ExecutionFactProjection {
+  resolve(observation): StructuredResult
+}
+
+PublicApplicationContract <|.. ProjectRuntime
+ExecutionPort <|.. CoordinatorAdapter
+RepositoryPort <|.. VersionControlAdapter
+ExecutionRecordSourcePort <|.. ExecutionRecordAdapter
+
+ProjectRuntime --> ExecutionPort : 実行能力 [1]
+ProjectRuntime --> RepositoryPort : Repository観測 [1]
+ExecutionFactProjection --> ExecutionRecordSourcePort : 既存記録を読取る [1]
+TransportAdapter --> PublicApplicationContract : 意味を変えず利用 [1]
+```
+
+論理Port名は交換境界を示す。実装時の型名をこの図だけから固定せず、同じ依存方向と不変条件を保つ。
+
+### 主要データフロー
+
+```text
+<<利用者／Agent>>
+   ├─ {閲覧許可} 参照要求 ──> (読取りProjection) ──> [(既存Source)]
+   │                              │
+   │                              └─ {Effect 0} 根拠・不足・時点 ──> <<利用者／Agent>>
+   │
+   └─ {委任Authority} Objective ──> (Project実行) ──> (Coordinator／Provider)
+                                      │                      │
+                                      │                      └─ {外部Effect} Provider
+                                      └─ {候補} Result ──> [(Candidate)]
+
+外部情報経路
+(送信同意・最小化) ── {外部送信Effect} ──> <<外部先>>
+<<外部先>> ── {未信頼結果} ──> (受領・相関) ──> [(Candidate)]
+[(Candidate)] ── {人間の採用Authority} ──> [(所有正本)]
+
+禁止: 読取りProjection -x 記録生成／正本更新／Recovery Authority
+禁止: 結果受領 -x 外部再送信／自動採用
+```
+
+制御順序はDFDではなく、ブロック間シーケンスと横断状態表が所有する。
+
+### 主要Entity関係
+
+```text
+[ER1: Project] [1] -- R1: Repositoryを束ねる --> [1..*] [ER2: Repository]
+[ER3: Workspace] [1] -- R2: Repositoryを公開する --> [0..*] [ER2]
+[ER4: Session] [1] -- R3: Workspace Grantを持つ --> [1..*] [ER3]
+[ER1] [1] -- R4: Objectiveを持つ --> [0..*] [ER5: Objective]
+[ER5] [1] -- R5: Taskへ分解する --> [0..*] [ER6: Task]
+[ER6] [1] -- R6: Attemptを持つ --> [0..*] [ER7: Attempt]
+[ER1] [1] -- R7: Topic／Meetingを関連付ける --> [0..*] [ER8: Project Context]
+[ER8] [1] -- R8: 候補を生む --> [0..*] [ER9: Candidate]
+```
+
+Project IDとRepository IDは別Identityである。Repository分離は情報境界に使えるが、同じProjectへの関係だけから閲覧Authorityを生成しない。
+
+### Schema責務
+
+```text
+[SR1: Project Runtime] owns {Objective／Task／判断／Recovery状態}
+[SR2: Coordinator] owns {Provider計画／Attempt実行／候補回収}
+[SR3: Project Operation] owns {Project／Repository関係／Topic／Meeting}
+[SR4: CROS] owns {Workspace／Exposure／Session Grant／Federation結果}
+[SR5: Execution Intelligence] owns {観測Event／集約／評価候補}
+[SR6: Trust Boundary] owns {検証Evidence／送信許可／Promotion判断参照}
+
+[SR2] -- references {Task／Recovery Identity} --> [SR1]
+[SR4] -- references {Project／Repository Identity} --> [SR3]
+[SR5] -- references {Task／Attempt Identity} --> [SR1]
+[SR6] -- references {Candidate／Artifact Identity} --> [SR2]
+
+[SR7: Transport Adapter] -x owns {Project Runtime公開契約}
+[SR8: Projection] -x owns {各Repository正本}
+[SR9: Execution Event] -x owns {Task状態／Authority}
+```
+
+物理fieldとJSON Schemaは各公開契約または保存契約で定める。複数Schemaに同じ概念を複製せず、ConsumerはCanonicalなPath、Identityおよび状態を再解釈しない。
 
 ## 状態・資源・信頼境界
 
@@ -310,7 +510,7 @@ Coordinatorの中心経路は、固定配布物とRepositoryを検証し、必�
 
 共有・永続資源は取得者、Lock順序、失効、取消後の責務、終了確認を持つ。成功通知だけで資源不存在を推定せず、回復不明は停止・Evidence保持・処置可能なIDの返却へ閉じる。具体的な[実行順序](coordinator/01_Architecture.md#3-主実行シーケンス)、[資源所有](coordinator/01_Architecture.md#4-資源所有)、[Lock](coordinator/01_Architecture.md#5-lock順序と解放窓)、[回収順](coordinator/01_Architecture.md#7-cleanup依存順)、[不変条件](coordinator/01_Architecture.md#8-不変条件)は詳細正本から辿る。
 
-Provider実行の方式はWindows上のDocker Desktop Linux Engineと固定公式CLI、専用認証Home、限定Egressである。Project Runtimeの公開入口にはMCP stdio Adapterが接続済みであり、v0.20では同じ公開アプリケーション契約へ到達するlocalhost限定のMCP Streamable HTTP Adapterを実装中である。Linux／Remote Runtime、macOSおよびSelf-hosted Providerはv0.20の対象外とし、将来の検証可能性を損なわない境界だけを維持する。API key課金へのfallback、任意外部ツール、直接Provider間spawn、正本への自動commit／push／mergeを、実行知の分離やAdapterの存在から追加しない。
+v0.20.1基準版のProvider実行は、Windows上のDocker Desktop Linux Engine、固定公式CLI、専用認証Home、限定Egressを用いる。Project Runtimeの公開入口には、同じ公開アプリケーション契約へ到達するMCP stdio Adapterとlocalhost限定のMCP Streamable HTTP Adapterが接続済みである。v0.21のRemote MCP／CROS候補はこの契約を再利用するが、接続、認証、Workspace Grant、Repository Exposureの成立を基準版から推定しない。Linux／Remote Runtime、macOSおよびSelf-hosted Providerは現在の実装対象外とし、将来の検証可能性を損なわない境界だけを維持する。API key課金へのfallback、任意外部ツール、直接Provider間spawn、正本への自動commit／push／mergeを、実行知の分離やAdapterの存在から追加しない。
 
 ## 検証義務・未確認範囲・引渡し
 

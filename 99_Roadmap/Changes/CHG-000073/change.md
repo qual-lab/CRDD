@@ -25,8 +25,10 @@
 | UI分析 | 単一文書がUX、IA、現行実装および過去の操作契約を混在して説明 | 31件の`Analysis/UX-ID/ui_analysis.md`が利用者成果・操作・Feedbackを、21件の`Analysis/IA-ID/ui_analysis.md`が情報・状態・関係・可視性・導線を別々に全数分析する。相手側の不足を暗黙に補完せず、UI定義で初めて統合する |
 | UI出力 | 現行操作、将来Workbench候補、表示品質、UI／SPEC対応が単一Root文書に混在 | 19件の`Definitions/UI-ID/ui_definition.md`へ独立した利用者Interface契約を統合し、Root文書は台帳・Coverage・Navigation、横断文書は表示面・状態・視覚方針・SPEC引渡し、現行実装は別参照へ分ける |
 | SPEC分析 | 単一文書がUX成果、IA構造、現行実装、UI対応および振る舞い詳細を混在して説明 | 31件の`Analysis/UX-ID/spec_analysis.md`と21件の`Analysis/IA-ID/spec_analysis.md`で正式入力を別々に分析し、REQ・相手観点・現行実装から不足を補完しない |
-| SPEC出力 | 巨大な単一Root文書が現在有効な振る舞い、旧経緯、横断図および現行実装参照を所有 | 26件の`Definitions/SPEC-ID/spec_definition.md`へ独立した観測可能な振る舞い契約を統合し、Root文書は台帳・Coverage・横断図、現行実装との照合は`07_Current_Behavior_Reference.md`へ分ける。実行事実は上流から導ける取得契約へ統合し、上流にない永続記録方式を追加しない。外部送信、結果帰還、候補昇格、再接続は、Authority・副作用・入力UXが異なるため分割する |
+| SPEC出力 | 巨大な単一Root文書が現在有効な振る舞い、旧経緯、横断図および現行実装参照を所有 | 28件の`Definitions/SPEC-ID/spec_definition.md`へ独立した観測可能な振る舞い契約を統合し、Root文書は台帳・Coverage・横断図、現行実装との照合は`07_Current_Behavior_Reference.md`へ分ける。実行事実は上流から導ける取得契約へ統合し、上流にない永続記録方式を追加しない。外部送信、結果帰還、候補昇格、再接続、取消、判断返却は、Authority・副作用・入力UXが異なるため分割する |
 | UI／SPEC入力境界 | 下流工程がREQを直接読み、UX／IAの不足を暗黙に補完し得る | UIとSPECはUX＋IAを共通の正式入力として別々に分析する。REQはUXより上流の追跡情報に限定し、不足時はUXまたはIAを再開する |
+| Architecture分析 | 現行部品設計と実装を先に読み、上流の利用者Interfaceや振る舞いを後追いで説明し得る | 19件のUI定義と28件のSPEC定義を正式入力として別々に全数分析する。REQ、UX、IA、現行Architectureおよび実装から不足を補完しない |
+| Architecture出力 | Rootの全体設計とTool別設計が増築され、UI／SPECから各責務へ至る判断が追えない | 同じ上位責務境界に属する入力を17件の`Definitions/<responsibility>/architecture_definition.md`へ統合する。ただしState Owner、Authority、Effect、失敗領域またはlifecycleが異なる入力はSibling blockと独立状態機械として保持する。Rootは台帳、全体図、横断状態、結合Sequence、型、DFD、ER、Schema責務を投影し、既存Tool設計は成立済み能力との照合対象にする |
 | 工程Root | 個別本文と工程全体像が混在し得る | `01_*`は入口・台帳・Coverage・Current State・Navigation、その他Root文書は横断合成 |
 | Evidence | 工程共通の空Folderをひな型へ先置き | 必要な所有対象のID直下だけに作成。実行結果はCHG／Release Evidenceが所有 |
 
@@ -373,6 +375,7 @@
 - [`template/03_IA/Definitions/IA-XXXXXX/ia_definition.md`](<../../../template/03_IA/Definitions/IA-XXXXXX/ia_definition.md>)
 - `template/03_IA/Evidence/.gitkeep`（削除または旧Path）
 - [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
+- [`template/AGENTS.md`](<../../../template/AGENTS.md>)
 - [`99_Roadmap/Changes/CHG-000073/change.md`](<../../../99_Roadmap/Changes/CHG-000073/change.md>)
 
 - [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
@@ -548,12 +551,84 @@
 - [`05_SPEC/Definitions/SPEC-000024/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000024/spec_definition.md>)
 - [`05_SPEC/Definitions/SPEC-000026/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000026/spec_definition.md>)
 - [`05_SPEC/Definitions/SPEC-000027/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000027/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000028/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000028/spec_definition.md>)
+- [`05_SPEC/Definitions/SPEC-000029/spec_definition.md`](<../../../05_SPEC/Definitions/SPEC-000029/spec_definition.md>)
 - [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
 - [`README.md`](<../../../README.md>)
 - [`template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md`](<../../../template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md>)
 - [`template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md`](<../../../template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md>)
 - [`template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md`](<../../../template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md>)
 - `template/05_SPEC/Evidence/.gitkeep`（削除または旧Path）
+- [`06_Architecture/Analysis/UI-000001/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000001/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000002/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000002/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000003/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000003/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000004/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000004/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000005/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000005/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000006/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000006/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000007/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000007/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000008/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000008/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000009/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000009/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000010/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000010/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000011/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000011/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000012/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000012/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000013/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000013/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000014/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000014/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000015/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000015/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000016/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000016/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000017/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000017/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000018/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000018/architecture_analysis.md>)
+- [`06_Architecture/Analysis/UI-000019/architecture_analysis.md`](<../../../06_Architecture/Analysis/UI-000019/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000001/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000001/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000002/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000002/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000003/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000003/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000004/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000004/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000005/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000005/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000006/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000006/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000007/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000007/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000008/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000008/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000009/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000009/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000010/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000010/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000011/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000011/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000012/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000012/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000013/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000013/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000014/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000014/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000015/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000015/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000016/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000016/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000017/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000017/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000018/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000018/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000019/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000019/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000020/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000020/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000021/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000021/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000022/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000022/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000023/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000023/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000024/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000024/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000026/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000026/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000027/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000027/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000028/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000028/architecture_analysis.md>)
+- [`06_Architecture/Analysis/SPEC-000029/architecture_analysis.md`](<../../../06_Architecture/Analysis/SPEC-000029/architecture_analysis.md>)
+- [`06_Architecture/Definitions/checker-and-document-validation/architecture_definition.md`](<../../../06_Architecture/Definitions/checker-and-document-validation/architecture_definition.md>)
+- [`06_Architecture/Definitions/contract-migration-closure/architecture_definition.md`](<../../../06_Architecture/Definitions/contract-migration-closure/architecture_definition.md>)
+- [`06_Architecture/Definitions/quality-change-closure/architecture_definition.md`](<../../../06_Architecture/Definitions/quality-change-closure/architecture_definition.md>)
+- [`06_Architecture/Definitions/project-execution/architecture_definition.md`](<../../../06_Architecture/Definitions/project-execution/architecture_definition.md>)
+- [`06_Architecture/Definitions/project-state-projection/architecture_definition.md`](<../../../06_Architecture/Definitions/project-state-projection/architecture_definition.md>)
+- [`06_Architecture/Definitions/meeting-candidate-promotion/architecture_definition.md`](<../../../06_Architecture/Definitions/meeting-candidate-promotion/architecture_definition.md>)
+- [`06_Architecture/Definitions/execution-fact-retrieval/architecture_definition.md`](<../../../06_Architecture/Definitions/execution-fact-retrieval/architecture_definition.md>)
+- [`06_Architecture/Definitions/execution-boundary-diagnosis/architecture_definition.md`](<../../../06_Architecture/Definitions/execution-boundary-diagnosis/architecture_definition.md>)
+- [`06_Architecture/Definitions/repository-binding/architecture_definition.md`](<../../../06_Architecture/Definitions/repository-binding/architecture_definition.md>)
+- [`06_Architecture/Definitions/capability-and-model-configuration/architecture_definition.md`](<../../../06_Architecture/Definitions/capability-and-model-configuration/architecture_definition.md>)
+- [`06_Architecture/Definitions/runtime-data-lifecycle/architecture_definition.md`](<../../../06_Architecture/Definitions/runtime-data-lifecycle/architecture_definition.md>)
+- [`06_Architecture/Definitions/transport-parity/architecture_definition.md`](<../../../06_Architecture/Definitions/transport-parity/architecture_definition.md>)
+- [`06_Architecture/Definitions/workspace-access-federation/architecture_definition.md`](<../../../06_Architecture/Definitions/workspace-access-federation/architecture_definition.md>)
+- [`06_Architecture/Definitions/runtime-artifact-trust/architecture_definition.md`](<../../../06_Architecture/Definitions/runtime-artifact-trust/architecture_definition.md>)
+- [`06_Architecture/Definitions/external-information-lifecycle/architecture_definition.md`](<../../../06_Architecture/Definitions/external-information-lifecycle/architecture_definition.md>)
+- [`06_Architecture/Definitions/temporal-provenance/architecture_definition.md`](<../../../06_Architecture/Definitions/temporal-provenance/architecture_definition.md>)
+- [`06_Architecture/Definitions/official-asset-rights/architecture_definition.md`](<../../../06_Architecture/Definitions/official-asset-rights/architecture_definition.md>)
+- [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
+- [`27_Architecture.md`](<../../../27_Architecture.md>)
+- [`template/06_Architecture/01_Architecture.md`](<../../../template/06_Architecture/01_Architecture.md>)
+- [`template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md`](<../../../template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md>)
+- [`template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md`](<../../../template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md>)
+- [`template/06_Architecture/Definitions/responsibility/architecture_definition.md`](<../../../template/06_Architecture/Definitions/responsibility/architecture_definition.md>)
 
 </details>
 
@@ -726,13 +801,44 @@ fingerprint `84ba5ef934944e4c16d2f42b7ef0cbb124515f5dac6f7dfb9d4026df22589071`�
 
 再々レビューは、19 UI定義の旧引き渡し節がすべて廃止され、`両観点の統合判断`が唯一のUI意味正本であること、37件のUX×IA関係が統合判断と対応レビュー入力で完全一致すること、横断文書が個別UIの適用範囲を優先することを確認した。結果はCritical 0／Major 0／Moderate 0／Minor 0でPassしたため、52分析を分析済み、19定義をCanonicalへ昇格し、UI工程をSPECへ引き渡す。
 
+### Architecture再構築
+
+| 確認したこと | 結果 |
+|---|---|
+| 正式入力 | UI定義19件、SPEC定義28件だけを正式入力として固定した |
+| 分析網羅 | UI観点19件、SPEC観点28件を別々に分析し、未分析0件 |
+| 責務統合 | 同じ上位責務境界に属する結果を17のArchitecture定義へ統合した。状態Owner、Authority、Effect、失敗領域またはlifecycleが異なる入力はSibling blockと独立状態機械として保持した |
+| 現行照合 | 既存Tool設計を正式入力ではなく、成立済み能力・移行対象・未接続範囲の照合先として接続した |
+| 機械反証 | 正式入力への別工程混入、分析欠落、Root台帳・分析・定義の関係不一致をCheckerで拒否する |
+| 図による引継ぎ | Rootへ全体図、横断状態表、Sequence、型／Port、DFD、ER、Schema責務を置き、各定義へ責務別ブロック・状態を置いた |
+
+初回独立レビューは、45件の分析を作成しただけでは入力固有の状態・操作・副作用が共通表現へ失われ、7つの大分類には別の状態Ownerやlifecycleが同居していたことを検出した。これは表現改善ではなく、UI／SPECからArchitectureへの意味伝播不成立として扱った。
+
+| 指摘クラスタ | 根本原因 | 構造是正 | 確認方法 |
+|---|---|---|---|
+| 入力固有契約の欠落 | 見出し構造だけを写し、UIの状態差とSPECの副作用適用可否を分析へ保持しなかった | UIは成果・表示・操作・状態差・アクセシビリティ・制約、SPECは目的・契機・Authority・状態・副作用・検証義務を正式入力からそのまま保持する | UI-000004、UI-000005、読取り専用SPECを含む45分析を再レビューする |
+| 7分類への過剰統合 | 話題の近さを責務同一性とみなし、Owner、Authority、Effect、失敗、lifecycleの差を失った | 独立状態機械を17責務へ分け、UI-000005のような多対多関係を許容する | Root台帳・分析・定義のRelation集合を機械的に完全一致させる |
+| 定義の自己完結不足 | 参照先と一般的な設計語だけで定義を構成した | 各定義へ所有／非所有、入力別7軸比較、block、状態遷移、失敗、非該当、成立済み能力比較、実装引渡しを置く | 定義だけから責務境界と検証義務を再構成する独立レビューを行う |
+| 基準版能力との比較不足 | 現行設計へのLinkを置くだけで保持・新規・Gapを比較しなかった | 基準版Capability、旧照合先、新Owner、保持状態、Evidence、Gapを責務ごとに明示する | v0.20.1の成立済み能力を削除・置換していないことを照合する |
+| Checker正例が弱い | 見出しと短いPlaceholderでも正例になった | 実際の状態・Authority・Effect・失敗境界を持つ正例へ変更し、多対多関係の重複と欠落を別々に拒否する | Checker契約試験とRepository全体Checkerを実行する |
+
+第2回独立レビューでは、入力固有の契約を分析へ保持した一方、定義後半で責務全体のAuthority、Effectおよびlifecycleへ再び一括化した箇所を検出した。特に`SPEC-000008`の読取り契約へEvent発行・保存を混ぜたことと、Project実行内の受付・照会・分類・清掃・再接続を同じ状態機械として扱ったことを、Major 2件として是正した。
+
+| 第2回指摘 | 根本原因 | 構造是正 | 機械反証 |
+|---|---|---|---|
+| 読取り責務へ書込み能力を再導入 | 基準版能力の比較対象と、今回の責務が所有する能力を混同した | 実行事実取得を既存Sourceの読取りProjectionへ限定し、Event PublisherとStore Writerを非所有にした | `SPEC-000008`のAuthority、Effect、失敗およびlifecycleを入力別表で固定する |
+| 責務内の入力差を後半節で消失 | 統合後もSibling blockである受付・照会・分類・清掃・再接続を、責務全体の状態機械へまとめた | 全17定義の統合、Interface、品質、失敗をUI／SPEC入力ごとの行へ接続し、前blockのAuthorityやEffectを継承しない | 入力別7軸表、Interface表、品質表の欠落、正規節外Relation、重複Relation、Placeholder定義を拒否する |
+| 基準版Evidenceの粒度不足 | 現行設計節の一般参照を能力の証拠として扱った | 基準版Capabilityごとに旧Owner、現行照合先、試験IDまたは新規未実装を明記する | 成立済み能力と新規責務を同じEvidence状態へ丸めない |
+
+第3回独立レビューでは、入力別のArchitecture定義は改善した一方、Root Architectureに基準版のEvent Publisher／Store Writerが現在の読取り責務として残り、UI-000002の「取消す」「判断を返す」に対応するSPECが存在しないことを検出した。実行知の現行書込み能力は基準版Capability比較へ限定し、現在のCanonical Architectureを既存記録Sourceからの読取りPortへ統一した。操作不足はArchitectureで推測せず、UX-000003とIA-000002／IA-000003へ戻り、取消の終了確認をSPEC-000028、判断返却と同じTaskの再開をSPEC-000029として独立契約化した。
+
 ## 6. 完了条件
 
 | Gate | 完了条件 |
 |---|---|
-| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／31 Definitions、IA 31 Analysis／21 Definitions、UIはUX観点31 Analysis／IA観点21 Analysis／19 DefinitionsがCanonical配置にある |
+| Structure | Discovery 28 Analysis／36 Definitions、UX 36 Analysis／31 Definitions、IA 31 Analysis／21 Definitions、UIはUX観点31 Analysis／IA観点21 Analysis／19 Definitions、SPECはUX観点31 Analysis／IA観点21 Analysis／28 Definitions、ArchitectureはUI観点19 Analysis／SPEC観点28 Analysis／17 DefinitionsがCanonical配置にある |
 | Self-contained | 子成果物が対象固有の意味、成立条件、関係および下流入力を単独で説明できる |
-| Downstream Reproducibility | `Definitions/REQ-*`からUXを、UX定義からIAを、UX＋IA定義からUIとSPECを情報劣化なく再構成できる。UI／SPECはREQの直接参照で不足を隠さない |
+| Downstream Reproducibility | `Definitions/REQ-*`からUXを、UX定義からIAを、UX＋IA定義からUIとSPECを、UI＋SPEC定義からArchitectureを情報劣化なく再構成できる。各工程は正式入力より上流を直接参照して不足を隠さない |
 | Projection | Discovery／UX Rootから全Analysis・DefinitionとCoverageを一意に辿れる |
 | Consumer Closure | 正本文書、ひな型、Checker、CHG、RoadmapおよびArchitecture参照が新Pathへ移行する |
 | Regression | 全体Checker、Checker契約試験、旧Root／共通Evidence再導入の反証がPassする |
@@ -746,14 +852,16 @@ fingerprint `84ba5ef934944e4c16d2f42b7ef0cbb124515f5dac6f7dfb9d4026df22589071`�
 | UX Analysis／Definition | 36／31 |
 | IA Analysis／Definition | 31／21。入力UXごとの利用場面、対象、識別、関係、状態、可視性、導線、責任を保持し、独立レビューCritical 0／Major 0／Moderate 0／Minor 0でPass |
 | UI Analysis／Definition | UX観点31／IA観点21／Definition 19。定型Lifecycle、意味統合不足、横断状態の過剰適用、重複引き渡しを是正し、分析済み／CanonicalとしてSPECへ引き渡し可能 |
-| SPEC Analysis／Definition | UX観点31／IA観点21／Definition 26を分析済み／Canonicalへ昇格した。19 UIの複製ではなく、委任受理と状態観測、回復と清掃、Project投影とPortfolio比較等を独立した振る舞い単位へ分け、27件のUI／SPEC対応を多対多で定義した。Checkerは正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止まで反証する |
+| SPEC Analysis／Definition | UX観点31／IA観点21／Definition 28。取消と判断返却を状態照会へ畳まず、SPEC-000028／000029として追加した。29件のUI／SPEC対応を多対多で定義し、独立再レビューCritical／Major／Moderate／Minor 0でPass |
+| Architecture Analysis／Definition | UI観点19／SPEC観点28／Definition 17をCanonicalとして再構築した。UIとSPECだけを正式入力にし、現行Architectureと実装は成立済み能力との照合先へ分離した。第3回レビューのRoot書込み混在と操作契約不足を上流SPECから是正し、独立再レビューCritical／Major／Moderate／Minor 0でPass |
 | 全体Checker | `errors: 0`、`warnings: 0` |
-| Checker契約試験 | 323／323 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。意味の再構築可能性は独立レビューへ分離 |
+| Checker契約試験 | 332／332 Pass。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証済み。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、45分析と17定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、旧責務Path不在を検査する。意味の再構築可能性は独立レビューへ分離 |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走 |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
 | IA独立レビュー | 最終固定候補fingerprint `b03240ccc0a09f5461ee236cc48c4ca8165291bcc3e92aea24b1dd3f5f01cede`を意味伝播と構造閉包の2者が再レビューし、ともにCritical 0／Major 0／Moderate 0／Minor 0でPass |
 | UI独立レビュー | 31 UX観点分析、21 IA観点分析、19 UI定義、37 UX×IA関係と横断文書を再々レビューし、Critical 0／Major 0／Moderate 0／Minor 0でPass |
-| SPEC独立レビュー | 上流にない永続記録方式を除きSPEC-000008を読取りへ統合し、送信・結果帰還・候補昇格・再接続を入力UXとAuthority別に分離した。26 SPECの具体的な境界条件と27 UI／SPEC関係を再レビューし、Critical 0／Major 0／Moderate 0／Minor 0でPass |
+| SPEC独立レビュー | 26 SPEC／27 UI・SPEC関係の以前の候補はPass済み。その後、Architectureレビューで取消と判断返却の契約不足を検出し、28 SPEC／29関係へ更新した。固定候補`05c4cbc95c315cd65851598be69da563b1416397`を再レビューし、Critical／Major／Moderate／Minor 0でPass |
+| Architecture独立レビュー | 固定候補`05c4cbc95c315cd65851598be69da563b1416397`について、UI-000002の4操作、取消・判断返却のSibling block、読取りProjectionと基準版書込み能力の分離、19 UI／28 SPEC／17 Definitionの閉包を確認し、Critical／Major／Moderate／Minor 0でPass |
 
-固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後の人間向け表示契約と`Same`関係の具体化で新しい引き渡し不備が露出した。最終候補は18件の`Same`関係、`Same`を受ける13 DefinitionとUX-000008を合わせた14 Definitionの追加条件区画、UX-000008の正式な要求所有者、正式入力Headerと対象Pathの結合、およびescaped spanを保持した一回復号まで是正した。Discovery／UXの工程間引き渡しは3者、IAの意味伝播と構造閉包は2者、UIとSPECは各工程の独立再レビューでPassした。31件のUX定義と21件のIA定義から、19件のUI定義と26件のSPEC定義を情報劣化なく再構築し、27件のUI／SPEC関係を閉じた。現在、人間による追加判断は必要ない。
+固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後のArchitecture再構築でUI操作に対するSPEC不足を検出した。31件のUX定義と21件のIA定義から、19件のUI定義と28件のSPEC定義を再構築し、29件のUI／SPEC関係へ更新した。取消と判断返却はArchitectureで補わず、それぞれ独立したAuthority、Effect、失敗およびlifecycleを持つSPECとして正式入力へ戻した。更新候補は独立再レビューでPassし、現在、人間による追加判断は必要ない。

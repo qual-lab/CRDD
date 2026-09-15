@@ -123,6 +123,7 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 - `19_Workflows`にはリポジトリ固有の反復可能な作業手順を置き、変更トレースやリリース記録を置かない。
 - `08`〜`18`は将来の工程横断成果物または共通運用領域のための予約であり、CRDD標準の基本フォルダとして作成しない。プロジェクト固有で使用する場合は、標準構造と誤認させず、責務、決定権限、参照元、移行影響を示す。
 - `01_Discovery/01_Product_Discovery.md`、`02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`を各工程の固定入口とする。固定入口をリンクだけの索引にせず、対象範囲、網羅状態、主要な結論と判断、検証義務、未解決事項、次工程への義務を本文から直接理解できるようにする。適用の深さで入口名や基本のファイル分割を変えず、記述、レビュー、根拠の深さを調整する。詳細成果物や外部成果物を使う場合も、入口から決定権限、改訂版、現在状態へ到達できるようにし、詳細内容を第二の正本として複製しない。
+- Architectureの正式入力はCanonicalなUI定義とSPEC定義とし、両系列を別々に全数分析してから責務単位のArchitecture定義へ統合する。REQ、UX、IA、現行Architectureまたは実装を正式入力の不足補完に使わず、不足時はUI／SPEC工程へ戻す。現行Architectureと実装は、成立済み能力、移行対象および未接続範囲の照合にだけ使う。
 - `07_Quality`には`01_Quality_Center.md`、`02_Quality_Strategy.md`、`03_Verification_Design.md`を置く。適用の深さでファイル構成を変えず、記述、レビュー、根拠の深さを調整する。個別の検証結果は直接証明するChangeまたはReleaseの`Evidence/`へ置き、検証義務と根拠を`07_Quality`へ複製しない。
 - 外部コミュニケーションを扱う場合だけ`80_Communication/01_Communication.md`を入口として使用する。受け手、目的、主張と根拠、公開状態、未決事項を入口から理解できるようにし、媒体別の詳細ファイルは必要時だけ分ける。
 

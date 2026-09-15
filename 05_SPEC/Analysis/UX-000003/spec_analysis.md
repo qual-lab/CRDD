@@ -56,6 +56,8 @@ IA、UIまたはREQを直接読んで不足を補完しない。この分析はU
 | SPEC候補 | 処置 | 判断理由 |
 |---|---|---|
 | [SPEC-000003](../../Definitions/SPEC-000003/spec_definition.md) | New | この利用者成果を独立して観測できる振る舞いへ変換する |
+| [SPEC-000028](../../Definitions/SPEC-000028/spec_definition.md) | New | 利用者が同じTaskの実行を止め、取消の終了状態を確認する振る舞いを状態照会から分ける |
+| [SPEC-000029](../../Definitions/SPEC-000029/spec_definition.md) | New | 判断待ちの同じTaskへ人間の判断または追加入力を返す振る舞いを状態照会から分ける |
 
 ## 6. IA観点との統合時に確認すること
 

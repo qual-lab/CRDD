@@ -1,0 +1,88 @@
+# UI-000007のArchitecture分析
+
+成果物種別: Architecture分析（UI観点）
+分析単位: `UI-000007`
+状態: Canonical
+
+## 1. 正式入力
+
+- UI定義: [UI-000007 入口をまたぐ共通依頼・結果](../../../04_UI/Definitions/UI-000007/ui_definition.md)
+
+このUI定義だけを正式入力とする。反対観点、上流工程、現行Architectureまたは実装から不足する意味を補わない。
+
+## 2. Architectureへ引き継ぐUI契約
+
+### 利用者成果
+
+CLI、MCP、Workbenchの入口を変えても同じ依頼と結果を扱える。
+
+### 表示面と情報の優先順位
+
+```text
+入口をまたぐ共通依頼・結果
+        ↓
+公開依頼（Public Request）／公開契約（Public Contract）／通信手段（Transport）／作用状態（Effect State）／公開結果（Public Result）
+        ↓
+現在状態・不足・制限
+        ↓
+入口→同じ公開要求→Runtime→同じ結果
+```
+
+| IA分析 | 独立して見分ける対象 | 利用者にとっての意味 | 識別・関係 |
+|---|---|---|---|
+| IA-000008 | 公開依頼（Public Request） | 外部Actorの意図 | 依頼識別子（Request Identity） |
+| IA-000008 | 公開契約（Public Contract） | 入力と結果の意味 | Contract ID＋改訂版（Revision） |
+| IA-000008 | 通信手段（Transport） | 意味を運ぶ通信方式 | 通信方式種別（Transport Kind） |
+| IA-000008 | 作用状態（Effect State） | 作用発行の有無 | 依頼（Request）／試行（Attempt）へ結合 |
+| IA-000008 | 公開結果（Public Result） | 利用者へ返る結果 | 公開契約（Public Contract）に準拠 |
+
+同じ画面や応答へ置く場合も、上表の独立軸を一つの成功・信頼・完了へ畳まない。重要な不足、制限、判断要否は詳細へ隠さない。
+
+### 操作とFeedback
+
+主要な操作・判断: 依頼する／結果を受け取る／別入口で続ける。
+
+| UX分析 | 利用者が行う判断・行動 | 重要な場面 | 必要なFeedback | 避ける失敗 |
+|---|---|---|---|---|
+| UX-000012 | 通信方式を変えても同じ公開契約・入力・権限判断で操作する | 入口を切り替えて同じ仕事を開始・継続する場面 | 公開契約・入力・権限判断・状態・結果を通信方式間で一致させる | 通信方式によって入力・権限判断・状態・結果の意味が変わる |
+
+UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IAの状態・導線と対応付けて表示する。
+
+### 状態と表示差
+
+| UX／IAの対応 | 区別する状態 | 状態から進む導線 |
+|---|---|---|
+| UX-000012／IA-000008 | 受付前／受付済み／作用前失敗／作用後失敗／結果あり | 入口→同じ公開要求→Runtime→同じ結果 |
+
+上表にない処理中、取消、回復その他の状態を一律に追加しない。値なし、未観測、古い値、競合、開示制限または結果不明は、該当するIA定義が要求する場合にだけ別状態として示す。
+
+### 視覚表現とアクセシビリティ
+
+- 「公開依頼（Public Request）、公開契約（Public Contract）、通信手段（Transport）、作用状態（Effect State）、公開結果（Public Result）」を、色だけでなく表示名、状態語、順序でも見分けられるようにする。
+- 結論、重大な不足、主要操作、根拠、詳細の順を視覚順と読上げ順で一致させる。
+- CLI、MCP、Workbenchで同じ意味の状態と次の導線を対応付ける。
+- キーボード操作と文字表示だけでも、上表の判断・根拠・戻り先へ到達できるようにする。
+
+### 制約
+
+- UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。
+- 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。
+- 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。
+
+## 3. Architecture観点の分析
+
+| 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
+|---|---|---|---|---|
+| [公開Transportの意味同一性のArchitecture定義](../../Definitions/transport-parity/architecture_definition.md) | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける | UI契約はEffectを定義しない。表示上の状態差: 受付前／受付済み／作用前失敗／作用後失敗／結果あり。導線: 入口→同じ公開要求→Runtime→同じ結果 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+
+## 4. Architecture処置
+
+| Architecture定義候補 | 処置 | 判断理由 |
+|---|---|---|
+| [公開Transportの意味同一性](../../Definitions/transport-parity/architecture_definition.md) | New | 受付前／受付済／Effect前後の失敗／結果ありを入口間で同じ意味に保つ。Transport固有Schemaを公開意味契約として再定義しない。 |
+
+## 5. SPEC観点との統合時に確認すること
+
+- 対応候補: SPEC-000011
+- この分析にある状態、操作、Feedback、Authority、Effectの適用／非適用、失敗を、対応SPECの契機と結果へ一つずつ照合する。
+- 差分がある場合はArchitectureで推測せず、UI／SPEC対応レビューへ戻す。

@@ -323,9 +323,9 @@ Discovery以降の主要工程は、前工程以前のContextを自工程の専�
 | UX | `UX分析`／`ux_analysis.md` | `UX定義`／`ux_definition.md` |
 | IA | `IA分析`／`ia_analysis.md` | `IA定義`／`ia_definition.md` |
 | UI | `UI分析`／`ui_analysis.md` | `UI定義`／`ui_definition.md` |
-| Architecture | `Architecture分析`／`arch_analysis.md` | `Architecture定義`／`arch_definition.md` |
+| Architecture | `Architecture分析`／`architecture_analysis.md` | `Architecture定義`／`architecture_definition.md` |
 
-UX以降のファイル名は`[工程の短い識別子]_[analysis|definition].md`で対にする。Discoveryは探索過程の`EXP-*`と採用要求の`REQ-*`が別の成果物種別であるため、役割を直接読める`exploration.md`と`requirement.md`を用いる。Architectureの`arch`はファイル名だけの略称であり、本文の正式工程名や成果物種別を短縮しない。工程固有の役割をさらに区別する必要がある場合は、成果物種別を場当たり的に増やさず、その工程の正本で下位分類を定義する。
+UX、IA、UIおよびSPECのファイル名は`[工程の短い識別子]_[analysis|definition].md`で対にする。Discoveryは探索過程の`EXP-*`と採用要求の`REQ-*`が別の成果物種別であるため、役割を直接読める`exploration.md`と`requirement.md`を用いる。Architectureは`arch`という別の略称を増やさず、工程名をそのまま使う`architecture_analysis.md`と`architecture_definition.md`で対にする。工程固有の役割をさらに区別する必要がある場合は、成果物種別を場当たり的に増やさず、その工程の正本で下位分類を定義する。
 
 Analysis ArtifactとDefinitionは1対1に固定しない。一つの分析から複数Definitionが生まれても、複数Analysisが一つのDefinitionへ統合されてもよい。Folder階層は分析単位とCanonical Entityの所在を表し、多対多の意味関係は各成果物と工程台帳のRelationで明示する。Folder名だけから関係を推定しない。
 
