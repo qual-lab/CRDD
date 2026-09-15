@@ -6,7 +6,7 @@ Last Updated: 2026-09-15
 
 ## 1. この成果物が所有すること
 
-17件のArchitecture定義を、共同してシステムを成立させるComponentと責務の関係として統合する。個別契約の詳細は各[Architecture定義](01_Architecture.md#architecture定義台帳)が正本であり、本書はComponent間の関係、状態Owner、所有禁止およびQualityが検証単位を選ぶためのまとまりを所有する。
+18件のArchitecture定義を、共同してシステムを成立させるComponentと責務の関係として統合する。個別契約の詳細は各[Architecture定義](01_Architecture.md#architecture定義台帳)が正本であり、本書はComponent間の関係、状態Owner、所有禁止およびQualityが検証単位を選ぶためのまとまりを所有する。
 
 ## 2. 全体ブロック図
 
@@ -56,7 +56,7 @@ Last Updated: 2026-09-15
 | 利用能力 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Capability Registry、Model Configuration Resolver | Tool候補、構成検証、選択理由 | Tool実行、利用可能性の捏造 |
 | Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Project Runtime | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
 | 状態投影 | [Project・Portfolio状態投影](Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection | 正本を変えない現在状態・比較View | 正本更新、優先順位の自動決定 |
-| 実行観測 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md)<br>[実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | 実行記録読取りProjection、Platform Access診断Port | 欠測を保つ事実取得、境界別診断 | 記録生成、Task更新、修復、結果採用 |
+| 実行観測 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md)<br>[実行境界の診断](Definitions/ARCH-000008/architecture_definition.md)<br>[実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | 実行記録Writer／Store、読取りProjection、Platform Access診断Port | Canonical記録、不変公開、欠測を保つ事実取得、境界別診断 | Task更新、Provider実行、修復、評価採用 |
 | 運用Context | [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | 候補作成、出所、採否Lifecycle | Meeting本文の意味決定、自動採用 |
 | Repository／Runtime基盤 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md)<br>[Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | Binding Resolver、Runtime Data Contract | Root／Identity／Binding、配置・保持・清掃 | Tool選択、任意Path書込み、由来不明残存の削除 |
 | Trust | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md)<br>[公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | Runtime Trust Evaluator、素材収載判断 | 完全性・Publisher・利用者Policy・権利記録 | 利用者に代わる信頼判断、法的判断自動化 |

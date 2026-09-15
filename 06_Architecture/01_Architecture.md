@@ -6,18 +6,18 @@ Last Updated: 2026-09-15
 
 ## 1. 目的と現在状態
 
-本書はArchitecture工程の固定入口である。CanonicalなUI／SPECから導いた17件の責務定義と、それらをQualityが検証設計へ使える形に統合した横断モデルを案内する。個別定義の内容を再定義せず、対象、網羅状態、主要判断、未解決事項および次工程への引渡しを所有する。
+本書はArchitecture工程の固定入口である。CanonicalなUI／SPECから導いた18件の責務定義と、それらをQualityが検証設計へ使える形に統合した横断モデルを案内する。個別定義の内容を再定義せず、対象、網羅状態、主要判断、未解決事項および次工程への引渡しを所有する。
 
 個別責務定義、横断モデルおよび15領域の詳細設計は独立レビューを完了した。Architecture工程はQualityが検証単位を再構成できる状態まで閉じ、現行実装との一致はQuality工程でReality Auditとして判定する。
 
 ## 2. 工程入力と再構築方法
 
-Architectureの正式入力はCanonicalな19件のUI定義と28件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を17件のArchitecture定義へ統合した。
+Architectureの正式入力はCanonicalな20件のUI定義と29件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 
 ```text
-UI定義 19件 ──→ UI観点のArchitecture分析 19件 ──┐
-                                                     ├─→ Architecture定義 17件
-SPEC定義 28件 → SPEC観点のArchitecture分析 28件 ─┘
+UI定義 20件 ──→ UI観点のArchitecture分析 20件 ──┐
+                                                     ├─→ Architecture定義 18件
+SPEC定義 29件 → SPEC観点のArchitecture分析 29件 ─┘
                                                               │
                                                               ▼
                                                    Architecture横断モデル
@@ -33,8 +33,8 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 
 | 入力種別 | 対象数 | 分析済み | 未分析 | 状態 |
 |---|---:|---:|---:|---|
-| UI定義 | 19 | 19 | 0 | 全数分析済み |
-| SPEC定義 | 28 | 28 | 0 | 全数分析済み |
+| UI定義 | 20 | 20 | 0 | 全数分析済み |
+| SPEC定義 | 29 | 29 | 0 | 全数分析済み |
 
 ## Architecture定義台帳
 
@@ -57,6 +57,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | 送信同意、最小化送信、結果帰還、候補隔離、採否 | UI-000016 | SPEC-000021、SPEC-000026、SPEC-000027 | External Information Boundary |
 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | 出所、発生時点、対象改訂版、現在／履歴／置換済み／不明の解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | 出所、権利確認、許可用途、対象版、決定権限者の記録 | UI-000019 | SPEC-000024 | 公式Repositoryの素材収載判断 |
+| [実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | Canonical Event検査、複数作成側、並行公開、途中失敗、Effect不明時の回復 | UI-000020 | SPEC-000030 | 実行記録Writerと不変Store |
 
 ## Architecture横断モデル
 
@@ -74,7 +75,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 
 | 成果物 | 所有する内容 | 状態 |
 |---|---|---|
-| [詳細設計の対応表](07_Detail_Architecture_Map.md) | 17件のARCH-IDと詳細設計領域の多対多Relation、領域閉包、Qualityへの引渡し | Canonical |
+| [詳細設計の対応表](07_Detail_Architecture_Map.md) | 18件のARCH-IDと詳細設計領域の多対多Relation、領域閉包、Qualityへの引渡し | Canonical |
 | [`Details/*/01_Architecture.md`](Details/) | 15領域のComponent、Interface、Data／State Flow、Sequence、Failure／Recovery、配置、観測およびEngineering Concern | Canonical |
 | `Details/*/*_Reality_Audit.md` | 基準版Capability、現行実装および既存試験との後段照合。Canonical詳細設計ではない | 照合資料 |
 
@@ -98,8 +99,8 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 
 | 条件 | 現在状態 | 根拠／次の処置 |
 |---|---|---|
-| UI／SPEC全数分析 | 完了 | 19 UI、28 SPEC、未分析0 |
-| 個別責務定義 | 完了 | 17定義、台帳と完全一致 |
+| UI／SPEC全数分析 | 完了 | 20 UI、29 SPEC、未分析0。Qualityで検出した記録責務Gapを上流へ戻し、独立再レビューで確認済み |
+| 個別責務定義 | 完了 | 18定義、台帳と完全一致。ARCH-000018を独立責務として追加し、独立再レビューで確認済み |
 | 5横断モデル | 完了 | 本書の横断モデル台帳。最終独立レビューCritical／Major／Moderate／Minor 0 |
 | Qualityへの検証観点 | 完了 | 15詳細領域が検証対象、反証する失敗、観測、終了後条件、未確認範囲を提示。独立レビューで妥当性を確認済み |
 | Reality Audit境界 | 定義済み | [配置／実行モデル](06_Deployment_and_Execution_Model.md#5-reality-auditへの引渡し) |
@@ -107,7 +108,7 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 | 詳細設計 | 完了 | [詳細設計の対応表](07_Detail_Architecture_Map.md)を基準に、15領域のRelation、必要成果物、Engineering Concernを具体化した |
 | 詳細設計の独立レビュー | 完了 | Writer責務の逆輸入、責務Owner不足、形式的な一律評価およびReality Audit境界を是正し、最終再レビューCritical／Major／Moderate／Minor 0でPass |
 
-基本設計と詳細設計を閉じ、Qualityが検証対象、故障点、観測および終了後条件を再構成できるため、現在の工程状態は`Architecture Ready`である。次はCanonical設計と現行実装・既存試験を照合するReality Audit、およびQuality Analysisへ移行する。
+記録責務Gapの是正により基本設計と詳細設計を更新した。Qualityが検証対象、故障点、観測および終了後条件を再構成できることを独立再レビューで確認し、`Architecture Ready`を再確定した。
 
 ## 6. 保持する意図と対象外
 

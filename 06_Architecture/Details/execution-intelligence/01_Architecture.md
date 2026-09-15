@@ -11,30 +11,31 @@
 |---|---|---|
 | [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | 利用可能な実行記録を読取り、欠測を保った事実と非Authorityな評価候補を返す。 | Covered |
 | [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Source Revision、観測時点および評価候補の時間的出所を、現在値と履歴を混同せず解決する。 | Covered |
+| [ARCH-000018](../../Definitions/ARCH-000018/architecture_definition.md) | 異なる作成側のCanonical Eventを検査し、並行書込みと途中失敗を扱って不変に公開する。 | Covered |
 
 ## 詳細成果物の適用判断
 
 | 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
 |---|---|---|---|
-| Component Model | Required | Query、Reader、Aggregator、Projectionの読取り責務を分ける。 | [§1](#1-component-model) |
-| Interface Model | Required | 実行記録Sourceと利用側の間に読取り専用Portを置く。 | [§2](#2-interface-model) |
-| Data Flow | Required | 記録から事実・欠測・評価候補へ至る変換を追跡する。 | [§3](#3-data-flow) |
-| State Model | Required | observed、not_observed、unknownと時間的出所を区別する。 | [§4](#4-state-model) |
-| Sequence | Required | 読取り、検査、集約、投影の順序を固定する。 | [§5](#5-sequence) |
-| Failure／Recovery | Required | Source欠落、破損、相関不一致、観測不能を扱う。 | [§6](#6-failurerecovery) |
-| Deployment | N/A | 読取りProjectionは特定Process配置を所有しない。 | [§7](#7-deployment) |
-| Observability | Required | 読取り結果と欠測理由を相関可能にする。 | [§8](#8-observability) |
-| Security Boundary | Required | 読取り権限を変更・採用・実行Authorityへ昇格させない。 | [§9](#9-security-boundary) |
+| Component Model | Required | Record Port／Writer／StoreとQuery／Reader／Projectionを分ける。 | [§1](#1-component-model) |
+| Interface Model | Required | 記録Portと読取りPortを別のAuthority／Effect境界に置く。 | [§2](#2-interface-model) |
+| Data Flow | Required | 観測から不変記録、記録から事実・欠測・評価候補へ至る変換を追跡する。 | [§3](#3-data-flow) |
+| State Model | Required | 記録Attemptとrecorded／not_recorded／unknown、読取りのobserved／not_observed／unknownを区別する。 | [§4](#4-state-model) |
+| Sequence | Required | 記録と読取りそれぞれの検査、公開、確認、投影の順序を固定する。 | [§5](#5-sequence) |
+| Failure／Recovery | Required | 並行衝突、途中失敗、Effect不明、Source欠落、破損、相関不一致を扱う。 | [§6](#6-failurerecovery) |
+| Deployment | Required | 複数ProcessのWriterが同じ検証済みRepository Rootへ公開し、API／CLI／MCP等のReaderが同じStoreを参照する配置条件を固定する。 | [§7](#7-deployment) |
+| Observability | Required | 記録Attempt、公開確認、読取り結果と欠測理由を同じExecution Identityで相関可能にする。 | [§8](#8-observability) |
+| Security Boundary | Required | 記録権限と読取り権限を分け、いずれも変更・採用・実行Authorityへ昇格させない。 | [§9](#9-security-boundary) |
 
 ## Engineering Concern評価
 
 | Concern | Result | Rationale | Evidence／Related ID |
 |---|---|---|---|
-| Concurrency | PASS | 一つの読取りSnapshot内で異なる観測時点を混在させず、Source更新は所有しない。 | [§4](#4-state-model) |
+| Concurrency | PASS | Writerは不変公開と衝突後再読取りを用い、Readerは一つのSnapshot内で異なる観測時点を混在させない。 | [§4](#4-state-model) |
 | Timing | PASS | 観測時点とSource Revisionを結果へ保持し、古い値を現在値として返さない。 | [§4](#4-state-model) |
-| Resource Lifecycle | N/A | 書込み、Lock、動的外部資源または長期保持Handleを所有しない。 | [§1](#1-component-model) |
-| External Boundary | PASS | Source取得不能と記録不存在を別状態で返す。 | [§6](#6-failurerecovery) |
-| Failure／Recovery | PASS | 読取り不能時は状態を推測せず、再取得可能な参照と理由だけを返す。 | [§6](#6-failurerecovery) |
+| Resource Lifecycle | PASS | WriterのLock、一時物、Handleを公開確認または失敗settlement後に回収し、ReaderのHandleも終了時に残さない。 | [§5](#5-sequence) |
+| External Boundary | PASS | 作成側入力の受理／公開と、ReaderのSource取得不能／記録不存在をそれぞれ別状態で返す。 | [§6](#6-failurerecovery) |
+| Failure／Recovery | PASS | 公開Effect不明は同じExecution IdentityのAttemptへ再入場し、読取り不能時は状態を推測せず再取得可能な参照と理由だけを返す。 | [§6](#6-failurerecovery) |
 
 ## Qualityへの引渡し
 
@@ -44,39 +45,55 @@
 | 状態投影 | Aggregator／Projection | observed／not_observed／unknownを区別する | unknownを空値や正常へ畳む | 状態、reason、observed at | 入力記録不変、Authority発行0 | 利用側表示の理解可能性 |
 | 時間的出所 | Revision／Observed At | 現在値と履歴を区別できる | 古い記録を現行として表示 | source revision、observed at | 履歴変更0 | Clock差の実境界 |
 | 評価候補 | 事実と評価候補 | 両者を別結果として返す | 候補を事実・採用判断へ昇格 | fact、candidate、basis | 採用Effect 0 | 人間判断後の下流処置 |
+| 実行記録の公開 | Record Port／Writer／Store | Canonical Eventを同じExecution Identityで不変公開する | 並行上書き、部分公開、重複事実、Effect不明の自動再発行 | Execution ID、Attempt、publish結果、再読取り | Lock／一時物／Handle 0、または同じIdentityの回復義務 | 複数作成側の実境界 |
 
 ## 現行実装との照合
 
-v0.20.1にはEvent生成、Recorder、Store Writerおよび不変保存の成立済みCapabilityがある。これらは失わず、[現行実装のReality Audit](02_Current_Implementation_Reality_Audit.md)で比較する。ただし、UI／SPECから導出したARCH-000007／016の正式責務ではなく、本書のRelation、適用判断またはQuality引渡しの成立根拠にしない。
+v0.20.1にはEvent生成、Recorder、Store Writerおよび不変保存の成立済みCapabilityがある。これらは[ARCH-000018](../../Definitions/ARCH-000018/architecture_definition.md)の現行照合対象として[現行実装のReality Audit](02_Current_Implementation_Reality_Audit.md)で比較する。基準版実装の存在だけをCanonical設計の成立根拠にはしない。
 
 ## 1. Component Model
 
 ```text
-許可された実行記録Source
+実行Runtime／外部Application
+          │ Canonical Event
+          ▼
+      Record Port
           ↓
-        Query
+  Schema／Identity検査
           ↓
+        Writer
+          ↓ 不変公開
+       Record Store
+          ↑
         Reader
-          ↓
-  検査・相関・Aggregation
-          ↓
- Read-only Projection
-   ├─ 観測事実
-   ├─ 欠測／不明
-   └─ 非Authority評価候補
+          ↑
+         Query
+          ↑
+Workbench／MCP／CLI／TS API
+
+Reader → 検査・相関・Aggregation → Read-only Projection
+                                      ├─ 観測事実
+                                      ├─ 欠測／不明
+                                      └─ 非Authority評価候補
 ```
 
-各Componentは入力Sourceを変更しない。ProjectionはTask状態、Project状態、実行許可または評価採用を所有しない。
+Writerだけが検証済みRecord PortからStoreへの公開Effectを所有する。ReaderとProjectionは入力Sourceを変更しない。いずれもTask状態、Project状態、実行許可または評価採用を所有しない。
 
 ## 2. Interface Model
 
-読取りPortは、許可されたSource識別、対象Task、取得条件とSnapshot条件を受け取る。結果は、観測状態、事実、評価候補、Source Revision、観測時点および欠測理由を返す。Filesystem Pathや内部Store表現を公開契約へ漏らさない。
+記録Portは、作成側Identity、Execution Identity、Attempt、Canonical Event、Schema Revisionおよび相関情報を受け取る。Writerは入力を再解釈せず検査し、公開結果を`recorded`、`not_recorded`、`unknown`で返す。`unknown`には同じAttemptへ再入場する非Authorityな回復参照を含められる。
+
+読取りPortは、許可されたSource識別、対象Task、取得条件とSnapshot条件を受け取る。結果は、観測状態、事実、評価候補、Source Revision、観測時点および欠測理由を返す。どちらのPortもFilesystem Pathや内部Store表現を公開契約へ漏らさない。
 
 ## 3. Data Flow
 
 ```text
-Source bytes
-   ↓ schema・identity検査
+Runtime event
+   ↓ schema・producer・execution identity検査
+Validated canonical event
+   ↓ attempt単位の一時保存と排他
+Immutable publish
+   ↓ publish結果の再読取り確認
 Canonical execution record
    ↓ task・revision・time相関
 Observed facts + missing/unknown
@@ -90,6 +107,11 @@ Read-only result
 
 | 状態 | 意味 | 禁止する短絡 |
 |---|---|---|
+| `prepared` | 入力と対象Rootを検査し、まだ公開Effectを発行していない | 記録済みとみなさない |
+| `publishing` | 同じAttemptで不変公開を試行している | timeoutを未記録へ畳まない |
+| `recorded` | 公開後の同一内容をStoreから再読取り確認できた | 別Attemptや別内容の成功へ流用しない |
+| `not_recorded` | 公開Effect前に拒否または失敗し、対象不存在を確認できた | `unknown`を含めない |
+| `publication_unknown` | Effect有無または公開内容を確認できない | 新しいAttemptで自動再発行しない |
 | `observed` | 許可されたSourceから対象記録を検査できた | 現在有効・採用済みとみなさない |
 | `not_observed` | Sourceは読めたが対象記録がない | 正常値や0へ補完しない |
 | `unknown` | Sourceまたは相関を検査できない | `not_observed`へ畳まない |
@@ -99,6 +121,20 @@ Read-only result
 ## 5. Sequence
 
 ```text
+【記録】
+Canonical Eventと対象Rootを検査
+      ↓
+同じExecution Identity／Attemptで排他取得
+      ↓
+一時保存 → flush → immutable publish
+      ↓
+公開内容を再読取り確認
+      ↓
+recordedを返す ──失敗／不明──→ 同じAttemptの回復義務を保持
+      ↓
+Lock／一時物／Handleを回収
+
+【読取り】
 取得条件を検査
       ↓
 Sourceを読取る
@@ -110,10 +146,15 @@ Schema／Identity／Revisionを検査
 根拠付きProjectionを返す
 ```
 
-各段階で書込みEffect、Task更新、候補採用またはAuthority発行を行わない。
+記録Sequenceの公開以外ではStoreへの書込みEffectを行わない。読取りSequenceでは書込みEffectを行わず、両経路ともTask更新、候補採用または実行Authority発行を行わない。
 
 ## 6. Failure／Recovery
 
+- 入力拒否、公開前失敗、公開済み、公開Effect不明を分ける。
+- 同じExecution Identityへの同内容再送は再読取りで収束させ、異なる内容との衝突は上書きせず拒否する。
+- 並行Writerは一方の不変公開後に他方が同内容を再読取りできる場合だけ同じ結果へ収束する。
+- 一時保存、flush、renameまたは公開確認の途中失敗では、対象不存在を確認できない限り`not_recorded`を返さない。
+- 公開Effect不明時は同じAttemptと回復参照を保持し、新しいIdentityや拡大Authorityを発行しない。
 - Source不存在とSource観測不能を分ける。
 - 記録破損、Schema不一致、Identity不一致またはRevision競合を黙って除外しない。
 - 部分的に読めた結果を完全な履歴として返さない。
@@ -122,14 +163,15 @@ Schema／Identity／Revisionを検査
 
 ## 7. Deployment
 
-本責務はTypeScript API、CLI、MCPまたはWorkbenchから利用できる読取り契約であり、特定Process配置を前提にしない。共有Serverでの配置・認証はCROS／Transport側が所有する。
+Record PortとQueryはTypeScript APIとして同じ契約を公開し、CLI、MCPまたはWorkbenchはAdapterとして利用する。Writerが別Processに分かれても、検証済みRepository Root、Store Schema、Execution Identityおよび不変公開規則は変えない。複数ProcessのWriterが同じStoreへ到達する場合はprocess間排他を使用する。共有Serverでの接続認証とRepository ExposureはCROS／Transport側が所有する。
 
 ## 8. Observability
 
-診断結果には、対象Task、Source種別、Source Revision、観測時点、観測状態、欠測理由および評価根拠を含める。Raw provider出力、資格情報または許可されていないPathを診断目的で複製しない。
+診断結果には、Execution Identity、Attempt、作成側種別、公開段階、公開確認、対象Task、Source種別、Source Revision、観測時点、観測状態、欠測理由および評価根拠を含める。Raw provider出力、資格情報または許可されていないPathを診断目的で複製しない。
 
 ## 9. Security Boundary
 
+- 記録Portの利用資格を、Task実行、評価採用、別Executionへの記録または回復Authorityとして扱わない。
 - Sourceを読めることを、Source変更、Task実行、評価採用または回復Authorityとして扱わない。
 - 開示不可Sourceの存在やIdentityを境界外へ漏らさない。
 - 評価候補は非Authorityであり、明示した決定権限者の判断を代替しない。

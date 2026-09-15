@@ -2740,6 +2740,738 @@ function checkArchitectureReconstruction(): void {
 
 checkArchitectureReconstruction();
 
+function checkQualityReconstruction(): void {
+  if (repositoryMode !== "official") return;
+
+  const qualityRoot = path.join(root, "07_Quality");
+  const analysisPath = path.join(
+    qualityRoot,
+    "Analysis",
+    "canonical-definition-mapping",
+    "quality_analysis.md",
+  );
+  const architectureIndexPath = path.join(
+    root,
+    "06_Architecture",
+    "01_Architecture.md",
+  );
+  if (!lstatIfPresent(architectureIndexPath)?.isFile()) return;
+  if (!lstatIfPresent(analysisPath)?.isFile()) {
+    add(
+      "error",
+      "quality-canonical-mapping-missing",
+      relative(analysisPath),
+      "The official repository must keep one canonical Quality mapping that explicitly processes every current REQ, UX, IA, UI, SPEC, and ARCH definition.",
+    );
+    return;
+  }
+
+  const templateQualityRoot = path.join(root, "template", "07_Quality");
+  for (const qualityStructureRoot of [qualityRoot, templateQualityRoot]) {
+    for (const directoryName of ["Analysis", "Definitions"]) {
+      const directoryPath = path.join(qualityStructureRoot, directoryName);
+      const stat = lstatIfPresent(directoryPath);
+      if (!stat?.isDirectory() || pathContainsSymbolicLink(directoryPath))
+        add(
+          "error",
+          "quality-repository-structure-invalid",
+          relative(directoryPath),
+          "Quality Analysis and Definitions must be real directories under the canonical Quality root.",
+        );
+    }
+  }
+
+  const analysis = read(analysisPath);
+  const mappingSection = analysis.match(
+    /^## 3\. 全件Mapping\s*$([\s\S]*?)(?=^##\s)/mu,
+  )?.[1];
+  if (!mappingSection) {
+    add(
+      "error",
+      "quality-canonical-mapping-section-missing",
+      relative(analysisPath),
+      "The canonical Quality analysis must expose its source relations in the '全件Mapping' section instead of satisfying coverage through IDs mentioned elsewhere.",
+    );
+    return;
+  }
+
+  const canonicalDefinitionSpecs = [
+    ["01_Discovery", "REQ", "requirement.md"],
+    ["02_UX", "UX", "ux_definition.md"],
+    ["03_IA", "IA", "ia_definition.md"],
+    ["04_UI", "UI", "ui_definition.md"],
+    ["05_SPEC", "SPEC", "spec_definition.md"],
+    ["06_Architecture", "ARCH", "architecture_definition.md"],
+  ] as const;
+  const canonicalIds = new Set<string>();
+  for (const [
+    phaseDirectory,
+    prefix,
+    definitionFile,
+  ] of canonicalDefinitionSpecs) {
+    const definitionsRoot = path.join(root, phaseDirectory, "Definitions");
+    if (!lstatIfPresent(definitionsRoot)?.isDirectory()) continue;
+    for (const entry of fs.readdirSync(definitionsRoot, {
+      withFileTypes: true,
+    }))
+      if (
+        entry.isDirectory() &&
+        new RegExp(`^${prefix}-[0-9]{6}$`, "u").test(entry.name) &&
+        lstatIfPresent(
+          path.join(definitionsRoot, entry.name, definitionFile),
+        )?.isFile()
+      )
+        canonicalIds.add(entry.name);
+  }
+
+  const mappingRows = mappingSection
+    .split(/\r?\n/u)
+    .filter((line) =>
+      /^\|\s*\[(?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6}\]\(/u.test(line),
+    );
+  const mappedIds = new Set(
+    mappingRows.flatMap((line) => {
+      const match = line.match(
+        /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\(/u,
+      );
+      return match ? [match[1]] : [];
+    }),
+  );
+  const summarySourceGoalRelations = new Set<string>();
+  const summarySourceGoalRelationEntries: string[] = [];
+  const goalLabelToSlug = new Map<string, string>();
+  for (const line of mappingRows) {
+    const sourceId = line.match(
+      /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\(/u,
+    )?.[1];
+    if (!sourceId) continue;
+    for (const goal of line.matchAll(
+      /\[([^\]]+)\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/verification\.md\)/gu,
+    )) {
+      goalLabelToSlug.set(goal[1], goal[2]);
+      const relation = `${sourceId}|${goal[2]}`;
+      summarySourceGoalRelationEntries.push(relation);
+      summarySourceGoalRelations.add(relation);
+    }
+  }
+  if (
+    canonicalIds.size !== mappedIds.size ||
+    [...canonicalIds].some((id) => !mappedIds.has(id)) ||
+    [...mappedIds].some((id) => !canonicalIds.has(id))
+  )
+    add(
+      "error",
+      "quality-canonical-mapping-coverage-mismatch",
+      relative(analysisPath),
+      "The Quality mapping must explicitly process every canonical REQ, UX, IA, UI, SPEC, and ARCH definition without adding an unknown ID.",
+    );
+
+  if (new Set(mappingRows).size !== mappingRows.length)
+    add(
+      "error",
+      "quality-canonical-mapping-duplicate-row",
+      relative(analysisPath),
+      "The Quality mapping must not repeat an identical source-to-objective relation row.",
+    );
+  if (
+    summarySourceGoalRelationEntries.length !== summarySourceGoalRelations.size
+  )
+    add(
+      "error",
+      "quality-canonical-source-goal-duplicate",
+      relative(analysisPath),
+      "The summary mapping must not repeat the same Source ID to verification-goal relation through a different row description.",
+    );
+
+  const sourceRelationSection = analysis.match(
+    /^### 4\.0\. Source固有条件と検証項目の関係\s*$([\s\S]*?)(?=^###\s|^##\s)/mu,
+  )?.[1];
+  const analysisSourceRelations = new Set<string>();
+  const analysisSourceGoalRelations = new Set<string>();
+  const analysisSourceRelationEntries: string[] = [];
+  const analysisSourceGoalRelationEntries: string[] = [];
+  const analysisSourceConditions = new Map<string, string>();
+  const normalizeQualityCondition = (value: string): string =>
+    value.trim().replace(/\s+/gu, " ");
+  for (const line of (sourceRelationSection ?? "").split(/\r?\n/u)) {
+    const relation = line.match(
+      /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*\[[^\]]+\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/verification\.md\)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
+    );
+    if (!relation) continue;
+    const [, sourceId, goalSlug, condition, localCell] = relation;
+    const localIds = Array.from(
+      localCell.matchAll(/`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu),
+      (match) => match[1],
+    );
+    const sourceGoalRelation = `${sourceId}|${goalSlug}`;
+    analysisSourceGoalRelationEntries.push(sourceGoalRelation);
+    analysisSourceGoalRelations.add(sourceGoalRelation);
+    analysisSourceConditions.set(
+      sourceGoalRelation,
+      normalizeQualityCondition(condition),
+    );
+    if (condition.trim().length === 0 || localIds.length === 0)
+      add(
+        "error",
+        "quality-source-local-relation-incomplete",
+        relative(analysisPath),
+        "Every Source-to-goal relation must preserve a non-empty source-specific condition and connect it to one or more Local Items.",
+      );
+    for (const localId of localIds) {
+      const sourceLocalRelation = `${sourceId}|${goalSlug}|${localId}`;
+      analysisSourceRelationEntries.push(sourceLocalRelation);
+      analysisSourceRelations.add(sourceLocalRelation);
+    }
+  }
+  if (analysisSourceGoalRelations.size === 0)
+    add(
+      "error",
+      "quality-source-local-relation-section-missing",
+      relative(analysisPath),
+      "The Quality analysis must expose Source ID, verification goal, preserved condition, and Local Item relations in its canonical relation section.",
+    );
+  if (
+    analysisSourceGoalRelationEntries.length !==
+      analysisSourceGoalRelations.size ||
+    analysisSourceRelationEntries.length !== analysisSourceRelations.size
+  )
+    add(
+      "error",
+      "quality-source-relation-duplicate",
+      relative(analysisPath),
+      "The canonical Source relation section must not repeat a Source-to-goal or Source-to-goal-to-Local-Item relation with alternate prose.",
+    );
+  if (
+    summarySourceGoalRelations.size !== analysisSourceGoalRelations.size ||
+    [...summarySourceGoalRelations].some(
+      (relation) => !analysisSourceGoalRelations.has(relation),
+    ) ||
+    [...analysisSourceGoalRelations].some(
+      (relation) => !summarySourceGoalRelations.has(relation),
+    )
+  )
+    add(
+      "error",
+      "quality-source-goal-relation-closure-mismatch",
+      relative(analysisPath),
+      "The summary mapping and canonical Source-specific relation table must expose the same duplicate-free Source ID to verification-goal relation set.",
+    );
+
+  const linkedDefinitionPaths = new Set(
+    Array.from(
+      mappingSection.matchAll(
+        /\]\((\.\.\/\.\.\/Definitions\/[a-z0-9-]+\/verification\.md)\)/gu,
+      ),
+      (match) => path.resolve(path.dirname(analysisPath), match[1]),
+    ),
+  );
+  if (linkedDefinitionPaths.size === 0)
+    add(
+      "error",
+      "quality-definition-closure-missing",
+      relative(analysisPath),
+      "The Quality mapping must connect its verification obligations to meaningful verification definitions.",
+    );
+  for (const definitionPath of linkedDefinitionPaths) {
+    if (!lstatIfPresent(definitionPath)?.isFile())
+      add(
+        "error",
+        "quality-definition-missing",
+        relative(definitionPath),
+        "Every verification definition linked by the canonical Quality mapping must exist.",
+      );
+  }
+
+  const definitionsRoot = path.join(qualityRoot, "Definitions");
+  const physicalDefinitionPaths = new Set(
+    lstatIfPresent(definitionsRoot)?.isDirectory()
+      ? fs
+          .readdirSync(definitionsRoot, { withFileTypes: true })
+          .filter(
+            (entry) =>
+              entry.isDirectory() &&
+              /^[a-z0-9-]+$/u.test(entry.name) &&
+              lstatIfPresent(
+                path.join(definitionsRoot, entry.name, "verification.md"),
+              )?.isFile(),
+          )
+          .map((entry) =>
+            path.join(definitionsRoot, entry.name, "verification.md"),
+          )
+      : [],
+  );
+  if (
+    physicalDefinitionPaths.size !== linkedDefinitionPaths.size ||
+    [...physicalDefinitionPaths].some(
+      (definitionPath) => !linkedDefinitionPaths.has(definitionPath),
+    ) ||
+    [...linkedDefinitionPaths].some(
+      (definitionPath) => !physicalDefinitionPaths.has(definitionPath),
+    )
+  )
+    add(
+      "error",
+      "quality-definition-set-mismatch",
+      relative(definitionsRoot),
+      "The verification definitions on disk must exactly match the objective set linked from the canonical Quality mapping; orphan and unknown objectives are not allowed.",
+    );
+
+  const crossModelSection = analysis.match(
+    /^### 4\.1\. Architecture横断モデルの処置\s*$([\s\S]*?)(?=^###\s|^##\s)/mu,
+  )?.[1];
+  const expectedCrossModelPaths = new Set(
+    [
+      "02_Component_and_Responsibility_Model.md",
+      "03_Boundary_and_Interface_Model.md",
+      "04_Runtime_and_Data_Flow_Model.md",
+      "05_Failure_Recovery_and_Resilience_Model.md",
+      "06_Deployment_and_Execution_Model.md",
+    ].map((fileName) => path.join(root, "06_Architecture", fileName)),
+  );
+  const linkedCrossModelPaths = new Set(
+    Array.from(
+      (crossModelSection ?? "").matchAll(
+        /\]\((\.\.\/\.\.\/\.\.\/06_Architecture\/[A-Za-z0-9_]+\.md)\)/gu,
+      ),
+      (match) => path.resolve(path.dirname(analysisPath), match[1]),
+    ),
+  );
+  if (
+    linkedCrossModelPaths.size !== expectedCrossModelPaths.size ||
+    [...expectedCrossModelPaths].some(
+      (modelPath) => !linkedCrossModelPaths.has(modelPath),
+    ) ||
+    [...linkedCrossModelPaths].some(
+      (modelPath) => !expectedCrossModelPaths.has(modelPath),
+    )
+  )
+    add(
+      "error",
+      "quality-architecture-cross-model-coverage-mismatch",
+      relative(analysisPath),
+      "The Quality mapping must explicitly process the exact five canonical Architecture cross-model documents.",
+    );
+
+  const crossModelRows = (crossModelSection ?? "")
+    .split(/\r?\n/u)
+    .filter((line) => /^\|\s*[^|]+\|/u.test(line))
+    .filter((line) => !/^\|\s*(?:検証目標|---)/u.test(line));
+  const crossModelGoals = new Set<string>();
+  for (const line of crossModelRows) {
+    const cells = line
+      .slice(1, line.lastIndexOf("|"))
+      .split("|")
+      .map((cell) => cell.trim());
+    const goalSlug = goalLabelToSlug.get(cells[0]);
+    if (!goalSlug || cells.length !== 6) {
+      add(
+        "error",
+        "quality-cross-model-row-invalid",
+        relative(analysisPath),
+        "Every verification goal must have exactly one Architecture cross-model row with five dispositions.",
+      );
+      continue;
+    }
+    if (crossModelGoals.has(goalSlug))
+      add(
+        "error",
+        "quality-cross-model-goal-duplicate",
+        relative(analysisPath),
+        `Architecture cross-model disposition is duplicated for ${goalSlug}.`,
+      );
+    crossModelGoals.add(goalSlug);
+    for (const disposition of cells.slice(1))
+      if (disposition !== "Required" && !/^N\/A:\s*\S.+/u.test(disposition))
+        add(
+          "error",
+          "quality-cross-model-disposition-invalid",
+          relative(analysisPath),
+          "Each Architecture cross-model disposition must be Required or a reasoned N/A.",
+        );
+  }
+  const goalSlugs = new Set(goalLabelToSlug.values());
+  if (
+    crossModelGoals.size !== goalSlugs.size ||
+    [...goalSlugs].some((goalSlug) => !crossModelGoals.has(goalSlug)) ||
+    [...crossModelGoals].some((goalSlug) => !goalSlugs.has(goalSlug))
+  )
+    add(
+      "error",
+      "quality-cross-model-goal-coverage-mismatch",
+      relative(analysisPath),
+      "The Architecture cross-model matrix must process every verification goal exactly once across all five models.",
+    );
+
+  const detailSection = analysis.match(
+    /^### 4\.2\. Architecture詳細設計領域の処置\s*$([\s\S]*?)(?=^###\s|^##\s|(?![\s\S]))/mu,
+  )?.[1];
+  const detailRoot = path.join(root, "06_Architecture", "Details");
+  const physicalDetailPaths = new Set(
+    lstatIfPresent(detailRoot)?.isDirectory()
+      ? fs
+          .readdirSync(detailRoot, { withFileTypes: true })
+          .filter(
+            (entry) =>
+              entry.isDirectory() &&
+              lstatIfPresent(
+                path.join(detailRoot, entry.name, "01_Architecture.md"),
+              )?.isFile(),
+          )
+          .map((entry) =>
+            path.join(detailRoot, entry.name, "01_Architecture.md"),
+          )
+      : [],
+  );
+  const linkedDetailPaths = new Set(
+    Array.from(
+      (detailSection ?? "").matchAll(
+        /\]\((\.\.\/\.\.\/\.\.\/06_Architecture\/Details\/[a-z0-9-]+\/01_Architecture\.md)\)/gu,
+      ),
+      (match) => path.resolve(path.dirname(analysisPath), match[1]),
+    ),
+  );
+  const analysisDetailGoalRelations = new Set<string>();
+  const analysisDetailGoalRelationEntries: string[] = [];
+  for (const line of (detailSection ?? "").split(/\r?\n/u)) {
+    const detailSlug = line.match(
+      /^\|\s*\[([a-z0-9-]+)\]\([^)]*\/Details\/\1\/01_Architecture\.md\)\s*\|/u,
+    )?.[1];
+    if (!detailSlug) continue;
+    for (const goal of line.matchAll(
+      /\[[^\]]+\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/verification\.md\)/gu,
+    )) {
+      const relation = `${detailSlug}|${goal[1]}`;
+      analysisDetailGoalRelationEntries.push(relation);
+      analysisDetailGoalRelations.add(relation);
+    }
+  }
+  if (analysisDetailGoalRelations.size === 0)
+    add(
+      "error",
+      "quality-architecture-detail-goal-relation-missing",
+      relative(analysisPath),
+      "Each Architecture detail area must connect to one or more canonical verification goals.",
+    );
+  if (
+    analysisDetailGoalRelationEntries.length !==
+    analysisDetailGoalRelations.size
+  )
+    add(
+      "error",
+      "quality-architecture-detail-goal-relation-duplicate",
+      relative(analysisPath),
+      "The Architecture detail to verification-goal relation set must be duplicate-free.",
+    );
+  if (
+    linkedDetailPaths.size !== physicalDetailPaths.size ||
+    [...physicalDetailPaths].some(
+      (detailPath) => !linkedDetailPaths.has(detailPath),
+    ) ||
+    [...linkedDetailPaths].some(
+      (detailPath) => !physicalDetailPaths.has(detailPath),
+    )
+  )
+    add(
+      "error",
+      "quality-architecture-detail-coverage-mismatch",
+      relative(analysisPath),
+      "The Quality mapping must explicitly process every current Architecture detail area without adding an unknown area.",
+    );
+
+  const localItemOwners = new Map<string, string>();
+  const definitionSourceRelations = new Set<string>();
+  const definitionSourceRelationEntries: string[] = [];
+  const definitionSourceConditions = new Map<string, string>();
+  const definitionDetailGoalRelations = new Set<string>();
+  const definitionDetailGoalRelationEntries: string[] = [];
+  const definitionGoalLocalRelations = new Set<string>();
+  const definitionGoalLocalRelationEntries: string[] = [];
+  for (const definitionPath of physicalDefinitionPaths) {
+    const definition = read(definitionPath);
+    const goalSlug = path.basename(path.dirname(definitionPath));
+    const coverageSection = definition.match(
+      /^## 1\. 情報源と網羅条件\s*$([\s\S]*?)(?=^##\s)/mu,
+    )?.[1];
+    if (!coverageSection)
+      add(
+        "error",
+        "quality-definition-source-coverage-missing",
+        relative(definitionPath),
+        "Each verification definition must expose its Source-specific conditions and Local Item relations in the canonical information-source section.",
+      );
+    for (const line of (coverageSection ?? "").split(/\r?\n/u)) {
+      const relation = line.match(
+        /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
+      );
+      if (!relation) continue;
+      const [, sourceId, condition, localCell] = relation;
+      const localIds = Array.from(
+        localCell.matchAll(/`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu),
+        (match) => match[1],
+      );
+      if (condition.trim().length === 0 || localIds.length === 0)
+        add(
+          "error",
+          "quality-definition-source-local-relation-incomplete",
+          relative(definitionPath),
+          "Every verification-definition source row must preserve a condition and connect it to one or more Local Items.",
+        );
+      definitionSourceConditions.set(
+        `${sourceId}|${goalSlug}`,
+        normalizeQualityCondition(condition),
+      );
+      for (const localId of localIds) {
+        const relation = `${sourceId}|${goalSlug}|${localId}`;
+        definitionSourceRelationEntries.push(relation);
+        definitionSourceRelations.add(relation);
+      }
+    }
+    const detailCoverageSection = definition.match(
+      /^### Architecture詳細設計入力\s*$([\s\S]*?)(?=^##\s)/mu,
+    )?.[1];
+    if (!detailCoverageSection)
+      add(
+        "error",
+        "quality-definition-detail-coverage-missing",
+        relative(definitionPath),
+        "Each verification definition must expose the Architecture detail areas that contribute its structural verification conditions.",
+      );
+    for (const detail of (detailCoverageSection ?? "").matchAll(
+      /\[([a-z0-9-]+)\]\(\.\.\/\.\.\/\.\.\/06_Architecture\/Details\/\1\/01_Architecture\.md\)/gu,
+    )) {
+      const relation = `${detail[1]}|${goalSlug}`;
+      definitionDetailGoalRelationEntries.push(relation);
+      definitionDetailGoalRelations.add(relation);
+    }
+    const itemSection = definition.match(
+      /^## [0-9]+\. 検証項目\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
+    )?.[1];
+    const expectedItemColumns = [
+      "Local ID",
+      "分類",
+      "事前状態／入力",
+      "操作／刺激",
+      "観測と期待結果",
+      "終了後条件",
+      "実行形態",
+    ];
+    const itemTableLines = (itemSection ?? "")
+      .split(/\r?\n/u)
+      .filter((line) => /^\|.*\|\s*$/u.test(line));
+    const itemHeaderCells = itemTableLines[0]
+      ?.slice(1, itemTableLines[0].lastIndexOf("|"))
+      .split("|")
+      .map((cell) => cell.trim());
+    if (
+      !itemHeaderCells ||
+      itemHeaderCells.length !== expectedItemColumns.length ||
+      itemHeaderCells.some((cell, index) => cell !== expectedItemColumns[index])
+    )
+      add(
+        "error",
+        "quality-verification-item-schema-invalid",
+        relative(definitionPath),
+        "The verification-item table must use the exact seven canonical axes: Local ID, classification, precondition/input, operation/stimulus, observation/expected result, postcondition, and execution mode.",
+      );
+    for (const itemLine of itemTableLines.slice(2)) {
+      if (!/^\|\s*`[A-Z][A-Z0-9]*-[0-9]{2,}`\s*\|/u.test(itemLine)) continue;
+      const cells = itemLine
+        .slice(1, itemLine.lastIndexOf("|"))
+        .split("|")
+        .map((cell) => cell.trim());
+      if (
+        cells.length !== expectedItemColumns.length ||
+        cells.some((cell) => cell.length === 0)
+      )
+        add(
+          "error",
+          "quality-verification-item-axis-missing",
+          relative(definitionPath),
+          "Every verification item must populate all seven canonical axes so the intended failure and completion boundary can be reconstructed.",
+        );
+      if (
+        cells.length === expectedItemColumns.length &&
+        !["Automated", "Manual", "Hybrid"].includes(cells[6])
+      )
+        add(
+          "error",
+          "quality-verification-item-execution-mode-invalid",
+          relative(definitionPath),
+          "Verification-item execution mode must be exactly Automated, Manual, or Hybrid; test level and reviewer role belong to their own contracts.",
+        );
+    }
+    const localIds = Array.from(
+      (itemSection ?? "").matchAll(
+        /^\|\s*`([A-Z][A-Z0-9]*-[0-9]{2,})`\s*\|/gmu,
+      ),
+      (match) => match[1],
+    );
+    if (localIds.length === 0)
+      add(
+        "error",
+        "quality-definition-verification-items-missing",
+        relative(definitionPath),
+        "Each verification definition must contain at least one locally identified verification item in its canonical '検証項目' section.",
+      );
+    for (const localId of localIds) {
+      const goalLocalRelation = `${goalSlug}|${localId}`;
+      definitionGoalLocalRelationEntries.push(goalLocalRelation);
+      definitionGoalLocalRelations.add(goalLocalRelation);
+      const previousOwner = localItemOwners.get(localId);
+      if (previousOwner)
+        add(
+          "error",
+          "quality-local-verification-id-duplicate",
+          relative(definitionPath),
+          `Local verification ID ${localId} is already owned by ${previousOwner}.`,
+        );
+      else localItemOwners.set(localId, relative(definitionPath));
+    }
+  }
+
+  if (definitionSourceRelationEntries.length !== definitionSourceRelations.size)
+    add(
+      "error",
+      "quality-definition-source-relation-duplicate",
+      relative(definitionsRoot),
+      "Verification definitions must not repeat the same Source ID, goal, and Local Item relation with different descriptions.",
+    );
+  if (
+    definitionGoalLocalRelationEntries.length !==
+    definitionGoalLocalRelations.size
+  )
+    add(
+      "error",
+      "quality-definition-goal-local-relation-duplicate",
+      relative(definitionsRoot),
+      "Verification definitions must not repeat the same verification-goal to Local Item relation.",
+    );
+  if (
+    definitionDetailGoalRelationEntries.length !==
+    definitionDetailGoalRelations.size
+  )
+    add(
+      "error",
+      "quality-definition-detail-goal-relation-duplicate",
+      relative(definitionsRoot),
+      "Verification definitions must not repeat the same Architecture detail to goal relation.",
+    );
+  if (
+    analysisDetailGoalRelations.size !== definitionDetailGoalRelations.size ||
+    [...analysisDetailGoalRelations].some(
+      (relation) => !definitionDetailGoalRelations.has(relation),
+    ) ||
+    [...definitionDetailGoalRelations].some(
+      (relation) => !analysisDetailGoalRelations.has(relation),
+    )
+  )
+    add(
+      "error",
+      "quality-detail-goal-relation-closure-mismatch",
+      relative(analysisPath),
+      "The Quality analysis and verification definitions must expose the same duplicate-free Architecture-detail-to-goal relation set.",
+    );
+
+  if (
+    analysisSourceRelations.size !== definitionSourceRelations.size ||
+    [...analysisSourceRelations].some(
+      (relation) => !definitionSourceRelations.has(relation),
+    ) ||
+    [...definitionSourceRelations].some(
+      (relation) => !analysisSourceRelations.has(relation),
+    )
+  )
+    add(
+      "error",
+      "quality-source-local-relation-closure-mismatch",
+      relative(analysisPath),
+      "The Quality analysis and verification definitions must expose the same duplicate-free Source ID, goal, and Local Item relation set.",
+    );
+  if (
+    analysisSourceConditions.size !== definitionSourceConditions.size ||
+    [...analysisSourceConditions].some(
+      ([relation, condition]) =>
+        definitionSourceConditions.get(relation) !== condition,
+    ) ||
+    [...definitionSourceConditions].some(
+      ([relation, condition]) =>
+        analysisSourceConditions.get(relation) !== condition,
+    )
+  )
+    add(
+      "error",
+      "quality-source-condition-closure-mismatch",
+      relative(analysisPath),
+      "The Quality mapping and verification definitions must preserve the same normalized source-specific condition for every Source ID to verification-goal relation.",
+    );
+
+  const localItemSection = analysis.match(
+    /^### 4\.3\. 検証項目の閉包\s*$([\s\S]*?)(?=^###\s|^##\s|(?![\s\S]))/mu,
+  )?.[1];
+  const listedLocalIds = new Set<string>();
+  const listedGoalLocalRelations = new Set<string>();
+  const listedGoalLocalRelationEntries: string[] = [];
+  for (const line of (localItemSection ?? "").split(/\r?\n/u)) {
+    const goalSlug = line.match(
+      /^\|\s*\[[^\]]+\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/verification\.md\)\s*\|/u,
+    )?.[1];
+    if (!goalSlug) continue;
+    for (const localMatch of line.matchAll(/`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu)) {
+      listedLocalIds.add(localMatch[1]);
+      const relation = `${goalSlug}|${localMatch[1]}`;
+      listedGoalLocalRelationEntries.push(relation);
+      listedGoalLocalRelations.add(relation);
+    }
+  }
+  if (
+    listedLocalIds.size !== localItemOwners.size ||
+    [...listedLocalIds].some((localId) => !localItemOwners.has(localId)) ||
+    [...localItemOwners].some(([localId]) => !listedLocalIds.has(localId))
+  )
+    add(
+      "error",
+      "quality-local-verification-item-closure-mismatch",
+      relative(analysisPath),
+      "The canonical Quality mapping must list the exact Local Item set owned by all current verification definitions.",
+    );
+  if (listedGoalLocalRelationEntries.length !== listedGoalLocalRelations.size)
+    add(
+      "error",
+      "quality-goal-local-relation-duplicate",
+      relative(analysisPath),
+      "The canonical Quality mapping must not repeat the same verification-goal to Local Item relation.",
+    );
+  if (
+    listedGoalLocalRelations.size !== definitionGoalLocalRelations.size ||
+    [...listedGoalLocalRelations].some(
+      (relation) => !definitionGoalLocalRelations.has(relation),
+    ) ||
+    [...definitionGoalLocalRelations].some(
+      (relation) => !listedGoalLocalRelations.has(relation),
+    )
+  )
+    add(
+      "error",
+      "quality-goal-local-relation-closure-mismatch",
+      relative(analysisPath),
+      "The canonical Quality mapping must preserve the exact verification-goal to Local Item relation set owned by the verification definitions; a globally equal Local ID set is not sufficient.",
+    );
+
+  for (const sharedEvidencePath of [
+    path.join(qualityRoot, "Evidence"),
+    path.join(qualityRoot, "Verification_Results"),
+  ])
+    if (lstatIfPresent(sharedEvidencePath))
+      add(
+        "error",
+        "quality-shared-evidence-box-forbidden",
+        relative(sharedEvidencePath),
+        "Quality must keep result ownership with the relevant verification definition or release/change evidence owner instead of recreating a shared catch-all Evidence box.",
+      );
+}
+
+checkQualityReconstruction();
+
 let workLifecycleRoots = [
   path.join(root, "99_Roadmap"),
   ...(repositoryMode === "official"

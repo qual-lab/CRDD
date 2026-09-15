@@ -14,6 +14,7 @@
 | [UI-000004](../04_UI/Definitions/UI-000004/ui_definition.md) | [SPEC-000007](Definitions/SPEC-000007/spec_definition.md) | 操作・Feedbackと契機・結果・失敗を対応レビューする |
 | [UI-000005](../04_UI/Definitions/UI-000005/ui_definition.md) | [SPEC-000008](Definitions/SPEC-000008/spec_definition.md) | 操作・Feedbackと契機・結果・失敗を対応レビューする |
 | [UI-000005](../04_UI/Definitions/UI-000005/ui_definition.md) | [SPEC-000009](Definitions/SPEC-000009/spec_definition.md) | 操作・Feedbackと契機・結果・失敗を対応レビューする |
+| [UI-000020](../04_UI/Definitions/UI-000020/ui_definition.md) | [SPEC-000030](Definitions/SPEC-000030/spec_definition.md) | 記録依頼、結果状態、同一試行の再観測、終了後条件を対応レビューする |
 | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000010](Definitions/SPEC-000010/spec_definition.md) | 操作・Feedbackと契機・結果・失敗を対応レビューする |
 | [UI-000007](../04_UI/Definitions/UI-000007/ui_definition.md) | [SPEC-000011](Definitions/SPEC-000011/spec_definition.md) | 操作・Feedbackと契機・結果・失敗を対応レビューする |
 | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md) | 操作・Feedbackと契機・結果・失敗を対応レビューする |

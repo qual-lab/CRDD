@@ -1,10 +1,23 @@
 # CRDD内部ツールの品質の現在状態
 
-状態: Stable（v0.20.1）
+状態: v0.21.0 Quality Design Ready — Reality Audit Pending（Released Baseline: v0.20.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-12
+最終更新日: 2026-09-15
 
 ## 結論
+
+### v0.21.0の現在地
+
+| 対象 | 現在状態 | 根拠・次の処置 |
+|---|---|---|
+| Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157件をMapping済み | [全Canonical定義のQuality分析](Analysis/canonical-definition-mapping/quality_analysis.md) |
+| Quality Analysis | 157件を全件Mappingし、5横断モデル・15詳細設計領域・13検証定義・Local Item集合を接続済み | 構造閉包はChecker、意味伝播とScenario十分性は独立再レビューで確認済み |
+| Quality Definitions | 13定義、Local Item 60件をCanonical化 | 各項目固有の事前状態／入力、操作／刺激、観測、終了後条件、実行形態を固定済み |
+| 既存実装・既存試験との照合 | 未着手 | Canonical Mappingと検証定義の固定後、Local Item単位でSource／Test／Evidenceを照合する |
+| 実行結果 | Checker静的確認、Repository全体Checker、Checker契約試験335件はPass | Quality設計固定後に必要な回帰を選び、結果はChangeまたはReleaseのEvidenceへ置く |
+| 上流全体のQuality再構築 | Mappingと構造Checkerを作成済み | 個別MDは量産せず、全件処置の確実性をMappingとCheckerで保証する |
+
+`v0.20.1`は公開済み基準であり、以下の履歴表はその基準と過去Evidenceを保持する。上表の`v0.21.0`再構築状態へ読み替えない。
 
 | 項目 | 現在状態 |
 |---|---|

@@ -1,6 +1,6 @@
 # CRDD内部ツールの検証設計
 
-状態: Stable（v0.20.1）
+状態: v0.21.0 Reconstruction In Progress（Released Baseline: v0.20.1）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-06
 
@@ -14,20 +14,52 @@
 
 ## 対象と判定
 
-### v0.21 Architecture横断モデルからの入力
+### v0.21 全Canonical Definitionから再導出するQuality Analysis
 
-この表は新しいCanonical ArchitectureからQuality Analysisへ渡す入力候補である。基本設計に加え、ARCH-IDを実装可能な構造へ具体化した詳細設計も共同入力とする。既存試験との対応付けはCanonical詳細設計を固定した後のReality Auditで行い、現在の試験カタログをCanonical設計の根拠へ読み替えない。
+QualityはREQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157 Canonical IDを正式入力とする。各IDをQuality Analysis Mappingで一行以上処置し、検証義務を`Same／New／Merge`によって意味の近い検証目標へ統合する。個別処置をID別MDの作成と同一視せず、MappingのCanonical集合との差をCheckerで検出する。
+
+```text
+157 Canonical IDs
+        │ 一行以上で全件処置
+        ▼
+Quality Analysis Mapping
+        ↓
+Verification Obligation
+        │ Same／New／Merge
+        ▼
+Verification Objective
+        ↓
+Test Design → UT／IT／ST／UAT
+```
+
+[全Canonical定義のQuality分析](Analysis/canonical-definition-mapping/quality_analysis.md)は、157件の正式入力、Architectureの5横断モデルおよび15詳細設計領域を13の検証目標候補へ接続する。既存試験との対応付けはCanonical検証定義を固定した後の[現行実装との照合](Analysis/current-implementation-reality/quality_analysis.md)で行い、現在の試験カタログをCanonical設計の根拠へ読み替えない。
 
 | Architecture入力 | Qualityが導出する主な検証対象 | 現在状態 | 次の処置 |
 |---|---|---|---|
-| [Component／責務モデル](../06_Architecture/02_Component_and_Responsibility_Model.md) | Component内部契約、状態Owner、所有禁止、Port責務 | 未分析 | Architecture独立レビューPass後にUT／Component候補へ分解 |
-| [境界／Interfaceモデル](../06_Architecture/03_Boundary_and_Interface_Model.md) | Component間、Transport、Repository、外部System、Platformの交換契約 | 未分析 | 境界ごとのContract／IT候補へ分解 |
-| [Runtime／Data Flowモデル](../06_Architecture/04_Runtime_and_Data_Flow_Model.md) | Data分類、状態遷移、相関、欠測、整合性 | 未分析 | 状態／Consistency／情報流の反証へ分解 |
-| [故障／回復／耐障害モデル](../06_Architecture/05_Failure_Recovery_and_Resilience_Model.md) | 部分故障、取消、cleanup、Recovery、再入場、終了後条件 | 未分析 | Fault／Recovery候補へ分解 |
-| [配置／実行モデル](../06_Architecture/06_Deployment_and_Execution_Model.md) | Process、Runtime、並行性、Timing、Resource、段階的結合 | 未分析 | 実境界IT／ST候補へ分解 |
-| [Architecture詳細設計の対応表](../06_Architecture/07_Detail_Architecture_Map.md) | ARCH-IDと15詳細設計領域のRelation、Applicability、Engineering Concern | 未分析 | 領域ごとの検証対象、故障点、観測、終了後条件へ分解 |
+| [Component／責務モデル](../06_Architecture/02_Component_and_Responsibility_Model.md) | Component内部契約、状態Owner、所有禁止、Port責務 | 分析済み | 13検証目標の情報源と網羅条件へ接続 |
+| [境界／Interfaceモデル](../06_Architecture/03_Boundary_and_Interface_Model.md) | Component間、Transport、Repository、外部System、Platformの交換契約 | 分析済み | 直接境界と関連1〜2 blockのITへ接続 |
+| [Runtime／Data Flowモデル](../06_Architecture/04_Runtime_and_Data_Flow_Model.md) | Data分類、状態遷移、相関、欠測、整合性 | 分析済み | 投影・出所・状態の検証定義へ接続 |
+| [故障／回復／耐障害モデル](../06_Architecture/05_Failure_Recovery_and_Resilience_Model.md) | 部分故障、取消、cleanup、Recovery、再入場、終了後条件 | 分析済み | Project／Runtime Data／外部境界のLifecycle定義へ接続 |
+| [配置／実行モデル](../06_Architecture/06_Deployment_and_Execution_Model.md) | Process、Runtime、並行性、Timing、Resource、段階的結合 | 分析済み | 実境界ITと必要なSTへ接続 |
+| [Architecture詳細設計の対応表](../06_Architecture/07_Detail_Architecture_Map.md) | ARCH-IDと15詳細設計領域のRelation、Applicability、Engineering Concern | 分析済み | 18 ARCH-ID→13検証目標の全数対応として固定 |
 
-17件のArchitecture定義、5横断モデルおよび15詳細設計領域を共同入力とする。横断モデルだけから個別責務を、詳細設計だけから利用者・振る舞い上の保証を推定しない。詳細設計の`PASS`は実装・試験の合格ではなく設計上の処置済みを表すため、QualityはReality Auditと検証結果を別に判定する。
+18件のArchitecture定義、5横断モデルおよび15詳細設計領域を共同入力とする。横断モデルだけから個別責務を、詳細設計だけから利用者・振る舞い上の保証を推定しない。詳細設計の`PASS`は実装・試験の合格ではなく設計上の処置済みを表すため、QualityはReality Auditと検証結果を別に判定する。
+
+| 検証目標 | 主な確認対象 |
+|---|---|
+| [Repositoryと契約移行](Definitions/repository-and-contract-migration/verification.md) | Repository境界、契約移行、利用側閉包 |
+| [変更と品質状態](Definitions/change-and-quality-state/verification.md) | Change、Evidence、品質状態の整合 |
+| [Project Runtime lifecycle](Definitions/project-runtime-lifecycle/verification.md) | Task、取消、回復、終了後状態 |
+| [投影と出所](Definitions/projection-and-provenance/verification.md) | 根拠、現行性、欠測、制限 |
+| [候補の昇格](Definitions/candidate-promotion/verification.md) | Candidateから正本への昇格と競合 |
+| [外部Runtime境界](Definitions/external-runtime-boundary/verification.md) | Process、Docker、CLIの実境界lifecycle |
+| [RepositoryとFederation](Definitions/repository-and-federation/verification.md) | Project／Repository Identityと横断解決 |
+| [Runtime Data lifecycle](Definitions/runtime-data-lifecycle/verification.md) | 配置、保持、回復、清掃 |
+| [外部送信とTransport](Definitions/external-send-and-transport/verification.md) | 許可、搬送、公開結果、情報境界 |
+| [成果物IntegrityとTrust](Definitions/artifact-integrity-and-trust/verification.md) | 署名、配布物、Trust Policy |
+| [公式AssetのGovernance](Definitions/official-asset-governance/verification.md) | 収載権限、出所、公開・再配布 |
+| [実行記録の公開と再利用](Definitions/execution-record-publication/verification.md) | 複数作成側、Canonical記録、並行Writer、不変公開、Effect不明時の回復 |
+| [成果物の理解と工程引継ぎ](Definitions/artifact-understanding-and-handoff/verification.md) | 人間理解、構造表現、図、自己完結性、下流での再構成 |
 
 ### 署名配布物の期限契約
 
@@ -311,33 +343,17 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 
 ## 実行知の検証設計
 
-実行知は[実行知のアーキテクチャ](../06_Architecture/Details/execution-intelligence/01_Architecture.md)に従い、共通Event、利用側Adapter、保存、集約、限定分散の統合結果評価、改善候補、および未成立Authorityによる清掃候補生成・物理削除が公開されないことを別々に確認する。
+Canonicalな実行知は、[実行知のArchitecture詳細設計](../06_Architecture/Details/execution-intelligence/01_Architecture.md)に従い、既存Sourceから実行事実と評価候補を読み取る。Event生成、Store書込み、清掃または実行Authorityを所有しない。v0.20.1で成立したWriter／Store能力は失われたものとは扱わず、[現行実装との照合](Analysis/current-implementation-reality/quality_analysis.md)で別に評価する。
 
-| ID | 試験レベル | 入力・変化 | 期待する主な観測 |
-|---|---|---|---|
-| EI-UT-N-01 | 単体 | 正常終了したTask Attemptの共通入力 | 仕事Identity、Role、Provider、結果、所要時間をProvider／Runtime非依存の閉Eventへ変換できる |
-| EI-UT-Q-01 | 単体 | Provider等の一部指標を取得できない | 0へ補正せず観測件数と値の集約を分け、品質はTask終了時点で非該当となる |
-| EI-UT-A-01 | 単体 | 未知field、不正Event、Raw出力相当field、Identityと一致しないEvent ID | Eventと集約を拒否し、未知要素を黙って除外しない。canonicalな仕事Identity全体から決定的Event IDを再構成して一致を確認する |
-| EI-UT-N-02 | 単体 | 同じProject／Milestoneの予定Task全件、実Attempt、統合受入および効用測定 | 評価処理を完了し、Provider別件数を観測済みAttemptから集約する。Task成功を統合受入とは扱わない |
-| EI-UT-Q-02 | 単体 | 統合結果未観測または予定TaskのAttempt不足 | 欠測を0へ補正せず、欠落Taskと未観測統合を示して`incomplete`とする |
-| EI-UT-A-02 | 単体 | 別Project／Milestone、予定外Task、重複Eventまたは未知field | 対象を推測分割せず閉じた評価入力を拒否する |
-| EI-IT-N-01 | 結合 | Repository-local Storeへの初回記録と同一byte再送 | `.crdd/execution/<operation-id>/events/`へ一つだけ不変保存し、再送は冪等となる |
-| EI-IT-Q-01 | 結合 | 呼出側が架空Evidence IDと空の未解決参照一覧を提示 | 物理削除APIが存在せず、保存済みEvent byteが不変である |
-| EI-IT-A-01 | 結合 | 同一Event IDの異内容、破損、未解決参照、Hash不一致 | 自動修復・推測・一括削除をせずEffect 0で停止する |
-| EI-IT-N-02 | 結合 | 公開Runtime構成からProject Runtimeが一つのTask Attemptを実行 | Coordinator AdapterがObjectiveを含むexact仕事Identityと検証済みTask結果を共通Eventへ変換し、検証済みRepository RootのStoreから再読取りできる |
-| EI-IT-A-02 | 結合 | Attempt、Operation、Authority Binding、Repository Revisionの各単独不一致 | 一致しないTask結果のstatus、reason、ProviderまたはcleanupをEventへ写さず、閉じた観測不能として記録する |
-| EI-IT-A-03 | 結合 | Event発行の未設定、拒否、例外または診断処理の例外 | 発行結果を成功へ丸めず、本番公開Runtimeを含む実構成で回復診断とは異なる閉じた非Authority診断へ区別し、元のTask結果、公開DTOおよびProject Stateを変更しない |
-| EI-IT-N-03 | 結合 | 通常Repository、linked worktree、submoduleのexact Root | Version Controlが返す自身のRootだけを保存能力にし、subdirectory、親、別Repositoryまたはlink経由を拒否する |
-| EI-IT-Q-02 | 結合 | 2 Processから同一byteの同一Eventを並行発行 | 上書きせず一つのEventへ冪等に収束し、Lockと一時fileが残らない |
-| EI-IT-A-04 | 結合 | 2 Processから同じEvent IDへ異なるbyteを並行発行 | 一方だけを不変保存し、他方をIdentity衝突として拒否する |
-| EI-IT-A-05 | 結合 | open、write、flush、publish、readback、Lock初期化・解放、一時file回収の各失敗 | Effect、cleanup、再試行、手動回復およびexact残存Artifactを区別し、成功へ丸めない |
-| EI-IT-A-06 | 結合 | top-levelまたは入れ子Accessorが検査時と永続化時に異なる値を返そうとする | Accessorを実行せず、一度だけ作ったcanonical snapshot以外をRecorder／Storeへ渡さない。Store作成前にEffect 0で拒否する |
-| EI-IT-N-04 | 結合 | 同じObjectiveの競合しない2 Taskを上限2で実行し、実Attempt Eventと統合結果を評価 | 2 Taskの同時実行を観測し、両Attemptを不変Storeから再読取りして統合受入と同じ評価Identityへ接続する。個別Task成功を統合受入へ読み替えず、未観測の時間、費用、人間作業および後工程品質を欠測のまま保持する |
-| EI-RT-C-01 | 回帰 | 実行知のSource、公開入口、Storeまたはtoolchainを変更 | 実行知自身のUT／ITに加え、登録したCoordinator利用側契約と静的検査を同じ計画へ選ぶ。試験levelを限定しても利用側静的検査は残し、指定外の利用側試験は実行しない。実行知の静的検査はCoordinatorのtoolchainへ依存しない |
+| Local ID | 分類 | 入力・変化 | 観測と期待結果 | 終了後条件 |
+|---|---|---|---|---|
+| `EI-READ-01` | 正常 | 同じ仕事Identityに結合した既存実行記録 | 事実、出所、対象Revision、観測時点を保持して`observed`として返す | Source／Store Effect 0 |
+| `EI-READ-02` | 準正常 | 対象の記録が存在しない | `not_observed`を0件・成功・失敗へ補正しない | Source／Store Effect 0 |
+| `EI-READ-03` | 判定不能 | Source読取り不能、破損、IdentityまたはRevision不一致 | `unknown`と理由を返し、不存在または正常へ丸めない | Source／Store Effect 0 |
+| `EI-READ-04` | 分類 | 同じ対象に実行事実と評価候補がある | 観測事実と評価候補を別の種類・状態として返す | 評価候補を確定事実へ昇格しない |
+| `EI-READ-05` | 境界 | 読取り要求に書込み、清掃、実行またはAuthority発行を混入 | 能力外として拒否し、実行知の読取り結果を変更しない | Filesystem／Provider／Runtime Effect 0 |
 
-組込みRecorderは、Canonical Event生成とStore公開を別の失敗境界として検証する。top-levelまたはnested Accessor等による生成拒否ではAccessorを実行せず、Store呼出しと`.crdd/execution`作成を0にして`execution_event_invalid / no_effect / cleanupConfirmed`を返す。生成済みEventを受け取ったStoreが契約外例外を送出する反例では、それを入力不正またはEffect 0へ変換しない。Project Runtime利用側はこの例外を`effectState: unknown / cleanupConfirmed: false`として二次観測へ閉じ、Task結果やAuthorityを変更しない。試験用Writerの差替えはpackage内部の構成境界だけに限定し、公開package APIへ故障注入面を追加しない。
-
-実Provider、Token／費用、人間の実作業時間、品質受入、Viewer、運用成果および事業成果は、本変更の自動回帰では未評価である。値が取得できないことを試験失敗へせず、取得済みまたは完成済みとも表示しない。性能試験・長時間試験は本変更の通常Gateではなく、人間が対象と上限を明示しない限り実行しない。
+この検証は[投影と出所の検証定義](Definitions/projection-and-provenance/verification.md)へ統合する。実Provider、Token／費用、人間の実作業時間、品質受入、Viewer、運用成果および事業成果は、観測できない場合に推測せず欠測として保持する。性能試験・長時間試験は、人間が対象、上限、中止条件およびcleanupを明示しない限り実行しない。
 
 <a id="reasoning-context-verification"></a>
 

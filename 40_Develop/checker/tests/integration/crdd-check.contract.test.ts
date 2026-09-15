@@ -383,8 +383,9 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     "02_Quality_Strategy.md",
     "03_Verification_Design.md",
   ];
+  const directoryNames = ["Analysis", "Definitions"];
   const oldNames = names.map((name) => name.slice(3));
-  const expectedEntries = names;
+  const expectedEntries = [...names, "Analysis/", "Definitions/"];
   const rule = fs
     .readFileSync(path.join(repositoryRoot, "16_Quality_Assurance.md"), "utf8")
     .split('<a id="42-fixed-quality-structure"></a>')[1]
@@ -415,6 +416,8 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     assert.equal(directories.length, 2);
     for (const entries of directories) {
       for (const name of names) assert.ok(entries.includes(name), name);
+      for (const name of directoryNames)
+        assert.ok(entries.includes(name), name);
       for (const name of oldNames) assert.ok(!entries.includes(name), name);
       assert.ok(!entries.includes("Verification_Results"));
     }
@@ -429,9 +432,12 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     for (const name of names) {
       assert.ok(fs.lstatSync(path.join(root, name)).isFile(), name);
     }
+    for (const name of directoryNames) {
+      assert.ok(fs.lstatSync(path.join(root, name)).isDirectory(), name);
+    }
     assert.ok(!fs.existsSync(path.join(root, "Verification_Results")));
   }
-  const completeEntries = [...names];
+  const completeEntries = [...names, ...directoryNames];
   assert.throws(() =>
     check(
       rule.replace("01_Quality_Center.md", "Quality_Center.md"),
@@ -3546,6 +3552,474 @@ function architectureReconstructionFixtureRoot(): string {
     write(path.join(root, relativePath), "# template\n");
   return root;
 }
+
+test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const architectureIndexPath = path.join(
+    root,
+    "06_Architecture",
+    "01_Architecture.md",
+  );
+  write(
+    architectureIndexPath,
+    fs
+      .readFileSync(architectureIndexPath, "utf8")
+      .replace("Status: Candidate", "Status: Architecture Ready"),
+  );
+  for (const relativeDirectory of [
+    "07_Quality/Analysis/canonical-definition-mapping",
+    "07_Quality/Definitions/sample-goal",
+    "template/07_Quality/Analysis/_Template",
+    "template/07_Quality/Definitions/_Template",
+  ])
+    fs.mkdirSync(path.join(root, relativeDirectory), { recursive: true });
+  const mappingPath = path.join(
+    root,
+    "07_Quality",
+    "Analysis",
+    "canonical-definition-mapping",
+    "quality_analysis.md",
+  );
+  const mapping = `# Quality Analysis
+
+## 3. 全件Mapping
+
+| Source ID | 検証すべき意味 | 検証義務 | 検証目標 | Level | Type | 処置状態 |
+|---|---|---|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 体験 | 保証 | [sample](../../Definitions/sample-goal/verification.md) | ST／UAT | Experience | Mapped |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | 情報 | 保証 | [sample](../../Definitions/sample-goal/verification.md) | IT／ST | Information | Mapped |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | UI | 保証 | [sample](../../Definitions/sample-goal/verification.md) | IT／ST | Interface | Mapped |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | 振る舞い | 保証 | [sample](../../Definitions/sample-goal/verification.md) | UT／IT | Behavior | Mapped |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 構造 | 保証 | [sample](../../Definitions/sample-goal/verification.md) | IT／ST | Architecture | Mapped |
+
+## 4. 統合
+
+### 4.0. Source固有条件と検証項目の関係
+
+| Source ID | 検証目標 | 保持する固有条件 | 対応Local Item |
+|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 体験を保証する | \`SAMPLE-01\` |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 情報を保証する | \`SAMPLE-01\` |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | UIを保証する | \`SAMPLE-01\` |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 振る舞いを保証する | \`SAMPLE-01\` |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 構造を保証する | \`SAMPLE-01\` |
+
+### 4.1. Architecture横断モデルの処置
+
+| 検証目標 | [Component](../../../06_Architecture/02_Component_and_Responsibility_Model.md) | [Boundary](../../../06_Architecture/03_Boundary_and_Interface_Model.md) | [Flow](../../../06_Architecture/04_Runtime_and_Data_Flow_Model.md) | [Failure](../../../06_Architecture/05_Failure_Recovery_and_Resilience_Model.md) | [Deployment](../../../06_Architecture/06_Deployment_and_Execution_Model.md) |
+|---|---|---|---|---|---|
+| sample | Required | Required | Required | Required | N/A: 配置差なし |
+
+### 4.2. Architecture詳細設計領域の処置
+
+| 詳細設計領域 | 接続する検証目標 | 成立条件 |
+|---|---|---|
+| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | [sample](../../Definitions/sample-goal/verification.md) | 境界を確認する |
+
+### 4.3. 検証項目の閉包
+
+| 検証目標 | Local Item集合 | 入力Coverage | Architecture入力 |
+|---|---|---|---|
+| [sample](../../Definitions/sample-goal/verification.md) | \`SAMPLE-01\` | §3の全入力 | §4.1と§4.2 |
+`;
+  write(mappingPath, mapping);
+  const definitionPath = path.join(
+    root,
+    "07_Quality",
+    "Definitions",
+    "sample-goal",
+    "verification.md",
+  );
+  const definition = `# Verification
+
+## 1. 情報源と網羅条件
+
+| Source ID | 保持する固有条件 | 対応Local Item |
+|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 体験を保証する | \`SAMPLE-01\` |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | 情報を保証する | \`SAMPLE-01\` |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | UIを保証する | \`SAMPLE-01\` |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | 振る舞いを保証する | \`SAMPLE-01\` |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 構造を保証する | \`SAMPLE-01\` |
+
+### Architecture詳細設計入力
+
+| 詳細設計領域 | 受け取る成立条件 |
+|---|---|
+| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 境界を確認する |
+
+## 2. 検証項目
+
+| Local ID | 分類 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|
+| \`SAMPLE-01\` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |
+`;
+  write(definitionPath, definition);
+
+  let result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some((finding) =>
+      finding.code.startsWith("quality-"),
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    mappingPath,
+    mapping.replace(
+      /^\| \[UX-000001\].*\| \[sample\].*\| 体験を保証する \| `SAMPLE-01` \|\r?\n/mu,
+      "",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-goal-relation-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    mappingPath,
+    mapping.replace(
+      "| 体験を保証する | `SAMPLE-01` |",
+      "| 別表現の体験を保証する | `SAMPLE-01` |\n| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 体験を保証する | `SAMPLE-01` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-relation-duplicate",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    mappingPath,
+    mapping.replace(
+      "| 体験を保証する | `SAMPLE-01` |",
+      "| 体験を保証する | `SAMPLE-99` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-local-relation-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(mappingPath, mapping);
+  write(definitionPath, definition);
+  write(
+    mappingPath,
+    mapping.replace(
+      "体験を保証する | `SAMPLE-01`",
+      "体験の別条件 | `SAMPLE-01`",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-condition-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(mappingPath, mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "体験を保証する | `SAMPLE-01`",
+      "体験の別条件 | `SAMPLE-01`",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-condition-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(mappingPath, mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | | Automated |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-verification-item-axis-missing",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(mappingPath, mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-verification-item-axis-missing",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(mappingPath, mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated／ST |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-verification-item-execution-mode-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  const secondDefinitionPath = path.join(
+    root,
+    "07_Quality",
+    "Definitions",
+    "sample-goal-two",
+    "verification.md",
+  );
+  const secondDefinition = `# Verification Two
+
+## 1. 情報源と網羅条件
+
+| Source ID | 保持する固有条件 | 対応Local Item |
+|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 第二の体験条件を保証する | \`SAMPLE-02\` |
+
+### Architecture詳細設計入力
+
+| 詳細設計領域 | 受け取る成立条件 |
+|---|---|
+| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 第二の境界を確認する |
+
+## 2. 検証項目
+
+| Local ID | 分類 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|
+| \`SAMPLE-02\` | 正常 | 第二の入力 | 入力する | 第二の結果を確認する | 未解消状態なし | Automated |
+`;
+  write(secondDefinitionPath, secondDefinition);
+  const mappingTwoGoals = mapping
+    .replace(
+      "[sample](../../Definitions/sample-goal/verification.md) | ST／UAT",
+      "[sample](../../Definitions/sample-goal/verification.md)、[sample two](../../Definitions/sample-goal-two/verification.md) | ST／UAT",
+    )
+    .replace(
+      "| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 情報を保証する | `SAMPLE-01` |",
+      "| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample two](../../Definitions/sample-goal-two/verification.md) | 第二の体験条件を保証する | `SAMPLE-02` |\n| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/sample-goal/verification.md) | 情報を保証する | `SAMPLE-01` |",
+    )
+    .replace(
+      "| sample | Required | Required | Required | Required | N/A: 配置差なし |",
+      "| sample | Required | Required | Required | Required | N/A: 配置差なし |\n| sample two | Required | Required | Required | Required | N/A: 配置差なし |",
+    )
+    .replace(
+      "[sample](../../Definitions/sample-goal/verification.md) | 境界を確認する",
+      "[sample](../../Definitions/sample-goal/verification.md)、[sample two](../../Definitions/sample-goal-two/verification.md) | 境界を確認する",
+    )
+    .replace(
+      "| [sample](../../Definitions/sample-goal/verification.md) | `SAMPLE-01` | §3の全入力 | §4.1と§4.2 |",
+      "| [sample](../../Definitions/sample-goal/verification.md) | `SAMPLE-01` | §3の全入力 | §4.1と§4.2 |\n| [sample two](../../Definitions/sample-goal-two/verification.md) | `SAMPLE-02` | §3の全入力 | §4.1と§4.2 |",
+    );
+  write(mappingPath, mappingTwoGoals);
+  write(definitionPath, definition);
+  result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some((finding) =>
+      finding.code.startsWith("quality-"),
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    mappingPath,
+    mappingTwoGoals
+      .replace(
+        "| [sample](../../Definitions/sample-goal/verification.md) | `SAMPLE-01` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample](../../Definitions/sample-goal/verification.md) | `SAMPLE-02` | §3の全入力 | §4.1と§4.2 |",
+      )
+      .replace(
+        "| [sample two](../../Definitions/sample-goal-two/verification.md) | `SAMPLE-02` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample two](../../Definitions/sample-goal-two/verification.md) | `SAMPLE-01` | §3の全入力 | §4.1と§4.2 |",
+      ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-goal-local-relation-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  fs.rmSync(path.dirname(secondDefinitionPath), { recursive: true });
+
+  write(mappingPath, mapping.replace("N/A: 配置差なし", "N/A"));
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-cross-model-disposition-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(mappingPath, mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 境界を確認する |\n",
+      "",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-detail-goal-relation-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(mappingPath, mapping);
+  write(definitionPath, definition);
+
+  write(
+    mappingPath,
+    mapping
+      .replace(/^\| \[UX-000001\].*\r?\n/mu, "")
+      .replace("## 4. 統合", "REQ-999999\n\n## 4. 統合"),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-canonical-mapping-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  const firstMappingRow = mapping.match(/^\| \[UX-000001\].*$/mu)?.[0];
+  assert.ok(firstMappingRow);
+  write(
+    mappingPath,
+    mapping.replace(firstMappingRow, `${firstMappingRow}\n${firstMappingRow}`),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-canonical-mapping-duplicate-row",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(mappingPath, mapping);
+  fs.rmSync(definitionPath);
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-definition-missing",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(definitionPath, definition);
+  write(
+    mappingPath,
+    mapping.replace(
+      "../../../06_Architecture/02_Component_and_Responsibility_Model.md",
+      "../../../06_Architecture/03_Boundary_and_Interface_Model.md",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-architecture-cross-model-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    mappingPath,
+    mapping.replace(
+      "../../../06_Architecture/Details/sample/01_Architecture.md",
+      "../../../06_Architecture/Details/unknown/01_Architecture.md",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-architecture-detail-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(mappingPath, mapping);
+  write(
+    path.join(
+      root,
+      "07_Quality",
+      "Definitions",
+      "orphan-goal",
+      "verification.md",
+    ),
+    "# Orphan\n\n## 1. 検証項目\n\n| Local ID | 分類 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|\n| `ORPHAN-01` | 正常 | 入力あり | 入力する | 結果を確認する | 未解消状態なし | Automated |\n",
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-definition-set-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  fs.rmSync(
+    path.dirname(
+      path.join(
+        root,
+        "07_Quality",
+        "Definitions",
+        "orphan-goal",
+        "verification.md",
+      ),
+    ),
+    {
+      recursive: true,
+    },
+  );
+  write(
+    definitionPath,
+    "# Verification\n\n## 1. 検証項目\n\n| Local ID | 分類 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|\n| `SAMPLE-01` | 正常 | 入力あり | 入力する | 結果を確認する | 未解消状態なし | Automated |\n| `SAMPLE-01` | 異常 | 壊れた入力 | 壊す | 拒否する | Effect 0 | Automated |\n",
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-local-verification-id-duplicate",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
 
 function dispositionFixtureRoot(hasFixedEvidence = false): string {
   const root = fixture();

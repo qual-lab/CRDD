@@ -98,6 +98,8 @@ CRDDにおける検証（Verification）は、テストだけを意味しない�
 
 **検証手順（Verification Procedure）**は、検証項目を実施するための条件、入力、操作、観測方法、使用するツールおよび判定方法である。再現性が必要な検証項目では、別の実行者が重要な条件を再現できる詳細さを持たせる。
 
+検証項目の標準表は、`Local ID`、`分類`、`事前状態／入力`、`操作／刺激`、`観測と期待結果`、`終了後条件`、`実行形態`の7軸を持つ。試験、専門家レビュー、計測または利用者評価の違いにかかわらず、適用する軸を空欄にせず、定型操作がない場合も何を入力・観測し、どの状態で終えるかを平易に示す。実行形態は`Automated`、`Manual`、`Hybrid`のいずれかとし、UT／IT／ST等の試験段階やReview／Security等の担当観点を同じ値へ混在させない。
+
 ```text
 検証項目 = 何を一つの検証活動として実施し、結果を記録するか
 検証手順 = その活動をどの条件と方法で実施するか
@@ -654,17 +656,31 @@ Quality Centerでは、少なくとも次の異なる分母を混同しない。
 07_Quality/
 ├── 01_Quality_Center.md
 ├── 02_Quality_Strategy.md
-└── 03_Verification_Design.md
+├── 03_Verification_Design.md
+├── Analysis/
+│   └── <analysis-unit>/quality_analysis.md
+└── Definitions/
+    └── <verification-objective>/verification.md
 ```
 
 | 配置 | 責務 |
 |---|---|
 | `01_Quality_Center.md` | 現在の品質状態、計画対実績、差異理由、割合、重大な問題、残存リスク、リリース準備状態への入口 |
 | `02_Quality_Strategy.md` | 品質目標、品質リスク、検証方針、環境、独立性、根拠方針、リスク受容方針 |
-| `03_Verification_Design.md` | 検証意図、検証項目、観測要件、検証手順、網羅規則、評価規則、必要な根拠 |
+| `03_Verification_Design.md` | 検証設計全体の入口、網羅状態、共通評価規則、個別AnalysisとDefinitionへの案内 |
+| `Analysis/` | 上流Canonical IDを横断し、何を・なぜ・どのRiskと試験段階で確認するかへ変換した分析と全件Mapping |
+| `Definitions/` | 検証目標ごとの再利用可能なScenario、事前条件、操作・観測、期待結果、実行形態、Evidence要件 |
 先頭番号は品質フォルダ内の探索順を示すものであり、工程の実行順や安定コンテキストIDではない。個別の検証結果は、直接証明するChangeまたはReleaseの`Evidence/`へ置き、対象と日付・改訂版を識別できる名称で管理する。
 
-検証義務の正本は各工程成果物へ残し、`03_Verification_Design.md`から参照する。中央の検証義務登録簿を第二の正本として作らない。必要な一覧は、正本への参照と現在状態だけを持つ索引または派生表示として扱う。
+検証義務の正本は各工程成果物へ残す。`Analysis/`はその義務を検証観点へ変換した理由を、`Definitions/`は再利用可能な検証方法を所有する。`03_Verification_Design.md`はそれらの統合投影と案内に限定し、中央の検証義務登録簿を第二の正本として作らない。
+
+Quality Analysisは、`REQ-*`、`UX-*`、`IA-*`、`UI-*`、`SPEC-*`および`ARCH-*`のCanonical集合を正式入力とし、各IDをMapping上で一行以上処置しなければならない。個別処置は個別文書の作成を意味しない。各行から、検証すべき意味、検証義務、検証目標、試験段階・種別および現在の処置状態を取得可能にする。Canonical集合とMapping集合を独立に導出して比較し、欠落、未知IDおよび重複による曖昧さを機械検査する。
+
+Quality AnalysisとQuality Definitionは1対1に固定しない。複数のCanonical IDから導出した検証義務を同じ検証目標へ`Same／New／Merge`で統合でき、一つのCanonical IDを複数の検証目標へ接続できる。統合時は判断と理由を取得可能にし、対象集合、ID固有の成立条件、対応する検証項目および未処置の差分を全数追跡する。ID別の薄い文書へ同じ検証内容を分散させず、巨大な一冊で関係を暗黙化することも避ける。
+
+Quality Analysisは、`Source ID → 検証目標 → Definition内Local Item`と`Architecture詳細設計領域 → 検証目標`を明示する。各Definitionは同じSource固有条件、Local Itemおよび詳細設計入力を保持する。宣言集合と、Canonical Definition、Architecture詳細設計領域およびDefinition実体から導出した集合を比較し、欠落、未知Relation、別目標への移動および説明だけを変えた重複を不整合として扱う。Source固有条件は空欄でないことだけでなく、Quality AnalysisとDefinitionの間で空白差を除いて一致させる。検証項目の閉包はLocal Itemの全体集合だけでなく、`検証目標 → Local Item`の組を完全一致させ、別目標との入替を許容しない。検証目標名だけへの接続、代表Sourceだけの試験またはLocal Item一覧だけでは全件処置としない。
+
+品質工程は直前のArchitectureだけを正式入力としない。各工程は異なる種類の成立条件を所有するため、要求は課題解決、UXは利用者成果、IAは情報の理解・識別・追跡、UIは認識・操作・Feedback、SPECは振る舞い契約、Architectureは構造・境界・故障・回復の観点から横断分析する。試験段階は情報源となる工程へ固定対応させず、検証義務と観測境界から判断する。
 
 根拠は、対象成果物内または最も近い親フォルダの`Evidence/`に置く。実装コード、テストコード、構成、再現手順等は、それぞれの通常配置を正本とし、検証結果とQuality Centerから参照する。根拠を`07_Quality`へ集め直さない。
 
@@ -858,7 +874,9 @@ Quality Definitions
 
 Quality Definitionは特定CHGに閉じず、複数の変更・改訂版から再利用できる検証項目書とする。実行結果を同じDefinitionへ書き込まず、項目書と成績を分離する。Test Caseへ意味の薄いGlobal IDを一律発行せず、必要ならCanonical Definitionと文書内Local Itemの組で識別する。
 
-`07_Quality`の具体的なDirectory、既存成果物の移行、Acceptance／System／Integration等の分類およびQuality Centerの再編は、品質工程を見直す時点で現在の利用側とEvidenceを改めて調査して決める。この規則だけを根拠に空の`Analysis/`／`Definitions/`を先行作成しない。
+`07_Quality`は、上記の固定構造を用いる。`Analysis/`は意味のある横断分析単位、`Definitions/`は独立した検証目標で整理する。全Canonical IDはMappingで個別処置するが、ID別Directoryや薄い文書を既定にしない。試験段階はDirectory、上流工程または検証目標へ固定せず、各検証義務と観測境界の適用判定として保持する。既存成果物を移行するときは、利用側とEvidenceを棚卸しし、同じ意味を複製せずに現行の分析・定義・Evidenceへ接続する。空Directoryや中身のない準拠文書は作成しない。
+
+Quality設計は、全Canonical IDのAnalysisと検証目標への統合が完了するまで、既存SourceまたはTestを正解として逆算しない。Canonicalな検証設計を固定した後にReality Auditを行い、必要な検証と既存Source／Testを照合する。不足する検証を実装・実行してEvidenceへ接続した後にQuality Readyを判定する。
 
 単体試験の対象となる実装では、分岐網羅率（Branch Coverage）`100%`を品質戦略上の既定目標とする。これは、到達可能な判断分岐を確認対象から無意識に落とさないための目標であり、数値だけで品質成立またはリリース可否を決定する合格条件ではない。
 
