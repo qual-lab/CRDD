@@ -62,13 +62,13 @@ API、Process、保存方式、画面、部品または実装技術を本分析�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project実行](../../Definitions/project-execution/architecture_definition.md) | 取消Controllerと終了観測 | exactなTaskとAttemptへ限定した取消権限 | 取消要求を一度だけ発行する。新規Provider実行と別TaskへのEffectは0 | 古い世代、別Identity、競合完了、終了観測不能、資源残存 |
+| [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | 取消Controllerと終了観測 | exactなTaskとAttemptへ限定した取消権限 | 取消要求を一度だけ発行する。新規Provider実行と別TaskへのEffectは0 | 古い世代、別Identity、競合完了、終了観測不能、資源残存 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project実行](../../Definitions/project-execution/architecture_definition.md) | Same | Request／Task／Attempt Identityを共有するが、取消は受付、照会、Recoveryおよび清掃と異なるAuthority、Effect、状態機械を持つSibling blockとして保持する |
+| [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | Same | Request／Task／Attempt Identityを共有するが、取消は受付、照会、Recoveryおよび清掃と異なるAuthority、Effect、状態機械を持つSibling blockとして保持する |
 
 ## 5. UI観点との統合時に確認すること
 

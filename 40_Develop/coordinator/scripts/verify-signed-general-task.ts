@@ -836,7 +836,7 @@ export function createSignedGeneralTaskVerificationRequest(
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
     readPaths: Object.freeze([
-      "06_Architecture/coordinator/01_Architecture.md",
+      "06_Architecture/Details/coordinator/01_Architecture.md",
       TARGET_PATH,
     ]),
     workClass:

@@ -73,9 +73,9 @@ TypeScript署名Core・署名CLI・Platform Access・配布loaderとpackage Gate
 
 | 対象と設計上の主張 | 確認する正常・準正常・異常 | 既存の実装・試験と限界 |
 |---|---|---|
-| Checkerの範囲と報告 | 明示Root／省略、全体／限定／一段展開、Git／fallback、指摘・未確認、0／1／2 | [Checker設計](../06_Architecture/checker/01_Architecture.md#7-設計から試験への接続)から配布本体・契約試験へ辿る。指摘0を意味品質や全体確認へ一般化しない |
+| Checkerの範囲と報告 | 明示Root／省略、全体／限定／一段展開、Git／fallback、指摘・未確認、0／1／2 | [Checker設計](../06_Architecture/Details/checker/01_Architecture.md#7-設計から試験への接続)から配布本体・契約試験へ辿る。指摘0を意味品質や全体確認へ一般化しない |
 | Checkerの境界 | Root外、link、Gitlink、固定履歴の改変・後継欠落 | 配布本体の境界検査とfault injectionを照合。通常Checkerと一時fixtureを作る試験runnerは別の資源所有者 |
-| native観測・初期化 | 正しい要求、不正長／flag／nonce、主体・保護・実体の不一致、初期化後失敗 | [native設計](../06_Architecture/platform-access/01_Architecture.md#7-検証への接続)からRustとTS Adapterの両側へ接続。観測候補を実行許可にしない |
+| native観測・初期化 | 正しい要求、不正長／flag／nonce、主体・保護・実体の不一致、初期化後失敗 | [native設計](../06_Architecture/Details/platform-access/01_Architecture.md#7-検証への接続)からRustとTS Adapterの両側へ接続。観測候補を実行許可にしない |
 | native修復・準備 | helper終了／stdio終了、Job空、一時Registry復元、不明時の停止 | 通常試験、ignored試験、実OS実測を別記する。Rust試験合格をDocker復旧や署名Worker実測へ流用しない |
 | native失敗の利用者への到達 | 上位結果に作成可能性・回収不明・再起動／回復要否が残ること | Adapter→Coordinator→公開表示の接続を確認。binaryの単体応答だけでは表示成立としない |
 
@@ -142,7 +142,7 @@ Docker create応答喪失の回復では、空照会だけで収束しない負�
 
 ### 固定RevisionのGit object読取り
 
-Repository／Revisionと明示した読取り範囲を保持する[設計上の責務](../06_Architecture/coordinator/01_Architecture.md)を、[Git object読取りの結合試験](../40_Develop/coordinator/tests/integration/git-object-reader.integration.test.ts)へ接続する。試験用Gitが生成したpackだけを置いた領域から公開読取り関数へ渡し、現在Repositoryの圧縮状況やloose objectへのfallbackに依存しない。
+Repository／Revisionと明示した読取り範囲を保持する[設計上の責務](../06_Architecture/Details/coordinator/01_Architecture.md)を、[Git object読取りの結合試験](../40_Develop/coordinator/tests/integration/git-object-reader.integration.test.ts)へ接続する。試験用Gitが生成したpackだけを置いた領域から公開読取り関数へ渡し、現在Repositoryの圧縮状況やloose objectへのfallbackに依存しない。
 
 | 場面 | 観測する条件 |
 |---|---|
@@ -186,7 +186,7 @@ PT／LTは、対象、時間、反復、費用・Credit、Provider呼出し、�
 
 ### Docker CLIの結果と終了観測
 
-[設計上の所有契約](../06_Architecture/coordinator/01_Architecture.md#docker-cliの結果と子プロセスの所有)を、[子プロセス結合試験](../40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts)と[Docker操作の契約試験](../40_Develop/coordinator/tests/integration/docker-effect-runtime.contract.test.ts)へ接続する。
+[設計上の所有契約](../06_Architecture/Details/coordinator/01_Architecture.md#docker-cliの結果と子プロセスの所有)を、[子プロセス結合試験](../40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts)と[Docker操作の契約試験](../40_Develop/coordinator/tests/integration/docker-effect-runtime.contract.test.ts)へ接続する。
 
 | 場面 | 観測する条件 |
 |---|---|
@@ -213,7 +213,7 @@ PT／LTは、対象、時間、反復、費用・Credit、Provider呼出し、�
 
 ## Project Runtimeの検証設計
 
-Project Runtimeの現在の責務、状態の意味および完成境界は[Project Runtimeアーキテクチャ](../06_Architecture/project-runtime/01_Architecture.md)が所有する。[機械可読な設計対応](06_Project_Runtime_Design_Traceability.json)は詳細な状態、資源、Lock、Authority、Effect、失敗注入点および各遷移から検証項目までの参照閉包を固定し、本書は各検証項目の目的、入力、期待結果および合否を所有する。この投影は検証設計の入力であり、Coordinatorの実行時構成ではない。
+Project Runtimeの現在の責務、状態の意味および完成境界は[Project Runtimeアーキテクチャ](../06_Architecture/Details/project-runtime/01_Architecture.md)が所有する。[機械可読な設計対応](06_Project_Runtime_Design_Traceability.json)は詳細な状態、資源、Lock、Authority、Effect、失敗注入点および各遷移から検証項目までの参照閉包を固定し、本書は各検証項目の目的、入力、期待結果および合否を所有する。この投影は検証設計の入力であり、Coordinatorの実行時構成ではない。
 
 v0.19は、個別Task試験の合計ではなく、Project／Milestone入力から統合受入までの意味経路を検証する。設計、実装、試験の対応は、Project階層、Task状態、遷移、所有資源、Scheduler判断、再計画、判断移送および統合受入を対象にする。
 
@@ -310,7 +310,7 @@ Docker完了Receiptの確認試験は、freshなProject Stateのsettled義務に
 
 ## 実行知の検証設計
 
-実行知は[実行知のアーキテクチャ](../06_Architecture/execution-intelligence/01_Architecture.md)に従い、共通Event、利用側Adapter、保存、集約、限定分散の統合結果評価、改善候補、および未成立Authorityによる清掃候補生成・物理削除が公開されないことを別々に確認する。
+実行知は[実行知のアーキテクチャ](../06_Architecture/Details/execution-intelligence/01_Architecture.md)に従い、共通Event、利用側Adapter、保存、集約、限定分散の統合結果評価、改善候補、および未成立Authorityによる清掃候補生成・物理削除が公開されないことを別々に確認する。
 
 | ID | 試験レベル | 入力・変化 | 期待する主な観測 |
 |---|---|---|---|

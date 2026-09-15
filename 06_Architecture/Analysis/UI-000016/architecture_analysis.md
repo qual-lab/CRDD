@@ -82,13 +82,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [外部送信・結果帰還・候補採用のArchitecture定義](../../Definitions/external-information-lifecycle/architecture_definition.md) | External Information Boundary | UI契約はAuthorityを発行しない。利用者操作: 同意する／送信を止める／候補を採用・却下する | UI契約はEffectを定義しない。表示上の状態差: 未許可（not_authorized）／許可済み（authorized）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）。導線: 送信候補→境界確認→送信する最小情報→送信→出所付き結果→採否 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [外部送信・結果帰還・候補採用のArchitecture定義](../../Definitions/ARCH-000015/architecture_definition.md) | External Information Boundary | UI契約はAuthorityを発行しない。利用者操作: 同意する／送信を止める／候補を採用・却下する | UI契約はEffectを定義しない。表示上の状態差: 未許可（not_authorized）／許可済み（authorized）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）。導線: 送信候補→境界確認→送信する最小情報→送信→出所付き結果→採否 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [外部送信・結果帰還・候補採用](../../Definitions/external-information-lifecycle/architecture_definition.md) | New | not_authorized→authorized→sent→returned→candidate→adoptedを別AuthorityとEffectにし、送信、受領、採用を相互流用しない。 |
+| [外部送信・結果帰還・候補採用](../../Definitions/ARCH-000015/architecture_definition.md) | New | not_authorized→authorized→sent→returned→candidate→adoptedを別AuthorityとEffectにし、送信、受領、採用を相互流用しない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

@@ -73,13 +73,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [公式素材の権利・用途確認のArchitecture定義](../../Definitions/official-asset-rights/architecture_definition.md) | 公式Repositoryの素材収載判断 | UI契約はAuthorityを発行しない。利用者操作: 素材を見る／根拠を確認する／利用する | UI契約はEffectを定義しない。表示上の状態差: 候補（candidate）／採用済み（approved）／開示制限（restricted）／取下げ済み（withdrawn）。導線: 素材→由来→権利→用途→収載・派生 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [公式素材の権利・用途確認のArchitecture定義](../../Definitions/ARCH-000017/architecture_definition.md) | 公式Repositoryの素材収載判断 | UI契約はAuthorityを発行しない。利用者操作: 素材を見る／根拠を確認する／利用する | UI契約はEffectを定義しない。表示上の状態差: 候補（candidate）／採用済み（approved）／開示制限（restricted）／取下げ済み（withdrawn）。導線: 素材→由来→権利→用途→収載・派生 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [公式素材の権利・用途確認](../../Definitions/official-asset-rights/architecture_definition.md) | New | candidate／approved／restricted／withdrawnを区別し、生成手段や見た目だけから公開・再配布権を推定しない。 |
+| [公式素材の権利・用途確認](../../Definitions/ARCH-000017/architecture_definition.md) | New | candidate／approved／restricted／withdrawnを区別し、生成手段や見た目だけから公開・再配布権を推定しない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

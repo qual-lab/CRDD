@@ -60,13 +60,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [機械検査と文書検査のArchitecture定義](../../Definitions/checker-and-document-validation/architecture_definition.md) | Checker CoreとCRDD現行Profile | 工程成果物の作成者と確認者。Checker結果は意味採用Authorityを持たない | 読取り検査だけを行い、文書内容や工程状態を自動変更しない。 | Checklistの並びを章構成へ強制せず、必要図の無言欠落を許さない。 |
+| [機械検査と文書検査のArchitecture定義](../../Definitions/ARCH-000001/architecture_definition.md) | Checker CoreとCRDD現行Profile | 工程成果物の作成者と確認者。Checker結果は意味採用Authorityを持たない | 読取り検査だけを行い、文書内容や工程状態を自動変更しない。 | Checklistの並びを章構成へ強制せず、必要図の無言欠落を許さない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [機械検査と文書検査](../../Definitions/checker-and-document-validation/architecture_definition.md) | Same | 機械で確定できる不備だけをCheckerが返し、解釈を要する内容は対象と改訂版を保ったまま意味レビューへ渡す。文書の読みやすさや図の意味を、見出しの存在だけから合格としない。 |
+| [機械検査と文書検査](../../Definitions/ARCH-000001/architecture_definition.md) | Same | 機械で確定できる不備だけをCheckerが返し、解釈を要する内容は対象と改訂版を保ったまま意味レビューへ渡す。文書の読みやすさや図の意味を、見出しの存在だけから合格としない。 |
 
 ## 5. UI観点との統合時に確認すること
 

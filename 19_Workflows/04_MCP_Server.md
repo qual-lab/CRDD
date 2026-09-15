@@ -5,7 +5,7 @@
 
 ## 目的と責務
 
-本書は、CRDD配布物に含まれるMCP Serverをstdioまたはlocalhost HTTPで起動する反復手順を所有する。Protocol、Transport lifecycle、認証、Authorityおよび完成条件は[MCP Transportアーキテクチャ](../06_Architecture/mcp/01_Architecture.md)が所有し、本書で再定義しない。
+本書は、CRDD配布物に含まれるMCP Serverをstdioまたはlocalhost HTTPで起動する反復手順を所有する。Protocol、Transport lifecycle、認証、Authorityおよび完成条件は[MCP Transportアーキテクチャ](../06_Architecture/Details/mcp/01_Architecture.md)が所有し、本書で再定義しない。
 
 MCPはCoordinatorのsubcommandではない。Project RuntimeやPlatform Accessには独立した利用者向けProcess入口がないため、MCPと同じ形のWorkflowを機械的に追加しない。
 

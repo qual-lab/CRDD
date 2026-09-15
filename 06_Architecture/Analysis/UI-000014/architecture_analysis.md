@@ -73,13 +73,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [契約移行と利用側閉包のArchitecture定義](../../Definitions/contract-migration-closure/architecture_definition.md) | 変更影響分析とConsumer Closure契約 | UI契約はAuthorityを発行しない。利用者操作: 対応を見る／不足箇所へ進む | UI契約はEffectを定義しない。表示上の状態差: 維持／変更／廃止／未確認。導線: 変更→能力→全利用側→置換→反証根拠 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [契約移行と利用側閉包のArchitecture定義](../../Definitions/ARCH-000002/architecture_definition.md) | 変更影響分析とConsumer Closure契約 | UI契約はAuthorityを発行しない。利用者操作: 対応を見る／不足箇所へ進む | UI契約はEffectを定義しない。表示上の状態差: 維持／変更／廃止／未確認。導線: 変更→能力→全利用側→置換→反証根拠 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [契約移行と利用側閉包](../../Definitions/contract-migration-closure/architecture_definition.md) | New | 変更ファイルではなく移動した意味契約から利用側集合を導出し、宣言集合と実ソース集合を比較する。CanonicalなPath・Identity・StateをConsumer側で再解釈させない。 |
+| [契約移行と利用側閉包](../../Definitions/ARCH-000002/architecture_definition.md) | New | 変更ファイルではなく移動した意味契約から利用側集合を導出し、宣言集合と実ソース集合を比較する。CanonicalなPath・Identity・StateをConsumer側で再解釈させない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

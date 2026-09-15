@@ -9,7 +9,7 @@
 - 対象version: `v0.18.1`
 - 変更分類: `corrective breaking`（v0.18.0で公開したが実用結果へ接続しない入口を削除する）
 - 移行要否: `migration_required: true`（v0.18.0 Runtime利用者だけ。初回設定を完了できた利用者は存在しない前提を実測で再確認する）
-- 関連正本: [振る舞い仕様](../../../05_SPEC/01_Behavior_Specification.md)、[Coordinator Architecture](../../../06_Architecture/coordinator/01_Architecture.md)、[Threat Model](../../../06_Architecture/coordinator/02_Threat_Model.md)、[Workflow](../../../19_Workflows/01_Coordinator_Runtime.md)
+- 関連正本: [振る舞い仕様](../../../05_SPEC/01_Behavior_Specification.md)、[Coordinator Architecture](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[Threat Model](../../../06_Architecture/Details/coordinator/02_Threat_Model.md)、[Workflow](../../../19_Workflows/01_Coordinator_Runtime.md)
 
 ## 1. 契機とCurrent State
 
@@ -51,11 +51,11 @@ Local Personal Profileは、永続的な`activate`／`disable`／`provision` Lif
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
-- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
-- `06_Architecture/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
-- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`06_Architecture/Details/checker/01_Architecture.md`](<../../../06_Architecture/Details/checker/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- `06_Architecture/Details/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
+- [`06_Architecture/Details/platform-access/01_Architecture.md`](<../../../06_Architecture/Details/platform-access/01_Architecture.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/02_Quality_Strategy.md`](<../../../07_Quality/02_Quality_Strategy.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)

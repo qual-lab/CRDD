@@ -45,13 +45,13 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
-- `06_Architecture/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
-- [`06_Architecture/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/execution-intelligence/01_Architecture.md>)
-- [`06_Architecture/mcp/01_Architecture.md`](<../../../06_Architecture/mcp/01_Architecture.md>)
-- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
-- [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- `06_Architecture/Details/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
+- [`06_Architecture/Details/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/Details/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/Details/mcp/01_Architecture.md`](<../../../06_Architecture/Details/mcp/01_Architecture.md>)
+- [`06_Architecture/Details/platform-access/01_Architecture.md`](<../../../06_Architecture/Details/platform-access/01_Architecture.md>)
+- [`06_Architecture/Details/project-runtime/01_Architecture.md`](<../../../06_Architecture/Details/project-runtime/01_Architecture.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
@@ -168,7 +168,7 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 ## 4. 実装と責務
 
 - [進捗管理](../../../15_Progress.md#execution-intelligence-observation): CRDD共通の観測、評価、昇格および清掃候補境界。
-- [実行知のアーキテクチャ](../../../06_Architecture/execution-intelligence/01_Architecture.md): 共通Event、Store、集約、利用側Adapter、改善候補、保持および完成境界。
+- [実行知のアーキテクチャ](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md): 共通Event、Store、集約、利用側Adapter、改善候補、保持および完成境界。
 - [共通Eventと集約](../../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts): Provider／Runtime非依存の閉Schema、欠測表現、集約、非Authority改善候補。
 - [限定分散の統合結果評価](../../../40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts): 予定Task、実Attempt、統合結果および効用測定を同じ評価Identityへ結合する閉契約。
 - [公開入口](../../../40_Develop/execution-intelligence/src/index.ts): CRDD採用Repositoryや各Runtimeの薄いAdapterが利用するexport。

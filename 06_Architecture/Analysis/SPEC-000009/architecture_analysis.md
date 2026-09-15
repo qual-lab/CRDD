@@ -60,13 +60,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [実行境界の診断のArchitecture定義](../../Definitions/execution-boundary-diagnosis/architecture_definition.md) | Platform Access診断Port | 運用診断Capability。Provider Task、修復、再起動のAuthorityは含まない | 許可された小規模Probeだけを実行し、Provider仕事や修復Effectを発行しない。 | 一つの失敗から全機能停止や原因を断定しない。 |
+| [実行境界の診断のArchitecture定義](../../Definitions/ARCH-000008/architecture_definition.md) | Platform Access診断Port | 運用診断Capability。Provider Task、修復、再起動のAuthorityは含まない | 許可された小規模Probeだけを実行し、Provider仕事や修復Effectを発行しない。 | 一つの失敗から全機能停止や原因を断定しない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [実行境界の診断](../../Definitions/execution-boundary-diagnosis/architecture_definition.md) | Same | 境界ごとのavailable／blocked／unknownと相関IDを返し、診断成功をTask成功へ読み替えない。観測手段に許可された最小Probeだけを使う。 |
+| [実行境界の診断](../../Definitions/ARCH-000008/architecture_definition.md) | Same | 境界ごとのavailable／blocked／unknownと相関IDを返し、診断成功をTask成功へ読み替えない。観測手段に許可された最小Probeだけを使う。 |
 
 ## 5. UI観点との統合時に確認すること
 

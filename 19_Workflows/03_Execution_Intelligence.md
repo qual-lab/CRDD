@@ -6,7 +6,7 @@
 
 ## 目的と対象
 
-この手順は、CRDD公式Repositoryまたは採用RepositoryのRuntime Adapterから実行知（Execution Intelligence）を利用し、決定論的な開発確認を行う担当者向けである。Event、保存、欠測、保持および完成条件は[実行知のアーキテクチャ](../06_Architecture/execution-intelligence/01_Architecture.md)、検証項目は[検証設計](../07_Quality/03_Verification_Design.md#execution-intelligence-verification)を正本とする。この手順の実行だけで品質受入、正本更新、外部送信またはReleaseを成立させない。
+この手順は、CRDD公式Repositoryまたは採用RepositoryのRuntime Adapterから実行知（Execution Intelligence）を利用し、決定論的な開発確認を行う担当者向けである。Event、保存、欠測、保持および完成条件は[実行知のアーキテクチャ](../06_Architecture/Details/execution-intelligence/01_Architecture.md)、検証項目は[検証設計](../07_Quality/03_Verification_Design.md#execution-intelligence-verification)を正本とする。この手順の実行だけで品質受入、正本更新、外部送信またはReleaseを成立させない。
 
 ## Runtime Adapterからの利用
 

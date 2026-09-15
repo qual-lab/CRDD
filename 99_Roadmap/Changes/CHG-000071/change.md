@@ -23,7 +23,7 @@ Gitを利用する各Toolから、Git CLI、`.git`内部構造およびCommit前
 | 通常Operation | Git状態やCommitが成立条件になり得る | dirty／未Commitでも成立し、必要時だけ出所を付加 |
 | 物理配置 | Git責務が各Componentへ分散 | `40_Develop/version-control/`をRoot Componentとする |
 
-目標設計とConsumer棚卸しは[Version Control境界](../../../06_Architecture/version-control/01_Architecture.md)を正本とする。
+目標設計とConsumer棚卸しは[Version Control境界](../../../06_Architecture/Details/version-control/01_Architecture.md)を正本とする。
 
 ### 影響ファイル
 
@@ -67,13 +67,13 @@ Gitを利用する各Toolから、Git CLI、`.git`内部構造およびCommit前
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
-- [`06_Architecture/artifact-signing/01_Architecture.md`](<../../../06_Architecture/artifact-signing/01_Architecture.md>)
-- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
-- [`06_Architecture/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/execution-intelligence/01_Architecture.md>)
-- [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
-- [`06_Architecture/version-control/01_Architecture.md`](<../../../06_Architecture/version-control/01_Architecture.md>)
+- [`06_Architecture/Details/artifact-signing/01_Architecture.md`](<../../../06_Architecture/Details/artifact-signing/01_Architecture.md>)
+- [`06_Architecture/Details/checker/01_Architecture.md`](<../../../06_Architecture/Details/checker/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/Details/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/Details/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/Details/project-runtime/01_Architecture.md`](<../../../06_Architecture/Details/project-runtime/01_Architecture.md>)
+- [`06_Architecture/Details/version-control/01_Architecture.md`](<../../../06_Architecture/Details/version-control/01_Architecture.md>)
 - [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
 - `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
 - [`12_Change.md`](<../../../12_Change.md>)
@@ -247,7 +247,7 @@ Gitを利用する各Toolから、Git CLI、`.git`内部構造およびCommit前
 
 Checker配布では、`40_Develop/version-control/`をCanonical sourceとし、`template/tools/internal/version-control-runtime.ts`へ追加install不要の自己完結Artifactを決定論的に生成する。Source／Artifactのbyte一致、生成漏れおよび`template/tools`単独実行をOwner packageとTemplateの契約試験で確認する。
 
-基準版は`v0.20.1`へ固定する。Root、Layout／Local Ignore、Fixed Object／Object Format、CandidateおよびSigning／Releaseの各Capabilityを過去Evidence、新Port、focused確認、実境界確認および旧実装削除Gateへ対応付ける。全対応は[Version Control境界](../../../06_Architecture/version-control/01_Architecture.md#9-基準版capabilityの移行)を正本とし、成立前に旧実装を削除しない。
+基準版は`v0.20.1`へ固定する。Root、Layout／Local Ignore、Fixed Object／Object Format、CandidateおよびSigning／Releaseの各Capabilityを過去Evidence、新Port、focused確認、実境界確認および旧実装削除Gateへ対応付ける。全対応は[Version Control境界](../../../06_Architecture/Details/version-control/01_Architecture.md#9-基準版capabilityの移行)を正本とし、成立前に旧実装を削除しない。
 
 ## 5. 現在の判断と残るGate
 

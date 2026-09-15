@@ -35,7 +35,7 @@ SPEC定義だけから、振る舞いを実現する責務、状態、Effect、�
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [責務名](../../Definitions/responsibility/architecture_definition.md) | New／Same | |
+| [責務名](../../Definitions/ARCH-XXXXXX/architecture_definition.md) | New／Same | |
 
 ## 5. UI観点との統合時に確認すること
 

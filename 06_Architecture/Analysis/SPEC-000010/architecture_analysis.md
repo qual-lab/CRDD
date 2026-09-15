@@ -60,13 +60,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Repository境界とBindingのArchitecture定義](../../Definitions/repository-binding/architecture_definition.md) | Version Control PortとRepository Binding Resolver | 現在Repositoryで作業する主体。別RepositoryへのAuthorityは発行しない | 対象解決は読取り専用で、Repository・worktree・Git状態を変更しない。 | 名前やPath類似から別Repositoryを選ばず、曖昧時はEffect 0で停止する。 |
+| [Repository境界とBindingのArchitecture定義](../../Definitions/ARCH-000009/architecture_definition.md) | Version Control PortとRepository Binding Resolver | 現在Repositoryで作業する主体。別RepositoryへのAuthorityは発行しない | 対象解決は読取り専用で、Repository・worktree・Git状態を変更しない。 | 名前やPath類似から別Repositoryを選ばず、曖昧時はEffect 0で停止する。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Repository境界とBinding](../../Definitions/repository-binding/architecture_definition.md) | Same | verified／unverified／ambiguous／unavailableを分け、local／cross-sourceの対象範囲を明示する。GitはAdapterの一実装であり、未Commitを理由に通常利用を拒否しない。 |
+| [Repository境界とBinding](../../Definitions/ARCH-000009/architecture_definition.md) | Same | verified／unverified／ambiguous／unavailableを分け、local／cross-sourceの対象範囲を明示する。GitはAdapterの一実装であり、未Commitを理由に通常利用を拒否しない。 |
 
 ## 5. UI観点との統合時に確認すること
 

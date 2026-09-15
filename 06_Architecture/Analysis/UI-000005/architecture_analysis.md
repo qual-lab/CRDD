@@ -80,15 +80,15 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [実行事実と評価候補の取得のArchitecture定義](../../Definitions/execution-fact-retrieval/architecture_definition.md) | 実行記録読取りProjection | UI契約はAuthorityを発行しない。利用者操作: 診断を開く／証拠を絞る／回復へ進む | UI契約はEffectを定義しない。表示上の状態差: 観測済み（observed）／未観測（not_observed）／不明（unknown）。評価は事実と別。導線: 実行→観測→根拠→評価→改善候補 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
-| [実行境界の診断のArchitecture定義](../../Definitions/execution-boundary-diagnosis/architecture_definition.md) | Platform Access診断Port | UI契約はAuthorityを発行しない。利用者操作: 診断を開く／証拠を絞る／回復へ進む | UI契約はEffectを定義しない。表示上の状態差: 観測済み（observed）／未観測（not_observed）／不明（unknown）。評価は事実と別。導線: 実行→観測→根拠→評価→改善候補 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [実行事実と評価候補の取得のArchitecture定義](../../Definitions/ARCH-000007/architecture_definition.md) | 実行記録読取りProjection | UI契約はAuthorityを発行しない。利用者操作: 診断を開く／証拠を絞る／回復へ進む | UI契約はEffectを定義しない。表示上の状態差: 観測済み（observed）／未観測（not_observed）／不明（unknown）。評価は事実と別。導線: 実行→観測→根拠→評価→改善候補 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [実行境界の診断のArchitecture定義](../../Definitions/ARCH-000008/architecture_definition.md) | Platform Access診断Port | UI契約はAuthorityを発行しない。利用者操作: 診断を開く／証拠を絞る／回復へ進む | UI契約はEffectを定義しない。表示上の状態差: 観測済み（observed）／未観測（not_observed）／不明（unknown）。評価は事実と別。導線: 実行→観測→根拠→評価→改善候補 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [実行事実と評価候補の取得](../../Definitions/execution-fact-retrieval/architecture_definition.md) | New | observed／not_observed／unknownを区別し、事実と評価候補を別結果として返す。評価には根拠、対象範囲、不確実性、採用状態を持たせる。 |
-| [実行境界の診断](../../Definitions/execution-boundary-diagnosis/architecture_definition.md) | New | 境界ごとのavailable／blocked／unknownと相関IDを返し、診断成功をTask成功へ読み替えない。観測手段に許可された最小Probeだけを使う。 |
+| [実行事実と評価候補の取得](../../Definitions/ARCH-000007/architecture_definition.md) | New | observed／not_observed／unknownを区別し、事実と評価候補を別結果として返す。評価には根拠、対象範囲、不確実性、採用状態を持たせる。 |
+| [実行境界の診断](../../Definitions/ARCH-000008/architecture_definition.md) | New | 境界ごとのavailable／blocked／unknownと相関IDを返し、診断成功をTask成功へ読み替えない。観測手段に許可された最小Probeだけを使う。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

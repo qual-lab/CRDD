@@ -60,13 +60,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project実行のArchitecture定義](../../Definitions/project-execution/architecture_definition.md) | 清掃Controller | 回復義務に結合した清掃Capabilityを持つ運用者またはRuntime | 対象残存へのFilesystem Effectを発行する。対象外PathとProvider Effectは0。 | 由来不明、参照中、観測不能は削除せず、義務を保持する。 |
+| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | 清掃Controller | 回復義務に結合した清掃Capabilityを持つ運用者またはRuntime | 対象残存へのFilesystem Effectを発行する。対象外PathとProvider Effectは0。 | 由来不明、参照中、観測不能は削除せず、義務を保持する。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project実行](../../Definitions/project-execution/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
+| [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
 
 ## 5. UI観点との統合時に確認すること
 

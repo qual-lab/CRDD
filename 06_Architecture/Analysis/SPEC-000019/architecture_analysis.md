@@ -60,13 +60,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [契約移行と利用側閉包のArchitecture定義](../../Definitions/contract-migration-closure/architecture_definition.md) | 変更影響分析とConsumer Closure契約 | 変更責任者が移行候補を作り、独立確認後に完了を判断する | 検査は読取り専用。Consumer集合不一致では旧処理削除やRelease Effectを許さない。 | 代表経路だけのPassや旧処理の推測削除を許さない。 |
+| [契約移行と利用側閉包のArchitecture定義](../../Definitions/ARCH-000002/architecture_definition.md) | 変更影響分析とConsumer Closure契約 | 変更責任者が移行候補を作り、独立確認後に完了を判断する | 検査は読取り専用。Consumer集合不一致では旧処理削除やRelease Effectを許さない。 | 代表経路だけのPassや旧処理の推測削除を許さない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [契約移行と利用側閉包](../../Definitions/contract-migration-closure/architecture_definition.md) | Same | 変更ファイルではなく移動した意味契約から利用側集合を導出し、宣言集合と実ソース集合を比較する。CanonicalなPath・Identity・StateをConsumer側で再解釈させない。 |
+| [契約移行と利用側閉包](../../Definitions/ARCH-000002/architecture_definition.md) | Same | 変更ファイルではなく移動した意味契約から利用側集合を導出し、宣言集合と実ソース集合を比較する。CanonicalなPath・Identity・StateをConsumer側で再解釈させない。 |
 
 ## 5. UI観点との統合時に確認すること
 

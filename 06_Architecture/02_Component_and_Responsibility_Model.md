@@ -51,19 +51,19 @@ Last Updated: 2026-09-15
 
 | Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと |
 |---|---|---|---|---|
-| 公開入口 | [公開Transportの意味同一性](Definitions/transport-parity/architecture_definition.md) | MCP／CLI Transport Adapter | decode／encode、接続、Application Contractへの搬送 | 業務意味、Provider実行、Authority追加 |
-| 利用範囲 | [Workspace利用範囲とRepository Federation](Definitions/workspace-access-federation/architecture_definition.md) | CROS Session／Workspace Resolver | CredentialからSession Grant、Exposure、Source-aware Federation | User Role階層、Repository内部ACL |
-| 利用能力 | [Tool CapabilityとAIモデル構成](Definitions/capability-and-model-configuration/architecture_definition.md) | Capability Registry、Model Configuration Resolver | Tool候補、構成検証、選択理由 | Tool実行、利用可能性の捏造 |
-| Project Application | [Project実行](Definitions/project-execution/architecture_definition.md) | Project Runtime | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
-| 状態投影 | [Project・Portfolio状態投影](Definitions/project-state-projection/architecture_definition.md) | Project Management Projection | 正本を変えない現在状態・比較View | 正本更新、優先順位の自動決定 |
-| 実行観測 | [実行事実と評価候補の取得](Definitions/execution-fact-retrieval/architecture_definition.md)<br>[実行境界の診断](Definitions/execution-boundary-diagnosis/architecture_definition.md) | 実行記録読取りProjection、Platform Access診断Port | 欠測を保つ事実取得、境界別診断 | 記録生成、Task更新、修復、結果採用 |
-| 運用Context | [Meeting候補と正本への引渡し](Definitions/meeting-candidate-promotion/architecture_definition.md) | Project Operation Context | 候補作成、出所、採否Lifecycle | Meeting本文の意味決定、自動採用 |
-| Repository／Runtime基盤 | [Repository境界とBinding](Definitions/repository-binding/architecture_definition.md)<br>[Runtime Dataの配置・保持・清掃](Definitions/runtime-data-lifecycle/architecture_definition.md) | Binding Resolver、Runtime Data Contract | Root／Identity／Binding、配置・保持・清掃 | Tool選択、任意Path書込み、由来不明残存の削除 |
-| Trust | [Runtime Artifactの信頼評価](Definitions/runtime-artifact-trust/architecture_definition.md)<br>[公式素材の権利・用途確認](Definitions/official-asset-rights/architecture_definition.md) | Runtime Trust Evaluator、素材収載判断 | 完全性・Publisher・利用者Policy・権利記録 | 利用者に代わる信頼判断、法的判断自動化 |
-| 外部情報 | [外部送信・結果帰還・候補採用](Definitions/external-information-lifecycle/architecture_definition.md) | External Information Boundary | 送信同意、最小化、相関、候補隔離、採否 | 送信同意からの採用権限生成 |
-| 時点と出所 | [過去情報と現在有効な意図](Definitions/temporal-provenance/architecture_definition.md) | Context Provenance Resolver | 出所、時点、対象改訂版、有効性分類 | 履歴からの現在方針採用 |
-| 変更・品質 | [契約移行と利用側閉包](Definitions/contract-migration-closure/architecture_definition.md)<br>[変更・監査・試験・品質の閉包](Definitions/quality-change-closure/architecture_definition.md) | Consumer Closure契約、Quality Center | 利用側集合、同じ改訂版の是正・Evidence・Gate統合 | 各Consumer処理、リスク受容、Release判断 |
-| 検査 | [機械検査と文書検査](Definitions/checker-and-document-validation/architecture_definition.md) | Checker CoreとCRDD現行Profile | 決定論的検査、意味レビューへの案内 | 意味採否、独立レビュー、工程移行判断 |
+| 公開入口 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | decode／encode、接続、Application Contractへの搬送 | 業務意味、Provider実行、Authority追加 |
+| 利用範囲 | [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | CredentialからSession Grant、Exposure、Source-aware Federation | User Role階層、Repository内部ACL |
+| 利用能力 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Capability Registry、Model Configuration Resolver | Tool候補、構成検証、選択理由 | Tool実行、利用可能性の捏造 |
+| Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Project Runtime | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
+| 状態投影 | [Project・Portfolio状態投影](Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection | 正本を変えない現在状態・比較View | 正本更新、優先順位の自動決定 |
+| 実行観測 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md)<br>[実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | 実行記録読取りProjection、Platform Access診断Port | 欠測を保つ事実取得、境界別診断 | 記録生成、Task更新、修復、結果採用 |
+| 運用Context | [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | 候補作成、出所、採否Lifecycle | Meeting本文の意味決定、自動採用 |
+| Repository／Runtime基盤 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md)<br>[Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | Binding Resolver、Runtime Data Contract | Root／Identity／Binding、配置・保持・清掃 | Tool選択、任意Path書込み、由来不明残存の削除 |
+| Trust | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md)<br>[公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | Runtime Trust Evaluator、素材収載判断 | 完全性・Publisher・利用者Policy・権利記録 | 利用者に代わる信頼判断、法的判断自動化 |
+| 外部情報 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | External Information Boundary | 送信同意、最小化、相関、候補隔離、採否 | 送信同意からの採用権限生成 |
+| 時点と出所 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | Context Provenance Resolver | 出所、時点、対象改訂版、有効性分類 | 履歴からの現在方針採用 |
+| 変更・品質 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md)<br>[変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | Consumer Closure契約、Quality Center | 利用側集合、同じ改訂版の是正・Evidence・Gate統合 | 各Consumer処理、リスク受容、Release判断 |
+| 検査 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | Checker CoreとCRDD現行Profile | 決定論的検査、意味レビューへの案内 | 意味採否、独立レビュー、工程移行判断 |
 
 ## 4. 依存方向
 

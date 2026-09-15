@@ -372,7 +372,10 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
       `The visible file content is exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional text. Review this visible content and the bounded replacement; exact UTF-8 bytes, trailing LF, byte length and SHA-256 are separate checks owned by the route verification runner, not proof requested from the reviewer. Do not claim those separate checks have run.`,
     ],
     allowedPaths: [TARGET_PATH],
-    readPaths: ["06_Architecture/coordinator/01_Architecture.md", TARGET_PATH],
+    readPaths: [
+      "06_Architecture/Details/coordinator/01_Architecture.md",
+      TARGET_PATH,
+    ],
     workClass: "bounded_implementation",
     planState: "complete",
     risk: "low",

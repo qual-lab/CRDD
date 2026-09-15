@@ -61,13 +61,13 @@ API、Process、保存方式、画面、部品または実装技術を本分析�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project実行](../../Definitions/project-execution/architecture_definition.md) | 判断受付とTask再開調停 | exactな判断点へ結合した人間の決定権限 | 判断を一度記録し、同じTaskへ再開可能通知を一度渡す。新規Task／Attemptは作らない | 古い世代、別判断点、重複、競合、記録後の再開観測不能 |
+| [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | 判断受付とTask再開調停 | exactな判断点へ結合した人間の決定権限 | 判断を一度記録し、同じTaskへ再開可能通知を一度渡す。新規Task／Attemptは作らない | 古い世代、別判断点、重複、競合、記録後の再開観測不能 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project実行](../../Definitions/project-execution/architecture_definition.md) | Same | Task Identityを共有するが、判断返却は受付、照会、取消、Recoveryと異なるAuthority、Effect、状態機械を持つSibling blockとして保持する |
+| [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | Same | Task Identityを共有するが、判断返却は受付、照会、取消、Recoveryと異なるAuthority、Effect、状態機械を持つSibling blockとして保持する |
 
 ## 5. UI観点との統合時に確認すること
 

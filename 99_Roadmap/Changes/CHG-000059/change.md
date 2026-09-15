@@ -52,10 +52,10 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 - [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
-- `06_Architecture/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
-- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- `06_Architecture/Details/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
+- [`06_Architecture/Details/platform-access/01_Architecture.md`](<../../../06_Architecture/Details/platform-access/01_Architecture.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - `07_Quality/Verification_Results/2026-09-02_Dogfooding_Assurance_Route_Readability_Verification.md`（削除または旧Path）
@@ -200,7 +200,7 @@ v0.18～v0.18.1では、Runtimeの安全性と完成品質を高める一方、�
 - 正本: `12_Change.md`、`16_Quality_Assurance.md`、`03_Documentation.md`、`10_Agent.md`、`17_Communication.md`、`27_Architecture.md`、`51_Document_Audit.md`、`19_Maintenance.md`
 - 実行入口: `00_Overview.md`、`AGENTS.md`
 - 利用側: `template/AGENTS.md`、`template/80_Communication/01_Communication.md`、変更トレースひな型、`15_Progress.md`
-- Tool固有の所有先: `06_Architecture/99_Coding_Standards.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/platform-access/01_Architecture.md`、`19_Workflows/01_Coordinator_Runtime.md`
+- Tool固有の所有先: `06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/01_Architecture.md`、`06_Architecture/Details/platform-access/01_Architecture.md`、`19_Workflows/01_Coordinator_Runtime.md`
 - 監査: `52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 - 自己適用: `CHG-000057`および`07_Quality/03_Verification_Design.md`のProject Runtime有用性評価
 - 公開・計画: CHANGELOG、Product Roadmap、変更トレース案内

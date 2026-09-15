@@ -82,13 +82,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Tool CapabilityとAIモデル構成のArchitecture定義](../../Definitions/capability-and-model-configuration/architecture_definition.md) | Capability RegistryとModel Configuration Resolver | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する | UI契約はEffectを定義しない。表示上の状態差: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked）。導線: 仕事→必要能力→登録Tool→配布根拠→起動 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [Tool CapabilityとAIモデル構成のArchitecture定義](../../Definitions/ARCH-000010/architecture_definition.md) | Capability RegistryとModel Configuration Resolver | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する | UI契約はEffectを定義しない。表示上の状態差: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked）。導線: 仕事→必要能力→登録Tool→配布根拠→起動 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Tool CapabilityとAIモデル構成](../../Definitions/capability-and-model-configuration/architecture_definition.md) | New | Toolのavailable／unavailable／unverified／blockedと、モデル構成のvalid／invalid／selectedを分ける。コード埋込みのモデル一覧ではなく検証済み外部構成から選ぶ。 |
+| [Tool CapabilityとAIモデル構成](../../Definitions/ARCH-000010/architecture_definition.md) | New | Toolのavailable／unavailable／unverified／blockedと、モデル構成のvalid／invalid／selectedを分ける。コード埋込みのモデル一覧ではなく検証済み外部構成から選ぶ。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

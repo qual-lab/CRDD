@@ -61,13 +61,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [外部送信・結果帰還・候補採用のArchitecture定義](../../Definitions/external-information-lifecycle/architecture_definition.md) | 外部結果受領・相関Resolver | 外部結果を受領して元の仕事へ返せる主体。新規送信と候補採用のAuthorityは含まない | 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。 | 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 |
+| [外部送信・結果帰還・候補採用のArchitecture定義](../../Definitions/ARCH-000015/architecture_definition.md) | 外部結果受領・相関Resolver | 外部結果を受領して元の仕事へ返せる主体。新規送信と候補採用のAuthorityは含まない | 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。 | 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [外部送信・結果帰還・候補採用](../../Definitions/external-information-lifecycle/architecture_definition.md) | Same | not_authorized→authorized→sent→returned→candidate→adoptedを別AuthorityとEffectにし、送信、受領、採用を相互流用しない。 |
+| [外部送信・結果帰還・候補採用](../../Definitions/ARCH-000015/architecture_definition.md) | Same | not_authorized→authorized→sent→returned→candidate→adoptedを別AuthorityとEffectにし、送信、受領、採用を相互流用しない。 |
 
 ## 5. UI観点との統合時に確認すること
 

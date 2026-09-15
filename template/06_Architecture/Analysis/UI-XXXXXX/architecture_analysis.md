@@ -34,7 +34,7 @@ UI定義だけから、利用者が認識・操作・回復できるためにArc
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [責務名](../../Definitions/responsibility/architecture_definition.md) | New／Same | |
+| [責務名](../../Definitions/ARCH-XXXXXX/architecture_definition.md) | New／Same | |
 
 ## 5. SPEC観点との統合時に確認すること
 

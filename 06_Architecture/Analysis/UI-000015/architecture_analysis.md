@@ -81,13 +81,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [変更・監査・試験・品質の閉包のArchitecture定義](../../Definitions/quality-change-closure/architecture_definition.md) | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む | UI契約はEffectを定義しない。表示上の状態差: 固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required）。導線: 固定版→監査集合→統合方針→是正→再固定→判断 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [変更・監査・試験・品質の閉包のArchitecture定義](../../Definitions/ARCH-000003/architecture_definition.md) | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む | UI契約はEffectを定義しない。表示上の状態差: 固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required）。導線: 固定版→監査集合→統合方針→是正→再固定→判断 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [変更・監査・試験・品質の閉包](../../Definitions/quality-change-closure/architecture_definition.md) | New | レビュー件数や試験件数を品質へ読み替えず、同じ固定改訂版に対する必須確認がすべて終わった時だけ工程状態を更新する。 |
+| [変更・監査・試験・品質の閉包](../../Definitions/ARCH-000003/architecture_definition.md) | New | レビュー件数や試験件数を品質へ読み替えず、同じ固定改訂版に対する必須確認がすべて終わった時だけ工程状態を更新する。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

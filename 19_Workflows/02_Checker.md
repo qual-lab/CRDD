@@ -35,7 +35,7 @@ Gitを使えずFilesystem探索へ移った場合は理由と除外を読む。R
 
 ## 開発試験は別の操作
 
-`40_Develop/checker`の型・命名・契約試験は通常Checkerとは別で、一時fixtureと子Processを使う。一時物はRepository-local `.crdd/tests/checker/<run-id>/`等の実行単位で所有し、子Processへ渡す場合もそのRunだけへ限定して終了後の不存在を確認する。OS全体の環境変数を変更しない。詳細は[設計](../06_Architecture/checker/01_Architecture.md)と[コーディング規約](../06_Architecture/99_Coding_Standards.md)。
+`40_Develop/checker`の型・命名・契約試験は通常Checkerとは別で、一時fixtureと子Processを使う。一時物はRepository-local `.crdd/tests/checker/<run-id>/`等の実行単位で所有し、子Processへ渡す場合もそのRunだけへ限定して終了後の不存在を確認する。OS全体の環境変数を変更しない。詳細は[設計](../06_Architecture/Details/checker/01_Architecture.md)と[コーディング規約](../06_Architecture/99_Coding_Standards.md)。
 
 通常の全回帰は次の単一入口を使う。
 

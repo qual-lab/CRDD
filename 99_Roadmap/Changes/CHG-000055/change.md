@@ -59,10 +59,10 @@ Qual-Planner、Qual-TopicおよびQual-MTGは独立したプロジェクト正�
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
-- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
-- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`06_Architecture/Details/checker/01_Architecture.md`](<../../../06_Architecture/Details/checker/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/Details/platform-access/01_Architecture.md`](<../../../06_Architecture/Details/platform-access/01_Architecture.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/02_Quality_Strategy.md`](<../../../07_Quality/02_Quality_Strategy.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
@@ -882,7 +882,7 @@ Coordinator全試験は今回は失敗4件を残した。試験の`TEMP`／`TMP`
 
 Traceの9資源・20状態・21遷移・10不変条件、および10検証bindingの70caseを対象に、設計文書と試験sourceへの参照存在を全数照合した。欠落0。ただし7bindingは契約投影、3bindingは実Filesystem／Processであり、全70caseのassertion意味網羅、現在OS／Docker／Providerの実状態をこの照合で証明しない。
 
-重点確認では、native観測の新規検証と私有結合、同意表示の正常・不明・失敗・取消、Provider終了からHost回収・receipt・finalize・公開までの順序をproduction symbolと対応試験へ照合した。具体的欠陥は見つからず、状態・資源・Frameworkを追加する是正は行わない。CLI signalはTask Trace外の別契約であり、その解除までTask fixtureから推定しない。詳細な実装正本は[Runtime Architecture](../../../06_Architecture/coordinator/01_Architecture.md)を維持する。
+重点確認では、native観測の新規検証と私有結合、同意表示の正常・不明・失敗・取消、Provider終了からHost回収・receipt・finalize・公開までの順序をproduction symbolと対応試験へ照合した。具体的欠陥は見つからず、状態・資源・Frameworkを追加する是正は行わない。CLI signalはTask Trace外の別契約であり、その解除までTask fixtureから推定しない。詳細な実装正本は[Runtime Architecture](../../../06_Architecture/Details/coordinator/01_Architecture.md)を維持する。
 
 ### 読者経路の棚卸し
 

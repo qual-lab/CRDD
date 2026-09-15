@@ -95,7 +95,7 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\scripts\revoke-external-send-consent.ts"
 ```
 
-`<absolute-preverified-node-24.12+-executable>`は、絶対Path、version 24.12.0以上および実体を直前に確認したNode実行ファイルで置き換える。PATH上の裸の`node`、version判定不能または未対応Nodeを使用しない。Runner自身はNode versionをPackage／Release検証とTask開始より前に再確認する。独立したconsole availability preflightは行わず、初回同意が必要な場合だけTask Runtimeが[設計に定める単一Console lifecycle](../06_Architecture/coordinator/01_Architecture.md#14-consoletask内部搬送回収の実装契約)を実行する。有効な同意の再利用時はconsoleを要求しない。
+`<absolute-preverified-node-24.12+-executable>`は、絶対Path、version 24.12.0以上および実体を直前に確認したNode実行ファイルで置き換える。PATH上の裸の`node`、version判定不能または未対応Nodeを使用しない。Runner自身はNode versionをPackage／Release検証とTask開始より前に再確認する。独立したconsole availability preflightは行わず、初回同意が必要な場合だけTask Runtimeが[設計に定める単一Console lifecycle](../06_Architecture/Details/coordinator/01_Architecture.md#14-consoletask内部搬送回収の実装契約)を実行する。有効な同意の再利用時はconsoleを要求しない。
 
 
 ### 正式署名Recovery Matrixの固定検証
@@ -114,7 +114,7 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき
 
-この経路はv0.20.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した。利用時は署名済み配布物、同じexact Recovery Identity、現在のDocker状態および下表の段階的完了を再確認する。全Docker Desktop版、全OSおよび任意の破損状態を一般保証せず、観測不能または契約外の状態ではEffect 0で停止する。状態と必要な観測は[取消と回復の設計](../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
+この経路はv0.20.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した。利用時は署名済み配布物、同じexact Recovery Identity、現在のDocker状態および下表の段階的完了を再確認する。全Docker Desktop版、全OSおよび任意の破損状態を一般保証せず、観測不能または契約外の状態ではEffect 0で停止する。状態と必要な観測は[取消と回復の設計](../06_Architecture/Details/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
 
 | 順序 | 操作 | 完了の意味 |
 |---|---|---|
@@ -130,7 +130,7 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ## Docker Desktopの旧復旧記録を扱うとき
 
-Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。現在の正常状態を確認後、既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。
+Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/Details/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。現在の正常状態を確認後、既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。
 
 Docker資源の作成要求を耐久化した後、結果を受け取る前にProcessを失ったTaskは、空のDocker一覧だけでは回復済みにしない。そのTaskより後に開始され、署名済みの元配布から由来を確認でき、Process世代を切る停止とEngine再起動を完了して明示終了したDocker Desktop復旧記録がある場合だけ、上記の専用形を使える。RuntimeはTaskと復旧の順序、同じ選択ユーザー・保護Root・Policy、終了済み復旧記録および対象名のexactな不存在を再確認し、不存在確認をTask自身の耐久記録へ残してから通常回復を続ける。これは元Taskの自動再実行、旧配布への実行Authority付与、任意のDocker再起動による義務消去または保護記録の手動削除を許可しない。
 
@@ -168,7 +168,7 @@ CRDD_RELEASE_PRIVATE_KEY_PATH=C:\absolute\path\to\crdd-release-v1-private.pem
 
 `.env-crdd`はRepository Root直下にだけ置き、Git管理しない。これは鍵の所在を毎回入力しないための参照であって、署名許可または秘密Storeではない。鍵内容とpassphraseは保存せず、passphraseは正式署名ごとにdirect TTYから一度入力する。SignerはCLIの`--private-key`と`.env-crdd`のどちらを選んでも同じ鍵参照preflightを秘密入力前に行い、秘密入力後にFile Identityを再観測する。CLIが明示された場合は`.env-crdd`を読まない。
 
-鍵参照、秘密入力および暗号署名Primitiveの責務は[成果物署名](../06_Architecture/artifact-signing/01_Architecture.md)、Runtime Manifestの構築、固定Publisher Policy、P／S順序および配置は[Coordinator](../06_Architecture/coordinator/01_Architecture.md#9-署名済み配布物)が所有する。
+鍵参照、秘密入力および暗号署名Primitiveの責務は[成果物署名](../06_Architecture/Details/artifact-signing/01_Architecture.md)、Runtime Manifestの構築、固定Publisher Policy、P／S順序および配置は[Coordinator](../06_Architecture/Details/coordinator/01_Architecture.md#9-署名済み配布物)が所有する。
 
 署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、署名Source A、manifest carrier B、最終Release Commit Cを分けて生成する。Cは署名後に確定する検証結果だけを取り込む文書Commitであり、Runtime実行集合を変更しない。
 
@@ -187,7 +187,7 @@ v0.19.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 最終E2E記録: `99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md`、`99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.json`
 - 公開入口と履歴: `README.md`、`CHANGELOG.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/01_Roadmap.md`
 - 品質・手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
-- Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/project-runtime/01_Architecture.md`
+- Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/Details/project-runtime/01_Architecture.md`
 - Release対象CHG: `99_Roadmap/Changes/CHG-000057/change.md`、`99_Roadmap/Changes/CHG-000058/change.md`、`99_Roadmap/Changes/CHG-000059/change.md`、`99_Roadmap/Changes/CHG-000060/change.md`
 - v0.19.0のCandidateからStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 
@@ -200,7 +200,7 @@ v0.20.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 最終E2E結果: `07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.md`、`07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.json`
 - 品質と手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
 - v0.20の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
-- v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/coordinator/02_Threat_Model.md`、`06_Architecture/execution-intelligence/01_Architecture.md`、`06_Architecture/mcp/01_Architecture.md`、`06_Architecture/platform-access/01_Architecture.md`、`06_Architecture/project-runtime/01_Architecture.md`
+- v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/01_Architecture.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/execution-intelligence/01_Architecture.md`、`06_Architecture/Details/mcp/01_Architecture.md`、`06_Architecture/Details/platform-access/01_Architecture.md`、`06_Architecture/Details/project-runtime/01_Architecture.md`
 - Release対象CHG: `99_Roadmap/Changes/CHG-000061/change.md`、`99_Roadmap/Changes/CHG-000062/change.md`、`99_Roadmap/Changes/CHG-000063/change.md`、`99_Roadmap/Changes/CHG-000064/change.md`、`99_Roadmap/Changes/CHG-000065/change.md`
 - 公開案内と残件: `README.md`、`CHANGELOG.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/01_Roadmap.md`
 
@@ -236,7 +236,7 @@ Set-Location "<absolute-crdd-source-root>"
 
 上の例は期間限定の検証配布である。期限なしの正式配布では`--expires-at <canonical-utc>`を`--no-expiry`へ置き換える。どちらか一方だけが必須であり、未指定・両方指定・重複・不正日時は秘密入力前に停止する。新規署名はmanifest／envelope revision 5を使用し、期限なしは署名payload内の`expiresAt: null`に結合する。旧revision 2／3／4を編集、延長または現行候補へ流用しない。一般利用者は署名済み配布物を検証するだけで、公式鍵やpassphraseを入力しない。配布物の期限なし指定を、同意・Grant・準備記録の無期限化と混同しない。
 
-配布Identityと成果物の結合条件は[署名と内部成果物の設計](../06_Architecture/coordinator/01_Architecture.md#release-artifact-binding)に従う。手順から固定Path・検査・停止条件を変更しない。
+配布Identityと成果物の結合条件は[署名と内部成果物の設計](../06_Architecture/Details/coordinator/01_Architecture.md#release-artifact-binding)に従う。手順から固定Path・検査・停止条件を変更しない。
 
 
 ## 開発者確認

@@ -2,7 +2,7 @@
   "schema": "crdd-coordinator/runtime-traceability",
   "schemaRevision": 6,
   "effectObservationScope": "transition_delta",
-  "architectureDocument": "06_Architecture/coordinator/01_Architecture.md",
+  "architectureDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
   "resources": [
     {"id":"RES-HOST-GENERATION","owner":"coordinator_task_runtime","kind":"os_lock_and_host_directory","lifecycle":"operation_creation_to_host_cleanup"},
     {"id":"RES-LOGICAL-HOME-LOCK","owner":"docker_recovery_runtime","kind":"os_lock","lifecycle":"each_provider_stage_or_recovery_mutation"},

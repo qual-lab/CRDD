@@ -2093,7 +2093,7 @@ function checkArchitectureReconstruction(): void {
       const disposition = sectionBody(source, "## 4. Architecture処置");
       const relations = [
         ...disposition.matchAll(
-          /\]\(\.\.\/\.\.\/Definitions\/([a-z0-9-]+)\/architecture_definition\.md\)/gu,
+          /\]\(\.\.\/\.\.\/Definitions\/(ARCH-[0-9]{6})\/architecture_definition\.md\)/gu,
         ),
       ].map((match) => `${id}|${match[1]}`);
       if (kind === "UI") analyzedUi.add(id);
@@ -2287,7 +2287,7 @@ function checkArchitectureReconstruction(): void {
   const registryRelationEntries: string[] = [];
   for (const line of registrySection.split(/\r?\n/u)) {
     const definition = line.match(
-      /\]\(Definitions\/([a-z0-9-]+)\/architecture_definition\.md\)/u,
+      /\]\(Definitions\/(ARCH-[0-9]{6})\/architecture_definition\.md\)/u,
     )?.[1];
     if (!definition) continue;
     registryDefinitionEntries.push(definition);
@@ -2305,7 +2305,8 @@ function checkArchitectureReconstruction(): void {
     for (const entry of fs.readdirSync(definitionRoot, {
       withFileTypes: true,
     })) {
-      if (!entry.isDirectory() || !/^[a-z0-9-]+$/u.test(entry.name)) continue;
+      if (!entry.isDirectory() || !/^ARCH-[0-9]{6}$/u.test(entry.name))
+        continue;
       const definitionPath = path.join(
         definitionRoot,
         entry.name,
@@ -2357,6 +2358,7 @@ function checkArchitectureReconstruction(): void {
       });
       if (
         !source.includes("成果物種別: Architecture定義") ||
+        !source.includes(`Architecture ID: \u0060${entry.name}\u0060`) ||
         !requiredHeadings.every((heading) => source.includes(heading)) ||
         !requiredStructures.every((fragment) => source.includes(fragment)) ||
         hasPlaceholderOnlySection ||
@@ -2397,7 +2399,7 @@ function checkArchitectureReconstruction(): void {
     );
     const componentDefinitionEntries = [
       ...componentSection.matchAll(
-        /\]\(Definitions\/([a-z0-9-]+)\/architecture_definition\.md\)/gu,
+        /\]\(Definitions\/(ARCH-[0-9]{6})\/architecture_definition\.md\)/gu,
       ),
     ].map((match) => match[1]);
     const componentDefinitions = new Set(componentDefinitionEntries);

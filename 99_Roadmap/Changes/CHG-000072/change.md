@@ -33,9 +33,9 @@ Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primit
 - [`01_Discovery/Analysis/EXP-000014/exploration.md`](<../../../01_Discovery/Analysis/EXP-000014/exploration.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
-- [`06_Architecture/artifact-signing/01_Architecture.md`](<../../../06_Architecture/artifact-signing/01_Architecture.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/Details/artifact-signing/01_Architecture.md`](<../../../06_Architecture/Details/artifact-signing/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
 - [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
 - [`19_Workflows/01_Coordinator_Runtime.md`](<../../../19_Workflows/01_Coordinator_Runtime.md>)
 - [`40_Develop/artifact-signing/package-lock.json`](<../../../40_Develop/artifact-signing/package-lock.json>)
@@ -83,7 +83,7 @@ Coordinatorに残っていた鍵参照、秘密入力および暗号署名Primit
 | Independent Review | Critical／Major／Moderate 0 |
 | Fixed Candidate | 新しい固定Commitから候補を作り、正式署名とE2Eを完了 |
 
-詳細設計は[成果物署名のアーキテクチャ](../../../06_Architecture/artifact-signing/01_Architecture.md)を正本とする。旧固定Commit `5d56eced`の候補は未署名のまま再利用せず、新しい固定Commitから作り直す。
+詳細設計は[成果物署名のアーキテクチャ](../../../06_Architecture/Details/artifact-signing/01_Architecture.md)を正本とする。旧固定Commit `5d56eced`の候補は未署名のまま再利用せず、新しい固定Commitから作り直す。
 
 ## 5. 独立レビューと是正
 

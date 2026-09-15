@@ -97,7 +97,7 @@ test("参照切れ・孤立・必要検証区分の欠落を一括して拒否�
 
 test("Architectureまたは実在する試験名に接続できないTraceを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
-  trace.architectureDocument = "06_Architecture/coordinator/missing.md";
+  trace.architectureDocument = "06_Architecture/Details/coordinator/missing.md";
   const bindings = structuredClone(trace.verificationBindings) as Record<
     string,
     unknown

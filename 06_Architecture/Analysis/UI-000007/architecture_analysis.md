@@ -73,13 +73,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [公開Transportの意味同一性のArchitecture定義](../../Definitions/transport-parity/architecture_definition.md) | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける | UI契約はEffectを定義しない。表示上の状態差: 受付前／受付済み／作用前失敗／作用後失敗／結果あり。導線: 入口→同じ公開要求→Runtime→同じ結果 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [公開Transportの意味同一性のArchitecture定義](../../Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける | UI契約はEffectを定義しない。表示上の状態差: 受付前／受付済み／作用前失敗／作用後失敗／結果あり。導線: 入口→同じ公開要求→Runtime→同じ結果 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [公開Transportの意味同一性](../../Definitions/transport-parity/architecture_definition.md) | New | 受付前／受付済／Effect前後の失敗／結果ありを入口間で同じ意味に保つ。Transport固有Schemaを公開意味契約として再定義しない。 |
+| [公開Transportの意味同一性](../../Definitions/ARCH-000012/architecture_definition.md) | New | 受付前／受付済／Effect前後の失敗／結果ありを入口間で同じ意味に保つ。Transport固有Schemaを公開意味契約として再定義しない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

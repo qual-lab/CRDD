@@ -19,7 +19,7 @@
 
 | Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと | 主要Port |
 |---|---|---|---|---|---|
-| （表示名） | [定義名](Definitions/responsibility/architecture_definition.md) | | | | |
+| （表示名） | [定義名](Definitions/ARCH-XXXXXX/architecture_definition.md) | | | | |
 
 ## 4. 依存方向
 

@@ -74,13 +74,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Meeting候補と正本への引渡しのArchitecture定義](../../Definitions/meeting-candidate-promotion/architecture_definition.md) | Project Operation Context | UI契約はAuthorityを発行しない。利用者操作: 候補化する／比較する／採用・却下する | UI契約はEffectを定義しない。表示上の状態差: 観測済み（observed）／候補（candidate）／採用（adopted）／却下（rejected）。会話と正本を分ける。導線: Meeting→Item→候補→既存Topic比較→採否→所有正本 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [Meeting候補と正本への引渡しのArchitecture定義](../../Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | UI契約はAuthorityを発行しない。利用者操作: 候補化する／比較する／採用・却下する | UI契約はEffectを定義しない。表示上の状態差: 観測済み（observed）／候補（candidate）／採用（adopted）／却下（rejected）。会話と正本を分ける。導線: Meeting→Item→候補→既存Topic比較→採否→所有正本 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Meeting候補と正本への引渡し](../../Definitions/meeting-candidate-promotion/architecture_definition.md) | New | Meeting内の観測、候補、採用、却下を区別し、候補作成と正本更新のAuthorityを分ける。媒体ではなく項目の目的で候補種別を決める。 |
+| [Meeting候補と正本への引渡し](../../Definitions/ARCH-000006/architecture_definition.md) | New | Meeting内の観測、候補、採用、却下を区別し、候補作成と正本更新のAuthorityを分ける。媒体ではなく項目の目的で候補種別を決める。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

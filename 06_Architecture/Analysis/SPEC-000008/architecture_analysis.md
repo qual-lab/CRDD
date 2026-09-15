@@ -60,13 +60,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [実行事実と評価候補の取得のArchitecture定義](../../Definitions/execution-fact-retrieval/architecture_definition.md) | 実行記録読取りProjection | 実行記録を閲覧できる主体。評価の閲覧は評価採用Authorityを含まない | 読取り専用。実行記録、対象Task、Providerを変更しない。 | 欠測を正常値へ補完せず、評価を観測事実として返さない。 |
+| [実行事実と評価候補の取得のArchitecture定義](../../Definitions/ARCH-000007/architecture_definition.md) | 実行記録読取りProjection | 実行記録を閲覧できる主体。評価の閲覧は評価採用Authorityを含まない | 読取り専用。実行記録、対象Task、Providerを変更しない。 | 欠測を正常値へ補完せず、評価を観測事実として返さない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [実行事実と評価候補の取得](../../Definitions/execution-fact-retrieval/architecture_definition.md) | Same | observed／not_observed／unknownを区別し、事実と評価候補を別結果として返す。評価には根拠、対象範囲、不確実性、採用状態を持たせる。 |
+| [実行事実と評価候補の取得](../../Definitions/ARCH-000007/architecture_definition.md) | Same | observed／not_observed／unknownを区別し、事実と評価候補を別結果として返す。評価には根拠、対象範囲、不確実性、採用状態を持たせる。 |
 
 ## 5. UI観点との統合時に確認すること
 

@@ -10,7 +10,7 @@ Last Updated: 2026-09-06
 |---|---|---|---|---|---|---|---|---|
 | Use Case／振る舞いFlow | 公開Task | 入力、受理、実行、結果、取消の主分岐 | 作成不能 | [公開Taskの入力・結果・取消](#公開taskの入力結果取消)は入力例と規則であり、端から端のFlowではない | v0.21 Candidate | 未作成 | 入力から取消・結果までの順序と分岐 | Group BのSPECでWorkbench対象と合わせて作成する |
 | 状態遷移表／状態遷移図 | Task、候補、取消、回復 | 状態と許可される遷移の固定 | 作成不能 | 結果意味表と取消規則はあるが、状態と許可遷移を一つに固定する表または図ではない | v0.21 Candidate | 未作成 | 状態、遷移条件、禁止遷移、終端状態 | Group BのSPECで対象状態を確定して作成する |
-| Actor／System間Sequence図 | 一般Task | Actor、Runtime、Provider、Reviewerの順序 | 既存参照 | [Coordinator一般Taskの主シーケンス](../06_Architecture/coordinator/01_Architecture.md#3-一般taskの主シーケンス) | v0.20.1 Stable | 現行 | Workbench経路は未設計 | Group BのSPECで必要なSequenceを作成する |
+| Actor／System間Sequence図 | 一般Task | Actor、Runtime、Provider、Reviewerの順序 | 既存参照 | [Coordinator一般Taskの主シーケンス](../06_Architecture/Details/coordinator/01_Architecture.md#3-一般taskの主シーケンス) | v0.20.1 Stable | 現行 | Workbench経路は未設計 | Group BのSPECで必要なSequenceを作成する |
 | Error／Effect分岐図 | 診断・回復 | Effect前停止と回復義務の分岐 | 作成不能 | [診断・回復の公開境界](#診断回復の公開境界)は条件説明であり、ErrorとEffectの分岐図ではない | v0.21 Candidate | 未作成 | Effect前後の失敗、結果、回復義務の分岐 | Group BのSPECで操作対象と合わせて作成する |
 | UI／SPEC対応図 | 現行Tool操作 | UI表示・操作と本仕様の対応 | 既存参照 | [UIと振る舞い仕様の対応](../04_UI/06_Current_Interface_Reference.md#6-uiと振る舞い仕様の対応) | v0.20.1 Stable＋v0.21 Candidate | 現行 | Workbench部分は未対応 | Group Bの共同レビューで更新する |
 
@@ -92,7 +92,7 @@ RuntimeがOperation状態、実効Authority、Repository Identity、Provider起�
 
 Runtime 1.0が許可する変更は、Operation専用の隔離workspace内のローカル差分だけである。Provider子プロセスへcommit、push、merge、tag、Releaseまたは一般外部Effectの能力を与えない。
 
-詳細な脅威、主体別権限および停止条件は[脅威モデル](../06_Architecture/coordinator/02_Threat_Model.md)を参照する。変更の判断と追跡は[`CHG-000015`](../99_Roadmap/Changes/CHG-000015/change.md)が所有する。
+詳細な脅威、主体別権限および停止条件は[脅威モデル](../06_Architecture/Details/coordinator/02_Threat_Model.md)を参照する。変更の判断と追跡は[`CHG-000015`](../99_Roadmap/Changes/CHG-000015/change.md)が所有する。
 
 Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけに使う。Repository本文は許可された読取り投影からだけ渡し、Password、Private Key、Session Token、API Keyその他のSecret値をPromptまたは投影へ含めない。認識可能なSecretをRuntimeが拒否しても未知Secretの不存在までは証明しない。
 
@@ -145,7 +145,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 | 手動回復 | exact IDによる処置、またはIDなしで担当者への引渡し | IDの不存在を回収済みと扱わない |
 | Process再起動 | `processRestartRequired`が現在Processの再利用禁止を示す | Candidate保持と資源回復の要否とは独立 |
 
-内部のproducer検証、完了値の受渡し、不可逆なProcess停止は[実現方式](../06_Architecture/coordinator/01_Architecture.md#task-result-transport)が所有する。
+内部のproducer検証、完了値の受渡し、不可逆なProcess停止は[実現方式](../06_Architecture/Details/coordinator/01_Architecture.md#task-result-transport)が所有する。
 
 - 成功時の`candidateId`は承認済みCandidateをRuntime Storeから明示export／discardするためのopaque IDであり、canonical Repositoryを変更しない。
 - export結果のfile内容は未信頼データで、Credential不在を証明しない。
@@ -340,7 +340,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 - Provider報告のAPI相当USD値は有限・非負の利用量metadataとして検証するが、実課金額または課金Authorityとは扱わず、`--max-budget-usd`を暗黙適用しない。
 - 使用量は説明可能なmodel／effort選定、作業量別turn上限、timeoutおよび出力上限で制御する。
 - Claude Codeの推論強度とturn上限は独立させ、検証済みTask PacketからRuntimeが読取りPath数、許可Path数、受入条件数、是正指摘数を導出する。
-- 上限の計算と停止条件は[実行Architecture](../06_Architecture/coordinator/01_Architecture.md#task-turn-budget)を参照する。
+- 上限の計算と停止条件は[実行Architecture](../06_Architecture/Details/coordinator/01_Architecture.md#task-turn-budget)を参照する。
 - 例えば読取り6範囲・変更1範囲・受入条件4件・是正指摘0件のReviewerは、low／medium／highのいずれも最大10 turnsとなる。
 - 上限は16であり、見積りが超える場合はタスク分割を求めて停止する。
 - 自動的な高推論化、無制限実行または再試行はしない。
@@ -430,7 +430,7 @@ Root外、symbolic link／junction、Gitlink等の境界を、参照先が存在
 
 通常検査はGeneric Checker CoreとCRDD Official Current Profileだけで構成する。前者は題材に依存しないRoot、Path、Link、Anchor、IDおよび宣言構造を検査する。後者は現在の公式正本、template、版、状態およびDirectory契約に加え、通常のChange／Evidenceリンクと、承認済み移行表による固定履歴参照の機械的な解決を検査する。固定原文Identity、過去Git object、移行表が当時の移行を正しく表すかという真正性、実装package内部の契約または意味品質は検査対象に含めない。
 
-指摘への対応は責務を持つ文書で行い、再検査する。専門的な意味、外部サイトの現存、CRDD準拠の採否は別途確認する。[操作手順](../19_Workflows/02_Checker.md)、[設計と試験対応](../06_Architecture/checker/01_Architecture.md)へ接続する。
+指摘への対応は責務を持つ文書で行い、再検査する。専門的な意味、外部サイトの現存、CRDD準拠の採否は別途確認する。[操作手順](../19_Workflows/02_Checker.md)、[設計と試験対応](../06_Architecture/Details/checker/01_Architecture.md)へ接続する。
 
 <a id="platform-access-contract"></a>
 
@@ -447,7 +447,7 @@ platform-accessは独立したエンドユーザーCLIではなく、Coordinator
 
 部分・過剰な応答、nonce不一致、未知flag、異常終了、対象の前後不一致は成功候補へ補正しない。観測結果、操作発行、回収、再起動・手動回復を別々に上位へ伝える。公開表示へPath、SID、ACL、Credentialやraw OS errorを戻さない。
 
-Local Personalで接続済みのHome／State観測と、未接続の保護済み有効世代・Hardened候補を区別する。具体的な成果物、protocol、資源所有、TSとRustの責務および試験は[Windows内部部品の設計](../06_Architecture/platform-access/01_Architecture.md)が所有する。
+Local Personalで接続済みのHome／State観測と、未接続の保護済み有効世代・Hardened候補を区別する。具体的な成果物、protocol、資源所有、TSとRustの責務および試験は[Windows内部部品の設計](../06_Architecture/Details/platform-access/01_Architecture.md)が所有する。
 
 <a id="user-interface-contract"></a>
 

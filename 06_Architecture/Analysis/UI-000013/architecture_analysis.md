@@ -76,13 +76,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Runtime Artifactの信頼評価のArchitecture定義](../../Definitions/runtime-artifact-trust/architecture_definition.md) | Runtime Trust Evaluator | UI契約はAuthorityを発行しない。利用者操作: 検証する／信頼方針を選ぶ／詳細を見る | UI契約はEffectを定義しない。表示上の状態差: 確認済み（verified）／未確認（unverified）／信頼済み（trusted）／非信頼（not_trusted）を別軸にする。導線: 成果物（Artifact）→各根拠→利用者方針→導入判断 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [Runtime Artifactの信頼評価のArchitecture定義](../../Definitions/ARCH-000014/architecture_definition.md) | Runtime Trust Evaluator | UI契約はAuthorityを発行しない。利用者操作: 検証する／信頼方針を選ぶ／詳細を見る | UI契約はEffectを定義しない。表示上の状態差: 確認済み（verified）／未確認（unverified）／信頼済み（trusted）／非信頼（not_trusted）を別軸にする。導線: 成果物（Artifact）→各根拠→利用者方針→導入判断 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Runtime Artifactの信頼評価](../../Definitions/runtime-artifact-trust/architecture_definition.md) | New | verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資格へ集約しない。Forkや企業署名、許可されたLocal unsignedを利用者所有Policyで評価する。 |
+| [Runtime Artifactの信頼評価](../../Definitions/ARCH-000014/architecture_definition.md) | New | verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資格へ集約しない。Forkや企業署名、許可されたLocal unsignedを利用者所有Policyで評価する。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

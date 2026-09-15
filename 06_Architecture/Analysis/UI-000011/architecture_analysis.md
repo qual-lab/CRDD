@@ -85,13 +85,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Runtime Dataの配置・保持・清掃のArchitecture定義](../../Definitions/runtime-data-lifecycle/architecture_definition.md) | Runtime Data Contract | UI契約はAuthorityを発行しない。利用者操作: 保持内容を見る／清掃する／保留する | UI契約はEffectを定義しない。表示上の状態差: 一時（temporary）／保持必要（durable）／回復必要（recovery_required）／清掃可能（eligible_for_cleanup）／不明（unknown）。導線: 作業→データ用途→保持判断→清掃→不存在確認 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [Runtime Dataの配置・保持・清掃のArchitecture定義](../../Definitions/ARCH-000011/architecture_definition.md) | Runtime Data Contract | UI契約はAuthorityを発行しない。利用者操作: 保持内容を見る／清掃する／保留する | UI契約はEffectを定義しない。表示上の状態差: 一時（temporary）／保持必要（durable）／回復必要（recovery_required）／清掃可能（eligible_for_cleanup）／不明（unknown）。導線: 作業→データ用途→保持判断→清掃→不存在確認 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Runtime Dataの配置・保持・清掃](../../Definitions/runtime-data-lifecycle/architecture_definition.md) | New | temporary／durable／recovery_required／cleanup／unknownを用途別に分ける。Repository-local情報を自Repoに集約し、横断CROS状態はOS管理Rootへ分離する。 |
+| [Runtime Dataの配置・保持・清掃](../../Definitions/ARCH-000011/architecture_definition.md) | New | temporary／durable／recovery_required／cleanup／unknownを用途別に分ける。Repository-local情報を自Repoに集約し、横断CROS状態はOS管理Rootへ分離する。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

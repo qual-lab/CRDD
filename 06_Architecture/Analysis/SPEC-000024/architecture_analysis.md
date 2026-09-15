@@ -62,13 +62,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [公式素材の権利・用途確認のArchitecture定義](../../Definitions/official-asset-rights/architecture_definition.md) | 公式Repositoryの素材収載判断 | 権利確認と許可用途を決められる決定権限者。確認結果は収載・配布や用途外利用のAuthorityを含まない | 由来・権利・許可用途・判断者を同じ素材へ記録する。実際の収載・配布は別の変更・Release Authorityを必要とする。 | 生成手段だけで権利を推定せず、用途外利用を許可しない。 |
+| [公式素材の権利・用途確認のArchitecture定義](../../Definitions/ARCH-000017/architecture_definition.md) | 公式Repositoryの素材収載判断 | 権利確認と許可用途を決められる決定権限者。確認結果は収載・配布や用途外利用のAuthorityを含まない | 由来・権利・許可用途・判断者を同じ素材へ記録する。実際の収載・配布は別の変更・Release Authorityを必要とする。 | 生成手段だけで権利を推定せず、用途外利用を許可しない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [公式素材の権利・用途確認](../../Definitions/official-asset-rights/architecture_definition.md) | Same | candidate／approved／restricted／withdrawnを区別し、生成手段や見た目だけから公開・再配布権を推定しない。 |
+| [公式素材の権利・用途確認](../../Definitions/ARCH-000017/architecture_definition.md) | Same | candidate／approved／restricted／withdrawnを区別し、生成手段や見た目だけから公開・再配布権を推定しない。 |
 
 ## 5. UI観点との統合時に確認すること
 

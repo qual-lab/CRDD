@@ -60,13 +60,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project実行のArchitecture定義](../../Definitions/project-execution/architecture_definition.md) | 結果再接続Resolver | 送信・実行・結果閲覧を別に認可し、再接続は新規実行Authorityを発行しない | 許可時だけ情報搬送または結果取得を行う。応答喪失後はProvider Effectを再発行しない。 | 応答喪失を未実行とみなさず、別依頼として再発行しない。 |
+| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | 結果再接続Resolver | 送信・実行・結果閲覧を別に認可し、再接続は新規実行Authorityを発行しない | 許可時だけ情報搬送または結果取得を行う。応答喪失後はProvider Effectを再発行しない。 | 応答喪失を未実行とみなさず、別依頼として再発行しない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project実行](../../Definitions/project-execution/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
+| [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
 
 ## 5. UI観点との統合時に確認すること
 

@@ -59,13 +59,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [過去情報と現在有効な意図のArchitecture定義](../../Definitions/temporal-provenance/architecture_definition.md) | Context Provenance Resolver | 履歴を閲覧する主体。参照から現在方針の採用Authorityを推定しない | 読取り解決だけを行い、Gitで再現可能な状態を重複保存・変更しない。 | 古い判断を現在方針へ自動昇格せず、Commit SHAだけを成立条件にしない。 |
+| [過去情報と現在有効な意図のArchitecture定義](../../Definitions/ARCH-000016/architecture_definition.md) | Context Provenance Resolver | 履歴を閲覧する主体。参照から現在方針の採用Authorityを推定しない | 読取り解決だけを行い、Gitで再現可能な状態を重複保存・変更しない。 | 古い判断を現在方針へ自動昇格せず、Commit SHAだけを成立条件にしない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [過去情報と現在有効な意図](../../Definitions/temporal-provenance/architecture_definition.md) | Same | 過去情報を消さず、現在有効な意図と区別する。Gitで再現できる全量Inventoryを永続化せず、必要なサマリーと参照Hashを保持する。 |
+| [過去情報と現在有効な意図](../../Definitions/ARCH-000016/architecture_definition.md) | Same | 過去情報を消さず、現在有効な意図と区別する。Gitで再現できる全量Inventoryを永続化せず、必要なサマリーと参照Hashを保持する。 |
 
 ## 5. UI観点との統合時に確認すること
 

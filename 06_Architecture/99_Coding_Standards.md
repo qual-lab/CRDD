@@ -41,7 +41,7 @@ CRDD公式Repositoryが所有する内部Scriptは`.ts`を標準とし、Node.js
 
 TypeScriptだけでは安全に確認できないOS APIへ接続する最小部分は、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。CRDD本体、一般CLI、Policy、契約およびProcess lifecycleはTypeScriptに保持する。Rust成果物は公開CLI、独立製品、永続準備Lifecycleまたは採用RepositoryのBuild依存を所有せず、固定protocolで要求されたOS観測と限定操作だけを行う。この例外を内部Script一般のRust移行へ拡張しない。
 
-BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やBuild orchestrationとして新設しない。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Rustの固定成果物、toolchainおよび署名Identityへの結合は[Windowsネイティブ部品の設計](platform-access/01_Architecture.md)が所有し、反復するBuild・検証手順は[Coordinator RuntimeのWorkflow](../19_Workflows/01_Coordinator_Runtime.md)が所有する。
+BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やBuild orchestrationとして新設しない。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Rustの固定成果物、toolchainおよび署名Identityへの結合は[Windowsネイティブ部品の設計](Details/platform-access/01_Architecture.md)が所有し、反復するBuild・検証手順は[Coordinator RuntimeのWorkflow](../19_Workflows/01_Coordinator_Runtime.md)が所有する。
 
 Coordinatorのproduction sourceとtest sourceは、別々のstrict設定で`noEmit`検査する。攻撃的な不正shapeまたはNode.js API差替えを扱う試験fixtureは、`unknown`と実行時assertionで表現し、型に合わせて負例を弱めない。
 

@@ -62,13 +62,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project実行のArchitecture定義](../../Definitions/project-execution/architecture_definition.md) | 再試行・回復分類 | 回復または再試行を選ぶ決定権限者。分類結果だけではEffectを発行しない | 本SPECは次の行動を分類する。実際の回復Effectは別のCapability取得後に限る。 | 古い権限、曖昧な識別情報、作用不明では再発行を拒否する。 |
+| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | 再試行・回復分類 | 回復または再試行を選ぶ決定権限者。分類結果だけではEffectを発行しない | 本SPECは次の行動を分類する。実際の回復Effectは別のCapability取得後に限る。 | 古い権限、曖昧な識別情報、作用不明では再発行を拒否する。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project実行](../../Definitions/project-execution/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
+| [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
 
 ## 5. UI観点との統合時に確認すること
 

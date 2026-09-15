@@ -60,13 +60,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Runtime Artifactの信頼評価のArchitecture定義](../../Definitions/runtime-artifact-trust/architecture_definition.md) | Runtime Trust Evaluator | Deployment OwnerがTrust Policyを所有する。Qual-Lab署名は公式配布者の識別だけを保証する | 読取り評価だけを返し、Runtime実行Capabilityを自動発行しない。 | 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。 |
+| [Runtime Artifactの信頼評価のArchitecture定義](../../Definitions/ARCH-000014/architecture_definition.md) | Runtime Trust Evaluator | Deployment OwnerがTrust Policyを所有する。Qual-Lab署名は公式配布者の識別だけを保証する | 読取り評価だけを返し、Runtime実行Capabilityを自動発行しない。 | 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Runtime Artifactの信頼評価](../../Definitions/runtime-artifact-trust/architecture_definition.md) | Same | verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資格へ集約しない。Forkや企業署名、許可されたLocal unsignedを利用者所有Policyで評価する。 |
+| [Runtime Artifactの信頼評価](../../Definitions/ARCH-000014/architecture_definition.md) | Same | verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資格へ集約しない。Forkや企業署名、許可されたLocal unsignedを利用者所有Policyで評価する。 |
 
 ## 5. UI観点との統合時に確認すること
 

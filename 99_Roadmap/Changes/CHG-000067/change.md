@@ -168,13 +168,13 @@ Project Operation Context
 - [`04_UI/01_User_Interface.md`](<../../../04_UI/01_User_Interface.md>)
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
-- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
-- [`06_Architecture/cros/01_Architecture.md`](<../../../06_Architecture/cros/01_Architecture.md>)
-- [`06_Architecture/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/execution-intelligence/01_Architecture.md>)
-- [`06_Architecture/project-operation/01_Architecture.md`](<../../../06_Architecture/project-operation/01_Architecture.md>)
-- [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
-- [`06_Architecture/runtime-data/02_Target_Architecture.md`](<../../../06_Architecture/runtime-data/02_Target_Architecture.md>)
-- [`06_Architecture/version-control/01_Architecture.md`](<../../../06_Architecture/version-control/01_Architecture.md>)
+- [`06_Architecture/Details/checker/01_Architecture.md`](<../../../06_Architecture/Details/checker/01_Architecture.md>)
+- [`06_Architecture/Details/cros/01_Architecture.md`](<../../../06_Architecture/Details/cros/01_Architecture.md>)
+- [`06_Architecture/Details/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/Details/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/Details/project-operation/01_Architecture.md`](<../../../06_Architecture/Details/project-operation/01_Architecture.md>)
+- [`06_Architecture/Details/project-runtime/01_Architecture.md`](<../../../06_Architecture/Details/project-runtime/01_Architecture.md>)
+- [`06_Architecture/Details/runtime-data/02_Target_Architecture.md`](<../../../06_Architecture/Details/runtime-data/02_Target_Architecture.md>)
+- [`06_Architecture/Details/version-control/01_Architecture.md`](<../../../06_Architecture/Details/version-control/01_Architecture.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
 - `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
@@ -599,9 +599,9 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 |---|---|
 | Discovery | [統合したDiscovery判断](../../../01_Discovery/01_Product_Discovery.md#current-discovery-decisions)、[個別探索分析](../../../01_Discovery/Analysis/) |
 | IA | [CRDD内部Toolの情報構造](../../../03_IA/01_Information_Architecture.md) |
-| Architecture | [Project Operation Contextのアーキテクチャ](../../../06_Architecture/project-operation/01_Architecture.md) |
-| CROS利用境界 | [CROS Federationと利用境界](../../../06_Architecture/cros/01_Architecture.md) |
-| Runtime Data基準 | [Runtime Dataの目標Architecture](../../../06_Architecture/runtime-data/02_Target_Architecture.md) |
+| Architecture | [Project Operation Contextのアーキテクチャ](../../../06_Architecture/Details/project-operation/01_Architecture.md) |
+| CROS利用境界 | [CROS Federationと利用境界](../../../06_Architecture/Details/cros/01_Architecture.md) |
+| Runtime Data基準 | [Runtime Dataの目標Architecture](../../../06_Architecture/Details/runtime-data/02_Target_Architecture.md) |
 | Communication | [CRDD外部コミュニケーション](../../../17_Communication.md) |
 | Roadmap | [v0.21未完了作業](../../01_Roadmap.md#11-v0210--project運営信頼複数repository) |
 

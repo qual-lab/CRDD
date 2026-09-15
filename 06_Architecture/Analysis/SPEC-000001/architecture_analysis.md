@@ -59,13 +59,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [機械検査と文書検査のArchitecture定義](../../Definitions/checker-and-document-validation/architecture_definition.md) | Checker CoreとCRDD現行Profile | 検査の実行者。指摘の意味判断や修正採用のAuthorityは発行しない | Repository内容を変更しない読取り検査。 | 入力不備、対象不明、検査不能を成功へ畳まず、変更を発生させない。 |
+| [機械検査と文書検査のArchitecture定義](../../Definitions/ARCH-000001/architecture_definition.md) | Checker CoreとCRDD現行Profile | 検査の実行者。指摘の意味判断や修正採用のAuthorityは発行しない | Repository内容を変更しない読取り検査。 | 入力不備、対象不明、検査不能を成功へ畳まず、変更を発生させない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [機械検査と文書検査](../../Definitions/checker-and-document-validation/architecture_definition.md) | Same | 機械で確定できる不備だけをCheckerが返し、解釈を要する内容は対象と改訂版を保ったまま意味レビューへ渡す。文書の読みやすさや図の意味を、見出しの存在だけから合格としない。 |
+| [機械検査と文書検査](../../Definitions/ARCH-000001/architecture_definition.md) | Same | 機械で確定できる不備だけをCheckerが返し、解釈を要する内容は対象と改訂版を保ったまま意味レビューへ渡す。文書の読みやすさや図の意味を、見出しの存在だけから合格としない。 |
 
 ## 5. UI観点との統合時に確認すること
 

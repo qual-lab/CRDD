@@ -29,7 +29,7 @@
     {
       "id": "artifact-signing:key-to-signature",
       "owner": "artifact-signing",
-      "architectureAnchor": "06_Architecture/artifact-signing/01_Architecture.md#3-鍵参照と署名の状態遷移",
+      "architectureAnchor": "06_Architecture/Details/artifact-signing/01_Architecture.md#3-鍵参照と署名の状態遷移",
       "responsibilities": ["private_key_reference_preflight", "hidden_secret_input", "ed25519_payload_signing"],
       "externalBoundaries": ["external_private_key_file", "interactive_terminal", "crypto_runtime"],
       "lifecycleProfile": "external_effect_operation",
@@ -39,7 +39,7 @@
     {
       "id": "version-control:repository-observation",
       "owner": "version-control",
-      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#3-目的別port",
+      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#3-目的別port",
       "responsibilities": ["repository_location", "local_change_set_observation"],
       "externalBoundaries": ["repository_filesystem", "version_control_process"],
       "lifecycleProfile": "read_only_boundary",
@@ -49,7 +49,7 @@
     {
       "id": "version-control:fixed-snapshot-candidate",
       "owner": "version-control",
-      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#3-目的別port",
+      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#3-目的別port",
       "responsibilities": ["fixed_snapshot_identity", "candidate_output_capability", "candidate_materialization"],
       "externalBoundaries": ["git_object_store", "candidate_filesystem"],
       "lifecycleProfile": "durable_operation",
@@ -59,7 +59,7 @@
     {
       "id": "version-control:fixed-revision-and-ignore",
       "owner": "version-control",
-      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#4-capabilityと再確認",
+      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#4-capabilityと再確認",
       "responsibilities": ["fixed_revision_identity", "repository_local_ignore_registration"],
       "externalBoundaries": ["git_revision_store", "repository_local_exclude"],
       "lifecycleProfile": "durable_operation",
@@ -69,7 +69,7 @@
     {
       "id": "runtime-data:repository-storage",
       "owner": "runtime-data",
-      "architectureAnchor": "06_Architecture/runtime-data/02_Target_Architecture.md#2-repository-local目標構成",
+      "architectureAnchor": "06_Architecture/Details/runtime-data/02_Target_Architecture.md#2-repository-local目標構成",
       "responsibilities": ["repository_root_binding", "runtime_path_resolution", "temporary_operation_lifecycle"],
       "externalBoundaries": ["git_worktree", "repository_filesystem", "os_managed_root"],
       "lifecycleProfile": "durable_operation",
@@ -79,7 +79,7 @@
     {
       "id": "checker:repository-verification",
       "owner": "checker",
-      "architectureAnchor": "06_Architecture/checker/01_Architecture.md#3-検査の順序",
+      "architectureAnchor": "06_Architecture/Details/checker/01_Architecture.md#3-検査の順序",
       "responsibilities": ["root_scope_intake", "file_reference_discovery", "deterministic_reporting"],
       "externalBoundaries": ["git_process", "repository_filesystem", "stdout_exit_status"],
       "lifecycleProfile": "read_only_boundary",
@@ -89,7 +89,7 @@
     {
       "id": "checker:regression-runner",
       "owner": "checker",
-      "architectureAnchor": "06_Architecture/checker/01_Architecture.md#5-資源と終了",
+      "architectureAnchor": "06_Architecture/Details/checker/01_Architecture.md#5-資源と終了",
       "responsibilities": ["test_discovery", "bounded_child_execution", "result_aggregation"],
       "externalBoundaries": ["node_child_process", "test_fixture_root", "exit_status"],
       "lifecycleProfile": "external_effect_operation",
@@ -99,7 +99,7 @@
     {
       "id": "project-runtime:objective-task-lifecycle",
       "owner": "project-runtime",
-      "architectureAnchor": "06_Architecture/project-runtime/01_Architecture.md#6-状態authority資源",
+      "architectureAnchor": "06_Architecture/Details/project-runtime/01_Architecture.md#6-状態authority資源",
       "responsibilities": ["objective_intake", "task_state_transition", "execution_port_coordination"],
       "externalBoundaries": ["execution_port", "state_port", "host_identity_port"],
       "lifecycleProfile": "durable_operation",
@@ -109,7 +109,7 @@
     {
       "id": "project-runtime:decision-recovery",
       "owner": "project-runtime",
-      "architectureAnchor": "06_Architecture/project-runtime/01_Architecture.md#9-移行と検証",
+      "architectureAnchor": "06_Architecture/Details/project-runtime/01_Architecture.md#9-移行と検証",
       "responsibilities": ["human_decision_wait", "replanning", "recovery_reentry"],
       "externalBoundaries": ["decision_port", "task_recovery_port", "lease_port"],
       "lifecycleProfile": "durable_operation",
@@ -119,7 +119,7 @@
     {
       "id": "project-runtime:integration-projection",
       "owner": "project-runtime",
-      "architectureAnchor": "06_Architecture/project-runtime/01_Architecture.md#7-公開アプリケーション契約",
+      "architectureAnchor": "06_Architecture/Details/project-runtime/01_Architecture.md#7-公開アプリケーション契約",
       "responsibilities": ["candidate_integration", "accepted_result", "read_only_state_projection"],
       "externalBoundaries": ["candidate_port", "integration_record", "public_application_contract"],
       "lifecycleProfile": "durable_operation",
@@ -129,7 +129,7 @@
     {
       "id": "coordinator:provider-task-lifecycle",
       "owner": "coordinator",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#3-一般taskの主シーケンス",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#3-一般taskの主シーケンス",
       "responsibilities": ["provider_selection", "external_send_authorization", "isolated_executor_execution", "candidate_capture"],
       "externalBoundaries": ["docker_engine", "provider_cli", "external_send"],
       "lifecycleProfile": "external_effect_operation",
@@ -139,7 +139,7 @@
     {
       "id": "coordinator:reviewer-decision-lifecycle",
       "owner": "coordinator",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#3-一般taskの主シーケンス",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#3-一般taskの主シーケンス",
       "responsibilities": ["candidate_bound_content_projection", "independent_reviewer_execution", "structured_decision", "bounded_remediation", "result_settlement"],
       "externalBoundaries": ["provider_cli", "reviewer_content_projection", "candidate_disposition"],
       "lifecycleProfile": "external_effect_operation",
@@ -149,7 +149,7 @@
     {
       "id": "coordinator:candidate-publication",
       "owner": "coordinator",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#10-provider実行と候補",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#10-provider実行と候補",
       "responsibilities": ["candidate_snapshot", "candidate_store", "integration_publication"],
       "externalBoundaries": ["repository_filesystem", "candidate_store", "project_runtime_candidate_port"],
       "lifecycleProfile": "durable_operation",
@@ -159,7 +159,7 @@
     {
       "id": "coordinator:release-signing",
       "owner": "coordinator",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#9-署名済み配布物",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#9-署名済み配布物",
       "responsibilities": ["runtime_dependency_observation", "manifest_signing", "release_candidate_promotion"],
       "externalBoundaries": ["git_object_store", "release_key", "distribution_filesystem"],
       "lifecycleProfile": "durable_operation",
@@ -169,7 +169,7 @@
     {
       "id": "coordinator:docker-task-recovery",
       "owner": "coordinator",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#11-取消と回復",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#11-取消と回復",
       "responsibilities": ["docker_task_execution", "resource_cleanup", "task_recovery_reentry"],
       "externalBoundaries": ["docker_engine", "container_network_volume", "runtime_state_store"],
       "lifecycleProfile": "external_effect_operation",
@@ -179,7 +179,7 @@
     {
       "id": "coordinator:docker-desktop-repair",
       "owner": "coordinator",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#docker外部境界の結合単位",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#docker外部境界の結合単位",
       "responsibilities": ["desktop_failure_classification", "repair_intent_and_effect", "historical_recovery_and_reentry"],
       "externalBoundaries": ["docker_desktop_process", "docker_runtime_directory", "platform_access_native_helper"],
       "lifecycleProfile": "external_effect_operation",
@@ -189,7 +189,7 @@
     {
       "id": "execution-intelligence:event-publication",
       "owner": "execution-intelligence",
-      "architectureAnchor": "06_Architecture/execution-intelligence/01_Architecture.md#3-発行と失敗境界",
+      "architectureAnchor": "06_Architecture/Details/execution-intelligence/01_Architecture.md#3-発行と失敗境界",
       "responsibilities": ["event_validation", "non_authority_publication", "consumer_observation"],
       "externalBoundaries": ["runtime_event_producer", "execution_intelligence_public_api", "consumer_adapter"],
       "lifecycleProfile": "pure_component",
@@ -199,7 +199,7 @@
     {
       "id": "execution-intelligence:durable-store",
       "owner": "execution-intelligence",
-      "architectureAnchor": "06_Architecture/execution-intelligence/01_Architecture.md#4-保存と改変検知",
+      "architectureAnchor": "06_Architecture/Details/execution-intelligence/01_Architecture.md#4-保存と改変検知",
       "responsibilities": ["repository_root_binding", "immutable_event_publish", "retention_cleanup_classification"],
       "externalBoundaries": ["repository_filesystem", "process_lock", "execution_intelligence_consumer"],
       "lifecycleProfile": "durable_operation",
@@ -209,7 +209,7 @@
     {
       "id": "mcp:public-contract-adapter",
       "owner": "mcp",
-      "architectureAnchor": "06_Architecture/mcp/01_Architecture.md#3-依存と所有権",
+      "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#3-依存と所有権",
       "responsibilities": ["transport_decode_encode", "public_contract_projection", "closed_result_mapping"],
       "externalBoundaries": ["mcp_request", "project_runtime_public_contract", "mcp_response"],
       "lifecycleProfile": "pure_component",
@@ -219,7 +219,7 @@
     {
       "id": "mcp:transport-session",
       "owner": "mcp",
-      "architectureAnchor": "06_Architecture/mcp/01_Architecture.md#5-transport-lifecycle",
+      "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#5-transport-lifecycle",
       "responsibilities": ["stdio_session", "localhost_http_session", "cancellation_and_connection_close"],
       "externalBoundaries": ["stdio", "localhost_http", "client_disconnect"],
       "lifecycleProfile": "transport_session",
@@ -229,7 +229,7 @@
     {
       "id": "platform-access:observation-protocol",
       "owner": "platform-access",
-      "architectureAnchor": "06_Architecture/platform-access/01_Architecture.md#4-バイナリ境界",
+      "architectureAnchor": "06_Architecture/Details/platform-access/01_Architecture.md#4-バイナリ境界",
       "responsibilities": ["request_frame_validation", "windows_identity_observation", "closed_response_frame"],
       "externalBoundaries": ["windows_api", "stdin_stdout_protocol", "filesystem_handle"],
       "lifecycleProfile": "read_only_boundary",
@@ -239,7 +239,7 @@
     {
       "id": "platform-access:owned-process-effect",
       "owner": "platform-access",
-      "architectureAnchor": "06_Architecture/platform-access/01_Architecture.md#5-状態資源回復",
+      "architectureAnchor": "06_Architecture/Details/platform-access/01_Architecture.md#5-状態資源回復",
       "responsibilities": ["trusted_artifact_open", "owned_child_process", "docker_repair_and_restart_protocol"],
       "externalBoundaries": ["windows_process_api", "job_object", "docker_desktop_cli"],
       "lifecycleProfile": "external_effect_operation",
@@ -250,91 +250,91 @@
   "integrationCorridors": [
     {
       "id": "version-control:revision-to-signing-input",
-      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#6-段階移行",
+      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#6-段階移行",
       "blockPath": ["version-control:fixed-revision-and-ignore", "version-control:fixed-snapshot-candidate", "artifact-signing:key-to-signature"],
       "testIds": ["version-control:integration:fixed-revision-and-ignore", "version-control:integration:fixed-snapshot", "artifact-signing:integration:private-key-signing"],
       "postconditions": ["fixed_revision_identity_preserved", "candidate_output_capability_preserved", "key_reference_preflight_preserved"]
     },
     {
       "id": "artifact-signing:signature-to-release-candidate",
-      "architectureAnchor": "06_Architecture/artifact-signing/01_Architecture.md#1-なぜ独立させるのか",
+      "architectureAnchor": "06_Architecture/Details/artifact-signing/01_Architecture.md#1-なぜ独立させるのか",
       "blockPath": ["artifact-signing:key-to-signature", "coordinator:release-signing"],
       "testIds": ["artifact-signing:integration:private-key-signing", "coordinator:integration:sign-release-manifest"],
       "postconditions": ["canonical_payload_not_reinterpreted", "publisher_policy_stays_with_consumer", "signature_bound_to_manifest_before_placement"]
     },
     {
       "id": "version-control:observation-to-regression",
-      "architectureAnchor": "06_Architecture/version-control/01_Architecture.md#6-段階移行",
+      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#6-段階移行",
       "blockPath": ["version-control:repository-observation", "checker:regression-runner"],
       "testIds": ["version-control:integration:local-change-set", "checker:integration:regression-runner"],
       "postconditions": ["canonical_change_set_preserved", "partial_observation_not_used", "selection_input_complete"]
     },
     {
       "id": "runtime-data:repository-to-consumers",
-      "architectureAnchor": "06_Architecture/runtime-data/02_Target_Architecture.md#2-repository-local目標構成",
+      "architectureAnchor": "06_Architecture/Details/runtime-data/02_Target_Architecture.md#2-repository-local目標構成",
       "blockPath": ["runtime-data:repository-storage", "execution-intelligence:durable-store", "project-runtime:objective-task-lifecycle"],
       "testIds": ["runtime-data:integration:repository-paths", "execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
       "postconditions": ["repository_root_identity_preserved", "canonical_paths_not_reinterpreted", "consumer_storage_stays_repository_local"]
     },
     {
       "id": "checker:discovery-to-regression",
-      "architectureAnchor": "06_Architecture/checker/01_Architecture.md#7-設計から試験への接続",
+      "architectureAnchor": "06_Architecture/Details/checker/01_Architecture.md#7-設計から試験への接続",
       "blockPath": ["checker:repository-verification", "checker:regression-runner"],
       "testIds": ["checker:integration:crdd-check", "checker:integration:regression-runner"],
       "postconditions": ["discovered_scope_matches_execution_plan", "all_child_processes_settled", "partial_run_not_reported_complete"]
     },
     {
       "id": "runtime:objective-to-candidate",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#14-project-runtimeとの接続",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#14-project-runtimeとの接続",
       "blockPath": ["project-runtime:objective-task-lifecycle", "coordinator:provider-task-lifecycle", "coordinator:candidate-publication"],
       "testIds": ["coordinator:integration:project-runtime-full-flow", "coordinator:integration:project-runtime-execution", "coordinator:integration:project-runtime-candidate-integration-adapter"],
       "postconditions": ["authority_narrowing_preserved", "attempt_identity_preserved", "candidate_not_published_before_settlement"]
     },
     {
       "id": "coordinator:provider-to-reviewed-candidate",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#10-provider実行と候補",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#10-provider実行と候補",
       "blockPath": ["coordinator:provider-task-lifecycle", "coordinator:reviewer-decision-lifecycle", "coordinator:candidate-publication"],
       "testIds": ["coordinator:integration:coordinator-task-runtime", "coordinator:integration:signed-reviewer-real-boundary", "coordinator:system:signed-reviewer-boundary-verification", "coordinator:system:signed-general-task-verification"],
       "postconditions": ["projection_and_candidate_identity_correlated", "reviewer_and_executor_processes_absent", "candidate_not_published_before_final_approval"]
     },
     {
       "id": "runtime:candidate-to-mcp-result",
-      "architectureAnchor": "06_Architecture/mcp/01_Architecture.md#3-依存と所有権",
+      "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#3-依存と所有権",
       "blockPath": ["coordinator:candidate-publication", "project-runtime:integration-projection", "mcp:public-contract-adapter"],
       "testIds": ["coordinator:integration:project-runtime-candidate-integration-adapter", "coordinator:integration:project-runtime-integration", "mcp:integration:transport-lifecycle"],
       "postconditions": ["canonical_result_not_reinterpreted", "recovery_references_preserved", "unaccepted_candidate_not_exposed"]
     },
     {
       "id": "mcp:contract-to-transport",
-      "architectureAnchor": "06_Architecture/mcp/01_Architecture.md#5-transport-lifecycle",
+      "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#5-transport-lifecycle",
       "blockPath": ["mcp:public-contract-adapter", "mcp:transport-session"],
       "testIds": ["mcp:integration:transport-lifecycle", "mcp:system:stdio", "mcp:system:streamable-http"],
       "postconditions": ["request_identity_preserved", "disconnect_cancellation_joined", "transport_resources_absent"]
     },
     {
       "id": "runtime:attempt-to-durable-observation",
-      "architectureAnchor": "06_Architecture/execution-intelligence/01_Architecture.md#3-発行と失敗境界",
+      "architectureAnchor": "06_Architecture/Details/execution-intelligence/01_Architecture.md#3-発行と失敗境界",
       "blockPath": ["project-runtime:objective-task-lifecycle", "execution-intelligence:event-publication", "execution-intelligence:durable-store"],
       "testIds": ["coordinator:integration:project-runtime-execution", "execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
       "postconditions": ["task_result_unchanged_by_observation", "event_identity_preserved", "store_failure_not_hidden"]
     },
     {
       "id": "runtime:decision-to-docker-recovery",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#11-取消と回復",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#11-取消と回復",
       "blockPath": ["project-runtime:decision-recovery", "coordinator:docker-task-recovery", "coordinator:docker-desktop-repair"],
       "testIds": ["coordinator:integration:project-runtime-decision-recovery-store", "coordinator:integration:docker-recovery-runtime", "coordinator:integration:docker-desktop-runtime-repair"],
       "postconditions": ["exact_recovery_identity_preserved", "unknown_effect_not_reissued", "reentry_requires_fresh_observation"]
     },
     {
       "id": "platform:observation-to-desktop-repair",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#11-取消と回復",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#11-取消と回復",
       "blockPath": ["platform-access:observation-protocol", "platform-access:owned-process-effect", "coordinator:docker-desktop-repair"],
       "testIds": ["platform-access:integration:cli", "coordinator:integration:docker-desktop-native-helper", "coordinator:integration:docker-restart-execution"],
       "postconditions": ["native_identity_preserved", "child_process_cleanup_observed", "helper_result_not_equal_host_recovery"]
     },
     {
       "id": "release:candidate-to-signed-runtime",
-      "architectureAnchor": "06_Architecture/coordinator/01_Architecture.md#9-署名済み配布物",
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#9-署名済み配布物",
       "blockPath": ["coordinator:candidate-publication", "coordinator:release-signing", "platform-access:observation-protocol"],
       "testIds": ["coordinator:integration:release-candidate-preparation", "coordinator:integration:sign-release-manifest", "coordinator:integration:platform-access-release"],
       "postconditions": ["fixed_candidate_identity_preserved", "signing_uses_single_snapshot", "bundled_native_artifact_verified"]

@@ -457,7 +457,7 @@ AIは候補比較、不足、影響、設計案を提示できるが、上位契
 
 ### Gitと通常Operationの境界
 
-v0.21で採用したComponent境界、目的別Port、本番Consumerおよび段階移行は[Version Control境界](06_Architecture/version-control/01_Architecture.md)を正本とする。
+v0.21で採用したComponent境界、目的別Port、本番Consumerおよび段階移行は[Version Control境界](06_Architecture/Details/version-control/01_Architecture.md)を正本とする。
 
 Gitは履歴、差分、配布、署名対象、submoduleおよび再現可能なCandidateの正本として利用できる。一方、通常の読取り、編集、Communication、Topic、Meeting、ProjectionまたはWorkbench操作は、対象が未Commitであることだけを理由に拒否してはならない。Dirty Worktreeは異常ではなく、必要に応じて観測・表示する現在状態である。
 

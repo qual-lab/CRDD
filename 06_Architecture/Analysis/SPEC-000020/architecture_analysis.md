@@ -60,13 +60,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [変更・監査・試験・品質の閉包のArchitecture定義](../../Definitions/quality-change-closure/architecture_definition.md) | Quality Centerと変更追跡 | 各レビューは所管範囲を評価し、人間が工程移行・採用・Releaseを決める | 評価記録は更新できるが、Pass表示から統合・Release Effectを自動発行しない。 | 試験件数や一部監査完了から全体Passを推定しない。 |
+| [変更・監査・試験・品質の閉包のArchitecture定義](../../Definitions/ARCH-000003/architecture_definition.md) | Quality Centerと変更追跡 | 各レビューは所管範囲を評価し、人間が工程移行・採用・Releaseを決める | 評価記録は更新できるが、Pass表示から統合・Release Effectを自動発行しない。 | 試験件数や一部監査完了から全体Passを推定しない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [変更・監査・試験・品質の閉包](../../Definitions/quality-change-closure/architecture_definition.md) | Same | レビュー件数や試験件数を品質へ読み替えず、同じ固定改訂版に対する必須確認がすべて終わった時だけ工程状態を更新する。 |
+| [変更・監査・試験・品質の閉包](../../Definitions/ARCH-000003/architecture_definition.md) | Same | レビュー件数や試験件数を品質へ読み替えず、同じ固定改訂版に対する必須確認がすべて終わった時だけ工程状態を更新する。 |
 
 ## 5. UI観点との統合時に確認すること
 

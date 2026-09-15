@@ -45,9 +45,9 @@ Qual-Labの人間の決定権限者は、提示した2枚の画像をCRDDのブ�
 - [`04_UI/assets/brand/crdd-brand-icon-512x512.jpg`](<../../../04_UI/assets/brand/crdd-brand-icon-512x512.jpg>)
 - [`05_Autonomous_Operation.md`](<../../../05_Autonomous_Operation.md>)
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
-- `06_Architecture/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- `06_Architecture/Details/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.json`（削除または旧Path）

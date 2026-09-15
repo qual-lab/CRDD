@@ -79,15 +79,15 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 
 | 照合対象 | 確認すること | 参照先 |
 |---|---|---|
-| Coordinator | Execution Port実装、Provider編成、取消・回復 | [Coordinator](coordinator/01_Architecture.md) |
-| Project Runtime | Application Contract、Task状態、Recovery | [Project Runtime](project-runtime/01_Architecture.md) |
-| MCP／CLI | Transport parity、接続Lifecycle | [MCP](mcp/01_Architecture.md) |
-| Execution Intelligence | 実行事実の生成・保存と読取りPort | [実行知](execution-intelligence/01_Architecture.md) |
-| Platform Access | OS／Process／Containerの意味、診断、回復 | [Platform Access](platform-access/01_Architecture.md) |
-| Version Control | Root検証、Binding、差替え可能なPort | [Version Control](version-control/01_Architecture.md) |
-| Artifact Signing | 秘密入力、署名、Manifest、配布Root | [成果物署名](artifact-signing/01_Architecture.md) |
-| Checker | Generic Core、現行Profile、終了・回帰 | [Checker](checker/01_Architecture.md) |
-| CROS／Project Operation | Federation、Projection、候補Lifecycle | [CROS](cros/01_Architecture.md)、[Project Operation](project-operation/01_Architecture.md) |
+| Coordinator | Execution Port実装、Provider編成、取消・回復 | [Coordinator](Details/coordinator/01_Architecture.md) |
+| Project Runtime | Application Contract、Task状態、Recovery | [Project Runtime](Details/project-runtime/01_Architecture.md) |
+| MCP／CLI | Transport parity、接続Lifecycle | [MCP](Details/mcp/01_Architecture.md) |
+| Execution Intelligence | 実行事実の生成・保存と読取りPort | [実行知](Details/execution-intelligence/01_Architecture.md) |
+| Platform Access | OS／Process／Containerの意味、診断、回復 | [Platform Access](Details/platform-access/01_Architecture.md) |
+| Version Control | Root検証、Binding、差替え可能なPort | [Version Control](Details/version-control/01_Architecture.md) |
+| Artifact Signing | 秘密入力、署名、Manifest、配布Root | [成果物署名](Details/artifact-signing/01_Architecture.md) |
+| Checker | Generic Core、現行Profile、終了・回帰 | [Checker](Details/checker/01_Architecture.md) |
+| CROS／Project Operation | Federation、Projection、候補Lifecycle | [CROS](Details/cros/01_Architecture.md)、[Project Operation](Details/project-operation/01_Architecture.md) |
 | Source／Tests | Canonical責務との対応、未実装、旧Owner残存 | `40_Develop/**`、`template/tools/**`、`07_Quality/**` |
 
 ## 6. Qualityへの引渡し

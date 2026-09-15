@@ -117,13 +117,13 @@ Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime
 - [`02_UX/01_User_Experience.md`](<../../../02_UX/01_User_Experience.md>)
 - [`03_Documentation.md`](<../../../03_Documentation.md>)
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
-- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/execution-intelligence/01_Architecture.md>)
-- [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
-- [`06_Architecture/runtime-data/01_Current_Path_Inventory.md`](<../../../06_Architecture/runtime-data/01_Current_Path_Inventory.md>)
-- [`06_Architecture/runtime-data/02_Target_Architecture.md`](<../../../06_Architecture/runtime-data/02_Target_Architecture.md>)
-- [`06_Architecture/version-control/01_Architecture.md`](<../../../06_Architecture/version-control/01_Architecture.md>)
+- [`06_Architecture/Details/checker/01_Architecture.md`](<../../../06_Architecture/Details/checker/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/Details/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/Details/project-runtime/01_Architecture.md`](<../../../06_Architecture/Details/project-runtime/01_Architecture.md>)
+- [`06_Architecture/Details/runtime-data/01_Current_Path_Inventory.md`](<../../../06_Architecture/Details/runtime-data/01_Current_Path_Inventory.md>)
+- [`06_Architecture/Details/runtime-data/02_Target_Architecture.md`](<../../../06_Architecture/Details/runtime-data/02_Target_Architecture.md>)
+- [`06_Architecture/Details/version-control/01_Architecture.md`](<../../../06_Architecture/Details/version-control/01_Architecture.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
 - `07_Quality/07_Structured_Document_Disposition_Inventory.json`（削除または旧Path）
@@ -415,8 +415,8 @@ Component単位契約試験
 
 | 種別 | 参照 |
 |---|---|
-| 現行調査 | [Runtime Dataの現行Path棚卸し](../../../06_Architecture/runtime-data/01_Current_Path_Inventory.md) |
-| 目標設計 | [Runtime Dataの目標Architecture](../../../06_Architecture/runtime-data/02_Target_Architecture.md) |
+| 現行調査 | [Runtime Dataの現行Path棚卸し](../../../06_Architecture/Details/runtime-data/01_Current_Path_Inventory.md) |
+| 目標設計 | [Runtime Dataの目標Architecture](../../../06_Architecture/Details/runtime-data/02_Target_Architecture.md) |
 | Discovery | [`.crdd`の用途とLifecycleを分からなくしない](../../../01_Discovery/Analysis/EXP-000016/exploration.md) |
 | Roadmap | [v0.21未完了作業](../../01_Roadmap.md#11-v0210--project運営信頼複数repository) |
 | 実装 | `40_Develop/runtime-data/`、Coordinator／Execution Intelligence利用側、Checker旧Path拒否 |

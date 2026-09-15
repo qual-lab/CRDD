@@ -144,16 +144,16 @@ v0.20の実Docker結合試験で、検証付き再起動が正常な停止・起
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
-- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
-- `06_Architecture/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
-- [`06_Architecture/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/execution-intelligence/01_Architecture.md>)
-- [`06_Architecture/mcp/01_Architecture.md`](<../../../06_Architecture/mcp/01_Architecture.md>)
-- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
-- [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
-- [`06_Architecture/project-runtime/02_Detailed_Design.md`](<../../../06_Architecture/project-runtime/02_Detailed_Design.md>)
-- [`06_Architecture/version-control/01_Architecture.md`](<../../../06_Architecture/version-control/01_Architecture.md>)
+- [`06_Architecture/Details/checker/01_Architecture.md`](<../../../06_Architecture/Details/checker/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- `06_Architecture/Details/coordinator/03_Project_Runtime_Design.md`（削除または旧Path）
+- [`06_Architecture/Details/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/Details/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/Details/mcp/01_Architecture.md`](<../../../06_Architecture/Details/mcp/01_Architecture.md>)
+- [`06_Architecture/Details/platform-access/01_Architecture.md`](<../../../06_Architecture/Details/platform-access/01_Architecture.md>)
+- [`06_Architecture/Details/project-runtime/01_Architecture.md`](<../../../06_Architecture/Details/project-runtime/01_Architecture.md>)
+- [`06_Architecture/Details/project-runtime/02_Detailed_Design.md`](<../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md>)
+- [`06_Architecture/Details/version-control/01_Architecture.md`](<../../../06_Architecture/Details/version-control/01_Architecture.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
@@ -511,10 +511,10 @@ v0.20の実Docker結合試験で、検証付き再起動が正常な停止・起
 
 ## 4. 設計と依存方向
 
-- [Project Runtimeアーキテクチャ](../../../06_Architecture/project-runtime/01_Architecture.md): Application Core、公開契約、Port、上位状態、依存規則および移行順序。
-- [Project Runtime詳細設計](../../../06_Architecture/project-runtime/02_Detailed_Design.md): exactな状態遷移、資源、Lock、Authority、Effect、不変条件および失敗注入点。
-- [MCP Transportアーキテクチャ](../../../06_Architecture/mcp/01_Architecture.md): MCP Protocol、stdio Transport、将来HTTPとの共通境界およびAuthority非生成。
-- [Coordinator参照アーキテクチャ](../../../06_Architecture/coordinator/01_Architecture.md): v0.19の実行編成、Provider、SecurityおよびRecoveryの既存保証。
+- [Project Runtimeアーキテクチャ](../../../06_Architecture/Details/project-runtime/01_Architecture.md): Application Core、公開契約、Port、上位状態、依存規則および移行順序。
+- [Project Runtime詳細設計](../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md): exactな状態遷移、資源、Lock、Authority、Effect、不変条件および失敗注入点。
+- [MCP Transportアーキテクチャ](../../../06_Architecture/Details/mcp/01_Architecture.md): MCP Protocol、stdio Transport、将来HTTPとの共通境界およびAuthority非生成。
+- [Coordinator参照アーキテクチャ](../../../06_Architecture/Details/coordinator/01_Architecture.md): v0.19の実行編成、Provider、SecurityおよびRecoveryの既存保証。
 - [機械可読なProject Runtime設計対応](../../../07_Quality/06_Project_Runtime_Design_Traceability.json): 現行設計とCoordinator実装・検証項目を結ぶ検証用投影。設計の第二正本にはしない。
 
 許可する上位依存方向は次とする。
@@ -606,21 +606,21 @@ Runtime実行IdentityはCoordinator Directoryだけを固定の閉包とせず�
       "count": 1
     },
     {
-      "before": "[参照アーキテクチャ](../../../06_Architecture/coordinator/01_Architecture.md#project-runtime-reference-architecture)",
-      "via": "[参照アーキテクチャ](../../../06_Architecture/coordinator/01_Architecture.md#project-runtime-reference-architecture)",
-      "after": "[参照アーキテクチャ](../../../06_Architecture/project-runtime/01_Architecture.md)",
+      "before": "[参照アーキテクチャ](../../../06_Architecture/Details/coordinator/01_Architecture.md#project-runtime-reference-architecture)",
+      "via": "[参照アーキテクチャ](../../../06_Architecture/Details/coordinator/01_Architecture.md#project-runtime-reference-architecture)",
+      "after": "[参照アーキテクチャ](../../../06_Architecture/Details/project-runtime/01_Architecture.md)",
       "count": 1
     },
     {
-      "before": "[Project Runtime詳細設計](../../../06_Architecture/coordinator/03_Project_Runtime_Design.md)",
-      "via": "[Project Runtime詳細設計](../../../06_Architecture/coordinator/03_Project_Runtime_Design.md)",
-      "after": "Git tag `v0.19.0` のexact path `06_Architecture/coordinator/03_Project_Runtime_Design.md`",
+      "before": "[Project Runtime詳細設計](../../../06_Architecture/Details/coordinator/03_Project_Runtime_Design.md)",
+      "via": "[Project Runtime詳細設計](../../../06_Architecture/Details/coordinator/03_Project_Runtime_Design.md)",
+      "after": "Git tag `v0.19.0` のexact path `06_Architecture/Details/coordinator/03_Project_Runtime_Design.md`",
       "count": 1
     },
     {
-      "before": "[参照アーキテクチャ](../../../06_Architecture/coordinator/01_Architecture.md#project-runtime-platform-boundary)",
-      "via": "[参照アーキテクチャ](../../../06_Architecture/coordinator/01_Architecture.md#project-runtime-platform-boundary)",
-      "after": "[参照アーキテクチャ](../../../06_Architecture/project-runtime/01_Architecture.md)",
+      "before": "[参照アーキテクチャ](../../../06_Architecture/Details/coordinator/01_Architecture.md#project-runtime-platform-boundary)",
+      "via": "[参照アーキテクチャ](../../../06_Architecture/Details/coordinator/01_Architecture.md#project-runtime-platform-boundary)",
+      "after": "[参照アーキテクチャ](../../../06_Architecture/Details/project-runtime/01_Architecture.md)",
       "count": 1
     },
     {

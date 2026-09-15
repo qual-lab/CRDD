@@ -76,13 +76,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [機械検査と文書検査のArchitecture定義](../../Definitions/checker-and-document-validation/architecture_definition.md) | Checker CoreとCRDD現行Profile | UI契約はAuthorityを発行しない。利用者操作: 概要を読む／図から詳細へ進む／正本を開く | UI契約はEffectを定義しない。表示上の状態差: 下書き（draft）／レビュー済み（reviewed）／現在有効（current）／履歴（historical）を必要時に区別。導線: 問題と目的→判断→構造化詳細→根拠→次工程 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [機械検査と文書検査のArchitecture定義](../../Definitions/ARCH-000001/architecture_definition.md) | Checker CoreとCRDD現行Profile | UI契約はAuthorityを発行しない。利用者操作: 概要を読む／図から詳細へ進む／正本を開く | UI契約はEffectを定義しない。表示上の状態差: 下書き（draft）／レビュー済み（reviewed）／現在有効（current）／履歴（historical）を必要時に区別。導線: 問題と目的→判断→構造化詳細→根拠→次工程 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [機械検査と文書検査](../../Definitions/checker-and-document-validation/architecture_definition.md) | Same | 機械で確定できる不備だけをCheckerが返し、解釈を要する内容は対象と改訂版を保ったまま意味レビューへ渡す。文書の読みやすさや図の意味を、見出しの存在だけから合格としない。 |
+| [機械検査と文書検査](../../Definitions/ARCH-000001/architecture_definition.md) | Same | 機械で確定できる不備だけをCheckerが返し、解釈を要する内容は対象と改訂版を保ったまま意味レビューへ渡す。文書の読みやすさや図の意味を、見出しの存在だけから合格としない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

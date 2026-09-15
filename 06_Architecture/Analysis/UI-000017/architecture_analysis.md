@@ -73,13 +73,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [過去情報と現在有効な意図のArchitecture定義](../../Definitions/temporal-provenance/architecture_definition.md) | Context Provenance Resolver | UI契約はAuthorityを発行しない。利用者操作: 履歴を見る／現在値を選ぶ／再評価する | UI契約はEffectを定義しない。表示上の状態差: 現在有効（current）／履歴（historical）／置換済み（superseded）／不明（unknown）。導線: 現在の仕事→選択した情報→根拠→過去値比較 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [過去情報と現在有効な意図のArchitecture定義](../../Definitions/ARCH-000016/architecture_definition.md) | Context Provenance Resolver | UI契約はAuthorityを発行しない。利用者操作: 履歴を見る／現在値を選ぶ／再評価する | UI契約はEffectを定義しない。表示上の状態差: 現在有効（current）／履歴（historical）／置換済み（superseded）／不明（unknown）。導線: 現在の仕事→選択した情報→根拠→過去値比較 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [過去情報と現在有効な意図](../../Definitions/temporal-provenance/architecture_definition.md) | New | 過去情報を消さず、現在有効な意図と区別する。Gitで再現できる全量Inventoryを永続化せず、必要なサマリーと参照Hashを保持する。 |
+| [過去情報と現在有効な意図](../../Definitions/ARCH-000016/architecture_definition.md) | New | 過去情報を消さず、現在有効な意図と区別する。Gitで再現できる全量Inventoryを永続化せず、必要なサマリーと参照Hashを保持する。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

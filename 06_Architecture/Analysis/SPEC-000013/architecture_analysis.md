@@ -62,13 +62,13 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Meeting候補と正本への引渡しのArchitecture定義](../../Definitions/meeting-candidate-promotion/architecture_definition.md) | Project Operation Context | 候補作成と採否判断を分け、正本更新は所有者の採用Authorityを必要とする | 候補記録を作成し、採用時だけ所有正本を更新する。却下時は正本Effect 0。 | 文字列一致だけで統合・分割せず、会話を自動採用しない。 |
+| [Meeting候補と正本への引渡しのArchitecture定義](../../Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | 候補作成と採否判断を分け、正本更新は所有者の採用Authorityを必要とする | 候補記録を作成し、採用時だけ所有正本を更新する。却下時は正本Effect 0。 | 文字列一致だけで統合・分割せず、会話を自動採用しない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Meeting候補と正本への引渡し](../../Definitions/meeting-candidate-promotion/architecture_definition.md) | Same | Meeting内の観測、候補、採用、却下を区別し、候補作成と正本更新のAuthorityを分ける。媒体ではなく項目の目的で候補種別を決める。 |
+| [Meeting候補と正本への引渡し](../../Definitions/ARCH-000006/architecture_definition.md) | Same | Meeting内の観測、候補、採用、却下を区別し、候補作成と正本更新のAuthorityを分ける。媒体ではなく項目の目的で候補種別を決める。 |
 
 ## 5. UI観点との統合時に確認すること
 

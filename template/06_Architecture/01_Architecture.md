@@ -56,7 +56,7 @@
 
 | Architecture定義 | 所有する責務 | 主な入力UI | 主な入力SPEC | 現行構造との照合 |
 |---|---|---|---|---|
-| [責務名](Definitions/responsibility/architecture_definition.md) | | | | |
+| [責務名](Definitions/ARCH-XXXXXX/architecture_definition.md) | | | | |
 
 ## システム境界と責務
 

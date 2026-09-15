@@ -84,13 +84,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project・Portfolio状態投影のArchitecture定義](../../Definitions/project-state-projection/architecture_definition.md) | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／根拠を見る／比較する | UI契約はEffectを定義しない。表示上の状態差: Task完了／Objective受入／Milestone受入を別にする。導線: Milestone→目的と受入条件→Task根拠→受入判断 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [Project・Portfolio状態投影のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／根拠を見る／比較する | UI契約はEffectを定義しない。表示上の状態差: Task完了／Objective受入／Milestone受入を別にする。導線: Milestone→目的と受入条件→Task根拠→受入判断 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project・Portfolio状態投影](../../Definitions/project-state-projection/architecture_definition.md) | New | Task完了、Objective受入、Milestone受入を分け、complete／partial／restricted／stale／conflicting／unknownを項目ごとに保つ。Portfolio比較でも不足を一つの健康度へ隠さない。 |
+| [Project・Portfolio状態投影](../../Definitions/ARCH-000005/architecture_definition.md) | New | Task完了、Objective受入、Milestone受入を分け、complete／partial／restricted／stale／conflicting／unknownを項目ごとに保つ。Portfolio比較でも不足を一つの健康度へ隠さない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

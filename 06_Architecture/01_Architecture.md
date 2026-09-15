@@ -37,23 +37,23 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 
 | Architecture定義 | 所有する責務 | 入力UI | 入力SPEC | 状態Owner |
 |---|---|---|---|---|
-| [機械検査と文書検査](Definitions/checker-and-document-validation/architecture_definition.md) | 決定論的なRepository検査、文書構造検査、意味レビューへの案内 | UI-000001、UI-000018 | SPEC-000001、SPEC-000023 | Checker CoreとCRDD現行Profile |
-| [契約移行と利用側閉包](Definitions/contract-migration-closure/architecture_definition.md) | 責務移動時のProducer、Consumer、派生物、署名・Release経路の閉包 | UI-000014 | SPEC-000019 | 変更影響分析とConsumer Closure契約 |
-| [変更・監査・試験・品質の閉包](Definitions/quality-change-closure/architecture_definition.md) | 同じ改訂版に対する指摘、是正、Evidence、未確認範囲、現在Gateの統合 | UI-000015 | SPEC-000020 | Quality Centerと変更追跡 |
-| [Project実行](Definitions/project-execution/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Project Runtime |
-| [Project・Portfolio状態投影](Definitions/project-state-projection/architecture_definition.md) | Project／Milestone／Objective／Task状態と複数Project比較の読取り投影 | UI-000004 | SPEC-000006、SPEC-000007 | Project Management Projection |
-| [Meeting候補と正本への引渡し](Definitions/meeting-candidate-promotion/architecture_definition.md) | Meeting ItemからTopic／Decision候補を作り、出所と採否を追跡する | UI-000009 | SPEC-000013 | Project Operation Context |
-| [実行事実と評価候補の取得](Definitions/execution-fact-retrieval/architecture_definition.md) | 実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 | UI-000005 | SPEC-000008 | 実行記録読取りProjection |
-| [実行境界の診断](Definitions/execution-boundary-diagnosis/architecture_definition.md) | 外部境界の到達、受理、開始、結果搬送、終了状態の観測 | UI-000005 | SPEC-000009 | Platform Access診断Port |
-| [Repository境界とBinding](Definitions/repository-binding/architecture_definition.md) | Repository Root検証、Repository／Project Identity、実行対象Binding | UI-000006 | SPEC-000010 | Version Control PortとRepository Binding Resolver |
-| [Tool CapabilityとAIモデル構成](Definitions/capability-and-model-configuration/architecture_definition.md) | Tool能力の発見、AIモデル構成の検証・選択理由 | UI-000010 | SPEC-000014、SPEC-000015 | Capability RegistryとModel Configuration Resolver |
-| [Runtime Dataの配置・保持・清掃](Definitions/runtime-data-lifecycle/architecture_definition.md) | `.crdd`とOS管理Runtime Rootの用途、Owner、耐久性、保持、清掃 | UI-000011 | SPEC-000016 | Runtime Data Contract |
-| [公開Transportの意味同一性](Definitions/transport-parity/architecture_definition.md) | decode／encode、接続Lifecycle、公開Application Contractへの搬送 | UI-000007 | SPEC-000011 | MCP／CLI Transport Adapter |
-| [Workspace利用範囲とRepository Federation](Definitions/workspace-access-federation/architecture_definition.md) | Session Grant、Workspace、Repository Exposure、Federation | UI-000008 | SPEC-000012 | CROS Session／Workspace Resolver |
-| [Runtime Artifactの信頼評価](Definitions/runtime-artifact-trust/architecture_definition.md) | 準拠、完全性、Publisher、Trust Policy、公式識別の独立評価 | UI-000013 | SPEC-000018 | Runtime Trust Evaluator |
-| [外部送信・結果帰還・候補採用](Definitions/external-information-lifecycle/architecture_definition.md) | 送信同意、最小化送信、結果帰還、候補隔離、採否 | UI-000016 | SPEC-000021、SPEC-000026、SPEC-000027 | External Information Boundary |
-| [過去情報と現在有効な意図](Definitions/temporal-provenance/architecture_definition.md) | 出所、発生時点、対象改訂版、現在／履歴／置換済み／不明の解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
-| [公式素材の権利・用途確認](Definitions/official-asset-rights/architecture_definition.md) | 出所、権利確認、許可用途、対象版、決定権限者の記録 | UI-000019 | SPEC-000024 | 公式Repositoryの素材収載判断 |
+| [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | 決定論的なRepository検査、文書構造検査、意味レビューへの案内 | UI-000001、UI-000018 | SPEC-000001、SPEC-000023 | Checker CoreとCRDD現行Profile |
+| [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | 責務移動時のProducer、Consumer、派生物、署名・Release経路の閉包 | UI-000014 | SPEC-000019 | 変更影響分析とConsumer Closure契約 |
+| [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | 同じ改訂版に対する指摘、是正、Evidence、未確認範囲、現在Gateの統合 | UI-000015 | SPEC-000020 | Quality Centerと変更追跡 |
+| [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Project Runtime |
+| [Project・Portfolio状態投影](Definitions/ARCH-000005/architecture_definition.md) | Project／Milestone／Objective／Task状態と複数Project比較の読取り投影 | UI-000004 | SPEC-000006、SPEC-000007 | Project Management Projection |
+| [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Meeting ItemからTopic／Decision候補を作り、出所と採否を追跡する | UI-000009 | SPEC-000013 | Project Operation Context |
+| [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | 実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 | UI-000005 | SPEC-000008 | 実行記録読取りProjection |
+| [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | 外部境界の到達、受理、開始、結果搬送、終了状態の観測 | UI-000005 | SPEC-000009 | Platform Access診断Port |
+| [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | Repository Root検証、Repository／Project Identity、実行対象Binding | UI-000006 | SPEC-000010 | Version Control PortとRepository Binding Resolver |
+| [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Tool能力の発見、AIモデル構成の検証・選択理由 | UI-000010 | SPEC-000014、SPEC-000015 | Capability RegistryとModel Configuration Resolver |
+| [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | `.crdd`とOS管理Runtime Rootの用途、Owner、耐久性、保持、清掃 | UI-000011 | SPEC-000016 | Runtime Data Contract |
+| [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | decode／encode、接続Lifecycle、公開Application Contractへの搬送 | UI-000007 | SPEC-000011 | MCP／CLI Transport Adapter |
+| [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Session Grant、Workspace、Repository Exposure、Federation | UI-000008 | SPEC-000012 | CROS Session／Workspace Resolver |
+| [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | 準拠、完全性、Publisher、Trust Policy、公式識別の独立評価 | UI-000013 | SPEC-000018 | Runtime Trust Evaluator |
+| [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | 送信同意、最小化送信、結果帰還、候補隔離、採否 | UI-000016 | SPEC-000021、SPEC-000026、SPEC-000027 | External Information Boundary |
+| [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | 出所、発生時点、対象改訂版、現在／履歴／置換済み／不明の解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
+| [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | 出所、権利確認、許可用途、対象版、決定権限者の記録 | UI-000019 | SPEC-000024 | 公式Repositoryの素材収載判断 |
 
 ## Architecture横断モデル
 

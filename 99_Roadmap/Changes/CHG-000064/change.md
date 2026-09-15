@@ -42,12 +42,12 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
-- [`06_Architecture/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/execution-intelligence/01_Architecture.md>)
-- [`06_Architecture/mcp/01_Architecture.md`](<../../../06_Architecture/mcp/01_Architecture.md>)
-- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
-- [`06_Architecture/project-runtime/01_Architecture.md`](<../../../06_Architecture/project-runtime/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/Details/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/Details/execution-intelligence/01_Architecture.md>)
+- [`06_Architecture/Details/mcp/01_Architecture.md`](<../../../06_Architecture/Details/mcp/01_Architecture.md>)
+- [`06_Architecture/Details/platform-access/01_Architecture.md`](<../../../06_Architecture/Details/platform-access/01_Architecture.md>)
+- [`06_Architecture/Details/project-runtime/01_Architecture.md`](<../../../06_Architecture/Details/project-runtime/01_Architecture.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - [`07_Quality/04_Test_Catalog.json`](<../../../07_Quality/04_Test_Catalog.json>)
@@ -133,8 +133,8 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 
 ## 4. 設計と実装境界
 
-- [Project Runtimeアーキテクチャ](../../../06_Architecture/project-runtime/01_Architecture.md): 状態参照要求、canonical投影、read-only ApplicationおよびState Port境界。
-- [MCP Transportアーキテクチャ](../../../06_Architecture/mcp/01_Architecture.md): 3つのtool、stdio／HTTP共通Adapter、localhost、認証、header相関、取消および資源回収。
+- [Project Runtimeアーキテクチャ](../../../06_Architecture/Details/project-runtime/01_Architecture.md): 状態参照要求、canonical投影、read-only ApplicationおよびState Port境界。
+- [MCP Transportアーキテクチャ](../../../06_Architecture/Details/mcp/01_Architecture.md): 3つのtool、stdio／HTTP共通Adapter、localhost、認証、header相関、取消および資源回収。
 - [状態参照公開契約](../../../40_Develop/project-runtime/src/public-contract/project-state-query.ts): 閉じた要求・結果と投影のtrust-boundary検証。
 - [状態参照Application](../../../40_Develop/project-runtime/src/application/project-runtime-state-query.ts): `readState`だけを受け取る非Effect処理。
 - [MCP Adapter](../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts): 同じcanonical操作のMCP投影。

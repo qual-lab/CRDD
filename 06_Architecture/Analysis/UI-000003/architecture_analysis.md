@@ -85,13 +85,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project実行のArchitecture定義](../../Definitions/project-execution/architecture_definition.md) | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する | UI契約はEffectを定義しない。表示上の状態差: 失敗後の作用なし／作用済み／不明、回復要／不要。導線: 失敗→作用状態→同じ依頼の結果→回復処置または再試行 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する | UI契約はEffectを定義しない。表示上の状態差: 失敗後の作用なし／作用済み／不明、回復要／不要。導線: 失敗→作用状態→同じ依頼の結果→回復処置または再試行 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project実行](../../Definitions/project-execution/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
+| [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

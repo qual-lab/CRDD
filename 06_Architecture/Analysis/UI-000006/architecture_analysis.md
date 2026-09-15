@@ -80,13 +80,13 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Repository境界とBindingのArchitecture定義](../../Definitions/repository-binding/architecture_definition.md) | Version Control PortとRepository Binding Resolver | UI契約はAuthorityを発行しない。利用者操作: 対象を選ぶ／Rootを確認する／正本を開く | UI契約はEffectを定義しない。表示上の状態差: 確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable）。導線: Project→Repository→Binding→検証済みRoot | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
+| [Repository境界とBindingのArchitecture定義](../../Definitions/ARCH-000009/architecture_definition.md) | Version Control PortとRepository Binding Resolver | UI契約はAuthorityを発行しない。利用者操作: 対象を選ぶ／Rootを確認する／正本を開く | UI契約はEffectを定義しない。表示上の状態差: 確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable）。導線: Project→Repository→Binding→検証済みRoot | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ## 4. Architecture処置
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Repository境界とBinding](../../Definitions/repository-binding/architecture_definition.md) | New | verified／unverified／ambiguous／unavailableを分け、local／cross-sourceの対象範囲を明示する。GitはAdapterの一実装であり、未Commitを理由に通常利用を拒否しない。 |
+| [Repository境界とBinding](../../Definitions/ARCH-000009/architecture_definition.md) | New | verified／unverified／ambiguous／unavailableを分け、local／cross-sourceの対象範囲を明示する。GitはAdapterの一実装であり、未Commitを理由に通常利用を拒否しない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

@@ -75,10 +75,10 @@ Stable表示への移行後、Checkerが03_Documentation本文のコード例に
 - [`05_SPEC/01_Behavior_Specification.md`](<../../../05_SPEC/01_Behavior_Specification.md>)
 - [`06_Architecture/01_Architecture.md`](<../../../06_Architecture/01_Architecture.md>)
 - [`06_Architecture/99_Coding_Standards.md`](<../../../06_Architecture/99_Coding_Standards.md>)
-- [`06_Architecture/checker/01_Architecture.md`](<../../../06_Architecture/checker/01_Architecture.md>)
-- [`06_Architecture/coordinator/01_Architecture.md`](<../../../06_Architecture/coordinator/01_Architecture.md>)
-- [`06_Architecture/coordinator/02_Threat_Model.md`](<../../../06_Architecture/coordinator/02_Threat_Model.md>)
-- [`06_Architecture/platform-access/01_Architecture.md`](<../../../06_Architecture/platform-access/01_Architecture.md>)
+- [`06_Architecture/Details/checker/01_Architecture.md`](<../../../06_Architecture/Details/checker/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
+- [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
+- [`06_Architecture/Details/platform-access/01_Architecture.md`](<../../../06_Architecture/Details/platform-access/01_Architecture.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/02_Quality_Strategy.md`](<../../../07_Quality/02_Quality_Strategy.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
@@ -907,11 +907,11 @@ Stable表示への移行後、Checkerが03_Documentation本文のコード例に
 
 productionの実ファイル移行はPathとIdentityの小さいpredicate、Locator binding、Root profile、Platform policy群、prelaunch verifier、enrollment renewal、plain-data snapshot、CLI option、Authority Bundle／Grant／Trust Loader、Provisioning CA／offline enrollment、Platform Provisioner Trust、Provider isolation、Docker isolation、Root protection、Host recovery record、Repository Git layout公開境界と内部Resolver／writer、初回登録Runtime state／pure Core、Authority／Runtime Root locator・Path Identity、外向きProxy policy、activation record／transition、署名primitive、準備記録pure Core、準備記録–登録証明書結合、Execution Environment、DoctorおよびCoordinator CLI入口までTypeScriptへ移行した。
 
-当時の後続判断では、OS固有の読み取り専用観測を最小Rust componentへ分離した。現在は明示経路の限定操作も含み、現行の責務は[Windowsネイティブ部品の設計](../../../06_Architecture/platform-access/01_Architecture.md)に従う。
+当時の後続判断では、OS固有の読み取り専用観測を最小Rust componentへ分離した。現在は明示経路の限定操作も含み、現行の責務は[Windowsネイティブ部品の設計](../../../06_Architecture/Details/platform-access/01_Architecture.md)に従う。
 
 ### 設計文書の名称・責務の是正
 
-脅威モデルも`06_Architecture/coordinator/02_Threat_Model.md`へ揃えた。この時点では品質規則が番号なしの名前を指定していたため、設計文書の改名だけには含めなかった。その後、人間が固定構成自体の是正を承認したため、[品質文書の番号付き配置](#quality-document-naming)として規則・ひな型・利用側を同時に更新する。旧規則に従っていた文書を、当時からの規則違反とは扱わない。
+脅威モデルも`06_Architecture/Details/coordinator/02_Threat_Model.md`へ揃えた。この時点では品質規則が番号なしの名前を指定していたため、設計文書の改名だけには含めなかった。その後、人間が固定構成自体の是正を承認したため、[品質文書の番号付き配置](#quality-document-naming)として規則・ひな型・利用側を同時に更新する。旧規則に従っていた文書を、当時からの規則違反とは扱わない。
 
 2026-08-31、設計正本を移設前の`README.md`という名称で残していた点を是正した。Checker、Coordinator、platform-accessの3部品は各Directoryの`01_Architecture.md`へ揃え、入口は既存の[全体設計](../../../06_Architecture/01_Architecture.md)を使う。互換READMEや新しいCHGは追加しない。
 
@@ -984,7 +984,7 @@ Coordinatorは、移行経緯を本節へ、開発確認の順序を既存Workfl
 | `tools/platform-access/` | `40_Develop/platform-access/` | Rust crateを一括移動。当時は配布済みnative成果物を移動対象外とした。後続の配布判断は下記に記録する |
 | `tools/coding-standards.md` | [実装規約](../../../06_Architecture/99_Coding_Standards.md) | 設計工程へ移し、実装対象Rootを更新 |
 | Coordinator README内の振る舞い・条件・限界 | [振る舞い仕様](../../../05_SPEC/01_Behavior_Specification.md) | 操作手順と実装方式から分離 |
-| Coordinatorの設計・脅威モデル | [実行設計](../../../06_Architecture/coordinator/01_Architecture.md)、[脅威モデル](../../../06_Architecture/coordinator/02_Threat_Model.md) | 詳細を移し、[設計入口](../../../06_Architecture/01_Architecture.md)から責務と未確認範囲を示す |
+| Coordinatorの設計・脅威モデル | [実行設計](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[脅威モデル](../../../06_Architecture/Details/coordinator/02_Threat_Model.md) | 詳細を移し、[設計入口](../../../06_Architecture/01_Architecture.md)から責務と未確認範囲を示す |
 | Coordinator README内の反復手順 | [Coordinator作業手順](../../../19_Workflows/01_Coordinator_Runtime.md) | 発行担当と利用者の操作、入力、停止、結果の返却先を区別 |
 | 品質方針・確認方法・現在状態 | [品質の現在状態](../../../07_Quality/01_Quality_Center.md) | 標準の品質保証構成を使用。過去Evidenceを集め直さない |
 
@@ -1040,7 +1040,7 @@ v0.18.0で実施した実行物の移行対は、`90_Release/coordinator/x86_64-
 
 利用者からCoordinatorだけへ設計が偏っているとの指摘を受け、同じ配置・工程整備の意図内で対象を補完した。Checkerは独立した検査ツール、platform-accessは限定したOS観測・操作を担う内部部品と区別する。新しいCHG、GUI、汎用Recovery機構は追加しない。
 
-着手前に3名の読み取り専用担当がCheckerの配布本体・範囲・報告、RustとTSの操作境界・資源、公開CLIの結果producerと表示consumerを分担して照合し、全結果を計画へ統合した。[Checker設計](../../../06_Architecture/checker/01_Architecture.md)、[Windows内部部品設計](../../../06_Architecture/platform-access/01_Architecture.md)、[Checker手順](../../../19_Workflows/02_Checker.md)を追加し、共通UX／IA／UI／SPEC／検証設計から接続した。実装の移動だけでなく、責務、非目標、設計理由、検査範囲、失敗時の保証限界を記述する。
+着手前に3名の読み取り専用担当がCheckerの配布本体・範囲・報告、RustとTSの操作境界・資源、公開CLIの結果producerと表示consumerを分担して照合し、全結果を計画へ統合した。[Checker設計](../../../06_Architecture/Details/checker/01_Architecture.md)、[Windows内部部品設計](../../../06_Architecture/Details/platform-access/01_Architecture.md)、[Checker手順](../../../19_Workflows/02_Checker.md)を追加し、共通UX／IA／UI／SPEC／検証設計から接続した。実装の移動だけでなく、責務、非目標、設計理由、検査範囲、失敗時の保証限界を記述する。
 
 同時に結果表示の実装差を是正した。未取得booleanを否定へ補正せず、未知の操作・状態・理由を直接表示しない。候補export成功を理由欠落から失敗表示にせず、停止・回復不明・再起動必要では候補操作を案内しない。回復IDの重複排除と全形式の保持、Date範囲外の期限も確認する。公開JSON、Authority、Provider選定・実行、署名境界は変更しない。
 
@@ -1118,7 +1118,7 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
 
 - [Windows nativeカバレッジ集計](../../../40_Develop/coordinator/scripts/check-platform-access-coverage.ts)
 - [TypeScript接続部カバレッジ集計](../../../40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts)
-- [Coordinator実行設計](../../../06_Architecture/coordinator/01_Architecture.md)
+- [Coordinator実行設計](../../../06_Architecture/Details/coordinator/01_Architecture.md)
 
 <!-- crdd-tool-layout-historical-references: 1 -->
 ```json
@@ -1213,7 +1213,7 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
       "targetCommit": "d108d5c702dcddbf8e5a29a0ac9da83de5a6a1a9",
       "targetBlobOid": "3b8f95c72a0da9576e2e353dce01a0fa9515a9eb",
       "targetSha256": "72add62c772f1a40abd14b63037e54bb7b1af355a78980870957e22bd58f5a35",
-      "successorPath": "06_Architecture/coordinator/01_Architecture.md",
+      "successorPath": "06_Architecture/Details/coordinator/01_Architecture.md",
       "anchor": "9-正常準正常異常"
     }
   ]
