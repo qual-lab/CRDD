@@ -61,7 +61,7 @@ Project RuntimeをCoordinatorの中に置いたままでは、プロジェクト
 
 ## 現在地と次への引き渡し
 
-最小Project Runtimeはv0.19.0で成立した。現在は、複数リポジトリを含むプロジェクトの理解、状態投影、TopicやMeetingとの接続、Workbenchからの利用へ探索が進んでいる。
+最小Project Runtimeで、目的、Task、判断、回復を一つのプロジェクトとして扱う方向を採用した。複数リポジトリを含むプロジェクトの理解、状態投影、TopicやMeetingとの接続、Workbenchからの利用は、別の探索として扱う。
 
 ## 採用した要求
 
