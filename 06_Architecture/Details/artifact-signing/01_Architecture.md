@@ -16,14 +16,14 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 | 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
 |---|---|---|---|
-| Component Model | Required | 鍵参照、事前検査、署名、配置の責務を分ける。 | [§2](#2-責務境界) |
+| Component Model | Required | 鍵参照、事前検査、秘密入力、署名、秘密byte消去の責務を分ける。 | [§2](#2-責務境界) |
 | Interface Model | Required | 意味非依存の署名契約と利用側の境界を固定する。 | [§4](#4-公開契約) |
 | Data Flow | Required | 鍵参照から署名結果まで秘密値を複製せず追跡する。 | [§3](#3-鍵参照と署名の状態遷移) |
-| State Model | Required | 事前検査、鍵読取り、署名、配置を別状態にする。 | [§3](#3-鍵参照と署名の状態遷移) |
+| State Model | Required | 事前検査、鍵読取り、署名、秘密byte消去を別状態にする。 | [§3](#3-鍵参照と署名の状態遷移) |
 | Sequence | Required | 非秘密検査を秘密入力より前に完了させる順序が成立条件になる。 | [§3](#3-鍵参照と署名の状態遷移) |
 | Failure／Recovery | Required | 途中失敗時に署名済み・公開済みと誤認しない必要がある。 | [§5](#5-検証境界) |
-| Deployment | Required | 配布Rootと署名対象集合が完全性の境界を決める。 | [§2](#2-責務境界) |
-| Observability | Required | 署名、配置、公開のどこまで成立したかを区別する。 | [§5](#5-検証境界) |
+| Deployment | N/A | 配布Root、Manifest envelope、配置、promotionおよび公開はCoordinatorが所有し、本領域は意味非依存の署名結果だけを返す。 | [§2](#2-責務境界) |
+| Observability | Required | 事前検査、秘密入力、署名、秘密byte消去のどこまで成立したかを区別する。 | [§3](#3-鍵参照と署名の状態遷移) |
 | Security Boundary | Required | 秘密鍵、passphrase、期待Publisherを独立して保護する。 | [§2](#2-責務境界) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
@@ -32,23 +32,28 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 | Concern | Result | Rationale | Evidence／Related ID |
 |---|---|---|---|
-| Concurrency | PASS | 同じstaging Rootへの署名・公開を直列化し、衝突時は既存Manifestを再読する。 | [§5](#5-検証境界) |
+| Concurrency | N/A | 本領域は共有staging、Manifest、配置または公開を所有しない。一回限りAuthorizationは単一署名Operation内でのみ消費し、複数Operationの直列化は利用側が所有する。 | [§2](#2-責務境界) |
 | Timing | N/A | 期限保証は持たず、各Filesystem／暗号Effectの完了観測を成功条件にする。 | [§3](#3-鍵参照と署名の状態遷移) |
-| Resource Lifecycle | PASS | 鍵bytes、passphrase bytes、一回限りAuthorizationとstagingの終了条件を分ける。 | [§3](#3-鍵参照と署名の状態遷移) |
+| Resource Lifecycle | PASS | 鍵bytes、passphrase bytesおよび一回限りAuthorizationの取得・消費・zeroizationを分ける。 | [§3](#3-鍵参照と署名の状態遷移) |
 | External Boundary | PASS | 暗号ProviderとFilesystemを独立境界として扱う。 | [§4](#4-公開契約) |
-| Failure／Recovery | PASS | 署名、配置、検証を別状態にし、途中結果を公開可能と扱わない。 | [§5](#5-検証境界) |
-| State／Consistency | PASS | 事前検査、鍵読取り、署名、配置を別状態にする。 | [§3](#3-鍵参照と署名の状態遷移) |
-| Observability | PASS | 署名、配置、公開のどこまで成立したかを区別する。 | [§5](#5-検証境界) |
+| Failure／Recovery | PASS | 事前検査、秘密入力、鍵読取り、署名を別状態にし、失敗時に署名結果を返さない。 | [§5](#5-検証境界) |
+| State／Consistency | PASS | 事前検査、鍵読取り、署名、秘密byte消去を別状態にする。 | [§3](#3-鍵参照と署名の状態遷移) |
+| Observability | PASS | 事前検査、秘密入力、署名、秘密byte消去の到達点を、秘密値を報告せず区別する。 | [§5](#5-検証境界) |
 | Security／Trust | PASS | 秘密鍵、passphrase、期待Publisherを独立して保護する。 | [§2](#2-責務境界) |
 
-`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+結果語彙は次の意味に限定する。
+
+- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。
+- `OPEN`: 未解決の設計事項が残る状態。
+- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。
 
 ## Qualityへの引渡し
 
 | 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|
 | 署名Component | 鍵Capabilityとpayload | 期待Publisherの署名結果 | 鍵差替え、Authorization再利用 | reason、signature有無 | 秘密bytes消去、未配置 | なし |
-| 配布境界 | staging RootとManifest | 対象集合一致後だけ配置 | Root差、対象漏れ、配置途中失敗 | Manifest hash、配置状態 | 失敗候補は公開不可 | 正式鍵によるRelease署名は別Gate |
+| 利用側境界 | 意味非依存の署名結果 | Manifest／配置fieldを含まず利用側へ返る | 署名結果から配置・公開完了を推定 | result contract、意味固有field 0 | 配置Effect 0 | Manifest、staging、promotion、公開はCoordinatorの検証単位 |
 
 ## 現行実装との照合
 

@@ -32,61 +32,75 @@ not_authorized→authorized→sent→returned→candidate→adoptedを別Authori
 
 ## 4. 両観点の統合判断
 
-入力ごとの状態Owner、Authority、Effect、失敗およびlifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
+入力ごとのState Owner、Authority、Effect、失敗およびLifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000016 | UI | External Information Boundary | UI契約はAuthorityを発行しない。利用者操作: 同意する／送信を止める／候補を採用・却下する | UI契約はEffectを定義しない。表示上の状態差: 未許可（not_authorized）／許可済み（authorized）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）。導線: 送信候補→境界確認→送信する最小情報→送信→出所付き結果→採否 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 | 利用者が確認・操作する → 外部へ渡す範囲を理解し、戻った候補を採用前に判断できる。 → 結果と次の行動を認識する |
-| SPEC-000021 | SPEC | 外部送信Controller | 送信同意は許可範囲内の送信Effectだけを認め、結果受領や候補採用へ流用しない | 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を結果へ結合する。 | 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 | [送信候補] -> [同意検証] ├ valid -> [送信Effect発行] -> [送信済み] └ invalid／unknown -> [Effect 0] |
-| SPEC-000026 | SPEC | 外部結果受領・相関Resolver | 外部結果を受領して元の仕事へ返せる主体。新規送信と候補採用のAuthorityは含まない | 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。 | 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 | [外部応答] -> [依頼Identity照合] ├ exact -> [未信頼候補として帰還] └ missing／ambiguous -> [隔離・採用不可] |
-| SPEC-000027 | SPEC | 候補採用Controller | 所有正本の決定権限者だけが採用できる。送信同意や結果受領を流用しない | 採用時だけ所有正本を更新する。却下・保留では正本Effect 0。 | 結果受領や送信許可を候補採用Authorityへ流用しない。 | [未信頼候補] -> [人間判断] ├ 採用 -> [所有正本更新] ├ 却下 -> [候補履歴] └ 保留 -> [判断待ち] |
+| UI-000016 | UI | External Information Boundary | UI契約はAuthorityを発行しない。利用者操作: 同意する／送信を止める／候補を採用・却下・保留する。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） / 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない / ；未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） / 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない /  |
+| SPEC-000021 | SPEC | 外部送信Controller | 送信同意は許可範囲内の送信Effectだけを認め、結果受領や候補採用へ流用しない | 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を要求、Effectおよび結果へ結合する。 | 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 | [送信候補] -> [同意検証]   ├ invalid／unknown --------------------------> [Effect 0]   └ valid -> [送信要求発行] -> [要求受理]                                   │                                   ├ Effect成立を観測不能                                   │      -> [Effect不明]                                   │                                   └ [外部Effect成立] -> [結果搬送]                                                            ├ 搬送失敗 -> [Effect成立・結果不明]                                                            └ 結果受領 -> [送信済み] |
+| SPEC-000026 | SPEC | 外部結果受領・相関Resolver | 外部結果を受領して元の仕事へ返せる主体。新規送信と候補採用のAuthorityは含まない | 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。 | 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 | [外部応答] -> [依頼Identity照合]   ├ exact -> [未信頼候補として帰還]   └ missing／ambiguous -> [隔離・採用不可] |
+| SPEC-000027 | SPEC | 候補採用Controller | 所有正本の決定権限者だけが採用できる。送信同意や結果受領を流用しない | 採用時だけ所有正本を更新する。却下・保留では正本Effect 0。 | 結果受領や送信許可を候補採用Authorityへ流用しない。 | [未信頼候補] -> [人間判断]   ├ 採用 -> [所有正本更新]   ├ 却下 -> [候補履歴]   └ 保留 -> [判断待ち] |
 
 ## 5. 構造と依存方向
 
 ```text
-[External Information Boundary]
-├─ [SPEC-000021: 外部送信の同意範囲を検証して送信する]
-   [送信候補] -> [同意検証] ├ valid -> [送信Effect発行] -> [送信済み] └ invalid／unknown -> [Effect 0]
-├─ [SPEC-000026: 外部処理の結果を元の仕事へ持ち帰る]
-   [外部応答] -> [依頼Identity照合] ├ exact -> [未信頼候補として帰還] └ missing／ambiguous -> [隔離・採用不可]
-└─ [SPEC-000027: 持ち帰った候補を所有正本へ昇格する]
-   [未信頼候補] -> [人間判断] ├ 採用 -> [所有正本更新] ├ 却下 -> [候補履歴] └ 保留 -> [判断待ち]
+[Architecture Responsibility]
+├─ UI-000016 (UI)
+   未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） / 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない / ；未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） / 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない / 
+├─ SPEC-000021 (SPEC)
+   [送信候補] -> [同意検証]   ├ invalid／unknown --------------------------> [Effect 0]   └ valid -> [送信要求発行] -> [要求受理]                                   │                                   ├ Effect成立を観測不能                                   │      -> [Effect不明]                                   │                                   └ [外部Effect成立] -> [結果搬送]                                                            ├ 搬送失敗 -> [Effect成立・結果不明]                                                            └ 結果受領 -> [送信済み]
+├─ SPEC-000026 (SPEC)
+   [外部応答] -> [依頼Identity照合]   ├ exact -> [未信頼候補として帰還]   └ missing／ambiguous -> [隔離・採用不可]
+└─ SPEC-000027 (SPEC)
+   [未信頼候補] -> [人間判断]   ├ 採用 -> [所有正本更新]   ├ 却下 -> [候補履歴]   └ 保留 -> [判断待ち]
 ```
 
-各SPEC branchはSibling blockであり、前のblockのAuthorityやEffectを暗黙に継承しない。UI契約はこれらの状態を利用者へ表すが、AuthorityやEffectを発行しない。
+各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
 
 ## 6. データ・状態・Interface
 
-共通するIdentityとDataの関係はこの責務が管理する。ただし、状態Owner、AuthorityおよびEffectは入力単位で次のように分け、責務全体へ一律に拡張しない。
+入力が共有するIdentityとDataの関係は、このArchitecture責務が管理する。ただしState Owner、AuthorityおよびEffectは入力単位で分け、責務全体へ一律に拡張しない。
 
 | 入力 | State Owner | Authority | Effect／非該当 |
 |---|---|---|---|
-| UI-000016 | External Information Boundary | UI契約はAuthorityを発行しない。利用者操作: 同意する／送信を止める／候補を採用・却下する | UI契約はEffectを定義しない。表示上の状態差: 未許可（not_authorized）／許可済み（authorized）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）。導線: 送信候補→境界確認→送信する最小情報→送信→出所付き結果→採否 |
-| SPEC-000021 | 外部送信Controller | 送信同意は許可範囲内の送信Effectだけを認め、結果受領や候補採用へ流用しない | 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を結果へ結合する。 |
+| UI-000016 | External Information Boundary | UI契約はAuthorityを発行しない。利用者操作: 同意する／送信を止める／候補を採用・却下・保留する。 | UI契約はEffectを定義しない |
+| SPEC-000021 | 外部送信Controller | 送信同意は許可範囲内の送信Effectだけを認め、結果受領や候補採用へ流用しない | 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を要求、Effectおよび結果へ結合する。 |
 | SPEC-000026 | 外部結果受領・相関Resolver | 外部結果を受領して元の仕事へ返せる主体。新規送信と候補採用のAuthorityは含まない | 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。 |
 | SPEC-000027 | 候補採用Controller | 所有正本の決定権限者だけが採用できる。送信同意や結果受領を流用しない | 採用時だけ所有正本を更新する。却下・保留では正本Effect 0。 |
 
-公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、Effectまたはlifecycleを暗黙に継承しない。
+公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。
 
 ## 7. 失敗・回復・観測
 
-- SPEC-000021: 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。Effect: 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を結果へ結合する。
-- SPEC-000026: 送信時の識別情報へ結合できない結果は採用可能な候補へしない。Effect: 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。
-- SPEC-000027: 結果受領や送信許可を候補採用Authorityへ流用しない。Effect: 採用時だけ所有正本を更新する。却下・保留では正本Effect 0。
+- UI-000016: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- SPEC-000021: 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 Effect: 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を要求、Effectおよび結果へ結合する。
+- SPEC-000026: 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 Effect: 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。
+- SPEC-000027: 結果受領や送信許可を候補採用Authorityへ流用しない。 Effect: 採用時だけ所有正本を更新する。却下・保留では正本Effect 0。
 
-- 入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。
+- 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
 - 結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める。
 
 ## 8. 品質・保護・運用
 
-| 入力 | 保護する失敗境界 | 検証可能性 |
+| 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000016 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 | 利用者が状態差と次の行動を認識でき、UIからAuthorityやEffectが発行されないこと |
-| SPEC-000021 | 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 | 固有のAuthority、Effect、失敗理由および終了状態を理由別に反証できること |
-| SPEC-000026 | 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 | 固有のAuthority、Effect、失敗理由および終了状態を理由別に反証できること |
-| SPEC-000027 | 結果受領や送信許可を候補採用Authorityへ流用しない。 | 固有のAuthority、Effect、失敗理由および終了状態を理由別に反証できること |
+| UI-000016 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000021 | 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000026 | 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000027 | 結果受領や送信許可を候補採用Authorityへ流用しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
+
+### 未確認事項・人間判断・戻り条件
+
+| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |
+|---|---|---|---|---|
+| UI-000016 | REQ-000027: 外部へ渡す情報の所有者が「送信範囲を理解し帰還結果を候補として扱う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 外部へ渡す情報の所有者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+| SPEC-000021 | REQ-000027: 外部へ渡す情報の所有者が「送信範囲を理解し帰還結果を候補として扱う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 外部へ渡す情報の所有者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+| SPEC-000026 | REQ-000027: 外部へ渡す情報の所有者が「送信範囲を理解し帰還結果を候補として扱う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 外部へ渡す情報の所有者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+| SPEC-000027 | REQ-000027: 外部へ渡す情報の所有者が「送信範囲を理解し帰還結果を候補として扱う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 外部へ渡す情報の所有者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+
+Architecture固有の追加人間判断はない。これは入力の未確認事項を解消済みとする意味ではない。入力の利用者成果、振る舞い、Authority、Effectまたは失敗境界を変える必要が生じた場合は、その意味を所有するUI／SPEC工程へ戻す。
 
 ## 9. 互換性・移行・成立済み能力
 

@@ -30,51 +30,61 @@ Architecture ID: `ARCH-000018`
 
 ## 4. 両観点の統合判断
 
+入力ごとのState Owner、Authority、Effect、失敗およびLifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
+
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000020 | UI | 記録依頼と結果表示 | 許可された記録作成側。UIはAuthorityを生成しない | 記録依頼と状態・根拠・再観測先の表示 | unknownをnot_recordedへ畳む、許可外情報を送る | 対象確認→記録依頼→状態表示→必要時に同じAttemptを再観測 |
-| SPEC-000030 | SPEC | 実行記録Writer／不変Store | 許可された記録作成側 | Canonical実行記録の不変な公開 | 並行衝突、部分公開、Effect不明、別Execution上書き | 検査→準備→不変公開→再読取り確認→settled／recovery_required |
+| UI-000020 | UI | 実行記録Writer／Store／Record Attempt | UI契約はAuthorityを発行しない。利用者操作: 入力定義に記録された操作・判断 | UI契約はEffectを定義しない | - UIだけに記録の正本、Authority判断、不変Storeまたは独自状態Storeを作らない。 - 記録AuthorityをTask実行、評価採用または別Source変更へ流用しない。 - 記録結果不明を成功、未記録または空へ畳まない。 | prepared／publishing／recorded／not_recorded／unknown / 記録対象→記録試行→結果→完成記録／拒否理由／同一試行の再観測 /  |
+| SPEC-000030 | SPEC | 実行記録Writerと不変Store | 許可された記録作成側。Task実行、評価採用または別Sourceの変更Authorityを含まない | 許可された実行記録領域への不変な記録だけ。Task、Provider、評価または他Sourceを変更しない。 | Identity不明、Schema不一致、並行衝突、途中失敗、保存結果の観測不能を成功へ畳まない。 | [観測結果]     ↓ Identity・Source・時点・状態を検査 [prepared]     ↓ 不変公開を要求 [publishing]     ├─ 完成記録を確認 ─→ [recorded]     ├─ Effect未成立を確認 → [not_recorded]     └─ 確定観測不能 ────→ [unknown] [Canonical実行記録] |
 
 ## 5. 構造と依存方向
 
 ```text
-実行基盤／TypeScriptアプリ
-        ↓ Canonical Event
-    Record Port
-        ↓
-  Writer／Validator
-        ↓ immutable publish
-    Durable Store
-        ↑
- Read-only Projection
+[Architecture Responsibility]
+├─ UI-000020 (UI)
+   prepared／publishing／recorded／not_recorded／unknown / 記録対象→記録試行→結果→完成記録／拒否理由／同一試行の再観測 / 
+└─ SPEC-000030 (SPEC)
+   [観測結果]     ↓ Identity・Source・時点・状態を検査 [prepared]     ↓ 不変公開を要求 [publishing]     ├─ 完成記録を確認 ─→ [recorded]     ├─ Effect未成立を確認 → [not_recorded]     └─ 確定観測不能 ────→ [unknown] [Canonical実行記録]
 ```
 
-Writerは読取りProjectionの内部表現へ依存させず、両者はCanonical記録契約だけを共有する。
+各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
 
 ## 6. データ・状態・Interface
 
+入力が共有するIdentityとDataの関係は、このArchitecture責務が管理する。ただしState Owner、AuthorityおよびEffectは入力単位で分け、責務全体へ一律に拡張しない。
+
 | 入力 | State Owner | Authority | Effect／非該当 |
 |---|---|---|---|
-| UI-000020 | 記録依頼と結果表示 | 許可された記録作成側。UIはAuthorityを生成しない | 記録Portへの一度の依頼 |
-| SPEC-000030 | Writer／Store／Attempt | 許可された記録作成側 | 記録領域への不変な公開 |
+| UI-000020 | 実行記録Writer／Store／Record Attempt | UI契約はAuthorityを発行しない。利用者操作: 入力定義に記録された操作・判断 | UI契約はEffectを定義しない |
+| SPEC-000030 | 実行記録Writerと不変Store | 許可された記録作成側。Task実行、評価採用または別Sourceの変更Authorityを含まない | 許可された実行記録領域への不変な記録だけ。Task、Provider、評価または他Sourceを変更しない。 |
 
-公開PortはExecution Identity、Source Identity、Observed At、観測状態、観測値または欠測理由を受け取る。結果は`recorded`、`not_recorded`、`unknown`と同じIdentity、Attempt、回復参照を返す。
+公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。
 
 ## 7. 失敗・回復・観測
 
-- SchemaまたはIdentity不一致はEffect前に拒否する。
-- Secret、生Provider出力、不要な個人情報または許可外SourceはEffect前に拒否し、内容を診断へ複製しない。
-- 並行Writerは一方の完成記録を上書きせず、衝突後にCanonical記録を再読取りする。
-- 途中失敗では一時物を完成記録として公開しない。
-- Effect不明では自動再発行せず、同じExecution IdentityとAttemptで再観測する。
-- 完了時はWriter handle、lock、一時物が残らないことを観測する。
+- UI-000020: - UIだけに記録の正本、Authority判断、不変Storeまたは独自状態Storeを作らない。 - 記録AuthorityをTask実行、評価採用または別Source変更へ流用しない。 - 記録結果不明を成功、未記録または空へ畳まない。 Effect: UI契約はEffectを定義しない
+- SPEC-000030: Identity不明、Schema不一致、並行衝突、途中失敗、保存結果の観測不能を成功へ畳まない。 Effect: 許可された実行記録領域への不変な記録だけ。Task、Provider、評価または他Sourceを変更しない。
+
+- 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
+- 結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める。
 
 ## 8. 品質・保護・運用
 
-| 入力 | 保護する失敗境界 | 検証可能性 |
+| 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000020 | 記録結果不明を未記録または成功へ畳まず、許可外情報を送らない | 利用者が同じIdentity／Attemptの状態と回復先を認識できる |
-| SPEC-000030 | 並行衝突、途中失敗、Effect不明、別Execution上書き | 原因別結果、完成記録、一時物、lock、回復参照を独立観測できる |
+| UI-000020 | - UIだけに記録の正本、Authority判断、不変Storeまたは独自状態Storeを作らない。 - 記録AuthorityをTask実行、評価採用または別Source変更へ流用しない。 - 記録結果不明を成功、未記録または空へ畳まない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000030 | Identity不明、Schema不一致、並行衝突、途中失敗、保存結果の観測不能を成功へ畳まない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+
+共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
+
+### 未確認事項・人間判断・戻り条件
+
+| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |
+|---|---|---|---|---|
+| UI-000020 | REQ-000004: 実行環境の導入・運用者が「実行事実を出所と観測時点付きで比較する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 実行基盤・TypeScriptアプリへ実行記録を組み込む担当者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+| SPEC-000030 | REQ-000004: 実行環境の導入・運用者が「実行事実を出所と観測時点付きで比較する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 実行基盤・TypeScriptアプリへ実行記録を組み込む担当者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+
+Architecture固有の追加人間判断はない。これは入力の未確認事項を解消済みとする意味ではない。入力の利用者成果、振る舞い、Authority、Effectまたは失敗境界を変える必要が生じた場合は、その意味を所有するUI／SPEC工程へ戻す。
 
 ## 9. 互換性・移行・成立済み能力
 

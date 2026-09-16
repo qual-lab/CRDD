@@ -842,7 +842,7 @@ Quality／Development
 
 各詳細設計領域は、関連するARCH-ID、領域固有の責務、必要な詳細成果物、Engineering Concern、Qualityへの引渡しおよび現行実装との照合を自己完結して示す。Component、Interface、Data Flow、State、Sequence、Failure／Recovery、Deployment、ObservabilityおよびSecurity Boundaryを全数適用判定し、不要な成果物を形式的に作らない。`Required`は実在する節または成果物へ接続し、`N/A`にはArchitecture上の理由を必須とする。未検討、一般的な説明または存在しない節名を`N/A`や根拠へ使わない。
 
-Engineering Concernは少なくともConcurrency、Timing、Resource Lifecycle、External Boundary、State／Consistency、Failure／Recovery、ObservabilityおよびSecurity／Trustを`PASS`、`N/A`、`OPEN`または`FAIL`で評価する。結果だけのチェックボックスにせず、判断理由とEvidenceまたはRelated IDを保持する。`PASS`は設計上の処置と観測方法を説明できる場合だけ使用し、実装済みまたは試験済みを意味しない。`OPEN`または`FAIL`を全体Passへ畳まない。
+Engineering Concernは少なくともConcurrency、Timing、Resource Lifecycle、External Boundary、State／Consistency、Failure／Recovery、ObservabilityおよびSecurity／Trustを`PASS`、`N/A`、`OPEN`または`FAIL`で評価する。結果だけのチェックボックスにせず、判断理由と実在するEvidenceまたはRelated IDを保持する。`PASS`は詳細設計上の処置と根拠節が揃った状態であり、実装済みまたは試験済みを意味しない。`N/A`はArchitecture上、そのConcern自体が存在しない状態であり、未検討や後工程送りを意味しない。`OPEN`は未解決の設計事項、`FAIL`は必須設計との矛盾または必要設計の欠落を意味する。`OPEN`または`FAIL`を全体Passへ畳まない。
 
 Architecture Analysis、Architecture DefinitionおよびCanonicalな各詳細設計領域は、成果物種別ごとの可視`## Checklist`を末尾に持つ。AnalysisはUIまたはSPECだけを正式入力としたこと、上流Contractを保持したこと、責務・境界・状態所有・失敗・未確認事項・検証意図を処置したことを確認する。DefinitionはUI／SPEC両分析の多対多統合、基本設計の自己完結性、DetailsおよびQualityへの引渡しを確認する。DetailsはApplicability、Engineering Concern、Qualityへの具体的引渡しおよびReality Audit境界を確認する。Checklistは作成者の自己確認であり、Checkerの構造確認、独立レビューの意味確認または実装・試験結果を代替しない。
 
@@ -856,6 +856,7 @@ Architecture Readyを表示するには、次をすべて満たさなければ�
 - 全個別定義が5つの横断モデルへ含まれ、未接続の責務を残していない。
 - Component、境界、Data／State、故障／回復、配置／実行の各観点を、作成、既存参照、非該当または作成不能へ理由付きで処置している。
 - 全ARCH-IDが一つ以上の詳細設計領域へ明示的に接続され、各領域側にも同じRelationがある。
+- Architecture Analysis、Architecture Definitionおよび詳細設計の可視Checklistに`OPEN`または`FAIL`が残っていない。
 - 各詳細設計領域で必要な詳細成果物とEngineering Concernを評価し、`N/A`に理由があり、必須の`OPEN`または`FAIL`を残していない。
 - QualityがUT／IT／STその他の検証方法を選べるよう、検証対象、反証すべき失敗、必要な実境界および終了後条件を示している。
 - 未確定の物理実装を論理設計へ混ぜず、確認先と後段のReality Audit条件を残している。

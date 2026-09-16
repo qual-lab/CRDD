@@ -40,6 +40,13 @@
 | Observability | PASS | 記録Attempt、公開確認、読取り結果と欠測理由を同じExecution Identityで相関可能にする。 | [§8](#8-observability) |
 | Security／Trust | PASS | 記録権限と読取り権限を分け、いずれも変更・採用・実行Authorityへ昇格させない。 | [§9](#9-security-boundary) |
 
+結果語彙は次の意味に限定する。
+
+- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。
+- `OPEN`: 未解決の設計事項が残る状態。
+- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。
+
 ## Qualityへの引渡し
 
 | 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |

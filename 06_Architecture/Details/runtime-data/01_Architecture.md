@@ -44,7 +44,12 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Observability | PASS | Owner、参照、保持期限、清掃結果と終了後不存在を確認する。 | [§9](#9-完成条件) |
 | Security／Trust | PASS | Repository identity、Secret非格納、Root越境禁止を固定する。 | [§5](#5-configとrepository-identity) |
 
-`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+結果語彙は次の意味に限定する。
+
+- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。
+- `OPEN`: 未解決の設計事項が残る状態。
+- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。
 
 ## Qualityへの引渡し
 

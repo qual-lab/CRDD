@@ -44,7 +44,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | 責務移動時のProducer、Consumer、派生物、署名・Release経路の閉包 | UI-000014 | SPEC-000019 | 変更影響分析とConsumer Closure契約 |
 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | 同じ改訂版に対する指摘、是正、Evidence、未確認範囲、現在Gateの統合 | UI-000015 | SPEC-000020 | Quality Centerと変更追跡 |
 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Project Runtime |
-| [Project・Portfolio状態投影](Definitions/ARCH-000005/architecture_definition.md) | Project／Milestone／Objective／Task状態と複数Project比較の読取り投影 | UI-000004 | SPEC-000006、SPEC-000007 | Project Management Projection |
+| [Project・Portfolio状態投影](Definitions/ARCH-000005/architecture_definition.md) | Project／Milestone／Objective／Task状態と複数Project比較の読取り投影 | UI-000004 | SPEC-000002、SPEC-000006、SPEC-000007 | Project Management Projection |
 | [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Meeting ItemからTopic／Decision候補を作り、出所と採否を追跡する | UI-000009 | SPEC-000013 | Project Operation Context |
 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | 実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 | UI-000005 | SPEC-000008 | 実行記録読取りProjection |
 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | 外部境界の到達、受理、開始、結果搬送、終了状態の観測 | UI-000005 | SPEC-000009 | Platform Access診断Port |
@@ -99,16 +99,16 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 
 | 条件 | 現在状態 | 根拠／次の処置 |
 |---|---|---|
-| UI／SPEC全数分析 | 完了 | 20 UI、29 SPEC、未分析0。Qualityで検出した記録責務Gapを上流へ戻し、独立再レビューで確認済み |
-| 個別責務定義 | 完了 | 18定義、台帳と完全一致。ARCH-000018を独立責務として追加し、独立再レビューで確認済み |
-| 5横断モデル | 完了 | 本書の横断モデル台帳。最終独立レビューCritical／Major／Moderate／Minor 0 |
-| Qualityへの検証観点 | 完了 | 15詳細領域が検証対象、反証する失敗、観測、終了後条件、未確認範囲を提示。独立レビューで妥当性を確認済み |
+| UI／SPEC全数分析 | 再レビュー候補 | 20 UI、29 SPEC、未分析0。現行UI／SPEC Contractを再転記し、Source固有の観点評価と未確認事項を追加した |
+| 個別責務定義 | 再レビュー候補 | 18定義、台帳と完全一致。現行49分析からAuthority、Effect、Lifecycle、失敗および未確認事項を再統合した |
+| 5横断モデル | 前回Pass・影響再確認待ち | 前回固定版のPass履歴を保持し、現行分析／定義の変更影響を再確認する |
+| Qualityへの検証観点 | 再レビュー候補 | 15詳細領域の検証対象、反証する失敗、観測、終了後条件、未確認範囲を再照合した |
 | Reality Audit境界 | 定義済み | [配置／実行モデル](06_Deployment_and_Execution_Model.md#5-reality-auditへの引渡し) |
-| 基本設計の独立レビュー | 完了 | 個別定義と横断モデルを別々に再レビューし、いずれもPass |
-| 詳細設計 | 完了 | [詳細設計の対応表](07_Detail_Architecture_Map.md)を基準に、15領域のRelation、必要成果物、Engineering Concernを具体化した |
-| 詳細設計の独立レビュー | 完了 | Writer責務の逆輸入、責務Owner不足、形式的な一律評価およびReality Audit境界を是正し、最終再レビューCritical／Major／Moderate／Minor 0でPass |
+| 基本設計の独立レビュー | 是正後再レビュー待ち | 固定Commit `984aa466`のMajor指摘を是正し、新しい固定候補を再レビューする |
+| 詳細設計 | 再レビュー候補 | [詳細設計の対応表](07_Detail_Architecture_Map.md)を基準に、15領域のRelation、必要成果物、Engineering Concernを具体化した |
+| 詳細設計の独立レビュー | 是正後再レビュー待ち | 所有責務、Quality引渡し、結果語彙およびCanonical／Reality Audit境界の指摘を是正し、新しい固定候補を再レビューする |
 
-記録責務Gapの是正により基本設計と詳細設計を更新した。Qualityが検証対象、故障点、観測および終了後条件を再構成できることを独立再レビューで確認し、`Architecture Ready`を再確定した。
+前回固定版のArchitecture Ready履歴は保持する。現在の改訂候補は、Checklist／Engineering Concern拡張後の独立レビュー指摘を是正中であり、Architecture Readyを再確定していない。
 
 ## 6. 保持する意図と対象外
 
@@ -121,4 +121,4 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 
 ## 7. 次工程への引渡し
 
-Qualityは個別ARCH定義、5つの横断モデルおよび対応する詳細設計領域を入力にする。UT／IT／ST等の名称を先に割り当てず、責務、境界、状態、故障、実行条件から検証単位を導く。Source、既存試験および基準版実装との照合はCanonical詳細設計が完成した後のReality Auditとして別に行う。
+Qualityは個別ARCH定義、5つの横断モデルおよび対応する詳細設計領域を入力にする。ただし現行改訂候補の独立再レビューがPassし、Architecture Readyを再確定するまでは正式引渡しを開始しない。Ready後もUT／IT／ST等の名称を先に割り当てず、責務、境界、状態、故障、実行条件から検証単位を導く。Source、既存試験および基準版実装との照合はCanonical詳細設計が完成した後のReality Auditとして別に行う。

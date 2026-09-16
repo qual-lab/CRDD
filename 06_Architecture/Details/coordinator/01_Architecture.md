@@ -45,14 +45,22 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Observability | PASS | Provider境界の各phaseと終了後資源を相関して診断する。 | [§13](#13-検証接続) |
 | Security／Trust | PASS | Provider Credential、外部送信同意、Runtime Capabilityを分離する。 | [§7](#7-authorityと外部送信) |
 
-`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+結果語彙は次の意味に限定する。
+
+- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。
+- `OPEN`: 未解決の設計事項が残る状態。
+- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。
 
 ## Qualityへの引渡し
 
 | 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|
-| Provider実行境界 | Task／AttemptとProvider計画 | 結果または理由別停止 | 承認不足、sandbox拒否、CLI exit | phase診断とexit | Process／stream／Container回収 | 実Providerは結合試験 |
-| 取消・回復 | exact Recovery ID | 同じIdentityで再入場 | Effect不明の再発行、別Task混入 | 状態・資源・Recovery ID | 不存在または義務保持 | なし |
+| Provider選択・Home／Trust境界 | Task属性、Provider／Model構成、Home、Trust結果 | 利用可能性・Policy・Trustを満たす計画だけをEffect前に固定 | 不正Home、未信頼Runtime、利用不能Modelの選択 | 選定理由、再選定条件、Trust結果、Effect 0 | Provider Process未開始 | 実Provider／実Homeを使う結合確認 |
+| Provider実行・外部送信・候補Review | Task／Attempt、送信Authority、Provider Effect、Reviewer結果 | 同じIdentityで結果または理由別停止へ到達 | 承認不足、sandbox拒否、CLI exit、無許可送信、生結果の直接採用 | phase診断、exit、送信範囲、候補状態 | Process／stream／Container回収、未採用候補隔離 | 実Providerによる双方向経路と候補Review |
+| 署名済みManifest・staging promotion | Distribution Root、Manifest、署名結果、staging | 完全集合を一つの固定Snapshotとして署名し、競合なくpromotion | Root差、対象漏れ、別Snapshot混入、配置途中失敗 | Manifest hash、Snapshot Identity、staging／promotion状態 | 失敗候補は公開不可、staging義務を保持 | 正式鍵を用いるRelease署名とpromotion |
+| 取消・Task回復 | exact Task／Attempt／Recovery Identity | 取消要求後の終了状態を観測し、同じIdentityへ再入場 | Effect不明の再発行、別Task混入、要求受理だけの完了化 | 状態、資源、Recovery Identity | 不存在確認または義務保持 | 実Processの取消・競合完了・再入場 |
+| Docker修復・再起動・別Session／Runtime引継ぎ | repair／restart／handoff IdentityとHost資源 | 旧Effectを再発行せず、現在状態をfresh観測して同じ義務を継続 | stale socket残存、旧Runtime Effect再発行、別Session混入 | Operation状態、Process／socket、Engine readiness、handoff chain | 不存在またはexact義務保持 | 実機停止・修復・再起動・別Runtime引継ぎの正式E2E |
 
 ## 現行実装との照合
 
@@ -376,7 +384,7 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 
 署名済みRuntimeの更新をまたぐ未完了修復は、旧RuntimeのHost操作を新Runtimeから再発行しない。旧署名と引継ぎ連鎖を検証し、全Host Effectがsettledな`not_issued`であること、現在境界、現在`run` Identityおよび旧stale対象不存在をfresh観測できる場合は、過去のHost Effect 0だけを確定して旧Operationを証拠保持終了できる。現在Dockerの故障または復旧は同時に推定せず、新しい修復Operationが現在の証拠から改めて判定する。
 
-### 正常復帰後の検証付き再起動（Source接続済み・正式E2E未完了）
+### 正常復帰後の検証付き再起動
 
   正常Engineへ戻った後にも作成結果不明のTaskを復旧できるよう、障害修復とは別に検証付き再起動を設ける。現在の署名済み配布物にはこの経路はなく、以下を既存機能の完成主張として扱わない。
 
@@ -427,7 +435,7 @@ Task受付・境界検証
 
 #### 再起動内部の状態遷移
 
-状態名は`docker-restart-state.ts`の設計状態に対応する。純粋な状態判定、実行制御、停止観測、保護記録および公開入口はSource上で接続済みである。実停止・再起動を含む正式E2Eは未完了であり、図の存在や契約試験の成功を実機対応の完了根拠にしない。
+状態名は公開Contractの設計状態である。純粋な状態判定、実行制御、停止観測、保護記録および公開入口は別責務として接続しなければならない。実装・試験の現在状態はReality Auditと対象改訂版付きEvidenceで判定し、図の存在や契約試験の成功だけを実機対応の完了根拠にしない。
 
 ```text
 準備（prepared）
@@ -475,7 +483,7 @@ Task受付・境界検証
 
 現在署名から発行する操作権限と、`originReleaseRoot`で確認する旧署名の由来は別である。元の`engine-restart-*`を上書きせず、対象・submission・保護Rootを結合した`engine-handoff-*`と`engine-continuation-*`を追記する。旧署名は現在の実行権限を発行しない。
 
-| `currentPhase` | 接続済み処置と限界 |
+| `currentPhase` | 必要な処置と限界 |
 |---|---|
 | 未記録 | 停止意図を記録して公式停止へ進む |
 | 現在Runtimeの`stop_intent` | freshな停止観測だけで照合する。Desktop生存なら同じ停止を再発行せず未確定を保持 |

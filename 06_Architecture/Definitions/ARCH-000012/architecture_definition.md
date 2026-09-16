@@ -30,49 +30,61 @@ Architecture ID: `ARCH-000012`
 
 ## 4. 両観点の統合判断
 
-入力ごとの状態Owner、Authority、Effect、失敗およびlifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
+入力ごとのState Owner、Authority、Effect、失敗およびLifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000007 | UI | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける | UI契約はEffectを定義しない。表示上の状態差: 受付前／受付済み／作用前失敗／作用後失敗／結果あり。導線: 入口→同じ公開要求→Runtime→同じ結果 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 | 利用者が確認・操作する → CLI、MCP、Workbenchの入口を変えても同じ依頼と結果を扱える。 → 結果と次の行動を認識する |
-| SPEC-000011 | SPEC | MCP／CLI Transport Adapter | 呼出し元の既存Authorityだけを搬送する。TransportはAuthorityを追加しない | Transport自体は意味を変更しない。下流Effectは同じApplication契約で制御する。 | Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。 | [stdio／localhost HTTP入力] -> [同じApplication Request] -> [同じ状態／結果／失敗分類] |
+| UI-000007 | UI | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 受付前／受付済み／作用前失敗／作用後失敗／結果あり / 入口→同じ公開要求→Runtime→同じ結果 /  |
+| SPEC-000011 | SPEC | MCP／CLI Transport Adapter | 呼出し元の既存Authorityだけを搬送する。TransportはAuthorityを追加しない | Transport自体は意味を変更しない。下流Effectは同じApplication契約で制御する。 | Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。 | [stdio／localhost HTTP入力] -> [同じApplication Request]  -> [同じ状態／結果／失敗分類] |
 
 ## 5. 構造と依存方向
 
 ```text
-[MCP／CLI Transport Adapter]
-└─ [SPEC-000011: 複数入口で同じ依頼・結果契約を保つ]
-   [stdio／localhost HTTP入力] -> [同じApplication Request] -> [同じ状態／結果／失敗分類]
+[Architecture Responsibility]
+├─ UI-000007 (UI)
+   受付前／受付済み／作用前失敗／作用後失敗／結果あり / 入口→同じ公開要求→Runtime→同じ結果 / 
+└─ SPEC-000011 (SPEC)
+   [stdio／localhost HTTP入力] -> [同じApplication Request]  -> [同じ状態／結果／失敗分類]
 ```
 
-各SPEC branchはSibling blockであり、前のblockのAuthorityやEffectを暗黙に継承しない。UI契約はこれらの状態を利用者へ表すが、AuthorityやEffectを発行しない。
+各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
 
 ## 6. データ・状態・Interface
 
-共通するIdentityとDataの関係はこの責務が管理する。ただし、状態Owner、AuthorityおよびEffectは入力単位で次のように分け、責務全体へ一律に拡張しない。
+入力が共有するIdentityとDataの関係は、このArchitecture責務が管理する。ただしState Owner、AuthorityおよびEffectは入力単位で分け、責務全体へ一律に拡張しない。
 
 | 入力 | State Owner | Authority | Effect／非該当 |
 |---|---|---|---|
-| UI-000007 | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける | UI契約はEffectを定義しない。表示上の状態差: 受付前／受付済み／作用前失敗／作用後失敗／結果あり。導線: 入口→同じ公開要求→Runtime→同じ結果 |
+| UI-000007 | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける。 | UI契約はEffectを定義しない |
 | SPEC-000011 | MCP／CLI Transport Adapter | 呼出し元の既存Authorityだけを搬送する。TransportはAuthorityを追加しない | Transport自体は意味を変更しない。下流Effectは同じApplication契約で制御する。 |
 
-公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、Effectまたはlifecycleを暗黙に継承しない。
+公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。
 
 ## 7. 失敗・回復・観測
 
-- SPEC-000011: Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。Effect: Transport自体は意味を変更しない。下流Effectは同じApplication契約で制御する。
+- UI-000007: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- SPEC-000011: Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。 Effect: Transport自体は意味を変更しない。下流Effectは同じApplication契約で制御する。
 
-- 入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。
+- 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
 - 結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める。
 
 ## 8. 品質・保護・運用
 
-| 入力 | 保護する失敗境界 | 検証可能性 |
+| 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000007 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 | 利用者が状態差と次の行動を認識でき、UIからAuthorityやEffectが発行されないこと |
-| SPEC-000011 | Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。 | 固有のAuthority、Effect、失敗理由および終了状態を理由別に反証できること |
+| UI-000007 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000011 | Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
+
+### 未確認事項・人間判断・戻り条件
+
+| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |
+|---|---|---|---|---|
+| UI-000007 | REQ-000006: 開発者が「stdioとHTTPで同じ意味の操作を行う」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000010: プロジェクト運営者／PMが「入口が違っても同じプロジェクト操作を行う」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000028: 開発者が「入口が違っても同じCRDD正本と判断境界を使う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 開発者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+| SPEC-000011 | REQ-000006: 開発者が「stdioとHTTPで同じ意味の操作を行う」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000010: プロジェクト運営者／PMが「入口が違っても同じプロジェクト操作を行う」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000028: 開発者が「入口が違っても同じCRDD正本と判断境界を使う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 開発者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+
+Architecture固有の追加人間判断はない。これは入力の未確認事項を解消済みとする意味ではない。入力の利用者成果、振る舞い、Authority、Effectまたは失敗境界を変える必要が生じた場合は、その意味を所有するUI／SPEC工程へ戻す。
 
 ## 9. 互換性・移行・成立済み能力
 

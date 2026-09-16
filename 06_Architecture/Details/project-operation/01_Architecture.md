@@ -43,7 +43,12 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Observability | PASS | 各表示値からSource、Revision、観測時点へ戻れるようにする。 | [§7](#7-project-management-projection) |
 | Security／Trust | PASS | Repository分離と利用可能性を保ち、非公開内容の存在を漏らさない。 | [§3](#3-repository分離とアクセス境界) |
 
-`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+結果語彙は次の意味に限定する。
+
+- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。
+- `OPEN`: 未解決の設計事項が残る状態。
+- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。
 
 ## Qualityへの引渡し
 

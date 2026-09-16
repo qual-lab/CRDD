@@ -3891,6 +3891,10 @@ function checkArchitectureReconstruction(): void {
     "01_Architecture.md",
   );
   if (!lstatIfPresent(architectureIndexPath)?.isFile()) return;
+  const architectureIndexRaw = read(architectureIndexPath);
+  const isArchitectureReadyStatus = /Status:\s*Architecture Ready\b/u.test(
+    architectureIndexRaw,
+  );
 
   for (const [templatePath, expectedItems] of [
     [
@@ -4045,6 +4049,22 @@ function checkArchitectureReconstruction(): void {
               "## 4. Architecture処置",
               "## 5. UI観点との統合時に確認すること",
             ];
+      const evaluation = sectionBody(source, "### 観点別評価");
+      const requiredEvaluationRows = [
+        "Responsibility",
+        "Boundary／Component／Interface",
+        "Data／State Ownership",
+        "Failure／Recovery",
+        "Security／Trust",
+        "Quality Constraint",
+        "Human Input",
+        "Open／Gap",
+        "Verification Intent",
+      ];
+      const checklistBody = sectionBody(source, "## Checklist");
+      const hasBlockingChecklistResult = /^- (?:OPEN|FAIL): /mu.test(
+        checklistBody,
+      );
       const disposition = sectionBody(source, "## 4. Architecture処置");
       const relations = [
         ...disposition.matchAll(
@@ -4060,15 +4080,23 @@ function checkArchitectureReconstruction(): void {
         !inputSection.includes(expectedInput) ||
         forbiddenInput.test(inputSection) ||
         !requiredHeadings.every((heading) => source.includes(heading)) ||
+        !evaluation.includes("| 観点 | 判定 | 根拠・引渡し |") ||
+        !requiredEvaluationRows.every((row) =>
+          evaluation
+            .split(/\r?\n/u)
+            .some((line) => line.startsWith(`| ${row} |`)),
+        ) ||
+        !evaluation.includes("Human Inputの判断者") ||
         relations.length === 0 ||
         new Set(relations).size !== relations.length ||
+        (isArchitectureReadyStatus && hasBlockingChecklistResult) ||
         checklistError
       )
         add(
           "error",
           "architecture-analysis-contract-invalid",
           relative(analysisPath),
-          `Each Architecture analysis must use exactly its own UI or SPEC definition as formal input, identify one or more duplicate-free responsibility definitions, and contain one visible, fully evaluated artifact-specific Checklist${checklistError ? ` (${checklistError})` : ""}.`,
+          `Each Architecture analysis must use exactly its own UI or SPEC definition as formal input, evaluate all nine Architecture lenses with explicit Human Input treatment, identify one or more duplicate-free responsibility definitions, and contain one visible, fully evaluated artifact-specific Checklist with no OPEN/FAIL when Architecture Ready${checklistError ? ` (${checklistError})` : ""}.`,
         );
     }
 
@@ -4299,6 +4327,14 @@ function checkArchitectureReconstruction(): void {
         "## 10. 実装と検証への引き渡し",
         "## 11. 情報源と現行照合",
       ];
+      const unknownSection = sectionBody(
+        source,
+        "### 未確認事項・人間判断・戻り条件",
+      );
+      const checklistBody = sectionBody(source, "## Checklist");
+      const hasBlockingChecklistResult = /^- (?:OPEN|FAIL): /mu.test(
+        checklistBody,
+      );
       const requiredStructures = [
         "| 状態Owner |",
         "| 所有する責務 |",
@@ -4306,7 +4342,7 @@ function checkArchitectureReconstruction(): void {
         "| 主な外部境界 |",
         "| 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |",
         "| 入力 | State Owner | Authority | Effect／非該当 |",
-        "| 入力 | 保護する失敗境界 | 検証可能性 |",
+        "| 入力 | 保護する失敗境界 | 検証意図 |",
         "| 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |",
       ];
       const hasPlaceholderOnlySection = requiredHeadings.some((heading) => {
@@ -4321,16 +4357,21 @@ function checkArchitectureReconstruction(): void {
         !source.includes(`Architecture ID: \u0060${entry.name}\u0060`) ||
         !requiredHeadings.every((heading) => source.includes(heading)) ||
         !requiredStructures.every((fragment) => source.includes(fragment)) ||
+        !unknownSection.includes(
+          "| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |",
+        ) ||
+        !unknownSection.includes("Architecture固有の追加人間判断") ||
         hasPlaceholderOnlySection ||
         !/UI-[0-9]{6}/u.test(uiSection) ||
         !/SPEC-[0-9]{6}/u.test(specSection) ||
+        (isArchitectureReadyStatus && hasBlockingChecklistResult) ||
         checklistError
       )
         add(
           "error",
           "architecture-definition-contract-invalid",
           relative(definitionPath),
-          `Each Architecture definition must integrate at least one UI analysis and one SPEC analysis into a self-contained responsibility definition with one visible, fully evaluated artifact-specific Checklist${checklistError ? ` (${checklistError})` : ""}.`,
+          `Each Architecture definition must integrate at least one UI analysis and one SPEC analysis into a self-contained responsibility definition, preserve inherited unknowns and return conditions, and contain one visible, fully evaluated artifact-specific Checklist with no OPEN/FAIL when Architecture Ready${checklistError ? ` (${checklistError})` : ""}.`,
         );
     }
 
@@ -4390,7 +4431,7 @@ function checkArchitectureReconstruction(): void {
   const detailCoveredDefinitions = new Set<string>();
   const registeredDetailAreas = new Set<string>();
   const actualDetailAreas = new Set<string>();
-  const isArchitectureReady = /Status:\s*Architecture Ready\b/u.test(index);
+  const isArchitectureReady = isArchitectureReadyStatus;
   if (!lstatIfPresent(detailMapPath)?.isFile())
     add(
       "error",
@@ -4556,9 +4597,20 @@ function checkArchitectureReconstruction(): void {
           cells.length !== 4 ||
           !["PASS", "N/A", "OPEN", "FAIL"].includes(cells[1] ?? "") ||
           !cells[2] ||
-          !cells[3]
+          !cells[3] ||
+          !/\[[^\]]+\]\([^)]*(?:\.md)?#[^)]+\)/u.test(cells[3])
         );
       });
+      const hasResultSemantics = [
+        "`PASS`: 詳細設計上",
+        "`N/A`: Architecture上、そのConcern自体が存在しない",
+        "`OPEN`: 未解決の設計事項",
+        "`FAIL`: 必須設計と矛盾",
+      ].every((meaning) => concerns.includes(meaning));
+      const checklistBody = sectionBody(source, "## Checklist");
+      const hasBlockingChecklistResult = /^- (?:OPEN|FAIL): /mu.test(
+        checklistBody,
+      );
       const hasInvalidQualityHandoff =
         !qualityHandoff.includes(
           "| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |",
@@ -4589,7 +4641,8 @@ function checkArchitectureReconstruction(): void {
         (relationSection.includes("| Missing |") ||
           concernRows
             .slice(1)
-            .some((line) => /\| (?:OPEN|FAIL) \|/u.test(line)));
+            .some((line) => /\| (?:OPEN|FAIL) \|/u.test(line)) ||
+          hasBlockingChecklistResult);
       if (
         !source.includes("成果物種別: Architecture詳細設計") ||
         !source.includes(`詳細設計領域: ${entry.name}`) ||
@@ -4607,6 +4660,7 @@ function checkArchitectureReconstruction(): void {
         hasIncompleteConcerns ||
         hasInvalidApplicability ||
         hasInvalidConcern ||
+        !hasResultSemantics ||
         hasInvalidQualityHandoff ||
         hasUnresolvedWhenReady ||
         checklistError

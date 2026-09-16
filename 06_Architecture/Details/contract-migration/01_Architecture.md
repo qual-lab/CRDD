@@ -38,6 +38,13 @@
 | Observability | PASS | 宣言集合、自動導出集合、差分、試験、旧参照0を観測する。 | [§2](#2-consumer-closure) |
 | Security／Trust | PASS | Canonical Path、Identity、StateをConsumer側で再解釈しない。 | [§4](#4-失敗と再入場) |
 
+結果語彙は次の意味に限定する。
+
+- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。
+- `OPEN`: 未解決の設計事項が残る状態。
+- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。
+
 ## Qualityへの引渡し
 
 | 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |

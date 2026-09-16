@@ -31,55 +31,68 @@ Toolのavailable／unavailable／unverified／blockedと、モデル構成のval
 
 ## 4. 両観点の統合判断
 
-入力ごとの状態Owner、Authority、Effect、失敗およびlifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
+入力ごとのState Owner、Authority、Effect、失敗およびLifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000010 | UI | Capability RegistryとModel Configuration Resolver | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する | UI契約はEffectを定義しない。表示上の状態差: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked）。導線: 仕事→必要能力→登録Tool→配布根拠→起動 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 | 利用者が確認・操作する → 仕事に合うToolとAIモデルを根拠付きで選び、安全に変更できる。 → 結果と次の行動を認識する |
+| UI-000010 | UI | Capability RegistryとModel Configuration Resolver | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked） / 仕事→必要能力→登録Tool→配布根拠→起動 / ；有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected） / 設定→検証→利用可能候補→選択→理由・再選定条件 /  |
 | SPEC-000014 | SPEC | Tool能力Registry | Tool能力一覧を閲覧する主体。一覧取得はTool実行Authorityを発行しない | 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。 | Tool一覧の閲覧だけで実行Authorityを発行しない。 | [目的＋Repository改訂版] -> [能力・配布根拠照合] -> [利用可能候補／不足／不一致] |
-| SPEC-000015 | SPEC | AIモデル構成Manager | 構成管理者が更新を採用し、Runtimeが検証済み構成から選択する | 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。 | 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。 | [構成Candidate] -> [検証] ├ valid -> [採用済み構成] -> [実効選択] └ invalid／unavailable -> [拒否／再選定条件] |
+| SPEC-000015 | SPEC | AIモデル構成Manager | 構成管理者が更新を採用し、Runtimeが検証済み構成から選択する | 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。 | 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。 | [構成Candidate] -> [検証]   ├ valid -> [採用済み構成] -> [実効選択]   └ invalid／unavailable -> [拒否／再選定条件] |
 
 ## 5. 構造と依存方向
 
 ```text
-[Capability RegistryとModel Configuration Resolver]
-├─ [SPEC-000014: Repositoryに適合する標準Toolを解決する]
+[Architecture Responsibility]
+├─ UI-000010 (UI)
+   利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked） / 仕事→必要能力→登録Tool→配布根拠→起動 / ；有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected） / 設定→検証→利用可能候補→選択→理由・再選定条件 / 
+├─ SPEC-000014 (SPEC)
    [目的＋Repository改訂版] -> [能力・配布根拠照合] -> [利用可能候補／不足／不一致]
-└─ [SPEC-000015: AIモデル構成を検証し実効選択を決める]
-   [構成Candidate] -> [検証] ├ valid -> [採用済み構成] -> [実効選択] └ invalid／unavailable -> [拒否／再選定条件]
+└─ SPEC-000015 (SPEC)
+   [構成Candidate] -> [検証]   ├ valid -> [採用済み構成] -> [実効選択]   └ invalid／unavailable -> [拒否／再選定条件]
 ```
 
-各SPEC branchはSibling blockであり、前のblockのAuthorityやEffectを暗黙に継承しない。UI契約はこれらの状態を利用者へ表すが、AuthorityやEffectを発行しない。
+各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
 
 ## 6. データ・状態・Interface
 
-共通するIdentityとDataの関係はこの責務が管理する。ただし、状態Owner、AuthorityおよびEffectは入力単位で次のように分け、責務全体へ一律に拡張しない。
+入力が共有するIdentityとDataの関係は、このArchitecture責務が管理する。ただしState Owner、AuthorityおよびEffectは入力単位で分け、責務全体へ一律に拡張しない。
 
 | 入力 | State Owner | Authority | Effect／非該当 |
 |---|---|---|---|
-| UI-000010 | Capability RegistryとModel Configuration Resolver | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する | UI契約はEffectを定義しない。表示上の状態差: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked）。導線: 仕事→必要能力→登録Tool→配布根拠→起動 |
+| UI-000010 | Capability RegistryとModel Configuration Resolver | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する。 | UI契約はEffectを定義しない |
 | SPEC-000014 | Tool能力Registry | Tool能力一覧を閲覧する主体。一覧取得はTool実行Authorityを発行しない | 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。 |
 | SPEC-000015 | AIモデル構成Manager | 構成管理者が更新を採用し、Runtimeが検証済み構成から選択する | 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。 |
 
-公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、Effectまたはlifecycleを暗黙に継承しない。
+公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。
 
 ## 7. 失敗・回復・観測
 
-- SPEC-000014: Tool一覧の閲覧だけで実行Authorityを発行しない。Effect: 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。
-- SPEC-000015: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。Effect: 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。
+- UI-000010: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- SPEC-000014: Tool一覧の閲覧だけで実行Authorityを発行しない。 Effect: 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。
+- SPEC-000015: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。 Effect: 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。
 
-- 入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。
+- 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
 - 結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める。
 
 ## 8. 品質・保護・運用
 
-| 入力 | 保護する失敗境界 | 検証可能性 |
+| 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000010 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 | 利用者が状態差と次の行動を認識でき、UIからAuthorityやEffectが発行されないこと |
-| SPEC-000014 | Tool一覧の閲覧だけで実行Authorityを発行しない。 | 固有のAuthority、Effect、失敗理由および終了状態を理由別に反証できること |
-| SPEC-000015 | 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。 | 固有のAuthority、Effect、失敗理由および終了状態を理由別に反証できること |
+| UI-000010 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000014 | Tool一覧の閲覧だけで実行Authorityを発行しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000015 | 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
+
+### 未確認事項・人間判断・戻り条件
+
+| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |
+|---|---|---|---|---|
+| UI-000010 | REQ-000014: 開発者が「現在リポジトリで利用可能な機能を知る」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000034: 開発者が「リポジトリに対応する標準ツールを迷わず使う」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000016: 実行環境の導入・運用者が「AIモデル選択を検証可能な構成として更新する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 開発者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+| SPEC-000014 | REQ-000014: 開発者が「現在リポジトリで利用可能な機能を知る」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000034: 開発者が「リポジトリに対応する標準ツールを迷わず使う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 開発者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+| SPEC-000015 | REQ-000016: 実行環境の導入・運用者が「AIモデル選択を検証可能な構成として更新する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 実行環境の導入・運用者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+
+Architecture固有の追加人間判断はない。これは入力の未確認事項を解消済みとする意味ではない。入力の利用者成果、振る舞い、Authority、Effectまたは失敗境界を変える必要が生じた場合は、その意味を所有するUI／SPEC工程へ戻す。
 
 ## 9. 互換性・移行・成立済み能力
 

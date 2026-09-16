@@ -25,7 +25,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | State Model | Required | 未検証、検証済み、変化検出、観測不能を分ける。 | [§4](#4-capabilityと再確認) |
 | Sequence | Required | Consumer移行をPort導入、並行照合、旧経路禁止の順で行う。 | [§6](#6-段階移行) |
 | Failure／Recovery | Required | Root不明、競合、途中変更時にCapabilityを発行しない。 | [§7](#7-検証) |
-| Deployment | Required | Repository、worktree、submoduleと本番Consumerの配置差を扱う。 | [§5](#5-現在の本番consumer棚卸し) |
+| Deployment | Required | Repository、worktree、submoduleと本番Consumerの配置差を扱う。 | [§5](#5-consumer移行の必要条件) |
 | Observability | Required | Root kind、revision、dirty state、観測時点、失敗理由を返す。 | [§7](#7-検証) |
 | Security Boundary | Required | 読めるPathを自動的に許可済みRepositoryへ昇格しない。 | [§2](#2-責務境界) |
 
@@ -44,7 +44,12 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Observability | PASS | Root kind、revision、dirty state、観測時点、失敗理由を返す。 | [§7](#7-検証) |
 | Security／Trust | PASS | 読めるPathを自動的に許可済みRepositoryへ昇格しない。 | [§2](#2-責務境界) |
 
-`PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
+結果語彙は次の意味に限定する。
+
+- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。
+- `OPEN`: 未解決の設計事項が残る状態。
+- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。
 
 ## Qualityへの引渡し
 
@@ -138,20 +143,20 @@ Repository-local Ignoreは、`info/exclude`のPathを公開せず、適用前後
 
 dirty、untrackedまたはdetachedであることだけを不正としない。必要な保証を満たせない状態と、利用側が明示的に許可していない状態だけを拒否する。
 
-## 5. 現在の本番Consumer棚卸し
+## 5. Consumer移行の必要条件
 
-試験FixtureがRepositoryを作るためのGit呼出しはAdapter利用を要求しない。次は本番Sourceまたは配布Toolに残る直接依存であり、移行完了まで追跡する。
+試験FixtureがRepositoryを作るためのGit呼出しはAdapter利用を要求しない。次表は本番Sourceまたは配布ToolがVersion Control境界へ移行する際の置換契約と完了条件を定義する。現在の実装・移行状態は対象改訂版付きReality Auditで判定する。
 
-| Consumer群 | 移行前の直接依存 | 移行先Port | 移行順 | 現在状態 |
+| Consumer群 | 置換対象の直接依存 | 移行先Port | 移行順 | 完了条件 |
 |---|---|---|---|---|
-| Runtime Data | `repository-root-capability.ts`の`git rev-parse --show-toplevel` | Repository Location | 1 | 移行済み。旧実装削除済み |
-| Coordinator Repository Security | `repository-root-resolution*`、`repository-git-layout*`、`repository-operation-runtime.ts` | Repository Location、Repository-local Ignore Registration | 1 | 移行済み。旧Root／Layout Ownerを削除し、Runtime Data領域作成時のignore登録を新Portへ接続 |
-| Checker Current Tree | `template/tools/crdd-check.ts`のRoot、index、HEAD、historical object観測 | Repository Location、Local Change Set Observation、Fixed Snapshot Read。採用先では§8の同梱Artifactを使う | 2 | 移行済み。採用先CheckerはOwner sourceから生成した自己完結Artifactだけを利用 |
-| Regression Selection | `checker/regression-execution.ts`の変更集合導出 | Local Change Set Observation | 2 | 移行済み。Owner実Git試験済み |
-| Coordinator Snapshot | `git-object-reader.ts`、`repository-workspace-runtime.ts`、`project-runtime-candidate-integration-adapter.ts` | Fixed Snapshot Read、Candidate Materialization | 3 | 移行済み。Object ReaderはVersion Control Adapter内部へ移し、旧Ownerを削除 |
-| Policy／Provisioning | `external-send-policy-runtime.ts`、`platform-provisioner-package-filesystem.ts` | Fixed Snapshot Read | 3 | 移行済み。保護対象の依存閉包はexact Port／Adapter importで固定 |
-| Release／Signing | `prepare-release-candidate.ts`、`sign-release-manifest.ts` | Fixed Revision Identity、Fixed Snapshot Read。Release Identityは利用側で合成する | 4 | 移行済み。署名前の依存閉包・実行primitive反証がPass。固定候補での最終確認待ち |
-| Doctor／公開診断 | `doctor.ts`のRepository Git Layout説明 | Repository Locationの公開Projection | 4 | 移行済み。Git固有の旧診断契約を削除 |
+| Runtime Data | Repository RootをGit CLIから直接取得する処理 | Repository Location | 1 | Root能力をPortから取得し、旧Root Ownerと直接Git依存が0 |
+| Coordinator Repository Security | Repository Root／Layout／Operationの直接解釈 | Repository Location、Repository-local Ignore Registration | 1 | Root／Layout解釈をPortへ一本化し、Runtime Data領域作成時のignore登録を新Portへ接続 |
+| Checker Current Tree | Root、index、HEAD、historical objectの直接観測 | Repository Location、Local Change Set Observation、Fixed Snapshot Read。採用先では§8の同梱Artifactを使う | 2 | 採用先CheckerがOwner sourceから生成した自己完結Artifactだけを利用 |
+| Regression Selection | 変更集合の直接導出 | Local Change Set Observation | 2 | 変更集合の意味をPortへ一本化し、実Git境界の反証を持つ |
+| Coordinator Snapshot | Object Reader、Workspace、Candidate IntegrationによるGit内部構造の直接解釈 | Fixed Snapshot Read、Candidate Materialization | 3 | Object ReaderをAdapter内部へ隔離し、旧Owner Consumerが0 |
+| Policy／Provisioning | Policy／Provisioningによる固定Snapshotの直接解釈 | Fixed Snapshot Read | 3 | 保護対象の依存閉包をexact Port／Adapter importで固定 |
+| Release／Signing | Release／SigningによるRevision・Snapshotの直接解釈 | Fixed Revision Identity、Fixed Snapshot Read。Release Identityは利用側で合成する | 4 | 署名前のConsumer閉包、実行primitive、固定SnapshotとRelease Identityを反証できる |
+| Doctor／公開診断 | Repository Git Layoutの直接説明 | Repository Locationの公開Projection | 4 | Git内部構造ではなく、Portが許可した公開Projectionだけを返す |
 
 Execution IntelligenceはRuntime DataのRoot Capabilityを利用しているため、Runtime Data移行後に間接利用側として回帰を確認する。Project RuntimeはCoordinator Adapter経由のSnapshot／Candidate利用を確認し、Gitへ直接依存させない。
 

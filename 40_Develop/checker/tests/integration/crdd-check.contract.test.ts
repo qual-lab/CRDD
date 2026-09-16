@@ -3874,6 +3874,112 @@ test("Architecture詳細設計は8種類のEngineering Concernを全数評価す
   );
 });
 
+test("Architecture詳細設計のConcern根拠は実在節へ接続する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const target = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    target,
+    fs
+      .readFileSync(target, "utf8")
+      .replace("[§2](#2-interface-model)", "後で追加する"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("Architecture候補は理由付きOPENを保持でき、Readyでは拒否する", () => {
+  const cases = [
+    [
+      "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
+      "architecture-analysis-contract-invalid",
+    ],
+    [
+      "06_Architecture/Analysis/SPEC-000001/architecture_analysis.md",
+      "architecture-analysis-contract-invalid",
+    ],
+    [
+      "06_Architecture/Definitions/ARCH-000001/architecture_definition.md",
+      "architecture-definition-contract-invalid",
+    ],
+    [
+      "06_Architecture/Details/sample/01_Architecture.md",
+      "architecture-detail-contract-invalid",
+    ],
+  ] as const;
+  for (const [relativePath, expectedCode] of cases) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(root, relativePath);
+    const source = fs.readFileSync(target, "utf8");
+    write(
+      target,
+      source.replace(
+        /^- \[x\] (?<item>.+)$/mu,
+        "- OPEN: 再レビュー待ち — $<item>",
+      ),
+    );
+    const candidate = runChecker(root);
+    assert.ok(
+      !candidate.report.findings.some(
+        (finding) => finding.code === expectedCode,
+      ),
+      `${relativePath}\n${candidate.stdout}\n${candidate.stderr}`,
+    );
+    const indexPath = path.join(root, "06_Architecture", "01_Architecture.md");
+    write(
+      indexPath,
+      fs
+        .readFileSync(indexPath, "utf8")
+        .replace("Status: Candidate", "Status: Architecture Ready"),
+    );
+    const ready = runChecker(root);
+    assert.ok(
+      ready.report.findings.some((finding) => finding.code === expectedCode),
+      `${relativePath}\n${ready.stdout}\n${ready.stderr}`,
+    );
+  }
+});
+
+test("Architecture分析・定義・詳細設計の意味構造欠落を拒否する", () => {
+  const mutations = [
+    [
+      "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
+      /^\| Human Input \|.*\r?\n/mu,
+      "architecture-analysis-contract-invalid",
+    ],
+    [
+      "06_Architecture/Definitions/ARCH-000001/architecture_definition.md",
+      /^### 未確認事項・人間判断・戻り条件\s*$[\s\S]*?(?=^## 9\.)/mu,
+      "architecture-definition-contract-invalid",
+    ],
+    [
+      "06_Architecture/Details/sample/01_Architecture.md",
+      /^- `PASS`:.*\r?\n/mu,
+      "architecture-detail-contract-invalid",
+    ],
+  ] as const;
+  for (const [relativePath, removal, expectedCode] of mutations) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(root, relativePath);
+    write(target, fs.readFileSync(target, "utf8").replace(removal, ""));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === expectedCode),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
 test("UI観点のArchitecture分析はSPECや上流工程を正式入力にできない", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(
@@ -4787,10 +4893,50 @@ function specReconstructionFixtureRoot(): string {
 
 function architectureReconstructionFixtureRoot(): string {
   const root = specReconstructionFixtureRoot();
+  const architectureLensEvaluation = `### 観点別評価
+
+| 観点 | 判定 | 根拠・引渡し |
+|---|---|---|
+| Responsibility | 評価済み | 試験Coreが所有する |
+| Boundary／Component／Interface | 評価済み | 利用側と状態Sourceを分ける |
+| Data／State Ownership | 評価済み | 試験Coreが状態を所有する |
+| Failure／Recovery | 評価済み | 欠測を補完せず安全に返す |
+| Security／Trust | 評価済み | 閲覧Authorityだけを受け付ける |
+| Quality Constraint | 評価済み | 不完全性を保持する |
+| Human Input | なし | Architecture固有の人間判断はない |
+| Open／Gap | なし | 上流へ戻す未解決事項はない |
+| Verification Intent | 評価済み | 状態差とEffect 0を反証する |
+
+Human Inputの判断者は不要である。再評価契機は上流契約が変わった時である。
+`;
+  const withArchitectureAnalysisContracts = (source: string) =>
+    source.replace(
+      "\n\n## 4. Architecture処置",
+      `\n\n${architectureLensEvaluation}\n## 4. Architecture処置`,
+    );
+  const withArchitectureDefinitionContracts = (source: string) =>
+    source
+      .replace(
+        "| 入力 | 保護する失敗境界 | 検証可能性 |",
+        "| 入力 | 保護する失敗境界 | 検証意図 |",
+      )
+      .replace(
+        "\n## 9. 互換性・移行・成立済み能力",
+        `\n### 未確認事項・人間判断・戻り条件
+
+| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |
+|---|---|---|---|---|
+| UI-000001 | なし | 不要 | 解消済み | 上流契約変更時 |
+| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |
+
+Architecture固有の追加人間判断はない。入力契約が変わる場合はUI／SPEC工程へ戻す。
+
+## 9. 互換性・移行・成立済み能力`,
+      );
   const uiAnalysis = `# UI-000001のArchitecture分析\n\n成果物種別: Architecture分析（UI観点）\n分析単位: \`UI-000001\`\n\n## 1. 正式入力\n\n- UI定義: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 2. Architectureへ引き継ぐUI契約\n\n利用者が結果と不完全性を区別し、安全な次の行動を選べること。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 利用者向け状態を独立して成立させる責務 |\n\n## 5. SPEC観点との統合時に確認すること\n\n状態差と結果契約を照合する。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md"))}\n`;
   const specAnalysis = `# SPEC-000001のArchitecture分析\n\n成果物種別: Architecture分析（SPEC観点）\n分析単位: \`SPEC-000001\`\n\n## 1. 正式入力\n\n- SPEC定義: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)\n\n## 2. Architectureへ引き継ぐSPEC契約\n\n契機、事前条件、Authority、結果、副作用、検証義務を保持する。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 振る舞い契約を独立して成立させる責務 |\n\n## 5. UI観点との統合時に確認すること\n\n結果契約と利用者が認識する状態差を照合する。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md"))}\n`;
   const definition = `# 試験責務のArchitecture定義\n\n成果物種別: Architecture定義\nArchitecture ID: \`ARCH-000001\`\n\n## 1. 責務と境界\n\n利用者へ根拠付き状態を返し、表示と状態更新を分離する。\n\n| 観点 | 契約 |\n|---|---|\n| 状態Owner | 試験Core |\n| 所有する責務 | 状態の読取りと根拠付き結果 |\n| 所有しない責務 | UI表示と外部Effect |\n| 主な外部境界 | 状態Sourceと利用側 |\n\n## 2. UI観点の入力\n\n[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)\n\n## 3. SPEC観点の入力\n\n[SPEC-000001](../../Analysis/SPEC-000001/architecture_analysis.md)\n\n## 4. 両観点の統合判断\n\n| 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |\n|---|---|---|---|---|---|---|\n| UI-000001 | UI | 試験Core | Authorityを発行しない | 表示だけ | 不完全性を隠さない | 確認→判断 |\n| SPEC-000001 | SPEC | 試験Core | 閲覧Authority | 読取りだけ | 欠測を補完しない | 要求→読取り→結果 |\n\n## 5. 構造と依存方向\n\n\`\`\`text\n[利用側] -> [試験Core] -> [状態Source]\n\`\`\`\n\n## 6. データ・状態・Interface\n\n| 入力 | State Owner | Authority | Effect／非該当 |\n|---|---|---|---|\n| UI-000001 | 試験Core | なし | 表示だけ |\n| SPEC-000001 | 試験Core | 閲覧 | 読取りだけ |\n\n## 7. 失敗・回復・観測\n\n欠測と観測不能を分け、入力固有の失敗理由を返す。\n\n## 8. 品質・保護・運用\n\n| 入力 | 保護する失敗境界 | 検証可能性 |\n|---|---|---|\n| UI-000001 | 不完全性の隠蔽 | 状態差を確認 |\n| SPEC-000001 | 欠測の補完 | Effect 0を確認 |\n\n## 9. 互換性・移行・成立済み能力\n\n| 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |\n|---|---|---|---|---|---|\n| 基準版なし | なし | 試験Core | 新規 | 未作成 | 実装待ち |\n\n## 10. 実装と検証への引き渡し\n\n入力ごとのAuthority、Effect、失敗理由および終了状態を理由別に反証する。\n\n## 11. 情報源と現行照合\n\n正式入力は第2節と第3節の分析であり、現行実装は能力比較だけに使う。\n`;
-  const definitionWithChecklist = `${definition}\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md"))}\n`;
+  const definitionWithChecklist = `${withArchitectureDefinitionContracts(definition)}\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md"))}\n`;
   write(
     path.join(root, "06_Architecture", "01_Architecture.md"),
     "# Architecture\n\nStatus: Candidate\n\n## Architecture定義台帳\n\n| Architecture定義 | 責務 | UI入力 | SPEC入力 |\n|---|---|---|---|\n| [試験責務](Definitions/ARCH-000001/architecture_definition.md) | 試験 | UI-000001 | SPEC-000001 |\n\n## Architecture横断モデル\n\n| 成果物 |\n|---|\n| [Component](02_Component_and_Responsibility_Model.md) |\n| [Boundary](03_Boundary_and_Interface_Model.md) |\n| [Flow](04_Runtime_and_Data_Flow_Model.md) |\n| [Failure](05_Failure_Recovery_and_Resilience_Model.md) |\n| [Deployment](06_Deployment_and_Execution_Model.md) |\n",
@@ -4803,7 +4949,7 @@ function architectureReconstructionFixtureRoot(): string {
       "UI-000001",
       "architecture_analysis.md",
     ),
-    uiAnalysis,
+    withArchitectureAnalysisContracts(uiAnalysis),
   );
   write(
     path.join(
@@ -4813,7 +4959,7 @@ function architectureReconstructionFixtureRoot(): string {
       "SPEC-000001",
       "architecture_analysis.md",
     ),
-    specAnalysis,
+    withArchitectureAnalysisContracts(specAnalysis),
   );
   write(
     path.join(
@@ -4853,6 +4999,10 @@ function architectureReconstructionFixtureRoot(): string {
       .replace(
         "| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |",
         "| State／Consistency | PASS | 状態と整合条件を分ける | [§4](#4-state-model) |\n| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |\n| Observability | PASS | 結果を相関して観測する | [§8](#8-observability) |\n| Security／Trust | PASS | AuthorityとTrustを分ける | [§9](#9-security-boundary) |",
+      )
+      .replace(
+        "\n## Qualityへの引渡し",
+        "\n結果語彙は次の意味に限定する。\n\n- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。\n- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。\n- `OPEN`: 未解決の設計事項が残る状態。\n- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。\n\n## Qualityへの引渡し",
       )}\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Details/area/01_Architecture.md"))}\n`,
   );
   for (const model of [

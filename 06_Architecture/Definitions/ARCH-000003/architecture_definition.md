@@ -30,49 +30,61 @@ Architecture ID: `ARCH-000003`
 
 ## 4. 両観点の統合判断
 
-入力ごとの状態Owner、Authority、Effect、失敗およびlifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
+入力ごとのState Owner、Authority、Effect、失敗およびLifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000015 | UI | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む | UI契約はEffectを定義しない。表示上の状態差: 固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required）。導線: 固定版→監査集合→統合方針→是正→再固定→判断 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 | 利用者が確認・操作する → 同じ改訂版上で指摘、是正、試験、品質状態を辿れる。 → 結果と次の行動を認識する |
-| SPEC-000020 | SPEC | Quality Centerと変更追跡 | 各レビューは所管範囲を評価し、人間が工程移行・採用・Releaseを決める | 評価記録は更新できるが、Pass表示から統合・Release Effectを自動発行しない。 | 試験件数や一部監査完了から全体Passを推定しない。 | [変更候補] -> [レビュー／監査／試験を対応付け] -> [Pass／Finding／未実施／非該当] -> [残るGate] |
+| UI-000015 | UI | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required） / 固定版→監査集合→統合方針→是正→再固定→判断 / ；計画済み（planned）／未実行（not_executed）／合格（passed）／失敗（failed）／停止（blocked）／非該当（not_applicable） / 変更→不確実性→試験層→実行結果→現在保証 / ；計画済み（planned）／進行中（in_progress）／確認済み（verified）／公開済み（released）と品質状態を別にする / Roadmap→Change→対象ファイル→Evidence→Quality→Release /  |
+| SPEC-000020 | SPEC | Quality Centerと変更追跡 | 各レビューは所管範囲を評価し、人間が工程移行・採用・Releaseを決める | 評価記録は更新できるが、Pass表示から統合・Release Effectを自動発行しない。 | 試験件数や一部監査完了から全体Passを推定しない。 | [変更候補] -> [レビュー／監査／試験を対応付け]  -> [Pass／Finding／未実施／非該当] -> [残るGate] |
 
 ## 5. 構造と依存方向
 
 ```text
-[Quality Centerと変更追跡]
-└─ [SPEC-000020: 変更・監査・試験・品質の閉包を評価する]
-   [変更候補] -> [レビュー／監査／試験を対応付け] -> [Pass／Finding／未実施／非該当] -> [残るGate]
+[Architecture Responsibility]
+├─ UI-000015 (UI)
+   固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required） / 固定版→監査集合→統合方針→是正→再固定→判断 / ；計画済み（planned）／未実行（not_executed）／合格（passed）／失敗（failed）／停止（blocked）／非該当（not_applicable） / 変更→不確実性→試験層→実行結果→現在保証 / ；計画済み（planned）／進行中（in_progress）／確認済み（verified）／公開済み（released）と品質状態を別にする / Roadmap→Change→対象ファイル→Evidence→Quality→Release / 
+└─ SPEC-000020 (SPEC)
+   [変更候補] -> [レビュー／監査／試験を対応付け]  -> [Pass／Finding／未実施／非該当] -> [残るGate]
 ```
 
-各SPEC branchはSibling blockであり、前のblockのAuthorityやEffectを暗黙に継承しない。UI契約はこれらの状態を利用者へ表すが、AuthorityやEffectを発行しない。
+各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
 
 ## 6. データ・状態・Interface
 
-共通するIdentityとDataの関係はこの責務が管理する。ただし、状態Owner、AuthorityおよびEffectは入力単位で次のように分け、責務全体へ一律に拡張しない。
+入力が共有するIdentityとDataの関係は、このArchitecture責務が管理する。ただしState Owner、AuthorityおよびEffectは入力単位で分け、責務全体へ一律に拡張しない。
 
 | 入力 | State Owner | Authority | Effect／非該当 |
 |---|---|---|---|
-| UI-000015 | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む | UI契約はEffectを定義しない。表示上の状態差: 固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required）。導線: 固定版→監査集合→統合方針→是正→再固定→判断 |
+| UI-000015 | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む。 | UI契約はEffectを定義しない |
 | SPEC-000020 | Quality Centerと変更追跡 | 各レビューは所管範囲を評価し、人間が工程移行・採用・Releaseを決める | 評価記録は更新できるが、Pass表示から統合・Release Effectを自動発行しない。 |
 
-公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、Effectまたはlifecycleを暗黙に継承しない。
+公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。
 
 ## 7. 失敗・回復・観測
 
-- SPEC-000020: 試験件数や一部監査完了から全体Passを推定しない。Effect: 評価記録は更新できるが、Pass表示から統合・Release Effectを自動発行しない。
+- UI-000015: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- SPEC-000020: 試験件数や一部監査完了から全体Passを推定しない。 Effect: 評価記録は更新できるが、Pass表示から統合・Release Effectを自動発行しない。
 
-- 入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。
+- 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
 - 結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める。
 
 ## 8. 品質・保護・運用
 
-| 入力 | 保護する失敗境界 | 検証可能性 |
+| 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000015 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 | 利用者が状態差と次の行動を認識でき、UIからAuthorityやEffectが発行されないこと |
-| SPEC-000020 | 試験件数や一部監査完了から全体Passを推定しない。 | 固有のAuthority、Effect、失敗理由および終了状態を理由別に反証できること |
+| UI-000015 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000020 | 試験件数や一部監査完了から全体Passを推定しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
+
+### 未確認事項・人間判断・戻り条件
+
+| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |
+|---|---|---|---|---|
+| UI-000015 | REQ-000026: CRDD作成者・保守者が「監査合意から是正・反証までを一つの改訂版で閉じる」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000030: CRDD作成者・保守者が「試験層ごとの保証と未確認範囲を理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000033: CRDD作成者・保守者が「作業・変更・根拠・品質を役割別に辿る」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | CRDD作成者・保守者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+| SPEC-000020 | REQ-000026: CRDD作成者・保守者が「監査合意から是正・反証までを一つの改訂版で閉じる」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000030: CRDD作成者・保守者が「試験層ごとの保証と未確認範囲を理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000033: CRDD作成者・保守者が「作業・変更・根拠・品質を役割別に辿る」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | CRDD作成者・保守者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+
+Architecture固有の追加人間判断はない。これは入力の未確認事項を解消済みとする意味ではない。入力の利用者成果、振る舞い、Authority、Effectまたは失敗境界を変える必要が生じた場合は、その意味を所有するUI／SPEC工程へ戻す。
 
 ## 9. 互換性・移行・成立済み能力
 

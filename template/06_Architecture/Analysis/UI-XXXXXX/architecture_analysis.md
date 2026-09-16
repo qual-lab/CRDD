@@ -19,6 +19,8 @@ UI定義だけから、利用者が認識・操作・回復できるためにArc
 | 区別する状態 | |
 | 開示・アクセシビリティ | |
 | 避ける失敗 | |
+| 未確認事項・人間判断 | |
+| Verification Intent | |
 
 ## 3. Architecture観点の分析
 
@@ -29,6 +31,22 @@ UI定義だけから、利用者が認識・操作・回復できるためにArc
 | 状態・観測 | | |
 | Authority・開示 | | |
 | 失敗・回復 | | |
+
+### 観点別評価
+
+| 観点 | 判定 | 根拠・引渡し |
+|---|---|---|
+| Responsibility | 評価済み／OPEN／FAIL | |
+| Boundary／Component／Interface | 評価済み／OPEN／FAIL | |
+| Data／State Ownership | 評価済み／OPEN／FAIL | |
+| Failure／Recovery | 評価済み／OPEN／FAIL | |
+| Security／Trust | 評価済み／OPEN／FAIL | |
+| Quality Constraint | 評価済み／OPEN／FAIL | |
+| Human Input | なし／継承あり／OPEN | |
+| Open／Gap | なし／上流確認を継承／OPEN／FAIL | |
+| Verification Intent | 評価済み／OPEN／FAIL | |
+
+Human Inputがある場合は、判断者、現在判定、未確認時の影響および再評価契機を記録する。Architectureは上流の未確認事項を解消済みにしない。
 
 ## 4. Architecture処置
 

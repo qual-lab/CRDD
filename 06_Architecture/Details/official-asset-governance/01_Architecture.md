@@ -29,7 +29,7 @@
 
 | Concern | Result | Rationale | Evidence／Related ID |
 |---|---|---|---|
-| Concurrency | N/A | 同一素材の競合判断は改訂版競合として拒否し、並行Runtime処理を所有しない。 | [§3](#3-lifecycle) |
+| Concurrency | PASS | 判断開始時の期待revisionと確定時の現行revisionを照合し、同一素材版への競合判断は後着側をEffect 0で拒否する。 | [§3](#3-lifecycle) |
 | Timing | PASS | 判断時点と対象版を記録し、取下げ後の新規利用へ旧判断を流用しない。 | [§2](#2-素材記録) |
 | Resource Lifecycle | PASS | 候補、収載済み、派生成果物、取下げ記録の保持責務を分ける。 | [§3](#3-lifecycle) |
 | External Boundary | PASS | 提供者の申告、判断者の確認、Repository収載、Release公開を別境界にする。 | [§1](#1-責務ブロック) |
@@ -38,12 +38,20 @@
 | Observability | PASS | 判断者、対象版、許可用途、根拠へ戻れるようにする。 | [§2](#2-素材記録) |
 | Security／Trust | PASS | 確認記録から法的判断、公開、用途外利用のAuthorityを生成しない。 | [§4](#4-失敗と停止) |
 
+結果語彙は次の意味に限定する。
+
+- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。
+- `OPEN`: 未解決の設計事項が残る状態。
+- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。
+
 ## Qualityへの引渡し
 
 | 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|
 | 素材判断 | asset identityと根拠 | 判断者・用途・対象版が揃う | 生成手段だけで承認、用途空欄 | state、authority、evidence | 未確認時は収載Effect 0 | 法的助言は対象外 |
 | 収載・公開 | approved assetとRelease | 許可用途内で別Authorityにより実行 | restricted公開、withdrawn再利用 | release relationとasset state | 影響先追跡または公開なし | 外部配布先の撤回能力 |
+| 同一素材版の競合判断 | asset identity、期待revision、現行revision | 一致するrevisionへ一つの判断だけを確定 | silent overwrite、後着判断による上書き | 勝者revision、拒否理由、共有確定状態 | 敗者Effect 0、勝者状態を保持 | 複数判断者による競合反証 |
 
 ## 現行実装との照合
 
@@ -87,6 +95,8 @@ candidate
 ```
 
 収載済み素材を変更した場合は新しい対象revisionとして再評価する。過去判断を無言で新素材へ継承しない。
+
+判断開始時に対象素材の期待revisionを固定し、確定直前に共有状態の現行revisionを再観測する。一致した場合だけ次revisionへ更新する。競合する判断が先に確定していた場合、後着側は上書きせずEffect 0で拒否し、勝者revision、拒否理由および再評価先を返す。判断順序は法的妥当性や採用優先度を意味しない。
 
 ## 4. 失敗と停止
 
