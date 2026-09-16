@@ -40,6 +40,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | Task、Attempt、Lease、Queue、Decision、Recovery義務のOwnerを定義する。 | [正本節](#6-状態authority資源) |
 | External Boundary | PASS | Execution Port、State Store、実行事実SourceをPort化する。 | [正本節](#4-port) |
 | Failure／Recovery | PASS | Effectなし／済み／不明、判断待ち、取消競合、回復待ちを分ける。 | [正本節](#6-状態authority資源) |
+| State／Consistency | PASS | Task、Decision、Lease、RecoveryとEffect状態を分ける。 | [§6](#6-状態authority資源) |
+| Observability | PASS | 公開入口から状態、理由、Recovery Identityを観測できるようにする。 | [§10](#10-完成境界) |
+| Security／Trust | PASS | CoreがHost AuthorityやProvider Credentialを生成しない。 | [§6](#6-状態authority資源) |
 
 `PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
 
@@ -254,3 +257,18 @@ Coordinator CLI composition root
 ## 10. 完成境界
 
 Project Runtimeのpackage作成、Core試験合格または安全な拒否だけでは分離完了としない。全Portの実装接続、公開入口、利用側閉包、CLI／MCP stdio回帰、状態・Authority・Recoveryの意味保持、内部Path参照0および独立レビューが揃った場合だけ完成とする。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

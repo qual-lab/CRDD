@@ -95,3 +95,20 @@ temporary／durable／recovery_required／cleanup／unknownを用途別に分け
 
 - [現行照合先](../../Details/runtime-data/02_Current_Path_Reality_Audit.md)
 - [現行照合先](../../Details/runtime-data/01_Architecture.md)
+
+## Checklist
+
+- [x] UI分析とSPEC分析だけを正式入力として統合した
+- [x] UI ContractとSPEC Contractを入力別に保持した
+- [x] 独立したArchitecture Responsibilityを説明できる
+- [x] 所有する責務、所有しない責務およびBoundaryを明示した
+- [x] Major Component、Interfaceおよび依存方向を明示した
+- [x] Data／State Ownershipを明示した
+- [x] Authority、EffectおよびLifecycleを入力別に評価した
+- [x] Failure Boundary、Recovery責任および観測を明示した
+- [x] Security／TrustとQuality Constraintを評価した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] DetailsへのHandoffを明示した
+- [x] Qualityへ渡すVerification Intentを明示した
+- [x] 現行Sourceや実装構造から意味を逆輸入していない
+- [x] 上流の観測可能な振る舞いをArchitectureで変更していない

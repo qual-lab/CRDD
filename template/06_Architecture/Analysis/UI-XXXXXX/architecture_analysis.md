@@ -39,3 +39,21 @@ UI定義だけから、利用者が認識・操作・回復できるためにArc
 ## 5. SPEC観点との統合時に確認すること
 
 UIが必要とする認識、操作、Feedbackおよび状態差が、SPEC由来の発火条件、結果、Effectおよび失敗境界で成立するかを確認する。
+
+## Checklist
+
+結果は`[x]`、未評価は`[ ]`、未完了は`OPEN: 理由`、不適合は`FAIL: 理由`、非該当は`N/A: 理由`で記録する。
+
+- [ ] 自分自身のUI定義だけを正式入力として処置した
+- [ ] 利用者が得る結果、認識、操作、Feedbackおよび状態差を保持した
+- [ ] Architectureが担う責務と担わない責務を評価した
+- [ ] Boundary、主要ComponentおよびInterfaceの必要性を評価した
+- [ ] Data／State Ownershipを評価した
+- [ ] Authority、Effectおよび開示境界を評価した
+- [ ] Failure BoundaryとRecovery責任を評価した
+- [ ] Security／TrustとQuality Constraintを評価した
+- [ ] Human Inputの必要性を評価した
+- [ ] Open／GapとOwner工程へ戻す条件を明示した
+- [ ] Verification Intentを評価した
+- [ ] 現行Sourceや実装構造から意味を逆輸入していない
+- [ ] SPEC観点との統合時に確認する事項を明示した

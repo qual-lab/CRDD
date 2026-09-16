@@ -34,6 +34,9 @@
 | Resource Lifecycle | N/A | Runtime起動やProcess資源を所有せず、読取り評価だけを返す。 | [§1](#1-責務と依存) |
 | External Boundary | PASS | Artifact、署名検証、準拠結果、Policy Sourceを独立入力にする。 | [§2](#2-評価契約) |
 | Failure／Recovery | PASS | 一軸のunknownをtrustedへ畳まず、ArtifactまたはPolicy変更時に再評価する。 | [§4](#4-失敗と再評価) |
+| State／Consistency | PASS | verified、trusted、quality_assuredを独立状態にする。 | [§2](#2-評価契約) |
+| Observability | PASS | 軸別根拠と利用したPolicy revisionを返す。 | [§2](#2-評価契約) |
+| Security／Trust | PASS | Publisher証明と実行許可を分離し、利用者判断を奪わない。 | [§1](#1-責務と依存) |
 
 ## Qualityへの引渡し
 
@@ -96,3 +99,18 @@ Artifactを一回観測
 | Organization build | 利用組織 | 組織Publisherを許可可能 |
 | Fork build | 任意Publisher | 準拠・完全性・Policyで評価 |
 | Local development | unsigned | 明示したLocal用途だけ許可可能 |
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

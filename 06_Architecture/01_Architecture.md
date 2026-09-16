@@ -1,6 +1,6 @@
 # CRDD参照Toolのアーキテクチャ
 
-Status: Architecture Ready (v0.21.0, Released Baseline: v0.20.1)
+Status: Review Candidate (v0.21.0, Released Baseline: v0.20.1)
 Owner: Qual-Lab
 Last Updated: 2026-09-15
 
@@ -8,7 +8,7 @@ Last Updated: 2026-09-15
 
 本書はArchitecture工程の固定入口である。CanonicalなUI／SPECから導いた18件の責務定義と、それらをQualityが検証設計へ使える形に統合した横断モデルを案内する。個別定義の内容を再定義せず、対象、網羅状態、主要判断、未解決事項および次工程への引渡しを所有する。
 
-個別責務定義、横断モデルおよび15領域の詳細設計は独立レビューを完了した。Architecture工程はQualityが検証単位を再構成できる状態まで閉じ、現行実装との一致はQuality工程でReality Auditとして判定する。
+個別責務定義、横断モデルおよび15領域の詳細設計は、前回の独立レビューを完了している。現在は、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を追加した改訂候補を再レビュー中である。現行実装との一致は、Architecture再レビュー完了後にQuality工程でReality Auditとして判定する。
 
 ## 2. 工程入力と再構築方法
 

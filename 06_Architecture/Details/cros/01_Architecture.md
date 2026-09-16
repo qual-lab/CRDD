@@ -43,6 +43,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | Credential、Request Context、Workspace snapshotと管理回復の終了条件を分ける。 | [§16](#16-credentialと管理回復) |
 | External Boundary | PASS | v0.21 Shared Profileを信頼済み運用者向けの一Process／複数Trust Domain論理分離に限定する。 | [§17](#17-shared-host配置境界) |
 | Failure／Recovery | PASS | 競合更新、Credential紛失、Registry破損を別経路で停止・回復する。 | [§15](#15-registryとrequest-snapshot)、[§16](#16-credentialと管理回復) |
+| State／Consistency | PASS | 登録、Binding、Exposure、利用可能性、解除を別状態にする。 | [§9](#9-登録exposure解除) |
+| Observability | PASS | Source Coverage、欠測、制限、競合、観測時点を返す。 | [§12](#12-失敗と安全な結果) |
+| Security／Trust | PASS | Workspace Grant、Repository Exposure、System管理可否を相互昇格させない。 | [§5](#5-repository利用可否) |
 
 `PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
 
@@ -567,3 +570,18 @@ Request A ── authenticated domain A ──x── Domain B Root
 ```
 
 Workspace GrantはHost Shell、OS Accountまたは敵対的tenant間の強制隔離ではない。互いに信頼しないtenantを同じHost／Processへ収容する構成、Container／VMによる強分離、Linux system-wide配置はv0.21の保証外とし、必要な場合はProcessとOS Accountを分ける。対象外をWorkspaceだけで安全と表示しない。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

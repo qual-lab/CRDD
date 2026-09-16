@@ -39,6 +39,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | CandidateとProjectionのOwner、保持、採否、再生成、清掃条件を分ける。 | [§12](#12-identityprojectioncandidate契約) |
 | External Boundary | PASS | 分離RepositoryとCROSを境界とし、アクセス不能Contextを推測しない。 | [正本節](#3-repository分離とアクセス境界) |
 | Failure／Recovery | PASS | Repository IDをopaque identityとして扱い、Projectionの欠測・競合fieldを保持する。 | [§12](#12-identityprojectioncandidate契約) |
+| State／Consistency | PASS | Topic、Meeting、候補、採用先と履歴の状態を分ける。 | [§6](#6-topicとmeetingのlifecycle) |
+| Observability | PASS | 各表示値からSource、Revision、観測時点へ戻れるようにする。 | [§7](#7-project-management-projection) |
+| Security／Trust | PASS | Repository分離と利用可能性を保ち、非公開内容の存在を漏らさない。 | [§3](#3-repository分離とアクセス境界) |
 
 `PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
 
@@ -400,3 +403,18 @@ created ──→ under_review
 ```
 
 Candidateは`candidate_id`、source identity／revision、target owner、作成時点、状態、採否理由を持つ。本文または一時生成物はRuntime Dataの保持規則で清掃できるが、採否と正本へのrelationを再構成するための最小記録は保持する。Projectionは再生成可能であり正本化しない。清掃はOwner、参照、Recovery義務を確認した後にだけ行う。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

@@ -36,6 +36,9 @@
 | Resource Lifecycle | PASS | WriterのLock、一時物、Handleを公開確認または失敗settlement後に回収し、ReaderのHandleも終了時に残さない。 | [§5](#5-sequence) |
 | External Boundary | PASS | 作成側入力の受理／公開と、ReaderのSource取得不能／記録不存在をそれぞれ別状態で返す。 | [§6](#6-failurerecovery) |
 | Failure／Recovery | PASS | 公開Effect不明は同じExecution IdentityのAttemptへ再入場し、読取り不能時は状態を推測せず再取得可能な参照と理由だけを返す。 | [§6](#6-failurerecovery) |
+| State／Consistency | PASS | 記録Attemptとrecorded／not_recorded／unknown、読取りのobserved／not_observed／unknownを区別する。 | [§4](#4-state-model) |
+| Observability | PASS | 記録Attempt、公開確認、読取り結果と欠測理由を同じExecution Identityで相関可能にする。 | [§8](#8-observability) |
+| Security／Trust | PASS | 記録権限と読取り権限を分け、いずれも変更・採用・実行Authorityへ昇格させない。 | [§9](#9-security-boundary) |
 
 ## Qualityへの引渡し
 
@@ -176,3 +179,18 @@ Record PortとQueryはTypeScript APIとして同じ契約を公開し、CLI、MC
 - 開示不可Sourceの存在やIdentityを境界外へ漏らさない。
 - 評価候補は非Authorityであり、明示した決定権限者の判断を代替しない。
 - CanonicalなTask Identity、Revisionおよび観測時点を利用側で再解釈しない。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

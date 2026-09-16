@@ -842,7 +842,9 @@ Quality／Development
 
 各詳細設計領域は、関連するARCH-ID、領域固有の責務、必要な詳細成果物、Engineering Concern、Qualityへの引渡しおよび現行実装との照合を自己完結して示す。Component、Interface、Data Flow、State、Sequence、Failure／Recovery、Deployment、ObservabilityおよびSecurity Boundaryを全数適用判定し、不要な成果物を形式的に作らない。`Required`は実在する節または成果物へ接続し、`N/A`にはArchitecture上の理由を必須とする。未検討、一般的な説明または存在しない節名を`N/A`や根拠へ使わない。
 
-Engineering Concernは少なくともConcurrency、Timing、Resource Lifecycle、External BoundaryおよびFailure／Recoveryを`PASS`、`N/A`、`OPEN`または`FAIL`で評価する。結果だけのチェックボックスにせず、判断理由とEvidenceまたはRelated IDを保持する。`PASS`は設計上の処置と観測方法を説明できる場合だけ使用し、`OPEN`または`FAIL`を全体Passへ畳まない。
+Engineering Concernは少なくともConcurrency、Timing、Resource Lifecycle、External Boundary、State／Consistency、Failure／Recovery、ObservabilityおよびSecurity／Trustを`PASS`、`N/A`、`OPEN`または`FAIL`で評価する。結果だけのチェックボックスにせず、判断理由とEvidenceまたはRelated IDを保持する。`PASS`は設計上の処置と観測方法を説明できる場合だけ使用し、実装済みまたは試験済みを意味しない。`OPEN`または`FAIL`を全体Passへ畳まない。
+
+Architecture Analysis、Architecture DefinitionおよびCanonicalな各詳細設計領域は、成果物種別ごとの可視`## Checklist`を末尾に持つ。AnalysisはUIまたはSPECだけを正式入力としたこと、上流Contractを保持したこと、責務・境界・状態所有・失敗・未確認事項・検証意図を処置したことを確認する。DefinitionはUI／SPEC両分析の多対多統合、基本設計の自己完結性、DetailsおよびQualityへの引渡しを確認する。DetailsはApplicability、Engineering Concern、Qualityへの具体的引渡しおよびReality Audit境界を確認する。Checklistは作成者の自己確認であり、Checkerの構造確認、独立レビューの意味確認または実装・試験結果を代替しない。
 
 Qualityへの引渡しは定型文だけで終えず、領域固有の検証単位ごとに、対象、正常条件、反証する失敗、観測、終了後条件および未確認範囲を示す。Architecture定義から詳細領域への対応表、詳細領域からArchitecture定義への対応、および各領域文書のRelationは同じ多対多集合でなければならない。`Covered`は担当断面の設計が本文で具体化されている場合だけ使用し、補助的な一部処置は`Partial`、設計不足は`Missing`として扱う。
 

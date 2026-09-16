@@ -34,6 +34,9 @@
 | Resource Lifecycle | N/A | Process、Lock、動的外部資源を所有しない。中断時に保持するのは追跡情報である。 | [§4](#4-失敗と再開) |
 | External Boundary | PASS | 各レビュー、監査、試験は独立結果を返し、統合側が専門判断を上書きしない。 | [§2](#2-入力と結果) |
 | Failure／Recovery | PASS | 中断時は未確認範囲を保持し、是正後は新しい固定改訂版で確認をやり直す。 | [§4](#4-失敗と再開) |
+| State／Consistency | PASS | fixed、under_review、changes_required、verified、decision_requiredを区別する。 | [§3](#3-状態と処理順) |
+| Observability | PASS | 必須確認、未確認範囲、現在Gateを再構成可能にする。 | [§2](#2-入力と結果) |
+| Security／Trust | PASS | 専門判断、リスク受容、Release判断を統合処理から発行しない。 | [§1](#1-責務ブロック) |
 
 ## Qualityへの引渡し
 
@@ -83,3 +86,18 @@ under_review
 - 是正で対象revisionが変わった場合、修正前の確認結果を新候補へ流用しない。
 - Checker成功、試験件数、監査担当の割当だけから`verified`を生成しない。
 - 人間判断が必要な場合は、現在候補から未決事項を再計算して返す。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

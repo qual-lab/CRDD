@@ -39,6 +39,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | handle、Job、Socket、stale directory、repair記録をexact Identityへ結ぶ。 | [正本節](#5-状態資源回復) |
 | External Boundary | PASS | Windows APIとDocker Desktopで要求受理を完了とみなさない。 | [正本節](#3-操作ごとの境界) |
 | Failure／Recovery | PASS | 観測不能時はEffect不明と回復義務を保持する。 | [正本節](#5-状態資源回復) |
+| State／Consistency | PASS | 要求、受理、開始、完了、観測不能、回復待ちを分ける。 | [§5](#5-状態資源回復) |
+| Observability | PASS | OS結果、Process終了、Engine ready、残存資源を実境界で観測する。 | [§7](#7-検証への接続) |
+| Security／Trust | PASS | 検証済みbinaryと用途限定Capabilityだけを実Effectへ接続する。 | [§4](#4-バイナリ境界) |
 
 `PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
 
@@ -200,3 +203,18 @@ native部品自身は耐久Recovery recordを所有しない。呼出側はhelpe
 | Docker復旧 | docker_repair.rs内試験、[復旧Runtime試験](../../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts) |
 
 単体試験の合格から、本物のDocker Desktop復旧、署名済み配布物の実行または終了後資源0を推定しない。本番同等入口のE2Eと回復行列を別に実測する。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

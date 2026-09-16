@@ -38,6 +38,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | 読取りhandle、子Process、一時領域をRun所有として終了時に回収する。 | [§5](#5-資源と終了) |
 | External Boundary | PASS | Filesystem、Version Control Port、package入口の失敗を適合へ丸めない。 | [§4](#4-読取り境界) |
 | Failure／Recovery | PASS | Findingと実行不能を区別し、未検査範囲をPassへ含めない。 | [§6](#6-結果の意味と利用側) |
+| State／Consistency | PASS | 未開始、検査中、完了、実行不能と資源解放を区別する。 | [§5](#5-資源と終了) |
+| Observability | PASS | 検査範囲、未検査範囲、所要時間、Findingを返す。 | [§6](#6-結果の意味と利用側) |
+| Security／Trust | PASS | 検証済みRootだけを読み、link越境を確認済みにしない。 | [§4](#4-読取り境界) |
 
 `PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
 
@@ -191,3 +194,18 @@ Checkerは、現在の正本・案内・ひな型・Change・Work Lifecycle Evid
 | 試験そのものの脱落 | nested試験、重複・未知entry、TypeScript所有集合との差 | [試験列挙](../../../40_Develop/checker/test-discovery.ts)、[命名契約](../../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts) |
 
 この表は試験への接続であり、全件の最新実行結果ではない。結果は品質記録へ分離する。意味監査、初見利用者の理解、中断時の実子Process観測は、Checkerの指摘件数から証明しない。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

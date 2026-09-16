@@ -40,6 +40,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | durable、candidate、temporaryを分け、Owner、cleanup条件、再入場Identityを記録する。 | [正本節](#3-各領域の意味) |
 | External Boundary | PASS | Repository Root、OS Runtime Root、Version Control Portを境界化する。 | [正本節](#6-crosとの物理分離) |
 | Failure／Recovery | PASS | 観測不能または参照中の残存は削除せず義務として保持する。 | [正本節](#45-recoveryの所有) |
+| State／Consistency | PASS | durable、candidate、temporary、参照中、清掃可能を分ける。 | [§4.4](#44-lifecycle) |
+| Observability | PASS | Owner、参照、保持期限、清掃結果と終了後不存在を確認する。 | [§9](#9-完成条件) |
+| Security／Trust | PASS | Repository identity、Secret非格納、Root越境禁止を固定する。 | [§5](#5-configとrepository-identity) |
 
 `PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
 
@@ -359,3 +362,18 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 - Repository-local状態とCROS／User／Host Runtime状態を混在させない。
 - 現行のRecovery義務と正式Evidenceを失わず、旧Path Readerを0件にする。
 - 移行後に旧Pathを再生成する回帰試験を持つ。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

@@ -34,6 +34,9 @@
 | Resource Lifecycle | PASS | 候補、収載済み、派生成果物、取下げ記録の保持責務を分ける。 | [§3](#3-lifecycle) |
 | External Boundary | PASS | 提供者の申告、判断者の確認、Repository収載、Release公開を別境界にする。 | [§1](#1-責務ブロック) |
 | Failure／Recovery | PASS | 根拠不足はcandidateで停止し、取下げは新規用途を停止して影響先を追跡する。 | [§4](#4-失敗と停止) |
+| State／Consistency | PASS | candidate、approved、restricted、withdrawnを区別する。 | [§3](#3-lifecycle) |
+| Observability | PASS | 判断者、対象版、許可用途、根拠へ戻れるようにする。 | [§2](#2-素材記録) |
+| Security／Trust | PASS | 確認記録から法的判断、公開、用途外利用のAuthorityを生成しない。 | [§4](#4-失敗と停止) |
 
 ## Qualityへの引渡し
 
@@ -91,3 +94,18 @@ candidate
 - 確認記録はRepository収載、Release公開、派生利用のAuthorityではない。
 - `restricted`と`withdrawn`を`approved`へ丸めない。
 - 取下げ後は新規利用を停止し、既公開物への処置を人間判断へ戻す。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

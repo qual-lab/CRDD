@@ -41,6 +41,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | 子Process、stream、Container、候補、一時領域をTask／Attemptへ結ぶ。 | [正本節](#5-資源所有) |
 | External Boundary | PASS | Codex、Claude、Docker、OS Process、Filesystemへ診断可能なAdapterで接続する。 | [正本節](#13-検証接続) |
 | Failure／Recovery | PASS | 要求、受理、開始、結果、終了、cleanupを別状態にする。 | [正本節](#11-取消と回復) |
+| State／Consistency | PASS | Task、Attempt、Process、Container、Review、Recovery状態を分ける。 | [§4](#4-状態と遷移) |
+| Observability | PASS | Provider境界の各phaseと終了後資源を相関して診断する。 | [§13](#13-検証接続) |
+| Security／Trust | PASS | Provider Credential、外部送信同意、Runtime Capabilityを分離する。 | [§7](#7-authorityと外部送信) |
 
 `PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
 
@@ -717,3 +720,18 @@ CoordinatorはProject状態を再定義せず、Project RuntimeはProvider、OS�
 - Linux／Remote／Multi-projectの先行抽象化
 
 将来Remote RuntimeやOrganization Runtimeが必要になった場合は、実在する利用者・運用・Authority・Recoveryから新しいArchitectureを設計する。削除済みのLocal Personal準備契約を互換性名目で復活させない。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

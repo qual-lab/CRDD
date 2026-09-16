@@ -37,7 +37,10 @@ Relation状態はこの領域が担当する責務断面に対する状態であ
 | Timing | PASS／N/A／OPEN／FAIL | | |
 | Resource Lifecycle | PASS／N/A／OPEN／FAIL | | |
 | External Boundary | PASS／N/A／OPEN／FAIL | | |
+| State／Consistency | PASS／N/A／OPEN／FAIL | | |
 | Failure／Recovery | PASS／N/A／OPEN／FAIL | | |
+| Observability | PASS／N/A／OPEN／FAIL | | |
+| Security／Trust | PASS／N/A／OPEN／FAIL | | |
 
 ## Qualityへの引渡し
 
@@ -84,3 +87,20 @@ Process、package、Repository、OSまたはNetwork配置が意味へ影響す�
 ## 9. Security Boundary
 
 Trust、Authority、秘密、情報開示、許可されたEffectと拒否時Effect 0を示す。
+
+## Checklist
+
+結果は`[x]`、未評価は`[ ]`、未完了は`OPEN: 理由`、不適合は`FAIL: 理由`、非該当は`N/A: 理由`で記録する。
+
+- [ ] 関連するARCH-IDと担当する責務断面を明示した
+- [ ] 9種類の詳細成果物を全数Applicability判定した
+- [ ] Requiredを実在する節または成果物へ接続した
+- [ ] N/AにArchitecture上の理由を記録した
+- [ ] 8種類のEngineering Concernを全数評価した
+- [ ] PASSを設計済みの意味に限定した
+- [ ] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [ ] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [ ] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [ ] Human Inputの必要性とOpen／Gapを評価した
+- [ ] 現行実装との照合をReality Auditとして分離した
+- [ ] Source構造をCanonical詳細設計へ逆輸入していない

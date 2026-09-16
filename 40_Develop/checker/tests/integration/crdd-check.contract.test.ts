@@ -3825,6 +3825,55 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
   );
 });
 
+test("Architecture成果物は責務別の可視Checklistを必要とする", () => {
+  for (const relativePath of [
+    "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
+    "06_Architecture/Analysis/SPEC-000001/architecture_analysis.md",
+    "06_Architecture/Definitions/ARCH-000001/architecture_definition.md",
+    "06_Architecture/Details/sample/01_Architecture.md",
+  ]) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(root, relativePath);
+    write(
+      target,
+      fs
+        .readFileSync(target, "utf8")
+        .replace(/^## Checklist\s*$[\s\S]*$/mu, ""),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) =>
+        finding.code.startsWith("architecture-"),
+      ),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("Architecture詳細設計は8種類のEngineering Concernを全数評価する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const target = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    target,
+    fs
+      .readFileSync(target, "utf8")
+      .replace(/^\| Observability \|.*\r?\n/mu, ""),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
 test("UI観点のArchitecture分析はSPECや上流工程を正式入力にできない", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(
@@ -4738,9 +4787,10 @@ function specReconstructionFixtureRoot(): string {
 
 function architectureReconstructionFixtureRoot(): string {
   const root = specReconstructionFixtureRoot();
-  const uiAnalysis = `# UI-000001のArchitecture分析\n\n成果物種別: Architecture分析（UI観点）\n分析単位: \`UI-000001\`\n\n## 1. 正式入力\n\n- UI定義: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 2. Architectureへ引き継ぐUI契約\n\n利用者が結果と不完全性を区別し、安全な次の行動を選べること。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 利用者向け状態を独立して成立させる責務 |\n\n## 5. SPEC観点との統合時に確認すること\n\n状態差と結果契約を照合する。\n`;
-  const specAnalysis = `# SPEC-000001のArchitecture分析\n\n成果物種別: Architecture分析（SPEC観点）\n分析単位: \`SPEC-000001\`\n\n## 1. 正式入力\n\n- SPEC定義: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)\n\n## 2. Architectureへ引き継ぐSPEC契約\n\n契機、事前条件、Authority、結果、副作用、検証義務を保持する。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 振る舞い契約を独立して成立させる責務 |\n\n## 5. UI観点との統合時に確認すること\n\n結果契約と利用者が認識する状態差を照合する。\n`;
+  const uiAnalysis = `# UI-000001のArchitecture分析\n\n成果物種別: Architecture分析（UI観点）\n分析単位: \`UI-000001\`\n\n## 1. 正式入力\n\n- UI定義: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 2. Architectureへ引き継ぐUI契約\n\n利用者が結果と不完全性を区別し、安全な次の行動を選べること。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 利用者向け状態を独立して成立させる責務 |\n\n## 5. SPEC観点との統合時に確認すること\n\n状態差と結果契約を照合する。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md"))}\n`;
+  const specAnalysis = `# SPEC-000001のArchitecture分析\n\n成果物種別: Architecture分析（SPEC観点）\n分析単位: \`SPEC-000001\`\n\n## 1. 正式入力\n\n- SPEC定義: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)\n\n## 2. Architectureへ引き継ぐSPEC契約\n\n契機、事前条件、Authority、結果、副作用、検証義務を保持する。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 振る舞い契約を独立して成立させる責務 |\n\n## 5. UI観点との統合時に確認すること\n\n結果契約と利用者が認識する状態差を照合する。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md"))}\n`;
   const definition = `# 試験責務のArchitecture定義\n\n成果物種別: Architecture定義\nArchitecture ID: \`ARCH-000001\`\n\n## 1. 責務と境界\n\n利用者へ根拠付き状態を返し、表示と状態更新を分離する。\n\n| 観点 | 契約 |\n|---|---|\n| 状態Owner | 試験Core |\n| 所有する責務 | 状態の読取りと根拠付き結果 |\n| 所有しない責務 | UI表示と外部Effect |\n| 主な外部境界 | 状態Sourceと利用側 |\n\n## 2. UI観点の入力\n\n[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)\n\n## 3. SPEC観点の入力\n\n[SPEC-000001](../../Analysis/SPEC-000001/architecture_analysis.md)\n\n## 4. 両観点の統合判断\n\n| 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |\n|---|---|---|---|---|---|---|\n| UI-000001 | UI | 試験Core | Authorityを発行しない | 表示だけ | 不完全性を隠さない | 確認→判断 |\n| SPEC-000001 | SPEC | 試験Core | 閲覧Authority | 読取りだけ | 欠測を補完しない | 要求→読取り→結果 |\n\n## 5. 構造と依存方向\n\n\`\`\`text\n[利用側] -> [試験Core] -> [状態Source]\n\`\`\`\n\n## 6. データ・状態・Interface\n\n| 入力 | State Owner | Authority | Effect／非該当 |\n|---|---|---|---|\n| UI-000001 | 試験Core | なし | 表示だけ |\n| SPEC-000001 | 試験Core | 閲覧 | 読取りだけ |\n\n## 7. 失敗・回復・観測\n\n欠測と観測不能を分け、入力固有の失敗理由を返す。\n\n## 8. 品質・保護・運用\n\n| 入力 | 保護する失敗境界 | 検証可能性 |\n|---|---|---|\n| UI-000001 | 不完全性の隠蔽 | 状態差を確認 |\n| SPEC-000001 | 欠測の補完 | Effect 0を確認 |\n\n## 9. 互換性・移行・成立済み能力\n\n| 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |\n|---|---|---|---|---|---|\n| 基準版なし | なし | 試験Core | 新規 | 未作成 | 実装待ち |\n\n## 10. 実装と検証への引き渡し\n\n入力ごとのAuthority、Effect、失敗理由および終了状態を理由別に反証する。\n\n## 11. 情報源と現行照合\n\n正式入力は第2節と第3節の分析であり、現行実装は能力比較だけに使う。\n`;
+  const definitionWithChecklist = `${definition}\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md"))}\n`;
   write(
     path.join(root, "06_Architecture", "01_Architecture.md"),
     "# Architecture\n\nStatus: Candidate\n\n## Architecture定義台帳\n\n| Architecture定義 | 責務 | UI入力 | SPEC入力 |\n|---|---|---|---|\n| [試験責務](Definitions/ARCH-000001/architecture_definition.md) | 試験 | UI-000001 | SPEC-000001 |\n\n## Architecture横断モデル\n\n| 成果物 |\n|---|\n| [Component](02_Component_and_Responsibility_Model.md) |\n| [Boundary](03_Boundary_and_Interface_Model.md) |\n| [Flow](04_Runtime_and_Data_Flow_Model.md) |\n| [Failure](05_Failure_Recovery_and_Resilience_Model.md) |\n| [Deployment](06_Deployment_and_Execution_Model.md) |\n",
@@ -4773,7 +4823,7 @@ function architectureReconstructionFixtureRoot(): string {
       "ARCH-000001",
       "architecture_definition.md",
     ),
-    definition,
+    definitionWithChecklist,
   );
   write(
     path.join(root, "06_Architecture", "07_Detail_Architecture_Map.md"),
@@ -4788,6 +4838,22 @@ function architectureReconstructionFixtureRoot(): string {
       "01_Architecture.md",
     ),
     "# Sample Detail\n\n成果物種別: Architecture詳細設計\n詳細設計領域: sample\n状態: Candidate\n\n## 基本設計との関係\n\n| Architecture定義 | この領域が具体化する責務 | Relation状態 |\n|---|---|---|\n| [ARCH-000001](../../Definitions/ARCH-000001/architecture_definition.md) | 試験責務 | Covered |\n\n## 詳細成果物の適用判断\n\n| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |\n|---|---|---|---|\n| Component Model | Required | 責務を分ける | [§1](#1-component-model) |\n| Interface Model | Required | 契約を分ける | [§2](#2-interface-model) |\n| Data Flow | Required | Dataを追跡する | [§3](#3-data-flow) |\n| State Model | Required | 状態を分ける | [§4](#4-state-model) |\n| Sequence | Required | 順序を固定する | [§5](#5-sequence) |\n| Failure／Recovery | Required | 失敗を分ける | [§6](#6-failurerecovery) |\n| Deployment | N/A | Process配置を持たない | [§7](#7-deployment) |\n| Observability | Required | 結果を観測する | [§8](#8-observability) |\n| Security Boundary | Required | Authorityを分ける | [§9](#9-security-boundary) |\n\n## Engineering Concern評価\n\n| Concern | Result | Rationale | Evidence／Related ID |\n|---|---|---|---|\n| Concurrency | N/A | 共有状態がない | [§1](#1-component-model) |\n| Timing | N/A | 時間制約がない | [§5](#5-sequence) |\n| Resource Lifecycle | PASS | Run単位で回収する | [§4](#4-state-model) |\n| External Boundary | PASS | 境界を分ける | [§2](#2-interface-model) |\n| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |\n\n## Qualityへの引渡し\n\n| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |\n|---|---|---|---|---|---|---|\n| sample | Core | 根拠付き結果 | 欠測補完 | result | Effect 0 | なし |\n\n## 現行実装との照合\n\n実装は後から照合する。\n\n## 1. Component Model\n\nCore。\n\n## 2. Interface Model\n\n契約。\n\n## 3. Data Flow\n\nFlow。\n\n## 4. State Model\n\nState。\n\n## 5. Sequence\n\nSequence。\n\n## 6. Failure／Recovery\n\nFailure。\n\n## 7. Deployment\n\nN/A。\n\n## 8. Observability\n\nObservation。\n\n## 9. Security Boundary\n\nBoundary。\n",
+  );
+  const detailFixturePath = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    detailFixturePath,
+    `${fs
+      .readFileSync(detailFixturePath, "utf8")
+      .replace(
+        "| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |",
+        "| State／Consistency | PASS | 状態と整合条件を分ける | [§4](#4-state-model) |\n| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |\n| Observability | PASS | 結果を相関して観測する | [§8](#8-observability) |\n| Security／Trust | PASS | AuthorityとTrustを分ける | [§9](#9-security-boundary) |",
+      )}\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Details/area/01_Architecture.md"))}\n`,
   );
   for (const model of [
     "02_Component_and_Responsibility_Model.md",
@@ -4811,7 +4877,10 @@ function architectureReconstructionFixtureRoot(): string {
     "template/06_Architecture/07_Detail_Architecture_Map.md",
     "template/06_Architecture/Details/area/01_Architecture.md",
   ])
-    write(path.join(root, relativePath), "# template\n");
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
+    );
   return root;
 }
 

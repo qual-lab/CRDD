@@ -1401,7 +1401,7 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 | IA Analysis／Definition | 32／22。全入力UXの利用場面、対象、識別、関係、状態、可視性、時間差、導線、責任、判断権限、失敗および検証意図を保持した。209 Analysis Objectと157適用対象Source Identity行を全数照合し、DefinitionがAnalysisのIdentity／Relationを後付けで再解釈できないChecker契約を追加した。不一致0件、`Merge`／`Split` 0件、3横断投影は各22 IA-IDを一意に処置し、独立再レビューでIA工程を閉じた |
 | UI Analysis／Definition | UX観点32／IA観点22／Definition 20。正式入力に残る未確認事項を全54分析と20定義へ継承し、UI固有判断と分けた。UI契約は対応レビュー入力Readyだが、Prototype／実画面評価と人間によるUI工程Exit判断はOPEN |
 | SPEC Analysis／Definition | UX観点32／IA観点22／Definition 29。正式入力に残る未確認事項を全54分析と29定義へ継承した。全UX観点分析へSource固有の境界を明示し、外部送信のEffect成立後・結果不明・同一依頼再観測を独立契約として保持した。独立再レビューCritical／Major／Moderate／Minor 0でPass |
-| Architecture Analysis／Definition／Details | UI観点20／SPEC観点29／Definition 18。読取りProjectionを`ARCH-000007`、Canonical記録・並行Writer・不変公開・Effect不明時の回復を`ARCH-000018`へ分離し、execution-intelligence詳細設計へ接続した。既レビュー済み17定義の結果を新候補へ流用せず、更新した18定義を独立再レビューしてArchitecture Readyを再確定した |
+| Architecture Analysis／Definition／Details | UI観点20／SPEC観点29／Definition 18。読取りProjectionを`ARCH-000007`、Canonical記録・並行Writer・不変公開・Effect不明時の回復を`ARCH-000018`へ分離し、execution-intelligence詳細設計へ接続した。既レビュー済み17定義の結果を新候補へ流用せず、更新した18定義を独立再レビューしてArchitecture Readyを再確定した。その後、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を追加したため、現在状態をReview Candidateへ戻し、更新後の固定候補を再レビューする |
 | 全体Checker | `errors: 0`、`warnings: 0` |
 | Discovery Checklist | Root 1件、探索28件、要求36件の全成果物に可視Checklistがあり、`[x]`921件、理由付き`N/A`111件、`OPEN`／`FAIL`／未評価の`[ ]`は0件。ひな型3件は可視Checklistと未評価の`[ ]`を持つ |
 | Discovery Checklist契約試験 | 非表示だけのChecklist、完成成果物の`[ ]`、理由形式のない結果、Checklist後の本文、別成果物用Checklist、単一汎用項目、およびひな型の項目を後続Sectionへ移す構造を拒否し、理由付き`OPEN`／`FAIL`／`N/A`を受理するFocused試験4／4 Pass |

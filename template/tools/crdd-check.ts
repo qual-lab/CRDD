@@ -863,6 +863,70 @@ const uiSpecCorrespondenceChecklistItemTexts = [
   "未決事項をAI推測で補完していない",
 ];
 
+const architectureUiAnalysisChecklistItemTexts = [
+  "自分自身のUI定義だけを正式入力として処置した",
+  "利用者が得る結果、認識、操作、Feedbackおよび状態差を保持した",
+  "Architectureが担う責務と担わない責務を評価した",
+  "Boundary、主要ComponentおよびInterfaceの必要性を評価した",
+  "Data／State Ownershipを評価した",
+  "Authority、Effectおよび開示境界を評価した",
+  "Failure BoundaryとRecovery責任を評価した",
+  "Security／TrustとQuality Constraintを評価した",
+  "Human Inputの必要性を評価した",
+  "Open／GapとOwner工程へ戻す条件を明示した",
+  "Verification Intentを評価した",
+  "現行Sourceや実装構造から意味を逆輸入していない",
+  "SPEC観点との統合時に確認する事項を明示した",
+];
+
+const architectureSpecAnalysisChecklistItemTexts = [
+  "自分自身のSPEC定義だけを正式入力として処置した",
+  "契機、事前条件、Authority、状態、結果およびEffectを保持した",
+  "Architectureが担う責務と担わない責務を評価した",
+  "Boundary、主要ComponentおよびInterfaceの必要性を評価した",
+  "Data／State Ownershipを評価した",
+  "External Boundaryと終了後観測を評価した",
+  "Failure BoundaryとRecovery責任を評価した",
+  "Security／TrustとQuality Constraintを評価した",
+  "Human Inputの必要性を評価した",
+  "Open／GapとOwner工程へ戻す条件を明示した",
+  "Verification Intentを評価した",
+  "現行Sourceや実装構造から意味を逆輸入していない",
+  "UI観点との統合時に確認する事項を明示した",
+];
+
+const architectureDefinitionChecklistItemTexts = [
+  "UI分析とSPEC分析だけを正式入力として統合した",
+  "UI ContractとSPEC Contractを入力別に保持した",
+  "独立したArchitecture Responsibilityを説明できる",
+  "所有する責務、所有しない責務およびBoundaryを明示した",
+  "Major Component、Interfaceおよび依存方向を明示した",
+  "Data／State Ownershipを明示した",
+  "Authority、EffectおよびLifecycleを入力別に評価した",
+  "Failure Boundary、Recovery責任および観測を明示した",
+  "Security／TrustとQuality Constraintを評価した",
+  "Human Inputの必要性とOpen／Gapを評価した",
+  "DetailsへのHandoffを明示した",
+  "Qualityへ渡すVerification Intentを明示した",
+  "現行Sourceや実装構造から意味を逆輸入していない",
+  "上流の観測可能な振る舞いをArchitectureで変更していない",
+];
+
+const architectureDetailChecklistItemTexts = [
+  "関連するARCH-IDと担当する責務断面を明示した",
+  "9種類の詳細成果物を全数Applicability判定した",
+  "Requiredを実在する節または成果物へ接続した",
+  "N/AにArchitecture上の理由を記録した",
+  "8種類のEngineering Concernを全数評価した",
+  "PASSを設計済みの意味に限定した",
+  "Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した",
+  "Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した",
+  "Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した",
+  "Human Inputの必要性とOpen／Gapを評価した",
+  "現行実装との照合をReality Auditとして分離した",
+  "Source構造をCanonical詳細設計へ逆輸入していない",
+];
+
 function checklistItemText(line: string): string | null {
   const checked = /^- \[x\] (?<text>\S.*)$/u.exec(line);
   if (checked?.groups?.text) return checked.groups.text;
@@ -3828,6 +3892,66 @@ function checkArchitectureReconstruction(): void {
   );
   if (!lstatIfPresent(architectureIndexPath)?.isFile()) return;
 
+  for (const [templatePath, expectedItems] of [
+    [
+      path.join(
+        root,
+        "template",
+        "06_Architecture",
+        "Analysis",
+        "UI-XXXXXX",
+        "architecture_analysis.md",
+      ),
+      architectureUiAnalysisChecklistItemTexts,
+    ],
+    [
+      path.join(
+        root,
+        "template",
+        "06_Architecture",
+        "Analysis",
+        "SPEC-XXXXXX",
+        "architecture_analysis.md",
+      ),
+      architectureSpecAnalysisChecklistItemTexts,
+    ],
+    [
+      path.join(
+        root,
+        "template",
+        "06_Architecture",
+        "Definitions",
+        "ARCH-XXXXXX",
+        "architecture_definition.md",
+      ),
+      architectureDefinitionChecklistItemTexts,
+    ],
+    [
+      path.join(
+        root,
+        "template",
+        "06_Architecture",
+        "Details",
+        "area",
+        "01_Architecture.md",
+      ),
+      architectureDetailChecklistItemTexts,
+    ],
+  ] as const) {
+    if (!lstatIfPresent(templatePath)?.isFile()) continue;
+    const checklistError = templateVisibleChecklistError(
+      read(templatePath),
+      expectedItems,
+    );
+    if (checklistError)
+      add(
+        "error",
+        "architecture-template-checklist-contract-invalid",
+        relative(templatePath),
+        `Each Architecture template must expose one visible artifact-specific Checklist with unevaluated items and result guidance (${checklistError}).`,
+      );
+  }
+
   const sectionBody = (source: string, heading: string): string => {
     const escaped = heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     return (
@@ -3892,6 +4016,12 @@ function checkArchitectureReconstruction(): void {
         continue;
       }
       const source = visibleMarkdownStructure(read(analysisPath));
+      const checklistError = completedVisibleChecklistError(
+        read(analysisPath),
+        kind === "UI"
+          ? architectureUiAnalysisChecklistItemTexts
+          : architectureSpecAnalysisChecklistItemTexts,
+      );
       const inputSection = sectionBody(source, "## 1. 正式入力");
       const expectedInput =
         kind === "UI"
@@ -3931,13 +4061,14 @@ function checkArchitectureReconstruction(): void {
         forbiddenInput.test(inputSection) ||
         !requiredHeadings.every((heading) => source.includes(heading)) ||
         relations.length === 0 ||
-        new Set(relations).size !== relations.length
+        new Set(relations).size !== relations.length ||
+        checklistError
       )
         add(
           "error",
           "architecture-analysis-contract-invalid",
           relative(analysisPath),
-          "Each Architecture analysis must use exactly its own UI or SPEC definition as formal input and identify one or more duplicate-free responsibility definitions.",
+          `Each Architecture analysis must use exactly its own UI or SPEC definition as formal input, identify one or more duplicate-free responsibility definitions, and contain one visible, fully evaluated artifact-specific Checklist${checklistError ? ` (${checklistError})` : ""}.`,
         );
     }
 
@@ -4140,6 +4271,10 @@ function checkArchitectureReconstruction(): void {
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       actualDefinitions.add(entry.name);
       const source = visibleMarkdownStructure(read(definitionPath));
+      const checklistError = completedVisibleChecklistError(
+        read(definitionPath),
+        architectureDefinitionChecklistItemTexts,
+      );
       const uiSection = sectionBody(source, "## 2. UI観点の入力");
       const specSection = sectionBody(source, "## 3. SPEC観点の入力");
       const relations = [
@@ -4188,13 +4323,14 @@ function checkArchitectureReconstruction(): void {
         !requiredStructures.every((fragment) => source.includes(fragment)) ||
         hasPlaceholderOnlySection ||
         !/UI-[0-9]{6}/u.test(uiSection) ||
-        !/SPEC-[0-9]{6}/u.test(specSection)
+        !/SPEC-[0-9]{6}/u.test(specSection) ||
+        checklistError
       )
         add(
           "error",
           "architecture-definition-contract-invalid",
           relative(definitionPath),
-          "Each Architecture definition must integrate at least one UI analysis and one SPEC analysis into a self-contained responsibility definition.",
+          `Each Architecture definition must integrate at least one UI analysis and one SPEC analysis into a self-contained responsibility definition with one visible, fully evaluated artifact-specific Checklist${checklistError ? ` (${checklistError})` : ""}.`,
         );
     }
 
@@ -4327,6 +4463,10 @@ function checkArchitectureReconstruction(): void {
         continue;
       }
       const source = visibleMarkdownStructure(read(detailPath));
+      const checklistError = completedVisibleChecklistError(
+        read(detailPath),
+        architectureDetailChecklistItemTexts,
+      );
       const relationSection = sectionBody(source, "## 基本設計との関係");
       let areaRelationCount = 0;
       let hasInvalidRelation = false;
@@ -4380,7 +4520,10 @@ function checkArchitectureReconstruction(): void {
         "Timing",
         "Resource Lifecycle",
         "External Boundary",
+        "State／Consistency",
         "Failure／Recovery",
+        "Observability",
+        "Security／Trust",
       ]);
       const applicabilityNames = applicabilityRows
         .slice(1)
@@ -4465,13 +4608,14 @@ function checkArchitectureReconstruction(): void {
         hasInvalidApplicability ||
         hasInvalidConcern ||
         hasInvalidQualityHandoff ||
-        hasUnresolvedWhenReady
+        hasUnresolvedWhenReady ||
+        checklistError
       )
         add(
           "error",
           "architecture-detail-contract-invalid",
           relative(detailPath),
-          "Each detailed design area must expose unique relation states, all nine applicability decisions, all five concern decisions, a structured Quality handoff, and no unresolved item when Architecture Ready.",
+          `Each detailed design area must expose unique relation states, all nine applicability decisions, all eight concern decisions, a structured Quality handoff, one visible fully evaluated Checklist, and no unresolved item when Architecture Ready${checklistError ? ` (${checklistError})` : ""}.`,
         );
     }
   if (

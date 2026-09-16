@@ -87,3 +87,22 @@ UI上の約束とSPEC上の振る舞いを、どの責務、状態所有、Port�
 - [SPEC-XXXXXXのArchitecture分析](../../Analysis/SPEC-XXXXXX/architecture_analysis.md)
 
 現行設計と実装は成立済みCapabilityとの比較にだけ使い、UI／SPECにない意味を補わない。
+
+## Checklist
+
+結果は`[x]`、未評価は`[ ]`、未完了は`OPEN: 理由`、不適合は`FAIL: 理由`、非該当は`N/A: 理由`で記録する。
+
+- [ ] UI分析とSPEC分析だけを正式入力として統合した
+- [ ] UI ContractとSPEC Contractを入力別に保持した
+- [ ] 独立したArchitecture Responsibilityを説明できる
+- [ ] 所有する責務、所有しない責務およびBoundaryを明示した
+- [ ] Major Component、Interfaceおよび依存方向を明示した
+- [ ] Data／State Ownershipを明示した
+- [ ] Authority、EffectおよびLifecycleを入力別に評価した
+- [ ] Failure Boundary、Recovery責任および観測を明示した
+- [ ] Security／TrustとQuality Constraintを評価した
+- [ ] Human Inputの必要性とOpen／Gapを評価した
+- [ ] DetailsへのHandoffを明示した
+- [ ] Qualityへ渡すVerification Intentを明示した
+- [ ] 現行Sourceや実装構造から意味を逆輸入していない
+- [ ] 上流の観測可能な振る舞いをArchitectureで変更していない

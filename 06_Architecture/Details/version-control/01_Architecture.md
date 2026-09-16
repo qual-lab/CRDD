@@ -40,6 +40,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | subprocess、snapshot、一時出力をOperation所有にする。 | [正本節](#7-検証) |
 | External Boundary | PASS | GitをAdapterとして扱い、commit済みをCoreの成立条件にしない。 | [正本節](#3-目的別port) |
 | Failure／Recovery | PASS | Root不明、worktree、submodule、fake `.git`、観測不能を区別する。 | [正本節](#7-検証) |
+| State／Consistency | PASS | 未検証、検証済み、変化検出、観測不能を分ける。 | [§4](#4-capabilityと再確認) |
+| Observability | PASS | Root kind、revision、dirty state、観測時点、失敗理由を返す。 | [§7](#7-検証) |
+| Security／Trust | PASS | 読めるPathを自動的に許可済みRepositoryへ昇格しない。 | [§2](#2-責務境界) |
 
 `PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
 
@@ -246,3 +249,18 @@ template/tools/crdd-check.ts
 - Git履歴が不要なRuntime DataをVersion Control Componentへ移さない。
 - Remote Repository Hosting、認証、push／pullおよびServer側Git管理は本変更へ含めない。
 - Object Format差、submoduleおよびlinked worktreeで保持すべき既存Capabilityは、段階移行の実測で再確認する。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

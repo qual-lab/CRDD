@@ -72,3 +72,19 @@ API、Process、保存方式、画面、部品または実装技術を本定義�
 - 対応候補: UI-000017
 - この分析にある状態、操作、Feedback、Authority、Effectの適用／非適用、失敗を、対応UIの契機と結果へ一つずつ照合する。
 - 差分がある場合はArchitectureで推測せず、UI／SPEC対応レビューへ戻す。
+
+## Checklist
+
+- [x] 自分自身のSPEC定義だけを正式入力として処置した
+- [x] 契機、事前条件、Authority、状態、結果およびEffectを保持した
+- [x] Architectureが担う責務と担わない責務を評価した
+- [x] Boundary、主要ComponentおよびInterfaceの必要性を評価した
+- [x] Data／State Ownershipを評価した
+- [x] External Boundaryと終了後観測を評価した
+- [x] Failure BoundaryとRecovery責任を評価した
+- [x] Security／TrustとQuality Constraintを評価した
+- [x] Human Inputの必要性を評価した
+- [x] Open／GapとOwner工程へ戻す条件を明示した
+- [x] Verification Intentを評価した
+- [x] 現行Sourceや実装構造から意味を逆輸入していない
+- [x] UI観点との統合時に確認する事項を明示した

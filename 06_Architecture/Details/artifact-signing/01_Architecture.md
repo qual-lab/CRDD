@@ -37,6 +37,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | 鍵bytes、passphrase bytes、一回限りAuthorizationとstagingの終了条件を分ける。 | [§3](#3-鍵参照と署名の状態遷移) |
 | External Boundary | PASS | 暗号ProviderとFilesystemを独立境界として扱う。 | [§4](#4-公開契約) |
 | Failure／Recovery | PASS | 署名、配置、検証を別状態にし、途中結果を公開可能と扱わない。 | [§5](#5-検証境界) |
+| State／Consistency | PASS | 事前検査、鍵読取り、署名、配置を別状態にする。 | [§3](#3-鍵参照と署名の状態遷移) |
+| Observability | PASS | 署名、配置、公開のどこまで成立したかを区別する。 | [§5](#5-検証境界) |
+| Security／Trust | PASS | 秘密鍵、passphrase、期待Publisherを独立して保護する。 | [§2](#2-責務境界) |
 
 `PASS`は詳細設計上の処置が定義済みであることだけを示し、実装済み・試験済みを意味しない。
 
@@ -152,3 +155,18 @@ Coordinator Release Adapter
 | 配布 | Artifact Signingの到達Sourceとpackage metadataがRuntime Execution Identityへ含まれる |
 
 試験用鍵によるComponent検証と、公式鍵を使う正式署名を分離する。Component試験の成功または署名成功だけから、Coordinator Manifestの正しさ、staging配置またはRelease完了を推定しない。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

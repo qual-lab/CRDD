@@ -71,3 +71,19 @@ publishing
 - 対応候補: SPEC-000030
 - UIが必要とする記録依頼、結果状態、同一試行の再観測、情報最小化および終了後条件がSPECで観測可能かを一つずつ照合する。
 - 差分がある場合はArchitectureで補完せずUI／SPEC対応レビューへ戻す。
+
+## Checklist
+
+- [x] 自分自身のUI定義だけを正式入力として処置した
+- [x] 利用者が得る結果、認識、操作、Feedbackおよび状態差を保持した
+- [x] Architectureが担う責務と担わない責務を評価した
+- [x] Boundary、主要ComponentおよびInterfaceの必要性を評価した
+- [x] Data／State Ownershipを評価した
+- [x] Authority、Effectおよび開示境界を評価した
+- [x] Failure BoundaryとRecovery責任を評価した
+- [x] Security／TrustとQuality Constraintを評価した
+- [x] Human Inputの必要性を評価した
+- [x] Open／GapとOwner工程へ戻す条件を明示した
+- [x] Verification Intentを評価した
+- [x] 現行Sourceや実装構造から意味を逆輸入していない
+- [x] SPEC観点との統合時に確認する事項を明示した

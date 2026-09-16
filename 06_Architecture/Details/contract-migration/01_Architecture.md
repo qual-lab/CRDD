@@ -34,6 +34,9 @@
 | Resource Lifecycle | N/A | Processや動的外部資源を所有せず、移行状態とEvidenceを追跡する。 | [§1](#1-移行単位) |
 | External Boundary | PASS | 署名、Release、公開Transport、RecoveryもConsumer集合に含める。 | [§2](#2-consumer-closure) |
 | Failure／Recovery | PASS | 中断時は未移行Consumerと旧契約禁止状態を保持し、同じ固定候補へ再入場する。 | [§4](#4-失敗と再入場) |
+| State／Consistency | PASS | inventoried、migrating、verified、retired、blockedを分ける。 | [§3](#3-状態と完了条件) |
+| Observability | PASS | 宣言集合、自動導出集合、差分、試験、旧参照0を観測する。 | [§2](#2-consumer-closure) |
+| Security／Trust | PASS | Canonical Path、Identity、StateをConsumer側で再解釈しない。 | [§4](#4-失敗と再入場) |
 
 ## Qualityへの引渡し
 
@@ -87,3 +90,18 @@ inventoried → migrating → verified → retired
 - 移行中断時は未処置Consumer、旧経路、適用済み範囲を保持する。
 - Consumer追加で導出集合が変わった場合は、固定候補と閉包を再評価する。
 - 安全に独立保留できないConsumerを将来改善へ退避しない。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない
