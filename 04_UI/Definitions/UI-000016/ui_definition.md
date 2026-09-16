@@ -26,8 +26,8 @@ UI ID: `UI-000016`
 
 | UX分析 | 利用者が得たい結果 | 対応するIA分析 | UIで成立させる対応 |
 |---|---|---|---|
-| [UX-000024](../../Analysis/UX-000024/ui_analysis.md) | 不要情報を漏らさず人間判断を保って外部連携できる | [IA-000014](../../Analysis/IA-000014/ui_analysis.md) | 送信先（Destination）、目的（Purpose）、情報分類（Information Classification）、同意（Consent）、送信する最小情報、作業（Task）、持帰り結果（Returned Result）、候補（Candidate）、判断（Decision）を見分ける。状態は「未許可（not_authorized）／許可済み（authorized）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）」。導線は「送信候補→境界確認→送信する最小情報→送信→出所付き結果→採否」 |
-| [UX-000024](../../Analysis/UX-000024/ui_analysis.md) | 不要情報を漏らさず人間判断を保って外部連携できる | [IA-000017](../../Analysis/IA-000017/ui_analysis.md) | 送信先（Destination）、目的（Purpose）、情報分類（Information Classification）、同意（Consent）、送信する最小情報、作業（Task）、持帰り結果（Returned Result）、候補（Candidate）、判断（Decision）を見分ける。状態は「未許可（not_authorized）／許可済み（authorized）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）」。導線は「送信候補→境界確認→送信する最小情報→送信→出所付き結果→採否」 |
+| [UX-000024](../../Analysis/UX-000024/ui_analysis.md) | 不要情報を漏らさず人間判断を保って外部連携できる | [IA-000014](../../Analysis/IA-000014/ui_analysis.md) | 送信先（Destination）、目的（Purpose）、情報分類（Information Classification）、同意（Consent）、送信する最小情報、作業（Task）、持帰り結果（Returned Result）、候補（Candidate）、判断（Decision）を見分ける。状態は「未許可（not_authorized）／許可済み（authorized）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）」。採用／却下／保留は既存の判断（Decision）へ返る結果値として認識し、却下／保留をCandidate状態へ追加しない。導線は「送信候補→境界確認→送信する最小情報→送信→出所付き結果→採否」 |
+| [UX-000024](../../Analysis/UX-000024/ui_analysis.md) | 不要情報を漏らさず人間判断を保って外部連携できる | [IA-000017](../../Analysis/IA-000017/ui_analysis.md) | 送信先（Destination）、目的（Purpose）、情報分類（Information Classification）、同意（Consent）、送信する最小情報、作業（Task）、持帰り結果（Returned Result）、候補（Candidate）、判断（Decision）を見分ける。状態は「未許可（not_authorized）／許可済み（authorized）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）」。採用／却下／保留は既存の判断（Decision）へ返る結果値として認識し、却下／保留をCandidate状態へ追加しない。導線は「送信候補→境界確認→送信する最小情報→送信→出所付き結果→採否」 |
 
 UIはUX側の目的だけでも、IA側の対象一覧だけでも成立しない。各行の利用者成果を、対応する情報・状態・関係・導線で判断可能にした時だけ、このUIの意味が成立する。
 
@@ -75,8 +75,8 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | UX／IAの対応 | 区別する状態 | 状態から進む導線 |
 |---|---|---|
-| UX-000024／IA-000014 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）／却下（rejected）／保留（held） | 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。却下・保留は同じ候補と出所へ戻り、所有正本を変更しない。自動再送は行わない |
-| UX-000024／IA-000017 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted）／却下（rejected）／保留（held） | 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。却下・保留は同じ候補と出所へ戻り、所有正本を変更しない。自動再送は行わない |
+| UX-000024／IA-000014 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） | 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない |
+| UX-000024／IA-000017 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） | 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない |
 
 上表にない処理中、取消、回復その他の状態を一律に追加しない。値なし、未観測、古い値、競合、開示制限または結果不明は、該当するIA定義が要求する場合にだけ別状態として示す。
 
@@ -99,8 +99,8 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | UX | IA | UIで観測可能にすべき操作・Feedback | SPEC側で未確定の振る舞い |
 |---|---|---|---|
-| UX-000024 | IA-000014 | 同意、要求、受理、Effect不明、Effect成立、Effect成立・結果不明、結果観測、投影、採用、却下、保留を分離する | IA-000014が示す状態・関係を入力条件、成功・停止条件へ接続する。要求受理後のEffect不明では成立を推測せず同じ依頼を再観測し、Effect成立・結果不明では成立済みEffectを保持して結果搬送または再観測へ戻り、どちらも自動再送しない。却下・保留では所有正本を変更しない結果を確定する |
-| UX-000024 | IA-000017 | 同意、要求、受理、Effect不明、Effect成立、Effect成立・結果不明、結果観測、投影、採用、却下、保留を分離する | IA-000017が示す状態・関係を入力条件、成功・停止条件へ接続する。接続済みを包括許可にせず、二つの不明状態を未送信へ畳まず、外部反応を要求・因果・方針へ自動昇格しない。却下・保留では所有正本を変更しない結果を確定する |
+| UX-000024 | IA-000014 | 同意、要求、受理、Effect不明、Effect成立、Effect成立・結果不明、結果観測、投影を状態・観測Feedbackとして分離する。採用は所有正本への反映結果、却下・保留は同じ候補へ結合した判断（Decision）の結果値として示す | IA-000014が示す状態・関係を入力条件、成功・停止条件へ接続する。要求受理後のEffect不明では成立を推測せず同じ依頼を再観測し、Effect成立・結果不明では成立済みEffectを保持して結果搬送または再観測へ戻り、どちらも自動再送しない。却下・保留では所有正本を変更しない結果を確定する |
+| UX-000024 | IA-000017 | 同意、要求、受理、Effect不明、Effect成立、Effect成立・結果不明、結果観測、投影を状態・観測Feedbackとして分離する。採用は所有正本への反映結果、却下・保留は同じ候補へ結合した判断（Decision）の結果値として示す | IA-000017が示す状態・関係を入力条件、成功・停止条件へ接続する。接続済みを包括許可にせず、二つの不明状態を未送信へ畳まず、外部反応を要求・因果・方針へ自動昇格しない。却下・保留では所有正本を変更しない結果を確定する |
 
 SPECはこの表の結論を転記せず、UX観点とIA観点を別々に分析する。UIの操作に対応する発火条件・結果がない、またはSPECの結果を利用者が認識できない場合は対応レビューを通過しない。
 
