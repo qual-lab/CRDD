@@ -34,7 +34,7 @@ Architecture ID: `ARCH-000003`
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000015 | UI | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required） / 固定版→監査集合→統合方針→是正→再固定→判断 / ；計画済み（planned）／未実行（not_executed）／合格（passed）／失敗（failed）／停止（blocked）／非該当（not_applicable） / 変更→不確実性→試験層→実行結果→現在保証 / ；計画済み（planned）／進行中（in_progress）／確認済み（verified）／公開済み（released）と品質状態を別にする / Roadmap→Change→対象ファイル→Evidence→Quality→Release /  |
+| UI-000015 | UI | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む。 | UI契約はEffectを定義しない | 一部是正や監査回数を完成と誤認する／単発成功や試験件数から一連の状態変化全体を保証する／同じ説明を複製し代表ファイルだけで済ませる | 固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required） / 固定版→監査集合→統合方針→是正→再固定→判断 / ；計画済み（planned）／未実行（not_executed）／合格（passed）／失敗（failed）／停止（blocked）／非該当（not_applicable） / 変更→不確実性→試験層→実行結果→現在保証 / ；計画済み（planned）／進行中（in_progress）／確認済み（verified）／公開済み（released）と品質状態を別にする / Roadmap→Change→対象ファイル→Evidence→Quality→Release /  |
 | SPEC-000020 | SPEC | Quality Centerと変更追跡 | 各レビューは所管範囲を評価し、人間が工程移行・採用・Releaseを決める | 評価記録は更新できるが、Pass表示から統合・Release Effectを自動発行しない。 | 試験件数や一部監査完了から全体Passを推定しない。 | [変更候補] -> [レビュー／監査／試験を対応付け]  -> [Pass／Finding／未実施／非該当] -> [残るGate] |
 
 ## 5. 構造と依存方向
@@ -62,7 +62,7 @@ Architecture ID: `ARCH-000003`
 
 ## 7. 失敗・回復・観測
 
-- UI-000015: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- UI-000015: 一部是正や監査回数を完成と誤認する／単発成功や試験件数から一連の状態変化全体を保証する／同じ説明を複製し代表ファイルだけで済ませる Effect: UI契約はEffectを定義しない
 - SPEC-000020: 試験件数や一部監査完了から全体Passを推定しない。 Effect: 評価記録は更新できるが、Pass表示から統合・Release Effectを自動発行しない。
 
 - 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
@@ -72,7 +72,7 @@ Architecture ID: `ARCH-000003`
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000015 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000015 | 一部是正や監査回数を完成と誤認する／単発成功や試験件数から一連の状態変化全体を保証する／同じ説明を複製し代表ファイルだけで済ませる | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000020 | 試験件数や一部監査完了から全体Passを推定しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。

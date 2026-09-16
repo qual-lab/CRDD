@@ -125,7 +125,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### UX-000023から継承する確認事項
 
-正式入力: [UX-000023](../../../02_UX/Definitions/UX-000023/ux_definition.md)
+入力Definitionから継承した確認事項の由来: [UX-000023](../../../02_UX/Definitions/UX-000023/ux_definition.md)
 
 未確認事項は、統合元の要求ごとに次を保持する。
 
@@ -141,7 +141,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### UX-000026から継承する確認事項
 
-正式入力: [UX-000026](../../../02_UX/Definitions/UX-000026/ux_definition.md)
+入力Definitionから継承した確認事項の由来: [UX-000026](../../../02_UX/Definitions/UX-000026/ux_definition.md)
 
 未確認事項は、統合元の要求ごとに次を保持する。
 
@@ -157,7 +157,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### UX-000029から継承する確認事項
 
-正式入力: [UX-000029](../../../02_UX/Definitions/UX-000029/ux_definition.md)
+入力Definitionから継承した確認事項の由来: [UX-000029](../../../02_UX/Definitions/UX-000029/ux_definition.md)
 
 未確認事項は、統合元の要求ごとに次を保持する。
 
@@ -173,7 +173,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### IA-000016から継承する確認事項
 
-正式入力: [IA-000016](../../../03_IA/Definitions/IA-000016/ia_definition.md)
+入力Definitionから継承した確認事項の由来: [IA-000016](../../../03_IA/Definitions/IA-000016/ia_definition.md)
 
 | 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
 |---|---|---|---|---|
@@ -197,24 +197,26 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 なし。
 
+この節にあるUX／IA／REQ参照は、正式入力である当該UI／SPEC Definitionが報告する来歴であり、Architectureの追加の正式入力ではない。
+
 ## 3. Architecture観点の分析
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [変更・監査・試験・品質の閉包のArchitecture定義](../../Definitions/ARCH-000003/architecture_definition.md) | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む。 | UI契約はEffectを定義しない。状態・導線: 固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required） / 固定版→監査集合→統合方針→是正→再固定→判断 / ；計画済み（planned）／未実行（not_executed）／合格（passed）／失敗（failed）／停止（blocked）／非該当（not_applicable） / 変更→不確実性→試験層→実行結果→現在保証 / ；計画済み（planned）／進行中（in_progress）／確認済み（verified）／公開済み（released）と品質状態を別にする / Roadmap→Change→対象ファイル→Evidence→Quality→Release /  | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 |
+| [変更・監査・試験・品質の閉包のArchitecture定義](../../Definitions/ARCH-000003/architecture_definition.md) | Quality Centerと変更追跡 | UI契約はAuthorityを発行しない。利用者操作: 指摘を見る／根拠を開く／次Gateへ進む。 | UI契約はEffectを定義しない。状態・導線: 固定済み（fixed）／レビュー中（under_review）／是正必要（changes_required）／確認済み（verified）／判断必要（decision_required） / 固定版→監査集合→統合方針→是正→再固定→判断 / ；計画済み（planned）／未実行（not_executed）／合格（passed）／失敗（failed）／停止（blocked）／非該当（not_applicable） / 変更→不確実性→試験層→実行結果→現在保証 / ；計画済み（planned）／進行中（in_progress）／確認済み（verified）／公開済み（released）と品質状態を別にする / Roadmap→Change→対象ファイル→Evidence→Quality→Release /  | 一部是正や監査回数を完成と誤認する／単発成功や試験件数から一連の状態変化全体を保証する／同じ説明を複製し代表ファイルだけで済ませる |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
-| Responsibility | 評価済み | [変更・監査・試験・品質の閉包のArchitecture定義](../../Definitions/ARCH-000003/architecture_definition.md)へ入力Contractを意味変更せず渡す |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはQuality Centerと変更追跡。公開境界は入力定義のAuthority・Effect・制約を越えない |
-| Data／State Ownership | 評価済み | Quality Centerと変更追跡をOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない |
-| Failure／Recovery | 評価済み | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 |
-| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する |
-| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない |
-| Human Input | 継承あり | REQ-000026: CRDD作成者・保守者が「監査合意から是正・反証までを一つの改訂版で閉じる」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000030: CRDD作成者・保守者が「試験層ごとの保証と未確認範囲を理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000033: CRDD作成者・保守者が「作業・変更・根拠・品質を役割別に辿る」を行う際の判断基準、許容負担、利用環境および失敗後の選択 |
-| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。。Architecture固有の追加Gapはない |
+| Responsibility | 評価済み | [変更・監査・試験・品質の閉包のArchitecture定義](../../Definitions/ARCH-000003/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
+| Boundary／Component／Interface | 評価済み | 状態OwnerはQuality Centerと変更追跡。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | Quality Centerと変更追跡をOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Failure／Recovery | 評価済み | 一部是正や監査回数を完成と誤認する／単発成功や試験件数から一連の状態変化全体を保証する／同じ説明を複製し代表ファイルだけで済ませる。Recoveryは入力定義にある場合だけ保持する。 |
+| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
+| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
+| Human Input | 継承あり | REQ-000026: CRDD作成者・保守者が「監査合意から是正・反証までを一つの改訂版で閉じる」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000030: CRDD作成者・保守者が「試験層ごとの保証と未確認範囲を理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000033: CRDD作成者・保守者が「作業・変更・根拠・品質を役割別に辿る」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
+| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。Architecture固有の追加Gapはない。 |
 | Verification Intent | 評価済み | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 Human Inputの判断者は「CRDD作成者・保守者を代表する利用者とQual-Lab。」。再評価契機は「対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。」。Architectureはこれらを解消済みとせず、入力の意味が変わる場合はOwner工程へ戻す。

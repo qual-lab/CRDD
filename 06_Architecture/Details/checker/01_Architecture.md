@@ -34,7 +34,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Concern | Result | Rationale | Evidence／Related ID |
 |---|---|---|---|
 | Concurrency | PASS | RunごとにRoot、結果、一時領域を分離し、共有可変状態を持たない。 | [§5](#5-資源と終了) |
-| Timing | N/A | 所要時間の合格上限は持たず、実測時間を結果に記録する。 | [§6](#6-結果の意味と利用側) |
+| Timing | PASS | 所要時間の合格上限は持たないが、試験runnerのtimeout、取消、子Process完了通知と終了後回収を別に観測する。 | [§5](#5-資源と終了) |
 | Resource Lifecycle | PASS | 読取りhandle、子Process、一時領域をRun所有として終了時に回収する。 | [§5](#5-資源と終了) |
 | External Boundary | PASS | Filesystem、Version Control Port、package入口の失敗を適合へ丸めない。 | [§4](#4-読取り境界) |
 | Failure／Recovery | PASS | Findingと実行不能を区別し、未検査範囲をPassへ含めない。 | [§6](#6-結果の意味と利用側) |
@@ -56,6 +56,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Generic Core | 可視Markdown／Path／ID | 同一入力で同一Finding | 非表示構造、link越境、重複ID | Finding codeとpath | handle・一時物0 | 意味妥当性は独立レビュー |
 | 配布入口 | package入口とRepository入口 | 同じCore／Profileを実行 | 旧実装、内部Path直参照 | 実行source identity | 同じ終了code | なし |
 | 宣言集合と導出集合 | Consumer／派生物／公開・Release経路の構造 | 両集合が完全一致 | 欠落、未知、重複、正規節外、旧Path／API残存 | Finding code、Path、集合差分 | 構造差分0 | 意味妥当性と移行採用は独立レビュー |
+| 開発試験runnerのLifecycle | 試験子Process、timeout、取消、fixture | 完了・timeout・取消を区別し、全子Processの終了とfixture残存を確認する | timeoutを正常完了へ丸める、子Processまたはfixtureの残存を見落とす | 終了状態、signal、残存Process、fixture分類 | 全子Process終了、残存物を未確認として報告 | 所要時間そのものは品質合否に使わない |
 
 ## 現行実装との照合
 

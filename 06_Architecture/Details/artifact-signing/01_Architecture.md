@@ -32,8 +32,8 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 | Concern | Result | Rationale | Evidence／Related ID |
 |---|---|---|---|
-| Concurrency | N/A | 本領域は共有staging、Manifest、配置または公開を所有しない。一回限りAuthorizationは単一署名Operation内でのみ消費し、複数Operationの直列化は利用側が所有する。 | [§2](#2-責務境界) |
-| Timing | N/A | 期限保証は持たず、各Filesystem／暗号Effectの完了観測を成功条件にする。 | [§3](#3-鍵参照と署名の状態遷移) |
+| Concurrency | PASS | 一回限りAuthorizationを未使用・予約済み・消費済みに分け、同じAuthorizationへの並行要求では原子的に予約できた一件だけへ署名Effectを許す。 | [§3](#3-鍵参照と署名の状態遷移) |
+| Timing | PASS | 期限や所要時間を合否にせず、事前観測、秘密入力、再観測、署名、秘密byte消去の順序と各Effectの完了観測を保証する。 | [§3](#3-鍵参照と署名の状態遷移) |
 | Resource Lifecycle | PASS | 鍵bytes、passphrase bytesおよび一回限りAuthorizationの取得・消費・zeroizationを分ける。 | [§3](#3-鍵参照と署名の状態遷移) |
 | External Boundary | PASS | 暗号ProviderとFilesystemを独立境界として扱う。 | [§4](#4-公開契約) |
 | Failure／Recovery | PASS | 事前検査、秘密入力、鍵読取り、署名を別状態にし、失敗時に署名結果を返さない。 | [§5](#5-検証境界) |
@@ -53,6 +53,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|
 | 署名Component | 鍵Capabilityとpayload | 期待Publisherの署名結果 | 鍵差替え、Authorization再利用 | reason、signature有無 | 秘密bytes消去、未配置 | なし |
+| 一回限りAuthorizationの並行消費 | 同一Authorizationを使う二つ以上の署名要求 | 原子的に予約した一件だけが署名結果を得る | 複数署名、敗者の鍵読取り、失敗後の再利用 | Authorization状態、署名結果数、鍵読取り数 | 勝者・敗者とも秘密bytes消去、Authorization再利用不能 | なし |
 | 利用側境界 | 意味非依存の署名結果 | Manifest／配置fieldを含まず利用側へ返る | 署名結果から配置・公開完了を推定 | result contract、意味固有field 0 | 配置Effect 0 | Manifest、staging、promotion、公開はCoordinatorの検証単位 |
 
 ## 現行実装との照合
@@ -100,6 +101,23 @@ Coordinator Release Adapter
 | P／S順序、Manifest envelope、staging配置 | Coordinator | 鍵参照のFilesystem再解釈 |
 
 ## 3. 鍵参照と署名の状態遷移
+
+一回限りAuthorizationは、Artifact Signingが所有する原子的な状態として扱う。
+
+```text
+[未使用]
+   │ 署名要求が原子的に予約
+   ├──────────────→ [予約済み] ── 成否を問わず ──→ [消費済み]
+   │                       │
+   │                       └─ 署名できる唯一の要求
+   │
+   └─ 予約競合に敗れた要求 → [拒否: 鍵read 0 / 署名Effect 0]
+```
+
+- 同じAuthorizationを同時に使っても、予約の勝者は最大一件とする。
+- 予約後の取消、鍵差替え、復号失敗、公開鍵不一致または署名失敗でも、Authorizationを未使用へ戻さない。
+- 勝者と敗者のどちらも、保持したpassphrase／鍵byteを終了前に消去する。敗者は鍵内容を読まない。
+- Authorizationの排他はstaging、Manifest、配置または公開の所有権をArtifact Signingへ移さない。
 
 ```text
 [reference received]
@@ -154,6 +172,7 @@ Coordinator Release Adapter
 | 参照 | 欠落、directory、symbolic link、Repository内、過大File |
 | 時間差 | preflight後の内容・Identity差替え |
 | Authority | 偽造、再利用、別Authorization |
+| 並行Authority | 同一Authorizationの同時要求で署名結果が最大一件、敗者は鍵read 0・署名Effect 0、失敗後も再利用不能 |
 | 秘密 | passphrase未入力時の鍵内容read 0、完了後zeroization |
 | Publisher | 期待SPKI不一致で署名結果・配置0 |
 | Consumer | CoordinatorのCLI指定と`.env-crdd`指定が同じpreflightへ到達 |

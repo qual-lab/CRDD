@@ -3898,7 +3898,7 @@ test("Architecture詳細設計のConcern根拠は実在節へ接続する", () =
   );
 });
 
-test("Architecture候補は理由付きOPENを保持でき、Readyでは拒否する", () => {
+test("Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否する", () => {
   const cases = [
     [
       "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
@@ -3918,24 +3918,145 @@ test("Architecture候補は理由付きOPENを保持でき、Readyでは拒否�
     ],
   ] as const;
   for (const [relativePath, expectedCode] of cases) {
+    for (const result of ["OPEN", "FAIL"] as const) {
+      const root = architectureReconstructionFixtureRoot();
+      const target = path.join(root, relativePath);
+      const source = fs.readFileSync(target, "utf8");
+      write(
+        target,
+        source.replace(
+          /^- \[x\] (?<item>.+)$/mu,
+          `- ${result}: 再レビュー待ち — $<item>`,
+        ),
+      );
+      const candidate = runChecker(root);
+      assert.ok(
+        !candidate.report.findings.some(
+          (finding) => finding.code === expectedCode,
+        ),
+        `${result} ${relativePath}\n${candidate.stdout}\n${candidate.stderr}`,
+      );
+      const indexPath = path.join(
+        root,
+        "06_Architecture",
+        "01_Architecture.md",
+      );
+      write(
+        indexPath,
+        fs
+          .readFileSync(indexPath, "utf8")
+          .replace("Status: Candidate", "Status: Architecture Ready"),
+      );
+      const ready = runChecker(root);
+      assert.ok(
+        ready.report.findings.some((finding) => finding.code === expectedCode),
+        `${result} ${relativePath}\n${ready.stdout}\n${ready.stderr}`,
+      );
+    }
+  }
+});
+
+test("Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求する", () => {
+  const mutations = [
+    (source: string) => source.replace(/^\| Responsibility \|.*\r?\n/mu, ""),
+    (source: string) =>
+      source.replace(
+        "| Responsibility | 評価済み | 試験Coreが所有する |",
+        "| Responsibility | 未判定 | 試験Coreが所有する |",
+      ),
+    (source: string) =>
+      source.replace(
+        "| Responsibility | 評価済み | 試験Coreが所有する |",
+        "| Responsibility | 評価済み |  |",
+      ),
+    (source: string) =>
+      source.replace(
+        "| Responsibility | 評価済み | 試験Coreが所有する |",
+        "| Responsibility | 評価済み | 試験Coreが所有する | 余分 |",
+      ),
+  ];
+  for (const mutate of mutations) {
     const root = architectureReconstructionFixtureRoot();
-    const target = path.join(root, relativePath);
-    const source = fs.readFileSync(target, "utf8");
+    const target = path.join(
+      root,
+      "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
+    );
+    write(target, mutate(fs.readFileSync(target, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "architecture-analysis-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("Architecture定義の未確認表は入力集合と完全一致する5列を要求する", () => {
+  const mutations = [
+    (source: string) =>
+      source.replace(
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |\n",
+        "",
+      ),
+    (source: string) =>
+      source.replace(
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |",
+        "| SPEC-999999 | なし | 不要 | 解消済み | 上流契約変更時 |",
+      ),
+    (source: string) =>
+      source.replace(
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |",
+        "| SPEC-000001 |  | 不要 | 解消済み | 上流契約変更時 |",
+      ),
+    (source: string) =>
+      source.replace(
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |",
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 | 余分 |",
+      ),
+  ];
+  for (const mutate of mutations) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(
+      root,
+      "06_Architecture/Definitions/ARCH-000001/architecture_definition.md",
+    );
+    write(target, mutate(fs.readFileSync(target, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "architecture-definition-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否する", () => {
+  for (const decision of ["OPEN", "FAIL"] as const) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(
+      root,
+      "06_Architecture/Details/sample/01_Architecture.md",
+    );
     write(
       target,
-      source.replace(
-        /^- \[x\] (?<item>.+)$/mu,
-        "- OPEN: 再レビュー待ち — $<item>",
-      ),
+      fs
+        .readFileSync(target, "utf8")
+        .replace(
+          "| Concurrency | N/A | 共有状態がない |",
+          `| Concurrency | ${decision} | 理由付きで未解決 |`,
+        ),
     );
     const candidate = runChecker(root);
     assert.ok(
       !candidate.report.findings.some(
-        (finding) => finding.code === expectedCode,
+        (finding) => finding.code === "architecture-detail-contract-invalid",
       ),
-      `${relativePath}\n${candidate.stdout}\n${candidate.stderr}`,
+      `${decision}\n${candidate.stdout}\n${candidate.stderr}`,
     );
-    const indexPath = path.join(root, "06_Architecture", "01_Architecture.md");
+    const indexPath = path.join(root, "06_Architecture/01_Architecture.md");
     write(
       indexPath,
       fs
@@ -3944,8 +4065,10 @@ test("Architecture候補は理由付きOPENを保持でき、Readyでは拒否�
     );
     const ready = runChecker(root);
     assert.ok(
-      ready.report.findings.some((finding) => finding.code === expectedCode),
-      `${relativePath}\n${ready.stdout}\n${ready.stderr}`,
+      ready.report.findings.some(
+        (finding) => finding.code === "architecture-detail-contract-invalid",
+      ),
+      `${decision}\n${ready.stdout}\n${ready.stderr}`,
     );
   }
 });

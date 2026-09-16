@@ -134,7 +134,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### UX-000005から継承する確認事項
 
-正式入力: [UX-000005](../../../02_UX/Definitions/UX-000005/ux_definition.md)
+入力Definitionから継承した確認事項の由来: [UX-000005](../../../02_UX/Definitions/UX-000005/ux_definition.md)
 
 未確認事項は、統合元の要求ごとに次を保持する。
 
@@ -150,7 +150,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### UX-000009から継承する確認事項
 
-正式入力: [UX-000009](../../../02_UX/Definitions/UX-000009/ux_definition.md)
+入力Definitionから継承した確認事項の由来: [UX-000009](../../../02_UX/Definitions/UX-000009/ux_definition.md)
 
 未確認事項は、統合元の要求ごとに次を保持する。
 
@@ -167,7 +167,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### UX-000015から継承する確認事項
 
-正式入力: [UX-000015](../../../02_UX/Definitions/UX-000015/ux_definition.md)
+入力Definitionから継承した確認事項の由来: [UX-000015](../../../02_UX/Definitions/UX-000015/ux_definition.md)
 
 未確認事項は、統合元の要求ごとに次を保持する。
 
@@ -183,7 +183,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### IA-000002から継承する確認事項
 
-正式入力: [IA-000002](../../../03_IA/Definitions/IA-000002/ia_definition.md)
+入力Definitionから継承した確認事項の由来: [IA-000002](../../../03_IA/Definitions/IA-000002/ia_definition.md)
 
 | 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
 |---|---|---|---|---|
@@ -197,7 +197,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 #### IA-000006から継承する確認事項
 
-正式入力: [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md)
+入力Definitionから継承した確認事項の由来: [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md)
 
 | 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
 |---|---|---|---|---|
@@ -221,24 +221,26 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 なし。
 
+この節にあるUX／IA／REQ参照は、正式入力である当該UI／SPEC Definitionが報告する来歴であり、Architectureの追加の正式入力ではない。
+
 ## 3. Architecture観点の分析
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project・Portfolio状態投影のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない。状態・導線: Task完了／Objective受入／Milestone受入を別にする / Milestone→目的と受入条件→Task根拠→受入判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） / プロジェクト→現在投影→不足・競合→情報源→次の判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting） / Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） /  | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - Objective／Milestoneの受入操作は、対象ごとの受入Authorityを持つProject運営者にだけ示す。UIまたはRuntimeがTask完了から上位受入を推定しない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 |
+| [Project・Portfolio状態投影のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない。状態・導線: Task完了／Objective受入／Milestone受入を別にする / Milestone→目的と受入条件→Task根拠→受入判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） / プロジェクト→現在投影→不足・競合→情報源→次の判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting） / Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） /  | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
-| Responsibility | 評価済み | [Project・Portfolio状態投影のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md)へ入力Contractを意味変更せず渡す |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはProject Management Projection。公開境界は入力定義のAuthority・Effect・制約を越えない |
-| Data／State Ownership | 評価済み | Project Management ProjectionをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない |
-| Failure／Recovery | 評価済み | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - Objective／Milestoneの受入操作は、対象ごとの受入Authorityを持つProject運営者にだけ示す。UIまたはRuntimeがTask完了から上位受入を推定しない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 |
-| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する |
-| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない |
-| Human Input | 継承あり | REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000007: プロジェクト運営者／PMが「プロジェクトの現在地を根拠と不完全性付きで理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000020: プロジェクト運営者／PMが「複数リポジトリを不完全性付きで一つのプロジェクトとして見る」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000013: 経営・管理層が「複数プロジェクトを根拠付きで比較する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 |
-| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。。Architecture固有の追加Gapはない |
+| Responsibility | 評価済み | [Project・Portfolio状態投影のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
+| Boundary／Component／Interface | 評価済み | 状態OwnerはProject Management Projection。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | Project Management ProjectionをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Failure／Recovery | 評価済み | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する。Recoveryは入力定義にある場合だけ保持する。 |
+| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
+| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
+| Human Input | 継承あり | REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000007: プロジェクト運営者／PMが「プロジェクトの現在地を根拠と不完全性付きで理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000020: プロジェクト運営者／PMが「複数リポジトリを不完全性付きで一つのプロジェクトとして見る」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000013: 経営・管理層が「複数プロジェクトを根拠付きで比較する」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
+| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。Architecture固有の追加Gapはない。 |
 | Verification Intent | 評価済み | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 Human Inputの判断者は「プロジェクト運営者／PMを代表する利用者とQual-Lab。」。再評価契機は「対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。」。Architectureはこれらを解消済みとせず、入力の意味が変わる場合はOwner工程へ戻す。

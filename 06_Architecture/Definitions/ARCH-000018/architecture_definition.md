@@ -34,7 +34,7 @@ Architecture ID: `ARCH-000018`
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000020 | UI | 実行記録Writer／Store／Record Attempt | UI契約はAuthorityを発行しない。利用者操作: 入力定義に記録された操作・判断 | UI契約はEffectを定義しない | - UIだけに記録の正本、Authority判断、不変Storeまたは独自状態Storeを作らない。 - 記録AuthorityをTask実行、評価採用または別Source変更へ流用しない。 - 記録結果不明を成功、未記録または空へ畳まない。 | prepared／publishing／recorded／not_recorded／unknown / 記録対象→記録試行→結果→完成記録／拒否理由／同一試行の再観測 /  |
+| UI-000020 | UI | 実行記録Writer／Store／Record Attempt | UI契約はAuthorityを発行しない。利用者操作: 入力定義に記録された操作・判断 | UI契約はEffectを定義しない | unknownを未記録と推定して再発行する | prepared／publishing／recorded／not_recorded／unknown / 記録対象→記録試行→結果→完成記録／拒否理由／同一試行の再観測 /  |
 | SPEC-000030 | SPEC | 実行記録Writerと不変Store | 許可された記録作成側。Task実行、評価採用または別Sourceの変更Authorityを含まない | 許可された実行記録領域への不変な記録だけ。Task、Provider、評価または他Sourceを変更しない。 | Identity不明、Schema不一致、並行衝突、途中失敗、保存結果の観測不能を成功へ畳まない。 | [観測結果]     ↓ Identity・Source・時点・状態を検査 [prepared]     ↓ 不変公開を要求 [publishing]     ├─ 完成記録を確認 ─→ [recorded]     ├─ Effect未成立を確認 → [not_recorded]     └─ 確定観測不能 ────→ [unknown] [Canonical実行記録] |
 
 ## 5. 構造と依存方向
@@ -62,7 +62,7 @@ Architecture ID: `ARCH-000018`
 
 ## 7. 失敗・回復・観測
 
-- UI-000020: - UIだけに記録の正本、Authority判断、不変Storeまたは独自状態Storeを作らない。 - 記録AuthorityをTask実行、評価採用または別Source変更へ流用しない。 - 記録結果不明を成功、未記録または空へ畳まない。 Effect: UI契約はEffectを定義しない
+- UI-000020: unknownを未記録と推定して再発行する Effect: UI契約はEffectを定義しない
 - SPEC-000030: Identity不明、Schema不一致、並行衝突、途中失敗、保存結果の観測不能を成功へ畳まない。 Effect: 許可された実行記録領域への不変な記録だけ。Task、Provider、評価または他Sourceを変更しない。
 
 - 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
@@ -72,7 +72,7 @@ Architecture ID: `ARCH-000018`
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000020 | - UIだけに記録の正本、Authority判断、不変Storeまたは独自状態Storeを作らない。 - 記録AuthorityをTask実行、評価採用または別Source変更へ流用しない。 - 記録結果不明を成功、未記録または空へ畳まない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000020 | unknownを未記録と推定して再発行する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000030 | Identity不明、Schema不一致、並行衝突、途中失敗、保存結果の観測不能を成功へ畳まない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。

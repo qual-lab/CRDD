@@ -36,7 +36,7 @@ not_authorized→authorized→sent→returned→candidate→adoptedを別Authori
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000016 | UI | External Information Boundary | UI契約はAuthorityを発行しない。利用者操作: 同意する／送信を止める／候補を採用・却下・保留する。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） / 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない / ；未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） / 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない /  |
+| UI-000016 | UI | External Information Boundary | UI契約はAuthorityを発行しない。利用者操作: 同意する／送信を止める／候補を採用・却下・保留する。 | UI契約はEffectを定義しない | 接続済みを包括許可とする、Effect不明またはEffect成立・結果不明を未送信と誤認して二重送信する、外部反応や依存新版を要求・因果・方針へ自動昇格する | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） / 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない / ；未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） / 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。採用は候補が所有正本へ反映された状態、却下・保留は同じ候補と出所へ結合した判断（Decision）の結果値として示し、Candidate状態へ追加しない。自動再送は行わない /  |
 | SPEC-000021 | SPEC | 外部送信Controller | 送信同意は許可範囲内の送信Effectだけを認め、結果受領や候補採用へ流用しない | 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を要求、Effectおよび結果へ結合する。 | 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 | [送信候補] -> [同意検証]   ├ invalid／unknown --------------------------> [Effect 0]   └ valid -> [送信要求発行] -> [要求受理]                                   │                                   ├ Effect成立を観測不能                                   │      -> [Effect不明]                                   │                                   └ [外部Effect成立] -> [結果搬送]                                                            ├ 搬送失敗 -> [Effect成立・結果不明]                                                            └ 結果受領 -> [送信済み] |
 | SPEC-000026 | SPEC | 外部結果受領・相関Resolver | 外部結果を受領して元の仕事へ返せる主体。新規送信と候補採用のAuthorityは含まない | 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。 | 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 | [外部応答] -> [依頼Identity照合]   ├ exact -> [未信頼候補として帰還]   └ missing／ambiguous -> [隔離・採用不可] |
 | SPEC-000027 | SPEC | 候補採用Controller | 所有正本の決定権限者だけが採用できる。送信同意や結果受領を流用しない | 採用時だけ所有正本を更新する。却下・保留では正本Effect 0。 | 結果受領や送信許可を候補採用Authorityへ流用しない。 | [未信頼候補] -> [人間判断]   ├ 採用 -> [所有正本更新]   ├ 却下 -> [候補履歴]   └ 保留 -> [判断待ち] |
@@ -72,7 +72,7 @@ not_authorized→authorized→sent→returned→candidate→adoptedを別Authori
 
 ## 7. 失敗・回復・観測
 
-- UI-000016: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- UI-000016: 接続済みを包括許可とする、Effect不明またはEffect成立・結果不明を未送信と誤認して二重送信する、外部反応や依存新版を要求・因果・方針へ自動昇格する Effect: UI契約はEffectを定義しない
 - SPEC-000021: 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 Effect: 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を要求、Effectおよび結果へ結合する。
 - SPEC-000026: 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 Effect: 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。
 - SPEC-000027: 結果受領や送信許可を候補採用Authorityへ流用しない。 Effect: 採用時だけ所有正本を更新する。却下・保留では正本Effect 0。
@@ -84,7 +84,7 @@ not_authorized→authorized→sent→returned→candidate→adoptedを別Authori
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000016 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000016 | 接続済みを包括許可とする、Effect不明またはEffect成立・結果不明を未送信と誤認して二重送信する、外部反応や依存新版を要求・因果・方針へ自動昇格する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000021 | 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000026 | 送信時の識別情報へ結合できない結果は採用可能な候補へしない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000027 | 結果受領や送信許可を候補採用Authorityへ流用しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |

@@ -35,7 +35,7 @@ Toolのavailable／unavailable／unverified／blockedと、モデル構成のval
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000010 | UI | Capability RegistryとModel Configuration Resolver | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked） / 仕事→必要能力→登録Tool→配布根拠→起動 / ；有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected） / 設定→検証→利用可能候補→選択→理由・再選定条件 /  |
+| UI-000010 | UI | Capability RegistryとModel Configuration Resolver | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する。 | UI契約はEffectを定義しない | 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する／未知または非対応のモデルを実行可能と表示する | 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked） / 仕事→必要能力→登録Tool→配布根拠→起動 / ；有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected） / 設定→検証→利用可能候補→選択→理由・再選定条件 /  |
 | SPEC-000014 | SPEC | Tool能力Registry | Tool能力一覧を閲覧する主体。一覧取得はTool実行Authorityを発行しない | 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。 | Tool一覧の閲覧だけで実行Authorityを発行しない。 | [目的＋Repository改訂版] -> [能力・配布根拠照合] -> [利用可能候補／不足／不一致] |
 | SPEC-000015 | SPEC | AIモデル構成Manager | 構成管理者が更新を採用し、Runtimeが検証済み構成から選択する | 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。 | 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。 | [構成Candidate] -> [検証]   ├ valid -> [採用済み構成] -> [実効選択]   └ invalid／unavailable -> [拒否／再選定条件] |
 
@@ -67,7 +67,7 @@ Toolのavailable／unavailable／unverified／blockedと、モデル構成のval
 
 ## 7. 失敗・回復・観測
 
-- UI-000010: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- UI-000010: 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する／未知または非対応のモデルを実行可能と表示する Effect: UI契約はEffectを定義しない
 - SPEC-000014: Tool一覧の閲覧だけで実行Authorityを発行しない。 Effect: 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。
 - SPEC-000015: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。 Effect: 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。
 
@@ -78,7 +78,7 @@ Toolのavailable／unavailable／unverified／blockedと、モデル構成のval
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000010 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000010 | 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する／未知または非対応のモデルを実行可能と表示する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000014 | Tool一覧の閲覧だけで実行Authorityを発行しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000015 | 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 

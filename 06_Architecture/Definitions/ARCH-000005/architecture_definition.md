@@ -36,10 +36,10 @@ Task完了、Objective受入、Milestone受入を分け、complete／partial／r
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000004 | UI | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - Objective／Milestoneの受入操作は、対象ごとの受入Authorityを持つProject運営者にだけ示す。UIまたはRuntimeがTask完了から上位受入を推定しない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | Task完了／Objective受入／Milestone受入を別にする / Milestone→目的と受入条件→Task根拠→受入判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） / プロジェクト→現在投影→不足・競合→情報源→次の判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting） / Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） /  |
+| UI-000004 | UI | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する | Task完了／Objective受入／Milestone受入を別にする / Milestone→目的と受入条件→Task根拠→受入判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） / プロジェクト→現在投影→不足・競合→情報源→次の判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting） / Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） /  |
 | SPEC-000006 | SPEC | Project Management Projection | Project情報を閲覧できる主体。投影は正本変更Authorityを持たない | 読取り投影だけを返し、Project正本を変更しない。 | 競合・欠測・開示制限を正常値で補完しない。 | [情報源解決] -> [完全／partial／stale／conflicting]  -> [根拠付きProject View] |
 | SPEC-000007 | SPEC | Project Management Projection | 各Projectを閲覧できる主体。比較から優先順位の決定を自動発行しない | 読取り投影だけを返し、非開示Projectを探索・変更しない。 | 非開示Projectの存在を漏らさず、異なるCoverageを同等と扱わない。 | [比較対象解決] -> [Project別Coverage保持] -> [比較可能／比較不能] |
-| SPEC-000002 | SPEC | 委任受付 | Project運営者が委任範囲、Objective受入およびMilestone受入を判断する。Runtimeは範囲を拡張せず、Task完了から上位受入を推定しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする。 | 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。 | [提案] --検証--> [受理可能]    │                 ├--受理--> [Task作成済み] --状態観測--> [実行中／判断待ち／Task完了]    │                 │                                  └--観測不能--> [結果不明]    │                 └--明示拒否--> [拒否・Task未発行]    └--不足／競合--> [blocked・Effect 0]  [Task完了] --Objective受入判断--> [Objective受入済み／Objective差戻し／Objective判断待ち] [Objective受入済み] --Milestone受入判断--> [Milestone受入済み／Milestone差戻し／Milestone判断待ち]  [Objective差戻し] --不足の解消と再確認--> [Task根拠・Objective受入条件の確認] [Milestone差戻し] --不足の解消と再確認--> [Objective根拠・Milestone受入条件の確認] |
+| SPEC-000002 | SPEC | Project Management Projection／受入判断 | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない | Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する | Task完了→Objective受入／差戻し／判断待ち→Milestone受入／差戻し／判断待ち |
 
 ## 5. 構造と依存方向
 
@@ -52,7 +52,7 @@ Task完了、Objective受入、Milestone受入を分け、complete／partial／r
 ├─ SPEC-000007 (SPEC)
    [比較対象解決] -> [Project別Coverage保持] -> [比較可能／比較不能]
 └─ SPEC-000002 (SPEC)
-   [提案] --検証--> [受理可能]    │                 ├--受理--> [Task作成済み] --状態観測--> [実行中／判断待ち／Task完了]    │                 │                                  └--観測不能--> [結果不明]    │                 └--明示拒否--> [拒否・Task未発行]    └--不足／競合--> [blocked・Effect 0]  [Task完了] --Objective受入判断--> [Objective受入済み／Objective差戻し／Objective判断待ち] [Objective受入済み] --Milestone受入判断--> [Milestone受入済み／Milestone差戻し／Milestone判断待ち]  [Objective差戻し] --不足の解消と再確認--> [Task根拠・Objective受入条件の確認] [Milestone差戻し] --不足の解消と再確認--> [Objective根拠・Milestone受入条件の確認]
+   Task完了→Objective受入／差戻し／判断待ち→Milestone受入／差戻し／判断待ち
 ```
 
 各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
@@ -66,16 +66,16 @@ Task完了、Objective受入、Milestone受入を分け、complete／partial／r
 | UI-000004 | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない |
 | SPEC-000006 | Project Management Projection | Project情報を閲覧できる主体。投影は正本変更Authorityを持たない | 読取り投影だけを返し、Project正本を変更しない。 |
 | SPEC-000007 | Project Management Projection | 各Projectを閲覧できる主体。比較から優先順位の決定を自動発行しない | 読取り投影だけを返し、非開示Projectを探索・変更しない。 |
-| SPEC-000002 | 委任受付 | Project運営者が委任範囲、Objective受入およびMilestone受入を判断する。Runtimeは範囲を拡張せず、Task完了から上位受入を推定しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする。 |
+| SPEC-000002 | Project Management Projection／受入判断 | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない |
 
 公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。
 
 ## 7. 失敗・回復・観測
 
-- UI-000004: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - Objective／Milestoneの受入操作は、対象ごとの受入Authorityを持つProject運営者にだけ示す。UIまたはRuntimeがTask完了から上位受入を推定しない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- UI-000004: Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する Effect: UI契約はEffectを定義しない
 - SPEC-000006: 競合・欠測・開示制限を正常値で補完しない。 Effect: 読取り投影だけを返し、Project正本を変更しない。
 - SPEC-000007: 非開示Projectの存在を漏らさず、異なるCoverageを同等と扱わない。 Effect: 読取り投影だけを返し、非開示Projectを探索・変更しない。
-- SPEC-000002: 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。 Effect: 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする。
+- SPEC-000002: Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する Effect: Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない
 
 - 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
 - 結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める。
@@ -84,10 +84,10 @@ Task完了、Objective受入、Milestone受入を分け、complete／partial／r
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000004 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - Objective／Milestoneの受入操作は、対象ごとの受入Authorityを持つProject運営者にだけ示す。UIまたはRuntimeがTask完了から上位受入を推定しない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000004 | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000006 | 競合・欠測・開示制限を正常値で補完しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000007 | 非開示Projectの存在を漏らさず、異なるCoverageを同等と扱わない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
-| SPEC-000002 | 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000002 | Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する | 三段階の受入判断と非推定を、委任受付およびTask作成から分けて確認する |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
 

@@ -122,7 +122,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### UX-000006から継承する確認事項
 
-正式入力: [UX-000006](../../../02_UX/Definitions/UX-000006/ux_definition.md)
+入力Definitionから継承した確認事項の由来: [UX-000006](../../../02_UX/Definitions/UX-000006/ux_definition.md)
 
 未確認事項は、統合元の要求ごとに次を保持する。
 
@@ -138,7 +138,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### UX-000008から継承する確認事項
 
-正式入力: [UX-000008](../../../02_UX/Definitions/UX-000008/ux_definition.md)
+入力Definitionから継承した確認事項の由来: [UX-000008](../../../02_UX/Definitions/UX-000008/ux_definition.md)
 
 未確認事項は、統合元の要求ごとに次を保持する。
 
@@ -154,7 +154,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### IA-000004から継承する確認事項
 
-正式入力: [IA-000004](../../../03_IA/Definitions/IA-000004/ia_definition.md)
+入力Definitionから継承した確認事項の由来: [IA-000004](../../../03_IA/Definitions/IA-000004/ia_definition.md)
 
 | 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
 |---|---|---|---|---|
@@ -166,7 +166,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 #### IA-000020から継承する確認事項
 
-正式入力: [IA-000020](../../../03_IA/Definitions/IA-000020/ia_definition.md)
+入力Definitionから継承した確認事項の由来: [IA-000020](../../../03_IA/Definitions/IA-000020/ia_definition.md)
 
 | 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
 |---|---|---|---|---|
@@ -188,25 +188,27 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 なし。
 
+この節にあるUX／IA／REQ参照は、正式入力である当該UI／SPEC Definitionが報告する来歴であり、Architectureの追加の正式入力ではない。
+
 ## 3. Architecture観点の分析
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [実行事実と評価候補の取得のArchitecture定義](../../Definitions/ARCH-000007/architecture_definition.md) | 実行記録読取りProjection | UI契約はAuthorityを発行しない。利用者操作: 診断を開く／証拠を絞る／回復へ進む。 | UI契約はEffectを定義しない。状態・導線: 観測済み（observed）／未観測（not_observed）／不明（unknown）。評価は事実と別 / 実行→観測→根拠→評価→改善候補 / ；各境界の利用可能（available）／停止（blocked）／不明（unknown）。全体停止と分ける / 故障→境界→影響する能力→継続可能範囲→回復 /  | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 |
+| [実行事実と評価候補の取得のArchitecture定義](../../Definitions/ARCH-000007/architecture_definition.md) | 実行記録読取りProjection | UI契約はAuthorityを発行しない。利用者操作: 診断を開く／証拠を絞る／回復へ進む。 | UI契約はEffectを定義しない。状態・導線: 観測済み（observed）／未観測（not_observed）／不明（unknown）。評価は事実と別 / 実行→観測→根拠→評価→改善候補 / ；各境界の利用可能（available）／停止（blocked）／不明（unknown）。全体停止と分ける / 故障→境界→影響する能力→継続可能範囲→回復 /  | 未観測を0または正常へ畳む／一律の失敗表示で無関係な能力まで停止する |
 | [実行境界の診断のArchitecture定義](../../Definitions/ARCH-000008/architecture_definition.md) | Platform Access診断Port | UI契約はAuthorityを発行しない。利用者操作: 診断を開く／証拠を絞る／回復へ進む | UI契約はEffectを定義しない。表示上の状態差: 観測済み（observed）／未観測（not_observed）／不明（unknown）。評価は事実と別。導線: 実行→観測→根拠→評価→改善候補 | 利用者成果を壊す表示・操作: UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
-| Responsibility | 評価済み | [実行事実と評価候補の取得のArchitecture定義](../../Definitions/ARCH-000007/architecture_definition.md)へ入力Contractを意味変更せず渡す |
-| Boundary／Component／Interface | 評価済み | 状態Ownerは実行記録読取りProjection。公開境界は入力定義のAuthority・Effect・制約を越えない |
-| Data／State Ownership | 評価済み | 実行記録読取りProjectionをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない |
-| Failure／Recovery | 評価済み | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 |
-| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する |
-| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない |
-| Human Input | 継承あり | REQ-000004: 実行環境の導入・運用者が「実行事実を出所と観測時点付きで比較する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000023: 実行環境の導入・運用者が「AI提供元固有の一連の状態変化を接続部越しに正確に扱う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 |
-| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。。Architecture固有の追加Gapはない |
+| Responsibility | 評価済み | [実行事実と評価候補の取得のArchitecture定義](../../Definitions/ARCH-000007/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
+| Boundary／Component／Interface | 評価済み | 状態Ownerは実行記録読取りProjection。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | 実行記録読取りProjectionをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Failure／Recovery | 評価済み | 未観測を0または正常へ畳む／一律の失敗表示で無関係な能力まで停止する。Recoveryは入力定義にある場合だけ保持する。 |
+| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
+| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
+| Human Input | 継承あり | REQ-000004: 実行環境の導入・運用者が「実行事実を出所と観測時点付きで比較する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000023: 実行環境の導入・運用者が「AI提供元固有の一連の状態変化を接続部越しに正確に扱う」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
+| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。Architecture固有の追加Gapはない。 |
 | Verification Intent | 評価済み | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 Human Inputの判断者は「実行環境の導入・運用者を代表する利用者とQual-Lab。」。再評価契機は「対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。」。Architectureはこれらを解消済みとせず、入力の意味が変わる場合はOwner工程へ戻す。

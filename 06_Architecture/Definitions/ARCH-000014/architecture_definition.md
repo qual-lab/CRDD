@@ -34,7 +34,7 @@ verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000013 | UI | Runtime Trust Evaluator | UI契約はAuthorityを発行しない。利用者操作: 検証する／信頼方針を選ぶ／詳細を見る。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 確認済み（verified）／未確認（unverified）／信頼済み（trusted）／非信頼（not_trusted）を別軸にする / 成果物（Artifact）→各根拠→利用者方針→導入判断 / ；識別済み（identified）／確認済み（verified）／信頼済み（trusted）／品質確認済み（quality_assured）を別軸にする / 公式表示→配布者（Publisher）→完全性→準拠→品質主張→利用判断 /  |
+| UI-000013 | UI | Runtime Trust Evaluator | UI契約はAuthorityを発行しない。利用者操作: 検証する／信頼方針を選ぶ／詳細を見る。 | UI契約はEffectを定義しない | 一つの署名表示を全保証と誤認する／アイコンや見た目を署名・準拠・品質保証と誤認する | 確認済み（verified）／未確認（unverified）／信頼済み（trusted）／非信頼（not_trusted）を別軸にする / 成果物（Artifact）→各根拠→利用者方針→導入判断 / ；識別済み（identified）／確認済み（verified）／信頼済み（trusted）／品質確認済み（quality_assured）を別軸にする / 公式表示→配布者（Publisher）→完全性→準拠→品質主張→利用判断 /  |
 | SPEC-000018 | SPEC | Runtime Trust Evaluator | Deployment OwnerがTrust Policyを所有する。Qual-Lab署名は公式配布者の識別だけを保証する | 読取り評価だけを返し、Runtime実行Capabilityを自動発行しない。 | 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。 | [Artifact] -> [準拠／完全性／Publisher／Trust Policy／品質を別評価]  -> [trusted／untrusted／unknown] |
 
 ## 5. 構造と依存方向
@@ -62,7 +62,7 @@ verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資
 
 ## 7. 失敗・回復・観測
 
-- UI-000013: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- UI-000013: 一つの署名表示を全保証と誤認する／アイコンや見た目を署名・準拠・品質保証と誤認する Effect: UI契約はEffectを定義しない
 - SPEC-000018: 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。 Effect: 読取り評価だけを返し、Runtime実行Capabilityを自動発行しない。
 
 - 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
@@ -72,7 +72,7 @@ verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000013 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000013 | 一つの署名表示を全保証と誤認する／アイコンや見た目を署名・準拠・品質保証と誤認する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000018 | 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。

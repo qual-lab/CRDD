@@ -34,7 +34,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000006 | UI | Version Control PortとRepository Binding Resolver | UI契約はAuthorityを発行しない。利用者操作: 対象を選ぶ／Rootを確認する／正本を開く。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable） / Project→Repository→Binding→検証済みRoot / ；手元で利用可能（local available）／横断情報源を利用不能（cross-source unavailable）でも継続可能 / Repository→手元の正本→作業、必要時だけCROS /  |
+| UI-000006 | UI | Version Control PortとRepository Binding Resolver | UI契約はAuthorityを発行しない。利用者操作: 対象を選ぶ／Rootを確認する／正本を開く。 | UI契約はEffectを定義しない | CROS未設定で手元作業まで止まる／同名や近いパスを同じ対象と誤認する | 確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable） / Project→Repository→Binding→検証済みRoot / ；手元で利用可能（local available）／横断情報源を利用不能（cross-source unavailable）でも継続可能 / Repository→手元の正本→作業、必要時だけCROS /  |
 | SPEC-000010 | SPEC | Version Control PortとRepository Binding Resolver | 現在Repositoryで作業する主体。別RepositoryへのAuthorityは発行しない | 対象解決は読取り専用で、Repository・worktree・Git状態を変更しない。 | 名前やPath類似から別Repositoryを選ばず、曖昧時はEffect 0で停止する。 | [開始Path] -> [Repository Root検証] -> [Repository／Project／Binding解決]   └--曖昧／不正--> [Effect 0] |
 
 ## 5. 構造と依存方向
@@ -62,7 +62,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 
 ## 7. 失敗・回復・観測
 
-- UI-000006: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- UI-000006: CROS未設定で手元作業まで止まる／同名や近いパスを同じ対象と誤認する Effect: UI契約はEffectを定義しない
 - SPEC-000010: 名前やPath類似から別Repositoryを選ばず、曖昧時はEffect 0で停止する。 Effect: 対象解決は読取り専用で、Repository・worktree・Git状態を変更しない。
 
 - 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
@@ -72,7 +72,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000006 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000006 | CROS未設定で手元作業まで止まる／同名や近いパスを同じ対象と誤認する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000010 | 名前やPath類似から別Repositoryを選ばず、曖昧時はEffect 0で停止する。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。

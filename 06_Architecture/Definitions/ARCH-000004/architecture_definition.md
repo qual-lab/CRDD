@@ -42,10 +42,10 @@ Architecture ID: `ARCH-000004`
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000002 | UI | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 委任を提案する／委任範囲を確認して受け付ける／拒否する／拒否理由から同じ提案の範囲を見直す／取消す／判断を返す。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 準備中／許可待ち／実行中／停止。権限発行前後を分ける。提案／受付可能／受付済み／拒否は受付Feedbackとして別に示す / 目的→範囲と担い手→許可→実行。拒否時は同じ提案の範囲見直しへ戻る。受付後の結果不明はLifecycleへ追加せず、同じ依頼識別情報の再観測条件として示す / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed） / Task→現在状態→判断要否→待機・入力・取消・回復 / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed）に加え、取消要求済み（cancel_requested）／取消完了（cancelled）／取消結果不明・回復必要（cancel_unknown／recovery_required）を区別する / Task→現在状態→判断要否→待機・入力・取消要求→終了状態確認／同じ回復対象識別子（Recovery Identity）の再観測 /  |
-| UI-000003 | UI | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 失敗後の作用なし／作用済み／不明、回復要／不要 / 失敗→作用状態→同じ依頼の結果→回復処置または再試行 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 /  |
-| UI-000012 | UI | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 引き継ぐ／再接続する／結果を戻す。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 準備済み（prepared）／送信済み（sent）／受領済み（received）／返却済み（returned）／停止（blocked） / 情報源→選択→仕事用情報一式（Context Package）→Task→結果（Result）→元の仕事 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 /  |
-| SPEC-000002 | SPEC | 委任受付 | Project運営者が委任範囲、Objective受入およびMilestone受入を判断する。Runtimeは範囲を拡張せず、Task完了から上位受入を推定しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする。 | 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。 | [提案] --検証--> [受理可能]    │                 ├--受理--> [Task作成済み] --状態観測--> [実行中／判断待ち／Task完了]    │                 │                                  └--観測不能--> [結果不明]    │                 └--明示拒否--> [拒否・Task未発行]    └--不足／競合--> [blocked・Effect 0]  [Task完了] --Objective受入判断--> [Objective受入済み／Objective差戻し／Objective判断待ち] [Objective受入済み] --Milestone受入判断--> [Milestone受入済み／Milestone差戻し／Milestone判断待ち]  [Objective差戻し] --不足の解消と再確認--> [Task根拠・Objective受入条件の確認] [Milestone差戻し] --不足の解消と再確認--> [Objective根拠・Milestone受入条件の確認] |
+| UI-000002 | UI | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 委任を提案する／委任範囲を確認して受け付ける／拒否する／拒否理由から同じ提案の範囲を見直す／取消す／判断を返す。 | UI契約はEffectを定義しない | 暗黙の範囲拡張、拒否後の別依頼化、回復不能／古い観測や取消要求の受理だけを進捗・完了と誤認する | 準備中／許可待ち／実行中／停止。権限発行前後を分ける。提案／受付可能／受付済み／拒否は受付Feedbackとして別に示す / 目的→範囲と担い手→許可→実行。拒否時は同じ提案の範囲見直しへ戻る。受付後の結果不明はLifecycleへ追加せず、同じ依頼識別情報の再観測条件として示す / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed） / Task→現在状態→判断要否→待機・入力・取消・回復 / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed）に加え、取消要求済み（cancel_requested）／取消完了（cancelled）／取消結果不明・回復必要（cancel_unknown／recovery_required）を区別する / Task→現在状態→判断要否→待機・入力・取消要求→終了状態確認／同じ回復対象識別子（Recovery Identity）の再観測 /  |
+| UI-000003 | UI | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する。 | UI契約はEffectを定義しない | 結果不明の処理を新規実行して外部作用（Effect）の二重実行を起こす／名前や経過時間だけで由来不明物を削除する | 失敗後の作用なし／作用済み／不明、回復要／不要 / 失敗→作用状態→同じ依頼の結果→回復処置または再試行 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 /  |
+| UI-000012 | UI | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 引き継ぐ／再接続する／結果を戻す。 | UI契約はEffectを定義しない | 全量投入・秘密情報混入・古い仮説の現在値化／Timeoutを未実行とみなし新規外部作用（Effect）を起こす | 準備済み（prepared）／送信済み（sent）／受領済み（received）／返却済み（returned）／停止（blocked） / 情報源→選択→仕事用情報一式（Context Package）→Task→結果（Result）→元の仕事 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 /  |
+| SPEC-000002 | SPEC | 委任受付 | Project運営者が委任範囲を判断する。Runtimeは範囲を拡張しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする | 不足・競合・未承認範囲はEffect前に停止する。明示拒否は再発行しない。受付後の結果不明は同じRequestを再観測する | 提案→検証→受理／拒否→Task作成→実行状態または同じRequestの再観測 |
 | SPEC-000003 | SPEC | Project状態照会 | Taskを閲覧できる主体。状態照会から取消・回復Authorityを推定しない | 読取り専用。TaskやProvider Processを変更しない。 | 観測不能や古い状態を進行中・完了へ推定しない。 | [ready] -> [running] -> [waiting／blocked／completed／failed] 各状態は観測時点と次の行動を伴う |
 | SPEC-000004 | SPEC | 再試行・回復分類 | 回復または再試行を選ぶ決定権限者。分類結果だけではEffectを発行しない | 本SPECは次の行動を分類する。実際の回復Effectは別のCapability取得後に限る。 | 古い権限、曖昧な識別情報、作用不明では再発行を拒否する。 | [失敗／切断] --Effect観測--> [なし／済み／不明]   ├ なし  -> [再試行候補]   ├ 済み  -> [結果再取得]   └ 不明  -> [回復／再確認必須] |
 | SPEC-000005 | SPEC | 清掃Controller | 回復義務に結合した清掃Capabilityを持つ運用者またはRuntime | 対象残存へのFilesystem Effectを発行する。対象外PathとProvider Effectは0。 | 由来不明、参照中、観測不能は削除せず、義務を保持する。 | [義務あり] -> [処置準備済み] -> [清掃Effect発行済み]  -> [終了後未確認] -> [不存在確認・義務解消] |
@@ -64,7 +64,7 @@ Architecture ID: `ARCH-000004`
 ├─ UI-000012 (UI)
    準備済み（prepared）／送信済み（sent）／受領済み（received）／返却済み（returned）／停止（blocked） / 情報源→選択→仕事用情報一式（Context Package）→Task→結果（Result）→元の仕事 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 / 
 ├─ SPEC-000002 (SPEC)
-   [提案] --検証--> [受理可能]    │                 ├--受理--> [Task作成済み] --状態観測--> [実行中／判断待ち／Task完了]    │                 │                                  └--観測不能--> [結果不明]    │                 └--明示拒否--> [拒否・Task未発行]    └--不足／競合--> [blocked・Effect 0]  [Task完了] --Objective受入判断--> [Objective受入済み／Objective差戻し／Objective判断待ち] [Objective受入済み] --Milestone受入判断--> [Milestone受入済み／Milestone差戻し／Milestone判断待ち]  [Objective差戻し] --不足の解消と再確認--> [Task根拠・Objective受入条件の確認] [Milestone差戻し] --不足の解消と再確認--> [Objective根拠・Milestone受入条件の確認]
+   提案→検証→受理／拒否→Task作成→実行状態または同じRequestの再観測
 ├─ SPEC-000003 (SPEC)
    [ready] -> [running] -> [waiting／blocked／completed／failed] 各状態は観測時点と次の行動を伴う
 ├─ SPEC-000004 (SPEC)
@@ -90,7 +90,7 @@ Architecture ID: `ARCH-000004`
 | UI-000002 | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 委任を提案する／委任範囲を確認して受け付ける／拒否する／拒否理由から同じ提案の範囲を見直す／取消す／判断を返す。 | UI契約はEffectを定義しない |
 | UI-000003 | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する。 | UI契約はEffectを定義しない |
 | UI-000012 | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 引き継ぐ／再接続する／結果を戻す。 | UI契約はEffectを定義しない |
-| SPEC-000002 | 委任受付 | Project運営者が委任範囲、Objective受入およびMilestone受入を判断する。Runtimeは範囲を拡張せず、Task完了から上位受入を推定しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする。 |
+| SPEC-000002 | 委任受付 | Project運営者が委任範囲を判断する。Runtimeは範囲を拡張しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする |
 | SPEC-000003 | Project状態照会 | Taskを閲覧できる主体。状態照会から取消・回復Authorityを推定しない | 読取り専用。TaskやProvider Processを変更しない。 |
 | SPEC-000004 | 再試行・回復分類 | 回復または再試行を選ぶ決定権限者。分類結果だけではEffectを発行しない | 本SPECは次の行動を分類する。実際の回復Effectは別のCapability取得後に限る。 |
 | SPEC-000005 | 清掃Controller | 回復義務に結合した清掃Capabilityを持つ運用者またはRuntime | 対象残存へのFilesystem Effectを発行する。対象外PathとProvider Effectは0。 |
@@ -102,10 +102,10 @@ Architecture ID: `ARCH-000004`
 
 ## 7. 失敗・回復・観測
 
-- UI-000002: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
-- UI-000003: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
-- UI-000012: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
-- SPEC-000002: 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。 Effect: 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする。
+- UI-000002: 暗黙の範囲拡張、拒否後の別依頼化、回復不能／古い観測や取消要求の受理だけを進捗・完了と誤認する Effect: UI契約はEffectを定義しない
+- UI-000003: 結果不明の処理を新規実行して外部作用（Effect）の二重実行を起こす／名前や経過時間だけで由来不明物を削除する Effect: UI契約はEffectを定義しない
+- UI-000012: 全量投入・秘密情報混入・古い仮説の現在値化／Timeoutを未実行とみなし新規外部作用（Effect）を起こす Effect: UI契約はEffectを定義しない
+- SPEC-000002: 不足・競合・未承認範囲はEffect前に停止する。明示拒否は再発行しない。受付後の結果不明は同じRequestを再観測する Effect: 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする
 - SPEC-000003: 観測不能や古い状態を進行中・完了へ推定しない。 Effect: 読取り専用。TaskやProvider Processを変更しない。
 - SPEC-000004: 古い権限、曖昧な識別情報、作用不明では再発行を拒否する。 Effect: 本SPECは次の行動を分類する。実際の回復Effectは別のCapability取得後に限る。
 - SPEC-000005: 由来不明、参照中、観測不能は削除せず、義務を保持する。 Effect: 対象残存へのFilesystem Effectを発行する。対象外PathとProvider Effectは0。
@@ -120,10 +120,10 @@ Architecture ID: `ARCH-000004`
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000002 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
-| UI-000003 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
-| UI-000012 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
-| SPEC-000002 | 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000002 | 暗黙の範囲拡張、拒否後の別依頼化、回復不能／古い観測や取消要求の受理だけを進捗・完了と誤認する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000003 | 結果不明の処理を新規実行して外部作用（Effect）の二重実行を起こす／名前や経過時間だけで由来不明物を削除する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000012 | 全量投入・秘密情報混入・古い仮説の現在値化／Timeoutを未実行とみなし新規外部作用（Effect）を起こす | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000002 | 不足・競合・未承認範囲はEffect前に停止する。明示拒否は再発行しない。受付後の結果不明は同じRequestを再観測する | 委任受付、拒否、Task作成、結果不明時の同じRequest再観測を、上位受入判断と分けて確認する |
 | SPEC-000003 | 観測不能や古い状態を進行中・完了へ推定しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000004 | 古い権限、曖昧な識別情報、作用不明では再発行を拒否する。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000005 | 由来不明、参照中、観測不能は削除せず、義務を保持する。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |

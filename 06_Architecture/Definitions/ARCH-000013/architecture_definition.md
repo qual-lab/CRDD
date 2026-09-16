@@ -34,7 +34,7 @@ credential_required／restricted／unavailable／unknownを区別し、Credentia
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000008 | UI | CROS Session／Workspace Resolver | UI契約はAuthorityを発行しない。利用者操作: 接続する／Workspaceを選ぶ／再認証する。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown） / 接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源 /  |
+| UI-000008 | UI | CROS Session／Workspace Resolver | UI契約はAuthorityを発行しない。利用者操作: 接続する／Workspaceを選ぶ／再認証する。 | UI契約はEffectを定義しない | 利用不能なリポジトリの存在や内容を推測表示する | 利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown） / 接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源 /  |
 | SPEC-000012 | SPEC | CROS Session／Workspace Resolver | Credential発行時に固定されたWorkspace Grant。管理Capabilityと内容Grantを分離する | 認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0。 | 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。 | [未認証] -> [Credential検証] -> [Session＋Workspace Grant]   ├ current -> [利用可能範囲]   └ stale／invalid -> [拒否・存在非開示] |
 
 ## 5. 構造と依存方向
@@ -62,7 +62,7 @@ credential_required／restricted／unavailable／unknownを区別し、Credentia
 
 ## 7. 失敗・回復・観測
 
-- UI-000008: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- UI-000008: 利用不能なリポジトリの存在や内容を推測表示する Effect: UI契約はEffectを定義しない
 - SPEC-000012: 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。 Effect: 認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0。
 
 - 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
@@ -72,7 +72,7 @@ credential_required／restricted／unavailable／unknownを区別し、Credentia
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000008 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000008 | 利用不能なリポジトリの存在や内容を推測表示する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000012 | 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。

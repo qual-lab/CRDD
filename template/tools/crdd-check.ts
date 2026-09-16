@@ -3964,6 +3964,35 @@ function checkArchitectureReconstruction(): void {
       )?.[1] ?? ""
     );
   };
+  const exactMarkdownTable = (
+    source: string,
+    expectedHeaders: readonly string[],
+  ): string[][] | null => {
+    const lines = source.split(/\r?\n/u);
+    const headerIndex = lines.findIndex((line) => {
+      const cells = markdownTableCells(line);
+      return (
+        cells?.length === expectedHeaders.length &&
+        cells.every((cell, index) => cell === expectedHeaders[index])
+      );
+    });
+    if (
+      headerIndex < 0 ||
+      !markdownTableSeparator(
+        lines[headerIndex + 1] ?? "",
+        expectedHeaders.length,
+      )
+    )
+      return null;
+    const rows: string[][] = [];
+    for (let index = headerIndex + 2; index < lines.length; index += 1) {
+      const cells = markdownTableCells(lines[index]);
+      if (!cells) break;
+      if (cells.length !== expectedHeaders.length) return null;
+      rows.push(cells);
+    }
+    return rows;
+  };
   const definitionIds = (
     phase: "04_UI" | "05_SPEC",
     prefix: "UI" | "SPEC",
@@ -4061,6 +4090,33 @@ function checkArchitectureReconstruction(): void {
         "Open／Gap",
         "Verification Intent",
       ];
+      const evaluationRows = exactMarkdownTable(evaluation, [
+        "観点",
+        "判定",
+        "根拠・引渡し",
+      ]);
+      const evaluationDecisions: Readonly<Record<string, readonly string[]>> = {
+        Responsibility: ["評価済み", "OPEN", "FAIL"],
+        "Boundary／Component／Interface": ["評価済み", "OPEN", "FAIL"],
+        "Data／State Ownership": ["評価済み", "OPEN", "FAIL"],
+        "Failure／Recovery": ["評価済み", "OPEN", "FAIL"],
+        "Security／Trust": ["評価済み", "OPEN", "FAIL"],
+        "Quality Constraint": ["評価済み", "OPEN", "FAIL"],
+        "Human Input": ["なし", "継承あり", "OPEN"],
+        "Open／Gap": ["なし", "上流確認を継承", "OPEN", "FAIL"],
+        "Verification Intent": ["評価済み", "OPEN", "FAIL"],
+      };
+      const isEvaluationContractValid =
+        evaluationRows !== null &&
+        evaluationRows.length === requiredEvaluationRows.length &&
+        requiredEvaluationRows.every((name) => {
+          const matches = evaluationRows.filter(([row]) => row === name);
+          return (
+            matches.length === 1 &&
+            (evaluationDecisions[name] ?? []).includes(matches[0][1]) &&
+            matches[0][2].trim().length > 0
+          );
+        });
       const checklistBody = sectionBody(source, "## Checklist");
       const hasBlockingChecklistResult = /^- (?:OPEN|FAIL): /mu.test(
         checklistBody,
@@ -4080,12 +4136,7 @@ function checkArchitectureReconstruction(): void {
         !inputSection.includes(expectedInput) ||
         forbiddenInput.test(inputSection) ||
         !requiredHeadings.every((heading) => source.includes(heading)) ||
-        !evaluation.includes("| 観点 | 判定 | 根拠・引渡し |") ||
-        !requiredEvaluationRows.every((row) =>
-          evaluation
-            .split(/\r?\n/u)
-            .some((line) => line.startsWith(`| ${row} |`)),
-        ) ||
+        !isEvaluationContractValid ||
         !evaluation.includes("Human Inputの判断者") ||
         relations.length === 0 ||
         new Set(relations).size !== relations.length ||
@@ -4331,6 +4382,31 @@ function checkArchitectureReconstruction(): void {
         source,
         "### 未確認事項・人間判断・戻り条件",
       );
+      const definitionInputIds = new Set(
+        [uiSection, specSection]
+          .flatMap((inputSection) => [
+            ...inputSection.matchAll(/\[((?:UI|SPEC)-[0-9]{6})\]\(/gu),
+          ])
+          .map((match) => match[1]),
+      );
+      const unknownRows = exactMarkdownTable(unknownSection, [
+        "入力",
+        "継承する未確認事項",
+        "判断者",
+        "現在判定",
+        "再評価契機",
+      ]);
+      const unknownInputIds = unknownRows?.map(([input]) => input) ?? [];
+      const isUnknownContractValid =
+        unknownRows !== null &&
+        unknownRows.length === definitionInputIds.size &&
+        unknownRows.every(
+          (cells) =>
+            cells.every((cell) => cell.trim().length > 0) &&
+            definitionInputIds.has(cells[0]),
+        ) &&
+        new Set(unknownInputIds).size === unknownInputIds.length &&
+        [...definitionInputIds].every((id) => unknownInputIds.includes(id));
       const checklistBody = sectionBody(source, "## Checklist");
       const hasBlockingChecklistResult = /^- (?:OPEN|FAIL): /mu.test(
         checklistBody,
@@ -4357,9 +4433,7 @@ function checkArchitectureReconstruction(): void {
         !source.includes(`Architecture ID: \u0060${entry.name}\u0060`) ||
         !requiredHeadings.every((heading) => source.includes(heading)) ||
         !requiredStructures.every((fragment) => source.includes(fragment)) ||
-        !unknownSection.includes(
-          "| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |",
-        ) ||
+        !isUnknownContractValid ||
         !unknownSection.includes("Architecture固有の追加人間判断") ||
         hasPlaceholderOnlySection ||
         !/UI-[0-9]{6}/u.test(uiSection) ||

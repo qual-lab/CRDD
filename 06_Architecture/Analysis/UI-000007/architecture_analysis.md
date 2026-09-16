@@ -111,7 +111,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### UX-000012から継承する確認事項
 
-正式入力: [UX-000012](../../../02_UX/Definitions/UX-000012/ux_definition.md)
+入力Definitionから継承した確認事項の由来: [UX-000012](../../../02_UX/Definitions/UX-000012/ux_definition.md)
 
 未確認事項は、統合元の要求ごとに次を保持する。
 
@@ -129,7 +129,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 #### IA-000008から継承する確認事項
 
-正式入力: [IA-000008](../../../03_IA/Definitions/IA-000008/ia_definition.md)
+入力Definitionから継承した確認事項の由来: [IA-000008](../../../03_IA/Definitions/IA-000008/ia_definition.md)
 
 | 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
 |---|---|---|---|---|
@@ -151,24 +151,26 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 なし。
 
+この節にあるUX／IA／REQ参照は、正式入力である当該UI／SPEC Definitionが報告する来歴であり、Architectureの追加の正式入力ではない。
+
 ## 3. Architecture観点の分析
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [公開Transportの意味同一性のArchitecture定義](../../Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける。 | UI契約はEffectを定義しない。状態・導線: 受付前／受付済み／作用前失敗／作用後失敗／結果あり / 入口→同じ公開要求→Runtime→同じ結果 /  | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 |
+| [公開Transportの意味同一性のArchitecture定義](../../Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける。 | UI契約はEffectを定義しない。状態・導線: 受付前／受付済み／作用前失敗／作用後失敗／結果あり / 入口→同じ公開要求→Runtime→同じ結果 /  | 通信方式によって入力・権限判断・状態・結果の意味が変わる |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
-| Responsibility | 評価済み | [公開Transportの意味同一性のArchitecture定義](../../Definitions/ARCH-000012/architecture_definition.md)へ入力Contractを意味変更せず渡す |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはMCP／CLI Transport Adapter。公開境界は入力定義のAuthority・Effect・制約を越えない |
-| Data／State Ownership | 評価済み | MCP／CLI Transport AdapterをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない |
-| Failure／Recovery | 評価済み | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 |
-| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する |
-| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない |
-| Human Input | 継承あり | REQ-000006: 開発者が「stdioとHTTPで同じ意味の操作を行う」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000010: プロジェクト運営者／PMが「入口が違っても同じプロジェクト操作を行う」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000028: 開発者が「入口が違っても同じCRDD正本と判断境界を使う」を行う際の判断基準、許容負担、利用環境および失敗後の選択 |
-| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。。Architecture固有の追加Gapはない |
+| Responsibility | 評価済み | [公開Transportの意味同一性のArchitecture定義](../../Definitions/ARCH-000012/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
+| Boundary／Component／Interface | 評価済み | 状態OwnerはMCP／CLI Transport Adapter。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | MCP／CLI Transport AdapterをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Failure／Recovery | 評価済み | 通信方式によって入力・権限判断・状態・結果の意味が変わる。Recoveryは入力定義にある場合だけ保持する。 |
+| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
+| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
+| Human Input | 継承あり | REQ-000006: 開発者が「stdioとHTTPで同じ意味の操作を行う」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000010: プロジェクト運営者／PMが「入口が違っても同じプロジェクト操作を行う」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000028: 開発者が「入口が違っても同じCRDD正本と判断境界を使う」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
+| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。Architecture固有の追加Gapはない。 |
 | Verification Intent | 評価済み | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 Human Inputの判断者は「開発者を代表する利用者とQual-Lab。」。再評価契機は「対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。」。Architectureはこれらを解消済みとせず、入力の意味が変わる場合はOwner工程へ戻す。

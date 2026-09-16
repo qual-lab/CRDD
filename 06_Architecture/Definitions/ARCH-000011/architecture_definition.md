@@ -34,7 +34,7 @@ temporary／durable／recovery_required／cleanup／unknownを用途別に分け
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000011 | UI | Runtime Data Contract | UI契約はAuthorityを発行しない。利用者操作: 保持内容を見る／清掃する／保留する。 | UI契約はEffectを定義しない | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 一時（temporary）／保持必要（durable）／回復必要（recovery_required）／清掃可能（eligible_for_cleanup）／不明（unknown） / 作業→データ用途→保持判断→清掃→不存在確認 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 /  |
+| UI-000011 | UI | Runtime Data Contract | UI契約はAuthorityを発行しない。利用者操作: 保持内容を見る／清掃する／保留する。 | UI契約はEffectを定義しない | subdirectoryや別基点フォルダへ同名データを作る／名前や経過時間だけで由来不明物を削除する | 一時（temporary）／保持必要（durable）／回復必要（recovery_required）／清掃可能（eligible_for_cleanup）／不明（unknown） / 作業→データ用途→保持判断→清掃→不存在確認 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 /  |
 | SPEC-000016 | SPEC | Runtime Data Contract | 各領域Ownerに限定した書込みCapability。別用途・別Repositoryへ転用しない | 許可領域への作成・publish・清掃Effectを発行し、終了後状態を再観測する。 | 用途不明の直下書込み、時間だけの削除、別Repositoryへの波及を拒否する。 | [作成要求] -> [Root／用途検証] -> [保持中]  -> [清掃可能判定] -> [清掃] -> [不存在確認] |
 
 ## 5. 構造と依存方向
@@ -62,7 +62,7 @@ temporary／durable／recovery_required／cleanup／unknownを用途別に分け
 
 ## 7. 失敗・回復・観測
 
-- UI-000011: - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 Effect: UI契約はEffectを定義しない
+- UI-000011: subdirectoryや別基点フォルダへ同名データを作る／名前や経過時間だけで由来不明物を削除する Effect: UI契約はEffectを定義しない
 - SPEC-000016: 用途不明の直下書込み、時間だけの削除、別Repositoryへの波及を拒否する。 Effect: 許可領域への作成・publish・清掃Effectを発行し、終了後状態を再観測する。
 
 - 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
@@ -72,7 +72,7 @@ temporary／durable／recovery_required／cleanup／unknownを用途別に分け
 
 | 入力 | 保護する失敗境界 | 検証意図 |
 |---|---|---|
-| UI-000011 | - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| UI-000011 | subdirectoryや別基点フォルダへ同名データを作る／名前や経過時間だけで由来不明物を削除する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000016 | 用途不明の直下書込み、時間だけの削除、別Repositoryへの波及を拒否する。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
