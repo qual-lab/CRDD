@@ -32,7 +32,7 @@ SPEC ID: `SPEC-000002`
 |---|---|
 | 契機 | 目的・受入条件・対象範囲を委任する時 |
 | 事前条件 | 目的、受入条件、許可範囲、担い手候補、判断主体を確認できる |
-| Authority | Project運営者が委任範囲を決める。Runtimeは範囲を拡張しない |
+| Authority | Project運営者が委任範囲、Objective受入およびMilestone受入を判断する。Runtimeは範囲を拡張せず、Task完了から上位受入を推定しない |
 | 判定不能 | 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する |
 
 ## 振る舞い・状態・結果
@@ -70,7 +70,7 @@ SPEC ID: `SPEC-000002`
 | 観測不能 | 受理後の観測不能を`結果不明`として同じ依頼識別情報へ結合し、未発行・完了・新規Taskへ丸めず再観測する |
 | 完成段階 | Task完了、Objective受入、Milestone受入を別の状態・判断として保持し、下位完了から上位受入を推定しない |
 | 対応UI | [UI-000002](../../../04_UI/Definitions/UI-000002/ui_definition.md)の委任範囲・権限・受理結果と契機・結果・失敗が一致する |
-| 対応UI | [UI-000004](../../../04_UI/Definitions/UI-000004/ui_definition.md)の節目の委任、受理状態、およびTask完了・Objective受入・Milestone受入の区別が一致する |
+| 対応UI | [UI-000004](../../../04_UI/Definitions/UI-000004/ui_definition.md)のTask根拠、Objective受入判断、Milestone受入判断および三段階の区別が一致する。委任の提案・受付・拒否はUI-000002との対応で確認する |
 
 ## 対応するUI
 
