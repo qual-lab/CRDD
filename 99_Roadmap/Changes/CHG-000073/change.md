@@ -1371,6 +1371,13 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 | SPEC-000026のRecoveryへ採否導線を混入 | 外部結果のIdentity照合失敗時にも候補が成立していると仮定した | Identity欠落・曖昧な応答は隔離して採用可能候補にせず、失敗理由と安全な戻り先だけを示す。候補成立、採否、同候補への復帰およびProvider Effect再発行を当該組へ追加しない |
 | SPEC-000027のResultへ未定義の理由結合を追加 | 追跡可能性をEvidenceだけで新しいfieldへ具体化した | 採否、反映先、Decisionから同じ候補・対象正本への関係だけを保持し、未定義の理由fieldを除去した |
 
+固定Commit `ac68368a`の第12回独立レビューでは、SPECレビューが全248行をPassとし、UIとClosureに各Major 1件が残った。UI横断投影でLifecycleと受付Feedbackの分離が未伝播であり、SPEC-000027の通常の採否導線を失敗Recoveryへ再利用していた。
+
+| 第12回指摘 | 原因 | 構造是正と反証 |
+|---|---|---|
+| UI-000002の横断投影とState対応に受付Feedbackが混在 | Definitionの軸分離を上位Consumerと対応理由へ閉じなかった | 横断投影でUX-000002のLifecycle、UX-000003のTask Lifecycle、受付Feedbackおよび受付結果不明の再観測条件を別々に示した。State対応から拒否と停止の対応を除き、拒否を受付Feedbackだけへ限定した |
+| SPEC-000027の通常採否導線を失敗Recoveryへ転用 | 同じ候補へのDecision結合と失敗時の安全な帰還を同じ戻り先とみなした | Recoveryは失敗理由と安全な戻り先の表示までに限定し、戻り先、回復状態、再試行または再実行方法をEvidenceで特定しない。同じ候補への結合はState・Resultだけで保持した |
+
 ## 6. 完了条件
 
 | Gate | 完了条件 |
