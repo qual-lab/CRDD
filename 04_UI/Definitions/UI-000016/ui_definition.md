@@ -67,7 +67,7 @@ UIはUX側の目的だけでも、IA側の対象一覧だけでも成立しな�
 
 | UX分析 | 利用者が行う判断・行動 | 重要な場面 | 必要なFeedback | 避ける失敗 |
 |---|---|---|---|---|
-| UX-000024 | 送信範囲と内部へ戻す際の昇格条件を理解する | 外部作用（Effect）の前、Effect成立後に結果搬送が失敗した時、結果昇格時 | 同意、要求受理、Effect成立、結果観測、結果不明、投影および採用を分離し、同じ送信依頼を再観測できるようにする | 接続済みを包括許可とする、結果不明を未送信と誤認して二重送信する、外部反応や依存新版を要求・因果・方針へ自動昇格する |
+| UX-000024 | 送信範囲と内部へ戻す際の昇格条件を理解する | 外部作用（Effect）の前、要求受理後にEffect成立を観測できない時、Effect成立後に結果搬送が失敗した時、結果昇格時 | 同意、要求受理、Effect不明、Effect成立、Effect成立・結果不明、結果観測、投影および採用を分離する。Effect不明では成立を推測せず同じ送信依頼を再観測し、Effect成立・結果不明では成立済みEffectを保持して結果搬送または再観測へ戻す。どちらも同じEffectを自動再送しない | 接続済みを包括許可とする、Effect不明またはEffect成立・結果不明を未送信と誤認して二重送信する、外部反応や依存新版を要求・因果・方針へ自動昇格する |
 
 UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IAの状態・導線と対応付けて表示する。
 
@@ -75,8 +75,8 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 
 | UX／IAの対応 | 区別する状態 | 状態から進む導線 |
 |---|---|---|
-| UX-000024／IA-000014 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect成立（effect_established）／結果不明（effect_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） | 送信候補→境界確認→最小情報→要求→受理→Effect→結果観測／同じ依頼の再観測→出所付き結果→採否 |
-| UX-000024／IA-000017 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect成立（effect_established）／結果不明（effect_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） | 送信候補→境界確認→最小情報→要求→受理→Effect→結果観測／同じ依頼の再観測→出所付き結果→採否 |
+| UX-000024／IA-000014 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） | 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。自動再送は行わない |
+| UX-000024／IA-000017 | 未許可（not_authorized）／許可済み（authorized）／要求済み（requested）／受理済み（accepted）／Effect不明（effect_unknown）／Effect成立（effect_established）／Effect成立・結果不明（effect_established_result_unknown）／送信済み（sent）／返却済み（returned）／候補（candidate）／採用（adopted） | 送信候補→境界確認→最小情報→要求→受理→Effect不明なら成立を推測せず同じ依頼を再観測／Effect成立なら結果観測／Effect成立・結果不明なら成立済みEffectを保持して結果搬送または再観測→出所付き結果→採否。自動再送は行わない |
 
 上表にない処理中、取消、回復その他の状態を一律に追加しない。値なし、未観測、古い値、競合、開示制限または結果不明は、該当するIA定義が要求する場合にだけ別状態として示す。
 
