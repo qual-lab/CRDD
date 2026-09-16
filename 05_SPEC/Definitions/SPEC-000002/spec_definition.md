@@ -30,8 +30,8 @@ SPEC ID: `SPEC-000002`
 
 | 項目 | 契約 |
 |---|---|
-| 契機 | 目的・受入条件・対象範囲を委任する時 |
-| 事前条件 | 目的、受入条件、許可範囲、担い手候補、判断主体を確認できる |
+| 契機 | 目的・受入条件・対象範囲を委任する時、Task完了後にObjectiveを判断する時、またはObjective受入後にMilestoneを判断する時 |
+| 事前条件 | 委任時は目的、受入条件、許可範囲、担い手候補、判断主体を確認できる。Objective判断時は対象Taskの完了根拠とObjective受入条件を、Milestone判断時は対象Objectiveの受入根拠とMilestone受入条件を確認できる |
 | Authority | Project運営者が委任範囲、Objective受入およびMilestone受入を判断する。Runtimeは範囲を拡張せず、Task完了から上位受入を推定しない |
 | 判定不能 | 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する |
 
@@ -44,8 +44,11 @@ SPEC ID: `SPEC-000002`
    │                 └--明示拒否--> [拒否・Task未発行]
    └--不足／競合--> [blocked・Effect 0]
 
-[Task完了] --Objective受入判断--> [Objective受入済み／判断待ち]
-[Objective受入済み] --Milestone受入判断--> [Milestone受入済み／判断待ち]
+[Task完了] --Objective受入判断--> [Objective受入済み／Objective差戻し／Objective判断待ち]
+[Objective受入済み] --Milestone受入判断--> [Milestone受入済み／Milestone差戻し／Milestone判断待ち]
+
+[Objective差戻し] --不足の解消と再確認--> [Task根拠・Objective受入条件の確認]
+[Milestone差戻し] --不足の解消と再確認--> [Objective根拠・Milestone受入条件の確認]
 ```
 
 - 振る舞い: 目的、範囲、担い手、決定権限、節目を検証し、実行可能な依頼だけを受理する。
@@ -56,9 +59,9 @@ SPEC ID: `SPEC-000002`
 
 ## 失敗・回復・副作用
 
-- 失敗: 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。
+- 失敗: 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。
 - 副作用: 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする。
-- 受理前の拒否またはblockedは提案へ戻せる。受理後の結果不明は同じ依頼識別情報の再観測へ戻し、Task完了後の受入判断待ちは対応するObjectiveまたはMilestoneの判断へ戻す。
+- 受理前の拒否またはblockedは提案へ戻せる。受理後の結果不明は同じ依頼識別情報の再観測へ戻す。Objective差戻しは同じObjectiveのTask根拠と受入条件の確認へ、Milestone差戻しは同じMilestoneのObjective根拠と受入条件の確認へ戻す。判断待ちは対象ObjectiveまたはMilestoneの判断へ戻す。
 
 ## 受入条件と検証義務
 
@@ -66,7 +69,7 @@ SPEC ID: `SPEC-000002`
 |---|---|
 | 正常 | 受理結果から実行対象・未委任判断・完了条件を一意に確認できる |
 | 境界 | 委任範囲内／範囲外、判断主体一致／不一致を分け、未委任範囲を受理しない |
-| 失敗 | 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない |
+| 失敗 | 不足・競合・未承認範囲、または下位完了から上位受入を推定する要求はEffect前に停止し、暗黙に補完しない |
 | 観測不能 | 受理後の観測不能を`結果不明`として同じ依頼識別情報へ結合し、未発行・完了・新規Taskへ丸めず再観測する |
 | 完成段階 | Task完了、Objective受入、Milestone受入を別の状態・判断として保持し、下位完了から上位受入を推定しない |
 | 対応UI | [UI-000002](../../../04_UI/Definitions/UI-000002/ui_definition.md)の委任範囲・権限・受理結果と契機・結果・失敗が一致する |
