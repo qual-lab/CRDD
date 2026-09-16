@@ -24,3 +24,15 @@
 
 どの経路でも、接続・閲覧・候補・採用・Effectは別の成立条件とする。
 ```
+
+## 補足分析
+
+なし。
+
+## Checklist
+
+- [x] 全SPEC Definitionを一件ずつ処置した
+- [x] Actor、Trigger、Precondition、BehaviorおよびResultを区別した
+- [x] 正常・境界・失敗・判断不能を処置した
+- [x] 個別SPEC Definitionの意味を再定義していない
+- [x] 実装Sequenceを先取りしていない

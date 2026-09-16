@@ -50,6 +50,8 @@ UI契約
 
 UIとSPECは、同じUX定義とIA定義をそれぞれ別観点で全数分析する。UIは認識・操作・Feedbackへ、SPECは契機・条件・状態・結果へ統合する。片側の分析または定義を、もう片側の正式入力の代替にしない。両定義ができた後、`pairs_with`の多対多関係で対応レビューする。
 
+対応レビュー成果物は末尾に可視の`## Checklist`を持ち、Shared Context、State、Interaction／Trigger、Result／Feedback、Failure／Recovery、Authority、Visibility、Constraint、CoverageおよびGap Ownerの自己確認結果を記録する。対応レビューは第三の仕様を作らず、GapをUI、SPEC、IAまたはUXのOwner工程へ戻す。
+
 ---
 
 # 2. UI・振る舞い仕様の対応レビュー契約

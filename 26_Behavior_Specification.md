@@ -115,6 +115,12 @@ IA定義 ── 対象・状態・関係 ───→ IA観点のSPEC分析 ─�
 
 固定入口は台帳、網羅状況、横断図および次工程への引き渡しを投影する。個別分析と定義は対象固有の意味を自己完結して保持し、固定入口の要約だけを参照して成立させない。
 
+### 成果物上の自己確認
+
+SPECの各Analysis、Definitionおよび横断成果物は、末尾に可視の`## Checklist`を持ち、その成果物の責務に応じた確認結果を記録する。`[x]`は処置済み、`N/A`は理由付き非該当、`OPEN`は未完了、`FAIL`は不適合を表す。Checklistは工程移行レビューの代替ではなく、`Authoring Checklist → Checker → Independent Phase Audit`の第一層である。
+
+SPECはUIと独立して`SPEC Ready`へ到達できる。UI／SPEC対応レビューは両工程がReadyになった後に行い、片側をもう片側の正式入力へ変更しない。
+
 <a id="required-responsibility-coverage"></a>
 
 ## 必要な責務の網羅（Required Responsibility Coverage）

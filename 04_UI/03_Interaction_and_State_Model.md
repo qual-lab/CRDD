@@ -97,3 +97,15 @@
 - 不可逆操作、外部送信、Authority発行、再試行は対象・影響・境界を実行前に示す。
 - 利用不能な操作は隠すか無効化するだけでなく、存在開示が許可される場合に理由と代替を示す。
 - 成功表示はSystemの完了条件を満たした時だけ使い、受付、開始、要求発行または候補生成を完了と表示しない。
+
+## 補足分析
+
+なし。
+
+## Checklist
+
+- [x] 全UI Definitionを一件ずつ処置した
+- [x] Interaction、Visible State、FeedbackおよびRecovery Presentationを区別した
+- [x] 共通Variantを全UIへ一律適用していない
+- [x] Behavior Ruleを先取りしていない
+- [x] 個別UI Definitionの意味を再定義していない

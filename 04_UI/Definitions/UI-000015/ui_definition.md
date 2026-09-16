@@ -112,9 +112,42 @@ SPECはこの表の結論を転記せず、UX観点とIA観点を別々に分析
 
 UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果をこの節で再定義しない。
 
+## 未確認事項・人間判断・戻り条件
+
+| 項目 | 現在の判断 | 不足時に戻す工程 |
+|---|---|---|
+| 未確認事項 | なし | UI／SPECまたはOwner工程 |
+| 人間判断 | 現在のCanonical範囲では追加判断なし | 判断を所有する工程 |
+| 戻り条件 | 正式入力、対応関係または成立条件に不足・競合が見つかった場合 | 不足を所有するUX／IA／UI／SPEC |
+
+## 検証意図
+
+正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。
+
+## 補足定義
+
+なし。
+
 ## 情報源
 
 - [UX-000023のUI分析](../../Analysis/UX-000023/ui_analysis.md)
 - [UX-000026のUI分析](../../Analysis/UX-000026/ui_analysis.md)
 - [UX-000029のUI分析](../../Analysis/UX-000029/ui_analysis.md)
 - [IA-000016のUI分析](../../Analysis/IA-000016/ui_analysis.md)
+
+## Checklist
+
+- [x] UX DefinitionとIA Definitionの分析を正式入力として処置した
+- [x] UX OutcomeとIA Information Contractを保持した
+- [x] Surface ResponsibilityとInformation Priorityを定義した
+- [x] Presentation、Interaction、Visible StateおよびFeedbackを定義した
+- [x] Error・Recovery Presentationを評価した
+- [x] AccessibilityとVariantの必要性を評価した
+- [x] Failure・Risk、ConstraintおよびNon-goalを評価した
+- [x] Human Inputの必要性を評価した
+- [x] Open・GapとOwner工程へ戻す条件を明示した
+- [x] Verification Intentを明示した
+- [x] 対応するSPECとのRelationを明示した
+- [x] Behavior Rule、Architecture方式またはSource実装を先取りしていない
+- [x] Visual ArtifactだけでContractを代替していない
+- [x] 補足定義へ必須情報を退避していない

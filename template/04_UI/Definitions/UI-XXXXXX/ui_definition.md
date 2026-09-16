@@ -72,7 +72,48 @@ IA観点 ─┘
 
 SPECはこの表の結論を転記せず、UX観点とIA観点を別々に分析する。UIの操作に対応する発火条件・結果がない、またはSPECの結果を利用者が認識できない場合は対応レビューを通過しない。
 
+## 対応するSPEC
+
+- pairs_with: [SPEC-XXXXXX](../../../05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md)
+
+UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果をこの節で再定義しない。
+
+## 未確認事項・人間判断・戻り条件
+
+| 項目 | 現在の判断 | 不足時に戻す工程 |
+|---|---|---|
+| 未確認事項 | なし | UI／SPECまたはOwner工程 |
+| 人間判断 | 現在のCanonical範囲では追加判断なし | 判断を所有する工程 |
+| 戻り条件 | 正式入力、対応関係または成立条件に不足・競合が見つかった場合 | 不足を所有するUX／IA／UI／SPEC |
+
+## 検証意図
+
+正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。
+
+## 補足定義
+
+なし。
+
 ## 情報源
 
 - [UX-XXXXXXのUI分析](../../Analysis/UX-XXXXXX/ui_analysis.md)
 - [IA-XXXXXXのUI分析](../../Analysis/IA-XXXXXX/ui_analysis.md)
+
+## Checklist
+
+ひな型では`[ ]`を未評価として残す。完成時は、処置済みを`[x]`、未完了を`OPEN: 理由 — 項目`、不適合を`FAIL: 理由 — 項目`、非該当を`N/A: 理由 — 項目`として評価する。
+
+- [ ] UX DefinitionとIA Definitionの分析を正式入力として処置した
+- [ ] UX OutcomeとIA Information Contractを保持した
+- [ ] Surface ResponsibilityとInformation Priorityを定義した
+- [ ] Presentation、Interaction、Visible StateおよびFeedbackを定義した
+- [ ] Error・Recovery Presentationを評価した
+- [ ] AccessibilityとVariantの必要性を評価した
+- [ ] Failure・Risk、ConstraintおよびNon-goalを評価した
+- [ ] Human Inputの必要性を評価した
+- [ ] Open・GapとOwner工程へ戻す条件を明示した
+- [ ] Verification Intentを明示した
+- [ ] 対応するSPECとのRelationを明示した
+- [ ] Behavior Rule、Architecture方式またはSource実装を先取りしていない
+- [ ] Visual ArtifactだけでContractを代替していない
+- [ ] 補足定義へ必須情報を退避していない

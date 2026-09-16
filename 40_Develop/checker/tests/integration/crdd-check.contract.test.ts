@@ -2912,6 +2912,57 @@ test("UI分析は全UX定義と全IA定義の構造・入力・関係を別々�
   );
 });
 
+test("UI分析・定義とひな型は成果物別の可視Checklistを必要とする", () => {
+  const root = uiReconstructionFixtureRoot();
+  for (const [relativePath, expectedCode] of [
+    [
+      "04_UI/Analysis/UX-000001/ui_analysis.md",
+      "ui-analysis-checklist-invalid",
+    ],
+    [
+      "04_UI/Definitions/UI-000001/ui_definition.md",
+      "ui-definition-checklist-invalid",
+    ],
+    [
+      "template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md",
+      "ui-template-checklist-invalid",
+    ],
+  ] as const) {
+    const file = path.join(root, relativePath);
+    write(
+      file,
+      fs.readFileSync(file, "utf8").replace("## Checklist", "## 確認メモ"),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === expectedCode && finding.path === relativePath,
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("UIからSPECへの引き渡しは可視Checklistを必要とする", () => {
+  const root = uiReconstructionFixtureRoot();
+  const relativePath = "04_UI/05_UI_SPEC_Handoff.md";
+  const file = path.join(root, relativePath);
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replace("## Checklist", "## 確認メモ"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ui-spec-handoff-checklist-invalid" &&
+        finding.path === relativePath,
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
 test("UX観点のUI分析はIAまたはREQを正式入力へ追加できない", () => {
   const root = uiReconstructionFixtureRoot();
   const analysisPath = path.join(
@@ -3041,6 +3092,78 @@ test("SPEC分析はUX観点とIA観点を分けて全入力を閉じる", () => 
       (finding) => finding.code === "spec-ux-analysis-coverage-mismatch",
     ),
     `${missing.stdout}\n${missing.stderr}`,
+  );
+});
+
+test("SPEC分析・定義とひな型は成果物別の可視Checklistを必要とする", () => {
+  const root = specReconstructionFixtureRoot();
+  for (const [relativePath, expectedCode] of [
+    [
+      "05_SPEC/Analysis/UX-000001/spec_analysis.md",
+      "spec-analysis-checklist-invalid",
+    ],
+    [
+      "05_SPEC/Definitions/SPEC-000001/spec_definition.md",
+      "spec-definition-checklist-invalid",
+    ],
+    [
+      "template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md",
+      "spec-template-checklist-invalid",
+    ],
+  ] as const) {
+    const file = path.join(root, relativePath);
+    write(
+      file,
+      fs.readFileSync(file, "utf8").replace("## Checklist", "## 確認メモ"),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === expectedCode && finding.path === relativePath,
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とする", () => {
+  const checklistRoot = specReconstructionFixtureRoot();
+  const relativePath = "05_SPEC/06_UI_SPEC_Correspondence.md";
+  const checklistFile = path.join(checklistRoot, relativePath);
+  write(
+    checklistFile,
+    fs
+      .readFileSync(checklistFile, "utf8")
+      .replace("## Checklist", "## 確認メモ"),
+  );
+  const checklistResult = runChecker(checklistRoot);
+  assert.ok(
+    checklistResult.report.findings.some(
+      (finding) =>
+        finding.code === "ui-spec-correspondence-checklist-invalid" &&
+        finding.path === relativePath,
+    ),
+    `${checklistResult.stdout}\n${checklistResult.stderr}`,
+  );
+
+  const closureRoot = specReconstructionFixtureRoot();
+  const closureFile = path.join(closureRoot, relativePath);
+  write(
+    closureFile,
+    fs
+      .readFileSync(closureFile, "utf8")
+      .replace(
+        "| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | 同じ上流Contextを保持する |",
+        "",
+      ),
+  );
+  const closureResult = runChecker(closureRoot);
+  assert.ok(
+    closureResult.report.findings.some(
+      (finding) => finding.code === "ui-spec-correspondence-closure-mismatch",
+    ),
+    `${closureResult.stdout}\n${closureResult.stderr}`,
   );
 });
 
@@ -4151,16 +4274,29 @@ function iaReconstructionFixtureRoot(): string {
   return root;
 }
 
+function completedChecklist(relativePath: string): string {
+  const source = fs.readFileSync(
+    path.join(repositoryRoot, relativePath),
+    "utf8",
+  );
+  const checklist = source.match(/^## Checklist\s*$[\s\S]*$/mu)?.[0] ?? "";
+  const lines = checklist
+    .split(/\r?\n/u)
+    .filter((line) => line === "## Checklist" || line.startsWith("- [ ] "))
+    .map((line) => line.replace("- [ ] ", "- [x] "));
+  return `${lines.join("\n")}\n`;
+}
+
 function uxViewUiAnalysis(uxId: string, uiId: string): string {
-  return `# ${uxId}のUI分析\n\n成果物種別: UI分析（UX観点）\n分析単位: \`${uxId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- UX定義: [${uxId} 試験用](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n\n## 2. UIへ引き継ぐ利用者成果\n\n利用者が対象を理解する。\n\n## 3. 必要な認識・操作・Feedback\n\n対象、操作、Feedbackを示す。\n\n## 4. 状況による体験差\n\nこのUXに必要な状況だけを区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した利用者成果として扱う。\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n`;
+  return `# ${uxId}のUI分析\n\n成果物種別: UI分析（UX観点）\n分析単位: \`${uxId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- UX定義: [${uxId} 試験用](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n\n## 2. UIへ引き継ぐ利用者成果\n\n利用者が対象を理解する。\n\n## 3. 必要な認識・操作・Feedback\n\n対象、操作、Feedbackを示す。\n\n## 4. 状況による体験差\n\nこのUXに必要な状況だけを区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した利用者成果として扱う。\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n\n${completedChecklist("template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md")}`;
 }
 
 function iaViewUiAnalysis(iaId: string, uiId: string): string {
-  return `# ${iaId}のUI分析\n\n成果物種別: UI分析（IA観点）\n分析単位: \`${iaId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- IA定義: [${iaId} 試験用](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n## 2. UIへ引き継ぐ情報構造\n\n対象、状態、関係を示す。\n\n## 3. 表示の優先順位とNavigation\n\n対象、状態、根拠の順に示す。\n\n## 4. 表示差と開示境界\n\n通常、停止、結果不明を区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した情報構造として扱う。\n\n## 6. UX観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n`;
+  return `# ${iaId}のUI分析\n\n成果物種別: UI分析（IA観点）\n分析単位: \`${iaId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- IA定義: [${iaId} 試験用](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n## 2. UIへ引き継ぐ情報構造\n\n対象、状態、関係を示す。\n\n## 3. 表示の優先順位とNavigation\n\n対象、状態、根拠の順に示す。\n\n## 4. 表示差と開示境界\n\n通常、停止、結果不明を区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した情報構造として扱う。\n\n## 6. UX観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n\n${completedChecklist("template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md")}`;
 }
 
 function uiDefinition(uiId: string, uxId: string, iaId: string): string {
-  return `# ${uiId} 試験用Interface\n\n成果物種別: UI定義\nUI ID: \`${uiId}\`\n状態: Candidate\n\n## 利用者成果\n\n対象を理解できる。\n\n## UX観点の入力\n\n| UX分析 | このUIで保持する利用者成果 |\n|---|---|\n| [${uxId}](../../Analysis/${uxId}/ui_analysis.md) | 対象を理解する |\n\n## IA観点の入力\n\n| IA分析 | このUIで保持する情報構造 |\n|---|---|\n| [${iaId}](../../Analysis/${iaId}/ui_analysis.md) | 対象と状態を見分ける |\n\n## 両観点の統合判断\n\n利用者成果を情報構造によって判断可能にする。\n\n## 表示面と情報の優先順位\n\n対象、状態、根拠、行動の順に示す。\n\n## 操作とFeedback\n\n主要操作と結果を示す。\n\n## 状態と表示差\n\n通常と停止を区別する。\n\n## 視覚表現とアクセシビリティ\n\n色以外でも区別する。\n\n## 制約\n\n正本を複製しない。\n\n## UI／SPEC対応レビューへ渡す項目\n\n同じUXとIAについて、UIの観測点とSPEC側の未確定事項を渡す。\n\n## 情報源\n\n- [${uxId}のUI分析](../../Analysis/${uxId}/ui_analysis.md)\n- [${iaId}のUI分析](../../Analysis/${iaId}/ui_analysis.md)\n`;
+  return `# ${uiId} 試験用Interface\n\n成果物種別: UI定義\nUI ID: \`${uiId}\`\n状態: Candidate\n\n## 利用者成果\n\n対象を理解できる。\n\n## UX観点の入力\n\n| UX分析 | このUIで保持する利用者成果 |\n|---|---|\n| [${uxId}](../../Analysis/${uxId}/ui_analysis.md) | 対象を理解する |\n\n## IA観点の入力\n\n| IA分析 | このUIで保持する情報構造 |\n|---|---|\n| [${iaId}](../../Analysis/${iaId}/ui_analysis.md) | 対象と状態を見分ける |\n\n## 両観点の統合判断\n\n利用者成果を情報構造によって判断可能にする。\n\n## 表示面と情報の優先順位\n\n対象、状態、根拠、行動の順に示す。\n\n## 操作とFeedback\n\n主要操作と結果を示す。\n\n## 状態と表示差\n\n通常と停止を区別する。\n\n## 視覚表現とアクセシビリティ\n\n色以外でも区別する。\n\n## 制約\n\n正本を複製しない。\n\n## UI／SPEC対応レビューへ渡す項目\n\n同じUXとIAについて、UIの観測点とSPEC側の未確定事項を渡す。\n\n## 情報源\n\n- [${uxId}のUI分析](../../Analysis/${uxId}/ui_analysis.md)\n- [${iaId}のUI分析](../../Analysis/${iaId}/ui_analysis.md)\n\n${completedChecklist("template/04_UI/Definitions/UI-XXXXXX/ui_definition.md")}`;
 }
 
 function uiReconstructionFixtureRoot(): string {
@@ -4182,6 +4318,10 @@ function uiReconstructionFixtureRoot(): string {
     uiDefinition("UI-000001", "UX-000001", "IA-000001"),
   );
   write(
+    path.join(root, "04_UI", "05_UI_SPEC_Handoff.md"),
+    `# UIとSPECの引き渡し\n\nUI側の責任境界を示す。\n\n${completedChecklist("template/04_UI/05_UI_SPEC_Handoff.md")}`,
+  );
+  write(
     path.join(
       root,
       "template",
@@ -4190,7 +4330,13 @@ function uiReconstructionFixtureRoot(): string {
       "IA-XXXXXX",
       "ui_analysis.md",
     ),
-    "# UI分析ひな型（IA観点）\n",
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md",
+      ),
+      "utf8",
+    ),
   );
   write(
     path.join(
@@ -4201,7 +4347,13 @@ function uiReconstructionFixtureRoot(): string {
       "UX-XXXXXX",
       "ui_analysis.md",
     ),
-    "# UI分析ひな型（UX観点）\n",
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md",
+      ),
+      "utf8",
+    ),
   );
   write(
     path.join(
@@ -4212,16 +4364,33 @@ function uiReconstructionFixtureRoot(): string {
       "UI-XXXXXX",
       "ui_definition.md",
     ),
-    "# UI定義ひな型\n",
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/04_UI/Definitions/UI-XXXXXX/ui_definition.md",
+      ),
+      "utf8",
+    ),
   );
+  for (const relativePath of [
+    "template/04_UI/01_User_Interface.md",
+    "template/04_UI/02_Surface_and_Region_Model.md",
+    "template/04_UI/03_Interaction_and_State_Model.md",
+    "template/04_UI/04_Visual_and_Accessibility_Direction.md",
+    "template/04_UI/05_UI_SPEC_Handoff.md",
+  ])
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
+    );
   return root;
 }
 
 function specReconstructionFixtureRoot(): string {
   const root = uiReconstructionFixtureRoot();
-  const uxAnalysis = `# UX-000001のSPEC分析\n\n成果物種別: SPEC分析（UX観点）\n分析単位: \`UX-000001\`\n\n## 1. 正式入力\n\n- UX定義: [UX-000001 試験用](../../../02_UX/Definitions/UX-000001/ux_definition.md)\n\n## 2. 振る舞いへ引き継ぐ利用者成果\n\n成果を示す。\n\n## 3. 観測可能にする契機・結果・失敗\n\n結果を示す。\n\n## 4. 受入条件と適用範囲\n\n適用範囲を示す。\n\n## 5. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と統合する。\n`;
-  const iaAnalysis = `# IA-000001のSPEC分析\n\n成果物種別: SPEC分析（IA観点）\n分析単位: \`IA-000001\`\n\n## 1. 正式入力\n\n- IA定義: [IA-000001 試験用](../../../03_IA/Definitions/IA-000001/ia_definition.md)\n\n## 2. 利用場面ごとに保持する意味\n\n利用場面を示す。\n\n## 3. 対象・識別・関係\n\n情報を示す。\n\n## 4. 状態・可視性・時間的意味\n\n状態を示す。\n\n## 5. 導線・責任・失敗時の保持\n\n保持を示す。\n\n## 6. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 7. UX観点との統合時に確認すること\n\n利用者成果と統合する。\n`;
-  const definition = `# SPEC-000001 試験用\n\n成果物種別: SPEC定義\nSPEC ID: \`SPEC-000001\`\n\n## 振る舞いの目的\n\n目的。\n\n## UX観点の入力\n\n[UX-000001](../../Analysis/UX-000001/spec_analysis.md)\n\n## IA観点の入力\n\n[IA-000001](../../Analysis/IA-000001/spec_analysis.md)\n\n## 両観点の統合判断\n\n統合する。\n\n## 契機・事前条件・Authority\n\n条件。\n\n## 振る舞い・状態・結果\n\n結果。\n\n## 失敗・回復・副作用\n\n失敗。\n\n## 受入条件と検証義務\n\n受入。\n\n## 対応するUI\n\n- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 制約\n\n制約。\n`;
+  const uxAnalysis = `# UX-000001のSPEC分析\n\n成果物種別: SPEC分析（UX観点）\n分析単位: \`UX-000001\`\n\n## 1. 正式入力\n\n- UX定義: [UX-000001 試験用](../../../02_UX/Definitions/UX-000001/ux_definition.md)\n\n## 2. 振る舞いへ引き継ぐ利用者成果\n\n成果を示す。\n\n## 3. 観測可能にする契機・結果・失敗\n\n結果を示す。\n\n## 4. 受入条件と適用範囲\n\n適用範囲を示す。\n\n## 5. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と統合する。\n\n\n${completedChecklist("template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md")}`;
+  const iaAnalysis = `# IA-000001のSPEC分析\n\n成果物種別: SPEC分析（IA観点）\n分析単位: \`IA-000001\`\n\n## 1. 正式入力\n\n- IA定義: [IA-000001 試験用](../../../03_IA/Definitions/IA-000001/ia_definition.md)\n\n## 2. 利用場面ごとに保持する意味\n\n利用場面を示す。\n\n## 3. 対象・識別・関係\n\n情報を示す。\n\n## 4. 状態・可視性・時間的意味\n\n状態を示す。\n\n## 5. 導線・責任・失敗時の保持\n\n保持を示す。\n\n## 6. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 7. UX観点との統合時に確認すること\n\n利用者成果と統合する。\n\n\n${completedChecklist("template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md")}`;
+  const definition = `# SPEC-000001 試験用\n\n成果物種別: SPEC定義\nSPEC ID: \`SPEC-000001\`\n\n## 振る舞いの目的\n\n目的。\n\n## UX観点の入力\n\n[UX-000001](../../Analysis/UX-000001/spec_analysis.md)\n\n## IA観点の入力\n\n[IA-000001](../../Analysis/IA-000001/spec_analysis.md)\n\n## 両観点の統合判断\n\n統合する。\n\n## 契機・事前条件・Authority\n\n条件。\n\n## 振る舞い・状態・結果\n\n結果。\n\n## 失敗・回復・副作用\n\n失敗。\n\n## 受入条件と検証義務\n\n受入。\n\n## 対応するUI\n\n- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 制約\n\n制約。\n\n\n${completedChecklist("template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md")}`;
   write(
     path.join(root, "05_SPEC", "01_Behavior_Specification.md"),
     "# SPEC\n\n| SPEC | 観測可能な振る舞い契約 | 主な入力UX | 主な入力IA | 対応UI |\n|---|---|---|---|---|\n| [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | 試験用 | UX-000001 | IA-000001 | UI-000001 |\n",
@@ -4243,6 +4412,10 @@ function specReconstructionFixtureRoot(): string {
       "spec_definition.md",
     ),
     definition,
+  );
+  write(
+    path.join(root, "05_SPEC", "06_UI_SPEC_Correspondence.md"),
+    `# UI／SPEC対応\n\n| UI | SPEC | 対応レビューで確認すること |\n|---|---|---|\n| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | 同じ上流Contextを保持する |\n\n${completedChecklist("template/05_SPEC/06_UI_SPEC_Correspondence.md")}`,
   );
   const uiFile = path.join(
     root,
@@ -4269,7 +4442,13 @@ function specReconstructionFixtureRoot(): string {
       "UX-XXXXXX",
       "spec_analysis.md",
     ),
-    "# UX SPEC analysis\n",
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md",
+      ),
+      "utf8",
+    ),
   );
   write(
     path.join(
@@ -4280,7 +4459,13 @@ function specReconstructionFixtureRoot(): string {
       "IA-XXXXXX",
       "spec_analysis.md",
     ),
-    "# IA SPEC analysis\n",
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md",
+      ),
+      "utf8",
+    ),
   );
   write(
     path.join(
@@ -4291,8 +4476,26 @@ function specReconstructionFixtureRoot(): string {
       "SPEC-XXXXXX",
       "spec_definition.md",
     ),
-    "# SPEC definition\n",
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md",
+      ),
+      "utf8",
+    ),
   );
+  for (const relativePath of [
+    "template/05_SPEC/01_Behavior_Specification.md",
+    "template/05_SPEC/02_Use_Case_and_Behavior_Flow.md",
+    "template/05_SPEC/03_State_Transition_Model.md",
+    "template/05_SPEC/04_Actor_System_Sequence.md",
+    "template/05_SPEC/05_Error_Effect_and_Recovery.md",
+    "template/05_SPEC/06_UI_SPEC_Correspondence.md",
+  ])
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
+    );
   return root;
 }
 

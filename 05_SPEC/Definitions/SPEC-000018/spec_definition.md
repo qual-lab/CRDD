@@ -70,7 +70,39 @@ Runtimeの信頼要素を独立評価する。
 
 API、Process、保存方式、画面、部品または実装技術を本定義で確定しない。現行実装は独立した照合対象であり、望ましい振る舞いの根拠として自動採用しない。
 
+## 未確認事項・人間判断・戻り条件
+
+| 項目 | 現在の判断 | 不足時に戻す工程 |
+|---|---|---|
+| 未確認事項 | なし | UI／SPECまたはOwner工程 |
+| 人間判断 | 現在のCanonical範囲では追加判断なし | 判断を所有する工程 |
+| 戻り条件 | 正式入力、対応関係または成立条件に不足・競合が見つかった場合 | 不足を所有するUX／IA／UI／SPEC |
+
+## 検証意図
+
+正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。
+
+## 補足定義
+
+なし。
+
 ## 情報源
 
 - UX観点: [UX-000020](../../Analysis/UX-000020/spec_analysis.md)、[UX-000031](../../Analysis/UX-000031/spec_analysis.md)
 - IA観点: [IA-000015](../../Analysis/IA-000015/spec_analysis.md)
+
+## Checklist
+
+- [x] UX DefinitionとIA Definitionの分析を正式入力として処置した
+- [x] UX OutcomeとIA Information Contractを保持した
+- [x] Actor・Authority、Trigger、PreconditionおよびInput Validationを評価した
+- [x] Current State、Behavior、ResultおよびState Transitionを定義した
+- [x] Failure・Error、Retry・Recovery、Cancel・UndoおよびSide Effectを評価した
+- [x] ConstraintとNon-goalを評価した
+- [x] Human Inputの必要性を評価した
+- [x] Open・GapとOwner工程へ戻す条件を明示した
+- [x] Verification Intentを明示した
+- [x] 対応するUIとのRelationを明示した
+- [x] UI Presentation、Architecture方式またはSource実装を先取りしていない
+- [x] 結果を観測可能な契約として定義した
+- [x] 補足定義へ必須情報を退避していない

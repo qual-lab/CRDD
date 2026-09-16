@@ -28,3 +28,15 @@
                                      ▼
                                 [義務解消]
 ```
+
+## 補足分析
+
+なし。
+
+## Checklist
+
+- [x] 全SPEC DefinitionのState Transitionを処置した
+- [x] Meaning StateとUI Visible Stateを同一視していない
+- [x] 未知・観測不能を正常または不存在へ丸めていない
+- [x] 回復義務と終了後条件を処置した
+- [x] 架空の共通状態を追加していない

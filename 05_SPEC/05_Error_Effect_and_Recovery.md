@@ -10,3 +10,15 @@
 | 終了後確認済み | settled | 確定 | 義務解消 |
 
 異常経路は、原因候補、観測事実、Effect状態、残存義務を分ける。
+
+## 補足分析
+
+なし。
+
+## Checklist
+
+- [x] 全SPEC DefinitionのFailure・Effect・Recoveryを処置した
+- [x] Partial Success、Retry、CancelおよびUndoの適用を評価した
+- [x] Effect 0、Effect成立およびEffect不明を区別した
+- [x] Recovery Ownerと終了後条件を処置した
+- [x] 未定義の回復方式を追加していない

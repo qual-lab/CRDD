@@ -738,6 +738,129 @@ const iaDefinitionChecklistItemTexts = [
   "補足分析へ必須情報を退避していない",
 ];
 
+const uiAnalysisUxChecklistItemTexts = [
+  "正式入力となるUX Definitionを一件だけ特定した",
+  "UXの利用者、状況、目的、成果、重要場面および失敗を保持した",
+  "必要な認識・操作・Feedbackを評価した",
+  "状況による体験差を評価した",
+  "UI候補への処置と理由を明示した",
+  "IA観点と統合するときの確認事項を明示した",
+  "Human Inputの必要性を評価した",
+  "Open・GapとUIまたはUXへ戻す条件を明示した",
+  "Verification Intentを評価した",
+  "IA、REQ、ArchitectureまたはSourceから意味を補完していない",
+  "Behavior Ruleを先取りしていない",
+  "補足分析へ必須情報を退避していない",
+];
+
+const uiAnalysisIaChecklistItemTexts = [
+  "正式入力となるIA Definitionを一件だけ特定した",
+  "IAのObject、Identity、Relation、State、Visibilityおよび導線を保持した",
+  "表示の優先順位とNavigationを評価した",
+  "表示差と開示境界を評価した",
+  "UI候補への処置と理由を明示した",
+  "UX観点と統合するときの確認事項を明示した",
+  "Human Inputの必要性を評価した",
+  "Open・GapとUIまたはIAへ戻す条件を明示した",
+  "Verification Intentを評価した",
+  "UX、REQ、ArchitectureまたはSourceから意味を補完していない",
+  "Behavior Ruleを先取りしていない",
+  "補足分析へ必須情報を退避していない",
+];
+
+const uiDefinitionChecklistItemTexts = [
+  "UX DefinitionとIA Definitionの分析を正式入力として処置した",
+  "UX OutcomeとIA Information Contractを保持した",
+  "Surface ResponsibilityとInformation Priorityを定義した",
+  "Presentation、Interaction、Visible StateおよびFeedbackを定義した",
+  "Error・Recovery Presentationを評価した",
+  "AccessibilityとVariantの必要性を評価した",
+  "Failure・Risk、ConstraintおよびNon-goalを評価した",
+  "Human Inputの必要性を評価した",
+  "Open・GapとOwner工程へ戻す条件を明示した",
+  "Verification Intentを明示した",
+  "対応するSPECとのRelationを明示した",
+  "Behavior Rule、Architecture方式またはSource実装を先取りしていない",
+  "Visual ArtifactだけでContractを代替していない",
+  "補足定義へ必須情報を退避していない",
+];
+
+const specAnalysisUxChecklistItemTexts = [
+  "正式入力となるUX Definitionを一件だけ特定した",
+  "UXの利用者、状況、成果、重要場面、失敗および品質を保持した",
+  "契機、結果、失敗および判断不能を観測可能な意味で評価した",
+  "受入条件と適用範囲を評価した",
+  "SPEC候補への処置と理由を明示した",
+  "IA観点と統合するときの確認事項を明示した",
+  "Human Inputの必要性を評価した",
+  "Open・GapとSPECまたはUXへ戻す条件を明示した",
+  "Verification Intentを評価した",
+  "IA、UI、REQ、ArchitectureまたはSourceから意味を補完していない",
+  "UI Presentationを先取りしていない",
+  "補足分析へ必須情報を退避していない",
+];
+
+const specAnalysisIaChecklistItemTexts = [
+  "正式入力となるIA Definitionを一件だけ特定した",
+  "利用場面、Object、Identity、Relation、State、Visibilityおよび時間的意味を保持した",
+  "入力、条件、状態、結果および開示境界を区別した",
+  "導線、責任、Authorityおよび失敗時に保持する意味を評価した",
+  "SPEC候補への処置と理由を明示した",
+  "UX観点と統合するときの確認事項を明示した",
+  "Human Inputの必要性を評価した",
+  "Open・GapとSPECまたはIAへ戻す条件を明示した",
+  "Verification Intentを評価した",
+  "UX、UI、REQ、ArchitectureまたはSourceから意味を補完していない",
+  "実装StateまたはUI Presentationを先取りしていない",
+  "補足分析へ必須情報を退避していない",
+];
+
+const specDefinitionChecklistItemTexts = [
+  "UX DefinitionとIA Definitionの分析を正式入力として処置した",
+  "UX OutcomeとIA Information Contractを保持した",
+  "Actor・Authority、Trigger、PreconditionおよびInput Validationを評価した",
+  "Current State、Behavior、ResultおよびState Transitionを定義した",
+  "Failure・Error、Retry・Recovery、Cancel・UndoおよびSide Effectを評価した",
+  "ConstraintとNon-goalを評価した",
+  "Human Inputの必要性を評価した",
+  "Open・GapとOwner工程へ戻す条件を明示した",
+  "Verification Intentを明示した",
+  "対応するUIとのRelationを明示した",
+  "UI Presentation、Architecture方式またはSource実装を先取りしていない",
+  "結果を観測可能な契約として定義した",
+  "補足定義へ必須情報を退避していない",
+];
+
+const uiSpecHandoffChecklistItemTexts = [
+  "UIとSPECの共通正式入力を明示した",
+  "UIとSPECの責任境界を区別した",
+  "UI別に渡す操作・状態・Feedbackを明示した",
+  "共通Variantを全UIへ一律適用していない",
+  "UI側の引き渡し完了条件を明示した",
+  "対応レビュー結果の正本をSPEC側の対応文書へ一本化した",
+  "Open・GapとOwner工程へ戻す条件を明示した",
+  "UI／SPEC独自の第三仕様を作っていない",
+  "補足分析へ必須情報を退避していない",
+];
+
+const uiSpecCorrespondenceChecklistItemTexts = [
+  "UIとSPECが同じUX・IA Contextを保持している",
+  "Shared Stateの意味が一致する",
+  "InteractionとTriggerが矛盾しない",
+  "ResultとFeedbackが矛盾しない",
+  "FailureとError Presentationが矛盾しない",
+  "Recoveryが両側で成立する",
+  "Authorityが矛盾しない",
+  "Visibilityが矛盾しない",
+  "Constraintが片側で欠落していない",
+  "UI-only Responsibilityを識別した",
+  "SPEC-only Responsibilityを識別した",
+  "Shared Responsibilityを識別した",
+  "GapのOwner工程を特定した",
+  "UI／SPEC独自の第三仕様を作っていない",
+  "未決事項をAI推測で補完していない",
+];
+
 function checklistItemText(line: string): string | null {
   const checked = /^- \[x\] (?<text>\S.*)$/u.exec(line);
   if (checked?.groups?.text) return checked.groups.text;
@@ -2467,6 +2590,26 @@ function checkUiReconstruction(): void {
       "ui_definition.md",
     ),
   ];
+  const uiProjectionTemplates = [
+    path.join(root, "template", "04_UI", "01_User_Interface.md"),
+    path.join(root, "template", "04_UI", "02_Surface_and_Region_Model.md"),
+    path.join(root, "template", "04_UI", "03_Interaction_and_State_Model.md"),
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "04_Visual_and_Accessibility_Direction.md",
+    ),
+    path.join(root, "template", "04_UI", "05_UI_SPEC_Handoff.md"),
+  ];
+  for (const templatePath of uiProjectionTemplates)
+    if (!lstatIfPresent(templatePath)?.isFile())
+      add(
+        "error",
+        "ui-projection-template-missing",
+        relative(templatePath),
+        "The official UI profile must include its root and cross-cutting projection templates.",
+      );
   for (const templatePath of requiredTemplates)
     if (!lstatIfPresent(templatePath)?.isFile())
       add(
@@ -2475,6 +2618,52 @@ function checkUiReconstruction(): void {
         relative(templatePath),
         "The official UI profile must include separate UX-view and IA-view analysis templates plus the integrated UI definition template.",
       );
+  for (const [templatePath, checklistItems] of [
+    [requiredTemplates[0], uiAnalysisUxChecklistItemTexts],
+    [requiredTemplates[1], uiAnalysisIaChecklistItemTexts],
+    [requiredTemplates[2], uiDefinitionChecklistItemTexts],
+  ] as const) {
+    if (!lstatIfPresent(templatePath)?.isFile()) continue;
+    const error = templateVisibleChecklistError(
+      read(templatePath),
+      checklistItems,
+    );
+    if (error)
+      add(
+        "error",
+        "ui-template-checklist-invalid",
+        relative(templatePath),
+        `The UI template must expose one exact unevaluated checklist (${error}).`,
+      );
+  }
+  const uiHandoffPath = path.join(root, "04_UI", "05_UI_SPEC_Handoff.md");
+  const uiHandoffTemplatePath = uiProjectionTemplates[4];
+  if (lstatIfPresent(uiHandoffPath)?.isFile()) {
+    const error = completedVisibleChecklistError(
+      read(uiHandoffPath),
+      uiSpecHandoffChecklistItemTexts,
+    );
+    if (error)
+      add(
+        "error",
+        "ui-spec-handoff-checklist-invalid",
+        relative(uiHandoffPath),
+        `The UI-side handoff must expose one completed checklist (${error}).`,
+      );
+  }
+  if (lstatIfPresent(uiHandoffTemplatePath)?.isFile()) {
+    const error = templateVisibleChecklistError(
+      read(uiHandoffTemplatePath),
+      uiSpecHandoffChecklistItemTexts,
+    );
+    if (error)
+      add(
+        "error",
+        "ui-spec-handoff-template-checklist-invalid",
+        relative(uiHandoffTemplatePath),
+        `The UI-side handoff template must expose one exact unevaluated checklist (${error}).`,
+      );
+  }
 
   const exactSecondLevelSection = (sourceText: string, heading: string) => {
     const escaped = heading.replace(/[.*+?^$()|[\]{}\\]/gu, "\\$&");
@@ -2625,6 +2814,19 @@ function checkUiReconstruction(): void {
           relative(analysisPath),
           "Each UI input must be analyzed independently from exactly its own UX or IA definition and must identify at least one UI disposition.",
         );
+      const checklistError = completedVisibleChecklistError(
+        analysis,
+        isUxView
+          ? uiAnalysisUxChecklistItemTexts
+          : uiAnalysisIaChecklistItemTexts,
+      );
+      if (checklistError)
+        add(
+          "error",
+          "ui-analysis-checklist-invalid",
+          relative(analysisPath),
+          `Each UI analysis must expose one completed view-specific checklist (${checklistError}).`,
+        );
     }
 
   if (
@@ -2705,6 +2907,17 @@ function checkUiReconstruction(): void {
           "ui-definition-contract-invalid",
           relative(definitionPath),
           "Each canonical UI definition must integrate at least one UX-view analysis and one IA-view analysis.",
+        );
+      const checklistError = completedVisibleChecklistError(
+        definition,
+        uiDefinitionChecklistItemTexts,
+      );
+      if (checklistError)
+        add(
+          "error",
+          "ui-definition-checklist-invalid",
+          relative(definitionPath),
+          `Each canonical UI definition must expose one completed checklist (${checklistError}).`,
         );
     }
 
@@ -2802,6 +3015,22 @@ function checkSpecReconstruction(): void {
       "spec_definition.md",
     ),
   ];
+  const specProjectionTemplates = [
+    path.join(root, "template", "05_SPEC", "01_Behavior_Specification.md"),
+    path.join(root, "template", "05_SPEC", "02_Use_Case_and_Behavior_Flow.md"),
+    path.join(root, "template", "05_SPEC", "03_State_Transition_Model.md"),
+    path.join(root, "template", "05_SPEC", "04_Actor_System_Sequence.md"),
+    path.join(root, "template", "05_SPEC", "05_Error_Effect_and_Recovery.md"),
+    path.join(root, "template", "05_SPEC", "06_UI_SPEC_Correspondence.md"),
+  ];
+  for (const templatePath of specProjectionTemplates)
+    if (!lstatIfPresent(templatePath)?.isFile())
+      add(
+        "error",
+        "spec-projection-template-missing",
+        relative(templatePath),
+        "The official SPEC profile must include its root and cross-cutting projection templates.",
+      );
   for (const templatePath of requiredTemplates)
     if (!lstatIfPresent(templatePath)?.isFile())
       add(
@@ -2810,6 +3039,56 @@ function checkSpecReconstruction(): void {
         relative(templatePath),
         "The official SPEC profile must include separate UX-view and IA-view analyses plus the integrated SPEC definition template.",
       );
+  for (const [templatePath, checklistItems] of [
+    [requiredTemplates[0], specAnalysisUxChecklistItemTexts],
+    [requiredTemplates[1], specAnalysisIaChecklistItemTexts],
+    [requiredTemplates[2], specDefinitionChecklistItemTexts],
+  ] as const) {
+    if (!lstatIfPresent(templatePath)?.isFile()) continue;
+    const error = templateVisibleChecklistError(
+      read(templatePath),
+      checklistItems,
+    );
+    if (error)
+      add(
+        "error",
+        "spec-template-checklist-invalid",
+        relative(templatePath),
+        `The SPEC template must expose one exact unevaluated checklist (${error}).`,
+      );
+  }
+  const correspondencePath = path.join(
+    root,
+    "05_SPEC",
+    "06_UI_SPEC_Correspondence.md",
+  );
+  const correspondenceTemplatePath = specProjectionTemplates[5];
+  if (lstatIfPresent(correspondencePath)?.isFile()) {
+    const error = completedVisibleChecklistError(
+      read(correspondencePath),
+      uiSpecCorrespondenceChecklistItemTexts,
+    );
+    if (error)
+      add(
+        "error",
+        "ui-spec-correspondence-checklist-invalid",
+        relative(correspondencePath),
+        `The UI/SPEC correspondence review must expose one completed checklist (${error}).`,
+      );
+  }
+  if (lstatIfPresent(correspondenceTemplatePath)?.isFile()) {
+    const error = templateVisibleChecklistError(
+      read(correspondenceTemplatePath),
+      uiSpecCorrespondenceChecklistItemTexts,
+    );
+    if (error)
+      add(
+        "error",
+        "ui-spec-correspondence-template-checklist-invalid",
+        relative(correspondenceTemplatePath),
+        `The UI/SPEC correspondence template must expose one exact unevaluated checklist (${error}).`,
+      );
+  }
 
   const definitionIds = (base: string, prefix: "UX" | "IA", file: string) => {
     const result = new Set<string>();
@@ -2907,6 +3186,19 @@ function checkSpecReconstruction(): void {
             : "spec-ia-analysis-contract-invalid",
           relative(analysisPath),
           "Each SPEC input must be analyzed independently from exactly its own UX or IA definition and must identify at least one SPEC disposition.",
+        );
+      const checklistError = completedVisibleChecklistError(
+        source,
+        isUx
+          ? specAnalysisUxChecklistItemTexts
+          : specAnalysisIaChecklistItemTexts,
+      );
+      if (checklistError)
+        add(
+          "error",
+          "spec-analysis-checklist-invalid",
+          relative(analysisPath),
+          `Each SPEC analysis must expose one completed view-specific checklist (${checklistError}).`,
         );
     }
 
@@ -3062,6 +3354,17 @@ function checkSpecReconstruction(): void {
           relative(definitionPath),
           "Each SPEC definition must integrate UX-view and IA-view inputs into an observable behavior contract.",
         );
+      const checklistError = completedVisibleChecklistError(
+        source,
+        specDefinitionChecklistItemTexts,
+      );
+      if (checklistError)
+        add(
+          "error",
+          "spec-definition-checklist-invalid",
+          relative(definitionPath),
+          `Each canonical SPEC definition must expose one completed checklist (${checklistError}).`,
+        );
     }
 
   if (
@@ -3150,6 +3453,29 @@ function checkSpecReconstruction(): void {
       relative(specIndexPath),
       "UI and SPEC definitions plus the SPEC registry must expose the same duplicate-free pairs_with relation set.",
     );
+
+  if (lstatIfPresent(correspondencePath)?.isFile()) {
+    const correspondence = visibleMarkdownStructure(read(correspondencePath));
+    const correspondencePairs: string[] = [];
+    for (const line of correspondence.split(/\r?\n/u)) {
+      const row = line.match(
+        /^\| \[(UI-[0-9]{6})\]\(\.\.\/04_UI\/Definitions\/\1\/ui_definition\.md\) \| \[(SPEC-[0-9]{6})\]\(Definitions\/\2\/spec_definition\.md\) \|/u,
+      );
+      if (row) correspondencePairs.push(`${row[1]}|${row[2]}`);
+    }
+    const correspondenceSet = new Set(correspondencePairs);
+    if (
+      correspondencePairs.length !== correspondenceSet.size ||
+      [...registryUiPairs].some((pair) => !correspondenceSet.has(pair)) ||
+      [...correspondenceSet].some((pair) => !registryUiPairs.has(pair))
+    )
+      add(
+        "error",
+        "ui-spec-correspondence-closure-mismatch",
+        relative(correspondencePath),
+        "The UI/SPEC correspondence review must list the same duplicate-free pairs as both canonical definitions and the SPEC registry.",
+      );
+  }
 }
 
 checkSpecReconstruction();

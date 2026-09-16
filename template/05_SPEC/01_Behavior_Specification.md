@@ -51,3 +51,22 @@ UI定義 ───── pairs_with ───── SPEC定義
 ## 6. 現在状態と次工程
 
 網羅範囲、独立レビュー、UI／SPEC対応レビュー、未解決事項、Architecture／Verificationへ渡す義務を示す。
+
+## 補足分析
+
+[なし／必要な補足]
+
+## Checklist
+
+ひな型では`[ ]`を未評価として残す。完成時は、処置済みを`[x]`、未完了を`OPEN: 理由 — 項目`、不適合を`FAIL: 理由 — 項目`、非該当を`N/A: 理由 — 項目`として評価する。
+
+ひな型では未評価のまま残し、完成時に評価する。
+
+- [ ] 全UX DefinitionとIA DefinitionをSPEC分析へ一件ずつ対応付けた
+- [ ] 全SPEC分析をSPEC Definitionへ処置した
+- [ ] SPEC台帳とAnalysis・Definitionsの関係が一致する
+- [ ] 横断成果物を個別SPEC定義の第二の正本にしていない
+- [ ] 基本図を全件処置した
+- [ ] Human Input、Open・Gapおよび戻り条件を明示した
+- [ ] SPEC ReadyとUI／SPEC対応レビューを区別した
+- [ ] ArchitectureまたはSourceから意味を逆輸入していない

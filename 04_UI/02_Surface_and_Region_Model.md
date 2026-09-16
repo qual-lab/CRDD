@@ -77,3 +77,15 @@ Project Header ── Source Coverage
 ```
 
 Workbenchは表示面であり、正本、集計規則、Authority判定またはFilesystem更新を所有しない。
+
+## 補足分析
+
+なし。
+
+## Checklist
+
+- [x] 全UI Definitionを一件ずつ処置した
+- [x] Surface ResponsibilityとInformation Priorityを区別した
+- [x] 表示面と領域を実装Componentへ固定していない
+- [x] 個別UI Definitionの意味を再定義していない
+- [x] Open・Gapと戻り条件を明示した
