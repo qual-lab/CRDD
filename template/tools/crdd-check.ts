@@ -3635,6 +3635,34 @@ function checkSpecReconstruction(): void {
       .update(definitionFingerprintInputs.join("\n\u0000\n"), "utf8")
       .digest("hex");
     const correspondenceReasons: string[] = [];
+    const evidenceHeadings = {
+      State: ["## 状態と表示差", "## 振る舞い・状態・結果"],
+      Trigger: ["## 操作とFeedback", "## 契機・事前条件・Authority"],
+      Result: ["## 操作とFeedback", "## 振る舞い・状態・結果"],
+      Failure: ["## 操作とFeedback", "## 失敗・回復・副作用"],
+      Recovery: ["## 状態と表示差", "## 失敗・回復・副作用"],
+      Authority: ["## 制約", "## 契機・事前条件・Authority"],
+      Visibility: ["## 表示面と情報の優先順位", "## 受入条件と検証義務"],
+      Constraint: ["## 制約", "## 制約"],
+    } as const;
+    const normalizeEvidenceText = (value: string): string =>
+      value
+        .normalize("NFKC")
+        .replace(/[\s`*_[\]()（）「」『』、。・／/:：;；,.!?！？→←|+-]/gu, "")
+        .toLowerCase();
+    const hasSourcePhrase = (fact: string, sourceSection: string): boolean => {
+      const normalizedFact = normalizeEvidenceText(fact);
+      const normalizedSource = normalizeEvidenceText(sourceSection);
+      if (normalizedFact.length < 4 || normalizedSource.length < 4)
+        return false;
+      const width = Math.min(4, normalizedFact.length);
+      for (let index = 0; index <= normalizedFact.length - width; index += 1)
+        if (
+          normalizedSource.includes(normalizedFact.slice(index, index + width))
+        )
+          return true;
+      return false;
+    };
     const isCorrespondenceRevisionInvalid =
       recordedDefinitionFingerprint === undefined ||
       recordedDefinitionFingerprint !== actualDefinitionFingerprint;
@@ -3700,6 +3728,18 @@ function checkSpecReconstruction(): void {
               const concreteReason = reason.match(
                 /^UI事実（(UI-[0-9]{6})）「(.+)」／SPEC事実（(SPEC-[0-9]{6})）「(.+)」／対応: (.+)$/u,
               );
+              const headings =
+                evidenceHeadings[lens as keyof typeof evidenceHeadings];
+              const uiFact = concreteReason?.[2] ?? "";
+              const specFact = concreteReason?.[4] ?? "";
+              const uiTitle =
+                uiSource.match(/^#\s+UI-[0-9]{6}\s+(.+)$/mu)?.[1]?.trim() ?? "";
+              const specTitle =
+                specSource.match(/^#\s+SPEC-[0-9]{6}\s+(.+)$/mu)?.[1]?.trim() ??
+                "";
+              const hasInvalidFactSyntax =
+                /…|\[[^\]]*\]|^(?:上記|同上|題名|見出し)$/u.test(uiFact) ||
+                /…|\[[^\]]*\]|^(?:上記|同上|題名|見出し)$/u.test(specFact);
               return (
                 expectedLenses.has(lens) &&
                 uiEvidence.includes(row[1]) &&
@@ -3709,9 +3749,20 @@ function checkSpecReconstruction(): void {
                 /^(?:一致|N\/A)$/u.test(result) &&
                 concreteReason?.[1] === row[1] &&
                 concreteReason?.[3] === row[2] &&
-                (concreteReason?.[2]?.trim().length ?? 0) >= 4 &&
-                (concreteReason?.[4]?.trim().length ?? 0) >= 4 &&
+                uiFact.trim().length >= 4 &&
+                specFact.trim().length >= 4 &&
                 (concreteReason?.[5]?.trim().length ?? 0) >= 4 &&
+                !hasInvalidFactSyntax &&
+                normalizeEvidenceText(uiFact) !==
+                  normalizeEvidenceText(uiTitle) &&
+                normalizeEvidenceText(specFact) !==
+                  normalizeEvidenceText(specTitle) &&
+                headings !== undefined &&
+                hasSourcePhrase(uiFact, sectionBody(uiSource, headings[0])) &&
+                hasSourcePhrase(
+                  specFact,
+                  sectionBody(specSource, headings[1]),
+                ) &&
                 !/^(?:表示状態と振る舞い状態|操作と発火条件|結果を利用者|失敗理由を正常状態|回復要否と次の行動|操作可能性とEffect権限|開示・不足・観測不能|片側で共通制約)/u.test(
                   reason,
                 )

@@ -34,7 +34,7 @@
 | Visibility | [UI表示節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#表示面と情報の優先順位) | [SPEC受入節](Definitions/SPEC-XXXXXX/spec_definition.md#受入条件と検証義務) | [一致／N/A] | UI事実（UI-XXXXXX）「[表示・開示の具体的事実]」／SPEC事実（SPEC-XXXXXX）「[観測・受入の具体的事実]」／対応: [両事実の関係] |
 | Constraint | [UI制約節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#制約) | [SPEC制約節](Definitions/SPEC-XXXXXX/spec_definition.md#制約) | [一致／N/A] | UI事実（UI-XXXXXX）「[UI制約の具体的事実]」／SPEC事実（SPEC-XXXXXX）「[SPEC制約の具体的事実]」／対応: [両事実の関係] |
 
-各理由は`UI事実（UI-ID）「具体的事実」／SPEC事実（SPEC-ID）「具体的事実」／対応: 判断理由`の形で記載する。両定義の見出しや名称を言い換えるだけでなく、状態、契機、結果、失敗、回復、Authority、可視性または制約の実際の契約事実を引用・要約する。Checkerはこの構造と対象IDを検査し、意味的一致は独立レビューが確認する。差異がある場合は`一致`にせず、GapとOwner工程を記録する。
+各理由は`UI事実（UI-ID）「具体的事実」／SPEC事実（SPEC-ID）「具体的事実」／対応: 判断理由`の形で記載する。両定義の見出しや名称を言い換えるだけでなく、状態、契機、結果、失敗、回復、Authority、可視性または制約の実際の契約事実を引用・要約する。題名だけの置換、`…`による省略、`同上`等の参照、途中で切った事実は根拠にしない。複数SPECに対応するUIでは、その組が所有する責務だけを記載し、別の組が所有する操作・状態・結果を混ぜない。Checkerはこの構造、対象IDおよび根拠節との接続を検査し、意味的一致は独立レビューが確認する。差異がある場合は`一致`にせず、GapとOwner工程を記録する。
 
 ## 4. 観点別レビュー
 

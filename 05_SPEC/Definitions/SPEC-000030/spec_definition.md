@@ -39,11 +39,16 @@ SPEC ID: `SPEC-000030`
 ```text
 [観測結果]
     ↓ Identity・Source・時点・状態を検査
+[prepared]
+    ↓ 不変公開を要求
+[publishing]
+    ├─ 完成記録を確認 ─→ [recorded]
+    ├─ Effect未成立を確認 → [not_recorded]
+    └─ 確定観測不能 ────→ [unknown]
 [Canonical実行記録]
-    ↓ 不変な公開
-[recorded／not_recorded／unknown]
 ```
 
+- `prepared`は入力検査後かつ公開Effect前、`publishing`は不変公開を要求済みかつ確定観測前として、`recorded`／`not_recorded`／`unknown`と区別する。
 - 正常時は複数作成側が同じSchemaとIdentity規則で記録し、同じ入力の再送を重複事実にしない。
 - 部分記録、並行書込みおよび衝突では、完成記録と中間残存を区別し、別Executionの記録を上書きしない。
 - 記録結果は取得側がSource、Observed At、観測状態を再解釈せず読める形にする。
