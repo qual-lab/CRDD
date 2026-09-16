@@ -970,10 +970,24 @@ test("IA分析の実ひな型を埋めた成果物を受理する", () => {
     .replace("[誤認や判断が生じる重要な時点]", "判断する直前")
     .replace("[このUXで防ぐ失敗]", "不明を正常と誤認する")
     .replace("[利用者成果を守る品質]", "根拠を失わない")
+    .replaceAll("[object A]", "対象")
+    .replaceAll("[object B]", "根拠")
+    .replace("[利用者がこの情報を見分ける理由]", "判断対象")
+    .replace("[同じものと別のものを区別する条件]", "安定IDで識別する")
+    .replace("[object Aとの関係、所属、情報源または時点]", "対象と情報源へ結ぶ")
+    .replace(
+      "| IA-XXXXXX | [分析で見つけたObject] | [Canonical候補] | Same／Rename／Merge／Split | [意味を維持して統合・分離する理由] |",
+      "| IA-000001 | 対象 | 対象 | Same | 同じ意味を保持する |\n| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |",
+    )
     .replace(
       "[New／Same、接続するIA-ID、判断理由、未確認事項を記す。]",
       "[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。",
-    );
+    )
+    .replace(
+      "ひな型では`[ ]`を未評価として残す。完成時は、処置済みを`[x]`、未完了を`OPEN: 理由 — 項目`、不適合を`FAIL: 理由 — 項目`、非該当を`N/A: 理由 — 項目`として評価する。\n\n",
+      "",
+    )
+    .replaceAll("- [ ] ", "- [x] ");
   write(
     path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
     filled,
@@ -993,8 +1007,8 @@ test("IA分析の縮小見出しと三列契約の欠落を拒否する", () => 
       value.replace("## 3. 状態・可視性・導線・責任", "## 3. 可視性と責任"),
     (value: string) =>
       value.replace(
-        "| 候補 | 利用者にとっての意味 | 識別・関係 |",
-        "| 候補 | 分析結果 |",
+        "| 情報Object | 利用者にとっての意味 | 同一性と関係の基準 |",
+        "| 情報Object | 分析結果 |",
       ),
     (value: string) => value.replace(/^\| 守る品質 \|.*\r?\n/mu, ""),
   ]) {
@@ -1011,6 +1025,213 @@ test("IA分析の縮小見出しと三列契約の欠落を拒否する", () => 
     assert.ok(
       result.report.findings.some(
         (finding) => finding.code === "ia-analysis-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("IA正本は成果物別の可視で評価済みChecklistを必要とする", () => {
+  const cases: Array<[string, string]> = [
+    [
+      path.join("03_IA", "01_Information_Architecture.md"),
+      "ia-artifact-checklist-invalid",
+    ],
+    [
+      path.join("03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+      "ia-analysis-contract-invalid",
+    ],
+    [
+      path.join("03_IA", "Definitions", "IA-000001", "ia_definition.md"),
+      "ia-definition-contract-invalid",
+    ],
+  ];
+  for (const [relativePath, findingCode] of cases) {
+    const root = iaReconstructionFixtureRoot();
+    const artifactPath = path.join(root, relativePath);
+    write(
+      artifactPath,
+      fs
+        .readFileSync(artifactPath, "utf8")
+        .replace(/\n## Checklist[\s\S]*$/u, ""),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === findingCode),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("IAひな型は未評価の正確なChecklist項目集合を持つ", () => {
+  for (const mutate of [
+    (value: string) => value.replace("- [ ] StateとVisibilityを定義した\n", ""),
+    (value: string) =>
+      value.replace(
+        "- [ ] StateとVisibilityを定義した",
+        "- [x] StateとVisibilityを定義した",
+      ),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const templatePath = path.join(
+      root,
+      "template",
+      "03_IA",
+      "Definitions",
+      "IA-XXXXXX",
+      "ia_definition.md",
+    );
+    write(templatePath, mutate(fs.readFileSync(templatePath, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-template-checklist-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("IAの後続関係表へArchitectureその他の直接Handoffを追加できない", () => {
+  for (const relativePath of [
+    path.join("03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+    path.join("03_IA", "Definitions", "IA-000001", "ia_definition.md"),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const artifactPath = path.join(root, relativePath);
+    write(
+      artifactPath,
+      fs
+        .readFileSync(artifactPath, "utf8")
+        .replace(
+          "| Quality Analysis / IA（伴走） | 成立条件を保持する |",
+          "| Quality Analysis / IA（伴走） | 成立条件を保持する |\n| Architecture | Componentへ直接渡す |",
+        ),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) =>
+        [
+          "ia-analysis-contract-invalid",
+          "ia-definition-contract-invalid",
+        ].includes(finding.code),
+      ),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("IA横断投影は全Canonical IA IDを一件ずつ処置する", () => {
+  for (const replacement of [
+    "",
+    "| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 重複 |\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 重複 |",
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const artifactPath = path.join(
+      root,
+      "03_IA",
+      "02_Object_and_Relation_Model.md",
+    );
+    write(
+      artifactPath,
+      fs
+        .readFileSync(artifactPath, "utf8")
+        .replace(
+          "| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 試験用の横断投影へ接続 |",
+          replacement,
+        ),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-cross-projection-coverage-mismatch",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("IA分析Objectは全件を一意に処置する", () => {
+  for (const mutate of [
+    (value: string) =>
+      value.replace(
+        "| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |\n",
+        "",
+      ),
+    (value: string) =>
+      value.replace(
+        "| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |",
+        "| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |\n| IA-000001 | 根拠 | 根拠 | Same | 重複処置 |",
+      ),
+    (value: string) => value.replace("| Same | 同じ意味", "| New | 同じ意味"),
+    (value: string) =>
+      value.replace(
+        "| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |",
+        "| IA-000001 | 根拠 | 根拠 | Not Applicable | 対象外と誤記する |",
+      ),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const analysisPath = path.join(
+      root,
+      "03_IA",
+      "Analysis",
+      "UX-000001",
+      "ia_analysis.md",
+    );
+    write(analysisPath, mutate(fs.readFileSync(analysisPath, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ia-analysis-contract-invalid" ||
+          finding.code === "ia-object-mapping-closure-mismatch",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使う", () => {
+  for (const mutate of [
+    (value: string) => value.replace("UX-000001: 根拠", "UX-000001: 偽Object"),
+    (value: string) =>
+      value.replace(
+        "| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |",
+        "| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |\n| 追加対象 | Mappingのない対象 | 識別不能 |",
+      ),
+    (value: string) => value.replace("| Same | 同じ意味", "| New | 同じ意味"),
+    (value: string) => value.replace("[O: 根拠]", "[O: 偽Object]"),
+    (value: string) =>
+      value.replace(
+        "| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |\n",
+        "",
+      ),
+    (value: string) =>
+      value.replace(
+        "| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |",
+        "| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |\n| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。重複行 |",
+      ),
+    (value: string) =>
+      value.replace(
+        "| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |",
+        "| UX-000001: 根拠 | 別の対象へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |",
+      ),
+    (value: string) =>
+      value.replace("[O: 対象] --支えられる--> [O: 根拠]", "[O: 対象]"),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const definitionPath = path.join(
+      root,
+      "03_IA",
+      "Definitions",
+      "IA-000001",
+      "ia_definition.md",
+    );
+    write(definitionPath, mutate(fs.readFileSync(definitionPath, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-definition-contract-invalid",
       ),
       `${result.stdout}\n${result.stderr}`,
     );
@@ -3828,6 +4049,16 @@ function evaluatedChecklist(
   return `## Checklist\n\n${lines.join("\n")}`;
 }
 
+function checklistItemsFromTemplate(relativePath: string): string[] {
+  return fs
+    .readFileSync(path.join(repositoryRoot, relativePath), "utf8")
+    .split(/\r?\n/u)
+    .flatMap((line) => {
+      const item = /^- \[ \] (?<text>\S.*)$/u.exec(line)?.groups?.text;
+      return item ? [item] : [];
+    });
+}
+
 function discoveryDefinition(
   requirementId: string,
   explorationId: string,
@@ -3837,11 +4068,15 @@ function discoveryDefinition(
 }
 
 function iaAnalysis(uxId: string, iaId: string): string {
-  return `# IA分析: 試験用\n\n成果物種別: IA分析\n分析対象: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n\n## 1. UXから受け取る意味\n\n| 観点 | この分析で受け取る内容 |\n|---|---|\n| 利用者 | 試験利用者 |\n| 場面 | 判断する時 |\n| 目的 | 対象を理解する |\n| 得たい結果 | 次の行動を選べる |\n| 重要場面 | 判断する直前 |\n| 避ける失敗 | 不明を正常と誤認する |\n| 守る品質 | 根拠を失わない |\n\n## 2. 情報候補と関係\n\n| 候補 | 利用者にとっての意味 | 識別・関係 |\n|---|---|---|\n| 対象 | 判断対象 | 根拠へ結ぶ |\n\n## 3. 状態・可視性・導線・責任\n\n| 観点 | 分析結果 |\n|---|---|\n| 状態 | 未確認と確認済みを分ける |\n| 可視性 | 判断時に示す |\n| 導線 | 対象から根拠へ進む |\n| 責任 | 利用者とSystemを分ける |\n\n## 4. 現行文書・実装との照合\n\n現行実装は根拠として照合する。\n\n## 5. IA処置\n\n[${iaId}](../../Definitions/${iaId}/ia_definition.md)へ接続する。\n`;
+  return `# IA分析: 試験用\n\n成果物種別: IA分析\n分析対象: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n状態: 分析済み\n\n## 1. UXから受け取る意味\n\n| 観点 | この分析で受け取る内容 |\n|---|---|\n| 利用者 | 試験利用者 |\n| 場面 | 判断する時 |\n| 目的 | 対象を理解する |\n| 得たい結果 | 次の行動を選べる |\n| 重要場面 | 判断する直前 |\n| 避ける失敗 | 不明を正常と誤認する |\n| 守る品質 | 根拠を失わない |\n\n## 2. 情報候補と関係\n\n| 情報Object | 利用者にとっての意味 | 同一性と関係の基準 |\n|---|---|---|\n| 対象 | 判断対象 | 安定IDで識別する |\n| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |\n\n\`\`\`text\n[O: 対象]\n   └─ 支えられる → [O: 根拠]\n\`\`\`\n\n図中の\`[O:]\`は情報Objectだけを表す。\n\n### Canonical化候補\n\n| 接続先 | 分析Object | Canonical Object | 処置 | 判断理由 |\n|---|---|---|---|---|\n| ${iaId} | 対象 | 対象 | Same | 同じ意味を保持する |\n| ${iaId} | 根拠 | 根拠 | Same | 同じ意味を保持する |\n\n## 3. 状態・可視性・導線・責任\n\n| 観点 | 分析結果 |\n|---|---|\n| 状態 | 未確認と確認済みを分ける |\n| 可視性 | 判断時に示す |\n| 導線 | 対象から根拠へ進む |\n| 責任 | 試験情報管理者が対象と根拠の同一性を保つ |\n| 時間的な意味 | 現在と不明を分ける |\n| 情報の優先度 | 判断対象を先に示す |\n| 情報のまとまり | 対象と根拠をまとめる |\n| 判断権限 | 試験承認者が意味と状態を確定し、利用者が次の行動を選ぶ |\n| 重要な失敗 | 不明を正常と誤認する |\n| 制約・対象外 | UIと実装を決めない |\n| 人間判断 | UXから継承する判断だけを保持する |\n| IAへ戻す条件 | 情報契約が不足した時 |\n| 検証意図 | 対象と根拠を区別できること |\n\n### 未確認事項と判断\n\n| 区分 | 内容 |\n|---|---|\n| UXから継承する確認事項 | 利用者が理解できるか |\n| 判断者 | 代表利用者 |\n| 現在判定 | 後続確認が必要 |\n| 未確認時の影響 | 定量条件を確定しない |\n| IAで追加した未確認事項 | なし |\n| IA固有の追加人間判断 | なし |\n\n## 4. 現実照合の参考情報（正式入力ではない）\n\nこの節は後続のReality Auditへ引き継ぐ参考情報であり、IA Candidateを導く正式入力ではない。\n\nなし。\n\n## 5. IA処置\n\n[${iaId}](../../Definitions/${iaId}/ia_definition.md)へ接続する。\n\n## 6. 後続工程が保持する意味\n\n| 接続先 | 保持する意味 |\n|---|---|\n| UI（UX＋IAの正式入力） | 情報の優先度を保持する |\n| SPEC（UX＋IAの正式入力） | 識別と状態を保持する |\n| Quality Analysis / IA（伴走） | 成立条件を保持する |\n\nArchitectureやSourceへ直接引き渡さない。\n\n## 7. 補足分析\n\nなし。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md"))}\n`;
 }
 
 function iaDefinition(iaId: string, uxId: string): string {
-  return `# ${iaId} 試験用情報\n\n成果物種別: IA定義\nIA ID: \`${iaId}\`\n\n## 意味と利用者成果\n\n利用者が情報を見分けられる。\n\n## 対象・識別・関係\n\n対象と関係を定義する。\n\n## 状態と可視性\n\n状態を区別する。\n\n## 導線と責任\n\n根拠へ進める。\n\n## 制約\n\n実装を先取りしない。\n\n## 下流への引き渡し\n\n意味を下流へ渡す。\n\n## 情報源\n\n- [${uxId}のIA分析](../../Analysis/${uxId}/ia_analysis.md)\n`;
+  return `# ${iaId} 試験用情報\n\n成果物種別: IA定義\nIA ID: \`${iaId}\`\n\n## 意味と利用者成果\n\n利用者が情報を見分けられる。\n\n## 対象・識別・関係\n\n### 分析ObjectからCanonical Objectへの対応\n\n| Source Analysis Object | Canonical Object | 処置 | 判断理由 |\n|---|---|---|---|\n| ${uxId}: 対象 | 対象 | Same | 同じ意味を保持する |\n\n対象と関係を定義する。\n\n## 状態・可視性・時間的な意味\n\n状態と時間差を区別する。\n\n## 情報の優先度・まとまり・見つけ方・責任\n\n対象から根拠へ進める。\n\n### 責任と判断権限\n\n| 入力UX | 情報を作成・更新・提供する責任 | 意味・状態・次の行動を決める権限 |\n|---|---|---|\n| ${uxId} | 試験情報管理者が対象と根拠を正確に保つ | 試験承認者が意味と状態を確定し、利用者が次の行動を決める |\n\n## 失敗・制約・未確認事項\n\n不明を正常へ丸めず、実装を先取りしない。\n\n## 検証意図\n\n| 入力UX | 重要場面 | 避ける失敗 | 品質期待 |\n|---|---|---|---|\n| ${uxId} | 判断前 | 誤認 | 根拠を示す |\n\n### 人間判断・未確認事項・戻り条件\n\n| 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |\n|---|---|---|---|---|\n| ${uxId} | 理解できるか | 代表利用者 | 後続確認が必要 | 定量条件を確定しない |\n\n## 後続工程との関係\n\n| 接続先 | 保持する意味 |\n|---|---|\n| UI（UX＋IAの正式入力） | 情報の優先度を保持する |\n| SPEC（UX＋IAの正式入力） | 識別と状態を保持する |\n| Quality Analysis / IA（伴走） | 成立条件を保持する |\n\n## 情報源\n\n- [${uxId}のIA分析](../../Analysis/${uxId}/ia_analysis.md)\n\n## 補足分析\n\nなし。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/Definitions/IA-XXXXXX/ia_definition.md"))}\n`;
+}
+
+function iaCrossArtifact(title: string, checklistTemplatePath: string): string {
+  return `# ${title}\n\n## 4. IA定義への適用\n\n| IA定義 | 処置 | 横断投影での扱い |\n|---|---|---|\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 試験用の横断投影へ接続 |\n\n${evaluatedChecklist(checklistItemsFromTemplate(checklistTemplatePath))}\n`;
 }
 
 function iaReconstructionFixtureRoot(): string {
@@ -3855,38 +4090,64 @@ function iaReconstructionFixtureRoot(): string {
   );
   write(
     path.join(root, "03_IA", "01_Information_Architecture.md"),
-    "# IA\n\n| IA | 利用者が見分ける情報 | 主な入力UX |\n|---|---|---|\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 試験用情報 | UX-000001 |\n",
+    `# IA\n\n| IA | 利用者が見分ける情報 | 主な入力UX |\n|---|---|---|\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 試験用情報 | UX-000001 |\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/01_Information_Architecture.md"))}\n`,
+  );
+  write(
+    path.join(root, "03_IA", "02_Object_and_Relation_Model.md"),
+    iaCrossArtifact(
+      "情報オブジェクトと関係",
+      "template/03_IA/02_Object_and_Relation_Model.md",
+    ),
+  );
+  write(
+    path.join(root, "03_IA", "03_Information_Structure_and_Navigation.md"),
+    iaCrossArtifact(
+      "情報のまとまりと導線",
+      "template/03_IA/03_Information_Structure_and_Navigation.md",
+    ),
+  );
+  write(
+    path.join(root, "03_IA", "04_State_Visibility_and_Responsibility.md"),
+    iaCrossArtifact(
+      "状態・可視性・責任",
+      "template/03_IA/04_State_Visibility_and_Responsibility.md",
+    ),
   );
   write(
     path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
-    iaAnalysis("UX-000001", "IA-000001"),
+    iaAnalysis("UX-000001", "IA-000001").replace(
+      "### 未確認事項と判断",
+      "ここで示す主体は、情報契約上必要な機能責任を表し、特定の人物・組織・Componentへの割当を確定しない。後続工程は、この責任境界を保ったまま実際の主体へ割り当てる。\n\n### 未確認事項と判断",
+    ),
   );
   write(
     path.join(root, "03_IA", "Definitions", "IA-000001", "ia_definition.md"),
-    iaDefinition("IA-000001", "UX-000001"),
+    iaDefinition("IA-000001", "UX-000001")
+      .replace(
+        "## 失敗・制約・未確認事項",
+        "ここで示す主体は、情報契約上必要な機能責任を表し、特定の人物・組織・Componentへの割当を確定しない。後続工程は、この責任境界を保ったまま実際の主体へ割り当てる。\n\n## 失敗・制約・未確認事項",
+      )
+      .replace(
+        "| UX-000001: 対象 | 対象 | Same | 同じ意味を保持する |",
+        "| UX-000001: 対象 | 対象 | Same | 同じ意味を保持する |\n| UX-000001: 根拠 | 根拠 | Same | 判断を支える情報を保持する |",
+      )
+      .replace(
+        "対象と関係を定義する。",
+        "### Identity／Relationの変換\n\n| Source Analysis Object | AnalysisのIdentity／Relation | Canonical Object | CanonicalのIdentity／Relation | 処置と理由 |\n|---|---|---|---|---|\n| UX-000001: 対象 | 安定IDで識別する | 対象 | 安定IDで識別する | Same。識別条件を維持する |\n| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |\n\n| 対象 | 利用者にとっての意味 | 識別・関係 |\n|---|---|---|\n| 対象 | 判断する対象 | 安定IDで識別する |\n| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |\n\n```text\n[O: 対象] --支えられる--> [O: 根拠]\n```",
+      ),
   );
-  write(
-    path.join(
-      root,
-      "template",
-      "03_IA",
-      "Analysis",
-      "UX-XXXXXX",
-      "ia_analysis.md",
-    ),
-    "# IA分析ひな型\n",
-  );
-  write(
-    path.join(
-      root,
-      "template",
-      "03_IA",
-      "Definitions",
-      "IA-XXXXXX",
-      "ia_definition.md",
-    ),
-    "# IA定義ひな型\n",
-  );
+  for (const relativePath of [
+    "template/03_IA/01_Information_Architecture.md",
+    "template/03_IA/02_Object_and_Relation_Model.md",
+    "template/03_IA/03_Information_Structure_and_Navigation.md",
+    "template/03_IA/04_State_Visibility_and_Responsibility.md",
+    "template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md",
+    "template/03_IA/Definitions/IA-XXXXXX/ia_definition.md",
+  ])
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
+    );
   return root;
 }
 

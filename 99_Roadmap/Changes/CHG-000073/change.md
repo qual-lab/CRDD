@@ -21,7 +21,7 @@
 | UX分析 | `Requirements/REQ-ID/user_experience.md` | `Analysis/REQ-ID/ux_analysis.md`が要求別の一次分析を自己完結して所有する。現行6章の物語順を維持し、利用者、前後の変化、重要場面、失敗、品質期待、未確認事項および可視Checklistを同じ成果物で閉じる |
 | UX出力 | UXの現在定義がRoot台帳と複数REQ分析へ分散 | `Definitions/UX-ID/ux_definition.md`がCanonical UX成果を自己完結して所有する。複数REQを統合する場合も各REQの未確認事項を失わない。直後工程IA、伴走するQuality Analysis / UX、IA完了後にUI／SPECが保持するContract Relationを区別し、UXからArchitectureへ直接引き渡さない |
 | IA分析 | 既存文書と実装から情報構造を後追いで説明 | 32件のUX定義を一件ずつ`Analysis/UX-ID/ia_analysis.md`で分析し、現行文書・実装の棚卸結果と別経路で照合 |
-| IA出力 | 単一Root文書へ情報対象、関係、導線、状態、下流義務が混在 | 21件の`Definitions/IA-ID/ia_definition.md`を定義候補とし、Root文書は台帳と横断図だけを投影。実行基盤の故障範囲と、過去判断・現在意図は既存定義へ畳まず独立させる |
+| IA出力 | 単一Root文書へ情報対象、関係、導線、状態、下流義務が混在 | 22件の`Definitions/IA-ID/ia_definition.md`を現在有効な情報契約とし、Root文書は台帳と横断図だけを投影。実行基盤の故障範囲、過去判断・現在意図、実行記録の作成・公開状態は別の利用者判断として独立させる |
 | UI分析 | 単一文書がUX、IA、現行実装および過去の操作契約を混在して説明 | 31件の`Analysis/UX-ID/ui_analysis.md`が利用者成果・操作・Feedbackを、21件の`Analysis/IA-ID/ui_analysis.md`が情報・状態・関係・可視性・導線を別々に全数分析する。相手側の不足を暗黙に補完せず、UI定義で初めて統合する |
 | UI出力 | 現行操作、将来Workbench候補、表示品質、UI／SPEC対応が単一Root文書に混在 | 19件の`Definitions/UI-ID/ui_definition.md`へ独立した利用者Interface契約を統合し、Root文書は台帳・Coverage・Navigation、横断文書は表示面・状態・視覚方針・SPEC引渡し、現行実装は別参照へ分ける |
 | SPEC分析 | 単一文書がUX成果、IA構造、現行実装、UI対応および振る舞い詳細を混在して説明 | 31件の`Analysis/UX-ID/spec_analysis.md`と21件の`Analysis/IA-ID/spec_analysis.md`で正式入力を別々に分析し、REQ・相手観点・現行実装から不足を補完しない |
@@ -381,6 +381,9 @@
 - [`23_IA.md`](<../../../23_IA.md>)
 - `template/02_UX/Definitions/UX-XXXXXX/experience.md`（削除または旧Path）
 - [`template/03_IA/01_Information_Architecture.md`](<../../../template/03_IA/01_Information_Architecture.md>)
+- [`template/03_IA/02_Object_and_Relation_Model.md`](<../../../template/03_IA/02_Object_and_Relation_Model.md>)
+- [`template/03_IA/03_Information_Structure_and_Navigation.md`](<../../../template/03_IA/03_Information_Structure_and_Navigation.md>)
+- [`template/03_IA/04_State_Visibility_and_Responsibility.md`](<../../../template/03_IA/04_State_Visibility_and_Responsibility.md>)
 - [`template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md`](<../../../template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md>)
 - [`template/03_IA/Definitions/IA-XXXXXX/ia_definition.md`](<../../../template/03_IA/Definitions/IA-XXXXXX/ia_definition.md>)
 - `template/03_IA/Evidence/.gitkeep`（削除または旧Path）
@@ -906,6 +909,40 @@ fingerprint `84ba5ef934944e4c16d2f42b7ef0cbb124515f5dac6f7dfb9d4026df22589071`�
 
 同じ固定候補の構造レビューでは、閉じた非表示領域の反証はPassしたが、未閉鎖HTMLコメントを文末まで非表示として扱えず、コメント内のフェンス記号とフェンス内のコメント記号が互いの状態を誤変更し得ることを検出した。IA専用の二段置換を、表示中／コードフェンス内／HTMLコメント内を一回で区別する状態走査へ置き換える。未閉鎖コメントだけに置いた三つの正規構造を拒否し、コメント内の未閉鎖フェンスまたはフェンス内の未閉鎖コメントの後にある正式構造を保持する正負例を追加する。
 
+### IA内容と工程境界の再確認
+
+UXで確立した「読みやすい既存構造を維持し、不足する意味と可視Checklistだけを補う」方針をIAへ適用した。32件のUX定義、32件のIA分析、22件のIA定義、4件のRoot／横断成果物、6件のひな型を同じ責務境界で見直した。
+
+| 確認したこと | 結果と処置 |
+|---|---|
+| 正式入力 | IA分析は対応するUX Definition 1件だけを正式入力とし、現行文書・実装との比較は後続Reality Auditの参考情報へ分離した |
+| IA分析の自己完結性 | 利用者成果、情報候補、識別・関係、状態、可視性、導線、時間差、優先度、まとまり、責任、判断権限、失敗、未確認事項、戻り条件および検証意図を同じ成果物で処置した |
+| IA定義の自己完結性 | 全入力UXの利用場面を保持し、対象・識別・関係、状態・可視性・時間差、優先度・まとまり・見つけ方、責任・判断権限、失敗・制約・未確認事項および検証意図を単独で理解できるようにした |
+| 工程Handoff | UIとSPECはUX＋IAを正式入力とする。Quality Analysis / IAは伴走入力とし、Architecture／Sourceへの直接Handoffは作らない |
+| 横断投影 | Object／Relation、Structure／Navigation、State／Visibility／Responsibilityの3投影で全22 IA IDを一件ずつ処置し、個別定義の第二の正本を作らない |
+| 作成者の自己確認 | 32分析、22定義、Root 1件、横断投影3件の末尾へ成果物別の可視`## Checklist`を置いた。6ひな型は`[ ]`と結果語彙の説明を持ち、完成成果物は評価済み状態だけを持つ |
+| Checker責務 | 正式入力、32分析／22定義の閉包、台帳との関係一致、3横断投影の全ID処置、正確な後続接続、成果物別Checklistおよび6ひな型を機械検査する。本文と自己評価の意味的一致は独立レビューへ残す |
+
+初回独立レビューでは、構造閉包がPassしていても、31分析が共通の生成形へ寄り、Object・同一性・関係、責任・判断権限およびUX固有の未確認事項を再構築できないことを検出した。固定候補`033ab744f958880122f84409cbccc9c70026ff7e`はCritical 0／Major 2／Moderate 2でPass不可とし、次を一括是正した。
+
+| 指摘 | 構造是正 |
+|---|---|
+| 複数Objectを一行へ集約し、利用者や成果をObjectとして図示した | 32分析をUX Definitionの必要情報から再分析し、Objectごとに意味・同一性を分けた。図は情報Objectだけを用い、関係名付きの縦配置・分岐表示へ変更した |
+| 責任と判断権限が同文だった | 情報を作成・更新・提供する責任と、意味・状態・次の行動を確定する権限を分離し、22定義でも入力UX別に保持した |
+| UX固有の未確認事項を循環参照へ置換した | 確認事項、判断者、現在判定、未確認時の影響を32分析と22定義へ継承し、IA固有の追加事項と分けた |
+| 横断投影が全IDで同文だった | 3投影で各IA IDの対象領域と横断確認内容を個別表示し、Object投影には孤立・循環・関係欠落の確認結果を追加した |
+| IA規則にArchitecture直接接続が残った | IAはUI／SPECへ意味を渡し、ArchitectureはUI／SPECを正式入力として分析する表現へ統一した。工程Gapは通常Handoffと分けた |
+| Checker試験名が保証範囲より広かった | 「後続関係表への直接Handoff追加を拒否」に限定し、Object表、未確認事項、責任・権限の必須構造を機械検査へ追加した |
+
+固定候補fingerprint `1dd241d57c1b0d5e7b4bf9a7a7a6f77843949211`の再レビューは、前回指摘のうちObject別記述と図の可読性を確認した一方、Object集合の処置、Identity／Relationの変換、責任主体の意味、およびCheckerの集合閉包にMajor 2件／Moderate 1件を検出し、Pass不可とした。次の構造是正を同じIA変更として適用した。
+
+| 再レビューで残った問題 | 正しい状態 | 是正・反証 |
+|---|---|---|
+| 分析Objectの一部がCanonical化候補表で暗黙に未処置となり、定義側の入力Objectと一致しなかった | 全分析Objectが`Same／Rename／Merge／Split／Not Applicable`のいずれかで明示処置され、Definition Mappingと完全一致する | 32分析の全Objectを一行以上で処置し、DefinitionのSource Object・Canonical Objectとのexact集合閉包をCheckerへ追加した。重複は全行`Split`だけ、`New`と実在しないSource／Targetを拒否する反証を追加した |
+| Object名だけが接続され、IdentityとRelationの変換根拠が不足した | Source Analysisの識別条件・関係からCanonical定義を再構築でき、利用側で再解釈しない | 22定義へ`Identity／Relationの変換`を追加し、全分析・定義の可視Checklistへ自己確認を追加した。IA-000009はSessionとWorkspace Grantの識別を分離し、IA-000010は会議・会議項目・論点・関係の意味を保持するMappingへ是正した |
+| 責任主体名が実在する組織・Roleの確定に読めた | IAは情報契約上必要な機能責任だけを定義し、実際の人物・組織・Componentへの割当を後続へ残す | 英語の仮想Role名を平易な機能責任へ置換し、32分析、22定義、横断責任モデル、ひな型およびCheckerへ「割当を確定しない」契約を明示した |
+| Checkerが表の存在だけを確認し、Object集合の欠落・余分・誤接続を受理し得た | Analysis処置集合とDefinition Mapping集合が同じSource／Target／処置を表す | 集合抽出、処置語彙、N/A理由、重複Split、Source実在、Target実在、全Target Coverage、およびAnalysis↔Definition exact closureを機械検査と負例で固定した |
+
 ### UI独立レビューの構造是正
 
 初回UI独立レビューは、31件のUX観点分析、21件のIA観点分析、19件のUI定義という配置と関係閉包だけでは、個別UIの意味が十分に再構成されたとは言えないことを検出した。指摘を次の三クラスタへまとめ、全件を同じ固定候補で是正する。
@@ -1060,7 +1097,7 @@ Discoveryで確立した「物語として理解できる本文＋成果物上�
 |---|---|
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／32。全要求分析とUX定義を自己完結させ、複数REQを統合する13定義では全入力の未確認事項を保持した。Root 5件を含む73成果物と7ひな型へ成果物別の可視Checklistを適用し、直後工程IA、伴走するQuality Analysis / UX、IA後のUI／SPEC Relationを区別した。初回4指摘と第2回Major 1件／Moderate 3件／Minor 1件を是正し、独立再レビューCritical／Major／Moderate／Minor 0でPass |
-| IA Analysis／Definition | 31／21。入力UXごとの利用場面、対象、識別、関係、状態、可視性、導線、責任を保持し、独立レビューCritical 0／Major 0／Moderate 0／Minor 0でPass |
+| IA Analysis／Definition | 32／22。全入力UXの利用場面、対象、識別、関係、状態、可視性、時間差、導線、責任、判断権限、失敗および検証意図を保持した。209 Analysis Objectと157適用対象Source Identity行を全数照合し、DefinitionがAnalysisのIdentity／Relationを後付けで再解釈できないChecker契約を追加した。不一致0件、`Merge`／`Split` 0件、3横断投影は各22 IA-IDを一意に処置し、独立再レビューでIA工程を閉じた |
 | UI Analysis／Definition | UX観点31／IA観点21／Definition 19。定型Lifecycle、意味統合不足、横断状態の過剰適用、重複引き渡しを是正し、分析済み／CanonicalとしてSPECへ引き渡し可能 |
 | SPEC Analysis／Definition | UX観点32／IA観点22／Definition 29。取消と判断返却を状態照会へ畳まず、SPEC-000028／000029として追加した。Quality分析で判明した実行記録の作成側契約不足は`SPEC-000030`として読取り契約から分離し、独立再レビューで意味伝播を確認した |
 | Architecture Analysis／Definition／Details | UI観点20／SPEC観点29／Definition 18。読取りProjectionを`ARCH-000007`、Canonical記録・並行Writer・不変公開・Effect不明時の回復を`ARCH-000018`へ分離し、execution-intelligence詳細設計へ接続した。既レビュー済み17定義の結果を新候補へ流用せず、更新した18定義を独立再レビューしてArchitecture Readyを再確定した |
@@ -1069,11 +1106,11 @@ Discoveryで確立した「物語として理解できる本文＋成果物上�
 | Discovery Checklist契約試験 | 非表示だけのChecklist、完成成果物の`[ ]`、理由形式のない結果、Checklist後の本文、別成果物用Checklist、単一汎用項目、およびひな型の項目を後続Sectionへ移す構造を拒否し、理由付き`OPEN`／`FAIL`／`N/A`を受理するFocused試験4／4 Pass |
 | Discovery Checklist独立レビュー | 固定候補fingerprint `69f65c1a01d9deeba0b5dc25a082b5b18c141e589fb6cdb81248cee5bc5730c4`、73ファイル、UX混入0件を読取り専用で確認した。全1,032項目の評価、8探索の未確認事項、3ひな型の5状態、CommonMark ATX／Setext見出しによる分断防止、完成成果物の末尾契約およびChecker責務分離を確認し、Critical／Major／Moderate／Minor 0でPass |
 | UX Checklist独立レビュー | 固定候補fingerprint `cfed9a93f31fc80615b7d985d3d6a3cee941b890`を読取り専用で確認した。36要求分析、32 UX定義、5横断成果物、7ひな型、工程Handoff、兄弟UXの意味所有、横断投影およびChecker反証を確認し、Critical／Major／Moderate／Minor 0でPass |
-| Checker契約試験 | 再検証中。全CommonMark参照形式、HTML quoted／unquoted、本文・絶対Pathを同じ一回復号へ通し、path関連named／numeric entity、未知・範囲外・surrogate・不完全・二重entityによる正式入力迂回と、責任境界の重複節を反証する。IAでは実ひな型を使う正例、7軸・必須3列の不足、REQ表示とEXP Pathの不一致、Root台帳を含む三者の関係閉包、正規節外へのLink移動、重複、および閉鎖・未閉鎖の非表示Markdownによる偽装を反証する。UIとSPECでは各観点の全数、正式入力、台帳・分析・定義の関係閉包、SPEC正規節、重複関係、直接UIなしの排他契約、共有Evidence Root禁止を検査する。ArchitectureではUI／SPECの正式入力、49分析と18定義の全数、多対多Relation、入力別7軸・Interface・品質表、正規節外Relation、重複Relation、Placeholder定義、横断節と5成果物、Component責務表と18定義、15詳細領域のforward／reverse／個別Relation集合、各ARCH-IDのCovered owner、Applicability、Engineering ConcernおよびQuality引渡しを検査する。Qualityでは157 Canonical ID、13検証目標、Source IDから検証目標への190関係、Source ID・検証目標・Local Itemの572関係、詳細設計から検証目標への38関係、5横断モデル、目標ごとのLocal Item、UT／IT／ST／UAT適用表、RT／PT／LT適用表および検証項目の11軸を検査する。試験段階・外部境界到達範囲の不正値、Source行が要求する段階のLocal Item欠落、別段階だけへの差替え、Required／N/AとLocal Itemの矛盾、段階上限超過、終了後条件／実行形態欠落を反証する。意味の再構築可能性は独立レビューへ分離 |
-| 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走。346／346 Pass。UX Checklist、正本／ひな型欠落、横断投影の欠落・重複、旧Handoff再導入および正規Handoffを装った直接接続の反証を含む |
+| Checker契約試験 | 統合試験352／352 Pass。IAでは従来の正式入力・台帳・分析・定義の関係閉包に加え、成果物別Checklist、6ひな型、Object別分析、未確認事項、責任・権限、正確なUI／SPEC／Quality接続、3横断投影の全IA ID処置、後続関係表へのArchitecture直接Handoff再導入を正負例で反証した。Analysis Object表とDefinition Source列のIdentity／Relation完全一致、およびSource列だけを別Relationへ変更する負例も固定した。意味の妥当性とChecklist自己評価の妥当性は独立レビューへ分離 |
+| 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走。352／352 Pass。IAのObject分析、可視Checklist、正本／ひな型、横断投影、Identity／Relation完全一致、未確認事項および工程Handoffの反証を含む |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
-| IA独立レビュー | 最終固定候補fingerprint `b03240ccc0a09f5461ee236cc48c4ca8165291bcc3e92aea24b1dd3f5f01cede`を意味伝播と構造閉包の2者が再レビューし、ともにCritical 0／Major 0／Moderate 0／Minor 0でPass |
+| IA独立レビュー | 最終固定候補fingerprint `8a2c25c001f4de2653cba62ccc09879cee3011b1`を読取り専用で確認した。32 Analysis／22 Definitions、209 Analysis Object、157適用対象Source Identity行、3横断投影、Template、`23_IA.md`、CheckerおよびHandoff境界を照合し、不一致0件、`Merge`／`Split` 0件を確認した。Critical／Major／Moderate／Minor 0でPass |
 | UI独立レビュー | 31 UX観点分析、21 IA観点分析、19 UI定義、37 UX×IA関係と横断文書を再々レビューし、Critical 0／Major 0／Moderate 0／Minor 0でPass |
 | SPEC独立レビュー | 26 SPEC／27 UI・SPEC関係の以前の候補はPass済み。その後、Architectureレビューで取消と判断返却の契約不足を検出し、28 SPEC／29関係へ更新した。固定候補`05c4cbc95c315cd65851598be69da563b1416397`を再レビューし、Critical／Major／Moderate／Minor 0でPass |
 | Architecture独立レビュー | 固定候補`05c4cbc95c315cd65851598be69da563b1416397`について、UI-000002の4操作、取消・判断返却のSibling block、読取りProjectionと基準版書込み能力の分離、19 UI／28 SPEC／17 Definitionの閉包を確認し、Critical／Major／Moderate／Minor 0でPass |

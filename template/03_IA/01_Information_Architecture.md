@@ -10,7 +10,8 @@
 [利用者が何を見分け、どの判断や行動へ進める必要があるかを、画面・DB・APIより先に説明する。]
 
 ```text
-UX定義 → IA分析 → IA定義 → UI／SPEC／Architecture
+UX定義 → IA分析 → IA定義 ─┬→ UI／SPEC
+                           └→ Quality Analysis / IA
 ```
 
 ## 2. 入力と網羅状況
@@ -44,4 +45,22 @@ UX定義 → IA分析 → IA定義 → UI／SPEC／Architecture
 
 ## 6. 現在状態と次工程
 
-[確定事項、未確認事項、人間判断、UI／SPEC／Architectureへ渡す意味を記す。]
+[確定事項、未確認事項、人間判断、UI／SPECへ渡す意味、Quality Analysis / IAへ伴走入力する検証義務を記す。ArchitectureやSourceへ直接引き渡さない。]
+
+## 7. 補足分析
+
+[基本構造では保持できない対象固有の横断分析だけを記す。不要な場合は「なし」とする。]
+
+## Checklist
+
+ひな型では`[ ]`を未評価として残す。完成時は、処置済みを`[x]`、未完了を`OPEN: 理由 — 項目`、不適合を`FAIL: 理由 — 項目`、非該当を`N/A: 理由 — 項目`として評価する。
+
+- [ ] 全UX DefinitionをIA Analysisへ一件ずつ対応付けた
+- [ ] 全IA AnalysisをIA Definitionへ処置した
+- [ ] IA台帳とAnalysis／Definitionsの関係が一致する
+- [ ] 全体の情報構造を個別定義の第二の正本にしていない
+- [ ] 基本図を作成・既存参照・非該当・作成不能のいずれかへ処置した
+- [ ] 未確認事項、人間判断、IAへ戻す条件を明示した
+- [ ] UI／SPECとQuality Analysis / IAへの接続を区別した
+- [ ] Architecture／Sourceへの直接Handoffを作っていない
+- [ ] 補足分析へ必須情報を退避していない

@@ -650,6 +650,94 @@ const uxDefinitionChecklistItemTexts = [
   "補足定義へ必須情報を退避していない",
 ];
 
+const iaIndexChecklistItemTexts = [
+  "全UX DefinitionをIA Analysisへ一件ずつ対応付けた",
+  "全IA AnalysisをIA Definitionへ処置した",
+  "IA台帳とAnalysis／Definitionsの関係が一致する",
+  "全体の情報構造を個別定義の第二の正本にしていない",
+  "基本図を作成・既存参照・非該当・作成不能のいずれかへ処置した",
+  "未確認事項、人間判断、IAへ戻す条件を明示した",
+  "UI／SPECとQuality Analysis / IAへの接続を区別した",
+  "Architecture／Sourceへの直接Handoffを作っていない",
+  "補足分析へ必須情報を退避していない",
+];
+
+const iaObjectRelationChecklistItemTexts = [
+  "全IA Definitionを一件ずつ処置した",
+  "Object、Identity、Relationを混同していない",
+  "DB、API、Classを情報Objectとして逆輸入していない",
+  "個別IA Definitionの意味を再定義していない",
+  "孤立Object、循環、関係の欠落を確認した",
+  "非該当には理由を記録した",
+  "補足分析へ必須情報を退避していない",
+];
+
+const iaStructureNavigationChecklistItemTexts = [
+  "全IA Definitionを一件ずつ処置した",
+  "Priority、Grouping、Findabilityを区別した",
+  "単一の画面やTreeを情報構造として先取りしていない",
+  "根拠、判断、失敗時の戻り先へ到達できる",
+  "個別IA Definitionの意味を再定義していない",
+  "非該当には理由を記録した",
+  "補足分析へ必須情報を退避していない",
+];
+
+const iaStateVisibilityChecklistItemTexts = [
+  "全IA Definitionを一件ずつ処置した",
+  "State、Visibility、Temporal Meaningを区別した",
+  "不明を正常または不存在へ丸めていない",
+  "ResponsibilityとAuthorityを区別した",
+  "非開示情報の存在を無断で露出していない",
+  "個別IA Definitionの意味を再定義していない",
+  "非該当には理由を記録した",
+  "補足分析へ必須情報を退避していない",
+];
+
+const iaAnalysisChecklistItemTexts = [
+  "正式入力となるUX Definitionを一件だけ特定した",
+  "UXの利用者成果と重要な失敗を保持した",
+  "情報候補と利用者にとっての意味を特定した",
+  "同じ情報と異なる情報を識別する条件を処置した",
+  "情報同士の関係を処置した",
+  "全Canonical Object候補を分析Objectへ対応付け、暗黙の改名・分離・統合を残していない",
+  "Identity／RelationをCanonical側で再解釈させない変換根拠を残した",
+  "状態と可視性を処置した",
+  "時間的な意味を処置した",
+  "情報の優先度・まとまり・見つけ方を評価した",
+  "情報の責任者と判断権限を分けて評価した",
+  "機能責任と実際の人物・組織・Componentへの割当を区別した",
+  "欠損・誤認・古さ・競合・曖昧性を評価した",
+  "人間判断の必要性を評価した",
+  "UXから継承する未確認事項・判断者・影響とIA固有事項を区別した",
+  "UI・SPEC・Quality Analysis / IAへの接続を区別した",
+  "情報構造の検証意図を評価した",
+  "画面・Component・DB・API・Classを先取りしていない",
+  "現行UI・Architecture・Sourceから意味を逆輸入していない",
+  "補足分析へ必須情報を退避していない",
+];
+
+const iaDefinitionChecklistItemTexts = [
+  "IA定義だけで情報契約を理解できる",
+  "全入力UXの利用者成果・場面・対象・状態・導線を保持した",
+  "情報Objectと利用者にとっての意味を定義した",
+  "IdentityとRelationを定義した",
+  "Source Identity／RelationからCanonical Identity／Relationへの変換を明示した",
+  "全Canonical ObjectをSource Analysis Objectへ対応付け、暗黙の改名・分離・統合を残していない",
+  "StateとVisibilityを定義した",
+  "Temporal Meaningを定義した",
+  "Priority・Grouping・Findabilityを定義した",
+  "ResponsibilityとAuthorityを分けて定義した",
+  "機能責任と実際の人物・組織・Componentへの割当を区別した",
+  "Failure・Risk・Constraintを定義した",
+  "Human Inputの必要性を評価した",
+  "UXから継承するOpen・GapとIA固有事項を区別し、IAへ戻す条件を明示した",
+  "UI・SPEC・Quality Analysis / IAへの接続を区別した",
+  "Verification Intentを明示した",
+  "画面・Component・DB・API・Classを先取りしていない",
+  "現行UI・Architecture・Sourceを正本としていない",
+  "補足分析へ必須情報を退避していない",
+];
+
 function checklistItemText(line: string): string | null {
   const checked = /^- \[x\] (?<text>\S.*)$/u.exec(line);
   if (checked?.groups?.text) return checked.groups.text;
@@ -1668,6 +1756,34 @@ checkUxRequirementAnalysis();
 
 function checkIaReconstruction(): void {
   if (repositoryMode !== "official") return;
+  const tableRows = (
+    content: string,
+    headers: readonly string[],
+  ): string[][] => {
+    const lines = content.split(/\r?\n/u);
+    const headerIndex = lines.findIndex((line) => {
+      const cells = markdownTableCells(line);
+      return (
+        cells !== null &&
+        cells.length === headers.length &&
+        cells.every((cell, index) => cell === headers[index])
+      );
+    });
+    if (
+      headerIndex < 0 ||
+      !markdownTableSeparator(lines[headerIndex + 1] ?? "", headers.length)
+    )
+      return [];
+    const rows: string[][] = [];
+    for (let index = headerIndex + 2; index < lines.length; index += 1) {
+      const cells = markdownTableCells(lines[index]);
+      if (cells === null || cells.length !== headers.length) break;
+      rows.push(cells);
+    }
+    return rows;
+  };
+  const localCanonicalName = (value: string): string =>
+    value.replace(/（[^）]+）/gu, "").trim();
   const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
   const iaIndexPath = path.join(
     root,
@@ -1679,6 +1795,20 @@ function checkIaReconstruction(): void {
   if (!lstatIfPresent(iaIndexPath)?.isFile()) return;
 
   const requiredTemplates = [
+    path.join(root, "template", "03_IA", "01_Information_Architecture.md"),
+    path.join(root, "template", "03_IA", "02_Object_and_Relation_Model.md"),
+    path.join(
+      root,
+      "template",
+      "03_IA",
+      "03_Information_Structure_and_Navigation.md",
+    ),
+    path.join(
+      root,
+      "template",
+      "03_IA",
+      "04_State_Visibility_and_Responsibility.md",
+    ),
     path.join(
       root,
       "template",
@@ -1702,8 +1832,68 @@ function checkIaReconstruction(): void {
         "error",
         "ia-reconstruction-template-missing",
         relative(templatePath),
-        "The official IA profile must include paired analysis and definition templates.",
+        "The official IA profile must include root, cross-cutting, analysis, and definition templates.",
       );
+  const templateChecklistContracts: Array<[string, readonly string[]]> = [
+    [requiredTemplates[0], iaIndexChecklistItemTexts],
+    [requiredTemplates[1], iaObjectRelationChecklistItemTexts],
+    [requiredTemplates[2], iaStructureNavigationChecklistItemTexts],
+    [requiredTemplates[3], iaStateVisibilityChecklistItemTexts],
+    [requiredTemplates[4], iaAnalysisChecklistItemTexts],
+    [requiredTemplates[5], iaDefinitionChecklistItemTexts],
+  ];
+  for (const [templatePath, expectedItems] of templateChecklistContracts) {
+    if (!lstatIfPresent(templatePath)?.isFile()) continue;
+    const checklistError = templateVisibleChecklistError(
+      read(templatePath),
+      expectedItems,
+    );
+    if (checklistError)
+      add(
+        "error",
+        "ia-template-checklist-invalid",
+        relative(templatePath),
+        `The IA template must provide the exact visible unevaluated checklist (${checklistError}).`,
+      );
+  }
+
+  const iaCrossArtifacts: Array<[string, readonly string[]]> = [
+    [iaIndexPath, iaIndexChecklistItemTexts],
+    [
+      path.join(root, "03_IA", "02_Object_and_Relation_Model.md"),
+      iaObjectRelationChecklistItemTexts,
+    ],
+    [
+      path.join(root, "03_IA", "03_Information_Structure_and_Navigation.md"),
+      iaStructureNavigationChecklistItemTexts,
+    ],
+    [
+      path.join(root, "03_IA", "04_State_Visibility_and_Responsibility.md"),
+      iaStateVisibilityChecklistItemTexts,
+    ],
+  ];
+  for (const [artifactPath, expectedItems] of iaCrossArtifacts) {
+    if (!lstatIfPresent(artifactPath)?.isFile()) {
+      add(
+        "error",
+        "ia-cross-artifact-missing",
+        relative(artifactPath),
+        "The official IA profile must keep the index and three cross-cutting projections.",
+      );
+      continue;
+    }
+    const checklistError = completedVisibleChecklistError(
+      read(artifactPath),
+      expectedItems,
+    );
+    if (checklistError)
+      add(
+        "error",
+        "ia-artifact-checklist-invalid",
+        relative(artifactPath),
+        `The current IA artifact must record the exact assessed checklist (${checklistError}).`,
+      );
+  }
   for (const sharedEvidenceRoot of [
     path.join(root, "05_SPEC", "Evidence"),
     path.join(root, "template", "05_SPEC", "Evidence"),
@@ -1767,9 +1957,32 @@ function checkIaReconstruction(): void {
     const nextHeading = remaining.search(/^## /mu);
     return nextHeading < 0 ? remaining : remaining.slice(0, nextHeading);
   };
+  const expectedIaDownstreamLabels = [
+    "UI（UX＋IAの正式入力）",
+    "SPEC（UX＋IAの正式入力）",
+    "Quality Analysis / IA（伴走）",
+  ];
+  const hasExactIaDownstream = (section: string | null) => {
+    const labels = (section ?? "")
+      .split(/\r?\n/u)
+      .map(
+        (line) => /^\| (?<label>[^|]+) \| [^|]+ \|$/u.exec(line)?.groups?.label,
+      )
+      .filter((label): label is string => Boolean(label) && label !== "接続先");
+    return (
+      labels.length === expectedIaDownstreamLabels.length &&
+      labels.every(
+        (label, index) => label === expectedIaDownstreamLabels[index],
+      )
+    );
+  };
   const analysisPairs = new Set<string>();
   const analysisPairKeys: string[] = [];
   const actualAnalysisIds = new Set<string>();
+  const analysisObjectSets = new Map<string, Set<string>>();
+  const analysisObjectIdentityMaps = new Map<string, Map<string, string>>();
+  const analysisMappingKeySet = new Set<string>();
+  const analysisMappingKeys: string[] = [];
   if (lstatIfPresent(iaAnalysisRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(iaAnalysisRoot, {
       withFileTypes: true,
@@ -1791,6 +2004,78 @@ function checkIaReconstruction(): void {
         "1. UXから受け取る意味",
       );
       const dispositionSection = exactSecondLevelSection(analysis, "5. IA処置");
+      const handoffSection = exactSecondLevelSection(
+        analysis,
+        "6. 後続工程が保持する意味",
+      );
+      const checklistError = completedVisibleChecklistError(
+        analysis,
+        iaAnalysisChecklistItemTexts,
+      );
+      const objectRows = tableRows(analysis, [
+        "情報Object",
+        "利用者にとっての意味",
+        "同一性と関係の基準",
+      ]);
+      const objectNames = new Set(objectRows.map((cells) => cells[0]));
+      analysisObjectSets.set(entry.name, objectNames);
+      analysisObjectIdentityMaps.set(
+        entry.name,
+        new Map(objectRows.map((cells) => [cells[0], cells[2]])),
+      );
+      const mappingRows = tableRows(analysis, [
+        "接続先",
+        "分析Object",
+        "Canonical Object",
+        "処置",
+        "判断理由",
+      ]);
+      const mappedSources = new Map<string, string[]>();
+      let isAnalysisMappingInvalid =
+        objectNames.size === 0 || mappingRows.length === 0;
+      for (const [
+        targetIa,
+        sourceObject,
+        canonicalObject,
+        disposition,
+        rationale,
+      ] of mappingRows) {
+        if (
+          !objectNames.has(sourceObject) ||
+          !["Same", "Rename", "Merge", "Split", "Not Applicable"].includes(
+            disposition,
+          ) ||
+          rationale.length === 0
+        )
+          isAnalysisMappingInvalid = true;
+        const dispositions = mappedSources.get(sourceObject) ?? [];
+        dispositions.push(disposition);
+        mappedSources.set(sourceObject, dispositions);
+        if (disposition === "Not Applicable") {
+          if (targetIa !== "―" || canonicalObject !== "―")
+            isAnalysisMappingInvalid = true;
+          continue;
+        }
+        if (!/^IA-[0-9]{6}$/u.test(targetIa) || canonicalObject === "―") {
+          isAnalysisMappingInvalid = true;
+          continue;
+        }
+        const key = `${entry.name}|${sourceObject}|${targetIa}|${canonicalObject}|${disposition}`;
+        analysisMappingKeys.push(key);
+        analysisMappingKeySet.add(key);
+      }
+      for (const objectName of objectNames) {
+        const dispositions = mappedSources.get(objectName) ?? [];
+        if (dispositions.length === 0) isAnalysisMappingInvalid = true;
+        if (dispositions.length > 1) {
+          const transformationFamilies = new Set(
+            dispositions.map((value) =>
+              value === "Same" || value === "Rename" ? "preserve" : value,
+            ),
+          );
+          if (transformationFamilies.size > 1) isAnalysisMappingInvalid = true;
+        }
+      }
       for (const match of dispositionSection?.matchAll(
         /\[(IA-[0-9]{6})\]\(\.\.\/\.\.\/Definitions\/\1\/ia_definition\.md\)/gu,
       ) ?? []) {
@@ -1818,21 +2103,56 @@ function checkIaReconstruction(): void {
           ),
         ) ||
         !analysis.includes("## 2. 情報候補と関係") ||
-        !analysis.includes("| 候補 | 利用者にとっての意味 | 識別・関係 |") ||
+        !analysis.includes(
+          "| 情報Object | 利用者にとっての意味 | 同一性と関係の基準 |",
+        ) ||
+        (exactSecondLevelSection(analysis, "2. 情報候補と関係")?.match(
+          /^\| [^|]+ \| [^|]+ \| [^|]+ \|$/gmu,
+        )?.length ?? 0) < 3 ||
+        !analysis.includes("図中の`[O:]`は情報Objectだけを表す。") ||
         !analysis.includes("## 3. 状態・可視性・導線・責任") ||
         !analysis.includes("| 状態 |") ||
         !analysis.includes("| 可視性 |") ||
         !analysis.includes("| 導線 |") ||
         !analysis.includes("| 責任 |") ||
-        !analysis.includes("## 4. 現行文書・実装との照合") ||
+        !analysis.includes("| 時間的な意味 |") ||
+        !analysis.includes("| 情報の優先度 |") ||
+        !analysis.includes("| 情報のまとまり |") ||
+        !analysis.includes("| 判断権限 |") ||
+        !analysis.includes(
+          "ここで示す主体は、情報契約上必要な機能責任を表し、特定の人物・組織・Componentへの割当を確定しない。",
+        ) ||
+        !analysis.includes("| 重要な失敗 |") ||
+        !analysis.includes("| 制約・対象外 |") ||
+        !analysis.includes("| 人間判断 |") ||
+        !analysis.includes("### 未確認事項と判断") ||
+        !analysis.includes("| UXから継承する確認事項 |") ||
+        !analysis.includes("| 判断者 |") ||
+        !analysis.includes("| 未確認時の影響 |") ||
+        !analysis.includes("| IAで追加した未確認事項 |") ||
+        !analysis.includes("| IA固有の追加人間判断 |") ||
+        !analysis.includes("| IAへ戻す条件 |") ||
+        !analysis.includes("| 検証意図 |") ||
+        !analysis.includes("### Canonical化候補") ||
+        !analysis.includes(
+          "| 接続先 | 分析Object | Canonical Object | 処置 | 判断理由 |",
+        ) ||
+        !analysis.includes("## 4. 現実照合の参考情報（正式入力ではない）") ||
+        !analysis.includes(
+          "この節は後続のReality Auditへ引き継ぐ参考情報であり、IA Candidateを導く正式入力ではない。",
+        ) ||
         !dispositionSection ||
-        ![...analysisPairs].some((pair) => pair.startsWith(`${entry.name}|`))
+        ![...analysisPairs].some((pair) => pair.startsWith(`${entry.name}|`)) ||
+        !hasExactIaDownstream(handoffSection) ||
+        !analysis.includes("## 7. 補足分析") ||
+        checklistError ||
+        isAnalysisMappingInvalid
       )
         add(
           "error",
           "ia-analysis-contract-invalid",
           relative(analysisPath),
-          "Each UX definition must have one self-contained IA analysis with at least one canonical IA disposition.",
+          `Each UX definition must have one self-contained IA analysis with one canonical disposition, exact downstream relations, and an assessed checklist (${checklistError ?? "structure"}).`,
         );
     }
   }
@@ -1850,6 +2170,8 @@ function checkIaReconstruction(): void {
   const actualIaIds = new Set<string>();
   const definitionPairs = new Set<string>();
   const definitionPairKeys: string[] = [];
+  const definitionMappingKeySet = new Set<string>();
+  const definitionMappingKeys: string[] = [];
   if (lstatIfPresent(iaDefinitionsRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(iaDefinitionsRoot, {
       withFileTypes: true,
@@ -1862,7 +2184,8 @@ function checkIaReconstruction(): void {
       );
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       actualIaIds.add(entry.name);
-      const definition = visibleMarkdownStructure(read(definitionPath));
+      const definitionSource = read(definitionPath);
+      const definition = visibleMarkdownStructure(definitionSource);
       const sourceSection = exactSecondLevelSection(definition, "情報源");
       for (const match of sourceSection?.matchAll(
         /\[(UX-[0-9]{6})のIA分析\]\(\.\.\/\.\.\/Analysis\/(UX-[0-9]{6})\/ia_analysis\.md\)/gu,
@@ -1872,23 +2195,168 @@ function checkIaReconstruction(): void {
           definitionPairKeys.push(pair);
           definitionPairs.add(pair);
         }
+      const handoffSection = exactSecondLevelSection(
+        definition,
+        "後続工程との関係",
+      );
+      const checklistError = completedVisibleChecklistError(
+        definition,
+        iaDefinitionChecklistItemTexts,
+      );
+      const definitionMappingRows = tableRows(definition, [
+        "Source Analysis Object",
+        "Canonical Object",
+        "処置",
+        "判断理由",
+      ]);
+      const canonicalObjectRows = tableRows(definition, [
+        "対象",
+        "利用者にとっての意味",
+        "識別・関係",
+      ]);
+      const canonicalObjects = new Set(
+        canonicalObjectRows.map((cells) => localCanonicalName(cells[0])),
+      );
+      const mappedCanonicalObjects = new Set<string>();
+      const definitionObjectPairs = new Set<string>();
+      let isDefinitionMappingInvalid =
+        definitionMappingRows.length === 0 || canonicalObjects.size === 0;
+      for (const [
+        sourceObject,
+        canonicalObject,
+        disposition,
+        rationale,
+      ] of definitionMappingRows) {
+        const match = sourceObject.match(/^(UX-[0-9]{6}): (.+)$/u);
+        if (
+          !match ||
+          !analysisObjectSets.get(match?.[1] ?? "")?.has(match?.[2] ?? "") ||
+          !["Same", "Rename", "Merge", "Split"].includes(disposition) ||
+          rationale.length === 0 ||
+          !canonicalObjects.has(canonicalObject)
+        ) {
+          isDefinitionMappingInvalid = true;
+          continue;
+        }
+        mappedCanonicalObjects.add(canonicalObject);
+        definitionObjectPairs.add(`${sourceObject}|${canonicalObject}`);
+        const key = `${match[1]}|${match[2]}|${entry.name}|${canonicalObject}|${disposition}`;
+        definitionMappingKeys.push(key);
+        definitionMappingKeySet.add(key);
+      }
+      const identityRelationRows = tableRows(definition, [
+        "Source Analysis Object",
+        "AnalysisのIdentity／Relation",
+        "Canonical Object",
+        "CanonicalのIdentity／Relation",
+        "処置と理由",
+      ]);
+      const identityRelationObjectPairs = new Set<string>();
+      const identityRelationObjectPairKeys: string[] = [];
+      let isIdentityRelationMappingInvalid = identityRelationRows.length === 0;
+      for (const [
+        sourceObject,
+        analysisIdentityRelation,
+        canonicalObject,
+        canonicalIdentityRelation,
+        rationale,
+      ] of identityRelationRows) {
+        const pair = `${sourceObject}|${canonicalObject}`;
+        if (
+          analysisIdentityRelation.length === 0 ||
+          canonicalIdentityRelation.length === 0 ||
+          rationale.length === 0 ||
+          !definitionObjectPairs.has(pair) ||
+          analysisObjectIdentityMaps
+            .get(/^UX-[0-9]{6}/u.exec(sourceObject)?.[0] ?? "")
+            ?.get(sourceObject.replace(/^UX-[0-9]{6}: /u, "")) !==
+            analysisIdentityRelation
+        )
+          isIdentityRelationMappingInvalid = true;
+        identityRelationObjectPairs.add(pair);
+        identityRelationObjectPairKeys.push(pair);
+      }
+      if (
+        identityRelationObjectPairs.size !==
+          identityRelationObjectPairKeys.length ||
+        definitionObjectPairs.size !== identityRelationObjectPairs.size ||
+        [...definitionObjectPairs].some(
+          (pair) => !identityRelationObjectPairs.has(pair),
+        )
+      )
+        isIdentityRelationMappingInvalid = true;
+      if (
+        canonicalObjects.size !== mappedCanonicalObjects.size ||
+        [...canonicalObjects].some(
+          (value) => !mappedCanonicalObjects.has(value),
+        )
+      )
+        isDefinitionMappingInvalid = true;
+      const diagramObjects = [
+        ...visibleMarkdownIncludingFencedCode(definitionSource).matchAll(
+          /\[O:\s*([^\]]+?)\s*\]/gu,
+        ),
+      ].map((match) => match[1]?.trim() ?? "");
+      if (
+        diagramObjects.length === 0 ||
+        diagramObjects.some(
+          (objectName) =>
+            objectName.length === 0 ||
+            !canonicalObjects.has(localCanonicalName(objectName)),
+        ) ||
+        canonicalObjects.size !==
+          new Set(diagramObjects.map((value) => localCanonicalName(value)))
+            .size ||
+        [...canonicalObjects].some(
+          (objectName) =>
+            !diagramObjects.some(
+              (diagramObject) =>
+                localCanonicalName(diagramObject) === objectName,
+            ),
+        )
+      )
+        isDefinitionMappingInvalid = true;
       if (
         !definition.includes("成果物種別: IA定義") ||
         !definition.includes(`IA ID: \`${entry.name}\``) ||
         !definition.includes("## 意味と利用者成果") ||
         !definition.includes("## 対象・識別・関係") ||
-        !definition.includes("## 状態と可視性") ||
-        !definition.includes("## 導線と責任") ||
-        !definition.includes("## 制約") ||
-        !definition.includes("## 下流への引き渡し") ||
+        !definition.includes("### 分析ObjectからCanonical Objectへの対応") ||
+        !definition.includes(
+          "| Source Analysis Object | Canonical Object | 処置 | 判断理由 |",
+        ) ||
+        !definition.includes("### Identity／Relationの変換") ||
+        !definition.includes(
+          "| Source Analysis Object | AnalysisのIdentity／Relation | Canonical Object | CanonicalのIdentity／Relation | 処置と理由 |",
+        ) ||
+        !definition.includes("## 状態・可視性・時間的な意味") ||
+        !definition.includes("## 情報の優先度・まとまり・見つけ方・責任") ||
+        !definition.includes("### 責任と判断権限") ||
+        !definition.includes(
+          "| 入力UX | 情報を作成・更新・提供する責任 | 意味・状態・次の行動を決める権限 |",
+        ) ||
+        !definition.includes(
+          "ここで示す主体は、情報契約上必要な機能責任を表し、特定の人物・組織・Componentへの割当を確定しない。",
+        ) ||
+        !definition.includes("## 失敗・制約・未確認事項") ||
+        !definition.includes("## 検証意図") ||
+        !definition.includes("| 入力UX | 重要場面 | 避ける失敗 | 品質期待 |") ||
+        !definition.includes(
+          "| 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |",
+        ) ||
+        !hasExactIaDownstream(handoffSection) ||
         !sourceSection ||
-        ![...definitionPairs].some((pair) => pair.endsWith(`|${entry.name}`))
+        ![...definitionPairs].some((pair) => pair.endsWith(`|${entry.name}`)) ||
+        !definition.includes("## 補足分析") ||
+        checklistError ||
+        isDefinitionMappingInvalid ||
+        isIdentityRelationMappingInvalid
       )
         add(
           "error",
           "ia-definition-contract-invalid",
           relative(definitionPath),
-          "Each canonical IA unit must be self-contained and cite at least one source IA analysis.",
+          `Each canonical IA unit must be self-contained, cite source analyses, keep exact downstream relations, and record its checklist (${checklistError ?? "structure"}).`,
         );
     }
   }
@@ -1904,6 +2372,32 @@ function checkIaReconstruction(): void {
       relative(iaIndexPath),
       "The IA registry and canonical definition directories must be an exact set.",
     );
+  for (const [crossPath] of iaCrossArtifacts.slice(1)) {
+    if (!lstatIfPresent(crossPath)?.isFile()) continue;
+    const cross = visibleMarkdownStructure(read(crossPath));
+    const projectionSection =
+      exactSecondLevelSection(cross, "4. IA定義への適用") ??
+      exactSecondLevelSection(cross, "5. IA定義への適用");
+    const projectedKeys = [
+      ...(projectionSection?.matchAll(
+        /\[(IA-[0-9]{6})\]\(Definitions\/(IA-[0-9]{6})\/ia_definition\.md\)/gu,
+      ) ?? []),
+    ]
+      .filter((match) => match[1] === match[2])
+      .map((match) => match[1]);
+    const projectedIds = new Set(projectedKeys);
+    if (
+      projectedKeys.length !== projectedIds.size ||
+      projectedIds.size !== actualIaIds.size ||
+      [...actualIaIds].some((id) => !projectedIds.has(id))
+    )
+      add(
+        "error",
+        "ia-cross-projection-coverage-mismatch",
+        relative(crossPath),
+        "Every IA cross-cutting projection must process the exact canonical IA ID set once in its dedicated projection section.",
+      );
+  }
   if (
     registryPairKeys.length !== registryPairs.size ||
     analysisPairKeys.length !== analysisPairs.size ||
@@ -1918,6 +2412,21 @@ function checkIaReconstruction(): void {
       "ia-analysis-definition-closure-mismatch",
       relative(iaIndexPath),
       "The IA registry, analysis dispositions, and definition source relations must form the same exact, duplicate-free (UX, IA) pair set in their canonical sections.",
+    );
+  if (
+    analysisMappingKeys.length !== analysisMappingKeySet.size ||
+    definitionMappingKeys.length !== definitionMappingKeySet.size ||
+    analysisMappingKeySet.size !== definitionMappingKeySet.size ||
+    [...analysisMappingKeySet].some(
+      (key) => !definitionMappingKeySet.has(key),
+    ) ||
+    [...definitionMappingKeySet].some((key) => !analysisMappingKeySet.has(key))
+  )
+    add(
+      "error",
+      "ia-object-mapping-closure-mismatch",
+      relative(iaIndexPath),
+      "Every IA analysis object must be dispositioned exactly, and every non-N/A analysis mapping must match one canonical definition mapping with real source and target objects.",
     );
 }
 
