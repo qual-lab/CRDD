@@ -9,13 +9,13 @@ UI ID: `UI-XXXXXX`
 
 [このInterfaceを通じて利用者が達成する結果を示す。]
 
-## UX観点の入力
+## UX観点の分析結果
 
 | UX分析 | このUIで保持する利用者成果 |
 |---|---|
 | [UX-XXXXXX](../../Analysis/UX-XXXXXX/ui_analysis.md) | [認識、操作、Feedback、体験差] |
 
-## IA観点の入力
+## IA観点の分析結果
 
 | IA分析 | このUIで保持する情報構造 |
 |---|---|
@@ -80,11 +80,16 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 ## 未確認事項・人間判断・戻り条件
 
-| 項目 | 現在の判断 | 不足時に戻す工程 |
-|---|---|---|
-| 未確認事項 | なし | UI／SPECまたはOwner工程 |
-| 人間判断 | 現在のCanonical範囲では追加判断なし | 判断を所有する工程 |
-| 戻り条件 | 正式入力、対応関係または成立条件に不足・競合が見つかった場合 | 不足を所有するUX／IA／UI／SPEC |
+### 正式入力から継承する確認事項
+
+| Source ID | 確認事項 | 判断者 | 現在の判断 | 未確認時の影響 | 再評価契機 |
+|---|---|---|---|---|---|
+| [UX-XXXXXX](../../../02_UX/Definitions/UX-XXXXXX/ux_definition.md) | [正式入力に残る確認事項] | [判断者] | [OPEN／解消済み] | [影響] | [再評価契機] |
+| [IA-XXXXXX](../../../03_IA/Definitions/IA-XXXXXX/ia_definition.md) | [正式入力に残る確認事項] | [判断者] | [OPEN／解消済み] | [影響] | [再評価契機] |
+
+### UI固有の追加判断
+
+[追加判断がなければ、その旨と、継承事項が解消済みという意味ではないことを書く。]
 
 ## 検証意図
 
@@ -94,7 +99,12 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 なし。
 
-## 情報源
+## 正式入力と変換根拠
+
+- 正式入力: [UX-XXXXXX](../../../02_UX/Definitions/UX-XXXXXX/ux_definition.md)
+- 正式入力: [IA-XXXXXX](../../../03_IA/Definitions/IA-XXXXXX/ia_definition.md)
+
+以下は正式入力をUIの責務へ変換した根拠であり、正式入力そのものではない。
 
 - [UX-XXXXXXのUI分析](../../Analysis/UX-XXXXXX/ui_analysis.md)
 - [IA-XXXXXXのUI分析](../../Analysis/IA-XXXXXX/ui_analysis.md)
@@ -103,7 +113,7 @@ UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果を
 
 ひな型では`[ ]`を未評価として残す。完成時は、処置済みを`[x]`、未完了を`OPEN: 理由 — 項目`、不適合を`FAIL: 理由 — 項目`、非該当を`N/A: 理由 — 項目`として評価する。
 
-- [ ] UX DefinitionとIA Definitionの分析を正式入力として処置した
+- [ ] UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した
 - [ ] UX OutcomeとIA Information Contractを保持した
 - [ ] Surface ResponsibilityとInformation Priorityを定義した
 - [ ] Presentation、Interaction、Visible StateおよびFeedbackを定義した

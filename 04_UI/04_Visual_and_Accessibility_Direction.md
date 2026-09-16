@@ -41,9 +41,18 @@ CLIは行順、折返し、直接入力、終了後の読取りを確認する�
 - 動きは状態変化の唯一の通知にせず、軽減設定時も同じ意味を示す。
 - 支援技術の適合は実測なしに主張せず、対象プロファイルと未評価範囲を記録する。
 
-## 5. 視覚案の現在状態
+## 5. 表示面ごとの現在状態
 
-v0.21の最小Workbenchは論理構造と状態契約を先に固定する。最終配色、Typography、Component外観およびGUI Frameworkは未決であり、Prototypeと実画面を用いた視覚批評後に人間が判断する。現在のブランド素材は[公式素材のUI定義](Definitions/UI-000019/ui_definition.md)と[現行素材](assets/brand/)へ接続する。
+UI契約のCanonical化と、実際の表示面を用いた視覚評価を分ける。未評価の表示面が残るため、UI工程全体のExitはまだ確定しない。
+
+| 表示面 | 現在状態 | 根拠 | 未確認時の影響 | 判断者 | 再評価契機 | 工程Exitへの影響 |
+|---|---|---|---|---|---|---|
+| CLI／Terminal | 一部確認済み | [現行Interface参照](06_Current_Interface_Reference.md)と既存の署名・回復・E2E画面 | 行順、折返し、文字化け、直接入力、終了後読取りは実経路ごとの追加確認が必要 | Qual-Labと実利用者 | 対象CLIのPrototypeまたは実経路確認時 | `OPEN`。対象経路の評価が終わるまで完全なUI工程Exitを主張しない |
+| MCPの構造化結果／要約 | 契約定義済み・実利用未確認 | UI定義の状態語、情報優先度および開示境界 | MCP Clientごとの表示差で重要状態が埋没する可能性がある | Qual-LabとMCP利用者 | MCP Clientでの実利用確認時 | `OPEN`。構造化結果の契約は利用できるが、人間向け表示の完成は未主張 |
+| Workbench | 未実装・未評価 | v0.21のUI定義と最小構成候補 | 配置、密度、Keyboard、読上げ、Component外観、最終配色を判断できない | Qual-Labと対象利用者 | Prototypeと実画面を用いた視覚批評時 | `OPEN`。WorkbenchのUI工程Exitを妨げる |
+| ブランド素材 | 利用条件確認済み・適用先未確定 | [公式素材のUI定義](Definitions/UI-000019/ui_definition.md)と[現行素材](assets/brand/) | 素材の存在だけでは最終配色、TypographyまたはComponent外観を決められない | Qual-Lab | Prototypeへ適用する時 | `OPEN`。素材契約は利用できるが意匠完成を意味しない |
+
+v0.21の最小Workbenchは論理構造と状態契約を先に固定する。最終配色、Typography、Component外観およびGUI Frameworkは未決であり、Prototypeと実画面を用いた視覚批評後に人間が判断する。
 
 ## 補足分析
 
@@ -56,3 +65,4 @@ v0.21の最小Workbenchは論理構造と状態契約を先に固定する。最
 - [x] Keyboard、読上げおよび媒体差を評価した
 - [x] Visual ArtifactだけでContractを代替していない
 - [x] 未評価の意匠をCanonicalとしていない
+- OPEN: 表示面ごとのPrototype／実画面評価と人間による工程Exit判断が残る。理由、判断者、影響および再評価契機は第5章に記録した

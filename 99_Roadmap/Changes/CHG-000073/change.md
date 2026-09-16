@@ -1281,12 +1281,12 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 | UX観点とIA観点の分離分析 | 採用 | UI 54分析、SPEC 54分析 | 各観点の正式入力を一件に限定し、他観点やREQを正式入力へ混在させない |
 | 個別定義の自己完結性 | 採用 | UI 20定義、SPEC 29定義 | 成立条件、失敗、制約、未確認事項、戻り条件および検証意図を定義内に保持 |
 | 可視Checklist | 採用 | 168個別・Root成果物で評価済み | 完成成果物は`[x]`、ひな型は`[ ]`とし、Checkerが成果物種別固有の項目集合を検査 |
-| UI ReadyとSPEC Readyの独立判定 | 採用 | 各Rootの現在状態 | 片側の完成を他方で補完せず、双方Ready後に対応レビューを開始 |
-| UI／SPEC対応レビュー | 採用 | `05_SPEC/06_UI_SPEC_Correspondence.md` | 30組をShared Context、State、Trigger、Result、Failure、Authority、Visibility、Constraint、Coverageで全数確認 |
+| UI契約Ready、UI工程Exit、SPEC Readyの独立判定 | 採用 | 各Rootの現在状態 | UI契約を対応レビューへ渡せる状態と、Prototype／実画面・人間判断を含むUI工程Exitを分ける。片側の完成を他方で補完しない |
+| UI／SPEC対応レビュー | 採用 | `05_SPEC/06_UI_SPEC_Correspondence.md` | 31組をShared Context、State、Trigger、Result、Failure、Recovery、Authority、Visibility、Constraint、Coverage、Evidenceで全数確認 |
 | 第三のUI／SPEC仕様 | 不採用 | 対応文書はClosure Evidence | GapはUI、SPEC、IAまたはUXの所有工程へ戻し、対応文書で新しい契約を定義しない |
 | Architecture／Sourceからの補完 | 不採用 | Reality Auditを分離 | UIとSPECの不足を下流設計や現行実装から逆輸入しない |
 
-意味レビューでは、全完成成果物に未評価Checklistがないこと、UIとSPECが互いを正式入力にしていないこと、定義双方の`pairs_with`と対応表が同じ30組で閉じること、対応レビューが第三の仕様を作らないことを確認した。Critical／Major／Moderate／Minor 0でPassし、UI Ready、SPEC ReadyおよびUI／SPEC対応Passを確定した。
+固定Commit `8652bf59`の独立レビューでは、Critical 0の一方で、UIにMajor 3／Moderate 1、SPECにMajor 3／Moderate 2／Minor 1、対応ClosureにMajor 2／Moderate 1を検出し、Pass不可とした。主因は、上流UX／IAの未確認事項をUI／SPECで「なし」へ畳んだ情報劣化、UI契約ReadyとUI工程Exitの混同、外部送信Effect成立後の結果不明契約不足、および対応表が関係一覧だけで個別レビュー根拠を持たないことだった。現在は、正式入力の未確認事項を全分析・定義へ継承し、31組の個別Evidence、UI-000004とSPEC-000002の委任関係、外部送信の要求・受理・Effect・結果搬送・再観測を是正した候補を独立再レビューへ渡す段階である。
 
 ## 6. 完了条件
 
@@ -1307,22 +1307,22 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／32。全要求分析とUX定義を自己完結させ、複数REQを統合する13定義では全入力の未確認事項を保持した。Root 5件を含む73成果物と7ひな型へ成果物別の可視Checklistを適用し、直後工程IA、伴走するQuality Analysis / UX、IA後のUI／SPEC Relationを区別した。初回4指摘と第2回Major 1件／Moderate 3件／Minor 1件を是正し、独立再レビューCritical／Major／Moderate／Minor 0でPass |
 | IA Analysis／Definition | 32／22。全入力UXの利用場面、対象、識別、関係、状態、可視性、時間差、導線、責任、判断権限、失敗および検証意図を保持した。209 Analysis Objectと157適用対象Source Identity行を全数照合し、DefinitionがAnalysisのIdentity／Relationを後付けで再解釈できないChecker契約を追加した。不一致0件、`Merge`／`Split` 0件、3横断投影は各22 IA-IDを一意に処置し、独立再レビューでIA工程を閉じた |
-| UI Analysis／Definition | UX観点32／IA観点22／Definition 20。全成果物を自己完結させ、成果物別の可視Checklist、未確認事項、戻り条件および検証意図を閉じた。UI Readyを確認済み |
-| SPEC Analysis／Definition | UX観点32／IA観点22／Definition 29。取消、判断返却、実行記録作成を独立契約として保持し、成果物別の可視Checklist、未確認事項、戻り条件および検証意図を閉じた。SPEC Readyを確認済み |
+| UI Analysis／Definition | UX観点32／IA観点22／Definition 20。正式入力に残る未確認事項を全54分析と20定義へ継承し、UI固有判断と分けた。UI契約は対応レビュー入力Readyだが、Prototype／実画面評価と人間によるUI工程Exit判断はOPEN |
+| SPEC Analysis／Definition | UX観点32／IA観点22／Definition 29。正式入力に残る未確認事項を全54分析と29定義へ継承した。全UX観点分析へSource固有の境界を明示し、外部送信のEffect成立後・結果不明・同一依頼再観測を独立契約として保持した。独立再レビュー待ち |
 | Architecture Analysis／Definition／Details | UI観点20／SPEC観点29／Definition 18。読取りProjectionを`ARCH-000007`、Canonical記録・並行Writer・不変公開・Effect不明時の回復を`ARCH-000018`へ分離し、execution-intelligence詳細設計へ接続した。既レビュー済み17定義の結果を新候補へ流用せず、更新した18定義を独立再レビューしてArchitecture Readyを再確定した |
 | 全体Checker | `errors: 0`、`warnings: 0` |
 | Discovery Checklist | Root 1件、探索28件、要求36件の全成果物に可視Checklistがあり、`[x]`921件、理由付き`N/A`111件、`OPEN`／`FAIL`／未評価の`[ ]`は0件。ひな型3件は可視Checklistと未評価の`[ ]`を持つ |
 | Discovery Checklist契約試験 | 非表示だけのChecklist、完成成果物の`[ ]`、理由形式のない結果、Checklist後の本文、別成果物用Checklist、単一汎用項目、およびひな型の項目を後続Sectionへ移す構造を拒否し、理由付き`OPEN`／`FAIL`／`N/A`を受理するFocused試験4／4 Pass |
 | Discovery Checklist独立レビュー | 固定候補fingerprint `69f65c1a01d9deeba0b5dc25a082b5b18c141e589fb6cdb81248cee5bc5730c4`、73ファイル、UX混入0件を読取り専用で確認した。全1,032項目の評価、8探索の未確認事項、3ひな型の5状態、CommonMark ATX／Setext見出しによる分断防止、完成成果物の末尾契約およびChecker責務分離を確認し、Critical／Major／Moderate／Minor 0でPass |
 | UX Checklist独立レビュー | 固定候補fingerprint `cfed9a93f31fc80615b7d985d3d6a3cee941b890`を読取り専用で確認した。36要求分析、32 UX定義、5横断成果物、7ひな型、工程Handoff、兄弟UXの意味所有、横断投影およびChecker反証を確認し、Critical／Major／Moderate／Minor 0でPass |
-| Checker契約試験 | 統合試験356件。UI／SPECでは、54分析ずつ、20／29定義、成果物別Checklist、Root・横断ひな型、UI側引き渡し、30組の対応閉包および第三仕様の禁止境界を正負例で反証した。意味の妥当性とChecklist自己評価の妥当性は独立レビューへ分離 |
+| Checker契約試験 | 統合試験356件。UI／SPECでは、54分析ずつ、20／29定義、成果物別Checklist、Root・横断ひな型、UI側引き渡し、31組の対応閉包、個別Evidence列および第三仕様の禁止境界を正負例で反証した |
 | 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走。命名規約1件を是正した固定候補で356／356 Pass |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
 | IA独立レビュー | 最終固定候補fingerprint `8a2c25c001f4de2653cba62ccc09879cee3011b1`を読取り専用で確認した。32 Analysis／22 Definitions、209 Analysis Object、157適用対象Source Identity行、3横断投影、Template、`23_IA.md`、CheckerおよびHandoff境界を照合し、不一致0件、`Merge`／`Split` 0件を確認した。Critical／Major／Moderate／Minor 0でPass |
-| UI独立レビュー | 32 UX観点分析、22 IA観点分析、20 UI定義と横断文書をレビューし、可視Checklist、未確認事項、戻り条件、検証意図および工程境界を確認した。Critical 0／Major 0／Moderate 0／Minor 0でPass |
-| SPEC独立レビュー | 32 UX観点分析、22 IA観点分析、29 SPEC定義と横断文書をレビューし、可視Checklist、未確認事項、戻り条件、検証意図および工程境界を確認した。Critical 0／Major 0／Moderate 0／Minor 0でPass |
-| UI／SPEC対応レビュー | 双方Ready後に30組を全数確認し、定義双方の`pairs_with`と対応表のexact closure、状態・契機・結果・失敗・Authority・可視性・制約を確認した。未解消Gap 0、第三仕様 0でPass |
+| UI独立レビュー | 固定Commit `8652bf59`はCritical 0／Major 3／Moderate 1でPass不可。上流未確認事項、表示面別評価、工程Gate、正式入力と変換根拠の区別を是正し、再レビュー待ち |
+| SPEC独立レビュー | 固定Commit `8652bf59`はCritical 0／Major 3／Moderate 2／Minor 1でPass不可。上流未確認事項、UX境界、外部送信Effect、工程入口、正式入力と変換根拠の区別を是正し、再レビュー待ち |
+| UI／SPEC対応レビュー | 固定Commit `8652bf59`はCritical 0／Major 2／Moderate 1でPass不可。31組のexact closure、個別レビュー根拠、委任操作とSPEC-000002の関係、UI契約ReadyとUI工程Exitの区別を是正し、再レビュー待ち |
 | Architecture独立レビュー | 固定候補`05c4cbc95c315cd65851598be69da563b1416397`について、UI-000002の4操作、取消・判断返却のSibling block、読取りProjectionと基準版書込み能力の分離、19 UI／28 SPEC／17 Definitionの閉包を確認し、Critical／Major／Moderate／Minor 0でPass |
 | Architecture詳細設計の独立レビュー | 15領域の責務とQuality引渡しを全数確認した。Execution IntelligenceのCanonical詳細を読取り専用へ限定し、基準版Writer／Storeを非CanonicalなReality Auditへ分離した。契約移行にはCovered ownerを置き、全ARCH-IDが少なくとも一つのCovered詳細領域を持つことを機械反証した。最終再レビューCritical／Major／Moderate／Minor 0でPass |
 | Quality全件分析 | 157件のCanonical IDを13検証目標へ接続した。独立レビューで、目標名への接続だけではSource固有条件がLocal Itemへ届かず、実行記録の作成責務と成果物理解の検証が不足すると判明した。上流GapをUX-000032／IA-000022／UI-000020／SPEC-000030／ARCH-000018へ戻し、`Source ID → 検証目標`190関係、`Source ID → 検証目標 → Local Item`572関係と`詳細設計領域 → 検証目標`38関係をMapping・Definitionへ同じ集合で固定した。全81 Local Itemを11軸へ拡張し、検証目標ごとにUT／IT／ST／UATおよびRT／PT／LTの適用と外部境界の段階到達を固定した。独立レビューが見つけた、上流Mappingで必須の段階をDefinition側で任意化する不整合を、AIT-05／06、CQS-05／06、ERP-07、EST-06、PPR-07で是正した。さらに複数目標を持つSourceの段階を各目標へ一律適用していた曖昧さを解消し、`Source ID + 検証目標`ごとの試験段階、対応Local Item、Source全体行との和集合をCheckerで相互検査する。Quality Owner分離、Template、Current Profileおよび影響ファイル一覧を是正し、独立再レビュー中 |

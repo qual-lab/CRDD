@@ -1,8 +1,8 @@
 # UIとSPECの引き渡し
 
-状態: UI Ready。UI／SPEC対応レビューへの入力準備済み
+状態: UI契約Ready。UI／SPEC対応レビューへの入力準備済み。UI工程Exitは未完了
 
-この文書はUI側の引き渡し契約を所有する。UI／SPEC対応レビューの結果は[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)を正本とし、ここへ第二の結果を作らない。
+この文書はUI側からUI／SPEC対応レビューへ渡す契約を所有する。UI／SPEC対応レビューの結果は[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)を正本とし、ここへ第二の結果を作らない。UI契約Readyは完全なUI工程ExitまたはArchitectureへの通常Handoffを意味しない。
 
 ## 1. 共通の正式入力
 
@@ -55,7 +55,8 @@ SPECはこれらを再定義せず、同じUX／IAから観測可能な条件、
 
 ## 5. 未確認事項と戻り条件
 
-- UI側で未処置の正式入力はない。
+- UI側のCanonical入力は全数処置したが、正式入力から継承した実利用上の未確認事項は各分析・定義に保持している。
+- 表示面ごとのPrototype／実画面評価と人間によるUI工程Exit判断は未完了である。
 - UI操作、表示状態またはFeedbackに対応するSPEC契約がない場合はSPECへ戻す。
 - 上流の利用者成果または情報契約が不足する場合は、UIで推測せずUXまたはIAへ戻す。
 - 対応レビューの判定は[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)へ記録する。

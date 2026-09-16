@@ -1,6 +1,8 @@
 # UIとSPECの引き渡し
 
-状態: [UI分析中／UI Ready]
+状態: [UI分析中／UI契約Ready／UI工程Exit待ち／UI工程Exit済み]
+
+UI契約ReadyはUI／SPEC対応レビューへ入力できることを表す。Prototype／実画面評価と人間判断を含むUI工程Exit、またはArchitectureへの通常Handoffとは区別する。
 
 ## 1. 共通の正式入力
 

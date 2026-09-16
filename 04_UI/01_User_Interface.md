@@ -90,7 +90,7 @@ Repository / CLI / MCP / Workbench
 
 ## 6. 現在状態と次工程
 
-32件のUX定義と22件のIA定義を別々の正式入力として全数分析し、20件のUI定義へ統合した。REQはUXを介して追跡するが、UIの直接入力にはしない。以前の独立レビュー後に記録作成側のGapを検出したため、UX-000032とIA-000022からUI-000020を追加した。全54分析と20定義は成果物別Checklistを完了し、UI工程はReadyである。SPECもUX観点とIA観点を別々に分析し、[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)で操作・表示と振る舞いの対応を全数確認した。
+32件のUX定義と22件のIA定義を別々の正式入力として全数分析し、20件のUI定義へ統合した。REQはUXを介して追跡するが、UIの直接入力にはしない。以前の独立レビュー後に記録作成側のGapを検出したため、UX-000032とIA-000022からUI-000020を追加した。全54分析と20定義は成果物別Checklistを完了し、UI契約はUI／SPEC対応レビューへ渡せる状態である。一方、[表示面ごとの視覚評価](04_Visual_and_Accessibility_Direction.md#5-表示面ごとの現在状態)と人間による工程Exit判断は未完了であり、Architectureへの通常Handoffを許可する完全な`UI Ready`ではない。
 
 ## 補足分析
 
@@ -104,5 +104,6 @@ Repository / CLI / MCP / Workbench
 - [x] 横断成果物を個別UI定義の第二の正本にしていない
 - [x] 基本図を全件処置した
 - [x] Human Input、Open・Gapおよび戻り条件を明示した
-- [x] UI ReadyとUI／SPEC対応レビューを区別した
+- [x] UI契約Ready、UI／SPEC対応レビュー入力Ready、UI工程Exitを区別した
+- OPEN: Prototype／実画面の視覚・Accessibility評価と人間による工程Exit判断。未完了のためArchitectureへの通常Handoffは行わない
 - [x] ArchitectureまたはSourceから意味を逆輸入していない

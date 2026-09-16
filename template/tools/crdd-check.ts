@@ -769,7 +769,7 @@ const uiAnalysisIaChecklistItemTexts = [
 ];
 
 const uiDefinitionChecklistItemTexts = [
-  "UX DefinitionとIA Definitionの分析を正式入力として処置した",
+  "UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した",
   "UX OutcomeとIA Information Contractを保持した",
   "Surface ResponsibilityとInformation Priorityを定義した",
   "Presentation、Interaction、Visible StateおよびFeedbackを定義した",
@@ -816,7 +816,7 @@ const specAnalysisIaChecklistItemTexts = [
 ];
 
 const specDefinitionChecklistItemTexts = [
-  "UX DefinitionとIA Definitionの分析を正式入力として処置した",
+  "UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した",
   "UX OutcomeとIA Information Contractを保持した",
   "Actor・Authority、Trigger、PreconditionおよびInput Validationを評価した",
   "Current State、Behavior、ResultおよびState Transitionを定義した",
@@ -2870,8 +2870,8 @@ function checkUiReconstruction(): void {
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       actualUiIds.add(entry.name);
       const definition = visibleMarkdownStructure(read(definitionPath));
-      const uxSection = exactSecondLevelSection(definition, "UX観点の入力");
-      const iaSection = exactSecondLevelSection(definition, "IA観点の入力");
+      const uxSection = exactSecondLevelSection(definition, "UX観点の分析結果");
+      const iaSection = exactSecondLevelSection(definition, "IA観点の分析結果");
       for (const match of uxSection?.matchAll(
         /\[(UX-[0-9]{6})\]\(\.\.\/\.\.\/Analysis\/\1\/ui_analysis\.md\)/gu,
       ) ?? []) {
@@ -3297,8 +3297,8 @@ function checkSpecReconstruction(): void {
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       actualIds.add(entry.name);
       const source = visibleMarkdownStructure(read(definitionPath));
-      const uxInputSection = sectionBody(source, "## UX観点の入力");
-      const iaInputSection = sectionBody(source, "## IA観点の入力");
+      const uxInputSection = sectionBody(source, "## UX観点の分析結果");
+      const iaInputSection = sectionBody(source, "## IA観点の分析結果");
       for (const match of `${uxInputSection}\n${iaInputSection}`.matchAll(
         /\[(UX|IA)-([0-9]{6})\]\(\.\.\/\.\.\/Analysis\/\1-\2\/spec_analysis\.md\)/gu,
       )) {
@@ -3328,8 +3328,8 @@ function checkSpecReconstruction(): void {
         "成果物種別: SPEC定義",
         `SPEC ID: \u0060${entry.name}\u0060`,
         "## 振る舞いの目的",
-        "## UX観点の入力",
-        "## IA観点の入力",
+        "## UX観点の分析結果",
+        "## IA観点の分析結果",
         "## 両観点の統合判断",
         "## 契機・事前条件・Authority",
         "## 振る舞い・状態・結果",
@@ -3457,11 +3457,40 @@ function checkSpecReconstruction(): void {
   if (lstatIfPresent(correspondencePath)?.isFile()) {
     const correspondence = visibleMarkdownStructure(read(correspondencePath));
     const correspondencePairs: string[] = [];
+    const expectedHeader =
+      "| UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |";
+    let isCorrespondenceEvidenceInvalid =
+      !correspondence.includes("## 1. レビュー対象") ||
+      !correspondence.includes("| 対象改訂版 |") ||
+      !correspondence.includes(expectedHeader);
     for (const line of correspondence.split(/\r?\n/u)) {
       const row = line.match(
         /^\| \[(UI-[0-9]{6})\]\(\.\.\/04_UI\/Definitions\/\1\/ui_definition\.md\) \| \[(SPEC-[0-9]{6})\]\(Definitions\/\2\/spec_definition\.md\) \|/u,
       );
-      if (row) correspondencePairs.push(`${row[1]}|${row[2]}`);
+      if (row) {
+        correspondencePairs.push(`${row[1]}|${row[2]}`);
+        const cells = line
+          .split("|")
+          .slice(1, -1)
+          .map((cell) => cell.trim());
+        if (
+          cells.length !== 8 ||
+          cells.some((cell) => cell.length === 0) ||
+          cells[3] !== "Shared" ||
+          !cells[4].includes("State") ||
+          !cells[4].includes("Trigger") ||
+          !cells[4].includes("Result") ||
+          !cells[4].includes("Failure") ||
+          !cells[4].includes("Recovery") ||
+          !cells[4].includes("Authority") ||
+          !cells[4].includes("Visibility") ||
+          !cells[4].includes("Constraint") ||
+          !/^(?:Pass|Gap|N\/A)$/u.test(cells[5]) ||
+          !cells[7].includes(row[1]) ||
+          !cells[7].includes(row[2])
+        )
+          isCorrespondenceEvidenceInvalid = true;
+      }
     }
     const correspondenceSet = new Set(correspondencePairs);
     if (
@@ -3474,6 +3503,13 @@ function checkSpecReconstruction(): void {
         "ui-spec-correspondence-closure-mismatch",
         relative(correspondencePath),
         "The UI/SPEC correspondence review must list the same duplicate-free pairs as both canonical definitions and the SPEC registry.",
+      );
+    if (isCorrespondenceEvidenceInvalid)
+      add(
+        "error",
+        "ui-spec-correspondence-evidence-invalid",
+        relative(correspondencePath),
+        "Each UI/SPEC pair must record shared context, coverage, all contract review lenses, result, gap owner, and evidence under one fixed revision.",
       );
   }
 }

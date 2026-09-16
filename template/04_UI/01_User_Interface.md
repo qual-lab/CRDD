@@ -88,5 +88,5 @@
 - [ ] 横断成果物を個別UI定義の第二の正本にしていない
 - [ ] 基本図を全件処置した
 - [ ] Human Input、Open・Gapおよび戻り条件を明示した
-- [ ] UI ReadyとUI／SPEC対応レビューを区別した
+- [ ] UI契約Ready、UI／SPEC対応レビュー入力Ready、UI工程Exitを区別した
 - [ ] ArchitectureまたはSourceから意味を逆輸入していない

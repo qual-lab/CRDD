@@ -32,7 +32,7 @@ UI定義 ───── pairs_with ───── SPEC定義
 | SPEC | 観測可能な振る舞い契約 | 主な入力UX | 主な入力IA | 対応UI |
 |---|---|---|---|---|
 | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | 事前検査を実行し意味レビューへ案内する | `UX-000001` | `IA-000001` | `UI-000001` |
-| [SPEC-000002](Definitions/SPEC-000002/spec_definition.md) | 委任範囲と権限を確定して受理する | `UX-000002`、`UX-000005` | `IA-000002` | `UI-000002` |
+| [SPEC-000002](Definitions/SPEC-000002/spec_definition.md) | 委任範囲と権限を確定して受理する | `UX-000002`、`UX-000005` | `IA-000002` | `UI-000002`、`UI-000004` |
 | [SPEC-000003](Definitions/SPEC-000003/spec_definition.md) | 委任した仕事の状態と判断要否を返す | `UX-000003` | `IA-000002`、`IA-000003` | `UI-000002` |
 | [SPEC-000004](Definitions/SPEC-000004/spec_definition.md) | 失敗後の再試行と回復を安全に選別する | `UX-000004`、`UX-000022` | `IA-000003`、`IA-000012` | `UI-000003` |
 | [SPEC-000005](Definitions/SPEC-000005/spec_definition.md) | 残存資源を清掃し終了後を確認する | `UX-000017`、`UX-000022` | `IA-000003`、`IA-000012` | `UI-000003`、`UI-000011` |
@@ -86,7 +86,7 @@ UI定義 ───── pairs_with ───── SPEC定義
 
 ## 6. 現在状態と次工程
 
-32件のUX定義と22件のIA定義を別々に分析し、29件の振る舞い仕様へ統合した。Quality分析でREQ-000004の記録側成立条件が取得契約へ縮退していたGapを検出し、記録する側のUX-000032、IA-000022、UI-000020を通して、取得とは別のState Owner、Effect、失敗を持つSPEC-000030へ再導出した。現行実装との比較は[現行振る舞い参照](07_Current_Behavior_Reference.md)で行い、分析の不足を現行コードから補完していない。全54分析と29定義は成果物別Checklistを完了し、SPEC工程はReadyである。[UI／SPEC対応](06_UI_SPEC_Correspondence.md)は30組の関係を全数確認し、未解消GapなしでPassした。
+32件のUX定義と22件のIA定義を別々に分析し、29件の振る舞い仕様へ統合した。Quality分析でREQ-000004の記録側成立条件が取得契約へ縮退していたGapを検出し、記録する側のUX-000032、IA-000022、UI-000020を通して、取得とは別のState Owner、Effect、失敗を持つSPEC-000030へ再導出した。現行実装との比較は[現行振る舞い参照](07_Current_Behavior_Reference.md)で行い、分析の不足を現行コードから補完していない。全54分析と29定義は成果物別Checklistを完了した。独立レビューで検出した上流未確認事項の情報劣化、外部送信Effect境界およびUI／SPEC対応根拠を是正した固定改訂版の再レビュー完了後に、SPEC工程Readyと対応レビュー結果を確定する。
 
 ## 補足分析
 

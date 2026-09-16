@@ -2,13 +2,22 @@
 
 状態: [未実施／レビュー中／Pass／Blocked]
 
-## 1. 対応関係
+## 1. レビュー対象
 
-| UI | SPEC | Shared Context | Coverage | Gap Owner | 結果 |
-|---|---|---|---|---|---|
-| [UI-XXXXXX](../04_UI/Definitions/UI-XXXXXX/ui_definition.md) | [SPEC-XXXXXX](Definitions/SPEC-XXXXXX/spec_definition.md) | [UX／IA] | Shared／UI-only／SPEC-only | [なし／Owner工程] | [Pass／Blocked] |
+| 項目 | 対象 |
+|---|---|
+| 対象改訂版 | [UI Definition、SPEC Definition、双方の`pairs_with`とこの文書を含む同一Git改訂版] |
+| 対象関係 | [件数] |
+| 判定単位 | UI／SPECの組ごとにShared Contextと8観点を確認する |
+| 工程境界 | 対応PassとUI工程Exitを区別する |
 
-## 2. 観点別レビュー
+## 2. 対応関係と個別レビュー結果
+
+| UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |
+|---|---|---|---|---|---|---|---|
+| [UI-XXXXXX](../04_UI/Definitions/UI-XXXXXX/ui_definition.md) | [SPEC-XXXXXX](Definitions/SPEC-XXXXXX/spec_definition.md) | [UX／IA] | Shared | State／Trigger／Result／Failure／Recovery／Authority／Visibility／Constraintを確認 | [Pass／Gap／N/A] | [なし／Owner工程と必要な判断] | [UI-XXXXXX](../04_UI/Definitions/UI-XXXXXX/ui_definition.md)、[SPEC-XXXXXX](Definitions/SPEC-XXXXXX/spec_definition.md) |
+
+## 3. 観点別レビュー
 
 | 観点 | 結果 | 確認内容 |
 |---|---|---|
@@ -18,11 +27,11 @@
 | Failure／Recovery | [結果] | [確認] |
 | Authority／Visibility／Constraint | [結果] | [確認] |
 
-## 3. Gap処置
+## 4. Gap処置
 
 [なし／UI・SPEC・IA・UXへ戻す事項]
 
-## 4. 補足分析
+## 5. 補足分析
 
 [なし／必要な補足]
 
