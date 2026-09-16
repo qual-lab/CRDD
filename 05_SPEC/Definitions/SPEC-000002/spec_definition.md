@@ -60,7 +60,8 @@ SPEC ID: `SPEC-000002`
 | 境界 | 委任範囲内／範囲外、判断主体一致／不一致を分け、未委任範囲を受理しない |
 | 失敗 | 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない |
 | 観測不能 | 不明を正常・不存在・完了へ丸めず、実際の副作用「受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする」と矛盾する結果を返さない |
-| 対応UI | [UI-000002](../../../04_UI/Definitions/UI-000002/ui_definition.md)の操作・Feedbackと契機・結果・失敗が一致する |
+| 対応UI | [UI-000002](../../../04_UI/Definitions/UI-000002/ui_definition.md)の委任範囲・権限・受理結果と契機・結果・失敗が一致する |
+| 対応UI | [UI-000004](../../../04_UI/Definitions/UI-000004/ui_definition.md)の節目の委任、受理状態、およびTask完了・Objective受入・Milestone受入の区別が一致する |
 
 ## 対応するUI
 
@@ -135,9 +136,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 ## 正式入力と変換根拠
 
-- UX観点: [UX-000002](../../Analysis/UX-000002/spec_analysis.md)、[UX-000005](../../Analysis/UX-000005/spec_analysis.md)
-- IA観点: [IA-000002](../../Analysis/IA-000002/spec_analysis.md)
+- 正式入力: [UX-000002](../../../02_UX/Definitions/UX-000002/ux_definition.md)
+- 正式入力: [UX-000005](../../../02_UX/Definitions/UX-000005/ux_definition.md)
+- 正式入力: [IA-000002](../../../03_IA/Definitions/IA-000002/ia_definition.md)
 
+次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
+
+- 変換根拠: [UX-000002のSPEC分析](../../Analysis/UX-000002/spec_analysis.md)
+- 変換根拠: [UX-000005のSPEC分析](../../Analysis/UX-000005/spec_analysis.md)
+- 変換根拠: [IA-000002のSPEC分析](../../Analysis/IA-000002/spec_analysis.md)
 ## Checklist
 
 - [x] UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した

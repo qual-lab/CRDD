@@ -21,11 +21,11 @@ UI定義 ───── pairs_with ───── SPEC定義
 
 | 入力／成果 | 件数 | 現在の処置 |
 |---|---:|---|
-| UX定義 | 31 | 全件を`Analysis/UX-*/spec_analysis.md`で個別分析する |
-| IA定義 | 21 | 全件を`Analysis/IA-*/spec_analysis.md`で個別分析する |
-| SPEC分析 | 52 | UX観点とIA観点を混ぜずに保持する |
+| UX定義 | 32 | 全件を`Analysis/UX-*/spec_analysis.md`で個別分析する |
+| IA定義 | 22 | 全件を`Analysis/IA-*/spec_analysis.md`で個別分析する |
+| SPEC分析 | 54 | UX観点とIA観点を混ぜずに保持する |
 | SPEC定義 | 29 | 独立して条件・状態・結果を変更／検証できる振る舞い単位へ統合する |
-| UI定義 | 19 | 多対多の`pairs_with`で操作・Feedbackと対応づける |
+| UI定義 | 20 | 多対多の`pairs_with`で操作・Feedbackと対応づける |
 
 ## 3. SPEC定義台帳
 

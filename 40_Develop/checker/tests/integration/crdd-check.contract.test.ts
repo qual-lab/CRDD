@@ -3154,7 +3154,7 @@ test("UIとSPECの対応レビューは可視Checklistと全対応閉包を必�
     fs
       .readFileSync(closureFile, "utf8")
       .replace(
-        "| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | UX-000001／IA-000001 | Shared | State／Trigger／Result／Failure／Recovery／Authority／Visibility／Constraintを確認 | Pass | なし | [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md)、[SPEC-000001](Definitions/SPEC-000001/spec_definition.md) |",
+        /^\| \[UI-000001\]\(\.\.\/04_UI\/Definitions\/UI-000001\/ui_definition\.md\).*$/mu,
         "",
       ),
   );
@@ -3173,8 +3173,8 @@ test("UIとSPECの対応レビューは可視Checklistと全対応閉包を必�
     fs
       .readFileSync(evidenceFile, "utf8")
       .replace(
-        "State／Trigger／Result／Failure／Recovery／Authority／Visibility／Constraintを確認",
-        "操作と結果を確認",
+        "[UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差)",
+        "UI根拠なし",
       ),
   );
   const evidenceResult = runChecker(evidenceRoot);
@@ -3184,6 +3184,108 @@ test("UIとSPECの対応レビューは可視Checklistと全対応閉包を必�
     ),
     `${evidenceResult.stdout}\n${evidenceResult.stderr}`,
   );
+});
+
+test("UI定義は正式入力と分析根拠を同じ集合で保持する", () => {
+  const root = uiReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "- 正式入力: [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md)",
+        "",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持する", () => {
+  for (const mutation of [
+    [
+      "- 正式入力: [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md)",
+      "",
+    ],
+    [
+      "| 対応UI | [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)の操作と結果が一致する |",
+      "| 対応UI | 記載なし |",
+    ],
+  ] as const) {
+    const root = specReconstructionFixtureRoot();
+    const file = path.join(
+      root,
+      "05_SPEC",
+      "Definitions",
+      "SPEC-000001",
+      "spec_definition.md",
+    );
+    write(
+      file,
+      fs.readFileSync(file, "utf8").replace(mutation[0], mutation[1]),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "spec-definition-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("SPEC RootのCoverage件数は現行集合と一致する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(root, "05_SPEC", "01_Behavior_Specification.md");
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replace("| UX定義 | 1 |", "| UX定義 | 2 |"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-root-coverage-count-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とする", () => {
+  const mutations = [
+    ["UX-000001／IA-000001 | Shared", "UX-000001 | Shared"],
+    ["fixture-revision", "TBD"],
+    [
+      "[SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果)",
+      "SPEC根拠なし",
+    ],
+  ] as const;
+  for (const mutation of mutations) {
+    const root = specReconstructionFixtureRoot();
+    const file = path.join(root, "05_SPEC", "06_UI_SPEC_Correspondence.md");
+    write(
+      file,
+      fs.readFileSync(file, "utf8").replace(mutation[0], mutation[1]),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ui-spec-correspondence-evidence-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
 });
 
 test("UX観点のSPEC分析はIAまたはREQを正式入力へ追加できない", () => {
@@ -4315,7 +4417,7 @@ function iaViewUiAnalysis(iaId: string, uiId: string): string {
 }
 
 function uiDefinition(uiId: string, uxId: string, iaId: string): string {
-  return `# ${uiId} 試験用Interface\n\n成果物種別: UI定義\nUI ID: \`${uiId}\`\n状態: Candidate\n\n## 利用者成果\n\n対象を理解できる。\n\n## UX観点の分析結果\n\n| UX分析 | このUIで保持する利用者成果 |\n|---|---|\n| [${uxId}](../../Analysis/${uxId}/ui_analysis.md) | 対象を理解する |\n\n## IA観点の分析結果\n\n| IA分析 | このUIで保持する情報構造 |\n|---|---|\n| [${iaId}](../../Analysis/${iaId}/ui_analysis.md) | 対象と状態を見分ける |\n\n## 両観点の統合判断\n\n利用者成果を情報構造によって判断可能にする。\n\n## 表示面と情報の優先順位\n\n対象、状態、根拠、行動の順に示す。\n\n## 操作とFeedback\n\n主要操作と結果を示す。\n\n## 状態と表示差\n\n通常と停止を区別する。\n\n## 視覚表現とアクセシビリティ\n\n色以外でも区別する。\n\n## 制約\n\n正本を複製しない。\n\n## UI／SPEC対応レビューへ渡す項目\n\n同じUXとIAについて、UIの観測点とSPEC側の未確定事項を渡す。\n\n## 正式入力と変換根拠\n\n- 正式入力: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n- 正式入力: [${iaId}](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n- [${uxId}のUI分析](../../Analysis/${uxId}/ui_analysis.md)\n- [${iaId}のUI分析](../../Analysis/${iaId}/ui_analysis.md)\n\n${completedChecklist("template/04_UI/Definitions/UI-XXXXXX/ui_definition.md")}`;
+  return `# ${uiId} 試験用Interface\n\n成果物種別: UI定義\nUI ID: \`${uiId}\`\n状態: Candidate\n\n## 利用者成果\n\n対象を理解できる。\n\n## UX観点の分析結果\n\n| UX分析 | このUIで保持する利用者成果 |\n|---|---|\n| [${uxId}](../../Analysis/${uxId}/ui_analysis.md) | 対象を理解する |\n\n## IA観点の分析結果\n\n| IA分析 | このUIで保持する情報構造 |\n|---|---|\n| [${iaId}](../../Analysis/${iaId}/ui_analysis.md) | 対象と状態を見分ける |\n\n## 両観点の統合判断\n\n利用者成果を情報構造によって判断可能にする。\n\n## 表示面と情報の優先順位\n\n対象、状態、根拠、行動の順に示す。\n\n## 操作とFeedback\n\n主要操作と結果を示す。\n\n## 状態と表示差\n\n通常と停止を区別する。\n\n## 視覚表現とアクセシビリティ\n\n色以外でも区別する。\n\n## 制約\n\n正本を複製しない。\n\n## UI／SPEC対応レビューへ渡す項目\n\n同じUXとIAについて、UIの観測点とSPEC側の未確定事項を渡す。\n\n## 正式入力と変換根拠\n\n- 正式入力: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n- 正式入力: [${iaId}](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n以下は正式入力をUIの責務へ変換した根拠であり、正式入力そのものではない。\n\n- [${uxId}のUI分析](../../Analysis/${uxId}/ui_analysis.md)\n- [${iaId}のUI分析](../../Analysis/${iaId}/ui_analysis.md)\n\n${completedChecklist("template/04_UI/Definitions/UI-XXXXXX/ui_definition.md")}`;
 }
 
 function uiReconstructionFixtureRoot(): string {
@@ -4409,10 +4511,10 @@ function specReconstructionFixtureRoot(): string {
   const root = uiReconstructionFixtureRoot();
   const uxAnalysis = `# UX-000001のSPEC分析\n\n成果物種別: SPEC分析（UX観点）\n分析単位: \`UX-000001\`\n\n## 1. 正式入力\n\n- UX定義: [UX-000001 試験用](../../../02_UX/Definitions/UX-000001/ux_definition.md)\n\n## 2. 振る舞いへ引き継ぐ利用者成果\n\n成果を示す。\n\n## 3. 観測可能にする契機・結果・失敗\n\n結果を示す。\n\n## 4. 受入条件と適用範囲\n\n適用範囲を示す。\n\n## 5. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と統合する。\n\n\n${completedChecklist("template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md")}`;
   const iaAnalysis = `# IA-000001のSPEC分析\n\n成果物種別: SPEC分析（IA観点）\n分析単位: \`IA-000001\`\n\n## 1. 正式入力\n\n- IA定義: [IA-000001 試験用](../../../03_IA/Definitions/IA-000001/ia_definition.md)\n\n## 2. 利用場面ごとに保持する意味\n\n利用場面を示す。\n\n## 3. 対象・識別・関係\n\n情報を示す。\n\n## 4. 状態・可視性・時間的意味\n\n状態を示す。\n\n## 5. 導線・責任・失敗時の保持\n\n保持を示す。\n\n## 6. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 7. UX観点との統合時に確認すること\n\n利用者成果と統合する。\n\n\n${completedChecklist("template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md")}`;
-  const definition = `# SPEC-000001 試験用\n\n成果物種別: SPEC定義\nSPEC ID: \`SPEC-000001\`\n\n## 振る舞いの目的\n\n目的。\n\n## UX観点の分析結果\n\n[UX-000001](../../Analysis/UX-000001/spec_analysis.md)\n\n## IA観点の分析結果\n\n[IA-000001](../../Analysis/IA-000001/spec_analysis.md)\n\n## 両観点の統合判断\n\n統合する。\n\n## 契機・事前条件・Authority\n\n条件。\n\n## 振る舞い・状態・結果\n\n結果。\n\n## 失敗・回復・副作用\n\n失敗。\n\n## 受入条件と検証義務\n\n受入。\n\n## 対応するUI\n\n- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 制約\n\n制約。\n\n\n${completedChecklist("template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md")}`;
+  const definition = `# SPEC-000001 試験用\n\n成果物種別: SPEC定義\nSPEC ID: \`SPEC-000001\`\n\n## 振る舞いの目的\n\n目的。\n\n## UX観点の分析結果\n\n[UX-000001](../../Analysis/UX-000001/spec_analysis.md)\n\n## IA観点の分析結果\n\n[IA-000001](../../Analysis/IA-000001/spec_analysis.md)\n\n## 両観点の統合判断\n\n統合する。\n\n## 契機・事前条件・Authority\n\n条件。\n\n## 振る舞い・状態・結果\n\n結果。\n\n## 失敗・回復・副作用\n\n失敗。\n\n## 受入条件と検証義務\n\n| 観点 | 受入条件 |\n|---|---|\n| 対応UI | [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)の操作と結果が一致する |\n\n## 対応するUI\n\n- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 制約\n\n制約。\n\n## 正式入力と変換根拠\n\n- 正式入力: [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md)\n- 正式入力: [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md)\n\n以下は正式入力をSPECの責務へ変換した根拠であり、正式入力そのものではない。\n\n- [UX-000001のSPEC分析](../../Analysis/UX-000001/spec_analysis.md)\n- [IA-000001のSPEC分析](../../Analysis/IA-000001/spec_analysis.md)\n\n${completedChecklist("template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md")}`;
   write(
     path.join(root, "05_SPEC", "01_Behavior_Specification.md"),
-    "# SPEC\n\n| SPEC | 観測可能な振る舞い契約 | 主な入力UX | 主な入力IA | 対応UI |\n|---|---|---|---|---|\n| [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | 試験用 | UX-000001 | IA-000001 | UI-000001 |\n",
+    "# SPEC\n\n| 入力／成果 | 件数 | 現在の処置 |\n|---|---:|---|\n| UX定義 | 1 | 全件分析 |\n| IA定義 | 1 | 全件分析 |\n| SPEC分析 | 2 | 観点別 |\n| SPEC定義 | 1 | 統合 |\n| UI定義 | 1 | 対応 |\n\n| SPEC | 観測可能な振る舞い契約 | 主な入力UX | 主な入力IA | 対応UI |\n|---|---|---|---|---|\n| [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | 試験用 | UX-000001 | IA-000001 | UI-000001 |\n",
   );
   write(
     path.join(root, "05_SPEC", "Analysis", "UX-000001", "spec_analysis.md"),
@@ -4434,7 +4536,7 @@ function specReconstructionFixtureRoot(): string {
   );
   write(
     path.join(root, "05_SPEC", "06_UI_SPEC_Correspondence.md"),
-    `# UI／SPEC対応\n\n## 1. レビュー対象\n\n| 項目 | 対象 |\n|---|---|\n| 対象改訂版 | 同一Git改訂版 |\n\n| UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |\n|---|---|---|---|---|---|---|---|\n| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | UX-000001／IA-000001 | Shared | State／Trigger／Result／Failure／Recovery／Authority／Visibility／Constraintを確認 | Pass | なし | [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md)、[SPEC-000001](Definitions/SPEC-000001/spec_definition.md) |\n\n${completedChecklist("template/05_SPEC/06_UI_SPEC_Correspondence.md")}`,
+    `# UI／SPEC対応\n\n## 1. レビュー対象\n\n| 項目 | 対象 |\n|---|---|\n| 対象改訂版 | fixture-revision |\n\n| UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |\n|---|---|---|---|---|---|---|---|\n| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | UX-000001／IA-000001 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし | [組別Evidence](#ui-000001spec-000001) |\n\n### UI-000001／SPEC-000001\n\n| 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |\n|---|---|---|---|---|\n| State | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | 状態対応 |\n| Trigger | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | 契機対応 |\n| Result | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | 結果対応 |\n| Failure | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | 失敗対応 |\n| Recovery | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | 回復対応 |\n| Authority | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | 権限対応 |\n| Visibility | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#表示面と情報の優先順位) | [SPEC](Definitions/SPEC-000001/spec_definition.md#受入条件と検証義務) | 一致 | 可視性対応 |\n| Constraint | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#制約) | 一致 | 制約対応 |\n\n${completedChecklist("template/05_SPEC/06_UI_SPEC_Correspondence.md")}`,
   );
   const uiFile = path.join(
     root,

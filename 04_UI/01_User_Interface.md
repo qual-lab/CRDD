@@ -1,6 +1,6 @@
 # ユーザーインターフェース
 
-状態: 引き渡し可能（v0.21.0、公開済みの基準版: v0.20.1）
+状態: UI契約Ready／UI工程Exit待ち（v0.21.0、公開済みの基準版: v0.20.1）
 担当責任者: Qual-Lab
 対象版: v0.21.0
 工程規則: [UI](../25_UI.md)、[UIと振る舞い仕様の対応レビュー](../24_UI_Behavior_Specification.md)
@@ -86,7 +86,7 @@ Repository / CLI / MCP / Workbench
 | 画面／操作Flow | 作成 | [操作と表示状態](03_Interaction_and_State_Model.md) | Prototypeでの到達性 |
 | 表示状態／Variant図 | 作成 | [操作と表示状態](03_Interaction_and_State_Model.md#3-表示状態の共通variant) | 実端末・GUI差 |
 | 主要Component関係図 | 作成 | [表示面と領域](02_Surface_and_Region_Model.md#3-表示責任のブロック) | 実装Componentとの対応 |
-| UI／SPEC対応図 | 作成 | [UIとSPECの引き渡し](05_UI_SPEC_Handoff.md) | SPEC再構築後の`pairs_with`確定 |
+| UI／SPEC対応図 | 作成 | [UIとSPECの引き渡し](05_UI_SPEC_Handoff.md) | 31組の対応レビュー済み。独立再レビュー待ち |
 
 ## 6. 現在状態と次工程
 

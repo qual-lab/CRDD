@@ -2872,6 +2872,10 @@ function checkUiReconstruction(): void {
       const definition = visibleMarkdownStructure(read(definitionPath));
       const uxSection = exactSecondLevelSection(definition, "UX観点の分析結果");
       const iaSection = exactSecondLevelSection(definition, "IA観点の分析結果");
+      const formalSection = exactSecondLevelSection(
+        definition,
+        "正式入力と変換根拠",
+      );
       for (const match of uxSection?.matchAll(
         /\[(UX-[0-9]{6})\]\(\.\.\/\.\.\/Analysis\/\1\/ui_analysis\.md\)/gu,
       ) ?? []) {
@@ -2886,6 +2890,36 @@ function checkUiReconstruction(): void {
         definitionIaUiKeys.push(key);
         definitionIaUi.add(key);
       }
+      const formalUxIds = new Set(
+        [
+          ...(formalSection?.matchAll(
+            /正式入力: \[(UX-[0-9]{6})\]\(\.\.\/\.\.\/\.\.\/02_UX\/Definitions\/\1\/ux_definition\.md\)/gu,
+          ) ?? []),
+        ].map((match) => match[1]),
+      );
+      const formalIaIds = new Set(
+        [
+          ...(formalSection?.matchAll(
+            /正式入力: \[(IA-[0-9]{6})\]\(\.\.\/\.\.\/\.\.\/03_IA\/Definitions\/\1\/ia_definition\.md\)/gu,
+          ) ?? []),
+        ].map((match) => match[1]),
+      );
+      const analysisUxIds = new Set(
+        [...definitionUxUi]
+          .filter((key) => key.endsWith(`|${entry.name}`))
+          .map((key) => key.split("|")[0]),
+      );
+      const analysisIaIds = new Set(
+        [...definitionIaUi]
+          .filter((key) => key.endsWith(`|${entry.name}`))
+          .map((key) => key.split("|")[0]),
+      );
+      const isFormalInputMismatch =
+        !formalSection?.includes("正式入力そのものではない") ||
+        formalUxIds.size !== analysisUxIds.size ||
+        formalIaIds.size !== analysisIaIds.size ||
+        [...analysisUxIds].some((id) => !formalUxIds.has(id)) ||
+        [...analysisIaIds].some((id) => !formalIaIds.has(id));
       if (
         !definition.includes("成果物種別: UI定義") ||
         !definition.includes(`UI ID: \u0060${entry.name}\u0060`) ||
@@ -2899,6 +2933,7 @@ function checkUiReconstruction(): void {
         !definition.includes("## 視覚表現とアクセシビリティ") ||
         !definition.includes("## 制約") ||
         !definition.includes("## UI／SPEC対応レビューへ渡す項目") ||
+        isFormalInputMismatch ||
         ![...definitionUxUi].some((key) => key.endsWith(`|${entry.name}`)) ||
         ![...definitionIaUi].some((key) => key.endsWith(`|${entry.name}`))
       )
@@ -2971,6 +3006,32 @@ checkUiReconstruction();
 
 function checkSpecReconstruction(): void {
   if (repositoryMode !== "official") return;
+  const tableRows = (
+    content: string,
+    headers: readonly string[],
+  ): string[][] => {
+    const lines = content.split(/\r?\n/u);
+    const headerIndex = lines.findIndex((line) => {
+      const cells = markdownTableCells(line);
+      return (
+        cells !== null &&
+        cells.length === headers.length &&
+        cells.every((cell, index) => cell === headers[index])
+      );
+    });
+    if (
+      headerIndex < 0 ||
+      !markdownTableSeparator(lines[headerIndex + 1] ?? "", headers.length)
+    )
+      return [];
+    const rows: string[][] = [];
+    for (let index = headerIndex + 2; index < lines.length; index += 1) {
+      const cells = markdownTableCells(lines[index]);
+      if (cells === null || cells.length !== headers.length) break;
+      rows.push(cells);
+    }
+    return rows;
+  };
   const sectionBody = (source: string, heading: string): string => {
     const escaped = heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     return (
@@ -3241,6 +3302,7 @@ function checkSpecReconstruction(): void {
   const registryUiPairs = new Set<string>();
   const registryUiPairOccurrences: string[] = [];
   const index = visibleMarkdownStructure(read(specIndexPath));
+  const indexCountRows = tableRows(index, ["入力／成果", "件数", "現在の処置"]);
   for (const line of index.split(/\r?\n/u)) {
     const row = line.match(
       /^\| \[(SPEC-[0-9]{6})\]\(Definitions\/\1\/spec_definition\.md\) \| [^|]+ \| (?<ux>[^|]+) \| (?<ia>[^|]+) \| (?<ui>[^|]+) \|$/u,
@@ -3299,6 +3361,7 @@ function checkSpecReconstruction(): void {
       const source = visibleMarkdownStructure(read(definitionPath));
       const uxInputSection = sectionBody(source, "## UX観点の分析結果");
       const iaInputSection = sectionBody(source, "## IA観点の分析結果");
+      const formalSection = sectionBody(source, "## 正式入力と変換根拠");
       for (const match of `${uxInputSection}\n${iaInputSection}`.matchAll(
         /\[(UX|IA)-([0-9]{6})\]\(\.\.\/\.\.\/Analysis\/\1-\2\/spec_analysis\.md\)/gu,
       )) {
@@ -3307,6 +3370,7 @@ function checkSpecReconstruction(): void {
         definitionRelations.add(relation);
       }
       const uiSection = sectionBody(source, "## 対応するUI");
+      const acceptanceSection = sectionBody(source, "## 受入条件と検証義務");
       const uiPairLine =
         uiSection.match(/^- pairs_with:\s*(.+)$/mu)?.[1]?.trim() ?? "";
       for (const match of uiPairLine.matchAll(
@@ -3317,6 +3381,46 @@ function checkSpecReconstruction(): void {
         definitionUiPairs.add(relation);
       }
       const isNoDirectUi = uiPairLine === "Not Applicable";
+      const localUiIds = new Set(
+        [...uiPairLine.matchAll(/UI-[0-9]{6}/gu)].map((match) => match[0]),
+      );
+      const acceptanceUiIds = new Set(
+        [
+          ...acceptanceSection.matchAll(
+            /\[(UI-[0-9]{6})\]\(\.\.\/\.\.\/\.\.\/04_UI\/Definitions\/\1\/ui_definition\.md\)/gu,
+          ),
+        ].map((match) => match[1]),
+      );
+      const analysisUxIds = new Set(
+        [...uxInputSection.matchAll(/UX-[0-9]{6}/gu)].map((match) => match[0]),
+      );
+      const analysisIaIds = new Set(
+        [...iaInputSection.matchAll(/IA-[0-9]{6}/gu)].map((match) => match[0]),
+      );
+      const formalUxIds = new Set(
+        [
+          ...formalSection.matchAll(
+            /正式入力: \[(UX-[0-9]{6})\]\(\.\.\/\.\.\/\.\.\/02_UX\/Definitions\/\1\/ux_definition\.md\)/gu,
+          ),
+        ].map((match) => match[1]),
+      );
+      const formalIaIds = new Set(
+        [
+          ...formalSection.matchAll(
+            /正式入力: \[(IA-[0-9]{6})\]\(\.\.\/\.\.\/\.\.\/03_IA\/Definitions\/\1\/ia_definition\.md\)/gu,
+          ),
+        ].map((match) => match[1]),
+      );
+      const isFormalInputMismatch =
+        !formalSection.includes("正式入力そのものではない") ||
+        formalUxIds.size !== analysisUxIds.size ||
+        formalIaIds.size !== analysisIaIds.size ||
+        [...analysisUxIds].some((id) => !formalUxIds.has(id)) ||
+        [...analysisIaIds].some((id) => !formalIaIds.has(id));
+      const isAcceptancePairMismatch =
+        !isNoDirectUi &&
+        (localUiIds.size !== acceptanceUiIds.size ||
+          [...localUiIds].some((id) => !acceptanceUiIds.has(id)));
       const hasMixedUiDisposition =
         uiPairLine.includes("Not Applicable") && !isNoDirectUi;
       const isNoDirectUiComplete =
@@ -3346,7 +3450,9 @@ function checkSpecReconstruction(): void {
           ).length === 0) ||
         (isNoDirectUi && !isNoDirectUiComplete) ||
         (isNoDirectUi && /\[UI-[0-9]{6}\]/u.test(uiPairLine)) ||
-        hasMixedUiDisposition
+        hasMixedUiDisposition ||
+        isFormalInputMismatch ||
+        isAcceptancePairMismatch
       )
         add(
           "error",
@@ -3388,6 +3494,49 @@ function checkSpecReconstruction(): void {
       "spec-definition-index-coverage-mismatch",
       relative(specIndexPath),
       "The SPEC registry and definition directories must be an exact set.",
+    );
+  const expectedIndexCounts = new Map([
+    ["UX定義", uxIds.size],
+    ["IA定義", iaIds.size],
+    ["SPEC分析", analyzedUx.size + analyzedIa.size],
+    ["SPEC定義", actualIds.size],
+    [
+      "UI定義",
+      lstatIfPresent(path.join(root, "04_UI", "Definitions"))?.isDirectory()
+        ? fs
+            .readdirSync(path.join(root, "04_UI", "Definitions"), {
+              withFileTypes: true,
+            })
+            .filter(
+              (entry) =>
+                entry.isDirectory() &&
+                /^UI-[0-9]{6}$/u.test(entry.name) &&
+                lstatIfPresent(
+                  path.join(
+                    root,
+                    "04_UI",
+                    "Definitions",
+                    entry.name,
+                    "ui_definition.md",
+                  ),
+                )?.isFile(),
+            ).length
+        : 0,
+    ],
+  ]);
+  const reportedIndexCounts = new Map(
+    indexCountRows.map(([name, count]) => [name, Number.parseInt(count, 10)]),
+  );
+  if (
+    [...expectedIndexCounts].some(
+      ([name, count]) => reportedIndexCounts.get(name) !== count,
+    )
+  )
+    add(
+      "error",
+      "spec-root-coverage-count-mismatch",
+      relative(specIndexPath),
+      "The SPEC root coverage counts must equal the current canonical definitions and analyses.",
     );
   if (
     [...registryRelations].some(
@@ -3459,9 +3608,14 @@ function checkSpecReconstruction(): void {
     const correspondencePairs: string[] = [];
     const expectedHeader =
       "| UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |";
+    const targetRevision =
+      tableRows(correspondence, ["項目", "対象"]).find(
+        ([item]) => item === "対象改訂版",
+      )?.[1] ?? "";
     let isCorrespondenceEvidenceInvalid =
       !correspondence.includes("## 1. レビュー対象") ||
-      !correspondence.includes("| 対象改訂版 |") ||
+      targetRevision.length === 0 ||
+      /(?:TODO|TBD|placeholder|未定)/iu.test(targetRevision) ||
       !correspondence.includes(expectedHeader);
     for (const line of correspondence.split(/\r?\n/u)) {
       const row = line.match(
@@ -3473,21 +3627,69 @@ function checkSpecReconstruction(): void {
           .split("|")
           .slice(1, -1)
           .map((cell) => cell.trim());
+        const expectedShared = new Set<string>();
+        const uiSource = visibleMarkdownStructure(
+          read(path.join(uiDefinitionsRoot, row[1], "ui_definition.md")),
+        );
+        const specSource = visibleMarkdownStructure(
+          read(path.join(specDefinitionsRoot, row[2], "spec_definition.md")),
+        );
+        const uiFormal = sectionBody(uiSource, "## 正式入力と変換根拠");
+        const specFormal = sectionBody(specSource, "## 正式入力と変換根拠");
+        const uiContext = new Set(uiFormal.match(/(?:UX|IA)-[0-9]{6}/gu) ?? []);
+        const specContext = new Set(
+          specFormal.match(/(?:UX|IA)-[0-9]{6}/gu) ?? [],
+        );
+        for (const id of uiContext)
+          if (specContext.has(id)) expectedShared.add(id);
+        const recordedShared = new Set(
+          cells[2].match(/(?:UX|IA)-[0-9]{6}/gu) ?? [],
+        );
+        const evidenceAnchor = `#${row[1].toLowerCase()}${row[2].toLowerCase()}`;
+        const evidenceSection = sectionBody(
+          correspondence,
+          `### ${row[1]}／${row[2]}`,
+        );
+        const evidenceRows = tableRows(evidenceSection, [
+          "観点",
+          "UI側の根拠",
+          "SPEC側の根拠",
+          "判定",
+          "理由",
+        ]);
+        const expectedLenses = new Set([
+          "State",
+          "Trigger",
+          "Result",
+          "Failure",
+          "Recovery",
+          "Authority",
+          "Visibility",
+          "Constraint",
+        ]);
+        const isEvidenceValid =
+          evidenceRows.length === 8 &&
+          new Set(evidenceRows.map(([lens]) => lens)).size === 8 &&
+          evidenceRows.every(
+            ([lens, uiEvidence, specEvidence, result, reason]) =>
+              expectedLenses.has(lens) &&
+              uiEvidence.includes(row[1]) &&
+              uiEvidence.includes("#") &&
+              specEvidence.includes(row[2]) &&
+              specEvidence.includes("#") &&
+              /^(?:一致|N\/A)$/u.test(result) &&
+              reason.length > 0,
+          );
         if (
           cells.length !== 8 ||
           cells.some((cell) => cell.length === 0) ||
           cells[3] !== "Shared" ||
-          !cells[4].includes("State") ||
-          !cells[4].includes("Trigger") ||
-          !cells[4].includes("Result") ||
-          !cells[4].includes("Failure") ||
-          !cells[4].includes("Recovery") ||
-          !cells[4].includes("Authority") ||
-          !cells[4].includes("Visibility") ||
-          !cells[4].includes("Constraint") ||
-          !/^(?:Pass|Gap|N\/A)$/u.test(cells[5]) ||
-          !cells[7].includes(row[1]) ||
-          !cells[7].includes(row[2])
+          !cells[4].includes("8観点") ||
+          !/^(?:作成者確認済み|Gap|N\/A)$/u.test(cells[5]) ||
+          !cells[7].includes(evidenceAnchor) ||
+          expectedShared.size !== recordedShared.size ||
+          [...expectedShared].some((id) => !recordedShared.has(id)) ||
+          !isEvidenceValid
         )
           isCorrespondenceEvidenceInvalid = true;
       }

@@ -15,9 +15,26 @@
 
 | UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |
 |---|---|---|---|---|---|---|---|
-| [UI-XXXXXX](../04_UI/Definitions/UI-XXXXXX/ui_definition.md) | [SPEC-XXXXXX](Definitions/SPEC-XXXXXX/spec_definition.md) | [UX／IA] | Shared | State／Trigger／Result／Failure／Recovery／Authority／Visibility／Constraintを確認 | [Pass／Gap／N/A] | [なし／Owner工程と必要な判断] | [UI-XXXXXX](../04_UI/Definitions/UI-XXXXXX/ui_definition.md)、[SPEC-XXXXXX](Definitions/SPEC-XXXXXX/spec_definition.md) |
+| [UI-XXXXXX](../04_UI/Definitions/UI-XXXXXX/ui_definition.md) | [SPEC-XXXXXX](Definitions/SPEC-XXXXXX/spec_definition.md) | [UX／IAの積集合] | Shared | 8観点の組別Evidenceを確認 | [作成者確認済み／Gap／N/A] | [Gapなし／Owner工程と必要な判断] | [組別Evidence](#ui-xxxxxxspec-xxxxxx) |
 
-## 3. 観点別レビュー
+## 3. 組別Evidence
+
+### UI-XXXXXX／SPEC-XXXXXX
+
+共有Context: [UX／IAの積集合]
+
+| 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |
+|---|---|---|---|---|
+| State | [UI状態節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#状態と表示差) | [SPEC状態節](Definitions/SPEC-XXXXXX/spec_definition.md#振る舞い状態結果) | [一致／N/A] | [理由] |
+| Trigger | [UI操作節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#操作とfeedback) | [SPEC契機節](Definitions/SPEC-XXXXXX/spec_definition.md#契機事前条件authority) | [一致／N/A] | [理由] |
+| Result | [UI操作節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#操作とfeedback) | [SPEC状態節](Definitions/SPEC-XXXXXX/spec_definition.md#振る舞い状態結果) | [一致／N/A] | [理由] |
+| Failure | [UI操作節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#操作とfeedback) | [SPEC失敗節](Definitions/SPEC-XXXXXX/spec_definition.md#失敗回復副作用) | [一致／N/A] | [理由] |
+| Recovery | [UI状態節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#状態と表示差) | [SPEC失敗節](Definitions/SPEC-XXXXXX/spec_definition.md#失敗回復副作用) | [一致／N/A] | [理由] |
+| Authority | [UI制約節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#制約) | [SPEC契機節](Definitions/SPEC-XXXXXX/spec_definition.md#契機事前条件authority) | [一致／N/A] | [理由] |
+| Visibility | [UI表示節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#表示面と情報の優先順位) | [SPEC受入節](Definitions/SPEC-XXXXXX/spec_definition.md#受入条件と検証義務) | [一致／N/A] | [理由] |
+| Constraint | [UI制約節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#制約) | [SPEC制約節](Definitions/SPEC-XXXXXX/spec_definition.md#制約) | [一致／N/A] | [理由] |
+
+## 4. 観点別レビュー
 
 | 観点 | 結果 | 確認内容 |
 |---|---|---|
@@ -27,11 +44,11 @@
 | Failure／Recovery | [結果] | [確認] |
 | Authority／Visibility／Constraint | [結果] | [確認] |
 
-## 4. Gap処置
+## 5. Gap処置
 
 [なし／UI・SPEC・IA・UXへ戻す事項]
 
-## 5. 補足分析
+## 6. 補足分析
 
 [なし／必要な補足]
 

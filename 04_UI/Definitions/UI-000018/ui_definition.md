@@ -167,10 +167,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 ## 正式入力と変換根拠
 
-- [UX-000027のUI分析](../../Analysis/UX-000027/ui_analysis.md)
-- [UX-000028のUI分析](../../Analysis/UX-000028/ui_analysis.md)
-- [IA-000018のUI分析](../../Analysis/IA-000018/ui_analysis.md)
+- 正式入力: [UX-000027](../../../02_UX/Definitions/UX-000027/ux_definition.md)
+- 正式入力: [UX-000028](../../../02_UX/Definitions/UX-000028/ux_definition.md)
+- 正式入力: [IA-000018](../../../03_IA/Definitions/IA-000018/ia_definition.md)
 
+次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
+
+- 変換根拠: [UX-000027のUI分析](../../Analysis/UX-000027/ui_analysis.md)
+- 変換根拠: [UX-000028のUI分析](../../Analysis/UX-000028/ui_analysis.md)
+- 変換根拠: [IA-000018のUI分析](../../Analysis/IA-000018/ui_analysis.md)
 ## Checklist
 
 - [x] UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した

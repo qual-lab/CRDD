@@ -24,7 +24,7 @@
 |---|---|---|
 | Review準備 | 機械的不備を落とし意味判断へ進む | `UI-000001` |
 | Task Operation | 委任、状態確認、判断、取消、回復 | `UI-000002`、`UI-000003`、`UI-000012` |
-| Project Operation | Project・節目・Portfolio・Source Coverageを見る | `UI-000004`、`UI-000006`、`UI-000008` |
+| Project Operation | Project・節目・Portfolio・Source Coverageを確認し、目的と受入条件を見て節目を委ね、受理・拒否・判断待ちを確認する | `UI-000004`、`UI-000006`、`UI-000008` |
 | Observation | 実行事実の記録・取得、故障境界、現在保証を診断する | `UI-000005`、`UI-000015`、`UI-000020` |
 | Context Work | Meeting、Topic、外部持帰り、現在有効な意図を処置する | `UI-000009`、`UI-000016`、`UI-000017` |
 | Configuration | Tool、AIモデル、Runtime信頼、実行時データを管理する | `UI-000010`、`UI-000011`、`UI-000013` |

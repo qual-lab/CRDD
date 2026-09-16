@@ -65,7 +65,9 @@ Milestone→目的と受入条件→Task根拠→受入判断／プロジェク�
 
 ## 操作とFeedback
 
-主要な操作・判断: Projectを選ぶ／根拠を見る／比較する。
+主要な操作・判断: Projectを選ぶ／目的と受入条件を確認して節目を委ねる／委任の受理結果を確認する／根拠を見る／比較する。
+
+委任前には、対象Project、Milestone、Objective、委任範囲、決定権限、受入条件を同時に確認できるようにする。受理後は、`依頼受付`、`Task完了`、`Objective受入`、`Milestone受入`を別状態として示し、受付だけを完成へ畳まない。
 
 | UX分析 | 利用者が行う判断・行動 | 重要な場面 | 必要なFeedback | 避ける失敗 |
 |---|---|---|---|---|
@@ -84,6 +86,8 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 | UX-000015／IA-000006 | complete／partial／開示制限（restricted）／stale／競合あり（conflicting） | Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） |
 
 上表にない処理中、取消、回復その他の状態を一律に追加しない。値なし、未観測、古い値、競合、開示制限または結果不明は、該当するIA定義が要求する場合にだけ別状態として示す。
+
+委任要求の結果は、`未発行`、`受理`、`拒否`、`判断待ち`、`結果不明`を必要範囲で区別する。拒否理由または判断待ちの主体を隠さず、結果不明時は同じ依頼へ戻る導線を示す。これらはSPECの状態遷移をUI側で再定義するものではなく、利用者が節目を委ねた結果を誤認しないための表示契約である。
 
 ## 視覚表現とアクセシビリティ
 
@@ -211,12 +215,19 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 ## 正式入力と変換根拠
 
-- [UX-000005のUI分析](../../Analysis/UX-000005/ui_analysis.md)
-- [UX-000009のUI分析](../../Analysis/UX-000009/ui_analysis.md)
-- [UX-000015のUI分析](../../Analysis/UX-000015/ui_analysis.md)
-- [IA-000002のUI分析](../../Analysis/IA-000002/ui_analysis.md)
-- [IA-000006のUI分析](../../Analysis/IA-000006/ui_analysis.md)
+- 正式入力: [UX-000005](../../../02_UX/Definitions/UX-000005/ux_definition.md)
+- 正式入力: [UX-000009](../../../02_UX/Definitions/UX-000009/ux_definition.md)
+- 正式入力: [UX-000015](../../../02_UX/Definitions/UX-000015/ux_definition.md)
+- 正式入力: [IA-000002](../../../03_IA/Definitions/IA-000002/ia_definition.md)
+- 正式入力: [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md)
 
+次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
+
+- 変換根拠: [UX-000005のUI分析](../../Analysis/UX-000005/ui_analysis.md)
+- 変換根拠: [UX-000009のUI分析](../../Analysis/UX-000009/ui_analysis.md)
+- 変換根拠: [UX-000015のUI分析](../../Analysis/UX-000015/ui_analysis.md)
+- 変換根拠: [IA-000002のUI分析](../../Analysis/IA-000002/ui_analysis.md)
+- 変換根拠: [IA-000006のUI分析](../../Analysis/IA-000006/ui_analysis.md)
 ## Checklist
 
 - [x] UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した
