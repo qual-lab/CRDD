@@ -44,7 +44,46 @@
 | 候補を反映する | 試案、比較、採用、正本反映を区別する | 所有正本のCommandと決定権限へ戻す | 投影やMeeting記録を直接正本へ昇格しない | 候補を保持し、判断後に再投影する |
 | 停止後に戻る | 再試行、再取得、回復、清掃を選べる | 外部変更の状態、残存、正確な回復対象の識別情報を保持する | 新規実行で結果不明の外部作用（Effect）を上書きしない | 回復不能なら理由と手動処置を示す |
 
-## 3. AI同士の引き渡し
+## 3. UX成果への適用
+
+各UX成果を、共同の流れの中で主に確認する区間へ対応付ける。複数区間にまたがる詳細は個別定義の重要場面・失敗・品質期待が所有する。
+
+| UX成果 | 主に確認する区間 | 利用のきっかけ |
+|---|---|---|
+| [UX-000001](Definitions/UX-000001/ux_definition.md) | 結果を受け取る | 成果物をレビューへ渡す前 |
+| [UX-000002](Definitions/UX-000002/ux_definition.md) | 依頼・確認する | 複数AIへ仕事を委ねる時 |
+| [UX-000003](Definitions/UX-000003/ux_definition.md) | 実行・待機する | 委任した仕事の応答を待つ時 |
+| [UX-000004](Definitions/UX-000004/ux_definition.md) | 停止後に戻る | 失敗・取消・切断後に仕事を続ける時 |
+| [UX-000005](Definitions/UX-000005/ux_definition.md) | 依頼・確認する | プロジェクトの成果をまとめて任せる時 |
+| [UX-000006](Definitions/UX-000006/ux_definition.md) | 結果を受け取る | 実行結果を振り返る時 |
+| [UX-000007](Definitions/UX-000007/ux_definition.md) | 候補を反映する | 責務・契約・接続部または実行環境の構成を変更する時 |
+| [UX-000008](Definitions/UX-000008/ux_definition.md) | 停止後に戻る | AI実行環境の導入または利用が止まった時 |
+| [UX-000009](Definitions/UX-000009/ux_definition.md) | 結果を受け取る | プロジェクト状況を確認する時 |
+| [UX-000010](Definitions/UX-000010/ux_definition.md) | 情報を選ぶ | リポジトリで作業を始める時 |
+| [UX-000011](Definitions/UX-000011/ux_definition.md) | 情報を選ぶ | 参照または操作対象を選ぶ時 |
+| [UX-000012](Definitions/UX-000012/ux_definition.md) | 情報を選ぶ | ローカルMCPの通信方式を選ぶ時 |
+| [UX-000013](Definitions/UX-000013/ux_definition.md) | 依頼・確認する | リモート接続を開始・再接続する時 |
+| [UX-000014](Definitions/UX-000014/ux_definition.md) | 候補を反映する | Meeting後に決定・Topic・Actionを整理する時 |
+| [UX-000015](Definitions/UX-000015/ux_definition.md) | 結果を受け取る | 複数プロジェクトの一覧の優先度を判断する時 |
+| [UX-000016](Definitions/UX-000016/ux_definition.md) | 情報を選ぶ | ツールで処理を始める時 |
+| [UX-000017](Definitions/UX-000017/ux_definition.md) | 停止後に戻る | 実行時データを作成または清掃する時 |
+| [UX-000018](Definitions/UX-000018/ux_definition.md) | 候補を反映する | 利用モデルやAI提供元条件を変更する時 |
+| [UX-000019](Definitions/UX-000019/ux_definition.md) | 結果を受け取る | 別Agentやツールへ仕事を渡す時、または結果を受け取る時 |
+| [UX-000020](Definitions/UX-000020/ux_definition.md) | 情報を選ぶ | 実行基盤を導入または更新する時 |
+| [UX-000021](Definitions/UX-000021/ux_definition.md) | 停止後に戻る | 応答喪失後に再接続する時 |
+| [UX-000022](Definitions/UX-000022/ux_definition.md) | 停止後に戻る | 失敗後または保守時に残存を見つけた時 |
+| [UX-000023](Definitions/UX-000023/ux_definition.md) | 候補を反映する | 複数指摘を是正する時 |
+| [UX-000024](Definitions/UX-000024/ux_definition.md) | 依頼・確認する | 外部AI・検索・公開Communication・管理対象依存を利用する時 |
+| [UX-000025](Definitions/UX-000025/ux_definition.md) | 情報を選ぶ | 過去判断を再利用または更新する時 |
+| [UX-000026](Definitions/UX-000026/ux_definition.md) | 情報を選ぶ | 変更の検証計画を作る時 |
+| [UX-000027](Definitions/UX-000027/ux_definition.md) | 情報を選ぶ | 工程成果物を初めて読む時 |
+| [UX-000028](Definitions/UX-000028/ux_definition.md) | 結果を受け取る | 工程の入口・出口で成果物を渡す時 |
+| [UX-000029](Definitions/UX-000029/ux_definition.md) | 情報を選ぶ | 変更の現在地や根拠を調べる時 |
+| [UX-000030](Definitions/UX-000030/ux_definition.md) | 情報を選ぶ | ブランド素材を追加または利用する時 |
+| [UX-000031](Definitions/UX-000031/ux_definition.md) | 情報を選ぶ | 公式らしい入口や視覚素材を見つけた時 |
+| [UX-000032](Definitions/UX-000032/ux_definition.md) | 実行・待機する | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 |
+
+## 4. AI同士の引き渡し
 
 ```text
 利用者／顧客
@@ -60,7 +99,7 @@
 
 会話全文、秘密値またはリポジトリの全情報を引き渡しへ複製しない。承認済み目標、必要な情報、判断境界、結果、未決事項および再開条件を同じタスクへ接続する。
 
-## 4. 節目を委ねる
+## 5. 節目を委ねる
 
 ```text
 目的と受入条件を示す
@@ -78,8 +117,22 @@ Project Runtimeがタスクへ分解・実行
 
 利用者へ内部タスク列の逐次操作を要求せず、タスク成功数を節目完成へ読み替えない。
 
-## 5. 未確認事項
+## 6. 未確認事項
 
 - 実利用で、どの区間に最も再探索、待機または誤認が集中するか。
 - Workbenchの定型操作と対話AIによる柔軟な判断支援の境界。
 - リモート、複数リポジトリおよび応答喪失時に、同じ公開契約が体験として同値になるか。
+
+## Checklist
+
+- [x] 個別UX分析の利用者接点、提供責務、失敗および回復を横断合成した
+- [x] 全UX IDについてサービス提供の流れの適用を処置した
+- [x] 利用者成果とサービス側の責任の対応を追跡できる
+- [x] 利用者、接点、提供側、運用・根拠の責任と可視境界を区別した
+- [x] 人間、AIおよびシステムの責任を必要な範囲で区別した
+- [x] 完了時と失敗時に誰へ何が返るかを示した
+- [x] 返却後に誰が何を判断できるかを示した
+- [x] Architecture Componentへ提供責務を固定していない
+- [x] UI部品、Protocol、Class等の下流方式を先取りしていない
+- [x] 未確認の責任境界を確定した提供責務へ混ぜていない
+- [x] 補足へ主要な責任境界を退避していない

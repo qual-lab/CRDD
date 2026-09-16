@@ -38,7 +38,46 @@ CRDD閲覧者 ──→ CRDD作成者・保守者 ──→ 実行環境の導�
 | 実行環境の導入・運用者 | 配布物を安全に導入・更新し、停止後に正しい回復を選ぶ | 内部状態を推測したり、再試行と回復を取り違えたりしたくない | 実行環境の導入、更新、診断、回復、清掃 | 配置環境で信頼する発行元と運用上の処置 | v0.19～v0.20の実運用を根拠にする |
 | 外部へ渡す情報の所有者 | 許可した情報だけを外部へ渡し、出所付き結果を受け取る | 接続済みや過去の同意を包括許可へ広げられたくない | 外部AI、MCP、API、外部コミュニケーションへの送受信 | 送信先、目的、分類、同意、採否 | 外部情報境界と利用者判断を根拠にする |
 
-## 3. 利用場面による違い
+## 3. UX成果との対応
+
+個別UX定義で確定した主要な利用者と利用場面を横断して確認するための投影である。詳細な目的、成果および失敗は各定義が所有する。
+
+| UX成果 | 主な利用者 | 主な利用場面 |
+|---|---|---|
+| [UX-000001](Definitions/UX-000001/ux_definition.md) | CRDD作成者・保守者 | 成果物をレビューへ渡す前 |
+| [UX-000002](Definitions/UX-000002/ux_definition.md) | プロジェクト運営者／PM | 複数AIへ仕事を委ねる時 |
+| [UX-000003](Definitions/UX-000003/ux_definition.md) | プロジェクト運営者／PM | 委任した仕事の応答を待つ時 |
+| [UX-000004](Definitions/UX-000004/ux_definition.md) | プロジェクト運営者／PM | 失敗・取消・切断後に仕事を続ける時 |
+| [UX-000005](Definitions/UX-000005/ux_definition.md) | プロジェクト運営者／PM | プロジェクトの成果をまとめて任せる時 |
+| [UX-000006](Definitions/UX-000006/ux_definition.md) | 実行環境の導入・運用者 | 実行結果を振り返る時 |
+| [UX-000007](Definitions/UX-000007/ux_definition.md) | CRDD作成者・保守者 | 責務・契約・接続部または実行環境の構成を変更する時 |
+| [UX-000008](Definitions/UX-000008/ux_definition.md) | 実行環境の導入・運用者 | AI実行環境の導入または利用が止まった時 |
+| [UX-000009](Definitions/UX-000009/ux_definition.md) | プロジェクト運営者／PM | プロジェクト状況を確認する時 |
+| [UX-000010](Definitions/UX-000010/ux_definition.md) | 開発者 | リポジトリで作業を始める時 |
+| [UX-000011](Definitions/UX-000011/ux_definition.md) | プロジェクト運営者／PM | 参照または操作対象を選ぶ時 |
+| [UX-000012](Definitions/UX-000012/ux_definition.md) | 開発者 | ローカルMCPの通信方式を選ぶ時 |
+| [UX-000013](Definitions/UX-000013/ux_definition.md) | プロジェクト運営者／PM | リモート接続を開始・再接続する時 |
+| [UX-000014](Definitions/UX-000014/ux_definition.md) | プロジェクト運営者／PM | Meeting後に決定・Topic・Actionを整理する時 |
+| [UX-000015](Definitions/UX-000015/ux_definition.md) | 経営・管理層 | 複数プロジェクトの一覧の優先度を判断する時 |
+| [UX-000016](Definitions/UX-000016/ux_definition.md) | 開発者 | ツールで処理を始める時 |
+| [UX-000017](Definitions/UX-000017/ux_definition.md) | 実行環境の導入・運用者 | 実行時データを作成または清掃する時 |
+| [UX-000018](Definitions/UX-000018/ux_definition.md) | 実行環境の導入・運用者 | 利用モデルやAI提供元条件を変更する時 |
+| [UX-000019](Definitions/UX-000019/ux_definition.md) | 外部へ渡す情報の所有者 | 別Agentやツールへ仕事を渡す時、または結果を受け取る時 |
+| [UX-000020](Definitions/UX-000020/ux_definition.md) | 実行環境の導入・運用者 | 実行基盤を導入または更新する時 |
+| [UX-000021](Definitions/UX-000021/ux_definition.md) | プロジェクト運営者／PM | 応答喪失後に再接続する時 |
+| [UX-000022](Definitions/UX-000022/ux_definition.md) | 実行環境の導入・運用者 | 失敗後または保守時に残存を見つけた時 |
+| [UX-000023](Definitions/UX-000023/ux_definition.md) | CRDD作成者・保守者 | 複数指摘を是正する時 |
+| [UX-000024](Definitions/UX-000024/ux_definition.md) | 外部へ渡す情報の所有者 | 外部AI・検索・公開Communication・管理対象依存を利用する時 |
+| [UX-000025](Definitions/UX-000025/ux_definition.md) | CRDD作成者・保守者 | 過去判断を再利用または更新する時 |
+| [UX-000026](Definitions/UX-000026/ux_definition.md) | CRDD作成者・保守者 | 変更の検証計画を作る時 |
+| [UX-000027](Definitions/UX-000027/ux_definition.md) | CRDD閲覧者 | 工程成果物を初めて読む時 |
+| [UX-000028](Definitions/UX-000028/ux_definition.md) | CRDD閲覧者 | 工程の入口・出口で成果物を渡す時 |
+| [UX-000029](Definitions/UX-000029/ux_definition.md) | CRDD作成者・保守者 | 変更の現在地や根拠を調べる時 |
+| [UX-000030](Definitions/UX-000030/ux_definition.md) | CRDD作成者・保守者 | ブランド素材を追加または利用する時 |
+| [UX-000031](Definitions/UX-000031/ux_definition.md) | CRDD閲覧者 | 公式らしい入口や視覚素材を見つけた時 |
+| [UX-000032](Definitions/UX-000032/ux_definition.md) | 実行基盤・TypeScriptアプリへ実行記録を組み込む担当者 | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 |
+
+## 4. 利用場面による違い
 
 ```text
 同じ人
@@ -55,7 +94,7 @@ CRDD閲覧者 ──→ CRDD作成者・保守者 ──→ 実行環境の導�
 
 個別要求の分析は本書の想定利用者を参照し、その要求に固有の利用のきっかけ、制約、知識差、決定権限、失敗時の影響だけを補足する。想定利用者名を要求ごとに言い換えて、新しい人物像を量産しない。
 
-## 4. 未確認事項
+## 5. 未確認事項
 
 - 開発者、PM、経営・管理層それぞれが許容できる確認回数、待ち時間および情報量。
 - Workbenchを使う場面と、対話AIまたは静的文書だけで足りる場面の境界。
@@ -63,3 +102,16 @@ CRDD閲覧者 ──→ CRDD作成者・保守者 ──→ 実行環境の導�
 - 共有CROS Serverを実組織で使う場合の、既存の認証基盤とリポジトリ権限の接続。
 
 これらは架空の属性で補わず、Prototype、代表利用者確認または実運用観測で更新する。
+
+## Checklist
+
+- [x] 利用者像を個別UX分析から横断合成した
+- [x] 全UX IDの主要な利用者を処置した
+- [x] 役割と利用者の目的を混同していない
+- [x] 目的、困りごと、利用状況および判断責任に意味のある差で分けた
+- [x] 架空の属性、根拠のない能力差または役職だけで利用者像を作っていない
+- [x] 共通性と要求固有の差を混同していない
+- [x] 根拠、確信度および未確認範囲を示した
+- [x] 利用者分類をUIの権限設計へ先取りしていない
+- [x] 個別UX Definitionと矛盾していない
+- [x] 補足へ利用者一覧や必須の差を退避していない

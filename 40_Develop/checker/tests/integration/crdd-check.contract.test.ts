@@ -181,7 +181,10 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
     "### 補足する品質",
     "## 6. 下流への引き渡し",
     "### 妥当性確認と未確認事項",
-    "### 工程別の引き渡し",
+    "現在判定:",
+    "確認事項:",
+    "判断者:",
+    "未確認時の影響:",
     "Discoveryへ戻す条件",
   ])
     assert.ok(
@@ -1578,6 +1581,279 @@ test("Discoveryひな型のChecklist項目を後続Sectionへ移せない", () =
             "template/01_Discovery/Analysis/EXP-XXXXXX/exploration.md",
       ),
       `${heading}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("UX正本は成果物別の可視で評価済みのChecklistを必要とする", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    `# UX\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+  );
+  const analysisPath = path.join(
+    root,
+    "02_UX",
+    "Analysis",
+    "REQ-000001",
+    "ux_analysis.md",
+  );
+  write(
+    analysisPath,
+    `# UX分析\n\n成果物種別: UX分析\n\n## Checklist\n\n- [ ] 未評価のまま残した\n`,
+  );
+  const definitionPath = path.join(
+    root,
+    "02_UX",
+    "Definitions",
+    "UX-000001",
+    "ux_definition.md",
+  );
+  write(
+    definitionPath,
+    `# UX定義\n\n成果物種別: UX定義\nUX ID: \`UX-000001\`\n状態: Canonical\n\n${evaluatedChecklist(uxDefinitionChecklistTestItems)}\n\nChecklist後の本文。\n`,
+  );
+  const result = runChecker(root);
+  for (const expectedPath of [
+    "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    "02_UX/Definitions/UX-000001/ux_definition.md",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-checklist-contract-invalid" &&
+          finding.path === expectedPath,
+      ),
+      `${expectedPath}\n${result.stdout}\n${result.stderr}`,
+    );
+});
+
+test("UX Checklistは末尾と成果物種別固有の項目集合を必要とする", () => {
+  for (const invalidChecklist of [
+    evaluatedChecklist(uxIndexChecklistTestItems),
+    `${evaluatedChecklist(uxAnalysisChecklistTestItems)}\n\n## 補足\n\n後続本文。`,
+    `${evaluatedChecklist(uxAnalysisChecklistTestItems)}\n\n> 後続の引用。`,
+    "## Checklist\n\n- [x] UXを確認した",
+  ]) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(
+      path.join(root, "02_UX", "01_User_Experience.md"),
+      `# UX\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+    );
+    write(
+      path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+      `# UX分析\n\n成果物種別: UX分析\n\n${invalidChecklist}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-checklist-contract-invalid" &&
+          finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+      ),
+      `${invalidChecklist}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("UXひな型のChecklist項目を後続Sectionへ移せない", () => {
+  for (const heading of ["## 補足", "   ### 字下げ", "補足\n---"]) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(
+      path.join(root, "02_UX", "01_User_Experience.md"),
+      `# UX\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+    );
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    const templatePath = path.join(
+      root,
+      "template",
+      "02_UX",
+      "Analysis",
+      "REQ-XXXXXX",
+      "ux_analysis.md",
+    );
+    const template = fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template",
+        "02_UX",
+        "Analysis",
+        "REQ-XXXXXX",
+        "ux_analysis.md",
+      ),
+      "utf8",
+    );
+    write(
+      templatePath,
+      template.replace("\n- [ ] 同じREQ", `\n${heading}\n\n- [ ] 同じREQ`),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-checklist-template-invalid" &&
+          finding.path === "template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md",
+      ),
+      `${heading}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+test("UXの正本投影と七つのひな型を欠落させられない", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    `# UX\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+  );
+
+  const result = runChecker(root);
+  for (const expectedPath of [
+    "02_UX/02_Personas.md",
+    "02_UX/03_Experience_Map.md",
+    "02_UX/04_Service_Blueprint.md",
+    "02_UX/05_Quality_Expectations.md",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-canonical-projection-missing" &&
+          finding.path === expectedPath,
+      ),
+      `${expectedPath}\n${result.stdout}\n${result.stderr}`,
+    );
+
+  for (const expectedPath of [
+    "template/02_UX/01_User_Experience.md",
+    "template/02_UX/02_Personas.md",
+    "template/02_UX/03_Experience_Map.md",
+    "template/02_UX/04_Service_Blueprint.md",
+    "template/02_UX/05_Quality_Expectations.md",
+    "template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md",
+    "template/02_UX/Definitions/UX-XXXXXX/ux_definition.md",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-template-missing" &&
+          finding.path === expectedPath,
+      ),
+      `${expectedPath}\n${result.stdout}\n${result.stderr}`,
+    );
+});
+
+test("横断UX成果物は全UX IDを重複なく投影する", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    `# UX\n\n| UX ID | 元の要求 |\n|---|---|\n| \`UX-000001\` | \`REQ-000001\` |\n| \`UX-000002\` | \`REQ-000002\` |\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "02_Personas.md"),
+    "# Personas\n\n## 3. UX成果との対応\n\n| UX ID | 対応 |\n|---|---|\n| [UX-000001](Definitions/UX-000001/ux_definition.md) | 対応 |\n| [UX-000001](Definitions/UX-000001/ux_definition.md) | 重複 |\n",
+  );
+
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-cross-cutting-projection-incomplete" &&
+        finding.path === "02_UX/02_Personas.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UXからIAを飛び越える旧Handoffを再導入できない", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    `# UX\n\nIA／UI／SPEC／Verificationへ直接Handoffする。\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+  );
+
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-direct-downstream-handoff-reintroduced" &&
+        finding.path === "02_UX/01_User_Experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("UXの正規Handoffへ言い換えた直接接続を追加できない", () => {
+  for (const [relativePath, insertionPoint] of [
+    ["02_UX/01_User_Experience.md", "| IAへの正式な引き渡し |"],
+    [
+      "02_UX/Analysis/REQ-000001/ux_analysis.md",
+      "| SPEC（後続Contract Relation） |",
+    ],
+    [
+      "02_UX/Definitions/UX-000001/ux_definition.md",
+      "| SPEC（後続Contract Relation） |",
+    ],
+  ] as const) {
+    const root = dispositionFixtureRoot();
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(
+      path.join(root, "02_UX", "01_User_Experience.md"),
+      fs.readFileSync(
+        path.join(repositoryRoot, "02_UX", "01_User_Experience.md"),
+        "utf8",
+      ),
+    );
+    const sourcePath = path.join(repositoryRoot, relativePath);
+    const targetPath = path.join(root, relativePath);
+    const source = fs.readFileSync(sourcePath, "utf8");
+    const line = source
+      .split(/\r?\n/u)
+      .find((candidate) => candidate.startsWith(insertionPoint));
+    assert.ok(line, `${relativePath}: insertion point`);
+    const invalidHandoff =
+      relativePath === "02_UX/01_User_Experience.md"
+        ? "| Developmentへの直接引き渡し | IAを経由せず実装へ渡す |"
+        : "| Architecture（直接Handoff） | UI／SPECを経由せず設計へ渡す |";
+    write(targetPath, source.replace(line, `${line}\n${invalidHandoff}`));
+
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-direct-downstream-handoff-reintroduced" &&
+          finding.path === relativePath,
+      ),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
     );
   }
 });
@@ -3472,6 +3748,71 @@ const discoveryRequirementChecklistTestItems = [
   "UXが探索記録を直接読まず、この定義だけから分析を開始できる。",
   "下流工程の結論をDiscoveryへ逆輸入していない。",
   "補足分析へ必須情報を退避していない。",
+];
+
+const uxIndexChecklistTestItems = [
+  "誰の何をなぜ良くする製品かを冒頭から短時間で理解できる",
+  "全REQに個別分析とUX処置があり全UX定義へ到達できる",
+  "UX成果と入力REQの関係および網羅状況を説明できる",
+  "個別分析と横断合成の詳細を複製せず関係と現在状態を示した",
+  "想定利用者、利用の流れ、提供責務および品質期待の横断成果物へ到達できる",
+  "未確認事項、戻り先および工程移行判断を区別した",
+  "IAへの正式な引き渡しを明示した",
+  "Quality Analysis / UXへの伴走入力を明示した",
+  "UIとSPECが後続で保持するUX ContractをIAへの工程移行と区別した",
+  "基本図を作成、既存参照、非該当または作成不能として理由付きで処置した",
+  "横断成果物が個別Definitionの第二の正本になっていない",
+  "補足へ台帳、網羅状況または必須の引き渡しを退避していない",
+];
+
+const uxAnalysisChecklistTestItems = [
+  "同じREQのDiscovery定義を正式入力として一意に特定した",
+  "REQの問題、望ましい変化、制約および未確認事項を保持した",
+  "REQにない意味をAIの推測だけで追加していない",
+  "利用者、判断する人および関係する利用者を必要な範囲で特定した",
+  "利用場面と前後の状況を特定した",
+  "現在の体験、困りごとまたは回避方法を説明した",
+  "目的を解決策の操作ではなく利用者の目的として表現した",
+  "利用前後の仕事、理解、判断または行動の変化を説明した",
+  "得られる結果を独立した利用者成果として定義した",
+  "重要場面を評価した",
+  "避ける失敗を評価した",
+  "体験品質への期待を評価した",
+  "人間による評価または確認が必要な事項を評価した",
+  "IA、UI、SPECまたはArchitectureの結論を先取りしていない",
+  "New、SameまたはNot Applicableを利用者成果の同一性から判断した",
+  "統合判断の理由を追跡できる",
+  "未確認事項と影響を明示した",
+  "IAへの正式な引き渡しを明示した",
+  "Quality Analysis / UXへの伴走入力を明示した",
+  "UIとSPECが後続で保持するUX ContractをIAへの工程移行と区別した",
+  "DiscoveryまたはUXへ戻す条件を明示した",
+  "補足分析へ必須情報を退避していない",
+];
+
+const uxDefinitionChecklistTestItems = [
+  "UX IDと表題から独立した利用者成果を識別できる",
+  "定義単独で利用者、利用場面および前後の状況を理解できる",
+  "利用者の目的を理解できる",
+  "得られる結果をUI操作ではなく独立した利用者成果として表現した",
+  "利用前後の変化を必要な範囲で説明した",
+  "成立条件を観察可能な意味で説明した",
+  "重要場面を処置した",
+  "重要な失敗を処置した",
+  "体験品質への期待と必要性を処置した",
+  "必要な情報をIAへ引き渡せる",
+  "UXが所有する責任と下流へ残す判断を区別した",
+  "制約と対象外を保持した",
+  "未確認事項と影響を明示した",
+  "人間による評価または確認の必要性を評価した",
+  "検証意図を具体的なTest Caseへ先取りせず定義した",
+  "IAへの正式な引き渡しを明示した",
+  "Quality Analysis / UXへの伴走入力を明示した",
+  "UIとSPECが後続で保持するUX ContractをIAへの工程移行と区別した",
+  "IAがUX Analysisを読み直さずDefinitionから開始できる",
+  "下流成果物、Architectureまたは現行実装をUXへ逆輸入していない",
+  "DiscoveryまたはUX分析へ戻す条件を明示した",
+  "補足定義へ必須情報を退避していない",
 ];
 
 function evaluatedChecklist(

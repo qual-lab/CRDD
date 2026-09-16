@@ -532,6 +532,124 @@ const discoveryRequirementChecklistItemTexts = [
   "補足分析へ必須情報を退避していない。",
 ];
 
+const uxIndexChecklistItemTexts = [
+  "誰の何をなぜ良くする製品かを冒頭から短時間で理解できる",
+  "全REQに個別分析とUX処置があり全UX定義へ到達できる",
+  "UX成果と入力REQの関係および網羅状況を説明できる",
+  "個別分析と横断合成の詳細を複製せず関係と現在状態を示した",
+  "想定利用者、利用の流れ、提供責務および品質期待の横断成果物へ到達できる",
+  "未確認事項、戻り先および工程移行判断を区別した",
+  "IAへの正式な引き渡しを明示した",
+  "Quality Analysis / UXへの伴走入力を明示した",
+  "UIとSPECが後続で保持するUX ContractをIAへの工程移行と区別した",
+  "基本図を作成、既存参照、非該当または作成不能として理由付きで処置した",
+  "横断成果物が個別Definitionの第二の正本になっていない",
+  "補足へ台帳、網羅状況または必須の引き渡しを退避していない",
+];
+
+const uxPersonasChecklistItemTexts = [
+  "利用者像を個別UX分析から横断合成した",
+  "全UX IDの主要な利用者を処置した",
+  "役割と利用者の目的を混同していない",
+  "目的、困りごと、利用状況および判断責任に意味のある差で分けた",
+  "架空の属性、根拠のない能力差または役職だけで利用者像を作っていない",
+  "共通性と要求固有の差を混同していない",
+  "根拠、確信度および未確認範囲を示した",
+  "利用者分類をUIの権限設計へ先取りしていない",
+  "個別UX Definitionと矛盾していない",
+  "補足へ利用者一覧や必須の差を退避していない",
+];
+
+const uxExperienceMapChecklistItemTexts = [
+  "個別UX分析から仕事の起点、理解、判断および継続を横断合成した",
+  "全UX IDを利用の流れへ処置した",
+  "画面遷移や内部処理ではなく利用者の時間軸と得られる結果を主語にした",
+  "各段階の目的と得られる結果を追跡できる",
+  "利用者、目的または結果が変わる主要分岐を示した",
+  "重要場面、失敗および回復を必要な範囲で処置した",
+  "各流れから関係するREQ、UXおよび個別分析へ戻れる",
+  "未確認範囲を確認済みの流れへ混ぜていない",
+  "UI Navigationを先取りしていない",
+  "補足へ主要な流れまたは分岐を退避していない",
+];
+
+const uxServiceBlueprintChecklistItemTexts = [
+  "個別UX分析の利用者接点、提供責務、失敗および回復を横断合成した",
+  "全UX IDについてサービス提供の流れの適用を処置した",
+  "利用者成果とサービス側の責任の対応を追跡できる",
+  "利用者、接点、提供側、運用・根拠の責任と可視境界を区別した",
+  "人間、AIおよびシステムの責任を必要な範囲で区別した",
+  "完了時と失敗時に誰へ何が返るかを示した",
+  "返却後に誰が何を判断できるかを示した",
+  "Architecture Componentへ提供責務を固定していない",
+  "UI部品、Protocol、Class等の下流方式を先取りしていない",
+  "未確認の責任境界を確定した提供責務へ混ぜていない",
+  "補足へ主要な責任境界を退避していない",
+];
+
+const uxQualityExpectationsChecklistItemTexts = [
+  "個別UX分析で見つかった品質期待を製品全体で横断合成した",
+  "全UX IDの品質期待を処置した",
+  "品質を内部特性でなく利用者や運用者に現れる状態として示した",
+  "各品質が利用者成果の成立に必要な理由を説明できる",
+  "重要場面、避ける失敗および関係REQ／UXを接続した",
+  "Quality Analysis / UXへ渡す検証義務を識別した",
+  "両立が難しい品質と現在の優先判断を隠していない",
+  "数値条件、状態Schema、Protocolまたは実現方式を先取りしていない",
+  "未確認範囲を確認済みの品質期待へ混ぜていない",
+  "補足へ主要な品質期待を退避していない",
+];
+
+const uxAnalysisChecklistItemTexts = [
+  "同じREQのDiscovery定義を正式入力として一意に特定した",
+  "REQの問題、望ましい変化、制約および未確認事項を保持した",
+  "REQにない意味をAIの推測だけで追加していない",
+  "利用者、判断する人および関係する利用者を必要な範囲で特定した",
+  "利用場面と前後の状況を特定した",
+  "現在の体験、困りごとまたは回避方法を説明した",
+  "目的を解決策の操作ではなく利用者の目的として表現した",
+  "利用前後の仕事、理解、判断または行動の変化を説明した",
+  "得られる結果を独立した利用者成果として定義した",
+  "重要場面を評価した",
+  "避ける失敗を評価した",
+  "体験品質への期待を評価した",
+  "人間による評価または確認が必要な事項を評価した",
+  "IA、UI、SPECまたはArchitectureの結論を先取りしていない",
+  "New、SameまたはNot Applicableを利用者成果の同一性から判断した",
+  "統合判断の理由を追跡できる",
+  "未確認事項と影響を明示した",
+  "IAへの正式な引き渡しを明示した",
+  "Quality Analysis / UXへの伴走入力を明示した",
+  "UIとSPECが後続で保持するUX ContractをIAへの工程移行と区別した",
+  "DiscoveryまたはUXへ戻す条件を明示した",
+  "補足分析へ必須情報を退避していない",
+];
+
+const uxDefinitionChecklistItemTexts = [
+  "UX IDと表題から独立した利用者成果を識別できる",
+  "定義単独で利用者、利用場面および前後の状況を理解できる",
+  "利用者の目的を理解できる",
+  "得られる結果をUI操作ではなく独立した利用者成果として表現した",
+  "利用前後の変化を必要な範囲で説明した",
+  "成立条件を観察可能な意味で説明した",
+  "重要場面を処置した",
+  "重要な失敗を処置した",
+  "体験品質への期待と必要性を処置した",
+  "必要な情報をIAへ引き渡せる",
+  "UXが所有する責任と下流へ残す判断を区別した",
+  "制約と対象外を保持した",
+  "未確認事項と影響を明示した",
+  "人間による評価または確認の必要性を評価した",
+  "検証意図を具体的なTest Caseへ先取りせず定義した",
+  "IAへの正式な引き渡しを明示した",
+  "Quality Analysis / UXへの伴走入力を明示した",
+  "UIとSPECが後続で保持するUX ContractをIAへの工程移行と区別した",
+  "IAがUX Analysisを読み直さずDefinitionから開始できる",
+  "下流成果物、Architectureまたは現行実装をUXへ逆輸入していない",
+  "DiscoveryまたはUX分析へ戻す条件を明示した",
+  "補足定義へ必須情報を退避していない",
+];
+
 function checklistItemText(line: string): string | null {
   const checked = /^- \[x\] (?<text>\S.*)$/u.exec(line);
   if (checked?.groups?.text) return checked.groups.text;
@@ -631,6 +749,61 @@ function checkUxRequirementAnalysis(): void {
   const requirementsRoot = path.join(root, "02_UX", "Analysis");
   const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
   const experienceMapPath = path.join(root, "02_UX", "03_Experience_Map.md");
+  const uxHandoffTargets = [
+    "IA（直後工程への正式な引き渡し）",
+    "Quality Analysis / UX（伴走）",
+    "UI（後続Contract Relation）",
+    "SPEC（後続Contract Relation）",
+  ] as const;
+  const uxHandoffTargetSetIsExact = (source: string, heading: string) => {
+    const visible = visibleMarkdownStructure(source);
+    const start = visible.indexOf(heading);
+    if (start < 0) return false;
+    const tail = visible.slice(start + heading.length);
+    const boundary = tail.search(/^#{2,3} /mu);
+    const section = boundary < 0 ? tail : tail.slice(0, boundary);
+    const targets = section
+      .split(/\r?\n/u)
+      .flatMap((line) => {
+        const match = line.match(/^\| (?<target>[^|]+) \|/u);
+        const target = match?.groups?.target?.trim();
+        return target && target !== "接続先" && target !== "引き渡し先"
+          ? [target]
+          : [];
+      })
+      .filter((target) => !/^-+$/u.test(target));
+    return (
+      targets.length === uxHandoffTargets.length &&
+      targets.every((target, index) => target === uxHandoffTargets[index])
+    );
+  };
+  const uxRootHandoffIsValid = (source: string, heading: string) => {
+    const visible = visibleMarkdownStructure(source);
+    const start = visible.indexOf(heading);
+    if (start < 0) return false;
+    const tail = visible.slice(start + heading.length);
+    const boundary = tail.search(/^## /mu);
+    const section = boundary < 0 ? tail : tail.slice(0, boundary);
+    const labels = section.split(/\r?\n/u).flatMap((line) => {
+      const match = line.match(/^\| (?<label>[^|]+) \|/u);
+      const label = match?.groups?.label?.trim();
+      return label && label !== "項目" && !/^-+$/u.test(label) ? [label] : [];
+    });
+    const requiredLabels = [
+      "IAへの正式な引き渡し",
+      "Quality Analysis / UXへの伴走入力",
+      "UI／SPECが後続で保持するUX Contract",
+    ];
+    const handoffLabels = labels.filter((label) =>
+      /(引き渡し|伴走入力|UX Contract|Handoff|直接接続|後続Relation)/u.test(
+        label,
+      ),
+    );
+    return (
+      handoffLabels.length === requiredLabels.length &&
+      handoffLabels.every((label, index) => label === requiredLabels[index])
+    );
+  };
   if (
     !lstatIfPresent(discoveryPath)?.isFile() ||
     !lstatIfPresent(uxIndexPath)?.isFile()
@@ -732,6 +905,140 @@ function checkUxRequirementAnalysis(): void {
         `Each Discovery template must expose one visible artifact-specific Checklist with unevaluated items and result guidance (${checklistError}).`,
       );
   }
+  for (const [uxArtifactPath, checklistItems] of [
+    [uxIndexPath, uxIndexChecklistItemTexts],
+    [path.join(root, "02_UX", "02_Personas.md"), uxPersonasChecklistItemTexts],
+    [experienceMapPath, uxExperienceMapChecklistItemTexts],
+    [
+      path.join(root, "02_UX", "04_Service_Blueprint.md"),
+      uxServiceBlueprintChecklistItemTexts,
+    ],
+    [
+      path.join(root, "02_UX", "05_Quality_Expectations.md"),
+      uxQualityExpectationsChecklistItemTexts,
+    ],
+  ] as const) {
+    if (!lstatIfPresent(uxArtifactPath)?.isFile()) {
+      add(
+        "error",
+        "ux-canonical-projection-missing",
+        relative(uxArtifactPath),
+        "The official UX profile must retain all five canonical projection artifacts.",
+      );
+      continue;
+    }
+    const checklistError = completedVisibleChecklistError(
+      read(uxArtifactPath),
+      checklistItems,
+    );
+    if (checklistError)
+      add(
+        "error",
+        "ux-checklist-contract-invalid",
+        relative(uxArtifactPath),
+        `Each canonical UX projection must contain one visible, fully evaluated artifact-specific Checklist (${checklistError}).`,
+      );
+  }
+  for (const [uxTemplatePath, checklistItems] of [
+    [
+      path.join(root, "template", "02_UX", "01_User_Experience.md"),
+      uxIndexChecklistItemTexts,
+    ],
+    [
+      path.join(root, "template", "02_UX", "02_Personas.md"),
+      uxPersonasChecklistItemTexts,
+    ],
+    [
+      path.join(root, "template", "02_UX", "03_Experience_Map.md"),
+      uxExperienceMapChecklistItemTexts,
+    ],
+    [
+      path.join(root, "template", "02_UX", "04_Service_Blueprint.md"),
+      uxServiceBlueprintChecklistItemTexts,
+    ],
+    [
+      path.join(root, "template", "02_UX", "05_Quality_Expectations.md"),
+      uxQualityExpectationsChecklistItemTexts,
+    ],
+    [
+      path.join(
+        root,
+        "template",
+        "02_UX",
+        "Analysis",
+        "REQ-XXXXXX",
+        "ux_analysis.md",
+      ),
+      uxAnalysisChecklistItemTexts,
+    ],
+    [
+      path.join(
+        root,
+        "template",
+        "02_UX",
+        "Definitions",
+        "UX-XXXXXX",
+        "ux_definition.md",
+      ),
+      uxDefinitionChecklistItemTexts,
+    ],
+  ] as const) {
+    if (!lstatIfPresent(uxTemplatePath)?.isFile()) {
+      add(
+        "error",
+        "ux-template-missing",
+        relative(uxTemplatePath),
+        "The official distribution must retain all seven UX templates.",
+      );
+      continue;
+    }
+    const checklistError = templateVisibleChecklistError(
+      read(uxTemplatePath),
+      checklistItems,
+    );
+    if (checklistError)
+      add(
+        "error",
+        "ux-checklist-template-invalid",
+        relative(uxTemplatePath),
+        `Each UX template must expose one visible artifact-specific Checklist with unevaluated items and result guidance (${checklistError}).`,
+      );
+  }
+  for (const [uxTemplatePath, heading] of [
+    [
+      path.join(
+        root,
+        "template",
+        "02_UX",
+        "Analysis",
+        "REQ-XXXXXX",
+        "ux_analysis.md",
+      ),
+      "## 6. 下流への引き渡し",
+    ],
+    [
+      path.join(
+        root,
+        "template",
+        "02_UX",
+        "Definitions",
+        "UX-XXXXXX",
+        "ux_definition.md",
+      ),
+      "## 下流への引き渡し",
+    ],
+  ] as const) {
+    if (
+      lstatIfPresent(uxTemplatePath)?.isFile() &&
+      !uxHandoffTargetSetIsExact(read(uxTemplatePath), heading)
+    )
+      add(
+        "error",
+        "ux-direct-downstream-handoff-reintroduced",
+        relative(uxTemplatePath),
+        "UX handoff templates must contain exactly IA, Quality Analysis / UX, UI, and SPEC with their formal boundary labels; no direct Architecture or Verification target is allowed.",
+      );
+  }
   const templatePath = path.join(
     root,
     "template",
@@ -766,6 +1073,80 @@ function checkUxRequirementAnalysis(): void {
       .map((line) => line.match(/^\| (?:`|\[)(?<id>UX-[0-9]{6})/u)?.groups?.id)
       .filter((value): value is string => Boolean(value)),
   );
+  for (const [projectionPath, heading] of [
+    [path.join(root, "02_UX", "02_Personas.md"), "## 3. UX成果との対応"],
+    [experienceMapPath, "## 3. UX成果との対応"],
+    [
+      path.join(root, "02_UX", "04_Service_Blueprint.md"),
+      "## 3. UX成果への適用",
+    ],
+    [
+      path.join(root, "02_UX", "05_Quality_Expectations.md"),
+      "## 3. UX成果との対応",
+    ],
+  ] as const) {
+    if (!lstatIfPresent(projectionPath)?.isFile()) continue;
+    const source = visibleMarkdownStructure(read(projectionPath));
+    const start = source.indexOf(heading);
+    const tail = start < 0 ? "" : source.slice(start + heading.length);
+    const next = tail.search(/^## /mu);
+    const projection = next < 0 ? tail : tail.slice(0, next);
+    const projectedIds = [
+      ...projection.matchAll(/^\| \[(UX-[0-9]{6})\]\(/gmu),
+    ].map((match) => match[1]);
+    const projectedSet = new Set(projectedIds);
+    if (
+      start < 0 ||
+      projectedIds.length !== projectedSet.size ||
+      projectedSet.size !== canonicalUxIds.size ||
+      [...canonicalUxIds].some((id) => !projectedSet.has(id))
+    )
+      add(
+        "error",
+        "ux-cross-cutting-projection-incomplete",
+        relative(projectionPath),
+        "Each cross-cutting UX projection must process every canonical UX ID exactly once in its dedicated mapping section.",
+      );
+  }
+  for (const [artifactPath, forbiddenParts] of [
+    [uxIndexPath, ["IA／UI／SPEC／Verification", "UIへは", "SPECへは"]],
+    [
+      path.join(root, "02_UX", "05_Quality_Expectations.md"),
+      ["- Architectureは", "- Verificationは"],
+    ],
+    [
+      path.join(root, "template", "02_UX", "01_User_Experience.md"),
+      ["IA／UI／SPEC／Verification"],
+    ],
+  ] as const) {
+    if (!lstatIfPresent(artifactPath)?.isFile()) continue;
+    const source = visibleMarkdownStructure(read(artifactPath));
+    if (forbiddenParts.some((part) => source.includes(part)))
+      add(
+        "error",
+        "ux-direct-downstream-handoff-reintroduced",
+        relative(artifactPath),
+        "UX must hand off formally to IA, accompany Quality Analysis / UX, and leave UI/SPEC as post-IA contract relations; it must not hand off directly to Architecture or Verification.",
+      );
+  }
+  for (const [artifactPath, heading] of [
+    [uxIndexPath, "## 4. 現在状態と次工程への引き渡し"],
+    [
+      path.join(root, "template", "02_UX", "01_User_Experience.md"),
+      "## 6. 現在状態と次工程への引き渡し",
+    ],
+  ] as const) {
+    if (
+      lstatIfPresent(artifactPath)?.isFile() &&
+      !uxRootHandoffIsValid(read(artifactPath), heading)
+    )
+      add(
+        "error",
+        "ux-direct-downstream-handoff-reintroduced",
+        relative(artifactPath),
+        "The UX entry must expose IA as its only immediate phase handoff, Quality Analysis / UX as its accompanying analysis, and UI/SPEC as post-IA contract relations without a direct Architecture or Verification target.",
+      );
+  }
   const canonicalRelationPairs = new Set(
     uxIndex.split(/\r?\n/u).flatMap((line) => {
       const uxId = line.match(/^\| (?:`|\[)(?<id>UX-[0-9]{6})/u)?.groups?.id;
@@ -895,8 +1276,15 @@ function checkUxRequirementAnalysis(): void {
       "| 担い手 | この要求で担うこと | 越えてはならない境界 |",
       "### 補足する品質",
       "## 6. 下流への引き渡し",
+      "IA（直後工程への正式な引き渡し）",
+      "Quality Analysis / UX（伴走）",
+      "UI（後続Contract Relation）",
+      "SPEC（後続Contract Relation）",
       "### 妥当性確認と未確認事項",
-      "### 工程別の引き渡し",
+      "現在判定:",
+      "確認事項:",
+      "判断者:",
+      "未確認時の影響:",
       "Discoveryへ戻す条件",
     ];
     const hasExperienceChange =
@@ -911,6 +1299,28 @@ function checkUxRequirementAnalysis(): void {
         "ux-requirement-analysis-contract-invalid",
         relative(analysisPath),
         "Each UX requirement analysis must declare its REQ and preserve the six-stage visual-first analysis contract from problem and user outcome through synthesis, critical experience, validation, and downstream handoff, with one registry link.",
+      );
+    const analysisChecklistError = completedVisibleChecklistError(
+      analysis,
+      uxAnalysisChecklistItemTexts,
+    );
+    if (
+      analysis.includes("### 後続工程が保持する義務") ||
+      analysis.includes("UXからArchitectureまたは検証への直接Handoff") ||
+      !uxHandoffTargetSetIsExact(analysis, "## 6. 下流への引き渡し")
+    )
+      add(
+        "error",
+        "ux-direct-downstream-handoff-reintroduced",
+        relative(analysisPath),
+        "Requirement-specific UX analysis must preserve downstream meaning through IA, Quality Analysis / UX, and post-IA UI/SPEC relations rather than a direct Architecture or Verification handoff.",
+      );
+    if (analysisChecklistError)
+      add(
+        "error",
+        "ux-checklist-contract-invalid",
+        relative(analysisPath),
+        `Each canonical UX analysis must contain one visible, fully evaluated artifact-specific Checklist (${analysisChecklistError}).`,
       );
     const relationRows = analysis
       .split(/\r?\n/u)
@@ -1154,8 +1564,22 @@ function checkUxRequirementAnalysis(): void {
         stateHeaders.length !== 1 ||
         !/^状態: (Canonical|Superseded)$/u.test(stateHeaders[0] ?? "") ||
         !definition.includes("## 利用者成果") ||
+        !definition.includes("## 利用者に起きる変化") ||
         !definition.includes("## 成立条件") ||
+        !definition.includes("## 重要な体験・失敗・品質期待") ||
+        !definition.includes("### 重要な失敗") ||
+        !definition.includes("### 体験品質への期待") ||
+        !definition.includes("## 責任境界・制約・対象外") ||
+        !definition.includes("## 未確認事項と戻り条件") ||
+        !definition.includes("現在判定:") ||
+        !definition.includes("確認事項:") ||
+        !definition.includes("判断者:") ||
+        !definition.includes("未確認時の影響:") ||
         !definition.includes("## 検証意図") ||
+        !definition.includes("IA（直後工程への正式な引き渡し）") ||
+        !definition.includes("Quality Analysis / UX（伴走）") ||
+        !definition.includes("UI（後続Contract Relation）") ||
+        !definition.includes("SPEC（後続Contract Relation）") ||
         !definition.includes("## 関係")
       )
         add(
@@ -1163,6 +1587,28 @@ function checkUxRequirementAnalysis(): void {
           "ux-definition-contract-invalid",
           relative(definitionPath),
           "Each canonical UX outcome must have a self-contained definition.",
+        );
+      const definitionChecklistError = completedVisibleChecklistError(
+        definition,
+        uxDefinitionChecklistItemTexts,
+      );
+      if (
+        definition.includes("### 要求固有の後続義務") ||
+        definition.includes("UXからArchitectureまたは検証への直接Handoff") ||
+        !uxHandoffTargetSetIsExact(definition, "## 下流への引き渡し")
+      )
+        add(
+          "error",
+          "ux-direct-downstream-handoff-reintroduced",
+          relative(definitionPath),
+          "Canonical UX definitions must not directly assign Architecture or Verification work; those obligations flow through IA, UI/SPEC, and Quality Analysis / UX.",
+        );
+      if (definitionChecklistError)
+        add(
+          "error",
+          "ux-checklist-contract-invalid",
+          relative(definitionPath),
+          `Each canonical UX definition must contain one visible, fully evaluated artifact-specific Checklist (${definitionChecklistError}).`,
         );
     }
   }
