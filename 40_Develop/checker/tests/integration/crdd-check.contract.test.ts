@@ -3271,8 +3271,16 @@ test("UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を
       "SPEC根拠なし",
     ],
     [
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）「対象と条件を固定して検査結果を返す」／対応: 検査結果をUIの区別状態へ表示する",
       "UI-000001の表示状態をSPEC-000001の振る舞い状態へ対応付ける",
-      "表示状態と振る舞い状態を同一視せず対応を確認",
+    ],
+    [
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）",
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC補足（SPEC-000001）",
+    ],
+    [
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）",
+      "UI事実（UI-000002）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）",
     ],
   ] as const;
   for (const mutation of mutations) {
@@ -4563,6 +4571,51 @@ function specReconstructionFixtureRoot(): string {
     path.join(root, "05_SPEC", "06_UI_SPEC_Correspondence.md"),
     `# UI／SPEC対応\n\n## 1. レビュー対象\n\n| 項目 | 対象 |\n|---|---|\n| 対象改訂版 | UI／SPEC Definition集合 SHA-256: \`__FINGERPRINT__\` |\n\n| UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |\n|---|---|---|---|---|---|---|---|\n| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | UX-000001／IA-000001 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし | [組別Evidence](#ui-000001spec-000001) |\n\n### UI-000001／SPEC-000001\n\n| 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |\n|---|---|---|---|---|\n| State | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | UI-000001の表示状態をSPEC-000001の振る舞い状態へ対応付ける |\n| Trigger | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | UI-000001の操作をSPEC-000001の契機と事前条件へ対応付ける |\n| Result | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | SPEC-000001の結果をUI-000001のFeedbackとして示す |\n| Failure | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | SPEC-000001の失敗をUI-000001で成功へ丸めない |\n| Recovery | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | SPEC-000001の戻り先をUI-000001の次の行動へ対応付ける |\n| Authority | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | UI-000001の操作をSPEC-000001のAuthority内に限定する |\n| Visibility | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#表示面と情報の優先順位) | [SPEC](Definitions/SPEC-000001/spec_definition.md#受入条件と検証義務) | 一致 | SPEC-000001の不足をUI-000001が隠さず示す |\n| Constraint | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#制約) | 一致 | UI-000001とSPEC-000001で上流制約を弱めない |\n\n${completedChecklist("template/05_SPEC/06_UI_SPEC_Correspondence.md")}`,
   );
+  const correspondenceFixture = path.join(
+    root,
+    "05_SPEC",
+    "06_UI_SPEC_Correspondence.md",
+  );
+  let concreteCorrespondence = fs.readFileSync(correspondenceFixture, "utf8");
+  for (const [genericReason, concreteReason] of [
+    [
+      "UI-000001の表示状態をSPEC-000001の振る舞い状態へ対応付ける",
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）「対象と条件を固定して検査結果を返す」／対応: 検査結果をUIの区別状態へ表示する",
+    ],
+    [
+      "UI-000001の操作をSPEC-000001の契機と事前条件へ対応付ける",
+      "UI事実（UI-000001）「検査を実行する」／SPEC事実（SPEC-000001）「対象と条件が揃った時に検査する」／対応: 事前条件成立後だけUI操作を発火する",
+    ],
+    [
+      "SPEC-000001の結果をUI-000001のFeedbackとして示す",
+      "UI事実（UI-000001）「同じ入力へ同じ指摘を返す」／SPEC事実（SPEC-000001）「同一入力で同じ検査結果を返す」／対応: SPEC結果を判断可能なFeedbackとして示す",
+    ],
+    [
+      "SPEC-000001の失敗をUI-000001で成功へ丸めない",
+      "UI事実（UI-000001）「検査不能を正常と表示しない」／SPEC事実（SPEC-000001）「入力不備や検査不能を成功へ畳まない」／対応: 失敗を成功へ丸めず示す",
+    ],
+    [
+      "SPEC-000001の戻り先をUI-000001の次の行動へ対応付ける",
+      "UI事実（UI-000001）「指摘から所有成果物へ戻れる」／SPEC事実（SPEC-000001）「失敗理由と安全な戻り先を返す」／対応: 戻り先をUIの次の行動へ接続する",
+    ],
+    [
+      "UI-000001の操作をSPEC-000001のAuthority内に限定する",
+      "UI事実（UI-000001）「UIに修正採用権限を持たせない」／SPEC事実（SPEC-000001）「検査実行者へ意味判断の権限を発行しない」／対応: 操作をSPECのAuthority内に限定する",
+    ],
+    [
+      "SPEC-000001の不足をUI-000001が隠さず示す",
+      "UI事実（UI-000001）「検査対象と指摘理由を表示する」／SPEC事実（SPEC-000001）「不明を正常や完了へ丸めない」／対応: 不足をUIで隠さず示す",
+    ],
+    [
+      "UI-000001とSPEC-000001で上流制約を弱めない",
+      "UI事実（UI-000001）「表示都合で状態や根拠を弱めない」／SPEC事実（SPEC-000001）「APIや実装技術を確定しない」／対応: 両契約を保持し実装方式を拡張しない",
+    ],
+  ] as const)
+    concreteCorrespondence = concreteCorrespondence.replace(
+      genericReason,
+      concreteReason,
+    );
+  write(correspondenceFixture, concreteCorrespondence);
   const uiFile = path.join(
     root,
     "04_UI",

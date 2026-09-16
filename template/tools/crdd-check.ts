@@ -3697,6 +3697,9 @@ function checkSpecReconstruction(): void {
           evidenceRows.every(
             ([lens, uiEvidence, specEvidence, result, reason]) => {
               correspondenceReasons.push(reason);
+              const concreteReason = reason.match(
+                /^UI事実（(UI-[0-9]{6})）「(.+)」／SPEC事実（(SPEC-[0-9]{6})）「(.+)」／対応: (.+)$/u,
+              );
               return (
                 expectedLenses.has(lens) &&
                 uiEvidence.includes(row[1]) &&
@@ -3704,8 +3707,11 @@ function checkSpecReconstruction(): void {
                 specEvidence.includes(row[2]) &&
                 specEvidence.includes("#") &&
                 /^(?:一致|N\/A)$/u.test(result) &&
-                reason.includes(row[1]) &&
-                reason.includes(row[2]) &&
+                concreteReason?.[1] === row[1] &&
+                concreteReason?.[3] === row[2] &&
+                (concreteReason?.[2]?.trim().length ?? 0) >= 4 &&
+                (concreteReason?.[4]?.trim().length ?? 0) >= 4 &&
+                (concreteReason?.[5]?.trim().length ?? 0) >= 4 &&
                 !/^(?:表示状態と振る舞い状態|操作と発火条件|結果を利用者|失敗理由を正常状態|回復要否と次の行動|操作可能性とEffect権限|開示・不足・観測不能|片側で共通制約)/u.test(
                   reason,
                 )
@@ -3748,7 +3754,7 @@ function checkSpecReconstruction(): void {
         "error",
         "ui-spec-correspondence-evidence-invalid",
         relative(correspondencePath),
-        "Each UI/SPEC pair must record shared context, coverage, all contract review lenses, result, gap owner, and evidence under one fixed revision.",
+        "Each UI/SPEC pair must record shared context, coverage, all contract review lenses, and a concrete UI fact, SPEC fact, and relation under one fixed revision.",
       );
     if (isCorrespondenceRevisionInvalid)
       add(
