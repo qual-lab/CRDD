@@ -3265,10 +3265,14 @@ test("SPEC RootのCoverage件数は現行集合と一致する", () => {
 test("UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とする", () => {
   const mutations = [
     ["UX-000001／IA-000001 | Shared", "UX-000001 | Shared"],
-    ["fixture-revision", "TBD"],
+    ["UI／SPEC Definition集合 SHA-256:", "曖昧な対象改訂版:"],
     [
       "[SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果)",
       "SPEC根拠なし",
+    ],
+    [
+      "UI-000001の表示状態をSPEC-000001の振る舞い状態へ対応付ける",
+      "表示状態と振る舞い状態を同一視せず対応を確認",
     ],
   ] as const;
   for (const mutation of mutations) {
@@ -3279,13 +3283,34 @@ test("UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を
       fs.readFileSync(file, "utf8").replace(mutation[0], mutation[1]),
     );
     const result = runChecker(root);
+    const expectedCode = mutation[0].includes("SHA-256")
+      ? "ui-spec-correspondence-revision-invalid"
+      : "ui-spec-correspondence-evidence-invalid";
     assert.ok(
-      result.report.findings.some(
-        (finding) => finding.code === "ui-spec-correspondence-evidence-invalid",
-      ),
+      result.report.findings.some((finding) => finding.code === expectedCode),
       `${result.stdout}\n${result.stderr}`,
     );
   }
+
+  const staleRoot = specReconstructionFixtureRoot();
+  const staleDefinition = path.join(
+    staleRoot,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    staleDefinition,
+    `${fs.readFileSync(staleDefinition, "utf8")}\n\n対象改訂後の未反映変更。\n`,
+  );
+  const staleResult = runChecker(staleRoot);
+  assert.ok(
+    staleResult.report.findings.some(
+      (finding) => finding.code === "ui-spec-correspondence-revision-invalid",
+    ),
+    `${staleResult.stdout}\n${staleResult.stderr}`,
+  );
 });
 
 test("UX観点のSPEC分析はIAまたはREQを正式入力へ追加できない", () => {
@@ -4536,7 +4561,7 @@ function specReconstructionFixtureRoot(): string {
   );
   write(
     path.join(root, "05_SPEC", "06_UI_SPEC_Correspondence.md"),
-    `# UI／SPEC対応\n\n## 1. レビュー対象\n\n| 項目 | 対象 |\n|---|---|\n| 対象改訂版 | fixture-revision |\n\n| UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |\n|---|---|---|---|---|---|---|---|\n| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | UX-000001／IA-000001 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし | [組別Evidence](#ui-000001spec-000001) |\n\n### UI-000001／SPEC-000001\n\n| 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |\n|---|---|---|---|---|\n| State | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | 状態対応 |\n| Trigger | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | 契機対応 |\n| Result | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | 結果対応 |\n| Failure | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | 失敗対応 |\n| Recovery | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | 回復対応 |\n| Authority | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | 権限対応 |\n| Visibility | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#表示面と情報の優先順位) | [SPEC](Definitions/SPEC-000001/spec_definition.md#受入条件と検証義務) | 一致 | 可視性対応 |\n| Constraint | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#制約) | 一致 | 制約対応 |\n\n${completedChecklist("template/05_SPEC/06_UI_SPEC_Correspondence.md")}`,
+    `# UI／SPEC対応\n\n## 1. レビュー対象\n\n| 項目 | 対象 |\n|---|---|\n| 対象改訂版 | UI／SPEC Definition集合 SHA-256: \`__FINGERPRINT__\` |\n\n| UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |\n|---|---|---|---|---|---|---|---|\n| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | UX-000001／IA-000001 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし | [組別Evidence](#ui-000001spec-000001) |\n\n### UI-000001／SPEC-000001\n\n| 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |\n|---|---|---|---|---|\n| State | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | UI-000001の表示状態をSPEC-000001の振る舞い状態へ対応付ける |\n| Trigger | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | UI-000001の操作をSPEC-000001の契機と事前条件へ対応付ける |\n| Result | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | SPEC-000001の結果をUI-000001のFeedbackとして示す |\n| Failure | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | SPEC-000001の失敗をUI-000001で成功へ丸めない |\n| Recovery | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | SPEC-000001の戻り先をUI-000001の次の行動へ対応付ける |\n| Authority | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | UI-000001の操作をSPEC-000001のAuthority内に限定する |\n| Visibility | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#表示面と情報の優先順位) | [SPEC](Definitions/SPEC-000001/spec_definition.md#受入条件と検証義務) | 一致 | SPEC-000001の不足をUI-000001が隠さず示す |\n| Constraint | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#制約) | 一致 | UI-000001とSPEC-000001で上流制約を弱めない |\n\n${completedChecklist("template/05_SPEC/06_UI_SPEC_Correspondence.md")}`,
   );
   const uiFile = path.join(
     root,
@@ -4553,6 +4578,36 @@ function specReconstructionFixtureRoot(): string {
         "## 正式入力と変換根拠",
         "## 対応するSPEC\n\n- pairs_with: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)\n\n## 正式入力と変換根拠",
       ),
+  );
+  const fingerprintInputs = [
+    ["04_UI/Definitions/UI-000001/ui_definition.md", uiFile],
+    [
+      "05_SPEC/Definitions/SPEC-000001/spec_definition.md",
+      path.join(
+        root,
+        "05_SPEC",
+        "Definitions",
+        "SPEC-000001",
+        "spec_definition.md",
+      ),
+    ],
+  ].map(
+    ([relativePath, absolutePath]) =>
+      `${relativePath}\n${fs.readFileSync(absolutePath, "utf8")}`,
+  );
+  const fixtureFingerprint = createHash("sha256")
+    .update(fingerprintInputs.join("\n\u0000\n"), "utf8")
+    .digest("hex");
+  const correspondenceFile = path.join(
+    root,
+    "05_SPEC",
+    "06_UI_SPEC_Correspondence.md",
+  );
+  write(
+    correspondenceFile,
+    fs
+      .readFileSync(correspondenceFile, "utf8")
+      .replace("__FINGERPRINT__", fixtureFingerprint),
   );
   write(
     path.join(

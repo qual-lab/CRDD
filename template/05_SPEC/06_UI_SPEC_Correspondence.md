@@ -6,7 +6,7 @@
 
 | 項目 | 対象 |
 |---|---|
-| 対象改訂版 | [UI Definition、SPEC Definition、双方の`pairs_with`とこの文書を含む同一Git改訂版] |
+| 対象改訂版 | UI／SPEC Definition集合 SHA-256: `[64桁のSHA-256]` |
 | 対象関係 | [件数] |
 | 判定単位 | UI／SPECの組ごとにShared Contextと8観点を確認する |
 | 工程境界 | 対応PassとUI工程Exitを区別する |
@@ -33,6 +33,8 @@
 | Authority | [UI制約節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#制約) | [SPEC契機節](Definitions/SPEC-XXXXXX/spec_definition.md#契機事前条件authority) | [一致／N/A] | [理由] |
 | Visibility | [UI表示節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#表示面と情報の優先順位) | [SPEC受入節](Definitions/SPEC-XXXXXX/spec_definition.md#受入条件と検証義務) | [一致／N/A] | [理由] |
 | Constraint | [UI制約節](../04_UI/Definitions/UI-XXXXXX/ui_definition.md#制約) | [SPEC制約節](Definitions/SPEC-XXXXXX/spec_definition.md#制約) | [一致／N/A] | [理由] |
+
+各理由には対象のUI-IDとSPEC-IDを記載し、両定義にある具体的な状態、契機、結果、失敗、回復、Authority、可視性または制約を組ごとに説明する。観点名を言い換えただけの共通文を複製しない。差異がある場合は`一致`にせず、GapとOwner工程を記録する。
 
 ## 4. 観点別レビュー
 
@@ -70,4 +72,6 @@
 - [ ] Shared Responsibilityを識別した
 - [ ] GapのOwner工程を特定した
 - [ ] UI／SPEC独自の第三仕様を作っていない
+- [ ] 対象Definition集合のSHA-256を固定し、再レビュー入力を再構成できる
+- [ ] 組別Evidenceの理由を対象UI／SPECの具体的契約事実で説明した
 - [ ] 未決事項をAI推測で補完していない

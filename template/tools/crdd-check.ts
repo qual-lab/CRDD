@@ -858,6 +858,8 @@ const uiSpecCorrespondenceChecklistItemTexts = [
   "Shared Responsibilityを識別した",
   "GapのOwner工程を特定した",
   "UI／SPEC独自の第三仕様を作っていない",
+  "対象Definition集合のSHA-256を固定し、再レビュー入力を再構成できる",
+  "組別Evidenceの理由を対象UI／SPECの具体的契約事実で説明した",
   "未決事項をAI推測で補完していない",
 ];
 
@@ -3612,10 +3614,32 @@ function checkSpecReconstruction(): void {
       tableRows(correspondence, ["項目", "対象"]).find(
         ([item]) => item === "対象改訂版",
       )?.[1] ?? "";
+    const recordedDefinitionFingerprint = targetRevision.match(
+      /UI／SPEC Definition集合 SHA-256: ([0-9a-f]{64})/u,
+    )?.[1];
+    const definitionFingerprintInputs: string[] = [];
+    for (const [definitionsRoot, fileName, relativeRoot] of [
+      [uiDefinitionsRoot, "ui_definition.md", "04_UI/Definitions"],
+      [specDefinitionsRoot, "spec_definition.md", "05_SPEC/Definitions"],
+    ] as const) {
+      for (const directory of fs.readdirSync(definitionsRoot).sort()) {
+        const absolutePath = path.join(definitionsRoot, directory, fileName);
+        if (!lstatIfPresent(absolutePath)?.isFile()) continue;
+        const relativePath = `${relativeRoot}/${directory}/${fileName}`;
+        definitionFingerprintInputs.push(
+          `${relativePath}\n${fs.readFileSync(absolutePath, "utf8")}`,
+        );
+      }
+    }
+    const actualDefinitionFingerprint = createHash("sha256")
+      .update(definitionFingerprintInputs.join("\n\u0000\n"), "utf8")
+      .digest("hex");
+    const correspondenceReasons: string[] = [];
+    const isCorrespondenceRevisionInvalid =
+      recordedDefinitionFingerprint === undefined ||
+      recordedDefinitionFingerprint !== actualDefinitionFingerprint;
     let isCorrespondenceEvidenceInvalid =
       !correspondence.includes("## 1. レビュー対象") ||
-      targetRevision.length === 0 ||
-      /(?:TODO|TBD|placeholder|未定)/iu.test(targetRevision) ||
       !correspondence.includes(expectedHeader);
     for (const line of correspondence.split(/\r?\n/u)) {
       const row = line.match(
@@ -3671,14 +3695,22 @@ function checkSpecReconstruction(): void {
           evidenceRows.length === 8 &&
           new Set(evidenceRows.map(([lens]) => lens)).size === 8 &&
           evidenceRows.every(
-            ([lens, uiEvidence, specEvidence, result, reason]) =>
-              expectedLenses.has(lens) &&
-              uiEvidence.includes(row[1]) &&
-              uiEvidence.includes("#") &&
-              specEvidence.includes(row[2]) &&
-              specEvidence.includes("#") &&
-              /^(?:一致|N\/A)$/u.test(result) &&
-              reason.length > 0,
+            ([lens, uiEvidence, specEvidence, result, reason]) => {
+              correspondenceReasons.push(reason);
+              return (
+                expectedLenses.has(lens) &&
+                uiEvidence.includes(row[1]) &&
+                uiEvidence.includes("#") &&
+                specEvidence.includes(row[2]) &&
+                specEvidence.includes("#") &&
+                /^(?:一致|N\/A)$/u.test(result) &&
+                reason.includes(row[1]) &&
+                reason.includes(row[2]) &&
+                !/^(?:表示状態と振る舞い状態|操作と発火条件|結果を利用者|失敗理由を正常状態|回復要否と次の行動|操作可能性とEffect権限|開示・不足・観測不能|片側で共通制約)/u.test(
+                  reason,
+                )
+              );
+            },
           );
         if (
           cells.length !== 8 ||
@@ -3694,6 +3726,11 @@ function checkSpecReconstruction(): void {
           isCorrespondenceEvidenceInvalid = true;
       }
     }
+    if (
+      correspondenceReasons.length !== registryUiPairs.size * 8 ||
+      new Set(correspondenceReasons).size !== correspondenceReasons.length
+    )
+      isCorrespondenceEvidenceInvalid = true;
     const correspondenceSet = new Set(correspondencePairs);
     if (
       correspondencePairs.length !== correspondenceSet.size ||
@@ -3712,6 +3749,13 @@ function checkSpecReconstruction(): void {
         "ui-spec-correspondence-evidence-invalid",
         relative(correspondencePath),
         "Each UI/SPEC pair must record shared context, coverage, all contract review lenses, result, gap owner, and evidence under one fixed revision.",
+      );
+    if (isCorrespondenceRevisionInvalid)
+      add(
+        "error",
+        "ui-spec-correspondence-revision-invalid",
+        relative(correspondencePath),
+        `The UI/SPEC correspondence review must pin the exact current UI/SPEC Definition-set SHA-256 fingerprint (recorded=${recordedDefinitionFingerprint ?? "missing"}, actual=${actualDefinitionFingerprint}).`,
       );
   }
 }

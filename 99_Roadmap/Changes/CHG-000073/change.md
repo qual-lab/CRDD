@@ -1298,6 +1298,16 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 | 対応表のPassが節根拠を持たない | 31組ごとにShared Contextの積集合と8観点のUI節／SPEC節／判定／理由を辿れる | 組別Evidenceを追加し、共有集合、両側Anchor、固定改訂版、受入条件と`pairs_with`の一致をCheckerで検査する |
 | Rootの件数とGate表示が古い | 現行集合の32 UX／22 IA／54分析／29 SPEC／20 UIと、UI契約Ready・工程Exit待ちを区別する | Root件数を現行集合へ直し、件数不一致と状態混同を反証対象へ追加した |
 
+固定Commit `a881571f`の第3回独立レビューでは、構造上の31組Closureと360件の契約試験Passを確認した一方、Critical 0／Major 2／Moderate 2／Minor 1が残った。対応表の汎用理由が、UI-000004とSPEC-000002の実際の状態不一致を隠したことを主要因として、次を同じ候補で是正した。
+
+| 第3回指摘 | 原因 | 構造是正と反証 |
+|---|---|---|
+| 委任結果の状態・結果・回復が未閉包 | UI側だけが拒否、判断待ち、結果不明およびTask／Objective／Milestoneの完成差を持っていた | SPEC-000002へ同じ結果区分、同一依頼再観測および段階別受入を追加し、組別Evidenceで一対一に照合した |
+| SPEC-000021の回復Ownerが不明 | 回復処置と終了条件を定義したが、再観測を所有する機能責任とAuthorityを結合していなかった | 元の依頼識別情報と状態照会Capabilityを持つ送信側機能責任をOwnerとし、再観測Authorityを照会だけへ限定した |
+| UI Gate語彙が二義的 | `UI Ready`をUI契約成立と工程Exitの両方に使っていた | 独立成立は`UI Contract Ready`、専門確認後の共同Gate待ちは`UI Phase Exit Pending`、共同Gate完了だけを`UI Ready`とした |
+| 31組の理由が8個の汎用文を反復 | 行の存在を組別の意味確認とみなした | 248行をUI-ID、SPEC-ID、対象固有の契約事実を持つ理由へ置換し、重複理由、旧汎用文、対象ID欠落をCheckerで拒否した |
+| 再レビュー入力を再構成できない | 自己参照するCommit記録だけへ依存した | UI／SPEC Definition集合のSHA-256を正本へ固定し、Definition変更後の古い指紋を専用Findingで拒否した |
+
 ## 6. 完了条件
 
 | Gate | 完了条件 |
@@ -1325,8 +1335,8 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 | Discovery Checklist契約試験 | 非表示だけのChecklist、完成成果物の`[ ]`、理由形式のない結果、Checklist後の本文、別成果物用Checklist、単一汎用項目、およびひな型の項目を後続Sectionへ移す構造を拒否し、理由付き`OPEN`／`FAIL`／`N/A`を受理するFocused試験4／4 Pass |
 | Discovery Checklist独立レビュー | 固定候補fingerprint `69f65c1a01d9deeba0b5dc25a082b5b18c141e589fb6cdb81248cee5bc5730c4`、73ファイル、UX混入0件を読取り専用で確認した。全1,032項目の評価、8探索の未確認事項、3ひな型の5状態、CommonMark ATX／Setext見出しによる分断防止、完成成果物の末尾契約およびChecker責務分離を確認し、Critical／Major／Moderate／Minor 0でPass |
 | UX Checklist独立レビュー | 固定候補fingerprint `cfed9a93f31fc80615b7d985d3d6a3cee941b890`を読取り専用で確認した。36要求分析、32 UX定義、5横断成果物、7ひな型、工程Handoff、兄弟UXの意味所有、横断投影およびChecker反証を確認し、Critical／Major／Moderate／Minor 0でPass |
-| Checker契約試験 | 統合試験356件。UI／SPECでは、54分析ずつ、20／29定義、成果物別Checklist、Root・横断ひな型、UI側引き渡し、31組の対応閉包、個別Evidence列および第三仕様の禁止境界を正負例で反証した |
-| 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走。命名規約1件を是正した固定候補で356／356 Pass |
+| Checker契約試験 | 統合試験360件。UI／SPECでは、54分析ずつ、20／29定義、成果物別Checklist、Root・横断ひな型、UI側引き渡し、31組の対応閉包、個別Evidence列、Definition集合指紋および第三仕様の禁止境界を正負例で反証した |
+| 全回帰入口 | `npm test --prefix 40_Develop/checker`がFormatter確認→型検査→Lint→Repository Checker→試験本体の順で完走。固定候補で360／360 Pass |
 | 全TypeScript package静的入口 | 8／8 Pass。Formatter確認→型検査→Lintの順序と、該当package固有の静的契約検査を確認 |
 | 独立再レビュー | fingerprint `85ebdabbbc890505ee760a9aee96c83fc2e14231`を3者が読取り専用で確認し、Critical 0／Major 0／Moderate 0でPass。Discovery DefinitionだけからのUX再構築、意味境界、関係、正式入力Path検査の正負例を確認 |
 | IA独立レビュー | 最終固定候補fingerprint `8a2c25c001f4de2653cba62ccc09879cee3011b1`を読取り専用で確認した。32 Analysis／22 Definitions、209 Analysis Object、157適用対象Source Identity行、3横断投影、Template、`23_IA.md`、CheckerおよびHandoff境界を照合し、不一致0件、`Merge`／`Split` 0件を確認した。Critical／Major／Moderate／Minor 0でPass |
