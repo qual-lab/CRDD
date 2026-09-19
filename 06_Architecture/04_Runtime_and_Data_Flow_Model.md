@@ -2,7 +2,7 @@
 
 Status: Candidate (v0.21.0)
 Owner: Qual-Lab
-Last Updated: 2026-09-15
+Last Updated: 2026-09-19
 
 ## 1. この成果物が所有すること
 
@@ -10,78 +10,144 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 
 ## 2. 主要データフロー
 
-図の読み方: `<<E>>`は外部の主体、`(P)`は処理、`[(D)]`は保持するデータ、`-->`は許可された流れ、`-x`は許可しない流れを表す。図は流れの理解を助け、直後の説明と第5節が厳密な禁止条件を補う。
+### 2.1 読み方と経路案内
+
+`<<E>>`は外部の主体、`(P)`は処理、`[(D)]`は保持するデータ、`-->`は許可された流れ、`-x`は許可しない流れを表す。各図は一つの目的だけを示し、状態遷移や実行順序の厳密な条件は第3節、横断する整合条件は第5節が所有する。
+
+```text
+                         Runtime／Data Flowの全体像
+
+  ┌──────────────────┐      ┌──────────────────┐
+  │ A. 入力・実行    │      │ B. 読取り・投影  │
+  │ Requestを検証し、│      │ 複数Sourceを読み、│
+  │ Taskを動かす     │      │ 欠測付きで返す   │
+  └────────┬─────────┘      └────────┬─────────┘
+           │                         │
+           │ 実行結果・状態          │ 根拠付きProject View
+           ▼                         ▼
+  ┌──────────────────┐      ┌──────────────────┐
+  │ Runtime Data     │      │ C. 受入判断      │
+  │ Task／Attempt／  │      │ 人間の明示判断を │
+  │ Recovery         │      │ 限定記録する     │
+  └──────────────────┘      └──────────────────┘
+
+  ┌─────────────────────────────────────────────┐
+  │ D. 外部情報                                 │
+  │ 同意・最小化 → 外部送信 → 候補隔離 → 人間採用│
+  └─────────────────────────────────────────────┘
+```
+
+この案内図は責務の位置関係だけを示す。データの分類、生成、保存および境界横断は次の4図を正本とする。
+
+### 2.2 A — 入力・実行
 
 ```text
 <<E1: 利用者／Agent>>
-        │ {internal} Objective／Query／Decision／Cancel
+        │
+        │ {internal}
+        │ Objective／Query／Decision／Cancel
         ▼
-==== Transport／Process境界 ==================================
- (P1: 入力検証と公開Application Contractへの変換)
+==== 公開Transport／Process境界 ============================
+        │
+        ▼
+(P1: 入力検証・公開Application Contractへの変換)
+        │
         │ {internal} Canonical Request
         ▼
- (P2: Project Runtimeによる状態・実行判断)
-        │ {internal} Project／Task State
-        ├────────────────────────────> [(D1: Runtime Data)]
-        │ {internal} Execution Request
-        ▼
- (P3: Execution Portによる実行委譲)
+(P2: Project Runtimeの状態・実行判断)
+        │                         │
+        │ {internal}             │ {internal}
+        │ Execution Request      │ Project／Task State
+        ▼                         ▼
+(P3: Execution Port)       [(D1: Runtime Data)]
+        │
         │ {internal} Execution Result／Unknown
-        └────────────────────────────> (P2)
+        └───────────────────────────────> (P2)
+```
 
-<<E2: 既存の実行事実Source>>
-        │ {internal} Existing Execution Facts
+`P3`は実行事実SourceのWriterではない。`P2`がProject／Task状態を所有し、実行委譲の結果または不明状態を同じTask Identityへ戻す。
+
+### 2.3 B — 読取り・Project投影
+
+```text
+<<E2: 既存の実行事実Source>>       <<E3: Project／Quality／Roadmap等の許可Source>>
+              │                                      │
+              │ {internal}                           │ {internal}
+              │ Existing Execution Facts             │ Canonical Context／
+              ▼                                      │ Currentness／Coverage
+(P4: 欠測を保持する実行事実の読取り)                  │
+              │                                      │
+              │ {internal} Source-aware Observation  │
+              └──────────────────┬───────────────────┘
+                                 ▼
+                   (P5: Project Projection)
+                   ・実行事実だけで状態を作らない
+                   ・欠測を正常値へ変換しない
+                   ・Source／現行性／Coverageを保持する
+                                  │
+                                  │ {authorized-result}
+                                  │ 根拠と不完全性を伴うProject View
+                                  ▼
+                   <<E4: 許可された結果利用者>>
+```
+
+`E2`と`E3`は現在責務の外側にあるSourceである。本モデルが所有するのは、許可されたSourceの読取り、欠測の保持および`P5`による結果投影である。
+
+### 2.4 C — Objective／Milestone受入判断
+
+```text
+(P5: Project Projection)
+        │
+        │ {authorized-result} 判断根拠の表示
         ▼
- (P4: 欠測を保持する実行事実読取りProjection)
-        │ {internal} Source-aware Observation
-        └────────────────────────────> (P5: Project Projection)
-
-<<E3: Project／Quality／Roadmap等の許可Source>>
-        │ {internal} Canonical Project Context／Currentness／Coverage
-        └────────────────────────────> (P5)
-
- (P5)
-        │ {authorized-result} Source／Currentness／Coverage付き結果
+<<E7: Project運営者>>
+        │
+        │ {authority-decision}
+        │ 対象Identity＋明示判断
         ▼
-<<E4: 許可された結果利用者>>
+(P9: Acceptance Decision Port)
+        │
+        │ {authorized-write}
+        │ 受入／差戻し／判断待ち
+        ▼
+[(D3: Acceptance Decision Record)]
 
-受入判断経路
+禁止
+  (P5) -x (P9)       読取り投影から判断Authorityを生成しない
+  (P9) -x (P2／P3)   Task作成・Provider Effectを発行しない
+```
 
- (P5: Project Projection) ── 判断根拠を表示 ──> <<E7: Project運営者>>
-                                                        │
-                                                        │ {authority-decision}
-                                                        │ 対象Identity＋明示判断
-                                                        ▼
-                                      (P9: Acceptance Decision Port)
-                                                        │
-                                                        │ {authorized-write}
-                                                        ▼
-                                      [(D3: Acceptance Decision Record)]
+`P9`は`E7`の明示判断だけを受け付ける。Task完了はObjective判断の根拠、Objective受入記録はMilestone判断の根拠になるが、いずれも書込みAuthorityを自動生成しない。`SPEC-000006`／`SPEC-000007`の読取り要求は`P5`で終了し、`P9`へ到達しない。
 
- 禁止: (P5) -x (P9)       ProjectionからAuthorityを生成しない
- 禁止: (P9) -x (P2／P3)   Task作成・Provider Effectを発行しない
+### 2.5 D — 外部情報の送信・候補採用
 
-外部情報経路
-
- (P6: 送信同意・最小化)
+```text
+(P6: 送信同意の確認・情報最小化)
+        │
         │ {approved-external} Request
         ▼
- <<E5: External Provider>>
+==== Network／外部Trust境界 ================================
+        │
+        ▼
+<<E5: External Provider>>
+        │
         │ {untrusted-external} Returned Result
         ▼
- (P7: 未信頼候補の隔離)
+==== CRDDの隔離境界 =========================================
+        │
+        ▼
+(P7: 未信頼候補の隔離)
+        │
         │ {internal} Isolated Candidate
         ▼
- (P8: 候補採用判断) <── {authority-decision} ── <<E6: 人間の決定権限者>>
+(P8: 候補採用判断) <── {authority-decision} ── <<E6: 人間の決定権限者>>
         │
         │ {internal} Human-adopted Candidate
         ▼
- [(D2: 採用先の正本)]
+[(D2: 採用先の正本)]
 ```
 
-`P3`は実行事実SourceのWriterではない。`E2`は現在責務の外側で既に存在するSourceであり、本モデルが所有するのは`P4`以降の読取り、欠測保持および結果投影だけである。`P5`は実行事実だけからProject状態を作らず、許可されたProject／Quality／Roadmap等の正本も同じ観測条件で読む。`P8`は人間の採用判断がある場合だけ`D2`へ書き、却下・保留では正本Effect 0とする。
-
-`P9`は`E7`の明示判断だけを受け付ける。Task完了はObjective判断の根拠、Objective受入はMilestone判断の根拠にはなるが、いずれも書込みAuthorityを発行しない。`SPEC-000006`／`SPEC-000007`の読取り要求は`P5`で終了し、`P9`へ到達しない。
+`P8`は人間の採用判断がある場合だけ`D2`へ書く。却下・保留では正本Effect 0とし、外部から返った結果を正本へ自動昇格しない。
 
 ## 3. 横断状態遷移
 

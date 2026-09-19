@@ -1430,3 +1430,5 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 固定Commit `2a99893a`の再レビューでは、Objective受入・差戻し・判断待ちとMilestone受入判断を別状態として保持する是正、および`PRL-07`〜`PRL-10`による専用検証項目を確認した。一方、横断状態図に開始からObjective判断待ちへの入口と厳密な遷移表がなく、`ARCH-000005`にObjective根拠からMilestone受入を判断する旧表現が一件残っていた。状態図へ開始・対象解決の入口を戻し、図の直後へ受入判断の正常・差戻し・判断待ち・再入場・拒否を網羅する遷移表を追加した。Milestone判断の根拠はObjective受入記録へ統一し、Objective差戻しまたは判断待ちではMilestone判断Authorityを発行しない。これにより、視覚的な理解を担う図と機械的に照合できる厳密な状態契約を同じ正本で分担する。
 
 固定Commit `03e16613`の最終再レビューでは、契約、詳細設計、工程閉包の3系統がいずれもCritical／Major／Moderate／Minor 0でPassした。20 UI／29 SPECの全数分析、18 Architecture Definition、5横断モデル、15詳細設計領域、Qualityへの検証引渡しおよびReality Audit境界を同じ改訂版で閉じ、Architecture Readyを再確定した。
+
+Architecture Ready後の人間確認で、Runtime／Data Flowの主要図が実行、読取り投影、受入判断および外部情報を一枚へ重ね、流れの理解に適さないことが判明した。設計意味と厳密な状態契約は変えず、責務位置を示す案内図と4経路の小さなDFDへ分割した。各経路は視線を上から下へ揃え、Source、処理、Store、境界横断、情報分類、終端および禁止経路を近接表示した。現行worktree差分への独立再レビューはCritical／Major／Moderate／Minor 0でPassし、Repository CheckerもError 0／Warning 0を確認した。
